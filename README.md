@@ -55,7 +55,7 @@ python main_app.py
 
 ```text
 jietu/
-├── 新架構文件/                    # メインソースコードディレクトリ
+├── main/                    # メインソースコードディレクトリ
 │   ├── main_app.py                # アプリケーションエントリーポイント
 │   ├── requirements_no_ocr.txt    # 基本版依存関係
 │   ├── requirements_with_ocr.txt  # 完全版依存関係
@@ -147,10 +147,9 @@ jietu/
 │   ├── build_no_ocr_onefile.py   # 単一ファイルOCRなし版
 │   └── build_with_ocr_onefile.py # 単一ファイル完全版
 │
-├── FFmpeg/                        # FFmpeg バイナリファイル
+├── 
 ├── svg/                           # SVG アイコンリソース
-├── build/                         # ビルド出力ディレクトリ
-└── 老代码/                        # 旧バージョンコード（非推奨）
+├── modles                         # ocrのモデルファイル
 <div align="center">
 
 **このプロジェクトが役に立った場合は、⭐ Star をお願いします！**
