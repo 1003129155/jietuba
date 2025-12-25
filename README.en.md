@@ -7,7 +7,7 @@
 ---
 
 # Jietuba Screenshot Tool
-A powerful Windows screenshot tool with smart selection, image editing, OCR recognition, and long screenshot stitching features.
+A Windows screenshot tool with image editing, OCR recognition, and long screenshot.
 
 
 ## 📸 Features
