@@ -1,3 +1,11 @@
+<div align="center">
+
+[English](README.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md)
+
+</div>
+
+---
+
 # Jietuba スクリーンショットツール
 スマート選択、画像編集、OCR認識、長いスクリーンショット結合などの機能を備えた強力な Windows スクリーンショットツール。
 
