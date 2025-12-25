@@ -74,22 +74,16 @@ venv/Lib/site-packages/rapidocr/
 python main_app.py
 
 
-🚀 初次使用说明
+###🚀 初次使用说明
 
 启动程序后，系统托盘中会出现图标
-
 右键托盘图标可执行：
-
 开始截图（或按 Ctrl + 1）
-
-打开设置
-
-退出程序
-
-截图完成后可使用所有编辑工具
-
 按 Enter 保存，按 ESC 取消
 
+### 文件構造
+
+```text
 jietu/
 ├── main/                    # 主程序源码
 │   ├── main_app.py          # 程序入口
