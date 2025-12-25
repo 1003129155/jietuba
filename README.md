@@ -44,8 +44,7 @@
 - **📜 长截图功能**
   - 竖向:识别鼠标滚轮，进行滚动截图
   - 横向：支持横向移动的网页等等可以shift按钮进行横向移动，不行的地方可以手动移动截图拼接
-  - 自研图像拼接算法
-  - 用Rust写了算法，打包成依赖包.whl文件，实现快速自动去重与拼接
+  - 用Rust写了自研算法，打包成了依赖包.whl文件，实现快速自动去重与拼接
 
 ---
 
@@ -56,8 +55,8 @@
 ```bash
 pip install -r requirements_with_ocr.txt
 
-② 安装自制的 Rust 加速包
-pip install jietuba_rust-0.3.0-cp39-cp39-win_amd64.whl
+② 安装长截图拼接算法
+pip install jietuba_rust-0.3.0-cp39-cp39-win_amd64.whl --文件里有
 
 ③ 替换 RapidOCR 默认模型
 
