@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 文档外框 -->
+  <rect x="3" y="2" width="18" height="20" rx="2" ry="2" fill="white" stroke="#333" stroke-width="1.5"/>
+  
+  <!-- 扫描线效果 -->
+  <line x1="3" y1="8" x2="21" y2="8" stroke="#4A90E2" stroke-width="2" opacity="0.6"/>
+  <line x1="3" y1="12" x2="21" y2="12" stroke="#4A90E2" stroke-width="2" opacity="0.8"/>
+  <line x1="3" y1="16" x2="21" y2="16" stroke="#4A90E2" stroke-width="2" opacity="0.6"/>
+  
+  <!-- 文字识别符号 -->
+  <text x="7" y="10" font-family="Arial, sans-serif" font-size="4" font-weight="bold" fill="#333">A</text>
+  <text x="11" y="14" font-family="Arial, sans-serif" font-size="4" font-weight="bold" fill="#333">文</text>
+  <text x="16" y="18" font-family="Arial, sans-serif" font-size="4" font-weight="bold" fill="#333">O</text>
+  
+  <!-- 扫描框角 -->
+  <path d="M 5 4 L 5 6 M 5 4 L 7 4" stroke="#4A90E2" stroke-width="2" fill="none"/>
+  <path d="M 19 4 L 19 6 M 19 4 L 17 4" stroke="#4A90E2" stroke-width="2" fill="none"/>
+  <path d="M 5 20 L 5 18 M 5 20 L 7 20" stroke="#4A90E2" stroke-width="2" fill="none"/>
+  <path d="M 19 20 L 19 18 M 19 20 L 17 20" stroke="#4A90E2" stroke-width="2" fill="none"/>
+</svg>
