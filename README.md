@@ -39,18 +39,19 @@
   -　効率のためにRustで自動重複削除結合
 
 **プログラムを実行**
-仮想環境に必要なパッケージを全部pip installする
+①仮想環境に必要なパッケージを全部pip installする
 
-仮想環境に自作のRUSTパッケージをpip install
+②仮想環境に自作のRUSTパッケージをpip install
+pip install jietuba_rust-0.3.0-cp39-cp39-win_amd64.whl  
 
-仮想環境にインストールした、rapidocrにあるデフォルトOCRモデルを入れ替える
+③仮想環境にインストールした、rapidocrにあるデフォルトOCRモデルを入れ替える
 venv/Lib/site-packages/rapidocr/
 ├── default_models.yaml    
 ├── config.yaml            
 └── models/                # 🔥 このファイルを全部入れ替える（用意している）
 
 
-python main_app.py
+④python main_app.py
 
 ### 初回使用
 
