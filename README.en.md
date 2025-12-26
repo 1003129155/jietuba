@@ -172,6 +172,11 @@ jietu/
 ├── models/                        # OCR model files
 ```
 
+
+## License
+This project is licensed under the MIT License.
+
+
 <div align="center">
 
 **If this project was helpful, please give it a ⭐ Star!**
