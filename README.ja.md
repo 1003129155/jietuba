@@ -54,6 +54,7 @@
 pip install jietuba_rust-0.3.0-cp39-cp39-win_amd64.whl  
 
 ③仮想環境にインストールした、rapidocrにあるデフォルトOCRモデルを入れ替える
+
 venv/Lib/site-packages/rapidocr/
 ├── default_models.yaml    
 ├── config.yaml            
