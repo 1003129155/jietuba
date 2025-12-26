@@ -54,6 +54,7 @@ A Windows screenshot tool with image editing, OCR recognition, and long screensh
 pip install jietuba_rust-0.3.0-cp39-cp39-win_amd64.whl  
 
 ③ Replace the default OCR model in rapidocr installed in the virtual environment:
+
 venv/Lib/site-packages/rapidocr/
 ├── default_models.yaml    
 ├── config.yaml            
