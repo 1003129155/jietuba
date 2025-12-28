@@ -12,6 +12,8 @@
 **图片编辑、钉图、OCR文字识别、长截图（横向竖向都行）、吸附窗口、自定义保存** 等主流功能。
 
 虽然不及商业软件那么功能繁多,但是主流功能都有，且运行内存占用低(50mb-150mb)，文件构成简单，可以快速部署自己打包运行在本地环境
+<img width="753" height="328" alt="image" src="https://github.com/user-attachments/assets/406a13ab-eb8f-4125-89fa-7035a6a56d84" />
+<img width="855" height="624" alt="image" src="https://github.com/user-attachments/assets/65d46437-40b6-4a64-8d60-a220fb7929c1" />
 
 ---
 
