@@ -8,6 +8,21 @@ from PIL import Image
 import io
 from typing import List, Optional
 import sys
+from core import log_debug, log_info, log_warning, log_error
+
+# 模块标签
+_MODULE_TAG = "RustStitch"
+
+def _stitch_log(message: str, level: str = "debug"):
+    """统一的拼接日志函数"""
+    if level == "info":
+        log_info(message, module=_MODULE_TAG)
+    elif level == "warning":
+        log_warning(message, module=_MODULE_TAG)
+    elif level == "error":
+        log_error(message, module=_MODULE_TAG)
+    else:
+        log_debug(message, module=_MODULE_TAG)
 
 
 class RustLongStitch:
@@ -97,10 +112,10 @@ class RustLongStitch:
             # 获取添加前的状态
             top_count_before, bottom_count_before = self.get_image_count()
             direction_name = "Top/Left" if direction == 0 else "Bottom/Right"
-            print(f"\n🔍 [Rust调试] 添加图片到 {direction_name} 列表")
-            print(f"   图片尺寸: {image.size}")
-            print(f"   字节大小: {len(image_bytes):,} bytes")
-            print(f"   添加前状态: top={top_count_before}, bottom={bottom_count_before}")
+            log_debug(f"添加图片到 {direction_name} 列表", module="RustStitch")
+            log_debug(f"图片尺寸: {image.size}", module="RustStitch")
+            log_debug(f"字节大小: {len(image_bytes):,} bytes", module="RustStitch")
+            log_debug(f"添加前状态: top={top_count_before}, bottom={bottom_count_before}", module="RustStitch")
 
         # 调用 Rust 接口
         overlap_size, is_rollback, result_direction = self.service.add_image(
@@ -112,27 +127,27 @@ class RustLongStitch:
             top_count_after, bottom_count_after = self.get_image_count()
             result_dir_name = "Top/Left" if result_direction == 0 else "Bottom/Right"
             
-            print(f"   添加后状态: top={top_count_after}, bottom={bottom_count_after}")
-            print(f"   实际添加到: {result_dir_name} 列表")
+            log_debug(f"添加后状态: top={top_count_after}, bottom={bottom_count_after}", module="RustStitch")
+            log_debug(f"实际添加到: {result_dir_name} 列表", module="RustStitch")
             
             # 详细分析
             if is_rollback:
-                print("   ⚠️  发生回滚:")
-                print(f"      - 在 {direction_name} 列表中未找到匹配")
-                print(f"      - 回滚到另一个列表查找")
+                log_debug("发生回滚:", module="RustStitch")
+                log_debug(f"在 {direction_name} 列表中未找到匹配", module="RustStitch")
+                log_debug("回滚到另一个列表查找", module="RustStitch")
                 if overlap_size is not None:
-                    print(f"      - 回滚后找到重叠: {overlap_size} 像素")
+                    log_debug(f"回滚后找到重叠: {overlap_size} 像素", module="RustStitch")
                 else:
-                    print(f"      - 回滚后仍未找到匹配")
+                    log_debug("回滚后仍未找到匹配", module="RustStitch")
             
             if overlap_size is not None:
                 overlap_percent = (overlap_size / image.size[1 if self.direction == 0 else 0]) * 100
-                print(f"   ✅ 找到重叠区域:")
-                print(f"      - 重叠尺寸: {overlap_size} 像素")
-                print(f"      - 重叠比例: {overlap_percent:.1f}%")
-                print(f"      - 特征点匹配成功")
+                log_debug("找到重叠区域", module="RustStitch")
+                log_debug(f"重叠尺寸: {overlap_size} 像素", module="RustStitch")
+                log_debug(f"重叠比例: {overlap_percent:.1f}%", module="RustStitch")
+                log_debug("特征点匹配成功", module="RustStitch")
             else:
-                print(f"   ❌ 未找到重叠区域:")
+                log_warning("未找到重叠区域", module="RustStitch")
         return overlap_size
 
     def export(self) -> Optional[Image.Image]:
@@ -200,30 +215,30 @@ def stitch_pil_images(
     """
     if not images or len(images) == 0:
         if verbose:
-            print("错误: 没有图片需要拼接")
+            log_error("没有图片需要拼接", module="RustStitch")
         return None
 
     if len(images) == 1:
         if verbose:
-            print("只有一张图片，直接返回")
+            _stitch_log("只有一张图片，直接返回")
         return images[0]
 
     if verbose:
-        print(f"\n{'='*60}")
-        print(f"🦀 Rust 长截图拼接引擎")
-        print(f"{'='*60}")
-        print(f"开始拼接 {len(images)} 张图片")
-        print(f"\n📋 参数配置:")
-        print(f"   滚动方向: {'垂直 ↕️' if direction == 0 else '水平 ↔️'}")
-        print(f"   采样率: {sample_rate} (图片缩放比例)")
-        print(f"   采样尺寸范围: {min_sample_size} - {max_sample_size} 像素")
-        print(f"   特征点阈值: {corner_threshold} (越低=越多特征点)")
-        print(f"   描述符块大小: {descriptor_patch_size} 像素")
-        print(f"   索引重建阈值: {min_size_delta} 像素")
-        print(f"   回滚匹配: {'启用' if try_rollback else '禁用'}")
-        print(f"   距离阈值: {distance_threshold} (越低=越严格)")
-        print(f"   HNSW搜索参数: {ef_search} (越高=越准确)")
-        print(f"{'='*60}")
+        _stitch_log(f"{'='*60}")
+        _stitch_log(f"🦀 Rust 长截图拼接引擎")
+        _stitch_log(f"{'='*60}")
+        _stitch_log(f"开始拼接 {len(images)} 张图片")
+        _stitch_log(f"📋 参数配置:")
+        _stitch_log(f"   滚动方向: {'垂直 ↕️' if direction == 0 else '水平 ↔️'}")
+        _stitch_log(f"   采样率: {sample_rate} (图片缩放比例)")
+        _stitch_log(f"   采样尺寸范围: {min_sample_size} - {max_sample_size} 像素")
+        _stitch_log(f"   特征点阈值: {corner_threshold} (越低=越多特征点)")
+        _stitch_log(f"   描述符块大小: {descriptor_patch_size} 像素")
+        _stitch_log(f"   索引重建阈值: {min_size_delta} 像素")
+        _stitch_log(f"   回滚匹配: {'启用' if try_rollback else '禁用'}")
+        _stitch_log(f"   距离阈值: {distance_threshold} (越低=越严格)")
+        _stitch_log(f"   HNSW搜索参数: {ef_search} (越高=越准确)")
+        _stitch_log(f"{'='*60}")
 
     try:
         # 创建拼接器
@@ -247,9 +262,9 @@ def stitch_pil_images(
         
         for i, img in enumerate(images):
             if verbose:
-                print(f"\n{'='*60}")
-                print(f"处理第 {i+1}/{len(images)} 张图片: {img.size}")
-                print(f"{'='*60}")
+                _stitch_log(f"{'='*60}")
+                _stitch_log(f"处理第 {i+1}/{len(images)} 张图片: {img.size}")
+                _stitch_log(f"{'='*60}")
 
             # 向下滚动：所有图片都用 direction=1 (Bottom)
             # 第1张:添加到bottom,建立top_index
@@ -261,59 +276,59 @@ def stitch_pil_images(
                 has_failure = True
                 fail_count += 1
                 if verbose:
-                    print(f"\n❌ 第 {i+1} 张图片添加失败!")
-                    print(f"   累计成功: {success_count}/{i}")
-                    print(f"   累计失败: {fail_count}")
+                    _stitch_log(f"❌ 第 {i+1} 张图片添加失败!", "warning")
+                    _stitch_log(f"   累计成功: {success_count}/{i}")
+                    _stitch_log(f"   累计失败: {fail_count}")
             elif i > 0:
                 success_count += 1
 
             top_count, bottom_count = stitcher.get_image_count()
             if verbose:
-                print(f"\n📊 当前状态汇总:")
-                print(f"   队列: top={top_count}, bottom={bottom_count}")
-                print(f"   成功率: {success_count}/{max(1, i)} = {success_count/max(1, i)*100:.1f}%")
+                _stitch_log(f"📊 当前状态汇总:")
+                _stitch_log(f"   队列: top={top_count}, bottom={bottom_count}")
+                _stitch_log(f"   成功率: {success_count}/{max(1, i)} = {success_count/max(1, i)*100:.1f}%")
 
         # 🆕 如果有图片失败，直接返回 None 触发引擎切换
         if has_failure:
             if verbose:
-                print(f"\n{'='*60}")
-                print(f"❌ 拼接失败总结")
-                print(f"{'='*60}")
-                print(f"总图片数: {len(images)}")
-                print(f"成功: {success_count}")
-                print(f"失败: {fail_count}")
-                print(f"成功率: {success_count/(len(images)-1)*100:.1f}%")
-                print(f"🔄 系统将自动切换到 Python 哈希引擎（基于像素哈希，更鲁棒）...")
-                print(f"{'='*60}")
+                _stitch_log(f"{'='*60}", "warning")
+                _stitch_log(f"❌ 拼接失败总结", "warning")
+                _stitch_log(f"{'='*60}", "warning")
+                _stitch_log(f"总图片数: {len(images)}", "warning")
+                _stitch_log(f"成功: {success_count}", "warning")
+                _stitch_log(f"失败: {fail_count}", "warning")
+                _stitch_log(f"成功率: {success_count/(len(images)-1)*100:.1f}%", "warning")
+                _stitch_log(f"🔄 系统将自动切换到 Python 哈希引擎（基于像素哈希，更鲁棒）...", "warning")
+                _stitch_log(f"{'='*60}", "warning")
             return None
 
         # 导出结果
         if verbose:
-            print(f"\n{'='*60}")
-            print(f"🎨 正在合成最终图片...")
-            print(f"{'='*60}")
+            _stitch_log(f"{'='*60}")
+            _stitch_log(f"🎨 正在合成最终图片...")
+            _stitch_log(f"{'='*60}")
 
         result = stitcher.export()
 
         if result:
             if verbose:
-                print(f"✅ 拼接完成!")
-                print(f"\n📊 最终统计:")
-                print(f"   输入图片: {len(images)} 张")
-                print(f"   成功拼接: {success_count} 处")
-                print(f"   最终尺寸: {result.size[0]} x {result.size[1]} 像素")
-                print(f"   成功率: {success_count/(len(images)-1)*100:.1f}%")
-                print(f"{'='*60}")
+                _stitch_log(f"✅ 拼接完成!", "info")
+                _stitch_log(f"📊 最终统计:", "info")
+                _stitch_log(f"   输入图片: {len(images)} 张", "info")
+                _stitch_log(f"   成功拼接: {success_count} 处", "info")
+                _stitch_log(f"   最终尺寸: {result.size[0]} x {result.size[1]} 像素", "info")
+                _stitch_log(f"   成功率: {success_count/(len(images)-1)*100:.1f}%", "info")
+                _stitch_log(f"{'='*60}", "info")
             return result
         else:
             if verbose:
-                print(f"❌ 拼接失败: 无法生成结果")
-                print(f"   可能原因: Rust 引擎内部错误")
+                _stitch_log(f"❌ 拼接失败: 无法生成结果", "error")
+                _stitch_log(f"   可能原因: Rust 引擎内部错误", "error")
             return None
 
     except Exception as e:
         if verbose:
-            print(f"拼接过程出错: {e}")
+            _stitch_log(f"拼接过程出错: {e}", "error")
         import traceback
         traceback.print_exc()
         return None
@@ -335,10 +350,10 @@ def stitch_multiple_images(
         sample_rate: 采样率
     """
     if len(image_paths) < 2:
-        print("至少需要两张图片进行拼接")
+        _stitch_log("至少需要两张图片进行拼接", "warning")
         return
 
-    print(f"加载 {len(image_paths)} 张图片...")
+    _stitch_log(f"加载 {len(image_paths)} 张图片...", "info")
 
     # 加载所有图片
     images = []
@@ -346,9 +361,9 @@ def stitch_multiple_images(
         try:
             img = Image.open(path)
             images.append(img)
-            print(f"  加载: {path} ({img.size})")
+            _stitch_log(f"  加载: {path} ({img.size})")
         except Exception as e:
-            print(f"  错误: 无法加载 {path}: {e}")
+            _stitch_log(f"  错误: 无法加载 {path}: {e}", "error")
             return
 
     # 拼接图片
@@ -357,10 +372,10 @@ def stitch_multiple_images(
     if result:
         # 保存结果
         result.save(output_path, "PNG", quality=95)
-        print(f"\n结果已保存到: {output_path}")
-        print(f"最终尺寸: {result.size}")
+        _stitch_log(f"结果已保存到: {output_path}", "info")
+        _stitch_log(f"最终尺寸: {result.size}", "info")
     else:
-        print("\n拼接失败")
+        _stitch_log("拼接失败", "error")
 
 
 # 示例用法
@@ -404,10 +419,10 @@ if __name__ == "__main__":
             sample_rate=args.sample_rate,
         )
     except KeyboardInterrupt:
-        print("\n操作已取消")
+        _stitch_log("操作已取消", "warning")
         sys.exit(1)
     except Exception as e:
-        print(f"错误: {e}")
+        _stitch_log(f"错误: {e}", "error")
         import traceback
         traceback.print_exc()
         sys.exit(1)

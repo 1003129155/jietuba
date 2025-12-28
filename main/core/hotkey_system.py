@@ -2,6 +2,8 @@ import ctypes
 from ctypes import wintypes
 from PyQt6.QtCore import QAbstractNativeEventFilter, QObject, pyqtSignal
 from PyQt6.QtWidgets import QApplication
+from core import log_debug, log_info, log_warning, log_error
+from core.logger import log_exception
 
 # Windows API Constants
 WM_HOTKEY = 0x0312
@@ -29,11 +31,11 @@ class HotkeyEventFilter(QAbstractNativeEventFilter):
                     if cb:
                         try:
                             cb()
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            log_exception(e, f"热键回调 id={hotkey_id}")
                         return True, 0
-        except Exception:
-            pass
+        except Exception as e:
+            log_exception(e, "nativeEventFilter")
         return False, 0
 
 class HotkeySystem(QObject):
@@ -61,10 +63,10 @@ class HotkeySystem(QObject):
                 self._current_id += 1
                 return True
             else:
-                print(f"Failed to register hotkey: {hotkey_str}")
+                log_warning(f"Failed to register hotkey: {hotkey_str}", module="热键")
                 return False
         except Exception as e:
-            print(f"Error registering hotkey {hotkey_str}: {e}")
+            log_error(f"Error registering hotkey {hotkey_str}: {e}", module="热键")
             return False
 
     def unregister_all(self):

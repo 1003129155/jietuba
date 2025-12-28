@@ -8,6 +8,8 @@ from PyQt6.QtCore import QPoint, QPointF, QRect, Qt
 from PyQt6.QtGui import QColor, QFont, QPainter, QPen, QBrush, QPixmap
 from PyQt6.QtWidgets import QWidget
 
+from core import log_debug
+
 
 class MagnifierOverlay(QWidget):
 	"""显示鼠标附近的放大图和 RGB/HSV 信息。"""
@@ -81,7 +83,7 @@ class MagnifierOverlay(QWidget):
 		# 保存到配置
 		if self.config_manager:
 			self.config_manager.qsettings.setValue("app/magnifier_zoom", self._zoom_factor)
-		print(f"🔍 [放大镜] 调整倍数: {self._zoom_factor:.2f}x")
+		log_debug(f"调整倍数: {self._zoom_factor:.2f}x", "Magnifier")
 		self.update()
 	
 	def get_zoom_factor(self) -> float:

@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import QWidget, QPushButton, QLabel, QSlider, QColorDialog
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtGui import QIcon, QColor
 from core.resource_manager import ResourceManager
+from core import log_debug
 
 
 class BaseSettingsPanel(QWidget):
@@ -76,7 +77,7 @@ class BaseSettingsPanel(QWidget):
     def _on_size_changed(self, value: int):
         """大小改变"""
         self.current_size = value
-        print(f"[SettingsPanel:{self.__class__.__name__}] size slider -> {value}")
+        log_debug(f"size slider -> {value}", f"SettingsPanel:{self.__class__.__name__}")
         if hasattr(self, 'size_value_label'):
             self.size_value_label.setText(str(value))
         self.size_changed.emit(value)
@@ -84,7 +85,7 @@ class BaseSettingsPanel(QWidget):
     def _on_opacity_changed(self, value: int):
         """透明度改变"""
         self.current_opacity = value
-        print(f"[SettingsPanel:{self.__class__.__name__}] opacity slider -> {value}")
+        log_debug(f"opacity slider -> {value}", f"SettingsPanel:{self.__class__.__name__}")
         if hasattr(self, 'opacity_value_label'):
             self.opacity_value_label.setText(str(value))
         self.opacity_changed.emit(value)

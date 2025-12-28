@@ -6,6 +6,7 @@ from typing import List, Optional
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtGui import QImage
 from PyQt6.QtCore import QPoint
+from core import log_debug, log_info, log_error
 
 
 class PinManager(QObject):
@@ -26,21 +27,27 @@ class PinManager(QObject):
     all_pins_closed = pyqtSignal()    # 所有钉图关闭信号
     
     @classmethod
-    def get_instance(cls):
+    def instance(cls):
         """获取单例实例"""
         if cls._instance is None:
             cls._instance = PinManager()
         return cls._instance
     
+    # 保留旧方法名作为别名，确保向后兼容
+    @classmethod
+    def get_instance(cls):
+        """获取单例实例（已弃用，请使用 instance()）"""
+        return cls.instance()
+    
     def __init__(self):
-        """私有构造函数（使用 get_instance() 获取实例）"""
+        """私有构造函数（使用 instance() 获取实例）"""
         if PinManager._instance is not None:
-            raise RuntimeError("PinManager 是单例类，请使用 get_instance() 获取实例")
+            raise RuntimeError("PinManager 是单例类，请使用 instance() 获取实例")
         
         super().__init__()
         self.pin_windows: List = []  # 所有钉图窗口列表
         
-        print("📌 [PinManager] 钉图管理器已初始化")
+        log_info("钉图管理器已初始化", "PinManager")
     
     def create_pin(
         self,
@@ -83,7 +90,7 @@ class PinManager(QObject):
         # 发送创建信号
         self.pin_created.emit(pin_window)
         
-        print(f"📌 [PinManager] 钉图已创建 (共 {len(self.pin_windows)} 个)")
+        log_info(f"钉图已创建 (共 {len(self.pin_windows)} 个)", "PinManager")
         
         return pin_window
     
@@ -93,12 +100,12 @@ class PinManager(QObject):
             self.pin_windows.remove(pin_window)
             self.pin_closed.emit(pin_window)
             
-            print(f"🗑️ [PinManager] 钉图已关闭 (剩余 {len(self.pin_windows)} 个)")
+            log_debug(f"钉图已关闭 (剩余 {len(self.pin_windows)} 个)", "PinManager")
             
             # 如果所有钉图都关闭了，发送信号
             if len(self.pin_windows) == 0:
                 self.all_pins_closed.emit()
-                print("✅ [PinManager] 所有钉图已关闭")
+                log_info("所有钉图已关闭", "PinManager")
     
     def remove_pin(self, pin_window):
         """
@@ -109,15 +116,15 @@ class PinManager(QObject):
         """
         if pin_window in self.pin_windows:
             self.pin_windows.remove(pin_window)
-            print(f"🗑️ [PinManager] 钉图已移除 (剩余 {len(self.pin_windows)} 个)")
+            log_debug(f"钉图已移除 (剩余 {len(self.pin_windows)} 个)", "PinManager")
     
     def close_all(self):
         """关闭所有钉图窗口"""
         if len(self.pin_windows) == 0:
-            print("ℹ️ [PinManager] 没有钉图窗口需要关闭")
+            log_debug("没有钉图窗口需要关闭", "PinManager")
             return
         
-        print(f"🧹 [PinManager] 开始关闭 {len(self.pin_windows)} 个钉图窗口...")
+        log_debug(f"开始关闭 {len(self.pin_windows)} 个钉图窗口...", "PinManager")
         
         # 复制列表，避免在迭代时修改
         pins_to_close = self.pin_windows.copy()
@@ -126,12 +133,12 @@ class PinManager(QObject):
             try:
                 pin_window.close_window()
             except Exception as e:
-                print(f"❌ [PinManager] 关闭钉图窗口失败: {e}")
+                log_error(f"关闭钉图窗口失败: {e}", "PinManager")
         
         # 清空列表
         self.pin_windows.clear()
         
-        print("✅ [PinManager] 所有钉图窗口已关闭")
+        log_info("所有钉图窗口已关闭", "PinManager")
         self.all_pins_closed.emit()
     
     def get_all_pins(self) -> List:
@@ -166,24 +173,24 @@ class PinManager(QObject):
         for pin_window in self.pin_windows:
             pin_window.show()
         
-        print(f"👁️ [PinManager] 显示了 {len(self.pin_windows)} 个钉图窗口")
+        log_debug(f"显示了 {len(self.pin_windows)} 个钉图窗口", "PinManager")
     
     def hide_all(self):
         """隐藏所有钉图窗口"""
         for pin_window in self.pin_windows:
             pin_window.hide()
         
-        print(f"🙈 [PinManager] 隐藏了 {len(self.pin_windows)} 个钉图窗口")
+        log_debug(f"隐藏了 {len(self.pin_windows)} 个钉图窗口", "PinManager")
     
     def cleanup(self):
         """清理管理器（应用退出时调用）"""
-        print("🧹 [PinManager] 清理管理器...")
+        log_debug("清理管理器...", "PinManager")
         self.close_all()
         PinManager._instance = None
-        print("✅ [PinManager] 管理器已清理")
+        log_info("管理器已清理", "PinManager")
 
 
 # 便捷函数
 def get_pin_manager():
     """获取钉图管理器单例"""
-    return PinManager.get_instance()
+    return PinManager.instance()

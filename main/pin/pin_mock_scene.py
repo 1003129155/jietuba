@@ -4,6 +4,7 @@ Mock QGraphicsScene - 用于钉图编辑模式
 """
 
 from PyQt6.QtCore import QObject, pyqtSignal
+from core import log_debug, log_warning
 
 
 class MockUndoStack:
@@ -38,15 +39,15 @@ class PinMockScene(QObject):
         Args:
             item: QGraphicsItem（StrokeItem, RectItem等）
         """
-        print(f"🎨 [MockScene] 拦截图元: {item.__class__.__name__}")
+        log_debug(f"拦截图元: {item.__class__.__name__}", "MockScene")
         
         # 🔥 提取图元属性，转换为命令字典
         cmd = self._item_to_command(item)
         if cmd:
-            print(f"✅ [MockScene] 转换命令: {cmd.get('type', 'unknown')}")
+            log_debug(f"转换命令: {cmd.get('type', 'unknown')}", "MockScene")
             self.item_added.emit(cmd)
         else:
-            print(f"⚠️ [MockScene] 无法转换图元: {item.__class__.__name__}")
+            log_warning(f"无法转换图元: {item.__class__.__name__}", "MockScene")
         
         # 保存图元引用（虽然不渲染，但保留以防工具需要访问）
         self._items.append(item)
@@ -57,7 +58,7 @@ class PinMockScene(QObject):
         """
         if item in self._items:
             self._items.remove(item)
-            print(f"🗑️ [MockScene] 移除图元: {item.__class__.__name__}")
+            log_debug(f"移除图元: {item.__class__.__name__}", "MockScene")
     
     def _item_to_command(self, item):
         """
@@ -141,7 +142,7 @@ class PinMockScene(QObject):
         end = item.end_pos if hasattr(item, 'end_pos') else None
         
         if not start or not end:
-            print(f"⚠️ [MockScene] ArrowItem 缺少起始点或结束点")
+            log_warning("ArrowItem 缺少起始点或结束点", "MockScene")
             return None
         
         # 从 brush 获取颜色（ArrowItem 使用填充而非轮廓）

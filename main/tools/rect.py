@@ -7,6 +7,7 @@ from PyQt6.QtGui import QPen
 from .base import Tool, ToolContext, color_with_opacity
 from canvas.items import RectItem
 from canvas.undo import AddItemCommand
+from core import log_debug
 
 
 class RectTool(Tool):
@@ -37,7 +38,7 @@ class RectTool(Tool):
             self.current_item = RectItem(rect, pen)
             ctx.scene.addItem(self.current_item)
             
-            print(f"[RectTool] 开始绘制: {pos}")
+            log_debug(f"开始绘制: {pos}", "RectTool")
     
     def on_move(self, pos: QPointF, ctx: ToolContext):
         if self.drawing and self.current_item:
@@ -56,7 +57,7 @@ class RectTool(Tool):
                     # 尺寸过小，取消绘制
                     ctx.scene.removeItem(self.current_item)
                     self.current_item = None
-                    print(f"[RectTool] 绘制取消：尺寸过小 ({rect.width():.1f}x{rect.height():.1f} < {self.MIN_SIZE})")
+                    log_debug(f"绘制取消：尺寸过小 ({rect.width():.1f}x{rect.height():.1f} < {self.MIN_SIZE})", "RectTool")
                     return
                 
                 # 提交到撤销栈
@@ -73,4 +74,4 @@ class RectTool(Tool):
                     if hasattr(ctx.scene.view, 'smart_edit_controller'):
                         ctx.scene.view.smart_edit_controller.select_item(item_to_select, auto_select=True)
             
-            print(f"[RectTool] 完成绘制")
+            log_debug("完成绘制", "RectTool")

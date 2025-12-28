@@ -16,6 +16,7 @@ from canvas.items import (
     NumberItem,
 )
 from tools.number import NumberTool
+from core import log_debug, log_info, log_warning, log_error
 
 
 class CanvasView(QGraphicsView):
@@ -38,14 +39,14 @@ class CanvasView(QGraphicsView):
         
 
         
-        # 🔥 重要：设置视图变换，确保场景坐标和窗口坐标 1:1 对应
+        # 重要：设置视图变换，确保场景坐标和窗口坐标 1:1 对应
         # 场景使用全局屏幕坐标（可能不是从 0,0 开始），需要将场景原点映射到视图原点
         self.resetTransform()  # 重置变换
         # 将场景的 topLeft (可能是负数或正数) 映射到视图的 (0,0)
         scene_rect = scene.sceneRect()
         self.translate(-scene_rect.x(), -scene_rect.y())
         
-        print(f"✅ [视图] 初始化: sceneRect={scene_rect}, 变换=translate({-scene_rect.x()}, {-scene_rect.y()})")
+        log_debug(f"初始化: sceneRect={scene_rect}, 变换=translate({-scene_rect.x()}, {-scene_rect.y()})", "CanvasView")
         
         # 禁用视图自动改变光标（避免与 CursorManager 冲突）
         self.viewport().setMouseTracking(True)
@@ -132,22 +133,22 @@ class CanvasView(QGraphicsView):
             # 检查依赖
             from capture.window_finder import is_smart_selection_available
             if not is_smart_selection_available():
-                print("⚠️ [智能选区] win32gui 未安装，智能选区功能不可用")
+                log_warning("win32gui 未安装，智能选区功能不可用", "SmartSelect")
                 self.smart_selection_enabled = False
                 return
             
             # 创建 WindowFinder 实例
             if not self.window_finder:
                 from capture.window_finder import WindowFinder
-                # 🔥 新架构 CanvasScene 使用全局坐标系（与屏幕物理坐标一致）
+                # 新架构 CanvasScene 使用全局坐标系（与屏幕物理坐标一致）
                 # 因此不需要减去偏移量，直接使用全局坐标即可
                 self.window_finder = WindowFinder(0, 0)
             
             # 枚举窗口
             self.window_finder.find_windows()
-            print(f"✅ [智能选区] 已启用，找到 {len(self.window_finder.windows)} 个窗口")
+            log_info(f"已启用，找到 {len(self.window_finder.windows)} 个窗口", "SmartSelect")
         else:
-            print("🔕 [智能选区] 已禁用")
+            log_debug("已禁用", "SmartSelect")
             if self.window_finder:
                 self.window_finder.clear()
     
@@ -195,7 +196,7 @@ class CanvasView(QGraphicsView):
     def _on_tool_changed_for_edit(self, tool_id: str):
        self.smart_edit_controller.set_tool(tool_id)
 
-    # 关键：工具切换立刻更新光标
+       # 工具切换时立即更新光标
        self.cursor_manager.set_tool_cursor(tool_id)
        if self.cursor_manager.current_cursor:
         self.setCursor(self.cursor_manager.current_cursor)
@@ -217,9 +218,9 @@ class CanvasView(QGraphicsView):
     def _on_edit_selection_changed(self, item):
         """智能编辑选择变化"""
         if item:
-            print(f"[SmartEdit] 选中: {type(item).__name__}")
+            log_debug(f"选中: {type(item).__name__}", "SmartEdit")
         else:
-            print("[SmartEdit] 取消选择")
+            log_debug("取消选择", "SmartEdit")
         self._sync_selection_style_to_toolbar(item)
 
     def _get_active_toolbar(self):
@@ -264,15 +265,19 @@ class CanvasView(QGraphicsView):
             try:
                 toolbar.text_panel.set_state_from_item(item)
             except Exception as exc:
-                print(f"[CanvasView] 无法同步文字面板: {exc}")
+                log_warning(f"无法同步文字面板: {exc}", "CanvasView")
 
         friendly_width = f"{width_value:.2f}" if isinstance(width_value, (float, int)) else "-"
         friendly_opacity = f"{opacity_value:.2f}" if opacity_value is not None else "-"
-        print(f"[CanvasView] 同步工具栏属性: width={friendly_width}, opacity={friendly_opacity}")
+        log_debug(f"同步工具栏属性: width={friendly_width}, opacity={friendly_opacity}", "CanvasView")
 
     def _extract_selection_width(self, item):
         if isinstance(item, StrokeItem):
-            return float(item.pen().widthF())
+            width = float(item.pen().widthF())
+            # 荧光笔的实际画笔宽度是逻辑宽度的3倍，需要还原
+            if getattr(item, 'is_highlighter', False):
+                width = width / 3.0
+            return width
         if isinstance(item, (RectItem, EllipseItem)):
             return float(item.pen().widthF())
         if isinstance(item, ArrowItem):
@@ -307,7 +312,7 @@ class CanvasView(QGraphicsView):
             if isinstance(item, QGraphicsTextItem):
                 return item.defaultTextColor().alphaF()
         except Exception as exc:
-            print(f"[CanvasView] 读取颜色透明度失败: {exc}")
+            log_warning(f"读取颜色透明度失败: {exc}", "CanvasView")
         return None
 
     def mousePressEvent(self, event):
@@ -321,15 +326,19 @@ class CanvasView(QGraphicsView):
            a. 优先检查智能编辑（选中已有图元 + 控制点拖拽）
            b. 如果未处理，再执行绘图工具逻辑
         """
-        # 右键直接退出截图（调用 ESC 的逻辑）
+        # 右键直接退出截图（复用 ESC 的清理逻辑）
         # 只在截图窗口中生效，钉图窗口不响应
         if event.button() == Qt.MouseButton.RightButton:
             # 检查父窗口类型，只对 ScreenshotWindow 生效
             parent_window = self.window()
             if parent_window and parent_window.__class__.__name__ == 'ScreenshotWindow':
-                print("🖱️ [右键] 退出截图")
+                log_debug("右键退出截图", "CanvasView")
                 event.accept()  # 立即接受事件
-                parent_window.close()
+                # 复用 cleanup_and_close 方法，与 ESC 保持一致
+                if hasattr(parent_window, 'cleanup_and_close'):
+                    parent_window.cleanup_and_close()
+                else:
+                    parent_window.close()
                 return
             # 钉图窗口：不处理右键，让事件继续传递（显示右键菜单）
         
@@ -354,7 +363,7 @@ class CanvasView(QGraphicsView):
             current_tool = self.canvas_scene.tool_controller.current_tool
             current_tool_id = current_tool.id if current_tool else "cursor"
             
-            print(f"🔍 [CanvasView] 选区已确认，当前工具: {current_tool_id}")
+            log_debug(f"选区已确认，当前工具: {current_tool_id}", "CanvasView")
             
             # 步骤0：如果正在编辑文本，点击外部只确认编辑，不创建新文本
             if self._is_text_editing():
@@ -370,7 +379,7 @@ class CanvasView(QGraphicsView):
                     return
                 else:
                     # 点击在文本框外，清除焦点（触发 focusOutEvent 自动确认/删除）
-                    print(f"    📝 结束文本编辑")
+                    log_debug("结束文本编辑", "CanvasView")
                     focus_item.clearFocus()
                     self._finalize_text_edit_state(focus_item)
                     # 阻止本次点击触发新绘图
@@ -383,7 +392,7 @@ class CanvasView(QGraphicsView):
             
             if edit_handled:
                 # 控制点拖拽被处理，不继续
-                print(f"    ✅ 控制点拖拽被处理")
+                log_debug("控制点拖拽被处理", "CanvasView")
                 return
             
             # 步骤2：检查是否点击了可选中的图元
@@ -397,7 +406,7 @@ class CanvasView(QGraphicsView):
             if selection_handled:
                 # 选中了图元，阻止绘图
                 # 传递给 Scene（让图元处理拖拽）
-                print(f"    ✅ 图元选择被处理，阻止绘图")
+                log_debug("图元选择被处理，阻止绘图", "CanvasView")
                 self._maybe_prepare_text_edit(event, scene_pos)
                 super().mousePressEvent(event)
                 return
@@ -405,7 +414,7 @@ class CanvasView(QGraphicsView):
             # 如果刚刚清除了选择，这次点击仅用于取消选择，不应该开始绘图
             if getattr(self.smart_edit_controller, '_just_cleared_selection', False):
                 self.smart_edit_controller._just_cleared_selection = False
-                print(f"    ⚠️ 刚清除选择，跳过本次绘图")
+                log_debug("刚清除选择，跳过本次绘图", "CanvasView")
                 return
             
             # 步骤3：如果是绘图工具且未选中图元，执行绘图
@@ -413,29 +422,33 @@ class CanvasView(QGraphicsView):
             
             if is_drawing_tool:
                 # 绘图工具激活：绘图
-                print(f"    🎨 开始绘图")
+                log_debug("开始绘图", "CanvasView")
                 self.is_drawing = True
                 self.canvas_scene.tool_controller.on_press(scene_pos, event.button())
             else:
                 # cursor 工具：传递给 Scene（可能拖拽窗口/选区）
-                print(f"    🖱️ cursor工具，传递给Scene")
+                log_debug("cursor工具，传递给Scene", "CanvasView")
                 super().mousePressEvent(event)
     
     def mouseMoveEvent(self, event):
         """
-        鼠标移动
+        鼠标移动事件
         
-        逻辑：
-        1. is_selecting=True → 正在创建选区，更新选区大小（支持智能选区）
-        2. is_drawing=True → 正在绘图，调用工具的 on_move
-        3. 智能编辑拖拽控制点 → LayerEditor 处理
-        4. 图元拖拽 → 更新控制点位置
-        5. 其他情况 → 智能编辑悬停检测 + 传递给 Scene（图元拖拽）
+        光标决策优先级（从高到低）：
+        1. 文字拖拽 → 拖拽光标
+        2. 正在拖拽控制点/手柄 → 手柄对应光标（缩放/旋转）
+        3. 悬停在控制手柄上 → 手柄对应光标
+        4. 正在拖拽已选中的图元 → 移动光标
+        5. 悬停在同类型可编辑图元上（未选中）→ 十字光标
+        6. 其他情况 → SVG 工具光标
         """
         scene_pos = self.mapToScene(event.pos())
         self._track_pending_text_edit_movement(event)
         self._update_magnifier_overlay(scene_pos)
 
+        # ====================================================================
+        # 1. 文字拖拽（最高优先级）
+        # ====================================================================
         if self._text_drag_active:
             self._set_text_drag_cursor(True)
             self._perform_text_drag(scene_pos)
@@ -444,107 +457,116 @@ class CanvasView(QGraphicsView):
         if self._is_text_editing():
             self._update_text_drag_hover(scene_pos)
         
-        # 🔥 最高优先级：如果正在拖拽控制点(包括旋转手柄),立即处理并返回
-        # 这确保拖拽过程中鼠标不会被其他元素拦截
+        # ====================================================================
+        # 2. 正在拖拽控制点/手柄
+        # ====================================================================
         edit_move_handled = self.smart_edit_controller.handle_edit_move(scene_pos)
         if edit_move_handled:
-            # 正在拖拽控制点，不传递事件给其他组件
-            # 保持拖拽时的光标
             if self.smart_edit_controller.layer_editor.dragging_handle:
                 dragging_cursor = self.smart_edit_controller.layer_editor.get_cursor(scene_pos)
                 self.setCursor(dragging_cursor)
             return
         
-        # 🔥 如果选中了图元，检查是否悬停在编辑手柄上
+        # ====================================================================
+        # 3. 悬停在控制手柄上
+        # ====================================================================
         if self.smart_edit_controller.selected_item and self.smart_edit_controller.layer_editor.is_editing():
-            # 更新手柄悬停状态
             self.smart_edit_controller.layer_editor.update_hover(scene_pos)
-            
-            # 如果悬停在手柄上，使用手柄的光标
             if self.smart_edit_controller.layer_editor.hovered_handle:
                 handle_cursor = self.smart_edit_controller.layer_editor.get_cursor(scene_pos)
                 self.setCursor(handle_cursor)
-                # 悬停在手柄上时，不执行其他光标逻辑
                 if not self.is_drawing and not self.is_selecting:
                     return
         
-        # 🔥 强制光标更新：确保鼠标移动时光标正确
-        # 这解决了第一次进入画布后点击工具，鼠标移动时光标不变的问题
-        # 只在选区确认后且有绘图工具激活时才强制更新
-        # 但如果悬停在手柄上，则跳过（手柄光标优先）
-        if (self.canvas_scene.selection_model.is_confirmed and 
-            self.cursor_manager and 
-            self.cursor_manager.current_cursor and
-            self.cursor_manager.current_tool_id != "cursor" and
-            not (self.smart_edit_controller.layer_editor.hovered_handle)):  # 🔥 手柄光标优先
-            self.setCursor(self.cursor_manager.current_cursor)
-        
-        # 智能选区悬停预览：即使未按下鼠标，也显示窗口选区
+        # ====================================================================
+        # 智能选区悬停预览
+        # ====================================================================
         if not self.canvas_scene.selection_model.is_confirmed and not self.is_selecting:
             if self.smart_selection_enabled:
                 smart_rect = self._get_smart_selection_rect(scene_pos)
                 if not smart_rect.isEmpty():
-                    # 确保选区可见
                     self.canvas_scene.selection_model.activate()
                     self.canvas_scene.selection_model.set_rect(smart_rect)
         
+        # ====================================================================
+        # 选区创建中
+        # ====================================================================
         if self.is_selecting:
-            # 更新选区
             from PyQt6.QtCore import QRectF
-            
-            # 检测是否开始拖拽（移动距离超过阈值）
             if not self.is_dragging_selection:
                 dist = (scene_pos - self.start_pos).manhattanLength()
-                if dist > 10: # 10像素阈值
+                if dist > 10:
                     self.is_dragging_selection = True
             
-            # 如果开启了智能选区，且没有发生拖拽，则保持智能吸附
             if self.smart_selection_enabled and not self.is_dragging_selection:
-                # 智能选区模式：根据鼠标位置查找窗口
                 smart_rect = self._get_smart_selection_rect(scene_pos)
                 if not smart_rect.isEmpty():
                     self.canvas_scene.selection_model.set_rect(smart_rect)
                 else:
-                    # 如果找不到窗口，使用普通矩形选区
                     rect = QRectF(self.start_pos, scene_pos).normalized()
                     self.canvas_scene.selection_model.set_rect(rect)
             else:
-                # 普通矩形选区模式（或智能选区模式下正在拖拽）
                 rect = QRectF(self.start_pos, scene_pos).normalized()
                 self.canvas_scene.selection_model.set_rect(rect)
             return
         
+        # ====================================================================
+        # 绘图中 - 始终使用 SVG 工具光标
+        # ====================================================================
         if self.is_drawing:
-            # 绘图
             self.canvas_scene.tool_controller.on_move(scene_pos)
-            
-            # 强制光标逻辑：防止 QGraphicsItem 覆盖工具光标
-            # 但如果悬停在手柄上，则跳过（手柄光标优先）
-            if (self.cursor_manager and 
-                self.cursor_manager.current_tool_id != "cursor" and
-                not (self.smart_edit_controller.selected_item and 
-                     self.smart_edit_controller.layer_editor.hovered_handle)):
-                if self.cursor_manager.current_cursor:
-                    self.setCursor(self.cursor_manager.current_cursor)
+            self._apply_tool_cursor()
             return
         
-        # 检查是否在拖拽选中的图元（非控制点拖拽）
+        # ====================================================================
+        # 4. 已选中图元的处理
+        # ====================================================================
         if self.smart_edit_controller.selected_item:
-            # 先调用智能编辑控制器处理移动（用于拖拽检测和状态保存）
-            self.smart_edit_controller.handle_move(event.pos(), scene_pos)
-            # 图元被选中，传递事件让它移动
-            super().mouseMoveEvent(event)
-            # 移动后更新控制点位置
-            self._update_edit_handles()
-            return
+            selected_item = self.smart_edit_controller.selected_item
+            
+            # 检查鼠标是否在选中图元的范围内
+            is_on_selected_item = selected_item.contains(
+                selected_item.mapFromScene(scene_pos)
+            )
+            
+            is_left_button_pressed = bool(event.buttons() & Qt.MouseButton.LeftButton)
+            
+            if is_left_button_pressed:
+                # 按住左键 → 正在拖拽，处理移动
+                self.smart_edit_controller.handle_move(event.pos(), scene_pos)
+                self.setCursor(Qt.CursorShape.SizeAllCursor)
+                super().mouseMoveEvent(event)
+                self._update_edit_handles()
+                return
+            elif is_on_selected_item:
+                # 悬停在选中的图元上 → 十字光标
+                self.setCursor(Qt.CursorShape.CrossCursor)
+                super().mouseMoveEvent(event)
+                self._update_edit_handles()
+                return
+            # 鼠标不在选中图元上，继续往下走（检测其他图元或显示工具光标）
         
-        # 智能编辑：悬停检测（显示十字光标）
-        # 优化：如果正在拖拽（按住左键），跳过悬停检测，避免不必要的计算
-        if self.canvas_scene.selection_model.is_confirmed and not (event.buttons() & Qt.MouseButton.LeftButton):
-            self.smart_edit_controller.handle_hover(event.pos(), scene_pos)
+        # ====================================================================
+        # 5. 悬停检测：是否在同类型可编辑图元上
+        # ====================================================================
+        if self.canvas_scene.selection_model.is_confirmed:
+            is_hovering = self.smart_edit_controller.handle_hover(event.pos(), scene_pos)
+            if is_hovering:
+                # 悬停在可编辑图元上 → 十字光标
+                # 直接设置，不依赖信号（避免信号延迟导致闪烁）
+                self.setCursor(Qt.CursorShape.CrossCursor)
+            else:
+                # 6. 其他情况 → SVG 工具光标
+                self._apply_tool_cursor()
         
-        # 传递给场景处理（可能是在拖拽选区）
         super().mouseMoveEvent(event)
+    
+    def _apply_tool_cursor(self):
+        """应用当前工具的光标（SVG 光标）"""
+        if (self.cursor_manager and 
+            self.cursor_manager.current_cursor and
+            self.cursor_manager.current_tool_id != "cursor"):
+            self.setCursor(self.cursor_manager.current_cursor)
 
     def leaveEvent(self, event):
         """鼠标离开画布时隐藏放大镜"""
@@ -656,7 +678,7 @@ class CanvasView(QGraphicsView):
                 next_value = current_tool.adjust_next_number(ctx.scene, step)
                 if getattr(self, "cursor_manager", None):
                     self.cursor_manager.set_tool_cursor("number", force=True)
-                print(f"[CanvasView] 调整序号预览为: {next_value}")
+                log_debug(f"调整序号预览为: {next_value}", "CanvasView")
             event.accept()
             return
         
@@ -720,7 +742,7 @@ class CanvasView(QGraphicsView):
         if toolbar and hasattr(toolbar, 'set_stroke_width'):
             toolbar.set_stroke_width(int(new_width))
         
-        print(f"[CanvasView] 画笔大小: {int(new_width)}px")
+        log_debug(f"画笔大小: {int(new_width)}px", "CanvasView")
         
         event.accept()
     
@@ -871,21 +893,20 @@ class CanvasView(QGraphicsView):
         if not controller or scale <= 0:
             return
 
-        print(f"[CanvasView] _apply_size_change_to_selection called with scale={scale:.3f}")
+        log_debug(f"_apply_size_change_to_selection called with scale={scale:.3f}", "CanvasView")
 
         handled_text = False
         active_text = self._get_active_text_item()
         if active_text:
             self._scale_text_item(active_text, scale)
             handled_text = True
-            print("[CanvasView] scaled active text item")
+            log_debug("scaled active text item", "CanvasView")
 
         selected_item = getattr(controller, "selected_item", None)
         if selected_item:
             if handled_text and selected_item is active_text:
                 return
             if self._scale_item_size(selected_item, scale):
-                print(f"[CanvasView] scaled selected item: {selected_item}")
                 editor = controller.layer_editor
                 if (
                     editor
@@ -896,7 +917,7 @@ class CanvasView(QGraphicsView):
                     editor.start_edit(selected_item)
                 self.canvas_scene.update()
             else:
-                print(f"[CanvasView] selected item unsupported for scaling: {selected_item}")
+                log_debug(f"selected item unsupported for scaling: {selected_item}", module="CanvasView")
 
     def _scale_item_size(self, item, scale: float) -> bool:
         if isinstance(item, StrokeItem):
@@ -969,24 +990,24 @@ class CanvasView(QGraphicsView):
             return
 
         opacity = max(0.0, min(1.0, float(opacity)))
-        print(f"[CanvasView] _apply_opacity_change_to_selection opacity={opacity:.3f}")
+        log_debug(f"_apply_opacity_change_to_selection opacity={opacity:.3f}", module="CanvasView")
 
         updated = False
         active_text = self._get_active_text_item()
         if active_text:
             if self._update_item_visual_opacity(active_text, opacity):
                 updated = True
-                print("[CanvasView] updated active text opacity")
+                log_debug("updated active text opacity", module="CanvasView")
 
         selected_item = getattr(controller, "selected_item", None)
         if selected_item and selected_item is not active_text:
             if self._update_item_visual_opacity(selected_item, opacity):
                 updated = True
-                print(f"[CanvasView] updated selection opacity: {selected_item}")
+                log_debug(f"updated selection opacity: {selected_item}", module="CanvasView")
 
         if updated:
             self.canvas_scene.update()
-            print("[CanvasView] scene updated after opacity change")
+            log_debug("scene updated after opacity change", module="CanvasView")
 
     def _update_item_visual_opacity(self, item, opacity: float) -> bool:
         opacity = max(0.0, min(1.0, float(opacity)))
@@ -1021,7 +1042,7 @@ class CanvasView(QGraphicsView):
                 item.update()
                 return True
             except Exception as exc:
-                print(f"[CanvasView] unable to set arrow opacity: {exc}")
+                log_warning(f"unable to set arrow opacity: {exc}", module="CanvasView")
                 return False
 
         if isinstance(item, NumberItem):
@@ -1033,7 +1054,7 @@ class CanvasView(QGraphicsView):
                 item.update()
                 return True
             except Exception as exc:
-                print(f"[CanvasView] unable to set number opacity: {exc}")
+                log_warning(f"unable to set number opacity: {exc}", module="CanvasView")
                 return False
 
         if hasattr(item, "setOpacity"):
@@ -1129,21 +1150,21 @@ class CanvasView(QGraphicsView):
         """
         导出并关闭
         """
-        from .export import ExportService
+        from core.export import ExportService
         
         # 创建导出服务（传入整个scene）
         exporter = ExportService(self.canvas_scene)
         
         # 导出选区图像
         selection_rect = self.canvas_scene.selection_model.rect()
-        print(f"📸 [导出] 准备导出选区: {selection_rect}")
+        log_debug(f"准备导出选区: {selection_rect}", module="CanvasView")
         
         result = exporter.export(selection_rect)
         
         if result:
-            print(f"📸 [导出] 导出成功，图像大小: {result.width()}x{result.height()}")
+            log_info(f"导出成功，图像大小: {result.width()}x{result.height()}", module="CanvasView")
             exporter.copy_to_clipboard(result)
-            print("[CanvasView] 已复制到剪贴板")
+            log_info("已复制到剪贴板", module="CanvasView")
             self.window().close()
         else:
-            print("❌ [导出] 导出失败！")
+            log_error("导出失败！", module="CanvasView")

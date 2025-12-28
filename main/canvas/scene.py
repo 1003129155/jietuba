@@ -15,6 +15,7 @@ from tools import (
     TextTool, NumberTool, HighlighterTool, CursorTool, EraserTool
 )
 from settings import get_tool_settings_manager
+from core import log_debug
 
 
 class CanvasScene(QGraphicsScene):
@@ -62,7 +63,7 @@ class CanvasScene(QGraphicsScene):
         # background.boundingRect() 返回的是 pixmap 本地坐标 (0,0,w,h)，不包含 offset
         self.setSceneRect(self.scene_rect)
         
-        print(f"✅ [场景] 创建完成: scene_rect={self.scene_rect}, sceneRect()={self.sceneRect()}")
+        log_debug(f"场景创建完成: scene_rect={self.scene_rect}, sceneRect()={self.sceneRect()}", "CanvasScene")
         
         # 撤销栈 (命令模式)
         self.undo_stack = CommandUndoStack(self)
@@ -212,20 +213,20 @@ class CanvasScene(QGraphicsScene):
             if item in excluded_items:
                 continue
             
-            # 🔥 排除画笔指示器（Z值=10000的QGraphicsEllipseItem）
+            # 排除画笔指示器（Z值=10000的QGraphicsEllipseItem）
             if isinstance(item, QGraphicsEllipseItem) and item.zValue() >= 10000:
-                print(f"    🚫 跳过画笔指示器: Z值={item.zValue()}")
+                log_debug(f"跳过画笔指示器: Z值={item.zValue()}", "Scene")
                 continue
             
-            # 🔥 调试：打印每个项目的类型
+            # 记录每个项目的类型
             item_type = type(item).__name__
             item_pos = item.pos()
-            print(f"    📦 找到项目: {item_type}, 位置: ({item_pos.x():.1f}, {item_pos.y():.1f}), Z值: {item.zValue()}")
+            log_debug(f"找到项目: {item_type}, 位置: ({item_pos.x():.1f}, {item_pos.y():.1f}), Z值: {item.zValue()}", "Scene")
             drawing_items.append(item)
         
-        # 🔥 反转列表，使其按绘制顺序（先绘制的在前）
+        # 反转列表，使其按绘制顺序（先绘制的在前）
         # scene.items() 返回的是Z-order排序（上层在前），但我们需要绘制顺序
         drawing_items.reverse()
         
-        print(f"📊 [Scene] 选区内绘制项目: {len(drawing_items)} 个（已按绘制顺序排列）")
+        log_debug(f"选区内绘制项目: {len(drawing_items)} 个（已按绘制顺序排列）", "Scene")
         return drawing_items

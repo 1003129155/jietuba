@@ -1,11 +1,26 @@
 """
 钉图窗口 - 核心窗口类
+
+架构说明（重构后）：
+- PinWindow：主窗口，只负责窗口管理和子控件布局
+- PinShadowWindow：独立阴影窗口，只绘制阴影效果
+- PinCanvasView：唯一内容渲染者，使用 Qt 的 GPU 加速渲染
+- PinControlButtons：控制按钮管理器
+- PinContextMenu：右键菜单管理器
+- PinTranslationHelper：翻译功能助手
+- 不再在 paintEvent 中调用 scene.render()
 """
 
 from PyQt6.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout, QApplication, QMenu
 from PyQt6.QtCore import Qt, QPoint, QPointF, QSize, QTimer, pyqtSignal, QRect, QRectF, QEvent
 from PyQt6.QtGui import QPixmap, QImage, QPainter, QMouseEvent, QWheelEvent, QKeyEvent, QPaintEvent, QColor, QPainterPath, QPen, QAction
 from pin.pin_canvas_view import PinCanvasView
+from pin.pin_shadow_window import PinShadowWindow
+from pin.pin_controls import PinControlButtons
+from pin.pin_context_menu import PinContextMenu
+from pin.pin_translation import PinTranslationHelper
+from core import log_debug, log_info, log_warning, log_error
+from core.logger import log_exception
 
 
 class PinWindow(QWidget):
@@ -56,7 +71,7 @@ class PinWindow(QWidget):
         self.border_color = QColor(255, 255, 255, 100)  # 描边颜色
         self.border_width = 1.0           # 描边宽度
         
-        # 🔥 阴影缓存
+        # 阴影缓存
         self._shadow_cache: QPixmap | None = None
         self._shadow_key = None
         
@@ -67,6 +82,9 @@ class PinWindow(QWidget):
         self._drag_start_pos = QPoint()
         self._drag_start_window_pos = QPoint()
         self._last_hover_state = False
+        
+        # OCR 和翻译状态
+        self._ocr_has_result = False
         
         # 设置窗口属性
         self.setWindowFlags(
@@ -103,13 +121,13 @@ class PinWindow(QWidget):
 
         self.view = None
         
-        # 设置初始大小和位置（加上padding用于阴影）
-        padding = self.pad * 2 if self.halo_enabled else 0
+        # 🌟 新架构：内容窗口不再有 padding，阴影由独立窗口负责
+        # 设置初始大小和位置（内容窗口就是图像大小）
         self.setGeometry(
-            position.x() - (self.pad if self.halo_enabled else 0),
-            position.y() - (self.pad if self.halo_enabled else 0),
-            image.width() + padding,
-            image.height() + padding
+            position.x(),
+            position.y(),
+            image.width(),
+            image.height()
         )
         
         # 创建UI组件
@@ -117,21 +135,23 @@ class PinWindow(QWidget):
         
         # 创建画布（传入背景图像）
         from pin.pin_canvas import PinCanvas
-        # 🔥 传递基准坐标系（原始图像尺寸）和背景图像
+        # 传递基准坐标系（原始图像尺寸）和背景图像
         self.canvas = PinCanvas(self, self._orig_size, image)
         
-        # 🔥 继承绘制项目（如果有）
+        # 继承绘制项目（如果有）
         if self.drawing_items:
             self.canvas.initialize_from_items(self.drawing_items, self.selection_offset)
 
-        # 🔥 创建 CanvasView（与截图窗口复用同一套交互/光标体系）
+        # 🌟 新架构：创建 CanvasView 作为唯一内容渲染者
         self.view = PinCanvasView(self.canvas.scene, self, self.canvas)
         self.view.setParent(self)
-        # 🔥 让 view 覆盖整个窗口（包括 padding 区域），这样所有鼠标事件都会先到 view
+        # View 覆盖整个窗口
         self.view.setGeometry(0, 0, self.width(), self.height())
-        self.view.lower()  # 确保按钮位于视图之上
+        # 🌟 设置圆角（与阴影窗口一致）
+        self.view.set_corner_radius(self.corner)
         self._update_view_transform()
         self.view.viewport().installEventFilter(self)
+        # 🌟 不再 lower()，View 现在是主要显示层
         
         # 创建工具栏（按需创建）
         self.toolbar = None
@@ -140,17 +160,40 @@ class PinWindow(QWidget):
         self.ocr_text_layer = None
         self.ocr_thread = None
         
+        # 🌟 新架构：创建独立阴影窗口
+        self.shadow_window = None
+        if self.halo_enabled:
+            self.shadow_window = PinShadowWindow(self)
+            # 同步阴影样式参数
+            self.shadow_window.pad = self.pad
+            self.shadow_window.corner = self.corner
+            self.shadow_window.shadow_spread = self.shadow_spread
+            self.shadow_window.shadow_max_alpha = self.shadow_max_alpha
+            self.shadow_window.glow_enable = self.glow_enable
+            self.shadow_window.glow_spread = self.glow_spread
+            self.shadow_window.glow_color = self.glow_color
+            self.shadow_window.glow_max_alpha = self.glow_max_alpha
+            self.shadow_window.border_enable = self.border_enable
+            self.shadow_window.border_color = self.border_color
+            self.shadow_window.border_width = self.border_width
+            # 同步位置
+            self._sync_shadow_window()
+            # 先显示阴影窗口
+            self.shadow_window.show_shadow()
+        
         # 显示窗口
         self.show()
         
-        # 🔥 延迟初始化 OCR 文字层（等窗口完全显示后再开始，避免卡顿）
-        # 500ms 延迟确保窗口动画流畅
+        # 🔴 关键：确保按钮在 View 之上（View 创建后按钮被覆盖了）
+        self.update_button_positions()
+        
+        # 延迟初始化 OCR 文字层（等窗口完全显示后再开始，避免卡顿）
         QTimer.singleShot(500, self._init_ocr_text_layer_async)
         
-        print(f"📌 [钉图窗口] 创建成功: {image.width()}x{image.height()}, 位置: ({position.x()}, {position.y()})")
+        log_info(f"创建成功: {image.width()}x{image.height()}, 位置: ({position.x()}, {position.y()})", "PinWindow")
         if self.drawing_items:
-            print(f"📌 [钉图窗口] 继承了 {len(self.drawing_items)} 个绘制项目（向量数据）")
-            print(f"📌 [钉图窗口] 选区偏移: ({self.selection_offset.x()}, {self.selection_offset.y()})")
+            log_debug(f"继承了 {len(self.drawing_items)} 个绘制项目（向量数据）", "PinWindow")
+            log_debug(f"选区偏移: ({self.selection_offset.x()}, {self.selection_offset.y()})", "PinWindow")
     
     def setup_ui(self):
         """设置UI布局"""
@@ -161,77 +204,35 @@ class PinWindow(QWidget):
         self.setup_control_buttons()
     
     def setup_control_buttons(self):
-        """设置控制按钮（关闭按钮 + 工具栏切换按钮）"""
-        button_size = 20
-        margin = 5
-        spacing = 5
+        """设置控制按钮（使用 PinControlButtons 管理器）"""
+        # 创建控制按钮管理器
+        self._control_buttons = PinControlButtons(self)
         
-        # 1. 关闭按钮（右上角，总是显示）
-        self.close_button = QPushButton('×', self)
-        self.close_button.setFixedSize(button_size, button_size)
-        self.close_button.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(255, 0, 0, 180);
-                color: white;
-                border: none;
-                border-radius: 10px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: rgba(255, 0, 0, 220);
-            }
-            QPushButton:pressed {
-                background-color: rgba(200, 0, 0, 220);
-            }
-        """)
-        self.close_button.setToolTip("閉じる (ESC)")
-        self.close_button.clicked.connect(self.close_window)
-        self.close_button.hide()  # 初始隐藏，鼠标悬停显示
+        # 创建属性别名（保持向后兼容）
+        self.close_button = self._control_buttons.close_button
+        self.toolbar_toggle_button = self._control_buttons.toolbar_toggle_button
+        self.translate_button = self._control_buttons.translate_button
         
-        # 2. 工具栏切换按钮（关闭按钮左边，仅在禁用自动工具栏时显示）
-        self.toolbar_toggle_button = QPushButton('🔧', self)
-        self.toolbar_toggle_button.setFixedSize(button_size, button_size)
-        self.toolbar_toggle_button.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(52, 152, 219, 180);
-                color: white;
-                border: none;
-                border-radius: 10px;
-                font-size: 12px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: rgba(52, 152, 219, 220);
-            }
-            QPushButton:pressed {
-                background-color: rgba(41, 128, 185, 220);
-            }
-        """)
-        self.toolbar_toggle_button.setToolTip("ツールバーを表示")
-        self.toolbar_toggle_button.clicked.connect(self.toggle_toolbar)
-        self.toolbar_toggle_button.hide()  # 初始隐藏
+        # 连接信号
+        self._control_buttons.connect_signals(
+            close_handler=self.close_window,
+            toggle_toolbar_handler=self.toggle_toolbar,
+            translate_handler=self._on_translate_clicked
+        )
+        
+        # 创建右键菜单管理器
+        self._context_menu = PinContextMenu(self)
+        
+        # 创建翻译助手
+        self._translation_helper = PinTranslationHelper(self, self.config_manager)
         
         # 更新按钮位置
         self.update_button_positions()
     
     def update_button_positions(self):
         """更新按钮位置（窗口缩放时调用）"""
-        button_size = 20
-        margin = 5
-        spacing = 5
-        
-        # 关闭按钮在右上角
-        close_x = self.width() - button_size - margin
-        close_y = margin
-        self.close_button.move(close_x, close_y)
-        self.close_button.raise_()
-        
-        # 工具栏切换按钮在关闭按钮左边
-        toolbar_x = close_x - button_size - spacing
-        toolbar_y = margin
-        self.toolbar_toggle_button.move(toolbar_x, toolbar_y)
-        self.toolbar_toggle_button.raise_()
+        if hasattr(self, '_control_buttons'):
+            self._control_buttons.update_positions(self.width())
 
     def _auto_toolbar_enabled(self) -> bool:
         """当前是否启用自动工具栏显示"""
@@ -241,9 +242,18 @@ class PinWindow(QWidget):
         """在鼠标悬停期间确保控制按钮与工具栏可见"""
         if not self.close_button.isVisible():
             self.close_button.show()
+        # 🔴 确保按钮在 View 之上
+        self.close_button.raise_()
 
         if not self._auto_toolbar_enabled() and not self.toolbar_toggle_button.isVisible():
             self.toolbar_toggle_button.show()
+        self.toolbar_toggle_button.raise_()
+        
+        # 显示翻译按钮（如果 OCR 有结果）
+        if hasattr(self, 'translate_button') and hasattr(self, '_ocr_has_result'):
+            if self._ocr_has_result and not self.translate_button.isVisible():
+                self.translate_button.show()
+            self.translate_button.raise_()
 
         if self._auto_toolbar_enabled():
             toolbar_hidden = not self.toolbar or not self.toolbar.isVisible()
@@ -307,32 +317,42 @@ class PinWindow(QWidget):
 
     def resizeEvent(self, event):
         if hasattr(self, 'view') and self.view:
-            # 🔥 view 覆盖整个窗口（包括 padding）
+            # 🌟 新架构：View 覆盖整个窗口
             self.view.setGeometry(0, 0, self.width(), self.height())
             self._update_view_transform()
+            # 更新圆角遮罩
+            self.view._update_viewport_mask()
         self.update_button_positions()
         if self.toolbar and self.toolbar.isVisible():
             self.toolbar.sync_with_pin_window()
         
-        # 同步 OCR 文字层大小和位置（覆盖内容区域，不包括边框）
+        # 同步 OCR 文字层大小和位置（覆盖整个窗口）
         if hasattr(self, 'ocr_text_layer') and self.ocr_text_layer:
-            cr = self.content_rect()
-            self.ocr_text_layer.setGeometry(cr.toRect())
+            self.ocr_text_layer.setGeometry(self.rect())
+        # 🌟 同步阴影窗口位置
+        self._sync_shadow_window()
         
         super().resizeEvent(event)
+    
+    def moveEvent(self, event):
+        """窗口移动事件 - 同步阴影窗口位置"""
+        super().moveEvent(event)
+        self._sync_shadow_window()
+    
+    def _sync_shadow_window(self):
+        """同步阴影窗口的位置和大小"""
+        if hasattr(self, 'shadow_window') and self.shadow_window:
+            self.shadow_window.sync_geometry(self.geometry())
     
     # ==================== 🌟 光晕/阴影效果 ====================
     
     def content_rect(self) -> QRectF:
-        """内容区域（显示截图的区域，不包括padding）"""
-        if not self.halo_enabled:
-            return QRectF(self.rect())
-        return QRectF(
-            self.pad, 
-            self.pad,
-            max(1, self.width() - self.pad * 2),
-            max(1, self.height() - self.pad * 2)
-        )
+        """
+        内容区域（显示截图的区域）
+        
+        🌟 新架构：内容窗口就是整个窗口，不再有 padding
+        """
+        return QRectF(self.rect())
     
     def _rounded_path(self, rect: QRectF, radius: float) -> QPainterPath:
         """创建圆角矩形路径"""
@@ -380,7 +400,7 @@ class PinWindow(QWidget):
         # 1) 阴影层（黑色柔和渐变）
         for i in range(self.shadow_spread, 0, -1):
             t = i / self.shadow_spread  # 1.0 → 0.0
-            # 🔥 二次方衰减曲线：外层淡，内层深
+            # 二次方衰减曲线：外层淡，内层深
             alpha = int(self.shadow_max_alpha * (1.0 - t) ** 2)
             if alpha <= 0:
                 continue
@@ -421,93 +441,61 @@ class PinWindow(QWidget):
     
     def paintEvent(self, event):
         """
-        绘制事件 - 高性能渲染 + 光晕效果
+        绘制事件
         
-        🔥 新架构：光晕阴影 + CanvasScene渲染
+        🌟 新架构：PinWindow 不再负责内容渲染！
+        - 阴影由独立的 ShadowWindow 负责
+        - 内容由 PinCanvasView（QGraphicsView）负责
+        - 这里什么都不画，让 View 自己渲染
         """
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, not self._is_scaling)
-        
-        # 🌟 1. 绘制阴影/光晕缓存
-        if self.halo_enabled:
-            self._ensure_shadow_cache()
-            if self._shadow_cache is not None:
-                painter.drawPixmap(0, 0, self._shadow_cache)
-        
-        # 🌟 2. 绘制内容（圆角裁剪）
-        cr = self.content_rect()
-        
-        if hasattr(self, 'view') and self.view:
-            # 使用CanvasView渲染
-            if self.halo_enabled and self.corner > 0:
-                # 圆角裁剪
-                clip_path = self._rounded_path(cr, self.corner)
-                painter.save()
-                painter.setClipPath(clip_path)
-            
-            # 渲染view的内容到painter
-            if self.canvas:
-                self.canvas.render_to_painter(painter, cr)
-            elif self._base_pixmap:
-                painter.drawPixmap(cr, self._base_pixmap, QRectF(self._base_pixmap.rect()))
-            
-            if self.halo_enabled and self.corner > 0:
-                painter.restore()
-        else:
-            # 回退：直接绘制pixmap
-            target_rect = cr if self.halo_enabled else self.rect()
-            if self.canvas:
-                self.canvas.render_to_painter(painter, target_rect)
-            elif self._base_pixmap:
-                painter.drawPixmap(target_rect, self._base_pixmap)
-        
-        painter.end()
+        # 🌟 不再调用 scene.render()！
+        # View 是唯一的内容渲染者
+        pass
     
     # ==================== 鼠标事件 ====================
-    # 🔥 让鼠标事件传递给 PinCanvasView，由它的智能编辑系统处理
+    # 让鼠标事件传递给 PinCanvasView，由它的智能编辑系统处理
     # 窗口层面不拦截，只在非编辑状态处理窗口拖动
     
     def mousePressEvent(self, event: QMouseEvent):
         """鼠标按下 - 非编辑状态拖动窗口，编辑状态传递给 view"""
         self._set_hover_state(True)
         
-        # 🔥 非编辑模式：拖动窗口
+        # 非编辑模式：拖动窗口
         if event.button() == Qt.MouseButton.LeftButton and not (self.canvas and self.canvas.is_editing):
             self.start_window_drag(event.globalPosition().toPoint())
             event.accept()
             return
         
-        # 🔥 编辑模式或其他按钮：传递给子控件（view 会处理）
+        # 编辑模式或其他按钮：传递给子控件（view 会处理）
         super().mousePressEvent(event)
     
     def mouseMoveEvent(self, event: QMouseEvent):
         """鼠标移动 - 拖动窗口或传递给 view"""
         self._set_hover_state(True)
 
-        # 🔥 拖动模式
+        # 拖动模式
         if self._is_dragging:
             self.update_window_drag(event.globalPosition().toPoint())
             event.accept()
             return
         
-        # 🔥 其他情况传递给子控件
+        # 其他情况传递给子控件
         super().mouseMoveEvent(event)
     
     def mouseReleaseEvent(self, event: QMouseEvent):
         """鼠标释放 - 结束拖动或传递给 view"""
         if event.button() == Qt.MouseButton.LeftButton and self._is_dragging:
-            # 🔥 结束拖动
+            # 结束拖动
             self.end_window_drag()
             event.accept()
             return
         elif event.button() == Qt.MouseButton.RightButton:
-            # 🔥 显示右键菜单
+            # 显示右键菜单
             self.show_context_menu(event.globalPosition().toPoint())
             event.accept()
             return
         
-        # 🔥 其他情况传递给子控件
+        # 其他情况传递给子控件
         super().mouseReleaseEvent(event)
     
     def wheelEvent(self, event: QWheelEvent):
@@ -572,7 +560,7 @@ class PinWindow(QWidget):
         # 重启延迟定时器（150ms 后触发高质量渲染）
         self._scale_timer.start()
         
-        print(f"🔍 [钉图窗口] 缩放: {old_width}x{old_height} → {new_width}x{new_height}")
+        log_debug(f"缩放: {old_width}x{old_height} → {new_width}x{new_height}", "PinWindow")
     
     def _apply_smooth_scaling(self):
         """
@@ -583,7 +571,7 @@ class PinWindow(QWidget):
         self._is_scaling = False
         self.update()  # 触发 paintEvent，使用 SmoothTransformation
         self._update_view_transform()
-        print("✨ [钉图窗口] 应用高质量渲染")
+        log_debug("应用高质量渲染", "PinWindow")
     
     def enterEvent(self, event):
         """鼠标进入窗口 - 显示控制按钮"""
@@ -603,6 +591,9 @@ class PinWindow(QWidget):
         if not self.underMouse():
             self.close_button.hide()
             self.toolbar_toggle_button.hide()
+            # 翻译按钮也跟随隐藏
+            if hasattr(self, 'translate_button'):
+                self.translate_button.hide()
     
     def keyPressEvent(self, event: QKeyEvent):
         """键盘事件 - ESC 关闭窗口"""
@@ -619,19 +610,19 @@ class PinWindow(QWidget):
             # 延迟导入，避免循环依赖
             from pin.pin_toolbar import PinToolbar
             
-            # 🔥 传递 config_manager，确保工具设置能够保存和读取
+            # 传递 config_manager，确保工具设置能够保存和读取
             self.toolbar = PinToolbar(parent_pin_window=self, config_manager=self.config_manager)
             
-            # 🔥 连接信号到画布
+            # 连接信号到画布
             if self.canvas:
                 # 工具切换
                 self.toolbar.tool_changed.connect(self._on_tool_changed)
                 
-                # 🔥 撤销/重做（连接到 CanvasScene 的 undo_stack）
+                # 撤销/重做（连接到 CanvasScene 的 undo_stack）
                 self.toolbar.undo_clicked.connect(self.canvas.undo_stack.undo)
                 self.toolbar.redo_clicked.connect(self.canvas.undo_stack.redo)
                 
-                # 🔥 样式改变（连接到 tool_controller）
+                # 样式改变（连接到 tool_controller）
                 self.toolbar.color_changed.connect(self._on_color_changed)
                 self.toolbar.stroke_width_changed.connect(self._on_stroke_width_changed)
                 self.toolbar.opacity_changed.connect(self._on_opacity_changed)
@@ -650,13 +641,13 @@ class PinWindow(QWidget):
             self.toolbar.save_clicked.connect(self.save_image)
             self.toolbar.copy_clicked.connect(self.copy_to_clipboard)
             
-            print("🔧 [钉图窗口] 创建工具栏，连接完整信号（撤销/重做/工具/样式）")
+            log_debug("创建工具栏，连接完整信号", "PinWindow")
             
-            # 🔥 打印撤销栈状态（调试用）
+            # 打印撤销栈状态（调试用）
             if self.canvas:
                 self.canvas.undo_stack.print_stack_status()
         
-        # 🔥 每次显示时都检查并应用自动隐藏设置
+        # 每次显示时都检查并应用自动隐藏设置
         auto_toolbar = self.config_manager.get_pin_auto_toolbar() if self.config_manager else True
         if auto_toolbar:
             self.toolbar.enable_auto_hide(True)
@@ -678,90 +669,30 @@ class PinWindow(QWidget):
         else:
             self.show_toolbar()
     
+    # ==================== 翻译功能 ====================
+    
+    def _on_translate_clicked(self):
+        """翻译按钮点击处理（委托给翻译助手）"""
+        if hasattr(self, '_translation_helper') and hasattr(self, 'ocr_text_layer'):
+            self._translation_helper.translate(self.ocr_text_layer)
+    
     # ==================== 右键菜单 ====================
     
     def show_context_menu(self, global_pos: QPoint):
         """
-        显示右键菜单
+        显示右键菜单（委托给菜单管理器）
         
         Args:
             global_pos: 全局坐标位置
         """
-        menu = QMenu(self)
-        
-        # 设置字体，确保在所有Windows系统上都能正常显示
-        from PyQt6.QtGui import QFont
-        menu_font = QFont("Microsoft YaHei UI", 9)  # 使用微软雅黑UI，Windows系统自带
-        if not menu_font.exactMatch():
-            # 如果微软雅黑UI不可用，尝试其他字体
-            menu_font = QFont("Segoe UI", 9)  # Windows 10/11默认字体
-        menu.setFont(menu_font)
-        
-        menu.setStyleSheet("""
-            QMenu {
-                background-color: white;
-                border: 1px solid #ccc;
-                border-radius: 4px;
-                padding: 5px;
-                font-family: "Microsoft YaHei UI", "Segoe UI", "Yu Gothic UI", sans-serif;
-                font-size: 9pt;
-                color: #000000;
+        if hasattr(self, '_context_menu'):
+            state = {
+                'toolbar_visible': self.toolbar and self.toolbar.isVisible(),
+                'stay_on_top': bool(self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint),
+                'shadow_enabled': self.halo_enabled,
+                'has_ocr_result': hasattr(self, '_ocr_has_result') and self._ocr_has_result
             }
-            QMenu::item {
-                padding: 5px 30px 5px 30px;
-                border-radius: 3px;
-                color: #000000;
-                background-color: transparent;
-            }
-            QMenu::item:selected {
-                background-color: #e3f2fd;
-                color: #000000;
-            }
-            QMenu::separator {
-                height: 1px;
-                background: #ddd;
-                margin: 5px 0px;
-            }
-        """)
-        
-        # 📋 复制内容
-        copy_action = QAction("📋 コピー", self)
-        copy_action.triggered.connect(self.copy_to_clipboard)
-        menu.addAction(copy_action)
-        
-        # 💾 保存图片
-        save_action = QAction("💾 名前を付けて保存", self)
-        save_action.triggered.connect(self.save_image)
-        menu.addAction(save_action)
-        
-        menu.addSeparator()
-        
-        # 🔧 显示/隐藏工具栏
-        toolbar_visible = self.toolbar and self.toolbar.isVisible()
-        toolbar_action = QAction(f"{'✓ ' if toolbar_visible else '   '}🔧 ツールバー", self)
-        toolbar_action.triggered.connect(self.toggle_toolbar)
-        menu.addAction(toolbar_action)
-        
-        # 📌 切换置顶
-        stay_on_top = bool(self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint)
-        toggle_top_action = QAction(f"{'✓ ' if stay_on_top else '   '}📌 常に手前に表示", self)
-        toggle_top_action.triggered.connect(self.toggle_stay_on_top)
-        menu.addAction(toggle_top_action)
-        
-        # 🌟 切换阴影效果
-        shadow_action = QAction(f"{'✓ ' if self.halo_enabled else '   '}🌟 影効果", self)
-        shadow_action.triggered.connect(self.toggle_shadow_effect)
-        menu.addAction(shadow_action)
-        
-        menu.addSeparator()
-        
-        # ❌ 关闭钉图
-        close_action = QAction("❌ 閉じる", self)
-        close_action.triggered.connect(self.close_window)
-        menu.addAction(close_action)
-        
-        # 显示菜单
-        menu.exec(global_pos)
+            self._context_menu.show(global_pos, state)
     
     def toggle_stay_on_top(self):
         """切换窗口置顶状态"""
@@ -770,11 +701,11 @@ class PinWindow(QWidget):
         if current_flags & Qt.WindowType.WindowStaysOnTopHint:
             # 取消置顶
             new_flags = current_flags & ~Qt.WindowType.WindowStaysOnTopHint
-            print("📍 [钉图窗口] 取消置顶")
+            log_debug("取消置顶", "PinWindow")
         else:
             # 设置置顶
             new_flags = current_flags | Qt.WindowType.WindowStaysOnTopHint
-            print("📍 [钉图窗口] 设置置顶")
+            log_debug("设置置顶", "PinWindow")
         
         # 保存当前位置和大小
         geometry = self.geometry()
@@ -789,56 +720,47 @@ class PinWindow(QWidget):
         self.show()
     
     def toggle_shadow_effect(self):
-        """切换阴影/光晕效果"""
+        """
+        切换阴影/光晕效果
+        
+        🌟 新架构：阴影由独立窗口负责，这里只控制显示/隐藏
+        """
         self.halo_enabled = not self.halo_enabled
         
         if self.halo_enabled:
-            print("🌟 [钉图窗口] 启用阴影效果")
-            # 启用透明背景
-            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-            
-            # 调整窗口大小，增加padding
-            current_geo = self.geometry()
-            content_width = current_geo.width()
-            content_height = current_geo.height()
-            
-            new_x = current_geo.x() - self.pad
-            new_y = current_geo.y() - self.pad
-            new_width = content_width + self.pad * 2
-            new_height = content_height + self.pad * 2
-            
-            self.setGeometry(new_x, new_y, new_width, new_height)
+            log_debug("启用阴影效果", "PinWindow")
+            # 创建或显示阴影窗口
+            if not hasattr(self, 'shadow_window') or not self.shadow_window:
+                from pin.pin_shadow_window import PinShadowWindow
+                self.shadow_window = PinShadowWindow(self)
+                # 🔴 同步所有阴影样式参数
+                self.shadow_window.pad = self.pad
+                self.shadow_window.corner = self.corner
+                self.shadow_window.shadow_spread = self.shadow_spread
+                self.shadow_window.shadow_max_alpha = self.shadow_max_alpha
+                self.shadow_window.glow_enable = self.glow_enable
+                self.shadow_window.glow_spread = self.glow_spread
+                self.shadow_window.glow_color = self.glow_color
+                self.shadow_window.glow_max_alpha = self.glow_max_alpha
+                self.shadow_window.border_enable = self.border_enable
+                self.shadow_window.border_color = self.border_color
+                self.shadow_window.border_width = self.border_width
+            # 🔴 先同步位置，再显示
+            self._sync_shadow_window()
+            self.shadow_window.show_shadow()
+            # 更新 View 圆角
+            if hasattr(self, 'view') and self.view:
+                self.view.set_corner_radius(self.corner)
         else:
-            print("🌑 [钉图窗口] 禁用阴影效果")
-            # 禁用透明背景
-            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
-            
-            # 调整窗口大小，移除padding
-            current_geo = self.geometry()
-            content_width = current_geo.width() - self.pad * 2
-            content_height = current_geo.height() - self.pad * 2
-            
-            new_x = current_geo.x() + self.pad
-            new_y = current_geo.y() + self.pad
-            new_width = max(50, content_width)
-            new_height = max(50, content_height)
-            
-            self.setGeometry(new_x, new_y, new_width, new_height)
-        
-        # 清除阴影缓存
-        self._shadow_cache = None
-        self._shadow_key = None
-        
-        # 重新布局
-        if hasattr(self, 'view') and self.view:
-            cr = self.content_rect()
-            self.view.setGeometry(cr.toRect())
-            self._update_view_transform()
+            log_debug("禁用阴影效果", "PinWindow")
+            # 隐藏阴影窗口
+            if hasattr(self, 'shadow_window') and self.shadow_window:
+                self.shadow_window.hide_shadow()
+            # 移除 View 圆角
+            if hasattr(self, 'view') and self.view:
+                self.view.set_corner_radius(0)
         
         self.update_button_positions()
-        
-        # 触发重绘
-        self.update()
     
     def _on_tool_changed(self, tool_name: str):
         """
@@ -850,18 +772,18 @@ class PinWindow(QWidget):
         if not self.canvas:
             return
         
-        # 🔥 cursor 表示取消工具，退出编辑模式
+        # cursor 表示取消工具，退出编辑模式
         if tool_name and tool_name != "cursor":
             # 激活工具 → 进入编辑模式
             self.canvas.activate_tool(tool_name)
-            print(f"🎨 [钉图窗口] 激活工具: {tool_name}，进入编辑模式")
+            log_debug(f"激活工具: {tool_name}，进入编辑模式", "PinWindow")
             
-            # 🔥 通知 OCR 层：工具激活，隐藏文字选择层
+            # 通知 OCR 层：工具激活，隐藏文字选择层
             if hasattr(self, 'ocr_text_layer') and self.ocr_text_layer:
                 self.ocr_text_layer.set_drawing_mode(True)
             
-            # 🔥 同步 UI：工具激活后，其设置已从 config_manager 加载到 ToolContext
-            # 现在需要同步到工具栏 UI（更新滑块、颜色显示）
+            # 同步 UI：工具激活后，其设置已从 config_manager 加载到 ToolContext
+            # 需要同步到工具栏 UI（更新滑块、颜色显示）
             if self.toolbar and hasattr(self.canvas, 'tool_controller'):
                 ctx = self.canvas.tool_controller.ctx
                 
@@ -870,8 +792,8 @@ class PinWindow(QWidget):
                     self.toolbar.color_changed.disconnect(self._on_color_changed)
                     self.toolbar.stroke_width_changed.disconnect(self._on_stroke_width_changed)
                     self.toolbar.opacity_changed.disconnect(self._on_opacity_changed)
-                except:
-                    pass  # 如果信号未连接，忽略错误
+                except Exception as e:
+                    log_exception(e, "钉图工具切换时断开信号")
                 
                 try:
                     # 更新工具栏 UI 显示当前工具的设置
@@ -879,24 +801,23 @@ class PinWindow(QWidget):
                     self.toolbar.set_stroke_width(ctx.stroke_width)
                     self.toolbar.set_opacity(int(ctx.opacity * 255))
                     
-                    print(f"🔄 [钉图-UI同步] 工具={tool_name}, 颜色={ctx.color.name()}, 宽度={ctx.stroke_width}, 透明度={ctx.opacity}")
+                    log_debug(f"UI同步: 工具={tool_name}, 颜色={ctx.color.name()}, 宽度={ctx.stroke_width}, 透明度={ctx.opacity}", "PinWindow")
                 finally:
                     # 重新连接信号
                     self.toolbar.color_changed.connect(self._on_color_changed)
                     self.toolbar.stroke_width_changed.connect(self._on_stroke_width_changed)
                     self.toolbar.opacity_changed.connect(self._on_opacity_changed)
             
-            # 🔥 切换工具后，将焦点还给 View（确保快捷键可用）
-            # 使用 QTimer 延迟执行，确保工具按钮点击事件完成后再设置焦点
+            # 切换工具后，将焦点还给 View（确保快捷键可用）
             from PyQt6.QtCore import QTimer
             if hasattr(self.canvas, 'view'):
                 QTimer.singleShot(0, self.canvas.view.setFocus)
         else:
             # 取消工具 → 退出编辑模式
             self.canvas.deactivate_tool()
-            print(f"🎨 [钉图窗口] 取消工具，退出编辑模式")
+            log_debug("取消工具，退出编辑模式", "PinWindow")
             
-            # 🔥 通知 OCR 层：工具取消，重新显示文字选择层
+            # 通知 OCR 层：工具取消，重新显示文字选择层
             if hasattr(self, 'ocr_text_layer') and self.ocr_text_layer:
                 self.ocr_text_layer.set_drawing_mode(False)
     
@@ -912,7 +833,7 @@ class PinWindow(QWidget):
         ctx = getattr(self.canvas, 'tool_controller', None)
         ctx = getattr(ctx, 'context', None) if ctx else None
         prev_width = max(1.0, float(getattr(ctx, 'stroke_width', width))) if ctx else float(width)
-        print(f"[PinWindow] slider width change -> prev={prev_width}, target={width}")
+        log_debug(f"slider width change -> prev={prev_width}, target={width}", "PinWindow")
         self.canvas.set_stroke_width(width)
         new_width = max(1.0, float(getattr(ctx, 'stroke_width', width))) if ctx else float(width)
         self._apply_selection_width_scale(prev_width, new_width)
@@ -922,31 +843,31 @@ class PinWindow(QWidget):
         if not self.canvas:
             return
         opacity = float(opacity_int) / 255.0
-        print(f"[PinWindow] slider opacity change -> target={opacity:.3f}")
+        log_debug(f"slider opacity change -> target={opacity:.3f}", "PinWindow")
         self.canvas.set_opacity(opacity)
         self._apply_selection_opacity(opacity)
 
     def _apply_selection_width_scale(self, prev_width: float, new_width: float):
         if prev_width <= 0 or new_width <= 0:
-            print(f"[PinWindow] skip width scaling: prev={prev_width}, new={new_width}")
+            log_debug(f"skip width scaling: prev={prev_width}, new={new_width}", "PinWindow")
             return
         if abs(new_width - prev_width) <= 1e-6:
-            print(f"[PinWindow] width unchanged (prev={prev_width}, new={new_width})")
+            log_debug(f"width unchanged (prev={prev_width}, new={new_width})", "PinWindow")
             return
         view = getattr(self, 'view', None)
         if view and hasattr(view, '_apply_size_change_to_selection'):
             scale = new_width / prev_width
-            print(f"[PinWindow] applying selection scale via view: scale={scale:.3f}")
+            log_debug(f"applying selection scale via view: scale={scale:.3f}", "PinWindow")
             view._apply_size_change_to_selection(scale)
         else:
-            print(f"[PinWindow] missing view for selection scaling: view={view}")
+            log_warning(f"missing view for selection scaling: view={view}", "PinWindow")
 
     def _apply_selection_opacity(self, opacity: float):
         view = getattr(self, 'view', None)
         if view and hasattr(view, '_apply_opacity_change_to_selection'):
             view._apply_opacity_change_to_selection(opacity)
         else:
-            print(f"[PinWindow] skip opacity sync: missing view helper (view={view})")
+            log_debug(f"skip opacity sync: missing view helper (view={view})", "PinWindow")
     
     # ==================== 窗口管理 ====================
     
@@ -955,7 +876,7 @@ class PinWindow(QWidget):
         if self._is_closed:
             return
         
-        print("🗑️ [钉图窗口] 开始关闭...")
+        log_info("开始关闭", "PinWindow")
         self._is_closed = True
         
         # 清理资源
@@ -969,7 +890,7 @@ class PinWindow(QWidget):
     
     def cleanup(self):
         """清理资源"""
-        print("🧹 [钉图窗口] 清理资源...")
+        log_debug("清理资源...", "PinWindow")
         
         # 0. 停止所有定时器
         if hasattr(self, '_scale_timer') and self._scale_timer:
@@ -981,9 +902,17 @@ class PinWindow(QWidget):
             self._hover_monitor.deleteLater()
             self._hover_monitor = None
         
+        # 🌟 关闭阴影窗口
+        if hasattr(self, 'shadow_window') and self.shadow_window:
+            self.shadow_window.close_shadow()
+            self.shadow_window = None
+        
+        # 翻译窗口现在由 TranslationManager 单例管理，无需在此清理
+        # 翻译窗口是全局共享的，关闭钉图不会关闭翻译窗口
+        
         # 1. 关闭工具栏
         if self.toolbar:
-            # 🔥 关闭二级菜单（如果存在）
+            # 关闭二级菜单（如果存在）
             if hasattr(self.toolbar, 'paint_menu') and self.toolbar.paint_menu:
                 self.toolbar.paint_menu.close()
                 self.toolbar.paint_menu.deleteLater()
@@ -996,16 +925,16 @@ class PinWindow(QWidget):
         # 1.5. 清理 OCR 资源
         if hasattr(self, 'ocr_thread') and self.ocr_thread is not None:
             if self.ocr_thread.isRunning():
-                print("⚠️ [OCR] 窗口关闭，OCR 线程仍在运行，将其分离以在后台完成...")
+                log_warning("窗口关闭，OCR 线程仍在运行，将其分离以在后台完成...", "OCR")
                 try:
                     self.ocr_thread.finished.disconnect()
-                except:
-                    pass
+                except Exception as e:
+                    log_exception(e, "断开OCR线程finished信号")
                 
-                # 🔥 重设父对象，防止随窗口销毁
+                # 重设父对象，防止随窗口销毁
                 self.ocr_thread.setParent(None)
                 
-                # 🔥 线程完成后自动清理（不阻塞窗口关闭）
+                # 线程完成后自动清理（不阻塞窗口关闭）
                 self.ocr_thread.finished.connect(self.ocr_thread.deleteLater)
             else:
                 # 线程已完成，立即清理
@@ -1020,13 +949,16 @@ class PinWindow(QWidget):
             self.ocr_text_layer.deleteLater()
             self.ocr_text_layer = None
         
+        # 不再释放 OCR 引擎 - 保持常驻内存，避免下次钉图时重新初始化导致卡顿
+        # OCR 引擎约占用 50-100MB 内存，但保持加载可以让钉图更流畅
+        
         # 2. 清理视图
         if hasattr(self, 'view') and self.view:
             if hasattr(self.view, 'viewport'):
                 try:
                     self.view.viewport().removeEventFilter(self)
-                except Exception:
-                    pass
+                except Exception as e:
+                    log_exception(e, "移除视图事件过滤器")
             # 暂时不清理scene引用，让canvas负责清理
             self.view.deleteLater()
             self.view = None
@@ -1036,18 +968,18 @@ class PinWindow(QWidget):
             try:
                 self.canvas.cleanup()  # 这个方法内部会清理scene
             except Exception as e:
-                print(f"⚠️ [钉图窗口] 画布清理时出错: {e}")
+                log_warning(f"画布清理时出错: {e}", "PinWindow")
             self.canvas = None
         
         # 4. 清理图像数据
         self._base_pixmap = None
         self.vector_commands = None
         
-        # 5. 🔥 强制垃圾回收
+        # 5. 强制垃圾回收
         import gc
         gc.collect()
         
-        print("✅ [钉图窗口] 资源清理完成，内存已回收")
+        log_info("资源清理完成，内存已回收", "PinWindow")
     
     def _init_ocr_text_layer_async(self):
         """异步初始化 OCR 文字选择层（不阻塞主线程）"""
@@ -1062,20 +994,20 @@ class PinWindow(QWidget):
             
             ocr_enabled = self.config_manager.get_ocr_enabled()
             if not ocr_enabled:
-                print("ℹ️ [OCR] OCR 功能已禁用，跳过初始化")
+                log_info("OCR 功能已禁用，跳过初始化", "OCR")
                 return
             
             # 2. 检查 OCR 是否可用
             if not is_ocr_available():
-                print("⚠️ [OCR] OCR 模块不可用（无OCR版本），静默跳过")
+                log_debug("OCR 模块不可用（无OCR版本），静默跳过", "OCR")
                 return
             
             # 3. 初始化 OCR 引擎
             if not initialize_ocr():
-                print("⚠️ [OCR] OCR 引擎初始化失败")
+                log_warning("OCR 引擎初始化失败", "OCR")
                 return
             
-            print("✅ [OCR] OCR 引擎已就绪（支持中日韩英混合识别）")
+            log_info("OCR 引擎已就绪（支持中日韩英混合识别）", "OCR")
             
             # 4. 创建透明文字层（覆盖内容区域，不包括边框）
             self.ocr_text_layer = OCRTextLayer(self)
@@ -1109,7 +1041,7 @@ class PinWindow(QWidget):
                             upscale_factor=upscale_factor
                         )
                     except Exception as e:
-                        print(f"❌ [OCR Thread] 识别失败: {e}")
+                        log_error(f"识别失败: {e}", "OCR")
                         import traceback
                         traceback.print_exc()
                         self.result = None
@@ -1120,24 +1052,24 @@ class PinWindow(QWidget):
             original_height = pixmap.height()
             
             # 9. 启动异步识别
-            print("🔄 [OCR] 开始异步识别文字...")
+            log_debug("开始异步识别文字...", "OCR")
             self.ocr_thread = OCRThread(pixmap, self.config_manager, self)
             
             def on_ocr_finished():
                 try:
                     # 检查窗口是否已关闭
                     if self._is_closed:
-                        print("⚠️ [OCR] 窗口已关闭，跳过结果加载")
+                        log_debug("窗口已关闭，跳过结果加载", "OCR")
                         return
                     
                     # 检查 OCR 文字层是否还存在
                     if not hasattr(self, 'ocr_text_layer') or self.ocr_text_layer is None:
-                        print("⚠️ [OCR] OCR 文字层已被清理，跳过结果加载")
+                        log_debug("OCR 文字层已被清理，跳过结果加载", "OCR")
                         return
                     
                     # 检查线程是否还存在
                     if not hasattr(self, 'ocr_thread') or self.ocr_thread is None:
-                        print("⚠️ [OCR] OCR 线程已被清理，跳过结果加载")
+                        log_debug("OCR 线程已被清理，跳过结果加载", "OCR")
                         return
                     
                     # 检查结果是否有效
@@ -1149,9 +1081,15 @@ class PinWindow(QWidget):
                                 original_width, 
                                 original_height
                             )
-                            print(f"✅ [OCR] 钉图文字层已就绪，识别到 {len(self.ocr_thread.result.get('data', []))} 个文字块")
+                            
+                            # 标记 OCR 有结果，用于显示翻译按钮
+                            text_count = len(self.ocr_thread.result.get('data', []))
+                            if text_count > 0:
+                                self._ocr_has_result = True
+                            
+                            log_info(f"钉图文字层已就绪，识别到 {text_count} 个文字块", "OCR")
                 except Exception as e:
-                    print(f"❌ [OCR] 加载结果失败: {e}")
+                    log_error(f"加载结果失败: {e}", "OCR")
                     import traceback
                     traceback.print_exc()
                 finally:
@@ -1164,10 +1102,10 @@ class PinWindow(QWidget):
             self.ocr_thread.start()
             
         except ImportError:
-            # OCR 模块不存在，静默跳过
+            # OCR 模块不存在（无OCR版本），静默跳过
             pass
         except Exception as e:
-            print(f"⚠️ [OCR] 初始化失败: {e}")
+            log_exception(e, "OCR初始化", silent=False)
             import traceback
             traceback.print_exc()
     
@@ -1179,7 +1117,7 @@ class PinWindow(QWidget):
             self.closed.emit()
         
         super().closeEvent(event)
-        print("🗑️ [钉图窗口] 窗口已销毁")
+        log_debug("窗口已销毁", "PinWindow")
     
     # ==================== 辅助方法 ====================
     
@@ -1190,13 +1128,13 @@ class PinWindow(QWidget):
         Returns:
             QImage: 当前渲染的图像（HiDPI 清晰版）
         
-        🔥 新架构：直接使用 canvas.get_current_image()
+        新架构：直接使用 canvas.get_current_image()
         """
         # 获取窗口所在屏幕的 DPR
         dpr = self.devicePixelRatioF()
         
         if self.canvas:
-            # 🔥 直接从画布导出（包含所有图层）
+            # 直接从画布导出（包含所有图层）
             return self.canvas.get_current_image(dpr)
         else:
             # 如果没有画布，返回底图
@@ -1228,7 +1166,7 @@ class PinWindow(QWidget):
         )
         
         if file_path:
-            # 🔥 临时退出编辑模式，隐藏选择框和手柄
+            # 临时退出编辑模式，隐藏选择框和手柄
             was_editing = self.canvas and self.canvas.is_editing
             active_tool_id = None
             if was_editing and hasattr(self.canvas, 'tool_controller'):
@@ -1241,18 +1179,18 @@ class PinWindow(QWidget):
             image = self.get_current_image()
             success = image.save(file_path)
             
-            # 🔥 恢复编辑模式
+            # 恢复编辑模式
             if was_editing and active_tool_id:
                 self.canvas.activate_tool(active_tool_id)
             
             if success:
-                print(f"💾 [钉图窗口] 保存成功: {file_path}")
+                log_info(f"保存成功: {file_path}", "PinWindow")
             else:
-                print(f"❌ [钉图窗口] 保存失败: {file_path}")
+                log_error(f"保存失败: {file_path}", "PinWindow")
     
     def copy_to_clipboard(self):
         """复制图像到剪贴板"""
-        # 🔥 临时退出编辑模式，隐藏选择框和手柄
+        # 临时退出编辑模式，隐藏选择框和手柄
         was_editing = self.canvas and self.canvas.is_editing
         active_tool_id = None
         if was_editing and hasattr(self.canvas, 'tool_controller'):
@@ -1266,11 +1204,11 @@ class PinWindow(QWidget):
         pixmap = QPixmap.fromImage(image)
         QApplication.clipboard().setPixmap(pixmap)
         
-        # 🔥 恢复编辑模式
+        # 恢复编辑模式
         if was_editing and active_tool_id:
             self.canvas.activate_tool(active_tool_id)
         
-        print("📋 [钉图窗口] 已复制到剪贴板")
+        log_info("已复制到剪贴板", "PinWindow")
 
     def eventFilter(self, obj, event):
         if self.view and obj == self.view.viewport():

@@ -129,7 +129,7 @@ class SelectionItem(QGraphicsItem):
             super().hoverMoveEvent(event)
             return
         
-        # 🔥 关键：区分智能选区预览和真实选区
+        # 区分智能选区预览和真实选区
         # 智能选区预览（未确认）：显示十字瞄准光标
         # 真实选区（已确认）：显示调整光标
         if not self._model.is_confirmed:

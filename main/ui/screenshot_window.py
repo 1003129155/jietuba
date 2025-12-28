@@ -13,6 +13,7 @@ from ui.magnifier import MagnifierOverlay
 from tools.action import ActionTools
 from settings import get_tool_settings_manager
 from stitch.scroll_window import ScrollCaptureWindow
+from core.logger import log_debug, log_info, log_warning, log_error, log_exception
 
 class ScreenshotWindow(QWidget):
     def __init__(self, config_manager=None):
@@ -33,8 +34,8 @@ class ScreenshotWindow(QWidget):
         self.virtual_width = rect.width()
         self.virtual_height = rect.height()
         
-        print(f"🖼️ [ScreenshotWindow] 虚拟桌面: {self.virtual_width}x{self.virtual_height} at ({self.virtual_x}, {self.virtual_y})")
-        print(f"🖼️ [ScreenshotWindow] 图像尺寸: {self.original_image.width()}x{self.original_image.height()}")
+        log_debug(f"虚拟桌面: {self.virtual_width}x{self.virtual_height} at ({self.virtual_x}, {self.virtual_y})", "ScreenshotWindow")
+        log_debug(f"图像尺寸: {self.original_image.width()}x{self.original_image.height()}", "ScreenshotWindow")
 
         # 2. 初始化场景和视图
         self.scene = CanvasScene(self.original_image, rect)
@@ -114,6 +115,7 @@ class ScreenshotWindow(QWidget):
         self.toolbar.save_clicked.connect(self.action_handler.handle_save)
         self.toolbar.pin_clicked.connect(self.action_handler.handle_pin)
         self.toolbar.long_screenshot_clicked.connect(self.start_long_screenshot_mode)
+        self.toolbar.screenshot_translate_clicked.connect(self.action_handler.handle_screenshot_translate)
         
         # 场景信号
         self.scene.selectionConfirmed.connect(self.on_selection_confirmed)
@@ -177,7 +179,7 @@ class ScreenshotWindow(QWidget):
     
     def cleanup_and_close(self):
         """清理资源并关闭窗口 - 防止内存泄漏"""
-        print("🧹 开始清理截图窗口资源...")
+        log_info("开始清理截图窗口资源", "ScreenshotWindow")
         
         # 停止定时器
         if hasattr(self, 'visibility_timer'):
@@ -187,22 +189,19 @@ class ScreenshotWindow(QWidget):
         
         # 释放大图片内存（最重要！必须在 scene.clear() 之前）
         if hasattr(self, 'original_image'):
-            print(f"   释放原始截图内存: {self.original_image.width()}x{self.original_image.height()}")
+            log_debug(f"释放原始截图内存: {self.original_image.width()}x{self.original_image.height()}", "ScreenshotWindow")
             self.original_image = None
         
         # 清理 Scene 中的所有图层和对象
         if hasattr(self, 'scene'):
             # 获取所有图层项并清理
             items = self.scene.items()
-            print(f"   清理 {len(items)} 个场景对象...")
+            log_debug(f"清理 {len(items)} 个场景对象", "ScreenshotWindow")
             
-            # 手动删除所有 items（释放 BackgroundItem 的图像拷贝）
+            # 手动删除所有 items（释放 pixmap 内存）
             for item in items:
-                if hasattr(item, '_image'):
-                    # BackgroundItem 的图像
-                    item._image = None
                 if hasattr(item, 'setPixmap'):
-                    # 清空 pixmap（GPU 纹理）
+                    # 清空 pixmap（释放 GPU 纹理和内存）
                     item.setPixmap(QPixmap())
                 self.scene.removeItem(item)
             
@@ -213,8 +212,8 @@ class ScreenshotWindow(QWidget):
             try:
                 self.scene.selectionConfirmed.disconnect()
                 self.scene.selection_model.rectChanged.disconnect()
-            except:
-                pass
+            except Exception as e:
+                log_exception(e, "断开场景信号连接")
             
             # 删除 scene
             self.scene.deleteLater()
@@ -244,8 +243,8 @@ class ScreenshotWindow(QWidget):
                 self.toolbar.copy_clicked.disconnect()
                 self.toolbar.save_clicked.disconnect()
                 self.toolbar.long_screenshot_clicked.disconnect()
-            except:
-                pass
+            except Exception as e:
+                log_exception(e, "断开工具栏信号连接")
             
             if hasattr(self.toolbar, 'paint_menu'):
                 self.toolbar.paint_menu.close()
@@ -265,7 +264,7 @@ class ScreenshotWindow(QWidget):
         # 关闭窗口（WA_DeleteOnClose 会自动删除窗口对象）
         self.close()
         
-        print("✅ 截图窗口资源清理完成")
+        log_info("截图窗口资源清理完成", "ScreenshotWindow")
 
     def keyPressEvent(self, event):
         """键盘事件处理 - 参考老代码逻辑"""
@@ -327,12 +326,7 @@ class ScreenshotWindow(QWidget):
             self.toolbar.stroke_width_changed.connect(self.on_stroke_width_changed)
             self.toolbar.opacity_changed.connect(self.on_opacity_changed)
         
-        # 🔥 移除重复的光标设置 - Tool.on_activate() 已经设置了光标
-        # if hasattr(self.view, 'cursor_manager'):
-        #     self.view.cursor_manager.set_tool_cursor(tool_id)
-        
-        # 🔥 切换工具后，将焦点还给 View（确保快捷键可用）
-        # 使用 QTimer 延迟执行，确保工具按钮点击事件完成后再设置焦点
+        # 切换工具后，将焦点还给 View（确保快捷键可用）
         from PyQt6.QtCore import QTimer
         QTimer.singleShot(0, self.view.setFocus)
         if hasattr(self, 'magnifier_overlay') and self.magnifier_overlay:
@@ -344,7 +338,7 @@ class ScreenshotWindow(QWidget):
     def on_stroke_width_changed(self, width):
         ctx = getattr(self.scene.tool_controller, 'ctx', None)
         prev_width = max(1.0, float(getattr(ctx, 'stroke_width', width))) if ctx else float(width)
-        print(f"[ScreenshotWindow] slider width change -> prev={prev_width}, target={width}")
+        log_debug(f"slider width change -> prev={prev_width}, target={width}", "ScreenshotWindow")
         self.scene.update_style(width=width)
         new_width = max(1.0, float(getattr(ctx, 'stroke_width', width))) if ctx else float(width)
 
@@ -352,23 +346,23 @@ class ScreenshotWindow(QWidget):
         if view and hasattr(view, '_apply_size_change_to_selection') and prev_width > 0:
             scale = new_width / prev_width
             if abs(scale - 1.0) > 1e-6:
-                print(f"[ScreenshotWindow] apply selection scale via view: scale={scale:.3f}")
+                log_debug(f"apply selection scale via view: scale={scale:.3f}", "ScreenshotWindow")
                 view._apply_size_change_to_selection(scale)
 
         if view and hasattr(view, 'cursor_manager'):
             view.cursor_manager.update_tool_cursor_size(int(width))
         
-        print(f"📏 [线宽] {width}")
+        log_debug(f"线宽: {width}", "ScreenshotWindow")
         
     def on_opacity_changed(self, opacity_int):
         # opacity_int 是 0-255，转换为 0.0-1.0
         opacity = opacity_int / 255.0
-        print(f"[ScreenshotWindow] slider opacity change -> target={opacity:.3f}")
+        log_debug(f"slider opacity change -> target={opacity:.3f}", "ScreenshotWindow")
         self.scene.update_style(opacity=opacity)
         view = getattr(self, 'view', None)
         if view and hasattr(view, '_apply_opacity_change_to_selection'):
             view._apply_opacity_change_to_selection(opacity)
-        print(f"✨ [透明度] {opacity:.2f}")
+        log_debug(f"透明度: {opacity:.2f}", "ScreenshotWindow")
 
     def on_undo(self):
         """撤销"""
@@ -382,14 +376,14 @@ class ScreenshotWindow(QWidget):
     
     def start_long_screenshot_mode(self):
         """启动长截图模式"""
-        print("🖱️ 启动长截图模式...")
+        log_info("启动长截图模式", "ScreenshotWindow")
         
         # 获取当前选中的区域
         if self.scene.selection_model.is_confirmed:
             selection_rect = self.scene.selection_model.rect()
             
-            print(f"📐 [调试] selection_rect（场景坐标）: x={selection_rect.x()}, y={selection_rect.y()}, w={selection_rect.width()}, h={selection_rect.height()}")
-            print(f"📐 [调试] virtual偏移: x={self.virtual_x}, y={self.virtual_y}")
+            log_debug(f"selection_rect（场景坐标）: x={selection_rect.x()}, y={selection_rect.y()}, w={selection_rect.width()}, h={selection_rect.height()}", "LongScreenshot")
+            log_debug(f"virtual偏移: x={self.virtual_x}, y={self.virtual_y}", "LongScreenshot")
             
             # 场景坐标已经是屏幕的全局坐标，背景图层通过 setOffset 保留了系统提供的虚拟桌面偏移
             # 因此此处不需要再次叠加 virtual_x / virtual_y，否则会导致坐标被重复平移
@@ -401,26 +395,25 @@ class ScreenshotWindow(QWidget):
             # 创建屏幕坐标的选区矩形
             capture_rect = QRect(real_x, real_y, real_width, real_height)
             
-            print(f"📐 选中区域（屏幕坐标）: x={real_x}, y={real_y}, w={real_width}, h={real_height}")
+            log_debug(f"选中区域（屏幕坐标）: x={real_x}, y={real_y}, w={real_width}, h={real_height}", "LongScreenshot")
             
             # 保存配置，用于长截图窗口
             save_dir = self.config_manager.get_screenshot_save_path()
             
             # 创建独立的长截图窗口（不传递 parent，让它独立运行）
-            # 长截图窗口会自己处理保存和关闭
             scroll_window = ScrollCaptureWindow(capture_rect, parent=None)
             scroll_window.set_save_directory(save_dir)  # 设置保存目录
             
             # 显示长截图窗口
-            print(f"🪟 长截图窗口创建完成，准备显示...")
+            log_debug("长截图窗口创建完成，准备显示", "LongScreenshot")
             scroll_window.show()
             scroll_window.raise_()
             scroll_window.activateWindow()
             
-            print("✅ 滚动截图窗口已显示并激活")
+            log_info("滚动截图窗口已显示并激活", "LongScreenshot")
             
             # 立即关闭截图窗口，释放内存
-            print("🗑️ 释放截图窗口内存...")
+            log_debug("释放截图窗口内存", "LongScreenshot")
             self.cleanup_and_close()
         else:
             # 如果没有确认选区，显示提示

@@ -87,13 +87,13 @@ class ToolSettingsManager(QObject):
     DEFAULT_SETTINGS = {
         "pen": {
             "color": "#FF0000",  # 红色
-            "stroke_width": 9,
+            "stroke_width": 12,
             "opacity": 1.0,
         },
         "highlighter": {
             "color": "#FFFF00",  # 黄色
-            "stroke_width": 20,
-            "opacity": 0.5,
+            "stroke_width": 15,
+            "opacity": 1.0,
         },
         "rect": {
             "color": "#FF0000",  # 红色
@@ -122,7 +122,7 @@ class ToolSettingsManager(QObject):
             "font_size": 10,
             "opacity": 1.0,
             "circle_radius": 20,
-            "stroke_width": 2,
+            "stroke_width": 12,
         },
         "eraser": {
             "stroke_width": 25,  # 橡皮擦大小（宽度）
@@ -156,13 +156,23 @@ class ToolSettingsManager(QObject):
         # ==================== 6. 📝 日志设置 ====================
         "log_enabled": True,                   # 日志启用
         "log_dir": os.path.join(os.path.expanduser("~"), "AppData", "Local", "Jietuba", "Logs"),
+        "log_level": "INFO",                # 日志等级: DEBUG, INFO, WARNING, ERROR
+        "log_retention_days": 7,               # 日志保留天数（0表示永久保留）
         
         # ==================== 7. ⚙️ 其他设置 ====================
         "show_main_window": False,             # 运行后自动弹出窗口显示（默认后台启动）
+        "language": "ja",                      # 界面语言（ja/en/zh）
         
         # ==================== 钉图设置（在"其他"页面或独立页面） ====================
         "pin_auto_toolbar": False,              # 钉图自动显示工具栏
         "pin_default_opacity": 1.0,            # 钉图默认透明度（0.1-1.0）
+        
+        # ==================== 8. 🌐 翻译设置 ====================
+        "deepl_api_key": "dfdb66fc-025c-43b5-8196-7daba2c2da7d:fx",  # DeepL API 密钥
+        "deepl_use_pro": False,                # 是否使用 Pro 版 API
+        "translation_target_lang": "",         # 翻译目标语言（空为跟随系统语言）
+        "translation_split_sentences": True,   # 自动分句
+        "translation_preserve_formatting": True,  # 保留格式
     }
     
     def __init__(self):
@@ -322,6 +332,56 @@ class ToolSettingsManager(QObject):
         
         print("✅ [设置] 应用设置已重置为默认值")
     
+    def get_app_setting(self, key: str, default=None) -> Any:
+        """
+        获取应用级别设置的通用方法
+        
+        Args:
+            key: 设置键名（不含 app/ 前缀）
+            default: 默认值，如果为 None 则使用 APP_DEFAULT_SETTINGS 中的默认值
+            
+        Returns:
+            设置值
+        """
+        # 确定实际默认值
+        if default is None:
+            default = self.APP_DEFAULT_SETTINGS.get(key)
+        
+        # 构建完整的设置键名
+        if key.startswith("pin_"):
+            setting_key = f"pin/{key[4:]}"
+        else:
+            setting_key = f"app/{key}"
+        
+        # 根据默认值的类型确定返回类型
+        if default is not None:
+            if isinstance(default, bool):
+                return self.qsettings.value(setting_key, default, type=bool)
+            elif isinstance(default, int):
+                return self.qsettings.value(setting_key, default, type=int)
+            elif isinstance(default, float):
+                return self.qsettings.value(setting_key, default, type=float)
+            else:
+                return self.qsettings.value(setting_key, default, type=str)
+        else:
+            return self.qsettings.value(setting_key, default)
+    
+    def set_app_setting(self, key: str, value: Any):
+        """
+        设置应用级别设置的通用方法
+        
+        Args:
+            key: 设置键名（不含 app/ 前缀）
+            value: 设置值
+        """
+        # 构建完整的设置键名
+        if key.startswith("pin_"):
+            setting_key = f"pin/{key[4:]}"
+        else:
+            setting_key = f"app/{key}"
+        
+        self.qsettings.setValue(setting_key, value)
+
     def reset_all_settings(self):
         """重置所有设置（工具设置 + 应用设置）为默认值"""
         self.reset_all()           # 重置工具设置
@@ -413,6 +473,22 @@ class ToolSettingsManager(QObject):
         """设置日志目录"""
         self.qsettings.setValue("app/log_dir", value)
     
+    def get_log_level(self) -> str:
+        """获取日志等级 (DEBUG, INFO, WARNING, ERROR)"""
+        return self.qsettings.value("app/log_level", self.APP_DEFAULT_SETTINGS["log_level"], type=str)
+    
+    def set_log_level(self, value: str):
+        """设置日志等级 (DEBUG, INFO, WARNING, ERROR)"""
+        self.qsettings.setValue("app/log_level", value)
+    
+    def get_log_retention_days(self) -> int:
+        """获取日志保留天数（0表示永久保留）"""
+        return self.qsettings.value("app/log_retention_days", self.APP_DEFAULT_SETTINGS["log_retention_days"], type=int)
+    
+    def set_log_retention_days(self, value: int):
+        """设置日志保留天数（0表示永久保留）"""
+        self.qsettings.setValue("app/log_retention_days", value)
+    
     def get_long_stitch_engine(self) -> str:
         """获取长截图引擎"""
         return self.qsettings.value("app/long_stitch_engine", self.APP_DEFAULT_SETTINGS["long_stitch_engine"], type=str)
@@ -502,6 +578,64 @@ class ToolSettingsManager(QObject):
     def set_ocr_upscale_factor(self, value: float):
         """设置 OCR 放大倍数"""
         self.qsettings.setValue("app/ocr_upscale_factor", value)
+    
+    # ==================== 翻译设置 ====================
+    
+    def get_deepl_api_key(self) -> str:
+        """获取 DeepL API 密钥"""
+        return self.qsettings.value("app/deepl_api_key", self.APP_DEFAULT_SETTINGS["deepl_api_key"], type=str)
+    
+    def set_deepl_api_key(self, value: str):
+        """设置 DeepL API 密钥"""
+        self.qsettings.setValue("app/deepl_api_key", value)
+    
+    def get_deepl_use_pro(self) -> bool:
+        """获取是否使用 DeepL Pro API"""
+        return self.qsettings.value("app/deepl_use_pro", self.APP_DEFAULT_SETTINGS["deepl_use_pro"], type=bool)
+    
+    def set_deepl_use_pro(self, value: bool):
+        """设置是否使用 DeepL Pro API"""
+        self.qsettings.setValue("app/deepl_use_pro", value)
+    
+    def get_translation_target_lang(self) -> str:
+        """
+        获取翻译目标语言
+        
+        如果未设置或为空，则跟随系统语言
+        """
+        saved = self.qsettings.value("app/translation_target_lang", "", type=str)
+        if not saved:
+            # 跟随系统语言
+            from core.i18n import I18nManager
+            sys_lang = I18nManager.get_system_language()
+            # 映射到 DeepL 语言代码
+            lang_map = {
+                "zh": "ZH",
+                "ja": "JA", 
+                "en": "EN",
+            }
+            return lang_map.get(sys_lang, "EN")
+        return saved
+    
+    def set_translation_target_lang(self, value: str):
+        """设置翻译目标语言"""
+        self.qsettings.setValue("app/translation_target_lang", value)
+    
+    def get_translation_split_sentences(self) -> bool:
+        """获取是否启用自动分句"""
+        return self.qsettings.value("app/translation_split_sentences", self.APP_DEFAULT_SETTINGS["translation_split_sentences"], type=bool)
+    
+    def set_translation_split_sentences(self, value: bool):
+        """设置是否启用自动分句"""
+        self.qsettings.setValue("app/translation_split_sentences", value)
+    
+    def get_translation_preserve_formatting(self) -> bool:
+        """获取是否保留格式"""
+        return self.qsettings.value("app/translation_preserve_formatting", self.APP_DEFAULT_SETTINGS["translation_preserve_formatting"], type=bool)
+    
+    def set_translation_preserve_formatting(self, value: bool):
+        """设置是否保留格式"""
+        self.qsettings.setValue("app/translation_preserve_formatting", value)
     
     def is_first_run(self) -> bool:
         """

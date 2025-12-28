@@ -5,6 +5,7 @@
 
 from PyQt6.QtCore import Qt, QPointF, QRectF
 from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QPainterPath
+from core import log_warning
 
 
 class VectorCommandRenderer:
@@ -20,6 +21,15 @@ class VectorCommandRenderer:
     - 荧光笔（highlighter）
     - 序号（number）
     """
+    
+    _instance = None
+    
+    @classmethod
+    def instance(cls) -> 'VectorCommandRenderer':
+        """获取单例实例"""
+        if cls._instance is None:
+            cls._instance = VectorCommandRenderer()
+        return cls._instance
     
     def __init__(self):
         pass
@@ -47,7 +57,7 @@ class VectorCommandRenderer:
             try:
                 self._render_command(painter, cmd)
             except Exception as e:
-                print(f"⚠️ [渲染器] 渲染命令失败: {e}, 命令: {cmd.get('type', 'unknown')}")
+                log_warning(f"渲染命令失败: {e}, 命令: {cmd.get('type', 'unknown')}", "Renderer")
         
         # 恢复 painter 状态
         painter.restore()
@@ -77,7 +87,7 @@ class VectorCommandRenderer:
         elif cmd_type == 'number':
             self._render_number(painter, cmd)
         else:
-            print(f"⚠️ [渲染器] 未知命令类型: {cmd_type}")
+            log_warning(f"未知命令类型: {cmd_type}", "Renderer")
     
     # ==================== 具体渲染方法 ====================
     
@@ -277,12 +287,7 @@ class VectorCommandRenderer:
         return transform.map(arrow)
 
 
-# 单例渲染器（可复用）
-_renderer_instance = None
-
+# 便捷函数（保持向后兼容）
 def get_vector_renderer() -> VectorCommandRenderer:
     """获取全局矢量渲染器实例"""
-    global _renderer_instance
-    if _renderer_instance is None:
-        _renderer_instance = VectorCommandRenderer()
-    return _renderer_instance
+    return VectorCommandRenderer.instance()

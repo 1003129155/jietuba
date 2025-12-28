@@ -1,26 +1,28 @@
 """
 钉图画布 - 核心类
-🔥 新架构：完整复用截图窗口的 CanvasScene
+新架构：完整复用截图窗口的 CanvasScene
 
 特点：
-- ✅ 完整的撤销/重做功能 (QUndoStack + Ctrl+Z/Shift+Z)
-- ✅ 完整的工具系统 (7种绘图工具，直接复用)
-- ✅ 完整的命令管理 (CommandUndoStack)
-- ✅ 完整的图层系统 (QGraphicsScene + Z-Order)
-- ✅ 完整的样式管理 (颜色、线宽、透明度)
+- 完整的撤销/重做功能 (QUndoStack + Ctrl+Z/Shift+Z)
+- 完整的工具系统 (7种绘图工具，直接复用)
+- 完整的命令管理 (CommandUndoStack)
+- 完整的图层系统 (QGraphicsScene + Z-Order)
+- 完整的样式管理 (颜色、线宽、透明度)
 """
 
 from PyQt6.QtCore import Qt, QObject, pyqtSignal, QRectF, QPointF
 from PyQt6.QtGui import QPainter, QImage, QColor, QPixmap, QTransform
 
 from canvas import CanvasScene
+from core import log_debug, log_info, log_warning, log_error
+from core.logger import log_exception
 
 
 class PinCanvas(QObject):
     """
     钉图画布
     
-    🔥 完整复用 CanvasScene 架构，无需自己实现工具系统
+    完整复用 CanvasScene 架构，无需自己实现工具系统
     """
     
     # 信号
@@ -37,16 +39,17 @@ class PinCanvas(QObject):
         
         self.parent_window = parent_window
         self.base_size = base_size
-        self.background_image = background_image
+        # 内存优化：不保存 background_image 引用，CanvasScene 内部会处理
         
-        # 🔥 创建 CanvasScene（完整复用截图窗口的架构）
+        # 创建 CanvasScene（完整复用截图窗口的架构）
+        # 注意：CanvasScene 的 BackgroundItem 已优化，只保存 QPixmap，不保存 QImage 副本
         scene_rect = QRectF(0, 0, base_size.width(), base_size.height())
         self.scene = CanvasScene(background_image, scene_rect)
         
         # 预置选区（钉图画布默认全图可编辑）
         self._initialize_selection()
         
-        # 🔥 快捷访问（用于工具栏连接）
+        # 快捷访问（用于工具栏连接）
         self.undo_stack = self.scene.undo_stack           # 撤销栈
         self.tool_controller = self.scene.tool_controller # 工具控制器
         
@@ -54,9 +57,9 @@ class PinCanvas(QObject):
         self.is_editing = False
         self._is_drawing = False
         
-        print(f"🎨 [钉图画布] 创建成功，基准尺寸 {base_size.width()}×{base_size.height()}，使用完整 CanvasScene 架构")
+        log_info(f"创建成功，基准尺寸 {base_size.width()}×{base_size.height()}，使用完整 CanvasScene 架构", "PinCanvas")
         
-        # 🔥 连接场景信号，监听图层变化
+        # 连接场景信号，监听图层变化
         self.scene.changed.connect(self._on_scene_changed)
     
     def initialize_from_items(self, drawing_items, selection_offset):
@@ -68,10 +71,10 @@ class PinCanvas(QObject):
             selection_offset: 选区在原场景中的偏移量（QPoint，用于坐标转换）
         """
         if not drawing_items:
-            print("📊 [钉图画布] 没有绘制项目需要继承")
+            log_debug("没有绘制项目需要继承", "PinCanvas")
             return
         
-        print(f"📊 [钉图画布] 开始继承 {len(drawing_items)} 个绘制项目...")
+        log_debug(f"开始继承 {len(drawing_items)} 个绘制项目...", "PinCanvas")
         
         # 计算偏移量（将截图场景坐标转换为钉图场景坐标）
         offset_x = -selection_offset.x()
@@ -83,16 +86,16 @@ class PinCanvas(QObject):
                 # 获取原始项目信息
                 item_type = type(item).__name__
                 item_pos = item.pos()
-                print(f"    🔄 克隆项目: {item_type}, 原始位置: ({item_pos.x():.1f}, {item_pos.y():.1f})")
+                log_debug(f"克隆项目: {item_type}, 原始位置: ({item_pos.x():.1f}, {item_pos.y():.1f})", "PinCanvas")
                 
-                # 🔥 克隆图形项（深拷贝）
+                # 克隆图形项（深拷贝）
                 cloned_item = self._clone_graphics_item(item)
                 
                 if cloned_item:
                     self._apply_static_item_state(item, cloned_item, offset_x, offset_y)
                     base_state = self._capture_item_state(cloned_item)
 
-                    print(f"    ✅ 克隆成功: {item_type}, 新位置: ({cloned_item.pos().x():.1f}, {cloned_item.pos().y():.1f}), Z值: {cloned_item.zValue()}")
+                    log_debug(f"克隆成功: {item_type}, 新位置: ({cloned_item.pos().x():.1f}, {cloned_item.pos().y():.1f}), Z值: {cloned_item.zValue()}", "PinCanvas")
 
                     # 先推入添加命令（基础绘制状态）
                     from canvas.undo import AddItemCommand, EditItemCommand
@@ -107,16 +110,16 @@ class PinCanvas(QObject):
 
                     inherited_count += 1
                 else:
-                    print(f"    ❌ 克隆失败: {item_type} - 返回None")
+                    log_warning(f"克隆失败: {item_type} - 返回None", "PinCanvas")
                     
             except Exception as e:
-                print(f"⚠️ [钉图画布] 继承项目失败: {e}")
+                log_warning(f"继承项目失败: {e}", "PinCanvas")
                 import traceback
                 traceback.print_exc()
         
-        print(f"✅ [钉图画布] 成功继承 {inherited_count}/{len(drawing_items)} 个绘制项目")
+        log_info(f"成功继承 {inherited_count}/{len(drawing_items)} 个绘制项目", "PinCanvas")
         
-        # 🔥 打印撤销栈状态
+        # 打印撤销栈状态
         self.undo_stack.print_stack_status()
     
     def _clone_graphics_item(self, item):
@@ -156,11 +159,11 @@ class PinCanvas(QObject):
             elif isinstance(item, NumberItem):
                 return self._clone_number_item(item)
             else:
-                print(f"⚠️ [钉图画布] 不支持的item类型: {item_type}")
+                log_warning(f"不支持的item类型: {item_type}", "PinCanvas")
                 return None
                 
         except Exception as e:
-            print(f"⚠️ [钉图画布] 克隆item失败 ({item_type}): {e}")
+            log_warning(f"克隆item失败 ({item_type}): {e}", "PinCanvas")
             import traceback
             traceback.print_exc()
             return None
@@ -172,20 +175,20 @@ class PinCanvas(QObject):
                 src_pos = source_item.pos()
                 new_pos = QPointF(src_pos.x() + offset_x, src_pos.y() + offset_y)
                 cloned_item.setPos(new_pos)
-        except Exception:
-            pass
+        except Exception as e:
+            log_exception(e, "克隆项设置位置")
 
         try:
             if hasattr(source_item, "zValue") and hasattr(cloned_item, "setZValue"):
                 cloned_item.setZValue(source_item.zValue())
-        except Exception:
-            pass
+        except Exception as e:
+            log_exception(e, "克隆项设置Z值")
 
         try:
             if hasattr(source_item, "opacity") and hasattr(cloned_item, "setOpacity"):
                 cloned_item.setOpacity(float(source_item.opacity()))
-        except Exception:
-            pass
+        except Exception as e:
+            log_exception(e, "克隆项设置透明度")
 
     def _capture_item_state(self, item):
         state = {}
@@ -195,40 +198,40 @@ class PinCanvas(QObject):
         if hasattr(item, "transform"):
             try:
                 state["transform"] = QTransform(item.transform())
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "捕获item transform")
         if hasattr(item, "rotation"):
             try:
                 state["rotation"] = float(item.rotation())
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "捕获item rotation")
         if hasattr(item, "transformOriginPoint"):
             try:
                 origin = item.transformOriginPoint()
                 state["transformOriginPoint"] = QPointF(origin.x(), origin.y())
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "捕获item transformOriginPoint")
         if hasattr(item, "opacity"):
             try:
                 state["opacity"] = float(item.opacity())
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "捕获item opacity")
         if hasattr(item, "rect") and callable(getattr(item, "rect")):
             try:
                 rect = QRectF(item.rect())
                 state["rect"] = rect
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "捕获item rect")
         if hasattr(item, "start_pos"):
             try:
                 state["start"] = QPointF(item.start_pos)
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "捕获item start_pos")
         if hasattr(item, "end_pos"):
             try:
                 state["end"] = QPointF(item.end_pos)
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "捕获item end_pos")
         return state
 
     def _build_final_state(self, source_item, base_state):
@@ -237,26 +240,26 @@ class PinCanvas(QObject):
             if hasattr(source_item, "transformOriginPoint"):
                 origin = source_item.transformOriginPoint()
                 final_state["transformOriginPoint"] = QPointF(origin.x(), origin.y())
-        except Exception:
-            pass
+        except Exception as e:
+            log_exception(e, "构建final state transformOriginPoint")
 
         try:
             if hasattr(source_item, "rotation"):
                 final_state["rotation"] = float(source_item.rotation())
-        except Exception:
-            pass
+        except Exception as e:
+            log_exception(e, "构建final state rotation")
 
         try:
             if hasattr(source_item, "transform"):
                 final_state["transform"] = QTransform(source_item.transform())
-        except Exception:
-            pass
+        except Exception as e:
+            log_exception(e, "构建final state transform")
 
         try:
             if hasattr(source_item, "opacity"):
                 final_state["opacity"] = float(source_item.opacity())
-        except Exception:
-            pass
+        except Exception as e:
+            log_exception(e, "构建final state opacity")
 
         return final_state
 
@@ -380,9 +383,13 @@ class PinCanvas(QObject):
         
         Args:
             region: 变化区域（QList[QRectF]）
+        
+        🌟 新架构：不再触发 parent_window.update()！
+        - PinCanvasView（QGraphicsView）会自动处理场景变化
+        - 无需手动触发窗口重绘
         """
-        # 触发窗口重绘
-        self.parent_window.update()
+        # 🌟 不再调用 parent_window.update()
+        # View 作为 QGraphicsView 会自动响应 scene 变化
         
         # 发出信号（用于外部监听）
         self.commands_changed.emit()
@@ -397,16 +404,16 @@ class PinCanvas(QObject):
             painter: QPainter 对象（来自 paintEvent）
             target_rect: 目标矩形（窗口坐标，可以是 QRect 或 QRectF）
         
-        🔥 直接使用 QGraphicsScene.render()，自动处理所有图层
+        直接使用 QGraphicsScene.render()，自动处理所有图层
         """
         # 保存 painter 状态
         painter.save()
         
-        # 🔥 转换为 QRectF（scene.render() 需要 QRectF）
+        # 转换为 QRectF（scene.render() 需要 QRectF）
         if not isinstance(target_rect, QRectF):
             target_rect = QRectF(target_rect)
         
-        # 🔥 场景渲染：QGraphicsScene 自动渲染所有图层（背景+蒙版+选区+绘图图元）
+        # 场景渲染：QGraphicsScene 自动渲染所有图层（背景+蒙版+选区+绘图图元）
         source_rect = QRectF(0, 0, self.base_size.width(), self.base_size.height())
         self.scene.render(painter, target_rect, source_rect)
         
@@ -422,9 +429,9 @@ class PinCanvas(QObject):
         Args:
             tool_name: 工具名称（pen, rect, arrow, text, highlighter, number, ellipse, cursor）
         
-        🔥 直接使用 tool_controller.activate_tool()
+        直接使用 tool_controller.activate_tool()
         """
-        print(f"🔧 [钉图画布] 激活工具: {tool_name}")
+        log_debug(f"激活工具: {tool_name}", "PinCanvas")
         
         # 映射工具名（兼容性处理）
         tool_map = {
@@ -439,9 +446,8 @@ class PinCanvas(QObject):
         }
         
         mapped_tool = tool_map.get(tool_name, tool_name)
-        
         try:
-            # 🔥 直接调用 tool_controller
+            # 直接调用 tool_controller
             self.tool_controller.activate_tool(mapped_tool)
             editing_mode = mapped_tool != "cursor"
             self.is_editing = editing_mode
@@ -449,9 +455,9 @@ class PinCanvas(QObject):
             self._is_drawing = False
             if getattr(self.parent_window, 'toolbar', None):
                 self.parent_window.toolbar.on_parent_editing_state_changed(editing_mode)
-            print(f"✅ [钉图画布] 工具激活成功: {mapped_tool}")
+            log_debug(f"工具激活成功: {mapped_tool}", "PinCanvas")
         except Exception as e:
-            print(f"❌ [钉图画布] 工具激活失败: {e}")
+            log_error(f"工具激活失败: {e}", "PinCanvas")
             import traceback
             traceback.print_exc()
             self.is_editing = False
@@ -461,13 +467,13 @@ class PinCanvas(QObject):
     
     def deactivate_tool(self):
         """退出编辑模式"""
-        print("🔧 [钉图画布] 退出编辑模式")
+        log_debug("退出编辑模式", "PinCanvas")
         
-        # 🔥 切换到 cursor 工具（默认工具）
+        # 切换到 cursor 工具（默认工具）
         # 在清理阶段，如果scene已经被清理，跳过工具切换
         if self.scene and not self.scene.items():
             # Scene已被清理，直接重置状态
-            print("⚠️ [钉图画布] Scene已清理，跳过工具切换")
+            log_debug("Scene已清理，跳过工具切换", "PinCanvas")
             self.is_editing = False
             self._is_drawing = False
             self.parent_window._is_editing = False
@@ -476,7 +482,7 @@ class PinCanvas(QObject):
         try:
             self.tool_controller.activate_tool("cursor")
         except RuntimeError as e:
-            print(f"⚠️ [钉图画布] 工具切换失败（可能正在清理）: {e}")
+            log_debug(f"工具切换失败（可能正在清理）: {e}", "PinCanvas")
         
         self.is_editing = False
         self._is_drawing = False
@@ -501,7 +507,7 @@ class PinCanvas(QObject):
         """
         处理鼠标按下事件（编辑模式）
         
-        🔥 CanvasView 自动处理鼠标事件，这里不需要实现
+        CanvasView 自动处理鼠标事件，这里不需要实现
         但为了兼容 PinWindow 的调用，返回 True 阻止拖动
         """
         if not self.is_editing:
@@ -511,7 +517,7 @@ class PinCanvas(QObject):
         self.tool_controller.on_press(scene_pos, event.button())
         if event.button() == Qt.MouseButton.LeftButton:
             self._is_drawing = True
-        print(f"🖱️ [钉图画布] 鼠标按下（编辑模式）")
+        log_debug("鼠标按下（编辑模式）", "PinCanvas")
         return True  # 阻止拖动
     
     def handle_mouse_move(self, event):
@@ -533,7 +539,7 @@ class PinCanvas(QObject):
         scene_pos = self._map_window_pos_to_scene(event.position())
         self.tool_controller.on_release(scene_pos)
         self._is_drawing = False
-        print(f"🖱️ [钉图画布] 鼠标释放（编辑模式）")
+        log_debug("鼠标释放（编辑模式）", "PinCanvas")
         return True  # 阻止拖动
     
     # ==================== 样式管理方法 ====================
@@ -572,7 +578,7 @@ class PinCanvas(QObject):
         image.fill(Qt.GlobalColor.transparent)
         image.setDevicePixelRatio(dpr)
         
-        # 🔥 渲染场景
+        # 渲染场景
         painter = QPainter(image)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
@@ -600,7 +606,7 @@ class PinCanvas(QObject):
     
     def cleanup(self):
         """清理资源"""
-        print("🧹 [钉图画布] 清理资源...")
+        log_debug("清理资源...", "PinCanvas")
         
         # 先退出编辑模式（此时scene还存在）
         self.deactivate_tool()
@@ -611,7 +617,7 @@ class PinCanvas(QObject):
             self.scene.deleteLater()
             self.scene = None
         
-        print("✅ [钉图画布] 资源清理完成")
+        log_info("资源清理完成", "PinCanvas")
 
     def invalidate_cache(self):
         """兼容 PinWindow 调用，强制场景重绘"""

@@ -5,6 +5,7 @@
 from PyQt6.QtCore import Qt, QPoint, QTimer
 from PyQt6.QtWidgets import QApplication, QWidget
 from ui.toolbar import Toolbar
+from core import log_debug
 
 
 class PinToolbar(Toolbar):
@@ -197,8 +198,8 @@ class PinToolbar(Toolbar):
         toolbar_width = self.width()
         toolbar_height = self.height()
         
-        # 间距设为负值，让工具栏向上偏移，重叠到钉图窗口边缘上方
-        spacing = -7
+        # 间距
+        spacing = 2
         
         # 🔥 优先方案：钉图窗口下方，右对齐
         below_y = pin_pos.y() + pin_size.height() + spacing
@@ -251,14 +252,14 @@ class PinToolbar(Toolbar):
         super().enterEvent(event)
         if self.auto_hide_timer.isActive():
             self.auto_hide_timer.stop()
-            print("⏸️ [钉图工具栏] 鼠标进入，停止自动隐藏")
+            log_debug("鼠标进入，停止自动隐藏", "PinToolbar")
     
     def leaveEvent(self, event):
         """鼠标离开工具栏，启动自动隐藏定时器"""
         super().leaveEvent(event)
         if self._should_auto_hide():
             self.auto_hide_timer.start()
-            print("▶️ [钉图工具栏] 鼠标离开，启动自动隐藏定时器（2秒后隐藏）")
+            log_debug("鼠标离开，启动自动隐藏定时器（2秒后隐藏）", "PinToolbar")
     
     def _auto_hide(self):
         """自动隐藏工具栏"""
@@ -271,7 +272,7 @@ class PinToolbar(Toolbar):
             return
         
         self.hide()
-        print("🙈 [钉图工具栏] 自动隐藏")
+        log_debug("自动隐藏", "PinToolbar")
     
     def enable_auto_hide(self, enabled: bool = True):
         """
@@ -288,7 +289,7 @@ class PinToolbar(Toolbar):
             # 禁用时停止定时器
             self.auto_hide_timer.stop()
         
-        print(f"⏰ [钉图工具栏] 自动隐藏: {'启用' if enabled else '禁用'}")
+        log_debug(f"自动隐藏: {'启用' if enabled else '禁用'}", "PinToolbar")
     
     def set_auto_hide_delay(self, milliseconds: int):
         """
@@ -298,7 +299,7 @@ class PinToolbar(Toolbar):
             milliseconds: 延迟毫秒数
         """
         self.auto_hide_timer.setInterval(milliseconds)
-        print(f"⏰ [钉图工具栏] 自动隐藏延迟设置为: {milliseconds}ms")
+        log_debug(f"自动隐藏延迟设置为: {milliseconds}ms", "PinToolbar")
     
     def sync_with_pin_window(self):
         """
@@ -347,6 +348,7 @@ if __name__ == "__main__":
     import sys
     from PyQt6.QtWidgets import QApplication, QWidget, QLabel
     from PyQt6.QtGui import QPixmap
+    from core import log_debug
     
     app = QApplication(sys.argv)
     

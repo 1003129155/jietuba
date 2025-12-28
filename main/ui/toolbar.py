@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QApplication, QColorDialog
 )
 from core.resource_manager import ResourceManager
+from core import log_debug
 
 def resource_path(relative_path):
     """获取资源文件路径（兼容函数）"""
@@ -28,6 +29,7 @@ class Toolbar(QWidget):
     undo_clicked = pyqtSignal()  # 撤销
     redo_clicked = pyqtSignal()  # 重做
     long_screenshot_clicked = pyqtSignal()  # 长截图按钮
+    screenshot_translate_clicked = pyqtSignal()  # 截图翻译按钮
     color_changed = pyqtSignal(QColor)  # 颜色改变
     stroke_width_changed = pyqtSignal(int)  # 线宽改变
     opacity_changed = pyqtSignal(int)  # 透明度改变(0-255)
@@ -77,7 +79,7 @@ class Toolbar(QWidget):
         # 0. 长截图按钮（放在最左边）
         self.long_screenshot_btn = QPushButton(self)
         self.long_screenshot_btn.setGeometry(left_x, 0, 50, btn_height)
-        self.long_screenshot_btn.setToolTip('長スクリーンショット（スクロール）')
+        self.long_screenshot_btn.setToolTip(self.tr('Long screenshot (scroll)'))
         self.long_screenshot_btn.setIcon(QIcon(resource_path("svg/长截图.svg")))
         self.long_screenshot_btn.setIconSize(QSize(36, 36))
         self.long_screenshot_btn.clicked.connect(self.long_screenshot_clicked.emit)
@@ -86,16 +88,25 @@ class Toolbar(QWidget):
         # 1. 保存按钮
         self.save_btn = QPushButton(self)
         self.save_btn.setGeometry(left_x, 0, 50, btn_height)
-        self.save_btn.setToolTip('ファイルに保存')
+        self.save_btn.setToolTip(self.tr('Save to file'))
         self.save_btn.setIcon(QIcon(resource_path("svg/下载.svg")))
         self.save_btn.setIconSize(QSize(36, 36))
         self.save_btn.clicked.connect(self.save_clicked.emit)
         left_x += 50
         
+        # 1.5 截图翻译按钮（保存按钮右侧）
+        self.screenshot_translate_btn = QPushButton(self)
+        self.screenshot_translate_btn.setGeometry(left_x, 0, 50, btn_height)
+        self.screenshot_translate_btn.setToolTip(self.tr('Screenshot translate (OCR + Translate)'))
+        self.screenshot_translate_btn.setIcon(QIcon(resource_path("svg/翻译.svg")))
+        self.screenshot_translate_btn.setIconSize(QSize(36, 36))
+        self.screenshot_translate_btn.clicked.connect(self.screenshot_translate_clicked.emit)
+        left_x += 50
+        
         # 2. 复制按钮（暂时隐藏在截图模式）
         self.copy_btn = QPushButton(self)
         self.copy_btn.setGeometry(left_x, 0, 50, btn_height)
-        self.copy_btn.setToolTip('画像をコピー')
+        self.copy_btn.setToolTip(self.tr('Copy image'))
         self.copy_btn.setIcon(QIcon(resource_path("svg/copy.svg")))
         self.copy_btn.setIconSize(QSize(36, 36))
         self.copy_btn.clicked.connect(self.copy_clicked.emit)
@@ -105,7 +116,7 @@ class Toolbar(QWidget):
         # 3. 画笔工具
         self.pen_btn = QPushButton(self)
         self.pen_btn.setGeometry(left_x, 0, btn_width, btn_height)
-        self.pen_btn.setToolTip('ペンツール (Shiftキー押しながらで直線)')
+        self.pen_btn.setToolTip(self.tr('Pen tool (hold Shift for straight line)'))
         self.pen_btn.setIcon(QIcon(resource_path("svg/画笔.svg")))
         self.pen_btn.setIconSize(QSize(32, 32))
         self.pen_btn.setCheckable(True)
@@ -116,7 +127,7 @@ class Toolbar(QWidget):
         # 4. 荧光笔工具
         self.highlighter_btn = QPushButton(self)
         self.highlighter_btn.setGeometry(left_x, 0, btn_width, btn_height)
-        self.highlighter_btn.setToolTip('蛍光ペン (Shiftキー押しながらで直線)')
+        self.highlighter_btn.setToolTip(self.tr('Highlighter (hold Shift for straight line)'))
         self.highlighter_btn.setIcon(QIcon(resource_path("svg/荧光笔.svg")))
         self.highlighter_btn.setIconSize(QSize(32, 32))
         self.highlighter_btn.setCheckable(True)
@@ -126,7 +137,7 @@ class Toolbar(QWidget):
         # 5. 箭头工具
         self.arrow_btn = QPushButton(self)
         self.arrow_btn.setGeometry(left_x, 0, btn_width, btn_height)
-        self.arrow_btn.setToolTip('矢印を描画')
+        self.arrow_btn.setToolTip(self.tr('Draw arrow'))
         self.arrow_btn.setIcon(QIcon(resource_path("svg/箭头.svg")))
         self.arrow_btn.setIconSize(QSize(32, 32))
         self.arrow_btn.setCheckable(True)
@@ -136,7 +147,7 @@ class Toolbar(QWidget):
         # 6. 序号工具
         self.number_btn = QPushButton(self)
         self.number_btn.setGeometry(left_x, 0, btn_width, btn_height)
-        self.number_btn.setToolTip('番号を追加 (クリックで自動採番)')
+        self.number_btn.setToolTip(self.tr('Number (Shift+scroll to change number)'))
         self.number_btn.setIcon(QIcon(resource_path("svg/序号.svg")))
         self.number_btn.setIconSize(QSize(32, 32))
         self.number_btn.setCheckable(True)
@@ -146,7 +157,7 @@ class Toolbar(QWidget):
         # 7. 矩形工具
         self.rect_btn = QPushButton(self)
         self.rect_btn.setGeometry(left_x, 0, btn_width, btn_height)
-        self.rect_btn.setToolTip('矩形を描画')
+        self.rect_btn.setToolTip(self.tr('Draw rectangle'))
         self.rect_btn.setIcon(QIcon(resource_path("svg/方框.svg")))
         self.rect_btn.setIconSize(QSize(32, 32))
         self.rect_btn.setCheckable(True)
@@ -156,7 +167,7 @@ class Toolbar(QWidget):
         # 8. 圆形工具
         self.ellipse_btn = QPushButton(self)
         self.ellipse_btn.setGeometry(left_x, 0, btn_width, btn_height)
-        self.ellipse_btn.setToolTip('円を描画')
+        self.ellipse_btn.setToolTip(self.tr('Draw ellipse'))
         self.ellipse_btn.setIcon(QIcon(resource_path("svg/圆框.svg")))
         self.ellipse_btn.setIconSize(QSize(32, 32))
         self.ellipse_btn.setCheckable(True)
@@ -166,7 +177,7 @@ class Toolbar(QWidget):
         # 9. 文字工具
         self.text_btn = QPushButton(self)
         self.text_btn.setGeometry(left_x, 0, btn_width, btn_height)
-        self.text_btn.setToolTip('テキストを追加')
+        self.text_btn.setToolTip(self.tr('Add text'))
         self.text_btn.setIcon(QIcon(resource_path("svg/文字.svg")))
         self.text_btn.setIconSize(QSize(32, 32))
         self.text_btn.setCheckable(True)
@@ -176,7 +187,7 @@ class Toolbar(QWidget):
         # 10. 橡皮擦工具
         self.eraser_btn = QPushButton(self)
         self.eraser_btn.setGeometry(left_x, 0, btn_width, btn_height)
-        self.eraser_btn.setToolTip('消しゴムツール')
+        self.eraser_btn.setToolTip(self.tr('Eraser tool'))
         self.eraser_btn.setIcon(QIcon(resource_path("svg/橡皮.svg")))
         self.eraser_btn.setIconSize(QSize(28, 28))
         self.eraser_btn.setCheckable(True)
@@ -186,7 +197,7 @@ class Toolbar(QWidget):
         # 11. 撤销按钮
         self.undo_btn = QPushButton(self)
         self.undo_btn.setGeometry(left_x, 0, btn_width, btn_height)
-        self.undo_btn.setToolTip('元に戻す')
+        self.undo_btn.setToolTip(self.tr('Undo'))
         self.undo_btn.setIcon(QIcon(resource_path("svg/撤回.svg")))
         self.undo_btn.setIconSize(QSize(32, 32))
         self.undo_btn.clicked.connect(self.undo_clicked.emit)
@@ -195,7 +206,7 @@ class Toolbar(QWidget):
         # 12. 重做按钮
         self.redo_btn = QPushButton(self)
         self.redo_btn.setGeometry(left_x, 0, btn_width, btn_height)
-        self.redo_btn.setToolTip('やり直す')
+        self.redo_btn.setToolTip(self.tr('Redo'))
         self.redo_btn.setIcon(QIcon(resource_path("svg/复原.svg")))
         self.redo_btn.setIconSize(QSize(32, 32))
         self.redo_btn.clicked.connect(self.redo_clicked.emit)
@@ -205,10 +216,10 @@ class Toolbar(QWidget):
         right_buttons_width = 50 + 50  # 钉图按钮50 + 确定按钮50
         toolbar_total_width = left_x + 20 + right_buttons_width  # 增加间隔到20px，避免按钮重叠
         
-        # 钉图按钮（确定按钮左边，右边数第二个）
+        # 钉图按钮（确定按钮左边）
         self.pin_btn = QPushButton(self)
         self.pin_btn.setGeometry(toolbar_total_width - 100, 0, 50, btn_height)
-        self.pin_btn.setToolTip('画像を固定 (ピン)')
+        self.pin_btn.setToolTip(self.tr('Pin image'))
         self.pin_btn.setIcon(QIcon(resource_path("svg/钉图.svg")))
         self.pin_btn.setIconSize(QSize(36, 36))
         self.pin_btn.clicked.connect(self.pin_clicked.emit)
@@ -216,7 +227,7 @@ class Toolbar(QWidget):
         # 确定按钮(吸附最右边)
         self.confirm_btn = QPushButton(self)
         self.confirm_btn.setGeometry(toolbar_total_width - 50, 0, 50, btn_height)
-        self.confirm_btn.setToolTip('確定して保存')
+        self.confirm_btn.setToolTip(self.tr('Confirm and save'))
         self.confirm_btn.setIcon(QIcon(resource_path("svg/确定.svg")))
         self.confirm_btn.setIconSize(QSize(36, 36))
         self.confirm_btn.clicked.connect(self.confirm_clicked.emit)
@@ -339,13 +350,14 @@ class Toolbar(QWidget):
         # 连接信号
         self.number_panel.color_changed.connect(self._on_panel_color_changed)
         self.number_panel.size_changed.connect(self._on_panel_size_changed)
+        self.number_panel.opacity_changed.connect(self._on_panel_opacity_changed)
         self.number_panel.hide()
         
         # === 5. 文字设置面板 (text) ===
         self.text_panel = TextSettingsPanel(parent)
 
         # === 5. 文字设置面板 (text) ===
-        print("📝 [Toolbar] 创建文字设置面板...")
+        log_debug("创建文字设置面板", "Toolbar")
         self.text_panel = TextSettingsPanel(parent)
         self.text_panel.setWindowFlags(flags)
         if parent is None:
@@ -452,12 +464,12 @@ class Toolbar(QWidget):
         
     def _on_panel_size_changed(self, size):
         """面板大小改变"""
-        print(f"[Toolbar] panel size_changed -> {size}")
+        log_debug(f"panel size_changed -> {size}", "Toolbar")
         self.stroke_width_changed.emit(size)
         
     def _on_panel_opacity_changed(self, opacity):
         """面板透明度改变"""
-        print(f"[Toolbar] panel opacity_changed -> {opacity}")
+        log_debug(f"panel opacity_changed -> {opacity}", "Toolbar")
         self.opacity_changed.emit(opacity)
     
     def _on_text_font_changed(self, font):
@@ -522,6 +534,8 @@ class Toolbar(QWidget):
             self.shape_panel.set_opacity(opacity_255)
         if hasattr(self, 'arrow_panel'):
             self.arrow_panel.set_opacity(opacity_255)
+        if hasattr(self, 'number_panel'):
+            self.number_panel.set_opacity(opacity_255)
     
     
     def position_near_rect(self, rect: QRectF, parent_widget=None):

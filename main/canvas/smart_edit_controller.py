@@ -242,7 +242,7 @@ class SmartEditController(QObject):
             scene_pos: 场景坐标
             
         Returns:
-            bool - 是否处理了事件
+            bool - 是否悬停在可编辑图元上
         """
         items = self.scene.items(scene_pos)
         drawable_items = [
@@ -256,19 +256,17 @@ class SmartEditController(QObject):
                 if self.hovered_item != item:
                     self.hovered_item = item
                     self.hover_changed.emit(item)
-                    self.cursor_change_request.emit("cross")
+                    # 不再发射 cursor_change_request 信号，由 view.py 直接设置光标
                 return True
             else:
                 if self.hovered_item:
                     self.hovered_item = None
                     self.hover_changed.emit(None)
-                    self.cursor_change_request.emit("default")
                 return False
 
         if self.hovered_item:
             self.hovered_item = None
             self.hover_changed.emit(None)
-            self.cursor_change_request.emit("default")
 
         return False
     

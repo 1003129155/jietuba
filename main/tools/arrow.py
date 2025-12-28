@@ -7,6 +7,7 @@ from PyQt6.QtGui import QPen
 from .base import Tool, ToolContext, color_with_opacity
 from canvas.items import ArrowItem
 from canvas.undo import AddItemCommand
+from core import log_debug
 
 
 class ArrowTool(Tool):
@@ -34,7 +35,7 @@ class ArrowTool(Tool):
             self.current_item = ArrowItem(pos, pos, pen)
             ctx.scene.addItem(self.current_item)
             
-            print(f"[ArrowTool] 开始绘制: {pos}")
+            log_debug(f"开始绘制: {pos}", "ArrowTool")
     
     def on_move(self, pos: QPointF, ctx: ToolContext):
         if self.drawing and self.current_item:
@@ -53,7 +54,7 @@ class ArrowTool(Tool):
                     # 长度过短，取消绘制
                     ctx.scene.removeItem(self.current_item)
                     self.current_item = None
-                    print(f"[ArrowTool] 绘制取消：长度过短 ({length:.1f} < {self.MIN_LENGTH})")
+                    log_debug(f"绘制取消：长度过短 ({length:.1f} < {self.MIN_LENGTH})", "ArrowTool")
                     return
                 
                 ctx.scene.removeItem(self.current_item)
@@ -69,4 +70,4 @@ class ArrowTool(Tool):
                     if hasattr(ctx.scene.view, 'smart_edit_controller'):
                         ctx.scene.view.smart_edit_controller.select_item(item_to_select, auto_select=True)
             
-            print(f"[ArrowTool] 完成绘制")
+            log_debug("完成绘制", "ArrowTool")

@@ -15,6 +15,8 @@ from PyQt6.QtWidgets import QWidget, QApplication
 from PyQt6.QtCore import Qt, QRect, QPoint, QRectF, pyqtSignal, QEvent
 from PyQt6.QtGui import QPainter, QPen, QColor, QBrush, QCursor, QFont, QFontMetrics
 from typing import List, Dict, Optional, Tuple
+from core import log_info, log_debug
+from core.logger import log_exception
 
 
 class OCRTextItem:
@@ -113,24 +115,23 @@ class OCRTextLayer(QWidget):
     def __init__(self, parent=None, original_width: int = 100, original_height: int = 100):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        # 🔥 关键修复：初始不透传，让鼠标事件能进入控件，然后在事件处理中判断是否需要透传
-        # self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)  # ❌ 这会导致无法获取焦点
+        # 初始不透传，让鼠标事件能进入控件，然后在事件处理中判断是否需要透传
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self._event_filter_target = None
         
-        # 🔥 添加透传状态标志（避免频繁设置属性）
+        # 透传状态标志（避免频繁设置属性）
         self._is_transparent = False
         
         parent_widget = parent if isinstance(parent, QWidget) else None
         if parent_widget:
             parent_widget.installEventFilter(self)
             self._event_filter_target = parent_widget
-            print(f"🔧 [OCR层] 已安装事件过滤器到父窗口: {parent_widget.__class__.__name__}")
+            log_debug(f"已安装事件过滤器到父窗口: {parent_widget.__class__.__name__}", "OCR层")
             try:
                 parent_widget.destroyed.connect(self._detach_event_filter)
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "连接destroyed信号")
         
         # 原始图像尺寸
         self.original_width = original_width
@@ -157,8 +158,8 @@ class OCRTextLayer(QWidget):
         if target:
             try:
                 target.removeEventFilter(self)
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "移除事件过滤器")
         self._event_filter_target = None
 
     def _is_active(self) -> bool:
@@ -218,12 +219,6 @@ class OCRTextLayer(QWidget):
             if item.contains(pos, scale_x, scale_y, self.original_width, self.original_height):
                 return True
         return False
-
-    def _sort_items_by_position(self):
-        """按 y 再 x 排序，保持与显示一致的顺序，便于跨行选择"""
-        if not self.text_items:
-            return
-        self.text_items.sort(key=lambda it: (it.norm_rect.y(), it.norm_rect.x()))
     
     def set_enabled(self, enabled: bool):
         """设置是否启用（绘画模式时设置为 False）"""
@@ -259,8 +254,7 @@ class OCRTextLayer(QWidget):
             if text and box is not None and len(box) > 0:
                 self.text_items.append(OCRTextItem(text, box, score))
 
-        # 按行自上而下排序，确保多行选择顺序正确
-        self._sort_items_by_position()
+        # OCR 模块已按阅读顺序排序，无需再次排序
         
         # 预计算字符位置
         self.recalculate_char_positions()
@@ -277,6 +271,66 @@ class OCRTextLayer(QWidget):
         scale_x = self.width() / self.original_width
         scale_y = self.height() / self.original_height
         return (scale_x, scale_y)
+    
+    def get_all_text(self, separator: str = "\n") -> str:
+        """
+        获取所有识别的文字（按阅读顺序拼接，同行合并）
+        
+        Args:
+            separator: 行之间的分隔符，默认换行
+            
+        Returns:
+            str: 所有识别的文字（同一行用空格连接，不同行用 separator 分隔）
+        """
+        if not self.text_items:
+            return ""
+        
+        # 按行分组（使用行高容差判断是否同一行）
+        if len(self.text_items) <= 1:
+            return self.text_items[0].text if self.text_items else ""
+        
+        # 收集每个文字块的位置信息
+        items_with_pos = []
+        for item in self.text_items:
+            center_y = item.norm_rect.y() + item.norm_rect.height() / 2
+            height = item.norm_rect.height()
+            items_with_pos.append({
+                'item': item,
+                'center_y': center_y,
+                'height': height
+            })
+        
+        # 计算行高容差
+        avg_height = sum(b['height'] for b in items_with_pos) / len(items_with_pos)
+        line_tolerance = avg_height * 0.5
+        
+        # 分行（文字块已按阅读顺序排列）
+        lines = []
+        current_line = []
+        current_line_y = None
+        
+        for block in items_with_pos:
+            if current_line_y is None:
+                current_line = [block['item'].text]
+                current_line_y = block['center_y']
+            elif abs(block['center_y'] - current_line_y) <= line_tolerance:
+                # 同一行，用空格连接
+                current_line.append(block['item'].text)
+            else:
+                # 新的一行
+                lines.append(" ".join(current_line))
+                current_line = [block['item'].text]
+                current_line_y = block['center_y']
+        
+        # 别忘了最后一行
+        if current_line:
+            lines.append(" ".join(current_line))
+        
+        return separator.join(lines)
+    
+    def has_text(self) -> bool:
+        """检查是否有识别到的文字"""
+        return bool(self.text_items)
     
     def clear_selection(self):
         """清除选择"""
@@ -407,7 +461,7 @@ class OCRTextLayer(QWidget):
                     event.ignore()  # 让按钮处理
                     return
         
-        # 🔥 关键：检查是否点击在文字上
+        # 检查是否点击在文字上
         item_idx, char_idx = self._get_char_at_pos(pos, strict=True)
         
         if item_idx is None:
@@ -462,7 +516,7 @@ class OCRTextLayer(QWidget):
         
         pos = event.pos()
         
-        # 🔥 检查是否在父窗口的按钮上
+        # 检查是否在父窗口的按钮上
         on_button = False
         if self.parent():
             # 检查关闭按钮
@@ -495,7 +549,7 @@ class OCRTextLayer(QWidget):
             event.accept()
             return
 
-        # 2. 🔥 动态切换光标（关键！）
+        # 动态切换光标
         on_text = self._is_pos_on_text(pos)
         
         if on_text:
@@ -625,7 +679,7 @@ class OCRTextLayer(QWidget):
             # 复制到剪贴板
             clipboard = QApplication.clipboard()
             clipboard.setText(selected_text)
-            print(f"� [OCR文字层] 已复制: {selected_text[:50]}{'...' if len(selected_text) > 50 else ''}")
+            log_info(f"已复制: {selected_text[:50]}{'...' if len(selected_text) > 50 else ''}", module="OCR文字层")
     
     def keyPressEvent(self, event):
         """键盘事件"""

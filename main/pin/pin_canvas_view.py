@@ -1,50 +1,101 @@
-"""专用于钉图窗口的 CanvasView 封装"""
+"""
+专用于钉图窗口的 CanvasView 封装
 
-from PyQt6.QtCore import Qt
+架构说明：
+- PinCanvasView 是钉图窗口的**唯一内容渲染者**
+- 它直接使用 Qt 的 QGraphicsView 渲染机制（GPU 加速 + 增量更新）
+- 圆角裁剪通过 viewport mask 实现
+- 不再需要 scene.render() 手动渲染
+"""
+
+from PyQt6.QtCore import Qt, QRectF
 from PyQt6.QtWidgets import QFrame
-from PyQt6.QtGui import QPainter
+from PyQt6.QtGui import QPainter, QRegion, QPainterPath
 
 from canvas import CanvasView
+from core import log_debug, log_info
 
 
 class PinCanvasView(CanvasView):
-    """在钉图窗口中复用 CanvasView，并兼顾窗口拖动/缩放"""
+    """
+    钉图画布视图 - 唯一的内容渲染者
+    
+    特点：
+    - 直接显示 CanvasScene 内容（GPU 加速）
+    - 支持圆角裁剪（通过 viewport mask）
+    - 透明背景
+    - 处理窗口拖动和缩放
+    """
 
     def __init__(self, scene, pin_window, pin_canvas):
         super().__init__(scene)
         self.pin_window = pin_window
         self.pin_canvas = pin_canvas
         self._window_dragging = False
+        
+        # 圆角半径（与 ShadowWindow 保持一致）
+        self._corner_radius = 8
 
-        # 细节调整：透明背景、无边框
+        # 透明背景、无边框
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setStyleSheet("background: transparent;")
         
-        # 🔥 启用高质量渲染 - 解决缩放模糊问题
+        # 设置视口背景透明
+        self.viewport().setAutoFillBackground(False)
+        self.setBackgroundBrush(Qt.GlobalColor.transparent)
+        
+        # 🔥 启用高质量渲染
         self.setRenderHints(
             QPainter.RenderHint.Antialiasing |
             QPainter.RenderHint.SmoothPixmapTransform |
             QPainter.RenderHint.TextAntialiasing
         )
         
-        # 🔥 优化视口更新模式
-        self.setViewportUpdateMode(CanvasView.ViewportUpdateMode.FullViewportUpdate)
+        # 🔥 使用智能更新模式（只更新变化区域）
+        self.setViewportUpdateMode(CanvasView.ViewportUpdateMode.MinimalViewportUpdate)
+        
+        log_info("PinCanvasView 创建成功（唯一内容渲染者）", "PinCanvasView")
+    
+    def set_corner_radius(self, radius: float):
+        """设置圆角半径"""
+        self._corner_radius = radius
+        self._update_viewport_mask()
+    
+    def _update_viewport_mask(self):
+        """更新视口的圆角遮罩"""
+        if self._corner_radius <= 0:
+            self.viewport().clearMask()
+            return
+        
+        # 创建圆角矩形路径
+        rect = QRectF(self.viewport().rect())
+        path = QPainterPath()
+        path.addRoundedRect(rect, self._corner_radius, self._corner_radius)
+        
+        # 转换为 QRegion 并设置为遮罩
+        region = QRegion(path.toFillPolygon().toPolygon())
+        self.viewport().setMask(region)
+    
+    def resizeEvent(self, event):
+        """重写 resize 事件，更新圆角遮罩"""
+        super().resizeEvent(event)
+        self._update_viewport_mask()
 
     # ------------------------------------------------------------------
     # 鼠标事件：在非编辑状态下将拖动交给 PinWindow，编辑状态沿用原逻辑
     # ------------------------------------------------------------------
 
     def mousePressEvent(self, event):
-        print(f"🖱️ [PinCanvasView] 鼠标按下: is_editing={self.pin_canvas.is_editing}, 按钮={event.button()}")
+        log_debug(f"鼠标按下: is_editing={self.pin_canvas.is_editing}, 按钮={event.button()}", "PinCanvasView")
         
         if event.button() == Qt.MouseButton.LeftButton and not self.pin_canvas.is_editing:
             self._window_dragging = True
             self.pin_window.start_window_drag(event.globalPosition().toPoint())
             event.accept()
-            print(f"    → 开始拖动窗口")
+            log_debug("开始拖动窗口", "PinCanvasView")
             return
         
-        print(f"    → 调用父类mousePressEvent（截图窗口逻辑）")
+        log_debug("调用父类mousePressEvent（截图窗口逻辑）", "PinCanvasView")
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):

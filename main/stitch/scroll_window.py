@@ -34,7 +34,6 @@ import os
 import time
 import ctypes
 import io
-import builtins
 from ctypes import wintypes
 from datetime import datetime
 from PyQt6.QtWidgets import QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QLabel, QApplication
@@ -64,16 +63,24 @@ from .jietuba_long_stitch_unified import (
 # 长截图调试日志控制 - 使用新架构的配置
 from settings import get_tool_settings_manager
 from core.save import SaveService
+from core import log_debug, log_info, log_warning, log_error
+from core.logger import log_exception
+
 _config = get_tool_settings_manager()
 _LONG_STITCH_DEBUG_ENABLED = False
 del _config
 
-_BUILTIN_PRINT = builtins.print
+_MODULE_TAG = "长截图"
 
 def _long_stitch_print(*args, force: bool = False, **kwargs):
-    """根据调试开关决定是否输出日志"""
-    if _LONG_STITCH_DEBUG_ENABLED or force:
-        _BUILTIN_PRINT(*args, **kwargs)
+    """根据调试开关决定是否输出日志，使用统一日志系统"""
+    # force=True 映射到 INFO 级别（始终显示）
+    # force=False 映射到 DEBUG 级别（仅调试时显示）
+    message = " ".join(str(arg) for arg in args)
+    if force:
+        log_info(message, module=_MODULE_TAG)
+    elif _LONG_STITCH_DEBUG_ENABLED:
+        log_debug(message, module=_MODULE_TAG)
 
 
 def set_long_stitch_debug_enabled(enabled: bool):
@@ -247,12 +254,12 @@ class FloatingToolbar(QWidget):
             padding: 0 5px;
         """)
         left_handle.setCursor(Qt.CursorShape.SizeHorCursor)
-        left_handle.setToolTip("ドラッグして移動")
+        left_handle.setToolTip(self.tr("Drag to move"))
         toolbar_layout.addWidget(left_handle)
         self.left_handle = left_handle
         
         # 方向切换按钮
-        self.direction_btn = QPushButton("↕️ 縦")
+        self.direction_btn = QPushButton("↕️ " + self.tr("Vertical"))
         self.direction_btn.setStyleSheet("""
             QPushButton {
                 background-color: #2196F3;
@@ -272,14 +279,14 @@ class FloatingToolbar(QWidget):
         toolbar_layout.addWidget(self.direction_btn)
         
         # 提示文字标签
-        self.tip_label = QLabel("上から下へゆっくりスクロール")
+        self.tip_label = QLabel(self.tr("Scroll slowly from top to bottom"))
         self.tip_label.setStyleSheet("color: #FFD700; font-size: 8pt; font-weight: bold;")
         toolbar_layout.addWidget(self.tip_label)
         
         toolbar_layout.addStretch()
         
         # 截图计数标签
-        self.count_label = QLabel("スクショ: 0 枚")
+        self.count_label = QLabel(self.tr("Screenshots: 0"))
         self.count_label.setStyleSheet("""
             color: white; 
             font-size: 9pt;
@@ -288,12 +295,12 @@ class FloatingToolbar(QWidget):
             background-color: rgba(255, 255, 255, 0.1);
         """)
         self.count_label.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.count_label.setToolTip("クリックして手動でスクリーンショット")
+        self.count_label.setToolTip(self.tr("Click to take screenshot manually"))
         self.count_label.mousePressEvent = lambda event: self._on_count_label_clicked(event)
         toolbar_layout.addWidget(self.count_label)
         
         # 完成按钮
-        self.finish_btn = QPushButton("完了")
+        self.finish_btn = QPushButton(self.tr("Finish"))
         self.finish_btn.setStyleSheet("""
             QPushButton {
                 background-color: #4CAF50;
@@ -313,7 +320,7 @@ class FloatingToolbar(QWidget):
         toolbar_layout.addWidget(self.finish_btn)
         
         # 取消按钮
-        self.cancel_btn = QPushButton("キャンセル")
+        self.cancel_btn = QPushButton(self.tr("Cancel"))
         self.cancel_btn.setStyleSheet("""
             QPushButton {
                 background-color: #f44336;
@@ -340,7 +347,7 @@ class FloatingToolbar(QWidget):
             padding: 0 5px;
         """)
         right_handle.setCursor(Qt.CursorShape.SizeHorCursor)
-        right_handle.setToolTip("ドラッグして移動")
+        right_handle.setToolTip(self.tr("Drag to move"))
         toolbar_layout.addWidget(right_handle)
         self.right_handle = right_handle
         
@@ -359,16 +366,16 @@ class FloatingToolbar(QWidget):
         
     def update_count(self, count):
         """更新截图计数"""
-        self.count_label.setText(f"スクショ: {count} 枚")
+        self.count_label.setText(self.tr("Screenshots: {count}").replace("{count}", str(count)))
         
     def update_direction(self, direction):
         """更新方向显示"""
         if direction == "horizontal":
-            self.direction_btn.setText("↔️ 横")
-            self.tip_label.setText(" Shift、ボタン")
+            self.direction_btn.setText("↔️ " + self.tr("Horizontal"))
+            self.tip_label.setText(self.tr("Press Shift or click button"))
         else:
-            self.direction_btn.setText("↕️ 縦")
-            self.tip_label.setText(" 上から下へゆっくりスクロール")
+            self.direction_btn.setText("↕️ " + self.tr("Vertical"))
+            self.tip_label.setText(self.tr("Scroll slowly from top to bottom"))
     
     def mousePressEvent(self, event):
         """鼠标按下事件 - 开始拖动或调整大小"""
@@ -731,7 +738,7 @@ class ScrollCaptureWindow(QWidget):
         
         # 设置窗口透明度和背景
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        # ⚠️ 关键修复: 设置关闭时自动销毁，防止内存泄漏
+        # 设置关闭时自动销毁，防止内存泄漏
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         
         # 设置窗口位置和大小（基于截图区域）
@@ -935,8 +942,9 @@ class ScrollCaptureWindow(QWidget):
             display_image = self.stitched_result
             if self.scroll_direction == "horizontal" and screenshot_count >= 2:
                 display_image = display_image.rotate(90, expand=True)
-        elif self.screenshots:
-            display_image = self.screenshots[-1]
+        elif hasattr(self, '_last_screenshot') and self._last_screenshot is not None:
+            # 🔥 内存优化：使用 _last_screenshot 代替直接访问列表
+            display_image = self._last_screenshot
         self.preview_panel.update_preview(
             display_image,
             self.scroll_direction,
@@ -972,8 +980,8 @@ class ScrollCaptureWindow(QWidget):
         if self.screenshots:
             try:
                 self.screenshots.pop()
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "移除失败截图")
         if hasattr(self, 'toolbar') and self.toolbar:
             self.toolbar.update_count(len(self.screenshots))
         self._show_preview_warning(message)
@@ -1111,8 +1119,8 @@ class ScrollCaptureWindow(QWidget):
                 try:
                     if key == keyboard.Key.shift:
                         self.horizontal_scroll_key_pressed = False
-                except:
-                    pass
+                except Exception as e:
+                    log_exception(e, "释放Shift键")
             
             # 创建并启动键盘监听器
             self.keyboard_listener = keyboard.Listener(
@@ -1327,8 +1335,10 @@ class ScrollCaptureWindow(QWidget):
         self._do_capture()
         
         # 为初始截图生成哈希（用于后续去重）
+        # 🔥 内存优化：使用 _last_screenshot 代替直接访问列表
         if len(self.screenshots) > 0 and self.capture_mode == "immediate":
-            self.last_screenshot_hash = self._calculate_image_hash(self.screenshots[0])
+            if hasattr(self, '_last_screenshot') and self._last_screenshot is not None:
+                self.last_screenshot_hash = self._calculate_image_hash(self._last_screenshot)
         
         print(f"   初始截图完成，当前共 {len(self.screenshots)} 张")
     
@@ -1478,8 +1488,18 @@ class ScrollCaptureWindow(QWidget):
             elif self.scroll_direction == "horizontal" and is_first_image:
                 print(f"📸 横向模式：第1张图片不旋转（如果只有1张则无需拼接）")
             
-            # 添加到截图列表（仍保留列表，用于最后的备份）
-            self.screenshots.append(pil_image)
+            # 🔥 内存优化：增量拼接后不保留原始截图，大幅减少内存占用
+            # 只保留截图数量用于计数和回滚检测
+            # 原本：20张截图 × 8MB = 160MB → 现在：仅保留最后一张用于调试
+            self._last_screenshot = pil_image  # 保留最后一张用于调试
+            self._screenshot_count = getattr(self, '_screenshot_count', 0) + 1
+            
+            # 🔥 兼容性：screenshots 列表只保留引用计数，不存储实际图像
+            # 这样 len(self.screenshots) 仍然有效，但不占用大量内存
+            if not hasattr(self, '_screenshots_count_only'):
+                self._screenshots_count_only = True
+                self.screenshots.clear()  # 清空旧数据
+            self.screenshots.append(None)  # 只用于计数
             
             # 🆕 智能拼接策略：会话级别的引擎选择
             screenshot_count = len(self.screenshots)
@@ -1760,9 +1780,7 @@ class ScrollCaptureWindow(QWidget):
             # 创建 QImage (引用 data)
             qimage = QImage(data, width, height, width * 4, QImage.Format.Format_RGBA8888)
             
-            # 复制到剪贴板
-            # ⚠️ 关键修复: 必须使用 copy() 创建深拷贝
-            # 否则 qimage 依赖局部变量 data，函数结束后 data 被回收会导致崩溃
+            # 复制到剪贴板（必须使用 copy() 创建深拷贝，避免 data 被回收后崩溃）
             clipboard = QApplication.clipboard()
             clipboard.setImage(qimage.copy())
             print("📋 长截图已复制到剪贴板")
@@ -1798,8 +1816,18 @@ class ScrollCaptureWindow(QWidget):
                 self.screenshots.clear()
                 self.screenshots = []
             
+            # 🔥 清理内存优化相关的临时变量
+            if hasattr(self, '_last_screenshot'):
+                self._last_screenshot = None
+            if hasattr(self, '_screenshot_count'):
+                self._screenshot_count = 0
+            
             if hasattr(self, 'stitched_result'):
                 self.stitched_result = None
+            
+            # 🔥 强制垃圾回收，立即释放内存
+            import gc
+            gc.collect()
                 
             if self._original_cancel_on_shrink is not None:
                 from .jietuba_long_stitch_unified import config as long_config

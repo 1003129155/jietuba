@@ -26,6 +26,8 @@ from PyQt6.QtCore import QRectF, QPointF
 from PyQt6.QtGui import QUndoStack, QUndoCommand, QTransform
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
+from core import log_debug, log_warning
+from core.logger import log_exception
 
 # ============================================================================
 #  Undo Stack
@@ -43,34 +45,34 @@ class CommandUndoStack(QUndoStack):
     def undo(self):
         """重写 undo：添加调试信息"""
         if self.canUndo():
-            print(f"↩️ [撤销栈] 执行撤销，当前索引: {self.index()}/{self.count()}")
-            print(f"    撤销命令: {self.undoText()}")
+            log_debug(f"执行撤销，当前索引: {self.index()}/{self.count()}", "UndoStack")
+            log_debug(f"撤销命令: {self.undoText()}", "UndoStack")
             super().undo()
-            print(f"    撤销后索引: {self.index()}/{self.count()}")
+            log_debug(f"撤销后索引: {self.index()}/{self.count()}", "UndoStack")
         else:
-            print(f"⚠️ [撤销栈] 无法撤销，栈为空或已到底部 (索引: {self.index()}/{self.count()})")
+            log_debug(f"无法撤销，栈为空或已到底部 (索引: {self.index()}/{self.count()})", "UndoStack")
 
     def redo(self):
         """重写 redo：添加调试信息"""
         if self.canRedo():
-            print(f"↪️ [撤销栈] 执行重做，当前索引: {self.index()}/{self.count()}")
-            print(f"    重做命令: {self.redoText()}")
+            log_debug(f"执行重做，当前索引: {self.index()}/{self.count()}", "UndoStack")
+            log_debug(f"重做命令: {self.redoText()}", "UndoStack")
             super().redo()
-            print(f"    重做后索引: {self.index()}/{self.count()}")
+            log_debug(f"重做后索引: {self.index()}/{self.count()}", "UndoStack")
         else:
-            print(f"⚠️ [撤销栈] 无法重做，已到顶部 (索引: {self.index()}/{self.count()})")
+            log_debug(f"无法重做，已到顶部 (索引: {self.index()}/{self.count()})", "UndoStack")
 
     def print_stack_status(self):
         """打印撤销栈状态"""
-        print("📚 [撤销栈状态]")
-        print(f"    总命令数: {self.count()}")
-        print(f"    当前索引: {self.index()}")
-        print(f"    可撤销: {self.canUndo()}")
-        print(f"    可重做: {self.canRedo()}")
+        log_debug("撤销栈状态", "UndoStack")
+        log_debug(f"总命令数: {self.count()}", "UndoStack")
+        log_debug(f"当前索引: {self.index()}", "UndoStack")
+        log_debug(f"可撤销: {self.canUndo()}", "UndoStack")
+        log_debug(f"可重做: {self.canRedo()}", "UndoStack")
         if self.canUndo():
-            print(f"    下一个撤销: {self.undoText()}")
+            log_debug(f"下一个撤销: {self.undoText()}", "UndoStack")
         if self.canRedo():
-            print(f"    下一个重做: {self.redoText()}")
+            log_debug(f"下一个重做: {self.redoText()}", "UndoStack")
 
 
 # ============================================================================
@@ -198,13 +200,14 @@ class EditItemCommand(QUndoCommand):
         if isinstance(origin, QPointF) and hasattr(self.item, "setTransformOriginPoint"):
             self.item.setTransformOriginPoint(QPointF(origin))
 
+
         # opacity
         opacity = state.get("opacity")
         if isinstance(opacity, (int, float)) and hasattr(self.item, "setOpacity"):
             try:
                 self.item.setOpacity(float(opacity))
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "恢复opacity")
 
         # rect（RectItem/EllipseItem 等）
         rect = state.get("rect")
@@ -214,8 +217,8 @@ class EditItemCommand(QUndoCommand):
             elif hasattr(self.item, "rect"):
                 try:
                     setattr(self.item, "rect", QRectF(rect))
-                except Exception:
-                    pass
+                except Exception as e:
+                    log_exception(e, "恢复rect属性")
 
         # start/end（ArrowItem / 自定义箭头）
         start = state.get("start")
@@ -224,13 +227,13 @@ class EditItemCommand(QUndoCommand):
             if hasattr(self.item, "start"):
                 try:
                     setattr(self.item, "start", QPointF(start))
-                except Exception:
-                    pass
+                except Exception as e:
+                    log_exception(e, "恢复start属性")
             if hasattr(self.item, "start_pos"):
                 try:
                     setattr(self.item, "start_pos", QPointF(start))
-                except Exception:
-                    pass
+                except Exception as e:
+                    log_exception(e, "恢复start_pos属性")
 
         end = state.get("end")
         if isinstance(end, QPointF):
@@ -238,20 +241,20 @@ class EditItemCommand(QUndoCommand):
             if hasattr(self.item, "end"):
                 try:
                     setattr(self.item, "end", QPointF(end))
-                except Exception:
-                    pass
+                except Exception as e:
+                    log_exception(e, "恢复end属性")
             if hasattr(self.item, "end_pos"):
                 try:
                     setattr(self.item, "end_pos", QPointF(end))
-                except Exception:
-                    pass
+                except Exception as e:
+                    log_exception(e, "恢复end_pos属性")
 
         # 如果你的 item 有 update_geometry 之类的，顺便触发
         if hasattr(self.item, "update_geometry") and callable(getattr(self.item, "update_geometry")):
             try:
                 self.item.update_geometry()
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "update_geometry")
 
         # 触发重绘
         if hasattr(self.item, "update"):

@@ -25,12 +25,14 @@ from .ocr_manager import (
     OCRManager,
     is_ocr_available,
     initialize_ocr,
-    recognize_text
+    recognize_text,
+    format_ocr_result_text
 )
 
 __all__ = [
     'OCRManager',
     'is_ocr_available',
     'initialize_ocr',
-    'recognize_text'
+    'recognize_text',
+    'format_ocr_result_text'
 ]

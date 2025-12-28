@@ -259,7 +259,7 @@ class OCRManager:
                 converted_result.append(item)
         
         return converted_result
-    
+
     def _format_result(self, result: list, return_format: str, elapse: float) -> Any:
         """
         格式化 OCR 识别结果
@@ -272,6 +272,8 @@ class OCRManager:
         Returns:
             格式化后的结果
         """
+        # RapidOCR 已按阅读顺序返回结果，无需额外排序
+        
         if return_format == "text":
             # 纯文本格式:拼接所有识别的文字
             texts = [item[1] for item in result if len(item) > 1]
@@ -351,14 +353,42 @@ class OCRManager:
     
     def close(self):
         """关闭 OCR 引擎"""
+        self.release_engine()
+    
+    def release_engine(self):
+        """
+        🔥 内存优化：释放 OCR 引擎，回收约 50-100MB 内存
+        
+        适用场景：
+        - 长时间不使用 OCR 功能时
+        - 内存紧张时主动释放
+        - 钉图窗口关闭后
+        
+        下次调用 recognize_pixmap 时会自动重新初始化
+        """
         if self._ocr_engine:
             try:
-                # RapidOCR 会自动管理资源,无需手动关闭
                 self._ocr_engine = None
                 self._current_language = None
-                print("✅ [OCR] OCR 引擎已关闭")
+                
+                # 🔥 强制触发垃圾回收，立即释放内存
+                import gc
+                gc.collect()
+                
+                print("🗑️ [OCR] 引擎已释放，内存已回收")
             except Exception as e:
-                print(f"⚠️ [OCR] 关闭 OCR 引擎时出错: {e}")
+                print(f"⚠️ [OCR] 释放 OCR 引擎时出错: {e}")
+    
+    def is_engine_loaded(self) -> bool:
+        """检查 OCR 引擎是否已加载（用于判断是否占用内存）"""
+        return self._ocr_engine is not None
+    
+    def get_memory_status(self) -> str:
+        """获取 OCR 引擎内存状态（用于调试）"""
+        if self._ocr_engine:
+            return f"已加载 (语言: {self._current_language})"
+        else:
+            return "未加载（内存已释放）"
 
 
 # 全局单例实例
@@ -392,3 +422,120 @@ def recognize_text(pixmap: QPixmap, **kwargs) -> Any:
         识别结果
     """
     return _ocr_manager.recognize_pixmap(pixmap, **kwargs)
+
+
+def release_ocr_engine():
+    """
+    🔥 内存优化：释放 OCR 引擎，回收内存
+    
+    建议在以下场景调用：
+    - 钉图窗口关闭后
+    - 长时间不使用 OCR 时
+    - 应用切换到后台时
+    """
+    _ocr_manager.release_engine()
+
+
+def get_ocr_memory_status() -> str:
+    """获取 OCR 引擎内存状态"""
+    return _ocr_manager.get_memory_status()
+
+
+def format_ocr_result_text(result: dict, separator: str = "\n") -> str:
+    """
+    格式化 OCR 结果为阅读顺序文本
+    
+    智能处理：
+    - 按 Y 坐标分行（从上到下）
+    - 同一行内按 X 坐标排序（从左到右）
+    - 同行文字用空格连接，不同行用 separator 分隔
+    
+    Args:
+        result: OCR 识别结果（dict 格式，包含 code 和 data 字段）
+        separator: 行之间的分隔符，默认换行
+        
+    Returns:
+        格式化后的文本字符串
+    
+    使用示例:
+        result = recognize_text(pixmap, return_format="dict")
+        text = format_ocr_result_text(result)
+    """
+    if not result or not isinstance(result, dict):
+        return ""
+    
+    if result.get('code') != 100:
+        return ""
+    
+    data = result.get('data', [])
+    if not data:
+        return ""
+    
+    if len(data) == 1:
+        return data[0].get('text', '')
+    
+    # 收集每个文字块的位置信息
+    items_with_pos = []
+    for item in data:
+        box = item.get('box', [])
+        text = item.get('text', '')
+        if not box or not text:
+            continue
+        
+        # box 格式: [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
+        # 计算中心Y和高度
+        y_coords = [pt[1] for pt in box if len(pt) >= 2]
+        if not y_coords:
+            continue
+        
+        min_y = min(y_coords)
+        max_y = max(y_coords)
+        center_y = (min_y + max_y) / 2
+        height = max_y - min_y
+        
+        # 计算左边X（用于同行内排序）
+        x_coords = [pt[0] for pt in box if len(pt) >= 2]
+        left_x = min(x_coords) if x_coords else 0
+        
+        items_with_pos.append({
+            'text': text,
+            'center_y': center_y,
+            'height': height,
+            'left_x': left_x
+        })
+    
+    if not items_with_pos:
+        return ""
+    
+    # 计算行高容差
+    avg_height = sum(b['height'] for b in items_with_pos) / len(items_with_pos)
+    line_tolerance = avg_height * 0.5
+    
+    # 按Y坐标分行
+    lines = []
+    current_line = []
+    current_line_y = None
+    
+    # 先按Y排序（从上到下）
+    items_with_pos.sort(key=lambda x: x['center_y'])
+    
+    for block in items_with_pos:
+        if current_line_y is None:
+            current_line = [block]
+            current_line_y = block['center_y']
+        elif abs(block['center_y'] - current_line_y) <= line_tolerance:
+            # 同一行
+            current_line.append(block)
+        else:
+            # 新的一行：先将当前行按X排序后输出
+            current_line.sort(key=lambda x: x['left_x'])
+            lines.append(" ".join(b['text'] for b in current_line))
+            current_line = [block]
+            current_line_y = block['center_y']
+    
+    # 别忘了最后一行
+    if current_line:
+        current_line.sort(key=lambda x: x['left_x'])
+        lines.append(" ".join(b['text'] for b in current_line))
+    
+    return separator.join(lines)

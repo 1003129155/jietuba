@@ -63,18 +63,12 @@ class Tool:
         pass
     
     def on_activate(self, ctx: ToolContext):
-        """
-        工具激活时调用 - 先加载设置，再设置光标
-        
-        Args:
-            ctx: 工具上下文
-        """
-        # 🔥 关键修复：先加载工具的设置到上下文中，这样设置光标时才能读取到正确的笔触宽度
+        """工具激活时调用 - 先加载设置，再设置光标"""
+        # 先加载工具的设置到上下文中
         if ctx.settings_manager:
             self.load_settings(ctx)
         
-        # 然后设置工具光标（此时 ctx.stroke_width 已经是新工具的值）
-        # 优先尝试从 scene 获取 cursor_manager
+        # 然后设置工具光标
         if hasattr(ctx.scene, 'cursor_manager') and ctx.scene.cursor_manager:
             ctx.scene.cursor_manager.set_tool_cursor(self.id)
         # 兼容旧代码：尝试从 canvas_widget 获取

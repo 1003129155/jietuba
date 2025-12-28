@@ -8,11 +8,6 @@
 3) 拖拽调整几何（默认实现）
 4) 支持撤销：end_drag 返回 old_state / new_state（dict）
 5) render() 直接用 QPainter 画控制点（轻量）
-
-说明：
-- 你可以把 layer 传入 RectLayer / EllipseLayer / MosaicLayer（数据模型）
-- 也可以直接传入 QGraphicsItem（RectItem / EllipseItem / StrokeItem 等）
-- 若 layer 实现了 get_edit_handles / apply_handle_drag，则优先调用 layer 自己的实现
 """
 
 from __future__ import annotations
@@ -27,6 +22,9 @@ from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QTransform, QPixmap, QCursor
 from PyQt6.QtWidgets import QGraphicsTextItem
 from PyQt6.QtSvg import QSvgRenderer
+
+from core import log_debug, log_warning
+from core.logger import log_exception
 
 try:
     # 你项目里的撤销命令
@@ -65,7 +63,7 @@ class EditHandle:
     position: QPointF
     cursor: Union[Qt.CursorShape, QCursor]  # 支持内置光标和自定义光标
     size: int = 8
-    hit_area_padding: int = 8  # 🔥 命中判定扩展区域（增加可点击范围）
+    hit_area_padding: int = 8  # 命中判定扩展区域（增加可点击范围）
 
     def get_rect(self) -> QRectF:
         """获取显示区域（实际绘制大小）"""
@@ -170,7 +168,7 @@ class LayerEditor:
         if not os.path.exists(svg_path):
             # 回退到默认光标
             cls._rotate_cursor = QCursor(Qt.CursorShape.OpenHandCursor)
-            print(f"⚠️ 旋转光标SVG未找到: {svg_path}，使用默认光标")
+            log_warning(f"旋转光标SVG未找到: {svg_path}，使用默认光标", "LayerEditor")
             return
         
         try:
@@ -178,7 +176,7 @@ class LayerEditor:
             renderer = QSvgRenderer(svg_path)
             if not renderer.isValid():
                 cls._rotate_cursor = QCursor(Qt.CursorShape.OpenHandCursor)
-                print(f"⚠️ 旋转光标SVG无效，使用默认光标")
+                log_warning("旋转光标SVG无效，使用默认光标", "LayerEditor")
                 return
             
             # 创建pixmap（23x23像素，与ROTATE_HANDLE_SIZE匹配）
@@ -224,10 +222,10 @@ class LayerEditor:
             
             # 创建光标（热点在中心）
             cls._rotate_cursor = QCursor(outlined_pixmap, size // 2, size // 2)
-            print(f"✅ 旋转光标已加载: {svg_path}")
+            log_debug(f"旋转光标已加载: {svg_path}", "LayerEditor")
         except Exception as e:
             cls._rotate_cursor = QCursor(Qt.CursorShape.OpenHandCursor)
-            print(f"⚠️ 加载旋转光标失败: {e}，使用默认光标")
+            log_warning(f"加载旋转光标失败: {e}，使用默认光标", "LayerEditor")
     
     @classmethod
     def get_rotate_cursor(cls) -> QCursor:
@@ -355,8 +353,8 @@ class LayerEditor:
             try:
                 mapped = layer.mapToScene(QPointF(point))
                 return QPointF(mapped)
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "映射箭头点到场景坐标")
         return QPointF(point)
 
     def _get_scene_rect(self, layer: Any) -> Optional[QRectF]:
@@ -374,8 +372,8 @@ class LayerEditor:
         if hasattr(layer, "sceneBoundingRect") and callable(getattr(layer, "sceneBoundingRect")):
             try:
                 return QRectF(layer.sceneBoundingRect())
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "获取sceneBoundingRect")
 
         # 数据层 rect（RectLayer 等）
         rect_attr = getattr(layer, "rect", None)
@@ -536,7 +534,7 @@ class LayerEditor:
                     elif hasattr(undo_stack, "push"):
                         undo_stack.push(cmd)
             except Exception as exc:
-                print(f"[LayerEditor] push undo failed: {exc}")
+                log_warning(f"push undo failed: {exc}", "LayerEditor")
 
         return old_state, new_state
 
@@ -570,8 +568,8 @@ class LayerEditor:
             if isinstance(layer, StrokeItem):
                 self._apply_stroke_item_drag(layer, handle, delta_scene, keep_ratio)
                 return
-        except Exception:
-            pass
+        except Exception as e:
+            log_exception(e, "导入StrokeItem")
 
         if self._is_arrow_item(layer) and handle.handle_type in (HandleType.ARROW_START, HandleType.ARROW_END):
             self._apply_arrow_item_drag(layer, handle.handle_type, delta_scene, keep_ratio)
@@ -585,7 +583,8 @@ class LayerEditor:
                 p0 = layer.mapFromScene(self.drag_start_pos)  # type: ignore
                 p1 = layer.mapFromScene(self.drag_start_pos + delta_scene)  # type: ignore
                 delta_local = QPointF(p1.x() - p0.x(), p1.y() - p0.y())
-            except Exception:
+            except Exception as e:
+                log_exception(e, "映射scene delta到local")
                 delta_local = delta_scene
 
             new_rect = QRectF(self._base_local_rect)
@@ -602,8 +601,8 @@ class LayerEditor:
             if hasattr(layer, "rect"):
                 try:
                     layer.rect = new_scene.normalized()
-                except Exception:
-                    pass
+                except Exception as e:
+                    log_exception(e, "设置数据层rect")
 
     def _apply_rect_delta(self, rect: QRectF, handle_type: HandleType, delta: QPointF, keep_ratio: bool):
         """对一个 QRectF 应用拖拽 delta（delta 与 rect 同坐标系）"""
@@ -644,18 +643,17 @@ class LayerEditor:
         angle_start = math.degrees(math.atan2(start_vec.y(), start_vec.x()))
         angle_end = math.degrees(math.atan2(end_vec.y(), end_vec.x()))
         delta_angle = angle_end - angle_start
-
         if hasattr(layer, "setRotation") and hasattr(layer, "rotation"):
             base_rot = self._base_rotation if self._base_rotation is not None else float(layer.rotation())
             try:
                 layer.setRotation(base_rot + delta_angle)
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "设置旋转角度")
             if self._rotation_origin_local is not None and hasattr(layer, "setTransformOriginPoint"):
                 try:
                     layer.setTransformOriginPoint(self._rotation_origin_local)
-                except Exception:
-                    pass
+                except Exception as e:
+                    log_exception(e, "设置旋转原点")
             if hasattr(layer, "update"):
                 layer.update()
             return
@@ -668,8 +666,8 @@ class LayerEditor:
         if hasattr(layer, "setTransform"):
             try:
                 layer.setTransform(t * base_transform)
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "设置变换矩阵")
         if hasattr(layer, "update"):
             layer.update()
 
@@ -896,7 +894,7 @@ class LayerEditor:
                     renderer.render(painter, render_rect)
                     return
             except Exception as e:
-                print(f"⚠️ 渲染旋转SVG失败: {e}")
+                log_warning(f"渲染旋转SVG失败: {e}", "LayerEditor")
         
         # 回退：绘制简单的旋转图标
         self._render_rotate_handle_fallback(painter, center, is_hovered)
@@ -949,7 +947,6 @@ class LayerEditor:
         """拷贝图层关键状态（用于撤销/重做）"""
         if not layer:
             return None
-
         state: Dict[str, Any] = {}
 
         # local rect
@@ -962,29 +959,29 @@ class LayerEditor:
             try:
                 p = layer.pos()
                 state["pos"] = QPointF(p.x(), p.y())
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "捕获layer pos")
 
         if hasattr(layer, "transform") and callable(getattr(layer, "transform")):
             try:
                 state["transform"] = QTransform(layer.transform())
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "捕获layer transform")
         
         # 旋转角度（重要！用于旋转手柄的撤销）
         if hasattr(layer, "rotation") and callable(getattr(layer, "rotation")):
             try:
                 state["rotation"] = float(layer.rotation())
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "捕获layer rotation")
         
         # 旋转中心点
         if hasattr(layer, "transformOriginPoint") and callable(getattr(layer, "transformOriginPoint")):
             try:
                 origin = layer.transformOriginPoint()
                 state["transformOriginPoint"] = QPointF(origin.x(), origin.y())
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "捕获layer transformOriginPoint")
 
         start = getattr(layer, "start_pos", None)
         if isinstance(start, QPointF):
@@ -1000,20 +997,19 @@ class LayerEditor:
         """每次 drag_to 前恢复到起始状态，避免累计误差"""
         if not layer:
             return
-
         # transform
         if self._base_transform is not None and hasattr(layer, "setTransform"):
             try:
                 layer.setTransform(QTransform(self._base_transform))
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "恢复layer transform")
 
         # pos
         if self._base_pos is not None and hasattr(layer, "setPos"):
             try:
                 layer.setPos(self._base_pos)
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "恢复layer pos")
 
         # local rect
         if self._base_local_rect is not None:
@@ -1030,8 +1026,8 @@ class LayerEditor:
                     QPointF(self._arrow_base_start_local),
                     QPointF(self._arrow_base_end_local),
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "恢复arrow位置")
 
     # =========================================================================
     #  rect 读写（兼容 QGraphicsItem / 数据层）
@@ -1047,8 +1043,8 @@ class LayerEditor:
             try:
                 r = layer.rect()
                 return QRectF(r) if isinstance(r, QRectF) else None
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "获取layer rect")
 
         # rect 属性（数据层）
         r = getattr(layer, "rect", None)
@@ -1058,19 +1054,18 @@ class LayerEditor:
         """设置 local rect（setRect 优先，否则写 rect 属性）"""
         if not layer or not isinstance(rect, QRectF):
             return
-
         if hasattr(layer, "setRect") and callable(getattr(layer, "setRect")):
             try:
                 layer.setRect(rect)
                 if hasattr(layer, "update"):
                     layer.update()
                 return
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "设置layer rect")
 
         # 数据层属性
         if hasattr(layer, "rect"):
             try:
                 layer.rect = rect
-            except Exception:
-                pass
+            except Exception as e:
+                log_exception(e, "设置layer rect属性")

@@ -7,6 +7,7 @@ from PyQt6.QtGui import QFont
 from .base import Tool, ToolContext
 from canvas.items import TextItem
 from canvas.undo import AddItemCommand
+from core import log_debug
 
 
 class TextTool(Tool):
@@ -60,7 +61,7 @@ class TextTool(Tool):
                 if hasattr(ctx.scene.view, 'smart_edit_controller'):
                     ctx.scene.view.smart_edit_controller.select_item(item, auto_select=True)
             
-            print(f"[TextTool] 创建文字: {pos}")
+            log_debug(f"创建文字: {pos}", "TextTool")
 
     def on_deactivate(self, ctx: ToolContext):
         """工具停用时，清除焦点以触发自动删除空文本"""

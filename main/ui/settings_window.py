@@ -10,6 +10,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, pyqtProperty, pyqtSignal
 from PyQt6.QtGui import QColor, QPainter, QFont, QPen
 
+from core import log_info
+
 # ==========================================
 # 1. UI 组件库 (仿微信/iOS 风格)
 # ==========================================
@@ -17,7 +19,6 @@ from PyQt6.QtGui import QColor, QPainter, QFont, QPen
 class ToggleSwitch(QWidget):
     """自定义仿iOS/微信风格开关"""
     
-    # 🔥 定义 PyQt 信号
     toggled = pyqtSignal(bool)  # 开关状态改变时发射
     
     def __init__(self, parent=None, width=44, height=24, bg_color="#E5E5E5", active_color="#07C160"):
@@ -70,7 +71,6 @@ class ToggleSwitch(QWidget):
         self.anim.setEndValue(self.width() - 21 if self._checked else 3)
         self.anim.start()
         
-        # 🔥 发射 PyQt 信号
         self.toggled.emit(self._checked)
         self.update()
 
@@ -159,7 +159,7 @@ class SettingsDialog(QDialog):
         right_layout.setSpacing(15)
 
         # 标题栏
-        self.content_title = QLabel("ショートカット設定")
+        self.content_title = QLabel(self.tr("Shortcut Settings"))
         self.content_title.setStyleSheet("font-size: 18px; font-weight: bold; margin-bottom: 10px; background-color: transparent;")
         right_layout.addWidget(self.content_title)
 
@@ -170,9 +170,10 @@ class SettingsDialog(QDialog):
         self.content_stack.addWidget(self._create_smart_selection_page())# 2
         self.content_stack.addWidget(self._create_screenshot_save_page())# 3
         self.content_stack.addWidget(self._create_ocr_page())            # 4
-        self.content_stack.addWidget(self._create_log_page())            # 5
-        self.content_stack.addWidget(self._create_misc_page())           # 6
-        self.content_stack.addWidget(self._create_info_page())           # 7
+        self.content_stack.addWidget(self._create_translation_page())    # 5 - 翻译设置
+        self.content_stack.addWidget(self._create_log_page())            # 6
+        self.content_stack.addWidget(self._create_misc_page())           # 7
+        self.content_stack.addWidget(self._create_info_page())           # 8
         right_layout.addWidget(self.content_stack)
         
         # 底部按钮栏
@@ -216,14 +217,15 @@ class SettingsDialog(QDialog):
         """)
 
         items = [
-            "⌨️  ショートカット",
-            "📸  長いスクショ",
-            "🎯  スマート選択",
-            "💾  スクショ保存",
-            "🎯  OCR設定",
-            "📝  ログ設定",
-            "⚙️  その他",
-            "ℹ️  情報"
+            "⌨️  " + self.tr("Shortcuts"),
+            "📸  " + self.tr("Long Screenshot"),
+            "🎯  " + self.tr("Smart Selection"),
+            "💾  " + self.tr("Save Settings"),
+            "🎯  " + self.tr("OCR Settings"),
+            "🌐  " + self.tr("Translation"),
+            "📝  " + self.tr("Log Settings"),
+            "⚙️  " + self.tr("Other"),
+            "ℹ️  " + self.tr("About")
         ]
         for t in items:
             nav_list.addItem(t)
@@ -372,11 +374,11 @@ class SettingsDialog(QDialog):
         
         # 快捷键输入
         row1 = QHBoxLayout()
-        lbl = QLabel("ホットキー")
+        lbl = QLabel(self.tr("Hotkey"))
         lbl.setStyleSheet("background-color: transparent;")
         self.hotkey_input = QLineEdit()
         self.hotkey_input.setText(self.current_hotkey)
-        self.hotkey_input.setPlaceholderText("例: ctrl+shift+a")
+        self.hotkey_input.setPlaceholderText(self.tr("e.g.: ctrl+shift+a"))
         self.hotkey_input.setFixedWidth(200)
         self.hotkey_input.setStyleSheet(self._get_input_style())
         
@@ -389,7 +391,7 @@ class SettingsDialog(QDialog):
         layout.addWidget(card1)
 
         # 提示卡片
-        hint_lbl = QLabel("💡 ヒント: Ctrl, Shift, Alt などの修飾キーと組み合わせて使用できます。")
+        hint_lbl = QLabel(self.tr("💡 Hint: You can use modifier keys like Ctrl, Shift, Alt."))
         hint_lbl.setStyleSheet("color: #888; padding: 5px; background-color: transparent;")
         layout.addWidget(hint_lbl)
         
@@ -411,10 +413,10 @@ class SettingsDialog(QDialog):
         
         # 引擎选择
         row_engine = QHBoxLayout()
-        lbl_eng = QLabel("拼接エンジン")
+        lbl_eng = QLabel(self.tr("Stitching Engine"))
         lbl_eng.setStyleSheet("background-color: transparent;")
         self.engine_combo = QComboBox()
-        self.engine_combo.addItems(["Rustハッシュ値 (推奨)", "Pythonハッシュ値 (デバッグ用)"])
+        self.engine_combo.addItems([self.tr("Rust Hash (Recommended)"), self.tr("Python Hash (Debug)")])
         # 数据映射 (0 -> hash_rust, 1 -> hash_python)
         self.engine_combo.setItemData(0, "hash_rust")
         self.engine_combo.setItemData(1, "hash_python")
@@ -437,9 +439,9 @@ class SettingsDialog(QDialog):
 
         # 滚动冷却时间
         row_cooldown = QHBoxLayout()
-        lbl_cooldown = QLabel("待機時間")
+        lbl_cooldown = QLabel(self.tr("Wait Time"))
         lbl_cooldown.setStyleSheet("background-color: transparent;")
-        lbl_cooldown_desc = QLabel("スクロール後のキャプチャ待機時間 (秒)")
+        lbl_cooldown_desc = QLabel(self.tr("Capture wait time after scroll (seconds)"))
         lbl_cooldown_desc.setStyleSheet("font-size: 12px; color: #888; background-color: transparent;")
         
         self.cooldown_spinbox = QDoubleSpinBox()
@@ -514,8 +516,8 @@ class SettingsDialog(QDialog):
         
         self.smart_toggle = ToggleSwitch()
         row = self._create_toggle_row(
-            "スマート選択を有効にする", 
-            "マウスカーソル位置のUI要素を自動認識します。",
+            self.tr("Enable Smart Selection"), 
+            self.tr("Automatically recognizes UI elements at mouse cursor position."),
             self.config_manager.get_smart_selection(),
             self.smart_toggle
         )
@@ -525,10 +527,10 @@ class SettingsDialog(QDialog):
         
         # 图文说明区域（可以用 QLabel 贴图，这里用文字模拟）
         info_card = QLabel(
-            "💡 使い方:\n\n"
-            "1. キャプチャ時にカーソルをウィンドウ上に移動\n"
-            "2. 自動的に青い枠でエリアがハイライトされます\n"
-            "3. クリックしてその範囲を選択"
+            self.tr("💡 How to use:") + "\n\n" +
+            self.tr("1. Move cursor over window during capture") + "\n" +
+            self.tr("2. Area will be highlighted with blue border automatically") + "\n" +
+            self.tr("3. Click to select that area")
         )
         info_card.setStyleSheet("""
             background-color: #E9F0FD; 
@@ -555,8 +557,8 @@ class SettingsDialog(QDialog):
         # 保存开关
         self.save_toggle = ToggleSwitch()
         row_save = self._create_toggle_row(
-            "スクショを自動保存",
-            "キャプチャ時にファイルとして自動保存します。",
+            self.tr("Auto-save Screenshots"),
+            self.tr("Automatically saves as file when capturing."),
             self.config_manager.get_screenshot_save_enabled(),
             self.save_toggle
         )
@@ -571,7 +573,7 @@ class SettingsDialog(QDialog):
         self.save_path_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
         self.save_path_lbl.setWordWrap(True)
         
-        lbl_title = QLabel("保存フォルダ:")
+        lbl_title = QLabel(self.tr("Save Folder:"))
         lbl_title.setStyleSheet("background-color: transparent;")
         path_layout.addWidget(lbl_title)
         path_layout.addWidget(self.save_path_lbl)
@@ -594,11 +596,11 @@ class SettingsDialog(QDialog):
             QPushButton:hover { background-color: #E6E6E6; }
         """
         
-        btn_change = QPushButton("変更")
+        btn_change = QPushButton(self.tr("Change"))
         btn_change.setStyleSheet(btn_style)
         btn_change.clicked.connect(self._change_save_dir)
         
-        btn_open = QPushButton("開く")
+        btn_open = QPushButton(self.tr("Open"))
         btn_open.setStyleSheet(btn_style)
         btn_open.clicked.connect(self._open_save_dir)
         
@@ -610,7 +612,7 @@ class SettingsDialog(QDialog):
         layout.addWidget(card)
         
         # 提示信息
-        info_lbl = QLabel("💡 ヒント: 自動保存をオフにしても、クリップボードにコピーされます。")
+        info_lbl = QLabel(self.tr("💡 Hint: Even with auto-save off, it will be copied to clipboard."))
         info_lbl.setStyleSheet("color: #888; padding: 5px; background-color: transparent;")
         layout.addWidget(info_lbl)
         
@@ -638,17 +640,17 @@ class SettingsDialog(QDialog):
             warning_icon.setStyleSheet("font-size: 24px; background-color: transparent;")
             warning_header.addWidget(warning_icon)
             
-            warning_title = QLabel("無OCR版本 / OCRモジュールが見つかりません")
+            warning_title = QLabel(self.tr("No OCR Version / OCR module not found"))
             warning_title.setStyleSheet("font-size: 14px; font-weight: bold; color: #2196F3; background-color: transparent;")
             warning_header.addWidget(warning_title)
             warning_header.addStretch()
             warning_layout.addLayout(warning_header)
             
             warning_text = QLabel(
-                "これは無OCRのカジュアルバージョン。\n\n"
-                "OCR機能が必要な場合は、フル版をダウンロードするか、\n"
-                "開発者に問い合わせしてください。:\n"
-                "RI　JYAARU"
+                self.tr("This is a casual version without OCR.") + "\n\n" +
+                self.tr("If you need OCR features, please download the full version,") + "\n" +
+                self.tr("or contact the developer:") + "\n" +
+                "RI JYAARU"
             )
             warning_text.setStyleSheet("font-size: 12px; color: #666; background-color: transparent;")
             warning_text.setWordWrap(True)
@@ -667,8 +669,8 @@ class SettingsDialog(QDialog):
             self.ocr_enable_toggle.setChecked(False)
         
         row_ocr_enable = self._create_toggle_row(
-            "OCR機能を有効化",
-            "ピン留めウィンドウでテキスト認識と選択を有効にします。",
+            self.tr("Enable OCR"),
+            self.tr("Enables text recognition and selection in pinned windows."),
             self.config_manager.get_ocr_enabled() if ocr_files_exist else False,
             self.ocr_enable_toggle
         )
@@ -683,7 +685,7 @@ class SettingsDialog(QDialog):
         lang_icon.setStyleSheet("font-size: 16px; background-color: transparent;")
         lang_layout.addWidget(lang_icon)
         
-        lang_info = QLabel("自動言語認識: 中国語・日本語・英語の混合認識に対応")
+        lang_info = QLabel(self.tr("Auto language detection: Supports Chinese, Japanese, English mixed recognition"))
         lang_info.setStyleSheet("font-size: 12px; color: #666; background-color: transparent;")
         lang_layout.addWidget(lang_info)
         lang_layout.addStretch()
@@ -702,7 +704,7 @@ class SettingsDialog(QDialog):
             self.ocr_grayscale_toggle.setChecked(self.config_manager.get_ocr_grayscale_enabled())
             gray_layout.addWidget(self.ocr_grayscale_toggle)
             
-            gray_label = QLabel("グレースケール変換")
+            gray_label = QLabel(self.tr("Grayscale Conversion"))
             gray_label.setStyleSheet("font-size: 13px; color: #000; background-color: transparent;")
             gray_layout.addWidget(gray_label)
             
@@ -721,7 +723,7 @@ class SettingsDialog(QDialog):
             self.ocr_upscale_toggle.setChecked(self.config_manager.get_ocr_upscale_enabled())
             upscale_layout.addWidget(self.ocr_upscale_toggle)
             
-            upscale_label = QLabel("画像拡大")
+            upscale_label = QLabel(self.tr("Image Upscale"))
             upscale_label.setStyleSheet("font-size: 13px; color: #000; background-color: transparent;")
             upscale_layout.addWidget(upscale_label)
             
@@ -731,7 +733,7 @@ class SettingsDialog(QDialog):
             
             # 放大倍数 - 内联
             upscale_layout.addSpacing(20)
-            scale_label = QLabel("倍率:")
+            scale_label = QLabel(self.tr("Scale:"))
             scale_label.setStyleSheet("font-size: 12px; color: #666; background-color: transparent;")
             upscale_layout.addWidget(scale_label)
             
@@ -751,13 +753,13 @@ class SettingsDialog(QDialog):
             upscale_layout.addStretch()
             card.layout.addLayout(upscale_layout)
             
-            # ====== 🔥 连接 OCR 设置信号（实时保存）======
+            # ====== 连接 OCR 设置信号（实时保存）======
             # 注意：ToggleSwitch 使用 toggled 信号，不是 stateChanged
             self.ocr_grayscale_toggle.toggled.connect(lambda checked: self.config_manager.set_ocr_grayscale_enabled(checked))
             self.ocr_upscale_toggle.toggled.connect(lambda checked: self.config_manager.set_ocr_upscale_enabled(checked))
             self.ocr_scale_spinbox.valueChanged.connect(lambda value: self.config_manager.set_ocr_upscale_factor(value))
         
-        # ====== 🔥 连接 OCR 启用信号（在模块可用的情况下） ======
+        # ====== 连接 OCR 启用信号（在模块可用的情况下） ======
         if ocr_files_exist:
             self.ocr_enable_toggle.toggled.connect(lambda checked: self.config_manager.set_ocr_enabled(checked))
         
@@ -765,7 +767,7 @@ class SettingsDialog(QDialog):
         
         # 底部提示 - 紧凑版
         if ocr_files_exist:
-            info_lbl = QLabel("💡 小さい文字が認識できない場合は、画像拡大を有効にしてください。")
+            info_lbl = QLabel(self.tr("💡 If small text cannot be recognized, enable image upscale."))
             info_lbl.setStyleSheet("color: #888; font-size: 11px; padding: 5px; background-color: transparent;")
             info_lbl.setWordWrap(True)
             layout.addWidget(info_lbl)
@@ -789,6 +791,137 @@ class SettingsDialog(QDialog):
         except ImportError:
             return False
 
+    def _create_translation_page(self):
+        """创建翻译设置页面"""
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+
+        # 主设置卡片
+        card = SettingCard()
+
+        # ===== DeepL API 密钥 =====
+        api_key_layout = QHBoxLayout()
+        api_key_layout.setSpacing(8)
+        
+        api_key_label = QLabel(self.tr("DeepL API Key"))
+        api_key_label.setStyleSheet("font-size: 14px; color: #000; background-color: transparent;")
+        api_key_label.setFixedWidth(100)
+        api_key_layout.addWidget(api_key_label)
+        
+        self.deepl_api_key_input = QLineEdit()
+        self.deepl_api_key_input.setPlaceholderText("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx")
+        self.deepl_api_key_input.setText(self.config_manager.get_deepl_api_key())
+        self.deepl_api_key_input.setStyleSheet(self._get_input_style())
+        self.deepl_api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
+        api_key_layout.addWidget(self.deepl_api_key_input, 1)
+        
+        self.show_api_key_btn = QPushButton(self.tr("Show"))
+        self.show_api_key_btn.setFixedWidth(60)
+        self.show_api_key_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #F0F0F0;
+                border: 1px solid #E5E5E5;
+                border-radius: 4px;
+                padding: 4px 8px;
+                font-size: 12px;
+            }
+            QPushButton:hover { background-color: #E0E0E0; }
+        """)
+        self.show_api_key_btn.clicked.connect(self._toggle_api_key_visibility)
+        api_key_layout.addWidget(self.show_api_key_btn)
+        
+        card.layout.addLayout(api_key_layout)
+        card.layout.addWidget(HLine())
+
+        # ===== Pro API 开关 =====
+        self.deepl_pro_toggle = ToggleSwitch()
+        row_pro = self._create_toggle_row(
+            self.tr("Use DeepL Pro API"),
+            self.tr("Enable if you have a paid DeepL subscription"),
+            self.config_manager.get_deepl_use_pro(),
+            self.deepl_pro_toggle
+        )
+        card.layout.addLayout(row_pro)
+
+        # ===== 目标语言 =====
+        target_lang_layout = QHBoxLayout()
+        target_lang_label = QLabel(self.tr("Target Language"))
+        target_lang_label.setStyleSheet("font-size: 14px; color: #000; background-color: transparent;")
+        target_lang_label.setFixedWidth(100)
+        target_lang_layout.addWidget(target_lang_label)
+        target_lang_layout.addStretch()
+        
+        self.translation_target_combo = QComboBox()
+        self.translation_target_combo.setFixedWidth(180)
+        self.translation_target_combo.setStyleSheet(self._get_input_style())
+        
+        # 添加语言选项
+        lang_options = [
+            ("", self.tr("Auto (System)")),
+            ("ZH", "中文"), ("JA", "日本語"), ("EN", "English"),
+            ("KO", "한국어"), ("DE", "Deutsch"), ("FR", "Français"),
+            ("ES", "Español"), ("PT", "Português"), ("RU", "Русский"),
+        ]
+        
+        current_lang = self.config_manager.get_app_setting("translation_target_lang", "")
+        current_index = 0
+        for i, (code, name) in enumerate(lang_options):
+            self.translation_target_combo.addItem(name, code)
+            if code == current_lang:
+                current_index = i
+        self.translation_target_combo.setCurrentIndex(current_index)
+        
+        target_lang_layout.addWidget(self.translation_target_combo)
+        card.layout.addLayout(target_lang_layout)
+        card.layout.addWidget(HLine())
+
+        # ===== 高级选项（紧凑布局）=====
+        # 自动分句
+        self.split_sentences_toggle = ToggleSwitch()
+        row_split = self._create_toggle_row(
+            self.tr("Ignore Line Breaks"),
+            self.tr("Merge multi-line text for better translation"),
+            self.config_manager.get_translation_split_sentences(),
+            self.split_sentences_toggle
+        )
+        card.layout.addLayout(row_split)
+        
+        # 保留格式
+        self.preserve_formatting_toggle = ToggleSwitch()
+        row_preserve = self._create_toggle_row(
+            self.tr("Preserve Formatting"),
+            self.tr("Keep original text formatting"),
+            self.config_manager.get_translation_preserve_formatting(),
+            self.preserve_formatting_toggle
+        )
+        card.layout.addLayout(row_preserve)
+        
+        layout.addWidget(card)
+
+        # 底部提示（更紧凑）- 使用富文本使链接可点击
+        info_label = QLabel(
+            "💡 " + self.tr("DeepL free tier: 500,000 chars/month. Get API key at") + 
+            ' <a href="https://www.deepl.com/pro-api" style="color: #0066CC; text-decoration: underline;">deepl.com/pro-api</a>'
+        )
+        info_label.setStyleSheet("font-size: 11px; color: #888; background-color: transparent; padding: 5px;")
+        info_label.setWordWrap(True)
+        info_label.setOpenExternalLinks(True)  # 允许点击打开外部链接
+        layout.addWidget(info_label)
+
+        layout.addStretch()
+        return page
+    
+    def _toggle_api_key_visibility(self):
+        """切换 API 密钥显示/隐藏"""
+        if self.deepl_api_key_input.echoMode() == QLineEdit.EchoMode.Password:
+            self.deepl_api_key_input.setEchoMode(QLineEdit.EchoMode.Normal)
+            self.show_api_key_btn.setText(self.tr("Hide"))
+        else:
+            self.deepl_api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
+            self.show_api_key_btn.setText(self.tr("Show"))
+
     def _create_log_page(self):
         page = QWidget()
         layout = QVBoxLayout(page)
@@ -799,12 +932,62 @@ class SettingsDialog(QDialog):
         # 日志开关
         self.log_toggle = ToggleSwitch()
         row_log = self._create_toggle_row(
-            "ログを保存する",
-            "アプリの動作記録をファイルに保存します。",
+            self.tr("Save Logs"),
+            self.tr("Saves app activity logs to file."),
             self.config_manager.get_log_enabled(),
             self.log_toggle
         )
         card.layout.addLayout(row_log)
+        card.layout.addWidget(HLine())
+        
+        # 日志等级选择
+        row_level = QHBoxLayout()
+        lbl_level = QLabel(self.tr("Log Level"))
+        lbl_level.setStyleSheet("background-color: transparent;")
+        lbl_level_desc = QLabel(self.tr("Minimum log level to record"))
+        lbl_level_desc.setStyleSheet("font-size: 12px; color: #888; background-color: transparent;")
+        
+        self.log_level_combo = QComboBox()
+        self.log_level_combo.addItems(["DEBUG", "INFO", "WARNING", "ERROR"])
+        # 数据映射
+        self.log_level_combo.setItemData(0, "DEBUG")
+        self.log_level_combo.setItemData(1, "INFO")
+        self.log_level_combo.setItemData(2, "WARNING")
+        self.log_level_combo.setItemData(3, "ERROR")
+        self.log_level_combo.setFixedWidth(120)
+        self.log_level_combo.setStyleSheet(self._get_input_style())
+        
+        # 恢复选中状态
+        current_level = self.config_manager.get_log_level()
+        level_index = {"DEBUG": 0, "INFO": 1, "WARNING": 2, "ERROR": 3}.get(current_level, 2)
+        self.log_level_combo.setCurrentIndex(level_index)
+        
+        row_level.addWidget(lbl_level)
+        row_level.addWidget(lbl_level_desc)
+        row_level.addStretch()
+        row_level.addWidget(self.log_level_combo)
+        card.layout.addLayout(row_level)
+        card.layout.addWidget(HLine())
+        
+        # 日志保留天数设置
+        row_retention = QHBoxLayout()
+        lbl_retention = QLabel(self.tr("Retention Period"))
+        lbl_retention.setStyleSheet("background-color: transparent;")
+        lbl_retention_desc = QLabel(self.tr("Auto-delete old logs (0=keep forever)"))
+        lbl_retention_desc.setStyleSheet("font-size: 12px; color: #888; background-color: transparent;")
+        
+        self.log_retention_spinbox = QSpinBox()
+        self.log_retention_spinbox.setRange(0, 365)
+        self.log_retention_spinbox.setSuffix(" " + self.tr("days"))
+        self.log_retention_spinbox.setValue(self.config_manager.get_log_retention_days())
+        self.log_retention_spinbox.setFixedWidth(100)
+        self.log_retention_spinbox.setStyleSheet(self._get_input_style())
+        
+        row_retention.addWidget(lbl_retention)
+        row_retention.addWidget(lbl_retention_desc)
+        row_retention.addStretch()
+        row_retention.addWidget(self.log_retention_spinbox)
+        card.layout.addLayout(row_retention)
         card.layout.addWidget(HLine())
 
         # 路径显示
@@ -815,7 +998,7 @@ class SettingsDialog(QDialog):
         self.path_lbl.setCursor(Qt.CursorShape.PointingHandCursor)  # 设置鼠标指针
         self.path_lbl.setWordWrap(True)
         
-        lbl_title = QLabel("保存場所:")
+        lbl_title = QLabel(self.tr("Save Location:"))
         lbl_title.setStyleSheet("background-color: transparent;")
         path_layout.addWidget(lbl_title)
         path_layout.addWidget(self.path_lbl)
@@ -838,15 +1021,15 @@ class SettingsDialog(QDialog):
             QPushButton:hover { background-color: #E6E6E6; }
         """
         
-        btn_change = QPushButton("変更")
+        btn_change = QPushButton(self.tr("Change"))
         btn_change.setStyleSheet(btn_style)
         btn_change.clicked.connect(self._change_log_dir)
         
-        btn_open = QPushButton("開く")
+        btn_open = QPushButton(self.tr("Open"))
         btn_open.setStyleSheet(btn_style)
         btn_open.clicked.connect(self._open_log_dir)
 
-        btn_open_latest = QPushButton("最新ログ")
+        btn_open_latest = QPushButton(self.tr("Latest Log"))
         btn_open_latest.setStyleSheet(btn_style)
         btn_open_latest.clicked.connect(self._open_latest_log_file)
         
@@ -880,13 +1063,13 @@ class SettingsDialog(QDialog):
                 except Exception:
                     log_path = None
             if log_path:
-                self.latest_log_lbl.setText(f"現在のログ: {log_path}")
+                self.latest_log_lbl.setText(self.tr("Current Log:") + f" {log_path}")
             else:
-                self.latest_log_lbl.setText("現在のログ: (未生成)  ※ログは起動後に作成されます")
+                self.latest_log_lbl.setText(self.tr("Current Log: (Not generated)  *Log will be created after app starts"))
         except Exception:
             # 不影响设置页打开
             if hasattr(self, "latest_log_lbl"):
-                self.latest_log_lbl.setText("現在のログ: (未生成)")
+                self.latest_log_lbl.setText(self.tr("Current Log: (Not generated)"))
 
     def _open_latest_log_file(self):
         """打开日志目录下最新的 runtime_*.log 文件；若不存在则创建目录并提示。"""
@@ -898,7 +1081,7 @@ class SettingsDialog(QDialog):
         pattern = os.path.join(path, "runtime_*.log")
         files = glob.glob(pattern)
         if not files:
-            QMessageBox.information(self, "ログ", "まだログファイルがありません。まず一度アプリを起動して操作してください。")
+            QMessageBox.information(self, self.tr("Log"), self.tr("No log files yet. Please start and use the app first."))
             return
 
         latest = max(files, key=os.path.getmtime)
@@ -921,8 +1104,8 @@ class SettingsDialog(QDialog):
         # 主界面显示开关
         self.show_main_window_toggle = ToggleSwitch()
         row_show = self._create_toggle_row(
-            "起動時にメインウィンドウを表示",
-            "オフにすると、バックグラウンドで起動します。",
+            self.tr("Show Main Window on Startup"),
+            self.tr("If off, starts in background."),
             self.config_manager.get_show_main_window(),
             self.show_main_window_toggle
         )
@@ -933,18 +1116,53 @@ class SettingsDialog(QDialog):
         # 钉图工具栏自动显示
         self.pin_auto_toolbar_toggle = ToggleSwitch()
         row_pin_toolbar = self._create_toggle_row( 
-            "ピン留めで描画ツールを自動表示",
-            "オン: マウスがピン留めウィンドウに入るとツールバーを表示します。\n"
-            "オフ: 右クリックでツールバーボタンで表示します。",
-            self.config_manager.get_pin_auto_toolbar(),  # 🔥 修复：使用正确的方法名
+            self.tr("Auto-show Drawing Tools on Pin"),
+            self.tr("On: Shows toolbar when mouse enters pinned window.") + "\n" +
+            self.tr("Off: Show via right-click toolbar button."),
+            self.config_manager.get_pin_auto_toolbar(),
             self.pin_auto_toolbar_toggle
         )
         card.layout.addLayout(row_pin_toolbar)
         
+        card.layout.addWidget(HLine())
+        
+        # 语言切换
+        from core.i18n import I18nManager
+        lang_row = QHBoxLayout()
+        lang_row.setSpacing(10)
+        
+        lang_left = QVBoxLayout()
+        lang_left.setSpacing(2)
+        lang_title = QLabel(self.tr("🌐 Language / Language"))
+        lang_title.setStyleSheet("font-weight: bold; font-size: 13px; background-color: transparent;")
+        lang_desc = QLabel(self.tr("Select display language. Restart required after change."))
+        lang_desc.setStyleSheet("color: #888; font-size: 11px; background-color: transparent;")
+        lang_left.addWidget(lang_title)
+        lang_left.addWidget(lang_desc)
+        lang_row.addLayout(lang_left, 1)
+        
+        self.language_combo = QComboBox()
+        self.language_combo.setFixedWidth(120)
+        self.language_combo.setFixedHeight(30)
+        self.language_combo.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        # 添加支持的语言
+        for code, name in I18nManager.get_available_languages().items():
+            self.language_combo.addItem(name, code)
+        
+        # 设置当前语言
+        current_lang = self.config_manager.get_app_setting("language", "ja")
+        index = self.language_combo.findData(current_lang)
+        if index >= 0:
+            self.language_combo.setCurrentIndex(index)
+        
+        lang_row.addWidget(self.language_combo)
+        card.layout.addLayout(lang_row)
+        
         layout.addWidget(card)
         
         # 提示信息
-        info_lbl = QLabel("💡 ヒント: バックグラウンド起動でも、タスクトレイから操作できます。")
+        info_lbl = QLabel(self.tr("💡 Hint: Even with background startup, you can operate from system tray."))
         info_lbl.setStyleSheet("color: #888; padding: 5px; background-color: transparent;")
         layout.addWidget(info_lbl)
         
@@ -962,7 +1180,7 @@ class SettingsDialog(QDialog):
         card = SettingCard()
         
         # 标题
-        title_label = QLabel("ソフトウェア情報")
+        title_label = QLabel(self.tr("Software Information"))
         title_label.setStyleSheet("font-size: 16px; font-weight: bold; background-color: transparent; color: #333;")
         card.layout.addWidget(title_label)
         
@@ -973,26 +1191,26 @@ class SettingsDialog(QDialog):
         card.layout.addWidget(line)
         
         # 软件名称和版本
-        name_label = QLabel("Jietuba - キャプチャーツール")
+        name_label = QLabel(self.tr("Jietuba - Screenshot Tool"))
         name_label.setStyleSheet("font-size: 14px; font-weight: bold; background-color: transparent; color: #07C160;")
         card.layout.addWidget(name_label)
         
-        version_label = QLabel("バージョン: 1.0.0")
+        version_label = QLabel(self.tr("Version: 1.0.0"))
         version_label.setStyleSheet("font-size: 12px; background-color: transparent; color: #666;")
         card.layout.addWidget(version_label)
         
         # 说明文本
         desc_label = QLabel(
-            "PyQt6フレームワークをベースに開発された高性能スクリーンショットツール。\n"
-            "豊富な編集機能、OCR文字認識、長いスクリーンショット、ピン留めなど、\n"
-            "多彩な機能を備えています。"
+            self.tr("High-performance screenshot tool developed based on PyQt6 framework.") + "\n" +
+            self.tr("Rich editing features, OCR text recognition, long screenshot, pin window,") + "\n" +
+            self.tr("and many other features.")
         )
         desc_label.setStyleSheet("font-size: 12px; background-color: transparent; color: #666; line-height: 1.6;")
         desc_label.setWordWrap(True)
         card.layout.addWidget(desc_label)
         
         # 按钮：打开详细说明
-        open_btn = QPushButton("📖 詳細情報を表示")
+        open_btn = QPushButton(self.tr("📖 View Details"))
         open_btn.setFixedHeight(36)
         open_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         open_btn.setStyleSheet("""
@@ -1016,11 +1234,11 @@ class SettingsDialog(QDialog):
         
         # 作者信息
         card.layout.addSpacing(10)
-        author_label = QLabel("👨‍💻 開発者: rijyaaru")
+        author_label = QLabel(self.tr("👨‍💻 Developer: rijyaaru"))
         author_label.setStyleSheet("font-size: 12px; background-color: transparent; color: #666;")
         card.layout.addWidget(author_label)
         
-        tech_label = QLabel("🛠️ 技術: Python + Rust + PyQt6 + PaddleOCR")
+        tech_label = QLabel(self.tr("🛠️ Tech: Python + Rust + PyQt6 + PaddleOCR"))
         tech_label.setStyleSheet("font-size: 12px; background-color: transparent; color: #666;")
         card.layout.addWidget(tech_label)
         
@@ -1029,22 +1247,11 @@ class SettingsDialog(QDialog):
         return page
     
     def _open_about_page(self):
-        """打开关于页面（本地 HTML 文件）"""
+        """打开关于页面（跳转到 GitHub）"""
         import webbrowser
-        from core.resource_manager import ResourceManager
         
-        # 获取 ABOUT.html 文件路径
-        about_path = ResourceManager.get_resource_path("svg/ABOUT.html")
-        
-        if os.path.exists(about_path):
-            # 使用默认浏览器打开 HTML 文件
-            webbrowser.open(f"file:///{about_path.replace(chr(92), '/')}")
-        else:
-            QMessageBox.warning(
-                self,
-                "ファイルが見つかりません",
-                f"詳細情報ファイルが見つかりませんでした:\n{about_path}"
-            )
+        # 打开 GitHub 仓库页面
+        webbrowser.open("https://github.com/1003129155/jietuba")
 
     # ================= 底部按钮 =================
 
@@ -1052,7 +1259,7 @@ class SettingsDialog(QDialog):
         layout = QHBoxLayout()
         layout.setSpacing(15)
         
-        reset_btn = QPushButton("このページをリセット")
+        reset_btn = QPushButton(self.tr("Reset This Page"))
         reset_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         reset_btn.setStyleSheet("""
             QPushButton { color: #FA5151; background: transparent; border: none; font-size: 13px; }
@@ -1060,7 +1267,7 @@ class SettingsDialog(QDialog):
         """)
         reset_btn.clicked.connect(self._reset_current_page)
         
-        cancel_btn = QPushButton("キャンセル")
+        cancel_btn = QPushButton(self.tr("Cancel"))
         cancel_btn.setFixedSize(100, 32)
         cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         cancel_btn.setStyleSheet("""
@@ -1069,7 +1276,7 @@ class SettingsDialog(QDialog):
         """)
         cancel_btn.clicked.connect(self.reject)
         
-        ok_btn = QPushButton("適用")
+        ok_btn = QPushButton(self.tr("Apply"))
         ok_btn.setFixedSize(100, 32)
         ok_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         ok_btn.setStyleSheet("""
@@ -1088,14 +1295,24 @@ class SettingsDialog(QDialog):
     # ================= 逻辑处理 =================
 
     def _on_nav_changed(self, index):
-        title_map = ["ショートカット設定", "長いスクリーンショット", "スマート選択", "スクショ保存設定", "OCR設定", "ログ設定", "その他設定", "ソフトウェア情報"]
+        title_map = [
+            self.tr("Shortcut Settings"), 
+            self.tr("Long Screenshot"), 
+            self.tr("Smart Selection"), 
+            self.tr("Screenshot Save Settings"), 
+            self.tr("OCR Settings"),
+            self.tr("Translation Settings"),
+            self.tr("Log Settings"), 
+            self.tr("Other Settings"), 
+            self.tr("Software Information")
+        ]
         if 0 <= index < len(title_map):
             self.content_title.setText(title_map[index])
             self.content_stack.setCurrentIndex(index)
 
     def _change_save_dir(self):
         """更改截图保存目录（只更新UI，不立即保存）"""
-        new_dir = QFileDialog.getExistingDirectory(self, "スクショ保存フォルダを選択", self.config_manager.get_screenshot_save_path())
+        new_dir = QFileDialog.getExistingDirectory(self, self.tr("Select Screenshot Save Folder"), self.config_manager.get_screenshot_save_path())
         if new_dir:
             # 只更新界面显示，不立即保存到配置
             self.save_path_lbl.setText(new_dir)
@@ -1114,7 +1331,7 @@ class SettingsDialog(QDialog):
 
     def _change_log_dir(self):
         """更改日志目录（只更新UI，不立即保存）"""
-        new_dir = QFileDialog.getExistingDirectory(self, "ログ保存フォルダを選択", self.config_manager.get_log_dir())
+        new_dir = QFileDialog.getExistingDirectory(self, self.tr("Select Log Save Folder"), self.config_manager.get_log_dir())
         if new_dir:
             # 只更新界面显示，不立即保存到配置
             self.path_lbl.setText(new_dir)
@@ -1210,6 +1427,36 @@ class SettingsDialog(QDialog):
             log_enabled = self.log_toggle.isChecked()
             self.config_manager.set_log_enabled(log_enabled)
             
+            # 日志等级设置
+            if hasattr(self, 'log_level_combo'):
+                log_level = self.log_level_combo.currentText()  # DEBUG, INFO, WARNING, ERROR
+                self.config_manager.set_log_level(log_level)
+                
+                # 动态更新日志系统的等级
+                from core.logger import get_logger, LogLevel
+                logger = get_logger()
+                level_map = {
+                    "DEBUG": LogLevel.DEBUG,
+                    "INFO": LogLevel.INFO,
+                    "WARNING": LogLevel.WARNING,
+                    "ERROR": LogLevel.ERROR
+                }
+                if log_level in level_map:
+                    logger.set_level(level_map[log_level])
+                    logger.set_console_level(level_map[log_level])
+            
+            # 日志保留天数设置
+            if hasattr(self, 'log_retention_spinbox'):
+                retention_days = self.log_retention_spinbox.value()
+                old_retention = self.config_manager.get_log_retention_days()
+                self.config_manager.set_log_retention_days(retention_days)
+                
+                # 如果保留天数减少了，立即清理过期日志
+                if retention_days > 0 and retention_days < old_retention:
+                    from core.logger import cleanup_old_logs
+                    log_dir = self.config_manager.get_log_dir()
+                    cleanup_old_logs(log_dir, retention_days)
+            
             # 如果日志目录改变，更新日志目录
             if hasattr(self, 'path_lbl'):
                 old_log_dir = self.config_manager.get_log_dir()
@@ -1224,7 +1471,7 @@ class SettingsDialog(QDialog):
                 # 这里改为在UI层提示“重启生效”。
                 if new_log_dir != old_log_dir:
                     logger.set_log_dir(new_log_dir)
-                    QMessageBox.information(self, "ログ", "ログ保存場所を変更しました。\n※変更は次回起動時に完全に反映されます。")
+                    QMessageBox.information(self, self.tr("Log"), self.tr("Log save location changed.") + "\n" + self.tr("*Changes will fully take effect after restart."))
 
                 # 更新提示文本
                 self._refresh_latest_log_label()
@@ -1249,11 +1496,34 @@ class SettingsDialog(QDialog):
         if hasattr(self, 'ocr_scale_spinbox'):
             self.config_manager.set_ocr_upscale_factor(self.ocr_scale_spinbox.value())
         
+        # 3.5 翻译设置
+        if hasattr(self, 'deepl_api_key_input'):
+            self.config_manager.set_deepl_api_key(self.deepl_api_key_input.text().strip())
+        if hasattr(self, 'deepl_pro_toggle'):
+            self.config_manager.set_deepl_use_pro(self.deepl_pro_toggle.isChecked())
+        if hasattr(self, 'translation_target_combo'):
+            self.config_manager.set_translation_target_lang(self.translation_target_combo.currentData())
+        if hasattr(self, 'split_sentences_toggle'):
+            self.config_manager.set_translation_split_sentences(self.split_sentences_toggle.isChecked())
+        if hasattr(self, 'preserve_formatting_toggle'):
+            self.config_manager.set_translation_preserve_formatting(self.preserve_formatting_toggle.isChecked())
+        
         # 4. 杂项设置
         if hasattr(self, 'show_main_window_toggle'):
             self.config_manager.set_show_main_window(self.show_main_window_toggle.isChecked())
         if hasattr(self, 'pin_auto_toolbar_toggle'):
             self.config_manager.set_pin_auto_toolbar(self.pin_auto_toolbar_toggle.isChecked())
+        
+        # 语言设置
+        if hasattr(self, 'language_combo'):
+            new_lang = self.language_combo.currentData()
+            old_lang = self.config_manager.get_app_setting("language", "ja")
+            self.config_manager.set_app_setting("language", new_lang)
+            
+            # 如果语言改变，立即切换
+            if new_lang != old_lang:
+                from core.i18n import I18nManager
+                I18nManager.load_language(new_lang)
         
         # 5. 引擎和长截图参数
         if hasattr(self, 'engine_combo'):
@@ -1271,7 +1541,7 @@ class SettingsDialog(QDialog):
         
         self.config_manager.settings.setValue('screenshot/rust_try_rollback', self.rollback_toggle.isChecked())
 
-        print("💾 すべての設定を保存しました")
+        log_info("すべての設定を保存しました", "Settings")
         super().accept()
 
     def get_hotkey(self):
@@ -1316,6 +1586,17 @@ class MockConfig:
     def set_ocr_upscale_factor(self, v): pass
     def get_pin_auto_toolbar(self): return True
     def set_pin_auto_toolbar(self, v): pass
+    # 翻译相关设置
+    def get_deepl_api_key(self): return "dfdb66fc-025c-43b5-8196-7daba2c2da7d:fx"
+    def set_deepl_api_key(self, v): pass
+    def get_deepl_use_pro(self): return False
+    def set_deepl_use_pro(self, v): pass
+    def get_app_setting(self, key, default=None): return default or ""
+    def get_translation_split_sentences(self): return True
+    def set_translation_split_sentences(self, v): pass
+    def get_translation_preserve_formatting(self): return True
+    def set_translation_preserve_formatting(self, v): pass
+    def set_translation_target_lang(self, v): pass
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

@@ -8,6 +8,7 @@ from PyQt6.QtCore import Qt, QPointF, QSize
 from PyQt6.QtGui import QCursor, QPixmap, QPainter, QPen, QColor, QBrush, QIcon
 from PyQt6.QtWidgets import QGraphicsEllipseItem
 from core.resource_manager import ResourceManager
+from core import log_debug, log_warning
 from canvas.items import NumberItem
 
 
@@ -274,7 +275,7 @@ class CursorManager:
         from tools.number import NumberTool
         next_number = NumberTool.get_next_number(self.scene)
         
-        print(f"[CursorManager] 创建序号光标，数字={next_number}")
+        log_debug(f"创建序号光标，数字={next_number}", "CursorManager")
         
         # 计算圆圈半径（与 NumberTool 中的计算一致）
         radius = NumberTool.get_radius_for_width(brush_size)
@@ -364,12 +365,12 @@ class CursorManager:
         # 加载 SVG 文件
         svg_path = ResourceManager.get_resource_path(f"svg/{svg_file}")
         if not os.path.exists(svg_path):
-            print(f"[CursorManager] SVG 不存在: {svg_path}")
+            log_warning(f"SVG 不存在: {svg_path}", "CursorManager")
             return None
 
         icon = QIcon(svg_path)
         if icon.isNull():
-            print(f"[CursorManager] SVG 图标无效: {svg_path}")
+            log_warning(f"SVG 图标无效: {svg_path}", "CursorManager")
             return None
         
         # 计算光标大小

@@ -4,6 +4,7 @@
 
 from PyQt6.QtCore import QPointF
 from .base import Tool, ToolContext
+from core import log_debug, log_warning, log_error
 
 
 class ToolController:
@@ -18,7 +19,7 @@ class ToolController:
         self.current_tool = None
         self.tool_changed_callbacks = []
         
-        print("[ToolController] 初始化")
+        log_debug("初始化", "ToolController")
     
     def add_tool_changed_callback(self, callback):
         """添加工具切换回调"""
@@ -32,7 +33,7 @@ class ToolController:
             tool: 工具实例
         """
         self.tools[tool.id] = tool
-        print(f"[ToolController] 注册工具: {tool.id}")
+        log_debug(f"注册工具: {tool.id}", "ToolController")
     
     def get_tool(self, tool_id: str) -> Tool:
         """
@@ -54,7 +55,7 @@ class ToolController:
             tool_id: 工具ID
         """
         if tool_id not in self.tools:
-            print(f"[ToolController] 工具不存在: {tool_id}")
+            log_warning(f"工具不存在: {tool_id}", "ToolController")
             return
         
         # 停用旧工具
@@ -70,9 +71,9 @@ class ToolController:
             try:
                 callback(tool_id)
             except Exception as e:
-                print(f"Error in tool changed callback: {e}")
+                log_error(f"工具切换回调错误: {e}", "ToolController")
         
-        print(f"[ToolController] 激活工具: {tool_id}")
+        log_debug(f"激活工具: {tool_id}", "ToolController")
 
     def activate_tool(self, tool_id: str):
         """兼容旧API: 转发到 activate"""

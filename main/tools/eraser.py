@@ -9,6 +9,7 @@ from .base import Tool, ToolContext
 from canvas.items import StrokeItem, RectItem, EllipseItem, ArrowItem, TextItem, NumberItem
 from canvas.items import BackgroundItem, OverlayMaskItem, SelectionItem
 from canvas.undo import BatchRemoveCommand
+from core import log_debug, log_info
 
 
 class EraserTool(Tool):
@@ -54,7 +55,7 @@ class EraserTool(Tool):
             stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
             eraser_area = stroker.createStroke(path)
             
-            # 🔥 只擦除最顶层的一个图元（scene.items 返回的第一个就是最上层的）
+            # 只擦除最顶层的一个图元（scene.items 返回的第一个就是最上层的）
             for item in ctx.scene.items(eraser_area):
                 if self._try_erase_item(item):
                     break  # 删除一个后立即退出循环
@@ -73,7 +74,7 @@ class EraserTool(Tool):
                 cmd = BatchRemoveCommand(ctx.scene, items_list, 
                                         text=f"Erase {len(items_list)} items")
                 ctx.undo_stack.push_command(cmd)
-                print(f"🧹 [橡皮擦] 删除了 {len(items_list)} 个图元")
+                log_info(f"删除了 {len(items_list)} 个图元", "Eraser")
             
             # 清理状态
             self.erased_items.clear()
@@ -111,7 +112,7 @@ class EraserTool(Tool):
         """工具激活 - 设置光标"""
         super().on_activate(ctx)
         # 橡皮擦光标由 CursorManager 统一管理
-        print("🧹 [橡皮擦] 已激活")
+        log_debug("已激活", "Eraser")
     
     def on_deactivate(self, ctx: ToolContext):
         """工具停用 - 清理状态"""
@@ -126,4 +127,4 @@ class EraserTool(Tool):
         
         self.erasing = False
         self.last_pos = None
-        print("🧹 [橡皮擦] 已停用")
+        log_debug("已停用", "Eraser")

@@ -6,6 +6,7 @@ from PyQt6.QtCore import QPointF, Qt
 from .base import Tool, ToolContext, color_with_opacity
 from canvas.items import NumberItem
 from canvas.undo import AddItemCommand
+from core import log_debug, log_warning
 
 try:
     import sip  # type: ignore[reportMissingImports]
@@ -29,10 +30,10 @@ class NumberTool(Tool):
         try:
             return sum(1 for item in scene.items() if isinstance(item, NumberItem))
         except RuntimeError as exc:
-            print(f"[NumberTool] ⚠️ scene.items() 失败：{exc}")
+            log_warning(f"scene.items() 失败：{exc}", "NumberTool")
             return 0
         except Exception as exc:
-            print(f"[NumberTool] ⚠️ 统计序号时异常：{exc}")
+            log_warning(f"统计序号时异常：{exc}", "NumberTool")
             return 0
 
     @classmethod
@@ -80,7 +81,7 @@ class NumberTool(Tool):
             number = self.get_next_number(ctx.scene)
             radius = self.get_radius_for_width(ctx.stroke_width)
             
-            print(f"[NumberTool] 创建前场景中序号数量: {number - 1}, 将创建序号: {number}")
+            log_debug(f"创建前场景中序号数量: {number - 1}, 将创建序号: {number}", "NumberTool")
             
             item_color = color_with_opacity(ctx.color, ctx.opacity)
             item = NumberItem(number, pos, radius, item_color)
@@ -99,25 +100,25 @@ class NumberTool(Tool):
                 count_after = sum(1 for i in ctx.scene.items() if isinstance(i, NumberItem))
             except Exception as exc:
                 count_after = "未知"
-                print(f"[NumberTool] ⚠️ 统计创建后序号失败：{exc}")
-            print(f"[NumberTool] 创建后场景中序号数量: {count_after}")
+                log_warning(f"统计创建后序号失败：{exc}", "NumberTool")
+            log_debug(f"创建后场景中序号数量: {count_after}", "NumberTool")
             
             view = getattr(ctx.scene, 'view', None)
             cursor_manager = getattr(view, 'cursor_manager', None) if view else None
-            print(f"[NumberTool] 检查光标管理器: scene={ctx.scene}, view={view}, cursor_manager={cursor_manager}")
+            log_debug(f"检查光标管理器: scene={ctx.scene}, view={view}, cursor_manager={cursor_manager}", "NumberTool")
             if view and cursor_manager and self._is_qobject_alive(view) and self._is_qobject_alive(cursor_manager):
-                print(f"[NumberTool] 立即更新光标...")
+                log_debug("立即更新光标...", "NumberTool")
                 self._update_cursor(ctx.scene)
             else:
-                print(f"[NumberTool] ⚠️ 无法更新光标：view 或 cursor_manager 不存在")
+                log_warning("无法更新光标：view 或 cursor_manager 不存在", "NumberTool")
     
     def _update_cursor(self, scene):
         """更新光标显示下一个序号"""
         if not self._is_qobject_alive(scene):
-            print("[NumberTool] ⚠️ scene 已失效，跳过光标更新")
+            log_debug("scene 已失效，跳过光标更新", "NumberTool")
             return
         next_num = self.get_next_number(scene)
-        print(f"[NumberTool] 更新光标时下一个序号: {next_num}")
+        log_debug(f"更新光标时下一个序号: {next_num}", "NumberTool")
         
         view = getattr(scene, 'view', None)
         cursor_manager = getattr(view, 'cursor_manager', None) if view else None
@@ -125,7 +126,7 @@ class NumberTool(Tool):
             try:
                 cursor_manager.set_tool_cursor(self.id, force=True)
             except RuntimeError as exc:
-                print(f"[NumberTool] ⚠️ 设置光标失败：{exc}")
+                log_warning(f"设置光标失败：{exc}", "NumberTool")
 
     @staticmethod
     def _is_qobject_alive(obj) -> bool:
