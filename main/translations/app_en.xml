@@ -534,7 +534,7 @@
 
 <!-- ========== Scroll Screenshot (Long Screenshot) ========== -->
 <context>
-    <name>ScrollScreenshotToolbar</name>
+    <name>FloatingToolbar</name>
     <message>
         <source>Drag to move</source>
         <translation>Drag to move</translation>
