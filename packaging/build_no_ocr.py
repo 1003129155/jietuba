@@ -8,14 +8,16 @@ from pathlib import Path
 # 路径配置
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_DIR = SCRIPT_DIR.parent
-MAIN_APP = "main/main_app.py"
+MAIN_APP = "新架构文件/main_app.py"
 SVG_DIR = "svg"
+TRANSLATIONS_DIR = "新架构文件/translations"
 BUILD_DIR = "build"
 DIST_DIR = "dist"
 
 # 数据文件
 datas = [
     f"{SVG_DIR};svg",
+    f"{TRANSLATIONS_DIR};translations",  # 翻译文件
 ]
 
 # 隐藏导入
@@ -100,4 +102,3 @@ if __name__ == '__main__':
     print("打包完成！")
     print(f"可执行文件位置: {DIST_DIR}/jietuba_no_ocr/jietuba_no_ocr.exe")
     print("=" * 60)
-
