@@ -1,0 +1,14 @@
+<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <!-- 钉头：上窄下宽，细腰 -->
+  <path d="M10 4H14
+           L15.5 7.5
+           L14 10
+           H10
+           L8.5 7.5Z" fill="none" stroke="black" stroke-width="1.7" stroke-linejoin="round"></path>
+
+  <!-- 细腰收一点 -->
+  <path d="M11 10L10.7 11.5H13.3L13 10" fill="none" stroke="black" stroke-width="1.7" stroke-linejoin="round"></path>
+
+  <!-- 钢针 -->
+  <line x1="12" y1="11.5" x2="12" y2="19.5" stroke="black" stroke-width="1.6" stroke-linecap="round"></line>
+</svg>

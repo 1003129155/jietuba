@@ -1,0 +1,19 @@
+<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <!-- 高亮笔颜色：黄色笔头 + 深灰笔身 -->
+  <g stroke="black" stroke-width="1.6" stroke-linejoin="round">
+
+    <!-- 笔身（深灰） -->
+    <path d="M7 15L15 7L18 10L10 18Z" fill="#4A4A4A"></path>
+
+    <!-- 笔头（亮黄色） -->
+    <path d="M15 7L16.6 5.4
+             C17.2 4.8 18.2 4.8 18.8 5.4
+             L19.6 6.2
+             C20.2 6.8 20.2 7.8 19.6 8.4
+             L18 10" fill="#FFD740"></path>
+
+  </g>
+
+  <!-- 高亮痕迹（亮黄） -->
+  <line x1="5" y1="19" x2="14" y2="19" stroke="#FFD740" stroke-width="2.2" stroke-linecap="round"></line>
+</svg>
