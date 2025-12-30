@@ -3,7 +3,7 @@ import os
 import ctypes
 import traceback
 
-# 必须在导入 PyQt6 之前设置 DPI 感知，避免访问被拒绝的警告
+
 try:
     ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PROCESS_PER_MONITOR_DPI_AWARE
 except Exception:
@@ -12,7 +12,7 @@ except Exception:
     except Exception:
         pass
 
-# 禁用 Qt 的高 DPI 自动缩放（必须在创建 QApplication 之前设置）
+# 禁用 Qt 的高 DPI 自动缩放
 os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "0"
 os.environ["QT_SCALE_FACTOR"] = "1"
 
@@ -249,7 +249,7 @@ class MainApp(QObject):
             manager._dialog.close()
 
     def _create_tray_menu(self) -> QMenu:
-        """创建托盘菜单（公共方法，避免重复代码）"""
+        """创建托盘菜单"""
         menu = QMenu()
         
         action_screenshot = QAction(self.tr("Screenshot"), self)
@@ -417,3 +417,4 @@ class MainApp(QObject):
 if __name__ == "__main__":
     main = MainApp()
     main.run()
+
