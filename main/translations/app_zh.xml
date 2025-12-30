@@ -1,0 +1,857 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE TS>
+<TS version="2.1" language="zh_CN">
+<!--
+    简体中文翻译文件
+-->
+
+<!-- ========== Settings Navigation ========== -->
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Shortcuts</source>
+        <translation>快捷键</translation>
+    </message>
+    <message>
+        <source>Long Screenshot</source>
+        <translation>长截图</translation>
+    </message>
+    <message>
+        <source>Smart Selection</source>
+        <translation>智能选区</translation>
+    </message>
+    <message>
+        <source>Save Settings</source>
+        <translation>截图保存</translation>
+    </message>
+    <message>
+        <source>OCR Settings</source>
+        <translation>OCR设置</translation>
+    </message>
+    <message>
+        <source>Log Settings</source>
+        <translation>日志设置</translation>
+    </message>
+    <message>
+        <source>Other</source>
+        <translation>其他</translation>
+    </message>
+    <message>
+        <source>About</source>
+        <translation>关于</translation>
+    </message>
+    
+    <!-- Page Titles -->
+    <message>
+        <source>Shortcut Settings</source>
+        <translation>快捷键设置</translation>
+    </message>
+    <message>
+        <source>Screenshot Save Settings</source>
+        <translation>截图保存设置</translation>
+    </message>
+    <message>
+        <source>Other Settings</source>
+        <translation>其他设置</translation>
+    </message>
+    <message>
+        <source>Software Information</source>
+        <translation>软件信息</translation>
+    </message>
+    
+    <!-- Buttons -->
+    <message>
+        <source>Reset This Page</source>
+        <translation>重置此页面</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Apply</source>
+        <translation>应用</translation>
+    </message>
+    <message>
+        <source>Change</source>
+        <translation>更改</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>打开</translation>
+    </message>
+    <message>
+        <source>Latest Log</source>
+        <translation>最新日志</translation>
+    </message>
+    
+    <!-- Hotkey Page -->
+    <message>
+        <source>Hotkey</source>
+        <translation>热键</translation>
+    </message>
+    <message>
+        <source>e.g.: ctrl+shift+a</source>
+        <translation>例如: ctrl+shift+a</translation>
+    </message>
+    <message>
+        <source>💡 Hint: You can use modifier keys like Ctrl, Shift, Alt.</source>
+        <translation>💡 提示: 可以使用 Ctrl, Shift, Alt 等修饰键组合。</translation>
+    </message>
+    
+    <!-- Long Screenshot Page -->
+    <message>
+        <source>Stitching Engine</source>
+        <translation>拼接引擎</translation>
+    </message>
+    <message>
+        <source>Rust Hash (Recommended)</source>
+        <translation>哈希值匹配 (推荐)</translation>
+    </message>
+    <message>
+        <source>Python Hash (Debug)</source>
+        <translation>调试用</translation>
+    </message>
+    <message>
+        <source>Wait Time</source>
+        <translation>等待时间</translation>
+    </message>
+    <message>
+        <source>Capture wait time after scroll (seconds)</source>
+        <translation>滚动后的截图等待时间 (秒)</translation>
+    </message>
+    
+    <!-- Smart Selection Page -->
+    <message>
+        <source>Enable Smart Selection</source>
+        <translation>启用智能选区</translation>
+    </message>
+    <message>
+        <source>Automatically recognizes UI elements at mouse cursor position.</source>
+        <translation>自动识别鼠标光标位置的窗口。</translation>
+    </message>
+    <message>
+        <source>💡 How to use:</source>
+        <translation>💡 使用方法:</translation>
+    </message>
+    <message>
+        <source>1. Move cursor over window during capture</source>
+        <translation>1. 截图时将光标移到窗口上</translation>
+    </message>
+    <message>
+        <source>2. Area will be highlighted with blue border automatically</source>
+        <translation>2. 区域会自动用蓝色边框高亮显示</translation>
+    </message>
+    <message>
+        <source>3. Click to select that area</source>
+        <translation>3. 点击选择该区域</translation>
+    </message>
+    
+    <!-- Save Page -->
+    <message>
+        <source>Auto-save Screenshots</source>
+        <translation>自动保存截图</translation>
+    </message>
+    <message>
+        <source>Automatically saves as file when capturing.</source>
+        <translation>截图时自动保存为文件。</translation>
+    </message>
+    <message>
+        <source>Save Folder:</source>
+        <translation>保存文件夹:</translation>
+    </message>
+    <message>
+        <source>💡 Hint: Even with auto-save off, it will be copied to clipboard.</source>
+        <translation>💡 提示: 即使关闭自动保存，也会复制到剪贴板。</translation>
+    </message>
+    <message>
+        <source>Select Screenshot Save Folder</source>
+        <translation>选择截图保存文件夹</translation>
+    </message>
+    
+    <!-- OCR Page -->
+    <message>
+        <source>No OCR Version / OCR module not found</source>
+        <translation>无OCR版本 / 未找到OCR模块</translation>
+    </message>
+    <message>
+        <source>This is a casual version without OCR.</source>
+        <translation>这是一个不带OCR的简易版本。</translation>
+    </message>
+    <message>
+        <source>If you need OCR features, please download the full version,</source>
+        <translation>如需OCR功能，请下载完整版，</translation>
+    </message>
+    <message>
+        <source>or contact the developer:</source>
+        <translation>或联系开发者:</translation>
+    </message>
+    <message>
+        <source>Enable OCR</source>
+        <translation>启用OCR功能</translation>
+    </message>
+    <message>
+        <source>Enables text recognition and selection in pinned windows.</source>
+        <translation>在钉图窗口中启用文字识别和选择。</translation>
+    </message>
+    <message>
+        <source>Auto language detection: Supports Chinese, Japanese, English mixed recognition</source>
+        <translation>自动语言检测: 支持中日英混合识别</translation>
+    </message>
+    <message>
+        <source>Grayscale Conversion</source>
+        <translation>灰度转换</translation>
+    </message>
+    <message>
+        <source>Image Upscale</source>
+        <translation>图像放大</translation>
+    </message>
+    <message>
+        <source>Scale:</source>
+        <translation>倍率:</translation>
+    </message>
+    <message>
+        <source>💡 If small text cannot be recognized, enable image upscale.</source>
+        <translation>💡 如果小字无法识别，请启用图像放大。</translation>
+    </message>
+    
+    <!-- Log Page -->
+    <message>
+        <source>Save Logs</source>
+        <translation>保存日志</translation>
+    </message>
+    <message>
+        <source>Saves app activity logs to file.</source>
+        <translation>将应用活动日志保存到文件。</translation>
+    </message>
+    <message>
+        <source>Log Level</source>
+        <translation>日志级别</translation>
+    </message>
+    <message>
+        <source>Minimum log level to record</source>
+        <translation>记录的最低日志级别</translation>
+    </message>
+    <message>
+        <source>Retention Period</source>
+        <translation>保留期限</translation>
+    </message>
+    <message>
+        <source>Auto-delete old logs (0=keep forever)</source>
+        <translation>自动删除旧日志 (0=永久保留)</translation>
+    </message>
+    <message>
+        <source>days</source>
+        <translation>天</translation>
+    </message>
+    <message>
+        <source>Save Location:</source>
+        <translation>保存位置:</translation>
+    </message>
+    <message>
+        <source>Select Log Save Folder</source>
+        <translation>选择日志保存文件夹</translation>
+    </message>
+    <message>
+        <source>Current Log:</source>
+        <translation>当前日志:</translation>
+    </message>
+    <message>
+        <source>Current Log: (Not generated)  *Log will be created after app starts</source>
+        <translation>当前日志: (未生成)  *日志将在应用启动后创建</translation>
+    </message>
+    <message>
+        <source>Current Log: (Not generated)</source>
+        <translation>当前日志: (未生成)</translation>
+    </message>
+    <message>
+        <source>Log</source>
+        <translation>日志</translation>
+    </message>
+    <message>
+        <source>No log files yet. Please start and use the app first.</source>
+        <translation>还没有日志文件。请先启动并使用应用。</translation>
+    </message>
+    <message>
+        <source>Log save location changed.</source>
+        <translation>日志保存位置已更改。</translation>
+    </message>
+    <message>
+        <source>*Changes will fully take effect after restart.</source>
+        <translation>*更改将在重启后完全生效。</translation>
+    </message>
+    
+    <!-- Misc Page -->
+    <message>
+        <source>Show Main Window on Startup</source>
+        <translation>启动时显示主窗口</translation>
+    </message>
+    <message>
+        <source>If off, starts in background.</source>
+        <translation>关闭后将在后台启动。</translation>
+    </message>
+    <message>
+        <source>Auto-show Drawing Tools on Pin</source>
+        <translation>钉图时自动显示绘图工具</translation>
+    </message>
+    <message>
+        <source>On: Shows toolbar when mouse enters pinned window.</source>
+        <translation>开: 鼠标进入钉图窗口时显示工具栏。</translation>
+    </message>
+    <message>
+        <source>Off: Show via right-click toolbar button.</source>
+        <translation>关: 通过右键菜单工具栏按钮显示。</translation>
+    </message>
+    <message>
+        <source>🌐 Language / Language</source>
+        <translation>🌐 语言</translation>
+    </message>
+    <message>
+        <source>Select display language. Restart required after change.</source>
+        <translation>选择显示语言。更改后需要重启。</translation>
+    </message>
+    <message>
+        <source>💡 Hint: Even with background startup, you can operate from system tray.</source>
+        <translation>💡 提示: 即使后台启动，也可以通过系统托盘操作。</translation>
+    </message>
+    
+    <!-- Info Page -->
+    <message>
+        <source>Jietuba - Screenshot Tool</source>
+        <translation>截图吧 - 截图工具</translation>
+    </message>
+    <message>
+        <source>Version: 1.0.0</source>
+        <translation>版本: 1.0.0</translation>
+    </message>
+    <message>
+        <source>High-performance screenshot tool developed based on PyQt6 framework.</source>
+        <translation>基于PyQt6框架开发的高性能截图工具。</translation>
+    </message>
+    <message>
+        <source>Rich editing features, OCR text recognition, long screenshot, pin window,</source>
+        <translation>丰富的编辑功能、OCR文字识别、长截图、钉图窗口，</translation>
+    </message>
+    <message>
+        <source>and many other features.</source>
+        <translation>以及更多功能。</translation>
+    </message>
+    <message>
+        <source>📖 View Details</source>
+        <translation>📖 查看详情</translation>
+    </message>
+    <message>
+        <source>👨‍💻 Developer: rijyaaru</source>
+        <translation>👨‍💻 开发者: jyaaru</translation>
+    </message>
+    <message>
+        <source>🛠️ Tech: Python + Rust + PyQt6 + PaddleOCR</source>
+        <translation>🛠️ 技术: Python + Rust + PyQt6 + PaddleOCR</translation>
+    </message>
+</context>
+
+<!-- ========== Toolbar ========== -->
+<context>
+    <name>Toolbar</name>
+    <message>
+        <source>Long screenshot (scroll)</source>
+        <translation>长截图（滚动）</translation>
+    </message>
+    <message>
+        <source>Save to file</source>
+        <translation>保存到文件</translation>
+    </message>
+    <message>
+        <source>Copy image</source>
+        <translation>复制图片</translation>
+    </message>
+    <message>
+        <source>Pen tool (hold Shift for straight line)</source>
+        <translation>画笔工具（按住Shift画直线）</translation>
+    </message>
+    <message>
+        <source>Highlighter (hold Shift for straight line)</source>
+        <translation>荧光笔（按住Shift画直线）</translation>
+    </message>
+    <message>
+        <source>Draw arrow</source>
+        <translation>绘制箭头</translation>
+    </message>
+    <message>
+        <source>Number (Shift+scroll to change number)</source>
+        <translation>序号（Shift+滚轮可变号）</translation>
+    </message>
+    <message>
+        <source>Draw rectangle</source>
+        <translation>绘制矩形</translation>
+    </message>
+    <message>
+        <source>Draw ellipse</source>
+        <translation>绘制椭圆</translation>
+    </message>
+    <message>
+        <source>Add text</source>
+        <translation>添加文字</translation>
+    </message>
+    <message>
+        <source>Eraser tool</source>
+        <translation>橡皮擦工具</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>撤销</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>重做</translation>
+    </message>
+    <message>
+        <source>Screenshot translate (OCR + Translate)</source>
+        <translation>截图翻译（OCR + 翻译）</translation>
+    </message>
+    <message>
+        <source>Recognizing...</source>
+        <translation>识别中...</translation>
+    </message>
+    <message>
+        <source>Pin image</source>
+        <translation>钉图</translation>
+    </message>
+    <message>
+        <source>Confirm and save</source>
+        <translation>确定并保存</translation>
+    </message>
+    <message>
+        <source>Copy to clipboard</source>
+        <translation>复制到剪贴板</translation>
+    </message>
+    <message>
+        <source>Pin to desktop</source>
+        <translation>钉到桌面</translation>
+    </message>
+    <message>
+        <source>Confirm</source>
+        <translation>确定</translation>
+    </message>
+    <message>
+        <source>Pen</source>
+        <translation>画笔</translation>
+    </message>
+    <message>
+        <source>Highlighter</source>
+        <translation>荧光笔</translation>
+    </message>
+    <message>
+        <source>Arrow</source>
+        <translation>箭头</translation>
+    </message>
+    <message>
+        <source>Rectangle</source>
+        <translation>矩形</translation>
+    </message>
+    <message>
+        <source>Ellipse</source>
+        <translation>椭圆</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>文字</translation>
+    </message>
+    <message>
+        <source>Eraser</source>
+        <translation>橡皮擦</translation>
+    </message>
+    <message>
+        <source>Number</source>
+        <translation>序号</translation>
+    </message>
+    <message>
+        <source>Long Screenshot</source>
+        <translation>长截图</translation>
+    </message>
+    <message>
+        <source>Record</source>
+        <translation>录屏</translation>
+    </message>
+</context>
+
+<!-- ========== Pin Window ========== -->
+<context>
+    <name>PinWindow</name>
+    <message>
+        <source>Copy</source>
+        <translation>复制</translation>
+    </message>
+    <message>
+        <source>Save as</source>
+        <translation>另存为</translation>
+    </message>
+    <message>
+        <source>Toolbar</source>
+        <translation>工具栏</translation>
+    </message>
+    <message>
+        <source>Always on top</source>
+        <translation>置顶显示</translation>
+    </message>
+    <message>
+        <source>Shadow effect</source>
+        <translation>阴影效果</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <source>Close (ESC)</source>
+        <translation>关闭 (ESC)</translation>
+    </message>
+    <message>
+        <source>Show toolbar</source>
+        <translation>显示工具栏</translation>
+    </message>
+    <message>
+        <source>Close all pins</source>
+        <translation>关闭所有钉图</translation>
+    </message>
+    <message>
+        <source>OCR Recognition</source>
+        <translation>文字识别</translation>
+    </message>
+    <message>
+        <source>Reset size</source>
+        <translation>重置大小</translation>
+    </message>
+    <message>
+        <source>Translate</source>
+        <translation>翻译</translation>
+    </message>
+    <message>
+        <source>Translate OCR text</source>
+        <translation>翻译识别文字</translation>
+    </message>
+</context>
+
+<!-- ========== Scroll Screenshot (Long Screenshot) ========== -->
+<context>
+    <name>FloatingToolbar</name>
+    <message>
+        <source>Drag to move</source>
+        <translation>拖动以移动</translation>
+    </message>
+    <message>
+        <source>Vertical</source>
+        <translation>竖向</translation>
+    </message>
+    <message>
+        <source>Horizontal</source>
+        <translation>横向</translation>
+    </message>
+    <message>
+        <source>Scroll slowly from top to bottom</source>
+        <translation>从上往下慢慢滚动</translation>
+    </message>
+    <message>
+        <source>Press Shift or click button</source>
+        <translation>Shift或点右侧计数</translation>
+    </message>
+    <message>
+        <source>Screenshots: 0</source>
+        <translation>截图: 0 张</translation>
+    </message>
+    <message>
+        <source>Screenshots: {count}</source>
+        <translation>截图: {count} 张</translation>
+    </message>
+    <message>
+        <source>Click to take screenshot manually</source>
+        <translation>点击手动截图</translation>
+    </message>
+    <message>
+        <source>Finish</source>
+        <translation>完成</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+</context>
+
+<!-- ========== System Tray ========== -->
+<context>
+    <name>SystemTray</name>
+    <message>
+        <source>jietuba - Double click to open settings</source>
+        <translation>截图吧 - 双击打开设置</translation>
+    </message>
+    <message>
+        <source>Screenshot</source>
+        <translation>截图</translation>
+    </message>
+    <message>
+        <source>Settings</source>
+        <translation>设置</translation>
+    </message>
+    <message>
+        <source>Exit</source>
+        <translation>退出</translation>
+    </message>
+</context>
+
+<!-- ========== Main App (Tray Menu) ========== -->
+<context>
+    <name>MainApp</name>
+    <message>
+        <source>jietuba - Double click to open settings</source>
+        <translation>截图吧 - 双击打开设置</translation>
+    </message>
+    <message>
+        <source>Screenshot</source>
+        <translation>截图</translation>
+    </message>
+    <message>
+        <source>Translation</source>
+        <translation>翻译</translation>
+    </message>
+    <message>
+        <source>Settings</source>
+        <translation>设置</translation>
+    </message>
+    <message>
+        <source>Exit</source>
+        <translation>退出</translation>
+    </message>
+</context>
+
+<!-- ========== Translation Dialog ========== -->
+<context>
+    <name>TranslationDialog</name>
+    <message>
+        <source>Translator</source>
+        <translation>翻译</translation>
+    </message>
+    <message>
+        <source>Original</source>
+        <translation>原文</translation>
+    </message>
+    <message>
+        <source>Translation</source>
+        <translation>译文</translation>
+    </message>
+    <message>
+        <source>Copy Original</source>
+        <translation>复制原文</translation>
+    </message>
+    <message>
+        <source>Copy Translation</source>
+        <translation>复制译文</translation>
+    </message>
+    <message>
+        <source>Translate</source>
+        <translation>翻译</translation>
+    </message>
+    <message>
+        <source>Reverse</source>
+        <translation>反向</translation>
+    </message>
+    <message>
+        <source>Swap source and target, translate back</source>
+        <translation>交换原文和译文，反向翻译</translation>
+    </message>
+    <message>
+        <source>Swap languages</source>
+        <translation>交换语言</translation>
+    </message>
+    <message>
+        <source>Toggle always on top</source>
+        <translation>切换置顶</translation>
+    </message>
+    <message>
+        <source>Always on top: ON</source>
+        <translation>置顶: 开启</translation>
+    </message>
+    <message>
+        <source>Always on top: OFF</source>
+        <translation>置顶: 关闭</translation>
+    </message>
+    <message>
+        <source>Translate text</source>
+        <translation>翻译文本</translation>
+    </message>
+    <message>
+        <source>Translating...</source>
+        <translation>正在翻译...</translation>
+    </message>
+    <message>
+        <source>Translation failed: </source>
+        <translation>翻译失败: </translation>
+    </message>
+    <message>
+        <source>Enter text to translate...</source>
+        <translation>输入要翻译的文字...</translation>
+    </message>
+    <message>
+        <source>Translation will appear here...</source>
+        <translation>翻译结果将显示在这里...</translation>
+    </message>
+    <!-- Languages -->
+    <message>
+        <source>Auto Detect</source>
+        <translation>自动检测</translation>
+    </message>
+    <message>
+        <source>Chinese</source>
+        <translation>中文</translation>
+    </message>
+    <message>
+        <source>English</source>
+        <translation>英语</translation>
+    </message>
+    <message>
+        <source>Japanese</source>
+        <translation>日语</translation>
+    </message>
+    <message>
+        <source>Korean</source>
+        <translation>韩语</translation>
+    </message>
+    <message>
+        <source>German</source>
+        <translation>德语</translation>
+    </message>
+    <message>
+        <source>French</source>
+        <translation>法语</translation>
+    </message>
+    <message>
+        <source>Spanish</source>
+        <translation>西班牙语</translation>
+    </message>
+    <message>
+        <source>Italian</source>
+        <translation>意大利语</translation>
+    </message>
+    <message>
+        <source>Portuguese</source>
+        <translation>葡萄牙语</translation>
+    </message>
+    <message>
+        <source>Russian</source>
+        <translation>俄语</translation>
+    </message>
+    <message>
+        <source>Polish</source>
+        <translation>波兰语</translation>
+    </message>
+    <message>
+        <source>Dutch</source>
+        <translation>荷兰语</translation>
+    </message>
+    <message>
+        <source>Translate left to right</source>
+        <translation>从左向右翻译</translation>
+    </message>
+    <message>
+        <source>Translate right to left</source>
+        <translation>从右向左翻译</translation>
+    </message>
+    <message>
+        <source>Swap languages</source>
+        <translation>交换语言</translation>
+    </message>
+    <message>
+        <source>Translate text</source>
+        <translation>翻译文本</translation>
+    </message>
+</context>
+
+<!-- ========== Translation Settings ========== -->
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Translation</source>
+        <translation>翻译</translation>
+    </message>
+    <message>
+        <source>Translation Settings</source>
+        <translation>翻译设置</translation>
+    </message>
+    <message>
+        <source>DeepL API Key</source>
+        <translation>DeepL API 密钥</translation>
+    </message>
+    <message>
+        <source>Get your API key from DeepL website (free tier available)</source>
+        <translation>从Deepl网站获取API密钥（有免费版）</translation>
+    </message>
+    <message>
+        <source>Show Key</source>
+        <translation>显示密钥</translation>
+    </message>
+    <message>
+        <source>Hide Key</source>
+        <translation>隐藏密钥</translation>
+    </message>
+    <message>
+        <source>Show</source>
+        <translation>显示</translation>
+    </message>
+    <message>
+        <source>Hide</source>
+        <translation>隐藏</translation>
+    </message>
+    <message>
+        <source>Use DeepL Pro API</source>
+        <translation>使用 DeepL Pro API</translation>
+    </message>
+    <message>
+        <source>Enable if you have a paid DeepL subscription</source>
+        <translation>如果您有DeepL付费订阅请启用</translation>
+    </message>
+    <message>
+        <source>Target Language</source>
+        <translation>目标语言</translation>
+    </message>
+    <message>
+        <source>Leave empty to follow system language</source>
+        <translation>留空则跟随系统语言</translation>
+    </message>
+    <message>
+        <source>Auto (System)</source>
+        <translation>自动（跟随系统）</translation>
+    </message>
+    <message>
+        <source>Advanced Options</source>
+        <translation>高级选项</translation>
+    </message>
+    <message>
+        <source>Auto Split Sentences</source>
+        <translation>自动分句</translation>
+    </message>
+    <message>
+        <source>Automatically split text into sentences for better translation</source>
+        <translation>自动将文本分割成句子以获得更好的翻译</translation>
+    </message>
+    <message>
+        <source>Preserve Formatting</source>
+        <translation>保留格式</translation>
+    </message>
+    <message>
+        <source>Keep original text formatting in translation</source>
+        <translation>在翻译中保留原文格式</translation>
+    </message>
+    <message>
+        <source>DeepL free tier: 500,000 chars/month. Get API key at</source>
+        <translation>DeepL免费版：每月50万字符。获取API密钥：</translation>
+    </message>
+    <message>
+        <source>DeepL offers a free API tier with 500,000 characters/month.</source>
+        <translation>DeepL提供免费API，每月50万字符额度。</translation>
+    </message>
+    <message>
+        <source>Visit https://www.deepl.com/pro-api to get your API key.</source>
+        <translation>访问 https://www.deepl.com/pro-api 获取您的API密钥。</translation>
+    </message>
+</context>
+
+</TS>
