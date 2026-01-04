@@ -238,11 +238,11 @@ def _detect_engine() -> str:
     
     # AUTO 模式：优先尝试特征匹配（Rust）
     try:
-        import jietuba_rust
+        import longstitch
         return "rust"  # 特征点匹配
     except ImportError:
         if config.verbose:
-            log_info("特征匹配模块（Rust）未安装，使用哈希匹配（Rust）", module="长截图")
+            log_info("特征匹配模块（longstitch）未安装，使用哈希匹配（Rust）", module="长截图")
         return "hash_rust"  # 哈希值匹配（优先Rust）
 
 

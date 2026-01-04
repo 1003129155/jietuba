@@ -975,11 +975,10 @@ class PinWindow(QWidget):
         self._base_pixmap = None
         self.vector_commands = None
         
-        # 5. 强制垃圾回收
-        import gc
-        gc.collect()
+        # 5. 不强制GC，让Python自动管理（避免阻塞UI）
+        # gc.collect() 可能导致卡顿，尤其是有大量QGraphicsItem时
         
-        log_info("资源清理完成，内存已回收", "PinWindow")
+        log_info("资源清理完成", "PinWindow")
     
     def _init_ocr_text_layer_async(self):
         """异步初始化 OCR 文字选择层（不阻塞主线程）"""
@@ -1027,18 +1026,10 @@ class PinWindow(QWidget):
                 
                 def run(self):
                     try:
-                        # 从配置读取 OCR 参数
-                        enable_grayscale = self.config_manager.get_ocr_grayscale_enabled() if self.config_manager else True
-                        enable_upscale = self.config_manager.get_ocr_upscale_enabled() if self.config_manager else False
-                        upscale_factor = self.config_manager.get_ocr_upscale_factor() if self.config_manager else 1.5
-                        
-                        # 调用 OCR 识别
+                        # 调用 OCR 识别（已移除预处理功能）
                         self.result = recognize_text(
                             self.pixmap, 
-                            return_format="dict",
-                            enable_grayscale=enable_grayscale,
-                            enable_upscale=enable_upscale,
-                            upscale_factor=upscale_factor
+                            return_format="dict"
                         )
                     except Exception as e:
                         log_error(f"识别失败: {e}", "OCR")

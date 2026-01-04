@@ -743,5 +743,374 @@
         <translation>Visit https://www.deepl.com/pro-api to get your API key.</translation>
     </message>
 </context>
+<!-- ========== Clipboard Window ========== -->
+<context>
+    <name>ClipboardWindow</name>
+    <message>
+        <source>Clipboard History</source>
+        <translation>Clipboard History</translation>
+    </message>
+    <message>
+        <source>Search</source>
+        <translation>Search</translation>
+    </message>
+    <message>
+        <source>All</source>
+        <translation>All</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>Text</translation>
+    </message>
+    <message>
+        <source>Image</source>
+        <translation>Image</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>File</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>Add Group</source>
+        <translation>Add Group</translation>
+    </message>
+    <message>
+        <source>Filter Type</source>
+        <translation>Filter Type</translation>
+    </message>
+    <message>
+        <source>📋 Paste with Format</source>
+        <translation>📋 Paste with Format</translation>
+    </message>
+    <message>
+        <source>🔄 Auto Paste After Selection</source>
+        <translation>🔄 Auto Paste After Selection</translation>
+    </message>
+    <message>
+        <source>⬆️ Move to Top After Paste</source>
+        <translation>⬆️ Move to Top After Paste</translation>
+    </message>
+    <message>
+        <source>🔲 Window Opacity</source>
+        <translation>🔲 Window Opacity</translation>
+    </message>
+    <message>
+        <source>Opaque</source>
+        <translation>Opaque</translation>
+    </message>
+    <message>
+        <source>📏 Max Display Lines</source>
+        <translation>📏 Max Display Lines</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n line(s)</source>
+        <translation>
+            <numerusform>%n line</numerusform>
+            <numerusform>%n lines</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>📝 Add Content</source>
+        <translation>📝 Add Content</translation>
+    </message>
+    <message>
+        <source>Confirm Delete</source>
+        <translation>Confirm Delete</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</source>
+        <translation>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</translation>
+    </message>
+    <message>
+        <source>🗑️ Delete Group</source>
+        <translation>🗑️ Delete Group</translation>
+    </message>
+    <message>
+        <source>Unpin</source>
+        <translation>Unpin</translation>
+    </message>
+    <message>
+        <source>📌 Pin</source>
+        <translation>📌 Pin</translation>
+    </message>
+    <message>
+        <source>📁 Move to Group</source>
+        <translation>📁 Move to Group</translation>
+    </message>
+    <message>
+        <source>↩️ Remove from Group</source>
+        <translation>↩️ Remove from Group</translation>
+    </message>
+    <message>
+        <source>🗑️ Delete</source>
+        <translation>🗑️ Delete</translation>
+    </message>
+    <message>
+        <source>Confirm Clear</source>
+        <translation>Confirm Clear</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to clear all clipboard history?\nThis action cannot be undone.</source>
+        <translation>Are you sure you want to clear all clipboard history?\nThis action cannot be undone.</translation>
+    </message>
+    <message>
+        <source>📋 Paste</source>
+        <translation>📋 Paste</translation>
+    </message>
+</context>
+
+<!-- ========== Clipboard Management Dialog ========== -->
+<context>
+    <name>ManageDialog</name>
+    <message>
+        <source>Clipboard Management</source>
+        <translation>Clipboard Management</translation>
+    </message>
+    <message>
+        <source>Management</source>
+        <translation>Management</translation>
+    </message>
+    <message>
+        <source>📁 Group Management</source>
+        <translation>📁 Group Management</translation>
+    </message>
+    <message>
+        <source>✏️ Content Manager</source>
+        <translation>✏️ Content Manager</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>Group List</source>
+        <translation>Group List</translation>
+    </message>
+    <message>
+        <source>(Please create a group first)</source>
+        <translation>(Please create a group first)</translation>
+    </message>
+    <message>
+        <source>➕ New Group</source>
+        <translation>➕ New Group</translation>
+    </message>
+    <message>
+        <source>(Please select a group first)</source>
+        <translation>(Please select a group first)</translation>
+    </message>
+    <message>
+        <source>➕ Add Content</source>
+        <translation>➕ Add Content</translation>
+    </message>
+    <message>
+        <source>New Group</source>
+        <translation>New Group</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>Delete</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>Save</translation>
+    </message>
+    <message>
+        <source>Content List</source>
+        <translation>Content List</translation>
+    </message>
+    <message>
+        <source>Create</source>
+        <translation>Create</translation>
+    </message>
+    <message>
+        <source>Group Name</source>
+        <translation>Group Name</translation>
+    </message>
+    <message>
+        <source>Enter group name...</source>
+        <translation>Enter group name...</translation>
+    </message>
+    <message>
+        <source>Select Icon</source>
+        <translation>Select Icon</translation>
+    </message>
+    <message>
+        <source>Edit Group</source>
+        <translation>Edit Group</translation>
+    </message>
+    <message>
+        <source>Group Content</source>
+        <translation>Group Content</translation>
+    </message>
+    <message>
+        <source>(No content in group)</source>
+        <translation>(No content in group)</translation>
+    </message>
+    <message>
+        <source>Add Content</source>
+        <translation>Add Content</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>Add</translation>
+    </message>
+    <message>
+        <source>Please select a group above, or create a group first</source>
+        <translation>Please select a group above, or create a group first</translation>
+    </message>
+    <message>
+        <source>Title</source>
+        <translation>Title</translation>
+    </message>
+    <message>
+        <source>Enter title (e.g., Restart Command)...</source>
+        <translation>Enter title (e.g., Restart Command)...</translation>
+    </message>
+    <message>
+        <source>Content</source>
+        <translation>Content</translation>
+    </message>
+    <message>
+        <source>Enter text content to save...</source>
+        <translation>Enter text content to save...</translation>
+    </message>
+    <message>
+        <source>Edit Content</source>
+        <translation>Edit Content</translation>
+    </message>
+    <message>
+        <source>Enter title...</source>
+        <translation>Enter title...</translation>
+    </message>
+    <message>
+        <source>Created: %s</source>
+        <translation>Created: %s</translation>
+    </message>
+    <message>
+        <source>Hint</source>
+        <translation>Hint</translation>
+    </message>
+    <message>
+        <source>Please enter group name</source>
+        <translation>Please enter group name</translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation>Failed</translation>
+    </message>
+    <message>
+        <source>Failed to create group</source>
+        <translation>Failed to create group</translation>
+    </message>
+    <message>
+        <source>Failed to update group</source>
+        <translation>Failed to update group</translation>
+    </message>
+    <message>
+        <source>Please select a group first</source>
+        <translation>Please select a group first</translation>
+    </message>
+    <message>
+        <source>Please enter content</source>
+        <translation>Please enter content</translation>
+    </message>
+    <message>
+        <source>Failed to move to group</source>
+        <translation>Failed to move to group</translation>
+    </message>
+    <message>
+        <source>Failed to add content</source>
+        <translation>Failed to add content</translation>
+    </message>
+    <message>
+        <source>Failed to update content</source>
+        <translation>Failed to update content</translation>
+    </message>
+    <message>
+        <source>Failed to delete group</source>
+        <translation>Failed to delete group</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete this item?</source>
+        <translation>Are you sure you want to delete this item?</translation>
+    </message>
+    <message>
+        <source>Failed to delete item</source>
+        <translation>Failed to delete item</translation>
+    </message>
+</context>
+
+<!-- ========== Settings Dialog - Clipboard Settings ========== -->
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Enable Clipboard Manager</source>
+        <translation>Enable Clipboard Manager</translation>
+    </message>
+    <message>
+        <source>Monitor and manage clipboard history</source>
+        <translation>Monitor and manage clipboard history</translation>
+    </message>
+    <message>
+        <source>Auto Paste After Selection</source>
+        <translation>Auto Paste After Selection</translation>
+    </message>
+    <message>
+        <source>Automatically send Ctrl+V after selecting an item</source>
+        <translation>Automatically send Ctrl+V after selecting an item</translation>
+    </message>
+    <message>
+        <source>History Limit</source>
+        <translation>History Limit</translation>
+    </message>
+    <message>
+        <source>Maximum number of items to keep (0 = unlimited)</source>
+        <translation>Maximum number of items to keep (0 = unlimited)</translation>
+    </message>
+    <message>
+        <source>Auto Cleanup Old Items</source>
+        <translation>Auto Cleanup Old Items</translation>
+    </message>
+    <message>
+        <source>Automatically remove items exceeding the limit</source>
+        <translation>Automatically remove items exceeding the limit</translation>
+    </message>
+    <message>
+        <source>Data Storage Location</source>
+        <translation>Data Storage Location</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>Unknown</translation>
+    </message>
+    <message>
+        <source>Clipboard module not available</source>
+        <translation>Clipboard module not available</translation>
+    </message>
+    <message>
+        <source>Open Folder</source>
+        <translation>Open Folder</translation>
+    </message>
+    <message>
+        <source>Clear Clipboard History</source>
+        <translation>Clear Clipboard History</translation>
+    </message>
+    <message>
+        <source>Delete all clipboard history records</source>
+        <translation>Delete all clipboard history records</translation>
+    </message>
+    <message>
+        <source>Clear History</source>
+        <translation>Clear History</translation>
+    </message>
+    <message>
+        <source>💡 Hint: Set clipboard hotkey in Shortcuts settings.</source>
+        <translation>💡 Hint: Set clipboard hotkey in Shortcuts settings.</translation>
+    </message>
+</context>
 
 </TS>

@@ -120,6 +120,30 @@ class HotkeySystem(QObject):
             vk = 0x2C
         elif key == "esc":
             vk = 0x1B
+        # 反引号/波浪号键 (`)
+        elif key in ("`", "oem3", "backquote", "grave"):
+            vk = 0xC0  # VK_OEM_3
+        # 其他常见符号键
+        elif key in ("-", "minus"):
+            vk = 0xBD  # VK_OEM_MINUS
+        elif key in ("=", "equals", "equal"):
+            vk = 0xBB  # VK_OEM_PLUS
+        elif key in ("[", "lbracket"):
+            vk = 0xDB  # VK_OEM_4
+        elif key in ("]", "rbracket"):
+            vk = 0xDD  # VK_OEM_6
+        elif key in ("\\", "backslash"):
+            vk = 0xDC  # VK_OEM_5
+        elif key in (";", "semicolon"):
+            vk = 0xBA  # VK_OEM_1
+        elif key in ("'", "quote"):
+            vk = 0xDE  # VK_OEM_7
+        elif key in (",", "comma"):
+            vk = 0xBC  # VK_OEM_COMMA
+        elif key in (".", "period"):
+            vk = 0xBE  # VK_OEM_PERIOD
+        elif key in ("/", "slash"):
+            vk = 0xBF  # VK_OEM_2
 
         if vk is None:
             raise ValueError(f"不支持的键: {key}")

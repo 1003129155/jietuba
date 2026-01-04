@@ -172,8 +172,9 @@ class SettingsDialog(QDialog):
         self.content_stack.addWidget(self._create_ocr_page())            # 4
         self.content_stack.addWidget(self._create_translation_page())    # 5 - 翻译设置
         self.content_stack.addWidget(self._create_log_page())            # 6
-        self.content_stack.addWidget(self._create_misc_page())           # 7
-        self.content_stack.addWidget(self._create_info_page())           # 8
+        self.content_stack.addWidget(self._create_clipboard_page())      # 7 - 剪贴板设置
+        self.content_stack.addWidget(self._create_misc_page())           # 8
+        self.content_stack.addWidget(self._create_info_page())           # 9
         right_layout.addWidget(self.content_stack)
         
         # 底部按钮栏
@@ -224,6 +225,7 @@ class SettingsDialog(QDialog):
             "🎯  " + self.tr("OCR Settings"),
             "🌐  " + self.tr("Translation"),
             "📝  " + self.tr("Log Settings"),
+            "📋  " + self.tr("Clipboard"),
             "⚙️  " + self.tr("Other"),
             "ℹ️  " + self.tr("About")
         ]
@@ -369,12 +371,12 @@ class SettingsDialog(QDialog):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(15)
 
-        # 卡片1: 快捷键
+        # 卡片1: 截图快捷键
         card1 = SettingCard()
         
-        # 快捷键输入
+        # 截图快捷键输入
         row1 = QHBoxLayout()
-        lbl = QLabel(self.tr("Hotkey"))
+        lbl = QLabel(self.tr("Screenshot Hotkey"))
         lbl.setStyleSheet("background-color: transparent;")
         self.hotkey_input = QLineEdit()
         self.hotkey_input.setText(self.current_hotkey)
@@ -387,6 +389,24 @@ class SettingsDialog(QDialog):
         row1.addWidget(self.hotkey_input)
         
         card1.layout.addLayout(row1)
+        
+        card1.layout.addWidget(HLine())
+        
+        # 剪贴板快捷键
+        row_clipboard = QHBoxLayout()
+        lbl_clipboard = QLabel(self.tr("Clipboard Hotkey"))
+        lbl_clipboard.setStyleSheet("background-color: transparent;")
+        self.clipboard_hotkey_edit = QLineEdit()
+        self.clipboard_hotkey_edit.setText(self.config_manager.get_clipboard_hotkey())
+        self.clipboard_hotkey_edit.setPlaceholderText("ctrl+`")
+        self.clipboard_hotkey_edit.setFixedWidth(200)
+        self.clipboard_hotkey_edit.setStyleSheet(self._get_input_style())
+        
+        row_clipboard.addWidget(lbl_clipboard)
+        row_clipboard.addStretch()
+        row_clipboard.addWidget(self.clipboard_hotkey_edit)
+        
+        card1.layout.addLayout(row_clipboard)
         
         layout.addWidget(card1)
 
@@ -677,6 +697,53 @@ class SettingsDialog(QDialog):
         card.layout.addLayout(row_ocr_enable)
         card.layout.addWidget(HLine())
 
+        # OCR 引擎选择 - 如果模块可用
+        if ocr_files_exist:
+            # 检测可用的引擎
+            from ocr import get_available_engines
+            available_engines = get_available_engines()
+            
+            if len(available_engines) > 0:
+                engine_layout = QHBoxLayout()
+                engine_layout.setSpacing(10)
+                
+                engine_label = QLabel(self.tr("OCR Engine:"))
+                engine_label.setStyleSheet("font-size: 13px; color: #000; background-color: transparent;")
+                engine_layout.addWidget(engine_label)
+                
+                self.ocr_engine_combo = QComboBox()
+                self.ocr_engine_combo.setStyleSheet(self._get_input_style())
+                
+                # 添加可用引擎到下拉框
+                engine_names = {
+                    "ocr_rs": "PaddleOCR",
+                    "windows_media_ocr": "Windows OCR"
+                }
+                
+                for engine in available_engines:
+                    display_name = engine_names.get(engine, engine)
+                    self.ocr_engine_combo.addItem(display_name, engine)
+                
+                # 设置当前选中的引擎
+                current_engine = self.config_manager.get_ocr_engine()
+                for i in range(self.ocr_engine_combo.count()):
+                    if self.ocr_engine_combo.itemData(i) == current_engine:
+                        self.ocr_engine_combo.setCurrentIndex(i)
+                        break
+                
+                # 连接信号
+                self.ocr_engine_combo.currentIndexChanged.connect(
+                    lambda: self.config_manager.set_ocr_engine(
+                        self.ocr_engine_combo.currentData()
+                    )
+                )
+                
+                engine_layout.addWidget(self.ocr_engine_combo)
+                engine_layout.addStretch()
+                
+                card.layout.addLayout(engine_layout)
+                card.layout.addWidget(HLine())
+
         # 语言提示 - 紧凑布局
         lang_layout = QHBoxLayout()
         lang_layout.setSpacing(10)
@@ -691,73 +758,6 @@ class SettingsDialog(QDialog):
         lang_layout.addStretch()
         
         card.layout.addLayout(lang_layout)
-        
-        # 如果模块可用，添加预处理选项
-        if ocr_files_exist:
-            card.layout.addWidget(HLine())
-            
-            # 灰度转换 - 紧凑布局
-            gray_layout = QHBoxLayout()
-            gray_layout.setSpacing(10)
-            
-            self.ocr_grayscale_toggle = ToggleSwitch()
-            self.ocr_grayscale_toggle.setChecked(self.config_manager.get_ocr_grayscale_enabled())
-            gray_layout.addWidget(self.ocr_grayscale_toggle)
-            
-            gray_label = QLabel(self.tr("Grayscale Conversion"))
-            gray_label.setStyleSheet("font-size: 13px; color: #000; background-color: transparent;")
-            gray_layout.addWidget(gray_label)
-            
-            gray_hint = QLabel("(~5ms)")
-            gray_hint.setStyleSheet("font-size: 11px; color: #888; background-color: transparent;")
-            gray_layout.addWidget(gray_hint)
-            gray_layout.addStretch()
-            
-            card.layout.addLayout(gray_layout)
-            
-            # 图像放大 - 紧凑布局
-            upscale_layout = QHBoxLayout()
-            upscale_layout.setSpacing(10)
-            
-            self.ocr_upscale_toggle = ToggleSwitch()
-            self.ocr_upscale_toggle.setChecked(self.config_manager.get_ocr_upscale_enabled())
-            upscale_layout.addWidget(self.ocr_upscale_toggle)
-            
-            upscale_label = QLabel(self.tr("Image Upscale"))
-            upscale_label.setStyleSheet("font-size: 13px; color: #000; background-color: transparent;")
-            upscale_layout.addWidget(upscale_label)
-            
-            upscale_hint = QLabel("(~30-50ms)")
-            upscale_hint.setStyleSheet("font-size: 11px; color: #888; background-color: transparent;")
-            upscale_layout.addWidget(upscale_hint)
-            
-            # 放大倍数 - 内联
-            upscale_layout.addSpacing(20)
-            scale_label = QLabel(self.tr("Scale:"))
-            scale_label.setStyleSheet("font-size: 12px; color: #666; background-color: transparent;")
-            upscale_layout.addWidget(scale_label)
-            
-            self.ocr_scale_spinbox = QDoubleSpinBox()
-            self.ocr_scale_spinbox.setRange(1.0, 3.0)
-            self.ocr_scale_spinbox.setSingleStep(0.1)
-            self.ocr_scale_spinbox.setDecimals(1)
-            self.ocr_scale_spinbox.setValue(self.config_manager.get_ocr_upscale_factor())
-            self.ocr_scale_spinbox.setStyleSheet(self._get_input_style())
-            self.ocr_scale_spinbox.setFixedWidth(70)
-            upscale_layout.addWidget(self.ocr_scale_spinbox)
-            
-            times_label = QLabel("×")
-            times_label.setStyleSheet("font-size: 12px; color: #666; background-color: transparent;")
-            upscale_layout.addWidget(times_label)
-            
-            upscale_layout.addStretch()
-            card.layout.addLayout(upscale_layout)
-            
-            # ====== 连接 OCR 设置信号（实时保存）======
-            # 注意：ToggleSwitch 使用 toggled 信号，不是 stateChanged
-            self.ocr_grayscale_toggle.toggled.connect(lambda checked: self.config_manager.set_ocr_grayscale_enabled(checked))
-            self.ocr_upscale_toggle.toggled.connect(lambda checked: self.config_manager.set_ocr_upscale_enabled(checked))
-            self.ocr_scale_spinbox.valueChanged.connect(lambda value: self.config_manager.set_ocr_upscale_factor(value))
         
         # ====== 连接 OCR 启用信号（在模块可用的情况下） ======
         if ocr_files_exist:
@@ -845,36 +845,6 @@ class SettingsDialog(QDialog):
         )
         card.layout.addLayout(row_pro)
 
-        # ===== 目标语言 =====
-        target_lang_layout = QHBoxLayout()
-        target_lang_label = QLabel(self.tr("Target Language"))
-        target_lang_label.setStyleSheet("font-size: 14px; color: #000; background-color: transparent;")
-        target_lang_label.setFixedWidth(100)
-        target_lang_layout.addWidget(target_lang_label)
-        target_lang_layout.addStretch()
-        
-        self.translation_target_combo = QComboBox()
-        self.translation_target_combo.setFixedWidth(180)
-        self.translation_target_combo.setStyleSheet(self._get_input_style())
-        
-        # 添加语言选项
-        lang_options = [
-            ("", self.tr("Auto (System)")),
-            ("ZH", "中文"), ("JA", "日本語"), ("EN", "English"),
-            ("KO", "한국어"), ("DE", "Deutsch"), ("FR", "Français"),
-            ("ES", "Español"), ("PT", "Português"), ("RU", "Русский"),
-        ]
-        
-        current_lang = self.config_manager.get_app_setting("translation_target_lang", "")
-        current_index = 0
-        for i, (code, name) in enumerate(lang_options):
-            self.translation_target_combo.addItem(name, code)
-            if code == current_lang:
-                current_index = i
-        self.translation_target_combo.setCurrentIndex(current_index)
-        
-        target_lang_layout.addWidget(self.translation_target_combo)
-        card.layout.addLayout(target_lang_layout)
         card.layout.addWidget(HLine())
 
         # ===== 高级选项（紧凑布局）=====
@@ -1092,6 +1062,217 @@ class SettingsDialog(QDialog):
         else:
             os.system(f"xdg-open {latest}")
 
+    def _create_clipboard_page(self):
+        """创建剪贴板设置页面"""
+        # 使用 ScrollArea 支持滚动
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background-color: transparent; }")
+        
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        layout.setContentsMargins(0, 0, 10, 0)  # 右侧留空隙给滚动条
+        layout.setSpacing(15)
+
+        # ========== 卡片1: 基础设置 ==========
+        card1 = SettingCard()
+
+        # 启用剪贴板管理
+        self.clipboard_enabled_toggle = ToggleSwitch()
+        row_enabled = self._create_toggle_row(
+            self.tr("Enable Clipboard Manager"),
+            self.tr("Monitor and manage clipboard history"),
+            self.config_manager.get_clipboard_enabled(),
+            self.clipboard_enabled_toggle
+        )
+        card1.layout.addLayout(row_enabled)
+
+        card1.layout.addWidget(HLine())
+
+        # 自动粘贴开关
+        self.clipboard_auto_paste_toggle = ToggleSwitch()
+        row_auto_paste = self._create_toggle_row(
+            self.tr("Auto Paste After Selection"),
+            self.tr("Automatically send Ctrl+V after selecting an item"),
+            self.config_manager.get_clipboard_auto_paste(),
+            self.clipboard_auto_paste_toggle
+        )
+        card1.layout.addLayout(row_auto_paste)
+
+        layout.addWidget(card1)
+
+        # ========== 卡片2: 历史管理 ==========
+        card2 = SettingCard()
+
+        # 历史记录数量限制
+        limit_row = QHBoxLayout()
+        limit_left = QVBoxLayout()
+        limit_title = QLabel(self.tr("History Limit"))
+        limit_title.setStyleSheet("font-size: 14px; color: #000; background-color: transparent;")
+        limit_desc = QLabel(self.tr("Maximum number of items to keep (0 = unlimited)"))
+        limit_desc.setStyleSheet("font-size: 12px; color: #888; background-color: transparent;")
+        limit_left.addWidget(limit_title)
+        limit_left.addWidget(limit_desc)
+        limit_row.addLayout(limit_left)
+        limit_row.addStretch()
+        
+        self.clipboard_history_limit_spin = QSpinBox()
+        self.clipboard_history_limit_spin.setFixedWidth(100)
+        self.clipboard_history_limit_spin.setRange(0, 10000)
+        self.clipboard_history_limit_spin.setValue(self.config_manager.get_clipboard_history_limit())
+        self.clipboard_history_limit_spin.setStyleSheet(self._get_input_style())
+        limit_row.addWidget(self.clipboard_history_limit_spin)
+        card2.layout.addLayout(limit_row)
+
+        card2.layout.addWidget(HLine())
+
+        # 自动清理开关
+        self.clipboard_auto_cleanup_toggle = ToggleSwitch()
+        row_auto_cleanup = self._create_toggle_row(
+            self.tr("Auto Cleanup Old Items"),
+            self.tr("Automatically remove items exceeding the limit"),
+            self.config_manager.get_clipboard_auto_cleanup(),
+            self.clipboard_auto_cleanup_toggle
+        )
+        card2.layout.addLayout(row_auto_cleanup)
+
+        layout.addWidget(card2)
+
+        # ========== 卡片3: 数据存储位置 ==========
+        card3 = SettingCard()
+        
+        storage_row = QHBoxLayout()
+        storage_left = QVBoxLayout()
+        storage_title = QLabel(self.tr("Data Storage Location"))
+        storage_title.setStyleSheet("font-size: 14px; color: #000; background-color: transparent;")
+        
+        # 获取数据存储路径
+        try:
+            from clipboard import ClipboardManager
+            cm = ClipboardManager()
+            if cm.is_available:
+                db_path = cm.get_db_path() or self.tr("Unknown")
+            else:
+                db_path = self.tr("Clipboard module not available")
+        except:
+            db_path = self.tr("Clipboard module not available")
+        
+        storage_path = QLabel(db_path)
+        storage_path.setStyleSheet("font-size: 12px; color: #888; background-color: transparent;")
+        storage_path.setWordWrap(True)
+        storage_left.addWidget(storage_title)
+        storage_left.addWidget(storage_path)
+        storage_row.addLayout(storage_left, 1)
+        
+        open_folder_btn = QPushButton(self.tr("Open Folder"))
+        open_folder_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #F5F5F5;
+                border: 1px solid #E5E5E5;
+                border-radius: 4px;
+                padding: 6px 12px;
+                color: #333;
+            }
+            QPushButton:hover {
+                background-color: #E8E8E8;
+            }
+        """)
+        open_folder_btn.clicked.connect(lambda: self._open_clipboard_data_folder(db_path))
+        storage_row.addWidget(open_folder_btn)
+        card3.layout.addLayout(storage_row)
+
+        layout.addWidget(card3)
+
+        # ========== 卡片4: 数据清理 ==========
+        card4 = SettingCard()
+        
+        cleanup_row = QHBoxLayout()
+        cleanup_left = QVBoxLayout()
+        cleanup_title = QLabel(self.tr("Clear Clipboard History"))
+        cleanup_title.setStyleSheet("font-size: 14px; color: #000; background-color: transparent;")
+        cleanup_desc = QLabel(self.tr("Delete all clipboard history records"))
+        cleanup_desc.setStyleSheet("font-size: 12px; color: #888; background-color: transparent;")
+        cleanup_left.addWidget(cleanup_title)
+        cleanup_left.addWidget(cleanup_desc)
+        cleanup_row.addLayout(cleanup_left, 1)
+        
+        clear_btn = QPushButton(self.tr("Clear History"))
+        clear_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #FF4D4F;
+                border: none;
+                border-radius: 4px;
+                padding: 6px 12px;
+                color: white;
+            }
+            QPushButton:hover {
+                background-color: #FF7875;
+            }
+        """)
+        clear_btn.clicked.connect(self._clear_clipboard_history)
+        cleanup_row.addWidget(clear_btn)
+        card4.layout.addLayout(cleanup_row)
+
+        layout.addWidget(card4)
+
+        # 提示信息
+        info_lbl = QLabel(self.tr("💡 Hint: Set clipboard hotkey in Shortcuts settings."))
+        info_lbl.setStyleSheet("color: #888; padding: 5px; background-color: transparent;")
+        layout.addWidget(info_lbl)
+
+        layout.addStretch()
+        
+        scroll.setWidget(content)
+        return scroll
+    
+    def _open_clipboard_data_folder(self, path: str):
+        """打开剪贴板数据文件夹"""
+        import os
+        import subprocess
+        
+        try:
+            # 获取文件夹路径
+            if os.path.isfile(path):
+                folder = os.path.dirname(path)
+            else:
+                folder = path
+            
+            if os.path.exists(folder):
+                # Windows
+                if sys.platform == 'win32':
+                    subprocess.run(['explorer', folder])
+                # macOS
+                elif sys.platform == 'darwin':
+                    subprocess.run(['open', folder])
+                # Linux
+                else:
+                    subprocess.run(['xdg-open', folder])
+            else:
+                QMessageBox.warning(self, self.tr("Warning"), self.tr("Folder does not exist"))
+        except Exception as e:
+            QMessageBox.warning(self, self.tr("Error"), str(e))
+    
+    def _clear_clipboard_history(self):
+        """清空剪贴板历史"""
+        reply = QMessageBox.question(
+            self,
+            self.tr("Confirm Clear"),
+            self.tr("Are you sure you want to clear all clipboard history?\nThis action cannot be undone."),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                from clipboard import ClipboardManager
+                cm = ClipboardManager()
+                if cm.is_available and cm.clear_history():
+                    QMessageBox.information(self, self.tr("Success"), self.tr("Clipboard history cleared successfully"))
+                else:
+                    QMessageBox.warning(self, self.tr("Error"), self.tr("Failed to clear clipboard history"))
+            except Exception as e:
+                QMessageBox.warning(self, self.tr("Error"), str(e))
+
     def _create_misc_page(self):
         """创建杂项设置页面"""
         page = QWidget()
@@ -1124,9 +1305,40 @@ class SettingsDialog(QDialog):
         )
         card.layout.addLayout(row_pin_toolbar)
         
-        # 语言切换功能已移至翻译窗口，这里隐藏
-        # card.layout.addWidget(HLine())
-        # ... 语言切换代码已隐藏 ...
+        card.layout.addWidget(HLine())
+        
+        # 🌐 语言切换
+        from core.i18n import I18nManager
+        lang_row = QHBoxLayout()
+        lang_row.setSpacing(10)
+        
+        lang_left = QVBoxLayout()
+        lang_left.setSpacing(2)
+        lang_title = QLabel(self.tr("🌐 Language / Language"))
+        lang_title.setStyleSheet("font-weight: bold; font-size: 13px; background-color: transparent;")
+        lang_desc = QLabel(self.tr("Select display language. Restart required after change."))
+        lang_desc.setStyleSheet("color: #888; font-size: 11px; background-color: transparent;")
+        lang_left.addWidget(lang_title)
+        lang_left.addWidget(lang_desc)
+        lang_row.addLayout(lang_left, 1)
+        
+        self.language_combo = QComboBox()
+        self.language_combo.setFixedWidth(120)
+        self.language_combo.setFixedHeight(30)
+        self.language_combo.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        # 添加支持的语言
+        for code, name in I18nManager.get_available_languages().items():
+            self.language_combo.addItem(name, code)
+        
+        # 设置当前语言
+        current_lang = self.config_manager.get_app_setting("language", "ja")
+        index = self.language_combo.findData(current_lang)
+        if index >= 0:
+            self.language_combo.setCurrentIndex(index)
+        
+        lang_row.addWidget(self.language_combo)
+        card.layout.addLayout(lang_row)
         
         layout.addWidget(card)
         
@@ -1271,7 +1483,8 @@ class SettingsDialog(QDialog):
             self.tr("Screenshot Save Settings"), 
             self.tr("OCR Settings"),
             self.tr("Translation Settings"),
-            self.tr("Log Settings"), 
+            self.tr("Log Settings"),
+            self.tr("Clipboard Settings"),
             self.tr("Other Settings"), 
             self.tr("Software Information")
         ]
@@ -1457,21 +1670,11 @@ class SettingsDialog(QDialog):
             self.config_manager.set_ocr_enabled(self.ocr_enable_toggle.isChecked())
         # 注意: 语言设置已移除,RapidOCR 自动支持多语言混合识别
         
-        # OCR 图像预处理设置
-        if hasattr(self, 'ocr_grayscale_toggle'):
-            self.config_manager.set_ocr_grayscale_enabled(self.ocr_grayscale_toggle.isChecked())
-        if hasattr(self, 'ocr_upscale_toggle'):
-            self.config_manager.set_ocr_upscale_enabled(self.ocr_upscale_toggle.isChecked())
-        if hasattr(self, 'ocr_scale_spinbox'):
-            self.config_manager.set_ocr_upscale_factor(self.ocr_scale_spinbox.value())
-        
         # 3.5 翻译设置
         if hasattr(self, 'deepl_api_key_input'):
             self.config_manager.set_deepl_api_key(self.deepl_api_key_input.text().strip())
         if hasattr(self, 'deepl_pro_toggle'):
             self.config_manager.set_deepl_use_pro(self.deepl_pro_toggle.isChecked())
-        if hasattr(self, 'translation_target_combo'):
-            self.config_manager.set_translation_target_lang(self.translation_target_combo.currentData())
         if hasattr(self, 'split_sentences_toggle'):
             self.config_manager.set_translation_split_sentences(self.split_sentences_toggle.isChecked())
         if hasattr(self, 'preserve_formatting_toggle'):
@@ -1483,7 +1686,27 @@ class SettingsDialog(QDialog):
         if hasattr(self, 'pin_auto_toolbar_toggle'):
             self.config_manager.set_pin_auto_toolbar(self.pin_auto_toolbar_toggle.isChecked())
         
-        # 语言设置已移至翻译窗口
+        # 界面语言设置
+        if hasattr(self, 'language_combo'):
+            new_lang = self.language_combo.currentData()
+            old_lang = self.config_manager.get_app_setting("language", "ja")
+            self.config_manager.qsettings.setValue("app/language", new_lang)
+            if new_lang != old_lang:
+                # 立即应用语言切换
+                from core.i18n import I18nManager
+                I18nManager.load_language(new_lang)
+        
+        # 4.5 剪贴板设置
+        if hasattr(self, 'clipboard_enabled_toggle'):
+            self.config_manager.set_clipboard_enabled(self.clipboard_enabled_toggle.isChecked())
+        if hasattr(self, 'clipboard_hotkey_edit'):
+            self.config_manager.set_clipboard_hotkey(self.clipboard_hotkey_edit.text().strip())
+        if hasattr(self, 'clipboard_auto_paste_toggle'):
+            self.config_manager.set_clipboard_auto_paste(self.clipboard_auto_paste_toggle.isChecked())
+        if hasattr(self, 'clipboard_history_limit_spin'):
+            self.config_manager.set_clipboard_history_limit(self.clipboard_history_limit_spin.value())
+        if hasattr(self, 'clipboard_auto_cleanup_toggle'):
+            self.config_manager.set_clipboard_auto_cleanup(self.clipboard_auto_cleanup_toggle.isChecked())
         
         # 5. 引擎和长截图参数
         if hasattr(self, 'engine_combo'):
@@ -1520,10 +1743,15 @@ from PyQt6.QtCore import QSettings
 class MockConfig:
     def __init__(self):
         self.settings = QSettings("TestApp", "Settings")
+        self.qsettings = self.settings
     def get_smart_selection(self): return False
     def set_smart_selection(self, v): pass
     def get_log_enabled(self): return True
     def set_log_enabled(self, v): pass
+    def get_log_level(self): return "INFO"
+    def set_log_level(self, v): pass
+    def get_log_retention_days(self): return 7
+    def set_log_retention_days(self, v): pass
     def get_log_dir(self): return os.path.expanduser("~")
     def set_log_dir(self, v): pass
     def get_long_stitch_engine(self): return "hash_rust"
@@ -1534,16 +1762,11 @@ class MockConfig:
     def set_screenshot_save_enabled(self, v): pass
     def get_screenshot_save_path(self): return os.path.join(os.path.expanduser("~"), "Desktop", "スクショ")
     def set_screenshot_save_path(self, v): pass
+    def set_hotkey(self, v): pass
     def get_show_main_window(self): return True
     def set_show_main_window(self, v): pass
     def get_ocr_enabled(self): return True
     def set_ocr_enabled(self, v): pass
-    def get_ocr_grayscale_enabled(self): return False
-    def set_ocr_grayscale_enabled(self, v): pass
-    def get_ocr_upscale_enabled(self): return False
-    def set_ocr_upscale_enabled(self, v): pass
-    def get_ocr_upscale_factor(self): return 2.0
-    def set_ocr_upscale_factor(self, v): pass
     def get_pin_auto_toolbar(self): return True
     def set_pin_auto_toolbar(self, v): pass
     # 翻译相关设置
@@ -1557,6 +1780,17 @@ class MockConfig:
     def get_translation_preserve_formatting(self): return True
     def set_translation_preserve_formatting(self, v): pass
     def set_translation_target_lang(self, v): pass
+    # 剪贴板相关设置
+    def get_clipboard_enabled(self): return True
+    def set_clipboard_enabled(self, v): pass
+    def get_clipboard_hotkey(self): return "ctrl+`"
+    def set_clipboard_hotkey(self, v): pass
+    def get_clipboard_auto_paste(self): return True
+    def set_clipboard_auto_paste(self, v): pass
+    def get_clipboard_history_limit(self): return 500
+    def set_clipboard_history_limit(self, v): pass
+    def get_clipboard_auto_cleanup(self): return True
+    def set_clipboard_auto_cleanup(self, v): pass
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

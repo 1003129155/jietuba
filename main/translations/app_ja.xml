@@ -831,4 +831,373 @@
     </message>
 </context>
 
+<!-- ========== Clipboard Window ========== -->
+<context>
+    <name>ClipboardWindow</name>
+    <message>
+        <source>Clipboard History</source>
+        <translation>クリップボード履歴</translation>
+    </message>
+    <message>
+        <source>Search</source>
+        <translation>検索</translation>
+    </message>
+    <message>
+        <source>All</source>
+        <translation>すべて</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>テキスト</translation>
+    </message>
+    <message>
+        <source>Image</source>
+        <translation>画像</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>ファイル</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>閉じる</translation>
+    </message>
+    <message>
+        <source>Add Group</source>
+        <translation>グループを追加</translation>
+    </message>
+    <message>
+        <source>Filter Type</source>
+        <translation>フィルター</translation>
+    </message>
+    <message>
+        <source>📋 Paste with Format</source>
+        <translation>書式付きでコピペ</translation>
+    </message>
+    <message>
+        <source>🔄 Auto Paste After Selection</source>
+        <translation>選択後に自動コピペ</translation>
+    </message>
+    <message>
+        <source>⬆️ Move to Top After Paste</source>
+        <translation>コピペ後に最上位へ</translation>
+    </message>
+    <message>
+        <source>🔲 Window Opacity</source>
+        <translation>透明度</translation>
+    </message>
+    <message>
+        <source>Opaque</source>
+        <translation>不透明</translation>
+    </message>
+    <message>
+        <source>📏 Max Display Lines</source>
+        <translation>行の高さ</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n line(s)</source>
+        <translation>
+            <numerusform>%n行</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>📝 Add Content</source>
+        <translation>テキストを追加</translation>
+    </message>
+    <message>
+        <source>Confirm Delete</source>
+        <translation>削除の確認</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</source>
+        <translation>このグループを削除してもよろしいですか？\nグループ内のすべてのアイテムも削除されます。</translation>
+    </message>
+    <message>
+        <source>🗑️ Delete Group</source>
+        <translation>🗑️ グループを削除</translation>
+    </message>
+    <message>
+        <source>Unpin</source>
+        <translation>ピン留めを解除</translation>
+    </message>
+    <message>
+        <source>📌 Pin</source>
+        <translation>📌 ピン留め</translation>
+    </message>
+    <message>
+        <source>📁 Move to Group</source>
+        <translation>📁 グループへ移動</translation>
+    </message>
+    <message>
+        <source>↩️ Remove from Group</source>
+        <translation>↩️ グループから削除</translation>
+    </message>
+    <message>
+        <source>🗑️ Delete</source>
+        <translation>🗑️ 削除</translation>
+    </message>
+    <message>
+        <source>Confirm Clear</source>
+        <translation>クリアの確認</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to clear all clipboard history?\nThis action cannot be undone.</source>
+        <translation>すべてのクリップボード履歴をクリアしてもよろしいですか？\nこの操作は元に戻せません。</translation>
+    </message>
+    <message>
+        <source>📋 Paste</source>
+        <translation>📋 貼り付け</translation>
+    </message>
+</context>
+
+<!-- ========== Clipboard Management Dialog ========== -->
+<context>
+    <name>ManageDialog</name>
+    <message>
+        <source>Clipboard Management</source>
+        <translation>クリップボード管理</translation>
+    </message>
+    <message>
+        <source>Management</source>
+        <translation>管理</translation>
+    </message>
+    <message>
+        <source>📁 Group Management</source>
+        <translation>📁 グループ</translation>
+    </message>
+    <message>
+        <source>✏️ Content Manager</source>
+        <translation>✏️ テキスト</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>閉じる</translation>
+    </message>
+    <message>
+        <source>Group List</source>
+        <translation>グループリスト</translation>
+    </message>
+    <message>
+        <source>(Please create a group first)</source>
+        <translation>（最初にグループを作成してください）</translation>
+    </message>
+    <message>
+        <source>➕ New Group</source>
+        <translation>➕ 新しいグループ</translation>
+    </message>
+    <message>
+        <source>(Please select a group first)</source>
+        <translation>（最初にグループを選択してください）</translation>
+    </message>
+    <message>
+        <source>➕ Add Content</source>
+        <translation>➕ コンテンツを追加</translation>
+    </message>
+    <message>
+        <source>New Group</source>
+        <translation>新しいグループ</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>削除</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>保存</translation>
+    </message>
+    <message>
+        <source>Content List</source>
+        <translation>コンテンツリスト</translation>
+    </message>
+    <message>
+        <source>Create</source>
+        <translation>作成</translation>
+    </message>
+    <message>
+        <source>Group Name</source>
+        <translation>グループ名</translation>
+    </message>
+    <message>
+        <source>Enter group name...</source>
+        <translation>グループ名を入力...</translation>
+    </message>
+    <message>
+        <source>Select Icon</source>
+        <translation>アイコンを選択</translation>
+    </message>
+    <message>
+        <source>Edit Group</source>
+        <translation>グループを編集</translation>
+    </message>
+    <message>
+        <source>Group Content</source>
+        <translation>グループコンテンツ</translation>
+    </message>
+    <message>
+        <source>(No content in group)</source>
+        <translation>（グループにコンテンツがありません）</translation>
+    </message>
+    <message>
+        <source>Add Content</source>
+        <translation>コンテンツを追加</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>追加</translation>
+    </message>
+    <message>
+        <source>Please select a group above, or create a group first</source>
+        <translation>上記のグループを選択するか、最初にグループを作成してください</translation>
+    </message>
+    <message>
+        <source>Title</source>
+        <translation>タイトル</translation>
+    </message>
+    <message>
+        <source>Enter title (e.g., Restart Command)...</source>
+        <translation>タイトルを入力（例：再起動コマンド）...</translation>
+    </message>
+    <message>
+        <source>Content</source>
+        <translation>コンテンツ</translation>
+    </message>
+    <message>
+        <source>Enter text content to save...</source>
+        <translation>保存するテキストコンテンツを入力...</translation>
+    </message>
+    <message>
+        <source>Edit Content</source>
+        <translation>コンテンツを編集</translation>
+    </message>
+    <message>
+        <source>Enter title...</source>
+        <translation>タイトルを入力...</translation>
+    </message>
+    <message>
+        <source>Created: %s</source>
+        <translation>作成日時: %s</translation>
+    </message>
+    <message>
+        <source>Hint</source>
+        <translation>ヒント</translation>
+    </message>
+    <message>
+        <source>Please enter group name</source>
+        <translation>グループ名を入力してください</translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation>失敗</translation>
+    </message>
+    <message>
+        <source>Failed to create group</source>
+        <translation>グループの作成に失敗しました</translation>
+    </message>
+    <message>
+        <source>Failed to update group</source>
+        <translation>グループの更新に失敗しました</translation>
+    </message>
+    <message>
+        <source>Please select a group first</source>
+        <translation>最初にグループを選択してください</translation>
+    </message>
+    <message>
+        <source>Please enter content</source>
+        <translation>コンテンツを入力してください</translation>
+    </message>
+    <message>
+        <source>Failed to move to group</source>
+        <translation>グループへの移動に失敗しました</translation>
+    </message>
+    <message>
+        <source>Failed to add content</source>
+        <translation>コンテンツの追加に失敗しました</translation>
+    </message>
+    <message>
+        <source>Failed to update content</source>
+        <translation>コンテンツの更新に失敗しました</translation>
+    </message>
+    <message>
+        <source>Failed to delete group</source>
+        <translation>グループの削除に失敗しました</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete this item?</source>
+        <translation>このアイテムを削除してもよろしいですか？</translation>
+    </message>
+    <message>
+        <source>Failed to delete item</source>
+        <translation>アイテムの削除に失敗しました</translation>
+    </message>
+</context>
+
+<!-- ========== 設定ダイアログ - クリップボード設定 ========== -->
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Enable Clipboard Manager</source>
+        <translation>クリップボードマネージャーを有効にする</translation>
+    </message>
+    <message>
+        <source>Monitor and manage clipboard history</source>
+        <translation>クリップボード履歴を記録</translation>
+    </message>
+    <message>
+        <source>Auto Paste After Selection</source>
+        <translation>選択後に自動貼り付け</translation>
+    </message>
+    <message>
+        <source>Automatically send Ctrl+V after selecting an item</source>
+        <translation>履歴を選択後に自動的にCtrl+Vを送信</translation>
+    </message>
+    <message>
+        <source>History Limit</source>
+        <translation>履歴の上限</translation>
+    </message>
+    <message>
+        <source>Maximum number of items to keep (0 = unlimited)</source>
+        <translation>保持する最大履歴数（0 = 無制限）</translation>
+    </message>
+    <message>
+        <source>Auto Cleanup Old Items</source>
+        <translation>古いアイテムを自動削除</translation>
+    </message>
+    <message>
+        <source>Automatically remove items exceeding the limit</source>
+        <translation>上限を超える履歴を自動的に削除</translation>
+    </message>
+    <message>
+        <source>Data Storage Location</source>
+        <translation>データ保存場所</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>不明</translation>
+    </message>
+    <message>
+        <source>Clipboard module not available</source>
+        <translation>クリップボードモジュールが利用できません</translation>
+    </message>
+    <message>
+        <source>Open Folder</source>
+        <translation>フォルダを開く</translation>
+    </message>
+    <message>
+        <source>Clear Clipboard History</source>
+        <translation>保存の履歴をクリア</translation>
+    </message>
+    <message>
+        <source>Delete all clipboard history records</source>
+        <translation>すべての履歴を削除（全部初期化）</translation>
+    </message>
+    <message>
+        <source>Clear History</source>
+        <translation>履歴をクリア</translation>
+    </message>
+    <message>
+        <source>💡 Hint: Set clipboard hotkey in Shortcuts settings.</source>
+        <translation>💡 ヒント：ショートカット設定でクリップボードホットキーを設定してください。</translation>
+    </message>
+</context>
+
 </TS>

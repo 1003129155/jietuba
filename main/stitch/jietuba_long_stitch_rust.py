@@ -57,18 +57,17 @@ class RustLongStitch:
             ef_search: HNSW搜索参数 (越高准确率越高但速度越慢，推荐16-128)
         """
         try:
-            import jietuba_rust
+            import longstitch
         except ImportError:
             raise ImportError(
-                "无法导入 jietuba_rust 模块。请先编译 Rust 代码:\n"
-                "  cd rs\n"
-                "  maturin develop --release\n"
-                "或者:\n"
-                "  pip install maturin\n"
-                "  cd rs && maturin develop --release"
+                "无法导入 longstitch 模块。请先安装:\n"
+                "  pip install longstitch\n"
+                "或者从源码编译:\n"
+                "  cd rust_libs/longstitch\n"
+                "  maturin develop --release"
             )
 
-        self.service = jietuba_rust.PyScrollScreenshotService()
+        self.service = longstitch.PyScrollScreenshotService()
         self.service.init(
             direction,
             sample_rate,

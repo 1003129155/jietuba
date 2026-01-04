@@ -850,7 +850,376 @@
     </message>
     <message>
         <source>Visit https://www.deepl.com/pro-api to get your API key.</source>
-        <translation>访问 https://www.deepl.com/pro-api 获取您的API密钥。</translation>
+        <translation>访问 https://www.deepl.com/pro-api 获取您的API密钥。</translation>    
+    </message>
+</context>
+
+<!-- ========== Clipboard Window ========== -->
+<context>
+    <name>ClipboardWindow</name>
+    <message>
+        <source>Clipboard History</source>
+        <translation>剪贴板历史</translation>
+    </message>
+    <message>
+        <source>Search</source>
+        <translation>搜索</translation>
+    </message>
+    <message>
+        <source>All</source>
+        <translation>全部</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>文本</translation>
+    </message>
+    <message>
+        <source>Image</source>
+        <translation>图片</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>文件</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <source>Add Group</source>
+        <translation>添加分组</translation>
+    </message>
+    <message>
+        <source>Filter Type</source>
+        <translation>筛选类型</translation>
+    </message>
+    <message>
+        <source>📋 Paste with Format</source>
+        <translation>📋 粘贴带格式</translation>
+    </message>
+    <message>
+        <source>🔄 Auto Paste After Selection</source>
+        <translation>🔄 选择后自动粘贴</translation>
+    </message>
+    <message>
+        <source>⬆️ Move to Top After Paste</source>
+        <translation>⬆️ 粘贴后移到最前</translation>
+    </message>
+    <message>
+        <source>🔲 Window Opacity</source>
+        <translation>🔲 窗口透明度</translation>
+    </message>
+    <message>
+        <source>Opaque</source>
+        <translation>不透明</translation>
+    </message>
+    <message>
+        <source>📏 Max Display Lines</source>
+        <translation>📏 最多显示行数</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n line(s)</source>
+        <translation>
+            <numerusform>%n行</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>📝 Add Content</source>
+        <translation>📝 添加内容</translation>
+    </message>
+    <message>
+        <source>Confirm Delete</source>
+        <translation>确认删除</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</source>
+        <translation>确定要删除这个分组吗？\n分组内的内容也会被删除。</translation>
+    </message>
+    <message>
+        <source>🗑️ Delete Group</source>
+        <translation>🗑️ 删除分组</translation>
+    </message>
+    <message>
+        <source>Unpin</source>
+        <translation>取消置顶</translation>
+    </message>
+    <message>
+        <source>📌 Pin</source>
+        <translation>📌 置顶</translation>
+    </message>
+    <message>
+        <source>📁 Move to Group</source>
+        <translation>📁 移动到分组</translation>
+    </message>
+    <message>
+        <source>↩️ Remove from Group</source>
+        <translation>↩️ 移出分组</translation>
+    </message>
+    <message>
+        <source>🗑️ Delete</source>
+        <translation>🗑️ 删除</translation>
+    </message>
+    <message>
+        <source>Confirm Clear</source>
+        <translation>确认清空</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to clear all clipboard history?\nThis action cannot be undone.</source>
+        <translation>确定要清空所有剪贴板历史吗？\n此操作不可恢复。</translation>
+    </message>
+    <message>
+        <source>📋 Paste</source>
+        <translation>📋 粘贴</translation>
+    </message>
+</context>
+
+<!-- ========== Clipboard Management Dialog ========== -->
+<context>
+    <name>ManageDialog</name>
+    <message>
+        <source>Clipboard Management</source>
+        <translation>剪贴板管理</translation>
+    </message>
+    <message>
+        <source>Management</source>
+        <translation>管理</translation>
+    </message>
+    <message>
+        <source>📁 Group Management</source>
+        <translation>📁 分组管理</translation>
+    </message>
+    <message>
+        <source>✏️ Content Manager</source>
+        <translation>✏️ 内容管理</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <source>Group List</source>
+        <translation>分组列表</translation>
+    </message>
+    <message>
+        <source>(Please create a group first)</source>
+        <translation>（请先创建分组）</translation>
+    </message>
+    <message>
+        <source>➕ New Group</source>
+        <translation>➕ 新建分组</translation>
+    </message>
+    <message>
+        <source>(Please select a group first)</source>
+        <translation>（请先选择分组）</translation>
+    </message>
+    <message>
+        <source>➕ Add Content</source>
+        <translation>➕ 添加内容</translation>
+    </message>
+    <message>
+        <source>New Group</source>
+        <translation>新建分组</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>删除</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>保存</translation>
+    </message>
+    <message>
+        <source>Content List</source>
+        <translation>内容列表</translation>
+    </message>
+    <message>
+        <source>Create</source>
+        <translation>创建</translation>
+    </message>
+    <message>
+        <source>Group Name</source>
+        <translation>分组名称</translation>
+    </message>
+    <message>
+        <source>Enter group name...</source>
+        <translation>输入分组名称...</translation>
+    </message>
+    <message>
+        <source>Select Icon</source>
+        <translation>选择图标</translation>
+    </message>
+    <message>
+        <source>Edit Group</source>
+        <translation>编辑分组</translation>
+    </message>
+    <message>
+        <source>Group Content</source>
+        <translation>分组内容</translation>
+    </message>
+    <message>
+        <source>(No content in group)</source>
+        <translation>（分组内暂无内容）</translation>
+    </message>
+    <message>
+        <source>Add Content</source>
+        <translation>添加内容</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>添加</translation>
+    </message>
+    <message>
+        <source>Please select a group above, or create a group first</source>
+        <translation>请先在上方选择一个分组，或先创建分组</translation>
+    </message>
+    <message>
+        <source>Title</source>
+        <translation>标题</translation>
+    </message>
+    <message>
+        <source>Enter title (e.g., Restart Command)...</source>
+        <translation>输入标题（如：重启命令）...</translation>
+    </message>
+    <message>
+        <source>Content</source>
+        <translation>内容</translation>
+    </message>
+    <message>
+        <source>Enter text content to save...</source>
+        <translation>输入要保存的文本内容...</translation>
+    </message>
+    <message>
+        <source>Edit Content</source>
+        <translation>编辑内容</translation>
+    </message>
+    <message>
+        <source>Enter title...</source>
+        <translation>输入标题...</translation>
+    </message>
+    <message>
+        <source>Created: %s</source>
+        <translation>创建时间: %s</translation>
+    </message>
+    <message>
+        <source>Hint</source>
+        <translation>提示</translation>
+    </message>
+    <message>
+        <source>Please enter group name</source>
+        <translation>请输入分组名称</translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation>失败</translation>
+    </message>
+    <message>
+        <source>Failed to create group</source>
+        <translation>创建分组失败</translation>
+    </message>
+    <message>
+        <source>Failed to update group</source>
+        <translation>更新分组失败</translation>
+    </message>
+    <message>
+        <source>Please select a group first</source>
+        <translation>请先选择一个分组</translation>
+    </message>
+    <message>
+        <source>Please enter content</source>
+        <translation>请输入内容</translation>
+    </message>
+    <message>
+        <source>Failed to move to group</source>
+        <translation>移动到分组失败</translation>
+    </message>
+    <message>
+        <source>Failed to add content</source>
+        <translation>添加内容失败</translation>
+    </message>
+    <message>
+        <source>Failed to update content</source>
+        <translation>更新内容失败</translation>
+    </message>
+    <message>
+        <source>Failed to delete group</source>
+        <translation>删除分组失败</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete this item?</source>
+        <translation>确定要删除这条内容吗？</translation>
+    </message>
+    <message>
+        <source>Failed to delete item</source>
+        <translation>删除内容失败</translation>
+    </message>
+</context>
+
+<!-- ========== 设置对话框 - 剪贴板设置 ========== -->
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Enable Clipboard Manager</source>
+        <translation>启用剪贴板管理器</translation>
+    </message>
+    <message>
+        <source>Monitor and manage clipboard history</source>
+        <translation>监控并管理剪贴板历史记录</translation>
+    </message>
+    <message>
+        <source>Auto Paste After Selection</source>
+        <translation>选择后自动粘贴</translation>
+    </message>
+    <message>
+        <source>Automatically send Ctrl+V after selecting an item</source>
+        <translation>选择项目后自动发送 Ctrl+V</translation>
+    </message>
+    <message>
+        <source>History Limit</source>
+        <translation>历史记录限制</translation>
+    </message>
+    <message>
+        <source>Maximum number of items to keep (0 = unlimited)</source>
+        <translation>保留的最大项目数（0 = 无限制）</translation>
+    </message>
+    <message>
+        <source>Auto Cleanup Old Items</source>
+        <translation>自动清理旧项目</translation>
+    </message>
+    <message>
+        <source>Automatically remove items exceeding the limit</source>
+        <translation>自动删除超出限制的项目</translation>
+    </message>
+    <message>
+        <source>Data Storage Location</source>
+        <translation>数据存储位置</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>未知</translation>
+    </message>
+    <message>
+        <source>Clipboard module not available</source>
+        <translation>剪贴板模块不可用</translation>
+    </message>
+    <message>
+        <source>Open Folder</source>
+        <translation>打开文件夹</translation>
+    </message>
+    <message>
+        <source>Clear Clipboard History</source>
+        <translation>清空剪贴板历史</translation>
+    </message>
+    <message>
+        <source>Delete all clipboard history records</source>
+        <translation>删除所有剪贴板历史记录</translation>
+    </message>
+    <message>
+        <source>Clear History</source>
+        <translation>清空历史</translation>
+    </message>
+    <message>
+        <source>💡 Hint: Set clipboard hotkey in Shortcuts settings.</source>
+        <translation>💡 提示：在快捷键设置中设置剪贴板热键。</translation>
     </message>
 </context>
 

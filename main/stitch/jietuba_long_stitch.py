@@ -23,13 +23,13 @@ import time
 
 # 尝试导入 Rust 加速模块
 try:
-    import jietuba_rust
+    import longstitch
     RUST_AVAILABLE = True
-    print("✅ Rust 加速模块已加载")
+    print("✅ Rust 加速模块已加载 (longstitch)")
 except ImportError:
     RUST_AVAILABLE = False
     print("⚠️  Rust 模块未找到，使用 Python 实现（性能较慢）")
-    print("   提示: 运行 'compile_and_install.bat' 编译 Rust 模块")
+    print("   提示: 运行 'pip install longstitch' 安装 Rust 模块")
 
 # 性能统计
 _performance_stats = {
@@ -66,7 +66,7 @@ def image_to_row_hashes(image: Image.Image, ignore_right_pixels: int = 20) -> Li
             image_bytes = buffer.getvalue()
             
             # 调用 Rust 函数（快 10-20x）
-            row_hashes = jietuba_rust.compute_row_hashes(image_bytes, ignore_right_pixels)
+            row_hashes = longstitch.compute_row_hashes(image_bytes, ignore_right_pixels)
             
             # 统计性能
             elapsed = time.perf_counter() - start_time
@@ -253,7 +253,7 @@ def find_longest_common_substring(
     if RUST_AVAILABLE:
         try:
             # 调用 Rust 函数（快 10x）
-            start_i, start_j, length = jietuba_rust.find_longest_common_substring(
+            start_i, start_j, length = longstitch.find_longest_common_substring(
                 seq1, seq2, min_ratio
             )
             
@@ -494,14 +494,14 @@ def stitch_images_rust(
         
         # 调用Rust智能拼接函数（多候选纠错机制）
         if debug:
-            result_bytes = jietuba_rust.stitch_two_images_rust_smart_debug(
+            result_bytes = longstitch.stitch_two_images_rust_smart_debug(
                 buffer1.getvalue(),
                 buffer2.getvalue(),
                 ignore_right_pixels,
                 0.01  # min_overlap_ratio
             )
         else:
-            result_bytes = jietuba_rust.stitch_two_images_rust_smart(
+            result_bytes = longstitch.stitch_two_images_rust_smart(
                 buffer1.getvalue(),
                 buffer2.getvalue(),
                 ignore_right_pixels,

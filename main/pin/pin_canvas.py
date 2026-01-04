@@ -611,13 +611,39 @@ class PinCanvas(QObject):
         # 先退出编辑模式（此时scene还存在）
         self.deactivate_tool()
         
-        # 清理场景（这会删除所有items）
+        # 清理撤销栈（打破循环引用：commands → items → scene）
+        if hasattr(self, 'undo_stack') and self.undo_stack:
+            try:
+                self.undo_stack.clear()  # 清空所有命令，释放对items的引用
+                log_debug("撤销栈已清空", "PinCanvas")
+            except Exception as e:
+                log_warning(f"清空撤销栈时出错: {e}", "PinCanvas")
+        
+        # 清理工具控制器（释放当前工具对items的引用）
+        if hasattr(self, 'tool_controller') and self.tool_controller:
+            try:
+                # 停用当前工具（如果有）
+                if self.tool_controller.current_tool:
+                    self.tool_controller.current_tool.on_deactivate(self.tool_controller.ctx)
+                    self.tool_controller.current_tool = None
+                log_debug("工具控制器已停用", "PinCanvas")
+            except Exception as e:
+                log_warning(f"停用工具控制器时出错: {e}", "PinCanvas")
+        
+        # 清理场景（删除所有items，打破scene→items的引用）
         if self.scene:
-            self.scene.clear()
+            try:
+                # 先清空场景中的所有items（释放C++对象）
+                self.scene.clear()
+                log_debug(f"场景已清空", "PinCanvas")
+            except Exception as e:
+                log_warning(f"清空场景时出错: {e}", "PinCanvas")
+            
+            # 标记场景为稍后删除（Qt会在下一个事件循环中删除）
             self.scene.deleteLater()
             self.scene = None
         
-        log_info("资源清理完成", "PinCanvas")
+        log_info("资源清理完成（循环引用已打破）", "PinCanvas")
 
     def invalidate_cache(self):
         """兼容 PinWindow 调用，强制场景重绘"""

@@ -132,9 +132,9 @@ class ToolSettingsManager(QObject):
     
     # 应用级别的默认设置（按照设置界面的页面顺序排列）
     APP_DEFAULT_SETTINGS = {
-        # ==================== 1. ⌨️ 快捷键设置 ====================
+        # ==================== 1. ⌨️ 快捷键设置 ====================win
         "hotkey": "ctrl+1",                        # 全局截图热键
-        
+        "clipboard_hotkey": "ctrl+2",    # 打开剪贴板管理器的快捷键
         # ==================== 2. 📸 长截图设置 ====================
         "long_stitch_engine": "hash_rust",     # 长截图引擎（hash_rust / hash_python / simple）
         "long_stitch_debug": False,            # 长截图调试模式
@@ -149,8 +149,9 @@ class ToolSettingsManager(QObject):
         
         # ==================== 5. 🎯 OCR设置 ====================
         "ocr_enabled": True,                   # OCR功能启用
-        "ocr_grayscale": True,                # OCR灰度转换（提升速度）
-        "ocr_upscale": False,                  # OCR图像放大（提升小字识别率）
+        "ocr_engine": "ocr_rs",                # OCR引擎类型 (ocr_rs / windows_media_ocr)
+        "ocr_grayscale": False,                # OCR灰度转换（Windows OCR 不需要）
+        "ocr_upscale": True,                   # OCR图像放大（提升小字识别率）
         "ocr_upscale_factor": 2.0,             # OCR放大倍数（1.0-3.0）
         
         # ==================== 6. 📝 日志设置 ====================
@@ -173,6 +174,19 @@ class ToolSettingsManager(QObject):
         "translation_target_lang": "",         # 翻译目标语言（空为跟随系统语言）
         "translation_split_sentences": True,   # 自动分句
         "translation_preserve_formatting": True,  # 保留格式
+        
+        # ==================== 9. 📋 剪贴板设置 ====================
+        "clipboard_enabled": True,             # 剪贴板监听启用
+        "clipboard_auto_paste": True,          # 选择后自动粘贴（发送 Ctrl+V）
+        "clipboard_history_limit": 500,        # 历史记录数量限制（0 为不限制）
+        "clipboard_auto_cleanup": True,        # 自动清理超出限制的记录
+        "clipboard_window_width": 450,         # 剪贴板窗口默认宽度
+        "clipboard_window_height": 600,        # 剪贴板窗口默认高度
+        "clipboard_window_opacity": 0,         # 剪贴板窗口透明度（0=不透明，5/10/15/20/25）
+        "clipboard_window_opacity_options": [0, 5, 10, 15, 20, 25],  # 透明度可选项（可在此调整选项）
+        "clipboard_paste_with_html": True,     # 粘贴时是否带 HTML 格式
+        "clipboard_display_lines": 1,          # 剪贴板项最大显示行数（1/2，内容会自适应）
+        "clipboard_line_height_padding": 8,   # 多行显示时的额外行高边距（像素，用于确保完整显示）
     }
     
     def __init__(self):
@@ -537,6 +551,14 @@ class ToolSettingsManager(QObject):
         """设置 OCR 启用状态"""
         self.qsettings.setValue("app/ocr_enabled", value)
     
+    def get_ocr_engine(self) -> str:
+        """获取 OCR 引擎类型"""
+        return self.qsettings.value("app/ocr_engine", self.APP_DEFAULT_SETTINGS["ocr_engine"], type=str)
+    
+    def set_ocr_engine(self, value: str):
+        """设置 OCR 引擎类型"""
+        self.qsettings.setValue("app/ocr_engine", value)
+    
     def get_ocr_grayscale_enabled(self) -> bool:
         """获取 OCR 灰度化"""
         return self.qsettings.value("app/ocr_grayscale", self.APP_DEFAULT_SETTINGS["ocr_grayscale"], type=bool)
@@ -637,6 +659,88 @@ class ToolSettingsManager(QObject):
         """设置是否保留格式"""
         self.qsettings.setValue("app/translation_preserve_formatting", value)
     
+    # ==================== 剪贴板设置 ====================
+    
+    def get_clipboard_hotkey(self) -> str:
+        """获取剪贴板管理器快捷键"""
+        return self.qsettings.value("clipboard/hotkey", self.APP_DEFAULT_SETTINGS["clipboard_hotkey"], type=str)
+    
+    def set_clipboard_hotkey(self, value: str):
+        """设置剪贴板管理器快捷键"""
+        self.qsettings.setValue("clipboard/hotkey", value)
+    
+    def get_clipboard_enabled(self) -> bool:
+        """获取剪贴板监听是否启用"""
+        return self.qsettings.value("clipboard/enabled", self.APP_DEFAULT_SETTINGS["clipboard_enabled"], type=bool)
+    
+    def set_clipboard_enabled(self, value: bool):
+        """设置剪贴板监听是否启用"""
+        self.qsettings.setValue("clipboard/enabled", value)
+    
+    def get_clipboard_auto_paste(self) -> bool:
+        """获取是否自动粘贴"""
+        return self.qsettings.value("clipboard/auto_paste", self.APP_DEFAULT_SETTINGS["clipboard_auto_paste"], type=bool)
+    
+    def set_clipboard_auto_paste(self, value: bool):
+        """设置是否自动粘贴"""
+        self.qsettings.setValue("clipboard/auto_paste", value)
+    
+    def get_clipboard_history_limit(self) -> int:
+        """获取历史记录数量限制"""
+        return self.qsettings.value("clipboard/history_limit", self.APP_DEFAULT_SETTINGS["clipboard_history_limit"], type=int)
+    
+    def set_clipboard_history_limit(self, value: int):
+        """设置历史记录数量限制"""
+        self.qsettings.setValue("clipboard/history_limit", max(0, value))
+    
+    def get_clipboard_auto_cleanup(self) -> bool:
+        """获取是否自动清理超出限制的记录"""
+        return self.qsettings.value("clipboard/auto_cleanup", self.APP_DEFAULT_SETTINGS["clipboard_auto_cleanup"], type=bool)
+    
+    def set_clipboard_auto_cleanup(self, value: bool):
+        """设置是否自动清理超出限制的记录"""
+        self.qsettings.setValue("clipboard/auto_cleanup", value)
+    
+    def get_clipboard_display_lines(self) -> int:
+        """获取剪贴板项显示行数（1/2）"""
+        return self.qsettings.value("clipboard/display_lines", self.APP_DEFAULT_SETTINGS["clipboard_display_lines"], type=int)
+    
+    def set_clipboard_display_lines(self, value: int):
+        """设置剪贴板项显示行数（1/2）"""
+        # 限制在 1-2 之间
+        value = max(1, min(2, value))
+        self.qsettings.setValue("clipboard/display_lines", value)
+    
+    def get_clipboard_window_opacity(self) -> int:
+        """获取剪贴板窗口透明度（0=不透明，数值越大越透明）"""
+        return self.qsettings.value("clipboard/window_opacity", self.APP_DEFAULT_SETTINGS["clipboard_window_opacity"], type=int)
+    
+    def set_clipboard_window_opacity(self, value: int):
+        """设置剪贴板窗口透明度"""
+        self.qsettings.setValue("clipboard/window_opacity", value)
+    
+    def get_clipboard_window_opacity_options(self) -> list:
+        """获取剪贴板窗口透明度可选项列表"""
+        return self.APP_DEFAULT_SETTINGS["clipboard_window_opacity_options"]
+    
+    def get_clipboard_line_height_padding(self) -> int:
+        """获取多行显示时的额外行高边距（像素）"""
+        return self.qsettings.value("clipboard/line_height_padding", 
+                                    self.APP_DEFAULT_SETTINGS["clipboard_line_height_padding"], 
+                                    type=int)
+    
+    def set_clipboard_line_height_padding(self, value: int):
+        """设置多行显示时的额外行高边距（像素）"""
+        self.qsettings.setValue("clipboard/line_height_padding", max(0, value))
+    
+    def get_clipboard_move_to_top_on_paste(self) -> bool:
+        """获取粘贴后是否将内容移到最前（默认 True）"""
+        return self.qsettings.value("clipboard/move_to_top_on_paste", True, type=bool)
+    
+    def set_clipboard_move_to_top_on_paste(self, value: bool):
+        """设置粘贴后是否将内容移到最前"""
+        self.qsettings.setValue("clipboard/move_to_top_on_paste", value)
+
     def is_first_run(self) -> bool:
         """
         检测是否首次运行

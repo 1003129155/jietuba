@@ -152,6 +152,9 @@ class OCRTextLayer(QWidget):
         
         # 当前鼠标是否在文字上
         self._mouse_on_text = False
+        
+        # 🚀 懒加载标志：字符位置是否已计算（优化加载性能）
+        self._char_positions_calculated = False
 
     def _detach_event_filter(self):
         target = getattr(self, '_event_filter_target', None)
@@ -178,7 +181,7 @@ class OCRTextLayer(QWidget):
         self.set_drawing_mode(active)
 
     def _apply_effective_enabled(self):
-        """应用有效的启用状态：只有在启用且有文字块时才显示"""
+        """应用有效的启用状态：只有在启用且有文字块时才显示（优化版：延迟计算）"""
         if not self._is_active():
             # 禁用时清除选择
             self.clear_selection()
@@ -190,8 +193,9 @@ class OCRTextLayer(QWidget):
                 self.hide()
                 return
                 
+            # 🚀 优化：不立即计算字符位置，延迟到鼠标移动时
             # 有文字块时显示，接收所有鼠标事件（在事件处理中判断是否需要透传）
-            self.recalculate_char_positions()
+            # self.recalculate_char_positions()  # 注释掉立即计算
             self.raise_()
             self.show()
             
@@ -202,15 +206,32 @@ class OCRTextLayer(QWidget):
                     self._event_filter_target.removeEventFilter(self)
                 parent_widget.installEventFilter(self)
                 self._event_filter_target = parent_widget
+                log_debug(f"已安装事件过滤器到父窗口: {parent_widget.__class__.__name__}", "OCR层")
 
     def recalculate_char_positions(self):
-        """根据当前尺寸重新计算所有文字块的字符位置，避免缩放后命中范围偏差"""
+        """
+        根据当前尺寸重新计算所有文字块的字符位置（懒加载优化版）
+        
+        避免在加载时阻塞 UI，只在真正需要时才计算
+        """
         if not self.text_items:
             return
         scale_x, scale_y = self.get_scale_factors()
         for item in self.text_items:
             rect = item.get_scaled_rect(scale_x, scale_y, self.original_width, self.original_height)
             item.calculate_char_positions(rect)
+        
+        # 标记已计算
+        self._char_positions_calculated = True
+    
+    def _ensure_char_positions(self):
+        """
+        🚀 确保字符位置已计算（懒加载入口）
+        
+        只在首次鼠标交互时调用一次，避免加载时卡顿
+        """
+        if not self._char_positions_calculated and self.text_items:
+            self.recalculate_char_positions()
 
     def _is_pos_on_text(self, pos: QPoint) -> bool:
         """给定本地坐标，判断是否在文字块扩展范围内"""
@@ -227,7 +248,7 @@ class OCRTextLayer(QWidget):
     
     def load_ocr_result(self, ocr_result: Dict, original_width: int, original_height: int):
         """
-        加载 OCR 识别结果
+        加载 OCR 识别结果（优化版：延迟计算，避免 UI 卡顿）
         
         Args:
             ocr_result: OCR 返回的字典格式结果
@@ -237,6 +258,9 @@ class OCRTextLayer(QWidget):
         self.text_items.clear()
         self.original_width = original_width
         self.original_height = original_height
+        
+        # 重置懒加载标志
+        self._char_positions_calculated = False
         
         if ocr_result.get('code') != 100:
             return
@@ -256,8 +280,9 @@ class OCRTextLayer(QWidget):
 
         # OCR 模块已按阅读顺序排序，无需再次排序
         
-        # 预计算字符位置
-        self.recalculate_char_positions()
+        # 🚀 优化：不立即计算字符位置，延迟到真正需要时（鼠标交互时）
+        # 这样可以避免加载时 UI 卡顿，让用户可以立即移动窗口
+        # self.recalculate_char_positions()  # 注释掉立即计算
         
         # 加载完成后，如果已启用则显示文字层
         if self.enabled:
@@ -505,7 +530,7 @@ class OCRTextLayer(QWidget):
         self.update()
     
     def mouseMoveEvent(self, event):
-        """鼠标移动事件 - 动态切换光标 + 拖拽选择文字"""
+        """鼠标移动事件 - 动态切换光标 + 拖拽选择文字（懒加载优化）"""
         if not self._is_active():
             # 不活跃时停止选择并透传
             if self.is_selecting:
@@ -513,6 +538,9 @@ class OCRTextLayer(QWidget):
             self.setCursor(Qt.CursorShape.ArrowCursor)
             event.ignore()
             return
+        
+        # 🚀 懒加载：首次鼠标移动时才计算字符位置
+        self._ensure_char_positions()
         
         pos = event.pos()
         
@@ -712,9 +740,13 @@ class OCRTextLayer(QWidget):
             event.ignore()
     
     def resizeEvent(self, event):
-        """窗口缩放时重新计算字符位置"""
+        """窗口缩放时重新计算字符位置（优化：仅标记需要重新计算）"""
         super().resizeEvent(event)
-        self.recalculate_char_positions()
+        # 🚀 优化：只标记需要重新计算，下次鼠标交互时才真正计算
+        self._char_positions_calculated = False
+        # 如果用户正在选择文字，立即重新计算，保证选择准确
+        if self.is_selecting or self.selection_start:
+            self.recalculate_char_positions()
     
     def cleanup(self):
         """清理资源"""
@@ -723,6 +755,9 @@ class OCRTextLayer(QWidget):
         
         # 清除文字块
         self.text_items.clear()
+        
+        # 重置懒加载标志
+        self._char_positions_calculated = False
         self.clear_selection()
     
     def closeEvent(self, event):
