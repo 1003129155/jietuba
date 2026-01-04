@@ -1,0 +1,35 @@
+[package]
+name = "pyclipboard"
+version = "0.2.0"
+edition = "2021"
+description = "Python 剪贴板管理库（Rust 实现）"
+authors = ["Your Name"]
+
+[lib]
+name = "pyclipboard"
+crate-type = ["cdylib"]
+
+[dependencies]
+# PyO3 - Python 绑定
+pyo3 = { version = "0.22", features = ["extension-module"] }
+
+# 剪贴板操作
+clipboard-rs = { git = "https://github.com/mosheng1/clipboard-rs" }
+
+# SQLite 数据库（bundled 表示自带 SQLite）
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# 序列化
+serde.workspace = true
+serde_json.workspace = true
+
+# 工具库
+sha2 = "0.10"
+chrono = "0.4"
+once_cell = "1.18.0"
+parking_lot = "0.12"
+dirs = "5.0"
+base64 = "0.22"
+
+# 图片处理
+image.workspace = true

@@ -1,0 +1,26 @@
+[package]
+name = "windows_media_ocr"
+version = "0.1.0"
+edition = "2021"
+authors = ["MoSheng"]
+description = "Windows OCR API wrapper for Rust and Python"
+
+[lib]
+name = "windows_media_ocr"
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.22", features = ["extension-module"] }
+
+windows = { version = "0.58", features = [
+    "Media_Ocr",
+    "Graphics_Imaging",
+    "Storage",
+    "Storage_Streams",
+    "Foundation",
+    "Foundation_Collections",
+    "Globalization",
+    "Win32_System_WinRT"
+] }
+serde.workspace = true
+serde_json.workspace = true
