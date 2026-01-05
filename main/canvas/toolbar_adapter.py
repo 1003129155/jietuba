@@ -50,7 +50,7 @@ class ToolbarAdapter(QObject):
         # 连接工具控制器的工具切换回调，用于更新UI显示
         self.tool_controller.add_tool_changed_callback(self._sync_ui_on_tool_change)
         
-        print("✅ [ToolbarAdapter] 工具栏适配器初始化")
+        print("[OK] [ToolbarAdapter] 工具栏适配器初始化")
     
     def _connect_signals(self):
         """连接工具栏信号"""
@@ -88,7 +88,7 @@ class ToolbarAdapter(QObject):
         # 激活工具（工具的 on_activate 会自动设置光标并加载设置）
         self.tool_controller.activate(new_tool_id)
         
-        print(f"🔧 [工具切换] {tool_id} → {new_tool_id}")
+        print(f"[FIX] [工具切换] {tool_id} → {new_tool_id}")
     
     def _sync_ui_on_tool_change(self, tool_id: str):
         """

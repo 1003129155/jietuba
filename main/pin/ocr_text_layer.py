@@ -712,7 +712,7 @@ class OCRTextLayer(QWidget):
     def keyPressEvent(self, event):
         """键盘事件"""
         if not self._is_active():
-            # ⚠️ 关键：禁用时不处理事件，但要透传给父窗口
+            # [WARN] 关键：禁用时不处理事件，但要透传给父窗口
             event.ignore()
             return
         

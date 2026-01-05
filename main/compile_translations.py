@@ -58,14 +58,14 @@ def compile_ts_files():
     translations_dir = Path(__file__).parent / "translations"
     
     if not translations_dir.exists():
-        print(f"❌ 翻译目录不存在: {translations_dir}")
+        print(f"[ERROR] 翻译目录不存在: {translations_dir}")
         return False
     
     # 支持 .ts 和 .xml 后缀的翻译文件
     ts_files = list(translations_dir.glob("*.ts")) + list(translations_dir.glob("*.xml"))
     
     if not ts_files:
-        print(f"❌ 没有找到 .ts 或 .xml 文件: {translations_dir}")
+        print(f"[ERROR] 没有找到 .ts 或 .xml 文件: {translations_dir}")
         return False
     
     print(f"📁 翻译目录: {translations_dir}")
@@ -75,7 +75,7 @@ def compile_ts_files():
     lrelease = find_lrelease()
     
     if lrelease:
-        print(f"🔧 使用 lrelease: {lrelease}")
+        print(f"[FIX] 使用 lrelease: {lrelease}")
         
         for ts_file in ts_files:
             qm_file = ts_file.with_suffix(".qm")
@@ -88,13 +88,13 @@ def compile_ts_files():
                     text=True
                 )
                 if result.returncode == 0:
-                    print(f"   ✅ 成功")
+                    print(f"   [OK] 成功")
                 else:
-                    print(f"   ❌ 失败: {result.stderr}")
+                    print(f"   [ERROR] 失败: {result.stderr}")
             except Exception as e:
-                print(f"   ❌ 错误: {e}")
+                print(f"   [ERROR] 错误: {e}")
     else:
-        print("\n⚠️ 未找到 lrelease 工具，使用 Python 简易编译...")
+        print("\n[WARN] 未找到 lrelease 工具，使用 Python 简易编译...")
         print("   (安装 PyQt6-tools 可获得完整功能: pip install PyQt6-tools)")
         
         # 使用 Python 简易方式创建空的 .qm 文件（Qt 会回退到源文本）
@@ -112,7 +112,7 @@ def compile_ts_files():
         print("   1. pip install PyQt6-tools")
         print("   2. 重新运行此脚本")
     
-    print("\n✅ 完成!")
+    print("\n[OK] 完成!")
     return True
 
 

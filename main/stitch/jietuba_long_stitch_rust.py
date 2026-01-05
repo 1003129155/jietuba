@@ -275,7 +275,7 @@ def stitch_pil_images(
                 has_failure = True
                 fail_count += 1
                 if verbose:
-                    _stitch_log(f"❌ 第 {i+1} 张图片添加失败!", "warning")
+                    _stitch_log(f"[ERROR] 第 {i+1} 张图片添加失败!", "warning")
                     _stitch_log(f"   累计成功: {success_count}/{i}")
                     _stitch_log(f"   累计失败: {fail_count}")
             elif i > 0:
@@ -291,7 +291,7 @@ def stitch_pil_images(
         if has_failure:
             if verbose:
                 _stitch_log(f"{'='*60}", "warning")
-                _stitch_log(f"❌ 拼接失败总结", "warning")
+                _stitch_log(f"[ERROR] 拼接失败总结", "warning")
                 _stitch_log(f"{'='*60}", "warning")
                 _stitch_log(f"总图片数: {len(images)}", "warning")
                 _stitch_log(f"成功: {success_count}", "warning")
@@ -311,7 +311,7 @@ def stitch_pil_images(
 
         if result:
             if verbose:
-                _stitch_log(f"✅ 拼接完成!", "info")
+                _stitch_log(f"[OK] 拼接完成!", "info")
                 _stitch_log(f"📊 最终统计:", "info")
                 _stitch_log(f"   输入图片: {len(images)} 张", "info")
                 _stitch_log(f"   成功拼接: {success_count} 处", "info")
@@ -321,7 +321,7 @@ def stitch_pil_images(
             return result
         else:
             if verbose:
-                _stitch_log(f"❌ 拼接失败: 无法生成结果", "error")
+                _stitch_log(f"[ERROR] 拼接失败: 无法生成结果", "error")
                 _stitch_log(f"   可能原因: Rust 引擎内部错误", "error")
             return None
 

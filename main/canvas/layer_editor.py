@@ -799,7 +799,7 @@ class LayerEditor:
         """
         渲染编辑控制点
 
-        ⚠️ painter 必须与 handle.position 使用同一坐标系：
+        [WARN] painter 必须与 handle.position 使用同一坐标系：
         - 推荐：在 QGraphicsView.drawForeground(painter, rect) 中调用，
           这时 painter 在 scene 坐标系
         """

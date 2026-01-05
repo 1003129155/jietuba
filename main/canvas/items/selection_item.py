@@ -49,7 +49,7 @@ class SelectionItem(QGraphicsItem):
         self.start_pos = QPointF()
         self.start_rect = QRectF()
         
-        print(f"✅ [选区框] 创建")
+        print(f"[OK] [选区框] 创建")
     
     def boundingRect(self) -> QRectF:
         """边界矩形"""

@@ -121,7 +121,7 @@ class SaveService:
         
         # 计算图像占用的内存
         image_size_mb = (image.sizeInBytes() / 1024 / 1024) if hasattr(image, 'sizeInBytes') else 0
-        print(f"💾 [save] 开始保存线程，图像大小: {image.width()}x{image.height()}, 内存: {image_size_mb:.2f} MB")
+        print(f"[SAVE] [save] 开始保存线程，图像大小: {image.width()}x{image.height()}, 内存: {image_size_mb:.2f} MB")
 
         def worker():
             nonlocal image  # 允许修改外部变量
@@ -139,7 +139,7 @@ class SaveService:
                     callback(False, target_path)
             finally:
                 # 显式删除图像引用，释放内存
-                print(f"🧹 [save] 保存完成，释放图像内存: {image_size_mb:.2f} MB")
+                print(f"[CLEAN] [save] 保存完成，释放图像内存: {image_size_mb:.2f} MB")
                 image = None  # 清空引用而不是 del
                 gc.collect()
 

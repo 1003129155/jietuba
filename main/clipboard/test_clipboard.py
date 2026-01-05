@@ -27,10 +27,10 @@ def test_manager():
     
     manager = ClipboardManager()
     
-    print(f"✅ 管理器可用: {manager.is_available}")
+    print(f"[OK] 管理器可用: {manager.is_available}")
     
     if not manager.is_available:
-        print("❌ 管理器不可用，请检查 pyclipboard 是否安装")
+        print("[ERROR] 管理器不可用，请检查 pyclipboard 是否安装")
         return False
     
     # 测试获取当前剪贴板
@@ -61,7 +61,7 @@ def test_manager():
     for g in groups:
         print(f"   - {g.name} (ID: {g.id})")
     
-    print("\n✅ 管理器测试完成!")
+    print("\n[OK] 管理器测试完成!")
     return True
 
 
@@ -85,7 +85,7 @@ def test_window():
     window.item_pasted.connect(on_paste)
     window.closed.connect(on_close)
     
-    print("✅ 窗口创建成功，正在显示...")
+    print("[OK] 窗口创建成功，正在显示...")
     print("   - 双击项目可粘贴")
     print("   - 按 ESC 关闭窗口")
     print("   - 按数字键 1-9 快速粘贴")
@@ -105,7 +105,7 @@ def test_monitor():
     manager = ClipboardManager()
     
     if not manager.is_available:
-        print("❌ 管理器不可用")
+        print("[ERROR] 管理器不可用")
         return
     
     def on_change(item):

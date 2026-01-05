@@ -29,7 +29,7 @@ class OverlayPixmapItem(QGraphicsPixmapItem):
         self.setPixmap(QPixmap.fromImage(self._img))
         self.setOffset(self._scene_rect.topLeft())
         
-        print(f"✅ [绘制层] 创建: {scene_rect}, 大小: {w}x{h}")
+        print(f"[OK] [绘制层] 创建: {scene_rect}, 大小: {w}x{h}")
     
     def image(self) -> QImage:
         """获取内部图像（可直接用 QPainter 绘制）"""

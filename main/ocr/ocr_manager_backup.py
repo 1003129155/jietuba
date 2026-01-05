@@ -26,9 +26,9 @@ try:
     from ocr_rs import OcrEngine
     import ocr_rs
     OCR_AVAILABLE = True
-    print(f"✅ [OCR] ocr_rs 模块加载成功，版本: {ocr_rs.__version__}")
+    print(f"[OK] [OCR] ocr_rs 模块加载成功，版本: {ocr_rs.__version__}")
 except ImportError as e:
-    print(f"⚠️ [OCR] ocr_rs 模块导入失败: {e}")
+    print(f"[WARN] [OCR] ocr_rs 模块导入失败: {e}")
     print("💡 [OCR] 请安装 ocr_rs wheel 包")
     OCR_AVAILABLE = False
     OcrEngine = None
@@ -122,12 +122,12 @@ class OCRManager:
                 batch_size=8
             )
             
-            print("✅ [OCR] ocr_rs 引擎初始化成功")
+            print("[OK] [OCR] ocr_rs 引擎初始化成功")
             return True
             
         except Exception as e:
             self._last_error = f"OCR 初始化失败: {str(e)}"
-            print(f"❌ [OCR] {self._last_error}")
+            print(f"[ERROR] [OCR] {self._last_error}")
             import traceback
             traceback.print_exc()
             return False
@@ -208,7 +208,7 @@ class OCRManager:
                 
         except Exception as e:
             error_msg = f"OCR 识别失败: {str(e)}"
-            print(f"❌ [OCR] {error_msg}")
+            print(f"[ERROR] [OCR] {error_msg}")
             import traceback
             traceback.print_exc()
             return self._format_error(return_format, error_msg)
@@ -417,7 +417,7 @@ class OCRManager:
             
             print("🗑️ [OCR] 资源已释放")
         except Exception as e:
-            print(f"⚠️ [OCR] 释放 OCR 资源时出错: {e}")
+            print(f"[WARN] [OCR] 释放 OCR 资源时出错: {e}")
     
     def is_engine_loaded(self) -> bool:
         """检查 OCR 引擎是否已初始化"""
@@ -607,9 +607,9 @@ try:
     from ocr_rs import OcrEngine
     import ocr_rs
     OCR_AVAILABLE = True
-    print(f"✅ [OCR] ocr_rs 模块加载成功，版本: {ocr_rs.__version__}")
+    print(f"[OK] [OCR] ocr_rs 模块加载成功，版本: {ocr_rs.__version__}")
 except ImportError as e:
-    print(f"⚠️ [OCR] ocr_rs 模块导入失败: {e}")
+    print(f"[WARN] [OCR] ocr_rs 模块导入失败: {e}")
     print("💡 [OCR] 请安装 ocr_rs wheel 包")
     OCR_AVAILABLE = False
     OcrEngine = None
@@ -703,12 +703,12 @@ class OCRManager:
                 batch_size=8
             )
             
-            print("✅ [OCR] ocr_rs 引擎初始化成功")
+            print("[OK] [OCR] ocr_rs 引擎初始化成功")
             return True
             
         except Exception as e:
             self._last_error = f"OCR 初始化失败: {str(e)}"
-            print(f"❌ [OCR] {self._last_error}")
+            print(f"[ERROR] [OCR] {self._last_error}")
             import traceback
             traceback.print_exc()
             return False
@@ -789,7 +789,7 @@ class OCRManager:
                 
         except Exception as e:
             error_msg = f"OCR 识别失败: {str(e)}"
-            print(f"❌ [OCR] {error_msg}")
+            print(f"[ERROR] [OCR] {error_msg}")
             import traceback
             traceback.print_exc()
             return self._format_error(return_format, error_msg)
@@ -998,7 +998,7 @@ class OCRManager:
             
             print("🗑️ [OCR] 资源已释放")
         except Exception as e:
-            print(f"⚠️ [OCR] 释放 OCR 资源时出错: {e}")
+            print(f"[WARN] [OCR] 释放 OCR 资源时出错: {e}")
     
     def is_engine_loaded(self) -> bool:
         """检查 OCR 引擎是否已初始化"""

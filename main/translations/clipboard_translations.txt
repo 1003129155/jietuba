@@ -1,0 +1,378 @@
+# 剪贴板翻译内容 - 需要手动合并到 app_en.xml, app_zh.xml, app_ja.xml
+
+## English (app_en.xml)
+将以下内容添加到 </context> 和 </TS> 之间:
+
+<!-- ========== Clipboard Window ========== -->
+<context>
+    <name>ClipboardWindow</name>
+    <message>
+        <source>Clipboard History</source>
+        <translation>Clipboard History</translation>
+    </message>
+    <message>
+        <source>Search</source>
+        <translation>Search</translation>
+    </message>
+    <message>
+        <source>All</source>
+        <translation>All</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>Text</translation>
+    </message>
+    <message>
+        <source>Image</source>
+        <translation>Image</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>File</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>Add Group</source>
+        <translation>Add Group</translation>
+    </message>
+    <message>
+        <source>Filter Type</source>
+        <translation>Filter Type</translation>
+    </message>
+    <message>
+        <source>📋 Paste with Format</source>
+        <translation>📋 Paste with Format</translation>
+    </message>
+    <message>
+        <source>⬆️ Move to Top After Paste</source>
+        <translation>⬆️ Move to Top After Paste</translation>
+    </message>
+    <message>
+        <source>🔲 Window Opacity</source>
+        <translation>🔲 Window Opacity</translation>
+    </message>
+    <message>
+        <source>Opaque</source>
+        <translation>Opaque</translation>
+    </message>
+    <message>
+        <source>📏 Max Display Lines</source>
+        <translation>📏 Max Display Lines</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n line(s)</source>
+        <translation>
+            <numerusform>%n line</numerusform>
+            <numerusform>%n lines</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>📝 Add Content</source>
+        <translation>📝 Add Content</translation>
+    </message>
+    <message>
+        <source>Confirm Delete</source>
+        <translation>Confirm Delete</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</source>
+        <translation>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</translation>
+    </message>
+    <message>
+        <source>🗑️ Delete Group</source>
+        <translation>🗑️ Delete Group</translation>
+    </message>
+    <message>
+        <source>Unpin</source>
+        <translation>Unpin</translation>
+    </message>
+    <message>
+        <source>📌 Pin</source>
+        <translation>📌 Pin</translation>
+    </message>
+    <message>
+        <source>📁 Move to Group</source>
+        <translation>📁 Move to Group</translation>
+    </message>
+    <message>
+        <source>↩️ Remove from Group</source>
+        <translation>↩️ Remove from Group</translation>
+    </message>
+    <message>
+        <source>🗑️ Delete</source>
+        <translation>🗑️ Delete</translation>
+    </message>
+    <message>
+        <source>Confirm Clear</source>
+        <translation>Confirm Clear</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to clear all clipboard history?\nThis action cannot be undone.</source>
+        <translation>Are you sure you want to clear all clipboard history?\nThis action cannot be undone.</translation>
+    </message>
+    <message>
+        <source>📋 Paste</source>
+        <translation>📋 Paste</translation>
+    </message>
+</context>
+
+<!-- ========== Clipboard Management Dialog ========== -->
+<context>
+    <name>ManageDialog</name>
+    <message>
+        <source>Clipboard Management</source>
+        <translation>Clipboard Management</translation>
+    </message>
+    <message>
+        <source>Management</source>
+        <translation>Management</translation>
+    </message>
+    <message>
+        <source>📁 Group Management</source>
+        <translation>📁 Group Management</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>Group List</source>
+        <translation>Group List</translation>
+    </message>
+    <message>
+        <source>(Please create a group first)</source>
+        <translation>(Please create a group first)</translation>
+    </message>
+    <message>
+        <source>➕ New Group</source>
+        <translation>➕ New Group</translation>
+    </message>
+    <message>
+        <source>(Please select a group first)</source>
+        <translation>(Please select a group first)</translation>
+    </message>
+    <message>
+        <source>➕ Add Content</source>
+        <translation>➕ Add Content</translation>
+    </message>
+    <message>
+        <source>New Group</source>
+        <translation>New Group</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>Delete</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>Save</translation>
+    </message>
+    <message>
+        <source>Content List</source>
+        <translation>Content List</translation>
+    </message>
+    <message>
+        <source>Create</source>
+        <translation>Create</translation>
+    </message>
+    <message>
+        <source>Group Name</source>
+        <translation>Group Name</translation>
+    </message>
+    <message>
+        <source>Enter group name...</source>
+        <translation>Enter group name...</translation>
+    </message>
+    <message>
+        <source>Select Icon</source>
+        <translation>Select Icon</translation>
+    </message>
+    <message>
+        <source>Edit Group</source>
+        <translation>Edit Group</translation>
+    </message>
+    <message>
+        <source>Group Content</source>
+        <translation>Group Content</translation>
+    </message>
+    <message>
+        <source>(No content in group)</source>
+        <translation>(No content in group)</translation>
+    </message>
+    <message>
+        <source>Add Content</source>
+        <translation>Add Content</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>Add</translation>
+    </message>
+    <message>
+        <source>Please select a group above, or create a group first</source>
+        <translation>Please select a group above, or create a group first</translation>
+    </message>
+    <message>
+        <source>Title</source>
+        <translation>Title</translation>
+    </message>
+    <message>
+        <source>Enter title (e.g., Restart Command)...</source>
+        <translation>Enter title (e.g., Restart Command)...</translation>
+    </message>
+    <message>
+        <source>Content</source>
+        <translation>Content</translation>
+    </message>
+    <message>
+        <source>Enter text content to save...</source>
+        <translation>Enter text content to save...</translation>
+    </message>
+    <message>
+        <source>Edit Content</source>
+        <translation>Edit Content</translation>
+    </message>
+    <message>
+        <source>Enter title...</source>
+        <translation>Enter title...</translation>
+    </message>
+    <message>
+        <source>Created: %s</source>
+        <translation>Created: %s</translation>
+    </message>
+    <message>
+        <source>Hint</source>
+        <translation>Hint</translation>
+    </message>
+    <message>
+        <source>Please enter group name</source>
+        <translation>Please enter group name</translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation>Failed</translation>
+    </message>
+    <message>
+        <source>Failed to create group</source>
+        <translation>Failed to create group</translation>
+    </message>
+    <message>
+        <source>Failed to update group</source>
+        <translation>Failed to update group</translation>
+    </message>
+    <message>
+        <source>Please select a group first</source>
+        <translation>Please select a group first</translation>
+    </message>
+    <message>
+        <source>Please enter content</source>
+        <translation>Please enter content</translation>
+    </message>
+    <message>
+        <source>Failed to move to group</source>
+        <translation>Failed to move to group</translation>
+    </message>
+    <message>
+        <source>Failed to add content</source>
+        <translation>Failed to add content</translation>
+    </message>
+    <message>
+        <source>Failed to update content</source>
+        <translation>Failed to update content</translation>
+    </message>
+    <message>
+        <source>Failed to delete group</source>
+        <translation>Failed to delete group</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete this item?</source>
+        <translation>Are you sure you want to delete this item?</translation>
+    </message>
+    <message>
+        <source>Failed to delete item</source>
+        <translation>Failed to delete item</translation>
+    </message>
+</context>
+
+
+========================================
+
+## 中文 (app_zh.xml)
+将对应翻译替换为中文:
+
+- Clipboard History → 剪贴板历史
+- Search → 搜索
+- All → 全部
+- Text → 文本
+- Image → 图片
+- File → 文件
+- Close → 关闭
+- Add Group → 添加分组
+- Filter Type → 筛选类型
+- 📋 Paste with Format → 📋 粘贴带格式
+- ⬆️ Move to Top After Paste → ⬆️ 粘贴后移到最前
+- 🔲 Window Opacity → 🔲 窗口透明度
+- Opaque → 不透明
+- 📏 Max Display Lines → 📏 最多显示行数
+- %n line(s) → %n行
+- 📝 Add Content → 📝 添加内容
+- Confirm Delete → 确认删除
+- Are you sure you want to delete this group?\nAll items in the group will also be deleted. → 确定要删除这个分组吗？\n分组内的内容也会被删除。
+- 🗑️ Delete Group → 🗑️ 删除分组
+- Unpin → 取消置顶
+- 📌 Pin → 📌 置顶
+- 📁 Move to Group → 📁 移动到分组
+- ↩️ Remove from Group → ↩️ 移出分组
+- 🗑️ Delete → 🗑️ 删除
+- Confirm Clear → 确认清空
+- Are you sure you want to clear all clipboard history?\nThis action cannot be undone. → 确定要清空所有剪贴板历史吗？\n此操作不可恢复。
+- 📋 Paste → 📋 粘贴
+- Clipboard Management → 剪贴板管理
+- Management → 管理
+- 📁 Group Management → 📁 分组管理
+- Group List → 分组列表
+- (Please create a group first) → （请先创建分组）
+- ➕ New Group → ➕ 新建分组
+- (Please select a group first) → （请先选择分组）
+- ➕ Add Content → ➕ 添加内容
+- New Group → 新建分组
+- Delete → 删除
+- Save → 保存
+- Content List → 内容列表
+- Create → 创建
+- Group Name → 分组名称
+- Enter group name... → 输入分组名称...
+- Select Icon → 选择图标
+- Edit Group → 编辑分组
+- Group Content → 分组内容
+- (No content in group) → （分组内暂无内容）
+- Add Content → 添加内容
+- Add → 添加
+- Please select a group above, or create a group first → 请先在上方选择一个分组，或先创建分组
+- Title → 标题
+- Enter title (e.g., Restart Command)... → 输入标题（如：重启命令）...
+- Content → 内容
+- Enter text content to save... → 输入要保存的文本内容...
+- Edit Content → 编辑内容
+- Enter title... → 输入标题...
+- Created: %s → 创建时间: %s
+- Hint → 提示
+- Please enter group name → 请输入分组名称
+- Failed → 失败
+- Failed to create group → 创建分组失败
+- Failed to update group → 更新分组失败
+- Please select a group first → 请先选择一个分组
+- Please enter content → 请输入内容
+- Failed to move to group → 移动到分组失败
+- Failed to add content → 添加内容失败
+- Failed to update content → 更新内容失败
+- Failed to delete group → 删除分组失败
+- Are you sure you want to delete this item? → 确定要删除这条内容吗？
+- Failed to delete item → 删除内容失败
+
+========================================
+
+## 日语 (app_ja.xml)
+请手动添加日语翻译版本

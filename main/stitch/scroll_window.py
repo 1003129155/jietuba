@@ -106,7 +106,7 @@ def _load_long_stitch_engine():
     
     # 🆕 如果检测到auto或rust，强制切换为hash_python
     if engine in ('auto', 'rust'):
-        print(f"⚠️ 检测到已禁用的引擎 {engine}，自动切换为 hash_python")
+        print(f"[WARN] 检测到已禁用的引擎 {engine}，自动切换为 hash_python")
         engine = 'hash_python'
         config.set_long_stitch_engine(engine)
     elif engine != raw_engine:
@@ -126,7 +126,7 @@ def _load_long_stitch_config():
     
     # 🆕 如果检测到auto或rust，强制切换为hash_python
     if engine in ('auto', 'rust'):
-        print(f"⚠️ 检测到已禁用的引擎 {engine}，自动切换为 hash_python")
+        print(f"[WARN] 检测到已禁用的引擎 {engine}，自动切换为 hash_python")
         engine = 'hash_python'
         config_mgr.set_long_stitch_engine(engine)
     elif engine != raw_engine:
@@ -459,9 +459,9 @@ class PreviewPanel(QWidget):
             user32 = ctypes.windll.user32
             ex_style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
             user32.SetWindowLongW(hwnd, GWL_EXSTYLE, ex_style | WS_EX_TRANSPARENT | WS_EX_LAYERED)
-            print(f"✅ PreviewPanel 已设置为鼠标穿透模式")
+            print(f"[OK] PreviewPanel 已设置为鼠标穿透模式")
         except Exception as e:
-            print(f"⚠️ 设置 PreviewPanel 鼠标穿透失败: {e}")
+            print(f"[WARN] 设置 PreviewPanel 鼠标穿透失败: {e}")
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
@@ -657,7 +657,7 @@ class ScrollCaptureWindow(QWidget):
                 # PyQt6: 使用 screenAt() 代替 desktop().screenNumber()
                 screen = app.screenAt(top_left_point)
                 if screen is None:
-                    print(f"⚠️ 截图区域左上角({real_x}, {real_y})不在任何显示器范围内，使用主显示器", force=True)
+                    print(f"[WARN] 截图区域左上角({real_x}, {real_y})不在任何显示器范围内，使用主显示器", force=True)
                     screen = app.primaryScreen()
                 else:
                     print(f"📺 截图区域左上角({real_x}, {real_y})位于显示器", force=True)
@@ -694,31 +694,31 @@ class ScrollCaptureWindow(QWidget):
                 if window_x + window_width > screen_x + screen_w:
                     old_x = window_x
                     window_x = screen_x + screen_w - window_width
-                    print(f"⚠️ 窗口超出右边界，调整x位置: {old_x} -> {window_x}", force=True)
+                    print(f"[WARN] 窗口超出右边界，调整x位置: {old_x} -> {window_x}", force=True)
                 
                 # 如果窗口超出下边界，调整y位置
                 if window_y + window_height > screen_y + screen_h:
                     old_y = window_y
                     window_y = screen_y + screen_h - window_height
-                    print(f"⚠️ 窗口超出下边界，调整y位置: {old_y} -> {window_y}", force=True)
+                    print(f"[WARN] 窗口超出下边界，调整y位置: {old_y} -> {window_y}", force=True)
                 
                 # 如果窗口超出左边界，调整x位置（考虑多显示器负坐标）
                 if window_x < screen_x:
                     old_x = window_x
                     window_x = screen_x
-                    print(f"⚠️ 窗口超出左边界，调整x位置: {old_x} -> {window_x}", force=True)
+                    print(f"[WARN] 窗口超出左边界，调整x位置: {old_x} -> {window_x}", force=True)
                 
                 # 如果窗口超出上边界，调整y位置
                 if window_y < screen_y:
                     old_y = window_y
                     window_y = screen_y
-                    print(f"⚠️ 窗口超出上边界，调整y位置: {old_y} -> {window_y}", force=True)
+                    print(f"[WARN] 窗口超出上边界，调整y位置: {old_y} -> {window_y}", force=True)
             
-            print(f"✅ 长截图窗口最终位置: x={window_x}, y={window_y}, 尺寸: {window_width}x{window_height}", force=True)
+            print(f"[OK] 长截图窗口最终位置: x={window_x}, y={window_y}, 尺寸: {window_width}x{window_height}", force=True)
             return window_x, window_y
             
         except Exception as e:
-            print(f"❌ 计算窗口位置时出错: {e}", force=True)
+            print(f"[ERROR] 计算窗口位置时出错: {e}", force=True)
             # 如果出错，使用原始位置（传入的capture_rect已经是真实坐标）
             fallback_x = self.capture_rect.x()
             fallback_y = self.capture_rect.y()
@@ -994,7 +994,7 @@ class ScrollCaptureWindow(QWidget):
             user32 = ctypes.windll.user32
             ex_style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
             user32.SetWindowLongW(hwnd, GWL_EXSTYLE, ex_style | WS_EX_TRANSPARENT | WS_EX_LAYERED)
-            print(f"✅ 窗口已设置为鼠标穿透模式")
+            print(f"[OK] 窗口已设置为鼠标穿透模式")
 
             # 将可能较慢的模块导入与监听器启动放到后台线程，避免首次阻塞UI
             import threading
@@ -1018,7 +1018,7 @@ class ScrollCaptureWindow(QWidget):
                                     try:
                                         self.scroll_detected.emit(scroll_pixels)
                                     except Exception as e:
-                                        print(f"❌ 触发滚动信号失败: {e}", force=True)
+                                        print(f"[ERROR] 触发滚动信号失败: {e}", force=True)
                             else:
                                 # 竖向模式：使用dy
                                 if dy != 0:
@@ -1027,21 +1027,21 @@ class ScrollCaptureWindow(QWidget):
                                     try:
                                         self.scroll_detected.emit(scroll_pixels)
                                     except Exception as e:
-                                        print(f"❌ 触发滚动信号失败: {e}", force=True)
+                                        print(f"[ERROR] 触发滚动信号失败: {e}", force=True)
 
                     # 创建并启动监听器（pynput内部也会使用线程）
                     self.mouse_listener = mouse.Listener(on_scroll=on_scroll)
                     self.mouse_listener.start()
-                    print("✅ 全局滚轮监听器已启动（支持横向和竖向）")
+                    print("[OK] 全局滚轮监听器已启动（支持横向和竖向）")
                 except Exception as e:
-                    print(f"❌ 设置鼠标钩子失败: {e}", force=True)
+                    print(f"[ERROR] 设置鼠标钩子失败: {e}", force=True)
                     import traceback
                     traceback.print_exc()
 
             threading.Thread(target=_init_listener_bg, daemon=True).start()
 
         except Exception as e:
-            print(f"❌ 设置窗口鼠标穿透时出错: {e}", force=True)
+            print(f"[ERROR] 设置窗口鼠标穿透时出错: {e}", force=True)
             import traceback
             traceback.print_exc()
     
@@ -1082,10 +1082,10 @@ class ScrollCaptureWindow(QWidget):
                 amount * 120,  # WHEEL_DELTA
                 0
             )
-            print(f"✅ 发送横向滚动指令: 向右滚动 {amount} 格")
+            print(f"[OK] 发送横向滚动指令: 向右滚动 {amount} 格")
             
         except Exception as e:
-            print(f"❌ 发送横向滚动失败: {e}", force=True)
+            print(f"[ERROR] 发送横向滚动失败: {e}", force=True)
             import traceback
             traceback.print_exc()
     
@@ -1112,7 +1112,7 @@ class ScrollCaptureWindow(QWidget):
                         QTimer.singleShot(int(self.scroll_cooldown * 1000), self._do_capture)
                         
                 except Exception as e:
-                    print(f"❌ 处理按键事件失败: {e}", force=True)
+                    print(f"[ERROR] 处理按键事件失败: {e}", force=True)
             
             def on_release(key):
                 """按键释放回调"""
@@ -1128,10 +1128,10 @@ class ScrollCaptureWindow(QWidget):
                 on_release=on_release
             )
             self.keyboard_listener.start()
-            print("✅ 键盘监听器已启动（横向模式，按Shift触发）")
+            print("[OK] 键盘监听器已启动（横向模式，按Shift触发）")
             
         except Exception as e:
-            print(f"❌ 启动键盘监听器失败: {e}", force=True)
+            print(f"[ERROR] 启动键盘监听器失败: {e}", force=True)
             import traceback
             traceback.print_exc()
     
@@ -1141,9 +1141,9 @@ class ScrollCaptureWindow(QWidget):
             try:
                 self.keyboard_listener.stop()
                 self.keyboard_listener = None
-                print("✅ 键盘监听器已停止")
+                print("[OK] 键盘监听器已停止")
             except Exception as e:
-                print(f"⚠️ 停止键盘监听器时出错: {e}")
+                print(f"[WARN] 停止键盘监听器时出错: {e}")
     
     def _reconfigure_stitch_engine(self):
         """重新配置拼接引擎方向"""
@@ -1176,7 +1176,7 @@ class ScrollCaptureWindow(QWidget):
                 print("🛑 启用拼接缩短保护：检测到风险时将取消本次拼接")
             
             mode_text = "横向截图（图片旋转90度+竖向拼接）" if self.scroll_direction == "horizontal" else "竖向截图（竖向拼接）"
-            print(f"✅ 拼接引擎已重新配置: {mode_text}")
+            print(f"[OK] 拼接引擎已重新配置: {mode_text}")
             
             # 如果已经有rust拼接器实例，需要重新创建
             if self.rust_stitcher is not None:
@@ -1188,7 +1188,7 @@ class ScrollCaptureWindow(QWidget):
             self._refresh_preview_panel()
                 
         except Exception as e:
-            print(f"❌ 重新配置拼接引擎失败: {e}", force=True)
+            print(f"[ERROR] 重新配置拼接引擎失败: {e}", force=True)
             import traceback
             traceback.print_exc()
     
@@ -1240,7 +1240,7 @@ class ScrollCaptureWindow(QWidget):
             print(f"   期望显示器: {expected_screen}")
             
             if expected_screen and current_screen != expected_screen:
-                print(f"⚠️ 警告: 窗口显示在显示器 {current_screen.name()}，但截图区域在不同的显示器")
+                print(f"[WARN] 警告: 窗口显示在显示器 {current_screen.name()}，但截图区域在不同的显示器")
                 
                 # 尝试移动窗口到截图区域所在的显示器
                 capture_center_x = self.capture_rect.x() + self.capture_rect.width() // 2
@@ -1261,24 +1261,24 @@ class ScrollCaptureWindow(QWidget):
                     relative_x + self.width() <= target_screen_geometry.x() + target_screen_geometry.width() and
                     relative_y + self.height() <= target_screen_geometry.y() + target_screen_geometry.height()):
                     
-                    print(f"🔧 尝试移动窗口到正确位置: x={relative_x}, y={relative_y}")
+                    print(f"[FIX] 尝试移动窗口到正确位置: x={relative_x}, y={relative_y}")
                     self.move(relative_x, relative_y)
                     self.raise_()
                     self.activateWindow()
                 else:
-                    print(f"⚠️ 无法移动窗口到目标位置，可能会超出显示器边界")
+                    print(f"[WARN] 无法移动窗口到目标位置，可能会超出显示器边界")
             else:
-                print("✅ 窗口位置正确")
+                print("[OK] 窗口位置正确")
                 
         except Exception as e:
-            print(f"❌ 验证窗口位置时出错: {e}", force=True)
+            print(f"[ERROR] 验证窗口位置时出错: {e}", force=True)
     
     def _force_fix_window_position(self):
         """强制修复窗口位置（最后的保险措施）"""
         try:
             # 如果窗口不可见，先让它可见
             if not self.isVisible():
-                print("⚠️ 检测到窗口不可见，强制显示")
+                print("[WARN] 检测到窗口不可见，强制显示")
                 self.show()
                 self.raise_()
                 self.activateWindow()
@@ -1308,7 +1308,7 @@ class ScrollCaptureWindow(QWidget):
                 target_screen = app.screenAt(capture_center)
                 if target_screen is None:
                     target_screen = app.primaryScreen()
-                    print(f"⚠️ 截图区域不在任何显示器内，使用主显示器")
+                    print(f"[WARN] 截图区域不在任何显示器内，使用主显示器")
                 
                 target_geometry = target_screen.geometry()
                 
@@ -1316,7 +1316,7 @@ class ScrollCaptureWindow(QWidget):
                 new_x = target_geometry.x() + (target_geometry.width() - self.width()) // 2
                 new_y = target_geometry.y() + (target_geometry.height() - self.height()) // 2
                 
-                print(f"🔧 强制移动窗口到显示器 {target_screen} 中央: x={new_x}, y={new_y}")
+                print(f"[FIX] 强制移动窗口到显示器 {target_screen} 中央: x={new_x}, y={new_y}")
                 self.move(new_x, new_y)
                 self.raise_()
                 self.activateWindow()
@@ -1324,10 +1324,10 @@ class ScrollCaptureWindow(QWidget):
                 # 更新窗口标题以提示用户
                 self.setWindowTitle("長スクリーンショット - 位置が修正されました")
             else:
-                print("✅ 窗口位置验证通过")
+                print("[OK] 窗口位置验证通过")
                 
         except Exception as e:
-            print(f"❌ 强制修复窗口位置时出错: {e}", force=True)
+            print(f"[ERROR] 强制修复窗口位置时出错: {e}", force=True)
     
     def _capture_initial_screenshot(self):
         """截取初始截图（窗口显示时的区域内容）"""
@@ -1439,7 +1439,7 @@ class ScrollCaptureWindow(QWidget):
             
             screen = app.screenAt(center_point)
             if screen is None:
-                print("⚠️ 截图区域不在任何显示器范围内，使用主显示器", force=True)
+                print("[WARN] 截图区域不在任何显示器范围内，使用主显示器", force=True)
                 screen = app.primaryScreen()
             
             screen_geometry = screen.geometry()
@@ -1463,7 +1463,7 @@ class ScrollCaptureWindow(QWidget):
             print(f"   截图尺寸: {pixmap.width()}x{pixmap.height()}", force=True)
             
             if pixmap.isNull():
-                print("❌ 截图失败", force=True)
+                print("[ERROR] 截图失败", force=True)
                 return
             
             # 将QPixmap转换为PIL Image - PyQt6: byteCount() → sizeInBytes()
@@ -1513,7 +1513,7 @@ class ScrollCaptureWindow(QWidget):
                     self.session_engine = get_active_engine()
                     print(f"\n🎮 [引擎选择] 初始引擎: {self.session_engine} ({'特征匹配' if self.session_engine == 'rust' else '哈希匹配'})")
                 else:
-                    # ✅ 后续拼接：使用已锁定的引擎
+                    # [OK] 后续拼接：使用已锁定的引擎
                     print(f"🔒 [引擎锁定] 继续使用: {self.session_engine} ({'特征匹配' if self.session_engine == 'rust' else '哈希匹配'})")
                 
                 # 根据会话引擎选择拼接策略
@@ -1522,7 +1522,7 @@ class ScrollCaptureWindow(QWidget):
                     
                     # 首次创建拼接器实例
                     if self.rust_stitcher is None:
-                        print(f"🔧 创建 RustLongStitch 拼接器实例...")
+                        print(f"[FIX] 创建 RustLongStitch 拼接器实例...")
                         from .jietuba_long_stitch_rust import RustLongStitch
                         from .jietuba_long_stitch_unified import config
                         
@@ -1538,7 +1538,7 @@ class ScrollCaptureWindow(QWidget):
                             distance_threshold=config.distance_threshold,
                             ef_search=config.ef_search,
                         )
-                        print(f"✅ 拼接器已创建，参数: corner_threshold={config.corner_threshold}, distance_threshold={config.distance_threshold}")
+                        print(f"[OK] 拼接器已创建，参数: corner_threshold={config.corner_threshold}, distance_threshold={config.distance_threshold}")
                     
                     # 增量添加新图片
                     print(f"🔗 增量添加第 {screenshot_count} 张图片（特征匹配）...")
@@ -1546,19 +1546,19 @@ class ScrollCaptureWindow(QWidget):
                     
                     if screenshot_count == 1:
                         # 第一张图片
-                        print(f"✅ 第一张图片已添加，尺寸: {pil_image.size[0]}x{pil_image.size[1]}")
+                        print(f"[OK] 第一张图片已添加，尺寸: {pil_image.size[0]}x{pil_image.size[1]}")
                         # 临时导出查看当前状态
                         self.stitched_result = self.rust_stitcher.export()
                     elif overlap is not None:
                         # 成功找到重叠
-                        print(f"✅ 成功匹配，重叠区域: {overlap} 像素")
+                        print(f"[OK] 成功匹配，重叠区域: {overlap} 像素")
                         # 临时导出查看当前状态
                         self.stitched_result = self.rust_stitcher.export()
                         if self.stitched_result:
-                            print(f"✅ 当前拼接结果尺寸: {self.stitched_result.size[0]}x{self.stitched_result.size[1]}")
+                            print(f"[OK] 当前拼接结果尺寸: {self.stitched_result.size[0]}x{self.stitched_result.size[1]}")
                     else:
-                        # ⚠️ 特征匹配失败 → 切换到哈希匹配
-                        print(f"\n⚠️ 第 {screenshot_count} 张图片特征匹配失败！")
+                        # [WARN] 特征匹配失败 → 切换到哈希匹配
+                        print(f"\n[WARN] 第 {screenshot_count} 张图片特征匹配失败！")
                         print("🔄 切换到哈希匹配算法（本次会话将一直使用哈希匹配）\n")
                         
                         # 导出当前成功的结果
@@ -1571,7 +1571,7 @@ class ScrollCaptureWindow(QWidget):
                         # 清理rust拼接器并切换引擎
                         self.rust_stitcher.clear()
                         self.rust_stitcher = None
-                        self.session_engine = "hash_rust"  # ✅ 永久切换到哈希匹配
+                        self.session_engine = "hash_rust"  # [OK] 永久切换到哈希匹配
                         
                         # 使用哈希匹配拼接当前图片
                         if self.stitched_result:
@@ -1584,9 +1584,9 @@ class ScrollCaptureWindow(QWidget):
                                 return
                             if temp_result:
                                 self.stitched_result = temp_result
-                                print(f"✅ 哈希匹配成功，结果尺寸: {self.stitched_result.size[0]}x{self.stitched_result.size[1]}")
+                                print(f"[OK] 哈希匹配成功，结果尺寸: {self.stitched_result.size[0]}x{self.stitched_result.size[1]}")
                             else:
-                                print("⚠️ 哈希匹配也失败，保持原结果")
+                                print("[WARN] 哈希匹配也失败，保持原结果")
                                 stitch_successful = False
                                 self._handle_stitch_failure(screenshot_count, "未找到可靠的重叠区域")
                         else:
@@ -1600,7 +1600,7 @@ class ScrollCaptureWindow(QWidget):
                         # 第一张图片
                         print(f"🔗 初始化第 {screenshot_count} 张图片（哈希匹配）...")
                         self.stitched_result = pil_image
-                        print(f"✅ 第一张图片作为基础，尺寸: {pil_image.size[0]}x{pil_image.size[1]}")
+                        print(f"[OK] 第一张图片作为基础，尺寸: {pil_image.size[0]}x{pil_image.size[1]}")
                     else:
                         # 🚀 增量拼接：只拼接 [上次结果, 新截图]
                         print(f"🔗 增量拼接第 {screenshot_count} 张图片（哈希匹配）...")
@@ -1620,14 +1620,14 @@ class ScrollCaptureWindow(QWidget):
                             return
                         if result:
                             self.stitched_result = result
-                            print(f"✅ 拼接完成，当前结果尺寸: {self.stitched_result.size[0]}x{self.stitched_result.size[1]}")
+                            print(f"[OK] 拼接完成，当前结果尺寸: {self.stitched_result.size[0]}x{self.stitched_result.size[1]}")
                         else:
-                            print("⚠️ 增量拼接失败，保持原结果")
+                            print("[WARN] 增量拼接失败，保持原结果")
                             stitch_successful = False
                             self._handle_stitch_failure(screenshot_count, "未找到可靠的重叠区域")
                         
             except Exception as e:
-                print(f"⚠️ 拼接出错: {e}")
+                print(f"[WARN] 拼接出错: {e}")
                 import traceback
                 traceback.print_exc()
                 stitch_successful = False
@@ -1636,7 +1636,7 @@ class ScrollCaptureWindow(QWidget):
                 # 拼接失败时的回退处理
                 if self.stitched_result is None:
                     self.stitched_result = pil_image
-                    print("⚠️ 使用当前截图作为初始结果")
+                    print("[WARN] 使用当前截图作为初始结果")
             
             if stitch_successful:
                 # 记录滚动距离（第一张截图距离为0，后续为累积距离）
@@ -1651,7 +1651,7 @@ class ScrollCaptureWindow(QWidget):
                 if hasattr(self, 'toolbar') and self.toolbar:
                     self.toolbar.update_count(len(self.screenshots))
 
-                print(f"✅ 第 {len(self.screenshots)} 张截图完成 (尺寸: {pil_image.size[0]}x{pil_image.size[1]})")
+                print(f"[OK] 第 {len(self.screenshots)} 张截图完成 (尺寸: {pil_image.size[0]}x{pil_image.size[1]})")
                 self._clear_preview_warning()
             else:
                 # 失败截图已被忽略
@@ -1660,7 +1660,7 @@ class ScrollCaptureWindow(QWidget):
             self._refresh_preview_panel()
             
         except Exception as e:
-            print(f"❌ 截图时出错: {e}", force=True)
+            print(f"[ERROR] 截图时出错: {e}", force=True)
             import traceback
             traceback.print_exc()
     
@@ -1698,7 +1698,7 @@ class ScrollCaptureWindow(QWidget):
     
     def _on_finish(self):
         """完成按钮点击"""
-        print(f"✅ 完成长截图，共 {len(self.screenshots)} 张图片", force=True)
+        print(f"[OK] 完成长截图，共 {len(self.screenshots)} 张图片", force=True)
         
         # 🚀 如果使用特征匹配，导出最终结果
         if self.session_engine == "rust" and self.rust_stitcher is not None:
@@ -1707,11 +1707,11 @@ class ScrollCaptureWindow(QWidget):
                 final_result = self.rust_stitcher.export()
                 if final_result:
                     self.stitched_result = final_result
-                    print(f"✅ 获取拼接结果，图片大小: {final_result.size}")
+                    print(f"[OK] 获取拼接结果，图片大小: {final_result.size}")
                 else:
-                    print("⚠️  导出结果为空")
+                    print("[WARN]  导出结果为空")
             except Exception as e:
-                print(f"❌ 导出拼接结果失败: {e}", force=True)
+                print(f"[ERROR] 导出拼接结果失败: {e}", force=True)
         
         # 横向模式：将拼接结果逆时针旋转90度还原
         # 只有在有2张及以上图片（发生了拼接）时才旋转
@@ -1743,7 +1743,7 @@ class ScrollCaptureWindow(QWidget):
     def _save_result(self):
         """提交拼接结果的异步保存任务"""
         if self.stitched_result is None:
-            print("⚠️ 没有拼接结果，跳过保存")
+            print("[WARN] 没有拼接结果，跳过保存")
             return
 
         direction_suffix = "横" if self.scroll_direction == "horizontal" else "縦"
@@ -1758,11 +1758,11 @@ class ScrollCaptureWindow(QWidget):
                 image_format="PNG"
             )
             if task_path:
-                print(f"💾 长截图保存任务已提交: {task_path}")
+                print(f"[SAVE] 长截图保存任务已提交: {task_path}")
             else:
-                print("❌ 无法提交长截图保存任务")
+                print("[ERROR] 无法提交长截图保存任务")
         except Exception as exc:
-            print(f"❌ 提交长截图保存任务失败: {exc}")
+            print(f"[ERROR] 提交长截图保存任务失败: {exc}")
             import traceback
             traceback.print_exc()
 
@@ -1785,7 +1785,7 @@ class ScrollCaptureWindow(QWidget):
             clipboard.setImage(qimage.copy())
             print("📋 长截图已复制到剪贴板")
         except Exception as e:
-            print(f"❌ 复制到剪贴板失败: {e}")
+            print(f"[ERROR] 复制到剪贴板失败: {e}")
             import traceback
             traceback.print_exc()
     
@@ -1796,13 +1796,13 @@ class ScrollCaptureWindow(QWidget):
             # 立即执行截图
             self._do_capture()
         except Exception as e:
-            print(f"❌ 手动截图失败: {e}", force=True)
+            print(f"[ERROR] 手动截图失败: {e}", force=True)
             import traceback
             traceback.print_exc()
     
     def _on_cancel(self):
         """取消按钮点击"""
-        print("❌ 取消长截图", force=True)
+        print("[ERROR] 取消长截图", force=True)
         self.screenshots.clear()
         self._cleanup()
         self.cancelled.emit()
@@ -1811,7 +1811,7 @@ class ScrollCaptureWindow(QWidget):
     def _cleanup(self):
         """清理资源"""
         try:
-            # 🧹 显式清理大对象内存
+            # [CLEAN] 显式清理大对象内存
             if hasattr(self, 'screenshots'):
                 self.screenshots.clear()
                 self.screenshots = []
@@ -1833,13 +1833,13 @@ class ScrollCaptureWindow(QWidget):
                 from .jietuba_long_stitch_unified import config as long_config
                 long_config.cancel_on_shrink = self._original_cancel_on_shrink
                 self._original_cancel_on_shrink = None
-            # 🧹 清理特征匹配拼接器
+            # [CLEAN] 清理特征匹配拼接器
             if hasattr(self, 'rust_stitcher') and self.rust_stitcher is not None:
                 try:
                     self.rust_stitcher.clear()
-                    print("✅ 已清理 RustLongStitch 拼接器")
+                    print("[OK] 已清理 RustLongStitch 拼接器")
                 except Exception as e:
-                    print(f"⚠️  清理拼接器时出错: {e}")
+                    print(f"[WARN]  清理拼接器时出错: {e}")
                 finally:
                     self.rust_stitcher = None
             
@@ -1847,17 +1847,17 @@ class ScrollCaptureWindow(QWidget):
             if hasattr(self, 'toolbar') and self.toolbar:
                 try:
                     self.toolbar.close()
-                    print("✅ 浮动工具栏已关闭")
+                    print("[OK] 浮动工具栏已关闭")
                 except Exception as e:
-                    print(f"⚠️ 关闭工具栏时出错: {e}")
+                    print(f"[WARN] 关闭工具栏时出错: {e}")
             
             # 关闭预览面板
             if hasattr(self, 'preview_panel') and self.preview_panel:
                 try:
                     self.preview_panel.close()
-                    print("✅ 预览面板已关闭")
+                    print("[OK] 预览面板已关闭")
                 except Exception as e:
-                    print(f"⚠️ 关闭预览面板时出错: {e}")
+                    print(f"[WARN] 关闭预览面板时出错: {e}")
                 finally:
                     self.preview_panel = None
 
@@ -1874,13 +1874,13 @@ class ScrollCaptureWindow(QWidget):
             # 停止鼠标监听器
             if hasattr(self, 'mouse_listener'):
                 self.mouse_listener.stop()
-                print("✅ 全局滚轮监听器已停止")
+                print("[OK] 全局滚轮监听器已停止")
             
             # 🆕 停止键盘监听器
             self._stop_keyboard_listener()
             
         except Exception as e:
-            print(f"⚠️ 清理资源时出错: {e}")
+            print(f"[WARN] 清理资源时出错: {e}")
     
     def closeEvent(self, event):
         """窗口关闭事件"""

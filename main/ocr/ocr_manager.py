@@ -3,8 +3,7 @@
 ocr_manager.py - OCR 功能模块
 
 为截图工具提供 OCR 文字识别功能。
-支持多种 OCR 引擎：
-- ocr_rs: 基于 PaddleOCR + MNN 的高性能 OCR (需要模型文件，~100MB)
+支持 OCR 引擎：
 - windows_media_ocr: Windows 系统自带 OCR API (轻量级，仅几MB)
 
 主要功能:
@@ -12,10 +11,8 @@ ocr_manager.py - OCR 功能模块
 - 支持中英日文识别
 - 单例模式管理 OCR 引擎
 - 支持图像预处理(灰度转换、图像放大)
-- 支持引擎切换
 
 依赖:
-- ocr_rs: pip install ocr_rs-2.0.1-cp39-cp39-win_amd64.whl
 - windows_media_ocr: pip install windows_media_ocr
 """
 from PyQt6.QtGui import QPixmap, QImage
@@ -24,36 +21,81 @@ from typing import Optional, Dict, Any
 import io
 import time
 import os
+import sys
+import ctypes
+import traceback as _tb
 
-# 尝试导入 ocr_rs
+def _ocr_log(msg: str, level: str = "INFO"):
+    """写入日志（打包后使用 core.logger，否则 print）"""
+    try:
+        from core.logger import log_info, log_warning, log_error, log_debug
+        if level == "ERROR":
+            log_error(msg, "OCR")
+        elif level == "WARN":
+            log_warning(msg, "OCR")
+        elif level == "DEBUG":
+            log_debug(msg, "OCR")
+        else:
+            log_info(msg, "OCR")
+    except Exception:
+        print(f"[{level}] [OCR] {msg}", flush=True)
+
+def _preload_crt_for_pyinstaller():
+    """
+    在 PyInstaller 打包环境中预加载 MSVC CRT 运行时库。
+    
+    这是解决 ocr_rs (MNN/PaddleOCR) 在 PyInstaller 打包后崩溃的关键修复。
+    MNN 在初始化时依赖 CRT，如果 CRT 没有正确初始化会导致 ACCESS_VIOLATION。
+    通过预先加载 CRT DLL，确保运行时环境正确初始化。
+    
+    注意：主入口 main_app.py 也有此预加载，这里作为备份确保安全。
+    """
+    if not getattr(sys, 'frozen', False):
+        return  # 非打包环境不需要
+    
+    crt_dlls = [
+        "ucrtbase.dll",
+        "vcruntime140.dll", 
+        "vcruntime140_1.dll",
+        "msvcp140.dll",
+    ]
+    
+    for dll in crt_dlls:
+        try:
+            ctypes.CDLL(dll)
+        except OSError:
+            pass  # DLL 可能已加载或不存在，忽略
+
+# 检测可用的 OCR 引擎
+# ocr_rs 在 PyInstaller 打包后无法正常工作，已禁用
+OCR_RS_AVAILABLE = False
+_ocr_rs_version = None
+
+# 尝试导入 windos_ocr（静默检测）
 try:
-    from ocr_rs import OcrEngine
-    import ocr_rs
-    OCR_RS_AVAILABLE = True
-    print(f"✅ [OCR] ocr_rs 模块加载成功，版本: {ocr_rs.__version__}")
-except ImportError as e:
-    print(f"⚠️ [OCR] ocr_rs 模块导入失败: {e}")
-    OCR_RS_AVAILABLE = False
-    OcrEngine = None
+    from . import windos_ocr
+    WINDOS_OCR_AVAILABLE = True
+    _ocr_log("windos_ocr 引擎可用", "INFO")
+except Exception as e:
+    WINDOS_OCR_AVAILABLE = False
+    windos_ocr = None
+    _ocr_log(f"windos_ocr 不可用: {e}", "DEBUG")
 
-# 尝试导入 windows_media_ocr
+# 尝试导入 windows_media_ocr（静默检测）
 try:
     import windows_media_ocr
     WINDOWS_OCR_AVAILABLE = True
-    print("✅ [OCR] windows_media_ocr 模块加载成功")
     try:
         available_langs = windows_media_ocr.get_available_languages()
-        print(f"📖 [OCR] Windows OCR 支持的语言: {available_langs}")
     except Exception:
         available_langs = []
 except ImportError as e:
-    print(f"⚠️ [OCR] windows_media_ocr 模块导入失败: {e}")
     WINDOWS_OCR_AVAILABLE = False
     windows_media_ocr = None
     available_langs = []
 
 # 至少有一个引擎可用
-OCR_AVAILABLE = OCR_RS_AVAILABLE or WINDOWS_OCR_AVAILABLE
+OCR_AVAILABLE = WINDOS_OCR_AVAILABLE or WINDOWS_OCR_AVAILABLE
 
 
 class OCRManager:
@@ -64,7 +106,8 @@ class OCRManager:
     
     # OCR 引擎类型常量
     ENGINE_OCR_RS = "ocr_rs"
-    ENGINE_WINDOWS_OCR = "windows_media_ocr"
+    ENGINE_WINDOS_OCR = "windos_ocr"  # Windows ScreenSketch OCR (高性能)
+    ENGINE_WINDOWS_OCR = "windows_media_ocr"  # Windows Media OCR (轻量级)
     
     # 模型路径配置 (用于 ocr_rs)
     MODEL_DIR = "models"
@@ -96,7 +139,7 @@ class OCRManager:
             self._initialized = True
             self._last_error = None
             self._current_engine = None  # 当前使用的引擎类型
-            self._ocr_rs_engine = None   # ocr_rs 引擎实例
+            self._windos_ocr_engine = None  # windos_ocr 引擎实例 (常驻)
             self._windows_ocr_language = None  # windows_media_ocr 语言设置
     
     @property
@@ -107,8 +150,8 @@ class OCRManager:
     def get_available_engines(self) -> list:
         """获取可用的 OCR 引擎列表"""
         engines = []
-        if OCR_RS_AVAILABLE:
-            engines.append(self.ENGINE_OCR_RS)
+        if WINDOS_OCR_AVAILABLE:
+            engines.append(self.ENGINE_WINDOS_OCR)
         if WINDOWS_OCR_AVAILABLE:
             engines.append(self.ENGINE_WINDOWS_OCR)
         return engines
@@ -118,19 +161,31 @@ class OCRManager:
         设置当前使用的 OCR 引擎
         
         Args:
-            engine_type: 引擎类型 ("ocr_rs" 或 "windows_media_ocr")
+            engine_type: 引擎类型 ("windos_ocr" 或 "windows_media_ocr")
         """
-        if engine_type == self.ENGINE_OCR_RS and not OCR_RS_AVAILABLE:
-            print(f"⚠️ [OCR] ocr_rs 引擎不可用")
+        # 检查引擎是否可用
+        if engine_type == self.ENGINE_WINDOS_OCR and not WINDOS_OCR_AVAILABLE:
+            _ocr_log("windos_ocr 引擎不可用", "WARN")
             return False
         
         if engine_type == self.ENGINE_WINDOWS_OCR and not WINDOWS_OCR_AVAILABLE:
-            print(f"⚠️ [OCR] windows_media_ocr 引擎不可用")
+            _ocr_log("windows_media_ocr 引擎不可用", "WARN")
+            return False
+        
+        # 只支持这两个引擎
+        if engine_type not in [self.ENGINE_WINDOS_OCR, self.ENGINE_WINDOWS_OCR]:
+            _ocr_log(f"不支持的引擎类型: {engine_type}", "ERROR")
             return False
         
         if self._current_engine != engine_type:
-            print(f"🔄 [OCR] 切换引擎: {self._current_engine} -> {engine_type}")
+            _ocr_log(f"切换引擎: {self._current_engine} -> {engine_type}")
             self._current_engine = engine_type
+            
+            if engine_type == self.ENGINE_WINDOS_OCR:
+                _ocr_log(f"使用 windos_ocr 引擎 (Windows ScreenSketch OCR)")
+            else:
+                _ocr_log(f"使用 windows_media_ocr 引擎")
+                _ocr_log(f"Windows OCR 支持的语言: {available_langs}")
             return True
         
         return True
@@ -141,18 +196,52 @@ class OCRManager:
     
     def _get_model_path(self, filename: str) -> str:
         """获取模型文件路径 (用于 ocr_rs)"""
-        possible_paths = [
-            os.path.join(self.MODEL_DIR, filename),
-            os.path.join(os.path.dirname(__file__), "..", "..", self.MODEL_DIR, filename),
-            os.path.join(os.path.dirname(__file__), self.MODEL_DIR, filename),
-        ]
+        import sys
+        
+        # 检测是否在 PyInstaller 打包环境
+        if getattr(sys, 'frozen', False):
+            # PyInstaller 打包后的环境
+            # 优先使用项目根目录的 models（与 IDE 运行一致），再回退到打包内嵌的
+            base_dir = sys._MEIPASS
+            exe_dir = os.path.dirname(sys.executable)
+            # 尝试找到项目根目录（kaifajietu）
+            project_root = r"C:\Users\10031\Desktop\kaifajietu"
+            
+            # 记录一次基础目录，便于诊断
+            try:
+                if not hasattr(self, "_printed_model_base"):
+                    _ocr_log(f"PyInstaller 基础目录: {base_dir}")
+                    _ocr_log(f"exe 目录: {exe_dir}")
+                    _ocr_log(f"项目根目录: {project_root}")
+                    self._printed_model_base = True
+            except Exception:
+                pass
+
+            possible_paths = [
+                # 1. 项目根目录的 models（与 IDE 一致）
+                os.path.join(project_root, self.MODEL_DIR, filename),
+                # 2. _internal/models
+                os.path.join(base_dir, self.MODEL_DIR, filename),
+                os.path.join(base_dir, "models", filename),
+                # 3. exe 同级
+                os.path.join(exe_dir, self.MODEL_DIR, filename),
+                os.path.join(exe_dir, "_internal", self.MODEL_DIR, filename),
+            ]
+        else:
+            # 开发环境
+            possible_paths = [
+                os.path.join(self.MODEL_DIR, filename),
+                os.path.join(os.path.dirname(__file__), "..", "..", self.MODEL_DIR, filename),
+                os.path.join(os.path.dirname(__file__), self.MODEL_DIR, filename),
+            ]
         
         for path in possible_paths:
             abs_path = os.path.abspath(path)
             if os.path.exists(abs_path):
                 return abs_path
         
-        return os.path.join(self.MODEL_DIR, filename)
+        # 如果都找不到，返回第一个可能的路径（用于错误提示）
+        return os.path.abspath(possible_paths[0])
     
     def initialize(self, language: str = "日本語", engine_type: Optional[str] = None) -> bool:
         """
@@ -173,70 +262,49 @@ class OCRManager:
         if engine_type:
             self.set_engine(engine_type)
         
-        # 如果没有设置当前引擎，自动选择第一个可用引擎
+        # 如果没有设置当前引擎，自动选择（优先 windos_ocr）
         if not self._current_engine:
-            available = self.get_available_engines()
-            if not available:
+            if WINDOS_OCR_AVAILABLE:
+                self._current_engine = self.ENGINE_WINDOS_OCR
+                _ocr_log(f"自动选择引擎: {self._current_engine} (windos_ocr 高性能引擎)")
+            elif WINDOWS_OCR_AVAILABLE:
+                self._current_engine = self.ENGINE_WINDOWS_OCR
+                _ocr_log(f"自动选择引擎: {self._current_engine} (windows_media_ocr)")
+            else:
                 self._last_error = "没有可用的 OCR 引擎"
                 return False
-            self._current_engine = available[0]
-            print(f"📖 [OCR] 自动选择引擎: {self._current_engine}")
         
         # 根据引擎类型初始化
-        if self._current_engine == self.ENGINE_OCR_RS:
-            return self._initialize_ocr_rs()
+        if self._current_engine == self.ENGINE_WINDOS_OCR:
+            return self._initialize_windos_ocr()
         elif self._current_engine == self.ENGINE_WINDOWS_OCR:
             return self._initialize_windows_ocr(language)
         else:
-            self._last_error = f"未知的引擎类型: {self._current_engine}"
+            self._last_error = f"不支持的引擎类型: {self._current_engine}"
             return False
     
-    def _initialize_ocr_rs(self) -> bool:
-        """初始化 ocr_rs 引擎"""
-        if not OCR_RS_AVAILABLE:
-            self._last_error = "ocr_rs 模块不可用"
+    def _initialize_windos_ocr(self) -> bool:
+        """初始化 windos_ocr 引擎 (常驻模式)"""
+        if not WINDOS_OCR_AVAILABLE:
+            self._last_error = "windos_ocr 模块不可用"
             return False
         
-        # 如果引擎已经初始化，直接返回成功
-        if self._ocr_rs_engine is not None:
-            print("📖 [OCR] ocr_rs 引擎已初始化")
+        # 如果已经初始化,直接返回
+        if self._windos_ocr_engine is not None:
+            _ocr_log("windos_ocr 引擎已初始化 (常驻)")
             return True
         
         try:
-            print(f"📖 [OCR] 初始化 ocr_rs 引擎...")
-            
-            det_path = self._get_model_path(self.DET_MODEL)
-            rec_path = self._get_model_path(self.REC_MODEL)
-            charset_path = self._get_model_path(self.CHARSET_FILE)
-            
-            print(f"   检测模型: {det_path}")
-            print(f"   识别模型: {rec_path}")
-            print(f"   字符集: {charset_path}")
-            
-            # 🔧 办公电脑优化配置：最小化资源占用（~120MB 内存，低 CPU 负载）
-            # - num_threads: 2 (双线程，适合办公环境，降低 CPU 占用)
-            # - batch_size: 1 (单张推理，最小化内存)
-            # - max_side_len: 640 (降低图像尺寸，减少计算量和内存，适合办公文档/截图)
-            # 注意：640 适合常见办公场景，如果需要识别高分辨率图片中的小字，可改回 960
-            self._ocr_rs_engine = OcrEngine(
-                det_model_path=det_path,
-                rec_model_path=rec_path,
-                charset_path=charset_path,
-                num_threads=2,          # 双线程，平衡性能与资源占用
-                max_side_len=640,       # 640px，办公环境推荐值，降低内存和 CPU
-                box_threshold=0.3,
-                min_score=0.3,
-                batch_size=1            # 单张推理，最小化内存
-            )
-            
-            print("✅ [OCR] ocr_rs 引擎初始化成功")
+            _ocr_log("正在加载 windos_ocr 引擎 (首次加载约1-2秒)...")
+            from .windos_ocr import OcrEngine
+            self._windos_ocr_engine = OcrEngine()  # 加载模型,常驻内存
+            _ocr_log("windos_ocr 引擎初始化成功 (已常驻内存)")
             return True
             
         except Exception as e:
-            self._last_error = f"ocr_rs 初始化失败: {str(e)}"
-            print(f"❌ [OCR] {self._last_error}")
-            import traceback
-            traceback.print_exc()
+            self._last_error = f"windos_ocr 初始化失败: {str(e)}"
+            tb_str = _tb.format_exc()
+            _ocr_log(f"{self._last_error}\n{tb_str}", "ERROR")
             return False
     
     def _initialize_windows_ocr(self, language: str) -> bool:
@@ -248,15 +316,14 @@ class OCRManager:
         try:
             # 映射语言代码
             self._windows_ocr_language = self.LANGUAGE_MAP.get(language, "zh-Hans-CN")
-            print(f"📖 [OCR] 初始化 windows_media_ocr 引擎(语言配置: {language} -> {self._windows_ocr_language})")
-            print("✅ [OCR] windows_media_ocr 引擎初始化成功")
+            _ocr_log(f"初始化 windows_media_ocr 引擎(语言配置: {language} -> {self._windows_ocr_language})")
+            _ocr_log("windows_media_ocr 引擎初始化成功")
             return True
             
         except Exception as e:
             self._last_error = f"windows_media_ocr 初始化失败: {str(e)}"
-            print(f"❌ [OCR] {self._last_error}")
-            import traceback
-            traceback.print_exc()
+            tb_str = _tb.format_exc()
+            _ocr_log(f"{self._last_error}\n{tb_str}", "ERROR")
             return False
     
     def recognize_pixmap(
@@ -279,66 +346,78 @@ class OCRManager:
             if not self.initialize():
                 return self._format_error(return_format)
         
-        # 根据当前引擎调用对应的识别方法
-        if self._current_engine == self.ENGINE_OCR_RS:
-            return self._recognize_with_ocr_rs(pixmap, return_format)
+        # 根据引擎类型调用对应的识别方法
+        if self._current_engine == self.ENGINE_WINDOS_OCR:
+            return self._recognize_with_windos_ocr(pixmap, return_format)
         elif self._current_engine == self.ENGINE_WINDOWS_OCR:
-            return self._recognize_with_windows_ocr(pixmap, return_format
-            )
+            return self._recognize_with_windows_ocr(pixmap, return_format)
         else:
-            return self._format_error(return_format, f"未知的引擎: {self._current_engine}")
+            return self._format_error(return_format, f"不支持的引擎: {self._current_engine}")
     
-    def _recognize_with_ocr_rs(
+    def _recognize_with_windos_ocr(
         self,
         pixmap: QPixmap,
         return_format: str
     ) -> Any:
-        """使用 ocr_rs 引擎识别"""
-        # 确保 ocr_rs 引擎已初始化
-        if self._ocr_rs_engine is None:
-            if not self._initialize_ocr_rs():
+        """使用 windos_ocr 引擎识别"""
+        # 确保引擎已初始化
+        if self._windos_ocr_engine is None:
+            if not self._initialize_windos_ocr():
                 return self._format_error(return_format)
         
         try:
             start_time = time.time()
             
-            # 直接转换为 bytes
-            image_bytes = self._pixmap_to_bytes(pixmap)
+            # 转换 QPixmap → PIL Image
+            from PIL import Image
+            from io import BytesIO
             
-            # 调用 ocr_rs 识别
-            results = self._ocr_rs_engine.recognize_from_bytes(image_bytes)
+            buffer = QBuffer()
+            buffer.open(QBuffer.OpenModeFlag.ReadWrite)
+            pixmap.save(buffer, "PNG")
+            image_bytes = buffer.data().data()
+            pil_image = Image.open(BytesIO(image_bytes))
+            
+            # 调用 windos_ocr 识别 (常驻引擎,速度快)
+            result = self._windos_ocr_engine.recognize_pil(pil_image)
             
             elapse = time.time() - start_time
             
             # 检查识别结果
-            if results is None or len(results) == 0:
+            if not result or not result.get('lines'):
                 return self._format_empty_result(return_format)
             
-            # 构建结果列表：[[box, text, score], ...]
+            # 转换为统一格式: [[box, text, score], ...]
             ocr_results = []
-            for item in results:
-                bbox = item['bbox']
-                x, y, w, h = bbox['x'], bbox['y'], bbox['width'], bbox['height']
-                
-                # 构建 box: [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
-                box = [
-                    [x, y],
-                    [x + w, y],
-                    [x + w, y + h],
-                    [x, y + h]
-                ]
-                text = item['text']
-                score = item['confidence']
-                ocr_results.append([box, text, score])
+            for line in result['lines']:
+                if line['text']:
+                    # 转换 bounding_rect 为 box 格式
+                    bbox = line['bounding_rect']
+                    if bbox:
+                        box = [
+                            [bbox['x1'], bbox['y1']],
+                            [bbox['x2'], bbox['y2']],
+                            [bbox['x3'], bbox['y3']],
+                            [bbox['x4'], bbox['y4']]
+                        ]
+                    else:
+                        # 如果没有 bbox,使用默认值
+                        box = [[0, 0], [100, 0], [100, 20], [0, 20]]
+                    
+                    # 计算平均置信度(从词级别)
+                    confidences = [word['confidence'] for word in line.get('words', []) 
+                                 if word.get('confidence') is not None]
+                    score = sum(confidences) / len(confidences) if confidences else 1.0
+                    
+                    ocr_results.append([box, line['text'], score])
             
             # 格式化输出
             return self._format_result(ocr_results, return_format, elapse)
                 
         except Exception as e:
-            error_msg = f"ocr_rs 识别失败: {str(e)}"
-            print(f"❌ [OCR] {error_msg}")
-            import traceback
-            traceback.print_exc()
+            error_msg = f"windos_ocr 识别失败: {str(e)}"
+            tb_str = _tb.format_exc()
+            _ocr_log(f"{error_msg}\n{tb_str}", "ERROR")
             return self._format_error(return_format, error_msg)
     
     def _recognize_with_windows_ocr(
@@ -393,9 +472,8 @@ class OCRManager:
                 
         except Exception as e:
             error_msg = f"windows_media_ocr 识别失败: {str(e)}"
-            print(f"❌ [OCR] {error_msg}")
-            import traceback
-            traceback.print_exc()
+            tb_str = _tb.format_exc()
+            _ocr_log(f"{error_msg}\n{tb_str}", "ERROR")
             return self._format_error(return_format, error_msg)
     
     def _pixmap_to_bytes(self, pixmap: QPixmap) -> bytes:
@@ -518,21 +596,25 @@ class OCRManager:
         - 钉图窗口关闭后
         """
         try:
-            self._ocr_rs_engine = None
+            # 释放 windos_ocr 引擎 (约150MB)
+            if self._windos_ocr_engine is not None:
+                self._windos_ocr_engine = None  # __del__ 会自动释放 DLL 资源
+                _ocr_log("windos_ocr 引擎已释放")
+            
             self._windows_ocr_language = None
             
             # 🔥 强制触发垃圾回收
             import gc
             gc.collect()
             
-            print("🗑️ [OCR] 资源已释放")
+            _ocr_log("资源已释放")
         except Exception as e:
-            print(f"⚠️ [OCR] 释放 OCR 资源时出错: {e}")
+            _ocr_log(f"释放 OCR 资源时出错: {e}", "WARN")
     
     def is_engine_loaded(self) -> bool:
         """检查 OCR 引擎是否已初始化"""
-        if self._current_engine == self.ENGINE_OCR_RS:
-            return self._ocr_rs_engine is not None
+        if self._current_engine == self.ENGINE_WINDOS_OCR:
+            return self._windos_ocr_engine is not None
         elif self._current_engine == self.ENGINE_WINDOWS_OCR:
             return self._windows_ocr_language is not None
         return False
@@ -542,9 +624,9 @@ class OCRManager:
         if not self._current_engine:
             return "未初始化"
         
-        if self._current_engine == self.ENGINE_OCR_RS:
-            if self._ocr_rs_engine is not None:
-                return "已初始化 (ocr_rs 引擎)"
+        if self._current_engine == self.ENGINE_WINDOS_OCR:
+            if self._windos_ocr_engine is not None:
+                return "已初始化 (windos_ocr 引擎, 常驻内存 ~150MB)"
             else:
                 return "未初始化"
         elif self._current_engine == self.ENGINE_WINDOWS_OCR:

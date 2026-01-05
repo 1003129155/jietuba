@@ -35,7 +35,7 @@ class BackgroundItem(QGraphicsPixmapItem):
         # 背景不可交互
         self.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
         
-        print(f"✅ [背景层] 创建: scene_rect={scene_rect}, offset={self._scene_rect.topLeft()}")
+        print(f"[OK] [背景层] 创建: scene_rect={scene_rect}, offset={self._scene_rect.topLeft()}")
     
     def image(self) -> QImage:
         """获取背景图像（按需从 pixmap 转换，避免常驻内存）"""

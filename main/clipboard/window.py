@@ -63,7 +63,7 @@ def send_ctrl_v():
         ctypes.windll.user32.keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0)
         return True
     except Exception as e:
-        print(f"❌ [Clipboard] 发送 Ctrl+V 失败: {e}")
+        print(f"[ERROR] [Clipboard] 发送 Ctrl+V 失败: {e}")
         return False
 
 
@@ -216,7 +216,7 @@ class ClipboardItemWidget(QFrame):
                 pixmap.loadFromData(image_data)
                 return pixmap
         except Exception as e:
-            print(f"❌ [Clipboard] 加载缩略图失败: {e}")
+            print(f"[ERROR] [Clipboard] 加载缩略图失败: {e}")
         return None
     
     def mousePressEvent(self, event):
@@ -310,7 +310,7 @@ class ClipboardWindow(QWidget):
         # 启用鼠标追踪以检测边缘
         self.setMouseTracking(True)
         
-        # 安装事件过滤器用于检测边缘光标
+        # 安装事件过滤器用于检测边缘光标和拖动
         self.installEventFilter(self)
         
         # 设置预览弹窗的管理器
@@ -877,7 +877,7 @@ class ClipboardWindow(QWidget):
             t_query_end = perf_counter()
             print(f"⏱️ [Clipboard] 查询耗时: {(t_query_end - t_query_start) * 1000:.1f} ms，获取 {len(new_items)} 条")
             
-            print(f"✅ [Clipboard] 加载完成 - 获取到 {len(new_items)} 条记录")
+            print(f"[OK] [Clipboard] 加载完成 - 获取到 {len(new_items)} 条记录")
             
             # 检查是否还有更多数据
             if len(new_items) < self._page_size:
@@ -1138,7 +1138,7 @@ class ClipboardWindow(QWidget):
             move_to_top = False  # 在分组中粘贴，不移动顺序
         
         if self.manager.paste_item(item_id, self.paste_with_html, move_to_top):
-            print(f"✅ [Clipboard] 已粘贴项 {item_id} (带格式: {self.paste_with_html}, 移到最前: {move_to_top})")
+            print(f"[OK] [Clipboard] 已粘贴项 {item_id} (带格式: {self.paste_with_html}, 移到最前: {move_to_top})")
             self.item_pasted.emit(item_id)
             
             # 粘贴后关闭窗口
@@ -1267,7 +1267,7 @@ class ClipboardWindow(QWidget):
     def _move_item_to_group(self, item_id: int, group_id: Optional[int]):
         """将项目移动到分组"""
         if self.manager.move_to_group(item_id, group_id):
-            print(f"✅ [Clipboard] 已移动到分组 {group_id}")
+            print(f"[OK] [Clipboard] 已移动到分组 {group_id}")
             self._load_history()
     
     def _toggle_pin(self, item_id: int):
@@ -1312,7 +1312,9 @@ class ClipboardWindow(QWidget):
         t_show_start = perf_counter()
         super().showEvent(event)
         self._load_history()
-        self.search_input.setFocus()
+        # 不主动获取焦点,避免编辑器失去选中状态
+        # 用户可以通过点击窗口内部来手动获取焦点
+        # self.search_input.setFocus()
         
         # 每次显示都定位到鼠标位置（右下方）
         self._position_at_cursor()

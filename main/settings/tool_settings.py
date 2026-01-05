@@ -143,13 +143,13 @@ class ToolSettingsManager(QObject):
         # ==================== 3. 🎯 智能选择设置 ====================
         "smart_selection": False,              # 智能选区（窗口/控件识别）
         
-        # ==================== 4. 💾 截图保存设置 ====================
+        # ==================== 4. [SAVE] 截图保存设置 ====================
         "screenshot_save_enabled": True,       # 自动保存截图
         "screenshot_save_path": os.path.join(os.path.expanduser("~"), "Desktop", "スクショ"),  # 默认保存路径
         
         # ==================== 5. 🎯 OCR设置 ====================
         "ocr_enabled": True,                   # OCR功能启用
-        "ocr_engine": "ocr_rs",                # OCR引擎类型 (ocr_rs / windows_media_ocr)
+        "ocr_engine": "windos_ocr",            # OCR引擎类型 (windos_ocr 推荐, windows_media_ocr 备用)
         "ocr_grayscale": False,                # OCR灰度转换（Windows OCR 不需要）
         "ocr_upscale": True,                   # OCR图像放大（提升小字识别率）
         "ocr_upscale_factor": 2.0,             # OCR放大倍数（1.0-3.0）
@@ -344,7 +344,7 @@ class ToolSettingsManager(QObject):
             
             self.qsettings.setValue(setting_key, default_value)
         
-        print("✅ [设置] 应用设置已重置为默认值")
+        print("[OK] [设置] 应用设置已重置为默认值")
     
     def get_app_setting(self, key: str, default=None) -> Any:
         """
@@ -400,7 +400,7 @@ class ToolSettingsManager(QObject):
         """重置所有设置（工具设置 + 应用设置）为默认值"""
         self.reset_all()           # 重置工具设置
         self.reset_app_settings()  # 重置应用设置
-        print("✅ [设置] 所有设置已重置为默认值")
+        print("[OK] [设置] 所有设置已重置为默认值")
     
     def get_color(self, tool_id: str) -> QColor:
         """获取工具的颜色（返回 QColor 对象）"""

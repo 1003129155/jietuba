@@ -89,46 +89,46 @@ class PinContextMenu:
     
     def _add_menu_items(self, menu: QMenu, state: dict):
         """添加菜单项"""
-        # 📋 复制内容
-        copy_action = QAction("📋 " + self.parent.tr("Copy"), self.parent)
+        # 复制内容
+        copy_action = QAction(self.parent.tr("Copy"), self.parent)
         copy_action.triggered.connect(self.parent.copy_to_clipboard)
         menu.addAction(copy_action)
         
-        # 💾 保存图片
-        save_action = QAction("💾 " + self.parent.tr("Save as"), self.parent)
+        # 保存图片
+        save_action = QAction(self.parent.tr("Save as"), self.parent)
         save_action.triggered.connect(self.parent.save_image)
         menu.addAction(save_action)
         
-        # 🌐 翻译（仅在有 OCR 结果时可用）
-        translate_action = QAction("🌐 " + self.parent.tr("Translate"), self.parent)
+        # 翻译（仅在有 OCR 结果时可用）
+        translate_action = QAction(self.parent.tr("Translate"), self.parent)
         translate_action.triggered.connect(self.parent._on_translate_clicked)
         translate_action.setEnabled(state.get('has_ocr_result', False))
         menu.addAction(translate_action)
         
         menu.addSeparator()
         
-        # 🔧 显示/隐藏工具栏
+        # 显示/隐藏工具栏
         toolbar_visible = state.get('toolbar_visible', False)
         toolbar_action = QAction(
-            f"{'✓ ' if toolbar_visible else '   '}🔧 " + self.parent.tr("Toolbar"),
+            f"{'✓ ' if toolbar_visible else '   '}" + self.parent.tr("Toolbar"),
             self.parent
         )
         toolbar_action.triggered.connect(self.parent.toggle_toolbar)
         menu.addAction(toolbar_action)
         
-        # 📌 切换置顶
+        # 切换置顶
         stay_on_top = state.get('stay_on_top', False)
         toggle_top_action = QAction(
-            f"{'✓ ' if stay_on_top else '   '}📌 " + self.parent.tr("Always on top"),
+            f"{'✓ ' if stay_on_top else '   '}" + self.parent.tr("Always on top"),
             self.parent
         )
         toggle_top_action.triggered.connect(self.parent.toggle_stay_on_top)
         menu.addAction(toggle_top_action)
         
-        # 🌟 切换阴影效果
+        # 切换阴影效果
         shadow_enabled = state.get('shadow_enabled', True)
         shadow_action = QAction(
-            f"{'✓ ' if shadow_enabled else '   '}🌟 " + self.parent.tr("Shadow effect"),
+            f"{'✓ ' if shadow_enabled else '   '}" + self.parent.tr("Shadow effect"),
             self.parent
         )
         shadow_action.triggered.connect(self.parent.toggle_shadow_effect)
@@ -136,7 +136,7 @@ class PinContextMenu:
         
         menu.addSeparator()
         
-        # ❌ 关闭钉图
-        close_action = QAction("❌ " + self.parent.tr("Close"), self.parent)
+        # 关闭钉图
+        close_action = QAction(self.parent.tr("Close"), self.parent)
         close_action.triggered.connect(self.parent.close_window)
         menu.addAction(close_action)

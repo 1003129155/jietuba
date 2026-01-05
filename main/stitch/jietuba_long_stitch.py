@@ -25,10 +25,10 @@ import time
 try:
     import longstitch
     RUST_AVAILABLE = True
-    print("✅ Rust 加速模块已加载 (longstitch)")
+    print("[OK] Rust 加速模块已加载 (longstitch)")
 except ImportError:
     RUST_AVAILABLE = False
-    print("⚠️  Rust 模块未找到，使用 Python 实现（性能较慢）")
+    print("[WARN] Rust 模块未找到，使用 Python 实现（性能较慢）")
     print("   提示: 运行 'pip install longstitch' 安装 Rust 模块")
 
 # 性能统计
@@ -75,7 +75,7 @@ def image_to_row_hashes(image: Image.Image, ignore_right_pixels: int = 20) -> Li
             
             return row_hashes
         except Exception as e:
-            print(f"⚠️  Rust 哈希计算失败，回退到 Python: {e}")
+            print(f"[WARN]  Rust 哈希计算失败，回退到 Python: {e}")
             # 继续执行下面的 Python 实现
     
     # 🐍 Python 回退实现
@@ -169,7 +169,7 @@ def find_top_common_substrings(
     print(f"  🔍 [多子串搜索] 找到 {len(common_hashes)} 个公共哈希值")
     
     if len(common_hashes) == 0:
-        print(f"  ❌ [多子串搜索] 两个序列没有任何公共哈希值！")
+        print(f"  [ERROR] [多子串搜索] 两个序列没有任何公共哈希值！")
         return []
 
     # 动态规划表
@@ -264,7 +264,7 @@ def find_longest_common_substring(
             
             return start_i, start_j, length
         except Exception as e:
-            print(f"⚠️  Rust LCS 计算失败，回退到 Python: {e}")
+            print(f"[WARN]  Rust LCS 计算失败，回退到 Python: {e}")
             # 继续执行下面的 Python 实现
     
     # 🐍 Python 回退实现 - 使用新的多子串搜索函数
@@ -292,9 +292,9 @@ def print_performance_stats():
         print(f"  总耗时: {_performance_stats['hash_time']*1000:.2f} ms")
         print(f"  平均耗时: {avg_hash_time*1000:.2f} ms")
         if RUST_AVAILABLE:
-            print(f"  ✅ 使用 Rust 加速（预估加速 10-20x）")
+            print(f"  [OK] 使用 Rust 加速（预估加速 10-20x）")
         else:
-            print(f"  ⚠️  使用 Python 实现（较慢）")
+            print(f"  [WARN]  使用 Python 实现（较慢）")
     
     if _performance_stats['lcs_count'] > 0:
         avg_lcs_time = _performance_stats['lcs_time'] / _performance_stats['lcs_count']
@@ -303,9 +303,9 @@ def print_performance_stats():
         print(f"  总耗时: {_performance_stats['lcs_time']*1000:.2f} ms")
         print(f"  平均耗时: {avg_lcs_time*1000:.2f} ms")
         if RUST_AVAILABLE:
-            print(f"  ✅ 使用 Rust 加速（预估加速 10x）")
+            print(f"  [OK] 使用 Rust 加速（预估加速 10x）")
         else:
-            print(f"  ⚠️  使用 Python 实现（较慢）")
+            print(f"  [WARN]  使用 Python 实现（较慢）")
     
     total_time = _performance_stats['hash_time'] + _performance_stats['lcs_time']
     print(f"\n总算法耗时: {total_time*1000:.2f} ms")
@@ -366,7 +366,7 @@ def find_best_overlap(
         candidates = find_top_common_substrings(img1_search_region, img2_hashes, min_ratio=0.01, top_k=5)
 
     if not candidates or candidates[0][2] == 0:
-        print("  ❌ 未找到任何重叠区域")
+        print("  [ERROR] 未找到任何重叠区域")
         return (-1, -1, 0)
     
     # 🔍 遍历候选子串，找到第一个不会导致缩短的匹配
@@ -375,7 +375,7 @@ def find_best_overlap(
         absolute_start_i = overlap[0] + search_start
         overlap_ratio = overlap[2] / min(len(img1_search_region), img2_len)
         
-        # 🔧 检查是否会导致结果缩短
+        # [FIX] 检查是否会导致结果缩短
         img1_keep_height = absolute_start_i + overlap[2]
         img2_skip_height = overlap[1] + overlap[2]
         img2_keep_height = img2_len - img2_skip_height
@@ -388,18 +388,18 @@ def find_best_overlap(
         print(f"     预测结果: {img1_len}行 -> {result_height}行", end="")
         
         if will_shrink:
-            print(f" ❌ (减少{img1_len - result_height}行)")
+            print(f" [ERROR] (减少{img1_len - result_height}行)")
             print(f"     img1保留{img1_keep_height}行, 丢弃底部{img1_len - img1_keep_height}行")
             print(f"     img2新增{img2_keep_height}行, 无法弥补损失")
             # 继续尝试下一个候选
             continue
         else:
-            print(f" ✅ (增加{result_height - img1_len}行)")
-            print(f"  ✅ 选择此候选作为最佳匹配")
+            print(f" [OK] (增加{result_height - img1_len}行)")
+            print(f"  [OK] 选择此候选作为最佳匹配")
             return (absolute_start_i, overlap[1], overlap[2])
     
     # 所有候选都会导致缩短，尝试缩小搜索范围
-    print(f"\n  ⚠️  所有候选都会导致缩短!")
+    print(f"\n  [WARN]  所有候选都会导致缩短!")
     
     if last_added_height and last_added_height > 0:
         # 限制搜索范围为: img1底部的"上次新增高度"范围
@@ -435,17 +435,17 @@ def find_best_overlap(
                 print(f"     预测结果: {img1_len}行 -> {result_height_retry}行", end="")
                 
                 if result_height_retry >= img1_len:
-                    print(f" ✅ (增加{result_height_retry - img1_len}行)")
-                    print(f"  ✅ 缩小范围后找到合适的匹配")
+                    print(f" [OK] (增加{result_height_retry - img1_len}行)")
+                    print(f"  [OK] 缩小范围后找到合适的匹配")
                     overlap_ratio_retry = overlap_retry[2] / min(len(conservative_search_region), img2_len)
                     return (absolute_start_i_retry, overlap_retry[1], overlap_retry[2])
                 else:
-                    print(f" ❌ (减少{img1_len - result_height_retry}行)")
+                    print(f" [ERROR] (减少{img1_len - result_height_retry}行)")
                     continue
         
-        print(f"  ❌ 缩小范围后仍未找到合适匹配，使用原始最长匹配（接受轻微缩短）")
+        print(f"  [ERROR] 缩小范围后仍未找到合适匹配，使用原始最长匹配（接受轻微缩短）")
     else:
-        print(f"  ⚠️  没有历史增长记录，使用原始最长匹配（接受轻微缩短）")
+        print(f"  [WARN]  没有历史增长记录，使用原始最长匹配（接受轻微缩短）")
     
     # 如果所有尝试都失败，返回原始的最长匹配（即使会缩短）
     overlap = candidates[0]
@@ -480,7 +480,7 @@ def stitch_images_rust(
         拼接后的PIL图像，失败返回None
     """
     if not RUST_AVAILABLE:
-        print("❌ Rust模块未加载，无法使用Rust拼接")
+        print("[ERROR] Rust模块未加载，无法使用Rust拼接")
         return None
     
     try:
@@ -513,14 +513,14 @@ def stitch_images_rust(
         if result_bytes is not None:
             result = Image.open(io.BytesIO(result_bytes))
             if not debug:
-                print(f"✅ Rust拼接成功: {img1.size} + {img2.size} -> {result.size}, 耗时: {elapsed*1000:.2f}ms")
+                print(f"[OK] Rust拼接成功: {img1.size} + {img2.size} -> {result.size}, 耗时: {elapsed*1000:.2f}ms")
             return result
         else:
-            print("⚠️  Rust拼接返回None")
+            print("[WARN]  Rust拼接返回None")
             return None
             
     except Exception as e:
-        print(f"❌ Rust拼接失败: {e}")
+        print(f"[ERROR] Rust拼接失败: {e}")
         import traceback
         traceback.print_exc()
         return None
@@ -625,9 +625,9 @@ def stitch_images_python(
         
         elapsed = time.perf_counter() - start_time
         if debug:
-            print(f"✅ Python拼接完成，耗时: {elapsed*1000:.2f} ms")
+            print(f"[OK] Python拼接完成，耗时: {elapsed*1000:.2f} ms")
         else:
-            print(f"✅ Python拼接成功: {img1.size} + {img2.size} -> {result.size}, 耗时: {elapsed*1000:.2f}ms")
+            print(f"[OK] Python拼接成功: {img1.size} + {img2.size} -> {result.size}, 耗时: {elapsed*1000:.2f}ms")
         
         return result
         

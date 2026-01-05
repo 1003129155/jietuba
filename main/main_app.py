@@ -3,6 +3,39 @@ import os
 import ctypes
 import traceback
 
+# ============================================================================
+# 关键修复：在 PyInstaller 打包环境中预加载 MSVC CRT 运行时库
+# 必须在导入任何原生扩展模块（如 ocr_rs）之前执行
+# 这解决了 MNN 在 PyInstaller 环境中 ACCESS_VIOLATION 崩溃的问题
+# ============================================================================
+def _preload_crt_for_pyinstaller():
+    """预加载 MSVC CRT 运行时库，解决 ocr_rs (MNN) 在 PyInstaller 环境崩溃问题"""
+    if getattr(sys, 'frozen', False):
+        # 在日志系统初始化前使用临时日志文件
+        import time
+        log_dir = os.path.join(os.getenv('LOCALAPPDATA', ''), 'Jietuba', 'Logs')
+        os.makedirs(log_dir, exist_ok=True)
+        log_file = os.path.join(log_dir, f'crt_preload_{time.strftime("%Y%m%d")}.log')
+        
+        with open(log_file, 'a', encoding='utf-8') as f:
+            f.write(f'\n[{time.strftime("%H:%M:%S")}] CRT 预加载开始...\n')
+            
+            loaded = []
+            failed = []
+            for dll in ["ucrtbase.dll", "vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll"]:
+                try:
+                    ctypes.CDLL(dll)
+                    loaded.append(dll)
+                except OSError as e:
+                    failed.append(f"{dll}: {e}")
+            
+            f.write(f'[{time.strftime("%H:%M:%S")}] 成功加载: {loaded}\n')
+            if failed:
+                f.write(f'[{time.strftime("%H:%M:%S")}] 加载失败: {failed}\n')
+
+_preload_crt_for_pyinstaller()
+# ============================================================================
+
 # 必须在导入 PyQt6 之前设置 DPI 感知，避免访问被拒绝的警告
 try:
     ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PROCESS_PER_MONITOR_DPI_AWARE
@@ -21,7 +54,7 @@ def global_exception_handler(exc_type, exc_value, exc_tb):
     """全局未处理异常捕获"""
     error_msg = ''.join(traceback.format_exception(exc_type, exc_value, exc_tb))
     print(f"\n{'='*60}")
-    print("❌ 未处理的异常:")
+    print("[ERROR] 未处理的异常:")
     print(error_msg)
     print('='*60)
     
@@ -164,9 +197,8 @@ class MainApp(QObject):
         # 剪贴板管理器
         self.clipboard_manager = None
         
-        # 延迟预加载，避免启动卡顿
+        # 延迟预加载其他组件，避免启动卡顿
         QTimer.singleShot(1000, self.preload_settings)
-        QTimer.singleShot(500, self.preload_ocr_engine)
         QTimer.singleShot(1500, self.init_clipboard_manager)
 
     def _on_about_to_quit(self):
@@ -188,49 +220,39 @@ class MainApp(QObject):
             log_debug("设置窗口预加载完成", "MainApp")
     
     def preload_ocr_engine(self):
-        """预加载 OCR 模块和引擎（在后台线程中完成，避免阻塞主线程）"""
-        from core.logger import log_info, log_warning, log_debug
+        """预加载 OCR 模块和引擎（同步方式，避免后台线程问题）"""
+        from core.logger import log_info, log_warning, log_debug, log_error
         try:
             if not self.config_manager.get_ocr_enabled():
                 log_debug("OCR 功能已禁用，跳过预加载", "OCR")
                 return
             
-            log_info("开始在后台线程预加载 OCR 模块和引擎...", "OCR")
-            
-            from PyQt6.QtCore import QThread
+            log_info("开始预加载 OCR 模块和引擎...", "OCR")
             
             # 获取用户配置的 OCR 引擎
             ocr_engine = self.config_manager.get_ocr_engine()
             
-            class OCRPreloadThread(QThread):
-                def __init__(self, engine_type):
-                    super().__init__()
-                    self.engine_type = engine_type
+            # 直接在主线程中同步初始化（避免 QThread 在 PyInstaller 环境下的问题）
+            try:
+                from ocr import is_ocr_available, initialize_ocr, set_ocr_engine
                 
-                def run(self):
-                    try:
-                        from ocr import is_ocr_available, initialize_ocr, set_ocr_engine
-                        
-                        if not is_ocr_available():
-                            log_debug("OCR 模块不可用（无OCR版本）", "OCR")
-                            return
-                        
-                        # 设置引擎类型
-                        set_ocr_engine(self.engine_type)
-                        log_info(f"设置 OCR 引擎: {self.engine_type}", "OCR")
-                        
-                        if initialize_ocr():
-                            log_info("OCR 预加载成功", "OCR")
-                        else:
-                            log_warning("OCR 引擎预加载失败", "OCR")
-                    except ImportError:
-                        log_debug("OCR 模块不存在（无OCR版本）", "OCR")
-                    except Exception as e:
-                        log_debug(f"OCR 预加载异常: {e}", "OCR")
-            
-            # 保持线程引用，防止被垃圾回收
-            self._ocr_preload_thread = OCRPreloadThread(ocr_engine)
-            self._ocr_preload_thread.start()
+                if not is_ocr_available():
+                    log_debug("OCR 模块不可用（无OCR版本）", "OCR")
+                    return
+                
+                # 设置引擎类型
+                set_ocr_engine(ocr_engine)
+                log_info(f"设置 OCR 引擎: {ocr_engine}", "OCR")
+                
+                if initialize_ocr():
+                    log_info("OCR 预加载成功", "OCR")
+                else:
+                    log_warning("OCR 引擎预加载失败", "OCR")
+            except ImportError as e:
+                log_debug(f"OCR 模块不存在（无OCR版本）: {e}", "OCR")
+            except Exception as e:
+                import traceback
+                log_error(f"OCR 预加载异常: {e}\n{traceback.format_exc()}", "OCR")
             
         except Exception as e:
             log_debug(f"OCR 引擎预加载异常（可能是无OCR版本）: {e}", "OCR")

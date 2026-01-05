@@ -282,7 +282,7 @@ def stitch_images(images: List[Image.Image]) -> Optional[Image.Image]:
             result = _stitch_with_rust(images)
             if result:
                 if config.verbose:
-                    log_info("✅ 特征点匹配拼接成功", module="长截图")
+                    log_info("[OK] 特征点匹配拼接成功", module="长截图")
                 return result
             else:
                 # Rust 返回 None（拼接失败）
@@ -295,28 +295,28 @@ def stitch_images(images: List[Image.Image]) -> Optional[Image.Image]:
                     try:
                         result = _stitch_with_hash_rust(images)
                         if result and config.verbose:
-                            log_info("✅ 哈希匹配拼接成功（回退到Rust哈希）", module="长截图")
+                            log_info("[OK] 哈希匹配拼接成功（回退到Rust哈希）", module="长截图")
                         return result
                     except Exception as e2:
                         if config.verbose:
-                            log_error(f"❌ 哈希匹配也失败: {e2}", module="长截图")
+                            log_error(f"[ERROR] 哈希匹配也失败: {e2}", module="长截图")
                         return None
                 return None
         elif engine == "hash_rust":
             result = _stitch_with_hash_rust(images)
             if result and config.verbose:
-                log_info("✅ Rust哈希匹配拼接成功", module="长截图")
+                log_info("[OK] Rust哈希匹配拼接成功", module="长截图")
             return result
         elif engine == "hash_python":
             result = _stitch_with_hash_python(images)
             if result and config.verbose:
-                log_info("✅ Python哈希匹配拼接成功", module="长截图")
+                log_info("[OK] Python哈希匹配拼接成功", module="长截图")
             return result
         else:
             # 默认使用hash_python
             result = _stitch_with_hash_python(images)
             if result and config.verbose:
-                log_info("✅ 哈希匹配拼接成功", module="长截图")
+                log_info("[OK] 哈希匹配拼接成功", module="长截图")
             return result
     except AllOverlapShrinkError:
         raise
@@ -327,7 +327,7 @@ def stitch_images(images: List[Image.Image]) -> Optional[Image.Image]:
                 "hash_rust": "Rust哈希匹配",
                 "hash_python": "Python哈希匹配"
             }.get(engine, "未知算法")
-            log_error(f"❌ {algorithm_name}拼接失败: {e}", module="长截图")
+            log_error(f"[ERROR] {algorithm_name}拼接失败: {e}", module="长截图")
         
         # 如果特征匹配失败且是 AUTO 模式，尝试回退到哈希匹配
         if engine == "rust" and config.engine == LongStitchConfig.ENGINE_AUTO:
@@ -336,11 +336,11 @@ def stitch_images(images: List[Image.Image]) -> Optional[Image.Image]:
             try:
                 result = _stitch_with_hash_rust(images)
                 if result and config.verbose:
-                    log_info("✅ 哈希匹配拼接成功（回退）", module="长截图")
+                    log_info("[OK] 哈希匹配拼接成功（回退）", module="长截图")
                 return result
             except Exception as e2:
                 if config.verbose:
-                    log_error(f"❌ 哈希匹配也失败: {e2}", module="长截图")
+                    log_error(f"[ERROR] 哈希匹配也失败: {e2}", module="长截图")
                 return None
         
         return None
@@ -457,7 +457,7 @@ def stitch_files(
             img = Image.open(path)
             images.append(img)
             if config.verbose:
-                log_debug(f"✓ {path} ({img.size})", module="长截图")
+                log_debug(f"[v] {path} ({img.size})", module="长截图")
         except Exception as e:
             if config.verbose:
                 log_error(f"✗ {path}: {e}", module="长截图")
@@ -471,7 +471,7 @@ def stitch_files(
         try:
             result.save(output_path, "PNG", quality=95)
             if config.verbose:
-                log_info(f"✓ 拼接成功，已保存到: {output_path}", module="长截图")
+                log_info(f"[v] 拼接成功，已保存到: {output_path}", module="长截图")
                 log_debug(f"最终尺寸: {result.size}", module="长截图")
             return True
         except Exception as e:

@@ -73,7 +73,7 @@ class XmlTranslator(QTranslator):
             return True
             
         except Exception as e:
-            print(f"❌ [I18n] 加载 XML 翻译文件失败: {e}")
+            print(f"[ERROR] [I18n] 加载 XML 翻译文件失败: {e}")
             return False
     
     def translate(self, context: str, sourceText: str, disambiguation: str = None, n: int = -1) -> str:
@@ -147,10 +147,19 @@ class I18nManager:
         if getattr(sys, 'frozen', False):
             # PyInstaller 打包后的环境
             base = Path(sys._MEIPASS)
+            # 尝试多个可能的路径
+            paths = [
+                base / "main" / "translations",  # 标准打包路径
+                base / "translations",            # 备用路径
+            ]
+            for path in paths:
+                if path.exists():
+                    return path
+            return base / "main" / "translations"  # 默认返回标准路径
         else:
             # 开发环境
             base = Path(__file__).parent.parent
-        return base / "translations"
+            return base / "translations"
     
     @classmethod
     def load_language(cls, lang_code: str) -> bool:
@@ -166,12 +175,12 @@ class I18nManager:
             是否加载成功
         """
         if lang_code not in cls.LANGUAGES:
-            print(f"⚠️ [I18n] 不支持的语言: {lang_code}")
+            print(f"[WARN] [I18n] 不支持的语言: {lang_code}")
             return False
         
         app = QApplication.instance()
         if not app:
-            print("⚠️ [I18n] QApplication 实例不存在")
+            print("[WARN] [I18n] QApplication 实例不存在")
             return False
         
         instance = cls.instance()
@@ -192,11 +201,11 @@ class I18nManager:
                 instance._translator = qt_translator
                 app.installTranslator(instance._translator)
                 cls._current_lang = lang_code
-                print(f"✅ [I18n] 已加载语言 (QM): {cls.LANGUAGES[lang_code]} ({lang_code})")
+                print(f"[OK] [I18n] 已加载语言 (QM): {cls.LANGUAGES[lang_code]} ({lang_code})")
                 instance.language_changed.emit(lang_code)
                 return True
             else:
-                print(f"⚠️ [I18n] QM 文件加载失败，尝试 XML: {qm_file}")
+                print(f"[WARN] [I18n] QM 文件加载失败，尝试 XML: {qm_file}")
         
         # 回退到 XML 文件
         instance._translator = XmlTranslator()
@@ -204,11 +213,11 @@ class I18nManager:
             if instance._translator.load_from_xml(str(xml_file)):
                 app.installTranslator(instance._translator)
                 cls._current_lang = lang_code
-                print(f"✅ [I18n] 已加载语言 (XML): {cls.LANGUAGES[lang_code]} ({lang_code})")
+                print(f"[OK] [I18n] 已加载语言 (XML): {cls.LANGUAGES[lang_code]} ({lang_code})")
                 instance.language_changed.emit(lang_code)
                 return True
             else:
-                print(f"❌ [I18n] 加载翻译文件失败: {xml_file}")
+                print(f"[ERROR] [I18n] 加载翻译文件失败: {xml_file}")
         else:
             # 翻译文件不存在时，使用默认语言（代码中的原始文本）
             cls._current_lang = lang_code

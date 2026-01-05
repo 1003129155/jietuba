@@ -221,7 +221,7 @@ class SettingsDialog(QDialog):
             "⌨️  " + self.tr("Shortcuts"),
             "📸  " + self.tr("Long Screenshot"),
             "🎯  " + self.tr("Smart Selection"),
-            "💾  " + self.tr("Save Settings"),
+            "📝  " + self.tr("Save Settings"),
             "🎯  " + self.tr("OCR Settings"),
             "🌐  " + self.tr("Translation"),
             "📝  " + self.tr("Log Settings"),
@@ -716,8 +716,8 @@ class SettingsDialog(QDialog):
                 
                 # 添加可用引擎到下拉框
                 engine_names = {
-                    "ocr_rs": "PaddleOCR",
-                    "windows_media_ocr": "Windows OCR"
+                    "windows_ocr": "Windows ScreenSketch OCR (Win11)",
+                    "windows_media_ocr": "Windows Media OCR (Win10)"
                 }
                 
                 for engine in available_engines:
@@ -767,7 +767,7 @@ class SettingsDialog(QDialog):
         
         # 底部提示 - 紧凑版
         if ocr_files_exist:
-            info_lbl = QLabel(self.tr("💡 If small text cannot be recognized, enable image upscale."))
+            info_lbl = QLabel(self.tr("💡 Supports 100+ languages: Chinese, English, Japanese, Korean, Arabic, etc."))
             info_lbl.setStyleSheet("color: #888; font-size: 11px; padding: 5px; background-color: transparent;")
             info_lbl.setWordWrap(True)
             layout.addWidget(info_lbl)
@@ -780,14 +780,11 @@ class SettingsDialog(QDialog):
         try:
             # 使用 find_spec 检查模块是否存在而不实际导入，避免启动卡顿
             import importlib.util
-            # 检查 rapidocr_onnxruntime (通常包名是这个) 或者 rapidocr
-            spec1 = importlib.util.find_spec("rapidocr_onnxruntime")
-            spec2 = importlib.util.find_spec("rapidocr")
-            onnx_spec = importlib.util.find_spec("onnxruntime")
             
-            # 只要有 rapidocr 相关包和 onnxruntime 即可
-            has_rapid = (spec1 is not None) or (spec2 is not None)
-            return has_rapid and (onnx_spec is not None)
+            # 检查 Windows OCR 引擎
+            windows_ocr_spec = importlib.util.find_spec("windows_media_ocr")
+            
+            return windows_ocr_spec is not None
         except ImportError:
             return False
 

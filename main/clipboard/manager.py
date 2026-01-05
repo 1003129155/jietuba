@@ -17,7 +17,7 @@ try:
 except ImportError as e:
     PYCLIPBOARD_AVAILABLE = False
     import sys
-    print(f"⚠️ pyclipboard 模块未安装: {e}")
+    print(f"[WARN] pyclipboard 模块未安装: {e}")
     print(f"   Python: {sys.executable}")
     print(f"   sys.path: {sys.path[:3]}...")
 
@@ -156,12 +156,12 @@ class ClipboardManager:
         if PYCLIPBOARD_AVAILABLE:
             try:
                 self._manager = PyClipboardManager(db_path)
-                print("✅ [Clipboard] 管理器初始化成功")
+                print("[OK] [Clipboard] 管理器初始化成功")
                 
                 # 设置历史限制（由 Rust 后端处理清理）
                 self._apply_history_limit()
             except Exception as e:
-                print(f"❌ [Clipboard] 初始化失败: {e}")
+                print(f"[ERROR] [Clipboard] 初始化失败: {e}")
     
     @property
     def is_available(self) -> bool:
@@ -215,7 +215,7 @@ class ClipboardManager:
             self._manager.set_history_limit(limit)
             print(f"📋 [Clipboard] 历史限制设置为: {limit}")
         except Exception as e:
-            print(f"⚠️ [Clipboard] 设置历史限制失败: {e}")
+            print(f"[WARN] [Clipboard] 设置历史限制失败: {e}")
     
     def start_monitoring(self, callback: Optional[Callable[[ClipboardItem], None]] = None):
         """
@@ -225,7 +225,7 @@ class ClipboardManager:
             callback: 剪贴板变化时的回调函数
         """
         if not self.is_available:
-            print("⚠️ [Clipboard] 管理器不可用")
+            print("[WARN] [Clipboard] 管理器不可用")
             return
         
         self._callback = callback
@@ -241,9 +241,9 @@ class ClipboardManager:
         
         try:
             self._manager.start_monitor(callback=_on_change)
-            print("✅ [Clipboard] 开始监听剪贴板")
+            print("[OK] [Clipboard] 开始监听剪贴板")
         except Exception as e:
-            print(f"❌ [Clipboard] 启动监听失败: {e}")
+            print(f"[ERROR] [Clipboard] 启动监听失败: {e}")
     
     def stop_monitoring(self):
         """停止监听"""
@@ -252,7 +252,7 @@ class ClipboardManager:
                 self._manager.stop_monitor()
                 print("🛑 [Clipboard] 停止监听")
             except Exception as e:
-                print(f"⚠️ [Clipboard] 停止监听失败: {e}")
+                print(f"[WARN] [Clipboard] 停止监听失败: {e}")
     
     def is_monitoring(self) -> bool:
         """检查是否正在监听"""
@@ -282,7 +282,7 @@ class ClipboardManager:
             result = self._manager.get_history(offset, limit, search, content_type)
             return [ClipboardItem.from_py_item(item) for item in result.items]
         except Exception as e:
-            print(f"❌ [Clipboard] 获取历史失败: {e}")
+            print(f"[ERROR] [Clipboard] 获取历史失败: {e}")
             return []
     
     def get_total_count(self) -> int:
@@ -308,7 +308,7 @@ class ClipboardManager:
             if py_item:
                 return ClipboardItem.from_py_item(py_item)
         except Exception as e:
-            print(f"❌ [Clipboard] 获取项失败: {e}")
+            print(f"[ERROR] [Clipboard] 获取项失败: {e}")
         return None
     
     def delete_item(self, item_id: int) -> bool:
@@ -320,7 +320,7 @@ class ClipboardManager:
             self._manager.delete_item(item_id)
             return True
         except Exception as e:
-            print(f"❌ [Clipboard] 删除失败: {e}")
+            print(f"[ERROR] [Clipboard] 删除失败: {e}")
             return False
     
     def clear_history(self) -> bool:
@@ -333,7 +333,7 @@ class ClipboardManager:
             print("🗑️ [Clipboard] 历史已清空")
             return True
         except Exception as e:
-            print(f"❌ [Clipboard] 清空失败: {e}")
+            print(f"[ERROR] [Clipboard] 清空失败: {e}")
             return False
     
     def add_item(self, content: str, content_type: str = "text", 
@@ -354,10 +354,10 @@ class ClipboardManager:
         
         try:
             item_id = self._manager.add_item(content, content_type, title)
-            print(f"✅ [Clipboard] 添加内容成功: ID={item_id}")
+            print(f"[OK] [Clipboard] 添加内容成功: ID={item_id}")
             return item_id
         except Exception as e:
-            print(f"❌ [Clipboard] 添加内容失败: {e}")
+            print(f"[ERROR] [Clipboard] 添加内容失败: {e}")
             return None
     
     def update_item(self, item_id: int, content: str, 
@@ -380,7 +380,7 @@ class ClipboardManager:
             self._manager.update_item(item_id, content, title)
             return True
         except Exception as e:
-            print(f"❌ [Clipboard] 更新内容失败: {e}")
+            print(f"[ERROR] [Clipboard] 更新内容失败: {e}")
             return False
     
     def toggle_pin(self, item_id: int) -> bool:
@@ -391,7 +391,7 @@ class ClipboardManager:
         try:
             return self._manager.toggle_pin(item_id)
         except Exception as e:
-            print(f"❌ [Clipboard] 置顶失败: {e}")
+            print(f"[ERROR] [Clipboard] 置顶失败: {e}")
             return False
     
     def paste_item(self, item_id: int, with_html: bool = True, move_to_top: bool = False) -> bool:
@@ -411,7 +411,7 @@ class ClipboardManager:
         try:
             return self._manager.paste_item(item_id, with_html, move_to_top)
         except Exception as e:
-            print(f"❌ [Clipboard] 粘贴失败: {e}")
+            print(f"[ERROR] [Clipboard] 粘贴失败: {e}")
             return False
     
     def get_image_data(self, image_id: str) -> Optional[bytes]:
@@ -422,7 +422,7 @@ class ClipboardManager:
         try:
             return self._manager.get_image_data(image_id)
         except Exception as e:
-            print(f"❌ [Clipboard] 获取图片失败: {e}")
+            print(f"[ERROR] [Clipboard] 获取图片失败: {e}")
             return None
     
     # ==================== 分组功能 ====================
@@ -436,7 +436,7 @@ class ClipboardManager:
         try:
             return self._manager.create_group(name, color, icon)
         except Exception as e:
-            print(f"❌ [Clipboard] 创建分组失败: {e}")
+            print(f"[ERROR] [Clipboard] 创建分组失败: {e}")
             return None
     
     def get_groups(self) -> List[Group]:
@@ -448,7 +448,7 @@ class ClipboardManager:
             py_groups = self._manager.get_groups()
             return [Group.from_py_group(g) for g in py_groups]
         except Exception as e:
-            print(f"❌ [Clipboard] 获取分组失败: {e}")
+            print(f"[ERROR] [Clipboard] 获取分组失败: {e}")
             return []
     
     def delete_group(self, group_id: int) -> bool:
@@ -460,7 +460,7 @@ class ClipboardManager:
             self._manager.delete_group(group_id)
             return True
         except Exception as e:
-            print(f"❌ [Clipboard] 删除分组失败: {e}")
+            print(f"[ERROR] [Clipboard] 删除分组失败: {e}")
             return False
     
     def rename_group(self, group_id: int, name: str) -> bool:
@@ -472,7 +472,7 @@ class ClipboardManager:
             self._manager.rename_group(group_id, name)
             return True
         except Exception as e:
-            print(f"❌ [Clipboard] 重命名分组失败: {e}")
+            print(f"[ERROR] [Clipboard] 重命名分组失败: {e}")
             return False
     
     def update_group(self, group_id: int, name: str, 
@@ -485,7 +485,7 @@ class ClipboardManager:
             self._manager.update_group(group_id, name, color, icon)
             return True
         except Exception as e:
-            print(f"❌ [Clipboard] 更新分组失败: {e}")
+            print(f"[ERROR] [Clipboard] 更新分组失败: {e}")
             return False
     
     def move_to_group(self, item_id: int, group_id: Optional[int] = None) -> bool:
@@ -497,7 +497,7 @@ class ClipboardManager:
             self._manager.move_to_group(item_id, group_id)
             return True
         except Exception as e:
-            print(f"❌ [Clipboard] 移动到分组失败: {e}")
+            print(f"[ERROR] [Clipboard] 移动到分组失败: {e}")
             return False
     
     def get_by_group(self, group_id: Optional[int] = None, 
@@ -510,7 +510,7 @@ class ClipboardManager:
             result = self._manager.get_by_group(group_id, offset, limit)
             return [ClipboardItem.from_py_item(item) for item in result.items]
         except Exception as e:
-            print(f"❌ [Clipboard] 按分组查询失败: {e}")
+            print(f"[ERROR] [Clipboard] 按分组查询失败: {e}")
             return []
     
     # ==================== 静态方法 ====================

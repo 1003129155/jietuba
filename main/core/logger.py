@@ -148,11 +148,11 @@ class Logger:
         self.enabled = enabled
         
         if not enabled:
-            print("⚠️ [Logger] 日志功能已禁用")
+            print("[WARN] [Logger] 日志功能已禁用")
             return
         
         if self._ready:
-            print("⚠️ [Logger] 日志系统已经初始化")
+            print("[WARN] [Logger] 日志系统已经初始化")
             return
         
         # 设置日志目录
@@ -180,10 +180,10 @@ class Logger:
             sys.stderr = TeeStream(self._original_stderr, self.log_file)
             
             self._ready = True
-            self.info(f"✅ [Logger] 日志系统启动成功，日志文件：{log_path}")
+            self.info(f"[OK] [Logger] 日志系统启动成功，日志文件：{log_path}")
             
         except Exception as e:
-            print(f"❌ [Logger] 无法创建日志文件: {e}")
+            print(f"[ERROR] [Logger] 无法创建日志文件: {e}")
             self.enabled = False
     
     def _write_header(self):
@@ -366,7 +366,7 @@ Jietuba 截图工具 - 运行日志
             return
         
         self.log_dir = Path(log_dir)
-        print(f"✅ [Logger] 日志目录已设置为: {log_dir}")
+        print(f"[OK] [Logger] 日志目录已设置为: {log_dir}")
     
     def close(self):
         """关闭日志系统"""
@@ -508,7 +508,7 @@ def cleanup_old_logs(log_dir: str, retention_days: int):
             print(f"🗑️ [日志清理] 已删除 {deleted_count} 个过期日志文件（保留 {retention_days} 天）")
     
     except Exception as e:
-        print(f"⚠️ [日志清理] 清理失败: {e}")
+        print(f"[WARN] [日志清理] 清理失败: {e}")
 
 
 def log_exception(e: Exception, context: str = "", silent: bool = True):
@@ -583,7 +583,7 @@ def log_info(message: str, module: str = ""):
     
     示例：
         log_info("截图窗口已创建", "ScreenshotWindow")
-        log_info("✅ 保存成功")
+        log_info("[OK] 保存成功")
     """
     get_logger().info(message, module)
 
@@ -598,7 +598,7 @@ def log_warning(message: str, module: str = ""):
     
     示例：
         log_warning("OCR 引擎未加载，跳过文字识别", "OCR")
-        log_warning("⚠️ 配置文件不存在，使用默认值")
+        log_warning("[WARN] 配置文件不存在，使用默认值")
     """
     get_logger().warning(message, module)
 
@@ -613,7 +613,7 @@ def log_error(message: str, module: str = ""):
     
     示例：
         log_error("截图失败", "CaptureService")
-        log_error(f"❌ 保存文件失败: {path}")
+        log_error(f"[ERROR] 保存文件失败: {path}")
     """
     get_logger().error(message, module)
 

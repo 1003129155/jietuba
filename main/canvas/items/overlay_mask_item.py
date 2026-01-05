@@ -32,7 +32,7 @@ class OverlayMaskItem(QGraphicsPathItem):
         self.setVisible(True)
         self.setEnabled(True)
         
-        print(f"✅ [遮罩层] 创建: {full_rect}, Z-order: {self.zValue()}, 可见: {self.isVisible()}")
+        print(f"[OK] [遮罩层] 创建: {full_rect}, Z-order: {self.zValue()}, 可见: {self.isVisible()}")
     
     def rebuild(self, *_):
         """重建遮罩路径（挖洞）"""

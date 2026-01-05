@@ -19,7 +19,7 @@ class PinToolbar(Toolbar):
     4. 自动定位在钉图窗口附近（上方或下方）
     5. 支持自动隐藏功能（鼠标离开后自动隐藏）
     
-    注意: 钉图窗口的关闭功能由窗口右上角的 ❌ 按钮提供，不在工具栏中
+    注意: 钉图窗口的关闭功能由窗口右上角的 [ERROR] 按钮提供，不在工具栏中
     """
     
     def __init__(self, parent_pin_window=None, config_manager=None):
