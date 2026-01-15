@@ -29,9 +29,12 @@ class CanvasView(QGraphicsView):
         
         self.canvas_scene = scene
         
-        # 设置渲染选项
-        self.setRenderHint(QPainter.RenderHint.Antialiasing)
-        self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        # 设置渲染选项 - 关闭抗锯齿以提高性能
+        # self.setRenderHint(QPainter.RenderHint.Antialiasing)  # 关闭抗锯齿
+        # self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)  # 关闭平滑变换
+        
+        # 使用智能视口更新模式
+        self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.SmartViewportUpdate)
         
         # 禁用滚动条
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)

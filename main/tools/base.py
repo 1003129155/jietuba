@@ -21,7 +21,7 @@ class ToolContext:
     stroke_width: int      # 笔触宽度
     opacity: float         # 透明度 (0.0-1.0)
     settings_manager: object = None  # ToolSettingsManager（新增）
-    # overlay 和 highlighter_layer 不再需要，因为直接操作 scene
+
 
 
 class Tool:

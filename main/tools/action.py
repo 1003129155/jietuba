@@ -106,9 +106,13 @@ class ActionTools:
         log_debug(f"底图: {base_image.width()}x{base_image.height()}", "PinAction")
         log_debug(f"继承绘制项目: {len(drawing_items)} 个", "PinAction")
         
+        # 复制到剪贴板
+        result_pixmap = self.export_service.get_result_pixmap()
+        QApplication.clipboard().setPixmap(result_pixmap)
+        log_info("已复制到剪贴板", "PinAction")
+        
         # 自动保存
         if self.config_manager and self.config_manager.get_screenshot_save_enabled():
-            result_pixmap = self.export_service.get_result_pixmap()
             self._auto_save(result_pixmap)
             log_debug("钉图已触发自动保存", "PinAction")
         

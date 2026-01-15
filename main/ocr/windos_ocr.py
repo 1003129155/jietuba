@@ -7,35 +7,80 @@ from PIL import Image
 from contextlib import contextmanager
 import tempfile
 import shutil
-import glob
+import subprocess
+
+# 使用项目统一的日志模块
+try:
+    from core.logger import log_info, log_warning, log_error, log_debug
+except ImportError:
+    # 如果独立运行（测试），使用简单的 print
+    def log_info(msg, tag="windos_ocr"): print(f"[{tag}] {msg}")
+    def log_warning(msg, tag="windos_ocr"): print(f"[{tag}] 警告: {msg}")
+    def log_error(msg, tag="windos_ocr"): print(f"[{tag}] 错误: {msg}")
+    def log_debug(msg, tag="windos_ocr"): print(f"[{tag}] [DEBUG] {msg}")
 
 # 自动管理 DLL 文件：如果临时目录没有，则从 WindowsApps 复制
 def _find_windowsapps_path():
-    """查找 Windows ScreenSketch 的 SnippingTool 路径"""
-    windowsapps_base = r"C:\Program Files\WindowsApps"
-    if not os.path.exists(windowsapps_base):
-        return None
+    """
+    查找 Windows ScreenSketch 的 SnippingTool 路径
     
+    使用 PowerShell Get-AppxPackage 动态获取安装路径
+    """
     try:
-        # 查找所有 Microsoft.ScreenSketch 版本
-        pattern = os.path.join(windowsapps_base, "Microsoft.ScreenSketch*", "SnippingTool")
-        paths = glob.glob(pattern)
-        if paths:
-            # 返回第一个找到的路径（通常是最新版本）
-            return paths[0]
-    except (PermissionError, OSError):
-        pass
+        result = subprocess.run(
+            ['powershell', '-Command', 
+             'Get-AppxPackage Microsoft.ScreenSketch | Select-Object -ExpandProperty InstallLocation'],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
+        )
+        
+        if result.returncode == 0 and result.stdout.strip():
+            install_location = result.stdout.strip()
+            snipping_tool_path = os.path.join(install_location, "SnippingTool")
+            
+            if os.path.exists(snipping_tool_path):
+                log_info(f"找到 ScreenSketch 路径: {snipping_tool_path}", "OCR")
+                return snipping_tool_path
+            else:
+                log_warning(f"SnippingTool 子目录不存在: {snipping_tool_path}", "OCR")
+        else:
+            log_warning("PowerShell 未返回有效路径", "OCR")
+            if result.stderr:
+                log_debug(f"错误信息: {result.stderr.strip()}", "OCR")
+                
+    except subprocess.TimeoutExpired:
+        log_warning("PowerShell 查询超时 (>5秒)", "OCR")
+    except FileNotFoundError:
+        log_warning("PowerShell 不可用 (系统可能不支持)", "OCR")
+    except OSError as e:
+        log_warning(f"PowerShell 执行失败: {e}", "OCR")
     
-    # 尝试使用已知的常见路径
-    common_paths = [
-        r"C:\Program Files\WindowsApps\Microsoft.ScreenSketch_11.2510.31.0_x64__8wekyb3d8bbwe\SnippingTool",
-        r"C:\Program Files\WindowsApps\Microsoft.ScreenSketch_11.2409.20.0_x64__8wekyb3d8bbwe\SnippingTool",
-    ]
-    for path in common_paths:
-        if os.path.exists(path):
-            return path
-    
+    log_error("无法找到 ScreenSketch 应用", "OCR")
+    log_error("请从 Microsoft Store 安装 '截图工具 (Snipping Tool)' 应用", "OCR")
     return None
+
+def _copy_files_from_source(source_path, temp_dir, required_files):
+    """从指定源路径复制 DLL 文件到临时目录"""
+    try:
+        for filename in required_files:
+            src = os.path.join(source_path, filename)
+            dst = os.path.join(temp_dir, filename)
+            
+            if not os.path.exists(dst) and os.path.exists(src):
+                file_size = os.path.getsize(src) / (1024 * 1024)  # MB
+                log_info(f"正在复制 {filename} ({file_size:.1f} MB)...", "OCR")
+                shutil.copy2(src, dst)
+                log_info(f"{filename} 复制完成", "OCR")
+        
+        # 验证所有文件都已复制
+        if all(os.path.exists(os.path.join(temp_dir, f)) for f in required_files):
+            log_info("OCR 引擎文件初始化完成", "OCR")
+            return True
+    except (PermissionError, OSError) as e:
+        log_error(f"文件复制失败 - {e}", "OCR")
+    return False
 
 def _get_config_dir():
     """获取 DLL 文件目录：自动从 WindowsApps 复制到临时目录"""
@@ -50,38 +95,21 @@ def _get_config_dir():
     
     # 创建临时目录
     os.makedirs(temp_dir, exist_ok=True)
-    print(f"[windos_ocr] 正在初始化 OCR 引擎文件到: {temp_dir}")
+    log_info(f"正在初始化 OCR 引擎文件到: {temp_dir}", "OCR")
     
-    # 查找 WindowsApps 路径
+    # 从 WindowsApps 复制文件
     source_path = _find_windowsapps_path()
-    if not source_path:
-        print("[windos_ocr] 警告: 未找到 WindowsApps 路径,尝试使用本地文件")
-        # 如果找不到 WindowsApps 路径，返回当前目录（用户可能手动放置了文件）
-        return os.path.dirname(os.path.abspath(__file__))
-    
-    print(f"[windos_ocr] 从 WindowsApps 复制文件: {source_path}")
-    
-    # 复制文件
-    try:
-        for filename in required_files:
-            src = os.path.join(source_path, filename)
-            dst = os.path.join(temp_dir, filename)
-            
-            if not os.path.exists(dst) and os.path.exists(src):
-                file_size = os.path.getsize(src) / (1024 * 1024)  # MB
-                print(f"[windos_ocr] 正在复制 {filename} ({file_size:.1f} MB)...")
-                shutil.copy2(src, dst)
-                print(f"[windos_ocr] ✓ {filename} 复制完成")
-        
-        # 验证所有文件都已复制
-        if all(os.path.exists(os.path.join(temp_dir, f)) for f in required_files):
-            print(f"[windos_ocr] ✓ OCR 引擎文件初始化完成")
+    if source_path:
+        log_info(f"从 WindowsApps 复制文件: {source_path}", "OCR")
+        if _copy_files_from_source(source_path, temp_dir, required_files):
             return temp_dir
-    except (PermissionError, OSError) as e:
-        print(f"[windos_ocr] 错误: 文件复制失败 - {e}")
+    else:
+        log_warning("未找到 WindowsApps 路径", "OCR")
     
-    # 如果复制失败，返回当前目录
-    print("[windos_ocr] 警告: 复制失败,使用本地目录")
+    # 如果失败，返回当前目录（用户可以手动放置文件）
+    log_warning("未能从 WindowsApps 复制文件", "OCR")
+    log_warning(f"可手动将 OCR 文件放置到: {temp_dir}", "OCR")
+    log_warning("或将文件放置到当前目录", "OCR")
     return os.path.dirname(os.path.abspath(__file__))
 
 # 使用函数封装,避免 global 声明问题
@@ -125,40 +153,50 @@ class BoundingBox(Structure):
 
 BoundingBox_p = POINTER(BoundingBox)
 
+# DLL 函数列表: (函数名, 参数类型, 返回类型, 是否可选)
 DLL_FUNCTIONS = [
-    ('CreateOcrInitOptions', [c_int64_p], c_int64),
-    ('OcrInitOptionsSetUseModelDelayLoad', [c_int64, c_char], c_int64),
-    ('CreateOcrPipeline', [c_char_p, c_char_p, c_int64, c_int64_p], c_int64),
-    ('CreateOcrProcessOptions', [c_int64_p], c_int64),
-    ('OcrProcessOptionsSetMaxRecognitionLineCount', [c_int64, c_int64], c_int64),
-    ('RunOcrPipeline', [c_int64, POINTER(ImageStructure), c_int64, c_int64_p], c_int64),
+    ('CreateOcrInitOptions', [c_int64_p], c_int64, False),
+    ('OcrInitOptionsSetUseModelDelayLoad', [c_int64, c_char], c_int64, False),
+    ('CreateOcrPipeline', [c_char_p, c_char_p, c_int64, c_int64_p], c_int64, False),
+    ('CreateOcrProcessOptions', [c_int64_p], c_int64, False),
+    ('OcrProcessOptionsSetMaxRecognitionLineCount', [c_int64, c_int64], c_int64, True),  # 可选:旧版DLL可能没有
+    ('RunOcrPipeline', [c_int64, POINTER(ImageStructure), c_int64, c_int64_p], c_int64, False),
 
-    ('GetImageAngle', [c_int64, c_float_p], c_int64),
-    ('GetOcrLineCount', [c_int64, c_int64_p], c_int64),
-    ('GetOcrLine', [c_int64, c_int64, c_int64_p], c_int64),
-    ('GetOcrLineContent', [c_int64, POINTER(c_char_p)], c_int64),
-    ('GetOcrLineBoundingBox', [c_int64, POINTER(BoundingBox_p)], c_int64),
-    ('GetOcrLineWordCount', [c_int64, c_int64_p], c_int64),
-    ('GetOcrWord', [c_int64, c_int64, c_int64_p], c_int64),
-    ('GetOcrWordContent', [c_int64, POINTER(c_char_p)], c_int64),
-    ('GetOcrWordBoundingBox', [c_int64, POINTER(BoundingBox_p)], c_int64),
-    ('GetOcrWordConfidence', [c_int64, c_float_p], c_int64),
+    ('GetImageAngle', [c_int64, c_float_p], c_int64, False),
+    ('GetOcrLineCount', [c_int64, c_int64_p], c_int64, False),
+    ('GetOcrLine', [c_int64, c_int64, c_int64_p], c_int64, False),
+    ('GetOcrLineContent', [c_int64, POINTER(c_char_p)], c_int64, False),
+    ('GetOcrLineBoundingBox', [c_int64, POINTER(BoundingBox_p)], c_int64, False),
+    ('GetOcrLineWordCount', [c_int64, c_int64_p], c_int64, False),
+    ('GetOcrWord', [c_int64, c_int64, c_int64_p], c_int64, False),
+    ('GetOcrWordContent', [c_int64, POINTER(c_char_p)], c_int64, False),
+    ('GetOcrWordBoundingBox', [c_int64, POINTER(BoundingBox_p)], c_int64, False),
+    ('GetOcrWordConfidence', [c_int64, c_float_p], c_int64, False),
 
-    ('ReleaseOcrResult', [c_int64], None),
-    ('ReleaseOcrInitOptions', [c_int64], None),
-    ('ReleaseOcrPipeline', [c_int64], None),
-    ('ReleaseOcrProcessOptions', [c_int64], None)
+    ('ReleaseOcrResult', [c_int64], None, False),
+    ('ReleaseOcrInitOptions', [c_int64], None, False),
+    ('ReleaseOcrPipeline', [c_int64], None, False),
+    ('ReleaseOcrProcessOptions', [c_int64], None, False)
 ]
 
 def bind_dll_functions(dll, functions):
     '''Dynamically bind function specifications to DLL methods'''
-    for name, argtypes, restype in functions:
+    for func_info in functions:
+        if len(func_info) == 4:
+            name, argtypes, restype, optional = func_info
+        else:
+            name, argtypes, restype = func_info
+            optional = False
+        
         try:
             func = getattr(dll, name)
             func.argtypes = argtypes
             func.restype = restype
         except AttributeError as e:
-            raise RuntimeError(f'Missing DLL function: {name}') from e
+            if not optional:
+                raise RuntimeError(f'Missing DLL function: {name}') from e
+            else:
+                log_warning(f"可选函数 {name} 不存在(旧版DLL),将跳过", "OCR")
 
 # 启动时就初始化 DLL (复制文件)
 try:
@@ -255,11 +293,13 @@ class OcrEngine:
             'Process options creation failed'
         )
         
-        self._check_dll_result(
-            ocr_dll.OcrProcessOptionsSetMaxRecognitionLineCount(
-                process_options, 1000),
-            'Line count config failed'
-        )
+        # 尝试设置最大识别行数(旧版DLL可能不支持此函数)
+        if hasattr(ocr_dll, 'OcrProcessOptionsSetMaxRecognitionLineCount'):
+            self._check_dll_result(
+                ocr_dll.OcrProcessOptionsSetMaxRecognitionLineCount(
+                    process_options, 1000),
+                'Line count config failed'
+            )
         return process_options
 
     def recognize_pil(self, image):

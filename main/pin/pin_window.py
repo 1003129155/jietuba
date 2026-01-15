@@ -1,7 +1,7 @@
 """
 钉图窗口 - 核心窗口类
 
-架构说明（重构后）：
+架构说明：
 - PinWindow：主窗口，只负责窗口管理和子控件布局
 - PinShadowWindow：独立阴影窗口，只绘制阴影效果
 - PinCanvasView：唯一内容渲染者，使用 Qt 的 GPU 加速渲染
@@ -13,12 +13,12 @@
 
 from PyQt6.QtWidgets import QWidget, QLabel, QPushButton, QVBoxLayout, QApplication, QMenu
 from PyQt6.QtCore import Qt, QPoint, QPointF, QSize, QTimer, pyqtSignal, QRect, QRectF, QEvent
-from PyQt6.QtGui import QPixmap, QImage, QPainter, QMouseEvent, QWheelEvent, QKeyEvent, QPaintEvent, QColor, QPainterPath, QPen, QAction
+from PyQt6.QtGui import QPixmap, QImage, QPainter, QMouseEvent, QWheelEvent, QKeyEvent, QPaintEvent, QColor, QPainterPath, QAction
 from pin.pin_canvas_view import PinCanvasView
-from pin.pin_shadow_window import PinShadowWindow
 from pin.pin_controls import PinControlButtons
 from pin.pin_context_menu import PinContextMenu
 from pin.pin_translation import PinTranslationHelper
+from pin.pin_border_overlay import PinBorderOverlay
 from core import log_debug, log_info, log_warning, log_error
 from core.logger import log_exception
 
@@ -57,23 +57,18 @@ class PinWindow(QWidget):
         self.drawing_items = drawing_items or []
         self.selection_offset = selection_offset or QPoint(0, 0)
         
-        # ====== 🌟 光晕/阴影样式参数 ======
-        self.halo_enabled = True          # 是否启用光晕效果
-        self.pad = 20                     # 阴影留白（逻辑像素）
-        self.corner = 8                   # 内容圆角
-        self.shadow_spread = 18           # 阴影"扩散层数"（越大越柔和）
-        self.shadow_max_alpha = 80        # 阴影最深处 alpha（0~255）
-        self.glow_enable = True           # 外发光开关
-        self.glow_spread = 6              # 外发光层数
-        self.glow_color = QColor(255, 255, 255)  # 外发光颜色
-        self.glow_max_alpha = 35          # 外发光最大alpha
-        self.border_enable = True         # 描边开关
-        self.border_color = QColor(255, 255, 255, 100)  # 描边颜色
-        self.border_width = 1.0           # 描边宽度
+        # ====== 🌟 光晕/阴影样式参数 - 现阶段仅保留描边 + 圆角 ======
+        self.halo_enabled = True          # 是否启用光晕/描边
+        self.corner = 2                   # 内容圆角
+        # 描边参数
+        self.border_width = 2             # 描边宽度（调大一些）
+        self.border_color = QColor(88, 94, 184, 255)  # 描边颜色（更不透明）
         
         # 阴影缓存
-        self._shadow_cache: QPixmap | None = None
-        self._shadow_key = None
+        # 不再需要阴影缓存
+        
+        # 阴影缓存
+        # 不再需要阴影缓存
         
         # 窗口状态
         self._is_closed = False
@@ -160,26 +155,15 @@ class PinWindow(QWidget):
         self.ocr_text_layer = None
         self.ocr_thread = None
         
-        # 🌟 新架构：创建独立阴影窗口
-        self.shadow_window = None
+        # 🌟 创建 Mac 风格阴影 Overlay（静态装饰层，性能最优）
+        self.border_overlay = None
         if self.halo_enabled:
-            self.shadow_window = PinShadowWindow(self)
-            # 同步阴影样式参数
-            self.shadow_window.pad = self.pad
-            self.shadow_window.corner = self.corner
-            self.shadow_window.shadow_spread = self.shadow_spread
-            self.shadow_window.shadow_max_alpha = self.shadow_max_alpha
-            self.shadow_window.glow_enable = self.glow_enable
-            self.shadow_window.glow_spread = self.glow_spread
-            self.shadow_window.glow_color = self.glow_color
-            self.shadow_window.glow_max_alpha = self.glow_max_alpha
-            self.shadow_window.border_enable = self.border_enable
-            self.shadow_window.border_color = self.border_color
-            self.shadow_window.border_width = self.border_width
-            # 同步位置
-            self._sync_shadow_window()
-            # 先显示阴影窗口
-            self.shadow_window.show_shadow()
+            self.border_overlay = PinBorderOverlay(
+                self, 
+                corner_radius=self.corner
+            )
+            self.border_overlay.setGeometry(0, 0, self.width(), self.height())
+            self.border_overlay.raise_()  # 确保在最上层
         
         # 显示窗口
         self.show()
@@ -326,23 +310,27 @@ class PinWindow(QWidget):
         if self.toolbar and self.toolbar.isVisible():
             self.toolbar.sync_with_pin_window()
         
-        # 同步 OCR 文字层大小和位置（覆盖整个窗口）
+        # 同步 OCR 文字层大小和位置（覆盖内容区域，不包括边框）
         if hasattr(self, 'ocr_text_layer') and self.ocr_text_layer:
-            self.ocr_text_layer.setGeometry(self.rect())
-        # 🌟 同步阴影窗口位置
-        self._sync_shadow_window()
+            cr = self.content_rect()
+            self.ocr_text_layer.setGeometry(cr.toRect())
+            log_debug(f"OCR层几何已更新: {cr.toRect()}", "OCR层")
+        
+        # 🌟 同步描边 Overlay 尺寸（静态装饰层）
+        if hasattr(self, 'border_overlay') and self.border_overlay:
+            self.border_overlay.setGeometry(0, 0, self.width(), self.height())
+            self.border_overlay.raise_()  # 确保在最上层
         
         super().resizeEvent(event)
     
     def moveEvent(self, event):
-        """窗口移动事件 - 同步阴影窗口位置"""
+        """窗口移动事件"""
         super().moveEvent(event)
-        self._sync_shadow_window()
     
-    def _sync_shadow_window(self):
-        """同步阴影窗口的位置和大小"""
-        if hasattr(self, 'shadow_window') and self.shadow_window:
-            self.shadow_window.sync_geometry(self.geometry())
+    def _apply_border_style(self):
+        """应用描边样式（已废弃，现使用 Overlay Widget）"""
+        # 🌟 现在使用 PinBorderOverlay，这里不需要做任何事
+        pass
     
     # ==================== 🌟 光晕/阴影效果 ====================
     
@@ -360,84 +348,7 @@ class PinWindow(QWidget):
         path.addRoundedRect(rect, radius, radius)
         return path
     
-    def _ensure_shadow_cache(self):
-        """确保阴影缓存是最新的"""
-        if not self.halo_enabled:
-            return
-        
-        dpr = float(self.devicePixelRatioF())
-        key = (
-            self.width(), self.height(), round(dpr, 6),
-            self.pad, self.corner, self.shadow_spread, self.shadow_max_alpha,
-            self.glow_enable, self.glow_spread, self.glow_max_alpha,
-            self.glow_color.rgba(), self.border_enable, 
-            self.border_color.rgba(), self.border_width
-        )
-        
-        if self._shadow_cache is not None and self._shadow_key == key:
-            return  # 缓存有效
-        
-        self._shadow_key = key
-        self._shadow_cache = self._build_shadow_pixmap()
-    
-    def _build_shadow_pixmap(self) -> QPixmap:
-        """构建阴影/光晕缓存 - 使用多层叠加近似高斯模糊"""
-        dpr = float(self.devicePixelRatioF())
-        w = max(1, self.width())
-        h = max(1, self.height())
-        phys_w = max(1, int(w * dpr))
-        phys_h = max(1, int(h * dpr))
-        
-        img = QImage(phys_w, phys_h, QImage.Format.Format_ARGB32_Premultiplied)
-        img.fill(Qt.GlobalColor.transparent)
-        img.setDevicePixelRatio(dpr)
-        
-        p = QPainter(img)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        
-        cr = self.content_rect()
-        
-        # 1) 阴影层（黑色柔和渐变）
-        for i in range(self.shadow_spread, 0, -1):
-            t = i / self.shadow_spread  # 1.0 → 0.0
-            # 二次方衰减曲线：外层淡，内层深
-            alpha = int(self.shadow_max_alpha * (1.0 - t) ** 2)
-            if alpha <= 0:
-                continue
-            
-            rect = cr.adjusted(-i, -i, i, i)
-            radius = self.corner + i
-            color = QColor(0, 0, 0, alpha)
-            p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(color)
-            p.drawPath(self._rounded_path(rect, radius))
-        
-        # 2) 外发光层（白色/彩色光晕）
-        if self.glow_enable:
-            for i in range(self.glow_spread, 0, -1):
-                t = i / self.glow_spread
-                alpha = int(self.glow_max_alpha * (1.0 - t) ** 2)
-                if alpha <= 0:
-                    continue
-                
-                rect = cr.adjusted(-i, -i, i, i)
-                radius = self.corner + i
-                c = QColor(self.glow_color)
-                c.setAlpha(alpha)
-                p.setPen(Qt.PenStyle.NoPen)
-                p.setBrush(c)
-                p.drawPath(self._rounded_path(rect, radius))
-        
-        # 3) 描边（让边缘清晰）
-        if self.border_enable:
-            pen = QPen(self.border_color)
-            pen.setWidthF(self.border_width)
-            p.setPen(pen)
-            p.setBrush(Qt.BrushStyle.NoBrush)
-            p.drawPath(self._rounded_path(cr, self.corner))
-        
-        p.end()
-        return QPixmap.fromImage(img)
+    # 阴影/光晕缓存相关逻辑已废弃，改用 CSS 描边，保留占位以便未来扩展
     
     def paintEvent(self, event):
         """
@@ -660,6 +571,20 @@ class PinWindow(QWidget):
     def hide_toolbar(self):
         """隐藏工具栏"""
         if self.toolbar:
+            # 1. 隐藏所有二级设置面板
+            if hasattr(self.toolbar, '_hide_all_panels'):
+                self.toolbar._hide_all_panels()
+            
+            # 2. 取消当前工具选中状态（退出绘画模式）
+            if hasattr(self.toolbar, 'current_tool') and self.toolbar.current_tool:
+                # 取消所有按钮选中
+                for btn in self.toolbar.tool_buttons.values():
+                    btn.setChecked(False)
+                self.toolbar.current_tool = None
+                # 发送 cursor 信号，让 canvas 退出编辑模式
+                self.toolbar.tool_changed.emit("cursor")
+            
+            # 3. 隐藏工具栏本身
             self.toolbar.hide()
     
     def toggle_toolbar(self):
@@ -719,43 +644,33 @@ class PinWindow(QWidget):
         # 重新显示窗口
         self.show()
     
-    def toggle_shadow_effect(self):
+    def toggle_border_effect(self):
         """
-        切换阴影/光晕效果
+        切换阴影效果
         
-        🌟 新架构：阴影由独立窗口负责，这里只控制显示/隐藏
+        🌟 新架构：使用 Overlay Widget
         """
         self.halo_enabled = not self.halo_enabled
         
         if self.halo_enabled:
             log_debug("启用阴影效果", "PinWindow")
-            # 创建或显示阴影窗口
-            if not hasattr(self, 'shadow_window') or not self.shadow_window:
-                from pin.pin_shadow_window import PinShadowWindow
-                self.shadow_window = PinShadowWindow(self)
-                # 🔴 同步所有阴影样式参数
-                self.shadow_window.pad = self.pad
-                self.shadow_window.corner = self.corner
-                self.shadow_window.shadow_spread = self.shadow_spread
-                self.shadow_window.shadow_max_alpha = self.shadow_max_alpha
-                self.shadow_window.glow_enable = self.glow_enable
-                self.shadow_window.glow_spread = self.glow_spread
-                self.shadow_window.glow_color = self.glow_color
-                self.shadow_window.glow_max_alpha = self.glow_max_alpha
-                self.shadow_window.border_enable = self.border_enable
-                self.shadow_window.border_color = self.border_color
-                self.shadow_window.border_width = self.border_width
-            # 🔴 先同步位置，再显示
-            self._sync_shadow_window()
-            self.shadow_window.show_shadow()
+            # 创建或显示 Overlay
+            if not self.border_overlay:
+                self.border_overlay = PinBorderOverlay(
+                    self, 
+                    corner_radius=self.corner
+                )
+                self.border_overlay.setGeometry(0, 0, self.width(), self.height())
+            self.border_overlay.show()
+            self.border_overlay.raise_()
             # 更新 View 圆角
             if hasattr(self, 'view') and self.view:
                 self.view.set_corner_radius(self.corner)
         else:
             log_debug("禁用阴影效果", "PinWindow")
-            # 隐藏阴影窗口
-            if hasattr(self, 'shadow_window') and self.shadow_window:
-                self.shadow_window.hide_shadow()
+            # 隐藏 Overlay
+            if self.border_overlay:
+                self.border_overlay.hide()
             # 移除 View 圆角
             if hasattr(self, 'view') and self.view:
                 self.view.set_corner_radius(0)
@@ -902,21 +817,30 @@ class PinWindow(QWidget):
             self._hover_monitor.deleteLater()
             self._hover_monitor = None
         
-        # 🌟 关闭阴影窗口
-        if hasattr(self, 'shadow_window') and self.shadow_window:
-            self.shadow_window.close_shadow()
-            self.shadow_window = None
+        # 🌟 不再需要关闭阴影窗口（已改用CSS描边）
+        # if hasattr(self, 'shadow_window') and self.shadow_window:
+        #     self.shadow_window.close_shadow()
+        #     self.shadow_window = None
         
         # 翻译窗口现在由 TranslationManager 单例管理，无需在此清理
         # 翻译窗口是全局共享的，关闭钉图不会关闭翻译窗口
         
         # 1. 关闭工具栏
         if self.toolbar:
-            # 关闭二级菜单（如果存在）
-            if hasattr(self.toolbar, 'paint_menu') and self.toolbar.paint_menu:
-                self.toolbar.paint_menu.close()
-                self.toolbar.paint_menu.deleteLater()
+            # 关闭所有二级设置面板（如果存在）
+            panel_names = ['paint_panel', 'shape_panel', 'arrow_panel', 'number_panel', 'text_panel']
+            for panel_name in panel_names:
+                panel = getattr(self.toolbar, panel_name, None)
+                if panel:
+                    panel.close()
+                    panel.deleteLater()
+                    setattr(self.toolbar, panel_name, None)
+            
+            # 清理别名引用
+            if hasattr(self.toolbar, 'paint_menu'):
                 self.toolbar.paint_menu = None
+            if hasattr(self.toolbar, 'text_menu'):
+                self.toolbar.text_menu = None
             
             self.toolbar.close()
             self.toolbar.deleteLater()
@@ -1012,6 +936,7 @@ class PinWindow(QWidget):
             self.ocr_text_layer = OCRTextLayer(self)
             cr = self.content_rect()
             self.ocr_text_layer.setGeometry(cr.toRect())
+            log_debug(f"OCR层初始化几何: {cr.toRect()}, 父窗口大小: {self.size()}", "OCR")
             
             # 5. 启用文字层
             self.ocr_text_layer.set_enabled(True)
@@ -1045,6 +970,10 @@ class PinWindow(QWidget):
             # 9. 启动异步识别
             log_debug("开始异步识别文字...", "OCR")
             self.ocr_thread = OCRThread(pixmap, self.config_manager, self)
+            
+            # 🚀 设置为最低优先级，只在CPU空闲时运行，彻底避免卡顿
+            self.ocr_thread.setPriority(QThread.Priority.IdlePriority)
+            log_debug("OCR线程优先级设置为: IdlePriority (最低)", "OCR")
             
             def on_ocr_finished():
                 try:

@@ -25,9 +25,15 @@ class ScreenshotWindow(QWidget):
         # Config manager for auto-save settings
         self.config_manager = config_manager if config_manager else get_tool_settings_manager()
         
+        import time
+        _t0 = time.perf_counter()
+        
         # 1. 使用 CaptureService 截取全屏
         capture_service = CaptureService()
         self.original_image, rect = capture_service.capture_all_screens()
+        
+        _t1 = time.perf_counter()
+        log_debug(f"[计时] 截屏耗时: {(_t1-_t0)*1000:.0f}ms", "ScreenshotWindow")
         
         self.virtual_x = rect.x()
         self.virtual_y = rect.y()
@@ -41,6 +47,9 @@ class ScreenshotWindow(QWidget):
         self.scene = CanvasScene(self.original_image, rect)
         self.view = CanvasView(self.scene)
         
+        _t2 = time.perf_counter()
+        log_debug(f"[计时] Scene+View 创建耗时: {(_t2-_t1)*1000:.0f}ms", "ScreenshotWindow")
+        
         # 启用智能选区（从配置读取）
         smart_selection_enabled = self.config_manager.get_smart_selection()
         self.view.enable_smart_selection(smart_selection_enabled)
@@ -48,6 +57,9 @@ class ScreenshotWindow(QWidget):
         # 3. 初始化工具栏
         self.toolbar = Toolbar(self)
         self.toolbar.hide() # 初始隐藏，选区确认后显示
+        
+        _t3 = time.perf_counter()
+        log_debug(f"[计时] Toolbar 创建耗时: {(_t3-_t2)*1000:.0f}ms", "ScreenshotWindow")
         
         # 4. 创建ActionTools来处理工具栏按钮逻辑
         self.action_handler = ActionTools(
@@ -120,10 +132,40 @@ class ScreenshotWindow(QWidget):
         # 场景信号
         self.scene.selectionConfirmed.connect(self.on_selection_confirmed)
         self.scene.selection_model.rectChanged.connect(self.update_toolbar_position)
+        # 拖拽时隐藏工具栏以提高性能
+        self.scene.selection_model.draggingChanged.connect(self.on_selection_dragging_changed)
+
+    def on_selection_dragging_changed(self, is_dragging: bool):
+        """
+        选区拖拽状态改变时的处理
+        拖拽时隐藏工具栏，结束拖拽后显示并更新位置
+        """
+        if not hasattr(self, 'toolbar'):
+            return
+            
+        if is_dragging:
+            # 开始拖拽：隐藏工具栏以减少重绘
+            self.toolbar.hide()
+            # 同时隐藏二级菜单
+            if hasattr(self.toolbar, 'paint_menu') and self.toolbar.paint_menu.isVisible():
+                self.toolbar.paint_menu.hide()
+        else:
+            # 结束拖拽：显示工具栏并更新位置
+            if self.scene.selection_model.is_confirmed:
+                self.toolbar.show()
+                self.toolbar.raise_()
+                self.update_toolbar_position()
 
     def on_selection_confirmed(self):
+        import time
+        _t0 = time.perf_counter()
+        
         # 选区确认后，显示工具栏
         self.toolbar.show()
+        
+        _t1 = time.perf_counter()
+        log_debug(f"[计时] toolbar.show() 耗时: {(_t1-_t0)*1000:.0f}ms", "ScreenshotWindow")
+        
         self.toolbar.raise_()  # 只提升到顶层，不激活窗口
         self.update_toolbar_position()
         if hasattr(self, 'magnifier_overlay') and self.magnifier_overlay:
@@ -246,10 +288,21 @@ class ScreenshotWindow(QWidget):
             except Exception as e:
                 log_exception(e, "断开工具栏信号连接")
             
+            # 关闭所有二级设置面板（如果存在）
+            panel_names = ['paint_panel', 'shape_panel', 'arrow_panel', 'number_panel', 'text_panel']
+            for panel_name in panel_names:
+                panel = getattr(self.toolbar, panel_name, None)
+                if panel:
+                    panel.close()
+                    panel.deleteLater()
+                    setattr(self.toolbar, panel_name, None)
+            
+            # 清理别名引用
             if hasattr(self.toolbar, 'paint_menu'):
-                self.toolbar.paint_menu.close()
-                self.toolbar.paint_menu.deleteLater()
                 self.toolbar.paint_menu = None
+            if hasattr(self.toolbar, 'text_menu'):
+                self.toolbar.text_menu = None
+            
             self.toolbar.close()
             self.toolbar.deleteLater()
             self.toolbar = None
@@ -424,9 +477,13 @@ class ScreenshotWindow(QWidget):
         # 长截图窗口现在是独立的，不需要在这里清理
         
         if hasattr(self, 'toolbar') and self.toolbar:
-            if hasattr(self.toolbar, 'paint_menu') and self.toolbar.paint_menu:
-                self.toolbar.paint_menu.close()
-                self.toolbar.paint_menu.deleteLater()
+            # 关闭所有二级设置面板
+            panel_names = ['paint_panel', 'shape_panel', 'arrow_panel', 'number_panel', 'text_panel']
+            for panel_name in panel_names:
+                panel = getattr(self.toolbar, panel_name, None)
+                if panel:
+                    panel.close()
+                    panel.deleteLater()
             self.toolbar.close()
             self.toolbar.deleteLater()
         super().closeEvent(event)

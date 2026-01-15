@@ -166,6 +166,8 @@ class SelectionItem(QGraphicsItem):
             if self.active_handle != self.HANDLE_NONE:
                 self.start_pos = event.scenePos()
                 self.start_rect = self._model.rect()
+                # 通知开始拖拽（用于隐藏工具栏等优化）
+                self._model.start_dragging()
                 event.accept()
             else:
                 event.ignore()
@@ -200,6 +202,9 @@ class SelectionItem(QGraphicsItem):
 
     def mouseReleaseEvent(self, event):
         """鼠标释放：结束调整"""
+        if self.active_handle != self.HANDLE_NONE:
+            # 通知结束拖拽（用于显示工具栏等）
+            self._model.stop_dragging()
         self.active_handle = self.HANDLE_NONE
         event.accept()
 

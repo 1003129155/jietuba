@@ -24,6 +24,7 @@ import os
 import sys
 import ctypes
 import traceback as _tb
+import threading
 
 def _ocr_log(msg: str, level: str = "INFO"):
     """写入日志（打包后使用 core.logger，否则 print）"""
@@ -141,6 +142,7 @@ class OCRManager:
             self._current_engine = None  # 当前使用的引擎类型
             self._windos_ocr_engine = None  # windos_ocr 引擎实例 (常驻)
             self._windows_ocr_language = None  # windows_media_ocr 语言设置
+            self._init_lock = threading.Lock()  # 线程锁，防止重复初始化
     
     @property
     def is_available(self) -> bool:
@@ -284,28 +286,33 @@ class OCRManager:
             return False
     
     def _initialize_windos_ocr(self) -> bool:
-        """初始化 windos_ocr 引擎 (常驻模式)"""
+        """初始化 windos_ocr 引擎 (常驻模式，线程安全)"""
         if not WINDOS_OCR_AVAILABLE:
             self._last_error = "windos_ocr 模块不可用"
             return False
         
-        # 如果已经初始化,直接返回
+        # 双重检查锁定模式 (Double-Checked Locking)
         if self._windos_ocr_engine is not None:
             _ocr_log("windos_ocr 引擎已初始化 (常驻)")
             return True
         
-        try:
-            _ocr_log("正在加载 windos_ocr 引擎 (首次加载约1-2秒)...")
-            from .windos_ocr import OcrEngine
-            self._windos_ocr_engine = OcrEngine()  # 加载模型,常驻内存
-            _ocr_log("windos_ocr 引擎初始化成功 (已常驻内存)")
-            return True
+        with self._init_lock:
+            # 再次检查，防止多线程重复初始化
+            if self._windos_ocr_engine is not None:
+                return True
             
-        except Exception as e:
-            self._last_error = f"windos_ocr 初始化失败: {str(e)}"
-            tb_str = _tb.format_exc()
-            _ocr_log(f"{self._last_error}\n{tb_str}", "ERROR")
-            return False
+            try:
+                _ocr_log("正在加载 windos_ocr 引擎 (首次加载约1-2秒)...")
+                from .windos_ocr import OcrEngine
+                self._windos_ocr_engine = OcrEngine()  # 加载模型,常驻内存
+                _ocr_log("windos_ocr 引擎初始化成功 (已常驻内存)")
+                return True
+                
+            except Exception as e:
+                self._last_error = f"windos_ocr 初始化失败: {str(e)}"
+                tb_str = _tb.format_exc()
+                _ocr_log(f"{self._last_error}\n{tb_str}", "ERROR")
+                return False
     
     def _initialize_windows_ocr(self, language: str) -> bool:
         """初始化 windows_media_ocr 引擎"""

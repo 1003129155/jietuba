@@ -3,40 +3,7 @@ import os
 import ctypes
 import traceback
 
-# ============================================================================
-# 关键修复：在 PyInstaller 打包环境中预加载 MSVC CRT 运行时库
-# 必须在导入任何原生扩展模块（如 ocr_rs）之前执行
-# 这解决了 MNN 在 PyInstaller 环境中 ACCESS_VIOLATION 崩溃的问题
-# ============================================================================
-def _preload_crt_for_pyinstaller():
-    """预加载 MSVC CRT 运行时库，解决 ocr_rs (MNN) 在 PyInstaller 环境崩溃问题"""
-    if getattr(sys, 'frozen', False):
-        # 在日志系统初始化前使用临时日志文件
-        import time
-        log_dir = os.path.join(os.getenv('LOCALAPPDATA', ''), 'Jietuba', 'Logs')
-        os.makedirs(log_dir, exist_ok=True)
-        log_file = os.path.join(log_dir, f'crt_preload_{time.strftime("%Y%m%d")}.log')
-        
-        with open(log_file, 'a', encoding='utf-8') as f:
-            f.write(f'\n[{time.strftime("%H:%M:%S")}] CRT 预加载开始...\n')
-            
-            loaded = []
-            failed = []
-            for dll in ["ucrtbase.dll", "vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll"]:
-                try:
-                    ctypes.CDLL(dll)
-                    loaded.append(dll)
-                except OSError as e:
-                    failed.append(f"{dll}: {e}")
-            
-            f.write(f'[{time.strftime("%H:%M:%S")}] 成功加载: {loaded}\n')
-            if failed:
-                f.write(f'[{time.strftime("%H:%M:%S")}] 加载失败: {failed}\n')
 
-_preload_crt_for_pyinstaller()
-# ============================================================================
-
-# 必须在导入 PyQt6 之前设置 DPI 感知，避免访问被拒绝的警告
 try:
     ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PROCESS_PER_MONITOR_DPI_AWARE
 except Exception:
@@ -45,7 +12,7 @@ except Exception:
     except Exception:
         pass
 
-# 禁用 Qt 的高 DPI 自动缩放（必须在创建 QApplication 之前设置）
+# 禁用 Qt 的高 DPI 自动缩放、不然桌面设置缩放比例不是100%就会让画面变得奇怪
 os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "0"
 os.environ["QT_SCALE_FACTOR"] = "1"
 
@@ -54,7 +21,7 @@ def global_exception_handler(exc_type, exc_value, exc_tb):
     """全局未处理异常捕获"""
     error_msg = ''.join(traceback.format_exception(exc_type, exc_value, exc_tb))
     print(f"\n{'='*60}")
-    print("[ERROR] 未处理的异常:")
+    print("❌ 未处理的异常:")
     print(error_msg)
     print('='*60)
     
@@ -103,39 +70,6 @@ def create_app_icon():
         painter.end()
         
         return QIcon(pixmap)
-    
-    # Fallback: 如果找不到文件，使用代码绘制相机样式
-    # 创建32x32的图标
-    pixmap = QPixmap(32, 32)
-    pixmap.fill(Qt.GlobalColor.transparent)  # 透明背景
-    
-    painter = QPainter(pixmap)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    
-    # 设置画笔和画刷
-    pen = QPen(Qt.GlobalColor.black, 2)
-    painter.setPen(pen)
-    
-    # 画相机主体 (矩形)
-    camera_body = QRect(4, 12, 24, 16)
-    painter.fillRect(camera_body, Qt.GlobalColor.darkGray)
-    painter.drawRect(camera_body)
-    
-    # 画镜头 (圆形)
-    lens_center = QPoint(16, 20)
-    painter.setBrush(QBrush(Qt.GlobalColor.black))
-    painter.drawEllipse(lens_center, 6, 6)
-    
-    # 画镜头内圈
-    painter.setBrush(QBrush(Qt.GlobalColor.lightGray))
-    painter.drawEllipse(lens_center, 4, 4)
-    
-    # 画闪光灯/取景器
-    painter.setBrush(QBrush(Qt.GlobalColor.white))
-    painter.drawRect(22, 14, 4, 3)
-    
-    painter.end()
-    return QIcon(pixmap)
 
 class MainApp(QObject):
     def __init__(self):
@@ -146,7 +80,7 @@ class MainApp(QObject):
         # Config - 使用统一的设置管理器
         self.config_manager = get_tool_settings_manager()
         
-        # Logger - 必须在程序启动早期初始化，否则不会生成日志文件
+        # Logger - 日志初始化，
         from core.logger import setup_logger, get_logger, log_debug, log_info, log_warning
         setup_logger(self.config_manager)
         self._logger = get_logger()
@@ -182,7 +116,7 @@ class MainApp(QObject):
         except Exception as e:
             log_warning(f"无法获取DPI信息: {e}", "DPI")
         
-        # Hotkey System
+        # 热键初始
         self.hotkey_system = HotkeySystem()
         self.update_hotkey()
         
@@ -197,8 +131,10 @@ class MainApp(QObject):
         # 剪贴板管理器
         self.clipboard_manager = None
         
-        # 延迟预加载其他组件，避免启动卡顿
+        # 延迟预加载
+        QTimer.singleShot(100, self.preload_fonts)  # 字体
         QTimer.singleShot(1000, self.preload_settings)
+        QTimer.singleShot(500, self.preload_ocr_engine)
         QTimer.singleShot(1500, self.init_clipboard_manager)
 
     def _on_about_to_quit(self):
@@ -208,6 +144,15 @@ class MainApp(QObject):
                 self._logger.close()
         except Exception:
             pass
+
+    def preload_fonts(self):
+        """预加载系统字体列表（首次调用 QFontDatabase.families()"""
+        from core.logger import log_debug
+        from PyQt6.QtGui import QFontDatabase
+        log_debug("预加载系统字体列表...", "MainApp")
+        # 首次调用会触发 Qt 加载所有字体元数据，后续调用会使用缓存
+        fonts = QFontDatabase.families()
+        log_debug(f"字体预加载完成，共 {len(fonts)} 个字体", "MainApp")
 
     def preload_settings(self):
         """预加载设置窗口"""
@@ -220,39 +165,40 @@ class MainApp(QObject):
             log_debug("设置窗口预加载完成", "MainApp")
     
     def preload_ocr_engine(self):
-        """预加载 OCR 模块和引擎（同步方式，避免后台线程问题）"""
-        from core.logger import log_info, log_warning, log_debug, log_error
+        """预加载 OCR 模块和引擎（在后台线程中完成，避免阻塞主线程）"""
+        from core.logger import log_info, log_warning, log_debug
         try:
             if not self.config_manager.get_ocr_enabled():
                 log_debug("OCR 功能已禁用，跳过预加载", "OCR")
                 return
             
-            log_info("开始预加载 OCR 模块和引擎...", "OCR")
+            log_info("开始在后台线程预加载 OCR 模块和引擎...", "OCR")
             
-            # 获取用户配置的 OCR 引擎
-            ocr_engine = self.config_manager.get_ocr_engine()
+            from PyQt6.QtCore import QThread
             
-            # 直接在主线程中同步初始化（避免 QThread 在 PyInstaller 环境下的问题）
-            try:
-                from ocr import is_ocr_available, initialize_ocr, set_ocr_engine
-                
-                if not is_ocr_available():
-                    log_debug("OCR 模块不可用（无OCR版本）", "OCR")
-                    return
-                
-                # 设置引擎类型
-                set_ocr_engine(ocr_engine)
-                log_info(f"设置 OCR 引擎: {ocr_engine}", "OCR")
-                
-                if initialize_ocr():
-                    log_info("OCR 预加载成功", "OCR")
-                else:
-                    log_warning("OCR 引擎预加载失败", "OCR")
-            except ImportError as e:
-                log_debug(f"OCR 模块不存在（无OCR版本）: {e}", "OCR")
-            except Exception as e:
-                import traceback
-                log_error(f"OCR 预加载异常: {e}\n{traceback.format_exc()}", "OCR")
+            class OCRPreloadThread(QThread):
+                def run(self):
+                    try:
+                        from ocr import is_ocr_available, initialize_ocr
+                        
+                        if not is_ocr_available():
+                            log_debug("OCR 模块不可用（无OCR版本）", "OCR")
+                            return
+                        
+                        if initialize_ocr():
+                            log_info("OCR 预加载成功", "OCR")
+                        else:
+                            log_warning("OCR 引擎预加载失败", "OCR")
+                    except ImportError:
+                        log_debug("OCR 模块不存在（无OCR版本）", "OCR")
+                    except Exception as e:
+                        log_debug(f"OCR 预加载异常: {e}", "OCR")
+            
+            # 保持线程引用，防止被垃圾回收
+            self._ocr_preload_thread = OCRPreloadThread(self)
+            # 🚀 降低预加载线程优先级，避免影响UI启动速度
+            self._ocr_preload_thread.setPriority(QThread.Priority.LowPriority)
+            self._ocr_preload_thread.start()
             
         except Exception as e:
             log_debug(f"OCR 引擎预加载异常（可能是无OCR版本）: {e}", "OCR")
@@ -282,37 +228,13 @@ class MainApp(QObject):
                 self.clipboard_manager.start_monitoring(callback=on_clipboard_change)
                 log_info("剪贴板监听已启动", "Clipboard")
                 
-                # 注意：剪贴板热键在 update_hotkey() 中统一注册
+                # 剪贴板热键在 update_hotkey() 中统一注册
             else:
                 log_warning("剪贴板管理器不可用（pyclipboard 未安装）", "Clipboard")
         except ImportError:
             log_debug("clipboard 模块不存在", "Clipboard")
         except Exception as e:
             log_warning(f"剪贴板初始化失败: {e}", "Clipboard")
-
-    def open_clipboard_window(self):
-        """打开剪贴板历史窗口"""
-        from core.logger import log_debug
-        
-        try:
-            from clipboard import ClipboardWindow
-            
-            # 如果窗口已存在且可见，则关闭
-            if self.clipboard_window and self.clipboard_window.isVisible():
-                self.clipboard_window.close()
-                return
-            
-            # 如果窗口不存在，创建新窗口
-            if not self.clipboard_window:
-                self.clipboard_window = ClipboardWindow()
-            
-            self.clipboard_window.show()
-            self.clipboard_window.activateWindow()
-            log_debug("剪贴板窗口已打开", "Clipboard")
-            
-        except Exception as e:
-            from core.logger import log_exception
-            log_exception(e, "打开剪贴板窗口失败")
 
     def _on_language_changed(self, lang_code: str):
         """语言切换时更新所有 UI 元素"""
@@ -344,7 +266,7 @@ class MainApp(QObject):
             manager._dialog.close()
 
     def _create_tray_menu(self) -> QMenu:
-        """创建托盘菜单（公共方法，避免重复代码）"""
+        """创建托盘菜单"""
         menu = QMenu()
         
         action_screenshot = QAction(self.tr("Screenshot"), self)
@@ -380,7 +302,7 @@ class MainApp(QObject):
 
     def update_hotkey(self, show_error: bool = False):
         """
-        更新所有全局热键（截图热键 + 剪贴板热键）
+        更新所有全局热键（截图热键 + 剪切板热键）
         
         Args:
             show_error: 是否显示错误提示（设置保存时为 True，启动时为 False）
@@ -401,7 +323,7 @@ class MainApp(QObject):
                 log_warning(f"截图热键注册失败: {hotkey}", "Hotkey")
                 failed_hotkeys.append((self.tr("Screenshot"), hotkey))
         
-        # 注册剪贴板热键（如果剪贴板功能启用）
+        # 注册剪切板热键（如果剪切板功能启用）
         if self.config_manager.get_clipboard_enabled():
             clipboard_hotkey = self.config_manager.get_clipboard_hotkey()
             if clipboard_hotkey:
@@ -410,6 +332,11 @@ class MainApp(QObject):
                 else:
                     log_warning(f"剪贴板热键注册失败: {clipboard_hotkey}", "Hotkey")
                     failed_hotkeys.append((self.tr("Clipboard"), clipboard_hotkey))
+            # 额外尝试注册 Win+V，失败也不提示
+            if self.hotkey_system.register_hotkey("win+v", self.open_clipboard_window):
+                log_info("剪贴板备用热键已注册: win+v", "Hotkey")
+            else:
+                log_info("剪贴板备用热键 win+v 注册失败（可能被系统占用）", "Hotkey")
         
         # 如果有注册失败的热键且需要显示提示
         if show_error and failed_hotkeys:
@@ -429,7 +356,7 @@ class MainApp(QObject):
         
         log_debug(f"显示热键错误提示: {failed_hotkeys}", "Hotkey")
         
-        # 使用 QMessageBox 显示错误（更可靠）
+        # 使用 QMessageBox 显示错误
         QMessageBox.warning(
             None,
             self.tr("Hotkey Registration Failed"),
@@ -559,6 +486,30 @@ class MainApp(QObject):
             split_sentences=split_sentences,
             preserve_formatting=preserve_formatting
         )
+    
+    def open_clipboard_window(self):
+        """打开剪切板历史窗口"""
+        from core.logger import log_debug
+        
+        try:
+            from clipboard import ClipboardWindow
+            
+            # 如果窗口已存在且可见，则关闭
+            if self.clipboard_window and self.clipboard_window.isVisible():
+                self.clipboard_window.close()
+                return
+            
+            # 如果窗口不存在，创建新窗口
+            if not self.clipboard_window:
+                self.clipboard_window = ClipboardWindow()
+            
+            self.clipboard_window.show()
+            self.clipboard_window.activateWindow()
+            log_debug("剪切板窗口已打开", "Clipboard")
+            
+        except Exception as e:
+            from core.logger import log_exception
+            log_exception(e, "打开剪切板窗口失败")
         
     def quit_app(self):
         # 停止剪贴板监听
@@ -577,3 +528,4 @@ class MainApp(QObject):
 if __name__ == "__main__":
     main = MainApp()
     main.run()
+

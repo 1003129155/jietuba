@@ -1152,6 +1152,107 @@
         <source>Failed to delete item</source>
         <translation>删除内容失败</translation>
     </message>
+    <!-- Import/Export -->
+    <message>
+        <source>📦 Import/Export</source>
+        <translation>📦 导入/导出</translation>
+    </message>
+    <message>
+        <source>Import/Export</source>
+        <translation>导入/导出</translation>
+    </message>
+    <message>
+        <source>Export</source>
+        <translation>导出</translation>
+    </message>
+    <message>
+        <source>Export all saved content to CSV file</source>
+        <translation>将所有保存的内容导出到 CSV 文件</translation>
+    </message>
+    <message>
+        <source>Encoding:</source>
+        <translation>编码：</translation>
+    </message>
+    <message>
+        <source>📤 Export to CSV</source>
+        <translation>📤 导出到 CSV</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>导入</translation>
+    </message>
+    <message>
+        <source>Import content from CSV file (Group, Content, Title)</source>
+        <translation>从 CSV 文件导入内容（组名、内容、标题）</translation>
+    </message>
+    <message>
+        <source>📥 Import from CSV</source>
+        <translation>📥 从 CSV 导入</translation>
+    </message>
+    <message>
+        <source>CSV Format</source>
+        <translation>CSV 格式说明</translation>
+    </message>
+    <message>
+        <source>Column 1: Group Name</source>
+        <translation>第1列：组名</translation>
+    </message>
+    <message>
+        <source>Column 2: Content</source>
+        <translation>第2列：内容</translation>
+    </message>
+    <message>
+        <source>Column 3: Title (optional)</source>
+        <translation>第3列：标题（可选）</translation>
+    </message>
+    <message>
+        <source>Export to CSV</source>
+        <translation>导出到 CSV</translation>
+    </message>
+    <message>
+        <source>Group</source>
+        <translation>组名</translation>
+    </message>
+    <message>
+        <source>Export Successful</source>
+        <translation>导出成功</translation>
+    </message>
+    <message>
+        <source>Exported {count} items to CSV file.</source>
+        <translation>已导出 {count} 条内容到 CSV 文件。</translation>
+    </message>
+    <message>
+        <source>Export Failed</source>
+        <translation>导出失败</translation>
+    </message>
+    <message>
+        <source>Failed to export: {error}</source>
+        <translation>导出失败：{error}</translation>
+    </message>
+    <message>
+        <source>Import from CSV</source>
+        <translation>从 CSV 导入</translation>
+    </message>
+    <message>
+        <source>Import Successful</source>
+        <translation>导入成功</translation>
+    </message>
+    <message>
+        <source>Imported {count} items.</source>
+        <translation>已导入 {count} 条内容。</translation>
+    </message>
+    <message>
+        <source>Import Failed</source>
+        <translation>导入失败</translation>
+    </message>
+    <message>
+        <source>No valid data found in CSV file.</source>
+        <translation>CSV 文件中没有找到有效数据。</translation>
+    </message>
+    <message>
+        <source>Failed to import: {error}</source>
+        <translation>导入失败：{error}</translation>
+    </message>
 </context>
 
 <!-- ========== 设置对话框 - 剪贴板设置 ========== -->

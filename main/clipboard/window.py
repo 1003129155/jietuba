@@ -112,7 +112,7 @@ class ClipboardItemWidget(QFrame):
         """)
         
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 6, 20, 6)  # 减少上下边距：8→6
+        layout.setContentsMargins(12, 1, 20, 1)  # 上下边距：6→1
         layout.setSpacing(2)  # 减少行间距：4→2
         
         # 第一行：图标/缩略图 + 内容预览
@@ -152,7 +152,7 @@ class ClipboardItemWidget(QFrame):
             content_label.setTextFormat(Qt.TextFormat.PlainText)
             # 设置样式，包含行高控制
             content_label.setStyleSheet("""
-                font-size: 13px; 
+                font-size: 14px; 
                 color: #333333; 
                 background: transparent; 
                 border: none;
@@ -163,7 +163,7 @@ class ClipboardItemWidget(QFrame):
             content_label.setWordWrap(False)
             # 单行时设置固定最小高度
             content_label.setMinimumHeight(line_height + 4)
-            content_label.setStyleSheet("font-size: 13px; color: #333333; background: transparent; border: none;")
+            content_label.setStyleSheet("font-size: 15px; color: #333333; background: transparent; border: none;")
         
         # 设置文本省略，防止长文本撑开布局
         content_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
@@ -239,9 +239,8 @@ class ClipboardItemWidget(QFrame):
         popup = PreviewPopup.instance()
         pos = QCursor.pos()
         
-        # 图片和文件类型显示悬停预览，统一 500ms 延迟
-        if self.item.content_type in ("image", "file"):
-            popup.show_preview(self.item, pos, delay_ms=500)
+        # 所有类型都显示悬停预览，统一 500ms 延迟
+        popup.show_preview(self.item, pos, delay_ms=500)
     
     def leaveEvent(self, event):
         """鼠标离开 - 隐藏预览"""
@@ -276,10 +275,12 @@ class ClipboardWindow(QWidget):
         
         # 分页加载相关
         self._current_offset = 0  # 当前加载的偏移量
-        self._page_size = 50  # 每页加载数量
+        self._page_size = 38  # 每页加载数量
         self._is_loading = False  # 是否正在加载
         self._has_more = True  # 是否还有更多数据
         self._last_scroll_value = 0  # 上次滚动位置，用于判断滚动方向
+        self._pending_reload = False  # 是否有待处理的重新加载请求
+        
         
         # 连接新内容信号到刷新方法
         self.new_item_received.connect(self._on_new_item)
@@ -430,6 +431,7 @@ class ClipboardWindow(QWidget):
                 background: #FFFFFF;
                 border: none;
                 outline: none;
+                color: #333333;
             }
             QListWidget::item {
                 padding: 2px 4px;
@@ -443,7 +445,7 @@ class ClipboardWindow(QWidget):
                 background: transparent;
             }
         """)
-        self.list_widget.setSpacing(2)
+        self.list_widget.setSpacing(0)  # 列表项之间间距：2→0
         self.list_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.list_widget.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.list_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
@@ -488,7 +490,31 @@ class ClipboardWindow(QWidget):
             }
         """)
         self.search_input.textChanged.connect(self._on_search_changed)
+        self.search_input.textChanged.connect(self._update_search_background)
         bottom_layout.addWidget(self.search_input, 1)
+        
+        # 清除搜索按钮
+        self.clear_search_btn = QPushButton("×")
+        self.clear_search_btn.setFixedSize(24, 24)
+        self.clear_search_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.clear_search_btn.setToolTip(self.tr("Clear search"))
+        self.clear_search_btn.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                color: #999999;
+                border: none;
+                font-size: 16px;
+                padding: 0px;
+            }
+            QPushButton:hover {
+                background: #E0E0E0;
+                color: #333333;
+                border-radius: 12px;
+            }
+        """)
+        self.clear_search_btn.clicked.connect(self._clear_search)
+        self.clear_search_btn.hide()  # 初始隐藏
+        bottom_layout.addWidget(self.clear_search_btn)
         
         # 隐藏的类型筛选（保留功能但不显示）
         self.type_filter = QComboBox()
@@ -826,10 +852,17 @@ class ClipboardWindow(QWidget):
     
     def _load_history(self):
         """加载历史记录（重置并加载第一页）"""
+        # 如果正在加载中，标记需要重新加载，等当前加载完成后再执行
+        if self._is_loading:
+            self._pending_reload = True
+            print(f"⏸️ [Clipboard] 正在加载中，标记待重新加载")
+            return
+        
         # 重置分页状态
         self._current_offset = 0
         self._has_more = True
         self.current_items = []
+        self._pending_reload = False
         
         # 加载第一页
         self._load_more_items()
@@ -849,6 +882,9 @@ class ClipboardWindow(QWidget):
             # 获取类型筛选
             type_map = {0: None, 1: "text", 2: "image", 3: "file"}
             content_type = type_map.get(self.type_filter.currentIndex())
+            
+            # 调试日志：打印查询条件
+            print(f"🔍 [Clipboard] 查询条件 - group_id: {self.current_group_id}, search: {repr(search)}, type: {content_type}")
             
             # 根据当前分组加载内容
             t_query_start = perf_counter()
@@ -884,23 +920,37 @@ class ClipboardWindow(QWidget):
                 self._has_more = False
                 print(f"⏹️ [Clipboard] 没有更多数据了")
             
+            # 判断是否是第一页（首次加载）
+            is_first_page = (self._current_offset == 0)
+            
             # 追加到当前列表
             if new_items:
                 self.current_items.extend(new_items)
                 self._current_offset += len(new_items)
                 
-                # 如果是第一页，清空列表；否则追加
-                if self._current_offset == len(new_items):
+                # 如果是第一页，刷新整个列表；否则追加新项目
+                if is_first_page:
                     self._refresh_list()
                 else:
                     self._append_items(new_items)
                     
                 print(f"📊 [Clipboard] 当前总计: {len(self.current_items)} 条记录")
+            elif is_first_page:
+                # 首次加载但没有数据时，也需要刷新列表（清空显示）
+                self._refresh_list()
+                print(f"📊 [Clipboard] 列表已清空，没有记录")
         
         finally:
             t_total_end = perf_counter()
             print(f"⏱️ [Clipboard] 本批次总耗时: {(t_total_end - t_total_start) * 1000:.1f} ms")
             self._is_loading = False
+            
+            # 检查是否有待处理的重新加载请求
+            if getattr(self, '_pending_reload', False):
+                print(f"🔄 [Clipboard] 执行待处理的重新加载")
+                self._pending_reload = False
+                # 使用 QTimer 延迟执行，避免递归调用栈过深
+                QTimer.singleShot(0, self._load_history)
     
     def _refresh_list(self):
         """刷新列表显示"""
@@ -997,6 +1047,38 @@ class ClipboardWindow(QWidget):
             self._search_timer.timeout.connect(self._load_history)
         
         self._search_timer.start(300)
+    
+    def _update_search_background(self, text: str):
+        """根据搜索框内容更新背景色和清除按钮显示状态"""
+        if text.strip():
+            # 有内容时显示淡蓝色背景
+            self.search_input.setStyleSheet("""
+                QLineEdit {
+                    background: #E3F2FD;
+                    border: none;
+                    color: #333333;
+                    font-size: 13px;
+                    padding: 4px;
+                }
+            """)
+            self.clear_search_btn.show()
+        else:
+            # 无内容时恢复透明背景
+            self.search_input.setStyleSheet("""
+                QLineEdit {
+                    background: transparent;
+                    border: none;
+                    color: #333333;
+                    font-size: 13px;
+                    padding: 4px;
+                }
+            """)
+            self.clear_search_btn.hide()
+    
+    def _clear_search(self):
+        """清除搜索内容"""
+        self.search_input.clear()
+        self.search_input.setFocus()
     
     def _on_filter_changed(self, index: int):
         """类型筛选变化"""
@@ -1306,6 +1388,9 @@ class ClipboardWindow(QWidget):
     
     def showEvent(self, event):
         """显示时刷新"""
+        # 重置拖拽/调整大小状态，避免上次隐藏时残留的状态
+        self._reset_drag_state()
+        
         # 记录当前前台窗口（在显示剪贴板窗口之前）
         self._previous_window_hwnd = get_foreground_window()
         
@@ -1350,6 +1435,9 @@ class ClipboardWindow(QWidget):
     
     def hideEvent(self, event):
         """隐藏时保存位置和大小，并关闭预览窗口"""
+        # 重置拖拽/调整大小状态，避免下次呼出时仍处于拖拽状态
+        self._reset_drag_state()
+        
         super().hideEvent(event)
         self._save_window_geometry()
         # 关闭预览弹窗

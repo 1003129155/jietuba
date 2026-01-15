@@ -221,7 +221,7 @@ class SettingsDialog(QDialog):
             "⌨️  " + self.tr("Shortcuts"),
             "📸  " + self.tr("Long Screenshot"),
             "🎯  " + self.tr("Smart Selection"),
-            "📝  " + self.tr("Save Settings"),
+            "💾  " + self.tr("Save Settings"),
             "🎯  " + self.tr("OCR Settings"),
             "🌐  " + self.tr("Translation"),
             "📝  " + self.tr("Log Settings"),
@@ -371,12 +371,12 @@ class SettingsDialog(QDialog):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(15)
 
-        # 卡片1: 截图快捷键
+        # 卡片1: 快捷键
         card1 = SettingCard()
         
-        # 截图快捷键输入
+        # 快捷键输入
         row1 = QHBoxLayout()
-        lbl = QLabel(self.tr("Screenshot Hotkey"))
+        lbl = QLabel(self.tr("Hotkey"))
         lbl.setStyleSheet("background-color: transparent;")
         self.hotkey_input = QLineEdit()
         self.hotkey_input.setText(self.current_hotkey)
@@ -731,13 +731,6 @@ class SettingsDialog(QDialog):
                         self.ocr_engine_combo.setCurrentIndex(i)
                         break
                 
-                # 连接信号
-                self.ocr_engine_combo.currentIndexChanged.connect(
-                    lambda: self.config_manager.set_ocr_engine(
-                        self.ocr_engine_combo.currentData()
-                    )
-                )
-                
                 engine_layout.addWidget(self.ocr_engine_combo)
                 engine_layout.addStretch()
                 
@@ -758,10 +751,6 @@ class SettingsDialog(QDialog):
         lang_layout.addStretch()
         
         card.layout.addLayout(lang_layout)
-        
-        # ====== 连接 OCR 启用信号（在模块可用的情况下） ======
-        if ocr_files_exist:
-            self.ocr_enable_toggle.toggled.connect(lambda checked: self.config_manager.set_ocr_enabled(checked))
         
         layout.addWidget(card)
         
@@ -842,6 +831,36 @@ class SettingsDialog(QDialog):
         )
         card.layout.addLayout(row_pro)
 
+        # ===== 目标语言 =====
+        target_lang_layout = QHBoxLayout()
+        target_lang_label = QLabel(self.tr("Target Language"))
+        target_lang_label.setStyleSheet("font-size: 14px; color: #000; background-color: transparent;")
+        target_lang_label.setFixedWidth(100)
+        target_lang_layout.addWidget(target_lang_label)
+        target_lang_layout.addStretch()
+        
+        self.translation_target_combo = QComboBox()
+        self.translation_target_combo.setFixedWidth(180)
+        self.translation_target_combo.setStyleSheet(self._get_input_style())
+        
+        # 添加语言选项
+        lang_options = [
+            ("", self.tr("Auto (System)")),
+            ("ZH", "中文"), ("JA", "日本語"), ("EN", "English"),
+            ("KO", "한국어"), ("DE", "Deutsch"), ("FR", "Français"),
+            ("ES", "Español"), ("PT", "Português"), ("RU", "Русский"),
+        ]
+        
+        current_lang = self.config_manager.get_app_setting("translation_target_lang", "")
+        current_index = 0
+        for i, (code, name) in enumerate(lang_options):
+            self.translation_target_combo.addItem(name, code)
+            if code == current_lang:
+                current_index = i
+        self.translation_target_combo.setCurrentIndex(current_index)
+        
+        target_lang_layout.addWidget(self.translation_target_combo)
+        card.layout.addLayout(target_lang_layout)
         card.layout.addWidget(HLine())
 
         # ===== 高级选项（紧凑布局）=====
@@ -1304,8 +1323,7 @@ class SettingsDialog(QDialog):
         
         card.layout.addWidget(HLine())
         
-        # 🌐 语言切换
-        from core.i18n import I18nManager
+        # 界面语言设置
         lang_row = QHBoxLayout()
         lang_row.setSpacing(10)
         
@@ -1325,6 +1343,7 @@ class SettingsDialog(QDialog):
         self.language_combo.setCursor(Qt.CursorShape.PointingHandCursor)
         
         # 添加支持的语言
+        from core.i18n import I18nManager
         for code, name in I18nManager.get_available_languages().items():
             self.language_combo.addItem(name, code)
         
@@ -1665,13 +1684,25 @@ class SettingsDialog(QDialog):
         # 3. OCR 设置
         if hasattr(self, 'ocr_enable_toggle'):
             self.config_manager.set_ocr_enabled(self.ocr_enable_toggle.isChecked())
+        if hasattr(self, 'ocr_engine_combo'):
+            self.config_manager.set_ocr_engine(self.ocr_engine_combo.currentData())
         # 注意: 语言设置已移除,RapidOCR 自动支持多语言混合识别
+        
+        # OCR 图像预处理设置
+        if hasattr(self, 'ocr_grayscale_toggle'):
+            self.config_manager.set_ocr_grayscale_enabled(self.ocr_grayscale_toggle.isChecked())
+        if hasattr(self, 'ocr_upscale_toggle'):
+            self.config_manager.set_ocr_upscale_enabled(self.ocr_upscale_toggle.isChecked())
+        if hasattr(self, 'ocr_scale_spinbox'):
+            self.config_manager.set_ocr_upscale_factor(self.ocr_scale_spinbox.value())
         
         # 3.5 翻译设置
         if hasattr(self, 'deepl_api_key_input'):
             self.config_manager.set_deepl_api_key(self.deepl_api_key_input.text().strip())
         if hasattr(self, 'deepl_pro_toggle'):
             self.config_manager.set_deepl_use_pro(self.deepl_pro_toggle.isChecked())
+        if hasattr(self, 'translation_target_combo'):
+            self.config_manager.set_translation_target_lang(self.translation_target_combo.currentData())
         if hasattr(self, 'split_sentences_toggle'):
             self.config_manager.set_translation_split_sentences(self.split_sentences_toggle.isChecked())
         if hasattr(self, 'preserve_formatting_toggle'):
@@ -1696,14 +1727,14 @@ class SettingsDialog(QDialog):
         # 4.5 剪贴板设置
         if hasattr(self, 'clipboard_enabled_toggle'):
             self.config_manager.set_clipboard_enabled(self.clipboard_enabled_toggle.isChecked())
-        if hasattr(self, 'clipboard_hotkey_edit'):
-            self.config_manager.set_clipboard_hotkey(self.clipboard_hotkey_edit.text().strip())
         if hasattr(self, 'clipboard_auto_paste_toggle'):
             self.config_manager.set_clipboard_auto_paste(self.clipboard_auto_paste_toggle.isChecked())
         if hasattr(self, 'clipboard_history_limit_spin'):
             self.config_manager.set_clipboard_history_limit(self.clipboard_history_limit_spin.value())
         if hasattr(self, 'clipboard_auto_cleanup_toggle'):
             self.config_manager.set_clipboard_auto_cleanup(self.clipboard_auto_cleanup_toggle.isChecked())
+        if hasattr(self, 'clipboard_hotkey_edit'):
+            self.config_manager.set_clipboard_hotkey(self.clipboard_hotkey_edit.text().strip())
         
         # 5. 引擎和长截图参数
         if hasattr(self, 'engine_combo'):
@@ -1740,15 +1771,10 @@ from PyQt6.QtCore import QSettings
 class MockConfig:
     def __init__(self):
         self.settings = QSettings("TestApp", "Settings")
-        self.qsettings = self.settings
     def get_smart_selection(self): return False
     def set_smart_selection(self, v): pass
     def get_log_enabled(self): return True
     def set_log_enabled(self, v): pass
-    def get_log_level(self): return "INFO"
-    def set_log_level(self, v): pass
-    def get_log_retention_days(self): return 7
-    def set_log_retention_days(self, v): pass
     def get_log_dir(self): return os.path.expanduser("~")
     def set_log_dir(self, v): pass
     def get_long_stitch_engine(self): return "hash_rust"
@@ -1759,11 +1785,16 @@ class MockConfig:
     def set_screenshot_save_enabled(self, v): pass
     def get_screenshot_save_path(self): return os.path.join(os.path.expanduser("~"), "Desktop", "スクショ")
     def set_screenshot_save_path(self, v): pass
-    def set_hotkey(self, v): pass
     def get_show_main_window(self): return True
     def set_show_main_window(self, v): pass
     def get_ocr_enabled(self): return True
     def set_ocr_enabled(self, v): pass
+    def get_ocr_grayscale_enabled(self): return False
+    def set_ocr_grayscale_enabled(self, v): pass
+    def get_ocr_upscale_enabled(self): return False
+    def set_ocr_upscale_enabled(self, v): pass
+    def get_ocr_upscale_factor(self): return 2.0
+    def set_ocr_upscale_factor(self, v): pass
     def get_pin_auto_toolbar(self): return True
     def set_pin_auto_toolbar(self, v): pass
     # 翻译相关设置
@@ -1777,17 +1808,6 @@ class MockConfig:
     def get_translation_preserve_formatting(self): return True
     def set_translation_preserve_formatting(self, v): pass
     def set_translation_target_lang(self, v): pass
-    # 剪贴板相关设置
-    def get_clipboard_enabled(self): return True
-    def set_clipboard_enabled(self, v): pass
-    def get_clipboard_hotkey(self): return "ctrl+`"
-    def set_clipboard_hotkey(self, v): pass
-    def get_clipboard_auto_paste(self): return True
-    def set_clipboard_auto_paste(self, v): pass
-    def get_clipboard_history_limit(self): return 500
-    def set_clipboard_history_limit(self, v): pass
-    def get_clipboard_auto_cleanup(self): return True
-    def set_clipboard_auto_cleanup(self, v): pass
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

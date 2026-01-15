@@ -496,8 +496,9 @@ def cleanup_old_logs(log_dir: str, retention_days: int):
                 date_str = match.group(1)
                 file_date = datetime.strptime(date_str, "%Y%m%d")
                 
-                # 如果文件日期早于截止日期，删除它
-                if file_date < cutoff_date:
+                # 如果文件日期早于或等于截止日期，删除它
+                # 使用 <= 确保保留天数准确（例如设置6天就只保留6个文件）
+                if file_date <= cutoff_date:
                     file.unlink()
                     deleted_count += 1
             except (ValueError, OSError):

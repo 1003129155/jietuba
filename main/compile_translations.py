@@ -32,10 +32,29 @@ def find_lrelease():
             str(venv_scripts / "lrelease6.exe"),
         ])
     
+    # 尝试在 venv39/Scripts 中查找
+    venv39_scripts = Path(__file__).parent.parent / "venv39" / "Scripts"
+    if venv39_scripts.exists():
+        candidates.extend([
+            str(venv39_scripts / "lrelease.exe"),
+            str(venv39_scripts / "lrelease6.exe"),
+        ])
+    
     # 尝试在 site-packages 中查找
     try:
+        # 首先尝试导入 qt6_applications（pyqt6-tools 安装的）
+        import site
+        for site_dir in site.getsitepackages():
+            site_path = Path(site_dir)
+            # 查找 qt6_applications/Qt/bin
+            qt6_apps = site_path / "qt6_applications" / "Qt" / "bin" / "lrelease.exe"
+            if qt6_apps.exists():
+                candidates.append(str(qt6_apps))
+        
+        # 然后尝试 PyQt6
         import PyQt6
         pyqt6_path = Path(PyQt6.__file__).parent
+        # 查找 PyQt6/Qt6/bin
         qt_bin = pyqt6_path / "Qt6" / "bin"
         if qt_bin.exists():
             candidates.append(str(qt_bin / "lrelease.exe"))
@@ -44,10 +63,10 @@ def find_lrelease():
     
     for cmd in candidates:
         try:
-            result = subprocess.run([cmd, "-version"], capture_output=True, text=True)
-            if result.returncode == 0 or "lrelease" in result.stdout.lower():
+            result = subprocess.run([cmd, "-version"], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0 or "lrelease" in result.stdout.lower() or "lrelease" in result.stderr.lower():
                 return cmd
-        except FileNotFoundError:
+        except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
             continue
     
     return None

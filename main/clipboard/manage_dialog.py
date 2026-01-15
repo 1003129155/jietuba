@@ -10,7 +10,8 @@
 from PyQt6.QtWidgets import (
     QDialog, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
     QLineEdit, QPushButton, QFrame, QListWidget, QListWidgetItem,
-    QTextEdit, QMessageBox, QApplication, QScrollArea, QComboBox
+    QTextEdit, QMessageBox, QApplication, QScrollArea, QComboBox,
+    QFileDialog
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtGui import QFont
@@ -77,6 +78,7 @@ class ManageDialog(QDialog):
                 padding: 8px 12px;
                 font-size: 13px;
                 background: #FAFAFA;
+                color: #333333;
             }
             QLineEdit:focus {
                 border-color: #1976D2;
@@ -88,6 +90,7 @@ class ManageDialog(QDialog):
                 padding: 8px;
                 font-size: 13px;
                 background: #FAFAFA;
+                color: #333333;
             }
             QTextEdit:focus {
                 border-color: #1976D2;
@@ -145,6 +148,14 @@ class ManageDialog(QDialog):
         self.nav_content_btn.clicked.connect(lambda: self._switch_mode("content"))
         layout.addWidget(self.nav_content_btn)
         
+        # 导入导出按钮
+        self.nav_import_export_btn = QPushButton(self.tr("📦 Import/Export"))
+        self.nav_import_export_btn.setCheckable(True)
+        self.nav_import_export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.nav_import_export_btn.setStyleSheet(self._get_nav_btn_style())
+        self.nav_import_export_btn.clicked.connect(lambda: self._switch_mode("import_export"))
+        layout.addWidget(self.nav_import_export_btn)
+        
         layout.addStretch()
         
         # 关闭按钮
@@ -201,6 +212,13 @@ class ManageDialog(QDialog):
                 padding: 6px 10px;
                 font-size: 12px;
                 background: #FFFFFF;
+                color: #333333;
+            }
+            QComboBox QAbstractItemView {
+                background: #FFFFFF;
+                color: #333333;
+                selection-background-color: #E3F2FD;
+                selection-color: #1976D2;
             }
         """)
         self.group_combo.currentIndexChanged.connect(self._on_group_combo_changed)
@@ -216,10 +234,12 @@ class ManageDialog(QDialog):
                 background: transparent;
                 border: none;
                 outline: none;
+                color: #333333;
             }
             QListWidget::item {
                 padding: 10px 12px;
                 border-bottom: 1px solid #F0F0F0;
+                color: #333333;
             }
             QListWidget::item:selected {
                 background: #E3F2FD;
@@ -337,18 +357,26 @@ class ManageDialog(QDialog):
         self.current_mode = mode
         self.nav_group_btn.setChecked(mode == "group")
         self.nav_content_btn.setChecked(mode == "content")
+        self.nav_import_export_btn.setChecked(mode == "import_export")
         
         if mode == "group":
+            self.list_column.show()  # 显示中间列
             self.list_title.setText(self.tr("Group List"))
             self.group_combo.hide()
+            self.list_widget.show()
             self._refresh_group_list()
             self._show_new_group_form()
-        else:
+        elif mode == "content":
+            self.list_column.show()  # 显示中间列
             self.list_title.setText(self.tr("Content List"))
             self.group_combo.show()
+            self.list_widget.show()
             self._refresh_group_combo()
             self._refresh_content_list()
             self._show_new_content_form()
+        elif mode == "import_export":
+            self.list_column.hide()  # 隐藏整个中间列
+            self._show_import_export_form()
     
     def _refresh_group_combo(self):
         """刷新分组下拉框"""
@@ -476,6 +504,7 @@ class ManageDialog(QDialog):
         self._clear_detail_layout()
         self.detail_title.setText(self.tr("New Group"))
         self.delete_btn.hide()
+        self.save_btn.show()
         self.save_btn.setText(self.tr("Create"))
         self.editing_group_id = None
         
@@ -535,6 +564,7 @@ class ManageDialog(QDialog):
         self._clear_detail_layout()
         self.detail_title.setText(self.tr("Edit Group"))
         self.delete_btn.show()
+        self.save_btn.show()
         self.save_btn.setText(self.tr("Save"))
         
         # 获取分组信息
@@ -616,6 +646,7 @@ class ManageDialog(QDialog):
         self._clear_detail_layout()
         self.detail_title.setText(self.tr("Add Content"))
         self.delete_btn.hide()
+        self.save_btn.show()
         self.save_btn.setText(self.tr("Add"))
         self.editing_item_id = None
         
@@ -652,6 +683,7 @@ class ManageDialog(QDialog):
         self._clear_detail_layout()
         self.detail_title.setText(self.tr("Edit Content"))
         self.delete_btn.show()
+        self.save_btn.show()
         self.save_btn.setText(self.tr("Save"))
         self.editing_item_id = item_id
         
@@ -682,9 +714,114 @@ class ManageDialog(QDialog):
         
         # 创建时间
         if item.created_at:
-            time_label = QLabel(self.tr("Created: %s").arg(item.created_at.strftime('%Y-%m-%d %H:%M:%S')))
+            time_str = item.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            time_label = QLabel(f"{self.tr('Created')}: {time_str}")
             time_label.setStyleSheet("color: #999; font-size: 12px; margin-top: 8px;")
             self.detail_layout.addWidget(time_label)
+        
+        self.detail_layout.addStretch()
+    
+    def _show_import_export_form(self):
+        """显示导入导出表单"""
+        self._clear_detail_layout()
+        self.detail_title.setText(self.tr("Import/Export"))
+        self.delete_btn.hide()
+        self.save_btn.hide()  # 隐藏保存按钮
+        
+        # 导出区域
+        export_section = QLabel(self.tr("Export"))
+        export_section.setStyleSheet("font-size: 14px; font-weight: 600; color: #333; margin-top: 8px;")
+        self.detail_layout.addWidget(export_section)
+        
+        export_desc = QLabel(self.tr("Export all saved content to CSV file"))
+        export_desc.setStyleSheet("font-size: 12px; color: #666; margin-bottom: 8px;")
+        self.detail_layout.addWidget(export_desc)
+        
+        # 编码选择
+        encoding_layout = QHBoxLayout()
+        encoding_label = QLabel(self.tr("Encoding:"))
+        encoding_label.setStyleSheet("font-size: 12px; color: #555;")
+        encoding_layout.addWidget(encoding_label)
+        
+        self.export_encoding_combo = QComboBox()
+        self.export_encoding_combo.addItem("UTF-8 (BOM)", "utf-8-sig")
+        self.export_encoding_combo.addItem("UTF-8", "utf-8")
+        self.export_encoding_combo.addItem("Shift_JIS", "shift_jis")
+        self.export_encoding_combo.addItem("GBK", "gbk")
+        self.export_encoding_combo.setStyleSheet("""
+            QComboBox {
+                border: 1px solid #E0E0E0;
+                border-radius: 4px;
+                padding: 4px 8px;
+                font-size: 12px;
+                background: #FFFFFF;
+                min-width: 120px;
+            }
+        """)
+        encoding_layout.addWidget(self.export_encoding_combo)
+        encoding_layout.addStretch()
+        self.detail_layout.addLayout(encoding_layout)
+        
+        export_btn = QPushButton(self.tr("📤 Export to CSV"))
+        export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        export_btn.setStyleSheet("""
+            QPushButton {
+                background: #1976D2;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 12px 24px;
+                font-size: 13px;
+            }
+            QPushButton:hover { background: #1565C0; }
+        """)
+        export_btn.clicked.connect(self._export_to_csv)
+        self.detail_layout.addWidget(export_btn)
+        
+        # 分隔线
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setStyleSheet("background: #E8E8E8; margin: 16px 0;")
+        line.setFixedHeight(1)
+        self.detail_layout.addWidget(line)
+        
+        # 导入区域
+        import_section = QLabel(self.tr("Import"))
+        import_section.setStyleSheet("font-size: 14px; font-weight: 600; color: #333; margin-top: 8px;")
+        self.detail_layout.addWidget(import_section)
+        
+        import_desc = QLabel(self.tr("Import content from CSV file (Group, Content, Title)"))
+        import_desc.setStyleSheet("font-size: 12px; color: #666; margin-bottom: 8px;")
+        self.detail_layout.addWidget(import_desc)
+        
+        import_btn = QPushButton(self.tr("📥 Import from CSV"))
+        import_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        import_btn.setStyleSheet("""
+            QPushButton {
+                background: #43A047;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 12px 24px;
+                font-size: 13px;
+            }
+            QPushButton:hover { background: #388E3C; }
+        """)
+        import_btn.clicked.connect(self._import_from_csv)
+        self.detail_layout.addWidget(import_btn)
+        
+        # CSV 格式说明
+        format_section = QLabel(self.tr("CSV Format"))
+        format_section.setStyleSheet("font-size: 14px; font-weight: 600; color: #333; margin-top: 24px;")
+        self.detail_layout.addWidget(format_section)
+        
+        format_desc = QLabel(
+            self.tr("Column 1: Group Name") + "\n" +
+            self.tr("Column 2: Content") + "\n" +
+            self.tr("Column 3: Title (optional)")
+        )
+        format_desc.setStyleSheet("font-size: 12px; color: #666; line-height: 1.6;")
+        self.detail_layout.addWidget(format_desc)
         
         self.detail_layout.addStretch()
     
@@ -810,6 +947,165 @@ class ManageDialog(QDialog):
             self._switch_mode("group")
         else:
             self._switch_mode("content")
+    
+    def _export_to_csv(self):
+        """导出收藏内容到 CSV 文件"""
+        import csv
+        
+        # 选择保存路径
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Export to CSV"),
+            "clipboard_export.csv",
+            "CSV Files (*.csv);;All Files (*)"
+        )
+        
+        if not file_path:
+            return
+        
+        try:
+            # 获取所有分组
+            groups = self.manager.get_groups()
+            group_map = {g.id: g.name for g in groups}
+            
+            # 收集所有分组内容
+            rows = []
+            for group in groups:
+                items = self.manager.get_by_group(group.id, offset=0, limit=10000)
+                for item in items:
+                    # 只导出文本内容
+                    if item.content_type == "text":
+                        rows.append([
+                            group.name,           # 第一列：组名
+                            item.content,         # 第二列：具体内容
+                            item.title or ""      # 第三列：标题
+                        ])
+            
+            # 获取选择的编码
+            encoding = 'utf-8-sig'  # 默认值
+            if hasattr(self, 'export_encoding_combo'):
+                encoding = self.export_encoding_combo.currentData() or 'utf-8-sig'
+            
+            # 写入 CSV 文件（对于非 UTF-8 编码，无法编码的字符用 ? 替代）
+            with open(file_path, 'w', newline='', encoding=encoding, errors='replace') as f:
+                writer = csv.writer(f)
+                # 写入标题行
+                writer.writerow([self.tr("Group"), self.tr("Content"), self.tr("Title")])
+                # 写入数据
+                writer.writerows(rows)
+            
+            QMessageBox.information(
+                self,
+                self.tr("Export Successful"),
+                self.tr("Exported {count} items to CSV file.").format(count=len(rows))
+            )
+        
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                self.tr("Export Failed"),
+                self.tr("Failed to export: {error}").format(error=str(e))
+            )
+    
+    def _import_from_csv(self):
+        """从 CSV 文件导入内容"""
+        import csv
+        
+        # 选择文件
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            self.tr("Import from CSV"),
+            "",
+            "CSV Files (*.csv);;All Files (*)"
+        )
+        
+        if not file_path:
+            return
+        
+        try:
+            # 尝试多种编码读取 CSV 文件
+            rows = []
+            content = None
+            
+            # 按优先级尝试不同编码
+            encodings = ['utf-8-sig', 'utf-8', 'shift_jis', 'cp932', 'gbk', 'gb2312', 'gb18030', 'cp1252', 'latin-1']
+            for encoding in encodings:
+                try:
+                    with open(file_path, 'r', newline='', encoding=encoding) as f:
+                        content = f.read()
+                    break
+                except (UnicodeDecodeError, LookupError):
+                    continue
+            
+            if content is None:
+                # 最后尝试用 errors='replace' 强制读取
+                with open(file_path, 'r', newline='', encoding='utf-8', errors='replace') as f:
+                    content = f.read()
+            
+            # 解析 CSV
+            import io
+            reader = csv.reader(io.StringIO(content))
+            # 跳过标题行
+            next(reader, None)
+            for row in reader:
+                    if len(row) >= 2:
+                        group_name = row[0].strip()
+                        content = row[1] if len(row) > 1 else ""
+                        title = row[2].strip() if len(row) > 2 else ""
+                        if group_name and content:
+                            rows.append((group_name, content, title))
+            
+            if not rows:
+                QMessageBox.warning(
+                    self,
+                    self.tr("Import Failed"),
+                    self.tr("No valid data found in CSV file.")
+                )
+                return
+            
+            # 获取现有分组
+            existing_groups = self.manager.get_groups()
+            group_name_to_id = {g.name: g.id for g in existing_groups}
+            
+            # 导入数据
+            imported_count = 0
+            for group_name, content, title in rows:
+                # 如果分组不存在，创建新分组
+                if group_name not in group_name_to_id:
+                    new_group_id = self.manager.create_group(group_name)
+                    if new_group_id:
+                        group_name_to_id[group_name] = new_group_id
+                    else:
+                        continue
+                
+                group_id = group_name_to_id[group_name]
+                
+                # 添加内容
+                title_param = title if title else None
+                item_id = self.manager.add_item(content, "text", title=title_param)
+                if item_id:
+                    self.manager.move_to_group(item_id, group_id)
+                    imported_count += 1
+            
+            # 刷新界面
+            self.group_added.emit()
+            if self.current_mode == "group":
+                self._refresh_group_list()
+            else:
+                self._refresh_content_list()
+            
+            QMessageBox.information(
+                self,
+                self.tr("Import Successful"),
+                self.tr("Imported {count} items.").format(count=imported_count)
+            )
+        
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                self.tr("Import Failed"),
+                self.tr("Failed to import: {error}").format(error=str(e))
+            )
 
 
 if __name__ == "__main__":

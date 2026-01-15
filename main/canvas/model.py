@@ -18,12 +18,16 @@ class SelectionModel(QObject):
     # 信号：选区确认
     confirmed = pyqtSignal(QRectF)
     
+    # 信号：拖拽状态改变（用于优化工具栏显示）
+    draggingChanged = pyqtSignal(bool)  # True=开始拖拽, False=结束拖拽
+    
     def __init__(self):
         super().__init__()
         self._rect = QRectF()
         self.min_size = QSizeF(8, 8)  # 最小选区尺寸
         self._is_active = False       # 是否正在选择
         self._is_confirmed = False    # 是否已确认（进入绘图模式）
+        self._is_dragging = False     # 是否正在拖拽
         
     def rect(self) -> QRectF:
         """获取当前选区矩形（副本）"""
@@ -47,6 +51,23 @@ class SelectionModel(QObject):
         
         self._rect = QRectF(r)
         self.rectChanged.emit(QRectF(self._rect))
+    
+    def start_dragging(self):
+        """开始拖拽"""
+        if not self._is_dragging:
+            self._is_dragging = True
+            self.draggingChanged.emit(True)
+    
+    def stop_dragging(self):
+        """结束拖拽"""
+        if self._is_dragging:
+            self._is_dragging = False
+            self.draggingChanged.emit(False)
+    
+    @property
+    def is_dragging(self) -> bool:
+        """是否正在拖拽"""
+        return self._is_dragging
     
     def is_active(self) -> bool:
         """是否有活动选区"""

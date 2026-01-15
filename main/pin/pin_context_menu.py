@@ -131,7 +131,7 @@ class PinContextMenu:
             f"{'✓ ' if shadow_enabled else '   '}" + self.parent.tr("Shadow effect"),
             self.parent
         )
-        shadow_action.triggered.connect(self.parent.toggle_shadow_effect)
+        shadow_action.triggered.connect(self.parent.toggle_border_effect)
         menu.addAction(shadow_action)
         
         menu.addSeparator()

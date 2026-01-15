@@ -1129,6 +1129,107 @@
         <source>Failed to delete item</source>
         <translation>アイテムの削除に失敗しました</translation>
     </message>
+    <!-- Import/Export -->
+    <message>
+        <source>📦 Import/Export</source>
+        <translation>📦 インポート</translation>
+    </message>
+    <message>
+        <source>Import/Export</source>
+        <translation>インポート</translation>
+    </message>
+    <message>
+        <source>Export</source>
+        <translation>エクスポート</translation>
+    </message>
+    <message>
+        <source>Export all saved content to CSV file</source>
+        <translation>保存されたすべてのコンテンツをCSVファイルにエクスポート</translation>
+    </message>
+    <message>
+        <source>Encoding:</source>
+        <translation>文字コード:</translation>
+    </message>
+    <message>
+        <source>📤 Export to CSV</source>
+        <translation>📤 CSVにエクスポート</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>インポート</translation>
+    </message>
+    <message>
+        <source>Import content from CSV file (Group, Content, Title)</source>
+        <translation>CSVファイルからコンテンツをインポート（グループ、内容、タイトル）</translation>
+    </message>
+    <message>
+        <source>📥 Import from CSV</source>
+        <translation>📥 CSVからインポート</translation>
+    </message>
+    <message>
+        <source>CSV Format</source>
+        <translation>CSV形式</translation>
+    </message>
+    <message>
+        <source>Column 1: Group Name</source>
+        <translation>列1: グループ名</translation>
+    </message>
+    <message>
+        <source>Column 2: Content</source>
+        <translation>列2: 内容</translation>
+    </message>
+    <message>
+        <source>Column 3: Title (optional)</source>
+        <translation>列3: タイトル（任意）</translation>
+    </message>
+    <message>
+        <source>Export to CSV</source>
+        <translation>CSVにエクスポート</translation>
+    </message>
+    <message>
+        <source>Group</source>
+        <translation>グループ</translation>
+    </message>
+    <message>
+        <source>Export Successful</source>
+        <translation>エクスポート成功</translation>
+    </message>
+    <message>
+        <source>Exported {count} items to CSV file.</source>
+        <translation>{count}件のアイテムをCSVファイルにエクスポートしました。</translation>
+    </message>
+    <message>
+        <source>Export Failed</source>
+        <translation>エクスポート失敗</translation>
+    </message>
+    <message>
+        <source>Failed to export: {error}</source>
+        <translation>エクスポートに失敗しました: {error}</translation>
+    </message>
+    <message>
+        <source>Import from CSV</source>
+        <translation>CSVからインポート</translation>
+    </message>
+    <message>
+        <source>Import Successful</source>
+        <translation>インポート成功</translation>
+    </message>
+    <message>
+        <source>Imported {count} items.</source>
+        <translation>{count}件のアイテムをインポートしました。</translation>
+    </message>
+    <message>
+        <source>Import Failed</source>
+        <translation>インポート失敗</translation>
+    </message>
+    <message>
+        <source>No valid data found in CSV file.</source>
+        <translation>CSVファイルに有効なデータが見つかりませんでした。</translation>
+    </message>
+    <message>
+        <source>Failed to import: {error}</source>
+        <translation>インポートに失敗しました: {error}</translation>
+    </message>
 </context>
 
 <!-- ========== 設定ダイアログ - クリップボード設定 ========== -->

@@ -44,15 +44,11 @@ class PinCanvasView(CanvasView):
         self.viewport().setAutoFillBackground(False)
         self.setBackgroundBrush(Qt.GlobalColor.transparent)
         
-        # 🔥 启用高质量渲染
-        self.setRenderHints(
-            QPainter.RenderHint.Antialiasing |
-            QPainter.RenderHint.SmoothPixmapTransform |
-            QPainter.RenderHint.TextAntialiasing
-        )
+        # 🎨 只启用图片平滑缩放（避免放大后模糊）
+        self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
         
         # 🔥 使用智能更新模式（只更新变化区域）
-        self.setViewportUpdateMode(CanvasView.ViewportUpdateMode.MinimalViewportUpdate)
+        self.setViewportUpdateMode(CanvasView.ViewportUpdateMode.SmartViewportUpdate)
         
         log_info("PinCanvasView 创建成功（唯一内容渲染者）", "PinCanvasView")
     

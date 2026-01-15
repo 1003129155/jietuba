@@ -24,16 +24,16 @@ class TextSettingsPanel(QWidget):
         super().__init__(parent)
         # 使用更安全的默认字体选择
         default_font_family = "Microsoft YaHei"
-        # 检查默认字体是否可用
-        available_fonts = QFontDatabase.families()
-        if default_font_family not in available_fonts:
+        # 缓存字体列表，避免多次调用 QFontDatabase.families()（首次调用很慢）
+        self._cached_fonts = QFontDatabase.families()
+        if default_font_family not in self._cached_fonts:
             # fallback到系统可用的字体
-            if "Arial" in available_fonts:
+            if "Arial" in self._cached_fonts:
                 default_font_family = "Arial"
-            elif "SimSun" in available_fonts:
+            elif "SimSun" in self._cached_fonts:
                 default_font_family = "SimSun"
-            elif len(available_fonts) > 0:
-                default_font_family = available_fonts[0]
+            elif len(self._cached_fonts) > 0:
+                default_font_family = self._cached_fonts[0]
         
         self.current_font = QFont(default_font_family, 16)
         self.current_color = QColor(Qt.GlobalColor.red)
@@ -205,19 +205,17 @@ class TextSettingsPanel(QWidget):
         
         # === 1. 基础样式区 ===
         
-        # 字体选择 - 加载系统字体
+        # 字体选择 - 使用已缓存的字体列表
         self.font_combo = QComboBox()
-        # 获取系统所有字体
-        system_fonts = QFontDatabase.families()
         # 过滤出常用中文字体放在前面
         priority_fonts = ["Microsoft YaHei", "SimSun", "SimHei", "KaiTi", "Arial", "Times New Roman"]
         sorted_fonts = []
         # 先添加优先字体
         for f in priority_fonts:
-            if f in system_fonts:
+            if f in self._cached_fonts:
                 sorted_fonts.append(f)
         # 再添加其他字体
-        for f in system_fonts:
+        for f in self._cached_fonts:
             if f not in sorted_fonts:
                 sorted_fonts.append(f)
                 

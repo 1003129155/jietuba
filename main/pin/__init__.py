@@ -17,7 +17,6 @@ from .pin_manager import PinManager, get_pin_manager
 from .pin_toolbar import PinToolbar
 from .pin_canvas import PinCanvas
 from .pin_canvas_view import PinCanvasView
-from .pin_shadow_window import PinShadowWindow
 from .pin_canvas_renderer import VectorCommandRenderer, get_vector_renderer
 from .pin_controls import PinControlButtons
 from .pin_context_menu import PinContextMenu
@@ -31,7 +30,6 @@ __all__ = [
     'PinToolbar',
     'PinCanvas',
     'PinCanvasView',
-    'PinShadowWindow',
     'VectorCommandRenderer',
     'get_vector_renderer',
     'PinControlButtons',

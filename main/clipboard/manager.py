@@ -59,12 +59,16 @@ class ClipboardItem:
     @property
     def display_text(self) -> str:
         """获取用于显示的文本（界面显示用，不影响实际存储内容）"""
+        # 如果有标题，优先显示标题
+        if self.title:
+            return self.title
+        
         if self.content_type == "text":
             # 截断长文本
             text = self.content.replace('\n', ' ').strip()
             return text[:100] + "..." if len(text) > 100 else text
         elif self.content_type == "image":
-            return self.content  # "[图片 WxH]"
+            return self.content.replace("图片", "").strip(" []")
         elif self.content_type == "file":
             try:
                 import os

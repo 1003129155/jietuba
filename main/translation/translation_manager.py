@@ -434,10 +434,12 @@ class TranslationManager(QObject):
         
         # 创建并启动新线程
         self._ocr_thread = OCRThread(pixmap)
+        # 🚀 降低线程优先级，避免与UI线程竞争CPU导致卡顿
+        self._ocr_thread.setPriority(QThread.Priority.LowPriority)
         self._ocr_thread.finished_signal.connect(self._on_ocr_finished)
         self._ocr_thread.start()
         
-        log_debug("OCR线程已启动", "Translation")
+        log_debug("OCR线程已启动 (LowPriority)", "Translation")
     
     def _on_ocr_finished(self, success: bool, result: str):
         """OCR识别完成回调"""

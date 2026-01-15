@@ -115,21 +115,18 @@ class OCRTextLayer(QWidget):
     def __init__(self, parent=None, original_width: int = 100, original_height: int = 100):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        # 初始不透传，让鼠标事件能进入控件，然后在事件处理中判断是否需要透传
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self._event_filter_target = None
         
-        # 透传状态标志（避免频繁设置属性）
-        self._is_transparent = False
+        # 🚀 不使用穿透模式，而是接收事件并通过ignore()传递
+        # 这样可以检测鼠标是否在文字上，同时避免raise_()掉帧
+        # self._is_mouse_transparent 用于跟踪鼠标状态，不再设置实际属性
         
         parent_widget = parent if isinstance(parent, QWidget) else None
         if parent_widget:
-            parent_widget.installEventFilter(self)
-            self._event_filter_target = parent_widget
-            log_debug(f"已安装事件过滤器到父窗口: {parent_widget.__class__.__name__}", "OCR层")
             try:
-                parent_widget.destroyed.connect(self._detach_event_filter)
+                parent_widget.destroyed.connect(self.cleanup)
             except Exception as e:
                 log_exception(e, "连接destroyed信号")
         
@@ -155,15 +152,6 @@ class OCRTextLayer(QWidget):
         
         # 🚀 懒加载标志：字符位置是否已计算（优化加载性能）
         self._char_positions_calculated = False
-
-    def _detach_event_filter(self):
-        target = getattr(self, '_event_filter_target', None)
-        if target:
-            try:
-                target.removeEventFilter(self)
-            except Exception as e:
-                log_exception(e, "移除事件过滤器")
-        self._event_filter_target = None
 
     def _is_active(self) -> bool:
         """是否可用：外部启用且未处于绘图模式"""
@@ -193,20 +181,11 @@ class OCRTextLayer(QWidget):
                 self.hide()
                 return
                 
-            # 🚀 优化：不立即计算字符位置，延迟到鼠标移动时
-            # 有文字块时显示，接收所有鼠标事件（在事件处理中判断是否需要透传）
-            # self.recalculate_char_positions()  # 注释掉立即计算
-            self.raise_()
-            self.show()
-            
-            # 确保事件过滤器已安装
-            parent_widget = self.parentWidget()
-            if parent_widget and self._event_filter_target != parent_widget:
-                if self._event_filter_target:
-                    self._event_filter_target.removeEventFilter(self)
-                parent_widget.installEventFilter(self)
-                self._event_filter_target = parent_widget
-                log_debug(f"已安装事件过滤器到父窗口: {parent_widget.__class__.__name__}", "OCR层")
+            # 🚀 优化：不调用raise_()避免掉帧，直接显示
+            # OCR层会接收事件，在事件处理中判断是否需要ignore
+            if not self.isVisible():
+                self.show()
+                log_debug("显示OCR文字层", "OCR层")
 
     def recalculate_char_positions(self):
         """
@@ -235,9 +214,13 @@ class OCRTextLayer(QWidget):
 
     def _is_pos_on_text(self, pos: QPoint) -> bool:
         """给定本地坐标，判断是否在文字块扩展范围内"""
+        if not self.text_items:
+            return False
+        
         scale_x, scale_y = self.get_scale_factors()
         for idx, item in enumerate(self.text_items):
             if item.contains(pos, scale_x, scale_y, self.original_width, self.original_height):
+                # log_debug(f"鼠标在文字块 {idx} 上: {item.text[:10]}...", "OCR层")
                 return True
         return False
     
@@ -455,17 +438,14 @@ class OCRTextLayer(QWidget):
             selection_rect = QRect(x1, rect.y(), x2 - x1, rect.height())
             painter.fillRect(selection_rect, selection_color)
     
-    def eventFilter(self, obj, event):
-        """事件过滤器：保留用于特殊情况，但主要逻辑已移到直接的鼠标事件处理中"""
-        # 主要的鼠标事件处理现在在 mousePressEvent/mouseMoveEvent 中
-        # 这里只保留作为备用
-        return False  # 不拦截，让事件继续传递
-    
     def mousePressEvent(self, event):
         """鼠标按下事件 - Word 风格点击设置光标"""
+        log_debug(f"OCR层收到鼠标按下: active={self._is_active()}, button={event.button()}", "OCR层")
+        
         if not self._is_active() or event.button() != Qt.MouseButton.LeftButton:
             # 透传给父窗口
             event.ignore()
+            log_debug("OCR层不活跃或非左键，传递事件", "OCR层")
             return
         
         pos = event.pos()
@@ -488,6 +468,8 @@ class OCRTextLayer(QWidget):
         
         # 检查是否点击在文字上
         item_idx, char_idx = self._get_char_at_pos(pos, strict=True)
+        
+        log_debug(f"点击位置: {pos}, 检测结果: item_idx={item_idx}, char_idx={char_idx}", "OCR层")
         
         if item_idx is None:
             # 点击在空白处：清除选择并透传给父窗口（允许拖动钉图）
@@ -750,9 +732,6 @@ class OCRTextLayer(QWidget):
     
     def cleanup(self):
         """清理资源"""
-        # 移除事件过滤器
-        self._detach_event_filter()
-        
         # 清除文字块
         self.text_items.clear()
         
