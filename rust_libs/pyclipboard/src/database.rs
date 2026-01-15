@@ -95,13 +95,18 @@ impl Database {
         let now = chrono::Local::now().timestamp();
         let char_count = item.content.chars().count() as i64;
         
-        // 检查重复：同时比较 content 和 html_content，只有两者都相同才算重复
-        // 这样从不同来源复制相同文本但格式不同时，会保存为不同的记录
-        let existing_id: Option<i64> = self.conn.query_row(
-            "SELECT id FROM clipboard WHERE content = ?1 AND content_type = ?2 AND (html_content IS ?3 OR (html_content IS NULL AND ?3 IS NULL)) ORDER BY created_at DESC LIMIT 1",
-            params![&item.content, &item.content_type, &item.html_content],
-            |row| row.get(0)
-        ).ok();
+        // 检查重复：
+        // 1. 如果有 title（收藏内容），则不去重，允许相同内容不同标题的多条记录
+        // 2. 如果没有 title（剪贴板历史），则去重：同时比较 content 和 html_content
+        let existing_id: Option<i64> = if item.title.is_none() {
+            self.conn.query_row(
+                "SELECT id FROM clipboard WHERE content = ?1 AND content_type = ?2 AND (html_content IS ?3 OR (html_content IS NULL AND ?3 IS NULL)) AND title IS NULL ORDER BY created_at DESC LIMIT 1",
+                params![&item.content, &item.content_type, &item.html_content],
+                |row| row.get(0)
+            ).ok()
+        } else {
+            None  // 有 title 的不去重
+        };
         
         if let Some(id) = existing_id {
             // 内容完全相同，只更新顺序和时间，让它排到最前面

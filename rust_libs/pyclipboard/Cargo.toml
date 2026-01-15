@@ -1,6 +1,6 @@
 [package]
 name = "pyclipboard"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "Python 剪贴板管理库（Rust 实现）"
 authors = ["Your Name"]
