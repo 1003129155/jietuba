@@ -19,7 +19,11 @@
   - スマートウィンドウ/コントロール認識
   - マルチモニター対応
   - 全画面スクリーンショット
-
+  - 
+- **🎯 クリックボード管理**
+  - ホットキースクリーンショット（デフォルト Ctrl+2）
+  - 定型文、クリックボード歴史などを保存できる
+    
 - **🎨 豊富な編集ツール**
   - ペン：自由描画　--shift押しながら直線
   - 直線/矢印：正確な注釈
@@ -51,14 +55,10 @@
 ①仮想環境に必要なパッケージを全部pip installする
 
 ②仮想環境に自作のRUSTパッケージをpip install
-pip install jietuba_rust-0.3.0-cp39-cp39-win_amd64.whl  
+XXXXX.whl　ファイル 三つある、全部install
 
 ③仮想環境にインストールした、rapidocrにあるデフォルトOCRモデルを入れ替える
 
-venv/Lib/site-packages/rapidocr/
-├── default_models.yaml    
-├── config.yaml            
-└── models/                # 🔥 このファイルを全部入れ替える（用意している）
 
 
 ④python main_app.py
