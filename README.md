@@ -28,7 +28,11 @@
 - **🎯 截图**
   - 快捷键截图（默认 `Ctrl + 1`）
   - 多显示器支持 多屏合成，多dpi支持
-
+  - 
+- **🎯 剪切板管理**
+  - 快捷键截图（默认 `Ctrl + 2`）
+  - 截图的内容可以留存历史,随时换出面板来选择黏贴
+ 
 - **🎨 丰富的编辑工具**
   - 画笔：自由绘制（按住 `Shift` 可画直线）
   - 直线 / 箭头
@@ -45,8 +49,8 @@
   - 支持截图时候编辑的内容基础上再次编辑
 
 - **🔤 OCR 文字识别（可以直接翻译）**
-  - 基于 **RapidOCR**（无需联网）
-  - 支持中文 / 英文 / 日文（可以自己替换模型文件支持更多语言）
+  - 基于 **oneOCR**（无需下载,windows自带的）
+  - 支持100多种语言
   - OCR 文本直接从钉图上复制
   - 翻译接口基于deepl免费版
 
@@ -64,17 +68,10 @@
 ```bash
 pip install -r requirements_with_ocr.txt
 
-② 安装长截图拼接算法
-pip install jietuba_rust-0.3.0-cp39-cp39-win_amd64.whl --文件里有
-
-③ 替换 RapidOCR 默认模型
-
-将以下目录中的 models 文件夹整体替换为项目提供的模型文件：
-
-venv/Lib/site-packages/rapidocr/
-├── default_models.yaml
-├── config.yaml
-└── models/        # 🔥 整个目录替换
+② 安装自制包
+pip install pyclipboard-0.2.1-cp39-cp39-win_amd64.whl --文件里有
+pip install longstitch-0.3.0-cp39-cp39-win_amd64.whl  --文件里有
+pip install windows_media_ocr-0.1.0-cp39-cp39-win_amd64.whl --文件里有
 
 ④ 启动程序
 python main_app.py
