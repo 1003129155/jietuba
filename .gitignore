@@ -1,0 +1,42 @@
+# =======================
+# Python 中间产物
+# =======================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# 虚拟环境
+venv*/
+.venv/
+env/
+
+# 打包 / 分发
+dist/
+build/
+*.egg-info/
+*.egg
+
+# pytest 缓存
+.pytest_cache/
+.coverage
+htmlcov/
+
+# mypy
+.mypy_cache/
+
+# =======================
+# Rust 编译产物
+# =======================
+rust_libs/target/
+
+# =======================
+# 操作系统 / IDE
+# =======================
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo

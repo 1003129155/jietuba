@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="32" viewBox="0 0 128 32">
+  <!-- 左细右粗的箭柄（左侧≈1px） -->
+  <path
+    d="M4 15.5
+       L104 12
+       L104 20
+       L4 16.5
+       Z"
+    fill="#111"/>
+
+  <!-- 加宽的箭头 -->
+  <polygon
+    points="104,4 124,16 104,28"
+    fill="#111"/>
+</svg>
