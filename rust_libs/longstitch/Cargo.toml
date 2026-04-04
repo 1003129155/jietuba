@@ -1,0 +1,13 @@
+[package]
+name = "longstitch"
+version = "0.3.8"
+edition = "2021"
+
+[lib]
+name = "longstitch"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.22", features = ["extension-module"] }
+image = "0.24"
+rayon = "1.7"

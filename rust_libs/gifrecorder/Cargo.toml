@@ -1,0 +1,31 @@
+[package]
+name = "gifrecorder"
+version = "0.2.1"
+edition = "2021"
+description = "GIF screen recording: capture → JPEG compress → store → decode → GIF export"
+
+[lib]
+name = "gifrecorder"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.22", features = ["extension-module"] }
+
+# JPEG 编解码 (纯 Rust, 无需 NASM / libjpeg-turbo)
+jpeg-encoder = "0.6"
+
+# GIF 低层编码（帧差分 + NeuQuant 量化）
+gif = "0.13"
+color_quant = "1.1"
+
+# 图像处理 + JPEG 解码 (zune-jpeg)
+image = { version = "0.25", default-features = false, features = ["jpeg"] }
+
+# 高质量快速 resize
+fast_image_resize = "5"
+
+# 并行帧处理
+rayon = "1.7"
+
+# 有界 channel (decoder ↔ Python)
+crossbeam-channel = "0.5"

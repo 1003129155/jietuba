@@ -1,0 +1,32 @@
+[package]
+name = "windows_media_ocr"
+version = "0.3.1"
+edition = "2021"
+authors = ["MoSheng"]
+description = "Windows OCR API wrapper for Rust and Python (含 oneocr.dll 高精度引擎)"
+
+[lib]
+name = "windows_media_ocr"
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.22", features = ["extension-module"] }
+
+windows = { version = "0.58", features = [
+    "Media_Ocr",
+    "Graphics_Imaging",
+    "Storage",
+    "Storage_Streams",
+    "Foundation",
+    "Foundation_Collections",
+    "Globalization",
+    "Win32_System_WinRT",
+    "Win32_System_LibraryLoader",
+] }
+serde.workspace = true
+serde_json.workspace = true
+
+# oneocr.dll 动态加载
+libloading = "0.8"
+# 图像解码 (PNG/JPG/BMP → BGRA 像素)
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp"] }

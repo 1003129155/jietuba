@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"
+     viewBox="8 12 48 42" fill="none">
+  <!-- White background for camera area -->
+  <rect x="10" y="14" width="44" height="36" rx="6" fill="white"/>
+  <!-- Camera body -->
+  <rect x="10" y="20" width="44" height="30" rx="6"
+        stroke="currentColor" stroke-width="3"/>
+  <!-- Top hump / viewfinder -->
+  <path d="M18 20 L22 14 H36 L40 20"
+        stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+  <!-- Lens outer -->
+  <circle cx="32" cy="35" r="10" stroke="currentColor" stroke-width="3"/>
+  <!-- Lens inner -->
+  <circle cx="32" cy="35" r="4" stroke="currentColor" stroke-width="3"/>
+  <!-- Shutter/flash indicator -->
+  <circle cx="48" cy="28" r="2" fill="currentColor"/>
+</svg>

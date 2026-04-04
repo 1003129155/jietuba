@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="32" viewBox="0 0 128 32">
+  <!-- 中间等粗直杆（6px） -->
+  <rect
+    x="24"
+    y="13"
+    width="80"
+    height="6"
+    fill="#111"/>
+
+  <!-- 左箭头（加宽加高） -->
+  <polygon
+    points="24,4 4,16 24,28"
+    fill="#111"/>
+
+  <!-- 右箭头（加宽加高） -->
+  <polygon
+    points="104,4 124,16 104,28"
+    fill="#111"/>
+</svg>
