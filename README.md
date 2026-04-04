@@ -72,7 +72,7 @@ python main_app.py
 ---
 
 ## 目录结构总览
-![jietuba_gif_20260404_000903](https://github.com/user-attachments/assets/5318b991-b0de-46a2-9c0e-d75eeae2a827)
+
 ```
 # 项目根目录
 ├── gifrecorder-0.2.1-cp311-cp311-win_amd64.whl       # GIF录制 Rust 预编译包
