@@ -72,7 +72,7 @@ python main_app.py
 ---
 
 ## Directory Structure
-![jietuba_gif_20260404_000903](https://github.com/user-attachments/assets/5318b991-b0de-46a2-9c0e-d75eeae2a827)
+
 ```
 # Project root
 ├── gifrecorder-0.2.1-cp311-cp311-win_amd64.whl       # GIF recorder Rust pre-built package
