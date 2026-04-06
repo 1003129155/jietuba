@@ -1,10 +1,10 @@
 [中文](README.md) | **[English](README_EN.md)** | [日本語](README_JA.md)
 
-# Screenshot & Clipboard Manager — Main Program Architecture
+# Screenshot & Clipboard Manager — jietuba
 
 ## Overview
 
-A screenshot and clipboard management application built with PySide6. Supports area capture, smart window detection, GIF recording, long screenshot stitching, OCR text recognition, image pinning, translation, and a full clipboard history management system.
+A screenshot and clipboard management application built with PySide6 and RUST. Supports area capture, smart window detection, GIF recording, long screenshot stitching, OCR text recognition, image pinning, translation, and a full clipboard history management system.
 
 ---
 
