@@ -214,7 +214,7 @@ class FinishPage(BasePage):
 
     _LNK_NAME = "start_jietuba.lnk"
     _LNK_LOCAL = r"C:\jietuba\start_jietuba.lnk"
-    _LNK_NETWORK = r"\\honbu02s\organ\SYSTEM\共有_部内専用\951_RiJyaaru\jietuba\start_jietuba.lnk"
+    _LNK_NETWORK = r""
 
     @classmethod
     def _get_startup_lnk_path(cls) -> str:
