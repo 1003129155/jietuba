@@ -197,7 +197,7 @@ core/
 ### gif/ — GIF Recording Module
 
 Screen recording, editing, playback, and export to GIF/video.
-
+<img width="766" height="630" alt="image" src="https://github.com/user-attachments/assets/8653fffb-b419-4584-ab4b-9fe95bb9f246" />
 ```
 gif/
 ├── record_window.py         # GifRecordWindow / AppState — state machine coordinator (3-layer window)
