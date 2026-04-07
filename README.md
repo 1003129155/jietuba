@@ -1,6 +1,7 @@
 **[中文](README.md)** | [English](README_EN.md) | [日本語](README_JA.md)
 
 # 截图 & 剪切板管理软件 — 截图吧
+![jietuba_gif_20260404_000903](https://github.com/user-attachments/assets/5318b991-b0de-46a2-9c0e-d75eeae2a827)
 
 ## 项目简介
 
@@ -115,7 +116,6 @@ python main_app.py
 ### canvas/ — 画布模块
 
 图形编辑画布系统，提供场景管理、视图渲染、图形项选择和撤销/重做功能。
-![jietuba_gif_20260404_000903](https://github.com/user-attachments/assets/5318b991-b0de-46a2-9c0e-d75eeae2a827)
 
 ```
 canvas/
