@@ -196,7 +196,7 @@ core/
 ### gif/ — GIF録画モジュール
 
 画面録画、編集、再生、GIF/動画エクスポート。
-
+<img width="766" height="630" alt="image" src="https://github.com/user-attachments/assets/8653fffb-b419-4584-ab4b-9fe95bb9f246" />
 ```
 gif/
 ├── record_window.py         # GifRecordWindow / AppState — ステートマシンコーディネーター（3層ウィンドウ）
