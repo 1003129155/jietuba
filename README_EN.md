@@ -408,15 +408,3 @@ tests/
 ├── test_tool_settings.py    # Tool settings tests
 └── test_tools_base.py       # Tool base class tests
 ```
-
----
-
-## Tech Stack
-
-- **GUI Framework:** PySide6 (Qt 6)
-- **Languages:** Python 3.11 + Rust (performance-critical modules)
-- **OCR Engines:** Windows Media OCR / oneocr (via Rust FFI)
-- **Translation API:** DeepL
-- **Build Tools:** PyInstaller / Nuitka
-- **i18n:** Custom XML translation system
-- **Testing:** pytest
