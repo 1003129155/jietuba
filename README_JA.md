@@ -408,14 +408,3 @@ tests/
 └── test_tools_base.py       # ツール基底クラステスト
 ```
 
----
-
-## 技術スタック
-
-- **GUIフレームワーク：** PySide6 (Qt 6)
-- **言語：** Python 3.11 + Rust（パフォーマンスクリティカルなモジュール）
-- **OCRエンジン：** Windows Media OCR / oneocr（Rust FFI経由）
-- **翻訳API：** DeepL
-- **ビルドツール：** PyInstaller / Nuitka
-- **国際化：** カスタムXML翻訳システム
-- **テスト：** pytest
