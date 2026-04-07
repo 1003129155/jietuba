@@ -220,6 +220,8 @@ gif/
 
 Multi-engine text recognition management.
 
+<img width="580" height="505" alt="image" src="https://github.com/user-attachments/assets/60a16100-5edc-4543-9a35-daf05b1e244e" />
+
 ```
 ocr/
 └── ocr_manager.py           # OCRManager — Windows Media OCR + oneocr dual engine
@@ -234,6 +236,8 @@ ocr/
 ### pin/ — Pin Module
 
 Pin screenshots on screen with editing, zoom, OCR, and translation.
+
+<img width="737" height="657" alt="image" src="https://github.com/user-attachments/assets/827b912c-11ac-4692-b3f6-826561957615" />
 
 ```
 pin/
