@@ -219,6 +219,8 @@ gif/
 
 マルチエンジン文字認識管理。
 
+<img width="580" height="505" alt="image" src="https://github.com/user-attachments/assets/60a16100-5edc-4543-9a35-daf05b1e244e" />
+
 ```
 ocr/
 └── ocr_manager.py           # OCRManager — Windows Media OCR + oneocr デュアルエンジン
@@ -233,6 +235,8 @@ ocr/
 ### pin/ — ピンモジュール
 
 スクリーンショットを画面にピン留め。編集、ズーム、OCR、翻訳対応。
+
+<img width="737" height="657" alt="image" src="https://github.com/user-attachments/assets/827b912c-11ac-4692-b3f6-826561957615" />
 
 ```
 pin/
