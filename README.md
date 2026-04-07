@@ -531,13 +531,3 @@ tests/
 | `windows_media_ocr` | Windows Media OCR 引擎封装 |
 
 ---
-
-## 技术栈
-
-- **GUI框架：** PySide6 (Qt 6)
-- **语言：** Python 3.11 + Rust
-- **OCR引擎：** Windows Media OCR / oneocr（通过 Rust FFI）
-- **翻译API：** DeepL
-- **构建工具：** PyInstaller / Nuitka
-- **国际化：** 自定义 XML 翻译系统
-- **测试框架：** pytest
