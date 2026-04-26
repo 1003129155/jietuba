@@ -9,11 +9,11 @@ import ctypes
 from dataclasses import dataclass, field
 from typing import Optional, List, Callable, Tuple
 from time import perf_counter
-from PySide6.QtCore import QObject, Signal, QTimer
+from PySide6.QtCore import QObject, Signal, QTimer, Qt
 from ui.dialogs import show_confirm_dialog
 
 from .data_manager import ClipboardManager, ClipboardItem, Group
-from .data_setting import get_manage_dialog
+from .data_setting import get_manage_dialog, get_existing_manage_dialog
 from core.logger import log_debug, log_info, log_error, log_exception
 
 
@@ -409,10 +409,18 @@ class ClipboardController(QObject):
         """
         # 显示确认对话框
         if parent_widget:
+            title = parent_widget.tr("Confirm Delete") if hasattr(parent_widget, "tr") else "Confirm Delete"
+            if hasattr(parent_widget, "tr"):
+                message = "\n".join([
+                    parent_widget.tr("Are you sure you want to delete this group?"),
+                    parent_widget.tr("All items in the group will also be deleted."),
+                ])
+            else:
+                message = "Are you sure you want to delete this group?\nAll items in the group will also be deleted."
             reply = show_confirm_dialog(
                 parent_widget,
-                "Confirm Delete",
-                "Are you sure you want to delete this group?\nAll items in the group will also be deleted."
+                title,
+                message
             )
             if not reply:
                 return False
@@ -422,6 +430,9 @@ class ClipboardController(QObject):
             # 如果当前正在显示被删除的分组，切换到剪切板
             if self.current_group_id == group_id:
                 self.current_group_id = None
+            dialog = get_existing_manage_dialog()
+            if dialog is not None:
+                dialog.refresh_after_external_change(deleted_group_id=group_id)
             self.reload_required.emit()
             return True
         return False
@@ -562,14 +573,11 @@ class ClipboardController(QObject):
                                      group_added_callback=None,
                                      data_changed_callback=None):
         """打开管理窗口并定位到分组编辑"""
-        from core.qt_utils import safe_disconnect
         dialog = get_manage_dialog(self.manager)
         if group_added_callback:
-            safe_disconnect(dialog.group_added, group_added_callback)
-            dialog.group_added.connect(group_added_callback)
+            dialog.group_added.connect(group_added_callback, Qt.ConnectionType.UniqueConnection)
         if data_changed_callback:
-            safe_disconnect(dialog.data_changed, data_changed_callback)
-            dialog.data_changed.connect(data_changed_callback)
+            dialog.data_changed.connect(data_changed_callback, Qt.ConnectionType.UniqueConnection)
         dialog.open_group_editor(group_id)
         return dialog
 
@@ -577,14 +585,11 @@ class ClipboardController(QObject):
                                     group_added_callback=None,
                                     data_changed_callback=None):
         """打开管理窗口并定位到内容编辑"""
-        from core.qt_utils import safe_disconnect
         dialog = get_manage_dialog(self.manager)
         if group_added_callback:
-            safe_disconnect(dialog.group_added, group_added_callback)
-            dialog.group_added.connect(group_added_callback)
+            dialog.group_added.connect(group_added_callback, Qt.ConnectionType.UniqueConnection)
         if data_changed_callback:
-            safe_disconnect(dialog.data_changed, data_changed_callback)
-            dialog.data_changed.connect(data_changed_callback)
+            dialog.data_changed.connect(data_changed_callback, Qt.ConnectionType.UniqueConnection)
         dialog.open_item_editor(item_id, group_id)
         return dialog
     

@@ -39,7 +39,7 @@ except ImportError:
     _l = logging.getLogger("GIF")
     log_debug = log_info = _l.info
 
-from core.shortcut_manager import ShortcutManager, ShortcutHandler
+from core.shortcut_manager import ShortcutManager, ShortcutHandler, load_inapp_bindings
 from core import safe_event
 
 
@@ -214,6 +214,7 @@ class GifDrawingShortcutHandler(ShortcutHandler):
 
     def __init__(self, view: 'GifDrawingView'):
         self._view = view
+        self._bindings = load_inapp_bindings(["inapp_delete"])
 
     @property
     def priority(self) -> int:
@@ -230,6 +231,13 @@ class GifDrawingShortcutHandler(ShortcutHandler):
         except RuntimeError:
             return False
 
+    def _match(self, event, cfg_key: str) -> bool:
+        binding = self._bindings.get(cfg_key)
+        if not binding:
+            return False
+        want_key, want_mods = binding
+        return event.key() == want_key and event.modifiers() == want_mods
+
     def handle_key(self, event) -> bool:
         v = self._view
         if event.key() == Qt.Key.Key_Escape:
@@ -242,6 +250,11 @@ class GifDrawingShortcutHandler(ShortcutHandler):
             if event.key() == Qt.Key.Key_Y:
                 v._gif_scene.undo_stack.redo()
                 return True
+        # 删除选中图元
+        if self._match(event, "inapp_delete"):
+            if hasattr(v, 'smart_edit_controller'):
+                v.smart_edit_controller.delete_selected()
+            return True
         return False
 
 

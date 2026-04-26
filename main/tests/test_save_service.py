@@ -7,6 +7,7 @@ SaveService 路径生成逻辑单元测试
 import pytest
 import os
 from unittest.mock import MagicMock
+from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QApplication
 
 
@@ -107,4 +108,29 @@ class TestGetDefaultDirectory:
         """应返回字符串"""
         result = save_service.get_default_directory()
         assert isinstance(result, str)
+
+
+class TestSaveQImage:
+    """save_qimage 测试"""
+
+    def test_save_qimage_writes_file(self, save_service, tmp_path):
+        image = QImage(16, 12, QImage.Format.Format_ARGB32)
+        image.fill(0xFF336699)
+
+        success, path = save_service.save_qimage(
+            image,
+            directory=str(tmp_path),
+            prefix="sync",
+            image_format="PNG",
+        )
+
+        assert success is True
+        assert path is not None
+        assert os.path.exists(path)
+
+    def test_save_qimage_rejects_null_image(self, save_service):
+        success, path = save_service.save_qimage(QImage())
+
+        assert success is False
+        assert path is None
  

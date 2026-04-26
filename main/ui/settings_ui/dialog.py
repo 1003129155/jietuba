@@ -86,12 +86,6 @@ class SettingsDialog(FramelessDialog):
         title_bar.maxBtn.hide()
         title_bar.setDoubleClickEnabled(False)
 
-        # PySide6 的 QSS qproperty-* 对 Python Property() 不生效（PyQt 下正常），
-        # 导致 fluent_window.qss 中 "qproperty-normalColor: white" 从未应用，
-        # 按钮图标在暗色主题下默认黑色 → 几乎不可见。手动补齐 QSS 本应设置的属性。
-        title_bar.closeBtn.setNormalColor(QColor(255, 255, 255))
-        title_bar.minBtn.setNormalColor(QColor(255, 255, 255))
-
         # 设置窗口图标
         try:
             from core.resource_manager import ResourceManager

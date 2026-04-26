@@ -204,6 +204,7 @@ class PreviewPanel(QWidget):
             print(f"[OK] PreviewPanel 已设置为鼠标穿透模式")
         except Exception as e:
             print(f"[WARN] 设置 PreviewPanel 鼠标穿透失败: {e}")
+        self._capture_excluded = False
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
@@ -251,6 +252,23 @@ class PreviewPanel(QWidget):
         )
         self.warning_icon.move(self.preview_label.width() - self.warning_icon.width() - 10, 10)
         self.warning_icon.hide()
+
+    def set_capture_excluded(self, exclude: bool):
+        """根据是否与截图区域重叠，设置截图排除"""
+        if exclude == self._capture_excluded:
+            return
+        try:
+            from core.platform_utils import set_window_exclude_from_capture
+            set_window_exclude_from_capture(int(self.winId()), exclude)
+            self._capture_excluded = exclude
+        except Exception:
+            pass
+
+    def closeEvent(self, event):
+        """关闭时还原截图排除"""
+        if self._capture_excluded:
+            self.set_capture_excluded(False)
+        super().closeEvent(event)
 
     def _set_placeholder(self, scroll_direction="vertical", screenshot_count=0):
         self.preview_label.clear()
@@ -1202,10 +1220,22 @@ class ScrollCaptureWindow(QWidget):
         similarity = 1 - (diff_bits / len(hash1))
         
         return similarity >= self.duplicate_threshold
+
+    def _exclude_overlapping_ui(self, exclude: bool):
+        """检测 UI 窗口是否与截图区域重叠，按需排除/恢复截图捕获"""
+        from core.platform_utils import set_window_exclude_from_capture
+        for widget in (getattr(self, 'toolbar', None), getattr(self, 'preview_panel', None)):
+            if widget is None or not widget.isVisible():
+                continue
+            widget_rect = QRect(widget.x(), widget.y(), widget.width(), widget.height())
+            if widget_rect.intersects(self.capture_rect):
+                set_window_exclude_from_capture(int(widget.winId()), exclude)
     
     def _do_capture(self):
         """执行截图并实时拼接"""
         stitch_successful = True
+        # 截图前：排除与截图区域重叠的 UI 窗口
+        self._exclude_overlapping_ui(True)
         try:
             current_count = len(self.screenshots) + 1
             
@@ -1354,6 +1384,9 @@ class ScrollCaptureWindow(QWidget):
             print(f"[ERROR] 截图时出错: {e}", force=True)
             import traceback
             traceback.print_exc()
+        finally:
+            # 截图完成：恢复 UI 窗口可被截图
+            self._exclude_overlapping_ui(False)
     
     @safe_event
     def paintEvent(self, event):

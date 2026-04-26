@@ -10,9 +10,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QWidget, QGraphicsOpacityEffect,
     QFileDialog, QSizePolicy,
 )
-from PySide6.QtCore import Qt, QSize, QTimer, QPropertyAnimation, QEasingCurve, QCoreApplication
+from PySide6.QtCore import Qt, QSize, QTimer, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QPen
 from qfluentwidgets import PushButton, FluentIcon, LineEdit
+from core.i18n import make_tr
 
 if __package__:
     from .base_page import BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND, BG_ILLUS
@@ -22,8 +23,7 @@ else:
     from base_page import BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND, BG_ILLUS
 
 
-def _tr(s):
-    return QCoreApplication.translate("WelcomeWizard", s) or s
+_tr = make_tr("WelcomeWizard")
 
 
 # ── 工具列表：(svg路径, 中文名key, 中文描述key)
@@ -77,7 +77,7 @@ _TOOL_ZH = {
 
 
 def _tool_text(key: str) -> str:
-    translated = QCoreApplication.translate("WelcomeWizard", key)
+    translated = _tr(key)
     if translated and translated != key:
         return translated
     return _TOOL_ZH.get(key, key)

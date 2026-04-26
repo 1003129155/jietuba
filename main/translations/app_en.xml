@@ -284,6 +284,10 @@ Replace it?</translation>
         <translation>Redo</translation>
     </message>
     <message>
+        <source>Delete Selected</source>
+        <translation>Delete Selected</translation>
+    </message>
+    <message>
         <source>Copy Pinned Image</source>
         <translation>Copy Pinned Image</translation>
     </message>
@@ -524,8 +528,8 @@ Replace it?</translation>
         <translation>Launch on Startup</translation>
     </message>
     <message>
-        <source>Copy shortcut to Windows Startup folder.</source>
-        <translation>Copy shortcut to Windows Startup folder.</translation>
+        <source>Register in Windows startup via registry.</source>
+        <translation>Register in Windows startup via registry.</translation>
     </message>
     <message>
         <source>Show Main Window on Startup</source>
@@ -1215,6 +1219,14 @@ Replace it?</translation>
         <translation>Confirm Delete</translation>
     </message>
     <message>
+        <source>Are you sure you want to delete this group?</source>
+        <translation>Are you sure you want to delete this group?</translation>
+    </message>
+    <message>
+        <source>All items in the group will also be deleted.</source>
+        <translation>All items in the group will also be deleted.</translation>
+    </message>
+    <message>
         <source>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</source>
         <translation>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</translation>
     </message>
@@ -1416,6 +1428,10 @@ Replace it?</translation>
         <translation>Please enter group name</translation>
     </message>
     <message>
+        <source>A group with this name already exists</source>
+        <translation>A group with this name already exists</translation>
+    </message>
+    <message>
         <source>Failed</source>
         <translation>Failed</translation>
     </message>
@@ -1450,6 +1466,22 @@ Replace it?</translation>
     <message>
         <source>Failed to delete group</source>
         <translation>Failed to delete group</translation>
+    </message>
+    <message>
+        <source>Confirm Delete</source>
+        <translation>Confirm Delete</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete this group?</source>
+        <translation>Are you sure you want to delete this group?</translation>
+    </message>
+    <message>
+        <source>All items in the group will also be deleted.</source>
+        <translation>All items in the group will also be deleted.</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</source>
+        <translation>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
@@ -1842,10 +1874,10 @@ Replace it?</translation>
     </message>
     <message>
         <source>一款轻巧的屏幕截图与剪贴板管理工具，
-由独立开发者用 Python + PyQt6 打造。
+由rijyaaru用 Python + PySide6 打造。
 先选好语言，再开始探索吧！</source>
         <translation>A lightweight screenshot &amp; clipboard tool,
-built with Python + PyQt6.
+crafted by rijyaaru with Python + PySide6.
 Pick your language and let's get started!</translation>
     </message>
     <message>
@@ -2016,8 +2048,8 @@ Pick your language and let's get started!</translation>
         <translation>Toolbar at the top</translation>
     </message>
     <message>
-        <source>📋 剪贴板管理</source>
-        <translation>📋 Clipboard Manager</translation>
+        <source>剪贴板管理</source>
+        <translation>Clipboard Manager</translation>
     </message>
     <message>
         <source>自动记录每一次复制，随时召唤历史内容。
@@ -2039,8 +2071,8 @@ Supports text, images, files and groups.</translation>
     </message>
     <!-- page4 -->
     <message>
-        <source>🎯 智能选区</source>
-        <translation>🎯 Smart Selection</translation>
+        <source>智能选区</source>
+        <translation>Smart Selection</translation>
     </message>
     <message>
         <source>截图时将鼠标悬停在任意窗口上，自动识别并高亮其边界。
@@ -2070,8 +2102,8 @@ Off: use manual drag-to-select mode.</translation>
 Free tier: 500K characters/month.</translation>
     </message>
     <message>
-        <source>🔑 DeepL API Key</source>
-        <translation>🔑 DeepL API Key</translation>
+        <source>DeepL API Key</source>
+        <translation>DeepL API Key</translation>
     </message>
     <message>
         <source>留空则使用免费公共接口</source>
@@ -2283,6 +2315,70 @@ SOFTWARE.</translation></message>
     <message><source>Save Format</source><translation>Save Format</translation></message>
     <message><source>OCR</source><translation>OCR</translation></message>
     <message><source>Keep original text formatting</source><translation>Keep original text formatting</translation></message>
+</context>
+
+<context>
+    <name>GroupBar</name>
+    <message>
+        <source>Clipboard History</source>
+        <translation>Clipboard History</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>More groups ({n})</source>
+        <translation>More groups ({n})</translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation>Edit</translation>
+    </message>
+    <message>
+        <source>Move Up</source>
+        <translation>Move Up</translation>
+    </message>
+    <message>
+        <source>Move Down</source>
+        <translation>Move Down</translation>
+    </message>
+    <message>
+        <source>Delete Group</source>
+        <translation>Delete Group</translation>
+    </message>
+    <message>
+        <source>Confirm Delete</source>
+        <translation>Confirm Delete</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete this group?</source>
+        <translation>Are you sure you want to delete this group?</translation>
+    </message>
+    <message>
+        <source>All items in the group will also be deleted.</source>
+        <translation>All items in the group will also be deleted.</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</source>
+        <translation>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</translation>
+    </message>
+</context>
+
+<context>
+    <name>StandardDialog</name>
+    <message>
+        <source>Yes</source>
+        <translation>Yes</translation>
+    </message>
+    <message>
+        <source>No</source>
+        <translation>No</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
 </context>
 
 </TS>

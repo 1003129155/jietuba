@@ -13,6 +13,7 @@ from PySide6.QtGui import (
     QLinearGradient, QPainterPath, QBrush, QRadialGradient
 )
 from core import safe_event
+from core.i18n import make_tr
 
 if __package__:
     from .base_page import BasePage, IllustrationArea, ToggleSwitch, ACCENT, TEXT_PRIMARY, TEXT_SECOND, BG_ILLUS
@@ -20,6 +21,9 @@ else:
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from base_page import BasePage, IllustrationArea, ToggleSwitch, ACCENT, TEXT_PRIMARY, TEXT_SECOND, BG_ILLUS
+
+
+_tr = make_tr("WelcomeWizard")
 
 
 # ── 插画区 ──────────────────────────────────────────────
@@ -375,17 +379,14 @@ class SmartSelectPage(BasePage):
         layout.addWidget(row1)
 
     def retranslate(self):
-        from PySide6.QtCore import QCoreApplication
-        def tr(s): return QCoreApplication.translate("WelcomeWizard", s) or s
-
-        self.title_label.setText(tr("智能选区"))
-        self.subtitle_label.setText(tr(
+        self.title_label.setText(_tr("智能选区"))
+        self.subtitle_label.setText(_tr(
             "截图时将鼠标悬停在任意窗口上，自动识别并高亮其边界。\n"
             "单击即可精准截取该窗口；也可以像平时一样拖拽框选任意区域。"))
         if hasattr(self, "_row1_lbl") and self._row1_lbl:
-            self._row1_lbl.setText(tr("🪟 启用智能选区"))
+            self._row1_lbl.setText(_tr("🪟 启用智能选区"))
         if hasattr(self, "_row1_desc") and self._row1_desc:
-            self._row1_desc.setText(tr(
+            self._row1_desc.setText(_tr(
                 "开启：悬停自动高亮窗口，单击即完成截取。\n"
                 "关闭：恢复手动拖拽框选模式。"))
 

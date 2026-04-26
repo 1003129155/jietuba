@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtGui import QPainter, QColor, QPen, QFont
 from core import safe_event
+from core.i18n import make_tr
 
 if __package__:
     from .base_page import BasePage, IllustrationArea, ToggleSwitch, ACCENT, TEXT_PRIMARY, TEXT_SECOND
@@ -19,6 +20,9 @@ else:
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from base_page import BasePage, IllustrationArea, ToggleSwitch, ACCENT, TEXT_PRIMARY, TEXT_SECOND
+
+
+_tr = make_tr("WelcomeWizard")
 
 
 # ── 剪贴板动画组件（复用原样式代码） ────────────────────────
@@ -36,9 +40,7 @@ class _ClipAnim(QWidget):
         self._timer.start(16)
 
     def _refresh_items(self):
-        from PySide6.QtCore import QCoreApplication
-        def tr(s): return QCoreApplication.translate("WelcomeWizard", s) or s
-        self.ITEMS = [tr(k) for k in self._ITEM_KEYS]
+        self.ITEMS = [_tr(key) for key in self._ITEM_KEYS]
 
     def retranslate(self):
         self._refresh_items()
@@ -248,11 +250,9 @@ class _ToolbarPositionIllus(IllustrationArea):
         self._card_top.set_selected(mode == "top")
 
     def retranslate(self):
-        from PySide6.QtCore import QCoreApplication
-        def tr(s): return QCoreApplication.translate("WelcomeWizard", s) or s
-        self._title_lbl.setText(tr("请选择工具栏布局首选项"))
-        self._card_right._lbl.setText(tr("工具栏在右侧"))
-        self._card_top._lbl.setText(tr("工具栏在顶部"))
+        self._title_lbl.setText(_tr("请选择工具栏布局首选项"))
+        self._card_right._lbl.setText(_tr("工具栏在右侧"))
+        self._card_top._lbl.setText(_tr("工具栏在顶部"))
         self._card_right.retranslate()
         self._card_top.retranslate()
 
@@ -322,21 +322,18 @@ class ClipboardHotkeyPage(BasePage):
         layout.addWidget(self._hotkey2)
 
     def retranslate(self):
-        from PySide6.QtCore import QCoreApplication
-        def tr(s): return QCoreApplication.translate("WelcomeWizard", s) or s
-
-        self.title_label.setText(tr("剪贴板管理"))
-        self.subtitle_label.setText(tr(
+        self.title_label.setText(_tr("剪贴板管理"))
+        self.subtitle_label.setText(_tr(
             "自动记录每一次复制，随时召唤历史内容。\n"
             "支持文本、图片、文件，还能分组管理。"))
         if hasattr(self, "_row0_lbl") and self._row0_lbl:
-            self._row0_lbl.setText(tr("启用剪贴板管理"))
+            self._row0_lbl.setText(_tr("启用剪贴板管理"))
         if hasattr(self, "_row0_desc") and self._row0_desc:
-            self._row0_desc.setText(tr("关闭后不会记录复制内容，快捷键也不会激活窗口。"))
+            self._row0_desc.setText(_tr("关闭后不会记录复制内容，快捷键也不会激活窗口。"))
         if hasattr(self, "_hotkey_lbl") and self._hotkey_lbl:
-            self._hotkey_lbl.setText(tr("快捷键（最多设置两个）"))
+            self._hotkey_lbl.setText(_tr("快捷键（最多设置两个）"))
         if hasattr(self, "_hotkey_desc") and self._hotkey_desc:
-            self._hotkey_desc.setText(tr("程序还会尝试注册 Win+V 作为额外备用。"))
+            self._hotkey_desc.setText(_tr("程序还会尝试注册 Win+V 作为额外备用。"))
         # 级联刷新插画区（工具栏位置预览文字）
         if hasattr(self.illus_area, "retranslate"):
             self.illus_area.retranslate()

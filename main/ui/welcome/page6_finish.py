@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QVBoxLayout, QLabel, QWidget
 from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QPainter, QColor, QFont, QPen
 from core import safe_event
+from core.i18n import make_tr
 from core.logger import log_info, log_exception
 
 if __package__:
@@ -17,6 +18,9 @@ else:
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from base_page import BasePage, IllustrationArea, ToggleSwitch, ACCENT, TEXT_PRIMARY, TEXT_SECOND, BG_PAGE
+
+
+_tr = make_tr("WelcomeWizard")
 
 
 # ── 插画区：烟花 / 勾选动画 ─────────────────────────────
@@ -166,8 +170,8 @@ class FinishPage(BasePage):
     def __init__(self, config_manager, parent=None):
         self._config = config_manager
         super().__init__(
-            title=self.tr("🎉 一切就绪！"),
-            subtitle=self.tr(
+            title=_tr("🎉 一切就绪！"),
+            subtitle=_tr(
                 "你已完成基础设置，截图工具已准备好为你服务。\n"
                 "随时可以在设置面板调整更多选项。"),
             parent=parent,
@@ -182,9 +186,9 @@ class FinishPage(BasePage):
         self._autostart_switch.setChecked(self._get_autostart())
         row_auto, self._autostart_lbl, self._autostart_desc = \
             self._make_setting_row_with_refs(
-                self.tr("开机自启"),
+                _tr("开机自启"),
                 self._autostart_switch,
-                self.tr("开机后在检测更新后启动。")
+                _tr("开机后在检测更新后启动。")
             )
         layout.addWidget(row_auto)
 
@@ -193,9 +197,9 @@ class FinishPage(BasePage):
         self._show_main_switch.setChecked(self._config.get_show_main_window())
         row_show, self._show_main_lbl, self._show_main_desc = \
             self._make_setting_row_with_refs(
-                self.tr("启动时显示主界面"),
+                _tr("启动时显示主界面"),
                 self._show_main_switch,
-                self.tr("每次启动时自动打开设置面板。")
+                _tr("每次启动时自动打开设置面板。")
             )
         layout.addWidget(row_show)
 
@@ -204,9 +208,9 @@ class FinishPage(BasePage):
         self._desktop_switch.setChecked(True)  # 默认开启
         row_desktop, self._desktop_lbl, self._desktop_desc = \
             self._make_setting_row_with_refs(
-                self.tr("生成桌面快捷方式"),
+                _tr("生成桌面快捷方式"),
                 self._desktop_switch,
-                self.tr("完成向导时在桌面创建截图吧快捷方式。")
+                _tr("完成向导时在桌面创建截图吧快捷方式。")
             )
         layout.addWidget(row_desktop)
 
@@ -291,22 +295,22 @@ class FinishPage(BasePage):
             log_exception(e, "创建桌面快捷方式")
 
     def retranslate(self):
-        self.title_label.setText(self.tr("🎉 一切就绪！"))
-        self.subtitle_label.setText(self.tr(
+        self.title_label.setText(_tr("🎉 一切就绪！"))
+        self.subtitle_label.setText(_tr(
             "你已完成基础设置，截图工具已准备好为你服务。\n"
             "随时可以在设置面板调整更多选项。"))
         if hasattr(self, "_autostart_lbl") and self._autostart_lbl:
-            self._autostart_lbl.setText(self.tr("开机自启"))
+            self._autostart_lbl.setText(_tr("开机自启"))
         if hasattr(self, "_autostart_desc") and self._autostart_desc:
-            self._autostart_desc.setText(self.tr("开机后在检测更新后启动。"))
+            self._autostart_desc.setText(_tr("开机后在检测更新后启动。"))
         if hasattr(self, "_show_main_lbl") and self._show_main_lbl:
-            self._show_main_lbl.setText(self.tr("启动时显示主界面"))
+            self._show_main_lbl.setText(_tr("启动时显示主界面"))
         if hasattr(self, "_show_main_desc") and self._show_main_desc:
-            self._show_main_desc.setText(self.tr("每次启动时自动打开设置面板。"))
+            self._show_main_desc.setText(_tr("每次启动时自动打开设置面板。"))
         if hasattr(self, "_desktop_lbl") and self._desktop_lbl:
-            self._desktop_lbl.setText(self.tr("生成桌面快捷方式"))
+            self._desktop_lbl.setText(_tr("生成桌面快捷方式"))
         if hasattr(self, "_desktop_desc") and self._desktop_desc:
-            self._desktop_desc.setText(self.tr("完成向导时在桌面创建截图吧快捷方式。"))
+            self._desktop_desc.setText(_tr("完成向导时在桌面创建截图吧快捷方式。"))
 
     def save(self):
         """保存设置：标记向导完成 + 写入主界面偏好；

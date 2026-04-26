@@ -9,14 +9,14 @@ import ctypes
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem,
     QLineEdit, QPushButton, QLabel, QMenu, QApplication,
-    QFrame, QToolButton, QComboBox, QSizePolicy, QGraphicsOpacityEffect
+    QFrame, QToolButton, QComboBox, QSizePolicy
 )
-from PySide6.QtCore import Qt, Signal, QSize, QTimer, QPoint, QEvent, QSettings, QPropertyAnimation, QEasingCurve
+from PySide6.QtCore import Qt, Signal, QSize, QTimer, QPoint, QEvent, QSettings
 from PySide6.QtGui import QPixmap, QCursor, QColor
 from time import perf_counter
 
 from typing import Optional, List
-from .data_manager import ClipboardManager, ClipboardItem, Group
+from .data_manager import ClipboardManager, ClipboardItem
 from .data_setting import ManageDialog, get_manage_dialog
 from .preview_popup import PreviewPopup
 from .data_controller import ClipboardController, get_foreground_window, set_foreground_window, send_ctrl_v
@@ -25,6 +25,7 @@ from .frameless_mixin import FramelessMixin
 from .item_delegate import ClipboardItemDelegate, ROLE_ITEM_DATA, ROLE_ITEM_ID
 from .themes import get_theme_manager, Theme
 from .theme_styles import ThemeStyleGenerator
+from .group_bar import GroupBar
 from core.logger import log_debug, log_error, log_exception
 from core import safe_event
 from core.shortcut_manager import ShortcutManager, ShortcutHandler
@@ -118,6 +119,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
     item_pasted = Signal(int)  # 粘贴项信号
     closed = Signal()  # 关闭信号
     new_item_received = Signal()  # 新内容信号（用于外部触发刷新）
+    _offscreen_warmup_done = False
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -134,16 +136,13 @@ class ClipboardWindow(QWidget, FramelessMixin):
         
         # UI 状态相关
         self.selected_item_id: Optional[int] = None
-        self.group_buttons: List[QPushButton] = []
         self._is_loading = False  # UI 加载状态指示
-        self._sidebar_mode = False
-        self._sidebar_index = 0
-        self._sidebar_prev_item_id: Optional[int] = None
         # 管理窗口触发的数据变更：仅在窗口可见时刷新
         self._ignore_manage_refresh_when_hidden = True
         # 自动填充上限（滚动条未出现时最多自动加载的页数）
         self._auto_fill_max_pages = 3
         self._auto_fill_remaining = self._auto_fill_max_pages
+        self._offscreen_warmup_in_progress = False
         
         # 连接新内容信号到刷新方法
         self.new_item_received.connect(self._on_new_item)
@@ -179,6 +178,9 @@ class ClipboardWindow(QWidget, FramelessMixin):
         
         # 设置预览弹窗的管理器
         PreviewPopup.instance().set_manager(self.manager)
+
+        # 离屏弹出一次，预热窗口底层初始化（只执行一次）
+        self._warmup_offscreen_once()
     
     # ==================== 控制器信号处理 ====================
     
@@ -205,7 +207,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
     def _on_reload_required(self):
         """需要重新加载"""
         self.controller.load_history()
-        self._refresh_group_buttons()
+        self.group_bar.refresh_buttons()
 
     def _on_manage_data_changed(self):
         """管理窗口数据变化时回调（避免隐藏状态下触发大量加载）"""
@@ -230,7 +232,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
         # 应用透明度和主题
         self._apply_opacity()
         # 刷新侧边栏按钮样式
-        self._refresh_sidebar_styles()
+        self.group_bar.set_theme(self.current_theme)
         # 刷新底部栏控件样式（搜索框、齿轮、清除按钮）
         if hasattr(self, 'search_input'):
             has_text = bool(self.search_input.text().strip())
@@ -241,15 +243,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self._refresh_list()
         log_debug(f"主题已切换到: {self.current_theme.display_name}", "Clipboard")
     
-    def _refresh_sidebar_styles(self):
-        """刷新侧边栏按钮样式（主题切换时调用）"""
-        sidebar_style = self._get_sidebar_btn_style()
-        self.clipboard_btn.setStyleSheet(sidebar_style)
-        # 只刷真正的分组按钮（group_buttons 列表），跳过 overflow 按钮等其他 widget
-        for btn in self.group_buttons:
-            btn.setStyleSheet(sidebar_style)
-        # 刷新添加分组按钮样式
-        self.add_group_btn.setStyleSheet(self._get_add_group_btn_style())
+
     
     # ==================== 设置管理 ====================
     
@@ -282,10 +276,10 @@ class ClipboardWindow(QWidget, FramelessMixin):
             self.bottom_bar.setStyleSheet(generator.generate_search_bar_style(self.window_opacity))
         
         # 更新右侧按钮栏背景色
-        if hasattr(self, 'right_bar'):
+        if hasattr(self, 'group_bar') and self.group_bar.bar_widget is not None:
             border_dir = {"left": "border-right:", "top": "border-bottom:", "right": "border-left:"}
             bd = border_dir.get(getattr(self, 'group_bar_position', 'right'), "border-left:")
-            self.right_bar.setStyleSheet(generator.generate_search_bar_style(self.window_opacity).replace(
+            self.group_bar.bar_widget.setStyleSheet(generator.generate_search_bar_style(self.window_opacity).replace(
                 "border-top:", bd
             ))
     
@@ -497,238 +491,28 @@ class ClipboardWindow(QWidget, FramelessMixin):
         
         self.content_layout.addWidget(self.left_widget, 1)
         
-        # ========== 创建共享按钮（只创建一次，不随布局重建） ==========
-        # 关闭按钮
-        self.close_btn = QPushButton("×")
-        self.close_btn.setFixedSize(34, 34)
-        self.close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.close_btn.setToolTip(self.tr("Close"))
-        self.close_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.close_btn.setStyleSheet("""
-            QPushButton {
-                background: transparent;
-                color: #999999;
-                border: none;
-                font-size: 20px;
-                padding: 0px;
-            }
-            QPushButton:hover {
-                background: #FFEBEE;
-                color: #F44336;
-                border-radius: 4px;
-            }
-        """)
-        self.close_btn.clicked.connect(self.close)
-
-        # 剪切板按钮（显示所有历史）
-        self.clipboard_btn = QPushButton("📋")
-        self.clipboard_btn.setFixedSize(34, 34)
-        self.clipboard_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.clipboard_btn.setToolTip(self.tr("Clipboard History"))
-        self.clipboard_btn.setCheckable(True)
-        self.clipboard_btn.setChecked(True)
-        self.clipboard_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.clipboard_btn.setStyleSheet(self._get_sidebar_btn_style())
-        self.clipboard_btn.clicked.connect(lambda: self._on_sidebar_button_clicked(self.clipboard_btn, None))
-
-        # 添加分组按钮
-        self.add_group_btn = QPushButton("+")
-        self.add_group_btn.setFixedSize(34, 34)
-        self.add_group_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.add_group_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.add_group_btn.setStyleSheet(self._get_add_group_btn_style())
-        self.add_group_btn.clicked.connect(self._on_add_group_clicked)
-
-        # ========== 构建分组栏 ==========
-        self.right_bar = None
-        self._build_group_bar()
-        
-        # 初始化分组按钮：延迟到布局完成后执行，避免 right_bar 高度未就绪时误算溢出
-        QTimer.singleShot(0, self._refresh_group_buttons)
+        # ========== 分组栏组件 ==========
+        self.group_bar = GroupBar(
+            controller=self.controller,
+            manager=self.manager,
+            theme=self.current_theme,
+            position=self.group_bar_position,
+            parent=self,
+        )
+        self.group_bar.close_requested.connect(self.close)
+        self.group_bar.group_switched.connect(self._on_group_switched)
+        self.group_bar.sidebar_entered.connect(self._on_sidebar_entered)
+        self.group_bar.sidebar_exited.connect(self._on_sidebar_exited)
+        self.group_bar.manage_groups_requested.connect(self._on_add_group_clicked)
+        self.group_bar.manage_items_requested.connect(self._on_add_item_clicked)
+        self.group_bar.build(self.content_layout, self.left_widget, self.left_layout)
         
         # 为所有子控件启用鼠标追踪和事件过滤器，以便检测边缘
         self._setup_mouse_tracking_recursive(self)
     
-    def _get_sidebar_btn_style(self):
-        """获取侧边栏按钮样式（基于当前主题）"""
-        theme = self.current_theme.colors
-        return f"""
-            QPushButton {{
-                background: transparent;
-                color: {theme.text_secondary};
-                border: 2px solid transparent;
-                font-size: 20px;
-                border-radius: 4px;
-                padding: 0px;
-            }}
-            QPushButton:hover {{
-                background: {theme.bg_hover};
-            }}
-            QPushButton:checked {{
-                background: {theme.bg_selected};
-                color: {theme.accent_primary};
-                border: 2px solid {theme.error};
-            }}
-            QToolTip {{
-                background: {theme.bg_primary};
-                color: {theme.text_primary};
-                border: 1px solid {theme.border_primary};
-                border-radius: 4px;
-                padding: 4px 8px;
-                font-size: 12px;
-            }}
-        """
-    
-    def _get_add_group_btn_style(self):
-        """获取添加分组按钮样式（基于当前主题）"""
-        theme = self.current_theme.colors
-        # 深色主题使用半透明深色背景
-        if self.current_theme.name == "dark":
-            bg_color = "rgba(60, 60, 60, 0.7)"
-            hover_bg = "rgba(76, 175, 80, 0.2)"
-        else:
-            bg_color = "rgba(255, 255, 255, 0.55)"
-            hover_bg = "#E8F5E9"
-        return f"""
-            QPushButton {{
-                background-color: {bg_color};
-                color: {theme.success};
-                border: 2px dashed {theme.success};
-                border-radius: 4px;
-                font-size: 20px;
-                font-weight: bold;
-                padding: 0px;
-            }}
-            QPushButton:hover {{
-                background: {hover_bg};
-            }}
-        """
-    
-    def _build_group_bar(self):
-        """根据 self.group_bar_position 构建（或重建）分组按钮栏"""
-        pos = self.group_bar_position  # "right" / "left" / "top"
-        is_top = pos == "top"
-
-        # --- 销毁旧的 right_bar ---
-        if self.right_bar is not None:
-            self.content_layout.removeWidget(self.right_bar)
-            # 先把共享按钮从旧布局摘出来（避免被 deleteLater 一起销毁）
-            for w in (self.close_btn, self.clipboard_btn, self.add_group_btn):
-                w.setParent(None)
-            self.right_bar.deleteLater()
-            self.right_bar = None
-
-        # --- 新建 right_bar ---
-        self.right_bar = QWidget()
-        self.right_bar.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-
-        if is_top:
-            self.right_bar.setFixedHeight(40)
-            self.right_bar.setMaximumWidth(16777215)  # 重置宽度约束
-            self.right_bar.setStyleSheet("QWidget { background: #FAFAFA; border-bottom: 1px solid #E0E0E0; }")
-            bar_layout = QHBoxLayout(self.right_bar)
-            bar_layout.setContentsMargins(2, 2, 2, 2)
-            bar_layout.setSpacing(4)
-        else:
-            self.right_bar.setFixedWidth(40)
-            self.right_bar.setMaximumHeight(16777215)  # 重置高度约束
-            border_side = "border-right" if pos == "left" else "border-left"
-            self.right_bar.setStyleSheet(f"QWidget {{ background: #FAFAFA; {border_side}: 1px solid #E0E0E0; }}")
-            bar_layout = QVBoxLayout(self.right_bar)
-            bar_layout.setContentsMargins(2, 8, 2, 8)
-            bar_layout.setSpacing(4)
-
-        self.bar_layout = bar_layout  # 保存引用
-
-        # --- 添加按钮到布局 ---
-        if is_top:
-            # 横排: | [分组按钮区] | + | stretch | ×
-            bar_layout.addWidget(self.clipboard_btn)
-            sep = QFrame(); sep.setFixedWidth(1); sep.setStyleSheet("background: #E0E0E0;")
-            bar_layout.addWidget(sep)
-            # 分组按钮容器（top 模式用 QHBoxLayout）
-            self.group_buttons_widget = QWidget()
-            self.group_buttons_widget.setStyleSheet("background: transparent;")
-            self.group_buttons_layout = QHBoxLayout(self.group_buttons_widget)
-            self.group_buttons_layout.setContentsMargins(0, 0, 0, 0)
-            self.group_buttons_layout.setSpacing(4)
-            bar_layout.addWidget(self.group_buttons_widget)
-            self.group_buttons_layout.addWidget(self.add_group_btn)
-            bar_layout.addStretch()
-            bar_layout.addWidget(self.close_btn)
-        else:
-            # 竖排: × | sep | | [分组按钮区] | + | stretch
-            bar_layout.addWidget(self.close_btn)
-            sep = QFrame(); sep.setFixedHeight(1); sep.setStyleSheet("background: #E0E0E0;")
-            bar_layout.addWidget(sep)
-            bar_layout.addWidget(self.clipboard_btn)
-            self.group_buttons_widget = QWidget()
-            self.group_buttons_widget.setStyleSheet("background: transparent;")
-            self.group_buttons_layout = QVBoxLayout(self.group_buttons_widget)
-            self.group_buttons_layout.setContentsMargins(0, 0, 0, 0)
-            self.group_buttons_layout.setSpacing(4)
-            bar_layout.addWidget(self.group_buttons_widget)
-            self.group_buttons_layout.addWidget(self.add_group_btn)
-            bar_layout.addStretch()
-
-        # --- 插入到 content_layout ---
-        if pos == "left":
-            self.content_layout.insertWidget(0, self.right_bar)
-        elif is_top:
-            # top 模式：bar 放在 left_widget 上方
-            self.content_layout.removeWidget(self.left_widget)
-            self.left_layout.insertWidget(0, self.right_bar)
-            self.content_layout.addWidget(self.left_widget, 1)
-        else:  # right
-            self.content_layout.addWidget(self.right_bar)
-
-        # 应用主题
-        self._apply_opacity()
-        # 重新设置鼠标追踪
-        self._setup_mouse_tracking_recursive(self.right_bar)
-
-    def _set_group_bar_position(self, position: str):
-        """切换分组栏位置（right/left/top）"""
-        if position == self.group_bar_position:
-            return
-        self.group_bar_position = position
-        self.config.set_clipboard_group_bar_position(position)
-        # 同步到选择管理器，使方向键逻辑随位置变化
-        if hasattr(self, 'selection_manager'):
-            self.selection_manager.group_bar_position = position
-        # top 模式时先从 left_layout 移除旧 bar（如果在）
-        if hasattr(self, 'right_bar') and self.right_bar is not None:
-            if self.right_bar.parent() is self.left_widget:
-                self.left_layout.removeWidget(self.right_bar)
-        self._build_group_bar()
-        # 切换到 top 模式时，right_bar 刚创建还未完成布局计算，
-        # width() 此时为 0，会导致 overflow 计算认为空间不足、按钮全部挤在一起。
-        # 用 singleShot(0) 延迟到下一个事件循环，等布局完成后再刷新按钮。
-        QTimer.singleShot(0, self._refresh_group_buttons)
-    
     def _get_menu_style(self):
         """获取菜单样式（基于当前主题）"""
-        theme = self.current_theme.colors
-        return f"""
-            QMenu {{
-                background: {theme.bg_primary};
-                border: 1px solid {theme.border_primary};
-                border-radius: 4px;
-                padding: 4px;
-            }}
-            QMenu::item {{
-                padding: 8px 20px;
-                color: {theme.text_primary};
-            }}
-            QMenu::item:selected {{
-                background: {theme.bg_hover};
-            }}
-            QMenu::separator {{
-                height: 1px;
-                background: {theme.border_primary};
-                margin: 4px 8px;
-            }}
-        """
+        return ThemeStyleGenerator(self.current_theme).generate_menu_style()
     
     def _show_main_menu(self):
         """显示/关闭主菜单（齿轮按钮）- toggle 行为"""
@@ -997,52 +781,18 @@ class ClipboardWindow(QWidget, FramelessMixin):
     
     def _apply_search_input_style(self, has_text: bool = False):
         """根据主题和搜索状态生成搜索框样式"""
-        c = self.current_theme.colors
-        bg = c.bg_hover if has_text else "transparent"
-        self.search_input.setStyleSheet(f"""
-            QLineEdit {{
-                background: {bg};
-                border: none;
-                color: {c.text_primary};
-                font-size: 13px;
-                padding: 4px;
-            }}
-        """)
+        style = ThemeStyleGenerator(self.current_theme).generate_search_input_style(has_text)
+        self.search_input.setStyleSheet(style)
     
     def _apply_clear_search_btn_style(self):
         """根据主题生成清除搜索按钮样式"""
-        c = self.current_theme.colors
-        self.clear_search_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent;
-                color: {c.text_tertiary};
-                border: none;
-                font-size: 16px;
-                padding: 0px;
-            }}
-            QPushButton:hover {{
-                background: {c.bg_hover};
-                color: {c.text_primary};
-                border-radius: 12px;
-            }}
-        """)
+        style = ThemeStyleGenerator(self.current_theme).generate_clear_search_btn_style()
+        self.clear_search_btn.setStyleSheet(style)
     
     def _apply_menu_btn_style(self):
         """根据主题生成齿轮按钮样式"""
-        c = self.current_theme.colors
-        self.menu_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent;
-                color: {c.text_secondary};
-                border: none;
-                font-size: 18px;
-                font-weight: normal;
-            }}
-            QPushButton:hover {{
-                background: {c.bg_hover};
-                border-radius: 4px;
-            }}
-        """)
+        style = ThemeStyleGenerator(self.current_theme).generate_menu_btn_style()
+        self.menu_btn.setStyleSheet(style)
     
     def _clear_search(self):
         """清除搜索内容"""
@@ -1053,253 +803,34 @@ class ClipboardWindow(QWidget, FramelessMixin):
         """类型筛选变化 - 委托给 controller"""
         self.controller.set_content_type_filter(index)
     
-    # ==================== 分组功能 ====================
+    # ==================== 分组功能（委托给 GroupBar） ====================
 
-    def _refresh_group_buttons(self):
-        """刷新分组按钮；超出可用空间时，末尾显示 》按钮弹出隐藏分组列表"""
-        self._clear_group_buttons_layout()
-        self.clipboard_btn.setChecked(self.controller.current_group_id is None)
+    def _on_group_switched(self, group_id):
+        """GroupBar 信号: 用户切换了分组"""
+        self.group_bar.switch_to_group(group_id)
 
-        is_top = self.group_bar_position == "top"
-        bar_size = self.right_bar.width() if is_top else self.right_bar.height()
-        visible_groups, hidden_groups = self.controller.get_sidebar_overflow(bar_size, is_top=is_top)
-
-        for group in visible_groups:
-            btn = self._make_group_btn(group)
-            self.group_buttons_layout.addWidget(btn)
-            self.group_buttons.append(btn)
-
-        self.group_buttons_layout.addSpacing(8)
-
-        if hidden_groups:
-            overflow_btn = QPushButton("···")
-            overflow_btn.setFixedSize(34, 28)
-            overflow_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            overflow_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-            overflow_btn.setToolTip(self.tr("More groups ({n})").format(n=len(hidden_groups)))
-            overflow_btn.setStyleSheet("""
-                QPushButton {
-                    background: transparent;
-                    color: #9CA3AF;
-                    border: none;
-                    font-size: 24px;
-                    font-weight: 600;
-                    padding: 0px;
-                    letter-spacing: 1px;
-                }
-                QPushButton:hover {
-                    color: #374151;
-                }
-            """)
-            overflow_btn.clicked.connect(
-                lambda _checked, hg=hidden_groups: self._show_overflow_group_menu(hg)
-            )
-            self.group_buttons_layout.addWidget(overflow_btn)
-
-        self.group_buttons_layout.addWidget(self.add_group_btn)
-
-    def _make_group_btn(self, group) -> QPushButton:
-        """构造单个分组按钮（纯 UI）"""
-        icon = group.icon if group.icon else "📁"
-        btn = QPushButton(icon)
-        btn.setFixedSize(34, 34)
-        btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn.setToolTip(group.name)
-        btn.setCheckable(True)
-        btn.setChecked(self.controller.current_group_id == group.id)
-        btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        btn.setStyleSheet(self._get_sidebar_btn_style())
-        btn.setProperty("group_id", group.id)
-        btn.clicked.connect(lambda checked, b=btn, gid=group.id: self._on_sidebar_button_clicked(b, gid))
-        btn.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        btn.customContextMenuRequested.connect(
-            lambda pos, b=btn, gid=group.id: self._show_group_context_menu(b, gid, pos)
-        )
-        return btn
-
-    def _show_overflow_group_menu(self, hidden_groups: list):
-        """弹出隐藏分组列表，点击后切换到对应分组"""
-        if not hidden_groups:
-            return
-        from PySide6.QtGui import QAction
-        menu = QMenu(self)
-        menu.setStyleSheet(self._get_menu_style())
-        for group in hidden_groups:
-            icon = group.icon if group.icon else "📁"
-            label = f"{icon}  {group.name}"
-            action = QAction(label, self)
-            action.setCheckable(True)
-            action.setChecked(group.id == self.controller.current_group_id)
-            action.triggered.connect(lambda checked, gid=group.id: self._switch_to_group(gid))
-            menu.addAction(action)
-        menu.exec(QCursor.pos())
-
-    def _clear_group_buttons_layout(self):
-        """清空分组按钮布局（保留 add_group_btn 实例）"""
-        while self.group_buttons_layout.count():
-            item = self.group_buttons_layout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                if widget is self.add_group_btn:
-                    continue
-                widget.deleteLater()
-        self.group_buttons.clear()
-
-    def _get_sidebar_buttons(self) -> List[QPushButton]:
-        return [self.clipboard_btn] + self.group_buttons
-
-    def _on_sidebar_button_clicked(self, target: QPushButton, group_id: Optional[int]):
-        if not self._sidebar_mode:
-            self._sidebar_prev_item_id = self.selection_manager.get_current_item_id()
-            self.selection_manager.clear_selection()
-            self._set_highlighted_item(None)
-        self._sidebar_mode = True
-        buttons = self._get_sidebar_buttons()
-        if target in buttons:
-            self._sidebar_index = buttons.index(target)
-        self.list_widget.setFocus()
-        self._set_sidebar_focus_button(target)
-        self._switch_to_group(group_id)
-
-    def _sync_sidebar_index_to_current_group(self):
-        if self.controller.current_group_id is None:
-            self._sidebar_index = 0
-            return
-        for i, btn in enumerate(self.group_buttons, start=1):
-            if btn.property("group_id") == self.controller.current_group_id:
-                self._sidebar_index = i
-                return
-        self._sidebar_index = 0
-
-    def _set_sidebar_focus_button(self, target: Optional[QPushButton]):
-        for btn in self._get_sidebar_buttons():
-            btn.setProperty("sidebar_focus", btn is target)
-            btn.style().unpolish(btn)
-            btn.style().polish(btn)
-            anim = getattr(btn, "_sidebar_focus_anim", None)
-            if btn is not target and anim is not None:
-                anim.stop()
-                if isinstance(btn.graphicsEffect(), QGraphicsOpacityEffect):
-                    btn.graphicsEffect().setOpacity(1.0)
-        if target is not None and self._sidebar_mode and getattr(self, 'group_bar_position', 'right') != "top":
-            self._play_sidebar_focus_animation(target)
-
-    def _play_sidebar_focus_animation(self, target: QPushButton):
-        effect = target.graphicsEffect()
-        if not isinstance(effect, QGraphicsOpacityEffect):
-            effect = QGraphicsOpacityEffect(target)
-            effect.setOpacity(1.0)
-            target.setGraphicsEffect(effect)
-        anim = getattr(target, "_sidebar_focus_anim", None)
-        if anim is None:
-            anim = QPropertyAnimation(effect, b"opacity", target)
-            anim.setDuration(1200)
-            anim.setLoopCount(-1)
-            anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
-            anim.setKeyValueAt(0.0, 1.0)
-            anim.setKeyValueAt(0.5, 0.3)
-            anim.setKeyValueAt(1.0, 1.0)
-            target._sidebar_focus_anim = anim
-        if anim.state() != anim.State.Running:
-            anim.start()
-
-    def _enter_sidebar_mode(self):
-        buttons = self._get_sidebar_buttons()
-        if not buttons:
-            return
-        self._sidebar_mode = True
-        self._sidebar_prev_item_id = self.selection_manager.get_current_item_id()
+    def _on_sidebar_entered(self):
+        """GroupBar 信号: 进入侧栏导航模式"""
         self.selection_manager.clear_selection()
         self._set_highlighted_item(None)
-        self._sync_sidebar_index_to_current_group()
-        self._set_sidebar_focus_button(buttons[self._sidebar_index])
         self.list_widget.setFocus()
 
-    def _exit_sidebar_mode(self):
-        self._sidebar_mode = False
-        self._set_sidebar_focus_button(None)
+    def _on_sidebar_exited(self, prev_item_id):
+        """GroupBar 信号: 退出侧栏导航模式"""
         self.list_widget.setFocus()
-        if self._sidebar_prev_item_id is not None:
-            self.selection_manager.select_item_id(self._sidebar_prev_item_id)
+        if prev_item_id is not None:
+            self.selection_manager.select_item_id(prev_item_id)
         else:
-            # 没有之前选中项时，自动选中第一行
             self.selection_manager._move_selection(1)
-        self._sidebar_prev_item_id = None
 
-    def _move_sidebar_selection(self, delta: int):
-        buttons = self._get_sidebar_buttons()
-        if not buttons:
-            return
-        # 循环：到头后绕回另一端
-        self._sidebar_index = (self._sidebar_index + delta) % len(buttons)
-        target = buttons[self._sidebar_index]
-        self.list_widget.setFocus()
-        self._set_sidebar_focus_button(target)
-        target.click()
+    def _enter_sidebar_mode(self):
+        """SelectionManager 信号 → 委托给 GroupBar"""
+        prev_id = self.selection_manager.get_current_item_id()
+        self.group_bar.enter_sidebar_mode(prev_id)
 
     def _on_top_group_switch(self, delta: int):
-        """顶部模式：左右键直接切换分组，不进入 sidebar 模式"""
-        self._sync_sidebar_index_to_current_group()
-        buttons = self._get_sidebar_buttons()
-        if not buttons:
-            return
-        # 循环：到头后绕回另一端
-        new_index = (self._sidebar_index + delta) % len(buttons)
-        if new_index == self._sidebar_index:
-            return
-        self._sidebar_index = new_index
-        target = buttons[self._sidebar_index]
-        target.click()
-        self.list_widget.setFocus()
-
-    def _get_group_btn_style(self):
-        return self._get_sidebar_btn_style()
-
-    def _switch_to_group(self, group_id: Optional[int]):
-        """切换到指定分组（UI 同步 + 委托 controller）"""
-        self.controller.switch_to_group(group_id)
-        self.clipboard_btn.setChecked(group_id is None)
-        for btn in self.group_buttons:
-            btn.setChecked(btn.property("group_id") == group_id)
-        self._sync_sidebar_index_to_current_group()
-
-    def _show_group_context_menu(self, btn, group_id: int, pos):
-        """显示分组右键菜单"""
-        actions_data = self.controller.build_group_context_menu_data(group_id)
-        menu = QMenu(self)
-        menu.setStyleSheet(self._get_menu_style())
-
-        _group_ctx_handlers = {
-            "edit_group":    lambda: self._edit_group(group_id),
-            "move_group_up": lambda: self._move_group_order(group_id, -1),
-            "move_group_down": lambda: self._move_group_order(group_id, 1),
-            "delete_group":  lambda: self._delete_group(group_id),
-        }
-        for ad in actions_data:
-            if ad.is_separator:
-                menu.addSeparator()
-            else:
-                act = menu.addAction(self.tr(ad.label))
-                act.setEnabled(ad.enabled)
-                handler = _group_ctx_handlers.get(ad.key)
-                if handler:
-                    act.triggered.connect(handler)
-        menu.exec(btn.mapToGlobal(pos))
-
-    def _delete_group(self, group_id: int):
-        if self.controller.delete_group(group_id, parent_widget=self):
-            self._refresh_group_buttons()
-
-    def _move_group_order(self, group_id: int, direction: int):
-        if self.controller.move_group_order(group_id, direction):
-            self._refresh_group_buttons()
-
-    def _edit_group(self, group_id: int):
-        self.controller.open_manage_dialog_for_group(
-            group_id,
-            group_added_callback=self._refresh_group_buttons,
-            data_changed_callback=self._on_manage_data_changed,
-        )
+        """SelectionManager 信号 → 委托给 GroupBar"""
+        self.group_bar.handle_top_group_switch(delta)
 
     def _on_add_group_clicked(self):
         dialog = get_manage_dialog(self.manager)
@@ -1314,13 +845,19 @@ class ClipboardWindow(QWidget, FramelessMixin):
 
     def _connect_manage_dialog(self, dialog):
         """安全连接管理窗口信号（避免重复连接）"""
-        from core.qt_utils import safe_disconnect
         for sig, slot in [
-            (dialog.group_added, self._refresh_group_buttons),
+            (dialog.group_added, self.group_bar.refresh_buttons),
             (dialog.data_changed, self._on_manage_data_changed),
         ]:
-            safe_disconnect(sig, slot)
-            sig.connect(slot)
+            sig.connect(slot, Qt.ConnectionType.UniqueConnection)
+
+    def _set_group_bar_position(self, position: str):
+        """设置分组栏位置（委托给 GroupBar + 保存配置）"""
+        self.group_bar_position = position
+        self.selection_manager.group_bar_position = position
+        self.group_bar.set_position(position)
+        self.config.set_clipboard_group_bar_position(position)
+        self._apply_opacity()
 
     # ==================== 列表操作 ====================
 
@@ -1414,7 +951,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self.controller.open_manage_dialog_for_item(
             item_id,
             self.controller.current_group_id,
-            group_added_callback=self._refresh_group_buttons,
+            group_added_callback=self.group_bar.refresh_buttons,
             data_changed_callback=self._on_manage_data_changed,
         )
 
@@ -1459,9 +996,41 @@ class ClipboardWindow(QWidget, FramelessMixin):
     def notify_new_content(self):
         self.new_item_received.emit()
 
+    def _warmup_offscreen_once(self):
+        """将窗口离屏显示一次后隐藏，预热原生窗口状态（仅一次）。"""
+        if ClipboardWindow._offscreen_warmup_done:
+            return
+        ClipboardWindow._offscreen_warmup_done = True
+
+        screen = QApplication.primaryScreen()
+        if screen is None:
+            return
+
+        self._offscreen_warmup_in_progress = True
+        old_pos = self.pos()
+        old_opacity = self.windowOpacity()
+        try:
+            geo = screen.availableGeometry()
+            self.setWindowOpacity(0)
+            self.move(geo.right() + 20000, geo.bottom() + 20000)
+            self.show()
+            QApplication.processEvents()
+            self.hide()
+            log_debug("剪贴板窗口离屏预热完成", "Clipboard")
+        except Exception as e:
+            log_debug(f"剪贴板窗口离屏预热异常: {e}", "Clipboard")
+        finally:
+            self.move(old_pos)
+            self.setWindowOpacity(old_opacity)
+            self._offscreen_warmup_in_progress = False
+
     @safe_event
     def showEvent(self, event):
         """显示时刷新"""
+        if self._offscreen_warmup_in_progress:
+            super().showEvent(event)
+            return
+
         # 先隐藏窗口内容（opacity=0），避免低配机器上黑色底图闪现
         self.setWindowOpacity(0)
         
@@ -1487,7 +1056,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
         # 每次显示都定位到鼠标位置（右下方）
         self._position_at_cursor()
         # 延迟重算分组按钮溢出（窗口布局稳定后高度才准确）
-        QTimer.singleShot(0, self._refresh_group_buttons)
+        QTimer.singleShot(0, self.group_bar.refresh_buttons)
         # 等内容绘制完成后再显示窗口，消除黑色底图闪现
         QTimer.singleShot(0, self._reveal_window)
         t_show_end = perf_counter()
@@ -1527,6 +1096,10 @@ class ClipboardWindow(QWidget, FramelessMixin):
     @safe_event
     def hideEvent(self, event):
         """隐藏时保存位置和大小，并关闭预览窗口"""
+        if self._offscreen_warmup_in_progress:
+            super().hideEvent(event)
+            return
+
         # 重置拖拽/调整大小状态，避免下次呼出时仍处于拖拽状态
         self._fl_reset()
 
@@ -1578,9 +1151,9 @@ class ClipboardWindow(QWidget, FramelessMixin):
     # ================ 窗口拖动和调整大小 ================
 
     def _is_draggable_area(self, widget, local_pos: QPoint) -> bool:
-        """重写 FramelessMixin 钩子：仅右侧边栏空白处可拖动"""
-        right_bar = getattr(self, 'right_bar', None)
-        if right_bar and widget is right_bar:
+        """重写 FramelessMixin 钩子：仅分组栏空白处可拖动"""
+        bar = getattr(self, 'group_bar', None)
+        if bar and bar.bar_widget is not None and widget is bar.bar_widget:
             return True
         return False
 
@@ -1602,8 +1175,8 @@ class ClipboardWindow(QWidget, FramelessMixin):
 
         # ── 焦点切入列表时退出侧边栏模式 ──
         if event_type == QEvent.Type.FocusIn and obj is self.list_widget:
-            if not self._sidebar_mode:
-                self._set_sidebar_focus_button(None)
+            if not self.group_bar.sidebar_mode:
+                self.group_bar.clear_sidebar_focus()
 
         # ── 键盘导航（方向自适应） ──
         if event_type == QEvent.Type.KeyPress:
@@ -1617,15 +1190,15 @@ class ClipboardWindow(QWidget, FramelessMixin):
                     k_enter, k_exit = Qt.Key.Key_Left, Qt.Key.Key_Right
                 k_prev, k_next = Qt.Key.Key_Up, Qt.Key.Key_Down
 
-                if self._sidebar_mode:
+                if self.group_bar.sidebar_mode:
                     if key == k_exit:
-                        self._exit_sidebar_mode()
+                        self.group_bar.exit_sidebar_mode()
                         return True
                     if key == k_prev:
-                        self._move_sidebar_selection(-1)
+                        self.group_bar.move_sidebar_selection(-1)
                         return True
                     if key == k_next:
-                        self._move_sidebar_selection(1)
+                        self.group_bar.move_sidebar_selection(1)
                         return True
                     if key == k_enter:
                         return True
@@ -1658,7 +1231,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
         key = event.key()
 
         # 兜底：当焦点不在列表时，仍允许上下方向键切换列表项
-        if key in (Qt.Key.Key_Up, Qt.Key.Key_Down) and not self._sidebar_mode:
+        if key in (Qt.Key.Key_Up, Qt.Key.Key_Down) and not self.group_bar.sidebar_mode:
             focus_widget = QApplication.focusWidget()
             if focus_widget is None or focus_widget is self.search_input or not (
                 focus_widget is self.list_widget or self.list_widget.isAncestorOf(focus_widget)
@@ -1676,20 +1249,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
         # delegate 模式下只需触发重绘，无需逐项调宽度
         self.list_widget.viewport().update()
         # 重算分组按钮是否需要折叠
-        if hasattr(self, 'right_bar') and self.right_bar is not None and hasattr(self, 'group_buttons_layout'):
-            self._refresh_group_buttons()
+        if hasattr(self, 'group_bar') and self.group_bar.bar_widget is not None:
+            self.group_bar.refresh_buttons()
 
-
-# 测试代码
-# if __name__ == "__main__":
-#  import sys
-#  app = QApplication(sys.argv)
-#  
-#  # 设置深色主题
-#  app.setStyle("Fusion")
-#  
-#  window = ClipboardWindow()
-#  window.show()
-#  
-#  sys.exit(app.exec())
  

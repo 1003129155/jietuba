@@ -397,42 +397,31 @@ class PreloadManager:
             if self.config.should_show_main_window_on_start():
                 self.app.open_settings()
             else:
-                self._init_settings_window_offscreen()
+                self._preload_clipboard_window()
         except Exception as e:
             log_exception(e, "启动时显示主界面")
         finally:
             if hasattr(self.config, "mark_as_run"):
                 self.config.mark_as_run()
-    
-    def _init_settings_window_offscreen(self):
-        """
-        当"启动时显示主界面"开关关闭时调用。
-        将设置窗口移到屏幕外极远处，短暂 show() 以触发 Qt 内部初始化
-        （showEvent / refresh_settings 等），然后立刻 hide() 并将窗口
-        位置重置回屏幕中央，保证下次手动打开时位置正常。
-        """
+
+    def _preload_clipboard_window(self):
+        """后台启动时预创建剪贴板窗口。"""
         from core.logger import log_debug
+
+        if not self.config.get_clipboard_enabled():
+            log_debug("剪贴板功能已禁用，跳过剪贴板窗口预创建", "Clipboard")
+            return
+
         try:
-            if not self.app.settings_window:
-                self.preload_settings()
+            if self.app.clipboard_window:
+                return
 
-            win = self.app.settings_window
-            win.move(-99999, -99999)
-            win.show()
-            win.hide()
-
-            from PySide6.QtWidgets import QApplication
-            screen = QApplication.primaryScreen()
-            if screen:
-                screen_rect = screen.availableGeometry()
-                win_size = win.size()
-                x = screen_rect.x() + (screen_rect.width() - win_size.width()) // 2
-                y = screen_rect.y() + (screen_rect.height() - win_size.height()) // 2
-                win.move(x, y)
-
-            log_debug("设置窗口已完成离屏初始化", "Preload")
+            from clipboard import ClipboardWindow
+            self.app.clipboard_window = ClipboardWindow()
+            self.app.clipboard_window.hide()
+            log_debug("剪贴板窗口预创建完成（未显示）", "Clipboard")
         except Exception as e:
-            log_debug(f"离屏初始化设置窗口异常: {e}", "Preload")
+            log_debug(f"剪贴板窗口预创建异常: {e}", "Clipboard")
 
 
 # ===================== 入口 =====================

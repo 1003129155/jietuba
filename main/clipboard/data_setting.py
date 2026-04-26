@@ -59,6 +59,11 @@ def get_manage_dialog(manager: ClipboardManager = None) -> 'ManageDialog':
     return _manage_window_instance
 
 
+def get_existing_manage_dialog() -> Optional['ManageDialog']:
+    """获取已存在的管理窗口实例，不主动创建。"""
+    return _manage_window_instance
+
+
 class DraggableListWidget(QListWidget):
     """自定义列表控件，实现更好的拖拽视觉效果"""
     
@@ -235,6 +240,16 @@ class ManageDialog(QWidget):
             Qt.WindowType.WindowMinimizeButtonHint |
             Qt.WindowType.WindowMaximizeButtonHint
         )
+        # 设置窗口图标
+        try:
+            from core.resource_manager import ResourceManager
+            import os
+            icon_path = ResourceManager.get_resource_path("svg/托盘.svg")
+            if os.path.exists(icon_path):
+                from PySide6.QtGui import QIcon
+                self.setWindowIcon(QIcon(icon_path))
+        except Exception:
+            pass
         # 设置窗口属性，关闭时不自动销毁（保持单例）
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
         
@@ -278,6 +293,33 @@ class ManageDialog(QWidget):
             self.show()
         self.raise_()
         self.activateWindow()
+
+    def refresh_after_external_change(self, deleted_group_id: Optional[int] = None):
+        """外部数据变化后同步当前管理窗口，避免显示已删除的旧数据。"""
+        self.setUpdatesEnabled(False)
+        try:
+            if deleted_group_id is not None:
+                if self.editing_group_id == deleted_group_id:
+                    self.editing_group_id = None
+                if self.selected_group_id == deleted_group_id:
+                    self.selected_group_id = None
+
+            if self.current_mode == "group":
+                self._refresh_group_list()
+                if self.editing_group_id is not None:
+                    self._show_edit_group_form(self.editing_group_id)
+                else:
+                    self._show_new_group_form()
+            elif self.current_mode == "content":
+                self._refresh_group_combo()
+                self._refresh_content_list()
+                if self.editing_item_id is not None and self.manager.get_item(self.editing_item_id) is not None:
+                    self._show_edit_content_form(self.editing_item_id)
+                else:
+                    self.editing_item_id = None
+                    self._show_new_content_form()
+        finally:
+            self.setUpdatesEnabled(True)
 
     def open_group_editor(self, group_id: int):
         """打开并定位到指定分组的编辑界面"""
@@ -1284,6 +1326,32 @@ class ManageDialog(QWidget):
             if btn.isChecked():
                 return btn.text()
         return "📁"
+
+    def _get_delete_group_confirm_message(self) -> str:
+        return "\n".join([
+            self.tr("Are you sure you want to delete this group?"),
+            self.tr("All items in the group will also be deleted."),
+        ])
+
+    def _group_name_exists(self, name: str, exclude_group_id: Optional[int] = None) -> bool:
+        for group in self.manager.get_groups():
+            if exclude_group_id is not None and group.id == exclude_group_id:
+                continue
+            if group.name == name:
+                return True
+        return False
+
+    @staticmethod
+    def _make_unique_group_name(base_name: str, used_names: set[str]) -> str:
+        if base_name not in used_names:
+            return base_name
+
+        index = 1
+        while True:
+            candidate = f"{base_name} ({index})"
+            if candidate not in used_names:
+                return candidate
+            index += 1
     
     def _on_save_clicked(self):
         """保存按钮点击"""
@@ -1297,6 +1365,10 @@ class ManageDialog(QWidget):
         name = self.group_name_input.text().strip()
         if not name:
             show_warning_dialog(self, self.tr("Hint"), self.tr("Please enter group name"))
+            return
+
+        if self._group_name_exists(name, exclude_group_id=self.editing_group_id):
+            show_warning_dialog(self, self.tr("Hint"), self.tr("A group with this name already exists"))
             return
         
         icon = self._get_selected_icon()
@@ -1364,9 +1436,14 @@ class ManageDialog(QWidget):
     def _on_delete_clicked(self):
         """删除按钮点击"""
         if self.current_mode == "group" and self.editing_group_id:
-            reply = show_confirm_dialog(self, self.tr("Confirm Delete"), self.tr("Are you sure you want to delete this group?\nAll items in the group will also be deleted."))
-        if reply:
+            reply = show_confirm_dialog(
+                self,
+                self.tr("Confirm Delete"),
+                self._get_delete_group_confirm_message()
+            )
+            if reply:
                 if self.manager.delete_group(self.editing_group_id):
+                    self.editing_group_id = None
                     self.group_added.emit()
                     self.data_changed.emit()  # 通知数据变化
                     self._refresh_group_list()
@@ -1375,9 +1452,14 @@ class ManageDialog(QWidget):
                     show_warning_dialog(self, self.tr("Failed"), self.tr("Failed to delete group"))
         
         elif self.current_mode == "content" and self.editing_item_id:
-            reply = show_confirm_dialog(self, self.tr("Confirm Delete"), self.tr("Are you sure you want to delete this item?"))
-        if reply:
+            reply = show_confirm_dialog(
+                self,
+                self.tr("Confirm Delete"),
+                self.tr("Are you sure you want to delete this item?")
+            )
+            if reply:
                 if self.manager.delete_item(self.editing_item_id):
+                    self.editing_item_id = None
                     self.content_added.emit(self.selected_group_id)
                     self.data_changed.emit()  # 通知数据变化
                     self._refresh_content_list()
@@ -1509,24 +1591,28 @@ class ManageDialog(QWidget):
                 )
                 return
             
-            # 获取现有分组
+            # 获取现有分组。导入时若同名分组已存在，直接复用该分组。
             existing_groups = self.manager.get_groups()
-            group_name_to_id = {g.name: g.id for g in existing_groups}
+            existing_group_name_to_id = {g.name: g.id for g in existing_groups}
+            import_group_name_to_target: dict[str, int] = {}
             
             # 导入数据
             # 从后往前遍历：Excel 最下面的行最先添加，最上面的行最后添加
             # 这样查询时（ORDER BY item_order DESC），Excel 上面的行会显示在列表上面
             imported_count = 0
             for group_name, content, title in reversed(rows):
-                # 如果分组不存在，创建新分组
-                if group_name not in group_name_to_id:
-                    new_group_id = self.manager.create_group(group_name)
-                    if new_group_id:
-                        group_name_to_id[group_name] = new_group_id
+                if group_name not in import_group_name_to_target:
+                    existing_group_id = existing_group_name_to_id.get(group_name)
+                    if existing_group_id is not None:
+                        import_group_name_to_target[group_name] = existing_group_id
                     else:
-                        continue
-                
-                group_id = group_name_to_id[group_name]
+                        new_group_id = self.manager.create_group(group_name)
+                        if not new_group_id:
+                            continue
+                        existing_group_name_to_id[group_name] = new_group_id
+                        import_group_name_to_target[group_name] = new_group_id
+
+                group_id = import_group_name_to_target[group_name]
                 
                 # 添加内容
                 title_param = title if title else None

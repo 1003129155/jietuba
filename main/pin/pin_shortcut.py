@@ -19,7 +19,7 @@ class _PinHandlerBase(ShortcutHandler):
     """钉图快捷键处理器的共用基类"""
 
     # 需要从配置读取的钉图快捷键列表
-    _PIN_KEYS = ["inapp_copy_pin", "inapp_thumbnail", "inapp_toggle_toolbar"]
+    _PIN_KEYS = ["inapp_copy_pin", "inapp_thumbnail", "inapp_toggle_toolbar", "inapp_delete"]
 
     def __init__(self, controller: 'PinShortcutController'):
         self._controller = controller
@@ -102,6 +102,13 @@ class PinEditShortcutHandler(_PinHandlerBase):
                 for btn in pin.toolbar.tool_buttons.values():
                     btn.setChecked(False)
                 pin.toolbar.current_tool = None
+            return True
+
+        # 删除选中图元
+        if self._match(event, "inapp_delete"):
+            view = getattr(pin, 'view', None)
+            if view and hasattr(view, 'smart_edit_controller'):
+                view.smart_edit_controller.delete_selected()
             return True
 
         # 编辑模式下其他按键不吞掉

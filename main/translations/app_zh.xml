@@ -288,6 +288,10 @@ Replace it?</source>
         <translation>重做</translation>
     </message>
     <message>
+        <source>Delete Selected</source>
+        <translation>删除选中图元</translation>
+    </message>
+    <message>
         <source>Copy Pinned Image</source>
         <translation>复制钉图内容</translation>
     </message>
@@ -528,8 +532,8 @@ Replace it?</source>
         <translation>开机自启</translation>
     </message>
     <message>
-        <source>Copy shortcut to Windows Startup folder.</source>
-        <translation>将快捷方式复制到 Windows 启动文件夹。</translation>
+        <source>Register in Windows startup via registry.</source>
+        <translation>通过注册表注册 Windows 开机启动。</translation>
     </message>
     <message>
         <source>Show Main Window on Startup</source>
@@ -1334,6 +1338,14 @@ Replace it?</source>
         <translation>确认删除</translation>
     </message>
     <message>
+        <source>Are you sure you want to delete this group?</source>
+        <translation>确定要删除这个分组吗？</translation>
+    </message>
+    <message>
+        <source>All items in the group will also be deleted.</source>
+        <translation>分组内的内容也会被删除。</translation>
+    </message>
+    <message>
         <source>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</source>
         <translation>确定要删除这个分组吗？\n分组内的内容也会被删除。</translation>
     </message>
@@ -1535,6 +1547,10 @@ Replace it?</source>
         <translation>请输入分组名称</translation>
     </message>
     <message>
+        <source>A group with this name already exists</source>
+        <translation>已存在同名分组</translation>
+    </message>
+    <message>
         <source>Failed</source>
         <translation>失败</translation>
     </message>
@@ -1569,6 +1585,22 @@ Replace it?</source>
     <message>
         <source>Failed to delete group</source>
         <translation>删除分组失败</translation>
+    </message>
+    <message>
+        <source>Confirm Delete</source>
+        <translation>确认删除</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete this group?</source>
+        <translation>确定要删除这个分组吗？</translation>
+    </message>
+    <message>
+        <source>All items in the group will also be deleted.</source>
+        <translation>分组内的内容也会被删除。</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</source>
+        <translation>确定要删除这个分组吗？\n分组内的内容也会被删除。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
@@ -1961,10 +1993,10 @@ Replace it?</source>
     </message>
     <message>
         <source>一款轻巧的屏幕截图与剪贴板管理工具，
-由独立开发者用 Python + PyQt6 打造。
+由rijyaaru用 Python + PySide6 打造。
 先选好语言，再开始探索吧！</source>
         <translation>一款轻巧的屏幕截图与剪贴板管理工具，
-由独立开发者用 Python + PyQt6 打造。
+由rijyaaru用 Python + PySide6 打造。
 先选好语言，再开始探索吧！</translation>
     </message>
     <message>
@@ -2090,14 +2122,12 @@ Replace it?</source>
     </message>
     <!-- page2 -->
     <message>
-        <source>📸 截图快捷键</source>
-        <translation>📸 截图快捷键</translation>
+        <source>📸 截图设置</source>
+        <translation>📸 截图设置</translation>
     </message>
     <message>
-        <source>按下快捷键，即可进入截图模式。
-拖拽选区、标注、保存或直接复制，一气呵成。</source>
-        <translation>按下快捷键，即可进入截图模式。
-拖拽选区、标注、保存或直接复制，一气呵成。</translation>
+        <source>设置快捷键与截图的默认保存位置。</source>
+        <translation>设置快捷键与截图的默认保存位置。</translation>
     </message>
     <message>
         <source>快捷键（最多设置两个）</source>
@@ -2132,8 +2162,8 @@ Replace it?</source>
     </message>
     <!-- page4 -->
     <message>
-        <source>🎯 智能选区</source>
-        <translation>🎯 智能选区</translation>
+        <source>智能选区</source>
+        <translation>智能选区</translation>
     </message>
     <message>
         <source>截图时将鼠标悬停在任意窗口上，自动识别并高亮其边界。
@@ -2163,8 +2193,8 @@ Replace it?</source>
 免费账户每月 50 万字符额度，够日常使用。</translation>
     </message>
     <message>
-        <source>🔑 DeepL API Key</source>
-        <translation>🔑 DeepL API Key</translation>
+        <source>DeepL API Key</source>
+        <translation>DeepL API Key</translation>
     </message>
     <message>
         <source>留空则使用免费公共接口</source>
@@ -2373,6 +2403,70 @@ SOFTWARE.</translation></message>
     <message><source>Save Format</source><translation>保存格式</translation></message>
     <message><source>OCR</source><translation>OCR</translation></message>
     <message><source>Keep original text formatting</source><translation>保留原文格式</translation></message>
+</context>
+
+<context>
+    <name>GroupBar</name>
+    <message>
+        <source>Clipboard History</source>
+        <translation>剪贴板历史</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <source>More groups ({n})</source>
+        <translation>更多分组 ({n})</translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation>编辑</translation>
+    </message>
+    <message>
+        <source>Move Up</source>
+        <translation>上移</translation>
+    </message>
+    <message>
+        <source>Move Down</source>
+        <translation>下移</translation>
+    </message>
+    <message>
+        <source>Delete Group</source>
+        <translation>删除分组</translation>
+    </message>
+    <message>
+        <source>Confirm Delete</source>
+        <translation>确认删除</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete this group?</source>
+        <translation>确定要删除这个分组吗？</translation>
+    </message>
+    <message>
+        <source>All items in the group will also be deleted.</source>
+        <translation>分组内的内容也会被删除。</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</source>
+        <translation>确定要删除这个分组吗？\n分组内的内容也会被删除。</translation>
+    </message>
+</context>
+
+<context>
+    <name>StandardDialog</name>
+    <message>
+        <source>Yes</source>
+        <translation>是</translation>
+    </message>
+    <message>
+        <source>No</source>
+        <translation>否</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>确定</translation>
+    </message>
 </context>
 
 </TS> 

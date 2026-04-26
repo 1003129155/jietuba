@@ -7,17 +7,17 @@ from PySide6.QtWidgets import (
     QWidget, QPushButton, QLabel,
     QHBoxLayout, QVBoxLayout,
 )
-from PySide6.QtCore import Qt, QRect, QPoint, QCoreApplication, Signal, QSize
+from PySide6.QtCore import Qt, QRect, QPoint, Signal, QSize
 from PySide6.QtGui import (
     QPainter, QColor, QPen, QCursor, QBrush,
 )
 
 from ._widgets import svg_icon as _svg_icon, ClickMenuButton as _ClickMenuButton
 from core import safe_event
+from core.i18n import make_tr
 
 
-def _tr(key: str) -> str:
-    return QCoreApplication.translate("GifPlaybackToolbar", key)
+_tr = make_tr("GifPlaybackToolbar")
 
 
 # ──────────────────────────────────────────────

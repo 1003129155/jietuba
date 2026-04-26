@@ -11,6 +11,7 @@ from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, Propert
 from PySide6.QtGui import QFont, QColor, QPainter, QPixmap, QIcon
 from qfluentwidgets import ComboBox
 
+from core.i18n import make_tr
 from core.logger import log_exception
 from core import safe_event
 
@@ -20,6 +21,9 @@ else:
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from base_page import BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND, BG_ILLUS
+
+
+_tr = make_tr("WelcomeWizard")
 
 
 # ── 插画区：大 Logo + 打字机标语 ───────────────────────
@@ -65,11 +69,7 @@ class _WelcomeIllus(IllustrationArea):
         self._reset_typewriter(200)
 
     def _reset_typewriter(self, delay_ms: int):
-        from PySide6.QtCore import QCoreApplication
-        self._full_text = (
-            QCoreApplication.translate("WelcomeWizard", "截图 · 标注 · 剪贴板 · 翻译，一站搞定")
-            or "截图 · 标注 · 剪贴板 · 翻译，一站搞定"
-        )
+        self._full_text = _tr("截图 · 标注 · 剪贴板 · 翻译，一站搞定")
         # 重置进度并清空标签，让打字机重新播放
         self._type_start_timer.stop()
         self._type_timer.stop()
@@ -121,7 +121,7 @@ class WelcomePage(BasePage):
         super().__init__(
             title="欢迎使用截图吧 👋",
             subtitle="一款轻巧的屏幕截图与剪贴板管理工具，\n"
-                     "由独立开发者用 Python + PySide6 打造。\n"
+                     "由rijyaaru用 Python + PySide6 打造。\n"
                      "先选好语言，再开始探索吧！",
             parent=parent,
         )
@@ -208,18 +208,15 @@ class WelcomePage(BasePage):
 
     def retranslate(self):
         """语言切换后由 wizard.retranslate_ui() 调用，刷新本页所有可见文字。"""
-        from PySide6.QtCore import QCoreApplication
-        def tr(s): return QCoreApplication.translate("WelcomeWizard", s) or s
-
-        self.title_label.setText(tr("欢迎使用截图吧 👋"))
-        self.subtitle_label.setText(tr(
+        self.title_label.setText(_tr("欢迎使用截图吧 👋"))
+        self.subtitle_label.setText(_tr(
             "一款轻巧的屏幕截图与剪贴板管理工具，\n"
-            "由独立开发者用 Python + PySide6 打造。\n"
+            "由rijyaaru用 Python + PySide6 打造。\n"
             "先选好语言，再开始探索吧！"))
         if hasattr(self, "_row_lang_lbl") and self._row_lang_lbl:
-            self._row_lang_lbl.setText(tr("🌐 界面语言"))
+            self._row_lang_lbl.setText(_tr("🌐 界面语言"))
         if hasattr(self, "_row_lang_desc") and self._row_lang_desc:
-            self._row_lang_desc.setText(tr("选择后立即生效，欢迎界面将随之切换语言。"))
+            self._row_lang_desc.setText(_tr("选择后立即生效，欢迎界面将随之切换语言。"))
         # 级联刷新插画区（打字机文字）
         if hasattr(self.illus_area, "retranslate"):
             self.illus_area.retranslate()

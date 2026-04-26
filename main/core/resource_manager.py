@@ -17,14 +17,12 @@ class ResourceManager:
         获取资源文件的绝对路径
         支持 PyInstaller 打包后的路径处理
         """
-        try:
-            # PyInstaller 创建临时文件夹,将路径存储在 _MEIPASS 中
+        if hasattr(sys, '_MEIPASS'):
+            # PyInstaller 打包后：临时文件夹路径
             base_path = sys._MEIPASS
-        except Exception as e:
-            log_exception(e, "获取 _MEIPASS")
-            # 开发环境：从新架构文件目录返回到根目录
+        else:
+            # 开发环境：从 core/ 向上两级到项目根目录
             current_dir = os.path.dirname(os.path.abspath(__file__))
-            # 当前在 新架构文件/core，需要向上两级到根目录
             base_path = os.path.dirname(os.path.dirname(current_dir))
             
         return os.path.join(base_path, relative_path)

@@ -12,15 +12,15 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import QWidget, QPushButton, QHBoxLayout, QVBoxLayout
-from PySide6.QtCore import Qt, QPoint, QCoreApplication, Signal, QSize
+from PySide6.QtCore import Qt, QPoint, Signal, QSize
 from PySide6.QtGui import QCursor, QColor, QIcon
 
 from ._widgets import svg_icon as _svg_icon
+from core.i18n import make_tr
 from core.logger import log_exception
 
 
-def _tr(key: str) -> str:
-    return QCoreApplication.translate("GifDrawingToolbar", key)
+_tr = make_tr("GifDrawingToolbar")
 
 
 # 工具按钮定义: (tool_id, svg_filename, tooltip_key)

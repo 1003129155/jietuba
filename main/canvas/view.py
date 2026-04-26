@@ -1385,9 +1385,9 @@ class CanvasView(QGraphicsView):
         
         if result:
             log_info(f"导出成功，图像大小: {result.width()}x{result.height()}", module="CanvasView")
-            from core.clipboard_utils import copy_image_to_clipboard
-            copy_image_to_clipboard(result)
-            log_info("已复制到剪贴板", module="CanvasView")
+            from core.clipboard_utils import deliver_image_async
+            deliver_image_async(result)
+            log_info("已提交异步复制任务", module="CanvasView")
             self.window().close()
         else:
             log_error("导出失败！", module="CanvasView")

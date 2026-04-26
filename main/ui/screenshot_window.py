@@ -36,6 +36,7 @@ class ScreenshotShortcutHandler(ShortcutHandler):
         from core.shortcut_manager import load_inapp_bindings, load_move_keys
         self._bindings = load_inapp_bindings([
             "inapp_confirm", "inapp_pin", "inapp_undo", "inapp_redo",
+            "inapp_delete",
             "inapp_zoom_in", "inapp_zoom_out", "inapp_translate",
         ])
         self._move_keys = load_move_keys()
@@ -112,6 +113,12 @@ class ScreenshotShortcutHandler(ShortcutHandler):
         if self._match(event, "inapp_redo"):
             if w.scene and w.scene.undo_stack.canRedo():
                 w.scene.undo_stack.redo()
+            return True
+
+        # 删除选中图元
+        if self._match(event, "inapp_delete"):
+            if not is_text_editing and hasattr(w.view, 'smart_edit_controller'):
+                w.view.smart_edit_controller.delete_selected()
             return True
 
         # 截图翻译
@@ -789,6 +796,7 @@ class ScreenshotWindow(QWidget):
             flags = focus_item.textInteractionFlags()
             return bool(flags & Qt.TextInteractionFlag.TextEditorInteraction)
         return False
+
     # --- 槽函数 ---
 
     def on_tool_changed(self, tool_id):

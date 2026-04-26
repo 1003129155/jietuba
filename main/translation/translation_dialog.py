@@ -10,15 +10,14 @@ from PySide6.QtWidgets import (
     QTextEdit, QPushButton, QApplication, QWidget,
     QComboBox, QFrame
 )
-from PySide6.QtCore import Qt, QPoint, Signal, QCoreApplication
+from PySide6.QtCore import Qt, QPoint, Signal
 from core import log_info, log_debug
+from core.i18n import make_tr
 from settings import get_tool_settings_manager
 from .languages import TRANSLATION_LANGUAGES
 
 
-def _tr(text: str) -> str:
-    """翻译辅助函数，明确使用 TranslationDialog 上下文"""
-    return QCoreApplication.translate('TranslationDialog', text)
+_tr = make_tr("TranslationDialog")
 
 
 class TranslationDialog(QDialog):

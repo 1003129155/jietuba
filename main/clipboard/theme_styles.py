@@ -248,6 +248,75 @@ class ThemeStyleGenerator:
                 color: {self.colors.text_primary};
             }}
         """
+
+    def generate_menu_style(self) -> str:
+        """生成右键菜单样式"""
+        return f"""
+            QMenu {{
+                background: {self.colors.bg_primary};
+                border: 1px solid {self.colors.border_primary};
+                border-radius: 4px;
+                padding: 4px;
+            }}
+            QMenu::item {{
+                padding: 8px 20px;
+                color: {self.colors.text_primary};
+            }}
+            QMenu::item:selected {{
+                background: {self.colors.bg_hover};
+            }}
+            QMenu::separator {{
+                height: 1px;
+                background: {self.colors.border_primary};
+                margin: 4px 8px;
+            }}
+        """
+
+    def generate_search_input_style(self, has_text: bool = False) -> str:
+        """生成搜索框样式"""
+        bg = self.colors.bg_hover if has_text else "transparent"
+        return f"""
+            QLineEdit {{
+                background: {bg};
+                border: none;
+                color: {self.colors.text_primary};
+                font-size: 13px;
+                padding: 4px;
+            }}
+        """
+
+    def generate_clear_search_btn_style(self) -> str:
+        """生成清除搜索按钮样式"""
+        return f"""
+            QPushButton {{
+                background: transparent;
+                color: {self.colors.text_tertiary};
+                border: none;
+                font-size: 16px;
+                padding: 0px;
+            }}
+            QPushButton:hover {{
+                background: {self.colors.bg_hover};
+                color: {self.colors.text_primary};
+                border-radius: 12px;
+            }}
+        """
+
+    def generate_menu_btn_style(self) -> str:
+        """生成齿轮菜单按钮样式"""
+        return f"""
+            QPushButton {{
+                background: transparent;
+                color: {self.colors.text_secondary};
+                border: none;
+                font-size: 18px;
+                font-weight: normal;
+            }}
+            QPushButton:hover {{
+                background: {self.colors.bg_hover};
+                border-radius: 4px;
+            }}
+        """
     
     @staticmethod
     def _hex_to_rgb(hex_color: str) -> str:

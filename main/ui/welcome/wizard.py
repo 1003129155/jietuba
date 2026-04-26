@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPainter, QPen
 
+from core.i18n import make_tr
 from core.logger import log_exception
 from core import safe_event
 from qfluentwidgets import (
@@ -27,6 +28,9 @@ else:
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from base_page import ACCENT, ACCENT_DARK, TEXT_PRIMARY, TEXT_SECOND, BG_PAGE
+
+
+_tr = make_tr("WelcomeWizard")
 
 
 # ── 进度点指示器 ─────────────────────────────────────────
@@ -217,28 +221,25 @@ class WelcomeWizard(QDialog):
         is_last = self._current == self.PAGE_COUNT - 1
         self._btn_skip.setVisible(not is_last)
 
-        self._btn_back.setText(self.tr("上一步"))
-        self._btn_back.setToolTip(self.tr("上一步"))
+        self._btn_back.setText(_tr("上一步"))
+        self._btn_back.setToolTip(_tr("上一步"))
         self._btn_back.setIcon(None)
 
         if is_last:
-            self._btn_next.setText(self.tr("完成"))
-            self._btn_next.setToolTip(self.tr("完成"))
+            self._btn_next.setText(_tr("完成"))
+            self._btn_next.setToolTip(_tr("完成"))
             self._btn_next.setIcon(None)
         else:
-            self._btn_next.setText(self.tr("下一步"))
-            self._btn_next.setToolTip(self.tr("下一步"))
+            self._btn_next.setText(_tr("下一步"))
+            self._btn_next.setToolTip(_tr("下一步"))
             self._btn_next.setIcon(None)
 
     def retranslate_ui(self):
         """语言切换后刷新向导所有文字（导航按钮 + 各页面）。"""
-        from PySide6.QtCore import QCoreApplication
-        def tr(s): return QCoreApplication.translate("WelcomeWizard", s) or s
-
         # 刷新窗口标题
-        self.setWindowTitle(tr("欢迎使用截图吧"))
+        self.setWindowTitle(_tr("欢迎使用截图吧"))
 
-        self._btn_skip.setText(tr("跳过"))
+        self._btn_skip.setText(_tr("跳过"))
         self._update_nav()
 
         # 通知每个页面刷新
