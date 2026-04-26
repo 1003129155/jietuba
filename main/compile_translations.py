@@ -74,18 +74,18 @@ def compile_ts_files():
         print(f"[ERROR] 没有找到 .ts 或 .xml 文件: {translations_dir}")
         return False
     
-    print(f"📁 翻译目录: {translations_dir}")
-    print(f"📄 找到 {len(ts_files)} 个 .ts 文件")
+    print(f"[INFO] 翻译目录: {translations_dir}")
+    print(f"[INFO] 找到 {len(ts_files)} 个 .ts/.xml 文件")
     
     # 查找 lrelease
     lrelease = find_lrelease()
     
     if lrelease:
-        print(f"[FIX] 使用 lrelease: {lrelease}")
+        print(f"[INFO] 使用 lrelease: {lrelease}")
         
         for ts_file in ts_files:
             qm_file = ts_file.with_suffix(".qm")
-            print(f"\n📝 编译: {ts_file.name} -> {qm_file.name}")
+            print(f"\n[INFO] 编译: {ts_file.name} -> {qm_file.name}")
             
             try:
                 result = subprocess.run(
@@ -112,9 +112,9 @@ def compile_ts_files():
             with open(qm_file, 'wb') as f:
                 # Qt .qm 文件魔数
                 f.write(b'\x3c\xb8\x64\x18\xff\xff\xff\xff\x08\x00\x00\x00\x00')
-            print(f"   📄 创建占位文件: {qm_file.name}")
+            print(f"   [INFO] 创建占位文件: {qm_file.name}")
         
-        print("\n💡 提示: 占位文件只能让程序启动，实际翻译需要:")
+        print("\n[INFO] 提示: 占位文件只能让程序启动，实际翻译需要:")
         print("   1. pip install PySide6-Essentials")
         print("   2. 重新运行此脚本")
     

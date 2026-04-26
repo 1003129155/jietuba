@@ -5,9 +5,10 @@ i18n.py - 国际化翻译管理器
 使用自定义的 XML 翻译系统实现多语言支持。
 
 使用方法:
-1. 在 UI 组件中使用 self.tr("text") 包装所有需要翻译的文本
-2. 编辑 translations/ 目录下的 XML 文件进行翻译
-3. XML 文件使用 Qt Linguist 的 .ts 格式
+1. 当 QWidget/QObject 的类名就是翻译上下文时，优先使用 self.tr("text")
+2. 当需要显式指定上下文时，使用 from core.i18n import make_tr，然后 _tr = make_tr("ContextName")
+3. 编辑 translations/ 目录下的 XML 文件进行翻译
+4. XML 文件使用 Qt Linguist 的 .ts 格式
 """
 from PySide6.QtCore import QTranslator, QLocale, QCoreApplication, QObject, Signal
 from PySide6.QtWidgets import QApplication
@@ -271,7 +272,7 @@ def tr(text: str, context: str = "I18nManager") -> str:
     """
     翻译文本的便捷函数
     
-    注意：在 QWidget 子类中，应优先使用 self.tr() 方法
+    注意：当 QWidget 子类需要使用其它上下文时，也可以显式传入 context
     
     Args:
         text: 要翻译的原始文本
@@ -280,7 +281,16 @@ def tr(text: str, context: str = "I18nManager") -> str:
     Returns:
         翻译后的文本
     """
-    return QCoreApplication.translate(context, text)
+    return QCoreApplication.translate(context, text) or text
+
+
+def make_tr(context: str):
+    """创建绑定固定翻译上下文的 _tr 辅助函数。"""
+
+    def _translate(text: str) -> str:
+        return tr(text, context)
+
+    return _translate
 
 
 # 注意：不要在模块级别初始化单例，因为此时 QApplication 可能还不存在

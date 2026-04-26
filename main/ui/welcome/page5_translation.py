@@ -13,6 +13,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QPainter, QColor, QFont, QPen, QPainterPath
 from qfluentwidgets import ComboBox, LineEdit
 from core import safe_event
+from core.i18n import make_tr
 
 if __package__:
     from .base_page import BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND
@@ -20,6 +21,9 @@ else:
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from base_page import BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND
+
+
+_tr = make_tr("WelcomeWizard")
 
 
 # ── 插画区：文字翻译流动动画 ────────────────────────────
@@ -232,19 +236,16 @@ class TranslationPage(BasePage):
         layout.addWidget(row)
 
     def retranslate(self):
-        from PySide6.QtCore import QCoreApplication
-        def tr(s): return QCoreApplication.translate("WelcomeWizard", s) or s
-
-        self.title_label.setText(tr("🌐 翻译设置"))
-        self.subtitle_label.setText(tr(
+        self.title_label.setText(_tr("🌐 翻译设置"))
+        self.subtitle_label.setText(_tr(
             "使用 DeepL API 进行高质量翻译。\n"
             "免费账户每月 50 万字符额度，够日常使用。"))
         if hasattr(self, "_api_lbl") and self._api_lbl:
-            self._api_lbl.setText(tr("DeepL API Key"))
+            self._api_lbl.setText(_tr("DeepL API Key"))
         if hasattr(self, "_api_edit") and self._api_edit:
-            self._api_edit.setPlaceholderText(tr("留空则使用免费公共接口"))
+            self._api_edit.setPlaceholderText(_tr("留空则使用免费公共接口"))
         if hasattr(self, "_row_lang_lbl") and self._row_lang_lbl:
-            self._row_lang_lbl.setText(tr("翻译目标语言"))
+            self._row_lang_lbl.setText(_tr("翻译目标语言"))
         # 级联刷新插画区（翻译动画文字随界面语言切换）
         if hasattr(self, "illus_area") and hasattr(self.illus_area, "retranslate"):
             self.illus_area.retranslate()

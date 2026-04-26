@@ -482,6 +482,22 @@ class SmartEditController(QObject):
         flags = item.textInteractionFlags()
         return bool(flags & Qt.TextInteractionFlag.TextEditorInteraction)
 
+    def delete_selected(self):
+        """删除当前选中的图元，推入撤销栈"""
+        item = self.selected_item
+        if item is None or item.scene() is None:
+            return
+        from canvas.undo import RemoveItemCommand
+        scene = item.scene()
+        undo_stack = getattr(scene, "undo_stack", None)
+        self.clear_selection()
+        if undo_stack:
+            cmd = RemoveItemCommand(scene, item)
+            if hasattr(undo_stack, "push_command"):
+                undo_stack.push_command(cmd)
+            else:
+                undo_stack.push(cmd)
+
     # ========================================================================
     # 控制点编辑集成
     # ========================================================================

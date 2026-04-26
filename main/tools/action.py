@@ -2,13 +2,17 @@
 操作工具 - 处理工具栏的操作按钮（确定、复制、保存等）
 """
 
-from PySide6.QtWidgets import QApplication, QFileDialog
+from PySide6.QtWidgets import QFileDialog
 from PySide6.QtGui import QPixmap
 from PySide6.QtCore import QPoint
+from core.i18n import make_tr
 from core.export import ExportService
 from core.save import SaveService
 from pin.pin_manager import PinManager
 from core import log_debug, log_info
+
+
+_tr = make_tr("ActionTools")
 
 
 class ActionTools:
@@ -21,13 +25,9 @@ class ActionTools:
         self.export_service = ExportService(scene)
         self.save_service = SaveService(config_manager=self.config_manager)
 
-    def _tr(self, text: str) -> str:
-        """翻译辅助方法"""
-        return QApplication.translate("ActionTools", text)
-    
     def _copy_save_and_close(self):
         """核心操作：导出选区 → 复制到剪贴板 → 自动保存 → 关闭窗口"""
-        from core.clipboard_utils import copy_image_to_clipboard
+        from core.clipboard_utils import deliver_image_async
         self._temporarily_exit_editing()
 
         # 导出选区图像（包含背景和绘制内容）
@@ -37,17 +37,24 @@ class ActionTools:
         if self.parent_window:
             self.parent_window.hide()
 
-        copy_image_to_clipboard(image)
-        log_info("已复制到剪贴板", "Action")
+        save_service = None
+        save_kwargs = None
 
         if self.config_manager and self.config_manager.get_screenshot_save_enabled():
             fmt = self.config_manager.get_screenshot_format()
-            self.save_service.save_qimage_async(
-                image,
+            save_service = self.save_service
+            save_kwargs = dict(
                 directory=self.config_manager.get_screenshot_save_path(),
                 prefix="",
                 image_format=fmt,
             )
+
+        deliver_image_async(
+            image,
+            save_service=save_service,
+            save_kwargs=save_kwargs,
+        )
+        log_debug("已提交异步复制/保存任务", "Action")
 
         if self.parent_window:
             self._cleanup_and_close()
@@ -67,7 +74,7 @@ class ActionTools:
         pixmap = self.export_service.get_result_pixmap()
         
         file_path, _ = QFileDialog.getSaveFileName(
-            self.parent_window, self._tr("Save Screenshot"), "screenshot.png", "Images (*.png *.jpg *.bmp)"
+            self.parent_window, _tr("Save Screenshot"), "screenshot.png", "Images (*.png *.jpg *.bmp)"
         )
         
         if file_path:
@@ -118,15 +125,15 @@ class ActionTools:
         log_debug(f"继承绘制项目: {len(drawing_items)} 个", "PinAction")
         
         # 复制到剪贴板
-        from core.clipboard_utils import copy_image_to_clipboard
+        from core.clipboard_utils import deliver_image_async
         result_image = self.export_service.export(selection_rect)
 
         # 数据已拿到，提前隐藏截图窗口
         if self.parent_window:
             self.parent_window.hide()
 
-        copy_image_to_clipboard(result_image)
-        log_debug("已复制到剪贴板", "PinAction")
+        deliver_image_async(result_image)
+        log_debug("已提交异步复制任务", "PinAction")
         
         if self.parent_window:
             self._cleanup_and_close()
@@ -150,8 +157,8 @@ class ActionTools:
         if not self.scene.selection_model.is_confirmed:
             show_modeless_warning_dialog(
                 self.parent_window,
-                self._tr("Warning"),
-                self._tr("Please select a valid capture area first.")
+                _tr("Warning"),
+                _tr("Please select a valid capture area first.")
             )
             return
         
@@ -161,8 +168,8 @@ class ActionTools:
         if base_image is None or base_image.isNull():
             show_modeless_warning_dialog(
                 self.parent_window,
-                self._tr("Error"),
-                self._tr("Failed to capture the selected area.")
+                _tr("Error"),
+                _tr("Failed to capture the selected area.")
             )
             return
         
@@ -177,8 +184,8 @@ class ActionTools:
         if not params.get("api_key"):
             show_modeless_warning_dialog(
                 self.parent_window,
-                self._tr("Notice"),
-                self._tr("Please configure DeepL API key in Settings.")
+                _tr("Notice"),
+                _tr("Please configure DeepL API key in Settings.")
             )
             return
         

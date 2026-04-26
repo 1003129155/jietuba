@@ -36,8 +36,11 @@ from abc import ABC, abstractmethod
 from ctypes import wintypes
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
-from PySide6.QtCore import QAbstractNativeEventFilter, QEvent, QObject
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QAbstractNativeEventFilter, QEvent, QObject, Qt
+from PySide6.QtWidgets import (
+    QApplication, QComboBox, QDoubleSpinBox, QGraphicsView,
+    QLineEdit, QPlainTextEdit, QSpinBox, QTextEdit,
+)
 
 from core import log_debug, log_info, log_warning, log_error, safe_event
 from core.logger import log_exception
@@ -209,9 +212,51 @@ class ShortcutManager(QObject):
     # Qt KeyPress 分发
     # ==================================================================
 
+    # 这些键属于结构性 / 功能键，即使焦点在文字框里也应交给快捷键系统
+    _PASSTHROUGH_KEYS = frozenset({
+        Qt.Key.Key_Escape, Qt.Key.Key_Tab, Qt.Key.Key_Backtab,
+        Qt.Key.Key_F1, Qt.Key.Key_F2, Qt.Key.Key_F3, Qt.Key.Key_F4,
+        Qt.Key.Key_F5, Qt.Key.Key_F6, Qt.Key.Key_F7, Qt.Key.Key_F8,
+        Qt.Key.Key_F9, Qt.Key.Key_F10, Qt.Key.Key_F11, Qt.Key.Key_F12,
+    })
+
+    def _is_text_input_active(self, event) -> bool:
+        """焦点在文字输入控件上，且按键属于文字输入类（非结构键）"""
+        if event.key() in self._PASSTHROUGH_KEYS:
+            return False
+
+        focus = QApplication.focusWidget()
+        if focus is None:
+            return False
+
+        # 常见文字输入控件
+        if isinstance(focus, (QLineEdit, QTextEdit, QPlainTextEdit,
+                              QSpinBox, QDoubleSpinBox)):
+            return True
+        if isinstance(focus, QComboBox) and focus.isEditable():
+            return True
+
+        # QGraphicsView 中正在编辑 TextItem
+        if isinstance(focus, QGraphicsView):
+            scene = focus.scene()
+            if scene:
+                from PySide6.QtWidgets import QGraphicsTextItem
+                fi = scene.focusItem()
+                if (isinstance(fi, QGraphicsTextItem)
+                        and fi.hasFocus()
+                        and bool(fi.textInteractionFlags()
+                                 & Qt.TextInteractionFlag.TextEditorInteraction)):
+                    return True
+
+        return False
+
     @safe_event
     def eventFilter(self, obj, event):
         if event.type() != QEvent.Type.KeyPress:
+            return False
+
+        # 文字输入控件获焦时，优先让控件处理按键
+        if self._is_text_input_active(event):
             return False
 
         for handler in self._handlers:
@@ -539,6 +584,7 @@ def load_inapp_bindings(keys_of_interest: Optional[List[str]] = None) -> Dict:
     if keys_of_interest is None:
         keys_of_interest = [
             "inapp_confirm", "inapp_pin", "inapp_undo", "inapp_redo",
+            "inapp_delete",
             "inapp_copy_pin", "inapp_thumbnail", "inapp_toggle_toolbar",
             "inapp_zoom_in", "inapp_zoom_out", "inapp_translate",
         ]

@@ -23,6 +23,7 @@ from PySide6.QtCore import Qt, Signal, QCoreApplication, QRectF
 from PySide6.QtGui import QColor, QPainter, QPen, QBrush, QPainterPath
 from core import log_debug, safe_event
 from core.constants import CSS_FONT_FAMILY
+from core.i18n import tr as translate_text
 from .color_picker_button import ColorPickerButton
 
 
@@ -414,7 +415,7 @@ class BaseSettingsPanel(QWidget):
 
     def _tr(self, text: str) -> str:
         """统一翻译入口（与箭头面板一致的翻译上下文）"""
-        return QCoreApplication.translate(self.TRANSLATION_CONTEXT, text)
+        return translate_text(text, self.TRANSLATION_CONTEXT)
         
     # ========================================================================
     # 信号处理

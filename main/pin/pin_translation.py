@@ -7,6 +7,10 @@
 from PySide6.QtWidgets import QWidget, QApplication
 from PySide6.QtCore import Qt, QPoint
 from core import log_info, log_warning, log_error
+from core.i18n import make_tr
+
+
+_tr = make_tr("PinTranslationHelper")
 
 
 class PinTranslationHelper:
@@ -27,10 +31,6 @@ class PinTranslationHelper:
         self.parent = parent
         self.config_manager = config_manager
 
-    def _tr(self, text: str) -> str:
-        """翻译辅助方法"""
-        return QApplication.translate("PinTranslationHelper", text)
-    
     def translate(self, ocr_text_layer) -> bool:
         """
         执行翻译
@@ -59,7 +59,7 @@ class PinTranslationHelper:
             api_key = self._get_deepl_api_key()
             if not api_key:
                 log_error("DeepL API 密钥未配置", "Translate")
-                self._show_error(self._tr("Please configure DeepL API key in Settings."))
+                self._show_error(_tr("Please configure DeepL API key in Settings."))
                 return False
             
             # 4. 获取目标语言
@@ -195,5 +195,5 @@ class PinTranslationHelper:
     def _show_error(self, message: str):
         """显示错误提示"""
         from ui.dialogs import show_warning_dialog
-        show_warning_dialog(self.parent, self._tr("Translation Error"), message)
+        show_warning_dialog(self.parent, _tr("Translation Error"), message)
  

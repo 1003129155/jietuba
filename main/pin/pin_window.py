@@ -29,7 +29,7 @@ from .pin_image_transform import PinImageTransform
 from core import log_debug, log_info, log_warning, log_error, safe_event
 from core.theme import get_theme
 from core.logger import log_exception
-from core.clipboard_utils import copy_image_to_clipboard
+from core.clipboard_utils import deliver_image_async
 
 
 class PinWindow(QWidget):
@@ -741,7 +741,7 @@ class PinWindow(QWidget):
     def copy_to_clipboard(self):
         def _do_copy():
             image = self.get_current_image()
-            copy_image_to_clipboard(image)
+            deliver_image_async(image)
         self._with_edit_paused(_do_copy)
 
     # ==================================================================
