@@ -188,7 +188,7 @@
     <!-- Buttons -->
     <message>
         <source>Reset This Page</source>
-        <translation>このページをリセット</translation>
+        <translation>リセット</translation>
     </message>
     <message>
         <source>Cancel</source>
@@ -289,6 +289,10 @@ Replace it?</source>
     <message>
         <source>Redo</source>
         <translation>やり直し</translation>
+    </message>
+    <message>
+        <source>Delete Selected</source>
+        <translation>選択項目を削除</translation>
     </message>
     <message>
         <source>Copy Pinned Image</source>
@@ -531,8 +535,8 @@ Replace it?</source>
         <translation>スタートアップ起動</translation>
     </message>
     <message>
-        <source>Copy shortcut to Windows Startup folder.</source>
-        <translation>ショートカットをWindowsスタートアップフォルダにコピーします。</translation>
+        <source>Register in Windows startup via registry.</source>
+        <translation>レジストリを使用してWindows起動時に登録します。</translation>
     </message>
     <message>
         <source>Show Main Window on Startup</source>
@@ -1313,6 +1317,14 @@ Replace it?</source>
         <translation>削除の確認</translation>
     </message>
     <message>
+        <source>Are you sure you want to delete this group?</source>
+        <translation>このグループを削除してもよろしいですか？</translation>
+    </message>
+    <message>
+        <source>All items in the group will also be deleted.</source>
+        <translation>グループ内のすべてのアイテムも削除されます。</translation>
+    </message>
+    <message>
         <source>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</source>
         <translation>このグループを削除してもよろしいですか？\nグループ内のすべてのアイテムも削除されます。</translation>
     </message>
@@ -1514,6 +1526,10 @@ Replace it?</source>
         <translation>グループ名を入力してください</translation>
     </message>
     <message>
+        <source>A group with this name already exists</source>
+        <translation>同名のグループが既に存在します</translation>
+    </message>
+    <message>
         <source>Failed</source>
         <translation>失敗</translation>
     </message>
@@ -1548,6 +1564,22 @@ Replace it?</source>
     <message>
         <source>Failed to delete group</source>
         <translation>グループの削除に失敗しました</translation>
+    </message>
+    <message>
+        <source>Confirm Delete</source>
+        <translation>削除の確認</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete this group?</source>
+        <translation>このグループを削除してもよろしいですか？</translation>
+    </message>
+    <message>
+        <source>All items in the group will also be deleted.</source>
+        <translation>グループ内のすべてのアイテムも削除されます。</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</source>
+        <translation>このグループを削除してもよろしいですか？\nグループ内のすべてのアイテムも削除されます。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
@@ -1940,10 +1972,10 @@ Replace it?</source>
     </message>
     <message>
         <source>一款轻巧的屏幕截图与剪贴板管理工具，
-由独立开发者用 Python + PyQt6 打造。
+由rijyaaru用 Python + PySide6 打造。
 先选好语言，再开始探索吧！</source>
         <translation>軽量なスクリーンショット＆クリップボード管理ツール。
-Rust + PyQt6 で作られました。
+rijyaaru が Python + PySide6 で制作しました。
 まず言語を選んでください！</translation>
     </message>
     <message>
@@ -2114,8 +2146,8 @@ Rust + PyQt6 で作られました。
         <translation>ツールバーを上部に</translation>
     </message>
     <message>
-        <source>📋 剪贴板管理</source>
-        <translation>📋 クリップボード管理</translation>
+        <source>剪贴板管理</source>
+        <translation>クリップボード管理</translation>
     </message>
     <message>
         <source>自动记录每一次复制，随时召唤历史内容。
@@ -2137,8 +2169,8 @@ Rust + PyQt6 で作られました。
     </message>
     <!-- page4 -->
     <message>
-        <source>🎯 智能选区</source>
-        <translation>🎯 スマート選択</translation>
+        <source>智能选区</source>
+        <translation>スマート選択</translation>
     </message>
     <message>
         <source>截图时将鼠标悬停在任意窗口上，自动识别并高亮其边界。
@@ -2168,8 +2200,8 @@ OFF：通常のドラッグ選択モードに戻ります。</translation>
 無料枠: 月50万文字。</translation>
     </message>
     <message>
-        <source>🔑 DeepL API Key</source>
-        <translation>🔑 DeepL APIキー</translation>
+        <source>DeepL API Key</source>
+        <translation>DeepL APIキー</translation>
     </message>
     <message>
         <source>留空则使用免费公共接口</source>
@@ -2377,6 +2409,70 @@ SOFTWARE.</translation></message>
     <message><source>Save Format</source><translation>保存形式</translation></message>
     <message><source>OCR</source><translation>OCR</translation></message>
     <message><source>Keep original text formatting</source><translation>原文の書式を保持</translation></message>
+</context>
+
+<context>
+    <name>GroupBar</name>
+    <message>
+        <source>Clipboard History</source>
+        <translation>クリップボード履歴</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>閉じる</translation>
+    </message>
+    <message>
+        <source>More groups ({n})</source>
+        <translation>その他のグループ ({n})</translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation>編集</translation>
+    </message>
+    <message>
+        <source>Move Up</source>
+        <translation>上へ</translation>
+    </message>
+    <message>
+        <source>Move Down</source>
+        <translation>下へ</translation>
+    </message>
+    <message>
+        <source>Delete Group</source>
+        <translation>グループを削除</translation>
+    </message>
+    <message>
+        <source>Confirm Delete</source>
+        <translation>削除の確認</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete this group?</source>
+        <translation>このグループを削除してもよろしいですか？</translation>
+    </message>
+    <message>
+        <source>All items in the group will also be deleted.</source>
+        <translation>グループ内のすべてのアイテムも削除されます。</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</source>
+        <translation>このグループを削除してもよろしいですか？\nグループ内のすべてのアイテムも削除されます。</translation>
+    </message>
+</context>
+
+<context>
+    <name>StandardDialog</name>
+    <message>
+        <source>Yes</source>
+        <translation>はい</translation>
+    </message>
+    <message>
+        <source>No</source>
+        <translation>いいえ</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
 </context>
 
 </TS>

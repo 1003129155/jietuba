@@ -7,6 +7,10 @@
 from PySide6.QtWidgets import QApplication, QDialog, QVBoxLayout, QLabel, QDialogButtonBox, QCheckBox
 from PySide6.QtWidgets import QScrollArea, QWidget
 from PySide6.QtCore import Qt
+from core.i18n import make_tr
+
+
+_translate_dialog_text = make_tr("StandardDialog")
 
 class StandardDialog(QDialog):
     """
@@ -16,6 +20,7 @@ class StandardDialog(QDialog):
     def __init__(self, parent, title, message):
         super().__init__(parent)
         self.setWindowTitle(title)
+        self.setObjectName("standardDialog")
         
         # 强制自身为对话框，且不需要全局置顶，绑定至父窗口的模态
         self.setWindowFlags(
@@ -24,6 +29,37 @@ class StandardDialog(QDialog):
             | Qt.WindowType.WindowCloseButtonHint
         )
         self.setWindowModality(Qt.WindowModality.WindowModal)
+        self.setStyleSheet("""
+            QDialog#standardDialog {
+                background: #FFFFFF;
+                color: #202124;
+            }
+            QLabel {
+                background: transparent;
+                color: #202124;
+                font-size: 13px;
+            }
+            QCheckBox {
+                background: transparent;
+                color: #202124;
+                font-size: 13px;
+            }
+            QPushButton {
+                min-width: 84px;
+                min-height: 30px;
+                padding: 4px 14px;
+                background: #FFFFFF;
+                color: #202124;
+                border: 1px solid #D0D7DE;
+                border-radius: 6px;
+            }
+            QPushButton:hover {
+                background: #F5F7FA;
+            }
+            QPushButton:pressed {
+                background: #EBEEF2;
+            }
+        """)
         
         layout = QVBoxLayout(self)
         layout.setSpacing(12)
@@ -98,8 +134,8 @@ def show_custom_confirm_dialog(parent, title, message, buttons_config) -> str:
 
 def show_confirm_dialog(parent, title, message) -> bool:
     """显示确认对话框 (Yes / No)，返回 bool"""
-    yes_text = parent.tr("Yes") if hasattr(parent, 'tr') else "Yes"
-    no_text = parent.tr("No") if hasattr(parent, 'tr') else "No"
+    yes_text = _translate_dialog_text("Yes")
+    no_text = _translate_dialog_text("No")
     
     config = [
         {"id": True, "text": yes_text, "role": QDialogButtonBox.ButtonRole.YesRole},
@@ -109,8 +145,8 @@ def show_confirm_dialog(parent, title, message) -> bool:
 
 def show_confirm_checkbox_dialog(parent, title, message, checkbox_text, checkbox_checked=False):
     """显示带复选框的确认对话框，返回 (confirmed, checkbox_checked)"""
-    yes_text = parent.tr("Yes") if hasattr(parent, 'tr') else "Yes"
-    no_text = parent.tr("No") if hasattr(parent, 'tr') else "No"
+    yes_text = _translate_dialog_text("Yes")
+    no_text = _translate_dialog_text("No")
 
     dialog = StandardDialog(parent, title, message)
     checkbox = QCheckBox(checkbox_text, dialog)
@@ -129,7 +165,7 @@ def show_confirm_checkbox_dialog(parent, title, message, checkbox_text, checkbox
 
 def show_info_dialog(parent, title, message):
     """显示信息提示框 (OK)"""
-    ok_text = parent.tr("OK") if hasattr(parent, 'tr') else "OK"
+    ok_text = _translate_dialog_text("OK")
     config = [
         {"id": "ok", "text": ok_text, "role": QDialogButtonBox.ButtonRole.AcceptRole, "default": True}
     ]
@@ -137,7 +173,7 @@ def show_info_dialog(parent, title, message):
 
 def show_warning_dialog(parent, title, message):
     """显示警告提示框 (OK)"""
-    ok_text = parent.tr("OK") if hasattr(parent, 'tr') else "OK"
+    ok_text = _translate_dialog_text("OK")
     config = [
         {"id": "ok", "text": ok_text, "role": QDialogButtonBox.ButtonRole.AcceptRole, "default": True}
     ]
@@ -146,7 +182,7 @@ def show_warning_dialog(parent, title, message):
 
 def show_text_dialog(parent, title, content):
     """显示带可滚动正文的文本对话框。"""
-    ok_text = parent.tr("OK") if hasattr(parent, 'tr') else "OK"
+    ok_text = _translate_dialog_text("OK")
 
     dialog = StandardDialog(parent, title, "")
     dialog.resize(620, 430)
@@ -183,7 +219,7 @@ def show_text_dialog(parent, title, content):
 
 def show_modeless_warning_dialog(parent, title, message):
     """显示非模态警告提示框，适用于截图等不能阻塞交互的场景。"""
-    ok_text = parent.tr("OK") if hasattr(parent, 'tr') else "OK"
+    ok_text = _translate_dialog_text("OK")
 
     dialog = StandardDialog(parent, title, message)
     dialog.setWindowModality(Qt.WindowModality.NonModal)
@@ -200,7 +236,7 @@ def show_modeless_warning_dialog(parent, title, message):
 
 def show_error_dialog(parent, title, message):
     """显示错误提示框 (OK)"""
-    ok_text = parent.tr("OK") if hasattr(parent, 'tr') else "OK"
+    ok_text = _translate_dialog_text("OK")
     config = [
         {"id": "ok", "text": ok_text, "role": QDialogButtonBox.ButtonRole.AcceptRole, "default": True}
     ]

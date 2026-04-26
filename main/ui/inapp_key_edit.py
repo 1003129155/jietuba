@@ -53,8 +53,8 @@ class InAppKeyEdit(QLineEdit):
                 self.setText("+".join(parts).lower() + "+")
             return
 
-        # Backspace / Delete（无修饰键）→ 清空
-        if not parts and key in (Qt.Key.Key_Backspace, Qt.Key.Key_Delete):
+        # Backspace（无修饰键）→ 清空
+        if not parts and key == Qt.Key.Key_Backspace:
             self.setText("")
             return
 

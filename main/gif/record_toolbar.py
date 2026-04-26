@@ -9,17 +9,17 @@ from __future__ import annotations
 from PySide6.QtWidgets import (
     QWidget, QPushButton, QLabel, QHBoxLayout, QVBoxLayout,
 )
-from PySide6.QtCore import Qt, QPoint, QCoreApplication, Signal, QSize
+from PySide6.QtCore import Qt, QPoint, Signal, QSize
 from PySide6.QtGui import QCursor, QColor
 
 from ._widgets import svg_icon as _svg_icon, ClickMenuButton as _ClickMenuButton
 from core.constants import DEFAULT_FONT_FAMILY
+from core.i18n import make_tr
 from core import safe_event
 from core.logger import log_exception
 
 
-def _tr(key: str) -> str:
-    return QCoreApplication.translate("GifRecordToolbar", key)
+_tr = make_tr("GifRecordToolbar")
 
 
 # 绘制工具按钮: (tool_id, svg_file, tooltip)

@@ -141,6 +141,7 @@ class ToolSettingsManager(QObject):
         "inapp_pin": "ctrl+d",                 # 钉图
         "inapp_undo": "ctrl+z",                # 撤销
         "inapp_redo": "ctrl+y",                # 重做
+        "inapp_delete": "delete",              # 删除选中图元
         "inapp_copy_pin": "ctrl+c",            # 复制钉图内容
         "inapp_thumbnail": "r",                # 切换缩略图模式
         "inapp_toggle_toolbar": "space",       # 切换工具栏

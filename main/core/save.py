@@ -51,6 +51,24 @@ class SaveService:
             callback=callback,
         )
 
+    def save_qimage(
+        self,
+        image: QImage,
+        *,
+        directory: Optional[str] = None,
+        prefix: str = "截图",
+        suffix: str = "",
+        image_format: str = "PNG",
+    ) -> tuple[bool, Optional[str]]:
+        """Save a QImage synchronously and return the result path."""
+        if image is None or image.isNull():
+            log_warning("QImage is null, skip saving", "Save")
+            return False, None
+
+        target_path = self._compose_path(directory, prefix, suffix, image_format)
+        success = self._save_qimage_to_path(image, target_path, image_format)
+        return success, target_path
+
     def save_pil_async(
         self,
         pil_image: Image.Image,
@@ -102,24 +120,28 @@ class SaveService:
         def worker():
             nonlocal image  # 允许修改外部变量
             try:
-                success = image.save(target_path, image_format.upper())
-                if success:
-                    log_info(f"已保存文件: {target_path}", "Save")
-                else:
-                    log_error(f"保存失败: {target_path}", "Save")
-                    self._cleanup_failed_placeholder(target_path)
+                success = self._save_qimage_to_path(image, target_path, image_format)
                 if callback:
                     callback(success, target_path)
-            except Exception as exc:
-                log_error(f"保存失败 {target_path}: {exc}", "Save")
-                self._cleanup_failed_placeholder(target_path)
-                if callback:
-                    callback(False, target_path)
             finally:
                 image = None  # 解除引用，引用计数归零时 Qt 立即释放内存
 
         threading.Thread(target=worker, daemon=True).start()
         return target_path
+
+    def _save_qimage_to_path(self, image: QImage, target_path: str, image_format: str) -> bool:
+        try:
+            success = image.save(target_path, image_format.upper())
+            if success:
+                log_info(f"已保存文件: {target_path}", "Save")
+            else:
+                log_error(f"保存失败: {target_path}", "Save")
+                self._cleanup_failed_placeholder(target_path)
+            return success
+        except Exception as exc:
+            log_error(f"保存失败 {target_path}: {exc}", "Save")
+            self._cleanup_failed_placeholder(target_path)
+            return False
 
     def _compose_path(self, directory: Optional[str], prefix: str, suffix: str, image_format: str) -> str:
         target_dir = directory or self.get_default_directory()
