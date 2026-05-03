@@ -355,29 +355,31 @@ def _is_clipboard_busy_error(exc: Exception) -> bool:
 
 def _copy_win32_ole(image: QImage) -> None:
     """用 OLE DataObject 提供 CF_DIBV5 + PNG，尽量模拟系统截图工具。"""
+    import ctypes
     import pythoncom
 
     import time as _time
     _t0 = _time.perf_counter()
-    _t2 = _t0  # 若 wrap() 前抛出异常则 wrap 耗时显示为 0
 
     data_object = _OleClipboardImageDataObject(image)
     _t1 = _time.perf_counter()
+    wrapped = data_object.wrap()
+    _t2 = _time.perf_counter()
 
     with _CLIPBOARD_WRITE_LOCK:
-        # OleInitialize 必须在 wrap() 之前调用：
-        # wrap() 会创建 COM 服务器对象（IDataObject），
-        # 而 COM 对象只能在当前线程已初始化 STA 公寓后才能安全创建，
-        # 否则 Windows 会因跨线程 COM 访问抛出 RPC_E_WRONG_THREAD (0x8001010e)。
         pythoncom.OleInitialize()
         try:
-            wrapped = data_object.wrap()
-            _t2 = _time.perf_counter()
             pythoncom.OleSetClipboard(wrapped)
             # 立即 flush，避免后台线程结束后丢失延迟渲染对象。
             pythoncom.OleFlushClipboard()
         finally:
-            pythoncom.CoUninitialize()
+            # OleFlushClipboard 已释放剪贴板对 DataObject 的引用，
+            # 必须在 COM 公寓拆除前显式释放 COM 对象，
+            # 否则函数返回后 GC 回收 wrapped 时 Release() 访问已卸载的 COM → 崩溃
+            del wrapped
+            del data_object
+            # OleInitialize 必须配对 OleUninitialize（pythoncom 未暴露此 API）
+            ctypes.windll.ole32.OleUninitialize()
     _t3 = _time.perf_counter()
 
     log_debug(
@@ -475,7 +477,7 @@ def _build_png(image: QImage) -> bytes:
     """将 QImage 编码为 PNG 字节流。"""
     buf = QBuffer()
     buf.open(QIODeviceBase.OpenModeFlag.WriteOnly)
-    # quality=50 → 兼顾速度与体积（比100多~14ms，但体积缩小约95%）
+    # quality=50 → 兼顾速度与体积
     image.save(buf, "PNG", 50)
     buf.close()
     return bytes(buf.data())
