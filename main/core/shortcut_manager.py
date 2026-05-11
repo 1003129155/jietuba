@@ -36,7 +36,7 @@ from abc import ABC, abstractmethod
 from ctypes import wintypes
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
-from PySide6.QtCore import QAbstractNativeEventFilter, QEvent, QObject, Qt
+from PySide6.QtCore import QAbstractNativeEventFilter, QEvent, QObject, Qt, Signal
 from PySide6.QtWidgets import (
     QApplication, QComboBox, QDoubleSpinBox, QGraphicsView,
     QLineEdit, QPlainTextEdit, QSpinBox, QTextEdit,
@@ -132,7 +132,7 @@ class _HotkeyEventFilter(QAbstractNativeEventFilter):
                             return True, 0
                         # 没人拦截，执行原始回调
                         try:
-                            cb()
+                            self._manager.invoke_on_main_thread(cb)
                         except Exception as e:
                             log_exception(e, f"热键回调 id={hotkey_id}")
                         return True, 0
@@ -161,6 +161,20 @@ class ShortcutManager(QObject):
     # 类级变量，跟踪当前进程所有已注册的热键 (mods, vk)
     _registered_keys_global: Set[Tuple[int, int]] = set()
 
+    class _MainThreadInvoker(QObject):
+        invoke_requested = Signal(object)
+
+        def __init__(self):
+            super().__init__()
+            self.invoke_requested.connect(self._invoke, Qt.ConnectionType.QueuedConnection)
+
+        @staticmethod
+        def _invoke(callback):
+            try:
+                callback()
+            except Exception as e:
+                log_exception(e, "主线程热键回调执行失败")
+
     def __init__(self):
         super().__init__()
         # ── handler 链 ──
@@ -170,9 +184,14 @@ class ShortcutManager(QObject):
         self._id_to_callback: Dict[int, Callable] = {}
         self._id_to_metadata: Dict[int, Tuple[int, int]] = {}  # id → (mods, vk)
         self._next_hotkey_id = 1
+        self._main_thread_invoker = ShortcutManager._MainThreadInvoker()
 
         # 安装原生事件过滤器（WM_HOTKEY）
         self._native_filter = _HotkeyEventFilter(self, self._id_to_callback)
+
+    def invoke_on_main_thread(self, callback: Callable) -> None:
+        """将回调排队到 Qt 主线程执行。"""
+        self._main_thread_invoker.invoke_requested.emit(callback)
 
     @classmethod
     def instance(cls) -> 'ShortcutManager':

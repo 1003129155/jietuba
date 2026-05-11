@@ -214,82 +214,103 @@ class FinishPage(BasePage):
             )
         layout.addWidget(row_desktop)
 
-    # ── 开机自启辅助 ─────────────────────────────────────
+    # ── 开机自启辅助（注册表 HKCU\Run 方案）─────────────────
 
-    _LNK_NAME = "start_jietuba.lnk"
-    _LNK_LOCAL = r"C:\jietuba\start_jietuba.lnk"
-    _LNK_NETWORK = r""
+    _AUTOSTART_REG_KEY = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+    _AUTOSTART_APP_NAME = "Jietuba"
 
     @classmethod
-    def _get_startup_lnk_path(cls) -> str:
-        """返回 Windows 启动文件夹中快捷方式的完整路径"""
-        import os
-        startup = os.path.join(
-            os.environ.get("APPDATA", ""),
-            r"Microsoft\Windows\Start Menu\Programs\Startup",
-            cls._LNK_NAME,
+    def _get_exe_path(cls) -> str:
+        """获取当前运行的可执行文件路径。
+        打包后（PyInstaller frozen）返回 .exe 路径；
+        开发模式下返回 python.exe + 主脚本路径。
+        """
+        import sys, os
+        if getattr(sys, 'frozen', False):
+            return sys.executable
+        # 开发模式：python.exe main/main_app.py
+        main_script = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "main_app.py")
         )
-        return startup
+        return f'"{sys.executable}" "{main_script}"'
 
     @classmethod
     def _get_autostart(cls) -> bool:
-        """检测 startup 文件夹中是否存在快捷方式"""
-        import os
-        return os.path.exists(cls._get_startup_lnk_path())
+        """检测注册表 HKCU\\Run 中是否存在本程序的启动项"""
+        import winreg
+        try:
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                cls._AUTOSTART_REG_KEY,
+                0,
+                winreg.KEY_READ,
+            )
+            try:
+                winreg.QueryValueEx(key, cls._AUTOSTART_APP_NAME)
+                return True
+            except FileNotFoundError:
+                return False
+            finally:
+                winreg.CloseKey(key)
+        except Exception:
+            return False
 
     @classmethod
     def _set_autostart(cls, enabled: bool):
-        """启用：将快捷方式复制到 startup；禁用：删除 startup 中的快捷方式"""
-        import os, shutil
-        startup_lnk = cls._get_startup_lnk_path()
-        if enabled:
-            # 优先使用本地文件，本地不存在时尝试网络备用路径
-            src = None
-            if os.path.exists(cls._LNK_LOCAL):
-                src = cls._LNK_LOCAL
-            elif os.path.exists(cls._LNK_NETWORK):
-                src = cls._LNK_NETWORK
-            if src is None:
-                # 找不到源文件，静默跳过，不报错
-                return
-            try:
-                os.makedirs(os.path.dirname(startup_lnk), exist_ok=True)
-                shutil.copy2(src, startup_lnk)
-                log_info(f"已复制快捷方式到 startup: {startup_lnk}", "page6")
-            except Exception as e:
-                log_exception(e, "设置开机自启")
-        else:
-            try:
-                if os.path.exists(startup_lnk):
-                    os.remove(startup_lnk)
-                    log_info(f"已删除 startup 快捷方式: {startup_lnk}", "page6")
-            except Exception as e:
-                log_exception(e, "删除开机自启")
+        """启用：写入注册表 HKCU\\Run；禁用：删除对应注册表值"""
+        import winreg
+        try:
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                cls._AUTOSTART_REG_KEY,
+                0,
+                winreg.KEY_SET_VALUE,
+            )
+            if enabled:
+                exe_path = cls._get_exe_path()
+                winreg.SetValueEx(key, cls._AUTOSTART_APP_NAME, 0, winreg.REG_SZ, exe_path)
+                log_info(f"已写入开机自启注册表项: {exe_path}", "page6")
+            else:
+                try:
+                    winreg.DeleteValue(key, cls._AUTOSTART_APP_NAME)
+                    log_info("已删除开机自启注册表项", "page6")
+                except FileNotFoundError:
+                    pass  # 不存在则忽略
+            winreg.CloseKey(key)
+        except Exception as e:
+            log_exception(e, "设置开机自启")
 
     # ── 桌面快捷方式辅助 ─────────────────────────────────
+
+    _DESKTOP_LNK_NAME = "截图吧.lnk"
 
     @classmethod
     def _get_desktop_lnk_path(cls) -> str:
         """返回桌面上快捷方式的完整路径"""
         import os
-        desktop = os.path.join(os.path.expanduser("~"), "Desktop", cls._LNK_NAME)
+        desktop = os.path.join(os.path.expanduser("~"), "Desktop", cls._DESKTOP_LNK_NAME)
         return desktop
 
     @classmethod
     def _create_desktop_shortcut(cls):
-        """将快捷方式复制到桌面"""
-        import os, shutil
+        """在桌面创建指向当前程序的快捷方式（win32com.client）"""
+        import os, sys
         desktop_lnk = cls._get_desktop_lnk_path()
-        src = None
-        if os.path.exists(cls._LNK_LOCAL):
-            src = cls._LNK_LOCAL
-        elif os.path.exists(cls._LNK_NETWORK):
-            src = cls._LNK_NETWORK
-        if src is None:
-            # 找不到源文件，静默跳过，不创建桌面快捷方式
-            return
         try:
-            shutil.copy2(src, desktop_lnk)
+            import win32com.client
+            shell = win32com.client.Dispatch("WScript.Shell")
+            shortcut = shell.CreateShortcut(desktop_lnk)
+            if getattr(sys, 'frozen', False):
+                shortcut.TargetPath = sys.executable
+                shortcut.WorkingDirectory = os.path.dirname(sys.executable)
+            else:
+                main_script = os.path.abspath(
+                    os.path.join(os.path.dirname(__file__), "..", "..", "main_app.py")
+                )
+                shortcut.TargetPath = sys.executable
+                shortcut.Arguments = f'"{main_script}"'
+                shortcut.WorkingDirectory = os.path.dirname(main_script)
+            shortcut.save()
             log_info(f"已创建桌面快捷方式: {desktop_lnk}", "page6")
         except Exception as e:
             log_exception(e, "创建桌面快捷方式")
