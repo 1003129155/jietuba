@@ -13,6 +13,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use once_cell::sync::Lazy;
 use std::thread;
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 use zstd;
 
 // ============== 全局状态 ==============
@@ -21,6 +22,22 @@ static IS_RUNNING: AtomicBool = AtomicBool::new(false);
 static CALLBACK: Lazy<Arc<Mutex<Option<PyObject>>>> = Lazy::new(|| Arc::new(Mutex::new(None)));
 // 跳过下一次剪贴板变化（用于防止 paste_item 自己触发监听）
 static SKIP_NEXT_CHANGE: AtomicBool = AtomicBool::new(false);
+static LAST_CALLBACK_EVENT: Lazy<Mutex<Option<(i64, Instant)>>> = Lazy::new(|| Mutex::new(None));
+const DUPLICATE_CALLBACK_WINDOW: Duration = Duration::from_millis(350);
+
+fn should_skip_callback(id: i64) -> bool {
+    let now = Instant::now();
+    let mut last = LAST_CALLBACK_EVENT.lock();
+
+    if let Some((last_id, last_at)) = last.as_ref() {
+        if *last_id == id && now.duration_since(*last_at) < DUPLICATE_CALLBACK_WINDOW {
+            return true;
+        }
+    }
+
+    *last = Some((id, now));
+    false
+}
 
 // ============== Python 模块 ==============
 
@@ -421,6 +438,22 @@ impl PyClipboardManager {
         };
         
         thread::spawn(move || {
+            // ── 初始化 COM STA ─────────────────────────────────────────────
+            // 监听线程内部运行 Windows 消息循环（start_watch），必须先建立
+            // COM STA 公寓，否则与 OLE 剪贴板交互时会在主线程触发
+            // RPC_E_WRONG_THREAD (0x8001010e)。
+            #[cfg(target_os = "windows")]
+            #[link(name = "ole32")]
+            extern "system" {
+                fn CoInitializeEx(pv_reserved: *mut std::ffi::c_void, dw_co_init: u32) -> i32;
+                fn CoUninitialize();
+            }
+            #[cfg(target_os = "windows")]
+            let _com_init_hr = unsafe {
+                // COINIT_APARTMENTTHREADED = 0x2
+                CoInitializeEx(std::ptr::null_mut(), 0x2)
+            };
+
             use clipboard_rs::common::RustImage;
             use image::codecs::png::PngEncoder;
             use image::ImageEncoder;
@@ -796,6 +829,10 @@ impl PyClipboardManager {
                             let _ = db.cleanup_old_items(limit);
                         }
 
+                        if should_skip_callback(main_item.id) {
+                            return;
+                        }
+
                         if let Some(callback) = CALLBACK.lock().as_ref() {
                             Python::with_gil(|py| {
                                 let _ = callback.call1(py, (main_item.clone(),));
@@ -810,6 +847,12 @@ impl PyClipboardManager {
                 let _ = watcher.add_handler(handler).start_watch();
             }
             IS_RUNNING.store(false, Ordering::SeqCst);
+
+            // 释放 COM 公寓（仅当 CoInitializeEx 成功时：S_OK=0 或 S_FALSE=1）
+            #[cfg(target_os = "windows")]
+            if _com_init_hr == 0 || _com_init_hr == 1 {
+                unsafe { CoUninitialize(); }
+            }
         });
         
         Ok(())
@@ -853,6 +896,7 @@ impl PyClipboardManager {
     fn stop_monitor(&self) -> PyResult<()> {
         IS_RUNNING.store(false, Ordering::SeqCst);
         *CALLBACK.lock() = None;
+        *LAST_CALLBACK_EVENT.lock() = None;
         Ok(())
     }
     

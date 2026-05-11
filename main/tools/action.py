@@ -54,7 +54,10 @@ class ActionTools:
             save_service=save_service,
             save_kwargs=save_kwargs,
         )
-        log_debug("已提交异步复制/保存任务", "Action")
+        if save_service is not None:
+            log_debug("已完成复制到剪贴板，已提交异步保存任务", "Action")
+        else:
+            log_debug("已完成复制到剪贴板", "Action")
 
         if self.parent_window:
             self._cleanup_and_close()
@@ -133,7 +136,7 @@ class ActionTools:
             self.parent_window.hide()
 
         deliver_image_async(result_image)
-        log_debug("已提交异步复制任务", "PinAction")
+        log_debug("已完成复制到剪贴板", "PinAction")
         
         if self.parent_window:
             self._cleanup_and_close()
