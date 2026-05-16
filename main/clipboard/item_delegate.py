@@ -75,8 +75,7 @@ class ClipboardItemDelegate(QStyledItemDelegate):
         self._show_metadata = show_metadata
         self._line_height_padding = line_height_padding
         self._show_shortcuts = show_shortcuts
-
-        # 当前高亮的 item_id
+        self._hide_file_icon = False
         self._highlighted_id: Optional[int] = None
 
         # 预计算颜色缓存（主题变化时重建）
@@ -108,6 +107,9 @@ class ClipboardItemDelegate(QStyledItemDelegate):
 
     def set_show_shortcuts(self, show: bool):
         self._show_shortcuts = show
+
+    def set_hide_file_icon(self, hide: bool):
+        self._hide_file_icon = hide
 
     def set_highlighted_id(self, item_id: Optional[int]):
         self._highlighted_id = item_id
@@ -232,7 +234,7 @@ class ClipboardItemDelegate(QStyledItemDelegate):
                 thumb_rect = QRect(x_offset, content_top + 1, 40, 40)
                 painter.drawPixmap(thumb_rect, pixmap)
                 x_offset += 44  # 40 + 4间距
-        elif item_data.icon:
+        elif item_data.icon and not (self._hide_file_icon and item_data.content_type == "file"):
             painter.setFont(self._font_cache["icon"])
             painter.setPen(cc["text_primary"])
             icon_rect = QRect(x_offset, content_top, 24, int(font_size * 1.4))

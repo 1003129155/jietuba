@@ -394,10 +394,7 @@ class MainApp(QObject):
                     log_exception(e, "后台截图失败")
 
         self._capture_thread = CaptureThread()
-        self._capture_thread.captured.connect(
-            self._on_capture_ready,
-            Qt.ConnectionType.QueuedConnection,
-        )
+        self._capture_thread.captured.connect(self._on_capture_ready)
         self._capture_thread.start()
 
     def _on_capture_ready(self, image, rect):

@@ -241,6 +241,8 @@ class RoundedCornersLogic(QObject):
 
         # 连接信号
         self._popup.radius_changed.connect(self._on_radius_changed)
+        # popup 销毁时立即移除事件过滤器，避免后续 Leave 事件访问已删除的 C++ 对象
+        self._popup.destroyed.connect(self._on_popup_destroyed)
 
         # 为按钮安装 hover 事件
         self._btn.setMouseTracking(True)
@@ -255,6 +257,13 @@ class RoundedCornersLogic(QObject):
     # ------------------------------------------------------------------
     # 公共接口
     # ------------------------------------------------------------------
+    def _on_popup_destroyed(self):
+        """popup 被析构时移除事件过滤器，避免后续事件访问已删除的 C++ 对象"""
+        try:
+            self._btn.removeEventFilter(self)
+        except RuntimeError:
+            pass  # _btn 本身也在析构中则忽略
+
     def set_enabled(self, enabled: bool):
         self._enabled = enabled
         log_debug(f"圆角截图: {'ON' if enabled else 'OFF'}  r={self._radius}",

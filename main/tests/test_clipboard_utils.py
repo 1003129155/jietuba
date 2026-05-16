@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 """clipboard_utils 后台投递测试。"""
 
-import win32con
+import threading
 
 from unittest.mock import MagicMock
 
-import pythoncom
 from PySide6.QtGui import QImage
 
 
@@ -21,17 +20,20 @@ def test_deliver_image_async_reuses_same_qimage(monkeypatch, tmp_path):
     save_service = SaveService(config_manager=mock_config)
 
     seen = {}
+    caller_thread = threading.get_ident()
 
     def fake_copy(target_image):
         seen["copy_id"] = id(target_image)
+        seen["copy_thread"] = threading.get_ident()
 
     def fake_save(self, target_image, **kwargs):
         seen["save_id"] = id(target_image)
+        seen["save_thread"] = threading.get_ident()
         seen["save_kwargs"] = kwargs
         return True, str(tmp_path / "saved.png")
 
     monkeypatch.setattr(clipboard_utils.sys, "platform", "win32")
-    monkeypatch.setattr(clipboard_utils, "_copy_win32", fake_copy)
+    monkeypatch.setattr(clipboard_utils, "copy_image_to_clipboard", fake_copy)
     monkeypatch.setattr(SaveService, "save_qimage", fake_save)
 
     thread = clipboard_utils.deliver_image_async(
@@ -45,99 +47,96 @@ def test_deliver_image_async_reuses_same_qimage(monkeypatch, tmp_path):
     )
 
     assert thread is not None
+    assert seen["copy_thread"] == caller_thread
     thread.join(timeout=2)
     assert not thread.is_alive()
     assert seen["copy_id"] == id(image)
     assert seen["save_id"] == id(image)
+    assert seen["save_thread"] != caller_thread
     assert seen["save_kwargs"]["directory"] == str(tmp_path)
 
 
-def test_copy_win32_prefers_ole_path(monkeypatch):
+def test_build_qt_png_first_mime_data_prefers_png_first():
+    from core import clipboard_utils
+
+    image = QImage(12, 9, QImage.Format.Format_ARGB32)
+    image.fill(0x80224466)
+
+    mime = clipboard_utils._build_qt_png_first_mime_data(image)
+    formats = mime.formats()
+
+    assert formats[0] == clipboard_utils._QT_WINDOWS_PNG_MIME
+    assert formats[1] == clipboard_utils._QT_IMAGE_PNG_MIME
+    assert clipboard_utils._QT_WINDOWS_CLOUD_MIME in formats
+    assert clipboard_utils._QT_WINDOWS_HISTORY_MIME in formats
+    assert formats[-1] == "application/x-qt-image"
+
+
+def test_copy_image_to_clipboard_uses_qt_png_first_on_win32(monkeypatch):
     from core import clipboard_utils
 
     image = QImage(10, 10, QImage.Format.Format_ARGB32)
     image.fill(0xFF204060)
     seen = []
 
-    def fake_ole(target_image):
-        seen.append(("ole", id(target_image)))
+    def fake_qt_png_first(target_image):
+        seen.append(("qt-png-first", id(target_image)))
 
-    def fake_legacy(target_image):
-        seen.append(("legacy", id(target_image)))
+    def fake_qt_fallback(target_image):
+        seen.append(("qt-fallback", id(target_image)))
 
-    monkeypatch.setattr(clipboard_utils, "_copy_win32_ole", fake_ole)
-    monkeypatch.setattr(clipboard_utils, "_copy_win32_legacy", fake_legacy)
+    monkeypatch.setattr(clipboard_utils.sys, "platform", "win32")
+    monkeypatch.setattr(clipboard_utils, "_copy_qt_png_first", fake_qt_png_first)
+    monkeypatch.setattr(clipboard_utils, "_copy_qt_fallback", fake_qt_fallback)
 
-    clipboard_utils._copy_win32(image)
+    clipboard_utils.copy_image_to_clipboard(image)
 
-    assert seen == [("ole", id(image))]
+    assert seen == [("qt-png-first", id(image))]
 
 
-def test_copy_win32_falls_back_to_legacy_when_ole_fails(monkeypatch):
+def test_copy_image_to_clipboard_does_not_fallback_on_win32_failure(monkeypatch):
     from core import clipboard_utils
 
     image = QImage(10, 10, QImage.Format.Format_ARGB32)
     image.fill(0xFF406080)
     seen = []
 
-    def fake_ole(target_image):
-        seen.append(("ole", id(target_image)))
-        raise RuntimeError("ole failed")
+    def fake_qt_png_first(target_image):
+        seen.append(("qt-png-first", id(target_image)))
+        raise RuntimeError("qt png first failed")
 
-    def fake_legacy(target_image):
-        seen.append(("legacy", id(target_image)))
+    def fake_qt_fallback(target_image):
+        seen.append(("qt-fallback", id(target_image)))
 
-    monkeypatch.setattr(clipboard_utils, "_copy_win32_ole", fake_ole)
-    monkeypatch.setattr(clipboard_utils, "_copy_win32_legacy", fake_legacy)
+    monkeypatch.setattr(clipboard_utils.sys, "platform", "win32")
+    monkeypatch.setattr(clipboard_utils, "_copy_qt_png_first", fake_qt_png_first)
+    monkeypatch.setattr(clipboard_utils, "_copy_qt_fallback", fake_qt_fallback)
 
-    clipboard_utils._copy_win32(image)
+    clipboard_utils.copy_image_to_clipboard(image)
 
-    assert seen == [("ole", id(image)), ("legacy", id(image))]
+    assert seen == [("qt-png-first", id(image))]
 
 
-def test_copy_win32_retries_ole_when_clipboard_busy(monkeypatch):
+def test_copy_image_to_clipboard_uses_qt_fallback_off_windows(monkeypatch):
     from core import clipboard_utils
 
     image = QImage(10, 10, QImage.Format.Format_ARGB32)
     image.fill(0xFF406080)
-    seen = {"ole": 0, "legacy": 0}
+    seen = []
 
-    class BusyClipboardError(Exception):
-        hresult = clipboard_utils._CLIPBOARD_BUSY_HRESULT
+    def fake_qt_png_first(target_image):
+        seen.append(("qt-png-first", id(target_image)))
 
-    def fake_ole(target_image):
-        seen["ole"] += 1
-        if seen["ole"] < 3:
-            raise BusyClipboardError("clipboard busy")
+    def fake_qt_fallback(target_image):
+        seen.append(("qt-fallback", id(target_image)))
 
-    def fake_legacy(target_image):
-        seen["legacy"] += 1
+    monkeypatch.setattr(clipboard_utils.sys, "platform", "linux")
+    monkeypatch.setattr(clipboard_utils, "_copy_qt_png_first", fake_qt_png_first)
+    monkeypatch.setattr(clipboard_utils, "_copy_qt_fallback", fake_qt_fallback)
 
-    monkeypatch.setattr(clipboard_utils, "_copy_win32_ole", fake_ole)
-    monkeypatch.setattr(clipboard_utils, "_copy_win32_legacy", fake_legacy)
-    monkeypatch.setattr(clipboard_utils, "_CLIPBOARD_WRITE_RETRY_DELAYS", (0.0, 0.0, 0.0))
+    clipboard_utils.copy_image_to_clipboard(image)
 
-    clipboard_utils._copy_win32(image)
-
-    assert seen == {"ole": 3, "legacy": 0}
-
-
-def test_ole_data_object_prefers_png_before_bitmap():
-    from core import clipboard_utils
-
-    image = QImage(12, 9, QImage.Format.Format_ARGB32)
-    image.fill(0x80224466)
-
-    data_object = clipboard_utils._OleClipboardImageDataObject(image)
-    supported = data_object.supported_formats
-
-    assert supported[0][0] == win32con.CF_BITMAP
-    assert supported[0][4] == pythoncom.TYMED_GDI
-    assert supported[1][0] == data_object.png_format
-    assert supported[1][4] == pythoncom.TYMED_ISTREAM
-    assert supported[2][0] == data_object.cloud_format
-    assert data_object.history_format in [fmt[0] for fmt in supported]
-    assert data_object.history_format in [fmt[0] for fmt in supported]
+    assert seen == [("qt-fallback", id(image))]
 
 
 def test_pin_window_copy_to_clipboard_dispatches_async(monkeypatch):

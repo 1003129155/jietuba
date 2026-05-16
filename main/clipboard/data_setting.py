@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
     QPushButton, QFrame, QListWidget, QListWidgetItem,
     QTextEdit, QApplication, QScrollArea,
-    QFileDialog, QGridLayout
+    QFileDialog, QGridLayout, QButtonGroup
 )
 from PySide6.QtCore import Qt, Signal, QSize, QMimeData, QPoint, QTimer
 from PySide6.QtGui import QFont, QDrag, QPixmap, QPainter, QColor, QCursor, QPen
@@ -31,6 +31,7 @@ from qfluentwidgets import (
     ComboBox,
     BodyLabel,
     CaptionLabel,
+    RadioButton,
 )
 
 from typing import Optional, List
@@ -38,10 +39,10 @@ from core import safe_event
 
 # 支持直接运行和作为模块导入
 try:
-    from .data_manager import ClipboardManager, Group
+    from .data_manager import ClipboardManager, Group, GroupType
     from .emoji_data import get_emoji_groups, get_group_icon
 except ImportError:
-    from data_manager import ClipboardManager, Group
+    from data_manager import ClipboardManager, Group, GroupType
     from emoji_data import get_emoji_groups, get_group_icon
 
 
@@ -625,7 +626,7 @@ class ManageDialog(QWidget):
             self.selected_group_id = None
         else:
             for group in groups:
-                icon = group.icon or "📁"
+                icon = group.icon or ("⚡" if group.group_type == GroupType.FILE else "📁")
                 self.group_combo.addItem(f"{icon} {group.name}", userData=group.id)
             
             # 保持之前选中或默认第一个
@@ -944,6 +945,23 @@ class ManageDialog(QWidget):
         self.group_name_input.setPlaceholderText(self.tr("Enter group name..."))
         self.detail_layout.addWidget(self.group_name_input)
         
+        # 分组类型选择
+        type_label = BodyLabel(self.tr("Group Type"))
+        self.detail_layout.addWidget(type_label)
+        
+        self._group_type_btn_group = QButtonGroup(self)
+        self.radio_normal = RadioButton(self.tr("General Group"))
+        self.radio_file = RadioButton(self.tr("Quick Launch Group"))
+        self.radio_normal.setChecked(True)
+        self._group_type_btn_group.addButton(self.radio_normal, 0)
+        self._group_type_btn_group.addButton(self.radio_file, 1)
+        self.radio_file.toggled.connect(self._on_group_type_toggled)
+        radio_row = QHBoxLayout()
+        radio_row.addWidget(self.radio_normal)
+        radio_row.addWidget(self.radio_file)
+        radio_row.addStretch()
+        self.detail_layout.addLayout(radio_row)
+        
         # 选择图标
         icon_label = BodyLabel(self.tr("Select Icon"))
         self.detail_layout.addWidget(icon_label)
@@ -951,6 +969,20 @@ class ManageDialog(QWidget):
         # 创建 emoji 选择器
         self._create_emoji_picker()
     
+    def _on_group_type_toggled(self, checked: bool):
+        """分组类型切换时，若用户未手动修改图标则自动切换默认图标"""
+        if not hasattr(self, 'icon_input'):
+            return
+        current = self.icon_input.text()
+        if checked:
+            # 切换到快速启动分组：若当前还是通用默认图标则换成闪电
+            if current == "📁":
+                self.icon_input.setText("⚡")
+        else:
+            # 切回通用分组：若当前还是快速启动默认图标则换回文件夹
+            if current == "⚡":
+                self.icon_input.setText("📁")
+
     def _create_emoji_picker(self, current_icon: str = "📁"):
         """创建 emoji 选择器（输入框 + 预览 + 分组标签页 + 可滚动网格）"""
         
@@ -1159,14 +1191,41 @@ class ManageDialog(QWidget):
         self.group_name_input.setText(group.name)
         self.detail_layout.addWidget(self.group_name_input)
         
+        # 分组类型选择
+        type_label = BodyLabel(self.tr("Group Type"))
+        self.detail_layout.addWidget(type_label)
+        
+        self._group_type_btn_group = QButtonGroup(self)
+        self.radio_normal = RadioButton(self.tr("General Group"))
+        self.radio_file = RadioButton(self.tr("Quick Launch Group"))
+        self._group_type_btn_group.addButton(self.radio_normal, 0)
+        self._group_type_btn_group.addButton(self.radio_file, 1)
+        self.radio_file.toggled.connect(self._on_group_type_toggled)
+        if group.group_type == GroupType.FILE:
+            self.radio_file.setChecked(True)
+        else:
+            self.radio_normal.setChecked(True)
+        radio_row = QHBoxLayout()
+        radio_row.addWidget(self.radio_normal)
+        radio_row.addWidget(self.radio_file)
+        radio_row.addStretch()
+        self.detail_layout.addLayout(radio_row)
+        
         # 选择图标
         icon_label = BodyLabel(self.tr("Select Icon"))
         self.detail_layout.addWidget(icon_label)
         
         # 使用 emoji 选择器（传入当前图标）
-        current_icon = group.icon or "📁"
+        current_icon = group.icon or ("⚡" if group.group_type == GroupType.FILE else "📁")
         self._create_emoji_picker(current_icon)
     
+    def _get_selected_group(self) -> 'Optional[Group]':
+        """获取当前选中分组对象"""
+        if self.selected_group_id is None:
+            return None
+        groups = self.manager.get_groups()
+        return next((g for g in groups if g.id == self.selected_group_id), None)
+
     def _show_new_content_form(self):
         """显示新建内容表单"""
         self._clear_detail_layout()
@@ -1182,6 +1241,14 @@ class ManageDialog(QWidget):
             self.detail_layout.addStretch()
             return
         
+        selected_group = self._get_selected_group()
+        if selected_group is not None and selected_group.group_type == GroupType.FILE:
+            self._build_file_content_form()
+        else:
+            self._build_text_content_form()
+
+    def _build_text_content_form(self):
+        """普通分组 — 文本内容输入表单"""
         # 标题输入
         title_label = BodyLabel(self.tr("Title"))
         self.detail_layout.addWidget(title_label)
@@ -1199,6 +1266,56 @@ class ManageDialog(QWidget):
         self.content_edit.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
         self.content_edit.setMinimumHeight(180)
         self.detail_layout.addWidget(self.content_edit, 1)
+
+    def _build_file_content_form(self):
+        """文件分组 — 文件选择表单"""
+        self.selected_file_path: Optional[str] = None
+        
+        # 标题输入（可选）
+        title_label = BodyLabel(self.tr("Title (Optional)"))
+        self.detail_layout.addWidget(title_label)
+        
+        self.title_input = LineEdit()
+        self.title_input.setPlaceholderText(self.tr("Enter title..."))
+        self.detail_layout.addWidget(self.title_input)
+        
+        # 文件路径
+        file_label = BodyLabel(self.tr("File Path"))
+        self.detail_layout.addWidget(file_label)
+        
+        self.file_path_input = LineEdit()
+        self.file_path_input.setPlaceholderText(self.tr("Select a file..."))
+        self.file_path_input.setReadOnly(True)
+        self.detail_layout.addWidget(self.file_path_input)
+        
+        btn_row = QHBoxLayout()
+        browse_file_btn = FluentPushButton(self.tr("Browse File"))
+        browse_file_btn.clicked.connect(self._on_browse_file)
+        btn_row.addWidget(browse_file_btn)
+        
+        browse_folder_btn = FluentPushButton(self.tr("Browse Folder"))
+        browse_folder_btn.clicked.connect(self._on_browse_folder)
+        btn_row.addWidget(browse_folder_btn)
+        btn_row.addStretch()
+        self.detail_layout.addLayout(btn_row)
+        self.detail_layout.addStretch()
+
+    def _on_browse_file(self):
+        """弹出文件选择对话框"""
+        path, _ = QFileDialog.getOpenFileName(self, self.tr("Select File"), "", self.tr("All Files (*.*)"))
+        if path:
+            import os
+            self.selected_file_path = os.path.normpath(path)
+            self.file_path_input.setText(self.selected_file_path)
+
+    def _on_browse_folder(self):
+        """弹出文件夹选择对话框"""
+        path = QFileDialog.getExistingDirectory(self, self.tr("Select Folder"), "")
+        if path:
+            import os
+            self.selected_file_path = os.path.normpath(path)
+            self.file_path_input.setText(self.selected_file_path)
+
     
     def _show_edit_content_form(self, item_id: int):
         """显示编辑内容表单"""
@@ -1372,10 +1489,11 @@ class ManageDialog(QWidget):
             return
         
         icon = self._get_selected_icon()
+        group_type = GroupType.FILE if (hasattr(self, 'radio_file') and self.radio_file.isChecked()) else GroupType.NORMAL
         
         if self.editing_group_id is None:
             # 新建分组
-            group_id = self.manager.create_group(name, icon=icon)
+            group_id = self.manager.create_group(name, icon=icon, group_type=int(group_type))
             if group_id:
                 self.group_added.emit()
                 self.data_changed.emit()  # 通知数据变化
@@ -1386,7 +1504,7 @@ class ManageDialog(QWidget):
                 show_warning_dialog(self, self.tr("Failed"), self.tr("Failed to create group"))
         else:
             # 更新分组（名称和图标）
-            if self.manager.update_group(self.editing_group_id, name, icon=icon):
+            if self.manager.update_group(self.editing_group_id, name, icon=icon, group_type=int(group_type)):
                 self.group_added.emit()
                 self.data_changed.emit()  # 通知数据变化
                 self._refresh_group_list()
@@ -1399,6 +1517,62 @@ class ManageDialog(QWidget):
             show_warning_dialog(self, self.tr("Hint"), self.tr("Please select a group first"))
             return
         
+        selected_group = self._get_selected_group()
+        is_file_group = selected_group is not None and selected_group.group_type == GroupType.FILE
+        
+        if is_file_group:
+            self._save_file_content()
+        else:
+            self._save_text_content()
+
+    def _save_file_content(self):
+        """保存文件类型内容"""
+        import json as _json, os
+        # 新建时用 selected_file_path；编辑时从 content_edit 读路径（edit form 目前复用文本框）
+        if self.editing_item_id is None:
+            path = getattr(self, 'selected_file_path', None)
+            if not path:
+                show_warning_dialog(self, self.tr("Hint"), self.tr("Please select a file"))
+                return
+        else:
+            # 编辑已有条目：从显示框读路径
+            raw = self.content_edit.toPlainText().strip() if hasattr(self, 'content_edit') else ""
+            if not raw:
+                show_warning_dialog(self, self.tr("Hint"), self.tr("Please enter content"))
+                return
+            path = raw
+        
+        title = self.title_input.text().strip() if hasattr(self, 'title_input') else None
+        title = title if title else None
+        content = _json.dumps({"files": [os.path.normpath(path)]}, ensure_ascii=False)
+        
+        if self.editing_item_id is None:
+            item_id = self.manager.add_item(content, "file", title=title)
+            if item_id:
+                if self.manager.move_to_group(item_id, self.selected_group_id):
+                    if hasattr(self, 'title_input'):
+                        self.title_input.clear()
+                    if hasattr(self, 'file_path_input'):
+                        self.file_path_input.clear()
+                    self.selected_file_path = None
+                    self.content_added.emit(self.selected_group_id)
+                    self.data_changed.emit()
+                    self._refresh_content_list()
+                    self.list_widget.setCurrentRow(0)
+                else:
+                    show_warning_dialog(self, self.tr("Failed"), self.tr("Failed to move to group"))
+            else:
+                show_warning_dialog(self, self.tr("Failed"), self.tr("Failed to add content"))
+        else:
+            if self.manager.update_item(self.editing_item_id, content, title=title):
+                self.content_added.emit(self.selected_group_id)
+                self.data_changed.emit()
+                self._refresh_content_list()
+            else:
+                show_warning_dialog(self, self.tr("Failed"), self.tr("Failed to update content"))
+
+    def _save_text_content(self):
+        """保存文本类型内容（原有逻辑）"""
         content = self.content_edit.toPlainText().strip()
         if not content:
             show_warning_dialog(self, self.tr("Hint"), self.tr("Please enter content"))

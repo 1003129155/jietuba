@@ -16,7 +16,7 @@ from PySide6.QtGui import QPixmap, QCursor, QColor
 from time import perf_counter
 
 from typing import Optional, List
-from .data_manager import ClipboardManager, ClipboardItem
+from .data_manager import ClipboardManager, ClipboardItem, GroupType
 from .data_setting import ManageDialog, get_manage_dialog
 from .preview_popup import PreviewPopup
 from .data_controller import ClipboardController, get_foreground_window, set_foreground_window, send_ctrl_v
@@ -808,6 +808,14 @@ class ClipboardWindow(QWidget, FramelessMixin):
     def _on_group_switched(self, group_id):
         """GroupBar 信号: 用户切换了分组"""
         self.group_bar.switch_to_group(group_id)
+        # 快速启动分组的条目全是文件，不需要重复显示文件图标
+        is_quick_launch = False
+        if group_id is not None:
+            groups = self.controller.manager.get_groups()
+            g = next((g for g in groups if g.id == group_id), None)
+            is_quick_launch = g is not None and g.group_type == GroupType.FILE
+        self._item_delegate.set_hide_file_icon(is_quick_launch)
+        self.list_widget.update()
 
     def _on_sidebar_entered(self):
         """GroupBar 信号: 进入侧栏导航模式"""
@@ -868,6 +876,13 @@ class ClipboardWindow(QWidget, FramelessMixin):
         return None
 
     def _on_paste_item(self, item_id: int):
+        # 若当前处于文件分组，左键直接打开文件/文件夹
+        if self.controller.current_group_id is not None:
+            groups = self.controller.manager.get_groups()
+            current_group = next((g for g in groups if g.id == self.controller.current_group_id), None)
+            if current_group is not None and current_group.group_type == GroupType.FILE:
+                self._open_file_item(item_id)
+                return
         self.controller._previous_window_hwnd = get_foreground_window()
         if self.controller.paste_item(item_id, on_close_callback=self.close):
             self.item_pasted.emit(item_id)
@@ -914,14 +929,14 @@ class ClipboardWindow(QWidget, FramelessMixin):
                     a.triggered.connect(lambda: self._move_item_to_group(item_id, None))
 
         _item_handlers = {
-            "paste":          lambda: self._on_paste_item(item_id),
-            "pin_image":      lambda: self._create_pin_window(item_id),
-            "toggle_pin":     lambda: self._toggle_pin(item_id),
+            "paste":              lambda: self._paste_item_to_clipboard(item_id),
+            "pin_image":          lambda: self._create_pin_window(item_id),
+            "toggle_pin":         lambda: self._toggle_pin(item_id),
             "open_file_location": lambda: self._open_file_location(item_id),
-            "edit_item":      lambda: self._edit_item(item_id),
-            "move_item_up":   lambda: self._move_item_order(item_id, -1),
-            "move_item_down": lambda: self._move_item_order(item_id, 1),
-            "delete_item":    lambda: self._delete_item(item_id),
+            "edit_item":          lambda: self._edit_item(item_id),
+            "move_item_up":       lambda: self._move_item_order(item_id, -1),
+            "move_item_down":     lambda: self._move_item_order(item_id, 1),
+            "delete_item":        lambda: self._delete_item(item_id),
         }
 
         for ad in ctx.actions:
@@ -965,9 +980,10 @@ class ClipboardWindow(QWidget, FramelessMixin):
     def _delete_item(self, item_id: int):
         self.controller.delete_item(item_id)
 
-    def _open_file_location(self, item_id: int):
-        """打开文件所在位置并选中文件（仅限 file 类型）"""
-        import os, json, subprocess
+    def _open_file_item(self, item_id: int):
+        """文件分组左键：直接打开文件（默认程序）或展开文件夹"""
+        import os, json
+        from PySide6.QtCore import QTimer
         clipboard_item = self.controller.get_item(item_id)
         if clipboard_item is None or clipboard_item.content_type != "file":
             return
@@ -976,13 +992,42 @@ class ClipboardWindow(QWidget, FramelessMixin):
             files = data.get("files", [])
             if not files:
                 return
-            # 取第一个文件路径
             file_path = os.path.normpath(files[0])
             if os.path.exists(file_path):
-                subprocess.Popen(["explorer", "/select,", file_path])
+                # 延迟到 Qt 事件循环里执行，避免在 eventFilter 栈内调用 os.startfile
+                # 引发 COM 线程模式冲突（access violation / RPC_E_CHANGED_MODE）
+                QTimer.singleShot(0, lambda p=file_path: os.startfile(p))
+                QTimer.singleShot(50, self.hide)
+        except Exception as e:
+            from core.logger import log_warning
+            log_warning(f"打开文件失败: {e}", "Clipboard")
+
+    def _paste_item_to_clipboard(self, item_id: int):
+        """将文件条目内容写入剪切板（HDROP）并关闭窗口"""
+        self.controller._previous_window_hwnd = get_foreground_window()
+        if self.controller.paste_item(item_id, on_close_callback=self.close):
+            self.item_pasted.emit(item_id)
+
+    def _open_file_location(self, item_id: int):
+        """打开文件所在位置并选中文件，或直接打开文件夹（仅限 file 类型）"""
+        import os, json, subprocess
+        from PySide6.QtCore import QTimer
+        clipboard_item = self.controller.get_item(item_id)
+        if clipboard_item is None or clipboard_item.content_type != "file":
+            return
+        try:
+            data = json.loads(clipboard_item.content)
+            files = data.get("files", [])
+            if not files:
+                return
+            # 取第一个文件/文件夹路径
+            file_path = os.path.normpath(files[0])
+            if os.path.isdir(file_path):
+                QTimer.singleShot(0, lambda p=file_path: subprocess.Popen(["explorer", p]))
+            elif os.path.exists(file_path):
+                QTimer.singleShot(0, lambda p=file_path: subprocess.Popen(["explorer", "/select,", p]))
             elif os.path.exists(os.path.dirname(file_path)):
-                # 文件已被删除，但目录还在，打开目录
-                subprocess.Popen(["explorer", os.path.dirname(file_path)])
+                QTimer.singleShot(0, lambda p=os.path.dirname(file_path): subprocess.Popen(["explorer", p]))
         except Exception as e:
             from core.logger import log_warning
             log_warning(f"打开文件位置失败: {e}", "Clipboard")
