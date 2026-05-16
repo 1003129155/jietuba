@@ -233,15 +233,18 @@ def _calc_clipboard_storage_size() -> str:
 def _open_clipboard_data_folder(dialog, path: str):
     """打开剪贴板数据文件夹"""
     import subprocess
+    from PySide6.QtCore import QTimer
     try:
         folder = os.path.dirname(path) if os.path.isfile(path) else path
         if os.path.exists(folder):
             if sys.platform == 'win32':
-                subprocess.run(['explorer', folder])
+                # 延迟到 Qt 事件循环里执行，避免在 mouseReleaseEvent 栈内调用
+                # subprocess + explorer 在这里会触发 COM 线程冲突（access violation）
+                QTimer.singleShot(0, lambda f=os.path.normpath(folder): os.startfile(f))
             elif sys.platform == 'darwin':
-                subprocess.run(['open', folder])
+                subprocess.Popen(['open', folder])
             else:
-                subprocess.run(['xdg-open', folder])
+                subprocess.Popen(['xdg-open', folder])
         else:
             show_warning_dialog(dialog, dialog.tr("Warning"), dialog.tr("Folder does not exist"))
     except Exception as e:

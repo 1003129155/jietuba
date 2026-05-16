@@ -12,7 +12,7 @@ from time import perf_counter
 from PySide6.QtCore import QObject, Signal, QTimer, Qt
 from ui.dialogs import show_confirm_dialog
 
-from .data_manager import ClipboardManager, ClipboardItem, Group
+from .data_manager import ClipboardManager, ClipboardItem, Group, GroupType
 from .data_setting import get_manage_dialog, get_existing_manage_dialog
 from core.logger import log_debug, log_info, log_error, log_exception
 
@@ -697,7 +697,7 @@ class ClipboardController(QObject):
             pin_label = "Unpin" if clipboard_item.is_pinned else "Pin"
             actions.append(MenuAction(label=pin_label, key="toggle_pin"))
 
-        # 文件类型：打开文件所在位置
+        # 文件类型：打开文件所在位置 + 若在文件分组中则显示"粘贴文件"
         if clipboard_item.content_type == "file":
             actions.append(MenuAction(label="Open File Location", key="open_file_location"))
 
@@ -705,17 +705,24 @@ class ClipboardController(QObject):
 
         groups = self.get_groups()
         if groups:
-            sub = [
-                MenuAction(
-                    label=f"{g.icon} {g.name}" if g.icon else g.name,
-                    key=f"move_to_group_{g.id}",
-                )
-                for g in groups
+            # 文件分组只对文件类型条目可见
+            is_file_item = clipboard_item.content_type == "file"
+            visible_groups = [
+                g for g in groups
+                if g.group_type == GroupType.NORMAL or is_file_item
             ]
-            if self.current_group_id is not None:
-                sub.append(MenuAction(label="", key="sep_move", is_separator=True))
-                sub.append(MenuAction(label="Remove from Group", key="remove_from_group"))
-            actions.append(MenuAction(label="Move to Group", key="move_group_menu", children=sub))
+            if visible_groups:
+                sub = [
+                    MenuAction(
+                        label=f"{g.icon} {g.name}" if g.icon else g.name,
+                        key=f"move_to_group_{g.id}",
+                    )
+                    for g in visible_groups
+                ]
+                if self.current_group_id is not None:
+                    sub.append(MenuAction(label="", key="sep_move", is_separator=True))
+                    sub.append(MenuAction(label="Remove from Group", key="remove_from_group"))
+                actions.append(MenuAction(label="Move to Group", key="move_group_menu", children=sub))
 
         actions.append(MenuAction(label="", key="sep3", is_separator=True))
 

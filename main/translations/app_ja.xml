@@ -1345,6 +1345,10 @@ Replace it?</source>
         <translation>ファイルの場所を開く</translation>
     </message>
     <message>
+        <source>Paste File</source>
+        <translation>ファイルを貼り付け</translation>
+    </message>
+    <message>
         <source>Move to Group</source>
         <translation>グループへ移動</translation>
     </message>
@@ -1458,6 +1462,22 @@ Replace it?</source>
         <translation>アイコンを選択</translation>
     </message>
     <message>
+        <source>Quick Launch Group</source>
+        <translation>クイック起動グループ</translation>
+    </message>
+    <message>
+        <source>General Group</source>
+        <translation>通常グループ</translation>
+    </message>
+    <message>
+        <source>Group Type</source>
+        <translation>グループタイプ</translation>
+    </message>
+    <message>
+        <source>Quick launch groups only accept file items; left-click opens the file directly</source>
+        <translation>クイック起動グループはファイル項目のみ受け付けます。左クリックでファイルを直接開きます</translation>
+    </message>
+    <message>
         <source>Enter or paste emoji...</source>
         <translation>絵文字を入力または貼り付け...</translation>
     </message>
@@ -1490,11 +1510,47 @@ Replace it?</source>
         <translation>上記のグループを選択するか、最初にグループを作成してください</translation>
     </message>
     <message>
-        <source>Title</source>
-        <translation>タイトル</translation>
+        <source>Title (Optional)</source>
+        <translation>タイトル（任意）</translation>
     </message>
     <message>
-        <source>Enter title (e.g., Restart Command)...</source>
+        <source>File Path</source>
+        <translation>ファイルパス</translation>
+    </message>
+    <message>
+        <source>Select a file...</source>
+        <translation>ファイルを選択...</translation>
+    </message>
+    <message>
+        <source>Browse</source>
+        <translation>参照</translation>
+    </message>
+    <message>
+        <source>Browse File</source>
+        <translation>ファイルを参照</translation>
+    </message>
+    <message>
+        <source>Browse Folder</source>
+        <translation>フォルダを参照</translation>
+    </message>
+    <message>
+        <source>Select Folder</source>
+        <translation>フォルダを選択</translation>
+    </message>
+    <message>
+        <source>Select File</source>
+        <translation>ファイルを選択</translation>
+    </message>
+    <message>
+        <source>All Files (*.*)</source>
+        <translation>すべてのファイル (*.*)</translation>
+    </message>
+    <message>
+        <source>Please select a file</source>
+        <translation>ファイルを選択してください</translation>
+    </message>
+    <message>
+        <source>Title</source>
         <translation>タイトルを入力（例：再起動コマンド）...</translation>
     </message>
     <message>

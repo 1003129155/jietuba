@@ -452,6 +452,31 @@ def setup_logger(config_manager=None):
         cleanup_old_logs(log_dir, retention_days)
 
 
+def _trim_fixed_log(file_path: Path, max_bytes: int):
+    """
+    超限截断固定名称的累积日志文件（crash.log / faulthandler.log）。
+    保留文件末尾约 max_bytes // 2 的内容，丢弃旧记录。
+    """
+    try:
+        size = file_path.stat().st_size
+        if size <= max_bytes:
+            return
+
+        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            f.seek(max(0, size - max_bytes // 2))
+            # 跳到下一行，保持行完整性
+            f.readline()
+            tail = f.read()
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(f"[日志截断: 文件超过 {max_bytes // 1024} KB 上限，已保留末尾内容]\n\n")
+            f.write(tail)
+
+        print(f"✂️ [日志截断] {file_path.name} 超过 {max_bytes // 1024} KB，已截断")
+    except Exception as e:
+        print(f"[WARN] [日志截断] 处理 {file_path.name} 失败: {e}")
+
+
 def cleanup_old_logs(log_dir: str, retention_days: int):
     """
     清理过期的日志文件
@@ -499,6 +524,13 @@ def cleanup_old_logs(log_dir: str, retention_days: int):
         if deleted_count > 0:
             # 使用 print 而不是 log_info，因为此时日志系统可能还未完全初始化
             print(f"🗑️ [日志清理] 已删除 {deleted_count} 个过期日志文件（保留 {retention_days} 天）")
+
+        # 对固定名称的累积日志文件做超限截断（上限 1 MB）
+        _MAX_FIXED_LOG_BYTES = 1 * 1024 * 1024  # 1 MB
+        for fixed_name in ("crash.log", "faulthandler.log"):
+            fixed_file = log_path / fixed_name
+            if fixed_file.exists():
+                _trim_fixed_log(fixed_file, _MAX_FIXED_LOG_BYTES)
     
     except Exception as e:
         print(f"[WARN] [日志清理] 清理失败: {e}")

@@ -1247,6 +1247,10 @@ Replace it?</translation>
         <translation>Open File Location</translation>
     </message>
     <message>
+        <source>Paste File</source>
+        <translation>Paste File</translation>
+    </message>
+    <message>
         <source>Move to Group</source>
         <translation>Move to Group</translation>
     </message>
@@ -1360,6 +1364,22 @@ Replace it?</translation>
         <translation>Select Icon</translation>
     </message>
     <message>
+        <source>Quick Launch Group</source>
+        <translation>Quick Launch Group</translation>
+    </message>
+    <message>
+        <source>General Group</source>
+        <translation>General Group</translation>
+    </message>
+    <message>
+        <source>Group Type</source>
+        <translation>Group Type</translation>
+    </message>
+    <message>
+        <source>Quick launch groups only accept file items; left-click opens the file directly</source>
+        <translation>Quick launch groups only accept file items; left-click opens the file directly</translation>
+    </message>
+    <message>
         <source>Enter or paste emoji...</source>
         <translation>Enter or paste emoji...</translation>
     </message>
@@ -1392,11 +1412,47 @@ Replace it?</translation>
         <translation>Please select a group above, or create a group first</translation>
     </message>
     <message>
-        <source>Title</source>
-        <translation>Title</translation>
+        <source>Title (Optional)</source>
+        <translation>Title (Optional)</translation>
     </message>
     <message>
-        <source>Enter title (e.g., Restart Command)...</source>
+        <source>File Path</source>
+        <translation>File Path</translation>
+    </message>
+    <message>
+        <source>Select a file...</source>
+        <translation>Select a file...</translation>
+    </message>
+    <message>
+        <source>Browse</source>
+        <translation>Browse</translation>
+    </message>
+    <message>
+        <source>Browse File</source>
+        <translation>Browse File</translation>
+    </message>
+    <message>
+        <source>Browse Folder</source>
+        <translation>Browse Folder</translation>
+    </message>
+    <message>
+        <source>Select Folder</source>
+        <translation>Select Folder</translation>
+    </message>
+    <message>
+        <source>Select File</source>
+        <translation>Select File</translation>
+    </message>
+    <message>
+        <source>All Files (*.*)</source>
+        <translation>All Files (*.*)</translation>
+    </message>
+    <message>
+        <source>Please select a file</source>
+        <translation>Please select a file</translation>
+    </message>
+    <message>
+        <source>Title</source>
         <translation>Enter title (e.g., Restart Command)...</translation>
     </message>
     <message>

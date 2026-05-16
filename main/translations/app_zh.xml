@@ -1366,6 +1366,10 @@ Replace it?</source>
         <translation>打开文件所在位置</translation>
     </message>
     <message>
+        <source>Paste File</source>
+        <translation>粘贴文件</translation>
+    </message>
+    <message>
         <source>Move to Group</source>
         <translation>移动到分组</translation>
     </message>
@@ -1479,6 +1483,22 @@ Replace it?</source>
         <translation>选择图标</translation>
     </message>
     <message>
+        <source>Quick Launch Group</source>
+        <translation>快速启动分组</translation>
+    </message>
+    <message>
+        <source>General Group</source>
+        <translation>通用分组</translation>
+    </message>
+    <message>
+        <source>Group Type</source>
+        <translation>分组类型</translation>
+    </message>
+    <message>
+        <source>Quick launch groups only accept file items; left-click opens the file directly</source>
+        <translation>快速启动分组只接受文件类型条目，左键点击直接打开文件</translation>
+    </message>
+    <message>
         <source>Enter or paste emoji...</source>
         <translation>输入或粘贴表情...</translation>
     </message>
@@ -1509,6 +1529,46 @@ Replace it?</source>
     <message>
         <source>Please select a group above, or create a group first</source>
         <translation>请先在上方选择一个分组，或先创建分组</translation>
+    </message>
+    <message>
+        <source>Title (Optional)</source>
+        <translation>标题（可选）</translation>
+    </message>
+    <message>
+        <source>File Path</source>
+        <translation>文件路径</translation>
+    </message>
+    <message>
+        <source>Select a file...</source>
+        <translation>请选择文件...</translation>
+    </message>
+    <message>
+        <source>Browse</source>
+        <translation>浏览</translation>
+    </message>
+    <message>
+        <source>Browse File</source>
+        <translation>浏览文件</translation>
+    </message>
+    <message>
+        <source>Browse Folder</source>
+        <translation>浏览文件夹</translation>
+    </message>
+    <message>
+        <source>Select Folder</source>
+        <translation>选择文件夹</translation>
+    </message>
+    <message>
+        <source>Select File</source>
+        <translation>选择文件</translation>
+    </message>
+    <message>
+        <source>All Files (*.*)</source>
+        <translation>所有文件 (*.*)</translation>
+    </message>
+    <message>
+        <source>Please select a file</source>
+        <translation>请选择一个文件</translation>
     </message>
     <message>
         <source>Title</source>

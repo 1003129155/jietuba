@@ -6,8 +6,9 @@
 """
 
 from typing import Optional, Callable, List
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
+from enum import IntEnum
 import json
 
 try:
@@ -80,16 +81,14 @@ class ClipboardItem:
                 data = json.loads(self.content)
                 files = data.get("files", [])
                 if len(files) == 1:
-                    # 单个文件显示 "file: 文件名"
-                    return f"file: {os.path.basename(files[0])}"
+                    return os.path.basename(files[0])
                 elif len(files) > 1:
-                    # 多个文件显示完整路径，用逗号分隔
-                    return f"file: {', '.join(files)}"
+                    return ', '.join(os.path.basename(f) for f in files)
                 else:
-                    return "file: 文件"
+                    return "文件"
             except Exception as e:
                 log_exception(e, "解析文件类型显示文本")
-                return "file: 文件"
+                return "文件"
         return self.content[:50]
     
     @property
@@ -102,6 +101,12 @@ class ClipboardItem:
         return ""  # 文本不显示图标
 
 
+class GroupType(IntEnum):
+    """分组类型"""
+    NORMAL = 0  # 普通分组
+    FILE = 1    # 文件分组（只存放文件路径，左键打开文件位置）
+
+
 @dataclass
 class Group:
     """分组数据类"""
@@ -109,6 +114,7 @@ class Group:
     name: str
     color: Optional[str] = None
     icon: Optional[str] = None
+    group_type: int = GroupType.NORMAL
     
     @classmethod
     def from_py_group(cls, group: 'PyGroup') -> 'Group':
@@ -118,6 +124,7 @@ class Group:
             name=group.name,
             color=group.color,
             icon=group.icon,
+            group_type=group.group_type,
         )
 
 
@@ -463,13 +470,14 @@ class ClipboardManager:
     # ==================== 分组功能 ====================
     
     def create_group(self, name: str, color: Optional[str] = None, 
-                     icon: Optional[str] = None) -> Optional[int]:
+                     icon: Optional[str] = None,
+                     group_type: int = 0) -> Optional[int]:
         """创建分组，返回分组 ID"""
         if not self.is_available:
             return None
         
         try:
-            return self._manager.create_group(name, color, icon)
+            return self._manager.create_group(name, color, icon, group_type)
         except Exception as e:
             log_error(f"创建分组失败: {e}", "Clipboard")
             return None
@@ -511,24 +519,34 @@ class ClipboardManager:
             return False
     
     def update_group(self, group_id: int, name: str, 
-                     color: Optional[str] = None, icon: Optional[str] = None) -> bool:
-        """更新分组（名称、颜色、图标）"""
+                     color: Optional[str] = None, icon: Optional[str] = None,
+                     group_type: int = 0) -> bool:
+        """更新分组（名称、颜色、图标、类型）"""
         if not self.is_available:
             return False
         
         try:
-            self._manager.update_group(group_id, name, color, icon)
+            self._manager.update_group(group_id, name, color, icon, group_type)
             return True
         except Exception as e:
             log_error(f"更新分组失败: {e}", "Clipboard")
             return False
     
     def move_to_group(self, item_id: int, group_id: Optional[int] = None) -> bool:
-        """将项目移动到分组"""
+        """将项目移动到分组。若目标是文件分组，只允许 content_type='file' 的条目进入。"""
         if not self.is_available:
             return False
         
         try:
+            # 文件分组校验：目标分组存在且为文件分组时，检查条目类型
+            if group_id is not None:
+                groups = self._manager.get_groups()
+                target = next((g for g in groups if g.id == group_id), None)
+                if target is not None and target.group_type == GroupType.FILE:
+                    item = self._manager.get_item(item_id)
+                    if item is None or item.content_type != "file":
+                        log_error(f"文件分组只允许文件类型条目，item_id={item_id} 被拒绝", "Clipboard")
+                        return False
             self._manager.move_to_group(item_id, group_id)
             return True
         except Exception as e:

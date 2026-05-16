@@ -31,7 +31,7 @@ def create_about_page(dialog) -> QScrollArea:
     name_card = SettingCard(
         FluentIcon.APPLICATION,
         dialog.tr("Jietuba - Screenshot Tool"),
-        "Version: 2026.05.11",
+        "Version: 2026.05.16",
         parent=group,
     )
     group.addSettingCard(name_card)
