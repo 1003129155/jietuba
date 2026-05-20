@@ -1,6 +1,14 @@
 ﻿# -*- coding: utf-8 -*-
 """
 ClipboardItemDelegate — 剪贴板列表项绘制代理
+
+负责剪贴板列表中单条记录的自定义绘制，主要包括：
+- 文本、图片、文件等不同内容类型的统一渲染
+- 选中态、悬停态、高亮项与快捷键徽标的绘制
+- 基于主题颜色的视觉输出与缩略图缓存复用
+
+这里使用 QStyledItemDelegate + QPainter 直接绘制，避免为大量列表项
+创建 QWidget，减少窗口打开和滚动时的 UI 开销。
 """
 
 import base64
@@ -12,8 +20,8 @@ from PySide6.QtGui import (
     QPainter, QColor, QFont, QFontMetrics, QPixmap, QPen,
 )
 
-from .data_manager import ClipboardItem
-from .themes import Theme, ThemeColors
+from ...core import ClipboardItem
+from ..theme.themes import Theme, ThemeColors
 from core.logger import log_error
 
 
@@ -314,4 +322,7 @@ class ClipboardItemDelegate(QStyledItemDelegate):
 
         self._thumb_cache[data_url] = None
         return None
+
+
+    __all__ = ["ClipboardItemDelegate", "ROLE_ITEM_DATA", "ROLE_ITEM_ID"]
  

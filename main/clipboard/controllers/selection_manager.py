@@ -14,10 +14,10 @@ from PySide6.QtCore import QObject, Qt, QEvent, Signal
 from PySide6.QtWidgets import QListWidget, QListWidgetItem
 from PySide6.QtGui import QKeyEvent, QCursor
 
-from .preview_popup import PreviewPopup
-from .data_manager import ClipboardItem
+from ..core import ClipboardItem
 from core.logger import log_debug
 from core import safe_event
+from ..ui.widgets.preview_popup import PreviewPopup
 
 
 class SelectionManager(QObject):

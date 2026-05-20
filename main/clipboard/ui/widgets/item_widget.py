@@ -11,12 +11,12 @@ from PySide6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QSizePol
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QPixmap, QCursor
 
-from .data_manager import ClipboardItem
-from .preview_popup import PreviewPopup
-from .themes import get_theme_manager, Theme
-from .theme_styles import ThemeStyleGenerator
+from ...core import ClipboardItem
+from ..theme.themes import get_theme_manager, Theme
+from ..theme.theme_styles import ThemeStyleGenerator
 from core.logger import log_error
 from core import safe_event
+from .preview_popup import PreviewPopup
 
 
 class ClipboardItemWidget(QFrame):
@@ -212,4 +212,7 @@ class ClipboardItemWidget(QFrame):
         super().leaveEvent(event)
         self.hover_left.emit(self.item.id)
         PreviewPopup.instance().hide_preview()
+
+
+__all__ = ["ClipboardItemWidget"]
  

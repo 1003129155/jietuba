@@ -6,9 +6,6 @@
 """
 
 from typing import Optional, Callable, List
-from dataclasses import dataclass, field
-from datetime import datetime
-from enum import IntEnum
 import json
 
 try:
@@ -23,109 +20,8 @@ except ImportError as e:
     print(f"   sys.path: {sys.path[:3]}...")
 
 from core.logger import log_debug, log_info, log_error, log_exception
-
-
-@dataclass
-class ClipboardItem:
-    """剪贴板项数据类"""
-    id: int
-    content: str
-    content_type: str  # "text", "image", "file"
-    title: Optional[str] = None  # 标题（用于收藏内容）
-    html_content: Optional[str] = None
-    image_id: Optional[str] = None
-    thumbnail: Optional[str] = None  # 缩略图 Base64 (data:image/png;base64,...)
-    is_pinned: bool = False
-    paste_count: int = 0
-    source_app: Optional[str] = None
-    created_at: datetime = None
-    updated_at: datetime = None
-    
-    @classmethod
-    def from_py_item(cls, item: 'PyClipboardItem') -> 'ClipboardItem':
-        """从 PyClipboardItem 转换"""
-        return cls(
-            id=item.id,
-            content=item.content,
-            content_type=item.content_type,
-            title=item.title,
-            html_content=item.html_content,
-            image_id=item.image_id,
-            thumbnail=item.thumbnail,
-            is_pinned=item.is_pinned,
-            paste_count=item.paste_count,
-            source_app=item.source_app,
-            created_at=datetime.fromtimestamp(item.created_at) if item.created_at else None,
-            updated_at=datetime.fromtimestamp(item.updated_at) if item.updated_at else None,
-        )
-    
-    @property
-    def display_text(self) -> str:
-        """获取用于显示的文本（界面显示用，不影响实际存储内容）"""
-        # 如果有标题，优先显示标题
-        if self.title:
-            return self.title
-        
-        if self.content_type == "text":
-            # 截断长文本
-            text = self.content.replace('\n', ' ').strip()
-            return text[:100] + "..." if len(text) > 100 else text
-        elif self.content_type == "image":
-            # content 格式：
-            # 正常图片  → "[图片 WxH]"  → 去掉方括号显示尺寸
-            # 兜底多图  → "[PNG+CF_DIB 7.9 MB]"  → 直接去掉方括号
-            return self.content.strip("[]")
-        elif self.content_type == "file":
-            try:
-                import os
-                data = json.loads(self.content)
-                files = data.get("files", [])
-                if len(files) == 1:
-                    return os.path.basename(files[0])
-                elif len(files) > 1:
-                    return ', '.join(os.path.basename(f) for f in files)
-                else:
-                    return "文件"
-            except Exception as e:
-                log_exception(e, "解析文件类型显示文本")
-                return "文件"
-        return self.content[:50]
-    
-    @property
-    def icon(self) -> str:
-        """获取图标（仅文件类型显示图标）"""
-        if self.content_type == "file":
-            return "📁"
-        elif self.content_type == "image":
-            return "📷"
-        return ""  # 文本不显示图标
-
-
-class GroupType(IntEnum):
-    """分组类型"""
-    NORMAL = 0  # 普通分组
-    FILE = 1    # 文件分组（只存放文件路径，左键打开文件位置）
-
-
-@dataclass
-class Group:
-    """分组数据类"""
-    id: int
-    name: str
-    color: Optional[str] = None
-    icon: Optional[str] = None
-    group_type: int = GroupType.NORMAL
-    
-    @classmethod
-    def from_py_group(cls, group: 'PyGroup') -> 'Group':
-        """从 PyGroup 转换"""
-        return cls(
-            id=group.id,
-            name=group.name,
-            color=group.color,
-            icon=group.icon,
-            group_type=group.group_type,
-        )
+from .enums import GroupType
+from .models import ClipboardItem, Group
 
 
 class ClipboardManager:

@@ -5,8 +5,8 @@
 测试 ThemeColors / Theme / ThemeStyleGenerator 的纯逻辑部分。
 """
 import pytest
-from clipboard.themes import ThemeColors, Theme, THEME_LIGHT, THEME_DARK, THEME_BLUE
-from clipboard.theme_styles import ThemeStyleGenerator, generate_all_styles
+from clipboard.ui.theme.themes import ThemeColors, Theme, THEME_LIGHT, THEME_DARK, THEME_BLUE
+from clipboard.ui.theme.theme_styles import ThemeStyleGenerator, generate_all_styles
 
 
 # ==================== ThemeColors 测试 ====================

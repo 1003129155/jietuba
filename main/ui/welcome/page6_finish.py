@@ -293,24 +293,63 @@ class FinishPage(BasePage):
 
     @classmethod
     def _create_desktop_shortcut(cls):
-        """在桌面创建指向当前程序的快捷方式（win32com.client）"""
-        import os, sys
+        """在桌面创建指向当前程序的快捷方式。"""
+        import base64
+        import os
+        import subprocess
+        import sys
+
         desktop_lnk = cls._get_desktop_lnk_path()
         try:
-            import win32com.client
-            shell = win32com.client.Dispatch("WScript.Shell")
-            shortcut = shell.CreateShortcut(desktop_lnk)
             if getattr(sys, 'frozen', False):
-                shortcut.TargetPath = sys.executable
-                shortcut.WorkingDirectory = os.path.dirname(sys.executable)
+                target_path = sys.executable
+                arguments = ""
+                working_directory = os.path.dirname(sys.executable)
             else:
                 main_script = os.path.abspath(
                     os.path.join(os.path.dirname(__file__), "..", "..", "main_app.py")
                 )
-                shortcut.TargetPath = sys.executable
-                shortcut.Arguments = f'"{main_script}"'
-                shortcut.WorkingDirectory = os.path.dirname(main_script)
-            shortcut.save()
+                target_path = sys.executable
+                arguments = f'"{main_script}"'
+                working_directory = os.path.dirname(main_script)
+
+            def _ps_quote(value: str) -> str:
+                return "'" + value.replace("'", "''") + "'"
+
+            script = "\n".join([
+                f"$shortcutPath = {_ps_quote(desktop_lnk)}",
+                f"$targetPath = {_ps_quote(target_path)}",
+                f"$workingDirectory = {_ps_quote(working_directory)}",
+                f"$arguments = {_ps_quote(arguments)}",
+                "$shell = New-Object -ComObject WScript.Shell",
+                "$shortcut = $shell.CreateShortcut($shortcutPath)",
+                "$shortcut.TargetPath = $targetPath",
+                "$shortcut.WorkingDirectory = $workingDirectory",
+                "if ($arguments.Length -gt 0) { $shortcut.Arguments = $arguments }",
+                "$shortcut.IconLocation = $targetPath",
+                "$shortcut.Save()",
+            ])
+            encoded_script = base64.b64encode(script.encode("utf-16le")).decode("ascii")
+            result = subprocess.run(
+                [
+                    "powershell.exe",
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-EncodedCommand",
+                    encoded_script,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            if result.returncode != 0:
+                error_text = (result.stderr or result.stdout or "").strip()
+                raise RuntimeError(error_text or f"PowerShell exited with code {result.returncode}")
+
             log_info(f"已创建桌面快捷方式: {desktop_lnk}", "page6")
         except Exception as e:
             log_exception(e, "创建桌面快捷方式")

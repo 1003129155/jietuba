@@ -7,7 +7,7 @@ ClipboardItem / Group 数据模型单元测试
 import pytest
 import json
 from datetime import datetime
-from clipboard.data_manager import ClipboardItem, Group
+from clipboard.core import ClipboardItem, Group
 
 
 # ==================== ClipboardItem 测试 ====================
@@ -61,7 +61,7 @@ class TestClipboardItem:
         """单文件显示文件名"""
         files_data = json.dumps({"files": [r"C:\Users\test\doc.txt"]})
         item = ClipboardItem(id=1, content=files_data, content_type="file")
-        assert item.display_text == "file: doc.txt"
+        assert item.display_text == "doc.txt"
 
     def test_display_text_multiple_files(self):
         """多文件显示完整路径"""
@@ -74,7 +74,7 @@ class TestClipboardItem:
         """空文件列表"""
         files_data = json.dumps({"files": []})
         item = ClipboardItem(id=1, content=files_data, content_type="file")
-        assert item.display_text == "file: 文件"
+        assert item.display_text == "文件"
 
     def test_icon_text(self):
         """文本类型无图标"""

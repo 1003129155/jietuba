@@ -1,0 +1,1108 @@
+# -*- coding: utf-8 -*-
+"""
+剪贴板历史窗口
+
+提供的剪贴板历史管理界面。
+"""
+
+import ctypes
+from time import perf_counter
+from typing import List, Optional
+
+from PySide6.QtCore import QEvent, QPoint, QSettings, QSize, QTimer, Qt, Signal
+from PySide6.QtGui import QColor, QCursor, QPixmap
+from PySide6.QtWidgets import (
+	QApplication,
+	QComboBox,
+	QFrame,
+	QHBoxLayout,
+	QLabel,
+	QLineEdit,
+	QListWidget,
+	QListWidgetItem,
+	QMenu,
+	QPushButton,
+	QSizePolicy,
+	QToolButton,
+	QVBoxLayout,
+	QWidget,
+)
+
+from core import safe_event
+from core.logger import log_debug, log_error, log_exception
+from core.shortcut_manager import ShortcutHandler, ShortcutManager
+
+from ...controllers import ClipboardController, SelectionManager, get_foreground_window, send_ctrl_v, set_foreground_window
+from ...core import ClipboardItem, ClipboardManager, GroupType
+from ..theme.theme_styles import ThemeStyleGenerator
+from ..theme.themes import Theme, get_theme_manager
+from ..mixins.frameless_mixin import FramelessMixin
+from ..dialogs.manage_dialog import ManageDialog, get_manage_dialog
+from ..widgets.group_bar import GroupBar
+from ..widgets.item_delegate import ClipboardItemDelegate, ROLE_ITEM_DATA, ROLE_ITEM_ID
+from ..widgets.preview_popup import PreviewPopup
+
+
+class ClipboardShortcutHandler(ShortcutHandler):
+	"""剪贴板窗口快捷键处理器 (priority=60)"""
+
+	def __init__(self, window: "ClipboardWindow"):
+		self._window = window
+
+	@property
+	def priority(self) -> int:
+		return 60
+
+	@property
+	def handler_name(self) -> str:
+		return "ClipboardWindow"
+
+	def is_active(self) -> bool:
+		w = self._window
+		try:
+			return w is not None and w.isVisible()
+		except RuntimeError:
+			return False
+
+	def handle_key(self, event) -> bool:
+		w = self._window
+		key = event.key()
+		modifiers = event.modifiers()
+
+		if key == Qt.Key.Key_Escape:
+			if hasattr(w, "selection_manager") and w.selection_manager._selected_index >= 0:
+				w.selection_manager.reset()
+				return True
+			w.close()
+			return True
+
+		if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+			w._paste_selected()
+			return True
+
+		if key == Qt.Key.Key_Delete:
+			w._delete_selected()
+			return True
+
+		if key == Qt.Key.Key_F and modifiers == Qt.KeyboardModifier.ControlModifier:
+			w.search_input.setFocus()
+			return True
+
+		if Qt.Key.Key_1 <= key <= Qt.Key.Key_9:
+			focus_widget = w.search_input
+			from PySide6.QtWidgets import QApplication as _App
+
+			if _App.focusWidget() is not focus_widget:
+				index = key - Qt.Key.Key_1
+				items = w.controller.current_items
+				if index < len(items):
+					w._on_paste_item(items[index].id)
+					return True
+			return False
+
+		if Qt.Key.Key_A <= key <= Qt.Key.Key_Z:
+			focus_widget = w.search_input
+			from PySide6.QtWidgets import QApplication as _App
+
+			if _App.focusWidget() is not focus_widget:
+				index = 9 + (key - Qt.Key.Key_A)
+				items = w.controller.current_items
+				if index < len(items):
+					w._on_paste_item(items[index].id)
+					return True
+			return False
+
+		return False
+
+
+class ClipboardWindow(QWidget, FramelessMixin):
+	"""剪贴板历史窗口。"""
+
+	item_pasted = Signal(int)
+	closed = Signal()
+	new_item_received = Signal()
+	_offscreen_warmup_done = False
+
+	def __init__(self, parent=None):
+		super().__init__(parent)
+		self.manager = ClipboardManager()
+		self.controller = ClipboardController(self.manager)
+		self.controller.data_loaded.connect(self._on_data_loaded)
+		self.controller.loading_state_changed.connect(self._on_loading_changed)
+		self.controller.reload_required.connect(self._on_reload_required)
+		self.controller.load_completed.connect(self._on_load_completed)
+
+		self.selected_item_id: Optional[int] = None
+		self._is_loading = False
+		self._ignore_manage_refresh_when_hidden = True
+		self._auto_fill_max_pages = 3
+		self._auto_fill_remaining = self._auto_fill_max_pages
+		self._offscreen_warmup_in_progress = False
+
+		self.new_item_received.connect(self._on_new_item)
+		self._init_frameless(edge_margin=8)
+		self._qsettings = QSettings("Jietuba", "ClipboardWindow")
+
+		self.theme_manager = get_theme_manager()
+		self.current_theme = self.theme_manager.get_current_theme()
+		self.theme_manager.theme_changed.connect(self._on_theme_changed)
+		self.theme_manager.font_size_changed.connect(self._on_font_size_changed)
+		self.theme_manager.opacity_changed.connect(self._on_opacity_changed)
+
+		self._load_settings()
+		self._load_window_geometry()
+		self._setup_ui()
+		self._apply_opacity()
+		self._setup_shortcuts()
+
+		PreviewPopup.instance().set_manager(self.manager)
+		self._warmup_offscreen_once()
+
+	def _on_data_loaded(self, items: List[ClipboardItem], is_first_page: bool):
+		if is_first_page:
+			self._auto_fill_remaining = self._auto_fill_max_pages
+			if items or self.controller.current_items:
+				self._refresh_list()
+			else:
+				self.list_widget.clear()
+		else:
+			self._append_items(items)
+
+	def _on_loading_changed(self, is_loading: bool):
+		self._is_loading = is_loading
+
+	def _on_reload_required(self):
+		self.controller.load_history()
+		self.group_bar.refresh_buttons()
+
+	def _on_manage_data_changed(self):
+		if self._ignore_manage_refresh_when_hidden and not self.isVisible():
+			log_debug("管理窗口数据已变更，但剪贴板窗口不可见，延迟刷新", "Clipboard")
+			return
+		self._load_history()
+
+	def _on_theme_changed(self, theme: Theme):
+		self.current_theme = theme
+		self._apply_theme()
+
+	def _apply_theme(self):
+		if hasattr(self, "_item_delegate"):
+			self._item_delegate.set_theme(self.current_theme)
+			self._item_delegate.set_window_opacity(self.window_opacity)
+		self._apply_opacity()
+		self.group_bar.set_theme(self.current_theme)
+		if hasattr(self, "search_input"):
+			has_text = bool(self.search_input.text().strip())
+			self._apply_search_input_style(has_text)
+			self._apply_clear_search_btn_style()
+			self._apply_menu_btn_style()
+		self._refresh_list()
+		log_debug(f"主题已切换到: {self.current_theme.display_name}", "Clipboard")
+
+	def _load_settings(self):
+		from settings import get_tool_settings_manager
+
+		self.config = get_tool_settings_manager()
+		self.window_opacity = self.config.get_clipboard_window_opacity()
+		self.display_lines = self.config.get_clipboard_font_size()
+		self.group_bar_position = self.config.get_clipboard_group_bar_position()
+
+	def _apply_opacity(self):
+		generator = ThemeStyleGenerator(self.current_theme)
+
+		if hasattr(self, "container"):
+			self.container.setStyleSheet(generator.generate_window_style(self.window_opacity))
+
+		if hasattr(self, "list_widget"):
+			self.list_widget.setStyleSheet(generator.generate_list_widget_style(self.window_opacity))
+
+		if hasattr(self, "bottom_bar"):
+			self.bottom_bar.setStyleSheet(generator.generate_search_bar_style(self.window_opacity))
+
+		if hasattr(self, "group_bar") and self.group_bar.bar_widget is not None:
+			border_dir = {"left": "border-right:", "top": "border-bottom:", "right": "border-left:"}
+			bd = border_dir.get(getattr(self, "group_bar_position", "right"), "border-left:")
+			self.group_bar.bar_widget.setStyleSheet(
+				generator.generate_search_bar_style(self.window_opacity).replace("border-top:", bd)
+			)
+
+	def _load_window_geometry(self):
+		try:
+			from settings import get_tool_settings_manager
+
+			config = get_tool_settings_manager()
+			default_width = config.get_app_setting("clipboard_window_width", 450)
+			default_height = config.get_app_setting("clipboard_window_height", 600)
+		except Exception as e:
+			log_exception(e, "加载剪贴板窗口几何设置")
+			default_width = 450
+			default_height = 600
+
+		self._saved_x = self._qsettings.value("window/x", None)
+		self._saved_y = self._qsettings.value("window/y", None)
+		self._saved_width = self._qsettings.value("window/width", default_width, type=int)
+		self._saved_height = self._qsettings.value("window/height", default_height, type=int)
+
+		if self._saved_x is not None:
+			self._saved_x = int(self._saved_x)
+		if self._saved_y is not None:
+			self._saved_y = int(self._saved_y)
+
+	def _save_window_geometry(self):
+		self._qsettings.setValue("window/x", self.x())
+		self._qsettings.setValue("window/y", self.y())
+		self._qsettings.setValue("window/width", self.width())
+		self._qsettings.setValue("window/height", self.height())
+		self._qsettings.sync()
+
+	def _setup_ui(self):
+		self.setWindowTitle(self.tr("Clipboard History"))
+		self.setWindowFlags(
+			Qt.WindowType.Window
+			| Qt.WindowType.FramelessWindowHint
+			| Qt.WindowType.WindowStaysOnTopHint
+			| Qt.WindowType.Tool
+		)
+		self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+		self.setMinimumSize(320, 400)
+		self.resize(self._saved_width, self._saved_height)
+
+		self.container = QFrame(self)
+		self.container.setStyleSheet(
+			"""
+			QFrame#mainContainer {
+				background: #FFFFFF;
+				border: 1px solid #E0E0E0;
+				border-radius: 4px;
+			}
+			QToolTip {
+				background: #FFFFFF;
+				color: #333333;
+				border: 1px solid #E0E0E0;
+				border-radius: 4px;
+				padding: 4px 8px;
+				font-size: 12px;
+			}
+		"""
+		)
+		self.container.setObjectName("mainContainer")
+
+		main_layout = QVBoxLayout(self)
+		main_layout.setContentsMargins(0, 0, 0, 0)
+		main_layout.addWidget(self.container)
+
+		self.content_layout = QHBoxLayout(self.container)
+		self.content_layout.setContentsMargins(0, 0, 0, 0)
+		self.content_layout.setSpacing(0)
+
+		self.left_widget = QWidget()
+		self.left_widget.setStyleSheet("background: transparent;")
+		self.left_layout = QVBoxLayout(self.left_widget)
+		self.left_layout.setContentsMargins(0, 0, 0, 0)
+		self.left_layout.setSpacing(0)
+
+		self.list_widget = QListWidget()
+		self.list_widget.setStyleSheet(
+			"""
+			QListWidget {
+				background: #FFFFFF;
+				border: none;
+				outline: none;
+				color: #333333;
+			}
+			QListWidget::item {
+				padding: 0px;
+				border: none;
+				background: transparent;
+			}
+			QListWidget::item:selected {
+				background: transparent;
+			}
+			QListWidget::item:hover {
+				background: transparent;
+			}
+		"""
+		)
+		self.list_widget.setSpacing(0)
+		self.list_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+		self.list_widget.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+		self.list_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+		self.list_widget.customContextMenuRequested.connect(self._show_context_menu)
+
+		show_metadata = self.config.get_clipboard_show_metadata()
+		try:
+			line_height_padding = self.config.get_clipboard_line_height_padding()
+		except Exception as e:
+			log_exception(e, "获取行高填充设置")
+			line_height_padding = 8
+		self._item_delegate = ClipboardItemDelegate(
+			parent=self.list_widget,
+			theme=self.current_theme,
+			display_lines=self.display_lines,
+			window_opacity=self.window_opacity,
+			show_metadata=show_metadata,
+			line_height_padding=line_height_padding,
+		)
+		self.list_widget.setItemDelegate(self._item_delegate)
+		self.list_widget.setMouseTracking(True)
+		self.list_widget.viewport().setMouseTracking(True)
+		self.list_widget.itemEntered.connect(self._on_delegate_item_entered)
+		self.list_widget.viewport().installEventFilter(self)
+
+		self.selection_manager = SelectionManager(self.list_widget, self._get_item_data)
+		self.selection_manager.group_bar_position = self.group_bar_position
+		self.selection_manager.item_activated.connect(self._on_paste_item)
+		self.selection_manager.request_sidebar_focus.connect(self._enter_sidebar_mode)
+		self.selection_manager.request_group_switch.connect(self._on_top_group_switch)
+
+		self.list_widget.itemSelectionChanged.connect(self._on_selection_changed)
+
+		scrollbar = self.list_widget.verticalScrollBar()
+		scrollbar.valueChanged.connect(self._on_scroll)
+		scrollbar.rangeChanged.connect(self._on_scrollbar_range_changed)
+
+		self.left_layout.addWidget(self.list_widget, 1)
+
+		self.bottom_bar = QWidget()
+		self.bottom_bar.setFixedHeight(36)
+		self.bottom_bar.setStyleSheet(
+			"""
+			QWidget {
+				background: #FAFAFA;
+				border-top: 1px solid #E0E0E0;
+			}
+		"""
+		)
+		bottom_layout = QHBoxLayout(self.bottom_bar)
+		bottom_layout.setContentsMargins(8, 4, 8, 4)
+		bottom_layout.setSpacing(8)
+
+		search_icon = QLabel("🔍")
+		search_icon.setStyleSheet("background: transparent; border: none;")
+		bottom_layout.addWidget(search_icon)
+
+		self.search_input = QLineEdit()
+		self.search_input.setPlaceholderText(self.tr("Search"))
+		self._apply_search_input_style()
+		self.search_input.textChanged.connect(self._on_search_changed)
+		self.search_input.textChanged.connect(self._update_search_background)
+		bottom_layout.addWidget(self.search_input, 1)
+		self.selection_manager.set_search_input(self.search_input)
+
+		self.clear_search_btn = QPushButton("×")
+		self.clear_search_btn.setFixedSize(24, 24)
+		self.clear_search_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+		self.clear_search_btn.setToolTip(self.tr("Clear search"))
+		self.clear_search_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+		self._apply_clear_search_btn_style()
+		self.clear_search_btn.clicked.connect(self._clear_search)
+		self.clear_search_btn.hide()
+		bottom_layout.addWidget(self.clear_search_btn)
+
+		self.type_filter = QComboBox()
+		self.type_filter.addItems([self.tr("All"), self.tr("Text"), self.tr("Image"), self.tr("File")])
+		self.type_filter.hide()
+
+		self.menu_btn = QPushButton("⚙")
+		self.menu_btn.setFixedSize(28, 28)
+		self.menu_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+		self.menu_btn.setToolTip(self.tr("Settings"))
+		self.menu_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+		self._apply_menu_btn_style()
+		self.menu_btn.clicked.connect(self._show_main_menu)
+		bottom_layout.addWidget(self.menu_btn)
+
+		self.left_layout.addWidget(self.bottom_bar)
+		self.content_layout.addWidget(self.left_widget, 1)
+
+		self.group_bar = GroupBar(
+			controller=self.controller,
+			manager=self.manager,
+			theme=self.current_theme,
+			position=self.group_bar_position,
+			parent=self,
+		)
+		self.group_bar.close_requested.connect(self.close)
+		self.group_bar.group_switched.connect(self._on_group_switched)
+		self.group_bar.sidebar_entered.connect(self._on_sidebar_entered)
+		self.group_bar.sidebar_exited.connect(self._on_sidebar_exited)
+		self.group_bar.manage_groups_requested.connect(self._on_add_group_clicked)
+		self.group_bar.manage_items_requested.connect(self._on_add_item_clicked)
+		self.group_bar.build(self.content_layout, self.left_widget, self.left_layout)
+
+		self._setup_mouse_tracking_recursive(self)
+
+	def _get_menu_style(self):
+		return ThemeStyleGenerator(self.current_theme).generate_menu_style()
+
+	def _show_main_menu(self):
+		if hasattr(self, "_settings_menu") and self._settings_menu is not None and self._settings_menu.isVisible():
+			self._settings_menu.close()
+			self._settings_menu = None
+			return
+
+		if hasattr(self, "_menu_close_time") and (perf_counter() - self._menu_close_time) < 0.3:
+			return
+
+		from ..panels.setting_panel import show_setting_menu
+
+		self._settings_menu = show_setting_menu(
+			parent=self,
+			menu_style=self._get_menu_style(),
+			tr=self.tr,
+			current_filter_index=self.type_filter.currentIndex(),
+			paste_with_html=self.controller.paste_with_html,
+			auto_paste=self.config.get_clipboard_auto_paste(),
+			move_to_top=self.config.get_clipboard_move_to_top_on_paste(),
+			show_metadata=self.config.get_clipboard_show_metadata(),
+			preserve_search=self.config.get_clipboard_preserve_search(),
+			window_opacity=self.window_opacity,
+			current_font_size=self.config.get_clipboard_font_size(),
+			current_theme_name=self.theme_manager.get_current_theme().name,
+			current_group_bar_position=self.group_bar_position,
+			opacity_options=self.config.get_clipboard_window_opacity_options(),
+			font_size_options=self.config.get_clipboard_font_size_options(),
+			on_set_filter=self._set_filter,
+			on_toggle_paste_html=self._toggle_paste_with_html,
+			on_toggle_auto_paste=self._toggle_auto_paste,
+			on_toggle_move_to_top=self._toggle_move_to_top_on_paste,
+			on_toggle_show_metadata=self._toggle_show_metadata,
+			on_toggle_preserve_search=self._toggle_preserve_search,
+			on_set_opacity=self._set_window_opacity,
+			on_set_font_size=self._set_font_size,
+			on_set_theme=self._set_theme,
+			on_add_item=self._on_add_item_clicked,
+			on_set_group_bar_position=self._set_group_bar_position,
+			anchor_pos=self.menu_btn.mapToGlobal(QPoint(0, 0)),
+		)
+
+		def _on_menu_hide():
+			self._menu_close_time = perf_counter()
+			self._settings_menu = None
+
+		self._settings_menu.aboutToHide.connect(_on_menu_hide)
+
+	def _set_filter(self, index: int):
+		self.type_filter.setCurrentIndex(index)
+		self.controller.set_content_type_filter(index)
+
+	def _toggle_paste_with_html(self, checked: bool):
+		self.controller.set_paste_with_html(checked)
+
+	def _toggle_auto_paste(self, checked: bool):
+		self.controller.set_auto_paste(checked)
+
+	def _toggle_move_to_top_on_paste(self, checked: bool):
+		self.controller.set_move_to_top_on_paste(checked)
+
+	def _toggle_show_metadata(self, checked: bool):
+		self.config.set_clipboard_show_metadata(checked)
+		if hasattr(self, "_item_delegate"):
+			self._item_delegate.set_show_metadata(checked)
+		self.controller.load_history()
+
+	def _toggle_preserve_search(self, checked: bool):
+		self.config.set_clipboard_preserve_search(checked)
+
+	def _set_window_opacity(self, percent: int):
+		self.window_opacity = percent
+		self.config.set_clipboard_window_opacity(percent)
+		if hasattr(self, "_item_delegate"):
+			self._item_delegate.set_window_opacity(percent)
+		self._apply_opacity()
+		self._refresh_list()
+
+	def _set_font_size(self, size: int):
+		self.display_lines = size
+		self.config.set_clipboard_font_size(size)
+		if hasattr(self, "_item_delegate"):
+			self._item_delegate.set_display_lines(size)
+		self._refresh_list()
+
+	def _set_theme(self, theme_name: str):
+		get_theme_manager().set_theme(theme_name)
+
+	def _on_font_size_changed(self, size: int):
+		self.display_lines = size
+		if hasattr(self, "_item_delegate"):
+			self._item_delegate.set_display_lines(size)
+		self._refresh_list()
+
+	def _on_opacity_changed(self, percent: int):
+		self.window_opacity = percent
+		if hasattr(self, "_item_delegate"):
+			self._item_delegate.set_window_opacity(percent)
+		self._apply_opacity()
+		self._refresh_list()
+
+	def _setup_shortcuts(self):
+		self._shortcut_handler = ClipboardShortcutHandler(self)
+
+	def _load_history(self):
+		self.controller.load_history()
+
+	def _load_more_items(self):
+		self.controller._load_more_items()
+
+	def _refresh_list(self):
+		PreviewPopup.instance().hide_preview()
+		self.selection_manager.reset()
+
+		self.list_widget.setUpdatesEnabled(False)
+		self.list_widget.clear()
+
+		show_metadata = self.config.get_clipboard_show_metadata()
+		self._item_delegate.set_show_metadata(show_metadata)
+		self._item_delegate.set_display_lines(self.display_lines)
+		self._item_delegate.set_window_opacity(self.window_opacity)
+		self._item_delegate.set_theme(self.current_theme)
+		self._item_delegate.set_highlighted_id(None)
+
+		for item in self.controller.current_items:
+			list_item = QListWidgetItem()
+			list_item.setData(ROLE_ITEM_ID, item.id)
+			list_item.setData(ROLE_ITEM_DATA, item)
+			self.list_widget.addItem(list_item)
+
+		self.list_widget.setUpdatesEnabled(True)
+		self.list_widget.scrollToTop()
+		self.list_widget.update()
+
+	def _on_load_completed(self):
+		QTimer.singleShot(0, self._check_and_load_more_if_needed)
+
+	def _check_and_load_more_if_needed(self):
+		scrollbar = self.list_widget.verticalScrollBar()
+		is_visible = scrollbar.isVisible()
+		maximum = scrollbar.maximum()
+		has_more = self.controller.has_more_items()
+
+		if (not is_visible or maximum == 0) and has_more:
+			if self._auto_fill_remaining <= 0:
+				return
+			self._auto_fill_remaining -= 1
+			self.controller._load_more_items()
+
+	def _append_items(self, items: List[ClipboardItem]):
+		log_debug(f"📝 _append_items 被调用，准备追加 {len(items)} 条数据", "Clipboard")
+
+		self.list_widget.setUpdatesEnabled(False)
+
+		for item in items:
+			list_item = QListWidgetItem()
+			list_item.setData(ROLE_ITEM_ID, item.id)
+			list_item.setData(ROLE_ITEM_DATA, item)
+			self.list_widget.addItem(list_item)
+
+		self.list_widget.setUpdatesEnabled(True)
+		self.list_widget.update()
+
+	def _on_scroll(self, value: int):
+		scrollbar = self.list_widget.verticalScrollBar()
+		maximum = scrollbar.maximum()
+		self.controller.check_scroll_load(value, maximum)
+
+	def _on_scrollbar_range_changed(self, min_val: int, max_val: int):
+		_ = (min_val, max_val)
+		self.list_widget.viewport().update()
+
+	def _on_search_changed(self, text: str):
+		_ = text
+		if hasattr(self, "_search_timer"):
+			self._search_timer.stop()
+		else:
+			self._search_timer = QTimer()
+			self._search_timer.setSingleShot(True)
+			self._search_timer.timeout.connect(lambda: self.controller.set_search_text(self.search_input.text()))
+
+		self._search_timer.start(300)
+
+	def _on_selection_changed(self):
+		selected_items = self.list_widget.selectedItems()
+		if selected_items:
+			selected_id = selected_items[0].data(Qt.ItemDataRole.UserRole)
+			self._set_highlighted_item(selected_id)
+		else:
+			self._set_highlighted_item(None)
+
+	def _on_delegate_item_entered(self, list_item: QListWidgetItem):
+		item_id = list_item.data(ROLE_ITEM_ID)
+		if item_id is None:
+			return
+		self._set_highlighted_item(item_id)
+
+		row = self.list_widget.row(list_item)
+		if row >= 0:
+			self.selection_manager.set_hovered_index(row)
+
+		item_data = list_item.data(ROLE_ITEM_DATA)
+		if item_data:
+			popup = PreviewPopup.instance()
+			pos = QCursor.pos()
+			popup.show_preview(item_data, pos, delay_ms=5)
+
+	def _set_highlighted_item(self, item_id: Optional[int]):
+		if self._item_delegate._highlighted_id != item_id:
+			self._item_delegate.set_highlighted_id(item_id)
+			self.list_widget.viewport().update()
+
+	def _update_search_background(self, text: str):
+		if text.strip():
+			self._apply_search_input_style(has_text=True)
+			self.clear_search_btn.show()
+		else:
+			self._apply_search_input_style(has_text=False)
+			self.clear_search_btn.hide()
+
+	def _apply_search_input_style(self, has_text: bool = False):
+		style = ThemeStyleGenerator(self.current_theme).generate_search_input_style(has_text)
+		self.search_input.setStyleSheet(style)
+
+	def _apply_clear_search_btn_style(self):
+		style = ThemeStyleGenerator(self.current_theme).generate_clear_search_btn_style()
+		self.clear_search_btn.setStyleSheet(style)
+
+	def _apply_menu_btn_style(self):
+		style = ThemeStyleGenerator(self.current_theme).generate_menu_btn_style()
+		self.menu_btn.setStyleSheet(style)
+
+	def _clear_search(self):
+		self.search_input.clear()
+		self.search_input.setFocus()
+
+	def _on_filter_changed(self, index: int):
+		self.controller.set_content_type_filter(index)
+
+	def _on_group_switched(self, group_id):
+		self.group_bar.switch_to_group(group_id)
+		is_quick_launch = False
+		if group_id is not None:
+			groups = self.controller.manager.get_groups()
+			g = next((group for group in groups if group.id == group_id), None)
+			is_quick_launch = g is not None and g.group_type == GroupType.FILE
+		self._item_delegate.set_hide_file_icon(is_quick_launch)
+		self.list_widget.update()
+
+	def _on_sidebar_entered(self):
+		self.selection_manager.clear_selection()
+		self._set_highlighted_item(None)
+		self.list_widget.setFocus()
+
+	def _on_sidebar_exited(self, prev_item_id):
+		self.list_widget.setFocus()
+		if prev_item_id is not None:
+			self.selection_manager.select_item_id(prev_item_id)
+		else:
+			self.selection_manager._move_selection(1)
+
+	def _enter_sidebar_mode(self):
+		prev_id = self.selection_manager.get_current_item_id()
+		self.group_bar.enter_sidebar_mode(prev_id)
+
+	def _on_top_group_switch(self, delta: int):
+		self.group_bar.handle_top_group_switch(delta)
+
+	def _on_add_group_clicked(self):
+		dialog = get_manage_dialog(self.manager)
+		self._connect_manage_dialog(dialog)
+		dialog.show_and_activate()
+
+	def _on_add_item_clicked(self):
+		dialog = get_manage_dialog(self.manager)
+		self._connect_manage_dialog(dialog)
+		dialog._switch_page(1)
+		dialog.show_and_activate()
+
+	def _connect_manage_dialog(self, dialog: ManageDialog):
+		for sig, slot in [
+			(dialog.group_added, self.group_bar.refresh_buttons),
+			(dialog.data_changed, self._on_manage_data_changed),
+		]:
+			sig.connect(slot, Qt.ConnectionType.UniqueConnection)
+
+	def _set_group_bar_position(self, position: str):
+		self.group_bar_position = position
+		self.selection_manager.group_bar_position = position
+		self.group_bar.set_position(position)
+		self.config.set_clipboard_group_bar_position(position)
+		self._apply_opacity()
+
+	def _get_item_data(self, item_id: int) -> Optional[ClipboardItem]:
+		for item in self.controller.current_items:
+			if item.id == item_id:
+				return item
+		return None
+
+	def _on_paste_item(self, item_id: int):
+		if self.controller.current_group_id is not None:
+			groups = self.controller.manager.get_groups()
+			current_group = next((group for group in groups if group.id == self.controller.current_group_id), None)
+			if current_group is not None and current_group.group_type == GroupType.FILE:
+				self._open_file_item(item_id)
+				return
+		self.controller._previous_window_hwnd = get_foreground_window()
+		if self.controller.paste_item(item_id, on_close_callback=self.close):
+			self.item_pasted.emit(item_id)
+
+	def _paste_selected(self):
+		item_id = self.selection_manager.get_current_item_id()
+		if item_id:
+			self._on_paste_item(item_id)
+
+	def _delete_selected(self):
+		item_id = self.selection_manager.get_current_item_id()
+		if item_id:
+			self.controller.delete_item(item_id)
+
+	def _show_context_menu(self, pos):
+		item = self.list_widget.itemAt(pos)
+		if not item:
+			return
+		item_id = item.data(Qt.ItemDataRole.UserRole)
+		if not item_id:
+			return
+
+		ctx = self.controller.build_context_menu_data(item_id)
+		if ctx is None:
+			return
+
+		menu = QMenu(self)
+		menu.setStyleSheet(self._get_menu_style())
+
+		def _build_move_submenu(action_data):
+			sub = menu.addMenu(self.tr(action_data.label))
+			sub.setStyleSheet(self._get_menu_style())
+			for child in action_data.children:
+				if child.is_separator:
+					sub.addSeparator()
+				elif child.key.startswith("move_to_group_"):
+					gid = int(child.key.split("_")[-1])
+					action = sub.addAction(child.label)
+					action.triggered.connect(lambda _c, g=gid: self._move_item_to_group(item_id, g))
+				elif child.key == "remove_from_group":
+					action = sub.addAction(self.tr(child.label))
+					action.triggered.connect(lambda: self._move_item_to_group(item_id, None))
+
+		item_handlers = {
+			"paste": lambda: self._paste_item_to_clipboard(item_id),
+			"pin_image": lambda: self._create_pin_window(item_id),
+			"toggle_pin": lambda: self._toggle_pin(item_id),
+			"open_file_location": lambda: self._open_file_location(item_id),
+			"edit_item": lambda: self._edit_item(item_id),
+			"move_item_up": lambda: self._move_item_order(item_id, -1),
+			"move_item_down": lambda: self._move_item_order(item_id, 1),
+			"delete_item": lambda: self._delete_item(item_id),
+		}
+
+		for action_data in ctx.actions:
+			if action_data.is_separator:
+				menu.addSeparator()
+			elif action_data.key == "move_group_menu":
+				_build_move_submenu(action_data)
+			else:
+				action = menu.addAction(self.tr(action_data.label))
+				action.setEnabled(action_data.enabled)
+				if action_data.checkable:
+					action.setCheckable(True)
+					action.setChecked(action_data.checked)
+				handler = item_handlers.get(action_data.key)
+				if handler:
+					action.triggered.connect(handler)
+
+		menu.exec(self.list_widget.mapToGlobal(pos))
+
+	def _move_item_to_group(self, item_id: int, group_id: Optional[int]):
+		self.controller.move_to_group(item_id, group_id)
+
+	def _move_item_order(self, item_id: int, direction: int):
+		self.controller.move_item_order(item_id, self.controller.current_group_id, direction)
+
+	def _edit_item(self, item_id: int):
+		self.controller.open_manage_dialog_for_item(
+			item_id,
+			self.controller.current_group_id,
+			group_added_callback=self.group_bar.refresh_buttons,
+			data_changed_callback=self._on_manage_data_changed,
+		)
+
+	def _toggle_pin(self, item_id: int):
+		self.controller.toggle_pin(item_id)
+
+	def _create_pin_window(self, item_id: int):
+		from .pin_window import create_pin_from_clipboard_item
+
+		create_pin_from_clipboard_item(item_id, self.controller, self)
+
+	def _delete_item(self, item_id: int):
+		self.controller.delete_item(item_id)
+
+	def _open_file_item(self, item_id: int):
+		import json
+		import os
+		from PySide6.QtCore import QTimer
+
+		clipboard_item = self.controller.get_item(item_id)
+		if clipboard_item is None or clipboard_item.content_type != "file":
+			return
+		try:
+			data = json.loads(clipboard_item.content)
+			files = data.get("files", [])
+			if not files:
+				return
+			file_path = os.path.normpath(files[0])
+			if os.path.exists(file_path):
+				QTimer.singleShot(0, lambda p=file_path: os.startfile(p))
+				QTimer.singleShot(50, self.hide)
+		except Exception as e:
+			from core.logger import log_warning
+
+			log_warning(f"打开文件失败: {e}", "Clipboard")
+
+	def _paste_item_to_clipboard(self, item_id: int):
+		self.controller._previous_window_hwnd = get_foreground_window()
+		if self.controller.paste_item(item_id, on_close_callback=self.close):
+			self.item_pasted.emit(item_id)
+
+	def _open_file_location(self, item_id: int):
+		import json
+		import os
+		import subprocess
+		from PySide6.QtCore import QTimer
+
+		clipboard_item = self.controller.get_item(item_id)
+		if clipboard_item is None or clipboard_item.content_type != "file":
+			return
+		try:
+			data = json.loads(clipboard_item.content)
+			files = data.get("files", [])
+			if not files:
+				return
+			file_path = os.path.normpath(files[0])
+			if os.path.isdir(file_path):
+				QTimer.singleShot(0, lambda p=file_path: subprocess.Popen(["explorer", p]))
+			elif os.path.exists(file_path):
+				QTimer.singleShot(0, lambda p=file_path: subprocess.Popen(["explorer", "/select,", p]))
+			elif os.path.exists(os.path.dirname(file_path)):
+				QTimer.singleShot(0, lambda p=os.path.dirname(file_path): subprocess.Popen(["explorer", p]))
+		except Exception as e:
+			from core.logger import log_warning
+
+			log_warning(f"打开文件位置失败: {e}", "Clipboard")
+
+	def _on_clear_clicked(self):
+		self.controller.clear_history(parent_widget=self)
+
+	def _on_new_item(self):
+		self.controller.on_new_content(self.isVisible())
+
+	def notify_new_content(self):
+		self.new_item_received.emit()
+
+	def _warmup_offscreen_once(self):
+		if ClipboardWindow._offscreen_warmup_done:
+			return
+		ClipboardWindow._offscreen_warmup_done = True
+
+		screen = QApplication.primaryScreen()
+		if screen is None:
+			return
+
+		self._offscreen_warmup_in_progress = True
+		old_pos = self.pos()
+		old_opacity = self.windowOpacity()
+		try:
+			geo = screen.availableGeometry()
+			self.setWindowOpacity(0)
+			self.move(geo.right() + 20000, geo.bottom() + 20000)
+			self.show()
+			QApplication.processEvents()
+			self.hide()
+			log_debug("剪贴板窗口离屏预热完成", "Clipboard")
+		except Exception as e:
+			log_debug(f"剪贴板窗口离屏预热异常: {e}", "Clipboard")
+		finally:
+			self.move(old_pos)
+			self.setWindowOpacity(old_opacity)
+			self._offscreen_warmup_in_progress = False
+
+	@safe_event
+	def showEvent(self, event):
+		if self._offscreen_warmup_in_progress:
+			super().showEvent(event)
+			return
+
+		self.setWindowOpacity(0)
+
+		if hasattr(self, "_shortcut_handler") and self._shortcut_handler:
+			ShortcutManager.instance().register(self._shortcut_handler)
+
+		self._fl_reset()
+		self.selection_manager.reset()
+		self.controller.on_window_show()
+
+		t_show_start = perf_counter()
+		super().showEvent(event)
+
+		self.list_widget.setFocus()
+		self._position_at_cursor()
+		QTimer.singleShot(0, self.group_bar.refresh_buttons)
+		QTimer.singleShot(0, self._reveal_window)
+		t_show_end = perf_counter()
+		log_debug(f"⏱️ 打开窗口耗时: {(t_show_end - t_show_start) * 1000:.1f} ms", "Clipboard")
+
+	def _reveal_window(self):
+		self.setWindowOpacity(1)
+
+	def _position_at_cursor(self):
+		cursor_pos = QCursor.pos()
+		screen = QApplication.screenAt(cursor_pos)
+		if screen:
+			screen_geo = screen.availableGeometry()
+
+			x = cursor_pos.x() + 10
+			y = cursor_pos.y() + 10
+
+			if x + self.width() > screen_geo.right():
+				x = cursor_pos.x() - self.width() - 10
+
+			if y + self.height() > screen_geo.bottom():
+				y = cursor_pos.y() - self.height() - 10
+
+			if x < screen_geo.left():
+				x = screen_geo.left()
+			if y < screen_geo.top():
+				y = screen_geo.top()
+
+			self.move(x, y)
+
+	@safe_event
+	def hideEvent(self, event):
+		if self._offscreen_warmup_in_progress:
+			super().hideEvent(event)
+			return
+
+		self._fl_reset()
+
+		if not self.config.get_clipboard_preserve_search() and self.search_input.text():
+			self.search_input.clear()
+
+		super().hideEvent(event)
+		self._save_window_geometry()
+		PreviewPopup.instance().hide_preview()
+		active_popup = QApplication.activePopupWidget()
+		if active_popup is not None:
+			active_popup.close()
+
+	@safe_event
+	def closeEvent(self, event):
+		if hasattr(self, "_shortcut_handler") and self._shortcut_handler:
+			ShortcutManager.instance().unregister(self._shortcut_handler)
+		self._save_window_geometry()
+		PreviewPopup.instance().hide_preview()
+		active_popup = QApplication.activePopupWidget()
+		if active_popup is not None:
+			active_popup.close()
+		self.closed.emit()
+		super().closeEvent(event)
+
+	@safe_event
+	def changeEvent(self, event):
+		super().changeEvent(event)
+		if event.type() == QEvent.Type.ActivationChange and not self.isActiveWindow():
+			QTimer.singleShot(100, self._check_and_hide)
+
+	def _check_and_hide(self):
+		if not self.isActiveWindow():
+			self.hide()
+
+	def _is_draggable_area(self, widget, local_pos: QPoint) -> bool:
+		_ = local_pos
+		bar = getattr(self, "group_bar", None)
+		if bar and bar.bar_widget is not None and widget is bar.bar_widget:
+			return True
+		return False
+
+	@safe_event
+	def eventFilter(self, obj, event):
+		event_type = event.type()
+
+		if event_type == QEvent.Type.Leave and obj is self.list_widget.viewport():
+			self.selection_manager.clear_hovered_index()
+			PreviewPopup.instance().hide_preview()
+			selected_items = self.list_widget.selectedItems()
+			if selected_items:
+				selected_id = selected_items[0].data(Qt.ItemDataRole.UserRole)
+				self._set_highlighted_item(selected_id)
+			else:
+				self._set_highlighted_item(None)
+
+		if event_type == QEvent.Type.FocusIn and obj is self.list_widget:
+			if not self.group_bar.sidebar_mode:
+				self.group_bar.clear_sidebar_focus()
+
+		if event_type == QEvent.Type.KeyPress:
+			key = event.key()
+			pos = getattr(self, "group_bar_position", "right")
+
+			if pos != "top":
+				if pos == "right":
+					k_enter, k_exit = Qt.Key.Key_Right, Qt.Key.Key_Left
+				else:
+					k_enter, k_exit = Qt.Key.Key_Left, Qt.Key.Key_Right
+				k_prev, k_next = Qt.Key.Key_Up, Qt.Key.Key_Down
+
+				if self.group_bar.sidebar_mode:
+					if key == k_exit:
+						self.group_bar.exit_sidebar_mode()
+						return True
+					if key == k_prev:
+						self.group_bar.move_sidebar_selection(-1)
+						return True
+					if key == k_next:
+						self.group_bar.move_sidebar_selection(1)
+						return True
+					if key == k_enter:
+						return True
+				elif key == k_enter:
+					focus_widget = QApplication.focusWidget()
+					if focus_widget is self.list_widget or self.list_widget.isAncestorOf(focus_widget):
+						self._enter_sidebar_mode()
+						return True
+
+		if self._fl_handle_event(obj, event):
+			return True
+
+		return super().eventFilter(obj, event)
+
+	@safe_event
+	def leaveEvent(self, event):
+		if not self._fl_is_dragging and not self._fl_resize_edge:
+			self.unsetCursor()
+		super().leaveEvent(event)
+
+	@safe_event
+	def keyPressEvent(self, event):
+		key = event.key()
+
+		if key in (Qt.Key.Key_Up, Qt.Key.Key_Down) and not self.group_bar.sidebar_mode:
+			focus_widget = QApplication.focusWidget()
+			if focus_widget is None or focus_widget is self.search_input or not (
+				focus_widget is self.list_widget or self.list_widget.isAncestorOf(focus_widget)
+			):
+				self.list_widget.setFocus()
+				self.selection_manager._move_selection(-1 if key == Qt.Key.Key_Up else 1)
+				return
+
+		super().keyPressEvent(event)
+
+	@safe_event
+	def resizeEvent(self, event):
+		super().resizeEvent(event)
+		self.list_widget.viewport().update()
+		if hasattr(self, "group_bar") and self.group_bar.bar_widget is not None:
+			self.group_bar.refresh_buttons()
+
+
+__all__ = ["ClipboardShortcutHandler", "ClipboardWindow"]
+
+__all__ = ["ClipboardWindow"]

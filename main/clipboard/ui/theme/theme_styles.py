@@ -366,4 +366,3 @@ def generate_all_styles(theme: Theme, opacity: int = 0) -> dict:
         "manage_dialog": generator.generate_manage_dialog_style(),
         "preview_popup": generator.generate_preview_popup_style(),
     }
- 

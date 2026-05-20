@@ -1474,6 +1474,30 @@ Replace it?</source>
         <translation>グループタイプ</translation>
     </message>
     <message>
+        <source>New General Group</source>
+        <translation>新しい通常グループ</translation>
+    </message>
+    <message>
+        <source>New Quick Launch Group</source>
+        <translation>新しいクイック起動グループ</translation>
+    </message>
+    <message>
+        <source>Edit General Group</source>
+        <translation>通常グループを編集</translation>
+    </message>
+    <message>
+        <source>Edit Quick Launch Group</source>
+        <translation>クイック起動グループを編集</translation>
+    </message>
+    <message>
+        <source>General groups allow any content type; selecting an item pastes content or files to the current target</source>
+        <translation>任意の形式の内容を追加できます。選択すると、内容を貼り付けます</translation>
+    </message>
+    <message>
+        <source>Quick launch groups only allow file or folder paths; selecting an item opens them directly</source>
+        <translation>ファイルまたはフォルダーのパスのみ追加できます。選択すると、開きます</translation>
+    </message>
+    <message>
         <source>Quick launch groups only accept file items; left-click opens the file directly</source>
         <translation>クイック起動グループはファイル項目のみ受け付けます。左クリックでファイルを直接開きます</translation>
     </message>
@@ -1532,6 +1556,10 @@ Replace it?</source>
     <message>
         <source>Browse Folder</source>
         <translation>フォルダを参照</translation>
+    </message>
+    <message>
+        <source>Drag a file or folder here</source>
+        <translation>ここにファイルまたはフォルダをドラッグしてください</translation>
     </message>
     <message>
         <source>Select Folder</source>

@@ -1376,6 +1376,30 @@ Replace it?</translation>
         <translation>Group Type</translation>
     </message>
     <message>
+        <source>New General Group</source>
+        <translation>New General Group</translation>
+    </message>
+    <message>
+        <source>New Quick Launch Group</source>
+        <translation>New Quick Launch Group</translation>
+    </message>
+    <message>
+        <source>Edit General Group</source>
+        <translation>Edit General Group</translation>
+    </message>
+    <message>
+        <source>Edit Quick Launch Group</source>
+        <translation>Edit Quick Launch Group</translation>
+    </message>
+    <message>
+        <source>General groups allow any content type; selecting an item pastes content or files to the current target</source>
+        <translation>General groups allow any content type; selecting an item pastes content or files to the current target</translation>
+    </message>
+    <message>
+        <source>Quick launch groups only allow file or folder paths; selecting an item opens them directly</source>
+        <translation>Quick launch groups only allow file or folder paths; selecting an item opens them directly</translation>
+    </message>
+    <message>
         <source>Quick launch groups only accept file items; left-click opens the file directly</source>
         <translation>Quick launch groups only accept file items; left-click opens the file directly</translation>
     </message>
@@ -1434,6 +1458,10 @@ Replace it?</translation>
     <message>
         <source>Browse Folder</source>
         <translation>Browse Folder</translation>
+    </message>
+    <message>
+        <source>Drag a file or folder here</source>
+        <translation>Drag a file or folder here</translation>
     </message>
     <message>
         <source>Select Folder</source>
