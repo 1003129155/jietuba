@@ -163,7 +163,7 @@ class TestManageDialog:
         assert dlg.detail_title.text() == dlg.tr("New General Group")
         assert dlg.detail_subtitle.wordWrap() is True
         assert dlg.detail_subtitle.text() == dlg.tr(
-            "General groups allow any content type; selecting an item pastes content or files to the current target"
+            "General groups allow any content; selecting an item pastes content or files to the target"
         )
         assert dlg.radio_normal.isChecked() is True
         assert dlg.radio_file.isChecked() is False
@@ -178,7 +178,7 @@ class TestManageDialog:
 
         assert dlg.detail_title.text() == dlg.tr("Edit Quick Launch Group")
         assert dlg.detail_subtitle.text() == dlg.tr(
-            "Quick launch groups only allow file or folder paths; selecting an item opens them directly"
+            "Quick launch groups only allow file or folder paths; selecting an item opens them"
         )
         assert dlg.group_name_input.text() == "快速启动"
         assert dlg.radio_file.isChecked() is True
@@ -192,14 +192,14 @@ class TestManageDialog:
         dlg.radio_file.setChecked(True)
         assert dlg.detail_title.text() == dlg.tr("New Quick Launch Group")
         assert dlg.detail_subtitle.text() == dlg.tr(
-            "Quick launch groups only allow file or folder paths; selecting an item opens them directly"
+            "Quick launch groups only allow file or folder paths; selecting an item opens them"
         )
         assert dlg.icon_input.text() == "⚡"
 
         dlg.radio_normal.setChecked(True)
         assert dlg.detail_title.text() == dlg.tr("New General Group")
         assert dlg.detail_subtitle.text() == dlg.tr(
-            "General groups allow any content type; selecting an item pastes content or files to the current target"
+            "General groups allow any content; selecting an item pastes content or files to the target"
         )
         assert dlg.icon_input.text() == "📁"
 

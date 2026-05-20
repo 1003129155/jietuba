@@ -25,7 +25,7 @@ venv311\Scripts\activate
 ```bash
 pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl
 pip install longstitch-0.3.8-cp311-cp311-win_amd64.whl
-pip install pyclipboard-0.3.10-cp311-cp311-win_amd64.whl
+pip install pyclipboard-0.3.13-cp311-cp311-win_amd64.whl
 pip install windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl
 ```
 
@@ -33,7 +33,7 @@ pip install windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl
 |---------|---------|-------------|
 | `gifrecorder` | 0.2.1 | GIF/video composition encoder |
 | `longstitch` | 0.3.8 | Long screenshot stitching algorithm |
-| `pyclipboard` | 0.3.10 | Low-level clipboard operations |
+| `pyclipboard` | 0.3.13 | Low-level clipboard operations |
 | `windows_media_ocr` | 0.3.1 | Windows Media OCR API & oneocr.dll wrapper |
 
 > **Note:** These `.whl` files are for Windows x86_64 + Python 3.11 only. Do not install into the global Python environment.
@@ -77,7 +77,7 @@ python main_app.py
 # Project root
 ├── gifrecorder-0.2.1-cp311-cp311-win_amd64.whl       # GIF recorder Rust pre-built package
 ├── longstitch-0.3.8-cp311-cp311-win_amd64.whl        # Long-stitch Rust pre-built package
-├── pyclipboard-0.3.10-cp311-cp311-win_amd64.whl      # Clipboard Rust pre-built package
+├── pyclipboard-0.3.13-cp311-cp311-win_amd64.whl      # Clipboard Rust pre-built package
 ├── windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl # OCR Rust pre-built package
 │
 ├── main/                    # Python main program
@@ -86,7 +86,7 @@ python main_app.py
 │   │
 │   ├── canvas/              # Canvas module — graphics editing core
 │   ├── capture/             # Capture module — screen capture & window detection
-│   ├── clipboard/           # Clipboard module — history, groups, search
+│   ├── clipboard/           # Clipboard module — history, groups/quick launch, import/export, search
 │   ├── core/                # Core module — bootstrap, logging, resources, theme, i18n, hotkeys
 │   ├── gif/                 # GIF module — screen recording, editing, playback, export
 │   ├── ocr/                 # OCR module — multi-engine text recognition
@@ -148,26 +148,63 @@ capture/
 
 ### clipboard/ — Clipboard Management Module
 
-Ditto-like clipboard history manager with group management, supporting text, images, files, etc.
+Ditto-like clipboard history manager, now organized into controllers, core, services, and ui layers.
+Supports text, images, HTML, files, a dedicated three-pane management window, and pin creation from history items.
 ![jietuba_gif_20260404_001128](https://github.com/user-attachments/assets/b0a116e8-d944-43c9-b895-e6fc10d8c08a)
 
 ```
 clipboard/
-├── data_manager.py          # ClipboardManager / ClipboardItem / Group — database storage & retrieval
-├── window.py                # ClipboardWindow — clipboard history main window
-├── data_controller.py       # ClipboardController — business logic, shortcuts, context menu
-├── data_setting.py          # ManageDialog — group management dialog
-├── interaction.py           # SelectionManager — list selection state management
-├── item_widget.py           # ClipboardItemWidget — single history item display
-├── item_delegate.py         # ClipboardItemDelegate — custom list item rendering
-├── preview_popup.py         # PreviewPopup — large image/text preview popup
-├── themes.py                # ThemeManager / Theme / ThemeColors — theme management
-├── theme_styles.py          # ThemeStyleGenerator — CSS stylesheet generator
-├── pin_window.py            # Create pins from clipboard items
-├── emoji_data.py            # Emoji data management
-├── frameless_mixin.py       # FramelessMixin — borderless window mixin
-└── setting_panel.py         # Clipboard settings panel
+├── __init__.py
+├── controllers/             # Control layer — history loading, paste flow, menus, selection state
+│   ├── clipboard_controller.py   # ClipboardController — loading, pasting, context menu logic
+│   ├── selection_manager.py      # SelectionManager — list selection state
+│   └── __init__.py
+├── core/                    # Data layer — pyclipboard wrapper, models, group types
+│   ├── manager.py           # ClipboardManager — storage, monitoring, and paste API
+│   ├── models.py            # ClipboardItem / Group models
+│   ├── enums.py             # GroupType definitions
+│   └── __init__.py
+├── services/                # Service layer — file payloads, group rules, import/export, save logic
+│   ├── file_payload_service.py   # file payload JSON + legacy format compatibility
+│   ├── group_service.py          # group icon/name/delete helpers
+│   ├── import_export_service.py  # CSV import/export for text items
+│   └── manage_dialog_service.py  # persistence logic for the management window
+├── ui/
+│   ├── dialogs/
+│   │   └── manage_dialog.py      # three-pane management window for groups and content
+│   ├── forms/
+│   │   ├── group_form.py
+│   │   ├── text_content_form.py
+│   │   ├── file_content_form.py
+│   │   ├── import_export_form.py
+│   │   └── group_icon_picker.py
+│   ├── mixins/
+│   │   └── frameless_mixin.py
+│   ├── panels/
+│   │   └── setting_panel.py
+│   ├── resources/
+│   │   └── emoji_data.py
+│   ├── theme/
+│   │   ├── themes.py
+│   │   └── theme_styles.py
+│   ├── widgets/
+│   │   ├── draggable_list_widget.py
+│   │   ├── group_bar.py
+│   │   ├── item_delegate.py
+│   │   ├── item_widget.py
+│   │   └── preview_popup.py
+│   └── windows/
+│       ├── clipboard_window.py   # history window, search, preview, quick paste
+│       └── pin_window.py         # create pins from history items
 ```
+
+**Core Features:**
+- Monitor clipboard changes and store history automatically
+- Support text, images, HTML, and files
+- Support general groups, quick-launch groups, favorites, and search
+- Dedicated three-pane management window for editing groups, text items, and file items
+- CSV import/export for text items
+- Themeable UI, quick paste shortcuts, and large image/long text preview popups
 
 ---
 
@@ -398,8 +435,12 @@ tests/
 ├── run_tests.py             # test runner script
 ├── test_undo_stack.py       # Undo stack tests
 ├── test_selection_model.py  # Selection model tests
+├── test_clipboard_api.py    # Clipboard public API tests
 ├── test_clipboard_data.py   # Clipboard data layer tests
+├── test_clipboard_manage_dialog.py # Clipboard management window tests
+├── test_clipboard_services.py # Clipboard service layer tests
 ├── test_clipboard_themes.py # Clipboard theme system tests
+├── test_clipboard_utils.py  # Clipboard utility tests
 ├── test_core_utils.py       # Core utilities tests
 ├── test_crash_handler.py    # Crash handler tests
 ├── test_emoji_data.py       # Emoji data tests

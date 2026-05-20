@@ -30,7 +30,7 @@ venv311\Scripts\activate
 ```bash
 pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl
 pip install longstitch-0.3.8-cp311-cp311-win_amd64.whl
-pip install pyclipboard-0.3.10-cp311-cp311-win_amd64.whl
+pip install pyclipboard-0.3.13-cp311-cp311-win_amd64.whl
 pip install windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl
 ```
 
@@ -38,7 +38,7 @@ pip install windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl
 |------|------|------|
 | `gifrecorder` | 0.2.1 | GIF/视频合成编码器 |
 | `longstitch` | 0.3.8 | 长截图拼接算法 |
-| `pyclipboard` | 0.3.10 | 剪切板底层操作 |
+| `pyclipboard` | 0.3.13 | 剪切板底层操作 |
 | `windows_media_ocr` | 0.3.1 | Windows Media OCR Api和 oneocr.dll调用逻辑封装 |
 
 > **注意：** 这些 `.whl` 文件仅适用于 Windows x86_64 + Python 3.11 环境。请勿安装到全局 Python 中。
@@ -82,7 +82,7 @@ python main_app.py
 # 项目根目录
 ├── gifrecorder-0.2.1-cp311-cp311-win_amd64.whl       # GIF录制 Rust 预编译包
 ├── longstitch-0.3.8-cp311-cp311-win_amd64.whl        # 长截图拼接 Rust 预编译包
-├── pyclipboard-0.3.10-cp311-cp311-win_amd64.whl      # 剪切板 Rust 预编译包
+├── pyclipboard-0.3.13-cp311-cp311-win_amd64.whl      # 剪切板 Rust 预编译包
 ├── windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl # OCR Rust 预编译包
 │
 ├── main/                    # Python 主程序
@@ -91,7 +91,7 @@ python main_app.py
 │   │
 │   ├── canvas/              # 画布模块 — 图形编辑核心
 │   ├── capture/             # 截图捕获模块 — 屏幕截图与窗口识别
-│   ├── clipboard/           # 剪切板管理模块 — 历史记录、分组、搜索
+│   ├── clipboard/           # 剪切板管理模块 — 历史记录、分组/快速启动、导入导出、搜索
 │   ├── core/                # 核心基础模块 — 启动引导、日志、资源、主题、国际化、快捷键
 │   ├── gif/                 # GIF录制模块 — 屏幕录制、编辑、回放、导出
 │   ├── ocr/                 # OCR模块 — 多引擎文字识别
@@ -167,33 +167,62 @@ capture/
 
 ### clipboard/ — 剪切板管理模块
 
-类似 Ditto 的剪切板历史管理系统，特化了保存分组，分组浏览，支持文本、图片、文件等类型
-不仅能保存截图的历史记录，还可以从历史记录生成钉图。
+类似 Ditto 的剪切板历史管理系统，现已拆分为 controllers、core、services、ui 四层结构，支持文本、图片、HTML、文件等类型。
+不仅能保存截图历史，还提供独立的三栏管理窗口用于维护分组与内容，并可从历史记录生成钉图。
 ![jietuba_gif_20260404_001128](https://github.com/user-attachments/assets/b0a116e8-d944-43c9-b895-e6fc10d8c08a)
 
 ```
 clipboard/
 ├── __init__.py
-├── data_manager.py          # ClipboardManager / ClipboardItem / Group — 数据库存储、检索、分组管理
-├── window.py                # ClipboardWindow — 剪切板历史主窗口
-├── data_controller.py       # ClipboardController — 业务逻辑控制器，快捷键处理、右键菜单
-├── data_setting.py          # ManageDialog — 分组管理对话框
-├── interaction.py           # SelectionManager — 列表选择状态和事件管理
-├── item_widget.py           # ClipboardItemWidget — 单个历史项显示小部件
-├── item_delegate.py         # ClipboardItemDelegate — 列表项自定义渲染代理
-├── preview_popup.py         # PreviewPopup — 大图/长文预览弹窗
-├── themes.py                # ThemeManager / Theme / ThemeColors — 主题管理
-├── theme_styles.py          # ThemeStyleGenerator — CSS样式表生成器
-├── pin_window.py            # 从剪切板项创建钉图
-├── emoji_data.py            # Emoji数据管理（分组、图标）
-├── frameless_mixin.py       # FramelessMixin — 无边框窗口混入类
-└── setting_panel.py         # 剪切板设置面板
+├── controllers/             # 控制层 — 历史加载、粘贴流程、右键菜单、选择状态
+│   ├── clipboard_controller.py   # ClipboardController — 历史加载、粘贴和菜单逻辑
+│   ├── selection_manager.py      # SelectionManager — 列表选择状态管理
+│   └── __init__.py
+├── core/                    # 数据层 — pyclipboard 封装、数据模型、分组类型
+│   ├── manager.py           # ClipboardManager — 数据存储、监听、粘贴 API
+│   ├── models.py            # ClipboardItem / Group — 剪切板数据模型
+│   ├── enums.py             # GroupType — 分组类型定义
+│   └── __init__.py
+├── services/                # 服务层 — 文件 payload、分组规则、导入导出、保存逻辑
+│   ├── file_payload_service.py   # file 类型 JSON payload 与旧格式兼容
+│   ├── group_service.py          # 分组图标、命名与删除确认辅助
+│   ├── import_export_service.py  # 文本条目 CSV 导入/导出
+│   └── manage_dialog_service.py  # 管理窗口保存逻辑
+├── ui/
+│   ├── dialogs/
+│   │   └── manage_dialog.py      # 三栏管理窗口：分组、内容、导入导出
+│   ├── forms/
+│   │   ├── group_form.py
+│   │   ├── text_content_form.py
+│   │   ├── file_content_form.py
+│   │   ├── import_export_form.py
+│   │   └── group_icon_picker.py
+│   ├── mixins/
+│   │   └── frameless_mixin.py
+│   ├── panels/
+│   │   └── setting_panel.py
+│   ├── resources/
+│   │   └── emoji_data.py
+│   ├── theme/
+│   │   ├── themes.py
+│   │   └── theme_styles.py
+│   ├── widgets/
+│   │   ├── draggable_list_widget.py
+│   │   ├── group_bar.py
+│   │   ├── item_delegate.py
+│   │   ├── item_widget.py
+│   │   └── preview_popup.py
+│   └── windows/
+│       ├── clipboard_window.py   # 历史窗口、搜索、预览与快捷粘贴
+│       └── pin_window.py         # 从历史条目创建钉图
 ```
 
 **核心功能：**
 - 监听系统剪切板变化，自动保存历史记录
 - 支持文本、图片、HTML、文件等多种格式
-- 分组管理、收藏、搜索
+- 支持通用分组、快速启动分组、收藏与搜索
+- 独立三栏管理窗口，可编辑分组、文本内容和文件内容
+- 文本条目支持 CSV 导入/导出
 - 多主题 UI（亮色/暗色等）
 - 快捷键快速粘贴历史内容
 - 预览弹窗支持大图/长文查看
@@ -506,8 +535,12 @@ tests/
 ├── run_tests.py             # 测试运行脚本
 ├── test_undo_stack.py       # 撤销栈测试
 ├── test_selection_model.py  # 选择模型测试
+├── test_clipboard_api.py    # 剪切板公共 API 测试
 ├── test_clipboard_data.py   # 剪切板数据层测试
+├── test_clipboard_manage_dialog.py # 剪切板管理窗口测试
+├── test_clipboard_services.py # 剪切板服务层测试
 ├── test_clipboard_themes.py # 主题系统测试
+├── test_clipboard_utils.py  # 剪切板工具函数测试
 ├── test_core_utils.py       # 核心工具类测试
 ├── test_crash_handler.py    # 崩溃处理测试
 ├── test_emoji_data.py       # Emoji数据测试

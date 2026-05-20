@@ -1301,11 +1301,11 @@ Replace it?</translation>
     </message>
     <message>
         <source>Group Management</source>
-        <translation>Group Management</translation>
+        <translation>Group</translation>
     </message>
     <message>
         <source>Content Manager</source>
-        <translation>Content Manager</translation>
+        <translation>Content</translation>
     </message>
     <message>
         <source>Close</source>
@@ -1392,12 +1392,12 @@ Replace it?</translation>
         <translation>Edit Quick Launch Group</translation>
     </message>
     <message>
-        <source>General groups allow any content type; selecting an item pastes content or files to the current target</source>
-        <translation>General groups allow any content type; selecting an item pastes content or files to the current target</translation>
+        <source>General groups allow any content; selecting an item pastes content or files to the target</source>
+        <translation>Allow any content; selecting an item pastes content or files to the target</translation>
     </message>
     <message>
-        <source>Quick launch groups only allow file or folder paths; selecting an item opens them directly</source>
-        <translation>Quick launch groups only allow file or folder paths; selecting an item opens them directly</translation>
+        <source>Quick launch groups only allow file or folder paths; selecting an item opens them</source>
+        <translation>Quick launch groups only allow file or folder paths; selecting an item opens them</translation>
     </message>
     <message>
         <source>Quick launch groups only accept file items; left-click opens the file directly</source>
