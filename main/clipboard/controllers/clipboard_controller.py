@@ -12,8 +12,8 @@ from time import perf_counter
 from PySide6.QtCore import QObject, Signal, QTimer, Qt
 from ui.dialogs import show_confirm_dialog
 
-from .data_manager import ClipboardManager, ClipboardItem, Group, GroupType
-from .data_setting import get_manage_dialog, get_existing_manage_dialog
+from ..core import ClipboardManager, ClipboardItem, Group, GroupType
+from ..ui.dialogs.manage_dialog import get_manage_dialog, get_existing_manage_dialog
 from core.logger import log_debug, log_info, log_error, log_exception
 
 

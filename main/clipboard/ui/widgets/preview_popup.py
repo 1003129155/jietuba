@@ -15,7 +15,7 @@ from core.logger import log_exception
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .data_manager import ClipboardManager, ClipboardItem
+    from ...core import ClipboardManager, ClipboardItem
 
 
 class PreviewPopup(QWidget):
@@ -450,4 +450,7 @@ class PreviewPopup(QWidget):
         self._pending_avoid_rect = None
         self._current_item_id = None
         self.hide()
+
+
+__all__ = ["PreviewPopup"]
  

@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 无边框窗口拖拽与调整大小混入
 
@@ -197,4 +197,6 @@ class FramelessMixin:
                     return True
 
         return False
- 
+
+
+__all__ = ["FramelessMixin"]

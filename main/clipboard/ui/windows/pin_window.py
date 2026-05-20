@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 剪贴板钉图助手
 
@@ -121,4 +121,3 @@ def _calculate_pin_position(image: QImage, clipboard_window: Optional[QWidget] =
     pin_y = max(screen_geometry.y(), min(pin_y, screen_geometry.bottom() - image.height()))
     
     return QPoint(pin_x, pin_y)
- 

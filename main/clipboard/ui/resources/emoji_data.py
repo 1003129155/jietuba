@@ -54,4 +54,3 @@ def get_emoji_groups() -> Tuple[List[str], Dict[str, List[str]]]:
 def get_group_icon(group_name: str) -> str:
     """获取分组的代表图标"""
     return GROUP_ICONS.get(group_name, "📁")
- 

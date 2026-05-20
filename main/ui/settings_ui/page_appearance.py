@@ -164,7 +164,7 @@ def _build_screenshot_section(dialog, grp: SettingCardGroup):
 
 def _build_clipboard_section(dialog, grp: SettingCardGroup):
     """剪贴板外观：主题 + 字体大小 + 透明度"""
-    from clipboard.themes import get_theme_manager
+    from clipboard.ui.theme.themes import get_theme_manager
     from settings import get_tool_settings_manager
     config = get_tool_settings_manager()
     theme_mgr = get_theme_manager()

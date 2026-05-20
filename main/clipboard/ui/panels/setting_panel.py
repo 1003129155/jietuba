@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 设置面板
 右下角齿轮按钮的设置菜单
@@ -8,10 +8,8 @@ from PySide6.QtWidgets import (
     QPushButton, QMenu, QWidgetAction
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction
 
 from typing import Optional, Callable
-from .themes import get_theme_manager
 
 
 # ──────────────────────────────────────────────
@@ -88,11 +86,11 @@ def show_setting_menu(
         act.setChecked(is_checked)
         act.triggered.connect(callback)
 
-    _toggle_action("Paste with Format",        paste_with_html,  on_toggle_paste_html)
-    _toggle_action("Auto Paste After Selection", auto_paste,      on_toggle_auto_paste)
-    _toggle_action("Move to Top After Paste",    move_to_top,     on_toggle_move_to_top)
-    _toggle_action("Show Time and Source",          show_metadata,   on_toggle_show_metadata)
-    _toggle_action("Preserve Search on Reopen",     preserve_search, on_toggle_preserve_search)
+    _toggle_action("Paste with Format", paste_with_html, on_toggle_paste_html)
+    _toggle_action("Auto Paste After Selection", auto_paste, on_toggle_auto_paste)
+    _toggle_action("Move to Top After Paste", move_to_top, on_toggle_move_to_top)
+    _toggle_action("Show Time and Source", show_metadata, on_toggle_show_metadata)
+    _toggle_action("Preserve Search on Reopen", preserve_search, on_toggle_preserve_search)
 
     menu.addSeparator()
 
@@ -176,7 +174,10 @@ def show_setting_menu(
 
     # 在锚点上方弹出（非阻塞，支持 toggle）
     from PySide6.QtCore import QPoint as _QPoint
+
     popup_pos = _QPoint(anchor_pos.x(), anchor_pos.y() - menu.sizeHint().height())
     menu.popup(popup_pos)
     return menu
- 
+
+
+__all__ = ["show_setting_menu"]

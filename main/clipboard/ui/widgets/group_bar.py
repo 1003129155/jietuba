@@ -16,11 +16,11 @@ from PySide6.QtCore import Qt, Signal, QTimer, QPoint, QPropertyAnimation, QEasi
 from PySide6.QtGui import QCursor, QAction
 
 from typing import Optional, List
-from .data_manager import ClipboardManager, Group
-from .data_setting import ManageDialog, get_manage_dialog
-from .data_controller import ClipboardController
-from .themes import Theme
-from .theme_styles import ThemeStyleGenerator
+from ...controllers import ClipboardController
+from ...core import ClipboardManager, Group
+from ..dialogs.manage_dialog import ManageDialog, get_manage_dialog
+from ..theme.themes import Theme
+from ..theme.theme_styles import ThemeStyleGenerator
 
 
 class GroupBar(QWidget):
@@ -573,3 +573,6 @@ class GroupBar(QWidget):
         parent = self.parent()
         if parent and hasattr(parent, '_on_manage_data_changed'):
             parent._on_manage_data_changed()
+
+
+__all__ = ["GroupBar"]
