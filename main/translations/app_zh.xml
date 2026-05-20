@@ -1511,12 +1511,12 @@ Replace it?</source>
         <translation>编辑快速启动分组</translation>
     </message>
     <message>
-        <source>General groups allow any content type; selecting an item pastes content or files to the current target</source>
-        <translation>通用分组允许添加任意格式内容；选中条目后会向当前目标粘贴内容或文件</translation>
+        <source>General groups allow any content; selecting an item pastes content or files to the target</source>
+        <translation>通用分组允许任意内容；选中条目后会向目标粘贴内容或文件</translation>
     </message>
     <message>
-        <source>Quick launch groups only allow file or folder paths; selecting an item opens them directly</source>
-        <translation>快速启动分组只允许添加文件或文件夹路径；选中条目后会直接打开它们</translation>
+        <source>Quick launch groups only allow file or folder paths; selecting an item opens them</source>
+        <translation>快速启动分组只允许文件或文件夹路径；选中条目后会直接打开</translation>
     </message>
     <message>
         <source>Quick launch groups only accept file items; left-click opens the file directly</source>

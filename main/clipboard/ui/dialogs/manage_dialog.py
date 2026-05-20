@@ -770,9 +770,9 @@ class ManageDialog(QWidget):
             )
 
         subtitle = (
-            self.tr("Quick launch groups only allow file or folder paths; selecting an item opens them directly")
+            self.tr("Quick launch groups only allow file or folder paths; selecting an item opens them")
             if is_file_group
-            else self.tr("General groups allow any content type; selecting an item pastes content or files to the current target")
+            else self.tr("General groups allow any content; selecting an item pastes content or files to the target")
         )
         self._set_detail_subtitle(subtitle)
 

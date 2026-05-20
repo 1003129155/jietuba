@@ -25,7 +25,7 @@ venv311\Scripts\activate
 ```bash
 pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl
 pip install longstitch-0.3.8-cp311-cp311-win_amd64.whl
-pip install pyclipboard-0.3.10-cp311-cp311-win_amd64.whl
+pip install pyclipboard-0.3.13-cp311-cp311-win_amd64.whl
 pip install windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl
 ```
 
@@ -33,7 +33,7 @@ pip install windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl
 |-------------|-----------|------|
 | `gifrecorder` | 0.2.1 | GIF/動画合成エンコーダー |
 | `longstitch` | 0.3.8 | 長いスクリーンショット結合アルゴリズム |
-| `pyclipboard` | 0.3.10 | クリップボード低レベル操作 |
+| `pyclipboard` | 0.3.13 | クリップボード操作 |
 | `windows_media_ocr` | 0.3.1 | Windows Media OCR APIとoneocr.dllのラッパー |
 
 > **注意：** これらの `.whl` ファイルは Windows x86_64 + Python 3.11 専用です。グローバルPython環境にはインストールしないでください。
@@ -77,7 +77,7 @@ python main_app.py
 # プロジェクトルート
 ├── gifrecorder-0.2.1-cp311-cp311-win_amd64.whl       # GIF録画 Rustビルド済みパッケージ
 ├── longstitch-0.3.8-cp311-cp311-win_amd64.whl        # 長いスクリーンショット Rustビルド済みパッケージ
-├── pyclipboard-0.3.10-cp311-cp311-win_amd64.whl      # クリップボード Rustビルド済みパッケージ
+├── pyclipboard-0.3.13-cp311-cp311-win_amd64.whl      # クリップボード Rustビルド済みパッケージ
 ├── windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl # OCR Rustビルド済みパッケージ
 │
 ├── main/                    # Python メインプログラム
@@ -86,7 +86,7 @@ python main_app.py
 │   │
 │   ├── canvas/              # キャンバスモジュール — グラフィックス編集コア
 │   ├── capture/             # キャプチャモジュール — スクリーンキャプチャ＆ウィンドウ検出
-│   ├── clipboard/           # クリップボードモジュール — 履歴、グループ、検索
+│   ├── clipboard/           # クリップボードモジュール — 履歴、グループ/クイック起動、入出力、検索
 │   ├── core/                # コアモジュール — ブートストラップ、ログ、リソース、テーマ、i18n、ホットキー
 │   ├── gif/                 # GIFモジュール — 画面録画、編集、再生、エクスポート
 │   ├── ocr/                 # OCRモジュール — マルチエンジン文字認識
@@ -147,26 +147,63 @@ capture/
 
 ### clipboard/ — クリップボード管理モジュール
 
-Ditto風のクリップボード履歴マネージャー。テキスト、画像、ファイル等に対応。
+Ditto風のクリップボード履歴マネージャーで、controllers・core・services・ui の4層構成に再編されています。
+テキスト、画像、HTML、ファイルに対応し、グループと内容を管理する独立した3ペイン管理ウィンドウも備えています。
 ![jietuba_gif_20260404_001128](https://github.com/user-attachments/assets/b0a116e8-d944-43c9-b895-e6fc10d8c08a)
 
 ```
 clipboard/
-├── data_manager.py          # ClipboardManager / ClipboardItem / Group — DB保存＆検索
-├── window.py                # ClipboardWindow — クリップボード履歴メインウインドウ
-├── data_controller.py       # ClipboardController — ビジネスロジック、ショートカット、コンテキストメニュー
-├── data_setting.py          # ManageDialog — グループ管理ダイアログ
-├── interaction.py           # SelectionManager — リスト選択状態管理
-├── item_widget.py           # ClipboardItemWidget — 履歴アイテム表示
-├── item_delegate.py         # ClipboardItemDelegate — カスタムリストアイテムレンダリング
-├── preview_popup.py         # PreviewPopup — 大画像/長文プレビューポップアップ
-├── themes.py                # ThemeManager / Theme / ThemeColors — テーマ管理
-├── theme_styles.py          # ThemeStyleGenerator — CSSスタイルシート生成
-├── pin_window.py            # クリップボードアイテムからピン作成
-├── emoji_data.py            # 絵文字データ管理
-├── frameless_mixin.py       # FramelessMixin — フレームレスウィンドウミックスイン
-└── setting_panel.py         # クリップボード設定パネル
+├── __init__.py
+├── controllers/             # 制御層 — 履歴読み込み、貼り付け処理、メニュー、選択状態
+│   ├── clipboard_controller.py   # ClipboardController — 読み込み、貼り付け、コンテキストメニュー
+│   ├── selection_manager.py      # SelectionManager — リスト選択状態管理
+│   └── __init__.py
+├── core/                    # データ層 — pyclipboard ラッパー、モデル、グループ種別
+│   ├── manager.py           # ClipboardManager — 保存、監視、貼り付け API
+│   ├── models.py            # ClipboardItem / Group データモデル
+│   ├── enums.py             # GroupType 定義
+│   └── __init__.py
+├── services/                # サービス層 — file payload、グループ規則、入出力、保存ロジック
+│   ├── file_payload_service.py   # file 型 JSON payload と旧形式互換
+│   ├── group_service.py          # グループのアイコン・命名・削除確認補助
+│   ├── import_export_service.py  # テキスト項目の CSV インポート/エクスポート
+│   └── manage_dialog_service.py  # 管理ウィンドウの保存ロジック
+├── ui/
+│   ├── dialogs/
+│   │   └── manage_dialog.py      # グループ・内容・入出力を扱う3ペイン管理ウィンドウ
+│   ├── forms/
+│   │   ├── group_form.py
+│   │   ├── text_content_form.py
+│   │   ├── file_content_form.py
+│   │   ├── import_export_form.py
+│   │   └── group_icon_picker.py
+│   ├── mixins/
+│   │   └── frameless_mixin.py
+│   ├── panels/
+│   │   └── setting_panel.py
+│   ├── resources/
+│   │   └── emoji_data.py
+│   ├── theme/
+│   │   ├── themes.py
+│   │   └── theme_styles.py
+│   ├── widgets/
+│   │   ├── draggable_list_widget.py
+│   │   ├── group_bar.py
+│   │   ├── item_delegate.py
+│   │   ├── item_widget.py
+│   │   └── preview_popup.py
+│   └── windows/
+│       ├── clipboard_window.py   # 履歴ウィンドウ、検索、プレビュー、高速貼り付け
+│       └── pin_window.py         # 履歴項目からピンを作成
 ```
+
+**主な機能:**
+- システムクリップボードの変更を監視し、自動で履歴を保存
+- テキスト、画像、HTML、ファイル等に対応
+- 通常グループ、クイック起動グループ、お気に入り、検索に対応
+- 独立した3ペイン管理ウィンドウでグループ・テキスト内容・ファイル内容を編集可能
+- テキスト項目の CSV インポート/エクスポートに対応
+- テーマ切替、ショートカットによる高速貼り付け、大画像/長文プレビューに対応
 
 ---
 
@@ -397,8 +434,12 @@ tests/
 ├── run_tests.py             # テスト実行スクリプト
 ├── test_undo_stack.py       # アンドゥスタックテスト
 ├── test_selection_model.py  # 選择モデルテスト
+├── test_clipboard_api.py    # クリップボード公開 API テスト
 ├── test_clipboard_data.py   # クリップボードデータテスト
+├── test_clipboard_manage_dialog.py # クリップボード管理ウィンドウテスト
+├── test_clipboard_services.py # クリップボードサービス層テスト
 ├── test_clipboard_themes.py # クリップボードテーマテスト
+├── test_clipboard_utils.py  # クリップボードユーティリティテスト
 ├── test_core_utils.py       # コアユーティリティテスト
 ├── test_crash_handler.py    # クラッシュハンドラーテスト
 ├── test_emoji_data.py       # 絵文字データテスト
