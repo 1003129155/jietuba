@@ -75,7 +75,7 @@ def create_group_icon_picker(dialog, current_icon: str = "📁"):
 
     dialog._emoji_scroll = QScrollArea()
     dialog._emoji_scroll.setWidgetResizable(True)
-    dialog._emoji_scroll.setMinimumHeight(120)
+    dialog._emoji_scroll.setMinimumHeight(110)
     dialog._emoji_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
     dialog._emoji_scroll.setStyleSheet(
         """
