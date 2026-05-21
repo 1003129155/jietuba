@@ -240,6 +240,7 @@ impl PyPaginatedResultIter {
 ///     icon: 分组图标（可选）
 ///     item_order: 排序顺序
 ///     created_at: 创建时间戳
+///     group_type: 分组类型 (0=普通, 1=文件分组)
 #[pyclass]
 #[derive(Clone, Debug)]
 pub struct PyGroup {
@@ -255,13 +256,15 @@ pub struct PyGroup {
     pub item_order: i64,
     #[pyo3(get, set)]
     pub created_at: i64,
+    #[pyo3(get, set)]
+    pub group_type: i64,
 }
 
 #[pymethods]
 impl PyGroup {
     #[new]
-    #[pyo3(signature = (id, name, color=None, icon=None))]
-    fn new(id: i64, name: String, color: Option<String>, icon: Option<String>) -> Self {
+    #[pyo3(signature = (id, name, color=None, icon=None, group_type=0))]
+    fn new(id: i64, name: String, color: Option<String>, icon: Option<String>, group_type: i64) -> Self {
         Self {
             id,
             name,
@@ -269,11 +272,12 @@ impl PyGroup {
             icon,
             item_order: 0,
             created_at: chrono::Local::now().timestamp(),
+            group_type,
         }
     }
     
     fn __repr__(&self) -> String {
-        format!("Group(id={}, name='{}')", self.id, self.name)
+        format!("Group(id={}, name='{}', group_type={})", self.id, self.name, self.group_type)
     }
     
     fn __str__(&self) -> String {

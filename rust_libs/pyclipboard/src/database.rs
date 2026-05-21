@@ -113,6 +113,12 @@ impl Database {
             [],
         );
         
+        // 迁移：为旧数据库的 groups 表添加 group_type 列（已有列时忽略错误）
+        let _ = conn.execute(
+            "ALTER TABLE groups ADD COLUMN group_type INTEGER NOT NULL DEFAULT 0",
+            [],
+        );
+        
         // 性能优化 + 启用外键（必须开启，否则 ON DELETE CASCADE 不生效）
         conn.execute_batch(
             "PRAGMA foreign_keys = ON;
@@ -423,7 +429,7 @@ impl Database {
     // ==================== 分组功能 ====================
     
     /// 创建分组
-    pub fn create_group(&self, name: &str, color: Option<&str>, icon: Option<&str>) -> Result<i64, String> {
+    pub fn create_group(&self, name: &str, color: Option<&str>, icon: Option<&str>, group_type: i64) -> Result<i64, String> {
         let now = chrono::Local::now().timestamp();
         let max_order: i64 = self.conn.query_row(
             "SELECT COALESCE(MAX(item_order), 0) FROM groups",
@@ -432,8 +438,8 @@ impl Database {
         ).unwrap_or(0);
         
         self.conn.execute(
-            "INSERT INTO groups (name, color, icon, item_order, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![name, color, icon, max_order + 1000, now],
+            "INSERT INTO groups (name, color, icon, item_order, created_at, group_type) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![name, color, icon, max_order + 1000, now, group_type],
         ).map_err(|e| format!("创建分组失败: {}", e))?;
         
         Ok(self.conn.last_insert_rowid())
@@ -442,7 +448,7 @@ impl Database {
     /// 获取所有分组
     pub fn get_groups(&self) -> Result<Vec<PyGroup>, String> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, name, color, icon, item_order, created_at FROM groups ORDER BY item_order ASC"
+            "SELECT id, name, color, icon, item_order, created_at, group_type FROM groups ORDER BY item_order ASC"
         ).map_err(|e| format!("查询分组失败: {}", e))?;
         
         let groups = stmt.query_map([], |row| {
@@ -453,6 +459,7 @@ impl Database {
                 icon: row.get(3)?,
                 item_order: row.get(4)?,
                 created_at: row.get(5)?,
+                group_type: row.get(6)?,
             })
         }).map_err(|e| format!("查询分组失败: {}", e))?
         .filter_map(|r| r.ok())
@@ -483,11 +490,11 @@ impl Database {
         Ok(())
     }
     
-    /// 更新分组（名称、颜色、图标）
-    pub fn update_group(&self, id: i64, name: &str, color: Option<&str>, icon: Option<&str>) -> Result<(), String> {
+    /// 更新分组（名称、颜色、图标、类型）
+    pub fn update_group(&self, id: i64, name: &str, color: Option<&str>, icon: Option<&str>, group_type: i64) -> Result<(), String> {
         self.conn.execute(
-            "UPDATE groups SET name = ?, color = ?, icon = ? WHERE id = ?",
-            params![name, color, icon, id],
+            "UPDATE groups SET name = ?, color = ?, icon = ?, group_type = ? WHERE id = ?",
+            params![name, color, icon, group_type, id],
         ).map_err(|e| format!("更新分组失败: {}", e))?;
         Ok(())
     }

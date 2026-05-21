@@ -45,7 +45,7 @@ class FileDropZone(QFrame):
         )
 
         self.setAcceptDrops(True)
-        self.setMinimumHeight(184)
+        self.setMinimumHeight(204)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 10, 12, 10)

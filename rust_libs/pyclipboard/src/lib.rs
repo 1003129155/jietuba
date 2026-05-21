@@ -1058,13 +1058,14 @@ impl PyClipboardManager {
     ///     name: 分组名称
     ///     color: 分组颜色（可选，如 "#FF0000"）
     ///     icon: 分组图标（可选）
+    ///     group_type: 分组类型 (0=普通, 1=文件分组)。默认 0
     /// 
     /// Returns:
     ///     int: 新分组的 ID
-    #[pyo3(signature = (name, color=None, icon=None))]
-    fn create_group(&self, name: String, color: Option<String>, icon: Option<String>) -> PyResult<i64> {
+    #[pyo3(signature = (name, color=None, icon=None, group_type=0))]
+    fn create_group(&self, name: String, color: Option<String>, icon: Option<String>, group_type: i64) -> PyResult<i64> {
         let db = self.db.lock();
-        db.create_group(&name, color.as_deref(), icon.as_deref())
+        db.create_group(&name, color.as_deref(), icon.as_deref(), group_type)
             .map_err(|e| PyRuntimeError::new_err(e))
     }
     
@@ -1106,10 +1107,11 @@ impl PyClipboardManager {
     ///     name: 名称
     ///     color: 颜色（可选）
     ///     icon: 图标（可选）
-    #[pyo3(signature = (id, name, color=None, icon=None))]
-    fn update_group(&self, id: i64, name: String, color: Option<String>, icon: Option<String>) -> PyResult<()> {
+    ///     group_type: 分组类型 (0=普通, 1=文件分组)。默认 0
+    #[pyo3(signature = (id, name, color=None, icon=None, group_type=0))]
+    fn update_group(&self, id: i64, name: String, color: Option<String>, icon: Option<String>, group_type: i64) -> PyResult<()> {
         let db = self.db.lock();
-        db.update_group(id, &name, color.as_deref(), icon.as_deref())
+        db.update_group(id, &name, color.as_deref(), icon.as_deref(), group_type)
             .map_err(|e| PyRuntimeError::new_err(e))
     }
     
