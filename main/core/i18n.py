@@ -118,6 +118,7 @@ class I18nManager:
     LANGUAGES = {
         "ja": "日本語",
         "en": "English",
+        "ko": "한국어",
         "zh": "简体中文",
     }
     
@@ -260,6 +261,7 @@ class I18nManager:
         lang_map = {
             QLocale.Language.Japanese: "ja",
             QLocale.Language.English: "en",
+            QLocale.Language.Korean: "ko",
             QLocale.Language.Chinese: "zh",
         }
         
