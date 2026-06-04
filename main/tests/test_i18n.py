@@ -139,6 +139,7 @@ class TestI18nManager:
         from core.i18n import I18nManager
         assert "ja" in I18nManager.LANGUAGES
         assert "en" in I18nManager.LANGUAGES
+        assert "ko" in I18nManager.LANGUAGES
         assert "zh" in I18nManager.LANGUAGES
 
     def test_translations_dir_exists(self, qapp):
