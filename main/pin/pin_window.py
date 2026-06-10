@@ -860,28 +860,3 @@ class PinWindow(QWidget):
                 super().closeEvent(event)
             except Exception as e:
                 log_exception(e, "PinWindow super closeEvent")
-
-
-# 测试代码
-# if __name__ == "__main__":
-#  import sys
-# 
-#  app = QApplication(sys.argv)
-# 
-#  test_image = QImage(400, 300, QImage.Format.Format_ARGB32)
-#  test_image.fill(Qt.GlobalColor.lightGray)
-# 
-#  painter = QPainter(test_image)
-#  painter.setPen(Qt.GlobalColor.red)
-#  font = painter.font()
-#  font.setPixelSize(30)
-#  painter.setFont(font)
-#  painter.drawText(test_image.rect(), Qt.AlignmentFlag.AlignCenter, "测试钉图窗口\n拖动移动\n滚轮缩放")
-#  painter.end()
-# 
-#  from settings import get_tool_settings_manager
-#  config_manager = get_tool_settings_manager()
-#  pin_window = PinWindow(test_image, QPoint(100, 100), config_manager)
-# 
-#  sys.exit(app.exec())
- 

@@ -210,7 +210,7 @@ class _ToolbarPositionIllus(IllustrationArea):
     def _build_content(self):
         self._layout.setContentsMargins(20, 12, 20, 0)
         # 标题
-        self._title_lbl = QLabel("请选择工具栏布局首选项")
+        self._title_lbl = QLabel(_tr("请选择工具栏布局首选项"))
         self._title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._title_lbl.setStyleSheet(
             f"font-size: 14px; font-weight: 600; color: {TEXT_PRIMARY}; background: transparent;"
@@ -294,12 +294,12 @@ class ClipboardHotkeyPage(BasePage):
         from PySide6.QtWidgets import QWidget, QLabel
 
         # 快捷键说明标签
-        self._hotkey_lbl = QLabel("快捷键（最多设置两个）")
+        self._hotkey_lbl = QLabel(_tr("快捷键（最多设置两个）"))
         self._hotkey_lbl.setStyleSheet(
             f"font-size: 14px; font-weight: 600; color: {TEXT_PRIMARY}; background: transparent;"
         )
 
-        self._hotkey_desc = QLabel("程序还会尝试注册 Win+V 作为额外备用。")
+        self._hotkey_desc = QLabel(_tr("程序还会尝试注册 Win+V 作为额外备用。"))
         self._hotkey_desc.setWordWrap(True)
         self._hotkey_desc.setStyleSheet(
             f"font-size: 12px; color: {TEXT_SECOND}; background: transparent;"

@@ -12,7 +12,10 @@ from PySide6.QtCore import Qt, QPoint, QTimer
 from PySide6.QtGui import QPixmap
 
 from core.logger import log_exception
+from core.i18n import make_tr
 from typing import TYPE_CHECKING
+
+_tr = make_tr("ClipboardPreview")
 
 if TYPE_CHECKING:
     from ...core import ClipboardManager, ClipboardItem
@@ -225,7 +228,7 @@ class PreviewPopup(QWidget):
             time_str = item.created_at.strftime("%Y-%m-%d %H:%M:%S")
             self.title_label.setText(time_str)
         else:
-            self.title_label.setText("📝 文本")
+            self.title_label.setText(_tr("📝 文本"))
         self.title_label.show()
         
         # 显示完整内容（限制长度避免卡顿）
@@ -383,7 +386,7 @@ class PreviewPopup(QWidget):
     
     def _show_html_preview(self, item: 'ClipboardItem'):
         """显示 HTML 富文本预览"""
-        self.title_label.setText("富文本预览")
+        self.title_label.setText(_tr("富文本预览"))
         html = item.html_content
         
         if html:

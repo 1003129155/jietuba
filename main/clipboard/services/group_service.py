@@ -11,20 +11,31 @@ from typing import Any, Callable, Iterable
 
 GENERAL_GROUP_ICON = "📁"
 QUICK_LAUNCH_GROUP_ICON = "⚡"
+HIDDEN_GROUP_ICON = "🙈"
 
 
-def get_default_group_icon(is_file_group: bool) -> str:
+def get_default_group_icon(is_file_group: bool, is_hidden: bool = False) -> str:
     """返回分组类型对应的默认图标。"""
+    if is_hidden:
+        return HIDDEN_GROUP_ICON
     return QUICK_LAUNCH_GROUP_ICON if is_file_group else GENERAL_GROUP_ICON
 
 
-def get_group_display_icon(custom_icon: str | None, is_file_group: bool) -> str:
+def get_group_display_icon(custom_icon: str | None, is_file_group: bool, is_hidden: bool = False) -> str:
     """返回分组显示图标，优先使用自定义图标。"""
-    return custom_icon or get_default_group_icon(is_file_group)
+    return custom_icon or get_default_group_icon(is_file_group, is_hidden=is_hidden)
 
 
-def get_toggled_default_group_icon(current_icon: str, is_file_group: bool) -> str:
+def get_toggled_default_group_icon(current_icon: str, is_file_group: bool, is_hidden: bool = False) -> str:
     """根据分组类型切换默认图标，但不覆盖用户自定义图标。"""
+    if is_hidden and current_icon not in (HIDDEN_GROUP_ICON, GENERAL_GROUP_ICON, QUICK_LAUNCH_GROUP_ICON):
+        return HIDDEN_GROUP_ICON
+    if is_hidden and current_icon == QUICK_LAUNCH_GROUP_ICON:
+        return HIDDEN_GROUP_ICON
+    if is_hidden and current_icon == GENERAL_GROUP_ICON:
+        return HIDDEN_GROUP_ICON
+    if not is_hidden and current_icon == HIDDEN_GROUP_ICON:
+        return GENERAL_GROUP_ICON
     if is_file_group and current_icon == GENERAL_GROUP_ICON:
         return QUICK_LAUNCH_GROUP_ICON
     if not is_file_group and current_icon == QUICK_LAUNCH_GROUP_ICON:

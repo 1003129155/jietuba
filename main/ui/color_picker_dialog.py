@@ -649,12 +649,4 @@ class ColorPickerDialog(QDialog):
         if color.isValid():
             self._color = color
             self._load_color(color)
-        self._stop_dropper(cancel=False)
-
-# 仅供独立测试运行使用
-# if __name__ == "__main__":
-#  import sys
-#  app = QApplication(sys.argv)
-#  dlg = ColorPickerDialog()
-#  if dlg.exec():
-#      pass 
+        self._stop_dropper(cancel=False) 
