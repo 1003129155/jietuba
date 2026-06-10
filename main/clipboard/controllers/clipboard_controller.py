@@ -2,11 +2,10 @@
 """
 剪贴板控制器 - 业务逻辑层
 
-负责数据加载、搜索筛选、分组管理、项目操作、菜单数据组装、侧边栏溢出计算等全部业务逻辑。
+负责数据加载、搜索筛选、分组管理、项目操作、侧边栏溢出计算等业务逻辑。
 """
 
 import ctypes
-from dataclasses import dataclass, field
 from typing import Optional, List, Callable, Tuple
 from time import perf_counter
 from PySide6.QtCore import QObject, Signal, QTimer, Qt
@@ -14,6 +13,7 @@ from ui.dialogs import show_confirm_dialog
 
 from ..core import ClipboardManager, ClipboardItem, Group, GroupType
 from ..ui.dialogs.manage_dialog import get_manage_dialog, get_existing_manage_dialog
+from .context_menu_controller import ClipboardContextMenuController, ContextMenuData, MenuAction
 from core.logger import log_debug, log_info, log_error, log_exception
 
 
@@ -46,29 +46,6 @@ def calc_topbar_capacity(bar_width: int) -> int:
         return -1
     available = bar_width - _H_LEFT_USED - _H_RIGHT_RESERVED
     return 0 if available <= 0 else available // _H_BTN_SLOT
-
-
-# ============================================================
-# 菜单数据 dataclass（UI 无关，只描述菜单结构）
-# ============================================================
-
-@dataclass
-class MenuAction:
-    """单个菜单动作描述"""
-    label: str
-    key: str
-    enabled: bool = True
-    checkable: bool = False
-    checked: bool = False
-    is_separator: bool = False
-    children: List["MenuAction"] = field(default_factory=list)
-
-
-@dataclass
-class ContextMenuData:
-    """右键菜单完整数据"""
-    item_id: int
-    actions: List[MenuAction]
 
 
 # Windows API 常量
@@ -128,6 +105,7 @@ class ClipboardController(QObject):
     - 分组管理
     - 项目操作（粘贴、删除、置顶等）
     - 设置管理
+    - 为独立的右键菜单控制器提供状态与查询入口
     """
     
     # 信号定义
@@ -163,6 +141,9 @@ class ClipboardController(QObject):
         
         # 记录打开窗口前的活动窗口
         self._previous_window_hwnd = None
+
+        # 右键菜单数据控制逻辑已抽到独立模块
+        self._context_menu_controller = ClipboardContextMenuController(self)
         
         # 加载设置
         self._load_settings()
@@ -511,7 +492,109 @@ class ClipboardController(QObject):
             
             return True
         return False
-    
+
+    def paste_transformed_text(
+        self, item_id: int, transform_key: str,
+        on_close_callback: Optional[Callable] = None,
+    ) -> bool:
+        """对文本项内容做加工后写入系统剪贴板并触发粘贴。
+
+        Args:
+            item_id: 项目ID
+            transform_key: 转换键名（对应 TRANSFORM_REGISTRY 的 key，
+                特殊值 "special_paste_plain_text" 表示粘贴纯文本不带格式）
+            on_close_callback: 关闭窗口的回调函数
+
+        Returns:
+            是否成功
+        """
+        import pyclipboard
+
+        # "保持顺序粘贴"：带格式粘贴，但强制不移到最前
+        if transform_key == "special_paste_in_order":
+            if self.manager.paste_item(item_id, self.paste_with_html, move_to_top=False):
+                log_info(f"保持顺序粘贴项 {item_id}", "Clipboard")
+                if on_close_callback:
+                    on_close_callback()
+                if self.auto_paste_enabled:
+                    def do_paste_order():
+                        if self._previous_window_hwnd:
+                            set_foreground_window(self._previous_window_hwnd)
+                        QTimer.singleShot(30, send_ctrl_v)
+                    QTimer.singleShot(50, do_paste_order)
+                return True
+            return False
+
+        # "粘贴纯文本"：等价于不带 HTML 格式粘贴
+        if transform_key == "special_paste_plain_text":
+            clipboard_item = self.get_item(item_id)
+            if clipboard_item is None or clipboard_item.content_type != "text":
+                log_error(f"项 {item_id} 不是文本类型，无法粘贴纯文本", "Clipboard")
+                return False
+            try:
+                pyclipboard.set_clipboard_text(clipboard_item.content)
+            except Exception as e:
+                log_exception(e, "设置剪贴板纯文本失败")
+                return False
+            log_info(f"粘贴纯文本项 {item_id}", "Clipboard")
+            if on_close_callback:
+                on_close_callback()
+            if self.auto_paste_enabled:
+                def do_paste():
+                    if self._previous_window_hwnd:
+                        set_foreground_window(self._previous_window_hwnd)
+                    QTimer.singleShot(30, send_ctrl_v)
+                QTimer.singleShot(50, do_paste)
+            return True
+
+        from ..core.text_transform import TRANSFORM_REGISTRY
+
+        entry = TRANSFORM_REGISTRY.get(transform_key)
+        if entry is None:
+            log_error(f"未知转换键: {transform_key}", "Clipboard")
+            return False
+
+        _label, transform_fn = entry
+
+        # 获取原始文本
+        clipboard_item = self.get_item(item_id)
+        if clipboard_item is None or clipboard_item.content_type != "text":
+            log_error(f"项 {item_id} 不是文本类型，无法特殊粘贴", "Clipboard")
+            return False
+
+        original_text = clipboard_item.content
+
+        # 执行文本转换
+        try:
+            transformed = transform_fn(original_text)
+        except Exception as e:
+            log_exception(e, f"文本转换失败: {transform_key}")
+            return False
+
+        # 写入系统剪贴板（纯文本，不带格式）
+        try:
+            pyclipboard.set_clipboard_text(transformed)
+        except Exception as e:
+            log_exception(e, "设置剪贴板文本失败")
+            return False
+
+        log_info(f"特殊粘贴项 {item_id} ({transform_key})", "Clipboard")
+
+        # 调用关闭回调
+        if on_close_callback:
+            on_close_callback()
+
+        # 自动粘贴：发送 Ctrl+V
+        if self.auto_paste_enabled:
+            def do_paste():
+                if self._previous_window_hwnd:
+                    set_foreground_window(self._previous_window_hwnd)
+                QTimer.singleShot(30, send_ctrl_v)
+
+            QTimer.singleShot(50, do_paste)
+
+        return True
+
     def delete_item(self, item_id: int) -> bool:
         """删除项目"""
         if self.manager.delete_item(item_id):
@@ -654,6 +737,8 @@ class ClipboardController(QObject):
         返回 (visible_groups, hidden_groups)
         """
         groups = self.get_groups()
+        # 过滤掉隐藏类型分组（不在侧边栏显示）
+        groups = [g for g in groups if g.group_type != GroupType.HIDDEN]
         if is_top:
             cap = calc_topbar_capacity(bar_size)
         else:
@@ -682,68 +767,9 @@ class ClipboardController(QObject):
 
     def build_context_menu_data(self, item_id: int) -> Optional[ContextMenuData]:
         """组装右键菜单所需数据。返回 None 表示 item_id 无效。"""
-        clipboard_item = self.get_item(item_id)
-        if clipboard_item is None:
-            return None
-
-        actions: List[MenuAction] = []
-
-        actions.append(MenuAction(label="Paste", key="paste"))
-        actions.append(MenuAction(label="", key="sep1", is_separator=True))
-
-        if clipboard_item.content_type == "image":
-            actions.append(MenuAction(label="Pin", key="pin_image"))
-        else:
-            pin_label = "Unpin" if clipboard_item.is_pinned else "Pin"
-            actions.append(MenuAction(label=pin_label, key="toggle_pin"))
-
-        # 文件类型：打开文件所在位置 + 若在文件分组中则显示"粘贴文件"
-        if clipboard_item.content_type == "file":
-            actions.append(MenuAction(label="Open File Location", key="open_file_location"))
-
-        actions.append(MenuAction(label="", key="sep2", is_separator=True))
-
-        groups = self.get_groups()
-        if groups:
-            # 文件分组只对文件类型条目可见
-            is_file_item = clipboard_item.content_type == "file"
-            visible_groups = [
-                g for g in groups
-                if g.group_type == GroupType.NORMAL or is_file_item
-            ]
-            if visible_groups:
-                sub = [
-                    MenuAction(
-                        label=f"{g.icon} {g.name}" if g.icon else g.name,
-                        key=f"move_to_group_{g.id}",
-                    )
-                    for g in visible_groups
-                ]
-                if self.current_group_id is not None:
-                    sub.append(MenuAction(label="", key="sep_move", is_separator=True))
-                    sub.append(MenuAction(label="Remove from Group", key="remove_from_group"))
-                actions.append(MenuAction(label="Move to Group", key="move_group_menu", children=sub))
-
-        actions.append(MenuAction(label="", key="sep3", is_separator=True))
-
-        if self.current_group_id is not None:
-            actions.append(MenuAction(label="Edit", key="edit_item"))
-            can_up, can_down = self.get_item_move_state(item_id, self.current_group_id)
-            actions.append(MenuAction(label="Move Up", key="move_item_up", enabled=can_up))
-            actions.append(MenuAction(label="Move Down", key="move_item_down", enabled=can_down))
-            actions.append(MenuAction(label="", key="sep4", is_separator=True))
-
-        actions.append(MenuAction(label="Delete", key="delete_item"))
-        return ContextMenuData(item_id=item_id, actions=actions)
+        return self._context_menu_controller.build_context_menu_data(item_id)
 
     def build_group_context_menu_data(self, group_id: int) -> List[MenuAction]:
         """组装分组右键菜单数据"""
-        can_up, can_down = self.get_group_move_state(group_id)
-        return [
-            MenuAction(label="Edit", key="edit_group"),
-            MenuAction(label="Move Up", key="move_group_up", enabled=can_up),
-            MenuAction(label="Move Down", key="move_group_down", enabled=can_down),
-            MenuAction(label="", key="sep", is_separator=True),
-            MenuAction(label="Delete Group", key="delete_group"),
-        ]
+        return self._context_menu_controller.build_group_context_menu_data(group_id)
  

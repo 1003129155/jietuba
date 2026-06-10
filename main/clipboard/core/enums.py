@@ -8,6 +8,7 @@ class GroupType(IntEnum):
 
     NORMAL = 0
     FILE = 1
+    HIDDEN = 2
 
 
 __all__ = ["GroupType"]

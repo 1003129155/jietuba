@@ -25,7 +25,7 @@ def build_new_group_form(dialog):
     dialog.group_name_input.setPlaceholderText(dialog.tr("Enter group name..."))
     dialog.detail_layout.addWidget(dialog.group_name_input)
 
-    _build_group_type_section(dialog, is_file_group=False)
+    _build_group_type_section(dialog, is_file_group=False, is_hidden=False)
 
     icon_label = BodyLabel(dialog.tr("Select Icon"))
     dialog.detail_layout.addWidget(icon_label)
@@ -42,26 +42,33 @@ def build_edit_group_form(dialog, group):
     dialog.detail_layout.addWidget(dialog.group_name_input)
 
     is_file_group = group.group_type == 1
-    _build_group_type_section(dialog, is_file_group=is_file_group)
+    is_hidden = group.group_type == 2
+    _build_group_type_section(dialog, is_file_group=is_file_group, is_hidden=is_hidden)
 
     icon_label = BodyLabel(dialog.tr("Select Icon"))
     dialog.detail_layout.addWidget(icon_label)
-    current_icon = get_group_display_icon(group.icon, is_file_group)
+    current_icon = get_group_display_icon(group.icon, is_file_group, is_hidden=is_hidden)
     dialog._create_emoji_picker(current_icon)
 
 
-def _build_group_type_section(dialog, is_file_group: bool):
+def _build_group_type_section(dialog, is_file_group: bool, is_hidden: bool = False):
     type_label = BodyLabel(dialog.tr("Group Type"))
     dialog.detail_layout.addWidget(type_label)
 
     dialog._group_type_btn_group = QButtonGroup(dialog)
     dialog.radio_normal = RadioButton(dialog.tr("General Group"))
     dialog.radio_file = RadioButton(dialog.tr("Quick Launch Group"))
+    dialog.radio_hidden = RadioButton(dialog.tr("Hidden Group"))
     dialog._group_type_btn_group.addButton(dialog.radio_normal, 0)
     dialog._group_type_btn_group.addButton(dialog.radio_file, 1)
+    dialog._group_type_btn_group.addButton(dialog.radio_hidden, 2)
+    dialog.radio_normal.toggled.connect(dialog._on_group_type_toggled)
     dialog.radio_file.toggled.connect(dialog._on_group_type_toggled)
+    dialog.radio_hidden.toggled.connect(dialog._on_group_type_toggled)
 
-    if is_file_group:
+    if is_hidden:
+        dialog.radio_hidden.setChecked(True)
+    elif is_file_group:
         dialog.radio_file.setChecked(True)
     else:
         dialog.radio_normal.setChecked(True)
@@ -69,5 +76,6 @@ def _build_group_type_section(dialog, is_file_group: bool):
     radio_row = QHBoxLayout()
     radio_row.addWidget(dialog.radio_normal)
     radio_row.addWidget(dialog.radio_file)
+    radio_row.addWidget(dialog.radio_hidden)
     radio_row.addStretch()
     dialog.detail_layout.addLayout(radio_row)

@@ -511,9 +511,6 @@ def stitch_images_rust(
         
         if result_bytes is not None:
             result = Image.open(io.BytesIO(result_bytes))
-            # 简化日志输出,只在 debug 模式下显示详细信息
-            # if not debug:
-            #  print(f"[OK] Rust拼接成功: {img1.size} + {img2.size} -> {result.size}, 耗时: {elapsed*1000:.2f}ms")
             return result
         else:
             print("[WARN]  Rust拼接返回None")

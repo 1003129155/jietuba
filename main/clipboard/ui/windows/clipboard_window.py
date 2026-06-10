@@ -20,7 +20,6 @@ from PySide6.QtWidgets import (
 	QLineEdit,
 	QListWidget,
 	QListWidgetItem,
-	QMenu,
 	QPushButton,
 	QSizePolicy,
 	QToolButton,
@@ -38,6 +37,7 @@ from ..theme.theme_styles import ThemeStyleGenerator
 from ..theme.themes import Theme, get_theme_manager
 from ..mixins.frameless_mixin import FramelessMixin
 from ..dialogs.manage_dialog import ManageDialog, get_manage_dialog
+from ..menus.item_context_menu import ClipboardItemContextMenu
 from ..widgets.group_bar import GroupBar
 from ..widgets.item_delegate import ClipboardItemDelegate, ROLE_ITEM_DATA, ROLE_ITEM_ID
 from ..widgets.preview_popup import PreviewPopup
@@ -766,24 +766,16 @@ class ClipboardWindow(QWidget, FramelessMixin):
 		if ctx is None:
 			return
 
-		menu = QMenu(self)
-		menu.setStyleSheet(self._get_menu_style())
+		ClipboardItemContextMenu(
+			parent=self,
+			menu_style=self._get_menu_style(),
+			translate=self.tr,
+			action_handlers=self._get_item_context_menu_handlers(item_id),
+			dynamic_handler_resolvers=(lambda action_key: self._resolve_item_context_menu_handler(item_id, action_key),),
+		).show(self.list_widget, pos, ctx)
 
-		def _build_move_submenu(action_data):
-			sub = menu.addMenu(self.tr(action_data.label))
-			sub.setStyleSheet(self._get_menu_style())
-			for child in action_data.children:
-				if child.is_separator:
-					sub.addSeparator()
-				elif child.key.startswith("move_to_group_"):
-					gid = int(child.key.split("_")[-1])
-					action = sub.addAction(child.label)
-					action.triggered.connect(lambda _c, g=gid: self._move_item_to_group(item_id, g))
-				elif child.key == "remove_from_group":
-					action = sub.addAction(self.tr(child.label))
-					action.triggered.connect(lambda: self._move_item_to_group(item_id, None))
-
-		item_handlers = {
+	def _get_item_context_menu_handlers(self, item_id: int):
+		return {
 			"paste": lambda: self._paste_item_to_clipboard(item_id),
 			"pin_image": lambda: self._create_pin_window(item_id),
 			"toggle_pin": lambda: self._toggle_pin(item_id),
@@ -794,22 +786,31 @@ class ClipboardWindow(QWidget, FramelessMixin):
 			"delete_item": lambda: self._delete_item(item_id),
 		}
 
-		for action_data in ctx.actions:
-			if action_data.is_separator:
-				menu.addSeparator()
-			elif action_data.key == "move_group_menu":
-				_build_move_submenu(action_data)
-			else:
-				action = menu.addAction(self.tr(action_data.label))
-				action.setEnabled(action_data.enabled)
-				if action_data.checkable:
-					action.setCheckable(True)
-					action.setChecked(action_data.checked)
-				handler = item_handlers.get(action_data.key)
-				if handler:
-					action.triggered.connect(handler)
+	def _resolve_item_context_menu_handler(self, item_id: int, action_key: str):
+		# "移出分组"
+		if action_key == "remove_from_group":
+			return lambda: self._move_item_to_group(item_id, None)
 
-		menu.exec(self.list_widget.mapToGlobal(pos))
+		# "移动到分组 xxx"
+		prefix = "move_to_group_"
+		if action_key.startswith(prefix):
+			try:
+				group_id = int(action_key[len(prefix):])
+			except ValueError:
+				return None
+			return lambda: self._move_item_to_group(item_id, group_id)
+
+		# "特殊粘贴" 子菜单项
+		if action_key.startswith("special_paste_") or action_key.startswith("transform_"):
+			return lambda: self._special_paste(item_id, action_key)
+
+		return None
+
+	def _special_paste(self, item_id: int, action_key: str):
+		"""执行特殊粘贴：先记录前台窗口，再调用 controller 的加工粘贴。"""
+		self.controller._previous_window_hwnd = get_foreground_window()
+		self.controller.paste_transformed_text(item_id, action_key, on_close_callback=self.close)
+		self.item_pasted.emit(item_id)
 
 	def _move_item_to_group(self, item_id: int, group_id: Optional[int]):
 		self.controller.move_to_group(item_id, group_id)

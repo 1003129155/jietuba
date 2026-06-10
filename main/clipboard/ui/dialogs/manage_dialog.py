@@ -488,7 +488,7 @@ class ManageDialog(QWidget):
             self.selected_group_id = None
         else:
             for group in groups:
-                icon = get_group_display_icon(group.icon, group.group_type == GroupType.FILE)
+                icon = get_group_display_icon(group.icon, group.group_type == GroupType.FILE, is_hidden=(group.group_type == GroupType.HIDDEN))
                 self.group_combo.addItem(f"{icon} {group.name}", userData=group.id)
 
             idx = 0
@@ -526,7 +526,7 @@ class ManageDialog(QWidget):
         groups = self.manager.get_groups()
         restored_selection = False
         for i, group in enumerate(groups):
-            icon = get_group_display_icon(group.icon, group.group_type == GroupType.FILE)
+            icon = get_group_display_icon(group.icon, group.group_type == GroupType.FILE, is_hidden=(group.group_type == GroupType.HIDDEN))
             item = QListWidgetItem(f"{icon} {group.name}")
             item.setData(Qt.ItemDataRole.UserRole, ("group", group.id))
             self.list_widget.addItem(item)
@@ -745,8 +745,12 @@ class ManageDialog(QWidget):
         """分组类型切换时，若用户未手动修改图标则自动切换默认图标"""
         if not hasattr(self, "icon_input"):
             return
+        if not checked:
+            return  # 只处理选中事件，避免重复触发
         current = self.icon_input.text()
-        self.icon_input.setText(get_toggled_default_group_icon(current, checked))
+        is_file_group = hasattr(self, "radio_file") and self.radio_file.isChecked()
+        is_hidden = hasattr(self, "radio_hidden") and self.radio_hidden.isChecked()
+        self.icon_input.setText(get_toggled_default_group_icon(current, is_file_group, is_hidden=is_hidden))
         self._update_group_form_header()
 
     def _set_detail_subtitle(self, text: str):
@@ -760,20 +764,26 @@ class ManageDialog(QWidget):
             return
 
         is_file_group = self.radio_file.isChecked()
-        if self.editing_group_id is None:
-            self.detail_title.setText(
-                self.tr("New Quick Launch Group") if is_file_group else self.tr("New General Group")
-            )
-        else:
-            self.detail_title.setText(
-                self.tr("Edit Quick Launch Group") if is_file_group else self.tr("Edit General Group")
-            )
+        is_hidden = hasattr(self, "radio_hidden") and self.radio_hidden.isChecked()
 
-        subtitle = (
-            self.tr("Quick launch groups only allow file or folder paths; selecting an item opens them")
-            if is_file_group
-            else self.tr("General groups allow any content; selecting an item pastes content or files to the target")
-        )
+        if is_hidden:
+            if self.editing_group_id is None:
+                self.detail_title.setText(self.tr("New Hidden Group"))
+            else:
+                self.detail_title.setText(self.tr("Edit Hidden Group"))
+            subtitle = self.tr("Hidden groups are not displayed on the clipboard panel; changing to normal group restores visibility")
+        elif is_file_group:
+            if self.editing_group_id is None:
+                self.detail_title.setText(self.tr("New Quick Launch Group"))
+            else:
+                self.detail_title.setText(self.tr("Edit Quick Launch Group"))
+            subtitle = self.tr("Quick launch groups only allow file or folder paths; selecting an item opens them")
+        else:
+            if self.editing_group_id is None:
+                self.detail_title.setText(self.tr("New General Group"))
+            else:
+                self.detail_title.setText(self.tr("Edit General Group"))
+            subtitle = self.tr("General groups allow any content; selecting an item pastes content or files to the target")
         self._set_detail_subtitle(subtitle)
 
     def _create_emoji_picker(self, current_icon: str = "📁"):
@@ -826,14 +836,18 @@ class ManageDialog(QWidget):
         return next((g for g in groups if g.id == self.selected_group_id), None)
 
     def _is_file_content_mode(self) -> bool:
-        """判断当前内容编辑是否应走文件条目表单。"""
+        """判断当前内容编辑是否应走文件条目表单。
+        隐藏分组的行为与普通分组相同，不走文件表单。"""
         if self.editing_item_id is not None:
             item = self.manager.get_item(self.editing_item_id)
             if item is not None:
                 return item.content_type == "file"
 
         selected_group = self._get_selected_group()
-        return selected_group is not None and selected_group.group_type == GroupType.FILE
+        if selected_group is None:
+            return False
+        # 只有快速启动分组才走文件表单；隐藏分组和普通分组一样走文本表单
+        return selected_group.group_type == GroupType.FILE
 
     def _extract_file_path_from_item(self, item) -> str:
         """从文件条目内容中提取首个路径，兼容旧格式原始路径文本。"""
@@ -977,7 +991,12 @@ class ManageDialog(QWidget):
             return
 
         icon = self._get_selected_icon()
-        group_type = GroupType.FILE if (hasattr(self, "radio_file") and self.radio_file.isChecked()) else GroupType.NORMAL
+        if hasattr(self, "radio_hidden") and self.radio_hidden.isChecked():
+            group_type = GroupType.HIDDEN
+        elif hasattr(self, "radio_file") and self.radio_file.isChecked():
+            group_type = GroupType.FILE
+        else:
+            group_type = GroupType.NORMAL
 
         result = save_group(self.manager, self.editing_group_id, name, icon, int(group_type))
         if not result.success:

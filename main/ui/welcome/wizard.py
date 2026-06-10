@@ -83,7 +83,7 @@ class WelcomeWizard(QDialog):
         # ── 第一步：检测并加载语言，必须在创建任何页面之前 ──
         self._init_language()
 
-        self.setWindowTitle("欢迎使用截图吧")
+        self.setWindowTitle(_tr("欢迎使用截图吧"))
         # 必须先设置 WindowFlags（会重建原生窗口句柄），再调用 setFixedSize，
         # 否则 setWindowFlags 会清除固定大小约束，导致拖动时布局反复重算、高度抖动。
         # MSWindowsFixedSizeDialogHint 在 Windows 上额外锁定窗口不可调整大小。

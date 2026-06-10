@@ -19,6 +19,7 @@ from typing import Optional, List
 from ...controllers import ClipboardController
 from ...core import ClipboardManager, Group
 from ..dialogs.manage_dialog import ManageDialog, get_manage_dialog
+from ..menus.group_context_menu import ClipboardGroupContextMenu
 from ..theme.themes import Theme
 from ..theme.theme_styles import ThemeStyleGenerator
 
@@ -521,36 +522,22 @@ class GroupBar(QWidget):
     #  分组右键菜单 + 管理操作
     # ================================================================
 
-    def _translate_group_action_label(self, action_key: str, fallback_label: str) -> str:
-        label_map = {
-            "edit_group": self.tr("Edit"),
-            "move_group_up": self.tr("Move Up"),
-            "move_group_down": self.tr("Move Down"),
-            "delete_group": self.tr("Delete Group"),
-        }
-        return label_map.get(action_key, fallback_label)
-
     def _show_group_context_menu(self, btn, group_id: int, pos):
         actions_data = self.controller.build_group_context_menu_data(group_id)
-        menu = QMenu(self)
-        menu.setStyleSheet(self._get_menu_style())
+        ClipboardGroupContextMenu(
+            parent=self,
+            menu_style=self._get_menu_style(),
+            translate=self.tr,
+            action_handlers=self._get_group_context_menu_handlers(group_id),
+        ).show(btn, pos, actions_data)
 
-        _group_ctx_handlers = {
-            "edit_group":      lambda: self._edit_group(group_id),
-            "move_group_up":   lambda: self._move_group_order(group_id, -1),
+    def _get_group_context_menu_handlers(self, group_id: int):
+        return {
+            "edit_group": lambda: self._edit_group(group_id),
+            "move_group_up": lambda: self._move_group_order(group_id, -1),
             "move_group_down": lambda: self._move_group_order(group_id, 1),
-            "delete_group":    lambda: self._delete_group(group_id),
+            "delete_group": lambda: self._delete_group(group_id),
         }
-        for ad in actions_data:
-            if ad.is_separator:
-                menu.addSeparator()
-            else:
-                act = menu.addAction(self._translate_group_action_label(ad.key, ad.label))
-                act.setEnabled(ad.enabled)
-                handler = _group_ctx_handlers.get(ad.key)
-                if handler:
-                    act.triggered.connect(handler)
-        menu.exec(btn.mapToGlobal(pos))
 
     def _delete_group(self, group_id: int):
         if self.controller.delete_group(group_id, parent_widget=self):

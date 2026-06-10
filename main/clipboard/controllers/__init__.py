@@ -1,9 +1,8 @@
 """clipboard controllers 兼容导出。"""
 
+from .context_menu_controller import ContextMenuData, MenuAction
 from .clipboard_controller import (
     ClipboardController,
-    ContextMenuData,
-    MenuAction,
     calc_sidebar_capacity,
     calc_topbar_capacity,
     get_foreground_window,
