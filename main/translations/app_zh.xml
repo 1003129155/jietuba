@@ -1405,6 +1405,50 @@ Replace it?</source>
         <source>Paste</source>
         <translation>粘贴</translation>
     </message>
+    <message>
+        <source>Special Paste</source>
+        <translation>特殊粘贴</translation>
+    </message>
+    <message>
+        <source>Paste Plain Text</source>
+        <translation>粘贴纯文本</translation>
+    </message>
+    <message>
+        <source>All Uppercase</source>
+        <translation>全部大写</translation>
+    </message>
+    <message>
+        <source>All Lowercase</source>
+        <translation>全部小写</translation>
+    </message>
+    <message>
+        <source>Capitalize Words</source>
+        <translation>首字母大写</translation>
+    </message>
+    <message>
+        <source>Capitalize Sentences</source>
+        <translation>句首字母大写</translation>
+    </message>
+    <message>
+        <source>Toggle Case</source>
+        <translation>反转大小写</translation>
+    </message>
+    <message>
+        <source>SQL IN Clause</source>
+        <translation>SQL IN 句</translation>
+    </message>
+    <message>
+        <source>Remove Line Breaks</source>
+        <translation>移除换行符</translation>
+    </message>
+    <message>
+        <source>Paste with Current Time</source>
+        <translation>粘贴并添加当前时间</translation>
+    </message>
+    <message>
+        <source>Paste in Order</source>
+        <translation>保持顺序粘贴</translation>
+    </message>
 </context>
 
 <!-- ========== Clipboard Management Dialog ========== -->
@@ -1509,6 +1553,22 @@ Replace it?</source>
     <message>
         <source>Edit Quick Launch Group</source>
         <translation>编辑快速启动分组</translation>
+    </message>
+    <message>
+        <source>Hidden Group</source>
+        <translation>隐藏分组</translation>
+    </message>
+    <message>
+        <source>New Hidden Group</source>
+        <translation>新建隐藏分组</translation>
+    </message>
+    <message>
+        <source>Edit Hidden Group</source>
+        <translation>编辑隐藏分组</translation>
+    </message>
+    <message>
+        <source>Hidden groups are not displayed on the clipboard panel; changing to normal group restores visibility</source>
+        <translation>隐藏分组不会显示在剪贴板界面上，设为普通分组即可恢复显示</translation>
     </message>
     <message>
         <source>General groups allow any content; selecting an item pastes content or files to the target</source>
@@ -2554,6 +2614,19 @@ SOFTWARE.</translation></message>
     <message>
         <source>OK</source>
         <translation>确定</translation>
+    </message>
+</context>
+
+<!-- ========== Clipboard Preview ========== -->
+<context>
+    <name>ClipboardPreview</name>
+    <message>
+        <source>📝 文本</source>
+        <translation>📝 文本</translation>
+    </message>
+    <message>
+        <source>富文本预览</source>
+        <translation>富文本预览</translation>
     </message>
 </context>
 

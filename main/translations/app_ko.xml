@@ -1315,6 +1315,50 @@ Replace it?</source>
         <source>Paste</source>
         <translation>붙여넣기</translation>
     </message>
+    <message>
+        <source>Special Paste</source>
+        <translation>특수 붙여넣기</translation>
+    </message>
+    <message>
+        <source>Paste Plain Text</source>
+        <translation>일반 텍스트로 붙여넣기</translation>
+    </message>
+    <message>
+        <source>All Uppercase</source>
+        <translation>모두 대문자</translation>
+    </message>
+    <message>
+        <source>All Lowercase</source>
+        <translation>모두 소문자</translation>
+    </message>
+    <message>
+        <source>Capitalize Words</source>
+        <translation>단어 첫 글자 대문자</translation>
+    </message>
+    <message>
+        <source>Capitalize Sentences</source>
+        <translation>문장 첫 글자 대문자</translation>
+    </message>
+    <message>
+        <source>Toggle Case</source>
+        <translation>대소문자 반전</translation>
+    </message>
+    <message>
+        <source>SQL IN Clause</source>
+        <translation>SQL IN 구문</translation>
+    </message>
+    <message>
+        <source>Remove Line Breaks</source>
+        <translation>줄바꿈 제거</translation>
+    </message>
+    <message>
+        <source>Paste with Current Time</source>
+        <translation>현재 시간과 함께 붙여넣기</translation>
+    </message>
+    <message>
+        <source>Paste in Order</source>
+        <translation>순서 유지 붙여넣기</translation>
+    </message>
 </context>
 
 <!-- ========== Clipboard Management Dialog ========== -->
@@ -1419,6 +1463,22 @@ Replace it?</source>
     <message>
         <source>Edit Quick Launch Group</source>
         <translation>빠른 실행 그룹 편집</translation>
+    </message>
+    <message>
+        <source>Hidden Group</source>
+        <translation>숨김 그룹</translation>
+    </message>
+    <message>
+        <source>New Hidden Group</source>
+        <translation>새 숨김 그룹</translation>
+    </message>
+    <message>
+        <source>Edit Hidden Group</source>
+        <translation>숨김 그룹 편집</translation>
+    </message>
+    <message>
+        <source>Hidden groups are not displayed on the clipboard panel; changing to normal group restores visibility</source>
+        <translation>숨김 그룹은 클립보드 패널에 표시되지 않습니다. 일반 그룹으로 변경하면 다시 표시됩니다</translation>
     </message>
     <message>
         <source>General groups allow any content; selecting an item pastes content or files to the target</source>
@@ -2491,6 +2551,19 @@ SOFTWARE.</translation></message>
     <message>
         <source>OK</source>
         <translation>확인</translation>
+    </message>
+</context>
+
+<!-- ========== Clipboard Preview ========== -->
+<context>
+    <name>ClipboardPreview</name>
+    <message>
+        <source>📝 文本</source>
+        <translation>📝 텍스트</translation>
+    </message>
+    <message>
+        <source>富文本预览</source>
+        <translation>서식 있는 텍스트 미리보기</translation>
     </message>
 </context>
 
