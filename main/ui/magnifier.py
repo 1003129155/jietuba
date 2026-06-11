@@ -531,10 +531,10 @@ class MagnifierOverlay(QWidget):
 		if src.width() <= 0 or src.height() <= 0:
 			return
 		
-		# 缓存源图像引用和采样区域，让 drawImage 自动处理缩放
+		# 缓存采样区域的小图拷贝 + 本地坐标（避免每帧从大图寻址）
 		self._last_sample_pt = QPoint(pt)
-		self._cached_source_rect = QRect(src)
-		self._cached_sample_image = image
+		self._cached_source_rect = QRect(0, 0, src.width(), src.height())
+		self._cached_sample_image = image.copy(src)
 
 	def _calc_widget_pos(self, scene_pos: QPointF) -> QPoint:
 		"""计算浮层在父窗口内的 move() 目标位置。
