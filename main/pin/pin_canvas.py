@@ -14,7 +14,7 @@ from PySide6.QtCore import Qt, QObject, Signal, QRectF, QPointF
 from PySide6.QtGui import QPainter, QImage, QPixmap, QTransform
 
 from canvas import CanvasScene
-from core import log_info, log_warning, log_error
+from core import log_info, log_warning, log_error, log_debug
 from core.logger import log_exception
 
 
