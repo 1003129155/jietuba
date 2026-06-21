@@ -6,7 +6,7 @@ from typing import Optional
 
 from PySide6.QtWidgets import QGraphicsView, QGraphicsTextItem
 from PySide6.QtCore import Qt, QPointF, QRectF, QTimer
-from PySide6.QtGui import QPainter, QPen, QColor, QBrush
+from PySide6.QtGui import QPainter, QPen, QColor, QBrush, QCursor
 import shiboken6
 from canvas.items import (
     StrokeItem,
@@ -28,6 +28,7 @@ class CanvasView(QGraphicsView):
         super().__init__(scene, parent)
         
         self.canvas_scene = scene
+        self._is_closed = False
         
         # 设置渲染选项 - 关闭抗锯齿以提高性能
         # self.setRenderHint(QPainter.RenderHint.Antialiasing)  # 关闭抗锯齿
@@ -93,10 +94,10 @@ class CanvasView(QGraphicsView):
             self.cursor_manager.update_tool_cursor_color
         )
         self.canvas_scene.cursor_tool_update_requested.connect(
-            lambda tool_id, force: self.cursor_manager.set_tool_cursor(tool_id, force=force)
+            self._on_cursor_tool_update_requested
         )
         self.canvas_scene.item_auto_select_requested.connect(
-            lambda item: self.smart_edit_controller.select_item(item, auto_select=True)
+            self._on_item_auto_select_requested
         )
         self.canvas_scene.editing_cleanup_requested.connect(self._on_editing_cleanup)
         
@@ -129,7 +130,113 @@ class CanvasView(QGraphicsView):
         viewport = self.viewport()
         if viewport is not None:
             viewport.setCursor(cursor)
-    
+
+    def cleanup(self):
+        """断开会话级信号和引用，避免旧 view 在销毁期收到晚到回调。"""
+        if self._is_closed:
+            return
+        self._is_closed = True
+
+        from core.qt_utils import safe_disconnect
+
+        scene = getattr(self, "canvas_scene", None)
+        cursor_manager = getattr(self, "cursor_manager", None)
+        controller = getattr(self, "smart_edit_controller", None)
+
+        if scene is not None:
+            if cursor_manager is not None:
+                safe_disconnect(
+                    scene.cursor_color_update_requested,
+                    cursor_manager.update_tool_cursor_color,
+                )
+            safe_disconnect(scene.cursor_tool_update_requested, self._on_cursor_tool_update_requested)
+            safe_disconnect(scene.item_auto_select_requested, self._on_item_auto_select_requested)
+            safe_disconnect(scene.editing_cleanup_requested, self._on_editing_cleanup)
+
+            tool_controller = getattr(scene, "tool_controller", None)
+            if tool_controller is not None and hasattr(tool_controller, "remove_tool_changed_callback"):
+                tool_controller.remove_tool_changed_callback(self._on_tool_changed_for_edit)
+
+            if getattr(scene, "_layer_editor", None) is getattr(controller, "layer_editor", None):
+                scene._layer_editor = None
+
+        if controller is not None:
+            safe_disconnect(controller.cursor_change_request, self._on_edit_cursor_change)
+            safe_disconnect(controller.selection_changed, self._on_edit_selection_changed)
+            if hasattr(controller, "cleanup"):
+                controller.cleanup()
+
+        if cursor_manager is not None:
+            try:
+                cursor_manager.hide_brush_indicator()
+            except Exception as exc:
+                log_warning(f"清理画笔指示器失败: {exc}", "CanvasView")
+            cursor_manager.current_cursor = None
+            cursor_manager.view = None
+            cursor_manager.scene = None
+
+        if getattr(self, "window_finder", None):
+            self.window_finder.clear()
+            self.window_finder = None
+
+        self.cursor_manager = None
+        self.smart_edit_controller = None
+        self.canvas_scene = None
+
+    def _on_cursor_tool_update_requested(self, tool_id: str, force: bool):
+        if self._is_closed:
+            return
+        cursor_manager = getattr(self, "cursor_manager", None)
+        if cursor_manager is None:
+            return
+        try:
+            cursor_manager.set_tool_cursor(tool_id, force=force)
+        except RuntimeError as exc:
+            log_warning(f"更新工具光标失败: {exc}", "CanvasView")
+
+    def _on_item_auto_select_requested(self, item):
+        if self._is_closed:
+            return
+        controller = getattr(self, "smart_edit_controller", None)
+        if controller is None:
+            return
+        try:
+            controller.select_item(item, auto_select=True)
+        except RuntimeError as exc:
+            log_warning(f"自动选择图元失败: {exc}", "CanvasView")
+
+    def can_apply_tool_cursor(self) -> bool:
+        """工具预览光标只有在编辑状态机不拥有光标时才可直接应用。"""
+        if not self.canvas_scene or not self.canvas_scene.selection_model.is_confirmed:
+            return True
+
+        controller = getattr(self, "smart_edit_controller", None)
+        if not controller or not controller.selected_item:
+            return True
+
+        mode_name = getattr(getattr(controller, "mode", None), "name", "")
+        if mode_name in {"CLICKING_HANDLE", "DRAGGING_HANDLE", "DRAGGING_MOVE"}:
+            return False
+
+        view_pos = self.mapFromGlobal(QCursor.pos())
+        viewport = self.viewport()
+        if viewport is not None and not viewport.rect().contains(view_pos):
+            return True
+
+        scene_pos = self.mapToScene(view_pos)
+        layer_editor = controller.layer_editor
+        if layer_editor and layer_editor.is_editing() and layer_editor.hit_test(scene_pos):
+            return False
+
+        selected_item = controller.selected_item
+        try:
+            if selected_item.contains(selected_item.mapFromScene(scene_pos)):
+                return False
+        except Exception:
+            return True
+
+        return True
+
     @safe_event
     def enterEvent(self, event):
         """
@@ -549,6 +656,9 @@ class CanvasView(QGraphicsView):
             if edit_handled:
                 # 控制点拖拽被处理，不继续
                 log_debug("控制点拖拽被处理", "CanvasView")
+                layer_editor = self.smart_edit_controller.layer_editor
+                if layer_editor.hovered_handle:
+                    self.setCursor(layer_editor.get_cursor(scene_pos))
                 return
             
             # 步骤2：检查是否点击了可选中的图元
@@ -587,6 +697,35 @@ class CanvasView(QGraphicsView):
                 # cursor 工具：传递给 Scene（可能拖拽窗口/选区）
                 log_debug("cursor工具，传递给Scene", "CanvasView")
                 super().mousePressEvent(event)
+    
+    @safe_event
+    def mouseDoubleClickEvent(self, event):
+        """
+        鼠标双击事件
+        快速双击时 Windows 将第二次按下转为 WM_LBUTTONDBLCLK，
+        Qt 将其映射为 mouseDoubleClickEvent 而非 mousePressEvent，
+        导致序号 +/- 按钮等点击型控制点丢失第二次点击。
+        此处将双击事件重新路由到 handle_edit_press，确保快速连点生效。
+        """
+        # 仅处理选区已确认的情况（与 mousePressEvent 一致）
+        if not self.canvas_scene or not self.canvas_scene.selection_model.is_confirmed:
+            super().mouseDoubleClickEvent(event)
+            return
+        
+        scene_pos = self.mapToScene(event.pos())
+        edit_handled = self.smart_edit_controller.handle_edit_press(
+            scene_pos, event.pos(), event.button(), event.modifiers()
+        )
+        
+        if edit_handled:
+            log_debug("双击→控制点点击被处理", "CanvasView")
+            layer_editor = self.smart_edit_controller.layer_editor
+            if layer_editor.hovered_handle:
+                self.setCursor(layer_editor.get_cursor(scene_pos))
+            return
+        
+        # 非控制点双击 → 默认行为
+        super().mouseDoubleClickEvent(event)
     
     @safe_event
     def mouseMoveEvent(self, event):
@@ -715,6 +854,8 @@ class CanvasView(QGraphicsView):
             if self.smart_edit_controller.layer_editor.dragging_handle:
                 dragging_cursor = self.smart_edit_controller.layer_editor.get_cursor(scene_pos)
                 self.setCursor(dragging_cursor)
+            elif self.smart_edit_controller.layer_editor.hovered_handle:
+                self.setCursor(self.smart_edit_controller.layer_editor.hovered_handle.cursor)
             return True
         return False
     
@@ -951,11 +1092,7 @@ class CanvasView(QGraphicsView):
                 step = 1 if delta > 0 else -1
                 ctx = self.canvas_scene.tool_controller.context
                 next_value = current_tool.adjust_next_number(ctx.scene, step)
-                if getattr(self, "cursor_manager", None):
-                    self.cursor_manager.set_tool_cursor("number", force=True)
-                toolbar = getattr(self.window(), "toolbar", None)
-                if toolbar and hasattr(toolbar, "set_number_next_value"):
-                    toolbar.set_number_next_value(next_value)
+                current_tool.refresh_next_number(ctx.scene, next_value)
             event.accept()
             return
         
@@ -1391,4 +1528,3 @@ class CanvasView(QGraphicsView):
             self.window().close()
         else:
             log_error("导出失败！", module="CanvasView")
- 

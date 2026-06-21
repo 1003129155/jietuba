@@ -130,6 +130,12 @@ class _HotkeyEventFilter(QAbstractNativeEventFilter):
                         # 先过 handler 链，看有没有人要拦截
                         if self._manager._dispatch_hotkey(hotkey_id, cb):
                             return True, 0
+                        if self._manager.global_hotkeys_suppressed:
+                            log_debug(
+                                f"系统热键已临时禁用，忽略回调 (id={hotkey_id})",
+                                "Shortcut",
+                            )
+                            return True, 0
                         # 没人拦截，执行原始回调
                         try:
                             cb()
@@ -170,6 +176,7 @@ class ShortcutManager(QObject):
         self._id_to_callback: Dict[int, Callable] = {}
         self._id_to_metadata: Dict[int, Tuple[int, int]] = {}  # id → (mods, vk)
         self._next_hotkey_id = 1
+        self._global_hotkeys_suppressed = False
 
         # 安装原生事件过滤器（WM_HOTKEY）
         self._native_filter = _HotkeyEventFilter(self, self._id_to_callback)
@@ -207,6 +214,19 @@ class ShortcutManager(QObject):
             log_debug(f"注销 handler: {handler.handler_name}", "Shortcut")
         except ValueError:
             pass
+
+    @property
+    def global_hotkeys_suppressed(self) -> bool:
+        """是否临时吞掉全局热键回调，但保持 Windows 热键注册。"""
+        return self._global_hotkeys_suppressed
+
+    def set_global_hotkeys_suppressed(self, suppressed: bool):
+        """临时启用/禁用全局热键响应，不注销 Windows 热键。"""
+        self._global_hotkeys_suppressed = bool(suppressed)
+
+    def has_registered_hotkeys(self) -> bool:
+        """当前是否持有已注册的 Windows 全局热键。"""
+        return bool(self._id_to_callback)
 
     # ==================================================================
     # Qt KeyPress 分发
@@ -451,6 +471,12 @@ class HotkeySystem:
 
     def unregister_all(self):
         self._mgr.unregister_all_hotkeys()
+
+    def set_suppressed(self, suppressed: bool):
+        self._mgr.set_global_hotkeys_suppressed(suppressed)
+
+    def has_registered_hotkeys(self) -> bool:
+        return self._mgr.has_registered_hotkeys()
 
 
 # ======================================================================

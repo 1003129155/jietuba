@@ -135,6 +135,7 @@ class ToolSettingsManager(QObject):
         "hotkey_2": "",                            # 全局截图备用热键
         "clipboard_hotkey": "ctrl+2",    # 打开剪贴板管理器的快捷键
         "clipboard_hotkey_2": "",                  # 打开剪贴板管理器的备用快捷键
+        "global_hotkeys_disabled": False,           # 是否禁用全局热键
 
         # ==================== 1.5 应用内快捷键 ====================
         "inapp_confirm": "ctrl+c",             # 确认截图（复制到剪贴板）
@@ -160,7 +161,7 @@ class ToolSettingsManager(QObject):
         # ==================== 4. 截图保存设置 ====================
         "screenshot_save_enabled": True,       # 自动保存截图
         "screenshot_save_path": os.path.join(os.path.expanduser("~"), "Pictures", "jietuba_photos"),  # 默认保存路径
-        "screenshot_format": "PNG",            # 保存格式: PNG / JPG / BMP / WEBP
+        "screenshot_format": "PNG",            # 保存格式: PNG / JPG / BMP / WEBP / PDF
         "screenshot_quality": 85,              # 有损格式质量 (1-100, PNG/BMP忽略)
 
         # ==================== 4.5 截图圆角设置 ====================
@@ -230,6 +231,7 @@ class ToolSettingsManager(QObject):
         "clipboard_theme": "light",            # 剪贴板窗口主题（light/dark/blue/green/pink/purple/orange）
         "clipboard_group_bar_position": "top", # 分组栏位置（right/left/top）
         "clipboard_preserve_search": False,    # 关闭时保留搜索栏内容
+        "clipboard_db_path": "",               # 剪贴板数据库自定义路径（空=默认位置）
 
         # ==================== 11. 外观设置 ====================
         "theme_color": "#40E0D0",              # 主题色（青绿色 Turquoise）
@@ -666,11 +668,11 @@ class ToolSettingsManager(QObject):
         self.qsettings.setValue("app/screenshot_save_path", value)
 
     def get_screenshot_format(self) -> str:
-        """获取截图保存格式 (PNG/JPG/BMP/WEBP)"""
+        """获取截图保存格式 (PNG/JPG/BMP/WEBP/PDF)"""
         return self.qsettings.value("app/screenshot_format", self.APP_DEFAULT_SETTINGS["screenshot_format"], type=str)
 
     def set_screenshot_format(self, value: str):
-        """设置截图保存格式 (PNG/JPG/BMP/WEBP)"""
+        """设置截图保存格式 (PNG/JPG/BMP/WEBP/PDF)"""
         self.qsettings.setValue("app/screenshot_format", value.upper())
 
     def get_screenshot_quality(self) -> int:
@@ -869,6 +871,14 @@ class ToolSettingsManager(QObject):
     def set_clipboard_history_limit(self, value: int):
         """设置历史记录数量限制"""
         self.qsettings.setValue("clipboard/history_limit", max(0, value))
+
+    def get_clipboard_db_path(self) -> str:
+        """获取剪贴板数据库自定义路径（空字符串表示使用后端默认位置）"""
+        return self.qsettings.value("clipboard/db_path", self.APP_DEFAULT_SETTINGS["clipboard_db_path"], type=str)
+
+    def set_clipboard_db_path(self, value: str):
+        """设置剪贴板数据库自定义路径"""
+        self.qsettings.setValue("clipboard/db_path", value or "")
     
     def get_clipboard_auto_cleanup(self) -> bool:
         """获取是否自动清理超出限制的记录"""
@@ -1049,4 +1059,3 @@ def get_tool_settings_manager(qsettings: Optional[QSettings] = None) -> ToolSett
         _tool_settings_manager = ToolSettingsManager(qsettings=qsettings)
     return _tool_settings_manager
 
- 

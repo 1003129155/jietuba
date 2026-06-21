@@ -9,7 +9,8 @@ import threading
 from datetime import datetime
 from typing import Callable, Optional
 
-from PySide6.QtGui import QImage
+from PySide6.QtCore import QMarginsF, QRectF, QSizeF
+from PySide6.QtGui import QImage, QPageLayout, QPageSize, QPainter, QPdfWriter
 from PIL import Image
 
 from settings import get_tool_settings_manager
@@ -18,6 +19,8 @@ from core.logger import log_debug, log_info, log_warning, log_error, log_excepti
 
 class SaveService:
     """Async save service for screenshots."""
+
+    DEFAULT_PDF_DPI = 300
 
     def __init__(self, config_manager=None):
         self.config_manager = config_manager or get_tool_settings_manager()
@@ -34,6 +37,7 @@ class SaveService:
         prefix: str = "截图",
         suffix: str = "",
         image_format: str = "PNG",
+        pdf_dpi: int = DEFAULT_PDF_DPI,
         callback: Optional[Callable[[bool, str], None]] = None,
     ) -> Optional[str]:
         """Save a QImage in a background thread."""
@@ -48,6 +52,7 @@ class SaveService:
             prefix=prefix,
             suffix=suffix,
             image_format=image_format,
+            pdf_dpi=pdf_dpi,
             callback=callback,
         )
 
@@ -59,6 +64,7 @@ class SaveService:
         prefix: str = "截图",
         suffix: str = "",
         image_format: str = "PNG",
+        pdf_dpi: int = DEFAULT_PDF_DPI,
     ) -> tuple[bool, Optional[str]]:
         """Save a QImage synchronously and return the result path."""
         if image is None or image.isNull():
@@ -66,8 +72,31 @@ class SaveService:
             return False, None
 
         target_path = self._compose_path(directory, prefix, suffix, image_format)
-        success = self._save_qimage_to_path(image, target_path, image_format)
+        success = self.save_qimage_to_path(
+            image,
+            target_path,
+            image_format=image_format,
+            pdf_dpi=pdf_dpi,
+        )
         return success, target_path
+
+    def save_qimage_to_path(
+        self,
+        image: QImage,
+        target_path: str,
+        *,
+        image_format: Optional[str] = None,
+        pdf_dpi: int = DEFAULT_PDF_DPI,
+    ) -> bool:
+        """Save a QImage to an exact path, including high-quality PDF output."""
+        if image is None or image.isNull():
+            log_warning("QImage is null, skip saving", "Save")
+            return False
+
+        fmt = self._normalize_format(image_format or os.path.splitext(target_path)[1] or "PNG")
+        if fmt == "PDF":
+            return self._save_qimage_to_pdf_path(image, target_path, pdf_dpi=pdf_dpi)
+        return self._save_qimage_to_path(image, target_path, fmt)
 
     def save_pil_async(
         self,
@@ -77,6 +106,7 @@ class SaveService:
         prefix: str = "截图",
         suffix: str = "",
         image_format: str = "PNG",
+        pdf_dpi: int = DEFAULT_PDF_DPI,
         callback: Optional[Callable[[bool, str], None]] = None,
     ) -> Optional[str]:
         """Save a PIL Image in a background thread."""
@@ -90,10 +120,14 @@ class SaveService:
         def worker():
             nonlocal image_copy  # 允许修改外部变量
             try:
-                image_copy.save(target_path, format=image_format.upper())
-                log_info(f"已保存文件: {target_path}", "Save")
+                success = self._save_pil_to_path(
+                    image_copy,
+                    target_path,
+                    image_format,
+                    pdf_dpi=pdf_dpi,
+                )
                 if callback:
-                    callback(True, target_path)
+                    callback(success, target_path)
             except Exception as exc:
                 log_error(f"保存失败 {target_path}: {exc}", "Save")
                 self._cleanup_failed_placeholder(target_path)
@@ -113,6 +147,7 @@ class SaveService:
         prefix: str,
         suffix: str,
         image_format: str,
+        pdf_dpi: int,
         callback: Optional[Callable[[bool, str], None]] = None,
     ) -> Optional[str]:
         target_path = self._compose_path(directory, prefix, suffix, image_format)
@@ -120,7 +155,12 @@ class SaveService:
         def worker():
             nonlocal image  # 允许修改外部变量
             try:
-                success = self._save_qimage_to_path(image, target_path, image_format)
+                success = self.save_qimage_to_path(
+                    image,
+                    target_path,
+                    image_format=image_format,
+                    pdf_dpi=pdf_dpi,
+                )
                 if callback:
                     callback(success, target_path)
             finally:
@@ -143,6 +183,72 @@ class SaveService:
             self._cleanup_failed_placeholder(target_path)
             return False
 
+    def _save_qimage_to_pdf_path(self, image: QImage, target_path: str, *, pdf_dpi: int) -> bool:
+        try:
+            pdf_dpi = max(72, int(pdf_dpi))
+            pdf_image = self._flatten_for_pdf(image)
+
+            writer = QPdfWriter(target_path)
+            writer.setResolution(pdf_dpi)
+            writer.setPageSize(QPageSize(
+                QSizeF(pdf_image.width() * 72.0 / pdf_dpi, pdf_image.height() * 72.0 / pdf_dpi),
+                QPageSize.Unit.Point,
+                "Screenshot",
+            ))
+            writer.setPageMargins(QMarginsF(0, 0, 0, 0), QPageLayout.Unit.Point)
+            writer.setCreator("jietuba")
+
+            painter = QPainter(writer)
+            try:
+                painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
+                painter.drawImage(
+                    QRectF(0, 0, writer.width(), writer.height()),
+                    pdf_image,
+                    QRectF(0, 0, pdf_image.width(), pdf_image.height()),
+                )
+            finally:
+                painter.end()
+
+            log_info(f"已保存PDF: {target_path}", "Save")
+            return True
+        except Exception as exc:
+            log_error(f"保存PDF失败 {target_path}: {exc}", "Save")
+            self._cleanup_failed_placeholder(target_path)
+            return False
+
+    def _save_pil_to_path(
+        self,
+        pil_image: Image.Image,
+        target_path: str,
+        image_format: str,
+        *,
+        pdf_dpi: int,
+    ) -> bool:
+        fmt = self._normalize_format(image_format)
+        if fmt == "PDF":
+            rgba = pil_image.convert("RGBA")
+            data = rgba.tobytes("raw", "RGBA")
+            qimage = QImage(data, rgba.width, rgba.height, rgba.width * 4, QImage.Format.Format_RGBA8888)
+            return self._save_qimage_to_pdf_path(qimage.copy(), target_path, pdf_dpi=pdf_dpi)
+
+        pil_format = "JPEG" if fmt == "JPG" else fmt
+        pil_image.save(target_path, format=pil_format)
+        log_info(f"已保存文件: {target_path}", "Save")
+        return True
+
+    def _flatten_for_pdf(self, image: QImage) -> QImage:
+        if not image.hasAlphaChannel():
+            return image.convertToFormat(QImage.Format.Format_RGB32)
+
+        flattened = QImage(image.size(), QImage.Format.Format_RGB32)
+        flattened.fill(0xFFFFFFFF)
+        painter = QPainter(flattened)
+        try:
+            painter.drawImage(0, 0, image)
+        finally:
+            painter.end()
+        return flattened
+
     def _compose_path(self, directory: Optional[str], prefix: str, suffix: str, image_format: str) -> str:
         target_dir = directory or self.get_default_directory()
         # 防御性校验：确保是绝对路径
@@ -156,7 +262,11 @@ class SaveService:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         parts = [part for part in (prefix, suffix, timestamp) if part]
         base = "_".join(parts) if parts else timestamp
-        return f"{base}.{image_format.lower()}"
+        return f"{base}.{self._normalize_format(image_format).lower()}"
+
+    def _normalize_format(self, image_format: str) -> str:
+        fmt = (image_format or "PNG").strip().lstrip(".").upper()
+        return "JPG" if fmt == "JPEG" else fmt
 
     def _reserve_unique_path(self, target_dir: str, prefix: str, suffix: str, image_format: str) -> str:
         base_filename = self._build_filename(prefix, suffix, image_format)

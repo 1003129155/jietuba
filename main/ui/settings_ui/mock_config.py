@@ -112,6 +112,8 @@ class MockConfig:
     def set_clipboard_auto_paste(self, v): pass
     def get_clipboard_history_limit(self): return 100
     def set_clipboard_history_limit(self, v): pass
+    def get_clipboard_db_path(self): return ""
+    def set_clipboard_db_path(self, v): pass
     def get_clipboard_auto_cleanup(self): return False
     def set_clipboard_auto_cleanup(self, v): pass
 
@@ -124,4 +126,3 @@ if __name__ == "__main__":
     dlg = SettingsDialog(MockConfig())
     dlg.show()
     sys.exit(app.exec())
- 

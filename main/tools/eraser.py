@@ -29,6 +29,7 @@ class EraserTool(Tool):
         self.erasing = False
         self.last_pos = None
         self.erased_items = set()  # 使用 set 避免重复删除
+        self.number_next_before = None
         
     def on_press(self, pos: QPointF, button, ctx: ToolContext):
         """鼠标按下 - 开始擦除"""
@@ -36,6 +37,7 @@ class EraserTool(Tool):
             self.erasing = True
             self.last_pos = pos
             self.erased_items.clear()
+            self.number_next_before = self._get_number_next(ctx.scene)
             
             # 立即擦除当前位置的图元
             self._erase_at_position(pos, ctx)
@@ -72,7 +74,8 @@ class EraserTool(Tool):
             if self.erased_items:
                 items_list = list(self.erased_items)
                 cmd = BatchRemoveCommand(ctx.scene, items_list, 
-                                        text=f"Erase {len(items_list)} items")
+                                        text=f"Erase {len(items_list)} items",
+                                        number_next_before=self.number_next_before)
                 ctx.undo_stack.push_command(cmd)
                 log_info(f"删除了 {len(items_list)} 个图元", "Eraser")
             
@@ -80,6 +83,7 @@ class EraserTool(Tool):
             self.erased_items.clear()
             self.erasing = False
             self.last_pos = None
+            self.number_next_before = None
     
     def _erase_at_position(self, pos: QPointF, ctx: ToolContext):
         """在指定位置擦除图元（点击擦除）"""
@@ -121,11 +125,20 @@ class EraserTool(Tool):
         # 如果还有未提交的删除，强制提交
         if self.erased_items:
             items_list = list(self.erased_items)
-            cmd = BatchRemoveCommand(ctx.scene, items_list)
+            cmd = BatchRemoveCommand(ctx.scene, items_list, number_next_before=self.number_next_before)
             ctx.undo_stack.push_command(cmd)
             self.erased_items.clear()
         
         self.erasing = False
         self.last_pos = None
+        self.number_next_before = None
         log_debug("已停用", "Eraser")
+
+    @staticmethod
+    def _get_number_next(scene):
+        try:
+            from tools.number import NumberTool
+            return NumberTool.get_next_number(scene)
+        except Exception:
+            return None
  

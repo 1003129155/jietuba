@@ -69,6 +69,8 @@ class PinOCRManager:
         self.ocr_thread = None
         self._ocr_has_result = False
         self._translate_pending = False
+        self._text_selection_enabled = True
+        self._temporary_enabled = True
 
     # ------------------------------------------------------------------
     # 公开属性（供 PinWindow 读取）
@@ -77,6 +79,10 @@ class PinOCRManager:
     @property
     def has_result(self) -> bool:
         return self._ocr_has_result
+
+    @property
+    def text_selection_enabled(self) -> bool:
+        return self._text_selection_enabled
 
     @property
     def translate_pending(self) -> bool:
@@ -100,7 +106,14 @@ class PinOCRManager:
             from ocr import is_ocr_available, initialize_ocr
             from pin.ocr_text_layer import OCRTextLayer
 
+            if self.ocr_text_layer is not None or self.ocr_thread is not None:
+                return
+
             if not self._cfg:
+                return
+
+            if not self._text_selection_enabled:
+                log_info("钉图文字选择已关闭，跳过 OCR 初始化", "OCR")
                 return
 
             if not self._cfg.get_ocr_enabled():
@@ -121,7 +134,7 @@ class PinOCRManager:
             self.ocr_text_layer = OCRTextLayer(self._win)
             cr = self._win.content_rect()
             self.ocr_text_layer.setGeometry(cr.toRect())
-            self.ocr_text_layer.set_enabled(True)
+            self._apply_text_layer_enabled()
             log_debug(f"OCR层初始化几何: {cr.toRect()}", "OCR")
 
             # 立即启动异步识别
@@ -257,8 +270,32 @@ class PinOCRManager:
 
     def set_enabled(self, enabled: bool):
         """启用/禁用 OCR 文字层交互"""
+        self._temporary_enabled = bool(enabled)
+        self._apply_text_layer_enabled()
+
+    def set_text_selection_enabled(self, enabled: bool):
+        """用户开关：启用/禁用当前钉图的文字选择。"""
+        enabled = bool(enabled)
+        if self._text_selection_enabled == enabled:
+            return
+
+        self._text_selection_enabled = enabled
+        self._apply_text_layer_enabled()
+
+        if enabled and self.ocr_text_layer is None and self.ocr_thread is None:
+            self.init_now()
+
+    def toggle_text_selection(self) -> bool:
+        """切换当前钉图的文字选择状态，返回新状态。"""
+        self.set_text_selection_enabled(not self._text_selection_enabled)
+        return self._text_selection_enabled
+
+    def _apply_text_layer_enabled(self):
+        """应用用户开关与临时状态（如缩略图模式）的合成结果。"""
         if self.ocr_text_layer:
-            self.ocr_text_layer.set_enabled(enabled)
+            self.ocr_text_layer.set_enabled(
+                self._text_selection_enabled and self._temporary_enabled
+            )
 
     def set_drawing_mode(self, active: bool):
         """设置绘图模式（绘图时隐藏 OCR 层）"""

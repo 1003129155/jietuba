@@ -57,13 +57,14 @@ class PinCanvas(QObject):
         
 
     
-    def initialize_from_items(self, drawing_items, selection_offset):
+    def initialize_from_items(self, drawing_items, selection_offset, number_next=None):
         """
         从截图窗口继承绘制项目（向量数据）
         
         Args:
             drawing_items: 绘制项目列表（QGraphicsItem）
             selection_offset: 选区在原场景中的偏移量（QPoint，用于坐标转换）
+            number_next: 源场景的下一个序号值（None 表示无序号无需同步）
         """
         if not drawing_items:
             return
@@ -107,8 +108,21 @@ class PinCanvas(QObject):
         
         log_info(f"成功继承 {inherited_count}/{len(drawing_items)} 个绘制项目", "PinCanvas")
         
+        # 同步序号计数器：直接使用源场景的下一个序号值
+        if number_next is not None:
+            self._sync_number_next(number_next)
+        
         # 打印撤销栈状态
         self.undo_stack.print_stack_status()
+
+    def _sync_number_next(self, number_next: int):
+        """将序号计数器设为指定值。"""
+        from tools.number import NumberTool
+        try:
+            NumberTool.set_next_number_and_refresh(self.scene, int(number_next))
+            log_debug(f"同步序号计数器: next={number_next}", "PinCanvas")
+        except Exception as e:
+            log_warning(f"同步序号计数器失败: {e}", "PinCanvas")
     
     def _clone_graphics_item(self, item):
         """
@@ -366,6 +380,7 @@ class PinCanvas(QObject):
         from PySide6.QtCore import QPointF
         
         cloned = NumberItem(item.number, QPointF(item.pos()), item.radius, QColor(item.color))
+        cloned.number_order = getattr(item, "number_order", None)
         return cloned
     
     # ==================== 内部方法 ====================
@@ -636,11 +651,7 @@ class PinCanvas(QObject):
     def _on_number_next_changed(self, next_value: int, toolbar, view):
         """序号工具下一数字变化"""
         from tools.number import NumberTool
-        actual = NumberTool.set_next_number(self.scene, next_value)
-        if toolbar and hasattr(toolbar, "set_number_next_value"):
-            toolbar.set_number_next_value(actual)
-        if view and hasattr(view, "cursor_manager"):
-            view.cursor_manager.set_tool_cursor("number", force=True)
+        NumberTool.set_next_number_and_refresh(self.scene, next_value)
 
     @staticmethod
     def _capture_arrow_state(item) -> dict:

@@ -8,30 +8,19 @@ import sys
 import os
 import ctypes
 
-from core import safe_event
-
-
-from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QStyle
-from PySide6.QtGui import QIcon, QAction, QPixmap, QPainter, QPen, QBrush, QColor
-from PySide6.QtCore import QObject, Qt, QRect, QPoint
+from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
+from PySide6.QtGui import QIcon, QPixmap, QPainter
+from PySide6.QtCore import QObject, Qt
 from ui.dialogs import show_warning_dialog, show_error_dialog
 
 from core.shortcut_manager import HotkeySystem
-from core.constants import CSS_FONT_FAMILY_UI
 from settings import get_tool_settings_manager
 from ui.screenshot_window import ScreenshotWindow
+from ui.tray_menu import create_tray_menu
 from core.logger import (
     setup_logger, get_logger,
     log_debug, log_info, log_warning, log_error, log_exception
 )
-
-class CustomTrayMenu(QMenu):
-    @safe_event
-    def mouseReleaseEvent(self, event):
-        if event.button() == Qt.MouseButton.RightButton:
-            # 阻止右键在托盘菜单上确认操作
-            return
-        super().mouseReleaseEvent(event)
 
 def create_app_icon():
     """创建应用程序图标 - 加载SVG"""
@@ -102,11 +91,15 @@ class MainApp(QObject):
         
         # 热键初始（首次运行时跳过，等向导完成后再注册；非首次直接注册）
         self.hotkey_system = HotkeySystem()
+        self.hotkey_system.set_suppressed(
+            self.config_manager.get_app_setting("global_hotkeys_disabled", False)
+        )
         if not self.config_manager.is_first_run():
             self.update_hotkey()
         
         # 系统托盘
         self.setup_tray()
+        self._setup_pin_tray_updates()
         
         # 窗口实例
         self.settings_window = None
@@ -181,62 +174,18 @@ class MainApp(QObject):
 
     def _create_tray_menu(self) -> QMenu:
         """创建托盘菜单"""
-        from core.theme import get_theme
-        tc = get_theme().theme_color_hex
-        menu = CustomTrayMenu()
-        menu.setStyleSheet(f"""
-            QMenu {{
-                background-color: white;
-                border: 1px solid #ccc;
-                border-radius: 4px;
-                padding: 4px;
-                font-family: {CSS_FONT_FAMILY_UI};
-                font-size: 9pt;
-                color: #000000;
-            }}
-            QMenu::item {{
-                padding: 6px 12px;
-                border-radius: 3px;
-                color: #000000;
-                background-color: transparent;
-            }}
-            QMenu::item:selected {{
-                background-color: {tc};
-                color: #ffffff;
-            }}
-            QMenu::item:disabled {{
-                color: #9e9e9e;
-            }}
-            QMenu::separator {{
-                height: 1px;
-                background: #ddd;
-                margin: 4px 6px;
-            }}
-        """)
+        return create_tray_menu(self)
 
-        action_screenshot = QAction(self.tr("Screenshot"), self)
-        action_screenshot.triggered.connect(self.start_screenshot)
-        menu.addAction(action_screenshot)
-
-        action_clipboard = QAction(self.tr("Clipboard"), self)
-        action_clipboard.triggered.connect(self.open_clipboard_window)
-        menu.addAction(action_clipboard)
-
-        action_translate = QAction(self.tr("Translation"), self)
-        action_translate.triggered.connect(self.open_translator)
-        menu.addAction(action_translate)
-
-        action_settings = QAction(self.tr("Settings"), self)
-        action_settings.triggered.connect(self.open_settings)
-        menu.addAction(action_settings)
-
-        menu.addSeparator()
-
-        action_quit = QAction(self.tr("Exit"), self)
-        action_quit.triggered.connect(self.quit_app)
-        menu.addAction(action_quit)
-
-        return menu
+    def _setup_pin_tray_updates(self):
+        """刷新托盘菜单中的钉图数量。"""
+        try:
+            from pin.pin_manager import PinManager
+            pin_manager = PinManager.instance()
+            pin_manager.pin_created.connect(lambda _pin: self._update_tray_menu())
+            pin_manager.pin_closed.connect(lambda _pin: self._update_tray_menu())
+            pin_manager.all_pins_closed.connect(self._update_tray_menu)
+        except Exception as e:
+            log_exception(e, "连接钉图托盘菜单刷新信号")
 
     def _update_tray_menu(self):
         """重建托盘菜单（用于语言切换后刷新）"""
@@ -259,6 +208,9 @@ class MainApp(QObject):
         
         # 注销所有已注册的热键
         self.hotkey_system.unregister_all()
+        self.hotkey_system.set_suppressed(
+            self.config_manager.get_app_setting("global_hotkeys_disabled", False)
+        )
         
         failed_hotkeys = []  # 收集注册失败的热键
         
@@ -308,6 +260,17 @@ class MainApp(QObject):
         # 如果有注册失败的热键且需要显示提示
         if show_error and failed_hotkeys:
             self._show_hotkey_error(failed_hotkeys)
+
+    def set_global_hotkeys_disabled(self, disabled: bool):
+        """禁用/启用所有全局热键，并立即应用。"""
+        self.config_manager.set_app_setting("global_hotkeys_disabled", disabled)
+        self.hotkey_system.set_suppressed(disabled)
+        if disabled:
+            log_info("全局热键已临时禁用（保留注册，仅忽略回调）", "Hotkey")
+        else:
+            log_info("全局热键已启用", "Hotkey")
+            if not self.hotkey_system.has_registered_hotkeys():
+                self.update_hotkey(show_error=True)
     
     def _show_hotkey_error(self, failed_hotkeys: list):
         """显示热键注册失败的提示"""
@@ -537,5 +500,3 @@ class MainApp(QObject):
 if __name__ == "__main__":
     from core.bootstrap import run
     run()
-
- 

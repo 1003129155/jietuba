@@ -514,7 +514,7 @@ class SettingsDialog(FramelessDialog):
         if hasattr(self, 'save_path_lbl'):
             self.save_path_lbl.setText(defaults["screenshot_save_path"])
         if hasattr(self, 'screenshot_format_combo'):
-            idx = {"PNG": 0, "JPG": 1, "BMP": 2, "WEBP": 3}.get(defaults["screenshot_format"].upper(), 0)
+            idx = {"PNG": 0, "JPG": 1, "BMP": 2, "WEBP": 3, "PDF": 4}.get(defaults["screenshot_format"].upper(), 0)
             self.screenshot_format_combo.setCurrentIndex(idx)
         if hasattr(self, 'ocr_enable_toggle'):
             self.ocr_enable_toggle.setChecked(defaults["ocr_enabled"])
@@ -968,7 +968,7 @@ class SettingsDialog(FramelessDialog):
         if hasattr(self, 'save_path_lbl'):
             self.save_path_lbl.setText(self.config_manager.get_screenshot_save_path())
         if hasattr(self, 'screenshot_format_combo'):
-            idx = {"PNG": 0, "JPG": 1, "BMP": 2, "WEBP": 3}.get(
+            idx = {"PNG": 0, "JPG": 1, "BMP": 2, "WEBP": 3, "PDF": 4}.get(
                 self.config_manager.get_screenshot_format().upper(), 0)
             self.screenshot_format_combo.setCurrentIndex(idx)
         if hasattr(self, 'ocr_enable_toggle'):

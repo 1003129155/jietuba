@@ -9,7 +9,7 @@ use types::{PyClipboardItem, PyQueryParams, PyPaginatedResult, PyGroup};
 
 use std::sync::Arc;
 use parking_lot::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use once_cell::sync::Lazy;
 use std::thread;
 use std::path::PathBuf;
@@ -19,6 +19,9 @@ use zstd;
 // ============== 全局状态 ==============
 
 static IS_RUNNING: AtomicBool = AtomicBool::new(false);
+static WATCHER_THREAD_ID: AtomicU32 = AtomicU32::new(0);
+static WATCHER_SHUTDOWN: Lazy<Mutex<Option<clipboard_rs::WatcherShutdown>>> = Lazy::new(|| Mutex::new(None));
+static WATCHER_THREAD: Lazy<Mutex<Option<thread::JoinHandle<()>>>> = Lazy::new(|| Mutex::new(None));
 static CALLBACK: Lazy<Arc<Mutex<Option<PyObject>>>> = Lazy::new(|| Arc::new(Mutex::new(None)));
 // 跳过下一次剪贴板变化（用于防止 paste_item 自己触发监听）
 static SKIP_NEXT_CHANGE: AtomicBool = AtomicBool::new(false);
@@ -425,6 +428,10 @@ impl PyClipboardManager {
         }
         
         // 保存回调
+        if let Some(handle) = WATCHER_THREAD.lock().take() {
+            let _ = handle.join();
+        }
+
         if let Some(cb) = callback {
             *CALLBACK.lock() = Some(cb);
         }
@@ -437,7 +444,16 @@ impl PyClipboardManager {
             db_lock.get_images_dir()
         };
         
-        thread::spawn(move || {
+        let handle = thread::spawn(move || {
+            #[cfg(target_os = "windows")]
+            {
+                #[link(name = "kernel32")]
+                extern "system" {
+                    fn GetCurrentThreadId() -> u32;
+                }
+                WATCHER_THREAD_ID.store(unsafe { GetCurrentThreadId() }, Ordering::SeqCst);
+            }
+
             // ── 初始化 COM STA ─────────────────────────────────────────────
             // 监听线程内部运行 Windows 消息循环（start_watch），必须先建立
             // COM STA 公寓，否则与 OLE 剪贴板交互时会在主线程触发
@@ -844,9 +860,13 @@ impl PyClipboardManager {
             
             let handler = Handler { db, images_dir };
             if let Ok(mut watcher) = ClipboardWatcherContext::new() {
-                let _ = watcher.add_handler(handler).start_watch();
+                watcher.add_handler(handler);
+                *WATCHER_SHUTDOWN.lock() = Some(watcher.get_shutdown_channel());
+                watcher.start_watch();
             }
+            *WATCHER_SHUTDOWN.lock() = None;
             IS_RUNNING.store(false, Ordering::SeqCst);
+            WATCHER_THREAD_ID.store(0, Ordering::SeqCst);
 
             // 释放 COM 公寓（仅当 CoInitializeEx 成功时：S_OK=0 或 S_FALSE=1）
             #[cfg(target_os = "windows")]
@@ -854,6 +874,7 @@ impl PyClipboardManager {
                 unsafe { CoUninitialize(); }
             }
         });
+        *WATCHER_THREAD.lock() = Some(handle);
         
         Ok(())
     }
@@ -893,10 +914,36 @@ impl PyClipboardManager {
     }
     
     /// 停止剪贴板监听
-    fn stop_monitor(&self) -> PyResult<()> {
+    fn stop_monitor(&self, py: Python<'_>) -> PyResult<()> {
         IS_RUNNING.store(false, Ordering::SeqCst);
+        if let Some(shutdown) = WATCHER_SHUTDOWN.lock().take() {
+            shutdown.stop();
+        }
+        #[cfg(target_os = "windows")]
+        {
+            #[link(name = "user32")]
+            extern "system" {
+                fn PostThreadMessageW(id_thread: u32, msg: u32, w_param: usize, l_param: isize) -> i32;
+            }
+            const WM_QUIT: u32 = 0x0012;
+            let thread_id = WATCHER_THREAD_ID.load(Ordering::SeqCst);
+            if thread_id != 0 {
+                unsafe {
+                    let _ = PostThreadMessageW(thread_id, WM_QUIT, 0, 0);
+                }
+            }
+        }
         *CALLBACK.lock() = None;
         *LAST_CALLBACK_EVENT.lock() = None;
+        if let Some(handle) = WATCHER_THREAD.lock().take() {
+            if handle.thread().id() == thread::current().id() {
+                *WATCHER_THREAD.lock() = Some(handle);
+            } else {
+                py.allow_threads(move || {
+                    let _ = handle.join();
+                });
+            }
+        }
         Ok(())
     }
     

@@ -175,11 +175,15 @@ class ClipboardWindow(QWidget, FramelessMixin):
 		self.controller.load_history()
 		self.group_bar.refresh_buttons()
 
-	def _on_manage_data_changed(self):
+	def request_data_refresh(self, reason: str = ""):
 		if self._ignore_manage_refresh_when_hidden and not self.isVisible():
-			log_debug("管理窗口数据已变更，但剪贴板窗口不可见，延迟刷新", "Clipboard")
+			reason_text = reason or "Clipboard data"
+			log_debug(f"{reason_text} 当前窗口不可见，跳过刷新界面", "Clipboard")
 			return
 		self._load_history()
+
+	def _on_manage_data_changed(self):
+		self.request_data_refresh("Manage dialog data")
 
 	def _on_theme_changed(self, theme: Theme):
 		self.current_theme = theme
@@ -778,6 +782,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
 		return {
 			"paste": lambda: self._paste_item_to_clipboard(item_id),
 			"pin_image": lambda: self._create_pin_window(item_id),
+			"save_image_as": lambda: self._save_image_as(item_id),
 			"toggle_pin": lambda: self._toggle_pin(item_id),
 			"open_file_location": lambda: self._open_file_location(item_id),
 			"edit_item": lambda: self._edit_item(item_id),
@@ -863,6 +868,71 @@ class ClipboardWindow(QWidget, FramelessMixin):
 		self.controller._previous_window_hwnd = get_foreground_window()
 		if self.controller.paste_item(item_id, on_close_callback=self.close):
 			self.item_pasted.emit(item_id)
+
+	def _save_image_as(self, item_id: int):
+		import os
+
+		from PySide6.QtGui import QImage
+		from PySide6.QtWidgets import QFileDialog
+		from ui.dialogs import show_warning_dialog
+
+		clipboard_item = self.controller.get_item(item_id)
+		if clipboard_item is None or clipboard_item.content_type != "image" or not clipboard_item.image_id:
+			return
+
+		image_data = self.manager.get_image_data(clipboard_item.image_id)
+		if isinstance(image_data, list):
+			image_data = bytes(image_data)
+		if not image_data:
+			show_warning_dialog(self, self.tr("Save Failed"), self.tr("Image data is unavailable."))
+			return
+
+		if clipboard_item.created_at:
+			default_name = f"clipboard_image_{clipboard_item.created_at.strftime('%Y%m%d_%H%M%S')}.png"
+		else:
+			default_name = f"clipboard_image_{clipboard_item.id}.png"
+
+		file_path, selected_filter = QFileDialog.getSaveFileName(
+			self,
+			self.tr("Save as"),
+			default_name,
+			self.tr("PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp)"),
+		)
+		if not file_path:
+			return
+
+		ext = os.path.splitext(file_path)[1].lower()
+		if ext in (".jpg", ".jpeg"):
+			image_format = "JPG"
+		elif ext == ".bmp":
+			image_format = "BMP"
+		else:
+			filter_lower = selected_filter.lower()
+			if ".jpg" in filter_lower or ".jpeg" in filter_lower:
+				filter_ext, image_format = "jpg", "JPG"
+			elif ".bmp" in filter_lower:
+				filter_ext, image_format = "bmp", "BMP"
+			else:
+				filter_ext, image_format = "png", "PNG"
+			if ext != f".{filter_ext}":
+				file_path = f"{file_path}.{filter_ext}" if not ext else f"{file_path}.png"
+				image_format = "PNG" if ext else image_format
+
+		try:
+			if image_format == "PNG":
+				with open(file_path, "wb") as image_file:
+					image_file.write(image_data)
+				return
+
+			image = QImage()
+			if not image.loadFromData(image_data):
+				show_warning_dialog(self, self.tr("Save Failed"), self.tr("Failed to load image data."))
+				return
+			if not image.save(file_path, image_format):
+				show_warning_dialog(self, self.tr("Save Failed"), self.tr("Failed to save image."))
+		except Exception as e:
+			log_exception(e, "保存剪贴板图片")
+			show_warning_dialog(self, self.tr("Save Failed"), self.tr("Failed to save image."))
 
 	def _open_file_location(self, item_id: int):
 		import json

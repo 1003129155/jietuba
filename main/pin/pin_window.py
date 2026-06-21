@@ -49,7 +49,7 @@ class PinWindow(QWidget):
     closed = Signal()  # 窗口关闭信号
 
     def __init__(self, image: QImage, position: QPoint, config_manager,
-                 drawing_items=None, selection_offset=None):
+                 drawing_items=None, selection_offset=None, number_next=None):
         """
         Args:
             image: 选区底图（只包含选区的纯净背景，不含绘制）
@@ -57,6 +57,7 @@ class PinWindow(QWidget):
             config_manager: 配置管理器
             drawing_items: 绘制项目列表（从截图窗口继承）
             selection_offset: 选区在原场景中的偏移量
+            number_next: 源场景的下一个序号值（用于同步计数器）
         """
         super().__init__()
 
@@ -142,7 +143,7 @@ class PinWindow(QWidget):
         from .pin_canvas import PinCanvas
         self.canvas = PinCanvas(self, self._orig_size, image)
         if self.drawing_items:
-            self.canvas.initialize_from_items(self.drawing_items, self.selection_offset)
+            self.canvas.initialize_from_items(self.drawing_items, self.selection_offset, number_next)
 
         # ====== CanvasView ======
         self.view = PinCanvasView(self.canvas.scene, self, self.canvas)
@@ -201,6 +202,10 @@ class PinWindow(QWidget):
     @property
     def _ocr_has_result(self):
         return self._ocr_mgr.has_result if hasattr(self, '_ocr_mgr') else False
+
+    @property
+    def _text_selection_enabled(self):
+        return self._ocr_mgr.text_selection_enabled if hasattr(self, '_ocr_mgr') else False
 
     @property
     def _thumbnail_mode(self):
@@ -609,6 +614,7 @@ class PinWindow(QWidget):
                 'stay_on_top': bool(self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint),
                 'shadow_enabled': self.halo_enabled,
                 'has_ocr_result': self._ocr_has_result,
+                'text_selection_enabled': self._text_selection_enabled,
                 'thumbnail_mode': self._thumbnail_mode,
             }
             self._context_menu.show(global_pos, state)
@@ -628,6 +634,10 @@ class PinWindow(QWidget):
         self.halo_enabled = not self.halo_enabled
         self._image_transform._refresh_border(self)
         self.update()
+
+    def toggle_text_selection(self):
+        if hasattr(self, '_ocr_mgr'):
+            self._ocr_mgr.toggle_text_selection()
 
     def reset_to_original_size(self):
         """恢复到原图 100% 大小（保留当前旋转/翻转状态，与滚轮缩放一样固定左上角坐标）"""
@@ -722,16 +732,27 @@ class PinWindow(QWidget):
 
     def save_image(self):
         from PySide6.QtWidgets import QFileDialog
+        from core.save import SaveService
+        import os
 
-        file_path, _ = QFileDialog.getSaveFileName(
-            self, self.tr("Save Pin Image"), "pinned_image.png", "Images (*.png *.jpg *.bmp)",
+        file_path, selected_filter = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Save Pin Image"),
+            "pinned_image.png",
+            "Images (*.png *.jpg *.bmp *.webp);;PDF (*.pdf)",
         )
         if not file_path:
             return
 
+        image_format = os.path.splitext(file_path)[1].lstrip(".").upper()
+        if not image_format:
+            image_format = "PDF" if "pdf" in selected_filter.lower() else "PNG"
+            file_path = f"{file_path}.{image_format.lower()}"
+
         def _do_save():
             image = self.get_current_image()
-            if image.save(file_path):
+            save_service = SaveService(config_manager=self.config_manager)
+            if save_service.save_qimage_to_path(image, file_path, image_format=image_format):
                 log_info(f"保存成功: {file_path}", "PinWindow")
             else:
                 log_error(f"保存失败: {file_path}", "PinWindow")

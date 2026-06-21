@@ -5,7 +5,7 @@
 from PySide6.QtCore import QPointF, Qt
 from .base import Tool, ToolContext, color_with_opacity
 from canvas.items import NumberItem
-from canvas.undo import AddItemCommand
+from canvas.undo import AddNumberCommand
 from core import log_debug, log_warning
 from core.logger import log_exception
 
@@ -22,6 +22,7 @@ class NumberTool(Tool):
     
     id = "number"
     _SCENE_OFFSET_ATTR = "_number_tool_offset"
+    _SCENE_ORDER_ATTR = "_number_tool_order_counter"
     RADIUS_SCALE = 2
 
     @staticmethod
@@ -35,6 +36,28 @@ class NumberTool(Tool):
             return 0
         except Exception as exc:
             log_warning(f"统计序号时异常：{exc}", "NumberTool")
+            return 0
+
+    @staticmethod
+    def get_max_number(scene, override_item=None, override_number=None) -> int:
+        """获取场景中最大的序号值，没有序号时返回 0。"""
+        if not NumberTool._is_qobject_alive(scene):
+            return 0
+        try:
+            max_number = 0
+            for item in scene.items():
+                if isinstance(item, NumberItem):
+                    if override_item is not None and item is override_item:
+                        number = int(override_number)
+                    else:
+                        number = int(getattr(item, "number", 0))
+                    max_number = max(max_number, number)
+            return max_number
+        except RuntimeError as exc:
+            log_warning(f"scene.items() 失败：{exc}", "NumberTool")
+            return 0
+        except Exception as exc:
+            log_warning(f"统计最大序号时异常：{exc}", "NumberTool")
             return 0
 
     @classmethod
@@ -94,6 +117,91 @@ class NumberTool(Tool):
         except RuntimeError:
             return cls.get_next_number(scene)
         return max(1, base_count + 1 + offset)
+
+    @classmethod
+    def set_next_number_and_refresh(cls, scene, next_number: int, force_cursor: bool = True) -> int:
+        """设置下一序号，并统一刷新工具栏与光标。"""
+        actual_next = cls.set_next_number(scene, next_number)
+        cls.refresh_next_number(scene, actual_next, force_cursor=force_cursor)
+        return actual_next
+
+    @classmethod
+    def refresh_next_number(cls, scene, next_number: int | None = None, force_cursor: bool = True) -> int:
+        """刷新序号工具栏和光标预览，返回当前显示的下一序号。"""
+        if next_number is None:
+            next_number = cls.get_next_number(scene)
+        try:
+            views = scene.views() if cls._is_qobject_alive(scene) and hasattr(scene, "views") else []
+            view = views[0] if views else None
+            window = view.window() if view is not None else None
+            toolbar = getattr(window, "toolbar", None) if window is not None else None
+            if toolbar and hasattr(toolbar, "set_number_next_value"):
+                toolbar.set_number_next_value(int(next_number))
+            # 只有当前激活的是序号工具时才更新光标，避免橡皮擦等工具删除序号图元时误切光标
+            if force_cursor and hasattr(scene, "cursor_tool_update_requested"):
+                tc = getattr(scene, "tool_controller", None)
+                current_tool = getattr(tc, "current_tool", None) if tc else None
+                if current_tool is not None and current_tool.id == cls.id:
+                    scene.cursor_tool_update_requested.emit("number", True)
+        except Exception as e:
+            log_exception(e, "刷新序号计数器")
+        return max(1, int(next_number))
+
+    @classmethod
+    def get_next_after_number_edit(cls, scene, item, old_number: int, new_number: int, current_next: int | None = None) -> int:
+        """根据序号 +/- 结果计算下一序号。"""
+        if current_next is None:
+            current_next = cls.get_next_number(scene)
+        current_next = max(1, int(current_next))
+        old_number = max(1, int(old_number))
+        new_number = max(1, int(new_number))
+
+        if new_number >= current_next:
+            return new_number + 1
+
+        old_max = cls.get_max_number(scene)
+        if old_number < old_max:
+            return current_next
+
+        new_max = cls.get_max_number(scene, override_item=item, override_number=new_number)
+        return max(1, new_max + 1)
+
+    @classmethod
+    def assign_number_order(cls, scene, item) -> int:
+        """给序号图元分配稳定创建顺序，用于重复数字时排序。"""
+        if item is None:
+            return 0
+
+        existing = getattr(item, "number_order", None)
+        if isinstance(existing, int) and existing >= 0:
+            return existing
+
+        if not cls._is_qobject_alive(scene):
+            setattr(item, "number_order", 0)
+            return 0
+
+        try:
+            counter = int(getattr(scene, cls._SCENE_ORDER_ATTR, 0))
+        except Exception:
+            counter = 0
+
+        try:
+            max_order = -1
+            for scene_item in scene.items():
+                if isinstance(scene_item, NumberItem):
+                    order = getattr(scene_item, "number_order", None)
+                    if isinstance(order, int):
+                        max_order = max(max_order, order)
+            counter = max(counter, max_order + 1)
+        except Exception as exc:
+            log_warning(f"同步序号创建顺序失败：{exc}", "NumberTool")
+
+        setattr(item, "number_order", counter)
+        try:
+            setattr(scene, cls._SCENE_ORDER_ATTR, counter + 1)
+        except RuntimeError:
+            pass
+        return counter
     
     def on_press(self, pos: QPointF, button, ctx: ToolContext):
         if button == Qt.MouseButton.LeftButton:
@@ -105,9 +213,10 @@ class NumberTool(Tool):
             
             item_color = color_with_opacity(ctx.color, ctx.opacity)
             item = NumberItem(number, pos, radius, item_color)
+            self.assign_number_order(ctx.scene, item)
             
             # 提交到撤销栈（这会立即调用 redo()，将 item 添加到场景）
-            command = AddItemCommand(ctx.scene, item)
+            command = AddNumberCommand(ctx.scene, item, next_before=number)
             ctx.undo_stack.push(command)
             
             # 绘制完成后自动选择（方便调整）
@@ -121,17 +230,6 @@ class NumberTool(Tool):
                 log_warning(f"统计创建后序号失败：{exc}", "NumberTool")
             log_debug(f"创建后场景中序号数量: {count_after}", "NumberTool")
             
-            # 通过信号更新光标（显示下一个序号）
-            ctx.scene.cursor_tool_update_requested.emit("number", True)
-
-            # 尝试更新工具栏的序号显示
-            try:
-                window = ctx.scene.views()[0].window() if ctx.scene.views() else None
-                toolbar = getattr(window, "toolbar", None) if window else None
-                if toolbar and hasattr(toolbar, "set_number_next_value"):
-                    toolbar.set_number_next_value(self.get_next_number(ctx.scene))
-            except Exception as e:
-                log_exception(e, "更新工具栏序号显示")
     
     def _update_cursor(self, scene):
         """更新光标显示下一个序号"""

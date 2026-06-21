@@ -173,7 +173,8 @@ _ITEM_CONTEXT_MENU_SPECS: Tuple[_ItemContextMenuSpec, ...] = (
         children_builder=_build_special_paste_menu_children,
     ),
     _ItemContextMenuSpec(key="sep_after_paste", is_separator=True),
-    _ItemContextMenuSpec(key="pin_image", label="Pin", predicate=lambda state: state.is_image_item),
+    _ItemContextMenuSpec(key="pin_image", label="Pin as Overlay", predicate=lambda state: state.is_image_item),
+    _ItemContextMenuSpec(key="save_image_as", label="Save as", predicate=lambda state: state.is_image_item),
     _ItemContextMenuSpec(
         key="toggle_pin",
         predicate=lambda state: not state.is_image_item,

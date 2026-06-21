@@ -32,6 +32,7 @@ class SelectionMode(Enum):
     EDITING = "editing"              # 编辑中（拖拽控制点）
     DRAGGING_MOVE = "dragging_move"  # 拖拽移动图元
     DRAGGING_HANDLE = "dragging_handle"  # 拖拽控制点
+    CLICKING_HANDLE = "clicking_handle"  # 点击型控制点（如序号 +/-）
 
 
 # ============================================================================
@@ -107,6 +108,25 @@ class SmartEditController(QObject):
         
         # 标记是否是自动选择（绘制后自动选中）
         self._is_auto_selected = False
+        self._active_click_handle = None
+
+    def cleanup(self):
+        """释放会话级引用，避免旧 controller 收到晚到信号。"""
+        from core.qt_utils import safe_disconnect
+
+        scene = getattr(self, "scene", None)
+        if scene is not None and hasattr(scene, "undo_stack"):
+            safe_disconnect(scene.undo_stack.indexChanged, self._on_undo_index_changed)
+
+        self.selected_item = None
+        self.hovered_item = None
+        self._active_click_handle = None
+        self._move_initial_state = None
+
+        if self.layer_editor:
+            self.layer_editor.stop_edit()
+        self.layer_editor = None
+        self.scene = None
     
     # ========================================================================
     # 工具状态管理
@@ -446,6 +466,7 @@ class SmartEditController(QObject):
     
     def clear_selection(self, suppress_block: bool = False):
         """清除选择"""
+        self._active_click_handle = None
         if self.selected_item:
             current_item = self.selected_item
             self.selected_item.setSelected(False)
@@ -482,21 +503,27 @@ class SmartEditController(QObject):
         flags = item.textInteractionFlags()
         return bool(flags & Qt.TextInteractionFlag.TextEditorInteraction)
 
-    def delete_selected(self):
+    def delete_selected(self, suppress_block: bool = False, renumber_numbers: bool = False):
         """删除当前选中的图元，推入撤销栈"""
         item = self.selected_item
         if item is None or item.scene() is None:
             return
-        from canvas.undo import RemoveItemCommand
+        from canvas.undo import RemoveItemCommand, RemoveNumberCommand, RemoveNumberAndRenumberCommand
         scene = item.scene()
         undo_stack = getattr(scene, "undo_stack", None)
-        self.clear_selection()
+        if isinstance(item, NumberItem):
+            cmd_class = RemoveNumberAndRenumberCommand if renumber_numbers else RemoveNumberCommand
+        else:
+            cmd_class = RemoveItemCommand
+        cmd = cmd_class(scene, item)
+        self.clear_selection(suppress_block=suppress_block)
         if undo_stack:
-            cmd = RemoveItemCommand(scene, item)
             if hasattr(undo_stack, "push_command"):
                 undo_stack.push_command(cmd)
             else:
                 undo_stack.push(cmd)
+        else:
+            cmd.redo()
 
     # ========================================================================
     # 控制点编辑集成
@@ -514,6 +541,24 @@ class SmartEditController(QObject):
         if not hit:
             return False
 
+        if self.layer_editor.is_number_adjust_handle(hit):
+            self.layer_editor.hovered_handle = hit
+            handled = self.layer_editor.adjust_number_with_handle(
+                hit,
+                getattr(self.scene, "undo_stack", None),
+            )
+            if handled:
+                self._active_click_handle = hit
+                self.mode = SelectionMode.CLICKING_HANDLE
+                self.scene.update()
+                return True
+
+        if self.layer_editor.is_number_delete_handle(hit):
+            self.layer_editor.hovered_handle = hit
+            self.delete_selected(suppress_block=True, renumber_numbers=True)
+            self.scene.update()
+            return True
+
         self.mode = SelectionMode.DRAGGING_HANDLE
         keep_ratio = bool(modifiers & Qt.KeyboardModifier.ShiftModifier)
         self.layer_editor.start_drag(hit, scene_pos)
@@ -521,6 +566,10 @@ class SmartEditController(QObject):
         return True
 
     def handle_edit_move(self, scene_pos: QPointF):
+        if self.mode == SelectionMode.CLICKING_HANDLE and self.layer_editor:
+            self.layer_editor.hovered_handle = self._active_click_handle
+            return True
+
         if self.mode != SelectionMode.DRAGGING_HANDLE or not self.layer_editor:
             return False
             
@@ -549,6 +598,13 @@ class SmartEditController(QObject):
         from PySide6.QtCore import Qt
         if button != Qt.MouseButton.LeftButton:
             return False
+        if self.mode == SelectionMode.CLICKING_HANDLE:
+            self._active_click_handle = None
+            self.mode = SelectionMode.SELECTED
+            if self.layer_editor:
+                self.layer_editor.update_hover(scene_pos)
+            self.scene.update()
+            return True
         if self.mode != SelectionMode.DRAGGING_HANDLE or not self.layer_editor:
             return False
 
@@ -704,4 +760,3 @@ class SmartEditController(QObject):
         if self.selected_item and isinstance(self.selected_item, TextItem):
             self.selected_item.set_background(enabled, color, opacity)
             self.selected_item.update()
- 

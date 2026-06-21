@@ -1542,27 +1542,43 @@ class NumberItem(QGraphicsItem, DrawingItemMixin):
     FONT_SCALE = 0.95
     MIN_FONT_SIZE = 10
     HOVER_OUTLINE_WIDTH = 2
+    CLICK_MARGIN = 6  # 点击旷量（像素/每侧）
 
     def __init__(self, number: int, pos: QPointF, radius: float, color: QColor):
         super().__init__()
         self._init_drawing_mixin()
         self.number = number
+        self.number_order = None
         self.radius = radius
         self.color = color
         self.setPos(pos)
         self.setZValue(20)
         self._hovered = False
         
-    def boundingRect(self):
+    def visualRect(self):
         return QRectF(-self.radius, -self.radius, self.radius*2, self.radius*2)
+
+    def boundingRect(self):
+        margin = self.CLICK_MARGIN
+        return self.visualRect().adjusted(-margin, -margin, margin, margin)
+
+    def shape(self):
+        path = QPainterPath()
+        margin = self.CLICK_MARGIN
+        path.addEllipse(self.visualRect().adjusted(-margin, -margin, margin, margin))
+        return path
+
+    def sceneVisualRect(self):
+        return self.mapToScene(self.visualRect()).boundingRect()
 
     def paint(self, painter, option, widget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        visual_rect = self.visualRect()
         
         # 绘制背景圆
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(self.color)
-        painter.drawEllipse(self.boundingRect())
+        painter.drawEllipse(visual_rect)
         
         # 绘制数字：根据背景色亮度选择黑或白文字（整数权重快速判定）
         try:
@@ -1587,14 +1603,14 @@ class NumberItem(QGraphicsItem, DrawingItemMixin):
         font = QFont("Arial", font_size)
         font.setBold(True)
         painter.setFont(font)
-        painter.drawText(self.boundingRect(), Qt.AlignmentFlag.AlignCenter, str(self.number))
+        painter.drawText(visual_rect, Qt.AlignmentFlag.AlignCenter, str(self.number))
 
         if (self.isSelected() or self._hovered) and self._can_show_hover():
             outline_pen = QPen(QColor(0, 180, 255, 230), self.HOVER_OUTLINE_WIDTH, Qt.PenStyle.DashLine)
             outline_pen.setCosmetic(True)
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.setPen(outline_pen)
-            painter.drawEllipse(self.boundingRect())
+            painter.drawRect(visual_rect)
 
     def hoverEnterEvent(self, event):
         if not self._can_show_hover():
@@ -1627,10 +1643,12 @@ class NumberItem(QGraphicsItem, DrawingItemMixin):
     def set_stroke_width(self, width: float):
         """对序号图元，width 映射为 radius"""
         from tools.number import NumberTool
+        self.prepareGeometryChange()
         self.radius = max(4.0, float(width) * NumberTool.RADIUS_SCALE)
         self.update()
 
     def scale_stroke_width(self, scale: float) -> bool:
+        self.prepareGeometryChange()
         self.radius = max(4.0, self.radius * scale)
         self.update()
         return True

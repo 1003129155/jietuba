@@ -97,8 +97,9 @@ def create_capture_page(dialog) -> QWidget:
     dialog.screenshot_format_combo.addItem("JPG", userData="JPG")
     dialog.screenshot_format_combo.addItem("BMP", userData="BMP")
     dialog.screenshot_format_combo.addItem("WebP", userData="WEBP")
+    dialog.screenshot_format_combo.addItem("PDF", userData="PDF")
     dialog.screenshot_format_combo.setFixedWidth(110)
-    _fmt_idx = {"PNG": 0, "JPG": 1, "BMP": 2, "WEBP": 3}.get(
+    _fmt_idx = {"PNG": 0, "JPG": 1, "BMP": 2, "WEBP": 3, "PDF": 4}.get(
         dialog.config_manager.get_screenshot_format().upper(), 0
     )
     dialog.screenshot_format_combo.setCurrentIndex(_fmt_idx)
