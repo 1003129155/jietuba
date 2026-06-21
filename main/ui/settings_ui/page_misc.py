@@ -29,7 +29,7 @@ def create_misc_page(dialog) -> QWidget:
     autostart_card = SwitchSettingCard(
         FluentIcon.POWER_BUTTON,
         dialog.tr("Launch on Startup"),
-        dialog.tr("Copy shortcut to Windows Startup folder."),
+        dialog.tr("Register in Windows startup via registry."),
         parent=grp_startup,
     )
     autostart_card.setChecked(_FP._get_autostart())
