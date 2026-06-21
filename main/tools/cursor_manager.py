@@ -54,6 +54,9 @@ class CursorManager:
             tool_id: 工具ID
             force: 是否强制更新
         """
+        if self.view is None or self.scene is None:
+            return
+
         # 1. 管理 SelectionItem 的交互状态
         # 只有在 'cursor' 模式下，才允许 SelectionItem 响应鼠标悬停和点击
         if hasattr(self.scene, 'selection_item'):
@@ -172,7 +175,8 @@ class CursorManager:
     def hide_brush_indicator(self):
         """隐藏画笔大小指示器"""
         if self.brush_indicator:
-            self.scene.removeItem(self.brush_indicator)
+            if self.scene is not None:
+                self.scene.removeItem(self.brush_indicator)
             self.brush_indicator = None
             self.indicator_visible = False
     
@@ -403,7 +407,10 @@ class CursorManager:
         Returns:
             画笔大小（像素）
         """
-        ctx = self.scene.tool_controller.context
+        if self.scene is None:
+            return 2
+        tool_controller = getattr(self.scene, "tool_controller", None)
+        ctx = getattr(tool_controller, "context", None)
         return ctx.stroke_width if ctx else 2
 
     def update_view_scale(self, scale: float):
@@ -418,6 +425,15 @@ class CursorManager:
 
     def _apply_cursor(self, cursor):
         """将光标同时应用到视图和 viewport，避免 Qt 将其还原为默认十字"""
+        if self.view is None:
+            return
+
+        if (
+            hasattr(self.view, "can_apply_tool_cursor")
+            and not self.view.can_apply_tool_cursor()
+        ):
+            return
+
         targets = [self.view]
         viewport = self.view.viewport() if hasattr(self.view, "viewport") else None
         if viewport and viewport is not self.view:
@@ -430,4 +446,3 @@ class CursorManager:
                 QApplication.changeOverrideCursor(cursor)
         except Exception as e:
             log_exception(e, "同步更新覆盖光标")
- 

@@ -19,7 +19,7 @@ from enum import Enum
 from typing import Optional, List, Tuple, Dict, Any, Union
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QPainter, QPen, QBrush, QColor, QTransform, QPixmap, QCursor, QPolygonF
+from PySide6.QtGui import QPainter, QPen, QBrush, QColor, QTransform, QPixmap, QCursor, QPolygonF, QFont
 from PySide6.QtWidgets import QGraphicsTextItem
 from PySide6.QtSvg import QSvgRenderer
 
@@ -57,6 +57,9 @@ class HandleType(Enum):
     ARROW_END = "arrow_end"        # 箭头终点
     ARROW_CONTROL = "arrow_control"  # 箭头弯曲控制点
     CORNER_RADIUS = "corner_radius"  # 圆角半径控制点（ID: 10=TL,11=TR,12=BR,13=BL）
+    NUMBER_INCREMENT = "number_increment"  # 序号 +1
+    NUMBER_DECREMENT = "number_decrement"  # 序号 -1
+    NUMBER_DELETE = "number_delete"  # 删除序号
 
 
 @dataclass
@@ -122,6 +125,10 @@ class LayerEditor:
     RADIUS_HANDLE_COLOR = QColor(255, 140, 0)       # 圆角手柄颜色（橙色）
     RADIUS_HANDLE_HOVER_COLOR = QColor(255, 100, 0) # 圆角手柄hover颜色
     RADIUS_HANDLE_MIN_OFFSET = 16           # 圆角为0时手柄的最小内侧距离
+    NUMBER_BUTTON_SIZE = 14
+    NUMBER_BUTTON_GAP = 4
+    NUMBER_BUTTON_COLOR = QColor(220, 45, 35)
+    NUMBER_BUTTON_HOVER_COLOR = QColor(245, 70, 55)
 
     # 旋转光标（类变量，延迟加载）
     _rotate_cursor: Optional[QCursor] = None
@@ -296,10 +303,17 @@ class LayerEditor:
         return []
 
     def _generate_number_handles(self, rect: QRectF) -> List[EditHandle]:
-        """序号工具：仅保留左上角旋转手柄"""
-        rotate_cursor = self.get_rotate_cursor()
-        top_center = QPointF(rect.center().x(), rect.top() - 10)
-        return [EditHandle(0, HandleType.ROTATE, top_center, rotate_cursor, self.ROTATE_HANDLE_SIZE)]
+        """序号工具：+ 在左上角，- 在 + 正下方，X 在右上角与 + 对称。"""
+        size = self.NUMBER_BUTTON_SIZE
+        step = size + self.NUMBER_BUTTON_GAP
+        lx = rect.left()
+        rx = rect.right()
+        ty = rect.top()
+        return [
+            EditHandle(200, HandleType.NUMBER_INCREMENT, QPointF(lx, ty), Qt.CursorShape.PointingHandCursor, size, 2),
+            EditHandle(201, HandleType.NUMBER_DECREMENT, QPointF(lx, ty + step), Qt.CursorShape.PointingHandCursor, size, 2),
+            EditHandle(202, HandleType.NUMBER_DELETE, QPointF(rx, ty), Qt.CursorShape.PointingHandCursor, size, 2),
+        ]
 
     def _is_number_item(self, layer: Any) -> bool:
         """检测当前图层是否为序号图元"""
@@ -369,6 +383,12 @@ class LayerEditor:
         """
         if layer is None:
             return None
+
+        if self._is_number_item(layer) and hasattr(layer, "sceneVisualRect"):
+            try:
+                return QRectF(layer.sceneVisualRect())
+            except Exception as e:
+                log_exception(e, "获取NumberItem sceneVisualRect")
 
         # QGraphicsItem：最稳（包含 pos/transform/scale 后的包围盒）
         if hasattr(layer, "sceneBoundingRect") and callable(getattr(layer, "sceneBoundingRect")):
@@ -453,23 +473,9 @@ class LayerEditor:
     # 命中/悬停/光标
     # =========================================================================
     
-    def _rotate_handle_enabled(self) -> bool:
-        """判断旋转手柄是否启用（控制显示 + 命中）"""
-        # 数字(NumberItem)：拖动整个图元时，禁用旋转按钮
-        if self._number_item_mode and getattr(self, "is_moving_item", False):
-            return False
-        return True
-
     def hit_test(self, pos: QPointF) -> Optional[EditHandle]:
         """命中测试：鼠标是否点到某个控制点（pos 需与 handle.position 同坐标系，推荐 scene）"""
         for h in self.handles:
-            # 数字移动时，旋转手柄不可命中
-            if (
-                h.handle_type == HandleType.ROTATE
-                and not self._rotate_handle_enabled()
-            ):
-                continue
-            
             if h.contains(pos):
                 return h
         return None
@@ -483,6 +489,71 @@ class LayerEditor:
         if h:
             return h.cursor
         return Qt.CursorShape.ArrowCursor
+
+    def is_number_adjust_handle(self, handle: Optional[EditHandle]) -> bool:
+        return bool(
+            handle
+            and handle.handle_type in (HandleType.NUMBER_INCREMENT, HandleType.NUMBER_DECREMENT)
+        )
+
+    def is_number_delete_handle(self, handle: Optional[EditHandle]) -> bool:
+        return bool(handle and handle.handle_type == HandleType.NUMBER_DELETE)
+
+    def adjust_number_with_handle(self, handle: EditHandle, undo_stack: Optional[Any] = None) -> bool:
+        """点击序号 +/- 按钮，修改当前 NumberItem。"""
+        if not self.is_editing() or not self._number_item_mode or not self.active_layer:
+            return False
+        if not self.is_number_adjust_handle(handle):
+            return False
+
+        scene = self.active_layer.scene() if hasattr(self.active_layer, "scene") else None
+        if scene is None:
+            return False
+
+        delta = 1 if handle.handle_type == HandleType.NUMBER_INCREMENT else -1
+        old_state = self._copy_layer_state(self.active_layer)
+        old_number = int(getattr(self.active_layer, "number", 1))
+        new_number = max(1, old_number + delta)
+        if new_number == old_number:
+            return True
+        if old_state is None:
+            return False
+
+        try:
+            from tools.number import NumberTool
+            from .undo import NumberEditCommand
+
+            next_before = NumberTool.get_next_number(scene)
+            next_after = NumberTool.get_next_after_number_edit(
+                scene,
+                self.active_layer,
+                old_number,
+                new_number,
+                next_before,
+            )
+            new_state = old_state.copy()
+            new_state["number"] = new_number
+            cmd = NumberEditCommand(
+                self.active_layer,
+                old_state,
+                new_state,
+                next_before=next_before,
+                next_after=next_after,
+            )
+            if undo_stack is not None:
+                if hasattr(undo_stack, "push_command"):
+                    undo_stack.push_command(cmd)
+                elif hasattr(undo_stack, "push"):
+                    undo_stack.push(cmd)
+                else:
+                    cmd.redo()
+            else:
+                cmd.redo()
+        except Exception as exc:
+            log_warning(f"adjust number failed: {exc}", "LayerEditor")
+            return False
+
+        return True
 
     # =========================================================================
     # 拖拽
@@ -986,7 +1057,7 @@ class LayerEditor:
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
-        # 序号工具：额外绘制虚线圈
+        # 序号工具：额外绘制方形虚线框
         if self._number_item_mode and self.active_layer is not None:
             rect = self._get_scene_rect(self.active_layer)
             if isinstance(rect, QRectF) and rect.isValid():
@@ -995,13 +1066,14 @@ class LayerEditor:
                 dash_pen.setCosmetic(True)
                 painter.setPen(dash_pen)
                 painter.setBrush(Qt.BrushStyle.NoBrush)
-                painter.drawEllipse(rect)
+                painter.drawRect(rect)
 
         # 分离旋转手柄和普通手柄
         rotate_handle = None
         normal_handles = []
         control_handles = []  # 箭头弯曲控制点
         radius_handles = []   # 圆角控制点
+        number_handles = []   # 序号 + / - / 删除按钮
         
         for h in self.handles:
             if h.handle_type == HandleType.ROTATE:
@@ -1010,8 +1082,17 @@ class LayerEditor:
                 control_handles.append(h)
             elif h.handle_type == HandleType.CORNER_RADIUS:
                 radius_handles.append(h)
+            elif h.handle_type in (
+                HandleType.NUMBER_INCREMENT,
+                HandleType.NUMBER_DECREMENT,
+                HandleType.NUMBER_DELETE,
+            ):
+                number_handles.append(h)
             else:
                 normal_handles.append(h)
+
+        for h in number_handles:
+            self._render_number_adjust_handle(painter, h)
         
         # 绘制普通控制点（方形）
         for h in normal_handles:
@@ -1065,9 +1146,7 @@ class LayerEditor:
         
         # 绘制旋转手柄（使用SVG图标样式）
         if rotate_handle:
-            # 🆕 使用统一判断：拖动时隐藏旋转手柄
-            if self._rotate_handle_enabled():
-                self._render_rotate_handle(painter, rotate_handle)
+            self._render_rotate_handle(painter, rotate_handle)
 
         painter.restore()
     
@@ -1076,10 +1155,6 @@ class LayerEditor:
         is_hovered = self.hovered_handle is not None and self.hovered_handle.id == handle.id
         center = handle.position
 
-        if self._number_item_mode:
-            self._render_number_rotate_handle(painter, center, is_hovered)
-            return
-        
         # 尝试加载并渲染SVG
         if ResourceManager:
             svg_path = ResourceManager.get_resource_path("svg/旋转.svg")
@@ -1135,19 +1210,42 @@ class LayerEditor:
         inner_radius = radius * 0.5
         painter.drawEllipse(center, inner_radius, inner_radius)
 
-    def _render_number_rotate_handle(self, painter: QPainter, center: QPointF, is_hovered: bool):
-        """序号工具使用绿色方块旋转手柄"""
-        size = 8
-        half = size / 2
-        rect = QRectF(center.x() - half, center.y() - half, size, size)
+    def _render_number_adjust_handle(self, painter: QPainter, handle: EditHandle):
+        """渲染序号工具的 + / - / 删除按钮。"""
+        is_hovered = self.hovered_handle is not None and self.hovered_handle.id == handle.id
+        rect = handle.get_rect()
+        fill = self.NUMBER_BUTTON_HOVER_COLOR if is_hovered else self.NUMBER_BUTTON_COLOR
 
-        base_color = QColor(76, 175, 80)
-        fill = base_color.lighter(130) if is_hovered else base_color
-        border = base_color.darker(120)
-
-        painter.setPen(QPen(border, 1.6))
+        painter.save()
+        painter.setPen(QPen(QColor(255, 255, 255), 1.4))
         painter.setBrush(QBrush(fill))
         painter.drawRect(rect)
+
+        icon_pen = QPen(QColor(255, 255, 255), 1.8)
+        icon_pen.setCosmetic(True)
+        painter.setPen(icon_pen)
+        center = rect.center()
+        half_len = max(3.0, handle.size * 0.28)
+        if handle.handle_type == HandleType.NUMBER_DELETE:
+            painter.drawLine(
+                QPointF(center.x() - half_len, center.y() - half_len),
+                QPointF(center.x() + half_len, center.y() + half_len),
+            )
+            painter.drawLine(
+                QPointF(center.x() + half_len, center.y() - half_len),
+                QPointF(center.x() - half_len, center.y() + half_len),
+            )
+        else:
+            painter.drawLine(
+                QPointF(center.x() - half_len, center.y()),
+                QPointF(center.x() + half_len, center.y()),
+            )
+            if handle.handle_type == HandleType.NUMBER_INCREMENT:
+                painter.drawLine(
+                    QPointF(center.x(), center.y() - half_len),
+                    QPointF(center.x(), center.y() + half_len),
+                )
+        painter.restore()
 
     # =========================================================================
     # 状态拷贝 / 恢复（撤销用 + 避免累计误差）
@@ -1227,6 +1325,13 @@ class LayerEditor:
                 state["corner_radius"] = float(layer.get_corner_radius())
             except Exception as e:
                 log_exception(e, "捕获corner_radius")
+
+        # 序号值（NumberItem）
+        if hasattr(layer, "number"):
+            try:
+                state["number"] = max(1, int(getattr(layer, "number")))
+            except Exception as e:
+                log_exception(e, "捕获number")
 
         return state
 
@@ -1324,4 +1429,3 @@ class LayerEditor:
                 layer.rect = rect
             except Exception as e:
                 log_exception(e, "设置layer rect属性")
- 

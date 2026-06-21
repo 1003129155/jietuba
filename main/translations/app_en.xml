@@ -800,6 +800,10 @@ Replace it?</translation>
         <translation>Always on top</translation>
     </message>
     <message>
+        <source>Text selection</source>
+        <translation>Text selection</translation>
+    </message>
+    <message>
         <source>Shadow effect</source>
         <translation>Shadow effect</translation>
     </message>
@@ -950,6 +954,14 @@ Replace it?</translation>
         <translation>Clipboard</translation>
     </message>
     <message>
+        <source>Translation</source>
+        <translation>Translation</translation>
+    </message>
+    <message>
+        <source>Disable Global Hotkeys</source>
+        <translation>Disable Hotkeys</translation>
+    </message>
+    <message>
         <source>Settings</source>
         <translation>Settings</translation>
     </message>
@@ -957,6 +969,37 @@ Replace it?</translation>
         <source>Exit</source>
         <translation>Exit</translation>
     </message>
+    <message><source>Close all pinned windows</source><translation>Close all pinned windows</translation></message>
+    <message><source>Current pinned windows: {count}</source><translation>Current pinned windows: {count}</translation></message>
+    <message><source>Move all pins to center</source><translation>Move all pins to center</translation></message>
+    <message><source>Thumbnail all pins</source><translation>Thumbnail all pins</translation></message>
+    <message><source>Restore all pin thumbnails</source><translation>Restore all pin thumbnails</translation></message>
+    <message><source>Close all pins</source><translation>Close all pins</translation></message>
+    <message><source>Save all pins as...</source><translation>Save all pins as...</translation></message>
+    <message><source>Choose folder to save pinned images</source><translation>Choose folder to save pinned images</translation></message>
+    <message><source>Save Failed</source><translation>Save Failed</translation></message>
+    <message><source>Saved {saved} pinned images, failed {failed}.</source><translation>Saved {saved} pinned images, failed {failed}.</translation></message>
+</context>
+
+<!-- ========== Main App (Tray Menu) ========== -->
+<context>
+    <name>MainApp</name>
+    <message><source>jietuba - Click to screenshot</source><translation>jietuba - Click to screenshot</translation></message>
+    <message><source>Screenshot</source><translation>Screenshot</translation></message>
+    <message><source>Translation</source><translation>Translation</translation></message>
+    <message><source>Clipboard</source><translation>Clipboard</translation></message>
+    <message><source>Settings</source><translation>Settings</translation></message>
+    <message><source>Exit</source><translation>Exit</translation></message>
+    <message><source>Close all pinned windows</source><translation>Close all pinned windows</translation></message>
+    <message><source>Current pinned windows: {count}</source><translation>Current pinned windows: {count}</translation></message>
+    <message><source>Move all pins to center</source><translation>Move all pins to center</translation></message>
+    <message><source>Thumbnail all pins</source><translation>Thumbnail all pins</translation></message>
+    <message><source>Restore all pin thumbnails</source><translation>Restore all pin thumbnails</translation></message>
+    <message><source>Close all pins</source><translation>Close all pins</translation></message>
+    <message><source>Save all pins as...</source><translation>Save all pins as...</translation></message>
+    <message><source>Choose folder to save pinned images</source><translation>Choose folder to save pinned images</translation></message>
+    <message><source>Save Failed</source><translation>Save Failed</translation></message>
+    <message><source>Saved {saved} pinned images, failed {failed}.</source><translation>Saved {saved} pinned images, failed {failed}.</translation></message>
 </context>
 
 <!-- ========== Translation Dialog ========== -->
@@ -1241,6 +1284,34 @@ Replace it?</translation>
     <message>
         <source>Pin</source>
         <translation>Pin</translation>
+    </message>
+    <message>
+        <source>Pin as Overlay</source>
+        <translation>Pin as Overlay</translation>
+    </message>
+    <message>
+        <source>Save as</source>
+        <translation>Save as</translation>
+    </message>
+    <message>
+        <source>Save Failed</source>
+        <translation>Save Failed</translation>
+    </message>
+    <message>
+        <source>Image data is unavailable.</source>
+        <translation>Image data is unavailable.</translation>
+    </message>
+    <message>
+        <source>Failed to load image data.</source>
+        <translation>Failed to load image data.</translation>
+    </message>
+    <message>
+        <source>Failed to save image.</source>
+        <translation>Failed to save image.</translation>
+    </message>
+    <message>
+        <source>PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp)</source>
+        <translation>PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp)</translation>
     </message>
     <message>
         <source>Open File Location</source>
@@ -2538,5 +2609,26 @@ SOFTWARE.</translation></message>
     </message>
 </context>
 
+<context>
+    <name>SettingsDialog</name>
+    <message><source>Change Location</source><translation>Change Location</translation></message>
+    <message><source>Current clipboard database path is unavailable.</source><translation>Current clipboard database path is unavailable.</translation></message>
+    <message><source>Choose Clipboard Data Folder</source><translation>Choose Clipboard Data Folder</translation></message>
+    <message><source>Info</source><translation>Info</translation></message>
+    <message><source>The selected folder is already the current location.</source><translation>The selected folder is already the current location.</translation></message>
+    <message><source>Please choose a folder outside the current clipboard images folder.</source><translation>Please choose a folder outside the current clipboard images folder.</translation></message>
+    <message><source>Replace Existing Data</source><translation>Replace Existing Data</translation></message>
+    <message><source>The selected folder already contains clipboard data. Replace it with the current data?</source><translation>The selected folder already contains clipboard data. Replace it with the current data?</translation></message>
+    <message><source>Failed to close the current clipboard database.</source><translation>Failed to close the current clipboard database.</translation></message>
+    <message><source>Preparing migration...</source><translation>Preparing migration...</translation></message>
+    <message><source>Moving Clipboard Data</source><translation>Moving Clipboard Data</translation></message>
+    <message><source>Finalizing migration...</source><translation>Finalizing migration...</translation></message>
+    <message><source>Migration complete.</source><translation>Migration complete.</translation></message>
+    <message><source>Clipboard data location changed successfully.</source><translation>Clipboard data location changed successfully.</translation></message>
+    <message><source>Clipboard data location changed successfully, but the old files are still in use and could not be deleted. You can remove them after restarting the app.\n{error}</source><translation>Clipboard data location changed successfully, but the old files are still in use and could not be deleted. You can remove them after restarting the app.\n{error}</translation></message>
+    <message><source>Clipboard data moved, but reopening the database failed. Please restart the app.</source><translation>Clipboard data moved, but reopening the database failed. Please restart the app.</translation></message>
+    <message><source>No clipboard data files were found to move.</source><translation>No clipboard data files were found to move.</translation></message>
+    <message><source>Moving clipboard data... {done} / {total}</source><translation>Moving clipboard data... {done} / {total}</translation></message>
+</context>
+
 </TS>
- 

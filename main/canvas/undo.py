@@ -4,15 +4,20 @@ undo.py - QUndoStack 的矢量图形撤销/重做（命令模式）
 包含：
 - CommandUndoStack：带调试信息的撤销栈（push_command / undo / redo / print_stack_status）
 - AddItemCommand：添加图元
+- AddNumberCommand：添加序号图元并同步下一序号
 - RemoveItemCommand：移除图元
+- RemoveNumberCommand：移除序号图元但保持下一序号不变
+- RemoveNumberAndRenumberCommand：移除序号图元并将剩余序号压缩为 1..N
 - BatchRemoveCommand：批量移除图元（橡皮擦等工具）
 - EditItemCommand：编辑图元（控制点拖拽/变换等），通过 old_state / new_state 回放
+- NumberEditCommand：编辑序号值并同步下一序号
 
 state 约定（EditItemCommand 支持的字段）：
 - "pos": QPointF
 - "transform": QTransform
 - "rotation": float
 - "transformOriginPoint": QPointF
+- "number": int
 - "rect": QRectF
 - "start": QPointF
 - "end": QPointF
@@ -20,6 +25,7 @@ state 约定（EditItemCommand 支持的字段）：
 
 from __future__ import annotations
 
+import time
 from typing import Optional, Dict, Any
 
 from PySide6.QtCore import QRectF, QPointF
@@ -79,6 +85,84 @@ class CommandUndoStack(QUndoStack):
 # Commands
 # ============================================================================
 
+def _is_number_item(item: QGraphicsItem) -> bool:
+    try:
+        from canvas.items import NumberItem
+        return isinstance(item, NumberItem)
+    except Exception:
+        return False
+
+
+def _items_contain_number(items: list) -> bool:
+    return any(_is_number_item(item) for item in items)
+
+
+def _get_number_next(scene: QGraphicsScene) -> Optional[int]:
+    try:
+        from tools.number import NumberTool
+        return NumberTool.get_next_number(scene)
+    except Exception as e:
+        log_exception(e, "获取序号计数器")
+        return None
+
+
+def _set_number_next(scene: QGraphicsScene, next_number: Optional[int]):
+    if next_number is None:
+        return
+    try:
+        from tools.number import NumberTool
+        NumberTool.set_next_number_and_refresh(scene, int(next_number))
+    except Exception as e:
+        log_exception(e, "恢复序号计数器")
+
+
+def _get_number_items(scene: QGraphicsScene) -> list:
+    if scene is None:
+        return []
+    try:
+        return [item for item in scene.items() if _is_number_item(item)]
+    except Exception as e:
+        log_exception(e, "获取序号图元")
+        return []
+
+
+def _get_draw_order_map(scene: QGraphicsScene) -> Dict[int, int]:
+    """返回接近绘制顺序的索引：越早绘制，值越小。"""
+    if scene is None:
+        return {}
+    try:
+        return {id(item): index for index, item in enumerate(reversed(scene.items()))}
+    except Exception as e:
+        log_exception(e, "获取绘制顺序")
+        return {}
+
+
+def _number_value(item: QGraphicsItem) -> int:
+    try:
+        return max(1, int(getattr(item, "number", 1)))
+    except Exception:
+        return 1
+
+
+def _number_order_value(item: QGraphicsItem, fallback: int) -> int:
+    order = getattr(item, "number_order", None)
+    if isinstance(order, int) and order >= 0:
+        return order
+    return fallback
+
+
+def _apply_number_values(values: Dict[QGraphicsItem, int]):
+    for item, number in values.items():
+        if item is None:
+            continue
+        try:
+            setattr(item, "number", max(1, int(number)))
+            if hasattr(item, "update"):
+                item.update()
+        except Exception as e:
+            log_exception(e, "应用序号重排")
+
+
 class AddItemCommand(QUndoCommand):
     """添加图元命令"""
 
@@ -94,6 +178,32 @@ class AddItemCommand(QUndoCommand):
     def redo(self):
         if self.item is not None and self.item.scene() != self.scene:
             self.scene.addItem(self.item)
+
+
+class AddNumberCommand(AddItemCommand):
+    """添加序号图元，同时记录创建前后的下一序号。"""
+
+    def __init__(
+        self,
+        scene: QGraphicsScene,
+        item: QGraphicsItem,
+        next_before: Optional[int] = None,
+        next_after: Optional[int] = None,
+        text: str = "Add Number",
+    ):
+        super().__init__(scene, item, text)
+        self.next_before = next_before if next_before is not None else _get_number_next(scene)
+        item_number = int(getattr(item, "number", self.next_before or 1))
+        default_after = max(int(self.next_before or 1), item_number) + 1
+        self.next_after = next_after if next_after is not None else default_after
+
+    def undo(self):
+        super().undo()
+        _set_number_next(self.scene, self.next_before)
+
+    def redo(self):
+        super().redo()
+        _set_number_next(self.scene, self.next_after)
 
 
 class RemoveItemCommand(QUndoCommand):
@@ -113,25 +223,108 @@ class RemoveItemCommand(QUndoCommand):
             self.scene.removeItem(self.item)
 
 
+class RemoveNumberCommand(RemoveItemCommand):
+    """移除序号图元，但保持删除前的“下一个序号”不变。"""
+
+    def __init__(self, scene: QGraphicsScene, item: QGraphicsItem, text: str = "Remove Number"):
+        super().__init__(scene, item, text)
+
+    def undo(self):
+        next_number = _get_number_next(self.scene)
+        super().undo()
+        _set_number_next(self.scene, next_number)
+
+    def redo(self):
+        next_number = _get_number_next(self.scene)
+        super().redo()
+        _set_number_next(self.scene, next_number)
+
+
+class RemoveNumberAndRenumberCommand(RemoveItemCommand):
+    """移除序号图元，并按当前数字和创建顺序重排剩余序号。"""
+
+    def __init__(self, scene: QGraphicsScene, item: QGraphicsItem, text: str = "Remove Number And Renumber"):
+        super().__init__(scene, item, text)
+        self.next_before = _get_number_next(scene)
+        self.old_numbers = {
+            number_item: _number_value(number_item)
+            for number_item in _get_number_items(scene)
+        }
+        remaining = [
+            number_item
+            for number_item in _get_number_items(scene)
+            if number_item is not item
+        ]
+        self._renumber_start = min((_number_value(it) for it in remaining), default=1)
+        self.new_numbers = self._build_new_numbers(remaining, self._renumber_start)
+        self.next_after = self._renumber_start + len(remaining) if remaining else 1
+
+    def _build_new_numbers(self, remaining: list, start: int) -> Dict[QGraphicsItem, int]:
+        draw_order = _get_draw_order_map(self.scene)
+        remaining.sort(
+            key=lambda number_item: (
+                _number_value(number_item),
+                _number_order_value(number_item, draw_order.get(id(number_item), 0)),
+            )
+        )
+        return {
+            number_item: start + index
+            for index, number_item in enumerate(remaining)
+        }
+
+    def undo(self):
+        if self.item is not None and self.item.scene() != self.scene:
+            self.scene.addItem(self.item)
+        _apply_number_values(self.old_numbers)
+        _set_number_next(self.scene, self.next_before)
+        if self.scene is not None:
+            self.scene.update()
+
+    def redo(self):
+        if self.item is not None and self.item.scene() == self.scene:
+            self.scene.removeItem(self.item)
+        _apply_number_values(self.new_numbers)
+        _set_number_next(self.scene, self.next_after)
+        if self.scene is not None:
+            self.scene.update()
+
+
+RemoveNumberItemCommand = RemoveNumberCommand
+
+
 class BatchRemoveCommand(QUndoCommand):
     """批量移除图元命令（用于橡皮擦等工具）"""
 
-    def __init__(self, scene: QGraphicsScene, items: list, text: str = "Remove Items"):
+    def __init__(self, scene: QGraphicsScene, items: list, text: str = "Remove Items", number_next_before: Optional[int] = None):
         super().__init__(text)
         self.scene = scene
         self.items = list(items)  # 复制列表避免外部修改
+        self._has_number_items = _items_contain_number(self.items)
+        self.number_next_before = number_next_before
+        self._first_redo = True
 
     def undo(self):
         """撤销 - 恢复所有被删除的图元"""
+        next_number = _get_number_next(self.scene) if self._has_number_items else None
         for item in self.items:
             if item is not None and item.scene() != self.scene:
                 self.scene.addItem(item)
+        _set_number_next(self.scene, next_number)
 
     def redo(self):
         """重做 - 删除所有图元"""
+        if not self._has_number_items:
+            next_number = None
+        elif self._first_redo and self.number_next_before is not None:
+            next_number = self.number_next_before
+        else:
+            next_number = _get_number_next(self.scene)
+
         for item in self.items:
             if item is not None and item.scene() == self.scene:
                 self.scene.removeItem(item)
+        _set_number_next(self.scene, next_number)
+        self._first_redo = False
 
 
 class EditItemCommand(QUndoCommand):
@@ -208,6 +401,14 @@ class EditItemCommand(QUndoCommand):
                 self.item.setOpacity(float(opacity))
             except Exception as e:
                 log_exception(e, "恢复opacity")
+
+        # number（NumberItem）
+        number = state.get("number")
+        if isinstance(number, int) and hasattr(self.item, "number"):
+            try:
+                setattr(self.item, "number", max(1, int(number)))
+            except Exception as e:
+                log_exception(e, "恢复number属性")
 
         # rect（RectItem/EllipseItem 等）
         rect = state.get("rect")
@@ -327,4 +528,51 @@ class EditItemCommand(QUndoCommand):
         # 触发重绘
         if hasattr(self.item, "update"):
             self.item.update()
+
+
+class NumberEditCommand(EditItemCommand):
+    """序号加减命令：短时间连续点击同一图元时合并为一个撤销步骤。"""
+
+    MERGE_WINDOW_SECONDS = 0.7
+    COMMAND_ID = 0x4E554D  # "NUM"
+
+    def __init__(
+        self,
+        item: QGraphicsItem,
+        old_state: Dict[str, Any],
+        new_state: Dict[str, Any],
+        next_before: Optional[int] = None,
+        next_after: Optional[int] = None,
+        text: str = "Edit Number",
+    ):
+        super().__init__(item, old_state, new_state, text)
+        self.scene = item.scene() if item is not None and hasattr(item, "scene") else None
+        self.next_before = next_before
+        self.next_after = next_after
+        self._last_merge_time = time.monotonic()
+
+    def undo(self):
+        super().undo()
+        _set_number_next(self.scene, self.next_before)
+
+    def redo(self):
+        super().redo()
+        _set_number_next(self.scene, self.next_after)
+
+    def id(self) -> int:
+        return self.COMMAND_ID
+
+    def mergeWith(self, other: QUndoCommand) -> bool:
+        if not isinstance(other, NumberEditCommand):
+            return False
+        if self.item is None or self.item is not other.item:
+            return False
+        now = time.monotonic()
+        if now - self._last_merge_time > self.MERGE_WINDOW_SECONDS:
+            return False
+
+        self.new_state = self._clone_state(other.new_state)
+        self.next_after = other.next_after
+        self._last_merge_time = now
+        return True
  

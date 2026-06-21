@@ -3,7 +3,6 @@
 <TS version="2.1" language="ja_JP">
 <!--
     日本語翻訳ファイル (デフォルト言語)
-    
     注意: 日本語がデフォルトなので translation は source と同じ
 -->
 
@@ -813,6 +812,10 @@ Replace it?</source>
         <translation>常に手前に表示</translation>
     </message>
     <message>
+        <source>Text selection</source>
+        <translation>テキスト選択</translation>
+    </message>
+    <message>
         <source>Shadow effect</source>
         <translation>影効果</translation>
     </message>
@@ -963,6 +966,14 @@ Replace it?</source>
         <translation>クリップボード</translation>
     </message>
     <message>
+        <source>Translation</source>
+        <translation>翻訳</translation>
+    </message>
+    <message>
+        <source>Disable Global Hotkeys</source>
+        <translation>ホットキーを無効化</translation>
+    </message>
+    <message>
         <source>Settings</source>
         <translation>設定</translation>
     </message>
@@ -970,6 +981,16 @@ Replace it?</source>
         <source>Exit</source>
         <translation>終了</translation>
     </message>
+    <message><source>Close all pinned windows</source><translation>全部のピン留めを閉じる</translation></message>
+    <message><source>Current pinned windows: {count}</source><translation>現在のピン留め: {count} 個</translation></message>
+    <message><source>Move all pins to center</source><translation>すべてのピン留めを画面中央へ</translation></message>
+    <message><source>Thumbnail all pins</source><translation>ピン留めをサムネイル化</translation></message>
+    <message><source>Restore all pin thumbnails</source><translation>ピン留めのサムネイルを解除</translation></message>
+    <message><source>Close all pins</source><translation>すべてのピン留めを閉じる</translation></message>
+    <message><source>Save all pins as...</source><translation>すべてのピン留めを保存</translation></message>
+    <message><source>Choose folder to save pinned images</source><translation>ピン留め画像の保存先フォルダーを選択</translation></message>
+    <message><source>Save Failed</source><translation>保存に失敗しました</translation></message>
+    <message><source>Saved {saved} pinned images, failed {failed}.</source><translation>{saved} 個のピン留め画像を保存し、{failed} 個失敗しました。</translation></message>
 </context>
 
 <!-- ========== Main App (Tray Menu) ========== -->
@@ -1341,6 +1362,34 @@ Replace it?</source>
         <translation>ピン留め</translation>
     </message>
     <message>
+        <source>Pin as Overlay</source>
+        <translation>ピン留生成</translation>
+    </message>
+    <message>
+        <source>Save as</source>
+        <translation>名前を付けて保存</translation>
+    </message>
+    <message>
+        <source>Save Failed</source>
+        <translation>保存に失敗しました</translation>
+    </message>
+    <message>
+        <source>Image data is unavailable.</source>
+        <translation>画像データを利用できません。</translation>
+    </message>
+    <message>
+        <source>Failed to load image data.</source>
+        <translation>画像データの読み込みに失敗しました。</translation>
+    </message>
+    <message>
+        <source>Failed to save image.</source>
+        <translation>画像の保存に失敗しました。</translation>
+    </message>
+    <message>
+        <source>PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp)</source>
+        <translation>PNG 画像 (*.png);;JPEG 画像 (*.jpg *.jpeg);;BMP 画像 (*.bmp)</translation>
+    </message>
+    <message>
         <source>Open File Location</source>
         <translation>ファイルの場所を開く</translation>
     </message>
@@ -1511,7 +1560,7 @@ Replace it?</source>
     </message>
     <message>
         <source>General Group</source>
-        <translation>通常グループ</translation>
+        <translation>通常</translation>
     </message>
     <message>
         <source>Group Type</source>
@@ -1547,7 +1596,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Hidden groups are not displayed on the clipboard panel; changing to normal group restores visibility</source>
-        <translation>非表示グループはクリップボードパネルに表示されません。通常グループに変更すると再表示されます</translation>
+        <translation>パネル非表示。通常グループに変更で表示</translation>
     </message>
     <message>
         <source>General groups allow any content; selecting an item pastes content or files to the target</source>
@@ -1885,7 +1934,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Open Folder</source>
-        <translation>フォルダを開く</translation>
+        <translation>開く</translation>
     </message>
     <message>
         <source>Clear Clipboard History</source>
@@ -2632,5 +2681,26 @@ SOFTWARE.</translation></message>
     </message>
 </context>
 
+<context>
+    <name>SettingsDialog</name>
+    <message><source>Change Location</source><translation>変更</translation></message>
+    <message><source>Current clipboard database path is unavailable.</source><translation>現在のクリップボードデータベースの場所を取得できません。</translation></message>
+    <message><source>Choose Clipboard Data Folder</source><translation>クリップボードデータフォルダーを選択</translation></message>
+    <message><source>Info</source><translation>情報</translation></message>
+    <message><source>The selected folder is already the current location.</source><translation>選択したフォルダーは現在の場所です。</translation></message>
+    <message><source>Please choose a folder outside the current clipboard images folder.</source><translation>現在のクリップボード画像フォルダーの外側を選択してください。</translation></message>
+    <message><source>Replace Existing Data</source><translation>既存データを置換</translation></message>
+    <message><source>The selected folder already contains clipboard data. Replace it with the current data?</source><translation>選択したフォルダーには既にクリップボードデータがあります。現在のデータで置き換えますか？</translation></message>
+    <message><source>Failed to close the current clipboard database.</source><translation>現在のクリップボードデータベースを閉じられませんでした。</translation></message>
+    <message><source>Preparing migration...</source><translation>移行を準備しています...</translation></message>
+    <message><source>Moving Clipboard Data</source><translation>クリップボードデータを移動中</translation></message>
+    <message><source>Finalizing migration...</source><translation>移行を完了しています...</translation></message>
+    <message><source>Migration complete.</source><translation>移行が完了しました。</translation></message>
+    <message><source>Clipboard data location changed successfully.</source><translation>クリップボードデータの場所を変更しました。</translation></message>
+    <message><source>Clipboard data location changed successfully, but the old files are still in use and could not be deleted. You can remove them after restarting the app.\n{error}</source><translation>クリップボードデータの場所を変更しましたが、古いファイルはまだ使用中のため削除できませんでした。アプリを再起動した後で削除できます。\n{error}</translation></message>
+    <message><source>Clipboard data moved, but reopening the database failed. Please restart the app.</source><translation>クリップボードデータは移動しましたが、データベースを再度開けませんでした。アプリを再起動してください。</translation></message>
+    <message><source>No clipboard data files were found to move.</source><translation>移動するクリップボードデータファイルが見つかりませんでした。</translation></message>
+    <message><source>Moving clipboard data... {done} / {total}</source><translation>クリップボードデータを移動中... {done} / {total}</translation></message>
+</context>
+
 </TS>
- 

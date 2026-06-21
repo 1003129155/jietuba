@@ -19,6 +19,7 @@ except ImportError:
 
 def create_group_icon_picker(dialog, current_icon: str = "📁"):
     """创建分组图标选择器。"""
+    form_token = getattr(dialog, "_detail_form_token", None)
     input_row = QHBoxLayout()
     input_row.setSpacing(12)
 
@@ -27,7 +28,7 @@ def create_group_icon_picker(dialog, current_icon: str = "📁"):
     dialog.icon_input.setText(current_icon)
     dialog.icon_input.setMaxLength(4)
     dialog.icon_input.setStyleSheet("font-size: 18px; min-width: 120px; max-width: 150px;")
-    dialog.icon_input.textChanged.connect(dialog._on_icon_input_changed)
+    dialog.icon_input.textChanged.connect(lambda text, token=form_token: dialog._on_icon_input_changed(text, token))
     input_row.addWidget(dialog.icon_input)
 
     preview_label = CaptionLabel(dialog.tr("Preview:"))
@@ -67,7 +68,7 @@ def create_group_icon_picker(dialog, current_icon: str = "📁"):
         btn.setToolTip(group_name)
         btn.setCheckable(True)
         btn.setStyleSheet(emoji_tab_style(False))
-        btn.clicked.connect(lambda checked, i=idx: dialog._switch_emoji_group(i))
+        btn.clicked.connect(lambda checked, i=idx, token=form_token: dialog._switch_emoji_group(i, token))
         tab_bar.addWidget(btn)
         dialog._emoji_tab_buttons.append(btn)
     tab_bar.addStretch()
@@ -88,7 +89,7 @@ def create_group_icon_picker(dialog, current_icon: str = "📁"):
     dialog.detail_layout.addWidget(dialog._emoji_scroll, 1)
 
     dialog._emoji_current_idx = 0
-    QTimer.singleShot(0, lambda: dialog._switch_emoji_group(0))
+    QTimer.singleShot(0, lambda token=form_token: dialog._switch_emoji_group(0, token))
 
 
 def emoji_tab_style(active: bool) -> str:
@@ -153,12 +154,13 @@ def switch_emoji_group(dialog, group_idx: int):
     grid.setContentsMargins(2, 2, 2, 2)
 
     btn_style = emoji_btn_style()
+    form_token = getattr(dialog, "_detail_form_token", None)
     for i, em in enumerate(emojis):
         btn = QPushButton(em)
         btn.setFixedSize(btn_size, btn_size)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setStyleSheet(btn_style)
-        btn.clicked.connect(lambda checked, ic=em: dialog._on_preset_icon_clicked(ic))
+        btn.clicked.connect(lambda checked, ic=em, token=form_token: dialog._on_preset_icon_clicked(ic, token))
         grid.addWidget(btn, i // cols, i % cols)
 
     grid.setColumnStretch(cols, 1)

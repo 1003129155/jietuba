@@ -2,9 +2,11 @@
 钉图管理器 - 单例模式管理所有钉图窗口实例
 """
 
-from typing import List, Optional
+from pathlib import Path
+from typing import List, Optional, Tuple
 from PySide6.QtCore import Qt, QObject, Signal, QPoint
 from PySide6.QtGui import QImage
+from PySide6.QtWidgets import QApplication
 from core import log_debug, log_info, log_error
 
 import ctypes
@@ -74,7 +76,8 @@ class PinManager(QObject):
         position: QPoint,
         config_manager,
         drawing_items: Optional[List] = None,
-        selection_offset: Optional[QPoint] = None
+        selection_offset: Optional[QPoint] = None,
+        number_next: Optional[int] = None,
     ):
         """
         创建新钉图窗口
@@ -85,6 +88,7 @@ class PinManager(QObject):
             config_manager: 配置管理器
             drawing_items: 绘制项目列表（从截图窗口继承的向量图形）
             selection_offset: 选区在原场景中的偏移量（用于转换绘制项目坐标）
+            number_next: 源场景的下一个序号值（用于同步计数器）
             
         Returns:
             PinWindow: 创建的钉图窗口实例
@@ -97,7 +101,8 @@ class PinManager(QObject):
             position=position,
             config_manager=config_manager,
             drawing_items=drawing_items,
-            selection_offset=selection_offset
+            selection_offset=selection_offset,
+            number_next=number_next,
         )
         
         # 连接关闭信号
@@ -200,6 +205,77 @@ class PinManager(QObject):
             pin_window.hide()
         
         log_debug(f"隐藏了 {len(self.pin_windows)} 个钉图窗口", "PinManager")
+
+    def move_all_to_screen_center(self):
+        """移动所有钉图窗口到各自所在屏幕的中心。"""
+        for pin_window in self.get_all_pins():
+            try:
+                screen = QApplication.screenAt(pin_window.geometry().center())
+                if screen is None:
+                    screen = QApplication.primaryScreen()
+                if screen is None:
+                    continue
+
+                screen_rect = screen.availableGeometry()
+                x = screen_rect.x() + (screen_rect.width() - pin_window.width()) // 2
+                y = screen_rect.y() + (screen_rect.height() - pin_window.height()) // 2
+                pin_window.move(x, y)
+            except Exception as e:
+                log_error(f"移动钉图到屏幕中心失败: {e}", "PinManager")
+
+        log_debug(f"已移动 {len(self.pin_windows)} 个钉图到屏幕中心", "PinManager")
+
+    def set_all_thumbnail_mode(self, active: bool):
+        """批量进入或退出缩略图模式。"""
+        changed = 0
+        for pin_window in self.get_all_pins():
+            try:
+                if bool(pin_window._thumbnail_mode) != active:
+                    pin_window.toggle_thumbnail_mode()
+                    changed += 1
+            except Exception as e:
+                log_error(f"切换钉图缩略图模式失败: {e}", "PinManager")
+
+        mode = "进入" if active else "退出"
+        log_debug(f"{changed} 个钉图已{mode}缩略图模式", "PinManager")
+
+    def save_all_to_directory(self, directory: str, prefix: str = "pins") -> Tuple[int, int]:
+        """
+        保存所有钉图到指定目录。
+
+        Returns:
+            Tuple[int, int]: (保存成功数量, 保存失败数量)
+        """
+        output_dir = Path(directory)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        saved = 0
+        failed = 0
+        for index, pin_window in enumerate(self.get_all_pins(), start=1):
+            file_path = output_dir / f"{prefix}_{index:03d}.png"
+            try:
+                ok = False
+
+                def _do_save():
+                    nonlocal ok
+                    ok = pin_window.get_current_image().save(str(file_path))
+
+                if hasattr(pin_window, "_with_edit_paused"):
+                    pin_window._with_edit_paused(_do_save)
+                else:
+                    _do_save()
+
+                if ok:
+                    saved += 1
+                else:
+                    failed += 1
+                    log_error(f"保存钉图失败: {file_path}", "PinManager")
+            except Exception as e:
+                failed += 1
+                log_error(f"保存钉图失败: {e}", "PinManager")
+
+        log_info(f"批量保存钉图完成: 成功 {saved}, 失败 {failed}", "PinManager")
+        return saved, failed
     
     # ------------------------------------------------------------------
     # 使用 Win32 SetWindowPos 直接切换 TOPMOST/NOTOPMOST，
@@ -243,4 +319,3 @@ class PinManager(QObject):
 def get_pin_manager():
     """获取钉图管理器单例"""
     return PinManager.instance()
- 

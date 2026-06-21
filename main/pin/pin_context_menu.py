@@ -46,6 +46,7 @@ class PinContextMenu:
                 - toolbar_visible: 工具栏是否可见
                 - stay_on_top: 是否置顶
                 - shadow_enabled: 阴影是否启用
+                - text_selection_enabled: 文字选择是否启用
                 - has_ocr_result: 是否有 OCR 结果
         """
         menu = QMenu(self.parent)
@@ -188,6 +189,15 @@ class PinContextMenu:
             shadow_action = QAction(_toggle_text(self.parent.tr("Shadow effect"), shadow_enabled), self.parent)
             shadow_action.triggered.connect(self.parent.toggle_border_effect)
             menu.addAction(shadow_action)
+
+            # 切换文字选择
+            text_selection_enabled = state.get('text_selection_enabled', True)
+            text_selection_action = QAction(
+                _toggle_text(self.parent.tr("Text selection"), text_selection_enabled),
+                self.parent,
+            )
+            text_selection_action.triggered.connect(self.parent.toggle_text_selection)
+            menu.addAction(text_selection_action)
         
         # 缩略图模式（任何模式都可用）
         thumbnail_mode = state.get('thumbnail_mode', False)

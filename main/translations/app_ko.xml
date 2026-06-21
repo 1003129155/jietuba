@@ -4,7 +4,6 @@
 <!--
     Korean Translation File
 -->
-
 <!-- ========== Settings Navigation ========== -->
 <context>
     <name>SettingsDialog</name>
@@ -800,6 +799,10 @@ Replace it?</source>
         <translation>항상 위</translation>
     </message>
     <message>
+        <source>Text selection</source>
+        <translation>텍스트 선택</translation>
+    </message>
+    <message>
         <source>Shadow effect</source>
         <translation>그림자 효과</translation>
     </message>
@@ -950,6 +953,14 @@ Replace it?</source>
         <translation>클립보드</translation>
     </message>
     <message>
+        <source>Translation</source>
+        <translation>번역</translation>
+    </message>
+    <message>
+        <source>Disable Global Hotkeys</source>
+        <translation>전역 비활성화</translation>
+    </message>
+    <message>
         <source>Settings</source>
         <translation>설정</translation>
     </message>
@@ -957,6 +968,16 @@ Replace it?</source>
         <source>Exit</source>
         <translation>종료</translation>
     </message>
+    <message><source>Close all pinned windows</source><translation>모든 고정 창 닫기</translation></message>
+    <message><source>Current pinned windows: {count}</source><translation>현재 고정 창: {count}개</translation></message>
+    <message><source>Move all pins to center</source><translation>모든 고정 창을 화면 중앙으로 이동</translation></message>
+    <message><source>Thumbnail all pins</source><translation>모든 고정 창을 썸네일로 전환</translation></message>
+    <message><source>Restore all pin thumbnails</source><translation>모든 고정 창 썸네일 해제</translation></message>
+    <message><source>Close all pins</source><translation>모든 고정 창 닫기</translation></message>
+    <message><source>Save all pins as...</source><translation>모든 고정 창 다른 이름으로 저장...</translation></message>
+    <message><source>Choose folder to save pinned images</source><translation>고정 이미지를 저장할 폴더 선택</translation></message>
+    <message><source>Save Failed</source><translation>저장 실패</translation></message>
+    <message><source>Saved {saved} pinned images, failed {failed}.</source><translation>고정 이미지 {saved}개 저장, {failed}개 실패.</translation></message>
 </context>
 
 <!-- ========== Main App (Tray Menu) ========== -->
@@ -1272,6 +1293,34 @@ Replace it?</source>
         <translation>고정</translation>
     </message>
     <message>
+        <source>Pin as Overlay</source>
+        <translation>핀 생성</translation>
+    </message>
+    <message>
+        <source>Save as</source>
+        <translation>다른 이름으로 저장</translation>
+    </message>
+    <message>
+        <source>Save Failed</source>
+        <translation>저장 실패</translation>
+    </message>
+    <message>
+        <source>Image data is unavailable.</source>
+        <translation>이미지 데이터를 사용할 수 없습니다.</translation>
+    </message>
+    <message>
+        <source>Failed to load image data.</source>
+        <translation>이미지 데이터를 불러오지 못했습니다.</translation>
+    </message>
+    <message>
+        <source>Failed to save image.</source>
+        <translation>이미지 저장에 실패했습니다.</translation>
+    </message>
+    <message>
+        <source>PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp)</source>
+        <translation>PNG 이미지 (*.png);;JPEG 이미지 (*.jpg *.jpeg);;BMP 이미지 (*.bmp)</translation>
+    </message>
+    <message>
         <source>Open File Location</source>
         <translation>파일 위치 열기</translation>
     </message>
@@ -1478,7 +1527,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Hidden groups are not displayed on the clipboard panel; changing to normal group restores visibility</source>
-        <translation>숨김 그룹은 클립보드 패널에 표시되지 않습니다. 일반 그룹으로 변경하면 다시 표시됩니다</translation>
+        <translation>패널에서 숨김. 일반 그룹으로 변경 시 표시</translation>
     </message>
     <message>
         <source>General groups allow any content; selecting an item pastes content or files to the target</source>
@@ -1816,7 +1865,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Open Folder</source>
-        <translation>폴더 열기</translation>
+        <translation>열기</translation>
     </message>
     <message>
         <source>Clear Clipboard History</source>
@@ -2567,5 +2616,26 @@ SOFTWARE.</translation></message>
     </message>
 </context>
 
+<context>
+    <name>SettingsDialog</name>
+    <message><source>Change Location</source><translation>위치 변경</translation></message>
+    <message><source>Current clipboard database path is unavailable.</source><translation>현재 클립보드 데이터베이스 위치를 가져올 수 없습니다.</translation></message>
+    <message><source>Choose Clipboard Data Folder</source><translation>클립보드 데이터 폴더 선택</translation></message>
+    <message><source>Info</source><translation>정보</translation></message>
+    <message><source>The selected folder is already the current location.</source><translation>선택한 폴더가 이미 현재 위치입니다.</translation></message>
+    <message><source>Please choose a folder outside the current clipboard images folder.</source><translation>현재 클립보드 이미지 폴더 밖의 폴더를 선택하세요.</translation></message>
+    <message><source>Replace Existing Data</source><translation>기존 데이터 교체</translation></message>
+    <message><source>The selected folder already contains clipboard data. Replace it with the current data?</source><translation>선택한 폴더에 이미 클립보드 데이터가 있습니다. 현재 데이터로 교체할까요?</translation></message>
+    <message><source>Failed to close the current clipboard database.</source><translation>현재 클립보드 데이터베이스를 닫지 못했습니다.</translation></message>
+    <message><source>Preparing migration...</source><translation>이동을 준비하는 중...</translation></message>
+    <message><source>Moving Clipboard Data</source><translation>클립보드 데이터 이동 중</translation></message>
+    <message><source>Finalizing migration...</source><translation>이동을 마무리하는 중...</translation></message>
+    <message><source>Migration complete.</source><translation>이동이 완료되었습니다.</translation></message>
+    <message><source>Clipboard data location changed successfully.</source><translation>클립보드 데이터 위치가 변경되었습니다.</translation></message>
+    <message><source>Clipboard data location changed successfully, but the old files are still in use and could not be deleted. You can remove them after restarting the app.\n{error}</source><translation>클립보드 데이터 위치가 변경되었지만, 이전 파일이 아직 사용 중이라 삭제하지 못했습니다. 앱을 다시 시작한 뒤 삭제할 수 있습니다.\n{error}</translation></message>
+    <message><source>Clipboard data moved, but reopening the database failed. Please restart the app.</source><translation>클립보드 데이터는 이동했지만 데이터베이스를 다시 열지 못했습니다. 앱을 다시 시작하세요.</translation></message>
+    <message><source>No clipboard data files were found to move.</source><translation>이동할 클립보드 데이터 파일을 찾지 못했습니다.</translation></message>
+    <message><source>Moving clipboard data... {done} / {total}</source><translation>클립보드 데이터 이동 중... {done} / {total}</translation></message>
+</context>
+
 </TS>
- 

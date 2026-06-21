@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from shiboken6 import isValid
 
 from qfluentwidgets import (
     BodyLabel,
@@ -76,6 +77,15 @@ from ..widgets.draggable_list_widget import DraggableListWidget
 _manage_window_instance: Optional["ManageDialog"] = None
 
 
+def _qt_object_is_valid(obj) -> bool:
+    if obj is None:
+        return False
+    try:
+        return isValid(obj)
+    except RuntimeError:
+        return False
+
+
 def get_manage_dialog(manager: ClipboardManager = None) -> "ManageDialog":
     """获取管理窗口的单例实例"""
     global _manage_window_instance
@@ -105,6 +115,7 @@ class ManageDialog(QWidget):
         self.selected_group_id = None
         self.editing_group_id = None
         self.editing_item_id = None
+        self._detail_form_token = 0
 
         self.setWindowTitle(self.tr("Clipboard Management"))
         self.setMinimumSize(800, 540)
@@ -716,7 +727,28 @@ class ManageDialog(QWidget):
 
     def _clear_detail_layout(self):
         """清空详情区域"""
+        self._detail_form_token += 1
         self.icon_buttons = []
+        for attr in (
+            "group_name_input",
+            "icon_input",
+            "icon_preview",
+            "radio_normal",
+            "radio_file",
+            "radio_hidden",
+            "_group_type_btn_group",
+            "_emoji_scroll",
+        ):
+            widget = getattr(self, attr, None)
+            if _qt_object_is_valid(widget):
+                try:
+                    widget.blockSignals(True)
+                except Exception:
+                    pass
+            setattr(self, attr, None)
+        self._emoji_tab_buttons = []
+        self._emoji_group_order = []
+        self._emoji_groups = {}
 
         def clear_layout(layout):
             while layout.count():
@@ -730,6 +762,9 @@ class ManageDialog(QWidget):
 
         clear_layout(self.detail_layout)
 
+    def _is_current_detail_form_token(self, form_token: Optional[int]) -> bool:
+        return form_token is None or form_token == self._detail_form_token
+
     def _show_new_group_form(self):
         """显示新建分组表单"""
         self._clear_detail_layout()
@@ -741,15 +776,17 @@ class ManageDialog(QWidget):
         build_new_group_form(self)
         self._update_group_form_header()
 
-    def _on_group_type_toggled(self, checked: bool):
+    def _on_group_type_toggled(self, checked: bool, form_token: Optional[int] = None):
         """分组类型切换时，若用户未手动修改图标则自动切换默认图标"""
-        if not hasattr(self, "icon_input"):
+        if not self._is_current_detail_form_token(form_token):
+            return
+        if not _qt_object_is_valid(getattr(self, "icon_input", None)):
             return
         if not checked:
             return  # 只处理选中事件，避免重复触发
         current = self.icon_input.text()
-        is_file_group = hasattr(self, "radio_file") and self.radio_file.isChecked()
-        is_hidden = hasattr(self, "radio_hidden") and self.radio_hidden.isChecked()
+        is_file_group = _qt_object_is_valid(getattr(self, "radio_file", None)) and self.radio_file.isChecked()
+        is_hidden = _qt_object_is_valid(getattr(self, "radio_hidden", None)) and self.radio_hidden.isChecked()
         self.icon_input.setText(get_toggled_default_group_icon(current, is_file_group, is_hidden=is_hidden))
         self._update_group_form_header()
 
@@ -760,11 +797,11 @@ class ManageDialog(QWidget):
 
     def _update_group_form_header(self):
         """根据当前分组类型刷新分组表单标题和说明。"""
-        if not hasattr(self, "radio_file"):
+        if not _qt_object_is_valid(getattr(self, "radio_file", None)):
             return
 
         is_file_group = self.radio_file.isChecked()
-        is_hidden = hasattr(self, "radio_hidden") and self.radio_hidden.isChecked()
+        is_hidden = _qt_object_is_valid(getattr(self, "radio_hidden", None)) and self.radio_hidden.isChecked()
 
         if is_hidden:
             if self.editing_group_id is None:
@@ -800,16 +837,34 @@ class ManageDialog(QWidget):
         """返回 emoji 网格按钮样式"""
         return emoji_btn_style()
 
-    def _switch_emoji_group(self, group_idx: int):
+    def _switch_emoji_group(self, group_idx: int, form_token: Optional[int] = None):
         """切换 emoji 分组"""
+        if not self._is_current_detail_form_token(form_token):
+            return
+        if not _qt_object_is_valid(getattr(self, "_emoji_scroll", None)):
+            return
+        if not getattr(self, "_emoji_tab_buttons", None):
+            return
         switch_emoji_group(self, group_idx)
 
-    def _on_icon_input_changed(self, text: str):
+    def _on_icon_input_changed(self, text: str, form_token: Optional[int] = None):
         """输入框内容变化时更新预览（只保留第一个 emoji）"""
+        if not self._is_current_detail_form_token(form_token):
+            return
+        if not _qt_object_is_valid(getattr(self, "icon_input", None)):
+            return
+        if not _qt_object_is_valid(getattr(self, "icon_preview", None)):
+            return
         on_icon_input_changed(self, text)
 
-    def _on_preset_icon_clicked(self, icon: str):
+    def _on_preset_icon_clicked(self, icon: str, form_token: Optional[int] = None):
         """点击预设图标"""
+        if not self._is_current_detail_form_token(form_token):
+            return
+        if not _qt_object_is_valid(getattr(self, "icon_input", None)):
+            return
+        if not _qt_object_is_valid(getattr(self, "icon_preview", None)):
+            return
         on_preset_icon_clicked(self, icon)
 
     def _show_edit_group_form(self, group_id: int):
@@ -951,7 +1006,7 @@ class ManageDialog(QWidget):
 
     def _get_selected_icon(self) -> str:
         """获取选中的图标（优先从输入框获取，确保只有一个字符）"""
-        if hasattr(self, "icon_input") and self.icon_input:
+        if _qt_object_is_valid(getattr(self, "icon_input", None)):
             text = self.icon_input.text().strip()
             if text:
                 for char in text:
@@ -981,6 +1036,8 @@ class ManageDialog(QWidget):
 
     def _save_group(self):
         """保存分组"""
+        if not _qt_object_is_valid(getattr(self, "group_name_input", None)):
+            return
         name = self.group_name_input.text().strip()
         if not name:
             show_warning_dialog(self, self.tr("Hint"), self.tr("Please enter group name"))
@@ -991,9 +1048,9 @@ class ManageDialog(QWidget):
             return
 
         icon = self._get_selected_icon()
-        if hasattr(self, "radio_hidden") and self.radio_hidden.isChecked():
+        if _qt_object_is_valid(getattr(self, "radio_hidden", None)) and self.radio_hidden.isChecked():
             group_type = GroupType.HIDDEN
-        elif hasattr(self, "radio_file") and self.radio_file.isChecked():
+        elif _qt_object_is_valid(getattr(self, "radio_file", None)) and self.radio_file.isChecked():
             group_type = GroupType.FILE
         else:
             group_type = GroupType.NORMAL

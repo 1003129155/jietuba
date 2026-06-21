@@ -809,6 +809,10 @@ Replace it?</source>
         <translation>置顶显示</translation>
     </message>
     <message>
+        <source>Text selection</source>
+        <translation>文字选择</translation>
+    </message>
+    <message>
         <source>Shadow effect</source>
         <translation>阴影效果</translation>
     </message>
@@ -959,6 +963,14 @@ Replace it?</source>
         <translation>剪贴板</translation>
     </message>
     <message>
+        <source>Translation</source>
+        <translation>翻译</translation>
+    </message>
+    <message>
+        <source>Disable Global Hotkeys</source>
+        <translation>禁用全局热键</translation>
+    </message>
+    <message>
         <source>Settings</source>
         <translation>设置</translation>
     </message>
@@ -966,6 +978,16 @@ Replace it?</source>
         <source>Exit</source>
         <translation>退出</translation>
     </message>
+    <message><source>Close all pinned windows</source><translation>关闭所有钉图窗口</translation></message>
+    <message><source>Current pinned windows: {count}</source><translation>当前 {count} 个钉图</translation></message>
+    <message><source>Move all pins to center</source><translation>移动所有钉图到中心</translation></message>
+    <message><source>Thumbnail all pins</source><translation>缩略图所有钉图</translation></message>
+    <message><source>Restore all pin thumbnails</source><translation>取消缩略所有钉图</translation></message>
+    <message><source>Close all pins</source><translation>关闭所有钉图</translation></message>
+    <message><source>Save all pins as...</source><translation>所有钉图另存为</translation></message>
+    <message><source>Choose folder to save pinned images</source><translation>选择保存钉图的文件夹</translation></message>
+    <message><source>Save Failed</source><translation>保存失败</translation></message>
+    <message><source>Saved {saved} pinned images, failed {failed}.</source><translation>已保存 {saved} 个钉图，失败 {failed} 个。</translation></message>
 </context>
 
 <!-- ========== Main App (Tray Menu) ========== -->
@@ -1362,6 +1384,34 @@ Replace it?</source>
         <translation>置顶</translation>
     </message>
     <message>
+        <source>Pin as Overlay</source>
+        <translation>生成钉图</translation>
+    </message>
+    <message>
+        <source>Save as</source>
+        <translation>另存为</translation>
+    </message>
+    <message>
+        <source>Save Failed</source>
+        <translation>保存失败</translation>
+    </message>
+    <message>
+        <source>Image data is unavailable.</source>
+        <translation>图片数据不可用。</translation>
+    </message>
+    <message>
+        <source>Failed to load image data.</source>
+        <translation>无法加载图片数据。</translation>
+    </message>
+    <message>
+        <source>Failed to save image.</source>
+        <translation>保存图片失败。</translation>
+    </message>
+    <message>
+        <source>PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp)</source>
+        <translation>PNG 图片 (*.png);;JPEG 图片 (*.jpg *.jpeg);;BMP 图片 (*.bmp)</translation>
+    </message>
+    <message>
         <source>Open File Location</source>
         <translation>打开文件所在位置</translation>
     </message>
@@ -1568,7 +1618,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Hidden groups are not displayed on the clipboard panel; changing to normal group restores visibility</source>
-        <translation>隐藏分组不会显示在剪贴板界面上，设为普通分组即可恢复显示</translation>
+        <translation>不在剪贴板面板显示，设为普通分组即恢复</translation>
     </message>
     <message>
         <source>General groups allow any content; selecting an item pastes content or files to the target</source>
@@ -1910,7 +1960,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Open Folder</source>
-        <translation>打开文件夹</translation>
+        <translation>打开</translation>
     </message>
     <message>
         <source>Clear Clipboard History</source>
@@ -2630,4 +2680,26 @@ SOFTWARE.</translation></message>
     </message>
 </context>
 
-</TS> 
+<context>
+    <name>SettingsDialog</name>
+    <message><source>Change Location</source><translation>更改</translation></message>
+    <message><source>Current clipboard database path is unavailable.</source><translation>无法获取当前剪贴板数据库路径。</translation></message>
+    <message><source>Choose Clipboard Data Folder</source><translation>选择剪贴板数据文件夹</translation></message>
+    <message><source>Info</source><translation>提示</translation></message>
+    <message><source>The selected folder is already the current location.</source><translation>所选文件夹已经是当前位置。</translation></message>
+    <message><source>Please choose a folder outside the current clipboard images folder.</source><translation>请选择当前剪贴板图片文件夹之外的位置。</translation></message>
+    <message><source>Replace Existing Data</source><translation>替换现有数据</translation></message>
+    <message><source>The selected folder already contains clipboard data. Replace it with the current data?</source><translation>所选文件夹已包含剪贴板数据。要用当前数据替换吗？</translation></message>
+    <message><source>Failed to close the current clipboard database.</source><translation>关闭当前剪贴板数据库失败。</translation></message>
+    <message><source>Preparing migration...</source><translation>正在准备迁移...</translation></message>
+    <message><source>Moving Clipboard Data</source><translation>正在移动剪贴板数据</translation></message>
+    <message><source>Finalizing migration...</source><translation>正在完成迁移...</translation></message>
+    <message><source>Migration complete.</source><translation>迁移完成。</translation></message>
+    <message><source>Clipboard data location changed successfully.</source><translation>剪贴板数据位置已更改。</translation></message>
+    <message><source>Clipboard data location changed successfully, but the old files are still in use and could not be deleted. You can remove them after restarting the app.\n{error}</source><translation>剪贴板数据位置已更改，但旧文件仍被占用，暂时无法删除。重启应用后可以手动删除。\n{error}</translation></message>
+    <message><source>Clipboard data moved, but reopening the database failed. Please restart the app.</source><translation>剪贴板数据已移动，但重新打开数据库失败。请重启应用。</translation></message>
+    <message><source>No clipboard data files were found to move.</source><translation>没有找到可移动的剪贴板数据文件。</translation></message>
+    <message><source>Moving clipboard data... {done} / {total}</source><translation>正在移动剪贴板数据... {done} / {total}</translation></message>
+</context>
+
+</TS>

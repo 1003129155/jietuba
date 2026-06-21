@@ -442,6 +442,10 @@ class ScreenshotWindow(QWidget):
                 btn.setChecked(False)
             self.info_panel.set_confirmed(False)
             self.info_panel.hide()
+
+        # 先断开 view/controller 与当前 scene 的会话连接，再销毁 scene。
+        if hasattr(self, 'view') and self.view and hasattr(self.view, 'cleanup'):
+            self.view.cleanup()
         
         # 清理 Scene
         if hasattr(self, 'scene') and self.scene:
@@ -462,19 +466,6 @@ class ScreenshotWindow(QWidget):
         
         # 清理 View
         if hasattr(self, 'view') and self.view:
-            if hasattr(self.view, 'smart_edit_controller'):
-                sec = self.view.smart_edit_controller
-                sec.selected_item = None
-                sec.hovered_item = None
-                sec.scene = None
-                if sec.layer_editor:
-                    sec.layer_editor.stop_edit()
-                sec.layer_editor = None
-            if hasattr(self.view, 'cursor_manager'):
-                self.view.cursor_manager = None
-            if hasattr(self.view, 'window_finder') and self.view.window_finder:
-                self.view.window_finder.clear()
-                self.view.window_finder = None
             self.view.setScene(None)
             self.view.setParent(None)
             self.view.deleteLater()
@@ -829,13 +820,7 @@ class ScreenshotWindow(QWidget):
         """序号工具下一数字变化 - 更新场景偏移和光标预览"""
         from tools.number import NumberTool
 
-        actual = NumberTool.set_next_number(self.scene, next_value)
-        if hasattr(self.toolbar, "set_number_next_value"):
-            self.toolbar.set_number_next_value(actual)
-
-        view = getattr(self, "view", None)
-        if view and hasattr(view, "cursor_manager"):
-            view.cursor_manager.set_tool_cursor("number", force=True)
+        NumberTool.set_next_number_and_refresh(self.scene, next_value)
         
     def on_color_changed(self, color):
         self.scene.update_style(color=color)
@@ -1046,4 +1031,3 @@ class ScreenshotWindow(QWidget):
             # 尚未走过 cleanup_and_close，在这里补救
             self.cleanup_and_close()
         super().closeEvent(event)
- 

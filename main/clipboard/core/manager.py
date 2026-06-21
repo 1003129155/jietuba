@@ -68,7 +68,7 @@ class ClipboardManager:
         
         if PYCLIPBOARD_AVAILABLE:
             try:
-                self._manager = PyClipboardManager(db_path)
+                self._manager = PyClipboardManager(self._resolve_db_path(db_path))
                 log_info("管理器初始化成功", "Clipboard")
                 
                 # 设置历史限制（由 Rust 后端处理清理）
@@ -80,6 +80,67 @@ class ClipboardManager:
     def is_available(self) -> bool:
         """检查是否可用"""
         return self._manager is not None
+
+    def _resolve_db_path(self, db_path: Optional[str] = None) -> Optional[str]:
+        """Return an explicit db path, or the saved clipboard db path."""
+        if db_path:
+            return db_path
+        try:
+            from settings import get_tool_settings_manager
+            config = get_tool_settings_manager()
+            if hasattr(config, "get_clipboard_db_path"):
+                saved_path = config.get_clipboard_db_path()
+            else:
+                saved_path = config.get_app_setting("clipboard_db_path", "")
+            return saved_path or None
+        except Exception:
+            return None
+
+    def reset_storage(self, db_path: Optional[str] = None) -> bool:
+        """Reopen the Rust backend on a new database path and restore monitoring."""
+        if not PYCLIPBOARD_AVAILABLE:
+            return False
+
+        import gc
+
+        was_monitoring = self.is_monitoring() or getattr(self, "_resume_monitoring_after_reset", False)
+        self._resume_monitoring_after_reset = False
+        try:
+            if self._manager is not None:
+                try:
+                    self._manager.stop_monitor()
+                except Exception:
+                    pass
+            self._manager = None
+            gc.collect()
+            self._manager = PyClipboardManager(self._resolve_db_path(db_path))
+            self._apply_history_limit()
+            if was_monitoring:
+                self.start_monitoring(callback=self._callback)
+            return True
+        except Exception as e:
+            log_exception(e, "重新打开剪贴板数据库")
+            self._manager = None
+            return False
+
+    def release_storage(self) -> bool:
+        """Stop monitoring and drop the current Rust backend before file migration."""
+        import gc
+
+        was_monitoring = self.is_monitoring()
+        self._resume_monitoring_after_reset = was_monitoring
+        try:
+            if self._manager is not None:
+                try:
+                    self._manager.stop_monitor()
+                except Exception:
+                    pass
+            self._manager = None
+            gc.collect()
+            return True
+        except Exception as e:
+            log_exception(e, "释放剪贴板数据库")
+            return False
     
     def get_db_path(self) -> Optional[str]:
         """获取数据库文件路径"""
@@ -487,6 +548,3 @@ class ClipboardManager:
         except Exception as e:
             log_error(f"按分组查询失败: {e}", "Clipboard")
             return []
-    
-
- 

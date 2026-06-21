@@ -62,9 +62,10 @@ def _build_group_type_section(dialog, is_file_group: bool, is_hidden: bool = Fal
     dialog._group_type_btn_group.addButton(dialog.radio_normal, 0)
     dialog._group_type_btn_group.addButton(dialog.radio_file, 1)
     dialog._group_type_btn_group.addButton(dialog.radio_hidden, 2)
-    dialog.radio_normal.toggled.connect(dialog._on_group_type_toggled)
-    dialog.radio_file.toggled.connect(dialog._on_group_type_toggled)
-    dialog.radio_hidden.toggled.connect(dialog._on_group_type_toggled)
+    form_token = getattr(dialog, "_detail_form_token", None)
+    dialog.radio_normal.toggled.connect(lambda checked, token=form_token: dialog._on_group_type_toggled(checked, token))
+    dialog.radio_file.toggled.connect(lambda checked, token=form_token: dialog._on_group_type_toggled(checked, token))
+    dialog.radio_hidden.toggled.connect(lambda checked, token=form_token: dialog._on_group_type_toggled(checked, token))
 
     if is_hidden:
         dialog.radio_hidden.setChecked(True)

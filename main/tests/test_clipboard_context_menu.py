@@ -113,6 +113,28 @@ def test_build_context_menu_for_file_item_includes_file_groups(monkeypatch):
     assert all(child.translate_label is False for child in move_menu.children)
 
 
+def test_build_context_menu_for_image_item_includes_save_as(monkeypatch):
+    item = ClipboardItem(
+        id=17,
+        content="[Image]",
+        content_type="image",
+        image_id="demo-image-id",
+    )
+    manager = DummyClipboardManager(items={17: item})
+    controller = _make_controller(monkeypatch, manager)
+
+    ctx = controller.build_context_menu_data(17)
+
+    assert ctx is not None
+    assert [action.key for action in ctx.actions if not action.is_separator] == [
+        "paste",
+        "pin_image",
+        "save_image_as",
+        "delete_item",
+    ]
+    _assert_separators_are_normalized(ctx.actions)
+
+
 def test_build_group_context_menu_uses_rule_table(monkeypatch):
     groups = [
         Group(id=31, name="常规", icon="A", group_type=GroupType.NORMAL),

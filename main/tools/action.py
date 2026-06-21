@@ -2,8 +2,10 @@
 操作工具 - 处理工具栏的操作按钮（确定、复制、保存等）
 """
 
+import os
+from datetime import datetime
+
 from PySide6.QtWidgets import QFileDialog
-from PySide6.QtGui import QPixmap
 from PySide6.QtCore import QPoint
 from core.i18n import make_tr
 from core.export import ExportService
@@ -73,16 +75,27 @@ class ActionTools:
     def handle_save(self):
         """保存：弹出对话框让用户选择保存位置"""
         self._temporarily_exit_editing()
-        
-        pixmap = self.export_service.get_result_pixmap()
-        
-        file_path, _ = QFileDialog.getSaveFileName(
-            self.parent_window, _tr("Save Screenshot"), "screenshot.png", "Images (*.png *.jpg *.bmp)"
+
+        fmt = (self.config_manager.get_screenshot_format() if self.config_manager else "PNG").lower()
+        default_name = f"screenshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{fmt}"
+        file_path, selected_filter = QFileDialog.getSaveFileName(
+            self.parent_window,
+            _tr("Save Screenshot"),
+            default_name,
+            "PNG (*.png);;JPG (*.jpg);;BMP (*.bmp);;WebP (*.webp);;PDF (*.pdf)",
         )
-        
+
         if file_path:
-            pixmap.save(file_path)
-            log_info(f"已保存到: {file_path}", "Action")
+            image_format = self._format_from_save_path(file_path, selected_filter)
+            if not os.path.splitext(file_path)[1]:
+                file_path = f"{file_path}.{image_format.lower()}"
+
+            selection_rect = self.export_service.scene.selection_model.rect()
+            if selection_rect.isEmpty():
+                selection_rect = self.export_service.scene.sceneRect()
+            image = self.export_service.export(selection_rect)
+            if self.save_service.save_qimage_to_path(image, file_path, image_format=image_format):
+                log_info(f"已保存到: {file_path}", "Action")
             
             if self.parent_window:
                 self._cleanup_and_close()
@@ -112,13 +125,15 @@ class ActionTools:
         )
         
         # 创建钉图窗口
+        from tools.number import NumberTool
         pin_manager = PinManager.instance()
         pin_window = pin_manager.create_pin(
             image=base_image,
             position=position,
             config_manager=self.config_manager,
             drawing_items=drawing_items,
-            selection_offset=QPoint(int(selection_rect.x()), int(selection_rect.y()))
+            selection_offset=QPoint(int(selection_rect.x()), int(selection_rect.y())),
+            number_next=NumberTool.get_next_number(self.scene),
         )
         
         pin_window.show()
@@ -230,4 +245,12 @@ class ActionTools:
                 self.parent_window.cleanup_and_close()
             else:
                 self.parent_window.close()
+
+    def _format_from_save_path(self, file_path: str, selected_filter: str) -> str:
+        ext = os.path.splitext(file_path)[1].lstrip(".")
+        if ext:
+            return ext.upper()
+        if "pdf" in selected_filter.lower():
+            return "PDF"
+        return "PNG"
  

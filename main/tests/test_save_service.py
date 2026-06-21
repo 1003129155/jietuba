@@ -128,6 +128,22 @@ class TestSaveQImage:
         assert path is not None
         assert os.path.exists(path)
 
+    def test_save_qimage_writes_pdf(self, save_service, tmp_path):
+        image = QImage(16, 12, QImage.Format.Format_ARGB32)
+        image.fill(0xFF336699)
+
+        success, path = save_service.save_qimage(
+            image,
+            directory=str(tmp_path),
+            prefix="sync",
+            image_format="PDF",
+        )
+
+        assert success is True
+        assert path is not None
+        assert path.endswith(".pdf")
+        assert os.path.getsize(path) > 0
+
     def test_save_qimage_rejects_null_image(self, save_service):
         success, path = save_service.save_qimage(QImage())
 

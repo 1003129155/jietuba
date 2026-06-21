@@ -25,6 +25,13 @@ class ToolController:
         """添加工具切换回调"""
         self.tool_changed_callbacks.append(callback)
 
+    def remove_tool_changed_callback(self, callback):
+        """移除工具切换回调"""
+        try:
+            self.tool_changed_callbacks.remove(callback)
+        except ValueError:
+            pass
+
     def register(self, tool: Tool):
         """
         注册工具
@@ -114,4 +121,3 @@ class ToolController:
         # 如果有当前工具且有设置管理器，立即保存设置
         if self.current_tool and self.ctx.settings_manager:
             self.current_tool.save_settings(self.ctx)
- 
