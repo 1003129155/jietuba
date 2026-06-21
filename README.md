@@ -30,7 +30,7 @@ venv311\Scripts\activate
 ```bash
 pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl
 pip install longstitch-0.3.8-cp311-cp311-win_amd64.whl
-pip install pyclipboard-0.3.13-cp311-cp311-win_amd64.whl
+pip install pyclipboard-0.3.14-cp311-cp311-win_amd64.whl
 pip install windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl
 ```
 
@@ -38,7 +38,7 @@ pip install windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl
 |------|------|------|
 | `gifrecorder` | 0.2.1 | GIF/视频合成编码器 |
 | `longstitch` | 0.3.8 | 长截图拼接算法 |
-| `pyclipboard` | 0.3.13 | 剪切板底层操作 |
+| `pyclipboard` | 0.3.14 | 剪切板底层操作 |
 | `windows_media_ocr` | 0.3.1 | Windows Media OCR Api和 oneocr.dll调用逻辑封装 |
 
 > **注意：** 这些 `.whl` 文件仅适用于 Windows x86_64 + Python 3.11 环境。请勿安装到全局 Python 中。
@@ -82,7 +82,7 @@ python main_app.py
 # 项目根目录
 ├── gifrecorder-0.2.1-cp311-cp311-win_amd64.whl       # GIF录制 Rust 预编译包
 ├── longstitch-0.3.8-cp311-cp311-win_amd64.whl        # 长截图拼接 Rust 预编译包
-├── pyclipboard-0.3.13-cp311-cp311-win_amd64.whl      # 剪切板 Rust 预编译包
+├── pyclipboard-0.3.14-cp311-cp311-win_amd64.whl      # 剪切板 Rust 预编译包
 ├── windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl # OCR Rust 预编译包
 │
 ├── main/                    # Python 主程序

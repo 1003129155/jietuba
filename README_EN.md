@@ -25,7 +25,7 @@ venv311\Scripts\activate
 ```bash
 pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl
 pip install longstitch-0.3.8-cp311-cp311-win_amd64.whl
-pip install pyclipboard-0.3.13-cp311-cp311-win_amd64.whl
+pip install pyclipboard-0.3.14-cp311-cp311-win_amd64.whl
 pip install windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl
 ```
 
@@ -33,7 +33,7 @@ pip install windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl
 |---------|---------|-------------|
 | `gifrecorder` | 0.2.1 | GIF/video composition encoder |
 | `longstitch` | 0.3.8 | Long screenshot stitching algorithm |
-| `pyclipboard` | 0.3.13 | Low-level clipboard operations |
+| `pyclipboard` | 0.3.14 | Low-level clipboard operations |
 | `windows_media_ocr` | 0.3.1 | Windows Media OCR API & oneocr.dll wrapper |
 
 > **Note:** These `.whl` files are for Windows x86_64 + Python 3.11 only. Do not install into the global Python environment.
@@ -77,7 +77,7 @@ python main_app.py
 # Project root
 ├── gifrecorder-0.2.1-cp311-cp311-win_amd64.whl       # GIF recorder Rust pre-built package
 ├── longstitch-0.3.8-cp311-cp311-win_amd64.whl        # Long-stitch Rust pre-built package
-├── pyclipboard-0.3.13-cp311-cp311-win_amd64.whl      # Clipboard Rust pre-built package
+├── pyclipboard-0.3.14-cp311-cp311-win_amd64.whl      # Clipboard Rust pre-built package
 ├── windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl # OCR Rust pre-built package
 │
 ├── main/                    # Python main program
