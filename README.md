@@ -47,7 +47,6 @@ pip install windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl
 
 ```bash
 pip install PySide6==6.11.0
-pip install PySide6-Fluent-Widgets==1.11.1
 pip install PySideSix-Frameless-Window==0.8.1
 pip install pillow==12.1.1
 pip install mss==10.1.0
