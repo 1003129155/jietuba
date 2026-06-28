@@ -2,7 +2,7 @@
 """杂项设置页 — Fluent Design"""
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea
 from PySide6.QtCore import Qt
-from qfluentwidgets import (
+from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
     FluentIcon, ComboBox, CaptionLabel,
 )

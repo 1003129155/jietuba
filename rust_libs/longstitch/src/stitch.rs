@@ -7,7 +7,7 @@
 use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba};
 use std::io::Cursor;
 
-use crate::hash::compute_row_hashes_from_rgba;
+use crate::hash::{compute_row_hashes_from_rgba, compute_row_hashes_from_rgba_range};
 use crate::lcs::find_top_common_substrings;
 
 // ========== 内部工具函数 ==========
@@ -189,11 +189,10 @@ fn smart_stitch_core(
     }
 
     // 计算行哈希
-    let img1_hashes = compute_row_hashes_from_rgba(img1_rgba, ignore_right_pixels, debug);
     let img2_hashes = compute_row_hashes_from_rgba(img2_rgba, ignore_right_pixels, debug);
 
     // 搜索区域设置（2倍窗口，容忍回滚）
-    let img1_len = img1_hashes.len();
+    let img1_len = img1_rgba.height() as usize;
     let img2_len = img2_hashes.len();
     let search_window = img2_len * 2;
     let search_start = if img1_len > search_window {
@@ -201,7 +200,13 @@ fn smart_stitch_core(
     } else {
         0
     };
-    let img1_search_region = &img1_hashes[search_start..];
+    let img1_search_region = compute_row_hashes_from_rgba_range(
+        img1_rgba,
+        search_start as u32,
+        img1_len as u32,
+        ignore_right_pixels,
+        debug,
+    );
 
     if debug {
         println!("  🔍 搜索重叠区域:");
@@ -215,7 +220,7 @@ fn smart_stitch_core(
 
     // 找多个候选子串
     let candidates = find_top_common_substrings(
-        img1_search_region,
+        &img1_search_region,
         &img2_hashes,
         min_overlap_ratio,
         5,

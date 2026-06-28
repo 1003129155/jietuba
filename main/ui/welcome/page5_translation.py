@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QPainter, QColor, QFont, QPen, QPainterPath
-from qfluentwidgets import ComboBox, LineEdit
+from ui.fluent_lite import ComboBox, LineEdit
 from core import safe_event
 from core.i18n import make_tr
 
@@ -216,8 +216,8 @@ class TranslationPage(BasePage):
         layout.addWidget(self._api_edit)
 
         self._hint_lbl = QLabel(
-            '：<a href="https://www.deepl.com/pro-api" '
-            'style="color:#2196F3;">deepl.com/pro-api</a>'
+            f'：<a href="https://www.deepl.com/pro-api" '
+            f'style="color:{ACCENT};">deepl.com/pro-api</a>'
         )
         self._hint_lbl.setOpenExternalLinks(True)
         self._hint_lbl.setStyleSheet(f"font-size: 12px; color: {TEXT_SECOND}; background: transparent;")

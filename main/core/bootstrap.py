@@ -127,8 +127,6 @@ class PreloadManager:
         from core.platform_utils import request_trim_working_set
         
         cfg = self.config
-        if cfg.get_app_setting("preload_fonts", True):
-            self._steps.append(self._preload_fonts)
         if cfg.get_app_setting("preload_screenshot", True):
             self._steps.append(self._preload_screenshot_modules)
         if cfg.get_app_setting("preload_toolbar", True):
@@ -168,14 +166,6 @@ class PreloadManager:
             QTimer.singleShot(0, self._run_next)
     
     # ---------- 具体预加载步骤 ----------
-    
-    def _preload_fonts(self):
-        """预加载系统字体列表（首次调用 QFontDatabase.families()）"""
-        from PySide6.QtGui import QFontDatabase
-        from core.logger import log_debug
-        log_debug("预加载系统字体列表...", "Preload")
-        fonts = QFontDatabase.families()
-        log_debug(f"字体预加载完成，共 {len(fonts)} 个字体", "Preload")
     
     def _preload_toolbar_assets(self):
         """在主线程预热截图工具栏，避免首次截图创建工具栏卡顿"""
@@ -391,9 +381,16 @@ class PreloadManager:
                 wizard = WelcomeWizard(self.config)
                 wizard.exec()
                 self.app.update_hotkey()
+                self.app.setup_tray()
+                self.app._setup_pin_tray_updates()
                 return
 
-            # 非首次运行：根据用户设置决定是否显示设置窗口
+            # 非首次运行：预加载完成后再注册热键，避免启动预加载期间触发卡顿。
+            self.app.update_hotkey()
+            self.app.setup_tray()
+            self.app._setup_pin_tray_updates()
+
+            # 根据用户设置决定是否显示设置窗口
             if self.config.should_show_main_window_on_start():
                 self.app.open_settings()
             else:

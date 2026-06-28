@@ -9,10 +9,11 @@
 from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QLabel, QWidget
 from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, Property
 from PySide6.QtGui import QFont, QColor, QPainter, QPixmap, QIcon
-from qfluentwidgets import ComboBox
+from ui.fluent_lite import ComboBox, HyperlinkButton
 
 from core.i18n import make_tr
 from core.logger import log_exception
+from core.constants import PROJECT_GITHUB_URL
 from core import safe_event
 
 if __package__:
@@ -119,10 +120,8 @@ class WelcomePage(BasePage):
             self._init_lang = "ja"
 
         super().__init__(
-            title="欢迎使用截图吧 👋",
-            subtitle="一款轻巧的屏幕截图与剪贴板管理工具，\n"
-                     "由rijyaaru用 Python + PySide6 打造。\n"
-                     "先选好语言，再开始探索吧！",
+            title=_tr("欢迎使用截图吧 👋"),
+            subtitle=_tr("一款轻量的截图与剪贴板管理工具。"),
             parent=parent,
         )
         # 在内容区右侧叠放 wizard.png（绝对定位，不影响原布局）
@@ -137,6 +136,30 @@ class WelcomePage(BasePage):
 
     # ── 控件 ────────────────────────────────────────────
     def _build_controls(self, layout: QVBoxLayout):
+        # GitHub 项目链接（与设置“关于”页复用同一个地址和链接控件）
+        self._github_link = HyperlinkButton(
+            url=PROJECT_GITHUB_URL,
+            text=_tr("欢迎来 GitHub 点亮小星星 ⭐"),
+        )
+        self._github_link.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._github_link.setStyleSheet(
+            self._github_link.styleSheet() + "QPushButton { padding-left: 0; }"
+        )
+        link_font = self._github_link.font()
+        link_font.setUnderline(True)
+        self._github_link.setFont(link_font)
+        link_row = QHBoxLayout()
+        link_row.setContentsMargins(0, 0, 0, 0)
+        link_row.addWidget(self._github_link)
+        link_row.addStretch()
+        layout.addLayout(link_row)
+
+        self._language_prompt = QLabel(_tr("请先选择语言！"))
+        self._language_prompt.setStyleSheet(
+            f"font-size: 13px; color: {TEXT_SECOND}; background: transparent;"
+        )
+        layout.addWidget(self._language_prompt)
+
         # 语言标签（靠左）
         self._row_lang_lbl = QLabel("🌐 界面语言")
         self._row_lang_lbl.setStyleSheet(
@@ -209,10 +232,9 @@ class WelcomePage(BasePage):
     def retranslate(self):
         """语言切换后由 wizard.retranslate_ui() 调用，刷新本页所有可见文字。"""
         self.title_label.setText(_tr("欢迎使用截图吧 👋"))
-        self.subtitle_label.setText(_tr(
-            "一款轻巧的屏幕截图与剪贴板管理工具，\n"
-            "由rijyaaru用 Python + PySide6 打造。\n"
-            "先选好语言，再开始探索吧！"))
+        self.subtitle_label.setText(_tr("一款轻量的截图与剪贴板管理工具。"))
+        self._github_link.setText(_tr("欢迎来 GitHub 点亮小星星 ⭐"))
+        self._language_prompt.setText(_tr("请先选择语言！"))
         if hasattr(self, "_row_lang_lbl") and self._row_lang_lbl:
             self._row_lang_lbl.setText(_tr("🌐 界面语言"))
         if hasattr(self, "_row_lang_desc") and self._row_lang_desc:

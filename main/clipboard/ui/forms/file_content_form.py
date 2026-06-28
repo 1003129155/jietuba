@@ -9,7 +9,9 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout
 
-from qfluentwidgets import BodyLabel, LineEdit, PushButton as FluentPushButton
+from ui.fluent_lite import BodyLabel, LineEdit, PushButton as FluentPushButton
+from ui.fluent_lite.theme import ACCENT, ACCENT_SOFT
+from ..layout_scale import scale_ui, scale_x, scale_y
 
 
 class FileDropZone(QFrame):
@@ -21,34 +23,34 @@ class FileDropZone(QFrame):
         self._default_style = (
             "QFrame {"
             "border: 2px dashed #C8CCD3;"
-            "border-radius: 10px;"
+            f"border-radius: {scale_ui(10)}px;"
             "background: #FCFCFD;"
             "}"
             "QLabel {"
             "color: #6B7280;"
-            "font-size: 13px;"
-            "padding: 8px;"
+            f"font-size: {scale_ui(13)}px;"
+            f"padding: {scale_ui(8)}px;"
             "}"
         )
         self._hover_style = (
             "QFrame {"
-            "border: 2px dashed #1976D2;"
-            "border-radius: 10px;"
-            "background: #F3F8FE;"
+            f"border: 2px dashed {ACCENT};"
+            f"border-radius: {scale_ui(10)}px;"
+            f"background: {ACCENT_SOFT};"
             "}"
             "QLabel {"
-            "color: #1976D2;"
-            "font-size: 13px;"
-            "padding: 8px;"
+            f"color: {ACCENT};"
+            f"font-size: {scale_ui(13)}px;"
+            f"padding: {scale_ui(8)}px;"
             "font-weight: 500;"
             "}"
         )
 
         self.setAcceptDrops(True)
-        self.setMinimumHeight(204)
+        self.setMinimumHeight(scale_y(204))
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setContentsMargins(scale_x(12), scale_y(10), scale_x(12), scale_y(10))
 
         self.prompt_label = QLabel(prompt_text, self)
         self.prompt_label.setAlignment(Qt.AlignmentFlag.AlignCenter)

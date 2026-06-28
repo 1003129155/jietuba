@@ -3,11 +3,11 @@
 设置窗口 — 共享 UI 组件库
 """
 from PySide6.QtWidgets import QWidget, QFrame, QVBoxLayout, QHBoxLayout, QLabel
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QColor, QPainter
 from core import safe_event
 
-from qfluentwidgets import (
+from ui.fluent_lite import (
     SwitchButton, SimpleCardWidget, BodyLabel, CaptionLabel,
     SwitchSettingCard as _SwitchSettingCard, FluentIcon,
     SettingCard as FluentSettingCard,
@@ -21,19 +21,19 @@ def theme_color(light: str, dark: str) -> str:
 
 
 def theme_surface_color() -> str:
-    return theme_color("#F7F8FA", "#202124")
+    return theme_color("rgba(239, 244, 250, 0.91)", "#202124")
 
 
 def theme_sidebar_color() -> str:
-    return theme_color("#F1F3F6", "#25272B")
+    return theme_color("rgba(246, 249, 252, 0.54)", "#25272B")
 
 
 def theme_border_color() -> str:
-    return theme_color("rgba(0, 0, 0, 0.10)", "rgba(255, 255, 255, 0.08)")
+    return theme_color("rgba(255, 255, 255, 0.76)", "rgba(255, 255, 255, 0.08)")
 
 
 def theme_input_background() -> str:
-    return theme_color("#FAFAFA", "#2B2D31")
+    return theme_color("rgba(255, 255, 255, 0.78)", "#2B2D31")
 
 
 def theme_popup_background() -> str:
@@ -41,7 +41,7 @@ def theme_popup_background() -> str:
 
 
 def theme_popup_hover_background() -> str:
-    return theme_color("#F3F4F6", "#36393F")
+    return theme_color("#EAF2FA", "#36393F")
 
 
 def theme_text_style(font_size: int = 13, bold: bool = False, extra: str = "") -> str:
@@ -187,8 +187,8 @@ class TransparentCard(QFrame):
 class WhiteCard(QFrame):
     """自定义可变高度卡片。
 
-    直接复用 qfluentwidgets SettingCard 的绘制逻辑，避免样式表导致
-    的局部背景异常，同时不受原版固定高度限制。
+    使用轻量绘制逻辑避免样式表导致的局部背景异常，
+    同时不受旧组件固定高度限制。
     """
 
     def __init__(self, parent=None):
@@ -196,15 +196,17 @@ class WhiteCard(QFrame):
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False)
 
+    def minimumSizeHint(self):
+        return QSize(0, max(self.minimumHeight(), self.layout().minimumSize().height() if self.layout() else 0))
+
     @safe_event
     def paintEvent(self, e):
         painter = QPainter(self)
         painter.setRenderHints(QPainter.RenderHint.Antialiasing)
-
-        painter.setBrush(QColor(255, 255, 255, 170))
-        painter.setPen(QColor(0, 0, 0, 19))
-
-        painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), 6, 6)
+        rect = self.rect().adjusted(1, 1, -1, -1)
+        painter.setBrush(QColor(255, 255, 255, 46))
+        painter.setPen(QColor(255, 255, 255, 76))
+        painter.drawRoundedRect(rect, 11, 11)
 
 
 def make_switch_card(dialog, icon, title, content, checked, attr_name, parent=None):

@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 
-from qfluentwidgets import (
+from ui.fluent_lite import (
     SettingCard as FSettingCard, FluentIcon,
     ComboBox, BodyLabel, CaptionLabel, PushButton,
 )
@@ -52,7 +52,7 @@ def _make_color_btn(dialog, size_w=_CTRL_W, size_h=_CTRL_H):
 _THEME_COLORS = [
     ("light",  "#DDE3E9", "#FFFFFF"),
     ("dark",   "#1D1F20", "#1E1E1E"),
-    ("blue",   "#2196F3", "#9AD1F8"),
+    ("blue",   "#6F8FAB", "#B9CAD7"),
     ("green",  "#4CAF50", "#B8F3BD"),
     ("pink",   "#E91E63", "#FA9BBB"),
     ("purple", "#9C27B0", "#D471E4"),

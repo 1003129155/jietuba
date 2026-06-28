@@ -116,6 +116,10 @@ class MockConfig:
     def set_clipboard_db_path(self, v): pass
     def get_clipboard_auto_cleanup(self): return False
     def set_clipboard_auto_cleanup(self, v): pass
+    def get_inapp_shortcut(self, key): return ""
+    def set_inapp_shortcut(self, key, value): pass
+    def get_inapp_cursor_move_mode(self): return "both"
+    def set_inapp_cursor_move_mode(self, value): pass
 
 
 if __name__ == "__main__":

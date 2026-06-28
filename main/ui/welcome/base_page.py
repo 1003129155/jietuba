@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from typing import Optional, Tuple
 
-from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, Property, Signal
-from PySide6.QtGui import QColor, QPainter, QPixmap
+from PySide6.QtCore import Qt, QSize, Signal
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -22,18 +22,18 @@ from PySide6.QtWidgets import (
     QFrame,
     QSizePolicy,
 )
-from core import safe_event
+from ui.fluent_lite import SwitchButton
+from ui.fluent_lite.theme import ACCENT, ACCENT_HOVER
 
 
 # ─────────────────────────────────────────
 # 设计规范（全局共享）
 # ─────────────────────────────────────────
-ACCENT = "#2196F3"        # 主色调（蓝）
-ACCENT_DARK = "#1565C0"   # 深蓝（hover）
+ACCENT_DARK = ACCENT_HOVER  # 兼容欢迎页现有命名
 TEXT_PRIMARY = "#1A1A2E"  # 主文字
 TEXT_SECOND = "#5C6370"   # 次要文字
-BG_PAGE = "#FFFFFF"       # 页面背景
-BG_ILLUS = "#F0F7FF"      # 插画区背景
+BG_PAGE = "rgba(248, 250, 252, 0.46)"   # 让共用毛玻璃背景透出
+BG_ILLUS = "rgba(228, 236, 242, 0.58)"
 RADIUS = 12               # 圆角半径
 
 # 插画区布局策略（二选一）
@@ -46,73 +46,15 @@ USE_FIXED_ILLUS_HEIGHT = True  # True: 固定高度；False: 使用比例 stretc
 
 
 # ─────────────────────────────────────────
-# ToggleSwitch（与 settings_window 同款，避免循环导入直接复制）
+# ToggleSwitch（兼容旧调用名，实际复用 fluent_lite 的统一控件）
 # ─────────────────────────────────────────
-class ToggleSwitch(QWidget):
+class ToggleSwitch(SwitchButton):
     toggled = Signal(bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedSize(44, 24)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-
-        self._checked = False
-        self._circle_pos = 3.0
-
-        self._anim = QPropertyAnimation(self, b"circle_pos", self)
-        self._anim.setDuration(160)
-        self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
-
-    # Qt property for animation
-    def _get_cp(self) -> float:
-        return float(self._circle_pos)
-
-    def _set_cp(self, v: float) -> None:
-        self._circle_pos = float(v)
-        self.update()
-
-    circle_pos = Property(float, _get_cp, _set_cp)
-
-    def isChecked(self) -> bool:
-        return bool(self._checked)
-
-    def setChecked(self, checked: bool) -> None:
-        checked = bool(checked)
-        if self._checked == checked:
-            return
-
-        self._checked = checked
-        target = (self.width() - 21.0) if checked else 3.0
-
-        self._anim.stop()
-        self._anim.setStartValue(self._circle_pos)
-        self._anim.setEndValue(target)
-        self._anim.start()
-
-    @safe_event
-    def mousePressEvent(self, event) -> None:
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.setChecked(not self._checked)
-            self.toggled.emit(self._checked)
-        super().mousePressEvent(event)
-
-    @safe_event
-    def paintEvent(self, event) -> None:
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        r = self.rect()
-        h = r.height()
-
-        # 轨道
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor(ACCENT if self._checked else "#E5E5E5"))
-        p.drawRoundedRect(0, 0, r.width(), h, h / 2, h / 2)
-
-        # 圆圈
-        cx = int(self._circle_pos)
-        p.setBrush(QColor("#FFFFFF"))
-        p.drawEllipse(cx, 3, 18, 18)
+        self.checkedChanged.connect(self.toggled.emit)
 
 
 # ─────────────────────────────────────────

@@ -484,8 +484,8 @@ Replace it?</source>
         <translation>保持期間</translation>
     </message>
     <message>
-        <source>Auto-delete old logs (0=keep forever)</source>
-        <translation>古いログを自動削除（0=永久保持）</translation>
+        <source>Auto-delete old logs after the selected period</source>
+        <translation>選択した期間後に古いログを自動削除</translation>
     </message>
     <message>
         <source>days</source>
@@ -1268,6 +1268,34 @@ Replace it?</source>
         <translation>フィルター</translation>
     </message>
     <message>
+        <source>Start date</source>
+        <translation>開始日</translation>
+    </message>
+    <message>
+        <source>End date</source>
+        <translation>終了日</translation>
+    </message>
+    <message>
+        <source>Apply time filter</source>
+        <translation>期間フィルターを適用</translation>
+    </message>
+    <message>
+        <source>Close filters</source>
+        <translation>フィルターを閉じる</translation>
+    </message>
+    <message>
+        <source>Open filters</source>
+        <translation>フィルターを開く</translation>
+    </message>
+    <message>
+        <source>Clear search</source>
+        <translation>検索をクリア</translation>
+    </message>
+    <message>
+        <source>Settings</source>
+        <translation>設定</translation>
+    </message>
+    <message>
         <source>Paste with Format</source>
         <translation>書式付きでコピペ</translation>
     </message>
@@ -1945,6 +1973,10 @@ Replace it?</source>
         <translation>すべての履歴を削除（全部初期化）</translation>
     </message>
     <message>
+        <source>← Get storage size</source>
+        <translation>← ストレージサイズを取得</translation>
+    </message>
+    <message>
         <source>Clear History</source>
         <translation>履歴をクリア</translation>
     </message>
@@ -2164,12 +2196,16 @@ Replace it?</source>
         <translation>截图吧へようこそ 👋</translation>
     </message>
     <message>
-        <source>一款轻巧的屏幕截图与剪贴板管理工具，
-由rijyaaru用 Python + PySide6 打造。
-先选好语言，再开始探索吧！</source>
-        <translation>軽量なスクリーンショット＆クリップボード管理ツール。
-rijyaaru が Python + PySide6 で制作しました。
-まず言語を選んでください！</translation>
+        <source>一款轻量的截图与剪贴板管理工具。</source>
+        <translation>軽量なスクリーンショット＆クリップボード管理ツール。</translation>
+    </message>
+    <message>
+        <source>欢迎来 GitHub 点亮小星星 ⭐</source>
+        <translation>GitHubでスターをつけて応援してください ⭐</translation>
+    </message>
+    <message>
+        <source>请先选择语言！</source>
+        <translation>まず言語を選んでください！</translation>
     </message>
     <message>
         <source>🌐 界面语言</source>

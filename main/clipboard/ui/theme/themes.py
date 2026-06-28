@@ -20,7 +20,7 @@ class ThemeColors:
     bg_secondary: str = "#E0EAF0"         # 次要背景色
     bg_tertiary: str = "#F5F6F8"          # 第三级背景色
     bg_hover: str = "#F0F0F0"             # 悬停背景色
-    bg_selected: str = "#B9D9F1"          # 选中背景色
+    bg_selected: str = "#DCE6ED"          # 选中背景色
     bg_selected_highlight: str = "rgba(0, 0, 0, 0.15)"  # 选中高亮背景
     
     # 文字色
@@ -28,17 +28,17 @@ class ThemeColors:
     text_secondary: str = "#666666"       # 次要文字色
     text_tertiary: str = "#999999"        # 第三级文字色
     text_disabled: str = "#CCCCCC"        # 禁用文字色
-    text_accent: str = "#1976D2"          # 强调文字色
+    text_accent: str = "#58738C"          # 强调文字色
     
     # 边框色
     border_primary: str = "#E0E0E0"       # 主边框色
     border_secondary: str = "#E8E8E8"     # 次要边框色
-    border_accent: str = "#1976D2"        # 强调边框色
-    border_selected: str = "#0078D7"      # 选中边框色
+    border_accent: str = "#6F8FAB"        # 强调边框色
+    border_selected: str = "#6F8FAB"      # 选中边框色
     
     # 功能色
-    accent_primary: str = "#1976D2"       # 主强调色（蓝色）
-    accent_hover: str = "#1565C0"         # 强调色悬停
+    accent_primary: str = "#6F8FAB"       # 主强调色（蓝灰色）
+    accent_hover: str = "#627F99"         # 强调色悬停
     success: str = "#4CAF50"              # 成功色（绿色）
     success_bg: str = "#E8F5E9"           # 成功背景色
     success_hover: str = "#388E3C"        # 成功色悬停
@@ -51,7 +51,7 @@ class ThemeColors:
     # 特殊色
     drag_drop_border: str = "#4DAF50"     # 拖放边框色
     separator: str = "#E0E0E0"            # 分隔线颜色
-    shortcut_key_color: str = "#1976D2"   # 快捷键徽标文字颜色
+    shortcut_key_color: str = "#58738C"   # 快捷键徽标文字颜色
     
     def to_dict(self) -> Dict[str, str]:
         """转换为字典"""
@@ -154,30 +154,30 @@ THEME_BLUE = Theme(
     display_name="海洋蓝",
     description="清新的蓝色系主题",
     colors=ThemeColors(
-        bg_primary="#F0F8FF",
-        bg_secondary="#D9EDFF",
-        bg_tertiary="#D6EBFF",
-        bg_hover="#CCE5FF",
-        bg_selected="#7EC2FA",
+        bg_primary="#EFF3F6",
+        bg_secondary="#DDE6EC",
+        bg_tertiary="#D5E0E8",
+        bg_hover="#C8D6E0",
+        bg_selected="#AFC2D0",
         bg_selected_highlight="rgba(0, 0, 0, 0.20)",
         
-        text_primary="#1A237E",
-        text_secondary="#3949AB",
-        text_tertiary="#5C6BC0",
-        text_accent="#1976D2",
+        text_primary="#283B4B",
+        text_secondary="#435D72",
+        text_tertiary="#607A90",
+        text_accent="#58738C",
         
-        border_primary="#BBDEFB",
-        border_secondary="#C5CAE9",
-        border_accent="#2196F3",
-        border_selected="#1976D2",
+        border_primary="#BCCBD6",
+        border_secondary="#D1DCE4",
+        border_accent="#6F8FAB",
+        border_selected="#58738C",
         
-        accent_primary="#2196F3",
-        accent_hover="#1976D2",
+        accent_primary="#6F8FAB",
+        accent_hover="#627F99",
         success="#4CAF50",
         success_bg="#C8E6C9",
         error="#F44336",
         error_bg="#FFCDD2",
-        shortcut_key_color="#1565C0",   # 深蓝色，在浅蓝背景上醒目
+        shortcut_key_color="#435D72",   # 深蓝灰色，在浅背景上醒目
     )
 )
 

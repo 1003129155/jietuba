@@ -54,7 +54,6 @@ from PIL import Image
 import io
 
 # 导入长截图拼接统一接口
-from .jietuba_long_stitch import AllOverlapShrinkError
 from .jietuba_long_stitch_unified import (
     configure as long_stitch_configure,
     normalize_engine_value,
@@ -397,7 +396,6 @@ class ScrollCaptureWindow(QWidget):
         # 实时拼接相关
         self.stitched_result = None  # 当前拼接的结果图
         self.preview_warning_active = False
-        self._original_cancel_on_shrink = None
         
         # 滚动检测相关
         self.last_scroll_time = 0  # 最后一次滚动的时间戳
@@ -740,16 +738,6 @@ class ScrollCaptureWindow(QWidget):
         if hasattr(self, 'preview_panel') and self.preview_panel is not None:
             self.preview_panel.clear_warning()
 
-    def _handle_shrink_abort(self, screenshot_index: int):
-        message = f"第 {screenshot_index} 张截图可能造成拼接收缩，已取消"
-        print(f"🛑 {message}")
-        if self.screenshots:
-            self.screenshots.pop()
-        if hasattr(self, 'preview_panel') and self.preview_panel:
-            self.preview_panel.update_count(len(self.screenshots))
-        self.current_scroll_distance = 0
-        self._show_preview_warning(message)
-
     def _handle_stitch_failure(self, screenshot_index: int, detail: str):
         detail = detail or "拼接失败"
         message = f"第 {screenshot_index} 张图片拼接失败：{detail}"
@@ -966,11 +954,6 @@ class ScrollCaptureWindow(QWidget):
                 max_sample_size=config.max_sample_size,
                 verbose=True,
             )
-            if self._original_cancel_on_shrink is None:
-                self._original_cancel_on_shrink = config.cancel_on_shrink
-            if not config.cancel_on_shrink:
-                config.cancel_on_shrink = True
-                print("🛑 启用拼接缩短保护：检测到风险时将取消本次拼接")
             
             mode_text = "横向截图（图片旋转90度+竖向拼接）" if self.scroll_direction == "horizontal" else "竖向截图（竖向拼接）"
             print(f"[OK] 拼接引擎已重新配置: {mode_text}")
@@ -1237,8 +1220,6 @@ class ScrollCaptureWindow(QWidget):
         # 截图前：排除与截图区域重叠的 UI 窗口
         self._exclude_overlapping_ui(True)
         try:
-            current_count = len(self.screenshots) + 1
-            
             # 获取包含截图区域的屏幕
             app = QGuiApplication.instance()
             capture_center_x = self.capture_rect.x() + self.capture_rect.width() // 2
@@ -1302,7 +1283,6 @@ class ScrollCaptureWindow(QWidget):
             
             try:
                 from .jietuba_long_stitch_unified import stitch_images, stitch_images_auto
-                from .jietuba_long_stitch import AllOverlapShrinkError
 
                 if self.stitched_result is None:
                     # 第一张图片
@@ -1336,11 +1316,7 @@ class ScrollCaptureWindow(QWidget):
                             result = "HANDLED"
                     else:
                         # 方向已锁定，正常拼接
-                        try:
-                            result = stitch_images([self.stitched_result, pil_image])
-                        except AllOverlapShrinkError:
-                            self._handle_shrink_abort(current_count)
-                            return
+                        result = stitch_images([self.stitched_result, pil_image])
                     
                     if result == "HANDLED":
                         pass  # 已在上面处理
@@ -1617,11 +1593,6 @@ class ScrollCaptureWindow(QWidget):
             import gc
             gc.collect()
                 
-            if self._original_cancel_on_shrink is not None:
-                from .jietuba_long_stitch_unified import config as long_config
-                long_config.cancel_on_shrink = self._original_cancel_on_shrink
-                self._original_cancel_on_shrink = None
-
             # 关闭浮动工具栏
             if hasattr(self, 'toolbar') and self.toolbar:
                 try:

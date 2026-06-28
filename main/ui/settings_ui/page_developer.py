@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QScrollArea,
 )
 from PySide6.QtCore import Qt
-from qfluentwidgets import (
+from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
     FluentIcon, ComboBox, DoubleSpinBox,
     BodyLabel, CaptionLabel, PrimaryPushButton,
@@ -100,10 +100,6 @@ def create_developer_page(dialog) -> QWidget:
     layout.addWidget(preload_desc)
 
     _preload_items = [
-        ("preload_fonts_toggle", FluentIcon.FONT,
-         dialog.tr("Preload Fonts"),
-         dialog.tr("Pre-scan system font list on startup"),
-         "preload_fonts"),
         ("preload_screenshot_toggle", FluentIcon.CAMERA,
          dialog.tr("Preload Screenshot Modules"),
          dialog.tr("Pre-load mss, canvas, tools in background thread"),

@@ -89,26 +89,21 @@ class MainApp(QObject):
         except Exception as e:
             log_warning(f"无法获取DPI信息: {e}", "DPI")
         
-        # 热键初始（首次运行时跳过，等向导完成后再注册；非首次直接注册）
+        # 热键系统先创建，实际注册放到启动预加载完成后，避免预加载期间触发卡顿。
         self.hotkey_system = HotkeySystem()
         self.hotkey_system.set_suppressed(
             self.config_manager.get_app_setting("global_hotkeys_disabled", False)
         )
-        if not self.config_manager.is_first_run():
-            self.update_hotkey()
-        
-        # 系统托盘
-        self.setup_tray()
-        self._setup_pin_tray_updates()
         
         # 窗口实例
+        self.tray_icon = None
         self.settings_window = None
         self.screenshot_window = None
         self.clipboard_window = None
         # 剪贴板管理器
         self.clipboard_manager = None
         
-        # 启动预加载链（字体 → 截图模块 → 工具栏 → OCR → 设置窗口 → 剪贴板 → 显示主界面）
+        # 启动预加载链（截图模块 → 工具栏 → OCR → 设置窗口 → 剪贴板 → 显示主界面）
         from core.bootstrap import PreloadManager
         self._preloader = PreloadManager(self)
         self._preloader.build_and_start()
@@ -292,6 +287,9 @@ class MainApp(QObject):
         )
 
     def setup_tray(self):
+        if self.tray_icon:
+            return
+
         if not QSystemTrayIcon.isSystemTrayAvailable():
             show_error_dialog(None, "Error", "System tray not available")
         self.tray_icon = QSystemTrayIcon(self)
@@ -310,6 +308,20 @@ class MainApp(QObject):
     def on_tray_activated(self, reason):
         if reason == QSystemTrayIcon.ActivationReason.Trigger:
             self.start_screenshot()
+
+    def _activate_blocking_modal(self) -> bool:
+        """模态窗口存在时阻止创建无法交互的截图层。"""
+        modal = QApplication.activeModalWidget()
+        if modal is None or not modal.isVisible():
+            return False
+
+        log_debug(
+            f"检测到模态窗口 {type(modal).__name__}，忽略截图触发",
+            "MainApp",
+        )
+        modal.raise_()
+        modal.activateWindow()
+        return True
             
     def start_screenshot(self):
         """启动截图 - 管理截图窗口生命周期"""
@@ -327,6 +339,11 @@ class MainApp(QObject):
                     w.activateWindow()
                     return
             self.screenshot_window.setFocus()
+            return
+
+        # QDialog.exec() 的嵌套事件循环仍会处理托盘信号，但应用模态会屏蔽
+        # 新截图窗口的输入。此时不创建截图层，转而把现有模态窗口提到前面。
+        if self._activate_blocking_modal():
             return
         
         # 后台截图线程正在运行时也忽略重复触发
@@ -363,6 +380,10 @@ class MainApp(QObject):
     def _on_capture_ready(self, image, rect):
         """后台截图完成后，在主线程创建或复用截图窗口"""
         log_debug("后台截图完成，准备截图窗口", "MainApp")
+
+        # 截图采集期间也可能弹出模态窗口，避免在线程结束后创建一个被锁死的界面。
+        if self._activate_blocking_modal():
+            return
         
         if self.screenshot_window is not None:
             # 复用已有窗口（节省 ~250ms 的 UI 壳创建时间）

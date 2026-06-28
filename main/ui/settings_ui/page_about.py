@@ -4,12 +4,13 @@ import webbrowser
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea
 from PySide6.QtCore import Qt
-from qfluentwidgets import (
+from ui.fluent_lite import (
     SettingCard, FluentIcon,
     HyperlinkButton,
 )
 from .components import SettingCardGroup
 from ui.dialogs import show_text_dialog
+from core.constants import PROJECT_GITHUB_URL
 
 
 def create_about_page(dialog) -> QScrollArea:
@@ -71,7 +72,7 @@ def create_about_page(dialog) -> QScrollArea:
         parent=group,
     )
     link_btn = HyperlinkButton(
-        url="https://github.com/1003129155/jietuba",
+        url=PROJECT_GITHUB_URL,
         text=dialog.tr("Open GitHub"),
         parent=github_card,
     )

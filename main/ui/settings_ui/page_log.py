@@ -10,9 +10,9 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 from ui.dialogs import show_info_dialog
-from qfluentwidgets import (
+from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
-    FluentIcon, ComboBox, SpinBox,
+    FluentIcon, ComboBox,
     CaptionLabel, PushButton,
 )
 from .components import SettingCardGroup, WhiteCard, theme_text_style, theme_caption_style
@@ -78,18 +78,21 @@ def create_log_page(dialog) -> QWidget:
     retention_card = FSettingCard(
         FluentIcon.DATE_TIME,
         dialog.tr("Retention Period"),
-        dialog.tr("Auto-delete old logs (0=keep forever)"),
+        dialog.tr("Auto-delete old logs after the selected period"),
         parent=grp_log,
     )
-    dialog.log_retention_spinbox = SpinBox(retention_card)
-    dialog.log_retention_spinbox.setRange(0, 365)
-    dialog.log_retention_spinbox.setSuffix(" " + dialog.tr("days"))
-    dialog.log_retention_spinbox.setValue(
-        dialog.config_manager.get_log_retention_days()
-    )
-    dialog.log_retention_spinbox.setFixedWidth(150)
+    dialog.log_retention_combo = ComboBox(retention_card)
+    retention_options = [3, 7, 14, 28, 48]
+    for days in retention_options:
+        dialog.log_retention_combo.addItem(f"{days} {dialog.tr('days')}", userData=days)
+    current_days = dialog.config_manager.get_log_retention_days()
+    retention_idx = dialog.log_retention_combo.findData(current_days)
+    if retention_idx < 0:
+        retention_idx = dialog.log_retention_combo.findData(7)
+    dialog.log_retention_combo.setCurrentIndex(max(retention_idx, 0))
+    dialog.log_retention_combo.setFixedWidth(150)
     retention_card.hBoxLayout.addWidget(
-        dialog.log_retention_spinbox, 0, Qt.AlignmentFlag.AlignRight
+        dialog.log_retention_combo, 0, Qt.AlignmentFlag.AlignRight
     )
     retention_card.hBoxLayout.addSpacing(16)
     grp_log.addSettingCard(retention_card)

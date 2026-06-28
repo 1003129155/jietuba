@@ -11,6 +11,7 @@ from PySide6.QtGui import QColor, QCursor, QDrag, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QListWidget
 
 from core import safe_event
+from ui.fluent_lite.theme import ACCENT
 
 
 class DraggableListWidget(QListWidget):
@@ -46,7 +47,7 @@ class DraggableListWidget(QListWidget):
         painter.setOpacity(0.8)
         painter.drawPixmap(0, 0, pixmap)
 
-        painter.setPen(QColor("#1976D2"))
+        painter.setPen(QColor(ACCENT))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRect(0, 0, drag_pixmap.width() - 1, drag_pixmap.height() - 1)
 
@@ -97,7 +98,7 @@ class DraggableListWidget(QListWidget):
         if self.state() == QListWidget.State.DraggingState:
             painter = QPainter(self.viewport())
 
-            pen = QPen(QColor("#1976D2"))
+            pen = QPen(QColor(ACCENT))
             pen.setWidth(3)
             painter.setPen(pen)
 
@@ -129,7 +130,7 @@ class DraggableListWidget(QListWidget):
             if y != -1 and line_rect:
                 painter.drawLine(line_rect.left(), y, line_rect.right(), y)
 
-                painter.setBrush(QColor("#1976D2"))
+                painter.setBrush(QColor(ACCENT))
                 painter.setPen(Qt.PenStyle.NoPen)
                 radius = 4
                 painter.drawEllipse(QPoint(line_rect.left(), y), radius, radius)

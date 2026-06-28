@@ -93,6 +93,9 @@ class CanvasView(QGraphicsView):
         self.canvas_scene.cursor_color_update_requested.connect(
             self.cursor_manager.update_tool_cursor_color
         )
+        self.canvas_scene.cursor_opacity_update_requested.connect(
+            self.cursor_manager.update_tool_cursor_opacity
+        )
         self.canvas_scene.cursor_tool_update_requested.connect(
             self._on_cursor_tool_update_requested
         )
@@ -148,6 +151,10 @@ class CanvasView(QGraphicsView):
                 safe_disconnect(
                     scene.cursor_color_update_requested,
                     cursor_manager.update_tool_cursor_color,
+                )
+                safe_disconnect(
+                    scene.cursor_opacity_update_requested,
+                    cursor_manager.update_tool_cursor_opacity,
                 )
             safe_disconnect(scene.cursor_tool_update_requested, self._on_cursor_tool_update_requested)
             safe_disconnect(scene.item_auto_select_requested, self._on_item_auto_select_requested)
@@ -1073,7 +1080,7 @@ class CanvasView(QGraphicsView):
                 new_opacity = current_opacity + (step if delta > 0 else -step)
                 new_opacity = max(0.0, min(1.0, float(new_opacity)))
 
-                self.canvas_scene.tool_controller.update_style(opacity=new_opacity)
+                self.canvas_scene.update_style(opacity=new_opacity)
                 self._apply_opacity_change_to_selection(new_opacity)
 
                 toolbar = getattr(self.window(), 'toolbar', None)

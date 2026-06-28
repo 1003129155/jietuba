@@ -115,6 +115,7 @@ class GifDrawingScene(QGraphicsScene):
 
     # CanvasView 需要的解耦信号（与 CanvasScene 保持一致）
     cursor_color_update_requested = Signal(object)    # 参数：QColor
+    cursor_opacity_update_requested = Signal()        # 透明度变化 → 刷新光标
     cursor_tool_update_requested = Signal(str, bool)  # 参数：tool_id, force
     item_auto_select_requested = Signal(object)       # 参数：绘制完成的 QGraphicsItem
     editing_cleanup_requested = Signal()              # 请求清除编辑状态

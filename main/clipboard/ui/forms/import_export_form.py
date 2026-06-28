@@ -9,13 +9,14 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout
 
-from qfluentwidgets import BodyLabel, CaptionLabel, ComboBox, PrimaryPushButton
+from ui.fluent_lite import BodyLabel, CaptionLabel, ComboBox, PrimaryPushButton
+from ..layout_scale import scale_ui, scale_y
 
 
 def build_import_export_form(dialog):
     """构建导入导出表单。"""
     export_section = BodyLabel(dialog.tr("Export"))
-    export_section.setStyleSheet("font-size: 14px; font-weight: 600; margin-top: 8px;")
+    export_section.setStyleSheet(f"font-size: {scale_ui(14)}px; font-weight: 600; margin-top: {scale_y(8)}px;")
     dialog.detail_layout.addWidget(export_section)
 
     export_desc = CaptionLabel(dialog.tr("Export all saved content to CSV file"))
@@ -41,12 +42,12 @@ def build_import_export_form(dialog):
 
     line = QFrame()
     line.setFrameShape(QFrame.Shape.HLine)
-    line.setStyleSheet("background: #E8E8E8; margin: 16px 0;")
+    line.setStyleSheet(f"background: #E8E8E8; margin: {scale_y(16)}px 0;")
     line.setFixedHeight(1)
     dialog.detail_layout.addWidget(line)
 
     import_section = BodyLabel(dialog.tr("Import"))
-    import_section.setStyleSheet("font-size: 14px; font-weight: 600; margin-top: 8px;")
+    import_section.setStyleSheet(f"font-size: {scale_ui(14)}px; font-weight: 600; margin-top: {scale_y(8)}px;")
     dialog.detail_layout.addWidget(import_section)
 
     import_desc = CaptionLabel(dialog.tr("Import content from CSV file (Group, Content, Title)"))
@@ -58,7 +59,7 @@ def build_import_export_form(dialog):
     dialog.detail_layout.addWidget(import_btn)
 
     format_section = BodyLabel(dialog.tr("CSV Format"))
-    format_section.setStyleSheet("font-size: 14px; font-weight: 600; margin-top: 24px;")
+    format_section.setStyleSheet(f"font-size: {scale_ui(14)}px; font-weight: 600; margin-top: {scale_y(24)}px;")
     dialog.detail_layout.addWidget(format_section)
 
     format_desc = CaptionLabel(

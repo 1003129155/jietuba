@@ -14,18 +14,19 @@ from PySide6.QtWidgets import (
     QStackedWidget, QWidget, QDialogButtonBox,
     QFrame, QFileDialog,
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from ui.dialogs import show_info_dialog
-from PySide6.QtGui import QFont, QIcon, QColor
+from PySide6.QtGui import QColor, QFont, QIcon
 
-from qfluentwidgets import (
+from ui.fluent_lite import (
     NavigationInterface, NavigationItemPosition,
     FluentIcon, BodyLabel,
     PushButton as FluentPushButton,
     PrimaryPushButton, TransparentPushButton,
+    FrostedFramelessDialog,
 )
-from qframelesswindow import FramelessDialog
-from qfluentwidgets.window.fluent_window import FluentTitleBar
+from ui.fluent_lite import FluentTitleBar
+from ui.fluent_lite.theme import ACCENT, ACCENT_HOVER, ACCENT_PRESSED
 
 from core import log_info, safe_event
 from core.logger import log_exception
@@ -49,7 +50,24 @@ from .components import (
 )
 
 
-class SettingsDialog(FramelessDialog):
+class _FooterPrimaryButton(PrimaryPushButton):
+    """Large dialog action button with a subtle trailing sparkle."""
+
+    def __init__(self, text, parent=None):
+        super().__init__(text, parent)
+        self._sparkle = QLabel(self)
+        self._sparkle.setFixedSize(18, 22)
+        self._sparkle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._sparkle.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._sparkle.setPixmap(FluentIcon.SPARKLE.icon().pixmap(16, 16))
+        self._sparkle.setStyleSheet("background: transparent; border: none;")
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._sparkle.move(self.width() - 24, (self.height() - self._sparkle.height()) // 2)
+
+
+class SettingsDialog(FrostedFramelessDialog):
     """现代化设置对话框 - Fluent 风格（无系统标题栏）"""
 
     wizard_requested = Signal()
@@ -60,7 +78,6 @@ class SettingsDialog(FramelessDialog):
         self.current_hotkey = current_hotkey
         self.main_window = parent
         self._skip_unsaved_close_prompt = False
-
         if self.config_manager is None:
             from .mock_config import MockConfig
             self.config_manager = MockConfig()
@@ -69,7 +86,7 @@ class SettingsDialog(FramelessDialog):
         self._setup_titlebar()
 
         self.setWindowTitle("jietuba")
-        self.resize(860, 620)
+        self.resize(900, 670)
         self.setFont(QFont(DEFAULT_FONT_FAMILY, 10))
         self.setObjectName("SettingsDialog")
 
@@ -100,20 +117,20 @@ class SettingsDialog(FramelessDialog):
     # ================================================================
 
     def _setup_ui(self):
-        sidebar_width = 204
-        nav_width = 188
+        sidebar_width = 212
+        nav_width = 194
         title_bar_height = self.titleBar.height() if getattr(self, 'titleBar', None) else 32
 
         main_layout = QHBoxLayout(self)
-        main_layout.setContentsMargins(8, title_bar_height, 8, 8)
-        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(10, title_bar_height + 6, 10, 10)
+        main_layout.setSpacing(10)
 
         # 1. 左侧面板
         left_panel = QWidget()
         left_panel.setObjectName("SettingsLeftPanel")
         left_panel.setFixedWidth(sidebar_width)
         left_v = QVBoxLayout(left_panel)
-        left_v.setContentsMargins(10, 6, 6, 10)
+        left_v.setContentsMargins(10, 6, 10, 10)
         left_v.setSpacing(8)
 
         # logo 区
@@ -160,14 +177,14 @@ class SettingsDialog(FramelessDialog):
 
         # 2. 右侧内容区
         right_area = QWidget()
+        self.right_area = right_area
         right_area.setObjectName("SettingsRightArea")
         right_layout = QVBoxLayout(right_area)
-        right_layout.setContentsMargins(26, 12, 26, 18)
+        right_layout.setContentsMargins(24, 16, 24, 18)
         right_layout.setSpacing(14)
 
         self.content_title = QLabel(self.tr("Shortcut Settings"))
-        self.content_title.setStyleSheet("font-size: 22px; font-weight: 700; margin-bottom: 6px; background-color: transparent;")
-        self.content_title.hide()
+        self.content_title.setStyleSheet("font-size: 20px; font-weight: 650; padding: 0 6px 2px 6px; background-color: transparent;")
 
         self.content_stack = QStackedWidget()
         self.content_stack.addWidget(create_hotkey_page(self))           # 0
@@ -180,6 +197,7 @@ class SettingsDialog(FramelessDialog):
         self.content_stack.addWidget(create_developer_page(self))        # 7
         self.content_stack.addWidget(create_about_page(self))            # 8
 
+        right_layout.addWidget(self.content_title)
         right_layout.addWidget(self.content_stack)
         right_layout.setStretchFactor(self.content_stack, 1)
         right_layout.addLayout(self._create_button_area())
@@ -217,7 +235,6 @@ class SettingsDialog(FramelessDialog):
                 text=text,
                 onClick=lambda checked=False, idx=stack_index, rk=route_key: self._on_nav_changed(idx, rk),
                 position=position,
-                tooltip=text,
             )
 
         return nav
@@ -263,7 +280,7 @@ class SettingsDialog(FramelessDialog):
                 font-size: 12px;
             }}
             QLineEdit:focus, QSpinBox:focus {{
-                border: 1px solid #07C160; background-color: {focus_bg};
+                border: 1px solid {ACCENT}; background-color: {focus_bg};
             }}
             QSpinBox, QDoubleSpinBox {{ padding-right: 24px; }}
             QSpinBox::up-button, QDoubleSpinBox::up-button {{
@@ -273,7 +290,7 @@ class SettingsDialog(FramelessDialog):
                 background: {input_bg};
             }}
             QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover {{ background: {popup_hover}; }}
-            QSpinBox::up-button:pressed, QDoubleSpinBox::up-button:pressed {{ background: #C8E6C9; }}
+            QSpinBox::up-button:pressed, QDoubleSpinBox::up-button:pressed {{ background: #DCE8F4; }}
             QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{
                 image: none; border-left: 4px solid transparent;
                 border-right: 4px solid transparent; border-bottom: 6px solid {arrow_color};
@@ -285,7 +302,7 @@ class SettingsDialog(FramelessDialog):
                 border-bottom-right-radius: 4px; background: {input_bg};
             }}
             QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{ background: {popup_hover}; }}
-            QSpinBox::down-button:pressed, QDoubleSpinBox::down-button:pressed {{ background: #C8E6C9; }}
+            QSpinBox::down-button:pressed, QDoubleSpinBox::down-button:pressed {{ background: #DCE8F4; }}
             QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
                 image: none; border-left: 4px solid transparent;
                 border-right: 4px solid transparent; border-top: 6px solid {arrow_color};
@@ -304,7 +321,7 @@ class SettingsDialog(FramelessDialog):
             }}
             QComboBox QAbstractItemView {{
                 border: 1px solid {border_color}; background: {popup_bg};
-                selection-background-color: #07C160; selection-color: white;
+                selection-background-color: {ACCENT}; selection-color: white;
                 font-family: {CSS_FONT_FAMILY};
                 font-size: 12px; color: {text_color}; outline: none;
             }}
@@ -315,7 +332,7 @@ class SettingsDialog(FramelessDialog):
                 background-color: {popup_hover}; color: {text_color};
             }}
             QComboBox QAbstractItemView::item:selected {{
-                background-color: #07C160; color: white;
+                background-color: {ACCENT}; color: white;
             }}
         """
 
@@ -340,9 +357,7 @@ class SettingsDialog(FramelessDialog):
             self.content_stack.setCurrentIndex(stack_index)
             if route_key:
                 self._set_current_nav(route_key)
-
-        if stack_index == 2:
-            self._refresh_clipboard_size()
+            self._refresh_after_page_change()
 
     def _refresh_clipboard_size(self, delay_ms: int = 0):
         if not hasattr(self, '_clipboard_size_label') or not hasattr(self, '_calc_clipboard_storage_size'):
@@ -366,6 +381,17 @@ class SettingsDialog(FramelessDialog):
     def _open_developer_page(self):
         self.content_stack.setCurrentIndex(7)
         self.content_title.setText(self.tr("Developer Options"))
+        self.nav_list.clearCurrentItem()
+        self._refresh_after_page_change()
+
+    def _refresh_after_page_change(self):
+        """Clear the translucent backing store before painting a new page."""
+        self.update()
+        self.right_area.update()
+        self.content_stack.update()
+        current = self.content_stack.currentWidget()
+        if current is not None:
+            current.update()
 
     def _open_welcome_wizard(self):
         self.wizard_requested.emit()
@@ -420,17 +446,67 @@ class SettingsDialog(FramelessDialog):
         reset_btn.clicked.connect(self._reset_current_page)
 
         cancel_btn = FluentPushButton(self.tr("Cancel"))
-        cancel_btn.setFixedHeight(36)
+        cancel_btn.setFixedHeight(46)
+        cancel_btn.setMinimumWidth(150)
         cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        cancel_btn.setIcon(FluentIcon.CLOSE)
-        adjust_button_width(cancel_btn, min_width=112)
+        cancel_btn.setIcon(FluentIcon.CANCEL)
+        cancel_btn.setIconSize(QSize(22, 22))
+        cancel_btn.setStyleSheet("""
+            QPushButton {
+                min-height: 44px;
+                padding: 0 24px;
+                color: #20262D;
+                background: rgba(255, 255, 255, 0.18);
+                border: 1px solid rgba(77, 88, 101, 0.38);
+                border-radius: 12px;
+                font-size: 16px;
+                font-weight: 500;
+                outline: none;
+            }
+            QPushButton:hover {
+                background: rgba(255, 255, 255, 0.46);
+                border-color: rgba(55, 68, 82, 0.55);
+            }
+            QPushButton:pressed {
+                background: rgba(220, 228, 236, 0.60);
+                border-color: rgba(55, 68, 82, 0.66);
+            }
+        """)
         cancel_btn.clicked.connect(self.reject)
 
-        ok_btn = PrimaryPushButton(self.tr("Apply"))
-        ok_btn.setFixedHeight(36)
+        ok_btn = _FooterPrimaryButton(self.tr("Apply"))
+        ok_btn.setFixedHeight(46)
+        ok_btn.setMinimumWidth(150)
         ok_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        ok_btn.setIcon(FluentIcon.SAVE)
-        adjust_button_width(ok_btn, min_width=112)
+        ok_btn.setIcon(FluentIcon.CHECK)
+        ok_btn.setIconSize(QSize(23, 23))
+        ok_btn.setStyleSheet("""
+            QPushButton {
+                min-height: 44px;
+                padding: 0 25px;
+                color: white;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #91AABD, stop:0.52 %s, stop:1 #607F9A);
+                border: 1px solid rgba(255, 255, 255, 0.34);
+                border-radius: 12px;
+                font-size: 16px;
+                font-weight: 600;
+                outline: none;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #9AAFC0, stop:0.52 %s, stop:1 #58748D);
+            }
+            QPushButton:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 %s, stop:1 #465E73);
+                padding-top: 2px;
+            }
+            QPushButton:disabled {
+                color: rgba(255, 255, 255, 0.72);
+                background: rgba(151, 170, 186, 0.68);
+            }
+        """ % (ACCENT, ACCENT_HOVER, ACCENT_PRESSED))
         ok_btn.clicked.connect(self.accept)
 
         layout.addWidget(reset_btn)
@@ -529,8 +605,12 @@ class SettingsDialog(FramelessDialog):
             self.log_toggle.setChecked(defaults["log_enabled"])
         if hasattr(self, 'log_level_combo'):
             self.log_level_combo.setCurrentText(defaults["log_level"])
-        if hasattr(self, 'log_retention_spinbox'):
-            self.log_retention_spinbox.setValue(defaults["log_retention_days"])
+        if hasattr(self, 'log_retention_combo'):
+            index = self.log_retention_combo.findData(defaults["log_retention_days"])
+            if index < 0:
+                index = self.log_retention_combo.findData(7)
+            if index >= 0:
+                self.log_retention_combo.setCurrentIndex(index)
         if hasattr(self, 'path_lbl'):
             self.path_lbl.setText(defaults["log_dir"])
 
@@ -607,8 +687,8 @@ class SettingsDialog(FramelessDialog):
                     logger.set_level(level_map[log_level])
                     logger.set_console_level(level_map[log_level])
 
-            if hasattr(self, 'log_retention_spinbox'):
-                retention_days = self.log_retention_spinbox.value()
+            if hasattr(self, 'log_retention_combo'):
+                retention_days = self.log_retention_combo.currentData()
                 old_retention = self.config_manager.get_log_retention_days()
                 self.config_manager.set_log_retention_days(retention_days)
                 if retention_days > 0 and retention_days < old_retention:
@@ -723,8 +803,6 @@ class SettingsDialog(FramelessDialog):
             self.config_manager.settings.setValue('screenshot/scroll_cooldown', self.cooldown_spinbox.value())
 
         # 9. 预加载开关（重启生效）
-        if hasattr(self, 'preload_fonts_toggle'):
-            self.config_manager.set_app_setting("preload_fonts", self.preload_fonts_toggle.isChecked())
         if hasattr(self, 'preload_screenshot_toggle'):
             self.config_manager.set_app_setting("preload_screenshot", self.preload_screenshot_toggle.isChecked())
         if hasattr(self, 'preload_toolbar_toggle'):
@@ -773,18 +851,31 @@ class SettingsDialog(FramelessDialog):
         """根据当前主题生成并应用对话框样式表"""
         self.setStyleSheet(f"""
             #SettingsDialog {{
-                background-color: {theme_surface_color()};
+                background: transparent;
+                border: none;
             }}
             QWidget#SettingsLeftPanel {{
                 background-color: {theme_sidebar_color()};
-                border-right: 1px solid {theme_border_color()};
+                border: none;
+                border-radius: 8px;
             }}
             QWidget#SettingsRightArea {{
-                background: transparent;
+                background: rgba(255, 255, 255, 0.12);
+                border: none;
+                border-radius: 8px;
             }}
             QStackedWidget {{
                 background: transparent;
             }}
+            QScrollBar:vertical {{
+                width: 7px; margin: 3px 0; background: transparent;
+            }}
+            QScrollBar::handle:vertical {{
+                min-height: 34px; background: rgba(93, 110, 126, 0.30); border-radius: 3px;
+            }}
+            QScrollBar::handle:vertical:hover {{ background: rgba(72, 89, 105, 0.46); }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: transparent; }}
         """)
 
     @safe_event
@@ -824,7 +915,7 @@ class SettingsDialog(FramelessDialog):
                       'clipboard_enabled_toggle', 'clipboard_auto_paste_toggle',
                       'autostart_toggle', 'show_main_window_toggle',
                       'pin_auto_toolbar_toggle', 'info_hide_on_drag_toggle',
-                      'preload_fonts_toggle', 'preload_screenshot_toggle',
+                      'preload_screenshot_toggle',
                       'preload_toolbar_toggle', 'preload_ocr_toggle',
                       'preload_settings_toggle', 'preload_clipboard_toggle'):
             w = getattr(self, attr, None)
@@ -834,12 +925,12 @@ class SettingsDialog(FramelessDialog):
         for attr in ('screenshot_format_combo', 'ocr_engine_combo',
                       'translation_target_combo', 'log_level_combo',
                       'language_combo', 'engine_combo', 'cursor_move_combo',
-                      'magnifier_color_format_combo'):
+                      'magnifier_color_format_combo', 'log_retention_combo'):
             w = getattr(self, attr, None)
             if w is not None:
                 snap[attr] = w.currentIndex()
         # 数值类
-        for attr in ('log_retention_spinbox', 'clipboard_history_limit_spin',
+        for attr in ('clipboard_history_limit_spin',
                       'cooldown_spinbox', 'ocr_scale_spinbox'):
             w = getattr(self, attr, None)
             if w is not None:
@@ -1001,8 +1092,12 @@ class SettingsDialog(FramelessDialog):
             self.log_toggle.setChecked(self.config_manager.get_log_enabled())
         if hasattr(self, 'log_level_combo'):
             self.log_level_combo.setCurrentText(self.config_manager.get_log_level())
-        if hasattr(self, 'log_retention_spinbox'):
-            self.log_retention_spinbox.setValue(self.config_manager.get_log_retention_days())
+        if hasattr(self, 'log_retention_combo'):
+            index = self.log_retention_combo.findData(self.config_manager.get_log_retention_days())
+            if index < 0:
+                index = self.log_retention_combo.findData(7)
+            if index >= 0:
+                self.log_retention_combo.setCurrentIndex(index)
         if hasattr(self, 'path_lbl'):
             self.path_lbl.setText(self.config_manager.get_log_dir())
 
@@ -1026,8 +1121,6 @@ class SettingsDialog(FramelessDialog):
                 self.language_combo.setCurrentIndex(index)
 
         # 预加载开关重置（默认全部 True）
-        if hasattr(self, 'preload_fonts_toggle'):
-            self.preload_fonts_toggle.setChecked(self.config_manager.get_app_setting("preload_fonts", True))
         if hasattr(self, 'preload_screenshot_toggle'):
             self.preload_screenshot_toggle.setChecked(self.config_manager.get_app_setting("preload_screenshot", True))
         if hasattr(self, 'preload_toolbar_toggle'):

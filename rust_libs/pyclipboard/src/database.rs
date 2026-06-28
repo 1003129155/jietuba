@@ -1,4 +1,5 @@
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, params, params_from_iter};
+use rusqlite::types::Value;
 use crate::types::{PyClipboardItem, PyPaginatedResult, PyGroup};
 use std::path::PathBuf;
 
@@ -219,22 +220,34 @@ impl Database {
         limit: i64,
         search: Option<String>,
         content_type: Option<String>,
+        start_time: Option<i64>,
+        end_time: Option<i64>,
     ) -> Result<PyPaginatedResult, String> {
         let mut where_clauses = vec![];
-        let mut params_vec: Vec<String> = vec![];
+        let mut params_vec: Vec<Value> = vec![];
         
         if let Some(ref s) = search {
             if !s.trim().is_empty() {
                 where_clauses.push("content LIKE ?".to_string());
-                params_vec.push(format!("%{}%", s));
+                params_vec.push(Value::from(format!("%{}%", s)));
             }
         }
         
         if let Some(ref ct) = content_type {
             if ct != "all" {
                 where_clauses.push("content_type = ?".to_string());
-                params_vec.push(ct.clone());
+                params_vec.push(Value::from(ct.clone()));
             }
+        }
+
+        if let Some(start) = start_time {
+            where_clauses.push("created_at >= ?".to_string());
+            params_vec.push(Value::from(start));
+        }
+
+        if let Some(end) = end_time {
+            where_clauses.push("created_at < ?".to_string());
+            params_vec.push(Value::from(end));
         }
         
         let where_clause = if where_clauses.is_empty() {
@@ -245,13 +258,9 @@ impl Database {
         
         // 获取总数
         let count_sql = format!("SELECT COUNT(*) FROM clipboard {}", where_clause);
-        let total_count: i64 = if params_vec.is_empty() {
-            self.conn.query_row(&count_sql, [], |row| row.get(0)).unwrap_or(0)
-        } else if params_vec.len() == 1 {
-            self.conn.query_row(&count_sql, [&params_vec[0]], |row| row.get(0)).unwrap_or(0)
-        } else {
-            self.conn.query_row(&count_sql, [&params_vec[0], &params_vec[1]], |row| row.get(0)).unwrap_or(0)
-        };
+        let total_count: i64 = self.conn
+            .query_row(&count_sql, params_from_iter(params_vec.iter()), |row| row.get(0))
+            .unwrap_or(0);
         
         // 查询数据
         let query_sql = format!(
@@ -284,16 +293,16 @@ impl Database {
             })
         };
         
-        let items: Vec<PyClipboardItem> = if params_vec.is_empty() {
-            stmt.query_map([limit, offset], map_row)
-        } else if params_vec.len() == 1 {
-            stmt.query_map(params![&params_vec[0], limit, offset], map_row)
-        } else {
-            stmt.query_map(params![&params_vec[0], &params_vec[1], limit, offset], map_row)
-        }.map_err(|e| format!("查询失败: {}", e))?
-        .filter_map(|r| r.ok())
-        .collect();
-        
+        let mut query_params = params_vec;
+        query_params.push(Value::from(limit));
+        query_params.push(Value::from(offset));
+
+        let items: Vec<PyClipboardItem> = stmt
+            .query_map(params_from_iter(query_params.iter()), map_row)
+            .map_err(|e| format!("查询失败: {}", e))?
+            .filter_map(|r| r.ok())
+            .collect();
+
         Ok(PyPaginatedResult::new(total_count, items, offset, limit))
     }
     

@@ -19,7 +19,6 @@ import os
 from typing import Dict, Any, Optional
 from PySide6.QtCore import QSettings, Signal, QObject
 from PySide6.QtGui import QColor
-from core.constants import DEFAULT_FONT_FAMILY
 
 
 class ToolSettings:
@@ -110,7 +109,7 @@ class ToolSettingsManager(QObject):
             "color": "#000000",  # 黑色
             "font_size": 14,
             "opacity": 1.0,
-            "font_family": DEFAULT_FONT_FAMILY,
+            "font_family": "",
             "background_enabled": False,
             "background_color": "#FFFFFF",  # 文字背景默认白色
             "background_opacity": 255,
@@ -422,7 +421,8 @@ class ToolSettingsManager(QObject):
             
             self.qsettings.setValue(setting_key, default_value)
         
-        print("[OK] [设置] 应用设置已重置为默认值")
+        from core.logger import log_info
+        log_info("应用设置已重置为默认值", "Settings")
     
     def get_app_setting(self, key: str, default=None) -> Any:
         """
@@ -478,7 +478,8 @@ class ToolSettingsManager(QObject):
         """重置所有设置（工具设置 + 应用设置）为默认值"""
         self.reset_all()           # 重置工具设置
         self.reset_app_settings()  # 重置应用设置
-        print("[OK] [设置] 所有设置已重置为默认值")
+        from core.logger import log_info
+        log_info("所有设置已重置为默认值", "Settings")
     
     def get_color(self, tool_id: str) -> QColor:
         """获取工具的颜色（返回 QColor 对象）"""
@@ -682,7 +683,7 @@ class ToolSettingsManager(QObject):
     def set_screenshot_quality(self, value: int):
         """设置截图保存质量 (1-100)"""
         self.qsettings.setValue("app/screenshot_quality", max(1, min(100, int(value))))
-    
+
     def get_show_main_window(self) -> bool:
         """获取主窗口显示设置"""
         return self.qsettings.value("app/show_main_window", self.APP_DEFAULT_SETTINGS["show_main_window"], type=bool)
@@ -1026,16 +1027,18 @@ class ToolSettingsManager(QObject):
         2. 如果不是首次运行 -> 根据用户设置决定
         
         Returns:
-            bool: True=显示主窗口，False=后台启动
+            bool: True=显示设置窗口，False=不自动打开设置窗口
         """
         # 首次运行：强制显示
         if self.is_first_run():
-            print("[启动] 检测到首次运行，将自动打开设置窗口")
+            from core.logger import log_debug
+            log_debug("检测到首次运行，将自动打开设置窗口", "Startup")
             return True
         
         # 非首次运行：读取用户设置
         show = self.get_show_main_window()
-        print(f"[启动] 根据用户设置：{'显示主窗口' if show else '后台启动'}")
+        from core.logger import log_debug
+        log_debug(f"根据用户设置：{'显示设置窗口' if show else '不自动打开设置窗口'}", "Startup")
         return show
 
 

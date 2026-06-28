@@ -19,11 +19,12 @@ from PySide6.QtWidgets import (
     QLabel,
     QVBoxLayout,
 )
-from PySide6.QtCore import Qt, Signal, QCoreApplication, QRectF
+from PySide6.QtCore import Qt, Signal, QCoreApplication, QRectF, QSize
 from PySide6.QtGui import QColor, QPainter, QPen, QBrush, QPainterPath
 from core import log_debug, safe_event
 from core.constants import CSS_FONT_FAMILY
 from core.i18n import tr as translate_text
+from core.resource_manager import ResourceManager
 from .color_picker_button import ColorPickerButton
 
 
@@ -44,6 +45,14 @@ def paint_rounded_panel(widget):
     painter.setBrush(QBrush(QColor("#ffffff")))
     painter.drawPath(path)
     painter.end()
+
+
+def set_step_button_icon(button: QToolButton, direction: str):
+    """为步进按钮使用固定深色 SVG，避免箭头颜色受系统调色板影响。"""
+    icon_name = "step_up.svg" if direction == "up" else "step_down.svg"
+    button.setArrowType(Qt.ArrowType.NoArrow)
+    button.setIcon(ResourceManager.get_icon(ResourceManager.get_icon_path(icon_name)))
+    button.setIconSize(QSize(round(10 * PANEL_SCALE), round(6 * PANEL_SCALE)))
 
 
 def build_settings_panel_stylesheet(
@@ -236,7 +245,7 @@ class StepperWidget(QWidget):
         btn_layout.setSpacing(2)
 
         self._up_btn = QToolButton()
-        self._up_btn.setArrowType(Qt.ArrowType.UpArrow)
+        set_step_button_icon(self._up_btn, "up")
         self._up_btn.setFixedSize(round(18 * PANEL_SCALE), round(14 * PANEL_SCALE))
         self._up_btn.setAutoRepeat(True)
         self._up_btn.setAutoRepeatDelay(300)
@@ -244,7 +253,7 @@ class StepperWidget(QWidget):
         btn_layout.addWidget(self._up_btn)
 
         self._down_btn = QToolButton()
-        self._down_btn.setArrowType(Qt.ArrowType.DownArrow)
+        set_step_button_icon(self._down_btn, "down")
         self._down_btn.setFixedSize(round(18 * PANEL_SCALE), round(14 * PANEL_SCALE))
         self._down_btn.setAutoRepeat(True)
         self._down_btn.setAutoRepeatDelay(300)

@@ -965,10 +965,18 @@ impl PyClipboardManager {
     /// 
     /// Returns:
     ///     PyPaginatedResult: 分页结果
-    #[pyo3(signature = (offset=0, limit=50, search=None, content_type=None))]
-    fn get_history(&self, offset: i64, limit: i64, search: Option<String>, content_type: Option<String>) -> PyResult<PyPaginatedResult> {
+    #[pyo3(signature = (offset=0, limit=50, search=None, content_type=None, start_time=None, end_time=None))]
+    fn get_history(
+        &self,
+        offset: i64,
+        limit: i64,
+        search: Option<String>,
+        content_type: Option<String>,
+        start_time: Option<i64>,
+        end_time: Option<i64>,
+    ) -> PyResult<PyPaginatedResult> {
         let db = self.db.lock();
-        db.query_items(offset, limit, search, content_type)
+        db.query_items(offset, limit, search, content_type, start_time, end_time)
             .map_err(|e| PyRuntimeError::new_err(e))
     }
     
@@ -1039,7 +1047,7 @@ impl PyClipboardManager {
     ///     List[PyClipboardItem]: 匹配的记录列表
     #[pyo3(signature = (keyword, limit=50))]
     fn search(&self, keyword: String, limit: i64) -> PyResult<Vec<PyClipboardItem>> {
-        let result = self.get_history(0, limit, Some(keyword), None)?;
+        let result = self.get_history(0, limit, Some(keyword), None, None, None)?;
         Ok(result.items)
     }
     

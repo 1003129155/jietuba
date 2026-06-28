@@ -731,22 +731,30 @@ class PinWindow(QWidget):
                 self.canvas.activate_tool(active_tool_id)
 
     def save_image(self):
+        from datetime import datetime
         from PySide6.QtWidgets import QFileDialog
         from core.save import SaveService
         import os
+        import re
 
+        fmt = (self.config_manager.get_screenshot_format() if self.config_manager else "PNG").lower()
+        default_name = f"pinned_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{fmt}"
         file_path, selected_filter = QFileDialog.getSaveFileName(
             self,
             self.tr("Save Pin Image"),
-            "pinned_image.png",
-            "Images (*.png *.jpg *.bmp *.webp);;PDF (*.pdf)",
+            default_name,
+            "PNG (*.png);;JPG (*.jpg);;BMP (*.bmp);;WebP (*.webp);;PDF (*.pdf)",
         )
         if not file_path:
             return
 
-        image_format = os.path.splitext(file_path)[1].lstrip(".").upper()
-        if not image_format:
-            image_format = "PDF" if "pdf" in selected_filter.lower() else "PNG"
+        ext = os.path.splitext(file_path)[1].lstrip(".")
+        if ext:
+            image_format = ext.upper()
+        else:
+            match = re.search(r'\*\.(\w+)', selected_filter)
+            image_format = match.group(1).upper() if match else "PNG"
+        if not ext:
             file_path = f"{file_path}.{image_format.lower()}"
 
         def _do_save():

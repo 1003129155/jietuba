@@ -7,7 +7,7 @@ WelcomeWizard — 欢迎向导主窗口
 """
 
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QWidget,
+    QVBoxLayout, QHBoxLayout, QWidget,
     QLabel, QStackedWidget, QFrame
 )
 from PySide6.QtCore import Qt
@@ -16,10 +16,12 @@ from PySide6.QtGui import QColor, QPainter, QPen
 from core.i18n import make_tr
 from core.logger import log_exception
 from core import safe_event
-from qfluentwidgets import (
+from ui.fluent_lite import (
     PushButton as FluentPushButton,
     PrimaryPushButton,
     TransparentPushButton,
+    FluentTitleBar,
+    FrostedFramelessDialog,
 )
 
 if __package__:
@@ -68,7 +70,7 @@ class _DotIndicator(QWidget):
             x += gap
 
 
-class WelcomeWizard(QDialog):
+class WelcomeWizard(FrostedFramelessDialog):
     """欢迎向导对话框"""
 
     PAGE_COUNT = 6
@@ -80,6 +82,8 @@ class WelcomeWizard(QDialog):
         self._config = config_manager
         self._current = 0
 
+        self._setup_titlebar()
+
         # ── 第一步：检测并加载语言，必须在创建任何页面之前 ──
         self._init_language()
 
@@ -87,14 +91,9 @@ class WelcomeWizard(QDialog):
         # 必须先设置 WindowFlags（会重建原生窗口句柄），再调用 setFixedSize，
         # 否则 setWindowFlags 会清除固定大小约束，导致拖动时布局反复重算、高度抖动。
         # MSWindowsFixedSizeDialogHint 在 Windows 上额外锁定窗口不可调整大小。
-        self.setWindowFlags(
-            Qt.WindowType.Dialog |
-            Qt.WindowType.WindowTitleHint |
-            Qt.WindowType.WindowCloseButtonHint |
-            Qt.WindowType.MSWindowsFixedSizeDialogHint
-        )
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.MSWindowsFixedSizeDialogHint)
         self.setFixedSize(self.WINDOW_W, self.WINDOW_H)
-        self.setStyleSheet(f"background: {BG_PAGE}; border: none;")
+        self.setStyleSheet("background: transparent; border: none;")
 
         self._build_ui()
         self._build_pages()
@@ -103,6 +102,16 @@ class WelcomeWizard(QDialog):
         # ── 第二步：所有页面创建完成后，刷新一遍文字 ──
         # 这样页面显示的就是检测到的语言，而不是硬编码中文
         self.retranslate_ui()
+
+    def _setup_titlebar(self):
+        title_bar = FluentTitleBar(self)
+        self.setTitleBar(title_bar)
+        title_bar.iconLabel.hide()
+        title_bar.maxBtn.hide()
+        title_bar.minBtn.hide()
+        # 隐藏图标后标题会紧贴窗口左边，看起来像被裁歪了；保留原生标题栏留白。
+        title_bar.hBoxLayout.setContentsMargins(12, 0, 0, 0)
+        title_bar.setDoubleClickEnabled(False)
 
     def _init_language(self):
         """程序启动时检测系统语言（或读取已保存语言），加载对应翻译文件。"""
@@ -123,7 +132,8 @@ class WelcomeWizard(QDialog):
     # ── UI 构建 ──────────────────────────────────────────
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
+        title_height = self.titleBar.height() if getattr(self, "titleBar", None) else 32
+        root.setContentsMargins(8, title_height + 4, 8, 8)
         root.setSpacing(0)
 
         # 页面堆叠区
@@ -140,7 +150,7 @@ class WelcomeWizard(QDialog):
         # 底部导航栏
         nav = QWidget()
         nav.setFixedHeight(62)
-        nav.setStyleSheet(f"background: {BG_PAGE};")
+        nav.setStyleSheet(f"background: {BG_PAGE}; border-radius: 0 0 12px 12px;")
         nav_layout = QHBoxLayout(nav)
         nav_layout.setContentsMargins(24, 12, 24, 12)
         nav_layout.setSpacing(12)

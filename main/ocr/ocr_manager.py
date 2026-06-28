@@ -40,7 +40,7 @@ def _ocr_log(msg: str, level: str = "INFO"):
         else:
             log_info(msg, "OCR")
     except Exception:
-        print(f"[{level}] [OCR] {msg}", flush=True)
+        pass
 
 def _preload_crt_for_pyinstaller():
     """

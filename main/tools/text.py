@@ -24,7 +24,10 @@ class TextTool(Tool):
             manager = get_tool_settings_manager()
             
             # 获取保存的设置，如果获取失败则使用默认值
-            font_family = manager.get_setting("text", "font_family", "Microsoft YaHei")
+            from core.constants import normalize_text_font_family
+            font_family = normalize_text_font_family(
+                manager.get_setting("text", "font_family", "")
+            )
             font_size = manager.get_setting("text", "font_size", 16)
             font_bold = manager.get_setting("text", "font_bold", False)
             font_italic = manager.get_setting("text", "font_italic", False)

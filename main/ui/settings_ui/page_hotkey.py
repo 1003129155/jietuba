@@ -7,9 +7,10 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 
 from ui.dialogs import show_confirm_dialog
-from qfluentwidgets import (
+from ui.fluent_lite import (
     ComboBox, CaptionLabel, SegmentedWidget,
 )
+from ui.fluent_lite.theme import ACCENT
 from .components import SettingCardGroup, WhiteCard, LBL_STYLE, theme_text_style
 from ..hotkey_edit import HotkeyEdit
 from ..inapp_key_edit import InAppKeyEdit
@@ -154,7 +155,7 @@ def create_hotkey_page(dialog) -> QWidget:
 
     tab_switch = SegmentedWidget(tab_card)
     tab_switch.setFixedHeight(34)
-    tab_switch.setIndicatorColor("#07C160", "#07C160")
+    tab_switch.setIndicatorColor(ACCENT, ACCENT)
 
     stack = QStackedWidget(tab_card)
     stack.setObjectName("InAppShortcutStack")
