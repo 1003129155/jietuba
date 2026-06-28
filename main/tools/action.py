@@ -3,6 +3,7 @@
 """
 
 import os
+import re
 from datetime import datetime
 
 from PySide6.QtWidgets import QFileDialog
@@ -250,7 +251,9 @@ class ActionTools:
         ext = os.path.splitext(file_path)[1].lstrip(".")
         if ext:
             return ext.upper()
-        if "pdf" in selected_filter.lower():
-            return "PDF"
+        # 从过滤器字符串中提取第一个扩展名，如 "JPEG (*.jpg *.jpeg)" → "jpg"
+        match = re.search(r'\*\.(\w+)', selected_filter)
+        if match:
+            return match.group(1).upper()
         return "PNG"
  

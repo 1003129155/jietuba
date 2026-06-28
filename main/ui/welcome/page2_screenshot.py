@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QSize, QTimer, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QPen
-from qfluentwidgets import PushButton, FluentIcon, LineEdit
+from ui.fluent_lite import PushButton, FluentIcon, LineEdit
 from core.i18n import make_tr
 
 if __package__:
@@ -132,7 +132,7 @@ class _IconCell(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         if active:
             painter.setPen(QPen(QColor(ACCENT), 2))
-            painter.setBrush(QColor("#E3F2FD"))
+            painter.setBrush(QColor("#DFE8EF"))
         else:
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(QColor("#EBF0F6"))
@@ -265,7 +265,8 @@ class ScreenshotHotkeyPage(BasePage):
         self._config = config_manager
         super().__init__(
             title="📸 截图设置",
-            subtitle="设置快捷键与截图的默认保存位置。",
+            # 保留说明行的高度，但不显示文字，避免下方内容整体上移。
+            subtitle="\u00a0",
             parent=parent,
         )
 
@@ -357,7 +358,7 @@ class ScreenshotHotkeyPage(BasePage):
 
     def retranslate(self):
         self.title_label.setText(_tr("📸 截图设置"))
-        self.subtitle_label.setText(_tr("设置快捷键与截图的默认保存位置。"))
+        self.subtitle_label.setText("\u00a0")
         if hasattr(self, "_hotkey_lbl"):
             self._hotkey_lbl.setText(_tr("快捷键（最多设置两个）"))
         if hasattr(self, "_hotkey_desc"):

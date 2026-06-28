@@ -13,7 +13,7 @@
 from typing import Optional, List
 
 from PySide6.QtCore import Qt, Signal, QTimer
-from PySide6.QtGui import QCursor
+from PySide6.QtGui import QColor, QCursor
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
 )
 from shiboken6 import isValid
 
-from qfluentwidgets import (
+from ui.fluent_lite import (
     BodyLabel,
     CaptionLabel,
     ComboBox,
@@ -38,7 +38,10 @@ from qfluentwidgets import (
     NavigationItemPosition,
     PushButton as FluentPushButton,
     PrimaryPushButton,
+    FluentTitleBar,
+    FrostedFramelessDialog,
 )
+from ui.fluent_lite.theme import ACCENT
 
 from core import safe_event
 from ui.dialogs import show_confirm_dialog, show_info_dialog, show_warning_dialog
@@ -71,6 +74,15 @@ from ..forms.group_icon_picker import (
 )
 from ..forms.import_export_form import build_import_export_form
 from ..forms.text_content_form import build_edit_text_content_form, build_text_content_form
+from ..layout_scale import (
+    MANAGE_DIALOG_HEIGHT,
+    MANAGE_DIALOG_MIN_HEIGHT,
+    MANAGE_DIALOG_MIN_WIDTH,
+    MANAGE_DIALOG_WIDTH,
+    scale_ui,
+    scale_x,
+    scale_y,
+)
 from ..widgets.draggable_list_widget import DraggableListWidget
 
 
@@ -101,7 +113,7 @@ def get_existing_manage_dialog() -> Optional["ManageDialog"]:
     return _manage_window_instance
 
 
-class ManageDialog(QWidget):
+class ManageDialog(FrostedFramelessDialog):
     """剪贴板管理窗口 - 三列布局（独立窗口）"""
 
     group_added = Signal()
@@ -117,11 +129,14 @@ class ManageDialog(QWidget):
         self.editing_item_id = None
         self._detail_form_token = 0
 
+        self._setup_titlebar()
+
         self.setWindowTitle(self.tr("Clipboard Management"))
-        self.setMinimumSize(800, 540)
-        self.resize(900, 600)
+        self.setMinimumSize(MANAGE_DIALOG_MIN_WIDTH, MANAGE_DIALOG_MIN_HEIGHT)
+        self.resize(MANAGE_DIALOG_WIDTH, MANAGE_DIALOG_HEIGHT)
         self.setWindowFlags(
-            Qt.WindowType.Window
+            self.windowFlags()
+            | Qt.WindowType.Window
             | Qt.WindowType.WindowCloseButtonHint
             | Qt.WindowType.WindowMinimizeButtonHint
             | Qt.WindowType.WindowMaximizeButtonHint
@@ -144,21 +159,26 @@ class ManageDialog(QWidget):
         self._center_on_screen()
 
         self.setStyleSheet(
-            """
-            QTextEdit {
-                border: 1px solid #E0E0E0;
-                border-radius: 6px;
-                padding: 8px;
-                font-size: 13px;
-                background: #FAFAFA;
+            f"""
+            QTextEdit {{
+                border: 1px solid rgba(116, 137, 154, 0.25);
+                border-radius: {scale_ui(6)}px;
+                padding: {scale_ui(8)}px;
+                font-size: {scale_ui(13)}px;
+                background: rgba(255, 255, 255, 0.54);
                 color: #333333;
-            }
-            QTextEdit:focus {
-                border-color: #1976D2;
-                background: #FFFFFF;
-            }
+            }}
+            QTextEdit:focus {{
+                border-color: {ACCENT};
+                background: rgba(255, 255, 255, 0.82);
+            }}
         """
         )
+
+    def _setup_titlebar(self):
+        title_bar = FluentTitleBar(self)
+        self.setTitleBar(title_bar)
+        title_bar.setDoubleClickEnabled(True)
 
     def _center_on_screen(self):
         """在鼠标所在屏幕居中显示"""
@@ -244,7 +264,8 @@ class ManageDialog(QWidget):
     def _setup_ui(self):
         """设置三列布局"""
         main_layout = QHBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
+        title_height = self.titleBar.height() if getattr(self, "titleBar", None) else 32
+        main_layout.setContentsMargins(scale_x(8), title_height + scale_y(4), scale_x(8), scale_y(8))
         main_layout.setSpacing(0)
 
         self.nav_column = self._create_nav_column()
@@ -259,23 +280,32 @@ class ManageDialog(QWidget):
     def _create_nav_column(self) -> QWidget:
         """创建导航列（使用 Fluent NavigationInterface）"""
         widget = QWidget()
-        widget.setFixedWidth(180)
-        widget.setStyleSheet("QWidget { background: #F5F6F8; border-right: 1px solid #E8E8E8; }")
+        widget.setObjectName("ManageNavColumn")
+        widget.setFixedWidth(scale_x(180))
+        widget.setStyleSheet(
+            "QWidget#ManageNavColumn { background: rgba(238, 242, 246, 0.66);"
+            " border-right: 1px solid rgba(116,137,154,0.18);"
+            f" border-radius: {scale_ui(12)}px 0 0 {scale_ui(12)}px; }}"
+        )
 
         layout = QVBoxLayout(widget)
-        layout.setContentsMargins(0, 8, 0, 8)
-        layout.setSpacing(4)
+        layout.setContentsMargins(0, scale_y(8), 0, scale_y(8))
+        layout.setSpacing(scale_y(4))
 
         title = BodyLabel(self.tr("Management"))
-        title.setStyleSheet("font-size: 14px; font-weight: 600; padding: 8px 12px 8px 12px; background: transparent;")
+        title.setStyleSheet(
+            f"font-size: {scale_ui(14)}px; font-weight: 600; "
+            f"padding: {scale_y(8)}px {scale_x(12)}px {scale_y(8)}px {scale_x(12)}px; "
+            "background: transparent;"
+        )
         layout.addWidget(title)
 
         self.nav_interface = NavigationInterface(parent=widget, showMenuButton=False, showReturnButton=False, collapsible=False)
-        self.nav_interface.setExpandWidth(168)
+        self.nav_interface.setExpandWidth(scale_x(168))
         self.nav_interface.setMinimumExpandWidth(0)
         self.nav_interface.expand(useAni=False)
-        self.nav_interface.setMinimumWidth(168)
-        self.nav_interface.setMaximumWidth(176)
+        self.nav_interface.setMinimumWidth(scale_x(168))
+        self.nav_interface.setMaximumWidth(scale_x(176))
 
         self.nav_interface.addItem(
             routeKey="group",
@@ -305,7 +335,7 @@ class ManageDialog(QWidget):
         close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         close_btn.clicked.connect(self.close)
         close_btn_layout = QHBoxLayout()
-        close_btn_layout.setContentsMargins(8, 0, 8, 0)
+        close_btn_layout.setContentsMargins(scale_x(8), 0, scale_x(8), 0)
         close_btn_layout.addWidget(close_btn)
         layout.addLayout(close_btn_layout)
 
@@ -314,8 +344,12 @@ class ManageDialog(QWidget):
     def _create_list_column(self) -> QWidget:
         """创建列表列"""
         widget = QWidget()
-        widget.setFixedWidth(220)
-        widget.setStyleSheet("QWidget { background: #FAFBFC; border-right: 1px solid #E8E8E8; }")
+        widget.setObjectName("ManageListColumn")
+        widget.setFixedWidth(scale_x(220))
+        widget.setStyleSheet(
+            "QWidget#ManageListColumn { background: rgba(248, 250, 252, 0.54);"
+            " border-right: 1px solid rgba(116,137,154,0.16); }"
+        )
 
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -324,11 +358,11 @@ class ManageDialog(QWidget):
         header = QWidget()
         header.setStyleSheet("background: transparent;")
         header_layout = QVBoxLayout(header)
-        header_layout.setContentsMargins(12, 12, 12, 8)
-        header_layout.setSpacing(8)
+        header_layout.setContentsMargins(scale_x(12), scale_y(12), scale_x(12), scale_y(8))
+        header_layout.setSpacing(scale_y(8))
 
         self.list_title = BodyLabel(self.tr("Group List"))
-        self.list_title.setStyleSheet("font-size: 13px; font-weight: 500; background: transparent;")
+        self.list_title.setStyleSheet(f"font-size: {scale_ui(13)}px; font-weight: 500; background: transparent;")
         header_layout.addWidget(self.list_title)
 
         self.group_combo = ComboBox()
@@ -343,25 +377,25 @@ class ManageDialog(QWidget):
         self.list_widget.setDefaultDropAction(Qt.DropAction.MoveAction)
         self.list_widget.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
         self.list_widget.setStyleSheet(
-            """
-            QListWidget {
+            f"""
+            QListWidget {{
                 background: transparent;
                 border: none;
                 outline: none;
                 color: #333333;
-            }
-            QListWidget::item {
-                padding: 0px 12px;
-                border-bottom: 1px solid #F0F0F0;
+            }}
+            QListWidget::item {{
+                padding: 0px {scale_x(12)}px;
+                border-bottom: 1px solid rgba(116, 137, 154, 0.28);
                 color: #333333;
-            }
-            QListWidget::item:selected {
-                background: #E3F2FD;
-                color: #1976D2;
-            }
-            QListWidget::item:hover {
+            }}
+            QListWidget::item:selected {{
+                background: #D5E0E8;
+                color: #4E6C86;
+            }}
+            QListWidget::item:hover {{
                 background: #F0F0F0;
-            }
+            }}
         """
         )
         self.list_widget.itemClicked.connect(self._on_list_item_clicked)
@@ -373,18 +407,22 @@ class ManageDialog(QWidget):
     def _create_detail_column(self) -> QWidget:
         """创建详情列"""
         widget = QWidget()
-        widget.setStyleSheet("QWidget { background: #FFFFFF; }")
+        widget.setObjectName("ManageDetailColumn")
+        widget.setStyleSheet(
+            "QWidget#ManageDetailColumn { background: rgba(255,255,255,0.46);"
+            f" border-radius: 0 {scale_ui(12)}px {scale_ui(12)}px 0; }}"
+        )
 
         layout = QVBoxLayout(widget)
-        layout.setContentsMargins(24, 20, 24, 20)
-        layout.setSpacing(16)
+        layout.setContentsMargins(scale_x(24), scale_y(20), scale_x(24), scale_y(20))
+        layout.setSpacing(scale_y(16))
 
         self.detail_title = BodyLabel(self.tr("New Group"))
-        self.detail_title.setStyleSheet("font-size: 16px; font-weight: 600;")
+        self.detail_title.setStyleSheet(f"font-size: {scale_ui(16)}px; font-weight: 600;")
         layout.addWidget(self.detail_title)
 
         self.detail_subtitle = CaptionLabel("")
-        self.detail_subtitle.setStyleSheet("color: #6B7280; font-size: 12px;")
+        self.detail_subtitle.setStyleSheet(f"color: #6B7280; font-size: {scale_ui(12)}px;")
         self.detail_subtitle.setWordWrap(True)
         self.detail_subtitle.hide()
         layout.addWidget(self.detail_subtitle)
@@ -404,29 +442,29 @@ class ManageDialog(QWidget):
         self.detail_content.setStyleSheet("background: transparent;")
         self.detail_layout = QVBoxLayout(self.detail_content)
         self.detail_layout.setContentsMargins(0, 0, 0, 0)
-        self.detail_layout.setSpacing(16)
+        self.detail_layout.setSpacing(scale_y(16))
 
         scroll.setWidget(self.detail_content)
         layout.addWidget(scroll, 1)
 
         self.btn_layout = QHBoxLayout()
-        self.btn_layout.setSpacing(12)
+        self.btn_layout.setSpacing(scale_x(12))
         self.btn_layout.addStretch()
 
         self.delete_btn = FluentPushButton(self.tr("Delete"))
         self.delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.delete_btn.setStyleSheet(
-            """
-            PushButton {
+            f"""
+            PushButton {{
                 background: #FFEBEE;
                 color: #D32F2F;
                 border: none;
-                border-radius: 6px;
-                padding: 10px 24px;
-                font-size: 13px;
-            }
-            PushButton:hover { background: #FFCDD2; }
-            PushButton:pressed { background: #EF9A9A; }
+                border-radius: {scale_ui(6)}px;
+                padding: {scale_y(10)}px {scale_x(24)}px;
+                font-size: {scale_ui(13)}px;
+            }}
+            PushButton:hover {{ background: #FFCDD2; }}
+            PushButton:pressed {{ background: #EF9A9A; }}
         """
         )
         self.delete_btn.clicked.connect(self._on_delete_clicked)
@@ -568,6 +606,7 @@ class ManageDialog(QWidget):
 
         new_item = QListWidgetItem(self.tr("Add Content"))
         new_item.setData(Qt.ItemDataRole.UserRole, ("new", None))
+        new_item.setBackground(QColor("#E8EDF1"))
         self.list_widget.addItem(new_item)
 
         items = self.manager.get_by_group(self.selected_group_id, limit=50)
@@ -621,27 +660,27 @@ class ManageDialog(QWidget):
 
     def _handle_group_reorder(self, old_index: int, new_index: int):
         """处理分组拖拽排序"""
-        from core.logger import log_debug, log_info, log_error
+        from core.logger import log_debug, log_info, log_error, log_exception
 
-        log_debug("拖拽分组", f"old_index={old_index}, new_index={new_index}")
+        log_debug(f"old_index={old_index}, new_index={new_index}", "拖拽分组")
 
         groups = self.manager.get_groups()
 
-        log_debug("拖拽分组", f"当前有 {len(groups)} 个分组")
+        log_debug(f"当前有 {len(groups)} 个分组", "拖拽分组")
 
         if old_index <= 0 or old_index > len(groups):
-            log_error("拖拽分组", f"索引越界: old_index={old_index}")
+            log_error(f"索引越界: old_index={old_index}", "拖拽分组")
             return
 
         old_pos = old_index - 1
         new_pos = new_index - 1 if new_index > 0 else 0
 
         if old_pos < 0 or old_pos >= len(groups):
-            log_error("拖拽分组", f"调整后索引越界: old_pos={old_pos}")
+            log_error(f"调整后索引越界: old_pos={old_pos}", "拖拽分组")
             return
 
         moved_group = groups[old_pos]
-        log_debug("拖拽分组", f"移动分组: ID={moved_group.id}, name={moved_group.name}")
+        log_debug(f"移动分组: ID={moved_group.id}, name={moved_group.name}", "拖拽分组")
 
         temp_groups = [g for i, g in enumerate(groups) if i != old_pos]
         adjusted_new_pos = new_pos if new_pos < old_pos else new_pos - 1
@@ -655,47 +694,45 @@ class ManageDialog(QWidget):
         if adjusted_new_pos < len(temp_groups):
             after_id = temp_groups[adjusted_new_pos].id
 
-        log_debug("拖拽分组", f"计算: before_id={before_id}, after_id={after_id}")
+        log_debug(f"计算: before_id={before_id}, after_id={after_id}", "拖拽分组")
 
         try:
             self.manager._manager.move_group_between(moved_group.id, before_id=before_id, after_id=after_id)
-            log_info("拖拽分组", f"移动成功: ID={moved_group.id}, before={before_id}, after={after_id}")
+            log_info(f"移动成功: ID={moved_group.id}, before={before_id}, after={after_id}", "拖拽分组")
             self._refresh_group_list()
             self.group_added.emit()
         except Exception as e:
-            log_error("拖拽分组", f"移动失败: {e}")
-            import traceback
-
-            traceback.print_exc()
+            log_error(f"移动失败: {e}", "拖拽分组")
+            log_exception(e, "拖拽分组移动失败")
             self._refresh_group_list()
 
     def _handle_item_reorder(self, old_index: int, new_index: int):
         """处理内容拖拽排序"""
-        from core.logger import log_debug, log_info, log_error
+        from core.logger import log_debug, log_info, log_error, log_exception
 
-        log_debug("拖拽内容", f"old_index={old_index}, new_index={new_index}")
+        log_debug(f"old_index={old_index}, new_index={new_index}", "拖拽内容")
 
         if self.selected_group_id is None:
-            log_error("拖拽内容", "未选择分组")
+            log_error("未选择分组", "拖拽内容")
             return
 
         items = self.manager.get_by_group(self.selected_group_id, offset=0, limit=1000)
 
-        log_debug("拖拽内容", f"当前分组有 {len(items)} 个内容")
+        log_debug(f"当前分组有 {len(items)} 个内容", "拖拽内容")
 
         if old_index <= 0 or old_index > len(items):
-            log_error("拖拽内容", f"索引越界: old_index={old_index}, items count={len(items)}")
+            log_error(f"索引越界: old_index={old_index}, items count={len(items)}", "拖拽内容")
             return
 
         old_pos = old_index - 1
         new_pos = new_index - 1 if new_index > 0 else 0
 
         if old_pos < 0 or old_pos >= len(items):
-            log_error("拖拽内容", f"调整后索引越界: old_pos={old_pos}")
+            log_error(f"调整后索引越界: old_pos={old_pos}", "拖拽内容")
             return
 
         moved_item = items[old_pos]
-        log_debug("拖拽内容", f"移动项: ID={moved_item.id}, title={moved_item.title or moved_item.content[:20]}")
+        log_debug(f"移动项: ID={moved_item.id}, title={moved_item.title or moved_item.content[:20]}", "拖拽内容")
 
         temp_items = [item for i, item in enumerate(items) if i != old_pos]
         adjusted_new_pos = new_pos if new_pos < old_pos else new_pos - 1
@@ -709,20 +746,15 @@ class ManageDialog(QWidget):
         if adjusted_new_pos < len(temp_items):
             after_id = temp_items[adjusted_new_pos].id
 
-        log_debug("拖拽内容", f"计算: before_id={before_id}, after_id={after_id}")
+        log_debug(f"计算: before_id={before_id}, after_id={after_id}", "拖拽内容")
 
         try:
             self.manager._manager.move_item_between(moved_item.id, before_id=before_id, after_id=after_id)
-            log_info("拖拽内容", f"移动成功: ID={moved_item.id}, before={before_id}, after={after_id}")
+            log_info(f"移动成功: ID={moved_item.id}, before={before_id}, after={after_id}", "拖拽内容")
             self._refresh_content_list()
         except Exception as e:
-            log_error("拖拽内容", f"移动失败: {e}")
-            import traceback
-
-            traceback.print_exc()
-            self._refresh_content_list()
-        except Exception as e:
-            print(f"❌ 移动内容失败: {e}")
+            log_error(f"移动失败: {e}", "拖拽内容")
+            log_exception(e, "拖拽内容移动失败")
             self._refresh_content_list()
 
     def _clear_detail_layout(self):

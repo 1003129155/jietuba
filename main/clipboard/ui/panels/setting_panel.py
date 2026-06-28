@@ -20,7 +20,7 @@ from typing import Optional, Callable
 _THEME_COLORS = [
     ("light",  "#DDE3E9", "#FFFFFF"),
     ("dark",   "#1D1F20", "#1E1E1E"),
-    ("blue",   "#2196F3", "#9AD1F8"),
+    ("blue",   "#6F8FAB", "#B9CAD7"),
     ("green",  "#4CAF50", "#B8F3BD"),
     ("pink",   "#E91E63", "#FA9BBB"),
     ("purple", "#9C27B0", "#D471E4"),
@@ -34,7 +34,6 @@ def show_setting_menu(
     menu_style: str,
     tr: Callable,
     # 当前状态
-    current_filter_index: int,
     paste_with_html: bool,
     auto_paste: bool,
     move_to_top: bool,
@@ -47,7 +46,6 @@ def show_setting_menu(
     opacity_options: list,
     font_size_options: list,
     # 回调
-    on_set_filter: Callable,
     on_toggle_paste_html: Callable,
     on_toggle_auto_paste: Callable,
     on_toggle_move_to_top: Callable,
@@ -67,17 +65,6 @@ def show_setting_menu(
     """
     menu = QMenu(parent)
     menu.setStyleSheet(menu_style)
-
-    # ── 筛选类型 ──
-    filter_menu = menu.addMenu(tr("Filter Type"))
-    filter_menu.setStyleSheet(menu_style)
-    for i, name in enumerate([tr("All"), tr("Text"), tr("Image"), tr("File")]):
-        act = filter_menu.addAction(name)
-        act.setCheckable(True)
-        act.setChecked(current_filter_index == i)
-        act.triggered.connect(lambda _c, idx=i: on_set_filter(idx))
-
-    menu.addSeparator()
 
     # ── 开关项 ──
     def _toggle_action(label, is_checked, callback):

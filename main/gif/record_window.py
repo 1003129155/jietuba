@@ -380,7 +380,11 @@ class GifRecordWindow(QObject):
         self._drawing_view.tool_controller.update_style(width=width)
 
     def _on_drawing_opacity_changed(self, opacity: int):
-        self._drawing_view.tool_controller.update_style(opacity=opacity / 255.0)
+        scene = getattr(self._drawing_view, 'canvas_scene', None)
+        if scene and hasattr(scene, 'update_style'):
+            scene.update_style(opacity=opacity / 255.0)
+        else:
+            self._drawing_view.tool_controller.update_style(opacity=opacity / 255.0)
 
     def _on_drawing_font_changed(self, font):
         """文字字体/样式改变 → 通知 SmartEditController 更新选中文字"""

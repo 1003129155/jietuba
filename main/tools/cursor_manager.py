@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QGraphicsEllipseItem, QApplication
 from core import log_debug
 from core.logger import log_exception
 from canvas.items import NumberItem
+from tools.base import color_with_opacity
 
 
 class CursorManager:
@@ -267,12 +268,13 @@ class CursorManager:
         # 获取当前工具上下文
         ctx = self.scene.tool_controller.context
         color = QColor(ctx.color) if ctx else QColor(Qt.GlobalColor.red)
+        # 应用透明度（与绘制时保持一致）
+        opacity = ctx.opacity if ctx else 1.0
+        color = color_with_opacity(color, opacity)
         
         # 获取下一个序号数字（使用与绘制时相同的方法）
         from tools.number import NumberTool
         next_number = NumberTool.get_next_number(self.scene)
-        
-        log_debug(f"创建序号光标，数字={next_number}", "CursorManager")
         
         # 计算圆圈半径（与 NumberTool 中的计算一致）
         radius = NumberTool.get_radius_for_width(brush_size)
@@ -397,6 +399,14 @@ class CursorManager:
         """
         # 画笔、荧光笔、序号工具的光标都跟颜色有关
         if self.current_tool_id in ["pen", "highlighter", "number"]:
+            self.current_brush_size = None  # 强制重新生成
+            self.set_tool_cursor(self.current_tool_id)
+    
+    def update_tool_cursor_opacity(self):
+        """
+        更新当前工具光标的透明度（目前仅序号工具需要）
+        """
+        if self.current_tool_id == "number":
             self.current_brush_size = None  # 强制重新生成
             self.set_tool_cursor(self.current_tool_id)
     

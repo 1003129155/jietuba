@@ -31,8 +31,20 @@ pub fn compute_row_hashes_from_rgba(
     ignore_right_pixels: u32,
     debug: bool,
 ) -> Vec<u64> {
+    compute_row_hashes_from_rgba_range(rgba_img, 0, rgba_img.height(), ignore_right_pixels, debug)
+}
+
+pub fn compute_row_hashes_from_rgba_range(
+    rgba_img: &image::RgbaImage,
+    y_start: u32,
+    y_end: u32,
+    ignore_right_pixels: u32,
+    debug: bool,
+) -> Vec<u64> {
     let width = rgba_img.width();
     let height = rgba_img.height();
+    let y_start = y_start.min(height);
+    let y_end = y_end.min(height).max(y_start);
 
     let effective_width = if ignore_right_pixels > 0 && width > ignore_right_pixels {
         width - ignore_right_pixels
@@ -43,7 +55,7 @@ pub fn compute_row_hashes_from_rgba(
     let raw = rgba_img.as_raw();
     let stride = (width * 4) as usize;
 
-    let row_hashes: Vec<u64> = (0..height)
+    let row_hashes: Vec<u64> = (y_start..y_end)
         .into_par_iter()
         .map(|y| {
             let mut r_sum: u64 = 0;
@@ -76,7 +88,7 @@ pub fn compute_row_hashes_from_rgba(
 
     if debug {
         println!("  📊 样本哈希值（每100行）:");
-        for y in (0..height).step_by(100).take(3) {
+        for y in (y_start..y_end).step_by(100).take(3) {
             let mut r_sum: u64 = 0;
             let mut g_sum: u64 = 0;
             let mut b_sum: u64 = 0;
@@ -94,7 +106,7 @@ pub fn compute_row_hashes_from_rgba(
                 let r_mean = ((r_sum / pixel_count) / 8) * 8;
                 let g_mean = ((g_sum / pixel_count) / 8) * 8;
                 let b_mean = ((b_sum / pixel_count) / 8) * 8;
-                let hash = row_hashes[y as usize];
+                let hash = row_hashes[(y - y_start) as usize];
 
                 println!(
                     "     行{}: RGB({},{},{}) -> hash={}",
@@ -127,5 +139,22 @@ mod tests {
 
         let hashes = compute_row_hashes(&bytes, 0).unwrap();
         assert_eq!(hashes.len(), 50);
+    }
+
+    #[test]
+    fn test_row_hash_range_matches_full_slice() {
+        let img = RgbaImage::from_fn(100, 80, |x, y| {
+            Rgba([
+                ((x * 3 + y * 5) % 255) as u8,
+                ((x * 7 + y * 11) % 255) as u8,
+                ((x * 13 + y * 17) % 255) as u8,
+                255,
+            ])
+        });
+
+        let full = compute_row_hashes_from_rgba(&img, 0, false);
+        let range = compute_row_hashes_from_rgba_range(&img, 20, 65, 0, false);
+
+        assert_eq!(range, full[20..65]);
     }
 }

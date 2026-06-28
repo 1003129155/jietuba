@@ -5,7 +5,7 @@
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QLabel, QToolButton, QVBoxLayout, QWidget
 
-from .base_settings_panel import BaseSettingsPanel, PANEL_SCALE
+from .base_settings_panel import BaseSettingsPanel, PANEL_SCALE, set_step_button_icon
 
 
 class NumberSettingsPanel(BaseSettingsPanel):
@@ -36,13 +36,13 @@ class NumberSettingsPanel(BaseSettingsPanel):
         btn_layout.setSpacing(2)
 
         self.next_up_btn = QToolButton()
-        self.next_up_btn.setArrowType(Qt.ArrowType.UpArrow)
+        set_step_button_icon(self.next_up_btn, "up")
         self.next_up_btn.setFixedSize(round(18 * PANEL_SCALE), round(14 * PANEL_SCALE))
         self.next_up_btn.setToolTip(self._tr("Next Number"))
         btn_layout.addWidget(self.next_up_btn)
 
         self.next_down_btn = QToolButton()
-        self.next_down_btn.setArrowType(Qt.ArrowType.DownArrow)
+        set_step_button_icon(self.next_down_btn, "down")
         self.next_down_btn.setFixedSize(round(18 * PANEL_SCALE), round(14 * PANEL_SCALE))
         self.next_down_btn.setToolTip(self._tr("Next Number"))
         btn_layout.addWidget(self.next_down_btn)

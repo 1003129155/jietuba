@@ -8,7 +8,7 @@
 
 from PySide6.QtWidgets import QButtonGroup, QHBoxLayout
 
-from qfluentwidgets import BodyLabel, LineEdit, RadioButton
+from ui.fluent_lite import BodyLabel, LineEdit, RadioButton
 
 try:
     from ...services.group_service import get_group_display_icon

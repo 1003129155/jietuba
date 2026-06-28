@@ -682,7 +682,7 @@ class PinCanvas(QObject):
     
     def set_opacity(self, opacity: float):
         """设置当前透明度"""
-        self.tool_controller.update_style(opacity=opacity)
+        self.scene.update_style(opacity=opacity)
     
     # ==================== 导出方法 ====================
     

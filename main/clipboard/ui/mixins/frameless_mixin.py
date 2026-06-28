@@ -44,6 +44,9 @@ class FramelessMixin:
         w, h = self.width(), self.height()
         m = self._fl_edge_margin
 
+        if x < 0 or y < 0 or x > w or y > h:
+            return ""
+
         on_left = x < m
         on_right = x > w - m
         on_top = y < m

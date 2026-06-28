@@ -6,20 +6,24 @@
 """
 
 import ctypes
+import os
+import re
 from time import perf_counter
 from typing import List, Optional
 
-from PySide6.QtCore import QEvent, QPoint, QSettings, QSize, QTimer, Qt, Signal
+from PySide6.QtCore import QDate, QEvent, QLocale, QPoint, QSettings, QSize, QTimer, Qt, Signal
 from PySide6.QtGui import QColor, QCursor, QPixmap
 from PySide6.QtWidgets import (
 	QApplication,
-	QComboBox,
+	QCalendarWidget,
+	QDateEdit,
 	QFrame,
 	QHBoxLayout,
 	QLabel,
 	QLineEdit,
 	QListWidget,
 	QListWidgetItem,
+	QMenu,
 	QPushButton,
 	QSizePolicy,
 	QToolButton,
@@ -148,6 +152,12 @@ class ClipboardWindow(QWidget, FramelessMixin):
 		self.theme_manager.theme_changed.connect(self._on_theme_changed)
 		self.theme_manager.font_size_changed.connect(self._on_font_size_changed)
 		self.theme_manager.opacity_changed.connect(self._on_opacity_changed)
+		try:
+			from core.i18n import I18nManager
+
+			I18nManager.instance().language_changed.connect(self._on_language_changed)
+		except Exception as e:
+			log_debug(f"连接剪贴板语言切换信号失败: {e}", "I18n")
 
 		self._load_settings()
 		self._load_window_geometry()
@@ -189,6 +199,10 @@ class ClipboardWindow(QWidget, FramelessMixin):
 		self.current_theme = theme
 		self._apply_theme()
 
+	def _on_language_changed(self, _lang_code: str):
+		self._apply_date_filter_locale()
+		self._retranslate_ui()
+
 	def _apply_theme(self):
 		if hasattr(self, "_item_delegate"):
 			self._item_delegate.set_theme(self.current_theme)
@@ -200,6 +214,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
 			self._apply_search_input_style(has_text)
 			self._apply_clear_search_btn_style()
 			self._apply_menu_btn_style()
+			self._apply_time_filter_styles()
 		self._refresh_list()
 		log_debug(f"主题已切换到: {self.current_theme.display_name}", "Clipboard")
 
@@ -210,6 +225,53 @@ class ClipboardWindow(QWidget, FramelessMixin):
 		self.window_opacity = self.config.get_clipboard_window_opacity()
 		self.display_lines = self.config.get_clipboard_font_size()
 		self.group_bar_position = self.config.get_clipboard_group_bar_position()
+
+	def _current_date_locale(self) -> QLocale:
+		try:
+			from core.i18n import I18nManager
+
+			lang_code = I18nManager.get_current_language()
+		except Exception:
+			lang_code = "zh"
+
+		locale_map = {
+			"zh": QLocale(QLocale.Language.Chinese, QLocale.Country.China),
+			"ja": QLocale(QLocale.Language.Japanese, QLocale.Country.Japan),
+			"ko": QLocale(QLocale.Language.Korean, QLocale.Country.SouthKorea),
+			"en": QLocale(QLocale.Language.English, QLocale.Country.UnitedStates),
+		}
+		return locale_map.get(lang_code, locale_map["zh"])
+
+	def _apply_date_filter_locale(self):
+		if not hasattr(self, "start_date_edit"):
+			return
+
+		locale = self._current_date_locale()
+		for date_edit in (self.start_date_edit, self.end_date_edit):
+			date_edit.setLocale(locale)
+			calendar = date_edit.calendarWidget()
+			if calendar is not None:
+				calendar.setLocale(locale)
+
+	def _retranslate_ui(self):
+		if not hasattr(self, "search_input"):
+			return
+
+		self.setWindowTitle(self.tr("Clipboard History"))
+		self.start_date_edit.setToolTip(self.tr("Start date"))
+		self.end_date_edit.setToolTip(self.tr("End date"))
+		self.apply_time_filter_btn.setToolTip(self.tr("Apply time filter"))
+		self.type_filter_btn.setToolTip(self.tr("Filter Type"))
+		self.clear_time_filter_btn.setToolTip(self.tr("Close filters"))
+		self.search_input.setPlaceholderText("🔍 " + self.tr("Search"))
+		self.clear_search_btn.setToolTip(self.tr("Clear search"))
+
+		self.type_filter_labels = [self.tr("All"), self.tr("Text"), self.tr("Image"), self.tr("File")]
+		for index, action in enumerate(self.type_filter_actions):
+			action.setText(self.type_filter_labels[index])
+		self._update_type_filter_button(self.type_filter_index)
+		if hasattr(self, "group_bar"):
+			self.group_bar.refresh_buttons()
 
 	def _apply_opacity(self):
 		generator = ThemeStyleGenerator(self.current_theme)
@@ -222,6 +284,9 @@ class ClipboardWindow(QWidget, FramelessMixin):
 
 		if hasattr(self, "bottom_bar"):
 			self.bottom_bar.setStyleSheet(generator.generate_search_bar_style(self.window_opacity))
+
+		if hasattr(self, "time_filter_bar"):
+			self.time_filter_bar.setStyleSheet(generator.generate_time_filter_bar_style(self.window_opacity))
 
 		if hasattr(self, "group_bar") and self.group_bar.bar_widget is not None:
 			border_dir = {"left": "border-right:", "top": "border-bottom:", "right": "border-left:"}
@@ -268,7 +333,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
 			| Qt.WindowType.Tool
 		)
 		self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-		self.setMinimumSize(320, 400)
+		self.setMinimumSize(390, 400)
 		self.resize(self._saved_width, self._saved_height)
 
 		self.container = QFrame(self)
@@ -367,6 +432,75 @@ class ClipboardWindow(QWidget, FramelessMixin):
 
 		self.left_layout.addWidget(self.list_widget, 1)
 
+		self.time_filter_bar = QWidget()
+		self.time_filter_bar.setFixedHeight(36)
+		self.time_filter_bar.hide()
+		time_filter_layout = QHBoxLayout(self.time_filter_bar)
+		time_filter_layout.setContentsMargins(8, 4, 8, 4)
+		time_filter_layout.setSpacing(5)
+
+		today = QDate.currentDate()
+		self.start_date_edit = QDateEdit(today.addDays(-7))
+		self.start_date_edit.setCalendarPopup(True)
+		self.start_date_edit.setDisplayFormat("yyyy/MM/dd")
+		self.start_date_edit.setFixedSize(114, 26)
+		self.start_date_edit.setToolTip(self.tr("Start date"))
+		self.start_date_edit.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+		time_filter_layout.addWidget(self.start_date_edit)
+
+		self.time_filter_separator = QLabel("-")
+		self.time_filter_separator.setAlignment(Qt.AlignmentFlag.AlignCenter)
+		time_filter_layout.addWidget(self.time_filter_separator)
+
+		self.end_date_edit = QDateEdit(today)
+		self.end_date_edit.setCalendarPopup(True)
+		self.end_date_edit.setDisplayFormat("yyyy/MM/dd")
+		self.end_date_edit.setFixedSize(114, 26)
+		self.end_date_edit.setToolTip(self.tr("End date"))
+		self.end_date_edit.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+		time_filter_layout.addWidget(self.end_date_edit)
+		self._apply_date_filter_locale()
+
+		self.apply_time_filter_btn = QToolButton()
+		self.apply_time_filter_btn.setText("OK")
+		self.apply_time_filter_btn.setFixedSize(34, 26)
+		self.apply_time_filter_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+		self.apply_time_filter_btn.setToolTip(self.tr("Apply time filter"))
+		self.apply_time_filter_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+		self.apply_time_filter_btn.clicked.connect(self._apply_time_range_filter)
+		time_filter_layout.addWidget(self.apply_time_filter_btn)
+
+		time_filter_layout.addStretch(1)
+
+		self.type_filter_labels = [self.tr("All"), self.tr("Text"), self.tr("Image"), self.tr("File")]
+		self.type_filter_index = 0
+		self.type_filter_btn = QToolButton()
+		self.type_filter_btn.setFixedSize(66, 26)
+		self.type_filter_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+		self.type_filter_btn.setToolTip(self.tr("Filter Type"))
+		self.type_filter_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+		self.type_filter_btn.clicked.connect(self._show_type_filter_menu)
+		self.type_filter_menu = QMenu(self.type_filter_btn)
+		self.type_filter_actions = []
+		for idx, label in enumerate(self.type_filter_labels):
+			action = self.type_filter_menu.addAction(label)
+			action.setCheckable(True)
+			action.setChecked(idx == self.type_filter_index)
+			action.triggered.connect(lambda _checked=False, i=idx: self._set_type_filter(i))
+			self.type_filter_actions.append(action)
+		self._update_type_filter_button(0)
+		time_filter_layout.addWidget(self.type_filter_btn)
+
+		self.clear_time_filter_btn = QToolButton()
+		self.clear_time_filter_btn.setText("X")
+		self.clear_time_filter_btn.setFixedSize(26, 26)
+		self.clear_time_filter_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+		self.clear_time_filter_btn.setToolTip(self.tr("Close filters"))
+		self.clear_time_filter_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+		self.clear_time_filter_btn.clicked.connect(self._close_time_filter_bar)
+		time_filter_layout.addWidget(self.clear_time_filter_btn)
+		self.left_layout.addWidget(self.time_filter_bar)
+
 		self.bottom_bar = QWidget()
 		self.bottom_bar.setFixedHeight(36)
 		self.bottom_bar.setStyleSheet(
@@ -381,12 +515,17 @@ class ClipboardWindow(QWidget, FramelessMixin):
 		bottom_layout.setContentsMargins(8, 4, 8, 4)
 		bottom_layout.setSpacing(8)
 
-		search_icon = QLabel("🔍")
-		search_icon.setStyleSheet("background: transparent; border: none;")
-		bottom_layout.addWidget(search_icon)
+		self.time_filter_toggle_btn = QToolButton()
+		self.time_filter_toggle_btn.setArrowType(Qt.ArrowType.UpArrow)
+		self.time_filter_toggle_btn.setFixedSize(28, 28)
+		self.time_filter_toggle_btn.setCheckable(True)
+		self.time_filter_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+		self.time_filter_toggle_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+		self.time_filter_toggle_btn.clicked.connect(self._toggle_time_filter_bar)
+		bottom_layout.addWidget(self.time_filter_toggle_btn)
 
 		self.search_input = QLineEdit()
-		self.search_input.setPlaceholderText(self.tr("Search"))
+		self.search_input.setPlaceholderText("🔍 " + self.tr("Search"))
 		self._apply_search_input_style()
 		self.search_input.textChanged.connect(self._on_search_changed)
 		self.search_input.textChanged.connect(self._update_search_background)
@@ -403,18 +542,15 @@ class ClipboardWindow(QWidget, FramelessMixin):
 		self.clear_search_btn.hide()
 		bottom_layout.addWidget(self.clear_search_btn)
 
-		self.type_filter = QComboBox()
-		self.type_filter.addItems([self.tr("All"), self.tr("Text"), self.tr("Image"), self.tr("File")])
-		self.type_filter.hide()
-
 		self.menu_btn = QPushButton("⚙")
 		self.menu_btn.setFixedSize(28, 28)
 		self.menu_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-		self.menu_btn.setToolTip(self.tr("Settings"))
 		self.menu_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 		self._apply_menu_btn_style()
 		self.menu_btn.clicked.connect(self._show_main_menu)
 		bottom_layout.addWidget(self.menu_btn)
+
+		self._apply_time_filter_styles()
 
 		self.left_layout.addWidget(self.bottom_bar)
 		self.content_layout.addWidget(self.left_widget, 1)
@@ -454,7 +590,6 @@ class ClipboardWindow(QWidget, FramelessMixin):
 			parent=self,
 			menu_style=self._get_menu_style(),
 			tr=self.tr,
-			current_filter_index=self.type_filter.currentIndex(),
 			paste_with_html=self.controller.paste_with_html,
 			auto_paste=self.config.get_clipboard_auto_paste(),
 			move_to_top=self.config.get_clipboard_move_to_top_on_paste(),
@@ -466,7 +601,6 @@ class ClipboardWindow(QWidget, FramelessMixin):
 			current_group_bar_position=self.group_bar_position,
 			opacity_options=self.config.get_clipboard_window_opacity_options(),
 			font_size_options=self.config.get_clipboard_font_size_options(),
-			on_set_filter=self._set_filter,
 			on_toggle_paste_html=self._toggle_paste_with_html,
 			on_toggle_auto_paste=self._toggle_auto_paste,
 			on_toggle_move_to_top=self._toggle_move_to_top_on_paste,
@@ -486,9 +620,39 @@ class ClipboardWindow(QWidget, FramelessMixin):
 
 		self._settings_menu.aboutToHide.connect(_on_menu_hide)
 
-	def _set_filter(self, index: int):
-		self.type_filter.setCurrentIndex(index)
-		self.controller.set_content_type_filter(index)
+	def _toggle_time_filter_bar(self, checked: bool):
+		if not checked:
+			self._clear_time_and_type_filters()
+		self.time_filter_bar.setVisible(checked)
+		self.time_filter_toggle_btn.setArrowType(Qt.ArrowType.DownArrow if checked else Qt.ArrowType.UpArrow)
+		self._apply_time_filter_styles()
+
+	def _apply_time_range_filter(self):
+		start_text = self.start_date_edit.date().toString("yyyy/MM/dd")
+		end_text = self.end_date_edit.date().toString("yyyy/MM/dd")
+		range_text = f"{start_text}-{end_text}"
+		ok = self.controller.set_time_range_text(range_text)
+		self.start_date_edit.setProperty("hasError", not ok)
+		self.end_date_edit.setProperty("hasError", not ok)
+		self.start_date_edit.style().unpolish(self.start_date_edit)
+		self.start_date_edit.style().polish(self.start_date_edit)
+		self.end_date_edit.style().unpolish(self.end_date_edit)
+		self.end_date_edit.style().polish(self.end_date_edit)
+		self._apply_time_filter_styles()
+
+	def _close_time_filter_bar(self):
+		self.time_filter_toggle_btn.setChecked(False)
+		self._toggle_time_filter_bar(False)
+
+	def _clear_time_and_type_filters(self):
+		today = QDate.currentDate()
+		self.start_date_edit.setDate(today.addDays(-7))
+		self.end_date_edit.setDate(today)
+		self.start_date_edit.setProperty("hasError", False)
+		self.end_date_edit.setProperty("hasError", False)
+		if hasattr(self, "type_filter_btn"):
+			self._update_type_filter_button(0)
+		self.controller.clear_time_and_type_filters()
 
 	def _toggle_paste_with_html(self, checked: bool):
 		self.controller.set_paste_with_html(checked)
@@ -670,11 +834,44 @@ class ClipboardWindow(QWidget, FramelessMixin):
 		style = ThemeStyleGenerator(self.current_theme).generate_menu_btn_style()
 		self.menu_btn.setStyleSheet(style)
 
+	def _apply_time_filter_styles(self):
+		generator = ThemeStyleGenerator(self.current_theme)
+		if hasattr(self, "time_filter_toggle_btn"):
+			self.time_filter_toggle_btn.setStyleSheet(generator.generate_filter_toggle_btn_style())
+		if hasattr(self, "start_date_edit"):
+			date_style = generator.generate_time_filter_date_edit_style()
+			calendar_style = generator.generate_time_filter_calendar_style()
+			self.start_date_edit.setStyleSheet(date_style)
+			self.end_date_edit.setStyleSheet(date_style)
+			self.start_date_edit.calendarWidget().setStyleSheet(calendar_style)
+			self.end_date_edit.calendarWidget().setStyleSheet(calendar_style)
+		if hasattr(self, "time_filter_separator"):
+			self.time_filter_separator.setStyleSheet(
+				f"background: transparent; border: none; color: {self.current_theme.colors.text_secondary};"
+			)
+		if hasattr(self, "apply_time_filter_btn"):
+			self.apply_time_filter_btn.setStyleSheet(generator.generate_time_filter_action_btn_style(primary=True))
+		if hasattr(self, "type_filter_btn"):
+			self.type_filter_btn.setStyleSheet(generator.generate_time_filter_type_btn_style())
+			self.type_filter_menu.setStyleSheet(generator.generate_menu_style())
+		if hasattr(self, "clear_time_filter_btn"):
+			self.clear_time_filter_btn.setStyleSheet(generator.generate_time_filter_action_btn_style(primary=True))
+
 	def _clear_search(self):
 		self.search_input.clear()
 		self.search_input.setFocus()
 
-	def _on_filter_changed(self, index: int):
+	def _update_type_filter_button(self, index: int):
+		self.type_filter_index = index
+		self.type_filter_btn.setText(f"{self.type_filter_labels[index]} ▾")
+		for action_index, action in enumerate(self.type_filter_actions):
+			action.setChecked(action_index == index)
+
+	def _show_type_filter_menu(self):
+		self.type_filter_menu.exec(self.type_filter_btn.mapToGlobal(QPoint(0, self.type_filter_btn.height())))
+
+	def _set_type_filter(self, index: int):
+		self._update_type_filter_button(index)
 		self.controller.set_content_type_filter(index)
 
 	def _on_group_switched(self, group_id):
@@ -875,6 +1072,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
 		from PySide6.QtGui import QImage
 		from PySide6.QtWidgets import QFileDialog
 		from ui.dialogs import show_warning_dialog
+		from core.save import SaveService
 
 		clipboard_item = self.controller.get_item(item_id)
 		if clipboard_item is None or clipboard_item.content_type != "image" or not clipboard_item.image_id:
@@ -887,6 +1085,11 @@ class ClipboardWindow(QWidget, FramelessMixin):
 			show_warning_dialog(self, self.tr("Save Failed"), self.tr("Image data is unavailable."))
 			return
 
+		image = QImage()
+		if not image.loadFromData(image_data):
+			show_warning_dialog(self, self.tr("Save Failed"), self.tr("Failed to load image data."))
+			return
+
 		if clipboard_item.created_at:
 			default_name = f"clipboard_image_{clipboard_item.created_at.strftime('%Y%m%d_%H%M%S')}.png"
 		else:
@@ -896,43 +1099,29 @@ class ClipboardWindow(QWidget, FramelessMixin):
 			self,
 			self.tr("Save as"),
 			default_name,
-			self.tr("PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp)"),
+			self.tr("PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp);;WebP Image (*.webp);;PDF (*.pdf)"),
 		)
 		if not file_path:
 			return
 
-		ext = os.path.splitext(file_path)[1].lower()
-		if ext in (".jpg", ".jpeg"):
-			image_format = "JPG"
-		elif ext == ".bmp":
-			image_format = "BMP"
-		else:
-			filter_lower = selected_filter.lower()
-			if ".jpg" in filter_lower or ".jpeg" in filter_lower:
-				filter_ext, image_format = "jpg", "JPG"
-			elif ".bmp" in filter_lower:
-				filter_ext, image_format = "bmp", "BMP"
-			else:
-				filter_ext, image_format = "png", "PNG"
-			if ext != f".{filter_ext}":
-				file_path = f"{file_path}.{filter_ext}" if not ext else f"{file_path}.png"
-				image_format = "PNG" if ext else image_format
+		image_format = self._format_from_save_filter(file_path, selected_filter)
+		if not os.path.splitext(file_path)[1]:
+			file_path = f"{file_path}.{image_format.lower()}"
 
-		try:
-			if image_format == "PNG":
-				with open(file_path, "wb") as image_file:
-					image_file.write(image_data)
-				return
-
-			image = QImage()
-			if not image.loadFromData(image_data):
-				show_warning_dialog(self, self.tr("Save Failed"), self.tr("Failed to load image data."))
-				return
-			if not image.save(file_path, image_format):
-				show_warning_dialog(self, self.tr("Save Failed"), self.tr("Failed to save image."))
-		except Exception as e:
-			log_exception(e, "保存剪贴板图片")
+		save_service = SaveService()
+		if not save_service.save_qimage_to_path(image, file_path, image_format=image_format):
 			show_warning_dialog(self, self.tr("Save Failed"), self.tr("Failed to save image."))
+
+	@staticmethod
+	def _format_from_save_filter(file_path: str, selected_filter: str) -> str:
+		ext = os.path.splitext(file_path)[1].lstrip(".")
+		if ext:
+			return ext.upper()
+		# 从过滤器字符串中提取第一个扩展名，如 "JPEG (*.jpg *.jpeg)" → "jpg"
+		match = re.search(r'\*\.(\w+)', selected_filter)
+		if match:
+			return match.group(1).upper()
+		return "PNG"
 
 	def _open_file_location(self, item_id: int):
 		import json
@@ -1093,6 +1282,20 @@ class ClipboardWindow(QWidget, FramelessMixin):
 			return True
 		return False
 
+	def _is_date_filter_widget(self, obj) -> bool:
+		date_widgets = (
+			getattr(self, "start_date_edit", None),
+			getattr(self, "end_date_edit", None),
+		)
+		for widget in date_widgets:
+			if widget is not None and (obj is widget or widget.isAncestorOf(obj)):
+				return True
+			if widget is not None:
+				calendar = widget.calendarWidget()
+				if calendar is not None and (obj is calendar or calendar.isAncestorOf(obj)):
+					return True
+		return isinstance(obj, QCalendarWidget)
+
 	@safe_event
 	def eventFilter(self, obj, event):
 		event_type = event.type()
@@ -1139,6 +1342,13 @@ class ClipboardWindow(QWidget, FramelessMixin):
 					if focus_widget is self.list_widget or self.list_widget.isAncestorOf(focus_widget):
 						self._enter_sidebar_mode()
 						return True
+
+		if event_type in (
+			QEvent.Type.MouseButtonPress,
+			QEvent.Type.MouseButtonRelease,
+			QEvent.Type.MouseMove,
+		) and self._is_date_filter_widget(obj):
+			return super().eventFilter(obj, event)
 
 		if self._fl_handle_event(obj, event):
 			return True

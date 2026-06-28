@@ -8,7 +8,7 @@ import math
 from PySide6.QtWidgets import QGraphicsPathItem, QGraphicsRectItem, QGraphicsEllipseItem, QGraphicsItem, QGraphicsTextItem, QGraphicsPixmapItem
 from PySide6.QtGui import QPen, QPainter, QPainterPath, QColor, QFont, QPixmap, QPainterPathStroker, QBrush
 from PySide6.QtCore import Qt, QRectF, QPointF
-from core import log_warning, safe_event
+from core import log_debug, log_warning, safe_event
 
 class DrawingItemMixin:
     """绘图图元通用属性"""
@@ -1456,7 +1456,7 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
         if not self.toPlainText().strip():
             if self.scene():
                 self.scene().removeItem(self)
-                print("[TextItem] 内容为空，自动删除")
+                log_debug("内容为空，自动删除", "TextItem")
         else:
             # 否则取消编辑模式（可选）
             self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)

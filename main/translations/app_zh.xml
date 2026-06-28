@@ -482,8 +482,8 @@ Replace it?</source>
         <translation>保留期限</translation>
     </message>
     <message>
-        <source>Auto-delete old logs (0=keep forever)</source>
-        <translation>自动删除旧日志 (0=永久保留)</translation>
+        <source>Auto-delete old logs after the selected period</source>
+        <translation>按所选期限自动删除旧日志</translation>
     </message>
     <message>
         <source>days</source>
@@ -1290,6 +1290,34 @@ Replace it?</source>
         <translation>筛选类型</translation>
     </message>
     <message>
+        <source>Start date</source>
+        <translation>开始日期</translation>
+    </message>
+    <message>
+        <source>End date</source>
+        <translation>结束日期</translation>
+    </message>
+    <message>
+        <source>Apply time filter</source>
+        <translation>应用时间筛选</translation>
+    </message>
+    <message>
+        <source>Close filters</source>
+        <translation>关闭筛选</translation>
+    </message>
+    <message>
+        <source>Open filters</source>
+        <translation>打开筛选</translation>
+    </message>
+    <message>
+        <source>Clear search</source>
+        <translation>清除搜索</translation>
+    </message>
+    <message>
+        <source>Settings</source>
+        <translation>设置</translation>
+    </message>
+    <message>
         <source>Paste with Format</source>
         <translation>粘贴带格式</translation>
     </message>
@@ -1971,6 +1999,10 @@ Replace it?</source>
         <translation>删除所有剪贴板历史记录</translation>
     </message>
     <message>
+        <source>← Get storage size</source>
+        <translation>← 获取数据占用大小</translation>
+    </message>
+    <message>
         <source>Clear History</source>
         <translation>清空历史</translation>
     </message>
@@ -2190,12 +2222,16 @@ Replace it?</source>
         <translation>欢迎使用截图吧 👋</translation>
     </message>
     <message>
-        <source>一款轻巧的屏幕截图与剪贴板管理工具，
-由rijyaaru用 Python + PySide6 打造。
-先选好语言，再开始探索吧！</source>
-        <translation>一款轻巧的屏幕截图与剪贴板管理工具，
-由rijyaaru用 Python + PySide6 打造。
-先选好语言，再开始探索吧！</translation>
+        <source>一款轻量的截图与剪贴板管理工具。</source>
+        <translation>一款轻量的截图与剪贴板管理工具。</translation>
+    </message>
+    <message>
+        <source>欢迎来 GitHub 点亮小星星 ⭐</source>
+        <translation>欢迎来 GitHub 点亮一颗小星星 ⭐</translation>
+    </message>
+    <message>
+        <source>请先选择语言！</source>
+        <translation>请先选择语言！</translation>
     </message>
     <message>
         <source>🌐 界面语言</source>

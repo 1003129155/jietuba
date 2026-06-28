@@ -478,8 +478,8 @@ Replace it?</translation>
         <translation>Retention Period</translation>
     </message>
     <message>
-        <source>Auto-delete old logs (0=keep forever)</source>
-        <translation>Auto-delete old logs (0=keep forever)</translation>
+        <source>Auto-delete old logs after the selected period</source>
+        <translation>Auto-delete old logs after the selected period</translation>
     </message>
     <message>
         <source>days</source>
@@ -1191,6 +1191,34 @@ Replace it?</translation>
         <translation>Filter Type</translation>
     </message>
     <message>
+        <source>Start date</source>
+        <translation>Start date</translation>
+    </message>
+    <message>
+        <source>End date</source>
+        <translation>End date</translation>
+    </message>
+    <message>
+        <source>Apply time filter</source>
+        <translation>Apply time filter</translation>
+    </message>
+    <message>
+        <source>Close filters</source>
+        <translation>Close filters</translation>
+    </message>
+    <message>
+        <source>Open filters</source>
+        <translation>Open filters</translation>
+    </message>
+    <message>
+        <source>Clear search</source>
+        <translation>Clear search</translation>
+    </message>
+    <message>
+        <source>Settings</source>
+        <translation>Settings</translation>
+    </message>
+    <message>
         <source>Paste with Format</source>
         <translation>Paste with Format</translation>
     </message>
@@ -1869,6 +1897,10 @@ Replace it?</translation>
         <translation>Delete all clipboard history records</translation>
     </message>
     <message>
+        <source>← Get storage size</source>
+        <translation>← Get storage size</translation>
+    </message>
+    <message>
         <source>Clear History</source>
         <translation>Clear History</translation>
     </message>
@@ -2088,12 +2120,16 @@ Replace it?</translation>
         <translation>Welcome to JieTuBa 👋</translation>
     </message>
     <message>
-        <source>一款轻巧的屏幕截图与剪贴板管理工具，
-由rijyaaru用 Python + PySide6 打造。
-先选好语言，再开始探索吧！</source>
-        <translation>A lightweight screenshot &amp; clipboard tool,
-crafted by rijyaaru with Python + PySide6.
-Pick your language and let's get started!</translation>
+        <source>一款轻量的截图与剪贴板管理工具。</source>
+        <translation>A lightweight screenshot &amp; clipboard manager.</translation>
+    </message>
+    <message>
+        <source>欢迎来 GitHub 点亮小星星 ⭐</source>
+        <translation>Visit GitHub and leave us a star ⭐</translation>
+    </message>
+    <message>
+        <source>请先选择语言！</source>
+        <translation>Please select your language first!</translation>
     </message>
     <message>
         <source>🌐 界面语言</source>

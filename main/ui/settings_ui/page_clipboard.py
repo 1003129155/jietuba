@@ -9,15 +9,15 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea,
     QFileDialog, QProgressDialog,
 )
-from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtCore import Qt, QThread, Signal, QSize
 from ui.dialogs import (
     show_info_dialog, show_warning_dialog, show_confirm_dialog,
     show_confirm_checkbox_dialog,
 )
-from qfluentwidgets import (
+from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
     FluentIcon, SpinBox, CaptionLabel,
-    PushButton, PrimaryPushButton,
+    PushButton, PrimaryPushButton, TransparentToolButton,
 )
 from .components import SettingCardGroup, WhiteCard, theme_text_style, theme_caption_style
 
@@ -118,22 +118,32 @@ def create_clipboard_page(dialog) -> QWidget:
     cleanup_title.setStyleSheet(_CARD_TITLE_STYLE)
     cleanup_left.addWidget(cleanup_title)
 
-    dialog._clipboard_size_label = QLabel("…", cleanup_card)
+    dialog._clipboard_size_label = QLabel(dialog.tr("← Get storage size"), cleanup_card)
     dialog._clipboard_size_label.setStyleSheet(_CARD_CAPTION_STYLE)
     dialog._calc_clipboard_storage_size = _calc_clipboard_storage_size
-    _refresh_clipboard_size_async(dialog)
+
+    # 手动刷新按钮 + 大小标签
+    size_row = QHBoxLayout()
+    size_row.setSpacing(4)
+    refresh_btn = TransparentToolButton(FluentIcon.SYNC, cleanup_card)
+    refresh_btn.setFixedSize(48, 48)
+    refresh_btn.setIconSize(QSize(32, 32))
+    refresh_btn.clicked.connect(lambda: _refresh_clipboard_size_async(dialog))
+    dialog._clipboard_refresh_btn = refresh_btn
+    size_row.addWidget(refresh_btn)
+    size_row.addWidget(dialog._clipboard_size_label)
 
     cleanup_desc = QLabel(dialog.tr("Delete all clipboard history records"), cleanup_card)
     cleanup_desc.setStyleSheet(_CARD_CAPTION_STYLE)
     cleanup_left.addWidget(cleanup_desc)
 
     cleanup_h.addLayout(cleanup_left, 1)
-    cleanup_h.addWidget(dialog._clipboard_size_label)
+    cleanup_h.addLayout(size_row)
 
     clear_btn = PrimaryPushButton(dialog.tr("Clear History"), cleanup_card)
     clear_btn.clicked.connect(lambda: _clear_clipboard_history(dialog))
     cleanup_h.addWidget(clear_btn)
-    cleanup_card.setFixedHeight(60)
+    cleanup_card.setFixedHeight(72)
     grp_data.addSettingCard(cleanup_card)
 
     layout.addWidget(grp_data)

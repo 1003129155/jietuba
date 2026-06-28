@@ -38,8 +38,8 @@ from typing import Callable, Dict, List, Optional, Set, Tuple
 
 from PySide6.QtCore import QAbstractNativeEventFilter, QEvent, QObject, Qt
 from PySide6.QtWidgets import (
-    QApplication, QComboBox, QDoubleSpinBox, QGraphicsView,
-    QLineEdit, QPlainTextEdit, QSpinBox, QTextEdit,
+    QApplication, QAbstractSpinBox, QComboBox, QGraphicsView,
+    QLineEdit, QPlainTextEdit, QTextEdit,
 )
 
 from core import log_debug, log_info, log_warning, log_error, safe_event
@@ -189,7 +189,7 @@ class ShortcutManager(QObject):
             if app:
                 app.installEventFilter(cls._instance)
                 app.installNativeEventFilter(cls._instance._native_filter)
-                log_info("ShortcutManager 已安装（KeyPress + WM_HOTKEY）", "Shortcut")
+                log_debug("ShortcutManager 已安装（KeyPress + WM_HOTKEY）", "Shortcut")
         return cls._instance
 
     # ==================================================================
@@ -251,7 +251,7 @@ class ShortcutManager(QObject):
 
         # 常见文字输入控件
         if isinstance(focus, (QLineEdit, QTextEdit, QPlainTextEdit,
-                              QSpinBox, QDoubleSpinBox)):
+                              QAbstractSpinBox)):
             return True
         if isinstance(focus, QComboBox) and focus.isEditable():
             return True
@@ -343,7 +343,6 @@ class ShortcutManager(QObject):
                 self._next_hotkey_id += 1
                 return True
             else:
-                log_warning(f"Failed to register hotkey: {hotkey_str}", module="热键")
                 return False
         except Exception as e:
             log_error(f"Error registering hotkey {hotkey_str}: {e}", module="热键")

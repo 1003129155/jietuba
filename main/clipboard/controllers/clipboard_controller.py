@@ -6,6 +6,8 @@
 """
 
 import ctypes
+import re
+from datetime import datetime, time, timedelta
 from typing import Optional, List, Callable, Tuple
 from time import perf_counter
 from PySide6.QtCore import QObject, Signal, QTimer, Qt
@@ -134,6 +136,7 @@ class ClipboardController(QObject):
         # 搜索和筛选状态
         self._search_text: Optional[str] = None
         self._content_type: Optional[str] = None  # None, "text", "image", "file"
+        self._time_range: Optional[Tuple[datetime, datetime]] = None
         
         # 设置
         self.auto_paste_enabled = True
@@ -246,28 +249,9 @@ class ClipboardController(QObject):
             
             # 根据当前分组加载内容
             t_query_start = perf_counter()
-            if self.current_group_id is None:
-                # 显示剪切板历史
-                new_items = self.manager.get_history(
-                    limit=current_page_size,
-                    offset=self._current_offset,
-                    search=self._search_text,
-                    content_type=self._content_type
-                )
-            else:
-                # 显示分组内容
-                new_items = self.manager.get_by_group(
-                    group_id=self.current_group_id,
-                    limit=current_page_size,
-                    offset=self._current_offset
-                )
-                # 如果有搜索词，过滤分组内容
-                if self._search_text:
-                    search_lower = self._search_text.lower()
-                    new_items = [
-                        item for item in new_items 
-                        if search_lower in item.content.lower()
-                    ]
+            is_first_page = (self._current_offset == 0)
+            new_items, raw_count = self._fetch_items_page(current_page_size, self._current_offset)
+            self._current_offset += raw_count
             
             t_query_end = perf_counter()
             log_info(f"加载完成 - 获取到 {len(new_items)} 条记录", "Clipboard")
@@ -276,13 +260,9 @@ class ClipboardController(QObject):
             if len(new_items) < current_page_size:
                 self._has_more = False
             
-            # 判断是否是第一页（首次加载）
-            is_first_page = (self._current_offset == 0)
-            
             # 追加到当前列表
             if new_items:
                 self.current_items.extend(new_items)
-                self._current_offset += len(new_items)
             
             # 发送数据加载完成信号
             self.data_loaded.emit(new_items, is_first_page)
@@ -310,6 +290,37 @@ class ClipboardController(QObject):
         if not self._has_more or self._is_loading:
             return
         self._load_more_items()
+
+    def _fetch_items_page(self, limit: int, offset: int) -> Tuple[List[ClipboardItem], int]:
+        if self.current_group_id is None:
+            start_ts = int(self._time_range[0].timestamp()) if self._time_range else None
+            end_ts = int(self._time_range[1].timestamp()) if self._time_range else None
+            items = self.manager.get_history(
+                limit=limit,
+                offset=offset,
+                search=self._search_text,
+                content_type=self._content_type,
+                start_time=start_ts,
+                end_time=end_ts,
+            )
+            return items, len(items)
+
+        items = self.manager.get_by_group(
+            group_id=self.current_group_id,
+            limit=limit,
+            offset=offset
+        )
+        raw_count = len(items)
+
+        if self._search_text:
+            search_lower = self._search_text.lower()
+            items = [
+                item for item in items
+                if search_lower in item.content.lower()
+                or (item.title and search_lower in item.title.lower())
+            ]
+
+        return items, raw_count
     
     def check_scroll_load(self, scroll_value: int, scroll_max: int):
         """检查滚动位置，决定是否加载更多
@@ -365,6 +376,58 @@ class ClipboardController(QObject):
         if self._content_type != content_type:
             self._content_type = content_type
             self.load_history()
+
+    def set_time_range_text(self, range_text: str) -> bool:
+        """设置时间区间筛选，格式示例：2026/06/20-2026/06/30。"""
+        parsed_range = self._parse_time_range_text(range_text)
+        if parsed_range is None and range_text.strip():
+            return False
+        if self._time_range != parsed_range:
+            self._time_range = parsed_range
+            self.load_history()
+        return True
+
+    def clear_time_and_type_filters(self):
+        """清空时间区间和内容类型筛选。"""
+        if self._time_range is not None or self._content_type is not None:
+            self._time_range = None
+            self._content_type = None
+            self.load_history()
+
+    @staticmethod
+    def _parse_time_range_text(range_text: str) -> Optional[Tuple[datetime, datetime]]:
+        text = range_text.strip()
+        if not text:
+            return None
+
+        match = re.match(
+            r"^\s*(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})\s*(?:-|~|至|到)\s*"
+            r"(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})\s*$",
+            text,
+        )
+        if not match:
+            return None
+
+        try:
+            start_date = datetime(
+                int(match.group(1)),
+                int(match.group(2)),
+                int(match.group(3)),
+            ).date()
+            end_date = datetime(
+                int(match.group(4)),
+                int(match.group(5)),
+                int(match.group(6)),
+            ).date()
+        except ValueError:
+            return None
+
+        if end_date < start_date:
+            return None
+
+        start = datetime.combine(start_date, time.min)
+        end = datetime.combine(end_date + timedelta(days=1), time.min)
+        return start, end
     
     # ==================== 分组管理 ====================
     

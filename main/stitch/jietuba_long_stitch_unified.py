@@ -6,11 +6,8 @@
 """
 
 from PIL import Image
-from typing import List, Optional
 
 from core import log_debug, log_info, log_warning, log_error
-
-from .jietuba_long_stitch import AllOverlapShrinkError
 
 # 全局拼接计数（用于调试日志展示累计次数）
 _stitch_counter = 0
@@ -26,12 +23,6 @@ def normalize_engine_value(value):
     返回:
         'hash_rust'
     """
-    if not value or not isinstance(value, str):
-        return "hash_rust"
-
-    v = value.strip().lower()
-
-    # 其他所有值都映射到 hash_rust
     return "hash_rust"
 
 
@@ -56,7 +47,6 @@ class LongStitchConfig:
         self.max_sample_size = 200
         self.min_overlap = 10
         self.max_overlap_ratio = 0.95
-        self.cancel_on_shrink = True
 
         # 调试开关
         self.verbose = False
@@ -78,7 +68,6 @@ def configure(
     max_sample_size=None,
     min_overlap=None,
     max_overlap_ratio=None,
-    cancel_on_shrink=None,
     verbose=None,
     ignore_left_pixels=None,
     ignore_right_pixels=None,
@@ -95,7 +84,6 @@ def configure(
         max_sample_size: 最大采样尺寸
         min_overlap: 最小重叠区域
         max_overlap_ratio: 最大重叠比例
-        cancel_on_shrink: 拼接缩短时是否取消
         verbose: 是否输出详细日志
         ignore_left_pixels: 左侧忽略像素数
         ignore_right_pixels: 右侧忽略像素数
@@ -114,8 +102,6 @@ def configure(
         config.min_overlap = min_overlap
     if max_overlap_ratio is not None:
         config.max_overlap_ratio = max_overlap_ratio
-    if cancel_on_shrink is not None:
-        config.cancel_on_shrink = cancel_on_shrink
     if verbose is not None:
         config.verbose = verbose
     if ignore_left_pixels is not None:
@@ -152,16 +138,14 @@ def stitch_images(images, engine=None):
 
     返回:
         拼接后的 PIL Image，失败返回 None
-
-    异常:
-        AllOverlapShrinkError: 当连续拼接导致图片缩小时抛出
     """
     if not images or len(images) < 2:
         if images:
             return images[0]
         return None
 
-    active_engine = normalize_engine_value(engine) if engine else get_active_engine()
+    if engine:
+        normalize_engine_value(engine)
 
     return _stitch_with_hash_rust(images)
 
@@ -207,8 +191,6 @@ def _stitch_with_hash_rust(images):
                         module="长截图"
                     )
 
-            except AllOverlapShrinkError:
-                raise
             except Exception as e:
                 log_error(f"第 {i} 次拼接异常: {e}", module="长截图")
                 return None

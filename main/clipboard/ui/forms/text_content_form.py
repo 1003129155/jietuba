@@ -8,7 +8,8 @@
 
 from PySide6.QtWidgets import QTextEdit
 
-from qfluentwidgets import BodyLabel, LineEdit
+from ui.fluent_lite import BodyLabel, LineEdit
+from ..layout_scale import scale_y
 
 
 def build_text_content_form(dialog):
@@ -26,7 +27,7 @@ def build_text_content_form(dialog):
     dialog.content_edit = QTextEdit()
     dialog.content_edit.setPlaceholderText(dialog.tr("Enter text content to save..."))
     dialog.content_edit.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
-    dialog.content_edit.setMinimumHeight(200)
+    dialog.content_edit.setMinimumHeight(scale_y(200))
     dialog.detail_layout.addWidget(dialog.content_edit, 1)
 
 
@@ -46,5 +47,5 @@ def build_edit_text_content_form(dialog, item):
     dialog.content_edit = QTextEdit()
     dialog.content_edit.setText(item.content)
     dialog.content_edit.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
-    dialog.content_edit.setMinimumHeight(200)
+    dialog.content_edit.setMinimumHeight(scale_y(200))
     dialog.detail_layout.addWidget(dialog.content_edit, 1)

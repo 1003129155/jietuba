@@ -5,7 +5,8 @@ from PySide6.QtWidgets import (
     QScrollArea,
 )
 from PySide6.QtCore import Qt
-from qfluentwidgets import (
+from ui.fluent_lite.theme import ACCENT
+from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
     FluentIcon, ComboBox, CaptionLabel,
     PushButton, HyperlinkButton,
@@ -135,10 +136,11 @@ def create_translation_page(dialog) -> QWidget:
     # 提示
     info_label = QLabel(
         "💡 " + dialog.tr("DeepL free tier: 500,000 chars/month. Get API key at")
-        + ' <a href="https://www.deepl.com/pro-api" style="color:#1976D2;">deepl.com/pro-api</a>',
+        + f' <a href="https://www.deepl.com/pro-api" style="color:{ACCENT};">deepl.com/pro-api</a>',
         page,
     )
     info_label.setOpenExternalLinks(True)
+    info_label.setWordWrap(True)
     info_label.setStyleSheet("padding: 5px; font-size: 12px; color: #999;")
     layout.addWidget(info_label)
 

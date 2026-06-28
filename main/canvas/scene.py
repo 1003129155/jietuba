@@ -26,6 +26,7 @@ class CanvasScene(QGraphicsScene):
     selectionConfirmed = Signal()  # 选区确认信号
     # 解耦信号：Scene 通过信号通知 View，而不是直接持有 view 引用
     cursor_color_update_requested = Signal(object)    # 参数：QColor
+    cursor_opacity_update_requested = Signal()        # 透明度变化 → 刷新光标
     cursor_tool_update_requested = Signal(str, bool)  # 参数：tool_id, force
     item_auto_select_requested = Signal(object)       # 参数：绘制完成的 QGraphicsItem
     editing_cleanup_requested = Signal()              # 请求清除编辑状态（控制点、画笔指示器）
@@ -133,7 +134,7 @@ class CanvasScene(QGraphicsScene):
     
     def update_style(self, **kwargs):
         """
-        更新样式
+        更新样式（颜色/线宽/透明度），统一入口，自动发信号刷新光标。
         """
         self.tool_controller.update_style(**kwargs)
 
@@ -142,6 +143,9 @@ class CanvasScene(QGraphicsScene):
             color = kwargs.get('color')
             if color is not None:
                 self.cursor_color_update_requested.emit(color)
+        # 透明度变化通过信号通知 View 更新光标（序号等工具需要）
+        if 'opacity' in kwargs:
+            self.cursor_opacity_update_requested.emit()
     
     def on_tool_changed(self, tool_id):
         """

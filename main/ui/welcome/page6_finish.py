@@ -76,7 +76,7 @@ class _CheckAnim(QWidget):
     def _emit_burst(self):
         import math, random
         cx, cy = self.width() / 2, self.height() / 2
-        colors = ["#F44336", "#9C27B0", "#2196F3", "#4CAF50", "#FF9800", "#00BCD4"]
+        colors = ["#F44336", "#9C27B0", ACCENT, "#4CAF50", "#FF9800", "#00BCD4"]
         for i in range(48):
             angle = (i / 48) * math.pi * 2 + random.uniform(-0.1, 0.1)
             speed = random.uniform(2.5, 5.5)
@@ -183,7 +183,7 @@ class FinishPage(BasePage):
     def _build_controls(self, layout: QVBoxLayout):
         # ── 开机自启 ──────────────────────────────────────
         self._autostart_switch = ToggleSwitch()
-        self._autostart_switch.setChecked(self._get_autostart())
+        self._autostart_switch.setChecked(True)  # 欢迎向导默认开启
         row_auto, self._autostart_lbl, self._autostart_desc = \
             self._make_setting_row_with_refs(
                 _tr("开机自启"),

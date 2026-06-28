@@ -15,9 +15,10 @@ try:
 except ImportError as e:
     PYCLIPBOARD_AVAILABLE = False
     import sys
-    print(f"[WARN] pyclipboard 模块未安装: {e}")
-    print(f"   Python: {sys.executable}")
-    print(f"   sys.path: {sys.path[:3]}...")
+    from core.logger import log_debug, log_warning
+    log_warning(f"pyclipboard 模块未安装: {e}", "Clipboard")
+    log_debug(f"Python: {sys.executable}", "Clipboard")
+    log_debug(f"sys.path: {sys.path[:3]}...", "Clipboard")
 
 from core.logger import log_debug, log_info, log_error, log_exception
 from .enums import GroupType
@@ -255,9 +256,11 @@ class ClipboardManager:
             return self._manager.is_monitoring()
         return False
     
-    def get_history(self, offset: int = 0, limit: int = 50, 
+    def get_history(self, offset: int = 0, limit: int = 50,
                     search: Optional[str] = None,
-                    content_type: Optional[str] = None) -> List[ClipboardItem]:
+                    content_type: Optional[str] = None,
+                    start_time: Optional[int] = None,
+                    end_time: Optional[int] = None) -> List[ClipboardItem]:
         """
         获取剪贴板历史
         
@@ -274,7 +277,7 @@ class ClipboardManager:
             return []
         
         try:
-            result = self._manager.get_history(offset, limit, search, content_type)
+            result = self._manager.get_history(offset, limit, search, content_type, start_time, end_time)
             return [ClipboardItem.from_py_item(item) for item in result.items]
         except Exception as e:
             log_error(f"获取历史失败: {e}", "Clipboard")

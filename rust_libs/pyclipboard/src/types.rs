@@ -123,14 +123,25 @@ pub struct PyQueryParams {
     pub search: Option<String>,
     #[pyo3(get, set)]
     pub content_type: Option<String>,
+    #[pyo3(get, set)]
+    pub start_time: Option<i64>,
+    #[pyo3(get, set)]
+    pub end_time: Option<i64>,
 }
 
 #[pymethods]
 impl PyQueryParams {
     #[new]
-    #[pyo3(signature = (offset=0, limit=50, search=None, content_type=None))]
-    fn new(offset: i64, limit: i64, search: Option<String>, content_type: Option<String>) -> Self {
-        Self { offset, limit, search, content_type }
+    #[pyo3(signature = (offset=0, limit=50, search=None, content_type=None, start_time=None, end_time=None))]
+    fn new(
+        offset: i64,
+        limit: i64,
+        search: Option<String>,
+        content_type: Option<String>,
+        start_time: Option<i64>,
+        end_time: Option<i64>,
+    ) -> Self {
+        Self { offset, limit, search, content_type, start_time, end_time }
     }
     
     fn __repr__(&self) -> String {

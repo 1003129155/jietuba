@@ -81,7 +81,7 @@ class _ClipAnim(QWidget):
             p.drawRoundedRect(x, y, item_w, item_h, 6, 6)
 
             # 彩色左边条
-            colors = ["#2196F3", "#4CAF50", "#FF9800", "#9C27B0"]
+            colors = [ACCENT, "#4CAF50", "#FF9800", "#9C27B0"]
             p.setBrush(QColor(colors[i % len(colors)]))
             p.setPen(Qt.PenStyle.NoPen)
             p.drawRoundedRect(x, y, 4, item_h, 2, 2)

@@ -76,6 +76,17 @@ class ThemeStyleGenerator:
             }}
         """
     
+    def generate_time_filter_bar_style(self, opacity: int = 0) -> str:
+        """Generate the expandable time filter bar style."""
+        alpha = 255 - int(opacity * 2.55)
+
+        return f"""
+            QWidget {{
+                background: rgba({self._hex_to_rgb(self.colors.bg_secondary)}, {alpha / 255});
+                border-top: 1px solid {self.colors.border_primary};
+            }}
+        """
+
     def generate_button_style(self, button_type: str = "normal") -> str:
         """
         生成按钮样式
@@ -299,6 +310,204 @@ class ThemeStyleGenerator:
                 background: {self.colors.bg_hover};
                 color: {self.colors.text_primary};
                 border-radius: 12px;
+            }}
+        """
+
+    def generate_filter_toggle_btn_style(self) -> str:
+        """Generate the time filter disclosure button style."""
+        return f"""
+            QToolButton {{
+                background: transparent;
+                color: {self.colors.text_secondary};
+                border: none;
+                border-radius: 4px;
+                font-size: 17px;
+                padding: 0px;
+            }}
+            QToolButton:hover {{
+                background: {self.colors.bg_hover};
+                color: {self.colors.text_primary};
+            }}
+            QToolButton:checked {{
+                background: {self.colors.bg_hover};
+                color: {self.colors.text_primary};
+            }}
+        """
+
+    def generate_time_filter_date_edit_style(self) -> str:
+        """Generate the date range filter edit style."""
+        return f"""
+            QDateEdit {{
+                background: {self.colors.bg_primary};
+                color: {self.colors.text_primary};
+                border: 1px solid {self.colors.border_primary};
+                border-radius: 4px;
+                padding: 4px 8px;
+                font-size: 12px;
+            }}
+            QDateEdit:focus {{
+                border-color: {self.colors.border_accent};
+            }}
+            QDateEdit[hasError="true"] {{
+                border-color: {self.colors.error};
+                background: {self.colors.error_bg};
+            }}
+            QDateEdit::drop-down {{
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 18px;
+                border-left: 1px solid {self.colors.border_primary};
+                border-top-right-radius: 4px;
+                border-bottom-right-radius: 4px;
+                background: {self.colors.bg_tertiary};
+            }}
+            QDateEdit::down-arrow {{
+                image: none;
+                width: 0px;
+                height: 0px;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 5px solid {self.colors.text_secondary};
+            }}
+        """
+
+    def generate_time_filter_calendar_style(self) -> str:
+        """Generate the popup calendar style used by date range filters."""
+        return f"""
+            QCalendarWidget {{
+                background: {self.colors.bg_primary};
+                color: {self.colors.text_primary};
+                border: 1px solid {self.colors.border_primary};
+            }}
+            QCalendarWidget QWidget {{
+                background: {self.colors.bg_primary};
+                color: {self.colors.text_primary};
+                alternate-background-color: {self.colors.bg_secondary};
+            }}
+            QCalendarWidget QToolButton {{
+                background: transparent;
+                color: {self.colors.text_primary};
+                border: none;
+                border-radius: 4px;
+                padding: 4px;
+            }}
+            QCalendarWidget QToolButton:hover {{
+                background: {self.colors.bg_hover};
+            }}
+            QCalendarWidget QMenu {{
+                background: {self.colors.bg_primary};
+                color: {self.colors.text_primary};
+                border: 1px solid {self.colors.border_primary};
+            }}
+            QCalendarWidget QMenu::item:selected {{
+                background: {self.colors.bg_selected};
+                color: {self.colors.text_primary};
+            }}
+            QCalendarWidget QSpinBox {{
+                background: {self.colors.bg_primary};
+                color: {self.colors.text_primary};
+                border: 1px solid {self.colors.border_primary};
+                border-radius: 4px;
+                padding: 2px 4px;
+            }}
+            QCalendarWidget QAbstractItemView {{
+                background: {self.colors.bg_primary};
+                color: {self.colors.text_primary};
+                selection-background-color: {self.colors.accent_primary};
+                selection-color: white;
+                outline: none;
+            }}
+            QCalendarWidget QAbstractItemView:disabled {{
+                color: {self.colors.text_disabled};
+            }}
+        """
+
+    def generate_time_filter_action_btn_style(self, primary: bool = False) -> str:
+        """Generate the time filter action button style."""
+        bg = self.colors.accent_primary if primary else "transparent"
+        fg = "white" if primary else self.colors.text_secondary
+        border = self.colors.accent_primary if primary else self.colors.border_primary
+        hover_bg = self.colors.accent_hover if primary else self.colors.bg_hover
+        hover_fg = "white" if primary else self.colors.text_primary
+        if primary and self.theme.name == "dark":
+            bg = "#4E6578"
+            border = "#4E6578"
+            hover_bg = "#5C7488"
+
+        return f"""
+            QToolButton {{
+                background: {bg};
+                color: {fg};
+                border: 1px solid {border};
+                border-radius: 4px;
+                padding: 0px;
+                font-size: 12px;
+                font-weight: 500;
+            }}
+            QToolButton:hover {{
+                background: {hover_bg};
+                color: {hover_fg};
+            }}
+        """
+
+    def generate_time_filter_combo_style(self) -> str:
+        """Generate the compact content-type filter combo style."""
+        return f"""
+            QComboBox {{
+                background: {self.colors.bg_primary};
+                color: {self.colors.text_primary};
+                border: 1px solid {self.colors.border_primary};
+                border-radius: 4px;
+                padding: 3px 12px 3px 8px;
+                font-size: 12px;
+            }}
+            QComboBox:hover {{
+                background: {self.colors.bg_hover};
+            }}
+            QComboBox::drop-down {{
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 10px;
+                border-left: none;
+                border-top-right-radius: 4px;
+                border-bottom-right-radius: 4px;
+                background: {self.colors.bg_tertiary};
+            }}
+            QComboBox::down-arrow {{
+                image: none;
+                width: 0px;
+                height: 0px;
+                border-left: 3px solid transparent;
+                border-right: 3px solid transparent;
+                border-top: 4px solid {self.colors.text_secondary};
+            }}
+            QComboBox QAbstractItemView {{
+                background: {self.colors.bg_primary};
+                color: {self.colors.text_primary};
+                border: 1px solid {self.colors.border_primary};
+                selection-background-color: {self.colors.accent_primary};
+                selection-color: white;
+                outline: none;
+            }}
+        """
+
+    def generate_time_filter_type_btn_style(self) -> str:
+        """Generate the custom content-type dropdown button style."""
+        return f"""
+            QToolButton {{
+                background: {self.colors.bg_primary};
+                color: {self.colors.text_primary};
+                border: 1px solid {self.colors.border_primary};
+                border-radius: 4px;
+                padding: 3px 6px;
+                font-size: 12px;
+                text-align: center;
+            }}
+            QToolButton:hover {{
+                background: {self.colors.bg_hover};
+            }}
+            QToolButton:pressed {{
+                background: {self.colors.bg_selected};
             }}
         """
 
