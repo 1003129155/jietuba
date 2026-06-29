@@ -34,7 +34,7 @@ pip install windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl
 | `gifrecorder` | 0.2.1 | GIF/動画合成エンコーダー |
 | `longstitch` | 0.3.8 | 長いスクリーンショット結合アルゴリズム |
 | `pyclipboard` | 0.3.14 | クリップボード操作 |
-| `windows_media_ocr` | 0.3.1 | Windows Media OCR APIとoneocr.dllのラッパー |
+| `windows_media_ocr` | 0.3.1 | Windows Media OCR APIのラッパー |
 
 > **注意：** これらの `.whl` ファイルは Windows x86_64 + Python 3.11 専用です。グローバルPython環境にはインストールしないでください。
 
@@ -101,8 +101,7 @@ python main_app.py
 ├── rust_libs/               # Rustライブラリソースコード（ソースからビルド可能）
 │   ├── gifrecorder/         # GIF/動画合成エンコーダーソース
 │   ├── longstitch/          # 長いスクリーンショット結合アルゴリズムソース
-│   ├── pyclipboard/         # クリップボード低レベル操作ソース
-│   └── windows_media_ocr/   # Windows Media OCRラッパーソース
+│   └── pyclipboard/         # クリップボード低レベル操作ソース
 │
 └── svg/                     # SVGアイコンリソース
 ```

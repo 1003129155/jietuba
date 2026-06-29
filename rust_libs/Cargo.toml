@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    "windows_media_ocr",
     "longstitch",
     "pyclipboard",
     "gifrecorder",
