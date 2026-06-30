@@ -9,7 +9,7 @@
 
 支持区域截图、窗口智能识别、GIF录制、长截图拼接、OCR文字识别、图像钉图、翻译等功能，并内置了完整的剪切板历史管理系统，不限图片来源可以联动截图模块生成钉图或者提取文字。
 
-编译后单文件大小大约37MB.占用内存极低,无任何联网操作
+编译后单文件大小大约42MB.占用内存很低，低配电脑也可以流畅
 
 ---
 
@@ -31,7 +31,7 @@ venv311\Scripts\activate
 pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl
 pip install longstitch-0.3.9-cp311-cp311-win_amd64.whl
 pip install pyclipboard-0.3.14-cp311-cp311-win_amd64.whl
-pip install windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl
+pip install ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
 ```
 
 | 包名 | 版本 | 功能 |
@@ -39,9 +39,11 @@ pip install windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl
 | `gifrecorder` | 0.2.1 | GIF/视频合成编码器 |
 | `longstitch` | 0.3.9 | 长截图拼接算法 |
 | `pyclipboard` | 0.3.14 | 剪切板底层操作 |
-| `windows_media_ocr` | 0.3.1 | Windows Media OCR API 封装 |
+| `ppocr_rust` | 0.1.1 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
 
 > **注意：** 这些 `.whl` 文件仅适用于 Windows x86_64 + Python 3.11 环境。请勿安装到全局 Python 中。
+
+> **OCR 模型：** `ppocr_rust` 需要 `models/` 目录下的 PP-OCR ONNX 模型（`PP-OCRv6_det_small.onnx` + `PP-OCRv6_rec_small.onnx`），仓库已内置。打包发布后请将 `models/` 放在 exe 同级目录。
 
 ### 3. 安装 Python 依赖
 
@@ -82,7 +84,7 @@ python main_app.py
 ├── gifrecorder-0.2.1-cp311-cp311-win_amd64.whl       # GIF录制 Rust 预编译包
 ├── longstitch-0.3.9-cp311-cp311-win_amd64.whl        # 长截图拼接 Rust 预编译包
 ├── pyclipboard-0.3.14-cp311-cp311-win_amd64.whl      # 剪切板 Rust 预编译包
-├── windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl # OCR Rust 预编译包
+├── ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl        # OCR Rust 预编译包
 │
 ├── main/                    # Python 主程序
 │   ├── main_app.py          # 应用入口，系统托盘、全局快捷键、生命周期管理
@@ -93,7 +95,7 @@ python main_app.py
 │   ├── clipboard/           # 剪切板管理模块 — 历史记录、分组/快速启动、导入导出、搜索
 │   ├── core/                # 核心基础模块 — 启动引导、日志、资源、主题、国际化、快捷键
 │   ├── gif/                 # GIF录制模块 — 屏幕录制、编辑、回放、导出
-│   ├── ocr/                 # OCR模块 — 多引擎文字识别
+│   ├── ocr/                 # OCR模块 — PP-OCR 文字识别
 │   ├── pin/                 # 钉图模块 — 截图置顶、编辑、OCR、翻译
 │   ├── settings/            # 设置模块 — 统一配置管理
 │   ├── stitch/              # 长截图拼接模块 — 滚动截图、自动拼接
@@ -106,7 +108,12 @@ python main_app.py
 ├── rust_libs/               # Rust 库源码（可自行编译）
 │   ├── gifrecorder/         # GIF/视频合成编码器源码
 │   ├── longstitch/          # 长截图拼接算法源码
-│   └── pyclipboard/         # 剪切板底层操作源码
+│   ├── pyclipboard/         # 剪切板底层操作源码
+│   └── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX 识别引擎源码
+│
+├── models/                  # PP-OCR ONNX 模型文件（OCR 必需）
+│   ├── PP-OCRv6_det_small.onnx   # 文本检测模型 (DBNet)
+│   └── PP-OCRv6_rec_small.onnx   # 文本识别模型 (CRNN/CTC)
 │
 └── svg/                     # SVG 图标资源
 ```
@@ -293,18 +300,18 @@ gif/
 
 ### ocr/ — OCR 文字识别模块
 
-支持多种 OCR 引擎的文字识别管理。
+支持 PP-OCR 引擎的文字识别管理。
 <img width="580" height="505" alt="image" src="https://github.com/user-attachments/assets/60a16100-5edc-4543-9a35-daf05b1e244e" />
 
 ```
 ocr/
 ├── __init__.py
-└── ocr_manager.py           # OCRManager — 支持 Windows Media OCR 和 oneocr 双引擎
+└── ocr_manager.py           # OCRManager — 基于 ppocr_rust (PP-OCR) 的文字识别
 ```
 
 **核心功能：**
-- 自动检测可用 OCR 引擎
-- 支持 Windows Media OCR（轻量级，系统自带）和 oneocr 高精度引擎（通过 Rust FFI 调用）
+- 自动检测引擎与模型可用性
+- 基于 ppocr_rust 引擎（纯 Rust + ONNX Runtime，PP-OCR det + rec），推理在原生线程运行不阻塞 UI
 - 支持中/英/日文识别
 - 单例模式管理，统一的识别接口，返回文字和位置信息
 
@@ -563,5 +570,6 @@ tests/
 | `gifrecorder` | GIF/视频合成编码器 |
 | `longstitch` | 长截图拼接加速 |
 | `pyclipboard` | 剪切板底层操作 |
+| `ppocr_rust` | PP-OCR (PaddleOCR) ONNX 文字识别引擎 |
 
 ---

@@ -182,7 +182,7 @@ class ToolSettingsManager(QObject):
 
         # ==================== 6. OCR设置 ====================
         "ocr_enabled": True,                   # OCR功能启用
-        "ocr_engine": "windos_ocr",            # OCR引擎类型 (windos_ocr 推荐, windows_media_ocr 备用)
+        "ocr_engine": "ppocr_rust",            # OCR引擎类型 (ppocr_rust 推荐, windows_media_ocr 备用)
         "ocr_grayscale": False,                # OCR灰度转换（Windows OCR 不需要）
         "ocr_upscale": True,                   # OCR图像放大（提升小字识别率）
         "ocr_upscale_factor": 2.0,             # OCR放大倍数（1.0-3.0）

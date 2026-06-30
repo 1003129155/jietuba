@@ -169,7 +169,7 @@ class PreloadManager:
     
     def _preload_toolbar_assets(self):
         """在主线程预热截图工具栏，避免首次截图创建工具栏卡顿"""
-        from core.logger import log_debug
+        from core.logger import log_debug, log_warning
         try:
             from PySide6.QtWidgets import QWidget
             from ui.toolbar import Toolbar
@@ -181,7 +181,7 @@ class PreloadManager:
             dummy_parent.deleteLater()
             log_debug("工具栏预加载完成", "Preload")
         except Exception as e:
-            log_debug(f"工具栏预加载异常: {e}", "Preload")
+            log_warning(f"工具栏预加载失败: {e}", "Preload")
     
     def _preload_screenshot_modules(self):
         """
@@ -197,7 +197,7 @@ class PreloadManager:
         通过在后台线程预加载这些模块，可以让首次截图更流畅
         """
         from PySide6.QtCore import QThread
-        from core.logger import log_debug, log_info, log_exception
+        from core.logger import log_debug, log_info, log_warning, log_exception
         
         class ScreenshotPreloadThread(QThread):
             def run(self):
@@ -272,19 +272,19 @@ class PreloadManager:
                         from gif import GifRecordWindow
                         log_debug("GIF 模块已加载", "Preload")
                     except Exception as e:
-                        log_debug(f"GIF 模块预加载异常: {e}", "Preload")
+                        log_warning(f"GIF 模块预加载失败: {e}", "Preload")
 
                     # 8. 预加载长截图模块
                     try:
                         from stitch.scroll_window import ScrollCaptureWindow
                         log_debug("长截图模块已加载", "Preload")
                     except Exception as e:
-                        log_debug(f"长截图模块预加载异常: {e}", "Preload")
+                        log_warning(f"长截图模块预加载失败: {e}", "Preload")
                     
                     log_info("截图模块预加载完成", "Preload")
                     
                 except Exception as e:
-                    log_debug(f"截图模块预加载异常: {e}", "Preload")
+                    log_warning(f"截图模块预加载失败: {e}", "Preload")
         
         # 保持线程引用在 MainApp 上，quit_app 需要等待它结束
         self.app._screenshot_preload_thread = ScreenshotPreloadThread(self.app)
@@ -320,7 +320,7 @@ class PreloadManager:
                     except ImportError:
                         log_debug("OCR 模块不存在（无OCR版本）", "OCR")
                     except Exception as e:
-                        log_debug(f"OCR 预加载异常: {e}", "OCR")
+                        log_warning(f"OCR 预加载失败: {e}", "OCR")
             
             self.app._ocr_preload_thread = OCRPreloadThread(self.app)
             self.app._ocr_preload_thread.finished.connect(self._run_next)
@@ -328,7 +328,7 @@ class PreloadManager:
             return True  # 异步任务
             
         except Exception as e:
-            log_debug(f"OCR 引擎预加载异常（可能是无OCR版本）: {e}", "OCR")
+            log_warning(f"OCR 引擎预加载失败: {e}", "OCR")
     
     def preload_settings(self):
         """预加载设置窗口（也供 MainApp 在语言切换/打开设置时调用）"""
@@ -403,7 +403,7 @@ class PreloadManager:
 
     def _preload_clipboard_window(self):
         """后台启动时预创建剪贴板窗口。"""
-        from core.logger import log_debug
+        from core.logger import log_debug, log_warning
 
         if not self.config.get_clipboard_enabled():
             log_debug("剪贴板功能已禁用，跳过剪贴板窗口预创建", "Clipboard")
@@ -418,7 +418,7 @@ class PreloadManager:
             self.app.clipboard_window.hide()
             log_debug("剪贴板窗口预创建完成（未显示）", "Clipboard")
         except Exception as e:
-            log_debug(f"剪贴板窗口预创建异常: {e}", "Clipboard")
+            log_warning(f"剪贴板窗口预创建失败: {e}", "Clipboard")
 
 
 # ===================== 入口 =====================

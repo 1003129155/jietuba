@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import sys
-
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QIcon, QLinearGradient, QPainter
 
@@ -20,15 +18,22 @@ TEXT = "#17201B"
 TEXT_MUTED = "#68736D"
 BORDER = "rgba(112, 130, 119, 0.20)"
 BORDER_HOVER = "rgba(76, 101, 86, 0.34)"
-SURFACE = "rgba(255, 255, 255, 0.74)"
-SURFACE_STRONG = "rgba(255, 255, 255, 0.90)"
-SURFACE_SUBTLE = "rgba(244, 248, 245, 0.62)"
-SURFACE_HOVER = "rgba(255, 255, 255, 0.92)"
+SURFACE = "rgba(255, 255, 255, 0.92)"
+SURFACE_STRONG = "rgba(255, 255, 255, 0.98)"
+SURFACE_SUBTLE = "rgba(248, 251, 253, 0.85)"
+SURFACE_HOVER = "rgba(255, 255, 255, 1.0)"
 FOCUS_RING = "rgba(111, 143, 171, 0.24)"
 
 FROST_START = (226, 235, 242)
 FROST_MIDDLE = (242, 245, 247)
 FROST_END = (230, 237, 242)
+
+# Opaque solid window background (no acrylic/blur).  Cheap to paint and stable
+# regardless of the OS compositor or "transparency effects" setting.
+# Kept clearly darker than the near-white card surfaces so cards stand out.
+WINDOW_BG_TOP = (223, 231, 238)
+WINDOW_BG_BOTTOM = (205, 216, 226)
+WINDOW_BORDER = (180, 193, 205)
 
 
 def to_qicon(icon) -> QIcon:
@@ -43,94 +48,32 @@ def to_qicon(icon) -> QIcon:
     return QIcon(str(icon))
 
 
-def apply_frosted_backdrop(widget) -> bool:
-    """Enable the native Windows acrylic backdrop when available.
+def paint_solid_background(widget, radius: int = 18) -> None:
+    """Paint an opaque rounded solid background for frameless dialogs.
 
-    The UI remains fully usable on older Windows versions and other platforms;
-    its translucent QSS surfaces provide the visual fallback.
+    Replaces the former acrylic/blur detection path.  A subtle vertical
+    gradient plus a hairline border keeps it looking polished while staying
+    cheap to repaint.
     """
-    if sys.platform != "win32":
-        return False
-
-    # Reuse qframelesswindow's version-aware implementation.  It configures
-    # blur-behind, Acrylic tint, animation and shadow as one coherent setup.
-    effect = getattr(widget, "windowEffect", None)
-    if effect is not None:
-        try:
-            effect.enableBlurBehindWindow(widget.winId())
-            effect.setAcrylicEffect(
-                widget.winId(), gradientColor="E9EFF366", enableShadow=True
-            )
-            return True
-        except Exception:
-            pass
-
-    try:
-        import ctypes
-
-        hwnd = int(widget.winId())
-        value = ctypes.c_int(3)  # DWMSBT_TRANSIENTWINDOW (Acrylic)
-        result = ctypes.windll.dwmapi.DwmSetWindowAttribute(
-            hwnd, 38, ctypes.byref(value), ctypes.sizeof(value)
-        )
-        corner = ctypes.c_int(2)  # DWMWCP_ROUND
-        ctypes.windll.dwmapi.DwmSetWindowAttribute(
-            hwnd, 33, ctypes.byref(corner), ctypes.sizeof(corner)
-        )
-        if result == 0:
-            return True
-    except Exception:
-        pass
-
-    # Windows 10 fallback using SetWindowCompositionAttribute.
-    try:
-        import ctypes
-
-        class AccentPolicy(ctypes.Structure):
-            _fields_ = [
-                ("state", ctypes.c_int),
-                ("flags", ctypes.c_int),
-                ("gradient_color", ctypes.c_uint),
-                ("animation_id", ctypes.c_int),
-            ]
-
-        class CompositionData(ctypes.Structure):
-            _fields_ = [
-                ("attribute", ctypes.c_int),
-                ("data", ctypes.c_void_p),
-                ("size", ctypes.c_size_t),
-            ]
-
-        policy = AccentPolicy(4, 2, 0xCCF3EFE9, 0)
-        data = CompositionData(19, ctypes.addressof(policy), ctypes.sizeof(policy))
-        return bool(ctypes.windll.user32.SetWindowCompositionAttribute(int(widget.winId()), ctypes.byref(data)))
-    except Exception:
-        return False
-
-
-def paint_frosted_background(widget, native_enabled: bool = False, radius: int = 18) -> None:
-    """Paint the shared translucent fallback used by all large dialogs."""
     painter = QPainter(widget)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
     painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
     painter.fillRect(widget.rect(), Qt.GlobalColor.transparent)
 
-    edge_alpha = 148 if native_enabled else 238
-    middle_alpha = 132 if native_enabled else 232
-    gradient = QLinearGradient(0, 0, widget.width(), widget.height())
-    gradient.setColorAt(0.0, QColor(*FROST_START, edge_alpha))
-    gradient.setColorAt(0.48, QColor(*FROST_MIDDLE, middle_alpha))
-    gradient.setColorAt(1.0, QColor(*FROST_END, edge_alpha))
+    rect = QRectF(widget.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+
+    gradient = QLinearGradient(0, 0, 0, widget.height())
+    gradient.setColorAt(0.0, QColor(*WINDOW_BG_TOP))
+    gradient.setColorAt(1.0, QColor(*WINDOW_BG_BOTTOM))
+
+    painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
     painter.setBrush(gradient)
     painter.setPen(Qt.PenStyle.NoPen)
+    painter.drawRoundedRect(rect, radius, radius)
 
-    if native_enabled:
-        # DWM already clips the window and supplies its shadow.  Drawing a
-        # second Qt rounded rect here produces a visibly offset inner corner.
-        painter.drawRect(widget.rect())
-        return
-
-    # Non-native fallback owns the sole window outline.  Keep its antialiased
-    # edge inside the device without another border stroke.
-    rect = QRectF(widget.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+    pen = painter.pen()
+    pen.setColor(QColor(*WINDOW_BORDER))
+    pen.setWidthF(1.0)
+    painter.setPen(pen)
+    painter.setBrush(Qt.BrushStyle.NoBrush)
     painter.drawRoundedRect(rect, radius, radius)
