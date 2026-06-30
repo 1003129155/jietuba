@@ -1,0 +1,25 @@
+[build-system]
+requires = ["maturin>=1.4,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "ppocr_rust"
+version = "0.1.1"
+description = "PP-OCR ONNX inference for Python via Rust (det+rec, no opencv/numpy)"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "MoSheng"}
+]
+keywords = ["ocr", "paddleocr", "ppocr", "onnx", "text-recognition"]
+classifiers = [
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "ppocr_rust"

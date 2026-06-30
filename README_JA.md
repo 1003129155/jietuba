@@ -26,7 +26,7 @@ venv311\Scripts\activate
 pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl
 pip install longstitch-0.3.8-cp311-cp311-win_amd64.whl
 pip install pyclipboard-0.3.14-cp311-cp311-win_amd64.whl
-pip install windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl
+pip install ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
 ```
 
 | パッケージ名 | バージョン | 機能 |
@@ -34,9 +34,11 @@ pip install windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl
 | `gifrecorder` | 0.2.1 | GIF/動画合成エンコーダー |
 | `longstitch` | 0.3.8 | 長いスクリーンショット結合アルゴリズム |
 | `pyclipboard` | 0.3.14 | クリップボード操作 |
-| `windows_media_ocr` | 0.3.1 | Windows Media OCR APIのラッパー |
+| `ppocr_rust` | 0.1.1 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
 
 > **注意：** これらの `.whl` ファイルは Windows x86_64 + Python 3.11 専用です。グローバルPython環境にはインストールしないでください。
+
+> **OCR モデル：** `ppocr_rust` は `models/` フォルダ内の PP-OCR ONNX モデル（`PP-OCRv6_det_small.onnx` + `PP-OCRv6_rec_small.onnx`）が必要です。リポジトリに同梱済み。パッケージ化後は `models/` を exe と同じ階層に配置してください。
 
 ### 3. Python依存パッケージのインストール
 
@@ -77,7 +79,7 @@ python main_app.py
 ├── gifrecorder-0.2.1-cp311-cp311-win_amd64.whl       # GIF録画 Rustビルド済みパッケージ
 ├── longstitch-0.3.8-cp311-cp311-win_amd64.whl        # 長いスクリーンショット Rustビルド済みパッケージ
 ├── pyclipboard-0.3.14-cp311-cp311-win_amd64.whl      # クリップボード Rustビルド済みパッケージ
-├── windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl # OCR Rustビルド済みパッケージ
+├── ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl        # OCR Rustビルド済みパッケージ
 │
 ├── main/                    # Python メインプログラム
 │   ├── main_app.py          # アプリエントリポイント：システムトレイ、グローバルホットキー、ライフサイクル管理
@@ -88,7 +90,7 @@ python main_app.py
 │   ├── clipboard/           # クリップボードモジュール — 履歴、グループ/クイック起動、入出力、検索
 │   ├── core/                # コアモジュール — ブートストラップ、ログ、リソース、テーマ、i18n、ホットキー
 │   ├── gif/                 # GIFモジュール — 画面録画、編集、再生、エクスポート
-│   ├── ocr/                 # OCRモジュール — マルチエンジン文字認識
+│   ├── ocr/                 # OCRモジュール — PP-OCR 文字認識
 │   ├── pin/                 # ピンモジュール — スクリーンショットピン留め、編集、OCR、翻訳
 │   ├── settings/            # 設定モジュール — 統一設定管理
 │   ├── stitch/              # 結合モジュール — スクロールキャプチャ、自動結合
@@ -101,7 +103,12 @@ python main_app.py
 ├── rust_libs/               # Rustライブラリソースコード（ソースからビルド可能）
 │   ├── gifrecorder/         # GIF/動画合成エンコーダーソース
 │   ├── longstitch/          # 長いスクリーンショット結合アルゴリズムソース
-│   └── pyclipboard/         # クリップボード低レベル操作ソース
+│   ├── pyclipboard/         # クリップボード低レベル操作ソース
+│   └── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX 認識エンジンソース
+│
+├── models/                  # PP-OCR ONNX モデル（OCR に必須）
+│   ├── PP-OCRv6_det_small.onnx   # テキスト検出モデル (DBNet)
+│   └── PP-OCRv6_rec_small.onnx   # テキスト認識モデル (CRNN/CTC)
 │
 └── svg/                     # SVGアイコンリソース
 ```
@@ -252,16 +259,16 @@ gif/
 
 ### ocr/ — OCRモジュール
 
-マルチエンジン文字認識管理。
+PP-OCR による文字認識管理。
 
 <img width="580" height="505" alt="image" src="https://github.com/user-attachments/assets/60a16100-5edc-4543-9a35-daf05b1e244e" />
 
 ```
 ocr/
-└── ocr_manager.py           # OCRManager — Windows Media OCR + oneocr デュアルエンジン
+└── ocr_manager.py           # OCRManager — ppocr_rust (PP-OCR) による文字認識
 ```
 
-- Windows Media OCR（軽量、システム内蔵）とoneocr高精度エンジン（Rust FFI経由）をサポート
+- ppocr_rust エンジン（純 Rust + ONNX Runtime、PP-OCR det + rec）を使用。推論はネイティブスレッドで実行され UI をブロックしない
 - 中国語/英語/日本語認識
 - シングルトンパターン、統一認識インターフェース
 

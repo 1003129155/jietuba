@@ -3,7 +3,7 @@ OCR 模块 - 文字识别功能
 
 支持 OCR 引擎：
 - windows_media_ocr: Windows 系统自带 OCR API (轻量级)
-- oneocr: Windows 的自带截图工具的ocr引擎 (通过 Rust FFI 调用 oneocr.dll)
+- win_advanced: 高精度引擎 (通过 Rust FFI 调用系统组件)
 
 主要功能：
 - OCRManager: OCR 管理器（单例模式）

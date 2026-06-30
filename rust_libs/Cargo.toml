@@ -3,6 +3,7 @@ members = [
     "longstitch",
     "pyclipboard",
     "gifrecorder",
+    "ppocr_rust",
 ]
 resolver = "2"
 

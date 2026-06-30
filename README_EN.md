@@ -26,7 +26,7 @@ venv311\Scripts\activate
 pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl
 pip install longstitch-0.3.8-cp311-cp311-win_amd64.whl
 pip install pyclipboard-0.3.14-cp311-cp311-win_amd64.whl
-pip install windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl
+pip install ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
 ```
 
 | Package | Version | Description |
@@ -34,9 +34,11 @@ pip install windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl
 | `gifrecorder` | 0.2.1 | GIF/video composition encoder |
 | `longstitch` | 0.3.8 | Long screenshot stitching algorithm |
 | `pyclipboard` | 0.3.14 | Low-level clipboard operations |
-| `windows_media_ocr` | 0.3.1 | Windows Media OCR API wrapper |
+| `ppocr_rust` | 0.1.1 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
 
 > **Note:** These `.whl` files are for Windows x86_64 + Python 3.11 only. Do not install into the global Python environment.
+
+> **OCR models:** `ppocr_rust` requires the PP-OCR ONNX models in the `models/` folder (`PP-OCRv6_det_small.onnx` + `PP-OCRv6_rec_small.onnx`), already bundled in the repo. When packaged for release, place `models/` next to the exe.
 
 ### 3. Install Python Dependencies
 
@@ -77,7 +79,7 @@ python main_app.py
 ├── gifrecorder-0.2.1-cp311-cp311-win_amd64.whl       # GIF recorder Rust pre-built package
 ├── longstitch-0.3.8-cp311-cp311-win_amd64.whl        # Long-stitch Rust pre-built package
 ├── pyclipboard-0.3.14-cp311-cp311-win_amd64.whl      # Clipboard Rust pre-built package
-├── windows_media_ocr-0.3.1-cp311-cp311-win_amd64.whl # OCR Rust pre-built package
+├── ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl        # OCR Rust pre-built package
 │
 ├── main/                    # Python main program
 │   ├── main_app.py          # App entry point: system tray, global hotkeys, lifecycle management
@@ -88,7 +90,7 @@ python main_app.py
 │   ├── clipboard/           # Clipboard module — history, groups/quick launch, import/export, search
 │   ├── core/                # Core module — bootstrap, logging, resources, theme, i18n, hotkeys
 │   ├── gif/                 # GIF module — screen recording, editing, playback, export
-│   ├── ocr/                 # OCR module — multi-engine text recognition
+│   ├── ocr/                 # OCR module — PP-OCR text recognition
 │   ├── pin/                 # Pin module — pinned screenshots, editing, OCR, translation
 │   ├── settings/            # Settings module — unified configuration management
 │   ├── stitch/              # Stitch module — scroll capture, auto-stitching
@@ -101,7 +103,12 @@ python main_app.py
 ├── rust_libs/               # Rust library source code (buildable from source)
 │   ├── gifrecorder/         # GIF/video composition encoder source
 │   ├── longstitch/          # Long screenshot stitching algorithm source
-│   └── pyclipboard/         # Low-level clipboard operations source
+│   ├── pyclipboard/         # Low-level clipboard operations source
+│   └── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX recognition engine source
+│
+├── models/                  # PP-OCR ONNX models (required for OCR)
+│   ├── PP-OCRv6_det_small.onnx   # text detection model (DBNet)
+│   └── PP-OCRv6_rec_small.onnx   # text recognition model (CRNN/CTC)
 │
 └── svg/                     # SVG icon assets
 ```
@@ -253,16 +260,16 @@ gif/
 
 ### ocr/ — OCR Module
 
-Multi-engine text recognition management.
+Text recognition management powered by PP-OCR.
 
 <img width="580" height="505" alt="image" src="https://github.com/user-attachments/assets/60a16100-5edc-4543-9a35-daf05b1e244e" />
 
 ```
 ocr/
-└── ocr_manager.py           # OCRManager — Windows Media OCR + oneocr dual engine
+└── ocr_manager.py           # OCRManager — text recognition via ppocr_rust (PP-OCR)
 ```
 
-- Supports Windows Media OCR (lightweight, built-in) and oneocr high-precision engine (via Rust FFI)
+- Powered by the ppocr_rust engine (pure Rust + ONNX Runtime, PP-OCR det + rec); inference runs on native threads without blocking the UI
 - Chinese/English/Japanese recognition
 - Singleton pattern, unified recognition interface
 
