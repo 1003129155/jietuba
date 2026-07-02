@@ -1,0 +1,7 @@
+# 开发/构建依赖
+-r requirements.txt
+
+pytest==9.0.2
+pytest-qt==4.5.0
+pyinstaller==6.17.0
+maturin==1.12.6

@@ -1,0 +1,33 @@
+[project]
+name = "jietuba"
+version = "1.0.0"
+description = "截图 & 剪切板管理软件 - 基于 PySide6 和 Rust 的 Windows 平台截图和剪贴板管理工具"
+requires-python = "==3.11.*"
+license = {text = "MIT"}
+
+dependencies = [
+    "PySide6==6.11.0",
+    "PySideSix-Frameless-Window==0.8.1",
+    "pillow==12.1.1",
+    "mss==10.1.0",
+    "pynput==1.8.1",
+    "pywin32==311",
+    "darkdetect==0.8.0",
+    "emoji==2.15.0",
+    "av==17.0.0",
+    "colorama==0.4.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.0.2",
+    "pytest-qt==4.5.0",
+    "pyinstaller==6.17.0",
+    "maturin==1.12.6",
+]
+
+[project.scripts]
+jietuba = "main.core.bootstrap:run"
+
+[tool.pytest.ini_options]
+testpaths = ["main/tests"]

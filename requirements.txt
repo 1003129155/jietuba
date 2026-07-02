@@ -1,0 +1,20 @@
+# 截图吧 (Jietuba) - Python 依赖
+# Python 3.11 + Windows x86_64
+
+# ===== 核心依赖 =====
+PySide6==6.11.0
+PySideSix-Frameless-Window==0.8.1
+pillow==12.1.1
+mss==10.1.0
+pynput==1.8.1
+pywin32==311
+darkdetect==0.8.0
+emoji==2.15.0
+av==17.0.0
+colorama==0.4.6
+
+# ===== 自制 Rust 库（需从本地 .whl 安装） =====
+# pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl
+# pip install longstitch-0.3.9-cp311-cp311-win_amd64.whl
+# pip install pyclipboard-0.3.14-cp311-cp311-win_amd64.whl
+# pip install ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
