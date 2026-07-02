@@ -96,77 +96,33 @@ def is_long_stitch_debug_enabled() -> bool:
 # 覆盖模块内的 print，支持 force 强制输出
 print = _long_stitch_print  # type: ignore
 
-# 从配置文件读取长截图引擎设置
-def _load_long_stitch_engine():
-    """从配置文件加载长截图引擎设置"""
-    from settings import get_tool_settings_manager
-    config = get_tool_settings_manager()
-    raw_engine = config.get_long_stitch_engine()
-    engine = normalize_engine_value(raw_engine)
-    
-    if engine != raw_engine:
-        config.set_long_stitch_engine(engine)
-        print(f"📖 检测到长截图引擎旧值 {raw_engine}，已自动转换为 {engine}")
-    else:
-        print(f"📖 从配置加载长截图引擎: {engine}")
-    return engine
-
 def _load_long_stitch_config():
-    """从配置文件加载所有长截图参数"""
+    """从配置文件加载长截图参数（当前引擎仅支持 hash_rust，只保留其实际用到的参数）"""
     from settings import get_tool_settings_manager
     config_mgr = get_tool_settings_manager()
-    
+
     raw_engine = config_mgr.get_long_stitch_engine()
     engine = normalize_engine_value(raw_engine)
-    
+
     if engine != raw_engine:
         config_mgr.set_long_stitch_engine(engine)
         print(f"📖 检测到长截图引擎旧值 {raw_engine}，已自动转换为 {engine}")
-    
+
     config = {
         'engine': engine,
-        'sample_rate': config_mgr.settings.value('screenshot/rust_sample_rate', 0.6, type=float),
-        'min_sample_size': config_mgr.settings.value('screenshot/rust_min_sample_size', 300, type=int),
-        'max_sample_size': config_mgr.settings.value('screenshot/rust_max_sample_size', 800, type=int),
-        'corner_threshold': config_mgr.settings.value('screenshot/rust_corner_threshold', 30, type=int),
-        'descriptor_patch_size': config_mgr.settings.value('screenshot/rust_descriptor_patch_size', 9, type=int),
-        'min_size_delta': config_mgr.settings.value('screenshot/rust_min_size_delta', 1, type=int),
-        'try_rollback': config_mgr.settings.value('screenshot/rust_try_rollback', True, type=bool),
-        'distance_threshold': config_mgr.settings.value('screenshot/rust_distance_threshold', 0.1, type=float),
-        'ef_search': config_mgr.settings.value('screenshot/rust_ef_search', 32, type=int),
         'verbose': False,
     }
 
     set_long_stitch_debug_enabled(config['verbose'])
-    
-    print(f"📖 从配置加载长截图参数:")
-    print(f"   引擎: {config['engine']}")
-    print(f"   采样率: {config['sample_rate']}")
-    print(f"   采样尺寸: {config['min_sample_size']}-{config['max_sample_size']}")
-    print(f"   特征点阈值: {config['corner_threshold']}")
-    print(f"   描述符大小: {config['descriptor_patch_size']}")
-    print(f"   索引重建阈值: {config['min_size_delta']}")
-    print(f"   回滚匹配: {config['try_rollback']}")
-    print(f"   距离阈值: {config['distance_threshold']}")
-    print(f"   HNSW搜索参数: {config['ef_search']}")
-    print(f"   调试日志: {config['verbose']}")
-    
+
+    print(f"📖 从配置加载长截图参数: 引擎={config['engine']}, 调试日志={config['verbose']}")
+
     return config
 
 # 配置拼接引擎（从配置文件读取）
 _long_stitch_config = _load_long_stitch_config()
 long_stitch_configure(
     engine=_long_stitch_config['engine'],
-    direction=0,  # 垂直拼接
-    sample_rate=_long_stitch_config['sample_rate'],
-    min_sample_size=_long_stitch_config['min_sample_size'],
-    max_sample_size=_long_stitch_config['max_sample_size'],
-    corner_threshold=_long_stitch_config['corner_threshold'],
-    descriptor_patch_size=_long_stitch_config['descriptor_patch_size'],
-    min_size_delta=_long_stitch_config['min_size_delta'],
-    try_rollback=_long_stitch_config['try_rollback'],
-    distance_threshold=_long_stitch_config['distance_threshold'],
-    ef_search=_long_stitch_config['ef_search'],
     verbose=_long_stitch_config['verbose'],
 )
 
@@ -937,24 +893,12 @@ class ScrollCaptureWindow(QWidget):
                 print(f"[WARN] 停止键盘监听器时出错: {e}")
     
     def _reconfigure_stitch_engine(self):
-        """重新配置拼接引擎方向"""
+        """重新配置拼接引擎（哈希匹配算法只支持竖向拼接，横向截图会先旋转90度再拼接后旋转回来）"""
         try:
             from .jietuba_long_stitch_unified import configure, config
-            
-            # 横向和竖向都使用竖向拼接（direction=0）
-            # 因为哈希匹配算法只支持竖向拼接
-            # 横向截图时，图片会被旋转90度，拼接后再旋转回来
-            direction = 0
-            
-            configure(
-                engine=config.engine,
-                direction=direction,
-                sample_rate=config.sample_rate,
-                min_sample_size=config.min_sample_size,
-                max_sample_size=config.max_sample_size,
-                verbose=True,
-            )
-            
+
+            configure(engine=config.engine, verbose=True)
+
             mode_text = "横向截图（图片旋转90度+竖向拼接）" if self.scroll_direction == "horizontal" else "竖向截图（竖向拼接）"
             print(f"[OK] 拼接引擎已重新配置: {mode_text}")
             

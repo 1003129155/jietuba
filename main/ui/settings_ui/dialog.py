@@ -893,6 +893,20 @@ class SettingsDialog(FrostedFramelessDialog):
         super().showEvent(event)
         self._apply_taskbar_icon()
 
+    @safe_event
+    def hideEvent(self, event):
+        # 这里在隐藏时强制复位所有标题栏按钮状态。
+        if getattr(self, 'titleBar', None):
+            try:
+                from qframelesswindow.titlebar.title_bar_buttons import (
+                    TitleBarButton, TitleBarButtonState,
+                )
+                for btn in self.titleBar.findChildren(TitleBarButton):
+                    btn.setState(TitleBarButtonState.NORMAL)
+            except Exception as e:
+                log_exception(e, "重置标题栏按钮状态")
+        super().hideEvent(event)
+
     # ================================================================
     # 未保存变更检测
     # ================================================================

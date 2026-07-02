@@ -15,13 +15,13 @@ _stitch_counter = 0
 
 def normalize_engine_value(value):
     """
-    规范化引擎设置值
+    规范化引擎设置值（兼容旧版本保存的引擎设置，如 'auto'/'rust'/'hash_python'）
 
     参数:
         value: 引擎设置值
 
     返回:
-        'hash_rust'
+        'hash_rust'（当前唯一支持的引擎）
     """
     return "hash_rust"
 
@@ -29,30 +29,14 @@ def normalize_engine_value(value):
 class LongStitchConfig:
     """长截图拼接配置"""
 
-    # 引擎常量
-    ENGINE_AUTO = "hash_rust"
-    ENGINE_RUST = "hash_rust"
-    ENGINE_HASH_RUST = "hash_rust"
-
     def __init__(self):
-        # 引擎选择
+        # 引擎选择（当前唯一支持 'hash_rust'，字段保留用于持久化/展示）
         self.engine = "hash_rust"
-
-        # 拼接方向
-        self.direction = "vertical"
-
-        # 哈希算法参数
-        self.sample_rate = 2
-        self.min_sample_size = 50
-        self.max_sample_size = 200
-        self.min_overlap = 10
-        self.max_overlap_ratio = 0.95
 
         # 调试开关
         self.verbose = False
 
-        # 忽略边缘像素
-        self.ignore_left_pixels = 0
+        # 忽略右侧像素（部分应用右侧有固定滚动条/装饰时可跳过匹配区域）
         self.ignore_right_pixels = 0
 
 
@@ -60,81 +44,34 @@ class LongStitchConfig:
 config = LongStitchConfig()
 
 
-def configure(
-    engine=None,
-    direction=None,
-    sample_rate=None,
-    min_sample_size=None,
-    max_sample_size=None,
-    min_overlap=None,
-    max_overlap_ratio=None,
-    verbose=None,
-    ignore_left_pixels=None,
-    ignore_right_pixels=None,
-    **_kwargs,
-):
+def configure(engine=None, verbose=None, ignore_right_pixels=None, **_kwargs):
     """
     配置拼接引擎参数
 
     参数:
-    engine: 引擎选择 ('hash_rust')
-        direction: 拼接方向 ('vertical' / 'horizontal')
-        sample_rate: 采样率
-        min_sample_size: 最小采样尺寸
-        max_sample_size: 最大采样尺寸
-        min_overlap: 最小重叠区域
-        max_overlap_ratio: 最大重叠比例
+        engine: 引擎选择（当前唯一支持 'hash_rust'）
         verbose: 是否输出详细日志
-        ignore_left_pixels: 左侧忽略像素数
         ignore_right_pixels: 右侧忽略像素数
     """
     if engine is not None:
         config.engine = normalize_engine_value(engine)
-    if direction is not None:
-        config.direction = direction
-    if sample_rate is not None:
-        config.sample_rate = sample_rate
-    if min_sample_size is not None:
-        config.min_sample_size = min_sample_size
-    if max_sample_size is not None:
-        config.max_sample_size = max_sample_size
-    if min_overlap is not None:
-        config.min_overlap = min_overlap
-    if max_overlap_ratio is not None:
-        config.max_overlap_ratio = max_overlap_ratio
     if verbose is not None:
         config.verbose = verbose
-    if ignore_left_pixels is not None:
-        config.ignore_left_pixels = ignore_left_pixels
     if ignore_right_pixels is not None:
         config.ignore_right_pixels = ignore_right_pixels
 
     log_info(
-        f"拼接引擎已配置: engine={config.engine}, direction={config.direction}, "
-        f"sample_rate={config.sample_rate}, min_overlap={config.min_overlap}",
+        f"拼接引擎已配置: engine={config.engine}, verbose={config.verbose}",
         module="长截图"
     )
 
 
-def get_active_engine():
-    """获取当前活跃的拼接引擎名称"""
-    return normalize_engine_value(config.engine)
-
-
-def get_engine_display_name(engine):
-    """获取引擎的显示名称"""
-    return {
-        "hash_rust": "哈希匹配（Rust LCS）",
-    }.get(engine, engine)
-
-
-def stitch_images(images, engine=None):
+def stitch_images(images):
     """
     拼接多张图片
 
     参数:
         images: PIL Image 列表（按顺序排列）
-        engine: 可选，指定引擎（不指定则使用全局配置）
 
     返回:
         拼接后的 PIL Image，失败返回 None
@@ -143,9 +80,6 @@ def stitch_images(images, engine=None):
         if images:
             return images[0]
         return None
-
-    if engine:
-        normalize_engine_value(engine)
 
     return _stitch_with_hash_rust(images)
 
