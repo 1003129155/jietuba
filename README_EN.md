@@ -24,7 +24,7 @@ venv311\Scripts\activate
 
 ```bash
 pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl
-pip install longstitch-0.3.8-cp311-cp311-win_amd64.whl
+pip install longstitch-0.3.10-cp311-cp311-win_amd64.whl
 pip install pyclipboard-0.3.14-cp311-cp311-win_amd64.whl
 pip install ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
 ```
@@ -32,7 +32,7 @@ pip install ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
 | Package | Version | Description |
 |---------|---------|-------------|
 | `gifrecorder` | 0.2.1 | GIF/video composition encoder |
-| `longstitch` | 0.3.8 | Long screenshot stitching algorithm |
+| `longstitch` | 0.3.10 | Long screenshot stitching algorithm |
 | `pyclipboard` | 0.3.14 | Low-level clipboard operations |
 | `ppocr_rust` | 0.1.1 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
 
@@ -77,7 +77,7 @@ python main_app.py
 ```
 # Project root
 ├── gifrecorder-0.2.1-cp311-cp311-win_amd64.whl       # GIF recorder Rust pre-built package
-├── longstitch-0.3.8-cp311-cp311-win_amd64.whl        # Long-stitch Rust pre-built package
+├── longstitch-0.3.10-cp311-cp311-win_amd64.whl        # Long-stitch Rust pre-built package
 ├── pyclipboard-0.3.14-cp311-cp311-win_amd64.whl      # Clipboard Rust pre-built package
 ├── ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl        # OCR Rust pre-built package
 │

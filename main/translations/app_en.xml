@@ -345,6 +345,14 @@ Replace it?</translation>
         <source>Capture wait time after scroll (seconds)</source>
         <translation>Capture wait time after scroll (seconds)</translation>
     </message>
+    <message>
+        <source>Ignore Top Pixels</source>
+        <translation>Ignore Top Pixels</translation>
+    </message>
+    <message>
+        <source>Skip this many top pixels on subsequent captures during matching</source>
+        <translation>Skip this many top pixels on subsequent captures during matching</translation>
+    </message>
     
     <!-- Smart Selection Page -->
     <message>
@@ -1392,6 +1400,14 @@ Replace it?</translation>
     <message>
         <source>Paste Plain Text</source>
         <translation>Paste Plain Text</translation>
+    </message>
+    <message>
+        <source>File Name</source>
+        <translation>File Name</translation>
+    </message>
+    <message>
+        <source>File Link</source>
+        <translation>File Link</translation>
     </message>
     <message>
         <source>All Uppercase</source>

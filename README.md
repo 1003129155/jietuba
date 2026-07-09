@@ -29,7 +29,7 @@ venv311\Scripts\activate
 
 ```bash
 pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl
-pip install longstitch-0.3.9-cp311-cp311-win_amd64.whl
+pip install longstitch-0.3.10-cp311-cp311-win_amd64.whl
 pip install pyclipboard-0.3.14-cp311-cp311-win_amd64.whl
 pip install ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
 ```
@@ -37,7 +37,7 @@ pip install ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
 | 包名 | 版本 | 功能 |
 |------|------|------|
 | `gifrecorder` | 0.2.1 | GIF/视频合成编码器 |
-| `longstitch` | 0.3.9 | 长截图拼接算法 |
+| `longstitch` | 0.3.10 | 长截图拼接算法 |
 | `pyclipboard` | 0.3.14 | 剪切板底层操作 |
 | `ppocr_rust` | 0.1.1 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
 
@@ -82,7 +82,7 @@ python main_app.py
 ```
 # 项目根目录
 ├── gifrecorder-0.2.1-cp311-cp311-win_amd64.whl       # GIF录制 Rust 预编译包
-├── longstitch-0.3.9-cp311-cp311-win_amd64.whl        # 长截图拼接 Rust 预编译包
+├── longstitch-0.3.10-cp311-cp311-win_amd64.whl        # 长截图拼接 Rust 预编译包
 ├── pyclipboard-0.3.14-cp311-cp311-win_amd64.whl      # 剪切板 Rust 预编译包
 ├── ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl        # OCR Rust 预编译包
 │

@@ -7,7 +7,7 @@
 use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba};
 use std::io::Cursor;
 
-use crate::hash::{compute_row_hashes_from_rgba, compute_row_hashes_from_rgba_range};
+use crate::hash::compute_row_hashes_from_rgba_range;
 use crate::lcs::find_top_common_substrings;
 
 // ========== 内部工具函数 ==========
@@ -179,17 +179,26 @@ fn smart_stitch_core(
     img2_rgba: &image::RgbaImage,
     final_width: u32,
     ignore_right_pixels: u32,
+    ignore_top_pixels: u32,
     min_overlap_ratio: f32,
     debug: bool,
 ) -> Result<(Vec<u8>, u32, u32), String> {
     let height2 = img2_rgba.height();
+    let img2_hash_start = ignore_top_pixels.min(height2) as usize;
 
     if debug {
         println!("忽略右侧 {} 像素来排除滚动条影响", ignore_right_pixels);
+        println!("忽略后续截图顶部 {} 像素来排除固定标题影响", img2_hash_start);
     }
 
     // 计算行哈希
-    let img2_hashes = compute_row_hashes_from_rgba(img2_rgba, ignore_right_pixels, debug);
+    let img2_hashes = compute_row_hashes_from_rgba_range(
+        img2_rgba,
+        img2_hash_start as u32,
+        height2,
+        ignore_right_pixels,
+        debug,
+    );
 
     // 搜索区域设置（2倍窗口，容忍回滚）
     let img1_len = img1_rgba.height() as usize;
@@ -235,10 +244,13 @@ fn smart_stitch_core(
         debug,
     )?;
 
+    // start_j 基于跳过顶部后的 img2 哈希序列，像素拼接时要映射回原图坐标。
+    let start_j_abs = start_j + img2_hash_start as i32;
+
     // 执行像素拼接
     Ok(do_pixel_stitch(
         img1_rgba, img2_rgba, final_width, height2,
-        start_i, start_j, overlap_length, debug,
+        start_i, start_j_abs, overlap_length, debug,
     ))
 }
 
@@ -249,9 +261,17 @@ pub fn stitch_two_images_smart(
     img1_bytes: &[u8],
     img2_bytes: &[u8],
     ignore_right_pixels: u32,
+    ignore_top_pixels: u32,
     min_overlap_ratio: f32,
 ) -> Result<Vec<u8>, String> {
-    stitch_two_images_smart_internal(img1_bytes, img2_bytes, ignore_right_pixels, min_overlap_ratio, false)
+    stitch_two_images_smart_internal(
+        img1_bytes,
+        img2_bytes,
+        ignore_right_pixels,
+        ignore_top_pixels,
+        min_overlap_ratio,
+        false,
+    )
 }
 
 /// 智能双图拼接（调试模式）
@@ -259,15 +279,24 @@ pub fn stitch_two_images_smart_debug(
     img1_bytes: &[u8],
     img2_bytes: &[u8],
     ignore_right_pixels: u32,
+    ignore_top_pixels: u32,
     min_overlap_ratio: f32,
 ) -> Result<Vec<u8>, String> {
-    stitch_two_images_smart_internal(img1_bytes, img2_bytes, ignore_right_pixels, min_overlap_ratio, true)
+    stitch_two_images_smart_internal(
+        img1_bytes,
+        img2_bytes,
+        ignore_right_pixels,
+        ignore_top_pixels,
+        min_overlap_ratio,
+        true,
+    )
 }
 
 fn stitch_two_images_smart_internal(
     img1_bytes: &[u8],
     img2_bytes: &[u8],
     ignore_right_pixels: u32,
+    ignore_top_pixels: u32,
     min_overlap_ratio: f32,
     debug: bool,
 ) -> Result<Vec<u8>, String> {
@@ -296,8 +325,13 @@ fn stitch_two_images_smart_internal(
     let img2_rgba = img2.to_rgba8();
 
     let (result_buf, w, h) = smart_stitch_core(
-        &img1_rgba, &img2_rgba, final_width,
-        ignore_right_pixels, min_overlap_ratio, debug,
+        &img1_rgba,
+        &img2_rgba,
+        final_width,
+        ignore_right_pixels,
+        ignore_top_pixels,
+        min_overlap_ratio,
+        debug,
     )?;
 
     encode_png(result_buf, w, h)
@@ -322,10 +356,16 @@ pub fn stitch_two_images_smart_auto(
     img1_bytes: &[u8],
     img2_bytes: &[u8],
     ignore_right_pixels: u32,
+    ignore_top_pixels: u32,
     min_overlap_ratio: f32,
 ) -> Result<(Vec<u8>, String), String> {
     stitch_two_images_smart_auto_internal(
-        img1_bytes, img2_bytes, ignore_right_pixels, min_overlap_ratio, false,
+        img1_bytes,
+        img2_bytes,
+        ignore_right_pixels,
+        ignore_top_pixels,
+        min_overlap_ratio,
+        false,
     )
 }
 
@@ -334,10 +374,16 @@ pub fn stitch_two_images_smart_auto_debug(
     img1_bytes: &[u8],
     img2_bytes: &[u8],
     ignore_right_pixels: u32,
+    ignore_top_pixels: u32,
     min_overlap_ratio: f32,
 ) -> Result<(Vec<u8>, String), String> {
     stitch_two_images_smart_auto_internal(
-        img1_bytes, img2_bytes, ignore_right_pixels, min_overlap_ratio, true,
+        img1_bytes,
+        img2_bytes,
+        ignore_right_pixels,
+        ignore_top_pixels,
+        min_overlap_ratio,
+        true,
     )
 }
 
@@ -345,6 +391,7 @@ fn stitch_two_images_smart_auto_internal(
     img1_bytes: &[u8],
     img2_bytes: &[u8],
     ignore_right_pixels: u32,
+    ignore_top_pixels: u32,
     min_overlap_ratio: f32,
     debug: bool,
 ) -> Result<(Vec<u8>, String), String> {
@@ -379,8 +426,13 @@ fn stitch_two_images_smart_auto_internal(
     }
 
     let forward_result = smart_stitch_core(
-        &img1_rgba, &img2_rgba, final_width,
-        ignore_right_pixels, min_overlap_ratio, debug,
+        &img1_rgba,
+        &img2_rgba,
+        final_width,
+        ignore_right_pixels,
+        ignore_top_pixels,
+        min_overlap_ratio,
+        debug,
     );
 
     let forward_ok = match &forward_result {
@@ -413,8 +465,13 @@ fn stitch_two_images_smart_auto_internal(
     let img2_flipped = image::imageops::flip_vertical(&img2_rgba);
 
     let reverse_result = smart_stitch_core(
-        &img1_flipped, &img2_flipped, final_width,
-        ignore_right_pixels, min_overlap_ratio, debug,
+        &img1_flipped,
+        &img2_flipped,
+        final_width,
+        ignore_right_pixels,
+        ignore_top_pixels,
+        min_overlap_ratio,
+        debug,
     );
 
     // ===== 3. 比较正/反向结果 =====

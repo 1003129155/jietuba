@@ -111,11 +111,15 @@ def _load_long_stitch_config():
     config = {
         'engine': engine,
         'verbose': False,
+        'ignore_top_pixels': config_mgr.get_long_stitch_ignore_top_pixels(),
     }
 
     set_long_stitch_debug_enabled(config['verbose'])
 
-    print(f"📖 从配置加载长截图参数: 引擎={config['engine']}, 调试日志={config['verbose']}")
+    print(
+        f"📖 从配置加载长截图参数: 引擎={config['engine']}, "
+        f"调试日志={config['verbose']}, 顶部忽略={config['ignore_top_pixels']}px"
+    )
 
     return config
 
@@ -124,6 +128,7 @@ _long_stitch_config = _load_long_stitch_config()
 long_stitch_configure(
     engine=_long_stitch_config['engine'],
     verbose=_long_stitch_config['verbose'],
+    ignore_top_pixels=_long_stitch_config['ignore_top_pixels'],
 )
 
 # Windows API 常量
@@ -897,7 +902,11 @@ class ScrollCaptureWindow(QWidget):
         try:
             from .jietuba_long_stitch_unified import configure, config
 
-            configure(engine=config.engine, verbose=True)
+            configure(
+                engine=config.engine,
+                verbose=True,
+                ignore_top_pixels=config.ignore_top_pixels,
+            )
 
             mode_text = "横向截图（图片旋转90度+竖向拼接）" if self.scroll_direction == "horizontal" else "竖向截图（竖向拼接）"
             print(f"[OK] 拼接引擎已重新配置: {mode_text}")

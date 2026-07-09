@@ -153,6 +153,7 @@ class ToolSettingsManager(QObject):
     "long_stitch_engine": "hash_rust",     # 长截图引擎（hash_rust）
         "long_stitch_debug": False,            # 长截图调试模式
         "scroll_cooldown": 0.15,               # 滚动后等待时间（秒，0.05-1.0）
+        "long_stitch_ignore_top_pixels": 0,    # 后续截图顶部忽略像素（0-300）
         
         # ==================== 3. 智能选择设置 ====================
         "smart_selection": True,              # 智能选区（窗口/控件识别）
@@ -643,6 +644,18 @@ class ToolSettingsManager(QObject):
     def set_scroll_cooldown(self, value: float):
         """设置滚动后等待时间（秒，0.05-1.0）"""
         self.qsettings.setValue("screenshot/scroll_cooldown", value)
+
+    def get_long_stitch_ignore_top_pixels(self) -> int:
+        """获取后续截图顶部忽略像素数"""
+        return self.qsettings.value(
+            "screenshot/long_stitch_ignore_top_pixels",
+            self.APP_DEFAULT_SETTINGS["long_stitch_ignore_top_pixels"],
+            type=int,
+        )
+
+    def set_long_stitch_ignore_top_pixels(self, value: int):
+        """设置后续截图顶部忽略像素数"""
+        self.qsettings.setValue("screenshot/long_stitch_ignore_top_pixels", value)
     
     def get_screenshot_save_enabled(self) -> bool:
         """获取截图自动保存"""

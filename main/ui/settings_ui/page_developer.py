@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
-    FluentIcon, ComboBox, DoubleSpinBox,
+    FluentIcon, ComboBox, DoubleSpinBox, SpinBox,
     BodyLabel, CaptionLabel, PrimaryPushButton,
 )
 from .components import SettingCardGroup
@@ -66,6 +66,26 @@ def create_developer_page(dialog) -> QWidget:
     )
     cooldown_card.hBoxLayout.addSpacing(16)
     grp_stitch.addSettingCard(cooldown_card)
+
+    # 后续截图顶部忽略像素
+    ignore_top_card = FSettingCard(
+        FluentIcon.FILTER,
+        dialog.tr("Ignore Top Pixels"),
+        dialog.tr("Skip this many top pixels on subsequent captures during matching"),
+        parent=grp_stitch,
+    )
+    dialog.ignore_top_pixels_spinbox = SpinBox(ignore_top_card)
+    dialog.ignore_top_pixels_spinbox.setRange(0, 300)
+    dialog.ignore_top_pixels_spinbox.setSingleStep(1)
+    dialog.ignore_top_pixels_spinbox.setValue(
+        dialog.config_manager.get_long_stitch_ignore_top_pixels()
+    )
+    dialog.ignore_top_pixels_spinbox.setFixedWidth(110)
+    ignore_top_card.hBoxLayout.addWidget(
+        dialog.ignore_top_pixels_spinbox, 0, Qt.AlignmentFlag.AlignRight
+    )
+    ignore_top_card.hBoxLayout.addSpacing(16)
+    grp_stitch.addSettingCard(ignore_top_card)
 
     layout.addWidget(grp_stitch)
 

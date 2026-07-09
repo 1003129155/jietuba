@@ -6,6 +6,8 @@
 """
 
 import ctypes
+import json
+import os
 import re
 from datetime import datetime, time, timedelta
 from typing import Optional, List, Callable, Tuple
@@ -648,6 +650,59 @@ class ClipboardController(QObject):
             on_close_callback()
 
         # 自动粘贴：发送 Ctrl+V
+        if self.auto_paste_enabled:
+            def do_paste():
+                if self._previous_window_hwnd:
+                    set_foreground_window(self._previous_window_hwnd)
+                QTimer.singleShot(30, send_ctrl_v)
+
+            QTimer.singleShot(50, do_paste)
+
+        return True
+
+    def paste_file_text(
+        self, item_id: int, transform_key: str,
+        on_close_callback: Optional[Callable] = None,
+    ) -> bool:
+        """将文件项转换为纯文本后写入剪贴板并触发粘贴。"""
+        import pyclipboard
+
+        clipboard_item = self.get_item(item_id)
+        if clipboard_item is None or clipboard_item.content_type != "file":
+            log_error(f"项 {item_id} 不是文件类型，无法特殊粘贴", "Clipboard")
+            return False
+
+        try:
+            data = json.loads(clipboard_item.content)
+            files = data.get("files", []) if isinstance(data, dict) else []
+            files = [os.path.normpath(file_path) for file_path in files if file_path]
+        except Exception as e:
+            log_exception(e, "解析文件项内容失败")
+            return False
+
+        if not files:
+            log_error(f"文件项 {item_id} 没有可粘贴的文件路径", "Clipboard")
+            return False
+
+        if transform_key == "file_paste_names":
+            text = "\n".join(os.path.basename(file_path) for file_path in files)
+        elif transform_key == "file_paste_links":
+            text = "\n".join(files)
+        else:
+            log_error(f"未知文件粘贴键: {transform_key}", "Clipboard")
+            return False
+
+        try:
+            pyclipboard.set_clipboard_text(text)
+        except Exception as e:
+            log_exception(e, "设置剪贴板文件文本失败")
+            return False
+
+        log_info(f"文件特殊粘贴项 {item_id} ({transform_key})", "Clipboard")
+
+        if on_close_callback:
+            on_close_callback()
+
         if self.auto_paste_enabled:
             def do_paste():
                 if self._previous_window_hwnd:

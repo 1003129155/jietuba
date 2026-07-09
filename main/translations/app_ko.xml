@@ -344,6 +344,14 @@ Replace it?</source>
         <source>Capture wait time after scroll (seconds)</source>
         <translation>스크롤 후 캡처 대기 시간(초)</translation>
     </message>
+    <message>
+        <source>Ignore Top Pixels</source>
+        <translation>상단 픽셀 무시</translation>
+    </message>
+    <message>
+        <source>Skip this many top pixels on subsequent captures during matching</source>
+        <translation>매칭 중 후속 캡처의 상단 픽셀 수를 건너뜁니다</translation>
+    </message>
     
     <!-- Smart Selection Page -->
     <message>
@@ -1399,6 +1407,14 @@ Replace it?</source>
     <message>
         <source>Paste Plain Text</source>
         <translation>일반 텍스트로 붙여넣기</translation>
+    </message>
+    <message>
+        <source>File Name</source>
+        <translation>파일 이름</translation>
+    </message>
+    <message>
+        <source>File Link</source>
+        <translation>파일 링크</translation>
     </message>
     <message>
         <source>All Uppercase</source>

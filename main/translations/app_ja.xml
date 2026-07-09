@@ -351,6 +351,14 @@ Replace it?</source>
         <source>Capture wait time after scroll (seconds)</source>
         <translation>スクロール後のキャプチャ待機時間 (秒)</translation>
     </message>
+    <message>
+        <source>Ignore Top Pixels</source>
+        <translation>上部ピクセルを無視</translation>
+    </message>
+    <message>
+        <source>Skip this many top pixels on subsequent captures during matching</source>
+        <translation>マッチング時に後続キャプチャ上部の指定ピクセル数をスキップ</translation>
+    </message>
     
     <!-- Smart Selection Page -->
     <message>
@@ -1468,6 +1476,14 @@ Replace it?</source>
     <message>
         <source>Paste Plain Text</source>
         <translation>プレーンテキストを貼り付け</translation>
+    </message>
+    <message>
+        <source>File Name</source>
+        <translation>ファイル名</translation>
+    </message>
+    <message>
+        <source>File Link</source>
+        <translation>ファイルリンク</translation>
     </message>
     <message>
         <source>All Uppercase</source>

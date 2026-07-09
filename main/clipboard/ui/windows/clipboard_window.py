@@ -1006,12 +1006,22 @@ class ClipboardWindow(QWidget, FramelessMixin):
         if action_key.startswith("special_paste_") or action_key.startswith("transform_"):
             return lambda: self._special_paste(item_id, action_key)
 
+        # 文件项特殊粘贴子菜单项
+        if action_key.startswith("file_paste_"):
+            return lambda: self._file_special_paste(item_id, action_key)
+
         return None
 
     def _special_paste(self, item_id: int, action_key: str):
         """执行特殊粘贴：先记录前台窗口，再调用 controller 的加工粘贴。"""
         self.controller._previous_window_hwnd = get_foreground_window()
         self.controller.paste_transformed_text(item_id, action_key, on_close_callback=self.close)
+        self.item_pasted.emit(item_id)
+
+    def _file_special_paste(self, item_id: int, action_key: str):
+        """执行文件项特殊粘贴。"""
+        self.controller._previous_window_hwnd = get_foreground_window()
+        self.controller.paste_file_text(item_id, action_key, on_close_callback=self.close)
         self.item_pasted.emit(item_id)
 
     def _move_item_to_group(self, item_id: int, group_id: Optional[int]):

@@ -15,13 +15,12 @@ _stitch_counter = 0
 
 def normalize_engine_value(value):
     """
-    规范化引擎设置值（兼容旧版本保存的引擎设置，如 'auto'/'rust'/'hash_python'）
-
+    规范化引擎设置值
     参数:
         value: 引擎设置值
 
     返回:
-        'hash_rust'（当前唯一支持的引擎）
+        'hash_rust'
     """
     return "hash_rust"
 
@@ -39,12 +38,15 @@ class LongStitchConfig:
         # 忽略右侧像素（部分应用右侧有固定滚动条/装饰时可跳过匹配区域）
         self.ignore_right_pixels = 0
 
+        # 忽略后续截图顶部像素（固定标题栏/状态栏会干扰重叠匹配）
+        self.ignore_top_pixels = 0
+
 
 # 全局配置实例
 config = LongStitchConfig()
 
 
-def configure(engine=None, verbose=None, ignore_right_pixels=None, **_kwargs):
+def configure(engine=None, verbose=None, ignore_right_pixels=None, ignore_top_pixels=None, **_kwargs):
     """
     配置拼接引擎参数
 
@@ -52,6 +54,7 @@ def configure(engine=None, verbose=None, ignore_right_pixels=None, **_kwargs):
         engine: 引擎选择（当前唯一支持 'hash_rust'）
         verbose: 是否输出详细日志
         ignore_right_pixels: 右侧忽略像素数
+        ignore_top_pixels: 后续截图顶部忽略像素数
     """
     if engine is not None:
         config.engine = normalize_engine_value(engine)
@@ -59,9 +62,12 @@ def configure(engine=None, verbose=None, ignore_right_pixels=None, **_kwargs):
         config.verbose = verbose
     if ignore_right_pixels is not None:
         config.ignore_right_pixels = ignore_right_pixels
+    if ignore_top_pixels is not None:
+        config.ignore_top_pixels = ignore_top_pixels
 
     log_info(
-        f"拼接引擎已配置: engine={config.engine}, verbose={config.verbose}",
+        f"拼接引擎已配置: engine={config.engine}, verbose={config.verbose}, "
+        f"ignore_top_pixels={config.ignore_top_pixels}",
         module="长截图"
     )
 
@@ -104,6 +110,7 @@ def _stitch_with_hash_rust(images):
                     buf1.getvalue(),
                     buf2.getvalue(),
                     ignore_right_pixels=config.ignore_right_pixels or None,
+                    ignore_top_pixels=config.ignore_top_pixels,
                 )
 
                 if stitch_result is None:
@@ -167,12 +174,14 @@ def stitch_images_auto(img1, img2, debug=False):
                 buf1.getvalue(),
                 buf2.getvalue(),
                 ignore_right_pixels=config.ignore_right_pixels or None,
+                ignore_top_pixels=config.ignore_top_pixels,
             )
         else:
             auto_result = longstitch.stitch_two_images_rust_smart_auto(
                 buf1.getvalue(),
                 buf2.getvalue(),
                 ignore_right_pixels=config.ignore_right_pixels or None,
+                ignore_top_pixels=config.ignore_top_pixels,
             )
 
         if auto_result is None:

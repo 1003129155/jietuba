@@ -48,7 +48,7 @@ def to_qicon(icon) -> QIcon:
     return QIcon(str(icon))
 
 
-def paint_solid_background(widget, radius: int = 18) -> None:
+def paint_solid_background(widget, radius: int = 8) -> None:
     """Paint an opaque rounded solid background for frameless dialogs.
 
     Replaces the former acrylic/blur detection path.  A subtle vertical

@@ -24,7 +24,7 @@ venv311\Scripts\activate
 
 ```bash
 pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl
-pip install longstitch-0.3.8-cp311-cp311-win_amd64.whl
+pip install longstitch-0.3.10-cp311-cp311-win_amd64.whl
 pip install pyclipboard-0.3.14-cp311-cp311-win_amd64.whl
 pip install ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
 ```
@@ -32,7 +32,7 @@ pip install ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
 | パッケージ名 | バージョン | 機能 |
 |-------------|-----------|------|
 | `gifrecorder` | 0.2.1 | GIF/動画合成エンコーダー |
-| `longstitch` | 0.3.8 | 長いスクリーンショット結合アルゴリズム |
+| `longstitch` | 0.3.10 | 長いスクリーンショット結合アルゴリズム |
 | `pyclipboard` | 0.3.14 | クリップボード操作 |
 | `ppocr_rust` | 0.1.1 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
 
@@ -77,7 +77,7 @@ python main_app.py
 ```
 # プロジェクトルート
 ├── gifrecorder-0.2.1-cp311-cp311-win_amd64.whl       # GIF録画 Rustビルド済みパッケージ
-├── longstitch-0.3.8-cp311-cp311-win_amd64.whl        # 長いスクリーンショット Rustビルド済みパッケージ
+├── longstitch-0.3.10-cp311-cp311-win_amd64.whl        # 長いスクリーンショット Rustビルド済みパッケージ
 ├── pyclipboard-0.3.14-cp311-cp311-win_amd64.whl      # クリップボード Rustビルド済みパッケージ
 ├── ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl        # OCR Rustビルド済みパッケージ
 │

@@ -19,6 +19,7 @@ APP_DEFAULT_SETTINGS = {
     "log_dir": os.path.expanduser("~"),
     "long_stitch_engine": "hash_rust",
     "scroll_cooldown": 0.15,
+    "long_stitch_ignore_top_pixels": 0,
     "screenshot_save_enabled": True,
     "screenshot_save_path": os.path.join(os.path.expanduser("~"), "Desktop", "スクショ"),
     "screenshot_format": "PNG",
@@ -65,6 +66,10 @@ class MockConfig:
     def set_long_stitch_engine(self, v): pass
     def get_long_stitch_debug(self): return False
     def set_long_stitch_debug(self, v): pass
+    def get_scroll_cooldown(self): return 0.15
+    def set_scroll_cooldown(self, v): pass
+    def get_long_stitch_ignore_top_pixels(self): return 0
+    def set_long_stitch_ignore_top_pixels(self, v): pass
     def get_screenshot_save_enabled(self): return True
     def set_screenshot_save_enabled(self, v): pass
     def get_screenshot_save_path(self): return os.path.join(os.path.expanduser("~"), "Desktop", "スクショ")

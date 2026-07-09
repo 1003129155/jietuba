@@ -9,18 +9,20 @@ use pyo3::types::PyBytes;
 
 /// 智能双图拼接（多候选纠错）
 #[pyfunction]
-#[pyo3(signature = (img1_bytes, img2_bytes, ignore_right_pixels=None, min_overlap_ratio=None))]
+#[pyo3(signature = (img1_bytes, img2_bytes, ignore_right_pixels=None, ignore_top_pixels=None, min_overlap_ratio=None))]
 fn stitch_two_images_rust_smart<'py>(
     py: Python<'py>,
     img1_bytes: Vec<u8>,
     img2_bytes: Vec<u8>,
     ignore_right_pixels: Option<u32>,
+    ignore_top_pixels: Option<u32>,
     min_overlap_ratio: Option<f32>,
 ) -> PyResult<Option<Bound<'py, PyBytes>>> {
     let ignore = ignore_right_pixels.unwrap_or(20);
+    let ignore_top = ignore_top_pixels.unwrap_or(0);
     let ratio = min_overlap_ratio.unwrap_or(0.01);
 
-    match stitch::stitch_two_images_smart(&img1_bytes, &img2_bytes, ignore, ratio) {
+    match stitch::stitch_two_images_smart(&img1_bytes, &img2_bytes, ignore, ignore_top, ratio) {
         Ok(result_bytes) => Ok(Some(PyBytes::new_bound(py, &result_bytes))),
         Err(e) => {
             eprintln!("⚠️  Rust 智能拼接失败: {}", e);
@@ -31,22 +33,24 @@ fn stitch_two_images_rust_smart<'py>(
 
 /// 智能双图拼接（调试模式）
 #[pyfunction]
-#[pyo3(signature = (img1_bytes, img2_bytes, ignore_right_pixels=None, min_overlap_ratio=None))]
+#[pyo3(signature = (img1_bytes, img2_bytes, ignore_right_pixels=None, ignore_top_pixels=None, min_overlap_ratio=None))]
 fn stitch_two_images_rust_smart_debug<'py>(
     py: Python<'py>,
     img1_bytes: Vec<u8>,
     img2_bytes: Vec<u8>,
     ignore_right_pixels: Option<u32>,
+    ignore_top_pixels: Option<u32>,
     min_overlap_ratio: Option<f32>,
 ) -> PyResult<Option<Bound<'py, PyBytes>>> {
     let ignore = ignore_right_pixels.unwrap_or(20);
+    let ignore_top = ignore_top_pixels.unwrap_or(0);
     let ratio = min_overlap_ratio.unwrap_or(0.01);
 
     println!("\n======================================================================");
     println!("🧠 Rust 智能拼接接口（多候选纠错 + 调试模式）");
     println!("======================================================================");
 
-    match stitch::stitch_two_images_smart_debug(&img1_bytes, &img2_bytes, ignore, ratio) {
+    match stitch::stitch_two_images_smart_debug(&img1_bytes, &img2_bytes, ignore, ignore_top, ratio) {
         Ok(result_bytes) => {
             println!("✅ Rust 智能拼接完成");
             Ok(Some(PyBytes::new_bound(py, &result_bytes)))
@@ -62,18 +66,20 @@ fn stitch_two_images_rust_smart_debug<'py>(
 /// 返回 (png_bytes, direction_str)，direction_str: "forward" 或 "reverse"
 /// "reverse" 时返回翻转态结果，调用方负责最终输出时翻转还原
 #[pyfunction]
-#[pyo3(signature = (img1_bytes, img2_bytes, ignore_right_pixels=None, min_overlap_ratio=None))]
+#[pyo3(signature = (img1_bytes, img2_bytes, ignore_right_pixels=None, ignore_top_pixels=None, min_overlap_ratio=None))]
 fn stitch_two_images_rust_smart_auto<'py>(
     py: Python<'py>,
     img1_bytes: Vec<u8>,
     img2_bytes: Vec<u8>,
     ignore_right_pixels: Option<u32>,
+    ignore_top_pixels: Option<u32>,
     min_overlap_ratio: Option<f32>,
 ) -> PyResult<Option<(Bound<'py, PyBytes>, String)>> {
     let ignore = ignore_right_pixels.unwrap_or(20);
+    let ignore_top = ignore_top_pixels.unwrap_or(0);
     let ratio = min_overlap_ratio.unwrap_or(0.01);
 
-    match stitch::stitch_two_images_smart_auto(&img1_bytes, &img2_bytes, ignore, ratio) {
+    match stitch::stitch_two_images_smart_auto(&img1_bytes, &img2_bytes, ignore, ignore_top, ratio) {
         Ok((result_bytes, direction)) => {
             Ok(Some((PyBytes::new_bound(py, &result_bytes), direction)))
         }
@@ -86,22 +92,24 @@ fn stitch_two_images_rust_smart_auto<'py>(
 
 /// 自动方向检测（调试模式）
 #[pyfunction]
-#[pyo3(signature = (img1_bytes, img2_bytes, ignore_right_pixels=None, min_overlap_ratio=None))]
+#[pyo3(signature = (img1_bytes, img2_bytes, ignore_right_pixels=None, ignore_top_pixels=None, min_overlap_ratio=None))]
 fn stitch_two_images_rust_smart_auto_debug<'py>(
     py: Python<'py>,
     img1_bytes: Vec<u8>,
     img2_bytes: Vec<u8>,
     ignore_right_pixels: Option<u32>,
+    ignore_top_pixels: Option<u32>,
     min_overlap_ratio: Option<f32>,
 ) -> PyResult<Option<(Bound<'py, PyBytes>, String)>> {
     let ignore = ignore_right_pixels.unwrap_or(20);
+    let ignore_top = ignore_top_pixels.unwrap_or(0);
     let ratio = min_overlap_ratio.unwrap_or(0.01);
 
     println!("\n======================================================================");
     println!("🧭 Rust 自动方向检测拼接（调试模式）");
     println!("======================================================================");
 
-    match stitch::stitch_two_images_smart_auto_debug(&img1_bytes, &img2_bytes, ignore, ratio) {
+    match stitch::stitch_two_images_smart_auto_debug(&img1_bytes, &img2_bytes, ignore, ignore_top, ratio) {
         Ok((result_bytes, direction)) => {
             println!("✅ 自动方向拼接完成，方向: {}", direction);
             Ok(Some((PyBytes::new_bound(py, &result_bytes), direction)))

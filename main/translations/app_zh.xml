@@ -349,6 +349,14 @@ Replace it?</source>
         <source>Capture wait time after scroll (seconds)</source>
         <translation>滚动后的截图等待时间 (秒)</translation>
     </message>
+    <message>
+        <source>Ignore Top Pixels</source>
+        <translation>忽略顶部像素</translation>
+    </message>
+    <message>
+        <source>Skip this many top pixels on subsequent captures during matching</source>
+        <translation>匹配时跳过后续截图顶部的像素行数</translation>
+    </message>
     
     <!-- Smart Selection Page -->
     <message>
@@ -1490,6 +1498,14 @@ Replace it?</source>
     <message>
         <source>Paste Plain Text</source>
         <translation>粘贴纯文本</translation>
+    </message>
+    <message>
+        <source>File Name</source>
+        <translation>文件名</translation>
+    </message>
+    <message>
+        <source>File Link</source>
+        <translation>文件链接</translation>
     </message>
     <message>
         <source>All Uppercase</source>

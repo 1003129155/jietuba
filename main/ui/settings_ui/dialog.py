@@ -566,6 +566,8 @@ class SettingsDialog(FrostedFramelessDialog):
                 self.engine_combo.setCurrentIndex(index)
         if hasattr(self, 'cooldown_spinbox'):
             self.cooldown_spinbox.setValue(defaults["scroll_cooldown"])
+        if hasattr(self, 'ignore_top_pixels_spinbox'):
+            self.ignore_top_pixels_spinbox.setValue(defaults["long_stitch_ignore_top_pixels"])
 
     def _reset_appearance_page(self):
         """重置外观设置页面"""
@@ -800,7 +802,9 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'engine_combo'):
             self.config_manager.set_long_stitch_engine(self.engine_combo.currentData())
         if hasattr(self, 'cooldown_spinbox'):
-            self.config_manager.settings.setValue('screenshot/scroll_cooldown', self.cooldown_spinbox.value())
+            self.config_manager.set_scroll_cooldown(self.cooldown_spinbox.value())
+        if hasattr(self, 'ignore_top_pixels_spinbox'):
+            self.config_manager.set_long_stitch_ignore_top_pixels(self.ignore_top_pixels_spinbox.value())
 
         # 9. 预加载开关（重启生效）
         if hasattr(self, 'preload_screenshot_toggle'):
@@ -945,7 +949,8 @@ class SettingsDialog(FrostedFramelessDialog):
                 snap[attr] = w.currentIndex()
         # 数值类
         for attr in ('clipboard_history_limit_spin',
-                      'cooldown_spinbox', 'ocr_scale_spinbox'):
+                      'cooldown_spinbox', 'ignore_top_pixels_spinbox',
+                      'ocr_scale_spinbox'):
             w = getattr(self, attr, None)
             if w is not None:
                 snap[attr] = w.value()
@@ -1063,7 +1068,9 @@ class SettingsDialog(FrostedFramelessDialog):
             if index >= 0:
                 self.engine_combo.setCurrentIndex(index)
         if hasattr(self, 'cooldown_spinbox'):
-            self.cooldown_spinbox.setValue(self.config_manager.settings.value('screenshot/scroll_cooldown', 0.15, type=float))
+            self.cooldown_spinbox.setValue(self.config_manager.get_scroll_cooldown())
+        if hasattr(self, 'ignore_top_pixels_spinbox'):
+            self.ignore_top_pixels_spinbox.setValue(self.config_manager.get_long_stitch_ignore_top_pixels())
 
         if hasattr(self, 'smart_toggle'):
             self.smart_toggle.setChecked(self.config_manager.get_smart_selection())
