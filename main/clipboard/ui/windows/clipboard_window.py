@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
 from core import safe_event
 from core.logger import log_debug, log_error, log_exception
 from core.shortcut_manager import ShortcutHandler, ShortcutManager
+from ui.dialogs import show_confirm_dialog
 
 from ...controllers import ClipboardController, SelectionManager, get_foreground_window, send_ctrl_v, set_foreground_window
 from ...core import ClipboardItem, ClipboardManager, GroupType
@@ -85,7 +86,7 @@ class ClipboardShortcutHandler(ShortcutHandler):
             return True
 
         if key == Qt.Key.Key_Delete:
-            w._delete_selected()
+            # 删除仅通过右键菜单执行，避免误按 Enter 旁边的 Delete 键。
             return True
 
         if key == Qt.Key.Key_F and modifiers == Qt.KeyboardModifier.ControlModifier:
@@ -950,11 +951,6 @@ class ClipboardWindow(QWidget, FramelessMixin):
         if item_id:
             self._on_paste_item(item_id)
 
-    def _delete_selected(self):
-        item_id = self.selection_manager.get_current_item_id()
-        if item_id:
-            self.controller.delete_item(item_id)
-
     def _show_context_menu(self, pos):
         item = self.list_widget.itemAt(pos)
         if not item:
@@ -1047,7 +1043,13 @@ class ClipboardWindow(QWidget, FramelessMixin):
         create_pin_from_clipboard_item(item_id, self.controller, self)
 
     def _delete_item(self, item_id: int):
-        self.controller.delete_item(item_id)
+        confirmed = show_confirm_dialog(
+            self,
+            self.tr("Confirm Delete"),
+            self.tr("Are you sure you want to delete this item?"),
+        )
+        if confirmed:
+            self.controller.delete_item(item_id)
 
     def _open_file_item(self, item_id: int):
         import json

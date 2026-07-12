@@ -188,17 +188,21 @@ class PinImageTransform:
         将当前变换状态应用到 PinWindow：
         1. 计算新窗口尺寸
         2. 调整窗口几何（中心不变）
-        3. 重置 scale_factor
+        3. 保留精确的逻辑缩放比例
         4. 更新视图变换和背景
         5. 更新 OCR 层的变换信息
 
         Args:
             pin_window: PinWindow 实例
         """
-        # 计算目标尺寸
+        # 缩放比例由 PinWindow 独立维护，不再从已经取整的窗口宽高反算，
+        # 因而旋转、翻转及其重置都不会引入尺寸漂移。
+        cur_scale = pin_window.scale_factor
+
+        # 计算目标尺寸（先取新旋转状态下的 100% 尺寸，再乘回当前缩放）
         new_size = self.display_size(pin_window._orig_size)
-        new_w = new_size.width()
-        new_h = new_size.height()
+        new_w = max(1, int(round(new_size.width() * cur_scale)))
+        new_h = max(1, int(round(new_size.height() * cur_scale)))
 
         # 保持中心点不变
         cx = pin_window.x() + pin_window.width() // 2
@@ -207,7 +211,6 @@ class PinImageTransform:
         new_y = cy - new_h // 2
 
         pin_window.setGeometry(new_x, new_y, new_w, new_h)
-        pin_window.scale_factor = 1.0
 
         if pin_window.canvas:
             pin_window.canvas.invalidate_cache()

@@ -56,9 +56,7 @@ def create_developer_page(dialog) -> QWidget:
     dialog.cooldown_spinbox.setSingleStep(0.01)
     dialog.cooldown_spinbox.setDecimals(2)
     dialog.cooldown_spinbox.setValue(
-        dialog.config_manager.settings.value(
-            "screenshot/scroll_cooldown", 0.15, type=float
-        )
+        dialog.config_manager.get_scroll_cooldown()
     )
     dialog.cooldown_spinbox.setFixedWidth(110)
     cooldown_card.hBoxLayout.addWidget(
@@ -144,7 +142,7 @@ def create_developer_page(dialog) -> QWidget:
 
     for attr_name, icon, title, desc, cfg_key in _preload_items:
         card = SwitchSettingCard(icon, title, desc, parent=grp_preload)
-        card.setChecked(dialog.config_manager.get_app_setting(cfg_key, True))
+        card.setChecked(dialog.config_manager.get_app_setting(cfg_key))
         setattr(dialog, attr_name, card)
         grp_preload.addSettingCard(card)
 
@@ -160,9 +158,7 @@ def create_developer_page(dialog) -> QWidget:
         parent=grp_panel,
     )
     hide_card.setChecked(
-        dialog.config_manager.get_app_setting(
-            "screenshot_info_hide_on_drag", False
-        )
+        dialog.config_manager.get_app_setting("screenshot_info_hide_on_drag")
     )
     dialog.info_hide_on_drag_toggle = hide_card
     grp_panel.addSettingCard(hide_card)

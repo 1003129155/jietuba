@@ -1007,7 +1007,7 @@ checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 
 [[package]]
 name = "longstitch"
-version = "0.3.10"
+version = "0.3.11"
 dependencies = [
  "image 0.24.9",
  "pyo3",

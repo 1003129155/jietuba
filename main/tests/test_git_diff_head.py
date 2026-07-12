@@ -340,10 +340,10 @@ class TestNumberHandleEditor:
         h_inc = next(h for h in handles if h.handle_type == HandleType.NUMBER_INCREMENT)
         h_dec = next(h for h in handles if h.handle_type == HandleType.NUMBER_DECREMENT)
         h_del = next(h for h in handles if h.handle_type == HandleType.NUMBER_DELETE)
-        assert h_inc.pos.x() == rect.left()
-        assert h_inc.pos.y() == rect.top()
-        assert h_del.pos.x() == rect.right()
-        assert h_del.pos.y() == rect.top()
-        assert h_dec.pos.x() == rect.left()
-        assert h_dec.pos.y() == rect.top() + editor.NUMBER_BUTTON_SIZE + editor.NUMBER_BUTTON_GAP
+        assert h_inc.position.x() == rect.left()
+        assert h_inc.position.y() == rect.top()
+        assert h_del.position.x() == rect.right()
+        assert h_del.position.y() == rect.top()
+        assert h_dec.position.x() == rect.left()
+        assert h_dec.position.y() == rect.top() + editor.NUMBER_BUTTON_SIZE + editor.NUMBER_BUTTON_GAP
 

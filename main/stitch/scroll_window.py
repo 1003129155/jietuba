@@ -1269,7 +1269,24 @@ class ScrollCaptureWindow(QWidget):
                             result = "HANDLED"
                     else:
                         # 方向已锁定，正常拼接
-                        result = stitch_images([self.stitched_result, pil_image])
+                        # 忽略 img1 一定区域以排除顶部固定标题栏干扰。
+                        # 注意：判断依据是"Rust 收到的图是否翻转态"，不是屏幕滚动方向。
+                        #   - 横向模式：标题栏已被 rotate 转到侧边，不需要忽略
+                        #   - 竖向下滑（正常态）：标题栏在图顶部 → 忽略顶部 15%
+                        #   - 竖向上滑（翻转态，已 FLIP_TOP_BOTTOM）：标题栏被翻到底部 → 忽略底部 5%
+                        #     （底部同时是重叠区所在，比例取小值以免切掉真实重叠）
+                        ignore_top_ratio = 0.0
+                        ignore_bottom_ratio = 0.0
+                        if self.scroll_direction != "horizontal":
+                            if self.scroll_locked_direction == "up":
+                                ignore_bottom_ratio = 0.05
+                            else:
+                                ignore_top_ratio = 0.15
+                        result = stitch_images(
+                            [self.stitched_result, pil_image],
+                            ignore_img1_top_ratio=ignore_top_ratio,
+                            ignore_img1_bottom_ratio=ignore_bottom_ratio,
+                        )
                     
                     if result == "HANDLED":
                         pass  # 已在上面处理

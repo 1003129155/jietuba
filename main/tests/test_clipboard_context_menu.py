@@ -58,6 +58,7 @@ def test_build_context_menu_for_grouped_text_item_uses_rule_table(monkeypatch):
     assert ctx is not None
     assert [action.key for action in ctx.actions if not action.is_separator] == [
         "paste",
+        "special_paste_menu",
         "toggle_pin",
         "move_group_menu",
         "edit_item",
@@ -98,6 +99,7 @@ def test_build_context_menu_for_file_item_includes_file_groups(monkeypatch):
     assert ctx is not None
     assert [action.key for action in ctx.actions if not action.is_separator] == [
         "paste",
+        "special_paste_menu",
         "toggle_pin",
         "open_file_location",
         "move_group_menu",

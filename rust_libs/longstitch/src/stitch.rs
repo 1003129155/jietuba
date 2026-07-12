@@ -181,6 +181,8 @@ fn smart_stitch_core(
     ignore_right_pixels: u32,
     ignore_top_pixels: u32,
     min_overlap_ratio: f32,
+    ignore_img1_top_ratio: f32,
+    ignore_img1_bottom_ratio: f32,
     debug: bool,
 ) -> Result<(Vec<u8>, u32, u32), String> {
     let height2 = img2_rgba.height();
@@ -204,15 +206,34 @@ fn smart_stitch_core(
     let img1_len = img1_rgba.height() as usize;
     let img2_len = img2_hashes.len();
     let search_window = img2_len * 2;
-    let search_start = if img1_len > search_window {
+    let mut search_start = if img1_len > search_window {
         img1_len - search_window
     } else {
         0
     };
+    let mut search_end = img1_len;
+
+    // 忽略 img1 顶部一定比例（下滑正常态：固定标题栏在顶部）
+    // 与 2 倍窗口取 max：img1 拼高后底部窗口本就在忽略线以下，此忽略自动失效，
+    // 仅对前几张短图生效，正是标题栏最易误匹配的场景。
+    if ignore_img1_top_ratio > 0.0 {
+        let top_ignore = (img1_len as f32 * ignore_img1_top_ratio) as usize;
+        search_start = search_start.max(top_ignore);
+    }
+    // 忽略 img1 底部一定比例（上滑翻转态：标题栏被 flip 到底部）
+    if ignore_img1_bottom_ratio > 0.0 {
+        let bottom_ignore = (img1_len as f32 * ignore_img1_bottom_ratio) as usize;
+        search_end = search_end.saturating_sub(bottom_ignore);
+    }
+    // 防御：忽略过度导致区间反转时，回退到至少保留 1 行
+    if search_start >= search_end {
+        search_start = search_end.saturating_sub(1);
+    }
+
     let img1_search_region = compute_row_hashes_from_rgba_range(
         img1_rgba,
         search_start as u32,
-        img1_len as u32,
+        search_end as u32,
         ignore_right_pixels,
         debug,
     );
@@ -222,8 +243,9 @@ fn smart_stitch_core(
         println!("     img1总长度: {}行", img1_len);
         println!("     img2总长度: {}行", img2_len);
         println!(
-            "     搜索范围: img1[{}:{}] (底部{}行)",
-            search_start, img1_len, img1_search_region.len()
+            "     搜索范围: img1[{}:{}] (共{}行, 忽略顶部比例{:.2} 底部比例{:.2})",
+            search_start, search_end, img1_search_region.len(),
+            ignore_img1_top_ratio, ignore_img1_bottom_ratio
         );
     }
 
@@ -263,6 +285,8 @@ pub fn stitch_two_images_smart(
     ignore_right_pixels: u32,
     ignore_top_pixels: u32,
     min_overlap_ratio: f32,
+    ignore_img1_top_ratio: f32,
+    ignore_img1_bottom_ratio: f32,
 ) -> Result<Vec<u8>, String> {
     stitch_two_images_smart_internal(
         img1_bytes,
@@ -270,6 +294,8 @@ pub fn stitch_two_images_smart(
         ignore_right_pixels,
         ignore_top_pixels,
         min_overlap_ratio,
+        ignore_img1_top_ratio,
+        ignore_img1_bottom_ratio,
         false,
     )
 }
@@ -281,6 +307,8 @@ pub fn stitch_two_images_smart_debug(
     ignore_right_pixels: u32,
     ignore_top_pixels: u32,
     min_overlap_ratio: f32,
+    ignore_img1_top_ratio: f32,
+    ignore_img1_bottom_ratio: f32,
 ) -> Result<Vec<u8>, String> {
     stitch_two_images_smart_internal(
         img1_bytes,
@@ -288,6 +316,8 @@ pub fn stitch_two_images_smart_debug(
         ignore_right_pixels,
         ignore_top_pixels,
         min_overlap_ratio,
+        ignore_img1_top_ratio,
+        ignore_img1_bottom_ratio,
         true,
     )
 }
@@ -298,6 +328,8 @@ fn stitch_two_images_smart_internal(
     ignore_right_pixels: u32,
     ignore_top_pixels: u32,
     min_overlap_ratio: f32,
+    ignore_img1_top_ratio: f32,
+    ignore_img1_bottom_ratio: f32,
     debug: bool,
 ) -> Result<Vec<u8>, String> {
     // 加载图片
@@ -331,6 +363,8 @@ fn stitch_two_images_smart_internal(
         ignore_right_pixels,
         ignore_top_pixels,
         min_overlap_ratio,
+        ignore_img1_top_ratio,
+        ignore_img1_bottom_ratio,
         debug,
     )?;
 
@@ -432,6 +466,8 @@ fn stitch_two_images_smart_auto_internal(
         ignore_right_pixels,
         ignore_top_pixels,
         min_overlap_ratio,
+        0.0,  // auto 阶段方向未知，不做 img1 顶/底忽略
+        0.0,
         debug,
     );
 
@@ -471,6 +507,8 @@ fn stitch_two_images_smart_auto_internal(
         ignore_right_pixels,
         ignore_top_pixels,
         min_overlap_ratio,
+        0.0,  // auto 阶段方向未知，不做 img1 顶/底忽略
+        0.0,
         debug,
     );
 

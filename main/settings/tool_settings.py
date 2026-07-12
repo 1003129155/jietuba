@@ -129,14 +129,14 @@ class ToolSettingsManager(QObject):
     
     # 应用级别的默认设置（按照设置界面的页面顺序排列）
     APP_DEFAULT_SETTINGS = {
-        # ==================== 1. 快捷键设置 ====================win
+        # ==================== 1. 快捷键 ====================
         "hotkey": "ctrl+1",                        # 全局截图热键
         "hotkey_2": "",                            # 全局截图备用热键
         "clipboard_hotkey": "ctrl+2",    # 打开剪贴板管理器的快捷键
         "clipboard_hotkey_2": "",                  # 打开剪贴板管理器的备用快捷键
         "global_hotkeys_disabled": False,           # 是否禁用全局热键
 
-        # ==================== 1.5 应用内快捷键 ====================
+        # 应用内快捷键
         "inapp_confirm": "ctrl+c",             # 确认截图（复制到剪贴板）
         "inapp_pin": "ctrl+d",                 # 钉图
         "inapp_undo": "ctrl+z",                # 撤销
@@ -149,71 +149,39 @@ class ToolSettingsManager(QObject):
         "inapp_zoom_out": "pagedown",          # 放大镜缩小
         "inapp_translate": "shift+c",          # 截图翻译
         "inapp_cursor_move_mode": "both",      # 鼠标微移模式: both / arrows / wasd
-        # ==================== 2. 长截图设置 ====================
-    "long_stitch_engine": "hash_rust",     # 长截图引擎（hash_rust）
-        "long_stitch_debug": False,            # 长截图调试模式
-        "scroll_cooldown": 0.15,               # 滚动后等待时间（秒，0.05-1.0）
-        "long_stitch_ignore_top_pixels": 0,    # 后续截图顶部忽略像素（0-300）
-        
-        # ==================== 3. 智能选择设置 ====================
+        # ==================== 2. 截图 ====================
+        # 智能选择
         "smart_selection": True,              # 智能选区（窗口/控件识别）
-        
-        # ==================== 4. 截图保存设置 ====================
+
+        # 截图保存
         "screenshot_save_enabled": True,       # 自动保存截图
         "screenshot_save_path": os.path.join(os.path.expanduser("~"), "Pictures", "jietuba_photos"),  # 默认保存路径
         "screenshot_format": "PNG",            # 保存格式: PNG / JPG / BMP / WEBP / PDF
         "screenshot_quality": 85,              # 有损格式质量 (1-100, PNG/BMP忽略)
 
-        # ==================== 4.5 截图圆角设置 ====================
+        # 截图圆角
         "screenshot_rounded_enabled": False,   # 圆角截图开关
         "screenshot_rounded_radius": 16,       # 圆角半径（0-100）
 
-        # ==================== 4.6 截图描边/阴影设置 ====================
+        # 截图描边/阴影
         "screenshot_border_enabled": False,          # 描边/阴影开关
         "screenshot_border_mode": "shadow",          # 模式: "shadow" 或 "border"
         "screenshot_border_size": 21,                # 描边宽度 / 阴影大小（1-50）
         "screenshot_shadow_color": "#0078FF",        # 阴影颜色（独立）
         "screenshot_border_color": "#FF0000",        # 描边颜色（独立）
         "screenshot_border_persist": False,          # 每次截图都保持开启
-        "screenshot_info_hide_on_drag": False,       # 拖拽选区时隐藏信息面板
-
-        # ==================== 5. GIF录制设置 ====================
+        # GIF 录制
         "gif_fps": 10,                         # GIF默认帧率
         "gif_fps_options": [5, 10, 16, 24],  # 帧率可选项（可在此调整选项）
 
-        # ==================== 6. OCR设置 ====================
+        # OCR
         "ocr_enabled": True,                   # OCR功能启用
         "ocr_engine": "ppocr_rust",            # OCR引擎类型 (ppocr_rust 推荐, windows_media_ocr 备用)
         "ocr_grayscale": False,                # OCR灰度转换（Windows OCR 不需要）
         "ocr_upscale": True,                   # OCR图像放大（提升小字识别率）
         "ocr_upscale_factor": 2.0,             # OCR放大倍数（1.0-3.0）
         
-        # ==================== 7. 日志设置 ====================
-        "log_enabled": True,                   # 日志启用
-        "log_dir": os.path.join(os.path.expanduser("~"), "AppData", "Local", "Jietuba", "Logs"),
-        "log_level": "INFO",                # 日志等级: DEBUG, INFO, WARNING, ERROR
-        "log_retention_days": 7,               # 日志保留天数（0表示永久保留）
-        
-        # ==================== 8. 其他设置 ====================
-        "show_main_window": False,             # 运行后自动弹出窗口显示（默认后台启动）
-        "language": "ja",                      # 界面语言（ja/en/zh）
-        "magnifier_color_copy_format": "rgb_hex",  # 放大镜复制颜色信息格式（rgb_hex/rgb/hex）
-        "magnifier_zoom": 4.0,                 # 放大镜默认倍率（1.0 ~ 10.0）
-        "magnifier_zoom_min": 2.0,             # 放大镜最小倍率
-        "magnifier_zoom_max": 10.0,            # 放大镜最大倍率
-        
-        # ==================== 钉图设置（在"其他"页面或独立页面） ====================
-        "pin_auto_toolbar": False,              # 钉图自动显示工具栏
-        "pin_default_opacity": 1.0,            # 钉图默认透明度（0.1-1.0）
-        
-        # ==================== 9. 翻译设置 ====================
-        "deepl_api_key": "",  # DeepL API 密钥
-        "deepl_use_pro": False,                # 是否使用 Pro 版 API
-        "translation_target_lang": "",         # 翻译目标语言（空为跟随系统语言）
-        "translation_split_sentences": True,   # 自动分句
-        "translation_preserve_formatting": True,  # 保留格式
-        
-        # ==================== 10. 剪贴板设置 ====================
+        # ==================== 3. 剪贴板 ====================
         "clipboard_enabled": True,             # 剪贴板监听启用
         "clipboard_auto_paste": True,          # 选择后自动粘贴（发送 Ctrl+V）
         "clipboard_history_limit": 1000,        # 历史记录数量限制（0 为不限制）
@@ -233,12 +201,55 @@ class ToolSettingsManager(QObject):
         "clipboard_preserve_search": False,    # 关闭时保留搜索栏内容
         "clipboard_db_path": "",               # 剪贴板数据库自定义路径（空=默认位置）
 
-        # ==================== 11. 外观设置 ====================
+        # ==================== 4. 外观 ====================
         "theme_color": "#40E0D0",              # 主题色（青绿色 Turquoise）
         "mask_color_r": 0,                     # 遮罩色 R（0-255）
         "mask_color_g": 0,                     # 遮罩色 G（0-255）
         "mask_color_b": 0,                     # 遮罩色 B（0-255）
         # 遮罩色 Alpha 固定为 120，不提供前端设置
+
+        # ==================== 5. 翻译 ====================
+        "deepl_api_key": "",                    # DeepL API 密钥
+        "deepl_use_pro": False,                # 是否使用 Pro 版 API
+        "translation_target_lang": "",         # 翻译目标语言（空为跟随系统语言）
+        "translation_split_sentences": True,   # 自动分句
+        "translation_preserve_formatting": True,  # 保留格式
+
+        # ==================== 6. 日志 ====================
+        "log_enabled": True,                   # 日志启用
+        "log_dir": os.path.join(os.path.expanduser("~"), "AppData", "Local", "Jietuba", "Logs"),
+        "log_level": "INFO",                  # 日志等级: DEBUG, INFO, WARNING, ERROR
+        "log_retention_days": 7,               # 日志保留天数（0表示永久保留）
+
+        # ==================== 7. 其他 ====================
+        "show_main_window": False,             # 运行后自动弹出窗口显示（默认后台启动）
+        "language": "en",                      # 界面语言（ja/en/zh/ko）
+        "magnifier_color_copy_format": "rgb_hex",  # 放大镜复制颜色信息格式（rgb_hex/rgb/hex）
+        "magnifier_zoom": 4.0,                 # 放大镜默认倍率（1.0 ~ 10.0）
+        "magnifier_zoom_min": 2.0,             # 放大镜最小倍率
+        "magnifier_zoom_max": 10.0,            # 放大镜最大倍率
+        "pin_auto_toolbar": False,             # 钉图自动显示工具栏
+        "pin_default_opacity": 1.0,            # 钉图默认透明度（0.1-1.0）
+
+        # ==================== 8. 开发者 ====================
+        # 长截图
+        "long_stitch_engine": "hash_rust",     # 长截图引擎（hash_rust）
+        "long_stitch_debug": False,            # 长截图调试模式
+        "scroll_cooldown": 0.15,               # 滚动后等待时间（秒，0.05-1.0）
+        "long_stitch_ignore_top_pixels": 0,    # 后续截图顶部忽略像素（0-300）
+
+        # 启动预加载（重启生效）
+        "preload_screenshot": True,
+        "preload_toolbar": True,
+        "preload_ocr": True,
+        "preload_settings": True,
+        "preload_clipboard": True,
+
+        # 截图信息面板
+        "screenshot_info_hide_on_drag": False,  # 拖拽选区时隐藏信息面板
+
+        # ==================== 9. 关于 ====================
+        # “关于”页当前没有可持久化配置。
     }
     
     def __init__(self, qsettings: Optional[QSettings] = None):

@@ -56,65 +56,49 @@ def test_deliver_image_async_reuses_same_qimage(monkeypatch, tmp_path):
     assert seen["save_kwargs"]["directory"] == str(tmp_path)
 
 
-def test_build_qt_png_first_mime_data_prefers_png_first():
-    from core import clipboard_utils
-
-    image = QImage(12, 9, QImage.Format.Format_ARGB32)
-    image.fill(0x80224466)
-
-    mime = clipboard_utils._build_qt_png_first_mime_data(image)
-    formats = mime.formats()
-
-    assert formats[0] == clipboard_utils._QT_WINDOWS_PNG_MIME
-    assert formats[1] == clipboard_utils._QT_IMAGE_PNG_MIME
-    assert clipboard_utils._QT_WINDOWS_CLOUD_MIME in formats
-    assert clipboard_utils._QT_WINDOWS_HISTORY_MIME in formats
-    assert formats[-1] == "application/x-qt-image"
-
-
-def test_copy_image_to_clipboard_uses_qt_png_first_on_win32(monkeypatch):
+def test_copy_image_to_clipboard_uses_win32_on_win32(monkeypatch):
     from core import clipboard_utils
 
     image = QImage(10, 10, QImage.Format.Format_ARGB32)
     image.fill(0xFF204060)
     seen = []
 
-    def fake_qt_png_first(target_image):
-        seen.append(("qt-png-first", id(target_image)))
+    def fake_win32(target_image):
+        seen.append(("win32", id(target_image)))
 
     def fake_qt_fallback(target_image):
         seen.append(("qt-fallback", id(target_image)))
 
     monkeypatch.setattr(clipboard_utils.sys, "platform", "win32")
-    monkeypatch.setattr(clipboard_utils, "_copy_qt_png_first", fake_qt_png_first)
+    monkeypatch.setattr(clipboard_utils, "_copy_win32", fake_win32)
     monkeypatch.setattr(clipboard_utils, "_copy_qt_fallback", fake_qt_fallback)
 
     clipboard_utils.copy_image_to_clipboard(image)
 
-    assert seen == [("qt-png-first", id(image))]
+    assert seen == [("win32", id(image))]
 
 
-def test_copy_image_to_clipboard_does_not_fallback_on_win32_failure(monkeypatch):
+def test_copy_image_to_clipboard_falls_back_on_win32_failure(monkeypatch):
     from core import clipboard_utils
 
     image = QImage(10, 10, QImage.Format.Format_ARGB32)
     image.fill(0xFF406080)
     seen = []
 
-    def fake_qt_png_first(target_image):
-        seen.append(("qt-png-first", id(target_image)))
-        raise RuntimeError("qt png first failed")
+    def fake_win32(target_image):
+        seen.append(("win32", id(target_image)))
+        raise RuntimeError("win32 failed")
 
     def fake_qt_fallback(target_image):
         seen.append(("qt-fallback", id(target_image)))
 
     monkeypatch.setattr(clipboard_utils.sys, "platform", "win32")
-    monkeypatch.setattr(clipboard_utils, "_copy_qt_png_first", fake_qt_png_first)
+    monkeypatch.setattr(clipboard_utils, "_copy_win32", fake_win32)
     monkeypatch.setattr(clipboard_utils, "_copy_qt_fallback", fake_qt_fallback)
 
     clipboard_utils.copy_image_to_clipboard(image)
 
-    assert seen == [("qt-png-first", id(image))]
+    assert seen == [("win32", id(image)), ("qt-fallback", id(image))]
 
 
 def test_copy_image_to_clipboard_uses_qt_fallback_off_windows(monkeypatch):
@@ -124,14 +108,14 @@ def test_copy_image_to_clipboard_uses_qt_fallback_off_windows(monkeypatch):
     image.fill(0xFF406080)
     seen = []
 
-    def fake_qt_png_first(target_image):
-        seen.append(("qt-png-first", id(target_image)))
+    def fake_win32(target_image):
+        seen.append(("win32", id(target_image)))
 
     def fake_qt_fallback(target_image):
         seen.append(("qt-fallback", id(target_image)))
 
     monkeypatch.setattr(clipboard_utils.sys, "platform", "linux")
-    monkeypatch.setattr(clipboard_utils, "_copy_qt_png_first", fake_qt_png_first)
+    monkeypatch.setattr(clipboard_utils, "_copy_win32", fake_win32)
     monkeypatch.setattr(clipboard_utils, "_copy_qt_fallback", fake_qt_fallback)
 
     clipboard_utils.copy_image_to_clipboard(image)

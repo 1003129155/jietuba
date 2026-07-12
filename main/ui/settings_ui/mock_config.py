@@ -20,6 +20,12 @@ APP_DEFAULT_SETTINGS = {
     "long_stitch_engine": "hash_rust",
     "scroll_cooldown": 0.15,
     "long_stitch_ignore_top_pixels": 0,
+    "preload_screenshot": True,
+    "preload_toolbar": True,
+    "preload_ocr": True,
+    "preload_settings": True,
+    "preload_clipboard": True,
+    "screenshot_info_hide_on_drag": False,
     "screenshot_save_enabled": True,
     "screenshot_save_path": os.path.join(os.path.expanduser("~"), "Desktop", "スクショ"),
     "screenshot_format": "PNG",
@@ -96,7 +102,10 @@ class MockConfig:
     def set_deepl_api_key(self, v): pass
     def get_deepl_use_pro(self): return False
     def set_deepl_use_pro(self, v): pass
-    def get_app_setting(self, key, default=None): return default or ""
+    def get_app_setting(self, key, default=None):
+        if default is None:
+            default = self.APP_DEFAULT_SETTINGS.get(key)
+        return default
     def set_app_setting(self, key, v): pass
     def get_translation_split_sentences(self): return True
     def set_translation_split_sentences(self, v): pass

@@ -478,10 +478,26 @@ class PinWindow(QWidget):
         else:
             # 普通滚轮：调整窗口大小
             self._is_scaling = True
-            sf = 1.05 if delta > 0 else 0.95
-            ow, oh = self.width(), self.height()
-            nw = max(50, min(int(ow * sf), self._orig_size.width() * 4))
-            nh = max(50, min(int(oh * sf), self._orig_size.height() * 4))
+            # 缩小必须使用放大倍率的倒数，否则放大后再缩小会产生累计误差。
+            step = 1.05
+            sf = step if delta > 0 else 1.0 / step
+
+            if hasattr(self, '_image_transform'):
+                base_size = self._image_transform.display_size(self._orig_size)
+            else:
+                base_size = self._orig_size
+
+            min_scale = max(50.0 / base_size.width(),
+                            50.0 / base_size.height())
+            new_scale = max(min_scale, min(self.scale_factor * sf, 4.0))
+            # 消除互逆浮点运算在 100% 附近可能留下的极小误差。
+            if abs(new_scale - 1.0) < 1e-6:
+                new_scale = 1.0
+            self.scale_factor = new_scale
+
+            # 始终从原图逻辑尺寸计算，避免按当前整数窗口尺寸反复取整。
+            nw = max(1, int(round(base_size.width() * new_scale)))
+            nh = max(1, int(round(base_size.height() * new_scale)))
 
             self.setGeometry(self.x(), self.y(), nw, nh)
             if self.canvas:
@@ -499,14 +515,8 @@ class PinWindow(QWidget):
 
     def _show_zoom_percent(self):
         """在左上角显示当前缩放百分比"""
-        # 计算百分比：当前窗口宽度 / 变换后原始宽度
-        if hasattr(self, '_image_transform') and self._image_transform.is_rotated_90_or_270:
-            ref_w = self._orig_size.height()
-        else:
-            ref_w = self._orig_size.width()
-        # 四舍五入到最近的 5% 整数倍，避免像素取整导致 101% 等奇怪数字
-        raw = self.width() / ref_w * 100
-        percent = round(raw / 5) * 5
+        # 使用逻辑缩放比例，避免窗口像素取整掩盖真实比例。
+        percent = int(round(self.scale_factor * 100))
         self._show_hint_label(f"{percent}%")
 
     def _show_hint_label(self, text: str):

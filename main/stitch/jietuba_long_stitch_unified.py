@@ -72,12 +72,14 @@ def configure(engine=None, verbose=None, ignore_right_pixels=None, ignore_top_pi
     )
 
 
-def stitch_images(images):
+def stitch_images(images, ignore_img1_top_ratio=0.0, ignore_img1_bottom_ratio=0.0):
     """
     拼接多张图片
 
     参数:
         images: PIL Image 列表（按顺序排列）
+        ignore_img1_top_ratio: 忽略 img1 顶部比例（下滑正常态用，排除固定标题栏）
+        ignore_img1_bottom_ratio: 忽略 img1 底部比例（上滑翻转态用，翻转后标题栏在底部）
 
     返回:
         拼接后的 PIL Image，失败返回 None
@@ -87,10 +89,10 @@ def stitch_images(images):
             return images[0]
         return None
 
-    return _stitch_with_hash_rust(images)
+    return _stitch_with_hash_rust(images, ignore_img1_top_ratio, ignore_img1_bottom_ratio)
 
 
-def _stitch_with_hash_rust(images):
+def _stitch_with_hash_rust(images, ignore_img1_top_ratio=0.0, ignore_img1_bottom_ratio=0.0):
     """使用 Rust 哈希匹配拼接"""
     try:
         import longstitch
@@ -111,6 +113,8 @@ def _stitch_with_hash_rust(images):
                     buf2.getvalue(),
                     ignore_right_pixels=config.ignore_right_pixels or None,
                     ignore_top_pixels=config.ignore_top_pixels,
+                    ignore_img1_top_ratio=ignore_img1_top_ratio or None,
+                    ignore_img1_bottom_ratio=ignore_img1_bottom_ratio or None,
                 )
 
                 if stitch_result is None:

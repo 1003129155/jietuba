@@ -559,6 +559,7 @@ class SettingsDialog(FrostedFramelessDialog):
                 self.cursor_move_combo.setCurrentIndex(idx)
 
     def _reset_long_screenshot_page(self):
+        """重置开发者选项页。"""
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
         if hasattr(self, 'engine_combo'):
             index = self.engine_combo.findData(defaults["long_stitch_engine"])
@@ -568,6 +569,17 @@ class SettingsDialog(FrostedFramelessDialog):
             self.cooldown_spinbox.setValue(defaults["scroll_cooldown"])
         if hasattr(self, 'ignore_top_pixels_spinbox'):
             self.ignore_top_pixels_spinbox.setValue(defaults["long_stitch_ignore_top_pixels"])
+        for key in (
+            "preload_screenshot", "preload_toolbar", "preload_ocr",
+            "preload_settings", "preload_clipboard",
+        ):
+            toggle = getattr(self, f"{key}_toggle", None)
+            if toggle is not None:
+                toggle.setChecked(defaults[key])
+        if hasattr(self, 'info_hide_on_drag_toggle'):
+            self.info_hide_on_drag_toggle.setChecked(
+                defaults["screenshot_info_hide_on_drag"]
+            )
 
     def _reset_appearance_page(self):
         """重置外观设置页面"""
@@ -1141,21 +1153,23 @@ class SettingsDialog(FrostedFramelessDialog):
             if index >= 0:
                 self.language_combo.setCurrentIndex(index)
 
-        # 预加载开关重置（默认全部 True）
+        # 预加载开关刷新（默认值统一来自 APP_DEFAULT_SETTINGS）
         if hasattr(self, 'preload_screenshot_toggle'):
-            self.preload_screenshot_toggle.setChecked(self.config_manager.get_app_setting("preload_screenshot", True))
+            self.preload_screenshot_toggle.setChecked(self.config_manager.get_app_setting("preload_screenshot"))
         if hasattr(self, 'preload_toolbar_toggle'):
-            self.preload_toolbar_toggle.setChecked(self.config_manager.get_app_setting("preload_toolbar", True))
+            self.preload_toolbar_toggle.setChecked(self.config_manager.get_app_setting("preload_toolbar"))
         if hasattr(self, 'preload_ocr_toggle'):
-            self.preload_ocr_toggle.setChecked(self.config_manager.get_app_setting("preload_ocr", True))
+            self.preload_ocr_toggle.setChecked(self.config_manager.get_app_setting("preload_ocr"))
         if hasattr(self, 'preload_settings_toggle'):
-            self.preload_settings_toggle.setChecked(self.config_manager.get_app_setting("preload_settings", True))
+            self.preload_settings_toggle.setChecked(self.config_manager.get_app_setting("preload_settings"))
         if hasattr(self, 'preload_clipboard_toggle'):
-            self.preload_clipboard_toggle.setChecked(self.config_manager.get_app_setting("preload_clipboard", True))
+            self.preload_clipboard_toggle.setChecked(self.config_manager.get_app_setting("preload_clipboard"))
 
         # 截图信息面板行为
         if hasattr(self, 'info_hide_on_drag_toggle'):
-            self.info_hide_on_drag_toggle.setChecked(self.config_manager.get_app_setting("screenshot_info_hide_on_drag", False))
+            self.info_hide_on_drag_toggle.setChecked(
+                self.config_manager.get_app_setting("screenshot_info_hide_on_drag")
+            )
 
         # 外观设置
         if hasattr(self, '_theme_color_btn'):
