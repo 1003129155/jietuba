@@ -20,19 +20,25 @@ python -m venv venv311
 venv311\Scripts\activate
 ```
 
-### 2. Install Custom Rust Packages (Required)
+### 2. Install Python Dependencies
 
 ```bash
-pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl
-pip install longstitch-0.3.10-cp311-cp311-win_amd64.whl
-pip install pyclipboard-0.3.14-cp311-cp311-win_amd64.whl
-pip install ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+### 3. Install Custom Rust Packages (Required)
+
+Run the following command from the project root:
+
+```bash
+python -m pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl longstitch-0.3.11-cp311-cp311-win_amd64.whl pyclipboard-0.3.14-cp311-cp311-win_amd64.whl ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
 ```
 
 | Package | Version | Description |
 |---------|---------|-------------|
 | `gifrecorder` | 0.2.1 | GIF/video composition encoder |
-| `longstitch` | 0.3.10 | Long screenshot stitching algorithm |
+| `longstitch` | 0.3.11 | Long screenshot stitching algorithm |
 | `pyclipboard` | 0.3.14 | Low-level clipboard operations |
 | `ppocr_rust` | 0.1.1 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
 
@@ -40,27 +46,10 @@ pip install ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
 
 > **OCR models:** `ppocr_rust` requires the PP-OCR ONNX models in the `models/` folder (`PP-OCRv6_det_small.onnx` + `PP-OCRv6_rec_small.onnx`), already bundled in the repo. When packaged for release, place `models/` next to the exe.
 
-### 3. Install Python Dependencies
-
-```bash
-pip install PySide6==6.11.0
-pip install PySideSix-Frameless-Window==0.8.1
-pip install pillow==12.1.1
-pip install mss==10.1.0
-pip install pynput==1.8.1
-pip install pywin32==311
-pip install darkdetect==0.8.0
-pip install emoji==2.15.0
-pip install av==17.0.0
-pip install colorama==0.4.6
-```
-
 **Development/Build Dependencies (Optional):**
 
 ```bash
-pip install pytest==9.0.2 pytest-qt==4.5.0   # Testing
-pip install pyinstaller==6.17.0              # Packaging
-pip install maturin==1.12.6                  # Rust library building
+python -m pip install -r requirements-dev.txt
 ```
 
 ### 4. Run the Application
@@ -76,8 +65,13 @@ python main_app.py
 
 ```
 # Project root
+├── README.md / README_EN.md / README_JA.md             # Chinese, English, and Japanese documentation
+├── pyproject.toml                                      # Python project metadata and dependency declarations
+├── requirements.txt                                   # Runtime dependencies
+├── requirements-dev.txt                               # Test and build dependencies
+├── build_with_ocr_onefile.py                           # PyInstaller one-file build script
 ├── gifrecorder-0.2.1-cp311-cp311-win_amd64.whl       # GIF recorder Rust pre-built package
-├── longstitch-0.3.10-cp311-cp311-win_amd64.whl        # Long-stitch Rust pre-built package
+├── longstitch-0.3.11-cp311-cp311-win_amd64.whl        # Long-stitch Rust pre-built package
 ├── pyclipboard-0.3.14-cp311-cp311-win_amd64.whl      # Clipboard Rust pre-built package
 ├── ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl        # OCR Rust pre-built package
 │
@@ -96,7 +90,7 @@ python main_app.py
 │   ├── stitch/              # Stitch module — scroll capture, auto-stitching
 │   ├── tools/               # Tools module — pen, rect, arrow, text, etc.
 │   ├── translation/         # Translation module — DeepL API service
-│   ├── translations/        # Language resources — Chinese/English/Japanese
+│   ├── translations/        # Language resources — Chinese/English/Japanese/Korean
 │   ├── ui/                  # UI module — common UI component library
 │   └── tests/               # Tests module — unit tests & integration tests
 │

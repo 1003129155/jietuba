@@ -25,19 +25,25 @@ python -m venv venv311
 venv311\Scripts\activate
 ```
 
-### 2. 安装自制 Rust 包（必须）
+### 2. 安装 Python 依赖
 
 ```bash
-pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl
-pip install longstitch-0.3.10-cp311-cp311-win_amd64.whl
-pip install pyclipboard-0.3.14-cp311-cp311-win_amd64.whl
-pip install ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+### 3. 安装自制 Rust 包（必须）
+
+请在项目根目录执行：
+
+```bash
+python -m pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl longstitch-0.3.11-cp311-cp311-win_amd64.whl pyclipboard-0.3.14-cp311-cp311-win_amd64.whl ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
 ```
 
 | 包名 | 版本 | 功能 |
 |------|------|------|
 | `gifrecorder` | 0.2.1 | GIF/视频合成编码器 |
-| `longstitch` | 0.3.10 | 长截图拼接算法 |
+| `longstitch` | 0.3.11 | 长截图拼接算法 |
 | `pyclipboard` | 0.3.14 | 剪切板底层操作 |
 | `ppocr_rust` | 0.1.1 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
 
@@ -45,27 +51,10 @@ pip install ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
 
 > **OCR 模型：** `ppocr_rust` 需要 `models/` 目录下的 PP-OCR ONNX 模型（`PP-OCRv6_det_small.onnx` + `PP-OCRv6_rec_small.onnx`），仓库已内置。打包发布后请将 `models/` 放在 exe 同级目录。
 
-### 3. 安装 Python 依赖
-
-```bash
-pip install PySide6==6.11.0
-pip install PySideSix-Frameless-Window==0.8.1
-pip install pillow==12.1.1
-pip install mss==10.1.0
-pip install pynput==1.8.1
-pip install pywin32==311
-pip install darkdetect==0.8.0
-pip install emoji==2.15.0
-pip install av==17.0.0
-pip install colorama==0.4.6
-```
-
 **开发/构建依赖（可选）：**
 
 ```bash
-pip install pytest==9.0.2 pytest-qt==4.5.0   # 测试
-pip install pyinstaller==6.17.0              # 打包
-pip install maturin==1.12.6                  # Rust 库构建
+python -m pip install -r requirements-dev.txt
 ```
 
 ### 4. 运行程序
@@ -81,8 +70,13 @@ python main_app.py
 
 ```
 # 项目根目录
+├── README.md / README_EN.md / README_JA.md             # 中文、英文、日文说明文档
+├── pyproject.toml                                      # Python 项目元数据与依赖声明
+├── requirements.txt                                   # 运行依赖
+├── requirements-dev.txt                               # 测试与构建依赖
+├── build_with_ocr_onefile.py                           # PyInstaller 单文件构建脚本
 ├── gifrecorder-0.2.1-cp311-cp311-win_amd64.whl       # GIF录制 Rust 预编译包
-├── longstitch-0.3.10-cp311-cp311-win_amd64.whl        # 长截图拼接 Rust 预编译包
+├── longstitch-0.3.11-cp311-cp311-win_amd64.whl        # 长截图拼接 Rust 预编译包
 ├── pyclipboard-0.3.14-cp311-cp311-win_amd64.whl      # 剪切板 Rust 预编译包
 ├── ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl        # OCR Rust 预编译包
 │
@@ -101,7 +95,7 @@ python main_app.py
 │   ├── stitch/              # 长截图拼接模块 — 滚动截图、自动拼接
 │   ├── tools/               # 绘图工具模块 — 笔、矩形、箭头、文字等
 │   ├── translation/         # 翻译模块 — DeepL API 翻译服务
-│   ├── translations/        # 语言资源 — 中/英/日语言文件
+│   ├── translations/        # 语言资源 — 中文/英文/日文/韩文
 │   ├── ui/                  # 用户界面模块 — 通用UI组件库
 │   └── tests/               # 测试模块 — 单元测试与集成测试
 │

@@ -20,19 +20,25 @@ python -m venv venv311
 venv311\Scripts\activate
 ```
 
-### 2. 自作Rustパッケージのインストール（必須）
+### 2. Python依存パッケージのインストール
 
 ```bash
-pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl
-pip install longstitch-0.3.10-cp311-cp311-win_amd64.whl
-pip install pyclipboard-0.3.14-cp311-cp311-win_amd64.whl
-pip install ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+### 3. 自作Rustパッケージのインストール（必須）
+
+プロジェクトルートで次のコマンドを実行してください：
+
+```bash
+python -m pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl longstitch-0.3.11-cp311-cp311-win_amd64.whl pyclipboard-0.3.14-cp311-cp311-win_amd64.whl ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
 ```
 
 | パッケージ名 | バージョン | 機能 |
 |-------------|-----------|------|
 | `gifrecorder` | 0.2.1 | GIF/動画合成エンコーダー |
-| `longstitch` | 0.3.10 | 長いスクリーンショット結合アルゴリズム |
+| `longstitch` | 0.3.11 | 長いスクリーンショット結合アルゴリズム |
 | `pyclipboard` | 0.3.14 | クリップボード操作 |
 | `ppocr_rust` | 0.1.1 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
 
@@ -40,27 +46,10 @@ pip install ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
 
 > **OCR モデル：** `ppocr_rust` は `models/` フォルダ内の PP-OCR ONNX モデル（`PP-OCRv6_det_small.onnx` + `PP-OCRv6_rec_small.onnx`）が必要です。リポジトリに同梱済み。パッケージ化後は `models/` を exe と同じ階層に配置してください。
 
-### 3. Python依存パッケージのインストール
-
-```bash
-pip install PySide6==6.11.0
-pip install PySideSix-Frameless-Window==0.8.1
-pip install pillow==12.1.1
-pip install mss==10.1.0
-pip install pynput==1.8.1
-pip install pywin32==311
-pip install darkdetect==0.8.0
-pip install emoji==2.15.0
-pip install av==17.0.0
-pip install colorama==0.4.6
-```
-
 **開発/ビルド依存（任意）：**
 
 ```bash
-pip install pytest==9.0.2 pytest-qt==4.5.0   # テスト
-pip install pyinstaller==6.17.0              # パッケージング
-pip install maturin==1.12.6                  # Rustライブラリビルド
+python -m pip install -r requirements-dev.txt
 ```
 
 ### 4. プログラムの実行
@@ -76,8 +65,13 @@ python main_app.py
 
 ```
 # プロジェクトルート
+├── README.md / README_EN.md / README_JA.md             # 中国語・英語・日本語ドキュメント
+├── pyproject.toml                                      # Pythonプロジェクトのメタデータと依存関係
+├── requirements.txt                                   # 実行時依存パッケージ
+├── requirements-dev.txt                               # テスト・ビルド用依存パッケージ
+├── build_with_ocr_onefile.py                           # PyInstaller単一ファイルビルドスクリプト
 ├── gifrecorder-0.2.1-cp311-cp311-win_amd64.whl       # GIF録画 Rustビルド済みパッケージ
-├── longstitch-0.3.10-cp311-cp311-win_amd64.whl        # 長いスクリーンショット Rustビルド済みパッケージ
+├── longstitch-0.3.11-cp311-cp311-win_amd64.whl        # 長いスクリーンショット Rustビルド済みパッケージ
 ├── pyclipboard-0.3.14-cp311-cp311-win_amd64.whl      # クリップボード Rustビルド済みパッケージ
 ├── ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl        # OCR Rustビルド済みパッケージ
 │
@@ -96,7 +90,7 @@ python main_app.py
 │   ├── stitch/              # 結合モジュール — スクロールキャプチャ、自動結合
 │   ├── tools/               # ツールモジュール — ペン、矩形、矢印、テキスト等
 │   ├── translation/         # 翻訳モジュール — DeepL APIサービス
-│   ├── translations/        # 言語リソース — 中国語/英語/日本語
+│   ├── translations/        # 言語リソース — 中国語/英語/日本語/韓国語
 │   ├── ui/                  # UIモジュール — 共通UIコンポーネントライブラリ
 │   └── tests/               # テストモジュール — ユニットテスト＆統合テスト
 │
