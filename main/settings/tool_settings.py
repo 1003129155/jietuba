@@ -130,10 +130,12 @@ class ToolSettingsManager(QObject):
     # 应用级别的默认设置（按照设置界面的页面顺序排列）
     APP_DEFAULT_SETTINGS = {
         # ==================== 1. 快捷键 ====================
-        "hotkey": "ctrl+1",                        # 全局截图热键
-        "hotkey_2": "",                            # 全局截图备用热键
-        "clipboard_hotkey": "ctrl+2",    # 打开剪贴板管理器的快捷键
-        "clipboard_hotkey_2": "",                  # 打开剪贴板管理器的备用快捷键
+        "hotkey": "ctrl+1",                        # 截图热键
+        "hotkey_2": "",                            # 截图备用热键
+        "clipboard_hotkey": "ctrl+2",              # 剪贴板管理器的快捷键
+        "clipboard_hotkey_2": "",                  # 剪贴板管理器的备用快捷键
+        "translation_hotkey": "",                  # 翻译主热键
+        "translation_hotkey_2": "",                # 翻译备用热键
         "global_hotkeys_disabled": False,           # 是否禁用全局热键
 
         # 应用内快捷键
@@ -577,6 +579,30 @@ class ToolSettingsManager(QObject):
     def set_clipboard_hotkey_2(self, value: str):
         """设置剪贴板管理器备用快捷键"""
         self.qsettings.setValue("clipboard/hotkey_2", value)
+
+    def get_translation_hotkey(self) -> str:
+        """获取智能翻译全局快捷键。"""
+        return self.qsettings.value(
+            "app/translation_hotkey",
+            self.APP_DEFAULT_SETTINGS["translation_hotkey"],
+            type=str,
+        )
+
+    def set_translation_hotkey(self, value: str):
+        """保存智能翻译全局快捷键。"""
+        self.qsettings.setValue("app/translation_hotkey", value)
+
+    def get_translation_hotkey_2(self) -> str:
+        """获取智能翻译备用全局快捷键。"""
+        return self.qsettings.value(
+            "app/translation_hotkey_2",
+            self.APP_DEFAULT_SETTINGS["translation_hotkey_2"],
+            type=str,
+        )
+
+    def set_translation_hotkey_2(self, value: str):
+        """保存智能翻译备用全局快捷键。"""
+        self.qsettings.setValue("app/translation_hotkey_2", value)
 
     # ---------- 应用内快捷键 ----------
     def get_inapp_shortcut(self, key: str) -> str:

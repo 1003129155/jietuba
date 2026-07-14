@@ -344,31 +344,10 @@ class PreloadManager:
             log_debug("设置窗口预加载完成", "Preload")
     
     def _init_clipboard_manager(self):
-        """初始化剪贴板管理器和快捷键"""
-        from core.logger import log_debug, log_info, log_warning
-        
-        if not self.config.get_clipboard_enabled():
-            log_debug("剪贴板功能已禁用", "Clipboard")
-            return
-        
-        try:
-            from clipboard import ClipboardManager
-            
-            self.app.clipboard_manager = ClipboardManager()
-            
-            if self.app.clipboard_manager.is_available:
-                def on_clipboard_change(item):
-                    if self.app.clipboard_window:
-                        self.app.clipboard_window.notify_new_content()
-                
-                self.app.clipboard_manager.start_monitoring(callback=on_clipboard_change)
-                log_info("剪贴板监听已启动", "Clipboard")
-            else:
-                log_warning("剪贴板管理器不可用（pyclipboard 未安装）", "Clipboard")
-        except ImportError:
-            log_debug("clipboard 模块不存在", "Clipboard")
-        except Exception as e:
-            log_warning(f"剪贴板初始化失败: {e}", "Clipboard")
+        """按当前设置初始化剪贴板监听。"""
+        self.app.set_clipboard_monitoring_enabled(
+            self.config.get_clipboard_enabled()
+        )
     
     def _show_main_window_on_start(self):
         """根据配置决定启动时是否显示主界面（设置窗口或欢迎向导）"""

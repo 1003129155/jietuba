@@ -142,8 +142,6 @@ class _HotkeyEventFilter(QAbstractNativeEventFilter):
                         except Exception as e:
                             log_exception(e, f"热键回调 id={hotkey_id}")
                         return True, 0
-        except (KeyboardInterrupt, SystemExit):
-            raise
         except Exception as e:
             log_exception(e, "nativeEventFilter")
         return False, 0

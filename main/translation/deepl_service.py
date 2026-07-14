@@ -190,6 +190,8 @@ import urllib.parse
 
 class TranslationThread(QThread):
     """异步翻译线程"""
+
+    REQUEST_TIMEOUT_SECONDS = 10
     
     # 信号：翻译完成 (success, translated_text, error_msg, detected_source_lang)
     finished_signal = Signal(bool, str, str, str)
@@ -202,7 +204,9 @@ class TranslationThread(QThread):
         use_pro: bool = False,
         split_sentences: str = "1",
         preserve_formatting: bool = True,
-        parent=None
+        parent=None,
+        source_lang: Optional[str] = None,
+        request_timeout: int = REQUEST_TIMEOUT_SECONDS,
     ):
         """
         初始化翻译线程
@@ -215,6 +219,8 @@ class TranslationThread(QThread):
             split_sentences: 分句模式 ("0"=不分句, "1"=自动分句, "nonewlines"=忽略换行)
             preserve_formatting: 保留格式
             parent: 父对象
+            source_lang: 源语言代码；None 或 auto 时由 DeepL 自动检测
+            request_timeout: 网络请求超时秒数
         """
         super().__init__(parent)
         self.text = text
@@ -223,6 +229,8 @@ class TranslationThread(QThread):
         self.use_pro = use_pro
         self.split_sentences = split_sentences
         self.preserve_formatting = preserve_formatting
+        self.source_lang = None if not source_lang or source_lang.lower() == "auto" else source_lang
+        self.request_timeout = request_timeout
         
     def run(self):
         """执行翻译"""
@@ -231,9 +239,14 @@ class TranslationThread(QThread):
             result = service.translate(
                 self.text, 
                 target_lang=self.target_lang,
+                source_lang=self.source_lang,
                 split_sentences=self.split_sentences,
-                preserve_formatting=self.preserve_formatting
+                preserve_formatting=self.preserve_formatting,
+                timeout=self.request_timeout,
             )
+
+            if self.isInterruptionRequested():
+                return
             
             self.finished_signal.emit(
                 result["success"],
@@ -245,4 +258,3 @@ class TranslationThread(QThread):
         except Exception as e:
             log_error(f"翻译线程异常: {e}", "DeepL")
             self.finished_signal.emit(False, "", f"翻译失败: {str(e)}", "")
- 

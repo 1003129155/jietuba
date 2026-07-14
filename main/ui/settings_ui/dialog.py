@@ -549,6 +549,10 @@ class SettingsDialog(FrostedFramelessDialog):
             self.clipboard_hotkey_edit.setText(defaults["clipboard_hotkey"])
         if hasattr(self, 'clipboard_hotkey_edit_2'):
             self.clipboard_hotkey_edit_2.setText(defaults["clipboard_hotkey_2"])
+        if hasattr(self, 'translation_hotkey_edit'):
+            self.translation_hotkey_edit.setText(defaults["translation_hotkey"])
+        if hasattr(self, 'translation_hotkey_edit_2'):
+            self.translation_hotkey_edit_2.setText(defaults["translation_hotkey_2"])
         # 应用内快捷键
         if hasattr(self, '_inapp_edits'):
             for cfg_key, edit in self._inapp_edits.items():
@@ -678,6 +682,14 @@ class SettingsDialog(FrostedFramelessDialog):
         self.config_manager.set_hotkey(self.hotkey_input.text().strip())
         if hasattr(self, 'hotkey_input_2'):
             self.config_manager.set_hotkey_2(self.hotkey_input_2.text().strip())
+        if hasattr(self, 'translation_hotkey_edit'):
+            self.config_manager.set_translation_hotkey(
+                self.translation_hotkey_edit.text().strip()
+            )
+        if hasattr(self, 'translation_hotkey_edit_2'):
+            self.config_manager.set_translation_hotkey_2(
+                self.translation_hotkey_edit_2.text().strip()
+            )
 
         # 1. 智能选区
         if hasattr(self, 'smart_toggle'):
@@ -932,6 +944,7 @@ class SettingsDialog(FrostedFramelessDialog):
         snap = {}
         # 文本类
         for attr in ('hotkey_input', 'hotkey_input_2', 'clipboard_hotkey_edit',
+                      'translation_hotkey_edit', 'translation_hotkey_edit_2',
                       'clipboard_hotkey_edit_2', 'save_path_lbl', 'path_lbl',
                       'deepl_api_key_input'):
             w = getattr(self, attr, None)
@@ -1060,6 +1073,14 @@ class SettingsDialog(FrostedFramelessDialog):
             self.clipboard_hotkey_edit.setText(self.config_manager.get_clipboard_hotkey())
         if hasattr(self, 'clipboard_hotkey_edit_2'):
             self.clipboard_hotkey_edit_2.setText(self.config_manager.get_clipboard_hotkey_2())
+        if hasattr(self, 'translation_hotkey_edit'):
+            self.translation_hotkey_edit.setText(
+                self.config_manager.get_translation_hotkey()
+            )
+        if hasattr(self, 'translation_hotkey_edit_2'):
+            self.translation_hotkey_edit_2.setText(
+                self.config_manager.get_translation_hotkey_2()
+            )
 
         # 应用内快捷键
         if hasattr(self, '_inapp_edits'):

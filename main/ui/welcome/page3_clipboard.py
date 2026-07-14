@@ -3,7 +3,7 @@
 第3页 — 剪贴板管理快捷键设置
 
 上半部：工具栏位置选择预览（左=右侧栏 / 右=顶部栏），可点击选择
-下半部：开启开关 + 快捷键设置
+下半部：快捷键设置
 """
 
 from PySide6.QtWidgets import (
@@ -15,11 +15,11 @@ from core import safe_event
 from core.i18n import make_tr
 
 if __package__:
-    from .base_page import BasePage, IllustrationArea, ToggleSwitch, ACCENT, TEXT_PRIMARY, TEXT_SECOND
+    from .base_page import BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND
 else:
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from base_page import BasePage, IllustrationArea, ToggleSwitch, ACCENT, TEXT_PRIMARY, TEXT_SECOND
+    from base_page import BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND
 
 
 _tr = make_tr("WelcomeWizard")
@@ -281,16 +281,6 @@ class ClipboardHotkeyPage(BasePage):
             sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
             from hotkey_edit import HotkeyEdit
 
-        # 启用开关
-        self._enable_toggle = ToggleSwitch()
-        self._enable_toggle.setChecked(self._config.get_clipboard_enabled())
-        row0, self._row0_lbl, self._row0_desc = self._make_setting_row_with_refs(
-            "启用剪贴板管理",
-            self._enable_toggle,
-            "关闭后不会记录复制内容，快捷键也不会激活窗口。"
-        )
-        layout.addWidget(row0)
-
         from PySide6.QtWidgets import QWidget, QLabel
 
         # 快捷键说明标签
@@ -326,10 +316,6 @@ class ClipboardHotkeyPage(BasePage):
         self.subtitle_label.setText(_tr(
             "自动记录每一次复制，随时召唤历史内容。\n"
             "支持文本、图片、文件，还能分组管理。"))
-        if hasattr(self, "_row0_lbl") and self._row0_lbl:
-            self._row0_lbl.setText(_tr("启用剪贴板管理"))
-        if hasattr(self, "_row0_desc") and self._row0_desc:
-            self._row0_desc.setText(_tr("关闭后不会记录复制内容，快捷键也不会激活窗口。"))
         if hasattr(self, "_hotkey_lbl") and self._hotkey_lbl:
             self._hotkey_lbl.setText(_tr("快捷键（最多设置两个）"))
         if hasattr(self, "_hotkey_desc") and self._hotkey_desc:
@@ -339,7 +325,6 @@ class ClipboardHotkeyPage(BasePage):
             self.illus_area.retranslate()
 
     def save(self):
-        self._config.set_clipboard_enabled(self._enable_toggle.isChecked())
         key = self._hotkey.text().strip()
         if key:
             self._config.set_clipboard_hotkey(key)

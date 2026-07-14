@@ -1145,6 +1145,41 @@ Replace it?</source>
         <source>Translate text</source>
         <translation>テキストを翻訳</translation>
     </message>
+    <message>
+        <source>Pin</source>
+        <translation>最前面</translation>
+    </message>
+    <message>
+        <source>Clear Original</source>
+        <translation>原文を消去</translation>
+    </message>
+    <message>
+        <source>Enter or paste text...</source>
+        <translation>テキストを入力または貼り付け...</translation>
+    </message>
+    <message>
+        <source>Engine not configured</source>
+        <translation>API未設定</translation>
+    </message>
+    <message>
+        <source>API key not configured</source>
+        <translation>APIキーが未設定です。設定画面で入れてください。</translation>
+    </message>
+    <message><source>Open full window</source><translation>フル画面を開く</translation></message>
+    <message><source>No translation result</source><translation>翻訳結果がありません</translation></message>
+    <message><source>Copied</source><translation>コピーしました</translation></message>
+    <message>
+        <source>%1 characters</source>
+        <translation>%1 文字</translation>
+    </message>
+    <message>
+        <source>Minimize</source>
+        <translation>最小化</translation>
+    </message>
+    <message>
+        <source>Maximize</source>
+        <translation>最大化</translation>
+    </message>
 </context>
 
 <!-- ========== Translation Settings ========== -->
@@ -1154,6 +1189,7 @@ Replace it?</source>
         <source>Translation</source>
         <translation>翻訳</translation>
     </message>
+    <message><source>Translation Hotkey</source><translation>翻訳ショートカット</translation></message>
     <message>
         <source>Translation Settings</source>
         <translation>翻訳設定</translation>

@@ -140,6 +140,43 @@ def create_hotkey_page(dialog) -> QWidget:
     cb_card.setFixedHeight(80)
     grp_global.addSettingCard(cb_card)
 
+    tr_card = WhiteCard(grp_global)
+    tr_h = QHBoxLayout(tr_card)
+    tr_h.setContentsMargins(20, 8, 20, 8)
+    tr_h.setSpacing(12)
+
+    tr_lbl = QLabel(dialog.tr("Translation Hotkey"), tr_card)
+    tr_lbl.setStyleSheet(_CARD_LABEL_STYLE)
+    tr_h.addWidget(tr_lbl)
+    tr_h.addStretch()
+
+    tr_v = QVBoxLayout()
+    tr_v.setSpacing(5)
+    dialog.translation_hotkey_edit = HotkeyEdit()
+    dialog.translation_hotkey_edit.setText(
+        dialog.config_manager.get_translation_hotkey()
+    )
+    dialog.translation_hotkey_edit.setPlaceholderText(
+        dialog.tr("e.g.: ctrl+shift+a")
+    )
+    dialog.translation_hotkey_edit.setFixedWidth(200)
+    dialog.translation_hotkey_edit.setStyleSheet(input_style)
+    tr_v.addWidget(dialog.translation_hotkey_edit)
+
+    dialog.translation_hotkey_edit_2 = HotkeyEdit()
+    dialog.translation_hotkey_edit_2.setText(
+        dialog.config_manager.get_translation_hotkey_2()
+    )
+    dialog.translation_hotkey_edit_2.setPlaceholderText(
+        dialog.tr("e.g.: ctrl+shift+a")
+    )
+    dialog.translation_hotkey_edit_2.setFixedWidth(200)
+    dialog.translation_hotkey_edit_2.setStyleSheet(input_style)
+    tr_v.addWidget(dialog.translation_hotkey_edit_2)
+    tr_h.addLayout(tr_v)
+    tr_card.setFixedHeight(80)
+    grp_global.addSettingCard(tr_card)
+
     layout.addWidget(grp_global)
 
     # ════ 应用内快捷键 ════

@@ -10,7 +10,7 @@ import ctypes
 
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 from PySide6.QtGui import QIcon, QPixmap, QPainter
-from PySide6.QtCore import QObject, Qt
+from PySide6.QtCore import QObject, Qt, Signal, Slot
 from ui.dialogs import show_warning_dialog, show_error_dialog
 
 from core.shortcut_manager import HotkeySystem
@@ -43,6 +43,10 @@ def create_app_icon():
         return QIcon(pixmap)
 
 class MainApp(QObject):
+    # Rust clipboard watcher may call from a worker thread.  This signal safely
+    # marshals clipboard items back to the Qt GUI thread.
+    clipboard_item_received = Signal(object)
+
     def __init__(self):
         super().__init__()
         self.app = QApplication(sys.argv)
@@ -102,6 +106,13 @@ class MainApp(QObject):
         self.clipboard_window = None
         # 剪贴板管理器
         self.clipboard_manager = None
+
+        from translation.smart_translation_controller import SmartTranslationController
+        self.smart_translation_controller = SmartTranslationController(self)
+        self.clipboard_item_received.connect(self._on_clipboard_item_received)
+        self.clipboard_item_received.connect(
+            self.smart_translation_controller.on_clipboard_item
+        )
         
         # 启动预加载链（截图模块 → 工具栏 → OCR → 设置窗口 → 剪贴板 → 显示主界面）
         from core.bootstrap import PreloadManager
@@ -110,6 +121,12 @@ class MainApp(QObject):
 
     def _on_about_to_quit(self):
         """应用退出前收尾"""
+        try:
+            from translation import TranslationManager
+
+            TranslationManager.cleanup()
+        except Exception as e:
+            log_exception(e, "清理翻译线程")
         try:
             if hasattr(self, "_logger") and self._logger:
                 self._logger.close()
@@ -163,9 +180,7 @@ class MainApp(QObject):
         
         # 关闭翻译窗口（下次打开时会用新语言创建）
         from translation import TranslationManager
-        manager = TranslationManager.instance()
-        if manager._dialog:
-            manager._dialog.close()
+        TranslationManager.instance().close_dialog()
 
     def _create_tray_menu(self) -> QMenu:
         """创建托盘菜单"""
@@ -195,7 +210,7 @@ class MainApp(QObject):
 
     def update_hotkey(self, show_error: bool = False):
         """
-        更新所有全局热键（截图热键 + 剪切板热键）
+        更新所有全局热键（截图、剪贴板和智能翻译）
         
         Args:
             show_error: 是否显示错误提示（设置保存时为 True，启动时为 False）
@@ -226,6 +241,22 @@ class MainApp(QObject):
             else:
                 log_warning(f"截图备用热键注册失败: {hotkey_2}", "Hotkey")
                 failed_hotkeys.append((self.tr("Screenshot (2)"), hotkey_2))
+
+        # 注册统一翻译热键：有选中文本时显示小窗，否则打开完整输入窗口。
+        translation_hotkeys = (
+            (self.config_manager.get_translation_hotkey(), self.tr("Translation")),
+            (self.config_manager.get_translation_hotkey_2(), self.tr("Translation (2)")),
+        )
+        for translation_hotkey, label in translation_hotkeys:
+            if not translation_hotkey:
+                continue
+            if self.hotkey_system.register_hotkey(
+                translation_hotkey, self.smart_translation_controller.trigger
+            ):
+                log_info(f"智能翻译热键已注册: {translation_hotkey}", "Hotkey")
+            else:
+                log_warning(f"智能翻译热键注册失败: {translation_hotkey}", "Hotkey")
+                failed_hotkeys.append((label, translation_hotkey))
         
         # 注册剪切板热键（如果剪切板功能启用）
         if self.config_manager.get_clipboard_enabled():
@@ -429,6 +460,9 @@ class MainApp(QObject):
 
     def on_settings_accepted(self):
         """设置保存后更新热键和剪贴板设置"""
+        self.set_clipboard_monitoring_enabled(
+            self.config_manager.get_clipboard_enabled()
+        )
         self.update_hotkey(show_error=True)
         
         # 通知剪贴板窗口重新加载设置
@@ -449,6 +483,67 @@ class MainApp(QObject):
             text="",
             **params
         )
+
+    @Slot(object)
+    def _on_clipboard_item_received(self, item):
+        """Refresh clipboard UI on the GUI thread without owning probe logic."""
+        if self.clipboard_window:
+            self.clipboard_window.notify_new_content()
+
+    def set_clipboard_monitoring_enabled(self, enabled: bool) -> bool:
+        """Synchronize the Rust clipboard watcher with the saved setting.
+
+        The manager stays allocated while disabled so a later enable only needs
+        to start its watcher thread.  ``stop_monitoring`` joins that thread,
+        making this method safe to call again immediately after disabling it.
+        """
+        manager = self.clipboard_manager
+
+        if not enabled:
+            if not manager:
+                log_debug("剪贴板监听已禁用，未创建管理器", "Clipboard")
+                return True
+            if not manager.is_available:
+                log_warning("剪贴板管理器不可用，无法停止监听", "Clipboard")
+                return False
+            if not manager.is_monitoring():
+                return True
+
+            try:
+                manager.stop_monitoring()
+            except Exception as e:
+                log_exception(e, "停止剪贴板监听")
+                return False
+
+            stopped = not manager.is_monitoring()
+            if stopped:
+                log_info("剪贴板监听已按设置关闭", "Clipboard")
+            return stopped
+
+        try:
+            if manager is None:
+                from clipboard import ClipboardManager
+                manager = ClipboardManager()
+                self.clipboard_manager = manager
+
+            if not manager.is_available:
+                log_warning("剪贴板管理器不可用（pyclipboard 未安装）", "Clipboard")
+                return False
+            if manager.is_monitoring():
+                return True
+
+            manager.start_monitoring(callback=self.clipboard_item_received.emit)
+            started = manager.is_monitoring()
+            if started:
+                log_info("剪贴板监听已按设置启动", "Clipboard")
+            else:
+                log_warning("剪贴板监听启动失败", "Clipboard")
+            return started
+        except ImportError:
+            log_debug("clipboard 模块不存在", "Clipboard")
+        except Exception as e:
+            log_exception(e, "启动剪贴板监听")
+        return False
     
     def open_clipboard_window(self):
         """打开剪切板历史窗口"""

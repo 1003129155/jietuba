@@ -1167,6 +1167,49 @@ Replace it?</source>
         <source>Translate text</source>
         <translation>翻译文本</translation>
     </message>
+    <message>
+        <source>Pin</source>
+        <translation>置顶</translation>
+    </message>
+    <message>
+        <source>Clear Original</source>
+        <translation>清空原文</translation>
+    </message>
+    <message>
+        <source>Enter or paste text...</source>
+        <translation>输入或粘贴文本...</translation>
+    </message>
+    <message>
+        <source>Engine not configured</source>
+        <translation>未配置引擎</translation>
+    </message>
+    <message>
+        <source>API key not configured</source>
+        <translation>未配置 API 密钥，请前往设置中配置。</translation>
+    </message>
+    <message><source>Open full window</source><translation>打开完整窗口</translation></message>
+    <message><source>No translation result</source><translation>无翻译结果</translation></message>
+    <message><source>Copied</source><translation>已复制</translation></message>
+    <message>
+        <source>%1 characters</source>
+        <translation>%1 个字符</translation>
+    </message>
+    <message>
+        <source>Minimize</source>
+        <translation>最小化</translation>
+    </message>
+    <message>
+        <source>Maximize</source>
+        <translation>最大化</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <source>Translation failed:</source>
+        <translation>翻译失败:</translation>
+    </message>
 </context>
 
 <!-- ========== Translation Settings ========== -->
@@ -1176,6 +1219,7 @@ Replace it?</source>
         <source>Translation</source>
         <translation>翻译</translation>
     </message>
+    <message><source>Translation Hotkey</source><translation>翻译快捷键</translation></message>
     <message>
         <source>Translation Settings</source>
         <translation>翻译设置</translation>

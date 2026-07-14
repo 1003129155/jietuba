@@ -171,4 +171,5 @@ class TestToolSettingsManager:
         assert "language" in defaults
         assert "clipboard_enabled" in defaults
         assert "ocr_enabled" in defaults
- 
+        assert defaults["translation_hotkey"] == ""
+        assert defaults["translation_hotkey_2"] == ""

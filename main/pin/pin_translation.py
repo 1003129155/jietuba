@@ -146,9 +146,6 @@ class PinTranslationHelper:
         Returns:
             翻译窗口的全局坐标位置
         """
-        # 翻译窗口的预估尺寸
-        translation_window_width = 400
-        translation_window_height = 300
         gap = 10
         
         # 获取钉图窗口的全局位置和尺寸
@@ -163,10 +160,14 @@ class PinTranslationHelper:
             screen = QApplication.primaryScreen()
         
         screen_geometry = screen.availableGeometry()
+        from translation.translation_dialog import TranslationDialog
+        translation_window_width, translation_window_height = (
+            TranslationDialog.initial_size_for_available_geometry(screen_geometry)
+        )
         screen_left = screen_geometry.left()
-        screen_right = screen_geometry.right()
+        screen_right = screen_left + screen_geometry.width()
         screen_top = screen_geometry.top()
-        screen_bottom = screen_geometry.bottom()
+        screen_bottom = screen_top + screen_geometry.height()
         
         # 计算右侧位置
         right_x = pin_x + pin_width + gap
@@ -180,15 +181,13 @@ class PinTranslationHelper:
             if left_x >= screen_left:
                 final_x = left_x
             else:
-                # 左右都不够，尽量靠右显示但不超出屏幕
-                final_x = max(screen_left, screen_right - translation_window_width)
+                # 左右都不够，限制在当前屏幕可用区域内
+                max_x = max(screen_left, screen_right - translation_window_width)
+                final_x = min(max(pin_x, screen_left), max_x)
         
         # 计算垂直位置
-        final_y = pin_y
-        if final_y + translation_window_height > screen_bottom:
-            final_y = max(screen_top, screen_bottom - translation_window_height)
-        if final_y < screen_top:
-            final_y = screen_top
+        max_y = max(screen_top, screen_bottom - translation_window_height)
+        final_y = min(max(pin_y, screen_top), max_y)
         
         return QPoint(final_x, final_y)
     
@@ -196,4 +195,3 @@ class PinTranslationHelper:
         """显示错误提示"""
         from ui.dialogs import show_warning_dialog
         show_warning_dialog(self.parent, _tr("Translation Error"), message)
- 

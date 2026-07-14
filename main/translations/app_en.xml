@@ -1014,6 +1014,10 @@ Replace it?</translation>
 <context>
     <name>TranslationDialog</name>
     <message>
+        <source>Translator</source>
+        <translation>Translator</translation>
+    </message>
+    <message>
         <source>Translation Result</source>
         <translation>Translation Result</translation>
     </message>
@@ -1077,6 +1081,57 @@ Replace it?</translation>
         <source>Swap languages</source>
         <translation>Swap languages</translation>
     </message>
+    <message>
+        <source>Translation</source>
+        <translation>Translation</translation>
+    </message>
+    <message>
+        <source>Translate</source>
+        <translation>Translate</translation>
+    </message>
+    <message>
+        <source>Pin</source>
+        <translation>Pin</translation>
+    </message>
+    <message>
+        <source>Clear Original</source>
+        <translation>Clear original</translation>
+    </message>
+    <message>
+        <source>Enter or paste text...</source>
+        <translation>Enter or paste text...</translation>
+    </message>
+    <message>
+        <source>Translation will appear here...</source>
+        <translation>Translation will appear here...</translation>
+    </message>
+    <message>
+        <source>Auto Detect</source>
+        <translation>Auto Detect</translation>
+    </message>
+    <message>
+        <source>Engine not configured</source>
+        <translation>Engine not configured</translation>
+    </message>
+    <message>
+        <source>API key not configured</source>
+        <translation>API key not configured. Configure it in Settings.</translation>
+    </message>
+    <message><source>Open full window</source><translation>Open Full Window</translation></message>
+    <message><source>No translation result</source><translation>No translation result</translation></message>
+    <message><source>Copied</source><translation>Copied</translation></message>
+    <message>
+        <source>%1 characters</source>
+        <translation>%1 characters</translation>
+    </message>
+    <message>
+        <source>Minimize</source>
+        <translation>Minimize</translation>
+    </message>
+    <message>
+        <source>Maximize</source>
+        <translation>Maximize</translation>
+    </message>
 </context>
 
 <!-- ========== Translation Settings ========== -->
@@ -1086,6 +1141,7 @@ Replace it?</translation>
         <source>Translation</source>
         <translation>Translation</translation>
     </message>
+    <message><source>Translation Hotkey</source><translation>Translation Hotkey</translation></message>
     <message>
         <source>Translation Settings</source>
         <translation>Translation Settings</translation>
