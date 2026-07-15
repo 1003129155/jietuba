@@ -453,6 +453,17 @@ class PreviewPopup(QWidget):
         self._pending_avoid_rect = None
         self._current_item_id = None
         self.hide()
+    
+    def force_cleanup(self):
+        """强制清理 - 用于窗口关闭时确保预览完全停止"""
+        self._show_timer.stop()
+        self._pending_item = None
+        self._pending_pos = None
+        self._pending_prefer_side = "auto"
+        self._pending_avoid_rect = None
+        self._current_item_id = None
+        if self.isVisible():
+            self.hide()
 
 
 __all__ = ["PreviewPopup"]

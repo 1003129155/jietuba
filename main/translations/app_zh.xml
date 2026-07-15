@@ -1212,6 +1212,16 @@ Replace it?</source>
     </message>
 </context>
 
+    <message>
+        <source>Switch target language</source>
+        <translation>切换目标语言</translation>
+    </message>
+    <message>
+        <source>Target</source>
+        <translation>目标语言</translation>
+    </message>
+</context>
+
 <!-- ========== Translation Settings ========== -->
 <context>
     <name>SettingsDialog</name>
@@ -2697,6 +2707,19 @@ SOFTWARE.</translation></message>
     <message><source>Save Format</source><translation>保存格式</translation></message>
     <message><source>OCR</source><translation>OCR</translation></message>
     <message><source>Keep original text formatting</source><translation>保留原文格式</translation></message>
+</context>
+
+<!-- ========== Translation Dialog ========== -->
+<context>
+    <name>TranslationDialog</name>
+    <message>
+        <source>Switch target language</source>
+        <translation>切换目标语言</translation>
+    </message>
+    <message>
+        <source>Target</source>
+        <translation>目标语言</translation>
+    </message>
 </context>
 
 <context>

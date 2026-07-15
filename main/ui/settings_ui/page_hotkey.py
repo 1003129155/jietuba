@@ -140,6 +140,7 @@ def create_hotkey_page(dialog) -> QWidget:
     cb_card.setFixedHeight(80)
     grp_global.addSettingCard(cb_card)
 
+    # 智能翻译热键（主 + 备用）
     tr_card = WhiteCard(grp_global)
     tr_h = QHBoxLayout(tr_card)
     tr_h.setContentsMargins(20, 8, 20, 8)

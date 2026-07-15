@@ -1132,6 +1132,14 @@ Replace it?</translation>
         <source>Maximize</source>
         <translation>Maximize</translation>
     </message>
+    <message>
+        <source>Switch target language</source>
+        <translation>Switch Target Language</translation>
+    </message>
+    <message>
+        <source>Target</source>
+        <translation>Target</translation>
+    </message>
 </context>
 
 <!-- ========== Translation Settings ========== -->

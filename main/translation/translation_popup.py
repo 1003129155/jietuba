@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QMenu,
     QPushButton,
     QTextEdit,
     QVBoxLayout,
@@ -18,6 +19,7 @@ from PySide6.QtWidgets import (
 
 from core.i18n import make_tr
 from .translation_dialog import DARK, LIGHT, Palette
+from .languages import TRANSLATION_LANGUAGES
 
 
 _tr = make_tr("TranslationDialog")
@@ -29,6 +31,7 @@ class TranslationPopup(QWidget):
     open_full_requested = Signal(str, str, str)
     manual_translate_requested = Signal(str)
     manual_input_changed = Signal()
+    target_lang_changed = Signal(str)  # 目标语言变更信号
 
     WIDTH = 420
     MIN_HEIGHT = 176
@@ -49,6 +52,7 @@ class TranslationPopup(QWidget):
         self._backend_ready = True
         self._drag_offset: QPoint | None = None
         self._loading_step = 0
+        self._target_lang = "ZH"  # 当前目标语言
 
         self.setObjectName("translationPopup")
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
@@ -118,9 +122,19 @@ class TranslationPopup(QWidget):
         footer.setContentsMargins(0, 1, 0, 0)
         footer.setSpacing(7)
 
-        self.status_label = QLabel("", self)
-        self.status_label.setObjectName("popupStatus")
-        footer.addWidget(self.status_label, 1)
+        # 目标语言标签
+        lang_label = QLabel(_tr("Target") + ": ", self)
+        lang_label.setObjectName("popupLangLabel")
+        footer.addWidget(lang_label)
+
+        self.lang_button = QPushButton("中文", self)
+        self.lang_button.setObjectName("popupLangButton")
+        self.lang_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.lang_button.setToolTip(_tr("Switch target language"))
+        self.lang_button.clicked.connect(self._show_lang_menu)
+        footer.addWidget(self.lang_button)
+        
+        footer.addStretch(1)
 
         self.copy_button = QPushButton(_tr("Copy Translation"), self)
         self.copy_button.setObjectName("popupChip")
@@ -146,6 +160,52 @@ class TranslationPopup(QWidget):
         view.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         return view
 
+    def _show_lang_menu(self) -> None:
+        """显示语言选择菜单"""
+        menu = QMenu(self)
+        menu.setObjectName("popupLangMenu")
+        
+        # 添加所有支持的语言
+        for code, name in TRANSLATION_LANGUAGES.items():
+            action = menu.addAction(name)
+            action.setData(code)
+            if code == self._target_lang:
+                action.setCheckable(True)
+                action.setChecked(True)
+        
+        # 在按钮下方弹出菜单
+        pos = self.lang_button.mapToGlobal(self.lang_button.rect().bottomLeft())
+        action = menu.exec(pos)
+        
+        if action:
+            new_lang = action.data()
+            if new_lang != self._target_lang:
+                self._target_lang = new_lang
+                self.lang_button.setText(TRANSLATION_LANGUAGES[new_lang])
+                self.target_lang_changed.emit(new_lang)
+                # 如果有原文，立即重新翻译到新语言
+                if self._source_text:
+                    # 显示loading状态
+                    self.result_edit.setProperty("error", False)
+                    self.result_edit.setPlainText(_tr("Translating..."))
+                    self._refresh_result_style()
+                    self.copy_button.setEnabled(False)
+                    self._loading_step = 0
+                    self._loading_timer.start()
+                    
+                    if self._mode == "result":
+                        # result模式：通过manager重新翻译
+                        self.manual_translate_requested.emit(self._source_text)
+                    elif self._mode == "input":
+                        # input模式：触发本地翻译
+                        self.manual_translate_requested.emit(self._source_text)
+
+    def set_target_lang(self, lang_code: str) -> None:
+        """设置目标语言（外部调用）"""
+        if lang_code in TRANSLATION_LANGUAGES:
+            self._target_lang = lang_code
+            self.lang_button.setText(TRANSLATION_LANGUAGES[lang_code])
+
     def show_loading(self, source_text: str, position: QPoint | None = None) -> None:
         self._set_mode("result")
         self._source_text = source_text.strip()
@@ -155,7 +215,6 @@ class TranslationPopup(QWidget):
         self.result_edit.setPlainText(_tr("Translating..."))
         self.result_edit.setProperty("error", False)
         self.copy_button.setEnabled(False)
-        self.status_label.clear()
         self._loading_step = 0
         self._loading_timer.start()
         self._fit_content()
@@ -177,7 +236,6 @@ class TranslationPopup(QWidget):
         self.divider.hide()
         self.result_edit.hide()
         self.copy_button.hide()
-        self.status_label.setText(_tr("Enter text to translate..."))
         self._fit_content()
         self._place_near(position or QCursor.pos())
         self._show_animated()
@@ -203,7 +261,6 @@ class TranslationPopup(QWidget):
         self.result_edit.show()
         self.copy_button.show()
         self.copy_button.setEnabled(bool(translated_text))
-        self.status_label.setText(detected_lang or "")
         self._refresh_result_style()
         self._fit_content()
 
@@ -217,7 +274,6 @@ class TranslationPopup(QWidget):
         self.result_edit.show()
         self.copy_button.show()
         self.copy_button.setEnabled(False)
-        self.status_label.clear()
         self._refresh_result_style()
         self._fit_content()
 
@@ -261,7 +317,17 @@ class TranslationPopup(QWidget):
             }}
             QTextEdit#popupResult[error="true"] {{ color: {p.danger}; font-weight: 500; }}
             QFrame#popupDivider {{ background: {p.fill_hover}; border: none; }}
-            QLabel#popupStatus {{ color: {p.text_3}; font-size: 11px; padding-left: 3px; }}
+            QLabel#popupLangLabel {{
+                color: {p.text_3}; font-size: 11px; padding-left: 3px;
+            }}
+            QPushButton#popupLangButton {{
+                color: {p.text_2}; background: transparent; border: none;
+                border-radius: 6px; padding: 4px 8px; font-size: 12px; font-weight: 600;
+                text-align: left;
+            }}
+            QPushButton#popupLangButton:hover {{ 
+                color: {p.text}; background: {p.fill}; 
+            }}
             QPushButton#popupChip, QPushButton#popupPrimary {{
                 border: 1px solid transparent; border-radius: 9px; padding: 6px 10px;
                 font-size: 12px; font-weight: 600;
@@ -276,6 +342,16 @@ class TranslationPopup(QWidget):
             QScrollBar:vertical {{ background: transparent; width: 5px; margin: 2px 0; }}
             QScrollBar::handle:vertical {{ background: {p.fill_hover}; border-radius: 2px; min-height: 20px; }}
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
+            QMenu#popupLangMenu {{
+                background: {p.surface_strong}; border: 1px solid {p.fill_hover};
+                border-radius: 9px; padding: 5px;
+            }}
+            QMenu#popupLangMenu::item {{
+                color: {p.text}; background: transparent; padding: 6px 12px;
+                border-radius: 6px; font-size: 12px;
+            }}
+            QMenu#popupLangMenu::item:selected {{ background: {p.accent}; color: white; }}
+            QMenu#popupLangMenu::item:checked {{ font-weight: 600; }}
             """
         )
         self.update()
@@ -317,17 +393,11 @@ class TranslationPopup(QWidget):
             self.divider.hide()
             self.result_edit.hide()
             self.copy_button.hide()
-            self.status_label.setText(
-                _tr("Enter text to translate...")
-                if self._backend_ready
-                else _tr("API key not configured")
-            )
             self._fit_content()
             return
         if not self._backend_ready:
             self.show_error(_tr("API key not configured"))
             return
-        self.status_label.setText(_tr("Translating..."))
         self._manual_debounce.start()
         self._fit_content()
 
@@ -346,7 +416,6 @@ class TranslationPopup(QWidget):
         self.copy_button.setEnabled(False)
         self.result_edit.setProperty("error", False)
         self.result_edit.setPlainText(_tr("Translating..."))
-        self.status_label.clear()
         self._loading_step = 0
         self._loading_timer.start()
         self._refresh_result_style()

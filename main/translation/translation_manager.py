@@ -237,6 +237,7 @@ class TranslationManager(QObject):
         self._stop_current_thread()
         self._activate_surface("compact")
         popup = self._ensure_popup()
+        popup.set_target_lang(target_lang)  # 同步目标语言
         popup.set_backend_ready(bool(api_key))
         popup.show_loading(text, position)
 
@@ -278,10 +279,11 @@ class TranslationManager(QObject):
         self._stop_current_thread()
         self._activate_surface("compact")
         popup = self._ensure_popup()
+        popup.set_target_lang(target_lang)  # 同步目标语言
         popup.set_backend_ready(bool(api_key))
         popup.show_input(position)
         if not api_key:
-            popup.show_error(self._api_key_error())
+            popup.show_error(_tr("API key not configured"))
 
     def _on_popup_input_changed(self):
         """Invalidate an in-flight result as soon as manual text changes."""
@@ -300,14 +302,27 @@ class TranslationManager(QObject):
             return
         log_info(f"开始小窗输入翻译: {text[:50]}...", "Translation")
         self.translation_started.emit(text)
+        # 使用小窗当前选择的目标语言
+        target_lang = self._popup._target_lang if self._is_popup_valid() else self._target_lang
         self._start_translation(
             text,
             self._api_key,
-            self._target_lang,
+            target_lang,
             "auto",
             self._use_pro,
             result_target="compact",
         )
+
+    def _on_popup_target_lang_changed(self, new_lang: str):
+        """小窗目标语言变更"""
+        self._target_lang = new_lang
+        # 保存到配置
+        try:
+            from settings import get_tool_settings_manager
+            get_tool_settings_manager().set_app_setting("translation_target_lang", new_lang)
+            log_debug(f"小窗目标语言已更新: {new_lang}", "Translation")
+        except Exception as e:
+            log_warning(f"保存目标语言失败: {e}", "Translation")
 
     def _ensure_popup(self):
         """Create the compact popup lazily and reuse it for fast subsequent calls."""
@@ -320,6 +335,9 @@ class TranslationManager(QObject):
             self._popup.manual_translate_requested.connect(
                 self._on_popup_translate_requested
             )
+            self._popup.target_lang_changed.connect(self._on_popup_target_lang_changed)
+            # 设置初始目标语言
+            self._popup.set_target_lang(self._target_lang)
         return self._popup
 
     def _is_popup_valid(self) -> bool:

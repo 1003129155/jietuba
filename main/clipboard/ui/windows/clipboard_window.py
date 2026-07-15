@@ -1260,7 +1260,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
 
         super().hideEvent(event)
         self._save_window_geometry()
-        PreviewPopup.instance().hide_preview()
+        PreviewPopup.instance().force_cleanup()
         active_popup = QApplication.activePopupWidget()
         if active_popup is not None:
             active_popup.close()
@@ -1270,7 +1270,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
         if hasattr(self, "_shortcut_handler") and self._shortcut_handler:
             ShortcutManager.instance().unregister(self._shortcut_handler)
         self._save_window_geometry()
-        PreviewPopup.instance().hide_preview()
+        PreviewPopup.instance().force_cleanup()
         active_popup = QApplication.activePopupWidget()
         if active_popup is not None:
             active_popup.close()
