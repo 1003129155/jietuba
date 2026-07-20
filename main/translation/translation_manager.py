@@ -30,6 +30,7 @@ from typing import Optional
 from PySide6.QtCore import QCoreApplication, QObject, QPoint, QTimer, Signal
 
 from core import log_info, log_debug, log_error, log_warning
+from core.ui_theme import get_ui_theme
 
 
 class TranslationManager(QObject):
@@ -59,6 +60,8 @@ class TranslationManager(QObject):
         self._use_pro = False
         self._split_sentences = "nonewlines"  # 分句模式: "0"=不分句, "1"=自动分句, "nonewlines"=忽略换行
         self._preserve_formatting = True  # 保留格式
+        self._ui_theme = get_ui_theme()
+        self._ui_theme.theme_changed.connect(self._on_ui_theme_changed)
         
         log_debug("TranslationManager 已初始化", "Translation")
 
@@ -84,6 +87,18 @@ class TranslationManager(QObject):
         elif target == "compact":
             if self._is_dialog_valid():
                 self._dialog.hide()
+
+    def _current_theme_name(self) -> str:
+        """Return the effective application theme used by translation surfaces."""
+        return "dark" if self._ui_theme.is_dark else "light"
+
+    def _on_ui_theme_changed(self, tokens) -> None:
+        """Refresh any translation surfaces that have already been created."""
+        theme_name = "dark" if tokens.is_dark else "light"
+        if self._is_dialog_valid():
+            self._dialog.set_theme(theme_name)
+        if self._is_popup_valid():
+            self._popup.set_theme(theme_name)
     
     @classmethod
     def instance(cls) -> 'TranslationManager':
@@ -283,7 +298,7 @@ class TranslationManager(QObject):
         popup.set_backend_ready(bool(api_key))
         popup.show_input(position)
         if not api_key:
-            popup.show_error(_tr("API key not configured"))
+            popup.show_error(self._api_key_error())
 
     def _on_popup_input_changed(self):
         """Invalidate an in-flight result as soon as manual text changes."""
@@ -330,6 +345,7 @@ class TranslationManager(QObject):
             from .translation_popup import TranslationPopup
 
             self._popup = TranslationPopup()
+            self._popup.set_theme(self._current_theme_name())
             self._popup.open_full_requested.connect(self._open_full_from_popup)
             self._popup.manual_input_changed.connect(self._on_popup_input_changed)
             self._popup.manual_translate_requested.connect(
@@ -398,6 +414,7 @@ class TranslationManager(QObject):
                 source_lang=source_lang or "auto",
                 target_lang=target_lang
             )
+            self._dialog.set_theme(self._current_theme_name())
             # 连接关闭信号
             self._dialog.destroyed.connect(self._on_dialog_destroyed)
             # 连接翻译信号 (text, source_lang, target_lang)

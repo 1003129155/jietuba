@@ -5,9 +5,11 @@ from __future__ import annotations
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
+from core.ui_theme import get_ui_theme
+
 from .labels import BodyLabel, CaptionLabel
 from .switch import SwitchButton
-from .theme import BORDER, FONT_FAMILY, SURFACE, SURFACE_HOVER, TEXT, TEXT_MUTED, to_qicon
+from .theme import FONT_FAMILY, to_qicon, ui_tokens
 
 
 class ExpandLayout(QVBoxLayout):
@@ -39,12 +41,9 @@ class ExpandLayout(QVBoxLayout):
 class SettingCard(QFrame):
     def __init__(self, icon, title, content=None, parent=None):
         super().__init__(parent)
+        self._theme_icon = icon
         self.setObjectName("FluentLiteSettingCard")
         self.setMinimumHeight(62)
-        self.setStyleSheet(f"""
-            QFrame#FluentLiteSettingCard {{ background: transparent; border: none; border-radius: 12px; }}
-            QFrame#FluentLiteSettingCard:hover {{ background: rgba(255,255,255,.44); border: none; }}
-        """)
         self.hBoxLayout = QHBoxLayout(self)
         self.hBoxLayout.setContentsMargins(15, 9, 15, 9)
         self.hBoxLayout.setSpacing(13)
@@ -60,15 +59,31 @@ class SettingCard(QFrame):
         self._text_layout.setContentsMargins(0, 0, 0, 0)
         self._text_layout.setSpacing(3)
         self.titleLabel = BodyLabel(str(title), self)
-        self.titleLabel.setStyleSheet(f"color: {TEXT}; font: 600 13px {FONT_FAMILY}; background: transparent; border: none;")
         self._text_layout.addWidget(self.titleLabel)
         self.contentLabel = CaptionLabel("" if content is None else str(content), self)
         self.contentLabel.setWordWrap(True)
-        self.contentLabel.setStyleSheet(f"color: {TEXT_MUTED}; font: 12px {FONT_FAMILY}; background: transparent; border: none;")
         self.contentLabel.setVisible(bool(content))
         self._text_layout.addWidget(self.contentLabel)
         self.hBoxLayout.addLayout(self._text_layout, 1)
         self.hBoxLayout.addStretch()
+        self._apply_theme()
+        get_ui_theme().theme_changed.connect(self._apply_theme)
+
+    def _apply_theme(self, _tokens=None):
+        t = ui_tokens(self)
+        self.setStyleSheet(f"""
+            QFrame#FluentLiteSettingCard {{ background: transparent; border: none; border-radius: 12px; }}
+            QFrame#FluentLiteSettingCard:hover {{ background: {t.surface_subtle}; border: none; }}
+        """)
+        self.iconLabel.setPixmap(to_qicon(self._theme_icon, self).pixmap(20, 20))
+        self.titleLabel.setStyleSheet(
+            f"color: {t.text}; font: 600 13px {FONT_FAMILY}; "
+            "background: transparent; border: none;"
+        )
+        self.contentLabel.setStyleSheet(
+            f"color: {t.text_muted}; font: 12px {FONT_FAMILY}; "
+            "background: transparent; border: none;"
+        )
 
     def setTitle(self, title):
         self.titleLabel.setText(str(title))
@@ -114,33 +129,45 @@ class SettingCardGroup(QWidget):
         self.vBoxLayout.setContentsMargins(0, 0, 0, 0)
         self.vBoxLayout.setSpacing(10)
         self.titleLabel = QLabel(str(title), self)
-        self.titleLabel.setStyleSheet(
-            f"color: #000000; font: 600 12px {FONT_FAMILY}; padding: 2px 8px 0 8px; background: transparent;"
-        )
         self.vBoxLayout.addWidget(self.titleLabel)
         self._card_container = QFrame(self)
         self._card_container.setObjectName("FluentLiteGroupBody")
-        self._card_container.setStyleSheet("""
-            QFrame#FluentLiteGroupBody {
-                background: rgba(255, 255, 255, 0.62);
-                border: 1px solid rgba(255, 255, 255, 0.88);
-                border-radius: 15px;
-            }
-        """)
         self.cardLayout = ExpandLayout(self._card_container)
         self.cardLayout.setContentsMargins(2, 2, 2, 2)
         self.cardLayout.setSpacing(0)
         self.vBoxLayout.addWidget(self._card_container)
         self._cards = []
+        self._separators = []
+        self._apply_theme()
+        get_ui_theme().theme_changed.connect(self._apply_theme)
+
+    def _apply_theme(self, _tokens=None):
+        t = ui_tokens(self)
+        self.titleLabel.setStyleSheet(
+            f"color: {t.text}; font: 600 12px {FONT_FAMILY}; "
+            "padding: 2px 8px 0 8px; background: transparent;"
+        )
+        self._card_container.setStyleSheet(f"""
+            QFrame#FluentLiteGroupBody {{
+                background: {t.surface};
+                border: 1px solid {t.border};
+                border-radius: 15px;
+            }}
+        """)
+        for separator in self._separators:
+            separator.setStyleSheet(
+                f"background: {t.separator}; border: none; margin-left: 52px;"
+            )
 
     def addSettingCard(self, card):
         if self._cards:
             separator = QFrame(self._card_container)
             separator.setFixedHeight(1)
             separator.setStyleSheet(
-                "background: rgba(98, 116, 105, 0.13); border: none; margin-left: 52px;"
+                f"background: {ui_tokens(self).separator}; border: none; margin-left: 52px;"
             )
             self.cardLayout.addWidget(separator)
+            self._separators.append(separator)
         card.setParent(self._card_container)
         self.cardLayout.addWidget(card)
         self._cards.append(card)
@@ -169,6 +196,12 @@ class SimpleCardWidget(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("FluentLiteSimpleCard")
+        self._apply_theme()
+        get_ui_theme().theme_changed.connect(self._apply_theme)
+
+    def _apply_theme(self, _tokens=None):
+        t = ui_tokens(self)
         self.setStyleSheet(
-            f"QFrame#FluentLiteSimpleCard {{ background: {SURFACE}; border: 1px solid rgba(255,255,255,.86); border-radius: 14px; }}"
+            f"QFrame#FluentLiteSimpleCard {{ background: {t.surface}; "
+            f"border: 1px solid {t.border}; border-radius: 14px; }}"
         )

@@ -5,7 +5,9 @@ from enum import Enum
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import QButtonGroup, QPushButton, QVBoxLayout, QWidget
 
-from .theme import ACCENT, FONT_FAMILY, to_qicon
+from core.ui_theme import get_ui_theme
+
+from .theme import ACCENT, FONT_FAMILY, to_qicon, ui_tokens
 
 
 class NavigationItemPosition(Enum):
@@ -17,6 +19,7 @@ class NavigationInterface(QWidget):
     def __init__(self, parent=None, showMenuButton=False, showReturnButton=False, collapsible=False):
         super().__init__(parent)
         self._items = {}
+        self._icons = {}
         self._current = None
         self._group = QButtonGroup(self)
         self._group.setExclusive(True)
@@ -31,12 +34,13 @@ class NavigationInterface(QWidget):
         self._layout.addStretch(1)
         self._layout.addLayout(self._bottom)
         self.setStyleSheet("background: transparent;")
+        get_ui_theme().theme_changed.connect(self._apply_theme)
 
     def addItem(self, routeKey, icon, text, onClick, position=NavigationItemPosition.TOP, tooltip=None):
         button = QPushButton(str(text), self)
         button.setObjectName("FluentLiteNavItem")
         button.setCheckable(True)
-        button.setIcon(to_qicon(icon))
+        button.setIcon(to_qicon(icon, button))
         button.setIconSize(QSize(18, 18))
         button.setCursor(Qt.CursorShape.PointingHandCursor)
         # Labels are already visible in the expanded navigation.  Creating a
@@ -58,9 +62,28 @@ class NavigationInterface(QWidget):
             button.clicked.connect(onClick)
         self._group.addButton(button)
         self._items[routeKey] = button
+        self._icons[routeKey] = icon
+        self._style_button(button)
         target = self._bottom if position == NavigationItemPosition.BOTTOM else self._top
         target.addWidget(button)
         return button
+
+    def _style_button(self, button):
+        t = ui_tokens(button)
+        button.setStyleSheet(f"""
+            QPushButton#FluentLiteNavItem {{ min-height: 40px; padding: 2px 13px; text-align: left;
+                color: {t.text}; background: transparent; border: 1px solid transparent; border-radius: 11px;
+                font: 13px {FONT_FAMILY}; }}
+            QPushButton#FluentLiteNavItem:hover {{ color: {t.text}; background: {t.surface_subtle}; }}
+            QPushButton#FluentLiteNavItem:checked {{ color: {t.text}; background: {t.surface_strong};
+                border: 1px solid {t.border}; border-left: 4px solid {ACCENT};
+                padding-left: 10px; font-weight: 600; }}
+        """)
+
+    def _apply_theme(self, _tokens=None):
+        for route_key, button in self._items.items():
+            button.setIcon(to_qicon(self._icons[route_key], button))
+            self._style_button(button)
 
     def setCurrentItem(self, routeKey):
         button = self._items.get(routeKey)

@@ -14,7 +14,7 @@ from settings import get_tool_settings_manager
 
 
 VK_CONTROL = 0x11
-VK_C = 0x43
+VK_INSERT = 0x2D
 KEYEVENTF_KEYUP = 0x0002
 
 
@@ -92,10 +92,11 @@ class SmartTranslationController(QObject):
         self._open_compact_input(token, "empty-clipboard")
 
     def _send_copy_shortcut(self) -> None:
+        """Send the Windows alternate copy shortcut without raising console SIGINT."""
         user32 = ctypes.windll.user32
         user32.keybd_event(VK_CONTROL, 0, 0, 0)
-        user32.keybd_event(VK_C, 0, 0, 0)
-        user32.keybd_event(VK_C, 0, KEYEVENTF_KEYUP, 0)
+        user32.keybd_event(VK_INSERT, 0, 0, 0)
+        user32.keybd_event(VK_INSERT, 0, KEYEVENTF_KEYUP, 0)
         user32.keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0)
 
     @Slot(object)

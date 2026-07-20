@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QWidget, QFrame, QVBoxLayout, QHBoxLayout, QLabel
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QColor, QPainter
 from core import safe_event
+from core.ui_theme import get_ui_theme
 
 from ui.fluent_lite import (
     SwitchButton, SimpleCardWidget, BodyLabel, CaptionLabel,
@@ -16,8 +17,8 @@ from ui.fluent_lite import (
 
 
 def theme_color(light: str, dark: str) -> str:
-    """返回当前主题下的颜色（固定亮色）。"""
-    return light
+    """Return one of two values for the effective application theme."""
+    return dark if get_ui_theme().is_dark else light
 
 
 def theme_surface_color() -> str:
@@ -47,18 +48,46 @@ def theme_popup_hover_background() -> str:
 def theme_text_style(font_size: int = 13, bold: bool = False, extra: str = "") -> str:
     weight = " font-weight: 600;" if bold else ""
     suffix = f" {extra.strip()}" if extra.strip() else ""
-    return f"font-size: {font_size}px; background: transparent;{weight}{suffix}"
+    color = get_ui_theme().tokens.text
+    return f"font-size: {font_size}px; color: {color}; background: transparent;{weight}{suffix}"
 
 
 def theme_caption_style(font_size: int = 12, extra: str = "") -> str:
     suffix = f" {extra.strip()}" if extra.strip() else ""
-    return f"font-size: {font_size}px; background: transparent;{suffix}"
+    color = get_ui_theme().tokens.text_muted
+    return f"font-size: {font_size}px; color: {color}; background: transparent;{suffix}"
+
+
+def apply_theme_text_style(
+    widget: QWidget,
+    font_size: int = 13,
+    bold: bool = False,
+    extra: str = "",
+    caption: bool = False,
+):
+    """Apply and register a semantic text style for runtime refresh."""
+    widget._ui_theme_text_spec = (font_size, bold, extra, caption)
+    style = (
+        theme_caption_style(font_size, extra)
+        if caption
+        else theme_text_style(font_size, bold, extra)
+    )
+    widget.setStyleSheet(style)
+
+
+def refresh_theme_widget_styles(root: QWidget):
+    """Refresh semantic text styles registered below a top-level widget."""
+    for widget in (root, *root.findChildren(QWidget)):
+        spec = getattr(widget, "_ui_theme_text_spec", None)
+        if spec is not None:
+            apply_theme_text_style(widget, *spec)
 
 
 def theme_menu_style() -> str:
     return f"""
         QMenu {{
             background-color: {theme_popup_background()};
+            color: {get_ui_theme().tokens.text};
             border: 1px solid {theme_border_color()};
             border-radius: 6px;
             padding: 4px 0;
@@ -66,6 +95,7 @@ def theme_menu_style() -> str:
         QMenu::item {{
             padding: 6px 20px;
             font-size: 13px;
+            color: {get_ui_theme().tokens.text};
             background: transparent;
         }}
         QMenu::item:selected {{
@@ -87,18 +117,13 @@ class SettingCardGroup(_SettingCardGroupBase):
         h = self.cardLayout.heightForWidth(self.width()) + 46
         self.setMinimumHeight(h)
 
-# ── 设置页通用样式常量 ────────────────────────────────
-LBL_STYLE = "font-size: 13px; background-color: transparent;"
-TITLE_STYLE = "font-size: 14px; font-weight: bold; background-color: transparent;"
-
-
 def make_row(label, ctrl_widget: QWidget) -> QHBoxLayout:
     """创建统一的「标签 — 控件」行。"""
     row = QHBoxLayout()
     row.setSpacing(10)
     if isinstance(label, str):
         lbl = QLabel(label)
-        lbl.setStyleSheet(LBL_STYLE)
+        apply_theme_text_style(lbl, 13)
     else:
         lbl = label
     row.addWidget(lbl, 1)
@@ -109,7 +134,7 @@ def make_row(label, ctrl_widget: QWidget) -> QHBoxLayout:
 def make_card_title(text: str) -> QLabel:
     """创建卡片标题"""
     lbl = QLabel(text)
-    lbl.setStyleSheet(TITLE_STYLE)
+    apply_theme_text_style(lbl, 14, bold=True)
     return lbl
 
 
@@ -201,11 +226,16 @@ class WhiteCard(QFrame):
 
     @safe_event
     def paintEvent(self, e):
+        t = get_ui_theme().tokens
         painter = QPainter(self)
         painter.setRenderHints(QPainter.RenderHint.Antialiasing)
         rect = self.rect().adjusted(1, 1, -1, -1)
-        painter.setBrush(QColor(255, 255, 255, 46))
-        painter.setPen(QColor(255, 255, 255, 76))
+        if t.is_dark:
+            painter.setBrush(QColor(43, 47, 52, 245))
+            painter.setPen(QColor(255, 255, 255, 31))
+        else:
+            painter.setBrush(QColor(255, 255, 255, 46))
+            painter.setPen(QColor(255, 255, 255, 76))
         painter.drawRoundedRect(rect, 11, 11)
 
 

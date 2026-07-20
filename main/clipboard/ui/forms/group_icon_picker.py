@@ -10,7 +10,7 @@ from PySide6.QtCore import QTimer, Qt, QPoint
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QWidget
 
 from ui.fluent_lite import CaptionLabel, LineEdit
-from ui.fluent_lite.theme import ACCENT, ACCENT_SOFT, ACCENT_SUBTLE
+from ui.fluent_lite.theme import ui_tokens
 from ..layout_scale import scale_ui, scale_x, scale_y
 
 try:
@@ -30,7 +30,9 @@ def create_group_icon_picker(dialog, current_icon: str = "📁"):
     dialog.icon_input.setText(current_icon)
     dialog.icon_input.setMaxLength(4)
     dialog.icon_input.setStyleSheet(
-        f"font-size: {scale_ui(18)}px; min-width: {scale_x(120)}px; max-width: {scale_x(150)}px;"
+        dialog.icon_input.styleSheet()
+        + f"QLineEdit {{ font-size: {scale_ui(18)}px; "
+          f"min-width: {scale_x(120)}px; max-width: {scale_x(150)}px; }}"
     )
     dialog.icon_input.textChanged.connect(lambda text, token=form_token: dialog._on_icon_input_changed(text, token))
     input_row.addWidget(dialog.icon_input)
@@ -41,12 +43,13 @@ def create_group_icon_picker(dialog, current_icon: str = "📁"):
     dialog.icon_preview = QLabel(current_icon)
     dialog.icon_preview.setFixedSize(scale_ui(48), scale_ui(48))
     dialog.icon_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    tokens = ui_tokens(dialog)
     dialog.icon_preview.setStyleSheet(
         f"""
             QLabel {{
                 font-size: {scale_ui(28)}px;
-                background: #F5F5F5;
-                border: 2px solid #E0E0E0;
+                background: {tokens.surface_subtle};
+                border: 2px solid {tokens.border};
                 border-radius: {scale_ui(8)}px;
             }}
         """
@@ -70,7 +73,7 @@ def create_group_icon_picker(dialog, current_icon: str = "📁"):
         btn.setFixedSize(scale_x(36), scale_y(30))
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setCheckable(True)
-        btn.setStyleSheet(emoji_tab_style(False))
+        btn.setStyleSheet(emoji_tab_style(False, dialog))
         btn.clicked.connect(lambda checked, i=idx, token=form_token: dialog._switch_emoji_group(i, token))
         tab_bar.addWidget(btn)
         dialog._emoji_tab_buttons.append(btn)
@@ -85,7 +88,7 @@ def create_group_icon_picker(dialog, current_icon: str = "📁"):
         f"""
             QScrollArea {{ border: none; background: transparent; }}
             QScrollBar:vertical {{ width: {scale_x(6)}px; background: transparent; }}
-            QScrollBar::handle:vertical {{ background: #CCC; border-radius: {scale_ui(3)}px; min-height: {scale_y(20)}px; }}
+            QScrollBar::handle:vertical {{ background: {tokens.border_hover}; border-radius: {scale_ui(3)}px; min-height: {scale_y(20)}px; }}
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0px; }}
         """
     )
@@ -95,40 +98,44 @@ def create_group_icon_picker(dialog, current_icon: str = "📁"):
     QTimer.singleShot(0, lambda token=form_token: dialog._switch_emoji_group(0, token))
 
 
-def emoji_tab_style(active: bool) -> str:
+def emoji_tab_style(active: bool, dialog=None) -> str:
     """返回 emoji 分组 tab 按钮样式。"""
+    tokens = ui_tokens(dialog)
     if active:
         return f"""
             QPushButton {{
-                background: {ACCENT_SOFT}; border: none;
-                border-bottom: 2px solid {ACCENT};
+                color: {tokens.text};
+                background: {tokens.accent_soft}; border: none;
+                border-bottom: 2px solid {tokens.accent};
                 border-radius: 0px; font-size: {scale_ui(18)}px;
                 padding: {scale_y(2)}px 0px;
             }}
         """
     return f"""
         QPushButton {{
+            color: {tokens.text};
             background: transparent; border: none;
             border-bottom: 2px solid transparent;
             border-radius: 0px; font-size: {scale_ui(18)}px;
             padding: {scale_y(2)}px 0px;
         }}
-        QPushButton:hover {{ background: #F5F5F5; }}
+        QPushButton:hover {{ background: {tokens.surface_hover}; }}
     """
 
 
-def emoji_btn_style() -> str:
+def emoji_btn_style(dialog=None) -> str:
     """返回 emoji 网格按钮样式。"""
+    tokens = ui_tokens(dialog)
     return f"""
         QPushButton {{
             background: transparent; border: none;
             border-radius: {scale_ui(4)}px; font-size: {scale_ui(22)}px; padding: 0px;
         }}
         QPushButton:hover {{
-            background: {ACCENT_SOFT};
+            background: {tokens.accent_soft};
         }}
         QPushButton:pressed {{
-            background: {ACCENT_SUBTLE};
+            background: {tokens.surface_hover};
         }}
     """
 
@@ -138,7 +145,7 @@ def switch_emoji_group(dialog, group_idx: int):
     dialog._emoji_current_idx = group_idx
     for i, btn in enumerate(dialog._emoji_tab_buttons):
         btn.setChecked(i == group_idx)
-        btn.setStyleSheet(emoji_tab_style(i == group_idx))
+        btn.setStyleSheet(emoji_tab_style(i == group_idx, dialog))
 
     group_name = dialog._emoji_group_order[group_idx]
     emojis = dialog._emoji_groups[group_name]
@@ -156,7 +163,7 @@ def switch_emoji_group(dialog, group_idx: int):
     grid.setSpacing(spacing)
     grid.setContentsMargins(scale_ui(2), scale_ui(2), scale_ui(2), scale_ui(2))
 
-    btn_style = emoji_btn_style()
+    btn_style = emoji_btn_style(dialog)
     form_token = getattr(dialog, "_detail_form_token", None)
     for i, em in enumerate(emojis):
         btn = QPushButton(em)

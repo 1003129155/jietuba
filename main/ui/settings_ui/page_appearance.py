@@ -72,6 +72,11 @@ def create_appearance_page(dialog) -> QWidget:
     layout.setContentsMargins(0, 0, 10, 0)
     layout.setSpacing(20)
 
+    # ── 应用界面 ──────────────────────────────────────
+    grp_app = SettingCardGroup(dialog.tr("Application"), view)
+    _build_application_section(dialog, grp_app)
+    layout.addWidget(grp_app)
+
     # ── 截图外观 ──────────────────────────────────────
     grp_ss = SettingCardGroup(dialog.tr("Screenshot"), view)
     _build_screenshot_section(dialog, grp_ss)
@@ -93,6 +98,34 @@ def create_appearance_page(dialog) -> QWidget:
     layout.addStretch()
     scroll.setWidget(view)
     return scroll
+
+
+# ================================================================
+# 应用界面
+# ================================================================
+
+def _build_application_section(dialog, grp: SettingCardGroup):
+    """Application appearance: follow OS, force light or force dark."""
+    from core.ui_theme import get_ui_theme
+
+    card = FSettingCard(
+        FluentIcon.APPLICATION,
+        dialog.tr("Interface Theme"),
+        dialog.tr("Choose a display mode."),
+        parent=grp,
+    )
+    dialog._ui_theme_combo = ComboBox(card)
+    dialog._ui_theme_combo.setFixedWidth(150)
+    dialog._ui_theme_combo.addItem(dialog.tr("System"), userData="system")
+    dialog._ui_theme_combo.addItem(dialog.tr("Light"), userData="light")
+    dialog._ui_theme_combo.addItem(dialog.tr("Dark"), userData="dark")
+    index = dialog._ui_theme_combo.findData(get_ui_theme().mode.value)
+    dialog._ui_theme_combo.setCurrentIndex(max(0, index))
+    card.hBoxLayout.addWidget(
+        dialog._ui_theme_combo, 0, Qt.AlignmentFlag.AlignRight
+    )
+    card.hBoxLayout.addSpacing(16)
+    grp.addSettingCard(card)
 
 
 # ================================================================

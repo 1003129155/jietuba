@@ -2758,4 +2758,33 @@ SOFTWARE.</translation></message>
     <message><source>Moving clipboard data... {done} / {total}</source><translation>클립보드 데이터 이동 중... {done} / {total}</translation></message>
 </context>
 
+<!-- ========== Application UI Theme ========== -->
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Application</source>
+        <translation>애플리케이션</translation>
+    </message>
+    <message>
+        <source>Interface Theme</source>
+        <translation>화면 테마</translation>
+    </message>
+    <message>
+        <source>Choose a display mode.</source>
+        <translation>표시 모드를 선택하세요.</translation>
+    </message>
+    <message>
+        <source>System</source>
+        <translation>시스템</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>라이트</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation>다크</translation>
+    </message>
+</context>
+
 </TS>

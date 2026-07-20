@@ -11,12 +11,9 @@ from ui.fluent_lite import (
     FluentIcon, ComboBox, CaptionLabel,
     PushButton, HyperlinkButton,
 )
-from .components import SettingCardGroup, WhiteCard, adjust_button_width, theme_text_style
+from .components import SettingCardGroup, WhiteCard, adjust_button_width, apply_theme_text_style
 
 from translation.languages import TRANSLATION_LANGUAGES
-
-
-_CARD_TITLE_STYLE = theme_text_style(14)
 
 
 def create_translation_page(dialog) -> QWidget:
@@ -41,7 +38,7 @@ def create_translation_page(dialog) -> QWidget:
     key_h.setSpacing(10)
 
     key_lbl = QLabel(dialog.tr("DeepL API Key"), key_card)
-    key_lbl.setStyleSheet(_CARD_TITLE_STYLE)
+    apply_theme_text_style(key_lbl, 14)
     key_lbl.setFixedWidth(100)
     key_h.addWidget(key_lbl)
 

@@ -1210,7 +1210,6 @@ Replace it?</source>
         <source>Translation failed:</source>
         <translation>翻译失败:</translation>
     </message>
-</context>
 
     <message>
         <source>Switch target language</source>
@@ -2819,6 +2818,35 @@ SOFTWARE.</translation></message>
     <message><source>Clipboard data moved, but reopening the database failed. Please restart the app.</source><translation>剪贴板数据已移动，但重新打开数据库失败。请重启应用。</translation></message>
     <message><source>No clipboard data files were found to move.</source><translation>没有找到可移动的剪贴板数据文件。</translation></message>
     <message><source>Moving clipboard data... {done} / {total}</source><translation>正在移动剪贴板数据... {done} / {total}</translation></message>
+</context>
+
+<!-- ========== Application UI Theme ========== -->
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Application</source>
+        <translation>应用程序</translation>
+    </message>
+    <message>
+        <source>Interface Theme</source>
+        <translation>界面主题</translation>
+    </message>
+    <message>
+        <source>Choose a display mode.</source>
+        <translation>选择显示模式。</translation>
+    </message>
+    <message>
+        <source>System</source>
+        <translation>系统</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>浅色</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation>深色</translation>
+    </message>
 </context>
 
 </TS>

@@ -10,6 +10,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout
 
 from ui.fluent_lite import BodyLabel, CaptionLabel, ComboBox, PrimaryPushButton
+from ui.fluent_lite.theme import ui_tokens
 from ..layout_scale import scale_ui, scale_y
 
 
@@ -41,8 +42,12 @@ def build_import_export_form(dialog):
     dialog.detail_layout.addWidget(export_btn)
 
     line = QFrame()
+    dialog.import_export_separator = line
     line.setFrameShape(QFrame.Shape.HLine)
-    line.setStyleSheet(f"background: #E8E8E8; margin: {scale_y(16)}px 0;")
+    line.setStyleSheet(
+        f"background: {ui_tokens(dialog).separator}; "
+        f"margin: {scale_y(16)}px 0;"
+    )
     line.setFixedHeight(1)
     dialog.detail_layout.addWidget(line)
 

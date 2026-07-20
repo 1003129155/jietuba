@@ -54,6 +54,16 @@ class MainApp(QObject):
         
         # Config - 使用统一的设置管理器
         self.config_manager = get_tool_settings_manager()
+
+        # 应用界面主题必须在创建任何窗口前初始化。截图强调色由
+        # core.theme 单独管理，二者职责互不影响。
+        from core.ui_theme import get_ui_theme
+        self.ui_theme_manager = get_ui_theme().init(
+            self.config_manager, self.app
+        )
+        self.ui_theme_manager.theme_changed.connect(
+            self._on_ui_theme_changed
+        )
         
         # Logger - 日志初始化，
         setup_logger(self.config_manager)
@@ -185,6 +195,12 @@ class MainApp(QObject):
     def _create_tray_menu(self) -> QMenu:
         """创建托盘菜单"""
         return create_tray_menu(self)
+
+    def _on_ui_theme_changed(self, _tokens):
+        """主题变化后刷新由 MainApp 持有的原生界面。"""
+        self._update_tray_menu()
+        if self.settings_window:
+            self.settings_window.update()
 
     def _setup_pin_tray_updates(self):
         """刷新托盘菜单中的钉图数量。"""

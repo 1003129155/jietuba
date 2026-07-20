@@ -2799,4 +2799,33 @@ SOFTWARE.</translation></message>
     <message><source>Moving clipboard data... {done} / {total}</source><translation>クリップボードデータを移動中... {done} / {total}</translation></message>
 </context>
 
+<!-- ========== Application UI Theme ========== -->
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Application</source>
+        <translation>アプリケーション</translation>
+    </message>
+    <message>
+        <source>Interface Theme</source>
+        <translation>外観テーマ</translation>
+    </message>
+    <message>
+        <source>Choose a display mode.</source>
+        <translation>表示モードを選択します。</translation>
+    </message>
+    <message>
+        <source>System</source>
+        <translation>システム</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>ライト</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation>ダーク</translation>
+    </message>
+</context>
+
 </TS>

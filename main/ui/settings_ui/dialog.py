@@ -46,7 +46,8 @@ from .components import (
     adjust_button_width, theme_surface_color, theme_sidebar_color,
     theme_border_color, theme_input_background, theme_popup_background,
     theme_popup_hover_background, theme_text_style, theme_caption_style,
-    theme_menu_style, theme_color,
+    theme_menu_style, theme_color, refresh_theme_widget_styles,
+    apply_theme_text_style,
 )
 
 
@@ -91,6 +92,8 @@ class SettingsDialog(FrostedFramelessDialog):
         self.setObjectName("SettingsDialog")
 
         self._setup_ui()
+        from core.ui_theme import get_ui_theme
+        get_ui_theme().theme_changed.connect(self._on_ui_theme_changed)
 
     def _setup_titlebar(self):
         """用 FluentTitleBar 替换默认标题栏"""
@@ -159,9 +162,9 @@ class SettingsDialog(FrostedFramelessDialog):
         text_box.setContentsMargins(0, 0, 0, 0)
         text_box.setSpacing(2)
         app_name_lbl = BodyLabel(self.tr("jietuba"))
-        app_name_lbl.setStyleSheet("font-size: 15px; font-weight: 600;")
+        apply_theme_text_style(app_name_lbl, 15, bold=True)
         app_desc_lbl = QLabel(self.tr("Settings"))
-        app_desc_lbl.setStyleSheet("font-size: 12px; color: rgba(120, 120, 120, 0.9); background: transparent;")
+        apply_theme_text_style(app_desc_lbl, 12, caption=True)
         text_box.addWidget(app_name_lbl)
         text_box.addWidget(app_desc_lbl)
         logo_layout.addLayout(text_box, 1)
@@ -184,7 +187,10 @@ class SettingsDialog(FrostedFramelessDialog):
         right_layout.setSpacing(14)
 
         self.content_title = QLabel(self.tr("Shortcut Settings"))
-        self.content_title.setStyleSheet("font-size: 20px; font-weight: 650; padding: 0 6px 2px 6px; background-color: transparent;")
+        apply_theme_text_style(
+            self.content_title, 20, bold=True,
+            extra="padding: 0 6px 2px 6px;"
+        )
 
         self.content_stack = QStackedWidget()
         self.content_stack.addWidget(create_hotkey_page(self))           # 0
@@ -252,11 +258,11 @@ class SettingsDialog(FrostedFramelessDialog):
         row = QHBoxLayout()
         text_layout = QVBoxLayout()
         lbl_title = QLabel(title)
-        lbl_title.setStyleSheet(theme_text_style(13))
+        apply_theme_text_style(lbl_title, 13)
         text_layout.addWidget(lbl_title)
         if desc:
             lbl_desc = QLabel(desc)
-            lbl_desc.setStyleSheet(theme_caption_style(12))
+            apply_theme_text_style(lbl_desc, 12, caption=True)
             text_layout.addWidget(lbl_desc)
         row.addLayout(text_layout)
         row.addStretch()
@@ -446,6 +452,7 @@ class SettingsDialog(FrostedFramelessDialog):
         reset_btn.clicked.connect(self._reset_current_page)
 
         cancel_btn = FluentPushButton(self.tr("Cancel"))
+        self._footer_cancel_btn = cancel_btn
         cancel_btn.setFixedHeight(46)
         cancel_btn.setMinimumWidth(150)
         cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -475,6 +482,7 @@ class SettingsDialog(FrostedFramelessDialog):
         cancel_btn.clicked.connect(self.reject)
 
         ok_btn = _FooterPrimaryButton(self.tr("Apply"))
+        self._footer_ok_btn = ok_btn
         ok_btn.setFixedHeight(46)
         ok_btn.setMinimumWidth(150)
         ok_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -508,12 +516,65 @@ class SettingsDialog(FrostedFramelessDialog):
             }
         """ % (ACCENT, ACCENT_HOVER, ACCENT_PRESSED))
         ok_btn.clicked.connect(self.accept)
+        self._apply_footer_styles()
 
         layout.addWidget(reset_btn)
         layout.addStretch()
         layout.addWidget(cancel_btn)
         layout.addWidget(ok_btn)
         return layout
+
+    def _apply_footer_styles(self):
+        from core.ui_theme import get_ui_theme
+        t = get_ui_theme().tokens
+        cancel_btn = getattr(self, "_footer_cancel_btn", None)
+        if cancel_btn is not None:
+            cancel_btn.setStyleSheet(f"""
+                QPushButton {{
+                    min-height: 44px;
+                    padding: 0 24px;
+                    color: {t.text};
+                    background: {t.surface};
+                    border: 1px solid {t.border_hover};
+                    border-radius: 12px;
+                    font-size: 16px;
+                    font-weight: 500;
+                    outline: none;
+                }}
+                QPushButton:hover {{
+                    background: {t.surface_hover};
+                    border-color: {t.border_hover};
+                }}
+                QPushButton:pressed {{
+                    background: {t.surface_subtle};
+                }}
+            """)
+        ok_btn = getattr(self, "_footer_ok_btn", None)
+        if ok_btn is not None:
+            ok_btn.setStyleSheet(f"""
+                QPushButton {{
+                    min-height: 44px;
+                    padding: 0 25px;
+                    color: #FFFFFF;
+                    background: {t.accent};
+                    border: 1px solid rgba(255, 255, 255, 0.28);
+                    border-radius: 12px;
+                    font-size: 16px;
+                    font-weight: 600;
+                    outline: none;
+                }}
+                QPushButton:hover {{
+                    background: {t.accent_hover};
+                }}
+                QPushButton:pressed {{
+                    background: {t.accent_pressed};
+                    padding-top: 2px;
+                }}
+                QPushButton:disabled {{
+                    color: rgba(255, 255, 255, 0.72);
+                    background: #687D8F;
+                }}
+            """)
 
     # ================================================================
     # 重置页面
@@ -589,6 +650,12 @@ class SettingsDialog(FrostedFramelessDialog):
         """重置外观设置页面"""
         from .page_appearance import _update_color_btn
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
+        if hasattr(self, '_ui_theme_combo'):
+            index = self._ui_theme_combo.findData(
+                defaults.get("ui_theme_mode", "system")
+            )
+            if index >= 0:
+                self._ui_theme_combo.setCurrentIndex(index)
         if hasattr(self, '_appearance_theme_color'):
             self._appearance_theme_color = QColor(defaults["theme_color"])
             _update_color_btn(self._theme_color_btn, self._appearance_theme_color)
@@ -847,6 +914,10 @@ class SettingsDialog(FrostedFramelessDialog):
             self.config_manager.set_app_setting("screenshot_info_hide_on_drag", self.info_hide_on_drag_toggle.isChecked())
 
         # 11. 外观设置（主题色、遮罩色）
+        if hasattr(self, '_ui_theme_combo'):
+            from core.ui_theme import get_ui_theme
+            get_ui_theme().set_mode(self._ui_theme_combo.currentData())
+
         from core.theme import get_theme
         theme = get_theme()
         if hasattr(self, '_appearance_theme_color'):
@@ -877,6 +948,8 @@ class SettingsDialog(FrostedFramelessDialog):
 
     def _apply_dialog_stylesheet(self):
         """根据当前主题生成并应用对话框样式表"""
+        from core.ui_theme import get_ui_theme
+        tokens = get_ui_theme().tokens
         self.setStyleSheet(f"""
             #SettingsDialog {{
                 background: transparent;
@@ -888,9 +961,12 @@ class SettingsDialog(FrostedFramelessDialog):
                 border-radius: 8px;
             }}
             QWidget#SettingsRightArea {{
-                background: rgba(255, 255, 255, 0.12);
+                background: {theme_surface_color()};
                 border: none;
                 border-radius: 8px;
+            }}
+            QLabel {{
+                color: {tokens.text};
             }}
             QStackedWidget {{
                 background: transparent;
@@ -905,6 +981,31 @@ class SettingsDialog(FrostedFramelessDialog):
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
             QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: transparent; }}
         """)
+
+    def _on_ui_theme_changed(self, _tokens):
+        """Rebuild window-local styles after an OS or user theme change."""
+        self._apply_dialog_stylesheet()
+        refresh_theme_widget_styles(self)
+        self._apply_footer_styles()
+        input_style = self._get_input_style()
+        for attr in (
+            "hotkey_input", "hotkey_input_2",
+            "clipboard_hotkey_edit", "clipboard_hotkey_edit_2",
+            "translation_hotkey_edit", "translation_hotkey_edit_2",
+            "deepl_api_key_input",
+        ):
+            widget = getattr(self, attr, None)
+            if widget is not None:
+                widget.setStyleSheet(input_style)
+        for widget in getattr(self, "_inapp_edits", {}).values():
+            widget.setStyleSheet(input_style)
+        self.content_title.setStyleSheet(
+            theme_text_style(
+                20, bold=True,
+                extra="padding: 0 6px 2px 6px;"
+            )
+        )
+        self.update()
 
     @safe_event
     def resizeEvent(self, e):
@@ -968,7 +1069,8 @@ class SettingsDialog(FrostedFramelessDialog):
         for attr in ('screenshot_format_combo', 'ocr_engine_combo',
                       'translation_target_combo', 'log_level_combo',
                       'language_combo', 'engine_combo', 'cursor_move_combo',
-                      'magnifier_color_format_combo', 'log_retention_combo'):
+                      'magnifier_color_format_combo', 'log_retention_combo',
+                      '_ui_theme_combo'):
             w = getattr(self, attr, None)
             if w is not None:
                 snap[attr] = w.currentIndex()
@@ -1193,6 +1295,12 @@ class SettingsDialog(FrostedFramelessDialog):
             )
 
         # 外观设置
+        if hasattr(self, '_ui_theme_combo'):
+            from core.ui_theme import get_ui_theme
+            index = self._ui_theme_combo.findData(get_ui_theme().mode.value)
+            if index >= 0:
+                self._ui_theme_combo.setCurrentIndex(index)
+
         if hasattr(self, '_theme_color_btn'):
             from core.theme import get_theme
             from .page_appearance import _update_color_btn

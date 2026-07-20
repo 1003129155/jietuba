@@ -41,9 +41,8 @@ from ui.fluent_lite import (
     FluentTitleBar,
     FrostedFramelessDialog,
 )
-from ui.fluent_lite.theme import ACCENT
-
 from core import safe_event
+from core.ui_theme import get_ui_theme
 from ui.dialogs import show_confirm_dialog, show_info_dialog, show_warning_dialog
 
 from ...core import ClipboardManager, Group, GroupType
@@ -157,23 +156,197 @@ class ManageDialog(FrostedFramelessDialog):
         self._setup_ui()
         self._switch_mode("group")
         self._center_on_screen()
+        self._apply_ui_theme(get_ui_theme().tokens)
+        get_ui_theme().theme_changed.connect(self._apply_ui_theme)
 
-        self.setStyleSheet(
-            f"""
+    def _refresh_theme_scope(self, tokens=None):
+        """Reapply Fluent styles after controls have acquired this parent."""
+        tokens = tokens or get_ui_theme().tokens
+        for widget in self.findChildren(QWidget):
+            apply_theme = getattr(widget, "_apply_theme", None)
+            if callable(apply_theme):
+                apply_theme(tokens)
+            else:
+                widget.update()
+
+    def _apply_ui_theme(self, tokens):
+        """Apply the same application theme used by the settings window."""
+        self._refresh_theme_scope(tokens)
+        error_background = "#4A2328" if tokens.is_dark else "#FFEBEE"
+        error_text = "#FF8A80" if tokens.is_dark else "#D32F2F"
+        error_hover = "#603036" if tokens.is_dark else "#FFCDD2"
+        self.setStyleSheet(f"""
             QTextEdit {{
-                border: 1px solid rgba(116, 137, 154, 0.25);
+                border: 1px solid {tokens.border};
                 border-radius: {scale_ui(6)}px;
                 padding: {scale_ui(8)}px;
                 font-size: {scale_ui(13)}px;
-                background: rgba(255, 255, 255, 0.54);
-                color: #333333;
+                background: {tokens.input_background};
+                color: {tokens.text};
+                selection-background-color: {tokens.accent};
             }}
             QTextEdit:focus {{
-                border-color: {ACCENT};
-                background: rgba(255, 255, 255, 0.82);
+                border-color: {tokens.accent};
+                background: {tokens.surface_strong};
             }}
-        """
+            QScrollBar:vertical {{
+                width: {scale_x(7)}px;
+                background: transparent;
+            }}
+            QScrollBar::handle:vertical {{
+                min-height: {scale_y(24)}px;
+                background: {tokens.border_hover};
+                border-radius: {scale_ui(3)}px;
+            }}
+            QScrollBar::handle:vertical:hover {{
+                background: {tokens.accent};
+            }}
+            QScrollBar::add-line:vertical,
+            QScrollBar::sub-line:vertical {{
+                height: 0;
+            }}
+            QScrollBar:horizontal {{
+                height: {scale_y(7)}px;
+                background: transparent;
+            }}
+            QScrollBar::handle:horizontal {{
+                min-width: {scale_x(24)}px;
+                background: {tokens.border_hover};
+                border-radius: {scale_ui(3)}px;
+            }}
+            QScrollBar::handle:horizontal:hover {{
+                background: {tokens.accent};
+            }}
+            QScrollBar::add-line:horizontal,
+            QScrollBar::sub-line:horizontal {{
+                width: 0;
+            }}
+        """)
+
+        self.nav_column.setStyleSheet(
+            "QWidget#ManageNavColumn {"
+            f"background: {tokens.surface_subtle};"
+            f"border-right: 1px solid {tokens.separator};"
+            f"border-radius: {scale_ui(12)}px 0 0 {scale_ui(12)}px;"
+            "}"
         )
+        self.list_column.setStyleSheet(
+            "QWidget#ManageListColumn {"
+            f"background: {tokens.surface};"
+            f"border-right: 1px solid {tokens.separator};"
+            "}"
+        )
+        self.detail_column.setStyleSheet(
+            "QWidget#ManageDetailColumn {"
+            f"background: {tokens.surface_strong};"
+            f"border-radius: 0 {scale_ui(12)}px {scale_ui(12)}px 0;"
+            "}"
+        )
+        self.list_widget.setStyleSheet(f"""
+            QListWidget {{
+                background: transparent;
+                border: none;
+                outline: none;
+                color: {tokens.text};
+            }}
+            QListWidget::item {{
+                padding: 0px {scale_x(12)}px;
+                border-bottom: 1px solid {tokens.separator};
+                color: {tokens.text};
+            }}
+            QListWidget::item:selected {{
+                background: {tokens.accent_soft};
+                color: {tokens.text};
+            }}
+            QListWidget::item:hover {{
+                background: {tokens.surface_hover};
+            }}
+        """)
+        self.detail_title.setStyleSheet(
+            f"color: {tokens.text}; font-size: {scale_ui(16)}px; "
+            "font-weight: 600; background: transparent;"
+        )
+        self.detail_subtitle.setStyleSheet(
+            f"color: {tokens.text_muted}; font-size: {scale_ui(12)}px; "
+            "background: transparent;"
+        )
+        self.detail_separator.setStyleSheet(
+            f"background: {tokens.separator}; border: none;"
+        )
+        self.delete_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {error_background};
+                color: {error_text};
+                border: none;
+                border-radius: {scale_ui(6)}px;
+                padding: {scale_y(10)}px {scale_x(24)}px;
+                font-size: {scale_ui(13)}px;
+            }}
+            QPushButton:hover {{ background: {error_hover}; }}
+        """)
+        for row in range(self.list_widget.count()):
+            item = self.list_widget.item(row)
+            data = item.data(Qt.ItemDataRole.UserRole)
+            if data and data[0] == "new" and self.current_mode == "content":
+                item.setBackground(QColor(tokens.accent_soft))
+        self._apply_dynamic_form_theme()
+        self.update()
+
+    def _apply_dynamic_form_theme(self):
+        """Refresh controls that are rebuilt when the selected form changes."""
+        tokens = get_ui_theme().tokens
+        icon_input = getattr(self, "icon_input", None)
+        if _qt_object_is_valid(icon_input):
+            apply_theme = getattr(icon_input, "_apply_theme", None)
+            if callable(apply_theme):
+                apply_theme(tokens)
+            icon_input.setStyleSheet(
+                icon_input.styleSheet()
+                + f"QLineEdit {{ font-size: {scale_ui(18)}px; "
+                  f"min-width: {scale_x(120)}px; max-width: {scale_x(150)}px; }}"
+            )
+        icon_preview = getattr(self, "icon_preview", None)
+        if _qt_object_is_valid(icon_preview):
+            icon_preview.setStyleSheet(f"""
+                QLabel {{
+                    font-size: {scale_ui(28)}px;
+                    background: {tokens.surface_subtle};
+                    border: 2px solid {tokens.border};
+                    border-radius: {scale_ui(8)}px;
+                }}
+            """)
+        for index, button in enumerate(
+            getattr(self, "_emoji_tab_buttons", [])
+        ):
+            button.setStyleSheet(
+                emoji_tab_style(
+                    index == getattr(self, "_emoji_current_idx", 0),
+                    self,
+                )
+            )
+        emoji_scroll = getattr(self, "_emoji_scroll", None)
+        if _qt_object_is_valid(emoji_scroll):
+            emoji_scroll.setStyleSheet(f"""
+                QScrollArea {{ border: none; background: transparent; }}
+                QScrollBar:vertical {{
+                    width: {scale_x(6)}px; background: transparent;
+                }}
+                QScrollBar::handle:vertical {{
+                    background: {tokens.border_hover};
+                    border-radius: {scale_ui(3)}px;
+                    min-height: {scale_y(20)}px;
+                }}
+                QScrollBar::add-line:vertical,
+                QScrollBar::sub-line:vertical {{ height: 0px; }}
+            """)
+        import_export_separator = getattr(
+            self, "import_export_separator", None
+        )
+        if _qt_object_is_valid(import_export_separator):
+            import_export_separator.setStyleSheet(
+                f"background: {tokens.separator}; "
+                f"margin: {scale_y(16)}px 0;"
+            )
 
     def _setup_titlebar(self):
         title_bar = FluentTitleBar(self)
@@ -282,17 +455,13 @@ class ManageDialog(FrostedFramelessDialog):
         widget = QWidget()
         widget.setObjectName("ManageNavColumn")
         widget.setFixedWidth(scale_x(180))
-        widget.setStyleSheet(
-            "QWidget#ManageNavColumn { background: rgba(238, 242, 246, 0.66);"
-            " border-right: 1px solid rgba(116,137,154,0.18);"
-            f" border-radius: {scale_ui(12)}px 0 0 {scale_ui(12)}px; }}"
-        )
 
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(0, scale_y(8), 0, scale_y(8))
         layout.setSpacing(scale_y(4))
 
         title = BodyLabel(self.tr("Management"))
+        self.nav_title = title
         title.setStyleSheet(
             f"font-size: {scale_ui(14)}px; font-weight: 600; "
             f"padding: {scale_y(8)}px {scale_x(12)}px {scale_y(8)}px {scale_x(12)}px; "
@@ -332,6 +501,7 @@ class ManageDialog(FrostedFramelessDialog):
         layout.addWidget(self.nav_interface, 1)
 
         close_btn = FluentPushButton(self.tr("Close"))
+        self.close_btn = close_btn
         close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         close_btn.clicked.connect(self.close)
         close_btn_layout = QHBoxLayout()
@@ -346,10 +516,6 @@ class ManageDialog(FrostedFramelessDialog):
         widget = QWidget()
         widget.setObjectName("ManageListColumn")
         widget.setFixedWidth(scale_x(220))
-        widget.setStyleSheet(
-            "QWidget#ManageListColumn { background: rgba(248, 250, 252, 0.54);"
-            " border-right: 1px solid rgba(116,137,154,0.16); }"
-        )
 
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -376,28 +542,6 @@ class ManageDialog(FrostedFramelessDialog):
         self.list_widget.setDragDropMode(QListWidget.DragDropMode.InternalMove)
         self.list_widget.setDefaultDropAction(Qt.DropAction.MoveAction)
         self.list_widget.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
-        self.list_widget.setStyleSheet(
-            f"""
-            QListWidget {{
-                background: transparent;
-                border: none;
-                outline: none;
-                color: #333333;
-            }}
-            QListWidget::item {{
-                padding: 0px {scale_x(12)}px;
-                border-bottom: 1px solid rgba(116, 137, 154, 0.28);
-                color: #333333;
-            }}
-            QListWidget::item:selected {{
-                background: #D5E0E8;
-                color: #4E6C86;
-            }}
-            QListWidget::item:hover {{
-                background: #F0F0F0;
-            }}
-        """
-        )
         self.list_widget.itemClicked.connect(self._on_list_item_clicked)
         self.list_widget.model().rowsMoved.connect(self._on_list_reordered)
         layout.addWidget(self.list_widget, 1)
@@ -408,10 +552,6 @@ class ManageDialog(FrostedFramelessDialog):
         """创建详情列"""
         widget = QWidget()
         widget.setObjectName("ManageDetailColumn")
-        widget.setStyleSheet(
-            "QWidget#ManageDetailColumn { background: rgba(255,255,255,0.46);"
-            f" border-radius: 0 {scale_ui(12)}px {scale_ui(12)}px 0; }}"
-        )
 
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(scale_x(24), scale_y(20), scale_x(24), scale_y(20))
@@ -422,14 +562,14 @@ class ManageDialog(FrostedFramelessDialog):
         layout.addWidget(self.detail_title)
 
         self.detail_subtitle = CaptionLabel("")
-        self.detail_subtitle.setStyleSheet(f"color: #6B7280; font-size: {scale_ui(12)}px;")
+        self.detail_subtitle.setStyleSheet(f"font-size: {scale_ui(12)}px;")
         self.detail_subtitle.setWordWrap(True)
         self.detail_subtitle.hide()
         layout.addWidget(self.detail_subtitle)
 
         line = QFrame()
+        self.detail_separator = line
         line.setFrameShape(QFrame.Shape.HLine)
-        line.setStyleSheet("background: #E8E8E8;")
         line.setFixedHeight(1)
         layout.addWidget(line)
 
@@ -453,20 +593,6 @@ class ManageDialog(FrostedFramelessDialog):
 
         self.delete_btn = FluentPushButton(self.tr("Delete"))
         self.delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.delete_btn.setStyleSheet(
-            f"""
-            PushButton {{
-                background: #FFEBEE;
-                color: #D32F2F;
-                border: none;
-                border-radius: {scale_ui(6)}px;
-                padding: {scale_y(10)}px {scale_x(24)}px;
-                font-size: {scale_ui(13)}px;
-            }}
-            PushButton:hover {{ background: #FFCDD2; }}
-            PushButton:pressed {{ background: #EF9A9A; }}
-        """
-        )
         self.delete_btn.clicked.connect(self._on_delete_clicked)
         self.delete_btn.hide()
         self.btn_layout.addWidget(self.delete_btn)
@@ -606,7 +732,7 @@ class ManageDialog(FrostedFramelessDialog):
 
         new_item = QListWidgetItem(self.tr("Add Content"))
         new_item.setData(Qt.ItemDataRole.UserRole, ("new", None))
-        new_item.setBackground(QColor("#E8EDF1"))
+        new_item.setBackground(QColor(get_ui_theme().tokens.accent_soft))
         self.list_widget.addItem(new_item)
 
         items = self.manager.get_by_group(self.selected_group_id, limit=50)
@@ -807,6 +933,8 @@ class ManageDialog(FrostedFramelessDialog):
 
         build_new_group_form(self)
         self._update_group_form_header()
+        self._refresh_theme_scope()
+        self._apply_dynamic_form_theme()
 
     def _on_group_type_toggled(self, checked: bool, form_token: Optional[int] = None):
         """分组类型切换时，若用户未手动修改图标则自动切换默认图标"""
@@ -859,15 +987,13 @@ class ManageDialog(FrostedFramelessDialog):
         """创建 emoji 选择器（输入框 + 预览 + 分组标签页 + 可滚动网格）"""
         create_group_icon_picker(self, current_icon)
 
-    @staticmethod
-    def _emoji_tab_style(active: bool) -> str:
+    def _emoji_tab_style(self, active: bool) -> str:
         """返回 emoji 分组 tab 按钮样式"""
-        return emoji_tab_style(active)
+        return emoji_tab_style(active, self)
 
-    @staticmethod
-    def _emoji_btn_style() -> str:
+    def _emoji_btn_style(self) -> str:
         """返回 emoji 网格按钮样式"""
-        return emoji_btn_style()
+        return emoji_btn_style(self)
 
     def _switch_emoji_group(self, group_idx: int, form_token: Optional[int] = None):
         """切换 emoji 分组"""
@@ -914,6 +1040,8 @@ class ManageDialog(FrostedFramelessDialog):
 
         build_edit_group_form(self, group)
         self._update_group_form_header()
+        self._refresh_theme_scope()
+        self._apply_dynamic_form_theme()
 
     def _get_selected_group(self) -> Optional[Group]:
         """获取当前选中分组对象"""
@@ -956,6 +1084,7 @@ class ManageDialog(FrostedFramelessDialog):
             hint = CaptionLabel(self.tr("Please select a group above, or create a group first"))
             self.detail_layout.addWidget(hint)
             self.detail_layout.addStretch()
+            self._refresh_theme_scope()
             return
 
         selected_group = self._get_selected_group()
@@ -963,6 +1092,8 @@ class ManageDialog(FrostedFramelessDialog):
             self._build_file_content_form()
         else:
             self._build_text_content_form()
+        self._refresh_theme_scope()
+        self._apply_dynamic_form_theme()
 
     def _build_text_content_form(self):
         """普通分组 — 文本内容输入表单"""
@@ -1020,6 +1151,8 @@ class ManageDialog(FrostedFramelessDialog):
 
         if item.content_type == "file":
             self.detail_layout.addStretch()
+        self._refresh_theme_scope()
+        self._apply_dynamic_form_theme()
 
     def _show_import_export_form(self):
         """显示导入导出表单"""
@@ -1030,6 +1163,8 @@ class ManageDialog(FrostedFramelessDialog):
         self.save_btn.hide()
 
         build_import_export_form(self)
+        self._refresh_theme_scope()
+        self._apply_dynamic_form_theme()
 
     def _select_icon(self, btn: QPushButton):
         """选择图标（旧方法，保留兼容）"""

@@ -4,7 +4,9 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel
 from qframelesswindow import TitleBar
 
-from .theme import FONT_FAMILY, TEXT
+from core.ui_theme import get_ui_theme
+
+from .theme import FONT_FAMILY, ui_tokens
 
 
 class FluentTitleBar(TitleBar):
@@ -16,12 +18,19 @@ class FluentTitleBar(TitleBar):
         self.iconLabel.setFixedSize(22, 22)
         self.iconLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.titleLabel = QLabel(parent.windowTitle(), self)
-        self.titleLabel.setStyleSheet(f"color: {TEXT}; font: 12px {FONT_FAMILY}; background: transparent;")
+        self._apply_theme()
+        get_ui_theme().theme_changed.connect(self._apply_theme)
         self.hBoxLayout.insertWidget(0, self.iconLabel)
         self.hBoxLayout.insertWidget(1, self.titleLabel)
         parent.windowTitleChanged.connect(self.setTitle)
         parent.windowIconChanged.connect(self.setIcon)
         self.setStyleSheet("background: transparent;")
+
+    def _apply_theme(self, _tokens=None):
+        self.titleLabel.setStyleSheet(
+            f"color: {ui_tokens(self).text}; font: 12px {FONT_FAMILY}; "
+            "background: transparent;"
+        )
 
     def setTitle(self, title):
         self.titleLabel.setText(str(title))

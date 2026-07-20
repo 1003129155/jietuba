@@ -204,6 +204,7 @@ class ToolSettingsManager(QObject):
         "clipboard_db_path": "",               # 剪贴板数据库自定义路径（空=默认位置）
 
         # ==================== 4. 外观 ====================
+        "ui_theme_mode": "system",             # 界面主题（system/light/dark）
         "theme_color": "#40E0D0",              # 主题色（青绿色 Turquoise）
         "mask_color_r": 0,                     # 遮罩色 R（0-255）
         "mask_color_g": 0,                     # 遮罩色 G（0-255）

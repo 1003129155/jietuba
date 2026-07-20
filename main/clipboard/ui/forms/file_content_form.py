@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout
 
 from ui.fluent_lite import BodyLabel, LineEdit, PushButton as FluentPushButton
-from ui.fluent_lite.theme import ACCENT, ACCENT_SOFT
+from ui.fluent_lite.theme import ui_tokens
 from ..layout_scale import scale_ui, scale_x, scale_y
 
 
@@ -20,31 +20,7 @@ class FileDropZone(QFrame):
     def __init__(self, on_path_dropped, prompt_text: str, parent=None):
         super().__init__(parent)
         self._on_path_dropped = on_path_dropped
-        self._default_style = (
-            "QFrame {"
-            "border: 2px dashed #C8CCD3;"
-            f"border-radius: {scale_ui(10)}px;"
-            "background: #FCFCFD;"
-            "}"
-            "QLabel {"
-            "color: #6B7280;"
-            f"font-size: {scale_ui(13)}px;"
-            f"padding: {scale_ui(8)}px;"
-            "}"
-        )
-        self._hover_style = (
-            "QFrame {"
-            f"border: 2px dashed {ACCENT};"
-            f"border-radius: {scale_ui(10)}px;"
-            f"background: {ACCENT_SOFT};"
-            "}"
-            "QLabel {"
-            f"color: {ACCENT};"
-            f"font-size: {scale_ui(13)}px;"
-            f"padding: {scale_ui(8)}px;"
-            "font-weight: 500;"
-            "}"
-        )
+        self._drag_active = False
 
         self.setAcceptDrops(True)
         self.setMinimumHeight(scale_y(204))
@@ -57,7 +33,39 @@ class FileDropZone(QFrame):
         self.prompt_label.setWordWrap(True)
         layout.addWidget(self.prompt_label)
 
-        self._apply_default_style()
+        self._apply_theme()
+
+    def _apply_theme(self, tokens=None):
+        tokens = tokens or ui_tokens(self)
+        self._default_style = (
+            "QFrame {"
+            f"border: 2px dashed {tokens.border_hover};"
+            f"border-radius: {scale_ui(10)}px;"
+            f"background: {tokens.surface_subtle};"
+            "}"
+            "QLabel {"
+            f"color: {tokens.text_muted};"
+            f"font-size: {scale_ui(13)}px;"
+            f"padding: {scale_ui(8)}px;"
+            "}"
+        )
+        self._hover_style = (
+            "QFrame {"
+            f"border: 2px dashed {tokens.accent};"
+            f"border-radius: {scale_ui(10)}px;"
+            f"background: {tokens.accent_soft};"
+            "}"
+            "QLabel {"
+            f"color: {tokens.accent};"
+            f"font-size: {scale_ui(13)}px;"
+            f"padding: {scale_ui(8)}px;"
+            "font-weight: 500;"
+            "}"
+        )
+        if self._drag_active:
+            self._apply_hover_style()
+        else:
+            self._apply_default_style()
 
     def _apply_default_style(self):
         self.setStyleSheet(self._default_style)
@@ -83,6 +91,7 @@ class FileDropZone(QFrame):
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls() and self._extract_first_local_path(event.mimeData().urls()):
             event.acceptProposedAction()
+            self._drag_active = True
             self._apply_hover_style()
             return
         event.ignore()
@@ -94,10 +103,12 @@ class FileDropZone(QFrame):
         event.ignore()
 
     def dragLeaveEvent(self, event):
+        self._drag_active = False
         self._apply_default_style()
         super().dragLeaveEvent(event)
 
     def dropEvent(self, event):
+        self._drag_active = False
         self._apply_default_style()
         if self._apply_dropped_urls(event.mimeData().urls()):
             event.acceptProposedAction()

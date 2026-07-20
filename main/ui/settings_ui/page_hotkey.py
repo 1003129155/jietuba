@@ -11,7 +11,7 @@ from ui.fluent_lite import (
     ComboBox, CaptionLabel, SegmentedWidget,
 )
 from ui.fluent_lite.theme import ACCENT
-from .components import SettingCardGroup, WhiteCard, LBL_STYLE, theme_text_style
+from .components import SettingCardGroup, WhiteCard, apply_theme_text_style
 from ..hotkey_edit import HotkeyEdit
 from ..inapp_key_edit import InAppKeyEdit
 
@@ -38,8 +38,6 @@ INAPP_KEYS = SCREENSHOT_KEYS + PIN_KEYS
 
 _EDIT_W = 140
 _EDIT_H = 28
-_CARD_LABEL_STYLE = theme_text_style(14)
-_ROW_TITLE_STYLE = theme_text_style(13)
 _SEGMENT_HINT_STYLE = "font-size: 12px; background: transparent;"
 
 
@@ -53,7 +51,7 @@ def _build_shortcut_row(dialog, parent, title: str, editor: QWidget) -> QWidget:
     row_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
     title_label = QLabel(title, row_card)
-    title_label.setStyleSheet(_ROW_TITLE_STYLE)
+    apply_theme_text_style(title_label, 13)
     row_layout.addWidget(title_label, 1)
     row_layout.addWidget(editor, 0, Qt.AlignmentFlag.AlignRight)
     return row_card
@@ -87,7 +85,7 @@ def create_hotkey_page(dialog) -> QWidget:
     ss_h.setSpacing(12)
 
     ss_lbl = QLabel(dialog.tr("Screenshot Hotkey"), ss_card)
-    ss_lbl.setStyleSheet(_CARD_LABEL_STYLE)
+    apply_theme_text_style(ss_lbl, 14)
     ss_h.addWidget(ss_lbl)
     ss_h.addStretch()
 
@@ -117,7 +115,7 @@ def create_hotkey_page(dialog) -> QWidget:
     cb_h.setSpacing(12)
 
     cb_lbl = QLabel(dialog.tr("Clipboard Hotkey"), cb_card)
-    cb_lbl.setStyleSheet(_CARD_LABEL_STYLE)
+    apply_theme_text_style(cb_lbl, 14)
     cb_h.addWidget(cb_lbl)
     cb_h.addStretch()
 
@@ -147,7 +145,7 @@ def create_hotkey_page(dialog) -> QWidget:
     tr_h.setSpacing(12)
 
     tr_lbl = QLabel(dialog.tr("Translation Hotkey"), tr_card)
-    tr_lbl.setStyleSheet(_CARD_LABEL_STYLE)
+    apply_theme_text_style(tr_lbl, 14)
     tr_h.addWidget(tr_lbl)
     tr_h.addStretch()
 

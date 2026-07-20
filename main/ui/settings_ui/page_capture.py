@@ -11,11 +11,7 @@ from ui.fluent_lite import (
     FluentIcon, ComboBox, CaptionLabel,
     PushButton,
 )
-from .components import SettingCardGroup, WhiteCard, theme_text_style, theme_caption_style
-
-
-_CARD_TITLE_STYLE = theme_text_style(14)
-_CARD_CAPTION_STYLE = theme_caption_style(12)
+from .components import SettingCardGroup, WhiteCard, apply_theme_text_style
 
 
 def create_capture_page(dialog) -> QWidget:
@@ -65,11 +61,11 @@ def create_capture_page(dialog) -> QWidget:
     path_h.setSpacing(12)
 
     path_icon_lbl = QLabel(dialog.tr("Save Folder:"), path_card)
-    path_icon_lbl.setStyleSheet(_CARD_TITLE_STYLE)
+    apply_theme_text_style(path_icon_lbl, 14)
     dialog.save_path_lbl = QLabel(dialog.config_manager.get_screenshot_save_path(), path_card)
     dialog.save_path_lbl.setWordWrap(True)
     dialog.save_path_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
-    dialog.save_path_lbl.setStyleSheet(_CARD_CAPTION_STYLE)
+    apply_theme_text_style(dialog.save_path_lbl, 12, caption=True)
 
     btn_change = PushButton(dialog.tr("Change"), path_card)
     btn_change.setFixedHeight(32)

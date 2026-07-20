@@ -2747,4 +2747,33 @@ SOFTWARE.</translation></message>
     <message><source>Moving clipboard data... {done} / {total}</source><translation>Moving clipboard data... {done} / {total}</translation></message>
 </context>
 
+<!-- ========== Application UI Theme ========== -->
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Application</source>
+        <translation>Application</translation>
+    </message>
+    <message>
+        <source>Interface Theme</source>
+        <translation>Interface Theme</translation>
+    </message>
+    <message>
+        <source>Choose a display mode.</source>
+        <translation>Choose a display mode.</translation>
+    </message>
+    <message>
+        <source>System</source>
+        <translation>System</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>Light</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation>Dark</translation>
+    </message>
+</context>
+
 </TS>

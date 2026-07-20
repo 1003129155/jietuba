@@ -156,7 +156,7 @@ class VectorToolButton(QAbstractButton):
 
 
 class TranslateButton(QAbstractButton):
-    """Dashboard CTA with a separately drawn shortcut keycap."""
+    """Dashboard translation action."""
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -165,7 +165,7 @@ class TranslateButton(QAbstractButton):
         self.setText(self._idle_text)
         self.setToolTip(_tr("Translate text"))
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedSize(126, 34)
+        self.setFixedSize(96, 34)
 
     def retranslate(self, busy: bool) -> None:
         self._idle_text = _tr("Translate")
@@ -197,21 +197,8 @@ class TranslateButton(QAbstractButton):
         painter.drawRoundedRect(QRectF(self.rect()), 17, 17)
 
         painter.setPen(QColor("white"))
-        if self.text() != self._idle_text:
-            painter.setFont(QFont("Microsoft YaHei UI", 10, QFont.Weight.DemiBold))
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, self.text())
-            return
-
         painter.setFont(QFont("Microsoft YaHei UI", 10, QFont.Weight.DemiBold))
-        painter.drawText(QRectF(8, 0, 78, 34), Qt.AlignmentFlag.AlignCenter, self._idle_text)
-
-        key_rect = QRectF(89, 7, 29, 20)
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.setPen(QPen(QColor(255, 255, 255, 100), 1.0))
-        painter.drawRoundedRect(key_rect, 6, 6)
-        painter.setPen(QColor(255, 255, 255, 220))
-        painter.setFont(QFont("Segoe UI Symbol", 8, QFont.Weight.DemiBold))
-        painter.drawText(key_rect, Qt.AlignmentFlag.AlignCenter, "⌃↵")
+        painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, self.text())
 
 
 class DashboardTitleBar(TitleBar):

@@ -21,6 +21,7 @@ import clipboard.ui.dialogs.manage_dialog as manage_dialog_mod
 from clipboard.controllers.clipboard_controller import ClipboardController
 from clipboard.core import ClipboardItem, Group, GroupType
 from clipboard.ui.dialogs.manage_dialog import ManageDialog
+from core.ui_theme import DARK_TOKENS, LIGHT_TOKENS, get_ui_theme
 
 
 class DummyClipboardManager:
@@ -149,6 +150,20 @@ def controller(monkeypatch):
 
 
 class TestManageDialog:
+    def test_management_surface_uses_application_theme(self, dialog):
+        dlg, _manager = dialog
+        theme = get_ui_theme()
+        original_mode = theme.mode
+        try:
+            theme.set_mode("light", persist=False)
+            assert LIGHT_TOKENS.surface_subtle in dlg.nav_column.styleSheet()
+
+            theme.set_mode("dark", persist=False)
+            assert DARK_TOKENS.surface_subtle in dlg.nav_column.styleSheet()
+            assert not hasattr(dlg, "_clipboard_theme_manager")
+        finally:
+            theme.set_mode(original_mode.value, persist=False)
+
     def test_group_name_exists_respects_exclude_group(self, dialog):
         dlg, _manager = dialog
         assert dlg._group_name_exists("工作") is True

@@ -3,7 +3,10 @@ from types import SimpleNamespace
 from PySide6.QtCore import QPoint
 from PySide6.QtWidgets import QApplication
 
+from core.ui_theme import DARK_TOKENS
+import translation.smart_translation_controller as smart_translation_controller_mod
 from translation.smart_translation_controller import SmartTranslationController
+from translation.translation_dialog import LIGHT
 from translation.translation_manager import TranslationManager
 from translation.translation_popup import TranslationPopup
 
@@ -94,6 +97,41 @@ def test_timeout_routes_only_current_probe_to_compact_input(monkeypatch):
     assert len(manager.input_calls) == 1
 
 
+def test_copy_probe_uses_ctrl_insert_to_avoid_console_interrupt(monkeypatch):
+    class FakeUser32:
+        def __init__(self):
+            self.events = []
+
+        def keybd_event(self, virtual_key, scan_code, flags, extra_info):
+            self.events.append((virtual_key, scan_code, flags, extra_info))
+
+    user32 = FakeUser32()
+    monkeypatch.setattr(
+        smart_translation_controller_mod.ctypes,
+        "windll",
+        SimpleNamespace(user32=user32),
+    )
+
+    SmartTranslationController()._send_copy_shortcut()
+
+    assert user32.events == [
+        (smart_translation_controller_mod.VK_CONTROL, 0, 0, 0),
+        (smart_translation_controller_mod.VK_INSERT, 0, 0, 0),
+        (
+            smart_translation_controller_mod.VK_INSERT,
+            0,
+            smart_translation_controller_mod.KEYEVENTF_KEYUP,
+            0,
+        ),
+        (
+            smart_translation_controller_mod.VK_CONTROL,
+            0,
+            smart_translation_controller_mod.KEYEVENTF_KEYUP,
+            0,
+        ),
+    ]
+
+
 def test_disabled_clipboard_monitor_reads_current_text_once(monkeypatch, qapp):
     controller, manager = _armed_controller(monkeypatch)
     QApplication.clipboard().setText("fallback clipboard text")
@@ -151,6 +189,41 @@ def test_compact_popup_reuses_existing_translation_palette(qapp):
     assert not popup.source_edit.isReadOnly()
     assert manual_requests[-1] == "manual text"
     popup.close()
+
+
+def test_compact_popup_uses_current_application_theme_when_created(qapp):
+    manager = TranslationManager()
+    manager._ui_theme = SimpleNamespace(is_dark=False)
+
+    popup = manager._ensure_popup()
+
+    assert popup._palette is LIGHT
+    manager.close_dialog()
+
+
+def test_existing_translation_surfaces_follow_application_theme_signal(qapp):
+    class FakeSurface:
+        def __init__(self):
+            self.themes = []
+
+        def isVisible(self):
+            return True
+
+        def set_theme(self, theme_name):
+            self.themes.append(theme_name)
+
+    manager = TranslationManager()
+    dialog = FakeSurface()
+    popup = FakeSurface()
+    manager._dialog = dialog
+    manager._popup = popup
+
+    manager._ui_theme.theme_changed.emit(DARK_TOKENS)
+
+    assert dialog.themes == ["dark"]
+    assert popup.themes == ["dark"]
+    manager._dialog = None
+    manager._popup = None
 
 
 def test_superseding_translation_never_waits_on_network_thread(qapp):

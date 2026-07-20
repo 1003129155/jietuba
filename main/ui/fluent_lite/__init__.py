@@ -4,6 +4,8 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPalette
 from PySide6.QtWidgets import QRadioButton as _QRadioButton, QStyle, QStyleOptionButton
 
+from core.ui_theme import get_ui_theme
+
 from .buttons import (
     HyperlinkButton, PrimaryPushButton, PushButton, TransparentPushButton,
     TransparentToolButton,
@@ -16,7 +18,7 @@ from .labels import BodyLabel, CaptionLabel
 from .navigation import NavigationInterface, NavigationItemPosition
 from .segmented import SegmentedWidget
 from .switch import SwitchButton
-from .theme import ACCENT, BORDER, FONT_FAMILY, SURFACE, SURFACE_HOVER, TEXT
+from .theme import ACCENT, FONT_FAMILY, ui_tokens
 from .titlebar import FluentTitleBar
 
 
@@ -25,8 +27,13 @@ class RadioButton(_QRadioButton):
 
     def __init__(self, text="", parent=None):
         super().__init__(text, parent)
+        self._apply_theme()
+        get_ui_theme().theme_changed.connect(self._apply_theme)
+
+    def _apply_theme(self, _tokens=None):
         self.setStyleSheet(
-            f"QRadioButton {{ color: {TEXT}; spacing: {self._LABEL_SPACING}px; font: 13px {FONT_FAMILY}; }}"
+            f"QRadioButton {{ color: {ui_tokens(self).text}; "
+            f"spacing: {self._LABEL_SPACING}px; font: 13px {FONT_FAMILY}; }}"
             "QRadioButton::indicator { width: 16px; height: 16px; }"
         )
 
@@ -71,8 +78,9 @@ class RadioButton(_QRadioButton):
         painter.drawText(label_rect, text_flags, option.text)
 
         center, outer = self._indicator_ellipse(indicator)
-        painter.setPen(QColor(ACCENT if self.isChecked() or self.underMouse() else "#AAB7C1"))
-        painter.setBrush(QColor(ACCENT if self.isChecked() else "#F8FAFB"))
+        tokens = ui_tokens(self)
+        painter.setPen(QColor(ACCENT if self.isChecked() or self.underMouse() else tokens.border_hover))
+        painter.setBrush(QColor(ACCENT if self.isChecked() else tokens.input_background))
         painter.drawEllipse(outer)
         if self.isChecked():
             painter.setPen(Qt.PenStyle.NoPen)

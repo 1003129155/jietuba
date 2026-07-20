@@ -4,7 +4,9 @@ from PySide6.QtCore import Property, QEasingCurve, QPropertyAnimation, QRectF, Q
 from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import QWidget
 
-from .theme import ACCENT
+from core.ui_theme import get_ui_theme
+
+from .theme import ACCENT, ui_tokens
 
 
 class SwitchButton(QWidget):
@@ -22,6 +24,10 @@ class SwitchButton(QWidget):
         self._animation.setDuration(145)
         self._animation.setEasingCurve(QEasingCurve.Type.OutCubic)
         self.setFixedSize(46, 26)
+        get_ui_theme().theme_changed.connect(self._on_theme_changed)
+
+    def _on_theme_changed(self, _tokens):
+        self.update()
 
     def sizeHint(self):
         return QSize(46, 26)
@@ -78,7 +84,7 @@ class SwitchButton(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         track = QRectF(0.5, 0.5, self.width() - 1, self.height() - 1)
-        off = QColor("#C4CCC6")
+        off = QColor(ui_tokens(self).switch_off)
         on = QColor(ACCENT)
         r = int(off.red() + (on.red() - off.red()) * self._progress)
         g = int(off.green() + (on.green() - off.green()) * self._progress)

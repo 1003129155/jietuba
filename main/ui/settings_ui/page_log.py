@@ -15,12 +15,7 @@ from ui.fluent_lite import (
     FluentIcon, ComboBox,
     CaptionLabel, PushButton,
 )
-from .components import SettingCardGroup, WhiteCard, theme_text_style, theme_caption_style
-
-
-_CARD_TITLE_STYLE = theme_text_style(14)
-_CARD_CAPTION_STYLE = theme_caption_style(12)
-_CARD_MUTED_STYLE = theme_caption_style(12)
+from .components import SettingCardGroup, WhiteCard, apply_theme_text_style
 
 
 def create_log_page(dialog) -> QWidget:
@@ -108,16 +103,16 @@ def create_log_page(dialog) -> QWidget:
     path_v.setSpacing(8)
 
     path_title = QLabel(dialog.tr("Save Location:"), path_card)
-    path_title.setStyleSheet(_CARD_TITLE_STYLE)
+    apply_theme_text_style(path_title, 14)
     path_v.addWidget(path_title)
 
     dialog.path_lbl = QLabel(dialog.config_manager.get_log_dir(), path_card)
     dialog.path_lbl.setWordWrap(True)
-    dialog.path_lbl.setStyleSheet(_CARD_CAPTION_STYLE)
+    apply_theme_text_style(dialog.path_lbl, 12, caption=True)
     path_v.addWidget(dialog.path_lbl)
 
     dialog.latest_log_lbl = QLabel("", path_card)
-    dialog.latest_log_lbl.setStyleSheet(_CARD_MUTED_STYLE)
+    apply_theme_text_style(dialog.latest_log_lbl, 12, caption=True)
     dialog.latest_log_lbl.setWordWrap(True)
     refresh_latest_log_label(dialog)
     path_v.addWidget(dialog.latest_log_lbl)

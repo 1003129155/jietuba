@@ -19,11 +19,7 @@ from ui.fluent_lite import (
     FluentIcon, SpinBox, CaptionLabel,
     PushButton, PrimaryPushButton, TransparentToolButton,
 )
-from .components import SettingCardGroup, WhiteCard, theme_text_style, theme_caption_style
-
-
-_CARD_TITLE_STYLE = theme_text_style(14)
-_CARD_CAPTION_STYLE = theme_caption_style(12)
+from .components import SettingCardGroup, WhiteCard, apply_theme_text_style
 
 
 def create_clipboard_page(dialog) -> QWidget:
@@ -115,11 +111,11 @@ def create_clipboard_page(dialog) -> QWidget:
     cleanup_left = QVBoxLayout()
     cleanup_left.setSpacing(2)
     cleanup_title = QLabel(dialog.tr("Clear Clipboard History"), cleanup_card)
-    cleanup_title.setStyleSheet(_CARD_TITLE_STYLE)
+    apply_theme_text_style(cleanup_title, 14)
     cleanup_left.addWidget(cleanup_title)
 
     dialog._clipboard_size_label = QLabel(dialog.tr("← Get storage size"), cleanup_card)
-    dialog._clipboard_size_label.setStyleSheet(_CARD_CAPTION_STYLE)
+    apply_theme_text_style(dialog._clipboard_size_label, 12, caption=True)
     dialog._calc_clipboard_storage_size = _calc_clipboard_storage_size
 
     # 手动刷新按钮 + 大小标签
@@ -134,7 +130,7 @@ def create_clipboard_page(dialog) -> QWidget:
     size_row.addWidget(dialog._clipboard_size_label)
 
     cleanup_desc = QLabel(dialog.tr("Delete all clipboard history records"), cleanup_card)
-    cleanup_desc.setStyleSheet(_CARD_CAPTION_STYLE)
+    apply_theme_text_style(cleanup_desc, 12, caption=True)
     cleanup_left.addWidget(cleanup_desc)
 
     cleanup_h.addLayout(cleanup_left, 1)

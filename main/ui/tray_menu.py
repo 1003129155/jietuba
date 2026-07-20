@@ -72,22 +72,24 @@ def create_tray_menu(app) -> QMenu:
 
 def _menu_style() -> str:
     from core.theme import get_theme
+    from core.ui_theme import get_ui_theme
 
     tc = get_theme().theme_color_hex
+    t = get_ui_theme().tokens
     return f"""
         QMenu {{
-            background-color: white;
-            border: 1px solid #ccc;
+            background-color: {t.popup_background};
+            border: 1px solid {t.border};
             border-radius: 4px;
             padding: 4px;
             font-family: {CSS_FONT_FAMILY_UI};
             font-size: 9pt;
-            color: #000000;
+            color: {t.text};
         }}
         QMenu::item {{
             padding: 6px 12px;
             border-radius: 3px;
-            color: #000000;
+            color: {t.text};
             background-color: transparent;
         }}
         QMenu::item:selected {{
@@ -95,11 +97,11 @@ def _menu_style() -> str:
             color: #ffffff;
         }}
         QMenu::item:disabled {{
-            color: #9e9e9e;
+            color: {t.text_disabled};
         }}
         QMenu::separator {{
             height: 1px;
-            background: #ddd;
+            background: {t.separator};
             margin: 4px 6px;
         }}
     """

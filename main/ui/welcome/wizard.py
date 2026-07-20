@@ -16,6 +16,7 @@ from PySide6.QtGui import QColor, QPainter, QPen
 from core.i18n import make_tr
 from core.logger import log_exception
 from core import safe_event
+from core.ui_theme import LIGHT_TOKENS, UIThemeManager
 from ui.fluent_lite import (
     PushButton as FluentPushButton,
     PrimaryPushButton,
@@ -79,6 +80,11 @@ class WelcomeWizard(FrostedFramelessDialog):
 
     def __init__(self, config_manager, parent=None):
         super().__init__(parent)
+        # The onboarding artwork and its translucent layers are designed as a
+        # cohesive light surface.  Give this top-level window an explicit
+        # theme scope so the application dark palette cannot show through it.
+        self._ui_theme_tokens_override = LIGHT_TOKENS
+        self.setPalette(UIThemeManager.build_palette(LIGHT_TOKENS))
         self._config = config_manager
         self._current = 0
 
@@ -97,6 +103,7 @@ class WelcomeWizard(FrostedFramelessDialog):
 
         self._build_ui()
         self._build_pages()
+        self._refresh_theme_scope()
         self._update_nav()
 
         # ── 第二步：所有页面创建完成后，刷新一遍文字 ──
@@ -209,6 +216,15 @@ class WelcomeWizard(FrostedFramelessDialog):
         ]
         for page in self._pages:
             self._stack.addWidget(page)
+
+    def _refresh_theme_scope(self):
+        """Repolish controls that were constructed before being parented."""
+        for widget in self.findChildren(QWidget):
+            apply_theme = getattr(widget, "_apply_theme", None)
+            if callable(apply_theme):
+                apply_theme(LIGHT_TOKENS)
+            else:
+                widget.update()
 
     # ── 导航逻辑 ─────────────────────────────────────────
     def _go_next(self):

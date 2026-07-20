@@ -49,6 +49,7 @@ APP_DEFAULT_SETTINGS = {
     "clipboard_history_limit": 100,
     "clipboard_auto_cleanup": False,
     "magnifier_color_copy_format": "rgb_hex",
+    "ui_theme_mode": "system",
 }
 
 
