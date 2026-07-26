@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
-    QDialog, QWidget, QVBoxLayout, QHBoxLayout, QLineEdit,
+    QDialog, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QComboBox, QApplication, QSizePolicy,
 )
 from PySide6.QtCore import Qt, Signal, QPoint
@@ -16,6 +16,7 @@ from PySide6.QtGui import (
     QColor, QPainter, QPen, QBrush, QLinearGradient, QCursor, QPainterPath,
 )
 from core import safe_event
+from ui.fluent_lite import LineEdit
 
 # 如果你没有这个常量，可以暂时用默认字体替换
 # from core.constants import CSS_FONT_FAMILY
@@ -405,7 +406,7 @@ class ColorPickerDialog(QDialog):
         inputs_row.addWidget(self._type_combo)
 
         # Hex 输入
-        self._hex_input = QLineEdit()
+        self._hex_input = LineEdit(use_default_style=False)
         self._hex_input.setFixedHeight(28)
         self._hex_input.setMaxLength(7)
         self._hex_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -415,7 +416,7 @@ class ColorPickerDialog(QDialog):
         # RGB / HSV 三个输入框
         self._val_inputs = []
         for _ in range(3):
-            inp = QLineEdit()
+            inp = LineEdit(use_default_style=False)
             inp.setFixedHeight(28)
             inp.setMaxLength(3)
             inp.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -424,7 +425,7 @@ class ColorPickerDialog(QDialog):
             self._val_inputs.append(inp)
 
         # Alpha 百分比
-        self._alpha_input = QLineEdit()
+        self._alpha_input = LineEdit(use_default_style=False)
         self._alpha_input.setFixedSize(48, 28)
         self._alpha_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._alpha_input.setStyleSheet(_INPUT_STYLE)

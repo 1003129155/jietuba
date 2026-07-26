@@ -3,9 +3,11 @@
 from PySide6.QtWidgets import QComboBox, QDoubleSpinBox as _QDoubleSpinBox
 from PySide6.QtWidgets import QLineEdit as _QLineEdit
 from PySide6.QtWidgets import QSpinBox as _QSpinBox
+from PySide6.QtWidgets import QTextEdit as _QTextEdit
 
 from core.ui_theme import get_ui_theme
 
+from .text_context_menu import TextContextMenuMixin, install_text_context_menu
 from .theme import ACCENT, FONT_FAMILY, ui_tokens
 
 
@@ -56,19 +58,26 @@ class ComboBox(_ThemedInput, QComboBox):
         self.setMinimumWidth(96)
 
 
-class LineEdit(_ThemedInput, _QLineEdit):
-    def __init__(self, parent=None):
+class LineEdit(TextContextMenuMixin, _ThemedInput, _QLineEdit):
+    def __init__(self, parent=None, *, use_default_style: bool = True):
         super().__init__(parent)
-        self._init_theme()
+        if use_default_style:
+            self._init_theme()
+
+
+class TextEdit(TextContextMenuMixin, _QTextEdit):
+    """QTextEdit with the shared app context menu and caller-owned body style."""
 
 
 class SpinBox(_ThemedInput, _QSpinBox):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._init_theme()
+        install_text_context_menu(self.lineEdit())
 
 
 class DoubleSpinBox(_ThemedInput, _QDoubleSpinBox):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._init_theme()
+        install_text_context_menu(self.lineEdit())

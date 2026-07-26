@@ -20,7 +20,6 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMenu,
@@ -35,6 +34,7 @@ from core import safe_event
 from core.logger import log_debug, log_error, log_exception
 from core.shortcut_manager import ShortcutHandler, ShortcutManager
 from ui.dialogs import show_confirm_dialog
+from ui.fluent_lite import LineEdit
 
 from ...controllers import ClipboardController, SelectionManager, get_foreground_window, send_ctrl_v, set_foreground_window
 from ...core import ClipboardItem, ClipboardManager, GroupType
@@ -525,7 +525,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self.time_filter_toggle_btn.clicked.connect(self._toggle_time_filter_bar)
         bottom_layout.addWidget(self.time_filter_toggle_btn)
 
-        self.search_input = QLineEdit()
+        self.search_input = LineEdit(use_default_style=False)
         self.search_input.setPlaceholderText("🔍 " + self.tr("Search"))
         self._apply_search_input_style()
         self.search_input.textChanged.connect(self._on_search_changed)

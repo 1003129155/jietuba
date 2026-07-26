@@ -1,14 +1,14 @@
 ﻿# -*- coding: utf-8 -*-
 """翻译设置页 — Fluent Design"""
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QLabel,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QScrollArea,
 )
 from PySide6.QtCore import Qt
 from ui.fluent_lite.theme import ACCENT
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
-    FluentIcon, ComboBox, CaptionLabel,
+    FluentIcon, ComboBox, CaptionLabel, LineEdit,
     PushButton, HyperlinkButton,
 )
 from .components import SettingCardGroup, WhiteCard, adjust_button_width, apply_theme_text_style
@@ -42,12 +42,12 @@ def create_translation_page(dialog) -> QWidget:
     key_lbl.setFixedWidth(100)
     key_h.addWidget(key_lbl)
 
-    dialog.deepl_api_key_input = QLineEdit(key_card)
+    dialog.deepl_api_key_input = LineEdit(key_card, use_default_style=False)
     dialog.deepl_api_key_input.setPlaceholderText(
         "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx"
     )
     dialog.deepl_api_key_input.setText(dialog.config_manager.get_deepl_api_key())
-    dialog.deepl_api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
+    dialog.deepl_api_key_input.setEchoMode(LineEdit.EchoMode.Password)
     dialog.deepl_api_key_input.setStyleSheet(dialog._get_input_style())
     key_h.addWidget(dialog.deepl_api_key_input, 1)
 

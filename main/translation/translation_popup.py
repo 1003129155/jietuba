@@ -12,12 +12,12 @@ from PySide6.QtWidgets import (
     QLabel,
     QMenu,
     QPushButton,
-    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 
 from core.i18n import make_tr
+from ui.fluent_lite import TextEdit
 from .translation_dialog import DARK, LIGHT, Palette
 from .languages import TRANSLATION_LANGUAGES
 
@@ -149,8 +149,8 @@ class TranslationPopup(QWidget):
         footer.addWidget(self.full_button)
         root.addLayout(footer)
 
-    def _make_text_view(self, object_name: str) -> QTextEdit:
-        view = QTextEdit(self)
+    def _make_text_view(self, object_name: str) -> TextEdit:
+        view = TextEdit(self)
         view.setObjectName(object_name)
         view.setReadOnly(True)
         view.setAcceptRichText(False)

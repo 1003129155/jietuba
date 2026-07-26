@@ -614,12 +614,10 @@ class ClipboardController(QObject):
 
         from ..core.text_transform import TRANSFORM_REGISTRY
 
-        entry = TRANSFORM_REGISTRY.get(transform_key)
-        if entry is None:
+        transform_fn = TRANSFORM_REGISTRY.get(transform_key)
+        if transform_fn is None:
             log_error(f"未知转换键: {transform_key}", "Clipboard")
             return False
-
-        _label, transform_fn = entry
 
         # 获取原始文本
         clipboard_item = self.get_item(item_id)

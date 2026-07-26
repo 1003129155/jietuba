@@ -21,7 +21,9 @@ import clipboard.ui.dialogs.manage_dialog as manage_dialog_mod
 from clipboard.controllers.clipboard_controller import ClipboardController
 from clipboard.core import ClipboardItem, Group, GroupType
 from clipboard.ui.dialogs.manage_dialog import ManageDialog
+from core.i18n import I18nManager
 from core.ui_theme import DARK_TOKENS, LIGHT_TOKENS, get_ui_theme
+from ui.fluent_lite import LineEdit, TextEdit
 
 
 class DummyClipboardManager:
@@ -150,6 +152,52 @@ def controller(monkeypatch):
 
 
 class TestManageDialog:
+    def test_text_editor_context_menus_follow_application_theme(self, qapp):
+        theme = get_ui_theme()
+        original_mode = theme.mode
+        editors = (LineEdit(), TextEdit())
+        try:
+            for mode, tokens in (
+                ("light", LIGHT_TOKENS),
+                ("dark", DARK_TOKENS),
+            ):
+                theme.set_mode(mode, persist=False)
+                for editor in editors:
+                    menu = editor.createThemedContextMenu()
+                    style = menu.styleSheet()
+                    assert f"background-color: {tokens.popup_background}" in style
+                    assert f"color: {tokens.text_disabled}" in style
+                    assert menu.autoFillBackground() is True
+                    menu.deleteLater()
+        finally:
+            theme.set_mode(original_mode.value, persist=False)
+            for editor in editors:
+                editor.deleteLater()
+
+    def test_text_editor_context_menu_uses_application_translations(self, qapp):
+        original_language = I18nManager.get_current_language()
+        editor = TextEdit()
+        expected_labels = {
+            "en": ("Undo", "Redo", "Cut", "Copy", "Paste", "Delete", "Select All"),
+            "ja": ("元に戻す", "やり直す", "切り取り", "コピー", "貼り付け", "削除", "すべて選択"),
+            "ko": ("실행 취소", "다시 실행", "잘라내기", "복사", "붙여넣기", "삭제", "모두 선택"),
+            "zh": ("撤销", "重做", "剪切", "复制", "粘贴", "删除", "全选"),
+        }
+        try:
+            for language, expected in expected_labels.items():
+                assert I18nManager.load_language(language) is True
+                menu = editor.createThemedContextMenu()
+                labels = tuple(
+                    action.text().partition("\t")[0]
+                    for action in menu.actions()
+                    if not action.isSeparator()
+                )
+                assert labels == expected
+                menu.deleteLater()
+        finally:
+            I18nManager.load_language(original_language)
+            editor.deleteLater()
+
     def test_management_surface_uses_application_theme(self, dialog):
         dlg, _manager = dialog
         theme = get_ui_theme()

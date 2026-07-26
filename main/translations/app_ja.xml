@@ -2828,4 +2828,16 @@ SOFTWARE.</translation></message>
     </message>
 </context>
 
+<!-- ========== Standard Text Editor Context Menu ========== -->
+<context>
+    <name>TextEditContextMenu</name>
+    <message><source>Undo</source><translation>元に戻す</translation></message>
+    <message><source>Redo</source><translation>やり直す</translation></message>
+    <message><source>Cut</source><translation>切り取り</translation></message>
+    <message><source>Copy</source><translation>コピー</translation></message>
+    <message><source>Paste</source><translation>貼り付け</translation></message>
+    <message><source>Delete</source><translation>削除</translation></message>
+    <message><source>Select All</source><translation>すべて選択</translation></message>
+</context>
+
 </TS>

@@ -1,18 +1,23 @@
 """Regression tests for the project-owned UI compatibility layer."""
 
+import ast
 from pathlib import Path
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QStyle, QStyleOptionButton
 
 from ui.fluent_lite import (
     FluentIcon,
     NavigationInterface,
     NavigationItemPosition,
+    LineEdit,
     RadioButton,
     SegmentedWidget,
     SettingCard,
     SettingCardGroup,
+    SpinBox,
     SwitchSettingCard,
+    TextEdit,
 )
 
 
@@ -93,3 +98,52 @@ def test_radio_button_label_does_not_overlap_indicator(qapp):
     assert outer.top() - 0.5 >= indicator.top()
     assert outer.right() + 0.5 <= indicator.right() + 1
     assert outer.bottom() + 0.5 <= indicator.bottom() + 1
+
+
+def test_shared_text_inputs_install_themed_context_menus(qapp):
+    line_edit = LineEdit()
+    text_edit = TextEdit()
+    spin_box = SpinBox()
+
+    for editor in (line_edit, text_edit):
+        menu = editor.createThemedContextMenu()
+        assert menu.autoFillBackground() is True
+        assert "QMenu::item:disabled" in menu.styleSheet()
+        menu.deleteLater()
+
+    assert (
+        spin_box.lineEdit().contextMenuPolicy()
+        == Qt.ContextMenuPolicy.CustomContextMenu
+    )
+
+
+def test_line_edit_can_keep_a_caller_owned_body_style(qapp):
+    line_edit = LineEdit(use_default_style=False)
+    custom_style = "QLineEdit { background: #123456; }"
+    line_edit.setStyleSheet(custom_style)
+
+    assert line_edit.styleSheet() == custom_style
+    menu = line_edit.createThemedContextMenu()
+    assert "background-color:" in menu.styleSheet()
+    menu.deleteLater()
+
+
+def test_frontend_uses_shared_text_editor_controls():
+    """Prevent new raw Qt editors from bypassing the shared context menu."""
+    source_root = Path(__file__).parents[1]
+    raw_editor_names = {"QLineEdit", "QTextEdit", "QPlainTextEdit"}
+    offenders = []
+
+    for path in source_root.rglob("*.py"):
+        if path.parts[-2] == "tests":
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8-sig"), filename=str(path))
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id in raw_editor_names
+            ):
+                offenders.append(f"{path.relative_to(source_root)}:{node.lineno}")
+
+    assert offenders == []

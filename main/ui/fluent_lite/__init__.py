@@ -13,7 +13,7 @@ from .buttons import (
 from .cards import SettingCard, SettingCardGroup, SimpleCardWidget, SwitchSettingCard
 from .frameless import FramelessDialog, FrostedFramelessDialog
 from .icons import FluentIcon
-from .inputs import ComboBox, DoubleSpinBox, LineEdit, SpinBox
+from .inputs import ComboBox, DoubleSpinBox, LineEdit, SpinBox, TextEdit
 from .labels import BodyLabel, CaptionLabel
 from .navigation import NavigationInterface, NavigationItemPosition
 from .segmented import SegmentedWidget
@@ -90,7 +90,7 @@ class RadioButton(_QRadioButton):
 
 __all__ = [
     "PushButton", "PrimaryPushButton", "TransparentPushButton", "TransparentToolButton",
-    "HyperlinkButton", "BodyLabel", "CaptionLabel", "ComboBox", "LineEdit", "SpinBox",
+    "HyperlinkButton", "BodyLabel", "CaptionLabel", "ComboBox", "LineEdit", "TextEdit", "SpinBox",
     "DoubleSpinBox", "RadioButton", "SwitchButton", "SegmentedWidget", "FluentIcon",
     "SettingCard", "SwitchSettingCard", "SettingCardGroup", "SimpleCardWidget",
     "NavigationInterface", "NavigationItemPosition", "FluentTitleBar", "FramelessDialog",

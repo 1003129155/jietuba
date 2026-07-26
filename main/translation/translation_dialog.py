@@ -24,7 +24,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -34,6 +33,7 @@ from core import log_debug, log_info
 from core.i18n import make_tr
 from core.resource_manager import ResourceManager
 from settings import get_tool_settings_manager
+from ui.fluent_lite import TextEdit
 from .languages import TRANSLATION_LANGUAGES
 
 
@@ -271,7 +271,7 @@ class DashboardTitleBar(TitleBar):
         self.closeBtn.setHoverBackgroundColor(QColor(palette.danger))
 
 
-class SourceEdit(QTextEdit):
+class SourceEdit(TextEdit):
     translate_shortcut = Signal()
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
@@ -468,7 +468,7 @@ class TranslationDialog(FramelessWindow):
         target_layout.setContentsMargins(10, 10, 10, 8)
         target_layout.setSpacing(2)
 
-        self.target_edit = QTextEdit()
+        self.target_edit = TextEdit()
         self.target_edit.setObjectName("targetEdit")
         self.target_edit.setAcceptRichText(False)
         self.target_edit.setReadOnly(True)

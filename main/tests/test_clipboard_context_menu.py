@@ -83,6 +83,15 @@ def test_build_context_menu_for_grouped_text_item_uses_rule_table(monkeypatch):
     ]
     assert move_menu.children[0].translate_label is False
 
+    special_paste_menu = next(
+        action for action in ctx.actions if action.key == "special_paste_menu"
+    )
+    special_paste_keys = [
+        child.key for child in special_paste_menu.children if not child.is_separator
+    ]
+    assert "transform_sql_in" in special_paste_keys
+    assert "transform_wrap_text" not in special_paste_keys
+
 
 def test_build_context_menu_for_file_item_includes_file_groups(monkeypatch):
     item = ClipboardItem(id=7, content='{"files": ["C:/demo.txt"]}', content_type="file")

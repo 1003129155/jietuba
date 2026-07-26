@@ -43,6 +43,8 @@ def test_explicit_light_and_dark_modes_update_palette(qapp):
     assert qapp.palette().color(QPalette.ColorRole.WindowText) == QColor(
         LIGHT_TOKENS.text
     )
+    assert f"background-color: {LIGHT_TOKENS.popup_background}" in qapp.styleSheet()
+    assert f"color: {LIGHT_TOKENS.text_disabled}" in qapp.styleSheet()
 
     manager.set_mode("dark")
     assert manager.mode is UIThemeMode.DARK
@@ -51,6 +53,8 @@ def test_explicit_light_and_dark_modes_update_palette(qapp):
     assert qapp.palette().color(QPalette.ColorRole.WindowText) == QColor(
         DARK_TOKENS.text
     )
+    assert f"background-color: {DARK_TOKENS.popup_background}" in qapp.styleSheet()
+    assert f"color: {DARK_TOKENS.text_disabled}" in qapp.styleSheet()
 
 
 def test_invalid_mode_falls_back_to_system(qapp):

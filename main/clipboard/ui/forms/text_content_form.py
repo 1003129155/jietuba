@@ -6,9 +6,7 @@
 只创建控件并挂到 dialog 上，不直接处理保存逻辑。
 """
 
-from PySide6.QtWidgets import QTextEdit
-
-from ui.fluent_lite import BodyLabel, LineEdit
+from ui.fluent_lite import BodyLabel, LineEdit, TextEdit
 from ..layout_scale import scale_y
 
 
@@ -24,9 +22,9 @@ def build_text_content_form(dialog):
     content_label = BodyLabel(dialog.tr("Content"))
     dialog.detail_layout.addWidget(content_label)
 
-    dialog.content_edit = QTextEdit()
+    dialog.content_edit = TextEdit()
     dialog.content_edit.setPlaceholderText(dialog.tr("Enter text content to save..."))
-    dialog.content_edit.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+    dialog.content_edit.setLineWrapMode(TextEdit.LineWrapMode.NoWrap)
     dialog.content_edit.setMinimumHeight(scale_y(200))
     dialog.detail_layout.addWidget(dialog.content_edit, 1)
 
@@ -44,8 +42,8 @@ def build_edit_text_content_form(dialog, item):
     content_label = BodyLabel(dialog.tr("Content"))
     dialog.detail_layout.addWidget(content_label)
 
-    dialog.content_edit = QTextEdit()
+    dialog.content_edit = TextEdit()
     dialog.content_edit.setText(item.content)
-    dialog.content_edit.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+    dialog.content_edit.setLineWrapMode(TextEdit.LineWrapMode.NoWrap)
     dialog.content_edit.setMinimumHeight(scale_y(200))
     dialog.detail_layout.addWidget(dialog.content_edit, 1)

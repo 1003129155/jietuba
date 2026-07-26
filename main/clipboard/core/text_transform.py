@@ -6,6 +6,7 @@
 """
 
 import re
+from collections.abc import Callable
 from datetime import datetime
 
 
@@ -57,26 +58,64 @@ def toggle_case(text: str) -> str:
     return text.swapcase()
 
 
-def to_sql_in_clause(text: str) -> str:
-    """将文本转换为 SQL IN 子句格式。
+def _parse_sql_values(text: str) -> list[str]:
+    """按空白、逗号或分号拆分 SQL IN 值。"""
+    return [part for part in re.split(r"[\s,;]+", text) if part]
 
-    每遇到不连续的区域就切分一次，然后给每个切好的单元前后加单引号，
-    用逗号连接，最终包装为 IN (...) 格式。
+
+def _quote_sql_value(value: str) -> str:
+    """为 SQL 字符串值添加单引号，并转义值中的单引号。"""
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _format_sql_values(values: list[str], max_line_length: int) -> str:
+    """将值格式化为带引号的 SQL 列表，只在值与值之间换行。"""
+    if max_line_length <= 0:
+        raise ValueError("max_line_length 必须大于 0")
+    if not values:
+        return ""
+
+    quoted_values = [_quote_sql_value(value) for value in values]
+    lines: list[str] = []
+    current_line = ""
+
+    for index, quoted_value in enumerate(quoted_values):
+        is_last = index == len(quoted_values) - 1
+        token = quoted_value if is_last else f"{quoted_value},"
+        separator = " " if current_line else ""
+        candidate = f"{current_line}{separator}{token}"
+
+        if len(candidate) <= max_line_length or not current_line:
+            current_line = candidate
+            continue
+
+        lines.append(current_line)
+        current_line = token
+
+    lines.append(current_line)
+    return "\n".join(lines)
+
+
+def to_sql_in_clause(text: str, max_line_length: int = 80) -> str:
+    """将文本转换为可放入 SQL IN 括号内的值列表。
+
+    按空白、逗号或分号切分输入，为每个值添加单引号并转义值中的
+    单引号。输出优先控制在指定行宽内，只在值与值之间换行；单个值
+    过长时允许该行超过限制。结果不包含 IN 关键字和外层括号。
 
     示例：
-        "hello world  foo   bar" → IN ('hello', 'world', 'foo', 'bar')
-        "a,b,c" → IN ('a', 'b', 'c')
-        "1\n2\n3" → IN ('1', '2', '3')
-    """
-    # 按任意空白、逗号、换行等分隔符切分
-    parts = re.split(r'[\s,;\n\r\t]+', text)
-    # 过滤空字符串
-    parts = [p.strip() for p in parts if p.strip()]
-    if not parts:
-        return "IN ()"
+        "hello world  foo   bar" → 'hello', 'world', 'foo', 'bar'
+        "a,b,c" → 'a', 'b', 'c'
+        "1\n2\n3" → '1', '2', '3'
 
-    quoted = ", ".join(f"'{p}'" for p in parts)
-    return f"{quoted}"
+    Args:
+        text: 待转换的原始文本。
+        max_line_length: 期望的最大行宽，必须大于 0，默认 80。
+
+    Returns:
+        格式化后的 SQL 值列表。
+    """
+    return _format_sql_values(_parse_sql_values(text), max_line_length)
 
 
 def remove_line_breaks(text: str) -> str:
@@ -95,16 +134,16 @@ def append_current_time(text: str) -> str:
     return f"{text}{now}"
 
 
-# 转换函数注册表：key → (显示名, 转换函数)
-TRANSFORM_REGISTRY: dict[str, tuple[str, callable]] = {
-    "transform_uppercase":       ("All Uppercase",       to_uppercase),
-    "transform_lowercase":       ("All Lowercase",       to_lowercase),
-    "transform_capitalize_words": ("Capitalize Words",   capitalize_words),
-    "transform_capitalize_sentences": ("Capitalize Sentences", capitalize_sentences),
-    "transform_toggle_case":     ("Toggle Case",         toggle_case),
-    "transform_sql_in":          ("SQL IN Clause",       to_sql_in_clause),
-    "transform_remove_linebreaks": ("Remove Line Breaks", remove_line_breaks),
-    "transform_append_time":     ("Paste with Current Time", append_current_time),
+# 转换函数注册表：key → 转换函数。显示名称由菜单层维护。
+TRANSFORM_REGISTRY: dict[str, Callable[[str], str]] = {
+    "transform_uppercase": to_uppercase,
+    "transform_lowercase": to_lowercase,
+    "transform_capitalize_words": capitalize_words,
+    "transform_capitalize_sentences": capitalize_sentences,
+    "transform_toggle_case": toggle_case,
+    "transform_sql_in": to_sql_in_clause,
+    "transform_remove_linebreaks": remove_line_breaks,
+    "transform_append_time": append_current_time,
 }
 
 

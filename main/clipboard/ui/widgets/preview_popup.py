@@ -6,13 +6,14 @@
 """
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QTextEdit, QApplication
+    QWidget, QVBoxLayout, QLabel, QApplication
 )
 from PySide6.QtCore import Qt, QPoint, QTimer
 from PySide6.QtGui import QPixmap
 
 from core.logger import log_exception
 from core.i18n import make_tr
+from ui.fluent_lite import TextEdit
 from typing import TYPE_CHECKING
 
 _tr = make_tr("ClipboardPreview")
@@ -77,10 +78,10 @@ class PreviewPopup(QWidget):
         layout.addWidget(self.title_label)
         
         # 内容区域 - 使用 QTextEdit 支持富文本
-        self.content_widget = QTextEdit()
+        self.content_widget = TextEdit()
         self.content_widget.setReadOnly(True)
         # 启用自动换行
-        self.content_widget.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
+        self.content_widget.setLineWrapMode(TextEdit.LineWrapMode.WidgetWidth)
         # 禁用滚动条
         self.content_widget.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.content_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)

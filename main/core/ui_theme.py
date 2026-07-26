@@ -183,6 +183,9 @@ class UIThemeManager(QObject):
         if self._application is not None:
             self._application.setProperty("uiTheme", effective.value)
             self._application.setPalette(self.build_palette(self.tokens))
+            self._application.setStyleSheet(
+                self._build_global_stylesheet(self.tokens)
+            )
 
         self.theme_changed.emit(self.tokens)
 
@@ -276,10 +279,22 @@ class UIThemeManager(QObject):
                 color: {t.text};
                 background-color: {t.popup_background};
                 border: 1px solid {t.border};
+                border-radius: 6px;
+                padding: 4px;
+            }}
+            QMenu::item {{
+                color: {t.text};
+                background-color: transparent;
+                padding: 6px 28px 6px 26px;
+                margin: 1px 0;
             }}
             QMenu::item:selected {{
                 color: {t.text};
                 background-color: {t.popup_hover};
+            }}
+            QMenu::item:disabled {{
+                color: {t.text_disabled};
+                background-color: transparent;
             }}
             QMenu::separator {{
                 height: 1px;
