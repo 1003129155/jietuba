@@ -2389,6 +2389,19 @@ Replace it?</source>
         <source>工具栏在顶部</source>
         <translation>도구 모음 위쪽</translation>
     </message>
+    <message><source>剪贴板</source><translation>클립보드</translation></message>
+    <message><source>历史记录</source><translation>기록</translation></message>
+    <message><source>内容分组</source><translation>콘텐츠 그룹</translation></message>
+    <message><source>快速启动</source><translation>빠른 실행</translation></message>
+    <message><source>文字</source><translation>텍스트</translation></message>
+    <message><source>图片</source><translation>이미지</translation></message>
+    <message><source>文件</source><translation>파일</translation></message>
+    <message><source>会议时间改为 14:00</source><translation>회의 시간을 14:00로 변경</translation></message>
+    <message><source>产品封面.png</source><translation>제품 표지.png</translation></message>
+    <message><source>项目说明.pdf</source><translation>프로젝트 설명.pdf</translation></message>
+    <message><source>感谢您的联系</source><translation>연락해 주셔서 감사합니다</translation></message>
+    <message><source>设计预览.png</source><translation>디자인 미리보기.png</translation></message>
+    <message><source>下周一 10:00 开会</source><translation>다음 주 월요일 10:00 회의</translation></message>
     <message>
         <source>剪贴板管理</source>
         <translation>클립보드 관리자</translation>
@@ -2436,6 +2449,38 @@ Replace it?</source>
     <message>
         <source>🌐 翻译设置</source>
         <translation>🌐 번역 설정</translation>
+    </message>
+    <message>
+        <source>选择翻译引擎并填写对应凭据，之后可以随时在设置中修改。</source>
+        <translation>번역 엔진을 선택하고 자격 증명을 입력하세요. 나중에 설정에서 변경할 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>翻译引擎</source>
+        <translation>번역 엔진</translation>
+    </message>
+    <message>
+        <source>Google API Key</source>
+        <translation>Google API 키</translation>
+    </message>
+    <message>
+        <source>AWS 区域</source>
+        <translation>AWS 리전</translation>
+    </message>
+    <message>
+        <source>Access Key ID</source>
+        <translation>액세스 키 ID</translation>
+    </message>
+    <message>
+        <source>Secret Access Key</source>
+        <translation>보안 액세스 키</translation>
+    </message>
+    <message>
+        <source>Session Token</source>
+        <translation>세션 토큰</translation>
+    </message>
+    <message>
+        <source>可选，临时凭据使用</source>
+        <translation>선택 사항, 임시 자격 증명용</translation>
     </message>
     <message>
         <source>使用 DeepL API 进行高质量翻译。
@@ -2495,8 +2540,8 @@ Replace it?</source>
         <translation>시작할 때마다 설정 패널을 자동으로 엽니다.</translation>
     </message>
     <message>
-        <source>生成桌面快捷方式</source>
-        <translation>바탕 화면 바로가기 만들기</translation>
+        <source>快捷方式</source>
+        <translation>바로가기</translation>
     </message>
     <message>
         <source>完成向导时在桌面创建截图吧快捷方式。</source>

@@ -55,20 +55,14 @@ class PinTranslationHelper:
             
             log_info(f"准备翻译 {len(all_text)} 个字符", "Translate")
             
-            # 3. 获取 DeepL API 密钥
-            api_key = self._get_deepl_api_key()
-            if not api_key:
-                log_error("DeepL API 密钥未配置", "Translate")
-                self._show_error(_tr("Please configure DeepL API key in Settings."))
-                return False
-            
-            # 4. 获取目标语言
-            target_lang = self._get_translation_target_lang()
-            
-            # 5. 获取翻译参数设置
-            split_sentences, preserve_formatting = self._get_translation_params()
-            
-            # 6. 使用 TranslationManager 单例进行翻译
+            # 3. 获取厂商无关的翻译参数
+            params = (
+                self.config_manager.get_translation_request_params()
+                if self.config_manager
+                else {"target_lang": "ZH"}
+            )
+
+            # 4. 使用 TranslationManager 单例进行翻译
             from translation import TranslationManager
             
             # 智能计算窗口位置
@@ -78,12 +72,8 @@ class PinTranslationHelper:
             manager = TranslationManager.instance()
             manager.translate(
                 text=all_text,
-                api_key=api_key,
-                target_lang=target_lang,
                 position=dialog_pos,
-                use_pro=self._is_deepl_pro(),
-                split_sentences=split_sentences,
-                preserve_formatting=preserve_formatting
+                **params,
             )
             
             return True
@@ -93,48 +83,6 @@ class PinTranslationHelper:
             import traceback
             traceback.print_exc()
             return False
-    
-    def _get_deepl_api_key(self) -> str:
-        """获取 DeepL API 密钥"""
-        if self.config_manager:
-            if hasattr(self.config_manager, 'get_deepl_api_key'):
-                return self.config_manager.get_deepl_api_key() or ""
-        return ""
-    
-    def _get_translation_target_lang(self) -> str:
-        """获取翻译目标语言"""
-        if self.config_manager:
-            if hasattr(self.config_manager, 'get_translation_target_lang'):
-                return self.config_manager.get_translation_target_lang() or "ZH"
-        return "ZH"
-    
-    def _is_deepl_pro(self) -> bool:
-        """是否使用 DeepL Pro API"""
-        if self.config_manager:
-            if hasattr(self.config_manager, 'get_deepl_use_pro'):
-                return self.config_manager.get_deepl_use_pro()
-        return False
-    
-    def _get_translation_params(self) -> tuple:
-        """
-        获取翻译参数设置
-        
-        Returns:
-            (split_sentences, preserve_formatting) 元组
-        """
-        split_sentences_enabled = True
-        preserve_formatting = True
-        
-        if self.config_manager:
-            if hasattr(self.config_manager, 'get_translation_split_sentences'):
-                split_sentences_enabled = self.config_manager.get_translation_split_sentences()
-            if hasattr(self.config_manager, 'get_translation_preserve_formatting'):
-                preserve_formatting = self.config_manager.get_translation_preserve_formatting()
-        
-        # 转换为 DeepL API 参数
-        split_sentences = "nonewlines" if split_sentences_enabled else "0"
-        
-        return split_sentences, preserve_formatting
     
     def _calculate_window_position(self) -> QPoint:
         """

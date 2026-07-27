@@ -10,6 +10,7 @@ from PySide6.QtGui import QKeyEvent, QKeySequence
 
 from core.shortcut_manager import ShortcutManager, ShortcutHandler, get_key_display_map
 from core import safe_event
+from core.ui_theme import get_ui_theme
 
 
 class _HotkeyEditHandler(ShortcutHandler):
@@ -177,26 +178,31 @@ class _HotkeyLineEdit(QLineEdit):
         # NOTE: Do NOT set ReadOnly=True, as it may block key events on some platforms/versions.
         # We will block standard input by not calling super().keyPressEvent().
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self.setStyleSheet("""
-            QLineEdit {
-                border: 1px solid #C8D0DA;
-                border-radius: 6px;
-                padding: 4px 8px;
-                background: #FFFFFF;
-                color: #1A1A2E;
-                font-size: 13px;
-            }
-            QLineEdit:focus {
-                border: 2px solid #2196F3;
-                background: #F0F7FF;
-            }
-            QLineEdit:hover {
-                border-color: #90CAF9;
-            }
-        """)
+        self._apply_theme()
+        get_ui_theme().theme_changed.connect(self._apply_theme)
 
         # 创建 handler，聚焦时注册，失焦时注销
         self._shortcut_handler = _HotkeyEditHandler(self)
+
+    def _apply_theme(self, _tokens=None):
+        tokens = get_ui_theme().tokens
+        self.setStyleSheet(f"""
+            QLineEdit {{
+                border: 1px solid {tokens.border_hover};
+                border-radius: 6px;
+                padding: 4px 8px;
+                background: {tokens.input_background};
+                color: {tokens.text};
+                font-size: 13px;
+            }}
+            QLineEdit:focus {{
+                border: 2px solid {tokens.accent};
+                background: {tokens.surface_hover};
+            }}
+            QLineEdit:hover {{
+                border-color: {tokens.accent_hover};
+            }}
+        """)
 
     @safe_event
     def keyPressEvent(self, event: QKeyEvent):

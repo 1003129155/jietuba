@@ -1,6 +1,7 @@
 """Minimal title bar compatible with qframelesswindow.FramelessDialog."""
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QLabel
 from qframelesswindow import TitleBar
 
@@ -27,10 +28,20 @@ class FluentTitleBar(TitleBar):
         self.setStyleSheet("background: transparent;")
 
     def _apply_theme(self, _tokens=None):
+        tokens = ui_tokens(self)
         self.titleLabel.setStyleSheet(
-            f"color: {ui_tokens(self).text}; font: 12px {FONT_FAMILY}; "
+            f"color: {tokens.text}; font: 12px {FONT_FAMILY}; "
             "background: transparent;"
         )
+        for button in (self.minBtn, self.maxBtn, self.closeBtn):
+            button.setNormalColor(QColor(tokens.text_muted))
+            button.setHoverColor(QColor(tokens.text))
+            button.setPressedColor(QColor(tokens.text))
+            button.setNormalBackgroundColor(QColor(0, 0, 0, 0))
+            button.setHoverBackgroundColor(QColor(tokens.surface_hover))
+            button.setPressedBackgroundColor(QColor(tokens.accent_soft))
+        self.closeBtn.setHoverColor(QColor("#FFFFFF"))
+        self.closeBtn.setHoverBackgroundColor(QColor("#C42B1C"))
 
     def setTitle(self, title):
         self.titleLabel.setText(str(title))

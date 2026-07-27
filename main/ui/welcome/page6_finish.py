@@ -2,28 +2,36 @@
 """
 第6页 — 完成
 
-庆祝动画 + 配置摘要 + 完成按钮提示
+克制的完成动画 + 最终设置
 """
 
+import math
+
 from PySide6.QtWidgets import QVBoxLayout, QLabel, QWidget
-from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
-from PySide6.QtGui import QPainter, QColor, QFont, QPen
+from PySide6.QtCore import Qt, QTimer, QElapsedTimer, QEasingCurve, QPointF
+from PySide6.QtGui import QPainter, QColor, QPen, QPainterPath
 from core import safe_event
 from core.i18n import make_tr
 from core.logger import log_info, log_exception
 
 if __package__:
-    from .base_page import BasePage, IllustrationArea, ToggleSwitch, ACCENT, TEXT_PRIMARY, TEXT_SECOND, BG_PAGE
+    from .base_page import (
+        BasePage, IllustrationArea, ToggleSwitch, ACCENT, TEXT_PRIMARY,
+        TEXT_SECOND, BG_PAGE, PRODUCT_NAME, brand_text, welcome_theme,
+    )
 else:
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from base_page import BasePage, IllustrationArea, ToggleSwitch, ACCENT, TEXT_PRIMARY, TEXT_SECOND, BG_PAGE
+    from base_page import (
+        BasePage, IllustrationArea, ToggleSwitch, ACCENT, TEXT_PRIMARY,
+        TEXT_SECOND, BG_PAGE, PRODUCT_NAME, brand_text, welcome_theme,
+    )
 
 
 _tr = make_tr("WelcomeWizard")
 
 
-# ── 插画区：烟花 / 勾选动画 ─────────────────────────────
+# ── 插画区：一次性完成动画 ──────────────────────────────
 class _FinishIllus(IllustrationArea):
     def _build_content(self):
         from PySide6.QtWidgets import QSizePolicy
@@ -31,136 +39,151 @@ class _FinishIllus(IllustrationArea):
         self._anim.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self._layout.addWidget(self._anim)
 
-
-class _Particle:
-    """简单粒子"""
-    def __init__(self, x, y, vx, vy, color, life=1.0):
-        self.x, self.y = float(x), float(y)
-        self.vx, self.vy = float(vx), float(vy)
-        self.color = color
-        self.life = life
-        self.decay = 0.018 + (abs(vx) + abs(vy)) * 0.003
+    def _apply_welcome_theme(self, _tokens=None):
+        """完成徽记直接悬浮在页面上，不再套一张巨大的空卡片。"""
+        self.setStyleSheet("""
+            #IllustrationArea {
+                background: transparent;
+                border: none;
+            }
+        """)
+        self.update()
 
 
 class _CheckAnim(QWidget):
+    """实心圆、路径勾、双层波纹和少量光点组成的一次性完成动效。"""
+
+    DURATION_MS = 1120
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setStyleSheet("background: transparent;")
-        self._particles: list[_Particle] = []
-        self._check_progress = 0.0    # 0→1 勾号绘制进度
-        self._circle_progress = 0.0   # 0→1 外圆绘制进度
-        self._burst_done = False
-
-        self._phase = 0  # 0=circle, 1=check, 2=burst, 3=idle
+        self._elapsed = QElapsedTimer()
+        self._time_ms = self.DURATION_MS
+        self._has_been_shown = False
         self._timer = QTimer(self)
+        self._timer.setTimerType(Qt.TimerType.PreciseTimer)
         self._timer.timeout.connect(self._tick)
-        self._timer.start(16)
 
     def _tick(self):
-        if self._phase == 0:
-            self._circle_progress = min(1.0, self._circle_progress + 0.035)
-            if self._circle_progress >= 1.0:
-                self._phase = 1
-        elif self._phase == 1:
-            self._check_progress = min(1.0, self._check_progress + 0.06)
-            if self._check_progress >= 1.0:
-                self._phase = 2
-                self._emit_burst()
-        elif self._phase == 2:
-            self._update_particles()
-            if not self._particles:
-                self._phase = 3
-                self._timer.stop()
+        self._time_ms = min(self.DURATION_MS, self._elapsed.elapsed())
+        if self._time_ms >= self.DURATION_MS:
+            self._timer.stop()
         self.update()
 
-    def _emit_burst(self):
-        import math, random
-        cx, cy = self.width() / 2, self.height() / 2
-        colors = ["#F44336", "#9C27B0", ACCENT, "#4CAF50", "#FF9800", "#00BCD4"]
-        for i in range(48):
-            angle = (i / 48) * math.pi * 2 + random.uniform(-0.1, 0.1)
-            speed = random.uniform(2.5, 5.5)
-            vx = math.cos(angle) * speed
-            vy = math.sin(angle) * speed
-            c = random.choice(colors)
-            self._particles.append(_Particle(cx, cy, vx, vy, c, 1.0))
+    def play(self):
+        self._time_ms = 0
+        self._elapsed.restart()
+        self._timer.start(16)
+        self.update()
 
-    def _update_particles(self):
-        alive = []
-        for pt in self._particles:
-            pt.x += pt.vx
-            pt.y += pt.vy
-            pt.vy += 0.12  # gravity
-            pt.life -= pt.decay
-            if pt.life > 0:
-                alive.append(pt)
-        self._particles = alive
+    def showEvent(self, event):
+        super().showEvent(event)
+        # 页面真正进入可见状态时播放，避免向导初始化期间提前播完。
+        if self._has_been_shown:
+            self.play()
+        else:
+            self._has_been_shown = True
+            QTimer.singleShot(90, self.play)
+
+    @staticmethod
+    def _progress(now: float, start: float, end: float) -> float:
+        if end <= start:
+            return 1.0
+        return max(0.0, min(1.0, (now - start) / (end - start)))
+
+    @staticmethod
+    def _ease(curve: QEasingCurve.Type, value: float) -> float:
+        return QEasingCurve(curve).valueForProgress(value)
 
     @safe_event
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         w, h = self.width(), self.height()
-        cx, cy = w / 2, h / 2
-        r = min(w, h) * 0.22
+        theme = welcome_theme()
+        center = QPointF(w / 2.0, h / 2.0)
+        now = float(self._time_ms)
+        base_r = min(44.0, max(34.0, min(w, h) * 0.13))
 
-        # 外圆（描边弧）
-        if self._circle_progress > 0:
-            import math
-            span = int(self._circle_progress * 360 * 16)
-            pen = QPen(QColor(ACCENT), 4)
-            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            p.setPen(pen)
-            p.setBrush(Qt.GlobalColor.transparent)
-            p.drawArc(
-                int(cx - r), int(cy - r), int(r * 2), int(r * 2),
-                90 * 16, -span
-            )
+        circle_t = self._progress(now, 70, 410)
+        circle_scale = self._ease(QEasingCurve.Type.OutBack, circle_t)
+        check_t = self._ease(
+            QEasingCurve.Type.OutCubic, self._progress(now, 330, 690)
+        )
+        effects_t = self._progress(now, 560, 1040)
 
-        # 填充圆背景（circle_progress=1 时）
-        if self._circle_progress >= 1.0:
+        # 最终仍保留的柔和底光，填补空白但不形成另一只“大圆”。
+        glow = QColor(theme.accent)
+        glow.setAlpha(12 if theme.is_dark else 9)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(glow)
+        p.drawEllipse(center, base_r * 1.9, base_r * 1.9)
+
+        # 两圈只出现一次的确认波纹。
+        for delay, max_scale in ((0.0, 1.85), (0.17, 2.15)):
+            wave_t = max(0.0, min(1.0, (effects_t - delay) / (1.0 - delay)))
+            if 0.0 < wave_t < 1.0:
+                wave_r = base_r * (1.0 + (max_scale - 1.0) * wave_t)
+                wave_color = QColor(theme.accent)
+                wave_color.setAlpha(int(54 * (1.0 - wave_t) ** 2))
+                wave_pen = QPen(wave_color, 1.5)
+                p.setPen(wave_pen)
+                p.setBrush(Qt.BrushStyle.NoBrush)
+                p.drawEllipse(center, wave_r, wave_r)
+
+        # 少量同色光点，从徽记边缘短距离散开并淡出。
+        if 0.0 < effects_t < 1.0:
+            spark_color = QColor(theme.accent)
+            spark_color.setAlpha(int(175 * math.sin(math.pi * effects_t)))
             p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(QColor(33, 150, 243, 30))
-            p.drawEllipse(int(cx - r), int(cy - r), int(r * 2), int(r * 2))
+            p.setBrush(spark_color)
+            angles = (-148, -92, -34, 20, 78, 142)
+            for index, angle_deg in enumerate(angles):
+                angle = math.radians(angle_deg)
+                distance = base_r * (1.28 + effects_t * (0.30 + index % 2 * 0.10))
+                point = QPointF(
+                    center.x() + math.cos(angle) * distance,
+                    center.y() + math.sin(angle) * distance,
+                )
+                dot_r = 1.8 if index % 2 else 2.4
+                p.drawEllipse(point, dot_r, dot_r)
 
-        # 勾号
-        if self._check_progress > 0:
-            # 勾号三个点：起点→拐点→终点
-            x1, y1 = cx - r * 0.38, cy
-            x2, y2 = cx - r * 0.05, cy + r * 0.38
-            x3, y3 = cx + r * 0.45, cy - r * 0.32
+        # 小型实心完成徽记。
+        radius = base_r * circle_scale
+        if radius > 0.1:
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QColor(theme.accent))
+            p.drawEllipse(center, radius, radius)
 
-            pen = QPen(QColor(ACCENT), 4)
-            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-            p.setPen(pen)
-
-            # 分两段绘制
-            seg1_len = 0.4  # 第1段占比
-            t = self._check_progress
-            if t <= seg1_len:
-                # 绘第1段部分
-                frac = t / seg1_len
-                mx = x1 + (x2 - x1) * frac
-                my = y1 + (y2 - y1) * frac
-                p.drawLine(int(x1), int(y1), int(mx), int(my))
+        # 白色勾按路径分两段绘制。
+        if check_t > 0.0 and circle_scale > 0.0:
+            r = base_r
+            start = QPointF(center.x() - r * 0.45, center.y() - r * 0.01)
+            corner = QPointF(center.x() - r * 0.10, center.y() + r * 0.35)
+            end = QPointF(center.x() + r * 0.50, center.y() - r * 0.34)
+            check_path = QPainterPath(start)
+            first_part = 0.37
+            if check_t <= first_part:
+                frac = check_t / first_part
+                check_path.lineTo(
+                    start.x() + (corner.x() - start.x()) * frac,
+                    start.y() + (corner.y() - start.y()) * frac,
+                )
             else:
-                # 第1段完整
-                p.drawLine(int(x1), int(y1), int(x2), int(y2))
-                # 绘第2段部分
-                frac = (t - seg1_len) / (1.0 - seg1_len)
-                mx = x2 + (x3 - x2) * frac
-                my = y2 + (y3 - y2) * frac
-                p.drawLine(int(x2), int(y2), int(mx), int(my))
+                check_path.lineTo(corner)
+                frac = (check_t - first_part) / (1.0 - first_part)
+                check_path.lineTo(
+                    corner.x() + (end.x() - corner.x()) * frac,
+                    corner.y() + (end.y() - corner.y()) * frac,
+                )
 
-        # 粒子
-        for pt in self._particles:
-            alpha = max(0, int(pt.life * 220))
-            c = QColor(pt.color)
-            c.setAlpha(alpha)
-            p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(c)
-            p.drawEllipse(int(pt.x) - 3, int(pt.y) - 3, 6, 6)
+            check_pen = QPen(QColor("#FFFFFF"), max(4.0, base_r * 0.105))
+            check_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            check_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            p.setPen(check_pen)
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.drawPath(check_path)
 
 
 # ── 页面主体 ─────────────────────────────────────────────
@@ -170,7 +193,7 @@ class FinishPage(BasePage):
     def __init__(self, config_manager, parent=None):
         self._config = config_manager
         super().__init__(
-            title=_tr("🎉 一切就绪！"),
+            title=_tr("🎉 一切就绪！").replace("🎉", "").strip(),
             subtitle=_tr(
                 "你已完成基础设置，截图工具已准备好为你服务。\n"
                 "随时可以在设置面板调整更多选项。"),
@@ -203,14 +226,14 @@ class FinishPage(BasePage):
             )
         layout.addWidget(row_show)
 
-        # ── 生成桌面快捷方式 ──────────────────────────────
+        # ── 桌面快捷方式 ──────────────────────────────────
         self._desktop_switch = ToggleSwitch()
         self._desktop_switch.setChecked(True)  # 默认开启
         row_desktop, self._desktop_lbl, self._desktop_desc = \
             self._make_setting_row_with_refs(
-                _tr("生成桌面快捷方式"),
+                _tr("快捷方式"),
                 self._desktop_switch,
-                _tr("完成向导时在桌面创建截图吧快捷方式。")
+                brand_text(_tr("完成向导时在桌面创建截图吧快捷方式。"))
             )
         layout.addWidget(row_desktop)
 
@@ -282,7 +305,7 @@ class FinishPage(BasePage):
 
     # ── 桌面快捷方式辅助 ─────────────────────────────────
 
-    _DESKTOP_LNK_NAME = "截图吧.lnk"
+    _DESKTOP_LNK_NAME = f"{PRODUCT_NAME}.lnk"
 
     @classmethod
     def _get_desktop_lnk_path(cls) -> str:
@@ -355,7 +378,7 @@ class FinishPage(BasePage):
             log_exception(e, "创建桌面快捷方式")
 
     def retranslate(self):
-        self.title_label.setText(_tr("🎉 一切就绪！"))
+        self.title_label.setText(_tr("🎉 一切就绪！").replace("🎉", "").strip())
         self.subtitle_label.setText(_tr(
             "你已完成基础设置，截图工具已准备好为你服务。\n"
             "随时可以在设置面板调整更多选项。"))
@@ -368,9 +391,11 @@ class FinishPage(BasePage):
         if hasattr(self, "_show_main_desc") and self._show_main_desc:
             self._show_main_desc.setText(_tr("每次启动时自动打开设置面板。"))
         if hasattr(self, "_desktop_lbl") and self._desktop_lbl:
-            self._desktop_lbl.setText(_tr("生成桌面快捷方式"))
+            self._desktop_lbl.setText(_tr("快捷方式"))
         if hasattr(self, "_desktop_desc") and self._desktop_desc:
-            self._desktop_desc.setText(_tr("完成向导时在桌面创建截图吧快捷方式。"))
+            self._desktop_desc.setText(
+                brand_text(_tr("完成向导时在桌面创建截图吧快捷方式。"))
+            )
 
     def save(self):
         """保存设置：标记向导完成 + 写入主界面偏好；

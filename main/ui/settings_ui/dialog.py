@@ -714,10 +714,36 @@ class SettingsDialog(FrostedFramelessDialog):
 
     def _reset_translation_page(self):
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
+        if hasattr(self, 'translation_provider_combo'):
+            index = self.translation_provider_combo.findData(
+                defaults["translation_provider"]
+            )
+            if index >= 0:
+                self.translation_provider_combo.setCurrentIndex(index)
         if hasattr(self, 'deepl_api_key_input'):
             self.deepl_api_key_input.setText(defaults["deepl_api_key"])
         if hasattr(self, 'deepl_pro_toggle'):
             self.deepl_pro_toggle.setChecked(defaults["deepl_use_pro"])
+        if hasattr(self, 'amazon_translate_region_input'):
+            self.amazon_translate_region_input.setText(
+                defaults["amazon_translate_region"]
+            )
+        if hasattr(self, 'amazon_translate_access_key_input'):
+            self.amazon_translate_access_key_input.setText(
+                defaults["amazon_translate_access_key_id"]
+            )
+        if hasattr(self, 'amazon_translate_secret_key_input'):
+            self.amazon_translate_secret_key_input.setText(
+                defaults["amazon_translate_secret_access_key"]
+            )
+        if hasattr(self, 'amazon_translate_session_token_input'):
+            self.amazon_translate_session_token_input.setText(
+                defaults["amazon_translate_session_token"]
+            )
+        if hasattr(self, 'google_translate_api_key_input'):
+            self.google_translate_api_key_input.setText(
+                defaults["google_translate_api_key"]
+            )
         if hasattr(self, 'translation_target_combo'):
             index = self.translation_target_combo.findData(defaults["translation_target_lang"])
             if index >= 0:
@@ -825,10 +851,34 @@ class SettingsDialog(FrostedFramelessDialog):
             self.config_manager.set_ocr_upscale_factor(self.ocr_scale_spinbox.value())
 
         # 5. 翻译
+        if hasattr(self, 'translation_provider_combo'):
+            self.config_manager.set_translation_provider(
+                self.translation_provider_combo.currentData()
+            )
         if hasattr(self, 'deepl_api_key_input'):
             self.config_manager.set_deepl_api_key(self.deepl_api_key_input.text().strip())
         if hasattr(self, 'deepl_pro_toggle'):
             self.config_manager.set_deepl_use_pro(self.deepl_pro_toggle.isChecked())
+        if hasattr(self, 'amazon_translate_region_input'):
+            self.config_manager.set_amazon_translate_region(
+                self.amazon_translate_region_input.text().strip()
+            )
+        if hasattr(self, 'amazon_translate_access_key_input'):
+            self.config_manager.set_amazon_translate_access_key_id(
+                self.amazon_translate_access_key_input.text().strip()
+            )
+        if hasattr(self, 'amazon_translate_secret_key_input'):
+            self.config_manager.set_amazon_translate_secret_access_key(
+                self.amazon_translate_secret_key_input.text().strip()
+            )
+        if hasattr(self, 'amazon_translate_session_token_input'):
+            self.config_manager.set_amazon_translate_session_token(
+                self.amazon_translate_session_token_input.text().strip()
+            )
+        if hasattr(self, 'google_translate_api_key_input'):
+            self.config_manager.set_google_translate_api_key(
+                self.google_translate_api_key_input.text().strip()
+            )
         if hasattr(self, 'translation_target_combo'):
             self.config_manager.set_translation_target_lang(self.translation_target_combo.currentData())
         if hasattr(self, 'split_sentences_toggle'):
@@ -992,7 +1042,11 @@ class SettingsDialog(FrostedFramelessDialog):
             "hotkey_input", "hotkey_input_2",
             "clipboard_hotkey_edit", "clipboard_hotkey_edit_2",
             "translation_hotkey_edit", "translation_hotkey_edit_2",
-            "deepl_api_key_input",
+            "deepl_api_key_input", "amazon_translate_region_input",
+            "amazon_translate_access_key_input",
+            "amazon_translate_secret_key_input",
+            "amazon_translate_session_token_input",
+            "google_translate_api_key_input",
         ):
             widget = getattr(self, attr, None)
             if widget is not None:
@@ -1047,7 +1101,11 @@ class SettingsDialog(FrostedFramelessDialog):
         for attr in ('hotkey_input', 'hotkey_input_2', 'clipboard_hotkey_edit',
                       'translation_hotkey_edit', 'translation_hotkey_edit_2',
                       'clipboard_hotkey_edit_2', 'save_path_lbl', 'path_lbl',
-                      'deepl_api_key_input'):
+                      'deepl_api_key_input', 'amazon_translate_region_input',
+                      'amazon_translate_access_key_input',
+                      'amazon_translate_secret_key_input',
+                      'amazon_translate_session_token_input',
+                      'google_translate_api_key_input'):
             w = getattr(self, attr, None)
             if w is not None:
                 snap[attr] = w.text()
@@ -1067,7 +1125,8 @@ class SettingsDialog(FrostedFramelessDialog):
                 snap[attr] = w.isChecked()
         # 下拉框类
         for attr in ('screenshot_format_combo', 'ocr_engine_combo',
-                      'translation_target_combo', 'log_level_combo',
+                      'translation_provider_combo', 'translation_target_combo',
+                      'log_level_combo',
                       'language_combo', 'engine_combo', 'cursor_move_combo',
                       'magnifier_color_format_combo', 'log_retention_combo',
                       '_ui_theme_combo'):
@@ -1231,10 +1290,36 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'ocr_scale_spinbox'):
             self.ocr_scale_spinbox.setValue(self.config_manager.get_ocr_upscale_factor())
 
+        if hasattr(self, 'translation_provider_combo'):
+            index = self.translation_provider_combo.findData(
+                self.config_manager.get_translation_provider()
+            )
+            if index >= 0:
+                self.translation_provider_combo.setCurrentIndex(index)
         if hasattr(self, 'deepl_api_key_input'):
             self.deepl_api_key_input.setText(self.config_manager.get_deepl_api_key())
         if hasattr(self, 'deepl_pro_toggle'):
             self.deepl_pro_toggle.setChecked(self.config_manager.get_deepl_use_pro())
+        if hasattr(self, 'amazon_translate_region_input'):
+            self.amazon_translate_region_input.setText(
+                self.config_manager.get_amazon_translate_region()
+            )
+        if hasattr(self, 'amazon_translate_access_key_input'):
+            self.amazon_translate_access_key_input.setText(
+                self.config_manager.get_amazon_translate_access_key_id()
+            )
+        if hasattr(self, 'amazon_translate_secret_key_input'):
+            self.amazon_translate_secret_key_input.setText(
+                self.config_manager.get_amazon_translate_secret_access_key()
+            )
+        if hasattr(self, 'amazon_translate_session_token_input'):
+            self.amazon_translate_session_token_input.setText(
+                self.config_manager.get_amazon_translate_session_token()
+            )
+        if hasattr(self, 'google_translate_api_key_input'):
+            self.google_translate_api_key_input.setText(
+                self.config_manager.get_google_translate_api_key()
+            )
         if hasattr(self, 'translation_target_combo'):
             index = self.translation_target_combo.findData(self.config_manager.get_app_setting("translation_target_lang", ""))
             if index >= 0:

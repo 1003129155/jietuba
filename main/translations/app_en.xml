@@ -2378,6 +2378,19 @@ Replace it?</translation>
         <source>工具栏在顶部</source>
         <translation>Toolbar at the top</translation>
     </message>
+    <message><source>剪贴板</source><translation>Clipboard</translation></message>
+    <message><source>历史记录</source><translation>History</translation></message>
+    <message><source>内容分组</source><translation>Content Groups</translation></message>
+    <message><source>快速启动</source><translation>Quick Launch</translation></message>
+    <message><source>文字</source><translation>Text</translation></message>
+    <message><source>图片</source><translation>Image</translation></message>
+    <message><source>文件</source><translation>File</translation></message>
+    <message><source>会议时间改为 14:00</source><translation>Meeting moved to 14:00</translation></message>
+    <message><source>产品封面.png</source><translation>Product Cover.png</translation></message>
+    <message><source>项目说明.pdf</source><translation>Project Brief.pdf</translation></message>
+    <message><source>感谢您的联系</source><translation>Thank you for contacting us</translation></message>
+    <message><source>设计预览.png</source><translation>Design Preview.png</translation></message>
+    <message><source>下周一 10:00 开会</source><translation>Meeting next Monday at 10:00</translation></message>
     <message>
         <source>剪贴板管理</source>
         <translation>Clipboard Manager</translation>
@@ -2424,7 +2437,39 @@ Off: use manual drag-to-select mode.</translation>
     <!-- page5 -->
     <message>
         <source>🌐 翻译设置</source>
-        <translation>🌐 Translation</translation>
+        <translation>🌐 Translation Settings</translation>
+    </message>
+    <message>
+        <source>选择翻译引擎并填写对应凭据，之后可以随时在设置中修改。</source>
+        <translation>Choose a translation engine and enter its credentials. You can change them later in Settings.</translation>
+    </message>
+    <message>
+        <source>翻译引擎</source>
+        <translation>Translation Engine</translation>
+    </message>
+    <message>
+        <source>Google API Key</source>
+        <translation>Google API Key</translation>
+    </message>
+    <message>
+        <source>AWS 区域</source>
+        <translation>AWS Region</translation>
+    </message>
+    <message>
+        <source>Access Key ID</source>
+        <translation>Access Key ID</translation>
+    </message>
+    <message>
+        <source>Secret Access Key</source>
+        <translation>Secret Access Key</translation>
+    </message>
+    <message>
+        <source>Session Token</source>
+        <translation>Session Token</translation>
+    </message>
+    <message>
+        <source>可选，临时凭据使用</source>
+        <translation>Optional, for temporary credentials</translation>
     </message>
     <message>
         <source>使用 DeepL API 进行高质量翻译。
@@ -2484,8 +2529,8 @@ You can tweak more options in Settings anytime.</translation>
         <translation>Automatically opens the settings panel on every launch.</translation>
     </message>
     <message>
-        <source>生成桌面快捷方式</source>
-        <translation>Create Desktop Shortcut</translation>
+        <source>快捷方式</source>
+        <translation>Shortcut</translation>
     </message>
     <message>
         <source>完成向导时在桌面创建截图吧快捷方式。</source>

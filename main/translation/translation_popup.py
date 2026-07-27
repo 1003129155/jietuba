@@ -89,7 +89,7 @@ class TranslationPopup(QWidget):
         self.title_label.setObjectName("popupTitle")
         header.addWidget(self.title_label)
 
-        self.backend_badge = QLabel("DeepL API", self)
+        self.backend_badge = QLabel(_tr("Engine not configured"), self)
         self.backend_badge.setObjectName("popupBadge")
         self.backend_badge.setFixedHeight(21)
         header.addWidget(self.backend_badge)
@@ -278,8 +278,14 @@ class TranslationPopup(QWidget):
         self._fit_content()
 
     def set_backend_ready(self, ready: bool) -> None:
+        """Backward-compatible helper for older callers."""
+        self.set_backend_status("DeepL API", ready)
+
+    def set_backend_status(self, name: str, ready: bool) -> None:
         self._backend_ready = ready
-        self.backend_badge.setText("DeepL API" if ready else _tr("Engine not configured"))
+        self.backend_badge.setText(
+            name if ready else _tr("Engine not configured")
+        )
         self.backend_badge.setProperty("ready", ready)
         self.backend_badge.style().unpolish(self.backend_badge)
         self.backend_badge.style().polish(self.backend_badge)
@@ -426,7 +432,7 @@ class TranslationPopup(QWidget):
         self.result_edit.style().unpolish(self.result_edit)
         self.result_edit.style().polish(self.result_edit)
 
-    def _fit_text_view(self, view: QTextEdit, minimum: int, maximum: int) -> None:
+    def _fit_text_view(self, view: TextEdit, minimum: int, maximum: int) -> None:
         doc_height = int(view.document().size().height()) + 10
         view.setFixedHeight(max(minimum, min(doc_height, maximum)))
 

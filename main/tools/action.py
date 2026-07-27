@@ -198,15 +198,11 @@ class ActionTools:
         log_debug(f"已复制底图用于OCR: {pixmap_copy.width()}x{pixmap_copy.height()}", "ScreenshotTranslate")
         
         # 2. 获取翻译参数（在关闭窗口前获取）
-        params = self.config_manager.get_translation_params() if self.config_manager else {}
-
-        if not params.get("api_key"):
-            show_modeless_warning_dialog(
-                self.parent_window,
-                _tr("Notice"),
-                _tr("Please configure DeepL API key in Settings.")
-            )
-            return
+        params = (
+            self.config_manager.get_translation_request_params()
+            if self.config_manager
+            else {}
+        )
         
         # 3. 关闭截图窗口（释放内存）
         log_debug("关闭截图窗口，释放内存", "ScreenshotTranslate")

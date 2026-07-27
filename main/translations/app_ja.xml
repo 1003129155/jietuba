@@ -2434,6 +2434,19 @@ Replace it?</source>
         <source>工具栏在顶部</source>
         <translation>ツールバーを上部に</translation>
     </message>
+    <message><source>剪贴板</source><translation>クリップボード</translation></message>
+    <message><source>历史记录</source><translation>履歴</translation></message>
+    <message><source>内容分组</source><translation>定型文グループ</translation></message>
+    <message><source>快速启动</source><translation>クイック起動</translation></message>
+    <message><source>文字</source><translation>テキスト</translation></message>
+    <message><source>图片</source><translation>画像</translation></message>
+    <message><source>文件</source><translation>ファイル</translation></message>
+    <message><source>会议时间改为 14:00</source><translation>会議時間を14:00に変更</translation></message>
+    <message><source>产品封面.png</source><translation>製品カバー.png</translation></message>
+    <message><source>项目说明.pdf</source><translation>プロジェクト概要.pdf</translation></message>
+    <message><source>感谢您的联系</source><translation>ご連絡ありがとうございます</translation></message>
+    <message><source>设计预览.png</source><translation>デザインプレビュー.png</translation></message>
+    <message><source>下周一 10:00 开会</source><translation>来週月曜10:00に会議</translation></message>
     <message>
         <source>剪贴板管理</source>
         <translation>クリップボード管理</translation>
@@ -2483,6 +2496,38 @@ OFF：通常のドラッグ選択モードに戻ります。</translation>
         <translation>🌐 翻訳設定</translation>
     </message>
     <message>
+        <source>选择翻译引擎并填写对应凭据，之后可以随时在设置中修改。</source>
+        <translation>翻訳エンジンを選択して認証情報を入力します。後から設定で変更できます。</translation>
+    </message>
+    <message>
+        <source>翻译引擎</source>
+        <translation>翻訳エンジン</translation>
+    </message>
+    <message>
+        <source>Google API Key</source>
+        <translation>Google APIキー</translation>
+    </message>
+    <message>
+        <source>AWS 区域</source>
+        <translation>AWS リージョン</translation>
+    </message>
+    <message>
+        <source>Access Key ID</source>
+        <translation>アクセスキー ID</translation>
+    </message>
+    <message>
+        <source>Secret Access Key</source>
+        <translation>シークレットアクセスキー</translation>
+    </message>
+    <message>
+        <source>Session Token</source>
+        <translation>セッショントークン</translation>
+    </message>
+    <message>
+        <source>可选，临时凭据使用</source>
+        <translation>任意（一時認証情報の場合）</translation>
+    </message>
+    <message>
         <source>使用 DeepL API 进行高质量翻译。
 免费账户每月 50 万字符额度，够日常使用。</source>
         <translation>DeepL API で高品質な翻訳。
@@ -2529,7 +2574,7 @@ OFF：通常のドラッグ選択モードに戻ります。</translation>
     </message>
     <message>
         <source>开机后在检测更新后启动。</source>
-        <translation>起動時にアップデートを確認してからバックグラウンドで起動します。</translation>
+        <translation>PCを立ち上がり際に起動</translation>
     </message>
     <message>
         <source>启动时显示主界面</source>
@@ -2537,15 +2582,15 @@ OFF：通常のドラッグ選択モードに戻ります。</translation>
     </message>
     <message>
         <source>每次启动时自动打开设置面板。</source>
-        <translation>起動のたびに設定パネルを自動で開きます。</translation>
+        <translation>起動のたびに設定画面を自動で開く</translation>
     </message>
     <message>
-        <source>生成桌面快捷方式</source>
-        <translation>デスクトップショートカットを作成</translation>
+        <source>快捷方式</source>
+        <translation>ショートカット</translation>
     </message>
     <message>
         <source>完成向导时在桌面创建截图吧快捷方式。</source>
-        <translation>ウィザード完了時にデスクトップへショートカットを作成します。</translation>
+        <translation>デスクトップへショートカットを作成</translation>
     </message>
     <!-- illus strings -->
     <message>

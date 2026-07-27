@@ -11,6 +11,7 @@ from ui.fluent_lite import (
 from .components import SettingCardGroup
 from ui.dialogs import show_text_dialog
 from core.constants import PROJECT_GITHUB_URL
+from main_app import APP_VERSION
 
 
 def create_about_page(dialog) -> QScrollArea:
@@ -32,7 +33,7 @@ def create_about_page(dialog) -> QScrollArea:
     name_card = SettingCard(
         FluentIcon.APPLICATION,
         dialog.tr("Jietuba - Screenshot Tool"),
-        "Version: 2026.03.05",
+        f"Version: {APP_VERSION}",
         parent=group,
     )
     group.addSettingCard(name_card)

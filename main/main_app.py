@@ -22,6 +22,10 @@ from core.logger import (
     log_debug, log_info, log_warning, log_error, log_exception
 )
 
+# ── 全局版本号 ────────────────────────────────────────────
+APP_VERSION = "2026.07.25"
+
+
 def create_app_icon():
     """创建应用程序图标 - 加载SVG"""
     from core.resource_manager import ResourceManager
@@ -492,7 +496,7 @@ class MainApp(QObject):
         """打开翻译窗口"""
         from translation import TranslationManager
         
-        params = self.config_manager.get_translation_params()
+        params = self.config_manager.get_translation_request_params()
         
         manager = TranslationManager.instance()
         manager.translate(

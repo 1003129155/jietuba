@@ -39,8 +39,14 @@ APP_DEFAULT_SETTINGS = {
     "ocr_upscale_enabled": False,
     "ocr_upscale_factor": 2.0,
     "pin_auto_toolbar": True,
+    "translation_provider": "google",
     "deepl_api_key": "",
     "deepl_use_pro": False,
+    "amazon_translate_region": "us-west-2",
+    "amazon_translate_access_key_id": "",
+    "amazon_translate_secret_access_key": "",
+    "amazon_translate_session_token": "",
+    "google_translate_api_key": "",
     "translation_target_lang": "",
     "translation_split_sentences": True,
     "translation_preserve_formatting": True,
@@ -105,6 +111,31 @@ class MockConfig:
     def set_deepl_api_key(self, v): pass
     def get_deepl_use_pro(self): return False
     def set_deepl_use_pro(self, v): pass
+    def get_translation_provider(self): return "google"
+    def set_translation_provider(self, v): pass
+    def get_translation_provider_config(self, provider_id):
+        if provider_id == "deepl":
+            return {"api_key": "", "use_pro": False}
+        if provider_id == "amazon":
+            return {
+                "region": "us-west-2",
+                "access_key_id": "",
+                "secret_access_key": "",
+                "session_token": "",
+            }
+        if provider_id == "google":
+            return {"api_key": ""}
+        return {}
+    def get_amazon_translate_region(self): return "us-west-2"
+    def set_amazon_translate_region(self, v): pass
+    def get_amazon_translate_access_key_id(self): return ""
+    def set_amazon_translate_access_key_id(self, v): pass
+    def get_amazon_translate_secret_access_key(self): return ""
+    def set_amazon_translate_secret_access_key(self, v): pass
+    def get_amazon_translate_session_token(self): return ""
+    def set_amazon_translate_session_token(self, v): pass
+    def get_google_translate_api_key(self): return ""
+    def set_google_translate_api_key(self, v): pass
     def get_app_setting(self, key, default=None):
         if default is None:
             default = self.APP_DEFAULT_SETTINGS.get(key)

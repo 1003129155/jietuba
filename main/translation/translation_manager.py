@@ -42,7 +42,7 @@ class TranslationManager(QObject):
     translation_started = Signal(str)  # 开始翻译，参数为原文
     translation_finished = Signal(bool, str, str)  # 翻译完成(成功, 译文, 错误信息)
     
-    def __init__(self):
+    def __init__(self, translation_service=None):
         # 避免重复初始化
         if '_initialized' in self.__dict__:
             return
@@ -50,7 +50,7 @@ class TranslationManager(QObject):
         self._initialized = True
         self._dialog = None  # TranslationLoadingDialog 实例
         self._popup = None  # TranslationPopup 实例
-        self._thread = None  # TranslationThread 实例
+        self._thread = None  # TranslationWorker 实例
         self._threads = set()  # Keep superseded network workers alive until they exit.
         self._request_token = 0
         self._request_targets = {}
@@ -58,8 +58,14 @@ class TranslationManager(QObject):
         self._target_lang = "ZH"
         self._api_key = ""
         self._use_pro = False
+        self._legacy_provider_override = False
         self._split_sentences = "nonewlines"  # 分句模式: "0"=不分句, "1"=自动分句, "nonewlines"=忽略换行
         self._preserve_formatting = True  # 保留格式
+        if translation_service is None:
+            from .service import create_default_translation_service
+
+            translation_service = create_default_translation_service()
+        self._translation_service = translation_service
         self._ui_theme = get_ui_theme()
         self._ui_theme.theme_changed.connect(self._on_ui_theme_changed)
         
@@ -72,11 +78,34 @@ class TranslationManager(QObject):
         )
 
     def _resolve_api_key(self, api_key: str | None) -> str:
-        """Use stored configuration only when the caller omitted the argument."""
+        """兼容旧调用方；新调用方应让 TranslationService 读取 Provider 配置。"""
         if api_key is None:
             return self._api_key
+        self._legacy_provider_override = True
         self._api_key = api_key
         return api_key
+
+    def _provider_overrides(self) -> dict:
+        """Build temporary DeepL overrides only for legacy callers."""
+        if self._translation_service.active_provider_id() != "deepl":
+            return {}
+        if not self._legacy_provider_override and not self._api_key:
+            return {}
+        return {
+            "api_key": self._api_key,
+            "use_pro": self._use_pro,
+        }
+
+    def _backend_ready(self) -> bool:
+        return self._translation_service.is_configured(
+            overrides=self._provider_overrides()
+        )
+
+    def _backend_name(self) -> str:
+        try:
+            return self._translation_service.provider_name()
+        except ValueError:
+            return self.tr("Engine not configured")
 
     def _activate_surface(self, target: str) -> None:
         """Keep the full editor and compact popup mutually exclusive."""
@@ -125,6 +154,7 @@ class TranslationManager(QObject):
         """
         self._api_key = api_key
         self._use_pro = use_pro
+        self._legacy_provider_override = True
         self._split_sentences = split_sentences
         self._preserve_formatting = preserve_formatting
         log_debug(f"翻译服务已配置 (Pro: {use_pro}, split_sentences: {split_sentences}, preserve_formatting: {preserve_formatting})", "Translation")
@@ -181,8 +211,8 @@ class TranslationManager(QObject):
         
         # 如果有文本，启动翻译；否则只显示空窗口
         if text and text.strip():
-            if not api_key:
-                log_error("未配置 DeepL API 密钥", "Translation")
+            if not self._backend_ready():
+                log_error("翻译引擎未配置", "Translation")
                 if self._is_dialog_valid():
                     self._dialog.set_translation_error(self._api_key_error())
                 return
@@ -195,14 +225,14 @@ class TranslationManager(QObject):
                 actual_target_lang = self._dialog.get_target_lang() or target_lang
             
             self._start_translation(
-                text, api_key, actual_target_lang, source_lang, use_pro,
+                text, actual_target_lang, source_lang,
                 result_target="dialog",
             )
         else:
             log_info("打开翻译窗口（待用户输入）", "Translation")
             # 清空译文区域，等待用户输入
             if self._is_dialog_valid():
-                if api_key:
+                if self._backend_ready():
                     self._dialog.target_edit.clear()
                 else:
                     self._dialog.set_translation_error(self._api_key_error())
@@ -253,17 +283,17 @@ class TranslationManager(QObject):
         self._activate_surface("compact")
         popup = self._ensure_popup()
         popup.set_target_lang(target_lang)  # 同步目标语言
-        popup.set_backend_ready(bool(api_key))
+        popup.set_backend_status(self._backend_name(), self._backend_ready())
         popup.show_loading(text, position)
 
-        if not api_key:
+        if not self._backend_ready():
             popup.show_error(self._api_key_error())
             return
 
         log_info(f"开始划词翻译: {text[:50]}...", "Translation")
         self.translation_started.emit(text)
         self._start_translation(
-            text, api_key, target_lang, source_lang, bool(use_pro),
+            text, target_lang, source_lang,
             result_target="compact",
         )
 
@@ -295,9 +325,9 @@ class TranslationManager(QObject):
         self._activate_surface("compact")
         popup = self._ensure_popup()
         popup.set_target_lang(target_lang)  # 同步目标语言
-        popup.set_backend_ready(bool(api_key))
+        popup.set_backend_status(self._backend_name(), self._backend_ready())
         popup.show_input(position)
-        if not api_key:
+        if not self._backend_ready():
             popup.show_error(self._api_key_error())
 
     def _on_popup_input_changed(self):
@@ -311,7 +341,7 @@ class TranslationManager(QObject):
             return
         self._stop_current_thread()
         self._activate_surface("compact")
-        if not self._api_key:
+        if not self._backend_ready():
             if self._is_popup_valid():
                 self._popup.show_error(self._api_key_error())
             return
@@ -321,10 +351,8 @@ class TranslationManager(QObject):
         target_lang = self._popup._target_lang if self._is_popup_valid() else self._target_lang
         self._start_translation(
             text,
-            self._api_key,
             target_lang,
             "auto",
-            self._use_pro,
             result_target="compact",
         )
 
@@ -419,7 +447,9 @@ class TranslationManager(QObject):
             self._dialog.destroyed.connect(self._on_dialog_destroyed)
             # 连接翻译信号 (text, source_lang, target_lang)
             self._dialog.translate_requested.connect(self._on_translate_requested)
-            self._dialog.set_backend_badge("DeepL API", bool(self._api_key))
+            self._dialog.set_backend_badge(
+                self._backend_name(), self._backend_ready()
+            )
             self._dialog.show()
         else:
             # 复用现有窗口 - 保留用户选择的目标语言
@@ -434,7 +464,9 @@ class TranslationManager(QObject):
             if text and text.strip():
                 self._dialog.set_loading()
             
-            self._dialog.set_backend_badge("DeepL API", bool(self._api_key))
+            self._dialog.set_backend_badge(
+                self._backend_name(), self._backend_ready()
+            )
             
             # 激活窗口
             self._dialog.show()
@@ -455,34 +487,47 @@ class TranslationManager(QObject):
     def _start_translation(
         self,
         text: str,
-        api_key: str,
         target_lang: str,
         source_lang: str,
-        use_pro: bool,
         result_target: str,
     ):
-        """启动翻译线程"""
-        from .deepl_service import TranslationThread
-        
-        log_info(f"调用 DeepL API: target={target_lang}, use_pro={use_pro}, split_sentences={self._split_sentences}, preserve_formatting={self._preserve_formatting}", "DeepL")
+        """Start a provider-neutral translation worker."""
+        from .models import TranslationRequest
+        from .worker import TranslationWorker
+
+        provider_name = self._backend_name()
+        log_info(
+            f"调用翻译引擎 {provider_name}: target={target_lang}, "
+            f"preserve_formatting={self._preserve_formatting}",
+            "Translation",
+        )
         
         self._request_token += 1
         token = self._request_token
         self._request_targets[token] = result_target
-        thread = TranslationThread(
+        request = TranslationRequest(
             text=text,
-            api_key=api_key,
             target_lang=target_lang,
             source_lang=source_lang,
-            use_pro=use_pro,
-            split_sentences=self._split_sentences,
-            preserve_formatting=self._preserve_formatting
+            preserve_formatting=self._preserve_formatting,
+            options={"split_sentences": self._split_sentences},
+        )
+        thread = TranslationWorker(
+            self._translation_service,
+            request,
+            provider_overrides=self._provider_overrides(),
         )
         self._thread = thread
         self._threads.add(thread)
         thread.finished_signal.connect(
-            lambda success, translated, error, detected, t=thread, n=token:
-                self._on_thread_result(t, n, success, translated, error, detected)
+            lambda result, t=thread, n=token: self._on_thread_result(
+                t,
+                n,
+                result.success,
+                result.translated_text,
+                result.error_message,
+                result.detected_source_lang,
+            )
         )
         thread.finished.connect(lambda t=thread: self._release_thread(t))
         thread.start()
@@ -547,7 +592,7 @@ class TranslationManager(QObject):
     def _on_translate_requested(self, text: str, source_lang: str, target_lang: str):
         """处理翻译请求（来自翻译窗口的翻译按钮）"""
         self._activate_surface("dialog")
-        if not self._api_key:
+        if not self._backend_ready():
             if self._is_dialog_valid():
                 self._dialog.set_translation_error(self._api_key_error())
             return
@@ -565,10 +610,8 @@ class TranslationManager(QObject):
         # 启动翻译
         self._start_translation(
             text=text,
-            api_key=self._api_key,
             target_lang=target_lang,
             source_lang=source_lang,
-            use_pro=self._use_pro,
             result_target="dialog",
         )
     
@@ -785,10 +828,8 @@ class TranslationManager(QObject):
             target_lang = getattr(self, '_pending_target_lang', "ZH")
             self._start_translation(
                 text=result,
-                api_key=self._api_key,
                 target_lang=self._dialog.get_target_lang() or target_lang,
                 source_lang="auto",
-                use_pro=self._use_pro,
                 result_target="dialog",
             )
         else:

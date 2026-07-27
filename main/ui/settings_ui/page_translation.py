@@ -2,7 +2,7 @@
 """翻译设置页 — Fluent Design"""
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QScrollArea,
+    QLineEdit, QScrollArea,
 )
 from PySide6.QtCore import Qt
 from ui.fluent_lite.theme import ACCENT
@@ -14,6 +14,7 @@ from ui.fluent_lite import (
 from .components import SettingCardGroup, WhiteCard, adjust_button_width, apply_theme_text_style
 
 from translation.languages import TRANSLATION_LANGUAGES
+from translation.service import create_default_translation_service
 
 
 def create_translation_page(dialog) -> QWidget:
@@ -27,6 +28,32 @@ def create_translation_page(dialog) -> QWidget:
     layout = QVBoxLayout(page)
     layout.setContentsMargins(0, 0, 10, 0)
     layout.setSpacing(20)
+
+    # ════ 翻译引擎 ════
+    grp_engine = SettingCardGroup(dialog.tr("Translation Engine"), page)
+    engine_card = FSettingCard(
+        FluentIcon.LANGUAGE,
+        dialog.tr("Translation Engine"),
+        parent=grp_engine,
+    )
+    dialog.translation_provider_combo = ComboBox(engine_card)
+    dialog.translation_provider_combo.setFixedWidth(180)
+    service = create_default_translation_service(dialog.config_manager)
+    current_provider = dialog.config_manager.get_translation_provider()
+    current_provider_index = 0
+    for index, metadata in enumerate(service.registry.available_providers()):
+        dialog.translation_provider_combo.addItem(
+            metadata.display_name, userData=metadata.provider_id
+        )
+        if metadata.provider_id == current_provider:
+            current_provider_index = index
+    dialog.translation_provider_combo.setCurrentIndex(current_provider_index)
+    engine_card.hBoxLayout.addWidget(
+        dialog.translation_provider_combo, 0, Qt.AlignmentFlag.AlignRight
+    )
+    engine_card.hBoxLayout.addSpacing(16)
+    grp_engine.addSettingCard(engine_card)
+    layout.addWidget(grp_engine)
 
     # ════ DeepL API ════
     grp_api = SettingCardGroup(dialog.tr("DeepL API"), page)
@@ -73,6 +100,62 @@ def create_translation_page(dialog) -> QWidget:
     grp_api.addSettingCard(pro_card)
 
     layout.addWidget(grp_api)
+
+    # ════ Amazon Translate ════
+    grp_amazon = SettingCardGroup(dialog.tr("Amazon Translate"), page)
+    dialog.amazon_translate_region_input = _add_text_setting(
+        dialog,
+        grp_amazon,
+        dialog.tr("AWS Region"),
+        dialog.config_manager.get_amazon_translate_region(),
+        "us-west-2",
+    )
+    dialog.amazon_translate_access_key_input = _add_text_setting(
+        dialog,
+        grp_amazon,
+        dialog.tr("Access Key ID"),
+        dialog.config_manager.get_amazon_translate_access_key_id(),
+        "AKIA...",
+    )
+    dialog.amazon_translate_secret_key_input = _add_text_setting(
+        dialog,
+        grp_amazon,
+        dialog.tr("Secret Access Key"),
+        dialog.config_manager.get_amazon_translate_secret_access_key(),
+        dialog.tr("Required"),
+        password=True,
+    )
+    dialog.amazon_translate_session_token_input = _add_text_setting(
+        dialog,
+        grp_amazon,
+        dialog.tr("Session Token"),
+        dialog.config_manager.get_amazon_translate_session_token(),
+        dialog.tr("Optional, for temporary credentials"),
+        password=True,
+    )
+    layout.addWidget(grp_amazon)
+
+    # ════ Google Cloud Translation ════
+    grp_google = SettingCardGroup(
+        dialog.tr("Google Cloud Translation"), page
+    )
+    dialog.google_translate_api_key_input = _add_text_setting(
+        dialog,
+        grp_google,
+        dialog.tr("Google API Key"),
+        dialog.config_manager.get_google_translate_api_key(),
+        "AIza...",
+        password=True,
+    )
+    layout.addWidget(grp_google)
+
+    dialog.deepl_settings_group = grp_api
+    dialog.amazon_translate_settings_group = grp_amazon
+    dialog.google_translate_settings_group = grp_google
+    dialog.translation_provider_combo.currentIndexChanged.connect(
+        lambda _index: _update_provider_groups(dialog)
+    )
+    _update_provider_groups(dialog)
 
     # ════ 翻译选项 ════
     grp_opts = SettingCardGroup(dialog.tr("Translation Options"), page)
@@ -140,6 +223,8 @@ def create_translation_page(dialog) -> QWidget:
     info_label.setWordWrap(True)
     info_label.setStyleSheet("padding: 5px; font-size: 12px; color: #999;")
     layout.addWidget(info_label)
+    dialog.deepl_translation_info_label = info_label
+    _update_provider_groups(dialog)
 
     layout.addStretch()
     scroll.setWidget(page)
@@ -156,4 +241,55 @@ def _toggle_api_key_visibility(dialog):
         dialog.deepl_api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
         dialog.show_api_key_btn.setText(dialog.tr("Show"))
         adjust_button_width(dialog.show_api_key_btn, min_width=60)
- 
+
+
+def _add_text_setting(
+    dialog,
+    group,
+    label: str,
+    value: str,
+    placeholder: str,
+    *,
+    password: bool = False,
+):
+    card = WhiteCard(group)
+    row = QHBoxLayout(card)
+    row.setContentsMargins(20, 12, 20, 12)
+    row.setSpacing(10)
+    title = QLabel(label, card)
+    apply_theme_text_style(title, 14)
+    title.setFixedWidth(135)
+    row.addWidget(title)
+    edit = LineEdit(card, use_default_style=False)
+    edit.setText(value or "")
+    edit.setPlaceholderText(placeholder)
+    if password:
+        edit.setEchoMode(QLineEdit.EchoMode.Password)
+    edit.setStyleSheet(dialog._get_input_style())
+    row.addWidget(edit, 1)
+    card.setFixedHeight(58)
+    group.addSettingCard(card)
+    return edit
+
+
+def _update_provider_groups(dialog) -> None:
+    provider_id = dialog.translation_provider_combo.currentData()
+    dialog.deepl_settings_group.setVisible(provider_id == "deepl")
+    dialog.amazon_translate_settings_group.setVisible(
+        provider_id == "amazon"
+    )
+    dialog.google_translate_settings_group.setVisible(
+        provider_id == "google"
+    )
+    if hasattr(dialog, "deepl_translation_info_label"):
+        dialog.deepl_translation_info_label.setVisible(
+            provider_id == "deepl"
+        )
+    if hasattr(dialog, "split_sentences_toggle"):
+        dialog.split_sentences_toggle.setVisible(
+            provider_id == "deepl"
+        )
+    if hasattr(dialog, "preserve_formatting_toggle"):
+        dialog.preserve_formatting_toggle.setVisible(
+            provider_id == "deepl"
+        )

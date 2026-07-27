@@ -13,14 +13,21 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QSize, QTimer, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QPen
 from ui.fluent_lite import PushButton, FluentIcon, LineEdit
+from ui.fluent_lite.theme import to_qicon
 from core.i18n import make_tr
 
 if __package__:
-    from .base_page import BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND, BG_ILLUS
+    from .base_page import (
+        BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND, BG_ILLUS,
+        welcome_theme, set_welcome_label_style, apply_welcome_label_style,
+    )
 else:
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from base_page import BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND, BG_ILLUS
+    from base_page import (
+        BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND, BG_ILLUS,
+        welcome_theme, set_welcome_label_style, apply_welcome_label_style,
+    )
 
 
 _tr = make_tr("WelcomeWizard")
@@ -83,11 +90,11 @@ def _tool_text(key: str) -> str:
     return _TOOL_ZH.get(key, key)
 
 
-# 紧凑版图标尺寸
-_ICON_NORMAL  = 32
-_ICON_ACTIVE  = 44
-_BTN_NORMAL   = 44
-_BTN_ACTIVE   = 58
+# 双栏向导中的紧凑工具矩阵
+_ICON_NORMAL  = 23
+_ICON_ACTIVE  = 29
+_BTN_NORMAL   = 36
+_BTN_ACTIVE   = 44
 _ANIM_MS      = 2000
 
 
@@ -116,11 +123,12 @@ class _IconCell(QWidget):
         self._render(False)
 
     def _render(self, active: bool):
+        theme = welcome_theme()
         icon_sz = _ICON_ACTIVE if active else _ICON_NORMAL
         btn_sz  = _BTN_ACTIVE  if active else _BTN_NORMAL
         offset = (_BTN_ACTIVE - btn_sz) // 2
         self._lbl.setGeometry(offset, offset, btn_sz, btn_sz)
-        icon = QIcon(self._get_path(self._svg_rel))
+        icon = to_qicon(self._get_path(self._svg_rel), self)
         if not icon.isNull():
             pix = icon.pixmap(QSize(icon_sz, icon_sz))
         else:
@@ -131,11 +139,11 @@ class _IconCell(QWidget):
         painter = QPainter(bg)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         if active:
-            painter.setPen(QPen(QColor(ACCENT), 2))
-            painter.setBrush(QColor("#DFE8EF"))
+            painter.setPen(QPen(QColor(theme.accent), 2))
+            painter.setBrush(QColor(theme.accent_soft))
         else:
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(QColor("#EBF0F6"))
+            painter.setBrush(QColor(theme.panel_subtle))
         painter.drawRoundedRect(0, 0, btn_sz, btn_sz, 10, 10)
         ix = (btn_sz - icon_sz) // 2
         painter.drawPixmap(ix, ix, pix)
@@ -153,24 +161,21 @@ class _ToolPreviewIllus(IllustrationArea):
     """紧凑版工具轮播插画区"""
 
     def _build_content(self):
-        self.setStyleSheet(f"background: {BG_ILLUS}; border: none;")
-        self._layout.setContentsMargins(12, 8, 12, 4)
-        self._layout.setSpacing(2)
+        self._layout.setContentsMargins(14, 16, 14, 12)
+        self._layout.setSpacing(5)
 
         self._get_path = _get_path_fn()
         self._cells: list[_IconCell] = []
         self._current = -1
 
-        # 两行图标
-        n = len(_TOOLS)
-        mid = (n + 1) // 2
-        rows = [_TOOLS[:mid], _TOOLS[mid:]]
+        # 三行图标更适合横向向导里的窄预览栏
+        rows = [_TOOLS[:5], _TOOLS[5:10], _TOOLS[10:]]
         for row_items in rows:
             row_w = QWidget()
             row_w.setStyleSheet("background: transparent;")
             row_l = QHBoxLayout(row_w)
             row_l.setContentsMargins(0, 0, 0, 0)
-            row_l.setSpacing(2)
+            row_l.setSpacing(3)
             row_l.addStretch()
             for svg_rel, _nk, _dk in row_items:
                 cell = _IconCell(svg_rel, self._get_path, row_w)
@@ -188,14 +193,14 @@ class _ToolPreviewIllus(IllustrationArea):
 
         self._name_lbl = QLabel()
         self._name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._name_lbl.setStyleSheet(
-            f"font-size: 13px; font-weight: 700; color: {ACCENT}; background: transparent;"
+        set_welcome_label_style(
+            self._name_lbl, role="accent", font_size=13, weight=700
         )
         self._desc_lbl = QLabel()
         self._desc_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._desc_lbl.setWordWrap(True)
-        self._desc_lbl.setStyleSheet(
-            f"font-size: 11px; color: {TEXT_SECOND}; background: transparent;"
+        set_welcome_label_style(
+            self._desc_lbl, role="muted", font_size=11, weight=400
         )
 
         self._opacity_effect = QGraphicsOpacityEffect(info_w)
@@ -208,22 +213,6 @@ class _ToolPreviewIllus(IllustrationArea):
         info_l.addWidget(self._desc_lbl)
         self._layout.addWidget(info_w)
 
-        # 进度点（小一些）
-        dots_w = QWidget()
-        dots_w.setStyleSheet("background: transparent;")
-        dots_l = QHBoxLayout(dots_w)
-        dots_l.setContentsMargins(0, 0, 0, 2)
-        dots_l.setSpacing(4)
-        dots_l.addStretch()
-        self._dots: list[QLabel] = []
-        for _ in _TOOLS:
-            d = QLabel("●")
-            d.setStyleSheet("font-size: 6px; color: #CDD5DE; background: transparent;")
-            dots_l.addWidget(d)
-            self._dots.append(d)
-        dots_l.addStretch()
-        self._layout.addWidget(dots_w)
-
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._advance)
         self._timer.start(_ANIM_MS)
@@ -233,14 +222,8 @@ class _ToolPreviewIllus(IllustrationArea):
         n = len(_TOOLS)
         if 0 <= self._current < n:
             self._cells[self._current].set_active(False)
-            self._dots[self._current].setStyleSheet(
-                "font-size: 6px; color: #CDD5DE; background: transparent;"
-            )
         self._current = (self._current + 1) % n
         self._cells[self._current].set_active(True)
-        self._dots[self._current].setStyleSheet(
-            f"font-size: 6px; color: {ACCENT}; background: transparent;"
-        )
         _svg, name_key, desc_key = _TOOLS[self._current]
         self._name_lbl.setText(_tool_text(name_key))
         self._desc_lbl.setText(_tool_text(desc_key))
@@ -256,6 +239,13 @@ class _ToolPreviewIllus(IllustrationArea):
             self._name_lbl.setText(_tool_text(name_key))
             self._desc_lbl.setText(_tool_text(desc_key))
 
+    def _apply_welcome_child_theme(self, _tokens=None):
+        for cell in self._cells:
+            cell._render(cell._active)
+        apply_welcome_label_style(self._name_lbl)
+        apply_welcome_label_style(self._desc_lbl)
+        self.update()
+
 
 # ── 页面主体 ────────────────────────────────────────────
 class ScreenshotHotkeyPage(BasePage):
@@ -264,9 +254,8 @@ class ScreenshotHotkeyPage(BasePage):
     def __init__(self, config_manager, parent=None):
         self._config = config_manager
         super().__init__(
-            title="📸 截图设置",
-            # 保留说明行的高度，但不显示文字，避免下方内容整体上移。
-            subtitle="\u00a0",
+            title=_tr("📸 截图设置").replace("📸", "").strip(),
+            subtitle=_tr("设置快捷键与截图的默认保存位置。"),
             parent=parent,
         )
 
@@ -283,15 +272,15 @@ class ScreenshotHotkeyPage(BasePage):
 
         # ── 快捷键区 ──────────────────────────────────
         self._hotkey_lbl = QLabel("快捷键（最多设置两个）")
-        self._hotkey_lbl.setStyleSheet(
-            f"font-size: 14px; font-weight: 600; color: {TEXT_PRIMARY}; background: transparent;"
+        set_welcome_label_style(
+            self._hotkey_lbl, role="primary", font_size=14, weight=600
         )
         layout.addWidget(self._hotkey_lbl)
 
         self._hotkey_desc = QLabel("单击输入框后，直接按下目标组合键即可录入。")
         self._hotkey_desc.setWordWrap(True)
-        self._hotkey_desc.setStyleSheet(
-            f"font-size: 12px; color: {TEXT_SECOND}; background: transparent;"
+        set_welcome_label_style(
+            self._hotkey_desc, role="muted", font_size=12, weight=400
         )
         layout.addWidget(self._hotkey_desc)
         layout.addSpacing(4)
@@ -300,29 +289,30 @@ class ScreenshotHotkeyPage(BasePage):
         hotkey_row = QHBoxLayout()
         hotkey_row.setSpacing(8)
         self._hotkey = HotkeyEdit()
-        self._hotkey.setFixedWidth(180)
+        self._hotkey.setMinimumWidth(138)
+        self._hotkey.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._hotkey.setText(self._config.get_hotkey())
         self._hotkey2 = HotkeyEdit()
-        self._hotkey2.setFixedWidth(180)
+        self._hotkey2.setMinimumWidth(138)
+        self._hotkey2.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._hotkey2.setText(self._config.get_hotkey_2())
-        hotkey_row.addWidget(self._hotkey)
-        hotkey_row.addWidget(self._hotkey2)
-        hotkey_row.addStretch()
+        hotkey_row.addWidget(self._hotkey, 1)
+        hotkey_row.addWidget(self._hotkey2, 1)
         layout.addLayout(hotkey_row)
 
         layout.addSpacing(14)
 
         # ── 保存位置区 ────────────────────────────────
         self._save_lbl = QLabel("截图保存位置")
-        self._save_lbl.setStyleSheet(
-            f"font-size: 14px; font-weight: 600; color: {TEXT_PRIMARY}; background: transparent;"
+        set_welcome_label_style(
+            self._save_lbl, role="primary", font_size=14, weight=600
         )
         layout.addWidget(self._save_lbl)
 
         self._save_desc = QLabel("确认截图后自动保存到该文件夹。")
         self._save_desc.setWordWrap(True)
-        self._save_desc.setStyleSheet(
-            f"font-size: 12px; color: {TEXT_SECOND}; background: transparent;"
+        set_welcome_label_style(
+            self._save_desc, role="muted", font_size=12, weight=400
         )
         layout.addWidget(self._save_desc)
         layout.addSpacing(4)
@@ -357,8 +347,8 @@ class ScreenshotHotkeyPage(BasePage):
             self._path_edit.setText(folder)
 
     def retranslate(self):
-        self.title_label.setText(_tr("📸 截图设置"))
-        self.subtitle_label.setText("\u00a0")
+        self.title_label.setText(_tr("📸 截图设置").replace("📸", "").strip())
+        self.subtitle_label.setText(_tr("设置快捷键与截图的默认保存位置。"))
         if hasattr(self, "_hotkey_lbl"):
             self._hotkey_lbl.setText(_tr("快捷键（最多设置两个）"))
         if hasattr(self, "_hotkey_desc"):

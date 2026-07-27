@@ -352,11 +352,8 @@ class TranslationDialog(FramelessWindow):
         from core.i18n import I18nManager
         I18nManager.instance().language_changed.connect(self._on_language_changed)
 
-        api_configured = bool(config.get_deepl_api_key())
-        self.set_backend_badge(
-            "DeepL API" if api_configured else _tr("Engine not configured"),
-            api_configured,
-        )
+        # TranslationManager supplies the selected provider and readiness.
+        self.set_backend_badge(_tr("Engine not configured"), False)
         self._retranslate_ui()
 
         self._place_initial_window(position)

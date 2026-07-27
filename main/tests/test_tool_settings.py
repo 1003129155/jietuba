@@ -173,3 +173,38 @@ class TestToolSettingsManager:
         assert "ocr_enabled" in defaults
         assert defaults["translation_hotkey"] == ""
         assert defaults["translation_hotkey_2"] == ""
+        assert defaults["translation_provider"] == "google"
+
+    def test_translation_provider_configuration(self, manager):
+        assert manager.get_translation_provider() == "google"
+
+        manager.set_deepl_api_key("test-key")
+        manager.set_deepl_use_pro(True)
+        assert manager.get_translation_provider_config("deepl") == {
+            "api_key": "test-key",
+            "use_pro": True,
+        }
+
+        manager.set_translation_provider("future-provider")
+        assert manager.get_translation_provider() == "future-provider"
+        assert manager.get_translation_provider_config("future-provider") == {}
+
+    def test_amazon_translation_provider_configuration(self, manager):
+        manager.set_amazon_translate_region("us-west-2")
+        manager.set_amazon_translate_access_key_id("access")
+        manager.set_amazon_translate_secret_access_key("secret")
+        manager.set_amazon_translate_session_token("token")
+
+        assert manager.get_translation_provider_config("amazon") == {
+            "region": "us-west-2",
+            "access_key_id": "access",
+            "secret_access_key": "secret",
+            "session_token": "token",
+        }
+
+    def test_google_translation_provider_configuration(self, manager):
+        manager.set_google_translate_api_key("google-key")
+
+        assert manager.get_translation_provider_config("google") == {
+            "api_key": "google-key",
+        }

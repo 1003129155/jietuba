@@ -1,86 +1,224 @@
 ﻿# -*- coding: utf-8 -*-
-"""
-第1页 — 欢迎 & 语言选择
-
-上半部：大标志 + 欢迎文字动画
-下半部：标题 + 描述 + 语言选择；右下角叠放 wizard.png
-"""
+"""第 1 页 — 产品欢迎与界面语言。"""
 
 from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QLabel, QWidget
-from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, Property
-from PySide6.QtGui import QFont, QColor, QPainter, QPixmap, QIcon
-from ui.fluent_lite import ComboBox, HyperlinkButton
+from PySide6.QtCore import Qt, QRectF
+from PySide6.QtGui import QColor, QPainter, QPen, QIcon, QFont
+from ui.fluent_lite import ComboBox
 
 from core.i18n import make_tr
 from core.logger import log_exception
-from core.constants import PROJECT_GITHUB_URL
 from core import safe_event
 
 if __package__:
-    from .base_page import BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND, BG_ILLUS
+    from .base_page import (
+        BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND,
+        BG_ILLUS, PRODUCT_NAME, brand_text, welcome_theme,
+        set_welcome_label_style, apply_welcome_label_style,
+    )
 else:
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from base_page import BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND, BG_ILLUS
+    from base_page import (
+        BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND,
+        BG_ILLUS, PRODUCT_NAME, brand_text, welcome_theme,
+        set_welcome_label_style, apply_welcome_label_style,
+    )
 
 
 _tr = make_tr("WelcomeWizard")
+_appearance_tr = make_tr("SettingsDialog")
+_theme_label_tr = make_tr("ClipboardWindow")
 
 
-# ── 插画区：大 Logo + 打字机标语 ───────────────────────
+# ── 首屏产品预览 ────────────────────────────────────────
+class _ProductCanvas(QWidget):
+    """展示 Jietuba 的四项核心能力，而非单一截图编辑器。"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMinimumHeight(220)
+        self.setStyleSheet("background: transparent;")
+
+    @safe_event
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = self.width(), self.height()
+        theme = welcome_theme()
+
+        # 克制的背景装饰，给产品总览增加层次。
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor(111, 143, 171, 34 if theme.is_dark else 24))
+        p.drawEllipse(int(w * 0.60), 2, int(w * 0.40), int(w * 0.40))
+        p.setBrush(QColor(96, 168, 151, 28 if theme.is_dark else 18))
+        p.drawEllipse(-18, int(h * 0.62), int(w * 0.42), int(w * 0.42))
+
+        card = QRectF(12, 18, max(80, w - 24), max(120, h - 36))
+        p.setPen(QPen(QColor(theme.border), 1))
+        p.setBrush(QColor(theme.panel))
+        p.drawRoundedRect(card, 12, 12)
+
+        # 产品工作台标题栏。
+        top_h = 34
+        p.setBrush(QColor(theme.panel_subtle))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.drawRoundedRect(QRectF(card.x() + 1, card.y() + 1, card.width() - 2, top_h), 11, 11)
+        p.fillRect(
+            QRectF(card.x() + 1, card.y() + top_h - 10, card.width() - 2, 10),
+            QColor(theme.panel_subtle),
+        )
+        for i, color in enumerate(
+            (theme.text_soft, theme.border_strong, theme.border)
+        ):
+            p.setBrush(QColor(color))
+            p.drawEllipse(int(card.x() + 13 + i * 12), int(card.y() + 13), 5, 5)
+
+        content = card.adjusted(12, top_h + 10, -12, -12)
+
+        # 顶部价值摘要。
+        summary = QRectF(content.x(), content.y(), content.width(), 62)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor(theme.accent_soft))
+        p.drawRoundedRect(summary, 9, 9)
+        p.setPen(QColor(theme.accent))
+        p.setFont(QFont("Segoe UI", 8, QFont.Weight.DemiBold))
+        p.drawText(
+            summary.adjusted(12, 8, -10, -34),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            "ONE WORKSPACE",
+        )
+        p.setPen(QColor(theme.text))
+        p.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
+        p.drawText(
+            summary.adjusted(12, 25, -8, -7),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            "Capture. Organize. Translate.",
+        )
+
+        # 四个产品能力模块。
+        grid_y = summary.bottom() + 9
+        gap = 8
+        tile_w = (content.width() - gap) / 2
+        available_h = max(120, content.bottom() - grid_y)
+        tile_h = (available_h - gap) / 2
+        modules = (
+            ("Capture", "SCREEN", "#6F8FAB"),
+            ("Annotate", "CREATE", "#6FA18F"),
+            ("Clipboard", "ORGANIZE", "#8A7FA7"),
+            ("Translate", "LANGUAGE", "#B18468"),
+        )
+
+        for idx, (title, meta, color) in enumerate(modules):
+            col, row = idx % 2, idx // 2
+            tile = QRectF(
+                content.x() + col * (tile_w + gap),
+                grid_y + row * (tile_h + gap),
+                tile_w,
+                tile_h,
+            )
+            p.setPen(QPen(QColor(theme.border), 1))
+            p.setBrush(QColor(theme.panel))
+            p.drawRoundedRect(tile, 9, 9)
+
+            icon = QRectF(tile.x() + 10, tile.y() + 10, 27, 27)
+            p.setPen(Qt.PenStyle.NoPen)
+            icon_color = QColor(color)
+            icon_color.setAlpha(32)
+            p.setBrush(icon_color)
+            p.drawRoundedRect(icon, 7, 7)
+            self._draw_module_icon(p, idx, icon, QColor(color))
+
+            p.setPen(QColor(theme.text))
+            p.setFont(QFont("Segoe UI", 8, QFont.Weight.DemiBold))
+            p.drawText(
+                tile.adjusted(10, 41, -6, -18),
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                title,
+            )
+            p.setPen(QColor(theme.text_soft))
+            p.setFont(QFont("Segoe UI", 6, QFont.Weight.Medium))
+            p.drawText(
+                tile.adjusted(10, 57, -6, -5),
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                meta,
+            )
+
+    def _apply_welcome_child_theme(self, _tokens=None):
+        self.update()
+
+    @staticmethod
+    def _draw_module_icon(p: QPainter, index: int, rect: QRectF, color: QColor):
+        p.setPen(QPen(color, 1.6))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        cx, cy = rect.center().x(), rect.center().y()
+        if index == 0:
+            p.drawRoundedRect(rect.adjusted(7, 8, -7, -8), 2, 2)
+            p.drawEllipse(int(cx - 2), int(cy - 2), 4, 4)
+        elif index == 1:
+            p.drawLine(int(rect.x() + 8), int(rect.bottom() - 8),
+                       int(rect.right() - 7), int(rect.y() + 7))
+            p.drawLine(int(rect.x() + 8), int(rect.bottom() - 8),
+                       int(rect.x() + 13), int(rect.bottom() - 9))
+        elif index == 2:
+            body = rect.adjusted(8, 7, -8, -6)
+            p.drawRoundedRect(body, 2, 2)
+            p.drawLine(int(cx - 4), int(rect.y() + 7), int(cx + 4), int(rect.y() + 7))
+        else:
+            p.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+            p.drawText(rect, Qt.AlignmentFlag.AlignCenter, "A")
+
+
 class _WelcomeIllus(IllustrationArea):
     def _build_content(self):
-        from PySide6.QtWidgets import QSizePolicy
-
-        # Logo 图标
-        self._icon_lbl = QLabel()
+        # 品牌锁定区域
+        brand = QHBoxLayout()
+        brand.setSpacing(10)
+        self._icon_lbl = QLabel(self)
+        self._icon_lbl.setFixedSize(42, 42)
         self._icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._icon_lbl.setStyleSheet("background: transparent;")
         self._try_load_icon()
-        self._layout.addWidget(self._icon_lbl)
 
-        # 应用名
-        name_lbl = QLabel("截图吧")
-        name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        name_lbl.setStyleSheet(
-            f"font-size: 28px; font-weight: 800; color: {ACCENT};"
-            " background: transparent; letter-spacing: 4px;"
+        text_box = QVBoxLayout()
+        text_box.setSpacing(0)
+        self._name_lbl = QLabel(PRODUCT_NAME, self)
+        set_welcome_label_style(
+            self._name_lbl, role="primary", font_size=18, weight=700
         )
-        self._layout.addWidget(name_lbl)
-
-        # 打字机副标题
-        self._tagline_lbl = QLabel("")
-        self._tagline_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._tagline_lbl.setStyleSheet(
-            f"font-size: 13px; color: {TEXT_SECOND}; background: transparent;"
+        self._meta_lbl = QLabel("PRODUCTIVITY SUITE", self)
+        set_welcome_label_style(
+            self._meta_lbl,
+            role="accent",
+            font_size=9,
+            weight=600,
+            extra="letter-spacing: 1px;",
         )
-        self._layout.addWidget(self._tagline_lbl)
+        text_box.addWidget(self._name_lbl)
+        text_box.addWidget(self._meta_lbl)
+        brand.addWidget(self._icon_lbl)
+        brand.addLayout(text_box, 1)
+        self._layout.addLayout(brand)
 
-        # 打字机效果（文字由 retranslate 设置，首次在此读取当前翻译）
-        self._type_idx = 0
-        self._type_timer = QTimer(self)
-        self._type_timer.timeout.connect(self._tick_typewriter)
-        self._type_start_timer = QTimer(self)
-        self._type_start_timer.setSingleShot(True)
-        self._type_start_timer.timeout.connect(self._start_typewriter)
-        self._reset_typewriter(400)
+        self._preview = _ProductCanvas(self)
+        self._layout.addWidget(self._preview, 1)
 
     def retranslate(self):
-        """语言切换后重置打字机文字并重新播放。"""
-        self._reset_typewriter(200)
+        self.update()
 
-    def _reset_typewriter(self, delay_ms: int):
-        self._full_text = _tr("截图 · 标注 · 剪贴板 · 翻译，一站搞定")
-        # 重置进度并清空标签，让打字机重新播放
-        self._type_start_timer.stop()
-        self._type_timer.stop()
-        self._type_idx = 0
-        self._tagline_lbl.setText("")
-        self._type_start_timer.start(delay_ms)
-
-    def _start_typewriter(self):
-        if self._type_idx < len(self._full_text):
-            self._type_timer.start(45)
+    def _apply_welcome_child_theme(self, _tokens=None):
+        theme = welcome_theme()
+        fallback_style = (
+            f" font-size: 16px; font-weight: 700; color: {theme.accent};"
+            if self._icon_lbl.property("welcomeFallbackIcon")
+            else ""
+        )
+        self._icon_lbl.setStyleSheet(
+            f"background: {theme.panel}; border: 1px solid {theme.border};"
+            f" border-radius: 10px;{fallback_style}"
+        )
+        apply_welcome_label_style(self._name_lbl)
+        apply_welcome_label_style(self._meta_lbl)
+        self._preview.update()
 
     def _try_load_icon(self):
         try:
@@ -88,21 +226,13 @@ class _WelcomeIllus(IllustrationArea):
             import os
             path = ResourceManager.get_resource_path("svg/托盘.svg")
             if os.path.exists(path):
-                px = QIcon(path).pixmap(72, 72)
+                px = QIcon(path).pixmap(25, 25)
                 self._icon_lbl.setPixmap(px)
                 return
         except Exception as e:
             log_exception(e, "加载托盘图标")
-        self._icon_lbl.setText("🖼")
-        self._icon_lbl.setStyleSheet(
-            "font-size: 48px; background: transparent;"
-        )
-
-    def _tick_typewriter(self):
-        self._type_idx += 1
-        self._tagline_lbl.setText(self._full_text[:self._type_idx])
-        if self._type_idx >= len(self._full_text):
-            self._type_timer.stop()
+        self._icon_lbl.setText("J")
+        self._icon_lbl.setProperty("welcomeFallbackIcon", True)
 
 
 # ── 页面主体 ────────────────────────────────────────────
@@ -120,15 +250,10 @@ class WelcomePage(BasePage):
             self._init_lang = "ja"
 
         super().__init__(
-            title=_tr("欢迎使用截图吧 👋"),
-            subtitle=_tr("一款轻量的截图与剪贴板管理工具。"),
+            title=brand_text(_tr("欢迎使用截图吧 👋")).replace("👋", "").strip(),
+            subtitle=_tr("截图 · 标注 · 剪贴板 · 翻译，一站搞定"),
             parent=parent,
         )
-        # 在内容区右侧叠放 wizard.png（绝对定位，不影响原布局）
-        self._wizard_img_lbl = QLabel(self)
-        self._wizard_img_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        self._wizard_img_lbl.setStyleSheet("background: transparent;")
-        self._try_load_wizard_img()
 
     # ── 插画 ────────────────────────────────────────────
     def _create_illustration(self):
@@ -136,42 +261,17 @@ class WelcomePage(BasePage):
 
     # ── 控件 ────────────────────────────────────────────
     def _build_controls(self, layout: QVBoxLayout):
-        # GitHub 项目链接（与设置“关于”页复用同一个地址和链接控件）
-        self._github_link = HyperlinkButton(
-            url=PROJECT_GITHUB_URL,
-            text=_tr("欢迎来 GitHub 点亮小星星 ⭐"),
-        )
-        self._github_link.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._github_link.setStyleSheet(
-            self._github_link.styleSheet() + "QPushButton { padding-left: 0; }"
-        )
-        link_font = self._github_link.font()
-        link_font.setUnderline(True)
-        self._github_link.setFont(link_font)
-        link_row = QHBoxLayout()
-        link_row.setContentsMargins(0, 0, 0, 0)
-        link_row.addWidget(self._github_link)
-        link_row.addStretch()
-        layout.addLayout(link_row)
-
-        self._language_prompt = QLabel(_tr("请先选择语言！"))
-        self._language_prompt.setStyleSheet(
-            f"font-size: 13px; color: {TEXT_SECOND}; background: transparent;"
-        )
-        layout.addWidget(self._language_prompt)
-
-        # 语言标签（靠左）
-        self._row_lang_lbl = QLabel("🌐 界面语言")
-        self._row_lang_lbl.setStyleSheet(
-            f"font-size: 14px; font-weight: 600; color: {TEXT_PRIMARY};"
-            " background: transparent;"
+        # 语言
+        self._row_lang_lbl = QLabel(_tr("🌐 界面语言").replace("🌐", "").strip())
+        set_welcome_label_style(
+            self._row_lang_lbl, role="primary", font_size=14, weight=600
         )
         layout.addWidget(self._row_lang_lbl)
 
         # 下拉框（靠左，固定宽度）
         self._lang_combo = ComboBox()
-        self._lang_combo.setFixedWidth(150)
-        self._lang_combo.setFixedHeight(32)
+        self._lang_combo.setFixedWidth(200)
+        self._lang_combo.setFixedHeight(36)
         self._lang_combo.setCursor(Qt.CursorShape.PointingHandCursor)
 
         try:
@@ -196,49 +296,39 @@ class WelcomePage(BasePage):
         row.addStretch()
         layout.addLayout(row)
 
+        # 全局主题
+        layout.addSpacing(20)
+        self._theme_lbl = QLabel(_theme_label_tr("Theme"))
+        set_welcome_label_style(
+            self._theme_lbl, role="primary", font_size=14, weight=600
+        )
+        layout.addWidget(self._theme_lbl)
 
+        self._theme_combo = ComboBox()
+        self._theme_combo.setFixedWidth(200)
+        self._theme_combo.setFixedHeight(36)
+        self._theme_combo.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._populate_theme_combo()
+        self._theme_combo.currentIndexChanged.connect(self._on_theme_changed)
 
-    def _try_load_wizard_img(self):
-        """加载 svg/wizard.png，按比例缩放后叠放到内容区右下角。"""
-        try:
-            from core.resource_manager import ResourceManager
-            import os
-            path = ResourceManager.get_resource_path("svg/wizard.png")
-            if os.path.exists(path):
-                px = QPixmap(path)
-                if not px.isNull():
-                    target_w = min(200, px.width())
-                    px = px.scaledToWidth(target_w, Qt.TransformationMode.SmoothTransformation)
-                    self._wizard_img_lbl.setPixmap(px)
-                    self._wizard_img_lbl.adjustSize()
-                    return
-        except Exception as e:
-            log_exception(e, "加载向导图片")
-        self._wizard_img_lbl.hide()
-
-    @safe_event
-    def resizeEvent(self, event):
-        """每次大小变化时重新定位 wizard 图片到右下角。"""
-        super().resizeEvent(event)
-        lbl = getattr(self, "_wizard_img_lbl", None)
-        if lbl and lbl.pixmap() and not lbl.pixmap().isNull():
-            margin_right = 24
-            margin_bottom = 12
-            x = self.width() - lbl.width() - margin_right
-            y = self.height() - lbl.height() - margin_bottom
-            lbl.move(x, y)
-            lbl.raise_()
+        theme_row = QHBoxLayout()
+        theme_row.setContentsMargins(0, 0, 0, 0)
+        theme_row.addWidget(self._theme_combo)
+        theme_row.addStretch()
+        layout.addLayout(theme_row)
 
     def retranslate(self):
         """语言切换后由 wizard.retranslate_ui() 调用，刷新本页所有可见文字。"""
-        self.title_label.setText(_tr("欢迎使用截图吧 👋"))
-        self.subtitle_label.setText(_tr("一款轻量的截图与剪贴板管理工具。"))
-        self._github_link.setText(_tr("欢迎来 GitHub 点亮小星星 ⭐"))
-        self._language_prompt.setText(_tr("请先选择语言！"))
+        self.title_label.setText(
+            brand_text(_tr("欢迎使用截图吧 👋")).replace("👋", "").strip()
+        )
+        self.subtitle_label.setText(_tr("截图 · 标注 · 剪贴板 · 翻译，一站搞定"))
         if hasattr(self, "_row_lang_lbl") and self._row_lang_lbl:
-            self._row_lang_lbl.setText(_tr("🌐 界面语言"))
-        if hasattr(self, "_row_lang_desc") and self._row_lang_desc:
-            self._row_lang_desc.setText(_tr("选择后立即生效，欢迎界面将随之切换语言。"))
+            self._row_lang_lbl.setText(_tr("🌐 界面语言").replace("🌐", "").strip())
+        if hasattr(self, "_theme_lbl") and self._theme_lbl:
+            self._theme_lbl.setText(_theme_label_tr("Theme"))
+        if hasattr(self, "_theme_combo") and self._theme_combo:
+            self._populate_theme_combo()
         # 级联刷新插画区（打字机文字）
         if hasattr(self.illus_area, "retranslate"):
             self.illus_area.retranslate()
@@ -259,6 +349,36 @@ class WelcomePage(BasePage):
         wizard = self._find_wizard()
         if wizard is not None:
             wizard.retranslate_ui()
+
+    def _populate_theme_combo(self):
+        """使用现有全局主题值填充选项，并在语言变化时原位刷新文字。"""
+        from core.ui_theme import get_ui_theme
+
+        current = self._theme_combo.currentData() if self._theme_combo.count() else None
+        current = current or get_ui_theme().mode.value
+
+        self._theme_combo.blockSignals(True)
+        self._theme_combo.clear()
+        self._theme_combo.addItem(_appearance_tr("System"), "system")
+        self._theme_combo.addItem(_appearance_tr("Light"), "light")
+        self._theme_combo.addItem(_appearance_tr("Dark"), "dark")
+        index = self._theme_combo.findData(current)
+        self._theme_combo.setCurrentIndex(max(0, index))
+        self._theme_combo.blockSignals(False)
+
+    def _on_theme_changed(self, _index=None):
+        """将选择直接交给现有全局主题管理器。"""
+        mode = self._theme_combo.currentData()
+        if not mode:
+            return
+        try:
+            from core.ui_theme import get_ui_theme
+
+            # 欢迎页持有真实配置实例；主题管理器只负责立即应用和发出信号。
+            self._config.set_app_setting("ui_theme_mode", mode)
+            get_ui_theme().set_mode(mode, persist=False)
+        except Exception as e:
+            log_exception(e, "切换界面主题")
 
     def _find_wizard(self):
         """向上找到 WelcomeWizard 实例（在 QStackedWidget 里）"""

@@ -132,8 +132,16 @@ class SmartTranslationController(QObject):
 
         return TranslationManager.instance()
 
+    def _translation_params(self) -> dict:
+        getter = getattr(
+            self._config,
+            "get_translation_request_params",
+            self._config.get_translation_params,
+        )
+        return getter()
+
     def _open_compact(self, text: str) -> None:
-        params = self._config.get_translation_params()
+        params = self._translation_params()
         self._translation_manager().translate_compact(
             text=text,
             position=self._cursor_position,
@@ -145,7 +153,7 @@ class SmartTranslationController(QObject):
             return
         self._probe_active = False
         log_debug(f"智能翻译转入小窗手动输入: {reason}", "Translation")
-        params = self._config.get_translation_params()
+        params = self._translation_params()
         self._translation_manager().open_compact_input(
             position=self._cursor_position,
             **params,

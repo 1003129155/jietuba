@@ -1,48 +1,143 @@
 ﻿# -*- coding: utf-8 -*-
-"""
-欢迎向导 - 页面基类
-
-提供统一的页面结构：
-  - 上半部分：图片/动画展示区（IllustrationArea）
-  - 下半部分：内容区（标题、说明文、控件）
-  - 共享调色板和字体规范
-"""
+"""欢迎向导的共享页面骨架与视觉规范。"""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Optional, Tuple
 
 from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QFrame,
-    QSizePolicy,
-)
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QSizePolicy
 from ui.fluent_lite import SwitchButton
 from ui.fluent_lite.theme import ACCENT, ACCENT_HOVER
+from core.ui_theme import get_ui_theme
 
 
 # ─────────────────────────────────────────
-# 设计规范（全局共享）
+# 设计规范（欢迎向导全局共享）
 # ─────────────────────────────────────────
 ACCENT_DARK = ACCENT_HOVER  # 兼容欢迎页现有命名
-TEXT_PRIMARY = "#1A1A2E"  # 主文字
-TEXT_SECOND = "#5C6370"   # 次要文字
-BG_PAGE = "rgba(248, 250, 252, 0.46)"   # 让共用毛玻璃背景透出
-BG_ILLUS = "rgba(228, 236, 242, 0.58)"
-RADIUS = 12               # 圆角半径
+TEXT_PRIMARY = "#172331"
+TEXT_SECOND = "#667587"
+BG_PAGE = "#FFFFFF"
+BG_ILLUS = "#F3F7FA"
+BG_SUBTLE = "#F7F9FB"
+BORDER = "#DDE5EC"
+RADIUS = 16
+PRODUCT_NAME = "Jietuba"
 
-# 插画区布局策略（二选一）
-# 窗口总高 720px，底部导航栏 62px，分隔线 1px → 页面可用高度 = 657px
-# ILLUS_RATIO 控制插画区占页面可用高度的比例，修改这里即可。
-_PAGE_H = 520 - 62 - 1        # 页面可用高度（与 WelcomeWizard.WINDOW_H / nav 保持同步）
-ILLUS_RATIO = 0.78             # 插画区占页面可用高度比例（stretch，仅 USE_FIXED_ILLUS_HEIGHT=False 时生效）
-ILLUS_FIXED_HEIGHT = int(_PAGE_H * ILLUS_RATIO)  # 固定像素高度，随 ILLUS_RATIO 自动计算
-USE_FIXED_ILLUS_HEIGHT = True  # True: 固定高度；False: 使用比例 stretch
+
+@dataclass(frozen=True)
+class WelcomeTheme:
+    """欢迎向导使用的语义颜色，跟随全局明暗主题。"""
+
+    page: str
+    panel: str
+    panel_subtle: str
+    illustration: str
+    sidebar: str
+    border: str
+    border_strong: str
+    separator: str
+    text: str
+    text_muted: str
+    text_soft: str
+    accent: str
+    accent_hover: str
+    accent_soft: str
+    toolbar: str
+    canvas: str
+    is_dark: bool
+
+
+def welcome_theme() -> WelcomeTheme:
+    """从全局主题管理器解析欢迎向导语义颜色。"""
+    tokens = get_ui_theme().tokens
+    if tokens.is_dark:
+        return WelcomeTheme(
+            page="#23272C",
+            panel="#2B3036",
+            panel_subtle="#252A30",
+            illustration="#262C32",
+            sidebar="#20252A",
+            border="#3C444D",
+            border_strong="#4B5661",
+            separator="#363E47",
+            text="#F2F4F6",
+            text_muted="#AEB7C1",
+            text_soft="#87919C",
+            accent=tokens.accent,
+            accent_hover=tokens.accent_hover,
+            accent_soft="#31404C",
+            toolbar="#171C21",
+            canvas="#303840",
+            is_dark=True,
+        )
+    return WelcomeTheme(
+        page="#FFFFFF",
+        panel="#FFFFFF",
+        panel_subtle="#F7F9FB",
+        illustration="#F3F7FA",
+        sidebar="#F5F8FA",
+        border="#DDE5EC",
+        border_strong="#C9D6E0",
+        separator="#E5EBF0",
+        text="#172331",
+        text_muted="#667587",
+        text_soft="#8795A4",
+        accent=tokens.accent,
+        accent_hover=tokens.accent_hover,
+        accent_soft="#E9F0F5",
+        toolbar="#233342",
+        canvas="#EAF0F4",
+        is_dark=False,
+    )
+
+
+def brand_text(text: str) -> str:
+    """将翻译文件中的历史产品名统一成当前英文品牌写法。"""
+    result = str(text)
+    for legacy_name in ("截图吧", "JieTuBa", "JieTuba", "JIETUBA"):
+        result = result.replace(legacy_name, PRODUCT_NAME)
+    return result
+
+
+def set_welcome_label_style(
+    label: QLabel,
+    *,
+    role: str = "primary",
+    font_size: int = 13,
+    weight: int = 400,
+    extra: str = "",
+) -> QLabel:
+    """标记标签的语义样式，由 BasePage 在主题变化时统一刷新。"""
+    label.setProperty("welcomeTextRole", role)
+    label.setProperty("welcomeFontSize", font_size)
+    label.setProperty("welcomeFontWeight", weight)
+    label.setProperty("welcomeStyleExtra", extra)
+    apply_welcome_label_style(label)
+    return label
+
+
+def apply_welcome_label_style(label: QLabel) -> None:
+    role = label.property("welcomeTextRole")
+    if not role:
+        return
+    theme = welcome_theme()
+    color = {
+        "primary": theme.text,
+        "muted": theme.text_muted,
+        "soft": theme.text_soft,
+        "accent": theme.accent,
+    }.get(str(role), theme.text)
+    size = int(label.property("welcomeFontSize") or 13)
+    weight = int(label.property("welcomeFontWeight") or 400)
+    extra = str(label.property("welcomeStyleExtra") or "")
+    label.setStyleSheet(
+        f"font-size: {size}px; font-weight: {weight}; color: {color};"
+        f" background: transparent; border: none; {extra}"
+    )
 
 
 # ─────────────────────────────────────────
@@ -70,24 +165,26 @@ class IllustrationArea(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("IllustrationArea")
-        self.setStyleSheet(f"""
-            #IllustrationArea {{
-                background: {BG_ILLUS};
-                border-radius: {RADIUS}px {RADIUS}px 0 0;
-            }}
-        """)
-        # 固定高度模式下使用 Fixed 垂直策略，防止布局引擎覆盖 setFixedHeight；
-        # 非固定高度模式保留 Expanding 以便 stretch 正常工作。
-        if USE_FIXED_ILLUS_HEIGHT:
-            self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        else:
-            self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         self._layout = QVBoxLayout(self)
-        self._layout.setContentsMargins(24, 24, 24, 24)
+        self._layout.setContentsMargins(22, 22, 22, 22)
+        self._layout.setSpacing(12)
         self._layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self._build_content()
+        self._apply_welcome_theme()
+
+    def _apply_welcome_theme(self, _tokens=None):
+        theme = welcome_theme()
+        self.setStyleSheet(f"""
+            #IllustrationArea {{
+                background: {theme.illustration};
+                border: 1px solid {theme.border};
+                border-radius: {RADIUS}px;
+            }}
+        """)
+        self.update()
 
     def _build_content(self) -> None:
         """子类重写，在插画区内添加内容"""
@@ -114,80 +211,98 @@ class BasePage(QWidget):
     """
     欢迎向导页面基类。
 
-    结构：
-        ┌─────────────────────────────────┐
-        │   IllustrationArea (上半部分)    │  ← 子类可替换
-        ├─────────────────────────────────┤
-        │   content_layout  (下半部分)     │
-        │     title_label                 │
-        │     subtitle_label              │
-        │     ── 自定义控件区 ──          │  ← _build_controls() 钩子
-        └─────────────────────────────────┘
+    页面顶部负责解释当前步骤，主体将功能预览与设置面板并排展示。
+    所有子页继续只需提供 illustration 和 controls。
     """
 
     def __init__(self, title: str = "", subtitle: str = "", parent=None):
         super().__init__(parent)
         self.setObjectName("BasePage")
-        self.setStyleSheet(f"#BasePage {{ background: {BG_PAGE}; }}")
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(0)
+        root.setContentsMargins(30, 24, 30, 22)
+        root.setSpacing(20)
 
-        # —— 上半部：插画区 ——
-        self.illus_area = self._create_illustration()
+        # —— 顶部：本步骤说明 ——
+        header = QWidget(self)
+        header.setStyleSheet("background: transparent;")
+        header_layout = QVBoxLayout(header)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(7)
 
-        if USE_FIXED_ILLUS_HEIGHT:
-            self.illus_area.setFixedHeight(ILLUS_FIXED_HEIGHT)
-            root.addWidget(self.illus_area)
-        else:
-            root.addWidget(self.illus_area, int(ILLUS_RATIO * 100))
-
-        # 分隔线
-        sep = QFrame(self)
-        sep.setFixedHeight(1)
-        sep.setStyleSheet("background: #E8ECF0;")
-        root.addWidget(sep)
-
-        # —— 下半部：内容区 ——
-        content_widget = QWidget(self)
-        content_widget.setStyleSheet(f"background: {BG_PAGE};")
-
-        self.content_layout = QVBoxLayout(content_widget)
-        self.content_layout.setContentsMargins(36, 28, 36, 20)
-        self.content_layout.setSpacing(10)
-
-        # 标题
         self.title_label: Optional[QLabel] = None
         if title:
-            self.title_label = QLabel(title, content_widget)
+            self.title_label = QLabel(title, header)
             self.title_label.setWordWrap(True)
-            self.title_label.setStyleSheet(
-                f"font-size: 20px; font-weight: 700; color: {TEXT_PRIMARY};"
-                f" background: transparent;"
+            set_welcome_label_style(
+                self.title_label, role="primary", font_size=27, weight=700
             )
-            self.content_layout.addWidget(self.title_label)
+            header_layout.addWidget(self.title_label)
 
-        # 副标题/说明文
         self.subtitle_label: Optional[QLabel] = None
         if subtitle:
-            self.subtitle_label = QLabel(subtitle, content_widget)
+            self.subtitle_label = QLabel(subtitle, header)
             self.subtitle_label.setWordWrap(True)
-            self.subtitle_label.setStyleSheet(
-                f"font-size: 13px; color: {TEXT_SECOND}; line-height: 1.6;"
-                f" background: transparent;"
+            set_welcome_label_style(
+                self.subtitle_label, role="muted", font_size=13, weight=400
             )
-            self.content_layout.addWidget(self.subtitle_label)
+            header_layout.addWidget(self.subtitle_label)
+        root.addWidget(header)
 
-        # 自定义控件钩子
+        # —— 主体：左侧功能预览，右侧配置卡片 ——
+        body = QHBoxLayout()
+        body.setContentsMargins(0, 0, 0, 0)
+        body.setSpacing(18)
+
+        self.illus_area = self._create_illustration()
+        self.illus_area.setFixedWidth(300)
+        body.addWidget(self.illus_area)
+
+        content_widget = QFrame(self)
+        content_widget.setObjectName("ContentPanel")
+        content_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._content_widget = content_widget
+
+        self.content_layout = QVBoxLayout(content_widget)
+        self.content_layout.setContentsMargins(24, 24, 24, 20)
+        self.content_layout.setSpacing(10)
+
         self._build_controls(self.content_layout)
-
         self.content_layout.addStretch()
+        body.addWidget(content_widget, 1)
+        root.addLayout(body, 1)
 
-        if USE_FIXED_ILLUS_HEIGHT:
-            root.addWidget(content_widget)
-        else:
-            root.addWidget(content_widget, 100 - int(ILLUS_RATIO * 100))
+        self._theme_manager = get_ui_theme()
+        self._theme_manager.theme_changed.connect(self._apply_welcome_theme)
+        self._apply_welcome_theme(self._theme_manager.tokens)
+
+    def _apply_welcome_theme(self, tokens=None):
+        theme = welcome_theme()
+        self.setStyleSheet(f"#BasePage {{ background: {theme.page}; }}")
+        self._content_widget.setStyleSheet(f"""
+            #ContentPanel {{
+                background: {theme.panel};
+                border: 1px solid {theme.border};
+                border-radius: {RADIUS}px;
+            }}
+        """)
+        self.illus_area._apply_welcome_theme(tokens)
+
+        for label in self.findChildren(QLabel):
+            apply_welcome_label_style(label)
+        for widget in self.findChildren(QWidget):
+            if widget.property("welcomeSettingRow"):
+                widget.setStyleSheet(f"""
+                    #SettingRow {{
+                        background: {theme.panel_subtle};
+                        border: 1px solid {theme.border};
+                        border-radius: 10px;
+                    }}
+                """)
+            callback = getattr(widget, "_apply_welcome_child_theme", None)
+            if callable(callback):
+                callback(tokens)
+        self.update()
 
     # ── 子类钩子 ──────────────────────────────────
 
@@ -220,20 +335,18 @@ class BasePage(QWidget):
         返回 (container, label_widget, desc_label_widget_or_None)
         """
         container = QWidget()
-        container.setStyleSheet("background: transparent;")
+        container.setObjectName("SettingRow")
+        container.setProperty("welcomeSettingRow", True)
 
         vbox = QVBoxLayout(container)
-        vbox.setContentsMargins(0, 0, 0, 0)
-        vbox.setSpacing(3)
+        vbox.setContentsMargins(14, 11, 12, 11)
+        vbox.setSpacing(4)
 
         row = QHBoxLayout()
         row.setSpacing(12)
 
         lbl = QLabel(label_text, container)
-        lbl.setStyleSheet(
-            f"font-size: 14px; font-weight: 600; color: {TEXT_PRIMARY};"
-            " background: transparent;"
-        )
+        set_welcome_label_style(lbl, role="primary", font_size=14, weight=600)
         row.addWidget(lbl)
         row.addStretch()
         row.addWidget(widget)
@@ -244,9 +357,7 @@ class BasePage(QWidget):
         if description:
             desc_lbl = QLabel(description, container)
             desc_lbl.setWordWrap(True)
-            desc_lbl.setStyleSheet(
-                f"font-size: 12px; color: {TEXT_SECOND}; background: transparent;"
-            )
+            set_welcome_label_style(desc_lbl, role="muted", font_size=12, weight=400)
             vbox.addWidget(desc_lbl)
 
         return container, lbl, desc_lbl
@@ -315,11 +426,21 @@ def _dev_bootstrap():
         def get_clipboard_hotkey_2(self): return self._def("clipboard_hotkey_2", "")
         def set_clipboard_hotkey(self, v): pass
         def set_clipboard_hotkey_2(self, v): pass
+        def get_clipboard_history_limit(self):
+            return self._def("clipboard_history_limit", 1000)
+        def set_clipboard_history_limit(self, v): pass
+
+        def get_translation_hotkey(self):
+            return self._def("translation_hotkey", "")
+        def get_translation_hotkey_2(self):
+            return self._def("translation_hotkey_2", "")
+        def set_translation_hotkey(self, v): pass
+        def set_translation_hotkey_2(self, v): pass
 
         def get_clipboard_enabled(self): return self._def("clipboard_enabled", True)
         def set_clipboard_enabled(self, v): pass
 
-        def get_smart_selection(self): return self._def("smart_selection", False)
+        def get_smart_selection(self): return self._def("smart_selection", True)
         def set_smart_selection(self, v): pass
 
         def get_ocr_enabled(self): return self._def("ocr_enabled", True)
@@ -336,6 +457,27 @@ def _dev_bootstrap():
 
         def get_deepl_use_pro(self): return self._def("deepl_use_pro", False)
         def set_deepl_use_pro(self, v): pass
+
+        def get_translation_provider(self):
+            return self._def("translation_provider", "google")
+        def set_translation_provider(self, v): pass
+
+        def get_google_translate_api_key(self):
+            return self._def("google_translate_api_key", "")
+        def set_google_translate_api_key(self, v): pass
+
+        def get_amazon_translate_region(self):
+            return self._def("amazon_translate_region", "us-west-2")
+        def set_amazon_translate_region(self, v): pass
+        def get_amazon_translate_access_key_id(self):
+            return self._def("amazon_translate_access_key_id", "")
+        def set_amazon_translate_access_key_id(self, v): pass
+        def get_amazon_translate_secret_access_key(self):
+            return self._def("amazon_translate_secret_access_key", "")
+        def set_amazon_translate_secret_access_key(self, v): pass
+        def get_amazon_translate_session_token(self):
+            return self._def("amazon_translate_session_token", "")
+        def set_amazon_translate_session_token(self, v): pass
 
         def get_app_setting(self, key, default=None):
             return self._d.get(key, default)

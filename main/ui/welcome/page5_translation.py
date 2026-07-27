@@ -1,13 +1,14 @@
 ﻿# -*- coding: utf-8 -*-
 """
-第5页 — 翻译设置
+翻译设置页
 
 上半部：文字翻译流向动画
-下半部：DeepL API Key 输入 + 目标语言选择
+下半部：翻译引擎选择 + 对应凭据 + 目标语言 + 快捷键
 """
 
 from PySide6.QtWidgets import (
-    QVBoxLayout, QLabel, QLineEdit, QWidget, QHBoxLayout
+    QFormLayout, QVBoxLayout, QLabel, QLineEdit, QWidget, QHBoxLayout,
+    QStackedWidget, QSizePolicy,
 )
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QPainter, QColor, QFont, QPen, QPainterPath
@@ -16,14 +17,23 @@ from core import safe_event
 from core.i18n import make_tr
 
 if __package__:
-    from .base_page import BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND
+    from .base_page import (
+        BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND,
+        welcome_theme, set_welcome_label_style,
+    )
 else:
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from base_page import BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND
+    from base_page import (
+        BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND,
+        welcome_theme, set_welcome_label_style,
+    )
 
 
 _tr = make_tr("WelcomeWizard")
+
+_FORM_LABEL_WIDTH = 96
+_FORM_COLUMN_GAP = 12
 
 
 # ── 插画区：文字翻译流动动画 ────────────────────────────
@@ -111,6 +121,7 @@ class _TransAnim(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         w, h = self.width(), self.height()
+        theme = welcome_theme()
 
         card_w = min(w - 40, 280)
         card_h = 58
@@ -120,15 +131,15 @@ class _TransAnim(QWidget):
         cy_dst = h // 2 + gap // 2
 
         # ── 卡片背景 ──
-        p.setPen(QPen(QColor("#D0DEF0"), 1))
-        p.setBrush(QColor(255, 255, 255, 210))
+        p.setPen(QPen(QColor(theme.border_strong), 1))
+        p.setBrush(QColor(theme.panel))
         p.drawRoundedRect(cx, cy_src, card_w, card_h, 8, 8)
         p.drawRoundedRect(cx, cy_dst, card_w, card_h, 8, 8)
 
         # ── 语言标签 ──
         tag_font = QFont("Microsoft YaHei", 8)
         p.setFont(tag_font)
-        p.setPen(QColor(ACCENT))
+        p.setPen(QColor(theme.accent))
         p.drawText(cx + 10, cy_src + 4, card_w - 20, 16,
                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
                    self._src_lang)
@@ -156,18 +167,24 @@ class _TransAnim(QWidget):
         p.setFont(text_font)
 
         if src_a > 0:
-            p.setPen(QColor(26, 26, 46, src_a))
+            color = QColor(theme.text)
+            color.setAlpha(src_a)
+            p.setPen(color)
             p.drawText(cx + 10, cy_src + 20, card_w - 20, card_h - 24,
                        Qt.AlignmentFlag.AlignVCenter, self._src_text)
 
         if dst_a > 0:
-            p.setPen(QColor(26, 26, 46, dst_a))
+            color = QColor(theme.text)
+            color.setAlpha(dst_a)
+            p.setPen(color)
             p.drawText(cx + 10, cy_dst + 20, card_w - 20, card_h - 24,
                        Qt.AlignmentFlag.AlignVCenter, self._dst_text)
 
         # ── 箭头（翻译进行中时高亮）──
         arrow_a = 200 if self._phase in (1, 2, 3) else 80
-        pen = QPen(QColor(33, 150, 243, arrow_a), 2)
+        arrow = QColor(theme.accent)
+        arrow.setAlpha(arrow_a)
+        pen = QPen(arrow, 2)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         p.setPen(pen)
         ax = w // 2
@@ -181,71 +198,158 @@ class _TransAnim(QWidget):
 
 # ── 页面主体 ────────────────────────────────────────────
 class TranslationPage(BasePage):
-    """第5页：翻译 API 设置"""
+    """翻译 API 与全局快捷键设置"""
 
     def __init__(self, config_manager, parent=None):
         self._config = config_manager
         super().__init__(
-            title="🌐 翻译设置",
-            subtitle="使用 DeepL API 进行高质量翻译。\n"
-                     "免费账户每月 50 万字符额度，够日常使用。",
+            title=_tr("🌐 翻译设置").replace("🌐", "").strip(),
+            subtitle=_tr(
+                "选择翻译引擎并填写对应凭据，之后可以随时在设置中修改。"
+            ),
             parent=parent,
         )
+        # This page is configuration-heavy; give the form the full body width.
+        self.illus_area.hide()
 
     def _create_illustration(self):
         return _TranslateIllus(self)
 
     def _build_controls(self, layout: QVBoxLayout):
-        # API Key 输入
-        self._api_edit = LineEdit()
-        self._api_edit.setPlaceholderText("留空则使用免费公共接口")
-        self._api_edit.setFixedHeight(32)
-        self._api_edit.setEchoMode(QLineEdit.EchoMode.Password)
-        existing = ""
-        if hasattr(self._config, "get_deepl_api_key"):
-            existing = self._config.get_deepl_api_key() or ""
-        self._api_edit.setText(existing)
+        self._settings_card = QWidget()
+        self._settings_card.setObjectName("SettingRow")
+        self._settings_card.setProperty("welcomeSettingRow", True)
+        card_layout = QVBoxLayout(self._settings_card)
+        card_layout.setContentsMargins(22, 18, 22, 18)
+        card_layout.setSpacing(14)
+        layout.addWidget(self._settings_card)
 
-        # 不用 _make_setting_row（需要输入框拉满宽度）
-        self._api_lbl = QLabel("DeepL API Key")
-        self._api_lbl.setStyleSheet(
-            f"font-size: 14px; font-weight: 600; color: {TEXT_PRIMARY};"
-            " background: transparent;"
-        )
-        layout.addWidget(self._api_lbl)
-        layout.addWidget(self._api_edit)
+        self._provider_combo = ComboBox()
+        self._provider_combo.setMinimumWidth(280)
+        self._provider_combo.setCursor(Qt.CursorShape.PointingHandCursor)
+        from translation.service import create_default_translation_service
 
-        self._hint_lbl = QLabel(
-            f'：<a href="https://www.deepl.com/pro-api" '
-            f'style="color:{ACCENT};">deepl.com/pro-api</a>'
+        provider_order = {"google": 0, "deepl": 1, "amazon": 2}
+        providers = create_default_translation_service(
+            self._config
+        ).registry.available_providers()
+        for metadata in sorted(
+            providers,
+            key=lambda item: provider_order.get(item.provider_id, 99),
+        ):
+            self._provider_combo.addItem(
+                metadata.display_name, metadata.provider_id
+            )
+        saved_provider = (
+            self._config.get_translation_provider()
+            if hasattr(self._config, "get_translation_provider")
+            else "google"
         )
-        self._hint_lbl.setOpenExternalLinks(True)
-        self._hint_lbl.setStyleSheet(f"font-size: 12px; color: {TEXT_SECOND}; background: transparent;")
-        layout.addWidget(self._hint_lbl)
+        provider_index = self._provider_combo.findData(
+            saved_provider or "google"
+        )
+        self._provider_combo.setCurrentIndex(
+            provider_index if provider_index >= 0 else 0
+        )
+        provider_row, self._row_provider_lbl = self._config_row(
+            "翻译引擎", self._provider_combo
+        )
+        card_layout.addWidget(provider_row)
+
+        self._credential_stack = QStackedWidget()
+        self._credential_stack.setStyleSheet("background: transparent;")
+        self._provider_pages = {}
+        self._build_google_credentials()
+        self._build_deepl_credentials()
+        self._build_amazon_credentials()
+        card_layout.addWidget(self._credential_stack)
+        self._provider_combo.currentIndexChanged.connect(
+            self._on_provider_changed
+        )
+        self._on_provider_changed()
 
         # 目标语言
         self._lang_combo = ComboBox()
-        self._lang_combo.setFixedWidth(160)
-        self._lang_combo.setFixedHeight(32)
+        self._lang_combo.setMinimumWidth(240)
         self._lang_combo.setCursor(Qt.CursorShape.PointingHandCursor)
         self._populate_lang_combo()
-        row, self._row_lang_lbl, _ = self._make_setting_row_with_refs(
-            "翻译目标语言",
-            self._lang_combo,
+        row, self._row_lang_lbl = self._config_row(
+            "翻译目标语言", self._lang_combo
         )
-        layout.addWidget(row)
+        card_layout.addWidget(row)
+
+        # 全局翻译快捷键（主 + 备用）
+        if __package__:
+            from ..hotkey_edit import HotkeyEdit
+        else:
+            import sys, os
+            sys.path.insert(
+                0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+            )
+            from hotkey_edit import HotkeyEdit
+
+        hotkey_controls = QWidget()
+        hotkey_controls.setStyleSheet("background: transparent;")
+        hotkey_layout = QHBoxLayout(hotkey_controls)
+        hotkey_layout.setContentsMargins(0, 0, 0, 0)
+        hotkey_layout.setSpacing(8)
+
+        self._hotkey = HotkeyEdit()
+        self._hotkey.setFixedHeight(36)
+        self._hotkey.setText(self._config.get_translation_hotkey())
+        hotkey_layout.addWidget(self._hotkey, 1)
+
+        self._hotkey2 = HotkeyEdit()
+        self._hotkey2.setFixedHeight(36)
+        self._hotkey2.setText(self._config.get_translation_hotkey_2())
+        hotkey_layout.addWidget(self._hotkey2, 1)
+
+        # 标题单独占一行，输入区仍与上方所有表单控件共用同一基线。
+        # 这样较长的日文标题不会挤窄或推歪两个快捷键输入框。
+        hotkey_section = QWidget()
+        hotkey_section.setStyleSheet("background: transparent;")
+        hotkey_section_layout = QVBoxLayout(hotkey_section)
+        hotkey_section_layout.setContentsMargins(0, 0, 0, 0)
+        hotkey_section_layout.setSpacing(7)
+
+        self._row_hotkey_lbl = QLabel(_tr("快捷键（最多设置两个）"))
+        set_welcome_label_style(
+            self._row_hotkey_lbl, role="primary", font_size=14, weight=600
+        )
+        hotkey_section_layout.addWidget(self._row_hotkey_lbl)
+
+        hotkey_row = QHBoxLayout()
+        hotkey_row.setContentsMargins(0, 0, 0, 0)
+        hotkey_row.setSpacing(0)
+        hotkey_row.addSpacing(_FORM_LABEL_WIDTH + _FORM_COLUMN_GAP)
+        hotkey_row.addWidget(hotkey_controls, 1)
+        hotkey_section_layout.addLayout(hotkey_row)
+        card_layout.addWidget(hotkey_section)
 
     def retranslate(self):
-        self.title_label.setText(_tr("🌐 翻译设置"))
+        self.title_label.setText(_tr("🌐 翻译设置").replace("🌐", "").strip())
         self.subtitle_label.setText(_tr(
-            "使用 DeepL API 进行高质量翻译。\n"
-            "免费账户每月 50 万字符额度，够日常使用。"))
-        if hasattr(self, "_api_lbl") and self._api_lbl:
-            self._api_lbl.setText(_tr("DeepL API Key"))
-        if hasattr(self, "_api_edit") and self._api_edit:
-            self._api_edit.setPlaceholderText(_tr("留空则使用免费公共接口"))
+            "选择翻译引擎并填写对应凭据，之后可以随时在设置中修改。"))
+        if hasattr(self, "_row_provider_lbl"):
+            self._row_provider_lbl.setText(_tr("翻译引擎"))
         if hasattr(self, "_row_lang_lbl") and self._row_lang_lbl:
             self._row_lang_lbl.setText(_tr("翻译目标语言"))
+        if hasattr(self, "_row_hotkey_lbl") and self._row_hotkey_lbl:
+            self._row_hotkey_lbl.setText(_tr("快捷键（最多设置两个）"))
+        for label, text in getattr(self, "_credential_labels", []):
+            label.setText(_tr(text))
+        if hasattr(self, "_google_key_edit"):
+            self._google_key_edit.setPlaceholderText(_tr("Google API Key"))
+        if hasattr(self, "_deepl_key_edit"):
+            self._deepl_key_edit.setPlaceholderText(_tr("DeepL API Key"))
+        if hasattr(self, "_amazon_secret_edit"):
+            self._amazon_secret_edit.setPlaceholderText(
+                _tr("Secret Access Key")
+            )
+        if hasattr(self, "_amazon_token_edit"):
+            self._amazon_token_edit.setPlaceholderText(
+                _tr("可选，临时凭据使用")
+            )
         # 级联刷新插画区（翻译动画文字随界面语言切换）
         if hasattr(self, "illus_area") and hasattr(self.illus_area, "retranslate"):
             self.illus_area.retranslate()
@@ -273,12 +377,191 @@ class TranslationPage(BasePage):
         if idx >= 0:
             self._lang_combo.setCurrentIndex(idx)
 
+    def _build_google_credentials(self):
+        page, form = self._credential_page()
+        self._google_key_edit = self._credential_edit(
+            self._config.get_google_translate_api_key()
+            if hasattr(self._config, "get_google_translate_api_key")
+            else "",
+            "Google API Key",
+            password=True,
+        )
+        self._add_credential_row(form, "Google API Key", self._google_key_edit)
+        hint = self._credential_hint(
+            f'<a href="https://console.cloud.google.com/apis/credentials" '
+            f'style="color:{ACCENT};">Google Cloud Console</a>'
+        )
+        form.addRow("", hint)
+        self._add_provider_page("google", page)
+
+    def _build_deepl_credentials(self):
+        page, form = self._credential_page()
+        self._deepl_key_edit = self._credential_edit(
+            self._config.get_deepl_api_key()
+            if hasattr(self._config, "get_deepl_api_key")
+            else "",
+            "DeepL API Key",
+            password=True,
+        )
+        self._add_credential_row(form, "DeepL API Key", self._deepl_key_edit)
+        hint = self._credential_hint(
+            f'<a href="https://www.deepl.com/pro-api" '
+            f'style="color:{ACCENT};">deepl.com/pro-api</a>'
+        )
+        form.addRow("", hint)
+        self._add_provider_page("deepl", page)
+
+    def _build_amazon_credentials(self):
+        page, form = self._credential_page()
+        self._amazon_region_edit = self._credential_edit(
+            self._config.get_amazon_translate_region()
+            if hasattr(self._config, "get_amazon_translate_region")
+            else "us-west-2",
+            "us-west-2",
+        )
+        self._amazon_access_edit = self._credential_edit(
+            self._config.get_amazon_translate_access_key_id()
+            if hasattr(self._config, "get_amazon_translate_access_key_id")
+            else "",
+            "AKIA...",
+        )
+        self._amazon_secret_edit = self._credential_edit(
+            self._config.get_amazon_translate_secret_access_key()
+            if hasattr(
+                self._config, "get_amazon_translate_secret_access_key"
+            )
+            else "",
+            "Secret Access Key",
+            password=True,
+        )
+        self._amazon_token_edit = self._credential_edit(
+            self._config.get_amazon_translate_session_token()
+            if hasattr(self._config, "get_amazon_translate_session_token")
+            else "",
+            "可选，临时凭据使用",
+            password=True,
+        )
+        self._add_credential_row(form, "AWS 区域", self._amazon_region_edit)
+        self._add_credential_row(
+            form, "Access Key ID", self._amazon_access_edit
+        )
+        self._add_credential_row(
+            form, "Secret Access Key", self._amazon_secret_edit
+        )
+        self._add_credential_row(
+            form, "Session Token", self._amazon_token_edit
+        )
+        self._add_provider_page("amazon", page)
+
+    def _credential_page(self):
+        page = QWidget()
+        page.setStyleSheet("background: transparent;")
+        form = QFormLayout(page)
+        form.setContentsMargins(0, 2, 0, 2)
+        form.setHorizontalSpacing(_FORM_COLUMN_GAP)
+        form.setVerticalSpacing(7)
+        form.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow
+        )
+        return page, form
+
+    @staticmethod
+    def _config_row(text: str, control):
+        row_widget = QWidget()
+        row_widget.setStyleSheet("background: transparent;")
+        row = QHBoxLayout(row_widget)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(_FORM_COLUMN_GAP)
+        label = QLabel(_tr(text), row_widget)
+        set_welcome_label_style(
+            label, role="primary", font_size=14, weight=600
+        )
+        label.setFixedWidth(_FORM_LABEL_WIDTH)
+        control.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
+        row.addWidget(label)
+        row.addWidget(control, 1)
+        return row_widget, label
+
+    def _credential_edit(
+        self, value: str, placeholder: str, *, password: bool = False
+    ):
+        edit = LineEdit()
+        edit.setText(value or "")
+        edit.setPlaceholderText(placeholder)
+        if password:
+            edit.setEchoMode(QLineEdit.EchoMode.Password)
+        return edit
+
+    def _add_credential_row(self, form, text: str, edit):
+        label = QLabel(_tr(text))
+        set_welcome_label_style(
+            label, role="primary", font_size=12, weight=600
+        )
+        label.setFixedWidth(_FORM_LABEL_WIDTH)
+        self._credential_labels = getattr(
+            self, "_credential_labels", []
+        )
+        self._credential_labels.append((label, text))
+        form.addRow(label, edit)
+
+    @staticmethod
+    def _credential_hint(text: str):
+        label = QLabel(text)
+        label.setOpenExternalLinks(True)
+        set_welcome_label_style(
+            label, role="muted", font_size=11, weight=400
+        )
+        return label
+
+    def _add_provider_page(self, provider_id: str, page: QWidget):
+        self._provider_pages[provider_id] = page
+        self._credential_stack.addWidget(page)
+
+    def _on_provider_changed(self, *_args):
+        page = self._provider_pages.get(
+            self._provider_combo.currentData()
+        )
+        if page is not None:
+            self._credential_stack.setCurrentWidget(page)
+            # Fluent inputs include 26px of content plus vertical padding and
+            # borders.  Keep a small layout allowance as well so the final
+            # row/focus border is never clipped at fractional DPI scales.
+            self._credential_stack.setFixedHeight(
+                max(68, page.sizeHint().height() + 12)
+            )
+
     def save(self):
+        provider_id = self._provider_combo.currentData() or "google"
+        if hasattr(self._config, "set_translation_provider"):
+            self._config.set_translation_provider(provider_id)
+        if hasattr(self._config, "set_google_translate_api_key"):
+            self._config.set_google_translate_api_key(
+                self._google_key_edit.text().strip()
+            )
         if hasattr(self._config, "set_deepl_api_key"):
-            self._config.set_deepl_api_key(self._api_edit.text().strip())
+            self._config.set_deepl_api_key(
+                self._deepl_key_edit.text().strip()
+            )
+        if hasattr(self._config, "set_amazon_translate_region"):
+            self._config.set_amazon_translate_region(
+                self._amazon_region_edit.text().strip()
+            )
+            self._config.set_amazon_translate_access_key_id(
+                self._amazon_access_edit.text().strip()
+            )
+            self._config.set_amazon_translate_secret_access_key(
+                self._amazon_secret_edit.text().strip()
+            )
+            self._config.set_amazon_translate_session_token(
+                self._amazon_token_edit.text().strip()
+            )
         lang = self._lang_combo.currentData()
         if lang:
             self._config.set_app_setting("translation_target_lang", lang)
+        self._config.set_translation_hotkey(self._hotkey.text().strip())
+        self._config.set_translation_hotkey_2(self._hotkey2.text().strip())
 
 
 if __name__ == "__main__":
@@ -292,7 +575,7 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
     w = WelcomeWizard(mock)
-    w._stack.setCurrentIndex(4)   # 跳到第5页
+    w._stack.setCurrentIndex(3)   # 跳到翻译设置页
     w._update_nav()
     w.show()
     sys.exit(app.exec())

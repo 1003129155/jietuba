@@ -9,14 +9,32 @@
 """
 
 from .deepl_service import DeepLService, TranslationThread
+from .models import (
+    TranslationErrorCode,
+    TranslationRequest,
+    TranslationResult,
+)
+from .provider import ProviderMetadata, TranslationProvider
+from .registry import ProviderRegistry
+from .service import TranslationService, create_default_translation_service
 from .translation_dialog import TranslationDialog, TranslationLoadingDialog
 from .translation_manager import TranslationManager
+from .worker import TranslationWorker
 
 __all__ = [
     'DeepLService', 
     'TranslationThread', 
     'TranslationDialog',
     'TranslationLoadingDialog',
-    'TranslationManager'
+    'TranslationManager',
+    'TranslationErrorCode',
+    'TranslationRequest',
+    'TranslationResult',
+    'ProviderMetadata',
+    'TranslationProvider',
+    'ProviderRegistry',
+    'TranslationService',
+    'create_default_translation_service',
+    'TranslationWorker',
 ]
  

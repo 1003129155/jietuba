@@ -212,8 +212,14 @@ class ToolSettingsManager(QObject):
         # 遮罩色 Alpha 固定为 120，不提供前端设置
 
         # ==================== 5. 翻译 ====================
+        "translation_provider": "google",      # 当前翻译引擎
         "deepl_api_key": "",                    # DeepL API 密钥
         "deepl_use_pro": False,                # 是否使用 Pro 版 API
+        "amazon_translate_region": "us-west-2",
+        "amazon_translate_access_key_id": "",
+        "amazon_translate_secret_access_key": "",
+        "amazon_translate_session_token": "",
+        "google_translate_api_key": "",
         "translation_target_lang": "",         # 翻译目标语言（空为跟随系统语言）
         "translation_split_sentences": True,   # 自动分句
         "translation_preserve_formatting": True,  # 保留格式
@@ -802,6 +808,42 @@ class ToolSettingsManager(QObject):
         self.qsettings.setValue("app/ocr_upscale_factor", value)
     
     # ==================== 翻译设置 ====================
+
+    def get_translation_provider(self) -> str:
+        """获取当前翻译引擎 ID。"""
+        return self.qsettings.value(
+            "translation/active_provider",
+            self.APP_DEFAULT_SETTINGS["translation_provider"],
+            type=str,
+        )
+
+    def set_translation_provider(self, provider_id: str):
+        """设置当前翻译引擎 ID。"""
+        self.qsettings.setValue(
+            "translation/active_provider",
+            (provider_id or "deepl").strip().lower(),
+        )
+
+    def get_translation_provider_config(self, provider_id: str) -> dict:
+        """返回指定 Provider 的配置；新增引擎只需在这里接入其持久化字段。"""
+        provider_id = (provider_id or "").strip().lower()
+        if provider_id == "deepl":
+            return {
+                "api_key": self.get_deepl_api_key() or "",
+                "use_pro": self.get_deepl_use_pro(),
+            }
+        if provider_id == "amazon":
+            return {
+                "region": self.get_amazon_translate_region(),
+                "access_key_id": self.get_amazon_translate_access_key_id(),
+                "secret_access_key": (
+                    self.get_amazon_translate_secret_access_key()
+                ),
+                "session_token": self.get_amazon_translate_session_token(),
+            }
+        if provider_id == "google":
+            return {"api_key": self.get_google_translate_api_key()}
+        return {}
     
     def get_deepl_api_key(self) -> str:
         """获取 DeepL API 密钥"""
@@ -818,6 +860,73 @@ class ToolSettingsManager(QObject):
     def set_deepl_use_pro(self, value: bool):
         """设置是否使用 DeepL Pro API"""
         self.qsettings.setValue("app/deepl_use_pro", value)
+
+    def get_amazon_translate_region(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/amazon/region",
+            self.APP_DEFAULT_SETTINGS["amazon_translate_region"],
+            type=str,
+        )
+
+    def set_amazon_translate_region(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/amazon/region",
+            (value or "us-west-2").strip(),
+        )
+
+    def get_amazon_translate_access_key_id(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/amazon/access_key_id",
+            self.APP_DEFAULT_SETTINGS["amazon_translate_access_key_id"],
+            type=str,
+        )
+
+    def set_amazon_translate_access_key_id(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/amazon/access_key_id",
+            (value or "").strip(),
+        )
+
+    def get_amazon_translate_secret_access_key(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/amazon/secret_access_key",
+            self.APP_DEFAULT_SETTINGS[
+                "amazon_translate_secret_access_key"
+            ],
+            type=str,
+        )
+
+    def set_amazon_translate_secret_access_key(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/amazon/secret_access_key",
+            (value or "").strip(),
+        )
+
+    def get_amazon_translate_session_token(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/amazon/session_token",
+            self.APP_DEFAULT_SETTINGS["amazon_translate_session_token"],
+            type=str,
+        )
+
+    def set_amazon_translate_session_token(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/amazon/session_token",
+            (value or "").strip(),
+        )
+
+    def get_google_translate_api_key(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/google/api_key",
+            self.APP_DEFAULT_SETTINGS["google_translate_api_key"],
+            type=str,
+        )
+
+    def set_google_translate_api_key(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/google/api_key",
+            (value or "").strip(),
+        )
     
     def get_translation_target_lang(self) -> str:
         """
@@ -893,6 +1002,19 @@ class ToolSettingsManager(QObject):
             "use_pro": use_pro,
             "split_sentences": split_sentences,
             "preserve_formatting": preserve_formatting,
+        }
+
+    def get_translation_request_params(self) -> dict:
+        """获取与具体翻译厂商无关的调用参数。"""
+        saved_target_lang = self.get_app_setting("translation_target_lang", "")
+        return {
+            "target_lang": saved_target_lang or self.get_translation_target_lang(),
+            "split_sentences": (
+                "nonewlines"
+                if self.get_translation_split_sentences()
+                else "0"
+            ),
+            "preserve_formatting": self.get_translation_preserve_formatting(),
         }
     
     # ==================== 剪贴板设置 ====================

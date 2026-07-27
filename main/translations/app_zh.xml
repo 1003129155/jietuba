@@ -2441,6 +2441,19 @@ Replace it?</source>
         <translation>单击输入框后，直接按下目标组合键即可录入。</translation>
     </message>
     <!-- page3 -->
+    <message><source>剪贴板</source><translation>剪贴板</translation></message>
+    <message><source>历史记录</source><translation>历史记录</translation></message>
+    <message><source>内容分组</source><translation>内容分组</translation></message>
+    <message><source>快速启动</source><translation>快速启动</translation></message>
+    <message><source>文字</source><translation>文字</translation></message>
+    <message><source>图片</source><translation>图片</translation></message>
+    <message><source>文件</source><translation>文件</translation></message>
+    <message><source>会议时间改为 14:00</source><translation>会议时间改为 14:00</translation></message>
+    <message><source>产品封面.png</source><translation>产品封面.png</translation></message>
+    <message><source>项目说明.pdf</source><translation>项目说明.pdf</translation></message>
+    <message><source>感谢您的联系</source><translation>感谢您的联系</translation></message>
+    <message><source>设计预览.png</source><translation>设计预览.png</translation></message>
+    <message><source>下周一 10:00 开会</source><translation>下周一 10:00 开会</translation></message>
     <message>
         <source>剪贴板管理</source>
         <translation>剪贴板管理</translation>
@@ -2488,6 +2501,38 @@ Replace it?</source>
     <message>
         <source>🌐 翻译设置</source>
         <translation>🌐 翻译设置</translation>
+    </message>
+    <message>
+        <source>选择翻译引擎并填写对应凭据，之后可以随时在设置中修改。</source>
+        <translation>选择翻译引擎并填写对应凭据，之后可随时在设置中修改。</translation>
+    </message>
+    <message>
+        <source>翻译引擎</source>
+        <translation>翻译引擎</translation>
+    </message>
+    <message>
+        <source>Google API Key</source>
+        <translation>Google API Key</translation>
+    </message>
+    <message>
+        <source>AWS 区域</source>
+        <translation>AWS 区域</translation>
+    </message>
+    <message>
+        <source>Access Key ID</source>
+        <translation>Access Key ID</translation>
+    </message>
+    <message>
+        <source>Secret Access Key</source>
+        <translation>Secret Access Key</translation>
+    </message>
+    <message>
+        <source>Session Token</source>
+        <translation>Session Token</translation>
+    </message>
+    <message>
+        <source>可选，临时凭据使用</source>
+        <translation>可选，供临时凭据使用</translation>
     </message>
     <message>
         <source>使用 DeepL API 进行高质量翻译。
@@ -2547,8 +2592,8 @@ Replace it?</source>
         <translation>每次启动时自动打开设置面板。</translation>
     </message>
     <message>
-        <source>生成桌面快捷方式</source>
-        <translation>生成桌面快捷方式</translation>
+        <source>快捷方式</source>
+        <translation>快捷方式</translation>
     </message>
     <message>
         <source>完成向导时在桌面创建截图吧快捷方式。</source>

@@ -289,6 +289,7 @@ def test_full_request_reactivates_dialog_and_binds_result_target(monkeypatch, qa
     manager._popup = FakeSurface()
     manager._active_target = "compact"
     started = []
+    monkeypatch.setattr(manager, "_backend_ready", lambda: True)
     monkeypatch.setattr(manager, "_stop_current_thread", lambda: None)
     monkeypatch.setattr(
         manager,
