@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "excel-j": {
-      "command": "c:\\Users\\10031\\.vscode\\extensions\\excel-j.excel-j-0.0.8\\bin\\ExcelJ.McpServer.exe",
-      "disabled": false
-    }
-  }
-}
