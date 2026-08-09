@@ -50,6 +50,23 @@ class SmartTranslationController(QObject):
         QTimer.singleShot(self.COPY_DELAY_MS, lambda: self._dispatch_copy(token))
         QTimer.singleShot(self.PROBE_TIMEOUT_MS, lambda: self._on_timeout(token))
 
+    def translate_selection(self, text: str) -> None:
+        """Translate text supplied by a caller that owns its own selection.
+
+        Used by widgets whose selection cannot be reached through the system
+        clipboard shortcut (self-drawn text layers such as the pinned-image OCR
+        overlay). Cancels any in-flight probe so its timers become no-ops.
+        """
+        text = text.strip() if isinstance(text, str) else ""
+        if not text:
+            return
+        self._probe_token += 1
+        self._probe_active = False
+        self._copy_dispatched = False
+        self._cursor_position = QCursor.pos()
+        log_debug(f"外部选区直接翻译: {len(text)} 字符", "Translation")
+        self._open_compact(text)
+
     def _dispatch_copy(self, token: int) -> None:
         if not self._is_current(token):
             return

@@ -605,6 +605,120 @@ Replace it?</translation>
     <source>🛠️ Tech: Python、Rust、PyQt6、Oneocr、DeepLAPI</source>
     <translation>🛠️ Tech: Python、Rust、PyQt6、Oneocr、DeepLAPI</translation>
     </message>
+
+    <!-- Translation Settings Page -->
+    <message>
+        <source>Translation Engine</source>
+        <translation>Translation Engine</translation>
+    </message>
+    <message>
+        <source>DeepL API</source>
+        <translation>DeepL API</translation>
+    </message>
+    <message>
+        <source>DeepL API Key</source>
+        <translation>DeepL API Key</translation>
+    </message>
+    <message>
+        <source>Show</source>
+        <translation>Show</translation>
+    </message>
+    <message>
+        <source>Hide</source>
+        <translation>Hide</translation>
+    </message>
+    <message>
+        <source>Use DeepL Pro API</source>
+        <translation>Use DeepL Pro API</translation>
+    </message>
+    <message>
+        <source>Enable if you have a paid DeepL subscription</source>
+        <translation>Enable if you have a paid DeepL subscription</translation>
+    </message>
+    <message>
+        <source>Amazon Translate</source>
+        <translation>Amazon Translate</translation>
+    </message>
+    <message>
+        <source>AWS Region</source>
+        <translation>AWS Region</translation>
+    </message>
+    <message>
+        <source>Access Key ID</source>
+        <translation>Access Key ID</translation>
+    </message>
+    <message>
+        <source>Secret Access Key</source>
+        <translation>Secret Access Key</translation>
+    </message>
+    <message>
+        <source>Required</source>
+        <translation>Required</translation>
+    </message>
+    <message>
+        <source>Session Token</source>
+        <translation>Session Token</translation>
+    </message>
+    <message>
+        <source>Optional, for temporary credentials</source>
+        <translation>Optional, for temporary credentials</translation>
+    </message>
+    <message>
+        <source>Google Cloud Translation</source>
+        <translation>Google Cloud Translation</translation>
+    </message>
+    <message>
+        <source>Google API Key</source>
+        <translation>Google API Key</translation>
+    </message>
+    <message>
+        <source>Azure Translator</source>
+        <translation>Azure Translator</translation>
+    </message>
+    <message>
+        <source>Azure API Key</source>
+        <translation>Azure API Key</translation>
+    </message>
+    <message>
+        <source>Azure Region</source>
+        <translation>Azure Region</translation>
+    </message>
+    <message>
+        <source>Azure Endpoint</source>
+        <translation>Azure Endpoint</translation>
+    </message>
+    <message>
+        <source>Optional, use default if empty</source>
+        <translation>Optional, use default if empty</translation>
+    </message>
+    <message>
+        <source>Translation Options</source>
+        <translation>Translation Options</translation>
+    </message>
+    <message>
+        <source>Target Language</source>
+        <translation>Target Language</translation>
+    </message>
+    <message>
+        <source>Auto (System)</source>
+        <translation>Auto (System)</translation>
+    </message>
+    <message>
+        <source>Ignore Line Breaks</source>
+        <translation>Ignore Line Breaks</translation>
+    </message>
+    <message>
+        <source>Merge multi-line text for better translation</source>
+        <translation>Merge multi-line text for better translation</translation>
+    </message>
+    <message>
+        <source>Preserve Formatting</source>
+        <translation>Preserve Formatting</translation>
+    </message>
+    <message>
+        <source>Keep original text formatting</source>
+        <translation>Keep original text formatting</translation>
+    </message>
 </context>
 
 <context>
@@ -1100,6 +1214,10 @@ Replace it?</translation>
     <message>
         <source>Enter or paste text...</source>
         <translation>Enter or paste text...</translation>
+    </message>
+    <message>
+        <source>Enter text to translate...</source>
+        <translation>Enter text to translate...</translation>
     </message>
     <message>
         <source>Translation will appear here...</source>

@@ -284,7 +284,8 @@ class TranslationManager(QObject):
         popup = self._ensure_popup()
         popup.set_target_lang(target_lang)  # 同步目标语言
         popup.set_backend_status(self._backend_name(), self._backend_ready())
-        popup.show_loading(text, position)
+        # 划词翻译不抢焦点，否则原应用的选区和光标会丢失。
+        popup.show_popup(text, position, activate=False)
 
         if not self._backend_ready():
             popup.show_error(self._api_key_error())
@@ -307,7 +308,7 @@ class TranslationManager(QObject):
         split_sentences: str = None,
         preserve_formatting: bool = None,
     ):
-        """Show the shared compact popup in focused manual-input mode."""
+        """Show the compact popup empty, with the caret in the input box."""
         api_key = self._resolve_api_key(api_key)
         if use_pro is None:
             use_pro = self._use_pro
@@ -326,7 +327,8 @@ class TranslationManager(QObject):
         popup = self._ensure_popup()
         popup.set_target_lang(target_lang)  # 同步目标语言
         popup.set_backend_status(self._backend_name(), self._backend_ready())
-        popup.show_input(position)
+        # 没有待译文本，直接把焦点交给输入框。
+        popup.show_popup("", position, activate=True)
         if not self._backend_ready():
             popup.show_error(self._api_key_error())
 

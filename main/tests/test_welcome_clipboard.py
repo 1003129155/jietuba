@@ -101,7 +101,7 @@ def test_welcome_clipboard_animation_renders_every_stage(qapp, tmp_path):
                 "文字": "テキスト",
                 "图片": "画像",
                 "文件": "ファイル",
-                "内容分组": "コンテンツグループ",
+                "内容分组": "定型文グループ",
                 "快速启动": "クイック起動",
             },
         ),

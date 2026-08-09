@@ -11,7 +11,7 @@
 
 from PySide6.QtCore import QObject, Qt
 from PySide6.QtGui import QCursor
-from core import log_info
+from core import log_info, log_error
 from core.shortcut_manager import ShortcutManager, ShortcutHandler, load_inapp_bindings
 
 
@@ -40,6 +40,50 @@ class _PinHandlerBase(ShortcutHandler):
             return False
         want_key, want_mods = binding
         return event.key() == want_key and event.modifiers() == want_mods
+
+    # ------------------------------------------------------------------
+    # 系统热键拦截
+    # ------------------------------------------------------------------
+
+    def _selected_ocr_text(self) -> str:
+        """取鼠标下方钉图中已选中的 OCR 文字（无选区返回空串）"""
+        pin = self._find_pin_under_cursor()
+        if pin is None:
+            return ""
+        ocr_layer = getattr(pin, 'ocr_text_layer', None)
+        if ocr_layer is None:
+            return ""
+        try:
+            return (ocr_layer.get_selected_text() or "").strip()
+        except RuntimeError:
+            return ""
+
+    def handle_hotkey(self, hotkey_id: int, callback) -> bool:
+        """拦截智能翻译热键，直接翻译钉图中选中的 OCR 文字。
+
+        钉图窗口是 Qt.Tool + 置顶窗口，不抢键盘焦点，所以智能翻译
+        注入的 Ctrl+Insert 会落到真正持有焦点的那个窗口上，复制不到
+        钉图里的 OCR 选区。这里在 WM_HOTKEY 阶段抢在注入之前直接
+        把选区文本交给翻译小窗。
+
+        无选区时返回 False，退回原有的系统复制探测流程。
+        """
+        owner = getattr(callback, '__self__', None)
+        if owner is None or type(owner).__name__ != 'SmartTranslationController':
+            return False
+
+        text = self._selected_ocr_text()
+        if not text:
+            return False
+
+        try:
+            owner.translate_selection(text)
+        except Exception as e:
+            log_error(f"钉图 OCR 选区翻译失败: {e}", "PinShortcut")
+            return False
+
+        log_info(f"钉图 OCR 选区已直接送入翻译: {len(text)} 字符", "PinShortcut")
+        return True
 
 
 class PinEditShortcutHandler(_PinHandlerBase):

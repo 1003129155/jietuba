@@ -127,14 +127,15 @@ class _HotkeyEventFilter(QAbstractNativeEventFilter):
                     hotkey_id = msg.wParam
                     cb = self._id_to_callback.get(hotkey_id)
                     if cb:
-                        # 先过 handler 链，看有没有人要拦截
-                        if self._manager._dispatch_hotkey(hotkey_id, cb):
-                            return True, 0
+                        # 全局热键被临时禁用时，handler 链也不应有机会拦截
                         if self._manager.global_hotkeys_suppressed:
                             log_debug(
                                 f"系统热键已临时禁用，忽略回调 (id={hotkey_id})",
                                 "Shortcut",
                             )
+                            return True, 0
+                        # 再过 handler 链，看有没有人要拦截
+                        if self._manager._dispatch_hotkey(hotkey_id, cb):
                             return True, 0
                         # 没人拦截，执行原始回调
                         try:

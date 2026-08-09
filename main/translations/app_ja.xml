@@ -611,6 +611,120 @@ Replace it?</source>
     <source>🛠️ Tech: Python、Rust、PyQt6、Oneocr、DeepLAPI</source>
     <translation>🛠️ 技術: Python、Rust、PyQt6、Oneocr、DeepLAPI</translation>
     </message>
+
+    <!-- Translation Settings Page -->
+    <message>
+        <source>Translation Engine</source>
+        <translation>翻訳エンジン</translation>
+    </message>
+    <message>
+        <source>DeepL API</source>
+        <translation>DeepL API</translation>
+    </message>
+    <message>
+        <source>DeepL API Key</source>
+        <translation>DeepL APIキー</translation>
+    </message>
+    <message>
+        <source>Show</source>
+        <translation>表示</translation>
+    </message>
+    <message>
+        <source>Hide</source>
+        <translation>非表示</translation>
+    </message>
+    <message>
+        <source>Use DeepL Pro API</source>
+        <translation>DeepL Pro APIを使用</translation>
+    </message>
+    <message>
+        <source>Enable if you have a paid DeepL subscription</source>
+        <translation>DeepL有料プランをお持ちの場合に有効にしてください</translation>
+    </message>
+    <message>
+        <source>Amazon Translate</source>
+        <translation>Amazon Translate</translation>
+    </message>
+    <message>
+        <source>AWS Region</source>
+        <translation>AWSリージョン</translation>
+    </message>
+    <message>
+        <source>Access Key ID</source>
+        <translation>アクセスキーID</translation>
+    </message>
+    <message>
+        <source>Secret Access Key</source>
+        <translation>シークレットアクセスキー</translation>
+    </message>
+    <message>
+        <source>Required</source>
+        <translation>必須</translation>
+    </message>
+    <message>
+        <source>Session Token</source>
+        <translation>セッショントークン</translation>
+    </message>
+    <message>
+        <source>Optional, for temporary credentials</source>
+        <translation>任意、一時認証情報用</translation>
+    </message>
+    <message>
+        <source>Google Cloud Translation</source>
+        <translation>Google Cloud Translation</translation>
+    </message>
+    <message>
+        <source>Google API Key</source>
+        <translation>Google APIキー</translation>
+    </message>
+    <message>
+        <source>Azure Translator</source>
+        <translation>Azure Translator</translation>
+    </message>
+    <message>
+        <source>Azure API Key</source>
+        <translation>Azure APIキー</translation>
+    </message>
+    <message>
+        <source>Azure Region</source>
+        <translation>Azureリージョン</translation>
+    </message>
+    <message>
+        <source>Azure Endpoint</source>
+        <translation>Azureエンドポイント</translation>
+    </message>
+    <message>
+        <source>Optional, use default if empty</source>
+        <translation>任意、空欄の場合はデフォルトを使用</translation>
+    </message>
+    <message>
+        <source>Translation Options</source>
+        <translation>翻訳オプション</translation>
+    </message>
+    <message>
+        <source>Target Language</source>
+        <translation>ターゲット言語</translation>
+    </message>
+    <message>
+        <source>Auto (System)</source>
+        <translation>自動（システム言語）</translation>
+    </message>
+    <message>
+        <source>Ignore Line Breaks</source>
+        <translation>改行を無視</translation>
+    </message>
+    <message>
+        <source>Merge multi-line text for better translation</source>
+        <translation>複数行テキストを結合してより良い翻訳を行う</translation>
+    </message>
+    <message>
+        <source>Preserve Formatting</source>
+        <translation>書式を保持</translation>
+    </message>
+    <message>
+        <source>Keep original text formatting</source>
+        <translation>原文の書式を保持する</translation>
+    </message>
 </context>
 
 <context>

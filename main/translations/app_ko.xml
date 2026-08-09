@@ -604,6 +604,120 @@ Replace it?</source>
     <source>🛠️ Tech: Python、Rust、PyQt6、Oneocr、DeepLAPI</source>
     <translation>🛠️ 기술: Python、Rust、PyQt6、Oneocr、DeepLAPI</translation>
     </message>
+
+    <!-- Translation Settings Page -->
+    <message>
+        <source>Translation Engine</source>
+        <translation>번역 엔진</translation>
+    </message>
+    <message>
+        <source>DeepL API</source>
+        <translation>DeepL API</translation>
+    </message>
+    <message>
+        <source>DeepL API Key</source>
+        <translation>DeepL API 키</translation>
+    </message>
+    <message>
+        <source>Show</source>
+        <translation>표시</translation>
+    </message>
+    <message>
+        <source>Hide</source>
+        <translation>숨기기</translation>
+    </message>
+    <message>
+        <source>Use DeepL Pro API</source>
+        <translation>DeepL Pro API 사용</translation>
+    </message>
+    <message>
+        <source>Enable if you have a paid DeepL subscription</source>
+        <translation>DeepL 유료 구독이 있는 경우 활성화하세요</translation>
+    </message>
+    <message>
+        <source>Amazon Translate</source>
+        <translation>Amazon Translate</translation>
+    </message>
+    <message>
+        <source>AWS Region</source>
+        <translation>AWS 리전</translation>
+    </message>
+    <message>
+        <source>Access Key ID</source>
+        <translation>액세스 키 ID</translation>
+    </message>
+    <message>
+        <source>Secret Access Key</source>
+        <translation>시크릿 액세스 키</translation>
+    </message>
+    <message>
+        <source>Required</source>
+        <translation>필수</translation>
+    </message>
+    <message>
+        <source>Session Token</source>
+        <translation>세션 토큰</translation>
+    </message>
+    <message>
+        <source>Optional, for temporary credentials</source>
+        <translation>선택사항, 임시 자격증명용</translation>
+    </message>
+    <message>
+        <source>Google Cloud Translation</source>
+        <translation>Google Cloud Translation</translation>
+    </message>
+    <message>
+        <source>Google API Key</source>
+        <translation>Google API 키</translation>
+    </message>
+    <message>
+        <source>Azure Translator</source>
+        <translation>Azure Translator</translation>
+    </message>
+    <message>
+        <source>Azure API Key</source>
+        <translation>Azure API 키</translation>
+    </message>
+    <message>
+        <source>Azure Region</source>
+        <translation>Azure 리전</translation>
+    </message>
+    <message>
+        <source>Azure Endpoint</source>
+        <translation>Azure 엔드포인트</translation>
+    </message>
+    <message>
+        <source>Optional, use default if empty</source>
+        <translation>선택사항, 비어있으면 기본값 사용</translation>
+    </message>
+    <message>
+        <source>Translation Options</source>
+        <translation>번역 옵션</translation>
+    </message>
+    <message>
+        <source>Target Language</source>
+        <translation>대상 언어</translation>
+    </message>
+    <message>
+        <source>Auto (System)</source>
+        <translation>자동 (시스템)</translation>
+    </message>
+    <message>
+        <source>Ignore Line Breaks</source>
+        <translation>줄바꿈 무시</translation>
+    </message>
+    <message>
+        <source>Merge multi-line text for better translation</source>
+        <translation>더 나은 번역을 위해 여러 줄 텍스트를 병합</translation>
+    </message>
+    <message>
+        <source>Preserve Formatting</source>
+        <translation>서식 유지</translation>
+    </message>
+    <message>
+        <source>Keep original text formatting</source>
+        <translation>원본 텍스트 서식을 유지</translation>
+    </message>
 </context>
 
 <context>

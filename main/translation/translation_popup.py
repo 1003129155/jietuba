@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Compact translation popup with result and manual-input modes."""
+"""Compact translation popup: one always-editable window for every entry point."""
 
 from __future__ import annotations
 
@@ -26,7 +26,13 @@ _tr = make_tr("TranslationDialog")
 
 
 class TranslationPopup(QWidget):
-    """Single compact window reused for selected text and manual input."""
+    """Single compact window used for both selected text and typed input.
+
+    The original-text box is always editable; the only difference between entry
+    points is whether the popup takes keyboard focus on show (``activate``).
+    Selection translation must not steal focus, otherwise the user's selection
+    and caret in the source application are lost.
+    """
 
     open_full_requested = Signal(str, str, str)
     manual_translate_requested = Signal(str)
@@ -36,6 +42,10 @@ class TranslationPopup(QWidget):
     WIDTH = 420
     MIN_HEIGHT = 176
     MAX_HEIGHT = 520
+    SOURCE_MIN_HEIGHT = 44
+    SOURCE_MAX_HEIGHT = 120
+    RESULT_MIN_HEIGHT = 44
+    RESULT_MAX_HEIGHT = 208
 
     def __init__(self, parent: QWidget | None = None):
         flags = (
@@ -48,7 +58,8 @@ class TranslationPopup(QWidget):
         self._source_text = ""
         self._translated_text = ""
         self._error_text = ""
-        self._mode = "result"
+        # Guards textChanged while the popup fills the box programmatically.
+        self._suppress_auto = False
         self._backend_ready = True
         self._drag_offset: QPoint | None = None
         self._loading_step = 0
@@ -82,13 +93,12 @@ class TranslationPopup(QWidget):
         root.setSpacing(8)
 
         header = QHBoxLayout()
-        header.setContentsMargins(2, 0, 0, 0)
+        # Left margin 0 keeps the badge pill flush with the input box below it.
+        header.setContentsMargins(0, 0, 0, 0)
         header.setSpacing(8)
 
-        self.title_label = QLabel(_tr("Translator"), self)
-        self.title_label.setObjectName("popupTitle")
-        header.addWidget(self.title_label)
-
+        # No window title: the engine badge already identifies the popup, and
+        # the empty space next to it still works as the drag handle.
         self.backend_badge = QLabel(_tr("Engine not configured"), self)
         self.backend_badge.setObjectName("popupBadge")
         self.backend_badge.setFixedHeight(21)
@@ -104,8 +114,9 @@ class TranslationPopup(QWidget):
         header.addWidget(self.close_button)
         root.addLayout(header)
 
-        self.source_edit = self._make_text_view("popupSource")
-        self.source_edit.setMaximumHeight(92)
+        self.source_edit = self._make_text_view("popupSource", editable=True)
+        self.source_edit.setMaximumHeight(self.SOURCE_MAX_HEIGHT)
+        self.source_edit.setPlaceholderText(_tr("Enter text to translate..."))
         self.source_edit.textChanged.connect(self._on_source_changed)
         root.addWidget(self.source_edit)
 
@@ -115,7 +126,7 @@ class TranslationPopup(QWidget):
         root.addWidget(self.divider)
 
         self.result_edit = self._make_text_view("popupResult")
-        self.result_edit.setMaximumHeight(208)
+        self.result_edit.setMaximumHeight(self.RESULT_MAX_HEIGHT)
         root.addWidget(self.result_edit)
 
         footer = QHBoxLayout()
@@ -149,15 +160,19 @@ class TranslationPopup(QWidget):
         footer.addWidget(self.full_button)
         root.addLayout(footer)
 
-    def _make_text_view(self, object_name: str) -> TextEdit:
+    def _make_text_view(self, object_name: str, *, editable: bool = False) -> TextEdit:
         view = TextEdit(self)
         view.setObjectName(object_name)
-        view.setReadOnly(True)
+        view.setReadOnly(not editable)
         view.setAcceptRichText(False)
         view.setFrameShape(QFrame.Shape.NoFrame)
         view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        view.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        view.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextEditorInteraction
+            if editable
+            else Qt.TextInteractionFlag.TextSelectableByMouse
+        )
         return view
 
     def _show_lang_menu(self) -> None:
@@ -185,20 +200,8 @@ class TranslationPopup(QWidget):
                 self.target_lang_changed.emit(new_lang)
                 # 如果有原文，立即重新翻译到新语言
                 if self._source_text:
-                    # 显示loading状态
-                    self.result_edit.setProperty("error", False)
-                    self.result_edit.setPlainText(_tr("Translating..."))
-                    self._refresh_result_style()
-                    self.copy_button.setEnabled(False)
-                    self._loading_step = 0
-                    self._loading_timer.start()
-                    
-                    if self._mode == "result":
-                        # result模式：通过manager重新翻译
-                        self.manual_translate_requested.emit(self._source_text)
-                    elif self._mode == "input":
-                        # input模式：触发本地翻译
-                        self.manual_translate_requested.emit(self._source_text)
+                    self._enter_loading()
+                    self.manual_translate_requested.emit(self._source_text)
 
     def set_target_lang(self, lang_code: str) -> None:
         """设置目标语言（外部调用）"""
@@ -206,44 +209,74 @@ class TranslationPopup(QWidget):
             self._target_lang = lang_code
             self.lang_button.setText(TRANSLATION_LANGUAGES[lang_code])
 
-    def show_loading(self, source_text: str, position: QPoint | None = None) -> None:
-        self._set_mode("result")
+    def show_popup(
+        self,
+        source_text: str = "",
+        position: QPoint | None = None,
+        *,
+        activate: bool = False,
+    ) -> None:
+        """Show the popup, optionally pre-filled with text to translate.
+
+        Args:
+            source_text: Text to place in the original box. Empty means the user
+                will type it, so the result area stays hidden until then.
+            position: Anchor point; defaults to the cursor.
+            activate: ``True`` moves keyboard focus into the popup. Keep it
+                ``False`` for selection translation so the source application
+                keeps its focus and selection.
+        """
+        self._loading_timer.stop()
+        self._manual_debounce.stop()
         self._source_text = source_text.strip()
         self._translated_text = ""
         self._error_text = ""
-        self.source_edit.setPlainText(self._source_text)
-        self.result_edit.setPlainText(_tr("Translating..."))
-        self.result_edit.setProperty("error", False)
-        self.copy_button.setEnabled(False)
-        self._loading_step = 0
-        self._loading_timer.start()
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, not activate)
+        self._set_source_text(self._source_text)
+        if self._source_text:
+            # The caller starts the request right after showing the popup.
+            self._enter_loading()
+        else:
+            self._hide_result()
         self._fit_content()
         self._place_near(position or QCursor.pos())
         self._show_animated()
+        if activate:
+            self.activateWindow()
+            QTimer.singleShot(0, self._focus_source_input)
 
-    def show_input(self, position: QPoint | None = None) -> None:
-        """Switch the shared popup to focused manual-entry mode."""
+    def _set_source_text(self, text: str) -> None:
+        """Fill the original box without triggering auto-translation."""
+        self._suppress_auto = True
+        try:
+            self.source_edit.setPlainText(text)
+        finally:
+            self._suppress_auto = False
+
+    def _enter_loading(self) -> None:
+        """Reveal the result area in its pending state."""
+        self.divider.show()
+        self.result_edit.show()
+        self.copy_button.show()
+        self.copy_button.setEnabled(False)
+        self.result_edit.setProperty("error", False)
+        self.result_edit.setPlainText(_tr("Translating..."))
+        self._refresh_result_style()
+        self._loading_step = 0
+        self._loading_timer.start()
+
+    def _hide_result(self) -> None:
+        """Collapse the result area while there is nothing to translate."""
         self._loading_timer.stop()
-        self._manual_debounce.stop()
-        self._set_mode("input")
-        self._source_text = ""
-        self._translated_text = ""
-        self._error_text = ""
-        self.source_edit.clear()
-        self.source_edit.setPlaceholderText(_tr("Enter text to translate..."))
         self.result_edit.clear()
         self.result_edit.setProperty("error", False)
+        self._refresh_result_style()
         self.divider.hide()
         self.result_edit.hide()
         self.copy_button.hide()
-        self._fit_content()
-        self._place_near(position or QCursor.pos())
-        self._show_animated()
-        self.activateWindow()
-        QTimer.singleShot(0, self._focus_manual_input)
 
-    def _focus_manual_input(self) -> None:
-        if self._mode != "input" or not self.isVisible():
+    def _focus_source_input(self) -> None:
+        if not self.isVisible():
             return
         try:
             self.source_edit.setFocus()
@@ -296,7 +329,6 @@ class TranslationPopup(QWidget):
         self.setStyleSheet(
             f"""
             QWidget#translationPopup {{ background: transparent; color: {p.text}; }}
-            QLabel#popupTitle {{ font-size: 14px; font-weight: 650; color: {p.text}; }}
             QLabel#popupBadge {{
                 color: {p.green}; background: {p.accent_tint}; border-radius: 7px;
                 padding: 0 8px; font-size: 11px; font-weight: 600;
@@ -308,15 +340,11 @@ class TranslationPopup(QWidget):
             }}
             QPushButton#popupClose:hover {{ color: white; background: {p.danger}; }}
             QTextEdit#popupSource {{
-                color: {p.text_2}; background: transparent; border: none;
-                padding: 2px 3px; font-size: 13px;
-            }}
-            QTextEdit#popupSource[input="true"] {{
                 color: {p.text}; background: {p.field};
                 border: 1px solid {p.fill_hover}; border-radius: 9px;
                 padding: 7px 9px; font-size: 14px;
             }}
-            QTextEdit#popupSource[input="true"]:focus {{ border-color: {p.accent}; }}
+            QTextEdit#popupSource:focus {{ border-color: {p.accent}; }}
             QTextEdit#popupResult {{
                 color: {p.text}; background: transparent; border: none;
                 padding: 2px 3px; font-size: 14px; font-weight: 550;
@@ -335,16 +363,14 @@ class TranslationPopup(QWidget):
                 color: {p.text}; background: {p.fill}; 
             }}
             QPushButton#popupChip, QPushButton#popupPrimary {{
-                border: 1px solid transparent; border-radius: 9px; padding: 6px 10px;
-                font-size: 12px; font-weight: 600;
+                border: none; border-radius: 8px; padding: 6px 10px;
+                background: transparent; font-size: 12px; font-weight: 600;
             }}
-            QPushButton#popupChip {{ color: {p.text_2}; background: transparent; }}
+            QPushButton#popupChip {{ color: {p.text_2}; }}
             QPushButton#popupChip:hover {{ color: {p.text}; background: {p.fill}; }}
             QPushButton#popupChip:disabled {{ color: {p.text_3}; background: transparent; }}
-            QPushButton#popupPrimary {{
-                color: {p.text}; background: {p.fill}; border-color: {p.fill_hover};
-            }}
-            QPushButton#popupPrimary:hover {{ background: {p.fill_hover}; }}
+            QPushButton#popupPrimary {{ color: {p.accent}; }}
+            QPushButton#popupPrimary:hover {{ background: {p.accent_tint}; }}
             QScrollBar:vertical {{ background: transparent; width: 5px; margin: 2px 0; }}
             QScrollBar::handle:vertical {{ background: {p.fill_hover}; border-radius: 2px; min-height: 20px; }}
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
@@ -367,27 +393,8 @@ class TranslationPopup(QWidget):
         base = _tr("Translating...").rstrip(".。…")
         self.result_edit.setPlainText(base + "." * self._loading_step)
 
-    def _set_mode(self, mode: str) -> None:
-        self._mode = mode
-        is_input = mode == "input"
-        self.setAttribute(
-            Qt.WidgetAttribute.WA_ShowWithoutActivating, not is_input
-        )
-        self.source_edit.blockSignals(True)
-        self.source_edit.setReadOnly(not is_input)
-        self.source_edit.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextEditorInteraction
-            if is_input
-            else Qt.TextInteractionFlag.TextSelectableByMouse
-        )
-        self.source_edit.setMaximumHeight(120 if is_input else 92)
-        self.source_edit.setProperty("input", is_input)
-        self.source_edit.style().unpolish(self.source_edit)
-        self.source_edit.style().polish(self.source_edit)
-        self.source_edit.blockSignals(False)
-
     def _on_source_changed(self) -> None:
-        if self._mode != "input":
+        if self._suppress_auto:
             return
         self._source_text = self.source_edit.toPlainText().strip()
         self._translated_text = ""
@@ -395,10 +402,7 @@ class TranslationPopup(QWidget):
         self.manual_input_changed.emit()
         self._manual_debounce.stop()
         if not self._source_text:
-            self._loading_timer.stop()
-            self.divider.hide()
-            self.result_edit.hide()
-            self.copy_button.hide()
+            self._hide_result()
             self._fit_content()
             return
         if not self._backend_ready:
@@ -408,23 +412,13 @@ class TranslationPopup(QWidget):
         self._fit_content()
 
     def _request_manual_translation(self) -> None:
-        if self._mode != "input":
-            return
         text = self.source_edit.toPlainText().strip()
         if not text:
             return
         self._source_text = text
         self._translated_text = ""
         self._error_text = ""
-        self.divider.show()
-        self.result_edit.show()
-        self.copy_button.show()
-        self.copy_button.setEnabled(False)
-        self.result_edit.setProperty("error", False)
-        self.result_edit.setPlainText(_tr("Translating..."))
-        self._loading_step = 0
-        self._loading_timer.start()
-        self._refresh_result_style()
+        self._enter_loading()
         self._fit_content()
         self.manual_translate_requested.emit(text)
 
@@ -438,11 +432,12 @@ class TranslationPopup(QWidget):
 
     def _fit_content(self) -> None:
         self._fit_text_view(
-            self.source_edit, 44 if self._mode == "input" else 38,
-            120 if self._mode == "input" else 92,
+            self.source_edit, self.SOURCE_MIN_HEIGHT, self.SOURCE_MAX_HEIGHT
         )
         if self.result_edit.isVisible():
-            self._fit_text_view(self.result_edit, 44, 208)
+            self._fit_text_view(
+                self.result_edit, self.RESULT_MIN_HEIGHT, self.RESULT_MAX_HEIGHT
+            )
         self.layout().activate()
         desired = self.sizeHint().height()
         self.setFixedHeight(max(self.MIN_HEIGHT, min(desired, self.MAX_HEIGHT)))
@@ -482,8 +477,8 @@ class TranslationPopup(QWidget):
 
     def _open_full(self) -> None:
         self._manual_debounce.stop()
-        if self._mode == "input":
-            self._source_text = self.source_edit.toPlainText().strip()
+        # Always read the box: the user may have edited the text since it loaded.
+        self._source_text = self.source_edit.toPlainText().strip()
         self.open_full_requested.emit(
             self._source_text, self._translated_text, self._error_text
         )

@@ -744,6 +744,18 @@ class SettingsDialog(FrostedFramelessDialog):
             self.google_translate_api_key_input.setText(
                 defaults["google_translate_api_key"]
             )
+        if hasattr(self, 'azure_translate_api_key_input'):
+            self.azure_translate_api_key_input.setText(
+                defaults["azure_translate_api_key"]
+            )
+        if hasattr(self, 'azure_translate_region_input'):
+            self.azure_translate_region_input.setText(
+                defaults["azure_translate_region"]
+            )
+        if hasattr(self, 'azure_translate_endpoint_input'):
+            self.azure_translate_endpoint_input.setText(
+                defaults["azure_translate_endpoint"]
+            )
         if hasattr(self, 'translation_target_combo'):
             index = self.translation_target_combo.findData(defaults["translation_target_lang"])
             if index >= 0:
@@ -878,6 +890,18 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'google_translate_api_key_input'):
             self.config_manager.set_google_translate_api_key(
                 self.google_translate_api_key_input.text().strip()
+            )
+        if hasattr(self, 'azure_translate_api_key_input'):
+            self.config_manager.set_azure_translate_api_key(
+                self.azure_translate_api_key_input.text().strip()
+            )
+        if hasattr(self, 'azure_translate_region_input'):
+            self.config_manager.set_azure_translate_region(
+                self.azure_translate_region_input.text().strip()
+            )
+        if hasattr(self, 'azure_translate_endpoint_input'):
+            self.config_manager.set_azure_translate_endpoint(
+                self.azure_translate_endpoint_input.text().strip()
             )
         if hasattr(self, 'translation_target_combo'):
             self.config_manager.set_translation_target_lang(self.translation_target_combo.currentData())

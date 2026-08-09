@@ -220,6 +220,9 @@ class ToolSettingsManager(QObject):
         "amazon_translate_secret_access_key": "",
         "amazon_translate_session_token": "",
         "google_translate_api_key": "",
+        "azure_translate_api_key": "",
+        "azure_translate_region": "",
+        "azure_translate_endpoint": "",
         "translation_target_lang": "",         # 翻译目标语言（空为跟随系统语言）
         "translation_split_sentences": True,   # 自动分句
         "translation_preserve_formatting": True,  # 保留格式
@@ -843,6 +846,12 @@ class ToolSettingsManager(QObject):
             }
         if provider_id == "google":
             return {"api_key": self.get_google_translate_api_key()}
+        if provider_id == "azure":
+            return {
+                "api_key": self.get_azure_translate_api_key(),
+                "region": self.get_azure_translate_region(),
+                "endpoint": self.get_azure_translate_endpoint(),
+            }
         return {}
     
     def get_deepl_api_key(self) -> str:
@@ -925,6 +934,45 @@ class ToolSettingsManager(QObject):
     def set_google_translate_api_key(self, value: str):
         self.qsettings.setValue(
             "translation/providers/google/api_key",
+            (value or "").strip(),
+        )
+
+    def get_azure_translate_api_key(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/azure/api_key",
+            self.APP_DEFAULT_SETTINGS["azure_translate_api_key"],
+            type=str,
+        )
+
+    def set_azure_translate_api_key(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/azure/api_key",
+            (value or "").strip(),
+        )
+
+    def get_azure_translate_region(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/azure/region",
+            self.APP_DEFAULT_SETTINGS["azure_translate_region"],
+            type=str,
+        )
+
+    def set_azure_translate_region(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/azure/region",
+            (value or "").strip(),
+        )
+
+    def get_azure_translate_endpoint(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/azure/endpoint",
+            self.APP_DEFAULT_SETTINGS["azure_translate_endpoint"],
+            type=str,
+        )
+
+    def set_azure_translate_endpoint(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/azure/endpoint",
             (value or "").strip(),
         )
     

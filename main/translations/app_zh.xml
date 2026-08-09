@@ -609,6 +609,120 @@ Replace it?</source>
     <source>🛠️ Tech: Python、Rust、PyQt6、Oneocr、DeepLAPI</source>
     <translation>🛠️ 技术: Python、Rust、PyQt6、Oneocr、DeepLAPI</translation>
     </message>
+
+    <!-- Translation Settings Page -->
+    <message>
+        <source>Translation Engine</source>
+        <translation>翻译引擎</translation>
+    </message>
+    <message>
+        <source>DeepL API</source>
+        <translation>DeepL API</translation>
+    </message>
+    <message>
+        <source>DeepL API Key</source>
+        <translation>DeepL API 密钥</translation>
+    </message>
+    <message>
+        <source>Show</source>
+        <translation>显示</translation>
+    </message>
+    <message>
+        <source>Hide</source>
+        <translation>隐藏</translation>
+    </message>
+    <message>
+        <source>Use DeepL Pro API</source>
+        <translation>使用 DeepL Pro API</translation>
+    </message>
+    <message>
+        <source>Enable if you have a paid DeepL subscription</source>
+        <translation>付费订阅用户请启用</translation>
+    </message>
+    <message>
+        <source>Amazon Translate</source>
+        <translation>Amazon Translate</translation>
+    </message>
+    <message>
+        <source>AWS Region</source>
+        <translation>AWS 区域</translation>
+    </message>
+    <message>
+        <source>Access Key ID</source>
+        <translation>Access Key ID</translation>
+    </message>
+    <message>
+        <source>Secret Access Key</source>
+        <translation>Secret Access Key</translation>
+    </message>
+    <message>
+        <source>Required</source>
+        <translation>必填</translation>
+    </message>
+    <message>
+        <source>Session Token</source>
+        <translation>Session Token</translation>
+    </message>
+    <message>
+        <source>Optional, for temporary credentials</source>
+        <translation>可选，用于临时凭证</translation>
+    </message>
+    <message>
+        <source>Google Cloud Translation</source>
+        <translation>Google Cloud Translation</translation>
+    </message>
+    <message>
+        <source>Google API Key</source>
+        <translation>Google API 密钥</translation>
+    </message>
+    <message>
+        <source>Azure Translator</source>
+        <translation>Azure 翻译</translation>
+    </message>
+    <message>
+        <source>Azure API Key</source>
+        <translation>Azure API 密钥</translation>
+    </message>
+    <message>
+        <source>Azure Region</source>
+        <translation>Azure 区域</translation>
+    </message>
+    <message>
+        <source>Azure Endpoint</source>
+        <translation>Azure 终结点</translation>
+    </message>
+    <message>
+        <source>Optional, use default if empty</source>
+        <translation>可选，留空使用默认值</translation>
+    </message>
+    <message>
+        <source>Translation Options</source>
+        <translation>翻译选项</translation>
+    </message>
+    <message>
+        <source>Target Language</source>
+        <translation>目标语言</translation>
+    </message>
+    <message>
+        <source>Auto (System)</source>
+        <translation>自动（跟随系统）</translation>
+    </message>
+    <message>
+        <source>Ignore Line Breaks</source>
+        <translation>忽略换行</translation>
+    </message>
+    <message>
+        <source>Merge multi-line text for better translation</source>
+        <translation>合并多行文本以获得更好的翻译</translation>
+    </message>
+    <message>
+        <source>Preserve Formatting</source>
+        <translation>保留格式</translation>
+    </message>
+    <message>
+        <source>Keep original text formatting</source>
+        <translation>保持原文格式</translation>
+    </message>
 </context>
 
 <context>

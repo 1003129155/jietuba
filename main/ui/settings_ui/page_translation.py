@@ -149,9 +149,36 @@ def create_translation_page(dialog) -> QWidget:
     )
     layout.addWidget(grp_google)
 
+    # ════ Azure Translator ════
+    grp_azure = SettingCardGroup(dialog.tr("Azure Translator"), page)
+    dialog.azure_translate_api_key_input = _add_text_setting(
+        dialog,
+        grp_azure,
+        dialog.tr("Azure API Key"),
+        dialog.config_manager.get_azure_translate_api_key(),
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        password=True,
+    )
+    dialog.azure_translate_region_input = _add_text_setting(
+        dialog,
+        grp_azure,
+        dialog.tr("Azure Region"),
+        dialog.config_manager.get_azure_translate_region(),
+        "eastasia",
+    )
+    dialog.azure_translate_endpoint_input = _add_text_setting(
+        dialog,
+        grp_azure,
+        dialog.tr("Azure Endpoint"),
+        dialog.config_manager.get_azure_translate_endpoint(),
+        dialog.tr("Optional, use default if empty"),
+    )
+    layout.addWidget(grp_azure)
+
     dialog.deepl_settings_group = grp_api
     dialog.amazon_translate_settings_group = grp_amazon
     dialog.google_translate_settings_group = grp_google
+    dialog.azure_translate_settings_group = grp_azure
     dialog.translation_provider_combo.currentIndexChanged.connect(
         lambda _index: _update_provider_groups(dialog)
     )
@@ -280,6 +307,9 @@ def _update_provider_groups(dialog) -> None:
     )
     dialog.google_translate_settings_group.setVisible(
         provider_id == "google"
+    )
+    dialog.azure_translate_settings_group.setVisible(
+        provider_id == "azure"
     )
     if hasattr(dialog, "deepl_translation_info_label"):
         dialog.deepl_translation_info_label.setVisible(

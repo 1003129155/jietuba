@@ -14,7 +14,7 @@ ocr_manager.py - OCR 功能模块
 """
 
 
-OCR_VARIANT: str = "pp"
+OCR_VARIANT: str = "win"
 
 from PySide6.QtGui import QPixmap, QImage
 from PySide6.QtCore import QBuffer, QIODevice, Qt

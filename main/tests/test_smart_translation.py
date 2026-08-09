@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from PySide6.QtCore import QPoint
+from PySide6.QtCore import QPoint, Qt
 from PySide6.QtWidgets import QApplication
 
 from core.ui_theme import DARK_TOKENS
@@ -162,7 +162,7 @@ def test_compact_popup_reuses_existing_translation_palette(qapp):
     full_requests = []
     popup.open_full_requested.connect(lambda *args: full_requests.append(args))
     popup.set_backend_ready(True)
-    popup.show_loading("hello", QPoint(10, 10))
+    popup.show_popup("hello", QPoint(10, 10))
     qapp.processEvents()
     assert popup.source_edit.toPlainText() == "hello"
     assert not popup.copy_button.isEnabled()
@@ -181,11 +181,10 @@ def test_compact_popup_reuses_existing_translation_palette(qapp):
 
     manual_requests = []
     popup.manual_translate_requested.connect(manual_requests.append)
-    popup.show_input(QPoint(10, 10))
+    popup.show_popup("", QPoint(10, 10), activate=True)
     popup.source_edit.setPlainText("manual text")
     popup._request_manual_translation()
     qapp.processEvents()
-    assert popup._mode == "input"
     assert not popup.source_edit.isReadOnly()
     assert manual_requests[-1] == "manual text"
     popup.close()
@@ -252,19 +251,43 @@ def test_superseding_translation_never_waits_on_network_thread(qapp):
     assert manager._request_token == old_token + 1
 
 
-def test_manager_reuses_one_popup_for_both_modes(qapp):
+def test_manager_reuses_one_editable_popup_for_every_entry_point(qapp):
     manager = TranslationManager()
     popup = manager._ensure_popup()
 
     manager.open_compact_input(api_key="", position=QPoint(10, 10))
     assert manager._popup is popup
-    assert popup._mode == "input"
+    assert not popup.source_edit.isReadOnly()
+    # Manual entry takes focus so the user can start typing straight away.
+    assert not popup.testAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
 
-    popup.show_loading("selected text", QPoint(10, 10))
+    manager.translate_compact(
+        text="selected text", api_key="", position=QPoint(10, 10)
+    )
     assert manager._ensure_popup() is popup
-    assert popup._mode == "result"
-    assert popup.source_edit.isReadOnly()
+    assert popup.source_edit.toPlainText() == "selected text"
+    # Still editable, but selection translation must never steal focus.
+    assert not popup.source_edit.isReadOnly()
+    assert popup.testAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
     manager.close_dialog()
+
+
+def test_prefilled_text_does_not_trigger_the_auto_translate_debounce(qapp):
+    """Programmatic fills must not fire a second request behind the caller's."""
+    popup = TranslationPopup()
+    requests = []
+    popup.manual_translate_requested.connect(requests.append)
+
+    popup.show_popup("selected text", QPoint(10, 10))
+    qapp.processEvents()
+
+    assert not popup._manual_debounce.isActive()
+    assert requests == []
+
+    # A real edit still schedules the automatic re-translation.
+    popup.source_edit.setPlainText("edited by user")
+    assert popup._manual_debounce.isActive()
+    popup.close()
 
 
 def test_full_request_reactivates_dialog_and_binds_result_target(monkeypatch, qapp):
@@ -304,10 +327,14 @@ def test_full_request_reactivates_dialog_and_binds_result_target(monkeypatch, qa
     assert started[0][1]["result_target"] == "dialog"
 
 
-def test_missing_api_is_rendered_inside_all_translation_surfaces(qapp):
+def test_missing_api_is_rendered_inside_all_translation_surfaces(monkeypatch, qapp):
     manager = TranslationManager()
     error_text = manager._api_key_error()
     manager._api_key = "stale-key"
+    # 后端就绪状态必须显式打桩：真实实现会读取本机的翻译 Provider 配置，
+    # 只传 api_key="" 仅对 DeepL 这个旧调用路径生效，开发机上若启用了
+    # 其他 Provider（google/amazon）就仍是"已配置"，测试会误判。
+    monkeypatch.setattr(manager, "_backend_ready", lambda: False)
 
     manager.open_compact_input(api_key="", position=QPoint(10, 10))
     assert manager._popup.result_edit.toPlainText() == error_text
