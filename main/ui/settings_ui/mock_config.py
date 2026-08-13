@@ -3,6 +3,8 @@
 import os
 import sys
 
+from settings.tool_settings import ANNOTATION_TOOL_SHORTCUTS
+
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QFont
@@ -59,6 +61,19 @@ APP_DEFAULT_SETTINGS = {
     "clipboard_auto_cleanup": False,
     "magnifier_color_copy_format": "rgb_hex",
     "ui_theme_mode": "system",
+    "inapp_confirm": "ctrl+c",
+    "inapp_pin": "ctrl+d",
+    "inapp_undo": "ctrl+z",
+    "inapp_redo": "ctrl+y",
+    "inapp_delete": "delete",
+    "inapp_copy_pin": "ctrl+c",
+    "inapp_thumbnail": "r",
+    "inapp_toggle_toolbar": "space",
+    "inapp_zoom_in": "pageup",
+    "inapp_zoom_out": "pagedown",
+    "inapp_translate": "shift+c",
+    "inapp_cursor_move_mode": "both",
+    **{key: default for key, _tool, _label, default in ANNOTATION_TOOL_SHORTCUTS},
 }
 
 
@@ -177,8 +192,12 @@ class MockConfig:
     def set_clipboard_db_path(self, v): pass
     def get_clipboard_auto_cleanup(self): return False
     def set_clipboard_auto_cleanup(self, v): pass
-    def get_inapp_shortcut(self, key): return ""
-    def set_inapp_shortcut(self, key, value): pass
+    def get_inapp_shortcut(self, key):
+        return self.settings.value(
+            f"inapp/{key}", self.APP_DEFAULT_SETTINGS.get(key, ""), type=str
+        )
+    def set_inapp_shortcut(self, key, value):
+        self.settings.setValue(f"inapp/{key}", value)
     def get_inapp_cursor_move_mode(self): return "both"
     def set_inapp_cursor_move_mode(self, value): pass
 

@@ -249,6 +249,18 @@
         <source>Screenshot Shortcuts</source>
         <translation>截图快捷键</translation>
     </message>
+    <message><source>Annotation Tools</source><translation>标注工具</translation></message>
+    <message><source>Select / Cursor</source><translation>选择 / 光标</translation></message>
+    <message><source>Pen</source><translation>画笔</translation></message>
+    <message><source>Highlighter</source><translation>荧光笔</translation></message>
+    <message><source>Mosaic</source><translation>马赛克</translation></message>
+    <message><source>Arrow</source><translation>箭头</translation></message>
+    <message><source>Number</source><translation>序号</translation></message>
+    <message><source>Rectangle</source><translation>矩形</translation></message>
+    <message><source>Ellipse</source><translation>椭圆</translation></message>
+    <message><source>Text</source><translation>文字</translation></message>
+    <message><source>Eraser</source><translation>橡皮擦</translation></message>
+    <message><source>💡 Configured shortcuts take priority over WASD and C. Arrow keys remain available; Esc is reserved.</source><translation>💡 已配置的快捷键优先于 WASD 和 C；方向键仍可用，Esc 为保留键。</translation></message>
     <message>
         <source>Pin Shortcuts</source>
         <translation>钉图快捷键</translation>
@@ -772,6 +784,10 @@ Replace it?</source>
 <!-- ========== Toolbar ========== -->
 <context>
     <name>Toolbar</name>
+    <message>
+        <source>Mosaic (mouse wheel to resize)</source>
+        <translation>马赛克（鼠标滚轮调整大小）</translation>
+    </message>
     <message>
         <source>Long screenshot (scroll)</source>
         <translation>长截图（滚动）</translation>

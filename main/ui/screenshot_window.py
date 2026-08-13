@@ -34,11 +34,16 @@ class ScreenshotShortcutHandler(ShortcutHandler):
         self._window = window
         # 从配置读取应用内快捷键（一次性，截图窗口生命周期内不变）
         from core.shortcut_manager import load_inapp_bindings, load_move_keys
-        self._bindings = load_inapp_bindings([
+        from settings import ANNOTATION_TOOL_SHORTCUTS
+        action_keys = [
             "inapp_confirm", "inapp_pin", "inapp_undo", "inapp_redo",
             "inapp_delete",
             "inapp_zoom_in", "inapp_zoom_out", "inapp_translate",
-        ])
+        ]
+        self._tool_shortcuts = tuple(ANNOTATION_TOOL_SHORTCUTS)
+        self._bindings = load_inapp_bindings(
+            action_keys + [entry[0] for entry in self._tool_shortcuts]
+        )
         self._move_keys = load_move_keys()
 
     @property
@@ -65,6 +70,8 @@ class ScreenshotShortcutHandler(ShortcutHandler):
 
     def handle_key(self, event) -> bool:
         w = self._window
+        if hasattr(w, "view") and hasattr(w.view, "invalidate_double_click_candidate"):
+            w.view.invalidate_double_click_candidate()
         is_text_editing = w._is_text_editing()
 
         # 文字编辑模式下，部分按键交给 QGraphicsTextItem
@@ -76,15 +83,6 @@ class ScreenshotShortcutHandler(ShortcutHandler):
             if (event.key() in (Qt.Key.Key_Z, Qt.Key.Key_Y)
                     and event.modifiers() == Qt.KeyboardModifier.ControlModifier):
                 return False
-
-        # ── 鼠标微移 ──
-        if not is_text_editing:
-            delta = self._move_keys.get(event.key())
-            if delta and event.modifiers() == Qt.KeyboardModifier.NoModifier:
-                from PySide6.QtGui import QCursor
-                p = QCursor.pos()
-                QCursor.setPos(p.x() + delta[0], p.y() + delta[1])
-                return True
 
         # ESC — 固定不可自定义
         if event.key() == Qt.Key.Key_Escape:
@@ -128,6 +126,37 @@ class ScreenshotShortcutHandler(ShortcutHandler):
                     w.toolbar.screenshot_translate_clicked.emit()
                 return True
 
+        # 放大镜缩放属于可配置截图动作，优先于工具键。
+        if self._match(event, "inapp_zoom_in"):
+            mo = getattr(w, 'magnifier_overlay', None)
+            if mo and mo.cursor_scene_pos is not None and mo._should_render():
+                mo.adjust_zoom(1)
+                return True
+
+        if self._match(event, "inapp_zoom_out"):
+            mo = getattr(w, 'magnifier_overlay', None)
+            if mo and mo.cursor_scene_pos is not None and mo._should_render():
+                mo.adjust_zoom(-1)
+                return True
+
+        # 标注工具：选区确认后生效；自动重复只消费不重复激活。
+        if not is_text_editing and w.scene and w.scene.selection_model.is_confirmed:
+            for cfg_key, tool_id, _label, _default in self._tool_shortcuts:
+                if not self._match(event, cfg_key):
+                    continue
+                if not event.isAutoRepeat() and hasattr(w, "toolbar") and w.toolbar:
+                    w.toolbar.select_tool(tool_id, toggle=False)
+                return True
+
+        # ── 鼠标微移（配置动作/工具之后）──
+        if not is_text_editing:
+            delta = self._move_keys.get(event.key())
+            if delta and event.modifiers() == Qt.KeyboardModifier.NoModifier:
+                from PySide6.QtGui import QCursor
+                p = QCursor.pos()
+                QCursor.setPos(p.x() + delta[0], p.y() + delta[1])
+                return True
+
         # 取色（单键 C，无修饰键 — 保留硬编码）
         if event.key() == Qt.Key.Key_C:
             if event.modifiers() == Qt.KeyboardModifier.NoModifier:
@@ -141,19 +170,6 @@ class ScreenshotShortcutHandler(ShortcutHandler):
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             if w.scene and w.scene.selection_model.is_confirmed:
                 w.action_handler.handle_confirm()
-                return True
-
-        # 放大镜缩放
-        if self._match(event, "inapp_zoom_in"):
-            mo = getattr(w, 'magnifier_overlay', None)
-            if mo and mo.cursor_scene_pos is not None and mo._should_render():
-                mo.adjust_zoom(1)
-                return True
-
-        if self._match(event, "inapp_zoom_out"):
-            mo = getattr(w, 'magnifier_overlay', None)
-            if mo and mo.cursor_scene_pos is not None and mo._should_render():
-                mo.adjust_zoom(-1)
                 return True
 
         return False
@@ -201,8 +217,8 @@ class ScreenshotWindow(QWidget):
         self.setGeometry(int(self.virtual_x), int(self.virtual_y), int(self.virtual_width), int(self.virtual_height))
 
         # 3. 初始化场景和视图
-        self.scene = CanvasScene(self.original_image, rect)
-        self.view = CanvasView(self.scene, self)
+        self.scene = CanvasScene(self.original_image, rect, enable_mosaic=True)
+        self.view = CanvasView(self.scene, self, confirm_on_double_click=True)
         self.view.setGeometry(0, 0, int(self.virtual_width), int(self.virtual_height))
         
         _t2 = time.perf_counter()
@@ -315,8 +331,8 @@ class ScreenshotWindow(QWidget):
                          int(self.virtual_width), int(self.virtual_height))
         
         # 创建新的 Scene + View（每次截图内容不同，不可复用）
-        self.scene = CanvasScene(image, rect)
-        self.view = CanvasView(self.scene, self)
+        self.scene = CanvasScene(image, rect, enable_mosaic=True)
+        self.view = CanvasView(self.scene, self, confirm_on_double_click=True)
         self.view.setGeometry(0, 0, int(self.virtual_width), int(self.virtual_height))
         self.view.lower()  # 确保 view 在最底层，overlay 在上方
         

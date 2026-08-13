@@ -53,6 +53,9 @@ class PinToolbar(Toolbar):
             self.cancel_btn.hide()
         if hasattr(self, "gif_btn"):
             self.gif_btn.hide()
+        if hasattr(self, "mosaic_btn"):
+            self.mosaic_btn.hide()
+        self.tool_buttons.pop("mosaic", None)
 
         if hasattr(self, "screenshot_translate_btn"):
             self.screenshot_translate_btn.setGeometry(left_x, 0, wide_w, btn_height)
@@ -246,4 +249,3 @@ if __name__ == "__main__":
     toolbar.show()
 
     sys.exit(app.exec())
- 

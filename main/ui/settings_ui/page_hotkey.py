@@ -14,6 +14,8 @@ from ui.fluent_lite.theme import ACCENT
 from .components import SettingCardGroup, WhiteCard, apply_theme_text_style
 from ..hotkey_edit import HotkeyEdit
 from ..inapp_key_edit import InAppKeyEdit
+from settings import ANNOTATION_TOOL_SHORTCUTS
+from core.shortcut_manager import is_reserved_inapp_shortcut
 
 
 # ── 应用内快捷键定义表（分组）──────────────────────────────
@@ -34,7 +36,12 @@ PIN_KEYS = [
     ("inapp_toggle_toolbar",  "Toggle Toolbar",         "space"),
 ]
 
-INAPP_KEYS = SCREENSHOT_KEYS + PIN_KEYS
+TOOL_KEYS = [
+    (cfg_key, label, default)
+    for cfg_key, _tool_id, label, default in ANNOTATION_TOOL_SHORTCUTS
+]
+
+INAPP_KEYS = SCREENSHOT_KEYS + TOOL_KEYS + PIN_KEYS
 
 _EDIT_W = 140
 _EDIT_H = 28
@@ -207,9 +214,8 @@ def create_hotkey_page(dialog) -> QWidget:
             edit = InAppKeyEdit()
             edit.setFixedSize(_EDIT_W, _EDIT_H)
             edit.setStyleSheet(input_style)
-            edit.setText(
-                dialog.config_manager.get_inapp_shortcut(cfg_key) or default
-            )
+            value = dialog.config_manager.get_inapp_shortcut(cfg_key)
+            edit.setText("" if is_reserved_inapp_shortcut(value) else value)
             dialog._inapp_edits[cfg_key] = edit
             dialog._inapp_groups[cfg_key] = group_name
 
@@ -241,22 +247,26 @@ def create_hotkey_page(dialog) -> QWidget:
     screenshot_tab = _build_tab(
         SCREENSHOT_KEYS, "screenshot", extra_widgets=[move_row]
     )
+    tools_tab = _build_tab(TOOL_KEYS, "screenshot")
     pin_tab = _build_tab(PIN_KEYS, "pin")
 
     stack.addWidget(screenshot_tab)
+    stack.addWidget(tools_tab)
     stack.addWidget(pin_tab)
 
     tab_switch.addItem("screenshot", dialog.tr("Screenshot Shortcuts"), lambda: stack.setCurrentIndex(0))
-    tab_switch.addItem("pin", dialog.tr("Pin Shortcuts"), lambda: stack.setCurrentIndex(1))
+    tab_switch.addItem("tools", dialog.tr("Annotation Tools"), lambda: stack.setCurrentIndex(1))
+    tab_switch.addItem("pin", dialog.tr("Pin Shortcuts"), lambda: stack.setCurrentIndex(2))
     tab_switch.setCurrentItem("screenshot")
 
     tab_layout.addWidget(tab_switch, 0, Qt.AlignmentFlag.AlignLeft)
     tab_layout.addWidget(stack)
 
     screenshot_h = _stack_page_height(len(SCREENSHOT_KEYS) + 1)
+    tools_h = _stack_page_height(len(TOOL_KEYS))
     pin_h = _stack_page_height(len(PIN_KEYS))
-    stack.setMinimumHeight(max(screenshot_h, pin_h))
-    tab_card.setFixedHeight(max(screenshot_h, pin_h) + 80)
+    stack.setMinimumHeight(max(screenshot_h, tools_h, pin_h))
+    tab_card.setFixedHeight(max(screenshot_h, tools_h, pin_h) + 80)
     grp_inapp.addSettingCard(tab_card)
 
     # 冲突检测
@@ -271,7 +281,7 @@ def create_hotkey_page(dialog) -> QWidget:
 
     # 提示
     hint = CaptionLabel(
-        dialog.tr("💡 Hint: Click the input box and press the desired key combination."),
+        dialog.tr("💡 Configured shortcuts take priority over WASD and C. Arrow keys remain available; Esc is reserved."),
         view,
     )
     hint.setStyleSheet("padding: 5px;")
@@ -309,7 +319,7 @@ def _on_shortcut_changed(dialog, changed_key: str, new_text: str, base_style: st
 
     # 找到冲突项的显示名
     conflict_label = conflict_key
-    for keys_list in (SCREENSHOT_KEYS, PIN_KEYS):
+    for keys_list in (SCREENSHOT_KEYS, TOOL_KEYS, PIN_KEYS):
         for cfg, tr_src, _default in keys_list:
             if cfg == conflict_key:
                 conflict_label = dialog.tr(tr_src)
@@ -337,14 +347,7 @@ def _on_shortcut_changed(dialog, changed_key: str, new_text: str, base_style: st
     else:
         # 撤销本次输入，恢复旧值
         old_val = dialog.config_manager.get_inapp_shortcut(changed_key)
-        if not old_val:
-            # 找默认值
-            for keys_list in (SCREENSHOT_KEYS, PIN_KEYS):
-                for cfg, _tr, default in keys_list:
-                    if cfg == changed_key:
-                        old_val = default
-                        break
-        current_edit.setText(old_val or "")
+        current_edit.setText("" if is_reserved_inapp_shortcut(old_val) else old_val)
 
     current_edit.blockSignals(False)
     conflict_edit.blockSignals(False)

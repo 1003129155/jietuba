@@ -4,7 +4,7 @@
 
 from typing import Optional
 
-from PySide6.QtWidgets import QGraphicsView, QGraphicsTextItem
+from PySide6.QtWidgets import QApplication, QGraphicsView, QGraphicsTextItem
 from PySide6.QtCore import Qt, QPointF, QRectF, QTimer
 from PySide6.QtGui import QPainter, QPen, QColor, QBrush, QCursor
 import shiboken6
@@ -24,11 +24,13 @@ class CanvasView(QGraphicsView):
     画布视图
     """
     
-    def __init__(self, scene, parent=None):
+    def __init__(self, scene, parent=None, confirm_on_double_click=False):
         super().__init__(scene, parent)
         
         self.canvas_scene = scene
         self._is_closed = False
+        self.confirm_on_double_click = bool(confirm_on_double_click)
+        self._double_click_candidate = None
         
         # 设置渲染选项 - 关闭抗锯齿以提高性能
         # self.setRenderHint(QPainter.RenderHint.Antialiasing)  # 关闭抗锯齿
@@ -609,6 +611,7 @@ class CanvasView(QGraphicsView):
             # 钉图窗口：不处理右键，让事件继续传递（显示右键菜单）
         
         scene_pos = self.mapToScene(event.pos())
+        self._double_click_candidate = None
         # 新的一次点击开始前重置单击编辑状态
         self._clear_pending_text_edit()
         
@@ -628,6 +631,9 @@ class CanvasView(QGraphicsView):
                     self.canvas_scene.selection_model.set_rect(smart_rect)
         else:
             # 选区已确认：优先尝试智能编辑
+            self._double_click_candidate = self._build_double_click_candidate(
+                scene_pos, event
+            )
             current_tool = self.canvas_scene.tool_controller.current_tool
             current_tool_id = current_tool.id if current_tool else "cursor"
             
@@ -667,7 +673,7 @@ class CanvasView(QGraphicsView):
                 if layer_editor.hovered_handle:
                     self.setCursor(layer_editor.get_cursor(scene_pos))
                 return
-            
+
             # 步骤2：检查是否点击了可选中的图元
             selection_handled = self.smart_edit_controller.handle_press(
                 event.pos(), 
@@ -699,7 +705,9 @@ class CanvasView(QGraphicsView):
                 self.is_drawing = True
                 # 立即隐藏放大镜，避免 hide() 和首帧绘图重绘叠加导致卡顿
                 self._clear_magnifier_overlay()
-                self.canvas_scene.tool_controller.on_press(scene_pos, event.button())
+                started = self.canvas_scene.tool_controller.on_press(scene_pos, event.button())
+                if started is False:
+                    self.is_drawing = False
             else:
                 # cursor 工具：传递给 Scene（可能拖拽窗口/选区）
                 log_debug("cursor工具，传递给Scene", "CanvasView")
@@ -720,19 +728,161 @@ class CanvasView(QGraphicsView):
             return
         
         scene_pos = self.mapToScene(event.pos())
+
+        # Consume the first-press candidate before provisional content can
+        # expose edit handles under the second click (notably NumberItem +/-).
+        if self._consume_double_click_candidate(scene_pos, event):
+            return
+
         edit_handled = self.smart_edit_controller.handle_edit_press(
             scene_pos, event.pos(), event.button(), event.modifiers()
         )
         
         if edit_handled:
+            self._double_click_candidate = None
             log_debug("双击→控制点点击被处理", "CanvasView")
             layer_editor = self.smart_edit_controller.layer_editor
             if layer_editor.hovered_handle:
                 self.setCursor(layer_editor.get_cursor(scene_pos))
             return
-        
+
         # 非控制点双击 → 默认行为
         super().mouseDoubleClickEvent(event)
+
+    def _build_double_click_candidate(self, scene_pos, event):
+        """Capture the reversible state before any confirmed-selection routing."""
+        if not self.confirm_on_double_click:
+            return None
+        if event.button() != Qt.MouseButton.LeftButton:
+            return None
+        if event.modifiers() != Qt.KeyboardModifier.NoModifier:
+            return None
+        if self.is_selecting or self.is_drawing or self.is_dragging_selection:
+            return None
+        if self._text_drag_active:
+            return None
+
+        selection = self.canvas_scene.selection_model.rect()
+        if selection.isEmpty() or not selection.contains(scene_pos):
+            return None
+
+        controller = self.canvas_scene.tool_controller
+        tool = controller.current_tool
+        stack = self.canvas_scene.undo_stack
+        candidate = {
+            "scene_pos": QPointF(scene_pos),
+            "selection_rect": QRectF(selection),
+            "tool_id": tool.id if tool else None,
+            "count": stack.count(),
+            "index": stack.index(),
+            "had_redo": stack.canRedo(),
+            "dragged": False,
+        }
+        if stack.index() > 0:
+            from canvas.undo import NumberEditCommand
+
+            top = stack.command(stack.index() - 1)
+            if isinstance(top, NumberEditCommand):
+                candidate["number_merge_command"] = top
+                candidate["number_merge_tail"] = top.capture_merge_tail()
+        return candidate
+
+    def _consume_double_click_candidate(self, scene_pos, event):
+        candidate = self._double_click_candidate
+        self._double_click_candidate = None
+        if not self.confirm_on_double_click or not candidate:
+            return False
+        if event.button() != Qt.MouseButton.LeftButton:
+            return False
+        if event.modifiers() != Qt.KeyboardModifier.NoModifier:
+            return False
+        if candidate["dragged"] or self.is_drawing or self.is_selecting:
+            return False
+
+        original_selection = candidate["selection_rect"]
+        if not original_selection.contains(scene_pos):
+            return False
+
+        distance = (scene_pos - candidate["scene_pos"]).manhattanLength()
+        if distance > QApplication.startDragDistance():
+            return False
+
+        controller = self.canvas_scene.tool_controller
+        tool = controller.current_tool
+        if (tool.id if tool else None) != candidate["tool_id"]:
+            return False
+
+        handler = getattr(self.window(), "_handle_confirm", None)
+        if not callable(handler):
+            return False
+
+        stack = self.canvas_scene.undo_stack
+        command_to_undo = None
+        merged_number = False
+
+        old_count = candidate["count"]
+        old_index = candidate["index"]
+        same_visible_index = stack.index() == old_index
+        unchanged_count = stack.count() == old_count
+        redo_merge_count = candidate["had_redo"] and stack.count() == old_index
+        merge_command = candidate.get("number_merge_command")
+        merge_tail = candidate.get("number_merge_tail")
+
+        if same_visible_index and (unchanged_count or redo_merge_count):
+            if redo_merge_count and not unchanged_count and merge_command is None:
+                # A truncated redo tail without the captured merge owner is an
+                # unknown mutation, never an unchanged first click.
+                return False
+            if merge_command is not None and merge_tail is not None:
+                current_top = stack.command(old_index - 1) if old_index > 0 else None
+                if current_top is not merge_command:
+                    return False
+                if not merge_command.merge_tail_matches(merge_tail):
+                    if not merge_command.restore_merge_tail(merge_tail):
+                        return False
+                    merged_number = True
+        elif stack.index() == old_index + 1 and stack.count() == (
+            old_index + 1 if candidate["had_redo"] else old_count + 1
+        ):
+            from canvas.undo import (
+                AddItemCommand,
+                BatchRemoveCommand,
+                EditItemCommand,
+                RemoveItemCommand,
+            )
+
+            command_to_undo = stack.command(old_index)
+            if not isinstance(
+                command_to_undo,
+                (AddItemCommand, BatchRemoveCommand, RemoveItemCommand, EditItemCommand),
+            ):
+                return False
+            if isinstance(command_to_undo, AddItemCommand):
+                item = getattr(command_to_undo, "item", None)
+                if isinstance(item, TextItem) and item.toPlainText().strip():
+                    return False
+        else:
+            return False
+
+        if command_to_undo is not None:
+            stack.undo()
+            if stack.index() != old_index:
+                return False
+
+        # A crop handle can mutate the selection without an undo command.
+        self.canvas_scene.selection_model.set_rect(QRectF(original_selection))
+        self.canvas_scene.selection_model.stop_dragging()
+        self.is_dragging_selection = False
+
+        if merged_number and stack.index() != old_index:
+            return False
+
+        event.accept()
+        handler()
+        return True
+
+    def invalidate_double_click_candidate(self):
+        self._double_click_candidate = None
     
     @safe_event
     def mouseMoveEvent(self, event):
@@ -746,6 +896,13 @@ class CanvasView(QGraphicsView):
         4. 选区已确认 - 编辑模式
         5. 选区未确认 - 悬停预览
         """
+        candidate = self._double_click_candidate
+        if candidate and not candidate["dragged"]:
+            scene_pos = self.mapToScene(event.pos())
+            distance = (scene_pos - candidate["scene_pos"]).manhattanLength()
+            if distance > QApplication.startDragDistance():
+                candidate["dragged"] = True
+
         # 窗口关闭时 scene 可能已被清理，忽略残留的鼠标事件
         if self.canvas_scene is None or self.scene() is None:
             return
@@ -1008,6 +1165,7 @@ class CanvasView(QGraphicsView):
 
         if self.is_selecting:
             self.is_selecting = False
+            self.is_dragging_selection = False
             # 结束拖拽，显示控制点
             self.canvas_scene.selection_model.stop_dragging()
             # 确认选区
@@ -1046,6 +1204,7 @@ class CanvasView(QGraphicsView):
         """
         鼠标滚轮事件 - 调整画笔大小或放大镜倍数
         """
+        self.invalidate_double_click_candidate()
         # 只在绘图工具激活时响应
         current_tool = self.canvas_scene.tool_controller.current_tool
         if not current_tool or current_tool.id == "cursor":
@@ -1174,6 +1333,7 @@ class CanvasView(QGraphicsView):
         所有窗口级快捷键（ESC、Enter确认、Ctrl+Z/Y、Ctrl+C/D 等）
         统一由 ScreenshotWindow.keyPressEvent 处理，避免重复和冲突。
         """
+        self.invalidate_double_click_candidate()
         is_text_editing = self._is_text_editing()
 
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
@@ -1194,6 +1354,12 @@ class CanvasView(QGraphicsView):
 
         # 非文字编辑模式：其余按键一律 ignore，让事件冒泡到父窗口统一处理
         event.ignore()
+
+    @safe_event
+    def inputMethodEvent(self, event):
+        """IME composition between clicks invalidates screenshot confirmation."""
+        self.invalidate_double_click_candidate()
+        super().inputMethodEvent(event)
 
     def _is_text_editing(self) -> bool:
         """判断当前是否在编辑文字图元"""

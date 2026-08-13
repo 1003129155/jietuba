@@ -21,6 +21,20 @@ from PySide6.QtCore import QSettings, Signal, QObject
 from PySide6.QtGui import QColor
 
 
+ANNOTATION_TOOL_SHORTCUTS = (
+    ("inapp_tool_cursor", "cursor", "Select / Cursor", "s"),
+    ("inapp_tool_pen", "pen", "Pen", "p"),
+    ("inapp_tool_highlighter", "highlighter", "Highlighter", "m"),
+    ("inapp_tool_mosaic", "mosaic", "Mosaic", "x"),
+    ("inapp_tool_arrow", "arrow", "Arrow", "a"),
+    ("inapp_tool_number", "number", "Number", "n"),
+    ("inapp_tool_rect", "rect", "Rectangle", "r"),
+    ("inapp_tool_ellipse", "ellipse", "Ellipse", "o"),
+    ("inapp_tool_text", "text", "Text", "t"),
+    ("inapp_tool_eraser", "eraser", "Eraser", "e"),
+)
+
+
 class ToolSettings:
     """单个工具的设置数据类"""
     
@@ -84,6 +98,12 @@ class ToolSettingsManager(QObject):
             "stroke_width": 15,
             "opacity": 1.0,
             "draw_mode": "freehand",
+        },
+        "mosaic": {
+            "color": "#808080",
+            "stroke_width": 30,
+            "opacity": 1.0,
+            "block_size": 8,
         },
         "rect": {
             "color": "#FF0000",  # 红色
@@ -151,6 +171,7 @@ class ToolSettingsManager(QObject):
         "inapp_zoom_out": "pagedown",          # 放大镜缩小
         "inapp_translate": "shift+c",          # 截图翻译
         "inapp_cursor_move_mode": "both",      # 鼠标微移模式: both / arrows / wasd
+        **{key: default for key, _tool, _label, default in ANNOTATION_TOOL_SHORTCUTS},
         # ==================== 2. 截图 ====================
         # 智能选择
         "smart_selection": True,              # 智能选区（窗口/控件识别）
@@ -438,7 +459,9 @@ class ToolSettingsManager(QObject):
         """重置所有应用级别设置为默认值"""
         for key, default_value in self.APP_DEFAULT_SETTINGS.items():
             # 构建完整的设置键名
-            if key.startswith("pin_"):
+            if key.startswith("inapp_"):
+                setting_key = f"inapp/{key}"
+            elif key.startswith("pin_"):
                 setting_key = f"pin/{key[4:]}"  # pin_auto_toolbar -> pin/auto_toolbar
             else:
                 setting_key = f"app/{key}"

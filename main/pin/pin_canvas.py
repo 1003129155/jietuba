@@ -146,10 +146,13 @@ class PinCanvas(QObject):
                 StrokeItem, RectItem, EllipseItem, ArrowItem, 
                 TextItem, NumberItem
             )
+            from canvas.items import MosaicItem
             
             # 根据类型进行克隆
             if isinstance(item, StrokeItem):
                 return self._clone_stroke_item(item)
+            elif isinstance(item, MosaicItem):
+                return self._clone_mosaic_item(item)
             elif isinstance(item, RectItem):
                 return self._clone_rect_item(item)
             elif isinstance(item, EllipseItem):
@@ -285,6 +288,18 @@ class PinCanvas(QObject):
         # 创建克隆
         cloned = StrokeItem(path, pen, item.is_highlighter)
         return cloned
+
+    def _clone_mosaic_item(self, item):
+        """克隆截图中已经完成的马赛克图元。"""
+        from canvas.items import MosaicItem
+
+        return MosaicItem(
+            item.path(),
+            item.brush_width(),
+            item.block_size(),
+            item.patch_image(),
+            item.patch_origin(),
+        )
     
     def _clone_rect_item(self, item):
         """克隆矩形项目"""
@@ -435,6 +450,10 @@ class PinCanvas(QObject):
         
         直接使用 tool_controller.activate_tool()
         """
+        if tool_name == "mosaic" or self.tool_controller.get_tool(tool_name) is None:
+            log_warning(f"钉图不支持工具: {tool_name}", "PinCanvas")
+            return False
+
         # 映射工具名
         tool_map = {
             "pen": "pen",
@@ -457,6 +476,7 @@ class PinCanvas(QObject):
             self._is_drawing = False
             if getattr(self.parent_window, 'toolbar', None):
                 self.parent_window.toolbar.on_parent_editing_state_changed(editing_mode)
+            return True
         except Exception as e:
             log_error(f"工具激活失败: {e}", "PinCanvas")
             import traceback
@@ -465,6 +485,7 @@ class PinCanvas(QObject):
             self.parent_window._is_editing = False
             if getattr(self.parent_window, 'toolbar', None):
                 self.parent_window.toolbar.on_parent_editing_state_changed(False)
+            return False
     
     def deactivate_tool(self):
         """退出编辑模式"""
@@ -569,7 +590,8 @@ class PinCanvas(QObject):
         from core.logger import log_exception
 
         if tool_name and tool_name != "cursor":
-            self.activate_tool(tool_name)
+            if not self.activate_tool(tool_name):
+                return
 
             # 通知 OCR 层
             if hasattr(self.parent_window, '_ocr_mgr'):

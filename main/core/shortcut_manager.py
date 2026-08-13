@@ -594,6 +594,12 @@ def parse_shortcut_to_qt(text: str):
     return (key, mods)
 
 
+def is_reserved_inapp_shortcut(text: str) -> bool:
+    """Return whether an in-app binding uses a fixed, non-overridable key."""
+    parsed = parse_shortcut_to_qt(text)
+    return bool(parsed and parsed[0] == Qt.Key.Key_Escape)
+
+
 def load_inapp_bindings(keys_of_interest: Optional[List[str]] = None) -> Dict:
     """
     从 config_manager 读取应用内快捷键，返回 {cfg_key: (Qt.Key, Qt.KeyboardModifier)} 字典。
@@ -603,8 +609,6 @@ def load_inapp_bindings(keys_of_interest: Optional[List[str]] = None) -> Dict:
     """
     from settings import get_tool_settings_manager
     cfg = get_tool_settings_manager()
-    defaults = cfg.APP_DEFAULT_SETTINGS
-
     if keys_of_interest is None:
         keys_of_interest = [
             "inapp_confirm", "inapp_pin", "inapp_undo", "inapp_redo",
@@ -615,7 +619,9 @@ def load_inapp_bindings(keys_of_interest: Optional[List[str]] = None) -> Dict:
 
     result = {}
     for k in keys_of_interest:
-        text = cfg.get_inapp_shortcut(k) or defaults.get(k, "")
+        text = cfg.get_inapp_shortcut(k)
+        if is_reserved_inapp_shortcut(text):
+            continue
         parsed = parse_shortcut_to_qt(text) if text else None
         if parsed:
             result[k] = parsed

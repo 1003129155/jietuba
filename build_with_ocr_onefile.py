@@ -17,7 +17,7 @@ import os
 
 # 路径配置
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_DIR = SCRIPT_DIR.parent
+REPO_DIR = SCRIPT_DIR
 MAIN_APP = "main/main_app.py"
 SVG_DIR = "svg"
 BUILD_DIR = "build"

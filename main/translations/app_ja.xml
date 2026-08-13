@@ -251,6 +251,18 @@
         <source>Screenshot Shortcuts</source>
         <translation>スクリーンショット</translation>
     </message>
+    <message><source>Annotation Tools</source><translation>注釈ツール</translation></message>
+    <message><source>Select / Cursor</source><translation>選択 / カーソル</translation></message>
+    <message><source>Pen</source><translation>ペン</translation></message>
+    <message><source>Highlighter</source><translation>蛍光ペン</translation></message>
+    <message><source>Mosaic</source><translation>モザイク</translation></message>
+    <message><source>Arrow</source><translation>矢印</translation></message>
+    <message><source>Number</source><translation>番号</translation></message>
+    <message><source>Rectangle</source><translation>矩形</translation></message>
+    <message><source>Ellipse</source><translation>楕円</translation></message>
+    <message><source>Text</source><translation>テキスト</translation></message>
+    <message><source>Eraser</source><translation>消しゴム</translation></message>
+    <message><source>💡 Configured shortcuts take priority over WASD and C. Arrow keys remain available; Esc is reserved.</source><translation>💡 設定したショートカットは WASD と C より優先されます。矢印キーは使用でき、Esc は予約されています。</translation></message>
     <message>
         <source>Pin Shortcuts</source>
         <translation>ピン留め画像</translation>
@@ -774,6 +786,10 @@ Replace it?</source>
 <!-- ========== Toolbar ========== -->
 <context>
     <name>Toolbar</name>
+    <message>
+        <source>Mosaic (mouse wheel to resize)</source>
+        <translation>モザイク（マウスホイールでサイズ変更）</translation>
+    </message>
     <message>
         <source>Long screenshot (scroll)</source>
         <translation>長スクリーンショット（スクロール）</translation>

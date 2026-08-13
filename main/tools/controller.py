@@ -86,7 +86,8 @@ class ToolController:
         鼠标按下事件
         """
         if self.current_tool:
-            self.current_tool.on_press(pos, button, self.ctx)
+            return self.current_tool.on_press(pos, button, self.ctx)
+        return False
     
     def on_move(self, pos: QPointF):
         """

@@ -95,7 +95,7 @@ class TestToolSettingsManager:
 
     def test_default_tools_initialized(self, manager):
         """所有默认工具都应被初始化"""
-        expected_tools = ["pen", "highlighter", "rect", "ellipse", "arrow", "text", "number", "eraser"]
+        expected_tools = ["pen", "highlighter", "mosaic", "rect", "ellipse", "arrow", "text", "number", "eraser"]
         for tool_id in expected_tools:
             assert manager.get_tool_settings(tool_id) is not None, f"工具 {tool_id} 未初始化"
 
@@ -174,6 +174,39 @@ class TestToolSettingsManager:
         assert defaults["translation_hotkey"] == ""
         assert defaults["translation_hotkey_2"] == ""
         assert defaults["translation_provider"] == "google"
+
+    def test_annotation_tool_shortcut_defaults(self, manager):
+        from settings.tool_settings import ANNOTATION_TOOL_SHORTCUTS
+
+        expected = {
+            "cursor": "s",
+            "pen": "p",
+            "highlighter": "m",
+            "mosaic": "x",
+            "arrow": "a",
+            "number": "n",
+            "rect": "r",
+            "ellipse": "o",
+            "text": "t",
+            "eraser": "e",
+        }
+        assert {tool_id: default for _key, tool_id, _label, default in ANNOTATION_TOOL_SHORTCUTS} == expected
+        for cfg_key, _tool_id, _label, default in ANNOTATION_TOOL_SHORTCUTS:
+            assert manager.APP_DEFAULT_SETTINGS[cfg_key] == default
+
+    def test_explicit_empty_inapp_shortcut_remains_unbound(self, manager):
+        assert manager.get_inapp_shortcut("inapp_tool_text") == "t"
+        manager.set_inapp_shortcut("inapp_tool_text", "")
+        assert manager.get_inapp_shortcut("inapp_tool_text") == ""
+
+    def test_reset_app_settings_restores_inapp_shortcut_defaults(self, manager):
+        manager.set_inapp_shortcut("inapp_confirm", "alt+k")
+        manager.set_inapp_shortcut("inapp_tool_text", "")
+
+        manager.reset_app_settings()
+
+        assert manager.get_inapp_shortcut("inapp_confirm") == "ctrl+c"
+        assert manager.get_inapp_shortcut("inapp_tool_text") == "t"
 
     def test_translation_provider_configuration(self, manager):
         assert manager.get_translation_provider() == "google"

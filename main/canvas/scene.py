@@ -12,7 +12,7 @@ from .undo import CommandUndoStack
 from tools import ToolController, ToolContext
 from tools import (
     PenTool, RectTool, EllipseTool, ArrowTool,
-    TextTool, NumberTool, HighlighterTool, CursorTool, EraserTool
+    TextTool, NumberTool, HighlighterTool, CursorTool, EraserTool, MosaicTool
 )
 from settings import get_tool_settings_manager
 from core import log_debug
@@ -31,7 +31,7 @@ class CanvasScene(QGraphicsScene):
     item_auto_select_requested = Signal(object)       # 参数：绘制完成的 QGraphicsItem
     editing_cleanup_requested = Signal()              # 请求清除编辑状态（控制点、画笔指示器）
     
-    def __init__(self, background_image, scene_rect):
+    def __init__(self, background_image, scene_rect, enable_mosaic=False):
         """
         Args:
             background_image: QImage - 背景图像
@@ -107,6 +107,8 @@ class CanvasScene(QGraphicsScene):
         self.tool_controller.register(TextTool())
         self.tool_controller.register(NumberTool())
         self.tool_controller.register(HighlighterTool())
+        if enable_mosaic:
+            self.tool_controller.register(MosaicTool())
         self.tool_controller.register(EraserTool())  # 橡皮擦工具
         
         # 默认激活光标工具（表示无绘制工具激活，SmartEditController负责选择/编辑交互）
@@ -208,4 +210,3 @@ class CanvasScene(QGraphicsScene):
         
         log_debug(f"选区内绘制项目: {len(drawing_items)} 个（已按绘制顺序排列）", "Scene")
         return drawing_items
- 

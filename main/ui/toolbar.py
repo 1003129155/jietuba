@@ -245,6 +245,16 @@ class Toolbar(QWidget):
         self.highlighter_btn.setCheckable(True)
         self.highlighter_btn.clicked.connect(lambda: self._on_tool_clicked("highlighter"))
         left_x += btn_width
+
+        # 4.5 马赛克工具
+        self.mosaic_btn = QPushButton(self)
+        self.mosaic_btn.setGeometry(left_x, 0, btn_width, btn_height)
+        self.mosaic_btn.setToolTip(self.tr('Mosaic (mouse wheel to resize)'))
+        self.mosaic_btn.setIcon(cached_icon("svg/马赛克.svg"))
+        self.mosaic_btn.setIconSize(QSize(icon_tool, icon_tool))
+        self.mosaic_btn.setCheckable(True)
+        self.mosaic_btn.clicked.connect(lambda: self._on_tool_clicked("mosaic"))
+        left_x += btn_width
         
         # 5. 箭头工具
         self.arrow_btn = QPushButton(self)
@@ -389,6 +399,7 @@ class Toolbar(QWidget):
         self.tool_buttons = {
             "pen": self.pen_btn,
             "highlighter": self.highlighter_btn,
+            "mosaic": self.mosaic_btn,
             "arrow": self.arrow_btn,
             "number": self.number_btn,
             "rect": self.rect_btn,
@@ -569,36 +580,50 @@ class Toolbar(QWidget):
     
     def _on_tool_clicked(self, tool_id: str):
         """工具按钮点击 - 支持再次点击取消"""
-        # 如果点击的是当前工具，取消选中（退出绘制模式）
-        if self.current_tool == tool_id:
+        self.select_tool(tool_id, toggle=True)
+
+    def select_tool(self, tool_id: str, *, toggle: bool = False):
+        """Select a tool through the authoritative toolbar/UI signal path.
+
+        Mouse buttons opt into toggle-to-cursor; keyboard shortcuts are
+        idempotent and therefore leave an already active tool selected.
+        """
+        if tool_id == "cursor":
             # 取消所有按钮选中
             for btn in self.tool_buttons.values():
                 btn.setChecked(False)
             self.current_tool = None
-            tool_to_emit = "cursor"
-            self.tool_changed.emit(tool_to_emit)
+            self.tool_changed.emit("cursor")
             self._hide_all_panels()
-        else:
-            # 更新按钮状态
-            for tid, btn in self.tool_buttons.items():
-                btn.setChecked(tid == tool_id)
-            
-            self.current_tool = tool_id
-            self.tool_changed.emit(tool_id)
+            return
 
-            # 同步线条样式到面板（rect / ellipse）
-            if tool_id in ("rect", "ellipse") and hasattr(self, 'shape_panel'):
-                try:
-                    from settings import get_tool_settings_manager
-                    manager = get_tool_settings_manager()
-                    shape_settings = manager.get_tool_settings(tool_id) if manager else None
-                    if shape_settings:
-                        self.shape_panel.line_style = shape_settings.get("line_style", "solid")
-                except Exception as exc:
-                    log_debug(f"同步形状线条样式失败: {exc}", "Toolbar")
-            
-            # 显示对应的设置面板
-            self._show_panel_for_tool(tool_id)
+        if tool_id not in self.tool_buttons:
+            return
+        if self.current_tool == tool_id:
+            if toggle:
+                self.select_tool("cursor")
+            return
+
+        # 更新按钮状态
+        for tid, btn in self.tool_buttons.items():
+            btn.setChecked(tid == tool_id)
+
+        self.current_tool = tool_id
+        self.tool_changed.emit(tool_id)
+
+        # 同步线条样式到面板（rect / ellipse）
+        if tool_id in ("rect", "ellipse") and hasattr(self, 'shape_panel'):
+            try:
+                from settings import get_tool_settings_manager
+                manager = get_tool_settings_manager()
+                shape_settings = manager.get_tool_settings(tool_id) if manager else None
+                if shape_settings:
+                    self.shape_panel.line_style = shape_settings.get("line_style", "solid")
+            except Exception as exc:
+                log_debug(f"同步形状线条样式失败: {exc}", "Toolbar")
+
+        # 显示对应的设置面板
+        self._show_panel_for_tool(tool_id)
             
     def _hide_all_panels(self):
         """隐藏所有设置面板"""
@@ -990,5 +1015,3 @@ class Toolbar(QWidget):
             final_pos = panel.parent().mapFromGlobal(final_pos)
         
         panel.move(final_pos)
-
- 

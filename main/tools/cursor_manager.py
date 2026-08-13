@@ -371,6 +371,10 @@ class CursorManager:
 
             return self._create_crosshair_cursor(real_size, color)
         
+        if tool_id == "mosaic":
+            real_size = max(4, int(brush_size * self._view_scale))
+            return self._create_crosshair_cursor(real_size, QColor(110, 110, 110, 220))
+
         # 针对序号工具使用真实的序号预览（圆圈+数字）
         if tool_id == "number":
             scaled_size = max(4, int(brush_size * self._view_scale))

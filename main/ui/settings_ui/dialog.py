@@ -68,6 +68,19 @@ class _FooterPrimaryButton(PrimaryPushButton):
         self._sparkle.move(self.width() - 24, (self.height() - self._sparkle.height()) // 2)
 
 
+def save_inapp_shortcut_edits(config_manager, edits):
+    """Persist in-app editors while preserving empty-as-unbound semantics."""
+    from core.shortcut_manager import is_reserved_inapp_shortcut
+
+    for cfg_key, edit in edits.items():
+        value = edit.text().strip()
+        if value.endswith("+"):
+            continue
+        config_manager.set_inapp_shortcut(
+            cfg_key, "" if is_reserved_inapp_shortcut(value) else value
+        )
+
+
 class SettingsDialog(FrostedFramelessDialog):
     """现代化设置对话框 - Fluent 风格（无系统标题栏）"""
 
@@ -945,10 +958,7 @@ class SettingsDialog(FrostedFramelessDialog):
 
         # 7.5 应用内快捷键
         if hasattr(self, '_inapp_edits'):
-            for cfg_key, edit in self._inapp_edits.items():
-                val = edit.text().strip()
-                if val and not val.endswith("+"):
-                    self.config_manager.set_inapp_shortcut(cfg_key, val)
+            save_inapp_shortcut_edits(self.config_manager, self._inapp_edits)
             # 通知钉图快捷键 handler 重新加载绑定
             try:
                 from pin.pin_shortcut import PinShortcutController
@@ -1269,11 +1279,10 @@ class SettingsDialog(FrostedFramelessDialog):
 
         # 应用内快捷键
         if hasattr(self, '_inapp_edits'):
-            from .page_hotkey import INAPP_KEYS
-            defaults_map = {k: d for k, _, d in INAPP_KEYS}
+            from core.shortcut_manager import is_reserved_inapp_shortcut
             for cfg_key, edit in self._inapp_edits.items():
                 val = self.config_manager.get_inapp_shortcut(cfg_key)
-                edit.setText(val or defaults_map.get(cfg_key, ""))
+                edit.setText("" if is_reserved_inapp_shortcut(val) else val)
         if hasattr(self, 'cursor_move_combo'):
             mode = self.config_manager.get_inapp_cursor_move_mode()
             idx = self.cursor_move_combo.findData(mode)

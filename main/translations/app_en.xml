@@ -245,6 +245,18 @@
         <source>Screenshot Shortcuts</source>
         <translation>Screenshot Shortcuts</translation>
     </message>
+    <message><source>Annotation Tools</source><translation>Annotation Tools</translation></message>
+    <message><source>Select / Cursor</source><translation>Select / Cursor</translation></message>
+    <message><source>Pen</source><translation>Pen</translation></message>
+    <message><source>Highlighter</source><translation>Highlighter</translation></message>
+    <message><source>Mosaic</source><translation>Mosaic</translation></message>
+    <message><source>Arrow</source><translation>Arrow</translation></message>
+    <message><source>Number</source><translation>Number</translation></message>
+    <message><source>Rectangle</source><translation>Rectangle</translation></message>
+    <message><source>Ellipse</source><translation>Ellipse</translation></message>
+    <message><source>Text</source><translation>Text</translation></message>
+    <message><source>Eraser</source><translation>Eraser</translation></message>
+    <message><source>💡 Configured shortcuts take priority over WASD and C. Arrow keys remain available; Esc is reserved.</source><translation>💡 Configured shortcuts take priority over WASD and C. Arrow keys remain available; Esc is reserved.</translation></message>
     <message>
         <source>Pin Shortcuts</source>
         <translation>Pin Shortcuts</translation>
@@ -768,6 +780,10 @@ Replace it?</translation>
 <!-- ========== Toolbar ========== -->
 <context>
     <name>Toolbar</name>
+    <message>
+        <source>Mosaic (mouse wheel to resize)</source>
+        <translation>Mosaic (mouse wheel to resize)</translation>
+    </message>
     <message>
         <source>Long screenshot (scroll)</source>
         <translation>Long screenshot (scroll)</translation>
