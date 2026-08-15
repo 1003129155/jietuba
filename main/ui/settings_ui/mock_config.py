@@ -16,6 +16,9 @@ APP_DEFAULT_SETTINGS = {
     "clipboard_hotkey_2": "ctrl+shift+v",
     "translation_hotkey": "",
     "translation_hotkey_2": "",
+    "double_click_copy_close": True,
+    "cross_tool_selection": True,
+    "text_always_on_top": True,
     "smart_selection": True,
     "log_enabled": True,
     "log_level": "INFO",
@@ -85,6 +88,12 @@ class MockConfig:
         self.qsettings = self.settings
 
     # --- getter / setter stubs ---
+    def get_double_click_copy_close_enabled(self): return True
+    def set_double_click_copy_close_enabled(self, v): pass
+    def get_cross_tool_selection_enabled(self): return True
+    def set_cross_tool_selection_enabled(self, v): pass
+    def get_text_always_on_top_enabled(self): return True
+    def set_text_always_on_top_enabled(self, v): pass
     def get_smart_selection(self): return False
     def set_smart_selection(self, v): pass
     def get_log_enabled(self): return True

@@ -145,6 +145,65 @@ class TestToolSettingsManager:
         # 恢复
         manager.set_app_setting("log_level", "INFO")
 
+    def test_double_click_copy_close_defaults_persists_and_resets(
+        self, manager, monkeypatch
+    ):
+        """双击复制并关闭默认开启，可持久关闭并由应用设置重置恢复。"""
+        assert manager.get_double_click_copy_close_enabled() is True
+
+        manager.set_double_click_copy_close_enabled(False)
+        manager.qsettings.sync()
+        reopened_qsettings = QSettings(
+            manager.qsettings.fileName(),
+            QSettings.Format.IniFormat,
+        )
+        reloaded = ToolSettingsManager(qsettings=reopened_qsettings)
+        assert reloaded.get_double_click_copy_close_enabled() is False
+
+        monkeypatch.setattr("core.logger.log_info", lambda *_args, **_kwargs: None)
+        reloaded.reset_app_settings()
+        assert reloaded.get_double_click_copy_close_enabled() is True
+
+    @pytest.mark.parametrize(
+        ("getter_name", "setter_name", "setting_key"),
+        [
+            (
+                "get_cross_tool_selection_enabled",
+                "set_cross_tool_selection_enabled",
+                "cross_tool_selection",
+            ),
+            (
+                "get_text_always_on_top_enabled",
+                "set_text_always_on_top_enabled",
+                "text_always_on_top",
+            ),
+        ],
+    )
+    def test_annotation_behavior_toggles_default_persist_and_reset(
+        self,
+        manager,
+        monkeypatch,
+        getter_name,
+        setter_name,
+        setting_key,
+    ):
+        """两个标注行为默认开启，可持久关闭并随应用设置重置。"""
+        assert manager.APP_DEFAULT_SETTINGS[setting_key] is True
+        assert getattr(manager, getter_name)() is True
+
+        getattr(manager, setter_name)(False)
+        manager.qsettings.sync()
+        reopened_qsettings = QSettings(
+            manager.qsettings.fileName(),
+            QSettings.Format.IniFormat,
+        )
+        reloaded = ToolSettingsManager(qsettings=reopened_qsettings)
+        assert getattr(reloaded, getter_name)() is False
+
+        monkeypatch.setattr("core.logger.log_info", lambda *_args, **_kwargs: None)
+        reloaded.reset_app_settings()
+        assert getattr(reloaded, getter_name)() is True
+
     def test_get_color(self, manager):
         """获取 QColor 对象"""
         from PySide6.QtGui import QColor
@@ -171,6 +230,9 @@ class TestToolSettingsManager:
         assert "language" in defaults
         assert "clipboard_enabled" in defaults
         assert "ocr_enabled" in defaults
+        assert defaults["double_click_copy_close"] is True
+        assert defaults["cross_tool_selection"] is True
+        assert defaults["text_always_on_top"] is True
         assert defaults["translation_hotkey"] == ""
         assert defaults["translation_hotkey_2"] == ""
         assert defaults["translation_provider"] == "google"

@@ -325,12 +325,17 @@ class TextSettingsPanel(QWidget):
     def _update_background_btn_style(self):
         """更新背景按钮样式"""
         if self.background_btn.isChecked():
-            self.background_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #e0e0e0;
+            color = QColor(self.background_color)
+            alpha = max(0, min(255, int(self.background_opacity)))
+            luminance = color.red() * 3 + color.green() * 6 + color.blue()
+            text_color = "#000000" if luminance >= 1280 else "#ffffff"
+            self.background_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: rgba({color.red()}, {color.green()}, {color.blue()}, {alpha});
+                    color: {text_color};
                     border: 1px solid #999;
                     font-size: 12px;
-                }
+                }}
             """)
         else:
             self.background_btn.setStyleSheet("""
@@ -354,6 +359,8 @@ class TextSettingsPanel(QWidget):
             border: 1px solid #999;
             border-radius: 3px;
         """)
+        if hasattr(self, "background_btn"):
+            self._update_background_btn_style()
 
     def _on_background_toggled(self, checked: bool):
         self.background_enabled = checked

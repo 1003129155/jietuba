@@ -681,6 +681,18 @@ class SettingsDialog(FrostedFramelessDialog):
 
     def _reset_screenshot_settings_page(self):
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
+        if hasattr(self, 'double_click_copy_close_toggle'):
+            self.double_click_copy_close_toggle.setChecked(
+                defaults["double_click_copy_close"]
+            )
+        if hasattr(self, 'cross_tool_selection_toggle'):
+            self.cross_tool_selection_toggle.setChecked(
+                defaults["cross_tool_selection"]
+            )
+        if hasattr(self, 'text_always_on_top_toggle'):
+            self.text_always_on_top_toggle.setChecked(
+                defaults["text_always_on_top"]
+            )
         if hasattr(self, 'smart_toggle'):
             self.smart_toggle.setChecked(defaults["smart_selection"])
         if hasattr(self, 'save_toggle'):
@@ -809,7 +821,19 @@ class SettingsDialog(FrostedFramelessDialog):
                 self.translation_hotkey_edit_2.text().strip()
             )
 
-        # 1. 智能选区
+        # 1. 截图交互（双击确认 + 智能选区）
+        if hasattr(self, 'double_click_copy_close_toggle'):
+            self.config_manager.set_double_click_copy_close_enabled(
+                self.double_click_copy_close_toggle.isChecked()
+            )
+        if hasattr(self, 'cross_tool_selection_toggle'):
+            self.config_manager.set_cross_tool_selection_enabled(
+                self.cross_tool_selection_toggle.isChecked()
+            )
+        if hasattr(self, 'text_always_on_top_toggle'):
+            self.config_manager.set_text_always_on_top_enabled(
+                self.text_always_on_top_toggle.isChecked()
+            )
         if hasattr(self, 'smart_toggle'):
             self.config_manager.set_smart_selection(self.smart_toggle.isChecked())
 
@@ -1144,7 +1168,10 @@ class SettingsDialog(FrostedFramelessDialog):
             if w is not None:
                 snap[attr] = w.text()
         # 开关类
-        for attr in ('smart_toggle', 'save_toggle', 'ocr_enable_toggle',
+        for attr in ('double_click_copy_close_toggle',
+                      'cross_tool_selection_toggle',
+                      'text_always_on_top_toggle', 'smart_toggle',
+                      'save_toggle', 'ocr_enable_toggle',
                       'ocr_grayscale_toggle', 'ocr_upscale_toggle',
                       'deepl_pro_toggle', 'split_sentences_toggle',
                       'preserve_formatting_toggle', 'log_toggle',
@@ -1301,6 +1328,21 @@ class SettingsDialog(FrostedFramelessDialog):
 
         if hasattr(self, 'smart_toggle'):
             self.smart_toggle.setChecked(self.config_manager.get_smart_selection())
+
+        if hasattr(self, 'double_click_copy_close_toggle'):
+            self.double_click_copy_close_toggle.setChecked(
+                self.config_manager.get_double_click_copy_close_enabled()
+            )
+
+        if hasattr(self, 'cross_tool_selection_toggle'):
+            self.cross_tool_selection_toggle.setChecked(
+                self.config_manager.get_cross_tool_selection_enabled()
+            )
+
+        if hasattr(self, 'text_always_on_top_toggle'):
+            self.text_always_on_top_toggle.setChecked(
+                self.config_manager.get_text_always_on_top_enabled()
+            )
 
         if hasattr(self, 'save_toggle'):
             self.save_toggle.setChecked(self.config_manager.get_screenshot_save_enabled())

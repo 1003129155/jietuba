@@ -1324,8 +1324,18 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
     """文字图元 - 增强版"""
     # 文字与虚线边框之间的内边距（document margin）
     TEXT_PADDING = 8
+    NORMAL_ANNOTATION_Z_VALUE = 20
+    ANNOTATION_Z_VALUE = 30
+    BACKGROUND_RADIUS = 6.0
     
-    def __init__(self, text: str, pos: QPointF, font: QFont, color: QColor):
+    def __init__(
+        self,
+        text: str,
+        pos: QPointF,
+        font: QFont,
+        color: QColor,
+        always_on_top: bool = True,
+    ):
         super().__init__(text)
         self._init_drawing_mixin()
         self.setPos(pos)
@@ -1333,7 +1343,11 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
         self.setDefaultTextColor(color)
         # 允许点击编辑
         self.setTextInteractionFlags(Qt.TextInteractionFlag.TextEditorInteraction)
-        self.setZValue(20)
+        self.setZValue(
+            self.ANNOTATION_Z_VALUE
+            if always_on_top
+            else self.NORMAL_ANNOTATION_Z_VALUE
+        )
         
         # 增大 document margin，使虚线边框与文字之间有足够间距
         # 默认只有 4px，太小导致鼠标难以区分文字区域和边框区域
@@ -1361,7 +1375,13 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
             painter.save()
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(self.background_color)
-            painter.drawRect(self.boundingRect())
+            background_rect = self.boundingRect()
+            radius = min(
+                self.BACKGROUND_RADIUS,
+                max(0.0, background_rect.width() / 2.0),
+                max(0.0, background_rect.height() / 2.0),
+            )
+            painter.drawRoundedRect(background_rect, radius, radius)
             painter.restore()
             
         # 2. 绘制描边 (Outline) - 使用路径绘制法，效果最好

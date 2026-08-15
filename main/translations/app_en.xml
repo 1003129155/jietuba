@@ -365,6 +365,36 @@ Replace it?</translation>
         <source>Skip this many top pixels on subsequent captures during matching</source>
         <translation>Skip this many top pixels on subsequent captures during matching</translation>
     </message>
+
+    <!-- Capture Behavior -->
+    <message>
+        <source>Capture Behavior</source>
+        <translation>Capture Behavior</translation>
+    </message>
+    <message>
+        <source>Double-click to Copy and Close</source>
+        <translation>Double-click to Copy and Close</translation>
+    </message>
+    <message>
+        <source>Double-click the selected screenshot to copy it to the clipboard and close the capture.</source>
+        <translation>Double-click the selected screenshot to copy it to the clipboard and close the capture.</translation>
+    </message>
+    <message>
+        <source>Enable Ctrl Cross-Tool Selection</source>
+        <translation>Enable Ctrl Cross-Tool Selection</translation>
+    </message>
+    <message>
+        <source>Hold Ctrl and click any editable annotation to adjust it without switching tools.</source>
+        <translation>Hold Ctrl and click any editable annotation to adjust it without switching tools.</translation>
+    </message>
+    <message>
+        <source>Keep Text Annotations on Top</source>
+        <translation>Keep Text Annotations on Top</translation>
+    </message>
+    <message>
+        <source>Keep text above other annotations, including ones drawn later.</source>
+        <translation>Keep text above other annotations, including ones drawn later.</translation>
+    </message>
     
     <!-- Smart Selection Page -->
     <message>
@@ -780,6 +810,10 @@ Replace it?</translation>
 <!-- ========== Toolbar ========== -->
 <context>
     <name>Toolbar</name>
+    <message>
+        <source>Ctrl+click any editable annotation to edit it temporarily</source>
+        <translation>Ctrl+click any editable annotation to edit it temporarily</translation>
+    </message>
     <message>
         <source>Mosaic (mouse wheel to resize)</source>
         <translation>Mosaic (mouse wheel to resize)</translation>

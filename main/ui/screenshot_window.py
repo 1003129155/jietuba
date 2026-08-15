@@ -218,7 +218,7 @@ class ScreenshotWindow(QWidget):
 
         # 3. 初始化场景和视图
         self.scene = CanvasScene(self.original_image, rect, enable_mosaic=True)
-        self.view = CanvasView(self.scene, self, confirm_on_double_click=True)
+        self.view = self._create_canvas_view(self.scene)
         self.view.setGeometry(0, 0, int(self.virtual_width), int(self.virtual_height))
         
         _t2 = time.perf_counter()
@@ -230,6 +230,9 @@ class ScreenshotWindow(QWidget):
         
         # 4. 初始化工具栏（一次性创建，后续复用）
         self.toolbar = Toolbar(self)
+        self.toolbar.set_cross_tool_selection_hint_enabled(
+            self._cross_tool_selection_enabled
+        )
         self.toolbar.hide() # 初始隐藏，选区确认后显示
         
         _t3 = time.perf_counter()
@@ -303,6 +306,26 @@ class ScreenshotWindow(QWidget):
         # 初始状态：进入选区模式
         # CanvasView 默认处理鼠标按下进入选区
 
+    def _create_canvas_view(self, scene):
+        """创建使用当前截图交互设置的画布视图。"""
+        cross_tool_selection_enabled = (
+            self.config_manager.get_cross_tool_selection_enabled()
+        )
+        self._cross_tool_selection_enabled = cross_tool_selection_enabled
+        toolbar = getattr(self, "toolbar", None)
+        if toolbar is not None:
+            toolbar.set_cross_tool_selection_hint_enabled(
+                cross_tool_selection_enabled
+            )
+        return CanvasView(
+            scene,
+            self,
+            confirm_on_double_click=(
+                self.config_manager.get_double_click_copy_close_enabled()
+            ),
+            cross_tool_select=cross_tool_selection_enabled,
+        )
+
     # ------------------------------------------------------------------
     # 窗口复用：准备新的截图会话
     # ------------------------------------------------------------------
@@ -332,7 +355,7 @@ class ScreenshotWindow(QWidget):
         
         # 创建新的 Scene + View（每次截图内容不同，不可复用）
         self.scene = CanvasScene(image, rect, enable_mosaic=True)
-        self.view = CanvasView(self.scene, self, confirm_on_double_click=True)
+        self.view = self._create_canvas_view(self.scene)
         self.view.setGeometry(0, 0, int(self.virtual_width), int(self.virtual_height))
         self.view.lower()  # 确保 view 在最底层，overlay 在上方
         
@@ -816,13 +839,9 @@ class ScreenshotWindow(QWidget):
         # 阻止工具栏信号，避免 set_xxx() 触发回调形成循环
         self.toolbar.blockSignals(True)
         try:
-            # 更新工具栏 UI 显示当前工具的设置
-            self.toolbar.set_current_color(ctx.color)
-            self.toolbar.set_stroke_width(ctx.stroke_width)
-            self.toolbar.set_opacity(int(ctx.opacity * 255))
-            if tool_id == "number" and hasattr(self.toolbar, "set_number_next_value"):
-                from tools.number import NumberTool
-                self.toolbar.set_number_next_value(NumberTool.get_next_number(self.scene))
+            # 每次激活都从当前工具上下文与持久化设置完整重建面板，避免
+            # 跨工具临时投影残留到稍后的工具切换。
+            self.toolbar.restore_active_tool_state(tool_id, ctx, self.scene)
         finally:
             self.toolbar.blockSignals(False)
         
@@ -839,9 +858,19 @@ class ScreenshotWindow(QWidget):
         NumberTool.set_next_number_and_refresh(self.scene, next_value)
         
     def on_color_changed(self, color):
+        view = getattr(self, 'view', None)
+        if view and hasattr(view, 'apply_cross_tool_selection_style'):
+            consumed = view.apply_cross_tool_selection_style(color=color)
+            if consumed is not None:
+                return
         self.scene.update_style(color=color)
         
     def on_stroke_width_changed(self, width):
+        view = getattr(self, 'view', None)
+        if view and hasattr(view, 'apply_cross_tool_selection_style'):
+            consumed = view.apply_cross_tool_selection_style(width=width)
+            if consumed is not None:
+                return
         ctx = getattr(self.scene.tool_controller, 'ctx', None)
         prev_width = max(1.0, float(getattr(ctx, 'stroke_width', width))) if ctx else float(width)
         self.scene.update_style(width=width)
@@ -859,8 +888,12 @@ class ScreenshotWindow(QWidget):
     def on_opacity_changed(self, opacity_int):
         # opacity_int 是 0-255，转换为 0.0-1.0
         opacity = opacity_int / 255.0
-        self.scene.update_style(opacity=opacity)
         view = getattr(self, 'view', None)
+        if view and hasattr(view, 'apply_cross_tool_selection_style'):
+            consumed = view.apply_cross_tool_selection_style(opacity=opacity)
+            if consumed is not None:
+                return
+        self.scene.update_style(opacity=opacity)
         if view and hasattr(view, '_apply_opacity_change_to_selection'):
             view._apply_opacity_change_to_selection(opacity)
 

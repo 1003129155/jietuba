@@ -24,7 +24,13 @@ class CanvasView(QGraphicsView):
     画布视图
     """
     
-    def __init__(self, scene, parent=None, confirm_on_double_click=False):
+    def __init__(
+        self,
+        scene,
+        parent=None,
+        confirm_on_double_click=False,
+        cross_tool_select=False,
+    ):
         super().__init__(scene, parent)
         
         self.canvas_scene = scene
@@ -86,6 +92,7 @@ class CanvasView(QGraphicsView):
         # 初始化智能编辑控制器
         from canvas.smart_edit_controller import SmartEditController
         self.smart_edit_controller = SmartEditController(self.canvas_scene)
+        self.smart_edit_controller.cross_tool_select_enabled = bool(cross_tool_select)
         
         # 注入 layer_editor 引用到 Scene（用于 drawForeground 渲染控制点）
         # 这是单向引用（Scene 只持有 layer_editor，不持有 view），避免循环引用
@@ -128,6 +135,8 @@ class CanvasView(QGraphicsView):
         self._text_drag_item = None
         self._text_drag_last_scene_pos = None
         self._text_drag_cursor_active = False
+        self._manual_item_drag_active = False
+        self._manual_item_drag_last_scene_pos = None
     
     def setCursor(self, cursor):
         """同时更新视图和 viewport，避免 Qt 只在父部件上应用光标"""
@@ -140,6 +149,7 @@ class CanvasView(QGraphicsView):
         """断开会话级信号和引用，避免旧 view 在销毁期收到晚到回调。"""
         if self._is_closed:
             return
+        self._finish_manual_item_drag(commit=True)
         self._is_closed = True
 
         from core.qt_utils import safe_disconnect
@@ -377,6 +387,7 @@ class CanvasView(QGraphicsView):
     
     def _on_editing_cleanup(self):
         """响应 editing_cleanup_requested 信号，清除编辑状态"""
+        self._finish_manual_item_drag(commit=True)
         if self.smart_edit_controller.selected_item:
             log_debug("取消智能编辑选择", "CanvasView")
             self.smart_edit_controller.clear_selection(suppress_block=True)
@@ -384,6 +395,7 @@ class CanvasView(QGraphicsView):
             self.cursor_manager.hide_brush_indicator()
 
     def _on_tool_changed_for_edit(self, tool_id: str):
+       self._finish_manual_item_drag(commit=True)
        self.smart_edit_controller.set_tool(tool_id)
 
        # 工具切换时立即更新光标
@@ -410,6 +422,7 @@ class CanvasView(QGraphicsView):
         if item:
             log_debug(f"选中: {type(item).__name__}", "SmartEdit")
         else:
+            self._finish_manual_item_drag(commit=False)
             log_debug("取消选择", "SmartEdit")
             self._sync_highlighter_panel_mode()
         self._sync_selection_style_to_toolbar(item)
@@ -449,7 +462,21 @@ class CanvasView(QGraphicsView):
             return
 
         if not item:
+            current_tool = getattr(tool_controller, "current_tool", None)
+            tool_id = getattr(current_tool, "id", None) or "cursor"
+            if hasattr(toolbar, "restore_active_tool_state"):
+                toolbar.restore_active_tool_state(
+                    tool_id,
+                    getattr(tool_controller, "ctx", None),
+                    self.canvas_scene,
+                )
+            else:
+                toolbar.set_temporary_edit_active(False)
             return
+
+        controller = getattr(self, "smart_edit_controller", None)
+        is_cross_tool = bool(controller and controller.is_cross_tool_selection())
+        toolbar.set_temporary_edit_active(is_cross_tool)
 
         is_text_item = isinstance(item, QGraphicsTextItem)
         width_value = None if is_text_item else self._extract_selection_width(item)
@@ -461,7 +488,7 @@ class CanvasView(QGraphicsView):
         if opacity_value is not None:
             style_kwargs["opacity"] = max(0.0, min(1.0, float(opacity_value)))
 
-        if style_kwargs:
+        if style_kwargs and not is_cross_tool:
             tool_controller.update_style(**style_kwargs)
             if "width" in style_kwargs and getattr(self, "cursor_manager", None):
                 ctx_width = int(max(1, round(tool_controller.ctx.stroke_width)))
@@ -487,10 +514,11 @@ class CanvasView(QGraphicsView):
                 else:
                     line_style = "solid"
                 toolbar.paint_panel.line_style = line_style
-                from settings import get_tool_settings_manager
-                manager = get_tool_settings_manager()
-                settings_tool_id = "highlighter" if getattr(item, "is_highlighter", False) else "pen"
-                manager.update_settings(settings_tool_id, line_style=line_style)
+                if not is_cross_tool:
+                    from settings import get_tool_settings_manager
+                    manager = get_tool_settings_manager()
+                    settings_tool_id = "highlighter" if getattr(item, "is_highlighter", False) else "pen"
+                    manager.update_settings(settings_tool_id, line_style=line_style)
             except Exception as exc:
                 log_warning(f"无法同步线条样式: {exc}", "CanvasView")
         elif isinstance(item, (RectItem, EllipseItem)) and hasattr(toolbar, "shape_panel"):
@@ -507,10 +535,11 @@ class CanvasView(QGraphicsView):
                 else:
                     line_style = "solid"
                 toolbar.shape_panel.line_style = line_style
-                from settings import get_tool_settings_manager
-                manager = get_tool_settings_manager()
-                tool_id = "rect" if isinstance(item, RectItem) else "ellipse"
-                manager.update_settings(tool_id, line_style=line_style)
+                if not is_cross_tool:
+                    from settings import get_tool_settings_manager
+                    manager = get_tool_settings_manager()
+                    tool_id = "rect" if isinstance(item, RectItem) else "ellipse"
+                    manager.update_settings(tool_id, line_style=line_style)
             except Exception as exc:
                 log_warning(f"无法同步形状线条样式: {exc}", "CanvasView")
 
@@ -581,6 +610,77 @@ class CanvasView(QGraphicsView):
                 return result
         direct = max(0.0, min(1.0, float(item.opacity())))
         return direct
+
+    def apply_cross_tool_selection_style(
+        self,
+        *,
+        color: Optional[QColor] = None,
+        width: Optional[float] = None,
+        opacity: Optional[float] = None,
+    ) -> Optional[bool]:
+        """Apply one style to a foreign selected item without touching tool defaults.
+
+        None means the selection is not cross-tool and the caller may use its
+        existing active-tool path. True/False both consume the event; False
+        means the target does not support that property.
+        """
+        controller = getattr(self, "smart_edit_controller", None)
+        if not controller or not controller.is_cross_tool_selection():
+            return None
+        item = getattr(controller, "selected_item", None)
+        if item is None:
+            return None
+
+        applied = False
+        if width is not None:
+            current_width = self._extract_selection_width(item)
+            if (
+                current_width is None
+                or current_width <= 0
+                or not hasattr(item, "scale_stroke_width")
+            ):
+                return False
+            applied = bool(item.scale_stroke_width(max(1.0, float(width)) / current_width))
+
+        if opacity is not None:
+            applied = self._update_item_visual_opacity(item, opacity) or applied
+
+        if color is not None:
+            if isinstance(item, TextItem):
+                # Text is updated by SmartEditController's existing signal slot.
+                applied = True
+            elif isinstance(item, (StrokeItem, RectItem, EllipseItem)):
+                pen = QPen(item.pen())
+                new_color = QColor(color)
+                new_color.setAlpha(pen.color().alpha())
+                pen.setColor(new_color)
+                item.setPen(pen)
+                if isinstance(item, RectItem) and getattr(item, "is_highlighter_rect", False):
+                    brush = QBrush(item.brush())
+                    brush_color = QColor(color)
+                    brush_color.setAlpha(brush.color().alpha())
+                    brush.setColor(brush_color)
+                    item.setBrush(brush)
+                item.update()
+                applied = True
+            elif isinstance(item, (ArrowItem, NumberItem)):
+                old_color = QColor(item.color)
+                new_color = QColor(color)
+                new_color.setAlpha(old_color.alpha())
+                item.color = new_color
+                if isinstance(item, ArrowItem) and hasattr(item, "update_geometry"):
+                    item.update_geometry()
+                item.update()
+                applied = True
+            else:
+                return False
+
+        if applied:
+            editor = getattr(controller, "layer_editor", None)
+            if editor and editor.is_editing() and not isinstance(item, TextItem):
+                editor.start_edit(item)
+            self.canvas_scene.update()
+        return applied
 
     @safe_event
     def mousePressEvent(self, event):
@@ -687,6 +787,13 @@ class CanvasView(QGraphicsView):
                 # 传递给 Scene（让图元处理拖拽）
                 log_debug("图元选择被处理，阻止绘图", "CanvasView")
                 self._maybe_prepare_text_edit(event, scene_pos)
+                if self.smart_edit_controller.press_requires_manual_dispatch:
+                    # Qt 默认把事件交给 z 轴最上方图元；当控制器有意向下
+                    # 命中兼容目标时，由 View 接管本次拖动，避免顶层文字抢走事件。
+                    self._manual_item_drag_active = True
+                    self._manual_item_drag_last_scene_pos = QPointF(scene_pos)
+                    event.accept()
+                    return
                 super().mousePressEvent(event)
                 return
             
@@ -995,6 +1102,12 @@ class CanvasView(QGraphicsView):
         is_left_pressed = bool(event.buttons() & Qt.MouseButton.LeftButton)
         if self._is_text_editing() and not is_left_pressed:
             self._update_text_drag_hover(scene_pos)
+
+        # 向下命中的兼容图元由 View 全程拥有这次手势，优先于顶层图元
+        # 的控制点/hover 分发。
+        if self._manual_item_drag_active and is_left_pressed:
+            self._handle_selected_item_drag(event, scene_pos)
+            return
         
         # 子状态1：正在拖拽控制点/手柄
         if self._handle_edit_handle_drag(scene_pos):
@@ -1032,6 +1145,7 @@ class CanvasView(QGraphicsView):
             return False
         
         is_left_button_pressed = bool(event.buttons() & Qt.MouseButton.LeftButton)
+
         is_moving_item = getattr(self.smart_edit_controller.layer_editor, "is_moving_item", False)
         
         if is_left_button_pressed and is_moving_item:
@@ -1055,6 +1169,19 @@ class CanvasView(QGraphicsView):
             selected_item.mapFromScene(scene_pos)
         )
         is_left_button_pressed = bool(event.buttons() & Qt.MouseButton.LeftButton)
+
+        if self._manual_item_drag_active and is_left_button_pressed:
+            self.smart_edit_controller.handle_move(event.pos(), scene_pos)
+            if self.smart_edit_controller.is_dragging:
+                last_pos = self._manual_item_drag_last_scene_pos or scene_pos
+                delta = scene_pos - last_pos
+                if not delta.isNull():
+                    selected_item.moveBy(delta.x(), delta.y())
+                self._manual_item_drag_last_scene_pos = QPointF(scene_pos)
+                self.canvas_scene.update()
+                self._update_edit_handles()
+            self.setCursor(Qt.CursorShape.SizeAllCursor)
+            return True
         
         if is_left_button_pressed:
             # 按住左键 → 正在拖拽
@@ -1082,6 +1209,31 @@ class CanvasView(QGraphicsView):
             return True
         
         return False
+
+    def _finish_manual_item_drag(self, *, commit: bool):
+        """Finish/cancel View-owned dragging and clear both sides of gesture state."""
+        controller = getattr(self, "smart_edit_controller", None)
+        if not self._manual_item_drag_active:
+            if controller is not None:
+                controller.press_requires_manual_dispatch = False
+            return
+
+        if controller is not None:
+            if commit and controller.is_dragging and controller.selected_item is not None:
+                controller._finalize_move_edit()
+            controller.is_dragging = False
+            controller.drag_start_pos = None
+            controller._move_initial_state = None
+            controller.press_requires_manual_dispatch = False
+            mode_type = type(controller.mode)
+            if controller.mode == mode_type.DRAGGING_MOVE:
+                controller.mode = mode_type.SELECTED
+            editor = getattr(controller, "layer_editor", None)
+            if editor is not None:
+                editor.is_moving_item = False
+
+        self._manual_item_drag_active = False
+        self._manual_item_drag_last_scene_pos = None
     
     def _handle_edit_hover_detection(self, event, scene_pos: QPointF):
         """处理悬停检测（编辑模式子状态4）"""
@@ -1178,6 +1330,13 @@ class CanvasView(QGraphicsView):
             # 绘图结束，恢复放大镜跟踪（如果此时 _should_render 允许显示）
             self._update_magnifier_overlay(scene_pos)
             return
+
+        if self._manual_item_drag_active:
+            self._finish_manual_item_drag(commit=True)
+            if self.smart_edit_controller.selected_item:
+                self._update_edit_handles()
+            event.accept()
+            return
         
         # 检查是否在释放控制点拖拽
         edit_release_handled = self.smart_edit_controller.handle_edit_release(
@@ -1229,6 +1388,36 @@ class CanvasView(QGraphicsView):
         # 获取滚轮方向
         delta = event.angleDelta().y()
         modifiers = event.modifiers()
+
+        # 跨工具临时编辑只改变目标图元，不改当前工具默认值。Shift 也按宽度
+        # 处理，避免当前工具为序号时误改“下一个数字”。
+        controller = getattr(self, "smart_edit_controller", None)
+        if controller and controller.is_cross_tool_selection():
+            item = controller.selected_item
+            toolbar = getattr(self.window(), "toolbar", None)
+            if delta != 0:
+                if modifiers & Qt.KeyboardModifier.ControlModifier:
+                    current_opacity = self._extract_selection_opacity(item)
+                    if current_opacity is not None:
+                        new_opacity = max(
+                            0.0,
+                            min(1.0, current_opacity + (0.05 if delta > 0 else -0.05)),
+                        )
+                        self.apply_cross_tool_selection_style(opacity=new_opacity)
+                        if toolbar and hasattr(toolbar, "set_opacity"):
+                            toolbar.set_opacity(int(round(new_opacity * 255)))
+                else:
+                    current_width = self._extract_selection_width(item)
+                    if current_width is not None:
+                        new_width = max(
+                            1.0,
+                            min(50.0, current_width + (1.0 if delta > 0 else -1.0)),
+                        )
+                        self.apply_cross_tool_selection_style(width=new_width)
+                        if toolbar and hasattr(toolbar, "set_stroke_width"):
+                            toolbar.set_stroke_width(int(round(new_width)))
+            event.accept()
+            return
 
         # Ctrl + 滚轮：调整透明度（0-255）
         if modifiers & Qt.KeyboardModifier.ControlModifier:

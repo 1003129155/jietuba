@@ -35,6 +35,11 @@ class TextTool(Tool):
             background_enabled = manager.get_setting("text", "background_enabled", False)
             background_color = manager.get_setting("text", "background_color", "#FFFFFF")
             background_opacity = manager.get_setting("text", "background_opacity", 255)
+            always_on_top = getattr(
+                manager,
+                "get_text_always_on_top_enabled",
+                lambda: True,
+            )()
             
             # 创建字体对象
             font = QFont(font_family, font_size)
@@ -42,7 +47,13 @@ class TextTool(Tool):
             font.setItalic(font_italic)
             font.setUnderline(font_underline)
             
-            item = TextItem("", pos, font, ctx.color)
+            item = TextItem(
+                "",
+                pos,
+                font,
+                ctx.color,
+                always_on_top=always_on_top,
+            )
             
             # 应用默认增强效果
             # 默认开启描边，颜色为白色，提升可读性

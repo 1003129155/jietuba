@@ -369,6 +369,36 @@ Replace it?</source>
         <source>Skip this many top pixels on subsequent captures during matching</source>
         <translation>匹配时跳过后续截图顶部的像素行数</translation>
     </message>
+
+    <!-- Capture Behavior -->
+    <message>
+        <source>Capture Behavior</source>
+        <translation>截图行为</translation>
+    </message>
+    <message>
+        <source>Double-click to Copy and Close</source>
+        <translation>双击复制并关闭</translation>
+    </message>
+    <message>
+        <source>Double-click the selected screenshot to copy it to the clipboard and close the capture.</source>
+        <translation>双击已选截图时复制到剪贴板并关闭截图。</translation>
+    </message>
+    <message>
+        <source>Enable Ctrl Cross-Tool Selection</source>
+        <translation>启用 Ctrl 跨工具选择</translation>
+    </message>
+    <message>
+        <source>Hold Ctrl and click any editable annotation to adjust it without switching tools.</source>
+        <translation>按住 Ctrl 点击任意可编辑标注，无需切换工具即可调整。</translation>
+    </message>
+    <message>
+        <source>Keep Text Annotations on Top</source>
+        <translation>文字标注始终置顶</translation>
+    </message>
+    <message>
+        <source>Keep text above other annotations, including ones drawn later.</source>
+        <translation>让文字保持在其他标注上方，包括之后绘制的标注。</translation>
+    </message>
     
     <!-- Smart Selection Page -->
     <message>
@@ -784,6 +814,10 @@ Replace it?</source>
 <!-- ========== Toolbar ========== -->
 <context>
     <name>Toolbar</name>
+    <message>
+        <source>Ctrl+click any editable annotation to edit it temporarily</source>
+        <translation>按住 Ctrl 点击任意可编辑标注，可临时编辑</translation>
+    </message>
     <message>
         <source>Mosaic (mouse wheel to resize)</source>
         <translation>马赛克（鼠标滚轮调整大小）</translation>

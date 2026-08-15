@@ -93,11 +93,13 @@ class SmartEditController(QObject):
         
         # 当前工具 ID
         self.current_tool_id: Optional[str] = None
+        self.cross_tool_select_enabled = False
         
         # 拖拽状态
         self.drag_start_pos: Optional[QPointF] = None
         self.drag_threshold = 5.0  # 5像素拖拽阈值
         self.is_dragging = False
+        self.press_requires_manual_dispatch = False
         
         # 编辑器（控制点系统）
         self.layer_editor = LayerEditor()  # LayerEditor 实例
@@ -176,6 +178,31 @@ class SmartEditController(QObject):
             return ItemType.NUMBER
         else:
             return ItemType.OTHER
+
+    def get_item_tool_id(self, item: QGraphicsItem) -> Optional[str]:
+        """返回拥有该图元新建默认值的精确工具 ID。"""
+        if isinstance(item, StrokeItem):
+            return "highlighter" if getattr(item, "is_highlighter", False) else "pen"
+        if isinstance(item, RectItem):
+            if getattr(item, "is_highlighter_rect", False):
+                return "highlighter"
+            return "rect"
+        if isinstance(item, EllipseItem):
+            return "ellipse"
+        if isinstance(item, ArrowItem):
+            return "arrow"
+        if isinstance(item, TextItem):
+            return "text"
+        if isinstance(item, NumberItem):
+            return "number"
+        return None
+
+    def is_cross_tool_selection(self) -> bool:
+        """当前是否为宿主授权的异类临时编辑选择。"""
+        if not self.cross_tool_select_enabled or self.selected_item is None:
+            return False
+        owner_tool_id = self.get_item_tool_id(self.selected_item)
+        return owner_tool_id is not None and owner_tool_id != self.current_tool_id
     
     # ========================================================================
     # 选择逻辑
@@ -195,6 +222,15 @@ class SmartEditController(QObject):
         from PySide6.QtCore import Qt
         
         item_type = self.get_item_type(item)
+
+        # 截图宿主显式开启后，Ctrl+点击可临时选择任意已知可编辑图元。
+        # 保留 PATH 在未开启能力时原有的 Ctrl 选择语义。
+        if (
+            self.cross_tool_select_enabled
+            and modifier_keys & Qt.KeyboardModifier.ControlModifier
+            and item_type != ItemType.OTHER
+        ):
+            return True
         
         # 1. 画笔/荧光笔路径：必须 Ctrl+点击
         if item_type == ItemType.PATH:
@@ -317,6 +353,8 @@ class SmartEditController(QObject):
         
         if button != Qt.MouseButton.LeftButton:
             return False
+
+        self.press_requires_manual_dispatch = False
         
         # 记录拖拽起点
         self.drag_start_pos = scene_pos
@@ -330,18 +368,16 @@ class SmartEditController(QObject):
         ]
         
         if drawable_items:
-            item = drawable_items[0]
-            
-            # 如果点击的是已经选中的图元，直接返回 True（允许拖拽/编辑）
-            if self.selected_item == item:
-                return True
-            
-            # 检查是否可以选择这个新图元
-            if self.can_select_item(item, modifiers):
-                # 选择图元
-                self.select_item(item)
-                # 返回 True，表示选中了图元，阻止绘图
-                return True
+            # Ctrl 临时选择会在首个可编辑图元处命中；普通点击则继续向下
+            # 查找当前工具兼容图元，避免置顶文字挡住下方形状的正常选择。
+            for index, item in enumerate(drawable_items):
+                if self.selected_item == item:
+                    self.press_requires_manual_dispatch = index > 0
+                    return True
+                if self.can_select_item(item, modifiers):
+                    self.select_item(item)
+                    self.press_requires_manual_dispatch = index > 0
+                    return True
         else:
             # 点击空白处，取消选择
             if self.selected_item:

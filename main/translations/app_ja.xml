@@ -371,6 +371,36 @@ Replace it?</source>
         <source>Skip this many top pixels on subsequent captures during matching</source>
         <translation>マッチング時に後続キャプチャ上部の指定ピクセル数をスキップ</translation>
     </message>
+
+    <!-- Capture Behavior -->
+    <message>
+        <source>Capture Behavior</source>
+        <translation>キャプチャ動作</translation>
+    </message>
+    <message>
+        <source>Double-click to Copy and Close</source>
+        <translation>ダブルクリックでコピーして閉じる</translation>
+    </message>
+    <message>
+        <source>Double-click the selected screenshot to copy it to the clipboard and close the capture.</source>
+        <translation>選択したスクリーンショットをダブルクリックすると、クリップボードにコピーしてキャプチャを閉じます。</translation>
+    </message>
+    <message>
+        <source>Enable Ctrl Cross-Tool Selection</source>
+        <translation>Ctrlによるツール横断選択を有効にする</translation>
+    </message>
+    <message>
+        <source>Hold Ctrl and click any editable annotation to adjust it without switching tools.</source>
+        <translation>Ctrlを押しながら編集可能な注釈をクリックすると、ツールを切り替えずに調整できます。</translation>
+    </message>
+    <message>
+        <source>Keep Text Annotations on Top</source>
+        <translation>テキスト注釈を常に最前面に表示</translation>
+    </message>
+    <message>
+        <source>Keep text above other annotations, including ones drawn later.</source>
+        <translation>後から描画したものを含め、テキストを他の注釈より前面に保ちます。</translation>
+    </message>
     
     <!-- Smart Selection Page -->
     <message>
@@ -786,6 +816,10 @@ Replace it?</source>
 <!-- ========== Toolbar ========== -->
 <context>
     <name>Toolbar</name>
+    <message>
+        <source>Ctrl+click any editable annotation to edit it temporarily</source>
+        <translation>Ctrlを押しながら編集可能な注釈をクリックして一時編集</translation>
+    </message>
     <message>
         <source>Mosaic (mouse wheel to resize)</source>
         <translation>モザイク（マウスホイールでサイズ変更）</translation>

@@ -53,6 +53,7 @@ class CanvasScene(QGraphicsScene):
         # 0: Background
         # 10: Highlighter Items (由工具创建)
         # 20: Normal Drawing Items (由工具创建)
+        # 30: Text Items（始终位于普通绘制标注之上）
         # 101: Selection Item
         # (遮罩层已移至 ScreenshotWindow 的 QWidget 叠层 MaskOverlayWidget)
         
