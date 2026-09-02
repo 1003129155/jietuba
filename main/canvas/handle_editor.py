@@ -165,6 +165,8 @@ class LayerEditor:
         self._arrow_base_control_scene: Optional[QPointF] = None
         self._arrow_base_control_modified: bool = False  # 控制点是否被修改
         self._base_corner_radius: Optional[float] = None  # 圆角基准状态
+        self._base_text_width: Optional[float] = None
+        self._base_manual_text_width: Optional[float] = None
         
         # 初始化旋转光标
         self._ensure_rotate_cursor()
@@ -268,6 +270,8 @@ class LayerEditor:
         self._arrow_base_control_scene = None
         self._arrow_base_control_modified = False
         self._base_corner_radius = None
+        self._base_text_width = None
+        self._base_manual_text_width = None
 
     def is_editing(self) -> bool:
         return self.active_layer is not None
@@ -592,6 +596,14 @@ class LayerEditor:
         # 保存 local rect（若是 rect()/setRect() 体系）
         self._base_local_rect = self._get_local_rect(self.active_layer)
 
+        self._base_text_width = None
+        self._base_manual_text_width = None
+        if isinstance(self.active_layer, QGraphicsTextItem):
+            self._base_text_width = float(self.active_layer.textWidth())
+            manual_width = getattr(self.active_layer, "manual_text_width", None)
+            if callable(manual_width):
+                self._base_manual_text_width = manual_width()
+
         self._base_rotation = None
         self._rotation_origin_local = None
         if hasattr(self.active_layer, "rotation") and callable(getattr(self.active_layer, "rotation")):
@@ -660,6 +672,8 @@ class LayerEditor:
         self._base_rotation = None
         self._rotation_origin_local = None
         self._base_corner_radius = None
+        self._base_text_width = None
+        self._base_manual_text_width = None
 
         if (
             undo_stack is not None
@@ -1278,6 +1292,13 @@ class LayerEditor:
             except Exception as e:
                 log_exception(e, "捕获layer pos")
 
+        if isinstance(layer, QGraphicsTextItem):
+            state["text_width"] = float(layer.textWidth())
+            manual_width = getattr(layer, "manual_text_width", None)
+            state["manual_text_width"] = (
+                manual_width() if callable(manual_width) else None
+            )
+
         if hasattr(layer, "transform") and callable(getattr(layer, "transform")):
             try:
                 state["transform"] = QTransform(layer.transform())
@@ -1356,6 +1377,15 @@ class LayerEditor:
         # local rect
         if self._base_local_rect is not None:
             self._set_local_rect(layer, QRectF(self._base_local_rect))
+
+        if (
+            self._base_text_width is not None
+            and hasattr(layer, "restore_text_width_state")
+        ):
+            layer.restore_text_width_state(
+                self._base_manual_text_width,
+                self._base_text_width,
+            )
 
         if (
             self._is_arrow_item(layer)

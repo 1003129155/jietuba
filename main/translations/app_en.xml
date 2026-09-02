@@ -395,6 +395,14 @@ Replace it?</translation>
         <source>Keep text above other annotations, including ones drawn later.</source>
         <translation>Keep text above other annotations, including ones drawn later.</translation>
     </message>
+    <message>
+        <source>Automatically Wrap Text</source>
+        <translation>Automatically Wrap Text</translation>
+    </message>
+    <message>
+        <source>Start new text annotations at about 30 characters wide and keep them inside the selection.</source>
+        <translation>Start new text annotations at about 30 characters wide and keep them inside the selection.</translation>
+    </message>
     
     <!-- Smart Selection Page -->
     <message>

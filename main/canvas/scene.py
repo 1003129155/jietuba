@@ -6,7 +6,7 @@ from PySide6.QtWidgets import QGraphicsScene
 from PySide6.QtCore import Signal, Qt
 from PySide6.QtGui import QColor
 
-from .items import BackgroundItem, SelectionItem
+from .items import BackgroundItem, SelectionItem, TextItem
 from .selection_model import SelectionModel
 from .undo import CommandUndoStack
 from tools import ToolController, ToolContext
@@ -44,6 +44,9 @@ class CanvasScene(QGraphicsScene):
         
         # 先创建选区模型
         self.selection_model = SelectionModel()
+        self.selection_model.rectChanged.connect(
+            self._update_text_wrap_boundaries
+        )
         
         # 创建图层（传入model）
         self.background = BackgroundItem(background_image, self.scene_rect)
@@ -127,6 +130,17 @@ class CanvasScene(QGraphicsScene):
         self.selection_item.show()
         
         self.selectionConfirmed.emit()
+
+    def _update_text_wrap_boundaries(self, selection_rect):
+        """让已启用边界换行的文字跟随选区右边界变化。"""
+        if selection_rect.isEmpty():
+            return
+        for item in self.items():
+            if (
+                isinstance(item, TextItem)
+                and getattr(item, "_wrap_right_edge", None) is not None
+            ):
+                item.set_wrap_right_edge(selection_rect.right())
 
     
     def activate_tool(self, tool_id: str):

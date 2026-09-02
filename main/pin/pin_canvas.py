@@ -372,6 +372,10 @@ class PinCanvas(QObject):
         color = QColor(item.defaultTextColor())
         
         cloned = TextItem(text, pos, font, color)
+
+        # 保留截图场景中的文字排版宽度，避免钉图后重新展开为单行。
+        if item.textWidth() >= 0:
+            cloned.setTextWidth(item.textWidth())
         
         # 复制增强属性
         if hasattr(item, 'has_outline'):

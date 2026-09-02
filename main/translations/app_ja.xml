@@ -401,6 +401,14 @@ Replace it?</source>
         <source>Keep text above other annotations, including ones drawn later.</source>
         <translation>後から描画したものを含め、テキストを他の注釈より前面に保ちます。</translation>
     </message>
+    <message>
+        <source>Automatically Wrap Text</source>
+        <translation>テキストを自動で折り返す</translation>
+    </message>
+    <message>
+        <source>Start new text annotations at about 30 characters wide and keep them inside the selection.</source>
+        <translation>新しいテキスト注釈は約30文字幅で開始し、選択範囲内に収めます。</translation>
+    </message>
     
     <!-- Smart Selection Page -->
     <message>

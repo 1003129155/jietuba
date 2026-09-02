@@ -488,13 +488,9 @@ class SmartEditController(QObject):
         
         # 显示编辑控制点
         if self.layer_editor:
-            if isinstance(item, TextItem):
-                # 文字图元使用自身编辑体验，禁用 LayerEditor 控制点
-                self.layer_editor.stop_edit()
-            else:
-                self.layer_editor.start_edit(item)
-                # 触发场景重绘，显示控制点
-                self.scene.update()
+            self.layer_editor.start_edit(item)
+            # 触发场景重绘，显示控制点
+            self.scene.update()
         
         # 同步箭头样式面板状态
         if isinstance(item, ArrowItem):
@@ -692,10 +688,7 @@ class SmartEditController(QObject):
             except Exception as exc:
                 log_exception(exc, "SmartEdit push move undo")
 
-        if isinstance(self.selected_item, TextItem):
-            self.layer_editor.stop_edit()
-        else:
-            self.layer_editor.start_edit(self.selected_item)
+        self.layer_editor.start_edit(self.selected_item)
         self.scene.update()
         self._move_initial_state = None
     
@@ -729,10 +722,7 @@ class SmartEditController(QObject):
                     self.scene.update()
             elif self.layer_editor:
                 # 图元还在，重新生成控制点以匹配新状态
-                if isinstance(self.selected_item, TextItem):
-                    self.layer_editor.stop_edit()
-                else:
-                    self.layer_editor.start_edit(self.selected_item)
+                self.layer_editor.start_edit(self.selected_item)
                 
                 # 同步箭头样式面板状态
                 if isinstance(self.selected_item, ArrowItem):
@@ -769,9 +759,8 @@ class SmartEditController(QObject):
         if self.selected_item and isinstance(self.selected_item, TextItem):
             self.selected_item.setFont(font)
             self.selected_item.update()
-            # 文字图元不使用 LayerEditor 控制点，若此前被激活则关闭
             if self.layer_editor:
-                self.layer_editor.stop_edit()
+                self.layer_editor.start_edit(self.selected_item)
 
     def on_text_color_changed(self, color):
         """更新选中文字的颜色"""

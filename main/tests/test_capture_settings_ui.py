@@ -43,6 +43,7 @@ def test_capture_page_reads_annotation_behavior_toggles(qapp, tmp_path, enabled)
     manager = _manager(tmp_path)
     manager.set_cross_tool_selection_enabled(enabled)
     manager.set_text_always_on_top_enabled(enabled)
+    manager.set_text_wrap_at_selection_edge_enabled(enabled)
     dialog = SimpleNamespace(
         config_manager=manager,
         tr=lambda text: text,
@@ -55,6 +56,7 @@ def test_capture_page_reads_annotation_behavior_toggles(qapp, tmp_path, enabled)
     try:
         assert dialog.cross_tool_selection_toggle.isChecked() is enabled
         assert dialog.text_always_on_top_toggle.isChecked() is enabled
+        assert dialog.text_wrap_at_selection_edge_toggle.isChecked() is enabled
     finally:
         page.deleteLater()
         qapp.processEvents()
@@ -114,11 +116,13 @@ def test_settings_dialog_saves_annotation_behavior_toggles(
     dialog._settings_snapshot = dialog._snapshot_settings()
     dialog.cross_tool_selection_toggle.setChecked(False)
     dialog.text_always_on_top_toggle.setChecked(False)
+    dialog.text_wrap_at_selection_edge_toggle.setChecked(True)
 
     assert dialog._has_unsaved_changes()
     dialog.accept()
     assert manager.get_cross_tool_selection_enabled() is False
     assert manager.get_text_always_on_top_enabled() is False
+    assert manager.get_text_wrap_at_selection_edge_enabled() is True
 
     dialog.deleteLater()
     qapp.processEvents()
@@ -156,25 +160,31 @@ def test_annotation_behavior_toggles_reset_refresh_and_snapshot(qapp, tmp_path):
 
     cross_toggle = toggle()
     text_toggle = toggle()
+    text_wrap_toggle = toggle()
     dialog = SimpleNamespace(
         config_manager=manager,
         cross_tool_selection_toggle=cross_toggle,
         text_always_on_top_toggle=text_toggle,
+        text_wrap_at_selection_edge_toggle=text_wrap_toggle,
     )
 
     SettingsDialog._reset_screenshot_settings_page(dialog)
     assert cross_toggle.value is True
     assert text_toggle.value is True
+    assert text_wrap_toggle.value is True
 
     manager.set_cross_tool_selection_enabled(False)
     manager.set_text_always_on_top_enabled(False)
+    manager.set_text_wrap_at_selection_edge_enabled(False)
     SettingsDialog.refresh_settings(dialog)
     assert cross_toggle.value is False
     assert text_toggle.value is False
+    assert text_wrap_toggle.value is False
 
     snapshot = SettingsDialog._snapshot_settings(dialog)
     assert snapshot["cross_tool_selection_toggle"] is False
     assert snapshot["text_always_on_top_toggle"] is False
+    assert snapshot["text_wrap_at_selection_edge_toggle"] is False
 
 
 def test_double_click_setting_translations_exist_and_load(qapp):
@@ -191,6 +201,9 @@ def test_double_click_setting_translations_exist_and_load(qapp):
             "Keep Text Annotations on Top": "Keep Text Annotations on Top",
             "Keep text above other annotations, including ones drawn later.":
                 "Keep text above other annotations, including ones drawn later.",
+            "Automatically Wrap Text": "Automatically Wrap Text",
+            "Start new text annotations at about 30 characters wide and keep them inside the selection.":
+                "Start new text annotations at about 30 characters wide and keep them inside the selection.",
         },
         "zh": {
             "Capture Behavior": "截图行为",
@@ -203,6 +216,9 @@ def test_double_click_setting_translations_exist_and_load(qapp):
             "Keep Text Annotations on Top": "文字标注始终置顶",
             "Keep text above other annotations, including ones drawn later.":
                 "让文字保持在其他标注上方，包括之后绘制的标注。",
+            "Automatically Wrap Text": "文字自动换行",
+            "Start new text annotations at about 30 characters wide and keep them inside the selection.":
+                "新建文字标注默认约 30 个字符宽，并限制在选区内。",
         },
         "ja": {
             "Capture Behavior": "キャプチャ動作",
@@ -215,6 +231,9 @@ def test_double_click_setting_translations_exist_and_load(qapp):
             "Keep Text Annotations on Top": "テキスト注釈を常に最前面に表示",
             "Keep text above other annotations, including ones drawn later.":
                 "後から描画したものを含め、テキストを他の注釈より前面に保ちます。",
+            "Automatically Wrap Text": "テキストを自動で折り返す",
+            "Start new text annotations at about 30 characters wide and keep them inside the selection.":
+                "新しいテキスト注釈は約30文字幅で開始し、選択範囲内に収めます。",
         },
         "ko": {
             "Capture Behavior": "캡처 동작",
@@ -227,6 +246,9 @@ def test_double_click_setting_translations_exist_and_load(qapp):
             "Keep Text Annotations on Top": "텍스트 주석을 항상 위에 표시",
             "Keep text above other annotations, including ones drawn later.":
                 "나중에 그린 항목을 포함해 텍스트를 다른 주석보다 위에 유지합니다.",
+            "Automatically Wrap Text": "텍스트 자동 줄 바꿈",
+            "Start new text annotations at about 30 characters wide and keep them inside the selection.":
+                "새 텍스트 주석은 약 30자 너비로 시작하고 선택 영역 안에 유지됩니다.",
         },
     }
 

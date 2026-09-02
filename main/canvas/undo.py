@@ -393,6 +393,16 @@ class EditItemCommand(QUndoCommand):
         if isinstance(origin, QPointF) and hasattr(self.item, "setTransformOriginPoint"):
             self.item.setTransformOriginPoint(QPointF(origin))
 
+        text_width = state.get("text_width")
+        if isinstance(text_width, (int, float)):
+            if hasattr(self.item, "restore_text_width_state"):
+                self.item.restore_text_width_state(
+                    state.get("manual_text_width"),
+                    float(text_width),
+                )
+            elif hasattr(self.item, "setTextWidth"):
+                self.item.setTextWidth(float(text_width))
+
 
         # opacity
         opacity = state.get("opacity")

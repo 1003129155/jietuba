@@ -6,7 +6,9 @@ from PySide6.QtCore import QEvent, QPoint, QPointF, QRectF, Qt, QTranslator
 from PySide6.QtGui import (
     QColor,
     QFont,
+    QFontMetricsF,
     QImage,
+    QKeyEvent,
     QMouseEvent,
     QPainter,
     QPainterPath,
@@ -18,7 +20,9 @@ from PySide6.QtWidgets import QGraphicsScene, QStyleOptionGraphicsItem, QWidget
 from canvas.scene import CanvasScene
 from canvas.view import CanvasView
 from canvas.items import EllipseItem, RectItem, StrokeItem, TextItem
+from canvas.handle_editor import HandleType, LayerEditor
 from canvas.smart_edit_controller import SmartEditController
+from canvas.undo import EditItemCommand
 from ui.paint_settings_panel import PaintSettingsPanel
 from ui.text_settings_panel import TextSettingsPanel
 from ui.toolbar import Toolbar
@@ -120,6 +124,290 @@ def test_text_tool_applies_always_on_top_setting(
         items = [item for item in scene.items() if isinstance(item, TextItem)]
         assert len(items) == 1
         assert items[0].zValue() == expected_z
+    finally:
+        view.close()
+        scene.deleteLater()
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+def test_text_tool_optionally_wraps_at_default_width_and_selection_right_edge(
+    qapp,
+    monkeypatch,
+    enabled,
+):
+    class Manager:
+        @staticmethod
+        def get_setting(_tool_id, _key, default=None):
+            return default
+
+        @staticmethod
+        def get_text_always_on_top_enabled():
+            return True
+
+        @staticmethod
+        def get_text_wrap_at_selection_edge_enabled():
+            return enabled
+
+    scene, view = _canvas()
+    try:
+        scene.selection_model.initialize_confirmed_rect(QRectF(0, 0, 1000, 800))
+        monkeypatch.setattr("settings.get_tool_settings_manager", lambda: Manager())
+        text_tool = scene.tool_controller.get_tool("text")
+        text_tool.on_press(
+            QPointF(30, 10),
+            Qt.MouseButton.LeftButton,
+            scene.tool_controller.ctx,
+        )
+        item = next(item for item in scene.items() if isinstance(item, TextItem))
+        item.setPlainText("This text is deliberately long enough to need wrapping")
+
+        if enabled:
+            expected_default_width = (
+                QFontMetricsF(item.font()).averageCharWidth()
+                * TextItem.DEFAULT_WRAP_CHARACTERS
+                + TextItem.TEXT_PADDING * 2
+            )
+            assert item.textWidth() == pytest.approx(expected_default_width)
+            assert item.textWidth() < 970.0
+
+            one_line_height = item.boundingRect().height()
+            item.setPlainText("word " * 100)
+            assert item.boundingRect().height() > one_line_height
+
+            item.setPos(QPointF(950, 10))
+            assert item.textWidth() == pytest.approx(50.0)
+            scene.selection_model.set_rect(QRectF(0, 0, 980, 800))
+            assert item.textWidth() == pytest.approx(30.0)
+
+            from pin.pin_canvas import PinCanvas
+            cloned = PinCanvas._clone_text_item(None, item)
+            assert cloned.textWidth() == pytest.approx(item.textWidth())
+        else:
+            assert item.textWidth() == -1
+            assert item.boundingRect().width() > 70
+    finally:
+        view.close()
+        scene.deleteLater()
+
+
+def test_text_tool_wraps_at_default_width_without_a_selection_boundary(
+    qapp,
+    monkeypatch,
+):
+    class Manager:
+        @staticmethod
+        def get_setting(_tool_id, _key, default=None):
+            return default
+
+        @staticmethod
+        def get_text_always_on_top_enabled():
+            return True
+
+        @staticmethod
+        def get_text_wrap_at_selection_edge_enabled():
+            return True
+
+    scene, view = _canvas()
+    try:
+        monkeypatch.setattr("settings.get_tool_settings_manager", lambda: Manager())
+        scene.tool_controller.ctx.selection = None
+        text_tool = scene.tool_controller.get_tool("text")
+        text_tool.on_press(
+            QPointF(30, 10),
+            Qt.MouseButton.LeftButton,
+            scene.tool_controller.ctx,
+        )
+        item = next(item for item in scene.items() if isinstance(item, TextItem))
+        expected_default_width = (
+            QFontMetricsF(item.font()).averageCharWidth()
+            * TextItem.DEFAULT_WRAP_CHARACTERS
+            + TextItem.TEXT_PADDING * 2
+        )
+        assert item.textWidth() == pytest.approx(expected_default_width)
+        assert item._wrap_right_edge is None
+    finally:
+        view.close()
+        scene.deleteLater()
+
+
+def test_shift_enter_adds_a_line_and_grows_wrapped_text_item(qapp):
+    scene, view = _canvas()
+    try:
+        item = TextItem(
+            "first line",
+            QPointF(0, 0),
+            QFont("Arial", 16),
+            QColor("black"),
+            wrap_right_edge=100,
+        )
+        scene.addItem(item)
+        view.show()
+        view.setFocus()
+        item.setFocus()
+        cursor = item.textCursor()
+        cursor.movePosition(cursor.MoveOperation.End)
+        item.setTextCursor(cursor)
+        qapp.processEvents()
+        initial_height = item.boundingRect().height()
+
+        event = QKeyEvent(
+            QEvent.Type.KeyPress,
+            Qt.Key.Key_Return,
+            Qt.KeyboardModifier.ShiftModifier,
+        )
+        view.keyPressEvent(event)
+
+        assert item.toPlainText() == "first line\n"
+        assert item.boundingRect().height() > initial_height
+    finally:
+        view.close()
+        scene.deleteLater()
+
+
+def test_selected_text_exposes_only_a_right_edge_width_handle(qapp):
+    scene, view = _canvas()
+    try:
+        item = TextItem(
+            "resizable text",
+            QPointF(10, 10),
+            QFont("Arial", 16),
+            QColor("black"),
+            wrap_right_edge=500,
+        )
+        scene.addItem(item)
+
+        view.smart_edit_controller.select_item(item)
+        editor = view.smart_edit_controller.layer_editor
+
+        assert editor.active_layer is item
+        assert len(editor.handles) == 1
+        handle = editor.handles[0]
+        assert handle.handle_type == HandleType.EDGE_R
+        assert handle.position.x() == pytest.approx(item.sceneBoundingRect().right())
+        assert handle.position.y() == pytest.approx(item.sceneBoundingRect().center().y())
+    finally:
+        view.close()
+        scene.deleteLater()
+
+
+def test_text_width_handle_resizes_clamps_to_selection_and_supports_undo(qapp):
+    scene = QGraphicsScene()
+    item = TextItem(
+        "word " * 30,
+        QPointF(0, 0),
+        QFont("Arial", 16),
+        QColor("black"),
+        wrap_right_edge=1000,
+    )
+    scene.addItem(item)
+    editor = LayerEditor()
+    assert editor.start_edit(item)
+    handle = editor.handles[0]
+    automatic_width = item.textWidth()
+
+    editor.start_drag(handle, handle.position)
+    editor.drag_to(handle.position + QPointF(80, 0))
+    old_state, new_state = editor.end_drag()
+    resized_width = automatic_width + 80
+
+    assert item.textWidth() == pytest.approx(resized_width)
+    assert item.manual_text_width() == pytest.approx(resized_width)
+
+    item.setPos(QPointF(970, 0))
+    assert item.textWidth() == pytest.approx(30.0)
+    item.setPos(QPointF(0, 0))
+    assert item.textWidth() == pytest.approx(resized_width)
+
+    command = EditItemCommand(item, old_state, new_state)
+    command.undo()
+    assert item.manual_text_width() is None
+    assert item.textWidth() == pytest.approx(automatic_width)
+    command.redo()
+    assert item.manual_text_width() == pytest.approx(resized_width)
+    assert item.textWidth() == pytest.approx(resized_width)
+
+
+def test_font_change_recomputes_auto_width_but_preserves_manual_width(qapp):
+    item = TextItem(
+        "font size",
+        QPointF(0, 0),
+        QFont("Arial", 12),
+        QColor("black"),
+        wrap_right_edge=2000,
+    )
+
+    larger_font = QFont("Arial", 28)
+    item.setFont(larger_font)
+    expected_auto_width = (
+        QFontMetricsF(larger_font).averageCharWidth()
+        * TextItem.DEFAULT_WRAP_CHARACTERS
+        + TextItem.TEXT_PADDING * 2
+    )
+    assert item.textWidth() == pytest.approx(expected_auto_width)
+
+    item.set_manual_text_width(280)
+    item.setFont(QFont("Arial", 36))
+    assert item.manual_text_width() == pytest.approx(280.0)
+    assert item.textWidth() == pytest.approx(280.0)
+
+
+def test_active_text_edit_starts_width_handle_drag_on_first_press(qapp):
+    image = QImage(400, 200, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(QColor("white"))
+    scene = CanvasScene(image, QRectF(0, 0, 400, 200), enable_mosaic=True)
+    view = CanvasView(scene)
+    try:
+        scene.selection_model.initialize_confirmed_rect(QRectF(0, 0, 400, 200))
+        item = TextItem(
+            "edit me",
+            QPointF(10, 10),
+            QFont("Arial", 16),
+            QColor("black"),
+            wrap_right_edge=350,
+        )
+        scene.addItem(item)
+        view._enter_text_edit_mode(item)
+        handle = view.smart_edit_controller.layer_editor.handles[0]
+        view_pos = QPointF(view.mapFromScene(handle.position))
+        initial_width = item.textWidth()
+
+        view.mousePressEvent(QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            view_pos,
+            view.mapToGlobal(view_pos.toPoint()),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        ))
+
+        assert view.smart_edit_controller.layer_editor.dragging_handle is handle
+        assert not view._text_drag_active
+
+        drag_scene_pos = handle.position - QPointF(20, 0)
+        drag_view_pos = QPointF(view.mapFromScene(drag_scene_pos))
+        view.mouseMoveEvent(QMouseEvent(
+            QEvent.Type.MouseMove,
+            drag_view_pos,
+            view.mapToGlobal(drag_view_pos.toPoint()),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        ))
+        view.mouseReleaseEvent(QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            drag_view_pos,
+            view.mapToGlobal(drag_view_pos.toPoint()),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        ))
+
+        expected_width = max(item.minimum_text_width(), initial_width - 20)
+        assert item.textWidth() == pytest.approx(expected_width)
+        assert scene.undo_stack.canUndo()
+        scene.undo_stack.undo()
+        assert item.manual_text_width() is None
+        assert item.textWidth() == pytest.approx(initial_width)
     finally:
         view.close()
         scene.deleteLater()

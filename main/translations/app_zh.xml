@@ -399,6 +399,14 @@ Replace it?</source>
         <source>Keep text above other annotations, including ones drawn later.</source>
         <translation>让文字保持在其他标注上方，包括之后绘制的标注。</translation>
     </message>
+    <message>
+        <source>Automatically Wrap Text</source>
+        <translation>文字自动换行</translation>
+    </message>
+    <message>
+        <source>Start new text annotations at about 30 characters wide and keep them inside the selection.</source>
+        <translation>新建文字标注默认约 30 个字符宽，并限制在选区内。</translation>
+    </message>
     
     <!-- Smart Selection Page -->
     <message>

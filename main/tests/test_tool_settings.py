@@ -177,6 +177,11 @@ class TestToolSettingsManager:
                 "set_text_always_on_top_enabled",
                 "text_always_on_top",
             ),
+            (
+                "get_text_wrap_at_selection_edge_enabled",
+                "set_text_wrap_at_selection_edge_enabled",
+                "text_wrap_at_selection_edge",
+            ),
         ],
     )
     def test_annotation_behavior_toggles_default_persist_and_reset(
@@ -187,22 +192,22 @@ class TestToolSettingsManager:
         setter_name,
         setting_key,
     ):
-        """两个标注行为默认开启，可持久关闭并随应用设置重置。"""
-        assert manager.APP_DEFAULT_SETTINGS[setting_key] is True
-        assert getattr(manager, getter_name)() is True
+        """标注行为开关可持久修改并随应用设置重置。"""
+        expected_default = manager.APP_DEFAULT_SETTINGS[setting_key]
+        assert getattr(manager, getter_name)() is expected_default
 
-        getattr(manager, setter_name)(False)
+        getattr(manager, setter_name)(not expected_default)
         manager.qsettings.sync()
         reopened_qsettings = QSettings(
             manager.qsettings.fileName(),
             QSettings.Format.IniFormat,
         )
         reloaded = ToolSettingsManager(qsettings=reopened_qsettings)
-        assert getattr(reloaded, getter_name)() is False
+        assert getattr(reloaded, getter_name)() is not expected_default
 
         monkeypatch.setattr("core.logger.log_info", lambda *_args, **_kwargs: None)
         reloaded.reset_app_settings()
-        assert getattr(reloaded, getter_name)() is True
+        assert getattr(reloaded, getter_name)() is expected_default
 
     def test_get_color(self, manager):
         """获取 QColor 对象"""
@@ -233,6 +238,7 @@ class TestToolSettingsManager:
         assert defaults["double_click_copy_close"] is True
         assert defaults["cross_tool_selection"] is True
         assert defaults["text_always_on_top"] is True
+        assert defaults["text_wrap_at_selection_edge"] is True
         assert defaults["translation_hotkey"] == ""
         assert defaults["translation_hotkey_2"] == ""
         assert defaults["translation_provider"] == "google"

@@ -744,6 +744,15 @@ class CanvasView(QGraphicsView):
                 focus_item = self._get_active_text_item()
                 if focus_item is None:
                     return
+                edit_handled = self.smart_edit_controller.handle_edit_press(
+                    scene_pos,
+                    event.pos(),
+                    event.button(),
+                    event.modifiers(),
+                )
+                if edit_handled:
+                    log_debug("文字宽度控制点拖拽被处理", "CanvasView")
+                    return
                 if isinstance(focus_item, QGraphicsTextItem) and \
                         self._is_point_on_text_edge(focus_item, scene_pos):
                     self._begin_text_drag(focus_item, scene_pos)
@@ -1529,6 +1538,7 @@ class CanvasView(QGraphicsView):
             # 文字编辑模式下允许换行，不传递给父窗口
             if is_text_editing:
                 super().keyPressEvent(event)
+                self._update_edit_handles()
                 return
 
         if is_text_editing:
@@ -1536,9 +1546,11 @@ class CanvasView(QGraphicsView):
             if (event.key() in (Qt.Key.Key_Z, Qt.Key.Key_Y)
                     and event.modifiers() == Qt.KeyboardModifier.ControlModifier):
                 super().keyPressEvent(event)
+                self._update_edit_handles()
                 return
             # 文字编辑模式下，所有普通按键交给 QGraphicsTextItem 处理
             super().keyPressEvent(event)
+            self._update_edit_handles()
             return
 
         # 非文字编辑模式：其余按键一律 ignore，让事件冒泡到父窗口统一处理
@@ -1549,6 +1561,7 @@ class CanvasView(QGraphicsView):
         """IME composition between clicks invalidates screenshot confirmation."""
         self.invalidate_double_click_candidate()
         super().inputMethodEvent(event)
+        self._update_edit_handles()
 
     def _is_text_editing(self) -> bool:
         """判断当前是否在编辑文字图元"""
@@ -1667,7 +1680,6 @@ class CanvasView(QGraphicsView):
                     editor
                     and editor.is_editing()
                     and controller.selected_item is selected_item
-                    and not isinstance(selected_item, TextItem)
                 ):
                     editor.start_edit(selected_item)
                 self.canvas_scene.update()
