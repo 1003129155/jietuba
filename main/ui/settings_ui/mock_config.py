@@ -19,7 +19,6 @@ APP_DEFAULT_SETTINGS = {
     "double_click_copy_close": True,
     "cross_tool_selection": True,
     "text_always_on_top": True,
-    "text_wrap_at_selection_edge": True,
     "smart_selection": True,
     "log_enabled": True,
     "log_level": "INFO",
@@ -95,8 +94,6 @@ class MockConfig:
     def set_cross_tool_selection_enabled(self, v): pass
     def get_text_always_on_top_enabled(self): return True
     def set_text_always_on_top_enabled(self, v): pass
-    def get_text_wrap_at_selection_edge_enabled(self): return True
-    def set_text_wrap_at_selection_edge_enabled(self, v): pass
     def get_smart_selection(self): return False
     def set_smart_selection(self, v): pass
     def get_log_enabled(self): return True

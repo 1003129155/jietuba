@@ -15,7 +15,7 @@ from PySide6.QtCore import QObject, Signal, QPointF, Qt
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsScene
 
 from canvas.items import StrokeItem, RectItem, EllipseItem, ArrowItem, TextItem, NumberItem
-from canvas.handle_editor import LayerEditor
+from canvas.handle_editor import HandleType, LayerEditor
 from canvas.undo import EditItemCommand
 from core.logger import log_exception
 
@@ -584,9 +584,11 @@ class SmartEditController(QObject):
                 self.scene.update()
                 return True
 
-        if self.layer_editor.is_number_delete_handle(hit):
+        if self.layer_editor.is_delete_handle(hit):
             self.layer_editor.hovered_handle = hit
-            self.delete_selected(suppress_block=True, renumber_numbers=True)
+            # 只有删掉序号才需要把后续序号往前补；删文字不该动编号。
+            is_number = hit.handle_type == HandleType.NUMBER_DELETE
+            self.delete_selected(suppress_block=True, renumber_numbers=is_number)
             self.scene.update()
             return True
 

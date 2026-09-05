@@ -177,7 +177,6 @@ class ToolSettingsManager(QObject):
         "double_click_copy_close": True,      # 双击选区复制到剪贴板并关闭
         "cross_tool_selection": True,         # Ctrl 临时跨工具选择标注
         "text_always_on_top": True,           # 文字标注始终高于其他绘制标注
-        "text_wrap_at_selection_edge": True,  # 文字标注默认约 30 字宽，并受选区右边界限制
 
         # 智能选择
         "smart_selection": True,              # 智能选区（窗口/控件识别）
@@ -709,17 +708,6 @@ class ToolSettingsManager(QObject):
         """设置文字标注是否始终位于其他绘制标注之上。"""
         self.qsettings.setValue("app/text_always_on_top", value)
 
-    def get_text_wrap_at_selection_edge_enabled(self) -> bool:
-        """获取文字标注是否在选区右边界自动换行。"""
-        return self.qsettings.value(
-            "app/text_wrap_at_selection_edge",
-            self.APP_DEFAULT_SETTINGS["text_wrap_at_selection_edge"],
-            type=bool,
-        )
-
-    def set_text_wrap_at_selection_edge_enabled(self, value: bool):
-        """设置文字标注是否在选区右边界自动换行。"""
-        self.qsettings.setValue("app/text_wrap_at_selection_edge", value)
     
     def get_log_enabled(self) -> bool:
         """获取日志启用状态"""

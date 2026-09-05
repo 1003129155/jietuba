@@ -60,6 +60,8 @@ class HandleType(Enum):
     NUMBER_INCREMENT = "number_increment"  # 序号 +1
     NUMBER_DECREMENT = "number_decrement"  # 序号 -1
     NUMBER_DELETE = "number_delete"  # 删除序号
+    ITEM_DELETE = "item_delete"      # 通用删除按钮（文字等）
+    TEXT_SCALE = "text_scale"        # 文字右下角字号缩放
 
 
 @dataclass
@@ -165,8 +167,7 @@ class LayerEditor:
         self._arrow_base_control_scene: Optional[QPointF] = None
         self._arrow_base_control_modified: bool = False  # 控制点是否被修改
         self._base_corner_radius: Optional[float] = None  # 圆角基准状态
-        self._base_text_width: Optional[float] = None
-        self._base_manual_text_width: Optional[float] = None
+        self._base_font_point_size: Optional[float] = None
         
         # 初始化旋转光标
         self._ensure_rotate_cursor()
@@ -270,8 +271,7 @@ class LayerEditor:
         self._arrow_base_control_scene = None
         self._arrow_base_control_modified = False
         self._base_corner_radius = None
-        self._base_text_width = None
-        self._base_manual_text_width = None
+        self._base_font_point_size = None
 
     def is_editing(self) -> bool:
         return self.active_layer is not None
@@ -500,8 +500,16 @@ class LayerEditor:
             and handle.handle_type in (HandleType.NUMBER_INCREMENT, HandleType.NUMBER_DECREMENT)
         )
 
+    def is_delete_handle(self, handle: Optional[EditHandle]) -> bool:
+        """删除按钮：序号用 NUMBER_DELETE，其余图元用 ITEM_DELETE。"""
+        return bool(
+            handle
+            and handle.handle_type in (HandleType.NUMBER_DELETE, HandleType.ITEM_DELETE)
+        )
+
     def is_number_delete_handle(self, handle: Optional[EditHandle]) -> bool:
-        return bool(handle and handle.handle_type == HandleType.NUMBER_DELETE)
+        """旧调用名，保留以免外部引用失效。"""
+        return self.is_delete_handle(handle)
 
     def adjust_number_with_handle(self, handle: EditHandle, undo_stack: Optional[Any] = None) -> bool:
         """点击序号 +/- 按钮，修改当前 NumberItem。"""
@@ -596,13 +604,10 @@ class LayerEditor:
         # 保存 local rect（若是 rect()/setRect() 体系）
         self._base_local_rect = self._get_local_rect(self.active_layer)
 
-        self._base_text_width = None
-        self._base_manual_text_width = None
-        if isinstance(self.active_layer, QGraphicsTextItem):
-            self._base_text_width = float(self.active_layer.textWidth())
-            manual_width = getattr(self.active_layer, "manual_text_width", None)
-            if callable(manual_width):
-                self._base_manual_text_width = manual_width()
+        self._base_font_point_size = None
+        point_size = getattr(self.active_layer, "font_point_size", None)
+        if callable(point_size):
+            self._base_font_point_size = float(point_size())
 
         self._base_rotation = None
         self._rotation_origin_local = None
@@ -672,8 +677,7 @@ class LayerEditor:
         self._base_rotation = None
         self._rotation_origin_local = None
         self._base_corner_radius = None
-        self._base_text_width = None
-        self._base_manual_text_width = None
+        self._base_font_point_size = None
 
         if (
             undo_stack is not None
@@ -715,6 +719,11 @@ class LayerEditor:
 
         if handle.handle_type == HandleType.ROTATE:
             self._apply_rotation(layer, delta_scene)
+            return
+
+        # ---- 文字字号缩放 ----
+        if handle.handle_type == HandleType.TEXT_SCALE:
+            self._apply_text_scale_drag(layer, delta_scene)
             return
 
         # ---- 圆角手柄 ----
@@ -783,6 +792,29 @@ class LayerEditor:
             rect.setBottom(rect.bottom() + delta.y())
         elif handle_type == HandleType.EDGE_L:
             rect.setLeft(rect.left() + delta.x())
+
+    def _apply_text_scale_drag(self, layer: Any, delta_scene: QPointF):
+        """右下角手柄：把对角线方向的位移换算成新的字号。
+
+        取位移在原对角线上的投影比例作为缩放系数，这样斜向拖拽手感自然，
+        且横竖两个方向都能驱动，不会出现某个方向拖不动的死区。
+        """
+        base_rect = self._base_scene_rect
+        base_size = self._base_font_point_size
+        if base_size is None or not isinstance(base_rect, QRectF) or not base_rect.isValid():
+            return
+        if not hasattr(layer, "set_font_point_size"):
+            return
+
+        diag = base_rect.bottomRight() - base_rect.topLeft()
+        denom = diag.x() * diag.x() + diag.y() * diag.y()
+        if denom <= 0:
+            return
+        moved = diag + delta_scene
+        factor = (moved.x() * diag.x() + moved.y() * diag.y()) / denom
+        if factor <= 0:
+            factor = 0.01
+        layer.set_font_point_size(base_size * factor)
 
     def _apply_corner_radius_drag(self, layer: Any, handle: EditHandle, delta_scene: QPointF):
         """拖拽圆角手柄，改变矩形圆角半径。
@@ -1102,6 +1134,7 @@ class LayerEditor:
                 HandleType.NUMBER_INCREMENT,
                 HandleType.NUMBER_DECREMENT,
                 HandleType.NUMBER_DELETE,
+                HandleType.ITEM_DELETE,
             ):
                 number_handles.append(h)
             else:
@@ -1242,7 +1275,7 @@ class LayerEditor:
         painter.setPen(icon_pen)
         center = rect.center()
         half_len = max(3.0, handle.size * 0.28)
-        if handle.handle_type == HandleType.NUMBER_DELETE:
+        if handle.handle_type in (HandleType.NUMBER_DELETE, HandleType.ITEM_DELETE):
             painter.drawLine(
                 QPointF(center.x() - half_len, center.y() - half_len),
                 QPointF(center.x() + half_len, center.y() + half_len),
@@ -1294,12 +1327,9 @@ class LayerEditor:
             except Exception as e:
                 log_exception(e, T("捕获layer pos"))
 
-        if isinstance(layer, QGraphicsTextItem):
-            state["text_width"] = float(layer.textWidth())
-            manual_width = getattr(layer, "manual_text_width", None)
-            state["manual_text_width"] = (
-                manual_width() if callable(manual_width) else None
-            )
+        point_size = getattr(layer, "font_point_size", None)
+        if callable(point_size):
+            state["font_point_size"] = float(point_size())
 
         if hasattr(layer, "transform") and callable(layer.transform):
             try:
@@ -1381,13 +1411,10 @@ class LayerEditor:
             self._set_local_rect(layer, QRectF(self._base_local_rect))
 
         if (
-            self._base_text_width is not None
-            and hasattr(layer, "restore_text_width_state")
+            self._base_font_point_size is not None
+            and hasattr(layer, "set_font_point_size")
         ):
-            layer.restore_text_width_state(
-                self._base_manual_text_width,
-                self._base_text_width,
-            )
+            layer.set_font_point_size(self._base_font_point_size)
 
         if (
             self._is_arrow_item(layer)

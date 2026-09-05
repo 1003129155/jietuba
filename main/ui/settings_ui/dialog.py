@@ -690,10 +690,6 @@ class SettingsDialog(FrostedFramelessDialog):
             self.text_always_on_top_toggle.setChecked(
                 defaults["text_always_on_top"]
             )
-        if hasattr(self, 'text_wrap_at_selection_edge_toggle'):
-            self.text_wrap_at_selection_edge_toggle.setChecked(
-                defaults["text_wrap_at_selection_edge"]
-            )
         if hasattr(self, 'smart_toggle'):
             self.smart_toggle.setChecked(defaults["smart_selection"])
         if hasattr(self, 'save_toggle'):
@@ -834,10 +830,6 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'text_always_on_top_toggle'):
             self.config_manager.set_text_always_on_top_enabled(
                 self.text_always_on_top_toggle.isChecked()
-            )
-        if hasattr(self, 'text_wrap_at_selection_edge_toggle'):
-            self.config_manager.set_text_wrap_at_selection_edge_enabled(
-                self.text_wrap_at_selection_edge_toggle.isChecked()
             )
         if hasattr(self, 'smart_toggle'):
             self.config_manager.set_smart_selection(self.smart_toggle.isChecked())
@@ -1176,7 +1168,7 @@ class SettingsDialog(FrostedFramelessDialog):
         for attr in ('double_click_copy_close_toggle',
                       'cross_tool_selection_toggle',
                       'text_always_on_top_toggle',
-                      'text_wrap_at_selection_edge_toggle', 'smart_toggle',
+                      'smart_toggle',
                       'save_toggle', 'ocr_enable_toggle',
                       'ocr_grayscale_toggle', 'ocr_upscale_toggle',
                       'deepl_pro_toggle', 'split_sentences_toggle',
@@ -1348,11 +1340,6 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'text_always_on_top_toggle'):
             self.text_always_on_top_toggle.setChecked(
                 self.config_manager.get_text_always_on_top_enabled()
-            )
-
-        if hasattr(self, 'text_wrap_at_selection_edge_toggle'):
-            self.text_wrap_at_selection_edge_toggle.setChecked(
-                self.config_manager.get_text_wrap_at_selection_edge_enabled()
             )
 
         if hasattr(self, 'save_toggle'):

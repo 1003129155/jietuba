@@ -40,19 +40,6 @@ class TextTool(Tool):
                 "get_text_always_on_top_enabled",
                 lambda: True,
             )()
-            wrap_at_selection_edge = getattr(
-                manager,
-                "get_text_wrap_at_selection_edge_enabled",
-                lambda: True,
-            )()
-
-            wrap_right_edge = None
-            if wrap_at_selection_edge and ctx.selection is not None:
-                selection_rect = ctx.selection.rect()
-                if not selection_rect.isEmpty():
-                    wrap_right_edge = selection_rect.right()
-            
-            # 创建字体对象
             font = QFont(font_family, font_size)
             font.setBold(font_bold)
             font.setItalic(font_italic)
@@ -64,8 +51,6 @@ class TextTool(Tool):
                 font,
                 ctx.color,
                 always_on_top=always_on_top,
-                wrap_right_edge=wrap_right_edge,
-                wrap_enabled=wrap_at_selection_edge,
             )
             
             # 应用默认增强效果

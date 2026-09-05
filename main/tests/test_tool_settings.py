@@ -175,11 +175,6 @@ class TestToolSettingsManager:
                 "set_text_always_on_top_enabled",
                 "text_always_on_top",
             ),
-            (
-                "get_text_wrap_at_selection_edge_enabled",
-                "set_text_wrap_at_selection_edge_enabled",
-                "text_wrap_at_selection_edge",
-            ),
         ],
     )
     def test_annotation_behavior_toggles_default_persist_and_reset(
@@ -236,7 +231,6 @@ class TestToolSettingsManager:
         assert defaults["double_click_copy_close"] is True
         assert defaults["cross_tool_selection"] is True
         assert defaults["text_always_on_top"] is True
-        assert defaults["text_wrap_at_selection_edge"] is True
         assert defaults["translation_hotkey"] == ""
         assert defaults["translation_hotkey_2"] == ""
         assert defaults["translation_provider"] == "google"

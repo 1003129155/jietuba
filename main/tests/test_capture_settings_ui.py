@@ -43,7 +43,6 @@ def test_capture_page_reads_annotation_behavior_toggles(qapp, tmp_path, enabled)
     manager = _manager(tmp_path)
     manager.set_cross_tool_selection_enabled(enabled)
     manager.set_text_always_on_top_enabled(enabled)
-    manager.set_text_wrap_at_selection_edge_enabled(enabled)
     dialog = SimpleNamespace(
         config_manager=manager,
         tr=lambda text: text,
@@ -56,7 +55,6 @@ def test_capture_page_reads_annotation_behavior_toggles(qapp, tmp_path, enabled)
     try:
         assert dialog.cross_tool_selection_toggle.isChecked() is enabled
         assert dialog.text_always_on_top_toggle.isChecked() is enabled
-        assert dialog.text_wrap_at_selection_edge_toggle.isChecked() is enabled
     finally:
         page.deleteLater()
         qapp.processEvents()
@@ -116,13 +114,11 @@ def test_settings_dialog_saves_annotation_behavior_toggles(
     dialog._settings_snapshot = dialog._snapshot_settings()
     dialog.cross_tool_selection_toggle.setChecked(False)
     dialog.text_always_on_top_toggle.setChecked(False)
-    dialog.text_wrap_at_selection_edge_toggle.setChecked(True)
 
     assert dialog._has_unsaved_changes()
     dialog.accept()
     assert manager.get_cross_tool_selection_enabled() is False
     assert manager.get_text_always_on_top_enabled() is False
-    assert manager.get_text_wrap_at_selection_edge_enabled() is True
 
     dialog.deleteLater()
     qapp.processEvents()
@@ -160,31 +156,25 @@ def test_annotation_behavior_toggles_reset_refresh_and_snapshot(qapp, tmp_path):
 
     cross_toggle = toggle()
     text_toggle = toggle()
-    text_wrap_toggle = toggle()
     dialog = SimpleNamespace(
         config_manager=manager,
         cross_tool_selection_toggle=cross_toggle,
         text_always_on_top_toggle=text_toggle,
-        text_wrap_at_selection_edge_toggle=text_wrap_toggle,
     )
 
     SettingsDialog._reset_screenshot_settings_page(dialog)
     assert cross_toggle.value is True
     assert text_toggle.value is True
-    assert text_wrap_toggle.value is True
 
     manager.set_cross_tool_selection_enabled(False)
     manager.set_text_always_on_top_enabled(False)
-    manager.set_text_wrap_at_selection_edge_enabled(False)
     SettingsDialog.refresh_settings(dialog)
     assert cross_toggle.value is False
     assert text_toggle.value is False
-    assert text_wrap_toggle.value is False
 
     snapshot = SettingsDialog._snapshot_settings(dialog)
     assert snapshot["cross_tool_selection_toggle"] is False
     assert snapshot["text_always_on_top_toggle"] is False
-    assert snapshot["text_wrap_at_selection_edge_toggle"] is False
 
 
 def test_double_click_setting_translations_exist_and_load(qapp):

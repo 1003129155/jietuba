@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import math
 from PySide6.QtWidgets import QGraphicsPathItem, QGraphicsRectItem, QGraphicsEllipseItem, QGraphicsItem, QGraphicsTextItem
-from PySide6.QtGui import QPen, QPainter, QPainterPath, QColor, QFont, QFontMetricsF, QPainterPathStroker, QBrush
+from PySide6.QtGui import QPen, QPainter, QPainterPath, QColor, QFont, QPainterPathStroker, QBrush
 from PySide6.QtCore import Qt, QRectF, QPointF
 from core import log_debug, log_warning, safe_event
 from core.logger import T
@@ -1323,8 +1323,16 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
     """文字图元 - 增强版"""
     # 文字与虚线边框之间的内边距（document margin）
     TEXT_PADDING = 8
-    DEFAULT_WRAP_CHARACTERS = 30
-    MINIMUM_WRAP_CHARACTERS = 4
+    MIN_POINT_SIZE = 6.0
+    MAX_POINT_SIZE = 400.0
+
+    # 手柄 id：避开矩形(0-7)、圆角(10-13)、序号(200-202)
+    HANDLE_ROTATE = 210
+    HANDLE_DELETE = 211
+    HANDLE_SCALE = 212
+    ROTATE_HANDLE_SIZE = 18
+    BUTTON_HANDLE_SIZE = 16
+    SCALE_HANDLE_SIZE = 10
     NORMAL_ANNOTATION_Z_VALUE = 20
     ANNOTATION_Z_VALUE = 30
     BACKGROUND_RADIUS = 6.0
@@ -1336,22 +1344,11 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
         font: QFont,
         color: QColor,
         always_on_top: bool = True,
-        wrap_right_edge: float | None = None,
-        wrap_enabled: bool = False,
     ):
         super().__init__(text)
-        self._manual_text_width: float | None = None
-        # 兼容旧的直接构造：传入右边界本身也表示需要自动换行。
-        self._wrap_enabled = bool(wrap_enabled or wrap_right_edge is not None)
-        self._wrap_right_edge = (
-            float(wrap_right_edge) if wrap_right_edge is not None else None
-        )
         self._init_drawing_mixin()
-        if self._wrap_right_edge is not None:
-            self.setFlag(
-                QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges,
-                True,
-            )
+        # 尺寸始终跟随内容：不设换行宽度，短内容才不会撑出多余的背景色。
+        self.setTextWidth(-1)
         self.setPos(pos)
         self.setFont(font)
         self.setDefaultTextColor(color)
@@ -1366,7 +1363,6 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
         # 增大 document margin，使虚线边框与文字之间有足够间距
         # 默认只有 4px，太小导致鼠标难以区分文字区域和边框区域
         self.document().setDocumentMargin(self.TEXT_PADDING)
-        self._update_wrap_width()
         
         # 增强属性
         self.has_outline = True  # 默认开启描边
@@ -1380,121 +1376,58 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
         self.has_background = False # 默认关闭背景
         self.background_color = QColor(255, 255, 255, 255) # 白色全不透明
 
-    def _update_wrap_width(self):
-        """使用默认/手动宽度排版，并在靠近选区右侧时进一步收窄。"""
-        preferred_width = self._manual_text_width
-        if preferred_width is None and self._wrap_enabled:
-            preferred_width = self._default_wrap_width()
-        if preferred_width is None:
-            return
-        if self._wrap_right_edge is not None:
-            available_width = max(
-                1.0,
-                self._wrap_right_edge - self.scenePos().x(),
-            )
-            preferred_width = min(preferred_width, available_width)
-        self.setTextWidth(preferred_width)
+    # ------------------------------------------------------------------
+    # 字号缩放（右下角手柄驱动）
+    # ------------------------------------------------------------------
 
-    def setFont(self, font: QFont):
-        """字体变化时重算自动宽度；用户手动设置的物理宽度保持不变。"""
-        super().setFont(font)
-        if hasattr(self, "_manual_text_width") and hasattr(self, "_wrap_enabled"):
-            self._update_wrap_width()
+    def font_point_size(self) -> float:
+        """当前字号；点阵字体回退到用像素高度近似。"""
+        size = self.font().pointSizeF()
+        if size <= 0:
+            size = float(self.font().pixelSize())
+        return max(float(size), self.MIN_POINT_SIZE)
 
-    def _default_wrap_width(self) -> float:
-        return (
-            QFontMetricsF(self.font()).averageCharWidth()
-            * self.DEFAULT_WRAP_CHARACTERS
-            + self.TEXT_PADDING * 2
+    def set_font_point_size(self, point_size: float):
+        """按字号重新排版；描边宽度、阴影偏移等不随之变化。"""
+        clamped = max(
+            self.MIN_POINT_SIZE,
+            min(self.MAX_POINT_SIZE, float(point_size)),
         )
-
-    def minimum_text_width(self) -> float:
-        return (
-            QFontMetricsF(self.font()).averageCharWidth()
-            * self.MINIMUM_WRAP_CHARACTERS
-            + self.TEXT_PADDING * 2
-        )
-
-    def manual_text_width(self) -> float | None:
-        return self._manual_text_width
-
-    def set_manual_text_width(self, width: float):
-        """设置用户拖拽得到的首选宽度；高度继续由文档排版决定。"""
-        self._manual_text_width = max(
-            self.minimum_text_width(),
-            float(width),
-        )
-        self._update_wrap_width()
-
-    def restore_text_width_state(
-        self,
-        manual_width: float | None,
-        actual_width: float,
-    ):
-        """恢复撤销快照中的手动宽度及当时实际排版宽度。"""
-        self._manual_text_width = (
-            float(manual_width) if manual_width is not None else None
-        )
-        if self._manual_text_width is not None or self._wrap_enabled:
-            self._update_wrap_width()
-        else:
-            self.setTextWidth(float(actual_width))
+        font = QFont(self.font())
+        font.setPointSizeF(clamped)
+        self.setFont(font)
 
     def get_edit_handles(self):
-        """文字仅暴露右侧宽度手柄；高度始终由内容自动增长。"""
+        """左上旋转、右上删除、右下缩放；左下角不放功能。"""
         from canvas.handle_editor import EditHandle, HandleType
 
         rect = self.sceneBoundingRect()
         return [
             EditHandle(
-                5,
-                HandleType.EDGE_R,
-                QPointF(rect.right(), rect.center().y()),
-                Qt.CursorShape.SizeHorCursor,
-                10,
-                10,
-            )
+                self.HANDLE_ROTATE,
+                HandleType.ROTATE,
+                rect.topLeft(),
+                Qt.CursorShape.SizeAllCursor,
+                self.ROTATE_HANDLE_SIZE,
+            ),
+            EditHandle(
+                self.HANDLE_DELETE,
+                HandleType.ITEM_DELETE,
+                rect.topRight(),
+                Qt.CursorShape.PointingHandCursor,
+                self.BUTTON_HANDLE_SIZE,
+                2,
+            ),
+            EditHandle(
+                self.HANDLE_SCALE,
+                HandleType.TEXT_SCALE,
+                rect.bottomRight(),
+                Qt.CursorShape.SizeFDiagCursor,
+                self.SCALE_HANDLE_SIZE,
+                8,
+            ),
         ]
 
-    def apply_handle_drag(self, handle_id: int, delta_scene: QPointF, _keep_ratio: bool):
-        """将右侧手柄的场景位移转换为文字本地排版宽度。"""
-        if handle_id != 5:
-            return
-        scene_origin = self.mapToScene(QPointF(0, 0))
-        local_origin = self.mapFromScene(scene_origin)
-        local_target = self.mapFromScene(scene_origin + delta_scene)
-        delta_width = local_target.x() - local_origin.x()
-        current_width = self.textWidth()
-        if current_width < 0:
-            current_width = self.boundingRect().width()
-        self.set_manual_text_width(current_width + delta_width)
-
-    def set_wrap_right_edge(self, right_edge: float | None):
-        """更新选区右边界；None 仅移除边界约束，不关闭默认换行。"""
-        self._wrap_right_edge = (
-            float(right_edge) if right_edge is not None else None
-        )
-        self.setFlag(
-            QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges,
-            self._wrap_right_edge is not None,
-        )
-        if self._wrap_right_edge is None:
-            if self._manual_text_width is None and not self._wrap_enabled:
-                self.setTextWidth(-1)
-            else:
-                self._update_wrap_width()
-        else:
-            self._update_wrap_width()
-
-    def itemChange(self, change, value):
-        result = super().itemChange(change, value)
-        if (
-            change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged
-            and getattr(self, "_wrap_right_edge", None) is not None
-        ):
-            self._update_wrap_width()
-        return result
-        
     def paint(self, painter, option, widget):
         """重写绘制方法以支持描边和阴影"""
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)

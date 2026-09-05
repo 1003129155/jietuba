@@ -71,20 +71,6 @@ def create_capture_page(dialog) -> QWidget:
     dialog.text_always_on_top_toggle = text_top_card
     grp_behavior.addSettingCard(text_top_card)
 
-    text_wrap_card = SwitchSettingCard(
-        FluentIcon.FONT,
-        dialog.tr("Automatically Wrap Text"),
-        dialog.tr(
-            "Start new text annotations at about 30 characters wide and keep them inside the selection."
-        ),
-        parent=grp_behavior,
-    )
-    text_wrap_card.setChecked(
-        dialog.config_manager.get_text_wrap_at_selection_edge_enabled()
-    )
-    dialog.text_wrap_at_selection_edge_toggle = text_wrap_card
-    grp_behavior.addSettingCard(text_wrap_card)
-
     layout.addWidget(grp_behavior)
 
     # ── 智能选区 ──────────────────────────────────────
