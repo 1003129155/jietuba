@@ -11,6 +11,10 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      # Runner 控制台默认编码是 cp1252，打包脚本的中文 print() 会导致
+      # UnicodeEncodeError；强制 Python 用 UTF-8 处理标准输出。
+      PYTHONUTF8: "1"
 
     steps:
       - name: Checkout
