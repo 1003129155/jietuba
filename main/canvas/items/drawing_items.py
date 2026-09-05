@@ -1330,8 +1330,6 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
     HANDLE_ROTATE = 210
     HANDLE_DELETE = 211
     HANDLE_SCALE = 212
-    ROTATE_HANDLE_SIZE = 18
-    BUTTON_HANDLE_SIZE = 16
     SCALE_HANDLE_SIZE = 10
     NORMAL_ANNOTATION_Z_VALUE = 20
     ANNOTATION_Z_VALUE = 30
@@ -1399,7 +1397,7 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
 
     def get_edit_handles(self):
         """左上旋转、右上删除、右下缩放；左下角不放功能。"""
-        from canvas.handle_editor import EditHandle, HandleType
+        from canvas.handle_editor import EditHandle, HandleType, LayerEditor
 
         rect = self.sceneBoundingRect()
         return [
@@ -1408,14 +1406,14 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
                 HandleType.ROTATE,
                 rect.topLeft(),
                 Qt.CursorShape.SizeAllCursor,
-                self.ROTATE_HANDLE_SIZE,
+                LayerEditor.FUNCTIONAL_HANDLE_SIZE,
             ),
             EditHandle(
                 self.HANDLE_DELETE,
                 HandleType.ITEM_DELETE,
                 rect.topRight(),
                 Qt.CursorShape.PointingHandCursor,
-                self.BUTTON_HANDLE_SIZE,
+                LayerEditor.FUNCTIONAL_HANDLE_SIZE,
                 2,
             ),
             EditHandle(

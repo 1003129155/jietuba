@@ -25,6 +25,7 @@ from PySide6.QtSvg import QSvgRenderer
 
 from core import log_debug, log_warning
 from core.logger import log_exception, T
+from core.theme import get_theme
 
 try:
     # 你项目里的撤销命令
@@ -127,6 +128,9 @@ class LayerEditor:
     RADIUS_HANDLE_COLOR = QColor(255, 140, 0)       # 圆角手柄颜色（橙色）
     RADIUS_HANDLE_HOVER_COLOR = QColor(255, 100, 0) # 圆角手柄hover颜色
     RADIUS_HANDLE_MIN_OFFSET = 16           # 圆角为0时手柄的最小内侧距离
+    # 功能性手柄（旋转/删除/序号加减）统一边长，沿用序号按钮原本的 14px
+    FUNCTIONAL_HANDLE_SIZE = 14
+    FUNCTIONAL_GLYPH_RATIO = 0.24           # 图样半径占边长的比例，其余留给主题色
     NUMBER_BUTTON_SIZE = 14
     NUMBER_BUTTON_GAP = 4
     NUMBER_BUTTON_COLOR = QColor(220, 45, 35)
@@ -321,7 +325,7 @@ class LayerEditor:
 
     def _generate_number_handles(self, rect: QRectF) -> List[EditHandle]:
         """序号工具：+ 在左上角，- 在 + 正下方，X 在右上角与 + 对称。"""
-        size = self.NUMBER_BUTTON_SIZE
+        size = self.FUNCTIONAL_HANDLE_SIZE
         step = size + self.NUMBER_BUTTON_GAP
         lx = rect.left()
         rx = rect.right()
@@ -428,7 +432,7 @@ class LayerEditor:
 
         # 左上角改为旋转手柄（使用更大的尺寸和自定义光标）
         rotate_cursor = self.get_rotate_cursor()
-        handles.append(EditHandle(0, HandleType.ROTATE, rect.topLeft(), rotate_cursor, self.ROTATE_HANDLE_SIZE))
+        handles.append(EditHandle(0, HandleType.ROTATE, rect.topLeft(), rotate_cursor, self.FUNCTIONAL_HANDLE_SIZE))
 
         # 其他三个角
         handles.append(EditHandle(1, HandleType.CORNER_TR, rect.topRight(), Qt.CursorShape.SizeBDiagCursor, hs))
@@ -1132,32 +1136,21 @@ class LayerEditor:
                 painter.setBrush(Qt.BrushStyle.NoBrush)
                 painter.drawRect(rect)
 
-        # 分离旋转手柄和普通手柄
-        rotate_handle = None
+        # 功能性手柄（点击执行动作）与拖拽手柄（改形状）分开画
+        functional_handles = []
         normal_handles = []
         control_handles = []  # 箭头弯曲控制点
         radius_handles = []   # 圆角控制点
-        number_handles = []   # 序号 + / - / 删除按钮
-        
+
         for h in self.handles:
-            if h.handle_type == HandleType.ROTATE:
-                rotate_handle = h
+            if h.handle_type in self.FUNCTIONAL_HANDLE_TYPES:
+                functional_handles.append(h)
             elif h.handle_type == HandleType.ARROW_CONTROL:
                 control_handles.append(h)
             elif h.handle_type == HandleType.CORNER_RADIUS:
                 radius_handles.append(h)
-            elif h.handle_type in (
-                HandleType.NUMBER_INCREMENT,
-                HandleType.NUMBER_DECREMENT,
-                HandleType.NUMBER_DELETE,
-                HandleType.ITEM_DELETE,
-            ):
-                number_handles.append(h)
             else:
                 normal_handles.append(h)
-
-        for h in number_handles:
-            self._render_number_adjust_handle(painter, h)
         
         # 绘制普通控制点（方形）
         for h in normal_handles:
@@ -1209,108 +1202,113 @@ class LayerEditor:
                 painter.setBrush(QBrush(QColor(255, 255, 255)))
             painter.drawPolygon(diamond)
         
-        # 绘制旋转手柄（使用SVG图标样式）
-        if rotate_handle:
-            self._render_rotate_handle(painter, rotate_handle)
+        # 功能性手柄最后画，压在其它元素之上
+        for h in functional_handles:
+            self._render_functional_handle(painter, h)
 
         painter.restore()
     
-    def _render_rotate_handle(self, painter: QPainter, handle: EditHandle):
-        """渲染旋转手柄（SVG样式）"""
-        is_hovered = self.hovered_handle is not None and self.hovered_handle.id == handle.id
-        center = handle.position
+    FUNCTIONAL_HANDLE_TYPES = (
+        HandleType.ROTATE,
+        HandleType.NUMBER_INCREMENT,
+        HandleType.NUMBER_DECREMENT,
+        HandleType.NUMBER_DELETE,
+        HandleType.ITEM_DELETE,
+    )
 
-        # 尝试加载并渲染SVG
-        if ResourceManager:
-            svg_path = ResourceManager.get_resource_path("svg/旋转.svg")
-        else:
-            svg_path = os.path.join(os.path.dirname(__file__), '..', '..', 'svg', '旋转.svg')
-        
-        if os.path.exists(svg_path):
-            try:
-                renderer = QSvgRenderer(svg_path)
-                if renderer.isValid():
-                    # SVG视图框大小 (从SVG的viewBox="4.5 4.5 23 23"得知)
-                    size = self.ROTATE_HANDLE_SIZE
-                    
-                    # 计算渲染矩形（中心对齐）
-                    half_size = size / 2
-                    render_rect = QRectF(
-                        center.x() - half_size,
-                        center.y() - half_size,
-                        size,
-                        size
-                    )
-                    
-                    # 如果悬停，绘制高亮背景
-                    if is_hovered:
-                        painter.setPen(Qt.PenStyle.NoPen)
-                        painter.setBrush(QBrush(QColor(0, 160, 255, 80)))  # 半透明蓝色背景
-                        painter.drawEllipse(center, half_size + 2, half_size + 2)
-                    
-                    # 渲染SVG
-                    renderer.render(painter, render_rect)
-                    return
-            except Exception as e:
-                log_warning(T("渲染旋转SVG失败: {e}", e=e), "LayerEditor")
-        
-        # 回退：绘制简单的旋转图标
-        self._render_rotate_handle_fallback(painter, center, is_hovered)
-    
-    def _render_rotate_handle_fallback(self, painter: QPainter, center: QPointF, is_hovered: bool):
-        """旋转手柄的回退渲染（简单圆形+箭头）"""
-        color = self.HOVER_COLOR if is_hovered else self.ROTATE_HANDLE_COLOR
-        radius = self.ROTATE_HANDLE_SIZE / 2
-        
-        # 绘制外圆
-        painter.setPen(QPen(color, self.HANDLE_BORDER_WIDTH))
-        painter.setBrush(QBrush(self.HANDLE_FILL if not is_hovered else self.HOVER_FILL))
-        painter.drawEllipse(center, radius, radius)
-        
-        # 绘制旋转箭头图案（简化版）
-        painter.setPen(QPen(color, 1.5))
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        
-        # 绘制圆弧箭头
-        inner_radius = radius * 0.5
-        painter.drawEllipse(center, inner_radius, inner_radius)
+    @staticmethod
+    def _contrast_ink(background: QColor) -> QColor:
+        """主题色是用户可改的，图样颜色按亮度取黑或白，保证任何主题都看得清。"""
+        luminance = (
+            0.299 * background.red()
+            + 0.587 * background.green()
+            + 0.114 * background.blue()
+        )
+        return QColor(20, 20, 20) if luminance > 150 else QColor(255, 255, 255)
 
-    def _render_number_adjust_handle(self, painter: QPainter, handle: EditHandle):
-        """渲染序号工具的 + / - / 删除按钮。"""
-        is_hovered = self.hovered_handle is not None and self.hovered_handle.id == handle.id
+    def _render_functional_handle(self, painter: QPainter, handle: EditHandle):
+        """功能性手柄的统一画法。
+
+        这类手柄按下去是执行动作（旋转、删除、序号加减），不是拖形状，所以
+        它们共用一套外观：正方形、居中图样，图样四周到描边之间填满主题色。
+        """
+        is_hovered = (
+            self.hovered_handle is not None and self.hovered_handle.id == handle.id
+        )
+        fill = QColor(get_theme().theme_color)
+        if is_hovered:
+            fill = fill.lighter(118)
+        ink = self._contrast_ink(fill)
         rect = handle.get_rect()
-        fill = self.NUMBER_BUTTON_HOVER_COLOR if is_hovered else self.NUMBER_BUTTON_COLOR
 
         painter.save()
         painter.setPen(QPen(QColor(255, 255, 255), 1.4))
         painter.setBrush(QBrush(fill))
         painter.drawRect(rect)
 
-        icon_pen = QPen(QColor(255, 255, 255), 1.8)
-        icon_pen.setCosmetic(True)
-        painter.setPen(icon_pen)
-        center = rect.center()
-        half_len = max(3.0, handle.size * 0.28)
-        if handle.handle_type in (HandleType.NUMBER_DELETE, HandleType.ITEM_DELETE):
-            painter.drawLine(
-                QPointF(center.x() - half_len, center.y() - half_len),
-                QPointF(center.x() + half_len, center.y() + half_len),
-            )
-            painter.drawLine(
-                QPointF(center.x() + half_len, center.y() - half_len),
-                QPointF(center.x() - half_len, center.y() + half_len),
-            )
-        else:
-            painter.drawLine(
-                QPointF(center.x() - half_len, center.y()),
-                QPointF(center.x() + half_len, center.y()),
-            )
-            if handle.handle_type == HandleType.NUMBER_INCREMENT:
-                painter.drawLine(
-                    QPointF(center.x(), center.y() - half_len),
-                    QPointF(center.x(), center.y() + half_len),
-                )
+        pen = QPen(ink, max(1.4, handle.size * 0.11))
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setCosmetic(False)
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        self._draw_handle_glyph(painter, handle, rect.center(), ink)
         painter.restore()
+
+    def _draw_handle_glyph(
+        self, painter: QPainter, handle: EditHandle, center: QPointF, ink: QColor
+    ):
+        """在手柄中心画图样；四周留白由主题色填充撑开。"""
+        reach = handle.size * self.FUNCTIONAL_GLYPH_RATIO
+        kind = handle.handle_type
+
+        if kind in (HandleType.NUMBER_DELETE, HandleType.ITEM_DELETE):
+            painter.drawLine(
+                QPointF(center.x() - reach, center.y() - reach),
+                QPointF(center.x() + reach, center.y() + reach),
+            )
+            painter.drawLine(
+                QPointF(center.x() + reach, center.y() - reach),
+                QPointF(center.x() - reach, center.y() + reach),
+            )
+            return
+
+        if kind in (HandleType.NUMBER_INCREMENT, HandleType.NUMBER_DECREMENT):
+            painter.drawLine(
+                QPointF(center.x() - reach, center.y()),
+                QPointF(center.x() + reach, center.y()),
+            )
+            if kind == HandleType.NUMBER_INCREMENT:
+                painter.drawLine(
+                    QPointF(center.x(), center.y() - reach),
+                    QPointF(center.x(), center.y() + reach),
+                )
+            return
+
+        if kind == HandleType.ROTATE:
+            # 缺口圆弧 + 实心三角箭头；小尺寸下线段箭头糊成一团，三角更清楚
+            box = QRectF(
+                center.x() - reach, center.y() - reach, reach * 2, reach * 2
+            )
+            start_deg, span_deg = 105.0, 300.0
+            painter.drawArc(box, int(start_deg * 16), int(span_deg * 16))
+
+            # 箭头落在圆弧末端，朝切线方向，否则会看着像凭空浮在缺口里
+            end_rad = math.radians(start_deg + span_deg)
+            anchor = QPointF(
+                center.x() + reach * math.cos(end_rad),
+                center.y() - reach * math.sin(end_rad),
+            )
+            direction = QPointF(-math.sin(end_rad), -math.cos(end_rad))
+            normal = QPointF(-direction.y(), direction.x())
+            head = reach * 0.95
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QBrush(ink))
+            painter.drawPolygon([
+                anchor + direction * (head * 0.5),
+                anchor - direction * (head * 0.4) + normal * (head * 0.45),
+                anchor - direction * (head * 0.4) - normal * (head * 0.45),
+            ])
+            return
 
     # =========================================================================
     # 状态拷贝 / 恢复（撤销用 + 避免累计误差）
