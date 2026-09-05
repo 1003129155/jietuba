@@ -500,7 +500,13 @@ class BaseSettingsPanel(QWidget):
         self.color_picker_btn.set_color(color)
         
     def set_size(self, size: int):
-        """设置大小（不触发信号）"""
+        """设置大小（不触发信号）。
+
+        步进器本来就会把超出范围的值钳回去，但 current_size 以前存的是原始值，
+        于是面板显示和面板状态对不上。这里一起钳制，两者保持一致。
+        """
+        low, high = self.SIZE_RANGE
+        size = max(int(low), min(int(high), int(size)))
         self.current_size = size
         if hasattr(self, 'size_spin'):
             self.size_spin.blockSignals(True)

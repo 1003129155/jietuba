@@ -24,6 +24,11 @@ class NumberTool(Tool):
     _SCENE_OFFSET_ATTR = "_number_tool_offset"
     _SCENE_ORDER_ATTR = "_number_tool_order_counter"
     RADIUS_SCALE = 2
+    # 序号的合法字号范围。工具栏把同一个笔触宽度广播给所有面板，画笔可以细到
+    # 1，序号不行——低于 MIN_WIDTH 的圈小到看不清数字。面板按这个范围钳制显示，
+    # 所以算半径也必须用同一个范围，否则会出现"面板显示 8、画出来却是 1"。
+    MIN_WIDTH = 8
+    MAX_WIDTH = 72
 
     @staticmethod
     def _count_numbers(scene) -> int:
@@ -61,9 +66,17 @@ class NumberTool(Tool):
             return 0
 
     @classmethod
+    def clamp_width(cls, stroke_width: float) -> float:
+        """把共享的笔触宽度收进序号自己的合法范围。"""
+        try:
+            width = float(stroke_width)
+        except (TypeError, ValueError):
+            width = cls.MIN_WIDTH
+        return max(float(cls.MIN_WIDTH), min(float(cls.MAX_WIDTH), width))
+
+    @classmethod
     def get_radius_for_width(cls, stroke_width: float) -> float:
-        base_width = max(1.0, float(stroke_width))
-        return base_width * cls.RADIUS_SCALE
+        return cls.clamp_width(stroke_width) * cls.RADIUS_SCALE
 
     @classmethod
     def get_next_number(cls, scene) -> int:
