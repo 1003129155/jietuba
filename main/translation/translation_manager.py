@@ -29,7 +29,7 @@ import time
 from typing import Optional
 from PySide6.QtCore import QCoreApplication, QObject, QPoint, QTimer, Signal
 
-from core import log_info, log_debug, log_error, log_warning
+from core.logger import log_info, log_debug, log_error, log_warning, T
 from core.ui_theme import get_ui_theme
 
 
@@ -69,7 +69,7 @@ class TranslationManager(QObject):
         self._ui_theme = get_ui_theme()
         self._ui_theme.theme_changed.connect(self._on_ui_theme_changed)
         
-        log_debug("TranslationManager 已初始化", "Translation")
+        log_debug(T("TranslationManager 已初始化"), "Translation")
 
     @staticmethod
     def _api_key_error() -> str:
@@ -157,7 +157,15 @@ class TranslationManager(QObject):
         self._legacy_provider_override = True
         self._split_sentences = split_sentences
         self._preserve_formatting = preserve_formatting
-        log_debug(f"翻译服务已配置 (Pro: {use_pro}, split_sentences: {split_sentences}, preserve_formatting: {preserve_formatting})", "Translation")
+        log_debug(
+            T(
+                "翻译服务已配置 (Pro: {use_pro}, split_sentences: {split_sentences}, preserve_formatting: {preserve_formatting})",
+                use_pro=use_pro,
+                split_sentences=split_sentences,
+                preserve_formatting=preserve_formatting,
+            ),
+            "Translation",
+        )
     
     def translate(
         self,
@@ -212,11 +220,11 @@ class TranslationManager(QObject):
         # 如果有文本，启动翻译；否则只显示空窗口
         if text and text.strip():
             if not self._backend_ready():
-                log_error("翻译引擎未配置", "Translation")
+                log_error(T("翻译引擎未配置"), "Translation")
                 if self._is_dialog_valid():
                     self._dialog.set_translation_error(self._api_key_error())
                 return
-            log_info(f"开始翻译: {text[:50]}...", "Translation")
+            log_info(T("开始翻译: {text_preview}...", text_preview=text[:50]), "Translation")
             self.translation_started.emit(text)
             
             # 使用窗口中用户选择的目标语言，而不是传入的默认值
@@ -229,7 +237,7 @@ class TranslationManager(QObject):
                 result_target="dialog",
             )
         else:
-            log_info("打开翻译窗口（待用户输入）", "Translation")
+            log_info(T("打开翻译窗口（待用户输入）"), "Translation")
             # 清空译文区域，等待用户输入
             if self._is_dialog_valid():
                 if self._backend_ready():
@@ -291,7 +299,7 @@ class TranslationManager(QObject):
             popup.show_error(self._api_key_error())
             return
 
-        log_info(f"开始划词翻译: {text[:50]}...", "Translation")
+        log_info(T("开始划词翻译: {text_preview}...", text_preview=text[:50]), "Translation")
         self.translation_started.emit(text)
         self._start_translation(
             text, target_lang, source_lang,
@@ -347,7 +355,7 @@ class TranslationManager(QObject):
             if self._is_popup_valid():
                 self._popup.show_error(self._api_key_error())
             return
-        log_info(f"开始小窗输入翻译: {text[:50]}...", "Translation")
+        log_info(T("开始小窗输入翻译: {text_preview}...", text_preview=text[:50]), "Translation")
         self.translation_started.emit(text)
         # 使用小窗当前选择的目标语言
         target_lang = self._popup._target_lang if self._is_popup_valid() else self._target_lang
@@ -365,9 +373,9 @@ class TranslationManager(QObject):
         try:
             from settings import get_tool_settings_manager
             get_tool_settings_manager().set_app_setting("translation_target_lang", new_lang)
-            log_debug(f"小窗目标语言已更新: {new_lang}", "Translation")
+            log_debug(T("小窗目标语言已更新: {new_lang}", new_lang=new_lang), "Translation")
         except Exception as e:
-            log_warning(f"保存目标语言失败: {e}", "Translation")
+            log_warning(T("保存目标语言失败: {e}", e=e), "Translation")
 
     def _ensure_popup(self):
         """Create the compact popup lazily and reuse it for fast subsequent calls."""
@@ -437,7 +445,7 @@ class TranslationManager(QObject):
         
         if self._dialog is None or not self._is_dialog_valid():
             # 创建新窗口
-            log_debug("创建新翻译窗口", "Translation")
+            log_debug(T("创建新翻译窗口"), "Translation")
             self._dialog = TranslationLoadingDialog(
                 original_text=text,
                 position=position,
@@ -455,7 +463,7 @@ class TranslationManager(QObject):
             self._dialog.show()
         else:
             # 复用现有窗口 - 保留用户选择的目标语言
-            log_debug("复用现有翻译窗口", "Translation")
+            log_debug(T("复用现有翻译窗口"), "Translation")
             # 不覆盖 target_lang，保留用户在 ComboBox 中选择的语言。
             self._dialog.update_content(
                 text,
@@ -499,8 +507,13 @@ class TranslationManager(QObject):
 
         provider_name = self._backend_name()
         log_info(
-            f"调用翻译引擎 {provider_name}: target={target_lang}, "
-            f"preserve_formatting={self._preserve_formatting}",
+            T(
+                "调用翻译引擎 {provider_name}: target={target_lang}, "
+                "preserve_formatting={preserve_formatting}",
+                provider_name=provider_name,
+                target_lang=target_lang,
+                preserve_formatting=self._preserve_formatting,
+            ),
             "Translation",
         )
         
@@ -556,7 +569,7 @@ class TranslationManager(QObject):
         """Discard superseded results and deliver only the latest request."""
         if token != self._request_token or thread is not self._thread:
             self._request_targets.pop(token, None)
-            log_debug("忽略已被新请求替代的翻译结果", "Translation")
+            log_debug(T("忽略已被新请求替代的翻译结果"), "Translation")
             return
         result_target = self._request_targets.pop(token, self._active_target)
         self._on_translation_finished(
@@ -578,7 +591,14 @@ class TranslationManager(QObject):
         result_target: str,
     ):
         """翻译完成回调"""
-        log_debug(f"翻译完成: success={success}, detected_lang={detected_lang}", "Translation")
+        log_debug(
+            T(
+                "翻译完成: success={success}, detected_lang={detected_lang}",
+                success=success,
+                detected_lang=detected_lang,
+            ),
+            "Translation",
+        )
 
         if result_target == "compact" and self._is_popup_valid():
             if success:
@@ -604,7 +624,7 @@ class TranslationManager(QObject):
                 self._dialog.set_translation_error(self.tr("Please enter text to translate"))
             return
         
-        log_debug(f"翻译请求: -> {target_lang}", "Translation")
+        log_debug(T("翻译请求: -> {target_lang}", target_lang=target_lang), "Translation")
         
         # 停止当前线程
         self._stop_current_thread()
@@ -619,7 +639,7 @@ class TranslationManager(QObject):
     
     def _on_dialog_destroyed(self):
         """窗口被销毁时的清理"""
-        log_debug("翻译窗口已关闭，清理资源", "Translation")
+        log_debug(T("翻译窗口已关闭，清理资源"), "Translation")
         self._dialog = None
         if self._active_target == "dialog":
             self._stop_current_thread()
@@ -650,7 +670,7 @@ class TranslationManager(QObject):
             if remaining_ms and thread.wait(remaining_ms):
                 continue
             if thread.isRunning():
-                log_warning("退出时翻译网络线程未在期限内结束", "Translation")
+                log_warning(T("退出时翻译网络线程未在期限内结束"), "Translation")
     
     def is_dialog_open(self) -> bool:
         """检查翻译窗口是否打开"""
@@ -662,7 +682,7 @@ class TranslationManager(QObject):
         if cls._instance is not None:
             cls._instance.shutdown()
             cls._instance = None
-            log_debug("TranslationManager 已清理", "Translation")
+            log_debug(T("TranslationManager 已清理"), "Translation")
     
     def translate_from_image(
         self,
@@ -690,7 +710,6 @@ class TranslationManager(QObject):
             split_sentences: 分句模式
             preserve_formatting: 保留格式
         """
-        from PySide6.QtGui import QPixmap
         
         # 使用传入的参数或已配置的参数
         api_key = self._resolve_api_key(api_key)
@@ -711,7 +730,7 @@ class TranslationManager(QObject):
         self._pending_target_lang = target_lang
         self._pending_pixmap = pixmap
         
-        log_info("截图翻译模式：显示窗口并启动OCR", "Translation")
+        log_info(T("截图翻译模式：显示窗口并启动OCR"), "Translation")
         
         # 1. 显示翻译窗口（原文区显示"识别中..."）
         self._ensure_dialog(
@@ -740,11 +759,11 @@ class TranslationManager(QObject):
 
         # ── 主线程完成 GUI 资源转换（QPixmap 不能跨线程访问）──
         if pixmap is None or pixmap.isNull():
-            log_debug("传入 pixmap 为空，跳过OCR", "Translation")
+            log_debug(T("传入 pixmap 为空，跳过OCR"), "Translation")
             return
         image: QImage = pixmap.toImage().copy()  # 深拷贝，线程安全
         if image.isNull():
-            log_debug("QImage 转换失败，跳过OCR", "Translation")
+            log_debug(T("QImage 转换失败，跳过OCR"), "Translation")
             return
 
         class OCRThread(QThread):
@@ -805,17 +824,24 @@ class TranslationManager(QObject):
         self._ocr_thread.finished_signal.connect(self._on_ocr_finished)
         self._ocr_thread.start()
         
-        log_debug("OCR线程已启动", "Translation")
+        log_debug(T("OCR线程已启动"), "Translation")
     
     def _on_ocr_finished(self, success: bool, result: str):
         """OCR识别完成回调"""
-        log_debug(f"OCR完成: success={success}, result_len={len(result) if result else 0}", "Translation")
+        log_debug(
+            T(
+                "OCR完成: success={success}, result_len={result_len}",
+                success=success,
+                result_len=(len(result) if result else 0),
+            ),
+            "Translation",
+        )
         
         # 清理pixmap引用
         self._pending_pixmap = None
         
         if not self._is_dialog_valid():
-            log_debug("翻译窗口已关闭，忽略OCR结果", "Translation")
+            log_debug(T("翻译窗口已关闭，忽略OCR结果"), "Translation")
             return
         
         # 恢复编辑状态
@@ -824,7 +850,7 @@ class TranslationManager(QObject):
         if success and result:
             # 填入识别的文本
             self._dialog.source_edit.setPlainText(result)
-            log_info(f"OCR识别成功: {result[:50]}...", "Translation")
+            log_info(T("OCR识别成功: {result_preview}...", result_preview=result[:50]), "Translation")
             
             # 自动开始翻译
             target_lang = getattr(self, '_pending_target_lang', "ZH")
@@ -838,4 +864,4 @@ class TranslationManager(QObject):
             # 显示错误信息
             self._dialog.source_edit.setPlainText("")
             self._dialog.source_edit.setPlaceholderText(result or "识别失败")
-            log_error(f"OCR识别失败: {result}", "Translation")
+            log_error(T("OCR识别失败: {result}", result=result), "Translation")

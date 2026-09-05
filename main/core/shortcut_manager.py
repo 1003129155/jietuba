@@ -42,8 +42,8 @@ from PySide6.QtWidgets import (
     QLineEdit, QPlainTextEdit, QTextEdit,
 )
 
-from core import log_debug, log_info, log_warning, log_error, safe_event
-from core.logger import log_exception
+from core import log_debug, log_error, safe_event
+from core.logger import log_exception, T
 
 # ======================================================================
 # Windows API 常量
@@ -130,7 +130,7 @@ class _HotkeyEventFilter(QAbstractNativeEventFilter):
                         # 全局热键被临时禁用时，handler 链也不应有机会拦截
                         if self._manager.global_hotkeys_suppressed:
                             log_debug(
-                                f"系统热键已临时禁用，忽略回调 (id={hotkey_id})",
+                                T("系统热键已临时禁用，忽略回调 (id={hotkey_id})", hotkey_id=hotkey_id),
                                 "Shortcut",
                             )
                             return True, 0
@@ -141,7 +141,7 @@ class _HotkeyEventFilter(QAbstractNativeEventFilter):
                         try:
                             cb()
                         except Exception as e:
-                            log_exception(e, f"热键回调 id={hotkey_id}")
+                            log_exception(e, T("热键回调 id={hotkey_id}", hotkey_id=hotkey_id))
                         return True, 0
         except Exception as e:
             log_exception(e, "nativeEventFilter")
@@ -188,7 +188,7 @@ class ShortcutManager(QObject):
             if app:
                 app.installEventFilter(cls._instance)
                 app.installNativeEventFilter(cls._instance._native_filter)
-                log_debug("ShortcutManager 已安装（KeyPress + WM_HOTKEY）", "Shortcut")
+                log_debug(T("ShortcutManager 已安装（KeyPress + WM_HOTKEY）"), "Shortcut")
         return cls._instance
 
     # ==================================================================
@@ -201,8 +201,13 @@ class ShortcutManager(QObject):
             self._handlers.append(handler)
             self._handlers.sort(key=lambda h: h.priority, reverse=True)
             log_debug(
-                f"注册 handler: {handler.handler_name} (优先级 {handler.priority})，"
-                f"当前共 {len(self._handlers)} 个",
+                T(
+                    "注册 handler: {handler_name} (优先级 {priority})，"
+                    "当前共 {handler_count} 个",
+                    handler_name=handler.handler_name,
+                    priority=handler.priority,
+                    handler_count=len(self._handlers),
+                ),
                 "Shortcut",
             )
 
@@ -210,7 +215,7 @@ class ShortcutManager(QObject):
         """注销一个快捷键处理器"""
         try:
             self._handlers.remove(handler)
-            log_debug(f"注销 handler: {handler.handler_name}", "Shortcut")
+            log_debug(T("注销 handler: {handler_name}", handler_name=handler.handler_name), "Shortcut")
         except ValueError:
             pass
 
@@ -283,8 +288,11 @@ class ShortcutManager(QObject):
                 if handler.is_active():
                     if handler.handle_key(event):
                         log_debug(
-                            f"按键被 {handler.handler_name} 消费 "
-                            f"(key=0x{event.key():X})",
+                            T(
+                                "按键被 {handler_name} 消费 (key=0x{key_hex:X})",
+                                handler_name=handler.handler_name,
+                                key_hex=event.key(),
+                            ),
                             "Shortcut",
                         )
                         return True
@@ -313,8 +321,11 @@ class ShortcutManager(QObject):
                 if handler.is_active():
                     if handler.handle_hotkey(hotkey_id, callback):
                         log_debug(
-                            f"系统热键被 {handler.handler_name} 拦截 "
-                            f"(id={hotkey_id})",
+                            T(
+                                "系统热键被 {handler_name} 拦截 (id={hotkey_id})",
+                                handler_name=handler.handler_name,
+                                hotkey_id=hotkey_id,
+                            ),
                             "Shortcut",
                         )
                         return True
@@ -344,7 +355,7 @@ class ShortcutManager(QObject):
             else:
                 return False
         except Exception as e:
-            log_error(f"Error registering hotkey {hotkey_str}: {e}", module="热键")
+            log_error(f"Error registering hotkey {hotkey_str}: {e}", module="Hotkey")
             return False
 
     def check_hotkey_availability(self, hotkey_str: str) -> bool:
@@ -362,7 +373,7 @@ class ShortcutManager(QObject):
                 return True
             return False
         except Exception as e:
-            log_exception(e, "检查快捷键可用性")
+            log_exception(e, T("检查快捷键可用性"))
             return False
 
     def unregister_all_hotkeys(self):

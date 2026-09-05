@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QPoint, QTimer
 from PySide6.QtGui import QPixmap
 
-from core.logger import log_exception
+from core.logger import T, log_exception
 from core.i18n import make_tr
 from ui.fluent_lite import TextEdit
 from typing import TYPE_CHECKING
@@ -324,7 +324,7 @@ class PreviewPopup(QWidget):
             self.content_widget.show()
             
         except Exception as e:
-            log_exception(e, "加载文本预览")
+            log_exception(e, T("加载文本预览"))
             self.content_widget.setMinimumSize(0, 0)
             self.content_widget.setMaximumSize(500, 400)
             self.content_widget.setPlainText(item.content)
@@ -443,7 +443,7 @@ class PreviewPopup(QWidget):
                     self.image_label.setFixedSize(scaled.size())
                     self.image_label.show()
             except Exception as e:
-                log_exception(e, "加载图片预览")
+                log_exception(e, T("加载图片预览"))
     
     def hide_preview(self):
         """隐藏预览"""

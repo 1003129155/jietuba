@@ -5,10 +5,11 @@
 from __future__ import annotations
 
 import math
-from PySide6.QtWidgets import QGraphicsPathItem, QGraphicsRectItem, QGraphicsEllipseItem, QGraphicsItem, QGraphicsTextItem, QGraphicsPixmapItem
-from PySide6.QtGui import QPen, QPainter, QPainterPath, QColor, QFont, QFontMetricsF, QPixmap, QPainterPathStroker, QBrush
+from PySide6.QtWidgets import QGraphicsPathItem, QGraphicsRectItem, QGraphicsEllipseItem, QGraphicsItem, QGraphicsTextItem
+from PySide6.QtGui import QPen, QPainter, QPainterPath, QColor, QFont, QFontMetricsF, QPainterPathStroker, QBrush
 from PySide6.QtCore import Qt, QRectF, QPointF
 from core import log_debug, log_warning, safe_event
+from core.logger import T
 
 class DrawingItemMixin:
     """绘图图元通用属性"""
@@ -153,7 +154,7 @@ class StrokeItem(QGraphicsPathItem, DrawingItemMixin):
             raise
         except Exception as e:
             # 绘制错误记录日志，避免崩溃
-            log_warning(f"DrawingItem paint 异常: {e}", "Canvas")
+            log_warning(T("DrawingItem paint 异常: {e}", e=e), "Canvas")
 
     # -- 统一属性接口 --
 
@@ -666,7 +667,6 @@ class ArrowItem(QGraphicsPathItem, DrawingItemMixin):
     
     def _update_straight_geometry(self):
         """直线箭头几何（支持单头和双头）"""
-        import math
         
         dx = self.end_pos.x() - self.start_pos.x()
         dy = self.end_pos.y() - self.start_pos.y()
@@ -883,7 +883,6 @@ class ArrowItem(QGraphicsPathItem, DrawingItemMixin):
     
     def _update_curved_geometry(self):
         """弯曲箭头几何 - 中间点在曲线上（三点定曲线），支持单头和双头"""
-        import math
         
         # 中间点 M 是用户拖拽的点，它应该在曲线上
         # 对于二次贝塞尔曲线 B(t) = (1-t)²P0 + 2(1-t)tP1 + t²P2
@@ -1519,11 +1518,9 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
         if self.has_outline:
             painter.save()
             # 获取文字路径
-            path = QPainterPath()
             # 注意：addText 的位置需要微调以匹配 QGraphicsTextItem 的内部边距
             # 默认边距通常是 4px 左右，但这取决于字体
             # 更精确的方法是遍历 layout，但这里我们用一个经验值
-            margin = 0 # QGraphicsTextItem 默认没有 margin，但 document 有
             # 实际上 QGraphicsTextItem 的绘制起点就是 (0,0)
             
             # 使用 QPainterPath 绘制文字轮廓
@@ -1542,7 +1539,6 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
             import math
             
             # 保存原始画笔
-            original_pen = painter.pen()
             
             # 设置描边画笔
             painter.setPen(self.outline_color)
@@ -1560,8 +1556,6 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
                 painter.restore()
             
 
-            path = QPainterPath()
-            font = self.font()
 
             painter.setBrush(Qt.BrushStyle.NoBrush) # 不填充
             pass
@@ -1607,7 +1601,7 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
         if not self.toPlainText().strip():
             if self.scene():
                 self.scene().removeItem(self)
-                log_debug("内容为空，自动删除", "TextItem")
+                log_debug(T("内容为空，自动删除"), "TextItem")
         else:
             # 否则取消编辑模式（可选）
             self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)

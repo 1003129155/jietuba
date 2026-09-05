@@ -1,13 +1,13 @@
 ﻿# -*- coding: utf-8 -*-
 """开发者选项页 — Fluent Design"""
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QScrollArea,
+    QWidget, QVBoxLayout, QScrollArea,
 )
 from PySide6.QtCore import Qt
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
     FluentIcon, ComboBox, DoubleSpinBox, SpinBox,
-    BodyLabel, CaptionLabel, PrimaryPushButton,
+    CaptionLabel, PrimaryPushButton,
 )
 from .components import SettingCardGroup
 

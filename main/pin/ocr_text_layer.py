@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 ocr_text_layer.py - OCR 可交互文字层（钉图专用）
 
@@ -13,11 +13,11 @@ ocr_text_layer.py - OCR 可交互文字层（钉图专用）
 """
 import unicodedata
 from PySide6.QtWidgets import QWidget, QApplication
-from PySide6.QtCore import Qt, QRect, QPoint, QRectF, Signal, QEvent
-from PySide6.QtGui import QPainter, QPen, QColor, QBrush, QCursor, QFont, QFontMetrics
+from PySide6.QtCore import Qt, QRect, QPoint, QRectF
+from PySide6.QtGui import QPainter, QColor
 from typing import List, Dict, Optional, Tuple
 from core import log_info, log_debug, safe_event
-from core.logger import log_exception
+from core.logger import log_exception, T
 
 
 class OCRTextItem:
@@ -165,7 +165,7 @@ class OCRTextLayer(QWidget):
             try:
                 parent_widget.destroyed.connect(self.cleanup)
             except Exception as e:
-                log_exception(e, "连接destroyed信号")
+                log_exception(e, T("连接destroyed信号"))
         
         # 原始图像尺寸
         self.original_width = original_width
@@ -220,7 +220,7 @@ class OCRTextLayer(QWidget):
             # 无文字时 mouseMoveEvent/mousePressEvent 均会 event.ignore() 穿透，不影响交互
             if not self.isVisible():
                 self.show()
-                log_debug("显示OCR文字层", "OCR层")
+                log_debug(T("显示OCR文字层"), "OCRLayer")
 
     def recalculate_char_positions(self):
         """
@@ -846,7 +846,8 @@ class OCRTextLayer(QWidget):
             # 复制到剪贴板
             clipboard = QApplication.clipboard()
             clipboard.setText(selected_text)
-            log_info(f"已复制: {selected_text[:50]}{'...' if len(selected_text) > 50 else ''}", module="OCR文字层")
+            text_preview = selected_text[:50] + ('...' if len(selected_text) > 50 else '')
+            log_info(T("已复制: {text_preview}", text_preview=text_preview), module="OCRTextLayer")
     
     @safe_event
     def keyPressEvent(self, event):
@@ -901,7 +902,7 @@ class OCRTextLayer(QWidget):
             self.clear_selection()
         except Exception as e:
             # 静默处理清理错误，避免影响父窗口的关闭流程
-            log_debug(f"OCR文字层清理时出错: {e}", "OCR")
+            log_debug(T("OCR文字层清理时出错: {e}", e=e), "OCR")
     
     @safe_event
     def closeEvent(self, event):
@@ -910,11 +911,11 @@ class OCRTextLayer(QWidget):
             self.cleanup()
         except Exception as e:
             # 即使cleanup失败也要继续关闭流程
-            log_debug(f"OCR文字层closeEvent时出错: {e}", "OCR")
+            log_debug(T("OCR文字层closeEvent时出错: {e}", e=e), "OCR")
         finally:
             # 确保调用父类的closeEvent
             try:
                 super().closeEvent(event)
             except Exception as e:
-                log_exception(e, "OCR文字层super closeEvent")
+                log_exception(e, T("OCR文字层super closeEvent"))
  

@@ -31,3 +31,33 @@ jietuba = "main.core.bootstrap:run"
 
 [tool.pytest.ini_options]
 testpaths = ["main/tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+exclude = ["rust_libs", "venv311", "build", "dist"]
+
+[tool.ruff.lint]
+# 只启用能指向真实缺陷的规则，不引入纯风格噪音：
+#   E9  语法/运行时错误
+#   F   pyflakes：未定义名字、未使用的导入与变量
+#   B   bugbear：可变默认参数、循环变量闭包等易错模式
+# 代码风格（缩进、引号、行宽等）暂不强制，避免一次性产生上万条与缺陷无关的告警。
+select = ["E9", "F", "B"]
+
+ignore = [
+    # 循环控制变量未使用，属于可读性问题而非缺陷
+    "B007",
+    # 默认参数中调用函数。项目里现存的三处都是有意为之，其中两处是
+    # `lambda p=os.path.dirname(x): ...` —— 用默认参数在定义时捕获值，
+    # 恰恰是规避闭包延迟绑定的正确写法，B008 对该惯用法会系统性误报。
+    # 真正危险的"可变对象作默认值"由 B006 覆盖，保持启用。
+    "B008",
+    # zip() 未显式指定 strict=，现有调用点长度均由构造保证
+    "B905",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# 包的 __init__.py 汇总导出子模块符号，这里的"未使用导入"是有意的
+"main/ui/settings_ui/__init__.py" = ["F401"]
+"main/ui/welcome/__init__.py" = ["F401"]

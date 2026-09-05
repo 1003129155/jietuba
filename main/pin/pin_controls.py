@@ -5,8 +5,7 @@
 """
 
 from PySide6.QtWidgets import QPushButton, QWidget
-from PySide6.QtGui import QIcon
-from PySide6.QtCore import QSize, Signal
+from PySide6.QtCore import QSize
 from core.resource_manager import ResourceManager
 
 
@@ -67,7 +66,7 @@ class PinControlButtons:
         button.setFixedSize(self.BUTTON_SIZE, self.BUTTON_SIZE)
         
         icon_path = ResourceManager.get_resource_path(f"svg/{icon_name}")
-        button.setIcon(QIcon(icon_path))
+        button.setIcon(ResourceManager.get_icon(icon_path))
         button.setIconSize(QSize(self.BUTTON_SIZE, self.BUTTON_SIZE))
         button.setStyleSheet(style)
         button.setToolTip(self.parent.tr(tooltip))

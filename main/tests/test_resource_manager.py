@@ -4,7 +4,6 @@ ResourceManager 资源路径管理器单元测试
 
 测试路径解析和图标缓存逻辑。
 """
-import pytest
 import os
 from core.resource_manager import ResourceManager
 

@@ -500,7 +500,6 @@ class SmartEditController(QObject):
         """清除选择"""
         self._active_click_handle = None
         if self.selected_item:
-            current_item = self.selected_item
             self.selected_item.setSelected(False)
             
             # 如果是自动选择（绘制后自动选中），清除时不阻止下次绘图
@@ -746,7 +745,7 @@ class SmartEditController(QObject):
                     toolbar = window.toolbar
                     if hasattr(toolbar, 'arrow_panel'):
                         toolbar.arrow_panel.arrow_style = arrow_style
-        except Exception as e:
+        except Exception:
             # 静默处理，避免因面板不存在导致崩溃
             pass
 

@@ -9,7 +9,7 @@ from .base import Tool, ToolContext
 from canvas.items import StrokeItem, RectItem, EllipseItem, ArrowItem, TextItem, NumberItem, MosaicItem
 from canvas.items import BackgroundItem, SelectionItem
 from canvas.undo import BatchRemoveCommand
-from core import log_debug, log_info
+from core.logger import log_debug, log_info, T
 
 
 class EraserTool(Tool):
@@ -76,7 +76,7 @@ class EraserTool(Tool):
                                         text=f"Erase {len(items_list)} items",
                                         number_next_before=self.number_next_before)
                 ctx.undo_stack.push_command(cmd)
-                log_info(f"删除了 {len(items_list)} 个图元", "Eraser")
+                log_info(T("删除了 {count} 个图元", count=len(items_list)), "Eraser")
             
             # 清理状态
             self.erased_items.clear()
@@ -113,7 +113,7 @@ class EraserTool(Tool):
         """工具激活 - 设置光标"""
         super().on_activate(ctx)
         # 橡皮擦光标由 CursorManager 统一管理
-        log_debug("已激活", "Eraser")
+        log_debug(T("已激活"), "Eraser")
     
     def on_deactivate(self, ctx: ToolContext):
         """工具停用 - 清理状态"""
@@ -129,7 +129,7 @@ class EraserTool(Tool):
         self.erasing = False
         self.last_pos = None
         self.number_next_before = None
-        log_debug("已停用", "Eraser")
+        log_debug(T("已停用"), "Eraser")
 
     @staticmethod
     def _get_number_next(scene):

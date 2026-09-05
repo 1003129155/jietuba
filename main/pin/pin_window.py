@@ -12,11 +12,11 @@
 - PinTranslationHelper：翻译功能助手
 """
 
-from PySide6.QtWidgets import QWidget, QApplication, QLabel
-from PySide6.QtCore import Qt, QPoint, QPointF, QSize, QTimer, Signal, QRect, QRectF, QEvent
+from PySide6.QtWidgets import QWidget, QLabel
+from PySide6.QtCore import Qt, QPoint, QTimer, Signal, QRectF, QEvent
 from PySide6.QtGui import (
     QPixmap, QImage, QPainter, QMouseEvent, QWheelEvent, QKeyEvent,
-    QColor, QPainterPath, QTransform,
+    QTransform,
 )
 from .pin_canvas_view import PinCanvasView
 from .pin_controls import PinControlButtons
@@ -28,7 +28,7 @@ from .pin_thumbnail import PinThumbnailMode
 from .pin_image_transform import PinImageTransform
 from core import log_debug, log_info, log_warning, log_error, safe_event
 from core.theme import get_theme
-from core.logger import log_exception
+from core.logger import log_exception, T
 from core.clipboard_utils import deliver_image_async
 
 
@@ -185,11 +185,15 @@ class PinWindow(QWidget):
         QTimer.singleShot(300, self._ocr_mgr.init_now)
 
         log_info(
-            f"创建成功: {image.width()}x{image.height()}, 位置: ({position.x()}, {position.y()})",
+            T(
+                "创建成功: {width}x{height}, 位置: ({x}, {y})",
+                width=image.width(), height=image.height(),
+                x=position.x(), y=position.y(),
+            ),
             "PinWindow",
         )
         if self.drawing_items:
-            log_debug(f"继承了 {len(self.drawing_items)} 个绘制项目（向量数据）", "PinWindow")
+            log_debug(T("继承了 {count} 个绘制项目（向量数据）", count=len(self.drawing_items)), "PinWindow")
 
     # ==================================================================
     # 兼容属性：让外部通过 pin_window.ocr_text_layer 访问
@@ -570,7 +574,7 @@ class PinWindow(QWidget):
             self.toolbar = PinToolbar(parent_pin_window=self, config_manager=self.config_manager)
             if self.canvas:
                 self.canvas.connect_toolbar(self.toolbar, self.view)
-            log_debug("创建工具栏，信号已由 PinCanvas 连接", "PinWindow")
+            log_debug(T("创建工具栏，信号已由 PinCanvas 连接"), "PinWindow")
 
         auto = self.config_manager.get_pin_auto_toolbar() if self.config_manager else True
         if auto:
@@ -609,9 +613,9 @@ class PinWindow(QWidget):
                 self._translation_helper.translate(self.ocr_text_layer)
         elif self._ocr_mgr.is_running:
             self._ocr_mgr.translate_pending = True
-            log_info("OCR 识别中，翻译将在识别完成后自动执行", "Translate")
+            log_info(T("OCR 识别中，翻译将在识别完成后自动执行"), "Translate")
         else:
-            log_warning("没有 OCR 结果也没有正在进行的 OCR", "Translate")
+            log_warning(T("没有 OCR 结果也没有正在进行的 OCR"), "Translate")
 
     # ==================================================================
     # 右键菜单
@@ -771,9 +775,9 @@ class PinWindow(QWidget):
             image = self.get_current_image()
             save_service = SaveService(config_manager=self.config_manager)
             if save_service.save_qimage_to_path(image, file_path, image_format=image_format):
-                log_info(f"保存成功: {file_path}", "PinWindow")
+                log_info(T("保存成功: {file_path}", file_path=file_path), "PinWindow")
             else:
-                log_error(f"保存失败: {file_path}", "PinWindow")
+                log_error(T("保存失败: {file_path}", file_path=file_path), "PinWindow")
 
         self._with_edit_paused(_do_save)
 
@@ -790,21 +794,21 @@ class PinWindow(QWidget):
     def close_window(self):
         if self._is_closed:
             return
-        log_debug("开始关闭", "PinWindow")
+        log_debug(T("开始关闭"), "PinWindow")
         self._is_closed = True
         self.cleanup()
         self.closed.emit()
         self.close()
 
     def cleanup(self):
-        log_debug("清理资源...", "PinWindow")
+        log_debug(T("清理资源..."), "PinWindow")
         try:
             # 从快捷键控制器注销
             try:
                 from .pin_shortcut import PinShortcutController
                 PinShortcutController.instance().unregister(self)
             except Exception as e:
-                log_exception(e, "注销快捷键控制器")
+                log_exception(e, T("注销快捷键控制器"))
 
             # 定时器
             if hasattr(self, '_scale_timer') and self._scale_timer:
@@ -813,7 +817,7 @@ class PinWindow(QWidget):
                     self._scale_timer.deleteLater()
                     self._scale_timer = None
                 except Exception as e:
-                    log_exception(e, "停止缩放定时器")
+                    log_exception(e, T("停止缩放定时器"))
 
             if hasattr(self, '_zoom_hide_timer') and self._zoom_hide_timer:
                 try:
@@ -821,7 +825,7 @@ class PinWindow(QWidget):
                     self._zoom_hide_timer.deleteLater()
                     self._zoom_hide_timer = None
                 except Exception as e:
-                    log_exception(e, "停止缩放百分比定时器")
+                    log_exception(e, T("停止缩放百分比定时器"))
 
             # 工具栏
             if hasattr(self, 'toolbar') and self.toolbar:
@@ -833,7 +837,7 @@ class PinWindow(QWidget):
                                 panel.close()
                                 panel.deleteLater()
                             except Exception as e:
-                                log_exception(e, "关闭工具栏面板")
+                                log_exception(e, T("关闭工具栏面板"))
                             setattr(self.toolbar, pn, None)
                     for alias in ('paint_menu', 'text_menu'):
                         if hasattr(self.toolbar, alias):
@@ -842,7 +846,7 @@ class PinWindow(QWidget):
                     self.toolbar.deleteLater()
                     self.toolbar = None
                 except Exception as e:
-                    log_exception(e, "清理工具栏")
+                    log_exception(e, T("清理工具栏"))
 
             # OCR
             if hasattr(self, '_ocr_mgr'):
@@ -855,27 +859,27 @@ class PinWindow(QWidget):
                         try:
                             self.view.viewport().removeEventFilter(self)
                         except Exception as e:
-                            log_exception(e, "移除视图事件过滤器")
+                            log_exception(e, T("移除视图事件过滤器"))
                     self.view.deleteLater()
                     self.view = None
                 except Exception as e:
-                    log_exception(e, "清理视图")
+                    log_exception(e, T("清理视图"))
 
             # 画布
             if hasattr(self, 'canvas') and self.canvas:
                 try:
                     self.canvas.cleanup()
                 except Exception as e:
-                    log_warning(f"画布清理时出错: {e}", "PinWindow")
+                    log_warning(T("画布清理时出错: {e}", e=e), "PinWindow")
                 finally:
                     self.canvas = None
 
             # 图像数据
             self._base_pixmap = None
 
-            log_info("资源清理完成", "PinWindow")
+            log_info(T("资源清理完成"), "PinWindow")
         except Exception as e:
-            log_error(f"cleanup过程中发生错误: {e}", "PinWindow")
+            log_error(T("cleanup过程中发生错误: {e}", e=e), "PinWindow")
             log_exception(e, "PinWindow.cleanup")
 
     @safe_event
@@ -886,15 +890,15 @@ class PinWindow(QWidget):
                 try:
                     self.cleanup()
                 except Exception as e:
-                    log_error(f"cleanup时发生错误: {e}", "PinWindow")
+                    log_error(T("cleanup时发生错误: {e}", e=e), "PinWindow")
                     log_exception(e, "PinWindow.cleanup")
                 try:
                     self.closed.emit()
                 except Exception as e:
-                    log_error(f"发送closed信号时发生错误: {e}", "PinWindow")
+                    log_error(T("发送closed信号时发生错误: {e}", e=e), "PinWindow")
             super().closeEvent(event)
         except Exception as e:
-            log_error(f"closeEvent发生严重错误: {e}", "PinWindow")
+            log_error(T("closeEvent发生严重错误: {e}", e=e), "PinWindow")
             try:
                 super().closeEvent(event)
             except Exception as e:

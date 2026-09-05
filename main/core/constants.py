@@ -2,6 +2,29 @@
 """
 全局常量。
 """
+import os
+from pathlib import Path
+
+
+# ── 应用数据目录 ──────────────────────────────────────────
+
+def get_app_data_dir() -> Path:
+    """返回应用数据根目录（日志、崩溃记录等都放在这里）。
+
+    读 %LOCALAPPDATA% 而不是拼 Path.home()/"AppData"/"Local"：
+    域环境下用户目录可能被重定向到网络位置，硬拼会落到错误的地方，
+    而崩溃日志恰恰是出问题时最需要能被找到的东西。
+    """
+    base = os.environ.get("LOCALAPPDATA")
+    if base:
+        return Path(base) / "Jietuba"
+    return Path.home() / "AppData" / "Local" / "Jietuba"
+
+
+def get_log_dir() -> Path:
+    """返回日志目录。"""
+    return get_app_data_dir() / "Logs"
+
 
 # ── CSS font-family 值 ────────────────────────────────────
 # 用于 QSS stylesheet 中的 font-family 属性（大部分 UI 控件）
@@ -66,8 +89,8 @@ def get_system_default_text_font_family() -> str:
 
     if not _SYSTEM_DEFAULT_TEXT_FONT_LOGGED:
         try:
-            from core.logger import log_debug
-            log_debug(f"系统默认文字字体: {family}", "Font")
+            from core.logger import log_debug, T
+            log_debug(T("系统默认文字字体: {family}", family=family), "Font")
         except Exception:
             pass
         _SYSTEM_DEFAULT_TEXT_FONT_LOGGED = True

@@ -17,6 +17,19 @@
 
 本项目依赖4个自制 Rust 库，**必须先安装这些包才能运行程序**。
 
+### 一键部署（推荐）
+
+直接在项目根目录双击运行 [setup.bat](setup.bat)，脚本会自动创建虚拟环境、安装 Python 依赖，并让你选择 Rust 扩展包来源：
+
+- 使用仓库根目录自带的 `.whl` 文件（默认）
+- 或从 [GitHub Release](https://github.com/1003129155/jietuba/releases/tag/rust-libs-v1) 重新下载最新版
+
+完成后可选择立即启动程序。
+
+### 手动安装
+
+如果不想用脚本，也可以按以下步骤手动操作：
+
 ### 1. 创建并激活 Python 3.11 虚拟环境
 
 ```bash
@@ -34,11 +47,17 @@ python -m pip install -r requirements.txt
 
 ### 3. 安装自制 Rust 包（必须）
 
-请在项目根目录执行：
+这 4 个包有两个来源，二选一即可：
+
+**方式 A：使用仓库自带的 `.whl` 文件**（在项目根目录执行）
 
 ```bash
 python -m pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl longstitch-0.3.11-cp311-cp311-win_amd64.whl pyclipboard-0.3.14-cp311-cp311-win_amd64.whl ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
 ```
+
+**方式 B：从 GitHub Release 下载**（仓库根目录文件缺失或想用最新版时）
+
+前往 [Releases 页面](https://github.com/1003129155/jietuba/releases/tag/rust-libs-v1) 下载对应文件后同样用 `pip install` 安装。
 
 | 包名 | 版本 | 功能 |
 |------|------|------|
@@ -369,8 +388,7 @@ settings/
 
 stitch/
 ├── __init__.py
-├── jietuba_long_stitch.py           # 长截图拼接算法核心
-├── jietuba_long_stitch_unified.py   # 统一长截图接口
+├── jietuba_long_stitch_unified.py   # 长截图拼接接口（调用 Rust longstitch）
 ├── scroll_window.py                 # ScrollCaptureWindow — 滚动截图窗口
 └── scroll_toolbar.py                # 滚动截图工具栏
 ```

@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 )
 from canvas.selection_model import SelectionModel
 from .drawing_items import TextItem
-from core.logger import log_debug
+from core.logger import log_debug, T
 from core.theme import get_theme
 from core import safe_event
 
@@ -56,7 +56,7 @@ class SelectionItem(QGraphicsItem):
         self.start_pos = QPointF()
         self.start_rect = QRectF()
         
-        log_debug("选区框创建", "Canvas")
+        log_debug(T("选区框创建"), "Canvas")
     
     def boundingRect(self) -> QRectF:
         """边界矩形"""

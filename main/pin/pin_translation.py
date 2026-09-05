@@ -5,8 +5,9 @@
 """
 
 from PySide6.QtWidgets import QWidget, QApplication
-from PySide6.QtCore import Qt, QPoint
+from PySide6.QtCore import QPoint
 from core import log_info, log_warning, log_error
+from core.logger import T
 from core.i18n import make_tr
 
 
@@ -44,16 +45,16 @@ class PinTranslationHelper:
         try:
             # 1. 检查是否有 OCR 结果
             if not ocr_text_layer or not ocr_text_layer.has_text():
-                log_warning("没有可翻译的文字", "Translate")
+                log_warning(T("没有可翻译的文字"), "Translate")
                 return False
-            
+
             # 2. 获取所有 OCR 文字
             all_text = ocr_text_layer.get_all_text(separator="\n")
             if not all_text.strip():
-                log_warning("OCR 文字为空", "Translate")
+                log_warning(T("OCR 文字为空"), "Translate")
                 return False
-            
-            log_info(f"准备翻译 {len(all_text)} 个字符", "Translate")
+
+            log_info(T("准备翻译 {count} 个字符", count=len(all_text)), "Translate")
             
             # 3. 获取厂商无关的翻译参数
             params = (
@@ -79,7 +80,7 @@ class PinTranslationHelper:
             return True
             
         except Exception as e:
-            log_error(f"翻译启动失败: {e}", "Translate")
+            log_error(T("翻译启动失败: {e}", e=e), "Translate")
             import traceback
             traceback.print_exc()
             return False

@@ -6,21 +6,22 @@
 """
 
 from typing import Optional, Callable, List
-import json
 
 try:
-    import pyclipboard
-    from pyclipboard import PyClipboardManager, PyClipboardItem, PyGroup
+    # 这里的导入本身就是可用性探测：导入成功即代表 Rust 扩展存在。
+    # PyClipboardItem / PyGroup 在本模块内不直接使用，但要一并验证符号齐全。
+    import pyclipboard  # noqa: F401
+    from pyclipboard import PyClipboardManager, PyClipboardItem, PyGroup  # noqa: F401
     PYCLIPBOARD_AVAILABLE = True
 except ImportError as e:
     PYCLIPBOARD_AVAILABLE = False
     import sys
-    from core.logger import log_debug, log_warning
-    log_warning(f"pyclipboard 模块未安装: {e}", "Clipboard")
+    from core.logger import T, log_debug, log_warning
+    log_warning(T("pyclipboard 模块未安装: {e}", e=e), "Clipboard")
     log_debug(f"Python: {sys.executable}", "Clipboard")
     log_debug(f"sys.path: {sys.path[:3]}...", "Clipboard")
 
-from core.logger import log_debug, log_info, log_error, log_exception
+from core.logger import T, log_debug, log_info, log_error, log_exception
 from .enums import GroupType
 from .models import ClipboardItem, Group
 
@@ -70,12 +71,12 @@ class ClipboardManager:
         if PYCLIPBOARD_AVAILABLE:
             try:
                 self._manager = PyClipboardManager(self._resolve_db_path(db_path))
-                log_info("管理器初始化成功", "Clipboard")
-                
+                log_info(T("管理器初始化成功"), "Clipboard")
+
                 # 设置历史限制（由 Rust 后端处理清理）
                 self._apply_history_limit()
             except Exception as e:
-                log_error(f"初始化失败: {e}", "Clipboard")
+                log_error(T("初始化失败: {e}", e=e), "Clipboard")
     
     @property
     def is_available(self) -> bool:
@@ -120,7 +121,7 @@ class ClipboardManager:
                 self.start_monitoring(callback=self._callback)
             return True
         except Exception as e:
-            log_exception(e, "重新打开剪贴板数据库")
+            log_exception(e, T("重新打开剪贴板数据库"))
             self._manager = None
             return False
 
@@ -140,7 +141,7 @@ class ClipboardManager:
             gc.collect()
             return True
         except Exception as e:
-            log_exception(e, "释放剪贴板数据库")
+            log_exception(e, T("释放剪贴板数据库"))
             return False
     
     def get_db_path(self) -> Optional[str]:
@@ -152,7 +153,7 @@ class ClipboardManager:
                 elif hasattr(self._manager, 'get_db_path'):
                     return self._manager.get_db_path()
             except Exception as e:
-                log_exception(e, "获取数据库路径")
+                log_exception(e, T("获取数据库路径"))
         return None
     
     def get_images_dir(self) -> Optional[str]:
@@ -164,7 +165,7 @@ class ClipboardManager:
                 elif hasattr(self._manager, 'images_dir'):
                     return self._manager.images_dir
             except Exception as e:
-                log_exception(e, "获取图片目录")
+                log_exception(e, T("获取图片目录"))
         return None
     
     def _get_history_limit(self) -> int:
@@ -191,9 +192,9 @@ class ClipboardManager:
         try:
             limit = self._get_history_limit()
             self._manager.set_history_limit(limit)
-            log_info(f"历史限制设置为: {limit}", "Clipboard")
+            log_info(T("历史限制设置为: {limit}", limit=limit), "Clipboard")
         except Exception as e:
-            log_error(f"设置历史限制失败: {e}", "Clipboard")
+            log_error(T("设置历史限制失败: {e}", e=e), "Clipboard")
     
     def start_monitoring(self, callback: Optional[Callable[[ClipboardItem], None]] = None):
         """
@@ -203,7 +204,7 @@ class ClipboardManager:
             callback: 剪贴板变化时的回调函数
         """
         if not self.is_available:
-            log_error("管理器不可用", "Clipboard")
+            log_error(T("管理器不可用"), "Clipboard")
             return
         
         self._callback = callback
@@ -227,9 +228,9 @@ class ClipboardManager:
                     size_info = f"{_fmt(raw_bytes)} → {_fmt(comp_bytes)} ({ratio:.1f}x)"
                 else:
                     size_info = _fmt(raw_bytes)
-                log_debug(f"新内容: {item.icon} {preview}  [{size_info}]", "Clipboard")
+                log_debug(T("新内容: {icon} {preview}  [{size_info}]", icon=item.icon, preview=preview, size_info=size_info), "Clipboard")
             else:
-                log_debug(f"新内容: {item.icon} {preview}", "Clipboard")
+                log_debug(T("新内容: {icon} {preview}", icon=item.icon, preview=preview), "Clipboard")
             
             # 清理逻辑已由 Rust 后端处理，这里只需调用用户回调
             if self._callback:
@@ -237,18 +238,18 @@ class ClipboardManager:
         
         try:
             self._manager.start_monitor(callback=_on_change)
-            log_info("开始监听剪贴板", "Clipboard")
+            log_info(T("开始监听剪贴板"), "Clipboard")
         except Exception as e:
-            log_error(f"启动监听失败: {e}", "Clipboard")
+            log_error(T("启动监听失败: {e}", e=e), "Clipboard")
     
     def stop_monitoring(self):
         """停止监听"""
         if self.is_available:
             try:
                 self._manager.stop_monitor()
-                log_info("🛑 停止监听", "Clipboard")
+                log_info(T("🛑 停止监听"), "Clipboard")
             except Exception as e:
-                log_error(f"停止监听失败: {e}", "Clipboard")
+                log_error(T("停止监听失败: {e}", e=e), "Clipboard")
     
     def is_monitoring(self) -> bool:
         """检查是否正在监听"""
@@ -280,7 +281,7 @@ class ClipboardManager:
             result = self._manager.get_history(offset, limit, search, content_type, start_time, end_time)
             return [ClipboardItem.from_py_item(item) for item in result.items]
         except Exception as e:
-            log_error(f"获取历史失败: {e}", "Clipboard")
+            log_error(T("获取历史失败: {e}", e=e), "Clipboard")
             return []
     
     def get_total_count(self) -> int:
@@ -289,7 +290,7 @@ class ClipboardManager:
             try:
                 return self._manager.get_count()
             except Exception as e:
-                log_exception(e, "获取总记录数")
+                log_exception(e, T("获取总记录数"))
         return 0
     
     def search(self, keyword: str, limit: int = 50) -> List[ClipboardItem]:
@@ -306,7 +307,7 @@ class ClipboardManager:
             if py_item:
                 return ClipboardItem.from_py_item(py_item)
         except Exception as e:
-            log_error(f"获取项失败: {e}", "Clipboard")
+            log_error(T("获取项失败: {e}", e=e), "Clipboard")
         return None
     
     def delete_item(self, item_id: int) -> bool:
@@ -318,7 +319,7 @@ class ClipboardManager:
             self._manager.delete_item(item_id)
             return True
         except Exception as e:
-            log_error(f"删除失败: {e}", "Clipboard")
+            log_error(T("删除失败: {e}", e=e), "Clipboard")
             return False
     
     def clear_history(self, keep_grouped: bool = False) -> bool:
@@ -332,10 +333,10 @@ class ClipboardManager:
         
         try:
             self._manager.clear_history(keep_grouped)
-            log_info(f"🗑️ 历史已清空 (keep_grouped={keep_grouped})", "Clipboard")
+            log_info(T("🗑️ 历史已清空 (keep_grouped={keep_grouped})", keep_grouped=keep_grouped), "Clipboard")
             return True
         except Exception as e:
-            log_error(f"清空失败: {e}", "Clipboard")
+            log_error(T("清空失败: {e}", e=e), "Clipboard")
             return False
     
     def add_item(self, content: str, content_type: str = "text", 
@@ -356,10 +357,10 @@ class ClipboardManager:
         
         try:
             item_id = self._manager.add_item(content, content_type, title)
-            log_info(f"添加内容成功: ID={item_id}", "Clipboard")
+            log_info(T("添加内容成功: ID={item_id}", item_id=item_id), "Clipboard")
             return item_id
         except Exception as e:
-            log_error(f"添加内容失败: {e}", "Clipboard")
+            log_error(T("添加内容失败: {e}", e=e), "Clipboard")
             return None
     
     def update_item(self, item_id: int, content: str, 
@@ -382,7 +383,7 @@ class ClipboardManager:
             self._manager.update_item(item_id, content, title)
             return True
         except Exception as e:
-            log_error(f"更新内容失败: {e}", "Clipboard")
+            log_error(T("更新内容失败: {e}", e=e), "Clipboard")
             return False
     
     def toggle_pin(self, item_id: int) -> bool:
@@ -393,7 +394,7 @@ class ClipboardManager:
         try:
             return self._manager.toggle_pin(item_id)
         except Exception as e:
-            log_error(f"置顶失败: {e}", "Clipboard")
+            log_error(T("置顶失败: {e}", e=e), "Clipboard")
             return False
     
     def paste_item(self, item_id: int, with_html: bool = True, move_to_top: bool = False) -> bool:
@@ -413,7 +414,7 @@ class ClipboardManager:
         try:
             return self._manager.paste_item(item_id, with_html, move_to_top)
         except Exception as e:
-            log_error(f"粘贴失败: {e}", "Clipboard")
+            log_error(T("粘贴失败: {e}", e=e), "Clipboard")
             return False
     
     def get_image_data(self, image_id: str) -> Optional[bytes]:
@@ -424,7 +425,7 @@ class ClipboardManager:
         try:
             return self._manager.get_image_data(image_id)
         except Exception as e:
-            log_error(f"获取图片失败: {e}", "Clipboard")
+            log_error(T("获取图片失败: {e}", e=e), "Clipboard")
             return None
     
     # ==================== 分组功能 ====================
@@ -439,7 +440,7 @@ class ClipboardManager:
         try:
             return self._manager.create_group(name, color, icon, group_type)
         except Exception as e:
-            log_error(f"创建分组失败: {e}", "Clipboard")
+            log_error(T("创建分组失败: {e}", e=e), "Clipboard")
             return None
     
     def get_groups(self) -> List[Group]:
@@ -451,7 +452,7 @@ class ClipboardManager:
             py_groups = self._manager.get_groups()
             return [Group.from_py_group(g) for g in py_groups]
         except Exception as e:
-            log_error(f"获取分组失败: {e}", "Clipboard")
+            log_error(T("获取分组失败: {e}", e=e), "Clipboard")
             return []
     
     def delete_group(self, group_id: int) -> bool:
@@ -463,7 +464,7 @@ class ClipboardManager:
             self._manager.delete_group(group_id)
             return True
         except Exception as e:
-            log_error(f"删除分组失败: {e}", "Clipboard")
+            log_error(T("删除分组失败: {e}", e=e), "Clipboard")
             return False
     
     def rename_group(self, group_id: int, name: str) -> bool:
@@ -475,7 +476,7 @@ class ClipboardManager:
             self._manager.rename_group(group_id, name)
             return True
         except Exception as e:
-            log_error(f"重命名分组失败: {e}", "Clipboard")
+            log_error(T("重命名分组失败: {e}", e=e), "Clipboard")
             return False
     
     def update_group(self, group_id: int, name: str, 
@@ -489,7 +490,7 @@ class ClipboardManager:
             self._manager.update_group(group_id, name, color, icon, group_type)
             return True
         except Exception as e:
-            log_error(f"更新分组失败: {e}", "Clipboard")
+            log_error(T("更新分组失败: {e}", e=e), "Clipboard")
             return False
     
     def move_to_group(self, item_id: int, group_id: Optional[int] = None) -> bool:
@@ -505,12 +506,12 @@ class ClipboardManager:
                 if target is not None and target.group_type == GroupType.FILE:
                     item = self._manager.get_item(item_id)
                     if item is None or item.content_type != "file":
-                        log_error(f"文件分组只允许文件类型条目，item_id={item_id} 被拒绝", "Clipboard")
+                        log_error(T("文件分组只允许文件类型条目，item_id={item_id} 被拒绝", item_id=item_id), "Clipboard")
                         return False
             self._manager.move_to_group(item_id, group_id)
             return True
         except Exception as e:
-            log_error(f"移动到分组失败: {e}", "Clipboard")
+            log_error(T("移动到分组失败: {e}", e=e), "Clipboard")
             return False
 
     def move_group_between(self, group_id: int, before_id: Optional[int] = None,
@@ -523,7 +524,7 @@ class ClipboardManager:
             self._manager.move_group_between(group_id, before_id=before_id, after_id=after_id)
             return True
         except Exception as e:
-            log_error(f"调整分组顺序失败: {e}", "Clipboard")
+            log_error(T("调整分组顺序失败: {e}", e=e), "Clipboard")
             return False
 
     def move_item_between(self, item_id: int, before_id: Optional[int] = None,
@@ -536,7 +537,7 @@ class ClipboardManager:
             self._manager.move_item_between(item_id, before_id=before_id, after_id=after_id)
             return True
         except Exception as e:
-            log_error(f"调整内容顺序失败: {e}", "Clipboard")
+            log_error(T("调整内容顺序失败: {e}", e=e), "Clipboard")
             return False
     
     def get_by_group(self, group_id: Optional[int] = None, 
@@ -549,5 +550,5 @@ class ClipboardManager:
             result = self._manager.get_by_group(group_id, offset, limit)
             return [ClipboardItem.from_py_item(item) for item in result.items]
         except Exception as e:
-            log_error(f"按分组查询失败: {e}", "Clipboard")
+            log_error(T("按分组查询失败: {e}", e=e), "Clipboard")
             return []

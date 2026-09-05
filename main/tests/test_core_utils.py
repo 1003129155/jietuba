@@ -2,7 +2,6 @@
 """
 核心常量和工具函数测试
 """
-import pytest
 
 
 class TestConstants:

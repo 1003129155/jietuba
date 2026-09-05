@@ -14,15 +14,15 @@ UI 组件：
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, QRectF, QSize, QTimer, QPoint, Signal, QObject, QEvent
+from PySide6.QtCore import Qt, QRectF, QTimer, QPoint, Signal, QObject, QEvent
 from PySide6.QtGui import (
-    QColor, QPainter, QPainterPath, QBrush, QPen, QImage, QCursor,
+    QColor, QPainter, QPainterPath, QBrush, QPen, QImage,
 )
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QSlider, QLabel, QPushButton,
 )
 
-from core.logger import log_debug
+from core.logger import log_debug, T
 from core import safe_event
 
 
@@ -266,7 +266,8 @@ class RoundedCornersLogic(QObject):
 
     def set_enabled(self, enabled: bool):
         self._enabled = enabled
-        log_debug(f"圆角截图: {'ON' if enabled else 'OFF'}  r={self._radius}",
+        log_debug(T("圆角截图: {state}  r={radius}",
+                     state='ON' if enabled else 'OFF', radius=self._radius),
                   "RoundedCorners")
         # 持久化
         if self._config:
@@ -311,7 +312,7 @@ class RoundedCornersLogic(QObject):
     # ------------------------------------------------------------------
     def _on_radius_changed(self, value: int):
         self._radius = value
-        log_debug(f"圆角半径: {value}", "RoundedCorners")
+        log_debug(T("圆角半径: {value}", value=value), "RoundedCorners")
         # 持久化
         if self._config:
             self._config.set_app_setting("screenshot_rounded_radius", value)
@@ -446,7 +447,7 @@ class RoundedCornersLogic(QObject):
             painter.drawImage(0, 0, img)
             painter.end()
 
-            log_debug(f"圆角裁剪完成: r={r}", "RoundedCorners")
+            log_debug(T("圆角裁剪完成: r={r}", r=r), "RoundedCorners")
             return result
 
         self._export_callback = _rounded_export_callback

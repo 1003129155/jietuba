@@ -4,22 +4,19 @@
 """
 import time
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel,
-    QComboBox, QCheckBox, QFrame, QButtonGroup,
-    QSlider, QApplication
+    QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QComboBox, QFrame, QSlider, QApplication
 )
-from PySide6.QtCore import Qt, Signal, QSize, QEvent, QTimer, QPoint
-from PySide6.QtGui import QIcon, QColor, QFont
+from PySide6.QtCore import Qt, Signal, QEvent, QTimer, QPoint
+from PySide6.QtGui import QColor, QFont
 from .base_settings_panel import StepperWidget, build_settings_panel_stylesheet, paint_rounded_panel, PANEL_SCALE
 from .color_picker_button import ColorPickerButton
 from core.constants import (
-    CSS_FONT_FAMILY,
     get_available_text_fonts,
     get_default_text_font_for_language,
     normalize_text_font_family,
 )
 from core import safe_event
-from core.logger import log_exception
+from core.logger import log_exception, T
 
 class TextSettingsPanel(QWidget):
     """文字工具二级菜单"""
@@ -590,7 +587,7 @@ class TextSettingsPanel(QWidget):
             bg_opacity = text_settings.get("background_opacity", 255)
             self.set_background_settings(bg_enabled, bg_color, bg_opacity)
         except Exception as e:
-            log_exception(e, "加载文字设置")
+            log_exception(e, T("加载文字设置"))
 
     @staticmethod
     def save_font_to_config(font: QFont):
@@ -606,7 +603,7 @@ class TextSettingsPanel(QWidget):
                 font_underline=font.underline(),
             )
         except Exception as e:
-            log_exception(e, "保存字体设置")
+            log_exception(e, T("保存字体设置"))
 
     @staticmethod
     def save_background_to_config(enabled: bool, color: QColor, opacity: int):
@@ -620,5 +617,5 @@ class TextSettingsPanel(QWidget):
                 background_opacity=int(opacity),
             )
         except Exception as e:
-            log_exception(e, "保存文字背景设置")
+            log_exception(e, T("保存文字背景设置"))
  

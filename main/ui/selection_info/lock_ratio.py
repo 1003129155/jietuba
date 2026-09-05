@@ -13,8 +13,8 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QRectF, QPointF
-from core.logger import log_debug
+from PySide6.QtCore import QRectF
+from core.logger import log_debug, T
 
 
 class LockRatioLogic:
@@ -40,11 +40,11 @@ class LockRatioLogic:
         self._enabled = enabled
         if enabled and current_rect and current_rect.height() > 0:
             self._ratio = current_rect.width() / current_rect.height()
-            log_debug(f"锁定纵横比: ON  ratio={self._ratio:.4f}", "LockRatio")
+            log_debug(T("锁定纵横比: ON  ratio={ratio:.4f}", ratio=self._ratio), "LockRatio")
         else:
             self._ratio = None
             if not enabled:
-                log_debug("锁定纵横比: OFF", "LockRatio")
+                log_debug(T("锁定纵横比: OFF"), "LockRatio")
 
     @property
     def enabled(self) -> bool:

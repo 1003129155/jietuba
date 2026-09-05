@@ -10,11 +10,16 @@
 import json
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
-from core.logger import log_exception
+from core.logger import T, log_exception
 
 from .enums import GroupType
+
+if TYPE_CHECKING:
+    # 仅供类型注解使用：pyclipboard 是自制 Rust 扩展，运行环境未安装时
+    # core.manager 会降级处理，所以这里不能在运行时导入。
+    from pyclipboard import PyClipboardItem, PyGroup
 
 
 @dataclass
@@ -73,7 +78,7 @@ class ClipboardItem:
                     return ", ".join(os.path.basename(file_path) for file_path in files)
                 return "文件"
             except Exception as e:
-                log_exception(e, "解析文件类型显示文本")
+                log_exception(e, T("解析文件类型显示文本"))
                 return "文件"
         return self.content[:50]
 

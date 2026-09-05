@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QSize, QUrl
-from PySide6.QtGui import QDesktopServices, QIcon
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QPushButton, QToolButton, QWidget
 
 from core.ui_theme import get_ui_theme

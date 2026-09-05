@@ -1,19 +1,15 @@
 ﻿"""
 工具栏 - 截图工具栏UI
 """
-import os
-import sys
 from PySide6.QtCore import Qt, QSize, Signal, QRect, QRectF, QPoint
-from PySide6.QtGui import QIcon, QColor, QCursor, QFont, QPainter, QPainterPath, QPen, QBrush
+from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QBrush
 from PySide6.QtWidgets import (
-    QWidget, QPushButton, QSlider, QLabel, 
-    QApplication, QColorDialog
+    QWidget, QPushButton, QApplication
 )
 from core.resource_manager import ResourceManager
 from core.theme import get_theme
 from core import log_debug, safe_event
-from core.logger import log_exception
-from core.constants import DEFAULT_FONT_FAMILY
+from core.logger import log_exception, T
 
 
 class _DragHandle(QWidget):
@@ -460,7 +456,7 @@ class Toolbar(QWidget):
                 line_style = pen_settings.get("line_style", "solid")
                 self.paint_panel.line_style = line_style
         except Exception as exc:
-            log_debug(f"初始化线条样式失败: {exc}", "Toolbar")
+            log_debug(T("初始化线条样式失败: {exc}", exc=exc), "Toolbar")
         self.paint_panel.hide()
         
         # === 2. 形状类设置面板 (rect, ellipse) ===
@@ -700,7 +696,7 @@ class Toolbar(QWidget):
                 if shape_settings:
                     self.shape_panel.line_style = shape_settings.get("line_style", "solid")
             except Exception as exc:
-                log_debug(f"同步形状线条样式失败: {exc}", "Toolbar")
+                log_debug(T("同步形状线条样式失败: {exc}", exc=exc), "Toolbar")
 
         # 显示对应的设置面板
         self._show_panel_for_tool(tool_id)
@@ -729,7 +725,7 @@ class Toolbar(QWidget):
                     if settings:
                         self.paint_panel.set_highlighter_mode(settings.get("draw_mode", "freehand"))
                 except Exception as exc:
-                    log_debug(f"同步荧光笔模式失败: {exc}", "Toolbar")
+                    log_debug(T("同步荧光笔模式失败: {exc}", exc=exc), "Toolbar")
         
         panel_map = {
             "pen": self.paint_panel,
@@ -775,7 +771,7 @@ class Toolbar(QWidget):
             if manager:
                 manager.update_settings("highlighter", draw_mode=mode)
         except Exception as exc:
-            log_debug(f"保存荧光笔模式失败: {exc}", "Toolbar")
+            log_debug(T("保存荧光笔模式失败: {exc}", exc=exc), "Toolbar")
 
         # 刷新光标（矩形模式使用十字光标）
         try:
@@ -785,7 +781,7 @@ class Toolbar(QWidget):
             if cursor_manager:
                 cursor_manager.set_tool_cursor("highlighter", force=True)
         except Exception as e:
-            log_exception(e, "设置高亮笔光标")
+            log_exception(e, T("设置高亮笔光标"))
     
     def _on_text_font_changed(self, font):
         """文字字体改变"""

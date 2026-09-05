@@ -11,8 +11,8 @@ SaveService PDF 保存功能测试
 """
 import os
 import pytest
-from unittest.mock import MagicMock, patch
-from PySide6.QtGui import QImage, QPainter
+from unittest.mock import MagicMock
+from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QApplication
 
 

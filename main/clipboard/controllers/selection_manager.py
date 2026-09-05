@@ -12,10 +12,10 @@
 from typing import Optional, Callable
 from PySide6.QtCore import QObject, Qt, QEvent, Signal
 from PySide6.QtWidgets import QListWidget, QListWidgetItem
-from PySide6.QtGui import QKeyEvent, QCursor
+from PySide6.QtGui import QKeyEvent
 
 from ..core import ClipboardItem
-from core.logger import log_debug
+from core.logger import T, log_debug
 from core import safe_event
 from ..ui.widgets.preview_popup import PreviewPopup
 
@@ -82,7 +82,7 @@ class SelectionManager(QObject):
         self.list_widget.setCurrentItem(None)
         # 隐藏预览
         PreviewPopup.instance().hide_preview()
-        log_debug("🔄 SelectionManager 已重置", "Clipboard")
+        log_debug(T("🔄 SelectionManager 已重置"), "Clipboard")
 
     def clear_selection(self, reset_keyboard_state: bool = False):
         """清除当前选中（不一定重置键盘导航状态）"""
@@ -241,7 +241,6 @@ class SelectionManager(QObject):
             return
         
         # 更新内部状态
-        old_index = self._selected_index
         self._selected_index = index
         
         # 更新列表控件的选中状态
@@ -308,7 +307,7 @@ class SelectionManager(QObject):
         if item:
             item_id = item.data(Qt.ItemDataRole.UserRole)
             if item_id:
-                log_debug(f"✅ 激活项: {item_id}", "Clipboard")
+                log_debug(T("✅ 激活项: {item_id}", item_id=item_id), "Clipboard")
                 self.item_activated.emit(item_id)
     
     def set_hovered_index(self, index: int):

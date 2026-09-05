@@ -19,25 +19,25 @@ from enum import Enum
 from typing import Optional, List, Tuple, Dict, Any, Union
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QPainter, QPen, QBrush, QColor, QTransform, QPixmap, QCursor, QPolygonF, QFont
+from PySide6.QtGui import QPainter, QPen, QBrush, QColor, QTransform, QPixmap, QCursor, QPolygonF
 from PySide6.QtWidgets import QGraphicsTextItem
 from PySide6.QtSvg import QSvgRenderer
 
 from core import log_debug, log_warning
-from core.logger import log_exception
+from core.logger import log_exception, T
 
 try:
     # 你项目里的撤销命令
     from .undo import EditItemCommand
 except Exception as e:
-    log_exception(e, "导入 EditItemCommand")
+    log_exception(e, T("导入 EditItemCommand"))
     EditItemCommand = None  # 允许单文件测试
 
 try:
     # 导入资源管理器
     from core.resource_manager import ResourceManager
 except Exception as e:
-    log_exception(e, "导入 ResourceManager")
+    log_exception(e, T("导入 ResourceManager"))
     ResourceManager = None
 
 
@@ -191,7 +191,7 @@ class LayerEditor:
         if not os.path.exists(svg_path):
             # 回退到默认光标
             cls._rotate_cursor = QCursor(Qt.CursorShape.OpenHandCursor)
-            log_warning(f"旋转光标SVG未找到: {svg_path}，使用默认光标", "LayerEditor")
+            log_warning(T("旋转光标SVG未找到: {svg_path}，使用默认光标", svg_path=svg_path), "LayerEditor")
             return
         
         try:
@@ -199,7 +199,7 @@ class LayerEditor:
             renderer = QSvgRenderer(svg_path)
             if not renderer.isValid():
                 cls._rotate_cursor = QCursor(Qt.CursorShape.OpenHandCursor)
-                log_warning("旋转光标SVG无效，使用默认光标", "LayerEditor")
+                log_warning(T("旋转光标SVG无效，使用默认光标"), "LayerEditor")
                 return
             
             # 创建pixmap（23x23像素，与ROTATE_HANDLE_SIZE匹配）
@@ -214,10 +214,10 @@ class LayerEditor:
             
             # 创建光标（热点在中心）
             cls._rotate_cursor = QCursor(pixmap, size // 2, size // 2)
-            log_debug(f"旋转光标已加载: {svg_path}", "LayerEditor")
+            log_debug(T("旋转光标已加载: {svg_path}", svg_path=svg_path), "LayerEditor")
         except Exception as e:
             cls._rotate_cursor = QCursor(Qt.CursorShape.OpenHandCursor)
-            log_warning(f"加载旋转光标失败: {e}，使用默认光标", "LayerEditor")
+            log_warning(T("加载旋转光标失败: {e}，使用默认光标", e=e), "LayerEditor")
     
     @classmethod
     def get_rotate_cursor(cls) -> QCursor:
@@ -324,7 +324,7 @@ class LayerEditor:
         try:
             from .items import NumberItem
         except Exception as e:
-            log_exception(e, "导入 NumberItem")
+            log_exception(e, T("导入 NumberItem"))
             NumberItem = None
         return bool(NumberItem and isinstance(layer, NumberItem))
 
@@ -333,7 +333,7 @@ class LayerEditor:
         try:
             from .items import ArrowItem
         except Exception as e:
-            log_exception(e, "导入 ArrowItem")
+            log_exception(e, T("导入 ArrowItem"))
             ArrowItem = None
         return bool(ArrowItem and isinstance(layer, ArrowItem))
 
@@ -374,7 +374,7 @@ class LayerEditor:
                 mapped = layer.mapToScene(QPointF(point))
                 return QPointF(mapped)
             except Exception as e:
-                log_exception(e, "映射箭头点到场景坐标")
+                log_exception(e, T("映射箭头点到场景坐标"))
         return QPointF(point)
 
     def _get_scene_rect(self, layer: Any) -> Optional[QRectF]:
@@ -392,14 +392,14 @@ class LayerEditor:
             try:
                 return QRectF(layer.sceneVisualRect())
             except Exception as e:
-                log_exception(e, "获取NumberItem sceneVisualRect")
+                log_exception(e, T("获取NumberItem sceneVisualRect"))
 
         # QGraphicsItem：最稳（包含 pos/transform/scale 后的包围盒）
-        if hasattr(layer, "sceneBoundingRect") and callable(getattr(layer, "sceneBoundingRect")):
+        if hasattr(layer, "sceneBoundingRect") and callable(layer.sceneBoundingRect):
             try:
                 return QRectF(layer.sceneBoundingRect())
             except Exception as e:
-                log_exception(e, "获取sceneBoundingRect")
+                log_exception(e, T("获取sceneBoundingRect"))
 
         # 数据层 rect（RectLayer 等）
         rect_attr = getattr(layer, "rect", None)
@@ -460,7 +460,7 @@ class LayerEditor:
                 try:
                     return QPointF(layer.mapToScene(local_pt))
                 except Exception as e:
-                    log_exception(e, "圆角控制点 mapToScene")
+                    log_exception(e, T("圆角控制点 mapToScene"))
             return local_pt
 
         tl = local_to_scene(local_rect.left() + r_visual, local_rect.top() + r_visual)
@@ -578,19 +578,19 @@ class LayerEditor:
         self._base_scene_rect = self._get_scene_rect(self.active_layer)
 
         # 保存 QGraphicsItem 的基础状态（若存在）
-        if hasattr(self.active_layer, "pos") and callable(getattr(self.active_layer, "pos")):
+        if hasattr(self.active_layer, "pos") and callable(self.active_layer.pos):
             try:
                 p = self.active_layer.pos()
                 self._base_pos = QPointF(p.x(), p.y())
             except Exception as e:
-                log_exception(e, "获取图层基准位置")
+                log_exception(e, T("获取图层基准位置"))
                 self._base_pos = None
 
-        if hasattr(self.active_layer, "transform") and callable(getattr(self.active_layer, "transform")):
+        if hasattr(self.active_layer, "transform") and callable(self.active_layer.transform):
             try:
                 self._base_transform = QTransform(self.active_layer.transform())
             except Exception as e:
-                log_exception(e, "获取图层基准变换")
+                log_exception(e, T("获取图层基准变换"))
                 self._base_transform = None
 
         # 保存 local rect（若是 rect()/setRect() 体系）
@@ -606,21 +606,21 @@ class LayerEditor:
 
         self._base_rotation = None
         self._rotation_origin_local = None
-        if hasattr(self.active_layer, "rotation") and callable(getattr(self.active_layer, "rotation")):
+        if hasattr(self.active_layer, "rotation") and callable(self.active_layer.rotation):
             try:
                 self._base_rotation = float(self.active_layer.rotation())
             except Exception as e:
-                log_exception(e, "获取图层基准旋转")
+                log_exception(e, T("获取图层基准旋转"))
 
         if handle.handle_type == HandleType.ROTATE and self._base_scene_rect is not None:
-            if hasattr(self.active_layer, "mapFromScene") and callable(getattr(self.active_layer, "mapFromScene")):
+            if hasattr(self.active_layer, "mapFromScene") and callable(self.active_layer.mapFromScene):
                 try:
                     local_center = self.active_layer.mapFromScene(self._base_scene_rect.center())
                     self._rotation_origin_local = QPointF(local_center.x(), local_center.y())
                     if hasattr(self.active_layer, "setTransformOriginPoint"):
                         self.active_layer.setTransformOriginPoint(self._rotation_origin_local)
                 except Exception as e:
-                    log_exception(e, "设置旋转原点")
+                    log_exception(e, T("设置旋转原点"))
                     self._rotation_origin_local = None
 
         if self._is_arrow_item(self.active_layer):
@@ -632,7 +632,7 @@ class LayerEditor:
             try:
                 self._base_corner_radius = float(self.active_layer.get_corner_radius())
             except Exception as e:
-                log_exception(e, "获取图层基准圆角")
+                log_exception(e, T("获取图层基准圆角"))
 
     def drag_to(self, pos: QPointF, keep_ratio: bool = False):
         """拖拽到新位置（pos 推荐 scene 坐标）"""
@@ -730,7 +730,7 @@ class LayerEditor:
                 self._apply_stroke_item_drag(layer, handle, delta_scene, keep_ratio)
                 return
         except Exception as e:
-            log_exception(e, "导入StrokeItem")
+            log_exception(e, T("导入StrokeItem"))
 
         if self._is_arrow_item(layer) and handle.handle_type in (HandleType.ARROW_START, HandleType.ARROW_END, HandleType.ARROW_CONTROL):
             self._apply_arrow_item_drag(layer, handle.handle_type, delta_scene, keep_ratio)
@@ -745,7 +745,7 @@ class LayerEditor:
                 p1 = layer.mapFromScene(self.drag_start_pos + delta_scene)  # type: ignore
                 delta_local = QPointF(p1.x() - p0.x(), p1.y() - p0.y())
             except Exception as e:
-                log_exception(e, "映射scene delta到local")
+                log_exception(e, T("映射scene delta到local"))
                 delta_local = delta_scene
 
             new_rect = QRectF(self._base_local_rect)
@@ -763,7 +763,7 @@ class LayerEditor:
                 try:
                     layer.rect = new_scene.normalized()
                 except Exception as e:
-                    log_exception(e, "设置数据层rect")
+                    log_exception(e, T("设置数据层rect"))
 
     def _apply_rect_delta(self, rect: QRectF, handle_type: HandleType, delta: QPointF, keep_ratio: bool):
         """对一个 QRectF 应用拖拽 delta（delta 与 rect 同坐标系）"""
@@ -808,31 +808,33 @@ class LayerEditor:
             try:
                 local_pos = layer.mapFromScene(current_scene_pos)
             except Exception as e:
-                log_exception(e, "圆角拖拽 mapFromScene")
+                log_exception(e, T("圆角拖拽 mapFromScene"))
                 return
         else:
             local_pos = current_scene_pos
 
         mx = local_pos.x()
         my = local_pos.y()
-        L = local_rect.left()
-        T = local_rect.top()
-        R = local_rect.right()
-        B = local_rect.bottom()
+        # 注意：这几个变量不能命名为单字母 T，否则会遮蔽模块级导入的翻译函数 T，
+        # 使本函数上方异常分支里的 T(...) 调用抛 UnboundLocalError。
+        left = local_rect.left()
+        top = local_rect.top()
+        right = local_rect.right()
+        bottom = local_rect.bottom()
 
         # 每个手柄沿对角线约束轨迹移动，直接用鼠标位置投影到该轨迹线求最优 r
-        # TL(10): 手柄在 (L+r, T+r) → r = (mx-L + my-T) / 2
-        # TR(11): 手柄在 (R-r, T+r) → r = (R-mx + my-T) / 2
-        # BR(12): 手柄在 (R-r, B-r) → r = (R-mx + B-my) / 2
-        # BL(13): 手柄在 (L+r, B-r) → r = (mx-L + B-my) / 2
+        # TL(10): 手柄在 (left+r, top+r)     → r = (mx-left + my-top) / 2
+        # TR(11): 手柄在 (right-r, top+r)    → r = (right-mx + my-top) / 2
+        # BR(12): 手柄在 (right-r, bottom-r) → r = (right-mx + bottom-my) / 2
+        # BL(13): 手柄在 (left+r, bottom-r)  → r = (mx-left + bottom-my) / 2
         if handle.id == 10:
-            r_new = (mx - L + my - T) / 2.0
+            r_new = (mx - left + my - top) / 2.0
         elif handle.id == 11:
-            r_new = (R - mx + my - T) / 2.0
+            r_new = (right - mx + my - top) / 2.0
         elif handle.id == 12:
-            r_new = (R - mx + B - my) / 2.0
+            r_new = (right - mx + bottom - my) / 2.0
         elif handle.id == 13:
-            r_new = (mx - L + B - my) / 2.0
+            r_new = (mx - left + bottom - my) / 2.0
         else:
             return
 
@@ -858,12 +860,12 @@ class LayerEditor:
             try:
                 layer.setRotation(base_rot + delta_angle)
             except Exception as e:
-                log_exception(e, "设置旋转角度")
+                log_exception(e, T("设置旋转角度"))
             if self._rotation_origin_local is not None and hasattr(layer, "setTransformOriginPoint"):
                 try:
                     layer.setTransformOriginPoint(self._rotation_origin_local)
                 except Exception as e:
-                    log_exception(e, "设置旋转原点")
+                    log_exception(e, T("设置旋转原点"))
             if hasattr(layer, "update"):
                 layer.update()
             return
@@ -877,7 +879,7 @@ class LayerEditor:
             try:
                 layer.setTransform(t * base_transform)
             except Exception as e:
-                log_exception(e, "设置变换矩阵")
+                log_exception(e, T("设置变换矩阵"))
         if hasattr(layer, "update"):
             layer.update()
 
@@ -911,7 +913,7 @@ class LayerEditor:
             c0_local = layer.mapFromScene(self._base_scene_rect.center())
             c1_local = layer.mapFromScene(new_scene.center())
         except Exception as e:
-            log_exception(e, "缩放中心 mapFromScene")
+            log_exception(e, T("缩放中心 mapFromScene"))
             # 兜底：用 scene delta
             c0_local = QPointF(0, 0)
             c1_local = QPointF(delta_scene.x(), delta_scene.y())
@@ -937,7 +939,7 @@ class LayerEditor:
                     mapped = layer.mapToScene(QPointF(start_local))
                     self._arrow_base_start_scene = QPointF(mapped)
                 except Exception as e:
-                    log_exception(e, "箭头起点 mapToScene")
+                    log_exception(e, T("箭头起点 mapToScene"))
                     self._arrow_base_start_scene = QPointF(start_local)
             else:
                 self._arrow_base_start_scene = QPointF(start_local)
@@ -952,7 +954,7 @@ class LayerEditor:
                     mapped = layer.mapToScene(QPointF(end_local))
                     self._arrow_base_end_scene = QPointF(mapped)
                 except Exception as e:
-                    log_exception(e, "箭头终点 mapToScene")
+                    log_exception(e, T("箭头终点 mapToScene"))
                     self._arrow_base_end_scene = QPointF(end_local)
             else:
                 self._arrow_base_end_scene = QPointF(end_local)
@@ -972,7 +974,7 @@ class LayerEditor:
                     mapped = layer.mapToScene(QPointF(control_local))
                     self._arrow_base_control_scene = QPointF(mapped)
                 except Exception as e:
-                    log_exception(e, "箭头控制点 mapToScene")
+                    log_exception(e, T("箭头控制点 mapToScene"))
                     self._arrow_base_control_scene = QPointF(control_local)
             else:
                 self._arrow_base_control_scene = QPointF(control_local)
@@ -1005,7 +1007,7 @@ class LayerEditor:
                 try:
                     new_start = layer.mapFromScene(target_scene)
                 except Exception as e:
-                    log_exception(e, "箭头起点 mapFromScene")
+                    log_exception(e, T("箭头起点 mapFromScene"))
                     new_start = QPointF(start_local.x() + delta_scene.x(), start_local.y() + delta_scene.y())
             else:
                 new_start = QPointF(start_local.x() + delta_scene.x(), start_local.y() + delta_scene.y())
@@ -1017,7 +1019,7 @@ class LayerEditor:
                 try:
                     new_end = layer.mapFromScene(target_scene)
                 except Exception as e:
-                    log_exception(e, "箭头终点 mapFromScene")
+                    log_exception(e, T("箭头终点 mapFromScene"))
                     new_end = QPointF(end_local.x() + delta_scene.x(), end_local.y() + delta_scene.y())
             else:
                 new_end = QPointF(end_local.x() + delta_scene.x(), end_local.y() + delta_scene.y())
@@ -1035,7 +1037,7 @@ class LayerEditor:
                     try:
                         new_control = layer.mapFromScene(target_scene)
                     except Exception as e:
-                        log_exception(e, "箭头控制点 mapFromScene")
+                        log_exception(e, T("箭头控制点 mapFromScene"))
                         if isinstance(control_local, QPointF):
                             new_control = QPointF(control_local.x() + delta_scene.x(), control_local.y() + delta_scene.y())
                         else:
@@ -1201,7 +1203,7 @@ class LayerEditor:
                     renderer.render(painter, render_rect)
                     return
             except Exception as e:
-                log_warning(f"渲染旋转SVG失败: {e}", "LayerEditor")
+                log_warning(T("渲染旋转SVG失败: {e}", e=e), "LayerEditor")
         
         # 回退：绘制简单的旋转图标
         self._render_rotate_handle_fallback(painter, center, is_hovered)
@@ -1285,12 +1287,12 @@ class LayerEditor:
             state["rect"] = QRectF(r)
 
         # pos / transform（QGraphicsItem）
-        if hasattr(layer, "pos") and callable(getattr(layer, "pos")):
+        if hasattr(layer, "pos") and callable(layer.pos):
             try:
                 p = layer.pos()
                 state["pos"] = QPointF(p.x(), p.y())
             except Exception as e:
-                log_exception(e, "捕获layer pos")
+                log_exception(e, T("捕获layer pos"))
 
         if isinstance(layer, QGraphicsTextItem):
             state["text_width"] = float(layer.textWidth())
@@ -1299,26 +1301,26 @@ class LayerEditor:
                 manual_width() if callable(manual_width) else None
             )
 
-        if hasattr(layer, "transform") and callable(getattr(layer, "transform")):
+        if hasattr(layer, "transform") and callable(layer.transform):
             try:
                 state["transform"] = QTransform(layer.transform())
             except Exception as e:
-                log_exception(e, "捕获layer transform")
+                log_exception(e, T("捕获layer transform"))
         
         # 旋转角度（重要！用于旋转手柄的撤销）
-        if hasattr(layer, "rotation") and callable(getattr(layer, "rotation")):
+        if hasattr(layer, "rotation") and callable(layer.rotation):
             try:
                 state["rotation"] = float(layer.rotation())
             except Exception as e:
-                log_exception(e, "捕获layer rotation")
+                log_exception(e, T("捕获layer rotation"))
         
         # 旋转中心点
-        if hasattr(layer, "transformOriginPoint") and callable(getattr(layer, "transformOriginPoint")):
+        if hasattr(layer, "transformOriginPoint") and callable(layer.transformOriginPoint):
             try:
                 origin = layer.transformOriginPoint()
                 state["transformOriginPoint"] = QPointF(origin.x(), origin.y())
             except Exception as e:
-                log_exception(e, "捕获layer transformOriginPoint")
+                log_exception(e, T("捕获layer transformOriginPoint"))
 
         start = getattr(layer, "start_pos", None)
         if isinstance(start, QPointF):
@@ -1345,14 +1347,14 @@ class LayerEditor:
             try:
                 state["corner_radius"] = float(layer.get_corner_radius())
             except Exception as e:
-                log_exception(e, "捕获corner_radius")
+                log_exception(e, T("捕获corner_radius"))
 
         # 序号值（NumberItem）
         if hasattr(layer, "number"):
             try:
-                state["number"] = max(1, int(getattr(layer, "number")))
+                state["number"] = max(1, int(layer.number))
             except Exception as e:
-                log_exception(e, "捕获number")
+                log_exception(e, T("捕获number"))
 
         return state
 
@@ -1365,14 +1367,14 @@ class LayerEditor:
             try:
                 layer.setTransform(QTransform(self._base_transform))
             except Exception as e:
-                log_exception(e, "恢复layer transform")
+                log_exception(e, T("恢复layer transform"))
 
         # pos
         if self._base_pos is not None and hasattr(layer, "setPos"):
             try:
                 layer.setPos(self._base_pos)
             except Exception as e:
-                log_exception(e, "恢复layer pos")
+                log_exception(e, T("恢复layer pos"))
 
         # local rect
         if self._base_local_rect is not None:
@@ -1399,7 +1401,7 @@ class LayerEditor:
                     QPointF(self._arrow_base_end_local),
                 )
             except Exception as e:
-                log_exception(e, "恢复arrow位置")
+                log_exception(e, T("恢复arrow位置"))
             
             # 恢复控制点位置和修改状态
             if hasattr(layer, "_control_modified"):
@@ -1410,14 +1412,14 @@ class LayerEditor:
                     if self._arrow_base_control_local is not None:
                         layer._control_pos = QPointF(self._arrow_base_control_local)
                 except Exception as e:
-                    log_exception(e, "恢复arrow控制点")
+                    log_exception(e, T("恢复arrow控制点"))
 
         # 圆角半径
         if self._base_corner_radius is not None and hasattr(layer, "set_corner_radius"):
             try:
                 layer.set_corner_radius(self._base_corner_radius)
             except Exception as e:
-                log_exception(e, "恢复corner_radius")
+                log_exception(e, T("恢复corner_radius"))
 
     # =========================================================================
     # rect 读写（兼容 QGraphicsItem / 数据层）
@@ -1429,12 +1431,12 @@ class LayerEditor:
             return None
 
         # rect() 方法
-        if hasattr(layer, "rect") and callable(getattr(layer, "rect")):
+        if hasattr(layer, "rect") and callable(layer.rect):
             try:
                 r = layer.rect()
                 return QRectF(r) if isinstance(r, QRectF) else None
             except Exception as e:
-                log_exception(e, "获取layer rect")
+                log_exception(e, T("获取layer rect"))
 
         # rect 属性（数据层）
         r = getattr(layer, "rect", None)
@@ -1444,18 +1446,18 @@ class LayerEditor:
         """设置 local rect（setRect 优先，否则写 rect 属性）"""
         if not layer or not isinstance(rect, QRectF):
             return
-        if hasattr(layer, "setRect") and callable(getattr(layer, "setRect")):
+        if hasattr(layer, "setRect") and callable(layer.setRect):
             try:
                 layer.setRect(rect)
                 if hasattr(layer, "update"):
                     layer.update()
                 return
             except Exception as e:
-                log_exception(e, "设置layer rect")
+                log_exception(e, T("设置layer rect"))
 
         # 数据层属性
         if hasattr(layer, "rect"):
             try:
                 layer.rect = rect
             except Exception as e:
-                log_exception(e, "设置layer rect属性")
+                log_exception(e, T("设置layer rect属性"))

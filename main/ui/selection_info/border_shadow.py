@@ -15,19 +15,18 @@ UI 组件：
 from __future__ import annotations
 
 from PySide6.QtCore import (
-    Qt, QRectF, QRect, QSize, QTimer, QPoint,
+    Qt, QRectF, QRect, QTimer, QPoint,
     Signal, QObject, QEvent,
 )
 from PySide6.QtGui import (
-    QColor, QPainter, QPainterPath, QBrush, QPen, QImage, QCursor,
-    QLinearGradient, QRadialGradient,
+    QColor, QPainter, QBrush, QPen, QImage, QCursor,
 )
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSlider, QLabel,
-    QPushButton, QCheckBox, QFrame,
+    QPushButton, QCheckBox,
 )
 
-from core.logger import log_debug
+from core.logger import log_debug, T
 from core import safe_event
 from ..color_picker_button import ColorPickerButton
 
@@ -473,7 +472,8 @@ class BorderShadowLogic(QObject):
 
     def set_enabled(self, enabled: bool):
         self._enabled = enabled
-        log_debug(f"描边/阴影: {'ON' if enabled else 'OFF'}  mode={self._mode} size={self._size}",
+        log_debug(T("描边/阴影: {state}  mode={mode} size={size}",
+                     state='ON' if enabled else 'OFF', mode=self._mode, size=self._size),
                   "BorderShadow")
         if self._config:
             self._config.set_app_setting("screenshot_border_enabled", enabled)
@@ -510,7 +510,7 @@ class BorderShadowLogic(QObject):
     # ------------------------------------------------------------------
     def _on_mode_changed(self, mode: str):
         self._mode = mode
-        log_debug(f"模式切换: {mode}", "BorderShadow")
+        log_debug(T("模式切换: {mode}", mode=mode), "BorderShadow")
         if self._config:
             self._config.set_app_setting("screenshot_border_mode", mode)
         if self._preview_visible:
@@ -714,7 +714,8 @@ def _apply_border_export(img: QImage, size: int, color: QColor,
     painter.drawImage(size, size, img)
     painter.end()
 
-    log_debug(f"描边导出完成: size={size} corner_r={corner_radius}", "BorderShadow")
+    log_debug(T("描边导出完成: size={size} corner_r={corner_radius}",
+                 size=size, corner_radius=corner_radius), "BorderShadow")
     return result
 
 
@@ -761,6 +762,7 @@ def _apply_shadow_export(img: QImage, size: int, color: QColor,
     painter.drawImage(margin, margin, img)
     painter.end()
 
-    log_debug(f"阴影导出完成: size={size} corner_r={corner_radius}", "BorderShadow")
+    log_debug(T("阴影导出完成: size={size} corner_r={corner_radius}",
+                 size=size, corner_radius=corner_radius), "BorderShadow")
     return result
  

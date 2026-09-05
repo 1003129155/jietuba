@@ -7,7 +7,7 @@ from PySide6.QtGui import QPen
 from .base import Tool, ToolContext, color_with_opacity
 from canvas.items import ArrowItem
 from canvas.undo import AddItemCommand
-from core import log_debug
+from core.logger import log_debug, T
 
 
 class ArrowTool(Tool):
@@ -42,7 +42,7 @@ class ArrowTool(Tool):
             self.current_item = ArrowItem(pos, pos, pen, self.arrow_style)
             ctx.scene.addItem(self.current_item)
             
-            log_debug(f"开始绘制: {pos}, 样式: {self.arrow_style}", "ArrowTool")
+            log_debug(T("开始绘制: {pos}, 样式: {arrow_style}", pos=pos, arrow_style=self.arrow_style), "ArrowTool")
     
     def on_move(self, pos: QPointF, ctx: ToolContext):
         if self.drawing and self.current_item:
@@ -61,7 +61,7 @@ class ArrowTool(Tool):
                     # 长度过短，取消绘制
                     ctx.scene.removeItem(self.current_item)
                     self.current_item = None
-                    log_debug(f"绘制取消：长度过短 ({length:.1f} < {self.MIN_LENGTH})", "ArrowTool")
+                    log_debug(T("绘制取消：长度过短 ({length:.1f} < {min_length})", length=length, min_length=self.MIN_LENGTH), "ArrowTool")
                     return
                 
                 ctx.scene.removeItem(self.current_item)
@@ -75,5 +75,5 @@ class ArrowTool(Tool):
                 # 通过信号通知自动选中
                 ctx.scene.item_auto_select_requested.emit(item_to_select)
             
-            log_debug("完成绘制", "ArrowTool")
+            log_debug(T("完成绘制"), "ArrowTool")
  

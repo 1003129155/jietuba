@@ -84,7 +84,7 @@ def _track_modeless_dialog(dialog):
     dialogs = getattr(app, "_modeless_dialogs", None)
     if dialogs is None:
         dialogs = []
-        setattr(app, "_modeless_dialogs", dialogs)
+        app._modeless_dialogs = dialogs
 
     dialogs.append(dialog)
 

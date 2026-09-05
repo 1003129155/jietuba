@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [master2, master]
+  pull_request:
+    branches: [master2, master]
+
+jobs:
+  test:
+    runs-on: windows-latest
+    env:
+      # PySide6 GUI 组件在无桌面会话的 CI Runner 上需要离屏渲染
+      QT_QPA_PLATFORM: offscreen
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # diff-cover 需要和目标分支做 diff，浅克隆里没有 base 分支的历史
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Install custom Rust wheels
+        run: |
+          pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl `
+                      longstitch-0.3.11-cp311-cp311-win_amd64.whl `
+                      pyclipboard-0.3.14-cp311-cp311-win_amd64.whl `
+                      ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
+
+      - name: Lint with ruff
+        # 规则集见 pyproject.toml：只启用能指向真实缺陷的检查。
+        # 当前为零告警，新增违规会让 CI 变红。
+        run: ruff check main
+
+      - name: Run test suite with coverage
+        # 从仓库根目录运行，保证 .coveragerc 里的相对路径能正确解析。
+        # --cov-fail-under 是一个只升不降的棘轮：覆盖率掉下去 CI 就红，
+        # 补完测试后把这个数字往上调。
+        run: >
+          pytest main/tests -v
+          -c main/tests/pytest.ini
+          --cov --cov-config=.coveragerc
+          --cov-report=term:skip-covered
+          --cov-report=xml
+          --cov-fail-under=37
+
+      - name: Enforce coverage on changed lines
+        # 只对本次 PR 改动到的行设门槛：总量棘轮（上一步的 --cov-fail-under）
+        # 防止倒退，这一步防止「新代码不带测试」。两者互补——总量涨得慢是因为
+        # 存量 UI 代码基数大，不能因此放过新写的未测代码。
+        # push 事件下 base 就是自己，diff 为空，因此只在 PR 上跑。
+        # if 用 always()：即使总量棘轮把上一步判红，也要把增量报告给出来。
+        if: always() && github.event_name == 'pull_request'
+        run: |
+          if (-not (Test-Path coverage.xml)) {
+            Write-Host "没有 coverage.xml（测试步骤未产出），跳过增量覆盖率检查"
+            exit 0
+          }
+          diff-cover coverage.xml `
+            --compare-branch=origin/${{ github.base_ref }} `
+            --fail-under=80 `
+            --format "html:diff-coverage.html,markdown:diff-coverage.md"
+
+      - name: Publish diff coverage summary
+        if: always() && github.event_name == 'pull_request'
+        run: |
+          if (Test-Path diff-coverage.md) {
+            Get-Content diff-coverage.md | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: |
+            coverage.xml
+            diff-coverage.html
+          if-no-files-found: warn

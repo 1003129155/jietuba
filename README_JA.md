@@ -12,6 +12,19 @@ PySide6 and RUSTベースのスクリーンショットおよびクリップボ�
 
 本プロジェクトは4つの自作Rustライブラリに依存しています。**プログラムを実行する前に、必ずこれらのパッケージをインストールしてください。**
 
+### ワンクリックセットアップ（推奨）
+
+プロジェクトルートの [setup.bat](setup.bat) をダブルクリックして実行してください。仮想環境の作成、Python依存パッケージのインストールを自動で行い、Rustパッケージの取得元を選択できます：
+
+- リポジトリに同梱されている `.whl` ファイルを使用（デフォルト）
+- または [GitHub Release](https://github.com/1003129155/jietuba/releases/tag/rust-libs-v1) から最新版をダウンロード
+
+完了後、そのままプログラムを起動するかどうか選択できます。
+
+### 手動セットアップ
+
+スクリプトを使わない場合は、以下の手順で手動インストールしてください。
+
 ### 1. Python 3.11 仮想環境の作成と有効化
 
 ```bash
@@ -29,11 +42,17 @@ python -m pip install -r requirements.txt
 
 ### 3. 自作Rustパッケージのインストール（必須）
 
-プロジェクトルートで次のコマンドを実行してください：
+この4つのパッケージには2つの入手元があります。どちらか一方を選んでください：
+
+**方法A：リポジトリ同梱の `.whl` ファイルを使う**（プロジェクトルートで実行）
 
 ```bash
 python -m pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl longstitch-0.3.11-cp311-cp311-win_amd64.whl pyclipboard-0.3.14-cp311-cp311-win_amd64.whl ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
 ```
+
+**方法B：GitHub Release からダウンロード**（ファイルが見つからない、または最新版を使いたい場合）
+
+[Releases ページ](https://github.com/1003129155/jietuba/releases/tag/rust-libs-v1) から対応するファイルをダウンロードし、同様に `pip install` してください。
 
 | パッケージ名 | バージョン | 機能 |
 |-------------|-----------|------|
@@ -308,8 +327,7 @@ settings/
 
 ```
 stitch/
-├── jietuba_long_stitch.py           # コア結合アルゴリズム
-├── jietuba_long_stitch_unified.py   # 統一結合インターフェース
+├── jietuba_long_stitch_unified.py   # 結合インターフェース（Rust の longstitch を呼び出す）
 ├── scroll_window.py                 # ScrollCaptureWindow — スクロールキャプチャウィンドウ
 └── scroll_toolbar.py                # スクロールキャプチャツールバー
 ```

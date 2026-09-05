@@ -624,7 +624,6 @@ class ClipboardHotkeyPage(BasePage):
             sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
             from hotkey_edit import HotkeyEdit
 
-        from PySide6.QtWidgets import QWidget, QLabel
 
         # 快捷键说明标签
         self._hotkey_lbl = QLabel(_tr("快捷键（最多设置两个）"))

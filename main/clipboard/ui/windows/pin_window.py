@@ -7,10 +7,10 @@
 
 from typing import Optional
 from PySide6.QtCore import QPoint
-from PySide6.QtGui import QImage, QCursor, QGuiApplication
+from PySide6.QtGui import QImage, QGuiApplication
 from PySide6.QtWidgets import QWidget
 
-from core.logger import log_debug, log_error
+from core.logger import T, log_debug, log_error
 
 
 def create_pin_from_clipboard_item(item_id: int, controller, clipboard_window: Optional[QWidget] = None) -> bool:
@@ -29,12 +29,12 @@ def create_pin_from_clipboard_item(item_id: int, controller, clipboard_window: O
         # 获取剪贴板项
         clipboard_item = controller.get_item(item_id)
         if not clipboard_item or clipboard_item.content_type != "image":
-            log_error(f"无法创建钉图：item_id={item_id} 不是图片", "Clipboard")
+            log_error(T("无法创建钉图：item_id={item_id} 不是图片", item_id=item_id), "Clipboard")
             return False
         
         # 检查 image_id
         if not clipboard_item.image_id:
-            log_error("无法创建钉图：图片 ID 为空", "Clipboard")
+            log_error(T("无法创建钉图：图片 ID 为空"), "Clipboard")
             return False
         
         # 获取剪贴板管理器并加载完整图片数据（不是缩略图）
@@ -43,7 +43,7 @@ def create_pin_from_clipboard_item(item_id: int, controller, clipboard_window: O
         image_data = manager.get_image_data(clipboard_item.image_id)
         
         if not image_data:
-            log_error(f"无法创建钉图：图片数据加载失败 (image_id={clipboard_item.image_id})", "Clipboard")
+            log_error(T("无法创建钉图：图片数据加载失败 (image_id={image_id})", image_id=clipboard_item.image_id), "Clipboard")
             return False
         
         # Rust 返回的是 list，需要转换为 bytes
@@ -53,7 +53,7 @@ def create_pin_from_clipboard_item(item_id: int, controller, clipboard_window: O
         # 从字节数据创建 QImage
         image = QImage.fromData(image_data)
         if image.isNull():
-            log_error("无法创建钉图：图片解码失败", "Clipboard")
+            log_error(T("无法创建钉图：图片解码失败"), "Clipboard")
             return False
         
         # 获取配置管理器
@@ -74,11 +74,11 @@ def create_pin_from_clipboard_item(item_id: int, controller, clipboard_window: O
             selection_offset=None
         )
         
-        log_debug(f"从剪贴板创建钉图窗口成功 (item_id={item_id})", "Clipboard")
+        log_debug(T("从剪贴板创建钉图窗口成功 (item_id={item_id})", item_id=item_id), "Clipboard")
         return True
         
     except Exception as e:
-        log_error(f"创建钉图窗口失败: {e}", "Clipboard")
+        log_error(T("创建钉图窗口失败: {e}", e=e), "Clipboard")
         return False
 
 

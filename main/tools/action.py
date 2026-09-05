@@ -12,7 +12,7 @@ from core.i18n import make_tr
 from core.export import ExportService
 from core.save import SaveService
 from pin.pin_manager import PinManager
-from core import log_debug, log_info
+from core.logger import log_debug, log_info, T
 
 
 _tr = make_tr("ActionTools")
@@ -58,9 +58,9 @@ class ActionTools:
             save_kwargs=save_kwargs,
         )
         if save_service is not None:
-            log_debug("已完成复制到剪贴板，已提交异步保存任务", "Action")
+            log_debug(T("已完成复制到剪贴板，已提交异步保存任务"), "Action")
         else:
-            log_debug("已完成复制到剪贴板", "Action")
+            log_debug(T("已完成复制到剪贴板"), "Action")
 
         if self.parent_window:
             self._cleanup_and_close()
@@ -96,7 +96,7 @@ class ActionTools:
                 selection_rect = self.export_service.scene.sceneRect()
             image = self.export_service.export(selection_rect)
             if self.save_service.save_qimage_to_path(image, file_path, image_format=image_format):
-                log_info(f"已保存到: {file_path}", "Action")
+                log_info(T("已保存到: {file_path}", file_path=file_path), "Action")
             
             if self.parent_window:
                 self._cleanup_and_close()
@@ -138,10 +138,10 @@ class ActionTools:
         )
         
         pin_window.show()
-        log_debug("已创建钉图窗口", "PinAction")
-        log_debug(f"位置: ({position.x()}, {position.y()})", "PinAction")
-        log_debug(f"底图: {base_image.width()}x{base_image.height()}", "PinAction")
-        log_debug(f"继承绘制项目: {len(drawing_items)} 个", "PinAction")
+        log_debug(T("已创建钉图窗口"), "PinAction")
+        log_debug(T("位置: ({pos_x}, {pos_y})", pos_x=position.x(), pos_y=position.y()), "PinAction")
+        log_debug(T("底图: {width}x{height}", width=base_image.width(), height=base_image.height()), "PinAction")
+        log_debug(T("继承绘制项目: {count} 个", count=len(drawing_items)), "PinAction")
         
         # 复制到剪贴板
         from core.clipboard_utils import deliver_image_async
@@ -152,7 +152,7 @@ class ActionTools:
             self.parent_window.hide()
 
         deliver_image_async(result_image)
-        log_debug("已完成复制到剪贴板", "PinAction")
+        log_debug(T("已完成复制到剪贴板"), "PinAction")
         
         if self.parent_window:
             self._cleanup_and_close()
@@ -171,7 +171,7 @@ class ActionTools:
         from ui.dialogs import show_modeless_warning_dialog
         from translation import TranslationManager
 
-        log_info("启动截图翻译模式", "ScreenshotTranslate")
+        log_info(T("启动截图翻译模式"), "ScreenshotTranslate")
 
         if not self.scene.selection_model.is_confirmed:
             show_modeless_warning_dialog(
@@ -195,7 +195,7 @@ class ActionTools:
         # 转换为 QPixmap（OCR 线程需要使用）
         from PySide6.QtGui import QPixmap
         pixmap_copy = QPixmap.fromImage(base_image)
-        log_debug(f"已复制底图用于OCR: {pixmap_copy.width()}x{pixmap_copy.height()}", "ScreenshotTranslate")
+        log_debug(T("已复制底图用于OCR: {width}x{height}", width=pixmap_copy.width(), height=pixmap_copy.height()), "ScreenshotTranslate")
         
         # 2. 获取翻译参数（在关闭窗口前获取）
         params = (
@@ -205,7 +205,7 @@ class ActionTools:
         )
         
         # 3. 关闭截图窗口（释放内存）
-        log_debug("关闭截图窗口，释放内存", "ScreenshotTranslate")
+        log_debug(T("关闭截图窗口，释放内存"), "ScreenshotTranslate")
         self._cleanup_and_close()
         
         # 4. 启动OCR并打开翻译窗口
@@ -228,7 +228,7 @@ class ActionTools:
         
         # 如果当前不是cursor工具，则切换到cursor
         if current_tool and current_tool.id != "cursor":
-            log_debug(f"从 {current_tool.id} 切换到 cursor", "Action")
+            log_debug(T("从 {tool_id} 切换到 cursor", tool_id=current_tool.id), "Action")
             tool_controller.activate("cursor")
         
         # 取消智能编辑的选择（清除控制点手柄）和隐藏画笔指示器

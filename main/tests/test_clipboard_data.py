@@ -4,9 +4,7 @@ ClipboardItem / Group 数据模型单元测试
 
 测试 display_text / icon 等纯逻辑属性（不依赖 Rust 后端）。
 """
-import pytest
 import json
-from datetime import datetime
 from clipboard.core import ClipboardItem, Group
 
 

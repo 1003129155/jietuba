@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional
 from dataclasses import dataclass, asdict
 from PySide6.QtCore import QObject, Signal
 
-from core.logger import log_exception
+from core.logger import T, log_exception
 
 
 @dataclass
@@ -351,7 +351,7 @@ class ThemeManager(QObject):
             if saved_theme_name in PRESET_THEMES:
                 return PRESET_THEMES[saved_theme_name]
         except Exception as e:
-            log_exception(e, "加载保存的主题")
+            log_exception(e, T("加载保存的主题"))
         return THEME_LIGHT  # 默认使用浅色主题
     
     def _save_theme(self, theme_name: str):
@@ -361,7 +361,7 @@ class ThemeManager(QObject):
             config = get_tool_settings_manager()
             config.set_clipboard_theme(theme_name)
         except Exception as e:
-            log_exception(e, "保存主题设置")
+            log_exception(e, T("保存主题设置"))
     
     def get_current_theme(self) -> Theme:
         """获取当前主题"""
@@ -447,7 +447,7 @@ class ThemeManager(QObject):
             theme = Theme.from_dict(theme_data)
             return self.add_custom_theme(theme)
         except Exception as e:
-            log_exception(e, "导入主题")
+            log_exception(e, T("导入主题"))
             return False
 
 

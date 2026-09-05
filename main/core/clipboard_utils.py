@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QBuffer, QIODeviceBase
 from PySide6.QtGui import QImage
 
-from core import log_info, log_warning, log_debug
+from core import log_info, log_warning, log_debug, T
 
 if TYPE_CHECKING:
     from core.save import SaveService
@@ -33,7 +33,7 @@ def copy_image_to_clipboard(image: QImage) -> None:
     并在剪切板被占用时自动重试。
     """
     if image.isNull():
-        log_warning("剪切板: 图像为空", "Clipboard")
+        log_warning(T("剪切板: 图像为空"), "Clipboard")
         return
 
     if sys.platform == "win32":
@@ -41,7 +41,7 @@ def copy_image_to_clipboard(image: QImage) -> None:
             _copy_win32(image)
             return
         except Exception as e:
-            log_warning(f"剪切板: Win32 写入失败 ({e})", "Clipboard")
+            log_warning(T("剪切板: Win32 写入失败 ({e})", e=e), "Clipboard")
 
     # 非 Windows 平台回退
     _copy_qt_fallback(image)
@@ -56,11 +56,11 @@ def deliver_image_async(
 ) -> threading.Thread | None:
     """复制到剪贴板并可选在后台线程中保存图像。"""
     if image is None or image.isNull():
-        log_warning("图像投递: 图像为空，跳过", "Clipboard")
+        log_warning(T("图像投递: 图像为空，跳过"), "Clipboard")
         return None
 
     if not copy_to_clipboard and save_service is None:
-        log_warning("图像投递: 未请求复制或保存，跳过", "Clipboard")
+        log_warning(T("图像投递: 未请求复制或保存，跳过"), "Clipboard")
         return None
 
     save_kwargs = dict(save_kwargs or {})
@@ -69,7 +69,7 @@ def deliver_image_async(
         if sys.platform == "win32":
             copy_image_to_clipboard(image)
         else:
-            log_debug("图像投递: 非 Windows 平台，剪贴板仍走主线程回退", "Clipboard")
+            log_debug(T("图像投递: 非 Windows 平台，剪贴板仍走主线程回退"), "Clipboard")
             copy_image_to_clipboard(image)
         copy_to_clipboard = False
 
@@ -92,12 +92,19 @@ def deliver_image_async(
             t2 = _time.perf_counter()
 
             log_debug(
-                f"异步图像投递完成 clipboard={clipboard_ok} save={save_ok} "
-                f"clipboard={((t1 - t0) * 1000):.1f}ms save={((t2 - t1) * 1000):.1f}ms total={((t2 - t0) * 1000):.1f}ms",
+                T(
+                    "异步图像投递完成 clipboard={clipboard_ok} save={save_ok} "
+                    "clipboard={clipboard_ms:.1f}ms save={save_ms:.1f}ms total={total_ms:.1f}ms",
+                    clipboard_ok=clipboard_ok,
+                    save_ok=save_ok,
+                    clipboard_ms=(t1 - t0) * 1000,
+                    save_ms=(t2 - t1) * 1000,
+                    total_ms=(t2 - t0) * 1000,
+                ),
                 "Clipboard"
             )
         except Exception as exc:
-            log_warning(f"图像投递: 后台任务失败 ({exc})", "Clipboard")
+            log_warning(T("图像投递: 后台任务失败 ({exc})", exc=exc), "Clipboard")
         finally:
             image = None
 
@@ -132,7 +139,12 @@ def _run_clipboard_write_with_retry(operation, path_name: str) -> None:
                 raise
 
             log_debug(
-                f"剪贴板: {path_name} 写入时剪贴板被占用，准备重试 {attempt_index + 1}/{total_attempts}",
+                T(
+                    "剪贴板: {path_name} 写入时剪贴板被占用，准备重试 {attempt_next}/{total_attempts}",
+                    path_name=path_name,
+                    attempt_next=attempt_index + 1,
+                    total_attempts=total_attempts,
+                ),
                 "Clipboard"
             )
 
@@ -183,11 +195,16 @@ def _copy_win32_legacy(image: QImage) -> None:
     _t3 = _time.perf_counter()
 
     log_debug(
-        f"已复制到剪切板 (Win32) "
-        f"dibv5={(_t1-_t0)*1000:.1f}ms png={(_t2-_t1)*1000:.1f}ms win32={(_t3-_t2)*1000:.1f}ms",
+        T(
+            "已复制到剪切板 (Win32) "
+            "dibv5={dibv5_ms:.1f}ms png={png_ms:.1f}ms win32={win32_ms:.1f}ms",
+            dibv5_ms=(_t1 - _t0) * 1000,
+            png_ms=(_t2 - _t1) * 1000,
+            win32_ms=(_t3 - _t2) * 1000,
+        ),
         "Clipboard"
     )
-    log_info("已复制到剪切板 (Win32 CF_DIBV5 + PNG)", "Clipboard")
+    log_info(T("已复制到剪切板 (Win32 CF_DIBV5 + PNG)"), "Clipboard")
 
 
 def _build_dibv5(image: QImage) -> bytes:
@@ -254,5 +271,5 @@ def _copy_qt_fallback(image: QImage) -> None:
     """非 Windows 平台的回退方案：用 Qt setImage。"""
     from PySide6.QtWidgets import QApplication
     QApplication.clipboard().setImage(image)
-    log_info("已复制到剪切板 (Qt)", "Clipboard")
+    log_info(T("已复制到剪切板 (Qt)"), "Clipboard")
  

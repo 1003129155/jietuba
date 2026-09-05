@@ -10,9 +10,8 @@ import subprocess
 import sys
 
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QStackedWidget, QWidget, QDialogButtonBox,
-    QFrame, QFileDialog,
+    QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QWidget, QDialogButtonBox,
+    QFileDialog,
 )
 from PySide6.QtCore import QSize, Qt, Signal
 from ui.dialogs import show_info_dialog
@@ -29,7 +28,7 @@ from ui.fluent_lite import FluentTitleBar
 from ui.fluent_lite.theme import ACCENT, ACCENT_HOVER, ACCENT_PRESSED
 
 from core import log_info, safe_event
-from core.logger import log_exception
+from core.logger import log_exception, T
 from core.constants import CSS_FONT_FAMILY, DEFAULT_FONT_FAMILY
 
 # 页面创建函数
@@ -43,10 +42,9 @@ from .page_appearance import create_appearance_page
 from .page_developer import create_developer_page
 from .page_about import create_about_page
 from .components import (
-    adjust_button_width, theme_surface_color, theme_sidebar_color,
-    theme_border_color, theme_input_background, theme_popup_background,
-    theme_popup_hover_background, theme_text_style, theme_caption_style,
-    theme_menu_style, theme_color, refresh_theme_widget_styles,
+    theme_surface_color, theme_sidebar_color,
+    theme_input_background, theme_popup_background,
+    theme_popup_hover_background, theme_text_style, theme_menu_style, theme_color, refresh_theme_widget_styles,
     apply_theme_text_style,
 )
 
@@ -126,7 +124,7 @@ class SettingsDialog(FrostedFramelessDialog):
             if os.path.exists(icon_path):
                 self.setWindowIcon(QIcon(icon_path))
         except Exception as e:
-            log_exception(e, "设置窗口图标")
+            log_exception(e, T("设置窗口图标"))
 
     # ================================================================
     # UI 构建
@@ -134,7 +132,6 @@ class SettingsDialog(FrostedFramelessDialog):
 
     def _setup_ui(self):
         sidebar_width = 212
-        nav_width = 194
         title_bar_height = self.titleBar.height() if getattr(self, 'titleBar', None) else 32
 
         main_layout = QHBoxLayout(self)
@@ -168,7 +165,7 @@ class SettingsDialog(FrostedFramelessDialog):
                 pm = QIcon(icon_path).pixmap(36, 36)
                 logo_icon_lbl.setPixmap(pm)
         except Exception as e:
-            log_exception(e, "加载 Logo 图标")
+            log_exception(e, T("加载 Logo 图标"))
         logo_layout.addWidget(logo_icon_lbl, 0, Qt.AlignmentFlag.AlignVCenter)
 
         text_box = QVBoxLayout()
@@ -999,7 +996,7 @@ class SettingsDialog(FrostedFramelessDialog):
                     pin_ctrl._edit_handler.reload_bindings()
                     pin_ctrl._normal_handler.reload_bindings()
             except Exception as e:
-                log_exception(e, "重载 Pin 快捷键绑定")
+                log_exception(e, T("重载 Pin 快捷键绑定"))
         if hasattr(self, 'cursor_move_combo'):
             self.config_manager.set_inapp_cursor_move_mode(
                 self.cursor_move_combo.currentData()
@@ -1153,7 +1150,7 @@ class SettingsDialog(FrostedFramelessDialog):
                 for btn in self.titleBar.findChildren(TitleBarButton):
                     btn.setState(TitleBarButtonState.NORMAL)
             except Exception as e:
-                log_exception(e, "重置标题栏按钮状态")
+                log_exception(e, T("重置标题栏按钮状态"))
         super().hideEvent(event)
 
     # ================================================================
@@ -1292,7 +1289,7 @@ class SettingsDialog(FrostedFramelessDialog):
                 ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, 1, hicon)
                 ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, 0, hicon)
         except Exception as e:
-            log_exception(e, "设置任务栏图标")
+            log_exception(e, T("设置任务栏图标"))
 
     def refresh_settings(self):
         """从配置管理器重新读取所有设置并更新界面"""

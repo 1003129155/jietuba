@@ -1,0 +1,61 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - "release-*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      # Runner 控制台默认编码是 cp1252，打包脚本的中文 print() 会导致
+      # UnicodeEncodeError；强制 Python 用 UTF-8 处理标准输出。
+      PYTHONUTF8: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Install custom Rust wheels
+        run: |
+          pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl `
+                      longstitch-0.3.11-cp311-cp311-win_amd64.whl `
+                      pyclipboard-0.3.14-cp311-cp311-win_amd64.whl `
+                      ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
+
+      - name: Build onefile exe with PyInstaller
+        run: python build_with_ocr_onefile.py
+
+      - name: Package dist as zip
+        run: Compress-Archive -Path dist\* -DestinationPath jietuba_pp-${{ github.ref_name }}.zip
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jietuba_pp-${{ github.ref_name }}
+          path: jietuba_pp-${{ github.ref_name }}.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: jietuba_pp-${{ github.ref_name }}.zip
+          generate_release_notes: true

@@ -11,14 +11,13 @@ import os
 import re
 from datetime import datetime, time, timedelta
 from typing import Optional, List, Callable, Tuple
-from time import perf_counter
 from PySide6.QtCore import QObject, Signal, QTimer, Qt
 from ui.dialogs import show_confirm_dialog
 
 from ..core import ClipboardManager, ClipboardItem, Group, GroupType
 from ..ui.dialogs.manage_dialog import get_manage_dialog, get_existing_manage_dialog
 from .context_menu_controller import ClipboardContextMenuController, ContextMenuData, MenuAction
-from core.logger import log_debug, log_info, log_error, log_exception
+from core.logger import T, log_debug, log_info, log_error, log_exception
 
 
 # ============================================================
@@ -63,7 +62,7 @@ def get_foreground_window():
     try:
         return ctypes.windll.user32.GetForegroundWindow()
     except Exception as e:
-        log_exception(e, "获取前台窗口")
+        log_exception(e, T("获取前台窗口"))
         return None
 
 
@@ -74,7 +73,7 @@ def set_foreground_window(hwnd):
             ctypes.windll.user32.SetForegroundWindow(hwnd)
             return True
     except Exception as e:
-        log_exception(e, "设置前台窗口")
+        log_exception(e, T("设置前台窗口"))
     return False
 
 
@@ -95,7 +94,7 @@ def send_ctrl_v():
         ctypes.windll.user32.keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0)
         return True
     except Exception as e:
-        log_error(f"发送 Ctrl+V 失败: {e}", "Clipboard")
+        log_error(T("发送 Ctrl+V 失败: {e}", e=e), "Clipboard")
         return False
 
 
@@ -163,7 +162,7 @@ class ClipboardController(QObject):
             self.auto_paste_enabled = config.get_clipboard_auto_paste()
             self.paste_with_html = config.get_app_setting("clipboard_paste_with_html", True)
         except Exception as e:
-            log_exception(e, "加载剪贴板设置")
+            log_exception(e, T("加载剪贴板设置"))
             # 默认开启自动粘贴和带格式粘贴
             self.auto_paste_enabled = True
             self.paste_with_html = True
@@ -177,7 +176,7 @@ class ClipboardController(QObject):
             config = get_tool_settings_manager()
             config.set_clipboard_auto_paste(enabled)
         except Exception as e:
-            log_exception(e, "保存自动粘贴设置")
+            log_exception(e, T("保存自动粘贴设置"))
     
     def set_paste_with_html(self, enabled: bool):
         """设置带格式粘贴"""
@@ -187,7 +186,7 @@ class ClipboardController(QObject):
             config = get_tool_settings_manager()
             config.set_app_setting("clipboard_paste_with_html", enabled)
         except Exception as e:
-            log_exception(e, "保存带格式粘贴设置")
+            log_exception(e, T("保存带格式粘贴设置"))
     
     def set_move_to_top_on_paste(self, enabled: bool):
         """设置粘贴后移到最前"""
@@ -196,7 +195,7 @@ class ClipboardController(QObject):
             config = get_tool_settings_manager()
             config.set_clipboard_move_to_top_on_paste(enabled)
         except Exception as e:
-            log_exception(e, "保存粘贴后移到最前设置")
+            log_exception(e, T("保存粘贴后移到最前设置"))
     
     # ==================== 数据加载 ====================
     
@@ -209,14 +208,14 @@ class ClipboardController(QObject):
             # 如果显示时间来源，用较小的值；如果不显示，用较大的值
             return self._page_size if show_metadata else self._page_size_without_metadata
         except Exception as e:
-            log_exception(e, "获取剪贴板每页数量")
+            log_exception(e, T("获取剪贴板每页数量"))
             return self._page_size
     
     def load_history(self):
         """加载历史记录（重置并加载第一页）"""
         if self._is_loading:
             self._pending_reload = True
-            log_debug("⏸️ 正在加载中，标记待重新加载", "Clipboard")
+            log_debug(T("⏸️ 正在加载中，标记待重新加载"), "Clipboard")
             return
         
         # 重置分页状态
@@ -245,18 +244,15 @@ class ClipboardController(QObject):
         # 动态获取 page_size（根据是否显示时间来源）
         current_page_size = self._get_page_size()
         
-        t_total_start = perf_counter()
         
         try:
             
             # 根据当前分组加载内容
-            t_query_start = perf_counter()
             is_first_page = (self._current_offset == 0)
             new_items, raw_count = self._fetch_items_page(current_page_size, self._current_offset)
             self._current_offset += raw_count
             
-            t_query_end = perf_counter()
-            log_info(f"加载完成 - 获取到 {len(new_items)} 条记录", "Clipboard")
+            log_info(T("加载完成 - 获取到 {count} 条记录", count=len(new_items)), "Clipboard")
             
             # 检查是否还有更多数据（使用动态的 page_size）
             if len(new_items) < current_page_size:
@@ -270,12 +266,11 @@ class ClipboardController(QObject):
             self.data_loaded.emit(new_items, is_first_page)
             
         except Exception as e:
-            log_error(f"加载数据失败: {e}", "Clipboard")
+            log_error(T("加载数据失败: {e}", e=e), "Clipboard")
             import traceback
             traceback.print_exc()
         
         finally:
-            t_total_end = perf_counter()
             self._is_loading = False
             self.loading_state_changed.emit(False)
             
@@ -355,7 +350,7 @@ class ClipboardController(QObject):
         # 1. 距离底部小于 50 像素
         # 2. 滚动位置超过 90%
         if distance_to_bottom < 50 and scroll_percentage > 90:
-            log_debug(f"🔄 触发加载更多 - 距离底部: {distance_to_bottom}px, 滚动位置: {scroll_percentage:.1f}%", "Clipboard")
+            log_debug(T("🔄 触发加载更多 - 距离底部: {distance_to_bottom}px, 滚动位置: {scroll_percentage:.1f}%", distance_to_bottom=distance_to_bottom, scroll_percentage=scroll_percentage), "Clipboard")
             self._load_more_items()
     
     # ==================== 搜索与筛选 ====================
@@ -537,7 +532,7 @@ class ClipboardController(QObject):
             move_to_top = False  # 在分组中粘贴，不移动顺序
         
         if self.manager.paste_item(item_id, self.paste_with_html, move_to_top):
-            log_info(f"已粘贴项 {item_id} (带格式: {self.paste_with_html}, 移到最前: {move_to_top})", "Clipboard")
+            log_info(T("已粘贴项 {item_id} (带格式: {with_html}, 移到最前: {move_to_top})", item_id=item_id, with_html=self.paste_with_html, move_to_top=move_to_top), "Clipboard")
             
             # 调用关闭回调
             if on_close_callback:
@@ -578,7 +573,7 @@ class ClipboardController(QObject):
         # "保持顺序粘贴"：带格式粘贴，但强制不移到最前
         if transform_key == "special_paste_in_order":
             if self.manager.paste_item(item_id, self.paste_with_html, move_to_top=False):
-                log_info(f"保持顺序粘贴项 {item_id}", "Clipboard")
+                log_info(T("保持顺序粘贴项 {item_id}", item_id=item_id), "Clipboard")
                 if on_close_callback:
                     on_close_callback()
                 if self.auto_paste_enabled:
@@ -594,14 +589,14 @@ class ClipboardController(QObject):
         if transform_key == "special_paste_plain_text":
             clipboard_item = self.get_item(item_id)
             if clipboard_item is None or clipboard_item.content_type != "text":
-                log_error(f"项 {item_id} 不是文本类型，无法粘贴纯文本", "Clipboard")
+                log_error(T("项 {item_id} 不是文本类型，无法粘贴纯文本", item_id=item_id), "Clipboard")
                 return False
             try:
                 pyclipboard.set_clipboard_text(clipboard_item.content)
             except Exception as e:
-                log_exception(e, "设置剪贴板纯文本失败")
+                log_exception(e, T("设置剪贴板纯文本失败"))
                 return False
-            log_info(f"粘贴纯文本项 {item_id}", "Clipboard")
+            log_info(T("粘贴纯文本项 {item_id}", item_id=item_id), "Clipboard")
             if on_close_callback:
                 on_close_callback()
             if self.auto_paste_enabled:
@@ -616,13 +611,13 @@ class ClipboardController(QObject):
 
         transform_fn = TRANSFORM_REGISTRY.get(transform_key)
         if transform_fn is None:
-            log_error(f"未知转换键: {transform_key}", "Clipboard")
+            log_error(T("未知转换键: {transform_key}", transform_key=transform_key), "Clipboard")
             return False
 
         # 获取原始文本
         clipboard_item = self.get_item(item_id)
         if clipboard_item is None or clipboard_item.content_type != "text":
-            log_error(f"项 {item_id} 不是文本类型，无法特殊粘贴", "Clipboard")
+            log_error(T("项 {item_id} 不是文本类型，无法特殊粘贴", item_id=item_id), "Clipboard")
             return False
 
         original_text = clipboard_item.content
@@ -631,17 +626,17 @@ class ClipboardController(QObject):
         try:
             transformed = transform_fn(original_text)
         except Exception as e:
-            log_exception(e, f"文本转换失败: {transform_key}")
+            log_exception(e, T("文本转换失败: {transform_key}", transform_key=transform_key))
             return False
 
         # 写入系统剪贴板（纯文本，不带格式）
         try:
             pyclipboard.set_clipboard_text(transformed)
         except Exception as e:
-            log_exception(e, "设置剪贴板文本失败")
+            log_exception(e, T("设置剪贴板文本失败"))
             return False
 
-        log_info(f"特殊粘贴项 {item_id} ({transform_key})", "Clipboard")
+        log_info(T("特殊粘贴项 {item_id} ({transform_key})", item_id=item_id, transform_key=transform_key), "Clipboard")
 
         # 调用关闭回调
         if on_close_callback:
@@ -667,7 +662,7 @@ class ClipboardController(QObject):
 
         clipboard_item = self.get_item(item_id)
         if clipboard_item is None or clipboard_item.content_type != "file":
-            log_error(f"项 {item_id} 不是文件类型，无法特殊粘贴", "Clipboard")
+            log_error(T("项 {item_id} 不是文件类型，无法特殊粘贴", item_id=item_id), "Clipboard")
             return False
 
         try:
@@ -675,11 +670,11 @@ class ClipboardController(QObject):
             files = data.get("files", []) if isinstance(data, dict) else []
             files = [os.path.normpath(file_path) for file_path in files if file_path]
         except Exception as e:
-            log_exception(e, "解析文件项内容失败")
+            log_exception(e, T("解析文件项内容失败"))
             return False
 
         if not files:
-            log_error(f"文件项 {item_id} 没有可粘贴的文件路径", "Clipboard")
+            log_error(T("文件项 {item_id} 没有可粘贴的文件路径", item_id=item_id), "Clipboard")
             return False
 
         if transform_key == "file_paste_names":
@@ -687,16 +682,16 @@ class ClipboardController(QObject):
         elif transform_key == "file_paste_links":
             text = "\n".join(files)
         else:
-            log_error(f"未知文件粘贴键: {transform_key}", "Clipboard")
+            log_error(T("未知文件粘贴键: {transform_key}", transform_key=transform_key), "Clipboard")
             return False
 
         try:
             pyclipboard.set_clipboard_text(text)
         except Exception as e:
-            log_exception(e, "设置剪贴板文件文本失败")
+            log_exception(e, T("设置剪贴板文件文本失败"))
             return False
 
-        log_info(f"文件特殊粘贴项 {item_id} ({transform_key})", "Clipboard")
+        log_info(T("文件特殊粘贴项 {item_id} ({transform_key})", item_id=item_id, transform_key=transform_key), "Clipboard")
 
         if on_close_callback:
             on_close_callback()
@@ -726,7 +721,7 @@ class ClipboardController(QObject):
     def move_to_group(self, item_id: int, group_id: Optional[int]) -> bool:
         """将项目移动到分组"""
         if self.manager.move_to_group(item_id, group_id):
-            log_info(f"已移动到分组 {group_id}", "Clipboard")
+            log_info(T("已移动到分组 {group_id}", group_id=group_id), "Clipboard")
             self.load_history()
             return True
         return False

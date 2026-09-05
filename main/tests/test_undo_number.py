@@ -158,7 +158,7 @@ class TestRemoveNumberAndRenumberCommand:
     """RemoveNumberAndRenumberCommand 测试"""
 
     def test_removes_and_renumbers_remaining(self, scene, undo_stack):
-        from canvas.undo import AddNumberCommand, RemoveNumberAndRenumberCommand
+        from canvas.undo import RemoveNumberAndRenumberCommand
         from tools.number import NumberTool
 
         # 创建 1, 2, 3 三个序号
@@ -182,7 +182,7 @@ class TestRemoveNumberAndRenumberCommand:
         assert NumberTool.get_next_number(scene) == 3
 
     def test_undo_restores_original_numbers(self, scene, undo_stack):
-        from canvas.undo import AddNumberCommand, RemoveNumberAndRenumberCommand
+        from canvas.undo import RemoveNumberAndRenumberCommand
         from tools.number import NumberTool
 
         items = []
@@ -317,7 +317,6 @@ class TestNumberEditCommand:
         """0.7 秒内连续编辑同一 item 应合并"""
         from canvas.undo import NumberEditCommand
         from tools.number import NumberTool
-        import time
 
         item = _make_number_item(3)
         scene.addItem(item)
@@ -337,7 +336,6 @@ class TestNumberEditCommand:
 
     def test_merge_different_items_returns_false(self, scene, undo_stack):
         from canvas.undo import NumberEditCommand
-        from tools.number import NumberTool
 
         item1 = _make_number_item(3, x=0)
         item2 = _make_number_item(5, x=30)
@@ -369,7 +367,6 @@ class TestBatchRemoveWithNumbers:
     def test_removes_mixed_items_preserves_counter(self, scene, undo_stack):
         from canvas.undo import BatchRemoveCommand
         from canvas.items import RectItem
-        from PySide6.QtCore import QRectF
         from PySide6.QtGui import QPen, QColor as Qc
         from tools.number import NumberTool
 

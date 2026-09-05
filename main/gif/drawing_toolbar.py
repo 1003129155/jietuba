@@ -12,12 +12,12 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import QWidget, QPushButton, QHBoxLayout, QVBoxLayout
-from PySide6.QtCore import Qt, QPoint, Signal, QSize
-from PySide6.QtGui import QCursor, QColor, QIcon
+from PySide6.QtCore import Qt, Signal, QSize
+from PySide6.QtGui import QColor
 
 from ._widgets import svg_icon as _svg_icon
 from core.i18n import make_tr
-from core.logger import log_exception
+from core.logger import log_exception, T
 
 
 _tr = make_tr("GifDrawingToolbar")
@@ -144,7 +144,6 @@ class GifDrawingToolbar(QWidget):
         from ui.paint_settings_panel import PaintSettingsPanel
         from ui.shape_settings_panel import ShapeSettingsPanel
         from ui.arrow_settings_panel import ArrowSettingsPanel
-        from ui.number_settings_panel import NumberSettingsPanel
         from ui.text_settings_panel import TextSettingsPanel
 
         flags = (
@@ -220,7 +219,7 @@ class GifDrawingToolbar(QWidget):
             if arrow_settings and hasattr(self.arrow_panel, "arrow_style"):
                 self.arrow_panel.arrow_style = arrow_settings.get("arrow_style", "single")
         except Exception as e:
-            log_exception(e, "加载绘制工具样式")
+            log_exception(e, T("加载绘制工具样式"))
 
     # ── 面板定位 ──
 

@@ -7,6 +7,7 @@
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QCursor
 from core import log_debug
+from core.logger import T
 
 
 class PinThumbnailMode:
@@ -102,7 +103,7 @@ class PinThumbnailMode:
             win.toolbar.hide()
 
         self._active = True
-        log_debug(f"进入缩略图模式，场景中心: ({scene_x:.1f}, {scene_y:.1f})", "PinWindow")
+        log_debug(T("进入缩略图模式，场景中心: ({scene_x:.1f}, {scene_y:.1f})", scene_x=scene_x, scene_y=scene_y), "PinWindow")
 
     # ------------------------------------------------------------------
     # 退出缩略图模式
@@ -141,7 +142,7 @@ class PinThumbnailMode:
         win._set_control_buttons_visible(True)
         win.update_button_positions()
 
-        log_debug("退出缩略图模式", "PinWindow")
+        log_debug(T("退出缩略图模式"), "PinWindow")
 
     # ------------------------------------------------------------------
     # 视图更新（resizeEvent 中调用）

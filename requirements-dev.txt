@@ -3,5 +3,8 @@
 
 pytest==9.0.2
 pytest-qt==4.5.0
+pytest-cov==7.1.0
+diff-cover==10.5.1
+ruff==0.16.6
 pyinstaller==6.17.0
 maturin==1.12.6

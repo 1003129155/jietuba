@@ -4,7 +4,7 @@ import os
 import shutil
 import sys
 
-from core.logger import log_exception
+from core.logger import log_exception, T
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea,
     QFileDialog, QProgressDialog,
@@ -211,7 +211,7 @@ def _get_clipboard_db_path(dialog) -> str:
             return cm.get_db_path() or dialog.tr("Unknown")
         return dialog.tr("Clipboard module not available")
     except Exception as e:
-        log_exception(e, "获取剪贴板数据库路径")
+        log_exception(e, T("获取剪贴板数据库路径"))
         return dialog.tr("Clipboard module not available")
 
 
@@ -270,7 +270,6 @@ def _change_clipboard_data_location(dialog):
             except ValueError:
                 pass
 
-        target_db_path = os.path.join(target_dir, "clipboard.db")
         if _target_has_clipboard_data(target_dir):
             confirmed = show_confirm_dialog(
                 dialog,
@@ -555,7 +554,7 @@ def _calc_clipboard_storage_size() -> str:
                     if os.path.isfile(fp):
                         total += os.path.getsize(fp)
         except Exception as e:
-            log_exception(e, "计算图片目录大小")
+            log_exception(e, T("计算图片目录大小"))
         if total < 1024:
             return f"{total} B"
         elif total < 1024 ** 2:
@@ -565,7 +564,7 @@ def _calc_clipboard_storage_size() -> str:
         else:
             return f"{total / 1024 ** 3:.2f} GB"
     except Exception as e:
-        log_exception(e, "计算剪贴板存储大小")
+        log_exception(e, T("计算剪贴板存储大小"))
         return ""
 
 

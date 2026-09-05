@@ -13,7 +13,7 @@ from ui.dialogs import show_info_dialog
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
     FluentIcon, ComboBox,
-    CaptionLabel, PushButton,
+    PushButton,
 )
 from .components import SettingCardGroup, WhiteCard, apply_theme_text_style
 

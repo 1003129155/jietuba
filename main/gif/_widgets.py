@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import QPushButton, QMenu
-from PySide6.QtCore import Qt, QPoint, Signal, QSize
+from PySide6.QtCore import Qt, QPoint, Signal
 from PySide6.QtGui import QIcon, QCursor, QAction
 
 

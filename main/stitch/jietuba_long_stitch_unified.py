@@ -8,6 +8,7 @@
 from PIL import Image
 
 from core import log_debug, log_info, log_warning, log_error
+from core.logger import T
 
 # 全局拼接计数（用于调试日志展示累计次数）
 _stitch_counter = 0
@@ -66,9 +67,13 @@ def configure(engine=None, verbose=None, ignore_right_pixels=None, ignore_top_pi
         config.ignore_top_pixels = ignore_top_pixels
 
     log_info(
-        f"拼接引擎已配置: engine={config.engine}, verbose={config.verbose}, "
-        f"ignore_top_pixels={config.ignore_top_pixels}",
-        module="长截图"
+        T(
+            "拼接引擎已配置: engine={engine}, verbose={verbose}, ignore_top_pixels={ignore_top_pixels}",
+            engine=config.engine,
+            verbose=config.verbose,
+            ignore_top_pixels=config.ignore_top_pixels,
+        ),
+        module="LongStitch"
     )
 
 
@@ -119,8 +124,8 @@ def _stitch_with_hash_rust(images, ignore_img1_top_ratio=0.0, ignore_img1_bottom
 
                 if stitch_result is None:
                     log_warning(
-                        f"第 {i}/{len(images)-1} 次拼接失败（无重叠）",
-                        module="长截图"
+                        T("第 {i}/{total} 次拼接失败（无重叠）", i=i, total=len(images) - 1),
+                        module="LongStitch"
                     )
                     return None
 
@@ -131,19 +136,25 @@ def _stitch_with_hash_rust(images, ignore_img1_top_ratio=0.0, ignore_img1_bottom
                     global _stitch_counter
                     _stitch_counter += 1
                     log_debug(
-                        f"第 {i}/{len(images)-1} 次拼接完成（累计{_stitch_counter}次）: "
-                        f"{result.size[0]}x{result.size[1]}",
-                        module="长截图"
+                        T(
+                            "第 {i}/{total} 次拼接完成（累计{counter}次）: {width}x{height}",
+                            i=i,
+                            total=len(images) - 1,
+                            counter=_stitch_counter,
+                            width=result.size[0],
+                            height=result.size[1],
+                        ),
+                        module="LongStitch"
                     )
 
             except Exception as e:
-                log_error(f"第 {i} 次拼接异常: {e}", module="长截图")
+                log_error(T("第 {i} 次拼接异常: {e}", i=i, e=e), module="LongStitch")
                 return None
 
         return result
 
     except ImportError:
-        log_warning("longstitch 模块未安装，无法使用 Rust 拼接", module="长截图")
+        log_warning(T("longstitch 模块未安装，无法使用 Rust 拼接"), module="LongStitch")
         return None
 
 
@@ -196,10 +207,10 @@ def stitch_images_auto(img1, img2, debug=False):
         return result, direction
 
     except ImportError:
-        log_warning("longstitch 模块未安装，无法使用自动方向检测", module="长截图")
+        log_warning(T("longstitch 模块未安装，无法使用自动方向检测"), module="LongStitch")
         return None, "forward"
     except Exception as e:
-        log_error(f"自动方向检测拼接异常: {e}", module="长截图")
+        log_error(T("自动方向检测拼接异常: {e}", e=e), module="LongStitch")
         return None, "forward"
 
 

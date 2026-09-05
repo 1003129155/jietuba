@@ -268,12 +268,12 @@ class TestCleanupSafety:
     def test_canvas_view_has_cleanup(self):
         from canvas.view import CanvasView
         assert hasattr(CanvasView, "cleanup")
-        assert callable(getattr(CanvasView, "cleanup"))
+        assert callable(CanvasView.cleanup)
 
     def test_smart_edit_controller_has_cleanup(self):
         from canvas.smart_edit_controller import SmartEditController
         assert hasattr(SmartEditController, "cleanup")
-        assert callable(getattr(SmartEditController, "cleanup"))
+        assert callable(SmartEditController.cleanup)
 
     def test_tool_controller_has_remove_callback(self):
         from tools.controller import ToolController

@@ -5,7 +5,7 @@ import pytest
 from PySide6.QtCore import QCoreApplication, QTranslator, Qt
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QLabel, QWidget
+from PySide6.QtWidgets import QLabel
 
 from core.shortcut_manager import load_inapp_bindings
 from settings.tool_settings import ToolSettingsManager

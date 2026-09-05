@@ -20,7 +20,7 @@ from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton
 
 from core.resource_manager import ResourceManager
 from core import safe_event
-from core.logger import log_exception
+from core.logger import log_exception, T
 
 
 class SelectionInfoPanel(QWidget):
@@ -120,7 +120,7 @@ class SelectionInfoPanel(QWidget):
             btn.setIcon(ResourceManager.get_icon(path))
             btn.setIconSize(QSize(19, 19))
         except Exception as e:
-            log_exception(e, "加载按钮图标")
+            log_exception(e, T("加载按钮图标"))
             btn.setText(tip[:2])  # 找不到图标时用文字兜底
         return btn
 

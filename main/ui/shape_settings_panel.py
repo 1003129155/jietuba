@@ -4,7 +4,6 @@
 """
 from PySide6.QtWidgets import QComboBox, QHBoxLayout
 from PySide6.QtCore import Signal, QSize
-from PySide6.QtGui import QIcon
 from core.resource_manager import ResourceManager
 from .base_settings_panel import BaseSettingsPanel, StepperWidget, build_settings_panel_stylesheet, PANEL_SCALE
 from .color_picker_button import ColorPickerButton
@@ -37,9 +36,7 @@ class ShapeSettingsPanel(BaseSettingsPanel):
             combo_padding_compact=True
         ))
 
-        from PySide6.QtWidgets import QWidget, QPushButton, QHBoxLayout, QFrame
-        from PySide6.QtCore import Qt
-        from PySide6.QtGui import QColor
+        from PySide6.QtWidgets import QPushButton, QFrame
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(round(10 * PANEL_SCALE), round(8 * PANEL_SCALE),

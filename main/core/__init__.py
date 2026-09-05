@@ -3,9 +3,9 @@
 """
 
 from .logger import (
-    setup_logger, 
-    get_logger, 
-    log_exception, 
+    setup_logger,
+    get_logger,
+    log_exception,
     log_exception_full,
     log_debug,
     log_info,
@@ -14,6 +14,7 @@ from .logger import (
     LogLevel,
     set_log_level,
     set_console_log_level,
+    T,
 )
 
 from .crash_handler import safe_event
@@ -31,6 +32,7 @@ __all__ = [
     'LogLevel',
     'set_log_level',
     'set_console_log_level',
+    'T',
     'safe_event',
     'safe_disconnect',
     'ExportService',

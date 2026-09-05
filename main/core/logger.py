@@ -14,26 +14,32 @@
 使用方式：
     from core.logger import setup_logger, get_logger
     from core.logger import log_debug, log_info, log_warning, log_error
-    
+
     # 初始化（在 main_app.py 启动时调用）
     setup_logger()
-    
+
     # 方式1：使用全局便捷函数（推荐）
     log_debug("调试信息", "ModuleName")
     log_info("普通信息", "ModuleName")
     log_warning("警告信息", "ModuleName")
     log_error("错误信息", "ModuleName")
-    
+
     # 方式2：获取日志实例
     logger = get_logger()
     logger.info("程序启动")
-    
+
     # 静默异常记录（替代 except: pass）
     try:
         some_risky_operation()
     except Exception as e:
         log_exception(e, "操作失败")
-        
+
+    # 多语言日志：正文默认中文，界面语言非中文时自动查
+    # core/log_translations 里的英文翻译，查不到则回退中文。
+    # 变量用具名占位符，T() 只在真正要输出这条日志时才格式化。
+    from core.logger import T
+    log_info(T("热键已注册: {hotkey}", hotkey=hotkey), "Hotkey")
+
 日志级别（从低到高）：
     DEBUG = 10   # 调试信息（开发时使用）
     INFO = 20    # 普通信息（功能状态）
@@ -43,14 +49,60 @@
 """
 
 import sys
-import os
 import io
 import re
 import threading
 import traceback
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
+
+
+# ============================================================================
+# 日志多语言支持
+#
+# 日志正文默认写中文（源码里的字面量），当应用界面语言不是中文时，
+# 通过 core.log_translations 里的中→英字典查出对应英文模板再格式化。
+# 查不到翻译时静默回退中文，不影响日志本身的记录。
+# ============================================================================
+class LogMsg:
+    """带翻译能力的日志消息：中文模板 + 具名参数，渲染时才格式化。"""
+
+    __slots__ = ("template", "kwargs")
+
+    def __init__(self, template: str, **kwargs):
+        self.template = template
+        self.kwargs = kwargs
+
+    def render(self) -> str:
+        template = self.template
+        try:
+            from core.i18n import I18nManager
+            if I18nManager.get_current_language() != "zh":
+                from core.log_translations import TRANSLATIONS
+                template = TRANSLATIONS.get(self.template, self.template)
+        except Exception:
+            template = self.template
+
+        if not self.kwargs:
+            return template
+        try:
+            return template.format(**self.kwargs)
+        except (KeyError, IndexError, ValueError):
+            # 翻译模板的占位符和中文原文对不上时，回退中文原文
+            return self.template.format(**self.kwargs)
+
+
+def T(template: str, **kwargs) -> LogMsg:
+    """构造可翻译的日志消息：T("热键已注册: {hotkey}", hotkey=hotkey)"""
+    return LogMsg(template, **kwargs)
+
+
+MessageType = Union[str, LogMsg]
+
+
+def _render_message(message: MessageType) -> str:
+    return message.render() if isinstance(message, LogMsg) else message
 
 
 # ============================================================================
@@ -140,6 +192,11 @@ class Logger:
         
         self._ready = False
         self._initialized = True
+
+        # 写入锁：_lock 只保护单例构造，写日志路径需要自己的锁。
+        # 并发写日志的线程包括 OCR 预热、翻译 worker、Rust 剪贴板监听回调、
+        # GIF 录制线程和崩溃钩子的 threading.excepthook。
+        self._write_lock = threading.Lock()
     
     def setup(self, enabled: bool = True, log_dir: Optional[str] = None):
         """
@@ -152,18 +209,19 @@ class Logger:
         self.enabled = enabled
         
         if not enabled:
-            print("[WARN] [Logger] 日志功能已禁用")
+            print(T("[WARN] [Logger] 日志功能已禁用").render())
             return
-        
+
         if self._ready:
-            print("[WARN] [Logger] 日志系统已经初始化")
+            print(T("[WARN] [Logger] 日志系统已经初始化").render())
             return
         
         # 设置日志目录
         if log_dir:
             self.log_dir = Path(log_dir)
         else:
-            self.log_dir = Path.home() / "AppData" / "Local" / "Jietuba" / "Logs"
+            from core.constants import get_log_dir
+            self.log_dir = get_log_dir()
         
         try:
             # 创建日志目录
@@ -184,10 +242,10 @@ class Logger:
             sys.stderr = TeeStream(self._original_stderr, self.log_file)
             
             self._ready = True
-            self.info(f"[OK] [Logger] 日志系统启动成功，日志文件：{log_path}")
-            
+            self.info(T("[OK] [Logger] 日志系统启动成功，日志文件：{log_path}", log_path=log_path))
+
         except Exception as e:
-            print(f"[ERROR] [Logger] 无法创建日志文件: {e}")
+            print(T("[ERROR] [Logger] 无法创建日志文件: {e}", e=e).render())
             self.enabled = False
     
     def _write_header(self):
@@ -195,33 +253,36 @@ class Logger:
         if not self.log_file:
             return
         
-        header = f"""
-{'=' * 80}
-Jietuba 截图工具 - 运行日志
-启动时间: {datetime.now():%Y-%m-%d %H:%M:%S}
-日志目录: {self.log_dir}
-日志级别: {LogLevel.name(self.min_level)} (文件) / {LogLevel.name(self.console_min_level)} (控制台)
-{'=' * 80}
-"""
+        header = T(
+            "\n{sep}\nJietuba 截图工具 - 运行日志\n启动时间: {start_time}\n日志目录: {log_dir}\n"
+            "日志级别: {file_level} (文件) / {console_level} (控制台)\n{sep}\n",
+            sep='=' * 80,
+            start_time=f"{datetime.now():%Y-%m-%d %H:%M:%S}",
+            log_dir=self.log_dir,
+            file_level=LogLevel.name(self.min_level),
+            console_level=LogLevel.name(self.console_min_level),
+        ).render()
         self.log_file.write(header)
         self.log_file.flush()
     
-    def _log(self, level: int, message: str, module: str = ""):
+    def _log(self, level: int, message: MessageType, module: str = ""):
         """
         写入日志
-        
+
         Args:
             level: 日志级别（LogLevel.DEBUG/INFO/WARNING/ERROR）
-            message: 日志内容
+            message: 日志内容（str 或 T() 构造的可翻译消息）
             module: 模块名（可选，用于追踪来源）
         """
         if not self.enabled:
             return
-        
-        # 检查日志级别
+
+        # 检查日志级别（被过滤的日志不会走到下面的翻译渲染，避免无谓开销）
         if level < self.min_level:
             return
-        
+
+        message = _render_message(message)
+
         timestamp = datetime.now().strftime("%H:%M:%S")
         level_name = LogLevel.name(level)
         
@@ -232,15 +293,18 @@ Jietuba 截图工具 - 运行日志
             log_line = f"[{timestamp}] [{level_name}] {message}"
         
         # 写入文件（总是写入，如果文件可用）
-        if self.log_file and self._ready:
-            try:
-                self.log_file.write(log_line + "\n")
-                # buffering=1（行缓冲）：写入 \n 时自动 flush，无需手动调用
-                # 仅 ERROR 及以上才强制 flush，确保严重错误不会因崩溃而丢失
-                if level >= LogLevel.ERROR:
-                    self.log_file.flush()
-            except Exception:
-                pass
+        # 必须加锁：close() 可能在下面的判空和实际写入之间把句柄关掉，
+        # 那样写入会抛 ValueError 并被 except 吞掉，表现为退出时日志静默丢失。
+        with self._write_lock:
+            if self.log_file and self._ready:
+                try:
+                    self.log_file.write(log_line + "\n")
+                    # buffering=1（行缓冲）：写入 \n 时自动 flush，无需手动调用
+                    # 仅 ERROR 及以上才强制 flush，确保严重错误不会因崩溃而丢失
+                    if level >= LogLevel.ERROR:
+                        self.log_file.flush()
+                except Exception:
+                    pass
         
         # 输出到控制台（根据控制台级别过滤）
         # stdout 本身是行缓冲，写入 \n 后无需额外 flush
@@ -250,19 +314,19 @@ Jietuba 截图工具 - 运行日志
             except Exception:
                 pass
     
-    def debug(self, message: str, module: str = ""):
+    def debug(self, message: MessageType, module: str = ""):
         """记录调试日志（开发时使用，生产环境可关闭）"""
         self._log(LogLevel.DEBUG, message, module)
-    
-    def info(self, message: str, module: str = ""):
+
+    def info(self, message: MessageType, module: str = ""):
         """记录信息日志（普通状态信息）"""
         self._log(LogLevel.INFO, message, module)
-    
-    def warning(self, message: str, module: str = ""):
+
+    def warning(self, message: MessageType, module: str = ""):
         """记录警告日志（潜在问题）"""
         self._log(LogLevel.WARNING, message, module)
-    
-    def error(self, message: str, module: str = ""):
+
+    def error(self, message: MessageType, module: str = ""):
         """记录错误日志（功能异常）"""
         self._log(LogLevel.ERROR, message, module)
     
@@ -274,7 +338,7 @@ Jietuba 截图工具 - 运行日志
             level: LogLevel.DEBUG/INFO/WARNING/ERROR
         """
         self.min_level = level
-        self.info(f"日志级别已设置为: {LogLevel.name(level)}", "Logger")
+        self.info(T("日志级别已设置为: {level_name}", level_name=LogLevel.name(level)), "Logger")
     
     def set_console_level(self, level: int):
         """
@@ -285,22 +349,24 @@ Jietuba 截图工具 - 运行日志
         """
         self.console_min_level = level
     
-    def exception(self, e: Exception, context: str = "", silent: bool = True):
+    def exception(self, e: Exception, context: MessageType = "", silent: bool = True):
         """
         记录异常信息（替代 except: pass）
-        
+
         Args:
             e: 异常对象
-            context: 上下文描述（例如："断开信号连接时"）
+            context: 上下文描述（例如："断开信号连接时"，支持 T() 可翻译消息）
             silent: 是否静默处理（True=只记录不打印到控制台，False=同时打印）
         """
         if not self.enabled:
             return
-        
+
+        context = _render_message(context)
+
         # 获取异常信息
         exc_type = type(e).__name__
         exc_msg = str(e)
-        
+
         # 构建日志消息
         if context:
             log_msg = f"[静默异常] {context}: {exc_type}: {exc_msg}"
@@ -320,17 +386,19 @@ Jietuba 截图工具 - 运行日志
             # 非静默模式，正常输出
             self._log(LogLevel.ERROR, log_msg)
     
-    def exception_with_traceback(self, e: Exception, context: str = ""):
+    def exception_with_traceback(self, e: Exception, context: MessageType = ""):
         """
         记录异常信息（包含完整堆栈，用于调试严重错误）
-        
+
         Args:
             e: 异常对象
             context: 上下文描述
         """
         if not self.enabled:
             return
-        
+
+        context = _render_message(context)
+
         exc_type = type(e).__name__
         exc_msg = str(e)
         tb = traceback.format_exc()
@@ -348,9 +416,9 @@ Jietuba 截图工具 - 运行日志
         """
         self.enabled = enabled
         if enabled:
-            self.info("📝 [Logger] 日志已启用")
+            self.info(T("📝 [Logger] 日志已启用"))
         else:
-            print("🔇 [Logger] 日志已禁用")
+            print(T("🔇 [Logger] 日志已禁用").render())
 
     
     def set_log_dir(self, log_dir: str):
@@ -361,33 +429,34 @@ Jietuba 截图工具 - 运行日志
             log_dir: 新的日志目录路径
         """
         if self._ready:
-            self.warning("[Logger] 日志系统已初始化，无法更改日志目录")
+            self.warning(T("[Logger] 日志系统已初始化，无法更改日志目录"))
             return
-        
+
         self.log_dir = Path(log_dir)
-        print(f"[OK] [Logger] 日志目录已设置为: {log_dir}")
+        print(T("[OK] [Logger] 日志目录已设置为: {log_dir}", log_dir=log_dir).render())
     
     def close(self):
         """关闭日志系统"""
         if not self._ready:
             return
         
-        self.info("🛑 [Logger] 日志系统关闭")
+        self.info(T("🛑 [Logger] 日志系统关闭"))
         
         # 恢复原始流
         sys.stdout = self._original_stdout
         sys.stderr = self._original_stderr
         
-        # 关闭日志文件
-        if self.log_file:
-            try:
-                self.log_file.flush()
-                self.log_file.close()
-            except Exception:
-                pass
-            self.log_file = None
-        
-        self._ready = False
+        # 关闭日志文件（与 _log() 争用同一把锁；注意必须在上面的 self.info() 之后取锁）
+        with self._write_lock:
+            if self.log_file:
+                try:
+                    self.log_file.flush()
+                    self.log_file.close()
+                except Exception:
+                    pass
+                self.log_file = None
+
+            self._ready = False
 
 
 # ============================================================================
@@ -437,7 +506,8 @@ def setup_logger(config_manager=None):
     else:
         # 使用默认设置
         enabled = True
-        log_dir = str(Path.home() / "AppData" / "Local" / "Jietuba" / "Logs")
+        from core.constants import get_log_dir
+        log_dir = str(get_log_dir())
         log_level = LogLevel.WARNING
         retention_days = 7
     
@@ -472,9 +542,12 @@ def _trim_fixed_log(file_path: Path, max_bytes: int):
             f.write(f"[日志截断: 文件超过 {max_bytes // 1024} KB 上限，已保留末尾内容]\n\n")
             f.write(tail)
 
-        print(f"✂️ [日志截断] {file_path.name} 超过 {max_bytes // 1024} KB，已截断")
+        print(T(
+            "✂️ [日志截断] {name} 超过 {max_kb} KB，已截断",
+            name=file_path.name, max_kb=max_bytes // 1024,
+        ).render())
     except Exception as e:
-        print(f"[WARN] [日志截断] 处理 {file_path.name} 失败: {e}")
+        print(T("[WARN] [日志截断] 处理 {name} 失败: {e}", name=file_path.name, e=e).render())
 
 
 def cleanup_old_logs(log_dir: str, retention_days: int):
@@ -523,7 +596,10 @@ def cleanup_old_logs(log_dir: str, retention_days: int):
         
         if deleted_count > 0:
             # 使用 print 而不是 log_info，因为此时日志系统可能还未完全初始化
-            print(f"🗑️ [日志清理] 已删除 {deleted_count} 个过期日志文件（保留 {retention_days} 天）")
+            print(T(
+                "🗑️ [日志清理] 已删除 {deleted_count} 个过期日志文件（保留 {retention_days} 天）",
+                deleted_count=deleted_count, retention_days=retention_days,
+            ).render())
 
         # 对固定名称的累积日志文件做超限截断（上限 1 MB）
         _MAX_FIXED_LOG_BYTES = 1 * 1024 * 1024  # 1 MB
@@ -533,10 +609,10 @@ def cleanup_old_logs(log_dir: str, retention_days: int):
                 _trim_fixed_log(fixed_file, _MAX_FIXED_LOG_BYTES)
     
     except Exception as e:
-        print(f"[WARN] [日志清理] 清理失败: {e}")
+        print(T("[WARN] [日志清理] 清理失败: {e}", e=e).render())
 
 
-def log_exception(e: Exception, context: str = "", silent: bool = True):
+def log_exception(e: Exception, context: MessageType = "", silent: bool = True):
     """
     记录静默异常（替代 except: pass 的全局便捷函数）
     
@@ -561,7 +637,7 @@ def log_exception(e: Exception, context: str = "", silent: bool = True):
     get_logger().exception(e, context, silent)
 
 
-def log_exception_full(e: Exception, context: str = ""):
+def log_exception_full(e: Exception, context: MessageType = ""):
     """
     记录异常（包含完整堆栈，用于调试严重错误）
     
@@ -583,7 +659,7 @@ def log_exception_full(e: Exception, context: str = ""):
 # 便捷的全局日志函数（推荐使用）
 # ============================================================================
 
-def log_debug(message: str, module: str = ""):
+def log_debug(message: MessageType, module: str = ""):
     """
     记录调试日志（开发时使用，生产环境可关闭）
     
@@ -600,7 +676,7 @@ def log_debug(message: str, module: str = ""):
         logger.debug(message, module)
 
 
-def log_info(message: str, module: str = ""):
+def log_info(message: MessageType, module: str = ""):
     """
     记录信息日志（普通状态信息）
     
@@ -615,7 +691,7 @@ def log_info(message: str, module: str = ""):
     get_logger().info(message, module)
 
 
-def log_warning(message: str, module: str = ""):
+def log_warning(message: MessageType, module: str = ""):
     """
     记录警告日志（潜在问题，但不影响功能）
     
@@ -630,7 +706,7 @@ def log_warning(message: str, module: str = ""):
     get_logger().warning(message, module)
 
 
-def log_error(message: str, module: str = ""):
+def log_error(message: MessageType, module: str = ""):
     """
     记录错误日志（功能异常）
     

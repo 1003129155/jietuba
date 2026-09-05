@@ -4,7 +4,6 @@ GIF 帧数据结构单元测试
 
 测试 FrameData / CursorSnapshot / RecordState 数据类的纯逻辑。
 """
-import pytest
 from gif.frame_recorder import FrameData, CursorSnapshot, RecordState
 
 

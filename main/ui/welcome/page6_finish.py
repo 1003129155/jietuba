@@ -7,24 +7,22 @@
 
 import math
 
-from PySide6.QtWidgets import QVBoxLayout, QLabel, QWidget
+from PySide6.QtWidgets import QVBoxLayout, QWidget
 from PySide6.QtCore import Qt, QTimer, QElapsedTimer, QEasingCurve, QPointF
 from PySide6.QtGui import QPainter, QColor, QPen, QPainterPath
 from core import safe_event
 from core.i18n import make_tr
-from core.logger import log_info, log_exception
+from core.logger import log_info, log_exception, T
 
 if __package__:
     from .base_page import (
-        BasePage, IllustrationArea, ToggleSwitch, ACCENT, TEXT_PRIMARY,
-        TEXT_SECOND, BG_PAGE, PRODUCT_NAME, brand_text, welcome_theme,
+        BasePage, IllustrationArea, ToggleSwitch, PRODUCT_NAME, brand_text, welcome_theme,
     )
 else:
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from base_page import (
-        BasePage, IllustrationArea, ToggleSwitch, ACCENT, TEXT_PRIMARY,
-        TEXT_SECOND, BG_PAGE, PRODUCT_NAME, brand_text, welcome_theme,
+        BasePage, IllustrationArea, ToggleSwitch, PRODUCT_NAME, brand_text, welcome_theme,
     )
 
 
@@ -292,16 +290,16 @@ class FinishPage(BasePage):
             if enabled:
                 exe_path = cls._get_exe_path()
                 winreg.SetValueEx(key, cls._AUTOSTART_APP_NAME, 0, winreg.REG_SZ, exe_path)
-                log_info(f"已写入开机自启注册表项: {exe_path}", "page6")
+                log_info(T("已写入开机自启注册表项: {exe_path}", exe_path=exe_path), "page6")
             else:
                 try:
                     winreg.DeleteValue(key, cls._AUTOSTART_APP_NAME)
-                    log_info("已删除开机自启注册表项", "page6")
+                    log_info(T("已删除开机自启注册表项"), "page6")
                 except FileNotFoundError:
                     pass  # 不存在则忽略
             winreg.CloseKey(key)
         except Exception as e:
-            log_exception(e, "设置开机自启")
+            log_exception(e, T("设置开机自启"))
 
     # ── 桌面快捷方式辅助 ─────────────────────────────────
 
@@ -373,9 +371,9 @@ class FinishPage(BasePage):
                 error_text = (result.stderr or result.stdout or "").strip()
                 raise RuntimeError(error_text or f"PowerShell exited with code {result.returncode}")
 
-            log_info(f"已创建桌面快捷方式: {desktop_lnk}", "page6")
+            log_info(T("已创建桌面快捷方式: {desktop_lnk}", desktop_lnk=desktop_lnk), "page6")
         except Exception as e:
-            log_exception(e, "创建桌面快捷方式")
+            log_exception(e, T("创建桌面快捷方式"))
 
     def retranslate(self):
         self.title_label.setText(_tr("🎉 一切就绪！").replace("🎉", "").strip())

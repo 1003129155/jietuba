@@ -7,6 +7,7 @@ from functools import lru_cache
 
 from PySide6.QtGui import QColor, QIcon, QLinearGradient, QPainter, QPixmap
 
+from core.resource_manager import ResourceManager
 from core.ui_theme import get_ui_theme
 
 
@@ -46,7 +47,7 @@ def to_qicon(icon, widget=None) -> QIcon:
         path = getattr(icon, "path", lambda: "")()
     else:
         path = str(icon)
-        source = QIcon(path)
+        source = ResourceManager.get_icon(path)
     if preserve_color or source.isNull():
         return source
     return _tinted_icon(path, ui_tokens(widget).text)
@@ -54,7 +55,7 @@ def to_qicon(icon, widget=None) -> QIcon:
 
 @lru_cache(maxsize=128)
 def _tinted_icon(path: str, color: str) -> QIcon:
-    source = QIcon(path)
+    source = ResourceManager.get_icon(path)
     pixmap = source.pixmap(64, 64)
     if pixmap.isNull():
         return source

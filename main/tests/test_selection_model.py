@@ -6,7 +6,7 @@ SelectionModel 选区模型单元测试
 """
 import pytest
 from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import QRectF, QSizeF
+from PySide6.QtCore import QRectF
 
 
 @pytest.fixture(scope="module")

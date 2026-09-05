@@ -14,7 +14,7 @@ from PySide6.QtGui import QImage, QPageLayout, QPageSize, QPainter, QPdfWriter
 from PIL import Image
 
 from settings import get_tool_settings_manager
-from core.logger import log_debug, log_info, log_warning, log_error, log_exception
+from core.logger import log_info, log_warning, log_error, log_exception, T
 
 
 class SaveService:
@@ -129,7 +129,7 @@ class SaveService:
                 if callback:
                     callback(success, target_path)
             except Exception as exc:
-                log_error(f"保存失败 {target_path}: {exc}", "Save")
+                log_error(T("保存失败 {target_path}: {exc}", target_path=target_path, exc=exc), "Save")
                 self._cleanup_failed_placeholder(target_path)
                 if callback:
                     callback(False, target_path)
@@ -173,13 +173,13 @@ class SaveService:
         try:
             success = image.save(target_path, image_format.upper())
             if success:
-                log_info(f"已保存文件: {target_path}", "Save")
+                log_info(T("已保存文件: {target_path}", target_path=target_path), "Save")
             else:
-                log_error(f"保存失败: {target_path}", "Save")
+                log_error(T("保存失败: {target_path}", target_path=target_path), "Save")
                 self._cleanup_failed_placeholder(target_path)
             return success
         except Exception as exc:
-            log_error(f"保存失败 {target_path}: {exc}", "Save")
+            log_error(T("保存失败 {target_path}: {exc}", target_path=target_path, exc=exc), "Save")
             self._cleanup_failed_placeholder(target_path)
             return False
 
@@ -209,10 +209,10 @@ class SaveService:
             finally:
                 painter.end()
 
-            log_info(f"已保存PDF: {target_path}", "Save")
+            log_info(T("已保存PDF: {target_path}", target_path=target_path), "Save")
             return True
         except Exception as exc:
-            log_error(f"保存PDF失败 {target_path}: {exc}", "Save")
+            log_error(T("保存PDF失败 {target_path}: {exc}", target_path=target_path, exc=exc), "Save")
             self._cleanup_failed_placeholder(target_path)
             return False
 
@@ -233,7 +233,7 @@ class SaveService:
 
         pil_format = "JPEG" if fmt == "JPG" else fmt
         pil_image.save(target_path, format=pil_format)
-        log_info(f"已保存文件: {target_path}", "Save")
+        log_info(T("已保存文件: {target_path}", target_path=target_path), "Save")
         return True
 
     def _flatten_for_pdf(self, image: QImage) -> QImage:
@@ -253,7 +253,7 @@ class SaveService:
         target_dir = directory or self.get_default_directory()
         # 防御性校验：确保是绝对路径
         if not os.path.isabs(target_dir):
-            log_warning(f"保存路径不是绝对路径，回退到默认: {target_dir}", "Save")
+            log_warning(T("保存路径不是绝对路径，回退到默认: {target_dir}", target_dir=target_dir), "Save")
             target_dir = self.get_default_directory()
         os.makedirs(target_dir, exist_ok=True)
         return self._reserve_unique_path(target_dir, prefix, suffix, image_format)
@@ -289,5 +289,5 @@ class SaveService:
             if os.path.exists(path) and os.path.getsize(path) == 0:
                 os.remove(path)
         except Exception as e:
-            log_exception(e, "清理失败的占位文件")
+            log_exception(e, T("清理失败的占位文件"))
  

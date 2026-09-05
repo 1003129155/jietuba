@@ -10,7 +10,9 @@ from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QSizePolicy
 from ui.fluent_lite import SwitchButton
-from ui.fluent_lite.theme import ACCENT, ACCENT_HOVER
+# ACCENT 在本文件内未直接使用，但 page4_smart_select 是从这里导入它的，
+# 属于有意的转发导出，不要删。
+from ui.fluent_lite.theme import ACCENT, ACCENT_HOVER  # noqa: F401
 from core.ui_theme import get_ui_theme
 
 

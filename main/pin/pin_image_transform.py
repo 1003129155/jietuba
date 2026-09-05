@@ -10,8 +10,9 @@
 """
 
 from PySide6.QtCore import Qt, QSize, QPointF, QRectF
-from PySide6.QtGui import QTransform, QImage, QPainter, QPixmap
+from PySide6.QtGui import QTransform, QImage
 from core import log_debug
+from core.logger import T
 
 
 class PinImageTransform:
@@ -230,8 +231,10 @@ class PinImageTransform:
         self._refresh_border(pin_window)
 
         pin_window.update()
-        log_debug(f"变换已应用: rotation={self._rotation}, "
-                  f"flip_h={self._flip_h}, flip_v={self._flip_v}", "ImageTransform")
+        log_debug(T(
+            "变换已应用: rotation={rotation}, flip_h={flip_h}, flip_v={flip_v}",
+            rotation=self._rotation, flip_h=self._flip_h, flip_v=self._flip_v,
+        ), "ImageTransform")
 
     def _update_ocr_layer(self, pin_window):
         """通知 OCR 文字层变换状态变化"""
@@ -314,7 +317,12 @@ class PinImageTransform:
         """
         将原始坐标系中的 OCR 点映射到变换后的坐标系
 
-        变换顺序和 build_view_transform 一致：先翻转，再旋转。
+        变换顺序必须和 build_view_transform / transform_image 一致：先旋转，再翻转。
+        （那两处用 QTransform 的 translate/scale/rotate 链式写法，Qt 按调用的
+        倒序作用于点，因此实际生效顺序是先 rotate 后 scale(翻转)。若这里写成
+        先翻转再旋转，两者只在翻转与旋转可交换时才吻合——即 0°/180° 或同时
+        翻转两轴——单轴翻转叠加 90°/270° 时 OCR 文字层会错位到相反的角。）
+
         旋转后输出坐标系的尺寸可能交换（90°/270°时）。
 
         Args:
@@ -333,19 +341,19 @@ class PinImageTransform:
         px -= cx
         py -= cy
 
-        # 1) 翻转
-        if self._flip_h:
-            px = -px
-        if self._flip_v:
-            py = -py
-
-        # 2) 旋转
+        # 1) 旋转
         if self._rotation == 90:
             px, py = -py, px
         elif self._rotation == 180:
             px, py = -px, -py
         elif self._rotation == 270:
             px, py = py, -px
+
+        # 2) 翻转
+        if self._flip_h:
+            px = -px
+        if self._flip_v:
+            py = -py
 
         # 3) 回到变换后坐标系
         if self.is_rotated_90_or_270:

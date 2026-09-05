@@ -4,18 +4,17 @@
 
 from PySide6.QtWidgets import QGraphicsScene
 from PySide6.QtCore import Signal, Qt
-from PySide6.QtGui import QColor
 
 from .items import BackgroundItem, SelectionItem, TextItem
 from .selection_model import SelectionModel
 from .undo import CommandUndoStack
-from tools import ToolController, ToolContext
-from tools import (
-    PenTool, RectTool, EllipseTool, ArrowTool,
-    TextTool, NumberTool, HighlighterTool, CursorTool, EraserTool, MosaicTool
-)
+# 注意：tools 的导入放在 __init__ 内部（延迟导入）。
+# tools 包在导入时会经由各工具模块反向导入 canvas.items，这里若在模块顶层
+# 导入 tools 就形成 canvas ↔ tools 的循环依赖：先 import tools 会因
+# canvas.scene 尚未加载完而抛 ImportError，只有恰好先 import canvas 才能成功。
 from settings import get_tool_settings_manager
 from core import log_debug
+from core.logger import T
 
 
 class CanvasScene(QGraphicsScene):
@@ -70,7 +69,7 @@ class CanvasScene(QGraphicsScene):
         # background.boundingRect() 返回的是 pixmap 本地坐标 (0,0,w,h)，不包含 offset
         self.setSceneRect(self.scene_rect)
         
-        log_debug(f"场景创建完成: scene_rect={self.scene_rect}, sceneRect()={self.sceneRect()}", "CanvasScene")
+        log_debug(T("场景创建完成: scene_rect={scene_rect}, sceneRect()={scene_rect_actual}", scene_rect=self.scene_rect, scene_rect_actual=self.sceneRect()), "CanvasScene")
         
         # 撤销栈 (命令模式)
         self.undo_stack = CommandUndoStack(self)
@@ -86,7 +85,13 @@ class CanvasScene(QGraphicsScene):
         initial_stroke_width = self.tool_settings_manager.get_stroke_width("pen")
         initial_opacity = self.tool_settings_manager.get_opacity("pen")
         
-        # 工具控制器
+        # 工具控制器（延迟导入 tools，避免 canvas ↔ tools 循环依赖）
+        from tools import ToolController, ToolContext
+        from tools import (
+            PenTool, RectTool, EllipseTool, ArrowTool,
+            TextTool, NumberTool, HighlighterTool, CursorTool, EraserTool, MosaicTool
+        )
+
         ctx = ToolContext(
             scene=self,
             selection=self.selection_model,
@@ -198,7 +203,6 @@ class CanvasScene(QGraphicsScene):
         Returns:
             list: 选区内的绘制项目列表（按绘制顺序，先绘制的在前）
         """
-        from PySide6.QtCore import Qt
         from PySide6.QtWidgets import QGraphicsEllipseItem
         
         drawing_items = []
@@ -223,5 +227,5 @@ class CanvasScene(QGraphicsScene):
         # scene.items() 返回的是Z-order排序（上层在前），但我们需要绘制顺序
         drawing_items.reverse()
         
-        log_debug(f"选区内绘制项目: {len(drawing_items)} 个（已按绘制顺序排列）", "Scene")
+        log_debug(T("选区内绘制项目: {item_count} 个（已按绘制顺序排列）", item_count=len(drawing_items)), "Scene")
         return drawing_items

@@ -3,12 +3,10 @@
 基于文字面板布局，仅用于箭头工具
 """
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QPushButton, QLabel,
-    QComboBox, QFrame,
-    QListView
+    QWidget, QHBoxLayout, QPushButton, QComboBox, QFrame
 )
 from PySide6.QtCore import Qt, Signal, QSize
-from PySide6.QtGui import QColor, QIcon
+from PySide6.QtGui import QColor
 from core.resource_manager import ResourceManager
 from .base_settings_panel import StepperWidget, build_settings_panel_stylesheet, paint_rounded_panel, PANEL_SCALE
 from .color_picker_button import ColorPickerButton
