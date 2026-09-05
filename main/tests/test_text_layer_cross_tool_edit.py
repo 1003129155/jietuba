@@ -208,6 +208,80 @@ def test_edit_snapshot_carries_font_size_instead_of_text_width(qapp):
     assert "manual_text_width" not in state
 
 
+def test_handles_follow_the_box_while_the_text_is_being_typed(qapp):
+    """打字会把框撑大，控制点必须跟着走。
+
+    控制点原本只在 start_edit() 和拖拽结束后生成，所以边打字边看会发现它们
+    悬在旧位置上不动，旧坐标还在画面上留下残影。
+    """
+    item = _text_item("1")
+    editor = LayerEditor()
+    editor.start_edit(item)
+
+    before = {h.handle_type: QPointF(h.position) for h in editor.handles}
+    narrow_right = item.sceneBoundingRect().right()
+
+    item.setPlainText("121212121212")
+    wide_right = item.sceneBoundingRect().right()
+    assert wide_right > narrow_right, "内容变长后框应该变宽"
+
+    editor.refresh_handles()
+    after = {h.handle_type: QPointF(h.position) for h in editor.handles}
+
+    rect = item.sceneBoundingRect()
+    assert after[HandleType.ITEM_DELETE] == rect.topRight()
+    assert after[HandleType.TEXT_SCALE] == rect.bottomRight()
+    assert after[HandleType.ROTATE] == rect.topLeft()
+    # 右侧两个控制点确实移动过，不是恰好相等
+    assert after[HandleType.ITEM_DELETE] != before[HandleType.ITEM_DELETE]
+    assert after[HandleType.TEXT_SCALE] != before[HandleType.TEXT_SCALE]
+
+
+def test_render_refreshes_stale_handles_without_an_explicit_call(qapp):
+    """场景前景层直接调 render()，它必须自己保证控制点是最新的。"""
+    item = _text_item("1")
+    scene = QGraphicsScene()
+    scene.addItem(item)
+    editor = LayerEditor()
+    editor.start_edit(item)
+
+    item.setPlainText("121212121212")
+    stale = QPointF(editor.handles[0].position)
+
+    image = QImage(400, 200, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(QColor("white"))
+    painter = QPainter(image)
+    try:
+        editor.render(painter)
+    finally:
+        painter.end()
+
+    rect = item.sceneBoundingRect()
+    positions = {h.handle_type: QPointF(h.position) for h in editor.handles}
+    assert positions[HandleType.TEXT_SCALE] == rect.bottomRight()
+    assert positions[HandleType.ITEM_DELETE] == rect.topRight()
+    del stale
+
+
+def test_font_size_change_also_moves_the_handles(qapp):
+    """改字号同样在拖拽之外改变尺寸，控制点一样要跟上。"""
+    item = _text_item("12323")
+    editor = LayerEditor()
+    editor.start_edit(item)
+    before = QPointF(
+        next(h for h in editor.handles if h.handle_type == HandleType.TEXT_SCALE).position
+    )
+
+    item.set_font_point_size(item.font_point_size() * 2)
+    editor.refresh_handles()
+
+    after = next(
+        h for h in editor.handles if h.handle_type == HandleType.TEXT_SCALE
+    ).position
+    assert after == item.sceneBoundingRect().bottomRight()
+    assert after.x() > before.x() and after.y() > before.y()
+
+
 def test_delete_handle_is_recognised_for_text_as_well_as_numbers(qapp):
     item = _text_item("12323")
     editor = LayerEditor()

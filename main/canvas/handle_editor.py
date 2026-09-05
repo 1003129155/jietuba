@@ -280,6 +280,19 @@ class LayerEditor:
     # 控制点生成
     # =========================================================================
 
+    def refresh_handles(self):
+        """按图元当前几何重算控制点。
+
+        控制点原本只在 start_edit() 和拖拽结束后生成，图元在这两者之外改变
+        尺寸时（打字、改字号、序号增减）就会停在旧坐标上不跟随。
+        """
+        if not self.is_editing() or self.active_layer is None:
+            return
+        try:
+            self.handles = self._generate_handles(self.active_layer)
+        except Exception as e:
+            log_exception(e, T("刷新控制点"))
+
     def _generate_handles(self, layer: Any) -> List[EditHandle]:
         """
         为图层生成控制点：
@@ -1101,6 +1114,9 @@ class LayerEditor:
         """
         if not self.is_editing():
             return
+
+        # 图元可能在两次拖拽之间变了尺寸，按当前几何重算再画
+        self.refresh_handles()
 
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)

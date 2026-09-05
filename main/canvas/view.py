@@ -1863,6 +1863,7 @@ class CanvasView(QGraphicsView):
         self._enter_text_edit_mode(item)
     
     def _enter_text_edit_mode(self, item: TextItem):
+        self._connect_text_geometry_updates(item)
         item.setTextInteractionFlags(Qt.TextInteractionFlag.TextEditorInteraction)
         item.setFocus(Qt.FocusReason.MouseFocusReason)
         cursor = item.textCursor()
@@ -1871,7 +1872,39 @@ class CanvasView(QGraphicsView):
         if hasattr(self.smart_edit_controller, "select_item"):
             self.smart_edit_controller.select_item(item, auto_select=False)
     
+    def _connect_text_geometry_updates(self, item: QGraphicsTextItem):
+        """文字内容变化会改变包围盒，控制点得跟着重画。
+
+        只刷新图元自身的区域不够：控制点画在包围盒的角上并向外凸出，旧位置
+        落在失效区域之外就会留下残影，所以这里整场景重绘。
+        """
+        document = item.document()
+        if document is None or getattr(item, "_geometry_update_connected", False):
+            return
+
+        def _on_contents_changed():
+            scene = item.scene()
+            if scene is not None:
+                scene.update()
+
+        document.contentsChanged.connect(_on_contents_changed)
+        item._geometry_update_connected = True
+        item._geometry_update_slot = _on_contents_changed
+
+    def _disconnect_text_geometry_updates(self, item):
+        slot = getattr(item, "_geometry_update_slot", None)
+        if slot is None:
+            return
+        try:
+            item.document().contentsChanged.disconnect(slot)
+        except (RuntimeError, TypeError) as e:
+            log_warning(T("断开文字几何更新失败: {exc}", exc=e), "CanvasView")
+        item._geometry_update_connected = False
+        item._geometry_update_slot = None
+
     def _finalize_text_edit_state(self, text_item: QGraphicsTextItem):
+        if text_item is not None:
+            self._disconnect_text_geometry_updates(text_item)
         controller = getattr(self, "smart_edit_controller", None)
         if controller and controller.selected_item is text_item:
             controller.clear_selection(suppress_block=True)
