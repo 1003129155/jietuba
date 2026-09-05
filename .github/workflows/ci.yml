@@ -16,6 +16,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # diff-cover 需要和目标分支做 diff，浅克隆里没有 base 分支的历史
+          fetch-depth: 0
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -54,11 +57,38 @@ jobs:
           --cov --cov-config=.coveragerc
           --cov-report=term:skip-covered
           --cov-report=xml
-          --cov-fail-under=34.9
+          --cov-fail-under=37
+
+      - name: Enforce coverage on changed lines
+        # 只对本次 PR 改动到的行设门槛：总量棘轮（上一步的 --cov-fail-under）
+        # 防止倒退，这一步防止「新代码不带测试」。两者互补——总量涨得慢是因为
+        # 存量 UI 代码基数大，不能因此放过新写的未测代码。
+        # push 事件下 base 就是自己，diff 为空，因此只在 PR 上跑。
+        # if 用 always()：即使总量棘轮把上一步判红，也要把增量报告给出来。
+        if: always() && github.event_name == 'pull_request'
+        run: |
+          if (-not (Test-Path coverage.xml)) {
+            Write-Host "没有 coverage.xml（测试步骤未产出），跳过增量覆盖率检查"
+            exit 0
+          }
+          diff-cover coverage.xml `
+            --compare-branch=origin/${{ github.base_ref }} `
+            --fail-under=80 `
+            --format "html:diff-coverage.html,markdown:diff-coverage.md"
+
+      - name: Publish diff coverage summary
+        if: always() && github.event_name == 'pull_request'
+        run: |
+          if (Test-Path diff-coverage.md) {
+            Get-Content diff-coverage.md | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+          }
 
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-xml
-          path: coverage.xml
+          path: |
+            coverage.xml
+            diff-coverage.html
+          if-no-files-found: warn
