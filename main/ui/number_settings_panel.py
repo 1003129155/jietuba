@@ -5,6 +5,8 @@
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QLabel, QToolButton, QVBoxLayout, QWidget
 
+from tools.number import NumberTool
+
 from .base_settings_panel import BaseSettingsPanel, PANEL_SCALE, set_step_button_icon
 
 
@@ -13,7 +15,8 @@ class NumberSettingsPanel(BaseSettingsPanel):
 
     next_number_changed = Signal(int)
 
-    SIZE_RANGE = (8, 72)
+    # 与 NumberTool 共用同一个范围：面板显示什么大小，就必须画出什么大小
+    SIZE_RANGE = (NumberTool.MIN_WIDTH, NumberTool.MAX_WIDTH)
     SIZE_DEFAULT = 16
     SIZE_TOOLTIP = "Font Size"
 

@@ -3,6 +3,8 @@
 import os
 import sys
 
+from settings.tool_settings import ANNOTATION_TOOL_SHORTCUTS
+
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QFont
@@ -14,6 +16,9 @@ APP_DEFAULT_SETTINGS = {
     "clipboard_hotkey_2": "ctrl+shift+v",
     "translation_hotkey": "",
     "translation_hotkey_2": "",
+    "double_click_copy_close": True,
+    "cross_tool_selection": True,
+    "text_always_on_top": True,
     "smart_selection": True,
     "log_enabled": True,
     "log_level": "INFO",
@@ -59,6 +64,19 @@ APP_DEFAULT_SETTINGS = {
     "clipboard_auto_cleanup": False,
     "magnifier_color_copy_format": "rgb_hex",
     "ui_theme_mode": "system",
+    "inapp_confirm": "ctrl+c",
+    "inapp_pin": "ctrl+d",
+    "inapp_undo": "ctrl+z",
+    "inapp_redo": "ctrl+y",
+    "inapp_delete": "delete",
+    "inapp_copy_pin": "ctrl+c",
+    "inapp_thumbnail": "r",
+    "inapp_toggle_toolbar": "space",
+    "inapp_zoom_in": "pageup",
+    "inapp_zoom_out": "pagedown",
+    "inapp_translate": "shift+c",
+    "inapp_cursor_move_mode": "both",
+    **{key: default for key, _tool, _label, default in ANNOTATION_TOOL_SHORTCUTS},
 }
 
 
@@ -70,6 +88,12 @@ class MockConfig:
         self.qsettings = self.settings
 
     # --- getter / setter stubs ---
+    def get_double_click_copy_close_enabled(self): return True
+    def set_double_click_copy_close_enabled(self, v): pass
+    def get_cross_tool_selection_enabled(self): return True
+    def set_cross_tool_selection_enabled(self, v): pass
+    def get_text_always_on_top_enabled(self): return True
+    def set_text_always_on_top_enabled(self, v): pass
     def get_smart_selection(self): return False
     def set_smart_selection(self, v): pass
     def get_log_enabled(self): return True
@@ -177,8 +201,12 @@ class MockConfig:
     def set_clipboard_db_path(self, v): pass
     def get_clipboard_auto_cleanup(self): return False
     def set_clipboard_auto_cleanup(self, v): pass
-    def get_inapp_shortcut(self, key): return ""
-    def set_inapp_shortcut(self, key, value): pass
+    def get_inapp_shortcut(self, key):
+        return self.settings.value(
+            f"inapp/{key}", self.APP_DEFAULT_SETTINGS.get(key, ""), type=str
+        )
+    def set_inapp_shortcut(self, key, value):
+        self.settings.setValue(f"inapp/{key}", value)
     def get_inapp_cursor_move_mode(self): return "both"
     def set_inapp_cursor_move_mode(self, value): pass
 

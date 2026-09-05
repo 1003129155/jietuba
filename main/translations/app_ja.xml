@@ -251,6 +251,18 @@
         <source>Screenshot Shortcuts</source>
         <translation>スクリーンショット</translation>
     </message>
+    <message><source>Annotation Tools</source><translation>注釈ツール</translation></message>
+    <message><source>Select / Cursor</source><translation>選択 / カーソル</translation></message>
+    <message><source>Pen</source><translation>ペン</translation></message>
+    <message><source>Highlighter</source><translation>蛍光ペン</translation></message>
+    <message><source>Mosaic</source><translation>モザイク</translation></message>
+    <message><source>Arrow</source><translation>矢印</translation></message>
+    <message><source>Number</source><translation>番号</translation></message>
+    <message><source>Rectangle</source><translation>矩形</translation></message>
+    <message><source>Ellipse</source><translation>楕円</translation></message>
+    <message><source>Text</source><translation>テキスト</translation></message>
+    <message><source>Eraser</source><translation>消しゴム</translation></message>
+    <message><source>💡 Configured shortcuts take priority over WASD and C. Arrow keys remain available; Esc is reserved.</source><translation>💡 設定したショートカットは WASD と C より優先されます。矢印キーは使用でき、Esc は予約されています。</translation></message>
     <message>
         <source>Pin Shortcuts</source>
         <translation>ピン留め画像</translation>
@@ -358,6 +370,44 @@ Replace it?</source>
     <message>
         <source>Skip this many top pixels on subsequent captures during matching</source>
         <translation>マッチング時に後続キャプチャ上部の指定ピクセル数をスキップ</translation>
+    </message>
+
+    <!-- Capture Behavior -->
+    <message>
+        <source>Capture Behavior</source>
+        <translation>キャプチャ動作</translation>
+    </message>
+    <message>
+        <source>Double-click to Copy and Close</source>
+        <translation>ダブルクリックでコピーして閉じる</translation>
+    </message>
+    <message>
+        <source>Double-click the selected screenshot to copy it to the clipboard and close the capture.</source>
+        <translation>選択したスクリーンショットをダブルクリックすると、クリップボードにコピーしてキャプチャを閉じます。</translation>
+    </message>
+    <message>
+        <source>Enable Ctrl Cross-Tool Selection</source>
+        <translation>Ctrlによるツール横断選択を有効にする</translation>
+    </message>
+    <message>
+        <source>Hold Ctrl and click any editable annotation to adjust it without switching tools.</source>
+        <translation>Ctrlを押しながら編集可能な注釈をクリックすると、ツールを切り替えずに調整できます。</translation>
+    </message>
+    <message>
+        <source>Keep Text Annotations on Top</source>
+        <translation>テキスト注釈を常に最前面に表示</translation>
+    </message>
+    <message>
+        <source>Keep text above other annotations, including ones drawn later.</source>
+        <translation>後から描画したものを含め、テキストを他の注釈より前面に保ちます。</translation>
+    </message>
+    <message>
+        <source>Automatically Wrap Text</source>
+        <translation>テキストを自動で折り返す</translation>
+    </message>
+    <message>
+        <source>Start new text annotations at about 30 characters wide and keep them inside the selection.</source>
+        <translation>新しいテキスト注釈は約30文字幅で開始し、選択範囲内に収めます。</translation>
     </message>
     
     <!-- Smart Selection Page -->
@@ -774,6 +824,14 @@ Replace it?</source>
 <!-- ========== Toolbar ========== -->
 <context>
     <name>Toolbar</name>
+    <message>
+        <source>Ctrl+click any editable annotation to edit it temporarily</source>
+        <translation>Ctrlを押しながら編集可能な注釈をクリックして一時編集</translation>
+    </message>
+    <message>
+        <source>Mosaic (mouse wheel to resize)</source>
+        <translation>モザイク（マウスホイールでサイズ変更）</translation>
+    </message>
     <message>
         <source>Long screenshot (scroll)</source>
         <translation>長スクリーンショット（スクロール）</translation>

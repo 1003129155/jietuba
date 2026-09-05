@@ -24,6 +24,10 @@ class NumberTool(Tool):
     _SCENE_OFFSET_ATTR = "_number_tool_offset"
     _SCENE_ORDER_ATTR = "_number_tool_order_counter"
     RADIUS_SCALE = 2
+    # 序号圈小于 8 就看不清里面的数字，所以收窄基类的范围。
+    # 钳制由基类在写入 ctx 时统一完成，这里只声明范围。
+    MIN_WIDTH = 8
+    MAX_WIDTH = 72
 
     @staticmethod
     def _count_numbers(scene) -> int:
@@ -62,8 +66,12 @@ class NumberTool(Tool):
 
     @classmethod
     def get_radius_for_width(cls, stroke_width: float) -> float:
-        base_width = max(1.0, float(stroke_width))
-        return base_width * cls.RADIUS_SCALE
+        """把宽度换算成圈半径。
+
+        走 ctx 的调用方拿到的宽度已经在入口钳过，这里再钳一次只是纯函数的
+        定义域保护；规则本身仍然只有一份（MIN_WIDTH/MAX_WIDTH + clamp_width）。
+        """
+        return cls.clamp_width(stroke_width) * cls.RADIUS_SCALE
 
     @classmethod
     def get_next_number(cls, scene) -> int:

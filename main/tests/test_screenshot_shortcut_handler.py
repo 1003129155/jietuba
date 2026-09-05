@@ -83,6 +83,8 @@ def _make_handler(window, move_keys=None):
     handler._window = window
     handler._bindings = dict(BINDINGS)
     handler._move_keys = dict(move_keys or {})
+    # __init__ 被跳过，补上工具快捷键表（本文件只测动作/移动/放大镜分发）
+    handler._tool_shortcuts = ()
     return handler
 
 

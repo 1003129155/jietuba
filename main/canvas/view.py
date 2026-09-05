@@ -4,9 +4,9 @@
 
 from typing import Optional
 
-from PySide6.QtWidgets import QGraphicsView, QGraphicsTextItem
+from PySide6.QtWidgets import QApplication, QGraphicsView, QGraphicsTextItem
 from PySide6.QtCore import Qt, QPointF, QRectF, QTimer
-from PySide6.QtGui import QCursor
+from PySide6.QtGui import QPen, QColor, QBrush, QCursor
 import shiboken6
 from canvas.items import (
     StrokeItem,
@@ -25,11 +25,19 @@ class CanvasView(QGraphicsView):
     画布视图
     """
     
-    def __init__(self, scene, parent=None):
+    def __init__(
+        self,
+        scene,
+        parent=None,
+        confirm_on_double_click=False,
+        cross_tool_select=False,
+    ):
         super().__init__(scene, parent)
         
         self.canvas_scene = scene
         self._is_closed = False
+        self.confirm_on_double_click = bool(confirm_on_double_click)
+        self._double_click_candidate = None
         
         # 设置渲染选项 - 关闭抗锯齿以提高性能
         # self.setRenderHint(QPainter.RenderHint.Antialiasing)  # 关闭抗锯齿
@@ -85,6 +93,7 @@ class CanvasView(QGraphicsView):
         # 初始化智能编辑控制器
         from canvas.smart_edit_controller import SmartEditController
         self.smart_edit_controller = SmartEditController(self.canvas_scene)
+        self.smart_edit_controller.cross_tool_select_enabled = bool(cross_tool_select)
         
         # 注入 layer_editor 引用到 Scene（用于 drawForeground 渲染控制点）
         # 这是单向引用（Scene 只持有 layer_editor，不持有 view），避免循环引用
@@ -127,6 +136,8 @@ class CanvasView(QGraphicsView):
         self._text_drag_item = None
         self._text_drag_last_scene_pos = None
         self._text_drag_cursor_active = False
+        self._manual_item_drag_active = False
+        self._manual_item_drag_last_scene_pos = None
     
     def setCursor(self, cursor):
         """同时更新视图和 viewport，避免 Qt 只在父部件上应用光标"""
@@ -139,6 +150,7 @@ class CanvasView(QGraphicsView):
         """断开会话级信号和引用，避免旧 view 在销毁期收到晚到回调。"""
         if self._is_closed:
             return
+        self._finish_manual_item_drag(commit=True)
         self._is_closed = True
 
         from core.qt_utils import safe_disconnect
@@ -376,6 +388,7 @@ class CanvasView(QGraphicsView):
     
     def _on_editing_cleanup(self):
         """响应 editing_cleanup_requested 信号，清除编辑状态"""
+        self._finish_manual_item_drag(commit=True)
         if self.smart_edit_controller.selected_item:
             log_debug(T("取消智能编辑选择"), "CanvasView")
             self.smart_edit_controller.clear_selection(suppress_block=True)
@@ -383,6 +396,7 @@ class CanvasView(QGraphicsView):
             self.cursor_manager.hide_brush_indicator()
 
     def _on_tool_changed_for_edit(self, tool_id: str):
+       self._finish_manual_item_drag(commit=True)
        self.smart_edit_controller.set_tool(tool_id)
 
        # 工具切换时立即更新光标
@@ -409,6 +423,7 @@ class CanvasView(QGraphicsView):
         if item:
             log_debug(T("选中: {item_type}", item_type=type(item).__name__), "SmartEdit")
         else:
+            self._finish_manual_item_drag(commit=False)
             log_debug(T("取消选择"), "SmartEdit")
             self._sync_highlighter_panel_mode()
         self._sync_selection_style_to_toolbar(item)
@@ -448,7 +463,21 @@ class CanvasView(QGraphicsView):
             return
 
         if not item:
+            current_tool = getattr(tool_controller, "current_tool", None)
+            tool_id = getattr(current_tool, "id", None) or "cursor"
+            if hasattr(toolbar, "restore_active_tool_state"):
+                toolbar.restore_active_tool_state(
+                    tool_id,
+                    getattr(tool_controller, "ctx", None),
+                    self.canvas_scene,
+                )
+            else:
+                toolbar.set_temporary_edit_active(False)
             return
+
+        controller = getattr(self, "smart_edit_controller", None)
+        is_cross_tool = bool(controller and controller.is_cross_tool_selection())
+        toolbar.set_temporary_edit_active(is_cross_tool)
 
         is_text_item = isinstance(item, QGraphicsTextItem)
         width_value = None if is_text_item else self._extract_selection_width(item)
@@ -460,7 +489,7 @@ class CanvasView(QGraphicsView):
         if opacity_value is not None:
             style_kwargs["opacity"] = max(0.0, min(1.0, float(opacity_value)))
 
-        if style_kwargs:
+        if style_kwargs and not is_cross_tool:
             tool_controller.update_style(**style_kwargs)
             if "width" in style_kwargs and getattr(self, "cursor_manager", None):
                 ctx_width = int(max(1, round(tool_controller.ctx.stroke_width)))
@@ -486,10 +515,11 @@ class CanvasView(QGraphicsView):
                 else:
                     line_style = "solid"
                 toolbar.paint_panel.line_style = line_style
-                from settings import get_tool_settings_manager
-                manager = get_tool_settings_manager()
-                settings_tool_id = "highlighter" if getattr(item, "is_highlighter", False) else "pen"
-                manager.update_settings(settings_tool_id, line_style=line_style)
+                if not is_cross_tool:
+                    from settings import get_tool_settings_manager
+                    manager = get_tool_settings_manager()
+                    settings_tool_id = "highlighter" if getattr(item, "is_highlighter", False) else "pen"
+                    manager.update_settings(settings_tool_id, line_style=line_style)
             except Exception as exc:
                 log_warning(T("无法同步线条样式: {exc}", exc=exc), "CanvasView")
         elif isinstance(item, (RectItem, EllipseItem)) and hasattr(toolbar, "shape_panel"):
@@ -506,10 +536,11 @@ class CanvasView(QGraphicsView):
                 else:
                     line_style = "solid"
                 toolbar.shape_panel.line_style = line_style
-                from settings import get_tool_settings_manager
-                manager = get_tool_settings_manager()
-                tool_id = "rect" if isinstance(item, RectItem) else "ellipse"
-                manager.update_settings(tool_id, line_style=line_style)
+                if not is_cross_tool:
+                    from settings import get_tool_settings_manager
+                    manager = get_tool_settings_manager()
+                    tool_id = "rect" if isinstance(item, RectItem) else "ellipse"
+                    manager.update_settings(tool_id, line_style=line_style)
             except Exception as exc:
                 log_warning(T("无法同步形状线条样式: {exc}", exc=exc), "CanvasView")
 
@@ -581,6 +612,77 @@ class CanvasView(QGraphicsView):
         direct = max(0.0, min(1.0, float(item.opacity())))
         return direct
 
+    def apply_cross_tool_selection_style(
+        self,
+        *,
+        color: Optional[QColor] = None,
+        width: Optional[float] = None,
+        opacity: Optional[float] = None,
+    ) -> Optional[bool]:
+        """Apply one style to a foreign selected item without touching tool defaults.
+
+        None means the selection is not cross-tool and the caller may use its
+        existing active-tool path. True/False both consume the event; False
+        means the target does not support that property.
+        """
+        controller = getattr(self, "smart_edit_controller", None)
+        if not controller or not controller.is_cross_tool_selection():
+            return None
+        item = getattr(controller, "selected_item", None)
+        if item is None:
+            return None
+
+        applied = False
+        if width is not None:
+            current_width = self._extract_selection_width(item)
+            if (
+                current_width is None
+                or current_width <= 0
+                or not hasattr(item, "scale_stroke_width")
+            ):
+                return False
+            applied = bool(item.scale_stroke_width(max(1.0, float(width)) / current_width))
+
+        if opacity is not None:
+            applied = self._update_item_visual_opacity(item, opacity) or applied
+
+        if color is not None:
+            if isinstance(item, TextItem):
+                # Text is updated by SmartEditController's existing signal slot.
+                applied = True
+            elif isinstance(item, (StrokeItem, RectItem, EllipseItem)):
+                pen = QPen(item.pen())
+                new_color = QColor(color)
+                new_color.setAlpha(pen.color().alpha())
+                pen.setColor(new_color)
+                item.setPen(pen)
+                if isinstance(item, RectItem) and getattr(item, "is_highlighter_rect", False):
+                    brush = QBrush(item.brush())
+                    brush_color = QColor(color)
+                    brush_color.setAlpha(brush.color().alpha())
+                    brush.setColor(brush_color)
+                    item.setBrush(brush)
+                item.update()
+                applied = True
+            elif isinstance(item, (ArrowItem, NumberItem)):
+                old_color = QColor(item.color)
+                new_color = QColor(color)
+                new_color.setAlpha(old_color.alpha())
+                item.color = new_color
+                if isinstance(item, ArrowItem) and hasattr(item, "update_geometry"):
+                    item.update_geometry()
+                item.update()
+                applied = True
+            else:
+                return False
+
+        if applied:
+            editor = getattr(controller, "layer_editor", None)
+            if editor and editor.is_editing() and not isinstance(item, TextItem):
+                editor.start_edit(item)
+            self.canvas_scene.update()
+        return applied
+
     @safe_event
     def mousePressEvent(self, event):
         """
@@ -610,6 +712,7 @@ class CanvasView(QGraphicsView):
             # 钉图窗口：不处理右键，让事件继续传递（显示右键菜单）
         
         scene_pos = self.mapToScene(event.pos())
+        self._double_click_candidate = None
         # 新的一次点击开始前重置单击编辑状态
         self._clear_pending_text_edit()
         
@@ -629,6 +732,9 @@ class CanvasView(QGraphicsView):
                     self.canvas_scene.selection_model.set_rect(smart_rect)
         else:
             # 选区已确认：优先尝试智能编辑
+            self._double_click_candidate = self._build_double_click_candidate(
+                scene_pos, event
+            )
             current_tool = self.canvas_scene.tool_controller.current_tool
             current_tool_id = current_tool.id if current_tool else "cursor"
             
@@ -638,6 +744,15 @@ class CanvasView(QGraphicsView):
             if self._is_text_editing():
                 focus_item = self._get_active_text_item()
                 if focus_item is None:
+                    return
+                edit_handled = self.smart_edit_controller.handle_edit_press(
+                    scene_pos,
+                    event.pos(),
+                    event.button(),
+                    event.modifiers(),
+                )
+                if edit_handled:
+                    log_debug("文字宽度控制点拖拽被处理", "CanvasView")
                     return
                 if isinstance(focus_item, QGraphicsTextItem) and \
                         self._is_point_on_text_edge(focus_item, scene_pos):
@@ -668,7 +783,7 @@ class CanvasView(QGraphicsView):
                 if layer_editor.hovered_handle:
                     self.setCursor(layer_editor.get_cursor(scene_pos))
                 return
-            
+
             # 步骤2：检查是否点击了可选中的图元
             selection_handled = self.smart_edit_controller.handle_press(
                 event.pos(), 
@@ -682,6 +797,13 @@ class CanvasView(QGraphicsView):
                 # 传递给 Scene（让图元处理拖拽）
                 log_debug(T("图元选择被处理，阻止绘图"), "CanvasView")
                 self._maybe_prepare_text_edit(event, scene_pos)
+                if self.smart_edit_controller.press_requires_manual_dispatch:
+                    # Qt 默认把事件交给 z 轴最上方图元；当控制器有意向下
+                    # 命中兼容目标时，由 View 接管本次拖动，避免顶层文字抢走事件。
+                    self._manual_item_drag_active = True
+                    self._manual_item_drag_last_scene_pos = QPointF(scene_pos)
+                    event.accept()
+                    return
                 super().mousePressEvent(event)
                 return
             
@@ -700,7 +822,9 @@ class CanvasView(QGraphicsView):
                 self.is_drawing = True
                 # 立即隐藏放大镜，避免 hide() 和首帧绘图重绘叠加导致卡顿
                 self._clear_magnifier_overlay()
-                self.canvas_scene.tool_controller.on_press(scene_pos, event.button())
+                started = self.canvas_scene.tool_controller.on_press(scene_pos, event.button())
+                if started is False:
+                    self.is_drawing = False
             else:
                 # cursor 工具：传递给 Scene（可能拖拽窗口/选区）
                 log_debug(T("cursor工具，传递给Scene"), "CanvasView")
@@ -721,19 +845,161 @@ class CanvasView(QGraphicsView):
             return
         
         scene_pos = self.mapToScene(event.pos())
+
+        # Consume the first-press candidate before provisional content can
+        # expose edit handles under the second click (notably NumberItem +/-).
+        if self._consume_double_click_candidate(scene_pos, event):
+            return
+
         edit_handled = self.smart_edit_controller.handle_edit_press(
             scene_pos, event.pos(), event.button(), event.modifiers()
         )
         
         if edit_handled:
+            self._double_click_candidate = None
             log_debug(T("双击→控制点点击被处理"), "CanvasView")
             layer_editor = self.smart_edit_controller.layer_editor
             if layer_editor.hovered_handle:
                 self.setCursor(layer_editor.get_cursor(scene_pos))
             return
-        
+
         # 非控制点双击 → 默认行为
         super().mouseDoubleClickEvent(event)
+
+    def _build_double_click_candidate(self, scene_pos, event):
+        """Capture the reversible state before any confirmed-selection routing."""
+        if not self.confirm_on_double_click:
+            return None
+        if event.button() != Qt.MouseButton.LeftButton:
+            return None
+        if event.modifiers() != Qt.KeyboardModifier.NoModifier:
+            return None
+        if self.is_selecting or self.is_drawing or self.is_dragging_selection:
+            return None
+        if self._text_drag_active:
+            return None
+
+        selection = self.canvas_scene.selection_model.rect()
+        if selection.isEmpty() or not selection.contains(scene_pos):
+            return None
+
+        controller = self.canvas_scene.tool_controller
+        tool = controller.current_tool
+        stack = self.canvas_scene.undo_stack
+        candidate = {
+            "scene_pos": QPointF(scene_pos),
+            "selection_rect": QRectF(selection),
+            "tool_id": tool.id if tool else None,
+            "count": stack.count(),
+            "index": stack.index(),
+            "had_redo": stack.canRedo(),
+            "dragged": False,
+        }
+        if stack.index() > 0:
+            from canvas.undo import NumberEditCommand
+
+            top = stack.command(stack.index() - 1)
+            if isinstance(top, NumberEditCommand):
+                candidate["number_merge_command"] = top
+                candidate["number_merge_tail"] = top.capture_merge_tail()
+        return candidate
+
+    def _consume_double_click_candidate(self, scene_pos, event):
+        candidate = self._double_click_candidate
+        self._double_click_candidate = None
+        if not self.confirm_on_double_click or not candidate:
+            return False
+        if event.button() != Qt.MouseButton.LeftButton:
+            return False
+        if event.modifiers() != Qt.KeyboardModifier.NoModifier:
+            return False
+        if candidate["dragged"] or self.is_drawing or self.is_selecting:
+            return False
+
+        original_selection = candidate["selection_rect"]
+        if not original_selection.contains(scene_pos):
+            return False
+
+        distance = (scene_pos - candidate["scene_pos"]).manhattanLength()
+        if distance > QApplication.startDragDistance():
+            return False
+
+        controller = self.canvas_scene.tool_controller
+        tool = controller.current_tool
+        if (tool.id if tool else None) != candidate["tool_id"]:
+            return False
+
+        handler = getattr(self.window(), "_handle_confirm", None)
+        if not callable(handler):
+            return False
+
+        stack = self.canvas_scene.undo_stack
+        command_to_undo = None
+        merged_number = False
+
+        old_count = candidate["count"]
+        old_index = candidate["index"]
+        same_visible_index = stack.index() == old_index
+        unchanged_count = stack.count() == old_count
+        redo_merge_count = candidate["had_redo"] and stack.count() == old_index
+        merge_command = candidate.get("number_merge_command")
+        merge_tail = candidate.get("number_merge_tail")
+
+        if same_visible_index and (unchanged_count or redo_merge_count):
+            if redo_merge_count and not unchanged_count and merge_command is None:
+                # A truncated redo tail without the captured merge owner is an
+                # unknown mutation, never an unchanged first click.
+                return False
+            if merge_command is not None and merge_tail is not None:
+                current_top = stack.command(old_index - 1) if old_index > 0 else None
+                if current_top is not merge_command:
+                    return False
+                if not merge_command.merge_tail_matches(merge_tail):
+                    if not merge_command.restore_merge_tail(merge_tail):
+                        return False
+                    merged_number = True
+        elif stack.index() == old_index + 1 and stack.count() == (
+            old_index + 1 if candidate["had_redo"] else old_count + 1
+        ):
+            from canvas.undo import (
+                AddItemCommand,
+                BatchRemoveCommand,
+                EditItemCommand,
+                RemoveItemCommand,
+            )
+
+            command_to_undo = stack.command(old_index)
+            if not isinstance(
+                command_to_undo,
+                (AddItemCommand, BatchRemoveCommand, RemoveItemCommand, EditItemCommand),
+            ):
+                return False
+            if isinstance(command_to_undo, AddItemCommand):
+                item = getattr(command_to_undo, "item", None)
+                if isinstance(item, TextItem) and item.toPlainText().strip():
+                    return False
+        else:
+            return False
+
+        if command_to_undo is not None:
+            stack.undo()
+            if stack.index() != old_index:
+                return False
+
+        # A crop handle can mutate the selection without an undo command.
+        self.canvas_scene.selection_model.set_rect(QRectF(original_selection))
+        self.canvas_scene.selection_model.stop_dragging()
+        self.is_dragging_selection = False
+
+        if merged_number and stack.index() != old_index:
+            return False
+
+        event.accept()
+        handler()
+        return True
+
+    def invalidate_double_click_candidate(self):
+        self._double_click_candidate = None
     
     @safe_event
     def mouseMoveEvent(self, event):
@@ -747,6 +1013,13 @@ class CanvasView(QGraphicsView):
         4. 选区已确认 - 编辑模式
         5. 选区未确认 - 悬停预览
         """
+        candidate = self._double_click_candidate
+        if candidate and not candidate["dragged"]:
+            scene_pos = self.mapToScene(event.pos())
+            distance = (scene_pos - candidate["scene_pos"]).manhattanLength()
+            if distance > QApplication.startDragDistance():
+                candidate["dragged"] = True
+
         # 窗口关闭时 scene 可能已被清理，忽略残留的鼠标事件
         if self.canvas_scene is None or self.scene() is None:
             return
@@ -839,6 +1112,12 @@ class CanvasView(QGraphicsView):
         is_left_pressed = bool(event.buttons() & Qt.MouseButton.LeftButton)
         if self._is_text_editing() and not is_left_pressed:
             self._update_text_drag_hover(scene_pos)
+
+        # 向下命中的兼容图元由 View 全程拥有这次手势，优先于顶层图元
+        # 的控制点/hover 分发。
+        if self._manual_item_drag_active and is_left_pressed:
+            self._handle_selected_item_drag(event, scene_pos)
+            return
         
         # 子状态1：正在拖拽控制点/手柄
         if self._handle_edit_handle_drag(scene_pos):
@@ -876,6 +1155,7 @@ class CanvasView(QGraphicsView):
             return False
         
         is_left_button_pressed = bool(event.buttons() & Qt.MouseButton.LeftButton)
+
         is_moving_item = getattr(self.smart_edit_controller.layer_editor, "is_moving_item", False)
         
         if is_left_button_pressed and is_moving_item:
@@ -899,6 +1179,19 @@ class CanvasView(QGraphicsView):
             selected_item.mapFromScene(scene_pos)
         )
         is_left_button_pressed = bool(event.buttons() & Qt.MouseButton.LeftButton)
+
+        if self._manual_item_drag_active and is_left_button_pressed:
+            self.smart_edit_controller.handle_move(event.pos(), scene_pos)
+            if self.smart_edit_controller.is_dragging:
+                last_pos = self._manual_item_drag_last_scene_pos or scene_pos
+                delta = scene_pos - last_pos
+                if not delta.isNull():
+                    selected_item.moveBy(delta.x(), delta.y())
+                self._manual_item_drag_last_scene_pos = QPointF(scene_pos)
+                self.canvas_scene.update()
+                self._update_edit_handles()
+            self.setCursor(Qt.CursorShape.SizeAllCursor)
+            return True
         
         if is_left_button_pressed:
             # 按住左键 → 正在拖拽
@@ -926,6 +1219,31 @@ class CanvasView(QGraphicsView):
             return True
         
         return False
+
+    def _finish_manual_item_drag(self, *, commit: bool):
+        """Finish/cancel View-owned dragging and clear both sides of gesture state."""
+        controller = getattr(self, "smart_edit_controller", None)
+        if not self._manual_item_drag_active:
+            if controller is not None:
+                controller.press_requires_manual_dispatch = False
+            return
+
+        if controller is not None:
+            if commit and controller.is_dragging and controller.selected_item is not None:
+                controller._finalize_move_edit()
+            controller.is_dragging = False
+            controller.drag_start_pos = None
+            controller._move_initial_state = None
+            controller.press_requires_manual_dispatch = False
+            mode_type = type(controller.mode)
+            if controller.mode == mode_type.DRAGGING_MOVE:
+                controller.mode = mode_type.SELECTED
+            editor = getattr(controller, "layer_editor", None)
+            if editor is not None:
+                editor.is_moving_item = False
+
+        self._manual_item_drag_active = False
+        self._manual_item_drag_last_scene_pos = None
     
     def _handle_edit_hover_detection(self, event, scene_pos: QPointF):
         """处理悬停检测（编辑模式子状态4）"""
@@ -1009,6 +1327,7 @@ class CanvasView(QGraphicsView):
 
         if self.is_selecting:
             self.is_selecting = False
+            self.is_dragging_selection = False
             # 结束拖拽，显示控制点
             self.canvas_scene.selection_model.stop_dragging()
             # 确认选区
@@ -1020,6 +1339,13 @@ class CanvasView(QGraphicsView):
             self.canvas_scene.tool_controller.on_release(scene_pos)
             # 绘图结束，恢复放大镜跟踪（如果此时 _should_render 允许显示）
             self._update_magnifier_overlay(scene_pos)
+            return
+
+        if self._manual_item_drag_active:
+            self._finish_manual_item_drag(commit=True)
+            if self.smart_edit_controller.selected_item:
+                self._update_edit_handles()
+            event.accept()
             return
         
         # 检查是否在释放控制点拖拽
@@ -1047,6 +1373,7 @@ class CanvasView(QGraphicsView):
         """
         鼠标滚轮事件 - 调整画笔大小或放大镜倍数
         """
+        self.invalidate_double_click_candidate()
         # 只在绘图工具激活时响应
         current_tool = self.canvas_scene.tool_controller.current_tool
         if not current_tool or current_tool.id == "cursor":
@@ -1071,6 +1398,36 @@ class CanvasView(QGraphicsView):
         # 获取滚轮方向
         delta = event.angleDelta().y()
         modifiers = event.modifiers()
+
+        # 跨工具临时编辑只改变目标图元，不改当前工具默认值。Shift 也按宽度
+        # 处理，避免当前工具为序号时误改“下一个数字”。
+        controller = getattr(self, "smart_edit_controller", None)
+        if controller and controller.is_cross_tool_selection():
+            item = controller.selected_item
+            toolbar = getattr(self.window(), "toolbar", None)
+            if delta != 0:
+                if modifiers & Qt.KeyboardModifier.ControlModifier:
+                    current_opacity = self._extract_selection_opacity(item)
+                    if current_opacity is not None:
+                        new_opacity = max(
+                            0.0,
+                            min(1.0, current_opacity + (0.05 if delta > 0 else -0.05)),
+                        )
+                        self.apply_cross_tool_selection_style(opacity=new_opacity)
+                        if toolbar and hasattr(toolbar, "set_opacity"):
+                            toolbar.set_opacity(int(round(new_opacity * 255)))
+                else:
+                    current_width = self._extract_selection_width(item)
+                    if current_width is not None:
+                        new_width = max(
+                            1.0,
+                            min(50.0, current_width + (1.0 if delta > 0 else -1.0)),
+                        )
+                        self.apply_cross_tool_selection_style(width=new_width)
+                        if toolbar and hasattr(toolbar, "set_stroke_width"):
+                            toolbar.set_stroke_width(int(round(new_width)))
+            event.accept()
+            return
 
         # Ctrl + 滚轮：调整透明度（0-255）
         if modifiers & Qt.KeyboardModifier.ControlModifier:
@@ -1175,12 +1532,14 @@ class CanvasView(QGraphicsView):
         所有窗口级快捷键（ESC、Enter确认、Ctrl+Z/Y、Ctrl+C/D 等）
         统一由 ScreenshotWindow.keyPressEvent 处理，避免重复和冲突。
         """
+        self.invalidate_double_click_candidate()
         is_text_editing = self._is_text_editing()
 
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             # 文字编辑模式下允许换行，不传递给父窗口
             if is_text_editing:
                 super().keyPressEvent(event)
+                self._update_edit_handles()
                 return
 
         if is_text_editing:
@@ -1188,13 +1547,22 @@ class CanvasView(QGraphicsView):
             if (event.key() in (Qt.Key.Key_Z, Qt.Key.Key_Y)
                     and event.modifiers() == Qt.KeyboardModifier.ControlModifier):
                 super().keyPressEvent(event)
+                self._update_edit_handles()
                 return
             # 文字编辑模式下，所有普通按键交给 QGraphicsTextItem 处理
             super().keyPressEvent(event)
+            self._update_edit_handles()
             return
 
         # 非文字编辑模式：其余按键一律 ignore，让事件冒泡到父窗口统一处理
         event.ignore()
+
+    @safe_event
+    def inputMethodEvent(self, event):
+        """IME composition between clicks invalidates screenshot confirmation."""
+        self.invalidate_double_click_candidate()
+        super().inputMethodEvent(event)
+        self._update_edit_handles()
 
     def _is_text_editing(self) -> bool:
         """判断当前是否在编辑文字图元"""
@@ -1313,7 +1681,6 @@ class CanvasView(QGraphicsView):
                     editor
                     and editor.is_editing()
                     and controller.selected_item is selected_item
-                    and not isinstance(selected_item, TextItem)
                 ):
                     editor.start_edit(selected_item)
                 self.canvas_scene.update()
@@ -1496,6 +1863,7 @@ class CanvasView(QGraphicsView):
         self._enter_text_edit_mode(item)
     
     def _enter_text_edit_mode(self, item: TextItem):
+        self._connect_text_geometry_updates(item)
         item.setTextInteractionFlags(Qt.TextInteractionFlag.TextEditorInteraction)
         item.setFocus(Qt.FocusReason.MouseFocusReason)
         cursor = item.textCursor()
@@ -1504,7 +1872,39 @@ class CanvasView(QGraphicsView):
         if hasattr(self.smart_edit_controller, "select_item"):
             self.smart_edit_controller.select_item(item, auto_select=False)
     
+    def _connect_text_geometry_updates(self, item: QGraphicsTextItem):
+        """文字内容变化会改变包围盒，控制点得跟着重画。
+
+        只刷新图元自身的区域不够：控制点画在包围盒的角上并向外凸出，旧位置
+        落在失效区域之外就会留下残影，所以这里整场景重绘。
+        """
+        document = item.document()
+        if document is None or getattr(item, "_geometry_update_connected", False):
+            return
+
+        def _on_contents_changed():
+            scene = item.scene()
+            if scene is not None:
+                scene.update()
+
+        document.contentsChanged.connect(_on_contents_changed)
+        item._geometry_update_connected = True
+        item._geometry_update_slot = _on_contents_changed
+
+    def _disconnect_text_geometry_updates(self, item):
+        slot = getattr(item, "_geometry_update_slot", None)
+        if slot is None:
+            return
+        try:
+            item.document().contentsChanged.disconnect(slot)
+        except (RuntimeError, TypeError) as e:
+            log_warning(T("断开文字几何更新失败: {exc}", exc=e), "CanvasView")
+        item._geometry_update_connected = False
+        item._geometry_update_slot = None
+
     def _finalize_text_edit_state(self, text_item: QGraphicsTextItem):
+        if text_item is not None:
+            self._disconnect_text_geometry_updates(text_item)
         controller = getattr(self, "smart_edit_controller", None)
         if controller and controller.selected_item is text_item:
             controller.clear_selection(suppress_block=True)

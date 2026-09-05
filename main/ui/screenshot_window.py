@@ -31,11 +31,16 @@ class ScreenshotShortcutHandler(ShortcutHandler):
         self._window = window
         # 从配置读取应用内快捷键（一次性，截图窗口生命周期内不变）
         from core.shortcut_manager import load_inapp_bindings, load_move_keys
-        self._bindings = load_inapp_bindings([
+        from settings import ANNOTATION_TOOL_SHORTCUTS
+        action_keys = [
             "inapp_confirm", "inapp_pin", "inapp_undo", "inapp_redo",
             "inapp_delete",
             "inapp_zoom_in", "inapp_zoom_out", "inapp_translate",
-        ])
+        ]
+        self._tool_shortcuts = tuple(ANNOTATION_TOOL_SHORTCUTS)
+        self._bindings = load_inapp_bindings(
+            action_keys + [entry[0] for entry in self._tool_shortcuts]
+        )
         self._move_keys = load_move_keys()
 
     @property
@@ -62,6 +67,8 @@ class ScreenshotShortcutHandler(ShortcutHandler):
 
     def handle_key(self, event) -> bool:
         w = self._window
+        if hasattr(w, "view") and hasattr(w.view, "invalidate_double_click_candidate"):
+            w.view.invalidate_double_click_candidate()
         is_text_editing = w._is_text_editing()
 
         # 文字编辑模式下，部分按键交给 QGraphicsTextItem
@@ -73,15 +80,6 @@ class ScreenshotShortcutHandler(ShortcutHandler):
             if (event.key() in (Qt.Key.Key_Z, Qt.Key.Key_Y)
                     and event.modifiers() == Qt.KeyboardModifier.ControlModifier):
                 return False
-
-        # ── 鼠标微移 ──
-        if not is_text_editing:
-            delta = self._move_keys.get(event.key())
-            if delta and event.modifiers() == Qt.KeyboardModifier.NoModifier:
-                from PySide6.QtGui import QCursor
-                p = QCursor.pos()
-                QCursor.setPos(p.x() + delta[0], p.y() + delta[1])
-                return True
 
         # ESC — 固定不可自定义
         if event.key() == Qt.Key.Key_Escape:
@@ -125,6 +123,37 @@ class ScreenshotShortcutHandler(ShortcutHandler):
                     w.toolbar.screenshot_translate_clicked.emit()
                 return True
 
+        # 放大镜缩放属于可配置截图动作，优先于工具键。
+        if self._match(event, "inapp_zoom_in"):
+            mo = getattr(w, 'magnifier_overlay', None)
+            if mo and mo.cursor_scene_pos is not None and mo._should_render():
+                mo.adjust_zoom(1)
+                return True
+
+        if self._match(event, "inapp_zoom_out"):
+            mo = getattr(w, 'magnifier_overlay', None)
+            if mo and mo.cursor_scene_pos is not None and mo._should_render():
+                mo.adjust_zoom(-1)
+                return True
+
+        # 标注工具：选区确认后生效；自动重复只消费不重复激活。
+        if not is_text_editing and w.scene and w.scene.selection_model.is_confirmed:
+            for cfg_key, tool_id, _label, _default in self._tool_shortcuts:
+                if not self._match(event, cfg_key):
+                    continue
+                if not event.isAutoRepeat() and hasattr(w, "toolbar") and w.toolbar:
+                    w.toolbar.select_tool(tool_id, toggle=False)
+                return True
+
+        # ── 鼠标微移（配置动作/工具之后）──
+        if not is_text_editing:
+            delta = self._move_keys.get(event.key())
+            if delta and event.modifiers() == Qt.KeyboardModifier.NoModifier:
+                from PySide6.QtGui import QCursor
+                p = QCursor.pos()
+                QCursor.setPos(p.x() + delta[0], p.y() + delta[1])
+                return True
+
         # 取色（单键 C，无修饰键 — 保留硬编码）
         if event.key() == Qt.Key.Key_C:
             if event.modifiers() == Qt.KeyboardModifier.NoModifier:
@@ -138,19 +167,6 @@ class ScreenshotShortcutHandler(ShortcutHandler):
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             if w.scene and w.scene.selection_model.is_confirmed:
                 w.action_handler.handle_confirm()
-                return True
-
-        # 放大镜缩放
-        if self._match(event, "inapp_zoom_in"):
-            mo = getattr(w, 'magnifier_overlay', None)
-            if mo and mo.cursor_scene_pos is not None and mo._should_render():
-                mo.adjust_zoom(1)
-                return True
-
-        if self._match(event, "inapp_zoom_out"):
-            mo = getattr(w, 'magnifier_overlay', None)
-            if mo and mo.cursor_scene_pos is not None and mo._should_render():
-                mo.adjust_zoom(-1)
                 return True
 
         return False
@@ -201,8 +217,8 @@ class ScreenshotWindow(QWidget):
         self.setGeometry(int(self.virtual_x), int(self.virtual_y), int(self.virtual_width), int(self.virtual_height))
 
         # 3. 初始化场景和视图
-        self.scene = CanvasScene(self.original_image, rect)
-        self.view = CanvasView(self.scene, self)
+        self.scene = CanvasScene(self.original_image, rect, enable_mosaic=True)
+        self.view = self._create_canvas_view(self.scene)
         self.view.setGeometry(0, 0, int(self.virtual_width), int(self.virtual_height))
         
         _t2 = time.perf_counter()
@@ -214,6 +230,9 @@ class ScreenshotWindow(QWidget):
         
         # 4. 初始化工具栏（一次性创建，后续复用）
         self.toolbar = Toolbar(self)
+        self.toolbar.set_cross_tool_selection_hint_enabled(
+            self._cross_tool_selection_enabled
+        )
         self.toolbar.hide() # 初始隐藏，选区确认后显示
         
         _t3 = time.perf_counter()
@@ -287,6 +306,26 @@ class ScreenshotWindow(QWidget):
         # 初始状态：进入选区模式
         # CanvasView 默认处理鼠标按下进入选区
 
+    def _create_canvas_view(self, scene):
+        """创建使用当前截图交互设置的画布视图。"""
+        cross_tool_selection_enabled = (
+            self.config_manager.get_cross_tool_selection_enabled()
+        )
+        self._cross_tool_selection_enabled = cross_tool_selection_enabled
+        toolbar = getattr(self, "toolbar", None)
+        if toolbar is not None:
+            toolbar.set_cross_tool_selection_hint_enabled(
+                cross_tool_selection_enabled
+            )
+        return CanvasView(
+            scene,
+            self,
+            confirm_on_double_click=(
+                self.config_manager.get_double_click_copy_close_enabled()
+            ),
+            cross_tool_select=cross_tool_selection_enabled,
+        )
+
     # ------------------------------------------------------------------
     # 窗口复用：准备新的截图会话
     # ------------------------------------------------------------------
@@ -315,8 +354,8 @@ class ScreenshotWindow(QWidget):
                          int(self.virtual_width), int(self.virtual_height))
         
         # 创建新的 Scene + View（每次截图内容不同，不可复用）
-        self.scene = CanvasScene(image, rect)
-        self.view = CanvasView(self.scene, self)
+        self.scene = CanvasScene(image, rect, enable_mosaic=True)
+        self.view = self._create_canvas_view(self.scene)
         self.view.setGeometry(0, 0, int(self.virtual_width), int(self.virtual_height))
         self.view.lower()  # 确保 view 在最底层，overlay 在上方
         
@@ -803,13 +842,9 @@ class ScreenshotWindow(QWidget):
         # 阻止工具栏信号，避免 set_xxx() 触发回调形成循环
         self.toolbar.blockSignals(True)
         try:
-            # 更新工具栏 UI 显示当前工具的设置
-            self.toolbar.set_current_color(ctx.color)
-            self.toolbar.set_stroke_width(ctx.stroke_width)
-            self.toolbar.set_opacity(int(ctx.opacity * 255))
-            if tool_id == "number" and hasattr(self.toolbar, "set_number_next_value"):
-                from tools.number import NumberTool
-                self.toolbar.set_number_next_value(NumberTool.get_next_number(self.scene))
+            # 每次激活都从当前工具上下文与持久化设置完整重建面板，避免
+            # 跨工具临时投影残留到稍后的工具切换。
+            self.toolbar.restore_active_tool_state(tool_id, ctx, self.scene)
         finally:
             self.toolbar.blockSignals(False)
         
@@ -826,9 +861,19 @@ class ScreenshotWindow(QWidget):
         NumberTool.set_next_number_and_refresh(self.scene, next_value)
         
     def on_color_changed(self, color):
+        view = getattr(self, 'view', None)
+        if view and hasattr(view, 'apply_cross_tool_selection_style'):
+            consumed = view.apply_cross_tool_selection_style(color=color)
+            if consumed is not None:
+                return
         self.scene.update_style(color=color)
         
     def on_stroke_width_changed(self, width):
+        view = getattr(self, 'view', None)
+        if view and hasattr(view, 'apply_cross_tool_selection_style'):
+            consumed = view.apply_cross_tool_selection_style(width=width)
+            if consumed is not None:
+                return
         ctx = getattr(self.scene.tool_controller, 'ctx', None)
         prev_width = max(1.0, float(getattr(ctx, 'stroke_width', width))) if ctx else float(width)
         self.scene.update_style(width=width)
@@ -846,8 +891,12 @@ class ScreenshotWindow(QWidget):
     def on_opacity_changed(self, opacity_int):
         # opacity_int 是 0-255，转换为 0.0-1.0
         opacity = opacity_int / 255.0
-        self.scene.update_style(opacity=opacity)
         view = getattr(self, 'view', None)
+        if view and hasattr(view, 'apply_cross_tool_selection_style'):
+            consumed = view.apply_cross_tool_selection_style(opacity=opacity)
+            if consumed is not None:
+                return
+        self.scene.update_style(opacity=opacity)
         if view and hasattr(view, '_apply_opacity_change_to_selection'):
             view._apply_opacity_change_to_selection(opacity)
 

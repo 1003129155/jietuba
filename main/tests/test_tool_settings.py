@@ -93,7 +93,7 @@ class TestToolSettingsManager:
 
     def test_default_tools_initialized(self, manager):
         """所有默认工具都应被初始化"""
-        expected_tools = ["pen", "highlighter", "rect", "ellipse", "arrow", "text", "number", "eraser"]
+        expected_tools = ["pen", "highlighter", "mosaic", "rect", "ellipse", "arrow", "text", "number", "eraser"]
         for tool_id in expected_tools:
             assert manager.get_tool_settings(tool_id) is not None, f"工具 {tool_id} 未初始化"
 
@@ -143,6 +143,65 @@ class TestToolSettingsManager:
         # 恢复
         manager.set_app_setting("log_level", "INFO")
 
+    def test_double_click_copy_close_defaults_persists_and_resets(
+        self, manager, monkeypatch
+    ):
+        """双击复制并关闭默认开启，可持久关闭并由应用设置重置恢复。"""
+        assert manager.get_double_click_copy_close_enabled() is True
+
+        manager.set_double_click_copy_close_enabled(False)
+        manager.qsettings.sync()
+        reopened_qsettings = QSettings(
+            manager.qsettings.fileName(),
+            QSettings.Format.IniFormat,
+        )
+        reloaded = ToolSettingsManager(qsettings=reopened_qsettings)
+        assert reloaded.get_double_click_copy_close_enabled() is False
+
+        monkeypatch.setattr("core.logger.log_info", lambda *_args, **_kwargs: None)
+        reloaded.reset_app_settings()
+        assert reloaded.get_double_click_copy_close_enabled() is True
+
+    @pytest.mark.parametrize(
+        ("getter_name", "setter_name", "setting_key"),
+        [
+            (
+                "get_cross_tool_selection_enabled",
+                "set_cross_tool_selection_enabled",
+                "cross_tool_selection",
+            ),
+            (
+                "get_text_always_on_top_enabled",
+                "set_text_always_on_top_enabled",
+                "text_always_on_top",
+            ),
+        ],
+    )
+    def test_annotation_behavior_toggles_default_persist_and_reset(
+        self,
+        manager,
+        monkeypatch,
+        getter_name,
+        setter_name,
+        setting_key,
+    ):
+        """标注行为开关可持久修改并随应用设置重置。"""
+        expected_default = manager.APP_DEFAULT_SETTINGS[setting_key]
+        assert getattr(manager, getter_name)() is expected_default
+
+        getattr(manager, setter_name)(not expected_default)
+        manager.qsettings.sync()
+        reopened_qsettings = QSettings(
+            manager.qsettings.fileName(),
+            QSettings.Format.IniFormat,
+        )
+        reloaded = ToolSettingsManager(qsettings=reopened_qsettings)
+        assert getattr(reloaded, getter_name)() is not expected_default
+
+        monkeypatch.setattr("core.logger.log_info", lambda *_args, **_kwargs: None)
+        reloaded.reset_app_settings()
+        assert getattr(reloaded, getter_name)() is expected_default
+
     def test_get_color(self, manager):
         """获取 QColor 对象"""
         from PySide6.QtGui import QColor
@@ -169,9 +228,45 @@ class TestToolSettingsManager:
         assert "language" in defaults
         assert "clipboard_enabled" in defaults
         assert "ocr_enabled" in defaults
+        assert defaults["double_click_copy_close"] is True
+        assert defaults["cross_tool_selection"] is True
+        assert defaults["text_always_on_top"] is True
         assert defaults["translation_hotkey"] == ""
         assert defaults["translation_hotkey_2"] == ""
         assert defaults["translation_provider"] == "google"
+
+    def test_annotation_tool_shortcut_defaults(self, manager):
+        from settings.tool_settings import ANNOTATION_TOOL_SHORTCUTS
+
+        expected = {
+            "cursor": "s",
+            "pen": "p",
+            "highlighter": "m",
+            "mosaic": "x",
+            "arrow": "a",
+            "number": "n",
+            "rect": "r",
+            "ellipse": "o",
+            "text": "t",
+            "eraser": "e",
+        }
+        assert {tool_id: default for _key, tool_id, _label, default in ANNOTATION_TOOL_SHORTCUTS} == expected
+        for cfg_key, _tool_id, _label, default in ANNOTATION_TOOL_SHORTCUTS:
+            assert manager.APP_DEFAULT_SETTINGS[cfg_key] == default
+
+    def test_explicit_empty_inapp_shortcut_remains_unbound(self, manager):
+        assert manager.get_inapp_shortcut("inapp_tool_text") == "t"
+        manager.set_inapp_shortcut("inapp_tool_text", "")
+        assert manager.get_inapp_shortcut("inapp_tool_text") == ""
+
+    def test_reset_app_settings_restores_inapp_shortcut_defaults(self, manager):
+        manager.set_inapp_shortcut("inapp_confirm", "alt+k")
+        manager.set_inapp_shortcut("inapp_tool_text", "")
+
+        manager.reset_app_settings()
+
+        assert manager.get_inapp_shortcut("inapp_confirm") == "ctrl+c"
+        assert manager.get_inapp_shortcut("inapp_tool_text") == "t"
 
     def test_translation_provider_configuration(self, manager):
         assert manager.get_translation_provider() == "google"

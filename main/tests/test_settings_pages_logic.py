@@ -172,7 +172,7 @@ class TestShortcutKeyTables:
     """常量表是冲突检测和默认值回退的数据源，结构错了两处逻辑一起失效"""
 
     def test_every_entry_is_a_key_label_default_triple(self):
-        for table in (page_hotkey.SCREENSHOT_KEYS, page_hotkey.PIN_KEYS):
+        for table in (page_hotkey.SCREENSHOT_KEYS, page_hotkey.TOOL_KEYS, page_hotkey.PIN_KEYS):
             for entry in table:
                 assert len(entry) == 3, entry
                 cfg_key, label, default = entry
@@ -181,7 +181,9 @@ class TestShortcutKeyTables:
                 assert default and isinstance(default, str)
 
     def test_combined_table_is_the_concatenation_of_both_groups(self):
-        assert page_hotkey.INAPP_KEYS == page_hotkey.SCREENSHOT_KEYS + page_hotkey.PIN_KEYS
+        assert page_hotkey.INAPP_KEYS == (
+            page_hotkey.SCREENSHOT_KEYS + page_hotkey.TOOL_KEYS + page_hotkey.PIN_KEYS
+        )
 
     def test_config_keys_are_unique_within_each_group(self):
         for table in (page_hotkey.SCREENSHOT_KEYS, page_hotkey.PIN_KEYS):
@@ -189,12 +191,24 @@ class TestShortcutKeyTables:
             assert len(keys) == len(set(keys)), keys
 
 
+def _factory_default(key):
+    for table in (page_hotkey.SCREENSHOT_KEYS, page_hotkey.TOOL_KEYS, page_hotkey.PIN_KEYS):
+        for cfg, _tr, default in table:
+            if cfg == key:
+                return default
+    return ""
+
+
 def _hotkey_dialog(edits, groups, stored=None):
     stored = stored or {}
     return SimpleNamespace(
         _inapp_edits=edits,
         _inapp_groups=groups,
-        config_manager=SimpleNamespace(get_inapp_shortcut=lambda key: stored.get(key, "")),
+        config_manager=SimpleNamespace(
+            # 真实的 get_inapp_shortcut 未命中时会返回 APP_DEFAULT_SETTINGS 里的出厂默认值；
+            # 存进去的空字符串表示用户显式解绑，两者不能混为一谈。
+            get_inapp_shortcut=lambda key: stored.get(key, _factory_default(key)),
+        ),
         tr=lambda text: text,
     )
 
@@ -271,6 +285,7 @@ class TestShortcutConflictDetection:
         assert edits["inapp_undo"].set_texts == []
 
     def test_declining_without_a_stored_value_restores_the_factory_default(self, monkeypatch):
+        """未自定义过时，配置层返回出厂默认值，撤销输入应回到该默认值"""
         monkeypatch.setattr(page_hotkey, "show_confirm_dialog", lambda *a, **k: False)
         edits = {"inapp_undo": _Edit("ctrl+z"), "inapp_redo": _Edit("ctrl+z")}
         dialog = _hotkey_dialog(edits, {"inapp_undo": "shot", "inapp_redo": "shot"})

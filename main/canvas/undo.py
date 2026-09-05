@@ -393,6 +393,12 @@ class EditItemCommand(QUndoCommand):
         if isinstance(origin, QPointF) and hasattr(self.item, "setTransformOriginPoint"):
             self.item.setTransformOriginPoint(QPointF(origin))
 
+        point_size = state.get("font_point_size")
+        if isinstance(point_size, (int, float)) and hasattr(
+            self.item, "set_font_point_size"
+        ):
+            self.item.set_font_point_size(float(point_size))
+
 
         # opacity
         opacity = state.get("opacity")
@@ -575,4 +581,44 @@ class NumberEditCommand(EditItemCommand):
         self.next_after = other.next_after
         self._last_merge_time = now
         return True
+
+    def capture_merge_tail(self) -> Dict[str, Any]:
+        """Capture the mutable tail that mergeWith may change in place."""
+        return {
+            "new_state": self._clone_state(self.new_state),
+            "next_after": self.next_after,
+            "last_merge_time": self._last_merge_time,
+        }
+
+    def merge_tail_matches(self, snapshot: Dict[str, Any]) -> bool:
+        return (
+            self.new_state == snapshot.get("new_state")
+            and self.next_after == snapshot.get("next_after")
+            and self._last_merge_time == snapshot.get("last_merge_time")
+        )
+
+    def restore_merge_tail(self, snapshot: Dict[str, Any]) -> bool:
+        """Restore and replay a previously applied tail after a merged click."""
+        try:
+            self.new_state = self._clone_state(snapshot.get("new_state") or {})
+            self.next_after = snapshot.get("next_after")
+            self._last_merge_time = snapshot.get("last_merge_time")
+            self.redo()
+            if not self.merge_tail_matches(snapshot):
+                return False
+
+            expected_number = self.new_state.get("number")
+            if isinstance(expected_number, int):
+                if self.item is None or int(getattr(self.item, "number", -1)) != expected_number:
+                    return False
+
+            if self.next_after is not None:
+                from tools.number import NumberTool
+
+                if NumberTool.get_next_number(self.scene) != int(self.next_after):
+                    return False
+            return True
+        except Exception as exc:
+            log_exception(exc, "恢复序号合并命令")
+            return False
  

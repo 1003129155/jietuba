@@ -30,7 +30,7 @@ class CanvasScene(QGraphicsScene):
     item_auto_select_requested = Signal(object)       # 参数：绘制完成的 QGraphicsItem
     editing_cleanup_requested = Signal()              # 请求清除编辑状态（控制点、画笔指示器）
     
-    def __init__(self, background_image, scene_rect):
+    def __init__(self, background_image, scene_rect, enable_mosaic=False):
         """
         Args:
             background_image: QImage - 背景图像
@@ -52,6 +52,7 @@ class CanvasScene(QGraphicsScene):
         # 0: Background
         # 10: Highlighter Items (由工具创建)
         # 20: Normal Drawing Items (由工具创建)
+        # 30: Text Items（始终位于普通绘制标注之上）
         # 101: Selection Item
         # (遮罩层已移至 ScreenshotWindow 的 QWidget 叠层 MaskOverlayWidget)
         
@@ -85,7 +86,7 @@ class CanvasScene(QGraphicsScene):
         from tools import ToolController, ToolContext
         from tools import (
             PenTool, RectTool, EllipseTool, ArrowTool,
-            TextTool, NumberTool, HighlighterTool, CursorTool, EraserTool
+            TextTool, NumberTool, HighlighterTool, CursorTool, EraserTool, MosaicTool
         )
 
         ctx = ToolContext(
@@ -112,6 +113,8 @@ class CanvasScene(QGraphicsScene):
         self.tool_controller.register(TextTool())
         self.tool_controller.register(NumberTool())
         self.tool_controller.register(HighlighterTool())
+        if enable_mosaic:
+            self.tool_controller.register(MosaicTool())
         self.tool_controller.register(EraserTool())  # 橡皮擦工具
         
         # 默认激活光标工具（表示无绘制工具激活，SmartEditController负责选择/编辑交互）
@@ -130,7 +133,6 @@ class CanvasScene(QGraphicsScene):
         
         self.selectionConfirmed.emit()
 
-    
     def activate_tool(self, tool_id: str):
         """
         激活工具
@@ -212,4 +214,3 @@ class CanvasScene(QGraphicsScene):
         
         log_debug(T("选区内绘制项目: {item_count} 个（已按绘制顺序排列）", item_count=len(drawing_items)), "Scene")
         return drawing_items
- 

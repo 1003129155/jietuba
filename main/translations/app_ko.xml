@@ -244,6 +244,18 @@
         <source>Screenshot Shortcuts</source>
         <translation>스크린샷 단축키</translation>
     </message>
+    <message><source>Annotation Tools</source><translation>주석 도구</translation></message>
+    <message><source>Select / Cursor</source><translation>선택 / 커서</translation></message>
+    <message><source>Pen</source><translation>펜</translation></message>
+    <message><source>Highlighter</source><translation>형광펜</translation></message>
+    <message><source>Mosaic</source><translation>모자이크</translation></message>
+    <message><source>Arrow</source><translation>화살표</translation></message>
+    <message><source>Number</source><translation>번호</translation></message>
+    <message><source>Rectangle</source><translation>사각형</translation></message>
+    <message><source>Ellipse</source><translation>타원</translation></message>
+    <message><source>Text</source><translation>텍스트</translation></message>
+    <message><source>Eraser</source><translation>지우개</translation></message>
+    <message><source>💡 Configured shortcuts take priority over WASD and C. Arrow keys remain available; Esc is reserved.</source><translation>💡 설정한 단축키는 WASD와 C보다 우선합니다. 방향키는 계속 사용할 수 있고 Esc는 예약 키입니다.</translation></message>
     <message>
         <source>Pin Shortcuts</source>
         <translation>고정 창 단축키</translation>
@@ -351,6 +363,44 @@ Replace it?</source>
     <message>
         <source>Skip this many top pixels on subsequent captures during matching</source>
         <translation>매칭 중 후속 캡처의 상단 픽셀 수를 건너뜁니다</translation>
+    </message>
+
+    <!-- Capture Behavior -->
+    <message>
+        <source>Capture Behavior</source>
+        <translation>캡처 동작</translation>
+    </message>
+    <message>
+        <source>Double-click to Copy and Close</source>
+        <translation>두 번 클릭하여 복사 후 닫기</translation>
+    </message>
+    <message>
+        <source>Double-click the selected screenshot to copy it to the clipboard and close the capture.</source>
+        <translation>선택한 스크린샷을 두 번 클릭하면 클립보드에 복사하고 캡처를 닫습니다.</translation>
+    </message>
+    <message>
+        <source>Enable Ctrl Cross-Tool Selection</source>
+        <translation>Ctrl 도구 간 선택 사용</translation>
+    </message>
+    <message>
+        <source>Hold Ctrl and click any editable annotation to adjust it without switching tools.</source>
+        <translation>Ctrl 키를 누른 채 편집 가능한 주석을 클릭하면 도구를 바꾸지 않고 조정할 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>Keep Text Annotations on Top</source>
+        <translation>텍스트 주석을 항상 위에 표시</translation>
+    </message>
+    <message>
+        <source>Keep text above other annotations, including ones drawn later.</source>
+        <translation>나중에 그린 항목을 포함해 텍스트를 다른 주석보다 위에 유지합니다.</translation>
+    </message>
+    <message>
+        <source>Automatically Wrap Text</source>
+        <translation>텍스트 자동 줄 바꿈</translation>
+    </message>
+    <message>
+        <source>Start new text annotations at about 30 characters wide and keep them inside the selection.</source>
+        <translation>새 텍스트 주석은 약 30자 너비로 시작하고 선택 영역 안에 유지됩니다.</translation>
     </message>
     
     <!-- Smart Selection Page -->
@@ -767,6 +817,14 @@ Replace it?</source>
 <!-- ========== Toolbar ========== -->
 <context>
     <name>Toolbar</name>
+    <message>
+        <source>Ctrl+click any editable annotation to edit it temporarily</source>
+        <translation>Ctrl 키를 누른 채 편집 가능한 주석을 클릭하여 임시 편집</translation>
+    </message>
+    <message>
+        <source>Mosaic (mouse wheel to resize)</source>
+        <translation>모자이크(마우스 휠로 크기 조절)</translation>
+    </message>
     <message>
         <source>Long screenshot (scroll)</source>
         <translation>긴 스크린샷(스크롤)</translation>

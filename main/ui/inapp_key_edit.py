@@ -34,6 +34,11 @@ class InAppKeyEdit(QLineEdit):
         mods = event.modifiers()
         event.accept()
 
+        # Escape is the fixed screenshot cancel key and cannot be rebound.
+        if key == Qt.Key.Key_Escape:
+            self.setText("")
+            return
+
         parts: list[str] = []
         if mods & Qt.KeyboardModifier.ControlModifier:
             parts.append("Ctrl")
@@ -101,4 +106,3 @@ class InAppKeyEdit(QLineEdit):
             return f"F{key - Qt.Key.Key_F1 + 1}"
         text = QKeySequence(key).toString(QKeySequence.SequenceFormat.PortableText)
         return text if text else ""
- 

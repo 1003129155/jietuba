@@ -1323,16 +1323,40 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
     """文字图元 - 增强版"""
     # 文字与虚线边框之间的内边距（document margin）
     TEXT_PADDING = 8
+    MIN_POINT_SIZE = 6.0
+    MAX_POINT_SIZE = 400.0
+
+    # 手柄 id：避开矩形(0-7)、圆角(10-13)、序号(200-202)
+    HANDLE_ROTATE = 210
+    HANDLE_DELETE = 211
+    HANDLE_SCALE = 212
+    SCALE_HANDLE_SIZE = 10
+    NORMAL_ANNOTATION_Z_VALUE = 20
+    ANNOTATION_Z_VALUE = 30
+    BACKGROUND_RADIUS = 6.0
     
-    def __init__(self, text: str, pos: QPointF, font: QFont, color: QColor):
+    def __init__(
+        self,
+        text: str,
+        pos: QPointF,
+        font: QFont,
+        color: QColor,
+        always_on_top: bool = True,
+    ):
         super().__init__(text)
         self._init_drawing_mixin()
+        # 尺寸始终跟随内容：不设换行宽度，短内容才不会撑出多余的背景色。
+        self.setTextWidth(-1)
         self.setPos(pos)
         self.setFont(font)
         self.setDefaultTextColor(color)
         # 允许点击编辑
         self.setTextInteractionFlags(Qt.TextInteractionFlag.TextEditorInteraction)
-        self.setZValue(20)
+        self.setZValue(
+            self.ANNOTATION_Z_VALUE
+            if always_on_top
+            else self.NORMAL_ANNOTATION_Z_VALUE
+        )
         
         # 增大 document margin，使虚线边框与文字之间有足够间距
         # 默认只有 4px，太小导致鼠标难以区分文字区域和边框区域
@@ -1349,7 +1373,59 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
         
         self.has_background = False # 默认关闭背景
         self.background_color = QColor(255, 255, 255, 255) # 白色全不透明
-        
+
+    # ------------------------------------------------------------------
+    # 字号缩放（右下角手柄驱动）
+    # ------------------------------------------------------------------
+
+    def font_point_size(self) -> float:
+        """当前字号；点阵字体回退到用像素高度近似。"""
+        size = self.font().pointSizeF()
+        if size <= 0:
+            size = float(self.font().pixelSize())
+        return max(float(size), self.MIN_POINT_SIZE)
+
+    def set_font_point_size(self, point_size: float):
+        """按字号重新排版；描边宽度、阴影偏移等不随之变化。"""
+        clamped = max(
+            self.MIN_POINT_SIZE,
+            min(self.MAX_POINT_SIZE, float(point_size)),
+        )
+        font = QFont(self.font())
+        font.setPointSizeF(clamped)
+        self.setFont(font)
+
+    def get_edit_handles(self):
+        """左上旋转、右上删除、右下缩放；左下角不放功能。"""
+        from canvas.handle_editor import EditHandle, HandleType, LayerEditor
+
+        rect = self.sceneBoundingRect()
+        return [
+            EditHandle(
+                self.HANDLE_ROTATE,
+                HandleType.ROTATE,
+                rect.topLeft(),
+                Qt.CursorShape.SizeAllCursor,
+                LayerEditor.FUNCTIONAL_HANDLE_SIZE,
+            ),
+            EditHandle(
+                self.HANDLE_DELETE,
+                HandleType.ITEM_DELETE,
+                rect.topRight(),
+                Qt.CursorShape.PointingHandCursor,
+                LayerEditor.FUNCTIONAL_HANDLE_SIZE,
+                2,
+            ),
+            EditHandle(
+                self.HANDLE_SCALE,
+                HandleType.TEXT_SCALE,
+                rect.bottomRight(),
+                Qt.CursorShape.SizeFDiagCursor,
+                self.SCALE_HANDLE_SIZE,
+                8,
+            ),
+        ]
+
     def paint(self, painter, option, widget):
         """重写绘制方法以支持描边和阴影"""
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -1360,7 +1436,13 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
             painter.save()
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(self.background_color)
-            painter.drawRect(self.boundingRect())
+            background_rect = self.boundingRect()
+            radius = min(
+                self.BACKGROUND_RADIUS,
+                max(0.0, background_rect.width() / 2.0),
+                max(0.0, background_rect.height() / 2.0),
+            )
+            painter.drawRoundedRect(background_rect, radius, radius)
             painter.restore()
             
         # 2. 绘制描边 (Outline) - 使用路径绘制法，效果最好

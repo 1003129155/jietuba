@@ -19,7 +19,14 @@
     manager.set_screenshot_save_path("/path/to/save")
 """
 
-from .tool_settings import ToolSettingsManager, get_tool_settings_manager
+from .tool_settings import (
+    ANNOTATION_TOOL_SHORTCUTS,
+    ToolSettingsManager,
+    get_tool_settings_manager,
+)
 
-__all__ = ['ToolSettingsManager', 'get_tool_settings_manager']
- 
+__all__ = [
+    'ANNOTATION_TOOL_SHORTCUTS',
+    'ToolSettingsManager',
+    'get_tool_settings_manager',
+]

@@ -21,6 +21,20 @@ from PySide6.QtCore import QSettings, Signal, QObject
 from PySide6.QtGui import QColor
 
 
+ANNOTATION_TOOL_SHORTCUTS = (
+    ("inapp_tool_cursor", "cursor", "Select / Cursor", "s"),
+    ("inapp_tool_pen", "pen", "Pen", "p"),
+    ("inapp_tool_highlighter", "highlighter", "Highlighter", "m"),
+    ("inapp_tool_mosaic", "mosaic", "Mosaic", "x"),
+    ("inapp_tool_arrow", "arrow", "Arrow", "a"),
+    ("inapp_tool_number", "number", "Number", "n"),
+    ("inapp_tool_rect", "rect", "Rectangle", "r"),
+    ("inapp_tool_ellipse", "ellipse", "Ellipse", "o"),
+    ("inapp_tool_text", "text", "Text", "t"),
+    ("inapp_tool_eraser", "eraser", "Eraser", "e"),
+)
+
+
 class ToolSettings:
     """单个工具的设置数据类"""
     
@@ -84,6 +98,12 @@ class ToolSettingsManager(QObject):
             "stroke_width": 15,
             "opacity": 1.0,
             "draw_mode": "freehand",
+        },
+        "mosaic": {
+            "color": "#808080",
+            "stroke_width": 30,
+            "opacity": 1.0,
+            "block_size": 8,
         },
         "rect": {
             "color": "#FF0000",  # 红色
@@ -151,7 +171,13 @@ class ToolSettingsManager(QObject):
         "inapp_zoom_out": "pagedown",          # 放大镜缩小
         "inapp_translate": "shift+c",          # 截图翻译
         "inapp_cursor_move_mode": "both",      # 鼠标微移模式: both / arrows / wasd
+        **{key: default for key, _tool, _label, default in ANNOTATION_TOOL_SHORTCUTS},
         # ==================== 2. 截图 ====================
+        # 截图交互
+        "double_click_copy_close": True,      # 双击选区复制到剪贴板并关闭
+        "cross_tool_selection": True,         # Ctrl 临时跨工具选择标注
+        "text_always_on_top": True,           # 文字标注始终高于其他绘制标注
+
         # 智能选择
         "smart_selection": True,              # 智能选区（窗口/控件识别）
 
@@ -438,7 +464,9 @@ class ToolSettingsManager(QObject):
         """重置所有应用级别设置为默认值"""
         for key, default_value in self.APP_DEFAULT_SETTINGS.items():
             # 构建完整的设置键名
-            if key.startswith("pin_"):
+            if key.startswith("inapp_"):
+                setting_key = f"inapp/{key}"
+            elif key.startswith("pin_"):
                 setting_key = f"pin/{key[4:]}"  # pin_auto_toolbar -> pin/auto_toolbar
             else:
                 setting_key = f"app/{key}"
@@ -643,6 +671,43 @@ class ToolSettingsManager(QObject):
     def set_smart_selection(self, value: bool):
         """设置智能选区"""
         self.qsettings.setValue("app/smart_selection", value)
+
+    def get_double_click_copy_close_enabled(self) -> bool:
+        """获取双击选区后复制并关闭的启用状态。"""
+        return self.qsettings.value(
+            "app/double_click_copy_close",
+            self.APP_DEFAULT_SETTINGS["double_click_copy_close"],
+            type=bool,
+        )
+
+    def set_double_click_copy_close_enabled(self, value: bool):
+        """设置是否双击选区后复制并关闭。"""
+        self.qsettings.setValue("app/double_click_copy_close", value)
+
+    def get_cross_tool_selection_enabled(self) -> bool:
+        """获取 Ctrl 临时跨工具选择的启用状态。"""
+        return self.qsettings.value(
+            "app/cross_tool_selection",
+            self.APP_DEFAULT_SETTINGS["cross_tool_selection"],
+            type=bool,
+        )
+
+    def set_cross_tool_selection_enabled(self, value: bool):
+        """设置是否允许 Ctrl 临时跨工具选择。"""
+        self.qsettings.setValue("app/cross_tool_selection", value)
+
+    def get_text_always_on_top_enabled(self) -> bool:
+        """获取文字标注始终置顶的启用状态。"""
+        return self.qsettings.value(
+            "app/text_always_on_top",
+            self.APP_DEFAULT_SETTINGS["text_always_on_top"],
+            type=bool,
+        )
+
+    def set_text_always_on_top_enabled(self, value: bool):
+        """设置文字标注是否始终位于其他绘制标注之上。"""
+        self.qsettings.setValue("app/text_always_on_top", value)
+
     
     def get_log_enabled(self) -> bool:
         """获取日志启用状态"""

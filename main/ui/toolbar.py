@@ -126,6 +126,7 @@ class Toolbar(QWidget):
         
         # 当前选中的工具
         self.current_tool = None  # 初始无工具选中，用户点击后才激活
+        self.temporary_edit_active = False
         
         # 当前颜色
         self.current_color = QColor(255, 0, 0)  # 默认红色
@@ -240,6 +241,16 @@ class Toolbar(QWidget):
         self.highlighter_btn.setIconSize(QSize(icon_tool, icon_tool))
         self.highlighter_btn.setCheckable(True)
         self.highlighter_btn.clicked.connect(lambda: self._on_tool_clicked("highlighter"))
+        left_x += btn_width
+
+        # 4.5 马赛克工具
+        self.mosaic_btn = QPushButton(self)
+        self.mosaic_btn.setGeometry(left_x, 0, btn_width, btn_height)
+        self.mosaic_btn.setToolTip(self.tr('Mosaic (mouse wheel to resize)'))
+        self.mosaic_btn.setIcon(cached_icon("svg/马赛克.svg"))
+        self.mosaic_btn.setIconSize(QSize(icon_tool, icon_tool))
+        self.mosaic_btn.setCheckable(True)
+        self.mosaic_btn.clicked.connect(lambda: self._on_tool_clicked("mosaic"))
         left_x += btn_width
         
         # 5. 箭头工具
@@ -385,6 +396,7 @@ class Toolbar(QWidget):
         self.tool_buttons = {
             "pen": self.pen_btn,
             "highlighter": self.highlighter_btn,
+            "mosaic": self.mosaic_btn,
             "arrow": self.arrow_btn,
             "number": self.number_btn,
             "rect": self.rect_btn,
@@ -550,6 +562,7 @@ class Toolbar(QWidget):
         
     def reset_session_state(self):
         """重置工具栏状态（新截图会话开始时调用）。"""
+        self.set_temporary_edit_active(False)
         # 取消所有工具选中
         for btn in self.tool_buttons.values():
             btn.setChecked(False)
@@ -562,39 +575,131 @@ class Toolbar(QWidget):
         self.drag_handle.set_manual_mode(False)
         # 隐藏自身（选区确认后再显示）
         self.hide()
+
+    def set_temporary_edit_active(self, active: bool):
+        """设置仅作用于当前选中图元、不得保存新建默认值的临时编辑态。"""
+        self.temporary_edit_active = bool(active)
+        enabled = not self.temporary_edit_active
+        if hasattr(self, "paint_panel") and hasattr(self.paint_panel, "mode_widget"):
+            self.paint_panel.mode_widget.setEnabled(enabled)
+        if hasattr(self, "number_panel"):
+            for name in ("next_up_btn", "next_down_btn"):
+                button = getattr(self.number_panel, name, None)
+                if button is not None:
+                    button.setEnabled(enabled)
+
+    def set_cross_tool_selection_hint_enabled(self, enabled: bool):
+        """Reconcile the screenshot-only Ctrl hint without touching other tooltip lines."""
+        previous_hint = getattr(self, "_cross_tool_selection_hint_text", None)
+        hint = self.tr("Ctrl+click any editable annotation to edit it temporarily")
+        for tool_id in ("pen", "highlighter", "arrow", "number", "rect", "ellipse", "text"):
+            button = self.tool_buttons.get(tool_id)
+            if button is None:
+                continue
+            lines = button.toolTip().splitlines()
+            if previous_hint:
+                lines = [line for line in lines if line != previous_hint]
+            if enabled and hint not in lines:
+                lines.append(hint)
+            button.setToolTip("\n".join(lines))
+        self._cross_tool_selection_hint_text = hint if enabled else None
+
+    def enable_cross_tool_selection_hint(self):
+        """Compatibility wrapper for callers that always enable the hint."""
+        self.set_cross_tool_selection_hint_enabled(True)
+
+    def restore_active_tool_state(self, tool_id: str, ctx=None, scene=None):
+        """Restore the active tool's complete default panel after selection ends."""
+        self.set_temporary_edit_active(False)
+        if tool_id == "cursor" or not tool_id:
+            self._hide_all_panels()
+            return
+
+        if ctx is not None:
+            color = getattr(ctx, "color", None)
+            if color is not None:
+                self.set_current_color(QColor(color))
+            width = getattr(ctx, "stroke_width", None)
+            if width is not None:
+                self.set_stroke_width(int(round(width)))
+            opacity = getattr(ctx, "opacity", None)
+            if opacity is not None:
+                self.set_opacity(int(round(float(opacity) * 255)))
+
+        try:
+            from settings import get_tool_settings_manager
+            manager = get_tool_settings_manager()
+            settings = manager.get_tool_settings(tool_id) if manager else None
+            if tool_id == "text":
+                self.text_panel.load_from_config()
+            elif tool_id in ("pen", "highlighter") and settings:
+                self.paint_panel.line_style = settings.get("line_style", "solid")
+                if tool_id == "highlighter":
+                    self.paint_panel.set_highlighter_mode(settings.get("draw_mode", "freehand"))
+            elif tool_id in ("rect", "ellipse") and settings:
+                self.shape_panel.line_style = settings.get("line_style", "solid")
+            elif tool_id == "arrow" and settings:
+                self.arrow_panel.arrow_style = settings.get("arrow_style", "single")
+        except Exception as exc:
+            log_debug(f"恢复工具面板设置失败: {exc}", "Toolbar")
+
+        if tool_id == "number" and scene is not None:
+            try:
+                from tools.number import NumberTool
+                self.set_number_next_value(NumberTool.get_next_number(scene))
+            except Exception as exc:
+                log_debug(f"恢复序号预览失败: {exc}", "Toolbar")
+        self._show_panel_for_tool(tool_id)
     
     def _on_tool_clicked(self, tool_id: str):
         """工具按钮点击 - 支持再次点击取消"""
-        # 如果点击的是当前工具，取消选中（退出绘制模式）
-        if self.current_tool == tool_id:
+        self.select_tool(tool_id, toggle=True)
+
+    def select_tool(self, tool_id: str, *, toggle: bool = False):
+        """Select a tool through the authoritative toolbar/UI signal path.
+
+        Mouse buttons opt into toggle-to-cursor; keyboard shortcuts are
+        idempotent and therefore leave an already active tool selected.
+        """
+        if tool_id == "cursor":
+            self.set_temporary_edit_active(False)
             # 取消所有按钮选中
             for btn in self.tool_buttons.values():
                 btn.setChecked(False)
             self.current_tool = None
-            tool_to_emit = "cursor"
-            self.tool_changed.emit(tool_to_emit)
+            self.tool_changed.emit("cursor")
             self._hide_all_panels()
-        else:
-            # 更新按钮状态
-            for tid, btn in self.tool_buttons.items():
-                btn.setChecked(tid == tool_id)
-            
-            self.current_tool = tool_id
-            self.tool_changed.emit(tool_id)
+            return
 
-            # 同步线条样式到面板（rect / ellipse）
-            if tool_id in ("rect", "ellipse") and hasattr(self, 'shape_panel'):
-                try:
-                    from settings import get_tool_settings_manager
-                    manager = get_tool_settings_manager()
-                    shape_settings = manager.get_tool_settings(tool_id) if manager else None
-                    if shape_settings:
-                        self.shape_panel.line_style = shape_settings.get("line_style", "solid")
-                except Exception as exc:
-                    log_debug(T("同步形状线条样式失败: {exc}", exc=exc), "Toolbar")
-            
-            # 显示对应的设置面板
-            self._show_panel_for_tool(tool_id)
+        if tool_id not in self.tool_buttons:
+            return
+        if self.current_tool == tool_id:
+            if toggle:
+                self.select_tool("cursor")
+            return
+
+        self.set_temporary_edit_active(False)
+
+        # 更新按钮状态
+        for tid, btn in self.tool_buttons.items():
+            btn.setChecked(tid == tool_id)
+
+        self.current_tool = tool_id
+        self.tool_changed.emit(tool_id)
+
+        # 同步线条样式到面板（rect / ellipse）
+        if tool_id in ("rect", "ellipse") and hasattr(self, 'shape_panel'):
+            try:
+                from settings import get_tool_settings_manager
+                manager = get_tool_settings_manager()
+                shape_settings = manager.get_tool_settings(tool_id) if manager else None
+                if shape_settings:
+                    self.shape_panel.line_style = shape_settings.get("line_style", "solid")
+            except Exception as exc:
+                log_debug(T("同步形状线条样式失败: {exc}", exc=exc), "Toolbar")
+
+        # 显示对应的设置面板
+        self._show_panel_for_tool(tool_id)
             
     def _hide_all_panels(self):
         """隐藏所有设置面板"""
@@ -658,6 +763,8 @@ class Toolbar(QWidget):
         self.opacity_changed.emit(opacity)
 
     def _on_highlighter_mode_changed(self, mode: str):
+        if self.temporary_edit_active:
+            return
         try:
             from settings import get_tool_settings_manager
             manager = get_tool_settings_manager()
@@ -679,6 +786,8 @@ class Toolbar(QWidget):
     def _on_text_font_changed(self, font):
         """文字字体改变"""
         self.text_font_changed.emit(font)
+        if self.temporary_edit_active:
+            return
         from .text_settings_panel import TextSettingsPanel
         TextSettingsPanel.save_font_to_config(font)
 
@@ -687,6 +796,8 @@ class Toolbar(QWidget):
         self.current_color = color
         self.color_changed.emit(color)
         self.text_color_changed.emit(color)  # 发射文字专用颜色信号
+        if self.temporary_edit_active:
+            return
         # 保存颜色设置
         from settings import get_tool_settings_manager
         manager = get_tool_settings_manager()
@@ -695,33 +806,39 @@ class Toolbar(QWidget):
     def _on_text_background_changed(self, enabled: bool, color: QColor, opacity: int):
         """文字背景改变"""
         self.text_background_changed.emit(enabled, color, opacity)
+        if self.temporary_edit_active:
+            return
         from .text_settings_panel import TextSettingsPanel
         TextSettingsPanel.save_background_to_config(enabled, color, opacity)
 
     def _on_arrow_style_changed(self, style: str):
         """箭头样式改变"""
-        # 保存箭头样式设置
-        from settings import get_tool_settings_manager
-        manager = get_tool_settings_manager()
-        manager.update_settings("arrow", arrow_style=style)
+        if not self.temporary_edit_active:
+            # 保存箭头样式设置
+            from settings import get_tool_settings_manager
+            manager = get_tool_settings_manager()
+            manager.update_settings("arrow", arrow_style=style)
         # 发射信号，通知截图窗口/钉图窗口更新选中的箭头项
         self.arrow_style_changed.emit(style)
     
     def _on_line_style_changed(self, style: str):
         """线条样式改变"""
-        # 保存画笔线条样式设置
-        from settings import get_tool_settings_manager
-        manager = get_tool_settings_manager()
-        tool_id = self.current_tool or "pen"
-        if tool_id in ("rect", "ellipse"):
-            manager.update_settings(tool_id, line_style=style)
-        elif tool_id == "pen":
-            manager.update_settings("pen", line_style=style)
+        if not self.temporary_edit_active:
+            # 保存画笔线条样式设置
+            from settings import get_tool_settings_manager
+            manager = get_tool_settings_manager()
+            tool_id = self.current_tool or "pen"
+            if tool_id in ("rect", "ellipse"):
+                manager.update_settings(tool_id, line_style=style)
+            elif tool_id == "pen":
+                manager.update_settings("pen", line_style=style)
         # 发射信号，通知截图窗口/钉图窗口
         self.line_style_changed.emit(style)
 
     def _on_number_next_changed(self, value: int):
         """序号工具下一数字改变"""
+        if self.temporary_edit_active:
+            return
         self.number_next_changed.emit(int(value))
 
     # ========================================================================
@@ -986,5 +1103,3 @@ class Toolbar(QWidget):
             final_pos = panel.parent().mapFromGlobal(final_pos)
         
         panel.move(final_pos)
-
- 
