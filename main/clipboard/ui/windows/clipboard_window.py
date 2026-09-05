@@ -733,7 +733,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
 
         self.list_widget.setUpdatesEnabled(True)
         self.list_widget.scrollToTop()
-        self.list_widget.update()
+        self.list_widget.viewport().update()
 
     def _on_load_completed(self):
         QTimer.singleShot(0, self._check_and_load_more_if_needed)
@@ -762,7 +762,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
             self.list_widget.addItem(list_item)
 
         self.list_widget.setUpdatesEnabled(True)
-        self.list_widget.update()
+        self.list_widget.viewport().update()
 
     def _on_scroll(self, value: int):
         scrollbar = self.list_widget.verticalScrollBar()
@@ -881,7 +881,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
             g = next((group for group in groups if group.id == group_id), None)
             is_quick_launch = g is not None and g.group_type == GroupType.FILE
         self._item_delegate.set_hide_file_icon(is_quick_launch)
-        self.list_widget.update()
+        self.list_widget.viewport().update()
 
     def _on_sidebar_entered(self):
         self.selection_manager.clear_selection()
