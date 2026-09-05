@@ -24,9 +24,8 @@ class NumberTool(Tool):
     _SCENE_OFFSET_ATTR = "_number_tool_offset"
     _SCENE_ORDER_ATTR = "_number_tool_order_counter"
     RADIUS_SCALE = 2
-    # 序号的合法字号范围。工具栏把同一个笔触宽度广播给所有面板，画笔可以细到
-    # 1，序号不行——低于 MIN_WIDTH 的圈小到看不清数字。面板按这个范围钳制显示，
-    # 所以算半径也必须用同一个范围，否则会出现"面板显示 8、画出来却是 1"。
+    # 序号圈小于 8 就看不清里面的数字，所以收窄基类的范围。
+    # 钳制由基类在写入 ctx 时统一完成，这里只声明范围。
     MIN_WIDTH = 8
     MAX_WIDTH = 72
 
@@ -66,16 +65,12 @@ class NumberTool(Tool):
             return 0
 
     @classmethod
-    def clamp_width(cls, stroke_width: float) -> float:
-        """把共享的笔触宽度收进序号自己的合法范围。"""
-        try:
-            width = float(stroke_width)
-        except (TypeError, ValueError):
-            width = cls.MIN_WIDTH
-        return max(float(cls.MIN_WIDTH), min(float(cls.MAX_WIDTH), width))
-
-    @classmethod
     def get_radius_for_width(cls, stroke_width: float) -> float:
+        """把宽度换算成圈半径。
+
+        走 ctx 的调用方拿到的宽度已经在入口钳过，这里再钳一次只是纯函数的
+        定义域保护；规则本身仍然只有一份（MIN_WIDTH/MAX_WIDTH + clamp_width）。
+        """
         return cls.clamp_width(stroke_width) * cls.RADIUS_SCALE
 
     @classmethod

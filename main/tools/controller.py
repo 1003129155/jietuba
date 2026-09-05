@@ -115,7 +115,12 @@ class ToolController:
         if color is not None:
             self.ctx.color = color
         if width is not None:
-            self.ctx.stroke_width = width
+            # 唯一的钳制点：当前工具决定这个宽度合不合法
+            self.ctx.stroke_width = (
+                self.current_tool.clamp_width(width)
+                if self.current_tool
+                else width
+            )
         if opacity is not None:
             self.ctx.opacity = opacity
         

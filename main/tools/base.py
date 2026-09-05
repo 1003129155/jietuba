@@ -25,6 +25,22 @@ class ToolContext:
 
 
 class Tool:
+    # 笔触宽度的合法范围。工具栏把同一个宽度广播给所有工具，但各工具能接受的
+    # 范围不同（画笔可以细到 1，序号圈小于某个尺寸就看不清数字）。每个工具用
+    # 自己的范围在入口处收一次，ctx.stroke_width 因此永远是当前工具可用的值，
+    # 下游（绘制、光标预览、面板显示）直接取用即可，不必各自再判断一遍。
+    MIN_WIDTH = 1
+    MAX_WIDTH = 99
+
+    @classmethod
+    def clamp_width(cls, width) -> float:
+        """把任意来源的宽度收进本工具的合法范围。"""
+        try:
+            value = float(width)
+        except (TypeError, ValueError):
+            value = float(cls.MIN_WIDTH)
+        return max(float(cls.MIN_WIDTH), min(float(cls.MAX_WIDTH), value))
+
     """
     工具基类 - 所有绘图工具的父类
     """
@@ -104,7 +120,7 @@ class Tool:
         # 加载笔触宽度
         stroke_width = ctx.settings_manager.get_stroke_width(self.id)
         if stroke_width:
-            ctx.stroke_width = stroke_width
+            ctx.stroke_width = self.clamp_width(stroke_width)
         
         # 加载透明度
         opacity = ctx.settings_manager.get_opacity(self.id)
