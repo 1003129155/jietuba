@@ -12,6 +12,19 @@ A screenshot and clipboard management application built with PySide6 and RUST. S
 
 This project depends on 4 custom Rust libraries. **You must install these packages before running the program.**
 
+### One-Click Setup (Recommended)
+
+Double-click [setup.bat](setup.bat) in the project root. It will create a virtual environment, install the Python dependencies, and let you choose where the Rust packages come from:
+
+- Use the `.whl` files already bundled in the repo (default)
+- Or download the latest ones from the [GitHub Release](https://github.com/1003129155/jietuba/releases/tag/rust-libs-v1)
+
+You can then choose to launch the application immediately.
+
+### Manual Setup
+
+If you'd rather not use the script, follow these steps:
+
 ### 1. Create and Activate Python 3.11 Virtual Environment
 
 ```bash
@@ -29,11 +42,17 @@ python -m pip install -r requirements.txt
 
 ### 3. Install Custom Rust Packages (Required)
 
-Run the following command from the project root:
+There are two sources for these 4 packages, pick either one:
+
+**Option A: Use the `.whl` files bundled in the repo** (from the project root)
 
 ```bash
 python -m pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl longstitch-0.3.11-cp311-cp311-win_amd64.whl pyclipboard-0.3.14-cp311-cp311-win_amd64.whl ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
 ```
+
+**Option B: Download from GitHub Release** (if the files are missing or you want the latest build)
+
+Download the matching files from the [Releases page](https://github.com/1003129155/jietuba/releases/tag/rust-libs-v1), then `pip install` them the same way.
 
 | Package | Version | Description |
 |---------|---------|-------------|
