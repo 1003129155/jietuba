@@ -1,0 +1,19 @@
+[run]
+source = main
+omit =
+    */tests/*
+    */__pycache__/*
+    main/translations/*
+    main/compile_translations.py
+    main/scripts/*
+
+[report]
+# 排除无需覆盖的样板行
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if TYPE_CHECKING:
+    raise NotImplementedError
+    if __name__ == .__main__.:
+show_missing = False
+skip_covered = True

@@ -9,11 +9,10 @@ from PySide6.QtGui import QColor
 from .items import BackgroundItem, SelectionItem
 from .selection_model import SelectionModel
 from .undo import CommandUndoStack
-from tools import ToolController, ToolContext
-from tools import (
-    PenTool, RectTool, EllipseTool, ArrowTool,
-    TextTool, NumberTool, HighlighterTool, CursorTool, EraserTool
-)
+# 注意：tools 的导入放在 __init__ 内部（延迟导入）。
+# tools 包在导入时会经由各工具模块反向导入 canvas.items，这里若在模块顶层
+# 导入 tools 就形成 canvas ↔ tools 的循环依赖：先 import tools 会因
+# canvas.scene 尚未加载完而抛 ImportError，只有恰好先 import canvas 才能成功。
 from settings import get_tool_settings_manager
 from core import log_debug
 from core.logger import T
@@ -83,7 +82,13 @@ class CanvasScene(QGraphicsScene):
         initial_stroke_width = self.tool_settings_manager.get_stroke_width("pen")
         initial_opacity = self.tool_settings_manager.get_opacity("pen")
         
-        # 工具控制器
+        # 工具控制器（延迟导入 tools，避免 canvas ↔ tools 循环依赖）
+        from tools import ToolController, ToolContext
+        from tools import (
+            PenTool, RectTool, EllipseTool, ArrowTool,
+            TextTool, NumberTool, HighlighterTool, CursorTool, EraserTool
+        )
+
         ctx = ToolContext(
             scene=self,
             selection=self.selection_model,

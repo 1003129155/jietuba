@@ -39,6 +39,21 @@ jobs:
                       pyclipboard-0.3.14-cp311-cp311-win_amd64.whl `
                       ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
 
-      - name: Run test suite
-        working-directory: main/tests
-        run: pytest . -v
+      - name: Run test suite with coverage
+        # 从仓库根目录运行，保证 .coveragerc 里的相对路径能正确解析。
+        # --cov-fail-under 是一个只升不降的棘轮：覆盖率掉下去 CI 就红，
+        # 补完测试后把这个数字往上调。
+        run: >
+          pytest main/tests -v
+          -c main/tests/pytest.ini
+          --cov --cov-config=.coveragerc
+          --cov-report=term:skip-covered
+          --cov-report=xml
+          --cov-fail-under=28
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
