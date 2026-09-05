@@ -327,8 +327,7 @@ settings/
 
 ```
 stitch/
-├── jietuba_long_stitch.py           # コア結合アルゴリズム
-├── jietuba_long_stitch_unified.py   # 統一結合インターフェース
+├── jietuba_long_stitch_unified.py   # 結合インターフェース（Rust の longstitch を呼び出す）
 ├── scroll_window.py                 # ScrollCaptureWindow — スクロールキャプチャウィンドウ
 └── scroll_toolbar.py                # スクロールキャプチャツールバー
 ```

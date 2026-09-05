@@ -388,8 +388,7 @@ settings/
 
 stitch/
 ├── __init__.py
-├── jietuba_long_stitch.py           # 长截图拼接算法核心
-├── jietuba_long_stitch_unified.py   # 统一长截图接口
+├── jietuba_long_stitch_unified.py   # 长截图拼接接口（调用 Rust longstitch）
 ├── scroll_window.py                 # ScrollCaptureWindow — 滚动截图窗口
 └── scroll_toolbar.py                # 滚动截图工具栏
 ```

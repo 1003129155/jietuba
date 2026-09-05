@@ -328,8 +328,7 @@ settings/
 
 ```
 stitch/
-├── jietuba_long_stitch.py           # Core stitching algorithm
-├── jietuba_long_stitch_unified.py   # Unified stitching interface
+├── jietuba_long_stitch_unified.py   # Stitching interface (calls the Rust longstitch)
 ├── scroll_window.py                 # ScrollCaptureWindow — scroll capture window
 └── scroll_toolbar.py                # Scroll capture toolbar
 ```
