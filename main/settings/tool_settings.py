@@ -445,8 +445,8 @@ class ToolSettingsManager(QObject):
             
             self.qsettings.setValue(setting_key, default_value)
         
-        from core.logger import log_info
-        log_info("应用设置已重置为默认值", "Settings")
+        from core.logger import log_info, T
+        log_info(T("应用设置已重置为默认值"), "Settings")
     
     def get_app_setting(self, key: str, default=None) -> Any:
         """
@@ -502,8 +502,8 @@ class ToolSettingsManager(QObject):
         """重置所有设置（工具设置 + 应用设置）为默认值"""
         self.reset_all()           # 重置工具设置
         self.reset_app_settings()  # 重置应用设置
-        from core.logger import log_info
-        log_info("所有设置已重置为默认值", "Settings")
+        from core.logger import log_info, T
+        log_info(T("所有设置已重置为默认值"), "Settings")
     
     def get_color(self, tool_id: str) -> QColor:
         """获取工具的颜色（返回 QColor 对象）"""
@@ -1252,14 +1252,17 @@ class ToolSettingsManager(QObject):
         """
         # 首次运行：强制显示
         if self.is_first_run():
-            from core.logger import log_debug
-            log_debug("检测到首次运行，将自动打开设置窗口", "Startup")
+            from core.logger import log_debug, T
+            log_debug(T("检测到首次运行，将自动打开设置窗口"), "Startup")
             return True
-        
+
         # 非首次运行：读取用户设置
         show = self.get_show_main_window()
-        from core.logger import log_debug
-        log_debug(f"根据用户设置：{'显示设置窗口' if show else '不自动打开设置窗口'}", "Startup")
+        from core.logger import log_debug, T
+        if show:
+            log_debug(T("根据用户设置：显示设置窗口"), "Startup")
+        else:
+            log_debug(T("根据用户设置：不自动打开设置窗口"), "Startup")
         return show
 
 

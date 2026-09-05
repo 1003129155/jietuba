@@ -6,7 +6,7 @@ from typing import Any, Mapping
 
 from PySide6.QtCore import QThread, Signal
 
-from core import log_error
+from core.logger import log_error, T
 
 from .models import TranslationErrorCode, TranslationRequest, TranslationResult
 from .provider import TranslationProvider
@@ -57,7 +57,7 @@ class TranslationWorker(QThread):
             else:
                 result = self._provider.translate(self._request)
         except Exception as exc:
-            log_error(f"翻译线程异常: {exc}", "Translation")
+            log_error(T("翻译线程异常: {exc}", exc=exc), "Translation")
             result = TranslationResult(
                 success=False,
                 error_code=TranslationErrorCode.UNKNOWN,

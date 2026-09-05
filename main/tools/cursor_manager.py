@@ -6,7 +6,7 @@ from PySide6.QtCore import Qt, QPointF
 from PySide6.QtGui import QCursor, QPixmap, QPainter, QPen, QColor, QBrush, QFont
 from PySide6.QtWidgets import QGraphicsEllipseItem, QApplication
 from core import log_debug
-from core.logger import log_exception
+from core.logger import log_exception, T
 from canvas.items import NumberItem
 from tools.base import color_with_opacity
 
@@ -455,4 +455,4 @@ class CursorManager:
             if QApplication.overrideCursor() is not None:
                 QApplication.changeOverrideCursor(cursor)
         except Exception as e:
-            log_exception(e, "同步更新覆盖光标")
+            log_exception(e, T("同步更新覆盖光标"))

@@ -6,7 +6,7 @@
 from PySide6.QtCore import QRectF
 from PySide6.QtGui import QImage, QPainter, QPixmap
 
-from core import log_debug, log_warning, log_info
+from core import log_debug, log_warning, log_info, T
 
 
 class ExportService:
@@ -44,14 +44,14 @@ class ExportService:
             导出的图像
         """
         if selection_rect.isNull() or selection_rect.isEmpty():
-            log_warning("选区为空", "Export")
+            log_warning(T("选区为空"), "Export")
             return QImage()
-        
+
         # 输出图像大小按选区逻辑像素
         w = max(1, int(selection_rect.width()))
         h = max(1, int(selection_rect.height()))
-        
-        log_debug(f"导出选区: {selection_rect}, 目标大小: {w}x{h}", "Export")
+
+        log_debug(T("导出选区: {selection_rect}, 目标大小: {w}x{h}", selection_rect=selection_rect, w=w, h=h), "Export")
         
         out = QImage(w, h, QImage.Format.Format_ARGB32_Premultiplied)
         out.fill(0)  # 透明背景
@@ -73,7 +73,7 @@ class ExportService:
         finally:
             painter.end()
         
-        log_debug(f"导出完成: {out.width()}x{out.height()}", "Export")
+        log_debug(T("导出完成: {out_width}x{out_height}", out_width=out.width(), out_height=out.height()), "Export")
         return out
     
     def export_base_image_only(self, selection_rect: QRectF) -> QImage:
@@ -88,14 +88,14 @@ class ExportService:
             只包含背景的图像
         """
         if selection_rect.isNull() or selection_rect.isEmpty():
-            log_warning("选区为空", "Export")
+            log_warning(T("选区为空"), "Export")
             return QImage()
-        
+
         # 输出图像大小按选区逻辑像素
         w = max(1, int(selection_rect.width()))
         h = max(1, int(selection_rect.height()))
-        
-        log_debug(f"导出底图: {selection_rect}, 目标大小: {w}x{h}", "Export")
+
+        log_debug(T("导出底图: {selection_rect}, 目标大小: {w}x{h}", selection_rect=selection_rect, w=w, h=h), "Export")
         
         out = QImage(w, h, QImage.Format.Format_ARGB32_Premultiplied)
         out.fill(0)  # 透明背景
@@ -122,7 +122,7 @@ class ExportService:
         finally:
             painter.end()
         
-        log_debug(f"导出底图完成: {out.width()}x{out.height()}", "Export")
+        log_debug(T("导出底图完成: {out_width}x{out_height}", out_width=out.width(), out_height=out.height()), "Export")
         return out
     
 

@@ -7,7 +7,7 @@ from PySide6.QtGui import QFont, QColor
 from .base import Tool, ToolContext
 from canvas.items import TextItem
 from canvas.undo import AddItemCommand
-from core import log_debug
+from core.logger import log_debug, T
 
 
 class TextTool(Tool):
@@ -70,7 +70,7 @@ class TextTool(Tool):
             # 通知智能编辑控制器选中该图元（以便显示二级菜单）
             ctx.scene.item_auto_select_requested.emit(item)
             
-            log_debug(f"创建文字: {pos}", "TextTool")
+            log_debug(T("创建文字: {pos}", pos=pos), "TextTool")
 
     def on_deactivate(self, ctx: ToolContext):
         """工具停用时，清除焦点以触发自动删除空文本"""

@@ -17,6 +17,7 @@ from canvas.items import (
     NumberItem,
 )
 from core import log_debug, log_info, log_warning, log_error, safe_event
+from core.logger import T
 
 
 class CanvasView(QGraphicsView):
@@ -177,7 +178,7 @@ class CanvasView(QGraphicsView):
             try:
                 cursor_manager.hide_brush_indicator()
             except Exception as exc:
-                log_warning(f"清理画笔指示器失败: {exc}", "CanvasView")
+                log_warning(T("清理画笔指示器失败: {exc}", exc=exc), "CanvasView")
             cursor_manager.current_cursor = None
             cursor_manager.view = None
             cursor_manager.scene = None
@@ -199,7 +200,7 @@ class CanvasView(QGraphicsView):
         try:
             cursor_manager.set_tool_cursor(tool_id, force=force)
         except RuntimeError as exc:
-            log_warning(f"更新工具光标失败: {exc}", "CanvasView")
+            log_warning(T("更新工具光标失败: {exc}", exc=exc), "CanvasView")
 
     def _on_item_auto_select_requested(self, item):
         if self._is_closed:
@@ -210,7 +211,7 @@ class CanvasView(QGraphicsView):
         try:
             controller.select_item(item, auto_select=True)
         except RuntimeError as exc:
-            log_warning(f"自动选择图元失败: {exc}", "CanvasView")
+            log_warning(T("自动选择图元失败: {exc}", exc=exc), "CanvasView")
 
     def can_apply_tool_cursor(self) -> bool:
         """工具预览光标只有在编辑状态机不拥有光标时才可直接应用。"""
@@ -294,7 +295,7 @@ class CanvasView(QGraphicsView):
             # 检查依赖
             from capture.window_finder import is_smart_selection_available
             if not is_smart_selection_available():
-                log_warning("win32gui 未安装，智能选区功能不可用", "SmartSelect")
+                log_warning(T("win32gui 未安装，智能选区功能不可用"), "SmartSelect")
                 self.smart_selection_enabled = False
                 return
             
@@ -307,9 +308,9 @@ class CanvasView(QGraphicsView):
             
             # 枚举窗口
             self.window_finder.find_windows()
-            log_debug(f"已启用，找到 {len(self.window_finder.windows)} 个窗口", "SmartSelect")
+            log_debug(T("已启用，找到 {window_count} 个窗口", window_count=len(self.window_finder.windows)), "SmartSelect")
         else:
-            log_debug("已禁用", "SmartSelect")
+            log_debug(T("已禁用"), "SmartSelect")
             if self.window_finder:
                 self.window_finder.clear()
     
@@ -376,7 +377,7 @@ class CanvasView(QGraphicsView):
     def _on_editing_cleanup(self):
         """响应 editing_cleanup_requested 信号，清除编辑状态"""
         if self.smart_edit_controller.selected_item:
-            log_debug("取消智能编辑选择", "CanvasView")
+            log_debug(T("取消智能编辑选择"), "CanvasView")
             self.smart_edit_controller.clear_selection(suppress_block=True)
         if hasattr(self.cursor_manager, 'hide_brush_indicator'):
             self.cursor_manager.hide_brush_indicator()
@@ -406,9 +407,9 @@ class CanvasView(QGraphicsView):
     def _on_edit_selection_changed(self, item):
         """智能编辑选择变化"""
         if item:
-            log_debug(f"选中: {type(item).__name__}", "SmartEdit")
+            log_debug(T("选中: {item_type}", item_type=type(item).__name__), "SmartEdit")
         else:
-            log_debug("取消选择", "SmartEdit")
+            log_debug(T("取消选择"), "SmartEdit")
             self._sync_highlighter_panel_mode()
         self._sync_selection_style_to_toolbar(item)
 
@@ -427,7 +428,7 @@ class CanvasView(QGraphicsView):
             settings = manager.get_tool_settings("highlighter") if manager else None
             mode = settings.get("draw_mode", "freehand") if settings else "freehand"
         except Exception as exc:
-            log_warning(f"读取荧光笔模式失败: {exc}", "CanvasView")
+            log_warning(T("读取荧光笔模式失败: {exc}", exc=exc), "CanvasView")
             mode = "freehand"
 
         if hasattr(toolbar, "paint_panel") and hasattr(toolbar.paint_panel, "set_highlighter_mode"):
@@ -490,7 +491,7 @@ class CanvasView(QGraphicsView):
                 settings_tool_id = "highlighter" if getattr(item, "is_highlighter", False) else "pen"
                 manager.update_settings(settings_tool_id, line_style=line_style)
             except Exception as exc:
-                log_warning(f"无法同步线条样式: {exc}", "CanvasView")
+                log_warning(T("无法同步线条样式: {exc}", exc=exc), "CanvasView")
         elif isinstance(item, (RectItem, EllipseItem)) and hasattr(toolbar, "shape_panel"):
             try:
                 from PySide6.QtCore import Qt
@@ -510,7 +511,7 @@ class CanvasView(QGraphicsView):
                 tool_id = "rect" if isinstance(item, RectItem) else "ellipse"
                 manager.update_settings(tool_id, line_style=line_style)
             except Exception as exc:
-                log_warning(f"无法同步形状线条样式: {exc}", "CanvasView")
+                log_warning(T("无法同步形状线条样式: {exc}", exc=exc), "CanvasView")
 
         # 根据选中的图元类型，显示对应的设置面板（二次编辑时支持修改样式）
         self._show_panel_for_selection(item, toolbar)
@@ -523,7 +524,7 @@ class CanvasView(QGraphicsView):
                 try:
                     toolbar.text_panel.set_state_from_item(item)
                 except Exception as exc:
-                    log_warning(f"无法同步文字面板: {exc}", "CanvasView")
+                    log_warning(T("无法同步文字面板: {exc}", exc=exc), "CanvasView")
                 toolbar._show_panel_for_tool("text")
             # 箭头图元
             elif isinstance(item, ArrowItem) and hasattr(toolbar, "arrow_panel"):
@@ -540,7 +541,7 @@ class CanvasView(QGraphicsView):
                     toolbar.paint_panel.set_state_from_item(item)
                     toolbar.paint_panel.set_line_style_visible(False)
                 except Exception as exc:
-                    log_warning(f"无法同步高亮矩形面板: {exc}", "CanvasView")
+                    log_warning(T("无法同步高亮矩形面板: {exc}", exc=exc), "CanvasView")
                 toolbar._show_panel_for_tool("highlighter")
                 if hasattr(toolbar.paint_panel, "set_highlighter_mode"):
                     toolbar.paint_panel.set_highlighter_mode("rect")
@@ -549,7 +550,7 @@ class CanvasView(QGraphicsView):
                 try:
                     toolbar.shape_panel.set_state_from_item(item)
                 except Exception as exc:
-                    log_warning(f"无法同步形状面板: {exc}", "CanvasView")
+                    log_warning(T("无法同步形状面板: {exc}", exc=exc), "CanvasView")
                 toolbar._show_panel_for_tool("rect")
             # 序号图元
             elif isinstance(item, NumberItem) and hasattr(toolbar, "number_panel"):
@@ -560,10 +561,10 @@ class CanvasView(QGraphicsView):
                     toolbar.paint_panel.set_state_from_item(item)
                     toolbar.paint_panel.set_line_style_visible(not getattr(item, "is_highlighter", False))
                 except Exception as exc:
-                    log_warning(f"无法同步画笔面板: {exc}", "CanvasView")
+                    log_warning(T("无法同步画笔面板: {exc}", exc=exc), "CanvasView")
                 toolbar._show_panel_for_tool("highlighter" if getattr(item, "is_highlighter", False) else "pen")
         except Exception as e:
-            log_warning(f"显示编辑面板失败: {e}", "CanvasView")
+            log_warning(T("显示编辑面板失败: {e}", e=e), "CanvasView")
 
     def _extract_selection_width(self, item):
         if hasattr(item, 'get_stroke_width'):
@@ -598,7 +599,7 @@ class CanvasView(QGraphicsView):
             # 检查父窗口类型，只对 ScreenshotWindow 生效
             parent_window = self.window()
             if parent_window and parent_window.__class__.__name__ == 'ScreenshotWindow':
-                log_debug("右键退出截图", "CanvasView")
+                log_debug(T("右键退出截图"), "CanvasView")
                 event.accept()  # 立即接受事件
                 # 复用 cleanup_and_close 方法，与 ESC 保持一致
                 if hasattr(parent_window, 'cleanup_and_close'):
@@ -631,7 +632,7 @@ class CanvasView(QGraphicsView):
             current_tool = self.canvas_scene.tool_controller.current_tool
             current_tool_id = current_tool.id if current_tool else "cursor"
             
-            log_debug(f"选区已确认，当前工具: {current_tool_id}", "CanvasView")
+            log_debug(T("选区已确认，当前工具: {current_tool_id}", current_tool_id=current_tool_id), "CanvasView")
             
             # 步骤0：如果正在编辑文本，点击外部只确认编辑，不创建新文本
             if self._is_text_editing():
@@ -649,7 +650,7 @@ class CanvasView(QGraphicsView):
                     return
                 else:
                     # 点击在文本框外，清除焦点（触发 focusOutEvent 自动确认/删除）
-                    log_debug("结束文本编辑", "CanvasView")
+                    log_debug(T("结束文本编辑"), "CanvasView")
                     focus_item.clearFocus()
                     self._finalize_text_edit_state(focus_item)
                     # 阻止本次点击触发新绘图
@@ -662,7 +663,7 @@ class CanvasView(QGraphicsView):
             
             if edit_handled:
                 # 控制点拖拽被处理，不继续
-                log_debug("控制点拖拽被处理", "CanvasView")
+                log_debug(T("控制点拖拽被处理"), "CanvasView")
                 layer_editor = self.smart_edit_controller.layer_editor
                 if layer_editor.hovered_handle:
                     self.setCursor(layer_editor.get_cursor(scene_pos))
@@ -679,7 +680,7 @@ class CanvasView(QGraphicsView):
             if selection_handled:
                 # 选中了图元，阻止绘图
                 # 传递给 Scene（让图元处理拖拽）
-                log_debug("图元选择被处理，阻止绘图", "CanvasView")
+                log_debug(T("图元选择被处理，阻止绘图"), "CanvasView")
                 self._maybe_prepare_text_edit(event, scene_pos)
                 super().mousePressEvent(event)
                 return
@@ -687,7 +688,7 @@ class CanvasView(QGraphicsView):
             # 如果刚刚清除了选择，这次点击仅用于取消选择，不应该开始绘图
             if getattr(self.smart_edit_controller, '_just_cleared_selection', False):
                 self.smart_edit_controller._just_cleared_selection = False
-                log_debug("刚清除选择，跳过本次绘图", "CanvasView")
+                log_debug(T("刚清除选择，跳过本次绘图"), "CanvasView")
                 return
             
             # 步骤3：如果是绘图工具且未选中图元，执行绘图
@@ -695,14 +696,14 @@ class CanvasView(QGraphicsView):
             
             if is_drawing_tool:
                 # 绘图工具激活：绘图
-                log_debug("开始绘图", "CanvasView")
+                log_debug(T("开始绘图"), "CanvasView")
                 self.is_drawing = True
                 # 立即隐藏放大镜，避免 hide() 和首帧绘图重绘叠加导致卡顿
                 self._clear_magnifier_overlay()
                 self.canvas_scene.tool_controller.on_press(scene_pos, event.button())
             else:
                 # cursor 工具：传递给 Scene（可能拖拽窗口/选区）
-                log_debug("cursor工具，传递给Scene", "CanvasView")
+                log_debug(T("cursor工具，传递给Scene"), "CanvasView")
                 super().mousePressEvent(event)
     
     @safe_event
@@ -725,7 +726,7 @@ class CanvasView(QGraphicsView):
         )
         
         if edit_handled:
-            log_debug("双击→控制点点击被处理", "CanvasView")
+            log_debug(T("双击→控制点点击被处理"), "CanvasView")
             layer_editor = self.smart_edit_controller.layer_editor
             if layer_editor.hovered_handle:
                 self.setCursor(layer_editor.get_cursor(scene_pos))
@@ -1523,15 +1524,15 @@ class CanvasView(QGraphicsView):
         
         # 导出选区图像
         selection_rect = self.canvas_scene.selection_model.rect()
-        log_debug(f"准备导出选区: {selection_rect}", module="CanvasView")
+        log_debug(T("准备导出选区: {selection_rect}", selection_rect=selection_rect), module="CanvasView")
         
         result = exporter.export(selection_rect)
         
         if result:
-            log_info(f"导出成功，图像大小: {result.width()}x{result.height()}", module="CanvasView")
+            log_info(T("导出成功，图像大小: {width}x{height}", width=result.width(), height=result.height()), module="CanvasView")
             from core.clipboard_utils import deliver_image_async
             deliver_image_async(result)
-            log_info("已完成复制到剪贴板", module="CanvasView")
+            log_info(T("已完成复制到剪贴板"), module="CanvasView")
             self.window().close()
         else:
-            log_error("导出失败！", module="CanvasView")
+            log_error(T("导出失败！"), module="CanvasView")

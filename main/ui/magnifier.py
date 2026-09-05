@@ -8,7 +8,7 @@ from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QBrush
 from PySide6.QtWidgets import QWidget
 
-from core import log_debug, safe_event
+from core import log_debug, safe_event, T
 
 
 class MagnifierOverlay(QWidget):
@@ -198,7 +198,7 @@ class MagnifierOverlay(QWidget):
 		# 保存到配置
 		if self.config_manager:
 			self.config_manager.qsettings.setValue("app/magnifier_zoom", self._zoom_factor)
-		log_debug(f"调整倍数: {self._zoom_factor:.2f}x", "Magnifier")
+		log_debug(T("调整倍数: {zoom_factor:.2f}x", zoom_factor=self._zoom_factor), "Magnifier")
 		# 清空缓存，因为缩放倍数变了
 		self._last_sample_pt = None
 		self._cached_source_rect = None

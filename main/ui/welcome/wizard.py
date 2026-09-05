@@ -9,7 +9,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPen, QIcon
 
 from core.i18n import make_tr
-from core.logger import log_exception
+from core.logger import log_exception, T
 from core import safe_event
 from core.ui_theme import UIThemeManager, get_ui_theme
 from ui.fluent_lite import (
@@ -294,7 +294,7 @@ class WelcomeWizard(FrostedFramelessDialog):
             if I18nManager.get_current_language() != init_lang:
                 I18nManager.load_language(init_lang)
         except Exception as e:
-            log_exception(e, "WelcomeWizard 语言初始化")
+            log_exception(e, T("WelcomeWizard 语言初始化"))
 
     # ── UI 构建 ──────────────────────────────────────────
     def _build_ui(self):
@@ -330,7 +330,7 @@ class WelcomeWizard(FrostedFramelessDialog):
             if not icon.isNull():
                 self._brand_icon.setPixmap(icon.pixmap(24, 24))
         except Exception as e:
-            log_exception(e, "欢迎向导品牌图标")
+            log_exception(e, T("欢迎向导品牌图标"))
 
         brand_text = QVBoxLayout()
         brand_text.setSpacing(0)
@@ -549,7 +549,7 @@ class WelcomeWizard(FrostedFramelessDialog):
                 try:
                     page.retranslate()
                 except Exception as e:
-                    log_exception(e, "向导页面刷新翻译")
+                    log_exception(e, T("向导页面刷新翻译"))
         self._refresh_step_labels()
 
     def _refresh_step_labels(self):

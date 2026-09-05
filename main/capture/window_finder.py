@@ -1,4 +1,4 @@
-﻿"""
+"""
 智能窗口选择器 - 基于 Windows API 的窗口检测
 
 功能：
@@ -13,7 +13,7 @@ import ctypes
 from ctypes import wintypes
 from typing import List, Tuple, Optional
 from core import log_debug, log_info, log_warning, log_error
-from core.logger import log_exception
+from core.logger import log_exception, T
 
 try:
     import win32gui
@@ -21,7 +21,7 @@ try:
     WINDOWS_API_AVAILABLE = True
 except ImportError:
     WINDOWS_API_AVAILABLE = False
-    log_warning("win32gui 未安装，智能选区功能不可用", module="智能选区")
+    log_warning(T("win32gui 未安装，智能选区功能不可用"), module="SmartSelection")
 
 # DPI 感知已在 main_app.py 中设置，此处不再重复调用
 # 避免 "访问被拒绝" 警告（DPI 设置只能调用一次）
@@ -51,7 +51,7 @@ class WindowFinder:
     """
     智能窗口选择器
     
-    基于 Windows API 的窗口检测，用于实现"智能选区"功能
+    基于 Windows API 的窗口检测，用于实现"SmartSelection"功能
     可以在截图时自动识别鼠标下的窗口，并自动框选
     """
     
@@ -82,7 +82,7 @@ class WindowFinder:
         self.screen_offset_x = offset_x
         self.screen_offset_y = offset_y
         if self.debug:
-            log_debug(f"使用偏移: ({self.screen_offset_x}, {self.screen_offset_y})", module="智能选区")
+            log_debug(T("使用偏移: ({offset_x}, {offset_y})", offset_x=self.screen_offset_x, offset_y=self.screen_offset_y), module="SmartSelection")
     
     def find_windows(self):
         """
@@ -168,7 +168,7 @@ class WindowFinder:
                     if class_name in excluded_classes:
                         return True
                 except Exception as e:
-                    log_exception(e, f"获取窗口类名 hwnd={hwnd}")
+                    log_exception(e, T("获取窗口类名 hwnd={hwnd}", hwnd=hwnd))
                 
                 # 9. 转换为相对于截图区域的坐标
                 x1 -= self.screen_offset_x
@@ -181,7 +181,7 @@ class WindowFinder:
             except Exception as e:
                 # 静默处理异常，继续枚举下一个窗口
                 if self.debug:
-                    log_warning(f"处理窗口时出错: {e}", module="智能选区")
+                    log_warning(T("处理窗口时出错: {e}", e=e), module="SmartSelection")
             
             return True
         
@@ -189,14 +189,25 @@ class WindowFinder:
             win32gui.EnumWindows(enum_windows_callback, None)
             
             if self.debug:
-                log_debug(f"找到 {len(self.windows)} 个有效窗口", module="智能选区")
+                log_debug(T("找到 {count} 个有效窗口", count=len(self.windows)), module="SmartSelection")
                 if self.windows:
-                    log_debug("检测到的窗口列表（前5个）:", module="智能选区")
+                    log_debug(T("检测到的窗口列表（前5个）:"), module="SmartSelection")
                     for i, (hwnd, rect, title) in enumerate(self.windows[:5]):
-                        log_debug(f"{i+1}. 标题: {title[:30]}, 大小: {rect[2]-rect[0]}x{rect[3]-rect[1]}, 位置: ({rect[0]}, {rect[1]})", module="智能选区")
+                        log_debug(
+                            T(
+                                "{index}. 标题: {title}, 大小: {width}x{height}, 位置: ({x}, {y})",
+                                index=i + 1,
+                                title=title[:30],
+                                width=rect[2] - rect[0],
+                                height=rect[3] - rect[1],
+                                x=rect[0],
+                                y=rect[1],
+                            ),
+                            module="SmartSelection",
+                        )
                     
         except Exception as e:
-            log_error(f"枚举窗口失败: {e}", module="智能选区")
+            log_error(T("枚举窗口失败: {e}", e=e), module="SmartSelection")
             self.windows = []
     
     def find_window_at_point(self, x: int, y: int, fallback_rect: Optional[List[int]] = None) -> List[int]:
@@ -220,12 +231,23 @@ class WindowFinder:
             if x1 <= x <= x2 and y1 <= y <= y2:
                 # 调试信息
                 if self.debug:
-                    log_debug(f"鼠标({x}, {y})处找到窗口: '{title[:30]}', 大小: {x2-x1}x{y2-y1}, Z-order: {idx}", module="智能选区")
+                    log_debug(
+                        T(
+                            "鼠标({x}, {y})处找到窗口: '{title}', 大小: {width}x{height}, Z-order: {idx}",
+                            x=x,
+                            y=y,
+                            title=title[:30],
+                            width=x2 - x1,
+                            height=y2 - y1,
+                            idx=idx,
+                        ),
+                        module="SmartSelection",
+                    )
                 return rect
         
         # 如果没找到窗口，返回备选矩形
         if self.debug:
-            log_debug(f"在鼠标位置({x}, {y})未找到有效窗口，返回备选矩形", module="智能选区")
+            log_debug(T("在鼠标位置({x}, {y})未找到有效窗口，返回备选矩形", x=x, y=y), module="SmartSelection")
         
         if fallback_rect:
             return fallback_rect
@@ -245,7 +267,7 @@ class WindowFinder:
             height = user32.GetSystemMetrics(79)
             return [x, y, x + width, y + height]
         except Exception as e:
-            log_exception(e, "获取虚拟屏幕尺寸")
+            log_exception(e, T("获取虚拟屏幕尺寸"))
             # 降级回退到主显示器
             try:
                 from PySide6.QtGui import QGuiApplication
@@ -254,7 +276,7 @@ class WindowFinder:
                     geom = screen.geometry()
                     return [geom.x(), geom.y(), geom.x() + geom.width(), geom.y() + geom.height()]
             except Exception as e2:
-                log_exception(e2, "降级获取主显示器尺寸")
+                log_exception(e2, T("降级获取主显示器尺寸"))
             return [0, 0, 1920, 1080]  # 最后降级
     
     def clear(self):
@@ -303,6 +325,6 @@ def find_window_at_cursor(screen_offset_x: int = 0, screen_offset_y: int = 0) ->
         
         return finder.find_window_at_point(x, y)
     except Exception as e:
-        log_error(f"查找窗口失败: {e}", module="智能选区")
+        log_error(T("查找窗口失败: {e}", e=e), module="SmartSelection")
         return None
  

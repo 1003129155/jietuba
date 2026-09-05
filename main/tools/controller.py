@@ -4,7 +4,7 @@
 
 from PySide6.QtCore import QPointF
 from .base import Tool, ToolContext
-from core import log_debug, log_warning, log_error
+from core.logger import log_debug, log_warning, log_error, T
 
 
 class ToolController:
@@ -19,7 +19,7 @@ class ToolController:
         self.current_tool = None
         self.tool_changed_callbacks = []
         
-        log_debug("初始化", "ToolController")
+        log_debug(T("初始化"), "ToolController")
     
     def add_tool_changed_callback(self, callback):
         """添加工具切换回调"""
@@ -61,7 +61,7 @@ class ToolController:
             tool_id: 工具ID
         """
         if tool_id not in self.tools:
-            log_warning(f"工具不存在: {tool_id}", "ToolController")
+            log_warning(T("工具不存在: {tool_id}", tool_id=tool_id), "ToolController")
             return
         
         # 停用旧工具
@@ -79,7 +79,7 @@ class ToolController:
             try:
                 callback(tool_id)
             except Exception as e:
-                log_error(f"工具切换回调错误: {e}", "ToolController")
+                log_error(T("工具切换回调错误: {e}", e=e), "ToolController")
     
     def on_press(self, pos: QPointF, button):
         """

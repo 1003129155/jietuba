@@ -24,7 +24,7 @@ class _POINT(ctypes.Structure):
 
 from PySide6.QtCore import QObject, QTimer, QRect, QThread, Signal
 
-from core.logger import log_debug, log_error, log_info, log_exception
+from core.logger import log_debug, log_error, log_info, log_exception, T
 
 try:
     import gifrecorder
@@ -165,7 +165,7 @@ class FrameRecorder(QObject):
         self._session = None
 
         if not _gifrecorder_available:
-            log_error("gifrecorder 不可用，无法录制", "GIF")
+            log_error(T("gifrecorder 不可用，无法录制"), "GIF")
             return
 
         # 内缩 1px 四边，避免录入选区边框线
@@ -192,7 +192,7 @@ class FrameRecorder(QObject):
             )
             self._store.set_state(gifrecorder.STATE_RECORDING)
         except Exception as e:
-            log_error(f"FrameStore 创建失败: {e}", "GIF")
+            log_error(T("FrameStore 创建失败: {e}", e=e), "GIF")
             self._store = None
             return
 
@@ -202,7 +202,7 @@ class FrameRecorder(QObject):
                 self._store, left, top, w, h, self._fps,
             )
         except Exception as e:
-            log_error(f"RecordSession 启动失败: {e}", "GIF")
+            log_error(T("RecordSession 启动失败: {e}", e=e), "GIF")
             self._store = None
             self._session = None
             return
@@ -215,7 +215,7 @@ class FrameRecorder(QObject):
         self._timer.start(1000 // self._fps)
         self._start_scroll_listener()
         self.state_changed.emit(self._state.name)
-        log_info(f"录制开始: {w}x{h} @ {self._fps}fps (Rust Win32 BitBlt)", "GIF")
+        log_info(T("录制开始: {w}x{h} @ {fps}fps (Rust Win32 BitBlt)", w=w, h=h, fps=self._fps), "GIF")
 
     def pause(self):
         """暂停录制"""
@@ -281,13 +281,13 @@ class FrameRecorder(QObject):
                         try:
                             self._session.stop()
                         except Exception as e:
-                            log_error(f"RecordSession.stop 异常: {e}", "GIF")
+                            log_error(T("RecordSession.stop 异常: {e}", e=e), "GIF")
                     if self._rec._store is not None:
                         self._rec._store.set_state(gifrecorder.STATE_STOPPED)
                     self._rec._sync_frames_from_store()
                     self._rec._state = RecordState.STOPPED
                 except Exception as e:
-                    log_error(f"StopWorker 异常: {e}", "GIF")
+                    log_error(T("StopWorker 异常: {e}", e=e), "GIF")
                     self._rec._state = RecordState.STOPPED
                 finally:
                     self.finished.emit()
@@ -348,7 +348,7 @@ class FrameRecorder(QObject):
             try:
                 self._session.stop()
             except Exception as e:
-                log_exception(e, "停止 Rust 截屏会话")
+                log_exception(e, T("停止 Rust 截屏会话"))
             self._session = None
 
     def _sync_frames_from_store(self):
@@ -425,7 +425,7 @@ class FrameRecorder(QObject):
             self._mouse_listener = mouse.Listener(on_scroll=_on_scroll)
             self._mouse_listener.start()
         except Exception as e:
-            log_error(f"pynput 滚轮监听启动失败: {e}", "GIF")
+            log_error(T("pynput 滚轮监听启动失败: {e}", e=e), "GIF")
             self._mouse_listener = None
 
     def _stop_scroll_listener(self):
@@ -434,7 +434,7 @@ class FrameRecorder(QObject):
             try:
                 self._mouse_listener.stop()
             except Exception as e:
-                log_exception(e, "停止滚轮监听")
+                log_exception(e, T("停止滚轮监听"))
             self._mouse_listener = None
         self._scroll_value = 0
 
@@ -459,5 +459,5 @@ class FrameRecorder(QObject):
                 x=rx, y=ry, press=press, visible=visible, scroll=scroll,
             ))
         except Exception as e:
-            log_exception(e, "采集鼠标快照")
+            log_exception(e, T("采集鼠标快照"))
  

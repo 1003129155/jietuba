@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (QApplication, QFrame,
 from ui.dialogs import show_warning_dialog
 
 from ._widgets import PROGRESS_BAR_STYLE
-from core.logger import log_info, log_error, log_exception
+from core.logger import log_info, log_error, log_exception, T
 
 try:
     import gifrecorder
@@ -72,7 +72,7 @@ class _ComposeWorker(QObject):
             result = self._compose()
             self.finished.emit(not self._cancel, result)
         except Exception as e:
-            log_error(f"GIF 合成失败: {e}", "GIF")
+            log_error(T("GIF 合成失败: {e}", e=e), "GIF")
             self.finished.emit(False, None)
 
     def _compose(self):
@@ -90,7 +90,7 @@ class _ComposeWorker(QObject):
                 try:
                     os.unlink(out_path)
                 except Exception as e:
-                    log_exception(e, "GIF 取消后删除临时文件")
+                    log_exception(e, T("GIF 取消后删除临时文件"))
             return None
 
         if need_bytes:
@@ -101,7 +101,7 @@ class _ComposeWorker(QObject):
                 try:
                     os.unlink(out_path)
                 except Exception as e:
-                    log_exception(e, "GIF 读取后删除临时文件")
+                    log_exception(e, T("GIF 读取后删除临时文件"))
         else:
             return out_path
 
@@ -119,7 +119,8 @@ class _ComposeWorker(QObject):
             gif_height = self._store.height
 
         log_info(
-            f"使用 gifrecorder export_gif: {gif_width}x{gif_height}",
+            T("使用 gifrecorder export_gif: {gif_width}x{gif_height}",
+              gif_width=gif_width, gif_height=gif_height),
             "GIF",
         )
 
@@ -148,12 +149,13 @@ class _ComposeWorker(QObject):
             err_str = str(e)
             if "cancelled" in err_str:
                 return False
-            log_error(f"export_gif 失败: {e}", "GIF")
+            log_error(T("export_gif 失败: {e}", e=e), "GIF")
             return False
 
         file_size = os.path.getsize(out_path) if os.path.isfile(out_path) else 0
         log_info(
-            f"GIF 导出完成: {out_path} ({file_size / 1024:.1f} KB)",
+            T("GIF 导出完成: {out_path} ({size_kb:.1f} KB)",
+              out_path=out_path, size_kb=file_size / 1024),
             "GIF",
         )
         return True
@@ -201,7 +203,7 @@ class ComposerProgressDialog(QFrame):
                 self.move(c.x() - self.width() // 2, c.y() - self.height() // 2)
                 return
             except Exception as e:
-                log_exception(e, "居中进度对话框")
+                log_exception(e, T("居中进度对话框"))
         screen = QApplication.primaryScreen().geometry()
         self.move(screen.center().x() - self.width() // 2,
                   screen.center().y() - self.height() // 2)

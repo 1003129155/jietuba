@@ -16,7 +16,7 @@ from ._widgets import svg_icon as _svg_icon, ClickMenuButton as _ClickMenuButton
 from core.constants import DEFAULT_FONT_FAMILY
 from core.i18n import make_tr
 from core import safe_event
-from core.logger import log_exception
+from core.logger import log_exception, T
 
 
 _tr = make_tr("GifRecordToolbar")
@@ -123,7 +123,7 @@ class RecordToolbar(QWidget):
             _fps_options = _cfg.get_gif_fps_options()
             _fps_default = _cfg.get_gif_fps()
         except Exception as e:
-            log_exception(e, "加载 GIF 帧率设置")
+            log_exception(e, T("加载 GIF 帧率设置"))
             _fps_options = [5, 10, 16, 24, 48, 60]
             _fps_default = 16
 
@@ -321,7 +321,7 @@ class RecordToolbar(QWidget):
             # ── 文字（委托给面板）──
             self.text_panel.load_from_config()
         except Exception as e:
-            log_exception(e, "加载绘制工具设置")
+            log_exception(e, T("加载绘制工具设置"))
 
     def _on_arrow_style_changed(self, style: str):
         """箭头样式变化 — 保存设置并转发信号"""
@@ -330,7 +330,7 @@ class RecordToolbar(QWidget):
             manager = get_tool_settings_manager()
             manager.update_settings("arrow", arrow_style=style)
         except Exception as e:
-            log_exception(e, "保存箭头样式")
+            log_exception(e, T("保存箭头样式"))
         self.arrow_style_changed.emit(style)
 
     def _on_line_style_changed(self, style: str):
@@ -344,7 +344,7 @@ class RecordToolbar(QWidget):
             elif tool_id == "pen":
                 manager.update_settings("pen", line_style=style)
         except Exception as e:
-            log_exception(e, "保存线条样式")
+            log_exception(e, T("保存线条样式"))
         self.line_style_changed.emit(style)
 
     def _on_text_font_changed(self, font):
@@ -606,7 +606,7 @@ class RecordToolbar(QWidget):
             from settings.tool_settings import get_tool_settings_manager
             get_tool_settings_manager().set_gif_fps(fps)
         except Exception as e:
-            log_exception(e, "保存 GIF 帧率")
+            log_exception(e, T("保存 GIF 帧率"))
 
     def hide(self):
         """隐藏工具栏 + 所有面板"""

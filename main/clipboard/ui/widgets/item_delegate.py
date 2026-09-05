@@ -22,7 +22,7 @@ from PySide6.QtGui import (
 
 from ...core import ClipboardItem
 from ..theme.themes import Theme, ThemeColors
-from core.logger import log_error
+from core.logger import T, log_error
 
 
 # QListWidgetItem 自定义数据角色
@@ -318,7 +318,7 @@ class ClipboardItemDelegate(QStyledItemDelegate):
                 self._thumb_cache[data_url] = pixmap
                 return pixmap
         except Exception as e:
-            log_error(f"加载缩略图失败: {e}", "Clipboard")
+            log_error(T("加载缩略图失败: {e}", e=e), "Clipboard")
 
         self._thumb_cache[data_url] = None
         return None

@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QGraphicsPathItem, QGraphicsRectItem, QGraphicsEll
 from PySide6.QtGui import QPen, QPainter, QPainterPath, QColor, QFont, QPixmap, QPainterPathStroker, QBrush
 from PySide6.QtCore import Qt, QRectF, QPointF
 from core import log_debug, log_warning, safe_event
+from core.logger import T
 
 class DrawingItemMixin:
     """绘图图元通用属性"""
@@ -153,7 +154,7 @@ class StrokeItem(QGraphicsPathItem, DrawingItemMixin):
             raise
         except Exception as e:
             # 绘制错误记录日志，避免崩溃
-            log_warning(f"DrawingItem paint 异常: {e}", "Canvas")
+            log_warning(T("DrawingItem paint 异常: {e}", e=e), "Canvas")
 
     # -- 统一属性接口 --
 
@@ -1456,7 +1457,7 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
         if not self.toPlainText().strip():
             if self.scene():
                 self.scene().removeItem(self)
-                log_debug("内容为空，自动删除", "TextItem")
+                log_debug(T("内容为空，自动删除"), "TextItem")
         else:
             # 否则取消编辑模式（可选）
             self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)

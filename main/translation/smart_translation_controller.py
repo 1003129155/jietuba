@@ -9,7 +9,7 @@ from PySide6.QtCore import QObject, QPoint, QTimer, Slot
 from PySide6.QtGui import QCursor
 from PySide6.QtWidgets import QApplication
 
-from core.logger import log_debug, log_exception
+from core.logger import log_debug, log_exception, T
 from settings import get_tool_settings_manager
 
 
@@ -45,7 +45,7 @@ class SmartTranslationController(QObject):
         self._probe_active = True
         self._copy_dispatched = False
         self._cursor_position = QCursor.pos()
-        log_debug(f"智能翻译探测开始: token={token}", "Translation")
+        log_debug(T("智能翻译探测开始: token={token}", token=token), "Translation")
 
         QTimer.singleShot(self.COPY_DELAY_MS, lambda: self._dispatch_copy(token))
         QTimer.singleShot(self.PROBE_TIMEOUT_MS, lambda: self._on_timeout(token))
@@ -64,7 +64,7 @@ class SmartTranslationController(QObject):
         self._probe_active = False
         self._copy_dispatched = False
         self._cursor_position = QCursor.pos()
-        log_debug(f"外部选区直接翻译: {len(text)} 字符", "Translation")
+        log_debug(T("外部选区直接翻译: {char_count} 字符", char_count=len(text)), "Translation")
         self._open_compact(text)
 
     def _dispatch_copy(self, token: int) -> None:
@@ -79,7 +79,7 @@ class SmartTranslationController(QObject):
                     lambda: self._read_clipboard_fallback(token),
                 )
         except Exception as exc:
-            log_exception(exc, "发送智能翻译复制快捷键")
+            log_exception(exc, T("发送智能翻译复制快捷键"))
             self._open_compact_input(token, "copy-error")
 
     def _clipboard_monitor_available(self) -> bool:
@@ -101,7 +101,10 @@ class SmartTranslationController(QObject):
         if text:
             self._probe_active = False
             log_debug(
-                f"剪贴板监听未启用，直接读取当前文本: {len(text)} 字符",
+                T(
+                    "剪贴板监听未启用，直接读取当前文本: {char_count} 字符",
+                    char_count=len(text),
+                ),
                 "Translation",
             )
             self._open_compact(text)
@@ -129,11 +132,17 @@ class SmartTranslationController(QObject):
 
         if content_type == "text" and text:
             self._probe_active = False
-            log_debug(f"智能翻译获取文本成功: {len(text)} 字符", "Translation")
+            log_debug(T("智能翻译获取文本成功: {char_count} 字符", char_count=len(text)), "Translation")
             self._open_compact(text)
             return
 
-        log_debug(f"智能翻译忽略非文本内容: {content_type or 'unknown'}", "Translation")
+        log_debug(
+            T(
+                "智能翻译忽略非文本内容: {content_type_display}",
+                content_type_display=content_type or "unknown",
+            ),
+            "Translation",
+        )
         self._open_compact_input(token, "non-text")
 
     def _on_timeout(self, token: int) -> None:
@@ -169,7 +178,7 @@ class SmartTranslationController(QObject):
         if not self._is_current(token):
             return
         self._probe_active = False
-        log_debug(f"智能翻译转入小窗手动输入: {reason}", "Translation")
+        log_debug(T("智能翻译转入小窗手动输入: {reason}", reason=reason), "Translation")
         params = self._translation_params()
         self._translation_manager().open_compact_input(
             position=self._cursor_position,

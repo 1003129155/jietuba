@@ -14,7 +14,7 @@ from PySide6.QtGui import QPixmap, QCursor
 from ...core import ClipboardItem
 from ..theme.themes import get_theme_manager, Theme
 from ..theme.theme_styles import ThemeStyleGenerator
-from core.logger import log_error
+from core.logger import T, log_error
 from core import safe_event
 from .preview_popup import PreviewPopup
 
@@ -166,7 +166,7 @@ class ClipboardItemWidget(QFrame):
                 pixmap.loadFromData(image_data)
                 return pixmap
         except Exception as e:
-            log_error(f"加载缩略图失败: {e}", "Clipboard")
+            log_error(T("加载缩略图失败: {e}", e=e), "Clipboard")
         return None
 
     def set_selected(self, selected: bool):

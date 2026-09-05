@@ -228,7 +228,7 @@ if __name__ == "__main__":
     mock_pin.setGeometry(100, 100, 400, 300)
     mock_pin.setStyleSheet("background-color: lightblue; border: 2px solid black;")
 
-    label = QLabel("模拟钉图窗口", mock_pin)
+    label = QLabel("Mock pin window", mock_pin)
     label.setAlignment(Qt.AlignmentFlag.AlignCenter)
     label.setGeometry(0, 0, 400, 300)
     mock_pin.show()
@@ -237,11 +237,11 @@ if __name__ == "__main__":
     toolbar.enable_auto_hide(True)
     toolbar.set_auto_hide_delay(3000)
 
-    toolbar.tool_changed.connect(lambda tool: print(f"工具切换: {tool}"))
-    toolbar.save_clicked.connect(lambda: print("保存点击"))
-    toolbar.copy_clicked.connect(lambda: print("复制点击"))
-    toolbar.undo_clicked.connect(lambda: print("撤销点击"))
-    toolbar.redo_clicked.connect(lambda: print("重做点击"))
+    toolbar.tool_changed.connect(lambda tool: print(f"Tool changed: {tool}"))
+    toolbar.save_clicked.connect(lambda: print("Save clicked"))
+    toolbar.copy_clicked.connect(lambda: print("Copy clicked"))
+    toolbar.undo_clicked.connect(lambda: print("Undo clicked"))
+    toolbar.redo_clicked.connect(lambda: print("Redo clicked"))
 
     toolbar.show()
 

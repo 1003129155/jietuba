@@ -74,8 +74,8 @@ class XmlTranslator(QTranslator):
             return True
             
         except Exception as e:
-            from core.logger import log_error
-            log_error(f"加载 XML 翻译文件失败: {e}", "I18n")
+            from core.logger import log_error, T
+            log_error(T("加载 XML 翻译文件失败: {e}", e=e), "I18n")
             return False
     
     def translate(self, context: str, sourceText: str, disambiguation: str = None, n: int = -1) -> str:
@@ -181,14 +181,14 @@ class I18nManager:
             是否加载成功
         """
         if lang_code not in cls.LANGUAGES:
-            from core.logger import log_warning
-            log_warning(f"不支持的语言: {lang_code}", "I18n")
+            from core.logger import log_warning, T
+            log_warning(T("不支持的语言: {lang_code}", lang_code=lang_code), "I18n")
             return False
-        
+
         app = QApplication.instance()
         if not app:
-            from core.logger import log_warning
-            log_warning("QApplication 实例不存在", "I18n")
+            from core.logger import log_warning, T
+            log_warning(T("QApplication 实例不存在"), "I18n")
             return False
         
         instance = cls.instance()
@@ -209,13 +209,13 @@ class I18nManager:
                 instance._translator = qt_translator
                 app.installTranslator(instance._translator)
                 cls._current_lang = lang_code
-                from core.logger import log_info
-                log_info(f"已加载语言 (QM): {cls.LANGUAGES[lang_code]} ({lang_code})", "I18n")
+                from core.logger import log_info, T
+                log_info(T("已加载语言 (QM): {lang_name} ({lang_code})", lang_name=cls.LANGUAGES[lang_code], lang_code=lang_code), "I18n")
                 instance.language_changed.emit(lang_code)
                 return True
             else:
-                from core.logger import log_warning
-                log_warning(f"QM 文件加载失败，尝试 XML: {qm_file}", "I18n")
+                from core.logger import log_warning, T
+                log_warning(T("QM 文件加载失败，尝试 XML: {qm_file}", qm_file=qm_file), "I18n")
         
         # 回退到 XML 文件
         instance._translator = XmlTranslator()
@@ -223,18 +223,18 @@ class I18nManager:
             if instance._translator.load_from_xml(str(xml_file)):
                 app.installTranslator(instance._translator)
                 cls._current_lang = lang_code
-                from core.logger import log_info
-                log_info(f"已加载语言 (XML): {cls.LANGUAGES[lang_code]} ({lang_code})", "I18n")
+                from core.logger import log_info, T
+                log_info(T("已加载语言 (XML): {lang_name} ({lang_code})", lang_name=cls.LANGUAGES[lang_code], lang_code=lang_code), "I18n")
                 instance.language_changed.emit(lang_code)
                 return True
             else:
-                from core.logger import log_error
-                log_error(f"加载翻译文件失败: {xml_file}", "I18n")
+                from core.logger import log_error, T
+                log_error(T("加载翻译文件失败: {xml_file}", xml_file=xml_file), "I18n")
         else:
             # 翻译文件不存在时，使用默认语言（代码中的原始文本）
             cls._current_lang = lang_code
-            from core.logger import log_info
-            log_info(f"翻译文件不存在: {xml_file}，使用默认文本", "I18n")
+            from core.logger import log_info, T
+            log_info(T("翻译文件不存在: {xml_file}，使用默认文本", xml_file=xml_file), "I18n")
             instance.language_changed.emit(lang_code)
             return True
         

@@ -33,11 +33,12 @@ from tools.cursor_manager import CursorManager
 from settings import get_tool_settings_manager
 
 try:
-    from core.logger import log_debug, log_info, log_exception
+    from core.logger import log_debug, log_info, log_exception, T
 except ImportError:
     import logging
     _l = logging.getLogger("GIF")
     log_debug = log_info = _l.info
+    T = lambda template, **kwargs: template.format(**kwargs) if kwargs else template
 
 from core.shortcut_manager import ShortcutManager, ShortcutHandler, load_inapp_bindings
 from core import safe_event
@@ -67,7 +68,7 @@ def _set_click_through(hwnd: int, enable: bool):
             SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED,
         )
     except Exception as e:
-        log_exception(e, "GIF 绘制层设置透明")
+        log_exception(e, T("GIF 绘制层设置透明"))
 
 
 # ── 假 SelectionModel：永远 is_confirmed=True ──
@@ -365,7 +366,10 @@ class GifDrawingView(CanvasView):
             self.activateWindow()
             self.raise_()
         self.passthrough_changed.emit(enable)
-        log_debug(f"绘制层穿透={'开' if enable else '关'}", "GIF")
+        if enable:
+            log_debug(T("绘制层穿透=开"), "GIF")
+        else:
+            log_debug(T("绘制层穿透=关"), "GIF")
 
     def _on_gif_tool_changed(self, tool_id: str):
         """工具切换 → 穿透管理 + 信号"""

@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
-from core.logger import log_exception
+from core.logger import T, log_exception
 
 from .enums import GroupType
 
@@ -73,7 +73,7 @@ class ClipboardItem:
                     return ", ".join(os.path.basename(file_path) for file_path in files)
                 return "文件"
             except Exception as e:
-                log_exception(e, "解析文件类型显示文本")
+                log_exception(e, T("解析文件类型显示文本"))
                 return "文件"
         return self.content[:50]
 

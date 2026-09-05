@@ -33,7 +33,7 @@ from PySide6.QtGui import QUndoStack, QUndoCommand, QTransform
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsScene
 
 from core import log_debug, log_warning
-from core.logger import log_exception
+from core.logger import log_exception, T
 
 # ============================================================================
 # Undo Stack
@@ -51,34 +51,34 @@ class CommandUndoStack(QUndoStack):
     def undo(self):
         """重写 undo：添加调试信息"""
         if self.canUndo():
-            log_debug(f"执行撤销，当前索引: {self.index()}/{self.count()}", "UndoStack")
-            log_debug(f"撤销命令: {self.undoText()}", "UndoStack")
+            log_debug(T("执行撤销，当前索引: {index}/{count}", index=self.index(), count=self.count()), "UndoStack")
+            log_debug(T("撤销命令: {undo_text}", undo_text=self.undoText()), "UndoStack")
             super().undo()
-            log_debug(f"撤销后索引: {self.index()}/{self.count()}", "UndoStack")
+            log_debug(T("撤销后索引: {index}/{count}", index=self.index(), count=self.count()), "UndoStack")
         else:
-            log_debug(f"无法撤销，栈为空或已到底部 (索引: {self.index()}/{self.count()})", "UndoStack")
+            log_debug(T("无法撤销，栈为空或已到底部 (索引: {index}/{count})", index=self.index(), count=self.count()), "UndoStack")
 
     def redo(self):
         """重写 redo：添加调试信息"""
         if self.canRedo():
-            log_debug(f"执行重做，当前索引: {self.index()}/{self.count()}", "UndoStack")
-            log_debug(f"重做命令: {self.redoText()}", "UndoStack")
+            log_debug(T("执行重做，当前索引: {index}/{count}", index=self.index(), count=self.count()), "UndoStack")
+            log_debug(T("重做命令: {redo_text}", redo_text=self.redoText()), "UndoStack")
             super().redo()
-            log_debug(f"重做后索引: {self.index()}/{self.count()}", "UndoStack")
+            log_debug(T("重做后索引: {index}/{count}", index=self.index(), count=self.count()), "UndoStack")
         else:
-            log_debug(f"无法重做，已到顶部 (索引: {self.index()}/{self.count()})", "UndoStack")
+            log_debug(T("无法重做，已到顶部 (索引: {index}/{count})", index=self.index(), count=self.count()), "UndoStack")
 
     def print_stack_status(self):
         """打印撤销栈状态"""
-        log_debug("撤销栈状态", "UndoStack")
-        log_debug(f"总命令数: {self.count()}", "UndoStack")
-        log_debug(f"当前索引: {self.index()}", "UndoStack")
-        log_debug(f"可撤销: {self.canUndo()}", "UndoStack")
-        log_debug(f"可重做: {self.canRedo()}", "UndoStack")
+        log_debug(T("撤销栈状态"), "UndoStack")
+        log_debug(T("总命令数: {count}", count=self.count()), "UndoStack")
+        log_debug(T("当前索引: {index}", index=self.index()), "UndoStack")
+        log_debug(T("可撤销: {can_undo}", can_undo=self.canUndo()), "UndoStack")
+        log_debug(T("可重做: {can_redo}", can_redo=self.canRedo()), "UndoStack")
         if self.canUndo():
-            log_debug(f"下一个撤销: {self.undoText()}", "UndoStack")
+            log_debug(T("下一个撤销: {undo_text}", undo_text=self.undoText()), "UndoStack")
         if self.canRedo():
-            log_debug(f"下一个重做: {self.redoText()}", "UndoStack")
+            log_debug(T("下一个重做: {redo_text}", redo_text=self.redoText()), "UndoStack")
 
 
 # ============================================================================
@@ -102,7 +102,7 @@ def _get_number_next(scene: QGraphicsScene) -> Optional[int]:
         from tools.number import NumberTool
         return NumberTool.get_next_number(scene)
     except Exception as e:
-        log_exception(e, "获取序号计数器")
+        log_exception(e, T("获取序号计数器"))
         return None
 
 
@@ -113,7 +113,7 @@ def _set_number_next(scene: QGraphicsScene, next_number: Optional[int]):
         from tools.number import NumberTool
         NumberTool.set_next_number_and_refresh(scene, int(next_number))
     except Exception as e:
-        log_exception(e, "恢复序号计数器")
+        log_exception(e, T("恢复序号计数器"))
 
 
 def _get_number_items(scene: QGraphicsScene) -> list:
@@ -122,7 +122,7 @@ def _get_number_items(scene: QGraphicsScene) -> list:
     try:
         return [item for item in scene.items() if _is_number_item(item)]
     except Exception as e:
-        log_exception(e, "获取序号图元")
+        log_exception(e, T("获取序号图元"))
         return []
 
 
@@ -133,7 +133,7 @@ def _get_draw_order_map(scene: QGraphicsScene) -> Dict[int, int]:
     try:
         return {id(item): index for index, item in enumerate(reversed(scene.items()))}
     except Exception as e:
-        log_exception(e, "获取绘制顺序")
+        log_exception(e, T("获取绘制顺序"))
         return {}
 
 
@@ -160,7 +160,7 @@ def _apply_number_values(values: Dict[QGraphicsItem, int]):
             if hasattr(item, "update"):
                 item.update()
         except Exception as e:
-            log_exception(e, "应用序号重排")
+            log_exception(e, T("应用序号重排"))
 
 
 class AddItemCommand(QUndoCommand):
@@ -400,7 +400,7 @@ class EditItemCommand(QUndoCommand):
             try:
                 self.item.setOpacity(float(opacity))
             except Exception as e:
-                log_exception(e, "恢复opacity")
+                log_exception(e, T("恢复opacity"))
 
         # number（NumberItem）
         number = state.get("number")
@@ -408,7 +408,7 @@ class EditItemCommand(QUndoCommand):
             try:
                 setattr(self.item, "number", max(1, int(number)))
             except Exception as e:
-                log_exception(e, "恢复number属性")
+                log_exception(e, T("恢复number属性"))
 
         # rect（RectItem/EllipseItem 等）
         rect = state.get("rect")
@@ -419,7 +419,7 @@ class EditItemCommand(QUndoCommand):
                 try:
                     setattr(self.item, "rect", QRectF(rect))
                 except Exception as e:
-                    log_exception(e, "恢复rect属性")
+                    log_exception(e, T("恢复rect属性"))
 
         # start/end（ArrowItem / 自定义箭头）
         start = state.get("start")
@@ -429,12 +429,12 @@ class EditItemCommand(QUndoCommand):
                 try:
                     setattr(self.item, "start", QPointF(start))
                 except Exception as e:
-                    log_exception(e, "恢复start属性")
+                    log_exception(e, T("恢复start属性"))
             if hasattr(self.item, "start_pos"):
                 try:
                     setattr(self.item, "start_pos", QPointF(start))
                 except Exception as e:
-                    log_exception(e, "恢复start_pos属性")
+                    log_exception(e, T("恢复start_pos属性"))
 
         end = state.get("end")
         if isinstance(end, QPointF):
@@ -443,12 +443,12 @@ class EditItemCommand(QUndoCommand):
                 try:
                     setattr(self.item, "end", QPointF(end))
                 except Exception as e:
-                    log_exception(e, "恢复end属性")
+                    log_exception(e, T("恢复end属性"))
             if hasattr(self.item, "end_pos"):
                 try:
                     setattr(self.item, "end_pos", QPointF(end))
                 except Exception as e:
-                    log_exception(e, "恢复end_pos属性")
+                    log_exception(e, T("恢复end_pos属性"))
 
         # 恢复箭头弯曲控制点和修改状态
         control = state.get("control")
@@ -473,7 +473,7 @@ class EditItemCommand(QUndoCommand):
                         (self.item.start_pos.y() + self.item.end_pos.y()) / 2
                     )
             except Exception as e:
-                log_exception(e, "恢复control状态")
+                log_exception(e, T("恢复control状态"))
         elif hasattr(self.item, "set_control_point"):
             try:
                 if isinstance(control, QPointF):
@@ -481,7 +481,7 @@ class EditItemCommand(QUndoCommand):
                 elif hasattr(self.item, "reset_control_point"):
                     self.item.reset_control_point()
             except Exception as e:
-                log_exception(e, "恢复control_pos属性")
+                log_exception(e, T("恢复control_pos属性"))
 
         # 恢复箭头样式
         arrow_style = state.get("arrow_style")
@@ -489,7 +489,7 @@ class EditItemCommand(QUndoCommand):
             try:
                 self.item._arrow_style = arrow_style
             except Exception as e:
-                log_exception(e, "恢复arrow_style属性")
+                log_exception(e, T("恢复arrow_style属性"))
         
         # 恢复笔刷样式（画笔工具）
         pen_state = state.get("pen_state")
@@ -508,7 +508,7 @@ class EditItemCommand(QUndoCommand):
                     pen.setDashPattern(dash_pattern)
                 self.item.setPen(pen)
             except Exception as e:
-                log_exception(e, "恢复pen_state属性")
+                log_exception(e, T("恢复pen_state属性"))
 
         # 如果你的 item 有 update_geometry 之类的，顺便触发
         if hasattr(self.item, "update_geometry") and callable(getattr(self.item, "update_geometry")):
@@ -523,7 +523,7 @@ class EditItemCommand(QUndoCommand):
             try:
                 self.item.set_corner_radius(float(corner_radius))
             except Exception as e:
-                log_exception(e, "恢复corner_radius")
+                log_exception(e, T("恢复corner_radius"))
 
         # 触发重绘
         if hasattr(self.item, "update"):

@@ -7,7 +7,7 @@ from PySide6.QtGui import QPen
 from .base import Tool, ToolContext, color_with_opacity
 from canvas.items import EllipseItem
 from canvas.undo import AddItemCommand
-from core import log_debug
+from core.logger import log_debug, T
 
 
 class EllipseTool(Tool):
@@ -57,7 +57,7 @@ class EllipseTool(Tool):
             self.current_item = EllipseItem(rect, pen)
             ctx.scene.addItem(self.current_item)
             
-            log_debug(f"开始绘制: {pos}", "EllipseTool")
+            log_debug(T("开始绘制: {pos}", pos=pos), "EllipseTool")
     
     def on_move(self, pos: QPointF, ctx: ToolContext):
         if self.drawing and self.current_item:
@@ -75,7 +75,7 @@ class EllipseTool(Tool):
                     # 尺寸过小，取消绘制
                     ctx.scene.removeItem(self.current_item)
                     self.current_item = None
-                    log_debug(f"绘制取消：尺寸过小 ({rect.width():.1f}x{rect.height():.1f} < {self.MIN_SIZE})", "EllipseTool")
+                    log_debug(T("绘制取消：尺寸过小 ({width:.1f}x{height:.1f} < {min_size})", width=rect.width(), height=rect.height(), min_size=self.MIN_SIZE), "EllipseTool")
                     return
                 
                 ctx.scene.removeItem(self.current_item)
@@ -89,5 +89,5 @@ class EllipseTool(Tool):
                 # 通过信号通知自动选中
                 ctx.scene.item_auto_select_requested.emit(item_to_select)
             
-            log_debug("完成绘制", "EllipseTool")
+            log_debug(T("完成绘制"), "EllipseTool")
  

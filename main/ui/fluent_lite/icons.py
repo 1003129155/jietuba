@@ -8,6 +8,8 @@ import sys
 
 from PySide6.QtGui import QIcon
 
+from core.resource_manager import ResourceManager
+
 
 def _icon_dir() -> Path:
     # PyInstaller exposes bundled data below _MEIPASS.  In a source checkout
@@ -64,4 +66,6 @@ class FluentIcon(Enum):
         return str(_ICON_DIR / f"{self.value}.svg")
 
     def icon(self) -> QIcon:
-        return QIcon(self.path())
+        # 走 ResourceManager：图标会被立即光栅化并缓存，
+        # 不再依赖 %TEMP% 里的源文件是否还在
+        return ResourceManager.get_icon(self.path())

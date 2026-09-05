@@ -380,7 +380,7 @@ class ColorPickerDialog(QDialog):
 
         self._dropper_btn = QPushButton("💉")
         self._dropper_btn.setFixedSize(32, 32)
-        self._dropper_btn.setToolTip("屏幕取色")
+        self._dropper_btn.setToolTip(self.tr("Pick color from screen"))
         self._dropper_btn.setCheckable(True)
         self._update_dropper_style(False)
         slider_row.addWidget(self._dropper_btn)

@@ -64,29 +64,29 @@ def compile_ts_files():
     translations_dir = Path(__file__).parent / "translations"
     
     if not translations_dir.exists():
-        print(f"[ERROR] 翻译目录不存在: {translations_dir}")
+        print(f"[ERROR] Translations directory not found: {translations_dir}")
         return False
-    
+
     # 支持 .ts 和 .xml 后缀的翻译文件
     ts_files = list(translations_dir.glob("*.ts")) + list(translations_dir.glob("*.xml"))
-    
+
     if not ts_files:
-        print(f"[ERROR] 没有找到 .ts 或 .xml 文件: {translations_dir}")
+        print(f"[ERROR] No .ts or .xml files found: {translations_dir}")
         return False
-    
-    print(f"[INFO] 翻译目录: {translations_dir}")
-    print(f"[INFO] 找到 {len(ts_files)} 个 .ts/.xml 文件")
-    
+
+    print(f"[INFO] Translations directory: {translations_dir}")
+    print(f"[INFO] Found {len(ts_files)} .ts/.xml file(s)")
+
     # 查找 lrelease
     lrelease = find_lrelease()
-    
+
     if lrelease:
-        print(f"[INFO] 使用 lrelease: {lrelease}")
-        
+        print(f"[INFO] Using lrelease: {lrelease}")
+
         for ts_file in ts_files:
             qm_file = ts_file.with_suffix(".qm")
-            print(f"\n[INFO] 编译: {ts_file.name} -> {qm_file.name}")
-            
+            print(f"\n[INFO] Compiling: {ts_file.name} -> {qm_file.name}")
+
             try:
                 result = subprocess.run(
                     [lrelease, str(ts_file), "-qm", str(qm_file)],
@@ -94,15 +94,15 @@ def compile_ts_files():
                     text=True
                 )
                 if result.returncode == 0:
-                    print(f"   [OK] 成功")
+                    print(f"   [OK] Success")
                 else:
-                    print(f"   [ERROR] 失败: {result.stderr}")
+                    print(f"   [ERROR] Failed: {result.stderr}")
             except Exception as e:
-                print(f"   [ERROR] 错误: {e}")
+                print(f"   [ERROR] Error: {e}")
     else:
-        print("\n[WARN] 未找到 lrelease 工具，使用 Python 简易编译...")
-        print("   (安装 PySide6-Essentials 可获得完整功能: pip install PySide6-Essentials)")
-        
+        print("\n[WARN] lrelease tool not found, falling back to a simple Python-based compile...")
+        print("   (install PySide6-Essentials for full functionality: pip install PySide6-Essentials)")
+
         # 使用 Python 简易方式创建空的 .qm 文件（Qt 会回退到源文本）
         for ts_file in ts_files:
             qm_file = ts_file.with_suffix(".qm")
@@ -112,13 +112,13 @@ def compile_ts_files():
             with open(qm_file, 'wb') as f:
                 # Qt .qm 文件魔数
                 f.write(b'\x3c\xb8\x64\x18\xff\xff\xff\xff\x08\x00\x00\x00\x00')
-            print(f"   [INFO] 创建占位文件: {qm_file.name}")
-        
-        print("\n[INFO] 提示: 占位文件只能让程序启动，实际翻译需要:")
+            print(f"   [INFO] Created placeholder file: {qm_file.name}")
+
+        print("\n[INFO] Note: the placeholder file only lets the app start; actual translation requires:")
         print("   1. pip install PySide6-Essentials")
-        print("   2. 重新运行此脚本")
-    
-    print("\n[OK] 完成!")
+        print("   2. Re-run this script")
+
+    print("\n[OK] Done!")
     return True
 
 

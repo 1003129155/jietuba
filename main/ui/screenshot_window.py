@@ -22,7 +22,7 @@ from ui.selection_info import SelectionInfoPanel, SelectionInfoController
 from tools.action import ActionTools
 from settings import get_tool_settings_manager
 from stitch.scroll_window import ScrollCaptureWindow
-from core.logger import log_debug, log_info, log_warning, log_error, log_exception
+from core.logger import log_debug, log_info, log_warning, log_error, log_exception, T
 from core import safe_event
 from core.shortcut_manager import ShortcutManager, ShortcutHandler
 
@@ -192,8 +192,11 @@ class ScreenshotWindow(QWidget):
         self.virtual_width = rect.width()
         self.virtual_height = rect.height()
         
-        log_debug(f"虚拟桌面: {self.virtual_width}x{self.virtual_height} at ({self.virtual_x}, {self.virtual_y})", "ScreenshotWindow")
-        log_debug(f"图像尺寸: {self.original_image.width()}x{self.original_image.height()}", "ScreenshotWindow")
+        log_debug(T("虚拟桌面: {width}x{height} at ({x}, {y})",
+                     width=self.virtual_width, height=self.virtual_height,
+                     x=self.virtual_x, y=self.virtual_y), "ScreenshotWindow")
+        log_debug(T("图像尺寸: {width}x{height}",
+                     width=self.original_image.width(), height=self.original_image.height()), "ScreenshotWindow")
 
         # 2. 窗口属性 & 几何形状（必须在创建子控件之前完成）
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
@@ -265,7 +268,7 @@ class ScreenshotWindow(QWidget):
 
         # ── 统一输出初始化计时 ──
         parts = [f"{k}={v:.1f}ms" for k, v in _timings.items()]
-        log_debug(f"[计时] 初始化完成 | {' | '.join(parts)}", "ScreenshotWindow")
+        log_debug(T("[计时] 初始化完成 | {parts}", parts=' | '.join(parts)), "ScreenshotWindow")
         
         # 截图期间压制 pin 窗口的置顶，避免同级 TopMost 窗口抢 Z-order
         from pin.pin_manager import PinManager
@@ -376,7 +379,7 @@ class ScreenshotWindow(QWidget):
         QTimer.singleShot(50, self._safe_activate_and_focus)
         
         _elapsed = (time.perf_counter() - _t0) * 1000
-        log_debug(f"[计时] 复用窗口会话准备完成 | 耗时={_elapsed:.1f}ms", "ScreenshotWindow")
+        log_debug(T("[计时] 复用窗口会话准备完成 | 耗时={elapsed:.1f}ms", elapsed=_elapsed), "ScreenshotWindow")
 
     # ------------------------------------------------------------------
     # 会话结束：释放重数据，保留 UI 壳
@@ -393,7 +396,7 @@ class ScreenshotWindow(QWidget):
         # 立即隐藏窗口
         self.hide()
         
-        log_debug("开始释放截图会话资源（保留 UI 壳）", "ScreenshotWindow")
+        log_debug(T("开始释放截图会话资源（保留 UI 壳）"), "ScreenshotWindow")
         
         # 恢复窗口对截图 API 的可见性
         if getattr(self, '_exclude_from_capture_set', False):
@@ -411,7 +414,7 @@ class ScreenshotWindow(QWidget):
             from pin.pin_manager import PinManager
             PinManager.instance().restore_topmost()
         except Exception as e:
-            log_exception(e, "恢复 pin 窗口")
+            log_exception(e, T("恢复 pin 窗口"))
         
         # 断开 toolbar → smart_edit_controller 的会话信号
         # （toolbar 是持久对象，不 disconnect 会导致信号累积，每次截图多加一个 handler）
@@ -480,7 +483,7 @@ class ScreenshotWindow(QWidget):
             self.action_handler = None
         
         gc.collect()
-        log_info("截图会话资源释放完成", "ScreenshotWindow")
+        log_info(T("截图会话资源释放完成"), "ScreenshotWindow")
 
     def _disconnect_session_signals(self):
         """断开本次会话连接到持久 toolbar 上的信号。
@@ -514,9 +517,11 @@ class ScreenshotWindow(QWidget):
         hwnd = int(self.winId())
         result = set_window_exclude_from_capture(hwnd, exclude)
         if result:
-            log_debug(f"SetWindowDisplayAffinity({'EXCLUDE' if exclude else 'NONE'}) 成功", "ScreenshotWindow")
+            log_debug(T("SetWindowDisplayAffinity({mode}) 成功",
+                         mode='EXCLUDE' if exclude else 'NONE'), "ScreenshotWindow")
         else:
-            log_debug(f"SetWindowDisplayAffinity 失败, GetLastError={get_last_error()}", "ScreenshotWindow")
+            log_debug(T("SetWindowDisplayAffinity 失败, GetLastError={error_code}",
+                         error_code=get_last_error()), "ScreenshotWindow")
 
     def _connect_toolbar_signals(self):
         """连接工具栏信号（一次性，toolbar→self 的稳定连接）。
@@ -595,7 +600,7 @@ class ScreenshotWindow(QWidget):
             if not shiboken6.isValid(self):
                 return
         except Exception as e:
-            log_exception(e, "shiboken6 有效性检查")
+            log_exception(e, T("shiboken6 有效性检查"))
         try:
             if not self.isVisible():
                 return
@@ -673,7 +678,8 @@ class ScreenshotWindow(QWidget):
             if not smart_rect.isEmpty():
                 self.scene.selection_model.activate()
                 self.scene.selection_model.set_rect(smart_rect)
-                log_debug(f"智能选区初始化: 鼠标位置({cursor_pos.x()}, {cursor_pos.y()}) -> 选区{smart_rect}", "ScreenshotWindow")
+                log_debug(T("智能选区初始化: 鼠标位置({x}, {y}) -> 选区{rect}",
+                             x=cursor_pos.x(), y=cursor_pos.y(), rect=smart_rect), "ScreenshotWindow")
 
     def _init_magnifier_at_cursor(self):
         """在当前鼠标位置初始化放大镜，在窗口显示后立即调用"""
@@ -684,7 +690,7 @@ class ScreenshotWindow(QWidget):
             return
         cursor_pos = QCursor.pos()
         self.magnifier_overlay.update_cursor(QPointF(cursor_pos.x(), cursor_pos.y()))
-        log_debug(f"放大镜初始化: 位置({cursor_pos.x()}, {cursor_pos.y()})", "ScreenshotWindow")
+        log_debug(T("放大镜初始化: 位置({x}, {y})", x=cursor_pos.x(), y=cursor_pos.y()), "ScreenshotWindow")
 
     @safe_event
     def resizeEvent(self, event):
@@ -879,7 +885,7 @@ class ScreenshotWindow(QWidget):
                     undo_stack.push(command)
                 
                 item.update()
-                log_debug(f"箭头样式已更新: {style}", "ScreenshotWindow")
+                log_debug(T("箭头样式已更新: {style}", style=style), "ScreenshotWindow")
 
     def on_line_style_changed(self, style: str):
         """线条样式变化 - 更新当前选中的画笔图元"""
@@ -887,7 +893,7 @@ class ScreenshotWindow(QWidget):
         view = getattr(self, 'view', None)
         if view and hasattr(view, '_apply_line_style_change_to_selection'):
             view._apply_line_style_change_to_selection(style)
-            log_debug(f"线条样式已更新: {style}", "ScreenshotWindow")
+            log_debug(T("线条样式已更新: {style}", style=style), "ScreenshotWindow")
 
     def _capture_arrow_state(self, item) -> dict:
         """捕获箭头图元的状态"""
@@ -917,7 +923,7 @@ class ScreenshotWindow(QWidget):
     
     def start_gif_record_mode(self):
         """启动 GIF 录制模式"""
-        log_info("启动GIF录制模式", "ScreenshotWindow")
+        log_info(T("启动GIF录制模式"), "ScreenshotWindow")
         
         if self.scene.selection_model.is_confirmed:
             selection_rect = self.scene.selection_model.rect()
@@ -928,7 +934,8 @@ class ScreenshotWindow(QWidget):
             real_height = int(selection_rect.height())
             
             capture_rect = QRect(real_x, real_y, real_width, real_height)
-            log_debug(f"GIF录制区域: x={real_x}, y={real_y}, w={real_width}, h={real_height}", "ScreenshotWindow")
+            log_debug(T("GIF录制区域: x={x}, y={y}, w={w}, h={h}",
+                         x=real_x, y=real_y, w=real_width, h=real_height), "ScreenshotWindow")
             
             from gif import GifRecordWindow
             
@@ -939,11 +946,12 @@ class ScreenshotWindow(QWidget):
                 try:
                     old_win.close_all()
                 except Exception as e:
-                    log_exception(e, "关闭旧 GIF 窗口")
+                    log_exception(e, T("关闭旧 GIF 窗口"))
                 app._gif_window = None
 
             gif_win = GifRecordWindow(capture_rect)
-            log_debug(f"GifRecordWindow已创建, overlay visible={gif_win._overlay.isVisible()}", "ScreenshotWindow")
+            log_debug(T("GifRecordWindow已创建, overlay visible={visible}",
+                         visible=gif_win._overlay.isVisible()), "ScreenshotWindow")
             
             # 把引用挂到 QApplication，防止截图窗口销毁后被 GC
             app = QApplication.instance()
@@ -951,7 +959,7 @@ class ScreenshotWindow(QWidget):
             
             # 窗口关闭后自动清除全局引用，释放内存
             gif_win.destroyed.connect(lambda: setattr(app, '_gif_window', None))
-            log_info("GIF录制窗口已启动", "ScreenshotWindow")
+            log_info(T("GIF录制窗口已启动"), "ScreenshotWindow")
             
             # 关闭截图窗口
             self.cleanup_and_close()
@@ -960,14 +968,16 @@ class ScreenshotWindow(QWidget):
 
     def start_long_screenshot_mode(self):
         """启动长截图模式"""
-        log_info("启动长截图模式", "ScreenshotWindow")
+        log_info(T("启动长截图模式"), "ScreenshotWindow")
         
         # 获取当前选中的区域
         if self.scene.selection_model.is_confirmed:
             selection_rect = self.scene.selection_model.rect()
             
-            log_debug(f"selection_rect（场景坐标）: x={selection_rect.x()}, y={selection_rect.y()}, w={selection_rect.width()}, h={selection_rect.height()}", "LongScreenshot")
-            log_debug(f"virtual偏移: x={self.virtual_x}, y={self.virtual_y}", "LongScreenshot")
+            log_debug(T("selection_rect（场景坐标）: x={x}, y={y}, w={w}, h={h}",
+                         x=selection_rect.x(), y=selection_rect.y(),
+                         w=selection_rect.width(), h=selection_rect.height()), "LongScreenshot")
+            log_debug(T("virtual偏移: x={x}, y={y}", x=self.virtual_x, y=self.virtual_y), "LongScreenshot")
             
             # 场景坐标已经是屏幕的全局坐标，背景图层通过 setOffset 保留了系统提供的虚拟桌面偏移
             # 因此此处不需要再次叠加 virtual_x / virtual_y，否则会导致坐标被重复平移
@@ -979,7 +989,8 @@ class ScreenshotWindow(QWidget):
             # 创建屏幕坐标的选区矩形
             capture_rect = QRect(real_x, real_y, real_width, real_height)
             
-            log_debug(f"选中区域（屏幕坐标）: x={real_x}, y={real_y}, w={real_width}, h={real_height}", "LongScreenshot")
+            log_debug(T("选中区域（屏幕坐标）: x={x}, y={y}, w={w}, h={h}",
+                         x=real_x, y=real_y, w=real_width, h=real_height), "LongScreenshot")
             
             # 保存配置，用于长截图窗口
             save_dir = self.config_manager.get_screenshot_save_path()
@@ -995,7 +1006,7 @@ class ScreenshotWindow(QWidget):
                 try:
                     old_scroll.close()
                 except Exception as e:
-                    log_exception(e, "关闭旧滚动截图窗口")
+                    log_exception(e, T("关闭旧滚动截图窗口"))
             app._scroll_window = scroll_window
             
             # 窗口关闭后自动清除全局引用，释放内存
@@ -1006,15 +1017,15 @@ class ScreenshotWindow(QWidget):
             scroll_window.destroyed.connect(_on_scroll_window_destroyed)
             
             # 显示长截图窗口
-            log_debug("长截图窗口创建完成，准备显示", "LongScreenshot")
+            log_debug(T("长截图窗口创建完成，准备显示"), "LongScreenshot")
             scroll_window.show()
             scroll_window.raise_()
             scroll_window.activateWindow()
-            
-            log_info("滚动截图窗口已显示并激活", "LongScreenshot")
-            
+
+            log_info(T("滚动截图窗口已显示并激活"), "LongScreenshot")
+
             # 立即关闭截图窗口，释放内存
-            log_debug("释放截图窗口内存", "LongScreenshot")
+            log_debug(T("释放截图窗口内存"), "LongScreenshot")
             self.cleanup_and_close()
         else:
             # 如果没有确认选区，显示提示

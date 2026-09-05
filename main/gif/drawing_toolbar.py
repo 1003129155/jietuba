@@ -17,7 +17,7 @@ from PySide6.QtGui import QCursor, QColor, QIcon
 
 from ._widgets import svg_icon as _svg_icon
 from core.i18n import make_tr
-from core.logger import log_exception
+from core.logger import log_exception, T
 
 
 _tr = make_tr("GifDrawingToolbar")
@@ -220,7 +220,7 @@ class GifDrawingToolbar(QWidget):
             if arrow_settings and hasattr(self.arrow_panel, "arrow_style"):
                 self.arrow_panel.arrow_style = arrow_settings.get("arrow_style", "single")
         except Exception as e:
-            log_exception(e, "加载绘制工具样式")
+            log_exception(e, T("加载绘制工具样式"))
 
     # ── 面板定位 ──
 

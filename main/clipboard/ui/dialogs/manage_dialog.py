@@ -786,27 +786,27 @@ class ManageDialog(FrostedFramelessDialog):
 
     def _handle_group_reorder(self, old_index: int, new_index: int):
         """处理分组拖拽排序"""
-        from core.logger import log_debug, log_info, log_error, log_exception
+        from core.logger import T, log_debug, log_info, log_error, log_exception
 
-        log_debug(f"old_index={old_index}, new_index={new_index}", "拖拽分组")
+        log_debug(T("old_index={old_index}, new_index={new_index}", old_index=old_index, new_index=new_index), "GroupDrag")
 
         groups = self.manager.get_groups()
 
-        log_debug(f"当前有 {len(groups)} 个分组", "拖拽分组")
+        log_debug(T("当前有 {count} 个分组", count=len(groups)), "GroupDrag")
 
         if old_index <= 0 or old_index > len(groups):
-            log_error(f"索引越界: old_index={old_index}", "拖拽分组")
+            log_error(T("索引越界: old_index={old_index}", old_index=old_index), "GroupDrag")
             return
 
         old_pos = old_index - 1
         new_pos = new_index - 1 if new_index > 0 else 0
 
         if old_pos < 0 or old_pos >= len(groups):
-            log_error(f"调整后索引越界: old_pos={old_pos}", "拖拽分组")
+            log_error(T("调整后索引越界: old_pos={old_pos}", old_pos=old_pos), "GroupDrag")
             return
 
         moved_group = groups[old_pos]
-        log_debug(f"移动分组: ID={moved_group.id}, name={moved_group.name}", "拖拽分组")
+        log_debug(T("移动分组: ID={group_id}, name={group_name}", group_id=moved_group.id, group_name=moved_group.name), "GroupDrag")
 
         temp_groups = [g for i, g in enumerate(groups) if i != old_pos]
         adjusted_new_pos = new_pos if new_pos < old_pos else new_pos - 1
@@ -820,45 +820,45 @@ class ManageDialog(FrostedFramelessDialog):
         if adjusted_new_pos < len(temp_groups):
             after_id = temp_groups[adjusted_new_pos].id
 
-        log_debug(f"计算: before_id={before_id}, after_id={after_id}", "拖拽分组")
+        log_debug(T("计算: before_id={before_id}, after_id={after_id}", before_id=before_id, after_id=after_id), "GroupDrag")
 
         try:
             self.manager._manager.move_group_between(moved_group.id, before_id=before_id, after_id=after_id)
-            log_info(f"移动成功: ID={moved_group.id}, before={before_id}, after={after_id}", "拖拽分组")
+            log_info(T("移动成功: ID={group_id}, before={before_id}, after={after_id}", group_id=moved_group.id, before_id=before_id, after_id=after_id), "GroupDrag")
             self._refresh_group_list()
             self.group_added.emit()
         except Exception as e:
-            log_error(f"移动失败: {e}", "拖拽分组")
-            log_exception(e, "拖拽分组移动失败")
+            log_error(T("移动失败: {e}", e=e), "GroupDrag")
+            log_exception(e, T("拖拽分组移动失败"))
             self._refresh_group_list()
 
     def _handle_item_reorder(self, old_index: int, new_index: int):
         """处理内容拖拽排序"""
-        from core.logger import log_debug, log_info, log_error, log_exception
+        from core.logger import T, log_debug, log_info, log_error, log_exception
 
-        log_debug(f"old_index={old_index}, new_index={new_index}", "拖拽内容")
+        log_debug(T("old_index={old_index}, new_index={new_index}", old_index=old_index, new_index=new_index), "ItemDrag")
 
         if self.selected_group_id is None:
-            log_error("未选择分组", "拖拽内容")
+            log_error(T("未选择分组"), "ItemDrag")
             return
 
         items = self.manager.get_by_group(self.selected_group_id, offset=0, limit=1000)
 
-        log_debug(f"当前分组有 {len(items)} 个内容", "拖拽内容")
+        log_debug(T("当前分组有 {count} 个内容", count=len(items)), "ItemDrag")
 
         if old_index <= 0 or old_index > len(items):
-            log_error(f"索引越界: old_index={old_index}, items count={len(items)}", "拖拽内容")
+            log_error(T("索引越界: old_index={old_index}, items count={items_count}", old_index=old_index, items_count=len(items)), "ItemDrag")
             return
 
         old_pos = old_index - 1
         new_pos = new_index - 1 if new_index > 0 else 0
 
         if old_pos < 0 or old_pos >= len(items):
-            log_error(f"调整后索引越界: old_pos={old_pos}", "拖拽内容")
+            log_error(T("调整后索引越界: old_pos={old_pos}", old_pos=old_pos), "ItemDrag")
             return
 
         moved_item = items[old_pos]
-        log_debug(f"移动项: ID={moved_item.id}, title={moved_item.title or moved_item.content[:20]}", "拖拽内容")
+        log_debug(T("移动项: ID={item_id}, title={item_title}", item_id=moved_item.id, item_title=moved_item.title or moved_item.content[:20]), "ItemDrag")
 
         temp_items = [item for i, item in enumerate(items) if i != old_pos]
         adjusted_new_pos = new_pos if new_pos < old_pos else new_pos - 1
@@ -872,15 +872,15 @@ class ManageDialog(FrostedFramelessDialog):
         if adjusted_new_pos < len(temp_items):
             after_id = temp_items[adjusted_new_pos].id
 
-        log_debug(f"计算: before_id={before_id}, after_id={after_id}", "拖拽内容")
+        log_debug(T("计算: before_id={before_id}, after_id={after_id}", before_id=before_id, after_id=after_id), "ItemDrag")
 
         try:
             self.manager._manager.move_item_between(moved_item.id, before_id=before_id, after_id=after_id)
-            log_info(f"移动成功: ID={moved_item.id}, before={before_id}, after={after_id}", "拖拽内容")
+            log_info(T("移动成功: ID={item_id}, before={before_id}, after={after_id}", item_id=moved_item.id, before_id=before_id, after_id=after_id), "ItemDrag")
             self._refresh_content_list()
         except Exception as e:
-            log_error(f"移动失败: {e}", "拖拽内容")
-            log_exception(e, "拖拽内容移动失败")
+            log_error(T("移动失败: {e}", e=e), "ItemDrag")
+            log_exception(e, T("拖拽内容移动失败"))
             self._refresh_content_list()
 
     def _clear_detail_layout(self):

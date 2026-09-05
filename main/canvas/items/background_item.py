@@ -8,7 +8,7 @@
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QGraphicsPixmapItem
-from core.logger import log_debug
+from core.logger import log_debug, T
 
 
 class BackgroundItem(QGraphicsPixmapItem):
@@ -38,7 +38,7 @@ class BackgroundItem(QGraphicsPixmapItem):
         # 背景不可交互
         self.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
         
-        log_debug(f"背景层创建: scene_rect={scene_rect}, offset={self._scene_rect.topLeft()}", "Canvas")
+        log_debug(T("背景层创建: scene_rect={scene_rect}, offset={offset}", scene_rect=scene_rect, offset=self._scene_rect.topLeft()), "Canvas")
     
     def image(self) -> QImage:
         """获取背景图像（直接返回缓存，零开销）"""

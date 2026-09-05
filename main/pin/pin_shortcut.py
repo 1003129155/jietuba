@@ -12,6 +12,7 @@
 from PySide6.QtCore import QObject, Qt
 from PySide6.QtGui import QCursor
 from core import log_info, log_error
+from core.logger import T
 from core.shortcut_manager import ShortcutManager, ShortcutHandler, load_inapp_bindings
 
 
@@ -79,10 +80,10 @@ class _PinHandlerBase(ShortcutHandler):
         try:
             owner.translate_selection(text)
         except Exception as e:
-            log_error(f"钉图 OCR 选区翻译失败: {e}", "PinShortcut")
+            log_error(T("钉图 OCR 选区翻译失败: {e}", e=e), "PinShortcut")
             return False
 
-        log_info(f"钉图 OCR 选区已直接送入翻译: {len(text)} 字符", "PinShortcut")
+        log_info(T("钉图 OCR 选区已直接送入翻译: {count} 字符", count=len(text)), "PinShortcut")
         return True
 
 

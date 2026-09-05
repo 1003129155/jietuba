@@ -20,7 +20,9 @@ from datetime import datetime
 # ============================================================================
 # 日志目录（与 logger.py 保持一致）
 # ============================================================================
-_LOG_DIR = Path.home() / "AppData" / "Local" / "Jietuba" / "Logs"
+from core.constants import get_log_dir
+
+_LOG_DIR = get_log_dir()
 _CRASH_FILE = "crash.log"
 
 # faulthandler 输出文件句柄（模块级持有，防止被 GC）

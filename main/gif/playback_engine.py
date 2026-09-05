@@ -18,7 +18,7 @@ from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtGui import QImage
 
 from .frame_recorder import FrameData
-from core.logger import log_debug, log_error, log_info
+from core.logger import log_debug, log_error, log_info, T
 
 try:
     import gifrecorder
@@ -151,7 +151,7 @@ class PlaybackEngine(QObject):
         self._frames = []
         self._store = None
         self._state = PlayState.IDLE
-        log_debug("PlaybackEngine cleanup 完成", "PlaybackEngine")
+        log_debug(T("PlaybackEngine cleanup 完成"), "PlaybackEngine")
 
     def seek(self, index: int):
         index = max(self._trim_start, min(index, self._trim_end))
@@ -193,7 +193,7 @@ class PlaybackEngine(QObject):
         try:
             rgb = self._store.get_frame_rgb(index, display_width, display_height)
         except Exception as e:
-            log_error(f"get_frame_image 失败 idx={index}: {e}", "PlaybackEngine")
+            log_error(T("get_frame_image 失败 idx={index}: {e}", index=index, e=e), "PlaybackEngine")
             return None
         # .copy() 深拷贝像素到 QImage 内部，rgb 可安全释放
         return QImage(

@@ -31,7 +31,7 @@ from PySide6.QtWidgets import (
 )
 
 from core import safe_event
-from core.logger import log_debug, log_error, log_exception
+from core.logger import T, log_debug, log_error, log_exception
 from core.shortcut_manager import ShortcutHandler, ShortcutManager
 from ui.dialogs import show_confirm_dialog
 from ui.fluent_lite import LineEdit
@@ -158,7 +158,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
 
             I18nManager.instance().language_changed.connect(self._on_language_changed)
         except Exception as e:
-            log_debug(f"连接剪贴板语言切换信号失败: {e}", "I18n")
+            log_debug(T("连接剪贴板语言切换信号失败: {e}", e=e), "I18n")
 
         self._load_settings()
         self._load_window_geometry()
@@ -189,7 +189,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
     def request_data_refresh(self, reason: str = ""):
         if self._ignore_manage_refresh_when_hidden and not self.isVisible():
             reason_text = reason or "Clipboard data"
-            log_debug(f"{reason_text} 当前窗口不可见，跳过刷新界面", "Clipboard")
+            log_debug(T("{reason_text} 当前窗口不可见，跳过刷新界面", reason_text=reason_text), "Clipboard")
             return
         self._load_history()
 
@@ -217,7 +217,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
             self._apply_menu_btn_style()
             self._apply_time_filter_styles()
         self._refresh_list()
-        log_debug(f"主题已切换到: {self.current_theme.display_name}", "Clipboard")
+        log_debug(T("主题已切换到: {theme_name}", theme_name=self.current_theme.display_name), "Clipboard")
 
     def _load_settings(self):
         from settings import get_tool_settings_manager
@@ -304,7 +304,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
             default_width = config.get_app_setting("clipboard_window_width", 450)
             default_height = config.get_app_setting("clipboard_window_height", 600)
         except Exception as e:
-            log_exception(e, "加载剪贴板窗口几何设置")
+            log_exception(e, T("加载剪贴板窗口几何设置"))
             default_width = 450
             default_height = 600
 
@@ -403,7 +403,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
         try:
             line_height_padding = self.config.get_clipboard_line_height_padding()
         except Exception as e:
-            log_exception(e, "获取行高填充设置")
+            log_exception(e, T("获取行高填充设置"))
             line_height_padding = 8
         self._item_delegate = ClipboardItemDelegate(
             parent=self.list_widget,
@@ -753,7 +753,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
             self.controller._load_more_items()
 
     def _append_items(self, items: List[ClipboardItem]):
-        log_debug(f"📝 _append_items 被调用，准备追加 {len(items)} 条数据", "Clipboard")
+        log_debug(T("📝 _append_items 被调用，准备追加 {count} 条数据", count=len(items)), "Clipboard")
 
         self.list_widget.setUpdatesEnabled(False)
 
@@ -1069,9 +1069,9 @@ class ClipboardWindow(QWidget, FramelessMixin):
                 QTimer.singleShot(0, lambda p=file_path: os.startfile(p))
                 QTimer.singleShot(50, self.hide)
         except Exception as e:
-            from core.logger import log_warning
+            from core.logger import T, log_warning
 
-            log_warning(f"打开文件失败: {e}", "Clipboard")
+            log_warning(T("打开文件失败: {e}", e=e), "Clipboard")
 
     def _paste_item_to_clipboard(self, item_id: int):
         self.controller._previous_window_hwnd = get_foreground_window()
@@ -1157,9 +1157,9 @@ class ClipboardWindow(QWidget, FramelessMixin):
             elif os.path.exists(os.path.dirname(file_path)):
                 QTimer.singleShot(0, lambda p=os.path.dirname(file_path): subprocess.Popen(["explorer", p]))
         except Exception as e:
-            from core.logger import log_warning
+            from core.logger import T, log_warning
 
-            log_warning(f"打开文件位置失败: {e}", "Clipboard")
+            log_warning(T("打开文件位置失败: {e}", e=e), "Clipboard")
 
     def _on_clear_clicked(self):
         self.controller.clear_history(parent_widget=self)
@@ -1189,9 +1189,9 @@ class ClipboardWindow(QWidget, FramelessMixin):
             self.show()
             QApplication.processEvents()
             self.hide()
-            log_debug("剪贴板窗口离屏预热完成", "Clipboard")
+            log_debug(T("剪贴板窗口离屏预热完成"), "Clipboard")
         except Exception as e:
-            log_debug(f"剪贴板窗口离屏预热异常: {e}", "Clipboard")
+            log_debug(T("剪贴板窗口离屏预热异常: {e}", e=e), "Clipboard")
         finally:
             self.move(old_pos)
             self.setWindowOpacity(old_opacity)
@@ -1220,7 +1220,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
         QTimer.singleShot(0, self.group_bar.refresh_buttons)
         QTimer.singleShot(0, self._reveal_window)
         t_show_end = perf_counter()
-        log_debug(f"⏱️ 打开窗口耗时: {(t_show_end - t_show_start) * 1000:.1f} ms", "Clipboard")
+        log_debug(T("⏱️ 打开窗口耗时: {elapsed_ms:.1f} ms", elapsed_ms=(t_show_end - t_show_start) * 1000), "Clipboard")
 
     def _reveal_window(self):
         self.setWindowOpacity(1)

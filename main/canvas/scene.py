@@ -16,6 +16,7 @@ from tools import (
 )
 from settings import get_tool_settings_manager
 from core import log_debug
+from core.logger import T
 
 
 class CanvasScene(QGraphicsScene):
@@ -66,7 +67,7 @@ class CanvasScene(QGraphicsScene):
         # background.boundingRect() 返回的是 pixmap 本地坐标 (0,0,w,h)，不包含 offset
         self.setSceneRect(self.scene_rect)
         
-        log_debug(f"场景创建完成: scene_rect={self.scene_rect}, sceneRect()={self.sceneRect()}", "CanvasScene")
+        log_debug(T("场景创建完成: scene_rect={scene_rect}, sceneRect()={scene_rect_actual}", scene_rect=self.scene_rect, scene_rect_actual=self.sceneRect()), "CanvasScene")
         
         # 撤销栈 (命令模式)
         self.undo_stack = CommandUndoStack(self)
@@ -206,6 +207,6 @@ class CanvasScene(QGraphicsScene):
         # scene.items() 返回的是Z-order排序（上层在前），但我们需要绘制顺序
         drawing_items.reverse()
         
-        log_debug(f"选区内绘制项目: {len(drawing_items)} 个（已按绘制顺序排列）", "Scene")
+        log_debug(T("选区内绘制项目: {item_count} 个（已按绘制顺序排列）", item_count=len(drawing_items)), "Scene")
         return drawing_items
  

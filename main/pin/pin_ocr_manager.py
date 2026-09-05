@@ -7,7 +7,7 @@
 import time
 from PySide6.QtCore import QThread
 from core import log_debug, log_info, log_warning, log_error
-from core.logger import log_exception
+from core.logger import log_exception, T
 
 
 class _OCRThread(QThread):
@@ -37,10 +37,10 @@ class _OCRThread(QThread):
                 )
 
             elapsed = time.time() - start_time
-            log_debug(f"OCR处理完成，总耗时: {elapsed:.3f}秒", "OCR")
+            log_debug(T("OCR处理完成，总耗时: {elapsed:.3f}秒", elapsed=elapsed), "OCR")
         except Exception as e:
             elapsed = time.time() - start_time
-            log_error(f"识别失败: {e}，耗时: {elapsed:.3f}秒", "OCR")
+            log_error(T("识别失败: {e}，耗时: {elapsed:.3f}秒", e=e, elapsed=elapsed), "OCR")
             import traceback
             traceback.print_exc()
             self.result = None
@@ -113,29 +113,29 @@ class PinOCRManager:
                 return
 
             if not self._text_selection_enabled:
-                log_info("钉图文字选择已关闭，跳过 OCR 初始化", "OCR")
+                log_info(T("钉图文字选择已关闭，跳过 OCR 初始化"), "OCR")
                 return
 
             if not self._cfg.get_ocr_enabled():
-                log_info("OCR 功能已禁用，跳过初始化", "OCR")
+                log_info(T("OCR 功能已禁用，跳过初始化"), "OCR")
                 return
 
             if not is_ocr_available():
-                log_debug("OCR 模块不可用（无OCR版本），静默跳过", "OCR")
+                log_debug(T("OCR 模块不可用（无OCR版本），静默跳过"), "OCR")
                 return
 
             if not initialize_ocr():
-                log_warning("OCR 引擎初始化失败", "OCR")
+                log_warning(T("OCR 引擎初始化失败"), "OCR")
                 return
 
-            log_debug("OCR 引擎已就绪（支持中日韩英混合识别）", "OCR")
+            log_debug(T("OCR 引擎已就绪（支持中日韩英混合识别）"), "OCR")
 
             # 创建透明文字层
             self.ocr_text_layer = OCRTextLayer(self._win)
             cr = self._win.content_rect()
             self.ocr_text_layer.setGeometry(cr.toRect())
             self._apply_text_layer_enabled()
-            log_debug(f"OCR层初始化几何: {cr.toRect()}", "OCR")
+            log_debug(T("OCR层初始化几何: {rect}", rect=cr.toRect()), "OCR")
 
             # 立即启动异步识别
             self._start_recognition()
@@ -143,7 +143,7 @@ class PinOCRManager:
         except ImportError:
             pass  # OCR 模块不存在，静默跳过
         except Exception as e:
-            log_exception(e, "OCR初始化", silent=False)
+            log_exception(e, T("OCR初始化"), silent=False)
             import traceback
             traceback.print_exc()
 
@@ -162,7 +162,7 @@ class PinOCRManager:
         # 主线程获取图像（安全），传给子线程
         image = self._win.get_current_image()
 
-        log_debug("开始异步识别文字...", "OCR")
+        log_debug(T("开始异步识别文字..."), "OCR")
         self.ocr_thread = _OCRThread(image, parent=self._win)
         self.ocr_thread.finished.connect(
             lambda: self._on_finished(original_width, original_height)
@@ -176,22 +176,22 @@ class PinOCRManager:
             try:
                 is_closed = self._win._is_closed
             except RuntimeError:
-                log_debug("窗口C++对象已销毁，跳过OCR结果加载", "OCR")
+                log_debug(T("窗口C++对象已销毁，跳过OCR结果加载"), "OCR")
                 return
 
             if is_closed:
-                log_debug("窗口已关闭，跳过结果加载", "OCR")
+                log_debug(T("窗口已关闭，跳过结果加载"), "OCR")
                 return
 
             if self.ocr_text_layer is None:
-                log_debug("OCR 文字层已被清理，跳过结果加载", "OCR")
+                log_debug(T("OCR 文字层已被清理，跳过结果加载"), "OCR")
                 return
 
             # 检查文字层 C++ 对象是否还有效
             try:
                 _ = self.ocr_text_layer.isVisible
             except RuntimeError:
-                log_debug("OCR文字层C++对象已销毁，跳过结果加载", "OCR")
+                log_debug(T("OCR文字层C++对象已销毁，跳过结果加载"), "OCR")
                 return
 
             if self.ocr_thread is None:
@@ -211,12 +211,12 @@ class PinOCRManager:
 
                     if self._translate_pending:
                         self._translate_pending = False
-                        log_info("OCR 完成，执行等待中的翻译", "Translate")
+                        log_info(T("OCR 完成，执行等待中的翻译"), "Translate")
                         self._win._on_translate_clicked()
 
-                log_info(f"钉图文字层已就绪，识别到 {text_count} 个文字块", "OCR")
+                log_info(T("钉图文字层已就绪，识别到 {text_count} 个文字块", text_count=text_count), "OCR")
         except Exception as e:
-            log_error(f"加载OCR结果失败: {e}", "OCR")
+            log_error(T("加载OCR结果失败: {e}", e=e), "OCR")
             import traceback
             traceback.print_exc()
         finally:
@@ -225,7 +225,7 @@ class PinOCRManager:
                     self.ocr_thread.deleteLater()
                     self.ocr_thread = None
             except Exception as e:
-                log_exception(e, "清理OCR线程")
+                log_exception(e, T("清理OCR线程"))
 
     # ------------------------------------------------------------------
     # 清理
@@ -237,7 +237,7 @@ class PinOCRManager:
         if self.ocr_thread is not None:
             try:
                 if self.ocr_thread.isRunning():
-                    log_warning("窗口关闭，OCR 线程仍在运行，将其安全分离...", "OCR")
+                    log_warning(T("窗口关闭，OCR 线程仍在运行，将其安全分离..."), "OCR")
                     from core.qt_utils import safe_disconnect
                     safe_disconnect(self.ocr_thread.finished)
                     self.ocr_thread.setParent(None)
@@ -248,7 +248,7 @@ class PinOCRManager:
                 else:
                     self.ocr_thread.deleteLater()
             except Exception as e:
-                log_exception(e, "清理OCR线程")
+                log_exception(e, T("清理OCR线程"))
             finally:
                 self.ocr_thread = None
 
@@ -260,7 +260,7 @@ class PinOCRManager:
                     self.ocr_text_layer.cleanup()
                 self.ocr_text_layer.deleteLater()
             except Exception as e:
-                log_exception(e, "清理OCR文字层")
+                log_exception(e, T("清理OCR文字层"))
             finally:
                 self.ocr_text_layer = None
 

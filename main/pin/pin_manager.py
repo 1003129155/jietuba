@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt, QObject, Signal, QPoint
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QApplication
 from core import log_debug, log_info, log_error
+from core.logger import T
 
 import ctypes
 _user32 = ctypes.windll.user32
@@ -68,7 +69,7 @@ class PinManager(QObject):
         self._topmost_suppressed = False    # 是否已压制置顶
         self._suppressed_pins: List = []    # 被压制的 pin 窗口列表（用于精确恢复）
         
-        log_info("钉图管理器已初始化", "PinManager")
+        log_info(T("钉图管理器已初始化"), "PinManager")
     
     def create_pin(
         self,
@@ -114,7 +115,7 @@ class PinManager(QObject):
         # 发送创建信号
         self.pin_created.emit(pin_window)
         
-        log_debug(f"钉图已创建 (共 {len(self.pin_windows)} 个)", "PinManager")
+        log_debug(T("钉图已创建 (共 {count} 个)", count=len(self.pin_windows)), "PinManager")
         
         return pin_window
     
@@ -124,12 +125,12 @@ class PinManager(QObject):
             self.pin_windows.remove(pin_window)
             self.pin_closed.emit(pin_window)
             
-            log_debug(f"钉图已关闭 (剩余 {len(self.pin_windows)} 个)", "PinManager")
-            
+            log_debug(T("钉图已关闭 (剩余 {count} 个)", count=len(self.pin_windows)), "PinManager")
+
             # 如果所有钉图都关闭了，发送信号
             if len(self.pin_windows) == 0:
                 self.all_pins_closed.emit()
-                log_debug("所有钉图已关闭", "PinManager")
+                log_debug(T("所有钉图已关闭"), "PinManager")
     
     def remove_pin(self, pin_window):
         """
@@ -140,29 +141,29 @@ class PinManager(QObject):
         """
         if pin_window in self.pin_windows:
             self.pin_windows.remove(pin_window)
-            log_debug(f"钉图已移除 (剩余 {len(self.pin_windows)} 个)", "PinManager")
+            log_debug(T("钉图已移除 (剩余 {count} 个)", count=len(self.pin_windows)), "PinManager")
     
     def close_all(self):
         """关闭所有钉图窗口"""
         if len(self.pin_windows) == 0:
-            log_debug("没有钉图窗口需要关闭", "PinManager")
+            log_debug(T("没有钉图窗口需要关闭"), "PinManager")
             return
-        
-        log_debug(f"开始关闭 {len(self.pin_windows)} 个钉图窗口...", "PinManager")
-        
+
+        log_debug(T("开始关闭 {count} 个钉图窗口...", count=len(self.pin_windows)), "PinManager")
+
         # 复制列表，避免在迭代时修改
         pins_to_close = self.pin_windows.copy()
-        
+
         for pin_window in pins_to_close:
             try:
                 pin_window.close_window()
             except Exception as e:
-                log_error(f"关闭钉图窗口失败: {e}", "PinManager")
-        
+                log_error(T("关闭钉图窗口失败: {e}", e=e), "PinManager")
+
         # 清空列表
         self.pin_windows.clear()
-        
-        log_debug("所有钉图窗口已关闭", "PinManager")
+
+        log_debug(T("所有钉图窗口已关闭"), "PinManager")
         self.all_pins_closed.emit()
     
     def get_all_pins(self) -> List:
@@ -197,14 +198,14 @@ class PinManager(QObject):
         for pin_window in self.pin_windows:
             pin_window.show()
         
-        log_debug(f"显示了 {len(self.pin_windows)} 个钉图窗口", "PinManager")
+        log_debug(T("显示了 {count} 个钉图窗口", count=len(self.pin_windows)), "PinManager")
     
     def hide_all(self):
         """隐藏所有钉图窗口"""
         for pin_window in self.pin_windows:
             pin_window.hide()
         
-        log_debug(f"隐藏了 {len(self.pin_windows)} 个钉图窗口", "PinManager")
+        log_debug(T("隐藏了 {count} 个钉图窗口", count=len(self.pin_windows)), "PinManager")
 
     def move_all_to_screen_center(self):
         """移动所有钉图窗口到各自所在屏幕的中心。"""
@@ -221,9 +222,9 @@ class PinManager(QObject):
                 y = screen_rect.y() + (screen_rect.height() - pin_window.height()) // 2
                 pin_window.move(x, y)
             except Exception as e:
-                log_error(f"移动钉图到屏幕中心失败: {e}", "PinManager")
+                log_error(T("移动钉图到屏幕中心失败: {e}", e=e), "PinManager")
 
-        log_debug(f"已移动 {len(self.pin_windows)} 个钉图到屏幕中心", "PinManager")
+        log_debug(T("已移动 {count} 个钉图到屏幕中心", count=len(self.pin_windows)), "PinManager")
 
     def set_all_thumbnail_mode(self, active: bool):
         """批量进入或退出缩略图模式。"""
@@ -234,10 +235,12 @@ class PinManager(QObject):
                     pin_window.toggle_thumbnail_mode()
                     changed += 1
             except Exception as e:
-                log_error(f"切换钉图缩略图模式失败: {e}", "PinManager")
+                log_error(T("切换钉图缩略图模式失败: {e}", e=e), "PinManager")
 
-        mode = "进入" if active else "退出"
-        log_debug(f"{changed} 个钉图已{mode}缩略图模式", "PinManager")
+        if active:
+            log_debug(T("{changed} 个钉图已进入缩略图模式", changed=changed), "PinManager")
+        else:
+            log_debug(T("{changed} 个钉图已退出缩略图模式", changed=changed), "PinManager")
 
     def save_all_to_directory(self, directory: str, prefix: str = "pins") -> Tuple[int, int]:
         """
@@ -269,12 +272,12 @@ class PinManager(QObject):
                     saved += 1
                 else:
                     failed += 1
-                    log_error(f"保存钉图失败: {file_path}", "PinManager")
+                    log_error(T("保存钉图失败: {file_path}", file_path=file_path), "PinManager")
             except Exception as e:
                 failed += 1
-                log_error(f"保存钉图失败: {e}", "PinManager")
+                log_error(T("保存钉图失败: {e}", e=e), "PinManager")
 
-        log_info(f"批量保存钉图完成: 成功 {saved}, 失败 {failed}", "PinManager")
+        log_info(T("批量保存钉图完成: 成功 {saved}, 失败 {failed}", saved=saved, failed=failed), "PinManager")
         return saved, failed
     
     # ------------------------------------------------------------------
@@ -292,7 +295,7 @@ class PinManager(QObject):
                 _user32.SetWindowPos(hwnd, _HWND_NOTOPMOST, 0, 0, 0, 0, _SWP_FLAGS)
                 self._suppressed_pins.append(pin)
         if self._suppressed_pins:
-            log_debug(f"已压制 {len(self._suppressed_pins)} 个钉图的置顶状态", "PinManager")
+            log_debug(T("已压制 {count} 个钉图的置顶状态", count=len(self._suppressed_pins)), "PinManager")
 
     def restore_topmost(self):
         """恢复被压制的 pin 窗口为 TOPMOST。"""
@@ -309,10 +312,10 @@ class PinManager(QObject):
 
     def cleanup(self):
         """清理管理器（应用退出时调用）"""
-        log_debug("清理管理器...", "PinManager")
+        log_debug(T("清理管理器..."), "PinManager")
         self.close_all()
         PinManager._instance = None
-        log_info("管理器已清理", "PinManager")
+        log_info(T("管理器已清理"), "PinManager")
 
 
 # 便捷函数

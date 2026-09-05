@@ -84,8 +84,8 @@ class _TransAnim(QWidget):
             from core.i18n import I18nManager
             lang = I18nManager.get_current_language()
         except Exception as e:
-            from core.logger import log_exception
-            log_exception(e, "获取当前语言")
+            from core.logger import log_exception, T
+            log_exception(e, T("获取当前语言"))
             lang = "zh"
         row = _DEMO_MAP.get(lang, _DEMO_DEFAULT)
         self._src_text, self._src_lang, self._dst_text, self._dst_lang = row

@@ -15,7 +15,7 @@ from PySide6.QtGui import QPainter, QImage, QPixmap, QTransform
 
 from canvas import CanvasScene
 from core import log_info, log_warning, log_error, log_debug
-from core.logger import log_exception
+from core.logger import log_exception, T
 
 
 class PinCanvas(QObject):
@@ -99,14 +99,14 @@ class PinCanvas(QObject):
 
                     inherited_count += 1
                 else:
-                    log_warning(f"克隆失败: {item_type} - 返回None", "PinCanvas")
-                    
+                    log_warning(T("克隆失败: {item_type} - 返回None", item_type=item_type), "PinCanvas")
+
             except Exception as e:
-                log_warning(f"继承项目失败: {e}", "PinCanvas")
+                log_warning(T("继承项目失败: {e}", e=e), "PinCanvas")
                 import traceback
                 traceback.print_exc()
-        
-        log_info(f"成功继承 {inherited_count}/{len(drawing_items)} 个绘制项目", "PinCanvas")
+
+        log_info(T("成功继承 {inherited_count}/{total_count} 个绘制项目", inherited_count=inherited_count, total_count=len(drawing_items)), "PinCanvas")
         
         # 同步序号计数器：直接使用源场景的下一个序号值
         if number_next is not None:
@@ -120,9 +120,9 @@ class PinCanvas(QObject):
         from tools.number import NumberTool
         try:
             NumberTool.set_next_number_and_refresh(self.scene, int(number_next))
-            log_debug(f"同步序号计数器: next={number_next}", "PinCanvas")
+            log_debug(T("同步序号计数器: next={number_next}", number_next=number_next), "PinCanvas")
         except Exception as e:
-            log_warning(f"同步序号计数器失败: {e}", "PinCanvas")
+            log_warning(T("同步序号计数器失败: {e}", e=e), "PinCanvas")
     
     def _clone_graphics_item(self, item):
         """
@@ -161,11 +161,11 @@ class PinCanvas(QObject):
             elif isinstance(item, NumberItem):
                 return self._clone_number_item(item)
             else:
-                log_warning(f"不支持的item类型: {item_type}", "PinCanvas")
+                log_warning(T("不支持的item类型: {item_type}", item_type=item_type), "PinCanvas")
                 return None
-                
+
         except Exception as e:
-            log_warning(f"克隆item失败 ({item_type}): {e}", "PinCanvas")
+            log_warning(T("克隆item失败 ({item_type}): {e}", item_type=item_type, e=e), "PinCanvas")
             import traceback
             traceback.print_exc()
             return None
@@ -178,19 +178,19 @@ class PinCanvas(QObject):
                 new_pos = QPointF(src_pos.x() + offset_x, src_pos.y() + offset_y)
                 cloned_item.setPos(new_pos)
         except Exception as e:
-            log_exception(e, "克隆项设置位置")
+            log_exception(e, T("克隆项设置位置"))
 
         try:
             if hasattr(source_item, "zValue") and hasattr(cloned_item, "setZValue"):
                 cloned_item.setZValue(source_item.zValue())
         except Exception as e:
-            log_exception(e, "克隆项设置Z值")
+            log_exception(e, T("克隆项设置Z值"))
 
         try:
             if hasattr(source_item, "opacity") and hasattr(cloned_item, "setOpacity"):
                 cloned_item.setOpacity(float(source_item.opacity()))
         except Exception as e:
-            log_exception(e, "克隆项设置透明度")
+            log_exception(e, T("克隆项设置透明度"))
 
     def _capture_item_state(self, item):
         state = {}
@@ -201,39 +201,39 @@ class PinCanvas(QObject):
             try:
                 state["transform"] = QTransform(item.transform())
             except Exception as e:
-                log_exception(e, "捕获item transform")
+                log_exception(e, T("捕获item transform"))
         if hasattr(item, "rotation"):
             try:
                 state["rotation"] = float(item.rotation())
             except Exception as e:
-                log_exception(e, "捕获item rotation")
+                log_exception(e, T("捕获item rotation"))
         if hasattr(item, "transformOriginPoint"):
             try:
                 origin = item.transformOriginPoint()
                 state["transformOriginPoint"] = QPointF(origin.x(), origin.y())
             except Exception as e:
-                log_exception(e, "捕获item transformOriginPoint")
+                log_exception(e, T("捕获item transformOriginPoint"))
         if hasattr(item, "opacity"):
             try:
                 state["opacity"] = float(item.opacity())
             except Exception as e:
-                log_exception(e, "捕获item opacity")
+                log_exception(e, T("捕获item opacity"))
         if hasattr(item, "rect") and callable(getattr(item, "rect")):
             try:
                 rect = QRectF(item.rect())
                 state["rect"] = rect
             except Exception as e:
-                log_exception(e, "捕获item rect")
+                log_exception(e, T("捕获item rect"))
         if hasattr(item, "start_pos"):
             try:
                 state["start"] = QPointF(item.start_pos)
             except Exception as e:
-                log_exception(e, "捕获item start_pos")
+                log_exception(e, T("捕获item start_pos"))
         if hasattr(item, "end_pos"):
             try:
                 state["end"] = QPointF(item.end_pos)
             except Exception as e:
-                log_exception(e, "捕获item end_pos")
+                log_exception(e, T("捕获item end_pos"))
         return state
 
     def _build_final_state(self, source_item, base_state):
@@ -243,25 +243,25 @@ class PinCanvas(QObject):
                 origin = source_item.transformOriginPoint()
                 final_state["transformOriginPoint"] = QPointF(origin.x(), origin.y())
         except Exception as e:
-            log_exception(e, "构建final state transformOriginPoint")
+            log_exception(e, T("构建final state transformOriginPoint"))
 
         try:
             if hasattr(source_item, "rotation"):
                 final_state["rotation"] = float(source_item.rotation())
         except Exception as e:
-            log_exception(e, "构建final state rotation")
+            log_exception(e, T("构建final state rotation"))
 
         try:
             if hasattr(source_item, "transform"):
                 final_state["transform"] = QTransform(source_item.transform())
         except Exception as e:
-            log_exception(e, "构建final state transform")
+            log_exception(e, T("构建final state transform"))
 
         try:
             if hasattr(source_item, "opacity"):
                 final_state["opacity"] = float(source_item.opacity())
         except Exception as e:
-            log_exception(e, "构建final state opacity")
+            log_exception(e, T("构建final state opacity"))
 
         return final_state
 
@@ -302,7 +302,7 @@ class PinCanvas(QObject):
             if hasattr(item, "brush"):
                 cloned.setBrush(item.brush())
         except Exception as e:
-            log_exception(e, "克隆矩形brush")
+            log_exception(e, T("克隆矩形brush"))
 
         # 保留荧光笔矩形标记
         if getattr(item, "is_highlighter_rect", False):
@@ -458,7 +458,7 @@ class PinCanvas(QObject):
             if getattr(self.parent_window, 'toolbar', None):
                 self.parent_window.toolbar.on_parent_editing_state_changed(editing_mode)
         except Exception as e:
-            log_error(f"工具激活失败: {e}", "PinCanvas")
+            log_error(T("工具激活失败: {e}", e=e), "PinCanvas")
             import traceback
             traceback.print_exc()
             self.is_editing = False
@@ -611,6 +611,9 @@ class PinCanvas(QObject):
         if abs(new - prev) > 1e-6 and prev > 0 and new > 0:
             if view and hasattr(view, '_apply_size_change_to_selection'):
                 view._apply_size_change_to_selection(new / prev)
+        # 与截图窗口保持一致：线宽变化后刷新画笔光标的大小预览
+        if view and getattr(view, 'cursor_manager', None):
+            view.cursor_manager.update_tool_cursor_size(int(width))
 
     def _on_opacity_changed(self, opacity_int, view):
         """透明度改变（0-255）"""
@@ -672,14 +675,21 @@ class PinCanvas(QObject):
 
     # ==================== 样式管理方法 ====================
 
+    # 三个设置方法必须统一走 scene.update_style()，不能直连 tool_controller。
+    # scene.update_style() 除了改 ToolContext，还会发出 cursor_color_update_requested /
+    # cursor_opacity_update_requested，CanvasView 靠这两个信号刷新画笔光标预览。
+    # 之前 set_color / set_stroke_width 直接调 tool_controller.update_style()，
+    # 信号发不出来，钉图窗口里改颜色后光标仍显示旧样式（只有透明度是对的，
+    # 因为 set_opacity 走的是 scene）；截图窗口没这个问题，是因为它三个都走 scene。
+
     def set_color(self, color):
         """设置当前颜色"""
-        self.tool_controller.update_style(color=color)
-    
+        self.scene.update_style(color=color)
+
     def set_stroke_width(self, width: int):
         """设置当前线宽"""
-        self.tool_controller.update_style(width=width)
-    
+        self.scene.update_style(width=width)
+
     def set_opacity(self, opacity: float):
         """设置当前透明度"""
         self.scene.update_style(opacity=opacity)
@@ -738,14 +748,14 @@ class PinCanvas(QObject):
             # 先退出编辑模式（此时scene还存在）
             self.deactivate_tool()
         except Exception as e:
-            log_warning(f"退出编辑模式时出错: {e}", "PinCanvas")
-        
+            log_warning(T("退出编辑模式时出错: {e}", e=e), "PinCanvas")
+
         # 清理撤销栈（打破循环引用：commands → items → scene）
         if hasattr(self, 'undo_stack') and self.undo_stack:
             try:
                 self.undo_stack.clear()  # 清空所有命令，释放对items的引用
             except Exception as e:
-                log_warning(f"清空撤销栈时出错: {e}", "PinCanvas")
+                log_warning(T("清空撤销栈时出错: {e}", e=e), "PinCanvas")
         
         # 清理工具控制器（释放当前工具对items的引用）
         if hasattr(self, 'tool_controller') and self.tool_controller:
@@ -755,14 +765,14 @@ class PinCanvas(QObject):
                     self.tool_controller.current_tool.on_deactivate(self.tool_controller.ctx)
                     self.tool_controller.current_tool = None
             except Exception as e:
-                log_warning(f"停用工具控制器时出错: {e}", "PinCanvas")
+                log_warning(T("停用工具控制器时出错: {e}", e=e), "PinCanvas")
         
         # 清理场景
         if hasattr(self, 'scene') and self.scene:
             try:
                 self.scene.deleteLater()
             except Exception as e:
-                log_warning(f"标记场景删除时出错: {e}", "PinCanvas")
+                log_warning(T("标记场景删除时出错: {e}", e=e), "PinCanvas")
             finally:
                 self.scene = None
         

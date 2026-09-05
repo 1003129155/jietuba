@@ -17,7 +17,7 @@ from .composer import ComposerProgressDialog
 from .cursor_overlay import CursorOverlay
 
 try:
-    from core.logger import log_debug, log_info, log_warning, log_error, log_exception
+    from core.logger import log_debug, log_info, log_warning, log_error, log_exception, T
 except ImportError:
     import logging
     _l = logging.getLogger("GIF")
@@ -25,6 +25,7 @@ except ImportError:
     log_warning = _l.warning
     log_error = _l.error
     log_exception = lambda e, ctx="": _l.error(f"{ctx}: {e}")
+    T = lambda template, **kwargs: template.format(**kwargs) if kwargs else template
 
 
 class PlaybackController(QObject):
@@ -98,7 +99,7 @@ class PlaybackController(QObject):
 
     def start_playback(self, frames):
         """创建回放引擎、预览层、工具栏，进入回放模式。"""
-        log_info(f"切换到回放模式, {len(frames)} 帧", "GIF")
+        log_info(T("切换到回放模式, {frame_count} 帧", frame_count=len(frames)), "GIF")
 
         # ── 创建预览层（在 overlay 之上显示帧图像）──
         self._preview_label = QLabel()
@@ -112,7 +113,7 @@ class PlaybackController(QObject):
         self._preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._preview_label.setGeometry(self._rect)
         self._preview_label.show()
-        log_debug(f"预览层创建, geometry={self._rect}", "GIF")
+        log_debug(T("预览层创建, geometry={geometry}", geometry=self._rect), "GIF")
 
         # ── 创建鼠标光标覆盖层（在预览层之上）──
         self._cursor_overlay = CursorOverlay()
@@ -233,20 +234,20 @@ class PlaybackController(QObject):
         if not self._engine:
             return
         if self._engine.is_playing:
-            log_debug("回放暂停", "GIF")
+            log_debug(T("回放暂停"), "GIF")
             self._engine.pause()
         else:
-            log_debug("回放开始", "GIF")
+            log_debug(T("回放开始"), "GIF")
             self._engine.play()
 
     def _on_speed_changed(self, speed: float):
-        log_debug(f"回放速度: {speed}", "GIF")
+        log_debug(T("回放速度: {speed}", speed=speed), "GIF")
         self._export_speed = speed
         if self._engine:
             self._engine.set_speed(speed)
 
     def _on_seek(self, index: int):
-        log_debug(f"跳转帧: {index}", "GIF")
+        log_debug(T("跳转帧: {index}", index=index), "GIF")
         if self._engine:
             self._engine.seek(index)
             if not self._engine.is_playing:
@@ -258,7 +259,7 @@ class PlaybackController(QObject):
 
     def _on_rerecord(self):
         """重新录制 — 由 GifRecordWindow 处理具体重置逻辑"""
-        log_info("重新录制（回放控制器）", "GIF")
+        log_info(T("重新录制（回放控制器）"), "GIF")
         self.teardown()
         QApplication.processEvents()
         self.rerecord_requested.emit()
@@ -280,7 +281,7 @@ class PlaybackController(QObject):
             self._preview_label.setPixmap(QPixmap.fromImage(img))
             self._update_cursor_for_frame(index)
         except Exception as e:
-            log_error(f"帧渲染失败 index={index}: {e}", "GIF")
+            log_error(T("帧渲染失败 index={index}: {e}", index=index, e=e), "GIF")
 
     def _on_frame_ready(self, img: QImage, index: int):
         """常驻解码器吐帧回调 — 直接上屏"""
@@ -305,7 +306,7 @@ class PlaybackController(QObject):
         self._playback_toolbar.set_playhead(index, total, fps, current_ms=current_ms)
 
     def _on_playback_finished(self):
-        log_debug("回放结束", "GIF")
+        log_debug(T("回放结束"), "GIF")
         start = self._engine.trim_start if self._engine else 0
         if self._engine:
             self._engine.seek(start)
@@ -353,7 +354,7 @@ class PlaybackController(QObject):
             self._preview_label.hide()
             self._preview_label.deleteLater()
             self._preview_label = None
-            log_debug("预览层销毁", "GIF")
+            log_debug(T("预览层销毁"), "GIF")
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # 导出：保存 / 复制
@@ -370,35 +371,43 @@ class PlaybackController(QObject):
             None, "保存 GIF", "", "GIF 动图 (*.gif)"
         )
         if not path:
-            log_debug("保存取消", "GIF")
+            log_debug(T("保存取消"), "GIF")
             return
-        log_info(f"保存 GIF: {path}", "GIF")
+        log_info(T("保存 GIF: {path}", path=path), "GIF")
         self._compose_and_export(path, copy_to_clipboard=False)
 
     def _on_copy(self):
         out = self._make_save_path()
-        log_info(f"复制 GIF → {out}", "GIF")
+        log_info(T("复制 GIF → {out}", out=out), "GIF")
         self._compose_and_export(out, copy_to_clipboard=True)
 
     def _compose_and_export(self, output_path: str, copy_to_clipboard: bool):
         """弹出进度框导出 GIF，完成后写文件或复制到剪贴板"""
         frames = self._recorder.frames
         store = self._recorder.store
-        log_info(
-            f"开始导出 GIF: frames={len(frames)}, "
-            f"copy={copy_to_clipboard}, store={'有' if store else '无'}",
-            "GIF",
-        )
+        if store:
+            log_info(
+                T("开始导出 GIF: frames={frame_count}, copy={copy_to_clipboard}, store=有",
+                  frame_count=len(frames), copy_to_clipboard=copy_to_clipboard),
+                "GIF",
+            )
+        else:
+            log_info(
+                T("开始导出 GIF: frames={frame_count}, copy={copy_to_clipboard}, store=无",
+                  frame_count=len(frames), copy_to_clipboard=copy_to_clipboard),
+                "GIF",
+            )
 
         if not frames:
-            log_warning("帧列表为空，中止导出", "GIF")
+            log_warning(T("帧列表为空，中止导出"), "GIF")
             return
 
         # ── 获取修剪范围 ──
         trim_start, trim_end = self._get_trim_range()
         trim_start = max(0, min(trim_start, len(frames) - 1))
         trim_end   = max(trim_start, min(trim_end, len(frames) - 1))
-        log_info(f"导出裁剪范围: [{trim_start}, {trim_end}]，共 {trim_end - trim_start + 1} 帧", "GIF")
+        log_info(T("导出裁剪范围: [{trim_start}, {trim_end}]，共 {frame_count} 帧",
+                    trim_start=trim_start, trim_end=trim_end, frame_count=trim_end - trim_start + 1), "GIF")
 
         # ── 准备鼠标光标导出参数 ──
         cursor_sprites = None
@@ -428,7 +437,8 @@ class PlaybackController(QObject):
                     ))
 
             n_active = sum(1 for c in cursor_infos[trim_start:trim_end + 1] if c is not None)
-            log_info(f"鼠标导出: {n_active}/{trim_end - trim_start + 1} 帧有光标", "GIF")
+            log_info(T("鼠标导出: {n_active}/{frame_count} 帧有光标",
+                        n_active=n_active, frame_count=trim_end - trim_start + 1), "GIF")
 
         result = ComposerProgressDialog.run_compose(
             path=output_path,
@@ -445,10 +455,10 @@ class PlaybackController(QObject):
         cursor_infos = None
 
         if result is None:
-            log_warning("GIF 导出取消或失败", "GIF")
+            log_warning(T("GIF 导出取消或失败"), "GIF")
             return
 
-        log_info(f"GIF 导出完成: {result}", "GIF")
+        log_info(T("GIF 导出完成: {result}", result=result), "GIF")
 
         if copy_to_clipboard:
             self._copy_file_to_clipboard(output_path, mime_type="image/gif")
@@ -467,9 +477,10 @@ class PlaybackController(QObject):
             mime.setUrls([QUrl.fromLocalFile(path)])
             mime.setData(mime_type, data_bytes)
             clipboard.setMimeData(mime)
-            log_info(f"已复制到剪贴板 [{mime_type}], 大小={len(data_bytes)} bytes", "GIF")
+            log_info(T("已复制到剪贴板 [{mime_type}], 大小={size} bytes",
+                        mime_type=mime_type, size=len(data_bytes)), "GIF")
         except Exception as e:
-            log_error(f"复制到剪贴板失败: {e}", "GIF")
+            log_error(T("复制到剪贴板失败: {e}", e=e), "GIF")
 
     @staticmethod
     def _make_save_path() -> str:
@@ -479,7 +490,7 @@ class PlaybackController(QObject):
             from settings.tool_settings import ToolSettingsManager
             save_dir = ToolSettingsManager().get_screenshot_save_path()
         except Exception as e:
-            log_exception(e, "获取截图保存路径")
+            log_exception(e, T("获取截图保存路径"))
             save_dir = os.path.join(os.path.expanduser("~"), "Desktop")
 
         os.makedirs(save_dir, exist_ok=True)

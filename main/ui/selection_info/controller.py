@@ -13,7 +13,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QRectF, QTimer
-from core import log_debug
+from core import log_debug, T
 from capture.capture_service import CaptureService
 
 from .hook_manager import HookManager
@@ -202,7 +202,7 @@ class SelectionInfoController:
             win.original_image = new_image
             win.scene.background.update_image(new_image)
         except Exception as e:
-            log_debug(f"刷新背景失败: {e}")
+            log_debug(T("刷新背景失败: {e}", e=e))
 
     # ------------------------------------------------------------------
     # 清理

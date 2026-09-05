@@ -19,7 +19,7 @@ import math
 
 from PySide6.QtWidgets import QWidget
 
-from core.logger import log_exception
+from core.logger import log_exception, T
 from core import safe_event
 from PySide6.QtCore import Qt, QRect, QPoint, QPointF, QRectF, QTimer
 from PySide6.QtGui import QPainter, QColor, QBrush, QPen, QPainterPath, QImage
@@ -66,7 +66,7 @@ class CursorOverlay(QWidget):
             style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
             user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style | WS_EX_TRANSPARENT)
         except Exception as e:
-            log_exception(e, "设置光标覆盖层透明")
+            log_exception(e, T("设置光标覆盖层透明"))
 
         # 懒加载 SVG（类级别，只加载一次）
         if CursorOverlay._svg_renderer is None:

@@ -7,7 +7,7 @@ from PySide6.QtGui import QColor, QPainter, QPen, QIcon, QFont
 from ui.fluent_lite import ComboBox
 
 from core.i18n import make_tr
-from core.logger import log_exception
+from core.logger import log_exception, T
 from core import safe_event
 
 if __package__:
@@ -230,7 +230,7 @@ class _WelcomeIllus(IllustrationArea):
                 self._icon_lbl.setPixmap(px)
                 return
         except Exception as e:
-            log_exception(e, "加载托盘图标")
+            log_exception(e, T("加载托盘图标"))
         self._icon_lbl.setText("J")
         self._icon_lbl.setProperty("welcomeFallbackIcon", True)
 
@@ -342,7 +342,7 @@ class WelcomePage(BasePage):
             from core.i18n import I18nManager
             I18nManager.load_language(code)
         except Exception as e:
-            log_exception(e, "加载语言")
+            log_exception(e, T("加载语言"))
         # 保存到 config
         self._config.set_app_setting("language", code)
         # 通知父 wizard 刷新所有页面标题（如果父是 WelcomeWizard）
@@ -378,7 +378,7 @@ class WelcomePage(BasePage):
             self._config.set_app_setting("ui_theme_mode", mode)
             get_ui_theme().set_mode(mode, persist=False)
         except Exception as e:
-            log_exception(e, "切换界面主题")
+            log_exception(e, T("切换界面主题"))
 
     def _find_wizard(self):
         """向上找到 WelcomeWizard 实例（在 QStackedWidget 里）"""

@@ -20,13 +20,14 @@ from .record_toolbar import RecordToolbar
 from .playback_controller import PlaybackController
 
 try:
-    from core.logger import log_debug, log_info, log_warning, log_error, log_exception
+    from core.logger import log_debug, log_info, log_warning, log_error, log_exception, T
 except ImportError:
     import logging
     _l = logging.getLogger("GIF")
     log_debug = log_info = _l.info
     log_warning = _l.warning
     log_error = _l.error
+    T = lambda template, **kwargs: template.format(**kwargs) if kwargs else template
 
 from core.platform_utils import request_trim_working_set as _request_trim
 
@@ -48,7 +49,7 @@ class GifRecordWindow(QObject):
         super().__init__(parent)
         self._rect = QRect(capture_rect)
         self._state = AppState.IDLE
-        log_info(f"GifRecordWindow 初始化, 区域={capture_rect}", "GIF")
+        log_info(T("GifRecordWindow 初始化, 区域={capture_rect}", capture_rect=capture_rect), "GIF")
 
         # ── 录制器 ──
         self._recorder = FrameRecorder()
@@ -83,7 +84,7 @@ class GifRecordWindow(QObject):
 
         # 初始穿透
         self._enter_state(AppState.IDLE)
-        log_debug("GifRecordWindow 初始化完成", "GIF")
+        log_debug(T("GifRecordWindow 初始化完成"), "GIF")
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # 信号连接
@@ -234,7 +235,7 @@ class GifRecordWindow(QObject):
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     def _on_fps_changed(self, fps: int):
-        log_debug(f"FPS 切换: {fps}", "GIF")
+        log_debug(T("FPS 切换: {fps}", fps=fps), "GIF")
         self._recorder.set_fps(fps)
 
     def _on_record_frame_count(self, count: int):
@@ -245,7 +246,7 @@ class GifRecordWindow(QObject):
 
     def _on_record_start(self):
         fps = self._record_toolbar.get_current_fps()
-        log_info(f"开始录制, fps={fps}, 区域={self._rect}", "GIF")
+        log_info(T("开始录制, fps={fps}, 区域={rect}", fps=fps, rect=self._rect), "GIF")
         self._recorder.set_fps(fps)
         self._recorder.set_rect(self._rect)
         self._recorder.start()
@@ -262,10 +263,13 @@ class GifRecordWindow(QObject):
 
         frames = self._recorder.frames
         store = self._recorder.store
-        log_info(f"停止录制, 共 {len(frames)} 帧, store={'有' if store else '无'}", "GIF")
+        if store:
+            log_info(T("停止录制, 共 {frame_count} 帧, store=有", frame_count=len(frames)), "GIF")
+        else:
+            log_info(T("停止录制, 共 {frame_count} 帧, store=无", frame_count=len(frames)), "GIF")
 
         if store is not None and store.frame_count == 0:
-            log_warning("FrameStore 为空", "GIF")
+            log_warning(T("FrameStore 为空"), "GIF")
             from ui.dialogs import show_warning_dialog
             show_warning_dialog(None, "录制异常", "录制数据为空，请重新录制。")
             # 恢复 overlay + toolbar 到可操作状态（避免卡在红色穿透模式）
@@ -275,7 +279,7 @@ class GifRecordWindow(QObject):
             return
 
         if not frames:
-            log_warning("录制帧为空，不进入回放", "GIF")
+            log_warning(T("录制帧为空，不进入回放"), "GIF")
             self._overlay.set_recording(False)
             self._overlay.set_mode(OverlayMode.RESIZE)
             self._record_toolbar.reset_state()
@@ -338,10 +342,11 @@ class GifRecordWindow(QObject):
         dlg.deleteLater()
 
     def _on_pause_toggled(self, paused: bool):
-        log_debug(f"录制{'暂停' if paused else '恢复'}", "GIF")
         if paused:
+            log_debug(T("录制暂停"), "GIF")
             self._recorder.pause()
         else:
+            log_debug(T("录制恢复"), "GIF")
             self._recorder.resume()
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -350,14 +355,14 @@ class GifRecordWindow(QObject):
 
     def _on_drawing_tool_selected(self, tool_id: str):
         """录制工具栏选择了一个绘制工具"""
-        log_debug(f"绘制工具: {tool_id}", "GIF")
+        log_debug(T("绘制工具: {tool_id}", tool_id=tool_id), "GIF")
         self._drawing_view.activate_tool(tool_id)
         # 同步当前颜色/线宽到工具栏面板 UI
         self._record_toolbar.sync_from_controller(self._drawing_view.tool_controller)
 
     def _on_drawing_deactivate(self):
         """退出绘制 → 回到穿透"""
-        log_debug("退出绘制模式", "GIF")
+        log_debug(T("退出绘制模式"), "GIF")
         self._drawing_view.activate_tool("cursor")
         self._record_toolbar.highlight_tool(None)
 
@@ -378,6 +383,10 @@ class GifRecordWindow(QObject):
 
     def _on_drawing_width_changed(self, width: int):
         self._drawing_view.tool_controller.update_style(width=width)
+        # 与颜色变化保持一致：同步刷新画笔光标的大小预览，
+        # 否则录制中调线宽，光标仍显示旧尺寸
+        if getattr(self._drawing_view, 'cursor_manager', None):
+            self._drawing_view.cursor_manager.update_tool_cursor_size(int(width))
 
     def _on_drawing_opacity_changed(self, opacity: int):
         scene = getattr(self._drawing_view, 'canvas_scene', None)
@@ -433,7 +442,7 @@ class GifRecordWindow(QObject):
 
     def _on_rerecord(self):
         """重新录制 — 完全重置，从零开始"""
-        log_info("重新录制", "GIF")
+        log_info(T("重新录制"), "GIF")
 
         # 完全重置录制器（清空所有帧 + 释放 Rust 堆内存）
         self._recorder.reset()
@@ -459,7 +468,7 @@ class GifRecordWindow(QObject):
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     def close_all(self):
-        log_info("关闭 GIF 窗口", "GIF")
+        log_info(T("关闭 GIF 窗口"), "GIF")
 
         if self._recorder.state in (RecordState.RECORDING, RecordState.PAUSED):
             self._recorder.stop()
@@ -503,9 +512,9 @@ class GifRecordWindow(QObject):
             app = QApplication.instance()
             if app and getattr(app, "_gif_window", None) is self:
                 app._gif_window = None
-                log_debug("清除 app._gif_window", "GIF")
+                log_debug(T("清除 app._gif_window"), "GIF")
         except Exception as e:
-            log_exception(e, "清除 app._gif_window")
+            log_exception(e, T("清除 app._gif_window"))
 
         widgets_to_delete = [w for w in [engine, overlay, drawing_view,
                                           record_toolbar, playback_toolbar] if w]

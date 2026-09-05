@@ -20,7 +20,7 @@ import urllib.error
 from typing import Optional, Dict, Any
 from PySide6.QtCore import QThread, Signal
 
-from core import log_info, log_debug, log_error, log_warning
+from core.logger import log_info, log_debug, log_error, log_warning, T
 
 
 class DeepLService:
@@ -108,7 +108,14 @@ class DeepLService:
             request.add_header('Content-Type', 'application/x-www-form-urlencoded')
             request.add_header('Authorization', f'DeepL-Auth-Key {self.api_key}')
             
-            log_debug(f"发送翻译请求: {len(text)} 字符 -> {target_lang}", "DeepL")
+            log_debug(
+                T(
+                    "发送翻译请求: {char_count} 字符 -> {target_lang}",
+                    char_count=len(text),
+                    target_lang=target_lang,
+                ),
+                "DeepL",
+            )
             
             # 发送请求
             with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -119,7 +126,14 @@ class DeepLService:
                     translated_text = translation.get('text', '')
                     detected_lang = translation.get('detected_source_language', '')
                     
-                    log_info(f"翻译成功: {detected_lang} -> {target_lang}", "DeepL")
+                    log_info(
+                        T(
+                            "翻译成功: {detected_lang} -> {target_lang}",
+                            detected_lang=detected_lang,
+                            target_lang=target_lang,
+                        ),
+                        "DeepL",
+                    )
                     
                     return {
                         "success": True,
@@ -136,7 +150,7 @@ class DeepLService:
                     
         except urllib.error.HTTPError as e:
             error_msg = self._parse_http_error(e)
-            log_error(f"HTTP 错误: {error_msg}", "DeepL")
+            log_error(T("HTTP 错误: {error_msg}", error_msg=error_msg), "DeepL")
             return {
                 "success": False,
                 "translated_text": "",
@@ -144,7 +158,7 @@ class DeepLService:
             }
             
         except urllib.error.URLError as e:
-            log_error(f"网络错误: {e.reason}", "DeepL")
+            log_error(T("网络错误: {reason}", reason=e.reason), "DeepL")
             return {
                 "success": False,
                 "translated_text": "",
@@ -152,7 +166,7 @@ class DeepLService:
             }
             
         except json.JSONDecodeError as e:
-            log_error(f"JSON 解析失败: {e}", "DeepL")
+            log_error(T("JSON 解析失败: {e}", e=e), "DeepL")
             return {
                 "success": False,
                 "translated_text": "",
@@ -160,7 +174,7 @@ class DeepLService:
             }
             
         except Exception as e:
-            log_error(f"未知错误: {e}", "DeepL")
+            log_error(T("未知错误: {e}", e=e), "DeepL")
             return {
                 "success": False,
                 "translated_text": "",
@@ -256,5 +270,5 @@ class TranslationThread(QThread):
             )
             
         except Exception as e:
-            log_error(f"翻译线程异常: {e}", "DeepL")
+            log_error(T("翻译线程异常: {e}", e=e), "DeepL")
             self.finished_signal.emit(False, "", f"翻译失败: {str(e)}", "")

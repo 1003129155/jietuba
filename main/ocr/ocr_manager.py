@@ -27,8 +27,10 @@ import ctypes
 import traceback as _tb
 import threading
 
-def _ocr_log(msg: str, level: str = "INFO"):
-    """写入日志（打包后使用 core.logger，否则 print）"""
+from core.logger import T
+
+def _ocr_log(msg, level: str = "INFO"):
+    """写入日志（打包后使用 core.logger，否则 print）。msg 可以是 str 或 T() 构造的可翻译消息。"""
     try:
         from core.logger import log_info, log_warning, log_error, log_debug
         if level == "ERROR":
@@ -76,18 +78,18 @@ if OCR_VARIANT != "pp":
         try:
             WINDOS_OCR_AVAILABLE = windows_media_ocr.oneocr_available()
             if WINDOS_OCR_AVAILABLE:
-                _ocr_log("高精度引擎可用 (Rust FFI)", "INFO")
+                _ocr_log(T("高精度引擎可用 (Rust FFI)"), "INFO")
             else:
-                _ocr_log("高精度引擎不可用 (系统组件未找到)", "DEBUG")
+                _ocr_log(T("高精度引擎不可用 (系统组件未找到)"), "DEBUG")
         except Exception as e:
             WINDOS_OCR_AVAILABLE = False
-            _ocr_log(f"高精度引擎检测失败: {e}", "DEBUG")
+            _ocr_log(T("高精度引擎检测失败: {e}", e=e), "DEBUG")
     except ImportError as e:
         WINDOWS_OCR_AVAILABLE = False
         WINDOS_OCR_AVAILABLE = False
         windows_media_ocr = None
         available_langs = []
-        _ocr_log(f"windows_media_ocr 库不可用: {e}", "DEBUG")
+        _ocr_log(T("windows_media_ocr 库不可用: {e}", e=e), "DEBUG")
 else:
     # pp 版本不携带 windows_media_ocr
     WINDOWS_OCR_AVAILABLE = False
@@ -117,7 +119,7 @@ def _ppocr_rust_model_paths():
             from core.resource_manager import ResourceManager
             candidates.append(ResourceManager.get_resource_path("models"))
     except Exception as e:
-        _ocr_log(f"解析 ppocr_rust 模型路径失败: {e}", "DEBUG")
+        _ocr_log(T("解析 ppocr_rust 模型路径失败: {e}", e=e), "DEBUG")
 
     for base in candidates:
         det = os.path.join(base, "PP-OCRv6_det_small.onnx")
@@ -133,15 +135,15 @@ if OCR_VARIANT != "win":
         _pp_det, _pp_rec = _ppocr_rust_model_paths() if _pp_spec else (None, None)
         PP_RUST_AVAILABLE = bool(_pp_spec and _pp_det and _pp_rec)
         if PP_RUST_AVAILABLE:
-            _ocr_log("ppocr_rust 引擎可用 (Rust + ort PP-OCR)", "DEBUG")
+            _ocr_log(T("ppocr_rust 引擎可用 (Rust + ort PP-OCR)"), "DEBUG")
         elif _pp_spec:
-            _ocr_log("ppocr_rust 已安装但缺少模型文件", "DEBUG")
+            _ocr_log(T("ppocr_rust 已安装但缺少模型文件"), "DEBUG")
         else:
-            _ocr_log("ppocr_rust 未安装", "DEBUG")
+            _ocr_log(T("ppocr_rust 未安装"), "DEBUG")
     except Exception as e:
         PP_RUST_AVAILABLE = False
         _pp_det = _pp_rec = None
-        _ocr_log(f"ppocr_rust 引擎检测失败: {e}", "DEBUG")
+        _ocr_log(T("ppocr_rust 引擎检测失败: {e}", e=e), "DEBUG")
 else:
     
     PP_RUST_AVAILABLE = False
@@ -215,33 +217,33 @@ class OCRManager:
         """
         # 检查引擎是否可用
         if engine_type == self.ENGINE_PP_RUST and not PP_RUST_AVAILABLE:
-            _ocr_log("ppocr_rust 引擎不可用", "WARN")
+            _ocr_log(T("ppocr_rust 引擎不可用"), "WARN")
             return False
-        
+
         if engine_type == self.ENGINE_WINDOS_OCR and not WINDOS_OCR_AVAILABLE:
-            _ocr_log("windos_ocr 引擎不可用", "WARN")
+            _ocr_log(T("windos_ocr 引擎不可用"), "WARN")
             return False
-        
+
         if engine_type == self.ENGINE_WINDOWS_OCR and not WINDOWS_OCR_AVAILABLE:
-            _ocr_log("windows_media_ocr 引擎不可用", "WARN")
+            _ocr_log(T("windows_media_ocr 引擎不可用"), "WARN")
             return False
-        
+
         # 只支持这三个引擎
         if engine_type not in [self.ENGINE_PP_RUST, self.ENGINE_WINDOS_OCR, self.ENGINE_WINDOWS_OCR]:
-            _ocr_log(f"不支持的引擎类型: {engine_type}", "ERROR")
+            _ocr_log(T("不支持的引擎类型: {engine_type}", engine_type=engine_type), "ERROR")
             return False
-        
+
         if self._current_engine != engine_type:
-            _ocr_log(f"切换引擎: {self._current_engine} -> {engine_type}")
+            _ocr_log(T("切换引擎: {old} -> {new}", old=self._current_engine, new=engine_type))
             self._current_engine = engine_type
-            
+
             if engine_type == self.ENGINE_PP_RUST:
-                _ocr_log(f"使用 ppocr_rust 引擎 (Rust + ort PP-OCR)")
+                _ocr_log(T("使用 ppocr_rust 引擎 (Rust + ort PP-OCR)"))
             elif engine_type == self.ENGINE_WINDOS_OCR:
-                _ocr_log(f"使用 windos_ocr 引擎 (Windows ScreenSketch OCR)")
+                _ocr_log(T("使用 windos_ocr 引擎 (Windows ScreenSketch OCR)"))
             else:
-                _ocr_log(f"使用 windows_media_ocr 引擎")
-                _ocr_log(f"Windows OCR 支持的语言: {available_langs}")
+                _ocr_log(T("使用 windows_media_ocr 引擎"))
+                _ocr_log(T("Windows OCR 支持的语言: {langs}", langs=available_langs))
             return True
         
         return True
@@ -275,10 +277,10 @@ class OCRManager:
                 # win 版：高精度引擎优先，Windows Media OCR 托底
                 if WINDOS_OCR_AVAILABLE:
                     self._current_engine = self.ENGINE_WINDOS_OCR
-                    _ocr_log(f"自动选择引擎: {self._current_engine} (高精度引擎)", "INFO")
+                    _ocr_log(T("自动选择引擎: {engine} (高精度引擎)", engine=self._current_engine), "INFO")
                 elif WINDOWS_OCR_AVAILABLE:
                     self._current_engine = self.ENGINE_WINDOWS_OCR
-                    _ocr_log(f"自动选择引擎: {self._current_engine} (Windows Media OCR 托底)", "INFO")
+                    _ocr_log(T("自动选择引擎: {engine} (Windows Media OCR 托底)", engine=self._current_engine), "INFO")
                 else:
                     self._last_error = "没有可用的 OCR 引擎"
                     return False
@@ -286,7 +288,7 @@ class OCRManager:
                 # pp 版（默认）：只用 ppocr_rust
                 if PP_RUST_AVAILABLE:
                     self._current_engine = self.ENGINE_PP_RUST
-                    _ocr_log(f"自动选择引擎: {self._current_engine} (ppocr_rust 原生引擎)", "INFO")
+                    _ocr_log(T("自动选择引擎: {engine} (ppocr_rust 原生引擎)", engine=self._current_engine), "INFO")
                 else:
                     self._last_error = "没有可用的 OCR 引擎"
                     return False
@@ -313,16 +315,16 @@ class OCRManager:
             if self._pp_rust_ready:
                 return True
             try:
-                _ocr_log("正在初始化 ppocr_rust 引擎 (Rust + ort)...", "DEBUG")
+                _ocr_log(T("正在初始化 ppocr_rust 引擎 (Rust + ort)..."), "DEBUG")
                 import ppocr_rust
                 ppocr_rust.ppocr_initialize(_pp_det, _pp_rec)
                 self._pp_rust_ready = True
-                _ocr_log("ppocr_rust 引擎初始化成功", "DEBUG")
+                _ocr_log(T("ppocr_rust 引擎初始化成功"), "DEBUG")
                 return True
             except Exception as e:
                 self._last_error = f"ppocr_rust 初始化失败: {str(e)}"
                 tb_str = _tb.format_exc()
-                _ocr_log(f"{self._last_error}\n{tb_str}", "ERROR")
+                _ocr_log(T("ppocr_rust 初始化失败: {e}\n{tb}", e=str(e), tb=tb_str), "ERROR")
                 self._pp_rust_ready = False
                 return False
     
@@ -333,14 +335,14 @@ class OCRManager:
             return False
         
         try:
-            _ocr_log("正在初始化高精度引擎 (Rust FFI)...", "DEBUG")
+            _ocr_log(T("正在初始化高精度引擎 (Rust FFI)..."), "DEBUG")
             windows_media_ocr.oneocr_initialize()
-            _ocr_log("高精度引擎初始化成功", "DEBUG")
+            _ocr_log(T("高精度引擎初始化成功"), "DEBUG")
             return True
         except Exception as e:
             self._last_error = f"高精度引擎初始化失败: {str(e)}"
             tb_str = _tb.format_exc()
-            _ocr_log(f"{self._last_error}\n{tb_str}", "ERROR")
+            _ocr_log(T("高精度引擎初始化失败: {e}\n{tb}", e=str(e), tb=tb_str), "ERROR")
             return False
     
     def _initialize_windows_ocr(self, language: str) -> bool:
@@ -352,14 +354,17 @@ class OCRManager:
         try:
             # 映射语言代码
             self._windows_ocr_language = self.LANGUAGE_MAP.get(language, "zh-Hans-CN")
-            _ocr_log(f"初始化 windows_media_ocr 引擎(语言配置: {language} -> {self._windows_ocr_language})")
-            _ocr_log("windows_media_ocr 引擎初始化成功")
+            _ocr_log(T(
+                "初始化 windows_media_ocr 引擎(语言配置: {language} -> {ocr_lang})",
+                language=language, ocr_lang=self._windows_ocr_language,
+            ))
+            _ocr_log(T("windows_media_ocr 引擎初始化成功"))
             return True
             
         except Exception as e:
             self._last_error = f"windows_media_ocr 初始化失败: {str(e)}"
             tb_str = _tb.format_exc()
-            _ocr_log(f"{self._last_error}\n{tb_str}", "ERROR")
+            _ocr_log(T("windows_media_ocr 初始化失败: {e}\n{tb}", e=str(e), tb=tb_str), "ERROR")
             return False
     
     def recognize_pixmap(
@@ -449,7 +454,7 @@ class OCRManager:
         except Exception as e:
             error_msg = f"ppocr_rust 识别失败: {str(e)}"
             tb_str = _tb.format_exc()
-            _ocr_log(f"{error_msg}\n{tb_str}", "ERROR")
+            _ocr_log(T("ppocr_rust 识别失败: {e}\n{tb}", e=str(e), tb=tb_str), "ERROR")
             return self._format_error(return_format, error_msg)
     
     def _recognize_with_windos_ocr(
@@ -528,7 +533,7 @@ class OCRManager:
         except Exception as e:
             error_msg = f"高精度引擎识别失败: {str(e)}"
             tb_str = _tb.format_exc()
-            _ocr_log(f"{error_msg}\n{tb_str}", "ERROR")
+            _ocr_log(T("高精度引擎识别失败: {e}\n{tb}", e=str(e), tb=tb_str), "ERROR")
             return self._format_error(return_format, error_msg)
     
     def _recognize_with_windows_ocr(
@@ -584,7 +589,7 @@ class OCRManager:
         except Exception as e:
             error_msg = f"windows_media_ocr 识别失败: {str(e)}"
             tb_str = _tb.format_exc()
-            _ocr_log(f"{error_msg}\n{tb_str}", "ERROR")
+            _ocr_log(T("windows_media_ocr 识别失败: {e}\n{tb}", e=str(e), tb=tb_str), "ERROR")
             return self._format_error(return_format, error_msg)
     
     def _pixmap_to_bytes(self, pixmap: QPixmap) -> bytes:
@@ -717,9 +722,9 @@ class OCRManager:
             self._pp_rust_ready = False
             self._current_engine = None
             
-            _ocr_log("OCR 管理器状态已重置")
+            _ocr_log(T("OCR 管理器状态已重置"))
         except Exception as e:
-            _ocr_log(f"释放 OCR 资源时出错: {e}", "WARN")
+            _ocr_log(T("释放 OCR 资源时出错: {e}", e=e), "WARN")
     
     def is_engine_loaded(self) -> bool:
         """检查 OCR 引擎是否已初始化"""

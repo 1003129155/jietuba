@@ -12,6 +12,7 @@
 from PySide6.QtCore import Qt, QSize, QPointF, QRectF
 from PySide6.QtGui import QTransform, QImage, QPainter, QPixmap
 from core import log_debug
+from core.logger import T
 
 
 class PinImageTransform:
@@ -230,8 +231,10 @@ class PinImageTransform:
         self._refresh_border(pin_window)
 
         pin_window.update()
-        log_debug(f"变换已应用: rotation={self._rotation}, "
-                  f"flip_h={self._flip_h}, flip_v={self._flip_v}", "ImageTransform")
+        log_debug(T(
+            "变换已应用: rotation={rotation}, flip_h={flip_h}, flip_v={flip_v}",
+            rotation=self._rotation, flip_h=self._flip_h, flip_v=self._flip_v,
+        ), "ImageTransform")
 
     def _update_ocr_layer(self, pin_window):
         """通知 OCR 文字层变换状态变化"""

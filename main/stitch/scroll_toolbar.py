@@ -164,7 +164,7 @@ class FloatingToolbar(QWidget):
         from PySide6.QtCore import QSize
 
         self.manual_capture_btn = QPushButton()
-        self.manual_capture_btn.setIcon(QIcon(ResourceManager.get_resource_path("svg/托盘.svg")))
+        self.manual_capture_btn.setIcon(ResourceManager.get_icon(ResourceManager.get_resource_path("svg/托盘.svg")))
         self.manual_capture_btn.setIconSize(QSize(24, 24))
         self.manual_capture_btn.setFixedSize(32, 32)
         self.manual_capture_btn.setToolTip(self.tr("Take screenshot manually"))
@@ -174,7 +174,7 @@ class FloatingToolbar(QWidget):
 
         # 钉图按钮
         self.pin_btn = QPushButton()
-        self.pin_btn.setIcon(QIcon(ResourceManager.get_resource_path("svg/钉图.svg")))
+        self.pin_btn.setIcon(ResourceManager.get_icon(ResourceManager.get_resource_path("svg/钉图.svg")))
         self.pin_btn.setIconSize(QSize(24, 24))
         self.pin_btn.setFixedSize(32, 32)
         self.pin_btn.setToolTip(self.tr("Pin to desktop"))
@@ -184,7 +184,7 @@ class FloatingToolbar(QWidget):
 
         # 完成按钮
         self.finish_btn = QPushButton()
-        self.finish_btn.setIcon(QIcon(ResourceManager.get_resource_path("svg/确定.svg")))
+        self.finish_btn.setIcon(ResourceManager.get_icon(ResourceManager.get_resource_path("svg/确定.svg")))
         self.finish_btn.setIconSize(QSize(24, 24))
         self.finish_btn.setFixedSize(32, 32)
         self.finish_btn.setToolTip(self.tr("Finish and save"))
@@ -194,7 +194,7 @@ class FloatingToolbar(QWidget):
 
         # 取消按钮
         self.cancel_btn = QPushButton()
-        self.cancel_btn.setIcon(QIcon(ResourceManager.get_resource_path("svg/关闭.svg")))
+        self.cancel_btn.setIcon(ResourceManager.get_icon(ResourceManager.get_resource_path("svg/关闭.svg")))
         self.cancel_btn.setIconSize(QSize(24, 24))
         self.cancel_btn.setFixedSize(32, 32)
         self.cancel_btn.setToolTip(self.tr("Cancel long screenshot"))

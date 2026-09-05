@@ -7,7 +7,7 @@ from .base import Tool, ToolContext, color_with_opacity
 from canvas.items import NumberItem
 from canvas.undo import AddNumberCommand
 from core import log_debug, log_warning
-from core.logger import log_exception
+from core.logger import log_exception, T
 
 try:
     import shiboken6  as _shiboken
@@ -32,10 +32,10 @@ class NumberTool(Tool):
         try:
             return sum(1 for item in scene.items() if isinstance(item, NumberItem))
         except RuntimeError as exc:
-            log_warning(f"scene.items() 失败：{exc}", "NumberTool")
+            log_warning(T("scene.items() 失败：{exc}", exc=exc), "NumberTool")
             return 0
         except Exception as exc:
-            log_warning(f"统计序号时异常：{exc}", "NumberTool")
+            log_warning(T("统计序号时异常：{exc}", exc=exc), "NumberTool")
             return 0
 
     @staticmethod
@@ -54,10 +54,10 @@ class NumberTool(Tool):
                     max_number = max(max_number, number)
             return max_number
         except RuntimeError as exc:
-            log_warning(f"scene.items() 失败：{exc}", "NumberTool")
+            log_warning(T("scene.items() 失败：{exc}", exc=exc), "NumberTool")
             return 0
         except Exception as exc:
-            log_warning(f"统计最大序号时异常：{exc}", "NumberTool")
+            log_warning(T("统计最大序号时异常：{exc}", exc=exc), "NumberTool")
             return 0
 
     @classmethod
@@ -144,7 +144,7 @@ class NumberTool(Tool):
                 if current_tool is not None and current_tool.id == cls.id:
                     scene.cursor_tool_update_requested.emit("number", True)
         except Exception as e:
-            log_exception(e, "刷新序号计数器")
+            log_exception(e, T("刷新序号计数器"))
         return max(1, int(next_number))
 
     @classmethod
@@ -194,7 +194,7 @@ class NumberTool(Tool):
                         max_order = max(max_order, order)
             counter = max(counter, max_order + 1)
         except Exception as exc:
-            log_warning(f"同步序号创建顺序失败：{exc}", "NumberTool")
+            log_warning(T("同步序号创建顺序失败：{exc}", exc=exc), "NumberTool")
 
         setattr(item, "number_order", counter)
         try:
@@ -209,7 +209,7 @@ class NumberTool(Tool):
             number = self.get_next_number(ctx.scene)
             radius = self.get_radius_for_width(ctx.stroke_width)
             
-            log_debug(f"创建前场景中序号数量: {number - 1}, 将创建序号: {number}", "NumberTool")
+            log_debug(T("创建前场景中序号数量: {prev_count}, 将创建序号: {number}", prev_count=number - 1, number=number), "NumberTool")
             
             item_color = color_with_opacity(ctx.color, ctx.opacity)
             item = NumberItem(number, pos, radius, item_color)
@@ -227,17 +227,17 @@ class NumberTool(Tool):
                 count_after = sum(1 for i in ctx.scene.items() if isinstance(i, NumberItem))
             except Exception as exc:
                 count_after = "未知"
-                log_warning(f"统计创建后序号失败：{exc}", "NumberTool")
-            log_debug(f"创建后场景中序号数量: {count_after}", "NumberTool")
+                log_warning(T("统计创建后序号失败：{exc}", exc=exc), "NumberTool")
+            log_debug(T("创建后场景中序号数量: {count_after}", count_after=count_after), "NumberTool")
             
     
     def _update_cursor(self, scene):
         """更新光标显示下一个序号"""
         if not self._is_qobject_alive(scene):
-            log_debug("scene 已失效，跳过光标更新", "NumberTool")
+            log_debug(T("scene 已失效，跳过光标更新"), "NumberTool")
             return
         next_num = self.get_next_number(scene)
-        log_debug(f"更新光标时下一个序号: {next_num}", "NumberTool")
+        log_debug(T("更新光标时下一个序号: {next_num}", next_num=next_num), "NumberTool")
         
         view = getattr(scene, 'view', None)
         cursor_manager = getattr(view, 'cursor_manager', None) if view else None
@@ -245,7 +245,7 @@ class NumberTool(Tool):
             try:
                 cursor_manager.set_tool_cursor(self.id, force=True)
             except RuntimeError as exc:
-                log_warning(f"设置光标失败：{exc}", "NumberTool")
+                log_warning(T("设置光标失败：{exc}", exc=exc), "NumberTool")
 
     @staticmethod
     def _is_qobject_alive(obj) -> bool:

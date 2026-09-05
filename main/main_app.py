@@ -9,7 +9,7 @@ import os
 import ctypes
 
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
-from PySide6.QtGui import QIcon, QPixmap, QPainter
+from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QBrush, QFont
 from PySide6.QtCore import QObject, Qt, Signal, Slot
 from ui.dialogs import show_warning_dialog, show_error_dialog
 
@@ -18,7 +18,7 @@ from settings import get_tool_settings_manager
 from ui.screenshot_window import ScreenshotWindow
 from ui.tray_menu import create_tray_menu
 from core.logger import (
-    setup_logger, get_logger,
+    setup_logger, get_logger, T,
     log_debug, log_info, log_warning, log_error, log_exception
 )
 
@@ -26,25 +26,61 @@ from core.logger import (
 APP_VERSION = "2026.07.25"
 
 
+def create_fallback_app_icon():
+    """绘制占位托盘图标，保证图标资源缺失时托盘依然可见、可点。
+
+    刻意不依赖任何资源文件或主题管理器——走到这里说明资源已经出问题了，
+    兜底路径本身不能再有失败的可能。配色沿用应用默认主题色。
+    """
+    pixmap = QPixmap(64, 64)
+    pixmap.fill(Qt.GlobalColor.transparent)
+
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(QBrush(QColor("#40E0D0")))
+    painter.drawRoundedRect(4, 4, 56, 56, 12, 12)
+
+    font = QFont()
+    font.setPixelSize(38)
+    font.setBold(True)
+    painter.setFont(font)
+    painter.setPen(QColor("#10322E"))
+    painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, "J")
+    painter.end()
+
+    return QIcon(pixmap)
+
+
 def create_app_icon():
-    """创建应用程序图标 - 加载SVG"""
+    """创建应用程序图标 - 加载 SVG，资源不可用时回退到占位图标。
+
+    必须始终返回有效的 QIcon：托盘是本应用唯一的常驻入口，而
+    QSystemTrayIcon.setIcon() 不接受 None——返回 None 会让启动直接抛 TypeError，
+    用户看到的现象是"双击没有任何反应"。
+    """
     from core.resource_manager import ResourceManager
     icon_path = ResourceManager.get_resource_path("svg/托盘.svg")
-    
+
     if os.path.exists(icon_path):
-        # 加载SVG并放大
-        pixmap = QPixmap(64, 64)  # 放大到64x64
-        pixmap.fill(Qt.GlobalColor.transparent)
-        
-        painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-        
+        # 先渲染再判空：文件存在但 SVG 损坏时 pixmap 为空，
+        # 直接使用会得到一个完全透明的托盘图标，和缺失一样不可用。
         icon_pixmap = QIcon(icon_path).pixmap(64, 64)
-        painter.drawPixmap(0, 0, icon_pixmap)
-        painter.end()
-        
-        return QIcon(pixmap)
+        if not icon_pixmap.isNull():
+            # 加载SVG并放大
+            pixmap = QPixmap(64, 64)  # 放大到64x64
+            pixmap.fill(Qt.GlobalColor.transparent)
+
+            painter = QPainter(pixmap)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+            painter.drawPixmap(0, 0, icon_pixmap)
+            painter.end()
+
+            return QIcon(pixmap)
+
+    log_warning(T("托盘图标资源不可用，改用占位图标: {icon_path}", icon_path=icon_path), "Tray")
+    return create_fallback_app_icon()
 
 class MainApp(QObject):
     # Rust clipboard watcher may call from a worker thread.  This signal safely
@@ -82,9 +118,9 @@ class MainApp(QObject):
             # 第一次启动，检测系统语言
             saved_lang = I18nManager.get_system_language()
             self.config_manager.set_app_setting("language", saved_lang)
-            log_info(f"首次启动，检测到系统语言: {saved_lang}", "I18n")
+            log_info(T("首次启动，检测到系统语言: {saved_lang}", saved_lang=saved_lang), "I18n")
         I18nManager.load_language(saved_lang)
-        log_info(f"语言设置: {I18nManager.get_current_language_name()}", "I18n")
+        log_info(T("语言设置: {lang_name}", lang_name=I18nManager.get_current_language_name()), "I18n")
         
         # 连接语言切换信号，用于更新托盘菜单等 UI
         I18nManager.instance().language_changed.connect(self._on_language_changed)
@@ -105,7 +141,7 @@ class MainApp(QObject):
                 log_debug(f"Logical DPI: {logical_dpi}", "DPI")
                 log_debug(f"Physical DPI: {physical_dpi}", "DPI")
         except Exception as e:
-            log_warning(f"无法获取DPI信息: {e}", "DPI")
+            log_warning(T("无法获取DPI信息: {e}", e=e), "DPI")
         
         # 热键系统先创建，实际注册放到启动预加载完成后，避免预加载期间触发卡顿。
         self.hotkey_system = HotkeySystem()
@@ -140,16 +176,16 @@ class MainApp(QObject):
 
             TranslationManager.cleanup()
         except Exception as e:
-            log_exception(e, "清理翻译线程")
+            log_exception(e, T("清理翻译线程"))
         try:
             if hasattr(self, "_logger") and self._logger:
                 self._logger.close()
         except Exception as e:
-            log_exception(e, "关闭logger")
+            log_exception(e, T("关闭logger"))
 
     def _on_wizard_requested(self):
         """设置窗口请求打开向导：隐藏设置窗口、注销热键，再显示向导，完成后恢复"""
-        log_info("向导请求：隐藏设置窗口并注销热键", "MainApp")
+        log_info(T("向导请求：隐藏设置窗口并注销热键"), "MainApp")
 
         # 1. 隐藏设置窗口
         if self.settings_window:
@@ -164,15 +200,15 @@ class MainApp(QObject):
             wizard = WelcomeWizard(self.config_manager)
             wizard.exec()
         except Exception as e:
-            log_exception(e, "向导启动失败")
+            log_exception(e, T("向导启动失败"))
 
         # 4. 向导结束后重新注册热键
         self.update_hotkey()
-        log_info("向导完成，热键已恢复", "MainApp")
+        log_info(T("向导完成，热键已恢复"), "MainApp")
 
     def _on_language_changed(self, lang_code: str):
         """语言切换时更新所有 UI 元素"""
-        log_debug(f"语言已切换到: {lang_code}，更新 UI", "I18n")
+        log_debug(T("语言已切换到: {lang_code}，更新 UI", lang_code=lang_code), "I18n")
         
         # 更新托盘菜单
         self._update_tray_menu()
@@ -215,7 +251,7 @@ class MainApp(QObject):
             pin_manager.pin_closed.connect(lambda _pin: self._update_tray_menu())
             pin_manager.all_pins_closed.connect(self._update_tray_menu)
         except Exception as e:
-            log_exception(e, "连接钉图托盘菜单刷新信号")
+            log_exception(e, T("连接钉图托盘菜单刷新信号"))
 
     def _update_tray_menu(self):
         """重建托盘菜单（用于语言切换后刷新）"""
@@ -248,18 +284,18 @@ class MainApp(QObject):
         hotkey = self.config_manager.get_hotkey()
         if hotkey:
             if self.hotkey_system.register_hotkey(hotkey, self.start_screenshot):
-                log_info(f"截图热键已注册: {hotkey}", "Hotkey")
+                log_info(T("截图热键已注册: {hotkey}", hotkey=hotkey), "Hotkey")
             else:
-                log_warning(f"截图热键注册失败: {hotkey}", "Hotkey")
+                log_warning(T("截图热键注册失败: {hotkey}", hotkey=hotkey), "Hotkey")
                 failed_hotkeys.append((self.tr("Screenshot"), hotkey))
 
         # 注册截图备用热键
         hotkey_2 = self.config_manager.get_hotkey_2()
         if hotkey_2:
             if self.hotkey_system.register_hotkey(hotkey_2, self.start_screenshot):
-                log_info(f"截图备用热键已注册: {hotkey_2}", "Hotkey")
+                log_info(T("截图备用热键已注册: {hotkey_2}", hotkey_2=hotkey_2), "Hotkey")
             else:
-                log_warning(f"截图备用热键注册失败: {hotkey_2}", "Hotkey")
+                log_warning(T("截图备用热键注册失败: {hotkey_2}", hotkey_2=hotkey_2), "Hotkey")
                 failed_hotkeys.append((self.tr("Screenshot (2)"), hotkey_2))
 
         # 注册统一翻译热键：有选中文本时显示小窗，否则打开完整输入窗口。
@@ -273,9 +309,9 @@ class MainApp(QObject):
             if self.hotkey_system.register_hotkey(
                 translation_hotkey, self.smart_translation_controller.trigger
             ):
-                log_info(f"智能翻译热键已注册: {translation_hotkey}", "Hotkey")
+                log_info(T("智能翻译热键已注册: {translation_hotkey}", translation_hotkey=translation_hotkey), "Hotkey")
             else:
-                log_warning(f"智能翻译热键注册失败: {translation_hotkey}", "Hotkey")
+                log_warning(T("智能翻译热键注册失败: {translation_hotkey}", translation_hotkey=translation_hotkey), "Hotkey")
                 failed_hotkeys.append((label, translation_hotkey))
         
         # 注册剪切板热键（如果剪切板功能启用）
@@ -283,25 +319,25 @@ class MainApp(QObject):
             clipboard_hotkey = self.config_manager.get_clipboard_hotkey()
             if clipboard_hotkey:
                 if self.hotkey_system.register_hotkey(clipboard_hotkey, self.open_clipboard_window):
-                    log_info(f"剪贴板热键已注册: {clipboard_hotkey}", "Hotkey")
+                    log_info(T("剪贴板热键已注册: {clipboard_hotkey}", clipboard_hotkey=clipboard_hotkey), "Hotkey")
                 else:
-                    log_warning(f"剪贴板热键注册失败: {clipboard_hotkey}", "Hotkey")
+                    log_warning(T("剪贴板热键注册失败: {clipboard_hotkey}", clipboard_hotkey=clipboard_hotkey), "Hotkey")
                     failed_hotkeys.append((self.tr("Clipboard"), clipboard_hotkey))
-            
+
             # 注册剪贴板备用热键
             clipboard_hotkey_2 = self.config_manager.get_clipboard_hotkey_2()
             if clipboard_hotkey_2:
                 if self.hotkey_system.register_hotkey(clipboard_hotkey_2, self.open_clipboard_window):
-                    log_info(f"剪贴板备用热键已注册: {clipboard_hotkey_2}", "Hotkey")
+                    log_info(T("剪贴板备用热键已注册: {clipboard_hotkey_2}", clipboard_hotkey_2=clipboard_hotkey_2), "Hotkey")
                 else:
-                    log_warning(f"剪贴板备用热键注册失败: {clipboard_hotkey_2}", "Hotkey")
+                    log_warning(T("剪贴板备用热键注册失败: {clipboard_hotkey_2}", clipboard_hotkey_2=clipboard_hotkey_2), "Hotkey")
                     failed_hotkeys.append((self.tr("Clipboard (2)"), clipboard_hotkey_2))
 
             # 额外尝试注册 Win+V，失败也不提示
             if self.hotkey_system.register_hotkey("win+v", self.open_clipboard_window):
-                log_info("剪贴板备用热键已注册: win+v", "Hotkey")
+                log_info(T("剪贴板备用热键已注册: win+v"), "Hotkey")
             else:
-                log_info("剪贴板备用热键 win+v 注册失败（可能被系统占用）", "Hotkey")
+                log_info(T("剪贴板备用热键 win+v 注册失败（可能被系统占用）"), "Hotkey")
         
         # 如果有注册失败的热键且需要显示提示
         if show_error and failed_hotkeys:
@@ -312,9 +348,9 @@ class MainApp(QObject):
         self.config_manager.set_app_setting("global_hotkeys_disabled", disabled)
         self.hotkey_system.set_suppressed(disabled)
         if disabled:
-            log_info("全局热键已临时禁用（保留注册，仅忽略回调）", "Hotkey")
+            log_info(T("全局热键已临时禁用（保留注册，仅忽略回调）"), "Hotkey")
         else:
-            log_info("全局热键已启用", "Hotkey")
+            log_info(T("全局热键已启用"), "Hotkey")
             if not self.hotkey_system.has_registered_hotkeys():
                 self.update_hotkey(show_error=True)
     
@@ -329,7 +365,7 @@ class MainApp(QObject):
         msg += "\n".join(lines)
         msg += "\n\n" + self.tr("The hotkey may be occupied by other programs. Please try a different combination.")
         
-        log_debug(f"显示热键错误提示: {failed_hotkeys}", "Hotkey")
+        log_debug(T("显示热键错误提示: {failed_hotkeys}", failed_hotkeys=failed_hotkeys), "Hotkey")
         
         show_warning_dialog(
             None,
@@ -367,7 +403,7 @@ class MainApp(QObject):
             return False
 
         log_debug(
-            f"检测到模态窗口 {type(modal).__name__}，忽略截图触发",
+            T("检测到模态窗口 {modal_type}，忽略截图触发", modal_type=type(modal).__name__),
             "MainApp",
         )
         modal.raise_()
@@ -379,7 +415,7 @@ class MainApp(QObject):
         
         # 已有截图窗口且会话活跃 → 忽略重复触发，并把焦点还给截图窗口
         if self.screenshot_window and getattr(self.screenshot_window, '_session_active', False):
-            log_debug("截图窗口已存在，忽略重复触发", "MainApp")
+            log_debug(T("截图窗口已存在，忽略重复触发"), "MainApp")
             self.screenshot_window.activateWindow()
             self.screenshot_window.raise_()
             # 如果有颜色选择器正在显示，重新提到截图窗口上方，防止被全屏窗口遮挡
@@ -399,7 +435,7 @@ class MainApp(QObject):
         
         # 后台截图线程正在运行时也忽略重复触发
         if getattr(self, '_capture_thread', None) and self._capture_thread.isRunning():
-            log_debug("后台截图线程进行中，忽略重复触发", "MainApp")
+            log_debug(T("后台截图线程进行中，忽略重复触发"), "MainApp")
             return
 
         # 关闭所有已打开的颜色选择器（避免其遮挡截图界面或触发焦点冲突）
@@ -408,7 +444,7 @@ class MainApp(QObject):
             if isinstance(w, QColorDialog) and w.isVisible():
                 w.reject()
 
-        log_info("启动后台截图线程", "MainApp")
+        log_info(T("启动后台截图线程"), "MainApp")
         
         # 在后台线程执行 mss.grab()，避免主线程被阻塞 100~500ms
         from PySide6.QtCore import QThread, Signal
@@ -422,7 +458,7 @@ class MainApp(QObject):
                     image, rect = CaptureService().capture_all_screens()
                     self.captured.emit(image, rect)
                 except Exception as e:
-                    log_exception(e, "后台截图失败")
+                    log_exception(e, T("后台截图失败"))
 
         self._capture_thread = CaptureThread()
         self._capture_thread.captured.connect(self._on_capture_ready)
@@ -430,7 +466,7 @@ class MainApp(QObject):
 
     def _on_capture_ready(self, image, rect):
         """后台截图完成后，在主线程创建或复用截图窗口"""
-        log_debug("后台截图完成，准备截图窗口", "MainApp")
+        log_debug(T("后台截图完成，准备截图窗口"), "MainApp")
 
         # 截图采集期间也可能弹出模态窗口，避免在线程结束后创建一个被锁死的界面。
         if self._activate_blocking_modal():
@@ -438,11 +474,11 @@ class MainApp(QObject):
         
         if self.screenshot_window is not None:
             # 复用已有窗口（节省 ~250ms 的 UI 壳创建时间）
-            log_debug("复用已有截图窗口", "MainApp")
+            log_debug(T("复用已有截图窗口"), "MainApp")
             self.screenshot_window.prepare_new_session(image, rect)
         else:
             # 首次创建
-            log_debug("首次创建截图窗口", "MainApp")
+            log_debug(T("首次创建截图窗口"), "MainApp")
             self.screenshot_window = ScreenshotWindow(
                 self.config_manager,
                 prefetched_image=image,
@@ -521,10 +557,10 @@ class MainApp(QObject):
 
         if not enabled:
             if not manager:
-                log_debug("剪贴板监听已禁用，未创建管理器", "Clipboard")
+                log_debug(T("剪贴板监听已禁用，未创建管理器"), "Clipboard")
                 return True
             if not manager.is_available:
-                log_warning("剪贴板管理器不可用，无法停止监听", "Clipboard")
+                log_warning(T("剪贴板管理器不可用，无法停止监听"), "Clipboard")
                 return False
             if not manager.is_monitoring():
                 return True
@@ -532,12 +568,12 @@ class MainApp(QObject):
             try:
                 manager.stop_monitoring()
             except Exception as e:
-                log_exception(e, "停止剪贴板监听")
+                log_exception(e, T("停止剪贴板监听"))
                 return False
 
             stopped = not manager.is_monitoring()
             if stopped:
-                log_info("剪贴板监听已按设置关闭", "Clipboard")
+                log_info(T("剪贴板监听已按设置关闭"), "Clipboard")
             return stopped
 
         try:
@@ -547,7 +583,7 @@ class MainApp(QObject):
                 self.clipboard_manager = manager
 
             if not manager.is_available:
-                log_warning("剪贴板管理器不可用（pyclipboard 未安装）", "Clipboard")
+                log_warning(T("剪贴板管理器不可用（pyclipboard 未安装）"), "Clipboard")
                 return False
             if manager.is_monitoring():
                 return True
@@ -555,14 +591,14 @@ class MainApp(QObject):
             manager.start_monitoring(callback=self.clipboard_item_received.emit)
             started = manager.is_monitoring()
             if started:
-                log_info("剪贴板监听已按设置启动", "Clipboard")
+                log_info(T("剪贴板监听已按设置启动"), "Clipboard")
             else:
-                log_warning("剪贴板监听启动失败", "Clipboard")
+                log_warning(T("剪贴板监听启动失败"), "Clipboard")
             return started
         except ImportError:
-            log_debug("clipboard 模块不存在", "Clipboard")
+            log_debug(T("clipboard 模块不存在"), "Clipboard")
         except Exception as e:
-            log_exception(e, "启动剪贴板监听")
+            log_exception(e, T("启动剪贴板监听"))
         return False
     
     def open_clipboard_window(self):
@@ -584,10 +620,10 @@ class MainApp(QObject):
             self.clipboard_window.show()
             self.clipboard_window.raise_()
             self.clipboard_window.activateWindow()
-            log_debug("剪切板窗口已打开", "Clipboard")
-            
+            log_debug(T("剪切板窗口已打开"), "Clipboard")
+
         except Exception as e:
-            log_exception(e, "打开剪切板窗口失败")
+            log_exception(e, T("打开剪切板窗口失败"))
         
     def quit_app(self):
         # 完全销毁缓存的截图窗口
@@ -595,15 +631,15 @@ class MainApp(QObject):
             try:
                 self.screenshot_window.full_destroy()
             except Exception as e:
-                log_exception(e, "销毁截图窗口")
+                log_exception(e, T("销毁截图窗口"))
             self.screenshot_window = None
-        
+
         # 关闭剪贴板窗口
         if self.clipboard_window:
             try:
                 self.clipboard_window.close()
             except Exception as e:
-                log_exception(e, "关闭剪贴板窗口")
+                log_exception(e, T("关闭剪贴板窗口"))
             self.clipboard_window = None
 
         # 停止剪贴板监听
@@ -611,14 +647,14 @@ class MainApp(QObject):
             try:
                 self.clipboard_manager.stop_monitoring()
             except Exception as e:
-                log_exception(e, "停止剪贴板监听")
-        
+                log_exception(e, T("停止剪贴板监听"))
+
         # 关闭设置窗口
         if self.settings_window:
             try:
                 self.settings_window.close()
             except Exception as e:
-                log_exception(e, "关闭设置窗口")
+                log_exception(e, T("关闭设置窗口"))
             self.settings_window = None
 
         # 等待预加载线程结束（最多 2 秒，避免卡退出）
