@@ -1,0 +1,18 @@
+# 默认按内容自动处理文本行尾
+* text=auto
+
+# Windows 批处理/命令脚本必须是 CRLF，否则 cmd.exe 解析异常、双击闪退
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Shell 脚本保持 LF
+*.sh text eol=lf
+
+# 二进制文件不做行尾转换
+*.whl binary
+*.qm binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.svg text
