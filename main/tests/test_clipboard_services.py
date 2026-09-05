@@ -2,7 +2,7 @@
 
 import json
 
-from clipboard.core import Group, GroupType
+from clipboard.core import Group
 from clipboard.services.file_payload_service import build_file_payload, extract_first_file_path_from_content
 from clipboard.services.group_service import (
     GENERAL_GROUP_ICON,

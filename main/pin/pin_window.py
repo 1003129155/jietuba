@@ -12,11 +12,11 @@
 - PinTranslationHelper：翻译功能助手
 """
 
-from PySide6.QtWidgets import QWidget, QApplication, QLabel
-from PySide6.QtCore import Qt, QPoint, QPointF, QSize, QTimer, Signal, QRect, QRectF, QEvent
+from PySide6.QtWidgets import QWidget, QLabel
+from PySide6.QtCore import Qt, QPoint, QTimer, Signal, QRectF, QEvent
 from PySide6.QtGui import (
     QPixmap, QImage, QPainter, QMouseEvent, QWheelEvent, QKeyEvent,
-    QColor, QPainterPath, QTransform,
+    QTransform,
 )
 from .pin_canvas_view import PinCanvasView
 from .pin_controls import PinControlButtons

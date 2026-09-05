@@ -18,8 +18,8 @@ from __future__ import annotations
 import ctypes
 from typing import Optional
 
-from PySide6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsRectItem
-from PySide6.QtCore import Qt, QRectF, QPointF, QRect, QObject, Signal
+from PySide6.QtWidgets import QGraphicsScene, QGraphicsRectItem
+from PySide6.QtCore import Qt, QRectF, QRect, QObject, Signal
 from PySide6.QtGui import QPainter, QColor, QBrush, QPen
 
 from canvas import CanvasView

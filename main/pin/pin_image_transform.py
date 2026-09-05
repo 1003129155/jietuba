@@ -10,7 +10,7 @@
 """
 
 from PySide6.QtCore import Qt, QSize, QPointF, QRectF
-from PySide6.QtGui import QTransform, QImage, QPainter, QPixmap
+from PySide6.QtGui import QTransform, QImage
 from core import log_debug
 from core.logger import T
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from enum import Enum, auto
 
-from PySide6.QtCore import QObject, QRect, QPoint, Qt, QThread, QTimer, Signal
+from PySide6.QtCore import QObject, QRect, QPoint, Qt, QThread
 from PySide6.QtWidgets import QApplication, QWidget
 
 from .overlay import CaptureOverlay, OverlayMode

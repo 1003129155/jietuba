@@ -7,7 +7,7 @@
 
 import math
 
-from PySide6.QtWidgets import QVBoxLayout, QLabel, QWidget
+from PySide6.QtWidgets import QVBoxLayout, QWidget
 from PySide6.QtCore import Qt, QTimer, QElapsedTimer, QEasingCurve, QPointF
 from PySide6.QtGui import QPainter, QColor, QPen, QPainterPath
 from core import safe_event
@@ -16,15 +16,13 @@ from core.logger import log_info, log_exception, T
 
 if __package__:
     from .base_page import (
-        BasePage, IllustrationArea, ToggleSwitch, ACCENT, TEXT_PRIMARY,
-        TEXT_SECOND, BG_PAGE, PRODUCT_NAME, brand_text, welcome_theme,
+        BasePage, IllustrationArea, ToggleSwitch, PRODUCT_NAME, brand_text, welcome_theme,
     )
 else:
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from base_page import (
-        BasePage, IllustrationArea, ToggleSwitch, ACCENT, TEXT_PRIMARY,
-        TEXT_SECOND, BG_PAGE, PRODUCT_NAME, brand_text, welcome_theme,
+        BasePage, IllustrationArea, ToggleSwitch, PRODUCT_NAME, brand_text, welcome_theme,
     )
 
 

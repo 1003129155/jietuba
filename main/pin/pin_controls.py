@@ -5,8 +5,7 @@
 """
 
 from PySide6.QtWidgets import QPushButton, QWidget
-from PySide6.QtGui import QIcon
-from PySide6.QtCore import QSize, Signal
+from PySide6.QtCore import QSize
 from core.resource_manager import ResourceManager
 
 

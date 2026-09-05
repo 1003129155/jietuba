@@ -12,8 +12,8 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import QWidget, QPushButton, QHBoxLayout, QVBoxLayout
-from PySide6.QtCore import Qt, QPoint, Signal, QSize
-from PySide6.QtGui import QCursor, QColor, QIcon
+from PySide6.QtCore import Qt, Signal, QSize
+from PySide6.QtGui import QColor
 
 from ._widgets import svg_icon as _svg_icon
 from core.i18n import make_tr
@@ -144,7 +144,6 @@ class GifDrawingToolbar(QWidget):
         from ui.paint_settings_panel import PaintSettingsPanel
         from ui.shape_settings_panel import ShapeSettingsPanel
         from ui.arrow_settings_panel import ArrowSettingsPanel
-        from ui.number_settings_panel import NumberSettingsPanel
         from ui.text_settings_panel import TextSettingsPanel
 
         flags = (

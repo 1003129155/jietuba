@@ -7,7 +7,7 @@
 
 from typing import Optional
 from PySide6.QtCore import QPoint
-from PySide6.QtGui import QImage, QCursor, QGuiApplication
+from PySide6.QtGui import QImage, QGuiApplication
 from PySide6.QtWidgets import QWidget
 
 from core.logger import T, log_debug, log_error

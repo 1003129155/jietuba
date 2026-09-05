@@ -10,17 +10,17 @@ from PySide6.QtWidgets import QVBoxLayout, QWidget, QSizePolicy
 from PySide6.QtCore import Qt, QTimer, QPointF, QRectF
 from PySide6.QtGui import (
     QPainter, QColor, QPen, QFont, QPolygonF,
-    QLinearGradient, QPainterPath, QBrush, QRadialGradient
+    QLinearGradient, QPainterPath, QBrush
 )
 from core import safe_event
 from core.i18n import make_tr
 
 if __package__:
-    from .base_page import BasePage, IllustrationArea, ToggleSwitch, ACCENT, TEXT_PRIMARY, TEXT_SECOND, BG_ILLUS
+    from .base_page import BasePage, IllustrationArea, ToggleSwitch, ACCENT
 else:
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from base_page import BasePage, IllustrationArea, ToggleSwitch, ACCENT, TEXT_PRIMARY, TEXT_SECOND, BG_ILLUS
+    from base_page import BasePage, IllustrationArea, ToggleSwitch, ACCENT
 
 
 _tr = make_tr("WelcomeWizard")

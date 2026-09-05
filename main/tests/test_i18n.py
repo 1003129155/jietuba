@@ -5,8 +5,6 @@ I18n 翻译系统单元测试
 测试 XmlTranslator 的 XML 解析和翻译查找逻辑。
 """
 import pytest
-import os
-import tempfile
 from PySide6.QtWidgets import QApplication
 
 

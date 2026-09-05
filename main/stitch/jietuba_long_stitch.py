@@ -126,7 +126,7 @@ def image_to_row_hashes(image: Image.Image, ignore_right_pixels: int = 20) -> Li
     
     # 打印样本哈希值
     if len(sample_rows) > 0:
-        print(f"  📊 样本哈希值（每100行）:")
+        print("  📊 样本哈希值（每100行）:")
         for y, r, g, b, h in sample_rows[:3]:  # 只显示前3个样本
             print(f"     行{y}: RGB({r},{g},{b}) -> hash={h}")
 
@@ -166,7 +166,7 @@ def find_top_common_substrings(
     print(f"  [多子串搜索] 找到 {len(common_hashes)} 个公共哈希值")
     
     if len(common_hashes) == 0:
-        print(f"  [ERROR] [多子串搜索] 两个序列没有任何公共哈希值！")
+        print("  [ERROR] [多子串搜索] 两个序列没有任何公共哈希值！")
         return []
 
     # 动态规划表
@@ -284,25 +284,25 @@ def print_performance_stats():
     
     if _performance_stats['hash_count'] > 0:
         avg_hash_time = _performance_stats['hash_time'] / _performance_stats['hash_count']
-        print(f"逐行哈希计算:")
+        print("逐行哈希计算:")
         print(f"  总次数: {_performance_stats['hash_count']}")
         print(f"  总耗时: {_performance_stats['hash_time']*1000:.2f} ms")
         print(f"  平均耗时: {avg_hash_time*1000:.2f} ms")
         if RUST_AVAILABLE:
-            print(f"  [OK] 使用 Rust 加速（预估加速 10-20x）")
+            print("  [OK] 使用 Rust 加速（预估加速 10-20x）")
         else:
-            print(f"  [WARN]  使用 Python 实现（较慢）")
+            print("  [WARN]  使用 Python 实现（较慢）")
     
     if _performance_stats['lcs_count'] > 0:
         avg_lcs_time = _performance_stats['lcs_time'] / _performance_stats['lcs_count']
-        print(f"\n最长公共子串:")
+        print("\n最长公共子串:")
         print(f"  总次数: {_performance_stats['lcs_count']}")
         print(f"  总耗时: {_performance_stats['lcs_time']*1000:.2f} ms")
         print(f"  平均耗时: {avg_lcs_time*1000:.2f} ms")
         if RUST_AVAILABLE:
-            print(f"  [OK] 使用 Rust 加速（预估加速 10x）")
+            print("  [OK] 使用 Rust 加速（预估加速 10x）")
         else:
-            print(f"  [WARN]  使用 Python 实现（较慢）")
+            print("  [WARN]  使用 Python 实现（较慢）")
     
     total_time = _performance_stats['hash_time'] + _performance_stats['lcs_time']
     print(f"\n总算法耗时: {total_time*1000:.2f} ms")
@@ -342,7 +342,7 @@ def find_best_overlap(
     search_start = max(0, img1_len - img2_len)
     img1_search_region = img1_hashes[search_start:]
     
-    print(f"  搜索重叠区域:")
+    print("  搜索重叠区域:")
     print(f"     img1总长度: {img1_len}行")
     print(f"     img2总长度: {img2_len}行")
     print(f"     初始搜索范围: img1[{search_start}:{img1_len}] (底部{len(img1_search_region)}行)")
@@ -393,18 +393,18 @@ def find_best_overlap(
             continue
         else:
             print(f" [OK] (增加{result_height - img1_len}行)")
-            print(f"  [OK] 选择此候选作为最佳匹配")
+            print("  [OK] 选择此候选作为最佳匹配")
             return (absolute_start_i, overlap[1], overlap[2])
     
     # 所有候选都会导致缩短，尝试缩小搜索范围
-    print(f"\n  [WARN]  所有候选都会导致缩短!")
+    print("\n  [WARN]  所有候选都会导致缩短!")
     
     if last_added_height and last_added_height > 0:
         # 限制搜索范围为: img1底部的"上次新增高度"范围
         conservative_search_start = max(0, img1_len - last_added_height)
         conservative_search_region = img1_hashes[conservative_search_start:]
         
-        print(f"  🔄 尝试缩小搜索范围到上次新增区域...")
+        print("  🔄 尝试缩小搜索范围到上次新增区域...")
         print(f"     保守搜索范围: img1[{conservative_search_start}:{img1_len}] (底部{len(conservative_search_region)}行)")
         
         # 重新搜索多个候选
@@ -435,16 +435,15 @@ def find_best_overlap(
                 
                 if result_height_retry >= img1_len:
                     print(f" [OK] (增加{result_height_retry - img1_len}行)")
-                    print(f"  [OK] 缩小范围后找到合适的匹配")
-                    overlap_ratio_retry = overlap_retry[2] / min(len(conservative_search_region), img2_len)
+                    print("  [OK] 缩小范围后找到合适的匹配")
                     return (absolute_start_i_retry, overlap_retry[1], overlap_retry[2])
                 else:
                     print(f" [ERROR] (减少{img1_len - result_height_retry}行)")
                     continue
         
-        print(f"  [ERROR] 缩小范围后仍未找到合适匹配，使用原始最长匹配（接受轻微缩短）")
+        print("  [ERROR] 缩小范围后仍未找到合适匹配，使用原始最长匹配（接受轻微缩短）")
     else:
-        print(f"  [WARN]  没有历史增长记录，使用原始最长匹配（接受轻微缩短）")
+        print("  [WARN]  没有历史增长记录，使用原始最长匹配（接受轻微缩短）")
     
     # 如果所有尝试都失败，返回原始的最长匹配（即使会缩短）
     overlap = candidates[0]
@@ -483,7 +482,6 @@ def stitch_images_rust(
         return None
     
     try:
-        start_time = time.perf_counter()
         
         # 将PIL图像转换为字节流
         buffer1 = io.BytesIO()
@@ -507,7 +505,6 @@ def stitch_images_rust(
                 0.01  # min_overlap_ratio
             )
         
-        elapsed = time.perf_counter() - start_time
         
         if result_bytes is not None:
             result = Image.open(io.BytesIO(result_bytes))

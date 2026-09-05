@@ -9,10 +9,7 @@ from core import safe_event
 from core.ui_theme import get_ui_theme
 
 from ui.fluent_lite import (
-    SwitchButton, SimpleCardWidget, BodyLabel, CaptionLabel,
-    SwitchSettingCard as _SwitchSettingCard, FluentIcon,
-    SettingCard as FluentSettingCard,
-    SettingCardGroup as _SettingCardGroupBase,
+    SwitchButton, SimpleCardWidget, SwitchSettingCard as _SwitchSettingCard, SettingCardGroup as _SettingCardGroupBase,
 )
 
 

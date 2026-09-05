@@ -710,7 +710,6 @@ class TranslationManager(QObject):
             split_sentences: 分句模式
             preserve_formatting: 保留格式
         """
-        from PySide6.QtGui import QPixmap
         
         # 使用传入的参数或已配置的参数
         api_key = self._resolve_api_key(api_key)

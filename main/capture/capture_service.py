@@ -5,7 +5,6 @@
 import mss
 from PySide6.QtGui import QImage
 from PySide6.QtCore import QRectF
-from core.logger import log_debug
 
 class CaptureService:
     """

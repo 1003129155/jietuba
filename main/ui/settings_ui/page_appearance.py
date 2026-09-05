@@ -1,7 +1,7 @@
 ﻿# -*- coding: utf-8 -*-
 """外观设置页 — Fluent Design"""
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
+    QWidget, QVBoxLayout, QPushButton,
     QScrollArea, QColorDialog, QWidgetAction,
 )
 from PySide6.QtCore import Qt
@@ -9,11 +9,10 @@ from PySide6.QtGui import QColor
 
 from ui.fluent_lite import (
     SettingCard as FSettingCard, FluentIcon,
-    ComboBox, BodyLabel, CaptionLabel, PushButton,
+    ComboBox, CaptionLabel, PushButton,
 )
 from .components import (
     SettingCardGroup, theme_menu_style, theme_color,
-    theme_popup_background, theme_border_color,
 )
 
 # 统一控件宽度

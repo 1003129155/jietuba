@@ -13,15 +13,14 @@ from PySide6.QtWidgets import (
     QWidget,
     QPushButton,
     QHBoxLayout,
-    QSpinBox,
     QFrame,
     QToolButton,
     QLabel,
     QVBoxLayout,
 )
-from PySide6.QtCore import Qt, Signal, QCoreApplication, QRectF, QSize
+from PySide6.QtCore import Qt, Signal, QRectF, QSize
 from PySide6.QtGui import QColor, QPainter, QPen, QBrush, QPainterPath
-from core import log_debug, safe_event
+from core import safe_event
 from core.constants import CSS_FONT_FAMILY
 from core.i18n import tr as translate_text
 from core.resource_manager import ResourceManager
@@ -66,7 +65,6 @@ def build_settings_panel_stylesheet(
     """构建设置面板统一样式"""
     combo_block = ""
     if combo_enabled:
-        combo_padding_value = "1px" if combo_padding_compact else combo_padding
         combo_block = f"""
             QComboBox {{
                 border: 1px solid #ccc;

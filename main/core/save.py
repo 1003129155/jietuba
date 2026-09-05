@@ -14,7 +14,7 @@ from PySide6.QtGui import QImage, QPageLayout, QPageSize, QPainter, QPdfWriter
 from PIL import Image
 
 from settings import get_tool_settings_manager
-from core.logger import log_debug, log_info, log_warning, log_error, log_exception, T
+from core.logger import log_info, log_warning, log_error, log_exception, T
 
 
 class SaveService:

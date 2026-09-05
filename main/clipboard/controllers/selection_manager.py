@@ -12,7 +12,7 @@
 from typing import Optional, Callable
 from PySide6.QtCore import QObject, Qt, QEvent, Signal
 from PySide6.QtWidgets import QListWidget, QListWidgetItem
-from PySide6.QtGui import QKeyEvent, QCursor
+from PySide6.QtGui import QKeyEvent
 
 from ..core import ClipboardItem
 from core.logger import T, log_debug
@@ -241,7 +241,6 @@ class SelectionManager(QObject):
             return
         
         # 更新内部状态
-        old_index = self._selected_index
         self._selected_index = index
         
         # 更新列表控件的选中状态

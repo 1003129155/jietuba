@@ -8,11 +8,9 @@
 4. 过滤无效窗口（工具窗口、透明窗口等）
 """
 
-import sys
 import ctypes
-from ctypes import wintypes
 from typing import List, Tuple, Optional
-from core import log_debug, log_info, log_warning, log_error
+from core import log_debug, log_warning, log_error
 from core.logger import log_exception, T
 
 try:
@@ -118,7 +116,6 @@ class WindowFinder:
                     return True
                 
                 # 2. 检查窗口样式（排除工具窗口、消息窗口等）
-                style = win32gui.GetWindowLong(hwnd, win32con.GWL_STYLE)
                 ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
                 
                 # 跳过工具窗口

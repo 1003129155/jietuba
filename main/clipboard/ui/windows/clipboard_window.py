@@ -5,14 +5,13 @@
 提供的剪贴板历史管理界面。
 """
 
-import ctypes
 import os
 import re
 from time import perf_counter
 from typing import List, Optional
 
-from PySide6.QtCore import QDate, QEvent, QLocale, QPoint, QSettings, QSize, QTimer, Qt, Signal
-from PySide6.QtGui import QColor, QCursor, QPixmap
+from PySide6.QtCore import QDate, QEvent, QLocale, QPoint, QSettings, QTimer, Qt, Signal
+from PySide6.QtGui import QCursor
 from PySide6.QtWidgets import (
     QApplication,
     QCalendarWidget,
@@ -24,19 +23,18 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMenu,
     QPushButton,
-    QSizePolicy,
     QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
 from core import safe_event
-from core.logger import T, log_debug, log_error, log_exception
+from core.logger import T, log_debug, log_exception
 from core.shortcut_manager import ShortcutHandler, ShortcutManager
 from ui.dialogs import show_confirm_dialog
 from ui.fluent_lite import LineEdit
 
-from ...controllers import ClipboardController, SelectionManager, get_foreground_window, send_ctrl_v, set_foreground_window
+from ...controllers import ClipboardController, SelectionManager, get_foreground_window
 from ...core import ClipboardItem, ClipboardManager, GroupType
 from ..theme.theme_styles import ThemeStyleGenerator
 from ..theme.themes import Theme, get_theme_manager

@@ -11,22 +11,20 @@ from PySide6.QtWidgets import (
     QStackedWidget, QSizePolicy,
 )
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QPainter, QColor, QFont, QPen, QPainterPath
+from PySide6.QtGui import QPainter, QColor, QFont, QPen
 from ui.fluent_lite import ComboBox, LineEdit
 from core import safe_event
 from core.i18n import make_tr
 
 if __package__:
     from .base_page import (
-        BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND,
-        welcome_theme, set_welcome_label_style,
+        BasePage, IllustrationArea, ACCENT, welcome_theme, set_welcome_label_style,
     )
 else:
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from base_page import (
-        BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND,
-        welcome_theme, set_welcome_label_style,
+        BasePage, IllustrationArea, ACCENT, welcome_theme, set_welcome_label_style,
     )
 
 

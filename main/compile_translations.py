@@ -11,7 +11,6 @@ compile_translations.py - 编译翻译文件
     pip install PySide6-Essentials
 """
 import subprocess
-import sys
 from pathlib import Path
 
 
@@ -94,7 +93,7 @@ def compile_ts_files():
                     text=True
                 )
                 if result.returncode == 0:
-                    print(f"   [OK] Success")
+                    print("   [OK] Success")
                 else:
                     print(f"   [ERROR] Failed: {result.stderr}")
             except Exception as e:

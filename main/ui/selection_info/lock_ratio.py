@@ -13,7 +13,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QRectF, QPointF
+from PySide6.QtCore import QRectF
 from core.logger import log_debug, T
 
 

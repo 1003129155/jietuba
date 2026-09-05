@@ -42,7 +42,7 @@ from PySide6.QtWidgets import (
     QLineEdit, QPlainTextEdit, QTextEdit,
 )
 
-from core import log_debug, log_info, log_warning, log_error, safe_event
+from core import log_debug, log_error, safe_event
 from core.logger import log_exception, T
 
 # ======================================================================

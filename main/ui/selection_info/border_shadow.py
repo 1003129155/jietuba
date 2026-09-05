@@ -15,16 +15,15 @@ UI 组件：
 from __future__ import annotations
 
 from PySide6.QtCore import (
-    Qt, QRectF, QRect, QSize, QTimer, QPoint,
+    Qt, QRectF, QRect, QTimer, QPoint,
     Signal, QObject, QEvent,
 )
 from PySide6.QtGui import (
-    QColor, QPainter, QPainterPath, QBrush, QPen, QImage, QCursor,
-    QLinearGradient, QRadialGradient,
+    QColor, QPainter, QBrush, QPen, QImage, QCursor,
 )
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSlider, QLabel,
-    QPushButton, QCheckBox, QFrame,
+    QPushButton, QCheckBox,
 )
 
 from core.logger import log_debug, T

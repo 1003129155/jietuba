@@ -13,7 +13,7 @@ drawing_items.py 是画布里最大的一个文件（近 1700 行），此前只
 """
 import pytest
 from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtCore import QPointF, QRectF
 from PySide6.QtGui import QColor, QPen, QPainterPath, QFont
 
 

@@ -6,11 +6,12 @@
 """
 
 from typing import Optional, Callable, List
-import json
 
 try:
-    import pyclipboard
-    from pyclipboard import PyClipboardManager, PyClipboardItem, PyGroup
+    # 这里的导入本身就是可用性探测：导入成功即代表 Rust 扩展存在。
+    # PyClipboardItem / PyGroup 在本模块内不直接使用，但要一并验证符号齐全。
+    import pyclipboard  # noqa: F401
+    from pyclipboard import PyClipboardManager, PyClipboardItem, PyGroup  # noqa: F401
     PYCLIPBOARD_AVAILABLE = True
 except ImportError as e:
     PYCLIPBOARD_AVAILABLE = False

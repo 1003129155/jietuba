@@ -4,7 +4,6 @@
 
 from PySide6.QtWidgets import QGraphicsScene
 from PySide6.QtCore import Signal, Qt
-from PySide6.QtGui import QColor
 
 from .items import BackgroundItem, SelectionItem
 from .selection_model import SelectionModel
@@ -187,7 +186,6 @@ class CanvasScene(QGraphicsScene):
         Returns:
             list: 选区内的绘制项目列表（按绘制顺序，先绘制的在前）
         """
-        from PySide6.QtCore import Qt
         from PySide6.QtWidgets import QGraphicsEllipseItem
         
         drawing_items = []

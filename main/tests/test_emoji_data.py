@@ -5,7 +5,7 @@ Emoji 数据助手单元测试
 测试 emoji 分组加载、图标获取等纯逻辑。
 """
 import pytest
-from clipboard.ui.resources.emoji_data import get_emoji_groups, get_group_icon, GROUP_ICONS, _cached_groups, _cached_order
+from clipboard.ui.resources.emoji_data import get_emoji_groups, get_group_icon, GROUP_ICONS
 import clipboard.ui.resources.emoji_data as emoji_mod
 
 

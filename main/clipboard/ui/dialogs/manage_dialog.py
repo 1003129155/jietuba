@@ -10,9 +10,9 @@
 使用单例模式确保只有一个实例存在。
 """
 
-from typing import Optional, List
+from typing import Optional
 
-from PySide6.QtCore import Qt, Signal, QTimer
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QCursor
 from PySide6.QtWidgets import (
     QApplication,
@@ -23,7 +23,6 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QPushButton,
     QScrollArea,
-    QTextEdit,
     QVBoxLayout,
     QWidget,
 )

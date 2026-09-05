@@ -11,10 +11,12 @@
 
 import json
 import os
-from unittest.mock import MagicMock
 
 import pytest
 from PySide6.QtCore import QObject, Signal, QUrl
+# 直接从 PySide6 取 QTextEdit：早先是通过 manage_dialog 模块的命名空间拿的，
+# 那样会把测试绑在被测模块的导入清单上（该模块自身并不直接使用 QTextEdit）。
+from PySide6.QtWidgets import QTextEdit
 
 import clipboard.controllers.clipboard_controller as clipboard_controller_mod
 import clipboard.ui.dialogs.manage_dialog as manage_dialog_mod
@@ -402,7 +404,7 @@ class TestManageDialog:
         ]
         assert dlg.file_path_input.text() == file_path
         assert dlg.title_input.text() == "演示文件"
-        assert all(not isinstance(widget, manage_dialog_mod.QTextEdit) for widget in widgets)
+        assert all(not isinstance(widget, QTextEdit) for widget in widgets)
 
     def test_new_file_content_form_keeps_path_input_read_only(self, dialog):
         dlg, manager = dialog
@@ -449,7 +451,7 @@ class TestManageDialog:
         ]
         assert dlg.title_input.text() == "文本标题"
         assert dlg.content_edit.toPlainText() == "普通文本内容"
-        assert any(isinstance(widget, manage_dialog_mod.QTextEdit) for widget in widgets)
+        assert any(isinstance(widget, QTextEdit) for widget in widgets)
 
     def test_save_content_updates_file_item_using_file_payload(self, dialog):
         dlg, manager = dialog

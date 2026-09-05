@@ -19,7 +19,7 @@ from enum import Enum
 from typing import Optional, List, Tuple, Dict, Any, Union
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QPainter, QPen, QBrush, QColor, QTransform, QPixmap, QCursor, QPolygonF, QFont
+from PySide6.QtGui import QPainter, QPen, QBrush, QColor, QTransform, QPixmap, QCursor, QPolygonF
 from PySide6.QtWidgets import QGraphicsTextItem
 from PySide6.QtSvg import QSvgRenderer
 
@@ -391,7 +391,7 @@ class LayerEditor:
                 log_exception(e, T("获取NumberItem sceneVisualRect"))
 
         # QGraphicsItem：最稳（包含 pos/transform/scale 后的包围盒）
-        if hasattr(layer, "sceneBoundingRect") and callable(getattr(layer, "sceneBoundingRect")):
+        if hasattr(layer, "sceneBoundingRect") and callable(layer.sceneBoundingRect):
             try:
                 return QRectF(layer.sceneBoundingRect())
             except Exception as e:
@@ -574,7 +574,7 @@ class LayerEditor:
         self._base_scene_rect = self._get_scene_rect(self.active_layer)
 
         # 保存 QGraphicsItem 的基础状态（若存在）
-        if hasattr(self.active_layer, "pos") and callable(getattr(self.active_layer, "pos")):
+        if hasattr(self.active_layer, "pos") and callable(self.active_layer.pos):
             try:
                 p = self.active_layer.pos()
                 self._base_pos = QPointF(p.x(), p.y())
@@ -582,7 +582,7 @@ class LayerEditor:
                 log_exception(e, T("获取图层基准位置"))
                 self._base_pos = None
 
-        if hasattr(self.active_layer, "transform") and callable(getattr(self.active_layer, "transform")):
+        if hasattr(self.active_layer, "transform") and callable(self.active_layer.transform):
             try:
                 self._base_transform = QTransform(self.active_layer.transform())
             except Exception as e:
@@ -594,14 +594,14 @@ class LayerEditor:
 
         self._base_rotation = None
         self._rotation_origin_local = None
-        if hasattr(self.active_layer, "rotation") and callable(getattr(self.active_layer, "rotation")):
+        if hasattr(self.active_layer, "rotation") and callable(self.active_layer.rotation):
             try:
                 self._base_rotation = float(self.active_layer.rotation())
             except Exception as e:
                 log_exception(e, T("获取图层基准旋转"))
 
         if handle.handle_type == HandleType.ROTATE and self._base_scene_rect is not None:
-            if hasattr(self.active_layer, "mapFromScene") and callable(getattr(self.active_layer, "mapFromScene")):
+            if hasattr(self.active_layer, "mapFromScene") and callable(self.active_layer.mapFromScene):
                 try:
                     local_center = self.active_layer.mapFromScene(self._base_scene_rect.center())
                     self._rotation_origin_local = QPointF(local_center.x(), local_center.y())
@@ -801,24 +801,26 @@ class LayerEditor:
 
         mx = local_pos.x()
         my = local_pos.y()
-        L = local_rect.left()
-        T = local_rect.top()
-        R = local_rect.right()
-        B = local_rect.bottom()
+        # 注意：这几个变量不能命名为单字母 T，否则会遮蔽模块级导入的翻译函数 T，
+        # 使本函数上方异常分支里的 T(...) 调用抛 UnboundLocalError。
+        left = local_rect.left()
+        top = local_rect.top()
+        right = local_rect.right()
+        bottom = local_rect.bottom()
 
         # 每个手柄沿对角线约束轨迹移动，直接用鼠标位置投影到该轨迹线求最优 r
-        # TL(10): 手柄在 (L+r, T+r) → r = (mx-L + my-T) / 2
-        # TR(11): 手柄在 (R-r, T+r) → r = (R-mx + my-T) / 2
-        # BR(12): 手柄在 (R-r, B-r) → r = (R-mx + B-my) / 2
-        # BL(13): 手柄在 (L+r, B-r) → r = (mx-L + B-my) / 2
+        # TL(10): 手柄在 (left+r, top+r)     → r = (mx-left + my-top) / 2
+        # TR(11): 手柄在 (right-r, top+r)    → r = (right-mx + my-top) / 2
+        # BR(12): 手柄在 (right-r, bottom-r) → r = (right-mx + bottom-my) / 2
+        # BL(13): 手柄在 (left+r, bottom-r)  → r = (mx-left + bottom-my) / 2
         if handle.id == 10:
-            r_new = (mx - L + my - T) / 2.0
+            r_new = (mx - left + my - top) / 2.0
         elif handle.id == 11:
-            r_new = (R - mx + my - T) / 2.0
+            r_new = (right - mx + my - top) / 2.0
         elif handle.id == 12:
-            r_new = (R - mx + B - my) / 2.0
+            r_new = (right - mx + bottom - my) / 2.0
         elif handle.id == 13:
-            r_new = (mx - L + B - my) / 2.0
+            r_new = (mx - left + bottom - my) / 2.0
         else:
             return
 
@@ -1271,28 +1273,28 @@ class LayerEditor:
             state["rect"] = QRectF(r)
 
         # pos / transform（QGraphicsItem）
-        if hasattr(layer, "pos") and callable(getattr(layer, "pos")):
+        if hasattr(layer, "pos") and callable(layer.pos):
             try:
                 p = layer.pos()
                 state["pos"] = QPointF(p.x(), p.y())
             except Exception as e:
                 log_exception(e, T("捕获layer pos"))
 
-        if hasattr(layer, "transform") and callable(getattr(layer, "transform")):
+        if hasattr(layer, "transform") and callable(layer.transform):
             try:
                 state["transform"] = QTransform(layer.transform())
             except Exception as e:
                 log_exception(e, T("捕获layer transform"))
         
         # 旋转角度（重要！用于旋转手柄的撤销）
-        if hasattr(layer, "rotation") and callable(getattr(layer, "rotation")):
+        if hasattr(layer, "rotation") and callable(layer.rotation):
             try:
                 state["rotation"] = float(layer.rotation())
             except Exception as e:
                 log_exception(e, T("捕获layer rotation"))
         
         # 旋转中心点
-        if hasattr(layer, "transformOriginPoint") and callable(getattr(layer, "transformOriginPoint")):
+        if hasattr(layer, "transformOriginPoint") and callable(layer.transformOriginPoint):
             try:
                 origin = layer.transformOriginPoint()
                 state["transformOriginPoint"] = QPointF(origin.x(), origin.y())
@@ -1329,7 +1331,7 @@ class LayerEditor:
         # 序号值（NumberItem）
         if hasattr(layer, "number"):
             try:
-                state["number"] = max(1, int(getattr(layer, "number")))
+                state["number"] = max(1, int(layer.number))
             except Exception as e:
                 log_exception(e, T("捕获number"))
 
@@ -1399,7 +1401,7 @@ class LayerEditor:
             return None
 
         # rect() 方法
-        if hasattr(layer, "rect") and callable(getattr(layer, "rect")):
+        if hasattr(layer, "rect") and callable(layer.rect):
             try:
                 r = layer.rect()
                 return QRectF(r) if isinstance(r, QRectF) else None
@@ -1414,7 +1416,7 @@ class LayerEditor:
         """设置 local rect（setRect 优先，否则写 rect 属性）"""
         if not layer or not isinstance(rect, QRectF):
             return
-        if hasattr(layer, "setRect") and callable(getattr(layer, "setRect")):
+        if hasattr(layer, "setRect") and callable(layer.setRect):
             try:
                 layer.setRect(rect)
                 if hasattr(layer, "update"):

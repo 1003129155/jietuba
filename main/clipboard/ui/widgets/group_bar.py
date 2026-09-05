@@ -10,15 +10,14 @@
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QBoxLayout, QPushButton, QMenu, QFrame,
-    QApplication, QGraphicsOpacityEffect
+    QGraphicsOpacityEffect
 )
-from PySide6.QtCore import Qt, Signal, QTimer, QPoint, QPropertyAnimation, QEasingCurve
+from PySide6.QtCore import Qt, Signal, QTimer, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QCursor, QAction
 
 from typing import Optional, List
 from ...controllers import ClipboardController
 from ...core import ClipboardManager, Group
-from ..dialogs.manage_dialog import ManageDialog, get_manage_dialog
 from ..menus.group_context_menu import ClipboardGroupContextMenu
 from ..theme.themes import Theme
 from ..theme.theme_styles import ThemeStyleGenerator

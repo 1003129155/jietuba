@@ -14,7 +14,6 @@ from PySide6.QtCore import QTranslator, QLocale, QCoreApplication, QObject, Sign
 from PySide6.QtWidgets import QApplication
 from pathlib import Path
 import sys
-import os
 import xml.etree.ElementTree as ET
 
 

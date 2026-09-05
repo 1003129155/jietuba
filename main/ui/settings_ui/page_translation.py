@@ -8,8 +8,8 @@ from PySide6.QtCore import Qt
 from ui.fluent_lite.theme import ACCENT
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
-    FluentIcon, ComboBox, CaptionLabel, LineEdit,
-    PushButton, HyperlinkButton,
+    FluentIcon, ComboBox, LineEdit,
+    PushButton,
 )
 from .components import SettingCardGroup, WhiteCard, adjust_button_width, apply_theme_text_style
 

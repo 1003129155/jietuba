@@ -18,7 +18,7 @@ from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtGui import QImage
 
 from .frame_recorder import FrameData
-from core.logger import log_debug, log_error, log_info, T
+from core.logger import log_debug, log_error, T
 
 try:
     import gifrecorder

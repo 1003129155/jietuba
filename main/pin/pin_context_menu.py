@@ -6,8 +6,8 @@
 
 from PySide6.QtWidgets import QMenu, QWidget
 from PySide6.QtGui import QAction, QFont
-from PySide6.QtCore import Qt, QPoint
-from core.constants import CSS_FONT_FAMILY_UI, DEFAULT_FONT_FAMILY
+from PySide6.QtCore import QPoint
+from core.constants import CSS_FONT_FAMILY_UI
 
 
 def _get_shortcut_display(cfg_key: str) -> str:

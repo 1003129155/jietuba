@@ -11,22 +11,20 @@ from PySide6.QtWidgets import (
     QFileDialog, QSizePolicy,
 )
 from PySide6.QtCore import Qt, QSize, QTimer, QPropertyAnimation, QEasingCurve
-from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QPen
+from PySide6.QtGui import QPixmap, QPainter, QColor, QPen
 from ui.fluent_lite import PushButton, FluentIcon, LineEdit
 from ui.fluent_lite.theme import to_qicon
 from core.i18n import make_tr
 
 if __package__:
     from .base_page import (
-        BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND, BG_ILLUS,
-        welcome_theme, set_welcome_label_style, apply_welcome_label_style,
+        BasePage, IllustrationArea, welcome_theme, set_welcome_label_style, apply_welcome_label_style,
     )
 else:
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from base_page import (
-        BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND, BG_ILLUS,
-        welcome_theme, set_welcome_label_style, apply_welcome_label_style,
+        BasePage, IllustrationArea, welcome_theme, set_welcome_label_style, apply_welcome_label_style,
     )
 
 

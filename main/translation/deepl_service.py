@@ -20,7 +20,7 @@ import urllib.error
 from typing import Optional, Dict, Any
 from PySide6.QtCore import QThread, Signal
 
-from core.logger import log_info, log_debug, log_error, log_warning, T
+from core.logger import log_info, log_debug, log_error, T
 
 
 class DeepLService:

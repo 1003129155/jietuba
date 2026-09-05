@@ -6,7 +6,7 @@
 供分组表单复用，不直接参与分组保存逻辑。
 """
 
-from PySide6.QtCore import QTimer, Qt, QPoint
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QWidget
 
 from ui.fluent_lite import CaptionLabel, LineEdit

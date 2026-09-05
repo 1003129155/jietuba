@@ -11,7 +11,6 @@ import os
 import re
 from datetime import datetime, time, timedelta
 from typing import Optional, List, Callable, Tuple
-from time import perf_counter
 from PySide6.QtCore import QObject, Signal, QTimer, Qt
 from ui.dialogs import show_confirm_dialog
 
@@ -245,17 +244,14 @@ class ClipboardController(QObject):
         # 动态获取 page_size（根据是否显示时间来源）
         current_page_size = self._get_page_size()
         
-        t_total_start = perf_counter()
         
         try:
             
             # 根据当前分组加载内容
-            t_query_start = perf_counter()
             is_first_page = (self._current_offset == 0)
             new_items, raw_count = self._fetch_items_page(current_page_size, self._current_offset)
             self._current_offset += raw_count
             
-            t_query_end = perf_counter()
             log_info(T("加载完成 - 获取到 {count} 条记录", count=len(new_items)), "Clipboard")
             
             # 检查是否还有更多数据（使用动态的 page_size）
@@ -275,7 +271,6 @@ class ClipboardController(QObject):
             traceback.print_exc()
         
         finally:
-            t_total_end = perf_counter()
             self._is_loading = False
             self.loading_state_changed.emit(False)
             

@@ -1,6 +1,5 @@
 ﻿# -*- coding: utf-8 -*-
 """关于页面"""
-import webbrowser
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea
 from PySide6.QtCore import Qt

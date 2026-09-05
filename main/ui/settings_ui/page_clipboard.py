@@ -270,7 +270,6 @@ def _change_clipboard_data_location(dialog):
             except ValueError:
                 pass
 
-        target_db_path = os.path.join(target_dir, "clipboard.db")
         if _target_has_clipboard_data(target_dir):
             confirmed = show_confirm_dialog(
                 dialog,

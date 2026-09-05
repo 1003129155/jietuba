@@ -177,7 +177,7 @@ class NumberTool(Tool):
             return existing
 
         if not cls._is_qobject_alive(scene):
-            setattr(item, "number_order", 0)
+            item.number_order = 0
             return 0
 
         try:
@@ -196,7 +196,7 @@ class NumberTool(Tool):
         except Exception as exc:
             log_warning(T("同步序号创建顺序失败：{exc}", exc=exc), "NumberTool")
 
-        setattr(item, "number_order", counter)
+        item.number_order = counter
         try:
             setattr(scene, cls._SCENE_ORDER_ATTR, counter + 1)
         except RuntimeError:

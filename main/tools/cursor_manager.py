@@ -5,7 +5,6 @@
 from PySide6.QtCore import Qt, QPointF
 from PySide6.QtGui import QCursor, QPixmap, QPainter, QPen, QColor, QBrush, QFont
 from PySide6.QtWidgets import QGraphicsEllipseItem, QApplication
-from core import log_debug
 from core.logger import log_exception, T
 from canvas.items import NumberItem
 from tools.base import color_with_opacity

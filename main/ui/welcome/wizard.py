@@ -24,15 +24,13 @@ from main_app import APP_VERSION
 
 if __package__:
     from .base_page import (
-        ACCENT, ACCENT_DARK, TEXT_PRIMARY, TEXT_SECOND, BG_PAGE,
-        PRODUCT_NAME, brand_text, welcome_theme,
+        ACCENT, PRODUCT_NAME, brand_text, welcome_theme,
     )
 else:
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from base_page import (
-        ACCENT, ACCENT_DARK, TEXT_PRIMARY, TEXT_SECOND, BG_PAGE,
-        PRODUCT_NAME, brand_text, welcome_theme,
+        ACCENT, PRODUCT_NAME, brand_text, welcome_theme,
     )
 
 

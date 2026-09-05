@@ -4,14 +4,11 @@
 实现窗口复用、会话存活周期管理、工具信号转发、导出触发等功能。
 """
 
-import sys
-import os
 import gc
-from datetime import datetime
 from PySide6.QtWidgets import QApplication, QWidget, QGraphicsTextItem
 from PySide6.QtCore import Qt, QTimer, QRect
-from PySide6.QtGui import QPixmap, QImage
-from ui.dialogs import show_modeless_warning_dialog, show_warning_dialog
+from PySide6.QtGui import QPixmap
+from ui.dialogs import show_modeless_warning_dialog
 
 from canvas import CanvasScene, CanvasView
 from capture.capture_service import CaptureService
@@ -22,7 +19,7 @@ from ui.selection_info import SelectionInfoPanel, SelectionInfoController
 from tools.action import ActionTools
 from settings import get_tool_settings_manager
 from stitch.scroll_window import ScrollCaptureWindow
-from core.logger import log_debug, log_info, log_warning, log_error, log_exception, T
+from core.logger import log_debug, log_info, log_exception, T
 from core import safe_event
 from core.shortcut_manager import ShortcutManager, ShortcutHandler
 
@@ -1011,7 +1008,7 @@ class ScreenshotWindow(QWidget):
             
             # 窗口关闭后自动清除全局引用，释放内存
             def _on_scroll_window_destroyed():
-                setattr(app, '_scroll_window', None)
+                app._scroll_window = None
                 from core.platform_utils import request_trim_working_set
                 request_trim_working_set(1000)
             scroll_window.destroyed.connect(_on_scroll_window_destroyed)

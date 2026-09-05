@@ -6,7 +6,6 @@
 
 import sys
 import os
-import ctypes
 
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QBrush, QFont
@@ -19,7 +18,7 @@ from ui.screenshot_window import ScreenshotWindow
 from ui.tray_menu import create_tray_menu
 from core.logger import (
     setup_logger, get_logger, T,
-    log_debug, log_info, log_warning, log_error, log_exception
+    log_debug, log_info, log_warning, log_exception
 )
 
 # ── 全局版本号 ────────────────────────────────────────────

@@ -14,9 +14,9 @@ UI 组件：
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, QRectF, QSize, QTimer, QPoint, Signal, QObject, QEvent
+from PySide6.QtCore import Qt, QRectF, QTimer, QPoint, Signal, QObject, QEvent
 from PySide6.QtGui import (
-    QColor, QPainter, QPainterPath, QBrush, QPen, QImage, QCursor,
+    QColor, QPainter, QPainterPath, QBrush, QPen, QImage,
 )
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QSlider, QLabel, QPushButton,

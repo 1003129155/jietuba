@@ -6,8 +6,6 @@ ToolSettings / ToolSettingsManager 单元测试
 需要 QApplication 实例（因为 QSettings / Signal 依赖 Qt）。
 """
 import pytest
-import tempfile
-import os
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QSettings
 from settings.tool_settings import ToolSettings, ToolSettingsManager

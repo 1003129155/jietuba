@@ -5,8 +5,7 @@
 将主题颜色转换为 Qt StyleSheet
 """
 
-from typing import Optional
-from .themes import Theme, ThemeColors
+from .themes import Theme
 
 
 class ThemeStyleGenerator:

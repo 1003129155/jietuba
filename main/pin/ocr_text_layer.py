@@ -13,8 +13,8 @@ ocr_text_layer.py - OCR 可交互文字层（钉图专用）
 """
 import unicodedata
 from PySide6.QtWidgets import QWidget, QApplication
-from PySide6.QtCore import Qt, QRect, QPoint, QRectF, Signal, QEvent
-from PySide6.QtGui import QPainter, QPen, QColor, QBrush, QCursor, QFont, QFontMetrics
+from PySide6.QtCore import Qt, QRect, QPoint, QRectF
+from PySide6.QtGui import QPainter, QColor
 from typing import List, Dict, Optional, Tuple
 from core import log_info, log_debug, safe_event
 from core.logger import log_exception, T

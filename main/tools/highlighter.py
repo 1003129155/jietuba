@@ -3,7 +3,7 @@
 """
 
 from PySide6.QtCore import QPointF, Qt, QRectF
-from PySide6.QtGui import QPainterPath, QPen, QColor, QBrush
+from PySide6.QtGui import QPainterPath, QPen, QBrush
 from .base import Tool, ToolContext, color_with_opacity
 from canvas.items import StrokeItem, RectItem
 from canvas.undo import AddItemCommand

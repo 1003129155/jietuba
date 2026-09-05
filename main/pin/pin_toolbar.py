@@ -6,7 +6,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QApplication
 
 from ui.toolbar import Toolbar
-from core import log_debug, safe_event
+from core import safe_event
 
 
 class PinToolbar(Toolbar):

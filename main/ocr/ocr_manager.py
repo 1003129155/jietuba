@@ -17,9 +17,8 @@ ocr_manager.py - OCR 功能模块
 OCR_VARIANT: str = "pp"
 
 from PySide6.QtGui import QPixmap, QImage
-from PySide6.QtCore import QBuffer, QIODevice, Qt
-from typing import Optional, Dict, Any
-import io
+from PySide6.QtCore import QBuffer, QIODevice
+from typing import Optional, Any
 import time
 import os
 import sys

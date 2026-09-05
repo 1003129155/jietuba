@@ -1,19 +1,15 @@
 ﻿"""
 工具栏 - 截图工具栏UI
 """
-import os
-import sys
 from PySide6.QtCore import Qt, QSize, Signal, QRect, QRectF, QPoint
-from PySide6.QtGui import QIcon, QColor, QCursor, QFont, QPainter, QPainterPath, QPen, QBrush
+from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QBrush
 from PySide6.QtWidgets import (
-    QWidget, QPushButton, QSlider, QLabel, 
-    QApplication, QColorDialog
+    QWidget, QPushButton, QApplication
 )
 from core.resource_manager import ResourceManager
 from core.theme import get_theme
 from core import log_debug, safe_event
 from core.logger import log_exception, T
-from core.constants import DEFAULT_FONT_FAMILY
 
 
 class _DragHandle(QWidget):

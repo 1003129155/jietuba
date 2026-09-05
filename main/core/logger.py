@@ -49,7 +49,6 @@
 """
 
 import sys
-import os
 import io
 import re
 import threading

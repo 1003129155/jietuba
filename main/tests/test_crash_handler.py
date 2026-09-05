@@ -4,10 +4,7 @@
 
 测试 _write_crash / install_crash_hooks 等纯逻辑。
 """
-import pytest
 import sys
-import os
-from pathlib import Path
 from core.crash_handler import _write_crash, _ensure_log_dir, _LOG_DIR
 
 

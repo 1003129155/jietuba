@@ -6,7 +6,7 @@
 from PySide6.QtCore import QRectF
 from PySide6.QtGui import QImage, QPainter, QPixmap
 
-from core import log_debug, log_warning, log_info, T
+from core import log_debug, log_warning, T
 
 
 class ExportService:

@@ -9,7 +9,7 @@ scroll_toolbar.py - 滚动截图浮动工具栏模块
 """
 
 from PySide6.QtWidgets import QWidget, QPushButton, QVBoxLayout, QHBoxLayout
-from PySide6.QtCore import Qt, QRect, QPoint, Signal
+from PySide6.QtCore import Qt, QPoint, Signal
 from PySide6.QtGui import QPainter, QColor, QPainterPath
 from core.theme import get_theme
 from core import safe_event
@@ -160,7 +160,6 @@ class FloatingToolbar(QWidget):
 
         # 手动截图按钮（SVG 图标 - 相机样式）
         from core.resource_manager import ResourceManager
-        from PySide6.QtGui import QIcon
         from PySide6.QtCore import QSize
 
         self.manual_capture_btn = QPushButton()

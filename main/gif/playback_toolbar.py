@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QWidget, QPushButton, QLabel,
     QHBoxLayout, QVBoxLayout,
 )
-from PySide6.QtCore import Qt, QRect, QPoint, Signal, QSize
+from PySide6.QtCore import Qt, QRect, Signal, QSize
 from PySide6.QtGui import (
     QPainter, QColor, QPen, QCursor, QBrush,
 )

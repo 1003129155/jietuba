@@ -10,8 +10,8 @@
 - 完整的样式管理 (颜色、线宽、透明度)
 """
 
-from PySide6.QtCore import Qt, QObject, Signal, QRectF, QPointF
-from PySide6.QtGui import QPainter, QImage, QPixmap, QTransform
+from PySide6.QtCore import Qt, QObject, QRectF, QPointF
+from PySide6.QtGui import QPainter, QImage, QTransform
 
 from canvas import CanvasScene
 from core import log_info, log_warning, log_error, log_debug
@@ -134,8 +134,6 @@ class PinCanvas(QObject):
         Returns:
             克隆的图形项，如果失败返回 None
         """
-        from PySide6.QtGui import QPen
-        from PySide6.QtCore import QPointF, QRectF
         
         # 获取item的类型
         item_type = type(item).__name__
@@ -218,7 +216,7 @@ class PinCanvas(QObject):
                 state["opacity"] = float(item.opacity())
             except Exception as e:
                 log_exception(e, T("捕获item opacity"))
-        if hasattr(item, "rect") and callable(getattr(item, "rect")):
+        if hasattr(item, "rect") and callable(item.rect):
             try:
                 rect = QRectF(item.rect())
                 state["rect"] = rect
@@ -479,7 +477,7 @@ class PinCanvas(QObject):
         
         try:
             self.tool_controller.activate("cursor")
-        except RuntimeError as e:
+        except RuntimeError:
             pass  # Scene可能已被销毁，忽略错误
 
         self.is_editing = False
@@ -509,7 +507,6 @@ class PinCanvas(QObject):
             toolbar: PinToolbar 实例
             view: PinCanvasView 实例
         """
-        from core.logger import log_exception
 
         # 工具切换
         toolbar.tool_changed.connect(lambda name: self._on_tool_changed(name, toolbar, view))
@@ -566,7 +563,6 @@ class PinCanvas(QObject):
 
     def _on_tool_changed(self, tool_name: str, toolbar, view):
         """工具切换事件（内聚在 PinCanvas）"""
-        from core.logger import log_exception
 
         if tool_name and tool_name != "cursor":
             self.activate_tool(tool_name)

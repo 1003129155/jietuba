@@ -13,7 +13,7 @@ from PySide6.QtWidgets import QFrame
 from PySide6.QtGui import QPainter, QRegion, QPainterPath
 
 from canvas import CanvasView
-from core import log_info, safe_event
+from core import safe_event
 
 
 class PinCanvasView(CanvasView):

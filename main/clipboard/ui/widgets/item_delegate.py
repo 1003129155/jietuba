@@ -12,16 +12,16 @@ ClipboardItemDelegate — 剪贴板列表项绘制代理
 """
 
 import base64
-from typing import Optional, Dict, Tuple
+from typing import Optional, Dict
 
 from PySide6.QtWidgets import QStyledItemDelegate, QStyleOptionViewItem, QListWidget
-from PySide6.QtCore import Qt, QRect, QSize, QModelIndex, QPoint
+from PySide6.QtCore import Qt, QRect, QSize, QModelIndex
 from PySide6.QtGui import (
     QPainter, QColor, QFont, QFontMetrics, QPixmap, QPen,
 )
 
 from ...core import ClipboardItem
-from ..theme.themes import Theme, ThemeColors
+from ..theme.themes import Theme
 from core.logger import T, log_error
 
 

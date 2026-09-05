@@ -10,9 +10,8 @@ import subprocess
 import sys
 
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QStackedWidget, QWidget, QDialogButtonBox,
-    QFrame, QFileDialog,
+    QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QWidget, QDialogButtonBox,
+    QFileDialog,
 )
 from PySide6.QtCore import QSize, Qt, Signal
 from ui.dialogs import show_info_dialog
@@ -43,10 +42,9 @@ from .page_appearance import create_appearance_page
 from .page_developer import create_developer_page
 from .page_about import create_about_page
 from .components import (
-    adjust_button_width, theme_surface_color, theme_sidebar_color,
-    theme_border_color, theme_input_background, theme_popup_background,
-    theme_popup_hover_background, theme_text_style, theme_caption_style,
-    theme_menu_style, theme_color, refresh_theme_widget_styles,
+    theme_surface_color, theme_sidebar_color,
+    theme_input_background, theme_popup_background,
+    theme_popup_hover_background, theme_text_style, theme_menu_style, theme_color, refresh_theme_widget_styles,
     apply_theme_text_style,
 )
 
@@ -121,7 +119,6 @@ class SettingsDialog(FrostedFramelessDialog):
 
     def _setup_ui(self):
         sidebar_width = 212
-        nav_width = 194
         title_bar_height = self.titleBar.height() if getattr(self, 'titleBar', None) else 32
 
         main_layout = QHBoxLayout(self)

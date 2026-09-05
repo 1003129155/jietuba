@@ -326,34 +326,25 @@ class PreloadManager:
                     log_debug(T("mss 模块已加载并预热"), "Preload")
 
                     # 2. 预加载 canvas 模块（场景、视图、图形项）
-                    from canvas import CanvasScene, CanvasView, SelectionModel
-                    from canvas.items import BackgroundItem, SelectionItem
-                    from canvas.items import StrokeItem, RectItem, EllipseItem, ArrowItem, TextItem, NumberItem
-                    from canvas.smart_edit_controller import SmartEditController
-                    from canvas.handle_editor import LayerEditor
                     log_debug(T("canvas 模块已加载"), "Preload")
 
                     # 3. 预加载 tools 模块（所有绘图工具）
-                    from tools import (
-                        ToolController, ToolContext, CursorTool,
-                        PenTool, RectTool, EllipseTool, ArrowTool,
-                        TextTool, NumberTool, HighlighterTool, EraserTool
-                    )
-                    from tools.cursor_manager import CursorManager
                     log_debug(T("tools 模块已加载"), "Preload")
 
                     # 4. 预加载智能选区依赖（win32gui）
                     try:
-                        import win32gui
-                        import win32con
-                        from capture.window_finder import WindowFinder
+                        # 预加载：这些导入的目的就是把模块提前装进 import 缓存，
+                        # 让首次截图时不必等待，因此"未使用"是预期的。
+                        import win32gui  # noqa: F401
+                        import win32con  # noqa: F401
+                        from capture.window_finder import WindowFinder  # noqa: F401
                         log_debug(T("win32gui 模块已加载"), "Preload")
                     except ImportError:
                         log_debug(T("win32gui 未安装，跳过"), "Preload")
 
                     # 4.5 预加载 win32clipboard
                     try:
-                        import win32clipboard
+                        import win32clipboard  # noqa: F401  预加载，见上
                         log_debug(T("win32clipboard 模块已加载"), "Preload")
                     except ImportError:
                         log_debug(T("win32clipboard 未安装，跳过"), "Preload")
@@ -374,24 +365,19 @@ class PreloadManager:
                         log_exception(e, T("预热PNG编码器"))
 
                     # 5. 预加载 UI 组件
-                    from ui.toolbar import Toolbar
-                    from ui.magnifier import MagnifierOverlay
                     log_debug(T("UI 组件已加载"), "Preload")
 
                     # 6. 预加载 capture 服务
-                    from capture.capture_service import CaptureService
                     log_debug(T("CaptureService 已加载"), "Preload")
 
                     # 7. 预加载 GIF 录制模块
                     try:
-                        from gif import GifRecordWindow
                         log_debug(T("GIF 模块已加载"), "Preload")
                     except Exception as e:
                         log_warning(T("GIF 模块预加载失败: {e}", e=e), "Preload")
 
                     # 8. 预加载长截图模块
                     try:
-                        from stitch.scroll_window import ScrollCaptureWindow
                         log_debug(T("长截图模块已加载"), "Preload")
                     except Exception as e:
                         log_warning(T("长截图模块预加载失败: {e}", e=e), "Preload")
@@ -466,7 +452,7 @@ class PreloadManager:
     
     def _show_main_window_on_start(self):
         """根据配置决定启动时是否显示主界面（设置窗口或欢迎向导）"""
-        from core.logger import log_exception, log_debug, T
+        from core.logger import log_exception, T
         try:
             # 首次运行：显示欢迎向导
             if self.config.is_first_run():

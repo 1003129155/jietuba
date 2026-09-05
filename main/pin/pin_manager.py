@@ -259,9 +259,13 @@ class PinManager(QObject):
             try:
                 ok = False
 
+                # ruff B023：闭包引用了循环变量，但 _do_save 总是在本轮迭代内被
+                # 同步调用（_with_edit_paused 内部直接 func()），因此不存在延迟
+                # 求值取到最后一轮变量的问题。若将来把回调改成延迟/异步执行，
+                # 必须改成默认参数绑定 pin_window 和 file_path。
                 def _do_save():
                     nonlocal ok
-                    ok = pin_window.get_current_image().save(str(file_path))
+                    ok = pin_window.get_current_image().save(str(file_path))  # noqa: B023
 
                 if hasattr(pin_window, "_with_edit_paused"):
                     pin_window._with_edit_paused(_do_save)

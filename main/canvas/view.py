@@ -6,7 +6,7 @@ from typing import Optional
 
 from PySide6.QtWidgets import QGraphicsView, QGraphicsTextItem
 from PySide6.QtCore import Qt, QPointF, QRectF, QTimer
-from PySide6.QtGui import QPainter, QPen, QColor, QBrush, QCursor
+from PySide6.QtGui import QCursor
 import shiboken6
 from canvas.items import (
     StrokeItem,

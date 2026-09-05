@@ -30,11 +30,10 @@ jietuba_scroll.py - 滚动截图窗口模块
     window.show()
 """
 
-import os
 import time
 import ctypes
-from PySide6.QtWidgets import QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QLabel, QApplication
-from PySide6.QtCore import Qt, QRect, QTimer, Signal, QPoint, QMetaObject, Q_ARG, QSettings
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QApplication
+from PySide6.QtCore import Qt, QRect, QTimer, Signal, QPoint, QSettings
 from PySide6.QtGui import QPainter, QPen, QColor, QPixmap, QGuiApplication, QImage
 from typing import Optional
 from PIL import Image
@@ -47,7 +46,7 @@ from .jietuba_long_stitch_unified import (
 
 from settings import get_tool_settings_manager
 from core.save import SaveService
-from core import log_debug, log_info, log_warning, log_error, safe_event
+from core import log_debug, log_info, safe_event
 from core.logger import log_exception, T, LogMsg
 from .scroll_toolbar import FloatingToolbar  # 浮动工具栏（独立模块）
 
@@ -404,7 +403,6 @@ class ScrollCaptureWindow(QWidget):
         
         # 设置窗口位置和大小（基于截图区域）
         # 窗口区域 = 截图区域 + 底部按钮栏
-        button_bar_height = 35  # 从50改为35，让按钮栏更窄
         
         # 为边框预留空间（但截图区域不包含边框）
         border_width = 3
@@ -1075,7 +1073,6 @@ class ScrollCaptureWindow(QWidget):
         Args:
             scroll_distance: 滚动距离（像素）
         """
-        import time
         
         # 累积滚动距离
         self.current_scroll_distance += scroll_distance
@@ -1101,7 +1098,6 @@ class ScrollCaptureWindow(QWidget):
     
     def _check_scroll_stopped(self):
         """定期检查滚动是否已停止（仅在等待模式下使用）"""
-        import time
         
         current_time = time.time()
         time_since_last_scroll = current_time - self.last_scroll_time
@@ -1121,7 +1117,6 @@ class ScrollCaptureWindow(QWidget):
     
     def _calculate_image_hash(self, pil_image):
         """计算图片的感知哈希值（用于相似度比较）"""
-        import hashlib
         
         # 缩小图片到8x8用于快速比较
         small_img = pil_image.resize((16, 16), Image.Resampling.LANCZOS)
@@ -1334,7 +1329,6 @@ class ScrollCaptureWindow(QWidget):
         
         # 边框应该绘制在整个窗口的边缘
         # 窗口大小 = capture_rect + 边框(3px * 2)
-        border_width = 3
         border_rect = QRect(
             1,  # 从窗口边缘开始
             1,
@@ -1505,7 +1499,8 @@ class ScrollCaptureWindow(QWidget):
             from pin.pin_manager import PinManager
             pin_manager = PinManager.instance()
             
-            pin_window = pin_manager.create_pin(
+            # 不保留返回值：PinManager 自身会持有窗口引用，这里不需要
+            pin_manager.create_pin(
                 image=qimage,
                 position=position,
                 config_manager=self.config_manager,

@@ -97,7 +97,8 @@ class TestComposePath:
     def test_creates_directory(self, save_service, tmp_path):
         """不存在的目录应被自动创建"""
         new_dir = str(tmp_path / "a" / "b" / "c")
-        path = save_service._compose_path(new_dir, "test", "", "png")
+        # 这里调用是为了它的副作用（自动建目录），返回值本身不参与断言
+        save_service._compose_path(new_dir, "test", "", "png")
         assert os.path.isdir(new_dir)
 
 

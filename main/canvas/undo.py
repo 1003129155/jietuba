@@ -32,7 +32,7 @@ from PySide6.QtCore import QRectF, QPointF
 from PySide6.QtGui import QUndoStack, QUndoCommand, QTransform
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsScene
 
-from core import log_debug, log_warning
+from core import log_debug
 from core.logger import log_exception, T
 
 # ============================================================================
@@ -156,7 +156,7 @@ def _apply_number_values(values: Dict[QGraphicsItem, int]):
         if item is None:
             continue
         try:
-            setattr(item, "number", max(1, int(number)))
+            item.number = max(1, int(number))
             if hasattr(item, "update"):
                 item.update()
         except Exception as e:
@@ -406,18 +406,18 @@ class EditItemCommand(QUndoCommand):
         number = state.get("number")
         if isinstance(number, int) and hasattr(self.item, "number"):
             try:
-                setattr(self.item, "number", max(1, int(number)))
+                self.item.number = max(1, int(number))
             except Exception as e:
                 log_exception(e, T("恢复number属性"))
 
         # rect（RectItem/EllipseItem 等）
         rect = state.get("rect")
         if isinstance(rect, QRectF):
-            if hasattr(self.item, "setRect") and callable(getattr(self.item, "setRect")):
+            if hasattr(self.item, "setRect") and callable(self.item.setRect):
                 self.item.setRect(QRectF(rect))
             elif hasattr(self.item, "rect"):
                 try:
-                    setattr(self.item, "rect", QRectF(rect))
+                    self.item.rect = QRectF(rect)
                 except Exception as e:
                     log_exception(e, T("恢复rect属性"))
 
@@ -427,12 +427,12 @@ class EditItemCommand(QUndoCommand):
             # 兼容：item.start / item.start_pos
             if hasattr(self.item, "start"):
                 try:
-                    setattr(self.item, "start", QPointF(start))
+                    self.item.start = QPointF(start)
                 except Exception as e:
                     log_exception(e, T("恢复start属性"))
             if hasattr(self.item, "start_pos"):
                 try:
-                    setattr(self.item, "start_pos", QPointF(start))
+                    self.item.start_pos = QPointF(start)
                 except Exception as e:
                     log_exception(e, T("恢复start_pos属性"))
 
@@ -441,12 +441,12 @@ class EditItemCommand(QUndoCommand):
             # 兼容：item.end / item.end_pos
             if hasattr(self.item, "end"):
                 try:
-                    setattr(self.item, "end", QPointF(end))
+                    self.item.end = QPointF(end)
                 except Exception as e:
                     log_exception(e, T("恢复end属性"))
             if hasattr(self.item, "end_pos"):
                 try:
-                    setattr(self.item, "end_pos", QPointF(end))
+                    self.item.end_pos = QPointF(end)
                 except Exception as e:
                     log_exception(e, T("恢复end_pos属性"))
 
@@ -511,7 +511,7 @@ class EditItemCommand(QUndoCommand):
                 log_exception(e, T("恢复pen_state属性"))
 
         # 如果你的 item 有 update_geometry 之类的，顺便触发
-        if hasattr(self.item, "update_geometry") and callable(getattr(self.item, "update_geometry")):
+        if hasattr(self.item, "update_geometry") and callable(self.item.update_geometry):
             try:
                 self.item.update_geometry()
             except Exception as e:

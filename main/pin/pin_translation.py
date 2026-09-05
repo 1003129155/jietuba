@@ -5,7 +5,7 @@
 """
 
 from PySide6.QtWidgets import QWidget, QApplication
-from PySide6.QtCore import Qt, QPoint
+from PySide6.QtCore import QPoint
 from core import log_info, log_warning, log_error
 from core.logger import T
 from core.i18n import make_tr

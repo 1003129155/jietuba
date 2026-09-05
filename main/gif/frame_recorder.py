@@ -24,7 +24,7 @@ class _POINT(ctypes.Structure):
 
 from PySide6.QtCore import QObject, QTimer, QRect, QThread, Signal
 
-from core.logger import log_debug, log_error, log_info, log_exception, T
+from core.logger import log_error, log_info, log_exception, T
 
 try:
     import gifrecorder

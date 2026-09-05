@@ -12,16 +12,14 @@ from core import safe_event
 
 if __package__:
     from .base_page import (
-        BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND,
-        BG_ILLUS, PRODUCT_NAME, brand_text, welcome_theme,
+        BasePage, IllustrationArea, PRODUCT_NAME, brand_text, welcome_theme,
         set_welcome_label_style, apply_welcome_label_style,
     )
 else:
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from base_page import (
-        BasePage, IllustrationArea, ACCENT, TEXT_PRIMARY, TEXT_SECOND,
-        BG_ILLUS, PRODUCT_NAME, brand_text, welcome_theme,
+        BasePage, IllustrationArea, PRODUCT_NAME, brand_text, welcome_theme,
         set_welcome_label_style, apply_welcome_label_style,
     )
 

@@ -4,16 +4,13 @@
 """
 import time
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel,
-    QComboBox, QCheckBox, QFrame, QButtonGroup,
-    QSlider, QApplication
+    QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QComboBox, QFrame, QSlider, QApplication
 )
-from PySide6.QtCore import Qt, Signal, QSize, QEvent, QTimer, QPoint
-from PySide6.QtGui import QIcon, QColor, QFont
+from PySide6.QtCore import Qt, Signal, QEvent, QTimer, QPoint
+from PySide6.QtGui import QColor, QFont
 from .base_settings_panel import StepperWidget, build_settings_panel_stylesheet, paint_rounded_panel, PANEL_SCALE
 from .color_picker_button import ColorPickerButton
 from core.constants import (
-    CSS_FONT_FAMILY,
     get_available_text_fonts,
     get_default_text_font_for_language,
     normalize_text_font_family,

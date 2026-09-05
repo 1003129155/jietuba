@@ -13,7 +13,6 @@ from PySide6.QtCore import Qt, QPoint, Signal, QSize
 from PySide6.QtGui import QCursor, QColor
 
 from ._widgets import svg_icon as _svg_icon, ClickMenuButton as _ClickMenuButton
-from core.constants import DEFAULT_FONT_FAMILY
 from core.i18n import make_tr
 from core import safe_event
 from core.logger import log_exception, T
