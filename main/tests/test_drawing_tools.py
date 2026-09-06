@@ -305,3 +305,86 @@ class TestNoLeakedPreviewItems:
 
         undo_stack.undo()
         assert _drawn_items(scene) == [], f"{cls_name} 撤销后场景仍有残留图元"
+
+
+# ============================================================================
+# 笔迹点抽稀
+# ============================================================================
+
+class TestPointSpacingFilter:
+    """
+    高刷鼠标每秒能报上千个点，相邻两点常常不足一个像素。这些点对笔迹外观没有
+    贡献，却让每次 on_move 重描的路径线性变长——整笔的重绘成本因此是 O(N²)。
+    Tool.should_append_point 在追加点的入口把它们筛掉。
+
+    这里锁住三件容易写错的事：慢速描边不能被整笔丢弃、形状不能变、
+    锁定吸附之后才过滤。
+    """
+
+    @pytest.fixture
+    def tool(self, qapp):
+        from tools.pen import PenTool
+        return PenTool()
+
+    def _slow_drag(self, tool, ctx, start, end, step_px=1.0):
+        """以 step_px 的步长慢慢拖过去，模拟精细描边时的高密度事件流。"""
+        tool.on_press(QPointF(*start), Qt.MouseButton.LeftButton, ctx)
+        dx, dy = end[0] - start[0], end[1] - start[1]
+        dist = (dx * dx + dy * dy) ** 0.5
+        steps = int(dist / step_px)
+        for i in range(1, steps + 1):
+            t = i / steps
+            tool.on_move(QPointF(start[0] + dx * t, start[1] + dy * t), ctx)
+        tool.on_release(QPointF(*end), ctx)
+
+    def test_slow_stroke_still_draws(self, tool, ctx, scene):
+        """每次只挪 1px 时不能被全部丢弃。
+
+        过滤若拿"上一个鼠标事件"而不是"上一个被采纳的点"做基准，这一笔会
+        一个点都留不下，画面上什么也没有——这是这套过滤唯一的致命写法。
+        """
+        self._slow_drag(tool, ctx, (10, 10), (110, 10), step_px=1.0)
+
+        items = _drawn_items(scene)
+        assert len(items) == 1
+        path = items[0].path()
+        assert path.elementCount() > 1, "慢速描边被整笔丢弃了"
+
+    def test_shape_is_preserved(self, tool, ctx, scene):
+        """抽稀之后笔迹形状不变（端点误差在一个采样间距之内）。"""
+        self._slow_drag(tool, ctx, (10, 10), (110, 10), step_px=1.0)
+
+        rect = _drawn_items(scene)[0].path().boundingRect()
+        from tools.base import Tool
+        assert rect.left() == pytest.approx(10, abs=Tool.MIN_POINT_SPACING)
+        assert rect.right() == pytest.approx(110, abs=Tool.MIN_POINT_SPACING)
+        assert rect.height() == pytest.approx(0, abs=Tool.MIN_POINT_SPACING)
+
+    def test_dense_points_are_thinned(self, tool, ctx, scene):
+        """1px 步长的 100 个事件不应变成 100 个路径点。"""
+        self._slow_drag(tool, ctx, (10, 10), (110, 10), step_px=1.0)
+
+        count = _drawn_items(scene)[0].path().elementCount()
+        assert count < 100, f"没有抽稀，路径仍有 {count} 个点"
+
+    def test_locked_axis_movement_adds_no_points(self, tool, ctx, scene, monkeypatch):
+        """水平锁定后，纯竖直的移动经吸附落在同一处，不应产生新点。
+
+        过滤若比的是吸附前的坐标，这些移动会全部放行：画面毫无变化，点数照涨。
+        """
+        monkeypatch.setattr(
+            QApplication, "keyboardModifiers",
+            staticmethod(lambda: Qt.KeyboardModifier.ShiftModifier),
+        )
+        tool.on_press(QPointF(10, 50), Qt.MouseButton.LeftButton, ctx)
+        tool.on_move(QPointF(60, 50), ctx)          # 先把方向锁成水平
+        assert tool.line_lock_mode == 'horizontal'
+
+        before = tool.path.elementCount()
+        for y in range(51, 91):                      # x 不动，只在竖直方向来回
+            tool.on_move(QPointF(60, y), ctx)
+        assert tool.path.elementCount() == before
+
+        tool.on_release(QPointF(60, 90), ctx)
+        rect = _drawn_items(scene)[0].path().boundingRect()
+        assert rect.height() == pytest.approx(0, abs=1e-6)

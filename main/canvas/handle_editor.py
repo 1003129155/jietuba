@@ -16,7 +16,7 @@ import math
 import os
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, List, Tuple, Dict, Any, Union
+from typing import Optional, List, Tuple, Dict, Any, Union, Callable
 
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QPainter, QPen, QBrush, QColor, QTransform, QPixmap, QCursor, QPolygonF
@@ -25,6 +25,7 @@ from PySide6.QtSvg import QSvgRenderer
 
 from core import log_debug, log_warning
 from core.logger import log_exception, T
+from core.theme import get_theme
 
 try:
     # 你项目里的撤销命令
@@ -60,6 +61,8 @@ class HandleType(Enum):
     NUMBER_INCREMENT = "number_increment"  # 序号 +1
     NUMBER_DECREMENT = "number_decrement"  # 序号 -1
     NUMBER_DELETE = "number_delete"  # 删除序号
+    ITEM_DELETE = "item_delete"      # 通用删除按钮（文字等）
+    TEXT_SCALE = "text_scale"        # 文字右下角字号缩放
 
 
 @dataclass
@@ -125,6 +128,9 @@ class LayerEditor:
     RADIUS_HANDLE_COLOR = QColor(255, 140, 0)       # 圆角手柄颜色（橙色）
     RADIUS_HANDLE_HOVER_COLOR = QColor(255, 100, 0) # 圆角手柄hover颜色
     RADIUS_HANDLE_MIN_OFFSET = 16           # 圆角为0时手柄的最小内侧距离
+    # 功能性手柄（旋转/删除/序号加减）统一边长，沿用序号按钮原本的 14px
+    FUNCTIONAL_HANDLE_SIZE = 14
+    FUNCTIONAL_GLYPH_RATIO = 0.24           # 图样半径占边长的比例，其余留给主题色
     NUMBER_BUTTON_SIZE = 14
     NUMBER_BUTTON_GAP = 4
     NUMBER_BUTTON_COLOR = QColor(220, 45, 35)
@@ -140,10 +146,15 @@ class LayerEditor:
         # 特殊模式：标号(NumberItem) 使用独立编辑样式
         self._number_item_mode = False
         
-        # 🆕 拖动状态标志：用于在拖动时隐藏旋转手柄
-        self.is_moving_item = False
+        # 手柄画在独立浮层上，改了手柄状态就得通知它重绘。
+        # 由 View 注入（CanvasView.request_handles_repaint），无 View 时为 None。
+        # 必须在下面那些会触发重绘的属性赋值之前初始化。
+        self.repaint_requested: Optional[Callable[[], None]] = None
 
-        self.hovered_handle: Optional[EditHandle] = None
+        # 🆕 拖动状态标志：用于在拖动时隐藏旋转手柄
+        self._is_moving_item = False
+
+        self._hovered_handle: Optional[EditHandle] = None
         self.dragging_handle: Optional[EditHandle] = None
         self.drag_start_pos: Optional[QPointF] = None
 
@@ -165,6 +176,7 @@ class LayerEditor:
         self._arrow_base_control_scene: Optional[QPointF] = None
         self._arrow_base_control_modified: bool = False  # 控制点是否被修改
         self._base_corner_radius: Optional[float] = None  # 圆角基准状态
+        self._base_font_point_size: Optional[float] = None
         
         # 初始化旋转光标
         self._ensure_rotate_cursor()
@@ -268,6 +280,7 @@ class LayerEditor:
         self._arrow_base_control_scene = None
         self._arrow_base_control_modified = False
         self._base_corner_radius = None
+        self._base_font_point_size = None
 
     def is_editing(self) -> bool:
         return self.active_layer is not None
@@ -275,6 +288,19 @@ class LayerEditor:
     # =========================================================================
     # 控制点生成
     # =========================================================================
+
+    def refresh_handles(self):
+        """按图元当前几何重算控制点。
+
+        控制点原本只在 start_edit() 和拖拽结束后生成，图元在这两者之外改变
+        尺寸时（打字、改字号、序号增减）就会停在旧坐标上不跟随。
+        """
+        if not self.is_editing() or self.active_layer is None:
+            return
+        try:
+            self.handles = self._generate_handles(self.active_layer)
+        except Exception as e:
+            log_exception(e, T("刷新控制点"))
 
     def _generate_handles(self, layer: Any) -> List[EditHandle]:
         """
@@ -295,7 +321,7 @@ class LayerEditor:
         if isinstance(rect, QRectF) and rect.isValid():
             if self._number_item_mode:
                 return self._generate_number_handles(rect)
-            return self._generate_rect_handles(rect)
+            return self._generate_rect_handles(rect, layer)
 
         # 文本图元自带编辑体验，这里不生成控制点
         if isinstance(layer, QGraphicsTextItem):
@@ -304,7 +330,7 @@ class LayerEditor:
 
     def _generate_number_handles(self, rect: QRectF) -> List[EditHandle]:
         """序号工具：+ 在左上角，- 在 + 正下方，X 在右上角与 + 对称。"""
-        size = self.NUMBER_BUTTON_SIZE
+        size = self.FUNCTIONAL_HANDLE_SIZE
         step = size + self.NUMBER_BUTTON_GAP
         lx = rect.left()
         rx = rect.right()
@@ -323,6 +349,15 @@ class LayerEditor:
             log_exception(e, T("导入 NumberItem"))
             NumberItem = None
         return bool(NumberItem and isinstance(layer, NumberItem))
+
+    def _is_freehand_mosaic_item(self, layer: Any) -> bool:
+        """检测是否为自由涂抹（非框选）的马赛克图元"""
+        try:
+            from .items import MosaicItem
+        except Exception as e:
+            log_exception(e, T("导入 MosaicItem"))
+            MosaicItem = None
+        return bool(MosaicItem and isinstance(layer, MosaicItem) and not layer.fill_mode())
 
     def _is_arrow_item(self, layer: Any) -> bool:
         """检测是否为箭头图元"""
@@ -404,30 +439,100 @@ class LayerEditor:
 
         return None
 
-    def _generate_rect_handles(self, rect: QRectF) -> List[EditHandle]:
-        """为矩形（scene 包围盒）生成 8 个控制点"""
+    # ------------------------------------------------------------------
+    # 锚点：图元 local 包围盒上的点，经图元自身变换映射到 scene
+    # ------------------------------------------------------------------
+    # 绝不能用 sceneBoundingRect() 的角点当锚点：那是轴对齐外包围盒，旋转后
+    # 它的角会甩到图元外面去（实测 45° 偏 35px，137° 偏 239px），手柄既画错
+    # 位置也点不到。锚点必须跟住图元的完整变换，所以逐点 mapToScene。
+    # 手柄的方块本身仍然轴对齐——它是屏幕上的可点区域，不该跟着图元转。
+
+    def _local_bounds(self, layer: Any) -> Optional[QRectF]:
+        """图元自身坐标系里的包围盒（未经旋转/缩放）。"""
+        rect = self._get_local_rect(layer)
+        if isinstance(rect, QRectF) and rect.isValid():
+            return rect
+        if hasattr(layer, "boundingRect") and callable(layer.boundingRect):
+            try:
+                r = layer.boundingRect()
+                if isinstance(r, QRectF) and r.isValid():
+                    return QRectF(r)
+            except Exception as e:
+                log_exception(e, T("获取layer boundingRect"))
+        return None
+
+    def scene_anchors(self, layer: Any) -> Optional[Dict[str, QPointF]]:
+        """local 包围盒的四角与四边中点，逐点映射到 scene。
+
+        拿不到 local 包围盒、或图元没有 mapToScene（纯数据层）时返回 None，
+        由调用方退回 scene rect 的角点。
+        """
+        local = self._local_bounds(layer)
+        if local is None:
+            return None
+        if not (hasattr(layer, "mapToScene") and callable(layer.mapToScene)):
+            return None
+
+        try:
+            return {
+                key: QPointF(layer.mapToScene(point))
+                for key, point in self._corner_points(local).items()
+            }
+        except Exception as e:
+            log_exception(e, T("映射锚点到场景坐标"))
+            return None
+
+    @staticmethod
+    def _corner_points(rect: QRectF) -> Dict[str, QPointF]:
+        """四角 + 四边中点，键名与手柄一一对应。"""
+        center = rect.center()
+        return {
+            "tl": rect.topLeft(),
+            "tr": rect.topRight(),
+            "br": rect.bottomRight(),
+            "bl": rect.bottomLeft(),
+            "t": QPointF(center.x(), rect.top()),
+            "r": QPointF(rect.right(), center.y()),
+            "b": QPointF(center.x(), rect.bottom()),
+            "l": QPointF(rect.left(), center.y()),
+        }
+
+    def _generate_rect_handles(
+        self, rect: QRectF, layer: Any = None
+    ) -> List[EditHandle]:
+        """生成 8 个控制点。
+
+        锚点优先用 layer 的旋转感知锚点；layer 缺失或拿不到锚点时退回 rect
+        的角点，与旧行为一致（数据层走这条）。
+        """
         hs = self.HANDLE_SIZE
         handles: List[EditHandle] = []
 
+        anchors = self.scene_anchors(layer) if layer is not None else None
+        if anchors is None:
+            anchors = self._corner_points(rect)
+
         # 左上角改为旋转手柄（使用更大的尺寸和自定义光标）
         rotate_cursor = self.get_rotate_cursor()
-        handles.append(EditHandle(0, HandleType.ROTATE, rect.topLeft(), rotate_cursor, self.ROTATE_HANDLE_SIZE))
+        handles.append(EditHandle(0, HandleType.ROTATE, anchors["tl"], rotate_cursor, self.FUNCTIONAL_HANDLE_SIZE))
 
         # 其他三个角
-        handles.append(EditHandle(1, HandleType.CORNER_TR, rect.topRight(), Qt.CursorShape.SizeBDiagCursor, hs))
-        handles.append(EditHandle(2, HandleType.CORNER_BR, rect.bottomRight(), Qt.CursorShape.SizeFDiagCursor, hs))
-        handles.append(EditHandle(3, HandleType.CORNER_BL, rect.bottomLeft(), Qt.CursorShape.SizeBDiagCursor, hs))
+        handles.append(EditHandle(1, HandleType.CORNER_TR, anchors["tr"], Qt.CursorShape.SizeBDiagCursor, hs))
+        handles.append(EditHandle(2, HandleType.CORNER_BR, anchors["br"], Qt.CursorShape.SizeFDiagCursor, hs))
+        handles.append(EditHandle(3, HandleType.CORNER_BL, anchors["bl"], Qt.CursorShape.SizeBDiagCursor, hs))
 
         # 四边
-        handles.append(EditHandle(4, HandleType.EDGE_T, QPointF(rect.center().x(), rect.top()), Qt.CursorShape.SizeVerCursor, hs))
-        handles.append(EditHandle(5, HandleType.EDGE_R, QPointF(rect.right(), rect.center().y()), Qt.CursorShape.SizeHorCursor, hs))
-        handles.append(EditHandle(6, HandleType.EDGE_B, QPointF(rect.center().x(), rect.bottom()), Qt.CursorShape.SizeVerCursor, hs))
-        handles.append(EditHandle(7, HandleType.EDGE_L, QPointF(rect.left(), rect.center().y()), Qt.CursorShape.SizeHorCursor, hs))
+        handles.append(EditHandle(4, HandleType.EDGE_T, anchors["t"], Qt.CursorShape.SizeVerCursor, hs))
+        handles.append(EditHandle(5, HandleType.EDGE_R, anchors["r"], Qt.CursorShape.SizeHorCursor, hs))
+        handles.append(EditHandle(6, HandleType.EDGE_B, anchors["b"], Qt.CursorShape.SizeVerCursor, hs))
+        handles.append(EditHandle(7, HandleType.EDGE_L, anchors["l"], Qt.CursorShape.SizeHorCursor, hs))
 
         # 圆角手柄（仅对支持 get_corner_radius 的图元生成，如 RectItem）
-        layer = self.active_layer
-        if layer is not None and hasattr(layer, "get_corner_radius"):
-            self._append_corner_radius_handles(handles, layer)
+        # 用独立变量名：形参 layer 在上面算锚点时已经用过，重新绑定同名变量
+        # 会让"锚点用谁"变得依赖语句顺序。
+        radius_layer = self.active_layer
+        if radius_layer is not None and hasattr(radius_layer, "get_corner_radius"):
+            self._append_corner_radius_handles(handles, radius_layer)
 
         return handles
 
@@ -480,8 +585,40 @@ class LayerEditor:
                 return h
         return None
 
-    def update_hover(self, pos: QPointF):
+    def request_repaint(self):
+        """请求重绘手柄浮层。手柄不是 QGraphicsItem，只能由这里显式通知。"""
+        if self.repaint_requested is not None:
+            self.repaint_requested()
+
+    # 下面两个状态直接决定手柄的画法（悬停高亮、拖动时隐藏旋转手柄）。
+    # 做成属性是为了让"改状态"和"失效"绑死：调用点没法再漏掉通知，也不会
+    # 因为先重绘后改值而慢一帧。
+    @property
+    def hovered_handle(self) -> Optional[EditHandle]:
+        return self._hovered_handle
+
+    @hovered_handle.setter
+    def hovered_handle(self, handle: Optional[EditHandle]):
+        if handle is not self._hovered_handle:
+            self._hovered_handle = handle
+            self.request_repaint()
+
+    @property
+    def is_moving_item(self) -> bool:
+        return self._is_moving_item
+
+    @is_moving_item.setter
+    def is_moving_item(self, moving: bool):
+        moving = bool(moving)
+        if moving != self._is_moving_item:
+            self._is_moving_item = moving
+            self.request_repaint()
+
+    def update_hover(self, pos: QPointF) -> bool:
+        """更新悬停手柄；返回是否发生变化（变化了浮层已被通知重绘）。"""
+        previous = self._hovered_handle
         self.hovered_handle = self.hit_test(pos)
+        return previous is not self._hovered_handle
 
     def get_cursor(self, pos: QPointF) -> Union[Qt.CursorShape, QCursor]:
         """获取鼠标光标（支持内置和自定义光标）"""
@@ -496,8 +633,16 @@ class LayerEditor:
             and handle.handle_type in (HandleType.NUMBER_INCREMENT, HandleType.NUMBER_DECREMENT)
         )
 
+    def is_delete_handle(self, handle: Optional[EditHandle]) -> bool:
+        """删除按钮：序号用 NUMBER_DELETE，其余图元用 ITEM_DELETE。"""
+        return bool(
+            handle
+            and handle.handle_type in (HandleType.NUMBER_DELETE, HandleType.ITEM_DELETE)
+        )
+
     def is_number_delete_handle(self, handle: Optional[EditHandle]) -> bool:
-        return bool(handle and handle.handle_type == HandleType.NUMBER_DELETE)
+        """旧调用名，保留以免外部引用失效。"""
+        return self.is_delete_handle(handle)
 
     def adjust_number_with_handle(self, handle: EditHandle, undo_stack: Optional[Any] = None) -> bool:
         """点击序号 +/- 按钮，修改当前 NumberItem。"""
@@ -592,6 +737,11 @@ class LayerEditor:
         # 保存 local rect（若是 rect()/setRect() 体系）
         self._base_local_rect = self._get_local_rect(self.active_layer)
 
+        self._base_font_point_size = None
+        point_size = getattr(self.active_layer, "font_point_size", None)
+        if callable(point_size):
+            self._base_font_point_size = float(point_size())
+
         self._base_rotation = None
         self._rotation_origin_local = None
         if hasattr(self.active_layer, "rotation") and callable(self.active_layer.rotation):
@@ -660,6 +810,7 @@ class LayerEditor:
         self._base_rotation = None
         self._rotation_origin_local = None
         self._base_corner_radius = None
+        self._base_font_point_size = None
 
         if (
             undo_stack is not None
@@ -703,16 +854,21 @@ class LayerEditor:
             self._apply_rotation(layer, delta_scene)
             return
 
+        # ---- 文字字号缩放 ----
+        if handle.handle_type == HandleType.TEXT_SCALE:
+            self._apply_text_scale_drag(layer, delta_scene)
+            return
+
         # ---- 圆角手柄 ----
         if handle.handle_type == HandleType.CORNER_RADIUS:
             self._apply_corner_radius_drag(layer, handle, delta_scene)
             return
 
-        # ---- 2) StrokeItem（路径类） ----
-        # 你项目里是 canvas.items.StrokeItem
+        # ---- 2) StrokeItem（路径类）/ 自由涂抹马赛克 ----
+        # 两者都没有"矩形"可言，靠整体缩放 transform() 实现拖角变形。
         try:
             from .items import StrokeItem  # 改为相对导入
-            if isinstance(layer, StrokeItem):
+            if isinstance(layer, StrokeItem) or self._is_freehand_mosaic_item(layer):
                 self._apply_stroke_item_drag(layer, handle, delta_scene, keep_ratio)
                 return
         except Exception as e:
@@ -769,6 +925,29 @@ class LayerEditor:
             rect.setBottom(rect.bottom() + delta.y())
         elif handle_type == HandleType.EDGE_L:
             rect.setLeft(rect.left() + delta.x())
+
+    def _apply_text_scale_drag(self, layer: Any, delta_scene: QPointF):
+        """右下角手柄：把对角线方向的位移换算成新的字号。
+
+        取位移在原对角线上的投影比例作为缩放系数，这样斜向拖拽手感自然，
+        且横竖两个方向都能驱动，不会出现某个方向拖不动的死区。
+        """
+        base_rect = self._base_scene_rect
+        base_size = self._base_font_point_size
+        if base_size is None or not isinstance(base_rect, QRectF) or not base_rect.isValid():
+            return
+        if not hasattr(layer, "set_font_point_size"):
+            return
+
+        diag = base_rect.bottomRight() - base_rect.topLeft()
+        denom = diag.x() * diag.x() + diag.y() * diag.y()
+        if denom <= 0:
+            return
+        moved = diag + delta_scene
+        factor = (moved.x() * diag.x() + moved.y() * diag.y()) / denom
+        if factor <= 0:
+            factor = 0.01
+        layer.set_font_point_size(base_size * factor)
 
     def _apply_corner_radius_drag(self, layer: Any, handle: EditHandle, delta_scene: QPointF):
         """拖拽圆角手柄，改变矩形圆角半径。
@@ -1045,6 +1224,29 @@ class LayerEditor:
     # 渲染
     # =========================================================================
 
+    def visual_bounds(self) -> QRectF:
+        """render() 会画到的 scene 范围。
+
+        和 render() 是一对：改了 render() 画什么，就必须同步改这里。放在它
+        隔壁而不是让调用方去猜，是因为"猜 chrome 有多大"正是这套代码历史上
+        最容易出错的地方（曾经写成外扩 25px 的魔数）。
+        """
+        if not self.is_editing():
+            return QRectF()
+
+        self.refresh_handles()
+        bounds = QRectF()
+        for handle in self.handles:
+            bounds = bounds.united(handle.get_rect())
+
+        # 序号工具在手柄之外还画一圈虚线框，跟着图元包围盒走
+        if self._number_item_mode and self.active_layer is not None:
+            rect = self._get_scene_rect(self.active_layer)
+            if isinstance(rect, QRectF) and rect.isValid():
+                bounds = bounds.united(rect)
+
+        return bounds
+
     def render(self, painter: QPainter):
         """
         渲染编辑控制点
@@ -1055,6 +1257,9 @@ class LayerEditor:
         """
         if not self.is_editing():
             return
+
+        # 图元可能在两次拖拽之间变了尺寸，按当前几何重算再画
+        self.refresh_handles()
 
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
@@ -1070,31 +1275,21 @@ class LayerEditor:
                 painter.setBrush(Qt.BrushStyle.NoBrush)
                 painter.drawRect(rect)
 
-        # 分离旋转手柄和普通手柄
-        rotate_handle = None
+        # 功能性手柄（点击执行动作）与拖拽手柄（改形状）分开画
+        functional_handles = []
         normal_handles = []
         control_handles = []  # 箭头弯曲控制点
         radius_handles = []   # 圆角控制点
-        number_handles = []   # 序号 + / - / 删除按钮
-        
+
         for h in self.handles:
-            if h.handle_type == HandleType.ROTATE:
-                rotate_handle = h
+            if h.handle_type in self.FUNCTIONAL_HANDLE_TYPES:
+                functional_handles.append(h)
             elif h.handle_type == HandleType.ARROW_CONTROL:
                 control_handles.append(h)
             elif h.handle_type == HandleType.CORNER_RADIUS:
                 radius_handles.append(h)
-            elif h.handle_type in (
-                HandleType.NUMBER_INCREMENT,
-                HandleType.NUMBER_DECREMENT,
-                HandleType.NUMBER_DELETE,
-            ):
-                number_handles.append(h)
             else:
                 normal_handles.append(h)
-
-        for h in number_handles:
-            self._render_number_adjust_handle(painter, h)
         
         # 绘制普通控制点（方形）
         for h in normal_handles:
@@ -1146,108 +1341,113 @@ class LayerEditor:
                 painter.setBrush(QBrush(QColor(255, 255, 255)))
             painter.drawPolygon(diamond)
         
-        # 绘制旋转手柄（使用SVG图标样式）
-        if rotate_handle:
-            self._render_rotate_handle(painter, rotate_handle)
+        # 功能性手柄最后画，压在其它元素之上
+        for h in functional_handles:
+            self._render_functional_handle(painter, h)
 
         painter.restore()
     
-    def _render_rotate_handle(self, painter: QPainter, handle: EditHandle):
-        """渲染旋转手柄（SVG样式）"""
-        is_hovered = self.hovered_handle is not None and self.hovered_handle.id == handle.id
-        center = handle.position
+    FUNCTIONAL_HANDLE_TYPES = (
+        HandleType.ROTATE,
+        HandleType.NUMBER_INCREMENT,
+        HandleType.NUMBER_DECREMENT,
+        HandleType.NUMBER_DELETE,
+        HandleType.ITEM_DELETE,
+    )
 
-        # 尝试加载并渲染SVG
-        if ResourceManager:
-            svg_path = ResourceManager.get_resource_path("svg/旋转.svg")
-        else:
-            svg_path = os.path.join(os.path.dirname(__file__), '..', '..', 'svg', '旋转.svg')
-        
-        if os.path.exists(svg_path):
-            try:
-                renderer = QSvgRenderer(svg_path)
-                if renderer.isValid():
-                    # SVG视图框大小 (从SVG的viewBox="4.5 4.5 23 23"得知)
-                    size = self.ROTATE_HANDLE_SIZE
-                    
-                    # 计算渲染矩形（中心对齐）
-                    half_size = size / 2
-                    render_rect = QRectF(
-                        center.x() - half_size,
-                        center.y() - half_size,
-                        size,
-                        size
-                    )
-                    
-                    # 如果悬停，绘制高亮背景
-                    if is_hovered:
-                        painter.setPen(Qt.PenStyle.NoPen)
-                        painter.setBrush(QBrush(QColor(0, 160, 255, 80)))  # 半透明蓝色背景
-                        painter.drawEllipse(center, half_size + 2, half_size + 2)
-                    
-                    # 渲染SVG
-                    renderer.render(painter, render_rect)
-                    return
-            except Exception as e:
-                log_warning(T("渲染旋转SVG失败: {e}", e=e), "LayerEditor")
-        
-        # 回退：绘制简单的旋转图标
-        self._render_rotate_handle_fallback(painter, center, is_hovered)
-    
-    def _render_rotate_handle_fallback(self, painter: QPainter, center: QPointF, is_hovered: bool):
-        """旋转手柄的回退渲染（简单圆形+箭头）"""
-        color = self.HOVER_COLOR if is_hovered else self.ROTATE_HANDLE_COLOR
-        radius = self.ROTATE_HANDLE_SIZE / 2
-        
-        # 绘制外圆
-        painter.setPen(QPen(color, self.HANDLE_BORDER_WIDTH))
-        painter.setBrush(QBrush(self.HANDLE_FILL if not is_hovered else self.HOVER_FILL))
-        painter.drawEllipse(center, radius, radius)
-        
-        # 绘制旋转箭头图案（简化版）
-        painter.setPen(QPen(color, 1.5))
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        
-        # 绘制圆弧箭头
-        inner_radius = radius * 0.5
-        painter.drawEllipse(center, inner_radius, inner_radius)
+    @staticmethod
+    def _contrast_ink(background: QColor) -> QColor:
+        """主题色是用户可改的，图样颜色按亮度取黑或白，保证任何主题都看得清。"""
+        luminance = (
+            0.299 * background.red()
+            + 0.587 * background.green()
+            + 0.114 * background.blue()
+        )
+        return QColor(20, 20, 20) if luminance > 150 else QColor(255, 255, 255)
 
-    def _render_number_adjust_handle(self, painter: QPainter, handle: EditHandle):
-        """渲染序号工具的 + / - / 删除按钮。"""
-        is_hovered = self.hovered_handle is not None and self.hovered_handle.id == handle.id
+    def _render_functional_handle(self, painter: QPainter, handle: EditHandle):
+        """功能性手柄的统一画法。
+
+        这类手柄按下去是执行动作（旋转、删除、序号加减），不是拖形状，所以
+        它们共用一套外观：正方形、居中图样，图样四周到描边之间填满主题色。
+        """
+        is_hovered = (
+            self.hovered_handle is not None and self.hovered_handle.id == handle.id
+        )
+        fill = QColor(get_theme().theme_color)
+        if is_hovered:
+            fill = fill.lighter(118)
+        ink = self._contrast_ink(fill)
         rect = handle.get_rect()
-        fill = self.NUMBER_BUTTON_HOVER_COLOR if is_hovered else self.NUMBER_BUTTON_COLOR
 
         painter.save()
         painter.setPen(QPen(QColor(255, 255, 255), 1.4))
         painter.setBrush(QBrush(fill))
         painter.drawRect(rect)
 
-        icon_pen = QPen(QColor(255, 255, 255), 1.8)
-        icon_pen.setCosmetic(True)
-        painter.setPen(icon_pen)
-        center = rect.center()
-        half_len = max(3.0, handle.size * 0.28)
-        if handle.handle_type == HandleType.NUMBER_DELETE:
-            painter.drawLine(
-                QPointF(center.x() - half_len, center.y() - half_len),
-                QPointF(center.x() + half_len, center.y() + half_len),
-            )
-            painter.drawLine(
-                QPointF(center.x() + half_len, center.y() - half_len),
-                QPointF(center.x() - half_len, center.y() + half_len),
-            )
-        else:
-            painter.drawLine(
-                QPointF(center.x() - half_len, center.y()),
-                QPointF(center.x() + half_len, center.y()),
-            )
-            if handle.handle_type == HandleType.NUMBER_INCREMENT:
-                painter.drawLine(
-                    QPointF(center.x(), center.y() - half_len),
-                    QPointF(center.x(), center.y() + half_len),
-                )
+        pen = QPen(ink, max(1.4, handle.size * 0.11))
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setCosmetic(False)
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        self._draw_handle_glyph(painter, handle, rect.center(), ink)
         painter.restore()
+
+    def _draw_handle_glyph(
+        self, painter: QPainter, handle: EditHandle, center: QPointF, ink: QColor
+    ):
+        """在手柄中心画图样；四周留白由主题色填充撑开。"""
+        reach = handle.size * self.FUNCTIONAL_GLYPH_RATIO
+        kind = handle.handle_type
+
+        if kind in (HandleType.NUMBER_DELETE, HandleType.ITEM_DELETE):
+            painter.drawLine(
+                QPointF(center.x() - reach, center.y() - reach),
+                QPointF(center.x() + reach, center.y() + reach),
+            )
+            painter.drawLine(
+                QPointF(center.x() + reach, center.y() - reach),
+                QPointF(center.x() - reach, center.y() + reach),
+            )
+            return
+
+        if kind in (HandleType.NUMBER_INCREMENT, HandleType.NUMBER_DECREMENT):
+            painter.drawLine(
+                QPointF(center.x() - reach, center.y()),
+                QPointF(center.x() + reach, center.y()),
+            )
+            if kind == HandleType.NUMBER_INCREMENT:
+                painter.drawLine(
+                    QPointF(center.x(), center.y() - reach),
+                    QPointF(center.x(), center.y() + reach),
+                )
+            return
+
+        if kind == HandleType.ROTATE:
+            # 缺口圆弧 + 实心三角箭头；小尺寸下线段箭头糊成一团，三角更清楚
+            box = QRectF(
+                center.x() - reach, center.y() - reach, reach * 2, reach * 2
+            )
+            start_deg, span_deg = 105.0, 300.0
+            painter.drawArc(box, int(start_deg * 16), int(span_deg * 16))
+
+            # 箭头落在圆弧末端，朝切线方向，否则会看着像凭空浮在缺口里
+            end_rad = math.radians(start_deg + span_deg)
+            anchor = QPointF(
+                center.x() + reach * math.cos(end_rad),
+                center.y() - reach * math.sin(end_rad),
+            )
+            direction = QPointF(-math.sin(end_rad), -math.cos(end_rad))
+            normal = QPointF(-direction.y(), direction.x())
+            head = reach * 0.95
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QBrush(ink))
+            painter.drawPolygon([
+                anchor + direction * (head * 0.5),
+                anchor - direction * (head * 0.4) + normal * (head * 0.45),
+                anchor - direction * (head * 0.4) - normal * (head * 0.45),
+            ])
+            return
 
     # =========================================================================
     # 状态拷贝 / 恢复（撤销用 + 避免累计误差）
@@ -1279,6 +1479,10 @@ class LayerEditor:
                 state["pos"] = QPointF(p.x(), p.y())
             except Exception as e:
                 log_exception(e, T("捕获layer pos"))
+
+        point_size = getattr(layer, "font_point_size", None)
+        if callable(point_size):
+            state["font_point_size"] = float(point_size())
 
         if hasattr(layer, "transform") and callable(layer.transform):
             try:
@@ -1358,6 +1562,12 @@ class LayerEditor:
         # local rect
         if self._base_local_rect is not None:
             self._set_local_rect(layer, QRectF(self._base_local_rect))
+
+        if (
+            self._base_font_point_size is not None
+            and hasattr(layer, "set_font_point_size")
+        ):
+            layer.set_font_point_size(self._base_font_point_size)
 
         if (
             self._is_arrow_item(layer)

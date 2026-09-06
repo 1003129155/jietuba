@@ -7,7 +7,7 @@
 
 基于 PySide6和Rust 的截图软件和剪切板管理的windows平台软件。
 
-支持区域截图、窗口智能识别、GIF录制、长截图拼接、OCR文字识别、图像钉图、翻译等功能，并内置了完整的剪切板历史管理系统，不限图片来源可以联动截图模块生成钉图或者提取文字。
+支持区域截图、窗口智能识别、GIF录制、长截图拼接、OCR文字识别、图像钉图、翻译、马赛克、PDF 导出等功能，并内置了完整的剪切板历史管理系统，不限图片来源可以联动截图模块生成钉图或者提取文字。
 
 编译后单文件大小大约42MB.占用内存很低，低配电脑也可以流畅
 
@@ -102,6 +102,7 @@ python main_app.py
 ├── main/                    # Python 主程序
 │   ├── main_app.py          # 应用入口，系统托盘、全局快捷键、生命周期管理
 │   ├── compile_translations.py  # 翻译文件编译工具（.xml → .qm）
+│   ├── scripts/             # 辅助脚本 — 翻译提供商对比
 │   │
 │   ├── canvas/              # 画布模块 — 图形编辑核心
 │   ├── capture/             # 截图捕获模块 — 屏幕截图与窗口识别
@@ -112,8 +113,8 @@ python main_app.py
 │   ├── pin/                 # 钉图模块 — 截图置顶、编辑、OCR、翻译
 │   ├── settings/            # 设置模块 — 统一配置管理
 │   ├── stitch/              # 长截图拼接模块 — 滚动截图、自动拼接
-│   ├── tools/               # 绘图工具模块 — 笔、矩形、箭头、文字等
-│   ├── translation/         # 翻译模块 — DeepL API 翻译服务
+│   ├── tools/               # 绘图工具模块 — 笔、矩形、箭头、文字、马赛克等
+│   ├── translation/         # 翻译模块 — 多提供商翻译服务
 │   ├── translations/        # 语言资源 — 中文/英文/日文/韩文
 │   ├── ui/                  # 用户界面模块 — 通用UI组件库
 │   └── tests/               # 测试模块 — 单元测试与集成测试
@@ -152,6 +153,7 @@ canvas/
     ├── __init__.py
     ├── drawing_items.py     # StrokeItem / RectItem / EllipseItem / ArrowItem / TextItem / NumberItem — 所有绘制项目
     ├── background_item.py   # BackgroundItem — 选区背景底图
+    ├── mosaic_item.py       # MosaicItem — 马赛克图形项
     └── selection_item.py    # SelectionItem — 选中项的边界显示框
 ```
 
@@ -261,11 +263,12 @@ core/
 ├── theme.py                 # ThemeManager — 应用级主题颜色管理
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — 国际化管理，多语言支持
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — 全局热键和应用内快捷键管理
-├── save.py                  # SaveService — 文件保存服务（自动命名、路径管理）
+├── save.py                  # SaveService — 文件保存服务（自动命名、路径管理、高质量 PDF 输出）
 ├── export.py                # ExportService — 图像导出服务
 ├── clipboard_utils.py       # copy_image_to_clipboard() — 图像复制到系统剪切板
 ├── platform_utils.py        # DPI感知设置、AppUserModelID、进程管理等 Windows API 工具
 ├── qt_utils.py              # safe_disconnect() — Qt 信号安全断开工具
+├── log_translations/        # 各模块日志文本翻译辅助
 └── constants.py             # 全局常量定义（字体、路径等）
 ```
 
@@ -276,7 +279,7 @@ core/
 - 应用级亮色/暗色主题管理
 - XML 格式的多语言国际化系统（中/英/日）
 - 全局热键系统（基于 Windows API）和应用内快捷键管理
-- 文件保存/导出服务
+- 文件保存/导出服务（含高质量 PDF 输出）
 
 ---
 
@@ -416,7 +419,8 @@ tools/
 ├── arrow.py                 # ArrowTool — 箭头工具
 ├── text.py                  # TextTool — 文字工具
 ├── number.py                # NumberTool — 数字编号工具（自动递增）
-├── highlighter.py           # HighlighterTool — 荧光笔/马赛克工具
+├── highlighter.py           # HighlighterTool — 荧光笔工具
+├── mosaic.py                # MosaicTool — 马赛克工具
 ├── cursor.py                # CursorTool — 光标/选择工具
 ├── eraser.py                # EraserTool — 橡皮擦工具
 └── cursor_manager.py        # CursorManager — 光标样式管理器
@@ -424,7 +428,7 @@ tools/
 
 **核心功能：**
 - 统一的工具基类架构（Tool → 各具体工具）
-- 11种绘图工具：笔、矩形、椭圆、箭头、文字、数字、荧光笔、光标、橡皮擦等
+- 绘图工具：笔、矩形、椭圆、箭头、文字、数字、荧光笔、马赛克、光标、橡皮擦等
 - 工具控制器负责工具切换、鼠标事件分发
 - 工具上下文（ToolContext）提供场景、视图、设置等依赖注入
 
@@ -432,13 +436,25 @@ tools/
 
 ### translation/ — 翻译模块
 
-基于 DeepL API 的文字翻译服务。
+多提供商翻译服务，支持 DeepL / Google / Azure / Amazon 等提供商。
 
 ```
 translation/
 ├── __init__.py
-├── deepl_service.py         # DeepLService / TranslationThread — DeepL API 异步翻译
-├── languages.py             # SupportedLanguages — DeepL 支持的语言列表与语言代码
+├── provider.py              # TranslationProvider / ProviderMetadata — 提供商抽象契约
+├── registry.py              # ProviderRegistry — 提供商注册表与工厂
+├── service.py               # TranslationService — 提供商选择与翻译编排
+├── models.py                # TranslationRequest / TranslationResult — 与提供商无关的请求/结果模型
+├── worker.py                # TranslationWorker — 所有提供商共用的 Qt 工作线程
+├── providers/               # 各翻译提供商实现
+│   ├── deepl.py             # DeepL
+│   ├── google.py            # Google
+│   ├── azure.py             # Azure
+│   └── amazon.py            # Amazon
+├── smart_translation_controller.py # SmartTranslationController — 一键选中文字探测与翻译弹窗路由
+├── translation_popup.py     # TranslationPopup — 紧凑翻译弹窗（选中文字/手动输入两种模式）
+├── deepl_service.py         # DeepLService / TranslationThread — 旧版 DeepL API 异步翻译
+├── languages.py             # SupportedLanguages — 支持的语言列表与语言代码
 ├── translation_manager.py   # TranslationManager — 翻译窗口管理器（单例）
 ├── translation_dialog.py    # TranslationDialog / TranslationLoadingDialog — 翻译结果显示窗口
 └── ui/
@@ -448,9 +464,11 @@ translation/
 ```
 
 **核心功能：**
-- 调用 DeepL API 进行文字翻译
+- 可插拔的多提供商架构（DeepL / Google / Azure / Amazon），注册表统一管理
+- 一键快捷键：自动探测选中文字并路由到翻译弹窗
+- 紧凑翻译弹窗，支持选中文字与手动输入两种模式
 - 异步翻译，不阻塞 UI
-- 翻译结果弹窗显示，支持复制
+- 翻译结果支持复制
 
 ---
 
@@ -460,15 +478,12 @@ translation/
 
 ```
 translations/
-├── app_zh.xml               # 中文翻译源文件
-├── app_en.xml               # 英文翻译源文件
-├── app_ja.xml               # 日文翻译源文件
-├── app_zh.qm                # 中文编译后二进制文件
-├── app_en.qm                # 英文编译后二进制文件
-└── app_ja.qm                # 日文编译后二进制文件
+├── app_zh.xml / app_en.xml  # 中文/英文翻译源文件
+├── app_ja.xml / app_ko.xml  # 日文/韩文翻译源文件
+└── app_*.xml.qm             # 编译后的 Qt 二进制文件（app_zh.xml.qm 等）
 ```
 
-**说明：** `.xml` 为可编辑的翻译源文件，`.qm` 为 Qt 运行时加载的编译文件。修改翻译后需运行 `compile_translations.py` 重新编译。
+**说明：** `.xml` 为可编辑的翻译源文件，`*.xml.qm` 为 Qt 运行时加载的编译文件。修改翻译后需运行 `compile_translations.py` 重新编译。
 
 ---
 
@@ -480,6 +495,7 @@ translations/
 ui/
 ├── __init__.py
 ├── toolbar.py               # Toolbar / _DragHandle — 可拖动工具栏基类
+├── tray_menu.py             # TrayMenu — 系统托盘菜单
 ├── screenshot_window.py     # ScreenshotWindow — 截图主窗口（全屏覆盖、选区绘制）
 ├── dialogs.py               # StandardDialog / 对话框函数集 — 确认、警告、信息、错误对话框
 ├── magnifier.py             # MagnifierOverlay — 放大镜覆盖层（像素级取色）
@@ -494,6 +510,14 @@ ui/
 ├── text_settings_panel.py   # TextSettingsPanel — 文字设置面板
 ├── arrow_settings_panel.py  # ArrowSettingsPanel — 箭头设置面板
 ├── number_settings_panel.py # 数字工具设置面板
+├── mosaic_settings_panel.py # 马赛克工具设置面板
+│
+├── fluent_lite/             # Fluent 风格轻量组件库
+│   ├── buttons.py / cards.py / icons.py / inputs.py  # 按钮、卡片、图标、输入框
+│   ├── labels.py / navigation.py / segmented.py      # 标签、导航、分段控件
+│   ├── switch.py / theme.py / titlebar.py            # 开关、主题、标题栏
+│   ├── frameless.py         # 无边框窗口
+│   └── text_context_menu.py # 文本右键菜单
 │
 ├── settings_ui/             # 应用设置对话框
 │   ├── __init__.py
@@ -535,6 +559,7 @@ ui/
 - 可拖动工具栏基类，所有工具栏继承自此
 - 全屏截图窗口，处理选区绘制和交互
 - 放大镜、颜色选择器等精细UI组件
+- Fluent 风格轻量组件库（按钮、卡片、导航、分段、开关等）
 - 完整的应用设置对话框（外观/截图/热键/翻译等多个页面）
 - 首次启动欢迎向导（6页引导流程）
 - 选区信息面板（尺寸显示、宽高比锁定、圆角等）
@@ -550,25 +575,22 @@ tests/
 ├── conftest.py              # pytest 配置和公共 fixture
 ├── pytest.ini               # pytest 运行配置
 ├── run_tests.py             # 测试运行脚本
-├── test_undo_stack.py       # 撤销栈测试
-├── test_selection_model.py  # 选择模型测试
+├── test_drawing_tools.py    # 绘图工具测试（笔/矩形/箭头/文字/数字/荧光笔）
+├── test_mosaic_tool.py      # 马赛克工具测试
+├── test_functional_handles.py # 控制点编辑测试
+├── test_capture_service.py  # 截图服务测试
 ├── test_clipboard_api.py    # 剪切板公共 API 测试
-├── test_clipboard_data.py   # 剪切板数据层测试
 ├── test_clipboard_manage_dialog.py # 剪切板管理窗口测试
-├── test_clipboard_services.py # 剪切板服务层测试
-├── test_clipboard_themes.py # 主题系统测试
-├── test_clipboard_utils.py  # 剪切板工具函数测试
-├── test_core_utils.py       # 核心工具类测试
-├── test_crash_handler.py    # 崩溃处理测试
-├── test_emoji_data.py       # Emoji数据测试
-├── test_gif_data.py         # GIF数据结构测试
-├── test_i18n.py             # 国际化系统测试
-├── test_resource_manager.py # 资源管理器测试
-├── test_save_service.py     # 保存服务测试
-├── test_stitch_algorithm.py # 拼接算法测试
-├── test_theme_manager.py    # 主题管理器测试
-├── test_tool_settings.py    # 工具设置测试
-└── test_tools_base.py       # 工具基类测试
+├── test_frame_recorder.py   # GIF 帧录制测试
+├── test_playback_engine.py  # GIF 回放引擎测试
+├── test_ocr_text_layer.py   # OCR 文字层测试
+├── test_pin_window_zoom.py  # 钉图缩放测试
+├── test_smart_translation.py # 智能翻译测试
+├── test_translation_architecture.py # 翻译提供商架构测试
+├── test_stitch_dedup.py     # 长截图拼接去重测试
+├── test_settings_dialog_state.py # 设置对话框状态测试
+├── test_welcome_translation.py # 欢迎向导翻译页测试
+└── …（其余模块单元测试与集成测试，共 70 多个文件）
 ```
 
 ---

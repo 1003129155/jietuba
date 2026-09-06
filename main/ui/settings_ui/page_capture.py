@@ -15,7 +15,7 @@ from .components import SettingCardGroup, WhiteCard, apply_theme_text_style
 
 
 def create_capture_page(dialog) -> QWidget:
-    """截图設定 ─ 智能选区 + 保存设置 + OCR"""
+    """截图設定 ─ 交互行为 + 智能选区 + 保存设置 + OCR"""
     scroll = QScrollArea()
     scroll.setWidgetResizable(True)
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
@@ -25,6 +25,53 @@ def create_capture_page(dialog) -> QWidget:
     layout = QVBoxLayout(view)
     layout.setContentsMargins(0, 0, 10, 0)
     layout.setSpacing(20)
+
+    # ── 截图交互 ──────────────────────────────────────
+    grp_behavior = SettingCardGroup(dialog.tr("Capture Behavior"), view)
+
+    double_click_card = SwitchSettingCard(
+        FluentIcon.CAMERA,
+        dialog.tr("Double-click to Copy and Close"),
+        dialog.tr(
+            "Double-click the selected screenshot to copy it to the clipboard and close the capture."
+        ),
+        parent=grp_behavior,
+    )
+    double_click_card.setChecked(
+        dialog.config_manager.get_double_click_copy_close_enabled()
+    )
+    dialog.double_click_copy_close_toggle = double_click_card
+    grp_behavior.addSettingCard(double_click_card)
+
+    cross_tool_card = SwitchSettingCard(
+        FluentIcon.EDIT,
+        dialog.tr("Enable Ctrl Cross-Tool Selection"),
+        dialog.tr(
+            "Hold Ctrl and click any editable annotation to adjust it without switching tools."
+        ),
+        parent=grp_behavior,
+    )
+    cross_tool_card.setChecked(
+        dialog.config_manager.get_cross_tool_selection_enabled()
+    )
+    dialog.cross_tool_selection_toggle = cross_tool_card
+    grp_behavior.addSettingCard(cross_tool_card)
+
+    text_top_card = SwitchSettingCard(
+        FluentIcon.FONT,
+        dialog.tr("Keep Text Annotations on Top"),
+        dialog.tr(
+            "Keep text above other annotations, including ones drawn later."
+        ),
+        parent=grp_behavior,
+    )
+    text_top_card.setChecked(
+        dialog.config_manager.get_text_always_on_top_enabled()
+    )
+    dialog.text_always_on_top_toggle = text_top_card
+    grp_behavior.addSettingCard(text_top_card)
+
+    layout.addWidget(grp_behavior)
 
     # ── 智能选区 ──────────────────────────────────────
     grp_smart = SettingCardGroup(dialog.tr("Smart Selection"), view)
@@ -110,7 +157,17 @@ def create_capture_page(dialog) -> QWidget:
     # ── OCR ───────────────────────────────────────────
     grp_ocr = SettingCardGroup(dialog.tr("OCR"), view)
 
-    ocr_available = importlib.util.find_spec("windows_media_ocr") is not None
+    # OCR 可用性检测：走 ocr 模块的官方多引擎检测（含 ppocr_rust / windows_media_ocr），
+    # 而不是只看 windows_media_ocr —— 否则装了 ppocr_rust 也会误报“无 OCR 版本”。
+    try:
+        from ocr import is_ocr_available
+        ocr_available = bool(is_ocr_available())
+    except Exception:
+        # 兜底：ocr 模块不可导入时，退回到最基础的探测
+        ocr_available = (
+            importlib.util.find_spec("ppocr_rust") is not None
+            or importlib.util.find_spec("windows_media_ocr") is not None
+        )
     ocr_card = SwitchSettingCard(
         FluentIcon.SEARCH,
         dialog.tr("Enable OCR"),

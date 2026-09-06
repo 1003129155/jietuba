@@ -4,7 +4,7 @@
 
 ## 概要
 
-PySide6 and RUSTベースのスクリーンショットおよびクリップボード管理アプリケーションです。領域キャプチャ、ウィンドウスマート検出、GIF録画、長いスクリーンショットの結合、OCR文字認識、画像ピン留め、翻訳機能を備え、完全なクリップボード履歴管理システムを搭載しています。
+PySide6 and RUSTベースのスクリーンショットおよびクリップボード管理アプリケーションです。領域キャプチャ、ウィンドウスマート検出、GIF録画、長いスクリーンショットの結合、OCR文字認識、画像ピン留め、翻訳、モザイク、PDFエクスポート機能を備え、完全なクリップボード履歴管理システムを搭載しています。
 
 ---
 
@@ -97,6 +97,7 @@ python main_app.py
 ├── main/                    # Python メインプログラム
 │   ├── main_app.py          # アプリエントリポイント：システムトレイ、グローバルホットキー、ライフサイクル管理
 │   ├── compile_translations.py  # 翻訳コンパイラ（.xml → .qm）
+│   ├── scripts/             # 補助スクリプト — 翻訳プロバイダー比較
 │   │
 │   ├── canvas/              # キャンバスモジュール — グラフィックス編集コア
 │   ├── capture/             # キャプチャモジュール — スクリーンキャプチャ＆ウィンドウ検出
@@ -107,8 +108,8 @@ python main_app.py
 │   ├── pin/                 # ピンモジュール — スクリーンショットピン留め、編集、OCR、翻訳
 │   ├── settings/            # 設定モジュール — 統一設定管理
 │   ├── stitch/              # 結合モジュール — スクロールキャプチャ、自動結合
-│   ├── tools/               # ツールモジュール — ペン、矩形、矢印、テキスト等
-│   ├── translation/         # 翻訳モジュール — DeepL APIサービス
+│   ├── tools/               # ツールモジュール — ペン、矩形、矢印、テキスト、モザイク等
+│   ├── translation/         # 翻訳モジュール — マルチプロバイダー翻訳サービス
 │   ├── translations/        # 言語リソース — 中国語/英語/日本語/韓国語
 │   ├── ui/                  # UIモジュール — 共通UIコンポーネントライブラリ
 │   └── tests/               # テストモジュール — ユニットテスト＆統合テスト
@@ -146,6 +147,7 @@ canvas/
 └── items/
     ├── drawing_items.py     # StrokeItem / RectItem / EllipseItem / ArrowItem / TextItem / NumberItem
     ├── background_item.py   # BackgroundItem — 選択領域の背景
+    ├── mosaic_item.py       # MosaicItem — モザイクアイテム
     └── selection_item.py    # SelectionItem — 選択境界表示
 ```
 
@@ -238,11 +240,12 @@ core/
 ├── theme.py                 # ThemeManager — アプリテーマカラー管理
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — 国際化
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — グローバル＆アプリ内ホットキー
-├── save.py                  # SaveService — ファイル保存サービス
+├── save.py                  # SaveService — ファイル保存サービス（高品質 PDF 出力対応）
 ├── export.py                # ExportService — 画像エクスポート
 ├── clipboard_utils.py       # copy_image_to_clipboard() — 画像をクリップボードにコピー
 ├── platform_utils.py        # DPI設定、AppUserModelID、Windows APIユーティリティ
 ├── qt_utils.py              # safe_disconnect() — Qtシグナル安全切断
+├── log_translations/        # 各モジュールのログ翻訳ヘルパー
 └── constants.py             # グローバル定数（フォント、パス等）
 ```
 
@@ -347,7 +350,8 @@ tools/
 ├── arrow.py                 # ArrowTool — 矢印
 ├── text.py                  # TextTool — テキスト
 ├── number.py                # NumberTool — 自動インクリメント番号
-├── highlighter.py           # HighlighterTool — 蛍光ペン/モザイク
+├── highlighter.py           # HighlighterTool — 蛍光ペン
+├── mosaic.py                # MosaicTool — モザイク
 ├── cursor.py                # CursorTool — カーソル/選択
 ├── eraser.py                # EraserTool — 消しゴム
 └── cursor_manager.py        # CursorManager — カーソルスタイル管理
@@ -357,12 +361,24 @@ tools/
 
 ### translation/ — 翻訳モジュール
 
-DeepL APIベースのテキスト翻訳。
+DeepL / Google / Azure / Amazon などに対応したマルチプロバイダー翻訳サービス。
 
 ```
 translation/
-├── deepl_service.py         # DeepLService / TranslationThread — 非同期DeepL API呼び出し
-├── languages.py             # SupportedLanguages — DeepL対応言語リスト・言語コード
+├── provider.py              # TranslationProvider / ProviderMetadata — プロバイダー抽象契約
+├── registry.py              # ProviderRegistry — プロバイダー登録とファクトリ
+├── service.py               # TranslationService — プロバイダー選択と翻訳オーケストレーション
+├── models.py                # TranslationRequest / TranslationResult — プロバイダー非依存モデル
+├── worker.py                # TranslationWorker — 全プロバイダー共通の Qt ワーカー
+├── providers/               # 各翻訳プロバイダー実装
+│   ├── deepl.py             # DeepL
+│   ├── google.py            # Google
+│   ├── azure.py             # Azure
+│   └── amazon.py            # Amazon
+├── smart_translation_controller.py # SmartTranslationController — ワンキー選択テキスト検出＆ポップアップルーティング
+├── translation_popup.py     # TranslationPopup — コンパクト翻訳ポップアップ（選択テキスト/手入力）
+├── deepl_service.py         # DeepLService / TranslationThread — 旧版 DeepL API 非同期翻訳
+├── languages.py             # SupportedLanguages — 対応言語リスト・言語コード
 ├── translation_manager.py   # TranslationManager — 翻訳ウィンドウマネージャー（シングルトン）
 ├── translation_dialog.py    # TranslationDialog — 翻訳結果ウィンドウ
 └── ui/
@@ -370,18 +386,25 @@ translation/
     └── widgets.py           # 翻訳ウィジェット
 ```
 
+**主な機能:**
+- プラグイン可能なマルチプロバイダー構成（DeepL / Google / Azure / Amazon）をレジストリで一元管理
+- ワンキー：選択テキストを自動検出して翻訳ポップアップへ
+- 選択テキスト／手入力の2モード対応コンパクトポップアップ
+- 非同期翻訳でUIをブロックしない
+- 翻訳結果のコピーに対応
+
 ---
 
 ### translations/ — 言語リソース
 
 ```
 translations/
-├── app_zh.xml / app_zh.qm  # 中国語
-├── app_en.xml / app_en.qm  # 英語
-└── app_ja.xml / app_ja.qm  # 日本語
+├── app_zh.xml / app_en.xml  # 中国語 / 英語ソースファイル
+├── app_ja.xml / app_ko.xml  # 日本語 / 韓国語ソースファイル
+└── app_*.xml.qm             # コンパイル済み Qt バイナリ（app_zh.xml.qm 等）
 ```
 
-`.xml` = 編集可能なソースファイル、`.qm` = Qtランタイムで読み込むコンパイル済みファイル。変更後は `compile_translations.py` を実行して再コンパイルしてください。
+`.xml` = 編集可能なソースファイル、`*.xml.qm` = Qtランタイムで読み込むコンパイル済みファイル。変更後は `compile_translations.py` を実行して再コンパイルしてください。
 
 ---
 
@@ -392,6 +415,7 @@ translations/
 ```
 ui/
 ├── toolbar.py               # Toolbar / _DragHandle — ドラッグ可能なツールバー基底クラス
+├── tray_menu.py             # TrayMenu — システムトレイメニュー
 ├── screenshot_window.py     # ScreenshotWindow — フルスクリーンキャプチャウィンドウ
 ├── dialogs.py               # StandardDialog — 確認、警告、情報、エラーダイアログ
 ├── magnifier.py             # MagnifierOverlay — ピクセルレベル拡大鏡
@@ -406,6 +430,14 @@ ui/
 ├── text_settings_panel.py   # TextSettingsPanel — テキスト設定パネル
 ├── arrow_settings_panel.py  # ArrowSettingsPanel — 矢印設定パネル
 ├── number_settings_panel.py # 番号ツール設定パネル
+├── mosaic_settings_panel.py # モザイクツール設定パネル
+│
+├── fluent_lite/             # Fluent スタイル軽量コンポーネントライブラリ
+│   ├── buttons.py / cards.py / icons.py / inputs.py  # ボタン、カード、アイコン、入力欄
+│   ├── labels.py / navigation.py / segmented.py      # ラベル、ナビゲーション、セグメントコントロール
+│   ├── switch.py / theme.py / titlebar.py            # スイッチ、テーマ、タイトルバー
+│   ├── frameless.py         # フレームレスウィンドウ
+│   └── text_context_menu.py # テキスト右クリックメニュー
 │
 ├── settings_ui/             # アプリ設定ダイアログ
 │   ├── dialog.py            # SettingsDialog — タブ式設定ダイアログ
@@ -431,11 +463,11 @@ ui/
 │   ├── page5_translation.py # 翻訳機能説明ページ
 │   └── page6_finish.py      # 完了ページ
 │
-└── selection_info/          # 選择情報UI
-    ├── controller.py        # 選择情報コントローラー
-    ├── panel.py             # 選择情報パネル（サイズ、座標）
+└── selection_info/          # 選択情報UI
+    ├── controller.py        # 選択情報コントローラー
+    ├── panel.py             # 選択情報パネル（サイズ、座標）
     ├── hook_manager.py      # フックマネージャー
-    ├── border_shadow.py     # 選择ボーダーシャドウエフェクト
+    ├── border_shadow.py     # 選択ボーダーシャドウエフェクト
     ├── lock_ratio.py        # アスペクト比ロック
     └── rounded_corners.py   # 角丸スクリーンショット
 ```
@@ -449,24 +481,21 @@ tests/
 ├── conftest.py              # pytest設定＆共通フィクスチャ
 ├── pytest.ini               # pytest実行設定
 ├── run_tests.py             # テスト実行スクリプト
-├── test_undo_stack.py       # アンドゥスタックテスト
-├── test_selection_model.py  # 選择モデルテスト
+├── test_drawing_tools.py    # 描画ツールテスト（ペン/矩形/矢印/テキスト/番号/蛍光ペン）
+├── test_mosaic_tool.py      # モザイクツールテスト
+├── test_functional_handles.py # コントロールポイント編集テスト
+├── test_capture_service.py  # キャプチャサービステスト
 ├── test_clipboard_api.py    # クリップボード公開 API テスト
-├── test_clipboard_data.py   # クリップボードデータテスト
 ├── test_clipboard_manage_dialog.py # クリップボード管理ウィンドウテスト
-├── test_clipboard_services.py # クリップボードサービス層テスト
-├── test_clipboard_themes.py # クリップボードテーマテスト
-├── test_clipboard_utils.py  # クリップボードユーティリティテスト
-├── test_core_utils.py       # コアユーティリティテスト
-├── test_crash_handler.py    # クラッシュハンドラーテスト
-├── test_emoji_data.py       # 絵文字データテスト
-├── test_gif_data.py         # GIFデータ構造テスト
-├── test_i18n.py             # 国際化テスト
-├── test_resource_manager.py # リソースマネージャーテスト
-├── test_save_service.py     # 保存サービステスト
-├── test_stitch_algorithm.py # 結合アルゴリズムテスト
-├── test_theme_manager.py    # テーママネージャーテスト
-├── test_tool_settings.py    # ツール設定テスト
-└── test_tools_base.py       # ツール基底クラステスト
+├── test_frame_recorder.py   # GIFフレーム録画テスト
+├── test_playback_engine.py  # GIF再生エンジンテスト
+├── test_ocr_text_layer.py   # OCRテキストレイヤーテスト
+├── test_pin_window_zoom.py  # ピンウィンドウズームテスト
+├── test_smart_translation.py # スマート翻訳テスト
+├── test_translation_architecture.py # 翻訳プロバイダーアーキテクチャテスト
+├── test_stitch_dedup.py     # 長いスクリーンショット結合重複除去テスト
+├── test_settings_dialog_state.py # 設定ダイアログ状態テスト
+├── test_welcome_translation.py # ウェルカムウィザード翻訳ページテスト
+└── …（その他 70 以上のユニット/統合テストファイル）
 ```
 

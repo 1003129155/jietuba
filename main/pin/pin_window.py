@@ -146,7 +146,13 @@ class PinWindow(QWidget):
             self.canvas.initialize_from_items(self.drawing_items, self.selection_offset, number_next)
 
         # ====== CanvasView ======
-        self.view = PinCanvasView(self.canvas.scene, self, self.canvas)
+        self._cross_tool_selection_enabled = bool(
+            self.config_manager.get_cross_tool_selection_enabled()
+        ) if self.config_manager else False
+        self.view = PinCanvasView(
+            self.canvas.scene, self, self.canvas,
+            cross_tool_select=self._cross_tool_selection_enabled,
+        )
         self.view.setParent(self)
         self.view.setGeometry(0, 0, self.width(), self.height())
         self.view.set_corner_radius(self.corner)

@@ -249,6 +249,18 @@
         <source>Screenshot Shortcuts</source>
         <translation>截图快捷键</translation>
     </message>
+    <message><source>Annotation Tools</source><translation>标注工具</translation></message>
+    <message><source>Select / Cursor</source><translation>选择 / 光标</translation></message>
+    <message><source>Pen</source><translation>画笔</translation></message>
+    <message><source>Highlighter</source><translation>荧光笔</translation></message>
+    <message><source>Mosaic</source><translation>马赛克</translation></message>
+    <message><source>Arrow</source><translation>箭头</translation></message>
+    <message><source>Number</source><translation>序号</translation></message>
+    <message><source>Rectangle</source><translation>矩形</translation></message>
+    <message><source>Ellipse</source><translation>椭圆</translation></message>
+    <message><source>Text</source><translation>文字</translation></message>
+    <message><source>Eraser</source><translation>橡皮擦</translation></message>
+    <message><source>💡 Configured shortcuts take priority over WASD and C. Arrow keys remain available; Esc is reserved.</source><translation>💡 已配置的快捷键优先于 WASD 和 C；方向键仍可用，Esc 为保留键。</translation></message>
     <message>
         <source>Pin Shortcuts</source>
         <translation>钉图快捷键</translation>
@@ -356,6 +368,44 @@ Replace it?</source>
     <message>
         <source>Skip this many top pixels on subsequent captures during matching</source>
         <translation>匹配时跳过后续截图顶部的像素行数</translation>
+    </message>
+
+    <!-- Capture Behavior -->
+    <message>
+        <source>Capture Behavior</source>
+        <translation>截图行为</translation>
+    </message>
+    <message>
+        <source>Double-click to Copy and Close</source>
+        <translation>双击复制并关闭</translation>
+    </message>
+    <message>
+        <source>Double-click the selected screenshot to copy it to the clipboard and close the capture.</source>
+        <translation>双击已选截图时复制到剪贴板并关闭截图。</translation>
+    </message>
+    <message>
+        <source>Enable Ctrl Cross-Tool Selection</source>
+        <translation>启用 Ctrl 跨工具选择</translation>
+    </message>
+    <message>
+        <source>Hold Ctrl and click any editable annotation to adjust it without switching tools.</source>
+        <translation>按住 Ctrl 点击任意可编辑标注，无需切换工具即可调整。</translation>
+    </message>
+    <message>
+        <source>Keep Text Annotations on Top</source>
+        <translation>文字标注始终置顶</translation>
+    </message>
+    <message>
+        <source>Keep text above other annotations, including ones drawn later.</source>
+        <translation>让文字保持在其他标注上方，包括之后绘制的标注。</translation>
+    </message>
+    <message>
+        <source>Automatically Wrap Text</source>
+        <translation>文字自动换行</translation>
+    </message>
+    <message>
+        <source>Start new text annotations at about 30 characters wide and keep them inside the selection.</source>
+        <translation>新建文字标注默认约 30 个字符宽，并限制在选区内。</translation>
     </message>
     
     <!-- Smart Selection Page -->
@@ -772,6 +822,14 @@ Replace it?</source>
 <!-- ========== Toolbar ========== -->
 <context>
     <name>Toolbar</name>
+    <message>
+        <source>Ctrl+click any editable annotation to edit it temporarily</source>
+        <translation>按住 Ctrl 点击任意可编辑标注，可临时编辑</translation>
+    </message>
+    <message>
+        <source>Mosaic (mouse wheel to resize)</source>
+        <translation>马赛克（鼠标滚轮调整大小）</translation>
+    </message>
     <message>
         <source>Long screenshot (scroll)</source>
         <translation>长截图（滚动）</translation>
@@ -2269,6 +2327,54 @@ Replace it?</source>
         <source>Rect Highlight</source>
         <translation>矩形荧光</translation>
     </message>
+    <message>
+        <source>Number Style</source>
+        <translation>序号样式</translation>
+    </message>
+    <message>
+        <source>Solid</source>
+        <translation>实心</translation>
+    </message>
+    <message>
+        <source>Hollow Circle</source>
+        <translation>空心圆</translation>
+    </message>
+    <message>
+        <source>Outline Only</source>
+        <translation>仅描边</translation>
+    </message>
+    <message>
+        <source>Number Only</source>
+        <translation>仅数字</translation>
+    </message>
+    <message>
+        <source>Freehand Mosaic</source>
+        <translation>自由涂抹马赛克</translation>
+    </message>
+    <message>
+        <source>Rect Mosaic</source>
+        <translation>框选马赛克</translation>
+    </message>
+    <message>
+        <source>Brush Size</source>
+        <translation>笔刷大小</translation>
+    </message>
+    <message>
+        <source>Mosaic</source>
+        <translation>马赛克</translation>
+    </message>
+    <message>
+        <source>Blur</source>
+        <translation>模糊</translation>
+    </message>
+    <message>
+        <source>Mosaic Style</source>
+        <translation>马赛克种类</translation>
+    </message>
+    <message>
+        <source>Mosaic Granularity</source>
+        <translation>马赛克粒度</translation>
+    </message>
 </context>
 
 <context>
@@ -3020,4 +3126,24 @@ SOFTWARE.</translation></message>
     <message><source>Select All</source><translation>全选</translation></message>
 </context>
 
+
+<context>
+    <name>UndoCommands</name>
+    <message>
+        <source>Add Mosaic</source>
+        <translation>添加马赛克</translation>
+    </message>
+    <message>
+        <source>Change Number Style</source>
+        <translation>更改序号样式</translation>
+    </message>
+    <message>
+        <source>Change Mosaic Style</source>
+        <translation>更改马赛克种类</translation>
+    </message>
+    <message>
+        <source>Change Mosaic Size</source>
+        <translation>更改马赛克粒度</translation>
+    </message>
+</context>
 </TS>

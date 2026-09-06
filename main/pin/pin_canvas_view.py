@@ -27,8 +27,8 @@ class PinCanvasView(CanvasView):
     - 处理窗口拖动和缩放
     """
 
-    def __init__(self, scene, pin_window, pin_canvas):
-        super().__init__(scene)
+    def __init__(self, scene, pin_window, pin_canvas, cross_tool_select=False):
+        super().__init__(scene, cross_tool_select=cross_tool_select)
         self.pin_window = pin_window
         self.pin_canvas = pin_canvas
         self._window_dragging = False

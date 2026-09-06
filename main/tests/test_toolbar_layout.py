@@ -12,6 +12,7 @@ toolbar.py 有 622 条语句、覆盖率约 12%。其中价值最高、又完全
 工具配置），而是以未绑定方式调用真实实现，用一个只暴露被读取到的属性的假 self。
 被测方法只做几何计算和状态赋值，不需要 QApplication。
 """
+from functools import partial
 from types import SimpleNamespace
 
 from PySide6.QtCore import QPoint, QRect, QRectF
@@ -230,7 +231,10 @@ def _make_toolbar_state(current_tool=None, tools=("pen", "rect", "text")):
         tool_changed=_Recorder(),
         _hide_all_panels=hide_all,
         _show_panel_for_tool=show_panel,
+        set_temporary_edit_active=_Recorder(),
     )
+    # _on_tool_clicked / reset_session_state 现在会调用 select_tool，绑定到同一个假对象
+    state.select_tool = partial(Toolbar.select_tool, state)
     return state, hide_all, show_panel
 
 

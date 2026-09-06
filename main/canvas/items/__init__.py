@@ -5,6 +5,7 @@
 
 from .background_item import BackgroundItem
 from .selection_item import SelectionItem
+from .mosaic_item import MosaicItem
 from .drawing_items import (
     StrokeItem, RectItem, EllipseItem, ArrowItem, 
     TextItem, NumberItem
@@ -13,6 +14,5 @@ from .drawing_items import (
 __all__ = [
     'BackgroundItem', 'SelectionItem',
     'StrokeItem', 'RectItem', 'EllipseItem', 'ArrowItem',
-    'TextItem', 'NumberItem'
+    'TextItem', 'NumberItem', 'MosaicItem'
 ]
- 

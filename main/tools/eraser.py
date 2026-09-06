@@ -6,7 +6,7 @@
 from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QPainterPath, QPainterPathStroker
 from .base import Tool, ToolContext
-from canvas.items import StrokeItem, RectItem, EllipseItem, ArrowItem, TextItem, NumberItem
+from canvas.items import StrokeItem, RectItem, EllipseItem, ArrowItem, TextItem, NumberItem, MosaicItem
 from canvas.items import BackgroundItem, SelectionItem
 from canvas.undo import BatchRemoveCommand
 from core.logger import log_debug, log_info, T
@@ -57,10 +57,9 @@ class EraserTool(Tool):
             stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
             eraser_area = stroker.createStroke(path)
             
-            # 只擦除最顶层的一个图元（scene.items 返回的第一个就是最上层的）
+            # 保持既有语义：擦除区域内所有相交的绘图图元。
             for item in ctx.scene.items(eraser_area):
-                if self._try_erase_item(item):
-                    break  # 删除一个后立即退出循环
+                self._try_erase_item(item)
             
             self.last_pos = pos
     
@@ -93,8 +92,6 @@ class EraserTool(Tool):
         path.addEllipse(pos, radius, radius)
 
         for item in ctx.scene.items(path):
-            if self._try_erase_item(item):
-                break  # 删除一个后立即退出循环th):
             self._try_erase_item(item)
     
     def _try_erase_item(self, item):
@@ -104,7 +101,7 @@ class EraserTool(Tool):
             return
         
         # 只删除可擦除的绘图图元
-        if isinstance(item, (StrokeItem, RectItem, EllipseItem, ArrowItem, TextItem, NumberItem)):
+        if isinstance(item, (StrokeItem, RectItem, EllipseItem, ArrowItem, TextItem, NumberItem, MosaicItem)):
             # 添加到待删除列表（使用 set 自动去重）
             self.erased_items.add(item)
             

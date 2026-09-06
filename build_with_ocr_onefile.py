@@ -196,11 +196,15 @@ _PYSIDE6_WHITELIST = {{
 # 额外要删除的文件
 _EXTRA_STRIP = {{
     'opengl32sw.dll',
+    # Qt 6.11 在 Windows 上使用系统 ICU。Codex/文档工具可能把 Poppler 的
+    # ABI 不兼容副本注入 PATH；若 PyInstaller 收集它，QtWidgets 会在启动时
+    # 报 DLL load failed。不要把这些外来 ICU DLL 冻结进应用。
+    'icuuc.dll',
     # FFmpeg（Qt Multimedia 拉入，截图不需要）
     'avcodec-61.dll', 'avformat-61.dll', 'avutil-59.dll',
     'swscale-8.dll', 'swresample-5.dll',
 }}
-_EXTRA_STRIP_PATTERNS = ('libscipy_openblas', 'libopenblas',)
+_EXTRA_STRIP_PATTERNS = ('libscipy_openblas', 'libopenblas', 'icudt')
 _STRIP_BINARY_PATTERNS = ('_avif.',)  # Pillow AVIF
 
 def _keep_binary(entry):

@@ -34,6 +34,10 @@ class PinToolbar(Toolbar):
         self.auto_hide_enabled = False
         self._parent_hovering = False
 
+    def _host_window(self):
+        """钉图工具栏是独立顶层窗口，parent() 为 None，宿主从这里拿。"""
+        return self.parent_pin_window
+
     def _customize_for_pin(self):
         """按钉图模式重排并隐藏不需要的按钮。"""
         s = self.SCALE
@@ -69,9 +73,11 @@ class PinToolbar(Toolbar):
             self.copy_btn.show()
             left_x += wide_w
 
+        # 顺序与截图工具栏一致，用户在两个窗口里找同一个按钮时位置不变
         for attr in (
             "pen_btn",
             "highlighter_btn",
+            "mosaic_btn",
             "arrow_btn",
             "number_btn",
             "rect_btn",
@@ -246,4 +252,3 @@ if __name__ == "__main__":
     toolbar.show()
 
     sys.exit(app.exec())
- 

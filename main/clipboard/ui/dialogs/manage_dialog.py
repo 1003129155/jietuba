@@ -166,7 +166,12 @@ class ManageDialog(FrostedFramelessDialog):
             if callable(apply_theme):
                 apply_theme(tokens)
             else:
-                widget.update()
+                # PySide6 6.9.x shadows QWidget.update() with the
+                # QAbstractItemView.update(QModelIndex) overload on item views,
+                # so a bare view.update() raises TypeError. Refresh the viewport
+                # instead, which is a plain QWidget on every version.
+                viewport = getattr(widget, "viewport", None)
+                (viewport() if callable(viewport) else widget).update()
 
     def _apply_ui_theme(self, tokens):
         """Apply the same application theme used by the settings window."""

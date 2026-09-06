@@ -238,7 +238,12 @@ class PaintSettingsPanel(BaseSettingsPanel):
                 
             # 更新尺寸
             if hasattr(self, 'size_spin'):
-                self.size_spin.setValue(int(round(pen.widthF())))
+                width = pen.widthF()
+                if getattr(item, "is_highlighter", False) and hasattr(item, "get_stroke_width"):
+                    logical_width = item.get_stroke_width()
+                    if logical_width is not None:
+                        width = logical_width
+                self.size_spin.setValue(int(round(width)))
                 
             # 更新颜色
             color = pen.color()
@@ -283,4 +288,3 @@ class PaintSettingsPanel(BaseSettingsPanel):
             mode = "rect"
         self.current_highlighter_mode = mode
         self.highlighter_mode_changed.emit(mode)
- 

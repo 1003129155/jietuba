@@ -25,6 +25,7 @@ class PenTool(Tool):
         self.line_lock_mode = None  # 直线锁定模式: 'horizontal' 或 'vertical' 或 None
         self.locked_coordinate = None  # 被锁定的坐标值
         self.line_style = "solid"  # 线条样式：solid（实线）或 dashed（虚线）
+        self.last_point = None  # 上一个被采纳的点（见 Tool.should_append_point）
     
     def on_press(self, pos: QPointF, button, ctx: ToolContext):
         if button == Qt.MouseButton.LeftButton:
@@ -52,6 +53,7 @@ class PenTool(Tool):
             
             # 创建路径
             self.path = QPainterPath(pos)
+            self.last_point = pos
             
             # 创建画笔
             pen_color = color_with_opacity(ctx.color, ctx.opacity)
@@ -105,8 +107,14 @@ class PenTool(Tool):
                 # 垂直线模式，锁定 X 坐标
                 paint_pos.setX(self.locked_coordinate)
             
-            # 更新路径
+            # 间距过滤放在锁定吸附之后，比的是吸附后的坐标：水平锁定时纯竖直的
+            # 移动经吸附后落在同一个位置，若按吸附前的坐标筛就会全部放行，画面
+            # 没有任何变化，点数却照涨。
+            if not self.should_append_point(self.last_point, paint_pos):
+                return
+
             self.path.lineTo(paint_pos)
+            self.last_point = paint_pos
             self.current_item.setPath(self.path)
     
     def on_release(self, pos: QPointF, ctx: ToolContext):
@@ -117,6 +125,7 @@ class PenTool(Tool):
             self.line_lock_mode = None
             self.locked_coordinate = None
             self.start_pos = None
+            self.last_point = None
             
             if self.current_item:
                 # 提交到撤销栈

@@ -1322,17 +1322,41 @@ class ArrowItem(QGraphicsPathItem, DrawingItemMixin):
 class TextItem(QGraphicsTextItem, DrawingItemMixin):
     """文字图元 - 增强版"""
     # 文字与虚线边框之间的内边距（document margin）
-    TEXT_PADDING = 8
+    TEXT_PADDING = 3
+    MIN_POINT_SIZE = 6.0
+    MAX_POINT_SIZE = 400.0
+
+    # 手柄 id：避开矩形(0-7)、圆角(10-13)、序号(200-202)
+    HANDLE_ROTATE = 210
+    HANDLE_DELETE = 211
+    HANDLE_SCALE = 212
+    SCALE_HANDLE_SIZE = 10
+    NORMAL_ANNOTATION_Z_VALUE = 20
+    ANNOTATION_Z_VALUE = 30
+    BACKGROUND_RADIUS = 6.0
     
-    def __init__(self, text: str, pos: QPointF, font: QFont, color: QColor):
+    def __init__(
+        self,
+        text: str,
+        pos: QPointF,
+        font: QFont,
+        color: QColor,
+        always_on_top: bool = True,
+    ):
         super().__init__(text)
         self._init_drawing_mixin()
+        # 尺寸始终跟随内容：不设换行宽度，短内容才不会撑出多余的背景色。
+        self.setTextWidth(-1)
         self.setPos(pos)
         self.setFont(font)
         self.setDefaultTextColor(color)
         # 允许点击编辑
         self.setTextInteractionFlags(Qt.TextInteractionFlag.TextEditorInteraction)
-        self.setZValue(20)
+        self.setZValue(
+            self.ANNOTATION_Z_VALUE
+            if always_on_top
+            else self.NORMAL_ANNOTATION_Z_VALUE
+        )
         
         # 增大 document margin，使虚线边框与文字之间有足够间距
         # 默认只有 4px，太小导致鼠标难以区分文字区域和边框区域
@@ -1349,7 +1373,64 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
         
         self.has_background = False # 默认关闭背景
         self.background_color = QColor(255, 255, 255, 255) # 白色全不透明
-        
+
+    # ------------------------------------------------------------------
+    # 字号缩放（右下角手柄驱动）
+    # ------------------------------------------------------------------
+
+    def font_point_size(self) -> float:
+        """当前字号；点阵字体回退到用像素高度近似。"""
+        size = self.font().pointSizeF()
+        if size <= 0:
+            size = float(self.font().pixelSize())
+        return max(float(size), self.MIN_POINT_SIZE)
+
+    def set_font_point_size(self, point_size: float):
+        """按字号重新排版；描边宽度、阴影偏移等不随之变化。"""
+        clamped = max(
+            self.MIN_POINT_SIZE,
+            min(self.MAX_POINT_SIZE, float(point_size)),
+        )
+        font = QFont(self.font())
+        font.setPointSizeF(clamped)
+        self.setFont(font)
+
+    def get_edit_handles(self):
+        """左上旋转、右上删除、右下缩放；左下角不放功能。
+
+        锚点逐点 mapToScene 映射 local 包围盒的角，而不是取 sceneBoundingRect()
+        的角：后者是轴对齐外包围盒，旋转之后它的角会甩到文字外面去（实测 45°
+        偏 35px，137° 偏 239px），手柄既画错位置也点不到。
+        """
+        from canvas.handle_editor import EditHandle, HandleType, LayerEditor
+
+        local = self.boundingRect()
+        return [
+            EditHandle(
+                self.HANDLE_ROTATE,
+                HandleType.ROTATE,
+                QPointF(self.mapToScene(local.topLeft())),
+                Qt.CursorShape.SizeAllCursor,
+                LayerEditor.FUNCTIONAL_HANDLE_SIZE,
+            ),
+            EditHandle(
+                self.HANDLE_DELETE,
+                HandleType.ITEM_DELETE,
+                QPointF(self.mapToScene(local.topRight())),
+                Qt.CursorShape.PointingHandCursor,
+                LayerEditor.FUNCTIONAL_HANDLE_SIZE,
+                2,
+            ),
+            EditHandle(
+                self.HANDLE_SCALE,
+                HandleType.TEXT_SCALE,
+                QPointF(self.mapToScene(local.bottomRight())),
+                Qt.CursorShape.SizeFDiagCursor,
+                self.SCALE_HANDLE_SIZE,
+                8,
+            ),
+        ]
+
     def paint(self, painter, option, widget):
         """重写绘制方法以支持描边和阴影"""
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -1360,7 +1441,13 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
             painter.save()
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(self.background_color)
-            painter.drawRect(self.boundingRect())
+            background_rect = self.boundingRect()
+            radius = min(
+                self.BACKGROUND_RADIUS,
+                max(0.0, background_rect.width() / 2.0),
+                max(0.0, background_rect.height() / 2.0),
+            )
+            painter.drawRoundedRect(background_rect, radius, radius)
             painter.restore()
             
         # 2. 绘制描边 (Outline) - 使用路径绘制法，效果最好
@@ -1538,13 +1625,32 @@ class NumberItem(QGraphicsItem, DrawingItemMixin):
     HOVER_OUTLINE_WIDTH = 2
     CLICK_MARGIN = 6  # 点击旷量（像素/每侧）
 
-    def __init__(self, number: int, pos: QPointF, radius: float, color: QColor):
+    # 三种样式
+    STYLE_SOLID = "solid"            # 实心圆 + 实心字
+    STYLE_HOLLOW_BG = "hollow_bg"    # 描边圆 + 实心字
+    STYLE_HOLLOW_ALL = "hollow_all"  # 描边圆 + 描边字
+    STYLE_NO_CIRCLE = "no_circle"    # 不画圈，只有实心数字
+    STYLES = (STYLE_SOLID, STYLE_HOLLOW_BG, STYLE_HOLLOW_ALL, STYLE_NO_CIRCLE)
+    DEFAULT_STYLE = STYLE_SOLID
+
+    RING_WIDTH_RATIO = 0.12     # 圆环线宽占半径的比例
+    GLYPH_OUTLINE_RATIO = 0.09  # 数字描边线宽占半径的比例
+
+    def __init__(
+        self,
+        number: int,
+        pos: QPointF,
+        radius: float,
+        color: QColor,
+        style: str = None,
+    ):
         super().__init__()
         self._init_drawing_mixin()
         self.number = number
         self.number_order = None
         self.radius = radius
         self.color = color
+        self.style = self.normalize_style(style)
         self.setPos(pos)
         self.setZValue(20)
         self._hovered = False
@@ -1565,42 +1671,111 @@ class NumberItem(QGraphicsItem, DrawingItemMixin):
     def sceneVisualRect(self):
         return self.mapToScene(self.visualRect()).boundingRect()
 
-    def paint(self, painter, option, widget):
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        visual_rect = self.visualRect()
-        
-        # 绘制背景圆
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(self.color)
-        painter.drawEllipse(visual_rect)
-        
-        # 绘制数字：根据背景色亮度选择黑或白文字（整数权重快速判定）
-        try:
-            bg_color = self.color if self.color is not None else QColor(0, 0, 0)
-            r = int(bg_color.red())
-            g = int(bg_color.green())
-            b = int(bg_color.blue())
-            # 使用整数权重：Y = (R*3 + G*6 + B*1) / 10
-            # 为避免浮点，比较放大后的值（阈值 128 -> 128*10）
-            y_scaled = r * 3 + g * 6 + b * 1
-            if y_scaled > 128 * 10:
-                text_color = QColor(0, 0, 0)
-            else:
-                text_color = QColor(255, 255, 255)
-        except Exception:
-            # 任何异常都回退到白色文字，保证鲁棒性
-            text_color = QColor(255, 255, 255)
+    @classmethod
+    def normalize_style(cls, style) -> str:
+        """无法识别的样式一律回退到实心，旧数据和脏配置才不会画不出东西。"""
+        return style if style in cls.STYLES else cls.DEFAULT_STYLE
 
-        painter.setPen(text_color)
+    def set_style(self, style: str):
+        style = self.normalize_style(style)
+        if style != self.style:
+            self.style = style
+            self.update()
+
+    @property
+    def is_hollow(self) -> bool:
+        """没有实心底色——数字得用标注色，不能再按背景亮度取黑白。"""
+        return self.style != self.STYLE_SOLID
+
+    @property
+    def has_ring(self) -> bool:
+        return self.style in (self.STYLE_HOLLOW_BG, self.STYLE_HOLLOW_ALL)
+
+    def _ring_width(self) -> float:
+        return max(2.0, float(self.radius) * self.RING_WIDTH_RATIO)
+
+    def _number_font(self) -> QFont:
         font_size = max(self.MIN_FONT_SIZE, int(self.radius * self.FONT_SCALE))
         # 创建字体时不使用QFont.Weight.Bold，改用setBold避免字体变体问题
         font = QFont("Arial", font_size)
         font.setBold(True)
-        painter.setFont(font)
-        painter.drawText(visual_rect, Qt.AlignmentFlag.AlignCenter, str(self.number))
+        return font
 
+    def _solid_text_color(self) -> QColor:
+        """实心圆上按背景亮度选黑或白文字（整数权重快速判定）。"""
+        try:
+            bg = self.color if self.color is not None else QColor(0, 0, 0)
+            # Y = (R*3 + G*6 + B*1) / 10，比较放大后的值避免浮点
+            y_scaled = int(bg.red()) * 3 + int(bg.green()) * 6 + int(bg.blue()) * 1
+            return QColor(0, 0, 0) if y_scaled > 128 * 10 else QColor(255, 255, 255)
+        except Exception:
+            # 任何异常都回退到白色文字，保证鲁棒性
+            return QColor(255, 255, 255)
+
+    def paint(self, painter, option, widget):
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        visual_rect = self.visualRect()
+        color = self.color if self.color is not None else QColor(0, 0, 0)
+
+        self._paint_circle(painter, visual_rect, color)
+        self._paint_number(painter, visual_rect, color)
+        self._paint_hover_outline(painter, visual_rect)
+
+    def _paint_circle(self, painter, visual_rect, color):
+        if self.style == self.STYLE_NO_CIRCLE:
+            return
+
+        if not self.is_hollow:
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(color)
+            painter.drawEllipse(visual_rect)
+            return
+
+        # 描边压着路径画，向内缩半个线宽，空心圈的外径才和实心圆一致
+        inset = self._ring_width() / 2.0
+        pen = QPen(color, self._ring_width())
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawEllipse(visual_rect.adjusted(inset, inset, -inset, -inset))
+
+    def _paint_number(self, painter, visual_rect, color):
+        font = self._number_font()
+        text = str(self.number)
+
+        if self.style != self.STYLE_HOLLOW_ALL:
+            # 实心圆用黑白对比色；空心圈背后是截图本身，黑白会很脏，
+            # 所以跟着圈走同一个颜色。
+            painter.setPen(color if self.is_hollow else self._solid_text_color())
+            painter.setFont(font)
+            painter.drawText(visual_rect, Qt.AlignmentFlag.AlignCenter, text)
+            return
+
+        # 只描边数字：drawText 画不出"空心字"，得转成字形轮廓再 stroke
+        path = QPainterPath()
+        path.addText(QPointF(0.0, 0.0), font, text)
+        # 用路径自身的包围盒居中。QFontMetricsF.boundingRect 在字体缺失时会返回
+        # 离谱的原点（实测 x=y=100000），拿它算偏移会把数字挪出画面。
+        ink_rect = path.boundingRect()
+        centre = visual_rect.center()
+        path.translate(
+            centre.x() - ink_rect.center().x(),
+            centre.y() - ink_rect.center().y(),
+        )
+
+        pen = QPen(color, max(1.0, float(self.radius) * self.GLYPH_OUTLINE_RATIO))
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawPath(path)
+
+    def _paint_hover_outline(self, painter, visual_rect):
         if (self.isSelected() or self._hovered) and self._can_show_hover():
-            outline_pen = QPen(QColor(0, 180, 255, 230), self.HOVER_OUTLINE_WIDTH, Qt.PenStyle.DashLine)
+            outline_pen = QPen(
+                QColor(0, 180, 255, 230),
+                self.HOVER_OUTLINE_WIDTH,
+                Qt.PenStyle.DashLine,
+            )
             outline_pen.setCosmetic(True)
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.setPen(outline_pen)
