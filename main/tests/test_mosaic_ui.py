@@ -1,4 +1,7 @@
 from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
 
 from PySide6.QtCore import QPoint, QPointF, QRectF, Qt, QTranslator
 from PySide6.QtGui import QImage
@@ -267,3 +270,220 @@ def test_block_size_slider_still_reports_each_keyboard_step(qapp):
     slider.triggerAction(QSlider.SliderAction.SliderSingleStepAdd)
 
     assert reported == [slider.minimum() + 1, slider.minimum() + 2]
+
+
+# ---------------------------------------------------------------------------
+# 工具栏 → 面板 → 设置 的转发接线
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def mosaic_settings():
+    """给马赛克设置做快照，用完还原。"""
+    from settings import get_tool_settings_manager
+
+    manager = get_tool_settings_manager()
+    keys = ("draw_mode", "style", "block_size")
+    before = {k: manager.get_setting("mosaic", k) for k in keys}
+    yield manager
+    manager.update_settings("mosaic", **before)
+
+
+class _FakeCursorManager:
+    def __init__(self):
+        self.calls = []
+
+    def set_tool_cursor(self, tool_id, force=False):
+        self.calls.append((tool_id, force))
+
+
+def _toolbar_with_host():
+    """造一个能被 _host_window() 找到画布的工具栏。"""
+    toolbar = Toolbar()
+    cursor_manager = _FakeCursorManager()
+    host = SimpleNamespace(view=SimpleNamespace(cursor_manager=cursor_manager))
+    toolbar._host_window = lambda: host
+    return toolbar, cursor_manager
+
+
+def test_switching_draw_mode_persists_it_and_refreshes_the_cursor(qapp, mosaic_settings):
+    """框选/自由涂抹的光标不同，改了模式光标必须跟着换。"""
+    from tools.mosaic import MosaicTool
+
+    toolbar, cursor_manager = _toolbar_with_host()
+    try:
+        toolbar._on_mosaic_mode_changed(MosaicTool.MODE_RECT)
+        assert mosaic_settings.get_setting("mosaic", "draw_mode") == MosaicTool.MODE_RECT
+        assert ("mosaic", True) in cursor_manager.calls
+    finally:
+        toolbar.deleteLater()
+
+
+def test_style_and_granularity_are_persisted_and_forwarded(qapp, mosaic_settings):
+    from tools.mosaic import MosaicTool
+
+    toolbar, _ = _toolbar_with_host()
+    styles, sizes = [], []
+    toolbar.mosaic_style_changed.connect(styles.append)
+    toolbar.mosaic_block_size_changed.connect(sizes.append)
+    try:
+        toolbar._on_mosaic_style_changed(MosaicTool.STYLE_BLUR)
+        toolbar._on_mosaic_block_size_changed(16)
+
+        assert mosaic_settings.get_setting("mosaic", "style") == MosaicTool.STYLE_BLUR
+        assert mosaic_settings.get_setting("mosaic", "block_size") == 16
+        assert styles == [MosaicTool.STYLE_BLUR]
+        assert sizes == [16]
+    finally:
+        toolbar.deleteLater()
+
+
+def test_a_temporary_cross_tool_edit_never_writes_the_tool_default(qapp, mosaic_settings):
+    """Ctrl 临时编辑只该改选中的那一块，不该改工具的默认值。
+
+    但信号还是要发——否则选中的那块图元不会跟着变。
+    """
+    from tools.mosaic import MosaicTool
+
+    mosaic_settings.update_settings(
+        "mosaic",
+        draw_mode=MosaicTool.MODE_FREEHAND,
+        style=MosaicTool.STYLE_PIXELATE,
+        block_size=8,
+    )
+    toolbar, _ = _toolbar_with_host()
+    styles, sizes = [], []
+    toolbar.mosaic_style_changed.connect(styles.append)
+    toolbar.mosaic_block_size_changed.connect(sizes.append)
+    try:
+        toolbar.set_temporary_edit_active(True)
+        toolbar._on_mosaic_mode_changed(MosaicTool.MODE_RECT)
+        toolbar._on_mosaic_style_changed(MosaicTool.STYLE_BLUR)
+        toolbar._on_mosaic_block_size_changed(24)
+
+        assert mosaic_settings.get_setting("mosaic", "draw_mode") == MosaicTool.MODE_FREEHAND
+        assert mosaic_settings.get_setting("mosaic", "style") == MosaicTool.STYLE_PIXELATE
+        assert mosaic_settings.get_setting("mosaic", "block_size") == 8
+        assert styles == [MosaicTool.STYLE_BLUR]
+        assert sizes == [24]
+    finally:
+        toolbar.deleteLater()
+
+
+def test_the_panel_is_filled_from_the_saved_settings(qapp, mosaic_settings):
+    """三个入口（启动加载 / 切回工具 / 单独弹面板）都走同一份回填。"""
+    from tools.mosaic import MosaicTool
+
+    mosaic_settings.update_settings(
+        "mosaic", draw_mode=MosaicTool.MODE_RECT,
+        style=MosaicTool.STYLE_BLUR, block_size=20,
+    )
+    toolbar = Toolbar()
+    try:
+        toolbar._sync_mosaic_panel()
+        assert toolbar.mosaic_panel.draw_mode == MosaicTool.MODE_RECT
+        assert toolbar.mosaic_panel.style == MosaicTool.STYLE_BLUR
+        assert toolbar.mosaic_panel.block_size == 20
+
+        toolbar.mosaic_panel.set_draw_mode(MosaicTool.MODE_FREEHAND)
+        toolbar.restore_active_tool_state("mosaic")
+        assert toolbar.mosaic_panel.draw_mode == MosaicTool.MODE_RECT
+    finally:
+        toolbar.deleteLater()
+
+
+def test_switching_language_refreshes_button_tips_and_the_mosaic_panel(qapp):
+    toolbar = Toolbar()
+    try:
+        toolbar.mosaic_btn.setToolTip("stale")
+        toolbar.mosaic_panel.style_combo.setItemText(0, "stale")
+
+        toolbar._retranslate("zh")
+
+        assert toolbar.mosaic_btn.toolTip() != "stale"
+        assert toolbar.mosaic_panel.style_combo.itemText(0) != "stale"
+    finally:
+        toolbar.deleteLater()
+
+
+def test_a_toolbar_without_a_host_canvas_just_has_no_cursor_manager(qapp):
+    """工具栏可以先于画布存在，找不到宿主时静默降级而不是炸。"""
+    toolbar = Toolbar()
+    try:
+        assert toolbar._host_cursor_manager() is None
+        toolbar._on_mosaic_mode_changed("rect")  # 不应抛异常
+    finally:
+        toolbar.deleteLater()
+
+
+def test_the_panel_emits_what_the_user_picked(qapp):
+    """面板自己的控件 → 信号；set_* 回填则不该触发信号（否则会绕回来打架）。"""
+    from tools.mosaic import MosaicTool
+    from ui.mosaic_settings_panel import MosaicSettingsPanel
+
+    panel = MosaicSettingsPanel()
+    modes, styles, sizes = [], [], []
+    panel.draw_mode_changed.connect(modes.append)
+    panel.style_changed.connect(styles.append)
+    panel.size_changed.connect(sizes.append)
+    try:
+        panel.rect_btn.setChecked(True)
+        panel._on_mode_clicked()
+        assert modes == [MosaicTool.MODE_RECT]
+
+        panel.style_combo.setCurrentIndex(panel.style_combo.findData(MosaicTool.STYLE_BLUR))
+        assert styles == [MosaicTool.STYLE_BLUR]
+
+        panel._on_size_changed(42)
+        assert sizes == [42]
+
+        # 回填不发信号
+        panel.set_draw_mode(MosaicTool.MODE_FREEHAND)
+        panel.set_style(MosaicTool.STYLE_PIXELATE)
+        panel.set_size(20)
+        panel.set_block_size(12)
+        assert modes == [MosaicTool.MODE_RECT]
+        assert styles == [MosaicTool.STYLE_BLUR]
+        assert sizes == [42]
+
+        assert panel.draw_mode == MosaicTool.MODE_FREEHAND
+        assert panel.style == MosaicTool.STYLE_PIXELATE
+        assert panel.block_size == 12
+    finally:
+        panel.deleteLater()
+
+
+def test_the_panel_normalises_junk_instead_of_showing_it(qapp):
+    from tools.mosaic import MosaicTool
+    from ui.mosaic_settings_panel import MosaicSettingsPanel
+
+    panel = MosaicSettingsPanel()
+    try:
+        panel.set_draw_mode("nonsense")
+        panel.set_style("nonsense")
+        panel.set_block_size(9999)
+        assert panel.draw_mode == MosaicTool.MODE_FREEHAND
+        assert panel.style == MosaicTool.STYLE_PIXELATE
+        assert panel.block_size == MosaicTool.MAX_BLOCK_SIZE
+    finally:
+        panel.deleteLater()
+
+
+def test_the_centred_combo_paints_its_text_itself(qapp):
+    """闭合态文本居中是自绘的（QSS 的 text-align 对 QComboBox 无效）。"""
+    from PySide6.QtGui import QImage
+    from ui.mosaic_settings_panel import MosaicSettingsPanel
+
+    panel = MosaicSettingsPanel()
+    try:
+        combo = panel.style_combo
+        combo.resize(72, 24)
+        image = QImage(72, 24, QImage.Format.Format_ARGB32)
+        image.fill(0)
+        combo.render(image)
+        assert any(
+            image.pixelColor(x, y).alpha() > 0
+            for y in range(image.height())
+            for x in range(image.width())
+        )
+    finally:
+        panel.deleteLater()

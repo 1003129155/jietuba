@@ -1,3 +1,5 @@
+import pytest
+
 from PySide6.QtCore import QPoint, QPointF, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath
 from PySide6.QtTest import QTest
@@ -552,3 +554,191 @@ def test_cloned_mosaic_background_anchor_follows_the_selection_offset(qapp):
     assert cloned.background_rect() == source_item.background_rect().translated(
         -offset.x(), -offset.y()
     )
+
+
+# ---------------------------------------------------------------------------
+# 框选模式：整条路径此前没有测试走过（隔离后的默认设置是自由涂抹）
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def rect_mode():
+    """把马赛克切到框选模式，用完还原。"""
+    from settings import get_tool_settings_manager
+    from tools.mosaic import MosaicTool
+
+    manager = get_tool_settings_manager()
+    before = manager.get_setting("mosaic", "draw_mode", MosaicTool.MODE_FREEHAND)
+    manager.update_settings("mosaic", draw_mode=MosaicTool.MODE_RECT)
+    yield
+    manager.update_settings("mosaic", draw_mode=before)
+
+
+def _rect_scene():
+    scene = CanvasScene(_gradient_image(), QRectF(0, 0, 64, 64), enable_mosaic=True)
+    scene.selection_model.initialize_confirmed_rect(QRectF(0, 0, 64, 64))
+    return scene
+
+
+def test_rect_mosaic_fills_the_dragged_rectangle(qapp, rect_mode):
+    from canvas.items import MosaicItem
+
+    scene = _rect_scene()
+    _draw_mosaic(scene, QPointF(10, 10), QPointF(50, 40))
+
+    item = next(i for i in scene.items() if isinstance(i, MosaicItem))
+    assert item.fill_mode() is True
+    # 框选的形状就是拖出来的矩形本身，不再经画笔描边
+    assert item.rect() == QRectF(10, 10, 40, 30)
+    assert scene.undo_stack.count() == 1
+
+
+def test_rect_mosaic_auto_selects_itself_but_freehand_does_not(qapp, rect_mode):
+    """框选画完直接选中方便调尺寸；自由涂抹沿用旧行为。"""
+    from settings import get_tool_settings_manager
+    from tools.mosaic import MosaicTool
+
+    scene = _rect_scene()
+    selected = []
+    scene.item_auto_select_requested.connect(selected.append)
+
+    _draw_mosaic(scene, QPointF(10, 10), QPointF(50, 40))
+    assert len(selected) == 1
+
+    get_tool_settings_manager().update_settings(
+        "mosaic", draw_mode=MosaicTool.MODE_FREEHAND
+    )
+    _draw_mosaic(scene, QPointF(10, 50), QPointF(50, 55))
+    assert len(selected) == 1
+
+
+def test_a_tiny_rect_drag_is_treated_as_a_misclick(qapp, rect_mode):
+    """比 MIN_SIZE 还小的拖拽当误触丢弃，不留图元也不进撤销栈。"""
+    from canvas.items import MosaicItem
+
+    scene = _rect_scene()
+    _draw_mosaic(scene, QPointF(10, 10), QPointF(14, 14))
+
+    assert not any(isinstance(i, MosaicItem) for i in scene.items())
+    assert scene.undo_stack.count() == 0
+
+
+def test_dragging_a_rect_mosaic_handle_resizes_it(qapp, rect_mode):
+    """框选马赛克复用 handle_editor 认 rect()/setRect() 的通用缩放。"""
+    from canvas.items import MosaicItem
+
+    scene = _rect_scene()
+    _draw_mosaic(scene, QPointF(10, 10), QPointF(50, 40))
+    item = next(i for i in scene.items() if isinstance(i, MosaicItem))
+
+    item.setRect(QRectF(0, 0, 20, 20))
+    assert item.rect() == QRectF(0, 0, 20, 20)
+
+    # 自由涂抹没有"矩形"可言，setRect 对它无意义
+    freehand = MosaicItem(QPainterPath(QPointF(5, 5)), 8, 8, _gradient_image(4, 4),
+                          QRectF(0, 0, 64, 64), fill_mode=False)
+    before = freehand.path()
+    freehand.setRect(QRectF(0, 0, 30, 30))
+    assert freehand.path() == before
+
+
+# ---------------------------------------------------------------------------
+# 共用策略：截图窗口和钉图窗口都只调这两个入口，所以直接对它们测
+# ---------------------------------------------------------------------------
+
+class _FakeView:
+    """只提供 apply_* 用到的那一条链路：view.smart_edit_controller.selected_item"""
+
+    def __init__(self, item=None):
+        self.smart_edit_controller = type("C", (), {"selected_item": item})()
+
+
+def _mosaic_scene_with_selection():
+    from canvas.items import MosaicItem
+
+    scene = CanvasScene(_gradient_image(), QRectF(0, 0, 64, 64), enable_mosaic=True)
+    scene.selection_model.initialize_confirmed_rect(QRectF(0, 0, 64, 64))
+    _draw_mosaic(scene)
+    item = next(i for i in scene.items() if isinstance(i, MosaicItem))
+    return scene, item, _FakeView(item)
+
+
+def test_style_change_needs_a_selected_mosaic(qapp):
+    from tools.mosaic import MosaicTool
+
+    scene, item, view = _mosaic_scene_with_selection()
+    stack = scene.undo_stack
+    before = stack.count()
+
+    assert MosaicTool.apply_style_change("blur", _FakeView(None), stack) is False
+    assert MosaicTool.apply_style_change("blur", _FakeView(object()), stack) is False
+    assert MosaicTool.apply_style_change("blur", None, stack) is False
+    assert stack.count() == before
+
+
+def test_style_change_is_applied_once_and_is_undoable(qapp):
+    from tools.mosaic import MosaicTool
+
+    scene, item, view = _mosaic_scene_with_selection()
+    stack = scene.undo_stack
+    before = stack.count()
+
+    assert item.smooth() is False
+    assert MosaicTool.apply_style_change("blur", view, stack) is True
+    assert item.smooth() is True
+    assert stack.count() == before + 1
+
+    # 设成同一个值不该再产生命令
+    assert MosaicTool.apply_style_change("blur", view, stack) is False
+    assert stack.count() == before + 1
+
+    stack.undo()
+    assert item.smooth() is False
+
+
+def test_block_size_change_swaps_the_reduced_image_and_is_undoable(qapp):
+    from tools.mosaic import MosaicTool
+
+    scene, item, view = _mosaic_scene_with_selection()
+    stack = scene.undo_stack
+    old_size, old_image = item.block_size(), item.reduced_image()
+
+    assert MosaicTool.apply_block_size_change(old_size + 8, view, stack) is True
+    assert item.block_size() == old_size + 8
+    # 粒度变了，配套的小图必须一起换成同一粒度那张
+    assert item.reduced_image().size() != old_image.size()
+
+    stack.undo()
+    assert item.block_size() == old_size
+    assert item.reduced_image().size() == old_image.size()
+
+
+def test_block_size_is_clamped_and_garbage_falls_back(qapp):
+    from tools.mosaic import MosaicTool
+
+    assert MosaicTool.clamp_block_size(0) == MosaicTool.MIN_BLOCK_SIZE
+    assert MosaicTool.clamp_block_size(9999) == MosaicTool.MAX_BLOCK_SIZE
+    assert MosaicTool.clamp_block_size("八") == MosaicTool.DEFAULT_BLOCK_SIZE
+    assert MosaicTool.clamp_block_size(None) == MosaicTool.DEFAULT_BLOCK_SIZE
+
+    scene, item, view = _mosaic_scene_with_selection()
+    MosaicTool.apply_block_size_change(9999, view, scene.undo_stack)
+    assert item.block_size() == MosaicTool.MAX_BLOCK_SIZE
+
+
+def test_applying_without_an_undo_stack_still_changes_the_item(qapp):
+    """钉图早期阶段可能还没有撤销栈；没有栈不该让改动本身失败。"""
+    from tools.mosaic import MosaicTool
+
+    scene, item, view = _mosaic_scene_with_selection()
+    assert MosaicTool.apply_style_change("blur", view, None) is True
+    assert item.smooth() is True
+
+
+def test_settings_fall_back_to_defaults_without_a_manager(qapp):
+    """没有 settings_manager 时读到的必须是包内默认值，而不是抛异常。"""
+    from tools.mosaic import MosaicTool
+
+    ctx = type("Ctx", (), {"settings_manager": None})()
+    assert MosaicTool.get_draw_mode(ctx) == MosaicTool.MODE_FREEHAND
+    assert MosaicTool.get_style(ctx) == MosaicTool.STYLE_PIXELATE
+    assert MosaicTool.get_block_size(ctx) == MosaicTool.DEFAULT_BLOCK_SIZE
