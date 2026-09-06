@@ -2240,6 +2240,54 @@ Replace it?</translation>
         <source>Rect Highlight</source>
         <translation>Rect Highlight</translation>
     </message>
+    <message>
+        <source>Number Style</source>
+        <translation>Number Style</translation>
+    </message>
+    <message>
+        <source>Solid</source>
+        <translation>Solid</translation>
+    </message>
+    <message>
+        <source>Hollow Circle</source>
+        <translation>Hollow Circle</translation>
+    </message>
+    <message>
+        <source>Outline Only</source>
+        <translation>Outline Only</translation>
+    </message>
+    <message>
+        <source>Number Only</source>
+        <translation>Number Only</translation>
+    </message>
+    <message>
+        <source>Freehand Mosaic</source>
+        <translation>Freehand Mosaic</translation>
+    </message>
+    <message>
+        <source>Rect Mosaic</source>
+        <translation>Rect Mosaic</translation>
+    </message>
+    <message>
+        <source>Brush Size</source>
+        <translation>Brush Size</translation>
+    </message>
+    <message>
+        <source>Mosaic</source>
+        <translation>Mosaic</translation>
+    </message>
+    <message>
+        <source>Blur</source>
+        <translation>Blur</translation>
+    </message>
+    <message>
+        <source>Mosaic Style</source>
+        <translation>Mosaic Style</translation>
+    </message>
+    <message>
+        <source>Mosaic Granularity</source>
+        <translation>Mosaic Granularity</translation>
+    </message>
 </context>
 
 <context>
@@ -3009,4 +3057,24 @@ SOFTWARE.</translation></message>
     <message><source>Select All</source><translation>Select All</translation></message>
 </context>
 
+
+<context>
+    <name>UndoCommands</name>
+    <message>
+        <source>Add Mosaic</source>
+        <translation>Add Mosaic</translation>
+    </message>
+    <message>
+        <source>Change Number Style</source>
+        <translation>Change Number Style</translation>
+    </message>
+    <message>
+        <source>Change Mosaic Style</source>
+        <translation>Change Mosaic Style</translation>
+    </message>
+    <message>
+        <source>Change Mosaic Size</source>
+        <translation>Change Mosaic Size</translation>
+    </message>
+</context>
 </TS>

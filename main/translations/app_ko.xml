@@ -2247,6 +2247,54 @@ Replace it?</source>
         <source>Rect Highlight</source>
         <translation>사각형 형광펜</translation>
     </message>
+    <message>
+        <source>Number Style</source>
+        <translation>번호 스타일</translation>
+    </message>
+    <message>
+        <source>Solid</source>
+        <translation>채움</translation>
+    </message>
+    <message>
+        <source>Hollow Circle</source>
+        <translation>속 빈 원</translation>
+    </message>
+    <message>
+        <source>Outline Only</source>
+        <translation>윤곽선만</translation>
+    </message>
+    <message>
+        <source>Number Only</source>
+        <translation>숫자만</translation>
+    </message>
+    <message>
+        <source>Freehand Mosaic</source>
+        <translation>자유 그리기 모자이크</translation>
+    </message>
+    <message>
+        <source>Rect Mosaic</source>
+        <translation>사각형 모자이크</translation>
+    </message>
+    <message>
+        <source>Brush Size</source>
+        <translation>브러시 크기</translation>
+    </message>
+    <message>
+        <source>Mosaic</source>
+        <translation>모자이크</translation>
+    </message>
+    <message>
+        <source>Blur</source>
+        <translation>흐림</translation>
+    </message>
+    <message>
+        <source>Mosaic Style</source>
+        <translation>모자이크 종류</translation>
+    </message>
+    <message>
+        <source>Mosaic Granularity</source>
+        <translation>모자이크 입자 크기</translation>
+    </message>
 </context>
 
 <context>
@@ -3016,4 +3064,24 @@ SOFTWARE.</translation></message>
     <message><source>Select All</source><translation>모두 선택</translation></message>
 </context>
 
+
+<context>
+    <name>UndoCommands</name>
+    <message>
+        <source>Add Mosaic</source>
+        <translation>모자이크 추가</translation>
+    </message>
+    <message>
+        <source>Change Number Style</source>
+        <translation>번호 스타일 변경</translation>
+    </message>
+    <message>
+        <source>Change Mosaic Style</source>
+        <translation>모자이크 종류 변경</translation>
+    </message>
+    <message>
+        <source>Change Mosaic Size</source>
+        <translation>모자이크 입자 크기 변경</translation>
+    </message>
+</context>
 </TS>

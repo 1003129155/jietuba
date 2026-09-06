@@ -30,6 +30,7 @@ class HighlighterTool(Tool):
         self.line_lock_mode = None  # 直线锁定模式: 'horizontal' 或 'vertical' 或 None
         self.locked_coordinate = None  # 被锁定的坐标值
         self.draw_mode = self.MODE_FREEHAND
+        self.last_point = None  # 上一个被采纳的点（见 Tool.should_append_point）
 
     def _load_draw_mode(self, ctx: ToolContext) -> str:
         if ctx.settings_manager:
@@ -80,6 +81,7 @@ class HighlighterTool(Tool):
                 self.locked_coordinate = None
             
             self.path = QPainterPath(pos)
+            self.last_point = pos
             
             # 高亮笔颜色处理（使用当前透明度）
             base_opacity = ctx.opacity if ctx.opacity is not None else 0.5
@@ -129,7 +131,14 @@ class HighlighterTool(Tool):
                 # 垂直线模式，锁定 X 坐标
                 paint_pos.setX(self.locked_coordinate)
             
+            # 间距过滤放在锁定吸附之后，比的是吸附后的坐标：水平锁定时纯竖直的
+            # 移动经吸附后落在同一个位置，若按吸附前的坐标筛就会全部放行，画面
+            # 没有任何变化，点数却照涨。
+            if not self.should_append_point(self.last_point, paint_pos):
+                return
+
             self.path.lineTo(paint_pos)
+            self.last_point = paint_pos
             self.current_item.setPath(self.path)
     
     def on_release(self, pos: QPointF, ctx: ToolContext):
@@ -163,6 +172,7 @@ class HighlighterTool(Tool):
             self.line_lock_mode = None
             self.locked_coordinate = None
             self.start_pos = None
+            self.last_point = None
             
             if self.current_item:
                 ctx.scene.removeItem(self.current_item)

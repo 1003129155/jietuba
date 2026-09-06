@@ -2327,6 +2327,54 @@ Replace it?</source>
         <source>Rect Highlight</source>
         <translation>矩形荧光</translation>
     </message>
+    <message>
+        <source>Number Style</source>
+        <translation>序号样式</translation>
+    </message>
+    <message>
+        <source>Solid</source>
+        <translation>实心</translation>
+    </message>
+    <message>
+        <source>Hollow Circle</source>
+        <translation>空心圆</translation>
+    </message>
+    <message>
+        <source>Outline Only</source>
+        <translation>仅描边</translation>
+    </message>
+    <message>
+        <source>Number Only</source>
+        <translation>仅数字</translation>
+    </message>
+    <message>
+        <source>Freehand Mosaic</source>
+        <translation>自由涂抹马赛克</translation>
+    </message>
+    <message>
+        <source>Rect Mosaic</source>
+        <translation>框选马赛克</translation>
+    </message>
+    <message>
+        <source>Brush Size</source>
+        <translation>笔刷大小</translation>
+    </message>
+    <message>
+        <source>Mosaic</source>
+        <translation>马赛克</translation>
+    </message>
+    <message>
+        <source>Blur</source>
+        <translation>模糊</translation>
+    </message>
+    <message>
+        <source>Mosaic Style</source>
+        <translation>马赛克种类</translation>
+    </message>
+    <message>
+        <source>Mosaic Granularity</source>
+        <translation>马赛克粒度</translation>
+    </message>
 </context>
 
 <context>
@@ -3078,4 +3126,24 @@ SOFTWARE.</translation></message>
     <message><source>Select All</source><translation>全选</translation></message>
 </context>
 
+
+<context>
+    <name>UndoCommands</name>
+    <message>
+        <source>Add Mosaic</source>
+        <translation>添加马赛克</translation>
+    </message>
+    <message>
+        <source>Change Number Style</source>
+        <translation>更改序号样式</translation>
+    </message>
+    <message>
+        <source>Change Mosaic Style</source>
+        <translation>更改马赛克种类</translation>
+    </message>
+    <message>
+        <source>Change Mosaic Size</source>
+        <translation>更改马赛克粒度</translation>
+    </message>
+</context>
 </TS>

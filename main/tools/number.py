@@ -65,6 +65,67 @@ class NumberTool(Tool):
             return 0
 
     @classmethod
+    def get_style(cls, ctx) -> str:
+        """读取当前选中的序号样式；缺配置时回退到实心。"""
+        manager = getattr(ctx, "settings_manager", None)
+        if manager is None:
+            return NumberItem.DEFAULT_STYLE
+        try:
+            style = manager.get_setting(cls.id, "style", NumberItem.DEFAULT_STYLE)
+        except Exception as exc:
+            log_warning(T("读取序号样式失败：{exc}", exc=exc), "NumberTool")
+            return NumberItem.DEFAULT_STYLE
+        return NumberItem.normalize_style(style)
+
+    @classmethod
+    def apply_style_change(cls, style: str, view, undo_stack) -> bool:
+        """切换序号样式的完整策略，截图窗口和钉图窗口共用。
+
+        三件事必须一起做，分成两份实现迟早会走偏：
+        1. 画布上选中了序号就连带改它（可撤销）；
+        2. 除非这是跨工具的临时编辑，否则写回工具默认值；
+        3. 序号工具正处于激活状态时刷新光标——光标是"会画出什么"的预览。
+
+        Returns:
+            是否写回了工具默认值。
+        """
+        from canvas.items import NumberItem
+
+        style = NumberItem.normalize_style(style)
+        controller = getattr(view, "smart_edit_controller", None)
+        item = getattr(controller, "selected_item", None) if controller else None
+
+        temporary = False
+        if isinstance(item, NumberItem):
+            # 即使样式没变也要判断，否则"选了它本来就是的样式"会漏掉这个判断
+            temporary = bool(controller.is_cross_tool_selection())
+            if item.style != style and undo_stack is not None:
+                from canvas.undo import NumberStyleCommand
+                undo_stack.push(NumberStyleCommand(item, item.style, style))
+
+        persisted = False
+        if not temporary:
+            try:
+                from settings import get_tool_settings_manager
+                manager = get_tool_settings_manager()
+                if manager:
+                    manager.update_settings(cls.id, style=style)
+                    persisted = True
+            except Exception as exc:
+                log_warning(T("保存序号样式失败：{exc}", exc=exc), "NumberTool")
+
+        # 只有序号工具当前就是激活工具时才动光标，
+        # 否则跨工具编辑会把别的工具的光标换成序号预览。
+        cursor_manager = getattr(view, "cursor_manager", None)
+        if cursor_manager and getattr(cursor_manager, "current_tool_id", None) == cls.id:
+            try:
+                cursor_manager.set_tool_cursor(cls.id, force=True)
+            except Exception as e:
+                log_exception(e, T("刷新序号光标"))
+
+        return persisted
+
+    @classmethod
     def get_radius_for_width(cls, stroke_width: float) -> float:
         """把宽度换算成圈半径。
 
@@ -220,7 +281,7 @@ class NumberTool(Tool):
             log_debug(T("创建前场景中序号数量: {prev_count}, 将创建序号: {number}", prev_count=number - 1, number=number), "NumberTool")
             
             item_color = color_with_opacity(ctx.color, ctx.opacity)
-            item = NumberItem(number, pos, radius, item_color)
+            item = NumberItem(number, pos, radius, item_color, self.get_style(ctx))
             self.assign_number_order(ctx.scene, item)
             
             # 提交到撤销栈（这会立即调用 redo()，将 item 添加到场景）

@@ -104,6 +104,7 @@ class Toolbar(QWidget):
     screenshot_translate_clicked = Signal()  # 截图翻译按钮
     gif_record_clicked = Signal()  # GIF录制按钮
     color_changed = Signal(QColor)  # 颜色改变
+    number_style_changed = Signal(str)  # 序号样式改变
     stroke_width_changed = Signal(int)  # 线宽改变
     opacity_changed = Signal(int)  # 透明度改变(0-255)
     number_next_changed = Signal(int)  # 序号工具下一数字改变
@@ -117,7 +118,11 @@ class Toolbar(QWidget):
     
     # 箭头工具专用信号
     arrow_style_changed = Signal(str)  # 箭头样式改变(single/double/bar)
-    
+
+    # 马赛克工具专用信号
+    mosaic_style_changed = Signal(str)       # 马赛克种类改变(pixelate/blur)
+    mosaic_block_size_changed = Signal(int)  # 马赛克/模糊粒度改变
+
     # 画笔工具专用信号
     line_style_changed = Signal(str)  # 线条样式改变(solid/dashed)
     
@@ -411,6 +416,34 @@ class Toolbar(QWidget):
 
         # 创建二级设置面板
         self.init_settings_panels()
+
+        # 记录所有按钮的 tooltip 源文本，供语言切换后整体刷新
+        self._tooltip_sources = {
+            self.drag_handle: "Drag to move",
+            self.long_screenshot_btn: "Long screenshot (scroll)",
+            self.save_btn: "Save to file",
+            self.screenshot_translate_btn: "Screenshot translate (OCR + Translate)",
+            self.gif_btn: "GIF recording",
+            self.copy_btn: "Copy image",
+            self.pen_btn: "Pen tool (hold Shift for straight line)",
+            self.highlighter_btn: "Highlighter (hold Shift for straight line)",
+            self.mosaic_btn: "Mosaic (mouse wheel to resize)",
+            self.arrow_btn: "Draw arrow",
+            self.number_btn: "Number (Shift+scroll to change number)",
+            self.rect_btn: "Draw rectangle",
+            self.ellipse_btn: "Draw ellipse",
+            self.text_btn: "Add text",
+            self.eraser_btn: "Eraser tool",
+            self.undo_btn: "Undo",
+            self.redo_btn: "Redo",
+            self.cancel_btn: "Cancel screenshot (ESC)",
+            self.pin_btn: "Pin image (Ctrl+D)",
+            self.confirm_btn: "Confirm and save (Ctrl+C / Enter)",
+        }
+
+        # 语言切换时刷新工具栏按钮提示与各面板文案（连接随本工具栏销毁自动断开）
+        from core.i18n import I18nManager
+        I18nManager.instance().language_changed.connect(self._retranslate)
         
     def init_settings_panels(self):
         """初始化所有工具的设置面板"""
@@ -419,6 +452,7 @@ class Toolbar(QWidget):
         from .arrow_settings_panel import ArrowSettingsPanel
         from .number_settings_panel import NumberSettingsPanel
         from .text_settings_panel import TextSettingsPanel
+        from .mosaic_settings_panel import MosaicSettingsPanel
         
         # 确定父窗口和窗口标志
         parent = self.parent()
@@ -491,6 +525,9 @@ class Toolbar(QWidget):
         
         # === 4. 序号设置面板 (number) ===
         self.number_panel = NumberSettingsPanel(parent)
+        # 面板的 Qt parent 是工具栏的 parent，不是工具栏本身；
+        # 样式弹出层要靠它判断该往哪边弹才不会盖住一级/二级菜单。
+        self.number_panel._owner_toolbar = self
         self.number_panel.setWindowFlags(flags)
         if parent is None:
             self.number_panel.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
@@ -503,6 +540,8 @@ class Toolbar(QWidget):
         self.number_panel.opacity_changed.connect(self._on_panel_opacity_changed)
         if hasattr(self.number_panel, "next_number_changed"):
             self.number_panel.next_number_changed.connect(self._on_number_next_changed)
+        if hasattr(self.number_panel, "style_changed"):
+            self.number_panel.style_changed.connect(self._on_number_style_changed)
         self.number_panel.hide()
         
         # === 5. 文字设置面板 (text) ===
@@ -519,7 +558,22 @@ class Toolbar(QWidget):
         if hasattr(self.text_panel, 'background_changed'):
             self.text_panel.background_changed.connect(self._on_text_background_changed)
         self.text_panel.hide()
-        
+
+        # === 6. 马赛克设置面板 (mosaic) ===
+        self.mosaic_panel = MosaicSettingsPanel(parent)
+        self.mosaic_panel.setWindowFlags(flags)
+        if parent is None:
+            self.mosaic_panel.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        self.mosaic_panel.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.mosaic_panel.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+
+        # 连接信号
+        self.mosaic_panel.size_changed.connect(self._on_panel_size_changed)
+        self.mosaic_panel.draw_mode_changed.connect(self._on_mosaic_mode_changed)
+        self.mosaic_panel.style_changed.connect(self._on_mosaic_style_changed)
+        self.mosaic_panel.block_size_changed.connect(self._on_mosaic_block_size_changed)
+        self.mosaic_panel.hide()
+
         # 加载保存的设置
         self._load_saved_settings()
         
@@ -559,7 +613,33 @@ class Toolbar(QWidget):
         if arrow_settings and hasattr(self, 'arrow_panel'):
             arrow_style = arrow_settings.get("arrow_style", "single")
             self.arrow_panel.arrow_style = arrow_style
-        
+
+        # 加载马赛克工具设置
+        self._sync_mosaic_panel(manager.get_tool_settings("mosaic"))
+
+    def _sync_mosaic_panel(self, settings=None):
+        """把持久化的马赛克设置回填到面板。
+
+        启动加载、切回马赛克工具、单独弹面板三个入口都要做同一件事，所以只留
+        这一份。不在这里写默认值：ToolSettings.get(key) 拿不到就自己回落到
+        DEFAULT_SETTINGS，面板的 set_* 还会再normalize一次，调用方重复写一遍
+        只会多出几份迟早对不上的副本。
+        """
+        panel = getattr(self, "mosaic_panel", None)
+        if panel is None:
+            return
+        try:
+            if settings is None:
+                from settings import get_tool_settings_manager
+                manager = get_tool_settings_manager()
+                settings = manager.get_tool_settings("mosaic") if manager else None
+            if settings:
+                panel.set_draw_mode(settings.get("draw_mode"))
+                panel.set_style(settings.get("style"))
+                panel.set_block_size(settings.get("block_size"))
+        except Exception as exc:
+            log_debug(T("同步马赛克面板失败: {exc}", exc=exc), "Toolbar")
+
     def reset_session_state(self):
         """重置工具栏状态（新截图会话开始时调用）。"""
         self.set_temporary_edit_active(False)
@@ -588,25 +668,17 @@ class Toolbar(QWidget):
                 if button is not None:
                     button.setEnabled(enabled)
 
-    def set_cross_tool_selection_hint_enabled(self, enabled: bool):
-        """Reconcile the screenshot-only Ctrl hint without touching other tooltip lines."""
-        previous_hint = getattr(self, "_cross_tool_selection_hint_text", None)
-        hint = self.tr("Ctrl+click any editable annotation to edit it temporarily")
-        for tool_id in ("pen", "highlighter", "arrow", "number", "rect", "ellipse", "text"):
-            button = self.tool_buttons.get(tool_id)
-            if button is None:
+    def _retranslate(self, _lang_code: str = None):
+        """语言切换后刷新所有按钮提示与马赛克面板文本。"""
+        for button, source in self._tooltip_sources.items():
+            try:
+                button.setToolTip(self.tr(source))
+            except RuntimeError:
                 continue
-            lines = button.toolTip().splitlines()
-            if previous_hint:
-                lines = [line for line in lines if line != previous_hint]
-            if enabled and hint not in lines:
-                lines.append(hint)
-            button.setToolTip("\n".join(lines))
-        self._cross_tool_selection_hint_text = hint if enabled else None
-
-    def enable_cross_tool_selection_hint(self):
-        """Compatibility wrapper for callers that always enable the hint."""
-        self.set_cross_tool_selection_hint_enabled(True)
+        # 马赛克面板的文本在构造时一次性设置，这里补一次刷新
+        mosaic_panel = getattr(self, "mosaic_panel", None)
+        if mosaic_panel is not None and hasattr(mosaic_panel, "retranslate"):
+            mosaic_panel.retranslate()
 
     def restore_active_tool_state(self, tool_id: str, ctx=None, scene=None):
         """Restore the active tool's complete default panel after selection ends."""
@@ -626,6 +698,8 @@ class Toolbar(QWidget):
             if opacity is not None:
                 self.set_opacity(int(round(float(opacity) * 255)))
 
+        # 先绑定：下面的序号分支在 try 之外读它，try 提前抛异常就会 UnboundLocalError
+        settings = None
         try:
             from settings import get_tool_settings_manager
             manager = get_tool_settings_manager()
@@ -640,15 +714,20 @@ class Toolbar(QWidget):
                 self.shape_panel.line_style = settings.get("line_style", "solid")
             elif tool_id == "arrow" and settings:
                 self.arrow_panel.arrow_style = settings.get("arrow_style", "single")
+            elif tool_id == "mosaic" and settings:
+                self._sync_mosaic_panel(settings)
         except Exception as exc:
             log_debug(f"恢复工具面板设置失败: {exc}", "Toolbar")
 
-        if tool_id == "number" and scene is not None:
-            try:
-                from tools.number import NumberTool
-                self.set_number_next_value(NumberTool.get_next_number(scene))
-            except Exception as exc:
-                log_debug(f"恢复序号预览失败: {exc}", "Toolbar")
+        if tool_id == "number":
+            if settings and hasattr(self.number_panel, "set_style"):
+                self.number_panel.set_style(settings.get("style", "solid"))
+            if scene is not None:
+                try:
+                    from tools.number import NumberTool
+                    self.set_number_next_value(NumberTool.get_next_number(scene))
+                except Exception as exc:
+                    log_debug(f"恢复序号预览失败: {exc}", "Toolbar")
         self._show_panel_for_tool(tool_id)
     
     def _on_tool_clicked(self, tool_id: str):
@@ -708,7 +787,8 @@ class Toolbar(QWidget):
         if hasattr(self, 'arrow_panel'): self.arrow_panel.hide()
         if hasattr(self, 'number_panel'): self.number_panel.hide()
         if hasattr(self, 'text_panel'): self.text_panel.hide()
-        
+        if hasattr(self, 'mosaic_panel'): self.mosaic_panel.hide()
+
     def _show_panel_for_tool(self, tool_id: str):
         """显示指定工具的设置面板"""
         self._hide_all_panels()
@@ -726,7 +806,10 @@ class Toolbar(QWidget):
                         self.paint_panel.set_highlighter_mode(settings.get("draw_mode", "freehand"))
                 except Exception as exc:
                     log_debug(T("同步荧光笔模式失败: {exc}", exc=exc), "Toolbar")
-        
+
+        if tool_id == "mosaic":
+            self._sync_mosaic_panel()
+
         panel_map = {
             "pen": self.paint_panel,
             "highlighter": self.paint_panel,
@@ -735,6 +818,7 @@ class Toolbar(QWidget):
             "arrow": self.arrow_panel,
             "number": self.number_panel,
             "text": self.text_panel,
+            "mosaic": self.mosaic_panel,
         }
         
         panel = panel_map.get(tool_id)
@@ -775,13 +859,30 @@ class Toolbar(QWidget):
 
         # 刷新光标（矩形模式使用十字光标）
         try:
-            parent = self.parent()
-            view = getattr(parent, "view", None) if parent else None
-            cursor_manager = getattr(view, "cursor_manager", None) if view else None
+            cursor_manager = self._host_cursor_manager()
             if cursor_manager:
                 cursor_manager.set_tool_cursor("highlighter", force=True)
         except Exception as e:
             log_exception(e, T("设置高亮笔光标"))
+
+    def _host_window(self):
+        """工具栏所属的宿主窗口。
+
+        截图窗口里工具栏是它的子部件，所以就是 parent()；钉图工具栏是独立的
+        顶层窗口，parent() 为 None，由 PinToolbar 覆盖本方法给出真正的宿主。
+        """
+        return self.parent()
+
+    def _host_cursor_manager(self):
+        """宿主画布的光标管理器；宿主还没建好或没有画布时返回 None。
+
+        光标是"会画出什么"的预览，改了绘制设置就得刷新它。两个窗口找宿主的
+        方式不同，这件事只在这里判断一次，各个 _on_*_changed 不再各写一遍
+        （原来那两份都只认 parent()，钉图里静默失效）。
+        """
+        window = self._host_window()
+        view = getattr(window, "view", None) if window else None
+        return getattr(view, "cursor_manager", None) if view else None
     
     def _on_text_font_changed(self, font):
         """文字字体改变"""
@@ -835,6 +936,49 @@ class Toolbar(QWidget):
         # 发射信号，通知截图窗口/钉图窗口
         self.line_style_changed.emit(style)
 
+    def _on_mosaic_mode_changed(self, mode: str):
+        if self.temporary_edit_active:
+            return
+        try:
+            from settings import get_tool_settings_manager
+            manager = get_tool_settings_manager()
+            if manager:
+                manager.update_settings("mosaic", draw_mode=mode)
+        except Exception as exc:
+            log_debug(T("保存马赛克模式失败: {exc}", exc=exc), "Toolbar")
+
+        # 刷新光标（框选模式使用十字光标）
+        try:
+            cursor_manager = self._host_cursor_manager()
+            if cursor_manager:
+                cursor_manager.set_tool_cursor("mosaic", force=True)
+        except Exception as e:
+            log_exception(e, T("设置马赛克光标"))
+
+    def _on_mosaic_style_changed(self, style: str):
+        if not self.temporary_edit_active:
+            try:
+                from settings import get_tool_settings_manager
+                manager = get_tool_settings_manager()
+                if manager:
+                    manager.update_settings("mosaic", style=style)
+            except Exception as exc:
+                log_debug(T("保存马赛克种类失败: {exc}", exc=exc), "Toolbar")
+        # 转发给窗口：如果当前选中的正好是一块框选马赛克，顺带把它也切了。
+        self.mosaic_style_changed.emit(style)
+
+    def _on_mosaic_block_size_changed(self, value: int):
+        if not self.temporary_edit_active:
+            try:
+                from settings import get_tool_settings_manager
+                manager = get_tool_settings_manager()
+                if manager:
+                    manager.update_settings("mosaic", block_size=value)
+            except Exception as exc:
+                log_debug(T("保存马赛克粒度失败: {exc}", exc=exc), "Toolbar")
+        # 转发给窗口：如果当前选中的正好是一块马赛克，顺带把它也重新收缩。
+        self.mosaic_block_size_changed.emit(value)
+
     def _on_number_next_changed(self, value: int):
         """序号工具下一数字改变"""
         if self.temporary_edit_active:
@@ -870,7 +1014,9 @@ class Toolbar(QWidget):
             self.arrow_panel.set_size(width)
         if hasattr(self, 'number_panel'):
             self.number_panel.set_size(width)
-    
+        if hasattr(self, 'mosaic_panel'):
+            self.mosaic_panel.set_size(width)
+
     def set_opacity(self, opacity_255: int):
         """设置透明度（更新UI显示）"""
         # 更新所有面板的透明度显示
@@ -882,6 +1028,24 @@ class Toolbar(QWidget):
             self.arrow_panel.set_opacity(opacity_255)
         if hasattr(self, 'number_panel'):
             self.number_panel.set_opacity(opacity_255)
+
+    def set_style_on_number_panel(self):
+        """把已保存的序号样式回填到面板（钉图和截图共用）。"""
+        panel = getattr(self, "number_panel", None)
+        if panel is None or not hasattr(panel, "set_style"):
+            return
+        try:
+            from settings import get_tool_settings_manager
+            manager = get_tool_settings_manager()
+            settings = manager.get_tool_settings("number") if manager else None
+            if settings:
+                panel.set_style(settings.get("style", "solid"))
+        except Exception as exc:
+            log_debug(T("回填序号样式失败: {exc}", exc=exc), "Toolbar")
+
+    def _on_number_style_changed(self, style: str):
+        """转发给窗口统一处理：落到选中的序号 + 存设置 + 刷新光标。"""
+        self.number_style_changed.emit(style)
 
     def set_number_next_value(self, value: int):
         """设置序号工具下一数字（更新UI显示）"""
@@ -969,7 +1133,7 @@ class Toolbar(QWidget):
         """获取所有二级菜单面板的最大高度（含间距），用于一级工具栏定位时预留空间"""
         gap = 5
         max_h = 0
-        for attr in ('paint_panel', 'shape_panel', 'arrow_panel', 'number_panel', 'text_panel'):
+        for attr in ('paint_panel', 'shape_panel', 'arrow_panel', 'number_panel', 'text_panel', 'mosaic_panel'):
             panel = getattr(self, attr, None)
             if panel:
                 max_h = max(max_h, panel.sizeHint().height())
@@ -1043,7 +1207,9 @@ class Toolbar(QWidget):
             self._sync_panel_position(self.number_panel)
         if hasattr(self, 'text_panel') and self.text_panel.isVisible():
             self._sync_panel_position(self.text_panel)
-    
+        if hasattr(self, 'mosaic_panel') and self.mosaic_panel.isVisible():
+            self._sync_panel_position(self.mosaic_panel)
+
     def _sync_panel_position(self, panel):
         """同步单个面板的位置
         

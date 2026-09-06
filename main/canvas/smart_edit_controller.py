@@ -14,7 +14,7 @@ from typing import Optional, Dict, Any
 from PySide6.QtCore import QObject, Signal, QPointF, Qt
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsScene
 
-from canvas.items import StrokeItem, RectItem, EllipseItem, ArrowItem, TextItem, NumberItem
+from canvas.items import StrokeItem, RectItem, EllipseItem, ArrowItem, TextItem, NumberItem, MosaicItem
 from canvas.handle_editor import HandleType, LayerEditor
 from canvas.undo import EditItemCommand
 from core.logger import log_exception
@@ -72,7 +72,13 @@ class SmartEditController(QObject):
     
     # 信号：光标改变请求
     cursor_change_request = Signal(str)  # 参数：光标类型 ("cross", "default", "move", "resize")
-    
+
+    # 信号：Ctrl 选中异类图元时请求永久切换到该图元的归属工具
+    # （与点击工具栏按钮等价：写回持久化默认值、激活工具引擎）。
+    # 必须在 select_item() 之前同步处理完，否则工具切换清空选择会把
+    # 刚选中的图元又清掉。
+    tool_switch_requested = Signal(str)  # 参数：工具 ID
+
     def __init__(self, scene: QGraphicsScene):
         """
         Args:
@@ -176,6 +182,11 @@ class SmartEditController(QObject):
             return ItemType.TEXT
         elif isinstance(item, NumberItem):
             return ItemType.NUMBER
+        elif isinstance(item, MosaicItem):
+            # 框选（矩形）马赛克跟荧光笔矩形走同一套判定，归入 SHAPE；
+            # 自由涂抹跟画笔/荧光笔的自由笔画一样归入 PATH——必须 Ctrl+点击
+            # 才能选中，悬停不显示十字光标。
+            return ItemType.SHAPE if item.fill_mode() else ItemType.PATH
         else:
             return ItemType.OTHER
 
@@ -195,6 +206,8 @@ class SmartEditController(QObject):
             return "text"
         if isinstance(item, NumberItem):
             return "number"
+        if isinstance(item, MosaicItem):
+            return "mosaic"
         return None
 
     def is_cross_tool_selection(self) -> bool:
@@ -239,7 +252,11 @@ class SmartEditController(QObject):
         # 荧光笔矩形：允许直接选择（仅在高亮工具下）
         if self.current_tool_id == "highlighter" and item_type == ItemType.SHAPE:
             return bool(getattr(item, "is_highlighter_rect", False))
-        
+
+        # 框选马赛克：跟荧光笔矩形一样允许直接选择；自由涂抹的马赛克不可选。
+        if self.current_tool_id == "mosaic" and item_type == ItemType.SHAPE:
+            return bool(getattr(item, "fill_mode", None) and item.fill_mode())
+
         # 2. 无工具模式（光标工具）：禁止选择绘制图元（优先移动选区）
         if not self.current_tool_id or self.current_tool_id == "cursor":
             return False
@@ -290,9 +307,12 @@ class SmartEditController(QObject):
         if self.current_tool_id == "highlighter" and item_type == ItemType.SHAPE:
             return bool(getattr(item, "is_highlighter_rect", False))
 
+        if self.current_tool_id == "mosaic" and item_type == ItemType.SHAPE:
+            return bool(getattr(item, "fill_mode", None) and item.fill_mode())
+
         expected_type = tool_to_type.get(self.current_tool_id)
         return item_type == expected_type
-    
+
     # ========================================================================
     # 鼠标事件处理
     # ========================================================================
@@ -313,7 +333,7 @@ class SmartEditController(QObject):
         items = self.scene.items(scene_pos)
         drawable_items = [
             item for item in items
-            if isinstance(item, (StrokeItem, RectItem, EllipseItem, ArrowItem, TextItem, NumberItem))
+            if isinstance(item, (StrokeItem, RectItem, EllipseItem, ArrowItem, TextItem, NumberItem, MosaicItem))
         ]
 
         if drawable_items:
@@ -364,7 +384,7 @@ class SmartEditController(QObject):
         items = self.scene.items(scene_pos)
         drawable_items = [
             item for item in items
-            if isinstance(item, (StrokeItem, RectItem, EllipseItem, ArrowItem, TextItem, NumberItem))
+            if isinstance(item, (StrokeItem, RectItem, EllipseItem, ArrowItem, TextItem, NumberItem, MosaicItem))
         ]
         
         if drawable_items:
@@ -375,6 +395,17 @@ class SmartEditController(QObject):
                     self.press_requires_manual_dispatch = index > 0
                     return True
                 if self.can_select_item(item, modifiers):
+                    owner_tool_id = self.get_item_tool_id(item)
+                    if (
+                        self.cross_tool_select_enabled
+                        and bool(modifiers & Qt.KeyboardModifier.ControlModifier)
+                        and owner_tool_id
+                        and owner_tool_id != self.current_tool_id
+                    ):
+                        # Ctrl 命中异类图元：先永久切到该图元的归属工具
+                        # （等价于点了工具栏按钮），再选中图元。顺序不能
+                        # 反：切工具会清空当前选择。
+                        self.tool_switch_requested.emit(owner_tool_id)
                     self.select_item(item)
                     self.press_requires_manual_dispatch = index > 0
                     return True
@@ -461,6 +492,14 @@ class SmartEditController(QObject):
     # 选择管理
     # ========================================================================
     
+    def _repaint_handles(self):
+        """控制点画在独立浮层上，改了手柄状态必须显式通知浮层重绘。
+
+        浮层整层重画，所以调用方不需要（也不应该）计算手柄占多大范围。
+        """
+        if self.layer_editor:
+            self.layer_editor.request_repaint()
+
     def select_item(self, item: QGraphicsItem, auto_select: bool = False):
         """
         选择图元
@@ -489,8 +528,7 @@ class SmartEditController(QObject):
         # 显示编辑控制点
         if self.layer_editor:
             self.layer_editor.start_edit(item)
-            # 触发场景重绘，显示控制点
-            self.scene.update()
+            self._repaint_handles()
         
         # 同步箭头样式面板状态
         if isinstance(item, ArrowItem):
@@ -524,8 +562,7 @@ class SmartEditController(QObject):
                 self.layer_editor.stop_edit()
                 # 🆕 清除拖动状态
                 self.layer_editor.is_moving_item = False
-                # 触发场景重绘，隐藏控制点
-                self.scene.update()
+                self._repaint_handles()
 
 
     def _is_text_item_editing(self, item: QGraphicsItem) -> bool:
@@ -582,6 +619,7 @@ class SmartEditController(QObject):
                 self._active_click_handle = hit
                 self.mode = SelectionMode.CLICKING_HANDLE
                 self.scene.update()
+                self._repaint_handles()
                 return True
 
         if self.layer_editor.is_delete_handle(hit):
@@ -590,6 +628,7 @@ class SmartEditController(QObject):
             is_number = hit.handle_type == HandleType.NUMBER_DELETE
             self.delete_selected(suppress_block=True, renumber_numbers=is_number)
             self.scene.update()
+            self._repaint_handles()
             return True
 
         self.mode = SelectionMode.DRAGGING_HANDLE
@@ -606,25 +645,21 @@ class SmartEditController(QObject):
         if self.mode != SelectionMode.DRAGGING_HANDLE or not self.layer_editor:
             return False
             
-        # 优化：只更新受影响的区域而不是全场景重绘
-        # 1. 获取移动前的区域
+        # 内容层只失效图元自身走过的范围。手柄归浮层，不再参与这里的计算，
+        # 所以既不需要 margin，也不会因为 margin 不够而留残影。
+        # （并集是给"数据层 rect 直接写回"那条分支兜底的——它不走 Qt 的失效。）
         old_rect = self.layer_editor._get_scene_rect(self.selected_item)
-        
+
         self.layer_editor.drag_to(scene_pos, keep_ratio=getattr(self, "keep_ratio", False))
-        
-        # 2. 获取移动后的区域
+
         new_rect = self.layer_editor._get_scene_rect(self.selected_item)
-        
-        # 3. 触发局部重绘
+
         if old_rect and new_rect:
-            # 合并区域并外扩以包含手柄（手柄通常在边界外）
-            margin = 25  # 手柄大小(10) + 额外缓冲
-            update_rect = old_rect.united(new_rect).adjusted(-margin, -margin, margin, margin)
-            self.scene.update(update_rect)
+            self.scene.update(old_rect.united(new_rect))
         else:
-            # 降级方案
             self.scene.update()
-            
+
+        self._repaint_handles()
         return True
 
     def handle_edit_release(self, scene_pos: QPointF, button: int):
@@ -636,7 +671,7 @@ class SmartEditController(QObject):
             self.mode = SelectionMode.SELECTED
             if self.layer_editor:
                 self.layer_editor.update_hover(scene_pos)
-            self.scene.update()
+            self._repaint_handles()
             return True
         if self.mode != SelectionMode.DRAGGING_HANDLE or not self.layer_editor:
             return False
@@ -645,8 +680,16 @@ class SmartEditController(QObject):
         self.layer_editor.end_drag(getattr(self.scene, "undo_stack", None))
         self.mode = SelectionMode.SELECTED
         self.keep_ratio = False
-        # 触发场景重绘
         self.scene.update()
+        self._repaint_handles()
+
+        # 拖拽缩放手柄（如文字右下角字号手柄）后，选中图元不变、不会
+        # 触发选中态切换的面板刷新，需要在这里补一次同步，否则设置面板
+        # 显示的数值会停在拖拽前的旧值。
+        from PySide6.QtWidgets import QGraphicsTextItem
+        if isinstance(self.selected_item, QGraphicsTextItem):
+            self._sync_text_panel_state(self.selected_item)
+
         return True
     
     def get_selected_item(self) -> Optional[QGraphicsItem]:
@@ -690,7 +733,7 @@ class SmartEditController(QObject):
                 log_exception(exc, "SmartEdit push move undo")
 
         self.layer_editor.start_edit(self.selected_item)
-        self.scene.update()
+        self._repaint_handles()
         self._move_initial_state = None
     
     # ========================================================================
@@ -721,6 +764,7 @@ class SmartEditController(QObject):
                     self.layer_editor.stop_edit()
                 if self.scene:
                     self.scene.update()
+                self._repaint_handles()
             elif self.layer_editor:
                 # 图元还在，重新生成控制点以匹配新状态
                 self.layer_editor.start_edit(self.selected_item)
@@ -728,28 +772,37 @@ class SmartEditController(QObject):
                 # 同步箭头样式面板状态
                 if isinstance(self.selected_item, ArrowItem):
                     self._sync_arrow_panel_state(self.selected_item)
-                
-                self.scene.update()
+
+                self._repaint_handles()
     
+    def _panel(self, panel_attr: str):
+        """取工具栏上的某个二级面板；拿不到就返回 None。
+
+        走 Qt 内建的 scene.views() 找宿主窗口，控制器因此不必持有 view，
+        也就不会和 view 形成循环引用。面板不存在是正常情况（钉图窗口隐藏了
+        一部分工具），所以一路静默降级，不打日志也不抛。
+        """
+        try:
+            views = self.scene.views() if hasattr(self.scene, 'views') else []
+            if not views:
+                return None
+            window = views[0].window()
+            toolbar = getattr(window, 'toolbar', None) if window else None
+            return getattr(toolbar, panel_attr, None) if toolbar else None
+        except Exception:
+            return None
+
     def _sync_arrow_panel_state(self, arrow_item):
         """同步箭头面板状态"""
-        try:
-            # 获取当前箭头样式
-            arrow_style = getattr(arrow_item, '_arrow_style', 'single')
-            
-            # 通过 Qt 内建 views() 获取 view，避免循环引用
-            views = self.scene.views() if hasattr(self.scene, 'views') else []
-            if views:
-                view = views[0]
-                # 直接从窗口获取工具栏
-                window = view.window()
-                if window and hasattr(window, 'toolbar'):
-                    toolbar = window.toolbar
-                    if hasattr(toolbar, 'arrow_panel'):
-                        toolbar.arrow_panel.arrow_style = arrow_style
-        except Exception:
-            # 静默处理，避免因面板不存在导致崩溃
-            pass
+        panel = self._panel('arrow_panel')
+        if panel is not None:
+            panel.arrow_style = getattr(arrow_item, '_arrow_style', 'single')
+
+    def _sync_text_panel_state(self, text_item):
+        """同步文字设置面板状态（字号等），用于缩放手柄拖拽结束后刷新"""
+        panel = self._panel('text_panel')
+        if panel is not None:
+            panel.set_state_from_item(text_item)
 
     # ========================================================================
     # 文字属性更新槽函数

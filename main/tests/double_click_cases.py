@@ -42,7 +42,6 @@ def _close_test_windows(qapp):
             if scene is not None:
                 scene.tool_controller = None
                 scene.undo_stack.clear()
-                scene._layer_editor = None
                 scene.deleteLater()
             view.setParent(None)
             view.deleteLater()
@@ -217,6 +216,26 @@ def test_nonempty_provisional_text_cancels_double_click_confirm(qapp):
     assert any(item.toPlainText() == "keep" for item in scene.items() if isinstance(item, TextItem))
 
 
+def test_double_click_inside_edited_text_does_not_confirm(qapp):
+    """正在编辑文字时双击选词，属于编辑操作，不能确认截图。"""
+    from canvas.items import TextItem
+    from PySide6.QtGui import QFont
+
+    window, scene, view = _make_view(qapp)
+    item = TextItem("keep", QPointF(60, 45), QFont("Arial", 14), QColor("black"))
+    scene.undo_stack.push(AddItemCommand(scene, item))
+    item.setTextInteractionFlags(Qt.TextInteractionFlag.TextEditorInteraction)
+    item.setFocus()
+    qapp.processEvents()
+    assert view._is_text_editing()
+    point = view.mapFromScene(item.sceneBoundingRect().center())
+
+    _single_then_double(view, point)
+
+    assert window.confirm_calls == 0
+    assert item.toPlainText() == "keep"
+
+
 def test_mosaic_first_click_is_rolled_back_before_confirm(qapp):
     from canvas.items import MosaicItem
 
@@ -265,7 +284,7 @@ def test_existing_mosaic_double_click_confirms_without_removing_item(qapp):
     qapp.processEvents()
     path = QPainterPath(QPointF(70, 60))
     path.lineTo(QPointF(90, 60))
-    item = MosaicItem(path, 20, 8, image, QPointF(0, 0))
+    item = MosaicItem(path, 20, 8, image, QRectF(0, 0, 160, 120))
     scene.undo_stack.push(AddItemCommand(scene, item))
     before = (scene.undo_stack.count(), scene.undo_stack.index())
 
@@ -383,85 +402,26 @@ def test_active_drawing_with_redo_branch_rolls_back_and_confirms(qapp):
     assert not any(isinstance(item, StrokeItem) for item in scene.items())
 
 
-@pytest.mark.parametrize("with_redo", [False, True])
-def test_merged_number_control_first_click_is_restored_and_confirms(monkeypatch, qapp, with_redo):
+def test_number_increment_handle_repeated_clicks_do_not_confirm(qapp):
+    """连点序号 +/- 控制点属于调数字，不能被当成双击确认截图。"""
     from canvas.items import NumberItem
     from canvas.undo import NumberEditCommand
 
     window, scene, view = _make_view(qapp)
     item = NumberItem(3, QPointF(80, 60), 20, QColor("red"))
     scene.addItem(item)
-    first = NumberEditCommand(item, {"number": 3}, {"number": 4}, next_before=4, next_after=5)
-    scene.undo_stack.push(first)
-    assert item.number == 4
-
-    if with_redo:
-        path = QPainterPath(QPointF(10, 10))
-        path.lineTo(QPointF(20, 20))
-        redo_item = StrokeItem(path, QPen(QColor("blue"), 3))
-        scene.undo_stack.push(AddItemCommand(scene, redo_item))
-        scene.undo_stack.undo()
-        assert scene.undo_stack.index() == 1
-        assert scene.undo_stack.count() == 2
-
-    original_tail = first.capture_merge_tail()
-
-    def merge_number(*_args):
-        scene.undo_stack.push(
-            NumberEditCommand(item, {"number": 4}, {"number": 5}, next_before=5, next_after=6)
-        )
-        return True
-
-    monkeypatch.setattr(view.smart_edit_controller, "handle_edit_press", merge_number)
-
-    _single_then_double(view)
-
-    assert window.confirm_calls == 1
-    assert item.number == 4
-    assert first.merge_tail_matches(original_tail)
-    assert scene.undo_stack.index() == 1
-
-
-def test_real_number_increment_handle_merge_is_restored_and_confirms(qapp):
-    from canvas.items import NumberItem
-    from canvas.undo import NumberEditCommand
-
-    window, scene, view = _make_view(qapp)
-    item = NumberItem(3, QPointF(80, 60), 20, QColor("red"))
-    scene.addItem(item)
-    first = NumberEditCommand(item, {"number": 3}, {"number": 4}, next_before=4, next_after=5)
-    scene.undo_stack.push(first)
+    scene.undo_stack.push(
+        NumberEditCommand(item, {"number": 3}, {"number": 4}, next_before=4, next_after=5)
+    )
     view.smart_edit_controller.select_item(item)
     handle = view.smart_edit_controller.layer_editor.handles[0]
     point = view.mapFromScene(handle.position)
 
     _single_then_double(view, point)
 
-    assert window.confirm_calls == 1
-    assert item.number == 4
-    assert scene.undo_stack.index() == 1
-
-
-def test_merged_number_restore_failure_rejects_confirmation(monkeypatch, qapp):
-    from canvas.items import NumberItem
-    from canvas.undo import NumberEditCommand
-    from tools.number import NumberTool
-
-    window, scene, view = _make_view(qapp)
-    item = NumberItem(3, QPointF(80, 60), 20, QColor("red"))
-    scene.addItem(item)
-    first = NumberEditCommand(item, {"number": 3}, {"number": 4}, next_before=4, next_after=5)
-    scene.undo_stack.push(first)
-    view.smart_edit_controller.select_item(item)
-    handle = view.smart_edit_controller.layer_editor.handles[0]
-    point = view.mapFromScene(handle.position)
-
-    QTest.mouseClick(view.viewport(), Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, point)
-    assert item.number == 5
-    monkeypatch.setattr(NumberTool, "set_next_number_and_refresh", lambda *_args, **_kwargs: 6)
-    QTest.mouseDClick(view.viewport(), Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, point)
-
     assert window.confirm_calls == 0
+    assert item.number == 6
+    assert scene.undo_stack.index() == 1
 
 
 def test_drag_created_selection_allows_double_click_confirmation(qapp):
@@ -587,10 +547,11 @@ def test_drag_invalidates_double_click_candidate(qapp):
     assert window.confirm_calls == 0
 
 
-def test_edit_handle_double_click_candidate_keeps_confirm_priority(monkeypatch, qapp):
+def test_edit_handle_click_cancels_double_click_confirm(monkeypatch, qapp):
     window, _scene, view = _make_view(qapp)
     monkeypatch.setattr(view.smart_edit_controller, "handle_edit_press", lambda *_args: True)
 
     _single_then_double(view)
 
-    assert window.confirm_calls == 1
+    assert window.confirm_calls == 0
+    assert view._double_click_candidate is None

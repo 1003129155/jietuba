@@ -24,6 +24,7 @@ from core import safe_event
 from core.shortcut_manager import ShortcutManager, ShortcutHandler
 
 
+
 class ScreenshotShortcutHandler(ShortcutHandler):
     """截图窗口快捷键处理器 - 优先级最高(100)"""
 
@@ -230,9 +231,6 @@ class ScreenshotWindow(QWidget):
         
         # 4. 初始化工具栏（一次性创建，后续复用）
         self.toolbar = Toolbar(self)
-        self.toolbar.set_cross_tool_selection_hint_enabled(
-            self._cross_tool_selection_enabled
-        )
         self.toolbar.hide() # 初始隐藏，选区确认后显示
         
         _t3 = time.perf_counter()
@@ -308,22 +306,13 @@ class ScreenshotWindow(QWidget):
 
     def _create_canvas_view(self, scene):
         """创建使用当前截图交互设置的画布视图。"""
-        cross_tool_selection_enabled = (
-            self.config_manager.get_cross_tool_selection_enabled()
-        )
-        self._cross_tool_selection_enabled = cross_tool_selection_enabled
-        toolbar = getattr(self, "toolbar", None)
-        if toolbar is not None:
-            toolbar.set_cross_tool_selection_hint_enabled(
-                cross_tool_selection_enabled
-            )
         return CanvasView(
             scene,
             self,
             confirm_on_double_click=(
                 self.config_manager.get_double_click_copy_close_enabled()
             ),
-            cross_tool_select=cross_tool_selection_enabled,
+            cross_tool_select=self.config_manager.get_cross_tool_selection_enabled(),
         )
 
     # ------------------------------------------------------------------
@@ -495,7 +484,6 @@ class ScreenshotWindow(QWidget):
                 self.scene.tool_controller = None
             if hasattr(self.scene, 'undo_stack'):
                 self.scene.undo_stack.clear()
-            self.scene._layer_editor = None
             # 释放所有图元的大图内存（Pixmap），然后交给 deleteLater 统一销毁
             for item in self.scene.items():
                 if hasattr(item, 'setPixmap'):
@@ -578,7 +566,13 @@ class ScreenshotWindow(QWidget):
         self.toolbar.line_style_changed.connect(self.on_line_style_changed)
         if hasattr(self.toolbar, "number_next_changed"):
             self.toolbar.number_next_changed.connect(self.on_number_next_changed)
-        
+        if hasattr(self.toolbar, "number_style_changed"):
+            self.toolbar.number_style_changed.connect(self.on_number_style_changed)
+        if hasattr(self.toolbar, "mosaic_style_changed"):
+            self.toolbar.mosaic_style_changed.connect(self.on_mosaic_style_changed)
+        if hasattr(self.toolbar, "mosaic_block_size_changed"):
+            self.toolbar.mosaic_block_size_changed.connect(self.on_mosaic_block_size_changed)
+
         # 操作按钮 → wrapper 方法（间接调用 action_handler）
         self.toolbar.undo_clicked.connect(self.on_undo)
         self.toolbar.redo_clicked.connect(self.on_redo)
@@ -860,6 +854,12 @@ class ScreenshotWindow(QWidget):
 
         NumberTool.set_next_number_and_refresh(self.scene, next_value)
         
+    def on_number_style_changed(self, style: str):
+        """序号样式改变，交给 NumberTool 统一处理。"""
+        from tools.number import NumberTool
+
+        NumberTool.apply_style_change(style, getattr(self, "view", None), self.scene.undo_stack)
+
     def on_color_changed(self, color):
         view = getattr(self, 'view', None)
         if view and hasattr(view, 'apply_cross_tool_selection_style'):
@@ -932,6 +932,22 @@ class ScreenshotWindow(QWidget):
                 
                 item.update()
                 log_debug(T("箭头样式已更新: {style}", style=style), "ScreenshotWindow")
+
+    def on_mosaic_style_changed(self, style: str):
+        """马赛克种类变化（马赛克/模糊），交给 MosaicTool 统一处理。"""
+        from tools.mosaic import MosaicTool
+
+        if MosaicTool.apply_style_change(style, getattr(self, "view", None),
+                                         getattr(self.scene, "undo_stack", None)):
+            log_debug(T("马赛克种类已更新: {style}", style=style), "ScreenshotWindow")
+
+    def on_mosaic_block_size_changed(self, block_size: int):
+        """马赛克粒度变化，交给 MosaicTool 统一处理。"""
+        from tools.mosaic import MosaicTool
+
+        if MosaicTool.apply_block_size_change(block_size, getattr(self, "view", None),
+                                              getattr(self.scene, "undo_stack", None)):
+            log_debug(T("马赛克粒度已更新: {size}", size=block_size), "ScreenshotWindow")
 
     def on_line_style_changed(self, style: str):
         """线条样式变化 - 更新当前选中的画笔图元"""

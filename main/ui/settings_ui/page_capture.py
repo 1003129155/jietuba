@@ -157,7 +157,17 @@ def create_capture_page(dialog) -> QWidget:
     # ── OCR ───────────────────────────────────────────
     grp_ocr = SettingCardGroup(dialog.tr("OCR"), view)
 
-    ocr_available = importlib.util.find_spec("windows_media_ocr") is not None
+    # OCR 可用性检测：走 ocr 模块的官方多引擎检测（含 ppocr_rust / windows_media_ocr），
+    # 而不是只看 windows_media_ocr —— 否则装了 ppocr_rust 也会误报“无 OCR 版本”。
+    try:
+        from ocr import is_ocr_available
+        ocr_available = bool(is_ocr_available())
+    except Exception:
+        # 兜底：ocr 模块不可导入时，退回到最基础的探测
+        ocr_available = (
+            importlib.util.find_spec("ppocr_rust") is not None
+            or importlib.util.find_spec("windows_media_ocr") is not None
+        )
     ocr_card = SwitchSettingCard(
         FluentIcon.SEARCH,
         dialog.tr("Enable OCR"),

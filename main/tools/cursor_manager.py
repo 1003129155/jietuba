@@ -3,8 +3,12 @@
 """
 
 from PySide6.QtCore import Qt, QPointF
-from PySide6.QtGui import QCursor, QPixmap, QPainter, QPen, QColor, QBrush, QFont
-from PySide6.QtWidgets import QGraphicsEllipseItem, QApplication
+from PySide6.QtGui import QCursor, QPixmap, QPainter, QPen, QColor, QBrush
+from PySide6.QtWidgets import (
+    QApplication,
+    QGraphicsEllipseItem,
+    QStyleOptionGraphicsItem,
+)
 from core.logger import log_exception, T
 from canvas.items import NumberItem
 from tools.base import color_with_opacity
@@ -258,82 +262,44 @@ class CursorManager:
         return QCursor(pixmap, int(center), int(center))
     
     def _create_number_cursor(self, brush_size: int):
-        """
-        创建序号工具的光标（真实的圆圈+数字预览）
-        
+        """创建序号工具的光标。
+
+        光标就是"松手会画出什么"的预览，所以这里直接调 NumberItem 自己的 paint，
+        而不是另写一套画法——否则样式一多，两边迟早不一致。
+
         Args:
             brush_size: 画笔大小（stroke_width）
         """
-        # 获取当前工具上下文
+        from tools.number import NumberTool
+
         ctx = self.scene.tool_controller.context
         color = QColor(ctx.color) if ctx else QColor(Qt.GlobalColor.red)
         # 应用透明度（与绘制时保持一致）
         opacity = ctx.opacity if ctx else 1.0
         color = color_with_opacity(color, opacity)
-        
-        # 获取下一个序号数字（使用与绘制时相同的方法）
-        from tools.number import NumberTool
+
         next_number = NumberTool.get_next_number(self.scene)
-        
-        # 计算圆圈半径（与 NumberTool 中的计算一致）
         radius = NumberTool.get_radius_for_width(brush_size)
-        diameter = radius * 2
-        
-        # 画布大小需要容纳圆圈 + 描边 + 留白
-        stroke_width = brush_size
-        total_size = int(diameter + stroke_width * 2 + 10)
+        style = NumberTool.get_style(ctx)
+
+        # 画布要容纳圆圈 + 描边 + 留白
+        total_size = int(radius * 2 + brush_size * 2 + 10)
         center = total_size / 2
-        
+
         pixmap = QPixmap(total_size, total_size)
         pixmap.fill(Qt.GlobalColor.transparent)
-        
+
         painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
-        # 1. 绘制圆圈（实心填充，与 NumberItem 保持一致）
-        painter.setPen(Qt.PenStyle.NoPen)  # 无边框
-        painter.setBrush(QBrush(color))    # 实心填充
-        
-        painter.drawEllipse(
-            int(center - radius),
-            int(center - radius),
-            int(diameter),
-            int(diameter)
-        )
-        
-        # 2. 绘制数字（在圆圈中心）
-        # 使用与 NumberItem 完全相同的字体逻辑
-        font_scale = NumberItem.FONT_SCALE  # 0.95
-        min_font_size = NumberItem.MIN_FONT_SIZE  # 10
-        font_size = max(min_font_size, int(radius * font_scale))
-        # 与 NumberItem.paint 保持一致：使用 QFont("Arial", font_size) 点大小
-        font = QFont("Arial", font_size)
-        font.setBold(True)
-        painter.setFont(font)
-        
-        # 根据背景色亮度选择黑或白文字（整数权重快速判定）
-        # Y = (R*3 + G*6 + B*1) / 10，阈值 128
         try:
-            r, g, b = color.red(), color.green(), color.blue()
-            y_scaled = r * 3 + g * 6 + b * 1
-            if y_scaled > 128 * 10:
-                text_color = QColor(0, 0, 0)
-            else:
-                text_color = QColor(255, 255, 255)
-        except Exception:
-            text_color = QColor(255, 255, 255)
-        painter.setPen(QPen(text_color))
-        
-        # 在圆圈中心绘制数字
-        text_rect = pixmap.rect()
-        painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, str(next_number))
-        
-        painter.end()
-        
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.translate(center, center)
+            item = NumberItem(next_number, QPointF(0, 0), radius, color, style)
+            item.paint(painter, QStyleOptionGraphicsItem(), None)
+        finally:
+            painter.end()
+
         # 光标热点在中心
-        hotspot_x = int(center)
-        hotspot_y = int(center)
-        return QCursor(pixmap, hotspot_x, hotspot_y)
+        return QCursor(pixmap, int(center), int(center))
 
     def create_tool_cursor_with_size(self, tool_id: str, brush_size: int):
         """
@@ -371,6 +337,13 @@ class CursorManager:
             return self._create_crosshair_cursor(real_size, color)
         
         if tool_id == "mosaic":
+            from tools.mosaic import MosaicTool
+
+            ctx = self.scene.tool_controller.context
+            # 从工具自己的读法拿，别在这儿再读一遍设置：光标是"会画出什么"的
+            # 预览，一旦两边各读各的，改了默认值就只有一边跟着变。
+            if MosaicTool.get_draw_mode(ctx) == MosaicTool.MODE_RECT:
+                return QCursor(Qt.CursorShape.CrossCursor)
             real_size = max(4, int(brush_size * self._view_scale))
             return self._create_crosshair_cursor(real_size, QColor(110, 110, 110, 220))
 

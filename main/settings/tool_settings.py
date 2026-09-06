@@ -104,6 +104,8 @@ class ToolSettingsManager(QObject):
             "stroke_width": 30,
             "opacity": 1.0,
             "block_size": 8,
+            "draw_mode": "freehand",  # freehand / rect
+            "style": "pixelate",  # pixelate / blur
         },
         "rect": {
             "color": "#FF0000",  # 红色
@@ -136,9 +138,9 @@ class ToolSettingsManager(QObject):
         },
         "number": {
             "color": "#FF0000",  # 红色
+            "style": "solid",    # solid / hollow_bg / hollow_all
             "font_size": 10,
             "opacity": 1.0,
-            "circle_radius": 20,
             "stroke_width": 12,
         },
         "eraser": {

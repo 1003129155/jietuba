@@ -2292,6 +2292,54 @@ Replace it?</source>
         <source>Rect Highlight</source>
         <translation>矩形蛍光</translation>
     </message>
+    <message>
+        <source>Number Style</source>
+        <translation>番号スタイル</translation>
+    </message>
+    <message>
+        <source>Solid</source>
+        <translation>塗りつぶし</translation>
+    </message>
+    <message>
+        <source>Hollow Circle</source>
+        <translation>中抜き円</translation>
+    </message>
+    <message>
+        <source>Outline Only</source>
+        <translation>輪郭のみ</translation>
+    </message>
+    <message>
+        <source>Number Only</source>
+        <translation>数字のみ</translation>
+    </message>
+    <message>
+        <source>Freehand Mosaic</source>
+        <translation>フリーハンドモザイク</translation>
+    </message>
+    <message>
+        <source>Rect Mosaic</source>
+        <translation>矩形モザイク</translation>
+    </message>
+    <message>
+        <source>Brush Size</source>
+        <translation>ブラシサイズ</translation>
+    </message>
+    <message>
+        <source>Mosaic</source>
+        <translation>モザイク</translation>
+    </message>
+    <message>
+        <source>Blur</source>
+        <translation>ぼかし</translation>
+    </message>
+    <message>
+        <source>Mosaic Style</source>
+        <translation>モザイク種類</translation>
+    </message>
+    <message>
+        <source>Mosaic Granularity</source>
+        <translation>モザイクの粒度</translation>
+    </message>
 </context>
 
 <context>
@@ -3057,4 +3105,24 @@ SOFTWARE.</translation></message>
     <message><source>Select All</source><translation>すべて選択</translation></message>
 </context>
 
+
+<context>
+    <name>UndoCommands</name>
+    <message>
+        <source>Add Mosaic</source>
+        <translation>モザイクを追加</translation>
+    </message>
+    <message>
+        <source>Change Number Style</source>
+        <translation>番号スタイルを変更</translation>
+    </message>
+    <message>
+        <source>Change Mosaic Style</source>
+        <translation>モザイク種類を変更</translation>
+    </message>
+    <message>
+        <source>Change Mosaic Size</source>
+        <translation>モザイクの粒度を変更</translation>
+    </message>
+</context>
 </TS>

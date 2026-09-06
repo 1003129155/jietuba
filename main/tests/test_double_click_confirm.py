@@ -18,6 +18,7 @@ CASE_FAMILIES = (
     "test_empty_text_first_click_is_rolled_back_before_confirm",
     "test_existing_text_edit_double_click_confirms_and_preserves_text",
     "test_nonempty_provisional_text_cancels_double_click_confirm",
+    "test_double_click_inside_edited_text_does_not_confirm",
     "test_mosaic_first_click_is_rolled_back_before_confirm",
     "test_existing_annotation_double_click_confirms_without_removing_item",
     "test_existing_mosaic_double_click_confirms_without_removing_item",
@@ -26,9 +27,7 @@ CASE_FAMILIES = (
     "test_pin_canvas_view_is_opted_out",
     "test_gif_drawing_view_is_opted_out",
     "test_active_drawing_with_redo_branch_rolls_back_and_confirms",
-    "test_merged_number_control_first_click_is_restored_and_confirms",
-    "test_real_number_increment_handle_merge_is_restored_and_confirms",
-    "test_merged_number_restore_failure_rejects_confirmation",
+    "test_number_increment_handle_repeated_clicks_do_not_confirm",
     "test_drag_created_selection_allows_double_click_confirmation",
     "test_modified_double_click_does_not_confirm",
     "test_second_click_outside_drag_tolerance_does_not_confirm",
@@ -38,7 +37,7 @@ CASE_FAMILIES = (
     "test_unknown_multiple_command_delta_fails_closed",
     "test_wheel_and_ime_input_invalidate_candidate",
     "test_drag_invalidates_double_click_candidate",
-    "test_edit_handle_double_click_candidate_keeps_confirm_priority",
+    "test_edit_handle_click_cancels_double_click_confirm",
 )
 
 
@@ -97,14 +96,10 @@ def test_screenshot_view_factory_reads_capture_behavior_settings(
 
     monkeypatch.setattr(screenshot_window_module, "CanvasView", fake_canvas_view)
     scene = object()
-    hints = []
     window = SimpleNamespace(
         config_manager=SimpleNamespace(
             get_double_click_copy_close_enabled=lambda: double_click_enabled,
             get_cross_tool_selection_enabled=lambda: cross_tool_enabled,
-        ),
-        toolbar=SimpleNamespace(
-            set_cross_tool_selection_hint_enabled=hints.append,
         ),
     )
 
@@ -117,4 +112,3 @@ def test_screenshot_view_factory_reads_capture_behavior_settings(
         "confirm_on_double_click": double_click_enabled,
         "cross_tool_select": cross_tool_enabled,
     }
-    assert hints == [cross_tool_enabled]

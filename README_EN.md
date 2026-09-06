@@ -4,7 +4,7 @@
 
 ## Overview
 
-A screenshot and clipboard management application built with PySide6 and RUST. Supports area capture, smart window detection, GIF recording, long screenshot stitching, OCR text recognition, image pinning, translation, and a full clipboard history management system.
+A screenshot and clipboard management application built with PySide6 and Rust. Supports area capture, smart window detection, GIF recording, long screenshot stitching, OCR text recognition, image pinning, translation, mosaic blur, PDF export, and a full clipboard history management system.
 
 ---
 
@@ -97,6 +97,7 @@ python main_app.py
 ├── main/                    # Python main program
 │   ├── main_app.py          # App entry point: system tray, global hotkeys, lifecycle management
 │   ├── compile_translations.py  # Translation compiler (.xml → .qm)
+│   ├── scripts/             # Helper scripts — translation provider comparison
 │   │
 │   ├── canvas/              # Canvas module — graphics editing core
 │   ├── capture/             # Capture module — screen capture & window detection
@@ -107,8 +108,8 @@ python main_app.py
 │   ├── pin/                 # Pin module — pinned screenshots, editing, OCR, translation
 │   ├── settings/            # Settings module — unified configuration management
 │   ├── stitch/              # Stitch module — scroll capture, auto-stitching
-│   ├── tools/               # Tools module — pen, rect, arrow, text, etc.
-│   ├── translation/         # Translation module — DeepL API service
+│   ├── tools/               # Tools module — pen, rect, arrow, text, mosaic, etc.
+│   ├── translation/         # Translation module — multi-provider translation service
 │   ├── translations/        # Language resources — Chinese/English/Japanese/Korean
 │   ├── ui/                  # UI module — common UI component library
 │   └── tests/               # Tests module — unit tests & integration tests
@@ -147,6 +148,7 @@ canvas/
 └── items/
     ├── drawing_items.py     # StrokeItem / RectItem / EllipseItem / ArrowItem / TextItem / NumberItem
     ├── background_item.py   # BackgroundItem — selection area background
+    ├── mosaic_item.py       # MosaicItem — pixel mosaic item
     └── selection_item.py    # SelectionItem — selection boundary display
 ```
 
@@ -239,11 +241,12 @@ core/
 ├── theme.py                 # ThemeManager — application theme colors
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — internationalization
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — global & in-app hotkeys
-├── save.py                  # SaveService — file save service
+├── save.py                  # SaveService — file save service (auto naming, high-quality PDF output)
 ├── export.py                # ExportService — image export
 ├── clipboard_utils.py       # copy_image_to_clipboard() — copy images to system clipboard
 ├── platform_utils.py        # DPI awareness, AppUserModelID, Windows API utilities
 ├── qt_utils.py              # safe_disconnect() — Qt signal safe disconnect
+├── log_translations/        # per-module log text translation helpers
 └── constants.py             # Global constants (fonts, paths, etc.)
 ```
 
@@ -348,7 +351,8 @@ tools/
 ├── arrow.py                 # ArrowTool — arrow
 ├── text.py                  # TextTool — text
 ├── number.py                # NumberTool — auto-incrementing numbers
-├── highlighter.py           # HighlighterTool — highlighter/mosaic
+├── highlighter.py           # HighlighterTool — highlighter
+├── mosaic.py                # MosaicTool — pixel mosaic
 ├── cursor.py                # CursorTool — cursor/selection
 ├── eraser.py                # EraserTool — eraser
 └── cursor_manager.py        # CursorManager — cursor style manager
@@ -358,12 +362,24 @@ tools/
 
 ### translation/ — Translation Module
 
-DeepL API-based text translation.
+Multi-provider translation service supporting DeepL / Google / Azure / Amazon.
 
 ```
 translation/
-├── deepl_service.py         # DeepLService / TranslationThread — async DeepL API calls
-├── languages.py             # SupportedLanguages — DeepL supported language list & codes
+├── provider.py              # TranslationProvider / ProviderMetadata — provider contract
+├── registry.py              # ProviderRegistry — provider registration and factory
+├── service.py               # TranslationService — provider selection and orchestration
+├── models.py                # TranslationRequest / TranslationResult — provider-neutral models
+├── worker.py                # TranslationWorker — shared Qt worker for all providers
+├── providers/               # provider implementations
+│   ├── deepl.py             # DeepL
+│   ├── google.py            # Google
+│   ├── azure.py             # Azure
+│   └── amazon.py            # Amazon
+├── smart_translation_controller.py # SmartTranslationController — one-hotkey text probe and popup routing
+├── translation_popup.py     # TranslationPopup — compact popup (selected text / typed input)
+├── deepl_service.py         # DeepLService / TranslationThread — legacy async DeepL API calls
+├── languages.py             # SupportedLanguages — supported language list & codes
 ├── translation_manager.py   # TranslationManager — translation window manager (singleton)
 ├── translation_dialog.py    # TranslationDialog — translation result window
 └── ui/
@@ -371,18 +387,25 @@ translation/
     └── widgets.py           # Translation widgets
 ```
 
+**Core Features:**
+- Pluggable multi-provider architecture (DeepL / Google / Azure / Amazon) with a unified registry
+- One hotkey: probes selected text and routes it to the popup
+- Compact popup with selected-text and typed-input modes
+- Async translation that never blocks the UI
+- Copyable results
+
 ---
 
 ### translations/ — Language Resources
 
 ```
 translations/
-├── app_zh.xml / app_zh.qm  # Chinese
-├── app_en.xml / app_en.qm  # English
-└── app_ja.xml / app_ja.qm  # Japanese
+├── app_zh.xml / app_en.xml  # Chinese / English source files
+├── app_ja.xml / app_ko.xml  # Japanese / Korean source files
+└── app_*.xml.qm             # compiled Qt binaries (e.g. app_zh.xml.qm)
 ```
 
-`.xml` = editable source files, `.qm` = compiled Qt binary files. Run `compile_translations.py` after modification.
+`.xml` = editable source files, `*.xml.qm` = compiled Qt runtime files. Run `compile_translations.py` after modification.
 
 ---
 
@@ -393,6 +416,7 @@ Common UI component library.
 ```
 ui/
 ├── toolbar.py               # Toolbar / _DragHandle — draggable toolbar base class
+├── tray_menu.py             # TrayMenu — system tray menu
 ├── screenshot_window.py     # ScreenshotWindow — full-screen capture window (region drawing)
 ├── dialogs.py               # StandardDialog — confirm, warning, info, error dialogs
 ├── magnifier.py             # MagnifierOverlay — pixel-level magnifier
@@ -407,6 +431,14 @@ ui/
 ├── text_settings_panel.py   # TextSettingsPanel — text settings panel
 ├── arrow_settings_panel.py  # ArrowSettingsPanel — arrow settings panel
 ├── number_settings_panel.py # number tool settings panel
+├── mosaic_settings_panel.py # mosaic tool settings panel
+│
+├── fluent_lite/             # Fluent-style lightweight component library
+│   ├── buttons.py / cards.py / icons.py / inputs.py  # buttons, cards, icons, inputs
+│   ├── labels.py / navigation.py / segmented.py      # labels, navigation, segmented controls
+│   ├── switch.py / theme.py / titlebar.py            # switch, theme, title bar
+│   ├── frameless.py         # frameless windows
+│   └── text_context_menu.py # text context menu
 │
 ├── settings_ui/             # Application settings dialog
 │   ├── dialog.py            # SettingsDialog — tabbed settings dialog
@@ -450,23 +482,20 @@ tests/
 ├── conftest.py              # pytest configuration and common fixtures
 ├── pytest.ini               # pytest run configuration
 ├── run_tests.py             # test runner script
-├── test_undo_stack.py       # Undo stack tests
-├── test_selection_model.py  # Selection model tests
-├── test_clipboard_api.py    # Clipboard public API tests
-├── test_clipboard_data.py   # Clipboard data layer tests
-├── test_clipboard_manage_dialog.py # Clipboard management window tests
-├── test_clipboard_services.py # Clipboard service layer tests
-├── test_clipboard_themes.py # Clipboard theme system tests
-├── test_clipboard_utils.py  # Clipboard utility tests
-├── test_core_utils.py       # Core utilities tests
-├── test_crash_handler.py    # Crash handler tests
-├── test_emoji_data.py       # Emoji data tests
-├── test_gif_data.py         # GIF data structure tests
-├── test_i18n.py             # i18n tests
-├── test_resource_manager.py # Resource manager tests
-├── test_save_service.py     # Save service tests
-├── test_stitch_algorithm.py # Stitching algorithm tests
-├── test_theme_manager.py    # Theme manager tests
-├── test_tool_settings.py    # Tool settings tests
-└── test_tools_base.py       # Tool base class tests
+├── test_drawing_tools.py    # drawing tool tests (pen/rect/arrow/text/number/highlighter)
+├── test_mosaic_tool.py      # mosaic tool tests
+├── test_functional_handles.py # edit handle tests
+├── test_capture_service.py  # capture service tests
+├── test_clipboard_api.py    # clipboard public API tests
+├── test_clipboard_manage_dialog.py # clipboard management window tests
+├── test_frame_recorder.py   # GIF frame recorder tests
+├── test_playback_engine.py  # GIF playback engine tests
+├── test_ocr_text_layer.py   # OCR text layer tests
+├── test_pin_window_zoom.py  # pin window zoom tests
+├── test_smart_translation.py # smart translation tests
+├── test_translation_architecture.py # translation provider architecture tests
+├── test_stitch_dedup.py     # long-stitch dedup tests
+├── test_settings_dialog_state.py # settings dialog state tests
+├── test_welcome_translation.py # welcome wizard translation page tests
+└── … (70+ additional unit & integration test files)
 ```

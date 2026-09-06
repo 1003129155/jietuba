@@ -51,8 +51,8 @@ def test_single_point_mosaic_has_real_round_geometry(qapp):
     from canvas.items import MosaicItem
 
     path = QPainterPath(QPointF(20, 20))
-    patch = _gradient_image(40, 40)
-    item = MosaicItem(path, 18, 8, patch, QPointF(0, 0))
+    reduced = _gradient_image(5, 5)
+    item = MosaicItem(path, 18, 8, reduced, QRectF(0, 0, 40, 40))
 
     assert not item.shape().isEmpty()
     assert item.boundingRect().width() == 18
@@ -71,7 +71,8 @@ def test_mosaic_export_undo_redo_and_cropped_patch(qapp):
 
     items = [item for item in scene.items() if isinstance(item, MosaicItem)]
     assert len(items) == 1
-    assert items[0].patch_image().sizeInBytes() < source.sizeInBytes()
+    # 小图按 block 缩小，体积是全分辨率的 1/block_size**2
+    assert items[0].reduced_image().sizeInBytes() * 32 < source.sizeInBytes()
     assert scene.undo_stack.count() == 1
 
     rendered = ExportService(scene).export(QRectF(0, 0, 64, 64))
@@ -97,33 +98,38 @@ def test_mosaic_aligns_with_negative_scene_origin(qapp):
     _draw_mosaic(scene, QPointF(-24, 16), QPointF(24, 16))
 
     item = next(item for item in scene.items() if isinstance(item, MosaicItem))
-    assert item.patch_origin().x() < 0
+    assert item.background_rect().left() < 0
     rendered = ExportService(scene).export(scene_rect)
     assert rendered.pixelColor(16, 32) == rendered.pixelColor(17, 32)
     assert rendered.pixelColor(4, 4) == source.pixelColor(4, 4)
 
 
 def test_pixelated_blocks_stay_aligned_for_non_divisible_image_size(qapp):
+    """小图是在 paint 时才铺开的，所以这里检查最终画面而不是中间产物。"""
     source = _gradient_image(65, 65)
     scene = CanvasScene(source, QRectF(0, 0, 65, 65), enable_mosaic=True)
+    scene.selection_model.initialize_confirmed_rect(QRectF(0, 0, 65, 65))
+    _draw_mosaic(scene, QPointF(0, 10), QPointF(64, 10), width=30)
+    rendered = ExportService(scene).export(QRectF(0, 0, 65, 65))
 
-    pixelated = scene.background.pixelated_image(8)
-
-    first_block = pixelated.pixelColor(0, 10)
-    second_block = pixelated.pixelColor(8, 10)
-    assert all(pixelated.pixelColor(x, 10) == first_block for x in range(0, 8))
-    assert all(pixelated.pixelColor(x, 10) == second_block for x in range(8, 16))
+    first_block = rendered.pixelColor(0, 10)
+    second_block = rendered.pixelColor(8, 10)
+    assert all(rendered.pixelColor(x, 10) == first_block for x in range(0, 8))
+    assert all(rendered.pixelColor(x, 10) == second_block for x in range(8, 16))
     assert first_block != second_block
 
+    # 右边缘不足一个 block 的余数只按实际存在的那一列取值，不能把邻块混进来。
     edge_source = QImage(65, 8, QImage.Format.Format_ARGB32)
     edge_source.fill(QColor("black"))
     for y in range(edge_source.height()):
         edge_source.setPixelColor(64, y, QColor("white"))
     edge_scene = CanvasScene(edge_source, QRectF(0, 0, 65, 8), enable_mosaic=True)
-    edge_pixelated = edge_scene.background.pixelated_image(8)
+    edge_scene.selection_model.initialize_confirmed_rect(QRectF(0, 0, 65, 8))
+    _draw_mosaic(edge_scene, QPointF(0, 4), QPointF(64, 4), width=30)
+    edge_rendered = ExportService(edge_scene).export(QRectF(0, 0, 65, 8))
 
-    assert edge_pixelated.pixelColor(63, 4) == QColor("black")
-    assert edge_pixelated.pixelColor(64, 4) == QColor("white")
+    assert edge_rendered.pixelColor(63, 4) == QColor("black")
+    assert edge_rendered.pixelColor(64, 4) == QColor("white")
 
 
 def test_mosaic_press_failure_is_atomic(monkeypatch, qapp):
@@ -132,11 +138,10 @@ def test_mosaic_press_failure_is_atomic(monkeypatch, qapp):
     scene = CanvasScene(_gradient_image(), QRectF(0, 0, 64, 64), enable_mosaic=True)
     scene.activate_tool("mosaic")
     tool = scene.tool_controller.current_tool
-    monkeypatch.setattr(scene.background, "pixelated_image", lambda _size: (_ for _ in ()).throw(RuntimeError("boom")))
+    monkeypatch.setattr(scene.background, "reduced_image", lambda _size: (_ for _ in ()).throw(RuntimeError("boom")))
 
     assert scene.tool_controller.on_press(QPointF(10, 10), Qt.MouseButton.LeftButton) is False
     assert tool.current_item is None
-    assert tool.full_image is None
     assert not any(isinstance(item, MosaicItem) for item in scene.items())
     assert scene.undo_stack.count() == 0
 
@@ -148,29 +153,11 @@ def test_mosaic_release_failure_removes_live_item(monkeypatch, qapp):
     scene.activate_tool("mosaic")
     tool = scene.tool_controller.current_tool
     assert scene.tool_controller.on_press(QPointF(10, 10), Qt.MouseButton.LeftButton) is True
-    monkeypatch.setattr(tool, "_crop_patch", lambda *_args: (_ for _ in ()).throw(RuntimeError("boom")))
+    monkeypatch.setattr(tool.current_item, "set_path", lambda *_args: (_ for _ in ()).throw(RuntimeError("boom")))
 
     scene.tool_controller.on_release(QPointF(20, 20))
 
     assert tool.current_item is None
-    assert tool.full_image is None
-    assert not any(isinstance(item, MosaicItem) for item in scene.items())
-    assert scene.undo_stack.count() == 0
-
-
-def test_mosaic_set_patch_failure_is_atomic(monkeypatch, qapp):
-    from canvas.items import MosaicItem
-
-    scene = CanvasScene(_gradient_image(), QRectF(0, 0, 64, 64), enable_mosaic=True)
-    scene.activate_tool("mosaic")
-    tool = scene.tool_controller.current_tool
-    assert scene.tool_controller.on_press(QPointF(10, 10), Qt.MouseButton.LeftButton) is True
-    monkeypatch.setattr(tool.current_item, "set_patch", lambda *_args: (_ for _ in ()).throw(RuntimeError("boom")))
-
-    scene.tool_controller.on_release(QPointF(20, 20))
-
-    assert tool.current_item is None
-    assert tool.full_image is None
     assert not any(isinstance(item, MosaicItem) for item in scene.items())
     assert scene.undo_stack.count() == 0
 
@@ -201,7 +188,6 @@ def test_mosaic_push_failure_is_atomic(monkeypatch, qapp):
     scene.tool_controller.on_release(QPointF(20, 20))
 
     assert tool.current_item is None
-    assert tool.full_image is None
     assert not any(isinstance(item, MosaicItem) for item in scene.items())
     assert scene.undo_stack.count() == 0
 
@@ -223,7 +209,6 @@ def test_mosaic_push_post_commit_failure_keeps_one_coherent_command(monkeypatch,
     scene.tool_controller.on_release(QPointF(20, 20))
 
     assert tool.current_item is None
-    assert tool.full_image is None
     assert scene.undo_stack.count() == 1
     assert scene.undo_stack.index() == 1
     assert len([item for item in scene.items() if isinstance(item, MosaicItem)]) == 1
@@ -253,7 +238,7 @@ def test_mosaic_push_exception_with_different_command_does_not_claim_ownership(m
     assert scene.undo_stack.command(0).item is other
 
 
-def test_mosaic_null_patch_cleans_view_and_next_stroke_works(monkeypatch, qapp):
+def test_mosaic_null_reduced_image_cleans_view_and_next_stroke_works(monkeypatch, qapp):
     from canvas.items import MosaicItem
     from canvas.view import CanvasView
 
@@ -267,18 +252,17 @@ def test_mosaic_null_patch_cleans_view_and_next_stroke_works(monkeypatch, qapp):
     qapp.processEvents()
     scene.activate_tool("mosaic")
     tool = scene.tool_controller.current_tool
-    original_crop = tool._crop_patch
-    monkeypatch.setattr(tool, "_crop_patch", lambda *_args: (QImage(), QPointF()))
+    original_reduced = scene.background.reduced_image
+    monkeypatch.setattr(scene.background, "reduced_image", lambda _size: QImage())
 
     QTest.mousePress(view.viewport(), Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, QPoint(20, 20))
     QTest.mouseRelease(view.viewport(), Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, QPoint(20, 20))
 
     assert view.is_drawing is False
     assert tool.current_item is None
-    assert tool.full_image is None
     assert scene.undo_stack.count() == 0
 
-    monkeypatch.setattr(tool, "_crop_patch", original_crop)
+    monkeypatch.setattr(scene.background, "reduced_image", original_reduced)
     QTest.mousePress(view.viewport(), Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, QPoint(20, 20))
     QTest.mouseMove(view.viewport(), QPoint(36, 20))
     QTest.mouseRelease(view.viewport(), Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, QPoint(36, 20))
@@ -289,24 +273,40 @@ def test_mosaic_null_patch_cleans_view_and_next_stroke_works(monkeypatch, qapp):
     parent.close()
 
 
-def test_pin_does_not_register_or_activate_mosaic(qapp):
+def test_pin_registers_mosaic_and_can_draw_with_it(qapp):
+    """钉图涂的是钉住的那张图，和截图场景没有区别，所以马赛克在这里同样可用。"""
+    from canvas.items import MosaicItem
     from pin.pin_canvas import PinCanvas
 
     parent = QWidget()
     parent._is_editing = False
     parent.toolbar = None
-    parent._ocr_mgr = type("OcrManager", (), {"set_drawing_mode": lambda self, value: setattr(self, "mode", value)})()
-    parent._ocr_mgr.mode = False
+    canvas = PinCanvas(parent, QSize(64, 64), _gradient_image())
+
+    assert canvas.tool_controller.get_tool("mosaic") is not None
+    assert canvas.activate_tool("mosaic") is True
+    assert canvas.is_editing is True
+
+    _draw_mosaic(canvas.scene)
+    drawn = [item for item in canvas.scene.items() if isinstance(item, MosaicItem)]
+    assert len(drawn) == 1
+    # 钉图场景原点就是 (0,0)，背景锚点因此天然对齐，不需要额外平移
+    assert drawn[0].background_rect() == canvas.scene.scene_rect
+
+
+def test_pin_still_refuses_tools_its_scene_never_registered(qapp):
+    """"钉图支持什么"只有一条判据：这个场景注册了没有。"""
+    from pin.pin_canvas import PinCanvas
+
+    parent = QWidget()
+    parent._is_editing = False
+    parent.toolbar = None
     canvas = PinCanvas(parent, QSize(64, 64), _gradient_image())
     before = canvas.tool_controller.current_tool
 
-    assert canvas.activate_tool("mosaic") is False
-    canvas._on_tool_changed("mosaic", None, None)
-
-    assert canvas.tool_controller.get_tool("mosaic") is None
+    assert canvas.activate_tool("gif") is False
     assert canvas.tool_controller.current_tool is before
     assert canvas.is_editing is False
-    assert parent._ocr_mgr.mode is False
 
 
 def test_eraser_removes_and_restores_mosaic(qapp):
@@ -397,20 +397,88 @@ def test_mosaic_z_order_keeps_normal_annotations_above(qapp):
     assert rendered.pixelColor(32, 32).red() > 200
 
 
-def test_pixelated_cache_invalidates_on_background_change_and_release(qapp):
+def test_reduced_cache_invalidates_on_background_change_and_release(qapp):
     scene = CanvasScene(_gradient_image(), QRectF(0, 0, 64, 64), enable_mosaic=True)
-    original = scene.background.pixelated_image(8)
+    original = scene.background.reduced_image(8)
     replacement = QImage(64, 64, QImage.Format.Format_ARGB32)
     replacement.fill(QColor("red"))
 
     scene.background.update_image(replacement)
-    updated = scene.background.pixelated_image(8)
+    updated = scene.background.reduced_image(8)
     scene.background.release_image_cache()
-    rebuilt = scene.background.pixelated_image(8)
+    rebuilt = scene.background.reduced_image(8)
 
     assert updated != original
-    assert updated.pixelColor(16, 16) == QColor("red")
+    assert updated.pixelColor(2, 2) == QColor("red")
     assert rebuilt == updated
+
+
+def test_reduced_cache_keeps_only_latest_block_size(monkeypatch, qapp):
+    """粒度缓存只留最近一次算出来的那张，换粒度就把旧的顶掉，不按 block_size 攒字典。"""
+    from PIL import Image
+
+    import canvas.items.background_item as background_item_module
+
+    scene = CanvasScene(_gradient_image(), QRectF(0, 0, 64, 64))
+    background = scene.background
+
+    # frombytes 只在真正重新收缩（缓存未命中）时才会被调用，是比 hook
+    # PIL.Image.reduce（内部可能自我递归）更安全的探针。
+    calls = []
+    original_frombytes = Image.frombytes
+
+    def counting_frombytes(*args, **kwargs):
+        calls.append(True)
+        return original_frombytes(*args, **kwargs)
+
+    monkeypatch.setattr(background_item_module.Image, "frombytes", counting_frombytes)
+
+    background.reduced_image(8)
+    background.reduced_image(8)  # 同一粒度命中缓存，不重新算
+    assert len(calls) == 1
+
+    background.reduced_image(16)  # 换粒度，必须重新算
+    assert len(calls) == 2
+
+    background.reduced_image(8)  # 8 那份已经被 16 顶掉了，不是"两份都留着"
+    assert len(calls) == 3
+
+
+def test_mosaic_item_set_block_size_swaps_reduced_image():
+    from canvas.items import MosaicItem
+
+    path = QPainterPath(QPointF(10, 10))
+    reduced_8 = _gradient_image(5, 5)
+    item = MosaicItem(path, 18, 8, reduced_8, QRectF(0, 0, 40, 40))
+
+    reduced_16 = _gradient_image(3, 3)
+    item.set_block_size(16, reduced_16)
+
+    assert item.block_size() == 16
+    assert item.reduced_image().size() == reduced_16.size()
+
+
+def test_mosaic_block_size_change_is_undoable():
+    from canvas.items import MosaicItem
+    from canvas.undo import EditItemCommand
+
+    path = QPainterPath(QPointF(10, 10))
+    reduced_8 = _gradient_image(5, 5)
+    item = MosaicItem(path, 18, 8, reduced_8, QRectF(0, 0, 40, 40))
+
+    reduced_16 = _gradient_image(3, 3)
+    old_state = {"block_size": 8, "reduced_image": item.reduced_image()}
+    item.set_block_size(16, reduced_16)
+    new_state = {"block_size": 16, "reduced_image": item.reduced_image()}
+    command = EditItemCommand(item, old_state, new_state, "Change Mosaic Size")
+
+    command.undo()
+    assert item.block_size() == 8
+    assert item.reduced_image().size() == reduced_8.size()
+
+    command.redo()
+    assert item.block_size() == 16
+    assert item.reduced_image().size() == reduced_16.size()
 
 
 def test_screenshot_mosaic_clones_into_pin(qapp):
@@ -431,7 +499,7 @@ def test_screenshot_mosaic_clones_into_pin(qapp):
     cloned = next(item for item in pin.scene.items() if isinstance(item, MosaicItem))
     assert cloned.block_size() == source_item.block_size()
     assert cloned.brush_width() == source_item.brush_width()
-    assert cloned.patch_image() == source_item.patch_image()
+    assert cloned.reduced_image() == source_item.reduced_image()
     assert cloned.pos() == QPointF(-8, 0)
     assert cloned.sceneBoundingRect().center().x() == source_item.sceneBoundingRect().center().x() - 8
 
@@ -458,3 +526,29 @@ def test_screenshot_mosaic_clones_into_pin(qapp):
             transform.transform_image(rendered),
             transform.transform_image(expected),
         )
+
+
+def test_cloned_mosaic_background_anchor_follows_the_selection_offset(qapp):
+    """马赛克的背景锚点是场景坐标，换场景时必须和 pos 一起搬。
+
+    只平移 pos 的话，钉图里的马赛克画的是偏移了一整个选区的那一块背景——
+    形状和位置都对，露出来的内容却是别处的。
+    """
+    from canvas.items import MosaicItem
+    from pin.pin_canvas import PinCanvas
+
+    source_scene = CanvasScene(_gradient_image(), QRectF(0, 0, 64, 64), enable_mosaic=True)
+    _draw_mosaic(source_scene, QPointF(16, 32), QPointF(48, 32), width=12)
+    source_item = next(item for item in source_scene.items() if isinstance(item, MosaicItem))
+
+    parent = QWidget()
+    parent._is_editing = False
+    parent.toolbar = None
+    offset = QPoint(8, 0)
+    pin = PinCanvas(parent, QSize(48, 64), source_scene.background.image().copy(8, 0, 48, 64))
+    pin.initialize_from_items([source_item], offset)
+
+    cloned = next(item for item in pin.scene.items() if isinstance(item, MosaicItem))
+    assert cloned.background_rect() == source_item.background_rect().translated(
+        -offset.x(), -offset.y()
+    )

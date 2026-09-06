@@ -576,6 +576,45 @@ def test_cross_selection_sync_does_not_overwrite_active_tool_defaults(qapp):
         scene.deleteLater()
 
 
+def test_ctrl_click_permanently_switches_to_the_items_owner_tool(qapp):
+    """Ctrl 点击异类图元要像点了工具栏按钮一样永久切到该图元的归属工具。"""
+    host = QWidget()
+    host.toolbar = Toolbar(host)
+    scene, view = _canvas(cross_tool_select=True, parent=host)
+    try:
+        scene.selection_model.initialize_confirmed_rect(QRectF(0, 0, 100, 80))
+        scene.activate_tool("text")
+        host.toolbar.select_tool("text")
+        view.smart_edit_controller.current_tool_id = "text"
+        ellipse = EllipseItem(QRectF(0, 0, 30, 20), QPen(QColor("green"), 4))
+        scene.addItem(ellipse)
+
+        view.mousePressEvent(QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            QPointF(2, 2), QPointF(2, 2),
+            Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.ControlModifier,
+        ))
+
+        # 工具真正永久切到了 ellipse：current_tool_id、工具引擎、按钮高亮全变
+        assert view.smart_edit_controller.selected_item is ellipse
+        assert view.smart_edit_controller.current_tool_id == "ellipse"
+        assert scene.tool_controller.current_tool.id == "ellipse"
+        assert host.toolbar.current_tool == "ellipse"
+        assert host.toolbar.tool_buttons["ellipse"].isChecked()
+        assert not host.toolbar.tool_buttons["text"].isChecked()
+        assert not view.smart_edit_controller.is_cross_tool_selection()
+
+        # 取消选择后停在新工具上，不切回原来的 text
+        view.smart_edit_controller.clear_selection()
+        assert host.toolbar.current_tool == "ellipse"
+        assert host.toolbar.tool_buttons["ellipse"].isChecked()
+    finally:
+        view.close()
+        host.close()
+        scene.deleteLater()
+
+
 def test_temporary_text_and_shape_handlers_emit_without_persisting(qapp, monkeypatch):
     toolbar = Toolbar()
     writes = []
@@ -700,36 +739,21 @@ def test_selection_clear_restores_current_tool_panel_and_defaults(qapp):
         scene.deleteLater()
 
 
-def test_cross_tool_hint_is_opt_in_and_only_on_editable_annotation_buttons(qapp):
-    plain = Toolbar()
-    hinted = Toolbar()
+def test_no_tooltip_carries_the_cross_tool_hint_line(qapp):
+    """Ctrl 跨工具提示已经不往 tooltip 里塞了，别再加回来。
+
+    当初那行提示是追加到按钮 tooltip 上的，于是每次语言切换、每次开关设置都要
+    去别人的 tooltip 里增删自己那一行——按钮提示因此有了两个写入者。现在提示
+    没了，这条测试守住"只有一个写入者"这个结果。
+    """
+    toolbar = Toolbar()
     try:
         phrase = "Ctrl+click any editable annotation to edit it temporarily"
-        assert all(phrase not in button.toolTip() for button in plain.tool_buttons.values())
-        hinted.enable_cross_tool_selection_hint()
-        for tool_id in ("pen", "highlighter", "arrow", "number", "rect", "ellipse", "text"):
-            assert phrase in hinted.tool_buttons[tool_id].toolTip()
-        assert phrase not in hinted.mosaic_btn.toolTip()
-        assert phrase not in hinted.eraser_btn.toolTip()
-    finally:
-        plain.deleteLater()
-        hinted.deleteLater()
-
-
-def test_cross_tool_hint_can_be_toggled_idempotently(qapp):
-    toolbar = Toolbar()
-    phrase = "Ctrl+click any editable annotation to edit it temporarily"
-    button = toolbar.tool_buttons["text"]
-    base = button.toolTip()
-    try:
-        toolbar.set_cross_tool_selection_hint_enabled(True)
-        toolbar.set_cross_tool_selection_hint_enabled(True)
-        assert button.toolTip().splitlines().count(phrase) == 1
-
-        toolbar.set_cross_tool_selection_hint_enabled(False)
-        toolbar.set_cross_tool_selection_hint_enabled(False)
-        assert phrase not in button.toolTip()
-        assert button.toolTip() == base
+        for button in toolbar.tool_buttons.values():
+            assert phrase not in button.toolTip()
+        # 方法本身也不该再存在：留个只会返回的空壳，下一个人还得去查它做什么
+        assert not hasattr(toolbar, "set_cross_tool_selection_hint_enabled")
+        assert not hasattr(toolbar, "enable_cross_tool_selection_hint")
     finally:
         toolbar.deleteLater()
 

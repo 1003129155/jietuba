@@ -25,6 +25,8 @@ class ToolContext:
 
 
 class Tool:
+    """工具基类 - 所有绘图工具的父类"""
+
     # 笔触宽度的合法范围。工具栏把同一个宽度广播给所有工具，但各工具能接受的
     # 范围不同（画笔可以细到 1，序号圈小于某个尺寸就看不清数字）。每个工具用
     # 自己的范围在入口处收一次，ctx.stroke_width 因此永远是当前工具可用的值，
@@ -41,10 +43,22 @@ class Tool:
             value = float(cls.MIN_WIDTH)
         return max(float(cls.MIN_WIDTH), min(float(cls.MAX_WIDTH), value))
 
-    """
-    工具基类 - 所有绘图工具的父类
-    """
-    
+    # 自由笔迹相邻两点的最小间距（场景坐标，与物理像素 1:1）。高刷鼠标每秒能报
+    # 上千个点，其中大量点与前一个点相距不足一个像素：它们对笔迹外观没有贡献，
+    # 却让 on_move 每次重描的路径线性变长，整笔的重绘成本因此是 O(N²)——画得越
+    # 久越卡。在追加点的入口处按间距筛一次，形状不变而点数大幅下降。
+    MIN_POINT_SPACING = 1.5
+
+    @classmethod
+    def should_append_point(cls, last: Optional[QPointF], pos: QPointF) -> bool:
+        """pos 是否值得追加进笔迹。
+
+        比较对象必须是**上一个被采纳的点**，不能是上一个鼠标事件的位置：慢速描边
+        时每个事件都只挪不到一个像素，按事件比会把它们全部丢掉、整笔画不出来；
+        按采纳点比，距离会一路累积，挪够 MIN_POINT_SPACING 时自然被采纳。
+        """
+        return last is None or (pos - last).manhattanLength() >= cls.MIN_POINT_SPACING
+
     id = "base"  # 工具ID（子类必须重写）
     
     def on_press(self, pos: QPointF, button, ctx: ToolContext):

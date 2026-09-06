@@ -18,6 +18,7 @@ from core import log_info, log_warning, log_error, log_debug
 from core.logger import log_exception, T
 
 
+
 class PinCanvas(QObject):
     """
     钉图画布
@@ -43,7 +44,10 @@ class PinCanvas(QObject):
         # 创建 CanvasScene（完整复用截图窗口的架构）
         # 注意：CanvasScene 的 BackgroundItem 已优化，只保存 QPixmap，不保存 QImage 副本
         scene_rect = QRectF(0, 0, base_size.width(), base_size.height())
-        self.scene = CanvasScene(background_image, scene_rect)
+        # 马赛克在钉图里同样可用：它涂的是"当前场景的背景"，钉图的背景就是钉住
+        # 的那张图，和截图场景没有区别。场景原点是 (0,0)，MosaicItem 的背景锚点
+        # 因此天然对齐。
+        self.scene = CanvasScene(background_image, scene_rect, enable_mosaic=True)
         
         # 预置选区（钉图画布默认全图可编辑）
         self._initialize_selection()
@@ -182,6 +186,14 @@ class PinCanvas(QObject):
             log_exception(e, T("克隆项设置位置"))
 
         try:
+            # 马赛克的背景锚点是场景坐标，不跟随图元自身的变换，所以换场景时
+            # 必须和 pos() 一起搬（见 MosaicItem.translate_background_anchor）。
+            if hasattr(cloned_item, "translate_background_anchor"):
+                cloned_item.translate_background_anchor(offset_x, offset_y)
+        except Exception as e:
+            log_exception(e, T("克隆项平移背景锚点"))
+
+        try:
             if hasattr(source_item, "zValue") and hasattr(cloned_item, "setZValue"):
                 cloned_item.setZValue(source_item.zValue())
         except Exception as e:
@@ -295,8 +307,10 @@ class PinCanvas(QObject):
             item.path(),
             item.brush_width(),
             item.block_size(),
-            item.patch_image(),
-            item.patch_origin(),
+            item.reduced_image(),
+            item.background_rect(),
+            fill_mode=item.fill_mode(),
+            smooth=item.smooth(),
         )
     
     def _clone_rect_item(self, item):
@@ -396,7 +410,13 @@ class PinCanvas(QObject):
         from PySide6.QtGui import QColor
         from PySide6.QtCore import QPointF
         
-        cloned = NumberItem(item.number, QPointF(item.pos()), item.radius, QColor(item.color))
+        cloned = NumberItem(
+            item.number,
+            QPointF(item.pos()),
+            item.radius,
+            QColor(item.color),
+            getattr(item, "style", None),
+        )
         cloned.number_order = getattr(item, "number_order", None)
         return cloned
     
@@ -452,27 +472,16 @@ class PinCanvas(QObject):
         
         直接使用 tool_controller.activate_tool()
         """
-        if tool_name == "mosaic" or self.tool_controller.get_tool(tool_name) is None:
+        # 唯一的判据是"这个场景注册了这个工具没有"。原来还额外写死排除 mosaic，
+        # 而钉图场景现在注册了它——两条规则并存只会让"钉图支持什么"有两个答案。
+        if self.tool_controller.get_tool(tool_name) is None:
             log_warning(f"钉图不支持工具: {tool_name}", "PinCanvas")
             return False
 
-        # 映射工具名
-        tool_map = {
-            "pen": "pen",
-            "highlighter": "highlighter",
-            "arrow": "arrow",
-            "number": "number",
-            "rect": "rect",
-            "ellipse": "ellipse",
-            "text": "text",
-            "cursor": "cursor"
-        }
-        
-        mapped_tool = tool_map.get(tool_name, tool_name)
         try:
             # 直接调用 tool_controller
-            self.tool_controller.activate(mapped_tool)
-            editing_mode = mapped_tool != "cursor"
+            self.tool_controller.activate(tool_name)
+            editing_mode = tool_name != "cursor"
             self.is_editing = editing_mode
             self.parent_window._is_editing = editing_mode
             self._is_drawing = False
@@ -548,6 +557,16 @@ class PinCanvas(QObject):
         # 箭头样式
         toolbar.arrow_style_changed.connect(lambda s: self._on_arrow_style_changed(s, view))
 
+        # 马赛克种类（马赛克/模糊，钉图里同样要能切）
+        if hasattr(toolbar, "mosaic_style_changed"):
+            toolbar.mosaic_style_changed.connect(lambda s: self._on_mosaic_style_changed(s, view))
+
+        # 马赛克粒度（钉图里同样要能调）
+        if hasattr(toolbar, "mosaic_block_size_changed"):
+            toolbar.mosaic_block_size_changed.connect(
+                lambda v: self._on_mosaic_block_size_changed(v, view)
+            )
+
         # 画笔线条样式
         toolbar.line_style_changed.connect(lambda s: self._on_line_style_changed(s, view))
 
@@ -561,6 +580,12 @@ class PinCanvas(QObject):
         if hasattr(toolbar, "number_next_changed"):
             toolbar.number_next_changed.connect(
                 lambda v: self._on_number_next_changed(v, toolbar, view)
+            )
+
+        # 序号样式（钉图里同样要能切）
+        if hasattr(toolbar, "number_style_changed"):
+            toolbar.number_style_changed.connect(
+                lambda st: self._on_number_style_changed(st, view)
             )
 
         # 文字工具高级样式 → SmartEditController
@@ -605,6 +630,8 @@ class PinCanvas(QObject):
                     toolbar.set_current_color(ctx.color)
                     toolbar.set_stroke_width(ctx.stroke_width)
                     toolbar.set_opacity(int(ctx.opacity * 255))
+                    if tool_name == "number" and hasattr(toolbar, "set_style_on_number_panel"):
+                        toolbar.set_style_on_number_panel()
                     if tool_name == "number" and hasattr(toolbar, "set_number_next_value"):
                         from tools.number import NumberTool
                         toolbar.set_number_next_value(NumberTool.get_next_number(self.scene))
@@ -663,6 +690,18 @@ class PinCanvas(QObject):
                 self.undo_stack.push(cmd)
             item.update()
 
+    def _on_mosaic_style_changed(self, style: str, view):
+        """钉图里切换马赛克种类，与截图窗口共用 MosaicTool 里的同一份策略。"""
+        from tools.mosaic import MosaicTool
+
+        MosaicTool.apply_style_change(style, view, self.undo_stack)
+
+    def _on_mosaic_block_size_changed(self, block_size: int, view):
+        """钉图里调整马赛克粒度，与截图窗口共用 MosaicTool 里的同一份策略。"""
+        from tools.mosaic import MosaicTool
+
+        MosaicTool.apply_block_size_change(block_size, view, self.undo_stack)
+
     def _on_line_style_changed(self, style: str, view):
         """线条样式改变"""
         if view and hasattr(view, '_apply_line_style_change_to_selection'):
@@ -672,6 +711,12 @@ class PinCanvas(QObject):
         """荧光笔模式切换 → 立即刷新光标"""
         if view and hasattr(view, "cursor_manager"):
             view.cursor_manager.set_tool_cursor("highlighter", force=True)
+
+    def _on_number_style_changed(self, style: str, view):
+        """钉图里切换序号样式，与截图窗口共用同一套策略。"""
+        from tools.number import NumberTool
+
+        NumberTool.apply_style_change(style, view, self.undo_stack)
 
     def _on_number_next_changed(self, next_value: int, toolbar, view):
         """序号工具下一数字变化"""

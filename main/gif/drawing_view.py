@@ -161,7 +161,6 @@ class GifDrawingScene(QGraphicsScene):
 
         # 光标管理器（由 GifDrawingView 初始化）
         self.cursor_manager: Optional[CursorManager] = None
-        self._layer_editor = None
 
         # 注册所有工具
         self.tool_controller.register(CursorTool())
@@ -203,12 +202,6 @@ class GifDrawingScene(QGraphicsScene):
                 and self.tool_controller.current_tool.id == "number"
                 and self.cursor_manager):
             self.cursor_manager.set_tool_cursor("number", force=True)
-
-    def drawForeground(self, painter, rect):
-        """绘制前景层 — 渲染 LayerEditor 控制点（二次编辑手柄）"""
-        super().drawForeground(painter, rect)
-        if self._layer_editor and self._layer_editor.is_editing():
-            self._layer_editor.render(painter)
 
 
 class GifDrawingShortcutHandler(ShortcutHandler):
@@ -276,8 +269,6 @@ class GifDrawingView(CanvasView):
     def __init__(self, rect: QRect):
         self._gif_scene = GifDrawingScene(rect.width(), rect.height())
         super().__init__(self._gif_scene)
-        # 注入 layer_editor 供 drawForeground 使用（单向引用，无循环）
-        self._gif_scene._layer_editor = self.smart_edit_controller.layer_editor
 
         # ── 覆盖 CanvasView 的窗口属性 → 独立顶层透明窗口 ──
         self.setWindowFlags(

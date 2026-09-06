@@ -2,6 +2,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QPoint, QPointF, QRectF, Qt, QTranslator
 from PySide6.QtGui import QImage
+from PySide6.QtWidgets import QWidget
 
 from canvas.scene import CanvasScene
 from canvas.view import CanvasView
@@ -34,15 +35,29 @@ def test_toolbar_shortcut_selection_is_idempotent_and_mouse_toggle_remains(qapp)
     assert emitted == ["text", "cursor"]
 
 
-def test_pin_toolbar_hides_mosaic_without_overlap(qapp):
+def test_pin_toolbar_shows_mosaic_without_overlap(qapp):
+    """钉图工具栏排布是手写的绝对坐标，新按钮最容易压到别人身上。"""
     toolbar = PinToolbar()
 
-    assert toolbar.mosaic_btn.isHidden()
-    assert "mosaic" not in toolbar.tool_buttons
+    assert not toolbar.mosaic_btn.isHidden()
+    assert "mosaic" in toolbar.tool_buttons
     visible = [button.geometry() for button in toolbar.tool_buttons.values() if not button.isHidden()]
     for index, left in enumerate(visible):
         for right in visible[index + 1:]:
             assert not left.intersects(right)
+    # 按钮都得落在工具栏自己算出来的宽度里，否则会被裁掉一半
+    assert all(toolbar.rect().contains(geometry) for geometry in visible)
+
+
+def test_pin_toolbar_resolves_its_host_window(qapp):
+    """钉图工具栏是顶层窗口，parent() 为 None；找宿主必须走 _host_window。"""
+    host = QWidget()
+    toolbar = PinToolbar(parent_pin_window=host)
+
+    assert toolbar.parent() is None
+    assert toolbar._host_window() is host
+    # 宿主还没有画布时不应该炸，只是拿不到光标管理器
+    assert toolbar._host_cursor_manager() is None
 
 
 def test_mosaic_cursor_uses_sized_pixmap(qapp):
@@ -103,6 +118,27 @@ def test_mosaic_translation_loads_from_runtime_resources(qapp):
         translator = QTranslator()
         assert translator.load(str(translations / f"app_{language}.qm"))
         assert translator.translate("Toolbar", source) == translated
+
+
+def test_mosaic_panel_exposes_block_size_slider(qapp):
+    from tools.mosaic import MosaicTool
+    from ui.mosaic_settings_panel import MosaicSettingsPanel
+
+    panel = MosaicSettingsPanel()
+
+    assert panel.block_size_slider.minimum() == MosaicTool.MIN_BLOCK_SIZE
+    assert panel.block_size_slider.maximum() == MosaicTool.MAX_BLOCK_SIZE
+    assert panel.block_size == MosaicTool.DEFAULT_BLOCK_SIZE
+
+    emitted = []
+    panel.block_size_changed.connect(emitted.append)
+    panel.block_size_slider.setValue(MosaicTool.MIN_BLOCK_SIZE + 2)
+
+    assert emitted == [MosaicTool.MIN_BLOCK_SIZE + 2]
+    assert panel.block_size == MosaicTool.MIN_BLOCK_SIZE + 2
+
+    panel.set_block_size(MosaicTool.DEFAULT_BLOCK_SIZE)
+    assert emitted == [MosaicTool.MIN_BLOCK_SIZE + 2]  # set_block_size 不应重新触发信号
 
 
 def test_mosaic_icon_exists():
@@ -187,3 +223,47 @@ def test_annotation_shortcut_translations_exist_and_load(qapp):
         assert translator.load(str(translations / f"app_{language}.qm"))
         for source, translated in expected.items():
             assert translator.translate("SettingsDialog", source) == translated
+
+
+def test_block_size_slider_only_reports_the_released_value(qapp):
+    """拖动中的中间值是"还没想好"，不该发出去。
+
+    每个中间值都会让下游重算整张缩小图并压一条撤销命令，所以一次拖动必须
+    只对应一次上报。
+    """
+    from ui.mosaic_settings_panel import MosaicSettingsPanel
+
+    panel = MosaicSettingsPanel()
+    slider = panel.block_size_slider
+    reported = []
+    panel.block_size_changed.connect(reported.append)
+
+    assert slider.hasTracking() is False
+
+    # sliderMoved 是拖动中的中间值：Qt 在 tracking 关闭时不会转成 valueChanged
+    slider.setSliderDown(True)
+    for value in range(slider.minimum(), slider.maximum() + 1):
+        slider.setSliderPosition(value)
+    assert reported == []
+
+    # 松手才是一次决定
+    slider.setSliderDown(False)
+    assert reported == [slider.maximum()]
+    assert panel.block_size == slider.maximum()
+
+
+def test_block_size_slider_still_reports_each_keyboard_step(qapp):
+    """键盘每按一下就是一次独立的决定，仍然要逐次上报。"""
+    from PySide6.QtWidgets import QSlider
+    from ui.mosaic_settings_panel import MosaicSettingsPanel
+
+    panel = MosaicSettingsPanel()
+    slider = panel.block_size_slider
+    slider.setValue(slider.minimum())
+    reported = []
+    panel.block_size_changed.connect(reported.append)
+
+    slider.triggerAction(QSlider.SliderAction.SliderSingleStepAdd)
+    slider.triggerAction(QSlider.SliderAction.SliderSingleStepAdd)
+
+    assert reported == [slider.minimum() + 1, slider.minimum() + 2]

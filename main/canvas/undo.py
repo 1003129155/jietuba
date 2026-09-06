@@ -21,6 +21,9 @@ state 约定（EditItemCommand 支持的字段）：
 - "rect": QRectF
 - "start": QPointF
 - "end": QPointF
+- "smooth": bool（框选马赛克的种类：True=模糊，False=马赛克）
+- "block_size" + "reduced_image": int + QImage（马赛克粒度，必须成对出现——
+  block_size 变了，配套的缩小图也得跟着换成同一粒度那张）
 """
 
 from __future__ import annotations
@@ -33,7 +36,10 @@ from PySide6.QtGui import QUndoStack, QUndoCommand, QTransform
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsScene
 
 from core import log_debug
+from core.i18n import make_tr
 from core.logger import log_exception, T
+
+_undo_tr = make_tr("UndoCommands")
 
 # ============================================================================
 # Undo Stack
@@ -327,6 +333,25 @@ class BatchRemoveCommand(QUndoCommand):
         self._first_redo = False
 
 
+class NumberStyleCommand(QUndoCommand):
+    """切换单个序号图元的样式。
+
+    样式是会被矢量记录、随图元传递的属性，所以改它必须可撤销。
+    """
+
+    def __init__(self, item, old_style: str, new_style: str, text: str = None):
+        super().__init__(text or _undo_tr("Change Number Style"))
+        self.item = item
+        self.old_style = old_style
+        self.new_style = new_style
+
+    def undo(self):
+        self.item.set_style(self.old_style)
+
+    def redo(self):
+        self.item.set_style(self.new_style)
+
+
 class EditItemCommand(QUndoCommand):
     """
     编辑图元命令 - 用于控制点拖拽等修改操作
@@ -523,6 +548,23 @@ class EditItemCommand(QUndoCommand):
             except Exception as e:
                 log_exception(e, "update_geometry")
 
+        # 马赛克种类（框选马赛克：True=模糊，False=马赛克）
+        smooth = state.get("smooth")
+        if smooth is not None and hasattr(self.item, "set_smooth"):
+            try:
+                self.item.set_smooth(bool(smooth))
+            except Exception as e:
+                log_exception(e, T("恢复马赛克种类"))
+
+        # 马赛克粒度（block_size 变了，配套的缩小图必须一起换成同一粒度那张）
+        block_size = state.get("block_size")
+        reduced_image = state.get("reduced_image")
+        if block_size is not None and reduced_image is not None and hasattr(self.item, "set_block_size"):
+            try:
+                self.item.set_block_size(int(block_size), reduced_image)
+            except Exception as e:
+                log_exception(e, T("恢复马赛克粒度"))
+
         # 圆角半径（RectItem）
         corner_radius = state.get("corner_radius")
         if corner_radius is not None and hasattr(self.item, "set_corner_radius"):
@@ -582,43 +624,4 @@ class NumberEditCommand(EditItemCommand):
         self._last_merge_time = now
         return True
 
-    def capture_merge_tail(self) -> Dict[str, Any]:
-        """Capture the mutable tail that mergeWith may change in place."""
-        return {
-            "new_state": self._clone_state(self.new_state),
-            "next_after": self.next_after,
-            "last_merge_time": self._last_merge_time,
-        }
-
-    def merge_tail_matches(self, snapshot: Dict[str, Any]) -> bool:
-        return (
-            self.new_state == snapshot.get("new_state")
-            and self.next_after == snapshot.get("next_after")
-            and self._last_merge_time == snapshot.get("last_merge_time")
-        )
-
-    def restore_merge_tail(self, snapshot: Dict[str, Any]) -> bool:
-        """Restore and replay a previously applied tail after a merged click."""
-        try:
-            self.new_state = self._clone_state(snapshot.get("new_state") or {})
-            self.next_after = snapshot.get("next_after")
-            self._last_merge_time = snapshot.get("last_merge_time")
-            self.redo()
-            if not self.merge_tail_matches(snapshot):
-                return False
-
-            expected_number = self.new_state.get("number")
-            if isinstance(expected_number, int):
-                if self.item is None or int(getattr(self.item, "number", -1)) != expected_number:
-                    return False
-
-            if self.next_after is not None:
-                from tools.number import NumberTool
-
-                if NumberTool.get_next_number(self.scene) != int(self.next_after):
-                    return False
-            return True
-        except Exception as exc:
-            log_exception(exc, "恢复序号合并命令")
-            return False
  
