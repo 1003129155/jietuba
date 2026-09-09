@@ -63,7 +63,7 @@ def test_measure_real_clipboard_monitor_start_stop(tmp_path):
     # start_monitor returns after spawning a thread.  Let that thread create its
     # Windows message queue and shutdown channel before timing stop_monitor.
     settle_seconds = 0.15
-    manager = pyclipboard.PyClipboardManager(str(tmp_path / "clipboard-benchmark.db"))
+    manager = pyclipboard.ClipboardManager(str(tmp_path / "clipboard-benchmark.db"))
     start_samples_ms: list[float] = []
     stop_samples_ms: list[float] = []
 

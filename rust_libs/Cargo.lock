@@ -1696,7 +1696,7 @@ dependencies = [
 
 [[package]]
 name = "pyclipboard"
-version = "0.3.14"
+version = "0.4.0"
 dependencies = [
  "base64",
  "chrono",

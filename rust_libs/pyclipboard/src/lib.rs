@@ -48,6 +48,7 @@ fn should_skip_callback(id: i64) -> bool {
 #[pymodule]
 fn pyclipboard(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // 注册类
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add_class::<PyClipboardManager>()?;
     m.add_class::<PyClipboardItem>()?;
     m.add_class::<PyQueryParams>()?;
@@ -328,7 +329,7 @@ fn get_clipboard_owner() -> PyResult<Option<String>> {
 ///     >>> result = manager.get_history()
 ///     >>> for item in result:
 ///     ...     print(item.content)
-#[pyclass]
+#[pyclass(name = "ClipboardManager")]
 pub struct PyClipboardManager {
     db: Arc<Mutex<Database>>,
     /// 数据库文件路径
