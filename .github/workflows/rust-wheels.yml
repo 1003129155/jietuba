@@ -50,6 +50,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust_libs
+          # 整轮构建十分钟起步，失败时若不存 cache，下次又得从零编一遍共享依赖
+          cache-on-failure: true
 
       - name: Install maturin
         # 版本与 requirements-dev.txt 保持一致
