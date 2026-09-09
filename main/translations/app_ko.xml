@@ -2292,8 +2292,20 @@ Replace it?</source>
         <translation>모자이크 종류</translation>
     </message>
     <message>
-        <source>Mosaic Granularity</source>
-        <translation>모자이크 입자 크기</translation>
+        <source>Strength: Subtle</source>
+        <translation>강도: 약하게</translation>
+    </message>
+    <message>
+        <source>Strength: Medium</source>
+        <translation>강도: 보통</translation>
+    </message>
+    <message>
+        <source>Strength: Strong</source>
+        <translation>강도: 강하게</translation>
+    </message>
+    <message>
+        <source>Strength: Maximum</source>
+        <translation>강도: 최대</translation>
     </message>
 </context>
 

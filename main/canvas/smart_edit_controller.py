@@ -13,6 +13,7 @@ from enum import Enum
 from typing import Optional, Dict, Any
 from PySide6.QtCore import QObject, Signal, QPointF, Qt
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsScene
+from shiboken6 import isValid as _cpp_object_is_alive
 
 from canvas.items import StrokeItem, RectItem, EllipseItem, ArrowItem, TextItem, NumberItem, MosaicItem
 from canvas.handle_editor import HandleType, LayerEditor
@@ -94,7 +95,7 @@ class SmartEditController(QObject):
         
         # 当前状态
         self.mode = SelectionMode.NONE
-        self.selected_item: Optional[QGraphicsItem] = None
+        self._selected_item: Optional[QGraphicsItem] = None
         self.hovered_item: Optional[QGraphicsItem] = None
         
         # 当前工具 ID
@@ -750,6 +751,29 @@ class SmartEditController(QObject):
             f")"
         )
     
+    @property
+    def selected_item(self) -> Optional[QGraphicsItem]:
+        """当前选中的图元；它的 C++ 对象已经没了就一律当作"没有选中"。
+
+        控制器持有的是普通 Python 引用。图元被删掉（撤销、橡皮擦、场景清空）
+        之后这个引用还在，但背后的 C++ 对象已经析构，再碰它任何一个方法都会抛
+        RuntimeError: Internal C++ object already deleted。而这些访问大多发生在
+        Qt 信号回调里——异常从 C++ 调过来的槽里冒出去，轻则整条信号链断掉，
+        重则直接把进程带走，且不留下可读的堆栈。
+
+        判断只放这一处：三十来个使用点本来就都写了 `if self.selected_item`，
+        它们不需要各自再防一遍"引用还在但对象没了"。
+        """
+        item = self._selected_item
+        if item is not None and not _cpp_object_is_alive(item):
+            self._selected_item = None
+            return None
+        return item
+
+    @selected_item.setter
+    def selected_item(self, item: Optional[QGraphicsItem]):
+        self._selected_item = item
+
     def _on_undo_index_changed(self):
         """撤销/重做发生时，更新控制点和面板状态"""
         if self.selected_item:

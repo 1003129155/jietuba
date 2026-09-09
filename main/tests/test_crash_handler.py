@@ -5,6 +5,7 @@
 测试 _write_crash / install_crash_hooks 等纯逻辑。
 """
 import sys
+import threading
 from core.crash_handler import _write_crash, _ensure_log_dir, _LOG_DIR
 
 
@@ -48,13 +49,26 @@ class TestInstallCrashHooks:
     """安装崩溃钩子测试"""
 
     def test_install_does_not_crash(self):
-        """安装钩子不应崩溃"""
+        """安装钩子不应崩溃。
+
+        四个钩子都要还原，不能只还原 sys.excepthook。漏掉的那三个里最要命的是
+        faulthandler：install_crash_hooks 会把它重定向到应用自己的日志文件，
+        本测试之后整场会话的原生崩溃堆栈就都写进那个文件，而不是 stderr——
+        进程猝死时 CI 日志上只剩一行 exit code，堆栈躺在谁也不会看的地方。
+        """
+        import faulthandler
         from core.crash_handler import install_crash_hooks
-        # 保存原有钩子
+
         old_except = sys.excepthook
+        old_thread_except = threading.excepthook
+        old_unraisable = sys.unraisablehook
+        was_enabled = faulthandler.is_enabled()
         try:
             install_crash_hooks()
         finally:
-            # 恢复原有钩子，避免影响其他测试
             sys.excepthook = old_except
+            threading.excepthook = old_thread_except
+            sys.unraisablehook = old_unraisable
+            # enable() 不带 file 就回到默认的 stderr
+            faulthandler.enable() if was_enabled else faulthandler.disable()
  

@@ -8,6 +8,24 @@ A screenshot and clipboard management application built with PySide6 and Rust. S
 
 ---
 
+## Highlights
+
+A smooth, three-way "screenshot ⇄ clipboard ⇄ pin" workflow.
+
+- **Anything you copy lands in history** — not just your own screenshots, but any text/image/file you copy goes straight into the same clipboard history
+
+- **History → pin → history** — pin any image from history back onto the screen with one click, always on top, ready to compare, zoom, or annotate further
+
+- **Find anything in seconds** — full-text keyword search plus time/type filters and custom groups/favorites, even across thousands of history entries
+
+- **Memory footprint** — carefully engineered to run lean; background memory usage typically stays down in the single- or low-double-digit MB range
+
+- **Smooth UI** — optimized for demanding scenarios, so even low-end machines stay responsive
+
+- **Data safety** — everything runs entirely on your machine: no data collection, no silent network calls, everything stays local. Translation is the one feature that needs the internet, and only when you actively use it, calling whichever third-party translation API you've chosen
+
+---
+
 ## Prerequisites
 
 This project depends on 4 custom Rust libraries. **You must install these packages before running the program.**

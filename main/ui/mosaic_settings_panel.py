@@ -6,13 +6,16 @@
 """
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QPushButton, QComboBox, QFrame, QButtonGroup,
-    QStyle, QStyleOptionComboBox, QStylePainter, QSlider,
+    QStyle, QStyleOptionComboBox, QStylePainter,
 )
-from PySide6.QtCore import Qt, Signal, QSize
+from PySide6.QtCore import Qt, Signal, QSize, QPointF
+from PySide6.QtGui import QColor, QIcon, QImage, QPainter, QPixmap, QPolygonF
 from core.resource_manager import ResourceManager
 from core.i18n import make_tr
 from tools.mosaic import MosaicTool
-from .base_settings_panel import StepperWidget, build_settings_panel_stylesheet, paint_rounded_panel, PANEL_SCALE
+from .base_settings_panel import (
+    StepperWidget, build_settings_panel_stylesheet, paint_rounded_panel, PANEL_SCALE,
+)
 from core import safe_event
 
 # 与其它工具设置面板共用同一翻译上下文
@@ -38,6 +41,83 @@ class CenteredComboBox(QComboBox):
         painter.drawText(option.rect, Qt.AlignmentFlag.AlignCenter, self.currentText())
 
 
+SWATCH_DARK = QColor("#7a7a7a")
+SWATCH_LIGHT = QColor("#e8e8e8")
+
+# 图标里用几格来表达这一档，与 MosaicTool.BLOCK_SIZE_LEVELS 一一对应。
+#
+# 不能直接按"该档 px ÷ 最粗档 px"去缩：24px 的图标那样算下来，最粗一档只剩
+# 1 格，糊成一片纯色——四个图标里最该说明问题的那个反而什么都没说，而且纯色
+# 上马赛克和模糊长得一模一样。所以图标是相对刻度：从 8 格递减到 2 格，四档
+# 各不相同，最粗那档仍看得出是"块"。
+SWATCH_GRIDS = (8, 5, 3, 2)
+
+# 每一档 tooltip 说的是"糊到什么程度"，与 MosaicTool.BLOCK_SIZE_LEVELS 一一对应。
+#
+# 不报 px 数字：用户挑档位靠的是观感，"8"或"16"对他没有意义，而且这四个数是
+# 实现细节（改档位值不该让提示跟着变得莫名其妙）。措辞用"强度"而不是"粒度"，
+# 因为马赛克和模糊共用这一组档位，说法得对两种形态都成立。
+BLOCK_SIZE_TIPS = (
+    "Strength: Subtle",
+    "Strength: Medium",
+    "Strength: Strong",
+    "Strength: Maximum",
+)
+
+
+def _swatch_source(side: int) -> QImage:
+    """给档位图标当"内容"的那张小图。
+
+    必须有一条明确的斜边：格子化会把它啃成阶梯，模糊会把它化开，两种形态才
+    各自看得出来。用棋盘格不行——糊完只剩一片灰，四个档看着一个样。
+    """
+    image = QImage(side, side, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(SWATCH_LIGHT)
+    painter = QPainter(image)
+    try:
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(SWATCH_DARK)
+        painter.drawPolygon(QPolygonF([
+            QPointF(0.0, float(side)),
+            QPointF(float(side), 0.0),
+            QPointF(float(side), float(side)),
+        ]))
+    finally:
+        painter.end()
+    return image
+
+
+def render_block_size_swatch(block_size: int, side: int, smooth: bool, ratio: float = 1.0) -> QPixmap:
+    """把"这一档画出来是什么样"直接画成一小片实际效果。
+
+    走的是和 MosaicItem 完全相同的一套：按粒度把图缩小，再按块放大回去，
+    马赛克与模糊的唯一区别就是放大时开不开平滑插值。所以图标不会和实际画出来
+    的东西各说各话——包括切到模糊时，四个图标跟着一起变糊。
+
+    每一档缩到几格见 SWATCH_GRIDS，四个图标并排就是一条从细到粗的梯子。
+
+    ratio 传屏幕的 devicePixelRatio：按物理像素出图再标注回逻辑尺寸，高分屏上
+    才不会被系统放大糊掉——马赛克那一档的方块边缘本来就该是硬的。格数不随
+    ratio 变，所以梯子在任何缩放下都是同一条。
+    """
+    pixels = max(1, round(side * max(1.0, float(ratio))))
+    source = _swatch_source(pixels)
+    grid = SWATCH_GRIDS[MosaicTool.BLOCK_SIZE_LEVELS.index(MosaicTool.clamp_block_size(block_size))]
+    reduced = source.scaled(
+        grid, grid,
+        Qt.AspectRatioMode.IgnoreAspectRatio,
+        Qt.TransformationMode.SmoothTransformation,
+    )
+    mode = (Qt.TransformationMode.SmoothTransformation if smooth
+            else Qt.TransformationMode.FastTransformation)
+    pixmap = QPixmap.fromImage(
+        reduced.scaled(pixels, pixels, Qt.AspectRatioMode.IgnoreAspectRatio, mode)
+    )
+    pixmap.setDevicePixelRatio(max(1.0, float(ratio)))
+    return pixmap
+
+
 def _cached_icon(svg_name):
     """获取缓存的 QIcon"""
     return ResourceManager.get_icon(ResourceManager.get_icon_path(svg_name))
@@ -52,8 +132,6 @@ class MosaicSettingsPanel(QWidget):
     MODE_RECT_VALUE = MosaicTool.MODE_RECT
     STYLE_PIXELATE_VALUE = MosaicTool.STYLE_PIXELATE
     STYLE_BLUR_VALUE = MosaicTool.STYLE_BLUR
-    MIN_BLOCK_SIZE = MosaicTool.MIN_BLOCK_SIZE
-    MAX_BLOCK_SIZE = MosaicTool.MAX_BLOCK_SIZE
 
     draw_mode_changed = Signal(str)   # freehand / rect
     style_changed = Signal(str)       # pixelate / blur
@@ -140,42 +218,47 @@ class MosaicSettingsPanel(QWidget):
 
         layout.addStretch()
 
-        # === 粒度滑动条：格子/模糊有多粗，越往右越糊 ===
-        self.block_size_slider = QSlider(Qt.Orientation.Horizontal)
-        self.block_size_slider.setRange(self.MIN_BLOCK_SIZE, self.MAX_BLOCK_SIZE)
-        self.block_size_slider.setValue(self.current_block_size)
-        # 拖动过程中不发 valueChanged，松手才发一次。
+        # === 粒度：四个档位 ===
         #
-        # 这不是性能微调，是这个控件的语义：滑块每挪一格都会让下游按新粒度把
-        # 整张背景重新收缩一遍（4K 实测 28ms/档），并且给撤销栈压一条各自持有
-        # 一份缩小图的命令。按住拖一次会连发三十来次——画面卡住、撤销要按三十
-        # 多下才回得去、这些命令攥着的小图加起来 39MB，比背景原图本身还大，
-        # 把"只留一份缩小图"省下来的内存又全赔了回去。
+        # 粒度是凭观感定的，不需要无级变速；倍增的四档就覆盖了从"还看得出轮廓"
+        # 到"糊成一块"的全程（档位本身定义在 MosaicTool 上）。
         #
-        # 换句话说：滑块拖动中的每个中间值是"还没想好"，不是用户的决定，
-        # 不该让下游看见。Qt 自带这个语义，不必再搭去抖定时器或命令合并。
-        self.block_size_slider.setTracking(False)
-        self.block_size_slider.setFixedWidth(round(64 * PANEL_SCALE))
-        self.block_size_slider.setToolTip(_tr("Mosaic Granularity"))
-        self.block_size_slider.setStyleSheet("""
-            QSlider { background: transparent; }
-            QSlider::groove:horizontal {
-                height: 3px;
-                background: #ccc;
-                border-radius: 1px;
-            }
-            QSlider::handle:horizontal {
-                width: 12px;
-                height: 12px;
-                margin: -5px 0;
-                background: #666;
-                border-radius: 6px;
-            }
-            QSlider::handle:horizontal:hover {
-                background: #333;
-            }
-        """)
-        layout.addWidget(self.block_size_slider)
+        # 做成离散档位还顺手解决了一个真问题：每换一次粒度，下游都要按新粒度把
+        # 整张背景重新收缩一遍（4K 实测 28ms/档），并给撤销栈压一条各自持有一份
+        # 缩小图的命令。滑块拖一次会连发三十来次——画面卡住、撤销要按三十多下才
+        # 回得去、这些命令攥着的小图加起来 39MB，比背景原图还大。以前靠关掉
+        # slider 的 tracking 来兜这件事，现在"一次点击 = 一次改动"是结构本身
+        # 保证的，不再依赖那个容易被下一个人改掉的开关。
+        self.block_size_group = QButtonGroup(self)
+        self.block_size_group.setExclusive(True)
+        self.block_size_buttons = {}
+
+        block_size_widget = QWidget()
+        block_size_layout = QHBoxLayout(block_size_widget)
+        block_size_layout.setContentsMargins(0, 0, 0, 0)
+        block_size_layout.setSpacing(2)
+
+        # 面板通用的选中态是浅灰底（#e0e0e0），和悬停的 #f0f0f0 只差一点点；
+        # 这四个按钮又被图样铺满，底色基本露不出来。所以选中态改用一圈主题色
+        # 描边——否则"现在是哪一档"要凑近了才看得出来。
+        level_button_qss = (
+            "QPushButton { padding: 0px; border: 1px solid #ddd; }"
+            "QPushButton:hover { border-color: #bbb; }"
+            "QPushButton:checked { border: 2px solid #0078d7; }"
+        )
+        self._swatch_side = _icon_sz
+        for index, level in enumerate(MosaicTool.BLOCK_SIZE_LEVELS):
+            button = QPushButton()
+            button.setCheckable(True)
+            button.setFixedSize(_btn_sz, _btn_sz)
+            button.setIconSize(QSize(_icon_sz, _icon_sz))
+            button.setToolTip(_tr(BLOCK_SIZE_TIPS[index]))
+            button.setStyleSheet(level_button_qss)
+            self.block_size_group.addButton(button)
+            self.block_size_buttons[level] = button
+            block_size_layout.addWidget(button)
+
+        layout.addWidget(block_size_widget)
 
         # === 右侧：马赛克种类 ===
         self.style_combo = CenteredComboBox()
@@ -187,12 +270,13 @@ class MosaicSettingsPanel(QWidget):
 
         self.set_draw_mode(self.current_draw_mode)
         self.set_style(self.current_style)
+        self.set_block_size(self.current_block_size)
 
     def _connect_signals(self):
         self.mode_group.buttonClicked.connect(self._on_mode_clicked)
         self.size_spin.valueChanged.connect(self._on_size_changed)
         self.style_combo.currentIndexChanged.connect(self._on_style_changed)
-        self.block_size_slider.valueChanged.connect(self._on_block_size_changed)
+        self.block_size_group.buttonClicked.connect(self._on_block_size_clicked)
 
     def _on_mode_clicked(self):
         mode = self.MODE_RECT_VALUE if self.rect_btn.isChecked() else self.MODE_FREEHAND_VALUE
@@ -206,11 +290,29 @@ class MosaicSettingsPanel(QWidget):
     def _on_style_changed(self):
         style = self.style_combo.currentData() or self.STYLE_PIXELATE_VALUE
         self.current_style = style
+        self._refresh_block_size_icons()
         self.style_changed.emit(style)
 
-    def _on_block_size_changed(self, value: int):
-        self.current_block_size = value
-        self.block_size_changed.emit(value)
+    def _on_block_size_clicked(self, button):
+        level = next(l for l, b in self.block_size_buttons.items() if b is button)
+        if level == self.current_block_size:
+            # 再点一次当前档不算一次改动：下游会白重算一张缩小图、白压一条撤销
+            return
+        self.current_block_size = level
+        self.block_size_changed.emit(level)
+
+    def _refresh_block_size_icons(self):
+        """按当前形态重画四个档位图样。
+
+        粒度是马赛克和模糊共用的参数，图标只画其中一种就是在撒谎——所以形态一
+        变，四个图标必须跟着变。
+        """
+        smooth = self.current_style == self.STYLE_BLUR_VALUE
+        ratio = self.devicePixelRatioF()
+        for level, button in self.block_size_buttons.items():
+            button.setIcon(QIcon(
+                render_block_size_swatch(level, self._swatch_side, smooth, ratio)
+            ))
 
     # ------------------------------------------------------------------
     # 供 Toolbar 调用的公共接口（不触发信号）
@@ -242,20 +344,23 @@ class MosaicSettingsPanel(QWidget):
             self.style_combo.blockSignals(True)
             self.style_combo.setCurrentIndex(idx)
             self.style_combo.blockSignals(False)
+        self._refresh_block_size_icons()
 
     def set_block_size(self, value: int):
-        value = max(self.MIN_BLOCK_SIZE, min(self.MAX_BLOCK_SIZE, int(value)))
+        # 吸附规则只有 MosaicTool 一份：面板不另立一套，旧配置里的非档位值
+        # 才不会在"高亮哪一档"和"实际画出来多粗"之间分家。
+        value = MosaicTool.clamp_block_size(value)
         self.current_block_size = value
-        self.block_size_slider.blockSignals(True)
-        self.block_size_slider.setValue(value)
-        self.block_size_slider.blockSignals(False)
+        for level, button in self.block_size_buttons.items():
+            button.setChecked(level == value)
 
     def retranslate(self):
         """语言切换后刷新面板上的可翻译文本（保留当前选中状态）。"""
         self.freehand_btn.setToolTip(_tr("Freehand Mosaic"))
         self.rect_btn.setToolTip(_tr("Rect Mosaic"))
         self.size_spin.setToolTip(_tr("Brush Size"))
-        self.block_size_slider.setToolTip(_tr("Mosaic Granularity"))
+        for index, button in enumerate(self.block_size_buttons.values()):
+            button.setToolTip(_tr(BLOCK_SIZE_TIPS[index]))
         self.style_combo.setItemText(0, _tr("Mosaic"))
         self.style_combo.setItemText(1, _tr("Blur"))
         self.style_combo.setToolTip(_tr("Mosaic Style"))

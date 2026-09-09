@@ -92,18 +92,20 @@ class ToolSettingsManager(QObject):
             "color": "#FF0000",  # 红色
             "stroke_width": 12,
             "opacity": 1.0,
+            "line_style": "solid",  # 线条样式（工具栏一直在存它，缺了默认值就读不回来）
         },
         "highlighter": {
             "color": "#FFFF00",  # 黄色
             "stroke_width": 15,
             "opacity": 1.0,
             "draw_mode": "freehand",
+            "line_style": "solid",  # 荧光笔不露出线型选择，但它和画笔共用面板
         },
         "mosaic": {
             "color": "#808080",
             "stroke_width": 30,
             "opacity": 1.0,
-            "block_size": 8,
+            "block_size": 7,  # 必须是 MosaicTool.BLOCK_SIZE_LEVELS 里的档位之一
             "draw_mode": "freehand",  # freehand / rect
             "style": "pixelate",  # pixelate / blur
         },
