@@ -685,6 +685,7 @@ const STATE_STOPPED: u8 = 3;
 ///   - export_gif: 高性能 GIF 导出
 #[pymodule]
 fn gifrecorder(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add_class::<PyFrameStore>()?;
     m.add_class::<PyRecordSession>()?;
     m.add_class::<PyFrameDecoder>()?;

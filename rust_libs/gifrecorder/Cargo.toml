@@ -1,6 +1,6 @@
 [package]
 name = "gifrecorder"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 description = "GIF screen recording: capture → JPEG compress → store → decode → GIF export"
 
@@ -9,7 +9,7 @@ name = "gifrecorder"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.22", features = ["extension-module"] }
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py311"] }
 
 # JPEG 编解码 (纯 Rust, 无需 NASM / libjpeg-turbo)
 jpeg-encoder = "0.6"
