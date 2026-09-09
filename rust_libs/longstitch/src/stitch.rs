@@ -1,3 +1,4 @@
+use crate::error::StitchError;
 /// 图像拼接模块 - 长截图拼接核心逻辑
 ///
 /// 包含：
@@ -21,12 +22,12 @@ fn select_best_candidate(
     img1_len: usize,
     img2_len: usize,
     debug: bool,
-) -> Result<(i32, i32, usize), String> {
+) -> Result<(i32, i32, usize), StitchError> {
     if candidates.is_empty() {
         if debug {
             println!("  ❌ 未找到任何重叠区域");
         }
-        return Err("No overlap found".to_string());
+        return Err(StitchError::NoOverlap);
     }
 
     if debug {
@@ -160,14 +161,14 @@ fn do_pixel_stitch(
 }
 
 /// RGBA 字节编码为 PNG
-fn encode_png(rgba_buf: Vec<u8>, width: u32, height: u32) -> Result<Vec<u8>, String> {
+fn encode_png(rgba_buf: Vec<u8>, width: u32, height: u32) -> Result<Vec<u8>, StitchError> {
     let result: ImageBuffer<Rgba<u8>, Vec<u8>> =
         ImageBuffer::from_raw(width, height, rgba_buf)
-            .ok_or_else(|| "Failed to create result image buffer".to_string())?;
+            .ok_or_else(|| StitchError::encode("cannot build result image buffer"))?;
     let mut output = Vec::new();
     DynamicImage::ImageRgba8(result)
         .write_to(&mut Cursor::new(&mut output), image::ImageOutputFormat::Png)
-        .map_err(|e| format!("Failed to encode result: {}", e))?;
+        .map_err(StitchError::encode)?;
     Ok(output)
 }
 
@@ -184,7 +185,7 @@ fn smart_stitch_core(
     ignore_img1_top_ratio: f32,
     ignore_img1_bottom_ratio: f32,
     debug: bool,
-) -> Result<(Vec<u8>, u32, u32), String> {
+) -> Result<(Vec<u8>, u32, u32), StitchError> {
     let height2 = img2_rgba.height();
     let img2_hash_start = ignore_top_pixels.min(height2) as usize;
 
@@ -287,7 +288,7 @@ pub fn stitch_two_images_smart(
     min_overlap_ratio: f32,
     ignore_img1_top_ratio: f32,
     ignore_img1_bottom_ratio: f32,
-) -> Result<Vec<u8>, String> {
+) -> Result<Vec<u8>, StitchError> {
     stitch_two_images_smart_internal(
         img1_bytes,
         img2_bytes,
@@ -309,7 +310,7 @@ pub fn stitch_two_images_smart_debug(
     min_overlap_ratio: f32,
     ignore_img1_top_ratio: f32,
     ignore_img1_bottom_ratio: f32,
-) -> Result<Vec<u8>, String> {
+) -> Result<Vec<u8>, StitchError> {
     stitch_two_images_smart_internal(
         img1_bytes,
         img2_bytes,
@@ -331,12 +332,12 @@ fn stitch_two_images_smart_internal(
     ignore_img1_top_ratio: f32,
     ignore_img1_bottom_ratio: f32,
     debug: bool,
-) -> Result<Vec<u8>, String> {
+) -> Result<Vec<u8>, StitchError> {
     // 加载图片
     let mut img1 = image::load_from_memory(img1_bytes)
-        .map_err(|e| format!("Failed to load image 1: {}", e))?;
+        .map_err(|e| StitchError::decode(format!("image 1: {e}")))?;
     let img2 = image::load_from_memory(img2_bytes)
-        .map_err(|e| format!("Failed to load image 2: {}", e))?;
+        .map_err(|e| StitchError::decode(format!("image 2: {e}")))?;
 
     let (width1, height1) = img1.dimensions();
     let (width2, height2) = img2.dimensions();
@@ -392,7 +393,7 @@ pub fn stitch_two_images_smart_auto(
     ignore_right_pixels: u32,
     ignore_top_pixels: u32,
     min_overlap_ratio: f32,
-) -> Result<(Vec<u8>, String), String> {
+) -> Result<(Vec<u8>, String), StitchError> {
     stitch_two_images_smart_auto_internal(
         img1_bytes,
         img2_bytes,
@@ -410,7 +411,7 @@ pub fn stitch_two_images_smart_auto_debug(
     ignore_right_pixels: u32,
     ignore_top_pixels: u32,
     min_overlap_ratio: f32,
-) -> Result<(Vec<u8>, String), String> {
+) -> Result<(Vec<u8>, String), StitchError> {
     stitch_two_images_smart_auto_internal(
         img1_bytes,
         img2_bytes,
@@ -428,12 +429,12 @@ fn stitch_two_images_smart_auto_internal(
     ignore_top_pixels: u32,
     min_overlap_ratio: f32,
     debug: bool,
-) -> Result<(Vec<u8>, String), String> {
+) -> Result<(Vec<u8>, String), StitchError> {
     // 加载图片
     let mut img1 = image::load_from_memory(img1_bytes)
-        .map_err(|e| format!("Failed to load image 1: {}", e))?;
+        .map_err(|e| StitchError::decode(format!("image 1: {e}")))?;
     let img2 = image::load_from_memory(img2_bytes)
-        .map_err(|e| format!("Failed to load image 2: {}", e))?;
+        .map_err(|e| StitchError::decode(format!("image 2: {e}")))?;
 
     let (width1, height1) = img1.dimensions();
     let (width2, height2) = img2.dimensions();
@@ -565,7 +566,7 @@ fn stitch_two_images_smart_auto_internal(
         }
         (Err(e1), Err(e2)) => {
             // 两个方向都失败
-            return Err(format!("Both directions failed: forward={}, reverse={}", e1, e2));
+            return Err(if matches!(e1, StitchError::NoOverlap) { e2.clone() } else { e1.clone() });
         }
     }
 }
