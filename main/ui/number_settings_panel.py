@@ -72,10 +72,15 @@ class NumberStylePopup(QWidget):
         self.setStyleSheet(
             "#NumberStylePopup { background: white; border: 1px solid #ccc;"
             " border-radius: 3px; }"
+            # 选中态必须一眼盖过悬停态：弹出条以 ① 预览为中心对齐，鼠标移进来
+            # 时几乎总会先擦过中间那两个按钮，两者长得像就会被误读成"它自己跳
+            # 到空心圆了"。所以悬停只给极淡的底，选中给明显的蓝框——图标是深灰
+            # 的，选中态不能用实心主题色去填，否则图样自己就看不见了。
             "QToolButton { border: 1px solid transparent; border-radius: 3px;"
             " background: transparent; }"
-            "QToolButton:hover { background-color: #e5f3ff; border-color: #cce4f7; }"
-            "QToolButton:checked { background-color: #cce4f7; border-color: #0078d7; }"
+            "QToolButton:hover { background-color: #f2f8fd; border-color: #d8e8f5; }"
+            "QToolButton:checked, QToolButton:checked:hover {"
+            " background-color: #cce4f7; border: 2px solid #0078d7; }"
         )
 
         layout = QHBoxLayout(self)

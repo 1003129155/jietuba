@@ -8,9 +8,13 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal, QEvent, QTimer, QPoint
 from PySide6.QtGui import QColor, QFont
-from .base_settings_panel import StepperWidget, build_settings_panel_stylesheet, paint_rounded_panel, PANEL_SCALE
+from .base_settings_panel import (
+    SliderValueLabel, StepperWidget, build_settings_panel_stylesheet,
+    paint_rounded_panel, PANEL_SCALE,
+)
 from .color_picker_button import ColorPickerButton
 from core.constants import (
+    CSS_FONT_FAMILY,
     get_available_text_fonts,
     get_default_text_font_for_language,
     normalize_text_font_family,
@@ -58,15 +62,15 @@ class TextSettingsPanel(QWidget):
             combo_padding="2px 8px 2px 4px",
             combo_min_width=40,
             combo_max_width=120
-        ) + """
-            QCheckBox {
+        ) + f"""
+            QCheckBox {{
                 spacing: 5px;
                 background-color: transparent;
                 border: none;
                 font-family: {CSS_FONT_FAMILY};
                 font-size: 12px;
                 color: #333;
-            }
+            }}
         """)
         
         layout = QHBoxLayout(self)
@@ -244,27 +248,30 @@ class TextSettingsPanel(QWidget):
         # 防止闪烁：记录上次隐藏时间
         self._popup_last_hide_time = 0
         self._background_popup.setFrameShadow(QFrame.Shadow.Plain)
-        self._background_popup.setStyleSheet("""
-            QFrame {
+        # 只描弹窗自己这一层：QSS 的类型选择器连子类一起匹配，写成裸 QFrame
+        # 会顺带给里面的 QLabel（它也是 QFrame）套上白底加圆角边框。
+        self._background_popup.setObjectName("TextBackgroundPopup")
+        self._background_popup.setStyleSheet(f"""
+            QFrame#TextBackgroundPopup {{
                 background-color: white;
                 border: 1px solid #cccccc;
                 border-radius: 4px;
-            }
-            QPushButton {
+            }}
+            QPushButton {{
                 background-color: white;
                 border: 1px solid #ddd;
                 border-radius: 3px;
                 padding: 2px;
                 font-family: {CSS_FONT_FAMILY};
                 font-size: 11px;
-            }
-            QPushButton:hover {
+            }}
+            QPushButton:hover {{
                 background-color: #f0f0f0;
                 border: 1px solid #bbb;
-            }
-            QSlider {
+            }}
+            QSlider {{
                 background-color: transparent;
-            }
+            }}
         """)
 
         popup_layout = QVBoxLayout(self._background_popup)
@@ -307,12 +314,26 @@ class TextSettingsPanel(QWidget):
 
         popup_layout.addLayout(colors_layout)
 
-        # 第二行：透明度滑动条
+        # 第二行：透明度滑动条 + 数值
+        opacity_row = QHBoxLayout()
+        opacity_row.setSpacing(6)
+
         self.background_opacity_slider = QSlider(Qt.Orientation.Horizontal)
         self.background_opacity_slider.setRange(0, 255)
         self.background_opacity_slider.setValue(self.background_opacity)
         self.background_opacity_slider.setToolTip(self.tr("Background Opacity"))
-        popup_layout.addWidget(self.background_opacity_slider)
+        opacity_row.addWidget(self.background_opacity_slider)
+
+        # 面板里其它透明度都是百分比（StepperWidget 带 "%"），这里跟着来，
+        # 别让同一个概念在同一个面板上出现两种刻度。
+        self.background_opacity_label = SliderValueLabel(
+            self.background_opacity_slider,
+            lambda alpha: f"{max(0, min(100, round(alpha / 255 * 100)))}%",
+        )
+        self.background_opacity_label.setToolTip(self.tr("Background Opacity"))
+        opacity_row.addWidget(self.background_opacity_label)
+
+        popup_layout.addLayout(opacity_row)
 
         self.background_color_btn.clicked.connect(self._pick_background_color)
         self.background_opacity_slider.valueChanged.connect(self._on_background_opacity_changed)
@@ -552,6 +573,8 @@ class TextSettingsPanel(QWidget):
             self.background_opacity_slider.blockSignals(True)
             self.background_opacity_slider.setValue(self.background_opacity)
             self.background_opacity_slider.blockSignals(False)
+            # 信号被挡掉了，标签收不到，这里补一次
+            self.background_opacity_label.refresh()
 
     # ── 配置读写 ──────────────────────────────────────────
 

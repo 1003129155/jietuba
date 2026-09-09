@@ -31,6 +31,7 @@ from __future__ import annotations
 import time
 from typing import Optional, Dict, Any
 
+
 from PySide6.QtCore import QRectF, QPointF
 from PySide6.QtGui import QUndoStack, QUndoCommand, QTransform
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsScene

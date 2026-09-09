@@ -31,6 +31,20 @@ def restore_style():
     manager.update_settings("number", style=original)
 
 
+def _image_bytes(image):
+    """把图像内容拷成 bytes——必须先把 QImage 绑到一个名字上。
+
+    constBits() 返回的是指向图像缓冲区的裸指针视图，它不持有 QImage。
+    所以 bytes(_render(...).constBits()) 是错的：constBits() 一返回，那个
+    临时 QImage 就被回收、缓冲区随之释放，bytes() 读的是已释放的内存。
+    平时那块内存还没被复用，读到的仍是旧内容，看起来一切正常；开了页堆
+    就当场访问违例——CI 上那个查了一整天的间歇性 0xC0000005 正是这个。
+
+    参数绑定让 QImage 在整个拷贝期间引用计数不为零，问题就不存在了。
+    """
+    return bytes(image.constBits())
+
+
 def _render(item, side=120):
     image = QImage(side, side, QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(QColor("white"))
@@ -92,7 +106,7 @@ def test_hollow_ring_keeps_the_same_outer_size_as_the_solid_circle(qapp):
 def test_each_style_paints_something_distinct(qapp, style):
     """三种样式必须画出不一样的东西，否则选了等于没选。"""
     images = {
-        s: bytes(_render(NumberItem(7, QPointF(0, 0), 40, QColor("#FF0000"), s)).constBits())
+        s: _image_bytes(_render(NumberItem(7, QPointF(0, 0), 40, QColor("#FF0000"), s)))
         for s in ALL_STYLES
     }
     others = [v for s, v in images.items() if s != style]
@@ -117,7 +131,7 @@ def test_the_new_number_uses_the_saved_style(qapp, restore_style):
 def test_panel_previews_use_the_items_own_painting(qapp):
     """预览图必须走 NumberItem.paint，否则菜单里和画出来的会是两回事。"""
     shots = [
-        bytes(render_number_style_preview(s, QColor("#FF0000"), 34).toImage().constBits())
+        _image_bytes(render_number_style_preview(s, QColor("#FF0000"), 34).toImage())
         for s in ALL_STYLES
     ]
     assert len(set(shots)) == len(ALL_STYLES)
@@ -183,7 +197,7 @@ def test_the_cursor_preview_changes_with_the_style(qapp, restore_style):
         scene, view = _canvas()
         scene.activate_tool("number")
         cursor = view.cursor_manager._create_number_cursor(20)
-        shots[style] = bytes(cursor.pixmap().toImage().constBits())
+        shots[style] = _image_bytes(cursor.pixmap().toImage())
 
     assert len(set(shots.values())) == len(ALL_STYLES), "每种样式的光标都该不一样"
 
@@ -306,9 +320,9 @@ def test_the_style_picker_does_not_track_the_annotation_colour(qapp):
     assert not hasattr(popup, "refresh_previews")
     assert "set_color" not in NumberSettingsPanel.__dict__
 
-    first = bytes(popup._buttons[ALL_STYLES[0]].icon().pixmap(20).toImage().constBits())
+    first = _image_bytes(popup._buttons[ALL_STYLES[0]].icon().pixmap(20).toImage())
     popup._render_previews()
-    second = bytes(popup._buttons[ALL_STYLES[0]].icon().pixmap(20).toImage().constBits())
+    second = _image_bytes(popup._buttons[ALL_STYLES[0]].icon().pixmap(20).toImage())
     assert first == second, "预览图不应随任何颜色变化"
 
 
@@ -414,7 +428,7 @@ def test_the_counter_preview_shows_the_current_style(qapp):
             panel.set_style(style)
             pixmap = panel.next_preview.pixmap()
             assert pixmap is not None and not pixmap.isNull(), "预览没画出来"
-            shots[style] = bytes(pixmap.toImage().constBits())
+            shots[style] = _image_bytes(pixmap.toImage())
 
         assert len(set(shots.values())) == len(ALL_STYLES), "预览没跟着样式变"
     finally:
@@ -475,20 +489,110 @@ def test_restoring_a_tool_panel_survives_a_settings_failure(qapp, monkeypatch):
         toolbar.deleteLater()
 
 
-def test_selecting_a_number_syncs_its_style_into_the_panel(qapp):
-    """面板要反映选中的那个序号，而不是工具默认值。"""
+def test_selecting_a_number_syncs_its_style_into_the_panel(qapp, restore_style):
+    """面板要反映选中的那个序号，而不是工具默认值。
+
+    必须走真的 _show_panel_for_selection：它内部会先按工具默认值回填面板，
+    图元自身的样式得排在那之后。以前这里手写两行模拟"那条分支"，顺序写反了
+    也测不出来。
+    """
     from ui.toolbar import Toolbar
 
+    restore_style.update_settings("number", style=NumberItem.STYLE_SOLID)
+    _scene, view = _canvas()
     toolbar = Toolbar()
     try:
-        toolbar.number_panel.set_style(NumberItem.STYLE_SOLID)
         item = NumberItem(1, QPointF(0, 0), 20, QColor("red"), NumberItem.STYLE_NO_CIRCLE)
-
-        # 走 view 里选中序号时的那条同步分支
-        toolbar.number_panel.set_style(item.style)
+        view._show_panel_for_selection(item, toolbar)
         assert toolbar.number_panel.current_style == NumberItem.STYLE_NO_CIRCLE
     finally:
         toolbar.deleteLater()
+
+
+# ======================================================================
+# 面板回填：一个入口，别处不许再抄一份
+# ======================================================================
+
+
+@pytest.mark.parametrize("style", ALL_STYLES)
+def test_a_fresh_toolbar_shows_the_saved_style(qapp, restore_style, style):
+    """工具栏刚建出来时面板就得是存着的那个样式，而不是硬编码的实心。"""
+    from ui.toolbar import Toolbar
+
+    restore_style.update_settings("number", style=style)
+    toolbar = Toolbar()
+    try:
+        assert toolbar.number_panel.current_style == style
+    finally:
+        toolbar.deleteLater()
+
+
+def test_showing_the_panel_drops_the_previous_selection_style(qapp, restore_style):
+    """跨工具改过某个序号后，重新弹出面板必须回到工具默认值。
+
+    面板活得和进程一样久（截图窗口是复用的），少了这次回填，被临时改过的样式
+    会一直挂在面板上跨越好几次截图，只有重启才清掉——而配置里存的一直是对的。
+    """
+    from ui.toolbar import Toolbar
+
+    restore_style.update_settings("number", style=NumberItem.STYLE_SOLID)
+    toolbar = Toolbar()
+    try:
+        toolbar.number_panel.set_style(NumberItem.STYLE_HOLLOW_BG)
+        toolbar._show_panel_for_tool("number")
+        assert toolbar.number_panel.current_style == NumberItem.STYLE_SOLID
+    finally:
+        toolbar.deleteLater()
+
+
+def test_every_panel_tool_is_backfilled_by_one_entry_point(qapp):
+    """回填只能有一个入口：显示面板时。别处再抄一份就会各自漂。
+
+    用「先把面板拨到一个不是默认值的状态，再显示它」来验证——只要某个工具的
+    回填被漏在别的方法里，这里就会挂。
+    """
+    from tools.mosaic import MosaicTool
+    from ui.toolbar import Toolbar
+    from settings import get_tool_settings_manager
+
+    manager = get_tool_settings_manager()
+    # 粒度只有四档，"拨歪"必须拨到另一档去：随手 +3 会被吸附回原档，前置条件就不成立了
+    saved_block_size = MosaicTool.clamp_block_size(manager.get_setting("mosaic", "block_size"))
+    other_level = next(l for l in MosaicTool.BLOCK_SIZE_LEVELS if l != saved_block_size)
+    toolbar = Toolbar()
+    try:
+        # (工具, 读面板当前值, 把面板拨歪, 该回到的设置值)
+        cases = (
+            ("pen", lambda: toolbar.paint_panel.line_style,
+             lambda: setattr(toolbar.paint_panel, "line_style", "dashed"),
+             manager.get_setting("pen", "line_style")),
+            ("rect", lambda: toolbar.shape_panel.line_style,
+             lambda: setattr(toolbar.shape_panel, "line_style", "dashed"),
+             manager.get_setting("rect", "line_style")),
+            ("arrow", lambda: toolbar.arrow_panel.arrow_style,
+             lambda: setattr(toolbar.arrow_panel, "arrow_style", "bar"),
+             manager.get_setting("arrow", "arrow_style")),
+            ("number", lambda: toolbar.number_panel.current_style,
+             lambda: toolbar.number_panel.set_style(NumberItem.STYLE_HOLLOW_ALL),
+             manager.get_setting("number", "style")),
+            ("mosaic", lambda: toolbar.mosaic_panel.block_size,
+             lambda: toolbar.mosaic_panel.set_block_size(other_level),
+             saved_block_size),
+        )
+        for tool_id, read, derail, expected in cases:
+            derail()
+            assert read() != expected, f"{tool_id} 的前置条件没成立"
+            toolbar._show_panel_for_tool(tool_id)
+            assert read() == expected, f"{tool_id} 显示面板时没有回填"
+    finally:
+        toolbar.deleteLater()
+
+
+def test_pen_line_style_is_persisted_like_any_other_draw_setting(qapp):
+    """工具栏一直在存 pen 的 line_style，缺了默认值就永远读不回来。"""
+    from settings.tool_settings import ToolSettingsManager
+
+    assert "line_style" in ToolSettingsManager.DEFAULT_SETTINGS["pen"]
 
 
 def test_the_style_policy_lives_in_one_place(qapp):

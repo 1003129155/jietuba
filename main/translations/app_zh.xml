@@ -2372,8 +2372,20 @@ Replace it?</source>
         <translation>马赛克种类</translation>
     </message>
     <message>
-        <source>Mosaic Granularity</source>
-        <translation>马赛克粒度</translation>
+        <source>Strength: Subtle</source>
+        <translation>强度：轻微</translation>
+    </message>
+    <message>
+        <source>Strength: Medium</source>
+        <translation>强度：适中</translation>
+    </message>
+    <message>
+        <source>Strength: Strong</source>
+        <translation>强度：较强</translation>
+    </message>
+    <message>
+        <source>Strength: Maximum</source>
+        <translation>强度：最强</translation>
     </message>
 </context>
 

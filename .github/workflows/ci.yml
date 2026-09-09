@@ -12,6 +12,14 @@ jobs:
     env:
       # PySide6 GUI 组件在无桌面会话的 CI Runner 上需要离屏渲染
       QT_QPA_PLATFORM: offscreen
+      # 原生崩溃（Qt 里的段错误、槽里逃逸的异常把进程带走）默认只留下一行
+      # "Process completed with exit code 1"，没有堆栈就没法查。打开
+      # faulthandler，让下一次崩溃至少说清楚崩在哪。
+      PYTHONFAULTHANDLER: "1"
+      # Runner 控制台默认编码是 cp1252，项目里到处是中文日志和中文断言消息，
+      # 一旦有一条走到控制台就是 UnicodeEncodeError。build.yml 早就设了这个，
+      # CI 一直漏着，直到一个中文日志把排查脚本本身噎死才被发现。
+      PYTHONUTF8: "1"
 
     steps:
       - name: Checkout
@@ -58,6 +66,21 @@ jobs:
           --cov-report=term:skip-covered
           --cov-report=xml
           --cov-fail-under=37
+
+      - name: Dump crash logs
+        # 应用自己的崩溃钩子会把 faulthandler 的 C 堆栈写进 %LOCALAPPDATA%，
+        # 进程猝死时 CI 日志上只剩一行 exit code。测试一红就把那些文件打出来。
+        if: failure()
+        run: |
+          $dir = Join-Path $env:LOCALAPPDATA "Jietuba\Logs"
+          if (Test-Path $dir) {
+            Get-ChildItem $dir -File | ForEach-Object {
+              Write-Host "===== $($_.FullName) ====="
+              Get-Content $_.FullName -Tail 200
+            }
+          } else {
+            Write-Host "没有 $dir，崩溃钩子没写出任何东西"
+          }
 
       - name: Enforce coverage on changed lines
         # 只对本次 PR 改动到的行设门槛：总量棘轮（上一步的 --cov-fail-under）

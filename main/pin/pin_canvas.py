@@ -630,8 +630,8 @@ class PinCanvas(QObject):
                     toolbar.set_current_color(ctx.color)
                     toolbar.set_stroke_width(ctx.stroke_width)
                     toolbar.set_opacity(int(ctx.opacity * 255))
-                    if tool_name == "number" and hasattr(toolbar, "set_style_on_number_panel"):
-                        toolbar.set_style_on_number_panel()
+                    # 样式由 Toolbar._show_panel_for_tool 统一回填；这里只补
+                    # 场景状态：下一个序号不是工具默认值，配置里没有它。
                     if tool_name == "number" and hasattr(toolbar, "set_number_next_value"):
                         from tools.number import NumberTool
                         toolbar.set_number_next_value(NumberTool.get_next_number(self.scene))

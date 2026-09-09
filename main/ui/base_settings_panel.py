@@ -218,6 +218,47 @@ def build_settings_panel_stylesheet(
     """
 
 
+class SliderValueLabel(QLabel):
+    """跟着滑块走的数值标签——不显示数字的滑块等于没有刻度。
+
+    读的是 sliderPosition 而不是信号带来的值：滑块可以关掉 tracking（拖动中
+    不把中间值发给下游），那时 valueChanged 要松手才来一次，只认它的话标签会
+    在整个拖动过程里停着不动，而"现在拖到几了"恰恰是拖动时最需要看见的。
+
+    程序化设值时调用方通常会 blockSignals 掉滑块（那是"不触发信号"的公共
+    接口该做的事），信号到不了这里，所以那种路径要自己补一次 refresh()。
+    """
+
+    def __init__(self, slider, format_value=None, parent=None):
+        super().__init__(parent)
+        self._slider = slider
+        self._render = format_value or str
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setFixedWidth(self._width_for_widest_value())
+        slider.valueChanged.connect(self.refresh)   # 键盘步进、松手提交
+        slider.sliderMoved.connect(self.refresh)    # 拖动中（关掉 tracking 时只有它）
+        self.refresh()
+
+    def _width_for_widest_value(self) -> int:
+        """按最宽的那个显示结果把宽度定死，免得 9→10 时整条控件抖一下。
+
+        量的是端点里字数最多的那个，并把其中的数字换成最宽的那个字形——
+        比例字体下 "111" 和 "888" 不一样宽，只数字数会差几个像素。
+        """
+        metrics = self.fontMetrics()
+        widest_digit = max("0123456789", key=metrics.horizontalAdvance)
+        longest = max(
+            (self._render(self._slider.minimum()), self._render(self._slider.maximum())),
+            key=len,
+        )
+        worst_case = "".join(widest_digit if c.isdigit() else c for c in longest)
+        return metrics.horizontalAdvance(worst_case) + round(10 * PANEL_SCALE)
+
+    def refresh(self, _value=None):
+        """参数只为直接接滑块的信号；真值一律回头问滑块，免得两边各存一份。"""
+        self.setText(self._render(int(self._slider.sliderPosition())))
+
+
 class StepperWidget(QWidget):
     """带上下按钮的紧凑数值控件（替代 QSpinBox）"""
 
