@@ -188,7 +188,7 @@ class OCRManager:
             self._last_error = None
             self._current_engine = None  # 当前使用的引擎类型
             self._windows_ocr_language = None  # windows_media_ocr 语言设置
-            self._pp_rust_ready = False  # ppocr_rust 引擎是否已初始化
+            self._pp_engine = None  # ppocr_rust.Engine 实例，None 即未初始化
             self._init_lock = threading.Lock()  # 线程锁，防止重复初始化
     
     @property
@@ -308,23 +308,22 @@ class OCRManager:
         if not PP_RUST_AVAILABLE:
             self._last_error = "ppocr_rust 引擎不可用"
             return False
-        if self._pp_rust_ready:
+        if self._pp_engine is not None:
             return True
         with self._init_lock:
-            if self._pp_rust_ready:
+            if self._pp_engine is not None:
                 return True
             try:
                 _ocr_log(T("正在初始化 ppocr_rust 引擎 (Rust + ort)..."), "DEBUG")
                 import ppocr_rust
-                ppocr_rust.ppocr_initialize(_pp_det, _pp_rec)
-                self._pp_rust_ready = True
+                self._pp_engine = ppocr_rust.Engine(_pp_det, _pp_rec)
                 _ocr_log(T("ppocr_rust 引擎初始化成功"), "DEBUG")
                 return True
             except Exception as e:
                 self._last_error = f"ppocr_rust 初始化失败: {str(e)}"
                 tb_str = _tb.format_exc()
                 _ocr_log(T("ppocr_rust 初始化失败: {e}\n{tb}", e=str(e), tb=tb_str), "ERROR")
-                self._pp_rust_ready = False
+                self._pp_engine = None
                 return False
     
     def _initialize_windos_ocr(self) -> bool:
@@ -424,7 +423,7 @@ class OCRManager:
         """
         if not PP_RUST_AVAILABLE:
             return self._format_error(return_format, "ppocr_rust 不可用")
-        if not self._pp_rust_ready:
+        if self._pp_engine is None:
             if not self._initialize_ppocr_rust():
                 return self._format_error(return_format)
         try:
@@ -434,19 +433,26 @@ class OCRManager:
                 return self._format_empty_result(return_format)
             raw, w, h, stride = conv
 
-            import ppocr_rust
-            lines = ppocr_rust.ppocr_recognize(raw, w, h, stride)
+            # 取到局部变量：release() 可能在别的线程把 self._pp_engine 置空
+            engine = self._pp_engine
+            if engine is None:
+                return self._format_error(return_format, "ppocr_rust 引擎已释放")
+            lines = engine.recognize(raw, w, h, stride)
             elapse = time.time() - start_time
 
             if not lines:
                 return self._format_empty_result(return_format)
 
-            # ppocr_rust 返回 [(box, text, score), ...]，box=[[x,y]x4]
+            # ppocr_rust 返回 list[TextLine]，.points 是四个角点
             ocr_results = []
-            for box, text, score in lines:
-                if not text:
+            for line in lines:
+                if not line.text:
                     continue
-                ocr_results.append([[[float(p[0]), float(p[1])] for p in box], text, float(score)])
+                ocr_results.append([
+                    [[float(x), float(y)] for x, y in line.points],
+                    line.text,
+                    float(line.score),
+                ])
             if not ocr_results:
                 return self._format_empty_result(return_format)
             return self._format_result(ocr_results, return_format, elapse)
@@ -717,8 +723,11 @@ class OCRManager:
 
             # 此处仅做 Python 侧状态清理
             self._windows_ocr_language = None
-            # ppocr_rust 也是 Rust 全局单例，进程退出自动释放；仅重置标记
-            self._pp_rust_ready = False
+            # 引擎实例持有 det/rec 两个 ONNX 模型（约 30 MB），close() 后立即
+            # 释放，不必再等进程退出
+            if self._pp_engine is not None:
+                self._pp_engine.close()
+                self._pp_engine = None
             self._current_engine = None
             
             _ocr_log(T("OCR 管理器状态已重置"))
@@ -728,7 +737,7 @@ class OCRManager:
     def is_engine_loaded(self) -> bool:
         """检查 OCR 引擎是否已初始化"""
         if self._current_engine == self.ENGINE_PP_RUST:
-            return self._pp_rust_ready
+            return self._pp_engine is not None
         elif self._current_engine == self.ENGINE_WINDOS_OCR:
             return WINDOS_OCR_AVAILABLE
         elif self._current_engine == self.ENGINE_WINDOWS_OCR:
@@ -741,7 +750,7 @@ class OCRManager:
             return "未初始化"
         
         if self._current_engine == self.ENGINE_PP_RUST:
-            return "已初始化 (ppocr_rust Rust+ort 引擎)" if self._pp_rust_ready else "未初始化"
+            return "已初始化 (ppocr_rust Rust+ort 引擎)" if self._pp_engine is not None else "未初始化"
         elif self._current_engine == self.ENGINE_WINDOS_OCR:
             if WINDOS_OCR_AVAILABLE:
                 return "已初始化 (高精度引擎 Rust FFI)"

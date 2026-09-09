@@ -1639,7 +1639,7 @@ dependencies = [
 
 [[package]]
 name = "ppocr_rust"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "image 0.25.9",
  "imageproc",
