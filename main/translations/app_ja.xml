@@ -2337,8 +2337,20 @@ Replace it?</source>
         <translation>モザイク種類</translation>
     </message>
     <message>
-        <source>Mosaic Granularity</source>
-        <translation>モザイクの粒度</translation>
+        <source>Strength: Subtle</source>
+        <translation>強度：弱</translation>
+    </message>
+    <message>
+        <source>Strength: Medium</source>
+        <translation>強度：中</translation>
+    </message>
+    <message>
+        <source>Strength: Strong</source>
+        <translation>強度：強</translation>
+    </message>
+    <message>
+        <source>Strength: Maximum</source>
+        <translation>強度：最強</translation>
     </message>
 </context>
 

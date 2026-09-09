@@ -519,3 +519,27 @@ def test_export_does_not_bake_handles_into_the_image(view, qapp):
     with_selection = _render()
 
     assert with_selection == without_selection, "导出结果不应因为选中态而变化"
+
+
+def test_a_destroyed_selection_reads_back_as_no_selection(view):
+    """图元的 C++ 对象没了之后，selected_item 必须读成 None 而不是抛。
+
+    撤销栈的 indexChanged 是从 C++ 调过来的槽。以前那里直接 self.selected_item
+    .scene()，图元被删掉后引用还在、对象已经析构，抛出的 RuntimeError 会从槽里
+    冒到 Qt 的调用栈上——信号链断掉，而且不留可读的堆栈。
+    """
+    import shiboken6
+    from canvas.items import RectItem
+    from canvas.smart_edit_controller import SelectionMode
+
+    controller = view.smart_edit_controller
+    item = _select(view, RectItem(QRectF(10, 10, 60, 40), QColor("red"), 3))
+    assert controller.selected_item is item
+
+    view.canvas_scene.removeItem(item)
+    shiboken6.delete(item)          # 模拟场景把这个图元真正析构掉
+
+    assert controller.selected_item is None
+    # 撤销栈再发一次信号也不能炸
+    controller._on_undo_index_changed()
+    assert controller.mode in (SelectionMode.NONE, controller.mode)

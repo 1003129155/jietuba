@@ -2285,8 +2285,20 @@ Replace it?</translation>
         <translation>Mosaic Style</translation>
     </message>
     <message>
-        <source>Mosaic Granularity</source>
-        <translation>Mosaic Granularity</translation>
+        <source>Strength: Subtle</source>
+        <translation>Strength: Subtle</translation>
+    </message>
+    <message>
+        <source>Strength: Medium</source>
+        <translation>Strength: Medium</translation>
+    </message>
+    <message>
+        <source>Strength: Strong</source>
+        <translation>Strength: Strong</translation>
+    </message>
+    <message>
+        <source>Strength: Maximum</source>
+        <translation>Strength: Maximum</translation>
     </message>
 </context>
 

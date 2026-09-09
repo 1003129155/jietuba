@@ -624,68 +624,55 @@ class CanvasView(QGraphicsView):
         self._show_panel_for_selection(item, toolbar)
 
     def _show_panel_for_selection(self, item, toolbar):
-        """根据选中的图元类型显示对应的设置面板（二次编辑支持）"""
+        """根据选中的图元类型显示对应的设置面板（二次编辑支持）。
+
+        统一顺序：先 _show_panel_for_tool 把面板回填成工具默认值，再把选中的这
+        一个图元的状态盖上去。反过来写会被默认值冲掉——面板是跨工具共用的，
+        回填是它显示时的固有动作，不能指望调用方先做完差异化同步再显示。
+
+        也正因为这个顺序，同步失败只需要在最外面兜一次：面板早就显示出来了，
+        兜住之后它停在工具默认值上，本来就是这里能给出的最好结果。
+        """
         try:
             # 文字图元
             if isinstance(item, QGraphicsTextItem) and hasattr(toolbar, "text_panel"):
-                try:
-                    toolbar.text_panel.set_state_from_item(item)
-                except Exception as exc:
-                    log_warning(T("无法同步文字面板: {exc}", exc=exc), "CanvasView")
                 toolbar._show_panel_for_tool("text")
+                toolbar.text_panel.set_state_from_item(item)
             # 箭头图元
             elif isinstance(item, ArrowItem) and hasattr(toolbar, "arrow_panel"):
-                # 同步箭头样式到面板
-                arrow_style = getattr(item, '_arrow_style', 'single')
-                toolbar.arrow_panel.arrow_style = arrow_style
-                # 同步颜色
-                if hasattr(item, 'color'):
-                    toolbar.arrow_panel.set_color(item.color)
                 toolbar._show_panel_for_tool("arrow")
+                toolbar.arrow_panel.arrow_style = getattr(item, "_arrow_style", "single")
+                if hasattr(item, "color"):
+                    toolbar.arrow_panel.set_color(item.color)
             # 高亮矩形（使用画笔面板）
             elif isinstance(item, RectItem) and getattr(item, "is_highlighter_rect", False) and hasattr(toolbar, "paint_panel"):
-                try:
-                    toolbar.paint_panel.set_state_from_item(item)
-                    toolbar.paint_panel.set_line_style_visible(False)
-                except Exception as exc:
-                    log_warning(T("无法同步高亮矩形面板: {exc}", exc=exc), "CanvasView")
                 toolbar._show_panel_for_tool("highlighter")
-                if hasattr(toolbar.paint_panel, "set_highlighter_mode"):
-                    toolbar.paint_panel.set_highlighter_mode("rect")
+                toolbar.paint_panel.set_state_from_item(item)
+                toolbar.paint_panel.set_line_style_visible(False)
+                toolbar.paint_panel.set_highlighter_mode("rect")
             # 形状图元
             elif isinstance(item, (RectItem, EllipseItem)) and hasattr(toolbar, "shape_panel"):
-                try:
-                    toolbar.shape_panel.set_state_from_item(item)
-                except Exception as exc:
-                    log_warning(T("无法同步形状面板: {exc}", exc=exc), "CanvasView")
                 toolbar._show_panel_for_tool("rect")
+                toolbar.shape_panel.set_state_from_item(item)
             # 序号图元
             elif isinstance(item, NumberItem) and hasattr(toolbar, "number_panel"):
-                # 面板要反映选中的那个序号，而不是工具默认值
-                if hasattr(toolbar.number_panel, "set_style"):
-                    try:
-                        toolbar.number_panel.set_style(item.style)
-                    except Exception as exc:
-                        log_warning(T("无法同步序号面板: {exc}", exc=exc), "CanvasView")
                 toolbar._show_panel_for_tool("number")
+                toolbar.number_panel.set_style(item.style)
             # 画笔图元
             elif isinstance(item, StrokeItem) and hasattr(toolbar, "paint_panel"):
-                try:
-                    toolbar.paint_panel.set_state_from_item(item)
-                    toolbar.paint_panel.set_line_style_visible(not getattr(item, "is_highlighter", False))
-                except Exception as exc:
-                    log_warning(T("无法同步画笔面板: {exc}", exc=exc), "CanvasView")
-                toolbar._show_panel_for_tool("highlighter" if getattr(item, "is_highlighter", False) else "pen")
+                is_highlighter = bool(getattr(item, "is_highlighter", False))
+                toolbar._show_panel_for_tool("highlighter" if is_highlighter else "pen")
+                toolbar.paint_panel.set_state_from_item(item)
+                toolbar.paint_panel.set_line_style_visible(not is_highlighter)
             # 马赛克图元（框选或自由涂抹都在这，跨工具/钉图选中时也要弹出对应面板）
             elif isinstance(item, MosaicItem) and hasattr(toolbar, "mosaic_panel"):
-                # _show_panel_for_tool 会先按工具默认设置回填面板，所以这里
-                # "面板要反映选中的这一块"的同步必须放在它之后，否则被覆盖。
                 toolbar._show_panel_for_tool("mosaic")
-                try:
-                    toolbar.mosaic_panel.set_draw_mode("rect" if item.fill_mode() else "freehand")
-                    toolbar.mosaic_panel.set_style("blur" if item.smooth() else "pixelate")
-                except Exception as exc:
-                    log_warning(T("无法同步马赛克面板: {exc}", exc=exc), "CanvasView")
+                toolbar.mosaic_panel.set_draw_mode("rect" if item.fill_mode() else "freehand")
+                toolbar.mosaic_panel.set_style("blur" if item.smooth() else "pixelate")
+                # 粒度也得跟着选中的这一块：面板「再点一次当前档不算改动」，
+                # 漏掉这行的话，高亮的是工具默认档、图元却是另一档，用户点
+                # 那个高亮档想改它会被当成重复点击直接吃掉。
+                toolbar.mosaic_panel.set_block_size(item.block_size())
         except Exception as e:
             log_warning(T("显示编辑面板失败: {e}", e=e), "CanvasView")
 

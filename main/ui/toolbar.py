@@ -1,6 +1,7 @@
 ﻿"""
 工具栏 - 截图工具栏UI
 """
+
 from PySide6.QtCore import Qt, QSize, Signal, QRect, QRectF, QPoint
 from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QBrush
 from PySide6.QtWidgets import (
@@ -126,6 +127,10 @@ class Toolbar(QWidget):
     # 画笔工具专用信号
     line_style_changed = Signal(str)  # 线条样式改变(solid/dashed)
     
+    # 有二级面板的工具。pen/highlighter 与 rect/ellipse 各自共用一个面板，
+    # 但设置是分工具存的，所以这里按工具而不是按面板列。
+    PANEL_TOOLS = ("pen", "highlighter", "rect", "ellipse", "arrow", "number", "text", "mosaic")
+
     def __init__(self, parent=None):
         super().__init__(parent)  # 使用父窗口（如果有）
         
@@ -456,6 +461,7 @@ class Toolbar(QWidget):
         
         # 确定父窗口和窗口标志
         parent = self.parent()
+
         if parent is None:
             # 独立顶层窗口，强制置顶
             flags = (Qt.WindowType.FramelessWindowHint | 
@@ -601,44 +607,49 @@ class Toolbar(QWidget):
         painter.end()
         
     def _load_saved_settings(self):
-        """加载保存的工具设置"""
-        from settings import get_tool_settings_manager
-        manager = get_tool_settings_manager()
-        
-        # 加载文字工具设置（委托给面板）
-        self.text_panel.load_from_config()
-        
-        # 加载箭头工具设置
-        arrow_settings = manager.get_tool_settings("arrow")
-        if arrow_settings and hasattr(self, 'arrow_panel'):
-            arrow_style = arrow_settings.get("arrow_style", "single")
-            self.arrow_panel.arrow_style = arrow_style
+        """把每个工具的持久化设置回填到它的二级面板。"""
+        for tool_id in self.PANEL_TOOLS:
+            self._sync_panel_from_settings(tool_id)
 
-        # 加载马赛克工具设置
-        self._sync_mosaic_panel(manager.get_tool_settings("mosaic"))
+    def _sync_panel_from_settings(self, tool_id: str):
+        """把某个工具的持久化设置回填到它的面板——「现在画会画出什么」。
 
-    def _sync_mosaic_panel(self, settings=None):
-        """把持久化的马赛克设置回填到面板。
+        启动加载、切换工具、恢复工具态、单独弹面板，做的都是同一件事，所以只
+        留这一份：调用方只决定"什么时候回填"，不再各自重复"回填什么"。
 
-        启动加载、切回马赛克工具、单独弹面板三个入口都要做同一件事，所以只留
-        这一份。不在这里写默认值：ToolSettings.get(key) 拿不到就自己回落到
-        DEFAULT_SETTINGS，面板的 set_* 还会再normalize一次，调用方重复写一遍
+        不在这里写默认值：ToolSettings.get(key) 拿不到就自己回落到
+        DEFAULT_SETTINGS，面板的 set_* 还会再 normalize 一次，调用方重复写一遍
         只会多出几份迟早对不上的副本。
+
+        注意调用顺序：选中图元后要把面板改成"这一个图元"的状态，必须放在本函数
+        之后，否则会被工具默认值盖掉。
         """
-        panel = getattr(self, "mosaic_panel", None)
-        if panel is None:
-            return
         try:
-            if settings is None:
-                from settings import get_tool_settings_manager
-                manager = get_tool_settings_manager()
-                settings = manager.get_tool_settings("mosaic") if manager else None
-            if settings:
-                panel.set_draw_mode(settings.get("draw_mode"))
-                panel.set_style(settings.get("style"))
-                panel.set_block_size(settings.get("block_size"))
+            from settings import get_tool_settings_manager
+            manager = get_tool_settings_manager()
+            settings = manager.get_tool_settings(tool_id) if manager else None
+            if not settings:
+                return
+
+            if tool_id == "text":
+                # 文字面板自己有一份完整的读配置逻辑，别在这里再抄一遍
+                self.text_panel.load_from_config()
+            elif tool_id in ("pen", "highlighter"):
+                self.paint_panel.line_style = settings.get("line_style")
+                if tool_id == "highlighter":
+                    self.paint_panel.set_highlighter_mode(settings.get("draw_mode"))
+            elif tool_id in ("rect", "ellipse"):
+                self.shape_panel.line_style = settings.get("line_style")
+            elif tool_id == "arrow":
+                self.arrow_panel.arrow_style = settings.get("arrow_style")
+            elif tool_id == "number":
+                self.number_panel.set_style(settings.get("style"))
+            elif tool_id == "mosaic":
+                self.mosaic_panel.set_draw_mode(settings.get("draw_mode"))
+                self.mosaic_panel.set_style(settings.get("style"))
+                self.mosaic_panel.set_block_size(settings.get("block_size"))
         except Exception as exc:
-            log_debug(T("同步马赛克面板失败: {exc}", exc=exc), "Toolbar")
+            log_debug(T("同步 {tool_id} 面板失败: {exc}", tool_id=tool_id, exc=exc), "Toolbar")
 
     def reset_session_state(self):
         """重置工具栏状态（新截图会话开始时调用）。"""
@@ -698,36 +709,14 @@ class Toolbar(QWidget):
             if opacity is not None:
                 self.set_opacity(int(round(float(opacity) * 255)))
 
-        # 先绑定：下面的序号分支在 try 之外读它，try 提前抛异常就会 UnboundLocalError
-        settings = None
-        try:
-            from settings import get_tool_settings_manager
-            manager = get_tool_settings_manager()
-            settings = manager.get_tool_settings(tool_id) if manager else None
-            if tool_id == "text":
-                self.text_panel.load_from_config()
-            elif tool_id in ("pen", "highlighter") and settings:
-                self.paint_panel.line_style = settings.get("line_style", "solid")
-                if tool_id == "highlighter":
-                    self.paint_panel.set_highlighter_mode(settings.get("draw_mode", "freehand"))
-            elif tool_id in ("rect", "ellipse") and settings:
-                self.shape_panel.line_style = settings.get("line_style", "solid")
-            elif tool_id == "arrow" and settings:
-                self.arrow_panel.arrow_style = settings.get("arrow_style", "single")
-            elif tool_id == "mosaic" and settings:
-                self._sync_mosaic_panel(settings)
-        except Exception as exc:
-            log_debug(f"恢复工具面板设置失败: {exc}", "Toolbar")
-
-        if tool_id == "number":
-            if settings and hasattr(self.number_panel, "set_style"):
-                self.number_panel.set_style(settings.get("style", "solid"))
-            if scene is not None:
-                try:
-                    from tools.number import NumberTool
-                    self.set_number_next_value(NumberTool.get_next_number(scene))
-                except Exception as exc:
-                    log_debug(f"恢复序号预览失败: {exc}", "Toolbar")
+        # 面板本身由 _show_panel_for_tool 统一按持久化设置回填；这里只补
+        # 「不在设置里」的那部分：下一个序号是场景状态，不是工具默认值。
+        if tool_id == "number" and scene is not None:
+            try:
+                from tools.number import NumberTool
+                self.set_number_next_value(NumberTool.get_next_number(scene))
+            except Exception as exc:
+                log_debug(T("恢复序号预览失败: {exc}", exc=exc), "Toolbar")
         self._show_panel_for_tool(tool_id)
     
     def _on_tool_clicked(self, tool_id: str):
@@ -766,18 +755,7 @@ class Toolbar(QWidget):
         self.current_tool = tool_id
         self.tool_changed.emit(tool_id)
 
-        # 同步线条样式到面板（rect / ellipse）
-        if tool_id in ("rect", "ellipse") and hasattr(self, 'shape_panel'):
-            try:
-                from settings import get_tool_settings_manager
-                manager = get_tool_settings_manager()
-                shape_settings = manager.get_tool_settings(tool_id) if manager else None
-                if shape_settings:
-                    self.shape_panel.line_style = shape_settings.get("line_style", "solid")
-            except Exception as exc:
-                log_debug(T("同步形状线条样式失败: {exc}", exc=exc), "Toolbar")
-
-        # 显示对应的设置面板
+        # 显示对应的设置面板（面板内容由 _show_panel_for_tool 按设置回填）
         self._show_panel_for_tool(tool_id)
             
     def _hide_all_panels(self):
@@ -790,25 +768,21 @@ class Toolbar(QWidget):
         if hasattr(self, 'mosaic_panel'): self.mosaic_panel.hide()
 
     def _show_panel_for_tool(self, tool_id: str):
-        """显示指定工具的设置面板"""
+        """显示指定工具的设置面板，内容一律回填成该工具的持久化设置。
+
+        面板是共用的（画笔/荧光笔一个，矩形/椭圆一个），上一个工具或上一个被选
+        中的图元留下的状态必须在这里被冲掉，否则面板显示的就不是"现在画会画出
+        什么"。所以选中图元后的差异化同步必须排在本函数之后。
+        """
         self._hide_all_panels()
 
+        # 面板的形态（哪些控件该露出来）跟着工具走，与持久化设置无关
         if tool_id in ("pen", "highlighter") and hasattr(self, "paint_panel"):
             self.paint_panel.set_line_style_visible(tool_id == "pen")
             if hasattr(self.paint_panel, "set_highlighter_mode_visible"):
                 self.paint_panel.set_highlighter_mode_visible(tool_id == "highlighter")
-            if tool_id == "highlighter" and hasattr(self.paint_panel, "set_highlighter_mode"):
-                try:
-                    from settings import get_tool_settings_manager
-                    manager = get_tool_settings_manager()
-                    settings = manager.get_tool_settings("highlighter") if manager else None
-                    if settings:
-                        self.paint_panel.set_highlighter_mode(settings.get("draw_mode", "freehand"))
-                except Exception as exc:
-                    log_debug(T("同步荧光笔模式失败: {exc}", exc=exc), "Toolbar")
 
-        if tool_id == "mosaic":
-            self._sync_mosaic_panel()
+        self._sync_panel_from_settings(tool_id)
 
         panel_map = {
             "pen": self.paint_panel,
@@ -1028,20 +1002,6 @@ class Toolbar(QWidget):
             self.arrow_panel.set_opacity(opacity_255)
         if hasattr(self, 'number_panel'):
             self.number_panel.set_opacity(opacity_255)
-
-    def set_style_on_number_panel(self):
-        """把已保存的序号样式回填到面板（钉图和截图共用）。"""
-        panel = getattr(self, "number_panel", None)
-        if panel is None or not hasattr(panel, "set_style"):
-            return
-        try:
-            from settings import get_tool_settings_manager
-            manager = get_tool_settings_manager()
-            settings = manager.get_tool_settings("number") if manager else None
-            if settings:
-                panel.set_style(settings.get("style", "solid"))
-        except Exception as exc:
-            log_debug(T("回填序号样式失败: {exc}", exc=exc), "Toolbar")
 
     def _on_number_style_changed(self, style: str):
         """转发给窗口统一处理：落到选中的序号 + 存设置 + 刷新光标。"""

@@ -15,9 +15,19 @@ _undo_tr = make_tr("UndoCommands")
 class MosaicTool(Tool):
     id = "mosaic"
 
-    DEFAULT_BLOCK_SIZE = 8
-    MIN_BLOCK_SIZE = 2
-    MAX_BLOCK_SIZE = 32
+    # 粒度只有四档，不是一个连续区间。这不是 UI 上的糖：档位就是这个量的合法
+    # 取值域，工具、光标预览、面板、设置读写全都经由 clamp_block_size 吸附到
+    # 档位上，否则历史配置里的非档位值（比如 6）会让面板高亮的档和实际画出来
+    # 的粒度长期对不上。
+    #
+    # 按倍增排布而不是等差：粒度的观感差异是对数的，等差档位在粗端几乎看不出
+    # 区别，倍增才是四档就能覆盖全程的原因。
+    BLOCK_SIZE_LEVELS = (3, 7, 16, 32)
+    # 默认值必须是档位之一：clamp_block_size 拿不到有效输入时直接返回它，
+    # 要是它自己都不在档上，"归一化后一定落在档位上"这条就漏了。
+    DEFAULT_BLOCK_SIZE = 7
+    MIN_BLOCK_SIZE = BLOCK_SIZE_LEVELS[0]
+    MAX_BLOCK_SIZE = BLOCK_SIZE_LEVELS[-1]
 
     MODE_FREEHAND = "freehand"
     MODE_RECT = "rect"
@@ -62,12 +72,16 @@ class MosaicTool(Tool):
 
     @classmethod
     def clamp_block_size(cls, block_size) -> int:
-        """把任意来源的粒度收进合法范围（与 Tool.clamp_width 同一个套路）。"""
+        """把任意来源的粒度吸附到最近的档位（与 Tool.clamp_width 同一个套路）。
+
+        旧配置和旧图元里存的是任意整数，这里是它们汇入档位制的唯一入口。
+        正中间的平局取更粗的那一档：打码宁可糊过头，也不要糊不够。
+        """
         try:
             value = int(block_size)
         except (TypeError, ValueError):
-            value = cls.DEFAULT_BLOCK_SIZE
-        return max(cls.MIN_BLOCK_SIZE, min(cls.MAX_BLOCK_SIZE, value))
+            return cls.DEFAULT_BLOCK_SIZE
+        return min(cls.BLOCK_SIZE_LEVELS, key=lambda level: (abs(level - value), -level))
 
     @classmethod
     def get_block_size(cls, ctx) -> int:
