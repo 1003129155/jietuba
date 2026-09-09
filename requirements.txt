@@ -13,8 +13,5 @@ emoji==2.15.0
 av==17.0.0
 colorama==0.4.6
 
-# ===== 自制 Rust 库（需从本地 .whl 安装） =====
-# pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl
-# pip install longstitch-0.3.9-cp311-cp311-win_amd64.whl
-# pip install pyclipboard-0.3.14-cp311-cp311-win_amd64.whl
-# pip install ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
+# ===== 自制 Rust 库（从 wheels/ 安装，版本以目录内的文件为准） =====
+# pip install --no-index --find-links=wheels gifrecorder longstitch pyclipboard ppocr_rust

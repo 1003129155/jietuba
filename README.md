@@ -70,7 +70,7 @@ python -m pip install -r requirements.txt
 **方式 A：使用仓库自带的 `.whl` 文件**（在项目根目录执行）
 
 ```bash
-python -m pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl longstitch-0.3.11-cp311-cp311-win_amd64.whl pyclipboard-0.3.14-cp311-cp311-win_amd64.whl ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
+python -m pip install --no-index --find-links=wheels gifrecorder longstitch pyclipboard ppocr_rust
 ```
 
 **方式 B：从 GitHub Release 下载**（仓库根目录文件缺失或想用最新版时）
@@ -112,10 +112,7 @@ python main_app.py
 ├── requirements.txt                                   # 运行依赖
 ├── requirements-dev.txt                               # 测试与构建依赖
 ├── build_with_ocr_onefile.py                           # PyInstaller 单文件构建脚本
-├── gifrecorder-0.2.1-cp311-cp311-win_amd64.whl       # GIF录制 Rust 预编译包
-├── longstitch-0.3.11-cp311-cp311-win_amd64.whl        # 长截图拼接 Rust 预编译包
-├── pyclipboard-0.3.14-cp311-cp311-win_amd64.whl      # 剪切板 Rust 预编译包
-├── ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl        # OCR Rust 预编译包
+├── wheels/                  # 自制 Rust 库的预编译 wheel
 │
 ├── main/                    # Python 主程序
 │   ├── main_app.py          # 应用入口，系统托盘、全局快捷键、生命周期管理

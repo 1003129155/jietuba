@@ -65,7 +65,7 @@ There are two sources for these 4 packages, pick either one:
 **Option A: Use the `.whl` files bundled in the repo** (from the project root)
 
 ```bash
-python -m pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl longstitch-0.3.11-cp311-cp311-win_amd64.whl pyclipboard-0.3.14-cp311-cp311-win_amd64.whl ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
+python -m pip install --no-index --find-links=wheels gifrecorder longstitch pyclipboard ppocr_rust
 ```
 
 **Option B: Download from GitHub Release** (if the files are missing or you want the latest build)
@@ -107,10 +107,7 @@ python main_app.py
 ├── requirements.txt                                   # Runtime dependencies
 ├── requirements-dev.txt                               # Test and build dependencies
 ├── build_with_ocr_onefile.py                           # PyInstaller one-file build script
-├── gifrecorder-0.2.1-cp311-cp311-win_amd64.whl       # GIF recorder Rust pre-built package
-├── longstitch-0.3.11-cp311-cp311-win_amd64.whl        # Long-stitch Rust pre-built package
-├── pyclipboard-0.3.14-cp311-cp311-win_amd64.whl      # Clipboard Rust pre-built package
-├── ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl        # OCR Rust pre-built package
+├── wheels/                  # 自制 Rust 库的预编译 wheel
 │
 ├── main/                    # Python main program
 │   ├── main_app.py          # App entry point: system tray, global hotkeys, lifecycle management
