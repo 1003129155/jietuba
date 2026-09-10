@@ -443,6 +443,29 @@ def test_reduced_cache_invalidates_on_background_change_and_release(qapp):
     assert rebuilt == updated
 
 
+def test_display_pixmap_does_not_affect_reduced_image(qapp):
+    """钉图缩放换的是只给渲染看的位图，不能污染马赛克缩小图的取景来源。
+
+    回归用例：钉图窗口缩放时曾经把这张按显示分辨率重采样的位图直接灌进
+    update_image()，导致 reduced_image() 按显示分辨率而不是原图分辨率切块，
+    缩放后再用马赛克会取错内容。set_display_pixmap() 只应该换渲染，
+    image()/reduced_image() 必须还是原图分辨率的那份。
+    """
+    from PySide6.QtGui import QPixmap, QTransform
+
+    scene = CanvasScene(_gradient_image(), QRectF(0, 0, 64, 64), enable_mosaic=True)
+    background = scene.background
+    before = background.reduced_image(8)
+
+    scaled_pixmap = QPixmap(128, 128)
+    scaled_pixmap.fill(QColor("red"))
+    background.set_display_pixmap(scaled_pixmap, QTransform.fromScale(0.5, 0.5))
+
+    after = background.reduced_image(8)
+    assert after == before
+    assert background.image().size() == QSize(64, 64)
+
+
 def test_reduced_cache_keeps_only_latest_block_size(monkeypatch, qapp):
     """粒度缓存只留最近一次算出来的那张，换粒度就把旧的顶掉，不按 block_size 攒字典。"""
     from PIL import Image

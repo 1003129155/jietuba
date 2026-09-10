@@ -22,10 +22,10 @@ class MosaicTool(Tool):
     #
     # 按倍增排布而不是等差：粒度的观感差异是对数的，等差档位在粗端几乎看不出
     # 区别，倍增才是四档就能覆盖全程的原因。
-    BLOCK_SIZE_LEVELS = (3, 7, 16, 32)
+    BLOCK_SIZE_LEVELS = (4, 10, 16, 32)
     # 默认值必须是档位之一：clamp_block_size 拿不到有效输入时直接返回它，
     # 要是它自己都不在档上，"归一化后一定落在档位上"这条就漏了。
-    DEFAULT_BLOCK_SIZE = 7
+    DEFAULT_BLOCK_SIZE = 10
     MIN_BLOCK_SIZE = BLOCK_SIZE_LEVELS[0]
     MAX_BLOCK_SIZE = BLOCK_SIZE_LEVELS[-1]
 

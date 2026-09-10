@@ -6,7 +6,7 @@
 """
 
 from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtGui import QImage, QPixmap, QTransform
 from PySide6.QtWidgets import QGraphicsPixmapItem
 from PIL import Image
 from core.logger import log_debug, T
@@ -59,6 +59,20 @@ class BackgroundItem(QGraphicsPixmapItem):
         self._reduced_cache_key = None
         self._reduced_cache_image = None
         self.setPixmap(QPixmap.fromImage(image))
+
+    def set_display_pixmap(self, pixmap: QPixmap, transform: QTransform):
+        """只换渲染用的位图和补偿变换，不动 image()/reduced_image() 的内容来源。
+
+        钉图缩放时会按显示像素密度重采样出一张只为显示更清晰的位图，配合
+        这里的变换把它压回原来的场景尺寸——这只是渲染层的近似，不是内容
+        变了。如果这张重采样位图也灌进 _cached_image，马赛克的缩小图就会
+        按显示分辨率而不是原图分辨率去切块，块的尺寸和取景范围都会跟着
+        缩放比例跑偏（见 MosaicTool：它直接拿 reduced_image() 的像素尺寸
+        乘 block_size 当作场景坐标下的绘制尺寸）。保持 _cached_image 只认
+        原始分辨率，缩小图才始终和场景坐标系对齐。
+        """
+        self.setPixmap(pixmap)
+        self.setTransform(transform)
 
     def reduced_image(self, block_size: int) -> QImage:
         """Return the background shrunk block_size times, for the mosaic to blow back up.

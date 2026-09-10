@@ -393,9 +393,12 @@ class PinWindow(QWidget):
             Qt.AspectRatioMode.IgnoreAspectRatio,
             Qt.TransformationMode.SmoothTransformation,
         )
-        background_item.update_image(scaled.toImage())
-        background_item.setTransform(
-            QTransform.fromScale(1.0 / bg_scale_x, 1.0 / bg_scale_y)
+        # 只换渲染用的位图，不能走 update_image()：那会把这张按显示分辨率
+        # 重采样的位图灌进背景的"内容"缓存，马赛克的缩小图届时就会按显示
+        # 分辨率而不是原图分辨率切块，缩放后马赛克内容会错位/错误。
+        background_item.set_display_pixmap(
+            scaled,
+            QTransform.fromScale(1.0 / bg_scale_x, 1.0 / bg_scale_y),
         )
         self._last_background_scale_size = target_size
 

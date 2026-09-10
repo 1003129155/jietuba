@@ -105,7 +105,7 @@ class ToolSettingsManager(QObject):
             "color": "#808080",
             "stroke_width": 30,
             "opacity": 1.0,
-            "block_size": 7,  # 必须是 MosaicTool.BLOCK_SIZE_LEVELS 里的档位之一
+            "block_size": 10,  # 必须是 MosaicTool.BLOCK_SIZE_LEVELS 里的档位之一
             "draw_mode": "freehand",  # freehand / rect
             "style": "pixelate",  # pixelate / blur
         },
