@@ -35,10 +35,6 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
-      - name: Install custom Rust wheels
-        # 按包名装，版本由 wheels/ 目录里的文件决定；升版本不必改这里
-        run: pip install --no-index --find-links=wheels j-gif j-stitch j-clipboard j-ppocr
-
       - name: Build onefile exe with PyInstaller
         run: python build_with_ocr_onefile.py
 

@@ -37,8 +37,7 @@ jobs:
         run: pip install maturin==1.12.6
 
       - name: Build wheels
-        # 从源码重新构建，不用 wheels/ 里已提交的那份——发布出去的产物
-        # 必须能追溯到本次 commit 的源码
+        # 每次发布都从源码重新构建——发布出去的产物必须能追溯到本次 commit 的源码
         run: |
           foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust") {
             maturin build --release -i python -m rust_libs/$crate/Cargo.toml --out dist

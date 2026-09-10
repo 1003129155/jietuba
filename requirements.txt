@@ -1,4 +1,4 @@
-# 截图吧 (Jietuba) - Python 依赖
+﻿# 截图吧 (Jietuba) - Python 依赖
 # Python 3.11 + Windows x86_64
 
 # ===== 核心依赖 =====
@@ -13,5 +13,8 @@ emoji==2.15.0
 av==17.0.0
 colorama==0.4.6
 
-# ===== 自制 Rust 库（从 wheels/ 安装，版本以目录内的文件为准） =====
-# pip install --no-index --find-links=wheels j-gif j-stitch j-clipboard j-ppocr
+# ===== 自制 Rust 库（PyPI 发行名，import 名不同——见各包 README）=====
+j-gif==0.3.0
+j-stitch==0.4.0
+j-clipboard==0.4.0
+j-ppocr==0.2.0
