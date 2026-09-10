@@ -2,6 +2,7 @@
 name = "gifrecorder"
 version = "0.3.0"
 edition = "2021"
+license = "MIT"
 description = "GIF screen recording: capture → JPEG compress → store → decode → GIF export"
 
 [lib]
