@@ -49,12 +49,16 @@
 
 ## 从源码运行
 
-所有运行依赖均通过 [requirements.txt](requirements.txt) 统一安装。四个 Rust 扩展由本项目作者开发维护，均已发布到 PyPI，提供 **Windows x86_64 + CPython 3.11 及以上**的 `abi3` 预编译包，安装时无需配置 Rust 工具链或手动下载 wheel。
-先安装 Python 3.11 x64（包含 Python Launcher），再下载并解压或克隆本仓库。在项目根目录双击 [setup.bat](setup.bat)，脚本会自动创建虚拟环境并从 PyPI 安装全部依赖，完成后可选择立即启动程序。
+所有运行依赖均通过 [requirements.txt](requirements.txt) 统一安装。
+
+### 一键安装
+
+1. 先安装 Python 3.11 x64（包含 Python Launcher）
+2. 下载并解压或克隆本仓库，在项目根目录双击 [setup.bat](setup.bat)。
 
 ### 手动安装
 
-在项目根目录打开 Windows 命令提示符（CMD），依次执行：
+先安装 Python 3.11 x64（包含 Python Launcher），再在项目根目录打开 Windows 命令提示符（CMD），依次执行：
 
 **1. 创建并激活虚拟环境**
 

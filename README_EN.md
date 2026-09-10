@@ -45,12 +45,16 @@ The Windows x86_64 release is ready to run. You do not need to install Python, R
 
 ## Run from Source
 
-All runtime dependencies install through [requirements.txt](requirements.txt). The four Rust extensions are developed and maintained by this project's author and published on PyPI as prebuilt `abi3` wheels for **Windows x86_64 + CPython 3.11 and newer**. Installation requires no Rust toolchain or manual wheel downloads.
-Install Python 3.11 x64 with the Python Launcher, then download and extract or clone this repository. Double-click [setup.bat](setup.bat) in the project root. The script creates a virtual environment and installs all dependencies from PyPI, then lets you choose whether to launch the application.
+All runtime dependencies install through [requirements.txt](requirements.txt).
+
+### One-Click Setup
+
+1. Install Python 3.11 x64 (including the Python Launcher) first.
+2. Download and extract or clone this repository, then double-click [setup.bat](setup.bat) in the project root.
 
 ### Manual Setup
 
-Open Windows Command Prompt (CMD) in the project root and run these steps:
+Install Python 3.11 x64 with the Python Launcher, then open Windows Command Prompt (CMD) in the project root and run these steps:
 
 **1. Create and activate a virtual environment**
 
