@@ -33,16 +33,11 @@
 
 ## 安装前置依赖
 
-本项目依赖4个自制 Rust 库，**必须先安装这些包才能运行程序**。
+本项目依赖 4 个自制 Rust 库，均已发布到 PyPI，随 `requirements.txt` 一起安装，不需要额外步骤。
 
 ### 一键部署（推荐）
 
-直接在项目根目录双击运行 [setup.bat](setup.bat)，脚本会自动创建虚拟环境、安装 Python 依赖，并让你选择 Rust 扩展包来源：
-
-- 使用仓库根目录自带的 `.whl` 文件（默认）
-- 或从 [GitHub Release](https://github.com/1003129155/jietuba/releases/tag/rust-libs-v1) 重新下载最新版
-
-完成后可选择立即启动程序。
+直接在项目根目录双击运行 [setup.bat](setup.bat)，脚本会自动创建虚拟环境并安装全部依赖。完成后可选择立即启动程序。
 
 ### 手动安装
 
@@ -56,35 +51,23 @@ python -m venv venv311
 venv311\Scripts\activate
 ```
 
-### 2. 安装 Python 依赖
+### 2. 安装依赖
 
 ```bash
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-### 3. 安装自制 Rust 包（必须）
-
-这 4 个包有两个来源，二选一即可：
-
-**方式 A：使用仓库自带的 `.whl` 文件**（在项目根目录执行）
-
-```bash
-python -m pip install --no-index --find-links=wheels j-gif j-stitch j-clipboard j-ppocr
-```
-
-**方式 B：从 GitHub Release 下载**（仓库根目录文件缺失或想用最新版时）
-
-前往 [Releases 页面](https://github.com/1003129155/jietuba/releases/tag/rust-libs-v1) 下载对应文件后同样用 `pip install` 安装。
+四个自制 Rust 包也在这一步一并装好，PyPI 发行名与 Python 里的 import 名不同：
 
 | pip 包名 | import 名 | 版本 | 功能 |
 |------|------|------|------|
-| `j-gif` | `gifrecorder` | 0.3.0 | GIF/视频合成编码器 |
-| `j-stitch` | `longstitch` | 0.4.0 | 长截图拼接算法 |
-| `j-clipboard` | `pyclipboard` | 0.4.0 | 剪切板底层操作 |
-| `j-ppocr` | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
+| [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.3.0 | GIF/视频合成编码器 |
+| [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | 长截图拼接算法 |
+| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.0 | 剪切板底层操作 |
+| [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
 
-> **注意：** 这些 `.whl` 是 abi3 wheel，适用于 Windows x86_64 + Python 3.11 及以上。请勿安装到全局 Python 中。
+> **注意：** 这四个是 abi3 wheel，适用于 Windows x86_64 + Python 3.11 及以上，其余平台没有预编译产物。请勿安装到全局 Python 中。
 
 > **OCR 模型：** `ppocr_rust` 需要 `models/` 目录下的 PP-OCR ONNX 模型（`PP-OCRv6_det_small.onnx` + `PP-OCRv6_rec_small.onnx`），仓库已内置。打包发布后请将 `models/` 放在 exe 同级目录。
 
@@ -94,7 +77,7 @@ python -m pip install --no-index --find-links=wheels j-gif j-stitch j-clipboard 
 python -m pip install -r requirements-dev.txt
 ```
 
-### 4. 运行程序
+### 3. 运行程序
 
 ```bash
 cd main
@@ -112,7 +95,6 @@ python main_app.py
 ├── requirements.txt                                   # 运行依赖
 ├── requirements-dev.txt                               # 测试与构建依赖
 ├── build_with_ocr_onefile.py                           # PyInstaller 单文件构建脚本
-├── wheels/                  # 自制 Rust 库的预编译 wheel
 │
 ├── main/                    # Python 主程序
 │   ├── main_app.py          # 应用入口，系统托盘、全局快捷键、生命周期管理

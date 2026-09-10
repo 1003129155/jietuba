@@ -28,16 +28,11 @@ PySide6 and RUSTベースのスクリーンショットおよびクリップボ�
 
 ## インストール手順
 
-本プロジェクトは4つの自作Rustライブラリに依存しています。**プログラムを実行する前に、必ずこれらのパッケージをインストールしてください。**
+本プロジェクトは4つの自作Rustライブラリに依存しており、すべて PyPI に公開済みです。`requirements.txt` のインストールで一緒に入るため、追加の手順は不要です。
 
 ### ワンクリックセットアップ（推奨）
 
-プロジェクトルートの [setup.bat](setup.bat) をダブルクリックして実行してください。仮想環境の作成、Python依存パッケージのインストールを自動で行い、Rustパッケージの取得元を選択できます：
-
-- リポジトリに同梱されている `.whl` ファイルを使用（デフォルト）
-- または [GitHub Release](https://github.com/1003129155/jietuba/releases/tag/rust-libs-v1) から最新版をダウンロード
-
-完了後、そのままプログラムを起動するかどうか選択できます。
+プロジェクトルートの [setup.bat](setup.bat) をダブルクリックして実行してください。仮想環境の作成と依存パッケージのインストールをすべて自動で行います。完了後、そのままプログラムを起動するかどうか選択できます。
 
 ### 手動セットアップ
 
@@ -51,35 +46,23 @@ python -m venv venv311
 venv311\Scripts\activate
 ```
 
-### 2. Python依存パッケージのインストール
+### 2. 依存パッケージのインストール
 
 ```bash
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-### 3. 自作Rustパッケージのインストール（必須）
-
-この4つのパッケージには2つの入手元があります。どちらか一方を選んでください：
-
-**方法A：リポジトリ同梱の `.whl` ファイルを使う**（プロジェクトルートで実行）
-
-```bash
-python -m pip install --no-index --find-links=wheels j-gif j-stitch j-clipboard j-ppocr
-```
-
-**方法B：GitHub Release からダウンロード**（ファイルが見つからない、または最新版を使いたい場合）
-
-[Releases ページ](https://github.com/1003129155/jietuba/releases/tag/rust-libs-v1) から対応するファイルをダウンロードし、同様に `pip install` してください。
+4つの自作Rustパッケージもこのステップで一緒にインストールされます。PyPI の配布名と Python の import 名は異なります：
 
 | pip パッケージ名 | import 名 | バージョン | 機能 |
 |------|------|------|------|
-| `j-gif` | `gifrecorder` | 0.3.0 | GIF/動画合成エンコーダー |
-| `j-stitch` | `longstitch` | 0.4.0 | 長いスクリーンショット結合アルゴリズム |
-| `j-clipboard` | `pyclipboard` | 0.4.0 | クリップボード操作 |
-| `j-ppocr` | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
+| [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.3.0 | GIF/動画合成エンコーダー |
+| [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | 長いスクリーンショット結合アルゴリズム |
+| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.0 | クリップボード操作 |
+| [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
 
-> **注意：** これらは abi3 wheel で、Windows x86_64 + Python 3.11 以降に対応します。グローバルPython環境にはインストールしないでください。
+> **注意：** これらは abi3 wheel で、Windows x86_64 + Python 3.11 以降にのみ対応します（他プラットフォーム向けのビルドはありません）。グローバルPython環境にはインストールしないでください。
 
 > **OCR モデル：** `ppocr_rust` は `models/` フォルダ内の PP-OCR ONNX モデル（`PP-OCRv6_det_small.onnx` + `PP-OCRv6_rec_small.onnx`）が必要です。リポジトリに同梱済み。パッケージ化後は `models/` を exe と同じ階層に配置してください。
 
@@ -89,7 +72,7 @@ python -m pip install --no-index --find-links=wheels j-gif j-stitch j-clipboard 
 python -m pip install -r requirements-dev.txt
 ```
 
-### 4. プログラムの実行
+### 3. プログラムの実行
 
 ```bash
 cd main
@@ -107,7 +90,6 @@ python main_app.py
 ├── requirements.txt                                   # 実行時依存パッケージ
 ├── requirements-dev.txt                               # テスト・ビルド用依存パッケージ
 ├── build_with_ocr_onefile.py                           # PyInstaller単一ファイルビルドスクリプト
-├── wheels/                  # 自制 Rust 库的预编译 wheel
 │
 ├── main/                    # Python メインプログラム
 │   ├── main_app.py          # アプリエントリポイント：システムトレイ、グローバルホットキー、ライフサイクル管理
