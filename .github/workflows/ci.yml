@@ -37,7 +37,7 @@ jobs:
 
       - name: Install custom Rust wheels
         # 按包名装，版本由 wheels/ 目录里的文件决定；升版本不必改这里
-        run: pip install --no-index --find-links=wheels gifrecorder longstitch pyclipboard ppocr_rust
+        run: pip install --no-index --find-links=wheels j-gif j-stitch j-clipboard j-ppocr
 
       - name: Lint with ruff
         # 规则集见 pyproject.toml：只启用能指向真实缺陷的检查。

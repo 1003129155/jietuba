@@ -324,7 +324,7 @@ fn get_clipboard_owner() -> PyResult<Option<String>> {
 ///     db_path: 数据库文件路径，默认存储在用户数据目录
 /// 
 /// Example:
-///     >>> manager = PyClipboardManager()
+///     >>> manager = ClipboardManager()
 ///     >>> manager.add_item("Hello World")
 ///     >>> result = manager.get_history()
 ///     >>> for item in result:

@@ -3,7 +3,7 @@ requires = ["maturin>=1.4,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "ppocr_rust"
+name = "j-ppocr"
 version = "0.2.0"
 description = "PP-OCR ONNX inference for Python via Rust (det+rec, no opencv/numpy)"
 readme = "README.md"

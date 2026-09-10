@@ -3,10 +3,23 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "longstitch"
+name = "j-stitch"
 version = "0.4.0"
+description = "Scrolling screenshot stitching for Python, implemented in Rust (row-hash + LCS overlap detection)"
+readme = "README.md"
+license = { text = "MIT" }
 requires-python = ">=3.11"
+keywords = ["screenshot", "stitching", "scrolling-capture", "image", "rust"]
 classifiers = [
-    "Programming Language :: Rust",
+    "Development Status :: 4 - Beta",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Rust",
 ]
+
+[tool.maturin]
+# 发行名是 j-stitch，import 名保持 longstitch 不变
+module-name = "longstitch"

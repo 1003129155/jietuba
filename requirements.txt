@@ -14,4 +14,4 @@ av==17.0.0
 colorama==0.4.6
 
 # ===== 自制 Rust 库（从 wheels/ 安装，版本以目录内的文件为准） =====
-# pip install --no-index --find-links=wheels gifrecorder longstitch pyclipboard ppocr_rust
+# pip install --no-index --find-links=wheels j-gif j-stitch j-clipboard j-ppocr

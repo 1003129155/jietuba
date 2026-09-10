@@ -46,7 +46,7 @@ if not %errorlevel%==0 (
 )
 
 rem ---------- 4. 选择 Rust 扩展包来源 ----------
-set "PKGS=gifrecorder longstitch pyclipboard ppocr_rust"
+set "PKGS=j-gif j-stitch j-clipboard j-ppocr"
 set "RELEASE_TAG=rust-libs-v1"
 
 echo.

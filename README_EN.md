@@ -65,21 +65,21 @@ There are two sources for these 4 packages, pick either one:
 **Option A: Use the `.whl` files bundled in the repo** (from the project root)
 
 ```bash
-python -m pip install --no-index --find-links=wheels gifrecorder longstitch pyclipboard ppocr_rust
+python -m pip install --no-index --find-links=wheels j-gif j-stitch j-clipboard j-ppocr
 ```
 
 **Option B: Download from GitHub Release** (if the files are missing or you want the latest build)
 
 Download the matching files from the [Releases page](https://github.com/1003129155/jietuba/releases/tag/rust-libs-v1), then `pip install` them the same way.
 
-| Package | Version | Description |
-|---------|---------|-------------|
-| `gifrecorder` | 0.2.1 | GIF/video composition encoder |
-| `longstitch` | 0.3.11 | Long screenshot stitching algorithm |
-| `pyclipboard` | 0.3.14 | Low-level clipboard operations |
-| `ppocr_rust` | 0.1.1 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
+| pip name | import name | Version | Description |
+|------|------|------|------|
+| `j-gif` | `gifrecorder` | 0.3.0 | GIF/video composition encoder |
+| `j-stitch` | `longstitch` | 0.4.0 | Long screenshot stitching algorithm |
+| `j-clipboard` | `pyclipboard` | 0.4.0 | Low-level clipboard operations |
+| `j-ppocr` | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
 
-> **Note:** These `.whl` files are for Windows x86_64 + Python 3.11 only. Do not install into the global Python environment.
+> **Note:** These are abi3 wheels for Windows x86_64 + Python 3.11 or newer. Do not install into the global Python environment.
 
 > **OCR models:** `ppocr_rust` requires the PP-OCR ONNX models in the `models/` folder (`PP-OCRv6_det_small.onnx` + `PP-OCRv6_rec_small.onnx`), already bundled in the repo. When packaged for release, place `models/` next to the exe.
 
