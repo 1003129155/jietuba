@@ -9,21 +9,21 @@
 若希望正式发布前需人工点确认，可在 Settings → Environments → `pypi` 里加上
 required reviewers——发布不可逆，加一道确认是划算的。
 
-需要你做的只有一件事——生成两个 token 并各自存进对应的 Environment：
+需要你做的只有一件事——生成两个 token，存成两个**仓库级** secret：
 
 1. <https://pypi.org/manage/account/token/> → Add API token → 作用域选
    **Entire account**（此时四个项目还不存在，选不了按项目限定的作用域；
    等四个包都发布过一次后，可以回来重新生成四个各自限定项目的 token 替换掉，
    降低单个 token 的影响面）。
-2. 仓库 → Settings → Environments → `pypi` → Environment secrets →
-   New secret，名字填 `PYPI_API_TOKEN`，值粘贴刚生成的 token。
+2. 仓库 → Settings → Secrets and variables → Actions → New repository secret，
+   名字填 `PYPI_API_TOKEN`，值粘贴刚生成的 token。
 3. 到 <https://test.pypi.org/manage/account/token/> 同样生成一个（TestPyPI
-   是完全独立的账号体系，token 不通用），存进 Environment `testpypi`，
-   名字同样是 `PYPI_API_TOKEN`。
+   是完全独立的账号体系，token 不通用），同样存成仓库级 secret，名字
+   `TEST_PYPI_API_TOKEN`。
 
-两个 Environment 下用的是**同一个 secret 名字、不同的值**——workflow 里
-只写 `secrets.PYPI_API_TOKEN` 一处引用，实际取到哪个由本次选择的
-`environment: name` 决定，不需要条件判断。
+两个 token 用**不同的名字**存在同一层（仓库级），workflow 按本次选择的
+`inputs.repository` 显式挑选其中一个——没有用 GitHub Environment 的同名
+secret 覆盖那套机制，因为仓库级 secret 不参与那层覆盖。
 
 **token 生成后只应贴入 GitHub 的 secret 输入框，不要贴进任何聊天、issue
 或提交里**——那些地方的内容可能被记录留存，一旦贴出就应视为已泄露，需要
