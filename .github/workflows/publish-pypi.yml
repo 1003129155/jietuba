@@ -63,25 +63,10 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
-    # 每个包在 PyPI 上是独立项目，需各自配置 Trusted Publisher，
-    # 所以按包分开上传，一个失败不影响其余已成功的
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - package: j-gif
-            pattern: j_gif-*.whl
-          - package: j-stitch
-            pattern: j_stitch-*.whl
-          - package: j-clipboard
-            pattern: j_clipboard-*.whl
-          - package: j-ppocr
-            pattern: j_ppocr-*.whl
     environment:
+      # environment 决定用哪一组 secrets：pypi / testpypi 两个环境下
+      # 各自存一个同名的 PYPI_API_TOKEN，值不同，引用处不用写条件判断
       name: ${{ inputs.repository }}
-    permissions:
-      # Trusted Publishing 用 OIDC 换取上传令牌，不需要在 secrets 里存 API token
-      id-token: write
     steps:
       - name: Download wheels
         uses: actions/download-artifact@v4
@@ -89,15 +74,12 @@ jobs:
           name: dist
           path: dist
 
-      - name: Keep only this package
-        run: |
-          mkdir -p upload
-          mv dist/${{ matrix.pattern }} upload/
-          ls -l upload
-
-      - name: Publish ${{ matrix.package }}
+      - name: Publish all packages
+        # 账号级 token 不像 Trusted Publisher 那样绑定单个项目，
+        # 四个包可以一次性传完，不必按包拆分
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: upload
+          packages-dir: dist
           repository-url: ${{ inputs.repository == 'pypi' && 'https://upload.pypi.org/legacy/' || 'https://test.pypi.org/legacy/' }}
+          password: ${{ secrets.PYPI_API_TOKEN }}
           print-hash: true
