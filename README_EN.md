@@ -16,17 +16,17 @@ Download a ready-to-run Windows release or run the application from source.
 
 A smooth, three-way "screenshot ⇄ clipboard ⇄ pin" workflow.
 
-- **Anything you copy lands in history** — not just your own screenshots, but any text/image/file you copy goes straight into the same clipboard history
+- **Anything you copy lands in history** — not just your own screenshots: any text, image, file, or HTML you copy goes automatically into the same clipboard history, ready to group, save permanently, export in one click, and share across devices
 
-- **History → pin → history** — pin any image from history back onto the screen with one click, always on top, ready to compare, zoom, or annotate further
+- **History → pin → keep working** — pin any image from history back to the top of the screen with one click. Bring it up anytime to compare, zoom, keep annotating, or re-run OCR
 
-- **Find anything in seconds** — full-text keyword search plus time/type filters and custom groups/favorites, even across thousands of history entries
+- **Polished down to the details** — scroll capture stitches precisely in all four directions within milliseconds; seamless capture across multiple monitors and mixed DPI; export images in various encodings. Every feature rivals paid software — or does even better
 
-- **Memory footprint** — carefully engineered to run lean; background memory usage typically stays down in the single- or low-double-digit MB range
+- **Memory footprint** — a strict runtime memory design keeps resident memory very low even under continuous, complex usage (often just a dozen MB or even a few MB)
 
-- **Smooth UI** — optimized for demanding scenarios, so even low-end machines stay responsive
+- **Smooth UI** — demanding scenarios are optimized and CPU usage reduced, so even low-end machines run smoothly
 
-- **Data safety** — everything runs entirely on your machine: no data collection, no silent network calls, everything stays local. Translation is the one feature that needs the internet, and only when you actively use it, calling whichever third-party translation API you've chosen
+- **Data safety** — everything runs entirely on your machine: no data collection, no silent network calls, all data stays local. Translation is the one feature that needs the internet, and only when you actively use it, calling whichever third-party translation API you've chosen
 
 ---
 
