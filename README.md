@@ -1,15 +1,18 @@
 **[中文](README.md)** | [English](README_EN.md) | [日本語](README_JA.md)
 
 # 截图 & 剪切板管理软件 — 截图吧
+
+[下载 Windows 版](https://github.com/1003129155/jietuba/releases/latest) · [源码运行](#source-setup) · [开发与测试](#development)
+
 ![jietuba_gif_20260404_000903](https://github.com/user-attachments/assets/5318b991-b0de-46a2-9c0e-d75eeae2a827)
 
 ## 项目简介
 
-基于 PySide6和Rust 的截图软件和剪切板管理的windows平台软件。
+截图吧是一款面向 Windows x86_64 的截图与剪贴板管理软件，使用 PySide6 构建界面，使用 Rust 实现图像处理、剪贴板操作和 OCR 等功能。
 
 支持区域截图、窗口智能识别、GIF录制、长截图拼接、OCR文字识别、图像钉图、翻译、马赛克、PDF 导出等功能，并内置了完整的剪切板历史管理系统，不限图片来源可以联动截图模块生成钉图或者提取文字。
 
-编译后单文件大小大约42MB.占用内存很低，低配电脑也可以流畅
+提供可直接运行的 Windows 发行包，也支持从源码运行。
 
 ---
 
@@ -31,34 +34,54 @@
 
 ---
 
-## 安装前置依赖
+## 下载与使用
 
-本项目依赖 4 个自制 Rust 库，均已发布到 PyPI，随 `requirements.txt` 一起安装，不需要额外步骤。
+普通用户可以直接使用 Windows x86_64 发行包，无需安装 Python、Rust 或配置开发环境。
 
-### 一键部署（推荐）
+1. 打开 [Releases 下载页](https://github.com/1003129155/jietuba/releases/latest)，下载附件中的 `jietuba_pp-*.zip` 程序包。
+2. 完整解压压缩包，保留 `jietuba_pp.exe` 和同级的 `models/` 目录。
+3. 双击 `jietuba_pp.exe` 启动程序。OCR 所需模型已随程序包提供。
+4. 程序尚未进行数字签名，通过浏览器下载后，Windows 可能显示运行警告。出现提示时，点击“更多信息”，再选择“仍要运行”即可启动。
 
-直接在项目根目录双击运行 [setup.bat](setup.bat)，脚本会自动创建虚拟环境并安装全部依赖。完成后可选择立即启动程序。
+---
+
+<a id="source-setup"></a>
+
+## 从源码运行
+
+所有运行依赖均通过 [requirements.txt](requirements.txt) 统一安装。四个 Rust 扩展由本项目作者开发维护，均已发布到 PyPI，提供 **Windows x86_64 + CPython 3.11 及以上**的 `abi3` 预编译包，安装时无需配置 Rust 工具链或手动下载 wheel。
+先安装 Python 3.11 x64（包含 Python Launcher），再下载并解压或克隆本仓库。在项目根目录双击 [setup.bat](setup.bat)，脚本会自动创建虚拟环境并从 PyPI 安装全部依赖，完成后可选择立即启动程序。
 
 ### 手动安装
 
-如果不想用脚本，也可以按以下步骤手动操作：
+在项目根目录打开 Windows 命令提示符（CMD），依次执行：
 
-### 1. 创建并激活 Python 3.11 虚拟环境
+**1. 创建并激活虚拟环境**
 
-```bash
-python -m venv venv311
-# Windows:
-venv311\Scripts\activate
+```bat
+py -3.11 -m venv venv311
+call venv311\Scripts\activate.bat
 ```
 
-### 2. 安装依赖
+**2. 安装全部运行依赖**
 
-```bash
+```bat
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-四个自制 Rust 包也在这一步一并装好，PyPI 发行名与 Python 里的 import 名不同：
+**3. 运行程序**
+
+```bat
+cd main
+python main_app.py
+```
+
+OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_det_small.onnx` 和 `PP-OCRv6_rec_small.onnx`，保留该目录即可使用。
+
+### Rust 扩展包
+
+以下四个包已包含在 `requirements.txt` 中，会在安装运行依赖时一并安装。它们可以独立使用，源码位于 [rust_libs/](rust_libs/)。PyPI 发行名与 Python 的 import 名对应如下：
 
 | pip 包名 | import 名 | 版本 | 功能 |
 |------|------|------|------|
@@ -67,28 +90,33 @@ python -m pip install -r requirements.txt
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.0 | 剪切板底层操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
 
-> **注意：** 这四个是 abi3 wheel，适用于 Windows x86_64 + Python 3.11 及以上，其余平台没有预编译产物。请勿安装到全局 Python 中。
+当前提供的预编译包面向 Windows x86_64；各包的 Python 版本声明均为 `>=3.11`，Rust 绑定均启用了 `abi3-py311`，详见各包的 `pyproject.toml` 和 `Cargo.toml`。
 
-> **OCR 模型：** `ppocr_rust` 需要 `models/` 目录下的 PP-OCR ONNX 模型（`PP-OCRv6_det_small.onnx` + `PP-OCRv6_rec_small.onnx`），仓库已内置。打包发布后请将 `models/` 放在 exe 同级目录。
+---
 
-**开发/构建依赖（可选）：**
+<a id="development"></a>
 
-```bash
+## 开发与测试
+
+在项目根目录、已激活的虚拟环境中安装开发依赖并运行测试：
+
+```bat
 python -m pip install -r requirements-dev.txt
+python -m pytest main/tests -c main/tests/pytest.ini
 ```
 
-### 3. 运行程序
+[测试目录](main/tests/)包含截图、剪贴板、马赛克、钉图缩放、GIF 回放、OCR 文字层等模块的单元测试与集成测试。[CI 配置](.github/workflows/ci.yml)在 Windows + Python 3.11 环境中执行静态检查、测试及覆盖率检查，运行结果可在 [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml) 查看。
 
-```bash
-cd main
-python main_app.py
-```
+构建 Windows 发行包可运行 `python build_with_ocr_onefile.py`，产物为 `dist/jietuba_pp.exe` 和 `dist/models/`。自动发行流程见 [build.yml](.github/workflows/build.yml)。
 
 ---
 
 ## 目录结构总览
 
-```
+<details>
+<summary>展开目录结构</summary>
+
+```text
 # 项目根目录
 ├── README.md / README_EN.md / README_JA.md             # 中文、英文、日文说明文档
 ├── pyproject.toml                                      # Python 项目元数据与依赖声明
@@ -129,6 +157,8 @@ python main_app.py
 └── svg/                     # SVG 图标资源
 ```
 
+</details>
+
 
 
 ## 模块详细说明
@@ -137,7 +167,10 @@ python main_app.py
 
 图形编辑画布系统，提供场景管理、视图渲染、图形项选择和撤销/重做功能。
 
-```
+<details>
+<summary>展开目录结构</summary>
+
+```text
 canvas/
 ├── __init__.py
 ├── scene.py                 # CanvasScene — 画布场景，继承 QGraphicsScene
@@ -154,6 +187,8 @@ canvas/
     └── selection_item.py    # SelectionItem — 选中项的边界显示框
 ```
 
+</details>
+
 
 **核心功能：**
 - 基于 Qt Graphics View Framework 的画布系统
@@ -168,12 +203,17 @@ canvas/
 
 屏幕截图和窗口智能识别的核心服务。
 
-```
+<details>
+<summary>展开目录结构</summary>
+
+```text
 capture/
 ├── __init__.py
 ├── capture_service.py       # CaptureService — 截图服务，屏幕截图核心逻辑
 └── window_finder.py         # WindowFinder — 窗口查找器，智能选择窗口，识别光标下的窗口
 ```
+
+</details>
 
 **核心功能：**
 - 全屏截图和区域截图
@@ -188,7 +228,10 @@ capture/
 不仅能保存截图历史，还提供独立的三栏管理窗口用于维护分组与内容，并可从历史记录生成钉图。
 ![jietuba_gif_20260404_001128](https://github.com/user-attachments/assets/b0a116e8-d944-43c9-b895-e6fc10d8c08a)
 
-```
+<details>
+<summary>展开目录结构</summary>
+
+```text
 clipboard/
 ├── __init__.py
 ├── controllers/             # 控制层 — 历史加载、粘贴流程、右键菜单、选择状态
@@ -234,6 +277,8 @@ clipboard/
 │       └── pin_window.py         # 从历史条目创建钉图
 ```
 
+</details>
+
 **核心功能：**
 - 监听系统剪切板变化，自动保存历史记录
 - 支持文本、图片、HTML、文件等多种格式
@@ -250,7 +295,10 @@ clipboard/
 
 提供日志、资源加载、主题管理、国际化、快捷键等基础设施。
 
-```
+<details>
+<summary>展开目录结构</summary>
+
+```text
 core/
 ├── __init__.py
 ├── bootstrap.py             # PreloadManager — 启动引导，环境初始化、DPI感知、单实例控制、链式预加载
@@ -269,6 +317,8 @@ core/
 └── constants.py             # 全局常量定义（字体、路径等）
 ```
 
+</details>
+
 **核心功能：**
 - 统一的日志系统，支持文件输出和控制台输出
 - 全局崩溃处理，自动捕获未处理异常
@@ -285,7 +335,10 @@ core/
 屏幕录制、编辑、回放和导出为 GIF/视频。
 <img width="766" height="630" alt="image" src="https://github.com/user-attachments/assets/8653fffb-b419-4584-ab4b-9fe95bb9f246" />
 
-```
+<details>
+<summary>展开目录结构</summary>
+
+```text
 gif/
 ├── __init__.py
 ├── record_window.py         # GifRecordWindow / AppState — 主控制窗口，状态机协调器（管理3层窗口）
@@ -302,6 +355,8 @@ gif/
 └── _widgets.py              # ClickMenuButton / svg_icon() — 自定义小部件
 ```
 
+</details>
+
 **核心功能：**
 - 以状态机模式管理录制流程（选区 → 录制 → 回放 → 导出）
 - 三层窗口架构：覆盖层（选区）、绘制层（标注）、工具栏层
@@ -316,11 +371,16 @@ gif/
 支持 PP-OCR 引擎的文字识别管理。
 <img width="580" height="505" alt="image" src="https://github.com/user-attachments/assets/60a16100-5edc-4543-9a35-daf05b1e244e" />
 
-```
+<details>
+<summary>展开目录结构</summary>
+
+```text
 ocr/
 ├── __init__.py
 └── ocr_manager.py           # OCRManager — 基于 ppocr_rust (PP-OCR) 的文字识别
 ```
+
+</details>
 
 **核心功能：**
 - 自动检测引擎与模型可用性
@@ -334,7 +394,10 @@ ocr/
 
 将截图固定在屏幕上，支持编辑、缩放、OCR识别、翻译等。
 <img width="737" height="657" alt="image" src="https://github.com/user-attachments/assets/827b912c-11ac-4692-b3f6-826561957615" />
-```
+<details>
+<summary>展开目录结构</summary>
+
+```text
 
 pin/
 ├── __init__.py
@@ -354,6 +417,8 @@ pin/
 └── ocr_text_layer.py        # OCRTextLayer / OCRTextItem — OCR文字层显示
 ```
 
+</details>
+
 **核心功能：**
 - 截图结果钉在屏幕最前端，支持拖拽移动和滚轮缩放
 - 钉图上可直接进行绘制编辑
@@ -367,11 +432,16 @@ pin/
 
 统一的配置管理系统。
 
-```
+<details>
+<summary>展开目录结构</summary>
+
+```text
 settings/
 ├── __init__.py
 └── tool_settings.py         # ToolSettingsManager / ToolSettings — 管理工具颜色、大小、热键等配置
 ```
+
+</details>
 
 **核心功能：**
 - 单例模式的配置管理器
@@ -384,7 +454,10 @@ settings/
 
 滚动截图和自动拼接功能。
 ![jietuba_gif_20260404_001930](https://github.com/user-attachments/assets/a9720f08-5128-447d-b425-6d0640272e6a)
-```
+<details>
+<summary>展开目录结构</summary>
+
+```text
 
 stitch/
 ├── __init__.py
@@ -392,6 +465,8 @@ stitch/
 ├── scroll_window.py                 # ScrollCaptureWindow — 滚动截图窗口
 └── scroll_toolbar.py                # 滚动截图工具栏
 ```
+
+</details>
 
 **核心功能：**
 - 滚动页面并截图，支持横向和竖向
@@ -404,7 +479,10 @@ stitch/
 
 提供各种绘图工具的实现。
 
-```
+<details>
+<summary>展开目录结构</summary>
+
+```text
 tools/
 ├── __init__.py
 ├── base.py                  # Tool / ToolContext — 工具抽象基类和工具上下文
@@ -423,6 +501,8 @@ tools/
 └── cursor_manager.py        # CursorManager — 光标样式管理器
 ```
 
+</details>
+
 **核心功能：**
 - 统一的工具基类架构（Tool → 各具体工具）
 - 绘图工具：笔、矩形、椭圆、箭头、文字、数字、荧光笔、马赛克、光标、橡皮擦等
@@ -435,7 +515,10 @@ tools/
 
 多提供商翻译服务，支持 DeepL / Google / Azure / Amazon 等提供商。
 
-```
+<details>
+<summary>展开目录结构</summary>
+
+```text
 translation/
 ├── __init__.py
 ├── provider.py              # TranslationProvider / ProviderMetadata — 提供商抽象契约
@@ -460,6 +543,8 @@ translation/
     └── widgets.py           # 翻译相关小部件
 ```
 
+</details>
+
 **核心功能：**
 - 可插拔的多提供商架构（DeepL / Google / Azure / Amazon），注册表统一管理
 - 一键快捷键：自动探测选中文字并路由到翻译弹窗
@@ -473,12 +558,17 @@ translation/
 
 多语言翻译文件存放目录。
 
-```
+<details>
+<summary>展开目录结构</summary>
+
+```text
 translations/
 ├── app_zh.xml / app_en.xml  # 中文/英文翻译源文件
 ├── app_ja.xml / app_ko.xml  # 日文/韩文翻译源文件
 └── app_*.xml.qm             # 编译后的 Qt 二进制文件（app_zh.xml.qm 等）
 ```
+
+</details>
 
 **说明：** `.xml` 为可编辑的翻译源文件，`*.xml.qm` 为 Qt 运行时加载的编译文件。修改翻译后需运行 `compile_translations.py` 重新编译。
 
@@ -488,7 +578,10 @@ translations/
 
 通用 UI 组件库，为各模块提供统一的界面元素。
 
-```
+<details>
+<summary>展开目录结构</summary>
+
+```text
 ui/
 ├── __init__.py
 ├── toolbar.py               # Toolbar / _DragHandle — 可拖动工具栏基类
@@ -552,6 +645,8 @@ ui/
     └── rounded_corners.py   # 圆角截图功能
 ```
 
+</details>
+
 **核心功能：**
 - 可拖动工具栏基类，所有工具栏继承自此
 - 全屏截图窗口，处理选区绘制和交互
@@ -567,7 +662,10 @@ ui/
 
 单元测试和集成测试。
 
-```
+<details>
+<summary>展开目录结构</summary>
+
+```text
 tests/
 ├── conftest.py              # pytest 配置和公共 fixture
 ├── pytest.ini               # pytest 运行配置
@@ -590,17 +688,6 @@ tests/
 └── …（其余模块单元测试与集成测试，共 70 多个文件）
 ```
 
----
-
-## 外部 Rust 库依赖
-
-主程序调用了以下自制 Rust 库（位于 `rust_libs/` 目录）：
-
-| 库名 | 功能 |
-|------|------|
-| `gifrecorder` | GIF/视频合成编码器 |
-| `longstitch` | 长截图拼接加速 |
-| `pyclipboard` | 剪切板底层操作 |
-| `ppocr_rust` | PP-OCR (PaddleOCR) ONNX 文字识别引擎 |
+</details>
 
 ---

@@ -2,9 +2,13 @@
 
 # Screenshot & Clipboard Manager — jietuba
 
+[Download for Windows](https://github.com/1003129155/jietuba/releases/latest) · [Run from Source](#source-setup) · [Development and Tests](#development)
+
 ## Overview
 
-A screenshot and clipboard management application built with PySide6 and Rust. Supports area capture, smart window detection, GIF recording, long screenshot stitching, OCR text recognition, image pinning, translation, mosaic blur, PDF export, and a full clipboard history management system.
+A screenshot and clipboard manager for Windows x86_64, with a PySide6 interface and Rust components for image processing, clipboard operations, and OCR. Supports area capture, smart window detection, GIF recording, long screenshot stitching, OCR text recognition, image pinning, translation, mosaic blur, PDF export, and a full clipboard history management system.
+
+Download a ready-to-run Windows release or run the application from source.
 
 ---
 
@@ -26,34 +30,54 @@ A smooth, three-way "screenshot ⇄ clipboard ⇄ pin" workflow.
 
 ---
 
-## Prerequisites
+## Download and Run
 
-This project depends on 4 custom Rust libraries, all published on PyPI. They install alongside everything else in `requirements.txt` — no extra step needed.
+The Windows x86_64 release is ready to run. You do not need to install Python, Rust, or a development environment.
 
-### One-Click Setup (Recommended)
+1. Open the [Releases page](https://github.com/1003129155/jietuba/releases/latest) and download the `jietuba_pp-*.zip` application archive from the release assets.
+2. Extract the entire archive, keeping `jietuba_pp.exe` and the `models/` folder together.
+3. Double-click `jietuba_pp.exe` to start. The OCR models are included in the archive.
+4. The application is not digitally signed, so Windows may display a warning after you download it through a browser. If prompted, click **More info**, then **Run anyway** to start the application.
 
-Double-click [setup.bat](setup.bat) in the project root. It will create a virtual environment and install every dependency. You can then choose to launch the application immediately.
+---
+
+<a id="source-setup"></a>
+
+## Run from Source
+
+All runtime dependencies install through [requirements.txt](requirements.txt). The four Rust extensions are developed and maintained by this project's author and published on PyPI as prebuilt `abi3` wheels for **Windows x86_64 + CPython 3.11 and newer**. Installation requires no Rust toolchain or manual wheel downloads.
+Install Python 3.11 x64 with the Python Launcher, then download and extract or clone this repository. Double-click [setup.bat](setup.bat) in the project root. The script creates a virtual environment and installs all dependencies from PyPI, then lets you choose whether to launch the application.
 
 ### Manual Setup
 
-If you'd rather not use the script, follow these steps:
+Open Windows Command Prompt (CMD) in the project root and run these steps:
 
-### 1. Create and Activate Python 3.11 Virtual Environment
+**1. Create and activate a virtual environment**
 
-```bash
-python -m venv venv311
-# Windows:
-venv311\Scripts\activate
+```bat
+py -3.11 -m venv venv311
+call venv311\Scripts\activate.bat
 ```
 
-### 2. Install Dependencies
+**2. Install all runtime dependencies**
 
-```bash
+```bat
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-The 4 custom Rust packages are installed in this same step. Their PyPI distribution names differ from the Python import names:
+**3. Run the application**
+
+```bat
+cd main
+python main_app.py
+```
+
+The repository includes `PP-OCRv6_det_small.onnx` and `PP-OCRv6_rec_small.onnx` in [models/](models/). Keep that directory in place for OCR.
+
+### Rust Extension Packages
+
+These four packages are included in `requirements.txt` and install with the runtime dependencies. They can also be used independently; their source code is in [rust_libs/](rust_libs/). Their PyPI distribution names map to Python import names as follows:
 
 | pip name | import name | Version | Description |
 |------|------|------|------|
@@ -62,28 +86,33 @@ The 4 custom Rust packages are installed in this same step. Their PyPI distribut
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.0 | Low-level clipboard operations |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
 
-> **Note:** These are abi3 wheels for Windows x86_64 + Python 3.11 or newer only — no prebuilt binaries for other platforms. Do not install into the global Python environment.
+The available prebuilt wheels target Windows x86_64. Each package declares `>=3.11` and enables `abi3-py311` in its Rust bindings; see each package's `pyproject.toml` and `Cargo.toml`.
 
-> **OCR models:** `ppocr_rust` requires the PP-OCR ONNX models in the `models/` folder (`PP-OCRv6_det_small.onnx` + `PP-OCRv6_rec_small.onnx`), already bundled in the repo. When packaged for release, place `models/` next to the exe.
+---
 
-**Development/Build Dependencies (Optional):**
+<a id="development"></a>
 
-```bash
+## Development and Tests
+
+From the project root, with the virtual environment activated, install development dependencies and run the tests:
+
+```bat
 python -m pip install -r requirements-dev.txt
+python -m pytest main/tests -c main/tests/pytest.ini
 ```
 
-### 3. Run the Application
+The [test directory](main/tests/) contains unit and integration tests for capture, clipboard operations, mosaic editing, pin zoom, GIF playback, OCR text layers, and other modules. The [CI workflow](.github/workflows/ci.yml) runs static analysis, tests, and coverage checks on Windows with Python 3.11. Results are available in [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml).
 
-```bash
-cd main
-python main_app.py
-```
+To build a Windows release, run `python build_with_ocr_onefile.py`. It produces `dist/jietuba_pp.exe` and `dist/models/`. See [build.yml](.github/workflows/build.yml) for the automated release workflow.
 
 ---
 
 ## Directory Structure
 
-```
+<details>
+<summary>Expand directory structure</summary>
+
+```text
 # Project root
 ├── README.md / README_EN.md / README_JA.md             # Chinese, English, and Japanese documentation
 ├── pyproject.toml                                      # Python project metadata and dependency declarations
@@ -124,6 +153,8 @@ python main_app.py
 └── svg/                     # SVG icon assets
 ```
 
+</details>
+
 ---
 
 ## Module Details
@@ -133,7 +164,10 @@ python main_app.py
 Graphics editing canvas system with scene management, view rendering, item selection, and undo/redo.
 ![jietuba_gif_20260404_000903](https://github.com/user-attachments/assets/5318b991-b0de-46a2-9c0e-d75eeae2a827)
 
-```
+<details>
+<summary>Expand directory structure</summary>
+
+```text
 canvas/
 ├── __init__.py
 ├── scene.py                 # CanvasScene — canvas scene, extends QGraphicsScene
@@ -149,17 +183,24 @@ canvas/
     └── selection_item.py    # SelectionItem — selection boundary display
 ```
 
+</details>
+
 ---
 
 ### capture/ — Capture Module
 
 Screen capture and smart window detection.
 
-```
+<details>
+<summary>Expand directory structure</summary>
+
+```text
 capture/
 ├── capture_service.py       # CaptureService — core screenshot logic
 └── window_finder.py         # WindowFinder — smart window selection, cursor-based detection
 ```
+
+</details>
 
 ---
 
@@ -169,7 +210,10 @@ Ditto-like clipboard history manager, now organized into controllers, core, serv
 Supports text, images, HTML, files, a dedicated three-pane management window, and pin creation from history items.
 ![jietuba_gif_20260404_001128](https://github.com/user-attachments/assets/b0a116e8-d944-43c9-b895-e6fc10d8c08a)
 
-```
+<details>
+<summary>Expand directory structure</summary>
+
+```text
 clipboard/
 ├── __init__.py
 ├── controllers/             # Control layer — history loading, paste flow, menus, selection state
@@ -215,6 +259,8 @@ clipboard/
 │       └── pin_window.py         # create pins from history items
 ```
 
+</details>
+
 **Core Features:**
 - Monitor clipboard changes and store history automatically
 - Support text, images, HTML, and files
@@ -229,7 +275,10 @@ clipboard/
 
 Logging, resource loading, theme management, i18n, hotkeys, and other infrastructure.
 
-```
+<details>
+<summary>Expand directory structure</summary>
+
+```text
 core/
 ├── bootstrap.py             # PreloadManager — startup bootstrap, env init, DPI, single instance
 ├── logger.py                # Logger — file + console logging (debug/info/warning/error/exception)
@@ -247,13 +296,18 @@ core/
 └── constants.py             # Global constants (fonts, paths, etc.)
 ```
 
+</details>
+
 ---
 
 ### gif/ — GIF Recording Module
 
 Screen recording, editing, playback, and export to GIF/video.
 <img width="766" height="630" alt="image" src="https://github.com/user-attachments/assets/8653fffb-b419-4584-ab4b-9fe95bb9f246" />
-```
+<details>
+<summary>Expand directory structure</summary>
+
+```text
 gif/
 ├── record_window.py         # GifRecordWindow / AppState — state machine coordinator (3-layer window)
 ├── overlay.py               # CaptureOverlay / OverlayMode — capture overlay, region adjustment
@@ -269,6 +323,8 @@ gif/
 └── _widgets.py              # ClickMenuButton / svg_icon() — custom widgets
 ```
 
+</details>
+
 ---
 
 ### ocr/ — OCR Module
@@ -277,10 +333,15 @@ Text recognition management powered by PP-OCR.
 
 <img width="580" height="505" alt="image" src="https://github.com/user-attachments/assets/60a16100-5edc-4543-9a35-daf05b1e244e" />
 
-```
+<details>
+<summary>Expand directory structure</summary>
+
+```text
 ocr/
 └── ocr_manager.py           # OCRManager — text recognition via ppocr_rust (PP-OCR)
 ```
+
+</details>
 
 - Powered by the ppocr_rust engine (pure Rust + ONNX Runtime, PP-OCR det + rec); inference runs on native threads without blocking the UI
 - Chinese/English/Japanese recognition
@@ -294,7 +355,10 @@ Pin screenshots on screen with editing, zoom, OCR, and translation.
 
 <img width="737" height="657" alt="image" src="https://github.com/user-attachments/assets/827b912c-11ac-4692-b3f6-826561957615" />
 
-```
+<details>
+<summary>Expand directory structure</summary>
+
+```text
 pin/
 ├── pin_window.py            # PinWindow — draggable, zoomable, always-on-top image window
 ├── pin_canvas_view.py       # PinCanvasView — pin canvas view (sole content renderer)
@@ -312,32 +376,47 @@ pin/
 └── ocr_text_layer.py        # OCRTextLayer / OCRTextItem — OCR text layer display
 ```
 
+</details>
+
 ---
 
 ### settings/ — Settings Module
 
-```
+<details>
+<summary>Expand directory structure</summary>
+
+```text
 settings/
 └── tool_settings.py         # ToolSettingsManager / ToolSettings — tool color, size, hotkey config
 ```
+
+</details>
 
 ---
 
 ### stitch/ — Long Screenshot Stitching Module
 ![jietuba_gif_20260404_001930](https://github.com/user-attachments/assets/a9720f08-5128-447d-b425-6d0640272e6a)
 
-```
+<details>
+<summary>Expand directory structure</summary>
+
+```text
 stitch/
 ├── jietuba_long_stitch_unified.py   # Stitching interface (calls the Rust longstitch)
 ├── scroll_window.py                 # ScrollCaptureWindow — scroll capture window
 └── scroll_toolbar.py                # Scroll capture toolbar
 ```
 
+</details>
+
 ---
 
 ### tools/ — Drawing Tools Module
 
-```
+<details>
+<summary>Expand directory structure</summary>
+
+```text
 tools/
 ├── base.py                  # Tool / ToolContext — abstract base class
 ├── controller.py            # ToolController — tool switching and state management
@@ -355,13 +434,18 @@ tools/
 └── cursor_manager.py        # CursorManager — cursor style manager
 ```
 
+</details>
+
 ---
 
 ### translation/ — Translation Module
 
 Multi-provider translation service supporting DeepL / Google / Azure / Amazon.
 
-```
+<details>
+<summary>Expand directory structure</summary>
+
+```text
 translation/
 ├── provider.py              # TranslationProvider / ProviderMetadata — provider contract
 ├── registry.py              # ProviderRegistry — provider registration and factory
@@ -384,6 +468,8 @@ translation/
     └── widgets.py           # Translation widgets
 ```
 
+</details>
+
 **Core Features:**
 - Pluggable multi-provider architecture (DeepL / Google / Azure / Amazon) with a unified registry
 - One hotkey: probes selected text and routes it to the popup
@@ -395,12 +481,17 @@ translation/
 
 ### translations/ — Language Resources
 
-```
+<details>
+<summary>Expand directory structure</summary>
+
+```text
 translations/
 ├── app_zh.xml / app_en.xml  # Chinese / English source files
 ├── app_ja.xml / app_ko.xml  # Japanese / Korean source files
 └── app_*.xml.qm             # compiled Qt binaries (e.g. app_zh.xml.qm)
 ```
+
+</details>
 
 `.xml` = editable source files, `*.xml.qm` = compiled Qt runtime files. Run `compile_translations.py` after modification.
 
@@ -410,7 +501,10 @@ translations/
 
 Common UI component library.
 
-```
+<details>
+<summary>Expand directory structure</summary>
+
+```text
 ui/
 ├── toolbar.py               # Toolbar / _DragHandle — draggable toolbar base class
 ├── tray_menu.py             # TrayMenu — system tray menu
@@ -470,11 +564,16 @@ ui/
     └── rounded_corners.py   # Rounded corner capture
 ```
 
+</details>
+
 ---
 
 ### tests/ — Test Module
 
-```
+<details>
+<summary>Expand directory structure</summary>
+
+```text
 tests/
 ├── conftest.py              # pytest configuration and common fixtures
 ├── pytest.ini               # pytest run configuration
@@ -496,3 +595,5 @@ tests/
 ├── test_welcome_translation.py # welcome wizard translation page tests
 └── … (70+ additional unit & integration test files)
 ```
+
+</details>

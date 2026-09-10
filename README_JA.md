@@ -2,9 +2,13 @@
 
 # スクリーンショット＆クリップボード管理ソフト — jietuba
 
+[Windows 版をダウンロード](https://github.com/1003129155/jietuba/releases/latest) · [ソースから実行](#source-setup) · [開発とテスト](#development)
+
 ## 概要
 
-PySide6 and RUSTベースのスクリーンショットおよびクリップボード管理アプリケーションです。領域キャプチャ、ウィンドウスマート検出、GIF録画、長いスクリーンショットの結合、OCR文字認識、画像ピン留め、翻訳、モザイク、PDFエクスポート機能を備え、完全なクリップボード履歴管理システムを搭載しています。
+Windows x86_64 向けのスクリーンショット・クリップボード管理アプリケーションです。UI は PySide6、画像処理・クリップボード操作・OCR などは Rust で実装しています。領域キャプチャ、ウィンドウスマート検出、GIF録画、長いスクリーンショットの結合、OCR文字認識、画像ピン留め、翻訳、モザイク、PDFエクスポート機能を備え、完全なクリップボード履歴管理システムを搭載しています。
+
+すぐに使える Windows 版の配布パッケージと、ソースからの実行方法を用意しています。
 
 ---
 
@@ -26,34 +30,54 @@ PySide6 and RUSTベースのスクリーンショットおよびクリップボ�
 
 ---
 
-## インストール手順
+## ダウンロードと起動
 
-本プロジェクトは4つの自作Rustライブラリに依存しており、すべて PyPI に公開済みです。`requirements.txt` のインストールで一緒に入るため、追加の手順は不要です。
+Windows x86_64 版の配布パッケージは、そのまま実行できます。Python、Rust、開発環境のインストールは不要です。
 
-### ワンクリックセットアップ（推奨）
+1. [Releases ページ](https://github.com/1003129155/jietuba/releases/latest)を開き、Assets から `jietuba_pp-*.zip` をダウンロードします。
+2. ZIP 全体を展開し、`jietuba_pp.exe` と `models/` フォルダを同じ階層に置きます。
+3. `jietuba_pp.exe` をダブルクリックして起動します。OCR モデルは配布パッケージに同梱されています。
+4. アプリにはデジタル署名がないため、ブラウザーからダウンロードすると Windows の警告が表示される場合があります。表示された場合は「詳細情報」をクリックし、「実行」を選択すると起動できます。
 
-プロジェクトルートの [setup.bat](setup.bat) をダブルクリックして実行してください。仮想環境の作成と依存パッケージのインストールをすべて自動で行います。完了後、そのままプログラムを起動するかどうか選択できます。
+---
+
+<a id="source-setup"></a>
+
+## ソースから実行
+
+実行に必要な依存パッケージは、すべて [requirements.txt](requirements.txt) で一括インストールできます。4 つの Rust 拡張は本プロジェクトの作者が開発・保守しており、PyPI で **Windows x86_64 + CPython 3.11 以降**向けのビルド済み `abi3` wheel を公開しています。インストール時に Rust ツールチェーンの設定や wheel の個別ダウンロードは必要ありません。
+Python Launcher を含む Python 3.11 x64 をインストールし、本リポジトリをダウンロード・展開するか、クローンしてください。プロジェクトルートの [setup.bat](setup.bat) をダブルクリックすると、仮想環境の作成と PyPI からの全依存パッケージのインストールを自動で行います。完了後、そのままアプリを起動するか選択できます。
 
 ### 手動セットアップ
 
-スクリプトを使わない場合は、以下の手順で手動インストールしてください。
+プロジェクトルートで Windows コマンドプロンプト（CMD）を開き、順に実行してください。
 
-### 1. Python 3.11 仮想環境の作成と有効化
+**1. 仮想環境の作成と有効化**
 
-```bash
-python -m venv venv311
-# Windows:
-venv311\Scripts\activate
+```bat
+py -3.11 -m venv venv311
+call venv311\Scripts\activate.bat
 ```
 
-### 2. 依存パッケージのインストール
+**2. 実行時依存パッケージのインストール**
 
-```bash
+```bat
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-4つの自作Rustパッケージもこのステップで一緒にインストールされます。PyPI の配布名と Python の import 名は異なります：
+**3. アプリの実行**
+
+```bat
+cd main
+python main_app.py
+```
+
+OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は、リポジトリの [models/](models/) に同梱されています。OCR を使う際は、このディレクトリをそのまま保持してください。
+
+### Rust 拡張パッケージ
+
+以下の 4 パッケージは `requirements.txt` に含まれ、実行時依存パッケージと一緒にインストールされます。個別のライブラリとしても利用でき、ソースコードは [rust_libs/](rust_libs/) にあります。PyPI の配布名と Python の import 名の対応は次のとおりです。
 
 | pip パッケージ名 | import 名 | バージョン | 機能 |
 |------|------|------|------|
@@ -62,28 +86,33 @@ python -m pip install -r requirements.txt
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.0 | クリップボード操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
 
-> **注意：** これらは abi3 wheel で、Windows x86_64 + Python 3.11 以降にのみ対応します（他プラットフォーム向けのビルドはありません）。グローバルPython環境にはインストールしないでください。
+現在のビルド済み wheel は Windows x86_64 向けです。各パッケージの Python バージョン指定は `>=3.11` で、Rust バインディングでは `abi3-py311` を有効にしています。詳細は各パッケージの `pyproject.toml` と `Cargo.toml` を参照してください。
 
-> **OCR モデル：** `ppocr_rust` は `models/` フォルダ内の PP-OCR ONNX モデル（`PP-OCRv6_det_small.onnx` + `PP-OCRv6_rec_small.onnx`）が必要です。リポジトリに同梱済み。パッケージ化後は `models/` を exe と同じ階層に配置してください。
+---
 
-**開発/ビルド依存（任意）：**
+<a id="development"></a>
 
-```bash
+## 開発とテスト
+
+仮想環境を有効にした状態で、プロジェクトルートから開発用依存パッケージをインストールし、テストを実行します。
+
+```bat
 python -m pip install -r requirements-dev.txt
+python -m pytest main/tests -c main/tests/pytest.ini
 ```
 
-### 3. プログラムの実行
+[テストディレクトリ](main/tests/)には、キャプチャ、クリップボード、モザイク編集、ピン留め画像のズーム、GIF 再生、OCR テキストレイヤーなどのユニットテスト・統合テストがあります。[CI 設定](.github/workflows/ci.yml)では Windows + Python 3.11 環境で静的解析、テスト、カバレッジ検査を実行します。実行結果は [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml) で確認できます。
 
-```bash
-cd main
-python main_app.py
-```
+Windows 版のビルドは `python build_with_ocr_onefile.py` で実行できます。生成物は `dist/jietuba_pp.exe` と `dist/models/` です。自動リリースの設定は [build.yml](.github/workflows/build.yml) を参照してください。
 
 ---
 
 ## ディレクトリ構造
 
-```
+<details>
+<summary>ディレクトリ構造を表示</summary>
+
+```text
 # プロジェクトルート
 ├── README.md / README_EN.md / README_JA.md             # 中国語・英語・日本語ドキュメント
 ├── pyproject.toml                                      # Pythonプロジェクトのメタデータと依存関係
@@ -124,6 +153,8 @@ python main_app.py
 └── svg/                     # SVGアイコンリソース
 ```
 
+</details>
+
 ---
 
 ## モジュール詳細
@@ -133,7 +164,10 @@ python main_app.py
 シーン管理、ビューレンダリング、アイテム選択、アンドゥ/リドゥ機能を備えたグラフィックス編集キャンバスシステム。
 ![jietuba_gif_20260404_000903](https://github.com/user-attachments/assets/5318b991-b0de-46a2-9c0e-d75eeae2a827)
 
-```
+<details>
+<summary>ディレクトリ構造を表示</summary>
+
+```text
 canvas/
 ├── scene.py                 # CanvasScene — QGraphicsScene継承のキャンバスシーン
 ├── view.py                  # CanvasView — QGraphicsView継承のキャンバスビュー
@@ -148,17 +182,24 @@ canvas/
     └── selection_item.py    # SelectionItem — 選択境界表示
 ```
 
+</details>
+
 ---
 
 ### capture/ — キャプチャモジュール
 
 スクリーンキャプチャとスマートウィンドウ検出。
 
-```
+<details>
+<summary>ディレクトリ構造を表示</summary>
+
+```text
 capture/
 ├── capture_service.py       # CaptureService — スクリーンショットコアロジック
 └── window_finder.py         # WindowFinder — スマートウィンドウ選択、カーソル位置検出
 ```
+
+</details>
 
 ---
 
@@ -168,7 +209,10 @@ Ditto風のクリップボード履歴マネージャーで、controllers・core
 テキスト、画像、HTML、ファイルに対応し、グループと内容を管理する独立した3ペイン管理ウィンドウも備えています。
 ![jietuba_gif_20260404_001128](https://github.com/user-attachments/assets/b0a116e8-d944-43c9-b895-e6fc10d8c08a)
 
-```
+<details>
+<summary>ディレクトリ構造を表示</summary>
+
+```text
 clipboard/
 ├── __init__.py
 ├── controllers/             # 制御層 — 履歴読み込み、貼り付け処理、メニュー、選択状態
@@ -214,6 +258,8 @@ clipboard/
 │       └── pin_window.py         # 履歴項目からピンを作成
 ```
 
+</details>
+
 **主な機能:**
 - システムクリップボードの変更を監視し、自動で履歴を保存
 - テキスト、画像、HTML、ファイル等に対応
@@ -228,7 +274,10 @@ clipboard/
 
 ログ、リソースローディング、テーマ管理、国際化、ホットキー等のインフラ。
 
-```
+<details>
+<summary>ディレクトリ構造を表示</summary>
+
+```text
 core/
 ├── bootstrap.py             # PreloadManager — 起動ブートストラップ、環境初期化、DPI、シングルインスタンス
 ├── logger.py                # Logger — ファイル＋コンソールログ（debug/info/warning/error/exception）
@@ -246,13 +295,18 @@ core/
 └── constants.py             # グローバル定数（フォント、パス等）
 ```
 
+</details>
+
 ---
 
 ### gif/ — GIF録画モジュール
 
 画面録画、編集、再生、GIF/動画エクスポート。
 <img width="766" height="630" alt="image" src="https://github.com/user-attachments/assets/8653fffb-b419-4584-ab4b-9fe95bb9f246" />
-```
+<details>
+<summary>ディレクトリ構造を表示</summary>
+
+```text
 gif/
 ├── record_window.py         # GifRecordWindow / AppState — ステートマシンコーディネーター（3層ウィンドウ）
 ├── overlay.py               # CaptureOverlay / OverlayMode — キャプチャオーバーレイ、領域調整
@@ -268,6 +322,8 @@ gif/
 └── _widgets.py              # ClickMenuButton / svg_icon() — カスタムウィジェット
 ```
 
+</details>
+
 ---
 
 ### ocr/ — OCRモジュール
@@ -276,10 +332,15 @@ PP-OCR による文字認識管理。
 
 <img width="580" height="505" alt="image" src="https://github.com/user-attachments/assets/60a16100-5edc-4543-9a35-daf05b1e244e" />
 
-```
+<details>
+<summary>ディレクトリ構造を表示</summary>
+
+```text
 ocr/
 └── ocr_manager.py           # OCRManager — ppocr_rust (PP-OCR) による文字認識
 ```
+
+</details>
 
 - ppocr_rust エンジン（純 Rust + ONNX Runtime、PP-OCR det + rec）を使用。推論はネイティブスレッドで実行され UI をブロックしない
 - 中国語/英語/日本語認識
@@ -293,7 +354,10 @@ ocr/
 
 <img width="737" height="657" alt="image" src="https://github.com/user-attachments/assets/827b912c-11ac-4692-b3f6-826561957615" />
 
-```
+<details>
+<summary>ディレクトリ構造を表示</summary>
+
+```text
 pin/
 ├── pin_window.py            # PinWindow — ドラッグ可能、ズーム可能、常に最前面の画像ウィンドウ
 ├── pin_canvas_view.py       # PinCanvasView — ピンキャンバスビュー
@@ -311,32 +375,47 @@ pin/
 └── ocr_text_layer.py        # OCRTextLayer / OCRTextItem — OCRテキストレイヤー表示
 ```
 
+</details>
+
 ---
 
 ### settings/ — 設定モジュール
 
-```
+<details>
+<summary>ディレクトリ構造を表示</summary>
+
+```text
 settings/
 └── tool_settings.py         # ToolSettingsManager / ToolSettings — ツールの色、サイズ、ホットキー設定
 ```
+
+</details>
 
 ---
 
 ### stitch/ — 長いスクリーンショット結合モジュール
 ![jietuba_gif_20260404_001930](https://github.com/user-attachments/assets/a9720f08-5128-447d-b425-6d0640272e6a)
 
-```
+<details>
+<summary>ディレクトリ構造を表示</summary>
+
+```text
 stitch/
 ├── jietuba_long_stitch_unified.py   # 結合インターフェース（Rust の longstitch を呼び出す）
 ├── scroll_window.py                 # ScrollCaptureWindow — スクロールキャプチャウィンドウ
 └── scroll_toolbar.py                # スクロールキャプチャツールバー
 ```
 
+</details>
+
 ---
 
 ### tools/ — 描画ツールモジュール
 
-```
+<details>
+<summary>ディレクトリ構造を表示</summary>
+
+```text
 tools/
 ├── base.py                  # Tool / ToolContext — 抽象基底クラス
 ├── controller.py            # ToolController — ツール切替＆状態管理
@@ -354,13 +433,18 @@ tools/
 └── cursor_manager.py        # CursorManager — カーソルスタイル管理
 ```
 
+</details>
+
 ---
 
 ### translation/ — 翻訳モジュール
 
 DeepL / Google / Azure / Amazon などに対応したマルチプロバイダー翻訳サービス。
 
-```
+<details>
+<summary>ディレクトリ構造を表示</summary>
+
+```text
 translation/
 ├── provider.py              # TranslationProvider / ProviderMetadata — プロバイダー抽象契約
 ├── registry.py              # ProviderRegistry — プロバイダー登録とファクトリ
@@ -383,6 +467,8 @@ translation/
     └── widgets.py           # 翻訳ウィジェット
 ```
 
+</details>
+
 **主な機能:**
 - プラグイン可能なマルチプロバイダー構成（DeepL / Google / Azure / Amazon）をレジストリで一元管理
 - ワンキー：選択テキストを自動検出して翻訳ポップアップへ
@@ -394,12 +480,17 @@ translation/
 
 ### translations/ — 言語リソース
 
-```
+<details>
+<summary>ディレクトリ構造を表示</summary>
+
+```text
 translations/
 ├── app_zh.xml / app_en.xml  # 中国語 / 英語ソースファイル
 ├── app_ja.xml / app_ko.xml  # 日本語 / 韓国語ソースファイル
 └── app_*.xml.qm             # コンパイル済み Qt バイナリ（app_zh.xml.qm 等）
 ```
+
+</details>
 
 `.xml` = 編集可能なソースファイル、`*.xml.qm` = Qtランタイムで読み込むコンパイル済みファイル。変更後は `compile_translations.py` を実行して再コンパイルしてください。
 
@@ -409,7 +500,10 @@ translations/
 
 共通UIコンポーネントライブラリ。
 
-```
+<details>
+<summary>ディレクトリ構造を表示</summary>
+
+```text
 ui/
 ├── toolbar.py               # Toolbar / _DragHandle — ドラッグ可能なツールバー基底クラス
 ├── tray_menu.py             # TrayMenu — システムトレイメニュー
@@ -469,11 +563,16 @@ ui/
     └── rounded_corners.py   # 角丸スクリーンショット
 ```
 
+</details>
+
 ---
 
 ### tests/ — テストモジュール
 
-```
+<details>
+<summary>ディレクトリ構造を表示</summary>
+
+```text
 tests/
 ├── conftest.py              # pytest設定＆共通フィクスチャ
 ├── pytest.ini               # pytest実行設定
@@ -496,3 +595,4 @@ tests/
 └── …（その他 70 以上のユニット/統合テストファイル）
 ```
 
+</details>
