@@ -7,7 +7,9 @@ name = "j-gif"
 version = "0.3.0"
 description = "Screen recording to GIF for Python, implemented in Rust (Win32 GDI capture, JPEG-backed frame store, no GIL contention)"
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
+# Rust 依赖被静态链接进 .pyd，随分发附上它们的版权声明与许可全文
+license-files = ["LICENSE", "THIRD-PARTY-NOTICES.txt"]
 authors = [{ name = "JYAARU" }]
 requires-python = ">=3.11"
 keywords = ["gif", "screen-recording", "screen-capture", "windows", "rust"]

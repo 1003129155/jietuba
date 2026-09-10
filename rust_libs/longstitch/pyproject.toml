@@ -7,7 +7,10 @@ name = "j-stitch"
 version = "0.4.0"
 description = "Scrolling screenshot stitching for Python, implemented in Rust (row-hash + LCS overlap detection)"
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
+# Rust 依赖被静态链接进 .pyd，随分发附上它们的版权声明与许可全文
+license-files = ["LICENSE", "THIRD-PARTY-NOTICES.txt"]
+# Rust 依赖静态链接进 .pyd，随分发附上它们的版权声明与许可全文
 authors = [{ name = "JYAARU" }]
 requires-python = ">=3.11"
 keywords = ["screenshot", "stitching", "scrolling-capture", "image", "rust"]

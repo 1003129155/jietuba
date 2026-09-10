@@ -59,6 +59,26 @@ jobs:
         # 放在构建 wheel 之前：逻辑错了就不必再花时间打包。
         run: cargo test --workspace --release --manifest-path rust_libs/Cargo.toml
 
+      - name: Install cargo-about
+        # 0.9 起二进制需要显式启用 cli feature 才会被安装
+        run: cargo install cargo-about --locked --features cli
+
+      - name: Check third-party notices are current
+        # 四个 wheel 把 Rust 依赖静态链接进 .pyd，MIT/BSD/ISC 等都要求随分发
+        # 附上版权声明与许可全文。声明文件是提交进仓库的，依赖一变就会过期，
+        # 而本 workflow 恰好只在 rust_libs/** 改动时触发，正是该复查的时机。
+        run: |
+          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust") {
+            cargo about generate --manifest-path rust_libs/$crate/Cargo.toml `
+              -o rust_libs/$crate/THIRD-PARTY-NOTICES.txt rust_libs/notices.hbs
+            if ($LASTEXITCODE -ne 0) { throw "$crate 的许可声明生成失败" }
+          }
+          git diff --exit-code -- "rust_libs/*/THIRD-PARTY-NOTICES.txt"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::第三方许可声明已过期，请在本地跑 cargo about 重新生成并提交"
+            exit 1
+          }
+
       - name: Install maturin
         # 版本与 requirements-dev.txt 保持一致
         run: pip install maturin==1.12.6
