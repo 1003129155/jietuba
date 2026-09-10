@@ -19,7 +19,7 @@ required reviewers——发布不可逆，加一道确认是划算的。
    名字填 `PYPI_API_TOKEN`，值粘贴刚生成的 token。
 3. 到 <https://test.pypi.org/manage/account/token/> 同样生成一个（TestPyPI
    是完全独立的账号体系，token 不通用），同样存成仓库级 secret，名字
-   `TEST_PYPI_API_TOKEN`。
+   `PYPI_API_TOKEN_TEST`。
 
 两个 token 用**不同的名字**存在同一层（仓库级），workflow 按本次选择的
 `inputs.repository` 显式挑选其中一个——没有用 GitHub Environment 的同名

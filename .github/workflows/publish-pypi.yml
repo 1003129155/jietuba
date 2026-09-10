@@ -80,12 +80,12 @@ jobs:
         # 四个包可以一次性传完，不必按包拆分
         #
         # PyPI 与 TestPyPI 是完全独立的账号体系，token 不通用，两个仓库级
-        # secret 分开存：PYPI_API_TOKEN（pypi.org）、TEST_PYPI_API_TOKEN
+        # secret 分开存：PYPI_API_TOKEN（pypi.org）、PYPI_API_TOKEN_TEST
         # （test.pypi.org）。按 inputs.repository 显式选择，不依赖 GitHub
         # Environment 的同名 secret 覆盖——用的是仓库级 secret，没有那层覆盖。
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist
           repository-url: ${{ inputs.repository == 'pypi' && 'https://upload.pypi.org/legacy/' || 'https://test.pypi.org/legacy/' }}
-          password: ${{ inputs.repository == 'pypi' && secrets.PYPI_API_TOKEN || secrets.TEST_PYPI_API_TOKEN }}
+          password: ${{ inputs.repository == 'pypi' && secrets.PYPI_API_TOKEN || secrets.PYPI_API_TOKEN_TEST }}
           print-hash: true
