@@ -18,8 +18,14 @@ PyPI 上每个包是独立项目，**四个都要各配一次**。项目尚不�
 
 TestPyPI 需在 <https://test.pypi.org/manage/account/publishing/> 单独配一遍。
 
-仓库侧还需建两个 GitHub Environment（Settings → Environments）：`testpypi` 与
-`pypi`。给 `pypi` 加上 required reviewers，正式发布就需要人工点确认。
+仓库侧的两个 GitHub Environment（`testpypi`、`pypi`）已经建好，无需再操作。
+若希望正式发布前需人工点确认，可在 Settings → Environments → `pypi` 里加上
+required reviewers——发布不可逆，加一道确认是划算的。
+
+PyPI 侧无法自动化：它不提供创建 Trusted Publisher 的 API，只能在网页上填。
+这是有意的设计——那条配置等于授权某个仓库的某个 workflow 以你的身份发包，
+属于信任锚点，不能由自动化自行建立。换用 API token 同样要登网页，而且更差：
+那是长期有效的密钥，还得存进仓库 secrets。
 
 ## 发布流程
 
