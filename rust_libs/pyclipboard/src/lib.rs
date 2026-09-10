@@ -105,6 +105,136 @@ fn generate_cf_html(html: &str) -> String {
     )
 }
 
+
+/// CF_HTML 在 Windows 剪贴板里的格式名，与 generate_cf_html 写出的头部对应。
+const CF_HTML_FORMAT: &str = "HTML Format";
+
+/// 从 CF_HTML 原始字节里取出 HTML 正文。
+///
+/// 不走 clipboard-rs 的 `get_html()`：它最后一步是 `data[start..end]`，而 Rust 的
+/// &str 切片只要落在非字符边界就 panic。写剪贴板的程序把偏移量算在多字节字符
+/// 中间并不罕见，中文内容尤其容易撞上；而本文件里有一个调用点在剪贴板监听线程
+/// 内，线程里 panic 比返回错误难查得多。
+///
+/// 所以这里把头部里的偏移量当作**提示**而非事实：越界就钳制，落在字符中间就
+/// 退回按 `<html>` 标签定位。写入侧本来就是本文件自己实现的（generate_cf_html），
+/// 读取侧一并拿过来也更对称。
+fn extract_html_from_cf_html(raw: &[u8]) -> Option<String> {
+    // lossy 而非 from_utf8：个别非法字节不该让整块内容作废
+    let data = String::from_utf8_lossy(raw);
+    let len = data.len();
+
+    let mut start = 0usize;
+    let mut end = len;
+    for line in data.lines() {
+        // 头部是 "Key:Value" 若干行，遇到标签就说明已经进入正文
+        if line.starts_with('<') {
+            break;
+        }
+        let Some((key, value)) = line.split_once(':') else {
+            continue;
+        };
+        let slot = match key.trim() {
+            "StartHTML" => &mut start,
+            "EndHTML" => &mut end,
+            _ => continue,
+        };
+        // 偏移量按 CF_HTML 惯例补足前导零，全零即 0
+        let digits = value.trim().trim_start_matches('0');
+        match if digits.is_empty() { Ok(0) } else { digits.parse::<usize>() } {
+            Ok(v) => *slot = v,
+            // 头部都写坏了就别再信它，交给下面的兜底
+            Err(_) => break,
+        }
+    }
+
+    let start = start.min(len);
+    let end = end.min(len);
+    if start < end {
+        if let Some(html) = data.get(start..end) {
+            return Some(html.to_string());
+        }
+    }
+
+    // 偏移量不可用（落在字符中间、或首尾颠倒），退回按标签定位。
+    // 标签全是 ASCII，找到的下标必然是合法字符边界。
+    let open = data.find("<html").or_else(|| data.find("<HTML"))?;
+    let close = data
+        .rfind("</html>")
+        .or_else(|| data.rfind("</HTML>"))
+        .map(|i| i + "</html>".len())
+        .unwrap_or(len)
+        .min(len);
+    data.get(open..close).map(|s| s.to_string())
+}
+
+#[cfg(test)]
+mod cf_html_tests {
+    use super::extract_html_from_cf_html;
+
+    const BODY: &str = "<html><body>中文内容测试</body></html>";
+
+    /// 按 CF_HTML 规范拼一份缓冲，start_delta 用来把偏移量推进多字节字符内部
+    fn build(start_delta: usize) -> Vec<u8> {
+        let head_probe = "Version:0.9\r\nStartHTML:0000000000\r\nEndHTML:0000000000\r\n";
+        let head_len = head_probe.len();
+        let total = head_len + BODY.len();
+        format!(
+            "Version:0.9\r\nStartHTML:{:010}\r\nEndHTML:{:010}\r\n{}",
+            head_len + start_delta,
+            total,
+            BODY
+        )
+        .into_bytes()
+    }
+
+    #[test]
+    fn offsets_pointing_at_the_body_are_used_as_is() {
+        assert_eq!(extract_html_from_cf_html(&build(0)).as_deref(), Some(BODY));
+    }
+
+    #[test]
+    fn offset_inside_a_multibyte_char_falls_back_instead_of_panicking() {
+        // "<html><body>" 之后第一个字是「中」，+13 正好落在它的字节中间。
+        // clipboard-rs 的 get_html() 在这里会 panic。
+        assert_eq!(extract_html_from_cf_html(&build(13)).as_deref(), Some(BODY));
+    }
+
+    #[test]
+    fn out_of_range_offsets_are_clamped() {
+        let raw = format!(
+            "Version:0.9\r\nStartHTML:0000000000\r\nEndHTML:0000999999\r\n{}",
+            BODY
+        )
+        .into_bytes();
+        let got = extract_html_from_cf_html(&raw).expect("应当钳制后返回内容");
+        assert!(got.ends_with("</html>"));
+    }
+
+    #[test]
+    fn reversed_offsets_fall_back_to_tag_search() {
+        let raw = format!(
+            "Version:0.9\r\nStartHTML:0000000200\r\nEndHTML:0000000010\r\n{}",
+            BODY
+        )
+        .into_bytes();
+        assert_eq!(extract_html_from_cf_html(&raw).as_deref(), Some(BODY));
+    }
+
+    #[test]
+    fn uppercase_tags_are_recognised_by_the_fallback() {
+        let body = "<HTML><BODY>中文</BODY></HTML>";
+        let raw = format!("Version:0.9\r\nStartHTML:0000000200\r\nEndHTML:0000000010\r\n{}", body)
+            .into_bytes();
+        assert_eq!(extract_html_from_cf_html(&raw).as_deref(), Some(body));
+    }
+
+    #[test]
+    fn garbage_without_any_html_yields_none() {
+        assert_eq!(extract_html_from_cf_html(b"Version:0.9\r\nStartHTML:0000000200\r\n"), None);
+    }
+}
+
 /// 获取剪贴板文本
 #[pyfunction]
 fn get_clipboard_text() -> PyResult<Option<String>> {
@@ -185,10 +315,11 @@ fn get_clipboard_html() -> PyResult<Option<String>> {
     let ctx = ClipboardContext::new()
         .map_err(|e| PyRuntimeError::new_err(format!("创建剪贴板上下文失败: {}", e)))?;
     
-    match ctx.get_html() {
-        Ok(html) => Ok(Some(html)),
-        Err(_) => Ok(None),
-    }
+    // 自行解析 CF_HTML，不用 ctx.get_html()（原因见 extract_html_from_cf_html）
+    Ok(ctx
+        .get_buffer(CF_HTML_FORMAT)
+        .ok()
+        .and_then(|raw| extract_html_from_cf_html(&raw)))
 }
 
 /// 获取剪贴板 RTF 富文本内容
@@ -682,7 +813,10 @@ impl PyClipboardManager {
                     };
 
                     let source_app = get_clipboard_owner().ok().flatten();
-                    let html_content = ctx.get_html().ok();
+                    let html_content = ctx
+                        .get_buffer(CF_HTML_FORMAT)
+                        .ok()
+                        .and_then(|raw| extract_html_from_cf_html(&raw));
 
                     let text_val  = ctx.get_text().ok().filter(|t| !t.trim().is_empty());
                     let files_val = ctx.get_files().ok().filter(|f| !f.is_empty());

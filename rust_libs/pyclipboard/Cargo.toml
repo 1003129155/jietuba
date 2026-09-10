@@ -14,7 +14,7 @@ crate-type = ["cdylib"]
 pyo3 = { version = "0.22", features = ["extension-module", "abi3-py311"] }
 
 # 剪贴板操作
-clipboard-rs = { git = "https://github.com/mosheng1/clipboard-rs" }
+clipboard-rs = "0.3.5"
 
 # SQLite 数据库（bundled 表示自带 SQLite）
 rusqlite = { version = "0.32", features = ["bundled"] }
