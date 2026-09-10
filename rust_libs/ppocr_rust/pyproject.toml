@@ -9,9 +9,7 @@ description = "PP-OCR ONNX inference for Python via Rust (det+rec, no opencv/num
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "Apache-2.0"}
-authors = [
-    {name = "MoSheng"}
-]
+authors = [{ name = "JYAARU" }]
 keywords = ["ocr", "paddleocr", "ppocr", "onnx", "text-recognition"]
 classifiers = [
     "Operating System :: Microsoft :: Windows",

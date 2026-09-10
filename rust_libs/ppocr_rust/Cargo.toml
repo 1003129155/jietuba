@@ -2,7 +2,7 @@
 name = "ppocr_rust"
 version = "0.2.0"
 edition = "2021"
-authors = ["MoSheng"]
+authors = ["JYAARU"]
 description = "PP-OCR (PaddleOCR) ONNX inference for Python via Rust + ort (det+rec, no opencv/numpy)"
 
 [lib]

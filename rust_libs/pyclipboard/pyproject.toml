@@ -8,6 +8,7 @@ version = "0.4.0"
 description = "Windows clipboard access and history management for Python, implemented in Rust (text/image/HTML/RTF/files, SQLite-backed)"
 readme = "README.md"
 license = { text = "MIT" }
+authors = [{ name = "JYAARU" }]
 requires-python = ">=3.11"
 keywords = ["clipboard", "clipboard-history", "windows", "rust", "pyo3"]
 classifiers = [
