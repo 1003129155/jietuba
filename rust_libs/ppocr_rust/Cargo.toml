@@ -1,8 +1,9 @@
 [package]
 name = "ppocr_rust"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
-authors = ["MoSheng"]
+license = "Apache-2.0"
+authors = ["JYAARU"]
 description = "PP-OCR (PaddleOCR) ONNX inference for Python via Rust + ort (det+rec, no opencv/numpy)"
 
 [lib]
@@ -10,7 +11,7 @@ name = "ppocr_rust"
 crate-type = ["rlib", "cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.22", features = ["extension-module"] }
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py311"] }
 ort = { version = "=2.0.0-rc.12", features = ["ndarray"] }
 ndarray = "0.16"
 image = { version = "0.25", default-features = false }

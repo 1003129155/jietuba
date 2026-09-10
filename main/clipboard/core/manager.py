@@ -9,9 +9,14 @@ from typing import Optional, Callable, List
 
 try:
     # 这里的导入本身就是可用性探测：导入成功即代表 Rust 扩展存在。
-    # PyClipboardItem / PyGroup 在本模块内不直接使用，但要一并验证符号齐全。
+    # ClipboardItem / Group 在本模块内不直接使用，但要一并验证符号齐全。
+    # 别名保留 Py 前缀：本模块自己有个同名的 ClipboardManager 包装类。
     import pyclipboard  # noqa: F401
-    from pyclipboard import PyClipboardManager, PyClipboardItem, PyGroup  # noqa: F401
+    from pyclipboard import (  # noqa: F401
+        ClipboardManager as PyClipboardManager,
+        ClipboardItem as PyClipboardItem,
+        Group as PyGroup,
+    )
     PYCLIPBOARD_AVAILABLE = True
 except ImportError as e:
     PYCLIPBOARD_AVAILABLE = False

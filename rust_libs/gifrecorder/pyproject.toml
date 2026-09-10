@@ -3,13 +3,27 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "gifrecorder"
-version = "0.2.1"
-requires-python = ">=3.8"
+name = "j-gif"
+version = "0.3.0"
+description = "Screen recording to GIF for Python, implemented in Rust (Win32 GDI capture, JPEG-backed frame store, no GIL contention)"
+readme = "README.md"
+license = "MIT"
+# Rust 依赖被静态链接进 .pyd，随分发附上它们的版权声明与许可全文
+license-files = ["LICENSE", "THIRD-PARTY-NOTICES.txt"]
+authors = [{ name = "JYAARU" }]
+requires-python = ">=3.11"
+keywords = ["gif", "screen-recording", "screen-capture", "windows", "rust"]
 classifiers = [
-    "Programming Language :: Rust",
+    "Development Status :: 4 - Beta",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Rust",
 ]
 
 [tool.maturin]
+# 发行名是 j-gif，import 名保持 gifrecorder 不变
+module-name = "gifrecorder"
 features = ["pyo3/extension-module"]

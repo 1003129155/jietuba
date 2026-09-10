@@ -3,22 +3,27 @@ requires = ["maturin>=1.4,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "pyclipboard"
-version = "0.3.14"
-description = "Python 剪贴板管理库（Rust 実装）"
-requires-python = ">=3.8"
+name = "j-clipboard"
+version = "0.4.0"
+description = "Windows clipboard access and history management for Python, implemented in Rust (text/image/HTML/RTF/files, SQLite-backed)"
+readme = "README.md"
+license = "MIT"
+# Rust 依赖被静态链接进 .pyd，随分发附上它们的版权声明与许可全文
+license-files = ["LICENSE", "THIRD-PARTY-NOTICES.txt"]
+authors = [{ name = "JYAARU" }]
+requires-python = ">=3.11"
+keywords = ["clipboard", "clipboard-history", "windows", "rust", "pyo3"]
 classifiers = [
-    "Programming Language :: Rust",
-    "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
+    "Development Status :: 4 - Beta",
+    "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Rust",
 ]
-keywords = ["clipboard", "rust", "pyo3"]
 
 [tool.maturin]
-features = ["pyo3/extension-module"]
+# 发行名是 j-clipboard，import 名保持 pyclipboard 不变
 module-name = "pyclipboard"
+features = ["pyo3/extension-module"]

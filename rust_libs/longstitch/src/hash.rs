@@ -1,3 +1,4 @@
+use crate::error::StitchError;
 /// 行哈希模块 - 长截图拼接专用
 use rayon::prelude::*;
 
@@ -7,9 +8,9 @@ use rayon::prelude::*;
 pub fn compute_row_hashes(
     image_bytes: &[u8],
     ignore_right_pixels: u32,
-) -> Result<Vec<u64>, String> {
+) -> Result<Vec<u64>, StitchError> {
     let img =
-        image::load_from_memory(image_bytes).map_err(|e| format!("Failed to load image: {}", e))?;
+        image::load_from_memory(image_bytes).map_err(StitchError::decode)?;
     let rgba_img = img.to_rgba8();
     Ok(compute_row_hashes_from_rgba(&rgba_img, ignore_right_pixels, false))
 }
@@ -18,9 +19,9 @@ pub fn compute_row_hashes(
 pub fn compute_row_hashes_debug(
     image_bytes: &[u8],
     ignore_right_pixels: u32,
-) -> Result<Vec<u64>, String> {
+) -> Result<Vec<u64>, StitchError> {
     let img =
-        image::load_from_memory(image_bytes).map_err(|e| format!("Failed to load image: {}", e))?;
+        image::load_from_memory(image_bytes).map_err(StitchError::decode)?;
     let rgba_img = img.to_rgba8();
     Ok(compute_row_hashes_from_rgba(&rgba_img, ignore_right_pixels, true))
 }

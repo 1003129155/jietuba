@@ -1,0 +1,29 @@
+# 生成随 wheel 分发的第三方许可声明。
+# 这四个包把 Rust 依赖静态链接进 .pyd，属于分发第三方代码，
+# MIT / BSD / ISC 等许可证均要求随分发附上版权声明与许可全文。
+#
+# 下面列出的是依赖树里实际出现的许可证，全部为宽松型。
+# MPL-2.0 是其中唯一带弱 copyleft 的：仅当修改了 MPL 文件才需公开改动，
+# 本项目未做修改，附上声明即可。
+accepted = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "CDLA-Permissive-2.0",
+    "IJG",
+    "ISC",
+    "MPL-2.0",
+    "NCSA",
+    "Unicode-3.0",
+    "Zlib",
+]
+
+# 只关心 Windows x86_64——发布的就是这一个目标
+targets = ["x86_64-pc-windows-msvc"]
+
+# 构建脚本依赖不进入最终二进制，无需声明
+ignore-build-dependencies = true
+ignore-dev-dependencies = true

@@ -285,8 +285,9 @@ dependencies = [
 
 [[package]]
 name = "clipboard-rs"
-version = "0.3.1"
-source = "git+https://github.com/mosheng1/clipboard-rs#552d2014c54656169279a48a5dcfa0a1ca051bef"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1c988a897ea030e32f0668c90b0192800e0c561b3d941fc366f9ad5a1bf26ba"
 dependencies = [
  "clipboard-win",
  "image 0.25.9",
@@ -681,7 +682,7 @@ dependencies = [
 
 [[package]]
 name = "gifrecorder"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "color_quant",
  "crossbeam-channel",
@@ -1007,7 +1008,7 @@ checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 
 [[package]]
 name = "longstitch"
-version = "0.3.11"
+version = "0.4.0"
 dependencies = [
  "image 0.24.9",
  "pyo3",
@@ -1639,7 +1640,7 @@ dependencies = [
 
 [[package]]
 name = "ppocr_rust"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "image 0.25.9",
  "imageproc",
@@ -1696,7 +1697,7 @@ dependencies = [
 
 [[package]]
 name = "pyclipboard"
-version = "0.3.14"
+version = "0.4.0"
 dependencies = [
  "base64",
  "chrono",

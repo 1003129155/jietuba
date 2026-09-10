@@ -113,13 +113,15 @@ def _stitch_with_hash_rust(images, ignore_img1_top_ratio=0.0, ignore_img1_bottom
                 buf2 = io.BytesIO()
                 images[i].save(buf2, format="PNG")
 
-                stitch_result = longstitch.stitch_two_images_rust_smart(
+                stitch_result = longstitch.stitch(
                     buf1.getvalue(),
                     buf2.getvalue(),
-                    ignore_right_pixels=config.ignore_right_pixels or None,
+                    # config 默认 0，而 0 一向被当作「用库的默认值 20」处理，
+                    # 这里显式写出来，行为与改造前一致
+                    ignore_right_pixels=config.ignore_right_pixels or 20,
                     ignore_top_pixels=config.ignore_top_pixels,
-                    ignore_img1_top_ratio=ignore_img1_top_ratio or None,
-                    ignore_img1_bottom_ratio=ignore_img1_bottom_ratio or None,
+                    ignore_img1_top_ratio=ignore_img1_top_ratio,
+                    ignore_img1_bottom_ratio=ignore_img1_bottom_ratio,
                 )
 
                 if stitch_result is None:
@@ -130,7 +132,7 @@ def _stitch_with_hash_rust(images, ignore_img1_top_ratio=0.0, ignore_img1_bottom
                     return None
 
                 # 返回 PNG 字节，解码为 PIL Image
-                result = Image.open(io.BytesIO(stitch_result))
+                result = Image.open(io.BytesIO(stitch_result.png))
 
                 if config.verbose:
                     global _stitch_counter
@@ -184,25 +186,19 @@ def stitch_images_auto(img1, img2, debug=False):
         buf2 = io.BytesIO()
         img2.save(buf2, format="PNG")
 
-        if debug:
-            auto_result = longstitch.stitch_two_images_rust_smart_auto_debug(
-                buf1.getvalue(),
-                buf2.getvalue(),
-                ignore_right_pixels=config.ignore_right_pixels or None,
-                ignore_top_pixels=config.ignore_top_pixels,
-            )
-        else:
-            auto_result = longstitch.stitch_two_images_rust_smart_auto(
-                buf1.getvalue(),
-                buf2.getvalue(),
-                ignore_right_pixels=config.ignore_right_pixels or None,
-                ignore_top_pixels=config.ignore_top_pixels,
-            )
+        auto_result = longstitch.stitch(
+            buf1.getvalue(),
+            buf2.getvalue(),
+            detect_direction=True,
+            ignore_right_pixels=config.ignore_right_pixels or 20,
+            ignore_top_pixels=config.ignore_top_pixels,
+            debug=debug,
+        )
 
         if auto_result is None:
             return None, "forward"
 
-        png_bytes, direction = auto_result
+        png_bytes, direction = auto_result.png, auto_result.direction
         result = Image.open(io.BytesIO(png_bytes))
         return result, direction
 

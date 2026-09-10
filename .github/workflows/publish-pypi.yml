@@ -1,0 +1,91 @@
+name: Publish to PyPI
+
+# 发布是不可逆的：PyPI 上的包名与版本号发出去撤不回，同一版本也不能重传。
+# 因此本 workflow 只能手动触发，且默认指向 TestPyPI；正式发布必须显式选择。
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: "发布目标"
+        required: true
+        type: choice
+        default: testpypi
+        options:
+          - testpypi
+          - pypi
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        # 四个包是 abi3 wheel，用 3.11 作为最低版本构建
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust_libs
+          cache-on-failure: true
+
+      - name: Install maturin
+        run: pip install maturin==1.12.6
+
+      - name: Build wheels
+        # 从源码重新构建，不用 wheels/ 里已提交的那份——发布出去的产物
+        # 必须能追溯到本次 commit 的源码
+        run: |
+          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust") {
+            maturin build --release -i python -m rust_libs/$crate/Cargo.toml --out dist
+            if ($LASTEXITCODE -ne 0) { throw "$crate 构建失败" }
+          }
+          Get-ChildItem dist\*.whl | Select-Object Name, Length
+
+      - name: Verify metadata
+        # twine check 能在上传前发现描述渲染失败一类的问题，
+        # 而这类问题在 PyPI 上是改不了的（同一版本不能重传）
+        run: |
+          pip install twine
+          twine check dist/*.whl
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*.whl
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      # secret 是仓库级的，与 environment 无关；这里保留 environment 只是为了
+      # 能在 Settings → Environments → pypi 上加 required reviewers，给正式
+      # 发布加一道人工确认
+      name: ${{ inputs.repository }}
+    steps:
+      - name: Download wheels
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Publish all packages
+        # 账号级 token 不像 Trusted Publisher 那样绑定单个项目，
+        # 四个包可以一次性传完，不必按包拆分
+        #
+        # PyPI 与 TestPyPI 是完全独立的账号体系，token 不通用，两个仓库级
+        # secret 分开存：PYPI_API_TOKEN（pypi.org）、PYPI_API_TOKEN_TEST
+        # （test.pypi.org）。按 inputs.repository 显式选择，不依赖 GitHub
+        # Environment 的同名 secret 覆盖——用的是仓库级 secret，没有那层覆盖。
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          repository-url: ${{ inputs.repository == 'pypi' && 'https://upload.pypi.org/legacy/' || 'https://test.pypi.org/legacy/' }}
+          password: ${{ inputs.repository == 'pypi' && secrets.PYPI_API_TOKEN || secrets.PYPI_API_TOKEN_TEST }}
+          print-hash: true

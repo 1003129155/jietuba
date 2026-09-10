@@ -46,52 +46,39 @@ if not %errorlevel%==0 (
 )
 
 rem ---------- 4. 选择 Rust 扩展包来源 ----------
-set "WHEELS=gifrecorder-0.2.1-cp311-cp311-win_amd64.whl longstitch-0.3.11-cp311-cp311-win_amd64.whl pyclipboard-0.3.14-cp311-cp311-win_amd64.whl ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl"
-set "RELEASE_URL=https://github.com/1003129155/jietuba/releases/download/rust-libs-v1"
+set "PKGS=j-gif j-stitch j-clipboard j-ppocr"
+set "RELEASE_TAG=rust-libs-v1"
 
 echo.
-echo [4/5] 请选择自制 Rust 扩展包(gifrecorder/longstitch/pyclipboard/ppocr_rust)来源:
-echo   [1] 使用仓库根目录自带的 .whl 文件 (默认)
-echo   [2] 从 GitHub Release 重新下载最新版
+echo [4/5] 请选择自制 Rust 扩展包(%PKGS%)来源:
+echo   [1] 使用 wheels\ 目录自带的 .whl 文件 (默认)
+echo   [2] 从 GitHub Release 重新下载
 set /p WHEEL_SRC="请输入选项 (1/2，直接回车默认 1): "
 if not defined WHEEL_SRC set "WHEEL_SRC=1"
 
-if "%WHEEL_SRC%"=="2" (
-    echo   将从 Release 下载: %RELEASE_URL%
-    for %%W in (%WHEELS%) do (
-        echo   下载 %%W ...
-        curl -L -f -o "%%W" "%RELEASE_URL%/%%W"
-        if not !errorlevel!==0 (
-            echo [错误] 下载 %%W 失败，请检查网络，或手动从下方页面下载后重新运行本脚本:
-            echo   https://github.com/1003129155/jietuba/releases/tag/rust-libs-v1
-            pause
-            exit /b 1
-        )
-    )
-) else (
-    set "MISSING="
-    for %%W in (%WHEELS%) do (
-        if not exist "%%W" set "MISSING=1"
-    )
-    if defined MISSING (
-        echo   本地 wheel 文件不全，自动改为从 Release 下载 ...
-        for %%W in (%WHEELS%) do (
-            if not exist "%%W" (
-                echo   下载 %%W ...
-                curl -L -f -o "%%W" "%RELEASE_URL%/%%W"
-                if not !errorlevel!==0 (
-                    echo [错误] 下载 %%W 失败，请检查网络，或手动从下方页面下载后重新运行本脚本:
-                    echo   https://github.com/1003129155/jietuba/releases/tag/rust-libs-v1
-                    pause
-                    exit /b 1
-                )
-            )
-        )
+rem 本地不全就自动改为下载，不必让用户自己发现
+set "WHEEL_COUNT=0"
+for %%W in (wheels\*.whl) do set /a WHEEL_COUNT+=1
+if !WHEEL_COUNT! LSS 4 (
+    echo   wheels\ 里只找到 !WHEEL_COUNT! 个 .whl，自动改为从 Release 下载。
+    set "WHEEL_SRC=2"
+)
+
+if "!WHEEL_SRC!"=="2" (
+    echo   从 Release !RELEASE_TAG! 下载 ...
+    rem 按 Release 里实际存在的 .whl 下载，不写死文件名，升版本无需改本脚本
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; New-Item -ItemType Directory -Force wheels | Out-Null; (Invoke-RestMethod 'https://api.github.com/repos/1003129155/jietuba/releases/tags/!RELEASE_TAG!').assets | Where-Object name -like '*.whl' | ForEach-Object { Write-Host ('   ' + $_.name); Invoke-WebRequest $_.browser_download_url -OutFile ('wheels' + $_.name) }"
+    if not !errorlevel!==0 (
+        echo [错误] 下载失败，请检查网络，或手动从下方页面下载到 wheels\ 后重新运行：
+        echo   https://github.com/1003129155/jietuba/releases/tag/!RELEASE_TAG!
+        pause
+        exit /b 1
     )
 )
 
 echo   安装 Rust 扩展包 ...
-pip install %WHEELS% -q
+rem 按包名装，版本由 wheels\ 里的文件决定
+pip install --no-index --find-links=wheels %PKGS% -q
 if not %errorlevel%==0 (
     echo [错误] Rust 扩展包安装失败。
     pause

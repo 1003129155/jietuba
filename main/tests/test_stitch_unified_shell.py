@@ -37,41 +37,54 @@ def _png_bytes(image: Image.Image) -> bytes:
     return buf.getvalue()
 
 
+class _FakeStitchResult:
+    """冒充扩展返回的 StitchResult：具名字段，不是裸元组。"""
+
+    def __init__(self, png, direction="forward"):
+        self.png = png
+        self.direction = direction
+
+
 class _FakeLongStitch:
     """
     冒充 Rust 扩展模块。
 
     生产代码是 `import longstitch` 后取模块属性调用，所以一个普通对象
     塞进 sys.modules 就能顶替，不需要真的构造 ModuleType。
+
+    扩展现在只有 stitch() 一个入口，模式由 detect_direction / debug 两个
+    关键字决定，因此这里只记一份调用流水，再按关键字派生出三个视图。
     """
 
     def __init__(self):
-        self.smart_calls = []
-        self.auto_calls = []
-        self.auto_debug_calls = []
+        self.calls = []
         # 默认成功：返回一张尺寸与输入不同的图，方便断言"结果被解码并串联"
-        self.smart_result = _png_bytes(_solid(8, 30))
+        self.smart_result = _FakeStitchResult(_png_bytes(_solid(8, 30)))
         self.smart_error = None
-        self.auto_result = (_png_bytes(_solid(8, 40)), "forward")
+        self.auto_result = _FakeStitchResult(_png_bytes(_solid(8, 40)), "forward")
         self.auto_error = None
 
-    def stitch_two_images_rust_smart(self, bytes1, bytes2, **kwargs):
-        self.smart_calls.append((bytes1, bytes2, kwargs))
-        if self.smart_error is not None:
-            raise self.smart_error
-        return self.smart_result
+    @property
+    def smart_calls(self):
+        return [c for c in self.calls if not c[2].get("detect_direction")]
 
-    def stitch_two_images_rust_smart_auto(self, bytes1, bytes2, **kwargs):
-        self.auto_calls.append((bytes1, bytes2, kwargs))
-        if self.auto_error is not None:
-            raise self.auto_error
-        return self.auto_result
+    @property
+    def auto_calls(self):
+        return [c for c in self.calls
+                if c[2].get("detect_direction") and not c[2].get("debug")]
 
-    def stitch_two_images_rust_smart_auto_debug(self, bytes1, bytes2, **kwargs):
-        self.auto_debug_calls.append((bytes1, bytes2, kwargs))
-        if self.auto_error is not None:
-            raise self.auto_error
-        return self.auto_result
+    @property
+    def auto_debug_calls(self):
+        return [c for c in self.calls
+                if c[2].get("detect_direction") and c[2].get("debug")]
+
+    def stitch(self, bytes1, bytes2, **kwargs):
+        self.calls.append((bytes1, bytes2, kwargs))
+        auto = kwargs.get("detect_direction", False)
+        error = self.auto_error if auto else self.smart_error
+        if error is not None:
+            raise error
+        return self.auto_result if auto else self.smart_result
 
 
 @pytest.fixture
@@ -177,24 +190,25 @@ class TestRustCallArguments:
         assert kwargs["ignore_right_pixels"] == 7
         assert kwargs["ignore_top_pixels"] == 3
 
-    def test_zero_right_pixels_becomes_none_but_zero_top_pixels_stays(
+    def test_zero_right_pixels_becomes_twenty_but_zero_top_pixels_stays(
             self, fake_rust, reset_config):
         """
-        生产代码对两个参数的写法不对称：ignore_right_pixels 用了 `or None`，
-        ignore_top_pixels 直接传。这条用例把该差异钉住，避免以后无意改动。
+        生产代码对两个参数的处理不对称：ignore_right_pixels 为 0 时按 20 送出
+        （历史行为，原先靠 Rust 侧的 unwrap_or(20) 实现），ignore_top_pixels
+        则原样送 0。这条用例把该差异钉住，避免以后无意改动。
         """
         reset_config.ignore_right_pixels = 0
         reset_config.ignore_top_pixels = 0
         unified.stitch_images([_solid(8, 10), _solid(8, 12)])
         kwargs = fake_rust.smart_calls[0][2]
-        assert kwargs["ignore_right_pixels"] is None
+        assert kwargs["ignore_right_pixels"] == 20
         assert kwargs["ignore_top_pixels"] == 0
 
-    def test_zero_img1_ratios_are_sent_as_none(self, fake_rust):
+    def test_zero_img1_ratios_are_sent_as_zero(self, fake_rust):
         unified.stitch_images([_solid(8, 10), _solid(8, 12)])
         kwargs = fake_rust.smart_calls[0][2]
-        assert kwargs["ignore_img1_top_ratio"] is None
-        assert kwargs["ignore_img1_bottom_ratio"] is None
+        assert kwargs["ignore_img1_top_ratio"] == 0.0
+        assert kwargs["ignore_img1_bottom_ratio"] == 0.0
 
     def test_nonzero_img1_ratios_are_forwarded(self, fake_rust):
         unified.stitch_images(
@@ -247,18 +261,18 @@ class TestStitchImagesAuto:
 
     def test_direction_from_rust_is_passed_through(self, fake_rust):
         for direction in ("forward", "reverse"):
-            fake_rust.auto_result = (_png_bytes(_solid(8, 40)), direction)
+            fake_rust.auto_result = _FakeStitchResult(_png_bytes(_solid(8, 40)), direction)
             result, got = unified.stitch_images_auto(_solid(8, 10), _solid(8, 12))
             assert got == direction
             assert isinstance(result, Image.Image)
             assert result.size == (8, 40)
 
-    def test_debug_flag_selects_the_debug_entry_point(self, fake_rust):
+    def test_debug_flag_is_forwarded(self, fake_rust):
         unified.stitch_images_auto(_solid(8, 10), _solid(8, 12), debug=True)
         assert len(fake_rust.auto_debug_calls) == 1
         assert fake_rust.auto_calls == []
 
-    def test_non_debug_uses_the_plain_entry_point(self, fake_rust):
+    def test_without_debug_the_flag_is_off(self, fake_rust):
         unified.stitch_images_auto(_solid(8, 10), _solid(8, 12))
         assert len(fake_rust.auto_calls) == 1
         assert fake_rust.auto_debug_calls == []

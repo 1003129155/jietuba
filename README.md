@@ -70,21 +70,21 @@ python -m pip install -r requirements.txt
 **方式 A：使用仓库自带的 `.whl` 文件**（在项目根目录执行）
 
 ```bash
-python -m pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl longstitch-0.3.11-cp311-cp311-win_amd64.whl pyclipboard-0.3.14-cp311-cp311-win_amd64.whl ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
+python -m pip install --no-index --find-links=wheels j-gif j-stitch j-clipboard j-ppocr
 ```
 
 **方式 B：从 GitHub Release 下载**（仓库根目录文件缺失或想用最新版时）
 
 前往 [Releases 页面](https://github.com/1003129155/jietuba/releases/tag/rust-libs-v1) 下载对应文件后同样用 `pip install` 安装。
 
-| 包名 | 版本 | 功能 |
-|------|------|------|
-| `gifrecorder` | 0.2.1 | GIF/视频合成编码器 |
-| `longstitch` | 0.3.11 | 长截图拼接算法 |
-| `pyclipboard` | 0.3.14 | 剪切板底层操作 |
-| `ppocr_rust` | 0.1.1 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
+| pip 包名 | import 名 | 版本 | 功能 |
+|------|------|------|------|
+| `j-gif` | `gifrecorder` | 0.3.0 | GIF/视频合成编码器 |
+| `j-stitch` | `longstitch` | 0.4.0 | 长截图拼接算法 |
+| `j-clipboard` | `pyclipboard` | 0.4.0 | 剪切板底层操作 |
+| `j-ppocr` | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
 
-> **注意：** 这些 `.whl` 文件仅适用于 Windows x86_64 + Python 3.11 环境。请勿安装到全局 Python 中。
+> **注意：** 这些 `.whl` 是 abi3 wheel，适用于 Windows x86_64 + Python 3.11 及以上。请勿安装到全局 Python 中。
 
 > **OCR 模型：** `ppocr_rust` 需要 `models/` 目录下的 PP-OCR ONNX 模型（`PP-OCRv6_det_small.onnx` + `PP-OCRv6_rec_small.onnx`），仓库已内置。打包发布后请将 `models/` 放在 exe 同级目录。
 
@@ -112,10 +112,7 @@ python main_app.py
 ├── requirements.txt                                   # 运行依赖
 ├── requirements-dev.txt                               # 测试与构建依赖
 ├── build_with_ocr_onefile.py                           # PyInstaller 单文件构建脚本
-├── gifrecorder-0.2.1-cp311-cp311-win_amd64.whl       # GIF录制 Rust 预编译包
-├── longstitch-0.3.11-cp311-cp311-win_amd64.whl        # 长截图拼接 Rust 预编译包
-├── pyclipboard-0.3.14-cp311-cp311-win_amd64.whl      # 剪切板 Rust 预编译包
-├── ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl        # OCR Rust 预编译包
+├── wheels/                  # 自制 Rust 库的预编译 wheel
 │
 ├── main/                    # Python 主程序
 │   ├── main_app.py          # 应用入口，系统托盘、全局快捷键、生命周期管理

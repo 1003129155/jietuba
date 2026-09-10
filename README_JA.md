@@ -65,21 +65,21 @@ python -m pip install -r requirements.txt
 **方法A：リポジトリ同梱の `.whl` ファイルを使う**（プロジェクトルートで実行）
 
 ```bash
-python -m pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl longstitch-0.3.11-cp311-cp311-win_amd64.whl pyclipboard-0.3.14-cp311-cp311-win_amd64.whl ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
+python -m pip install --no-index --find-links=wheels j-gif j-stitch j-clipboard j-ppocr
 ```
 
 **方法B：GitHub Release からダウンロード**（ファイルが見つからない、または最新版を使いたい場合）
 
 [Releases ページ](https://github.com/1003129155/jietuba/releases/tag/rust-libs-v1) から対応するファイルをダウンロードし、同様に `pip install` してください。
 
-| パッケージ名 | バージョン | 機能 |
-|-------------|-----------|------|
-| `gifrecorder` | 0.2.1 | GIF/動画合成エンコーダー |
-| `longstitch` | 0.3.11 | 長いスクリーンショット結合アルゴリズム |
-| `pyclipboard` | 0.3.14 | クリップボード操作 |
-| `ppocr_rust` | 0.1.1 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
+| pip パッケージ名 | import 名 | バージョン | 機能 |
+|------|------|------|------|
+| `j-gif` | `gifrecorder` | 0.3.0 | GIF/動画合成エンコーダー |
+| `j-stitch` | `longstitch` | 0.4.0 | 長いスクリーンショット結合アルゴリズム |
+| `j-clipboard` | `pyclipboard` | 0.4.0 | クリップボード操作 |
+| `j-ppocr` | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
 
-> **注意：** これらの `.whl` ファイルは Windows x86_64 + Python 3.11 専用です。グローバルPython環境にはインストールしないでください。
+> **注意：** これらは abi3 wheel で、Windows x86_64 + Python 3.11 以降に対応します。グローバルPython環境にはインストールしないでください。
 
 > **OCR モデル：** `ppocr_rust` は `models/` フォルダ内の PP-OCR ONNX モデル（`PP-OCRv6_det_small.onnx` + `PP-OCRv6_rec_small.onnx`）が必要です。リポジトリに同梱済み。パッケージ化後は `models/` を exe と同じ階層に配置してください。
 
@@ -107,10 +107,7 @@ python main_app.py
 ├── requirements.txt                                   # 実行時依存パッケージ
 ├── requirements-dev.txt                               # テスト・ビルド用依存パッケージ
 ├── build_with_ocr_onefile.py                           # PyInstaller単一ファイルビルドスクリプト
-├── gifrecorder-0.2.1-cp311-cp311-win_amd64.whl       # GIF録画 Rustビルド済みパッケージ
-├── longstitch-0.3.11-cp311-cp311-win_amd64.whl        # 長いスクリーンショット Rustビルド済みパッケージ
-├── pyclipboard-0.3.14-cp311-cp311-win_amd64.whl      # クリップボード Rustビルド済みパッケージ
-├── ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl        # OCR Rustビルド済みパッケージ
+├── wheels/                  # 自制 Rust 库的预编译 wheel
 │
 ├── main/                    # Python メインプログラム
 │   ├── main_app.py          # アプリエントリポイント：システムトレイ、グローバルホットキー、ライフサイクル管理

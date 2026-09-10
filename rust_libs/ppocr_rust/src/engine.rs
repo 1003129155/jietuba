@@ -1,6 +1,5 @@
 //! PP-OCR 引擎：det(DBNet) + rec(CRNN/CTC)，纯 Rust + ort。
 
-use std::sync::{Mutex, OnceLock};
 
 use ort::session::Session;
 use ort::value::Tensor;
@@ -234,27 +233,18 @@ pub struct OcrLine {
     pub score: f32,
 }
 
-struct Engine {
+pub struct Engine {
     det: Session,
     rec: Session,
     vocab: Vec<String>, // index 0 = blank
 }
 
-static ENGINE: OnceLock<Mutex<Option<Engine>>> = OnceLock::new();
-
-fn cell() -> &'static Mutex<Option<Engine>> {
-    ENGINE.get_or_init(|| Mutex::new(None))
-}
-
-pub fn is_initialized() -> bool {
-    cell().lock().map(|g| g.is_some()).unwrap_or(false)
-}
-
-pub fn initialize(det_path: &str, rec_path: &str) -> Result<(), String> {
-    let mut guard = cell().lock().map_err(|e| e.to_string())?;
-    if guard.is_some() {
-        return Ok(());
-    }
+impl Engine {
+    /// 加载 det/rec 模型，构造一个独立的引擎实例。
+    ///
+    /// 每个实例自带模型、互不干扰，生命周期由调用方持有；原先的进程级全局
+    /// 单例无法同时跑两套模型，也无法在 release 与 recognize 并发时自保。
+    pub fn open(det_path: &str, rec_path: &str) -> Result<Self, String> {
     let det = Session::builder()
         .map_err(|e| e.to_string())?
         .commit_from_file(det_path)
@@ -276,21 +266,17 @@ pub fn initialize(det_path: &str, rec_path: &str) -> Result<(), String> {
     }
     vocab.push(" ".to_string()); // 末尾 space
 
-    *guard = Some(Engine { det, rec, vocab });
-    Ok(())
-}
-
-pub fn release() {
-    if let Ok(mut g) = cell().lock() {
-        *g = None;
+        Ok(Engine { det, rec, vocab })
     }
-}
 
-/// 识别整张图，返回所有文本行（原图坐标）。
-pub fn recognize(src_rgb: &[u8], w: usize, h: usize, stride: usize) -> Result<Vec<OcrLine>, String> {
-    let mut guard = cell().lock().map_err(|e| e.to_string())?;
-    let engine = guard.as_mut().ok_or("引擎未初始化")?;
-
+    /// 识别整张图，返回所有文本行（原图坐标）。
+    pub fn recognize(
+        &mut self,
+        src_rgb: &[u8],
+        w: usize,
+        h: usize,
+        stride: usize,
+    ) -> Result<Vec<OcrLine>, String> {
     let img = Img::from_raw_rgb(src_rgb, w, h, stride);
 
     // ---- det ----
@@ -300,7 +286,7 @@ pub fn recognize(src_rgb: &[u8], w: usize, h: usize, stride: usize) -> Result<Ve
         det_data,
     ))
     .map_err(|e| e.to_string())?;
-    let det_out = engine
+    let det_out = self
         .det
         .run(ort::inputs!["x" => det_tensor])
         .map_err(|e| format!("det 推理失败: {e}"))?;
@@ -370,7 +356,7 @@ pub fn recognize(src_rgb: &[u8], w: usize, h: usize, stride: usize) -> Result<Ve
             rec_data,
         ))
         .map_err(|e| e.to_string())?;
-        let rec_out = engine
+        let rec_out = self
             .rec
             .run(ort::inputs!["x" => rec_tensor])
             .map_err(|e| format!("rec 推理失败: {e}"))?;
@@ -380,13 +366,14 @@ pub fn recognize(src_rgb: &[u8], w: usize, h: usize, stride: usize) -> Result<Ve
         // shape = [1, T, C]
         let t = shape[1] as usize;
         let c = shape[2] as usize;
-        let (text, score) = ctc_decode(data, t, c, &engine.vocab);
+        let (text, score) = ctc_decode(data, t, c, &self.vocab);
         if !text.is_empty() {
             results.push(OcrLine { box_pts: quad, text, score });
         }
     }
 
     Ok(results)
+    }
 }
 
 fn dist(a: Pt, b: Pt) -> f32 {

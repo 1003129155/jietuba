@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 ///     char_count: 字符数
 ///     created_at: 创建时间戳
 ///     updated_at: 更新时间戳
-#[pyclass]
+#[pyclass(name = "ClipboardItem")]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PyClipboardItem {
     #[pyo3(get, set)]
@@ -112,7 +112,7 @@ impl PyClipboardItem {
 ///     limit: 每页数量，默认 50
 ///     search: 搜索关键词
 ///     content_type: 内容类型过滤
-#[pyclass]
+#[pyclass(name = "QueryParams")]
 #[derive(Clone, Debug)]
 pub struct PyQueryParams {
     #[pyo3(get, set)]
@@ -166,7 +166,7 @@ impl PyQueryParams {
 ///     >>> for item in result:  # 迭代
 ///     ...     print(item.content)
 ///     >>> first = result[0]  # 索引访问
-#[pyclass]
+#[pyclass(name = "PaginatedResult")]
 #[derive(Clone, Debug)]
 pub struct PyPaginatedResult {
     #[pyo3(get)]
@@ -219,7 +219,7 @@ impl PyPaginatedResult {
     }
 }
 
-#[pyclass]
+#[pyclass(name = "PaginatedResultIter")]
 pub struct PyPaginatedResultIter {
     items: Vec<PyClipboardItem>,
     index: usize,
@@ -252,7 +252,7 @@ impl PyPaginatedResultIter {
 ///     item_order: 排序顺序
 ///     created_at: 创建时间戳
 ///     group_type: 分组类型 (0=普通, 1=文件分组)
-#[pyclass]
+#[pyclass(name = "Group")]
 #[derive(Clone, Debug)]
 pub struct PyGroup {
     #[pyo3(get, set)]

@@ -36,11 +36,8 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Install custom Rust wheels
-        run: |
-          pip install gifrecorder-0.2.1-cp311-cp311-win_amd64.whl `
-                      longstitch-0.3.11-cp311-cp311-win_amd64.whl `
-                      pyclipboard-0.3.14-cp311-cp311-win_amd64.whl `
-                      ppocr_rust-0.1.1-cp311-cp311-win_amd64.whl
+        # 按包名装，版本由 wheels/ 目录里的文件决定；升版本不必改这里
+        run: pip install --no-index --find-links=wheels j-gif j-stitch j-clipboard j-ppocr
 
       - name: Build onefile exe with PyInstaller
         run: python build_with_ocr_onefile.py

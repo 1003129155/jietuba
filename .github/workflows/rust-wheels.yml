@@ -1,0 +1,146 @@
+name: Build Rust Wheels
+
+# wheels/ 下那四个 .whl 是构建产物缓存，不是黑盒：这个 workflow 保证它们
+# 随时能从 rust_libs/ 的源码重新构建出来，并跑 Rust 侧的单元测试。
+# 主 CI 不跑这个（ONNX Runtime、rusqlite bundled、zstd 都要编 C，太慢），
+# 只在 Rust 源码真的改动时触发。
+on:
+  push:
+    branches: [master2, master]
+    paths:
+      - "rust_libs/**"
+      - ".github/workflows/rust-wheels.yml"
+  pull_request:
+    paths:
+      - "rust_libs/**"
+      - ".github/workflows/rust-wheels.yml"
+  # 手动触发；填了 release_tag 就顺带把四个 wheel 发到对应 Release，
+  # 供 setup.bat 的「从 Release 下载」选项使用。
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "发布到该 Release tag（留空则只产出 artifact）"
+        required: false
+        default: ""
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      # 只有 workflow_dispatch 带 release_tag 时才会用到
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        # 四个包是 abi3 wheel，用 3.11 作为最低版本构建
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Record toolchain versions
+        # 构建产物无法做到 bit 级可复现，但至少要让日志记下用的是哪套工具链
+        run: |
+          rustc -V
+          cargo -V
+          python -V
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust_libs
+          # 整轮构建十分钟起步，失败时若不存 cache，下次又得从零编一遍共享依赖
+          cache-on-failure: true
+
+      - name: Run Rust unit tests
+        # 主 CI 只跑 Python 测试，Rust 侧的单元测试没有别的地方会执行。
+        # 放在构建 wheel 之前：逻辑错了就不必再花时间打包。
+        run: cargo test --workspace --release --manifest-path rust_libs/Cargo.toml
+
+      - name: Install cargo-about
+        # 0.9 起二进制需要显式启用 cli feature 才会被安装
+        run: cargo install cargo-about --locked --features cli
+
+      - name: Check third-party notices are current
+        # 四个 wheel 把 Rust 依赖静态链接进 .pyd，MIT/BSD/ISC 等都要求随分发
+        # 附上版权声明与许可全文。声明文件提交在仓库里，依赖一变就会过期，
+        # 而本 workflow 恰好只在 rust_libs/** 改动时触发，正是该复查的时机。
+        #
+        # 比的是依赖清单而非文件字节：cargo about 的块顺序在不同机器上不稳定，
+        # 按字节比会误判。而 crates.io 上同一版本的内容不可变，所以
+        # 「哪个 crate 的哪个版本用哪个许可证」这份清单一致，就等价于声明未过期。
+        run: |
+          $stale = $false
+          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust") {
+            $fresh = Join-Path $env:RUNNER_TEMP "$crate-notices.txt"
+            cargo about generate --manifest-path rust_libs/$crate/Cargo.toml -o $fresh rust_libs/notices.hbs
+            if ($LASTEXITCODE -ne 0) { throw "$crate 的许可声明生成失败" }
+            $committed = (Select-String -Path "rust_libs/$crate/THIRD-PARTY-NOTICES.txt" -Pattern '^Applies to: ').Line | Sort-Object
+            $current = (Select-String -Path $fresh -Pattern '^Applies to: ').Line | Sort-Object
+            $diff = Compare-Object $committed $current
+            if ($diff) {
+              $stale = $true
+              Write-Host "::error::$crate 的第三方许可声明已过期"
+              $diff | ForEach-Object {
+                $where = if ($_.SideIndicator -eq "<=") { "已提交但依赖树中已无" } else { "依赖树中新增但未声明" }
+                Write-Host "    $where : $($_.InputObject)"
+              }
+            }
+          }
+          if ($stale) {
+            Write-Host "重新生成的方法见 rust_libs/PUBLISHING.md"
+            exit 1
+          }
+          Write-Host "四个包的第三方许可声明均为最新"
+
+      - name: Install maturin
+        # 版本与 requirements-dev.txt 保持一致
+        run: pip install maturin==1.12.6
+
+      - name: Build wheels
+        # 四个 crate 同属一个 workspace，共用一个 target/ 目录，
+        # pyo3/image/rayon 这些共享依赖只编译一次。
+        run: |
+          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust") {
+            Write-Host "::group::build $crate"
+            maturin build --release -i python -m rust_libs/$crate/Cargo.toml --out wheelhouse
+            if ($LASTEXITCODE -ne 0) { throw "$crate 构建失败" }
+            Write-Host "::endgroup::"
+          }
+          Get-ChildItem wheelhouse\*.whl | Select-Object Name, Length
+
+      - name: Compare with committed wheels
+        # 只比文件名（即包名与版本）。Rust 构建不是 bit-reproducible，比哈希没有意义。
+        # 不失败：本步骤的职责是暴露漂移，不是拦住 PR——真的对不上时，
+        # 按包名安装的 pip 会先一步报错。
+        run: |
+          $built = (Get-ChildItem wheelhouse\*.whl).Name | Sort-Object
+          $committed = (Get-ChildItem wheels\*.whl).Name | Sort-Object
+          $drift = Compare-Object $committed $built
+          if ($drift) {
+            $lines = $drift | ForEach-Object {
+              $side = if ($_.SideIndicator -eq "<=") { "仅在 wheels/ 目录" } else { "仅由本次构建产出" }
+              "- ``$($_.InputObject)``（$side）"
+            }
+            $msg = "wheels/ 下的 wheel 与源码构建结果不一致：`n" + ($lines -join "`n")
+            Write-Host "::warning::wheels/ 下的 wheel 与源码构建结果不一致，详见 Summary"
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value $msg
+          } else {
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "wheels/ 下的 wheel 与源码构建结果一致。"
+          }
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-wheels
+          path: wheelhouse/*.whl
+          if-no-files-found: error
+
+      - name: Publish to GitHub Release
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.release_tag }}
+          files: wheelhouse/*.whl
