@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "j-gif"
-version = "0.3.0"
+version = "0.3.1"
 description = "Screen recording to GIF for Python, implemented in Rust (Win32 GDI capture, JPEG-backed frame store, no GIL contention)"
 readme = "README.md"
 license = "MIT"

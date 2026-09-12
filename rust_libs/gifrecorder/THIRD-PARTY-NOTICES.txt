@@ -934,7 +934,7 @@ DEALINGS IN THE SOFTWARE.
 ================================================================================
 MIT License
 
-Applies to: gifrecorder 0.3.0
+Applies to: gifrecorder 0.3.1
 
 MIT License
 

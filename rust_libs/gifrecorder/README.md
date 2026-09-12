@@ -33,8 +33,7 @@ finally:
 `start_frame` defaults to zero. An index at or beyond the end produces an empty
 decoder. `total_frames` counts frames from the chosen start to the end, and
 `fetched_count` starts at zero. Timestamps remain relative to the original recording.
-This parameter requires rebuilding the extension from this source; the published
-0.3.0 wheel does not yet provide it.
+This parameter is available in j-gif 0.3.1 and later.
 
 Windows x86_64 or ARM64, CPython 3.11+ (abi3). Part of
 [jietuba](https://github.com/1003129155/jietuba). MIT licensed.

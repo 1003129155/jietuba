@@ -682,7 +682,7 @@ dependencies = [
 
 [[package]]
 name = "gifrecorder"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "color_quant",
  "crossbeam-channel",
