@@ -1,6 +1,6 @@
 [package]
 name = "pyclipboard"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 license = "MIT"
 description = "Python 剪贴板管理库（Rust 实现）"

@@ -16,5 +16,5 @@ colorama==0.4.6
 # ===== 自制 Rust 库（PyPI 发行名，import 名不同——见各包 README）=====
 j-gif==0.3.1
 j-stitch==0.4.0
-j-clipboard==0.4.0
+j-clipboard==0.4.1
 j-ppocr==0.2.0

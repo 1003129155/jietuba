@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "j-clipboard"
-version = "0.4.0"
+version = "0.4.1"
 description = "Windows clipboard access and history management for Python, implemented in Rust (text/image/HTML/RTF/files, SQLite-backed)"
 readme = "README.md"
 license = "MIT"

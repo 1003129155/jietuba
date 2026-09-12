@@ -92,7 +92,7 @@ OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_det
 |------|------|------|------|
 | [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.3.1 | GIF/视频合成编码器 |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | 长截图拼接算法 |
-| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.0 | 剪切板底层操作 |
+| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.1 | 剪切板底层操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
 
 预编译包面向 Windows x86_64 和 ARM64；各包的 Python 版本声明均为 `>=3.11`，Rust 绑定均启用了 `abi3-py311`，详见各包的 `pyproject.toml` 和 `Cargo.toml`。

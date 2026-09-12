@@ -2601,7 +2601,7 @@ SOFTWARE.
 ================================================================================
 MIT License
 
-Applies to: pyclipboard 0.4.0
+Applies to: pyclipboard 0.4.1
 
 MIT License
 
