@@ -49,12 +49,12 @@ All runtime dependencies install through [requirements.txt](requirements.txt).
 
 ### One-Click Setup
 
-1. Install Python 3.11 x64 (including the Python Launcher) first.
+1. Install Python 3.11 for your Windows architecture (x64 or ARM64), including the Python Launcher.
 2. Download and extract or clone this repository, then double-click [setup.bat](setup.bat) in the project root.
 
 ### Manual Setup
 
-Install Python 3.11 x64 with the Python Launcher, then open Windows Command Prompt (CMD) in the project root and run these steps:
+Install Python 3.11 for your Windows architecture (x64 or ARM64), including the Python Launcher, then open Windows Command Prompt (CMD) in the project root and run these steps:
 
 **1. Create and activate a virtual environment**
 
@@ -85,7 +85,7 @@ These four packages are included in `requirements.txt` and install with the runt
 
 | pip name | import name | Version | Description |
 |------|------|------|------|
-| [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.3.0 | GIF/video composition encoder |
+| [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.3.1 | GIF/video composition encoder |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | Long screenshot stitching algorithm |
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.0 | Low-level clipboard operations |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
@@ -105,9 +105,9 @@ python -m pip install -r requirements-dev.txt
 python -m pytest main/tests -c main/tests/pytest.ini
 ```
 
-The [test directory](main/tests/) contains unit and integration tests for capture, clipboard operations, mosaic editing, pin zoom, GIF playback, OCR text layers, and other modules. The [CI workflow](.github/workflows/ci.yml) runs static analysis, tests, and coverage checks on Windows with Python 3.11. Results are available in [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml).
+The [test directory](main/tests/) contains unit and integration tests for capture, clipboard operations, mosaic editing, pin zoom, GIF playback, OCR text layers, and other modules. The [CI workflow](.github/workflows/ci.yml) runs tests and coverage checks on Windows x86_64 and ARM64 with Python 3.11, plus static analysis on x86_64. Results are available in [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml).
 
-To build a Windows release, run `python build_with_ocr_onefile.py`. It produces `dist/jietuba_pp.exe` and `dist/models/`. See [build.yml](.github/workflows/build.yml) for the automated release workflow.
+To build a Windows release, run `python build_with_ocr_onefile.py`. It produces `dist/jietuba_pp.exe` and `dist/models/`. The automated [release workflow](.github/workflows/build.yml) creates separate x64 and ARM64 archives.
 
 ---
 

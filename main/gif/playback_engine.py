@@ -225,7 +225,7 @@ class PlaybackEngine(QObject):
                 display_w=w, display_h=h, prefetch=6, start_frame=index
             )
         except TypeError as exc:
-            # 已发布的 j-gif 0.3.0 尚无 start_frame；保留旧安装的可运行性。
+            # 旧版 j-gif 0.3.0 尚无 start_frame；保留旧安装的可运行性。
             # 仅回退不支持该关键字的错误，避免掩盖解码器本身的异常。
             if "unexpected keyword argument 'start_frame'" not in str(exc):
                 raise

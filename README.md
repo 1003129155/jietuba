@@ -54,12 +54,12 @@
 
 ### 一键安装
 
-1. 先安装 Python 3.11 x64（包含 Python Launcher）
+1. 先安装与系统架构一致的 Python 3.11（x64 或 ARM64，包含 Python Launcher）
 2. 下载并解压或克隆本仓库，在项目根目录双击 [setup.bat](setup.bat)。
 
 ### 手动安装
 
-先安装 Python 3.11 x64（包含 Python Launcher），再在项目根目录打开 Windows 命令提示符（CMD），依次执行：
+先安装与系统架构一致的 Python 3.11（x64 或 ARM64，包含 Python Launcher），再在项目根目录打开 Windows 命令提示符（CMD），依次执行：
 
 **1. 创建并激活虚拟环境**
 
@@ -90,7 +90,7 @@ OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_det
 
 | pip 包名 | import 名 | 版本 | 功能 |
 |------|------|------|------|
-| [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.3.0 | GIF/视频合成编码器 |
+| [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.3.1 | GIF/视频合成编码器 |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | 长截图拼接算法 |
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.0 | 剪切板底层操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
@@ -110,9 +110,9 @@ python -m pip install -r requirements-dev.txt
 python -m pytest main/tests -c main/tests/pytest.ini
 ```
 
-[测试目录](main/tests/)包含截图、剪贴板、马赛克、钉图缩放、GIF 回放、OCR 文字层等模块的单元测试与集成测试。[CI 配置](.github/workflows/ci.yml)在 Windows + Python 3.11 环境中执行静态检查、测试及覆盖率检查，运行结果可在 [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml) 查看。
+[测试目录](main/tests/)包含截图、剪贴板、马赛克、钉图缩放、GIF 回放、OCR 文字层等模块的单元测试与集成测试。[CI 配置](.github/workflows/ci.yml)在 Windows x86_64 与 ARM64 的 Python 3.11 环境中执行测试及覆盖率检查，并在 x86_64 上执行静态检查；运行结果可在 [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml) 查看。
 
-构建 Windows 发行包可运行 `python build_with_ocr_onefile.py`，产物为 `dist/jietuba_pp.exe` 和 `dist/models/`。自动发行流程见 [build.yml](.github/workflows/build.yml)。
+构建 Windows 发行包可运行 `python build_with_ocr_onefile.py`，产物为 `dist/jietuba_pp.exe` 和 `dist/models/`。自动发行流程见 [build.yml](.github/workflows/build.yml)，会分别生成 x64 与 ARM64 压缩包。
 
 ---
 

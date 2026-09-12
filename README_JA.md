@@ -49,12 +49,12 @@ Windows x86_64 版および ARM64 版の配布パッケージは、そのまま�
 
 ### ワンクリックセットアップ
 
-1. まず Python 3.11 x64（Python Launcher を含む）をインストールします。
+1. Windows のシステム構成に合った Python 3.11（x64 または ARM64、Python Launcher を含む）をインストールします。
 2. 本リポジトリをダウンロード・展開するかクローンし、プロジェクトルートの [setup.bat](setup.bat) をダブルクリックします。
 
 ### 手動セットアップ
 
-Python Launcher を含む Python 3.11 x64 をインストールしてから、プロジェクトルートで Windows コマンドプロンプト（CMD）を開き、順に実行してください。
+Windows のシステム構成に合った Python 3.11（x64 または ARM64、Python Launcher を含む）をインストールしてから、プロジェクトルートで Windows コマンドプロンプト（CMD）を開き、順に実行してください。
 
 **1. 仮想環境の作成と有効化**
 
@@ -85,7 +85,7 @@ OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は、�
 
 | pip パッケージ名 | import 名 | バージョン | 機能 |
 |------|------|------|------|
-| [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.3.0 | GIF/動画合成エンコーダー |
+| [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.3.1 | GIF/動画合成エンコーダー |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | 長いスクリーンショット結合アルゴリズム |
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.0 | クリップボード操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
@@ -105,9 +105,9 @@ python -m pip install -r requirements-dev.txt
 python -m pytest main/tests -c main/tests/pytest.ini
 ```
 
-[テストディレクトリ](main/tests/)には、キャプチャ、クリップボード、モザイク編集、ピン留め画像のズーム、GIF 再生、OCR テキストレイヤーなどのユニットテスト・統合テストがあります。[CI 設定](.github/workflows/ci.yml)では Windows + Python 3.11 環境で静的解析、テスト、カバレッジ検査を実行します。実行結果は [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml) で確認できます。
+[テストディレクトリ](main/tests/)には、キャプチャ、クリップボード、モザイク編集、ピン留め画像のズーム、GIF 再生、OCR テキストレイヤーなどのユニットテスト・統合テストがあります。[CI 設定](.github/workflows/ci.yml)では Windows x86_64 と ARM64 の Python 3.11 環境でテストとカバレッジ検査を実行し、x86_64 では静的解析も行います。実行結果は [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml) で確認できます。
 
-Windows 版のビルドは `python build_with_ocr_onefile.py` で実行できます。生成物は `dist/jietuba_pp.exe` と `dist/models/` です。自動リリースの設定は [build.yml](.github/workflows/build.yml) を参照してください。
+Windows 版のビルドは `python build_with_ocr_onefile.py` で実行できます。生成物は `dist/jietuba_pp.exe` と `dist/models/` です。[自動リリースワークフロー](.github/workflows/build.yml)では、x64 と ARM64 のアーカイブを個別に生成します。
 
 ---
 
