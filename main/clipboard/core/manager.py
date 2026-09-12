@@ -428,7 +428,11 @@ class ClipboardManager:
             return None
         
         try:
-            return self._manager.get_image_data(image_id)
+            data = self._manager.get_image_data(image_id)
+            if data is None or isinstance(data, bytes):
+                return data
+            # 兼容尚未升级的 pyclipboard：旧版 Vec<u8> 会被 PyO3 转成 list。
+            return bytes(data)
         except Exception as e:
             log_error(T("获取图片失败: {e}", e=e), "Clipboard")
             return None

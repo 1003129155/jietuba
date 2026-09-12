@@ -1,5 +1,6 @@
 use pyo3::prelude::*;
 use pyo3::exceptions::PyRuntimeError;
+use pyo3::types::PyBytes;
 
 mod database;
 mod types;
@@ -1016,14 +1017,25 @@ impl PyClipboardManager {
     
     /// 获取图片数据（通过 image_id）
     #[pyo3(signature = (image_id))]
-    fn get_image_data(&self, image_id: String) -> PyResult<Option<Vec<u8>>> {
-        let db = self.db.lock();
-        let image_path = db.get_images_dir().join(format!("{}.png", image_id));
+    fn get_image_data<'py>(
+        &self,
+        py: Python<'py>,
+        image_id: String,
+    ) -> PyResult<Option<Bound<'py, PyBytes>>> {
+        // 路径取出后就释放数据库锁；后续磁盘 I/O 和 Python 对象分配都不需要
+        // 访问 SQLite，避免大图读取期间阻塞剪贴板监听线程。
+        let image_path = {
+            let db = self.db.lock();
+            db.get_images_dir().join(format!("{}.png", image_id))
+        };
         
         if image_path.exists() {
-            std::fs::read(&image_path)
-                .map(Some)
-                .map_err(|e| PyRuntimeError::new_err(format!("读取图片失败: {}", e)))
+            let data = std::fs::read(&image_path)
+                .map_err(|e| PyRuntimeError::new_err(format!("读取图片失败: {}", e)))?;
+            // Vec<u8> 的默认 Python 转换是逐元素的 list。图片稍大时，仅 list
+            // 指针数组就会占用约原始字节数的 8 倍，并把进程工作集推到很高。
+            // 直接构造 bytes，既符合 Python 包装层声明，也避免这份临时大列表。
+            Ok(Some(PyBytes::new_bound(py, &data)))
         } else {
             Ok(None)
         }

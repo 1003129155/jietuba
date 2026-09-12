@@ -427,9 +427,6 @@ class PreviewPopup(QWidget):
         if self._manager and item.image_id:
             image_data = self._manager.get_image_data(item.image_id)
             if image_data:
-                # 确保是 bytes 类型（Rust 可能返回 list）
-                if isinstance(image_data, list):
-                    image_data = bytes(image_data)
                 pixmap = QPixmap()
                 pixmap.loadFromData(image_data)
                 # 缩放到合适大小

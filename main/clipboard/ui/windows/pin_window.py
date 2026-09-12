@@ -46,15 +46,13 @@ def create_pin_from_clipboard_item(item_id: int, controller, clipboard_window: O
             log_error(T("无法创建钉图：图片数据加载失败 (image_id={image_id})", image_id=clipboard_item.image_id), "Clipboard")
             return False
         
-        # Rust 返回的是 list，需要转换为 bytes
-        if isinstance(image_data, list):
-            image_data = bytes(image_data)
-        
         # 从字节数据创建 QImage
         image = QImage.fromData(image_data)
         if image.isNull():
             log_error(T("无法创建钉图：图片解码失败"), "Clipboard")
             return False
+        # fromData 已完成解码，QImage 不依赖输入的压缩数据；尽早放掉 PNG bytes。
+        del image_data
         
         # 获取配置管理器
         from settings import get_tool_settings_manager
@@ -73,6 +71,12 @@ def create_pin_from_clipboard_item(item_id: int, controller, clipboard_window: O
             drawing_items=None,  # 从剪贴板创建不带绘制项
             selection_offset=None
         )
+
+        # 普通截图钉图会在 ScreenshotWindow.cleanup_and_close() 中做同样的
+        # 延迟裁剪。剪贴板路径没有截图窗口负责收尾，因此需要在这里补齐；
+        # 延迟执行也确保本函数的 PNG bytes 临时对象已经离开作用域。
+        from core.platform_utils import request_trim_working_set
+        request_trim_working_set(1500)
         
         log_debug(T("从剪贴板创建钉图窗口成功 (item_id={item_id})", item_id=item_id), "Clipboard")
         return True

@@ -1089,8 +1089,6 @@ class ClipboardWindow(QWidget, FramelessMixin):
             return
 
         image_data = self.manager.get_image_data(clipboard_item.image_id)
-        if isinstance(image_data, list):
-            image_data = bytes(image_data)
         if not image_data:
             show_warning_dialog(self, self.tr("Save Failed"), self.tr("Image data is unavailable."))
             return
