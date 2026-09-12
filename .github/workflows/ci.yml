@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [master2, master]
   pull_request:
@@ -8,7 +9,22 @@ on:
 
 jobs:
   test:
-    runs-on: windows-latest
+    name: test (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-latest
+            python-architecture: x64
+            python-machine: amd64
+            rust-target: x86_64-pc-windows-msvc
+          - arch: arm64
+            runner: windows-11-arm
+            python-architecture: arm64
+            python-machine: arm64
+            rust-target: aarch64-pc-windows-msvc
+    runs-on: ${{ matrix.runner }}
     env:
       # PySide6 GUI 组件在无桌面会话的 CI Runner 上需要离屏渲染
       QT_QPA_PLATFORM: offscreen
@@ -24,18 +40,47 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          architecture: ${{ matrix.python-architecture }}
           cache: "pip"
           cache-dependency-path: |
             requirements.txt
             requirements-dev.txt
 
-      - name: Install Python dependencies
+      - name: Verify native toolchain architecture
+        run: |
+          python -c "import platform; actual = platform.machine().lower(); expected = '${{ matrix.python-machine }}'; assert actual == expected, f'Python architecture {actual!r} != {expected!r}'"
+          $hostLine = rustc -vV | Select-String '^host:'
+          if ($hostLine -notmatch '${{ matrix.rust-target }}') {
+            throw "Rust host does not match ${{ matrix.rust-target }}: $hostLine"
+          }
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust_libs
+          cache-on-failure: true
+
+      - name: Run Rust unit tests
+        run: cargo test --locked --workspace --release --target ${{ matrix.rust-target }} --manifest-path rust_libs/Cargo.toml
+
+      - name: Build and install Rust wheels from this commit
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
+          python -m pip install maturin==1.12.6
+          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust") {
+            maturin build --locked --release --target ${{ matrix.rust-target }} -i python -m rust_libs/$crate/Cargo.toml --out wheelhouse
+            if ($LASTEXITCODE -ne 0) { throw "$crate wheel build failed" }
+          }
+          python -m pip install (Get-ChildItem wheelhouse\*.whl).FullName
+          python -c "import gifrecorder, longstitch, pyclipboard, ppocr_rust; print('Native extension imports OK')"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip install -r requirements-dev.txt
 
       - name: Lint with ruff
+        if: matrix.arch == 'x64'
         # 规则集见 pyproject.toml：只启用能指向真实缺陷的检查。
         # 当前为零告警，新增违规会让 CI 变红。
         run: ruff check main
@@ -58,7 +103,7 @@ jobs:
         # 存量 UI 代码基数大，不能因此放过新写的未测代码。
         # push 事件下 base 就是自己，diff 为空，因此只在 PR 上跑。
         # if 用 always()：即使总量棘轮把上一步判红，也要把增量报告给出来。
-        if: always() && github.event_name == 'pull_request'
+        if: always() && matrix.arch == 'x64' && github.event_name == 'pull_request'
         run: |
           if (-not (Test-Path coverage.xml)) {
             Write-Host "没有 coverage.xml（测试步骤未产出），跳过增量覆盖率检查"
@@ -70,7 +115,7 @@ jobs:
             --format "html:diff-coverage.html,markdown:diff-coverage.md"
 
       - name: Publish diff coverage summary
-        if: always() && github.event_name == 'pull_request'
+        if: always() && matrix.arch == 'x64' && github.event_name == 'pull_request'
         run: |
           if (Test-Path diff-coverage.md) {
             Get-Content diff-coverage.md | Add-Content -Path $env:GITHUB_STEP_SUMMARY
@@ -80,7 +125,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-xml
+          name: coverage-xml-${{ matrix.arch }}
           path: |
             coverage.xml
             diff-coverage.html
