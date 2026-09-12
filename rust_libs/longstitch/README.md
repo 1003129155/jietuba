@@ -22,5 +22,5 @@ else:
 `stitch()` returns `None` when no overlap is found -- that is a legitimate
 outcome, not a failure. Decode and encode failures raise `longstitch.StitchError`.
 
-Windows x86_64, CPython 3.11+ (abi3). Part of
+Windows x86_64 or ARM64, CPython 3.11+ (abi3). Part of
 [jietuba](https://github.com/1003129155/jietuba). MIT licensed.

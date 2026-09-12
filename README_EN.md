@@ -6,7 +6,7 @@
 
 ## Overview
 
-A screenshot and clipboard manager for Windows x86_64, with a PySide6 interface and Rust components for image processing, clipboard operations, and OCR. Supports area capture, smart window detection, GIF recording, long screenshot stitching, OCR text recognition, image pinning, translation, mosaic blur, PDF export, and a full clipboard history management system.
+A screenshot and clipboard manager for Windows x86_64 and ARM64, with a PySide6 interface and Rust components for image processing, clipboard operations, and OCR. Supports area capture, smart window detection, GIF recording, long screenshot stitching, OCR text recognition, image pinning, translation, mosaic blur, PDF export, and a full clipboard history management system.
 
 Download a ready-to-run Windows release or run the application from source.
 
@@ -32,9 +32,9 @@ A smooth, three-way "screenshot ⇄ clipboard ⇄ pin" workflow.
 
 ## Download and Run
 
-The Windows x86_64 release is ready to run. You do not need to install Python, Rust, or a development environment.
+The Windows x86_64 and ARM64 releases are ready to run. You do not need to install Python, Rust, or a development environment.
 
-1. Open the [Releases page](https://github.com/1003129155/jietuba/releases/latest) and download the `jietuba_pp-*.zip` application archive from the release assets.
+1. Open the [Releases page](https://github.com/1003129155/jietuba/releases/latest) and download the archive ending in `-x64.zip` or `-arm64.zip` for your device.
 2. Extract the entire archive, keeping `jietuba_pp.exe` and the `models/` folder together.
 3. Double-click `jietuba_pp.exe` to start. The OCR models are included in the archive.
 4. The application is not digitally signed, so Windows may display a warning after you download it through a browser. If prompted, click **More info**, then **Run anyway** to start the application.
@@ -90,7 +90,7 @@ These four packages are included in `requirements.txt` and install with the runt
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.0 | Low-level clipboard operations |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
 
-The available prebuilt wheels target Windows x86_64. Each package declares `>=3.11` and enables `abi3-py311` in its Rust bindings; see each package's `pyproject.toml` and `Cargo.toml`.
+The available prebuilt wheels target Windows x86_64 and ARM64. Each package declares `>=3.11` and enables `abi3-py311` in its Rust bindings; see each package's `pyproject.toml` and `Cargo.toml`.
 
 ---
 

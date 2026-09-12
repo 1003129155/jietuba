@@ -1,5 +1,5 @@
 ﻿# 截图吧 (Jietuba) - Python 依赖
-# Python 3.11 + Windows x86_64
+# Python 3.11 + Windows x86_64 / ARM64
 
 # ===== 核心依赖 =====
 PySide6==6.11.0

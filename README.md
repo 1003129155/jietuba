@@ -8,7 +8,7 @@
 
 ## 项目简介
 
-截图吧是一款面向 Windows x86_64 的截图与剪贴板管理软件，使用 PySide6 构建界面，使用 Rust 实现图像处理、剪贴板操作和 OCR 等功能。
+截图吧是一款面向 Windows x86_64 和 ARM64 的截图与剪贴板管理软件，使用 PySide6 构建界面，使用 Rust 实现图像处理、剪贴板操作和 OCR 等功能。
 
 支持区域截图、窗口智能识别、GIF录制、长截图拼接、OCR文字识别、图像钉图、翻译、马赛克、PDF 导出等功能，并内置了完整的剪切板历史管理系统，不限图片来源可以联动截图模块生成钉图或者提取文字。
 
@@ -37,9 +37,9 @@
 
 ## 下载与使用
 
-普通用户可以直接使用 Windows x86_64 发行包，无需安装 Python、Rust 或配置开发环境。
+普通用户可以直接使用对应架构的 Windows x86_64 或 ARM64 发行包，无需安装 Python、Rust 或配置开发环境。
 
-1. 打开 [Releases 下载页](https://github.com/1003129155/jietuba/releases/latest)，下载附件中的 `jietuba_pp-*.zip` 程序包。
+1. 打开 [Releases 下载页](https://github.com/1003129155/jietuba/releases/latest)，根据设备下载以 `-x64.zip` 或 `-arm64.zip` 结尾的程序包。
 2. 完整解压压缩包，保留 `jietuba_pp.exe` 和同级的 `models/` 目录。
 3. 双击 `jietuba_pp.exe` 启动程序。OCR 所需模型已随程序包提供。
 4. 程序尚未进行数字签名，通过浏览器下载后，Windows 可能显示运行警告。出现提示时，点击“更多信息”，再选择“仍要运行”即可启动。
@@ -95,7 +95,7 @@ OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_det
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.0 | 剪切板底层操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
 
-当前提供的预编译包面向 Windows x86_64；各包的 Python 版本声明均为 `>=3.11`，Rust 绑定均启用了 `abi3-py311`，详见各包的 `pyproject.toml` 和 `Cargo.toml`。
+预编译包面向 Windows x86_64 和 ARM64；各包的 Python 版本声明均为 `>=3.11`，Rust 绑定均启用了 `abi3-py311`，详见各包的 `pyproject.toml` 和 `Cargo.toml`。
 
 ---
 

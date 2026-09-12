@@ -6,7 +6,7 @@
 
 ## 概要
 
-Windows x86_64 向けのスクリーンショット・クリップボード管理アプリケーションです。UI は PySide6、画像処理・クリップボード操作・OCR などは Rust で実装しています。領域キャプチャ、ウィンドウスマート検出、GIF録画、長いスクリーンショットの結合、OCR文字認識、画像ピン留め、翻訳、モザイク、PDFエクスポート機能を備え、完全なクリップボード履歴管理システムを搭載しています。
+Windows x86_64 および ARM64 向けのスクリーンショット・クリップボード管理アプリケーションです。UI は PySide6、画像処理・クリップボード操作・OCR などは Rust で実装しています。領域キャプチャ、ウィンドウスマート検出、GIF録画、長いスクリーンショットの結合、OCR文字認識、画像ピン留め、翻訳、モザイク、PDFエクスポート機能を備え、完全なクリップボード履歴管理システムを搭載しています。
 
 すぐに使える Windows 版の配布パッケージと、ソースからの実行方法を用意しています。
 
@@ -32,9 +32,9 @@ Windows x86_64 向けのスクリーンショット・クリップボード管�
 
 ## ダウンロードと起動
 
-Windows x86_64 版の配布パッケージは、そのまま実行できます。Python、Rust、開発環境のインストールは不要です。
+Windows x86_64 版および ARM64 版の配布パッケージは、そのまま実行できます。Python、Rust、開発環境のインストールは不要です。
 
-1. [Releases ページ](https://github.com/1003129155/jietuba/releases/latest)を開き、Assets から `jietuba_pp-*.zip` をダウンロードします。
+1. [Releases ページ](https://github.com/1003129155/jietuba/releases/latest)を開き、端末に合わせて `-x64.zip` または `-arm64.zip` で終わるファイルをダウンロードします。
 2. ZIP 全体を展開し、`jietuba_pp.exe` と `models/` フォルダを同じ階層に置きます。
 3. `jietuba_pp.exe` をダブルクリックして起動します。OCR モデルは配布パッケージに同梱されています。
 4. アプリにはデジタル署名がないため、ブラウザーからダウンロードすると Windows の警告が表示される場合があります。表示された場合は「詳細情報」をクリックし、「実行」を選択すると起動できます。
@@ -90,7 +90,7 @@ OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は、�
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.0 | クリップボード操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
 
-現在のビルド済み wheel は Windows x86_64 向けです。各パッケージの Python バージョン指定は `>=3.11` で、Rust バインディングでは `abi3-py311` を有効にしています。詳細は各パッケージの `pyproject.toml` と `Cargo.toml` を参照してください。
+ビルド済み wheel は Windows x86_64 および ARM64 向けです。各パッケージの Python バージョン指定は `>=3.11` で、Rust バインディングでは `abi3-py311` を有効にしています。詳細は各パッケージの `pyproject.toml` と `Cargo.toml` を参照してください。
 
 ---
 

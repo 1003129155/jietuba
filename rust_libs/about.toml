@@ -21,8 +21,8 @@ accepted = [
     "Zlib",
 ]
 
-# 只关心 Windows x86_64——发布的就是这一个目标
-targets = ["x86_64-pc-windows-msvc"]
+# 两种 Windows 发行架构使用同一份声明，取两个依赖图的并集。
+targets = ["x86_64-pc-windows-msvc", "aarch64-pc-windows-msvc"]
 
 # 构建脚本依赖不进入最终二进制，无需声明
 ignore-build-dependencies = true

@@ -19,7 +19,21 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-latest
+            python-architecture: x64
+            python-machine: amd64
+            rust-target: x86_64-pc-windows-msvc
+          - arch: arm64
+            runner: windows-11-arm
+            python-architecture: arm64
+            python-machine: arm64
+            rust-target: aarch64-pc-windows-msvc
+    runs-on: ${{ matrix.runner }}
 
     steps:
       - name: Checkout
@@ -30,6 +44,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          architecture: ${{ matrix.python-architecture }}
 
       - name: Record toolchain versions
         # 构建产物无法做到 bit 级可复现，但至少要让日志记下用的是哪套工具链
@@ -37,6 +52,11 @@ jobs:
           rustc -V
           cargo -V
           python -V
+          python -c "import platform; actual = platform.machine().lower(); expected = '${{ matrix.python-machine }}'; assert actual == expected, f'Python architecture {actual!r} != {expected!r}'"
+          $hostLine = rustc -vV | Select-String '^host:'
+          if ($hostLine -notmatch '${{ matrix.rust-target }}') {
+            throw "Rust host does not match ${{ matrix.rust-target }}: $hostLine"
+          }
 
       - name: Cache cargo registry and target
         uses: Swatinem/rust-cache@v2
@@ -48,13 +68,15 @@ jobs:
       - name: Run Rust unit tests
         # 主 CI 只跑 Python 测试，Rust 侧的单元测试没有别的地方会执行。
         # 放在构建 wheel 之前：逻辑错了就不必再花时间打包。
-        run: cargo test --workspace --release --manifest-path rust_libs/Cargo.toml
+        run: cargo test --locked --workspace --release --target ${{ matrix.rust-target }} --manifest-path rust_libs/Cargo.toml
 
       - name: Install cargo-about
+        if: matrix.arch == 'x64'
         # 0.9 起二进制需要显式启用 cli feature 才会被安装
         run: cargo install cargo-about --locked --features cli
 
       - name: Check third-party notices are current
+        if: matrix.arch == 'x64'
         # 四个 wheel 把 Rust 依赖静态链接进 .pyd，MIT/BSD/ISC 等都要求随分发
         # 附上版权声明与许可全文。声明文件提交在仓库里，依赖一变就会过期，
         # 而本 workflow 恰好只在 rust_libs/** 改动时触发，正是该复查的时机。
@@ -96,16 +118,21 @@ jobs:
         run: |
           foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust") {
             Write-Host "::group::build $crate"
-            maturin build --release -i python -m rust_libs/$crate/Cargo.toml --out wheelhouse
+            maturin build --locked --release --target ${{ matrix.rust-target }} -i python -m rust_libs/$crate/Cargo.toml --out wheelhouse
             if ($LASTEXITCODE -ne 0) { throw "$crate 构建失败" }
             Write-Host "::endgroup::"
           }
           Get-ChildItem wheelhouse\*.whl | Select-Object Name, Length
 
+      - name: Smoke-test native wheels
+        run: |
+          python -m pip install (Get-ChildItem wheelhouse\*.whl).FullName
+          python -c "import gifrecorder, longstitch, pyclipboard, ppocr_rust; print('Native extension imports OK')"
+
       - name: Upload wheels
         # 供人工下载核查用；正式发布走 publish-pypi.yml，不依赖这份 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rust-wheels
+          name: rust-wheels-${{ matrix.arch }}
           path: wheelhouse/*.whl
           if-no-files-found: error

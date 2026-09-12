@@ -16,7 +16,21 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-latest
+            python-architecture: x64
+            python-machine: amd64
+            rust-target: x86_64-pc-windows-msvc
+          - arch: arm64
+            runner: windows-11-arm
+            python-architecture: arm64
+            python-machine: arm64
+            rust-target: aarch64-pc-windows-msvc
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,6 +40,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          architecture: ${{ matrix.python-architecture }}
+
+      - name: Verify native toolchain architecture
+        run: |
+          python -c "import platform; actual = platform.machine().lower(); expected = '${{ matrix.python-machine }}'; assert actual == expected, f'Python architecture {actual!r} != {expected!r}'"
+          $hostLine = rustc -vV | Select-String '^host:'
+          if ($hostLine -notmatch '${{ matrix.rust-target }}') {
+            throw "Rust host does not match ${{ matrix.rust-target }}: $hostLine"
+          }
 
       - name: Cache cargo registry and target
         uses: Swatinem/rust-cache@v2
@@ -40,10 +63,15 @@ jobs:
         # 每次发布都从源码重新构建——发布出去的产物必须能追溯到本次 commit 的源码
         run: |
           foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust") {
-            maturin build --release -i python -m rust_libs/$crate/Cargo.toml --out dist
+            maturin build --locked --release --target ${{ matrix.rust-target }} -i python -m rust_libs/$crate/Cargo.toml --out dist
             if ($LASTEXITCODE -ne 0) { throw "$crate 构建失败" }
           }
           Get-ChildItem dist\*.whl | Select-Object Name, Length
+
+      - name: Smoke-test native wheels
+        run: |
+          python -m pip install (Get-ChildItem dist\*.whl).FullName
+          python -c "import gifrecorder, longstitch, pyclipboard, ppocr_rust; print('Native extension imports OK')"
 
       - name: Verify metadata
         # twine check 能在上传前发现描述渲染失败一类的问题，
@@ -55,7 +83,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: dist-${{ matrix.arch }}
           path: dist/*.whl
           if-no-files-found: error
 
@@ -71,8 +99,9 @@ jobs:
       - name: Download wheels
         uses: actions/download-artifact@v4
         with:
-          name: dist
+          pattern: dist-*
           path: dist
+          merge-multiple: true
 
       - name: Publish all packages
         # 账号级 token 不像 Trusted Publisher 那样绑定单个项目，
@@ -87,4 +116,5 @@ jobs:
           packages-dir: dist
           repository-url: ${{ inputs.repository == 'pypi' && 'https://upload.pypi.org/legacy/' || 'https://test.pypi.org/legacy/' }}
           password: ${{ inputs.repository == 'pypi' && secrets.PYPI_API_TOKEN || secrets.PYPI_API_TOKEN_TEST }}
+          skip-existing: true
           print-hash: true

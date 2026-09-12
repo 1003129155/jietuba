@@ -10,7 +10,21 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-latest
+            python-architecture: x64
+            python-machine: amd64
+            rust-target: x86_64-pc-windows-msvc
+          - arch: arm64
+            runner: windows-11-arm
+            python-architecture: arm64
+            python-machine: arm64
+            rust-target: aarch64-pc-windows-msvc
+    runs-on: ${{ matrix.runner }}
     env:
       # Runner 控制台默认编码是 cp1252，打包脚本的中文 print() 会导致
       # UnicodeEncodeError；强制 Python 用 UTF-8 处理标准输出。
@@ -24,31 +38,67 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          architecture: ${{ matrix.python-architecture }}
           cache: "pip"
           cache-dependency-path: |
             requirements.txt
             requirements-dev.txt
 
-      - name: Install Python dependencies
+      - name: Verify native toolchain architecture
+        run: |
+          python -c "import platform; actual = platform.machine().lower(); expected = '${{ matrix.python-machine }}'; assert actual == expected, f'Python architecture {actual!r} != {expected!r}'"
+          $hostLine = rustc -vV | Select-String '^host:'
+          if ($hostLine -notmatch '${{ matrix.rust-target }}') {
+            throw "Rust host does not match ${{ matrix.rust-target }}: $hostLine"
+          }
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust_libs
+          cache-on-failure: true
+
+      - name: Build Rust wheels from this release
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
+          python -m pip install maturin==1.12.6
+          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust") {
+            maturin build --locked --release --target ${{ matrix.rust-target }} -i python -m rust_libs/$crate/Cargo.toml --out wheelhouse
+            if ($LASTEXITCODE -ne 0) { throw "$crate wheel build failed" }
+          }
+          python -m pip install (Get-ChildItem wheelhouse\*.whl).FullName
+          python -c "import gifrecorder, longstitch, pyclipboard, ppocr_rust; print('Native extension imports OK')"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip install -r requirements-dev.txt
 
       - name: Build onefile exe with PyInstaller
         run: python build_with_ocr_onefile.py
 
       - name: Package dist as zip
-        run: Compress-Archive -Path dist\* -DestinationPath jietuba_pp-${{ github.ref_name }}.zip
+        run: Compress-Archive -Path dist\* -DestinationPath jietuba_pp-${{ github.ref_name }}-${{ matrix.arch }}.zip
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: jietuba_pp-${{ github.ref_name }}
-          path: jietuba_pp-${{ github.ref_name }}.zip
+          name: jietuba_pp-${{ github.ref_name }}-${{ matrix.arch }}
+          path: jietuba_pp-${{ github.ref_name }}-${{ matrix.arch }}.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: jietuba_pp-${{ github.ref_name }}-*
+          path: release-assets
+          merge-multiple: true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: jietuba_pp-${{ github.ref_name }}.zip
+          files: release-assets/*.zip
           generate_release_notes: true

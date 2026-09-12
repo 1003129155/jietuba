@@ -36,5 +36,5 @@ decoder. `total_frames` counts frames from the chosen start to the end, and
 This parameter requires rebuilding the extension from this source; the published
 0.3.0 wheel does not yet provide it.
 
-Windows x86_64, CPython 3.11+ (abi3). Part of
+Windows x86_64 or ARM64, CPython 3.11+ (abi3). Part of
 [jietuba](https://github.com/1003129155/jietuba). MIT licensed.
