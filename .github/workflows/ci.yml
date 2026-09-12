@@ -97,6 +97,14 @@ jobs:
           --cov-report=xml
           --cov-fail-under=37
 
+      - name: Exercise the real ARM64 clipboard watcher
+        if: matrix.arch == 'arm64'
+        env:
+          RUN_CLIPBOARD_MONITOR_BENCHMARK: "1"
+        run: >
+          pytest main/tests/test_clipboard_monitoring_performance.py
+          -c main/tests/pytest.ini -v -s
+
       - name: Enforce coverage on changed lines
         # 只对本次 PR 改动到的行设门槛：总量棘轮（上一步的 --cov-fail-under）
         # 防止倒退，这一步防止「新代码不带测试」。两者互补——总量涨得慢是因为
