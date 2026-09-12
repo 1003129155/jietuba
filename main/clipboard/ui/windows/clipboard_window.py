@@ -1201,6 +1201,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
             super().showEvent(event)
             return
 
+        PreviewPopup.instance().set_display_enabled(True)
         self.setWindowOpacity(0)
 
         if hasattr(self, "_shortcut_handler") and self._shortcut_handler:
@@ -1251,6 +1252,9 @@ class ClipboardWindow(QWidget, FramelessMixin):
             super().hideEvent(event)
             return
 
+        # 先关闭预览入口。这样即使后续清理抛出异常，或队列中还有迟到的
+        # 键盘/悬停事件，也不能在主窗口隐藏后重新拉起预览。
+        PreviewPopup.instance().set_display_enabled(False)
         self._fl_reset()
 
         if not self.config.get_clipboard_preserve_search() and self.search_input.text():
@@ -1258,17 +1262,18 @@ class ClipboardWindow(QWidget, FramelessMixin):
 
         super().hideEvent(event)
         self._save_window_geometry()
-        PreviewPopup.instance().force_cleanup()
         active_popup = QApplication.activePopupWidget()
         if active_popup is not None:
             active_popup.close()
 
     @safe_event
     def closeEvent(self, event):
+        # closeEvent 后通常还会收到 hideEvent，但这里必须先禁用，覆盖关闭
+        # 过程中保存设置等操作异常、导致后续语句未执行的情况。
+        PreviewPopup.instance().set_display_enabled(False)
         if hasattr(self, "_shortcut_handler") and self._shortcut_handler:
             ShortcutManager.instance().unregister(self._shortcut_handler)
         self._save_window_geometry()
-        PreviewPopup.instance().force_cleanup()
         active_popup = QApplication.activePopupWidget()
         if active_popup is not None:
             active_popup.close()

@@ -55,6 +55,9 @@ class PreviewPopup(QWidget):
         self._setup_ui()
         self._manager = None
         self._current_item_id = None
+        # 预览是无父窗口的独立顶层窗口。剪贴板窗口隐藏后，队列中仍可能有
+        # 方向键或悬停事件到达，因此不能只依赖关闭时调用一次 hide()。
+        self._display_enabled = False
         
         # 延迟显示定时器
         self._show_timer = QTimer()
@@ -111,6 +114,12 @@ class PreviewPopup(QWidget):
     def set_manager(self, manager: 'ClipboardManager'):
         """设置剪贴板管理器（用于加载图片）"""
         self._manager = manager
+
+    def set_display_enabled(self, enabled: bool):
+        """设置当前是否允许显示预览。禁用时同时清理已有及待显示内容。"""
+        self._display_enabled = bool(enabled)
+        if not self._display_enabled:
+            self.force_cleanup()
     
     def show_preview(self, item: 'ClipboardItem', pos: QPoint, delay_ms: int = 5, prefer_side: str = "auto", avoid_rect=None):
         """
@@ -123,6 +132,9 @@ class PreviewPopup(QWidget):
             prefer_side: 预览优先显示方向（"left" | "right" | "auto"）
             avoid_rect: 需要避开的矩形区域（通常为主窗口矩形）
         """
+        if not self._display_enabled:
+            return
+
         if not item:
             self.hide_preview()
             return
@@ -143,6 +155,12 @@ class PreviewPopup(QWidget):
     
     def _do_show(self):
         """实际执行显示"""
+        # 定时器触发前窗口可能已经隐藏。这里再次检查，避免旧的延迟任务
+        # 在关闭清理完成后把独立的预览窗口重新显示出来。
+        if not self._display_enabled:
+            self.force_cleanup()
+            return
+
         item = self._pending_item
         pos = self._pending_pos
         
