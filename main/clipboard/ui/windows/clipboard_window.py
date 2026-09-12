@@ -1281,9 +1281,31 @@ class ClipboardWindow(QWidget, FramelessMixin):
         if event.type() == QEvent.Type.ActivationChange and not self.isActiveWindow():
             QTimer.singleShot(100, self._check_and_hide)
 
+    def _owns_window(self, window: Optional[QWidget]) -> bool:
+        """Return whether *window* belongs to this clipboard window."""
+        current = window
+        while current is not None:
+            if current is self:
+                return True
+            current = current.parentWidget()
+        return False
+
     def _check_and_hide(self):
-        if not self.isActiveWindow():
-            self.hide()
+        if self.isActiveWindow():
+            return
+
+        # A modal confirmation dialog (for example the item-delete prompt) and
+        # a QMenu both activate their own top-level window.  They still belong
+        # to the clipboard window and must not make their owner disappear.
+        active_surfaces = (
+            QApplication.activeWindow(),
+            QApplication.activeModalWidget(),
+            QApplication.activePopupWidget(),
+        )
+        if any(self._owns_window(surface) for surface in active_surfaces):
+            return
+
+        self.hide()
 
     def _is_draggable_area(self, widget, local_pos: QPoint) -> bool:
         _ = local_pos

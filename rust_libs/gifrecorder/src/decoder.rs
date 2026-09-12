@@ -40,13 +40,17 @@ impl FrameDecoder {
     /// * `display_w`  - 输出宽度 (0 表示保持原始尺寸)
     /// * `display_h`  - 输出高度 (0 表示保持原始尺寸)
     /// * `prefetch`   - 预解码缓冲区大小 (推荐 4~8)
+    /// * `start_frame` - 首帧索引；超出范围时返回空解码器
     pub fn start(
         store: Arc<FrameStore>,
         display_w: u32,
         display_h: u32,
         prefetch: usize,
+        start_frame: usize,
     ) -> Self {
-        let total_frames = store.frame_count();
+        let end_frame = store.frame_count();
+        let start_frame = start_frame.min(end_frame);
+        let total_frames = end_frame - start_frame;
         let (tx, rx) = bounded::<DecodedFrame>(prefetch.max(1));
         let stop_flag = Arc::new(AtomicBool::new(false));
         let flag = stop_flag.clone();
@@ -57,7 +61,7 @@ impl FrameDecoder {
             let need_resize =
                 display_w > 0 && display_h > 0 && (display_w != src_w || display_h != src_h);
 
-            for idx in 0..total_frames {
+            for idx in start_frame..end_frame {
                 if flag.load(Ordering::Relaxed) {
                     break;
                 }
@@ -160,5 +164,61 @@ impl FrameDecoder {
 impl Drop for FrameDecoder {
     fn drop(&mut self) {
         self.stop();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::frame_store::RecordConfig;
+
+    fn store() -> Arc<FrameStore> {
+        let store = Arc::new(FrameStore::new(16, 16, 10, RecordConfig::default()));
+        for i in 0..4 {
+            store.push_bgra(&vec![40 + i * 40; 16 * 16 * 4], u32::from(i) * 100).unwrap();
+        }
+        store
+    }
+
+    #[test]
+    fn starts_at_requested_frame_and_finishes_after_remaining_frames() {
+        let store = store();
+        let expected = store.get_frame_rgb(2, 8, 8).unwrap();
+        let mut decoder = FrameDecoder::start(store, 8, 8, 2, 2);
+        assert_eq!(decoder.total_frames(), 2);
+        assert_eq!(decoder.fetched_count(), 0);
+        assert!(!decoder.is_finished());
+        let first = decoder.next_frame().unwrap();
+        assert_eq!(first.rgb, expected);
+        assert_eq!(first.elapsed_ms, 200);
+        assert_eq!(decoder.next_frame().unwrap().elapsed_ms, 300);
+        assert!(decoder.next_frame().is_none());
+        assert_eq!(decoder.fetched_count(), 2);
+        assert!(decoder.is_finished());
+        decoder.stop();
+    }
+
+    #[test]
+    fn zero_last_and_out_of_range_starts() {
+        for (start, remaining) in [(0, 4), (3, 1), (4, 0), (usize::MAX, 0)] {
+            let mut decoder = FrameDecoder::start(store(), 16, 16, 1, start);
+            assert_eq!(decoder.total_frames(), remaining);
+            for i in 0..remaining {
+                assert_eq!(decoder.next_frame().unwrap().elapsed_ms, ((start + i) * 100) as u32);
+            }
+            assert!(decoder.next_frame().is_none());
+            assert!(decoder.is_finished());
+            decoder.stop();
+            decoder.stop();
+        }
+    }
+
+    #[test]
+    fn empty_store_finishes_immediately() {
+        let store = Arc::new(FrameStore::new(16, 16, 10, RecordConfig::default()));
+        let mut decoder = FrameDecoder::start(store, 16, 16, 1, 0);
+        assert!(decoder.is_finished());
+        assert!(decoder.next_frame().is_none());
+        decoder.stop();
     }
 }

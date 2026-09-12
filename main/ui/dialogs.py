@@ -96,7 +96,7 @@ def _track_modeless_dialog(dialog):
     dialog.destroyed.connect(_cleanup)
     return dialog
 
-def show_custom_confirm_dialog(parent, title, message, buttons_config) -> str:
+def show_custom_confirm_dialog(parent, title, message, buttons_config) -> object:
     """
     显示自定义多按钮确认对话框，返回被点击按钮的 action_id
     buttons_config 格式:
@@ -107,7 +107,14 @@ def show_custom_confirm_dialog(parent, title, message, buttons_config) -> str:
       ]
     """
     dialog = StandardDialog(parent, title, message)
-    dialog.result_action = "cancel" # Default fallback
+    reject_roles = (
+        QDialogButtonBox.ButtonRole.RejectRole,
+        QDialogButtonBox.ButtonRole.NoRole,
+    )
+    dialog.result_action = next(
+        (cfg["id"] for cfg in buttons_config if cfg["role"] in reject_roles),
+        None,
+    )
     
     for cfg in buttons_config:
         btn = dialog.button_box.addButton(cfg["text"], cfg["role"])
@@ -141,7 +148,7 @@ def show_confirm_dialog(parent, title, message) -> bool:
         {"id": True, "text": yes_text, "role": QDialogButtonBox.ButtonRole.YesRole},
         {"id": False, "text": no_text, "role": QDialogButtonBox.ButtonRole.NoRole, "default": True}
     ]
-    return show_custom_confirm_dialog(parent, title, message, config)
+    return show_custom_confirm_dialog(parent, title, message, config) is True
 
 def show_confirm_checkbox_dialog(parent, title, message, checkbox_text, checkbox_checked=False):
     """显示带复选框的确认对话框，返回 (confirmed, checkbox_checked)"""
@@ -170,7 +177,6 @@ def show_info_dialog(parent, title, message):
         {"id": "ok", "text": ok_text, "role": QDialogButtonBox.ButtonRole.AcceptRole, "default": True}
     ]
     show_custom_confirm_dialog(parent, title, message, config)
-
 def show_warning_dialog(parent, title, message):
     """显示警告提示框 (OK)"""
     ok_text = _translate_dialog_text("OK")
@@ -178,7 +184,6 @@ def show_warning_dialog(parent, title, message):
         {"id": "ok", "text": ok_text, "role": QDialogButtonBox.ButtonRole.AcceptRole, "default": True}
     ]
     show_custom_confirm_dialog(parent, title, message, config)
-
 
 def show_text_dialog(parent, title, content):
     """显示带可滚动正文的文本对话框。"""

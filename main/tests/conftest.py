@@ -8,6 +8,10 @@ import pytest
 import sys
 import os
 
+# Qt tests create and show real widgets. Keep them off the desktop when the
+# suite is launched locally, while preserving an explicitly selected platform.
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
 # 确保 main/ 在 sys.path（从 tests/ 向上两级）
 main_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if main_dir not in sys.path:

@@ -1602,6 +1602,10 @@ Replace it?</source>
         <translation>このグループを削除してもよろしいですか？\nグループ内のすべてのアイテムも削除されます。</translation>
     </message>
     <message>
+        <source>Are you sure you want to delete this item?</source>
+        <translation>削除してもよろしいですか？</translation>
+    </message>
+    <message>
         <source>Delete Group</source>
         <translation>グループを削除</translation>
     </message>
@@ -1691,7 +1695,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Paste Plain Text</source>
-        <translation>プレーンテキストを貼り付け</translation>
+        <translation>テキストスタイルを無くす</translation>
     </message>
     <message>
         <source>File Name</source>
@@ -1735,7 +1739,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Paste in Order</source>
-        <translation>順番ここまで貼り付け</translation>
+        <translation>順番を変えずに貼り付け</translation>
     </message>
 </context>
 

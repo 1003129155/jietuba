@@ -1633,6 +1633,10 @@ Replace it?</source>
         <translation>确定要删除这个分组吗？\n分组内的内容也会被删除。</translation>
     </message>
     <message>
+        <source>Are you sure you want to delete this item?</source>
+        <translation>确定要删除他吗？</translation>
+    </message>
+    <message>
         <source>Delete Group</source>
         <translation>删除分组</translation>
     </message>

@@ -1550,6 +1550,10 @@ Replace it?</translation>
         <translation>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</translation>
     </message>
     <message>
+        <source>Are you sure you want to delete this item?</source>
+        <translation>Are you sure you want to delete this item?</translation>
+    </message>
+    <message>
         <source>Delete Group</source>
         <translation>Delete Group</translation>
     </message>

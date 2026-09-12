@@ -25,9 +25,10 @@ def qapp():
 
 
 class FakeDecoder:
-    """替代 Rust 的 FrameDecoder，只记录被要求跳过多少帧"""
+    """替代 Rust 的 FrameDecoder，记录起始位置和旧接口的跳帧次数。"""
 
-    def __init__(self):
+    def __init__(self, start_frame=0):
+        self.start_frame = start_frame
         self.skipped = 0
         self.stopped = False
         self.is_finished = False
@@ -49,9 +50,9 @@ class FakeStore:
         self.decoders = []
         self.requested_sizes = []
 
-    def start_decoder(self, display_w, display_h, prefetch=6):
+    def start_decoder(self, display_w, display_h, prefetch=6, *, start_frame=0):
         self.requested_sizes.append((display_w, display_h))
-        dec = FakeDecoder()
+        dec = FakeDecoder(start_frame)
         self.decoders.append(dec)
         return dec
 
@@ -225,7 +226,30 @@ class TestSeek:
         engine.play()
         engine.seek(5)
 
+        assert store.decoders[-1].start_frame == 5
+        assert store.decoders[-1].skipped == 0
+
+    def test_legacy_extension_remains_usable(self, engine):
+        class LegacyStore(FakeStore):
+            def start_decoder(self, display_w, display_h, prefetch=6):
+                return super().start_decoder(display_w, display_h, prefetch)
+
+        store = LegacyStore()
+        engine.load(_frames(10), 16, store=store)
+        engine.set_display_size(64, 48)
+        engine.seek(5)
+        engine.play()
         assert store.decoders[-1].skipped == 5
+
+    def test_unrelated_decoder_type_error_is_not_hidden(self, loaded):
+        engine, store = loaded
+
+        def broken_decoder(**kwargs):
+            raise TypeError("invalid frame data")
+
+        store.start_decoder = broken_decoder
+        with pytest.raises(TypeError, match="invalid frame data"):
+            engine.play()
 
     def test_seek_while_paused_does_not_spin_up_a_decoder(self, loaded):
         engine, store = loaded
@@ -275,11 +299,12 @@ class TestSpeed:
         engine.set_speed(1.0)          # 与当前一致
         assert len(store.decoders) == 1
 
-    def test_changing_speed_while_playing_restarts_the_decoder(self, loaded):
+    def test_changing_speed_while_playing_preserves_the_decoder(self, loaded):
         engine, store = loaded
         engine.play()
         engine.set_speed(2.0)
-        assert len(store.decoders) == 2
+        assert len(store.decoders) == 1
+        assert not store.decoders[0].stopped
 
 
 # ============================================================================
@@ -324,6 +349,22 @@ class TestTrim:
         engine.seek(5)
         engine.set_trim(3, 7)
         assert engine.current_index == 5
+
+    def test_trim_inside_range_preserves_playback_buffer(self, loaded):
+        engine, store = loaded
+        engine.seek(5)
+        engine.play()
+        engine.set_trim(3, 7)
+        assert len(store.decoders) == 1
+        assert not store.decoders[0].stopped
+
+    def test_trim_outside_range_repositions_only_once(self, loaded):
+        engine, store = loaded
+        engine.play()
+        engine.set_trim(4, 8)
+        assert len(store.decoders) == 2
+        assert store.decoders[0].stopped
+        assert store.decoders[-1].start_frame == 4
 
 
 # ============================================================================

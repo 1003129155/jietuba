@@ -234,21 +234,24 @@ impl PyFrameStore {
     ///     display_w: 输出宽度 (0=原始尺寸)
     ///     display_h: 输出高度 (0=原始尺寸)
     ///     prefetch: 预解码缓冲区大小 (默认 4)
+    ///     start_frame: 首帧索引 (默认 0，超出范围返回空解码器)
     ///
     /// Returns:
     ///     FrameDecoder 对象
-    #[pyo3(signature = (display_w=0, display_h=0, prefetch=4))]
+    #[pyo3(signature = (display_w=0, display_h=0, prefetch=4, *, start_frame=0))]
     fn start_decoder(
         &self,
         display_w: u32,
         display_h: u32,
         prefetch: usize,
+        start_frame: usize,
     ) -> PyFrameDecoder {
         let decoder = FrameDecoder::start(
             self.inner.clone(),
             display_w,
             display_h,
             prefetch,
+            start_frame,
         );
         PyFrameDecoder { inner: Some(decoder) }
     }

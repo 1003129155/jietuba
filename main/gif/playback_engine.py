@@ -8,7 +8,7 @@
   优势：
     - 解码在 Rust 侧完成，零 GIL 争用
     - 后台预解码缓冲，轻松达到 30fps+
-    - seek / trim / speed 变化时重启解码器
+    - seek 从目标帧开始解码，倍速和范围内裁剪复用已有缓冲
 """
 
 from enum import Enum, auto
@@ -168,8 +168,6 @@ class PlaybackEngine(QObject):
             return
         self._speed = speed
         self._timer.setInterval(self._interval_ms())
-        if self._state == PlayState.PLAYING:
-            self._restart_decoder_from(self._current)
 
     def set_trim(self, start: int, end: int):
         self._trim_start = max(0, start)
@@ -178,8 +176,6 @@ class PlaybackEngine(QObject):
             self.seek(self._trim_start)
         elif self._current > self._trim_end:
             self.seek(self._trim_end)
-        if self._state == PlayState.PLAYING:
-            self._restart_decoder_from(self._current)
 
     def get_frame(self, index: int) -> FrameData:
         return self._frames[index]
@@ -223,16 +219,22 @@ class PlaybackEngine(QObject):
         if w <= 0 or h <= 0:
             return
 
-        # 创建 Rust 后台解码器（prefetch=6 帧缓冲）
-        self._decoder = self._store.start_decoder(
-            display_w=w, display_h=h, prefetch=6
-        )
+        # 每帧是独立 JPEG，直接从目标位置开始预解码，无需解码前面的帧。
+        try:
+            self._decoder = self._store.start_decoder(
+                display_w=w, display_h=h, prefetch=6, start_frame=index
+            )
+        except TypeError as exc:
+            # 已发布的 j-gif 0.3.0 尚无 start_frame；保留旧安装的可运行性。
+            # 仅回退不支持该关键字的错误，避免掩盖解码器本身的异常。
+            if "unexpected keyword argument 'start_frame'" not in str(exc):
+                raise
+            self._decoder = self._store.start_decoder(
+                display_w=w, display_h=h, prefetch=6
+            )
+            if index > 0:
+                self._decoder.skip(index)
         self._current = index
-
-        # 使用 Rust 侧 skip()：GIL 释放、无 PyBytes 分配，不阻塞主线程事件循环
-        # （原先用 Python 层 next_frame() 循环：每帧 ~MB 数据拷贝 × N 帧，大帧号 seek 会显著卡顿）
-        if index > 0:
-            self._decoder.skip(index)
 
     def _advance(self):
         """QTimer tick：从解码器取一帧，构造 QImage，更新 UI。"""
@@ -272,4 +274,3 @@ class PlaybackEngine(QObject):
             self.playback_finished.emit()
             return
         self._current = nxt
- 

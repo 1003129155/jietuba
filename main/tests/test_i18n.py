@@ -4,7 +4,10 @@ I18n 翻译系统单元测试
 
 测试 XmlTranslator 的 XML 解析和翻译查找逻辑。
 """
+import xml.etree.ElementTree as ET
+
 import pytest
+from PySide6.QtCore import QTranslator
 from PySide6.QtWidgets import QApplication
 
 
@@ -145,4 +148,34 @@ class TestI18nManager:
         from core.i18n import I18nManager
         translations_dir = I18nManager.get_translations_dir()
         assert translations_dir.exists(), f"翻译目录不存在: {translations_dir}"
- 
+
+
+@pytest.mark.parametrize(
+    "language",
+    ["en", "ja", "ko", "zh"],
+)
+def test_clipboard_delete_confirmation_is_compiled_in_its_calling_context(
+    language,
+):
+    """QM 翻译必须位于 ClipboardWindow 上下文，不能依赖 XML 的跨上下文回退。"""
+    from core.i18n import I18nManager
+
+    translations_dir = I18nManager.get_translations_dir()
+    source = "Are you sure you want to delete this item?"
+    context = next(
+        context
+        for context in ET.parse(translations_dir / f"app_{language}.xml")
+        .getroot()
+        .findall("context")
+        if context.findtext("name") == "ClipboardWindow"
+    )
+    expected = next(
+        message.findtext("translation")
+        for message in context.findall("message")
+        if message.findtext("source") == source
+    )
+
+    translator = QTranslator()
+    qm_path = translations_dir / f"app_{language}.qm"
+    assert translator.load(str(qm_path))
+    assert translator.translate("ClipboardWindow", source) == expected
