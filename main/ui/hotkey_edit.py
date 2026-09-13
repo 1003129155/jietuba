@@ -213,6 +213,11 @@ class HotkeyEdit(QWidget):
         self._validation_error = message or ""
         self._render_status()
 
+    @property
+    def validation_error(self) -> str:
+        """当前的容器级错误文案，空串表示这一格没问题。"""
+        return self._validation_error
+
     def validate_now(self) -> bool:
         """同步验证当前值，供设置窗口在落盘前做最终检查。"""
         if self._validation_error:

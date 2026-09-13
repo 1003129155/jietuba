@@ -18,7 +18,7 @@ from ..models import (
     TranslationResult,
     normalize_language_code,
 )
-from ..provider import TranslationProvider
+from ..provider import CredentialField, TranslationProvider
 
 
 class AmazonTranslateProvider(TranslationProvider):
@@ -52,6 +52,18 @@ class AmazonTranslateProvider(TranslationProvider):
         self._session_token = str(
             config.get("session_token", "") or ""
         ).strip()
+
+    CREDENTIAL_FIELDS = (
+        CredentialField("amazon_translate_region", "AWS 区域", "us-west-2"),
+        CredentialField("amazon_translate_access_key_id", "Access Key ID",
+                        "AKIA..."),
+        CredentialField("amazon_translate_secret_access_key",
+                        "Secret Access Key", "Secret Access Key", secret=True),
+        CredentialField("amazon_translate_session_token", "Session Token",
+                        "可选，临时凭据使用", secret=True),
+    )
+    HELP_LABEL = "console.aws.amazon.com"
+    HELP_URL = "https://console.aws.amazon.com/iam/home#/security_credentials"
 
     def is_configured(self) -> bool:
         return bool(

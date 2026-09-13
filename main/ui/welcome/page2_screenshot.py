@@ -3,7 +3,7 @@
 第2页 — 截图设置
 
 上半部：工具图标轮播（紧凑版）
-下半部：截图快捷键 + 截图保存位置
+下半部：自动保存 + 保存位置 + 保存格式 + 智能选区
 """
 
 from PySide6.QtWidgets import (
@@ -12,19 +12,21 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QSize, QTimer, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QPixmap, QPainter, QColor, QPen
-from ui.fluent_lite import PushButton, FluentIcon, LineEdit
+from ui.fluent_lite import PushButton, FluentIcon, LineEdit, ComboBox
 from ui.fluent_lite.theme import to_qicon
 from core.i18n import make_tr
 
 if __package__:
     from .base_page import (
-        BasePage, IllustrationArea, welcome_theme, set_welcome_label_style, apply_welcome_label_style,
+        BasePage, IllustrationArea, ToggleSwitch, welcome_theme,
+        set_welcome_label_style, apply_welcome_label_style,
     )
 else:
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from base_page import (
-        BasePage, IllustrationArea, welcome_theme, set_welcome_label_style, apply_welcome_label_style,
+        BasePage, IllustrationArea, ToggleSwitch, welcome_theme,
+        set_welcome_label_style, apply_welcome_label_style,
     )
 
 
@@ -253,52 +255,38 @@ class ScreenshotHotkeyPage(BasePage):
         self._config = config_manager
         super().__init__(
             title=_tr("📸 截图设置").replace("📸", "").strip(),
-            subtitle=_tr("设置快捷键与截图的默认保存位置。"),
+            subtitle=_tr("设置截图的保存方式与选区方式。"),
             parent=parent,
         )
 
     def _create_illustration(self):
         return _ToolPreviewIllus(self)
 
+    # 与设置窗口保持同一份格式清单：(显示名, 配置值)
+    SAVE_FORMATS = (
+        ("PNG", "PNG"),
+        ("JPG", "JPG"),
+        ("BMP", "BMP"),
+        ("WebP", "WEBP"),
+        ("PDF", "PDF"),
+    )
+
     def _build_controls(self, layout: QVBoxLayout):
-        if __package__:
-            from ..hotkey_edit import HotkeyEdit
-        else:
-            import sys, os
-            sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-            from hotkey_edit import HotkeyEdit
-
-        # ── 快捷键区 ──────────────────────────────────
-        self._hotkey_lbl = QLabel("快捷键（最多设置两个）")
-        set_welcome_label_style(
-            self._hotkey_lbl, role="primary", font_size=14, weight=600
+        # ── 自动保存 ──────────────────────────────────
+        # 排在保存位置之前：路径和格式只有在自动保存开着时才有意义，
+        # 先问要不要存，再问存到哪、存成什么。
+        self._autosave_toggle = ToggleSwitch()
+        self._autosave_toggle.setChecked(self._config.get_screenshot_save_enabled())
+        self._autosave_toggle.checkedChanged.connect(self._sync_save_section_enabled)
+        autosave_row, self._autosave_lbl, self._autosave_desc = (
+            self._make_setting_row_with_refs(
+                _tr("自动保存截图"),
+                self._autosave_toggle,
+                _tr("关闭时截图只复制到剪贴板，不落盘。"),
+            )
         )
-        layout.addWidget(self._hotkey_lbl)
-
-        self._hotkey_desc = QLabel("单击输入框后，直接按下目标组合键即可录入。")
-        self._hotkey_desc.setWordWrap(True)
-        set_welcome_label_style(
-            self._hotkey_desc, role="muted", font_size=12, weight=400
-        )
-        layout.addWidget(self._hotkey_desc)
-        layout.addSpacing(4)
-
-        # 两个快捷键横排
-        hotkey_row = QHBoxLayout()
-        hotkey_row.setSpacing(8)
-        self._hotkey = HotkeyEdit()
-        self._hotkey.setMinimumWidth(138)
-        self._hotkey.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self._hotkey.setText(self._config.get_hotkey())
-        self._hotkey2 = HotkeyEdit()
-        self._hotkey2.setMinimumWidth(138)
-        self._hotkey2.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self._hotkey2.setText(self._config.get_hotkey_2())
-        hotkey_row.addWidget(self._hotkey, 1)
-        hotkey_row.addWidget(self._hotkey2, 1)
-        layout.addLayout(hotkey_row)
-
-        layout.addSpacing(14)
+        layout.addWidget(autosave_row)
+        layout.addSpacing(12)
 
         # ── 保存位置区 ────────────────────────────────
         self._save_lbl = QLabel("截图保存位置")
@@ -336,6 +324,45 @@ class ScreenshotHotkeyPage(BasePage):
         path_row.addWidget(self._browse_btn)
         layout.addLayout(path_row)
 
+        # ── 保存格式 ──────────────────────────────────
+        layout.addSpacing(12)
+        self._format_combo = ComboBox()
+        self._format_combo.setFixedWidth(112)
+        self._format_combo.setFixedHeight(32)
+        self._format_combo.setCursor(Qt.CursorShape.PointingHandCursor)
+        for display, value in self.SAVE_FORMATS:
+            self._format_combo.addItem(display, userData=value)
+        current = (self._config.get_screenshot_format() or "PNG").upper()
+        index = self._format_combo.findData(current)
+        self._format_combo.setCurrentIndex(index if index >= 0 else 0)
+        format_row, self._format_lbl, _ = self._make_setting_row_with_refs(
+            _tr("保存格式"), self._format_combo
+        )
+        layout.addWidget(format_row)
+
+        # ── 智能选区 ──────────────────────────────────
+        layout.addSpacing(12)
+        self._smart_toggle = ToggleSwitch()
+        self._smart_toggle.setChecked(self._config.get_smart_selection())
+        smart_row, self._smart_lbl, self._smart_desc = (
+            self._make_setting_row_with_refs(
+                _tr("智能选区"),
+                self._smart_toggle,
+                _tr("悬停时自动识别窗口边界，单击即可精准截取。"),
+            )
+        )
+        layout.addWidget(smart_row)
+
+        self._sync_save_section_enabled(self._autosave_toggle.isChecked())
+
+    def _sync_save_section_enabled(self, enabled: bool):
+        """自动保存关掉时，位置和格式就没有意义，置灰而不是留着误导。"""
+        for widget in (
+            self._save_lbl, self._save_desc, self._path_edit,
+            self._browse_btn, self._format_combo, self._format_lbl,
+        ):
+            widget.setEnabled(bool(enabled))
+
     def _browse_path(self):
         current = self._path_edit.text().strip()
         folder = QFileDialog.getExistingDirectory(
@@ -346,11 +373,17 @@ class ScreenshotHotkeyPage(BasePage):
 
     def retranslate(self):
         self.title_label.setText(_tr("📸 截图设置").replace("📸", "").strip())
-        self.subtitle_label.setText(_tr("设置快捷键与截图的默认保存位置。"))
-        if hasattr(self, "_hotkey_lbl"):
-            self._hotkey_lbl.setText(_tr("快捷键（最多设置两个）"))
-        if hasattr(self, "_hotkey_desc"):
-            self._hotkey_desc.setText(_tr("单击输入框后，直接按下目标组合键即可录入。"))
+        self.subtitle_label.setText(_tr("设置截图的保存方式与选区方式。"))
+        if hasattr(self, "_autosave_lbl"):
+            self._autosave_lbl.setText(_tr("自动保存截图"))
+        if hasattr(self, "_autosave_desc") and self._autosave_desc:
+            self._autosave_desc.setText(_tr("关闭时截图只复制到剪贴板，不落盘。"))
+        if hasattr(self, "_format_lbl"):
+            self._format_lbl.setText(_tr("保存格式"))
+        if hasattr(self, "_smart_lbl"):
+            self._smart_lbl.setText(_tr("智能选区"))
+        if hasattr(self, "_smart_desc") and self._smart_desc:
+            self._smart_desc.setText(_tr("悬停时自动识别窗口边界，单击即可精准截取。"))
         if hasattr(self, "_save_lbl"):
             self._save_lbl.setText(_tr("截图保存位置"))
         if hasattr(self, "_save_desc"):
@@ -361,11 +394,11 @@ class ScreenshotHotkeyPage(BasePage):
             self.illus_area.retranslate()
 
     def save(self):
-        key = self._hotkey.text().strip()
-        if key:
-            self._config.set_hotkey(key)
-        key2 = self._hotkey2.text().strip()
-        self._config.set_hotkey_2(key2)
+        self._config.set_screenshot_save_enabled(self._autosave_toggle.isChecked())
+        self._config.set_smart_selection(self._smart_toggle.isChecked())
+        fmt = self._format_combo.currentData()
+        if fmt:
+            self._config.set_screenshot_format(fmt)
         path = self._path_edit.text().strip()
         if path:
             self._config.set_screenshot_save_path(path)
@@ -384,7 +417,7 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
     w = WelcomeWizard(mock)
-    w._stack.setCurrentIndex(1)
+    w._stack.setCurrentIndex(2)
     w._update_nav()
     w.show()
     sys.exit(app.exec())

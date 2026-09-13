@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 
 from .provider import ProviderConfig, ProviderMetadata, TranslationProvider
 
@@ -26,8 +27,29 @@ class ProviderRegistry:
         if not normalized:
             raise ValueError("provider_id must not be empty")
         self._factories[normalized] = factory
-        self._metadata[normalized] = ProviderMetadata(
-            normalized, display_name or normalized
+        self._metadata[normalized] = self._build_metadata(
+            normalized, factory, display_name
+        )
+
+    @staticmethod
+    def _build_metadata(
+        provider_id: str,
+        factory: ProviderFactory,
+        display_name: str | None,
+    ) -> ProviderMetadata:
+        """以 provider 自己的 metadata() 为准，注册时显式给的名字仍然优先。
+
+        用 provider 的那份是为了带上凭据字段声明；普通工厂函数（测试里常见）
+        没有 metadata()，退回最小信息。
+        """
+        own = getattr(factory, "metadata", None)
+        metadata = own() if callable(own) else None
+        if not isinstance(metadata, ProviderMetadata):
+            return ProviderMetadata(provider_id, display_name or provider_id)
+        return replace(
+            metadata,
+            provider_id=provider_id,
+            display_name=display_name or metadata.display_name,
         )
 
     def create(

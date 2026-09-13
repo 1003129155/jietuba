@@ -17,7 +17,7 @@ from ..models import (
     TranslationResult,
     normalize_language_code,
 )
-from ..provider import TranslationProvider
+from ..provider import CredentialField, TranslationProvider
 
 
 class GoogleTranslateProvider(TranslationProvider):
@@ -37,6 +37,13 @@ class GoogleTranslateProvider(TranslationProvider):
 
     def __init__(self, config: Mapping[str, Any]):
         self._api_key = str(config.get("api_key", "") or "").strip()
+
+    CREDENTIAL_FIELDS = (
+        CredentialField("google_translate_api_key", "Google API Key",
+                        "Google API Key", secret=True),
+    )
+    HELP_LABEL = "Google Cloud Console"
+    HELP_URL = "https://console.cloud.google.com/apis/credentials"
 
     def is_configured(self) -> bool:
         return bool(self._api_key)

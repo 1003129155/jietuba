@@ -18,7 +18,7 @@ from ..models import (
     TranslationResult,
     normalize_language_code,
 )
-from ..provider import TranslationProvider
+from ..provider import CredentialField, TranslationProvider
 
 
 class AzureTranslateProvider(TranslationProvider):
@@ -44,6 +44,16 @@ class AzureTranslateProvider(TranslationProvider):
         self._endpoint = str(
             config.get("endpoint", "") or ""
         ).strip().rstrip("/")
+
+    CREDENTIAL_FIELDS = (
+        CredentialField("azure_translate_api_key", "Azure API Key",
+                        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", secret=True),
+        CredentialField("azure_translate_region", "Azure Region", "eastasia"),
+        CredentialField("azure_translate_endpoint", "Azure Endpoint",
+                        "Optional, use default if empty"),
+    )
+    HELP_LABEL = "portal.azure.com"
+    HELP_URL = "https://portal.azure.com/"
 
     def is_configured(self) -> bool:
         return bool(self._api_key)

@@ -2588,18 +2588,6 @@ Replace it?</translation>
         <translation>📸 Screenshot Settings</translation>
     </message>
     <message>
-        <source>设置快捷键与截图的默认保存位置。</source>
-        <translation>Set your hotkey and default save folder for screenshots.</translation>
-    </message>
-    <message>
-        <source>快捷键（最多设置两个）</source>
-        <translation>Hotkeys (up to 2)</translation>
-    </message>
-    <message>
-        <source>单击输入框后，直接按下目标组合键即可录入。</source>
-        <translation>Click the input, then press your desired key combo.</translation>
-    </message>
-    <message>
         <source>截图保存位置</source>
         <translation>Screenshot Save Folder</translation>
     </message>
@@ -2663,22 +2651,6 @@ Supports text, images, files and groups.</translation>
     <message>
         <source>智能选区</source>
         <translation>Smart Selection</translation>
-    </message>
-    <message>
-        <source>截图时将鼠标悬停在任意窗口上，自动识别并高亮其边界。
-单击即可精准截取该窗口；也可以像平时一样拖拽框选任意区域。</source>
-        <translation>Hover over any window during screenshot mode to auto-detect and highlight its boundary.
-Click to capture it instantly, or drag to select any area as usual.</translation>
-    </message>
-    <message>
-        <source>🪟 启用智能选区</source>
-        <translation>🪟 Enable Smart Selection</translation>
-    </message>
-    <message>
-        <source>开启：悬停自动高亮窗口，单击即完成截取。
-关闭：恢复手动拖拽框选模式。</source>
-        <translation>On: hover to highlight a window, click to capture it.
-Off: use manual drag-to-select mode.</translation>
     </message>
     <!-- page5 -->
     <message>
@@ -2798,6 +2770,90 @@ You can tweak more options in Settings anytime.</translation>
     <message>
         <source>中文</source>
         <translation>English</translation>
+    </message>
+    <message>
+        <source>快捷键</source>
+        <translation>Shortcuts</translation>
+    </message>
+    <message>
+        <source>三个全局功能各可设置一个主快捷键和一个备用快捷键。</source>
+        <translation>Each of the three global features can have a primary and a backup shortcut.</translation>
+    </message>
+    <message>
+        <source>主快捷键</source>
+        <translation>Primary</translation>
+    </message>
+    <message>
+        <source>备用</source>
+        <translation>Backup</translation>
+    </message>
+    <message>
+        <source>截图</source>
+        <translation>Screenshot</translation>
+    </message>
+    <message>
+        <source>智能翻译</source>
+        <translation>Translation</translation>
+    </message>
+    <message>
+        <source>点击输入框后，按下快捷键或鼠标侧键即可录入。</source>
+        <translation>Click a field, then press a key combination or a mouse side button.</translation>
+    </message>
+    <message>
+        <source>设置截图的保存方式与选区方式。</source>
+        <translation>Choose how and where screenshots are saved, and how you select an area.</translation>
+    </message>
+    <message>
+        <source>自动保存截图</source>
+        <translation>Auto-save Screenshots</translation>
+    </message>
+    <message>
+        <source>关闭时截图只复制到剪贴板，不落盘。</source>
+        <translation>When off, screenshots are only copied to the clipboard.</translation>
+    </message>
+    <message>
+        <source>保存格式</source>
+        <translation>Save Format</translation>
+    </message>
+    <message>
+        <source>悬停时自动识别窗口边界，单击即可精准截取。</source>
+        <translation>Highlights window borders under the cursor; one click captures it.</translation>
+    </message>
+    <message>
+        <source>剪贴板外观</source>
+        <translation>Clipboard Appearance</translation>
+    </message>
+    <message>
+        <source>Azure API Key</source>
+        <translation>Azure API Key</translation>
+    </message>
+    <message>
+        <source>Azure Region</source>
+        <translation>Azure Region</translation>
+    </message>
+    <message>
+        <source>Azure Endpoint</source>
+        <translation>Azure Endpoint</translation>
+    </message>
+    <message>
+        <source>Optional, use default if empty</source>
+        <translation>Optional, use default if empty</translation>
+    </message>
+    <message>
+        <source>鼠标侧键</source>
+        <translation>Side buttons</translation>
+    </message>
+    <message>
+        <source>可设为快捷键</source>
+        <translation>Can be bound</translation>
+    </message>
+    <message>
+        <source>不可用</source>
+        <translation>Not available</translation>
+    </message>
+    <message>
+        <source>当前按下</source>
+        <translation>Currently pressed</translation>
     </message>
 </context>
 

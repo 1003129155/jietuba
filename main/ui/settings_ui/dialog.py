@@ -1487,19 +1487,6 @@ class SettingsDialog(FrostedFramelessDialog):
         # 剪切板主题色同步（在别处改了主题色后打开设置，确保显示最新值）
         if hasattr(self, '_clip_theme_btn'):
             from settings import get_tool_settings_manager
-            from .page_appearance import _THEME_COLORS
-            current_name = get_tool_settings_manager().get_clipboard_theme()
-            self._clip_theme_name = current_name
-            for tname, accent, bg in _THEME_COLORS:
-                if tname == current_name:
-                    self._clip_theme_btn.setStyleSheet(f"""
-                        QPushButton {{
-                            background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
-                                stop:0 {bg}, stop:0.5 {bg},
-                                stop:0.5 {accent}, stop:1 {accent});
-                            border: 2px solid {accent};
-                            border-radius: 3px;
-                        }}
-                        QPushButton:hover {{ border: 2px solid #333; }}
-                    """)
-                    break 
+            from .page_appearance import _apply_clip_theme_btn_style
+            self._clip_theme_name = get_tool_settings_manager().get_clipboard_theme()
+            _apply_clip_theme_btn_style(self._clip_theme_btn, self._clip_theme_name)

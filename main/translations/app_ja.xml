@@ -2658,18 +2658,6 @@ Replace it?</source>
         <translation>📸 キャプチャー設定</translation>
     </message>
     <message>
-        <source>设置快捷键与截图的默认保存位置。</source>
-        <translation>ショートカットとキャプチャーのデフォルト保存先を設定します。</translation>
-    </message>
-    <message>
-        <source>快捷键（最多设置两个）</source>
-        <translation>ショートカット（最大2つ）</translation>
-    </message>
-    <message>
-        <source>单击输入框后，直接按下目标组合键即可录入。</source>
-        <translation>入力欄をクリックして、キーの組み合わせを押してください。</translation>
-    </message>
-    <message>
         <source>截图保存位置</source>
         <translation>スクショの保存先</translation>
     </message>
@@ -2733,22 +2721,6 @@ Replace it?</source>
     <message>
         <source>智能选区</source>
         <translation>スマート選択</translation>
-    </message>
-    <message>
-        <source>截图时将鼠标悬停在任意窗口上，自动识别并高亮其边界。
-单击即可精准截取该窗口；也可以像平时一样拖拽框选任意区域。</source>
-        <translation>スクショ中に任意のウィンドウにホバーすると境界を自動検出してハイライト。
-クリックでそのまま切り取り、またはドラッグで範囲を自由に選択できます。</translation>
-    </message>
-    <message>
-        <source>🪟 启用智能选区</source>
-        <translation>🪟 スマート選択を有効にする</translation>
-    </message>
-    <message>
-        <source>开启：悬停自动高亮窗口，单击即完成截取。
-关闭：恢复手动拖拽框选模式。</source>
-        <translation>ON：ホバーでウィンドウをハイライト、クリックで即キャプチャ。
-OFF：通常のドラッグ選択モードに戻ります。</translation>
     </message>
     <!-- page5 -->
     <message>
@@ -2868,6 +2840,90 @@ OFF：通常のドラッグ選択モードに戻ります。</translation>
     <message>
         <source>中文</source>
         <translation>日本語</translation>
+    </message>
+    <message>
+        <source>快捷键</source>
+        <translation>ショートカット</translation>
+    </message>
+    <message>
+        <source>三个全局功能各可设置一个主快捷键和一个备用快捷键。</source>
+        <translation>3つのグローバル機能それぞれに、メインと予備のショートカットを設定できます。</translation>
+    </message>
+    <message>
+        <source>主快捷键</source>
+        <translation>メイン</translation>
+    </message>
+    <message>
+        <source>备用</source>
+        <translation>予備</translation>
+    </message>
+    <message>
+        <source>截图</source>
+        <translation>スクリーンショット</translation>
+    </message>
+    <message>
+        <source>智能翻译</source>
+        <translation>翻訳</translation>
+    </message>
+    <message>
+        <source>点击输入框后，按下快捷键或鼠标侧键即可录入。</source>
+        <translation>入力欄をクリックし、キーの組み合わせかマウスのサイドボタンを押してください。</translation>
+    </message>
+    <message>
+        <source>设置截图的保存方式与选区方式。</source>
+        <translation>スクリーンショットの保存方法・保存先と、範囲の選択方法を設定します。</translation>
+    </message>
+    <message>
+        <source>自动保存截图</source>
+        <translation>スクリーンショットを自動保存</translation>
+    </message>
+    <message>
+        <source>关闭时截图只复制到剪贴板，不落盘。</source>
+        <translation>オフのときは、クリップボードにコピーするだけでファイルには保存しません。</translation>
+    </message>
+    <message>
+        <source>保存格式</source>
+        <translation>保存形式</translation>
+    </message>
+    <message>
+        <source>悬停时自动识别窗口边界，单击即可精准截取。</source>
+        <translation>カーソル下のウィンドウ境界を自動で認識し、クリックするだけで切り取れます。</translation>
+    </message>
+    <message>
+        <source>剪贴板外观</source>
+        <translation>クリップボードの外観</translation>
+    </message>
+    <message>
+        <source>Azure API Key</source>
+        <translation>Azure API キー</translation>
+    </message>
+    <message>
+        <source>Azure Region</source>
+        <translation>Azure リージョン</translation>
+    </message>
+    <message>
+        <source>Azure Endpoint</source>
+        <translation>Azure エンドポイント</translation>
+    </message>
+    <message>
+        <source>Optional, use default if empty</source>
+        <translation>任意、未入力なら既定値</translation>
+    </message>
+    <message>
+        <source>鼠标侧键</source>
+        <translation>サイドボタン</translation>
+    </message>
+    <message>
+        <source>可设为快捷键</source>
+        <translation>割り当て可能</translation>
+    </message>
+    <message>
+        <source>不可用</source>
+        <translation>使用不可</translation>
+    </message>
+    <message>
+        <source>当前按下</source>
+        <translation>押下中</translation>
     </message>
 </context>
 

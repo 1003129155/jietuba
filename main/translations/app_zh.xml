@@ -2692,18 +2692,6 @@ Replace it?</source>
         <source>📸 截图设置</source>
         <translation>📸 截图设置</translation>
     </message>
-    <message>
-        <source>设置快捷键与截图的默认保存位置。</source>
-        <translation>设置快捷键与截图的默认保存位置。</translation>
-    </message>
-    <message>
-        <source>快捷键（最多设置两个）</source>
-        <translation>快捷键（最多设置两个）</translation>
-    </message>
-    <message>
-        <source>单击输入框后，直接按下目标组合键即可录入。</source>
-        <translation>单击输入框后，直接按下目标组合键即可录入。</translation>
-    </message>
     <!-- page3 -->
     <message><source>剪贴板</source><translation>剪贴板</translation></message>
     <message><source>历史记录</source><translation>历史记录</translation></message>
@@ -2740,22 +2728,6 @@ Replace it?</source>
     <message>
         <source>智能选区</source>
         <translation>智能选区</translation>
-    </message>
-    <message>
-        <source>截图时将鼠标悬停在任意窗口上，自动识别并高亮其边界。
-单击即可精准截取该窗口；也可以像平时一样拖拽框选任意区域。</source>
-        <translation>截图时将鼠标悬停在任意窗口上，自动识别并高亮其边界。
-单击即可精准截取该窗口；也可以像平时一样拖拽框选任意区域。</translation>
-    </message>
-    <message>
-        <source>🪟 启用智能选区</source>
-        <translation>🪟 启用智能选区</translation>
-    </message>
-    <message>
-        <source>开启：悬停自动高亮窗口，单击即完成截取。
-关闭：恢复手动拖拽框选模式。</source>
-        <translation>开启：悬停自动高亮窗口，单击即完成截取。
-关闭：恢复手动拖拽框选模式。</translation>
     </message>
     <!-- page5 -->
     <message>
@@ -2875,6 +2847,90 @@ Replace it?</source>
     <message>
         <source>中文</source>
         <translation>中文</translation>
+    </message>
+    <message>
+        <source>快捷键</source>
+        <translation>快捷键</translation>
+    </message>
+    <message>
+        <source>三个全局功能各可设置一个主快捷键和一个备用快捷键。</source>
+        <translation>三个全局功能各可设置一个主快捷键和一个备用快捷键。</translation>
+    </message>
+    <message>
+        <source>主快捷键</source>
+        <translation>主快捷键</translation>
+    </message>
+    <message>
+        <source>备用</source>
+        <translation>备用</translation>
+    </message>
+    <message>
+        <source>截图</source>
+        <translation>截图</translation>
+    </message>
+    <message>
+        <source>智能翻译</source>
+        <translation>智能翻译</translation>
+    </message>
+    <message>
+        <source>点击输入框后，按下快捷键或鼠标侧键即可录入。</source>
+        <translation>点击输入框后，按下快捷键或鼠标侧键即可录入。</translation>
+    </message>
+    <message>
+        <source>设置截图的保存方式与选区方式。</source>
+        <translation>设置截图的保存方式与选区方式。</translation>
+    </message>
+    <message>
+        <source>自动保存截图</source>
+        <translation>自动保存截图</translation>
+    </message>
+    <message>
+        <source>关闭时截图只复制到剪贴板，不落盘。</source>
+        <translation>关闭时截图只复制到剪贴板，不落盘。</translation>
+    </message>
+    <message>
+        <source>保存格式</source>
+        <translation>保存格式</translation>
+    </message>
+    <message>
+        <source>悬停时自动识别窗口边界，单击即可精准截取。</source>
+        <translation>悬停时自动识别窗口边界，单击即可精准截取。</translation>
+    </message>
+    <message>
+        <source>剪贴板外观</source>
+        <translation>剪贴板外观</translation>
+    </message>
+    <message>
+        <source>Azure API Key</source>
+        <translation>Azure API 密钥</translation>
+    </message>
+    <message>
+        <source>Azure Region</source>
+        <translation>Azure 区域</translation>
+    </message>
+    <message>
+        <source>Azure Endpoint</source>
+        <translation>Azure 终结点</translation>
+    </message>
+    <message>
+        <source>Optional, use default if empty</source>
+        <translation>可选，留空则使用默认值</translation>
+    </message>
+    <message>
+        <source>鼠标侧键</source>
+        <translation>鼠标侧键</translation>
+    </message>
+    <message>
+        <source>可设为快捷键</source>
+        <translation>可设为快捷键</translation>
+    </message>
+    <message>
+        <source>不可用</source>
+        <translation>不可用</translation>
+    </message>
+    <message>
+        <source>当前按下</source>
+        <translation>当前按下</translation>
     </message>
 </context>
 

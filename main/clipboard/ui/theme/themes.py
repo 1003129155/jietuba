@@ -325,6 +325,23 @@ PRESET_THEMES = {
     "orange": THEME_ORANGE,
 }
 
+# 主题选择器上那枚双色小方块的取色。
+#
+# 它不是从 ThemeColors 里算出来的：blue/green/pink/purple/orange 五个确实等于
+# 各自的 accent_primary + bg_secondary，但 light 和 dark 是特意挑过的——light 的
+# accent_primary 是蓝灰、dark 的是 #007ACC，直接拿来画会让这两枚方块看着像蓝色
+# 主题，认不出「浅色」「深色」。所以这里按「选择器上看起来像什么」单独定，
+# 与运行时真正使用的主题色分开。
+PRESET_THEME_SWATCHES = {
+    "light":  ("#DDE3E9", "#FFFFFF"),
+    "dark":   ("#1D1F20", "#1E1E1E"),
+    "blue":   ("#6F8FAB", "#B9CAD7"),
+    "green":  ("#4CAF50", "#B8F3BD"),
+    "pink":   ("#E91E63", "#FA9BBB"),
+    "purple": ("#9C27B0", "#D471E4"),
+    "orange": ("#FF9800", "#F5C880"),
+}
+
 
 class ThemeManager(QObject):
     """主题管理器"""

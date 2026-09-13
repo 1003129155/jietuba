@@ -11,21 +11,12 @@ from PySide6.QtCore import Qt
 
 from typing import Optional, Callable
 
+from ..theme.themes import PRESET_THEME_SWATCHES
+
 
 # ──────────────────────────────────────────────
 # 设置菜单（原 window.py _show_main_menu 逻辑）
 # ──────────────────────────────────────────────
-
-# 主题颜色表：(name, accent, bg)
-_THEME_COLORS = [
-    ("light",  "#DDE3E9", "#FFFFFF"),
-    ("dark",   "#1D1F20", "#1E1E1E"),
-    ("blue",   "#6F8FAB", "#B9CAD7"),
-    ("green",  "#4CAF50", "#B8F3BD"),
-    ("pink",   "#E91E63", "#FA9BBB"),
-    ("purple", "#9C27B0", "#D471E4"),
-    ("orange", "#FF9800", "#F5C880"),
-]
 
 
 def show_setting_menu(
@@ -131,7 +122,7 @@ def show_setting_menu(
         _update_theme_btns(name)
         theme_menu.close()
 
-    for theme_name, accent_color, bg_color in _THEME_COLORS:
+    for theme_name, (accent_color, bg_color) in PRESET_THEME_SWATCHES.items():
         wa = QWidgetAction(theme_menu)
         btn = QPushButton()
         btn.setFixedSize(120, 28)

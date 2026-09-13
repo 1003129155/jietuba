@@ -2613,18 +2613,6 @@ Replace it?</source>
         <translation>📸 스크린샷 설정</translation>
     </message>
     <message>
-        <source>设置快捷键与截图的默认保存位置。</source>
-        <translation>스크린샷 단축키와 기본 저장 위치를 설정하세요.</translation>
-    </message>
-    <message>
-        <source>快捷键（最多设置两个）</source>
-        <translation>단축키 (최대 2개)</translation>
-    </message>
-    <message>
-        <source>单击输入框后，直接按下目标组合键即可录入。</source>
-        <translation>입력창을 클릭한 뒤 원하는 키 조합을 바로 누르세요.</translation>
-    </message>
-    <message>
         <source>截图保存位置</source>
         <translation>스크린샷 저장 폴더</translation>
     </message>
@@ -2688,22 +2676,6 @@ Replace it?</source>
     <message>
         <source>智能选区</source>
         <translation>스마트 선택</translation>
-    </message>
-    <message>
-        <source>截图时将鼠标悬停在任意窗口上，自动识别并高亮其边界。
-单击即可精准截取该窗口；也可以像平时一样拖拽框选任意区域。</source>
-        <translation>스크린샷 중 임의의 창 위에 마우스를 올리면 경계를 자동으로 인식하고 강조합니다.
-    클릭하면 해당 창을 정확히 캡처하고, 평소처럼 드래그로 임의 영역을 선택할 수도 있습니다.</translation>
-    </message>
-    <message>
-        <source>🪟 启用智能选区</source>
-        <translation>🪟 스마트 선택 사용</translation>
-    </message>
-    <message>
-        <source>开启：悬停自动高亮窗口，单击即完成截取。
-关闭：恢复手动拖拽框选模式。</source>
-        <translation>켬: 마우스를 올리면 창을 강조하고 클릭하면 캡처합니다.
-    끔: 수동 드래그 선택 모드로 돌아갑니다.</translation>
     </message>
     <!-- page5 -->
     <message>
@@ -2823,6 +2795,90 @@ Replace it?</source>
     <message>
         <source>中文</source>
         <translation>한국어</translation>
+    </message>
+    <message>
+        <source>快捷键</source>
+        <translation>단축키</translation>
+    </message>
+    <message>
+        <source>三个全局功能各可设置一个主快捷键和一个备用快捷键。</source>
+        <translation>세 가지 전역 기능마다 기본 단축키와 예비 단축키를 지정할 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>主快捷键</source>
+        <translation>기본</translation>
+    </message>
+    <message>
+        <source>备用</source>
+        <translation>예비</translation>
+    </message>
+    <message>
+        <source>截图</source>
+        <translation>스크린샷</translation>
+    </message>
+    <message>
+        <source>智能翻译</source>
+        <translation>번역</translation>
+    </message>
+    <message>
+        <source>点击输入框后，按下快捷键或鼠标侧键即可录入。</source>
+        <translation>입력란을 클릭한 뒤 키 조합이나 마우스 사이드 버튼을 누르세요.</translation>
+    </message>
+    <message>
+        <source>设置截图的保存方式与选区方式。</source>
+        <translation>스크린샷의 저장 방식과 위치, 영역 선택 방식을 설정합니다.</translation>
+    </message>
+    <message>
+        <source>自动保存截图</source>
+        <translation>스크린샷 자동 저장</translation>
+    </message>
+    <message>
+        <source>关闭时截图只复制到剪贴板，不落盘。</source>
+        <translation>끄면 스크린샷을 클립보드에만 복사하고 파일로 저장하지 않습니다.</translation>
+    </message>
+    <message>
+        <source>保存格式</source>
+        <translation>저장 형식</translation>
+    </message>
+    <message>
+        <source>悬停时自动识别窗口边界，单击即可精准截取。</source>
+        <translation>커서 아래 창의 경계를 자동으로 인식하여 한 번의 클릭으로 캡처합니다.</translation>
+    </message>
+    <message>
+        <source>剪贴板外观</source>
+        <translation>클립보드 모양</translation>
+    </message>
+    <message>
+        <source>Azure API Key</source>
+        <translation>Azure API 키</translation>
+    </message>
+    <message>
+        <source>Azure Region</source>
+        <translation>Azure 지역</translation>
+    </message>
+    <message>
+        <source>Azure Endpoint</source>
+        <translation>Azure 엔드포인트</translation>
+    </message>
+    <message>
+        <source>Optional, use default if empty</source>
+        <translation>선택 사항, 비워두면 기본값</translation>
+    </message>
+    <message>
+        <source>鼠标侧键</source>
+        <translation>사이드 버튼</translation>
+    </message>
+    <message>
+        <source>可设为快捷键</source>
+        <translation>지정 가능</translation>
+    </message>
+    <message>
+        <source>不可用</source>
+        <translation>사용 불가</translation>
+    </message>
+    <message>
+        <source>当前按下</source>
+        <translation>누르는 중</translation>
     </message>
 </context>
 

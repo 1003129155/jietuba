@@ -225,6 +225,24 @@ def test_annotation_behavior_toggles_reset_refresh_and_snapshot(qapp, tmp_path):
     assert snapshot["text_always_on_top_toggle"] is False
 
 
+def test_refresh_settings_repaints_clipboard_theme_button(monkeypatch, qapp, tmp_path):
+    """refresh_settings 的导入写在函数里，只有打开设置窗口才执行，改名漏改时启动不报错。"""
+    manager = _manager(tmp_path)
+    manager.set_clipboard_theme("pink")
+    monkeypatch.setattr("settings.get_tool_settings_manager", lambda: manager)
+    styles = []
+    dialog = SimpleNamespace(
+        config_manager=manager,
+        _clip_theme_btn=SimpleNamespace(setStyleSheet=styles.append),
+        _clip_theme_name="light",
+    )
+
+    SettingsDialog.refresh_settings(dialog)
+
+    assert dialog._clip_theme_name == "pink"
+    assert styles and "#E91E63" in styles[-1]
+
+
 def test_double_click_setting_translations_exist_and_load(qapp):
     translations = Path(__file__).parents[1] / "translations"
     expected_by_language = {

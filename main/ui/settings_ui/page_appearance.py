@@ -46,17 +46,25 @@ def _make_color_btn(dialog, size_w=_CTRL_W, size_h=_CTRL_H):
 
 
 # ================================================================
-# 主题颜色表 — 与 clipboard/setting_panel.py 保持一致
+# 剪贴板主题色块 — 色板取自 clipboard.ui.theme.themes.PRESET_THEME_SWATCHES
 # ================================================================
-_THEME_COLORS = [
-    ("light",  "#DDE3E9", "#FFFFFF"),
-    ("dark",   "#1D1F20", "#1E1E1E"),
-    ("blue",   "#6F8FAB", "#B9CAD7"),
-    ("green",  "#4CAF50", "#B8F3BD"),
-    ("pink",   "#E91E63", "#FA9BBB"),
-    ("purple", "#9C27B0", "#D471E4"),
-    ("orange", "#FF9800", "#F5C880"),
-]
+def _apply_clip_theme_btn_style(btn: QPushButton, name: str):
+    """把主题按钮画成该主题的双色方块。建页与 refresh_settings 共用，不再各抄一份。"""
+    from clipboard.ui.theme.themes import PRESET_THEME_SWATCHES
+    swatch = PRESET_THEME_SWATCHES.get(name)
+    if swatch is None:
+        return
+    accent, bg = swatch
+    btn.setStyleSheet(f"""
+        QPushButton {{
+            background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
+                stop:0 {bg}, stop:0.5 {bg},
+                stop:0.5 {accent}, stop:1 {accent});
+            border: 2px solid {accent};
+            border-radius: 3px;
+        }}
+        QPushButton:hover {{ border: 2px solid {theme_color('#333333', '#F3F3F3')}; }}
+    """)
 
 
 def create_appearance_page(dialog) -> QWidget:
@@ -196,7 +204,7 @@ def _build_screenshot_section(dialog, grp: SettingCardGroup):
 
 def _build_clipboard_section(dialog, grp: SettingCardGroup):
     """剪贴板外观：主题 + 字体大小 + 透明度"""
-    from clipboard.ui.theme.themes import get_theme_manager
+    from clipboard.ui.theme.themes import PRESET_THEME_SWATCHES, get_theme_manager
     from settings import get_tool_settings_manager
     config = get_tool_settings_manager()
     theme_mgr = get_theme_manager()
@@ -214,22 +222,7 @@ def _build_clipboard_section(dialog, grp: SettingCardGroup):
     dialog._clip_theme_btn.setCursor(Qt.CursorShape.PointingHandCursor)
     dialog._clip_theme_name = current_theme_name
 
-    def _apply_theme_btn_style(name: str):
-        for tname, accent, bg in _THEME_COLORS:
-            if tname == name:
-                dialog._clip_theme_btn.setStyleSheet(f"""
-                    QPushButton {{
-                        background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
-                            stop:0 {bg}, stop:0.5 {bg},
-                            stop:0.5 {accent}, stop:1 {accent});
-                        border: 2px solid {accent};
-                        border-radius: 3px;
-                    }}
-                    QPushButton:hover {{ border: 2px solid {theme_color('#333333', '#F3F3F3')}; }}
-                """)
-                break
-
-    _apply_theme_btn_style(current_theme_name)
+    _apply_clip_theme_btn_style(dialog._clip_theme_btn, current_theme_name)
 
     def _show_theme_popup():
         from PySide6.QtWidgets import QMenu
@@ -260,12 +253,12 @@ def _build_clipboard_section(dialog, grp: SettingCardGroup):
 
         def _on_click(name: str):
             dialog._clip_theme_name = name
-            _apply_theme_btn_style(name)
+            _apply_clip_theme_btn_style(dialog._clip_theme_btn, name)
             theme_mgr.set_theme(name)
             _update_btns(name)
             menu.close()
 
-        for tname, accent, bg in _THEME_COLORS:
+        for tname, (accent, bg) in PRESET_THEME_SWATCHES.items():
             wa = QWidgetAction(menu)
             btn = PushButton(menu)
             btn.setFixedSize(_CTRL_W, _CTRL_H)
