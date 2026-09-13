@@ -75,7 +75,7 @@ class StandardDialog(QDialog):
         self.result_action = None
 
 
-def _track_modeless_dialog(dialog):
+def track_modeless_dialog(dialog):
     """跟踪非模态对话框，避免 show() 后被 Python 提前回收。"""
     app = QApplication.instance()
     if app is None:
@@ -235,7 +235,7 @@ def show_modeless_warning_dialog(parent, title, message):
     ok_button.setDefault(True)
     ok_button.clicked.connect(dialog.accept)
 
-    _track_modeless_dialog(dialog)
+    track_modeless_dialog(dialog)
     dialog.show()
     return dialog
 

@@ -907,6 +907,10 @@ Replace it?</source>
         <translation>スクショ翻訳（OCR + 翻訳）</translation>
     </message>
     <message>
+        <source>Scan QR code / barcode</source>
+        <translation>コードをスキャン（QR コード / バーコード）</translation>
+    </message>
+    <message>
         <source>Recognizing...</source>
         <translation>認識中...</translation>
     </message>
@@ -3264,7 +3268,7 @@ SOFTWARE.</translation></message>
     </message>
     <message>
         <source>In more menu</source>
-        <translation>「その他」メニューにまとめる</translation>
+        <translation>「その他」メニュー</translation>
     </message>
     <message>
         <source>Always hide</source>
@@ -3301,6 +3305,10 @@ SOFTWARE.</translation></message>
     <message>
         <source>Screenshot translate</source>
         <translation>スクショ翻訳</translation>
+    </message>
+    <message>
+        <source>Scan code</source>
+        <translation>コードスキャン</translation>
     </message>
     <message>
         <source>GIF recording</source>
@@ -3352,7 +3360,7 @@ SOFTWARE.</translation></message>
     </message>
     <message>
         <source>Cancel screenshot</source>
-        <translation>スクリーンショットを終了</translation>
+        <translation>終了</translation>
     </message>
     <message>
         <source>Pin image</source>
@@ -3361,6 +3369,37 @@ SOFTWARE.</translation></message>
     <message>
         <source>Confirm</source>
         <translation>確定</translation>
+    </message>
+</context>
+<context>
+    <name>BarcodeResultWindow</name>
+    <message>
+        <source>Scan result</source>
+        <translation>スキャン結果</translation>
+    </message>
+    <message>
+        <source>Found %1 code(s)</source>
+        <translation>%1 件のコードを検出しました</translation>
+    </message>
+    <message>
+        <source>No QR code or barcode found</source>
+        <translation>QR コードやバーコードは見つかりませんでした</translation>
+    </message>
+    <message>
+        <source>Make sure the whole code is inside the selection.</source>
+        <translation>コード全体が選択範囲に入っているか確認してください。</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>コピー</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>コピーしました</translation>
+    </message>
+    <message>
+        <source>Open link</source>
+        <translation>リンクを開く</translation>
     </message>
 </context>
 </TS>

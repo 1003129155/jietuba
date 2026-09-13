@@ -16,7 +16,7 @@ from pin.pin_toolbar import PinToolbar
 from settings import get_tool_settings_manager
 from ui.toolbar import Toolbar
 from ui.toolbar_layout import (
-    DEFAULT_ORDER, HIDE, MORE, SETTING_KEY, SHOW,
+    DEFAULT_ORDER, HIDE, LOCKED, MORE, SETTING_KEY, SHOW,
     default_layout, load_layout, normalize_layout, save_layout,
 )
 from ui.toolbar_layout_dialog import ToolbarLayoutDialog
@@ -32,7 +32,7 @@ def _clean_layout_setting():
 
 
 def _layout_with(first=None, **modes):
-    """默认顺序，个别按钮换显示方式；给了 first 就把那个按钮挪到最前"""
+    """默认顺序、全部始终显示，个别按钮换显示方式；给了 first 就把那个按钮挪到最前"""
     order = [first] + [key for key in DEFAULT_ORDER if key != first] if first else DEFAULT_ORDER
     return [(key, modes.get(key, SHOW)) for key in order]
 
@@ -54,16 +54,20 @@ class TestNormalizeLayout:
 
     def test_unknown_duplicate_and_malformed_entries_are_dropped(self):
         layout = normalize_layout([
-            ("pen", HIDE), ("nope", SHOW), ("pen", SHOW), "xy", 3, ("save", "weird"),
+            ("mosaic", HIDE), ("nope", SHOW), ("mosaic", SHOW), "xy", 3,
+            ("save", "weird"), ("scan_code", "weird"),
         ])
         assert sorted(key for key, _mode in layout) == sorted(DEFAULT_ORDER)
-        assert dict(layout)["pen"] == HIDE        # 重复条目以第一次为准
-        assert dict(layout)["save"] == SHOW       # 不认识的显示方式按始终显示
+        assert dict(layout)["mosaic"] == HIDE       # 重复条目以第一次为准
+        assert dict(layout)["save"] == SHOW         # 不认识的显示方式按这个按钮的默认显示方式
+        assert dict(layout)["scan_code"] == MORE
 
     def test_locked_buttons_are_always_shown(self):
-        layout = dict(normalize_layout([("confirm", HIDE), ("cancel", MORE)]))
-        assert layout["confirm"] == SHOW
-        assert layout["cancel"] == SHOW
+        assert {"arrow", "number", "rect"} <= LOCKED
+        layout = dict(normalize_layout([
+            (key, HIDE if index % 2 else MORE) for index, key in enumerate(LOCKED)
+        ]))
+        assert all(layout[key] == SHOW for key in LOCKED)
 
     def test_missing_button_goes_back_after_its_default_predecessor(self):
         """升级后新增的按钮不能堆到末尾，否则会出现在「确定」右边"""
@@ -74,11 +78,19 @@ class TestNormalizeLayout:
         assert keys[0] == "confirm"
         assert keys[keys.index("highlighter") + 1] == "mosaic"
 
+    def test_button_missing_from_an_old_config_gets_its_default_mode(self):
+        """升级前存下的排布里没有扫码按钮：补回时按默认收进「…」，工具栏不会突然变宽"""
+        stored = [(key, SHOW) for key in DEFAULT_ORDER if key != "scan_code"]
+        layout = normalize_layout(stored)
+        keys = [key for key, _mode in layout]
+        assert keys[keys.index("screenshot_translate") + 1] == "scan_code"
+        assert dict(layout)["scan_code"] == MORE
+
 
 class TestPersistence:
 
     def test_saved_layout_round_trips(self):
-        layout = _layout_with(first="redo", redo=HIDE, pen=MORE)
+        layout = _layout_with(first="pin", text=HIDE, mosaic=MORE)
         assert save_layout(layout) == layout
         assert load_layout() == layout
 
@@ -89,36 +101,43 @@ class TestPersistence:
 
 class TestScreenshotToolbar:
 
-    def test_default_layout_keeps_the_original_toolbar_and_adds_more_at_the_end(self, qapp):
+    def test_default_layout_folds_the_scan_button_and_ends_with_more(self, qapp):
         toolbar = Toolbar()
-        assert _toolbar_row(toolbar) == list(DEFAULT_ORDER) + ["more"]
+        assert _toolbar_row(toolbar) == [key for key in DEFAULT_ORDER if key != "scan_code"] + ["more"]
+        assert toolbar._folded_keys == ["scan_code"]
         assert toolbar.copy_btn.isHidden()
         geometries = [toolbar._buttons[key].geometry() for key in _toolbar_row(toolbar)]
         for left, right in zip(geometries, geometries[1:]):
             assert left.right() < right.left()
         assert all(toolbar.rect().contains(geometry) for geometry in geometries)
 
+    def test_more_opener_is_a_strip_as_narrow_as_the_drag_handle(self, qapp):
+        """「…」和左端拖动手柄一样宽、贴着右边缘，不再占一整个按钮的宽度"""
+        toolbar = Toolbar()
+        assert toolbar.more_btn.width() == toolbar.drag_handle.width() < toolbar.pen_btn.width()
+        assert toolbar.more_btn.geometry().right() == toolbar.rect().right()
+
     def test_configured_layout_reorders_folds_and_hides(self, qapp):
         default_width = Toolbar().width()
-        save_layout(_layout_with(first="confirm", pen=MORE, redo=HIDE))
+        save_layout(_layout_with(first="pin", mosaic=MORE, text=HIDE, scan_code=MORE))
 
         toolbar = Toolbar()
         row = _toolbar_row(toolbar)
-        assert row[0] == "confirm"
+        assert row[0] == "pin"
         assert row[-1] == "more"
-        assert "pen" not in row and "redo" not in row
-        assert toolbar._folded_keys == ["pen"]
+        assert "mosaic" not in row and "text" not in row
+        assert toolbar._folded_keys == ["scan_code", "mosaic"]
         assert toolbar.width() < default_width
 
     def test_hiding_a_tool_only_hides_its_button(self, qapp):
-        save_layout(_layout_with(pen=HIDE))
+        save_layout(_layout_with(mosaic=HIDE))
         toolbar = Toolbar()
-        toolbar.select_tool("pen")
-        assert toolbar.current_tool == "pen"
-        assert toolbar.pen_btn.isChecked()
+        toolbar.select_tool("mosaic")
+        assert toolbar.current_tool == "mosaic"
+        assert toolbar.mosaic_btn.isChecked()
 
     def test_more_popup_hosts_folded_buttons_that_still_work(self, qapp):
-        save_layout(_layout_with(pen=MORE, save=MORE))
+        save_layout(_layout_with(mosaic=MORE, save=MORE))
         toolbar = Toolbar()
         saved = []
         toolbar.save_clicked.connect(lambda: saved.append(True))
@@ -126,7 +145,7 @@ class TestScreenshotToolbar:
         toolbar._show_more_popup()
         popup = toolbar._more_popup
         assert popup.isVisible()
-        assert toolbar.pen_btn.parent() is popup and not toolbar.pen_btn.isHidden()
+        assert toolbar.mosaic_btn.parent() is popup and not toolbar.mosaic_btn.isHidden()
         assert toolbar.save_btn.parent() is popup
 
         toolbar.save_btn.click()
@@ -134,12 +153,12 @@ class TestScreenshotToolbar:
         assert not popup.isVisible()   # 点完就收起
 
         toolbar._show_more_popup()
-        toolbar.pen_btn.click()
-        assert toolbar.current_tool == "pen"
+        toolbar.mosaic_btn.click()
+        assert toolbar.current_tool == "mosaic"
         assert not popup.isVisible()
 
     def test_popup_stays_open_while_the_mouse_moves_between_more_and_popup(self, qapp):
-        save_layout(_layout_with(pen=MORE))
+        save_layout(_layout_with(mosaic=MORE))
         toolbar = Toolbar()
 
         toolbar._on_more_hover(True)      # 进入「…」
@@ -150,21 +169,21 @@ class TestScreenshotToolbar:
         assert toolbar._more_popup.isVisible()
 
     def test_unfolded_button_moves_back_onto_the_toolbar(self, qapp):
-        save_layout(_layout_with(pen=MORE))
+        save_layout(_layout_with(mosaic=MORE))
         toolbar = Toolbar()
         toolbar._show_more_popup()
         toolbar._hide_more_popup()
 
-        save_layout(default_layout())
+        save_layout(_layout_with())
         toolbar.reload_layout()
-        assert toolbar.pen_btn.parent() is toolbar
+        assert toolbar.mosaic_btn.parent() is toolbar
         assert _toolbar_row(toolbar) == list(DEFAULT_ORDER) + ["more"]
 
     def test_new_session_rereads_the_layout(self, qapp):
         toolbar = Toolbar()
-        save_layout(_layout_with(pen=HIDE))
+        save_layout(_layout_with(mosaic=HIDE))
         toolbar.reset_session_state()
-        assert "pen" not in _toolbar_row(toolbar)
+        assert "mosaic" not in _toolbar_row(toolbar)
 
 
 class TestPinToolbar:
@@ -189,27 +208,33 @@ class TestLayoutDialog:
         dialog = self._dialog(default_layout())
         rows = dialog._rows
 
-        # 把「确定」拖到第一行上沿：其余行的中线都在鼠标下方，它就该排第一
+        # 把「钉图」拖到第一行上沿：其余可调整行的中线都在鼠标下方，它就该排第一
         top = rows["long_screenshot"].mapToGlobal(QPoint(0, 1)).y()
-        dialog._drag_row(rows["confirm"], top)
-        rows["pen"].set_mode(MORE)
+        dialog._drag_row(rows["pin"], top)
+        rows["mosaic"].set_mode(MORE)
 
         entries = dialog.entries()
-        assert entries[0] == ("confirm", SHOW)
-        assert entries[1] == ("long_screenshot", SHOW)
-        assert dict(entries)["pen"] == MORE
+        assert [key for key, _mode in entries if key not in LOCKED][0] == "pin"
+        assert dict(entries)["mosaic"] == MORE
+        assert all(dict(entries)[key] == SHOW for key in LOCKED)
         assert len(entries) == len(DEFAULT_ORDER)
         dialog.close()
 
-    def test_locked_rows_cannot_change_visibility(self, qapp):
+    def test_locked_rows_are_not_shown(self, qapp):
         dialog = self._dialog(default_layout())
-        assert not dialog._rows["confirm"].combo.isEnabled()
-        assert not dialog._rows["cancel"].combo.isEnabled()
+        assert LOCKED.isdisjoint(dialog._rows)
+        assert len(dialog._rows) == len(DEFAULT_ORDER) - len(LOCKED)
         assert dialog._rows["pin"].combo.isEnabled()
         dialog.close()
 
+    def test_all_editable_rows_fit_without_a_scrollbar(self, qapp):
+        dialog = self._dialog(default_layout())
+        assert dialog._scroll.viewport().height() >= dialog._card.sizeHint().height()
+        assert not dialog._scroll.verticalScrollBar().isVisible()
+        dialog.close()
+
     def test_restore_defaults_resets_order_and_modes(self, qapp):
-        customized = _layout_with(first="redo", redo=HIDE, pen=MORE)
+        customized = _layout_with(first="pin", text=HIDE, mosaic=MORE)
         dialog = self._dialog(customized)
         assert dialog.entries() == customized
         dialog._fill(default_layout())

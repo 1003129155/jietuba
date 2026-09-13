@@ -895,6 +895,10 @@ Replace it?</translation>
         <translation>Screenshot translate (OCR + Translate)</translation>
     </message>
     <message>
+        <source>Scan QR code / barcode</source>
+        <translation>Scan QR code / barcode</translation>
+    </message>
+    <message>
         <source>Recognizing...</source>
         <translation>Recognizing...</translation>
     </message>
@@ -3237,6 +3241,10 @@ SOFTWARE.</translation></message>
         <translation>Screenshot translate</translation>
     </message>
     <message>
+        <source>Scan code</source>
+        <translation>Scan code</translation>
+    </message>
+    <message>
         <source>GIF recording</source>
         <translation>GIF recording</translation>
     </message>
@@ -3295,6 +3303,37 @@ SOFTWARE.</translation></message>
     <message>
         <source>Confirm</source>
         <translation>Confirm</translation>
+    </message>
+</context>
+<context>
+    <name>BarcodeResultWindow</name>
+    <message>
+        <source>Scan result</source>
+        <translation>Scan result</translation>
+    </message>
+    <message>
+        <source>Found %1 code(s)</source>
+        <translation>Found %1 code(s)</translation>
+    </message>
+    <message>
+        <source>No QR code or barcode found</source>
+        <translation>No QR code or barcode found</translation>
+    </message>
+    <message>
+        <source>Make sure the whole code is inside the selection.</source>
+        <translation>Make sure the whole code is inside the selection.</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>Copy</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>Copied</translation>
+    </message>
+    <message>
+        <source>Open link</source>
+        <translation>Open link</translation>
     </message>
 </context>
 </TS>

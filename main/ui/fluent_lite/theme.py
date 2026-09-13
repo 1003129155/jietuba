@@ -33,6 +33,24 @@ def ui_tokens(widget=None):
     return get_ui_theme().tokens
 
 
+def scrollbar_qss(widget=None) -> str:
+    """应用窗口统一的细滚动条：7px 圆角滑块，没有两端箭头，滑轨透明，悬停换强调色。
+
+    设置窗口、剪贴板管理窗口原先各写一份，数值已经对不上（一份写死颜色，一份跟主题），
+    新窗口不再抄第三份，都拼这一段。
+    """
+    t = ui_tokens(widget)
+    return f"""
+    QScrollBar:vertical {{ width: 7px; margin: 3px 0; background: transparent; }}
+    QScrollBar:horizontal {{ height: 7px; margin: 0 3px; background: transparent; }}
+    QScrollBar::handle:vertical {{ min-height: 30px; background: {t.border_hover}; border-radius: 3px; }}
+    QScrollBar::handle:horizontal {{ min-width: 30px; background: {t.border_hover}; border-radius: 3px; }}
+    QScrollBar::handle:hover {{ background: {t.accent}; }}
+    QScrollBar::add-line, QScrollBar::sub-line {{ width: 0; height: 0; }}
+    QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}
+    """
+
+
 def to_qicon(icon, widget=None) -> QIcon:
     """Convert an icon and tint SVG-backed UI icons for the current theme."""
     if isinstance(icon, QIcon):

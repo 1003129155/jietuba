@@ -84,14 +84,8 @@ def create_group_icon_picker(dialog, current_icon: str = "📁"):
     dialog._emoji_scroll.setWidgetResizable(True)
     dialog._emoji_scroll.setMinimumHeight(scale_y(110))
     dialog._emoji_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-    dialog._emoji_scroll.setStyleSheet(
-        f"""
-            QScrollArea {{ border: none; background: transparent; }}
-            QScrollBar:vertical {{ width: {scale_x(6)}px; background: transparent; }}
-            QScrollBar::handle:vertical {{ background: {tokens.border_hover}; border-radius: {scale_ui(3)}px; min-height: {scale_y(20)}px; }}
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0px; }}
-        """
-    )
+    # 滚动条不在这里写：管理窗口整体样式里的 scrollbar_qss 会级联下来，还随主题刷新
+    dialog._emoji_scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
     dialog.detail_layout.addWidget(dialog._emoji_scroll, 1)
 
     dialog._emoji_current_idx = 0

@@ -24,7 +24,7 @@ from ui.fluent_lite import (
     PrimaryPushButton, TransparentPushButton,
     FrostedFramelessDialog,
 )
-from ui.fluent_lite import FluentTitleBar
+from ui.fluent_lite import FluentTitleBar, scrollbar_qss
 from ui.fluent_lite.theme import ACCENT, ACCENT_HOVER, ACCENT_PRESSED
 
 from core import log_info, safe_event
@@ -1091,16 +1091,7 @@ class SettingsDialog(FrostedFramelessDialog):
             QStackedWidget {{
                 background: transparent;
             }}
-            QScrollBar:vertical {{
-                width: 7px; margin: 3px 0; background: transparent;
-            }}
-            QScrollBar::handle:vertical {{
-                min-height: 34px; background: rgba(93, 110, 126, 0.30); border-radius: 3px;
-            }}
-            QScrollBar::handle:vertical:hover {{ background: rgba(72, 89, 105, 0.46); }}
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
-            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: transparent; }}
-        """)
+        """ + scrollbar_qss(self))
 
     def _on_ui_theme_changed(self, _tokens):
         """Rebuild window-local styles after an OS or user theme change."""

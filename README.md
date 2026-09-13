@@ -10,7 +10,7 @@
 
 截图吧是一款面向 Windows x86_64 和 ARM64 的截图与剪贴板管理软件，使用 PySide6 构建界面，使用 Rust 实现图像处理、剪贴板操作和 OCR 等功能。
 
-支持区域截图、窗口智能识别、GIF录制、长截图拼接、OCR文字识别、图像钉图、翻译、马赛克、PDF 导出等功能，并内置了完整的剪切板历史管理系统，不限图片来源可以联动截图模块生成钉图或者提取文字。
+支持区域截图、窗口智能识别、GIF录制、长截图拼接、OCR文字识别、二维码/条形码识别、图像钉图、翻译、马赛克、PDF 导出等功能，并内置了完整的剪切板历史管理系统，不限图片来源可以联动截图模块生成钉图或者提取文字。
 
 提供可直接运行的 Windows 发行包，也支持从源码运行。
 
@@ -134,6 +134,7 @@ python -m pytest main/tests -c main/tests/pytest.ini
 │   ├── compile_translations.py  # 翻译文件编译工具（.xml → .qm）
 │   ├── scripts/             # 辅助脚本 — 翻译提供商对比
 │   │
+│   ├── barcode/             # 扫码模块 — 二维码/条形码识别（zxing-cpp）
 │   ├── canvas/              # 画布模块 — 图形编辑核心
 │   ├── capture/             # 截图捕获模块 — 屏幕截图与窗口识别
 │   ├── clipboard/           # 剪切板管理模块 — 历史记录、分组/快速启动、导入导出、搜索
@@ -167,6 +168,29 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 
 ## 模块详细说明
+
+### barcode/ — 扫码模块
+
+识别截图选区里的二维码和条形码。结果窗口左侧在截图上标出每个码的位置，右侧按序号列出内容。
+
+<details>
+<summary>展开目录结构</summary>
+
+```text
+barcode/
+├── __init__.py
+├── reader.py                # read_codes / DecodedCode — 基于 zxing-cpp 解码，按阅读顺序给出内容、格式与轮廓
+└── result_window.py         # BarcodeResultWindow — 扫码结果窗口，截图与结果列表按序号对应
+```
+
+</details>
+
+**核心功能：**
+- 支持 QR Code、Data Matrix、Aztec、PDF417 及 Code 128、EAN/UPC 等常见一维码
+- 一次识别选区内的多个码，悬停截图或列表中的任一项，两边同时高亮
+- 内容一键复制；http(s) 链接可直接在浏览器打开
+
+---
 
 ### canvas/ — 画布模块
 

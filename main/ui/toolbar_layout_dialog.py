@@ -12,7 +12,9 @@ from functools import partial
 
 from PySide6.QtCore import QPoint, QPointF, Qt, Signal
 from PySide6.QtGui import QColor, QPainter
-from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QApplication, QDialog, QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget,
+)
 
 from core import safe_event
 from core.i18n import make_tr
@@ -31,6 +33,7 @@ BUTTON_NAMES = {
     "long_screenshot": "Long screenshot",
     "save": "Save",
     "screenshot_translate": "Screenshot translate",
+    "scan_code": "Scan code",
     "gif": "GIF recording",
     "pen": "Pen",
     "highlighter": "Highlighter",
@@ -118,9 +121,6 @@ class _Row(QWidget):
         self.combo = ComboBox(self)
         for mode, text in MODE_NAMES:
             self.combo.addItem(_tr(text), mode)
-        if key in LOCKED:
-            self.combo.setEnabled(False)
-            self.combo.setToolTip(_tr("This button can't be hidden"))
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 3, 8, 3)
@@ -174,9 +174,11 @@ class ToolbarLayoutDialog(QDialog):
         self._list_layout.setSpacing(0)
         self._list_layout.addStretch(1)
 
-        # 行按按钮建一次；排序、恢复默认都只是在布局里挪位置
+        # 固定按钮不显示灰色禁用行；这里只为真正可调整的按钮创建界面。
         self._rows = {}
         for key in DEFAULT_ORDER:
+            if key in LOCKED:
+                continue
             row = _Row(key, icons[key], self._card)
             row.grip.pressed.connect(partial(row.set_dragging, True))
             row.grip.dragged.connect(partial(self._drag_row, row))
@@ -214,11 +216,14 @@ class ToolbarLayoutDialog(QDialog):
         root.addLayout(buttons)
 
         self._fill(layout)
-        self.resize(480, 680)
+        self._fit_height_to_rows()
 
     def entries(self):
-        """编辑结果，顺序即当前行的顺序"""
-        return [(row.key, row.mode()) for row in self._ordered_rows()]
+        """编辑结果；不可调整的固定按钮按进入/重置对话框时的位置合并回来。"""
+        entries = [(row.key, row.mode()) for row in self._ordered_rows()]
+        for index, key in self._locked_slots:
+            entries.insert(min(index, len(entries)), (key, SHOW))
+        return normalize_layout(entries)
 
     def _ordered_rows(self):
         items = (self._list_layout.itemAt(i) for i in range(self._list_layout.count()))
@@ -226,7 +231,12 @@ class ToolbarLayoutDialog(QDialog):
 
     def _fill(self, layout):
         """按排布摆放各行、设置下拉框"""
-        for index, (key, mode) in enumerate(normalize_layout(layout)):
+        normalized = normalize_layout(layout)
+        self._locked_slots = [
+            (index, key) for index, (key, _mode) in enumerate(normalized) if key in LOCKED
+        ]
+        editable = [(key, mode) for key, mode in normalized if key not in LOCKED]
+        for index, (key, mode) in enumerate(editable):
             row = self._rows[key]
             self._place(row, index)
             row.set_mode(mode)
@@ -234,6 +244,24 @@ class ToolbarLayoutDialog(QDialog):
     def _place(self, row, index):
         self._list_layout.removeWidget(row)
         self._list_layout.insertWidget(index, row)
+
+    def _fit_height_to_rows(self):
+        """优先完整展示全部可调整行；只有超过屏幕可用高度时才让列表滚动。"""
+        self._list_layout.activate()
+        content_height = self._list_layout.sizeHint().height() + 2
+        self._scroll.setFixedHeight(content_height)
+
+        desired_height = self.sizeHint().height()
+        screen = self.parentWidget().screen() if self.parentWidget() else QApplication.primaryScreen()
+        if screen is not None:
+            max_height = max(360, screen.availableGeometry().height() - 40)
+            if desired_height > max_height:
+                non_list_height = desired_height - content_height
+                content_height = max(180, max_height - non_list_height)
+                self._scroll.setFixedHeight(content_height)
+                desired_height = non_list_height + content_height
+
+        self.resize(480, desired_height)
 
     def _drag_row(self, row, global_y):
         """被拖的行跟着鼠标换位：它该排第几，就看其余行里有几行的中线在鼠标上方"""

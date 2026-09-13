@@ -104,8 +104,8 @@ def test_fill_follows_a_theme_change(qapp, theme, kind):
 
 def test_glyph_ink_flips_between_light_and_dark_themes(qapp, theme):
     """主题色是用户可改的，图样得跟着换黑白，不能写死一种颜色。"""
-    light = LayerEditor._contrast_ink(QColor("#FFD54F"))
-    dark = LayerEditor._contrast_ink(QColor("#C62828"))
+    light = theme_module.contrast_ink(QColor("#FFD54F"))
+    dark = theme_module.contrast_ink(QColor("#C62828"))
 
     assert light.lightness() < dark.lightness(), "浅色底应该配深色图样，反之亦然"
 

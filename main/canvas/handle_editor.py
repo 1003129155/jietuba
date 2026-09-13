@@ -25,7 +25,7 @@ from PySide6.QtSvg import QSvgRenderer
 
 from core import log_debug, log_warning
 from core.logger import log_exception, T
-from core.theme import get_theme
+from core.theme import contrast_ink, get_theme
 
 try:
     # 你项目里的撤销命令
@@ -1355,16 +1355,6 @@ class LayerEditor:
         HandleType.ITEM_DELETE,
     )
 
-    @staticmethod
-    def _contrast_ink(background: QColor) -> QColor:
-        """主题色是用户可改的，图样颜色按亮度取黑或白，保证任何主题都看得清。"""
-        luminance = (
-            0.299 * background.red()
-            + 0.587 * background.green()
-            + 0.114 * background.blue()
-        )
-        return QColor(20, 20, 20) if luminance > 150 else QColor(255, 255, 255)
-
     def _render_functional_handle(self, painter: QPainter, handle: EditHandle):
         """功能性手柄的统一画法。
 
@@ -1377,7 +1367,7 @@ class LayerEditor:
         fill = QColor(get_theme().theme_color)
         if is_hovered:
             fill = fill.lighter(118)
-        ink = self._contrast_ink(fill)
+        ink = contrast_ink(fill)
         rect = handle.get_rect()
 
         painter.save()

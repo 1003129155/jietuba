@@ -6,7 +6,7 @@
 
 ## Overview
 
-A screenshot and clipboard manager for Windows x86_64 and ARM64, with a PySide6 interface and Rust components for image processing, clipboard operations, and OCR. Supports area capture, smart window detection, GIF recording, long screenshot stitching, OCR text recognition, image pinning, translation, mosaic blur, PDF export, and a full clipboard history management system.
+A screenshot and clipboard manager for Windows x86_64 and ARM64, with a PySide6 interface and Rust components for image processing, clipboard operations, and OCR. Supports area capture, smart window detection, GIF recording, long screenshot stitching, OCR text recognition, QR code/barcode scanning, image pinning, translation, mosaic blur, PDF export, and a full clipboard history management system.
 
 Download a ready-to-run Windows release or run the application from source.
 
@@ -129,6 +129,7 @@ To build a Windows release, run `python build_with_ocr_onefile.py`. It produces 
 │   ├── compile_translations.py  # Translation compiler (.xml → .qm)
 │   ├── scripts/             # Helper scripts — translation provider comparison
 │   │
+│   ├── barcode/             # Barcode module — QR code/barcode scanning (zxing-cpp)
 │   ├── canvas/              # Canvas module — graphics editing core
 │   ├── capture/             # Capture module — screen capture & window detection
 │   ├── clipboard/           # Clipboard module — history, groups/quick launch, import/export, search
@@ -162,6 +163,28 @@ To build a Windows release, run `python build_with_ocr_onefile.py`. It produces 
 ---
 
 ## Module Details
+
+### barcode/ — Barcode Module
+
+Scans QR codes and barcodes in the screenshot selection. The result window outlines each code on the screenshot and lists the decoded contents by number.
+
+<details>
+<summary>Expand directory structure</summary>
+
+```text
+barcode/
+├── __init__.py
+├── reader.py                # read_codes / DecodedCode — zxing-cpp decoding; text, format and outline in reading order
+└── result_window.py         # BarcodeResultWindow — result window; screenshot and result list share the same numbers
+```
+
+</details>
+
+- Supports QR Code, Data Matrix, Aztec, PDF417 and common linear barcodes such as Code 128 and EAN/UPC
+- Reads every code in the selection at once; hovering a code on either side highlights it on both
+- One-click copy; http(s) links open directly in the browser
+
+---
 
 ### canvas/ — Canvas Module
 

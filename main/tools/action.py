@@ -168,30 +168,15 @@ class ActionTools:
         4. 后台OCR识别
         5. 识别完成后填入原文并自动翻译
         """
-        from ui.dialogs import show_modeless_warning_dialog
         from translation import TranslationManager
 
         log_info(T("启动截图翻译模式"), "ScreenshotTranslate")
 
-        if not self.scene.selection_model.is_confirmed:
-            show_modeless_warning_dialog(
-                self.parent_window,
-                _tr("Warning"),
-                _tr("Please select a valid capture area first.")
-            )
-            return
-        
         # 1. 获取选区的纯净底图（不含绘制内容）
-        selection_rect = self.scene.selection_model.rect()
-        base_image = self.export_service.export_base_image_only(selection_rect)
-        if base_image is None or base_image.isNull():
-            show_modeless_warning_dialog(
-                self.parent_window,
-                _tr("Error"),
-                _tr("Failed to capture the selected area.")
-            )
+        base_image = self._selection_base_image()
+        if base_image is None:
             return
-        
+
         # 转换为 QPixmap（OCR 线程需要使用）
         from PySide6.QtGui import QPixmap
         pixmap_copy = QPixmap.fromImage(base_image)
@@ -215,6 +200,34 @@ class ActionTools:
             **params
         )
     
+    def handle_scan_code(self):
+        """扫码：识别选区里的二维码 / 条形码，关掉截图界面后在结果窗口里列出"""
+        from barcode import show_barcode_result
+
+        image = self._selection_base_image()
+        if image is None:
+            return
+        self._cleanup_and_close()
+        show_barcode_result(image)
+
+    def _selection_base_image(self):
+        """选区的纯净底图——不含标注，画上去的框和马赛克会挡住文字和码。
+
+        没有确认的选区或导出失败时，提示用户并返回 None。
+        """
+        from ui.dialogs import show_modeless_warning_dialog
+
+        if not self.scene.selection_model.is_confirmed:
+            show_modeless_warning_dialog(
+                self.parent_window, _tr("Warning"), _tr("Please select a valid capture area first."))
+            return None
+        image = self.export_service.export_base_image_only(self.scene.selection_model.rect())
+        if image is None or image.isNull():
+            show_modeless_warning_dialog(
+                self.parent_window, _tr("Error"), _tr("Failed to capture the selected area."))
+            return None
+        return image
+
     def _temporarily_exit_editing(self):
         """
         临时退出编辑模式，隐藏选择框和手柄

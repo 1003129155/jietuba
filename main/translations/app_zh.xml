@@ -904,6 +904,10 @@ Replace it?</source>
         <translation>截图翻译（OCR + 翻译）</translation>
     </message>
     <message>
+        <source>Scan QR code / barcode</source>
+        <translation>扫码（二维码 / 条形码）</translation>
+    </message>
+    <message>
         <source>Recognizing...</source>
         <translation>识别中...</translation>
     </message>
@@ -3324,6 +3328,10 @@ SOFTWARE.</translation></message>
         <translation>截图翻译</translation>
     </message>
     <message>
+        <source>Scan code</source>
+        <translation>扫码</translation>
+    </message>
+    <message>
         <source>GIF recording</source>
         <translation>GIF 录制</translation>
     </message>
@@ -3382,6 +3390,37 @@ SOFTWARE.</translation></message>
     <message>
         <source>Confirm</source>
         <translation>确定</translation>
+    </message>
+</context>
+<context>
+    <name>BarcodeResultWindow</name>
+    <message>
+        <source>Scan result</source>
+        <translation>扫码结果</translation>
+    </message>
+    <message>
+        <source>Found %1 code(s)</source>
+        <translation>识别到 %1 个码</translation>
+    </message>
+    <message>
+        <source>No QR code or barcode found</source>
+        <translation>未识别到二维码或条形码</translation>
+    </message>
+    <message>
+        <source>Make sure the whole code is inside the selection.</source>
+        <translation>请确认码完整地框在选区内。</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>复制</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>已复制</translation>
+    </message>
+    <message>
+        <source>Open link</source>
+        <translation>打开链接</translation>
     </message>
 </context>
 </TS>

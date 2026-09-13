@@ -5,7 +5,7 @@
 from PySide6.QtCore import Qt, QSize, Signal, QRect, QRectF, QPoint, QTimer
 from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QBrush
 from PySide6.QtWidgets import (
-    QWidget, QPushButton, QApplication
+    QAbstractButton, QWidget, QPushButton, QApplication
 )
 from core.resource_manager import ResourceManager
 from core.theme import get_theme
@@ -21,8 +21,6 @@ class _DragHandle(QWidget):
     - 自动定位模式: 纯色填充
     - 手动定位模式: 纯色填充 + 三个白色圆点（提示可双击复位）
     """
-
-    _DOT_COLOR = QColor(255, 255, 255)
 
     reset_requested = Signal()  # 双击时发出，请求切回自动定位
 
@@ -46,33 +44,66 @@ class _DragHandle(QWidget):
 
     @safe_event
     def paintEvent(self, event):
+        _paint_end_strip(self, dots=self._manual_mode)
+
+
+def _paint_end_strip(widget, *, dots, mirrored=False):
+    """绘制工具栏左端的主题色拖动竖条。
+
+    只有朝外的两个角是圆角，贴合工具栏整体的圆角；mirrored 用于需要左右翻转的场景。
+    dots 时在正中竖排三个白点。
+    """
+    painter = QPainter(widget)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    r = widget.rect()
+    if mirrored:
+        painter.translate(r.width(), 0)
+        painter.scale(-1, 1)
+    radius = 4
+    path = QPainterPath()
+    path.moveTo(r.left() + radius, r.top())
+    path.lineTo(r.right(), r.top())
+    path.lineTo(r.right(), r.bottom())
+    path.lineTo(r.left() + radius, r.bottom())
+    path.quadTo(r.left(), r.bottom(), r.left(), r.bottom() - radius)
+    path.lineTo(r.left(), r.top() + radius)
+    path.quadTo(r.left(), r.top(), r.left() + radius, r.top())
+    painter.fillPath(path, get_theme().theme_color)
+
+    if dots:
+        _paint_vertical_dots(painter, r, QColor(255, 255, 255))
+    painter.end()
+
+
+def _paint_vertical_dots(painter, rect, color):
+    """在给定区域正中绘制竖排三点。"""
+    cx = rect.center().x()
+    cy = rect.center().y()
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(color)
+    for dy in (-9, 0, 9):
+        painter.drawEllipse(QPoint(cx, cy + dy), 3, 3)
+
+
+class _MoreHandle(QAbstractButton):
+    """工具栏右端的「…」：白色工具栏背景上的竖排黑点。
+
+    宽度和拖动手柄一样，但不再重复左侧的主题色竖条，让按钮与工具栏白底融为一体。
+    不设 tooltip：悬停本身就会立刻弹出面板，系统提示框反而会盖住刚弹出的面板。
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+
+    @safe_event
+    def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        # 左侧两角圆角、右侧直角，与工具栏整体左侧圆角对齐
-        radius = 4
-        r = self.rect()
-        path = QPainterPath()
-        path.moveTo(r.left() + radius, r.top())
-        path.lineTo(r.right(), r.top())
-        path.lineTo(r.right(), r.bottom())
-        path.lineTo(r.left() + radius, r.bottom())
-        path.quadTo(r.left(), r.bottom(), r.left(), r.bottom() - radius)
-        path.lineTo(r.left(), r.top() + radius)
-        path.quadTo(r.left(), r.top(), r.left() + radius, r.top())
-        painter.fillPath(path, get_theme().theme_color)
-
-        # 手动定位模式: 画三个白色圆点
-        if self._manual_mode:
-            cx = r.center().x()
-            cy = r.center().y()
-            dot_r = 3
-            gap = 9
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(self._DOT_COLOR)
-            for dy in (-gap, 0, gap):
-                painter.drawEllipse(QPoint(cx, cy + dy), dot_r, dot_r)
-
+        _paint_vertical_dots(painter, self.rect(), QColor(0, 0, 0))
         painter.end()
+
 
 def resource_path(relative_path):
     """获取资源文件路径（兼容函数）"""
@@ -214,6 +245,7 @@ class Toolbar(QWidget):
     redo_clicked = Signal()  # 重做
     long_screenshot_clicked = Signal()  # 长截图按钮
     screenshot_translate_clicked = Signal()  # 截图翻译按钮
+    scan_code_clicked = Signal()  # 扫码按钮
     gif_record_clicked = Signal()  # GIF录制按钮
     color_changed = Signal(QColor)  # 颜色改变
     number_style_changed = Signal(str)  # 序号样式改变
@@ -303,6 +335,8 @@ class Toolbar(QWidget):
         self.screenshot_translate_btn = self._add_button(
             "screenshot_translate", "svg/翻译.svg", "Screenshot translate (OCR + Translate)", wide,
             self.screenshot_translate_clicked.emit)
+        self.scan_code_btn = self._add_button(
+            "scan_code", "svg/扫码.svg", "Scan QR code / barcode", wide, self.scan_code_clicked.emit)
         self.gif_btn = self._add_button(
             "gif", "svg/gif.svg", "GIF recording", wide, self.gif_record_clicked.emit)
         # 复制按钮只在钉图里摆出来，截图的排布里没有它
@@ -335,9 +369,12 @@ class Toolbar(QWidget):
             "confirm", "svg/确定.svg", "Confirm and save (Ctrl+C / Enter)", wide,
             self.confirm_clicked.emit)
 
-        # 「…」：悬停展开被收起的按钮
-        self.more_btn = self._add_button("more", "svg/更多.svg", "More", tool, self._show_more_popup)
+        # 「…」：悬停或点击展开被收起的按钮；和普通按钮一样登记进排布表，由 _arrange 固定摆在最右
+        self.more_btn = _MoreHandle(self)
+        self.more_btn.clicked.connect(self._show_more_popup)
         self.more_btn.installEventFilter(self)
+        self._buttons["more"] = self.more_btn
+        self._button_widths["more"] = handle_w
 
         # 背景和圆角描边由 paintEvent 手动绘制，#toolbar_root 保持透明
         self.setObjectName("toolbar_root")
@@ -380,10 +417,9 @@ class Toolbar(QWidget):
         button.setCheckable(checkable)
         # 按钮不接受键盘焦点，防止 Space/Enter 等按键通过按钮意外触发逻辑
         button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        if key != "more":
-            # 点了按钮先收起「…」弹层再执行动作：动作可能弹出模态对话框，弹层不该留在屏幕上。
-            # 工具栏上的按钮被点时鼠标早已离开弹层，本来就要收起，不必区分按钮在哪
-            button.clicked.connect(self._hide_more_popup)
+        # 点了按钮先收起「…」弹层再执行动作：动作可能弹出模态对话框，弹层不该留在屏幕上。
+        # 工具栏上的按钮被点时鼠标早已离开弹层，本来就要收起，不必区分按钮在哪
+        button.clicked.connect(self._hide_more_popup)
         button.clicked.connect(on_click)
         self._buttons[key] = button
         self._button_widths[key] = width
