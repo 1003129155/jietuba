@@ -19,7 +19,7 @@ class PinToolbar(Toolbar):
 
     # 绘制工具的顺序与截图工具栏的默认排布一致，用户在两个窗口里找同一个按钮时位置不变
     LAYOUT = (
-        "screenshot_translate", "save", "copy",
+        "save", "copy",
         "pen", "highlighter", "mosaic", "arrow", "number", "rect", "ellipse", "text", "eraser",
         "undo", "redo",
     )

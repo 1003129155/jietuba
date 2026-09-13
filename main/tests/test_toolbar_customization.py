@@ -173,6 +173,7 @@ class TestPinToolbar:
         save_layout(_layout_with(pen=HIDE, save=MORE, screenshot_translate=HIDE))
         toolbar = PinToolbar()
         assert _toolbar_row(toolbar) == list(PinToolbar.LAYOUT)
+        assert "screenshot_translate" not in _toolbar_row(toolbar)
         assert toolbar.more_btn.isHidden()
 
 

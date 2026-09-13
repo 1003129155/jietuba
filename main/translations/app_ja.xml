@@ -496,12 +496,12 @@ Replace it?</source>
         <translation>開発者に問い合わせしてください。:</translation>
     </message>
     <message>
-        <source>Enable OCR</source>
-        <translation>OCR機能を有効化</translation>
+        <source>Automatically recognize text after pinning</source>
+        <translation>ピン留め後に自動でテキスト認識</translation>
     </message>
     <message>
-        <source>Enables text recognition and selection in pinned windows.</source>
-        <translation>ピン留めウィンドウでテキスト認識と選択を有効にします。</translation>
+        <source>On very low-end computers, OCR after pinning may cause a brief stutter. Turn off automatic recognition if needed.</source>
+        <translation>低スペックのパソコンでは、ピン留め後の OCR により一時的に動作が重くなる場合があります。必要に応じて自動認識をオフにしてください。</translation>
     </message>
     <message>
         <source>Auto language detection: Supports Chinese, Japanese, English mixed recognition</source>
@@ -1042,6 +1042,22 @@ Replace it?</source>
     <message>
         <source>Translate OCR text</source>
         <translation>OCRテキストを翻訳</translation>
+    </message>
+    <message>
+        <source>Translate (Text Recognition)</source>
+        <translation>翻訳（テキスト認識）</translation>
+    </message>
+    <message>
+        <source>OCR recognition could not be started</source>
+        <translation>テキスト認識を開始できませんでした</translation>
+    </message>
+    <message>
+        <source>No text was recognized</source>
+        <translation>テキストを認識できませんでした</translation>
+    </message>
+    <message>
+        <source>OCR recognition failed: {error}</source>
+        <translation>テキスト認識に失敗しました：{error}</translation>
     </message>
     <message>
         <source>Thumbnail mode</source>

@@ -47,7 +47,6 @@ class PinContextMenu:
                 - stay_on_top: 是否置顶
                 - shadow_enabled: 阴影是否启用
                 - text_selection_enabled: 文字选择是否启用
-                - has_ocr_result: 是否有 OCR 结果
         """
         menu = QMenu(self.parent)
         
@@ -123,10 +122,11 @@ class PinContextMenu:
         
         # --- 以下项目在缩略图模式下隐藏 ---
         if not is_thumbnail:
-            # 翻译（仅在有 OCR 结果时可用）
-            translate_action = QAction(self.parent.tr("Translate"), self.parent)
+            # 翻译入口始终可用；没有现成结果时由 PinOCRManager 按需识别。
+            translate_action = QAction(
+                self.parent.tr("Translate (Text Recognition)"), self.parent
+            )
             translate_action.triggered.connect(self.parent._on_translate_clicked)
-            translate_action.setEnabled(state.get('has_ocr_result', False))
             menu.addAction(translate_action)
             
             # 恢复原始大小

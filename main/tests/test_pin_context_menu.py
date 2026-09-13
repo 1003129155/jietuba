@@ -173,15 +173,19 @@ class TestThumbnailModeStructure:
 
 class TestTranslateAvailability:
 
-    def test_translate_is_enabled_only_with_an_ocr_result(self, parent, stub_shortcuts):
+    def test_translate_is_enabled_with_or_without_an_ocr_result(self, parent, stub_shortcuts):
         for has_result in (True, False):
             menu = _build(parent, thumbnail_mode=False, has_ocr_result=has_result)
-            assert _find(menu, "Translate").isEnabled() is has_result
+            assert _find(menu, "Translate (Text Recognition)").isEnabled() is True
 
-    def test_translate_defaults_to_disabled(self, parent, stub_shortcuts):
-        """状态字典里没带这个键时保守地禁用，而不是让用户点了没反应"""
+    def test_translate_defaults_to_enabled(self, parent, stub_shortcuts):
+        """没有现成 OCR 结果时，点击入口会按需识别后继续翻译。"""
         menu = _build(parent, thumbnail_mode=False)
-        assert _find(menu, "Translate").isEnabled() is False
+        assert _find(menu, "Translate (Text Recognition)").isEnabled() is True
+
+    def test_translate_label_mentions_text_recognition(self, parent, stub_shortcuts):
+        menu = _build(parent, thumbnail_mode=False)
+        assert _find(menu, "Translate").text() == "Translate (Text Recognition)"
 
 
 class TestToggleMarkers:

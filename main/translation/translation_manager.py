@@ -711,8 +711,30 @@ class TranslationManager(QObject):
             preserve_formatting: 保留格式
         """
         
+        self.begin_ocr_translation(
+            api_key=api_key,
+            target_lang=target_lang,
+            use_pro=use_pro,
+            split_sentences=split_sentences,
+            preserve_formatting=preserve_formatting,
+        )
+
+        # 保留图片引用直到内部 OCR 线程完成。
+        self._pending_pixmap = pixmap
+        self._start_ocr_thread(pixmap)
+
+    def begin_ocr_translation(
+        self,
+        api_key: str = None,
+        target_lang: str = "ZH",
+        position: QPoint = None,
+        use_pro: bool = None,
+        split_sentences: str = None,
+        preserve_formatting: bool = None,
+    ):
+        """立即显示 OCR 翻译界面，供内部或外部 OCR 任务共用。"""
         # 使用传入的参数或已配置的参数
-        api_key = self._resolve_api_key(api_key)
+        self._resolve_api_key(api_key)
         if use_pro is None:
             use_pro = self._use_pro
         if split_sentences is None:
@@ -726,27 +748,29 @@ class TranslationManager(QObject):
         self._split_sentences = split_sentences
         self._preserve_formatting = preserve_formatting
         
-        # 保存目标语言和pixmap供OCR完成后使用
+        # 保存目标语言供 OCR 完成后使用
         self._pending_target_lang = target_lang
-        self._pending_pixmap = pixmap
-        
-        log_info(T("截图翻译模式：显示窗口并启动OCR"), "Translation")
-        
-        # 1. 显示翻译窗口（原文区显示"识别中..."）
+        self._stop_current_thread()
+        self._activate_surface("dialog")
+
+        log_info(T("OCR 翻译模式：显示窗口并等待识别结果"), "Translation")
+
+        # 显示翻译窗口（原文区显示"识别中..."）
         self._ensure_dialog(
             text="",  # 初始为空
-            position=None,
+            position=position,
             source_lang="auto",
             target_lang=target_lang
         )
-        
+
         # 设置原文区为"识别中..."状态
         if self._is_dialog_valid():
             self._dialog.source_edit.setPlainText(self._dialog.tr("Recognizing..."))
             self._dialog.source_edit.setEnabled(False)  # OCR识别期间禁用编辑
-        
-        # 2. 启动OCR线程
-        self._start_ocr_thread(pixmap)
+
+    def complete_ocr_translation(self, success: bool, result: str):
+        """把任意 OCR 任务的结果送入同一翻译界面并自动翻译。"""
+        self._on_ocr_finished(success, result)
     
     def _start_ocr_thread(self, pixmap):
         """启动OCR识别线程
@@ -827,7 +851,7 @@ class TranslationManager(QObject):
         log_debug(T("OCR线程已启动"), "Translation")
     
     def _on_ocr_finished(self, success: bool, result: str):
-        """OCR识别完成回调"""
+        """统一处理截图 OCR 和钉图 OCR 的完成结果。"""
         log_debug(
             T(
                 "OCR完成: success={success}, result_len={result_len}",

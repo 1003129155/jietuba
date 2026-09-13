@@ -170,8 +170,11 @@ def create_capture_page(dialog) -> QWidget:
         )
     ocr_card = SwitchSettingCard(
         FluentIcon.SEARCH,
-        dialog.tr("Enable OCR"),
-        dialog.tr("Enables text recognition and selection in pinned windows."),
+        dialog.tr("Automatically recognize text after pinning"),
+        dialog.tr(
+            "On very low-end computers, OCR after pinning may cause a brief stutter. "
+            "Turn off automatic recognition if needed."
+        ),
         parent=grp_ocr,
     )
     ocr_card.setChecked(

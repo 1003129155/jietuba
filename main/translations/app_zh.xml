@@ -494,12 +494,12 @@ Replace it?</source>
         <translation>或联系开发者:</translation>
     </message>
     <message>
-        <source>Enable OCR</source>
-        <translation>启用OCR功能</translation>
+        <source>Automatically recognize text after pinning</source>
+        <translation>钉图后自动文字识别</translation>
     </message>
     <message>
-        <source>Enables text recognition and selection in pinned windows.</source>
-        <translation>在钉图窗口中启用文字识别和选择。</translation>
+        <source>On very low-end computers, OCR after pinning may cause a brief stutter. Turn off automatic recognition if needed.</source>
+        <translation>超低配电脑上，钉图后的 OCR 可能导致瞬时卡顿，可以关闭自动文字识别。</translation>
     </message>
     <message>
         <source>Auto language detection: Supports Chinese, Japanese, English mixed recognition</source>
@@ -1039,6 +1039,22 @@ Replace it?</source>
     <message>
         <source>Translate OCR text</source>
         <translation>翻译识别文字</translation>
+    </message>
+    <message>
+        <source>Translate (Text Recognition)</source>
+        <translation>翻译（文字识别）</translation>
+    </message>
+    <message>
+        <source>OCR recognition could not be started</source>
+        <translation>无法启动文字识别</translation>
+    </message>
+    <message>
+        <source>No text was recognized</source>
+        <translation>未识别到文字</translation>
+    </message>
+    <message>
+        <source>OCR recognition failed: {error}</source>
+        <translation>文字识别失败：{error}</translation>
     </message>
     <message>
         <source>Thumbnail mode</source>

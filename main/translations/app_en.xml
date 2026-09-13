@@ -490,12 +490,12 @@ Replace it?</translation>
         <translation>or contact the developer:</translation>
     </message>
     <message>
-        <source>Enable OCR</source>
-        <translation>Enable OCR</translation>
+        <source>Automatically recognize text after pinning</source>
+        <translation>Automatically recognize text after pinning</translation>
     </message>
     <message>
-        <source>Enables text recognition and selection in pinned windows.</source>
-        <translation>Enables text recognition and selection in pinned windows.</translation>
+        <source>On very low-end computers, OCR after pinning may cause a brief stutter. Turn off automatic recognition if needed.</source>
+        <translation>On very low-end computers, OCR after pinning may cause a brief stutter. Turn off automatic recognition if needed.</translation>
     </message>
     <message>
         <source>Auto language detection: Supports Chinese, Japanese, English mixed recognition</source>
@@ -1030,6 +1030,22 @@ Replace it?</translation>
     <message>
         <source>Translate OCR text</source>
         <translation>Translate OCR text</translation>
+    </message>
+    <message>
+        <source>Translate (Text Recognition)</source>
+        <translation>Translate (Text Recognition)</translation>
+    </message>
+    <message>
+        <source>OCR recognition could not be started</source>
+        <translation>OCR recognition could not be started</translation>
+    </message>
+    <message>
+        <source>No text was recognized</source>
+        <translation>No text was recognized</translation>
+    </message>
+    <message>
+        <source>OCR recognition failed: {error}</source>
+        <translation>OCR recognition failed: {error}</translation>
     </message>
     <message>
         <source>Thumbnail mode</source>
