@@ -179,3 +179,80 @@ def test_clipboard_delete_confirmation_is_compiled_in_its_calling_context(
     qm_path = translations_dir / f"app_{language}.qm"
     assert translator.load(str(qm_path))
     assert translator.translate("ClipboardWindow", source) == expected
+
+
+@pytest.mark.parametrize(
+    "language",
+    ["en", "ja", "ko", "zh"],
+)
+def test_hotkey_registration_error_is_compiled_in_main_app_context(language):
+    """热键注册失败弹窗及备用热键名称必须随界面语言显示。"""
+    from core.i18n import I18nManager
+
+    translations_dir = I18nManager.get_translations_dir()
+    sources = (
+        "Screenshot (2)",
+        "Translation (2)",
+        "Clipboard (2)",
+        "Hotkey Registration Failed",
+        "The following hotkeys failed to register:",
+        "The hotkey may be occupied by other programs. Please try a different combination.",
+    )
+    context = next(
+        context
+        for context in ET.parse(translations_dir / f"app_{language}.xml")
+        .getroot()
+        .findall("context")
+        if context.findtext("name") == "MainApp"
+    )
+    expected = {
+        message.findtext("source"): message.findtext("translation")
+        for message in context.findall("message")
+    }
+
+    translator = QTranslator()
+    qm_path = translations_dir / f"app_{language}.qm"
+    assert translator.load(str(qm_path))
+    for source in sources:
+        assert source in expected
+        assert translator.translate("MainApp", source) == expected[source]
+
+
+@pytest.mark.parametrize(
+    "language",
+    ["en", "ja", "ko", "zh"],
+)
+@pytest.mark.parametrize(
+    ("context_name", "source"),
+    [
+        # 逐条冲突提示由录入框组件自己发出，设置窗口和欢迎向导共用这一份
+        ("HotkeyEdit", "This hotkey is assigned more than once."),
+        (
+            "SettingsDialog",
+            "Some global hotkeys are duplicated or unavailable. "
+            "Please fix them before applying.",
+        ),
+    ],
+)
+def test_global_hotkey_conflict_is_compiled_in_its_owning_context(
+    language, context_name, source
+):
+    """全局热键校验提示必须随界面语言显示，且落在真正发出它的上下文里。"""
+    from core.i18n import I18nManager
+
+    translations_dir = I18nManager.get_translations_dir()
+    # 同名上下文在 xml 里可能分成多块，全部合并后再查
+    expected = {
+        message.findtext("source"): message.findtext("translation")
+        for context in ET.parse(translations_dir / f"app_{language}.xml")
+        .getroot()
+        .findall("context")
+        if context.findtext("name") == context_name
+        for message in context.findall("message")
+    }
+
+    translator = QTranslator()
+    qm_path = translations_dir / f"app_{language}.qm"
+    assert translator.load(str(qm_path))
+    assert source in expected
+    assert translator.translate(context_name, source) == expected[source]

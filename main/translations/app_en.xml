@@ -270,6 +270,10 @@
         <translation>Shortcut Conflict</translation>
     </message>
     <message>
+        <source>Some global hotkeys are duplicated or unavailable. Please fix them before applying.</source>
+        <translation>Some global hotkeys are duplicated or unavailable. Please fix them before applying.</translation>
+    </message>
+    <message>
         <source>Some in-app shortcuts conflict within the same group. Please fix them first.</source>
         <translation>Some in-app shortcuts conflict within the same group. Please fix them first.</translation>
     </message>
@@ -1170,6 +1174,12 @@ Replace it?</translation>
     <message><source>Clipboard</source><translation>Clipboard</translation></message>
     <message><source>Settings</source><translation>Settings</translation></message>
     <message><source>Exit</source><translation>Exit</translation></message>
+    <message><source>Screenshot (2)</source><translation>Screenshot (2)</translation></message>
+    <message><source>Translation (2)</source><translation>Translation (2)</translation></message>
+    <message><source>Clipboard (2)</source><translation>Clipboard (2)</translation></message>
+    <message><source>Hotkey Registration Failed</source><translation>Hotkey Registration Failed</translation></message>
+    <message><source>The following hotkeys failed to register:</source><translation>The following hotkeys failed to register:</translation></message>
+    <message><source>The hotkey may be occupied by other programs. Please try a different combination.</source><translation>The hotkey may be occupied by other programs. Please try a different combination.</translation></message>
     <message><source>Close all pinned windows</source><translation>Close all pinned windows</translation></message>
     <message><source>Current pinned windows: {count}</source><translation>Current pinned windows: {count}</translation></message>
     <message><source>Move all pins to center</source><translation>Move all pins to center</translation></message>
@@ -2649,10 +2659,6 @@ Supports text, images, files and groups.</translation>
         <source>关闭后不会记录复制内容，快捷键也不会激活窗口。</source>
         <translation>Disabled: no history saved, hotkey inactive.</translation>
     </message>
-    <message>
-        <source>程序还会尝试注册 Win+V 作为额外备用。</source>
-        <translation>App will also try to register Win+V as extra backup.</translation>
-    </message>
     <!-- page4 -->
     <message>
         <source>智能选区</source>
@@ -3091,6 +3097,13 @@ SOFTWARE.</translation></message>
     <message>
         <source>Change Mosaic Size</source>
         <translation>Change Mosaic Size</translation>
+    </message>
+</context>
+<context>
+    <name>HotkeyEdit</name>
+    <message>
+        <source>This hotkey is assigned more than once.</source>
+        <translation>This hotkey is assigned more than once.</translation>
     </message>
 </context>
 </TS>

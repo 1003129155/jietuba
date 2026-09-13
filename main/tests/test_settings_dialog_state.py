@@ -18,7 +18,9 @@ _on_nav_changed、以及"未保存变更"检测所依赖的 _snapshot_settings �
 """
 from types import SimpleNamespace
 
+from core.shortcut_manager import hotkey_identity
 from ui.settings_ui.dialog import SettingsDialog
+from ui.settings_ui.page_hotkey import validate_global_hotkey_edits
 
 
 # ============================================================================
@@ -36,6 +38,21 @@ class _TextWidget:
     def setText(self, value):
         self._text = value
         self.set_texts.append(value)
+
+
+class _GlobalHotkeyWidget(_TextWidget):
+    def __init__(self, text="", system_available=True):
+        super().__init__(text)
+        self.system_available = system_available
+        self.validation_error = ""
+        self.validate_calls = 0
+
+    def set_validation_error(self, message=""):
+        self.validation_error = message
+
+    def validate_now(self):
+        self.validate_calls += 1
+        return not self.validation_error and self.system_available
 
 
 class _Toggle:
@@ -229,6 +246,89 @@ class TestHotkeyAccessors:
         widget = _TextWidget("old")
         SettingsDialog.update_hotkey(SimpleNamespace(hotkey_input=widget), "ctrl+alt+x")
         assert widget.set_texts == ["ctrl+alt+x"]
+
+
+class TestGlobalHotkeyValidation:
+
+    def test_keyboard_identity_ignores_case_space_and_modifier_order(self):
+        assert hotkey_identity(" Ctrl + Shift + A ") == hotkey_identity("shift+ctrl+a")
+
+    def test_blank_and_unfinished_values_never_collide(self):
+        # 多个留空的备用键不该互相报重复
+        assert hotkey_identity("") is None
+        assert hotkey_identity("   ") is None
+        assert hotkey_identity("ctrl+") is None
+
+    def test_duplicate_keyboard_hotkeys_mark_both_fields(self):
+        first = _GlobalHotkeyWidget("ctrl+shift+a")
+        second = _GlobalHotkeyWidget("SHIFT+CTRL+A")
+        unique = _GlobalHotkeyWidget("ctrl+shift+b")
+        fake = SimpleNamespace(
+            hotkey_input=first,
+            clipboard_hotkey_edit=second,
+            translation_hotkey_edit=unique,
+            tr=lambda text: text,
+        )
+
+        assert validate_global_hotkey_edits(fake) is False
+        assert first.validation_error
+        assert second.validation_error
+        assert unique.validation_error == ""
+
+    def test_duplicate_mouse_hotkeys_are_in_the_same_conflict_domain(self):
+        first = _GlobalHotkeyWidget("mouseback")
+        second = _GlobalHotkeyWidget(" MouseBack ")
+        fake = SimpleNamespace(
+            hotkey_input_2=first,
+            translation_hotkey_edit_2=second,
+            tr=lambda text: text,
+        )
+
+        assert validate_global_hotkey_edits(fake) is False
+        assert first.validation_error
+        assert second.validation_error
+
+    def test_resolving_duplicate_clears_both_errors(self):
+        first = _GlobalHotkeyWidget("ctrl+shift+a")
+        second = _GlobalHotkeyWidget("ctrl+shift+a")
+        fake = SimpleNamespace(
+            hotkey_input=first,
+            hotkey_input_2=second,
+            tr=lambda text: text,
+        )
+        validate_global_hotkey_edits(fake)
+
+        second._text = "ctrl+shift+b"
+        assert validate_global_hotkey_edits(fake) is True
+        assert first.validation_error == ""
+        assert second.validation_error == ""
+
+    def test_save_time_validation_refreshes_every_field(self):
+        """别在第一个不可用的键上短路，否则红叉只能一次暴露一个。"""
+        first = _GlobalHotkeyWidget("ctrl+shift+a", system_available=False)
+        second = _GlobalHotkeyWidget("ctrl+shift+b", system_available=False)
+        fake = SimpleNamespace(
+            hotkey_input=first,
+            hotkey_input_2=second,
+            tr=lambda text: text,
+        )
+
+        assert validate_global_hotkey_edits(fake, check_system=True) is False
+        assert first.validate_calls == 1
+        assert second.validate_calls == 1
+
+    def test_save_time_validation_checks_system_availability(self):
+        available = _GlobalHotkeyWidget("ctrl+shift+a", system_available=True)
+        unavailable = _GlobalHotkeyWidget("ctrl+shift+b", system_available=False)
+        fake = SimpleNamespace(
+            hotkey_input=available,
+            hotkey_input_2=unavailable,
+            tr=lambda text: text,
+        )
+
+        assert validate_global_hotkey_edits(fake, check_system=True) is False
+        assert available.validate_calls == 1
+        assert unavailable.validate_calls == 1
 
 
 # ============================================================================

@@ -276,6 +276,10 @@
         <translation>ショートカット競合</translation>
     </message>
     <message>
+        <source>Some global hotkeys are duplicated or unavailable. Please fix them before applying.</source>
+        <translation>一部のグローバルショートカットが重複しているか、使用できません。修正してから適用してください。</translation>
+    </message>
+    <message>
         <source>Some in-app shortcuts conflict within the same group. Please fix them first.</source>
         <translation>同じグループ内にショートカットの重複があります。先に修正してください。</translation>
     </message>
@@ -1199,6 +1203,30 @@ Replace it?</source>
     <message>
         <source>Exit</source>
         <translation>終了</translation>
+    </message>
+    <message>
+        <source>Screenshot (2)</source>
+        <translation>スクリーンショット (2)</translation>
+    </message>
+    <message>
+        <source>Translation (2)</source>
+        <translation>翻訳 (2)</translation>
+    </message>
+    <message>
+        <source>Clipboard (2)</source>
+        <translation>クリップボード (2)</translation>
+    </message>
+    <message>
+        <source>Hotkey Registration Failed</source>
+        <translation>ホットキーの登録に失敗しました</translation>
+    </message>
+    <message>
+        <source>The following hotkeys failed to register:</source>
+        <translation>次のホットキーを登録できませんでした：</translation>
+    </message>
+    <message>
+        <source>The hotkey may be occupied by other programs. Please try a different combination.</source>
+        <translation>ホットキーが他のプログラムで使用されている可能性があります。別の組み合わせをお試しください。</translation>
     </message>
 </context>
 
@@ -2701,10 +2729,6 @@ Replace it?</source>
         <source>关闭后不会记录复制内容，快捷键也不会激活窗口。</source>
         <translation>無効時: 履歴が保存されず、ショートカットも無効になります。</translation>
     </message>
-    <message>
-        <source>程序还会尝试注册 Win+V 作为额外备用。</source>
-        <translation>Win+V も予備として登録を試みます。</translation>
-    </message>
     <!-- page4 -->
     <message>
         <source>智能选区</source>
@@ -3139,6 +3163,13 @@ SOFTWARE.</translation></message>
     <message>
         <source>Change Mosaic Size</source>
         <translation>モザイクの粒度を変更</translation>
+    </message>
+</context>
+<context>
+    <name>HotkeyEdit</name>
+    <message>
+        <source>This hotkey is assigned more than once.</source>
+        <translation>このショートカットは重複して割り当てられています。</translation>
     </message>
 </context>
 </TS>

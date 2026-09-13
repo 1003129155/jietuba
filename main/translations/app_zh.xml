@@ -274,6 +274,10 @@
         <translation>快捷键冲突</translation>
     </message>
     <message>
+        <source>Some global hotkeys are duplicated or unavailable. Please fix them before applying.</source>
+        <translation>某些全局快捷键重复或不可用，请修正后再应用。</translation>
+    </message>
+    <message>
         <source>Some in-app shortcuts conflict within the same group. Please fix them first.</source>
         <translation>同组内存在重复的快捷键，请先修正冲突。</translation>
     </message>
@@ -1196,6 +1200,30 @@ Replace it?</source>
     <message>
         <source>Exit</source>
         <translation>退出</translation>
+    </message>
+    <message>
+        <source>Screenshot (2)</source>
+        <translation>截图 (2)</translation>
+    </message>
+    <message>
+        <source>Translation (2)</source>
+        <translation>翻译 (2)</translation>
+    </message>
+    <message>
+        <source>Clipboard (2)</source>
+        <translation>剪贴板 (2)</translation>
+    </message>
+    <message>
+        <source>Hotkey Registration Failed</source>
+        <translation>热键注册失败</translation>
+    </message>
+    <message>
+        <source>The following hotkeys failed to register:</source>
+        <translation>以下热键注册失败：</translation>
+    </message>
+    <message>
+        <source>The hotkey may be occupied by other programs. Please try a different combination.</source>
+        <translation>该热键可能已被其他程序占用。请尝试其他组合。</translation>
     </message>
 </context>
 
@@ -2708,10 +2736,6 @@ Replace it?</source>
         <source>关闭后不会记录复制内容，快捷键也不会激活窗口。</source>
         <translation>关闭后不会记录复制内容，快捷键也不会激活窗口。</translation>
     </message>
-    <message>
-        <source>程序还会尝试注册 Win+V 作为额外备用。</source>
-        <translation>程序还会尝试注册 Win+V 作为额外备用。</translation>
-    </message>
     <!-- page4 -->
     <message>
         <source>智能选区</source>
@@ -3160,6 +3184,13 @@ SOFTWARE.</translation></message>
     <message>
         <source>Change Mosaic Size</source>
         <translation>更改马赛克粒度</translation>
+    </message>
+</context>
+<context>
+    <name>HotkeyEdit</name>
+    <message>
+        <source>This hotkey is assigned more than once.</source>
+        <translation>此快捷键被重复分配。</translation>
     </message>
 </context>
 </TS>

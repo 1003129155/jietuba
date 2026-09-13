@@ -5,12 +5,17 @@
 """
 
 from PySide6.QtWidgets import QLineEdit, QWidget, QHBoxLayout, QLabel
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QKeyEvent, QKeySequence
 
-from core.shortcut_manager import ShortcutManager, ShortcutHandler, get_key_display_map
+from core.shortcut_manager import (
+    ShortcutManager, ShortcutHandler, get_key_display_map, hotkey_identity,
+)
 from core import safe_event
+from core.i18n import make_tr
 from core.ui_theme import get_ui_theme
+
+_tr = make_tr("HotkeyEdit")
 
 
 class _HotkeyEditHandler(ShortcutHandler):
@@ -89,13 +94,28 @@ class _HotkeyEditHandler(ShortcutHandler):
         self._line_edit.keyPressEvent(fake_event)
         return True
 
+    def handle_mouse_hotkey(self, token: str, callback) -> bool:
+        """录入侧键。
+
+        侧键在录入期间被低级钩子整体吞掉，Qt 收不到 mousePressEvent，因此
+        这条链是录入的唯一入口——无论指针当时落在录入框上还是窗口别处。
+        侧键是原子值、不与修饰键叠加，按下即直接覆盖当前内容（包括框里可能
+        正显示的 "ctrl+" 这类未完成的键盘组合前缀）。
+        """
+        self._line_edit.setText(token)
+        return True
+
 class HotkeyEdit(QWidget):
     """
     A composite widget that contains a QLineEdit for capturing hotkeys
     and a validation status indicator (Check/X icon).
     """
+    textChanged = Signal(str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._system_available = None
+        self._validation_error = ""
         self.layout = QHBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.layout.setSpacing(5)
@@ -121,6 +141,7 @@ class HotkeyEdit(QWidget):
 
         # Connect internal edit signals
         self.edit.textChanged.connect(self._on_text_changed)
+        self.edit.textChanged.connect(self.textChanged.emit)
 
     def setText(self, text):
         self.edit.setText(text)
@@ -142,29 +163,102 @@ class HotkeyEdit(QWidget):
         self.edit.setStyleSheet(style)
 
     def _on_text_changed(self, text):
+        # 文本一变，旧值的系统检测结果就失效。设置页级冲突状态由外部
+        # textChanged 监听器随后更新，因此这里先清掉旧的可用性显示。
+        self._system_available = None
+        self._render_status()
         # If hotkey is complete (not ending with +), verify it
         if text and not text.endswith("+"):
             self.check_timer.start()
         else:
-            self.status_lbl.clear()
+            self.check_timer.stop()
 
     def _check_availability_now(self):
         hotkey = self.text().strip()
-        if not hotkey or hotkey.endswith("+"):
-             self.status_lbl.clear()
-             return
+        if not hotkey:
+            self._system_available = True  # 空值表示未绑定，是合法状态
+            self._render_status()
+            return True
+        if hotkey.endswith("+"):
+            self._system_available = False
+            self._render_status()
+            return False
 
         # Check availability using our HotkeySystem
-        is_available = self.hotkey_system.check_hotkey_availability(hotkey)
+        self._system_available = self.hotkey_system.check_hotkey_availability(hotkey)
+        self._render_status()
+        return self._system_available
 
-        if is_available:
+    def _render_status(self):
+        """合并设置页级校验与系统占用检测，设置页级错误优先显示。"""
+        hotkey = self.text().strip()
+        if self._validation_error:
+            self.status_lbl.setText("❌")
+            self.status_lbl.setToolTip(self._validation_error)
+            self.status_lbl.setStyleSheet("color: red; font-weight: bold;")
+        elif not hotkey or hotkey.endswith("+") or self._system_available is None:
+            self.status_lbl.clear()
+            self.status_lbl.setToolTip("")
+        elif self._system_available:
             self.status_lbl.setText("✅")
             self.status_lbl.setToolTip("Hotkey is available")
             self.status_lbl.setStyleSheet("color: green; font-weight: bold;")
         else:
-            self.status_lbl.setText("❌") 
+            self.status_lbl.setText("❌")
             self.status_lbl.setToolTip("Hotkey is already in use by system or other app")
             self.status_lbl.setStyleSheet("color: red; font-weight: bold;")
+
+    def set_validation_error(self, message: str = ""):
+        """设置由容器统一校验得出的错误（例如多个业务重复绑定）。"""
+        self._validation_error = message or ""
+        self._render_status()
+
+    def validate_now(self) -> bool:
+        """同步验证当前值，供设置窗口在落盘前做最终检查。"""
+        if self._validation_error:
+            return False
+        return bool(self._check_availability_now())
+
+
+def validate_hotkey_group(edits, *, check_system: bool = False) -> bool:
+    """把一组录入框当作同一个冲突域整体校验，并把结果写回每个录入框。
+
+    同一个实际按键不能同时绑给两个业务，否则第二个注册必定失败——键盘热键
+    是 RegisterHotKey 拒绝重复注册，鼠标侧键则是登记表拒绝，两种都只会静默
+    失败，所以冲突必须在界面上拦下来。留空和未录完的前缀不参与判重。
+
+    Args:
+        edits: 录入框序列，顺序不影响结果。
+        check_system: 是否同时跑系统占用检测。落盘前用它绕过 200ms 防抖，
+            确保拿到的是当前值的最终结果而不是上一次的残留。
+
+    Returns:
+        整组是否全部可用。
+    """
+    edits = list(edits)
+    by_identity = {}
+    for edit in edits:
+        identity = hotkey_identity(edit.text())
+        if identity is not None:
+            by_identity.setdefault(identity, []).append(edit)
+
+    duplicated = {
+        edit
+        for same_key_edits in by_identity.values()
+        if len(same_key_edits) > 1
+        for edit in same_key_edits
+    }
+    conflict_message = _tr("This hotkey is assigned more than once.")
+    for edit in edits:
+        edit.set_validation_error(conflict_message if edit in duplicated else "")
+
+    if not check_system:
+        return not duplicated
+
+    # 先整体跑一遍再判断：all() 会在第一个 False 处短路，那样后面的录入框拿不到
+    # 新的检测结果，红叉只能一次暴露一个，用户得反复点应用才能找齐。
+    system_results = [edit.validate_now() for edit in edits]
+    return all(system_results) and not duplicated
 
 
 class _HotkeyLineEdit(QLineEdit):
@@ -183,6 +277,9 @@ class _HotkeyLineEdit(QLineEdit):
 
         # 创建 handler，聚焦时注册，失焦时注销
         self._shortcut_handler = _HotkeyEditHandler(self)
+        # 侧键独占是引用计数式的，这里记录本控件是否已经占了一份，
+        # 保证 focusIn / focusOut 成对增减，不会漏放或重复放。
+        self._mouse_capture_held = False
 
     def _apply_theme(self, _tokens=None):
         tokens = get_ui_theme().tokens
@@ -338,12 +435,22 @@ class _HotkeyLineEdit(QLineEdit):
     def focusInEvent(self, event):
         super().focusInEvent(event)
         self._shortcut_handler._active = True
-        ShortcutManager.instance().register(self._shortcut_handler)
+        manager = ShortcutManager.instance()
+        manager.register(self._shortcut_handler)
+        if not self._mouse_capture_held:
+            # 让低级钩子在录入期间独占侧键，这样尚未绑定的侧键也录得到。
+            self._mouse_capture_held = True
+            manager.begin_mouse_capture()
 
     @safe_event
     def focusOutEvent(self, event):
         self._shortcut_handler._active = False
-        ShortcutManager.instance().unregister(self._shortcut_handler)
+        manager = ShortcutManager.instance()
+        manager.unregister(self._shortcut_handler)
+        if self._mouse_capture_held:
+            # 必须成对释放，否则钩子一直挂着，其它程序永远拿不回侧键。
+            self._mouse_capture_held = False
+            manager.end_mouse_capture()
         super().focusOutEvent(event)
 
     def contextMenuEvent(self, event):

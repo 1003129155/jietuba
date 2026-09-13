@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
 )
 from PySide6.QtCore import QSize, Qt, Signal
-from ui.dialogs import show_info_dialog
+from ui.dialogs import show_info_dialog, show_warning_dialog
 from PySide6.QtGui import QColor, QFont, QIcon
 
 from ui.fluent_lite import (
@@ -32,7 +32,7 @@ from core.logger import log_exception, T
 from core.constants import CSS_FONT_FAMILY, DEFAULT_FONT_FAMILY
 
 # 页面创建函数
-from .page_hotkey import create_hotkey_page
+from .page_hotkey import create_hotkey_page, validate_global_hotkey_edits
 from .page_capture import create_capture_page
 from .page_clipboard import create_clipboard_page
 from .page_translation import create_translation_page
@@ -802,6 +802,21 @@ class SettingsDialog(FrostedFramelessDialog):
 
     def accept(self):
         """保存所有设置"""
+        # 六个全局快捷键必须先整体通过校验。这里发生在任何 set_* 之前，
+        # 因而冲突值不会写入配置，窗口也不会关闭。
+        if not validate_global_hotkey_edits(self, check_system=True):
+            self.content_stack.setCurrentIndex(0)
+            self._set_current_nav("shortcuts")
+            show_warning_dialog(
+                self,
+                self.tr("Shortcut Conflict"),
+                self.tr(
+                    "Some global hotkeys are duplicated or unavailable. "
+                    "Please fix them before applying."
+                ),
+            )
+            return
+
         # 防止保存过程中（比如语言切换触发的窗口重建）触发未保存确认弹窗
         self._skip_unsaved_close_prompt = True
 

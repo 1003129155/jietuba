@@ -12,7 +12,7 @@ from ui.fluent_lite import (
 )
 from ui.fluent_lite.theme import ACCENT
 from .components import SettingCardGroup, WhiteCard, apply_theme_text_style
-from ..hotkey_edit import HotkeyEdit
+from ..hotkey_edit import HotkeyEdit, validate_hotkey_group
 from ..inapp_key_edit import InAppKeyEdit
 from settings import ANNOTATION_TOOL_SHORTCUTS
 from core.shortcut_manager import is_reserved_inapp_shortcut
@@ -46,6 +46,34 @@ INAPP_KEYS = SCREENSHOT_KEYS + TOOL_KEYS + PIN_KEYS
 _EDIT_W = 140
 _EDIT_H = 28
 _SEGMENT_HINT_STYLE = "font-size: 12px; background: transparent;"
+
+# 六个全局快捷键属于同一个冲突域；任意两个业务不能占用同一个实际按键。
+GLOBAL_HOTKEY_EDIT_ATTRS = (
+    "hotkey_input",
+    "hotkey_input_2",
+    "clipboard_hotkey_edit",
+    "clipboard_hotkey_edit_2",
+    "translation_hotkey_edit",
+    "translation_hotkey_edit_2",
+)
+
+
+def _iter_global_hotkey_edits(dialog):
+    for attr in GLOBAL_HOTKEY_EDIT_ATTRS:
+        edit = getattr(dialog, attr, None)
+        if edit is not None:
+            yield edit
+
+
+def validate_global_hotkey_edits(dialog, *, check_system: bool = False) -> bool:
+    """校验设置窗口上的六个全局快捷键。
+
+    这里只回答「哪几个控件属于同一个冲突域」，判重规则本身在
+    ui.hotkey_edit.validate_hotkey_group——欢迎向导复用的是同一份。
+    """
+    return validate_hotkey_group(
+        _iter_global_hotkey_edits(dialog), check_system=check_system
+    )
 
 
 def _build_shortcut_row(dialog, parent, title: str, editor: QWidget) -> QWidget:
@@ -182,6 +210,14 @@ def create_hotkey_page(dialog) -> QWidget:
     tr_h.addLayout(tr_v)
     tr_card.setFixedHeight(80)
     grp_global.addSettingCard(tr_card)
+
+    # 全局热键统一判重。连接放在六个输入框全部创建之后，避免初始化过程中
+    # 只看到半组控件；最后主动跑一次，以识别配置文件里遗留的旧冲突。
+    for edit in _iter_global_hotkey_edits(dialog):
+        edit.textChanged.connect(
+            lambda _text, d=dialog: validate_global_hotkey_edits(d)
+        )
+    validate_global_hotkey_edits(dialog)
 
     layout.addWidget(grp_global)
 

@@ -22,8 +22,6 @@ TRANSLATIONS: dict[str, str] = {
     "剪贴板热键注册失败: {clipboard_hotkey}": "Clipboard hotkey registration failed: {clipboard_hotkey}",
     "剪贴板备用热键已注册: {clipboard_hotkey_2}": "Clipboard backup hotkey registered: {clipboard_hotkey_2}",
     "剪贴板备用热键注册失败: {clipboard_hotkey_2}": "Clipboard backup hotkey registration failed: {clipboard_hotkey_2}",
-    "剪贴板备用热键已注册: win+v": "Clipboard backup hotkey registered: win+v",
-    "剪贴板备用热键 win+v 注册失败（可能被系统占用）": "Clipboard backup hotkey win+v registration failed (may be occupied by another program)",
     "全局热键已临时禁用（保留注册，仅忽略回调）": "Global hotkeys temporarily disabled (registration kept, callbacks ignored)",
     "全局热键已启用": "Global hotkeys enabled",
     "显示热键错误提示: {failed_hotkeys}": "Showing hotkey error prompt: {failed_hotkeys}",

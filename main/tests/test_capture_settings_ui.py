@@ -64,6 +64,10 @@ def test_settings_dialog_saves_double_click_toggle(monkeypatch, qapp, tmp_path):
     manager = _manager(tmp_path)
     manager.set_log_dir(str(tmp_path))
     monkeypatch.setattr("ui.settings_ui.dialog.log_info", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        "core.shortcut_manager.HotkeySystem.check_hotkey_availability",
+        lambda _self, _hotkey: True,
+    )
     dialog = SettingsDialog(manager)
 
     for attr in (
@@ -97,6 +101,10 @@ def test_settings_dialog_saves_annotation_behavior_toggles(
     manager = _manager(tmp_path)
     manager.set_log_dir(str(tmp_path))
     monkeypatch.setattr("ui.settings_ui.dialog.log_info", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        "core.shortcut_manager.HotkeySystem.check_hotkey_availability",
+        lambda _self, _hotkey: True,
+    )
     dialog = SettingsDialog(manager)
 
     for attr in (
@@ -119,6 +127,46 @@ def test_settings_dialog_saves_annotation_behavior_toggles(
     dialog.accept()
     assert manager.get_cross_tool_selection_enabled() is False
     assert manager.get_text_always_on_top_enabled() is False
+
+    dialog.deleteLater()
+    qapp.processEvents()
+
+
+def test_global_hotkey_duplicates_are_marked_and_never_persisted(
+    monkeypatch,
+    qapp,
+    tmp_path,
+):
+    manager = _manager(tmp_path)
+    manager.set_hotkey("ctrl+shift+a")
+    manager.set_hotkey_2("ctrl+alt+a")
+    monkeypatch.setattr(
+        "core.shortcut_manager.HotkeySystem.check_hotkey_availability",
+        lambda _self, _hotkey: True,
+    )
+    warnings = []
+    monkeypatch.setattr(
+        "ui.settings_ui.dialog.show_warning_dialog",
+        lambda _parent, title, message: warnings.append((title, message)),
+    )
+    dialog = SettingsDialog(manager, manager.get_hotkey())
+
+    # 模拟用户把备用键改成与主键相同：两个输入框都应立即显示冲突。
+    dialog.hotkey_input_2.setText("ctrl+shift+a")
+    assert dialog.hotkey_input.status_lbl.text() == "❌"
+    assert dialog.hotkey_input_2.status_lbl.text() == "❌"
+
+    dialog.accept()
+
+    # 保存被拦截；旧配置不受影响，冲突值不会污染下次打开的界面。
+    assert manager.get_hotkey() == "ctrl+shift+a"
+    assert manager.get_hotkey_2() == "ctrl+alt+a"
+    assert warnings
+
+    # 冲突解除后，两项恢复各自的系统可用性结果。
+    dialog.hotkey_input_2.setText("ctrl+alt+b")
+    assert dialog.hotkey_input.status_lbl.text() == "✅"
+    assert dialog.hotkey_input_2.status_lbl.text() == "✅"
 
     dialog.deleteLater()
     qapp.processEvents()

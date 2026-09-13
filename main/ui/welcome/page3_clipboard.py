@@ -631,12 +631,6 @@ class ClipboardHotkeyPage(BasePage):
             self._hotkey_lbl, role="primary", font_size=14, weight=600
         )
 
-        self._hotkey_desc = QLabel(_tr("程序还会尝试注册 Win+V 作为额外备用。"))
-        self._hotkey_desc.setWordWrap(True)
-        set_welcome_label_style(
-            self._hotkey_desc, role="muted", font_size=12, weight=400
-        )
-
         # 两个快捷键输入框上下排列
         self._hotkey = HotkeyEdit()
         self._hotkey.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -647,7 +641,6 @@ class ClipboardHotkeyPage(BasePage):
         self._hotkey2.setText(self._config.get_clipboard_hotkey_2())
 
         layout.addWidget(self._hotkey_lbl)
-        layout.addWidget(self._hotkey_desc)
         layout.addSpacing(4)
         layout.addWidget(self._hotkey)
         layout.addSpacing(6)
@@ -689,8 +682,6 @@ class ClipboardHotkeyPage(BasePage):
         self.subtitle_label.setText(_clipboard_subtitle())
         if hasattr(self, "_hotkey_lbl") and self._hotkey_lbl:
             self._hotkey_lbl.setText(_tr("快捷键（最多设置两个）"))
-        if hasattr(self, "_hotkey_desc") and self._hotkey_desc:
-            self._hotkey_desc.setText(_tr("程序还会尝试注册 Win+V 作为额外备用。"))
         if hasattr(self, "_history_limit_lbl"):
             self._history_limit_lbl.setText(_settings_tr("History Limit"))
         if hasattr(self, "_history_limit_desc"):
