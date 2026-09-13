@@ -827,6 +827,14 @@ Replace it?</source>
 <context>
     <name>Toolbar</name>
     <message>
+        <source>More</source>
+        <translation>更多</translation>
+    </message>
+    <message>
+        <source>Adjust</source>
+        <translation>调整</translation>
+    </message>
+    <message>
         <source>Ctrl+click any editable annotation to edit it temporarily</source>
         <translation>按住 Ctrl 点击任意可编辑标注，可临时编辑</translation>
     </message>
@@ -3247,6 +3255,117 @@ SOFTWARE.</translation></message>
     <message>
         <source>This hotkey is assigned more than once.</source>
         <translation>此快捷键被重复分配。</translation>
+    </message>
+</context>
+<context>
+    <name>ToolbarLayoutDialog</name>
+    <message>
+        <source>Customize Toolbar</source>
+        <translation>自定义工具栏</translation>
+    </message>
+    <message>
+        <source>Always show</source>
+        <translation>始终显示</translation>
+    </message>
+    <message>
+        <source>In more menu</source>
+        <translation>隐藏在更多菜单中</translation>
+    </message>
+    <message>
+        <source>Always hide</source>
+        <translation>始终隐藏</translation>
+    </message>
+    <message>
+        <source>This button can't be hidden</source>
+        <translation>此按钮不能隐藏</translation>
+    </message>
+    <message>
+        <source>Drag the handle to reorder. Use the drop-down to change visibility.</source>
+        <translation>拖动左侧手柄调整顺序，使用下拉菜单更改显示方式。</translation>
+    </message>
+    <message>
+        <source>Restore defaults</source>
+        <translation>恢复默认</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>确定</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Long screenshot</source>
+        <translation>长截图</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>保存</translation>
+    </message>
+    <message>
+        <source>Screenshot translate</source>
+        <translation>截图翻译</translation>
+    </message>
+    <message>
+        <source>GIF recording</source>
+        <translation>GIF 录制</translation>
+    </message>
+    <message>
+        <source>Pen</source>
+        <translation>画笔</translation>
+    </message>
+    <message>
+        <source>Highlighter</source>
+        <translation>荧光笔</translation>
+    </message>
+    <message>
+        <source>Mosaic</source>
+        <translation>马赛克</translation>
+    </message>
+    <message>
+        <source>Arrow</source>
+        <translation>箭头</translation>
+    </message>
+    <message>
+        <source>Number</source>
+        <translation>序号</translation>
+    </message>
+    <message>
+        <source>Rectangle</source>
+        <translation>矩形</translation>
+    </message>
+    <message>
+        <source>Ellipse</source>
+        <translation>椭圆</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>文字</translation>
+    </message>
+    <message>
+        <source>Eraser</source>
+        <translation>橡皮擦</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>撤销</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>重做</translation>
+    </message>
+    <message>
+        <source>Cancel screenshot</source>
+        <translation>结束截图</translation>
+    </message>
+    <message>
+        <source>Pin image</source>
+        <translation>钉图</translation>
+    </message>
+    <message>
+        <source>Confirm</source>
+        <translation>确定</translation>
     </message>
 </context>
 </TS>

@@ -181,6 +181,7 @@ class ToolSettingsManager(QObject):
         "double_click_copy_close": True,      # 双击选区复制到剪贴板并关闭
         "cross_tool_selection": True,         # Ctrl 临时跨工具选择标注
         "text_always_on_top": True,           # 文字标注始终高于其他绘制标注
+        "screenshot_toolbar_layout": "",      # 截图工具栏按钮排布（JSON，空 = 默认排布，见 ui/toolbar_layout.py）
 
         # 智能选择
         "smart_selection": True,              # 智能选区（窗口/控件识别）

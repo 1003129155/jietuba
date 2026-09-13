@@ -256,3 +256,42 @@ def test_global_hotkey_conflict_is_compiled_in_its_owning_context(
     assert translator.load(str(qm_path))
     assert source in expected
     assert translator.translate(context_name, source) == expected[source]
+
+
+def _compiled_toolbar_customization_sources():
+    from ui.toolbar_layout_dialog import BUTTON_NAMES, MODE_NAMES
+
+    dialog_sources = [
+        *BUTTON_NAMES.values(),
+        *(text for _mode, text in MODE_NAMES),
+        "Customize Toolbar",
+        "This button can't be hidden",
+        "Drag the handle to reorder. Use the drop-down to change visibility.",
+        "Restore defaults",
+        "OK",
+        "Cancel",
+    ]
+    return [("Toolbar", "More"), ("Toolbar", "Adjust")] + [
+        ("ToolbarLayoutDialog", source) for source in dialog_sources
+    ]
+
+
+@pytest.mark.parametrize("language", ["en", "ja", "ko", "zh"])
+def test_toolbar_customization_texts_are_compiled_in_their_contexts(language):
+    """「…」弹层和排布对话框的文案必须随界面语言显示，且落在各自发出它的上下文里。"""
+    from core.i18n import I18nManager
+
+    translations_dir = I18nManager.get_translations_dir()
+    root = ET.parse(translations_dir / f"app_{language}.xml").getroot()
+    translator = QTranslator()
+    assert translator.load(str(translations_dir / f"app_{language}.qm"))
+
+    for context_name, source in _compiled_toolbar_customization_sources():
+        expected = {
+            message.findtext("source"): message.findtext("translation")
+            for context in root.findall("context")
+            if context.findtext("name") == context_name
+            for message in context.findall("message")
+        }
+        assert expected.get(source), (context_name, source)
+        assert translator.translate(context_name, source) == expected[source]

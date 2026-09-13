@@ -822,6 +822,14 @@ Replace it?</source>
 <context>
     <name>Toolbar</name>
     <message>
+        <source>More</source>
+        <translation>더보기</translation>
+    </message>
+    <message>
+        <source>Adjust</source>
+        <translation>조정</translation>
+    </message>
+    <message>
         <source>Ctrl+click any editable annotation to edit it temporarily</source>
         <translation>Ctrl 키를 누른 채 편집 가능한 주석을 클릭하여 임시 편집</translation>
     </message>
@@ -3185,6 +3193,117 @@ SOFTWARE.</translation></message>
     <message>
         <source>This hotkey is assigned more than once.</source>
         <translation>이 단축키가 중복으로 지정되었습니다.</translation>
+    </message>
+</context>
+<context>
+    <name>ToolbarLayoutDialog</name>
+    <message>
+        <source>Customize Toolbar</source>
+        <translation>도구 모음 사용자 지정</translation>
+    </message>
+    <message>
+        <source>Always show</source>
+        <translation>항상 표시</translation>
+    </message>
+    <message>
+        <source>In more menu</source>
+        <translation>더보기 메뉴에 숨기기</translation>
+    </message>
+    <message>
+        <source>Always hide</source>
+        <translation>항상 숨기기</translation>
+    </message>
+    <message>
+        <source>This button can't be hidden</source>
+        <translation>이 버튼은 숨길 수 없습니다</translation>
+    </message>
+    <message>
+        <source>Drag the handle to reorder. Use the drop-down to change visibility.</source>
+        <translation>왼쪽 핸들을 끌어 순서를 바꾸고, 드롭다운에서 표시 방식을 변경합니다.</translation>
+    </message>
+    <message>
+        <source>Restore defaults</source>
+        <translation>기본값으로 복원</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>확인</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>취소</translation>
+    </message>
+    <message>
+        <source>Long screenshot</source>
+        <translation>긴 스크린샷</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>저장</translation>
+    </message>
+    <message>
+        <source>Screenshot translate</source>
+        <translation>스크린샷 번역</translation>
+    </message>
+    <message>
+        <source>GIF recording</source>
+        <translation>GIF 녹화</translation>
+    </message>
+    <message>
+        <source>Pen</source>
+        <translation>펜</translation>
+    </message>
+    <message>
+        <source>Highlighter</source>
+        <translation>형광펜</translation>
+    </message>
+    <message>
+        <source>Mosaic</source>
+        <translation>모자이크</translation>
+    </message>
+    <message>
+        <source>Arrow</source>
+        <translation>화살표</translation>
+    </message>
+    <message>
+        <source>Number</source>
+        <translation>번호</translation>
+    </message>
+    <message>
+        <source>Rectangle</source>
+        <translation>사각형</translation>
+    </message>
+    <message>
+        <source>Ellipse</source>
+        <translation>타원</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>텍스트</translation>
+    </message>
+    <message>
+        <source>Eraser</source>
+        <translation>지우개</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>실행 취소</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>다시 실행</translation>
+    </message>
+    <message>
+        <source>Cancel screenshot</source>
+        <translation>스크린샷 취소</translation>
+    </message>
+    <message>
+        <source>Pin image</source>
+        <translation>이미지 고정</translation>
+    </message>
+    <message>
+        <source>Confirm</source>
+        <translation>확인</translation>
     </message>
 </context>
 </TS>

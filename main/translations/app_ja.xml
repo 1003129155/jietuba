@@ -829,6 +829,14 @@ Replace it?</source>
 <context>
     <name>Toolbar</name>
     <message>
+        <source>More</source>
+        <translation>その他</translation>
+    </message>
+    <message>
+        <source>Adjust</source>
+        <translation>調整</translation>
+    </message>
+    <message>
         <source>Ctrl+click any editable annotation to edit it temporarily</source>
         <translation>Ctrlを押しながら編集可能な注釈をクリックして一時編集</translation>
     </message>
@@ -3226,6 +3234,117 @@ SOFTWARE.</translation></message>
     <message>
         <source>This hotkey is assigned more than once.</source>
         <translation>このショートカットは重複して割り当てられています。</translation>
+    </message>
+</context>
+<context>
+    <name>ToolbarLayoutDialog</name>
+    <message>
+        <source>Customize Toolbar</source>
+        <translation>ツールバーのカスタマイズ</translation>
+    </message>
+    <message>
+        <source>Always show</source>
+        <translation>常に表示</translation>
+    </message>
+    <message>
+        <source>In more menu</source>
+        <translation>「その他」メニューにまとめる</translation>
+    </message>
+    <message>
+        <source>Always hide</source>
+        <translation>常に非表示</translation>
+    </message>
+    <message>
+        <source>This button can't be hidden</source>
+        <translation>このボタンは非表示にできません</translation>
+    </message>
+    <message>
+        <source>Drag the handle to reorder. Use the drop-down to change visibility.</source>
+        <translation>左のハンドルをドラッグして並べ替え、ドロップダウンで表示方法を変更します。</translation>
+    </message>
+    <message>
+        <source>Restore defaults</source>
+        <translation>デフォルトに戻す</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Long screenshot</source>
+        <translation>長スクリーンショット</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>保存</translation>
+    </message>
+    <message>
+        <source>Screenshot translate</source>
+        <translation>スクショ翻訳</translation>
+    </message>
+    <message>
+        <source>GIF recording</source>
+        <translation>GIF録画</translation>
+    </message>
+    <message>
+        <source>Pen</source>
+        <translation>ペン</translation>
+    </message>
+    <message>
+        <source>Highlighter</source>
+        <translation>蛍光ペン</translation>
+    </message>
+    <message>
+        <source>Mosaic</source>
+        <translation>モザイク</translation>
+    </message>
+    <message>
+        <source>Arrow</source>
+        <translation>矢印</translation>
+    </message>
+    <message>
+        <source>Number</source>
+        <translation>番号</translation>
+    </message>
+    <message>
+        <source>Rectangle</source>
+        <translation>矩形</translation>
+    </message>
+    <message>
+        <source>Ellipse</source>
+        <translation>楕円</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>テキスト</translation>
+    </message>
+    <message>
+        <source>Eraser</source>
+        <translation>消しゴム</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>元に戻す</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>やり直し</translation>
+    </message>
+    <message>
+        <source>Cancel screenshot</source>
+        <translation>スクリーンショットを終了</translation>
+    </message>
+    <message>
+        <source>Pin image</source>
+        <translation>ピン留め</translation>
+    </message>
+    <message>
+        <source>Confirm</source>
+        <translation>確定</translation>
     </message>
 </context>
 </TS>

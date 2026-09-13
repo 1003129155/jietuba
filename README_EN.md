@@ -511,6 +511,8 @@ Common UI component library.
 ```text
 ui/
 ├── toolbar.py               # Toolbar / _DragHandle — draggable toolbar base class
+├── toolbar_layout.py        # screenshot toolbar button layout (order / visibility): normalize, load, save
+├── toolbar_layout_dialog.py # ToolbarLayoutDialog — screenshot toolbar layout editor
 ├── tray_menu.py             # TrayMenu — system tray menu
 ├── screenshot_window.py     # ScreenshotWindow — full-screen capture window (region drawing)
 ├── dialogs.py               # StandardDialog — confirm, warning, info, error dialogs

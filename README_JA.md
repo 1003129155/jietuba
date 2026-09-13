@@ -510,6 +510,8 @@ translations/
 ```text
 ui/
 ├── toolbar.py               # Toolbar / _DragHandle — ドラッグ可能なツールバー基底クラス
+├── toolbar_layout.py        # スクリーンショットツールバーのボタン配置（順序・表示方法）の正規化と読み書き
+├── toolbar_layout_dialog.py # ToolbarLayoutDialog — スクリーンショットツールバーの配置編集ダイアログ
 ├── tray_menu.py             # TrayMenu — システムトレイメニュー
 ├── screenshot_window.py     # ScreenshotWindow — フルスクリーンキャプチャウィンドウ
 ├── dialogs.py               # StandardDialog — 確認、警告、情報、エラーダイアログ

@@ -823,6 +823,14 @@ Replace it?</translation>
 <context>
     <name>Toolbar</name>
     <message>
+        <source>More</source>
+        <translation>More</translation>
+    </message>
+    <message>
+        <source>Adjust</source>
+        <translation>Adjust</translation>
+    </message>
+    <message>
         <source>Ctrl+click any editable annotation to edit it temporarily</source>
         <translation>Ctrl+click any editable annotation to edit it temporarily</translation>
     </message>
@@ -3160,6 +3168,117 @@ SOFTWARE.</translation></message>
     <message>
         <source>This hotkey is assigned more than once.</source>
         <translation>This hotkey is assigned more than once.</translation>
+    </message>
+</context>
+<context>
+    <name>ToolbarLayoutDialog</name>
+    <message>
+        <source>Customize Toolbar</source>
+        <translation>Customize Toolbar</translation>
+    </message>
+    <message>
+        <source>Always show</source>
+        <translation>Always show</translation>
+    </message>
+    <message>
+        <source>In more menu</source>
+        <translation>In more menu</translation>
+    </message>
+    <message>
+        <source>Always hide</source>
+        <translation>Always hide</translation>
+    </message>
+    <message>
+        <source>This button can't be hidden</source>
+        <translation>This button can't be hidden</translation>
+    </message>
+    <message>
+        <source>Drag the handle to reorder. Use the drop-down to change visibility.</source>
+        <translation>Drag the handle to reorder. Use the drop-down to change visibility.</translation>
+    </message>
+    <message>
+        <source>Restore defaults</source>
+        <translation>Restore defaults</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Long screenshot</source>
+        <translation>Long screenshot</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>Save</translation>
+    </message>
+    <message>
+        <source>Screenshot translate</source>
+        <translation>Screenshot translate</translation>
+    </message>
+    <message>
+        <source>GIF recording</source>
+        <translation>GIF recording</translation>
+    </message>
+    <message>
+        <source>Pen</source>
+        <translation>Pen</translation>
+    </message>
+    <message>
+        <source>Highlighter</source>
+        <translation>Highlighter</translation>
+    </message>
+    <message>
+        <source>Mosaic</source>
+        <translation>Mosaic</translation>
+    </message>
+    <message>
+        <source>Arrow</source>
+        <translation>Arrow</translation>
+    </message>
+    <message>
+        <source>Number</source>
+        <translation>Number</translation>
+    </message>
+    <message>
+        <source>Rectangle</source>
+        <translation>Rectangle</translation>
+    </message>
+    <message>
+        <source>Ellipse</source>
+        <translation>Ellipse</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>Text</translation>
+    </message>
+    <message>
+        <source>Eraser</source>
+        <translation>Eraser</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>Undo</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>Redo</translation>
+    </message>
+    <message>
+        <source>Cancel screenshot</source>
+        <translation>Cancel screenshot</translation>
+    </message>
+    <message>
+        <source>Pin image</source>
+        <translation>Pin image</translation>
+    </message>
+    <message>
+        <source>Confirm</source>
+        <translation>Confirm</translation>
     </message>
 </context>
 </TS>

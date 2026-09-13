@@ -2,7 +2,7 @@
 工具栏 - 截图工具栏UI
 """
 
-from PySide6.QtCore import Qt, QSize, Signal, QRect, QRectF, QPoint
+from PySide6.QtCore import Qt, QSize, Signal, QRect, QRectF, QPoint, QTimer
 from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QBrush
 from PySide6.QtWidgets import (
     QWidget, QPushButton, QApplication
@@ -11,6 +11,7 @@ from core.resource_manager import ResourceManager
 from core.theme import get_theme
 from core import log_debug, safe_event
 from core.logger import log_exception, T
+from .toolbar_layout import MORE, SHOW, load_layout, save_layout
 
 
 class _DragHandle(QWidget):
@@ -81,6 +82,116 @@ def cached_icon(relative_path):
     """获取缓存的 QIcon（首次加载 SVG，后续复用）"""
     return ResourceManager.get_icon(ResourceManager.get_resource_path(relative_path))
 
+def _paint_toolbar_frame(widget):
+    """白底圆角 + 主题色描边。工具栏和「…」弹层共用，四角靠 WA_TranslucentBackground 保持透明"""
+    painter = QPainter(widget)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    radius = 6.0
+    pen_width = 2.0
+    half = pen_width / 2
+    rect = QRectF(widget.rect()).adjusted(half, half, -half, -half)
+
+    path = QPainterPath()
+    path.addRoundedRect(rect, radius, radius)
+
+    painter.setPen(QPen(get_theme().theme_color, pen_width))
+    painter.setBrush(QBrush(QColor(255, 255, 255)))
+    painter.drawPath(path)
+    painter.end()
+
+def _button_qss():
+    """工具栏按钮样式。
+
+    按钮会在工具栏和「…」弹层之间换父部件，而样式表沿父子链级联，所以两边必须挂
+    同一份，否则按钮一挪进弹层就变回系统默认外观。
+    """
+    tc = get_theme().theme_color
+    return f"""
+        QPushButton {{
+            background-color: rgba(0, 0, 0, 0.02);
+            border: none;
+            border-radius: 0px;
+            padding: 0px;
+        }}
+        QPushButton:hover {{
+            background-color: rgba(0, 0, 0, 0.08);
+            border-radius: 0px;
+        }}
+        QPushButton:pressed {{
+            background-color: rgba(0, 0, 0, 0.15);
+            border-radius: 0px;
+        }}
+        QPushButton:checked {{
+            background-color: rgba({tc.red()}, {tc.green()}, {tc.blue()}, 0.3);
+            border: 1px solid {get_theme().theme_color_hex};
+        }}
+    """
+
+class _MorePopup(QWidget):
+    """「…」弹层：装被收起的按钮，最下面一个「调整」入口。
+
+    按钮不是另建一份，而是把工具栏上同一个 QPushButton 用 setParent 挪进来——信号
+    连接、选中态、tool_buttons 映射都跟着按钮走，弹层不需要知道每个按钮是做什么的。
+    """
+
+    COLUMNS = 5   # 每行几个按钮
+    PADDING = 4
+
+    hover_changed = Signal(bool)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        from .fluent_lite import FluentIcon
+
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setStyleSheet(_button_qss() + """
+            QPushButton#more_adjust {
+                color: #5F6368;
+                font-size: 12px;
+                padding: 0px 8px;
+            }
+        """)
+        self.adjust_btn = QPushButton(self)
+        self.adjust_btn.setObjectName("more_adjust")
+        self.adjust_btn.setIcon(FluentIcon.SETTING.icon())
+        self.adjust_btn.setIconSize(QSize(14, 14))
+        self.adjust_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+
+    def set_buttons(self, buttons, cell):
+        """把 buttons 按每行 COLUMNS 个排成网格，每格 cell 大小；「调整」放在网格下方靠右"""
+        pad = self.PADDING
+        for index, button in enumerate(buttons):
+            if button.parent() is not self:
+                button.setParent(self)
+            row, column = divmod(index, self.COLUMNS)
+            button.setGeometry(pad + column * cell.width(), pad + row * cell.height(),
+                               cell.width(), cell.height())
+            button.show()
+
+        rows = -(-len(buttons) // self.COLUMNS)   # 向上取整
+        grid_width = min(len(buttons), self.COLUMNS) * cell.width()
+        adjust_width = self.adjust_btn.sizeHint().width()
+        adjust_height = round(cell.height() * 0.7)
+        width = max(grid_width, adjust_width) + 2 * pad
+        top = pad + rows * cell.height()
+        self.adjust_btn.setGeometry(width - pad - adjust_width, top, adjust_width, adjust_height)
+        self.resize(width, top + adjust_height + pad)
+
+    @safe_event
+    def paintEvent(self, event):
+        _paint_toolbar_frame(self)
+
+    @safe_event
+    def enterEvent(self, event):
+        super().enterEvent(event)
+        self.hover_changed.emit(True)
+
+    @safe_event
+    def leaveEvent(self, event):
+        super().leaveEvent(event)
+        self.hover_changed.emit(False)
+
 class Toolbar(QWidget):
     """
     截图工具栏
@@ -90,7 +201,7 @@ class Toolbar(QWidget):
     # 1.0  → 默认尺寸（按钮 45px，图标 32/36px）
     # 0.8  → 缩小 20%
     # 1.2  → 放大 20%
-    SCALE: float = 0.95
+    SCALE: float = 0.90
 
     # 信号定义
     tool_changed = Signal(str)  # 工具切换信号(tool_id)
@@ -145,30 +256,25 @@ class Toolbar(QWidget):
         
     def init_ui(self):
         """初始化UI"""
-        # 设置窗口属性
-        if self.parent() is None:
-            # 独立顶层窗口，强制置顶
-            flags = (Qt.WindowType.FramelessWindowHint | 
-                    Qt.WindowType.WindowStaysOnTopHint | 
-                    Qt.WindowType.Tool |
-                    Qt.WindowType.X11BypassWindowManagerHint)  # 绕过窗口管理器
-            self.setWindowFlags(flags)
-            self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)  # 显示但不获取焦点
-        else:
-            # 作为子窗口
-            self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-            
+        # 按钮登记表：key → 按钮 / 宽度。这里只建按钮、不定位置，位置统一由 _arrange
+        # 按排布摆放——截图读用户配置，钉图用固定列表，两边共用同一段摆放逻辑。
+        self._buttons = {}
+        self._button_widths = {}
+        self._folded_keys = []    # 收进「…」弹层的按钮，弹层展开时才摆进去
+        self._more_popup = None   # 用到才建，见 _show_more_popup
+
+        self._make_floating(self)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)  # 不接受焦点
 
         # ── 根据 SCALE 计算实际尺寸 ──────────────────────
         s = self.SCALE
         btn_width  = round(45 * s)   # 工具按钮宽
         btn_height = round(45 * s)   # 所有按钮高（工具栏高度）
-        wide_w     = round(50 * s)   # 功能按钮宽（左侧4个 + 右侧3个）
+        wide_w     = round(50 * s)   # 功能按钮宽（长截图、保存、结束截图、确定等）
         icon_wide  = round(36 * s)   # 功能按钮图标尺寸
         icon_tool  = round(32 * s)   # 工具按钮图标尺寸
         icon_eraser = round(28 * s)  # 橡皮擦图标尺寸
+        self._btn_height = btn_height
 
         # 左侧拖动手柄（青绿色竖条）
         handle_w = round(btn_height * 0.32)   # 宽度约为高度的 1/3
@@ -183,225 +289,61 @@ class Toolbar(QWidget):
         self._drag_offset = QPoint()
         self._manual_positioned = False   # 用户手动拖动后为 True，阻止自动定位
 
-        # 左侧按钮区域（从手柄右侧开始）
-        left_x = handle_w
+        # 记录所有 tooltip 源文本，供语言切换后整体刷新（按钮在 _add_button 里登记）
+        self._tooltip_sources = {self.drag_handle: "Drag to move"}
 
-        # 0. 长截图按钮（放在最左边）
-        self.long_screenshot_btn = QPushButton(self)
-        self.long_screenshot_btn.setGeometry(left_x, 0, wide_w, btn_height)
-        self.long_screenshot_btn.setToolTip(self.tr('Long screenshot (scroll)'))
-        self.long_screenshot_btn.setIcon(cached_icon("svg/长截图.svg"))
-        self.long_screenshot_btn.setIconSize(QSize(icon_wide, icon_wide))
-        self.long_screenshot_btn.clicked.connect(self.long_screenshot_clicked.emit)
-        left_x += wide_w
-        
-        # 1. 保存按钮
-        self.save_btn = QPushButton(self)
-        self.save_btn.setGeometry(left_x, 0, wide_w, btn_height)
-        self.save_btn.setToolTip(self.tr('Save to file'))
-        self.save_btn.setIcon(cached_icon("svg/下载.svg"))
-        self.save_btn.setIconSize(QSize(icon_wide, icon_wide))
-        self.save_btn.clicked.connect(self.save_clicked.emit)
-        left_x += wide_w
-        
-        # 1.5 截图翻译按钮（保存按钮右侧）
-        self.screenshot_translate_btn = QPushButton(self)
-        self.screenshot_translate_btn.setGeometry(left_x, 0, wide_w, btn_height)
-        self.screenshot_translate_btn.setToolTip(self.tr('Screenshot translate (OCR + Translate)'))
-        self.screenshot_translate_btn.setIcon(cached_icon("svg/翻译.svg"))
-        self.screenshot_translate_btn.setIconSize(QSize(icon_wide, icon_wide))
-        self.screenshot_translate_btn.clicked.connect(self.screenshot_translate_clicked.emit)
-        left_x += wide_w
-        
-        # GIF 录制按钮
-        self.gif_btn = QPushButton(self)
-        self.gif_btn.setGeometry(left_x, 0, wide_w, btn_height)
-        self.gif_btn.setToolTip(self.tr('GIF recording'))
-        self.gif_btn.setIcon(cached_icon("svg/gif.svg"))
-        self.gif_btn.setIconSize(QSize(icon_wide, icon_wide))
-        self.gif_btn.clicked.connect(self.gif_record_clicked.emit)
-        left_x += wide_w
-        
-        # 2. 复制按钮（暂时隐藏在截图模式）
-        self.copy_btn = QPushButton(self)
-        self.copy_btn.setGeometry(left_x, 0, wide_w, btn_height)
-        self.copy_btn.setToolTip(self.tr('Copy image'))
-        self.copy_btn.setIcon(cached_icon("svg/copy.svg"))
-        self.copy_btn.setIconSize(QSize(icon_wide, icon_wide))
-        self.copy_btn.clicked.connect(self.copy_clicked.emit)
-        self.copy_btn.hide()  # 截图模式下隐藏，只在钉图模式显示
-        # left_x += wide_w  # 不增加位置，因为隐藏了
-        
-        # 3. 画笔工具
-        self.pen_btn = QPushButton(self)
-        self.pen_btn.setGeometry(left_x, 0, btn_width, btn_height)
-        self.pen_btn.setToolTip(self.tr('Pen tool (hold Shift for straight line)'))
-        self.pen_btn.setIcon(cached_icon("svg/画笔.svg"))
-        self.pen_btn.setIconSize(QSize(icon_tool, icon_tool))
-        self.pen_btn.setCheckable(True)
-        self.pen_btn.setChecked(False)  # 默认不选中，因为默认是 cursor 模式
-        self.pen_btn.clicked.connect(lambda: self._on_tool_clicked("pen"))
-        left_x += btn_width
-        
-        # 4. 荧光笔工具
-        self.highlighter_btn = QPushButton(self)
-        self.highlighter_btn.setGeometry(left_x, 0, btn_width, btn_height)
-        self.highlighter_btn.setToolTip(self.tr('Highlighter (hold Shift for straight line)'))
-        self.highlighter_btn.setIcon(cached_icon("svg/荧光笔.svg"))
-        self.highlighter_btn.setIconSize(QSize(icon_tool, icon_tool))
-        self.highlighter_btn.setCheckable(True)
-        self.highlighter_btn.clicked.connect(lambda: self._on_tool_clicked("highlighter"))
-        left_x += btn_width
+        wide = (wide_w, icon_wide)
+        tool = (btn_width, icon_tool)
 
-        # 4.5 马赛克工具
-        self.mosaic_btn = QPushButton(self)
-        self.mosaic_btn.setGeometry(left_x, 0, btn_width, btn_height)
-        self.mosaic_btn.setToolTip(self.tr('Mosaic (mouse wheel to resize)'))
-        self.mosaic_btn.setIcon(cached_icon("svg/马赛克.svg"))
-        self.mosaic_btn.setIconSize(QSize(icon_tool, icon_tool))
-        self.mosaic_btn.setCheckable(True)
-        self.mosaic_btn.clicked.connect(lambda: self._on_tool_clicked("mosaic"))
-        left_x += btn_width
-        
-        # 5. 箭头工具
-        self.arrow_btn = QPushButton(self)
-        self.arrow_btn.setGeometry(left_x, 0, btn_width, btn_height)
-        self.arrow_btn.setToolTip(self.tr('Draw arrow'))
-        self.arrow_btn.setIcon(cached_icon("svg/箭头.svg"))
-        self.arrow_btn.setIconSize(QSize(icon_tool, icon_tool))
-        self.arrow_btn.setCheckable(True)
-        self.arrow_btn.clicked.connect(lambda: self._on_tool_clicked("arrow"))
-        left_x += btn_width
-        
-        # 6. 序号工具
-        self.number_btn = QPushButton(self)
-        self.number_btn.setGeometry(left_x, 0, btn_width, btn_height)
-        self.number_btn.setToolTip(self.tr('Number (Shift+scroll to change number)'))
-        self.number_btn.setIcon(cached_icon("svg/序号.svg"))
-        self.number_btn.setIconSize(QSize(icon_tool, icon_tool))
-        self.number_btn.setCheckable(True)
-        self.number_btn.clicked.connect(lambda: self._on_tool_clicked("number"))
-        left_x += btn_width
-        
-        # 7. 矩形工具
-        self.rect_btn = QPushButton(self)
-        self.rect_btn.setGeometry(left_x, 0, btn_width, btn_height)
-        self.rect_btn.setToolTip(self.tr('Draw rectangle'))
-        self.rect_btn.setIcon(cached_icon("svg/方框.svg"))
-        self.rect_btn.setIconSize(QSize(icon_tool, icon_tool))
-        self.rect_btn.setCheckable(True)
-        self.rect_btn.clicked.connect(lambda: self._on_tool_clicked("rect"))
-        left_x += btn_width
-        
-        # 8. 圆形工具
-        self.ellipse_btn = QPushButton(self)
-        self.ellipse_btn.setGeometry(left_x, 0, btn_width, btn_height)
-        self.ellipse_btn.setToolTip(self.tr('Draw ellipse'))
-        self.ellipse_btn.setIcon(cached_icon("svg/圆框.svg"))
-        self.ellipse_btn.setIconSize(QSize(icon_tool, icon_tool))
-        self.ellipse_btn.setCheckable(True)
-        self.ellipse_btn.clicked.connect(lambda: self._on_tool_clicked("ellipse"))
-        left_x += btn_width
-        
-        # 9. 文字工具
-        self.text_btn = QPushButton(self)
-        self.text_btn.setGeometry(left_x, 0, btn_width, btn_height)
-        self.text_btn.setToolTip(self.tr('Add text'))
-        self.text_btn.setIcon(cached_icon("svg/文字.svg"))
-        self.text_btn.setIconSize(QSize(icon_tool, icon_tool))
-        self.text_btn.setCheckable(True)
-        self.text_btn.clicked.connect(lambda: self._on_tool_clicked("text"))
-        left_x += btn_width
-        
-        # 10. 橡皮擦工具
-        self.eraser_btn = QPushButton(self)
-        self.eraser_btn.setGeometry(left_x, 0, btn_width, btn_height)
-        self.eraser_btn.setToolTip(self.tr('Eraser tool'))
-        self.eraser_btn.setIcon(cached_icon("svg/橡皮.svg"))
-        self.eraser_btn.setIconSize(QSize(icon_eraser, icon_eraser))
-        self.eraser_btn.setCheckable(True)
-        self.eraser_btn.clicked.connect(lambda: self._on_tool_clicked("eraser"))
-        left_x += btn_width
-        
-        # 11. 撤销按钮
-        self.undo_btn = QPushButton(self)
-        self.undo_btn.setGeometry(left_x, 0, btn_width, btn_height)
-        self.undo_btn.setToolTip(self.tr('Undo'))
-        self.undo_btn.setIcon(cached_icon("svg/撤回.svg"))
-        self.undo_btn.setIconSize(QSize(icon_tool, icon_tool))
-        self.undo_btn.clicked.connect(self.undo_clicked.emit)
-        left_x += btn_width
-        
-        # 12. 重做按钮
-        self.redo_btn = QPushButton(self)
-        self.redo_btn.setGeometry(left_x, 0, btn_width, btn_height)
-        self.redo_btn.setToolTip(self.tr('Redo'))
-        self.redo_btn.setIcon(cached_icon("svg/复原.svg"))
-        self.redo_btn.setIconSize(QSize(icon_tool, icon_tool))
-        self.redo_btn.clicked.connect(self.redo_clicked.emit)
-        left_x += btn_width
-        
-        # 右侧按钮区域（结束截图 + 钉图 + 确定）
-        right_buttons_width = wide_w * 3  # 结束截图 + 钉图 + 确定
-        toolbar_total_width = left_x + right_buttons_width
-        
-        # 结束截图按钮（最左）
-        self.cancel_btn = QPushButton(self)
-        self.cancel_btn.setGeometry(toolbar_total_width - wide_w * 3, 0, wide_w, btn_height)
-        self.cancel_btn.setToolTip(self.tr('Cancel screenshot (ESC)'))
-        self.cancel_btn.setIcon(cached_icon("svg/结束截图.svg"))
-        self.cancel_btn.setIconSize(QSize(icon_wide, icon_wide))
-        self.cancel_btn.clicked.connect(self.cancel_clicked.emit)
-        
-        # 钉图按钮（中间）
-        self.pin_btn = QPushButton(self)
-        self.pin_btn.setGeometry(toolbar_total_width - wide_w * 2, 0, wide_w, btn_height)
-        self.pin_btn.setToolTip(self.tr('Pin image (Ctrl+D)'))
-        self.pin_btn.setIcon(cached_icon("svg/钉图.svg"))
-        self.pin_btn.setIconSize(QSize(icon_wide, icon_wide))
-        self.pin_btn.clicked.connect(self.pin_clicked.emit)
-        
-        # 确定按钮(吸附最右边)
-        self.confirm_btn = QPushButton(self)
-        self.confirm_btn.setGeometry(toolbar_total_width - wide_w, 0, wide_w, btn_height)
-        self.confirm_btn.setToolTip(self.tr('Confirm and save (Ctrl+C / Enter)'))
-        self.confirm_btn.setIcon(cached_icon("svg/确定.svg"))
-        self.confirm_btn.setIconSize(QSize(icon_wide, icon_wide))
-        self.confirm_btn.clicked.connect(self.confirm_clicked.emit)
-        
-        # 设置工具栏大小
+        self.long_screenshot_btn = self._add_button(
+            "long_screenshot", "svg/长截图.svg", "Long screenshot (scroll)", wide,
+            self.long_screenshot_clicked.emit)
+        self.save_btn = self._add_button(
+            "save", "svg/下载.svg", "Save to file", wide, self.save_clicked.emit)
+        self.screenshot_translate_btn = self._add_button(
+            "screenshot_translate", "svg/翻译.svg", "Screenshot translate (OCR + Translate)", wide,
+            self.screenshot_translate_clicked.emit)
+        self.gif_btn = self._add_button(
+            "gif", "svg/gif.svg", "GIF recording", wide, self.gif_record_clicked.emit)
+        # 复制按钮只在钉图里摆出来，截图的排布里没有它
+        self.copy_btn = self._add_button(
+            "copy", "svg/copy.svg", "Copy image", wide, self.copy_clicked.emit)
+
+        self.pen_btn = self._add_tool_button(
+            "pen", "svg/画笔.svg", "Pen tool (hold Shift for straight line)", tool)
+        self.highlighter_btn = self._add_tool_button(
+            "highlighter", "svg/荧光笔.svg", "Highlighter (hold Shift for straight line)", tool)
+        self.mosaic_btn = self._add_tool_button(
+            "mosaic", "svg/马赛克.svg", "Mosaic (mouse wheel to resize)", tool)
+        self.arrow_btn = self._add_tool_button("arrow", "svg/箭头.svg", "Draw arrow", tool)
+        self.number_btn = self._add_tool_button(
+            "number", "svg/序号.svg", "Number (Shift+scroll to change number)", tool)
+        self.rect_btn = self._add_tool_button("rect", "svg/方框.svg", "Draw rectangle", tool)
+        self.ellipse_btn = self._add_tool_button("ellipse", "svg/圆框.svg", "Draw ellipse", tool)
+        self.text_btn = self._add_tool_button("text", "svg/文字.svg", "Add text", tool)
+        self.eraser_btn = self._add_tool_button(
+            "eraser", "svg/橡皮.svg", "Eraser tool", (btn_width, icon_eraser))
+
+        self.undo_btn = self._add_button("undo", "svg/撤回.svg", "Undo", tool, self.undo_clicked.emit)
+        self.redo_btn = self._add_button("redo", "svg/复原.svg", "Redo", tool, self.redo_clicked.emit)
+
+        self.cancel_btn = self._add_button(
+            "cancel", "svg/结束截图.svg", "Cancel screenshot (ESC)", wide, self.cancel_clicked.emit)
+        self.pin_btn = self._add_button(
+            "pin", "svg/钉图.svg", "Pin image (Ctrl+D)", wide, self.pin_clicked.emit)
+        self.confirm_btn = self._add_button(
+            "confirm", "svg/确定.svg", "Confirm and save (Ctrl+C / Enter)", wide,
+            self.confirm_clicked.emit)
+
+        # 「…」：悬停展开被收起的按钮
+        self.more_btn = self._add_button("more", "svg/更多.svg", "More", tool, self._show_more_popup)
+        self.more_btn.installEventFilter(self)
+
+        # 背景和圆角描边由 paintEvent 手动绘制，#toolbar_root 保持透明
         self.setObjectName("toolbar_root")
-        self.resize(toolbar_total_width, btn_height)
-        
-        # 设置样式 —— 背景和圆角描边由 paintEvent 手动绘制，
-        # 这里只设置按钮样式，不设置 #toolbar_root 的 background/border
-        theme_hex = get_theme().theme_color_hex
-        tc = get_theme().theme_color
-        self.setStyleSheet(f"""
-            #toolbar_root {{
-                background-color: transparent;
-                border: none;
-            }}
-            QPushButton {{
-                background-color: rgba(0, 0, 0, 0.02);
-                border: none;
-                border-radius: 0px;
-                padding: 0px;
-            }}
-            QPushButton:hover {{
-                background-color: rgba(0, 0, 0, 0.08);
-                border-radius: 0px;
-            }}
-            QPushButton:pressed {{
-                background-color: rgba(0, 0, 0, 0.15);
-                border-radius: 0px;
-            }}
-            QPushButton:checked {{
-                background-color: rgba({tc.red()}, {tc.green()}, {tc.blue()}, 0.3);
-                border: 1px solid {theme_hex};
-            }}
-        """)
-        
+        self.setStyleSheet("#toolbar_root { background-color: transparent; border: none; }"
+                           + _button_qss())
+
         # 收集所有工具按钮
         self.tool_buttons = {
             "pen": self.pen_btn,
@@ -415,40 +357,143 @@ class Toolbar(QWidget):
             "eraser": self.eraser_btn,
         }
 
-        # 所有按钮不接受键盘焦点，防止 Space/Enter 等按键通过按钮意外触发逻辑
-        for btn in self.findChildren(QPushButton):
-            btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-
         # 创建二级设置面板
         self.init_settings_panels()
 
-        # 记录所有按钮的 tooltip 源文本，供语言切换后整体刷新
-        self._tooltip_sources = {
-            self.drag_handle: "Drag to move",
-            self.long_screenshot_btn: "Long screenshot (scroll)",
-            self.save_btn: "Save to file",
-            self.screenshot_translate_btn: "Screenshot translate (OCR + Translate)",
-            self.gif_btn: "GIF recording",
-            self.copy_btn: "Copy image",
-            self.pen_btn: "Pen tool (hold Shift for straight line)",
-            self.highlighter_btn: "Highlighter (hold Shift for straight line)",
-            self.mosaic_btn: "Mosaic (mouse wheel to resize)",
-            self.arrow_btn: "Draw arrow",
-            self.number_btn: "Number (Shift+scroll to change number)",
-            self.rect_btn: "Draw rectangle",
-            self.ellipse_btn: "Draw ellipse",
-            self.text_btn: "Add text",
-            self.eraser_btn: "Eraser tool",
-            self.undo_btn: "Undo",
-            self.redo_btn: "Redo",
-            self.cancel_btn: "Cancel screenshot (ESC)",
-            self.pin_btn: "Pin image (Ctrl+D)",
-            self.confirm_btn: "Confirm and save (Ctrl+C / Enter)",
-        }
+        self.reload_layout()
 
         # 语言切换时刷新工具栏按钮提示与各面板文案（连接随本工具栏销毁自动断开）
         from core.i18n import I18nManager
         I18nManager.instance().language_changed.connect(self._retranslate)
+
+    # ========================================================================
+    # 按钮排布与「…」弹层
+    # ========================================================================
+
+    def _add_button(self, key, icon, tooltip, size, on_click, *, checkable=False):
+        """建一个按钮并登记到排布表。size 为 (按钮宽, 图标边长)；位置由 _arrange 决定。"""
+        width, icon_size = size
+        button = QPushButton(self)
+        button.setToolTip(self.tr(tooltip))
+        button.setIcon(cached_icon(icon))
+        button.setIconSize(QSize(icon_size, icon_size))
+        button.setCheckable(checkable)
+        # 按钮不接受键盘焦点，防止 Space/Enter 等按键通过按钮意外触发逻辑
+        button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        if key != "more":
+            # 点了按钮先收起「…」弹层再执行动作：动作可能弹出模态对话框，弹层不该留在屏幕上。
+            # 工具栏上的按钮被点时鼠标早已离开弹层，本来就要收起，不必区分按钮在哪
+            button.clicked.connect(self._hide_more_popup)
+        button.clicked.connect(on_click)
+        self._buttons[key] = button
+        self._button_widths[key] = width
+        self._tooltip_sources[button] = tooltip
+        return button
+
+    def _add_tool_button(self, tool_id, icon, tooltip, size):
+        """绘制工具按钮：可选中，点击走 select_tool 的切换逻辑"""
+        return self._add_button(
+            tool_id, icon, tooltip, size, lambda: self._on_tool_clicked(tool_id), checkable=True)
+
+    def _make_floating(self, widget):
+        """工具栏、二级面板、「…」弹层共用的窗口属性。
+
+        截图里它们都是截图窗口的子部件；钉图工具栏没有父窗口，是独立的置顶工具窗，
+        面板和弹层跟它一致，显示时也不抢焦点。
+        """
+        if self.parent() is None:
+            widget.setWindowFlags(
+                Qt.WindowType.FramelessWindowHint
+                | Qt.WindowType.WindowStaysOnTopHint
+                | Qt.WindowType.Tool
+                | Qt.WindowType.X11BypassWindowManagerHint
+            )
+            widget.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        else:
+            widget.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        widget.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+
+    def _arrange(self, keys):
+        """从拖动手柄右侧起把 keys 对应的按钮排成一行，其余按钮一律隐藏，工具栏宽度随之收缩"""
+        for key, button in self._buttons.items():
+            if key not in keys:
+                button.hide()
+        x = self.drag_handle.width()
+        for key in keys:
+            button = self._buttons[key]
+            if button.parent() is not self:
+                button.setParent(self)   # 刚从「…」弹层里挪回来
+            width = self._button_widths[key]
+            button.setGeometry(x, 0, width, self._btn_height)
+            button.show()
+            x += width
+        self.resize(x, self._btn_height)
+
+    def reload_layout(self):
+        """按用户配置重排：始终显示的上工具栏，收进更多的留给弹层，「…」固定在最右"""
+        layout = load_layout()
+        self._folded_keys = [key for key, mode in layout if mode == MORE]
+        self._arrange([key for key, mode in layout if mode == SHOW] + ["more"])
+
+    def _show_more_popup(self):
+        """展开「…」弹层，把收起的按钮摆进去。
+
+        弹层用到才建：钉图工具栏的「…」永远不显示，没必要给每张钉图多建一个窗口。
+        """
+        if self._more_popup is None:
+            self._more_popup = _MorePopup(self.parent())
+            self._make_floating(self._more_popup)
+            self._more_popup.adjust_btn.setText(self.tr("Adjust"))
+            self._more_popup.adjust_btn.clicked.connect(self._open_layout_dialog)
+            self._more_popup.hover_changed.connect(self._on_more_hover)
+            self._more_close_timer = QTimer(self)
+            self._more_close_timer.setSingleShot(True)
+            self._more_close_timer.setInterval(300)
+            self._more_close_timer.timeout.connect(self._hide_more_popup)
+
+        self._more_close_timer.stop()
+        popup = self._more_popup
+        if popup.isVisible():
+            return
+        cell_width = max((self._button_widths[key] for key in self._folded_keys), default=0)
+        popup.set_buttons([self._buttons[key] for key in self._folded_keys],
+                          QSize(cell_width, self._btn_height))
+        self._sync_panel_position(popup, align_right=True)
+        popup.show()
+        popup.raise_()
+
+    def _on_more_hover(self, hovering):
+        """鼠标在「…」或弹层上就展开；两者之间隔着一道缝，离开后稍等再收起，好让鼠标移过去"""
+        if hovering:
+            self._show_more_popup()
+        elif self._more_popup is not None:
+            self._more_close_timer.start()
+
+    def _hide_more_popup(self):
+        if self._more_popup is not None:
+            self._more_close_timer.stop()
+            self._more_popup.hide()
+
+    def _open_layout_dialog(self):
+        """「调整」：编辑排布，确认后保存并立即重排"""
+        from .toolbar_layout_dialog import ToolbarLayoutDialog
+
+        self._hide_more_popup()
+        host = self._host_window()
+        dialog = ToolbarLayoutDialog(
+            load_layout(), {key: button.icon() for key, button in self._buttons.items()}, host)
+        # 截图窗口横跨整个虚拟桌面，对话框默认居中到它的中点，多屏时未必落在用户
+        # 正在操作的那块屏幕上；改为放到工具栏所在屏幕的中央
+        screen = QApplication.screenAt(self.mapToGlobal(QPoint(0, 0))) or QApplication.primaryScreen()
+        dialog.move(screen.availableGeometry().center() - dialog.rect().center())
+        if not dialog.exec():
+            return
+        save_layout(dialog.entries())
+        self.reload_layout()
+        # 宽度变了，重新贴到选区右下角（手动拖过位置的不会动）
+        if hasattr(host, "update_toolbar_position"):
+            host.update_toolbar_position()
         
     def init_settings_panels(self):
         """初始化所有工具的设置面板"""
@@ -459,26 +504,11 @@ class Toolbar(QWidget):
         from .text_settings_panel import TextSettingsPanel
         from .mosaic_settings_panel import MosaicSettingsPanel
         
-        # 确定父窗口和窗口标志
         parent = self.parent()
-
-        if parent is None:
-            # 独立顶层窗口，强制置顶
-            flags = (Qt.WindowType.FramelessWindowHint | 
-                    Qt.WindowType.WindowStaysOnTopHint | 
-                    Qt.WindowType.Tool |
-                    Qt.WindowType.X11BypassWindowManagerHint)
-        else:
-            # 作为子窗口
-            flags = Qt.WindowType.FramelessWindowHint
         
         # === 1. 画笔类设置面板 (pen, highlighter) ===
         self.paint_panel = PaintSettingsPanel(parent)
-        self.paint_panel.setWindowFlags(flags)
-        if parent is None:
-            self.paint_panel.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
-        self.paint_panel.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.paint_panel.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self._make_floating(self.paint_panel)
         
         # 连接信号
         self.paint_panel.color_changed.connect(self._on_panel_color_changed)
@@ -501,11 +531,7 @@ class Toolbar(QWidget):
         
         # === 2. 形状类设置面板 (rect, ellipse) ===
         self.shape_panel = ShapeSettingsPanel(parent)
-        self.shape_panel.setWindowFlags(flags)
-        if parent is None:
-            self.shape_panel.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
-        self.shape_panel.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.shape_panel.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self._make_floating(self.shape_panel)
         
         # 连接信号
         self.shape_panel.color_changed.connect(self._on_panel_color_changed)
@@ -516,11 +542,7 @@ class Toolbar(QWidget):
         
         # === 3. 箭头设置面板 (arrow) ===
         self.arrow_panel = ArrowSettingsPanel(parent)
-        self.arrow_panel.setWindowFlags(flags)
-        if parent is None:
-            self.arrow_panel.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
-        self.arrow_panel.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.arrow_panel.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self._make_floating(self.arrow_panel)
         
         # 连接信号
         self.arrow_panel.color_changed.connect(self._on_panel_color_changed)
@@ -534,11 +556,7 @@ class Toolbar(QWidget):
         # 面板的 Qt parent 是工具栏的 parent，不是工具栏本身；
         # 样式弹出层要靠它判断该往哪边弹才不会盖住一级/二级菜单。
         self.number_panel._owner_toolbar = self
-        self.number_panel.setWindowFlags(flags)
-        if parent is None:
-            self.number_panel.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
-        self.number_panel.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.number_panel.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self._make_floating(self.number_panel)
         
         # 连接信号
         self.number_panel.color_changed.connect(self._on_panel_color_changed)
@@ -552,11 +570,7 @@ class Toolbar(QWidget):
         
         # === 5. 文字设置面板 (text) ===
         self.text_panel = TextSettingsPanel(parent)
-        self.text_panel.setWindowFlags(flags)
-        if parent is None:
-            self.text_panel.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
-        self.text_panel.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.text_panel.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self._make_floating(self.text_panel)
         
         # 连接信号
         self.text_panel.font_changed.connect(self._on_text_font_changed)
@@ -567,11 +581,7 @@ class Toolbar(QWidget):
 
         # === 6. 马赛克设置面板 (mosaic) ===
         self.mosaic_panel = MosaicSettingsPanel(parent)
-        self.mosaic_panel.setWindowFlags(flags)
-        if parent is None:
-            self.mosaic_panel.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
-        self.mosaic_panel.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.mosaic_panel.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self._make_floating(self.mosaic_panel)
 
         # 连接信号
         self.mosaic_panel.size_changed.connect(self._on_panel_size_changed)
@@ -590,21 +600,7 @@ class Toolbar(QWidget):
     @safe_event
     def paintEvent(self, event):
         """手动绘制圆角白色背景 + 主题色描边，确保四角真正透明"""
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        radius = 6.0
-        pen_width = 2.0
-        half = pen_width / 2
-        rect = QRectF(self.rect()).adjusted(half, half, -half, -half)
-
-        path = QPainterPath()
-        path.addRoundedRect(rect, radius, radius)
-
-        painter.setPen(QPen(get_theme().theme_color, pen_width))
-        painter.setBrush(QBrush(QColor(255, 255, 255)))
-        painter.drawPath(path)
-        painter.end()
+        _paint_toolbar_frame(self)
         
     def _load_saved_settings(self):
         """把每个工具的持久化设置回填到它的二级面板。"""
@@ -664,6 +660,8 @@ class Toolbar(QWidget):
         self._manual_positioned = False
         self._dragging = False
         self.drag_handle.set_manual_mode(False)
+        # 截图窗口复用同一个工具栏，排布可能在上次会话之后改过（比如在设置里重置）
+        self.reload_layout()
         # 隐藏自身（选区确认后再显示）
         self.hide()
 
@@ -690,6 +688,8 @@ class Toolbar(QWidget):
         mosaic_panel = getattr(self, "mosaic_panel", None)
         if mosaic_panel is not None and hasattr(mosaic_panel, "retranslate"):
             mosaic_panel.retranslate()
+        if self._more_popup is not None:
+            self._more_popup.adjust_btn.setText(self.tr("Adjust"))
 
     def restore_active_tool_state(self, tool_id: str, ctx=None, scene=None):
         """Restore the active tool's complete default panel after selection ends."""
@@ -1123,8 +1123,11 @@ class Toolbar(QWidget):
 
     @safe_event
     def eventFilter(self, obj, event):
-        """将 drag_handle 的鼠标事件统一转发给 Toolbar 处理（双击穿透）"""
+        """drag_handle 的鼠标事件统一转发给 Toolbar 处理（双击穿透）；「…」按钮悬停时展开弹层"""
         from PySide6.QtCore import QEvent
+        if obj is self._buttons.get("more") and event.type() in (QEvent.Type.Enter, QEvent.Type.Leave):
+            self._on_more_hover(event.type() == QEvent.Type.Enter)
+            return False
         if hasattr(self, 'drag_handle') and obj is self.drag_handle:
             etype = event.type()
             # 双击事件不拦截，让 _DragHandle.mouseDoubleClickEvent 自行处理
@@ -1154,6 +1157,12 @@ class Toolbar(QWidget):
         """工具栏移动时同步所有可见面板位置"""
         super().moveEvent(event)
         self._sync_all_panels_position()
+
+    @safe_event
+    def hideEvent(self, event):
+        """工具栏隐藏时收起「…」弹层（截图里拖动选区、开新会话都会先隐藏工具栏）"""
+        super().hideEvent(event)
+        self._hide_more_popup()
     
     def _sync_all_panels_position(self):
         """同步所有可见面板的位置"""
@@ -1169,11 +1178,15 @@ class Toolbar(QWidget):
             self._sync_panel_position(self.text_panel)
         if hasattr(self, 'mosaic_panel') and self.mosaic_panel.isVisible():
             self._sync_panel_position(self.mosaic_panel)
+        popup = getattr(self, '_more_popup', None)
+        if popup is not None and popup.isVisible():
+            self._sync_panel_position(popup, align_right=True)
 
-    def _sync_panel_position(self, panel):
+    def _sync_panel_position(self, panel, align_right=False):
         """同步单个面板的位置
         
         优先跟一级工具栏同方向弹出（远离选区），空间不够时翻到另一侧。
+        X 轴与工具栏左对齐；「…」弹层挂在工具栏最右端，align_right 时改为右对齐。
         """
         if not panel:
             return
@@ -1217,8 +1230,10 @@ class Toolbar(QWidget):
                 # 都放不下，夹紧到屏幕顶部
                 panel_y = screen_rect.top()
         
-        # X 轴：与工具栏左对齐，夹紧在屏幕内
+        # X 轴：与工具栏左对齐（或右对齐），夹紧在屏幕内
         panel_x = toolbar_global_pos.x()
+        if align_right:
+            panel_x += self.width() - panel.width()
         if panel_x + panel.width() > screen_rect.right():
             panel_x = screen_rect.right() - panel.width() - 5
         if panel_x < screen_rect.left():
