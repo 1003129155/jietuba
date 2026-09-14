@@ -110,7 +110,7 @@ class ToolSettingsManager(QObject):
             "style": "pixelate",  # pixelate / blur
         },
         "spotlight": {
-            "opacity": 0.5,  # 幕布暗度（整个场景一张黑色幕布，所有聚光灯共用）
+            "opacity": 0.7,  # 幕布暗度（整个场景一张黑色幕布，所有聚光灯共用）
         },
         "rect": {
             "color": "#FF0000",  # 红色

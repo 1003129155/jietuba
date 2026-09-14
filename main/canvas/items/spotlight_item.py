@@ -25,7 +25,7 @@ class SpotlightCurtain(QGraphicsItem):
 
     # 马赛克(5)之上：孔外的马赛克也要被压暗；荧光笔(10)和普通标注(20)之下：标注不受影响
     Z_VALUE = 6
-    DEFAULT_DARKNESS = 0.5
+    DEFAULT_DARKNESS = 0.7
 
     def __init__(self):
         super().__init__()
