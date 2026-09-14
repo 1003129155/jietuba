@@ -17,13 +17,13 @@ MODES = (SHOW, MORE, HIDE)
 # 可配置按钮的全集，也是默认顺序
 DEFAULT_ORDER = (
     "long_screenshot", "save", "screenshot_translate", "scan_code", "gif",
-    "pen", "highlighter", "mosaic", "arrow", "number", "rect", "ellipse", "text", "eraser",
+    "pen", "highlighter", "mosaic", "spotlight", "arrow", "number", "rect", "ellipse", "text", "eraser",
     "undo", "redo",
     "cancel", "pin", "confirm",
 )
 
 # 默认收进「…」的按钮，其余默认始终显示。后加的低频功能放这里，免得把工具栏默认宽度越撑越宽
-DEFAULT_MORE = frozenset({"scan_code"})
+DEFAULT_MORE = frozenset({"scan_code", "spotlight"})
 
 # 核心编辑操作固定显示，也不出现在工具栏调整界面中。
 LOCKED = frozenset({

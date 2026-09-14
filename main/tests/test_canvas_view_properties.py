@@ -228,6 +228,49 @@ class TestApplyLineStyleChange:
         view.smart_edit_controller.selected_item = None
         view._apply_line_style_change_to_selection("dashed")   # 不抛异常即可
 
+    def test_rect_variants_owned_by_other_tools_ignore_line_style(self, view):
+        """荧光笔矩形、聚光灯的孔也是 RectItem，但不归矩形工具，没有线型"""
+        from canvas.items import SpotlightItem
+
+        highlighter_rect = _rect()
+        highlighter_rect.is_highlighter = True
+        highlighter_rect.is_highlighter_rect = True
+        for item in (highlighter_rect, SpotlightItem(QRectF(0, 0, 100, 60))):
+            before = item.pen().style()
+            _select(view, item)
+            view._apply_line_style_change_to_selection("dashed")
+            assert item.pen().style() == before, type(item).__name__
+
+
+class TestSelectionPanelOwnership:
+    """选中图元后按它的归属工具弹面板、同步线型，不按类名"""
+
+    def test_selecting_a_highlighter_rect_leaves_rect_line_style_alone(self, view, monkeypatch):
+        from settings import get_tool_settings_manager
+        from ui.toolbar import Toolbar
+
+        manager = get_tool_settings_manager()
+        before = manager.get_setting("rect", "line_style")
+        manager.update_settings("rect", line_style="dashed")
+        toolbar = Toolbar()
+        monkeypatch.setattr(view, "_get_active_toolbar", lambda: toolbar)
+        try:
+            item = _rect()
+            item.is_highlighter = True
+            item.is_highlighter_rect = True
+            view.canvas_scene.addItem(item)
+            # 同工具选中才会写设置；跨工具的临时选择本来就不写
+            view.smart_edit_controller.set_tool("highlighter")
+            view.smart_edit_controller.select_item(item)
+
+            assert manager.get_setting("rect", "line_style") == "dashed"
+            assert not toolbar.paint_panel.isHidden()
+            assert toolbar.shape_panel.isHidden()
+            assert toolbar.paint_panel.current_highlighter_mode == "rect"
+        finally:
+            toolbar.deleteLater()
+            manager.update_settings("rect", line_style=before)
+
 
 # ============================================================================
 # 读取选中项的属性（工具栏回显）

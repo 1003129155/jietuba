@@ -839,6 +839,10 @@ Replace it?</translation>
         <translation>Mosaic (mouse wheel to resize)</translation>
     </message>
     <message>
+        <source>Spotlight (dim outside the box)</source>
+        <translation>Spotlight (dim outside the box)</translation>
+    </message>
+    <message>
         <source>Long screenshot (scroll)</source>
         <translation>Long screenshot (scroll)</translation>
     </message>
@@ -3259,6 +3263,10 @@ SOFTWARE.</translation></message>
     <message>
         <source>Mosaic</source>
         <translation>Mosaic</translation>
+    </message>
+    <message>
+        <source>Spotlight</source>
+        <translation>Spotlight</translation>
     </message>
     <message>
         <source>Arrow</source>

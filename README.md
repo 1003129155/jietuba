@@ -213,6 +213,7 @@ canvas/
     ├── drawing_items.py     # StrokeItem / RectItem / EllipseItem / ArrowItem / TextItem / NumberItem — 所有绘制项目
     ├── background_item.py   # BackgroundItem — 选区背景底图
     ├── mosaic_item.py       # MosaicItem — 马赛克图形项
+    ├── spotlight_item.py    # SpotlightItem / SpotlightCurtain — 聚光灯的孔与共用幕布
     └── selection_item.py    # SelectionItem — 选中项的边界显示框
 ```
 
@@ -525,6 +526,7 @@ tools/
 ├── number.py                # NumberTool — 数字编号工具（自动递增）
 ├── highlighter.py           # HighlighterTool — 荧光笔工具
 ├── mosaic.py                # MosaicTool — 马赛克工具
+├── spotlight.py             # SpotlightTool — 聚光灯工具（压暗框外区域）
 ├── cursor.py                # CursorTool — 光标/选择工具
 ├── eraser.py                # EraserTool — 橡皮擦工具
 └── cursor_manager.py        # CursorManager — 光标样式管理器
@@ -703,6 +705,7 @@ tests/
 ├── run_tests.py             # 测试运行脚本
 ├── test_drawing_tools.py    # 绘图工具测试（笔/矩形/箭头/文字/数字/荧光笔）
 ├── test_mosaic_tool.py      # 马赛克工具测试
+├── test_spotlight.py        # 聚光灯测试
 ├── test_functional_handles.py # 控制点编辑测试
 ├── test_capture_service.py  # 截图服务测试
 ├── test_clipboard_api.py    # 剪切板公共 API 测试

@@ -206,6 +206,7 @@ canvas/
     ├── drawing_items.py     # StrokeItem / RectItem / EllipseItem / ArrowItem / TextItem / NumberItem
     ├── background_item.py   # BackgroundItem — 選択領域の背景
     ├── mosaic_item.py       # MosaicItem — モザイクアイテム
+    ├── spotlight_item.py    # SpotlightItem / SpotlightCurtain — スポットライトの穴と共有の幕
     └── selection_item.py    # SelectionItem — 選択境界表示
 ```
 
@@ -455,6 +456,7 @@ tools/
 ├── number.py                # NumberTool — 自動インクリメント番号
 ├── highlighter.py           # HighlighterTool — 蛍光ペン
 ├── mosaic.py                # MosaicTool — モザイク
+├── spotlight.py             # SpotlightTool — スポットライト（枠の外を暗くする）
 ├── cursor.py                # CursorTool — カーソル/選択
 ├── eraser.py                # EraserTool — 消しゴム
 └── cursor_manager.py        # CursorManager — カーソルスタイル管理
@@ -608,6 +610,7 @@ tests/
 ├── run_tests.py             # テスト実行スクリプト
 ├── test_drawing_tools.py    # 描画ツールテスト（ペン/矩形/矢印/テキスト/番号/蛍光ペン）
 ├── test_mosaic_tool.py      # モザイクツールテスト
+├── test_spotlight.py        # スポットライトテスト
 ├── test_functional_handles.py # コントロールポイント編集テスト
 ├── test_capture_service.py  # キャプチャサービステスト
 ├── test_clipboard_api.py    # クリップボード公開 API テスト

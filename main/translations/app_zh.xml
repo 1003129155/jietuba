@@ -843,6 +843,10 @@ Replace it?</source>
         <translation>马赛克（鼠标滚轮调整大小）</translation>
     </message>
     <message>
+        <source>Spotlight (dim outside the box)</source>
+        <translation>聚光灯（压暗框外区域）</translation>
+    </message>
+    <message>
         <source>Long screenshot (scroll)</source>
         <translation>长截图（滚动）</translation>
     </message>
@@ -3346,6 +3350,10 @@ SOFTWARE.</translation></message>
     <message>
         <source>Mosaic</source>
         <translation>马赛克</translation>
+    </message>
+    <message>
+        <source>Spotlight</source>
+        <translation>聚光灯</translation>
     </message>
     <message>
         <source>Arrow</source>

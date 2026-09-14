@@ -101,10 +101,12 @@ class TestPersistence:
 
 class TestScreenshotToolbar:
 
-    def test_default_layout_folds_the_scan_button_and_ends_with_more(self, qapp):
+    def test_default_layout_folds_low_frequency_buttons_and_ends_with_more(self, qapp):
         toolbar = Toolbar()
-        assert _toolbar_row(toolbar) == [key for key in DEFAULT_ORDER if key != "scan_code"] + ["more"]
-        assert toolbar._folded_keys == ["scan_code"]
+        assert _toolbar_row(toolbar) == [
+            key for key in DEFAULT_ORDER if key not in ("scan_code", "spotlight")
+        ] + ["more"]
+        assert toolbar._folded_keys == ["scan_code", "spotlight"]
         assert toolbar.copy_btn.isHidden()
         geometries = [toolbar._buttons[key].geometry() for key in _toolbar_row(toolbar)]
         for left, right in zip(geometries, geometries[1:]):
@@ -193,6 +195,7 @@ class TestPinToolbar:
         toolbar = PinToolbar()
         assert _toolbar_row(toolbar) == list(PinToolbar.LAYOUT)
         assert "screenshot_translate" not in _toolbar_row(toolbar)
+        assert toolbar.spotlight_btn.isHidden()   # 聚光灯只在截图里用
         assert toolbar.more_btn.isHidden()
 
 

@@ -349,6 +349,8 @@ class Toolbar(QWidget):
             "highlighter", "svg/荧光笔.svg", "Highlighter (hold Shift for straight line)", tool)
         self.mosaic_btn = self._add_tool_button(
             "mosaic", "svg/马赛克.svg", "Mosaic (mouse wheel to resize)", tool)
+        self.spotlight_btn = self._add_tool_button(
+            "spotlight", "svg/聚光灯.svg", "Spotlight (dim outside the box)", tool)
         self.arrow_btn = self._add_tool_button("arrow", "svg/箭头.svg", "Draw arrow", tool)
         self.number_btn = self._add_tool_button(
             "number", "svg/序号.svg", "Number (Shift+scroll to change number)", tool)
@@ -386,6 +388,7 @@ class Toolbar(QWidget):
             "pen": self.pen_btn,
             "highlighter": self.highlighter_btn,
             "mosaic": self.mosaic_btn,
+            "spotlight": self.spotlight_btn,
             "arrow": self.arrow_btn,
             "number": self.number_btn,
             "rect": self.rect_btn,
@@ -813,16 +816,20 @@ class Toolbar(QWidget):
         self._hide_all_panels()
 
         # 面板的形态（哪些控件该露出来）跟着工具走，与持久化设置无关
-        if tool_id in ("pen", "highlighter") and hasattr(self, "paint_panel"):
+        if tool_id in ("pen", "highlighter", "spotlight") and hasattr(self, "paint_panel"):
             self.paint_panel.set_line_style_visible(tool_id == "pen")
             if hasattr(self.paint_panel, "set_highlighter_mode_visible"):
                 self.paint_panel.set_highlighter_mode_visible(tool_id == "highlighter")
+            # 聚光灯借用这个面板：透明度就是幕布的暗度；幕布固定黑色，孔没有线宽
+            self.paint_panel.set_size_visible(tool_id != "spotlight")
+            self.paint_panel.set_color_visible(tool_id != "spotlight")
 
         self._sync_panel_from_settings(tool_id)
 
         panel_map = {
             "pen": self.paint_panel,
             "highlighter": self.paint_panel,
+            "spotlight": self.paint_panel,
             "rect": self.shape_panel,
             "ellipse": self.shape_panel,
             "arrow": self.arrow_panel,

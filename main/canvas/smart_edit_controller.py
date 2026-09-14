@@ -15,7 +15,9 @@ from PySide6.QtCore import QObject, Signal, QPointF, Qt
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsScene
 from shiboken6 import isValid as _cpp_object_is_alive
 
-from canvas.items import StrokeItem, RectItem, EllipseItem, ArrowItem, TextItem, NumberItem, MosaicItem
+from canvas.items import (
+    StrokeItem, RectItem, EllipseItem, ArrowItem, TextItem, NumberItem, MosaicItem, SpotlightItem,
+)
 from canvas.handle_editor import HandleType, LayerEditor
 from canvas.undo import EditItemCommand
 from core.logger import log_exception
@@ -195,6 +197,8 @@ class SmartEditController(QObject):
         """返回拥有该图元新建默认值的精确工具 ID。"""
         if isinstance(item, StrokeItem):
             return "highlighter" if getattr(item, "is_highlighter", False) else "pen"
+        if isinstance(item, SpotlightItem):
+            return "spotlight"
         if isinstance(item, RectItem):
             if getattr(item, "is_highlighter_rect", False):
                 return "highlighter"
@@ -245,7 +249,12 @@ class SmartEditController(QObject):
             and item_type != ItemType.OTHER
         ):
             return True
-        
+
+        # 聚光灯的孔也是 RectItem，但只归聚光灯工具管：矩形/椭圆工具不能把它当普通形状选走，
+        # 聚光灯工具也选不中普通形状（下面的 tool_to_type 里没有它）
+        if isinstance(item, SpotlightItem):
+            return self.current_tool_id == "spotlight"
+
         # 1. 画笔/荧光笔路径：必须 Ctrl+点击
         if item_type == ItemType.PATH:
             return bool(modifier_keys & Qt.KeyboardModifier.ControlModifier)
@@ -287,7 +296,10 @@ class SmartEditController(QObject):
             return
         """
         item_type = self.get_item_type(item)
-        
+
+        if isinstance(item, SpotlightItem):
+            return self.current_tool_id == "spotlight"
+
         # 画笔/荧光笔路径：不显示十字光标（需要 Ctrl 才能交互）
         if item_type == ItemType.PATH:
             return False

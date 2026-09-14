@@ -207,6 +207,7 @@ canvas/
     ├── drawing_items.py     # StrokeItem / RectItem / EllipseItem / ArrowItem / TextItem / NumberItem
     ├── background_item.py   # BackgroundItem — selection area background
     ├── mosaic_item.py       # MosaicItem — pixel mosaic item
+    ├── spotlight_item.py    # SpotlightItem / SpotlightCurtain — spotlight holes and their shared curtain
     └── selection_item.py    # SelectionItem — selection boundary display
 ```
 
@@ -456,6 +457,7 @@ tools/
 ├── number.py                # NumberTool — auto-incrementing numbers
 ├── highlighter.py           # HighlighterTool — highlighter
 ├── mosaic.py                # MosaicTool — pixel mosaic
+├── spotlight.py             # SpotlightTool — spotlight (dims outside the box)
 ├── cursor.py                # CursorTool — cursor/selection
 ├── eraser.py                # EraserTool — eraser
 └── cursor_manager.py        # CursorManager — cursor style manager
@@ -609,6 +611,7 @@ tests/
 ├── run_tests.py             # test runner script
 ├── test_drawing_tools.py    # drawing tool tests (pen/rect/arrow/text/number/highlighter)
 ├── test_mosaic_tool.py      # mosaic tool tests
+├── test_spotlight.py        # spotlight tests
 ├── test_functional_handles.py # edit handle tests
 ├── test_capture_service.py  # capture service tests
 ├── test_clipboard_api.py    # clipboard public API tests

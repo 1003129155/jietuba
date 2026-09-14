@@ -127,18 +127,24 @@ class PaintSettingsPanel(BaseSettingsPanel):
         self.opacity_spin.setToolTip(self._tr(self.OPACITY_TOOLTIP))
         layout.addWidget(self.opacity_spin)
 
+        # === 3. 颜色选择（连同前面的分隔线收成一组，聚光灯借用本面板时整组隐藏）===
+        self.color_widget = QWidget()
+        color_layout = QHBoxLayout(self.color_widget)
+        color_layout.setContentsMargins(0, 0, 0, 0)
+        color_layout.setSpacing(round(10 * PANEL_SCALE))
+        layout.addWidget(self.color_widget)
+
         line1 = QFrame()
         line1.setObjectName("separator")
         line1.setFrameShape(QFrame.Shape.VLine)
         line1.setFixedWidth(1)
-        layout.addWidget(line1)
+        color_layout.addWidget(line1)
 
-        # === 3. 颜色选择 ===
         self.color_picker_btn = ColorPickerButton(
             self.current_color, size=round(28 * PANEL_SCALE), show_alpha=True
         )
         self.color_picker_btn.setToolTip(self._tr("Custom Color"))
-        layout.addWidget(self.color_picker_btn)
+        color_layout.addWidget(self.color_picker_btn)
 
         preset_colors = [
             "#FF0000",
@@ -165,7 +171,7 @@ class PaintSettingsPanel(BaseSettingsPanel):
                 }}
             """)
             btn.clicked.connect(lambda checked, c=color_str: self._apply_preset_color(c))
-            layout.addWidget(btn)
+            color_layout.addWidget(btn)
 
         layout.addStretch()
 
@@ -264,6 +270,16 @@ class PaintSettingsPanel(BaseSettingsPanel):
         """控制线条样式控件显示（高亮笔不显示）"""
         if hasattr(self, "line_style_combo"):
             self.line_style_combo.setVisible(bool(visible))
+
+    def set_size_visible(self, visible: bool):
+        """控制线宽控件显示（聚光灯借用本面板，它的孔没有线宽）"""
+        if hasattr(self, "size_spin"):
+            self.size_spin.setVisible(bool(visible))
+
+    def set_color_visible(self, visible: bool):
+        """控制颜色控件显示（聚光灯借用本面板，它的幕布固定为黑色）"""
+        if hasattr(self, "color_widget"):
+            self.color_widget.setVisible(bool(visible))
 
     def set_highlighter_mode_visible(self, visible: bool):
         if hasattr(self, "mode_widget"):

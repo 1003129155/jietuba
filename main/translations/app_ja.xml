@@ -845,6 +845,10 @@ Replace it?</source>
         <translation>モザイク（マウスホイールでサイズ変更）</translation>
     </message>
     <message>
+        <source>Spotlight (dim outside the box)</source>
+        <translation>スポットライト（枠の外を暗くする）</translation>
+    </message>
+    <message>
         <source>Long screenshot (scroll)</source>
         <translation>長スクリーンショット（スクロール）</translation>
     </message>
@@ -3325,6 +3329,10 @@ SOFTWARE.</translation></message>
     <message>
         <source>Mosaic</source>
         <translation>モザイク</translation>
+    </message>
+    <message>
+        <source>Spotlight</source>
+        <translation>スポットライト</translation>
     </message>
     <message>
         <source>Arrow</source>

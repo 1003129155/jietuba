@@ -38,6 +38,7 @@ BUTTON_NAMES = {
     "pen": "Pen",
     "highlighter": "Highlighter",
     "mosaic": "Mosaic",
+    "spotlight": "Spotlight",
     "arrow": "Arrow",
     "number": "Number",
     "rect": "Rectangle",

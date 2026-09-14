@@ -148,13 +148,16 @@ class PinCanvas(QObject):
                 StrokeItem, RectItem, EllipseItem, ArrowItem, 
                 TextItem, NumberItem
             )
-            from canvas.items import MosaicItem
-            
+            from canvas.items import MosaicItem, SpotlightItem
+
             # 根据类型进行克隆
             if isinstance(item, StrokeItem):
                 return self._clone_stroke_item(item)
             elif isinstance(item, MosaicItem):
                 return self._clone_mosaic_item(item)
+            elif isinstance(item, SpotlightItem):
+                # 必须排在 RectItem 前面：孔也是矩形，落进下面会被克隆成一个普通矩形
+                return self._clone_spotlight_item(item)
             elif isinstance(item, RectItem):
                 return self._clone_rect_item(item)
             elif isinstance(item, EllipseItem):
@@ -312,7 +315,14 @@ class PinCanvas(QObject):
             fill_mode=item.fill_mode(),
             smooth=item.smooth(),
         )
-    
+
+    def _clone_spotlight_item(self, item):
+        """克隆聚光灯的孔。暗度属于整张幕布、不在孔上，要单独搬到钉图场景的幕布。"""
+        from canvas.items import SpotlightCurtain, SpotlightItem
+
+        SpotlightCurtain.of(self.scene).setOpacity(item.get_visual_opacity())
+        return SpotlightItem(QRectF(item.rect()), item.get_corner_radius())
+
     def _clone_rect_item(self, item):
         """克隆矩形项目"""
         from canvas.items.drawing_items import RectItem

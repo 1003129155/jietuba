@@ -5,7 +5,7 @@
 from PySide6.QtWidgets import QGraphicsScene
 from PySide6.QtCore import Signal, Qt
 
-from .items import BackgroundItem, SelectionItem
+from .items import BackgroundItem, SelectionItem, SpotlightCurtain
 from .selection_model import SelectionModel
 from .undo import CommandUndoStack
 # 注意：tools 的导入放在 __init__ 内部（延迟导入）。
@@ -50,6 +50,9 @@ class CanvasScene(QGraphicsScene):
         
         # Z-Order:
         # 0: Background
+        # 5: Mosaic Items
+        # 6: Spotlight Curtain（整个场景一张幕布，挖掉所有聚光灯的孔）
+        # 7: Spotlight Items（孔本身，只画选中虚线框）
         # 10: Highlighter Items (由工具创建)
         # 20: Normal Drawing Items (由工具创建)
         # 30: Text Items（始终位于普通绘制标注之上）
@@ -86,7 +89,7 @@ class CanvasScene(QGraphicsScene):
         from tools import ToolController, ToolContext
         from tools import (
             PenTool, RectTool, EllipseTool, ArrowTool,
-            TextTool, NumberTool, HighlighterTool, CursorTool, EraserTool, MosaicTool
+            TextTool, NumberTool, HighlighterTool, CursorTool, EraserTool, MosaicTool, SpotlightTool
         )
 
         ctx = ToolContext(
@@ -112,6 +115,7 @@ class CanvasScene(QGraphicsScene):
         self.tool_controller.register(HighlighterTool())
         if enable_mosaic:
             self.tool_controller.register(MosaicTool())
+        self.tool_controller.register(SpotlightTool())
         self.tool_controller.register(EraserTool())  # 橡皮擦工具
         
         # 默认激活光标工具（表示无绘制工具激活，SmartEditController负责选择/编辑交互）
@@ -191,6 +195,10 @@ class CanvasScene(QGraphicsScene):
             
             # 排除画笔指示器（Z值=10000的QGraphicsEllipseItem）
             if isinstance(item, QGraphicsEllipseItem) and item.zValue() >= 10000:
+                continue
+
+            # 幕布是从聚光灯派生出来的，不是独立的标注：克隆聚光灯时新场景会自己长出幕布
+            if isinstance(item, SpotlightCurtain):
                 continue
             
             drawing_items.append(item)

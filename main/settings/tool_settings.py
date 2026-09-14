@@ -109,6 +109,9 @@ class ToolSettingsManager(QObject):
             "draw_mode": "freehand",  # freehand / rect
             "style": "pixelate",  # pixelate / blur
         },
+        "spotlight": {
+            "opacity": 0.5,  # 幕布暗度（整个场景一张黑色幕布，所有聚光灯共用）
+        },
         "rect": {
             "color": "#FF0000",  # 红色
             "stroke_width": 9,
