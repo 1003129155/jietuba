@@ -114,9 +114,14 @@ class _ClipboardFeatureAnimation(QWidget):
         except Exception as e:
             log_exception(e, T("订阅剪贴板外观变化"))
             return
-        manager.theme_changed.connect(lambda *_: self.update())
+        # 主题管理器是全局单例，页面关掉后它照样发信号。接收方必须是控件自己的方法：
+        # Qt 只会在接收方销毁时自动断开这种连接，捕获 self 的 lambda 会一直挂着。
+        manager.theme_changed.connect(self._on_theme_changed)
         manager.font_size_changed.connect(self._on_font_size_changed)
         manager.opacity_changed.connect(self._on_opacity_changed)
+
+    def _on_theme_changed(self, _theme):
+        self.update()
 
     def _refresh_appearance_from_config(self):
         try:

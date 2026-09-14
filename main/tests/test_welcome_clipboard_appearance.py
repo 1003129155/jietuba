@@ -157,3 +157,35 @@ class TestClipboardAppearanceControls:
             assert page._opacity_combo.itemText(index) != "0%"
         finally:
             page.close()
+
+# ============================================================================
+# 预览的生命周期
+# ============================================================================
+
+class TestPreviewLifetime:
+
+    def test_theme_change_after_the_page_is_gone_touches_nothing(
+        self, qapp, tmp_path, monkeypatch, restore_clipboard_theme
+    ):
+        """主题管理器是全局单例，欢迎页关掉之后它照样会发 theme_changed。
+
+        预览要是用捕获 self 的 lambda 订阅，连接不会随控件销毁断开，下次切主题就会
+        去调一个已经删掉的 C++ 对象；这种异常在 Qt 事件循环里被吞掉，界面上看不出来。
+        """
+        import gc
+        import sys
+
+        errors = []
+        monkeypatch.setattr(sys, "excepthook", lambda kind, value, tb: errors.append(f"{kind.__name__}: {value}"))
+
+        page = ClipboardHotkeyPage(_manager(tmp_path))
+        page.close()
+        del page
+        gc.collect()
+        qapp.processEvents()
+
+        current = restore_clipboard_theme.get_current_theme().name
+        restore_clipboard_theme.set_theme("pink" if current != "pink" else "light")
+        qapp.processEvents()
+
+        assert errors == []
