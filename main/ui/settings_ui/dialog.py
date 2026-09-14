@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
 )
 from PySide6.QtCore import QSize, Qt, Signal
-from ui.dialogs import show_info_dialog
+from ui.dialogs import show_info_dialog, show_warning_dialog
 from PySide6.QtGui import QColor, QFont, QIcon
 
 from ui.fluent_lite import (
@@ -24,7 +24,7 @@ from ui.fluent_lite import (
     PrimaryPushButton, TransparentPushButton,
     FrostedFramelessDialog,
 )
-from ui.fluent_lite import FluentTitleBar
+from ui.fluent_lite import FluentTitleBar, scrollbar_qss
 from ui.fluent_lite.theme import ACCENT, ACCENT_HOVER, ACCENT_PRESSED
 
 from core import log_info, safe_event
@@ -32,7 +32,7 @@ from core.logger import log_exception, T
 from core.constants import CSS_FONT_FAMILY, DEFAULT_FONT_FAMILY
 
 # 页面创建函数
-from .page_hotkey import create_hotkey_page
+from .page_hotkey import create_hotkey_page, validate_global_hotkey_edits
 from .page_capture import create_capture_page
 from .page_clipboard import create_clipboard_page
 from .page_translation import create_translation_page
@@ -802,6 +802,21 @@ class SettingsDialog(FrostedFramelessDialog):
 
     def accept(self):
         """保存所有设置"""
+        # 六个全局快捷键必须先整体通过校验。这里发生在任何 set_* 之前，
+        # 因而冲突值不会写入配置，窗口也不会关闭。
+        if not validate_global_hotkey_edits(self, check_system=True):
+            self.content_stack.setCurrentIndex(0)
+            self._set_current_nav("shortcuts")
+            show_warning_dialog(
+                self,
+                self.tr("Shortcut Conflict"),
+                self.tr(
+                    "Some global hotkeys are duplicated or unavailable. "
+                    "Please fix them before applying."
+                ),
+            )
+            return
+
         # 防止保存过程中（比如语言切换触发的窗口重建）触发未保存确认弹窗
         self._skip_unsaved_close_prompt = True
 
@@ -1076,16 +1091,7 @@ class SettingsDialog(FrostedFramelessDialog):
             QStackedWidget {{
                 background: transparent;
             }}
-            QScrollBar:vertical {{
-                width: 7px; margin: 3px 0; background: transparent;
-            }}
-            QScrollBar::handle:vertical {{
-                min-height: 34px; background: rgba(93, 110, 126, 0.30); border-radius: 3px;
-            }}
-            QScrollBar::handle:vertical:hover {{ background: rgba(72, 89, 105, 0.46); }}
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
-            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: transparent; }}
-        """)
+        """ + scrollbar_qss(self))
 
     def _on_ui_theme_changed(self, _tokens):
         """Rebuild window-local styles after an OS or user theme change."""
@@ -1472,19 +1478,6 @@ class SettingsDialog(FrostedFramelessDialog):
         # 剪切板主题色同步（在别处改了主题色后打开设置，确保显示最新值）
         if hasattr(self, '_clip_theme_btn'):
             from settings import get_tool_settings_manager
-            from .page_appearance import _THEME_COLORS
-            current_name = get_tool_settings_manager().get_clipboard_theme()
-            self._clip_theme_name = current_name
-            for tname, accent, bg in _THEME_COLORS:
-                if tname == current_name:
-                    self._clip_theme_btn.setStyleSheet(f"""
-                        QPushButton {{
-                            background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
-                                stop:0 {bg}, stop:0.5 {bg},
-                                stop:0.5 {accent}, stop:1 {accent});
-                            border: 2px solid {accent};
-                            border-radius: 3px;
-                        }}
-                        QPushButton:hover {{ border: 2px solid #333; }}
-                    """)
-                    break 
+            from .page_appearance import _apply_clip_theme_btn_style
+            self._clip_theme_name = get_tool_settings_manager().get_clipboard_theme()
+            _apply_clip_theme_btn_style(self._clip_theme_btn, self._clip_theme_name)

@@ -15,6 +15,7 @@ from .highlighter import HighlighterTool
 from .cursor import CursorTool
 from .eraser import EraserTool
 from .mosaic import MosaicTool
+from .spotlight import SpotlightTool
 
 __all__ = [
     'Tool', 
@@ -29,5 +30,6 @@ __all__ = [
     'NumberTool',
     'HighlighterTool',
     'EraserTool',
-    'MosaicTool'
+    'MosaicTool',
+    'SpotlightTool'
 ]

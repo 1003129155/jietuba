@@ -8,7 +8,7 @@
 # 1.0  → 默认尺寸
 # 0.8  → 缩小 20%
 # 1.2  → 放大 20%
-PANEL_SCALE: float = 0.95
+PANEL_SCALE: float = 0.90
 from PySide6.QtWidgets import (
     QWidget,
     QPushButton,

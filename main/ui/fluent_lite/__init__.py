@@ -18,7 +18,7 @@ from .labels import BodyLabel, CaptionLabel
 from .navigation import NavigationInterface, NavigationItemPosition
 from .segmented import SegmentedWidget
 from .switch import SwitchButton
-from .theme import ACCENT, FONT_FAMILY, ui_tokens
+from .theme import ACCENT, FONT_FAMILY, scrollbar_qss, ui_tokens
 from .titlebar import FluentTitleBar
 
 
@@ -94,5 +94,5 @@ __all__ = [
     "DoubleSpinBox", "RadioButton", "SwitchButton", "SegmentedWidget", "FluentIcon",
     "SettingCard", "SwitchSettingCard", "SettingCardGroup", "SimpleCardWidget",
     "NavigationInterface", "NavigationItemPosition", "FluentTitleBar", "FramelessDialog",
-    "FrostedFramelessDialog",
+    "FrostedFramelessDialog", "scrollbar_qss",
 ]

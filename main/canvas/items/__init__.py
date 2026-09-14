@@ -7,12 +7,14 @@ from .background_item import BackgroundItem
 from .selection_item import SelectionItem
 from .mosaic_item import MosaicItem
 from .drawing_items import (
-    StrokeItem, RectItem, EllipseItem, ArrowItem, 
+    StrokeItem, RectItem, EllipseItem, ArrowItem,
     TextItem, NumberItem
 )
+from .spotlight_item import SpotlightCurtain, SpotlightItem
 
 __all__ = [
     'BackgroundItem', 'SelectionItem',
     'StrokeItem', 'RectItem', 'EllipseItem', 'ArrowItem',
-    'TextItem', 'NumberItem', 'MosaicItem'
+    'TextItem', 'NumberItem', 'MosaicItem',
+    'SpotlightCurtain', 'SpotlightItem'
 ]

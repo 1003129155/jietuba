@@ -397,10 +397,6 @@ class PreloadManager:
         """预加载 OCR 模块和引擎（在后台线程中完成，避免阻塞主线程）"""
         from core.logger import log_debug, log_info, log_warning, T
         try:
-            if not self.config.get_ocr_enabled():
-                log_debug(T("OCR 功能已禁用，跳过预加载"), "OCR")
-                return
-
             log_info(T("开始在后台线程预加载 OCR 模块和引擎..."), "OCR")
 
             from PySide6.QtCore import QThread

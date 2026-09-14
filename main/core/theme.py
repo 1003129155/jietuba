@@ -107,4 +107,13 @@ class ThemeManager:
 def get_theme() -> ThemeManager:
     """获取全局主题管理器单例"""
     return ThemeManager()
+
+
+def contrast_ink(background: QColor) -> QColor:
+    """压在 background 上的图样、文字该用深色还是白色。
+
+    主题色是用户可改的，按亮度取黑或白，保证任何主题色上都看得清。
+    """
+    luminance = 0.299 * background.red() + 0.587 * background.green() + 0.114 * background.blue()
+    return QColor(20, 20, 20) if luminance > 150 else QColor(255, 255, 255)
  

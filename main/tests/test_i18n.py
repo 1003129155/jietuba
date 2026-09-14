@@ -179,3 +179,119 @@ def test_clipboard_delete_confirmation_is_compiled_in_its_calling_context(
     qm_path = translations_dir / f"app_{language}.qm"
     assert translator.load(str(qm_path))
     assert translator.translate("ClipboardWindow", source) == expected
+
+
+@pytest.mark.parametrize(
+    "language",
+    ["en", "ja", "ko", "zh"],
+)
+def test_hotkey_registration_error_is_compiled_in_main_app_context(language):
+    """热键注册失败弹窗及备用热键名称必须随界面语言显示。"""
+    from core.i18n import I18nManager
+
+    translations_dir = I18nManager.get_translations_dir()
+    sources = (
+        "Screenshot (2)",
+        "Translation (2)",
+        "Clipboard (2)",
+        "Hotkey Registration Failed",
+        "The following hotkeys failed to register:",
+        "The hotkey may be occupied by other programs. Please try a different combination.",
+    )
+    context = next(
+        context
+        for context in ET.parse(translations_dir / f"app_{language}.xml")
+        .getroot()
+        .findall("context")
+        if context.findtext("name") == "MainApp"
+    )
+    expected = {
+        message.findtext("source"): message.findtext("translation")
+        for message in context.findall("message")
+    }
+
+    translator = QTranslator()
+    qm_path = translations_dir / f"app_{language}.qm"
+    assert translator.load(str(qm_path))
+    for source in sources:
+        assert source in expected
+        assert translator.translate("MainApp", source) == expected[source]
+
+
+@pytest.mark.parametrize(
+    "language",
+    ["en", "ja", "ko", "zh"],
+)
+@pytest.mark.parametrize(
+    ("context_name", "source"),
+    [
+        # 逐条冲突提示由录入框组件自己发出，设置窗口和欢迎向导共用这一份
+        ("HotkeyEdit", "This hotkey is assigned more than once."),
+        (
+            "SettingsDialog",
+            "Some global hotkeys are duplicated or unavailable. "
+            "Please fix them before applying.",
+        ),
+    ],
+)
+def test_global_hotkey_conflict_is_compiled_in_its_owning_context(
+    language, context_name, source
+):
+    """全局热键校验提示必须随界面语言显示，且落在真正发出它的上下文里。"""
+    from core.i18n import I18nManager
+
+    translations_dir = I18nManager.get_translations_dir()
+    # 同名上下文在 xml 里可能分成多块，全部合并后再查
+    expected = {
+        message.findtext("source"): message.findtext("translation")
+        for context in ET.parse(translations_dir / f"app_{language}.xml")
+        .getroot()
+        .findall("context")
+        if context.findtext("name") == context_name
+        for message in context.findall("message")
+    }
+
+    translator = QTranslator()
+    qm_path = translations_dir / f"app_{language}.qm"
+    assert translator.load(str(qm_path))
+    assert source in expected
+    assert translator.translate(context_name, source) == expected[source]
+
+
+def _compiled_toolbar_customization_sources():
+    from ui.toolbar_layout_dialog import BUTTON_NAMES, MODE_NAMES
+
+    dialog_sources = [
+        *BUTTON_NAMES.values(),
+        *(text for _mode, text in MODE_NAMES),
+        "Customize Toolbar",
+        "This button can't be hidden",
+        "Drag the handle to reorder. Use the drop-down to change visibility.",
+        "Restore defaults",
+        "OK",
+        "Cancel",
+    ]
+    return [("Toolbar", "More"), ("Toolbar", "Adjust")] + [
+        ("ToolbarLayoutDialog", source) for source in dialog_sources
+    ]
+
+
+@pytest.mark.parametrize("language", ["en", "ja", "ko", "zh"])
+def test_toolbar_customization_texts_are_compiled_in_their_contexts(language):
+    """「…」弹层和排布对话框的文案必须随界面语言显示，且落在各自发出它的上下文里。"""
+    from core.i18n import I18nManager
+
+    translations_dir = I18nManager.get_translations_dir()
+    root = ET.parse(translations_dir / f"app_{language}.xml").getroot()
+    translator = QTranslator()
+    assert translator.load(str(translations_dir / f"app_{language}.qm"))
+
+    for context_name, source in _compiled_toolbar_customization_sources():
+        expected = {
+            message.findtext("source"): message.findtext("translation")
+            for context in root.findall("context")
+            if context.findtext("name") == context_name
+            for message in context.findall("message")
+        }
+        assert expected.get(source), (context_name, source)
+        assert translator.translate(context_name, source) == expected[source]

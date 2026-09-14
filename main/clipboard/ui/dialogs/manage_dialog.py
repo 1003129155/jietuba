@@ -39,6 +39,7 @@ from ui.fluent_lite import (
     PrimaryPushButton,
     FluentTitleBar,
     FrostedFramelessDialog,
+    scrollbar_qss,
 )
 from core import safe_event
 from core.ui_theme import get_ui_theme
@@ -193,39 +194,7 @@ class ManageDialog(FrostedFramelessDialog):
                 border-color: {tokens.accent};
                 background: {tokens.surface_strong};
             }}
-            QScrollBar:vertical {{
-                width: {scale_x(7)}px;
-                background: transparent;
-            }}
-            QScrollBar::handle:vertical {{
-                min-height: {scale_y(24)}px;
-                background: {tokens.border_hover};
-                border-radius: {scale_ui(3)}px;
-            }}
-            QScrollBar::handle:vertical:hover {{
-                background: {tokens.accent};
-            }}
-            QScrollBar::add-line:vertical,
-            QScrollBar::sub-line:vertical {{
-                height: 0;
-            }}
-            QScrollBar:horizontal {{
-                height: {scale_y(7)}px;
-                background: transparent;
-            }}
-            QScrollBar::handle:horizontal {{
-                min-width: {scale_x(24)}px;
-                background: {tokens.border_hover};
-                border-radius: {scale_ui(3)}px;
-            }}
-            QScrollBar::handle:horizontal:hover {{
-                background: {tokens.accent};
-            }}
-            QScrollBar::add-line:horizontal,
-            QScrollBar::sub-line:horizontal {{
-                width: 0;
-            }}
-        """)
+        """ + scrollbar_qss(self))
 
         self.nav_column.setStyleSheet(
             "QWidget#ManageNavColumn {"
@@ -328,21 +297,6 @@ class ManageDialog(FrostedFramelessDialog):
                     self,
                 )
             )
-        emoji_scroll = getattr(self, "_emoji_scroll", None)
-        if _qt_object_is_valid(emoji_scroll):
-            emoji_scroll.setStyleSheet(f"""
-                QScrollArea {{ border: none; background: transparent; }}
-                QScrollBar:vertical {{
-                    width: {scale_x(6)}px; background: transparent;
-                }}
-                QScrollBar::handle:vertical {{
-                    background: {tokens.border_hover};
-                    border-radius: {scale_ui(3)}px;
-                    min-height: {scale_y(20)}px;
-                }}
-                QScrollBar::add-line:vertical,
-                QScrollBar::sub-line:vertical {{ height: 0px; }}
-            """)
         import_export_separator = getattr(
             self, "import_export_separator", None
         )

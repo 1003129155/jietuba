@@ -270,6 +270,10 @@
         <translation>Shortcut Conflict</translation>
     </message>
     <message>
+        <source>Some global hotkeys are duplicated or unavailable. Please fix them before applying.</source>
+        <translation>Some global hotkeys are duplicated or unavailable. Please fix them before applying.</translation>
+    </message>
+    <message>
         <source>Some in-app shortcuts conflict within the same group. Please fix them first.</source>
         <translation>Some in-app shortcuts conflict within the same group. Please fix them first.</translation>
     </message>
@@ -486,12 +490,12 @@ Replace it?</translation>
         <translation>or contact the developer:</translation>
     </message>
     <message>
-        <source>Enable OCR</source>
-        <translation>Enable OCR</translation>
+        <source>Automatically recognize text after pinning</source>
+        <translation>Automatically recognize text after pinning</translation>
     </message>
     <message>
-        <source>Enables text recognition and selection in pinned windows.</source>
-        <translation>Enables text recognition and selection in pinned windows.</translation>
+        <source>On very low-end computers, OCR after pinning may cause a brief stutter. Turn off automatic recognition if needed.</source>
+        <translation>On very low-end computers, OCR after pinning may cause a brief stutter. Turn off automatic recognition if needed.</translation>
     </message>
     <message>
         <source>Auto language detection: Supports Chinese, Japanese, English mixed recognition</source>
@@ -819,12 +823,24 @@ Replace it?</translation>
 <context>
     <name>Toolbar</name>
     <message>
+        <source>More</source>
+        <translation>More</translation>
+    </message>
+    <message>
+        <source>Adjust</source>
+        <translation>Adjust</translation>
+    </message>
+    <message>
         <source>Ctrl+click any editable annotation to edit it temporarily</source>
         <translation>Ctrl+click any editable annotation to edit it temporarily</translation>
     </message>
     <message>
         <source>Mosaic (mouse wheel to resize)</source>
         <translation>Mosaic (mouse wheel to resize)</translation>
+    </message>
+    <message>
+        <source>Spotlight (dim outside the box)</source>
+        <translation>Spotlight (dim outside the box)</translation>
     </message>
     <message>
         <source>Long screenshot (scroll)</source>
@@ -881,6 +897,10 @@ Replace it?</translation>
     <message>
         <source>Screenshot translate (OCR + Translate)</source>
         <translation>Screenshot translate (OCR + Translate)</translation>
+    </message>
+    <message>
+        <source>Scan QR code / barcode</source>
+        <translation>Scan QR code / barcode</translation>
     </message>
     <message>
         <source>Recognizing...</source>
@@ -1018,6 +1038,22 @@ Replace it?</translation>
     <message>
         <source>Translate OCR text</source>
         <translation>Translate OCR text</translation>
+    </message>
+    <message>
+        <source>Translate (Text Recognition)</source>
+        <translation>Translate (Text Recognition)</translation>
+    </message>
+    <message>
+        <source>OCR recognition could not be started</source>
+        <translation>OCR recognition could not be started</translation>
+    </message>
+    <message>
+        <source>No text was recognized</source>
+        <translation>No text was recognized</translation>
+    </message>
+    <message>
+        <source>OCR recognition failed: {error}</source>
+        <translation>OCR recognition failed: {error}</translation>
     </message>
     <message>
         <source>Thumbnail mode</source>
@@ -1170,6 +1206,12 @@ Replace it?</translation>
     <message><source>Clipboard</source><translation>Clipboard</translation></message>
     <message><source>Settings</source><translation>Settings</translation></message>
     <message><source>Exit</source><translation>Exit</translation></message>
+    <message><source>Screenshot (2)</source><translation>Screenshot (2)</translation></message>
+    <message><source>Translation (2)</source><translation>Translation (2)</translation></message>
+    <message><source>Clipboard (2)</source><translation>Clipboard (2)</translation></message>
+    <message><source>Hotkey Registration Failed</source><translation>Hotkey Registration Failed</translation></message>
+    <message><source>The following hotkeys failed to register:</source><translation>The following hotkeys failed to register:</translation></message>
+    <message><source>The hotkey may be occupied by other programs. Please try a different combination.</source><translation>The hotkey may be occupied by other programs. Please try a different combination.</translation></message>
     <message><source>Close all pinned windows</source><translation>Close all pinned windows</translation></message>
     <message><source>Current pinned windows: {count}</source><translation>Current pinned windows: {count}</translation></message>
     <message><source>Move all pins to center</source><translation>Move all pins to center</translation></message>
@@ -2578,18 +2620,6 @@ Replace it?</translation>
         <translation>📸 Screenshot Settings</translation>
     </message>
     <message>
-        <source>设置快捷键与截图的默认保存位置。</source>
-        <translation>Set your hotkey and default save folder for screenshots.</translation>
-    </message>
-    <message>
-        <source>快捷键（最多设置两个）</source>
-        <translation>Hotkeys (up to 2)</translation>
-    </message>
-    <message>
-        <source>单击输入框后，直接按下目标组合键即可录入。</source>
-        <translation>Click the input, then press your desired key combo.</translation>
-    </message>
-    <message>
         <source>截图保存位置</source>
         <translation>Screenshot Save Folder</translation>
     </message>
@@ -2649,30 +2679,10 @@ Supports text, images, files and groups.</translation>
         <source>关闭后不会记录复制内容，快捷键也不会激活窗口。</source>
         <translation>Disabled: no history saved, hotkey inactive.</translation>
     </message>
-    <message>
-        <source>程序还会尝试注册 Win+V 作为额外备用。</source>
-        <translation>App will also try to register Win+V as extra backup.</translation>
-    </message>
     <!-- page4 -->
     <message>
         <source>智能选区</source>
         <translation>Smart Selection</translation>
-    </message>
-    <message>
-        <source>截图时将鼠标悬停在任意窗口上，自动识别并高亮其边界。
-单击即可精准截取该窗口；也可以像平时一样拖拽框选任意区域。</source>
-        <translation>Hover over any window during screenshot mode to auto-detect and highlight its boundary.
-Click to capture it instantly, or drag to select any area as usual.</translation>
-    </message>
-    <message>
-        <source>🪟 启用智能选区</source>
-        <translation>🪟 Enable Smart Selection</translation>
-    </message>
-    <message>
-        <source>开启：悬停自动高亮窗口，单击即完成截取。
-关闭：恢复手动拖拽框选模式。</source>
-        <translation>On: hover to highlight a window, click to capture it.
-Off: use manual drag-to-select mode.</translation>
     </message>
     <!-- page5 -->
     <message>
@@ -2792,6 +2802,90 @@ You can tweak more options in Settings anytime.</translation>
     <message>
         <source>中文</source>
         <translation>English</translation>
+    </message>
+    <message>
+        <source>快捷键</source>
+        <translation>Shortcuts</translation>
+    </message>
+    <message>
+        <source>三个全局功能各可设置一个主快捷键和一个备用快捷键。</source>
+        <translation>Each of the three global features can have a primary and a backup shortcut.</translation>
+    </message>
+    <message>
+        <source>主快捷键</source>
+        <translation>Primary</translation>
+    </message>
+    <message>
+        <source>备用</source>
+        <translation>Backup</translation>
+    </message>
+    <message>
+        <source>截图</source>
+        <translation>Screenshot</translation>
+    </message>
+    <message>
+        <source>智能翻译</source>
+        <translation>Translation</translation>
+    </message>
+    <message>
+        <source>点击输入框后，按下快捷键或鼠标侧键即可录入。</source>
+        <translation>Click a field, then press a key combination or a mouse side button.</translation>
+    </message>
+    <message>
+        <source>设置截图的保存方式与选区方式。</source>
+        <translation>Choose how and where screenshots are saved, and how you select an area.</translation>
+    </message>
+    <message>
+        <source>自动保存截图</source>
+        <translation>Auto-save Screenshots</translation>
+    </message>
+    <message>
+        <source>关闭时截图只复制到剪贴板，不落盘。</source>
+        <translation>When off, screenshots are only copied to the clipboard.</translation>
+    </message>
+    <message>
+        <source>保存格式</source>
+        <translation>Save Format</translation>
+    </message>
+    <message>
+        <source>悬停时自动识别窗口边界，单击即可精准截取。</source>
+        <translation>Highlights window borders under the cursor; one click captures it.</translation>
+    </message>
+    <message>
+        <source>剪贴板外观</source>
+        <translation>Clipboard Appearance</translation>
+    </message>
+    <message>
+        <source>Azure API Key</source>
+        <translation>Azure API Key</translation>
+    </message>
+    <message>
+        <source>Azure Region</source>
+        <translation>Azure Region</translation>
+    </message>
+    <message>
+        <source>Azure Endpoint</source>
+        <translation>Azure Endpoint</translation>
+    </message>
+    <message>
+        <source>Optional, use default if empty</source>
+        <translation>Optional, use default if empty</translation>
+    </message>
+    <message>
+        <source>鼠标侧键</source>
+        <translation>Side buttons</translation>
+    </message>
+    <message>
+        <source>可设为快捷键</source>
+        <translation>Can be bound</translation>
+    </message>
+    <message>
+        <source>不可用</source>
+        <translation>Not available</translation>
+    </message>
+    <message>
+        <source>当前按下</source>
+        <translation>Currently pressed</translation>
     </message>
 </context>
 
@@ -3091,6 +3185,163 @@ SOFTWARE.</translation></message>
     <message>
         <source>Change Mosaic Size</source>
         <translation>Change Mosaic Size</translation>
+    </message>
+</context>
+<context>
+    <name>HotkeyEdit</name>
+    <message>
+        <source>This hotkey is assigned more than once.</source>
+        <translation>This hotkey is assigned more than once.</translation>
+    </message>
+</context>
+<context>
+    <name>ToolbarLayoutDialog</name>
+    <message>
+        <source>Customize Toolbar</source>
+        <translation>Customize Toolbar</translation>
+    </message>
+    <message>
+        <source>Always show</source>
+        <translation>Always show</translation>
+    </message>
+    <message>
+        <source>In more menu</source>
+        <translation>In more menu</translation>
+    </message>
+    <message>
+        <source>Always hide</source>
+        <translation>Always hide</translation>
+    </message>
+    <message>
+        <source>This button can't be hidden</source>
+        <translation>This button can't be hidden</translation>
+    </message>
+    <message>
+        <source>Drag the handle to reorder. Use the drop-down to change visibility.</source>
+        <translation>Drag the handle to reorder. Use the drop-down to change visibility.</translation>
+    </message>
+    <message>
+        <source>Restore defaults</source>
+        <translation>Restore defaults</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Long screenshot</source>
+        <translation>Long screenshot</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>Save</translation>
+    </message>
+    <message>
+        <source>Screenshot translate</source>
+        <translation>Screenshot translate</translation>
+    </message>
+    <message>
+        <source>Scan code</source>
+        <translation>Scan code</translation>
+    </message>
+    <message>
+        <source>GIF recording</source>
+        <translation>GIF recording</translation>
+    </message>
+    <message>
+        <source>Pen</source>
+        <translation>Pen</translation>
+    </message>
+    <message>
+        <source>Highlighter</source>
+        <translation>Highlighter</translation>
+    </message>
+    <message>
+        <source>Mosaic</source>
+        <translation>Mosaic</translation>
+    </message>
+    <message>
+        <source>Spotlight</source>
+        <translation>Spotlight</translation>
+    </message>
+    <message>
+        <source>Arrow</source>
+        <translation>Arrow</translation>
+    </message>
+    <message>
+        <source>Number</source>
+        <translation>Number</translation>
+    </message>
+    <message>
+        <source>Rectangle</source>
+        <translation>Rectangle</translation>
+    </message>
+    <message>
+        <source>Ellipse</source>
+        <translation>Ellipse</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>Text</translation>
+    </message>
+    <message>
+        <source>Eraser</source>
+        <translation>Eraser</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>Undo</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>Redo</translation>
+    </message>
+    <message>
+        <source>Cancel screenshot</source>
+        <translation>Cancel screenshot</translation>
+    </message>
+    <message>
+        <source>Pin image</source>
+        <translation>Pin image</translation>
+    </message>
+    <message>
+        <source>Confirm</source>
+        <translation>Confirm</translation>
+    </message>
+</context>
+<context>
+    <name>BarcodeResultWindow</name>
+    <message>
+        <source>Scan result</source>
+        <translation>Scan result</translation>
+    </message>
+    <message>
+        <source>Found %1 code(s)</source>
+        <translation>Found %1 code(s)</translation>
+    </message>
+    <message>
+        <source>No QR code or barcode found</source>
+        <translation>No QR code or barcode found</translation>
+    </message>
+    <message>
+        <source>Make sure the whole code is inside the selection.</source>
+        <translation>Make sure the whole code is inside the selection.</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>Copy</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>Copied</translation>
+    </message>
+    <message>
+        <source>Open link</source>
+        <translation>Open link</translation>
     </message>
 </context>
 </TS>

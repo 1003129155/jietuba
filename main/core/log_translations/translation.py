@@ -32,7 +32,7 @@ TRANSLATIONS: dict[str, str] = {
     "翻译窗口已关闭，清理资源": "Translation window closed, cleaning up resources",
     "退出时翻译网络线程未在期限内结束": "Translation network thread did not finish within the deadline at shutdown",
     "TranslationManager 已清理": "TranslationManager cleaned up",
-    "截图翻译模式：显示窗口并启动OCR": "Screenshot translation mode: showing window and starting OCR",
+    "OCR 翻译模式：显示窗口并等待识别结果": "OCR translation mode: showing window and waiting for recognition result",
     "传入 pixmap 为空，跳过OCR": "Provided pixmap is empty, skipping OCR",
     "QImage 转换失败，跳过OCR": "QImage conversion failed, skipping OCR",
     "OCR线程已启动": "OCR thread started",

@@ -10,7 +10,7 @@
 
 截图吧是一款面向 Windows x86_64 和 ARM64 的截图与剪贴板管理软件，使用 PySide6 构建界面，使用 Rust 实现图像处理、剪贴板操作和 OCR 等功能。
 
-支持区域截图、窗口智能识别、GIF录制、长截图拼接、OCR文字识别、图像钉图、翻译、马赛克、PDF 导出等功能，并内置了完整的剪切板历史管理系统，不限图片来源可以联动截图模块生成钉图或者提取文字。
+支持区域截图、窗口智能识别、GIF录制、长截图拼接、OCR文字识别、二维码/条形码识别、图像钉图、翻译、马赛克、PDF 导出等功能，并内置了完整的剪切板历史管理系统，不限图片来源可以联动截图模块生成钉图或者提取文字。
 
 提供可直接运行的 Windows 发行包，也支持从源码运行。
 
@@ -134,6 +134,7 @@ python -m pytest main/tests -c main/tests/pytest.ini
 │   ├── compile_translations.py  # 翻译文件编译工具（.xml → .qm）
 │   ├── scripts/             # 辅助脚本 — 翻译提供商对比
 │   │
+│   ├── barcode/             # 扫码模块 — 二维码/条形码识别（zxing-cpp）
 │   ├── canvas/              # 画布模块 — 图形编辑核心
 │   ├── capture/             # 截图捕获模块 — 屏幕截图与窗口识别
 │   ├── clipboard/           # 剪切板管理模块 — 历史记录、分组/快速启动、导入导出、搜索
@@ -168,6 +169,29 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 ## 模块详细说明
 
+### barcode/ — 扫码模块
+
+识别截图选区里的二维码和条形码。结果窗口左侧在截图上标出每个码的位置，右侧按序号列出内容。
+
+<details>
+<summary>展开目录结构</summary>
+
+```text
+barcode/
+├── __init__.py
+├── reader.py                # read_codes / DecodedCode — 基于 zxing-cpp 解码，按阅读顺序给出内容、格式与轮廓
+└── result_window.py         # BarcodeResultWindow — 扫码结果窗口，截图与结果列表按序号对应
+```
+
+</details>
+
+**核心功能：**
+- 支持 QR Code、Data Matrix、Aztec、PDF417 及 Code 128、EAN/UPC 等常见一维码
+- 一次识别选区内的多个码，悬停截图或列表中的任一项，两边同时高亮
+- 内容一键复制；http(s) 链接可直接在浏览器打开
+
+---
+
 ### canvas/ — 画布模块
 
 图形编辑画布系统，提供场景管理、视图渲染、图形项选择和撤销/重做功能。
@@ -189,6 +213,7 @@ canvas/
     ├── drawing_items.py     # StrokeItem / RectItem / EllipseItem / ArrowItem / TextItem / NumberItem — 所有绘制项目
     ├── background_item.py   # BackgroundItem — 选区背景底图
     ├── mosaic_item.py       # MosaicItem — 马赛克图形项
+    ├── spotlight_item.py    # SpotlightItem / SpotlightCurtain — 聚光灯的孔与共用幕布
     └── selection_item.py    # SelectionItem — 选中项的边界显示框
 ```
 
@@ -501,6 +526,7 @@ tools/
 ├── number.py                # NumberTool — 数字编号工具（自动递增）
 ├── highlighter.py           # HighlighterTool — 荧光笔工具
 ├── mosaic.py                # MosaicTool — 马赛克工具
+├── spotlight.py             # SpotlightTool — 聚光灯工具（压暗框外区域）
 ├── cursor.py                # CursorTool — 光标/选择工具
 ├── eraser.py                # EraserTool — 橡皮擦工具
 └── cursor_manager.py        # CursorManager — 光标样式管理器
@@ -590,6 +616,8 @@ translations/
 ui/
 ├── __init__.py
 ├── toolbar.py               # Toolbar / _DragHandle — 可拖动工具栏基类
+├── toolbar_layout.py        # 截图工具栏按钮排布（顺序 / 显示方式）的归一化与读写
+├── toolbar_layout_dialog.py # ToolbarLayoutDialog — 截图工具栏排布对话框
 ├── tray_menu.py             # TrayMenu — 系统托盘菜单
 ├── screenshot_window.py     # ScreenshotWindow — 截图主窗口（全屏覆盖、选区绘制）
 ├── dialogs.py               # StandardDialog / 对话框函数集 — 确认、警告、信息、错误对话框
@@ -677,6 +705,7 @@ tests/
 ├── run_tests.py             # 测试运行脚本
 ├── test_drawing_tools.py    # 绘图工具测试（笔/矩形/箭头/文字/数字/荧光笔）
 ├── test_mosaic_tool.py      # 马赛克工具测试
+├── test_spotlight.py        # 聚光灯测试
 ├── test_functional_handles.py # 控制点编辑测试
 ├── test_capture_service.py  # 截图服务测试
 ├── test_clipboard_api.py    # 剪切板公共 API 测试

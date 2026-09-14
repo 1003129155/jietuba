@@ -64,6 +64,10 @@ def test_settings_dialog_saves_double_click_toggle(monkeypatch, qapp, tmp_path):
     manager = _manager(tmp_path)
     manager.set_log_dir(str(tmp_path))
     monkeypatch.setattr("ui.settings_ui.dialog.log_info", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        "core.shortcut_manager.HotkeySystem.check_hotkey_availability",
+        lambda _self, _hotkey: True,
+    )
     dialog = SettingsDialog(manager)
 
     for attr in (
@@ -97,6 +101,10 @@ def test_settings_dialog_saves_annotation_behavior_toggles(
     manager = _manager(tmp_path)
     manager.set_log_dir(str(tmp_path))
     monkeypatch.setattr("ui.settings_ui.dialog.log_info", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        "core.shortcut_manager.HotkeySystem.check_hotkey_availability",
+        lambda _self, _hotkey: True,
+    )
     dialog = SettingsDialog(manager)
 
     for attr in (
@@ -119,6 +127,46 @@ def test_settings_dialog_saves_annotation_behavior_toggles(
     dialog.accept()
     assert manager.get_cross_tool_selection_enabled() is False
     assert manager.get_text_always_on_top_enabled() is False
+
+    dialog.deleteLater()
+    qapp.processEvents()
+
+
+def test_global_hotkey_duplicates_are_marked_and_never_persisted(
+    monkeypatch,
+    qapp,
+    tmp_path,
+):
+    manager = _manager(tmp_path)
+    manager.set_hotkey("ctrl+shift+a")
+    manager.set_hotkey_2("ctrl+alt+a")
+    monkeypatch.setattr(
+        "core.shortcut_manager.HotkeySystem.check_hotkey_availability",
+        lambda _self, _hotkey: True,
+    )
+    warnings = []
+    monkeypatch.setattr(
+        "ui.settings_ui.dialog.show_warning_dialog",
+        lambda _parent, title, message: warnings.append((title, message)),
+    )
+    dialog = SettingsDialog(manager, manager.get_hotkey())
+
+    # 模拟用户把备用键改成与主键相同：两个输入框都应立即显示冲突。
+    dialog.hotkey_input_2.setText("ctrl+shift+a")
+    assert dialog.hotkey_input.status_lbl.text() == "❌"
+    assert dialog.hotkey_input_2.status_lbl.text() == "❌"
+
+    dialog.accept()
+
+    # 保存被拦截；旧配置不受影响，冲突值不会污染下次打开的界面。
+    assert manager.get_hotkey() == "ctrl+shift+a"
+    assert manager.get_hotkey_2() == "ctrl+alt+a"
+    assert warnings
+
+    # 冲突解除后，两项恢复各自的系统可用性结果。
+    dialog.hotkey_input_2.setText("ctrl+alt+b")
+    assert dialog.hotkey_input.status_lbl.text() == "✅"
+    assert dialog.hotkey_input_2.status_lbl.text() == "✅"
 
     dialog.deleteLater()
     qapp.processEvents()
@@ -175,6 +223,24 @@ def test_annotation_behavior_toggles_reset_refresh_and_snapshot(qapp, tmp_path):
     snapshot = SettingsDialog._snapshot_settings(dialog)
     assert snapshot["cross_tool_selection_toggle"] is False
     assert snapshot["text_always_on_top_toggle"] is False
+
+
+def test_refresh_settings_repaints_clipboard_theme_button(monkeypatch, qapp, tmp_path):
+    """refresh_settings 的导入写在函数里，只有打开设置窗口才执行，改名漏改时启动不报错。"""
+    manager = _manager(tmp_path)
+    manager.set_clipboard_theme("pink")
+    monkeypatch.setattr("settings.get_tool_settings_manager", lambda: manager)
+    styles = []
+    dialog = SimpleNamespace(
+        config_manager=manager,
+        _clip_theme_btn=SimpleNamespace(setStyleSheet=styles.append),
+        _clip_theme_name="light",
+    )
+
+    SettingsDialog.refresh_settings(dialog)
+
+    assert dialog._clip_theme_name == "pink"
+    assert styles and "#E91E63" in styles[-1]
 
 
 def test_double_click_setting_translations_exist_and_load(qapp):

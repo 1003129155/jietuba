@@ -22,7 +22,7 @@ from core.logger import (
 )
 
 # ── 全局版本号 ────────────────────────────────────────────
-APP_VERSION = "2026.09.13"
+APP_VERSION = "2026.09.14"
 
 
 def create_fallback_app_icon():
@@ -331,12 +331,6 @@ class MainApp(QObject):
                 else:
                     log_warning(T("剪贴板备用热键注册失败: {clipboard_hotkey_2}", clipboard_hotkey_2=clipboard_hotkey_2), "Hotkey")
                     failed_hotkeys.append((self.tr("Clipboard (2)"), clipboard_hotkey_2))
-
-            # 额外尝试注册 Win+V，失败也不提示
-            if self.hotkey_system.register_hotkey("win+v", self.open_clipboard_window):
-                log_info(T("剪贴板备用热键已注册: win+v"), "Hotkey")
-            else:
-                log_info(T("剪贴板备用热键 win+v 注册失败（可能被系统占用）"), "Hotkey")
         
         # 如果有注册失败的热键且需要显示提示
         if show_error and failed_hotkeys:

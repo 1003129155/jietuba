@@ -15,6 +15,7 @@ from PySide6.QtGui import QPainter, QColor, QFont, QPen
 from ui.fluent_lite import ComboBox, LineEdit
 from core import safe_event
 from core.i18n import make_tr
+from core.logger import log_error, log_exception, T
 
 if __package__:
     from .base_page import (
@@ -82,7 +83,6 @@ class _TransAnim(QWidget):
             from core.i18n import I18nManager
             lang = I18nManager.get_current_language()
         except Exception as e:
-            from core.logger import log_exception, T
             log_exception(e, T("获取当前语言"))
             lang = "zh"
         row = _DEMO_MAP.get(lang, _DEMO_DEFAULT)
@@ -227,14 +227,17 @@ class TranslationPage(BasePage):
         self._provider_combo.setCursor(Qt.CursorShape.PointingHandCursor)
         from translation.service import create_default_translation_service
 
-        provider_order = {"google": 0, "deepl": 1, "amazon": 2}
-        providers = create_default_translation_service(
-            self._config
-        ).registry.available_providers()
-        for metadata in sorted(
-            providers,
+        # 下拉框和下面的凭据表单都从同一份 metadata 生成。以前下拉框是动态的、
+        # 表单是手写的，结果 azure 在下拉框里选得到、下面却还留着上一个引擎的
+        # 表单。现在两者同源，新增引擎不必再来这里补一次。
+        provider_order = {"google": 0, "deepl": 1, "azure": 2, "amazon": 3}
+        self._provider_metadata = sorted(
+            create_default_translation_service(
+                self._config
+            ).registry.available_providers(),
             key=lambda item: provider_order.get(item.provider_id, 99),
-        ):
+        )
+        for metadata in self._provider_metadata:
             self._provider_combo.addItem(
                 metadata.display_name, metadata.provider_id
             )
@@ -257,9 +260,9 @@ class TranslationPage(BasePage):
         self._credential_stack = QStackedWidget()
         self._credential_stack.setStyleSheet("background: transparent;")
         self._provider_pages = {}
-        self._build_google_credentials()
-        self._build_deepl_credentials()
-        self._build_amazon_credentials()
+        self._credential_edits = {}
+        for metadata in self._provider_metadata:
+            self._build_credential_page(metadata)
         card_layout.addWidget(self._credential_stack)
         self._provider_combo.currentIndexChanged.connect(
             self._on_provider_changed
@@ -276,53 +279,6 @@ class TranslationPage(BasePage):
         )
         card_layout.addWidget(row)
 
-        # 全局翻译快捷键（主 + 备用）
-        if __package__:
-            from ..hotkey_edit import HotkeyEdit
-        else:
-            import sys, os
-            sys.path.insert(
-                0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-            )
-            from hotkey_edit import HotkeyEdit
-
-        hotkey_controls = QWidget()
-        hotkey_controls.setStyleSheet("background: transparent;")
-        hotkey_layout = QHBoxLayout(hotkey_controls)
-        hotkey_layout.setContentsMargins(0, 0, 0, 0)
-        hotkey_layout.setSpacing(8)
-
-        self._hotkey = HotkeyEdit()
-        self._hotkey.setFixedHeight(36)
-        self._hotkey.setText(self._config.get_translation_hotkey())
-        hotkey_layout.addWidget(self._hotkey, 1)
-
-        self._hotkey2 = HotkeyEdit()
-        self._hotkey2.setFixedHeight(36)
-        self._hotkey2.setText(self._config.get_translation_hotkey_2())
-        hotkey_layout.addWidget(self._hotkey2, 1)
-
-        # 标题单独占一行，输入区仍与上方所有表单控件共用同一基线。
-        # 这样较长的日文标题不会挤窄或推歪两个快捷键输入框。
-        hotkey_section = QWidget()
-        hotkey_section.setStyleSheet("background: transparent;")
-        hotkey_section_layout = QVBoxLayout(hotkey_section)
-        hotkey_section_layout.setContentsMargins(0, 0, 0, 0)
-        hotkey_section_layout.setSpacing(7)
-
-        self._row_hotkey_lbl = QLabel(_tr("快捷键（最多设置两个）"))
-        set_welcome_label_style(
-            self._row_hotkey_lbl, role="primary", font_size=14, weight=600
-        )
-        hotkey_section_layout.addWidget(self._row_hotkey_lbl)
-
-        hotkey_row = QHBoxLayout()
-        hotkey_row.setContentsMargins(0, 0, 0, 0)
-        hotkey_row.setSpacing(0)
-        hotkey_row.addSpacing(_FORM_LABEL_WIDTH + _FORM_COLUMN_GAP)
-        hotkey_row.addWidget(hotkey_controls, 1)
-        hotkey_section_layout.addLayout(hotkey_row)
-        card_layout.addWidget(hotkey_section)
 
     def retranslate(self):
         self.title_label.setText(_tr("🌐 翻译设置").replace("🌐", "").strip())
@@ -332,22 +288,13 @@ class TranslationPage(BasePage):
             self._row_provider_lbl.setText(_tr("翻译引擎"))
         if hasattr(self, "_row_lang_lbl") and self._row_lang_lbl:
             self._row_lang_lbl.setText(_tr("翻译目标语言"))
-        if hasattr(self, "_row_hotkey_lbl") and self._row_hotkey_lbl:
-            self._row_hotkey_lbl.setText(_tr("快捷键（最多设置两个）"))
         for label, text in getattr(self, "_credential_labels", []):
             label.setText(_tr(text))
-        if hasattr(self, "_google_key_edit"):
-            self._google_key_edit.setPlaceholderText(_tr("Google API Key"))
-        if hasattr(self, "_deepl_key_edit"):
-            self._deepl_key_edit.setPlaceholderText(_tr("DeepL API Key"))
-        if hasattr(self, "_amazon_secret_edit"):
-            self._amazon_secret_edit.setPlaceholderText(
-                _tr("Secret Access Key")
-            )
-        if hasattr(self, "_amazon_token_edit"):
-            self._amazon_token_edit.setPlaceholderText(
-                _tr("可选，临时凭据使用")
-            )
+        for metadata in getattr(self, "_provider_metadata", ()):
+            for field in metadata.credentials:
+                edit = self._credential_edits.get(field.config_key)
+                if edit is not None and field.placeholder:
+                    edit.setPlaceholderText(_tr(field.placeholder))
         # 级联刷新插画区（翻译动画文字随界面语言切换）
         if hasattr(self, "illus_area") and hasattr(self.illus_area, "retranslate"):
             self.illus_area.retranslate()
@@ -375,81 +322,43 @@ class TranslationPage(BasePage):
         if idx >= 0:
             self._lang_combo.setCurrentIndex(idx)
 
-    def _build_google_credentials(self):
+    def _build_credential_page(self, metadata):
+        """按 provider 自己声明的凭据字段渲染一页表单。"""
         page, form = self._credential_page()
-        self._google_key_edit = self._credential_edit(
-            self._config.get_google_translate_api_key()
-            if hasattr(self._config, "get_google_translate_api_key")
-            else "",
-            "Google API Key",
-            password=True,
-        )
-        self._add_credential_row(form, "Google API Key", self._google_key_edit)
-        hint = self._credential_hint(
-            f'<a href="https://console.cloud.google.com/apis/credentials" '
-            f'style="color:{ACCENT};">Google Cloud Console</a>'
-        )
-        form.addRow("", hint)
-        self._add_provider_page("google", page)
-
-    def _build_deepl_credentials(self):
-        page, form = self._credential_page()
-        self._deepl_key_edit = self._credential_edit(
-            self._config.get_deepl_api_key()
-            if hasattr(self._config, "get_deepl_api_key")
-            else "",
-            "DeepL API Key",
-            password=True,
-        )
-        self._add_credential_row(form, "DeepL API Key", self._deepl_key_edit)
-        hint = self._credential_hint(
-            f'<a href="https://www.deepl.com/pro-api" '
-            f'style="color:{ACCENT};">deepl.com/pro-api</a>'
-        )
-        form.addRow("", hint)
-        self._add_provider_page("deepl", page)
-
-    def _build_amazon_credentials(self):
-        page, form = self._credential_page()
-        self._amazon_region_edit = self._credential_edit(
-            self._config.get_amazon_translate_region()
-            if hasattr(self._config, "get_amazon_translate_region")
-            else "us-west-2",
-            "us-west-2",
-        )
-        self._amazon_access_edit = self._credential_edit(
-            self._config.get_amazon_translate_access_key_id()
-            if hasattr(self._config, "get_amazon_translate_access_key_id")
-            else "",
-            "AKIA...",
-        )
-        self._amazon_secret_edit = self._credential_edit(
-            self._config.get_amazon_translate_secret_access_key()
-            if hasattr(
-                self._config, "get_amazon_translate_secret_access_key"
+        for field in metadata.credentials:
+            edit = self._credential_edit(
+                self._read_credential(field.config_key),
+                _tr(field.placeholder) if field.placeholder else "",
+                password=field.secret,
             )
-            else "",
-            "Secret Access Key",
-            password=True,
-        )
-        self._amazon_token_edit = self._credential_edit(
-            self._config.get_amazon_translate_session_token()
-            if hasattr(self._config, "get_amazon_translate_session_token")
-            else "",
-            "可选，临时凭据使用",
-            password=True,
-        )
-        self._add_credential_row(form, "AWS 区域", self._amazon_region_edit)
-        self._add_credential_row(
-            form, "Access Key ID", self._amazon_access_edit
-        )
-        self._add_credential_row(
-            form, "Secret Access Key", self._amazon_secret_edit
-        )
-        self._add_credential_row(
-            form, "Session Token", self._amazon_token_edit
-        )
-        self._add_provider_page("amazon", page)
+            self._credential_edits[field.config_key] = edit
+            self._add_credential_row(form, field.label, edit)
+
+        if metadata.help_url:
+            form.addRow("", self._credential_hint(
+                f'<a href="{metadata.help_url}" '
+                f'style="color:{ACCENT};">{metadata.help_label}</a>'
+            ))
+        self._add_provider_page(metadata.provider_id, page)
+
+    def _read_credential(self, config_key: str) -> str:
+        getter = getattr(self._config, "get_" + config_key, None)
+        if getter is None:
+            return ""
+        try:
+            return getter() or ""
+        except Exception as e:
+            log_exception(e, T("读取翻译凭据 {config_key}", config_key=config_key))
+            return ""
+
+    def _write_credential(self, config_key: str, value: str):
+        setter = getattr(self._config, "set_" + config_key, None)
+        if setter is None:
+            return
+        try:
+            setter(value)
+        except Exception as e:
+            log_exception(e, T("保存翻译凭据 {config_key}", config_key=config_key))
 
     def _credential_page(self):
         page = QWidget()
@@ -518,48 +427,35 @@ class TranslationPage(BasePage):
         self._credential_stack.addWidget(page)
 
     def _on_provider_changed(self, *_args):
-        page = self._provider_pages.get(
-            self._provider_combo.currentData()
-        )
-        if page is not None:
-            self._credential_stack.setCurrentWidget(page)
-            # Fluent inputs include 26px of content plus vertical padding and
-            # borders.  Keep a small layout allowance as well so the final
-            # row/focus border is never clipped at fractional DPI scales.
-            self._credential_stack.setFixedHeight(
-                max(68, page.sizeHint().height() + 12)
+        provider_id = self._provider_combo.currentData()
+        page = self._provider_pages.get(provider_id)
+        if page is None:
+            # 走到这里说明下拉框里有一个没有凭据页的引擎。停在上一页会把别人的
+            # 凭据显示成它的，所以宁可留空，并留一条日志指明是谁。
+            log_error(
+                T("翻译引擎 {provider_id} 没有凭据页", provider_id=provider_id),
+                module="Welcome",
             )
+            self._credential_stack.setCurrentIndex(-1)
+            self._credential_stack.setFixedHeight(0)
+            return
+        self._credential_stack.setCurrentWidget(page)
+        # Fluent inputs include 26px of content plus vertical padding and
+        # borders.  Keep a small layout allowance as well so the final
+        # row/focus border is never clipped at fractional DPI scales.
+        self._credential_stack.setFixedHeight(
+            max(68, page.sizeHint().height() + 12)
+        )
 
     def save(self):
         provider_id = self._provider_combo.currentData() or "google"
         if hasattr(self._config, "set_translation_provider"):
             self._config.set_translation_provider(provider_id)
-        if hasattr(self._config, "set_google_translate_api_key"):
-            self._config.set_google_translate_api_key(
-                self._google_key_edit.text().strip()
-            )
-        if hasattr(self._config, "set_deepl_api_key"):
-            self._config.set_deepl_api_key(
-                self._deepl_key_edit.text().strip()
-            )
-        if hasattr(self._config, "set_amazon_translate_region"):
-            self._config.set_amazon_translate_region(
-                self._amazon_region_edit.text().strip()
-            )
-            self._config.set_amazon_translate_access_key_id(
-                self._amazon_access_edit.text().strip()
-            )
-            self._config.set_amazon_translate_secret_access_key(
-                self._amazon_secret_edit.text().strip()
-            )
-            self._config.set_amazon_translate_session_token(
-                self._amazon_token_edit.text().strip()
-            )
+        for config_key, edit in self._credential_edits.items():
+            self._write_credential(config_key, edit.text().strip())
         lang = self._lang_combo.currentData()
         if lang:
             self._config.set_app_setting("translation_target_lang", lang)
-        self._config.set_translation_hotkey(self._hotkey.text().strip())
-        self._config.set_translation_hotkey_2(self._hotkey2.text().strip())
 
 
 if __name__ == "__main__":
@@ -573,7 +469,7 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
     w = WelcomeWizard(mock)
-    w._stack.setCurrentIndex(3)   # 跳到翻译设置页
+    w._stack.setCurrentIndex(4)   # 跳到翻译设置页
     w._update_nav()
     w.show()
     sys.exit(app.exec())

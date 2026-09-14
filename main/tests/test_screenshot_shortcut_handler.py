@@ -18,6 +18,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication
 
 from ui.screenshot_window import ScreenshotShortcutHandler
 
@@ -118,6 +119,11 @@ class TestIsActive:
         """getattr 的兜底值是 True（视为正在关闭），这是刻意的保守失败方向"""
         window = SimpleNamespace(isVisible=lambda: True)
         assert _make_handler(window).is_active() is False
+
+    def test_modal_dialog_opened_over_the_screenshot_takes_the_keyboard(self, monkeypatch):
+        """截图里打开的模态对话框（工具栏「调整」）要让出按键，否则在对话框里按 ESC 会结束截图"""
+        monkeypatch.setattr(QApplication, "activeModalWidget", staticmethod(lambda: object()))
+        assert _make_handler(_make_window()).is_active() is False
 
 
 class TestEscape:

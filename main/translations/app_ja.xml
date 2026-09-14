@@ -276,6 +276,10 @@
         <translation>ショートカット競合</translation>
     </message>
     <message>
+        <source>Some global hotkeys are duplicated or unavailable. Please fix them before applying.</source>
+        <translation>一部のグローバルショートカットが重複しているか、使用できません。修正してから適用してください。</translation>
+    </message>
+    <message>
         <source>Some in-app shortcuts conflict within the same group. Please fix them first.</source>
         <translation>同じグループ内にショートカットの重複があります。先に修正してください。</translation>
     </message>
@@ -492,12 +496,12 @@ Replace it?</source>
         <translation>開発者に問い合わせしてください。:</translation>
     </message>
     <message>
-        <source>Enable OCR</source>
-        <translation>OCR機能を有効化</translation>
+        <source>Automatically recognize text after pinning</source>
+        <translation>ピン留め後に自動でテキスト認識</translation>
     </message>
     <message>
-        <source>Enables text recognition and selection in pinned windows.</source>
-        <translation>ピン留めウィンドウでテキスト認識と選択を有効にします。</translation>
+        <source>On very low-end computers, OCR after pinning may cause a brief stutter. Turn off automatic recognition if needed.</source>
+        <translation>低スペックのパソコンでは、ピン留め後の OCR により一時的に動作が重くなる場合があります。必要に応じて自動認識をオフにしてください。</translation>
     </message>
     <message>
         <source>Auto language detection: Supports Chinese, Japanese, English mixed recognition</source>
@@ -825,12 +829,24 @@ Replace it?</source>
 <context>
     <name>Toolbar</name>
     <message>
+        <source>More</source>
+        <translation>その他</translation>
+    </message>
+    <message>
+        <source>Adjust</source>
+        <translation>調整</translation>
+    </message>
+    <message>
         <source>Ctrl+click any editable annotation to edit it temporarily</source>
         <translation>Ctrlを押しながら編集可能な注釈をクリックして一時編集</translation>
     </message>
     <message>
         <source>Mosaic (mouse wheel to resize)</source>
         <translation>モザイク（マウスホイールでサイズ変更）</translation>
+    </message>
+    <message>
+        <source>Spotlight (dim outside the box)</source>
+        <translation>スポットライト（枠の外を暗くする）</translation>
     </message>
     <message>
         <source>Long screenshot (scroll)</source>
@@ -893,6 +909,10 @@ Replace it?</source>
     <message>
         <source>Screenshot translate (OCR + Translate)</source>
         <translation>スクショ翻訳（OCR + 翻訳）</translation>
+    </message>
+    <message>
+        <source>Scan QR code / barcode</source>
+        <translation>コードをスキャン（QR コード / バーコード）</translation>
     </message>
     <message>
         <source>Recognizing...</source>
@@ -1030,6 +1050,22 @@ Replace it?</source>
     <message>
         <source>Translate OCR text</source>
         <translation>OCRテキストを翻訳</translation>
+    </message>
+    <message>
+        <source>Translate (Text Recognition)</source>
+        <translation>翻訳（テキスト認識）</translation>
+    </message>
+    <message>
+        <source>OCR recognition could not be started</source>
+        <translation>テキスト認識を開始できませんでした</translation>
+    </message>
+    <message>
+        <source>No text was recognized</source>
+        <translation>テキストを認識できませんでした</translation>
+    </message>
+    <message>
+        <source>OCR recognition failed: {error}</source>
+        <translation>テキスト認識に失敗しました：{error}</translation>
     </message>
     <message>
         <source>Thumbnail mode</source>
@@ -1199,6 +1235,30 @@ Replace it?</source>
     <message>
         <source>Exit</source>
         <translation>終了</translation>
+    </message>
+    <message>
+        <source>Screenshot (2)</source>
+        <translation>スクリーンショット (2)</translation>
+    </message>
+    <message>
+        <source>Translation (2)</source>
+        <translation>翻訳 (2)</translation>
+    </message>
+    <message>
+        <source>Clipboard (2)</source>
+        <translation>クリップボード (2)</translation>
+    </message>
+    <message>
+        <source>Hotkey Registration Failed</source>
+        <translation>ホットキーの登録に失敗しました</translation>
+    </message>
+    <message>
+        <source>The following hotkeys failed to register:</source>
+        <translation>次のホットキーを登録できませんでした：</translation>
+    </message>
+    <message>
+        <source>The hotkey may be occupied by other programs. Please try a different combination.</source>
+        <translation>ホットキーが他のプログラムで使用されている可能性があります。別の組み合わせをお試しください。</translation>
     </message>
 </context>
 
@@ -2630,18 +2690,6 @@ Replace it?</source>
         <translation>📸 キャプチャー設定</translation>
     </message>
     <message>
-        <source>设置快捷键与截图的默认保存位置。</source>
-        <translation>ショートカットとキャプチャーのデフォルト保存先を設定します。</translation>
-    </message>
-    <message>
-        <source>快捷键（最多设置两个）</source>
-        <translation>ショートカット（最大2つ）</translation>
-    </message>
-    <message>
-        <source>单击输入框后，直接按下目标组合键即可录入。</source>
-        <translation>入力欄をクリックして、キーの組み合わせを押してください。</translation>
-    </message>
-    <message>
         <source>截图保存位置</source>
         <translation>スクショの保存先</translation>
     </message>
@@ -2701,30 +2749,10 @@ Replace it?</source>
         <source>关闭后不会记录复制内容，快捷键也不会激活窗口。</source>
         <translation>無効時: 履歴が保存されず、ショートカットも無効になります。</translation>
     </message>
-    <message>
-        <source>程序还会尝试注册 Win+V 作为额外备用。</source>
-        <translation>Win+V も予備として登録を試みます。</translation>
-    </message>
     <!-- page4 -->
     <message>
         <source>智能选区</source>
         <translation>スマート選択</translation>
-    </message>
-    <message>
-        <source>截图时将鼠标悬停在任意窗口上，自动识别并高亮其边界。
-单击即可精准截取该窗口；也可以像平时一样拖拽框选任意区域。</source>
-        <translation>スクショ中に任意のウィンドウにホバーすると境界を自動検出してハイライト。
-クリックでそのまま切り取り、またはドラッグで範囲を自由に選択できます。</translation>
-    </message>
-    <message>
-        <source>🪟 启用智能选区</source>
-        <translation>🪟 スマート選択を有効にする</translation>
-    </message>
-    <message>
-        <source>开启：悬停自动高亮窗口，单击即完成截取。
-关闭：恢复手动拖拽框选模式。</source>
-        <translation>ON：ホバーでウィンドウをハイライト、クリックで即キャプチャ。
-OFF：通常のドラッグ選択モードに戻ります。</translation>
     </message>
     <!-- page5 -->
     <message>
@@ -2844,6 +2872,90 @@ OFF：通常のドラッグ選択モードに戻ります。</translation>
     <message>
         <source>中文</source>
         <translation>日本語</translation>
+    </message>
+    <message>
+        <source>快捷键</source>
+        <translation>ショートカット</translation>
+    </message>
+    <message>
+        <source>三个全局功能各可设置一个主快捷键和一个备用快捷键。</source>
+        <translation>3つのグローバル機能それぞれに、メインと予備のショートカットを設定できます。</translation>
+    </message>
+    <message>
+        <source>主快捷键</source>
+        <translation>メイン</translation>
+    </message>
+    <message>
+        <source>备用</source>
+        <translation>予備</translation>
+    </message>
+    <message>
+        <source>截图</source>
+        <translation>スクリーンショット</translation>
+    </message>
+    <message>
+        <source>智能翻译</source>
+        <translation>翻訳</translation>
+    </message>
+    <message>
+        <source>点击输入框后，按下快捷键或鼠标侧键即可录入。</source>
+        <translation>入力欄をクリックし、キーの組み合わせかマウスのサイドボタンを押してください。</translation>
+    </message>
+    <message>
+        <source>设置截图的保存方式与选区方式。</source>
+        <translation>スクリーンショットの保存方法・保存先と、範囲の選択方法を設定します。</translation>
+    </message>
+    <message>
+        <source>自动保存截图</source>
+        <translation>スクリーンショットを自動保存</translation>
+    </message>
+    <message>
+        <source>关闭时截图只复制到剪贴板，不落盘。</source>
+        <translation>オフのときは、クリップボードにコピーするだけでファイルには保存しません。</translation>
+    </message>
+    <message>
+        <source>保存格式</source>
+        <translation>保存形式</translation>
+    </message>
+    <message>
+        <source>悬停时自动识别窗口边界，单击即可精准截取。</source>
+        <translation>カーソル下のウィンドウ境界を自動で認識し、クリックするだけで切り取れます。</translation>
+    </message>
+    <message>
+        <source>剪贴板外观</source>
+        <translation>クリップボードの外観</translation>
+    </message>
+    <message>
+        <source>Azure API Key</source>
+        <translation>Azure API キー</translation>
+    </message>
+    <message>
+        <source>Azure Region</source>
+        <translation>Azure リージョン</translation>
+    </message>
+    <message>
+        <source>Azure Endpoint</source>
+        <translation>Azure エンドポイント</translation>
+    </message>
+    <message>
+        <source>Optional, use default if empty</source>
+        <translation>任意、未入力なら既定値</translation>
+    </message>
+    <message>
+        <source>鼠标侧键</source>
+        <translation>サイドボタン</translation>
+    </message>
+    <message>
+        <source>可设为快捷键</source>
+        <translation>割り当て可能</translation>
+    </message>
+    <message>
+        <source>不可用</source>
+        <translation>使用不可</translation>
+    </message>
+    <message>
+        <source>当前按下</source>
+        <translation>押下中</translation>
     </message>
 </context>
 
@@ -3139,6 +3251,163 @@ SOFTWARE.</translation></message>
     <message>
         <source>Change Mosaic Size</source>
         <translation>モザイクの粒度を変更</translation>
+    </message>
+</context>
+<context>
+    <name>HotkeyEdit</name>
+    <message>
+        <source>This hotkey is assigned more than once.</source>
+        <translation>このショートカットは重複して割り当てられています。</translation>
+    </message>
+</context>
+<context>
+    <name>ToolbarLayoutDialog</name>
+    <message>
+        <source>Customize Toolbar</source>
+        <translation>ツールバーのカスタマイズ</translation>
+    </message>
+    <message>
+        <source>Always show</source>
+        <translation>常に表示</translation>
+    </message>
+    <message>
+        <source>In more menu</source>
+        <translation>「その他」メニュー</translation>
+    </message>
+    <message>
+        <source>Always hide</source>
+        <translation>常に非表示</translation>
+    </message>
+    <message>
+        <source>This button can't be hidden</source>
+        <translation>このボタンは非表示にできません</translation>
+    </message>
+    <message>
+        <source>Drag the handle to reorder. Use the drop-down to change visibility.</source>
+        <translation>左のハンドルをドラッグして並べ替え、ドロップダウンで表示方法を変更します。</translation>
+    </message>
+    <message>
+        <source>Restore defaults</source>
+        <translation>デフォルトに戻す</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Long screenshot</source>
+        <translation>長スクリーンショット</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>保存</translation>
+    </message>
+    <message>
+        <source>Screenshot translate</source>
+        <translation>スクショ翻訳</translation>
+    </message>
+    <message>
+        <source>Scan code</source>
+        <translation>コードスキャン</translation>
+    </message>
+    <message>
+        <source>GIF recording</source>
+        <translation>GIF録画</translation>
+    </message>
+    <message>
+        <source>Pen</source>
+        <translation>ペン</translation>
+    </message>
+    <message>
+        <source>Highlighter</source>
+        <translation>蛍光ペン</translation>
+    </message>
+    <message>
+        <source>Mosaic</source>
+        <translation>モザイク</translation>
+    </message>
+    <message>
+        <source>Spotlight</source>
+        <translation>スポットライト</translation>
+    </message>
+    <message>
+        <source>Arrow</source>
+        <translation>矢印</translation>
+    </message>
+    <message>
+        <source>Number</source>
+        <translation>番号</translation>
+    </message>
+    <message>
+        <source>Rectangle</source>
+        <translation>矩形</translation>
+    </message>
+    <message>
+        <source>Ellipse</source>
+        <translation>楕円</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>テキスト</translation>
+    </message>
+    <message>
+        <source>Eraser</source>
+        <translation>消しゴム</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>元に戻す</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>やり直し</translation>
+    </message>
+    <message>
+        <source>Cancel screenshot</source>
+        <translation>終了</translation>
+    </message>
+    <message>
+        <source>Pin image</source>
+        <translation>ピン留め</translation>
+    </message>
+    <message>
+        <source>Confirm</source>
+        <translation>確定</translation>
+    </message>
+</context>
+<context>
+    <name>BarcodeResultWindow</name>
+    <message>
+        <source>Scan result</source>
+        <translation>スキャン結果</translation>
+    </message>
+    <message>
+        <source>Found %1 code(s)</source>
+        <translation>%1 件のコードを検出しました</translation>
+    </message>
+    <message>
+        <source>No QR code or barcode found</source>
+        <translation>QR コードやバーコードは見つかりませんでした</translation>
+    </message>
+    <message>
+        <source>Make sure the whole code is inside the selection.</source>
+        <translation>コード全体が選択範囲に入っているか確認してください。</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>コピー</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>コピーしました</translation>
+    </message>
+    <message>
+        <source>Open link</source>
+        <translation>リンクを開く</translation>
     </message>
 </context>
 </TS>

@@ -84,6 +84,31 @@ class PinTranslationHelper:
             import traceback
             traceback.print_exc()
             return False
+
+    def begin_ocr_translation(self) -> bool:
+        """立即显示识别中界面，OCR 结果随后由 PinOCRManager 回填。"""
+        try:
+            from translation import TranslationManager
+
+            params = (
+                self.config_manager.get_translation_request_params()
+                if self.config_manager
+                else {"target_lang": "ZH"}
+            )
+            TranslationManager.instance().begin_ocr_translation(
+                position=self._calculate_window_position(),
+                **params,
+            )
+            return True
+        except Exception as e:
+            log_error(T("翻译启动失败: {e}", e=e), "Translate")
+            return False
+
+    def complete_ocr_translation(self, success: bool, result: str):
+        """将钉图 OCR 结果交给统一的 OCR 翻译完成流程。"""
+        from translation import TranslationManager
+
+        TranslationManager.instance().complete_ocr_translation(success, result)
     
     def _calculate_window_position(self) -> QPoint:
         """

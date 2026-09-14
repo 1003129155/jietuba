@@ -6,7 +6,7 @@
 
 ## Overview
 
-A screenshot and clipboard manager for Windows x86_64 and ARM64, with a PySide6 interface and Rust components for image processing, clipboard operations, and OCR. Supports area capture, smart window detection, GIF recording, long screenshot stitching, OCR text recognition, image pinning, translation, mosaic blur, PDF export, and a full clipboard history management system.
+A screenshot and clipboard manager for Windows x86_64 and ARM64, with a PySide6 interface and Rust components for image processing, clipboard operations, and OCR. Supports area capture, smart window detection, GIF recording, long screenshot stitching, OCR text recognition, QR code/barcode scanning, image pinning, translation, mosaic blur, PDF export, and a full clipboard history management system.
 
 Download a ready-to-run Windows release or run the application from source.
 
@@ -129,6 +129,7 @@ To build a Windows release, run `python build_with_ocr_onefile.py`. It produces 
 │   ├── compile_translations.py  # Translation compiler (.xml → .qm)
 │   ├── scripts/             # Helper scripts — translation provider comparison
 │   │
+│   ├── barcode/             # Barcode module — QR code/barcode scanning (zxing-cpp)
 │   ├── canvas/              # Canvas module — graphics editing core
 │   ├── capture/             # Capture module — screen capture & window detection
 │   ├── clipboard/           # Clipboard module — history, groups/quick launch, import/export, search
@@ -163,6 +164,28 @@ To build a Windows release, run `python build_with_ocr_onefile.py`. It produces 
 
 ## Module Details
 
+### barcode/ — Barcode Module
+
+Scans QR codes and barcodes in the screenshot selection. The result window outlines each code on the screenshot and lists the decoded contents by number.
+
+<details>
+<summary>Expand directory structure</summary>
+
+```text
+barcode/
+├── __init__.py
+├── reader.py                # read_codes / DecodedCode — zxing-cpp decoding; text, format and outline in reading order
+└── result_window.py         # BarcodeResultWindow — result window; screenshot and result list share the same numbers
+```
+
+</details>
+
+- Supports QR Code, Data Matrix, Aztec, PDF417 and common linear barcodes such as Code 128 and EAN/UPC
+- Reads every code in the selection at once; hovering a code on either side highlights it on both
+- One-click copy; http(s) links open directly in the browser
+
+---
+
 ### canvas/ — Canvas Module
 
 Graphics editing canvas system with scene management, view rendering, item selection, and undo/redo.
@@ -184,6 +207,7 @@ canvas/
     ├── drawing_items.py     # StrokeItem / RectItem / EllipseItem / ArrowItem / TextItem / NumberItem
     ├── background_item.py   # BackgroundItem — selection area background
     ├── mosaic_item.py       # MosaicItem — pixel mosaic item
+    ├── spotlight_item.py    # SpotlightItem / SpotlightCurtain — spotlight holes and their shared curtain
     └── selection_item.py    # SelectionItem — selection boundary display
 ```
 
@@ -433,6 +457,7 @@ tools/
 ├── number.py                # NumberTool — auto-incrementing numbers
 ├── highlighter.py           # HighlighterTool — highlighter
 ├── mosaic.py                # MosaicTool — pixel mosaic
+├── spotlight.py             # SpotlightTool — spotlight (dims outside the box)
 ├── cursor.py                # CursorTool — cursor/selection
 ├── eraser.py                # EraserTool — eraser
 └── cursor_manager.py        # CursorManager — cursor style manager
@@ -511,6 +536,8 @@ Common UI component library.
 ```text
 ui/
 ├── toolbar.py               # Toolbar / _DragHandle — draggable toolbar base class
+├── toolbar_layout.py        # screenshot toolbar button layout (order / visibility): normalize, load, save
+├── toolbar_layout_dialog.py # ToolbarLayoutDialog — screenshot toolbar layout editor
 ├── tray_menu.py             # TrayMenu — system tray menu
 ├── screenshot_window.py     # ScreenshotWindow — full-screen capture window (region drawing)
 ├── dialogs.py               # StandardDialog — confirm, warning, info, error dialogs
@@ -584,6 +611,7 @@ tests/
 ├── run_tests.py             # test runner script
 ├── test_drawing_tools.py    # drawing tool tests (pen/rect/arrow/text/number/highlighter)
 ├── test_mosaic_tool.py      # mosaic tool tests
+├── test_spotlight.py        # spotlight tests
 ├── test_functional_handles.py # edit handle tests
 ├── test_capture_service.py  # capture service tests
 ├── test_clipboard_api.py    # clipboard public API tests

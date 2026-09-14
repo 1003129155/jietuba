@@ -620,11 +620,28 @@ class PinWindow(QWidget):
         if self._ocr_has_result:
             if self.ocr_text_layer:
                 self._translation_helper.translate(self.ocr_text_layer)
-        elif self._ocr_mgr.is_running:
-            self._ocr_mgr.translate_pending = True
+        else:
+            if not self._translation_helper.begin_ocr_translation():
+                return
+            # 先把控制权交还事件循环，让翻译窗口真正绘制出来，再做可能需要
+            # 初始化模型的 OCR；这与截图翻译“先出面板、后识别”的体感一致。
+            QTimer.singleShot(0, self._start_ocr_for_translation)
+
+    def _start_ocr_for_translation(self):
+        if self._is_closed:
+            return
+        if self._ocr_mgr.recognize_for_translation():
             log_info(T("OCR 识别中，翻译将在识别完成后自动执行"), "Translate")
         else:
-            log_warning(T("没有 OCR 结果也没有正在进行的 OCR"), "Translate")
+            log_warning(T("无法启动钉图 OCR 识别"), "Translate")
+            self._translation_helper.complete_ocr_translation(
+                False, self.tr("OCR recognition could not be started")
+            )
+
+    def _on_ocr_translation_finished(self, success: bool, result: str):
+        """接收钉图文字层 OCR 结果，交给统一翻译界面。"""
+        if hasattr(self, '_translation_helper'):
+            self._translation_helper.complete_ocr_translation(success, result)
 
     # ==================================================================
     # 右键菜单
@@ -636,7 +653,6 @@ class PinWindow(QWidget):
                 'toolbar_visible': self.toolbar and self.toolbar.isVisible(),
                 'stay_on_top': bool(self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint),
                 'shadow_enabled': self.halo_enabled,
-                'has_ocr_result': self._ocr_has_result,
                 'text_selection_enabled': self._text_selection_enabled,
                 'thumbnail_mode': self._thumbnail_mode,
             }

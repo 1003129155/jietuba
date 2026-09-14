@@ -15,7 +15,6 @@ from canvas.items import (
     ArrowItem,
     TextItem,
     NumberItem,
-    MosaicItem,
 )
 from core import log_debug, log_info, log_warning, log_error, safe_event
 from core.logger import T
@@ -577,7 +576,14 @@ class CanvasView(QGraphicsView):
         if opacity_value is not None:
             toolbar.set_opacity(int(round(opacity_value * 255)))
 
-        if isinstance(item, StrokeItem) and hasattr(toolbar, "paint_panel"):
+        # 线型按图元的归属工具同步，不按类名：荧光笔矩形、聚光灯的孔也是 RectItem，
+        # 按类名判断会把它们的画笔当成矩形工具的线型写进设置
+        owner_tool_id = controller.get_item_tool_id(item) if controller else None
+        line_style_panel = {
+            "pen": "paint_panel", "highlighter": "paint_panel",
+            "rect": "shape_panel", "ellipse": "shape_panel",
+        }.get(owner_tool_id)
+        if line_style_panel and hasattr(toolbar, line_style_panel):
             try:
                 from PySide6.QtCore import Qt
                 pen = item.pen()
@@ -590,35 +596,12 @@ class CanvasView(QGraphicsView):
                     line_style = "dashed"
                 else:
                     line_style = "solid"
-                toolbar.paint_panel.line_style = line_style
+                getattr(toolbar, line_style_panel).line_style = line_style
                 if not is_cross_tool:
                     from settings import get_tool_settings_manager
-                    manager = get_tool_settings_manager()
-                    settings_tool_id = "highlighter" if getattr(item, "is_highlighter", False) else "pen"
-                    manager.update_settings(settings_tool_id, line_style=line_style)
+                    get_tool_settings_manager().update_settings(owner_tool_id, line_style=line_style)
             except Exception as exc:
                 log_warning(T("无法同步线条样式: {exc}", exc=exc), "CanvasView")
-        elif isinstance(item, (RectItem, EllipseItem)) and hasattr(toolbar, "shape_panel"):
-            try:
-                from PySide6.QtCore import Qt
-                pen = item.pen()
-                pen_style = pen.style()
-                dash_pattern = [round(x, 1) for x in pen.dashPattern()]
-                has_dash = bool(dash_pattern)
-                if has_dash and dash_pattern[:2] == [1.0, 2.0]:
-                    line_style = "dashed_dense"
-                elif pen_style in (Qt.PenStyle.DashLine, Qt.PenStyle.CustomDashLine) or has_dash:
-                    line_style = "dashed"
-                else:
-                    line_style = "solid"
-                toolbar.shape_panel.line_style = line_style
-                if not is_cross_tool:
-                    from settings import get_tool_settings_manager
-                    manager = get_tool_settings_manager()
-                    tool_id = "rect" if isinstance(item, RectItem) else "ellipse"
-                    manager.update_settings(tool_id, line_style=line_style)
-            except Exception as exc:
-                log_warning(T("无法同步形状线条样式: {exc}", exc=exc), "CanvasView")
 
         # 根据选中的图元类型，显示对应的设置面板（二次编辑时支持修改样式）
         self._show_panel_for_selection(item, toolbar)
@@ -632,41 +615,36 @@ class CanvasView(QGraphicsView):
 
         也正因为这个顺序，同步失败只需要在最外面兜一次：面板早就显示出来了，
         兜住之后它停在工具默认值上，本来就是这里能给出的最好结果。
+
+        面板按图元的归属工具（SmartEditController.get_item_tool_id）选，不按类名：
+        荧光笔矩形、聚光灯的孔都是 RectItem，按类名判断就得记住它们必须排在矩形前面。
         """
         try:
-            # 文字图元
-            if isinstance(item, QGraphicsTextItem) and hasattr(toolbar, "text_panel"):
-                toolbar._show_panel_for_tool("text")
+            if isinstance(item, QGraphicsTextItem):
+                tool_id = "text"
+            else:
+                controller = getattr(self, "smart_edit_controller", None)
+                tool_id = controller.get_item_tool_id(item) if controller else None
+            if tool_id is None:
+                return
+
+            toolbar._show_panel_for_tool(tool_id)
+            if tool_id == "text":
                 toolbar.text_panel.set_state_from_item(item)
-            # 箭头图元
-            elif isinstance(item, ArrowItem) and hasattr(toolbar, "arrow_panel"):
-                toolbar._show_panel_for_tool("arrow")
+            elif tool_id == "arrow":
                 toolbar.arrow_panel.arrow_style = getattr(item, "_arrow_style", "single")
                 if hasattr(item, "color"):
                     toolbar.arrow_panel.set_color(item.color)
-            # 高亮矩形（使用画笔面板）
-            elif isinstance(item, RectItem) and getattr(item, "is_highlighter_rect", False) and hasattr(toolbar, "paint_panel"):
-                toolbar._show_panel_for_tool("highlighter")
+            elif tool_id in ("pen", "highlighter"):
                 toolbar.paint_panel.set_state_from_item(item)
-                toolbar.paint_panel.set_line_style_visible(False)
-                toolbar.paint_panel.set_highlighter_mode("rect")
-            # 形状图元
-            elif isinstance(item, (RectItem, EllipseItem)) and hasattr(toolbar, "shape_panel"):
-                toolbar._show_panel_for_tool("rect")
+                if isinstance(item, RectItem):
+                    toolbar.paint_panel.set_highlighter_mode("rect")
+            elif tool_id in ("rect", "ellipse"):
                 toolbar.shape_panel.set_state_from_item(item)
-            # 序号图元
-            elif isinstance(item, NumberItem) and hasattr(toolbar, "number_panel"):
-                toolbar._show_panel_for_tool("number")
+            elif tool_id == "number":
                 toolbar.number_panel.set_style(item.style)
-            # 画笔图元
-            elif isinstance(item, StrokeItem) and hasattr(toolbar, "paint_panel"):
-                is_highlighter = bool(getattr(item, "is_highlighter", False))
-                toolbar._show_panel_for_tool("highlighter" if is_highlighter else "pen")
-                toolbar.paint_panel.set_state_from_item(item)
-                toolbar.paint_panel.set_line_style_visible(not is_highlighter)
             # 马赛克图元（框选或自由涂抹都在这，跨工具/钉图选中时也要弹出对应面板）
-            elif isinstance(item, MosaicItem) and hasattr(toolbar, "mosaic_panel"):
-                toolbar._show_panel_for_tool("mosaic")
+            elif tool_id == "mosaic":
                 toolbar.mosaic_panel.set_draw_mode("rect" if item.fill_mode() else "freehand")
                 toolbar.mosaic_panel.set_style("blur" if item.smooth() else "pixelate")
                 # 粒度也得跟着选中的这一块：面板「再点一次当前档不算改动」，
@@ -1811,10 +1789,9 @@ class CanvasView(QGraphicsView):
             return
 
         selected_item = getattr(controller, "selected_item", None)
-        if isinstance(selected_item, StrokeItem):
-            if getattr(selected_item, "is_highlighter", False):
-                return
-        elif not isinstance(selected_item, (RectItem, EllipseItem)):
+        # 只有画笔、矩形、椭圆有线型。按归属工具判断：荧光笔（含荧光笔矩形）、聚光灯的孔
+        # 也是 StrokeItem/RectItem，按类名判断会给它们套上虚线
+        if selected_item is None or controller.get_item_tool_id(selected_item) not in ("pen", "rect", "ellipse"):
             return
 
         from PySide6.QtCore import Qt

@@ -100,54 +100,73 @@ class PinOCRManager:
     # 初始化
     # ------------------------------------------------------------------
 
-    def init_now(self):
-        """立即初始化 OCR：创建文字层 + 启动异步识别线程"""
+    def init_now(self, force: bool = False) -> bool:
+        """创建文字层并启动异步识别。
+
+        默认调用用于钉图后的自动识别，会遵守自动 OCR 设置；``force`` 用于
+        翻译、文字选择等用户主动发起的操作，不受自动识别设置影响。
+        """
         try:
             from ocr import is_ocr_available, initialize_ocr
             from pin.ocr_text_layer import OCRTextLayer
 
-            if self.ocr_text_layer is not None or self.ocr_thread is not None:
-                return
+            if self.ocr_thread is not None:
+                return True
 
-            if not self._cfg:
-                return
+            if not force:
+                if not self._cfg:
+                    return False
 
-            if not self._text_selection_enabled:
-                log_info(T("钉图文字选择已关闭，跳过 OCR 初始化"), "OCR")
-                return
+                if not self._text_selection_enabled:
+                    log_info(T("钉图文字选择已关闭，跳过自动 OCR"), "OCR")
+                    return False
 
-            if not self._cfg.get_ocr_enabled():
-                log_info(T("OCR 功能已禁用，跳过初始化"), "OCR")
-                return
+                if not self._cfg.get_ocr_enabled():
+                    log_info(T("钉图自动 OCR 已关闭，跳过自动识别"), "OCR")
+                    return False
 
             if not is_ocr_available():
                 log_debug(T("OCR 模块不可用（无OCR版本），静默跳过"), "OCR")
-                return
+                return False
 
             if not initialize_ocr():
                 log_warning(T("OCR 引擎初始化失败"), "OCR")
-                return
+                return False
 
             log_debug(T("OCR 引擎已就绪（支持中日韩英混合识别）"), "OCR")
 
-            # 创建透明文字层
-            self.ocr_text_layer = OCRTextLayer(self._win)
-            cr = self._win.content_rect()
-            self.ocr_text_layer.setGeometry(cr.toRect())
-            self._apply_text_layer_enabled()
-            log_debug(T("OCR层初始化几何: {rect}", rect=cr.toRect()), "OCR")
+            if self.ocr_text_layer is None:
+                # 即使文字选择当前关闭，也保留识别结果供翻译使用。
+                self.ocr_text_layer = OCRTextLayer(self._win)
+                cr = self._win.content_rect()
+                self.ocr_text_layer.setGeometry(cr.toRect())
+                self._apply_text_layer_enabled()
+                log_debug(T("OCR层初始化几何: {rect}", rect=cr.toRect()), "OCR")
 
             # 立即启动异步识别
-            self._start_recognition()
+            return self._start_recognition()
 
         except ImportError:
-            pass  # OCR 模块不存在，静默跳过
+            return False  # OCR 模块不存在，静默跳过
         except Exception as e:
             log_exception(e, T("OCR初始化"), silent=False)
             import traceback
             traceback.print_exc()
+            return False
 
-    def _start_recognition(self):
+    def recognize_for_translation(self) -> bool:
+        """确保钉图有 OCR 任务，并在完成后继续翻译。"""
+        self._translate_pending = True
+        if self.ocr_thread is not None:
+            return True
+
+        if self.init_now(force=True):
+            return True
+
+        self._translate_pending = False
+        return False
+
+    def _start_recognition(self) -> bool:
         """启动异步 OCR 识别线程
         
         关键：在主线程获取图像（QImage 值类型拷贝），
@@ -155,7 +174,7 @@ class PinOCRManager:
         """
         pixmap = self._win._base_pixmap
         if not pixmap:
-            return
+            return False
         original_width = pixmap.width()
         original_height = pixmap.height()
 
@@ -168,6 +187,7 @@ class PinOCRManager:
             lambda: self._on_finished(original_width, original_height)
         )
         self.ocr_thread.start()
+        return True
 
     def _on_finished(self, original_width: int, original_height: int):
         """OCR 线程完成回调（主线程）"""
@@ -212,11 +232,24 @@ class PinOCRManager:
                     if self._translate_pending:
                         self._translate_pending = False
                         log_info(T("OCR 完成，执行等待中的翻译"), "Translate")
-                        self._win._on_translate_clicked()
+                        text = self.ocr_text_layer.get_all_text(separator="\n")
+                        self._win._on_ocr_translation_finished(True, text)
 
                 log_info(T("钉图文字层已就绪，识别到 {text_count} 个文字块", text_count=text_count), "OCR")
+            elif self._translate_pending:
+                self._translate_pending = False
+                log_warning(T("OCR 未识别到可翻译文字"), "Translate")
+                self._win._on_ocr_translation_finished(
+                    False, self._win.tr("No text was recognized")
+                )
         except Exception as e:
             log_error(T("加载OCR结果失败: {e}", e=e), "OCR")
+            if self._translate_pending:
+                self._translate_pending = False
+                self._win._on_ocr_translation_finished(
+                    False,
+                    self._win.tr("OCR recognition failed: {error}").format(error=e),
+                )
             import traceback
             traceback.print_exc()
         finally:
@@ -283,7 +316,7 @@ class PinOCRManager:
         self._apply_text_layer_enabled()
 
         if enabled and self.ocr_text_layer is None and self.ocr_thread is None:
-            self.init_now()
+            self.init_now(force=True)
 
     def toggle_text_selection(self) -> bool:
         """切换当前钉图的文字选择状态，返回新状态。"""

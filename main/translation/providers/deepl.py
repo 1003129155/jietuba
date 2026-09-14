@@ -11,7 +11,7 @@ from ..models import (
     TranslationResult,
     normalize_language_code,
 )
-from ..provider import TranslationProvider
+from ..provider import CredentialField, TranslationProvider
 
 
 class DeepLProvider(TranslationProvider):
@@ -47,6 +47,13 @@ class DeepLProvider(TranslationProvider):
     def __init__(self, config: Mapping[str, Any]):
         self._api_key = str(config.get("api_key", "") or "")
         self._use_pro = bool(config.get("use_pro", False))
+
+    CREDENTIAL_FIELDS = (
+        CredentialField("deepl_api_key", "DeepL API Key",
+                        "DeepL API Key", secret=True),
+    )
+    HELP_LABEL = "deepl.com/pro-api"
+    HELP_URL = "https://www.deepl.com/pro-api"
 
     def is_configured(self) -> bool:
         return bool(self._api_key)

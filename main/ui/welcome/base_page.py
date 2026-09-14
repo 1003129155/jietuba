@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QSizePolicy
 from ui.fluent_lite import SwitchButton
-# ACCENT 在本文件内未直接使用，但 page4_smart_select 是从这里导入它的，
+# ACCENT 在本文件内未直接使用，wizard 和 page5_translation 是从这里导入它的，
 # 属于有意的转发导出，不要删。
 from ui.fluent_lite.theme import ACCENT, ACCENT_HOVER  # noqa: F401
 from core.ui_theme import get_ui_theme
@@ -444,6 +444,26 @@ def _dev_bootstrap():
 
         def get_smart_selection(self): return self._def("smart_selection", True)
         def set_smart_selection(self, v): pass
+
+        def get_screenshot_save_enabled(self):
+            return self._def("screenshot_save_enabled", True)
+        def set_screenshot_save_enabled(self, v): pass
+
+        def get_screenshot_format(self):
+            return self._def("screenshot_format", "PNG")
+        def set_screenshot_format(self, v): pass
+
+        def get_clipboard_theme(self): return self._def("clipboard_theme", "light")
+        def set_clipboard_theme(self, v): pass
+
+        def get_clipboard_font_size(self): return self._def("clipboard_font_size", 17)
+        def set_clipboard_font_size(self, v): pass
+        def get_clipboard_font_size_options(self): return [15, 16, 17, 18, 19, 20]
+
+        def get_clipboard_window_opacity(self):
+            return self._def("clipboard_window_opacity", 20)
+        def set_clipboard_window_opacity(self, v): pass
+        def get_clipboard_window_opacity_options(self): return [0, 20, 30, 40, 50, 60]
 
         def get_ocr_enabled(self): return self._def("ocr_enabled", True)
         def set_ocr_enabled(self, v): pass

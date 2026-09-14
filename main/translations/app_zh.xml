@@ -274,6 +274,10 @@
         <translation>快捷键冲突</translation>
     </message>
     <message>
+        <source>Some global hotkeys are duplicated or unavailable. Please fix them before applying.</source>
+        <translation>某些全局快捷键重复或不可用，请修正后再应用。</translation>
+    </message>
+    <message>
         <source>Some in-app shortcuts conflict within the same group. Please fix them first.</source>
         <translation>同组内存在重复的快捷键，请先修正冲突。</translation>
     </message>
@@ -490,12 +494,12 @@ Replace it?</source>
         <translation>或联系开发者:</translation>
     </message>
     <message>
-        <source>Enable OCR</source>
-        <translation>启用OCR功能</translation>
+        <source>Automatically recognize text after pinning</source>
+        <translation>钉图后自动文字识别</translation>
     </message>
     <message>
-        <source>Enables text recognition and selection in pinned windows.</source>
-        <translation>在钉图窗口中启用文字识别和选择。</translation>
+        <source>On very low-end computers, OCR after pinning may cause a brief stutter. Turn off automatic recognition if needed.</source>
+        <translation>超低配电脑上，钉图后的 OCR 可能导致瞬时卡顿，可以关闭自动文字识别。</translation>
     </message>
     <message>
         <source>Auto language detection: Supports Chinese, Japanese, English mixed recognition</source>
@@ -823,12 +827,24 @@ Replace it?</source>
 <context>
     <name>Toolbar</name>
     <message>
+        <source>More</source>
+        <translation>更多</translation>
+    </message>
+    <message>
+        <source>Adjust</source>
+        <translation>调整</translation>
+    </message>
+    <message>
         <source>Ctrl+click any editable annotation to edit it temporarily</source>
         <translation>按住 Ctrl 点击任意可编辑标注，可临时编辑</translation>
     </message>
     <message>
         <source>Mosaic (mouse wheel to resize)</source>
         <translation>马赛克（鼠标滚轮调整大小）</translation>
+    </message>
+    <message>
+        <source>Spotlight (dim outside the box)</source>
+        <translation>聚光灯（压暗框外区域）</translation>
     </message>
     <message>
         <source>Long screenshot (scroll)</source>
@@ -890,6 +906,10 @@ Replace it?</source>
     <message>
         <source>Screenshot translate (OCR + Translate)</source>
         <translation>截图翻译（OCR + 翻译）</translation>
+    </message>
+    <message>
+        <source>Scan QR code / barcode</source>
+        <translation>扫码（二维码 / 条形码）</translation>
     </message>
     <message>
         <source>Recognizing...</source>
@@ -1027,6 +1047,22 @@ Replace it?</source>
     <message>
         <source>Translate OCR text</source>
         <translation>翻译识别文字</translation>
+    </message>
+    <message>
+        <source>Translate (Text Recognition)</source>
+        <translation>翻译（文字识别）</translation>
+    </message>
+    <message>
+        <source>OCR recognition could not be started</source>
+        <translation>无法启动文字识别</translation>
+    </message>
+    <message>
+        <source>No text was recognized</source>
+        <translation>未识别到文字</translation>
+    </message>
+    <message>
+        <source>OCR recognition failed: {error}</source>
+        <translation>文字识别失败：{error}</translation>
     </message>
     <message>
         <source>Thumbnail mode</source>
@@ -1196,6 +1232,30 @@ Replace it?</source>
     <message>
         <source>Exit</source>
         <translation>退出</translation>
+    </message>
+    <message>
+        <source>Screenshot (2)</source>
+        <translation>截图 (2)</translation>
+    </message>
+    <message>
+        <source>Translation (2)</source>
+        <translation>翻译 (2)</translation>
+    </message>
+    <message>
+        <source>Clipboard (2)</source>
+        <translation>剪贴板 (2)</translation>
+    </message>
+    <message>
+        <source>Hotkey Registration Failed</source>
+        <translation>热键注册失败</translation>
+    </message>
+    <message>
+        <source>The following hotkeys failed to register:</source>
+        <translation>以下热键注册失败：</translation>
+    </message>
+    <message>
+        <source>The hotkey may be occupied by other programs. Please try a different combination.</source>
+        <translation>该热键可能已被其他程序占用。请尝试其他组合。</translation>
     </message>
 </context>
 
@@ -2664,18 +2724,6 @@ Replace it?</source>
         <source>📸 截图设置</source>
         <translation>📸 截图设置</translation>
     </message>
-    <message>
-        <source>设置快捷键与截图的默认保存位置。</source>
-        <translation>设置快捷键与截图的默认保存位置。</translation>
-    </message>
-    <message>
-        <source>快捷键（最多设置两个）</source>
-        <translation>快捷键（最多设置两个）</translation>
-    </message>
-    <message>
-        <source>单击输入框后，直接按下目标组合键即可录入。</source>
-        <translation>单击输入框后，直接按下目标组合键即可录入。</translation>
-    </message>
     <!-- page3 -->
     <message><source>剪贴板</source><translation>剪贴板</translation></message>
     <message><source>历史记录</source><translation>历史记录</translation></message>
@@ -2708,30 +2756,10 @@ Replace it?</source>
         <source>关闭后不会记录复制内容，快捷键也不会激活窗口。</source>
         <translation>关闭后不会记录复制内容，快捷键也不会激活窗口。</translation>
     </message>
-    <message>
-        <source>程序还会尝试注册 Win+V 作为额外备用。</source>
-        <translation>程序还会尝试注册 Win+V 作为额外备用。</translation>
-    </message>
     <!-- page4 -->
     <message>
         <source>智能选区</source>
         <translation>智能选区</translation>
-    </message>
-    <message>
-        <source>截图时将鼠标悬停在任意窗口上，自动识别并高亮其边界。
-单击即可精准截取该窗口；也可以像平时一样拖拽框选任意区域。</source>
-        <translation>截图时将鼠标悬停在任意窗口上，自动识别并高亮其边界。
-单击即可精准截取该窗口；也可以像平时一样拖拽框选任意区域。</translation>
-    </message>
-    <message>
-        <source>🪟 启用智能选区</source>
-        <translation>🪟 启用智能选区</translation>
-    </message>
-    <message>
-        <source>开启：悬停自动高亮窗口，单击即完成截取。
-关闭：恢复手动拖拽框选模式。</source>
-        <translation>开启：悬停自动高亮窗口，单击即完成截取。
-关闭：恢复手动拖拽框选模式。</translation>
     </message>
     <!-- page5 -->
     <message>
@@ -2851,6 +2879,90 @@ Replace it?</source>
     <message>
         <source>中文</source>
         <translation>中文</translation>
+    </message>
+    <message>
+        <source>快捷键</source>
+        <translation>快捷键</translation>
+    </message>
+    <message>
+        <source>三个全局功能各可设置一个主快捷键和一个备用快捷键。</source>
+        <translation>三个全局功能各可设置一个主快捷键和一个备用快捷键。</translation>
+    </message>
+    <message>
+        <source>主快捷键</source>
+        <translation>主快捷键</translation>
+    </message>
+    <message>
+        <source>备用</source>
+        <translation>备用</translation>
+    </message>
+    <message>
+        <source>截图</source>
+        <translation>截图</translation>
+    </message>
+    <message>
+        <source>智能翻译</source>
+        <translation>智能翻译</translation>
+    </message>
+    <message>
+        <source>点击输入框后，按下快捷键或鼠标侧键即可录入。</source>
+        <translation>点击输入框后，按下快捷键或鼠标侧键即可录入。</translation>
+    </message>
+    <message>
+        <source>设置截图的保存方式与选区方式。</source>
+        <translation>设置截图的保存方式与选区方式。</translation>
+    </message>
+    <message>
+        <source>自动保存截图</source>
+        <translation>自动保存截图</translation>
+    </message>
+    <message>
+        <source>关闭时截图只复制到剪贴板，不落盘。</source>
+        <translation>关闭时截图只复制到剪贴板，不落盘。</translation>
+    </message>
+    <message>
+        <source>保存格式</source>
+        <translation>保存格式</translation>
+    </message>
+    <message>
+        <source>悬停时自动识别窗口边界，单击即可精准截取。</source>
+        <translation>悬停时自动识别窗口边界，单击即可精准截取。</translation>
+    </message>
+    <message>
+        <source>剪贴板外观</source>
+        <translation>剪贴板外观</translation>
+    </message>
+    <message>
+        <source>Azure API Key</source>
+        <translation>Azure API 密钥</translation>
+    </message>
+    <message>
+        <source>Azure Region</source>
+        <translation>Azure 区域</translation>
+    </message>
+    <message>
+        <source>Azure Endpoint</source>
+        <translation>Azure 终结点</translation>
+    </message>
+    <message>
+        <source>Optional, use default if empty</source>
+        <translation>可选，留空则使用默认值</translation>
+    </message>
+    <message>
+        <source>鼠标侧键</source>
+        <translation>鼠标侧键</translation>
+    </message>
+    <message>
+        <source>可设为快捷键</source>
+        <translation>可设为快捷键</translation>
+    </message>
+    <message>
+        <source>不可用</source>
+        <translation>不可用</translation>
+    </message>
+    <message>
+        <source>当前按下</source>
+        <translation>当前按下</translation>
     </message>
 </context>
 
@@ -3160,6 +3272,163 @@ SOFTWARE.</translation></message>
     <message>
         <source>Change Mosaic Size</source>
         <translation>更改马赛克粒度</translation>
+    </message>
+</context>
+<context>
+    <name>HotkeyEdit</name>
+    <message>
+        <source>This hotkey is assigned more than once.</source>
+        <translation>此快捷键被重复分配。</translation>
+    </message>
+</context>
+<context>
+    <name>ToolbarLayoutDialog</name>
+    <message>
+        <source>Customize Toolbar</source>
+        <translation>自定义工具栏</translation>
+    </message>
+    <message>
+        <source>Always show</source>
+        <translation>始终显示</translation>
+    </message>
+    <message>
+        <source>In more menu</source>
+        <translation>隐藏在更多菜单中</translation>
+    </message>
+    <message>
+        <source>Always hide</source>
+        <translation>始终隐藏</translation>
+    </message>
+    <message>
+        <source>This button can't be hidden</source>
+        <translation>此按钮不能隐藏</translation>
+    </message>
+    <message>
+        <source>Drag the handle to reorder. Use the drop-down to change visibility.</source>
+        <translation>拖动左侧手柄调整顺序，使用下拉菜单更改显示方式。</translation>
+    </message>
+    <message>
+        <source>Restore defaults</source>
+        <translation>恢复默认</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>确定</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Long screenshot</source>
+        <translation>长截图</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>保存</translation>
+    </message>
+    <message>
+        <source>Screenshot translate</source>
+        <translation>截图翻译</translation>
+    </message>
+    <message>
+        <source>Scan code</source>
+        <translation>扫码</translation>
+    </message>
+    <message>
+        <source>GIF recording</source>
+        <translation>GIF 录制</translation>
+    </message>
+    <message>
+        <source>Pen</source>
+        <translation>画笔</translation>
+    </message>
+    <message>
+        <source>Highlighter</source>
+        <translation>荧光笔</translation>
+    </message>
+    <message>
+        <source>Mosaic</source>
+        <translation>马赛克</translation>
+    </message>
+    <message>
+        <source>Spotlight</source>
+        <translation>聚光灯</translation>
+    </message>
+    <message>
+        <source>Arrow</source>
+        <translation>箭头</translation>
+    </message>
+    <message>
+        <source>Number</source>
+        <translation>序号</translation>
+    </message>
+    <message>
+        <source>Rectangle</source>
+        <translation>矩形</translation>
+    </message>
+    <message>
+        <source>Ellipse</source>
+        <translation>椭圆</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>文字</translation>
+    </message>
+    <message>
+        <source>Eraser</source>
+        <translation>橡皮擦</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>撤销</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>重做</translation>
+    </message>
+    <message>
+        <source>Cancel screenshot</source>
+        <translation>结束截图</translation>
+    </message>
+    <message>
+        <source>Pin image</source>
+        <translation>钉图</translation>
+    </message>
+    <message>
+        <source>Confirm</source>
+        <translation>确定</translation>
+    </message>
+</context>
+<context>
+    <name>BarcodeResultWindow</name>
+    <message>
+        <source>Scan result</source>
+        <translation>扫码结果</translation>
+    </message>
+    <message>
+        <source>Found %1 code(s)</source>
+        <translation>识别到 %1 个码</translation>
+    </message>
+    <message>
+        <source>No QR code or barcode found</source>
+        <translation>未识别到二维码或条形码</translation>
+    </message>
+    <message>
+        <source>Make sure the whole code is inside the selection.</source>
+        <translation>请确认码完整地框在选区内。</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>复制</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>已复制</translation>
+    </message>
+    <message>
+        <source>Open link</source>
+        <translation>打开链接</translation>
     </message>
 </context>
 </TS>

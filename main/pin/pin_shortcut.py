@@ -60,12 +60,20 @@ class _PinHandlerBase(ShortcutHandler):
             return ""
 
     def handle_hotkey(self, hotkey_id: int, callback) -> bool:
+        """拦截智能翻译热键（键盘），直接翻译钉图中选中的 OCR 文字。"""
+        return self._intercept_translation_hotkey(callback)
+
+    def handle_mouse_hotkey(self, token: str, callback) -> bool:
+        """拦截智能翻译热键（鼠标侧键），效果同 handle_hotkey。"""
+        return self._intercept_translation_hotkey(callback)
+
+    def _intercept_translation_hotkey(self, callback) -> bool:
         """拦截智能翻译热键，直接翻译钉图中选中的 OCR 文字。
 
         钉图窗口是 Qt.Tool + 置顶窗口，不抢键盘焦点，所以智能翻译
         注入的 Ctrl+Insert 会落到真正持有焦点的那个窗口上，复制不到
-        钉图里的 OCR 选区。这里在 WM_HOTKEY 阶段抢在注入之前直接
-        把选区文本交给翻译小窗。
+        钉图里的 OCR 选区。这里在原始回调执行之前抢先直接把选区文本
+        交给翻译小窗（键盘热键在 WM_HOTKEY 阶段，鼠标侧键热键同理）。
 
         无选区时返回 False，退回原有的系统复制探测流程。
         """

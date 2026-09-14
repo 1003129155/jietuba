@@ -234,7 +234,7 @@ class _DotIndicator(QWidget):
 class WelcomeWizard(FrostedFramelessDialog):
     """欢迎向导对话框"""
 
-    PAGE_COUNT = 5
+    PAGE_COUNT = 6
     WINDOW_W = 960
     WINDOW_H = 680
 
@@ -461,12 +461,14 @@ class WelcomeWizard(FrostedFramelessDialog):
     def _build_pages(self):
         if __package__:
             from .page1_welcome import WelcomePage
+            from .page_hotkeys import HotkeyPage
             from .page2_screenshot import ScreenshotHotkeyPage
             from .page3_clipboard import ClipboardHotkeyPage
             from .page5_translation import TranslationPage
             from .page6_finish import FinishPage
         else:
             from page1_welcome import WelcomePage
+            from page_hotkeys import HotkeyPage
             from page2_screenshot import ScreenshotHotkeyPage
             from page3_clipboard import ClipboardHotkeyPage
             from page5_translation import TranslationPage
@@ -474,6 +476,7 @@ class WelcomeWizard(FrostedFramelessDialog):
 
         self._pages = [
             WelcomePage(self._config),
+            HotkeyPage(self._config),
             ScreenshotHotkeyPage(self._config),
             ClipboardHotkeyPage(self._config),
             TranslationPage(self._config),
@@ -585,7 +588,7 @@ class WelcomeWizard(FrostedFramelessDialog):
 
 
 if __name__ == "__main__":
-    # 完整向导预览（所有6页 + 导航）
+    # 完整向导预览（所有页 + 导航）
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from base_page import _dev_bootstrap

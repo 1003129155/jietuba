@@ -109,6 +109,9 @@ class ToolSettingsManager(QObject):
             "draw_mode": "freehand",  # freehand / rect
             "style": "pixelate",  # pixelate / blur
         },
+        "spotlight": {
+            "opacity": 0.7,  # 幕布暗度（整个场景一张黑色幕布，所有聚光灯共用）
+        },
         "rect": {
             "color": "#FF0000",  # 红色
             "stroke_width": 9,
@@ -181,6 +184,7 @@ class ToolSettingsManager(QObject):
         "double_click_copy_close": True,      # 双击选区复制到剪贴板并关闭
         "cross_tool_selection": True,         # Ctrl 临时跨工具选择标注
         "text_always_on_top": True,           # 文字标注始终高于其他绘制标注
+        "screenshot_toolbar_layout": "",      # 截图工具栏按钮排布（JSON，空 = 默认排布，见 ui/toolbar_layout.py）
 
         # 智能选择
         "smart_selection": True,              # 智能选区（窗口/控件识别）
@@ -207,7 +211,7 @@ class ToolSettingsManager(QObject):
         "gif_fps_options": [5, 10, 16, 24],  # 帧率可选项（可在此调整选项）
 
         # OCR
-        "ocr_enabled": True,                   # OCR功能启用
+        "ocr_enabled": True,                   # 钉图后自动 OCR（保留旧键名以兼容已有配置）
         "ocr_engine": "ppocr_rust",            # OCR引擎类型 (ppocr_rust 推荐, windows_media_ocr 备用)
         "ocr_grayscale": False,                # OCR灰度转换（Windows OCR 不需要）
         "ocr_upscale": True,                   # OCR图像放大（提升小字识别率）
@@ -822,11 +826,11 @@ class ToolSettingsManager(QObject):
         self.qsettings.setValue("app/show_main_window", value)
     
     def get_ocr_enabled(self) -> bool:
-        """获取 OCR 启用状态"""
+        """获取钉图后自动 OCR 状态（方法名为兼容旧版本保留）"""
         return self.qsettings.value("app/ocr_enabled", self.APP_DEFAULT_SETTINGS["ocr_enabled"], type=bool)
     
     def set_ocr_enabled(self, value: bool):
-        """设置 OCR 启用状态"""
+        """设置钉图后自动 OCR 状态（方法名为兼容旧版本保留）"""
         self.qsettings.setValue("app/ocr_enabled", value)
     
     def get_ocr_engine(self) -> str:

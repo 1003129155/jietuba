@@ -18,6 +18,7 @@ page_appearance.py(182/7.7%) 都不是类，而是 create_*_page(dialog) 工厂�
 """
 from types import SimpleNamespace
 
+from clipboard.ui.theme.themes import PRESET_THEME_SWATCHES
 from ui.settings_ui import page_appearance, page_clipboard, page_hotkey, page_translation
 
 
@@ -323,29 +324,35 @@ class TestShortcutConflictDetection:
 
 
 # ============================================================================
-# page_appearance：主题色常量
+# page_appearance：主题选择器色板（共用自 clipboard.ui.theme.themes）
 # ============================================================================
 
 class TestThemeColourTable:
 
-    def test_every_entry_is_a_name_accent_background_triple(self):
-        for entry in page_appearance._THEME_COLORS:
-            assert len(entry) == 3, entry
-            name, accent, background = entry
+    def test_every_swatch_is_an_accent_background_hex_pair(self):
+        for name, (accent, background) in PRESET_THEME_SWATCHES.items():
             assert name and isinstance(name, str)
             for colour in (accent, background):
                 assert colour.startswith("#"), colour
                 assert len(colour) == 7, colour
                 int(colour[1:], 16)  # 必须是合法十六进制
 
-    def test_theme_names_are_unique(self):
-        names = [entry[0] for entry in page_appearance._THEME_COLORS]
-        assert len(names) == len(set(names)), names
-
     def test_light_and_dark_themes_are_both_offered(self):
-        names = [entry[0] for entry in page_appearance._THEME_COLORS]
-        assert "light" in names
-        assert "dark" in names
+        assert "light" in PRESET_THEME_SWATCHES
+        assert "dark" in PRESET_THEME_SWATCHES
+
+    def test_theme_button_is_painted_with_its_swatch(self):
+        styles = []
+        button = SimpleNamespace(setStyleSheet=styles.append)
+        page_appearance._apply_clip_theme_btn_style(button, "pink")
+        accent, background = PRESET_THEME_SWATCHES["pink"]
+        assert accent in styles[-1] and background in styles[-1]
+
+    def test_unknown_theme_leaves_button_untouched(self):
+        styles = []
+        button = SimpleNamespace(setStyleSheet=styles.append)
+        page_appearance._apply_clip_theme_btn_style(button, "no-such-theme")
+        assert styles == []
 
 
 # ============================================================================

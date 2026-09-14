@@ -6,7 +6,7 @@
 
 ## 概要
 
-Windows x86_64 および ARM64 向けのスクリーンショット・クリップボード管理アプリケーションです。UI は PySide6、画像処理・クリップボード操作・OCR などは Rust で実装しています。領域キャプチャ、ウィンドウスマート検出、GIF録画、長いスクリーンショットの結合、OCR文字認識、画像ピン留め、翻訳、モザイク、PDFエクスポート機能を備え、完全なクリップボード履歴管理システムを搭載しています。
+Windows x86_64 および ARM64 向けのスクリーンショット・クリップボード管理アプリケーションです。UI は PySide6、画像処理・クリップボード操作・OCR などは Rust で実装しています。領域キャプチャ、ウィンドウスマート検出、GIF録画、長いスクリーンショットの結合、OCR文字認識、QRコード/バーコード読み取り、画像ピン留め、翻訳、モザイク、PDFエクスポート機能を備え、完全なクリップボード履歴管理システムを搭載しています。
 
 すぐに使える Windows 版の配布パッケージと、ソースからの実行方法を用意しています。
 
@@ -129,6 +129,7 @@ Windows 版のビルドは `python build_with_ocr_onefile.py` で実行できま
 │   ├── compile_translations.py  # 翻訳コンパイラ（.xml → .qm）
 │   ├── scripts/             # 補助スクリプト — 翻訳プロバイダー比較
 │   │
+│   ├── barcode/             # バーコードモジュール — QRコード/バーコード読み取り（zxing-cpp）
 │   ├── canvas/              # キャンバスモジュール — グラフィックス編集コア
 │   ├── capture/             # キャプチャモジュール — スクリーンキャプチャ＆ウィンドウ検出
 │   ├── clipboard/           # クリップボードモジュール — 履歴、グループ/クイック起動、入出力、検索
@@ -163,6 +164,28 @@ Windows 版のビルドは `python build_with_ocr_onefile.py` で実行できま
 
 ## モジュール詳細
 
+### barcode/ — バーコードモジュール
+
+スクリーンショットの選択範囲にある QR コードやバーコードを読み取ります。結果ウィンドウでは、左側のスクリーンショット上に各コードの位置を示し、右側に番号順で内容を一覧表示します。
+
+<details>
+<summary>ディレクトリ構造を表示</summary>
+
+```text
+barcode/
+├── __init__.py
+├── reader.py                # read_codes / DecodedCode — zxing-cpp でデコードし、内容・形式・輪郭を読み順で返す
+└── result_window.py         # BarcodeResultWindow — 結果ウィンドウ。スクリーンショットと結果一覧を同じ番号で対応付け
+```
+
+</details>
+
+- QR コード、Data Matrix、Aztec、PDF417 と、Code 128・EAN/UPC などの一般的な一次元バーコードに対応
+- 選択範囲内の複数のコードを一度に読み取り。どちら側でコードにホバーしても両方がハイライト
+- ワンクリックでコピー。http(s) リンクはブラウザで直接開ける
+
+---
+
 ### canvas/ — キャンバスモジュール
 
 シーン管理、ビューレンダリング、アイテム選択、アンドゥ/リドゥ機能を備えたグラフィックス編集キャンバスシステム。
@@ -183,6 +206,7 @@ canvas/
     ├── drawing_items.py     # StrokeItem / RectItem / EllipseItem / ArrowItem / TextItem / NumberItem
     ├── background_item.py   # BackgroundItem — 選択領域の背景
     ├── mosaic_item.py       # MosaicItem — モザイクアイテム
+    ├── spotlight_item.py    # SpotlightItem / SpotlightCurtain — スポットライトの穴と共有の幕
     └── selection_item.py    # SelectionItem — 選択境界表示
 ```
 
@@ -432,6 +456,7 @@ tools/
 ├── number.py                # NumberTool — 自動インクリメント番号
 ├── highlighter.py           # HighlighterTool — 蛍光ペン
 ├── mosaic.py                # MosaicTool — モザイク
+├── spotlight.py             # SpotlightTool — スポットライト（枠の外を暗くする）
 ├── cursor.py                # CursorTool — カーソル/選択
 ├── eraser.py                # EraserTool — 消しゴム
 └── cursor_manager.py        # CursorManager — カーソルスタイル管理
@@ -510,6 +535,8 @@ translations/
 ```text
 ui/
 ├── toolbar.py               # Toolbar / _DragHandle — ドラッグ可能なツールバー基底クラス
+├── toolbar_layout.py        # スクリーンショットツールバーのボタン配置（順序・表示方法）の正規化と読み書き
+├── toolbar_layout_dialog.py # ToolbarLayoutDialog — スクリーンショットツールバーの配置編集ダイアログ
 ├── tray_menu.py             # TrayMenu — システムトレイメニュー
 ├── screenshot_window.py     # ScreenshotWindow — フルスクリーンキャプチャウィンドウ
 ├── dialogs.py               # StandardDialog — 確認、警告、情報、エラーダイアログ
@@ -583,6 +610,7 @@ tests/
 ├── run_tests.py             # テスト実行スクリプト
 ├── test_drawing_tools.py    # 描画ツールテスト（ペン/矩形/矢印/テキスト/番号/蛍光ペン）
 ├── test_mosaic_tool.py      # モザイクツールテスト
+├── test_spotlight.py        # スポットライトテスト
 ├── test_functional_handles.py # コントロールポイント編集テスト
 ├── test_capture_service.py  # キャプチャサービステスト
 ├── test_clipboard_api.py    # クリップボード公開 API テスト

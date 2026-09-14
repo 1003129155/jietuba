@@ -60,16 +60,8 @@ def test_welcome_translation_inputs_are_not_clipped(qapp, tmp_path):
     page.show()
     qapp.processEvents()
 
-    controls = [
-        page._provider_combo,
-        page._lang_combo,
-        page._google_key_edit,
-        page._deepl_key_edit,
-        page._amazon_region_edit,
-        page._amazon_access_edit,
-        page._amazon_secret_edit,
-        page._amazon_token_edit,
-    ]
+    controls = [page._provider_combo, page._lang_combo]
+    controls.extend(page._credential_edits.values())
     for control in controls:
         assert control.height() >= control.sizeHint().height()
 
@@ -95,6 +87,45 @@ def test_welcome_translation_has_japanese_resources(source, expected):
     assert translator.translate("WelcomeWizard", source) == expected
 
 
+def test_every_offered_provider_has_its_own_credential_page(qapp, tmp_path):
+    """下拉框里能选到的引擎，下面必须显示它自己的凭据。
+
+    回归点：下拉框从注册表动态生成、凭据页却是手写的那阵子，选 Azure 会停在
+    上一个引擎的表单上——界面上看是「选了 Azure，下面却让你填 Google API Key」。
+    """
+    page = TranslationPage(_manager(tmp_path))
+    try:
+        assert page._provider_combo.count() > 0
+        for index in range(page._provider_combo.count()):
+            page._provider_combo.setCurrentIndex(index)
+            provider_id = page._provider_combo.currentData()
+            assert provider_id in page._provider_pages, provider_id
+            assert (
+                page._credential_stack.currentWidget()
+                is page._provider_pages[provider_id]
+            ), provider_id
+    finally:
+        page.close()
+
+
+def test_azure_credentials_round_trip(qapp, tmp_path):
+    manager = _manager(tmp_path)
+    page = TranslationPage(manager)
+    try:
+        page._provider_combo.setCurrentIndex(
+            page._provider_combo.findData("azure")
+        )
+        page._credential_edits["azure_translate_api_key"].setText("azure-key")
+        page._credential_edits["azure_translate_region"].setText("eastasia")
+        page.save()
+
+        assert manager.get_translation_provider() == "azure"
+        assert manager.get_azure_translate_api_key() == "azure-key"
+        assert manager.get_azure_translate_region() == "eastasia"
+    finally:
+        page.close()
+
+
 def test_welcome_translation_saves_all_provider_credentials(
     qapp, tmp_path
 ):
@@ -103,12 +134,16 @@ def test_welcome_translation_saves_all_provider_credentials(
     page._provider_combo.setCurrentIndex(
         page._provider_combo.findData("amazon")
     )
-    page._google_key_edit.setText("google-key")
-    page._deepl_key_edit.setText("deepl-key")
-    page._amazon_region_edit.setText("ap-northeast-1")
-    page._amazon_access_edit.setText("amazon-access")
-    page._amazon_secret_edit.setText("amazon-secret")
-    page._amazon_token_edit.setText("amazon-token")
+    credentials = {
+        "google_translate_api_key": "google-key",
+        "deepl_api_key": "deepl-key",
+        "amazon_translate_region": "ap-northeast-1",
+        "amazon_translate_access_key_id": "amazon-access",
+        "amazon_translate_secret_access_key": "amazon-secret",
+        "amazon_translate_session_token": "amazon-token",
+    }
+    for config_key, value in credentials.items():
+        page._credential_edits[config_key].setText(value)
     page._lang_combo.setCurrentIndex(page._lang_combo.findData("JA"))
 
     page.save()

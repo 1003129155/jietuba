@@ -12,19 +12,23 @@ from core import safe_event
 class PinToolbar(Toolbar):
     """
     钉图工具栏：
-    1. 隐藏钉图场景不需要的按钮
-    2. 显示复制按钮
-    3. 作为独立顶层窗口吸附在钉图附近
-    4. 支持自动隐藏与手动拖拽
+    1. 固定排布：没有截图专属按钮和「…」，多一个复制按钮，不读截图工具栏的排布配置
+    2. 作为独立顶层窗口吸附在钉图附近
+    3. 支持自动隐藏与手动拖拽
     """
+
+    # 绘制工具的顺序与截图工具栏的默认排布一致，用户在两个窗口里找同一个按钮时位置不变
+    LAYOUT = (
+        "save", "copy",
+        "pen", "highlighter", "mosaic", "arrow", "number", "rect", "ellipse", "text", "eraser",
+        "undo", "redo",
+    )
 
     def __init__(self, parent_pin_window=None, config_manager=None):
         super().__init__(parent=None)
 
         self.parent_pin_window = parent_pin_window
         self.config_manager = config_manager
-
-        self._customize_for_pin()
 
         self.auto_hide_timer = QTimer(self)
         self.auto_hide_timer.setSingleShot(True)
@@ -38,61 +42,9 @@ class PinToolbar(Toolbar):
         """钉图工具栏是独立顶层窗口，parent() 为 None，宿主从这里拿。"""
         return self.parent_pin_window
 
-    def _customize_for_pin(self):
-        """按钉图模式重排并隐藏不需要的按钮。"""
-        s = self.SCALE
-        btn_width = round(45 * s)
-        btn_height = round(45 * s)
-        wide_w = round(50 * s)
-        handle_w = round(btn_height * 0.32) if hasattr(self, "drag_handle") else 0
-        left_x = handle_w
-
-        if hasattr(self, "confirm_btn"):
-            self.confirm_btn.hide()
-        if hasattr(self, "long_screenshot_btn"):
-            self.long_screenshot_btn.hide()
-        if hasattr(self, "pin_btn"):
-            self.pin_btn.hide()
-        if hasattr(self, "cancel_btn"):
-            self.cancel_btn.hide()
-        if hasattr(self, "gif_btn"):
-            self.gif_btn.hide()
-
-        if hasattr(self, "screenshot_translate_btn"):
-            self.screenshot_translate_btn.setGeometry(left_x, 0, wide_w, btn_height)
-            self.screenshot_translate_btn.show()
-            left_x += wide_w
-
-        if hasattr(self, "save_btn"):
-            self.save_btn.setGeometry(left_x, 0, wide_w, btn_height)
-            self.save_btn.show()
-            left_x += wide_w
-
-        if hasattr(self, "copy_btn"):
-            self.copy_btn.setGeometry(left_x, 0, wide_w, btn_height)
-            self.copy_btn.show()
-            left_x += wide_w
-
-        # 顺序与截图工具栏一致，用户在两个窗口里找同一个按钮时位置不变
-        for attr in (
-            "pen_btn",
-            "highlighter_btn",
-            "mosaic_btn",
-            "arrow_btn",
-            "number_btn",
-            "rect_btn",
-            "ellipse_btn",
-            "text_btn",
-            "eraser_btn",
-            "undo_btn",
-            "redo_btn",
-        ):
-            button = getattr(self, attr, None)
-            if button:
-                button.setGeometry(left_x, 0, btn_width, btn_height)
-                left_x += btn_width
-
-        self.resize(left_x, btn_height)
+    def reload_layout(self):
+        """钉图的排布是固定的，不跟随用户对截图工具栏的配置"""
+        self._arrange(self.LAYOUT)
 
     def position_near_window(self, pin_window):
         """
