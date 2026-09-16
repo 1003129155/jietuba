@@ -18,7 +18,6 @@ from ui.mask_overlay import MaskOverlayWidget
 from ui.selection_info import SelectionInfoPanel, SelectionInfoController
 from tools.action import ActionTools
 from settings import get_tool_settings_manager
-from stitch.scroll_window import ScrollCaptureWindow
 from core.logger import log_debug, log_info, log_exception, T
 from core import safe_event
 from core.shortcut_manager import ShortcutManager, ShortcutHandler
@@ -116,11 +115,15 @@ class ScreenshotShortcutHandler(ShortcutHandler):
                 w.scene.undo_stack.redo()
             return True
 
-        # 删除选中图元
+        # 删除选中图元。文字编辑时这个键（默认 Delete）要留给文字框删字符，
+        # 不能在这里连事件一起吞掉——之前 return True 写在 if 外面，编辑文字时
+        # 按 Delete 键选中图元没删（判断对了），但事件已经被吃掉，文字框根本
+        # 收不到这次按键，光标后面的字删不掉。
         if self._match(event, "inapp_delete"):
-            if not is_text_editing and hasattr(w.view, 'smart_edit_controller'):
-                w.view.smart_edit_controller.delete_selected()
-            return True
+            if not is_text_editing:
+                if hasattr(w.view, 'smart_edit_controller'):
+                    w.view.smart_edit_controller.delete_selected()
+                return True
 
         # 截图翻译
         if self._match(event, "inapp_translate"):
@@ -529,8 +532,9 @@ class ScreenshotWindow(QWidget):
         from core.qt_utils import safe_disconnect
         safe_disconnect(self.toolbar.text_font_changed, controller.on_text_font_changed)
         safe_disconnect(self.toolbar.color_changed, controller.on_text_color_changed)
-        if hasattr(self.toolbar, 'text_background_changed'):
-            safe_disconnect(self.toolbar.text_background_changed, controller.on_text_background_changed)
+        safe_disconnect(self.toolbar.text_background_changed, controller.on_text_background_changed)
+        safe_disconnect(self.toolbar.text_outline_changed, controller.on_text_outline_changed)
+        safe_disconnect(self.toolbar.text_shadow_changed, controller.on_text_shadow_changed)
 
     # ------------------------------------------------------------------
     # 窗口截图可见性控制
@@ -603,8 +607,9 @@ class ScreenshotWindow(QWidget):
             controller = self.view.smart_edit_controller
             self.toolbar.text_font_changed.connect(controller.on_text_font_changed)
             self.toolbar.color_changed.connect(controller.on_text_color_changed)
-            if hasattr(self.toolbar, 'text_background_changed'):
-                self.toolbar.text_background_changed.connect(controller.on_text_background_changed)
+            self.toolbar.text_background_changed.connect(controller.on_text_background_changed)
+            self.toolbar.text_outline_changed.connect(controller.on_text_outline_changed)
+            self.toolbar.text_shadow_changed.connect(controller.on_text_shadow_changed)
 
     # -- action_handler wrapper 方法（toolbar 信号的稳定接收端）--
     def _handle_confirm(self):
@@ -947,16 +952,14 @@ class ScreenshotWindow(QWidget):
         """马赛克种类变化（马赛克/模糊），交给 MosaicTool 统一处理。"""
         from tools.mosaic import MosaicTool
 
-        if MosaicTool.apply_style_change(style, getattr(self, "view", None),
-                                         getattr(self.scene, "undo_stack", None)):
+        if MosaicTool.apply_style_change(style, getattr(self, "view", None)):
             log_debug(T("马赛克种类已更新: {style}", style=style), "ScreenshotWindow")
 
     def on_mosaic_block_size_changed(self, block_size: int):
         """马赛克粒度变化，交给 MosaicTool 统一处理。"""
         from tools.mosaic import MosaicTool
 
-        if MosaicTool.apply_block_size_change(block_size, getattr(self, "view", None),
-                                              getattr(self.scene, "undo_stack", None)):
+        if MosaicTool.apply_block_size_change(block_size, getattr(self, "view", None)):
             log_debug(T("马赛克粒度已更新: {size}", size=block_size), "ScreenshotWindow")
 
     def on_line_style_changed(self, style: str):
@@ -1067,7 +1070,9 @@ class ScreenshotWindow(QWidget):
             # 保存配置，用于长截图窗口
             save_dir = self.config_manager.get_screenshot_save_path()
             
-            # 创建独立的长截图窗口（不传递 parent，让它独立运行）
+            # 创建独立的长截图窗口（不传递 parent，让它独立运行）。按需导入：长截图模块
+            # 加载时就会读设置、配置拼接引擎，放在文件顶部会被启动预加载带进工作线程。
+            from stitch import ScrollCaptureWindow
             scroll_window = ScrollCaptureWindow(capture_rect, parent=None, config_manager=self.config_manager)
             scroll_window.set_save_directory(save_dir)  # 设置保存目录
             

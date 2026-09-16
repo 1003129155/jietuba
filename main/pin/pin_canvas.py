@@ -400,13 +400,8 @@ class PinCanvas(QObject):
             cloned.setTextWidth(item.textWidth())
         
         # 复制增强属性
-        if hasattr(item, 'has_outline'):
-            cloned.has_outline = item.has_outline
-            cloned.outline_color = QColor(item.outline_color)
-            cloned.outline_width = item.outline_width
-        if hasattr(item, 'has_shadow'):
-            cloned.has_shadow = item.has_shadow
-            cloned.shadow_color = QColor(item.shadow_color)
+        cloned.set_outline(*item.outline_state())
+        cloned.set_shadow(*item.shadow_state())
         if hasattr(item, 'has_background'):
             cloned.has_background = item.has_background
             if hasattr(item, 'background_color'):
@@ -700,13 +695,13 @@ class PinCanvas(QObject):
         """钉图里切换马赛克种类，与截图窗口共用 MosaicTool 里的同一份策略。"""
         from tools.mosaic import MosaicTool
 
-        MosaicTool.apply_style_change(style, view, self.undo_stack)
+        MosaicTool.apply_style_change(style, view)
 
     def _on_mosaic_block_size_changed(self, block_size: int, view):
         """钉图里调整马赛克粒度，与截图窗口共用 MosaicTool 里的同一份策略。"""
         from tools.mosaic import MosaicTool
 
-        MosaicTool.apply_block_size_change(block_size, view, self.undo_stack)
+        MosaicTool.apply_block_size_change(block_size, view)
 
     def _on_line_style_changed(self, style: str, view):
         """线条样式改变"""

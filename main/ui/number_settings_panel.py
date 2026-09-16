@@ -2,10 +2,9 @@
 序号工具设置面板
 适用于：序号 (number)
 """
-from PySide6.QtCore import QEvent, QPoint, QRect, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import QEvent, QPoint, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPixmap
 from PySide6.QtWidgets import (
-    QApplication,
     QHBoxLayout,
     QLabel,
     QStyleOptionGraphicsItem,
@@ -18,7 +17,7 @@ from canvas.items import NumberItem
 from tools.number import NumberTool
 
 from core.i18n import make_tr
-from .base_settings_panel import BaseSettingsPanel, PANEL_SCALE, set_step_button_icon
+from .base_settings_panel import BaseSettingsPanel, HoverPopup, PANEL_SCALE, set_step_button_icon
 
 # 样式弹出条与序号面板共用同一翻译上下文
 _style_tr = make_tr("ArrowSettingsPanel")
@@ -45,7 +44,7 @@ def render_number_style_preview(
     return pixmap
 
 
-class NumberStylePopup(QWidget):
+class NumberStylePopup(HoverPopup):
     """悬停在 ① 预览上弹出的样式选择条。"""
 
     style_selected = Signal(str)
@@ -54,24 +53,11 @@ class NumberStylePopup(QWidget):
     # 这是样式选择器，不表示颜色。颜色由光标去预览，图标固定用中性色，
     # 否则选浅色标注时白底上的图标会看不见。
     PREVIEW_INK = QColor("#444444")
-    CLOSE_DELAY_MS = 260
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        # 与设置面板同样的标志：浮在最上层且不抢焦点，否则一弹出面板就没了
-        self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint
-            | Qt.WindowType.WindowStaysOnTopHint
-            | Qt.WindowType.Tool
-        )
-        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.setObjectName("NumberStylePopup")
-        # 配色沿用应用里设置面板的白底浅色，不要另造一套深色
         self.setStyleSheet(
-            "#NumberStylePopup { background: white; border: 1px solid #ccc;"
-            " border-radius: 3px; }"
+            self.styleSheet() +
             # 选中态必须一眼盖过悬停态：弹出条以 ① 预览为中心对齐，鼠标移进来
             # 时几乎总会先擦过中间那两个按钮，两者长得像就会被误读成"它自己跳
             # 到空心圆了"。所以悬停只给极淡的底，选中给明显的蓝框——图标是深灰
@@ -105,10 +91,6 @@ class NumberStylePopup(QWidget):
             layout.addWidget(button)
             self._buttons[style] = button
 
-        self._close_timer = QTimer(self)
-        self._close_timer.setSingleShot(True)
-        self._close_timer.setInterval(self.CLOSE_DELAY_MS)
-        self._close_timer.timeout.connect(self.hide)
         self._render_previews()
 
     def _render_previews(self):
@@ -126,21 +108,6 @@ class NumberStylePopup(QWidget):
         self.set_current_style(style)
         self.style_selected.emit(style)
         self.hide()
-
-    # 鼠标在"预览标签"和"弹出层"之间移动时不能立刻关，留一点缓冲
-    def keep_open(self):
-        self._close_timer.stop()
-
-    def close_soon(self):
-        self._close_timer.start()
-
-    def enterEvent(self, event):
-        self.keep_open()
-        super().enterEvent(event)
-
-    def leaveEvent(self, event):
-        self.close_soon()
-        super().leaveEvent(event)
 
 
 class NumberSettingsPanel(BaseSettingsPanel):
@@ -248,44 +215,7 @@ class NumberSettingsPanel(BaseSettingsPanel):
     def _show_style_popup(self):
         popup = self._ensure_style_popup()
         popup.set_current_style(self._current_style)
-        popup.keep_open()
-        popup.adjustSize()
-
-        popup.move(self._style_popup_position(popup))
-        popup.show()
-        popup.raise_()
-
-    def _style_popup_position(self, popup) -> QPoint:
-        """背离工具栏的方向弹；那一边放不下就换另一边。
-
-        面板在工具栏下方就往下弹，在上方就往上弹，这样天然不会盖住一级/二级菜单。
-        """
-        gap = 4
-        panel_rect = QRect(self.mapToGlobal(QPoint(0, 0)), self.size())
-        preview_top_left = self.next_preview.mapToGlobal(QPoint(0, 0))
-
-        screen = QApplication.screenAt(preview_top_left) or QApplication.primaryScreen()
-        area = screen.availableGeometry()
-
-        toolbar = getattr(self, "_owner_toolbar", None)
-        below_toolbar = True
-        if toolbar is not None:
-            try:
-                below_toolbar = panel_rect.top() >= toolbar.mapToGlobal(QPoint(0, 0)).y()
-            except RuntimeError:
-                pass
-
-        outward = panel_rect.bottom() + gap if below_toolbar else panel_rect.top() - popup.height() - gap
-        other = panel_rect.top() - popup.height() - gap if below_toolbar else panel_rect.bottom() + gap
-
-        y = outward
-        if not (area.top() <= y and y + popup.height() <= area.bottom()):
-            y = other
-
-        x = preview_top_left.x() + self.next_preview.width() // 2 - popup.width() // 2
-        x = max(area.left(), min(x, area.right() - popup.width()))
-        y = max(area.top(), min(y, area.bottom() - popup.height()))
-        return QPoint(int(x), int(y))
+        popup.show_beside(self, self.next_preview)
 
     def _on_style_selected(self, style: str):
         self.set_style(style)

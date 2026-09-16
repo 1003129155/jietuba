@@ -2431,6 +2431,42 @@ Replace it?</source>
         <source>Yellow</source>
         <translation>노란색</translation>
     </message>
+    <message>
+        <source>Text Outline</source>
+        <translation>텍스트 외곽선</translation>
+    </message>
+    <message>
+        <source>Text Shadow</source>
+        <translation>텍스트 그림자</translation>
+    </message>
+    <message>
+        <source>Custom Outline Color</source>
+        <translation>사용자 지정 외곽선 색상</translation>
+    </message>
+    <message>
+        <source>Custom Shadow Color</source>
+        <translation>사용자 지정 그림자 색상</translation>
+    </message>
+    <message>
+        <source>Shadow Opacity</source>
+        <translation>그림자 불투명도</translation>
+    </message>
+    <message>
+        <source>Outline: Thin</source>
+        <translation>외곽선: 얇게</translation>
+    </message>
+    <message>
+        <source>Outline: Medium</source>
+        <translation>외곽선: 보통</translation>
+    </message>
+    <message>
+        <source>Outline: Thick</source>
+        <translation>외곽선: 굵게</translation>
+    </message>
+    <message>
+        <source>Outline: Extra Thick</source>
+        <translation>외곽선: 아주 굵게</translation>
+    </message>
 </context>
 
 <context>
@@ -3202,14 +3238,6 @@ SOFTWARE.</translation></message>
     <message>
         <source>Change Number Style</source>
         <translation>번호 스타일 변경</translation>
-    </message>
-    <message>
-        <source>Change Mosaic Style</source>
-        <translation>모자이크 종류 변경</translation>
-    </message>
-    <message>
-        <source>Change Mosaic Size</source>
-        <translation>모자이크 입자 크기 변경</translation>
     </message>
 </context>
 <context>

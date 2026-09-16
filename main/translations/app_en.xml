@@ -2406,6 +2406,42 @@ Replace it?</translation>
         <source>Yellow</source>
         <translation>Yellow</translation>
     </message>
+    <message>
+        <source>Text Outline</source>
+        <translation>Text Outline</translation>
+    </message>
+    <message>
+        <source>Text Shadow</source>
+        <translation>Text Shadow</translation>
+    </message>
+    <message>
+        <source>Custom Outline Color</source>
+        <translation>Custom Outline Color</translation>
+    </message>
+    <message>
+        <source>Custom Shadow Color</source>
+        <translation>Custom Shadow Color</translation>
+    </message>
+    <message>
+        <source>Shadow Opacity</source>
+        <translation>Shadow Opacity</translation>
+    </message>
+    <message>
+        <source>Outline: Thin</source>
+        <translation>Outline: Thin</translation>
+    </message>
+    <message>
+        <source>Outline: Medium</source>
+        <translation>Outline: Medium</translation>
+    </message>
+    <message>
+        <source>Outline: Thick</source>
+        <translation>Outline: Thick</translation>
+    </message>
+    <message>
+        <source>Outline: Extra Thick</source>
+        <translation>Outline: Extra Thick</translation>
+    </message>
 </context>
 
 <context>
@@ -3177,14 +3213,6 @@ SOFTWARE.</translation></message>
     <message>
         <source>Change Number Style</source>
         <translation>Change Number Style</translation>
-    </message>
-    <message>
-        <source>Change Mosaic Style</source>
-        <translation>Change Mosaic Style</translation>
-    </message>
-    <message>
-        <source>Change Mosaic Size</source>
-        <translation>Change Mosaic Size</translation>
     </message>
 </context>
 <context>

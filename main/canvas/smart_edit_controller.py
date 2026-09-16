@@ -579,10 +579,7 @@ class SmartEditController(QObject):
 
 
     def _is_text_item_editing(self, item: QGraphicsItem) -> bool:
-        if not isinstance(item, TextItem):
-            return False
-        flags = item.textInteractionFlags()
-        return bool(flags & Qt.TextInteractionFlag.TextEditorInteraction)
+        return isinstance(item, TextItem) and item.is_editing()
 
     def delete_selected(self, suppress_block: bool = False, renumber_numbers: bool = False):
         """删除当前选中的图元，推入撤销栈"""
@@ -805,9 +802,11 @@ class SmartEditController(QObject):
                 # 图元还在，重新生成控制点以匹配新状态
                 self.layer_editor.start_edit(self.selected_item)
                 
-                # 同步箭头样式面板状态
+                # 同步样式面板：撤销掉的可能正是面板上显示着的那个值（箭头样式、文字字号）
                 if isinstance(self.selected_item, ArrowItem):
                     self._sync_arrow_panel_state(self.selected_item)
+                elif isinstance(self.selected_item, TextItem):
+                    self._sync_text_panel_state(self.selected_item)
 
                 self._repaint_handles()
     
@@ -859,13 +858,17 @@ class SmartEditController(QObject):
             self.selected_item.update()
 
     def on_text_outline_changed(self, enabled, color, width):
-        """更新选中文字的描边"""
+        """更新选中文字的描边。
+
+        和字体、颜色、背景一样直接改、不压撤销命令：撤销栈留给画布内容（新建、
+        删除、移动、缩放），面板上调样式不该占掉用户的 Ctrl+Z。
+        """
         if self.selected_item and isinstance(self.selected_item, TextItem):
             self.selected_item.set_outline(enabled, color, width)
             self.selected_item.update()
 
     def on_text_shadow_changed(self, enabled, color):
-        """更新选中文字的阴影"""
+        """更新选中文字的阴影（同样不进撤销栈，理由见上）"""
         if self.selected_item and isinstance(self.selected_item, TextItem):
             self.selected_item.set_shadow(enabled, color)
             self.selected_item.update()

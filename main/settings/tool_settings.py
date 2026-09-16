@@ -140,6 +140,12 @@ class ToolSettingsManager(QObject):
             "background_enabled": False,
             "background_color": "#FFFFFF",  # 文字背景默认白色
             "background_opacity": 255,
+            # 描边/阴影：与 TextItem 的 DEFAULT_* 一致（这里不能 import canvas）
+            "outline_enabled": False,
+            "outline_color": "#FFFFFF",
+            "outline_width": 0.07,  # 必须是 TextItem.OUTLINE_WIDTH_LEVELS 里的档位之一（字号的比例）
+            "shadow_enabled": False,
+            "shadow_color": "#66000000",  # #AARRGGBB，alpha 即阴影不透明度
         },
         "number": {
             "color": "#FF0000",  # 红色
@@ -303,7 +309,7 @@ class ToolSettingsManager(QObject):
         self.qsettings = qsettings if qsettings is not None else QSettings("Jietuba", "ToolSettings")
         self._tool_settings: Dict[str, ToolSettings] = {}
         self._initialize_tools()
-    
+
     @property
     def settings(self):
         """返回 QSettings 实例。"""
@@ -369,14 +375,16 @@ class ToolSettingsManager(QObject):
             tool_setting.set(key, value)
     
     def _save_tool_settings(self, tool_setting: ToolSettings):
-        """保存工具设置到 QSettings"""
+        """保存工具设置到 QSettings。
+
+        不手动 sync()：setValue() 之后 QSettings 会在下一轮事件循环自己落盘。拖动滑块、
+        Ctrl+滚轮这类连续调整每一步都会走到这里，手动 sync() 只会在自动落盘之外再多刷一次。
+        """
         tool_id = tool_setting.tool_id
-        
+
         for key, value in tool_setting.to_dict().items():
             setting_key = f"tools/{tool_id}/{key}"
             self.qsettings.setValue(setting_key, value)
-        
-        self.qsettings.sync()
     
     def get_tool_settings(self, tool_id: str) -> Optional[ToolSettings]:
         """获取工具的设置对象"""

@@ -2511,6 +2511,42 @@ Replace it?</source>
         <source>Yellow</source>
         <translation>黄色</translation>
     </message>
+    <message>
+        <source>Text Outline</source>
+        <translation>文字描边</translation>
+    </message>
+    <message>
+        <source>Text Shadow</source>
+        <translation>文字阴影</translation>
+    </message>
+    <message>
+        <source>Custom Outline Color</source>
+        <translation>自定义描边颜色</translation>
+    </message>
+    <message>
+        <source>Custom Shadow Color</source>
+        <translation>自定义阴影颜色</translation>
+    </message>
+    <message>
+        <source>Shadow Opacity</source>
+        <translation>阴影透明度</translation>
+    </message>
+    <message>
+        <source>Outline: Thin</source>
+        <translation>描边：细</translation>
+    </message>
+    <message>
+        <source>Outline: Medium</source>
+        <translation>描边：中</translation>
+    </message>
+    <message>
+        <source>Outline: Thick</source>
+        <translation>描边：粗</translation>
+    </message>
+    <message>
+        <source>Outline: Extra Thick</source>
+        <translation>描边：特粗</translation>
+    </message>
 </context>
 
 <context>
@@ -3264,14 +3300,6 @@ SOFTWARE.</translation></message>
     <message>
         <source>Change Number Style</source>
         <translation>更改序号样式</translation>
-    </message>
-    <message>
-        <source>Change Mosaic Style</source>
-        <translation>更改马赛克种类</translation>
-    </message>
-    <message>
-        <source>Change Mosaic Size</source>
-        <translation>更改马赛克粒度</translation>
     </message>
 </context>
 <context>

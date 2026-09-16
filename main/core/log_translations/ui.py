@@ -37,6 +37,8 @@ TRANSLATIONS: dict[str, str] = {
     "加载文字设置": "Loading text settings",
     "保存字体设置": "Saving font settings",
     "保存文字背景设置": "Saving text background settings",
+    "保存文字描边设置": "Saving text outline settings",
+    "保存文字阴影设置": "Saving text shadow settings",
 
     # -- ui/toolbar.py --
     "初始化线条样式失败: {exc}": "Failed to initialize line style: {exc}",
