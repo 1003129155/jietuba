@@ -300,7 +300,9 @@ def test_text_handles_anchor_to_rotated_corners(view, qapp, angle):
     view.request_handles_repaint()
     qapp.processEvents()
 
-    local = item.boundingRect()
+    # interaction_rect()，不是 boundingRect()：后者是命中测试用的包围盒，
+    # 比交互矩形多出一圈点击旷量（CLICK_MARGIN），手柄不该跟着那圈旷量走。
+    local = item.interaction_rect()
     _assert_anchored(
         view.smart_edit_controller.layer_editor,
         item,

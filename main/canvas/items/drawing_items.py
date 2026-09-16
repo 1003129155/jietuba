@@ -5,23 +5,57 @@
 from __future__ import annotations
 
 import math
-from PySide6.QtWidgets import QGraphicsPathItem, QGraphicsRectItem, QGraphicsEllipseItem, QGraphicsItem, QGraphicsTextItem
+from PySide6.QtWidgets import (
+    QGraphicsPathItem, QGraphicsRectItem, QGraphicsEllipseItem, QGraphicsItem, QGraphicsTextItem,
+    QStyle, QStyleOptionGraphicsItem,
+)
 from PySide6.QtGui import QPen, QPainter, QPainterPath, QColor, QFont, QPainterPathStroker, QBrush
 from PySide6.QtCore import Qt, QRectF, QPointF
 from core import log_debug, log_warning, safe_event
 from core.logger import T
 
 class DrawingItemMixin:
-    """绘图图元通用属性"""
+    """绘图图元通用属性
+
+    候选/选中框的"什么时候画、画成什么样"都归这里，子类只提供"画的是什么形状"
+    （见 should_paint_selection_frame / selection_frame_pen 的用法）。
+
+    这套状态机曾经在矩形、椭圆、箭头、序号里各复制了一份（四份逐字节相同），
+    文字和框选马赛克则整个漏掉：加一个图元类型时，候选反馈不会自动跟过来，
+    抄漏了也不报错、不挂测试，只是少一圈框。收进来之后默认就是对的，要"故意
+    不画"才得写一行覆盖。
+
+    [WARN] 继承时 mixin 必须写在 Qt 基类前面（DrawingItemMixin, QGraphicsXItem）：
+    QGraphicsItem 自己也定义了 hoverEnterEvent 等虚函数，写在后面会被 MRO 挡住，
+    这里的实现根本轮不到执行。
+    """
+
+    # 候选/选中框：所有图元共用一套配色，只用线型区分含义（实线=当前对象）
+    SELECTION_FRAME_COLOR = QColor(0, 180, 255, 230)
+    SELECTION_FRAME_WIDTH = 2
+
     def _init_drawing_mixin(self):
         """PySide6 要求在 super().__init__() 之后显式调用，而非定义 __init__
         （防止协作式 MRO 链在 Qt C++ 初始化前调用 Qt 方法）"""
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setAcceptHoverEvents(True)
+        self._hovered = False
+
+    # ====================================================================
+    # 候选/选中态 — 何时显示、显示成什么样
+    # ====================================================================
+
+    def _set_hovered(self, hovered: bool):
+        """候选态只在当前工具选得中它时才算数，否则鼠标经过什么也不该发生。"""
+        hovered = bool(hovered) and self._can_show_hover()
+        if hovered == self._hovered:
+            return
+        self._hovered = hovered
+        self.update()
 
     def _update_hover_cursor(self, event=None):
-        if self.isSelected():
+        if self._can_show_hover():
             self.setCursor(Qt.CursorShape.SizeAllCursor)
         else:
             self.unsetCursor()
@@ -29,15 +63,28 @@ class DrawingItemMixin:
             event.accept()
 
     def hoverEnterEvent(self, event):
+        self._set_hovered(True)
         self._update_hover_cursor(event)
 
     def hoverMoveEvent(self, event):
+        self._set_hovered(True)
         self._update_hover_cursor(event)
 
     def hoverLeaveEvent(self, event):
+        self._set_hovered(False)
         self.unsetCursor()
         if event is not None:
             event.accept()
+
+    def should_paint_selection_frame(self) -> bool:
+        """选中的、和鼠标停着的候选，都要把框画出来。"""
+        return (self.isSelected() or self._hovered) and self._can_show_hover()
+
+    def selection_frame_pen(self, style=Qt.PenStyle.DashLine) -> QPen:
+        """候选/选中框的画笔：颜色、线宽、cosmetic 只有这一处说了算。"""
+        pen = QPen(self.SELECTION_FRAME_COLOR, self.SELECTION_FRAME_WIDTH, style)
+        pen.setCosmetic(True)
+        return pen
 
     # ====================================================================
     # 统一属性接口 — View 层通过这些方法修改图元，不直接操作内部属性
@@ -84,7 +131,7 @@ class DrawingItemMixin:
                 return False
         return False
 
-class StrokeItem(QGraphicsPathItem, DrawingItemMixin):
+class StrokeItem(DrawingItemMixin, QGraphicsPathItem):
     """画笔/荧光笔图元"""
     
     def __init__(self, path: QPainterPath, pen: QPen, is_highlighter: bool = False):
@@ -194,30 +241,19 @@ class StrokeItem(QGraphicsPathItem, DrawingItemMixin):
             return direct
         return self.pen().color().alphaF()
 
-class ShapeItemMixin(DrawingItemMixin):
-    """形状图元通用逻辑"""
-    def __init__(self, pen: QPen):
-        # 注意：不调用 _init_drawing_mixin()，形状图元直接在自身 __init__ 中设置 flags
-        self.setPen(pen)
-        self.setZValue(20)
-
-class RectItem(QGraphicsRectItem):
+class RectItem(DrawingItemMixin, QGraphicsRectItem):
     """矩形图元"""
     CLICK_MARGIN = 4  # 点击旷量（像素/每侧）
     def __init__(self, rect: QRectF, pen: QPen, corner_radius: float = 0.0):
         # 使用 QRectF 参数初始化
         super().__init__(rect)
+        self._init_drawing_mixin()
         # 设置样式和属性
         self.setPen(pen)
         self.setBrush(QBrush(Qt.BrushStyle.NoBrush))
         self.setZValue(20)
         self._shape_cache = None
-        self._hovered = False
         self._corner_radius = max(0.0, float(corner_radius))
-        # 设置可选择和可移动
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
-        self.setAcceptHoverEvents(True)
 
     def setPen(self, pen: QPen):
         super().setPen(pen)
@@ -265,22 +301,6 @@ class RectItem(QGraphicsRectItem):
         extra = max(0.0, self.pen().widthF() / 2.0) + self.CLICK_MARGIN
         return rect.adjusted(-extra, -extra, extra, extra)
 
-    def _can_show_hover(self) -> bool:
-        """判断是否应该显示悬停光标"""
-        scene = self.scene() if hasattr(self, 'scene') else None
-        if not scene:
-            return False
-        views = scene.views()
-        if not views:
-            return False
-        controller = getattr(views[0], "smart_edit_controller", None)
-        if controller:
-            try:
-                return controller.can_show_hover_cursor(self)
-            except Exception:
-                return False
-        return False
-
     def paint(self, painter, option, widget=None):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
@@ -299,41 +319,13 @@ class RectItem(QGraphicsRectItem):
         else:
             painter.drawRect(self.rect())
 
-        if (self.isSelected() or self._hovered) and self._can_show_hover():
-            selection_pen = QPen(QColor(0, 180, 255, 230), 2, Qt.PenStyle.DashLine)
-            selection_pen.setCosmetic(True)
+        if self.should_paint_selection_frame():
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.setPen(selection_pen)
+            painter.setPen(self.selection_frame_pen())
             if r > 0:
                 painter.drawRoundedRect(self.rect(), r, r)
             else:
                 painter.drawRect(self.rect())
-
-    def hoverEnterEvent(self, event):
-        if not self._can_show_hover():
-            self._hovered = False
-            self.update()
-            self.unsetCursor()
-            event.accept()
-            return
-        self._hovered = True
-        self.update()
-        self.setCursor(Qt.CursorShape.SizeAllCursor)
-        event.accept()
-
-    def hoverMoveEvent(self, event):
-        if not self._can_show_hover():
-            self.unsetCursor()
-            event.accept()
-            return
-        self.setCursor(Qt.CursorShape.SizeAllCursor)
-        event.accept()
-
-    def hoverLeaveEvent(self, event):
-        self._hovered = False
-        self.update()
-        self.unsetCursor()
-        event.accept()
 
     # -- 统一属性接口 --
 
@@ -377,22 +369,18 @@ class RectItem(QGraphicsRectItem):
             return direct
         return self.pen().color().alphaF()
 
-class EllipseItem(QGraphicsEllipseItem):
+class EllipseItem(DrawingItemMixin, QGraphicsEllipseItem):
     """椭圆图元"""
     CLICK_MARGIN = 4  # 点击旷量（像素/每侧）
     def __init__(self, rect: QRectF, pen: QPen):
         # 使用 QRectF 参数初始化
         super().__init__(rect)
+        self._init_drawing_mixin()
         # 设置样式和属性
         self.setPen(pen)
         self.setBrush(QBrush(Qt.BrushStyle.NoBrush))
         self.setZValue(20)
         self._shape_cache = None
-        self._hovered = False
-        # 设置可选择和可移动
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
-        self.setAcceptHoverEvents(True)
 
     def setPen(self, pen: QPen):
         super().setPen(pen)
@@ -423,22 +411,6 @@ class EllipseItem(QGraphicsEllipseItem):
         extra = max(0.0, self.pen().widthF() / 2.0) + self.CLICK_MARGIN
         return rect.adjusted(-extra, -extra, extra, extra)
 
-    def _can_show_hover(self) -> bool:
-        """判断是否应该显示悬停光标"""
-        scene = self.scene() if hasattr(self, 'scene') else None
-        if not scene:
-            return False
-        views = scene.views()
-        if not views:
-            return False
-        controller = getattr(views[0], "smart_edit_controller", None)
-        if controller:
-            try:
-                return controller.can_show_hover_cursor(self)
-            except Exception:
-                return False
-        return False
-
     def paint(self, painter, option, widget=None):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
@@ -448,38 +420,10 @@ class EllipseItem(QGraphicsEllipseItem):
         painter.drawEllipse(self.rect())
 
         # 选中或悬停时绘制椭圆虚线轮廓
-        if (self.isSelected() or self._hovered) and self._can_show_hover():
-            selection_pen = QPen(QColor(0, 180, 255, 230), 2, Qt.PenStyle.DashLine)
-            selection_pen.setCosmetic(True)
+        if self.should_paint_selection_frame():
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.setPen(selection_pen)
+            painter.setPen(self.selection_frame_pen())
             painter.drawEllipse(self.rect())
-
-    def hoverEnterEvent(self, event):
-        if not self._can_show_hover():
-            self._hovered = False
-            self.update()
-            self.unsetCursor()
-            event.accept()
-            return
-        self._hovered = True
-        self.update()
-        self.setCursor(Qt.CursorShape.SizeAllCursor)
-        event.accept()
-
-    def hoverMoveEvent(self, event):
-        if not self._can_show_hover():
-            self.unsetCursor()
-            event.accept()
-            return
-        self.setCursor(Qt.CursorShape.SizeAllCursor)
-        event.accept()
-
-    def hoverLeaveEvent(self, event):
-        self._hovered = False
-        self.update()
-        self.unsetCursor()
-        event.accept()
 
     # -- 统一属性接口 --
 
@@ -517,7 +461,7 @@ class EllipseItem(QGraphicsEllipseItem):
         return self.pen().color().alphaF()
 
 
-class ArrowItem(QGraphicsPathItem, DrawingItemMixin):
+class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
     """
     箭头图元 - 平滑箭头，支持弯曲
     
@@ -567,6 +511,14 @@ class ArrowItem(QGraphicsPathItem, DrawingItemMixin):
         super().setPath(path)
         self._shape_cache = None
 
+    def boundingRect(self):
+        # 默认实现只按 path() 本身的外接矩形算，圈不住 shape() 里再往外扩的
+        # 点击旷量；shape() 必须完整落在 boundingRect() 之内，否则命中区
+        # 会漏出包围盒外，场景的粗筛（先按包围盒过一遍再测 shape）会先把
+        # 这部分点漏掉。
+        margin = self.CLICK_MARGIN
+        return self.path().boundingRect().adjusted(-margin, -margin, margin, margin)
+
     def shape(self):
         if self._shape_cache is not None:
             return self._shape_cache
@@ -575,11 +527,18 @@ class ArrowItem(QGraphicsPathItem, DrawingItemMixin):
         if path.isEmpty():
             return path
 
+        # 箭头 paint() 是整块填色（setBrush + drawPath），path() 本身就是闭合
+        # 填色轮廓，不是要被描边的骨架线——直接拿它当命中区，三角形箭头/工字
+        # 端头的中心才点得中，不会只有贴着轮廓线的一圈能点中。
+        # 轮廓是手工拼出的不规则多边形，没有"放大参数"这条近路能加点击旷量，
+        # 于是并上一条沿轮廓的窄带（宽度=旷量*2），边界外侧就多出一圈容差。
         stroker = QPainterPathStroker()
-        stroker.setWidth(max(1.0, float(self.base_width)) + self.CLICK_MARGIN * 2)
+        stroker.setWidth(self.CLICK_MARGIN * 2)
         stroker.setCapStyle(Qt.PenCapStyle.RoundCap)
         stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        self._shape_cache = stroker.createStroke(path)
+        band = stroker.createStroke(path)
+
+        self._shape_cache = path.united(band)
         return self._shape_cache
 
     @property
@@ -1252,40 +1211,13 @@ class ArrowItem(QGraphicsPathItem, DrawingItemMixin):
         painter.setBrush(self.color)
         painter.drawPath(self.path())
 
-        if (self.isSelected() or self._hovered) and self._can_show_hover():
-            selection_pen = QPen(QColor(0, 180, 255, 230), 2, Qt.PenStyle.DashLine)
-            selection_pen.setCosmetic(True)
+        if self.should_paint_selection_frame():
+            selection_pen = self.selection_frame_pen()
             selection_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             selection_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.setPen(selection_pen)
             painter.drawPath(self.path())
-
-    def hoverEnterEvent(self, event):
-        if not self._can_show_hover():
-            self._hovered = False
-            self.update()
-            self.unsetCursor()
-            event.accept()
-            return
-        self._hovered = True
-        self.update()
-        self.setCursor(Qt.CursorShape.SizeAllCursor)
-        event.accept()
-
-    def hoverMoveEvent(self, event):
-        if not self._can_show_hover():
-            self.unsetCursor()
-            event.accept()
-            return
-        self.setCursor(Qt.CursorShape.SizeAllCursor)
-        event.accept()
-
-    def hoverLeaveEvent(self, event):
-        self._hovered = False
-        self.update()
-        self.unsetCursor()
-        event.accept()
 
     # -- 统一属性接口 --
 
@@ -1319,12 +1251,13 @@ class ArrowItem(QGraphicsPathItem, DrawingItemMixin):
         return self.color.alphaF()
 
 
-class TextItem(QGraphicsTextItem, DrawingItemMixin):
+class TextItem(DrawingItemMixin, QGraphicsTextItem):
     """文字图元 - 增强版"""
-    # 文字与虚线边框之间的内边距（document margin）
+    # 文字与交互框之间的内边距（document margin）
     TEXT_PADDING = 3
     MIN_POINT_SIZE = 6.0
     MAX_POINT_SIZE = 400.0
+    CLICK_MARGIN = 2  # 点击/悬停旷量（像素/每侧），命中区比交互矩形略宽
 
     # 手柄 id：避开矩形(0-7)、圆角(10-13)、序号(200-202)
     HANDLE_ROTATE = 210
@@ -1334,7 +1267,33 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
     NORMAL_ANNOTATION_Z_VALUE = 20
     ANNOTATION_Z_VALUE = 30
     BACKGROUND_RADIUS = 6.0
-    
+
+    # 边框、命中区、四角按钮至少按这个宽度摆。空文字的文档区域只有 6px 左右，
+    # 而左上旋转、右上删除两个按钮各 14px（LayerEditor.FUNCTIONAL_HANDLE_SIZE），
+    # 按角点摆就会叠在一起，点下去谁响应都说不准。30px 让两者之间还剩 16px 空隙。
+    # 放宽只加在右边：左边始终离文字起点一段固定距离（FRAME_SIDE_GAP），跟着宽度
+    # 变的话，刚建出来的框会跳一下。
+    MIN_INTERACTION_WIDTH = 30.0
+    # 框离文字左右各让开这么多。文档边距只有 3px，框还要再往里让 1px、线宽 2px，
+    # 不留空当的话，框就和闪烁的光标粘成一条：空文字框上光标贴着左边，打字时光标
+    # 又贴着右边，两条线分不开。上下不用让——那两条边离光标本来就远。
+    FRAME_SIDE_GAP = 4.0
+    # 框往里让 1px，cosmetic 画笔的线宽才不会画到包围盒外面去（拖动会留残影）。
+    FRAME_INSET = 1.0
+
+    # 描边粗细只有四档，而且按字号的比例算，不是固定像素：同样 3px，在 12 号字上
+    # 是一圈粗框，到 72 号字上细得几乎看不见。按比例算，拖右下角手柄把字放大时
+    # 描边跟着等比变粗，同一档在任何字号下都是同一种观感。
+    #
+    # 档位按约 1.7 倍递增而不是等差：粗细的观感差异是对数的，等差档位在粗端分不
+    # 出来。最粗一档在 16 号字上字眼仍然是通的，再粗字就糊成一团。
+    OUTLINE_WIDTH_LEVELS = (0.04, 0.07, 0.12, 0.2)
+    DEFAULT_OUTLINE_WIDTH = 0.07
+    DEFAULT_OUTLINE_COLOR = "#FFFFFF"
+    # 阴影朝右下偏移的距离，同样按字号比例算，理由同上
+    SHADOW_OFFSET_RATIO = 0.08
+    DEFAULT_SHADOW_COLOR = "#66000000"  # #AARRGGBB：黑色，40% 不透明
+
     def __init__(
         self,
         text: str,
@@ -1342,6 +1301,7 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
         font: QFont,
         color: QColor,
         always_on_top: bool = True,
+        provisional: bool = False,
     ):
         super().__init__(text)
         self._init_drawing_mixin()
@@ -1361,18 +1321,26 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
         # 增大 document margin，使虚线边框与文字之间有足够间距
         # 默认只有 4px，太小导致鼠标难以区分文字区域和边框区域
         self.document().setDocumentMargin(self.TEXT_PADDING)
-        
-        # 增强属性
-        self.has_outline = True  # 默认开启描边
-        self.outline_color = QColor(Qt.GlobalColor.white)
-        self.outline_width = 3
-        
-        self.has_shadow = True   # 默认开启阴影
-        self.shadow_color = QColor(0, 0, 0, 100)
-        self.shadow_offset = QPointF(2, 2)
-        
+
+        # 描边、阴影默认关闭；颜色是打开时的初始值（阴影的 alpha 即不透明度）
+        self.has_outline = False
+        self.outline_color = QColor(self.DEFAULT_OUTLINE_COLOR)
+        self.outline_width = self.DEFAULT_OUTLINE_WIDTH
+        self.has_shadow = False
+        self.shadow_color = QColor(self.DEFAULT_SHADOW_COLOR)
+
         self.has_background = False # 默认关闭背景
         self.background_color = QColor(255, 255, 255, 255) # 白色全不透明
+
+        # 临时文字：创建者没有推 AddItemCommand，把"是否真的创建"推迟到第一次
+        # 失焦时按内容决定（见 focusOutEvent）。只有 TextTool 这样做，所以由它
+        # 在创建时显式声明；其余路径（钉图克隆、测试）和其它图元一样创建即入栈，
+        # 默认值对它们天然正确，不需要各自记得补一个标记。
+        self._provisional = provisional
+        # 每次进入编辑前的内容快照（见 focusInEvent）。清空后失焦要撤销，
+        # 撤销栈上的 RemoveItemCommand 只会把图元加回场景，不知道它清空前
+        # 写的是什么字——真正的文本得从这份快照里找回来。
+        self._text_before_edit = text
 
     # ------------------------------------------------------------------
     # 字号缩放（右下角手柄驱动）
@@ -1386,7 +1354,7 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
         return max(float(size), self.MIN_POINT_SIZE)
 
     def set_font_point_size(self, point_size: float):
-        """按字号重新排版；描边宽度、阴影偏移等不随之变化。"""
+        """按字号重新排版；描边粗细和阴影距离按字号比例算，跟着一起变。"""
         clamped = max(
             self.MIN_POINT_SIZE,
             min(self.MAX_POINT_SIZE, float(point_size)),
@@ -1401,10 +1369,13 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
         锚点逐点 mapToScene 映射 local 包围盒的角，而不是取 sceneBoundingRect()
         的角：后者是轴对齐外包围盒，旋转之后它的角会甩到文字外面去（实测 45°
         偏 35px，137° 偏 239px），手柄既画错位置也点不到。
+
+        按 interaction_rect() 摆而不是内容矩形：空文字只有 6px 宽，两个 14px 的
+        按钮会叠在一起。
         """
         from canvas.handle_editor import EditHandle, HandleType, LayerEditor
 
-        local = self.boundingRect()
+        local = self.interaction_rect()
         return [
             EditHandle(
                 self.HANDLE_ROTATE,
@@ -1431,8 +1402,200 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
             ),
         ]
 
+    # ------------------------------------------------------------------
+    # 描边与阴影
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def normalize_outline_width(cls, width) -> float:
+        """把任意来源的描边粗细吸附到最近的档位（与 MosaicTool.clamp_block_size 同一个套路）。
+
+        档位就是这个量的合法取值域：设置、面板、撤销记录、钉图克隆都经由这里，
+        面板高亮的档和实际画出来的粗细才不会分家。正中间的平局取更粗的一档。
+        """
+        try:
+            value = float(width)
+        except (TypeError, ValueError):
+            return cls.DEFAULT_OUTLINE_WIDTH
+        return min(cls.OUTLINE_WIDTH_LEVELS, key=lambda level: (abs(level - value), -level))
+
+    def outline_extent(self) -> float:
+        """描边伸出字形之外的距离；没开描边为 0。"""
+        return self.outline_width * self.font_point_size() if self.has_outline else 0.0
+
+    def shadow_distance(self) -> float:
+        """阴影往右、往下各挪多远；没开阴影为 0。"""
+        return self.SHADOW_OFFSET_RATIO * self.font_point_size() if self.has_shadow else 0.0
+
+    def outline_state(self) -> tuple:
+        """(enabled, color, width)，与 set_outline 的参数一一对应，钉图克隆和面板回填原样取用。"""
+        return (self.has_outline, QColor(self.outline_color), self.outline_width)
+
+    def shadow_state(self) -> tuple:
+        """(enabled, color)，与 set_shadow 的参数一一对应。"""
+        return (self.has_shadow, QColor(self.shadow_color))
+
+    def set_outline(self, enabled: bool, color: QColor = None, width: float = None):
+        """开关描边。color / width 不传就沿用当前值；width 是档位（字号的比例）。"""
+        self.prepareGeometryChange()
+        self.has_outline = bool(enabled)
+        if color is not None:
+            self.outline_color = QColor(color)
+        if width is not None:
+            self.outline_width = self.normalize_outline_width(width)
+        self.update()
+
+    def set_shadow(self, enabled: bool, color: QColor = None):
+        """开关阴影。color 不传就沿用当前值，它的 alpha 就是阴影的不透明度。"""
+        self.prepareGeometryChange()
+        self.has_shadow = bool(enabled)
+        if color is not None:
+            self.shadow_color = QColor(color)
+        self.update()
+
+    def content_rect(self) -> QRectF:
+        """文字真正画到的地方：文档区域再往外放出描边和阴影占的地方。
+
+        描边、阴影都画在字形外面，粗档的描边远比 3px 的文档边距宽。包围盒不包住
+        它们，重绘区就漏掉这一圈（拖动留残影、导出被裁掉），背景色块和四角手柄
+        也会压进描边里。
+
+        背景色块按这个矩形画，而不是 boundingRect()：后者为了摆得下四角按钮有最小
+        宽度，窄字的背景跟着变宽就成了画面上看得见的差别，导出的图也跟着变。
+        """
+        rect = super().boundingRect()
+        outline = self.outline_extent()
+        far_side = outline + self.shadow_distance()
+        return rect.adjusted(-outline, -outline, far_side, far_side)
+
+    def interaction_rect(self) -> QRectF:
+        """交互用的矩形：内容矩形左右各让开 FRAME_SIDE_GAP，再至少放宽到 MIN_INTERACTION_WIDTH。
+
+        边框、命中区、四角按钮都按它算；字画在哪里、背景画多大都不受它影响。
+        """
+        gap = self.FRAME_SIDE_GAP
+        rect = QRectF(self.content_rect()).adjusted(-gap, 0, gap, 0)
+        if rect.width() < self.MIN_INTERACTION_WIDTH:
+            rect.setWidth(self.MIN_INTERACTION_WIDTH)
+        return rect
+
+    def hit_rect(self) -> QRectF:
+        """命中/包围用的矩形：交互矩形再往外扩一圈点击旷量。
+
+        文字是简单矩形几何，放大参数即可扩容差，不需要像箭头那样描边——
+        旷量只用来扩点击/悬停判定，边框、四角按钮仍然按 interaction_rect()
+        摆，不跟着放大。
+        """
+        margin = self.CLICK_MARGIN
+        return self.interaction_rect().adjusted(-margin, -margin, margin, margin)
+
+    def boundingRect(self) -> QRectF:
+        """包围盒按命中矩形算：必须完整覆盖 shape()，否则命中区会漏出包围盒外。"""
+        return self.hit_rect()
+
+    def shape(self) -> QPainterPath:
+        """命中区跟着命中矩形走。
+
+        QGraphicsTextItem.shape() 取的是它自己缓存的文档矩形，不会回头调用这里
+        重写的 boundingRect()。不重写它，空文字框上放宽出来的那块就点不中——
+        框看得见却点不着，比不放宽更糟。
+        """
+        path = QPainterPath()
+        path.addRect(self.hit_rect())
+        return path
+
+    def contains(self, point: QPointF) -> bool:
+        """命中判定同样按命中矩形来。
+
+        QGraphicsTextItem.contains() 也是绕开 shape() 直接量它缓存的文档矩形的，
+        场景的点击命中、view 里的"点在不在这段文字上"都走它，漏掉就等于没放宽。
+        """
+        return self.hit_rect().contains(point)
+
+    def _glyph_path(self) -> QPainterPath:
+        """文档当前排版出来的字形轮廓，和 super().paint() 画出来的字逐像素重合。
+
+        向排版引擎要每个字形的实际位置，而不是自己用 QPainterPath.addText 重排一遍：
+        多行、中英混排时的字体回退、粘贴进来的混合字号都由排版引擎决定，自己重排
+        就得另外猜一份和它对齐的边距。历史上那版描边就是卡在这里，最后留下了一个
+        空循环。
+        """
+        path = QPainterPath()
+        # 非零环绕：相邻字形的轮廓叠在一起时，奇偶填充会把重叠处挖成空洞
+        path.setFillRule(Qt.FillRule.WindingFill)
+        block = self.document().begin()
+        while block.isValid():
+            layout = block.layout()
+            origin = layout.position()
+            # 范围要显式传：PySide6 6.11 里不带参数的 glyphRuns() 返回空列表
+            for run in layout.glyphRuns(0, block.length()):
+                raw_font = run.rawFont()
+                for index, position in zip(run.glyphIndexes(), run.positions()):
+                    path.addPath(raw_font.pathForGlyph(index).translated(origin + position))
+                self._add_decoration_lines(path, run, origin)
+            block = block.next()
+        return path
+
+    @staticmethod
+    def _add_decoration_lines(path: QPainterPath, run, origin: QPointF):
+        """下划线、删除线不在字形轮廓里，按字形串上的标记补成矩形。
+
+        不补的话，开了描边的下划线是光秃秃的一条，阴影里也没有它。位置照 Qt
+        自己画这几种线的取法：下划线在基线下 underlinePosition，删除线、上划线
+        分别在基线上 ascent 的 1/3 和整个 ascent。
+        """
+        positions = run.positions()
+        if not positions:
+            return
+        raw_font = run.rawFont()
+        baseline = origin.y() + positions[0].y()
+        thickness = raw_font.lineThickness()
+        span = run.boundingRect().translated(origin)
+        for enabled, offset in (
+            (run.underline(), raw_font.underlinePosition()),
+            (run.strikeOut(), -raw_font.ascent() / 3),
+            (run.overline(), -raw_font.ascent()),
+        ):
+            if enabled:
+                top = baseline + offset - thickness / 2
+                path.addRect(QRectF(span.left(), top, span.width(), thickness))
+
+    def _outline_pen(self) -> QPen:
+        # 路径描边骑在字形边缘上，里面那一半会被随后画的字盖住，所以笔宽取两倍外扩
+        pen = QPen(self.outline_color, 2 * self.outline_extent())
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        return pen
+
+    def _paint_shadow(self, painter, glyphs: QPainterPath, outline_pen):
+        """阴影是"描完边之后整块字"的影子，整体往右下挪一段画在最底下。
+
+        开了描边时，这块字由字形本身和字形外那一圈描边拼成。两部分直接各画一次
+        会在字形边缘内侧重叠，半透明的阴影在那里叠成两层，出现一道深色细线；所以
+        画描边那部分之前，先把字形从裁剪区里挖掉。
+
+        不用 QPainterPath.united() 先把两部分合成一块：一行字实测要 17~50ms，
+        拖手柄缩放时每一帧都得重算。也不靠非零环绕把两条路径拼成一次填充：CFF
+        字体（如 Noto Sans SC）的轮廓走向和 TrueType 相反，环绕数会互相抵消，
+        字形里面被挖出空洞。
+        """
+        distance = self.shadow_distance()
+        painter.save()
+        painter.translate(distance, distance)
+        painter.fillPath(glyphs, self.shadow_color)
+        if outline_pen is not None:
+            # 默认的奇偶填充下，包围盒矩形叠上字形 = 矩形减去字形
+            outside_glyphs = QPainterPath()
+            outside_glyphs.addRect(self.boundingRect())
+            outside_glyphs.addPath(glyphs)
+            painter.setClipPath(outside_glyphs, Qt.ClipOperation.IntersectClip)
+            shadow_pen = QPen(outline_pen)
+            shadow_pen.setColor(self.shadow_color)
+            painter.strokePath(glyphs, shadow_pen)
+        painter.restore()
+
     def paint(self, painter, option, widget):
-        """重写绘制方法以支持描边和阴影"""
+        """由下往上：背景 → 阴影 → 描边 → 文字本身（含光标、选区）→ 交互框。"""
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
         
@@ -1441,7 +1604,7 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
             painter.save()
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(self.background_color)
-            background_rect = self.boundingRect()
+            background_rect = self.content_rect()
             radius = min(
                 self.BACKGROUND_RADIUS,
                 max(0.0, background_rect.width() / 2.0),
@@ -1449,73 +1612,73 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
             )
             painter.drawRoundedRect(background_rect, radius, radius)
             painter.restore()
-            
-        # 2. 绘制描边 (Outline) - 使用路径绘制法，效果最好
-        if self.has_outline:
-            painter.save()
-            # 获取文字路径
-            # 注意：addText 的位置需要微调以匹配 QGraphicsTextItem 的内部边距
-            # 默认边距通常是 4px 左右，但这取决于字体
-            # 更精确的方法是遍历 layout，但这里我们用一个经验值
-            # 实际上 QGraphicsTextItem 的绘制起点就是 (0,0)
-            
-            # 使用 QPainterPath 绘制文字轮廓
-            # 注意：toPlainText() 获取的是纯文本，如果有多行需要处理
-            # 这里简化处理：假设是单行或简单多行
-            # 为了完美对齐，我们应该使用 document 的 layout
-            
-            # 简易版描边：只对纯文本有效
-            # 这种方法在编辑时可能会有轻微错位，但在展示时效果很好
-            # 为了避免错位，我们只在非编辑状态或简单文本时启用？
-            # 不，我们尝试对齐。
-            
-            # 更好的方法：绘制 8 次偏移（性能稍差但绝对对齐）
-            # 这种方法兼容所有富文本格式
-            steps = 8
-            import math
-            
-            # 保存原始画笔
-            
-            # 设置描边画笔
-            painter.setPen(self.outline_color)
-            
-            # 绘制 8 个方向的偏移
-            offset = self.outline_width / 1.5
-            for i in range(steps):
-                angle = 2 * math.pi * i / steps
-                dx = math.cos(angle) * offset
-                dy = math.sin(angle) * offset
-                
-                painter.save()
-                painter.translate(dx, dy)
 
-                painter.restore()
-            
+        if self.has_outline or self.has_shadow:
+            glyphs = self._glyph_path()
+            outline_pen = self._outline_pen() if self.has_outline else None
+            if self.has_shadow:
+                self._paint_shadow(painter, glyphs, outline_pen)
+            if outline_pen is not None:
+                painter.strokePath(glyphs, outline_pen)
 
+        super().paint(painter, self._text_paint_option(option), widget)
+        self._paint_interaction_frame(painter)
 
-            painter.setBrush(Qt.BrushStyle.NoBrush) # 不填充
-            pass
-            painter.restore()
+    # ------------------------------------------------------------------
+    # 三态交互框
+    # ------------------------------------------------------------------
 
-        # 3. 绘制阴影
-        if self.has_shadow:
-            # 简单阴影：绘制一个半透明的背景框偏移
-            pass
+    def is_editing(self) -> bool:
+        """光标是否落在这段文字里（编辑态）。
 
-        # 调用原始绘制（绘制文本本身、光标、选区）
-        super().paint(painter, option, widget)
-        
-    def set_outline(self, enabled: bool, color: QColor = None, width: int = 3):
-        self.has_outline = enabled
-        if color: self.outline_color = color
-        self.outline_width = width
-        self.update()
-        
-    def set_shadow(self, enabled: bool, color: QColor = None):
-        self.has_shadow = enabled
-        if color: self.shadow_color = color
-        self.update()
-        
+        只看 textInteractionFlags 不够：文字新建出来就带着可编辑标志，钉图克隆、
+        测试里造出来的文字从没获得过焦点，只凭标志会被当成"正在编辑"，平白画出
+        一圈实线框。所以还要它确实是焦点图元；窗口失活时 hasFocus() 会变 False，
+        这时看 scene 记的焦点图元。
+        """
+        if not (
+            self.textInteractionFlags() & Qt.TextInteractionFlag.TextEditorInteraction
+        ):
+            return False
+        scene = self.scene()
+        return self.hasFocus() or (scene is not None and scene.focusItem() is self)
+
+    def _text_paint_option(self, option):
+        """摘掉选中/焦点状态位，再交给 Qt 画字。
+
+        QGraphicsTextItem 自带的高亮是"选中就画一圈虚线"，分不出"正在编辑的这一段"
+        和"点一下就能切过去的那一段"，还会和下面自己画的框叠成两圈。三态框统一由
+        _paint_interaction_frame 负责。
+        """
+        if option is None:
+            return option
+        cleaned = QStyleOptionGraphicsItem(option)
+        cleaned.state &= ~(
+            QStyle.StateFlag.State_Selected | QStyle.StateFlag.State_HasFocus
+        )
+        return cleaned
+
+    def _paint_interaction_frame(self, painter):
+        """当前对象画实线，可切换的候选画虚线，其余不画。
+
+        颜色、线宽与矩形、椭圆、箭头的候选框一致，只用线型区分两种含义：实线那一
+        段是四角按钮此刻作用的对象，虚线那一段是鼠标再点一下就会切过去的对象。
+        """
+        if self.isSelected() or self.is_editing():
+            style = Qt.PenStyle.SolidLine
+        elif self._hovered and self._can_show_hover():
+            style = Qt.PenStyle.DashLine
+        else:
+            return
+
+        pen = self.selection_frame_pen(style)
+        inset = self.FRAME_INSET
+        painter.save()
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.setPen(pen)
+        painter.drawRect(self.interaction_rect().adjusted(inset, inset, -inset, -inset))
+        painter.restore()
+
     def set_background(self, enabled: bool, color: QColor = None, opacity: int = None):
         self.has_background = enabled
         if color:
@@ -1525,24 +1688,57 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
         self.update()
         
     @safe_event
+    def focusInEvent(self, event):
+        """进入编辑前记一份内容快照。
+
+        清空后失焦要撤销时，撤销栈上的命令得知道"清空前这里写的是什么字"才能
+        真正找回来，而不只是把图元加回场景、留一个空壳——这份快照就是那个字的
+        唯一来源，必须在还没被删之前存下来。
+        """
+        self._text_before_edit = self.toPlainText()
+        super().focusInEvent(event)
+
+    @safe_event
     def focusOutEvent(self, event):
-        """失去焦点时，如果内容为空则自动删除"""
+        """失去焦点时的收尾：内容是否为空，决定这次退出编辑要不要在撤销栈上留痕。
+
+        - 临时文字（刚创建、还没入栈）：空着失焦等于什么都没发生过，直接移出
+          场景；有内容失焦才是它真正被创建出来的时刻，补推 AddItemCommand。
+        - 已入栈的标注被编辑清空：这次清空本身是一次真实的删除，走
+          ClearTextItemCommand 连清空前的文本一起记下，Ctrl+Z 才能找回内容，
+          不能直接 removeItem 绕开撤销系统。
+        """
         super().focusOutEvent(event)
         # 移除选中状态
         cursor = self.textCursor()
         cursor.clearSelection()
         self.setTextCursor(cursor)
-        
-        # 如果内容为空，删除自己
+
+        scene = self.scene()
+        undo_stack = getattr(scene, "undo_stack", None)
+
         if not self.toPlainText().strip():
-            if self.scene():
-                self.scene().removeItem(self)
+            if scene is None:
+                return
+            if self._provisional or undo_stack is None:
+                scene.removeItem(self)
                 log_debug(T("内容为空，自动删除"), "TextItem")
-        else:
-            # 否则取消编辑模式（可选）
-            self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
-            # 恢复为可选择
-            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
+            else:
+                from canvas.undo import ClearTextItemCommand
+                undo_stack.push(ClearTextItemCommand(scene, self, self._text_before_edit))
+                log_debug(T("内容被清空，推入可撤销的删除"), "TextItem")
+            return
+
+        # 否则取消编辑模式（可选）
+        self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        # 恢复为可选择
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
+
+        if self._provisional:
+            self._provisional = False
+            if undo_stack is not None:
+                from canvas.undo import AddItemCommand
+                undo_stack.push(AddItemCommand(scene, self))
             
     @safe_event
     def mouseDoubleClickEvent(self, event):
@@ -1554,45 +1750,40 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
 
     def _is_on_text_edge(self, local_pos: QPointF) -> bool:
         """
-        判断局部坐标是否在边框边缘（内边距区域）
-        在内边距区域 → True（应显示拖拽光标）
+        判断局部坐标是否在边框边缘（内边距及描边/阴影占的那一圈）
+        在边缘 → True（应显示拖拽光标）
         在文字内容区域 → False（应显示文字编辑光标）
         """
-        rect = self.boundingRect()
-        if not rect.contains(local_pos):
+        if not self.boundingRect().contains(local_pos):
             return False
         margin = self.document().documentMargin()
-        inner = rect.adjusted(margin, margin, -margin, -margin)
+        inner = super().boundingRect().adjusted(margin, margin, -margin, -margin)
         if inner.width() <= 0 or inner.height() <= 0:
             return True
         return not inner.contains(local_pos)
 
-    def hoverEnterEvent(self, event):
-        """重写悬停进入：编辑模式下区分文字区域和边缘区域的光标"""
-        if self.textInteractionFlags() & Qt.TextInteractionFlag.TextEditorInteraction:
-            if self._is_on_text_edge(event.pos()):
-                self.setCursor(Qt.CursorShape.SizeAllCursor)
-            else:
-                self.setCursor(Qt.CursorShape.IBeamCursor)
-            event.accept()
+    def _apply_edit_cursor(self, local_pos: QPointF):
+        """编辑态的光标：边缘那一圈是拖拽，文字区域是输入。"""
+        if self._is_on_text_edge(local_pos):
+            self.setCursor(Qt.CursorShape.SizeAllCursor)
         else:
-            super().hoverEnterEvent(event)
+            self.setCursor(Qt.CursorShape.IBeamCursor)
+
+    def hoverEnterEvent(self, event):
+        """编辑中的光标自己分（工字/拖拽），其余交给通用的候选态处理。"""
+        if self.is_editing():
+            self._apply_edit_cursor(event.pos())
+            event.accept()
+            return
+        super().hoverEnterEvent(event)
 
     def hoverMoveEvent(self, event):
-        """重写悬停移动：编辑模式下区分文字区域和边缘区域的光标"""
-        if self.textInteractionFlags() & Qt.TextInteractionFlag.TextEditorInteraction:
-            if self._is_on_text_edge(event.pos()):
-                self.setCursor(Qt.CursorShape.SizeAllCursor)
-            else:
-                self.setCursor(Qt.CursorShape.IBeamCursor)
+        """同上：编辑中按位置区分工字和拖拽光标，不编辑就是普通候选。"""
+        if self.is_editing():
+            self._apply_edit_cursor(event.pos())
             event.accept()
-        else:
-            super().hoverMoveEvent(event)
-
-    def hoverLeaveEvent(self, event):
-        """重写悬停离开：恢复光标"""
-        self.unsetCursor()
-        event.accept()
+            return
+        super().hoverMoveEvent(event)
 
     # -- 统一属性接口 --
 
@@ -1618,11 +1809,10 @@ class TextItem(QGraphicsTextItem, DrawingItemMixin):
         return max(0.0, min(1.0, float(self.opacity())))
 
 
-class NumberItem(QGraphicsItem, DrawingItemMixin):
+class NumberItem(DrawingItemMixin, QGraphicsItem):
     """序号图元"""
     FONT_SCALE = 0.95
     MIN_FONT_SIZE = 10
-    HOVER_OUTLINE_WIDTH = 2
     CLICK_MARGIN = 6  # 点击旷量（像素/每侧）
 
     # 三种样式
@@ -1770,42 +1960,10 @@ class NumberItem(QGraphicsItem, DrawingItemMixin):
         painter.drawPath(path)
 
     def _paint_hover_outline(self, painter, visual_rect):
-        if (self.isSelected() or self._hovered) and self._can_show_hover():
-            outline_pen = QPen(
-                QColor(0, 180, 255, 230),
-                self.HOVER_OUTLINE_WIDTH,
-                Qt.PenStyle.DashLine,
-            )
-            outline_pen.setCosmetic(True)
+        if self.should_paint_selection_frame():
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.setPen(outline_pen)
+            painter.setPen(self.selection_frame_pen())
             painter.drawRect(visual_rect)
-
-    def hoverEnterEvent(self, event):
-        if not self._can_show_hover():
-            self._hovered = False
-            self.update()
-            self.unsetCursor()
-            event.accept()
-            return
-        self._hovered = True
-        self.update()
-        self.setCursor(Qt.CursorShape.SizeAllCursor)
-        event.accept()
-
-    def hoverMoveEvent(self, event):
-        if not self._can_show_hover():
-            self.unsetCursor()
-            event.accept()
-            return
-        self.setCursor(Qt.CursorShape.SizeAllCursor)
-        event.accept()
-
-    def hoverLeaveEvent(self, event):
-        self._hovered = False
-        self.update()
-        self.unsetCursor()
-        event.accept()
 
     # -- 统一属性接口 --
 

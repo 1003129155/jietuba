@@ -256,8 +256,8 @@ class Toolbar(QWidget):
     # 文字工具专用信号
     text_font_changed = Signal(QFont)
     text_color_changed = Signal(QColor)  # 文字颜色改变
-    text_outline_changed = Signal(bool, QColor, int)
-    text_shadow_changed = Signal(bool, QColor)
+    text_outline_changed = Signal(bool, QColor, float)  # 宽度是 TextItem.OUTLINE_WIDTH_LEVELS 之一
+    text_shadow_changed = Signal(bool, QColor)          # 颜色的 alpha 即阴影不透明度
     text_background_changed = Signal(bool, QColor, int)
     
     # 箭头工具专用信号
@@ -609,13 +609,16 @@ class Toolbar(QWidget):
         
         # === 5. 文字设置面板 (text) ===
         self.text_panel = TextSettingsPanel(parent)
+        # 背景/描边/阴影的弹出层同样要背离工具栏弹，理由同序号面板
+        self.text_panel._owner_toolbar = self
         self._make_floating(self.text_panel)
-        
+
         # 连接信号
         self.text_panel.font_changed.connect(self._on_text_font_changed)
         self.text_panel.color_changed.connect(self._on_text_color_changed)
-        if hasattr(self.text_panel, 'background_changed'):
-            self.text_panel.background_changed.connect(self._on_text_background_changed)
+        self.text_panel.background_changed.connect(self._on_text_background_changed)
+        self.text_panel.outline_changed.connect(self._on_text_outline_changed)
+        self.text_panel.shadow_changed.connect(self._on_text_shadow_changed)
         self.text_panel.hide()
 
         # === 6. 马赛克设置面板 (mosaic) ===
@@ -717,16 +720,17 @@ class Toolbar(QWidget):
                     button.setEnabled(enabled)
 
     def _retranslate(self, _lang_code: str = None):
-        """语言切换后刷新所有按钮提示与马赛克面板文本。"""
+        """语言切换后刷新所有按钮提示与二级面板文本。"""
         for button, source in self._tooltip_sources.items():
             try:
                 button.setToolTip(self.tr(source))
             except RuntimeError:
                 continue
-        # 马赛克面板的文本在构造时一次性设置，这里补一次刷新
-        mosaic_panel = getattr(self, "mosaic_panel", None)
-        if mosaic_panel is not None and hasattr(mosaic_panel, "retranslate"):
-            mosaic_panel.retranslate()
+        # 二级面板的文本在构造时一次性设置，这里补一次刷新
+        for attr in ("mosaic_panel", "text_panel"):
+            panel = getattr(self, attr, None)
+            if panel is not None and hasattr(panel, "retranslate"):
+                panel.retranslate()
         if self._more_popup is not None:
             self._more_popup.adjust_btn.setText(self.tr("Adjust"))
 
@@ -929,6 +933,22 @@ class Toolbar(QWidget):
         from .text_settings_panel import TextSettingsPanel
         TextSettingsPanel.save_background_to_config(enabled, color, opacity)
 
+    def _on_text_outline_changed(self, enabled: bool, color: QColor, width: float):
+        """文字描边改变"""
+        self.text_outline_changed.emit(enabled, color, width)
+        if self.temporary_edit_active:
+            return
+        from .text_settings_panel import TextSettingsPanel
+        TextSettingsPanel.save_outline_to_config(enabled, color, width)
+
+    def _on_text_shadow_changed(self, enabled: bool, color: QColor):
+        """文字阴影改变"""
+        self.text_shadow_changed.emit(enabled, color)
+        if self.temporary_edit_active:
+            return
+        from .text_settings_panel import TextSettingsPanel
+        TextSettingsPanel.save_shadow_to_config(enabled, color)
+
     def _on_arrow_style_changed(self, style: str):
         """箭头样式改变"""
         if not self.temporary_edit_active:
@@ -1092,7 +1112,10 @@ class Toolbar(QWidget):
         margin = 10  # 边距
         
         # 策略1: 下方右对齐（需要放得下工具栏 + 二级菜单的总高度）
-        x = global_rect.right() - toolbar_w
+        # 对齐的锚点是「确定」的右边缘而非整个工具栏：这样鼠标松手时正下方还是「确定」，
+        # 「…」豁出去多占的这点宽度不影响落点手感
+        more_w = self._button_widths.get("more", 0)
+        x = global_rect.right() - toolbar_w + more_w
         y = global_rect.bottom() + margin
         toolbar_below = True
 

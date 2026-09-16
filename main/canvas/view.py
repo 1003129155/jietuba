@@ -799,7 +799,8 @@ class CanvasView(QGraphicsView):
             
             log_debug(T("选区已确认，当前工具: {current_tool_id}", current_tool_id=current_tool_id), "CanvasView")
             
-            # 步骤0：如果正在编辑文本，点击外部只确认编辑，不创建新文本
+            # 步骤0：正在编辑文本时，点击外部先结算这次编辑，不创建新文本；
+            # 若点在另一段文字上，同一次点击顺势切过去继续编辑那一段
             if self._is_text_editing():
                 focus_item = self._get_active_text_item()
                 if focus_item is None:
@@ -822,13 +823,18 @@ class CanvasView(QGraphicsView):
                     # 点击在文本框内，正常传递事件（移动光标等）
                     super().mousePressEvent(event)
                     return
-                else:
-                    # 点击在文本框外，清除焦点（触发 focusOutEvent 自动确认/删除）
-                    log_debug(T("结束文本编辑"), "CanvasView")
-                    focus_item.clearFocus()
-                    self._finalize_text_edit_state(focus_item)
-                    # 阻止本次点击触发新绘图
+                # 点击在文本框外：先让当前这段结束编辑（失焦时图元自己结算内容）
+                switch_target = self._text_switch_target(
+                    scene_pos, focus_item, event.modifiers()
+                )
+                self._end_text_edit(focus_item)
+                if switch_target is None or switch_target.scene() is None:
+                    # 没点到别的文字，这一下只用来确认编辑，不再触发新绘图
                     return
+                # 点到了另一段文字：同一次点击继续往下走完选中流程，单击就切过去，
+                # 而不是被吞掉、还要再点第二下。这一下已经有了自己的用途，不能
+                # 再当"双击确认截图"的候选（步骤1 之后才会赋值给 self）。
+                double_click_candidate = None
 
             # 步骤1：优先检查控制点拖拽（如果已选中图元）
             edit_handled = self.smart_edit_controller.handle_edit_press(
@@ -987,6 +993,15 @@ class CanvasView(QGraphicsView):
         handler = getattr(self.window(), "_handle_confirm", None)
         if not callable(handler):
             return False
+
+        # 下面靠撤销栈的前后差异判断第一下点击留下了什么，前提是它的持久改动
+        # 都已经落到栈上。文字编辑是例外：内容要到失焦才结算（临时文字到那时
+        # 才入栈或被丢弃）。有候选就说明第一下点击前没有在编辑文字（编辑中的
+        # 点击走 mousePressEvent 的步骤 0，不产生候选），所以此刻的编辑一定是
+        # 第一下点击开启的——先像"点击外部"一样结束它，再看差异。
+        active_text_item = self._get_active_text_item()
+        if active_text_item is not None:
+            self._end_text_edit(active_text_item)
 
         stack = self.canvas_scene.undo_stack
         command_to_undo = None
@@ -1606,6 +1621,24 @@ class CanvasView(QGraphicsView):
                 return focus_item
         return None
 
+    def _text_switch_target(self, scene_pos: QPointF, editing_item, modifiers):
+        """编辑中点在文字外时，这一下点中的另一段文字；没点中就是 None。
+
+        命中判断借控制器的 can_select_item，与真正执行选中的 handle_press 同一套
+        规则：谁在上面、当前工具选不选得中、要不要按 Ctrl，只有一处说了算。若这一
+        下点中的是别的类型（例如 Ctrl 跨工具选形状），按老规矩只结束编辑，不转手。
+        """
+        controller = getattr(self, "smart_edit_controller", None)
+        if controller is None:
+            return None
+        for item in self.canvas_scene.items(scene_pos):
+            if item is editing_item:
+                continue
+            if not controller.can_select_item(item, modifiers):
+                continue
+            return item if isinstance(item, TextItem) else None
+        return None
+
     def _is_point_on_text_edge(self, item: QGraphicsTextItem, scene_pos: QPointF, margin: float = None) -> bool:
         if not item:
             return False
@@ -1929,6 +1962,12 @@ class CanvasView(QGraphicsView):
             log_warning(T("断开文字几何更新失败: {exc}", exc=e), "CanvasView")
         item._geometry_update_connected = False
         item._geometry_update_slot = None
+
+    def _end_text_edit(self, text_item: QGraphicsTextItem):
+        """结束文字编辑：失焦让图元自己结算内容（入栈/丢弃/可撤销清空），再清理视图侧状态。"""
+        log_debug(T("结束文本编辑"), "CanvasView")
+        text_item.clearFocus()
+        self._finalize_text_edit_state(text_item)
 
     def _finalize_text_edit_state(self, text_item: QGraphicsTextItem):
         if text_item is not None:

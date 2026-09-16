@@ -2476,6 +2476,42 @@ Replace it?</source>
         <source>Yellow</source>
         <translation>黄</translation>
     </message>
+    <message>
+        <source>Text Outline</source>
+        <translation>文字の縁取り</translation>
+    </message>
+    <message>
+        <source>Text Shadow</source>
+        <translation>文字の影</translation>
+    </message>
+    <message>
+        <source>Custom Outline Color</source>
+        <translation>カスタム縁取り色</translation>
+    </message>
+    <message>
+        <source>Custom Shadow Color</source>
+        <translation>カスタム影の色</translation>
+    </message>
+    <message>
+        <source>Shadow Opacity</source>
+        <translation>影の不透明度</translation>
+    </message>
+    <message>
+        <source>Outline: Thin</source>
+        <translation>縁取り：細</translation>
+    </message>
+    <message>
+        <source>Outline: Medium</source>
+        <translation>縁取り：中</translation>
+    </message>
+    <message>
+        <source>Outline: Thick</source>
+        <translation>縁取り：太</translation>
+    </message>
+    <message>
+        <source>Outline: Extra Thick</source>
+        <translation>縁取り：極太</translation>
+    </message>
 </context>
 
 <context>
@@ -3243,14 +3279,6 @@ SOFTWARE.</translation></message>
     <message>
         <source>Change Number Style</source>
         <translation>番号スタイルを変更</translation>
-    </message>
-    <message>
-        <source>Change Mosaic Style</source>
-        <translation>モザイク種類を変更</translation>
-    </message>
-    <message>
-        <source>Change Mosaic Size</source>
-        <translation>モザイクの粒度を変更</translation>
     </message>
 </context>
 <context>

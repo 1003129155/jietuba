@@ -6,7 +6,6 @@ from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QFont, QColor
 from .base import Tool, ToolContext
 from canvas.items import TextItem
-from canvas.undo import AddItemCommand
 from core.logger import log_debug, T
 
 
@@ -51,13 +50,18 @@ class TextTool(Tool):
                 font,
                 ctx.color,
                 always_on_top=always_on_top,
+                provisional=True,
             )
             
-            # 应用默认增强效果
-            # 默认开启描边，颜色为白色，提升可读性
-            item.set_outline(True, color=Qt.GlobalColor.white, width=3)
-            # 默认开启阴影
-            item.set_shadow(True)
+            item.set_outline(
+                manager.get_setting("text", "outline_enabled"),
+                QColor(manager.get_setting("text", "outline_color")),
+                manager.get_setting("text", "outline_width"),
+            )
+            item.set_shadow(
+                manager.get_setting("text", "shadow_enabled"),
+                QColor(manager.get_setting("text", "shadow_color")),
+            )
 
             # 始终设置背景颜色（即使背景未启用），这样开启背景时会使用上次保存的颜色
             bg_color = QColor(background_color)
@@ -65,11 +69,12 @@ class TextTool(Tool):
             item.set_background(background_enabled, bg_color, int(background_opacity))
             
             ctx.scene.addItem(item)
-            
-            # 提交到撤销栈
-            command = AddItemCommand(ctx.scene, item)
-            ctx.undo_stack.push(command)
-            
+
+            # 不在这里推 AddItemCommand（上面以 provisional=True 声明）：这一刻内容
+            # 还是空的，用户完全可能点一下就点别处，什么都没打。真正的"提交到撤销栈"
+            # 延后到 TextItem.focusOutEvent 发现内容非空的那一刻——点了没打字的话，
+            # 撤销栈上不会留下任何痕迹，不会平白吃掉用户后续的一次 Ctrl+Z。
+
             # 自动进入编辑模式，光标置于末尾（新建时文本为空，效果相同）
             item.setFocus()
             cursor = item.textCursor()

@@ -146,7 +146,10 @@ def test_selected_text_exposes_rotate_delete_and_scale_corner_handles(qapp):
     editor = LayerEditor()
     editor.start_edit(item)
 
-    rect = item.sceneBoundingRect()
+    # interaction_rect()，不是 sceneBoundingRect()：后者比交互矩形多出一圈
+    # CLICK_MARGIN 点击旷量，手柄不该跟着那圈旷量走。item 没有旋转/位移，
+    # 两者数值上只差这一圈旷量。
+    rect = item.interaction_rect()
     by_type = {h.handle_type: h for h in editor.handles}
     assert set(by_type) == {
         HandleType.ROTATE,
@@ -219,16 +222,17 @@ def test_handles_follow_the_box_while_the_text_is_being_typed(qapp):
     editor.start_edit(item)
 
     before = {h.handle_type: QPointF(h.position) for h in editor.handles}
-    narrow_right = item.sceneBoundingRect().right()
+    narrow_right = item.interaction_rect().right()
 
     item.setPlainText("121212121212")
-    wide_right = item.sceneBoundingRect().right()
+    wide_right = item.interaction_rect().right()
     assert wide_right > narrow_right, "内容变长后框应该变宽"
 
     editor.refresh_handles()
     after = {h.handle_type: QPointF(h.position) for h in editor.handles}
 
-    rect = item.sceneBoundingRect()
+    # interaction_rect()，不是 sceneBoundingRect()：见上一个用例的注释
+    rect = item.interaction_rect()
     assert after[HandleType.ITEM_DELETE] == rect.topRight()
     assert after[HandleType.TEXT_SCALE] == rect.bottomRight()
     assert after[HandleType.ROTATE] == rect.topLeft()
@@ -256,7 +260,8 @@ def test_render_refreshes_stale_handles_without_an_explicit_call(qapp):
     finally:
         painter.end()
 
-    rect = item.sceneBoundingRect()
+    # interaction_rect()，不是 sceneBoundingRect()：见前面用例的注释
+    rect = item.interaction_rect()
     positions = {h.handle_type: QPointF(h.position) for h in editor.handles}
     assert positions[HandleType.TEXT_SCALE] == rect.bottomRight()
     assert positions[HandleType.ITEM_DELETE] == rect.topRight()
@@ -278,7 +283,8 @@ def test_font_size_change_also_moves_the_handles(qapp):
     after = next(
         h for h in editor.handles if h.handle_type == HandleType.TEXT_SCALE
     ).position
-    assert after == item.sceneBoundingRect().bottomRight()
+    # interaction_rect()，不是 sceneBoundingRect()：见前面用例的注释
+    assert after == item.interaction_rect().bottomRight()
     assert after.x() > before.x() and after.y() > before.y()
 
 
@@ -366,7 +372,10 @@ def test_text_background_uses_padding_and_rounded_corners(qapp):
     painter.end()
 
     corner = image.pixelColor(0, 0)
-    padded_edge = image.pixelColor(1, image.height() // 2)
+    # boundingRect() 比内容矩形宽出框的让边和点击旷量，背景是贴着内容矩形画的，
+    # "往里 1px" 的采样点也要从内容矩形的左边算，不能固定写 1。
+    edge_x = int(item.content_rect().left() - rect.left()) + 1
+    padded_edge = image.pixelColor(edge_x, image.height() // 2)
     assert corner.alpha() == 0
     assert padded_edge.red() > 240 and padded_edge.green() > 240
     assert padded_edge.blue() < 20

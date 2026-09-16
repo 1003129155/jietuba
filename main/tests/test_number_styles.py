@@ -12,6 +12,7 @@ from PySide6.QtWidgets import QStyleOptionGraphicsItem
 from canvas.items import NumberItem
 from canvas.scene import CanvasScene
 from settings import get_tool_settings_manager
+from ui.base_settings_panel import popup_position
 from ui.number_settings_panel import NumberSettingsPanel, render_number_style_preview
 
 ALL_STYLES = [
@@ -256,7 +257,7 @@ def test_the_popup_flips_instead_of_running_off_the_screen(qapp, at_top):
             area.left() + 200,
             area.top() if at_top else area.top() + area.height() // 2,
         )
-        pos = panel._style_popup_position(popup)
+        pos = popup_position(panel, panel.next_preview, popup)
 
         assert area.top() <= pos.y()
         assert pos.y() + popup.height() <= area.bottom()
@@ -351,7 +352,7 @@ def test_the_picker_opens_away_from_the_toolbar(qapp, label, toolbar_offset, pan
         panel.move(area.left() + 200, base + panel_offset)
         panel._owner_toolbar = toolbar
 
-        pos = panel._style_popup_position(popup)
+        pos = popup_position(panel, panel.next_preview, popup)
         rect = QRect(pos.x(), pos.y(), popup.width(), popup.height())
         toolbar_rect = QRect(toolbar.mapToGlobal(QPoint(0, 0)), toolbar.size())
         panel_rect = QRect(panel.mapToGlobal(QPoint(0, 0)), panel.size())
