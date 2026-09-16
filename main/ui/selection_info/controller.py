@@ -75,7 +75,9 @@ class SelectionInfoController:
         # ── 刷新背景 ──
         self._parent_window = parent_widget      # ScreenshotWindow
         self._refresh_timer = QTimer()
-        self._refresh_timer.setInterval(16)       # ~60fps (16ms)
+        # 单次全虚拟桌面同步截屏实测约 20ms（峰值 24ms，见性能分析），16ms 会导致
+        # 定时器背靠背触发、主线程无缝隙可用；30ms 留出余量，让事件循环有空档。
+        self._refresh_timer.setInterval(30)       # ~33fps (30ms)
         self._refresh_timer.timeout.connect(self._do_refresh_background)
         self._long_press_timer = QTimer()
         self._long_press_timer.setSingleShot(True)
@@ -226,6 +228,16 @@ class SelectionInfoController:
 
         # 兜底：确保所有 hook 都被恢复（即使子模块漏掉）
         self._hook_mgr.unregister_all()
+
+        # RoundedCornersLogic/BorderShadowLogic 构造时以 parent_widget
+        # （ScreenshotWindow）为 QObject 父对象；截图窗口是跨会话复用的，
+        # 不会自己被销毁，这两个 logic 若不主动 deleteLater()，会话一多
+        # 就会在窗口上越攒越多。uninstall() 只处理了它们各自的 popup 和
+        # hook，这里补上 logic 对象本身的清理。
+        self._rounded_corners.setParent(None)
+        self._rounded_corners.deleteLater()
+        self._border_shadow.setParent(None)
+        self._border_shadow.deleteLater()
 
         # 置空引用，帮助 GC
         self._parent_window = None

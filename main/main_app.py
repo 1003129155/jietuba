@@ -14,7 +14,6 @@ from ui.dialogs import show_warning_dialog, show_error_dialog
 
 from core.shortcut_manager import HotkeySystem
 from settings import get_tool_settings_manager
-from ui.screenshot_window import ScreenshotWindow
 from ui.tray_menu import create_tray_menu
 from core.logger import (
     setup_logger, get_logger, T,
@@ -472,6 +471,11 @@ class MainApp(QObject):
         else:
             # 首次创建
             log_debug(T("首次创建截图窗口"), "MainApp")
+            # 延迟到真正需要时才导入：这条 import 链拖着 canvas/toolbar/tools 一整套
+            # 模块，放在文件顶部会在 QApplication 建立之前、启动阶段就被迫付掉这笔
+            # 开销。后台预加载线程（bootstrap.py _preload_screenshot_modules）会尽
+            # 量抢先把它导入好，这里通常只是从 sys.modules 里取一下。
+            from ui.screenshot_window import ScreenshotWindow
             self.screenshot_window = ScreenshotWindow(
                 self.config_manager,
                 prefetched_image=image,
