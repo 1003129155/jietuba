@@ -380,3 +380,74 @@ def test_shutdown_interrupts_and_joins_translation_workers(monkeypatch, qapp):
     assert worker.interrupted
     assert worker.wait_timeout is not None
     assert not worker.running
+
+
+class _FakeOCRThread:
+    """形状对齐真正的 OCRThread：isRunning/cancel/wait，但不真的起一条线程。"""
+
+    def __init__(self):
+        self.running = True
+        self.cancelled = False
+        self.wait_timeout = None
+        self.wait_return = True
+
+    def isRunning(self):
+        return self.running
+
+    def cancel(self):
+        self.cancelled = True
+
+    def wait(self, timeout):
+        self.wait_timeout = timeout
+        if self.wait_return:
+            self.running = False
+        return self.wait_return
+
+
+def test_shutdown_waits_for_and_joins_an_in_flight_ocr_thread():
+    """退出时必须等还在跑的 OCR 线程，不能像网络线程那样只处理 self._threads
+    集合——OCR 线程是单独的 self._ocr_thread 属性，之前完全没被 shutdown()
+    碰过。不等它，解释器终止会撞上一个还在执行 FFI 调用的线程，直接 abort
+    掉整个进程，不是"安静地在后台跑完"那种体面退出。
+    """
+    manager = TranslationManager()
+    manager.close_dialog = lambda: None
+    ocr_thread = _FakeOCRThread()
+    manager._ocr_thread = ocr_thread
+
+    manager.shutdown(timeout_ms=0, ocr_timeout_ms=250)
+
+    assert ocr_thread.cancelled, "cancel() 打不断正在跑的识别，但仍应该调用，避免它跑完后再触发一次信号"
+    assert ocr_thread.wait_timeout == 250, "OCR 的超时应该独立于网络线程的 timeout_ms，不能被网络那份参数顶替"
+    assert not ocr_thread.running
+
+
+def test_shutdown_logs_a_warning_when_the_ocr_thread_does_not_finish_in_time(monkeypatch):
+    manager = TranslationManager()
+    manager.close_dialog = lambda: None
+    ocr_thread = _FakeOCRThread()
+    ocr_thread.wait_return = False  # 模拟等到超时、线程仍未结束
+    manager._ocr_thread = ocr_thread
+
+    warnings = []
+
+    def _record(msg, *_a, **_k):
+        # log_warning 收到的是可翻译的 LogMsg（core.logger.T(...) 的返回值），
+        # 它没有 __str__，str() 拿到的只是默认 repr；要看实际文案得走 render()。
+        warnings.append(msg.render() if hasattr(msg, "render") else str(msg))
+
+    monkeypatch.setattr("translation.translation_manager.log_warning", _record)
+
+    manager.shutdown(timeout_ms=0, ocr_timeout_ms=10)
+
+    assert ocr_thread.running, "wait 超时应该如实反映线程还在跑，不能假装它结束了"
+    assert any("OCR" in w for w in warnings)
+
+
+def test_shutdown_is_a_noop_when_no_ocr_thread_was_ever_started():
+    """从没截过图翻译过的会话，_ocr_thread 属性根本不存在；退出不该因此报错。"""
+    manager = TranslationManager()
+    manager.close_dialog = lambda: None
+    assert not hasattr(manager, "_ocr_thread")
+
+    manager.shutdown(timeout_ms=0, ocr_timeout_ms=10)  # 不应抛异常
