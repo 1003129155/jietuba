@@ -99,7 +99,7 @@ class BorderShadowPopup(QWidget):
         shadow_lay.setContentsMargins(6, 4, 6, 4)
         shadow_lay.setSpacing(5)
         self._shadow_color_block = ColorPickerButton(
-            QColor(self._shadow_color), show_alpha=True, size=18
+            QColor(self._shadow_color), show_alpha=True, size=18, rainbow_ring=False
         )
         self._shadow_color_block.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self._shadow_color_block.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -120,7 +120,7 @@ class BorderShadowPopup(QWidget):
         border_lay.setContentsMargins(6, 4, 6, 4)
         border_lay.setSpacing(5)
         self._border_color_block = ColorPickerButton(
-            QColor(self._border_color), show_alpha=True, size=18
+            QColor(self._border_color), show_alpha=True, size=18, rainbow_ring=False
         )
         self._border_color_block.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self._border_color_block.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -439,6 +439,11 @@ class BorderShadowLogic(QObject):
         self._popup.border_color_changed.connect(self._on_border_color_changed)
         self._popup.persist_changed.connect(self._on_persist_changed)
         self._popup.visibility_changed.connect(self._on_popup_visibility_changed)
+        # popup 销毁时立即移除事件过滤器，避免后续 Leave/Enter 事件访问已删除
+        # 的 C++ 对象（btn_border 是截图窗口复用时跨会话常驻的按钮；uninstall()
+        # 只 deleteLater() 了 popup，这个 self 作为事件过滤器还留在按钮上，
+        # 下个会话的悬停会摸到已经不存在的 popup）。
+        self._popup.destroyed.connect(self._on_popup_destroyed)
 
         # 为按钮安装 hover 事件
         self._btn.setMouseTracking(True)
@@ -466,6 +471,13 @@ class BorderShadowLogic(QObject):
     # ------------------------------------------------------------------
     # 公共接口
     # ------------------------------------------------------------------
+    def _on_popup_destroyed(self):
+        """popup 被析构时移除事件过滤器，避免后续事件访问已删除的 C++ 对象"""
+        try:
+            self._btn.removeEventFilter(self)
+        except RuntimeError:
+            pass  # _btn 本身也在析构中则忽略
+
     def set_rounded_corners_logic(self, logic):
         """延迟设置圆角逻辑引用（解决创建顺序依赖）"""
         self._rounded_logic = logic

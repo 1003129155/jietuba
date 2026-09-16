@@ -301,15 +301,18 @@ class PreloadManager:
     def _preload_screenshot_modules(self):
         """
         在后台线程预加载截图相关模块
-        
+
         首次截图时需要加载大量模块，在低配电脑上会导致明显卡顿：
         1. mss - 屏幕截图库，首次导入需要初始化 Windows API
-        2. canvas 模块 - CanvasScene, CanvasView, 各种图形项
-        3. tools 模块 - 9 个绘图工具类
-        4. win32gui - 智能选区依赖
-        5. CursorManager, SmartEditController 等
-        
-        通过在后台线程预加载这些模块，可以让首次截图更流畅
+        2. ui.screenshot_window 及其整条 import 链 - canvas、toolbar、
+           magnifier、mask_overlay、selection_info、tools 包下全部工具类
+        3. win32gui - 智能选区依赖
+        4. capture.capture_service - 截图采集服务
+
+        通过在后台线程预加载这些模块，可以让首次截图更流畅。main_app.py 里
+        构造 ScreenshotWindow 的地方也是延迟 import（而不是模块顶层 import），
+        这样这份预加载才有意义——否则模块在 QApplication 建立之前就已经被
+        main_app 顶层同步 import 过了，这里等于白跑。
         """
         from PySide6.QtCore import QThread
         from core.logger import log_debug, log_info, log_warning, log_exception, T
@@ -325,11 +328,14 @@ class PreloadManager:
                         sct.grab({"left": 0, "top": 0, "width": 1, "height": 1})
                     log_debug(T("mss 模块已加载并预热"), "Preload")
 
-                    # 2. 预加载 canvas 模块（场景、视图、图形项）
-                    log_debug(T("canvas 模块已加载"), "Preload")
-
-                    # 3. 预加载 tools 模块（所有绘图工具）
-                    log_debug(T("tools 模块已加载"), "Preload")
+                    # 2/3/5. 预加载 canvas、tools、工具栏等 UI 组件。这条 import 链会
+                    # 拖出 canvas、ui.toolbar、ui.magnifier、ui.mask_overlay、
+                    # ui.selection_info 和 tools 包下全部工具类，一次导入即可覆盖
+                    # 原来这三步想做但没真正做的事（之前这里只有 log，没有 import，
+                    # 首次截图前这些模块其实是被 main_app 顶层同步导入的，这个线程
+                    # 白跑了）。
+                    from ui.screenshot_window import ScreenshotWindow  # noqa: F401
+                    log_debug(T("canvas/tools/UI 组件已加载"), "Preload")
 
                     # 4. 预加载智能选区依赖（win32gui）
                     try:
@@ -364,23 +370,15 @@ class PreloadManager:
                     except Exception as e:
                         log_exception(e, T("预热PNG编码器"))
 
-                    # 5. 预加载 UI 组件
-                    log_debug(T("UI 组件已加载"), "Preload")
-
                     # 6. 预加载 capture 服务
+                    from capture.capture_service import CaptureService  # noqa: F401
                     log_debug(T("CaptureService 已加载"), "Preload")
 
-                    # 7. 预加载 GIF 录制模块
-                    try:
-                        log_debug(T("GIF 模块已加载"), "Preload")
-                    except Exception as e:
-                        log_warning(T("GIF 模块预加载失败: {e}", e=e), "Preload")
-
-                    # 8. 预加载长截图模块
-                    try:
-                        log_debug(T("长截图模块已加载"), "Preload")
-                    except Exception as e:
-                        log_warning(T("长截图模块预加载失败: {e}", e=e), "Preload")
+                    # GIF 录制、长截图模块不在这里预加载：两者都只在用户点了对应
+                    # 工具栏按钮之后才用得到，早于那一刻加载只是白白多占内存。它们在
+                    # ScreenshotWindow.start_gif_record_mode / start_long_screenshot_mode
+                    # 里按需 import，不在上面那条 import 链上——长截图模块加载时就会读设置，
+                    # 更不该跑到这个工作线程里。
 
                     log_info(T("截图模块预加载完成"), "Preload")
 
