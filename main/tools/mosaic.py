@@ -88,11 +88,15 @@ class MosaicTool(Tool):
         return cls.clamp_block_size(cls._read_setting(ctx, "block_size"))
 
     # ------------------------------------------------------------------
-    # 把设置落到"当前选中的那一块马赛克"上（可撤销）
+    # 把设置落到"当前选中的那一块马赛克"上
     # ------------------------------------------------------------------
     # 截图窗口和钉图窗口都要做这件事，而且必须做得一模一样，所以策略只写在
-    # 这里一份，两个窗口的槽函数只负责把 view 和 undo_stack 递进来
+    # 这里一份，两个窗口的槽函数只负责把 view 递进来
     # （与 NumberTool.apply_style_change 同一个范式）。
+    #
+    # 改完不压撤销命令：撤销栈是留给用户真正想撤回的画布操作（涂了一笔、删了一块、
+    # 挪了位置），面板上换种类、调粒度属于改设置，不该占掉一次 Ctrl+Z。顺带省下的
+    # 是内存——每条粒度命令都攥着一张按该粒度缩小的整屏底图，换几次档就是几十 MB。
 
     @classmethod
     def _selected_mosaic(cls, view):
@@ -101,16 +105,8 @@ class MosaicTool(Tool):
         item = getattr(controller, "selected_item", None) if controller else None
         return item if isinstance(item, MosaicItem) else None
 
-    @staticmethod
-    def _push_edit(item, old_state, new_state, text, undo_stack):
-        if undo_stack is None:
-            return
-        from canvas.undo import EditItemCommand
-
-        undo_stack.push(EditItemCommand(item, old_state, new_state, text))
-
     @classmethod
-    def apply_style_change(cls, style: str, view, undo_stack) -> bool:
+    def apply_style_change(cls, style: str, view) -> bool:
         """把马赛克/模糊落到选中的那一块上。返回是否真的改了。"""
         item = cls._selected_mosaic(view)
         if item is None:
@@ -120,16 +116,11 @@ class MosaicTool(Tool):
         if smooth == item.smooth():
             return False
 
-        old_state = {"smooth": item.smooth()}
         item.set_smooth(smooth)
-        cls._push_edit(
-            item, old_state, {"smooth": smooth},
-            _undo_tr("Change Mosaic Style"), undo_stack,
-        )
         return True
 
     @classmethod
-    def apply_block_size_change(cls, block_size, view, undo_stack) -> bool:
+    def apply_block_size_change(cls, block_size, view) -> bool:
         """把粒度落到选中的那一块上。返回是否真的改了。
 
         新的缩小图向图元**自己所在**的场景要，而不是让调用方递一个进来：
@@ -150,16 +141,7 @@ class MosaicTool(Tool):
         if reduced.isNull():
             return False
 
-        old_state = {
-            "block_size": item.block_size(),
-            "reduced_image": item.reduced_image(),
-        }
         item.set_block_size(block_size, reduced)
-        cls._push_edit(
-            item, old_state,
-            {"block_size": block_size, "reduced_image": reduced},
-            _undo_tr("Change Mosaic Size"), undo_stack,
-        )
         return True
 
     @classmethod
@@ -245,8 +227,8 @@ class MosaicTool(Tool):
             path.addRect(QRectF(self.start_pos, pos).normalized())
             self.path = path
         else:
-            # 只有自由涂抹需要按间距筛点：它的路径会一直变长，每次 on_move 都要
-            # 重描一遍。框选走上面那条分支，每次只是重建一个矩形，成本与拖了
+            # 只有自由涂抹需要按间距筛点：它的路径会一直变长，点越多每帧重画的
+            # 开销越大。框选走上面那条分支，每次只是重建一个矩形，成本与拖了
             # 多久无关。
             if not self.should_append_point(self.last_point, pos):
                 return
