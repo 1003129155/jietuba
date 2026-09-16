@@ -1,18 +1,24 @@
 """Pixelated background annotation item."""
 
-from PySide6.QtCore import QPointF, QRectF, QSizeF, Qt
-from PySide6.QtGui import QImage, QPainter, QPainterPath, QPainterPathStroker, QTransform
+from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtGui import QBrush, QImage, QPainter, QPainterPath, QPainterPathStroker, QPen, QTransform
 from PySide6.QtWidgets import QGraphicsItem
 
+from .drawing_items import DrawingItemMixin
 
-class MosaicItem(QGraphicsItem):
-    """Paint the background's reduced image, blown back up, through a round freehand mask.
 
-    只保存按 block_size 缩小后的小图，绘制时再按块放大回去。关闭
+class MosaicItem(DrawingItemMixin, QGraphicsItem):
+    """Paint a path with the background's reduced image as ink.
+
+    只保存按 block_size 缩小后的小图，绘制时把它当颜料：包成纹理画刷，按块
+    放大后钉在背景的场景位置上，再交给 Qt 像画普通画笔一样原生描边。关闭
     SmoothPixmapTransform 后放大就是最近邻，每个小图像素铺成一个
     block_size x block_size 的方块，结果与提前算好的全分辨率像素化图逐像素相同，
     但体积只有 1/block_size^2；而且 QImage 是引用计数的隐式共享，所有笔画共用
     同一份小图，内存不随笔画数量增长。
+
+    笔画轮廓不在 Python 侧算。自由涂抹要是每加一个点就对整条路径重新描边，开销
+    会随笔画长度和手速一起涨；描边交给 Qt 画，shape() 只在命中判定用到时才算。
     """
 
     def __init__(
@@ -27,7 +33,8 @@ class MosaicItem(QGraphicsItem):
     ):
         super().__init__()
         self._path = QPainterPath()
-        self._stroke_shape = QPainterPath()
+        self._shape_cache = None
+        self._bounds = QRectF()
         self._brush_width = max(1.0, float(brush_width))
         self._block_size = max(2, int(block_size))
         self._reduced_image = QImage(reduced_image)
@@ -45,9 +52,7 @@ class MosaicItem(QGraphicsItem):
         # 撤销）全部是 handle_editor.py 里认 rect()/setRect() 的通用逻辑，
         # 这里不需要另写一套；自由涂抹没有"矩形"可言，handle_editor 那边会
         # 跳过给它生成缩放手柄（见 _generate_handles 里的判断）。
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
-        self.setAcceptHoverEvents(True)
+        self._init_drawing_mixin()
 
         self.set_path(path)
 
@@ -102,8 +107,7 @@ class MosaicItem(QGraphicsItem):
         stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         shape = stroker.createStroke(path)
         if not shape.isEmpty():
-            # 圆头端帽已经把起点包住了，不必再并一个圆点。并集是路径布尔运算，
-            # 放在每次 on_move 上会随笔画长度急剧变慢。
+            # 圆头端帽已经把起点包住了，不必再并一个圆点——并集是路径布尔运算，白花开销。
             return shape
 
         # 只按下、没有拖动时 createStroke 得到空路径，退化成一个圆点。
@@ -116,19 +120,26 @@ class MosaicItem(QGraphicsItem):
     def set_path(self, path: QPainterPath):
         self.prepareGeometryChange()
         self._path = QPainterPath(path)
-        self._stroke_shape = self._make_shape(self._path)
+        self._shape_cache = None
         if self._fill_mode:
             self._rect = self._path.boundingRect()
+            self._bounds = QRectF(self._rect)
+        else:
+            # 圆头圆角描边的外沿，正好是路径本身向外扩半个笔宽
+            half = self._brush_width / 2.0
+            self._bounds = self._path.boundingRect().adjusted(-half, -half, half, half)
         self.update()
 
     def path(self) -> QPainterPath:
         return QPainterPath(self._path)
 
     def shape(self) -> QPainterPath:
-        return QPainterPath(self._stroke_shape)
+        if self._shape_cache is None:
+            self._shape_cache = self._make_shape(self._path)
+        return QPainterPath(self._shape_cache)
 
     def boundingRect(self) -> QRectF:
-        return self._stroke_shape.boundingRect()
+        return QRectF(self._bounds)
 
     def reduced_image(self) -> QImage:
         return QImage(self._reduced_image)
@@ -157,37 +168,54 @@ class MosaicItem(QGraphicsItem):
         return self._brush_width
 
     def paint(self, painter: QPainter, option, widget=None):
-        if self._reduced_image.isNull() or self._stroke_shape.isEmpty():
+        # 不能用 isEmpty() 判空：只按下没拖动时路径里只有一个 moveTo，它对此也返回 True，
+        # 那个圆点就被整个跳过了。
+        if self._reduced_image.isNull() or self._path.elementCount() == 0:
             return
+        # paint() 收到的 painter 已经叠加了本图元的完整变换（拖动改 pos()，拖角
+        # 缩放改 transform()）。描边跟着这份变换走是对的；但颜料——那张铺开的
+        # 像素化背景——必须钉死在背景真实的场景位置，不能被这份变换一起挪动，
+        # 不然拖动或缩放马赛克时，显示内容会跟着搬家/变形，跟真实背景对不上。
+        # 所以纹理先按块放大、摆进场景，再乘上场景 → 本地的逆变换，抵消掉图元
+        # 自己的那一份。
+        to_local, invertible = self.sceneTransform().inverted()
+        if not invertible:
+            return
+        # 小图四周多带一圈复制的边缘像素（见 BackgroundItem.reduced_image），
+        # 第 (1, 1) 个像素才对应背景左上角那一块，所以锚点再往左上退一个块。
+        block = float(self._block_size)
+        brush = QBrush(self._reduced_image)
+        brush.setTransform(
+            QTransform.fromScale(block, block)
+            * QTransform.fromTranslate(self._background_rect.x() - block,
+                                       self._background_rect.y() - block)
+            * to_local
+        )
         painter.save()
         try:
-            # paint() 收到的 painter 已经叠加了本图元的完整变换（拖动改
-            # pos()，拖角缩放改 transform()）。裁剪窗口跟着这份变换走是
-            # 对的；但铺开的那张"整背景像素化图"必须钉死在背景真实的场景
-            # 位置，不能被这份变换一起拉伸/挪动——不然拖动或缩放马赛克时，
-            # 显示内容会跟着搬家/变形，跟真实背景对不上。
-            #
-            # 做法：先把裁剪路径换算到场景坐标，再把画笔当前变换里"属于
-            # 这个图元自己"的那部分撤销掉（只留视图缩放/平移），后面就相当
-            # 于直接画在场景坐标系里，用 self.pos()/self.transform() 是什么
-            # 都不影响画出来的内容。
-            scene_shape = self.mapToScene(self._stroke_shape)
-            inverse, invertible = self.sceneTransform().inverted()
-            if invertible:
-                painter.setTransform(inverse * QTransform(painter.transform()), False)
-
-            painter.setClipPath(scene_shape)
-            # 铺开后的尺寸是 block_size 的整数倍，末尾那块可能越过背景边缘，
-            # 所以再按背景矩形收一次。
-            painter.setClipRect(self._background_rect, Qt.ClipOperation.IntersectClip)
+            # 纹理画刷是平铺的，越过背景边缘露出来的是对侧的内容，按背景矩形收掉。
+            # 裁剪区域要换算到本地坐标：图元旋转后背景矩形在本地是斜的，
+            # mapRectFromScene 只能给出它的外接矩形，会漏出四个角，所以按多边形裁。
+            clip = QPainterPath()
+            clip.addPolygon(self.mapFromScene(self._background_rect))
+            painter.setClipPath(clip, Qt.ClipOperation.IntersectClip)
             painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, self._smooth)
-            target = QRectF(
-                self._background_rect.topLeft(),
-                QSizeF(
-                    self._reduced_image.width() * self._block_size,
-                    self._reduced_image.height() * self._block_size,
-                ),
-            )
-            painter.drawImage(target, self._reduced_image, QRectF(self._reduced_image.rect()))
+            if self._fill_mode or self._path.elementCount() == 1:
+                # 框选填满矩形；只有一个点时描边画不出东西，填 shape() 退化出的那个圆点
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(brush)
+                painter.drawPath(self._path if self._fill_mode else self.shape())
+            else:
+                painter.setPen(QPen(brush, self._brush_width, Qt.PenStyle.SolidLine,
+                                    Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.drawPath(self._path)
         finally:
             painter.restore()
+
+        # 候选/选中框贴着框选出来的那个矩形画。自由涂抹的马赛克跟画笔笔画一样
+        # 要 Ctrl 才能选，_can_show_hover() 对它是 False，这里自然不会画。
+        if self.should_paint_selection_frame():
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.setPen(self.selection_frame_pen())
+            painter.drawPath(self._path)
