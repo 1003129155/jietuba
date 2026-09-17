@@ -125,14 +125,12 @@ class CanvasView(QGraphicsView):
             self.smart_edit_controller.set_tool(current_tool.id)
         
         # Pending 单击文字进入编辑的状态
-        self._pending_text_edit_item = None
-        self._pending_text_edit_press_pos = None
-        self._pending_text_edit_moved = False
 
         # 两种由 View 全程接管的手势，各自管着自己那一摊状态（见 canvas/gestures.py）
-        from canvas.gestures import ManualItemDrag, TextEdgeDrag
+        from canvas.gestures import ManualItemDrag, PendingTextEdit, TextEdgeDrag
         self.text_drag = TextEdgeDrag(self)
         self.item_drag = ManualItemDrag(self)
+        self.pending_text_edit = PendingTextEdit(self)
 
         # 控制点画在 viewport 之上的独立浮层里，不进 QGraphicsScene 的渲染管线。
         # 这样内容层的脏区只需要描述内容，不必再为"手柄能凸出多远"外扩。
@@ -769,7 +767,7 @@ class CanvasView(QGraphicsView):
         scene_pos = self.mapToScene(event.pos())
         self._double_click_candidate = None
         # 新的一次点击开始前重置单击编辑状态
-        self._clear_pending_text_edit()
+        self.pending_text_edit.clear()
         
         if not self.canvas_scene.selection_model.is_confirmed:
             # 选区未确认：拖拽创建选区
@@ -863,7 +861,7 @@ class CanvasView(QGraphicsView):
                 # 选中了图元，阻止绘图
                 # 传递给 Scene（让图元处理拖拽）
                 log_debug(T("图元选择被处理，阻止绘图"), "CanvasView")
-                self._maybe_prepare_text_edit(event, scene_pos)
+                self.pending_text_edit.arm(event, scene_pos)
                 if self.smart_edit_controller.press_requires_manual_dispatch:
                     # Qt 默认把事件交给 z 轴最上方图元；当控制器有意向下
                     # 命中兼容目标时，由 View 接管本次拖动，避免顶层文字抢走事件。
@@ -1152,7 +1150,7 @@ class CanvasView(QGraphicsView):
     
     def _handle_edit_mode_move(self, event, scene_pos: QPointF):
         """处理编辑模式的鼠标移动（状态4）"""
-        self._track_pending_text_edit_movement(event)
+        self.pending_text_edit.track(event)
         self._update_magnifier_overlay(scene_pos)
         
         # 检查是否正在编辑文字（需要检测文字框边缘拖拽）
@@ -1373,7 +1371,7 @@ class CanvasView(QGraphicsView):
         if self.smart_edit_controller.selected_item:
             self._update_edit_handles()
         
-        self._maybe_enter_text_edit_on_release(event, scene_pos)
+        self.pending_text_edit.settle(event, scene_pos)
         # 传递给场景处理（可能是在释放图元拖拽）
         super().mouseReleaseEvent(event)
     
@@ -1740,11 +1738,6 @@ class CanvasView(QGraphicsView):
 
         return False
     
-    def _clear_pending_text_edit(self):
-        self._pending_text_edit_item = None
-        self._pending_text_edit_press_pos = None
-        self._pending_text_edit_moved = False
-
     def _update_magnifier_overlay(self, scene_pos: QPointF):
         overlay = self._get_magnifier_overlay()
         if overlay:
@@ -1760,49 +1753,6 @@ class CanvasView(QGraphicsView):
         if window and hasattr(window, "magnifier_overlay"):
             return window.magnifier_overlay
         return None
-    
-    def _maybe_prepare_text_edit(self, event, scene_pos: QPointF):
-        if event.button() != Qt.MouseButton.LeftButton:
-            return
-        if self._is_text_editing():
-            return
-        item = getattr(self.smart_edit_controller, "selected_item", None)
-        if not isinstance(item, TextItem):
-            return
-        # 只在点击位置仍在文字上时才进入待编辑状态
-        if not item.contains(item.mapFromScene(scene_pos)):
-            return
-        self._pending_text_edit_item = item
-        self._pending_text_edit_press_pos = event.pos()
-        self._pending_text_edit_moved = False
-    
-    def _track_pending_text_edit_movement(self, event):
-        if (self._pending_text_edit_item is None or
-                self._pending_text_edit_press_pos is None):
-            return
-        if not (event.buttons() & Qt.MouseButton.LeftButton):
-            return
-        if (event.pos() - self._pending_text_edit_press_pos).manhattanLength() > 5:
-            self._pending_text_edit_moved = True
-    
-    def _maybe_enter_text_edit_on_release(self, event, scene_pos: QPointF):
-        if self._pending_text_edit_item is None:
-            return
-        if event.button() != Qt.MouseButton.LeftButton:
-            self._clear_pending_text_edit()
-            return
-        if self._pending_text_edit_moved:
-            self._clear_pending_text_edit()
-            return
-        item = self._pending_text_edit_item
-        if not isinstance(item, TextItem):
-            self._clear_pending_text_edit()
-            return
-        if not item.contains(item.mapFromScene(scene_pos)):
-            self._clear_pending_text_edit()
-            return
-        self._clear_pending_text_edit()
-        self._enter_text_edit_mode(item)
     
     def _enter_text_edit_mode(self, item: TextItem):
         self._connect_text_geometry_updates(item)
@@ -1857,7 +1807,7 @@ class CanvasView(QGraphicsView):
         if controller and controller.selected_item is text_item:
             controller.clear_selection(suppress_block=True)
         self.text_drag.reset()
-        self._clear_pending_text_edit()
+        self.pending_text_edit.clear()
     
     def export_and_close(self):
         """

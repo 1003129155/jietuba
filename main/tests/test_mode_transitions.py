@@ -1,4 +1,4 @@
-"""一种模式结束、切到另一种时，上一种的状态要清干净。
+﻿"""一种模式结束、切到另一种时，上一种的状态要清干净。
 
 CanvasView 的鼠标事件是按模式分发的（见 mouseMoveEvent 的路由）：拉选区、绘图、
 文字拖动、编辑模式、悬停预览，五者互斥。判断走哪一种，靠的是散在 view 和控制器上
@@ -53,7 +53,7 @@ def _snapshot(view):
         "text_drag.item": view.text_drag.item,
         "text_drag.hover_item": view.text_drag.hover_item,
         "item_drag.active": view.item_drag.active,
-        "pending_text_edit_item": view._pending_text_edit_item,
+        "pending_text_edit_item": view.pending_text_edit.item,
         "controller.is_dragging": controller.is_dragging,
         "controller._move_initial_state": controller._move_initial_state,
         "controller.press_requires_manual_dispatch": controller.press_requires_manual_dispatch,
