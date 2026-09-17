@@ -237,7 +237,6 @@ class SmartEditController(QObject):
         Returns:
             bool - 是否可以选择
         """
-        from PySide6.QtCore import Qt
         
         item_type = self.get_item_type(item)
 
@@ -382,7 +381,6 @@ class SmartEditController(QObject):
         Returns:
             bool - 是否选中了图元（True=拦截绘图，False=允许绘图）
         """
-        from PySide6.QtCore import Qt
         
         if button != Qt.MouseButton.LeftButton:
             return False
@@ -478,7 +476,6 @@ class SmartEditController(QObject):
         Returns:
             bool - 是否处理了事件
         """
-        from PySide6.QtCore import Qt
         
         if button != Qt.MouseButton.LeftButton:
             return False
@@ -516,21 +513,23 @@ class SmartEditController(QObject):
     def select_item(self, item: QGraphicsItem, auto_select: bool = False):
         """
         选择图元
-        
+
+        selected_item 就是"谁被选中"的唯一出处，不再同步给 Qt 的 setSelected()：
+        那份状态 Qt 自己在鼠标事件里也会改，两个所有者对不上的时候，画出来的框
+        和手柄作用的对象就会是两个图元（见 DrawingItemMixin.is_edit_target）。
+
         Args:
             item: 要选择的 QGraphicsItem
             auto_select: 是否是自动选择（绘制后自动选中）
         """
         if self.selected_item == item:
             return
-        
-        # 取消之前的选择
-        if self.selected_item:
-            self.selected_item.setSelected(False)
-        
-        # 选择新图元
+
+        previous = self.selected_item
         self.selected_item = item
-        item.setSelected(True)
+        if previous is not None:
+            previous.update()
+        item.update()
         self.mode = SelectionMode.SELECTED
         self._move_initial_state = None
         self._is_auto_selected = auto_select  # 记录是否是自动选择
@@ -551,12 +550,15 @@ class SmartEditController(QObject):
         """清除选择"""
         self._active_click_handle = None
         if self.selected_item:
-            self.selected_item.setSelected(False)
-            
+            previous = self.selected_item
+
             # 如果是自动选择（绘制后自动选中），清除时不阻止下次绘图
             was_auto_selected = self._is_auto_selected
-            
+
             self.selected_item = None
+            # 框的有无由 selected_item 决定，得显式重画——以前这一下是
+            # setSelected() 顺带做掉的
+            previous.update()
             self.mode = SelectionMode.NONE
             self._move_initial_state = None
             self._is_auto_selected = False
@@ -579,10 +581,7 @@ class SmartEditController(QObject):
 
 
     def _is_text_item_editing(self, item: QGraphicsItem) -> bool:
-        if not isinstance(item, TextItem):
-            return False
-        flags = item.textInteractionFlags()
-        return bool(flags & Qt.TextInteractionFlag.TextEditorInteraction)
+        return isinstance(item, TextItem) and item.is_editing()
 
     def delete_selected(self, suppress_block: bool = False, renumber_numbers: bool = False):
         """删除当前选中的图元，推入撤销栈"""
@@ -612,7 +611,6 @@ class SmartEditController(QObject):
 
     def handle_edit_press(self, scene_pos: QPointF, view_pos: QPointF, button: int, modifiers: int):
         """在选中状态下处理控制点按下，返回是否拦截"""
-        from PySide6.QtCore import Qt
         if button != Qt.MouseButton.LeftButton:
             return False
         if not self.selected_item or not self.layer_editor:
@@ -676,7 +674,6 @@ class SmartEditController(QObject):
         return True
 
     def handle_edit_release(self, scene_pos: QPointF, button: int):
-        from PySide6.QtCore import Qt
         if button != Qt.MouseButton.LeftButton:
             return False
         if self.mode == SelectionMode.CLICKING_HANDLE:
@@ -805,9 +802,11 @@ class SmartEditController(QObject):
                 # 图元还在，重新生成控制点以匹配新状态
                 self.layer_editor.start_edit(self.selected_item)
                 
-                # 同步箭头样式面板状态
+                # 同步样式面板：撤销掉的可能正是面板上显示着的那个值（箭头样式、文字字号）
                 if isinstance(self.selected_item, ArrowItem):
                     self._sync_arrow_panel_state(self.selected_item)
+                elif isinstance(self.selected_item, TextItem):
+                    self._sync_text_panel_state(self.selected_item)
 
                 self._repaint_handles()
     
@@ -859,13 +858,17 @@ class SmartEditController(QObject):
             self.selected_item.update()
 
     def on_text_outline_changed(self, enabled, color, width):
-        """更新选中文字的描边"""
+        """更新选中文字的描边。
+
+        和字体、颜色、背景一样直接改、不压撤销命令：撤销栈留给画布内容（新建、
+        删除、移动、缩放），面板上调样式不该占掉用户的 Ctrl+Z。
+        """
         if self.selected_item and isinstance(self.selected_item, TextItem):
             self.selected_item.set_outline(enabled, color, width)
             self.selected_item.update()
 
     def on_text_shadow_changed(self, enabled, color):
-        """更新选中文字的阴影"""
+        """更新选中文字的阴影（同样不进撤销栈，理由见上）"""
         if self.selected_item and isinstance(self.selected_item, TextItem):
             self.selected_item.set_shadow(enabled, color)
             self.selected_item.update()

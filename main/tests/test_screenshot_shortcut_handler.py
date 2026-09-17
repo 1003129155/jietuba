@@ -210,10 +210,15 @@ class TestDelete:
         assert _make_handler(window).handle_key(_FakeKeyEvent(Qt.Key.Key_Delete)) is True
         window.view.smart_edit_controller.delete_selected.assert_called_once()
 
-    def test_delete_is_consumed_but_inert_while_editing_text(self):
-        """文字编辑中按 Delete 应该删字符，不能把整个图元删掉"""
+    def test_delete_is_released_to_the_text_item_while_editing_text(self):
+        """文字编辑中按 Delete 应该删字符，不能把整个图元删掉。
+
+        回归用例：之前这里断言 handle_key 返回 True（事件被吃掉）——图元没被删对了，
+        但事件也被吞了，文字框根本收不到这次按键，光标后面的字删不掉。必须返回
+        False，让事件继续往下传给 QGraphicsTextItem 自己的按键处理。
+        """
         window = _make_window(text_editing=True)
-        assert _make_handler(window).handle_key(_FakeKeyEvent(Qt.Key.Key_Delete)) is True
+        assert _make_handler(window).handle_key(_FakeKeyEvent(Qt.Key.Key_Delete)) is False
         window.view.smart_edit_controller.delete_selected.assert_not_called()
 
 

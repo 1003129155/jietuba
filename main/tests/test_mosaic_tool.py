@@ -1,7 +1,7 @@
-import pytest
+﻿import pytest
 
 from PySide6.QtCore import QPoint, QPointF, QRectF, QSize, Qt
-from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath
+from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QTransform
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QWidget
 
@@ -80,6 +80,111 @@ def test_single_point_mosaic_has_real_round_geometry(qapp):
     assert item.boundingRect().width() == 18
     assert item.boundingRect().height() == 18
     assert item.shape().contains(QPointF(20, 20))
+
+
+def test_single_click_mosaic_paints_its_dot(qapp):
+    """只按下没拖动时路径里只有一个点：描边画不出东西，得照样填出那个圆点。
+
+    QPainterPath.isEmpty() 对"只有一个 moveTo"也返回 True，拿它判空会把这个
+    圆点整个跳过——形状和包围盒都对，画面上却什么都没有。
+    """
+    from canvas.items import MosaicItem
+
+    source = _gradient_image()
+    scene = CanvasScene(source, QRectF(0, 0, 64, 64), enable_mosaic=True)
+    scene.selection_model.initialize_confirmed_rect(QRectF(0, 0, 64, 64))
+    reduced = scene.background.reduced_image(8)
+    scene.addItem(MosaicItem(QPainterPath(QPointF(16, 32)), 12, 8, reduced, QRectF(0, 0, 64, 64)))
+
+    rendered = ExportService(scene).export(QRectF(0, 0, 64, 64))
+    assert rendered.pixelColor(16, 32) != source.pixelColor(16, 32)
+    assert rendered.pixelColor(4, 4) == source.pixelColor(4, 4)
+
+
+def test_blur_mosaic_does_not_bleed_across_the_image_edges(qapp):
+    """模糊靠双线性插值放大缩小图，而缩小图是当平铺的纹理画刷用的。
+
+    插值采样到最外圈时会和相邻像素混色：缩小图要是没有四周那圈复制出来的边，
+    平铺会让左边缘混进右边缘的颜色——黑色的左边缘被右边的白色带灰。
+    """
+    from canvas.items import MosaicItem
+
+    source = QImage(64, 64, QImage.Format.Format_ARGB32)
+    source.fill(QColor("black"))
+    for y in range(64):
+        for x in range(32, 64):
+            source.setPixelColor(x, y, QColor("white"))
+    scene = CanvasScene(source, QRectF(0, 0, 64, 64), enable_mosaic=True)
+    scene.selection_model.initialize_confirmed_rect(QRectF(0, 0, 64, 64))
+    path = QPainterPath(QPointF(0, 32))
+    path.lineTo(QPointF(63, 32))
+    reduced = scene.background.reduced_image(8)
+    scene.addItem(MosaicItem(path, 16, 8, reduced, QRectF(0, 0, 64, 64), smooth=True))
+
+    rendered = ExportService(scene).export(QRectF(0, 0, 64, 64))
+    assert rendered.pixelColor(0, 32) == QColor("black")
+    assert rendered.pixelColor(63, 32) == QColor("white")
+
+
+def test_rotated_mosaic_does_not_paint_outside_the_background(qapp):
+    """裁剪在图元本地坐标里做。图元旋转后，背景矩形换算到本地是斜的；按它的外接矩形
+    去裁，外接矩形比背景多出来的那几个角就漏了——那里没有背景，平铺的纹理照样画上去。
+    """
+    from canvas.items import MosaicItem
+
+    background = QRectF(0, 0, 64, 64)
+    scene = CanvasScene(_gradient_image(), background, enable_mosaic=True)
+    path = QPainterPath()
+    path.addRect(QRectF(40, 40, 24, 24))  # 贴着背景右下角
+    item = MosaicItem(path, 12, 8, scene.background.reduced_image(8), background, fill_mode=True)
+    scene.addItem(item)
+    item.setTransformOriginPoint(QPointF(52, 52))
+    item.setRotation(30)
+
+    margin = 16
+    canvas = QImage(64 + 2 * margin, 64 + 2 * margin, QImage.Format.Format_ARGB32_Premultiplied)
+    canvas.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(canvas)
+    painter.setTransform(item.sceneTransform() * QTransform.fromTranslate(margin, margin))
+    item.paint(painter, None)
+    painter.end()
+
+    leaked = [
+        (x, y)
+        for y in range(canvas.height())
+        for x in range(canvas.width())
+        if not (margin <= x < margin + 64 and margin <= y < margin + 64)
+        and canvas.pixelColor(x, y).alpha() > 0
+    ]
+    assert leaked == []
+
+
+def test_freehand_mosaic_does_not_compute_its_outline_while_drawing(monkeypatch):
+    """拖动时每加一个点都重算整条路径的轮廓，开销会随笔画长度和手速一起涨。
+
+    描边交给 Qt 原生去画；轮廓只给命中判定用，用到时才算，算完缓存。
+    """
+    from canvas.items import MosaicItem
+
+    calls = []
+    original = MosaicItem._make_shape
+
+    def counting_make_shape(self, path):
+        calls.append(path.elementCount())
+        return original(self, path)
+
+    monkeypatch.setattr(MosaicItem, "_make_shape", counting_make_shape)
+
+    path = QPainterPath(QPointF(0, 0))
+    item = MosaicItem(path, 18, 8, _gradient_image(5, 5), QRectF(0, 0, 40, 40))
+    for i in range(1, 50):
+        path.lineTo(QPointF(i * 0.7, i * 0.4))
+        item.set_path(path)
+    assert calls == []
+
+    item.shape()
+    item.shape()
+    assert calls == [path.elementCount()]
 
 
 def test_mosaic_export_undo_redo_and_cropped_patch(qapp):
@@ -288,7 +393,7 @@ def test_mosaic_null_reduced_image_cleans_view_and_next_stroke_works(monkeypatch
     QTest.mousePress(view.viewport(), Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, QPoint(20, 20))
     QTest.mouseRelease(view.viewport(), Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, QPoint(20, 20))
 
-    assert view.is_drawing is False
+    assert view.drawing.active is False
     assert tool.current_item is None
     assert scene.undo_stack.count() == 0
 
@@ -297,7 +402,7 @@ def test_mosaic_null_reduced_image_cleans_view_and_next_stroke_works(monkeypatch
     QTest.mouseMove(view.viewport(), QPoint(36, 20))
     QTest.mouseRelease(view.viewport(), Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, QPoint(36, 20))
 
-    assert view.is_drawing is False
+    assert view.drawing.active is False
     assert scene.undo_stack.count() == 1
     assert any(isinstance(item, MosaicItem) for item in scene.items())
     parent.close()
@@ -511,29 +616,6 @@ def test_mosaic_item_set_block_size_swaps_reduced_image():
     assert item.reduced_image().size() == reduced_16.size()
 
 
-def test_mosaic_block_size_change_is_undoable():
-    from canvas.items import MosaicItem
-    from canvas.undo import EditItemCommand
-
-    path = QPainterPath(QPointF(10, 10))
-    reduced_8 = _gradient_image(5, 5)
-    item = MosaicItem(path, 18, 8, reduced_8, QRectF(0, 0, 40, 40))
-
-    reduced_16 = _gradient_image(3, 3)
-    old_state = {"block_size": 8, "reduced_image": item.reduced_image()}
-    item.set_block_size(16, reduced_16)
-    new_state = {"block_size": 16, "reduced_image": item.reduced_image()}
-    command = EditItemCommand(item, old_state, new_state, "Change Mosaic Size")
-
-    command.undo()
-    assert item.block_size() == 8
-    assert item.reduced_image().size() == reduced_8.size()
-
-    command.redo()
-    assert item.block_size() == 16
-    assert item.reduced_image().size() == reduced_16.size()
-
-
 def test_screenshot_mosaic_clones_into_pin(qapp):
     from canvas.items import MosaicItem
     from pin.pin_canvas import PinCanvas
@@ -720,52 +802,56 @@ def test_style_change_needs_a_selected_mosaic(qapp):
     from tools.mosaic import MosaicTool
 
     scene, item, view = _mosaic_scene_with_selection()
-    stack = scene.undo_stack
-    before = stack.count()
 
-    assert MosaicTool.apply_style_change("blur", _FakeView(None), stack) is False
-    assert MosaicTool.apply_style_change("blur", _FakeView(object()), stack) is False
-    assert MosaicTool.apply_style_change("blur", None, stack) is False
-    assert stack.count() == before
+    assert MosaicTool.apply_style_change("blur", _FakeView(None)) is False
+    assert MosaicTool.apply_style_change("blur", _FakeView(object())) is False
+    assert MosaicTool.apply_style_change("blur", None) is False
 
 
-def test_style_change_is_applied_once_and_is_undoable(qapp):
+def test_style_change_is_applied_once(qapp):
     from tools.mosaic import MosaicTool
 
     scene, item, view = _mosaic_scene_with_selection()
-    stack = scene.undo_stack
-    before = stack.count()
 
     assert item.smooth() is False
-    assert MosaicTool.apply_style_change("blur", view, stack) is True
+    assert MosaicTool.apply_style_change("blur", view) is True
     assert item.smooth() is True
-    assert stack.count() == before + 1
 
-    # 设成同一个值不该再产生命令
-    assert MosaicTool.apply_style_change("blur", view, stack) is False
-    assert stack.count() == before + 1
-
-    stack.undo()
-    assert item.smooth() is False
+    # 设成同一个值不该再算一次改动
+    assert MosaicTool.apply_style_change("blur", view) is False
 
 
-def test_block_size_change_swaps_the_reduced_image_and_is_undoable(qapp):
+def test_block_size_change_swaps_the_reduced_image(qapp):
     from tools.mosaic import MosaicTool
 
     scene, item, view = _mosaic_scene_with_selection()
-    stack = scene.undo_stack
     old_size, old_image = item.block_size(), item.reduced_image()
     # 粒度是档位制的，随手加一个数会被吸附回原档，得明确换到另一档
     new_size = next(l for l in MosaicTool.BLOCK_SIZE_LEVELS if l != old_size)
 
-    assert MosaicTool.apply_block_size_change(new_size, view, stack) is True
+    assert MosaicTool.apply_block_size_change(new_size, view) is True
     assert item.block_size() == new_size
     # 粒度变了，配套的小图必须一起换成同一粒度那张
     assert item.reduced_image().size() != old_image.size()
 
-    stack.undo()
-    assert item.block_size() == old_size
-    assert item.reduced_image().size() == old_image.size()
+
+def test_changing_style_or_block_size_stays_out_of_the_undo_stack(qapp):
+    """撤销栈留给用户真正想撤回的画布操作（涂了一笔、删了一块），不是面板上改设置。
+
+    粒度尤其不能入栈：每条命令都攥着一张按该粒度缩小的整屏底图，换几次档就是几十 MB。
+    """
+    from tools.mosaic import MosaicTool
+
+    scene, item, view = _mosaic_scene_with_selection()
+    before = scene.undo_stack.count()
+
+    MosaicTool.apply_style_change("blur", view)
+    for level in MosaicTool.BLOCK_SIZE_LEVELS:
+        MosaicTool.apply_block_size_change(level, view)
+
+    assert item.smooth() is True
+    assert item.block_size() == MosaicTool.BLOCK_SIZE_LEVELS[-1]
+    assert scene.undo_stack.count() == before
 
 
 def test_block_size_is_clamped_and_garbage_falls_back(qapp):
@@ -777,17 +863,8 @@ def test_block_size_is_clamped_and_garbage_falls_back(qapp):
     assert MosaicTool.clamp_block_size(None) == MosaicTool.DEFAULT_BLOCK_SIZE
 
     scene, item, view = _mosaic_scene_with_selection()
-    MosaicTool.apply_block_size_change(9999, view, scene.undo_stack)
+    MosaicTool.apply_block_size_change(9999, view)
     assert item.block_size() == MosaicTool.MAX_BLOCK_SIZE
-
-
-def test_applying_without_an_undo_stack_still_changes_the_item(qapp):
-    """钉图早期阶段可能还没有撤销栈；没有栈不该让改动本身失败。"""
-    from tools.mosaic import MosaicTool
-
-    scene, item, view = _mosaic_scene_with_selection()
-    assert MosaicTool.apply_style_change("blur", view, None) is True
-    assert item.smooth() is True
 
 
 def test_settings_fall_back_to_defaults_without_a_manager(qapp):

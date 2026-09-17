@@ -334,6 +334,10 @@ Replace it?</source>
         <translation>スクリーンショット翻訳</translation>
     </message>
     <message>
+        <source>Recognize Text</source>
+        <translation>文字認識</translation>
+    </message>
+    <message>
         <source>Cursor Move Keys</source>
         <translation>カーソル移動キー</translation>
     </message>
@@ -909,6 +913,10 @@ Replace it?</source>
     <message>
         <source>Screenshot translate (OCR + Translate)</source>
         <translation>スクショ翻訳（OCR + 翻訳）</translation>
+    </message>
+    <message>
+        <source>Recognize text (OCR)</source>
+        <translation>文字認識（OCR）</translation>
     </message>
     <message>
         <source>Scan QR code / barcode</source>
@@ -2313,6 +2321,42 @@ Replace it?</source>
 <context>
     <name>ArrowSettingsPanel</name>
     <message>
+        <source>Solid Arrow</source>
+        <translation>塗りつぶし矢印</translation>
+    </message>
+    <message>
+        <source>Solid Double Arrow</source>
+        <translation>塗りつぶし両矢印</translation>
+    </message>
+    <message>
+        <source>Outlined Arrow</source>
+        <translation>中抜き矢印</translation>
+    </message>
+    <message>
+        <source>Line Arrow</source>
+        <translation>線の矢印</translation>
+    </message>
+    <message>
+        <source>Line Double Arrow</source>
+        <translation>線の両矢印</translation>
+    </message>
+    <message>
+        <source>Thin Arrow</source>
+        <translation>細軸矢印</translation>
+    </message>
+    <message>
+        <source>Thin Double Arrow</source>
+        <translation>細軸両矢印</translation>
+    </message>
+    <message>
+        <source>Dimension Line</source>
+        <translation>寸法線</translation>
+    </message>
+    <message>
+        <source>Dimension Arrow</source>
+        <translation>寸法両矢印</translation>
+    </message>
+    <message>
         <source>Arrow Style</source>
         <translation>矢印スタイル</translation>
     </message>
@@ -2475,6 +2519,42 @@ Replace it?</source>
     <message>
         <source>Yellow</source>
         <translation>黄</translation>
+    </message>
+    <message>
+        <source>Text Outline</source>
+        <translation>文字の縁取り</translation>
+    </message>
+    <message>
+        <source>Text Shadow</source>
+        <translation>文字の影</translation>
+    </message>
+    <message>
+        <source>Custom Outline Color</source>
+        <translation>カスタム縁取り色</translation>
+    </message>
+    <message>
+        <source>Custom Shadow Color</source>
+        <translation>カスタム影の色</translation>
+    </message>
+    <message>
+        <source>Shadow Opacity</source>
+        <translation>影の不透明度</translation>
+    </message>
+    <message>
+        <source>Outline: Thin</source>
+        <translation>縁取り：細</translation>
+    </message>
+    <message>
+        <source>Outline: Medium</source>
+        <translation>縁取り：中</translation>
+    </message>
+    <message>
+        <source>Outline: Thick</source>
+        <translation>縁取り：太</translation>
+    </message>
+    <message>
+        <source>Outline: Extra Thick</source>
+        <translation>縁取り：極太</translation>
     </message>
 </context>
 
@@ -3244,14 +3324,6 @@ SOFTWARE.</translation></message>
         <source>Change Number Style</source>
         <translation>番号スタイルを変更</translation>
     </message>
-    <message>
-        <source>Change Mosaic Style</source>
-        <translation>モザイク種類を変更</translation>
-    </message>
-    <message>
-        <source>Change Mosaic Size</source>
-        <translation>モザイクの粒度を変更</translation>
-    </message>
 </context>
 <context>
     <name>HotkeyEdit</name>
@@ -3313,6 +3385,10 @@ SOFTWARE.</translation></message>
     <message>
         <source>Scan code</source>
         <translation>コードスキャン</translation>
+    </message>
+    <message>
+        <source>Recognize text</source>
+        <translation>文字認識</translation>
     </message>
     <message>
         <source>GIF recording</source>
@@ -3408,6 +3484,41 @@ SOFTWARE.</translation></message>
     <message>
         <source>Open link</source>
         <translation>リンクを開く</translation>
+    </message>
+</context>
+<context>
+    <name>TextRecognitionWindow</name>
+    <message>
+        <source>Text recognition</source>
+        <translation>文字認識</translation>
+    </message>
+    <message>
+        <source>Recognizing...</source>
+        <translation>認識中...</translation>
+    </message>
+    <message>
+        <source>Recognized %1 characters</source>
+        <translation>%1 文字を認識しました</translation>
+    </message>
+    <message>
+        <source>No text found in the selection.</source>
+        <translation>選択範囲から文字が見つかりませんでした。</translation>
+    </message>
+    <message>
+        <source>This build does not include the text recognition engine.</source>
+        <translation>このビルドには文字認識エンジンが含まれていません。</translation>
+    </message>
+    <message>
+        <source>Text recognition failed.</source>
+        <translation>文字認識に失敗しました。</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>コピー</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>コピーしました</translation>
     </message>
 </context>
 </TS>

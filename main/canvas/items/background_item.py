@@ -67,8 +67,8 @@ class BackgroundItem(QGraphicsPixmapItem):
         这里的变换把它压回原来的场景尺寸——这只是渲染层的近似，不是内容
         变了。如果这张重采样位图也灌进 _cached_image，马赛克的缩小图就会
         按显示分辨率而不是原图分辨率去切块，块的尺寸和取景范围都会跟着
-        缩放比例跑偏（见 MosaicTool：它直接拿 reduced_image() 的像素尺寸
-        乘 block_size 当作场景坐标下的绘制尺寸）。保持 _cached_image 只认
+        缩放比例跑偏（见 MosaicItem：它把 reduced_image() 的每个像素按
+        block_size 放大成场景坐标下的一块）。保持 _cached_image 只认
         原始分辨率，缩小图才始终和场景坐标系对齐。
         """
         self.setPixmap(pixmap)
@@ -81,6 +81,11 @@ class BackgroundItem(QGraphicsPixmapItem):
         那张图每个 block 内部都是同一个颜色，98% 的字节是重复的（4K 下 33MB 对
         0.52MB）。缩小仍然走 PIL.reduce，因为它对图像右/下边缘不足一个 block 的
         余数只按实际像素取均值，Qt 的 scaled 会把邻近块混进来。
+
+        小图四周多复制一圈边缘像素，第 (1, 1) 个像素才对应背景左上角那一块。
+        MosaicItem 把它当平铺的纹理画刷用，模糊种类靠双线性插值放大，采样到
+        最外圈时会和相邻像素混色：没有这圈边，平铺会让它混进对侧边缘的颜色；
+        有了它，混进来的是自己。只是每边多一个像素，仍是同一张图，不另存副本。
 
         缓存只留最近一次算出来的那张：已经画到图元上的笔画各自持有自己那份
         QImage 的引用，不依赖这里的缓存继续存在，所以换 block_size 时旧的
@@ -103,10 +108,19 @@ class BackgroundItem(QGraphicsPixmapItem):
             rgba.bytesPerLine(),
         )
         reduced = pil_source.reduce(block_size)
+        # 四周复制一圈边缘像素（理由见 docstring）。先补上下两行，再把补好的
+        # 最左、最右整列各往外复制一列，四个角就一并有了。
+        width, height = reduced.size
+        padded = Image.new("RGBA", (width + 2, height + 2))
+        padded.paste(reduced, (1, 1))
+        padded.paste(reduced.crop((0, 0, width, 1)), (1, 0))
+        padded.paste(reduced.crop((0, height - 1, width, height)), (1, height + 1))
+        padded.paste(padded.crop((1, 0, 2, height + 2)), (0, 0))
+        padded.paste(padded.crop((width, 0, width + 1, height + 2)), (width + 1, 0))
         small = QImage(
-            reduced.tobytes("raw", "RGBA"),
-            reduced.width,
-            reduced.height,
+            padded.tobytes("raw", "RGBA"),
+            padded.width,
+            padded.height,
             QImage.Format.Format_RGBA8888,
         ).copy()
         self._reduced_cache_key = block_size

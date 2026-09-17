@@ -328,6 +328,10 @@ Replace it?</translation>
         <translation>Screenshot Translate</translation>
     </message>
     <message>
+        <source>Recognize Text</source>
+        <translation>Recognize Text</translation>
+    </message>
+    <message>
         <source>Cursor Move Keys</source>
         <translation>Cursor Move Keys</translation>
     </message>
@@ -897,6 +901,10 @@ Replace it?</translation>
     <message>
         <source>Screenshot translate (OCR + Translate)</source>
         <translation>Screenshot translate (OCR + Translate)</translation>
+    </message>
+    <message>
+        <source>Recognize text (OCR)</source>
+        <translation>Recognize text (OCR)</translation>
     </message>
     <message>
         <source>Scan QR code / barcode</source>
@@ -2243,6 +2251,42 @@ Replace it?</translation>
 <context>
     <name>ArrowSettingsPanel</name>
     <message>
+        <source>Solid Arrow</source>
+        <translation>Solid Arrow</translation>
+    </message>
+    <message>
+        <source>Solid Double Arrow</source>
+        <translation>Solid Double Arrow</translation>
+    </message>
+    <message>
+        <source>Outlined Arrow</source>
+        <translation>Outlined Arrow</translation>
+    </message>
+    <message>
+        <source>Line Arrow</source>
+        <translation>Line Arrow</translation>
+    </message>
+    <message>
+        <source>Line Double Arrow</source>
+        <translation>Line Double Arrow</translation>
+    </message>
+    <message>
+        <source>Thin Arrow</source>
+        <translation>Thin Arrow</translation>
+    </message>
+    <message>
+        <source>Thin Double Arrow</source>
+        <translation>Thin Double Arrow</translation>
+    </message>
+    <message>
+        <source>Dimension Line</source>
+        <translation>Dimension Line</translation>
+    </message>
+    <message>
+        <source>Dimension Arrow</source>
+        <translation>Dimension Arrow</translation>
+    </message>
+    <message>
         <source>Arrow Style</source>
         <translation>Arrow Style</translation>
     </message>
@@ -2405,6 +2449,42 @@ Replace it?</translation>
     <message>
         <source>Yellow</source>
         <translation>Yellow</translation>
+    </message>
+    <message>
+        <source>Text Outline</source>
+        <translation>Text Outline</translation>
+    </message>
+    <message>
+        <source>Text Shadow</source>
+        <translation>Text Shadow</translation>
+    </message>
+    <message>
+        <source>Custom Outline Color</source>
+        <translation>Custom Outline Color</translation>
+    </message>
+    <message>
+        <source>Custom Shadow Color</source>
+        <translation>Custom Shadow Color</translation>
+    </message>
+    <message>
+        <source>Shadow Opacity</source>
+        <translation>Shadow Opacity</translation>
+    </message>
+    <message>
+        <source>Outline: Thin</source>
+        <translation>Outline: Thin</translation>
+    </message>
+    <message>
+        <source>Outline: Medium</source>
+        <translation>Outline: Medium</translation>
+    </message>
+    <message>
+        <source>Outline: Thick</source>
+        <translation>Outline: Thick</translation>
+    </message>
+    <message>
+        <source>Outline: Extra Thick</source>
+        <translation>Outline: Extra Thick</translation>
     </message>
 </context>
 
@@ -3178,14 +3258,6 @@ SOFTWARE.</translation></message>
         <source>Change Number Style</source>
         <translation>Change Number Style</translation>
     </message>
-    <message>
-        <source>Change Mosaic Style</source>
-        <translation>Change Mosaic Style</translation>
-    </message>
-    <message>
-        <source>Change Mosaic Size</source>
-        <translation>Change Mosaic Size</translation>
-    </message>
 </context>
 <context>
     <name>HotkeyEdit</name>
@@ -3247,6 +3319,10 @@ SOFTWARE.</translation></message>
     <message>
         <source>Scan code</source>
         <translation>Scan code</translation>
+    </message>
+    <message>
+        <source>Recognize text</source>
+        <translation>Recognize text</translation>
     </message>
     <message>
         <source>GIF recording</source>
@@ -3342,6 +3418,41 @@ SOFTWARE.</translation></message>
     <message>
         <source>Open link</source>
         <translation>Open link</translation>
+    </message>
+</context>
+<context>
+    <name>TextRecognitionWindow</name>
+    <message>
+        <source>Text recognition</source>
+        <translation>Text recognition</translation>
+    </message>
+    <message>
+        <source>Recognizing...</source>
+        <translation>Recognizing...</translation>
+    </message>
+    <message>
+        <source>Recognized %1 characters</source>
+        <translation>Recognized %1 characters</translation>
+    </message>
+    <message>
+        <source>No text found in the selection.</source>
+        <translation>No text found in the selection.</translation>
+    </message>
+    <message>
+        <source>This build does not include the text recognition engine.</source>
+        <translation>This build does not include the text recognition engine.</translation>
+    </message>
+    <message>
+        <source>Text recognition failed.</source>
+        <translation>Text recognition failed.</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>Copy</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>Copied</translation>
     </message>
 </context>
 </TS>

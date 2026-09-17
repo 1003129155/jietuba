@@ -224,11 +224,9 @@ class MosaicSettingsPanel(QWidget):
         # 到"糊成一块"的全程（档位本身定义在 MosaicTool 上）。
         #
         # 做成离散档位还顺手解决了一个真问题：每换一次粒度，下游都要按新粒度把
-        # 整张背景重新收缩一遍（4K 实测 28ms/档），并给撤销栈压一条各自持有一份
-        # 缩小图的命令。滑块拖一次会连发三十来次——画面卡住、撤销要按三十多下才
-        # 回得去、这些命令攥着的小图加起来 39MB，比背景原图还大。以前靠关掉
-        # slider 的 tracking 来兜这件事，现在"一次点击 = 一次改动"是结构本身
-        # 保证的，不再依赖那个容易被下一个人改掉的开关。
+        # 整张背景重新收缩一遍（4K 实测 28ms/档）。滑块拖一次会连发三十来次，
+        # 画面直接卡住。以前靠关掉 slider 的 tracking 来兜这件事，现在"一次点击
+        # = 一次改动"是结构本身保证的，不再依赖那个容易被下一个人改掉的开关。
         self.block_size_group = QButtonGroup(self)
         self.block_size_group.setExclusive(True)
         self.block_size_buttons = {}
@@ -296,7 +294,7 @@ class MosaicSettingsPanel(QWidget):
     def _on_block_size_clicked(self, button):
         level = next(l for l, b in self.block_size_buttons.items() if b is button)
         if level == self.current_block_size:
-            # 再点一次当前档不算一次改动：下游会白重算一张缩小图、白压一条撤销
+            # 再点一次当前档不算一次改动：下游会白重算一张整屏的缩小图
             return
         self.current_block_size = level
         self.block_size_changed.emit(level)

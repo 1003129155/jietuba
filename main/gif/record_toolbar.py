@@ -58,6 +58,8 @@ class RecordToolbar(QWidget):
     # 文字工具专用信号
     font_changed    = Signal(object)         # QFont
     background_changed = Signal(bool, QColor, int)  # enabled, color, opacity
+    outline_changed = Signal(bool, QColor, float)   # enabled, color, width
+    shadow_changed  = Signal(bool, QColor)          # enabled, color（alpha 即不透明度）
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -283,8 +285,9 @@ class RecordToolbar(QWidget):
         self.text_panel.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.text_panel.color_changed.connect(self.color_changed.emit)
         self.text_panel.font_changed.connect(self._on_text_font_changed)
-        if hasattr(self.text_panel, 'background_changed'):
-            self.text_panel.background_changed.connect(self._on_text_background_changed)
+        self.text_panel.background_changed.connect(self._on_text_background_changed)
+        self.text_panel.outline_changed.connect(self._on_text_outline_changed)
+        self.text_panel.shadow_changed.connect(self._on_text_shadow_changed)
         self.text_panel.hide()
 
         # 面板映射
@@ -357,6 +360,18 @@ class RecordToolbar(QWidget):
         from ui.text_settings_panel import TextSettingsPanel
         TextSettingsPanel.save_background_to_config(enabled, color, opacity)
         self.background_changed.emit(enabled, color, opacity)
+
+    def _on_text_outline_changed(self, enabled: bool, color, width: float):
+        """文字描边变化 — 保存设置并转发信号"""
+        from ui.text_settings_panel import TextSettingsPanel
+        TextSettingsPanel.save_outline_to_config(enabled, color, width)
+        self.outline_changed.emit(enabled, color, width)
+
+    def _on_text_shadow_changed(self, enabled: bool, color):
+        """文字阴影变化 — 保存设置并转发信号"""
+        from ui.text_settings_panel import TextSettingsPanel
+        TextSettingsPanel.save_shadow_to_config(enabled, color)
+        self.shadow_changed.emit(enabled, color)
 
     # ── 面板定位 ──────────────────────────────────────────────
 

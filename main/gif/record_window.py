@@ -110,6 +110,8 @@ class GifRecordWindow(QObject):
         # 文字工具信号 → SmartEditController
         tb.font_changed.connect(self._on_drawing_font_changed)
         tb.background_changed.connect(self._on_drawing_background_changed)
+        tb.outline_changed.connect(self._on_drawing_outline_changed)
+        tb.shadow_changed.connect(self._on_drawing_shadow_changed)
         # 样式信号
         tb.arrow_style_changed.connect(self._on_drawing_arrow_style_changed)
         tb.line_style_changed.connect(self._on_drawing_line_style_changed)
@@ -404,6 +406,16 @@ class GifRecordWindow(QObject):
         """文字背景改变 → 通知 SmartEditController"""
         if hasattr(self._drawing_view, 'smart_edit_controller'):
             self._drawing_view.smart_edit_controller.on_text_background_changed(enabled, color, opacity)
+
+    def _on_drawing_outline_changed(self, enabled: bool, color, width: float):
+        """文字描边改变 → 通知 SmartEditController"""
+        if hasattr(self._drawing_view, 'smart_edit_controller'):
+            self._drawing_view.smart_edit_controller.on_text_outline_changed(enabled, color, width)
+
+    def _on_drawing_shadow_changed(self, enabled: bool, color):
+        """文字阴影改变 → 通知 SmartEditController"""
+        if hasattr(self._drawing_view, 'smart_edit_controller'):
+            self._drawing_view.smart_edit_controller.on_text_shadow_changed(enabled, color)
 
     def _on_drawing_arrow_style_changed(self, style: str):
         """箭头样式改变 → 更新选中的箭头图元"""

@@ -23,6 +23,7 @@ from ui.toolbar import Toolbar
 SCREEN = QRect(0, 0, 1920, 1080)  # right() == 1919, bottom() == 1079
 MARGIN = 10                       # 生产代码里的固定边距
 TOOLBAR_W, TOOLBAR_H = 200, 40
+MORE_W = 15                       # 「…」按钮宽度：定位锚点是「确定」而非整个工具栏
 
 
 class _FakeToolbar:
@@ -35,6 +36,7 @@ class _FakeToolbar:
         self._parent = parent
         self._toolbar_below_selection = None
         self.moved_to = None
+        self._button_widths = {"more": MORE_W}
 
     def width(self):
         return TOOLBAR_W
@@ -66,8 +68,9 @@ class TestPositionBelowSelection:
 
     def test_toolbar_sits_below_and_right_aligned_when_there_is_room(self):
         # QRectF(500,300,400,200).toRect() → right()=899, bottom()=499
+        # 锚点是「确定」的右边缘，不是整个工具栏：右移 MORE_W 让「…」豁出去
         fake = _place(QRectF(500, 300, 400, 200))
-        assert fake.moved_to == QPoint(899 - TOOLBAR_W, 499 + MARGIN)
+        assert fake.moved_to == QPoint(899 - TOOLBAR_W + MORE_W, 499 + MARGIN)
         assert fake._toolbar_below_selection is True
 
     def test_position_is_recorded_for_the_secondary_panels(self):
@@ -84,7 +87,7 @@ class TestFlipAboveSelection:
         # bottom()=1059 → 下方 y=1069，1069+40 超出 1079
         fake = _place(QRectF(500, 1000, 400, 60))
         assert fake._toolbar_below_selection is False
-        assert fake.moved_to == QPoint(899 - TOOLBAR_W, 1000 - TOOLBAR_H - MARGIN)
+        assert fake.moved_to == QPoint(899 - TOOLBAR_W + MORE_W, 1000 - TOOLBAR_H - MARGIN)
 
     def test_panel_height_participates_in_the_fit_decision(self):
         """
@@ -137,13 +140,13 @@ class TestCoordinateConversion:
         fake = _FakeToolbar()
         Toolbar.position_near_rect(fake, QRectF(0, 0, 100, 100), parent_widget)
         # tl(0,0)→(1000,500)，br(100,100)→(1100,600)；QRect 右下即 1100/600
-        assert fake.moved_to == QPoint(1100 - TOOLBAR_W, 600 + MARGIN)
+        assert fake.moved_to == QPoint(1100 - TOOLBAR_W + MORE_W, 600 + MARGIN)
 
     def test_final_position_is_mapped_into_the_parent_window(self):
         parent = SimpleNamespace(
             mapFromGlobal=lambda p: QPoint(p.x() - 100, p.y() - 100))
         fake = _place(QRectF(500, 300, 400, 200), parent=parent)
-        assert fake.moved_to == QPoint(899 - TOOLBAR_W - 100, 499 + MARGIN - 100)
+        assert fake.moved_to == QPoint(899 - TOOLBAR_W + MORE_W - 100, 499 + MARGIN - 100)
 
 
 class TestMaxPanelHeight:

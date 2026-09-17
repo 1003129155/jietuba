@@ -56,6 +56,11 @@ class MaskOverlayWidget(QWidget):
         self._model = selection_model
         self._last_local_sel = QRect()
         self._model.rectChanged.connect(self._on_rect_changed)
+        # 遮罩颜色只在 __init__ 里读过一次；截图窗口跨会话复用，运行期在设置里
+        # 换了遮罩色的话，上一次读到的旧颜色会一直用到重启应用。这里是窗口复用、
+        # 新会话开始时唯一的固定入口，顺带重新读一遍。
+        from core.theme import get_theme
+        self._mask_color = get_theme().mask_color
         self.update()
 
     def set_mask_color(self, color: QColor):

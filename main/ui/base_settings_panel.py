@@ -10,6 +10,7 @@
 # 1.2  → 放大 20%
 PANEL_SCALE: float = 0.90
 from PySide6.QtWidgets import (
+    QApplication,
     QWidget,
     QPushButton,
     QHBoxLayout,
@@ -18,7 +19,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QVBoxLayout,
 )
-from PySide6.QtCore import Qt, Signal, QRectF, QSize
+from PySide6.QtCore import Qt, Signal, QEvent, QPoint, QRect, QRectF, QSize, QTimer
 from PySide6.QtGui import QColor, QPainter, QPen, QBrush, QPainterPath
 from core import safe_event
 from core.constants import CSS_FONT_FAMILY
@@ -319,6 +320,106 @@ class StepperWidget(QWidget):
         elif delta < 0:
             self._step(-1)
         event.accept()
+
+
+def popup_position(panel: QWidget, anchor: QWidget, popup: QWidget) -> QPoint:
+    """悬停弹出层的位置：背离工具栏的方向弹，那一边放不下就换另一边。
+
+    面板在工具栏下方就往下弹，在上方就往上弹，这样天然不会盖住一级/二级菜单。
+    工具栏由它自己登记在面板的 _owner_toolbar 上：面板的 Qt parent 是工具栏的
+    parent，不是工具栏本身。没登记（比如 GIF 录制的面板）就按"在下方"处理。
+    """
+    gap = 4
+    panel_rect = QRect(panel.mapToGlobal(QPoint(0, 0)), panel.size())
+    anchor_top_left = anchor.mapToGlobal(QPoint(0, 0))
+
+    screen = QApplication.screenAt(anchor_top_left) or QApplication.primaryScreen()
+    area = screen.availableGeometry()
+
+    toolbar = getattr(panel, "_owner_toolbar", None)
+    below_toolbar = True
+    if toolbar is not None:
+        try:
+            below_toolbar = panel_rect.top() >= toolbar.mapToGlobal(QPoint(0, 0)).y()
+        except RuntimeError:
+            pass
+
+    outward = panel_rect.bottom() + gap if below_toolbar else panel_rect.top() - popup.height() - gap
+    other = panel_rect.top() - popup.height() - gap if below_toolbar else panel_rect.bottom() + gap
+
+    y = outward
+    if not (area.top() <= y and y + popup.height() <= area.bottom()):
+        y = other
+
+    x = anchor_top_left.x() + anchor.width() // 2 - popup.width() // 2
+    x = max(area.left(), min(x, area.right() - popup.width()))
+    y = max(area.top(), min(y, area.bottom() - popup.height()))
+    return QPoint(int(x), int(y))
+
+
+class HoverPopup(QWidget):
+    """悬停在面板某个控件上弹出的小设置层（序号样式条、文字的背景/描边/阴影）。
+
+    打开、收起、定位只有这一份：鼠标从控件移向弹出层要跨过中间的空隙，所以
+    离开时不立刻关、留一点缓冲，进入弹出层就取消；位置见 popup_position。
+    """
+
+    CLOSE_DELAY_MS = 260
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        # 与设置面板同样的标志：浮在最上层且不抢焦点，否则一弹出面板就没了
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Tool
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        # 只描弹出层自己这一层：QSS 的类型选择器连子类一起匹配，写成裸 QWidget
+        # 会给里面每个控件都套上边框。配色沿用设置面板的白底浅色，不另造深色。
+        self.setObjectName("HoverPopup")
+        self.setStyleSheet(
+            "#HoverPopup { background: white; border: 1px solid #ccc; border-radius: 3px; }"
+        )
+
+        self._close_timer = QTimer(self)
+        self._close_timer.setSingleShot(True)
+        self._close_timer.setInterval(self.CLOSE_DELAY_MS)
+        self._close_timer.timeout.connect(self.hide)
+
+        if parent is not None:
+            parent.installEventFilter(self)
+
+    def eventFilter(self, watched, event):
+        # 面板一收起来（切工具、结束截图），挂在它上面的弹出层必须跟着消失。
+        # 弹出层是独立的顶层窗口，Qt 不会因为父面板隐藏就隐藏它，留在屏幕上
+        # 就是一块盖在截图上的白框。
+        if watched is self.parentWidget() and event.type() == QEvent.Type.Hide:
+            self.hide()
+        return super().eventFilter(watched, event)
+
+    def show_beside(self, panel: QWidget, anchor: QWidget):
+        self.keep_open()
+        self.adjustSize()
+        self.move(popup_position(panel, anchor, self))
+        self.show()
+        self.raise_()
+
+    def keep_open(self):
+        self._close_timer.stop()
+
+    def close_soon(self):
+        self._close_timer.start()
+
+    def enterEvent(self, event):
+        self.keep_open()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.close_soon()
+        super().leaveEvent(event)
 
 
 class BaseSettingsPanel(QWidget):

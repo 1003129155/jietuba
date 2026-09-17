@@ -1058,6 +1058,13 @@ class LayerEditor:
         if self._base_scene_rect is None or not self._base_scene_rect.isValid():
             return
 
+        # 这次拖拽开始前，图元身上可能已经带着更早一次缩放/旋转留下的 transform
+        # （_restore_base_state 每次拖拽只会把它恢复到"这次拖拽开始时"的样子，
+        # 不是恢复到最初的单位矩阵）。下面算出的 t 只表示"这次拖拽新增的那部分
+        # 缩放"，最终必须和 base_transform 复合，不能直接顶替掉它——不然上一次
+        # 缩放的结果会被整个丢弃，图元瞬间弹回没有累积过缩放的大小。
+        base_transform = QTransform(self._base_transform) if self._base_transform is not None else QTransform()
+
         new_scene = QRectF(self._base_scene_rect)
         self._apply_rect_delta(new_scene, handle.handle_type, delta_scene, keep_ratio)
         new_scene = new_scene.normalized()
@@ -1089,7 +1096,7 @@ class LayerEditor:
         t.scale(sx, sy)
         t.translate(-c0_local.x(), -c0_local.y())
 
-        layer.setTransform(t)
+        layer.setTransform(t * base_transform)
         if hasattr(layer, "update"):
             layer.update()
 
@@ -1239,12 +1246,6 @@ class LayerEditor:
         for handle in self.handles:
             bounds = bounds.united(handle.get_rect())
 
-        # 序号工具在手柄之外还画一圈虚线框，跟着图元包围盒走
-        if self._number_item_mode and self.active_layer is not None:
-            rect = self._get_scene_rect(self.active_layer)
-            if isinstance(rect, QRectF) and rect.isValid():
-                bounds = bounds.united(rect)
-
         return bounds
 
     def render(self, painter: QPainter):
@@ -1264,17 +1265,9 @@ class LayerEditor:
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
-        # 序号工具：额外绘制方形虚线框
-        if self._number_item_mode and self.active_layer is not None:
-            rect = self._get_scene_rect(self.active_layer)
-            if isinstance(rect, QRectF) and rect.isValid():
-                dash_pen = QPen(QColor(0, 160, 255), 2, Qt.PenStyle.DashLine)
-                dash_pen.setDashPattern([6, 4])
-                dash_pen.setCosmetic(True)
-                painter.setPen(dash_pen)
-                painter.setBrush(Qt.BrushStyle.NoBrush)
-                painter.drawRect(rect)
-
+        # 序号的那圈框由 NumberItem 自己画（和矩形、椭圆、文字一样贴着图形），
+        # 这里只管手柄。以前两边各画一圈，颜色还差一点，选中的序号上会同时出现
+        # 两个虚线框。
         # 功能性手柄（点击执行动作）与拖拽手柄（改形状）分开画
         functional_handles = []
         normal_handles = []

@@ -332,6 +332,10 @@ Replace it?</source>
         <translation>截图翻译</translation>
     </message>
     <message>
+        <source>Recognize Text</source>
+        <translation>文字识别</translation>
+    </message>
+    <message>
         <source>Cursor Move Keys</source>
         <translation>鼠标微移按键</translation>
     </message>
@@ -906,6 +910,10 @@ Replace it?</source>
     <message>
         <source>Screenshot translate (OCR + Translate)</source>
         <translation>截图翻译（OCR + 翻译）</translation>
+    </message>
+    <message>
+        <source>Recognize text (OCR)</source>
+        <translation>文字识别（OCR）</translation>
     </message>
     <message>
         <source>Scan QR code / barcode</source>
@@ -2348,6 +2356,42 @@ Replace it?</source>
 <context>
     <name>ArrowSettingsPanel</name>
     <message>
+        <source>Solid Arrow</source>
+        <translation>实心箭头</translation>
+    </message>
+    <message>
+        <source>Solid Double Arrow</source>
+        <translation>实心双向箭头</translation>
+    </message>
+    <message>
+        <source>Outlined Arrow</source>
+        <translation>空心箭头</translation>
+    </message>
+    <message>
+        <source>Line Arrow</source>
+        <translation>线条箭头</translation>
+    </message>
+    <message>
+        <source>Line Double Arrow</source>
+        <translation>线条双向箭头</translation>
+    </message>
+    <message>
+        <source>Thin Arrow</source>
+        <translation>细杆箭头</translation>
+    </message>
+    <message>
+        <source>Thin Double Arrow</source>
+        <translation>细杆双向箭头</translation>
+    </message>
+    <message>
+        <source>Dimension Line</source>
+        <translation>标注线</translation>
+    </message>
+    <message>
+        <source>Dimension Arrow</source>
+        <translation>标注双向箭头</translation>
+    </message>
+    <message>
         <source>Arrow Style</source>
         <translation>箭头样式</translation>
     </message>
@@ -2510,6 +2554,42 @@ Replace it?</source>
     <message>
         <source>Yellow</source>
         <translation>黄色</translation>
+    </message>
+    <message>
+        <source>Text Outline</source>
+        <translation>文字描边</translation>
+    </message>
+    <message>
+        <source>Text Shadow</source>
+        <translation>文字阴影</translation>
+    </message>
+    <message>
+        <source>Custom Outline Color</source>
+        <translation>自定义描边颜色</translation>
+    </message>
+    <message>
+        <source>Custom Shadow Color</source>
+        <translation>自定义阴影颜色</translation>
+    </message>
+    <message>
+        <source>Shadow Opacity</source>
+        <translation>阴影透明度</translation>
+    </message>
+    <message>
+        <source>Outline: Thin</source>
+        <translation>描边：细</translation>
+    </message>
+    <message>
+        <source>Outline: Medium</source>
+        <translation>描边：中</translation>
+    </message>
+    <message>
+        <source>Outline: Thick</source>
+        <translation>描边：粗</translation>
+    </message>
+    <message>
+        <source>Outline: Extra Thick</source>
+        <translation>描边：特粗</translation>
     </message>
 </context>
 
@@ -3265,14 +3345,6 @@ SOFTWARE.</translation></message>
         <source>Change Number Style</source>
         <translation>更改序号样式</translation>
     </message>
-    <message>
-        <source>Change Mosaic Style</source>
-        <translation>更改马赛克种类</translation>
-    </message>
-    <message>
-        <source>Change Mosaic Size</source>
-        <translation>更改马赛克粒度</translation>
-    </message>
 </context>
 <context>
     <name>HotkeyEdit</name>
@@ -3334,6 +3406,10 @@ SOFTWARE.</translation></message>
     <message>
         <source>Scan code</source>
         <translation>扫码</translation>
+    </message>
+    <message>
+        <source>Recognize text</source>
+        <translation>文字识别</translation>
     </message>
     <message>
         <source>GIF recording</source>
@@ -3429,6 +3505,41 @@ SOFTWARE.</translation></message>
     <message>
         <source>Open link</source>
         <translation>打开链接</translation>
+    </message>
+</context>
+<context>
+    <name>TextRecognitionWindow</name>
+    <message>
+        <source>Text recognition</source>
+        <translation>文字识别</translation>
+    </message>
+    <message>
+        <source>Recognizing...</source>
+        <translation>识别中...</translation>
+    </message>
+    <message>
+        <source>Recognized %1 characters</source>
+        <translation>识别到 %1 个字符</translation>
+    </message>
+    <message>
+        <source>No text found in the selection.</source>
+        <translation>选区内没有识别到文字。</translation>
+    </message>
+    <message>
+        <source>This build does not include the text recognition engine.</source>
+        <translation>当前版本不包含文字识别引擎。</translation>
+    </message>
+    <message>
+        <source>Text recognition failed.</source>
+        <translation>文字识别失败。</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>复制</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>已复制</translation>
     </message>
 </context>
 </TS>

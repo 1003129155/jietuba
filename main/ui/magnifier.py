@@ -67,17 +67,12 @@ class MagnifierOverlay(QWidget):
 		self._fixed_info_metrics = None   # 缓存 metrics 避免每帧 fontMetrics()
 		self._fixed_hint_metrics = None
 		
-		# 预缓存绘制常量（避免每帧创建临时对象）
-		from core.theme import get_theme
-		_tc = get_theme().theme_color
-		_tc_semi = QColor(_tc)
-		_tc_semi.setAlpha(120)
-		self._pen_teal_2 = QPen(_tc, 2)
-		self._pen_teal_1 = QPen(_tc, 1)
+		# 预缓存绘制常量（避免每帧创建临时对象）——主题色部分见 _refresh_theme_colors，
+		# 窗口复用、下个会话开始时（rebind）要能重新读一遍，不能只在这里读一次。
+		self._refresh_theme_colors()
 		self._pen_white_2 = QPen(QColor(255, 255, 255), 2)
 		self._brush_bg = QBrush(QColor(40, 40, 45, 220))
 		self._brush_black_a = QBrush(QColor(0, 0, 0, 180))
-		self._brush_crosshair = QBrush(_tc_semi)  # 半透明主题色，用于十字色带
 		self._color_pos = QColor(100, 240, 220)
 		self._color_rgb = QColor(255, 200, 100)
 		self._color_hex = QColor(200, 150, 255)
@@ -95,6 +90,24 @@ class MagnifierOverlay(QWidget):
 		self.hide()  # 初始隐藏，等 update_cursor 时再 show
 		self.raise_()
 
+	def _refresh_theme_colors(self):
+		"""从主题管理器重新取一遍主题色相关的画笔/画刷。
+
+		这几支笔构造一次、画的时候直接用缓存，不必每帧重新创建 QPen/QBrush。
+		但截图窗口是跨会话复用的，同一个 MagnifierOverlay 实例可能跨越"改主题
+		前/改主题后"两次截图——只在 __init__ 里建一次的话，运行期在设置里换了
+		主题色，缓存的这几支笔不会跟着变，放大镜的十字线、外框会一直停在旧颜色
+		直到重启应用。所以除了 __init__，rebind()（每个新会话开始时）也要调用
+		这里，让缓存跟当前主题保持同步。
+		"""
+		from core.theme import get_theme
+		_tc = get_theme().theme_color
+		_tc_semi = QColor(_tc)
+		_tc_semi.setAlpha(120)
+		self._pen_teal_2 = QPen(_tc, 2)
+		self._pen_teal_1 = QPen(_tc, 1)
+		self._brush_crosshair = QBrush(_tc_semi)  # 半透明主题色，用于十字色带
+
 	# ------------------------------------------------------------------
 	# 外部控制
 	# ------------------------------------------------------------------
@@ -111,6 +124,8 @@ class MagnifierOverlay(QWidget):
 		self._fixed_hint_font = None
 		self._fixed_info_metrics = None
 		self._fixed_hint_metrics = None
+		# 新会话开始，主题色可能在上一次会话结束后被改过，重新读一遍。
+		self._refresh_theme_colors()
 		self.hide()
 
 	def update_cursor(self, scene_pos: QPointF):
@@ -451,9 +466,9 @@ class MagnifierOverlay(QWidget):
 		if self.cursor_scene_pos is None or not self.scene or not self.view:
 			return False
 		view = self.view
-		if view.is_drawing:
+		if view.drawing.active:
 			return False
-		if view._text_drag_active:
+		if view.text_drag.active:
 			return False
 		try:
 			if view.smart_edit_controller.layer_editor.dragging_handle:

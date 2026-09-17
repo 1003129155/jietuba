@@ -3,18 +3,132 @@
 基于文字面板布局，仅用于箭头工具
 """
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QPushButton, QComboBox, QFrame
+    QApplication, QWidget, QHBoxLayout, QPushButton, QComboBox, QFrame, QStyle,
+    QStyledItemDelegate, QStyleOptionGraphicsItem, QStyleOptionViewItem
 )
-from PySide6.QtCore import Qt, Signal, QSize
-from PySide6.QtGui import QColor
-from core.resource_manager import ResourceManager
+from PySide6.QtCore import Qt, Signal, QPoint, QRect, QSize, QPointF
+from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
+from canvas.items import ArrowItem
+from core.i18n import make_tr
+from tools.base import Tool
 from .base_settings_panel import StepperWidget, build_settings_panel_stylesheet, paint_rounded_panel, PANEL_SCALE
 from .color_picker_button import ColorPickerButton
 from core import safe_event
 
-def _cached_icon(svg_name):
-    """获取缓存的 QIcon"""
-    return ResourceManager.get_icon(ResourceManager.get_icon_path(svg_name))
+_tr = make_tr("ArrowSettingsPanel")
+
+# 下拉里每种样式叫什么：图标只画形状，名字得靠 tooltip 说
+ARROW_STYLE_NAMES = {
+    ArrowItem.STYLE_SINGLE: "Solid Arrow",
+    ArrowItem.STYLE_DOUBLE: "Solid Double Arrow",
+    ArrowItem.STYLE_HOLLOW: "Outlined Arrow",
+    ArrowItem.STYLE_LINE: "Line Arrow",
+    ArrowItem.STYLE_LINE_DOUBLE: "Line Double Arrow",
+    ArrowItem.STYLE_TRIANGLE: "Thin Arrow",
+    ArrowItem.STYLE_TRIANGLE_DOUBLE: "Thin Double Arrow",
+    ArrowItem.STYLE_BAR: "Dimension Line",
+    ArrowItem.STYLE_BAR_ARROW: "Dimension Arrow",
+}
+
+# 预览图尺寸：够装下按 PREVIEW_STROKE_WIDTH 算出来的箭头头部，再大就只是把下拉
+# 每一行白白撑高
+PREVIEW_SIZE = QSize(80, 22)
+# 下拉一行的大小。比预览图宽出来的部分就是行两侧的余白：不留的话，箭头尖直接
+# 顶在行的边线上，九行糊成一片
+PREVIEW_ROW_SIZE = QSize(96, 26)
+# 画预览用的线宽。箭头各部件的尺寸都是按线宽算的，这里调大调小 = 整支预览一起缩放
+PREVIEW_STROKE_WIDTH = 3
+# 图标固定用中性墨色：这是样式选择器不是颜色选择器，跟着当前颜色走的话，
+# 选浅色标注时白底上的图标自己就看不见了（和序号样式条同一个理由）。
+# 下拉选中行是蓝底，深墨色会糊在上面，所以另备一张白的挂到 Selected 模式。
+PREVIEW_INK = QColor("#444444")
+PREVIEW_INK_SELECTED = QColor("#FFFFFF")
+
+_icon_cache = {}
+
+
+def render_arrow_style_preview(style: str, ink: QColor, size: QSize, ratio: float = 1.0) -> QPixmap:
+    """把一个真的 ArrowItem 画进 pixmap 当预览图。
+
+    直接复用图元自己的 paint，图标和真正画出来的箭头才不会各长各的——加一种
+    样式时也不必再配一张手绘 SVG，配了就迟早和真实形状对不上。
+    """
+    # 按 ratio 多画一些像素再声明 DPR，下拉里放大显示时才不糊；QPainter 会
+    # 自己按 DPR 缩放，所以下面一律用逻辑坐标，不要再手动 scale 一次
+    pixmap = QPixmap(round(size.width() * ratio), round(size.height() * ratio))
+    pixmap.setDevicePixelRatio(ratio)
+    pixmap.fill(Qt.GlobalColor.transparent)
+
+    # 预览图自己也留一圈余白：箭头画到贴边的话，收起来的那个框里它就顶着边框
+    padding = 6.0
+    middle = size.height() / 2.0
+    item = ArrowItem(
+        QPointF(padding, middle),
+        QPointF(size.width() - padding, middle),
+        QPen(ink, PREVIEW_STROKE_WIDTH),
+        style,
+    )
+
+    painter = QPainter(pixmap)
+    try:
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        item.paint(painter, QStyleOptionGraphicsItem(), None)
+    finally:
+        painter.end()
+    return pixmap
+
+
+def arrow_style_icon(style: str, ratio: float = 2.0) -> QIcon:
+    """样式下拉用的图标（进程内缓存，一种样式只画一次）"""
+    cached = _icon_cache.get((style, ratio))
+    if cached is not None:
+        return cached
+
+    icon = QIcon()
+    icon.addPixmap(
+        render_arrow_style_preview(style, PREVIEW_INK, PREVIEW_SIZE, ratio),
+        QIcon.Mode.Normal
+    )
+    icon.addPixmap(
+        render_arrow_style_preview(style, PREVIEW_INK_SELECTED, PREVIEW_SIZE, ratio),
+        QIcon.Mode.Selected
+    )
+    _icon_cache[(style, ratio)] = icon
+    return icon
+
+
+class StylePreviewDelegate(QStyledItemDelegate):
+    """把预览图画在下拉行的正中
+
+    行里只有图标没有文字，Qt 默认把图标顶到行首、把剩下的宽度全留给那串空文
+    字——行一加宽，九张预览就齐刷刷贴在左边。这里自己量一次居中画；行宽也一并
+    定死，弹出列表才有个准数照着撑开。
+    """
+
+    def sizeHint(self, option, index):
+        return QSize(PREVIEW_ROW_SIZE)
+
+    def paint(self, painter, option, index):
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+
+        # 底色、选中态、悬停态照旧由样式表画，只把图标接管过来自己摆。
+        # icon 必须拷一份：opt.icon 取到的是那个字段本身，清空字段会把它一起清掉
+        icon = QIcon(opt.icon)
+        opt.icon = QIcon()
+        opt.text = ""
+        widget = opt.widget
+        style = widget.style() if widget is not None else QApplication.style()
+        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, opt, painter, widget)
+
+        mode = (QIcon.Mode.Selected
+                if opt.state & QStyle.StateFlag.State_Selected
+                else QIcon.Mode.Normal)
+        # 按预览图自己的尺寸摆，不按行宽拉满：拉满就等于把 2 倍图放大回来，
+        # 既糊又重新贴到行的两条边上
+        target = QRect(QPoint(0, 0), PREVIEW_SIZE.boundedTo(opt.rect.size()))
+        target.moveCenter(opt.rect.center())
+        icon.paint(painter, target, Qt.AlignmentFlag.AlignCenter, mode, QIcon.State.Off)
 
 
 class ArrowSettingsPanel(QWidget):
@@ -28,7 +142,7 @@ class ArrowSettingsPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.current_arrow_style = "single"
+        self.current_arrow_style = ArrowItem.STYLE_SINGLE
         self.current_size = 3
         self.current_color = QColor(Qt.GlobalColor.red)
         self._cached_opacity = 255
@@ -57,16 +171,28 @@ class ArrowSettingsPanel(QWidget):
 
         # === 1. 基础样式区 ===
         self.arrow_style_combo = QComboBox()
-        self.arrow_style_combo.setIconSize(QSize(88, 16))
-        self.arrow_style_combo.addItem(_cached_icon("arrow_single.svg"), "", "single")
-        self.arrow_style_combo.addItem(_cached_icon("arrow_double.svg"), "", "double")
-        self.arrow_style_combo.addItem(_cached_icon("arrow_bar.svg"), "", "bar")
+        self.arrow_style_combo.setIconSize(PREVIEW_SIZE)
+        for style in ArrowItem.STYLES:
+            self.arrow_style_combo.addItem(arrow_style_icon(style), "", style)
+            name = ARROW_STYLE_NAMES.get(style)
+            if name:
+                self.arrow_style_combo.setItemData(
+                    self.arrow_style_combo.count() - 1, _tr(name), Qt.ItemDataRole.ToolTipRole
+                )
         self.arrow_style_combo.setToolTip(self.tr("Arrow Style"))
-        self.arrow_style_combo.setMaxVisibleItems(10)
+        # 一次列完，别让用户滚：样式是靠形状认的，滚起来就得来回比
+        self.arrow_style_combo.setMaxVisibleItems(len(ArrowItem.STYLES))
+        self.arrow_style_combo.setItemDelegate(
+            StylePreviewDelegate(self.arrow_style_combo)
+        )
+        # 弹出列表默认只有收起来那个框那么宽，80px 的预览塞进去要被缩一道还贴边；
+        # 按行宽把它撑开，预览才能按原尺寸摆在正中
+        self.arrow_style_combo.view().setMinimumWidth(PREVIEW_ROW_SIZE.width())
         layout.addWidget(self.arrow_style_combo)
 
-        # 线宽选择
-        self.size_spin = StepperWidget(self.current_size, 1, 20)
+        # 线宽选择：范围跟 ArrowTool（未覆写 MIN/MAX_WIDTH）实际允许的宽度一致，
+        # 否则滚轮等入口能把宽度调到面板显示范围之外，图元继续变大但面板数字卡住不动
+        self.size_spin = StepperWidget(self.current_size, Tool.MIN_WIDTH, Tool.MAX_WIDTH)
         self.size_spin.setFixedWidth(round(60 * PANEL_SCALE))
         self.size_spin.setToolTip(self.tr("Line Width"))
         layout.addWidget(self.size_spin)
@@ -203,7 +329,7 @@ class ArrowSettingsPanel(QWidget):
     @arrow_style.setter
     def arrow_style(self, value: str):
         """设置当前箭头样式（不触发信号）"""
-        if value in ("single", "double", "bar"):
+        if value in ArrowItem.STYLE_SPECS:
             self.current_arrow_style = value
             idx = self.arrow_style_combo.findData(value)
             if idx >= 0:

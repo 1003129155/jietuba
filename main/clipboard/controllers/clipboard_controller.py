@@ -254,8 +254,12 @@ class ClipboardController(QObject):
             
             log_info(T("加载完成 - 获取到 {count} 条记录", count=len(new_items)), "Clipboard")
             
-            # 检查是否还有更多数据（使用动态的 page_size）
-            if len(new_items) < current_page_size:
+            # 检查是否还有更多数据（使用动态的 page_size）。判据必须是过滤前的
+            # raw_count：分组内搜索是客户端过滤（_fetch_items_page），这一页
+            # 命中关键词的条数可能远小于 raw_count，用 len(new_items) 判断的话，
+            # 只要这一页里有任何一条被过滤掉就会误判成"最后一页"，导致分组里
+            # 更靠后、同样命中关键词的条目永远加载不到。
+            if raw_count < current_page_size:
                 self._has_more = False
             
             # 追加到当前列表

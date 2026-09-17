@@ -21,9 +21,6 @@ state 约定（EditItemCommand 支持的字段）：
 - "rect": QRectF
 - "start": QPointF
 - "end": QPointF
-- "smooth": bool（框选马赛克的种类：True=模糊，False=马赛克）
-- "block_size" + "reduced_image": int + QImage（马赛克粒度，必须成对出现——
-  block_size 变了，配套的缩小图也得跟着换成同一粒度那张）
 """
 
 from __future__ import annotations
@@ -227,6 +224,34 @@ class RemoveItemCommand(QUndoCommand):
     def redo(self):
         if self.item is not None and self.item.scene() == self.scene:
             self.scene.removeItem(self.item)
+
+
+class ClearTextItemCommand(RemoveItemCommand):
+    """清空一条已经提交过内容的文字标注：把它从场景里移除，撤销时连内容一起找回来。
+
+    普通的 RemoveItemCommand.undo() 只会把图元重新加回场景——图元是同一个
+    Python/C++ 对象，这个动作发生前它的文本已经被用户在编辑器里删空了，
+    "加回场景"救回来的只是一个空壳。这里额外记一份清空前的文本，undo 时
+    先把文本恢复回去，再加回场景，用户才能真正把标注找回来。
+    """
+
+    def __init__(self, scene: QGraphicsScene, item: QGraphicsItem, old_text: str, text: str = "Clear Text"):
+        super().__init__(scene, item, text)
+        self.old_text = old_text
+
+    def undo(self):
+        super().undo()
+        if self.item is not None and hasattr(self.item, "setPlainText"):
+            self.item.setPlainText(self.old_text)
+
+    def redo(self):
+        # 先清空文本再移出场景——第一次执行时文本已经是空的（用户在编辑器里
+        # 删完了才触发这个命令），这里主要是为了 undo 之后再 redo 一次时，
+        # 图元重新离开场景时文本也跟着回到清空后的样子，不留一份过期的
+        # "hello" 挂在一个不在场景里、谁也看不见的图元上。
+        if self.item is not None and hasattr(self.item, "setPlainText"):
+            self.item.setPlainText("")
+        super().redo()
 
 
 class RemoveNumberCommand(RemoveItemCommand):
@@ -547,23 +572,6 @@ class EditItemCommand(QUndoCommand):
                 self.item.update_geometry()
             except Exception as e:
                 log_exception(e, "update_geometry")
-
-        # 马赛克种类（框选马赛克：True=模糊，False=马赛克）
-        smooth = state.get("smooth")
-        if smooth is not None and hasattr(self.item, "set_smooth"):
-            try:
-                self.item.set_smooth(bool(smooth))
-            except Exception as e:
-                log_exception(e, T("恢复马赛克种类"))
-
-        # 马赛克粒度（block_size 变了，配套的缩小图必须一起换成同一粒度那张）
-        block_size = state.get("block_size")
-        reduced_image = state.get("reduced_image")
-        if block_size is not None and reduced_image is not None and hasattr(self.item, "set_block_size"):
-            try:
-                self.item.set_block_size(int(block_size), reduced_image)
-            except Exception as e:
-                log_exception(e, T("恢复马赛克粒度"))
 
         # 圆角半径（RectItem）
         corner_radius = state.get("corner_radius")
