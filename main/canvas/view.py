@@ -128,13 +128,11 @@ class CanvasView(QGraphicsView):
         self._pending_text_edit_item = None
         self._pending_text_edit_press_pos = None
         self._pending_text_edit_moved = False
-        self._text_drag_hover_item = None
-        self._text_drag_active = False
-        self._text_drag_item = None
-        self._text_drag_last_scene_pos = None
-        self._text_drag_cursor_active = False
-        self._manual_item_drag_active = False
-        self._manual_item_drag_last_scene_pos = None
+
+        # 两种由 View 全程接管的手势，各自管着自己那一摊状态（见 canvas/gestures.py）
+        from canvas.gestures import ManualItemDrag, TextEdgeDrag
+        self.text_drag = TextEdgeDrag(self)
+        self.item_drag = ManualItemDrag(self)
 
         # 控制点画在 viewport 之上的独立浮层里，不进 QGraphicsScene 的渲染管线。
         # 这样内容层的脏区只需要描述内容，不必再为"手柄能凸出多远"外扩。
@@ -188,7 +186,7 @@ class CanvasView(QGraphicsView):
         """断开会话级信号和引用，避免旧 view 在销毁期收到晚到回调。"""
         if self._is_closed:
             return
-        self._finish_manual_item_drag(commit=True)
+        self.item_drag.finish(commit=True)
         self._is_closed = True
 
         from core.qt_utils import safe_disconnect
@@ -429,7 +427,7 @@ class CanvasView(QGraphicsView):
     
     def _on_editing_cleanup(self):
         """响应 editing_cleanup_requested 信号，清除编辑状态"""
-        self._finish_manual_item_drag(commit=True)
+        self.item_drag.finish(commit=True)
         if self.smart_edit_controller.selected_item:
             log_debug(T("取消智能编辑选择"), "CanvasView")
             self.smart_edit_controller.clear_selection(suppress_block=True)
@@ -437,7 +435,7 @@ class CanvasView(QGraphicsView):
             self.cursor_manager.hide_brush_indicator()
 
     def _on_tool_changed_for_edit(self, tool_id: str):
-       self._finish_manual_item_drag(commit=True)
+       self.item_drag.finish(commit=True)
        self.smart_edit_controller.set_tool(tool_id)
 
        # 工具切换时立即更新光标
@@ -498,7 +496,7 @@ class CanvasView(QGraphicsView):
         if item:
             log_debug(T("选中: {item_type}", item_type=type(item).__name__), "SmartEdit")
         else:
-            self._finish_manual_item_drag(commit=False)
+            self.item_drag.finish(commit=False)
             log_debug(T("取消选择"), "SmartEdit")
             self._sync_highlighter_panel_mode()
         self._sync_selection_style_to_toolbar(item)
@@ -815,8 +813,8 @@ class CanvasView(QGraphicsView):
                     log_debug("文字宽度控制点拖拽被处理", "CanvasView")
                     return
                 if isinstance(focus_item, QGraphicsTextItem) and \
-                        self._is_point_on_text_edge(focus_item, scene_pos):
-                    self._begin_text_drag(focus_item, scene_pos)
+                        self.text_drag.is_point_on_edge(focus_item, scene_pos):
+                    self.text_drag.begin(focus_item, scene_pos)
                     return
                 # 检查点击位置是否在当前编辑的文本框内
                 if focus_item.contains(focus_item.mapFromScene(scene_pos)):
@@ -869,8 +867,7 @@ class CanvasView(QGraphicsView):
                 if self.smart_edit_controller.press_requires_manual_dispatch:
                     # Qt 默认把事件交给 z 轴最上方图元；当控制器有意向下
                     # 命中兼容目标时，由 View 接管本次拖动，避免顶层文字抢走事件。
-                    self._manual_item_drag_active = True
-                    self._manual_item_drag_last_scene_pos = QPointF(scene_pos)
+                    self.item_drag.begin(scene_pos)
                     event.accept()
                     return
                 super().mousePressEvent(event)
@@ -945,7 +942,7 @@ class CanvasView(QGraphicsView):
             return None
         if self.is_selecting or self.is_drawing or self.is_dragging_selection:
             return None
-        if self._text_drag_active:
+        if self.text_drag.active:
             return None
 
         selection = self.canvas_scene.selection_model.rect()
@@ -1060,7 +1057,7 @@ class CanvasView(QGraphicsView):
         状态优先级（互斥）：
         1. 创建选区 (is_selecting)
         2. 绘图中 (is_drawing)
-        3. 文字拖拽 (_text_drag_active)
+        3. 文字拖拽 (text_drag.active)
         4. 选区已确认 - 编辑模式
         5. 选区未确认 - 悬停预览
         """
@@ -1093,7 +1090,7 @@ class CanvasView(QGraphicsView):
         # ====================================================================
         # 状态3：文字拖拽（拖动文字框边缘调整大小）
         # ====================================================================
-        if self._text_drag_active:
+        if self.text_drag.active:
             self._handle_text_drag_move(scene_pos)
             return
         
@@ -1146,8 +1143,8 @@ class CanvasView(QGraphicsView):
     def _handle_text_drag_move(self, scene_pos: QPointF):
         """处理文字框边缘拖拽（状态3）"""
         self._update_magnifier_overlay(scene_pos)
-        self._set_text_drag_cursor(True)
-        self._perform_text_drag(scene_pos)
+        self.text_drag.set_cursor(True)
+        self.text_drag.perform(scene_pos)
     
     # ========================================================================
     # 状态处理器：编辑模式（选区已确认）
@@ -1162,11 +1159,11 @@ class CanvasView(QGraphicsView):
         # 左键按住时用户可能在拖拽选文字，不应检测边缘拖拽 hover
         is_left_pressed = bool(event.buttons() & Qt.MouseButton.LeftButton)
         if self._is_text_editing() and not is_left_pressed:
-            self._update_text_drag_hover(scene_pos)
+            self.text_drag.update_hover(scene_pos)
 
         # 向下命中的兼容图元由 View 全程拥有这次手势，优先于顶层图元
         # 的控制点/hover 分发。
-        if self._manual_item_drag_active and is_left_pressed:
+        if self.item_drag.active and is_left_pressed:
             self._handle_selected_item_drag(event, scene_pos)
             return
         
@@ -1231,18 +1228,10 @@ class CanvasView(QGraphicsView):
         )
         is_left_button_pressed = bool(event.buttons() & Qt.MouseButton.LeftButton)
 
-        if self._manual_item_drag_active and is_left_button_pressed:
-            self.smart_edit_controller.handle_move(event.pos(), scene_pos)
-            if self.smart_edit_controller.is_dragging:
-                last_pos = self._manual_item_drag_last_scene_pos or scene_pos
-                delta = scene_pos - last_pos
-                if not delta.isNull():
-                    selected_item.moveBy(delta.x(), delta.y())
-                self._manual_item_drag_last_scene_pos = QPointF(scene_pos)
-                self._update_edit_handles()
-            self.setCursor(Qt.CursorShape.SizeAllCursor)
+        if self.item_drag.active and is_left_button_pressed:
+            self.item_drag.perform(event, scene_pos)
             return True
-        
+
         if is_left_button_pressed:
             # 按住左键 → 正在拖拽
             # 但如果选中的是文字图元且处于编辑模式，左键拖拽是在选文字，不是移动图元
@@ -1270,31 +1259,6 @@ class CanvasView(QGraphicsView):
         
         return False
 
-    def _finish_manual_item_drag(self, *, commit: bool):
-        """Finish/cancel View-owned dragging and clear both sides of gesture state."""
-        controller = getattr(self, "smart_edit_controller", None)
-        if not self._manual_item_drag_active:
-            if controller is not None:
-                controller.press_requires_manual_dispatch = False
-            return
-
-        if controller is not None:
-            if commit and controller.is_dragging and controller.selected_item is not None:
-                controller._finalize_move_edit()
-            controller.is_dragging = False
-            controller.drag_start_pos = None
-            controller._move_initial_state = None
-            controller.press_requires_manual_dispatch = False
-            mode_type = type(controller.mode)
-            if controller.mode == mode_type.DRAGGING_MOVE:
-                controller.mode = mode_type.SELECTED
-            editor = getattr(controller, "layer_editor", None)
-            if editor is not None:
-                editor.is_moving_item = False
-
-        self._manual_item_drag_active = False
-        self._manual_item_drag_last_scene_pos = None
-    
     def _handle_edit_hover_detection(self, event, scene_pos: QPointF):
         """处理悬停检测（编辑模式子状态4）"""
         is_hovering = self.smart_edit_controller.handle_hover(event.pos(), scene_pos)
@@ -1366,8 +1330,8 @@ class CanvasView(QGraphicsView):
         """
         scene_pos = self.mapToScene(event.pos())
         
-        if self._text_drag_active:
-            self._end_text_drag()
+        if self.text_drag.active:
+            self.text_drag.end()
             return
 
         if self.is_selecting:
@@ -1386,8 +1350,8 @@ class CanvasView(QGraphicsView):
             self._update_magnifier_overlay(scene_pos)
             return
 
-        if self._manual_item_drag_active:
-            self._finish_manual_item_drag(commit=True)
+        if self.item_drag.active:
+            self.item_drag.finish(commit=True)
             if self.smart_edit_controller.selected_item:
                 self._update_edit_handles()
             event.accept()
@@ -1638,89 +1602,6 @@ class CanvasView(QGraphicsView):
                 continue
             return item if isinstance(item, TextItem) else None
         return None
-
-    def _is_point_on_text_edge(self, item: QGraphicsTextItem, scene_pos: QPointF, margin: float = None) -> bool:
-        if not item:
-            return False
-        # 使用 TextItem 的 document margin 作为边缘判定区域
-        if margin is None:
-            margin = getattr(item, 'TEXT_PADDING', 12)
-        rect = item.mapToScene(item.boundingRect()).boundingRect()
-        if not rect.contains(scene_pos):
-            return False
-        inner = rect.adjusted(margin, margin, -margin, -margin)
-        if inner.width() <= 0 or inner.height() <= 0:
-            return True
-        return not inner.contains(scene_pos)
-
-    def _set_text_drag_cursor(self, active: bool):
-        if active:
-            self._text_drag_cursor_active = True
-            self.setCursor(Qt.CursorShape.SizeAllCursor)
-        else:
-            if not self._text_drag_cursor_active:
-                return
-            self._text_drag_cursor_active = False
-            if self._is_text_editing():
-                self.viewport().unsetCursor()
-            elif (
-                self.cursor_manager
-                and self.cursor_manager.current_cursor
-                and self.cursor_manager.current_tool_id != "cursor"
-            ):
-                self.setCursor(self.cursor_manager.current_cursor)
-            else:
-                self.setCursor(Qt.CursorShape.ArrowCursor)
-
-    def _update_text_drag_hover(self, scene_pos: QPointF):
-        if self._text_drag_active:
-            return
-        if not self._is_text_editing():
-            if self._text_drag_hover_item is not None:
-                self._text_drag_hover_item = None
-                self._set_text_drag_cursor(False)
-            return
-        item = self._get_active_text_item()
-        if item and self._is_point_on_text_edge(item, scene_pos):
-            self._text_drag_hover_item = item
-            self._set_text_drag_cursor(True)
-        else:
-            self._text_drag_hover_item = None
-            self._set_text_drag_cursor(False)
-
-    def _begin_text_drag(self, item: QGraphicsTextItem, scene_pos: QPointF):
-        self._clear_pending_text_edit()
-        self._text_drag_active = True
-        self._text_drag_item = item
-        self._text_drag_last_scene_pos = scene_pos
-        self._set_text_drag_cursor(True)
-        if self.smart_edit_controller:
-            self.smart_edit_controller.select_item(item, auto_select=False)
-
-    def _perform_text_drag(self, scene_pos: QPointF):
-        if not self._text_drag_active or not self._text_drag_item:
-            return
-        if not self._text_drag_last_scene_pos:
-            self._text_drag_last_scene_pos = scene_pos
-            return
-        delta = scene_pos - self._text_drag_last_scene_pos
-        if abs(delta.x()) < 1e-3 and abs(delta.y()) < 1e-3:
-            return
-        self._text_drag_item.moveBy(delta.x(), delta.y())
-        self._text_drag_last_scene_pos = scene_pos
-
-    def _end_text_drag(self):
-        self._text_drag_active = False
-        self._text_drag_item = None
-        self._text_drag_last_scene_pos = None
-        self._set_text_drag_cursor(False)
-
-    def _reset_text_drag_state(self):
-        self._text_drag_hover_item = None
-        self._text_drag_item = None
-        self._text_drag_last_scene_pos = None
-        self._text_drag_active = False
-        self._set_text_drag_cursor(False)
 
     def _apply_size_change_to_selection(self, scale: float):
         controller = getattr(self, "smart_edit_controller", None)
@@ -1975,9 +1856,7 @@ class CanvasView(QGraphicsView):
         controller = getattr(self, "smart_edit_controller", None)
         if controller and controller.selected_item is text_item:
             controller.clear_selection(suppress_block=True)
-        elif text_item and text_item.isSelected():
-            text_item.setSelected(False)
-        self._reset_text_drag_state()
+        self.text_drag.reset()
         self._clear_pending_text_edit()
     
     def export_and_close(self):
