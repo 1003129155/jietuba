@@ -328,6 +328,10 @@ Replace it?</translation>
         <translation>Screenshot Translate</translation>
     </message>
     <message>
+        <source>Recognize Text</source>
+        <translation>Recognize Text</translation>
+    </message>
+    <message>
         <source>Cursor Move Keys</source>
         <translation>Cursor Move Keys</translation>
     </message>
@@ -897,6 +901,10 @@ Replace it?</translation>
     <message>
         <source>Screenshot translate (OCR + Translate)</source>
         <translation>Screenshot translate (OCR + Translate)</translation>
+    </message>
+    <message>
+        <source>Recognize text (OCR)</source>
+        <translation>Recognize text (OCR)</translation>
     </message>
     <message>
         <source>Scan QR code / barcode</source>
@@ -3313,6 +3321,10 @@ SOFTWARE.</translation></message>
         <translation>Scan code</translation>
     </message>
     <message>
+        <source>Recognize text</source>
+        <translation>Recognize text</translation>
+    </message>
+    <message>
         <source>GIF recording</source>
         <translation>GIF recording</translation>
     </message>
@@ -3406,6 +3418,41 @@ SOFTWARE.</translation></message>
     <message>
         <source>Open link</source>
         <translation>Open link</translation>
+    </message>
+</context>
+<context>
+    <name>TextRecognitionWindow</name>
+    <message>
+        <source>Text recognition</source>
+        <translation>Text recognition</translation>
+    </message>
+    <message>
+        <source>Recognizing...</source>
+        <translation>Recognizing...</translation>
+    </message>
+    <message>
+        <source>Recognized %1 characters</source>
+        <translation>Recognized %1 characters</translation>
+    </message>
+    <message>
+        <source>No text found in the selection.</source>
+        <translation>No text found in the selection.</translation>
+    </message>
+    <message>
+        <source>This build does not include the text recognition engine.</source>
+        <translation>This build does not include the text recognition engine.</translation>
+    </message>
+    <message>
+        <source>Text recognition failed.</source>
+        <translation>Text recognition failed.</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>Copy</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>Copied</translation>
     </message>
 </context>
 </TS>

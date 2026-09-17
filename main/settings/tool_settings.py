@@ -183,6 +183,7 @@ class ToolSettingsManager(QObject):
         "inapp_zoom_in": "pageup",             # 放大镜放大
         "inapp_zoom_out": "pagedown",          # 放大镜缩小
         "inapp_translate": "shift+c",          # 截图翻译
+        "inapp_text_recognize": "shift+t",     # 文字识别
         "inapp_cursor_move_mode": "both",      # 鼠标微移模式: both / arrows / wasd
         **{key: default for key, _tool, _label, default in ANNOTATION_TOOL_SHORTCUTS},
         # ==================== 2. 截图 ====================
