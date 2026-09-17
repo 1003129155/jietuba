@@ -59,6 +59,10 @@ class MosaicItem(DrawingItemMixin, QGraphicsItem):
     def fill_mode(self) -> bool:
         return self._fill_mode
 
+    def shows_selection_frame(self) -> bool:
+        """框选出来的矩形要框；自由涂抹跟画笔笔画一样不要，理由见基类。"""
+        return self._fill_mode
+
     def smooth(self) -> bool:
         return self._smooth
 
@@ -213,9 +217,9 @@ class MosaicItem(DrawingItemMixin, QGraphicsItem):
         finally:
             painter.restore()
 
-        # 候选/选中框贴着框选出来的那个矩形画。自由涂抹的马赛克跟画笔笔画一样
-        # 要 Ctrl 才能选，_can_show_hover() 对它是 False，这里自然不会画。
-        if self.should_paint_selection_frame():
+        # 候选/选中框贴着框选出来的那个矩形画；自由涂抹不画（见 shows_selection_frame）
+        selection_pen = self.selection_frame_pen()
+        if selection_pen is not None:
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.setPen(self.selection_frame_pen())
+            painter.setPen(selection_pen)
             painter.drawPath(self._path)

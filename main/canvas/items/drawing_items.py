@@ -18,7 +18,7 @@ class DrawingItemMixin:
     """绘图图元通用属性
 
     候选/选中框的"什么时候画、画成什么样"都归这里，子类只提供"画的是什么形状"
-    （见 should_paint_selection_frame / selection_frame_pen 的用法）。
+    （见 selection_frame_pen 的用法）。
 
     这套状态机曾经在矩形、椭圆、箭头、序号里各复制了一份（四份逐字节相同），
     文字和框选马赛克则整个漏掉：加一个图元类型时，候选反馈不会自动跟过来，
@@ -36,8 +36,15 @@ class DrawingItemMixin:
 
     def _init_drawing_mixin(self):
         """PySide6 要求在 super().__init__() 之后显式调用，而非定义 __init__
-        （防止协作式 MRO 链在 Qt C++ 初始化前调用 Qt 方法）"""
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
+        （防止协作式 MRO 链在 Qt C++ 初始化前调用 Qt 方法）
+
+        刻意不设 ItemIsSelectable：选中归 SmartEditController 管，这个标志会让 Qt
+        在自己的鼠标事件里也去改选中——非 Ctrl 的按下 setSelected(true)，带 Ctrl 的
+        松开把它整个翻转——两个所有者迟早对不上。
+
+        拖动不受影响：ItemIsMovable 不看选中，图元照样会被 scene 认成 mouse
+        grabber（test_selection_ownership.py 里逐个图元验过）。
+        """
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setAcceptHoverEvents(True)
         self._hovered = False
@@ -76,12 +83,51 @@ class DrawingItemMixin:
         if event is not None:
             event.accept()
 
-    def should_paint_selection_frame(self) -> bool:
-        """选中的、和鼠标停着的候选，都要把框画出来。"""
-        return (self.isSelected() or self._hovered) and self._can_show_hover()
+    def shows_selection_frame(self) -> bool:
+        """这类图元要不要候选/选中框。
 
-    def selection_frame_pen(self, style=Qt.PenStyle.DashLine) -> QPen:
-        """候选/选中框的画笔：颜色、线宽、cosmetic 只有这一处说了算。"""
+        自由笔画（画笔、荧光笔涂抹、涂抹马赛克）不要：它们要 Ctrl 才选得中，画面上
+        往往叠着几十条，框跟着鼠标此起彼伏地闪反而碍事。这是图元自身的性质，所以
+        写在这里，而不是借"当前工具选不选得中它"去间接表达——那是另一个问题。
+        """
+        return True
+
+    def is_edit_target(self) -> bool:
+        """四角按钮此刻是不是作用在它身上——决定框画实线还是虚线。
+
+        问控制器，而不是看 Qt 的 isSelected()：选中只有 SmartEditController 一个
+        所有者。Qt 那份状态自己在事件里也会改（QGraphicsItem::mouseReleaseEvent
+        撞上 Ctrl 会把选中翻转），跟着它走就会和控制器打架。
+        """
+        controller = self._edit_controller()
+        return controller is not None and controller.selected_item is self
+
+    def selection_frame_style(self):
+        """这一帧的框画成什么线型，None 表示不画。
+
+        实线那一段是四角按钮此刻作用的对象，虚线那一段是鼠标再点一下就会切过去
+        的对象——两种含义只用线型区分，颜色和线宽是同一套。
+
+        悬停是记在图元上的状态，而"当前工具选不选得中它"会随工具切换而变，所以
+        虚线这一路要再校验一次：否则停在图元上时换个工具，框会一直留着。
+        """
+        if not self.shows_selection_frame():
+            return None
+        if self.is_edit_target():
+            return Qt.PenStyle.SolidLine
+        if self._hovered and self._can_show_hover():
+            return Qt.PenStyle.DashLine
+        return None
+
+    def selection_frame_pen(self) -> QPen | None:
+        """候选/选中框的画笔，None 表示这一帧不画。
+
+        画不画、画成什么样全由这里说了算，子类只管把框画在自己的形状上——线型
+        跟着画笔一起给出去，就没有哪个子类会漏掉实线那一档。
+        """
+        style = self.selection_frame_style()
+        if style is None:
+            return None
         pen = QPen(self.SELECTION_FRAME_COLOR, self.SELECTION_FRAME_WIDTH, style)
         pen.setCosmetic(True)
         return pen
@@ -112,24 +158,28 @@ class DrawingItemMixin:
             return max(0.0, min(1.0, float(self.opacity())))
         return None
 
-    def _can_show_hover(self) -> bool:
+    def _edit_controller(self):
+        """管着选中的那个控制器；图元还没进场景、场景还没有视图时为 None。
+
+        通过 QGraphicsScene.views() 拿（Qt 内建方法，无循环引用问题）。
         """
-        判断是否应该显示悬停光标
-        通过 QGraphicsScene.views() 获取 view（Qt 内建方法，无循环引用问题）
-        """
-        scene = self.scene() if hasattr(self, 'scene') else None
-        if not scene:
-            return False
+        scene = self.scene()
+        if scene is None:
+            return None
         views = scene.views()
         if not views:
+            return None
+        return getattr(views[0], "smart_edit_controller", None)
+
+    def _can_show_hover(self) -> bool:
+        """当前工具选不选得中它——决定鼠标经过时给不给候选反馈（框和光标）。"""
+        controller = self._edit_controller()
+        if controller is None:
             return False
-        controller = getattr(views[0], "smart_edit_controller", None)
-        if controller:
-            try:
-                return controller.can_show_hover_cursor(self)
-            except Exception:
-                return False
-        return False
+        try:
+            return controller.can_show_hover_cursor(self)
+        except Exception:
+            return False
 
 class StrokeItem(DrawingItemMixin, QGraphicsPathItem):
     """画笔/荧光笔图元"""
@@ -151,11 +201,18 @@ class StrokeItem(DrawingItemMixin, QGraphicsPathItem):
             # 普通画笔层级较高
             self.setZValue(20)
             
+    def shows_selection_frame(self) -> bool:
+        """画笔和荧光笔的自由笔画不画框，理由见基类。
+
+        以前这件事是靠"paint() 里干脆没写画框那几行"表达的——看不出是有意还是漏了。
+        """
+        return False
+
     def setPen(self, pen: QPen):
         """重写 setPen 以清除 shape 缓存"""
         super().setPen(pen)
         self._shape_cache = None
-        
+
     def setPath(self, path: QPainterPath):
         """重写 setPath 以清除 shape 缓存"""
         super().setPath(path)
@@ -319,9 +376,10 @@ class RectItem(DrawingItemMixin, QGraphicsRectItem):
         else:
             painter.drawRect(self.rect())
 
-        if self.should_paint_selection_frame():
+        selection_pen = self.selection_frame_pen()
+        if selection_pen is not None:
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.setPen(self.selection_frame_pen())
+            painter.setPen(selection_pen)
             if r > 0:
                 painter.drawRoundedRect(self.rect(), r, r)
             else:
@@ -419,10 +477,11 @@ class EllipseItem(DrawingItemMixin, QGraphicsEllipseItem):
         painter.setBrush(self.brush())
         painter.drawEllipse(self.rect())
 
-        # 选中或悬停时绘制椭圆虚线轮廓
-        if self.should_paint_selection_frame():
+        # 选中或悬停时沿椭圆画一圈候选/选中框
+        selection_pen = self.selection_frame_pen()
+        if selection_pen is not None:
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.setPen(self.selection_frame_pen())
+            painter.setPen(selection_pen)
             painter.drawEllipse(self.rect())
 
     # -- 统一属性接口 --
@@ -943,8 +1002,8 @@ class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
         painter.setBrush(self.color)
         painter.drawPath(self.path())
 
-        if self.should_paint_selection_frame():
-            selection_pen = self.selection_frame_pen()
+        selection_pen = self.selection_frame_pen()
+        if selection_pen is not None:
             selection_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             selection_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
             painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -1390,20 +1449,19 @@ class TextItem(DrawingItemMixin, QGraphicsTextItem):
         )
         return cleaned
 
-    def _paint_interaction_frame(self, painter):
-        """当前对象画实线，可切换的候选画虚线，其余不画。
+    def is_edit_target(self) -> bool:
+        """文字比别的图元多一个编辑态：光标落在这一段里，它就是当前对象。
 
-        颜色、线宽与矩形、椭圆、箭头的候选框一致，只用线型区分两种含义：实线那一
-        段是四角按钮此刻作用的对象，虚线那一段是鼠标再点一下就会切过去的对象。
+        编辑态要单独算，光问控制器不够：TextTool 新建的那一段只 setFocus()，不走
+        select_item()（见 tools/text.py），控制器那边此刻还是空的。
         """
-        if self.isSelected() or self.is_editing():
-            style = Qt.PenStyle.SolidLine
-        elif self._hovered and self._can_show_hover():
-            style = Qt.PenStyle.DashLine
-        else:
-            return
+        return super().is_edit_target() or self.is_editing()
 
-        pen = self.selection_frame_pen(style)
+    def _paint_interaction_frame(self, painter):
+        """三态框画在交互矩形上；画不画、画成什么线型归 DrawingItemMixin。"""
+        pen = self.selection_frame_pen()
+        if pen is None:
+            return
         inset = self.FRAME_INSET
         painter.save()
         painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -1463,8 +1521,6 @@ class TextItem(DrawingItemMixin, QGraphicsTextItem):
 
         # 否则取消编辑模式（可选）
         self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
-        # 恢复为可选择
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
 
         if self._provisional:
             self._provisional = False
@@ -1641,7 +1697,7 @@ class NumberItem(DrawingItemMixin, QGraphicsItem):
 
         self._paint_circle(painter, visual_rect, color)
         self._paint_number(painter, visual_rect, color)
-        self._paint_hover_outline(painter, visual_rect)
+        self._paint_selection_frame(painter, visual_rect)
 
     def _paint_circle(self, painter, visual_rect, color):
         if self.style == self.STYLE_NO_CIRCLE:
@@ -1691,10 +1747,11 @@ class NumberItem(DrawingItemMixin, QGraphicsItem):
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawPath(path)
 
-    def _paint_hover_outline(self, painter, visual_rect):
-        if self.should_paint_selection_frame():
+    def _paint_selection_frame(self, painter, visual_rect):
+        selection_pen = self.selection_frame_pen()
+        if selection_pen is not None:
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.setPen(self.selection_frame_pen())
+            painter.setPen(selection_pen)
             painter.drawRect(visual_rect)
 
     # -- 统一属性接口 --

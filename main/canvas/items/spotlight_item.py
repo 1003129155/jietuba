@@ -77,7 +77,7 @@ class SpotlightItem(RectItem):
 
     拖角缩放、拖动、撤销、橡皮擦、钉图克隆时的位置与变换，全是矩形那一套，所以直接
     继承 RectItem。它自己不画内容：画笔和画刷都是空的，RectItem.paint 只剩选中和
-    悬停时的虚线框；压暗交给幕布。
+    悬停时的那圈候选/选中框；压暗交给幕布。
 
     点选、悬停、橡皮擦认的是整个孔，和荧光笔矩形、框选马赛克一样：孔没有描边，只认边
     太难选中。代价也和它们一样——橡皮擦划过孔内会把孔一起擦掉，聚光灯工具在已有的孔里
@@ -86,7 +86,7 @@ class SpotlightItem(RectItem):
 
     def __init__(self, rect: QRectF, corner_radius: float = 0.0):
         super().__init__(rect, QPen(Qt.PenStyle.NoPen), corner_radius)
-        # 压在幕布上面：选中时的虚线框正好骑在孔的边上，不能被幕布压暗一半
+        # 压在幕布上面：选中时的框正好骑在孔的边上，不能被幕布压暗一半
         self.setZValue(SpotlightCurtain.Z_VALUE + 1)
 
     def shape(self) -> QPainterPath:

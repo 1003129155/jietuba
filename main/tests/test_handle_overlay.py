@@ -19,7 +19,7 @@ import math
 
 import pytest
 from PySide6.QtCore import QPointF, QRect, QRectF
-from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPen
+from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QApplication
 
 
@@ -499,10 +499,17 @@ def test_export_does_not_bake_handles_into_the_image(view, qapp):
 
     改造前它们画在 scene.drawForeground，而 export 只隐藏了选区框、
     没管控制点。
-    """
-    from canvas.items import RectItem
 
-    item = RectItem(QRectF(100, 100, 200, 150), QPen(QColor("red"), 3))
+    用画笔笔画而不是矩形：选中的图元自己会画一圈实线框，那是场景内容、本就该
+    进 render（真实导出前会先清掉选中，见 tools/action.py 的 _exit_edit_mode）。
+    笔画是唯一不画这圈框的，拿它当被选中的对象，两次渲染的差异就只可能来自手柄。
+    """
+    from canvas.items import StrokeItem
+
+    path = QPainterPath(QPointF(100, 100))
+    path.lineTo(QPointF(300, 250))
+    item = StrokeItem(path, QPen(QColor("red"), 3))
+    assert not item.shows_selection_frame()
     view.canvas_scene.addItem(item)
 
     def _render():
