@@ -237,7 +237,6 @@ class SmartEditController(QObject):
         Returns:
             bool - 是否可以选择
         """
-        from PySide6.QtCore import Qt
         
         item_type = self.get_item_type(item)
 
@@ -382,7 +381,6 @@ class SmartEditController(QObject):
         Returns:
             bool - 是否选中了图元（True=拦截绘图，False=允许绘图）
         """
-        from PySide6.QtCore import Qt
         
         if button != Qt.MouseButton.LeftButton:
             return False
@@ -478,7 +476,6 @@ class SmartEditController(QObject):
         Returns:
             bool - 是否处理了事件
         """
-        from PySide6.QtCore import Qt
         
         if button != Qt.MouseButton.LeftButton:
             return False
@@ -609,7 +606,6 @@ class SmartEditController(QObject):
 
     def handle_edit_press(self, scene_pos: QPointF, view_pos: QPointF, button: int, modifiers: int):
         """在选中状态下处理控制点按下，返回是否拦截"""
-        from PySide6.QtCore import Qt
         if button != Qt.MouseButton.LeftButton:
             return False
         if not self.selected_item or not self.layer_editor:
@@ -673,7 +669,6 @@ class SmartEditController(QObject):
         return True
 
     def handle_edit_release(self, scene_pos: QPointF, button: int):
-        from PySide6.QtCore import Qt
         if button != Qt.MouseButton.LeftButton:
             return False
         if self.mode == SelectionMode.CLICKING_HANDLE:
