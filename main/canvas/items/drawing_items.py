@@ -464,24 +464,71 @@ class EllipseItem(DrawingItemMixin, QGraphicsEllipseItem):
 class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
     """
     箭头图元 - 平滑箭头，支持弯曲
-    
+
     始终是3点结构（start / control / end）：
     - control 未修改时 → 自动保持在中点，表现为直线箭头
     - control 被拖动后 → 变成弯曲箭头
     - 撤销可以恢复到直线状态
-    
-    箭头样式：
-    - "single": 单头箭头（默认，只有终点有箭头）
-    - "double": 双头箭头（起点和终点都有箭头）
-    - "bar": 工字箭头（两端为短横杠）
+
+    形状不按"直线/曲线 × 样式"逐个手写：每种样式只在 STYLE_SPECS 里声明
+    "箭杆长什么样 + 两端各是什么头"，轮廓由同一套代码拼出来。直线是"控制点
+    恰好落在中点"的退化情形（二次贝塞尔此时就是直线），所以直线和曲线共用同
+    一条代码路径，新增一种样式只要加一行声明。
     """
-    
-    # 箭头样式常量
-    STYLE_SINGLE = "single"
-    STYLE_DOUBLE = "double"
-    STYLE_BAR = "bar"
+
+    # === 箭头样式 ===
+    STYLE_SINGLE = "single"                    # 实心锥形箭头（默认）
+    STYLE_DOUBLE = "double"                    # 实心双向箭头
+    STYLE_HOLLOW = "hollow"                    # 空心（描边）箭头
+    STYLE_LINE = "line"                        # 线条箭头（等宽线 + 开口箭头）
+    STYLE_LINE_DOUBLE = "line_double"          # 线条双向箭头
+    STYLE_TRIANGLE = "triangle"                # 细杆 + 实心三角头
+    STYLE_TRIANGLE_DOUBLE = "triangle_double"  # 细杆 + 两端实心三角头
+    STYLE_BAR = "bar"                          # 工字（标注线）
+    STYLE_BAR_ARROW = "bar_arrow"              # 工字 + 双向箭头
+
+    # === 端头形态 ===
+    HEAD_NONE = "none"            # 没有头（锥形尾巴收成尖）
+    HEAD_SOLID = "solid"          # 实心三角
+    HEAD_OPEN = "open"            # 开口 V 形（描线画出来的两根翼）
+    HEAD_BAR = "bar"              # 垂直短横杠
+    HEAD_BAR_SOLID = "bar_solid"  # 短横杠 + 顶着横杠朝外的实心三角
+
+    # === 箭杆形态 ===
+    SHAFT_TAPER = "taper"  # 尾部尖细、到颈部渐宽
+    SHAFT_EVEN = "even"    # 等宽实心杆
+    SHAFT_LINE = "line"    # 等宽细线
+
+    # 样式表：样式 -> (箭杆, 起点端头, 终点端头, 是否只描边)
+    STYLE_SPECS = {
+        STYLE_SINGLE:          (SHAFT_TAPER, HEAD_NONE,      HEAD_SOLID,     False),
+        STYLE_DOUBLE:          (SHAFT_EVEN,  HEAD_SOLID,     HEAD_SOLID,     False),
+        STYLE_HOLLOW:          (SHAFT_TAPER, HEAD_NONE,      HEAD_SOLID,     True),
+        STYLE_LINE:            (SHAFT_LINE,  HEAD_NONE,      HEAD_OPEN,      False),
+        STYLE_LINE_DOUBLE:     (SHAFT_LINE,  HEAD_OPEN,      HEAD_OPEN,      False),
+        STYLE_TRIANGLE:        (SHAFT_LINE,  HEAD_NONE,      HEAD_SOLID,     False),
+        STYLE_TRIANGLE_DOUBLE: (SHAFT_LINE,  HEAD_SOLID,     HEAD_SOLID,     False),
+        STYLE_BAR:             (SHAFT_LINE,  HEAD_BAR,       HEAD_BAR,       False),
+        STYLE_BAR_ARROW:       (SHAFT_LINE,  HEAD_BAR_SOLID, HEAD_BAR_SOLID, False),
+    }
+
+    # 面板列出来的顺序：先实心、再线条、最后标注类
+    STYLES = (
+        STYLE_SINGLE, STYLE_DOUBLE, STYLE_HOLLOW,
+        STYLE_LINE, STYLE_LINE_DOUBLE,
+        STYLE_TRIANGLE, STYLE_TRIANGLE_DOUBLE,
+        STYLE_BAR, STYLE_BAR_ARROW,
+    )
+
     CLICK_MARGIN = 4  # 点击旷量（像素/每侧）
-    
+
+    OPEN_HEAD_ANGLE = math.radians(27)  # 开口箭头单侧张角
+
+    @classmethod
+    def normalize_style(cls, value) -> str:
+        """把任意输入收敛成一个合法样式（老存档里的未知值回退到默认）"""
+        return value if value in cls.STYLE_SPECS else cls.STYLE_SINGLE
+
     def __init__(self, start_pos: QPointF, end_pos: QPointF, pen: QPen, arrow_style: str = "single"):
         super().__init__()
         self._init_drawing_mixin()
@@ -489,7 +536,7 @@ class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
         self.setBrush(pen.color())  # 使用填充
         self.setZValue(20)
         self._hovered = False
-        
+
         self.start_pos = start_pos
         self.end_pos = end_pos
         # 控制点初始化为中点
@@ -499,12 +546,13 @@ class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
         )
         # 标记控制点是否被用户修改过（决定是直线还是曲线）
         self._control_modified = False
-        
+
         self.base_width = pen.width()
         self.color = pen.color()
         self._shape_cache = None
-        # 箭头样式：single（单头）或 double（双头）
-        self._arrow_style = arrow_style if arrow_style in (self.STYLE_SINGLE, self.STYLE_DOUBLE, self.STYLE_BAR) else self.STYLE_SINGLE
+        # 命中区用的实心剪影：空心样式的 path() 只剩一圈描边，拿它去点会点不中肚子
+        self._hit_path = None
+        self._arrow_style = self.normalize_style(arrow_style)
         self.update_geometry()
 
     def setPath(self, path: QPainterPath):
@@ -523,14 +571,15 @@ class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
         if self._shape_cache is not None:
             return self._shape_cache
 
-        path = self.path()
+        # 空心箭头的 path() 是一圈描边，实心剪影才是用户眼里"这支箭头占的地方"
+        path = self._hit_path if self._hit_path is not None else self.path()
         if path.isEmpty():
             return path
 
-        # 箭头 paint() 是整块填色（setBrush + drawPath），path() 本身就是闭合
-        # 填色轮廓，不是要被描边的骨架线——直接拿它当命中区，三角形箭头/工字
-        # 端头的中心才点得中，不会只有贴着轮廓线的一圈能点中。
-        # 轮廓是手工拼出的不规则多边形，没有"放大参数"这条近路能加点击旷量，
+        # 箭头 paint() 是整块填色（setBrush + drawPath），轮廓本身就是闭合填色
+        # 区域，不是要被描边的骨架线——直接拿它当命中区，三角形箭头/工字端头的
+        # 中心才点得中，不会只有贴着轮廓线的一圈能点中。
+        # 轮廓是拼出来的不规则多边形，没有"放大参数"这条近路能加点击旷量，
         # 于是并上一条沿轮廓的窄带（宽度=旷量*2），边界外侧就多出一圈容差。
         stroker = QPainterPathStroker()
         stroker.setWidth(self.CLICK_MARGIN * 2)
@@ -545,14 +594,14 @@ class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
     def arrow_style(self) -> str:
         """获取箭头样式"""
         return self._arrow_style
-    
+
     @arrow_style.setter
     def arrow_style(self, value: str):
         """设置箭头样式"""
-        if value in (self.STYLE_SINGLE, self.STYLE_DOUBLE, self.STYLE_BAR):
+        if value in self.STYLE_SPECS:
             self._arrow_style = value
             self.update_geometry()
-    
+
     @property
     def control_pos(self) -> QPointF:
         """获取控制点位置"""
@@ -564,7 +613,7 @@ class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
                 (self.start_pos.x() + self.end_pos.x()) / 2,
                 (self.start_pos.y() + self.end_pos.y()) / 2
             )
-    
+
     @control_pos.setter
     def control_pos(self, value):
         """设置控制点（用于撤销恢复等）"""
@@ -578,12 +627,12 @@ class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
             self._control_pos = QPointF(value)
             # 注意：这里不自动设置 _control_modified
             # 因为撤销恢复时可能恢复到中点位置但仍是"未修改"状态
-        
+
     def set_positions(self, start_pos: QPointF, end_pos: QPointF):
         """设置起点和终点"""
         self.start_pos = start_pos
         self.end_pos = end_pos
-        
+
         if not self._control_modified:
             # 控制点未修改时，自动更新到新的中点
             self._control_pos = QPointF(
@@ -591,15 +640,15 @@ class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
                 (start_pos.y() + end_pos.y()) / 2
             )
         # 如果控制点已修改，保持其绝对位置不变
-        
+
         self.update_geometry()
-        
+
     def set_control_point(self, control_pos: QPointF):
         """用户拖动控制点时调用 - 标记为已修改"""
         self._control_pos = QPointF(control_pos)
         self._control_modified = True
         self.update_geometry()
-        
+
     def reset_control_point(self):
         """重置控制点（恢复直线箭头）"""
         self._control_modified = False
@@ -608,602 +657,285 @@ class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
             (self.start_pos.y() + self.end_pos.y()) / 2
         )
         self.update_geometry()
-        
+
     def get_control_point(self) -> QPointF:
         """获取控制点位置（始终返回有效位置）"""
         return self.control_pos
-    
+
     def is_curved(self) -> bool:
         """是否是弯曲箭头"""
         return self._control_modified
-        
+
+    # ------------------------------------------------------------------
+    # 几何构建
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _unit(vec: QPointF, fallback: QPointF | None = None) -> QPointF | None:
+        """单位化；长度可忽略时退回 fallback 方向"""
+        length = math.hypot(vec.x(), vec.y())
+        if length > 1e-6:
+            return QPointF(vec.x() / length, vec.y() / length)
+        if fallback is not None:
+            return ArrowItem._unit(fallback)
+        return None
+
+    @staticmethod
+    def _perp(unit: QPointF) -> QPointF:
+        """左法向"""
+        return QPointF(-unit.y(), unit.x())
+
+    def _frame(self):
+        """箭头骨架：(起点, 终点, 曲线中点, 起点切向, 终点切向, 近似长度)
+
+        中点是用户拖的那个点，要求曲线真的经过它：对二次贝塞尔
+        B(0.5) = 0.25*P0 + 0.5*P1 + 0.25*P2，反解得 P1 = 2M - 0.5*P0 - 0.5*P2。
+        控制点没被拖过时 M 就是中点，此时 P1 也落在中点上，曲线退化成直线，
+        两端切向都等于 end-start —— 直线不需要单独一套代码。
+        """
+        start, end, mid = self.start_pos, self.end_pos, self.control_pos
+        bezier = QPointF(
+            2 * mid.x() - 0.5 * start.x() - 0.5 * end.x(),
+            2 * mid.y() - 0.5 * start.y() - 0.5 * end.y()
+        )
+        chord = QPointF(end.x() - start.x(), end.y() - start.y())
+        v_start = QPointF(bezier.x() - start.x(), bezier.y() - start.y())  # B'(0)/2
+        v_end = QPointF(end.x() - bezier.x(), end.y() - bezier.y())        # B'(1)/2
+
+        length = max(
+            math.hypot(v_start.x(), v_start.y()) + math.hypot(v_end.x(), v_end.y()),
+            math.hypot(chord.x(), chord.y())
+        )
+        if length < 0.1:
+            return None
+
+        u_start = self._unit(v_start, chord)
+        u_end = self._unit(v_end, chord)
+        if u_start is None or u_end is None:
+            return None
+        return start, end, mid, u_start, u_end, length
+
+    def _metrics(self, length: float, head_start: str, head_end: str, hollow: bool) -> dict:
+        """按线宽算出各部件尺寸
+
+        头的长宽比固定（head_len ≈ 1.75 * 半宽），所以无论线宽怎么调，箭头的
+        尖锐程度都是同一个观感；只有画得太短时才整体等比缩头，否则一支短箭头
+        会被自己的头吃光。
+        """
+        base = max(1.0, float(self.base_width))
+        head_half = max(base * 2.2, 8.0)
+        head_len = head_half * 1.75
+
+        solid_heads = sum(1 for h in (head_start, head_end)
+                          if h in (self.HEAD_SOLID, self.HEAD_BAR_SOLID))
+        if solid_heads:
+            budget = length * (0.45 if solid_heads == 1 else 0.34)
+            if head_len > budget:
+                # 等比缩，不是只压长度：只压长度会把头压成一把扁铲子
+                shrink = budget / head_len
+                head_half *= shrink
+                head_len *= shrink
+
+        wing_len = max(base * 4.2, 15.0)
+        open_heads = sum(1 for h in (head_start, head_end) if h == self.HEAD_OPEN)
+        if open_heads:
+            wing_len = min(wing_len, length * (0.45 if open_heads == 1 else 0.35))
+
+        neck_w = head_half * 0.62
+        return {
+            "line_w": max(base * 0.9, 2.0),
+            "head_half": head_half,
+            "head_len": head_len,
+            "wing_len": wing_len,
+            "bar_half": max(base * 2.0, 8.0),
+            "neck_w": neck_w,
+            # 空心箭头的尾巴不能收得太尖：一两个像素宽的锥尖描出边来只剩一团墨
+            "tail_w": neck_w * 0.4 if hollow else max(base * 0.12, 0.6),
+            "outline_w": max(base * 0.34, 1.6),
+        }
+
+    def _head_trim(self, kind: str, m: dict) -> float:
+        """箭杆在这一端要让出多少长度给端头
+
+        实心头留一点重叠（0.92），接缝处才不会因为抗锯齿透出一条细缝；开口头和
+        横杠是压在杆上的，不用让。
+        """
+        if kind == self.HEAD_SOLID:
+            return m["head_len"] * 0.92
+        if kind == self.HEAD_BAR_SOLID:
+            return m["line_w"] * 0.5 + m["head_len"] * 0.8 * 0.92
+        return 0.0
+
+    def _head_path(self, kind: str, tip: QPointF, out_dir: QPointF, m: dict) -> QPainterPath:
+        """造一个端头。out_dir 是这一端"朝外"的方向"""
+        if kind == self.HEAD_SOLID:
+            return self._solid_head_path(tip, out_dir, m["head_len"], m["head_half"])
+
+        if kind == self.HEAD_OPEN:
+            return self._open_head_path(tip, out_dir, m["wing_len"], m["line_w"])
+
+        if kind == self.HEAD_BAR:
+            return self._bar_path(tip, out_dir, m["bar_half"], m["line_w"])
+
+        if kind == self.HEAD_BAR_SOLID:
+            # 三角顶着横杠内侧朝外，读起来就是"量到这条线为止"
+            path = self._bar_path(tip, out_dir, m["bar_half"], m["line_w"])
+            inner_tip = QPointF(tip.x() - out_dir.x() * m["line_w"] * 0.5,
+                                tip.y() - out_dir.y() * m["line_w"] * 0.5)
+            triangle = self._solid_head_path(
+                inner_tip, out_dir, m["head_len"] * 0.8, m["head_half"] * 0.8
+            )
+            return path.united(triangle)
+
+        return QPainterPath()
+
+    def _solid_head_path(self, tip: QPointF, out_dir: QPointF,
+                         head_len: float, head_half: float) -> QPainterPath:
+        """实心三角头"""
+        perp = self._perp(out_dir)
+        neck_x = tip.x() - out_dir.x() * head_len
+        neck_y = tip.y() - out_dir.y() * head_len
+        path = QPainterPath()
+        path.moveTo(tip)
+        path.lineTo(neck_x + perp.x() * head_half, neck_y + perp.y() * head_half)
+        path.lineTo(neck_x - perp.x() * head_half, neck_y - perp.y() * head_half)
+        path.closeSubpath()
+        return path
+
+    def _open_head_path(self, tip: QPointF, out_dir: QPointF,
+                        wing_len: float, line_w: float) -> QPainterPath:
+        """开口 V 形头：两根后掠的翼线描粗成面
+
+        两翼交点要往回缩半个线宽：圆角接头会在交点外鼓出一个半径 line_w/2 的
+        圆头，顶点摆在终点上的话，墨迹的尖就整整超出用户松手的位置半个线宽。
+        缩回去之后圆头的最外侧正好落在终点上，箭头指哪就是哪。
+        """
+        vertex = QPointF(tip.x() - out_dir.x() * line_w / 2,
+                         tip.y() - out_dir.y() * line_w / 2)
+        cos_a = math.cos(self.OPEN_HEAD_ANGLE)
+        sin_a = math.sin(self.OPEN_HEAD_ANGLE)
+        back_x, back_y = -out_dir.x(), -out_dir.y()
+        left = QPointF(back_x * cos_a - back_y * sin_a, back_x * sin_a + back_y * cos_a)
+        right = QPointF(back_x * cos_a + back_y * sin_a, -back_x * sin_a + back_y * cos_a)
+
+        skeleton = QPainterPath()
+        skeleton.moveTo(vertex.x() + left.x() * wing_len, vertex.y() + left.y() * wing_len)
+        skeleton.lineTo(vertex)
+        skeleton.lineTo(vertex.x() + right.x() * wing_len, vertex.y() + right.y() * wing_len)
+
+        stroker = QPainterPathStroker()
+        stroker.setWidth(line_w)
+        stroker.setCapStyle(Qt.PenCapStyle.RoundCap)
+        stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        return stroker.createStroke(skeleton)
+
+    def _bar_path(self, at: QPointF, out_dir: QPointF,
+                  bar_half: float, thickness: float) -> QPainterPath:
+        """端点上的垂直短横杠"""
+        perp = self._perp(out_dir)
+        half_t = thickness / 2
+        path = QPainterPath()
+        path.moveTo(at.x() + perp.x() * bar_half + out_dir.x() * half_t,
+                    at.y() + perp.y() * bar_half + out_dir.y() * half_t)
+        path.lineTo(at.x() - perp.x() * bar_half + out_dir.x() * half_t,
+                    at.y() - perp.y() * bar_half + out_dir.y() * half_t)
+        path.lineTo(at.x() - perp.x() * bar_half - out_dir.x() * half_t,
+                    at.y() - perp.y() * bar_half - out_dir.y() * half_t)
+        path.lineTo(at.x() + perp.x() * bar_half - out_dir.x() * half_t,
+                    at.y() + perp.y() * bar_half - out_dir.y() * half_t)
+        path.closeSubpath()
+        return path
+
+    def _shaft_path(self, a: QPointF, b: QPointF, mid: QPointF,
+                    u_a: QPointF, u_b: QPointF, w_a: float, w_b: float) -> QPainterPath:
+        """从 a 到 b 的实心箭杆，经过曲线中点 mid
+
+        上下两条边各是一条二次贝塞尔，控制点同样按 P1 = 2M - 0.5*A - 0.5*B 反
+        解，保证边线真的贴着曲线走。直线箭头时三点共线，画出来就是直边。
+        """
+        ab = QPointF(b.x() - a.x(), b.y() - a.y())
+        ab_len2 = ab.x() * ab.x() + ab.y() * ab.y()
+        if ab_len2 < 1e-6:
+            return QPainterPath()
+
+        # mid 在 a→b 上的投影决定这里该多宽：端头削掉的长度两端不一样，直接
+        # 取 (w_a+w_b)/2 会让本该笔直的边鼓出一点弧
+        t = ((mid.x() - a.x()) * ab.x() + (mid.y() - a.y()) * ab.y()) / ab_len2
+        t = min(1.0, max(0.0, t))
+        w_mid = w_a + (w_b - w_a) * t
+
+        u_mid = self._unit(QPointF(u_a.x() + u_b.x(), u_a.y() + u_b.y()), ab) or u_a
+        perp_a, perp_b, perp_mid = self._perp(u_a), self._perp(u_b), self._perp(u_mid)
+
+        def edge(sign):
+            pa = QPointF(a.x() + sign * perp_a.x() * w_a / 2, a.y() + sign * perp_a.y() * w_a / 2)
+            pb = QPointF(b.x() + sign * perp_b.x() * w_b / 2, b.y() + sign * perp_b.y() * w_b / 2)
+            pm = QPointF(mid.x() + sign * perp_mid.x() * w_mid / 2,
+                         mid.y() + sign * perp_mid.y() * w_mid / 2)
+            ctrl = QPointF(2 * pm.x() - 0.5 * pa.x() - 0.5 * pb.x(),
+                           2 * pm.y() - 0.5 * pa.y() - 0.5 * pb.y())
+            return pa, ctrl, pb
+
+        up_a, up_ctrl, up_b = edge(1)
+        dn_a, dn_ctrl, dn_b = edge(-1)
+
+        path = QPainterPath()
+        path.moveTo(up_a)
+        path.quadTo(up_ctrl, up_b)
+        path.lineTo(dn_b)
+        path.quadTo(dn_ctrl, dn_a)
+        path.closeSubpath()
+        return path
+
     def update_geometry(self):
         """更新箭头几何形状"""
-        if self._control_modified:
-            self._update_curved_geometry()
-        else:
-            self._update_straight_geometry()
-    
-    def _update_straight_geometry(self):
-        """直线箭头几何（支持单头和双头）"""
-        
-        dx = self.end_pos.x() - self.start_pos.x()
-        dy = self.end_pos.y() - self.start_pos.y()
-        length = math.sqrt(dx * dx + dy * dy)
-        
-        if length < 0.1:
+        frame = self._frame()
+        if frame is None:
             return
-        
-        # 单位向量和垂直向量
-        unit_x = dx / length
-        unit_y = dy / length
-        perp_x = -unit_y
-        perp_y = unit_x
-        
-        # 参数设计
-        base_width = self.base_width
-        
-        # 箭头三角形参数
-        arrow_head_length = min(length * 0.25, max(20, base_width * 4.5))
-        arrow_head_width = max(base_width * 1.8, 7)
-        
-        # 双头/工字样式
-        is_double = self._arrow_style == self.STYLE_DOUBLE
-        is_bar = self._arrow_style == self.STYLE_BAR
-        # 颈部宽度（双头时用“中间值”统一粗细）
-        base_shaft_width = base_width * 0.9
-        neck_width = (arrow_head_width * 0.98 + base_shaft_width) / 2 if is_double else arrow_head_width * 0.85
-        
-        # 箭杆结束点（终点箭头颈部位置）
-        neck_end_x = self.end_pos.x() - arrow_head_length * unit_x
-        neck_end_y = self.end_pos.y() - arrow_head_length * unit_y
-        
-        if is_double:
-            neck_start_x = self.start_pos.x() + arrow_head_length * unit_x
-            neck_start_y = self.start_pos.y() + arrow_head_length * unit_y
-        
-        # 箭杆宽度
-        shaft_width = base_shaft_width
-        
-        # 构建完整路径
-        path = QPainterPath()
-        
-        if is_bar:
-            # === 工字箭头 ===
-            # 三条横杠粗细一致，都使用相同的宽度
-            bar_thickness = max(base_width * 1.8, 6)  # 横杠厚度（统一）
-            # cap_width 控制“胳膊”左右长度，bar_thickness 控制上下厚度
-            cap_width = max(bar_thickness * 2.2, base_width * 3.5)
-            shaft_width = bar_thickness  # 中间横杠宽度
-            cap_length = min(arrow_head_length * 0.5, max(base_width * 2.0, 8))  # 横杠长度
+        start, end, mid, u_start, u_end, length = frame
 
-            start_cap_inner_x = self.start_pos.x() + unit_x * cap_length
-            start_cap_inner_y = self.start_pos.y() + unit_y * cap_length
-            end_cap_inner_x = self.end_pos.x() - unit_x * cap_length
-            end_cap_inner_y = self.end_pos.y() - unit_y * cap_length
+        shaft_kind, head_start, head_end, hollow = self.STYLE_SPECS[self._arrow_style]
+        m = self._metrics(length, head_start, head_end, hollow)
 
-            start_cap_left = QPointF(self.start_pos.x() + perp_x * cap_width,
-                                     self.start_pos.y() + perp_y * cap_width)
-            start_cap_right = QPointF(self.start_pos.x() - perp_x * cap_width,
-                                      self.start_pos.y() - perp_y * cap_width)
-            start_cap_inner_left = QPointF(start_cap_inner_x + perp_x * cap_width,
-                                           start_cap_inner_y + perp_y * cap_width)
-            start_cap_inner_right = QPointF(start_cap_inner_x - perp_x * cap_width,
-                                            start_cap_inner_y - perp_y * cap_width)
-            start_inner_left = QPointF(start_cap_inner_x + perp_x * shaft_width / 2,
-                                       start_cap_inner_y + perp_y * shaft_width / 2)
-            start_inner_right = QPointF(start_cap_inner_x - perp_x * shaft_width / 2,
-                                        start_cap_inner_y - perp_y * shaft_width / 2)
+        # 箭杆两端各让出端头占的长度
+        trim_start = self._head_trim(head_start, m)
+        trim_end = self._head_trim(head_end, m)
+        a = QPointF(start.x() + u_start.x() * trim_start, start.y() + u_start.y() * trim_start)
+        b = QPointF(end.x() - u_end.x() * trim_end, end.y() - u_end.y() * trim_end)
 
-            end_inner_left = QPointF(end_cap_inner_x + perp_x * shaft_width / 2,
-                                     end_cap_inner_y + perp_y * shaft_width / 2)
-            end_inner_right = QPointF(end_cap_inner_x - perp_x * shaft_width / 2,
-                                      end_cap_inner_y - perp_y * shaft_width / 2)
-            end_cap_inner_left = QPointF(end_cap_inner_x + perp_x * cap_width,
-                                         end_cap_inner_y + perp_y * cap_width)
-            end_cap_inner_right = QPointF(end_cap_inner_x - perp_x * cap_width,
-                                          end_cap_inner_y - perp_y * cap_width)
-            end_cap_left = QPointF(self.end_pos.x() + perp_x * cap_width,
-                                   self.end_pos.y() + perp_y * cap_width)
-            end_cap_right = QPointF(self.end_pos.x() - perp_x * cap_width,
-                                    self.end_pos.y() - perp_y * cap_width)
+        if shaft_kind == self.SHAFT_LINE:
+            w_a = w_b = m["line_w"]
+        elif shaft_kind == self.SHAFT_EVEN:
+            w_a = w_b = m["neck_w"]
+        else:  # SHAFT_TAPER：没有头的那端收成尖尾
+            w_a = m["neck_w"] if head_start != self.HEAD_NONE else m["tail_w"]
+            w_b = m["neck_w"] if head_end != self.HEAD_NONE else m["tail_w"]
 
-            path.moveTo(start_cap_left)
-            path.lineTo(start_cap_right)
-            path.lineTo(start_cap_inner_right)
-            path.lineTo(start_inner_right)
-            path.lineTo(end_inner_right)
-            path.lineTo(end_cap_inner_right)
-            path.lineTo(end_cap_right)
-            path.lineTo(end_cap_left)
-            path.lineTo(end_cap_inner_left)
-            path.lineTo(end_inner_left)
-            path.lineTo(start_inner_left)
-            path.lineTo(start_cap_inner_left)
+        pieces = []
+        # 两头一挤，杆有可能已经被削没了（画得很短时）——那就只剩两个头
+        if (b.x() - a.x()) * u_start.x() + (b.y() - a.y()) * u_start.y() > 0.5:
+            pieces.append(self._shaft_path(a, b, mid, u_start, u_end, w_a, w_b))
+        pieces.append(self._head_path(head_start, start, QPointF(-u_start.x(), -u_start.y()), m))
+        pieces.append(self._head_path(head_end, end, u_end, m))
 
-        elif is_double:
-            # === 双头箭头 ===
-            # 起点箭头的左翼开始
-            start_wing_left_x = neck_start_x + perp_x * arrow_head_width
-            start_wing_left_y = neck_start_y + perp_y * arrow_head_width
-            
-            path.moveTo(start_wing_left_x, start_wing_left_y)
-            
-            # 起点尖端
-            path.lineTo(self.start_pos.x(), self.start_pos.y())
-            
-            # 起点箭头的右翼
-            start_wing_right_x = neck_start_x - perp_x * arrow_head_width
-            start_wing_right_y = neck_start_y - perp_y * arrow_head_width
-            path.lineTo(start_wing_right_x, start_wing_right_y)
-            
-            # 起点箭头凹陷效果
-            # 双头箭头的凹陷太深会出现“缺一块”的视觉断口，适当减小
-            start_notch_depth = arrow_head_length * 0.05
-            start_notch_x = neck_start_x + unit_x * start_notch_depth
-            start_notch_y = neck_start_y + unit_y * start_notch_depth
-            
-            path.quadTo(QPointF(start_notch_x, start_notch_y),
-                       QPointF(neck_start_x - perp_x * neck_width / 2,
-                              neck_start_y - perp_y * neck_width / 2))
-            
-            # 箭杆下半部分（从起点颈部到终点颈部）
-            path.lineTo(neck_end_x - perp_x * neck_width / 2,
-                       neck_end_y - perp_y * neck_width / 2)
-            
-            # 终点箭头右翼
-            wing_right_x = neck_end_x - perp_x * arrow_head_width
-            wing_right_y = neck_end_y - perp_y * arrow_head_width
-            path.lineTo(wing_right_x, wing_right_y)
-            
-            # 终点尖端
-            path.lineTo(self.end_pos.x(), self.end_pos.y())
-            
-            # 终点箭头左翼
-            wing_left_x = neck_end_x + perp_x * arrow_head_width
-            wing_left_y = neck_end_y + perp_y * arrow_head_width
-            path.lineTo(wing_left_x, wing_left_y)
-            
-            # 终点箭头凹陷效果
-            # 双头箭头的凹陷太深会出现“缺一块”的视觉断口，适当减小
-            notch_depth = arrow_head_length * 0.05
-            notch_x = neck_end_x - unit_x * notch_depth
-            notch_y = neck_end_y - unit_y * notch_depth
-            
-            path.quadTo(QPointF(notch_x, notch_y),
-                       QPointF(neck_end_x + perp_x * neck_width / 2,
-                              neck_end_y + perp_y * neck_width / 2))
-            
-            # 箭杆上半部分（从终点颈部回到起点颈部）
-            path.lineTo(neck_start_x + perp_x * neck_width / 2,
-                       neck_start_y + perp_y * neck_width / 2)
-            
-        else:
-            # === 单头箭头（原版算法） ===
-            # 尾巴起点宽度（尖细）
-            tail_width = base_width * 0.15
-            
-            # 箭杆中段宽度（最粗的部分）
-            mid_point = 0.7
-            mid_x = self.start_pos.x() + dx * mid_point
-            mid_y = self.start_pos.y() + dy * mid_point
-            mid_width = base_width * 0.9
-            
-            # === 箭杆部分 ===
-            # 上半部分
-            path.moveTo(self.start_pos.x() + perp_x * tail_width / 2,
-                       self.start_pos.y() + perp_y * tail_width / 2)
-            
-            path.lineTo(mid_x + perp_x * mid_width / 2,
-                       mid_y + perp_y * mid_width / 2)
-            
-            path.lineTo(neck_end_x + perp_x * neck_width / 2,
-                       neck_end_y + perp_y * neck_width / 2)
-            
-            # === 箭头三角形部分（带凹陷） ===
-            # 左翼
-            wing_left_x = neck_end_x + perp_x * arrow_head_width
-            wing_left_y = neck_end_y + perp_y * arrow_head_width
-            
-            path.lineTo(wing_left_x, wing_left_y)
-            
-            # 箭头尖端
-            path.lineTo(self.end_pos.x(), self.end_pos.y())
-            
-            # 右翼
-            wing_right_x = neck_end_x - perp_x * arrow_head_width
-            wing_right_y = neck_end_y - perp_y * arrow_head_width
-            
-            path.lineTo(wing_right_x, wing_right_y)
-            
-            # 后弯曲效果（贝塞尔曲线）
-            # 限制凹陷深度,避免短箭头自交导致白洞
-            notch_depth = min(
-                arrow_head_length * 0.05,  # 降低凹陷比例,与双头箭头保持一致
-                neck_width * 0.4           # 最大不超过颈部宽度的 40%
-            )
-            notch_x = neck_end_x - unit_x * notch_depth
-            notch_y = neck_end_y - unit_y * notch_depth
-            
-            path.quadTo(QPointF(notch_x, notch_y),
-                       QPointF(neck_end_x - perp_x * neck_width / 2,
-                              neck_end_y - perp_y * neck_width / 2))
-            
-            # === 箭杆下半部分（镜像） ===
-            path.lineTo(mid_x - perp_x * mid_width / 2,
-                       mid_y - perp_y * mid_width / 2)
-            
-            path.lineTo(self.start_pos.x() - perp_x * tail_width / 2,
-                       self.start_pos.y() - perp_y * tail_width / 2)
-        
-        path.closeSubpath()
-        
-        self.setPath(path)
-    
-    def _update_curved_geometry(self):
-        """弯曲箭头几何 - 中间点在曲线上（三点定曲线），支持单头和双头"""
-        
-        # 中间点 M 是用户拖拽的点，它应该在曲线上
-        # 对于二次贝塞尔曲线 B(t) = (1-t)²P0 + 2(1-t)tP1 + t²P2
-        # 我们要让 B(0.5) = M，需要计算真正的控制点 P1
-        # M = 0.25*P0 + 0.5*P1 + 0.25*P2
-        # P1 = 2*M - 0.5*P0 - 0.5*P2
-        
-        mid_point = self.control_pos  # 用户指定的中间点（在曲线上）
-        
-        # 计算真正的贝塞尔控制点
-        bezier_control = QPointF(
-            2 * mid_point.x() - 0.5 * self.start_pos.x() - 0.5 * self.end_pos.x(),
-            2 * mid_point.y() - 0.5 * self.start_pos.y() - 0.5 * self.end_pos.y()
-        )
-        
-        # 计算曲线末端的切线方向（用于箭头朝向）
-        # B'(1) = 2(P2-P1) 即终点处切线方向为 bezier_control -> end
-        dx_end = self.end_pos.x() - bezier_control.x()
-        dy_end = self.end_pos.y() - bezier_control.y()
-        length_end = math.sqrt(dx_end * dx_end + dy_end * dy_end)
-        
-        if length_end < 0.1:
-            self._update_straight_geometry()
+        filled = QPainterPath()
+        for piece in pieces:
+            if piece.isEmpty():
+                continue
+            filled = piece if filled.isEmpty() else filled.united(piece)
+        if filled.isEmpty():
             return
-        
-        # 起点处的切线方向 B'(0) = 2(P1-P0)
-        dx_start = bezier_control.x() - self.start_pos.x()
-        dy_start = bezier_control.y() - self.start_pos.y()
-        length_start = math.sqrt(dx_start * dx_start + dy_start * dy_start)
-        
-        if length_start < 0.1:
-            self._update_straight_geometry()
-            return
-        
-        # 终点处的单位向量和垂直向量
-        unit_x_end = dx_end / length_end
-        unit_y_end = dy_end / length_end
-        perp_x_end = -unit_y_end
-        perp_y_end = unit_x_end
-        
-        # 起点处的单位向量和垂直向量
-        unit_x_start = dx_start / length_start
-        unit_y_start = dy_start / length_start
-        perp_x_start = -unit_y_start
-        perp_y_start = unit_x_start
-        
-        # 参数设计
-        base_width = self.base_width
-        
-        # 估算总曲线长度（简单近似）
-        total_length = length_start + length_end
-        
-        # 箭头三角形参数
-        arrow_head_length = min(total_length * 0.15, max(20, base_width * 4.5))
-        arrow_head_width = max(base_width * 1.8, 7)
-        
-        # 双头/工字样式
-        is_double = self._arrow_style == self.STYLE_DOUBLE
-        is_bar = self._arrow_style == self.STYLE_BAR
-        # 颈部宽度（双头时用“中间值”统一粗细）
-        base_shaft_width = base_width * 0.9
-        neck_width = (arrow_head_width * 0.98 + base_shaft_width) / 2 if is_double else arrow_head_width * 0.85
-        
-        # 箭杆结束点（箭头颈部位置）- 沿终点切线方向回退
-        neck_end_x = self.end_pos.x() - arrow_head_length * unit_x_end
-        neck_end_y = self.end_pos.y() - arrow_head_length * unit_y_end
-        
-        if is_double:
-            neck_start_x = self.start_pos.x() + arrow_head_length * unit_x_start
-            neck_start_y = self.start_pos.y() + arrow_head_length * unit_y_start
-        
-        # 尾巴起点宽度（单头箭头用）
-        tail_width = base_width * 0.15
-        
-        # 箭杆宽度（在中间点处最宽）
-        mid_width = neck_width if is_double else base_shaft_width
-        
-        # 计算中间点处的方向（使用起点和终点切线的平均）
-        avg_unit_x = (unit_x_start + unit_x_end) / 2
-        avg_unit_y = (unit_y_start + unit_y_end) / 2
-        avg_len = math.sqrt(avg_unit_x * avg_unit_x + avg_unit_y * avg_unit_y)
-        if avg_len > 0.01:
-            avg_unit_x /= avg_len
-            avg_unit_y /= avg_len
-        perp_x_mid = -avg_unit_y
-        perp_y_mid = avg_unit_x
-        
-        # 中间点的上下边缘（在曲线上的点）
-        mid_upper = QPointF(
-            mid_point.x() + perp_x_mid * mid_width / 2,
-            mid_point.y() + perp_y_mid * mid_width / 2
-        )
-        mid_lower = QPointF(
-            mid_point.x() - perp_x_mid * mid_width / 2,
-            mid_point.y() - perp_y_mid * mid_width / 2
-        )
-        
-        # 构建完整路径
-        path = QPainterPath()
-        
-        if is_bar:
-            # === 工字弯曲箭头 ===
-            # 三条横杠粗细一致，都使用相同的宽度
-            bar_thickness = max(base_width * 1.8, 6)  # 横杠厚度（统一）
-            # cap_width 控制“胳膊”左右长度，bar_thickness 控制上下厚度
-            cap_width = max(bar_thickness * 2.2, base_width * 3.5)
-            shaft_width = bar_thickness  # 中间横杠宽度
-            cap_length = min(arrow_head_length * 0.5, max(base_width * 2.0, 8))  # 横杠长度
 
-            start_cap_inner = QPointF(
-                self.start_pos.x() + unit_x_start * cap_length,
-                self.start_pos.y() + unit_y_start * cap_length
-            )
-            end_cap_inner = QPointF(
-                self.end_pos.x() - unit_x_end * cap_length,
-                self.end_pos.y() - unit_y_end * cap_length
-            )
-
-            start_cap_left = QPointF(
-                self.start_pos.x() + perp_x_start * cap_width,
-                self.start_pos.y() + perp_y_start * cap_width
-            )
-            start_cap_right = QPointF(
-                self.start_pos.x() - perp_x_start * cap_width,
-                self.start_pos.y() - perp_y_start * cap_width
-            )
-            start_cap_inner_left = QPointF(
-                start_cap_inner.x() + perp_x_start * cap_width,
-                start_cap_inner.y() + perp_y_start * cap_width
-            )
-            start_cap_inner_right = QPointF(
-                start_cap_inner.x() - perp_x_start * cap_width,
-                start_cap_inner.y() - perp_y_start * cap_width
-            )
-            end_cap_left = QPointF(
-                self.end_pos.x() + perp_x_end * cap_width,
-                self.end_pos.y() + perp_y_end * cap_width
-            )
-            end_cap_right = QPointF(
-                self.end_pos.x() - perp_x_end * cap_width,
-                self.end_pos.y() - perp_y_end * cap_width
-            )
-            end_cap_inner_left = QPointF(
-                end_cap_inner.x() + perp_x_end * cap_width,
-                end_cap_inner.y() + perp_y_end * cap_width
-            )
-            end_cap_inner_right = QPointF(
-                end_cap_inner.x() - perp_x_end * cap_width,
-                end_cap_inner.y() - perp_y_end * cap_width
-            )
-
-            start_inner_upper = QPointF(
-                start_cap_inner.x() + perp_x_start * shaft_width / 2,
-                start_cap_inner.y() + perp_y_start * shaft_width / 2
-            )
-            start_inner_lower = QPointF(
-                start_cap_inner.x() - perp_x_start * shaft_width / 2,
-                start_cap_inner.y() - perp_y_start * shaft_width / 2
-            )
-            end_inner_upper = QPointF(
-                end_cap_inner.x() + perp_x_end * shaft_width / 2,
-                end_cap_inner.y() + perp_y_end * shaft_width / 2
-            )
-            end_inner_lower = QPointF(
-                end_cap_inner.x() - perp_x_end * shaft_width / 2,
-                end_cap_inner.y() - perp_y_end * shaft_width / 2
-            )
-
-            mid_upper = QPointF(
-                mid_point.x() + perp_x_mid * shaft_width / 2,
-                mid_point.y() + perp_y_mid * shaft_width / 2
-            )
-            mid_lower = QPointF(
-                mid_point.x() - perp_x_mid * shaft_width / 2,
-                mid_point.y() - perp_y_mid * shaft_width / 2
-            )
-
-            bezier_upper = QPointF(
-                2 * mid_upper.x() - 0.5 * start_inner_upper.x() - 0.5 * end_inner_upper.x(),
-                2 * mid_upper.y() - 0.5 * start_inner_upper.y() - 0.5 * end_inner_upper.y()
-            )
-            bezier_lower = QPointF(
-                2 * mid_lower.x() - 0.5 * start_inner_lower.x() - 0.5 * end_inner_lower.x(),
-                2 * mid_lower.y() - 0.5 * start_inner_lower.y() - 0.5 * end_inner_lower.y()
-            )
-
-            path.moveTo(start_cap_left)
-            path.lineTo(start_cap_right)
-            path.lineTo(start_cap_inner_right)
-            path.lineTo(start_inner_lower)
-            path.quadTo(bezier_lower, end_inner_lower)
-            path.lineTo(end_cap_inner_right)
-            path.lineTo(end_cap_right)
-            path.lineTo(end_cap_left)
-            path.lineTo(end_cap_inner_left)
-            path.lineTo(end_inner_upper)
-            path.quadTo(bezier_upper, start_inner_upper)
-            path.lineTo(start_cap_inner_left)
-
-        elif is_double:
-            # === 双头弯曲箭头 ===
-            # 起点颈部的上下边缘
-            neck_start_upper = QPointF(
-                neck_start_x + perp_x_start * neck_width / 2,
-                neck_start_y + perp_y_start * neck_width / 2
-            )
-            neck_start_lower = QPointF(
-                neck_start_x - perp_x_start * neck_width / 2,
-                neck_start_y - perp_y_start * neck_width / 2
-            )
-            
-            # 终点颈部的上下边缘
-            neck_end_upper = QPointF(
-                neck_end_x + perp_x_end * neck_width / 2,
-                neck_end_y + perp_y_end * neck_width / 2
-            )
-            neck_end_lower = QPointF(
-                neck_end_x - perp_x_end * neck_width / 2,
-                neck_end_y - perp_y_end * neck_width / 2
-            )
-            
-            # 计算上边缘的贝塞尔控制点（让曲线穿过 mid_upper）
-            bezier_upper = QPointF(
-                2 * mid_upper.x() - 0.5 * neck_start_upper.x() - 0.5 * neck_end_upper.x(),
-                2 * mid_upper.y() - 0.5 * neck_start_upper.y() - 0.5 * neck_end_upper.y()
-            )
-            
-            # 计算下边缘的贝塞尔控制点（让曲线穿过 mid_lower）
-            bezier_lower = QPointF(
-                2 * mid_lower.x() - 0.5 * neck_start_lower.x() - 0.5 * neck_end_lower.x(),
-                2 * mid_lower.y() - 0.5 * neck_start_lower.y() - 0.5 * neck_end_lower.y()
-            )
-            
-            # 起点箭头左翼
-            start_wing_left = QPointF(
-                neck_start_x + perp_x_start * arrow_head_width,
-                neck_start_y + perp_y_start * arrow_head_width
-            )
-            path.moveTo(start_wing_left)
-            
-            # 起点尖端
-            path.lineTo(self.start_pos.x(), self.start_pos.y())
-            
-            # 起点箭头右翼
-            start_wing_right = QPointF(
-                neck_start_x - perp_x_start * arrow_head_width,
-                neck_start_y - perp_y_start * arrow_head_width
-            )
-            path.lineTo(start_wing_right)
-            
-            # 起点箭头凹陷效果
-            # 双头弯曲箭头：减小凹陷深度，避免连接处缺口
-            start_notch_depth = arrow_head_length * 0.05
-            start_notch = QPointF(
-                neck_start_x + unit_x_start * start_notch_depth,
-                neck_start_y + unit_y_start * start_notch_depth
-            )
-            path.quadTo(start_notch, neck_start_lower)
-            
-            # 下半边曲线（从起点颈部到终点颈部）
-            path.quadTo(bezier_lower, neck_end_lower)
-            
-            # 终点箭头右翼
-            end_wing_right = QPointF(
-                neck_end_x - perp_x_end * arrow_head_width,
-                neck_end_y - perp_y_end * arrow_head_width
-            )
-            path.lineTo(end_wing_right)
-            
-            # 终点尖端
-            path.lineTo(self.end_pos.x(), self.end_pos.y())
-            
-            # 终点箭头左翼
-            end_wing_left = QPointF(
-                neck_end_x + perp_x_end * arrow_head_width,
-                neck_end_y + perp_y_end * arrow_head_width
-            )
-            path.lineTo(end_wing_left)
-            
-            # 终点箭头凹陷效果
-            # 双头弯曲箭头：减小凹陷深度，避免连接处缺口
-            end_notch_depth = arrow_head_length * 0.05
-            end_notch = QPointF(
-                neck_end_x - unit_x_end * end_notch_depth,
-                neck_end_y - unit_y_end * end_notch_depth
-            )
-            path.quadTo(end_notch, neck_end_upper)
-            
-            # 上半边曲线（从终点颈部回到起点颈部）
-            path.quadTo(bezier_upper, neck_start_upper)
-            
+        self._hit_path = filled
+        if hollow:
+            stroker = QPainterPathStroker()
+            stroker.setWidth(m["outline_w"])
+            stroker.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
+            stroker.setMiterLimit(8)
+            self.setPath(stroker.createStroke(filled).simplified())
         else:
-            # === 单头弯曲箭头（原版算法） ===
-            # 计算上边缘的贝塞尔控制点（让曲线穿过 mid_upper）
-            start_upper = QPointF(
-                self.start_pos.x() + perp_x_start * tail_width / 2,
-                self.start_pos.y() + perp_y_start * tail_width / 2
-            )
-            neck_upper = QPointF(
-                neck_end_x + perp_x_end * neck_width / 2,
-                neck_end_y + perp_y_end * neck_width / 2
-            )
-            # P1 = 2*M - 0.5*P0 - 0.5*P2
-            bezier_upper = QPointF(
-                2 * mid_upper.x() - 0.5 * start_upper.x() - 0.5 * neck_upper.x(),
-                2 * mid_upper.y() - 0.5 * start_upper.y() - 0.5 * neck_upper.y()
-            )
-            
-            # 计算下边缘的贝塞尔控制点（让曲线穿过 mid_lower）
-            start_lower = QPointF(
-                self.start_pos.x() - perp_x_start * tail_width / 2,
-                self.start_pos.y() - perp_y_start * tail_width / 2
-            )
-            neck_lower = QPointF(
-                neck_end_x - perp_x_end * neck_width / 2,
-                neck_end_y - perp_y_end * neck_width / 2
-            )
-            bezier_lower = QPointF(
-                2 * mid_lower.x() - 0.5 * start_lower.x() - 0.5 * neck_lower.x(),
-                2 * mid_lower.y() - 0.5 * start_lower.y() - 0.5 * neck_lower.y()
-            )
-            
-            # === 上半边（从起点到颈部） ===
-            path.moveTo(start_upper)
-            path.quadTo(bezier_upper, neck_upper)
-            
-            # === 箭头三角形部分 ===
-            # 左翼
-            wing_left = QPointF(
-                neck_end_x + perp_x_end * arrow_head_width,
-                neck_end_y + perp_y_end * arrow_head_width
-            )
-            path.lineTo(wing_left)
-            
-            # 箭头尖端
-            path.lineTo(self.end_pos.x(), self.end_pos.y())
-            
-            # 右翼
-            wing_right = QPointF(
-                neck_end_x - perp_x_end * arrow_head_width,
-                neck_end_y - perp_y_end * arrow_head_width
-            )
-            path.lineTo(wing_right)
-            
-            # 后弯曲效果（箭头凹陷）
-            # 限制凹陷深度,避免短箭头自交导致白洞
-            notch_depth = min(
-                arrow_head_length * 0.05,  # 降低凹陷比例,与双头箭头保持一致
-                neck_width * 0.4           # 最大不超过颈部宽度的 40%
-            )
-            notch_x = neck_end_x - unit_x_end * notch_depth
-            notch_y = neck_end_y - unit_y_end * notch_depth
-            
-            path.quadTo(QPointF(notch_x, notch_y), neck_lower)
-            
-            # === 下半边（从颈部回到起点） ===
-            path.quadTo(bezier_lower, start_lower)
-        
-        path.closeSubpath()
-        
-        self.setPath(path)
-    
+            self.setPath(filled)
+
     def paint(self, painter, option, widget=None):
         """优化渲染"""
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)

@@ -2313,6 +2313,42 @@ Replace it?</source>
 <context>
     <name>ArrowSettingsPanel</name>
     <message>
+        <source>Solid Arrow</source>
+        <translation>塗りつぶし矢印</translation>
+    </message>
+    <message>
+        <source>Solid Double Arrow</source>
+        <translation>塗りつぶし両矢印</translation>
+    </message>
+    <message>
+        <source>Outlined Arrow</source>
+        <translation>中抜き矢印</translation>
+    </message>
+    <message>
+        <source>Line Arrow</source>
+        <translation>線の矢印</translation>
+    </message>
+    <message>
+        <source>Line Double Arrow</source>
+        <translation>線の両矢印</translation>
+    </message>
+    <message>
+        <source>Thin Arrow</source>
+        <translation>細軸矢印</translation>
+    </message>
+    <message>
+        <source>Thin Double Arrow</source>
+        <translation>細軸両矢印</translation>
+    </message>
+    <message>
+        <source>Dimension Line</source>
+        <translation>寸法線</translation>
+    </message>
+    <message>
+        <source>Dimension Arrow</source>
+        <translation>寸法両矢印</translation>
+    </message>
+    <message>
         <source>Arrow Style</source>
         <translation>矢印スタイル</translation>
     </message>

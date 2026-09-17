@@ -130,7 +130,7 @@ class ToolSettingsManager(QObject):
             "stroke_width": 9,
             "opacity": 1.0,
             "arrow_size": 9,  # 箭头大小
-            "arrow_style": "single",  # 箭头样式：single（单头）或 double（双头）
+            "arrow_style": "single",  # 箭头样式，取值见 ArrowItem.STYLES
         },
         "text": {
             "color": "#000000",  # 黑色
