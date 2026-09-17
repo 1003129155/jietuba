@@ -1,4 +1,4 @@
-﻿"""
+"""
 钉图画布 - 核心类
 新架构：完整复用截图窗口的 CanvasScene
 
@@ -144,7 +144,7 @@ class PinCanvas(QObject):
         
         try:
             # 从canvas.items模块导入具体的item类
-            from canvas.items.drawing_items import (
+            from canvas.items import (
                 StrokeItem, RectItem, EllipseItem, ArrowItem, 
                 TextItem, NumberItem
             )
@@ -291,7 +291,7 @@ class PinCanvas(QObject):
 
     def _clone_stroke_item(self, item):
         """克隆画笔/荧光笔项目"""
-        from canvas.items.drawing_items import StrokeItem
+        from canvas.items import StrokeItem
         from PySide6.QtGui import QPen
         
         # 复制路径和画笔
@@ -325,7 +325,7 @@ class PinCanvas(QObject):
 
     def _clone_rect_item(self, item):
         """克隆矩形项目"""
-        from canvas.items.drawing_items import RectItem
+        from canvas.items import RectItem
         from PySide6.QtGui import QPen
         from PySide6.QtCore import QRectF
         
@@ -349,7 +349,7 @@ class PinCanvas(QObject):
     
     def _clone_ellipse_item(self, item):
         """克隆椭圆项目"""
-        from canvas.items.drawing_items import EllipseItem
+        from canvas.items import EllipseItem
         from PySide6.QtGui import QPen
         from PySide6.QtCore import QRectF
         
@@ -362,7 +362,7 @@ class PinCanvas(QObject):
     
     def _clone_arrow_item(self, item):
         """克隆箭头项目"""
-        from canvas.items.drawing_items import ArrowItem
+        from canvas.items import ArrowItem
         from PySide6.QtGui import QPen, QColor
         from PySide6.QtCore import QPointF
         
@@ -383,7 +383,7 @@ class PinCanvas(QObject):
     
     def _clone_text_item(self, item):
         """克隆文本项目"""
-        from canvas.items.drawing_items import TextItem
+        from canvas.items import TextItem
         from PySide6.QtGui import QFont, QColor
         from PySide6.QtCore import QPointF
         
@@ -411,7 +411,7 @@ class PinCanvas(QObject):
     
     def _clone_number_item(self, item):
         """克隆序号项目"""
-        from canvas.items.drawing_items import NumberItem
+        from canvas.items import NumberItem
         from PySide6.QtGui import QColor
         from PySide6.QtCore import QPointF
         
