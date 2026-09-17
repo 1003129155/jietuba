@@ -11,8 +11,9 @@ import math
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QPointF, QSize, QTranslator
-from PySide6.QtGui import QColor, QIcon, QImage, QPen
+from PySide6.QtCore import QPointF, QRect, QSize, Qt, QTranslator
+from PySide6.QtGui import QColor, QIcon, QImage, QPainter, QPen, QPixmap
+from PySide6.QtWidgets import QStyleOptionViewItem
 
 from canvas.items import ArrowItem
 from settings.tool_settings import ToolSettingsManager
@@ -20,6 +21,7 @@ from ui.arrow_settings_panel import (
     ARROW_STYLE_NAMES,
     PREVIEW_INK,
     PREVIEW_INK_SELECTED,
+    PREVIEW_ROW_SIZE,
     PREVIEW_SIZE,
     ArrowSettingsPanel,
     render_arrow_style_preview,
@@ -163,6 +165,52 @@ def test_the_solid_arrow_tapers_from_tail_to_head(qapp):
     assert head > neck * 1.5, f"头不够显眼: 头 {head} vs 颈 {neck}"
 
 
+def _ink_height(path, x):
+    """x 这一列上墨迹的高度（像素）"""
+    hits = [y for y in range(-120, 121) if path.contains(QPointF(float(x), float(y)))]
+    return (max(hits) - min(hits) + 1) if hits else 0
+
+
+@pytest.mark.parametrize("style", (ArrowItem.STYLE_SINGLE, ArrowItem.STYLE_HOLLOW))
+def test_the_tapered_tail_comes_to_a_point(qapp, style):
+    """流线型箭头的尾巴要收成尖。
+
+    尾巴留着宽度的话，粗线宽下那一截就是一个平口，整支看着像被剪掉了一段——
+    尤其空心箭头，平口连描边一起有小二十像素宽。
+    """
+    path = _arrow(style, width=20.0).path()
+
+    assert _ink_height(path, 2) <= 2, "尾巴是个平口，不是尖"
+    assert _ink_height(path, 2) < _ink_height(path, 60) < _ink_height(path, 150),         "尾巴到颈部没有渐宽"
+
+
+@pytest.mark.parametrize("style", (ArrowItem.STYLE_LINE, ArrowItem.STYLE_LINE_DOUBLE))
+def test_the_open_head_keeps_its_point(qapp, style):
+    """开口箭头的头尖必须是尖的。
+
+    杆是根长方形，一路怼到端点的话，平口会从尖的两侧支出来——线越粗越明显，
+    最后头和杆一样是个长方形。
+    """
+    path = _arrow(style, width=20.0).path()
+    line_w = 20.0 * 0.9
+
+    tip, mid, back = (_ink_height(path, END.x() - d) for d in (3, 15, 40))
+    assert tip <= line_w / 2, f"头尖被杆顶成了平口: {tip} 像素宽"
+    assert tip < mid < back, f"头没有越往回越宽: {tip} {mid} {back}"
+
+
+def test_the_outlined_arrow_takes_up_the_same_room_as_the_solid_one(qapp):
+    """空心和实心是同一个剪影，占的地方就得分毫不差。
+
+    描边骑在轮廓线上画的话，收成尖的尾巴会被斜接拉出一根长刺，空心箭头比用户
+    拖出来的那段长出一大截。
+    """
+    for width in (1.0, 3.0, 9.0, 20.0):
+        solid = _arrow(ArrowItem.STYLE_SINGLE, width=width).path().boundingRect()
+        outlined = _arrow(ArrowItem.STYLE_HOLLOW, width=width).path().boundingRect()
+        assert (outlined.left(), outlined.top(), outlined.right(), outlined.bottom()) ==             pytest.approx((solid.left(), solid.top(), solid.right(), solid.bottom()), abs=0.5),             f"线宽 {width} 时空心箭头比实心的多占了地方"
+
+
 def test_the_panel_offers_every_style(qapp):
     panel = ArrowSettingsPanel()
     try:
@@ -237,6 +285,46 @@ def test_the_panel_keeps_junk_out_of_the_style(qapp):
 
         panel.arrow_style = "nonsense"
         assert panel.arrow_style == ArrowItem.STYLE_BAR_ARROW
+    finally:
+        panel.deleteLater()
+
+
+def test_the_dropdown_puts_the_preview_in_the_middle(qapp):
+    """下拉一行里只有图标没有文字。
+
+    Qt 会把图标顶到行首、剩下的宽度全留给那串空文字，于是九张预览齐刷刷贴着
+    左边、右边空出一大块；行宽不够时还要先缩一道，箭头尖就顶在行的边线上。
+    量的是一块实心色：摆在哪儿不该跟着某种样式自己的形状变。
+    """
+    panel = ArrowSettingsPanel()
+    try:
+        combo = panel.arrow_style_combo
+        block = QPixmap(PREVIEW_SIZE)
+        block.fill(QColor("#000000"))
+        combo.setItemIcon(0, QIcon(block))
+
+        # 故意画进一行比预览宽出一截的行里：行到底多宽不由我们说了算（列表撑
+        # 开、缩放变了都会变），宽出多少都得把预览摆回正中
+        row = QRect(0, 0, PREVIEW_ROW_SIZE.width() + 40, PREVIEW_ROW_SIZE.height())
+        image = QImage(row.size(), QImage.Format.Format_ARGB32)
+        image.fill(Qt.GlobalColor.transparent)
+        option = QStyleOptionViewItem()
+        option.rect = row
+        painter = QPainter(image)
+        try:
+            combo.itemDelegate().paint(painter, option, combo.model().index(0, 0))
+        finally:
+            painter.end()
+
+        inked = [x for x in range(image.width())
+                 if any(image.pixelColor(x, y) == QColor("#000000")
+                        for y in range(image.height()))]
+        assert inked, "这一行没画出图标"
+
+        left, right = inked[0], image.width() - 1 - inked[-1]
+        assert abs(left - right) <= 1, f"预览没摆在行的正中：左 {left}px 右 {right}px"
+        assert left >= 4, "预览贴在行的边线上"
+        assert combo.view().minimumWidth() >= PREVIEW_ROW_SIZE.width(),             "弹出列表没按行宽撑开，预览会被挤回去"
     finally:
         panel.deleteLater()
 

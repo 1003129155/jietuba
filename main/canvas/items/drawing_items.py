@@ -549,6 +549,7 @@ class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
     # === 端头形态 ===
     HEAD_NONE = "none"            # 没有头（锥形尾巴收成尖）
     HEAD_SOLID = "solid"          # 实心三角
+    HEAD_SWEPT = "swept"          # 后掠燕尾：颈部先收窄，尾翼甩到颈部后方再收尖
     HEAD_OPEN = "open"            # 开口 V 形（描线画出来的两根翼）
     HEAD_BAR = "bar"              # 垂直短横杠
     HEAD_BAR_SOLID = "bar_solid"  # 短横杠 + 顶着横杠朝外的实心三角
@@ -560,9 +561,9 @@ class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
 
     # 样式表：样式 -> (箭杆, 起点端头, 终点端头, 是否只描边)
     STYLE_SPECS = {
-        STYLE_SINGLE:          (SHAFT_TAPER, HEAD_NONE,      HEAD_SOLID,     False),
-        STYLE_DOUBLE:          (SHAFT_EVEN,  HEAD_SOLID,     HEAD_SOLID,     False),
-        STYLE_HOLLOW:          (SHAFT_TAPER, HEAD_NONE,      HEAD_SOLID,     True),
+        STYLE_SINGLE:          (SHAFT_TAPER, HEAD_NONE,      HEAD_SWEPT,     False),
+        STYLE_DOUBLE:          (SHAFT_EVEN,  HEAD_SWEPT,     HEAD_SWEPT,     False),
+        STYLE_HOLLOW:          (SHAFT_TAPER, HEAD_NONE,      HEAD_SWEPT,     True),
         STYLE_LINE:            (SHAFT_LINE,  HEAD_NONE,      HEAD_OPEN,      False),
         STYLE_LINE_DOUBLE:     (SHAFT_LINE,  HEAD_OPEN,      HEAD_OPEN,      False),
         STYLE_TRIANGLE:        (SHAFT_LINE,  HEAD_NONE,      HEAD_SOLID,     False),
@@ -582,6 +583,12 @@ class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
     CLICK_MARGIN = 4  # 点击旷量（像素/每侧）
 
     OPEN_HEAD_ANGLE = math.radians(27)  # 开口箭头单侧张角
+
+    # 后掠燕尾头的比例，相对头半宽（head_half）：颈部比尾翼更靠近尖，尾翼往
+    # 后甩出去再收尖，画出来才有"后掠"的速度感，不是平底三角形
+    SWEPT_NECK_LEN_RATIO = 1.62    # 尖 -> 颈部（接杆处）的轴向距离
+    SWEPT_BARB_DEPTH_RATIO = 1.96  # 尖 -> 尾翼最宽处的轴向距离（比颈部更靠后）
+    SWEPT_NECK_HALF_RATIO = 0.4    # 颈部半宽 / 尾翼最宽半宽
 
     @classmethod
     def normalize_style(cls, value) -> str:
@@ -774,7 +781,7 @@ class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
             return None
         return start, end, mid, u_start, u_end, length
 
-    def _metrics(self, length: float, head_start: str, head_end: str, hollow: bool) -> dict:
+    def _metrics(self, length: float, head_start: str, head_end: str) -> dict:
         """按线宽算出各部件尺寸
 
         头的长宽比固定（head_len ≈ 1.75 * 半宽），所以无论线宽怎么调，箭头的
@@ -787,42 +794,66 @@ class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
 
         solid_heads = sum(1 for h in (head_start, head_end)
                           if h in (self.HEAD_SOLID, self.HEAD_BAR_SOLID))
-        if solid_heads:
-            budget = length * (0.45 if solid_heads == 1 else 0.34)
-            if head_len > budget:
+        swept_heads = sum(1 for h in (head_start, head_end) if h == self.HEAD_SWEPT)
+        if solid_heads or swept_heads:
+            budget = length * (0.45 if (solid_heads + swept_heads) == 1 else 0.34)
+            # 燕尾的尾翼比平底三角形的头更靠后地鼓出去，缩放要按那个更深的
+            # 进深来算，否则短箭头上尾翼会甩到起点外面
+            reach = head_len
+            if swept_heads:
+                reach = max(reach, head_half * self.SWEPT_BARB_DEPTH_RATIO)
+            if reach > budget:
                 # 等比缩，不是只压长度：只压长度会把头压成一把扁铲子
-                shrink = budget / head_len
+                shrink = budget / reach
                 head_half *= shrink
                 head_len *= shrink
+
+        line_w = max(base * 0.9, 2.0)
 
         wing_len = max(base * 4.2, 15.0)
         open_heads = sum(1 for h in (head_start, head_end) if h == self.HEAD_OPEN)
         if open_heads:
             wing_len = min(wing_len, length * (0.45 if open_heads == 1 else 0.35))
+        # 人字头的翼厚有上限：厚过 wing_len * tan(张角)，两翼的内边就越过轴线交叉，
+        # 头会拧成一个结。顶到上限时人字自己收成一个实心三角——短粗箭头正好该这样。
+        wing_w = min(line_w, wing_len * math.tan(self.OPEN_HEAD_ANGLE) * 0.9)
 
-        neck_w = head_half * 0.62
+        sweep_neck_half = head_half * self.SWEPT_NECK_HALF_RATIO
         return {
-            "line_w": max(base * 0.9, 2.0),
+            "line_w": line_w,
             "head_half": head_half,
             "head_len": head_len,
             "wing_len": wing_len,
+            "wing_w": wing_w,
+            # 人字头的内凹尖落在头尖后方这么远：两翼内边在轴线上就交在这儿
+            "open_notch": wing_w / math.sin(self.OPEN_HEAD_ANGLE),
             "bar_half": max(base * 2.0, 8.0),
-            "neck_w": neck_w,
-            # 空心箭头的尾巴不能收得太尖：一两个像素宽的锥尖描出边来只剩一团墨
-            "tail_w": neck_w * 0.4 if hollow else max(base * 0.12, 0.6),
+            "sweep_len": head_half * self.SWEPT_NECK_LEN_RATIO,
+            "sweep_depth": head_half * self.SWEPT_BARB_DEPTH_RATIO,
+            "sweep_neck_half": sweep_neck_half,
+            # 燕尾头接杆处的宽度，也是杆本身在这一端该有的宽度
+            "neck_w": sweep_neck_half * 2,
+            # 尾巴收成真正的尖：流线型箭头的尾巴一钝，整支看着就像被剪掉一截
+            "tail_w": 0.0,
             "outline_w": max(base * 0.34, 1.6),
         }
 
     def _head_trim(self, kind: str, m: dict) -> float:
         """箭杆在这一端要让出多少长度给端头
 
-        实心头留一点重叠（0.92），接缝处才不会因为抗锯齿透出一条细缝；开口头和
-        横杠是压在杆上的，不用让。
+        实心头留一点重叠（0.92），接缝处才不会因为抗锯齿透出一条细缝；横杠是
+        骑在端点上的，不用让。
         """
         if kind == self.HEAD_SOLID:
             return m["head_len"] * 0.92
+        if kind == self.HEAD_SWEPT:
+            return m["sweep_len"] * 0.92
         if kind == self.HEAD_BAR_SOLID:
             return m["line_w"] * 0.5 + m["head_len"] * 0.8 * 0.92
+        if kind == self.HEAD_OPEN:
+            # 杆是根长方形，怼到头尖上就会从尖的两侧支出两个角，头看着是钝的。
+            # 停在内凹尖前面一点：这一段被两翼盖着，杆的平口就藏进头里了。
+            return min(m["line_w"] * 1.4, m["open_notch"])
         return 0.0
 
     def _head_path(self, kind: str, tip: QPointF, out_dir: QPointF, m: dict) -> QPainterPath:
@@ -830,8 +861,12 @@ class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
         if kind == self.HEAD_SOLID:
             return self._solid_head_path(tip, out_dir, m["head_len"], m["head_half"])
 
+        if kind == self.HEAD_SWEPT:
+            return self._swept_head_path(tip, out_dir, m)
+
         if kind == self.HEAD_OPEN:
-            return self._open_head_path(tip, out_dir, m["wing_len"], m["line_w"])
+            return self._open_head_path(tip, out_dir, m["wing_len"],
+                                        m["wing_w"], m["open_notch"])
 
         if kind == self.HEAD_BAR:
             return self._bar_path(tip, out_dir, m["bar_half"], m["line_w"])
@@ -861,32 +896,67 @@ class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
         path.closeSubpath()
         return path
 
-    def _open_head_path(self, tip: QPointF, out_dir: QPointF,
-                        wing_len: float, line_w: float) -> QPainterPath:
-        """开口 V 形头：两根后掠的翼线描粗成面
+    def _swept_head_path(self, tip: QPointF, out_dir: QPointF, m: dict) -> QPainterPath:
+        """后掠燕尾头：颈部窄，尾翼比颈部更靠后地甩宽，再扫回尖上
 
-        两翼交点要往回缩半个线宽：圆角接头会在交点外鼓出一个半径 line_w/2 的
-        圆头，顶点摆在终点上的话，墨迹的尖就整整超出用户松手的位置半个线宽。
-        缩回去之后圆头的最外侧正好落在终点上，箭头指哪就是哪。
+        跟平底三角形（_solid_head_path）不同，这里的最宽点（尾翼）不在颈部，
+        而是颈部后方一截：轮廓从颈部先往外后甩到尾翼尖，再折回来收成头尖，
+        画出来是"尖三角 + 两片后掠尾翼"，比平底三角更有速度感。
         """
-        vertex = QPointF(tip.x() - out_dir.x() * line_w / 2,
-                         tip.y() - out_dir.y() * line_w / 2)
+        perp = self._perp(out_dir)
+        neck = QPointF(tip.x() - out_dir.x() * m["sweep_len"],
+                       tip.y() - out_dir.y() * m["sweep_len"])
+        barb = QPointF(tip.x() - out_dir.x() * m["sweep_depth"],
+                       tip.y() - out_dir.y() * m["sweep_depth"])
+        neck_half = m["sweep_neck_half"]
+        barb_half = m["head_half"]
+
+        path = QPainterPath()
+        path.moveTo(neck.x() + perp.x() * neck_half, neck.y() + perp.y() * neck_half)
+        path.lineTo(barb.x() + perp.x() * barb_half, barb.y() + perp.y() * barb_half)
+        path.lineTo(tip)
+        path.lineTo(barb.x() - perp.x() * barb_half, barb.y() - perp.y() * barb_half)
+        path.lineTo(neck.x() - perp.x() * neck_half, neck.y() - perp.y() * neck_half)
+        path.closeSubpath()
+        return path
+
+    def _open_head_path(self, tip: QPointF, out_dir: QPointF,
+                        wing_len: float, wing_w: float, notch: float) -> QPainterPath:
+        """开口头：一个有尖的人字形
+
+        轮廓直接按点连出来，不是把两根翼线描粗——描边器在两翼夹角处只会接出一
+        个半径半线宽的圆头，线一粗，头就是圆钝的，还整整鼓出用户松手位置半个
+        线宽。这里头尖就是端点本身：两翼外边从端点起后掠，末端顺着翼向平切，
+        内边再交回轴线收成凹口。
+        """
         cos_a = math.cos(self.OPEN_HEAD_ANGLE)
         sin_a = math.sin(self.OPEN_HEAD_ANGLE)
         back_x, back_y = -out_dir.x(), -out_dir.y()
         left = QPointF(back_x * cos_a - back_y * sin_a, back_x * sin_a + back_y * cos_a)
         right = QPointF(back_x * cos_a + back_y * sin_a, -back_x * sin_a + back_y * cos_a)
+        # 两翼各自朝轴线的法向：外边整条推过去 wing_w 就是内边
+        perp_left = self._perp(left)
+        in_left = QPointF(-perp_left.x(), -perp_left.y())
+        in_right = self._perp(right)
 
-        skeleton = QPainterPath()
-        skeleton.moveTo(vertex.x() + left.x() * wing_len, vertex.y() + left.y() * wing_len)
-        skeleton.lineTo(vertex)
-        skeleton.lineTo(vertex.x() + right.x() * wing_len, vertex.y() + right.y() * wing_len)
+        def wing_end(direction: QPointF, inward: QPointF):
+            outer = QPointF(tip.x() + direction.x() * wing_len,
+                            tip.y() + direction.y() * wing_len)
+            return outer, QPointF(outer.x() + inward.x() * wing_w,
+                                  outer.y() + inward.y() * wing_w)
 
-        stroker = QPainterPathStroker()
-        stroker.setWidth(line_w)
-        stroker.setCapStyle(Qt.PenCapStyle.RoundCap)
-        stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        return stroker.createStroke(skeleton)
+        out_left, inner_left = wing_end(left, in_left)
+        out_right, inner_right = wing_end(right, in_right)
+
+        path = QPainterPath()
+        path.moveTo(tip)
+        path.lineTo(out_left)
+        path.lineTo(inner_left)
+        path.lineTo(tip.x() + back_x * notch, tip.y() + back_y * notch)
+        path.lineTo(inner_right)
+        path.lineTo(out_right)
+        path.closeSubpath()
+        return path
 
     def _bar_path(self, at: QPointF, out_dir: QPointF,
                   bar_half: float, thickness: float) -> QPainterPath:
@@ -906,7 +976,8 @@ class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
         return path
 
     def _shaft_path(self, a: QPointF, b: QPointF, mid: QPointF,
-                    u_a: QPointF, u_b: QPointF, w_a: float, w_b: float) -> QPainterPath:
+                    u_a: QPointF, u_b: QPointF, w_a: float, w_b: float,
+                    chord: QPointF) -> QPainterPath:
         """从 a 到 b 的实心箭杆，经过曲线中点 mid
 
         上下两条边各是一条二次贝塞尔，控制点同样按 P1 = 2M - 0.5*A - 0.5*B 反
@@ -923,7 +994,12 @@ class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
         t = min(1.0, max(0.0, t))
         w_mid = w_a + (w_b - w_a) * t
 
-        u_mid = self._unit(QPointF(u_a.x() + u_b.x(), u_a.y() + u_b.y()), ab) or u_a
+        # mid 是原曲线 t=0.5 处的点：二次贝塞尔在自己中点的切线恒等于弦
+        # (end-start)，跟两端切线各自怎么偏都无关。弯得狠一点（比如往回折）
+        # u_a、u_b 会指向差很远甚至相反的方向，两者相加求平均就会退化成一个
+        # 大小不定、方向说不准的向量——中点的偏移量因此被甩到犄角旮旯，上下
+        # 两条边线在中间交叉，杆身画出来就是一段镂空。用弦方向就没有这个问题。
+        u_mid = self._unit(chord, ab) or u_a
         perp_a, perp_b, perp_mid = self._perp(u_a), self._perp(u_b), self._perp(u_mid)
 
         def edge(sign):
@@ -954,7 +1030,7 @@ class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
         start, end, mid, u_start, u_end, length = frame
 
         shaft_kind, head_start, head_end, hollow = self.STYLE_SPECS[self._arrow_style]
-        m = self._metrics(length, head_start, head_end, hollow)
+        m = self._metrics(length, head_start, head_end)
 
         # 箭杆两端各让出端头占的长度
         trim_start = self._head_trim(head_start, m)
@@ -971,9 +1047,13 @@ class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
             w_b = m["neck_w"] if head_end != self.HEAD_NONE else m["tail_w"]
 
         pieces = []
-        # 两头一挤，杆有可能已经被削没了（画得很短时）——那就只剩两个头
-        if (b.x() - a.x()) * u_start.x() + (b.y() - a.y()) * u_start.y() > 0.5:
-            pieces.append(self._shaft_path(a, b, mid, u_start, u_end, w_a, w_b))
+        # 两头一挤，杆有可能已经被削没了（画得很短时）——那就只剩两个头。
+        # 要用总长减两端裁掉的量来判断，不能把 b-a 投影到 u_start 上：弯曲弯得
+        # 狠一点，起点切线方向会偏离整条弧线的走向甚至反过来，投影会把明明还
+        # 很长的杆误判成"削没了"，杆身直接消失只剩两个头。
+        if length - trim_start - trim_end > 0.5:
+            chord = QPointF(end.x() - start.x(), end.y() - start.y())
+            pieces.append(self._shaft_path(a, b, mid, u_start, u_end, w_a, w_b, chord))
         pieces.append(self._head_path(head_start, start, QPointF(-u_start.x(), -u_start.y()), m))
         pieces.append(self._head_path(head_end, end, u_end, m))
 
@@ -987,11 +1067,14 @@ class ArrowItem(DrawingItemMixin, QGraphicsPathItem):
 
         self._hit_path = filled
         if hollow:
+            # 描边往轮廓内侧收（描双倍宽再与剪影取交）：骑在轮廓线上描的话，
+            # 收成尖的尾巴会被斜接拉出一根长刺——那支空心箭头就比用户拖出来的
+            # 那段长出一大截。收进去之后，空心和实心占的地方分毫不差。
             stroker = QPainterPathStroker()
-            stroker.setWidth(m["outline_w"])
+            stroker.setWidth(m["outline_w"] * 2)
             stroker.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
             stroker.setMiterLimit(8)
-            self.setPath(stroker.createStroke(filled).simplified())
+            self.setPath(stroker.createStroke(filled).intersected(filled).simplified())
         else:
             self.setPath(filled)
 
