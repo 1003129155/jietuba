@@ -2268,6 +2268,42 @@ Replace it?</source>
 <context>
     <name>ArrowSettingsPanel</name>
     <message>
+        <source>Solid Arrow</source>
+        <translation>채움 화살표</translation>
+    </message>
+    <message>
+        <source>Solid Double Arrow</source>
+        <translation>채움 양방향 화살표</translation>
+    </message>
+    <message>
+        <source>Outlined Arrow</source>
+        <translation>외곽선 화살표</translation>
+    </message>
+    <message>
+        <source>Line Arrow</source>
+        <translation>선 화살표</translation>
+    </message>
+    <message>
+        <source>Line Double Arrow</source>
+        <translation>선 양방향 화살표</translation>
+    </message>
+    <message>
+        <source>Thin Arrow</source>
+        <translation>얇은 화살표</translation>
+    </message>
+    <message>
+        <source>Thin Double Arrow</source>
+        <translation>얇은 양방향 화살표</translation>
+    </message>
+    <message>
+        <source>Dimension Line</source>
+        <translation>치수선</translation>
+    </message>
+    <message>
+        <source>Dimension Arrow</source>
+        <translation>치수 양방향 화살표</translation>
+    </message>
+    <message>
         <source>Arrow Style</source>
         <translation>화살표 스타일</translation>
     </message>

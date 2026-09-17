@@ -2243,6 +2243,42 @@ Replace it?</translation>
 <context>
     <name>ArrowSettingsPanel</name>
     <message>
+        <source>Solid Arrow</source>
+        <translation>Solid Arrow</translation>
+    </message>
+    <message>
+        <source>Solid Double Arrow</source>
+        <translation>Solid Double Arrow</translation>
+    </message>
+    <message>
+        <source>Outlined Arrow</source>
+        <translation>Outlined Arrow</translation>
+    </message>
+    <message>
+        <source>Line Arrow</source>
+        <translation>Line Arrow</translation>
+    </message>
+    <message>
+        <source>Line Double Arrow</source>
+        <translation>Line Double Arrow</translation>
+    </message>
+    <message>
+        <source>Thin Arrow</source>
+        <translation>Thin Arrow</translation>
+    </message>
+    <message>
+        <source>Thin Double Arrow</source>
+        <translation>Thin Double Arrow</translation>
+    </message>
+    <message>
+        <source>Dimension Line</source>
+        <translation>Dimension Line</translation>
+    </message>
+    <message>
+        <source>Dimension Arrow</source>
+        <translation>Dimension Arrow</translation>
+    </message>
+    <message>
         <source>Arrow Style</source>
         <translation>Arrow Style</translation>
     </message>

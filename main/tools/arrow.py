@@ -24,8 +24,8 @@ class ArrowTool(Tool):
         self.drawing = False
         self.start_pos = None
         self.current_item = None
-        # 箭头样式：single（单头）或 double（双头）
-        self.arrow_style = "single"
+        # 箭头样式，取值见 ArrowItem.STYLES
+        self.arrow_style = ArrowItem.STYLE_SINGLE
     
     def on_press(self, pos: QPointF, button, ctx: ToolContext):
         if button == Qt.MouseButton.LeftButton:
@@ -35,7 +35,7 @@ class ArrowTool(Tool):
             # 从设置管理器获取箭头样式
             if ctx.settings_manager:
                 settings = ctx.settings_manager.get_tool_settings("arrow")
-                self.arrow_style = settings.get("arrow_style", "single")
+                self.arrow_style = ArrowItem.normalize_style(settings.get("arrow_style"))
             
             pen_color = color_with_opacity(ctx.color, ctx.opacity)
             pen = QPen(pen_color, ctx.stroke_width)
