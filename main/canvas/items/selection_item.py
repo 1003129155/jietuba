@@ -1,4 +1,4 @@
-﻿"""
+"""
 选区框 - 边框和控制点
 """
 
@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from canvas.selection_model import SelectionModel
-from .drawing_items import TextItem
+from .text_item import TextItem
 from core.logger import log_debug, T
 from core.theme import get_theme
 from core import safe_event
