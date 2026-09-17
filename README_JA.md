@@ -1,12 +1,18 @@
-[中文](README.md) | [English](README_EN.md) | **[日本語](README_JA.md)**
+[中文](README_zh-CN.md) | [English](README.md) | **[日本語](README_JA.md)**
 
-# スクリーンショット＆クリップボード管理ソフト — jietuba
+# jietuba — Windows 向けスクリーンショット・OCR・ピン留め・翻訳・クリップボードツール
+
+[![build](https://img.shields.io/github/actions/workflow/status/1003129155/jietuba/ci.yml?branch=master2&label=build&style=flat-square)](https://github.com/1003129155/jietuba/actions/workflows/ci.yml) [![license](https://img.shields.io/github/license/1003129155/jietuba?style=flat-square)](LICENSE) [![release](https://img.shields.io/github/v/release/1003129155/jietuba?style=flat-square)](https://github.com/1003129155/jietuba/releases/latest) ![platform](https://img.shields.io/badge/Windows-x64%20%7C%20ARM64-0078D4?style=flat-square)
 
 [Windows 版をダウンロード](https://github.com/1003129155/jietuba/releases/latest) · [ソースから実行](#source-setup) · [開発とテスト](#development)
 
+![jietuba demo](https://github.com/user-attachments/assets/5318b991-b0de-46a2-9c0e-d75eeae2a827)
+
 ## 概要
 
-Windows x86_64 および ARM64 向けのスクリーンショット・クリップボード管理アプリケーションです。UI は PySide6、画像処理・クリップボード操作・OCR などは Rust で実装しています。領域キャプチャ、ウィンドウスマート検出、GIF録画、長いスクリーンショットの結合、OCR文字認識、QRコード/バーコード読み取り、画像ピン留め、翻訳、モザイク、PDFエクスポート機能を備え、完全なクリップボード履歴管理システムを搭載しています。
+jietuba は Windows 向けの無料・オープンソースのスクリーンショットツールです。領域/ウィンドウキャプチャ、スクロール（長い）スクリーンショット、注釈、OCR 文字認識、翻訳、画像のピン留め、GIF 録画、QR コード/バーコード読み取り、PDF エクスポート、そして完全なクリップボード履歴管理を備えています。すべてローカルで動作します。
+
+UI は PySide6、画像処理・クリップボード操作・OCR は Rust で実装しています。Windows x86_64 および ARM64 に対応。
 
 すぐに使える Windows 版の配布パッケージと、ソースからの実行方法を用意しています。
 
@@ -118,7 +124,7 @@ Windows 版のビルドは `python build_with_ocr_onefile.py` で実行できま
 
 ```text
 # プロジェクトルート
-├── README.md / README_EN.md / README_JA.md             # 中国語・英語・日本語ドキュメント
+├── README.md / README_zh-CN.md / README_JA.md          # 英語・中国語・日本語ドキュメント
 ├── pyproject.toml                                      # Pythonプロジェクトのメタデータと依存関係
 ├── requirements.txt                                   # 実行時依存パッケージ
 ├── requirements-dev.txt                               # テスト・ビルド用依存パッケージ
@@ -202,12 +208,16 @@ canvas/
 ├── undo.py                  # CommandUndoStack — アンドゥ/リドゥスタック
 ├── smart_edit_controller.py # SmartEditController — 選択/編集モード切替
 ├── handle_editor.py         # LayerEditor / EditHandle — コントロールポイントドラッグ編集
+├── gestures.py              # マウスジェスチャの状態機械 — 文字の端ドラッグ、ラバーバンド選択、保留中のクリック編集
+├── handle_overlay.py        # HandleOverlay — 編集ハンドル専用の合成レイヤー、シーン全体の再描画を回避
 └── items/
-    ├── drawing_items.py     # StrokeItem / RectItem / EllipseItem / ArrowItem / TextItem / NumberItem
+    ├── drawing_items.py     # StrokeItem / RectItem / EllipseItem / NumberItem — DrawingItemMixin を共有する描画アイテム
     ├── background_item.py   # BackgroundItem — 選択領域の背景
     ├── mosaic_item.py       # MosaicItem — モザイクアイテム
     ├── spotlight_item.py    # SpotlightItem / SpotlightCurtain — スポットライトの穴と共有の幕
-    └── selection_item.py    # SelectionItem — 選択境界表示
+    ├── selection_item.py    # SelectionItem — 選択境界表示
+    ├── arrow_item.py        # ArrowItem — 矢印アイテム、9 種類の軸・先端・輪郭のジオメトリ
+    └── text_item.py         # TextItem — テキストアイテム、縁取り/影/背景と三状態の操作枠
 ```
 
 </details>
@@ -246,11 +256,13 @@ clipboard/
 ├── controllers/             # 制御層 — 履歴読み込み、貼り付け処理、メニュー、選択状態
 │   ├── clipboard_controller.py   # ClipboardController — 読み込み、貼り付け、コンテキストメニュー
 │   ├── selection_manager.py      # SelectionManager — リスト選択状態管理
+│   ├── context_menu_controller.py  # ContextMenuController — コンテキストメニューのデータと動作の組み立て
 │   └── __init__.py
 ├── core/                    # データ層 — pyclipboard ラッパー、モデル、グループ種別
 │   ├── manager.py           # ClipboardManager — 保存、監視、貼り付け API
 │   ├── models.py            # ClipboardItem / Group データモデル
 │   ├── enums.py             # GroupType 定義
+│   ├── text_transform.py    # プレーンテキスト変換 — 「特殊貼り付け」用の副作用のない純関数群
 │   └── __init__.py
 ├── services/                # サービス層 — file payload、グループ規則、入出力、保存ロジック
 │   ├── file_payload_service.py   # file 型 JSON payload と旧形式互換
@@ -258,6 +270,7 @@ clipboard/
 │   ├── import_export_service.py  # テキスト項目の CSV インポート/エクスポート
 │   └── manage_dialog_service.py  # 管理ウィンドウの保存ロジック
 ├── ui/
+│   ├── layout_scale.py           # 管理ウィンドウ共通のサイズ定数
 │   ├── dialogs/
 │   │   └── manage_dialog.py      # グループ・内容・入出力を扱う3ペイン管理ウィンドウ
 │   ├── forms/
@@ -266,6 +279,10 @@ clipboard/
 │   │   ├── file_content_form.py
 │   │   ├── import_export_form.py
 │   │   └── group_icon_picker.py
+│   ├── menus/
+│   │   ├── action_menu.py
+│   │   ├── group_context_menu.py
+│   │   └── item_context_menu.py
 │   ├── mixins/
 │   │   └── frameless_mixin.py
 │   ├── panels/
@@ -320,7 +337,8 @@ core/
 ├── platform_utils.py        # DPI設定、AppUserModelID、Windows APIユーティリティ
 ├── qt_utils.py              # safe_disconnect() — Qtシグナル安全切断
 ├── log_translations/        # 各モジュールのログ翻訳ヘルパー
-└── constants.py             # グローバル定数（フォント、パス等）
+├── constants.py             # グローバル定数（フォント、パス等）
+└── ui_theme.py              # UIThemeManager — アプリ窓と Qt ネイティブ部品のライト/ダーク外観
 ```
 
 </details>
@@ -581,9 +599,9 @@ ui/
 │   ├── page1_welcome.py     # ウェルカムページ
 │   ├── page2_screenshot.py  # スクリーンショットホットキー設定ページ
 │   ├── page3_clipboard.py   # クリップボードホットキー設定ページ
-│   ├── page4_smart_select.py # スマート選択説明ページ
 │   ├── page5_translation.py # 翻訳機能説明ページ
-│   └── page6_finish.py      # 完了ページ
+│   ├── page6_finish.py      # 完了ページ
+│   └── page_hotkeys.py      # グローバルホットキーページ — 6 つのキーは同一の衝突領域、まとめて設定・重複判定
 │
 └── selection_info/          # 選択情報UI
     ├── controller.py        # 選択情報コントローラー
