@@ -513,21 +513,23 @@ class SmartEditController(QObject):
     def select_item(self, item: QGraphicsItem, auto_select: bool = False):
         """
         选择图元
-        
+
+        selected_item 就是"谁被选中"的唯一出处，不再同步给 Qt 的 setSelected()：
+        那份状态 Qt 自己在鼠标事件里也会改，两个所有者对不上的时候，画出来的框
+        和手柄作用的对象就会是两个图元（见 DrawingItemMixin.is_edit_target）。
+
         Args:
             item: 要选择的 QGraphicsItem
             auto_select: 是否是自动选择（绘制后自动选中）
         """
         if self.selected_item == item:
             return
-        
-        # 取消之前的选择
-        if self.selected_item:
-            self.selected_item.setSelected(False)
-        
-        # 选择新图元
+
+        previous = self.selected_item
         self.selected_item = item
-        item.setSelected(True)
+        if previous is not None:
+            previous.update()
+        item.update()
         self.mode = SelectionMode.SELECTED
         self._move_initial_state = None
         self._is_auto_selected = auto_select  # 记录是否是自动选择
@@ -548,12 +550,15 @@ class SmartEditController(QObject):
         """清除选择"""
         self._active_click_handle = None
         if self.selected_item:
-            self.selected_item.setSelected(False)
-            
+            previous = self.selected_item
+
             # 如果是自动选择（绘制后自动选中），清除时不阻止下次绘图
             was_auto_selected = self._is_auto_selected
-            
+
             self.selected_item = None
+            # 框的有无由 selected_item 决定，得显式重画——以前这一下是
+            # setSelected() 顺带做掉的
+            previous.update()
             self.mode = SelectionMode.NONE
             self._move_initial_state = None
             self._is_auto_selected = False

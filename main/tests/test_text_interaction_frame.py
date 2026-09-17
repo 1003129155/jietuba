@@ -200,6 +200,26 @@ def test_the_text_being_edited_gets_a_solid_frame(canvas):
     assert painted >= total - tolerance, "编辑中的文字要一圈连续的实线框"
 
 
+def test_the_text_being_edited_keeps_its_frame_under_another_tool(canvas):
+    """拿着矩形工具编辑一段文字，那一圈实线框不能没：手柄就挂在它身上。
+
+    别的图元"选中就画实线"要过一道"当前工具选得中它吗"的门（画笔笔画要 Ctrl 才
+    选得中，不该平白多出一圈框）。文字这一路不能过那道门——矩形工具下它对文字
+    返回 False，而正在编辑的那一段必须有框。
+    """
+    scene, view = canvas(tool="rect")
+    item = _text("edit me")
+    scene.addItem(item)
+
+    view._enter_text_edit_mode(item)
+
+    assert item.is_editing()
+    assert not item._can_show_hover()  # 前置条件：矩形工具确实选不中文字
+    painted, total = _top_edge_coverage(item)
+    tolerance = 4 + 2 * TextItem.CLICK_MARGIN
+    assert painted >= total - tolerance, "跨工具编辑时实线框丢了"
+
+
 def test_hovering_a_candidate_text_gets_a_dashed_frame(canvas):
     """悬停的是"再点一下就会切过去"的那一段，和当前编辑的那一段必须一眼分得开。"""
     scene, view = canvas()
