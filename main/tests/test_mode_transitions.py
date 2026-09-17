@@ -46,9 +46,9 @@ RESTING = {
 def _snapshot(view):
     controller = view.smart_edit_controller
     return {
-        "is_drawing": view.is_drawing,
-        "is_selecting": view.is_selecting,
-        "is_dragging_selection": view.is_dragging_selection,
+        "is_drawing": view.drawing.active,
+        "is_selecting": view.selection_drag.active,
+        "is_dragging_selection": view.selection_drag.dragging,
         "text_drag.active": view.text_drag.active,
         "text_drag.item": view.text_drag.item,
         "text_drag.hover_item": view.text_drag.hover_item,

@@ -1,4 +1,4 @@
-import pytest
+﻿import pytest
 
 from PySide6.QtCore import QPoint, QPointF, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QTransform
@@ -393,7 +393,7 @@ def test_mosaic_null_reduced_image_cleans_view_and_next_stroke_works(monkeypatch
     QTest.mousePress(view.viewport(), Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, QPoint(20, 20))
     QTest.mouseRelease(view.viewport(), Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, QPoint(20, 20))
 
-    assert view.is_drawing is False
+    assert view.drawing.active is False
     assert tool.current_item is None
     assert scene.undo_stack.count() == 0
 
@@ -402,7 +402,7 @@ def test_mosaic_null_reduced_image_cleans_view_and_next_stroke_works(monkeypatch
     QTest.mouseMove(view.viewport(), QPoint(36, 20))
     QTest.mouseRelease(view.viewport(), Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, QPoint(36, 20))
 
-    assert view.is_drawing is False
+    assert view.drawing.active is False
     assert scene.undo_stack.count() == 1
     assert any(isinstance(item, MosaicItem) for item in scene.items())
     parent.close()
