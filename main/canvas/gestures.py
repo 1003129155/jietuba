@@ -1,19 +1,20 @@
-﻿"""由 View 自己接管的两种鼠标手势。
+﻿"""由 View 自己接管的鼠标手势。
 
-这两种手势的状态原先是 CanvasView 上七个零散的字段（_text_drag_active、
-_manual_item_drag_last_scene_pos……），跨七八个方法读写。光看 view 上那一排字段，
-看不出谁和谁是一伙的，更看不出一次手势该怎么开始、怎么收尾。收进来之后，每种手势
-的三个阶段在同一个类里排成一列。
-
-不是所有拖动都归这里——Qt 自己的 ItemIsMovable 能处理的仍然交给 Qt（图元照样会被
-scene 认成 mouse grabber）。这里只有它做不到的那两种：
+这些手势的状态原先是 CanvasView 上十个零散的字段（_text_drag_active、
+_manual_item_drag_last_scene_pos、_pending_text_edit_moved……），跨十来个方法读写。
+光看 view 上那一排字段，看不出谁和谁是一伙的，更看不出一次手势该怎么开始、怎么收尾。
+收进来之后，每种手势的几个阶段在同一个类里排成一列。
 
 - TextEdgeDrag：正在编辑的文字，内部是输入光标，只有边缘那一圈能拖着走整段；
+- PendingTextEdit：单击已选中的文字进入编辑，按下先挂起、松手才算数；
 - ManualItemDrag：控制器有意越过顶层图元往下选中当前工具兼容的目标时（拿矩形工具
   点一段压在矩形边框上的文字就是如此），Qt 会把 move 派给顶层那个，所以这次手势
   必须由 View 全程拥有。
 
-两种都得自己把撤销那一份接过来：进入时抓一次快照，松手时交给
+不是所有拖动都归这里——Qt 自己的 ItemIsMovable 能处理的仍然交给 Qt（图元照样会被
+scene 认成 mouse grabber），这里只收它做不到的那些。
+
+两种拖动都得自己把撤销那一份接过来：进入时抓一次快照，松手时交给
 SmartEditController._finalize_move_edit 比较前后状态、推一条 EditItemCommand。
 快照只在进入时抓一次，所以拖多远都还是一条；原地按一下又放开则一条都不推。历史上
 TextEdgeDrag 漏过这一步——位置变了、撤销栈里却什么都没有，见 test_undo_granularity.py。
@@ -92,7 +93,7 @@ class TextEdgeDrag:
     def begin(self, item: QGraphicsTextItem, scene_pos: QPointF):
         """接管这次手势，同时抓一份进入拖动前的状态留给撤销。"""
         view = self._view
-        view._clear_pending_text_edit()
+        view.pending_text_edit.clear()
         self.active = True
         self.item = item
         self._last_scene_pos = scene_pos
@@ -135,6 +136,67 @@ class TextEdgeDrag:
         self.item = None
         self._last_scene_pos = None
         self.set_cursor(False)
+
+
+class PendingTextEdit:
+    """单击已选中的文字进入编辑——按下时先挂起，松手时才算数。
+
+    不能在按下那一刻就进编辑：同样这一下也可能是拖动的开头。所以按下只记住"点的是
+    哪一段、从哪儿按下的"，中途移动超过容差就作废，松手时手指还在原地才真的进去。
+    """
+
+    # 按下到松开之间挪过这么多像素，就当成拖动而不是单击
+    MOVE_TOLERANCE = 5
+
+    def __init__(self, view):
+        self._view = view
+        self.item = None
+        self._press_pos = None
+        self._moved = False
+
+    def arm(self, event, scene_pos: QPointF):
+        view = self._view
+        if event.button() != Qt.MouseButton.LeftButton:
+            return
+        if view._is_text_editing():
+            return
+        item = getattr(view.smart_edit_controller, "selected_item", None)
+        if not isinstance(item, QGraphicsTextItem):
+            return
+        # 只在点击位置仍在文字上时才进入待编辑状态
+        if not item.contains(item.mapFromScene(scene_pos)):
+            return
+        self.item = item
+        self._press_pos = event.pos()
+        self._moved = False
+
+    def track(self, event):
+        if self.item is None or self._press_pos is None:
+            return
+        if not (event.buttons() & Qt.MouseButton.LeftButton):
+            return
+        if (event.pos() - self._press_pos).manhattanLength() > self.MOVE_TOLERANCE:
+            self._moved = True
+
+    def settle(self, event, scene_pos: QPointF):
+        """松手：这一下还算单击、且仍落在那段文字上，才进编辑。"""
+        item = self.item
+        if item is None:
+            return
+        should_enter = (
+            event.button() == Qt.MouseButton.LeftButton
+            and not self._moved
+            and isinstance(item, QGraphicsTextItem)
+            and item.contains(item.mapFromScene(scene_pos))
+        )
+        self.clear()
+        if should_enter:
+            self._view._enter_text_edit_mode(item)
+
+    def clear(self):
+        self.item = None
+        self._press_pos = None
+        self._moved = False
 
 
 class ManualItemDrag:
