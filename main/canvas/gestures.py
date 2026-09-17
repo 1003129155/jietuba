@@ -21,8 +21,93 @@ TextEdgeDrag 漏过这一步——位置变了、撤销栈里却什么都没有�
 """
 from __future__ import annotations
 
-from PySide6.QtCore import QPointF, Qt
+from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtWidgets import QGraphicsTextItem
+
+
+class SelectionDrag:
+    """拉出截图选区——选区确认之前的那一段。
+
+    按下就进入，但要挪过一道距离阈值才算"在拉框"：不过这一关的话，随手点一下会把
+    选区缩成一个点。松手即确认，之后整块画布转入编辑。
+    """
+
+    # 按下之后挪过这么多像素才算在拉框，而不是单纯点了一下
+    DRAG_THRESHOLD = 10
+
+    def __init__(self, view):
+        self._view = view
+        self.active = False
+        self.dragging = False
+        self.start_pos = QPointF()
+
+    def begin(self, scene_pos: QPointF):
+        view = self._view
+        self.active = True
+        self.dragging = False
+        self.start_pos = scene_pos
+        model = view.canvas_scene.selection_model
+        model.activate()
+        # 开始拖拽，隐藏控制点（降低渲染压力）
+        model.start_dragging()
+        # 智能选区：点击时立即更新选区（防止 activate 清除选区）
+        if view.smart_selection_enabled:
+            smart_rect = view._get_smart_selection_rect(scene_pos)
+            if not smart_rect.isEmpty():
+                model.set_rect(smart_rect)
+
+    def perform(self, scene_pos: QPointF):
+        view = self._view
+        view._update_magnifier_overlay(scene_pos)
+        if not self.dragging:
+            if (scene_pos - self.start_pos).manhattanLength() > self.DRAG_THRESHOLD:
+                self.dragging = True
+        if self.dragging:
+            rect = QRectF(self.start_pos, scene_pos).normalized()
+            view.canvas_scene.selection_model.set_rect(rect)
+
+    def end(self):
+        view = self._view
+        self.active = False
+        self.dragging = False
+        # 结束拖拽，显示控制点
+        view.canvas_scene.selection_model.stop_dragging()
+        view.canvas_scene.confirm_selection()
+
+
+class DrawingStroke:
+    """用当前工具画一笔：按下起头、移动喂点、松手收尾。
+
+    这一笔画成什么、要不要入撤销栈，全归工具自己（tools/ 下那些 Tool 子类）；这里
+    只管"现在是不是正画着"，以及把三个阶段转给工具。
+    """
+
+    def __init__(self, view):
+        self._view = view
+        self.active = False
+
+    def begin(self, scene_pos: QPointF, button):
+        view = self._view
+        self.active = True
+        # 立即隐藏放大镜，避免 hide() 和首帧绘图重绘叠加导致卡顿
+        view._clear_magnifier_overlay()
+        started = view.canvas_scene.tool_controller.on_press(scene_pos, button)
+        # 工具可以拒绝起笔（比如序号工具够不到位置），那就当这一下没画
+        if started is False:
+            self.active = False
+
+    def perform(self, scene_pos: QPointF):
+        """绘图中放大镜已在按下时隐藏，这里不必每帧再判断一次。"""
+        view = self._view
+        view.canvas_scene.tool_controller.on_move(scene_pos)
+        view._apply_tool_cursor()
+
+    def end(self, scene_pos: QPointF):
+        view = self._view
+        self.active = False
+        view.canvas_scene.tool_controller.on_release(scene_pos)
+        # 绘图结束，恢复放大镜跟踪（如果此时 _should_render 允许显示）
+        view._update_magnifier_overlay(scene_pos)
 
 
 class TextEdgeDrag:

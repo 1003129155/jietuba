@@ -1,4 +1,4 @@
-"""Isolated Qt cases invoked one function family per child process."""
+﻿"""Isolated Qt cases invoked one function family per child process."""
 
 import os
 import subprocess
@@ -433,7 +433,7 @@ def test_drag_created_selection_allows_double_click_confirmation(qapp):
     QTest.mouseRelease(viewport, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, QPoint(140, 100))
 
     assert scene.selection_model.is_confirmed
-    assert view.is_dragging_selection is False
+    assert view.selection_drag.dragging is False
     _single_then_double(view, QPoint(80, 60))
     assert window.confirm_calls == 1
 

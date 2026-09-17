@@ -71,14 +71,10 @@ class CanvasView(QGraphicsView):
         self.viewport().setMouseTracking(True)
         
         # 交互状态
-        self.is_selecting = False  # 是否在选择区域
-        self.is_drawing = False    # 是否在绘制
-        self.is_dragging_selection = False # 是否正在拖拽选区（用于区分点击和拖拽）
         
         # 启用鼠标追踪以支持悬停检测
         self.setMouseTracking(True)
         
-        self.start_pos = QPointF()
         
         # 智能选区相关
         self.smart_selection_enabled = False
@@ -127,7 +123,11 @@ class CanvasView(QGraphicsView):
         # Pending 单击文字进入编辑的状态
 
         # 两种由 View 全程接管的手势，各自管着自己那一摊状态（见 canvas/gestures.py）
-        from canvas.gestures import ManualItemDrag, PendingTextEdit, TextEdgeDrag
+        from canvas.gestures import (
+            DrawingStroke, ManualItemDrag, PendingTextEdit, SelectionDrag, TextEdgeDrag,
+        )
+        self.drawing = DrawingStroke(self)
+        self.selection_drag = SelectionDrag(self)
         self.text_drag = TextEdgeDrag(self)
         self.item_drag = ManualItemDrag(self)
         self.pending_text_edit = PendingTextEdit(self)
@@ -771,18 +771,7 @@ class CanvasView(QGraphicsView):
         
         if not self.canvas_scene.selection_model.is_confirmed:
             # 选区未确认：拖拽创建选区
-            self.is_selecting = True
-            self.is_dragging_selection = False # 重置拖拽状态
-            self.start_pos = scene_pos
-            self.canvas_scene.selection_model.activate()
-            # 开始拖拽，隐藏控制点（降低渲染压力）
-            self.canvas_scene.selection_model.start_dragging()
-            
-            # 智能选区：点击时立即更新选区（防止 activate 清除选区）
-            if self.smart_selection_enabled:
-                smart_rect = self._get_smart_selection_rect(scene_pos)
-                if not smart_rect.isEmpty():
-                    self.canvas_scene.selection_model.set_rect(smart_rect)
+            self.selection_drag.begin(scene_pos)
         else:
             # 选区已确认：优先尝试智能编辑
             # 先快照"按下之前"的可回滚状态，但只有穿过下面的编辑分支
@@ -883,12 +872,7 @@ class CanvasView(QGraphicsView):
             if is_drawing_tool:
                 # 绘图工具激活：绘图
                 log_debug(T("开始绘图"), "CanvasView")
-                self.is_drawing = True
-                # 立即隐藏放大镜，避免 hide() 和首帧绘图重绘叠加导致卡顿
-                self._clear_magnifier_overlay()
-                started = self.canvas_scene.tool_controller.on_press(scene_pos, event.button())
-                if started is False:
-                    self.is_drawing = False
+                self.drawing.begin(scene_pos, event.button())
             else:
                 # cursor 工具：传递给 Scene（可能拖拽窗口/选区）
                 log_debug(T("cursor工具，传递给Scene"), "CanvasView")
@@ -938,7 +922,7 @@ class CanvasView(QGraphicsView):
             return None
         if event.modifiers() != Qt.KeyboardModifier.NoModifier:
             return None
-        if self.is_selecting or self.is_drawing or self.is_dragging_selection:
+        if self.selection_drag.active or self.drawing.active or self.selection_drag.dragging:
             return None
         if self.text_drag.active:
             return None
@@ -969,7 +953,7 @@ class CanvasView(QGraphicsView):
             return False
         if event.modifiers() != Qt.KeyboardModifier.NoModifier:
             return False
-        if candidate["dragged"] or self.is_drawing or self.is_selecting:
+        if candidate["dragged"] or self.drawing.active or self.selection_drag.active:
             return False
 
         original_selection = candidate["selection_rect"]
@@ -1038,7 +1022,7 @@ class CanvasView(QGraphicsView):
         # A crop handle can mutate the selection without an undo command.
         self.canvas_scene.selection_model.set_rect(QRectF(original_selection))
         self.canvas_scene.selection_model.stop_dragging()
-        self.is_dragging_selection = False
+        self.selection_drag.dragging = False
 
         event.accept()
         handler()
@@ -1053,8 +1037,8 @@ class CanvasView(QGraphicsView):
         鼠标移动事件 - 状态机路由
         
         状态优先级（互斥）：
-        1. 创建选区 (is_selecting)
-        2. 绘图中 (is_drawing)
+        1. 创建选区 (selection_drag.active)
+        2. 绘图中 (drawing.active)
         3. 文字拖拽 (text_drag.active)
         4. 选区已确认 - 编辑模式
         5. 选区未确认 - 悬停预览
@@ -1074,15 +1058,15 @@ class CanvasView(QGraphicsView):
         # ====================================================================
         # 状态1：创建选区（拖拽选框）
         # ====================================================================
-        if self.is_selecting:
-            self._handle_selection_drag(scene_pos)
+        if self.selection_drag.active:
+            self.selection_drag.perform(scene_pos)
             return
         
         # ====================================================================
         # 状态2：绘图中（使用画笔/矩形/箭头等工具）
         # ====================================================================
-        if self.is_drawing:
-            self._handle_drawing_move(scene_pos)
+        if self.drawing.active:
+            self.drawing.perform(scene_pos)
             return
         
         # ====================================================================
@@ -1106,36 +1090,6 @@ class CanvasView(QGraphicsView):
 
     # ========================================================================
     # 状态处理器：创建选区
-    # ========================================================================
-    
-    def _handle_selection_drag(self, scene_pos: QPointF):
-        """处理选区拖拽（状态1）"""
-        self._update_magnifier_overlay(scene_pos)
-        
-        if not self.is_dragging_selection:
-            dist = (scene_pos - self.start_pos).manhattanLength()
-            if dist > 10:
-                self.is_dragging_selection = True
-
-        if self.is_dragging_selection:
-            rect = QRectF(self.start_pos, scene_pos).normalized()
-            self.canvas_scene.selection_model.set_rect(rect)
-    
-    # ========================================================================
-    # 状态处理器：绘图模式
-    # ========================================================================
-    
-    def _handle_drawing_move(self, scene_pos: QPointF):
-        """处理绘图工具移动（状态2）
-        
-        绘图中放大镜已在 mousePressEvent 开始时隐藏，
-        不再每帧调用 _update_magnifier_overlay 做无用判断。
-        """
-        self.canvas_scene.tool_controller.on_move(scene_pos)
-        self._apply_tool_cursor()
-    
-    # ========================================================================
-    # 状态处理器：文字拖拽
     # ========================================================================
     
     def _handle_text_drag_move(self, scene_pos: QPointF):
@@ -1321,8 +1275,8 @@ class CanvasView(QGraphicsView):
         鼠标释放
         
         逻辑：
-        1. is_selecting=True → 完成选区创建，确认选区
-        2. is_drawing=True → 完成绘图，调用工具的 on_release
+        1. selection_drag.active → 完成选区创建，确认选区
+        2. drawing.active → 完成绘图，调用工具的 on_release
         3. 智能编辑控制点拖拽 → LayerEditor 处理
         4. 其他情况 → 智能编辑 + 传递给 Scene
         """
@@ -1332,20 +1286,12 @@ class CanvasView(QGraphicsView):
             self.text_drag.end()
             return
 
-        if self.is_selecting:
-            self.is_selecting = False
-            self.is_dragging_selection = False
-            # 结束拖拽，显示控制点
-            self.canvas_scene.selection_model.stop_dragging()
-            # 确认选区
-            self.canvas_scene.confirm_selection()
+        if self.selection_drag.active:
+            self.selection_drag.end()
             return
         
-        if self.is_drawing:
-            self.is_drawing = False
-            self.canvas_scene.tool_controller.on_release(scene_pos)
-            # 绘图结束，恢复放大镜跟踪（如果此时 _should_render 允许显示）
-            self._update_magnifier_overlay(scene_pos)
+        if self.drawing.active:
+            self.drawing.end(scene_pos)
             return
 
         if self.item_drag.active:

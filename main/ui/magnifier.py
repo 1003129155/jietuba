@@ -466,7 +466,7 @@ class MagnifierOverlay(QWidget):
 		if self.cursor_scene_pos is None or not self.scene or not self.view:
 			return False
 		view = self.view
-		if view.is_drawing:
+		if view.drawing.active:
 			return False
 		if view.text_drag.active:
 			return False
