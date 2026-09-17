@@ -468,7 +468,7 @@ class MagnifierOverlay(QWidget):
 		view = self.view
 		if view.is_drawing:
 			return False
-		if view._text_drag_active:
+		if view.text_drag.active:
 			return False
 		try:
 			if view.smart_edit_controller.layer_editor.dragging_handle:

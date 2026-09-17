@@ -1,4 +1,4 @@
-from math import ceil
+﻿from math import ceil
 from pathlib import Path
 
 import pytest
@@ -328,7 +328,7 @@ def test_active_text_edit_starts_scale_handle_drag_on_first_press(qapp):
         ))
 
         assert editor.dragging_handle is handle
-        assert not view._text_drag_active
+        assert not view.text_drag.active
 
         drag_scene_pos = handle.position + QPointF(30, 15)
         drag_view_pos = QPointF(view.mapFromScene(drag_scene_pos))
@@ -816,7 +816,7 @@ def test_view_owns_press_and_drag_when_compatible_item_is_below_top_text(qapp):
         moved = rect.pos()
         assert moved != start
         assert text.pos() == QPointF(0, 0)
-        assert not view._manual_item_drag_active
+        assert not view.item_drag.active
         assert not view.smart_edit_controller.is_dragging
         assert scene.undo_stack.canUndo()
         scene.undo_stack.undo()
@@ -851,7 +851,7 @@ def test_manual_lower_item_drag_finishes_on_tool_switch_with_one_undo(qapp):
         scene.activate_tool("ellipse")
 
         assert moved != start
-        assert not view._manual_item_drag_active
+        assert not view.item_drag.active
         assert not view.smart_edit_controller.is_dragging
         assert view.smart_edit_controller.selected_item is None
         assert scene.undo_stack.canUndo()
@@ -876,7 +876,7 @@ def test_topmost_compatible_item_keeps_native_dispatch_path(qapp):
             Qt.KeyboardModifier.NoModifier,
         ))
         assert view.smart_edit_controller.selected_item is rect
-        assert not view._manual_item_drag_active
+        assert not view.item_drag.active
     finally:
         view.close()
         scene.deleteLater()
