@@ -327,6 +327,10 @@ Replace it?</source>
         <translation>스크린샷 번역</translation>
     </message>
     <message>
+        <source>Recognize Text</source>
+        <translation>텍스트 인식</translation>
+    </message>
+    <message>
         <source>Cursor Move Keys</source>
         <translation>커서 이동 키</translation>
     </message>
@@ -896,6 +900,10 @@ Replace it?</source>
     <message>
         <source>Screenshot translate (OCR + Translate)</source>
         <translation>스크린샷 번역 (OCR + 번역)</translation>
+    </message>
+    <message>
+        <source>Recognize text (OCR)</source>
+        <translation>텍스트 인식(OCR)</translation>
     </message>
     <message>
         <source>Scan QR code / barcode</source>
@@ -3338,6 +3346,10 @@ SOFTWARE.</translation></message>
         <translation>코드 스캔</translation>
     </message>
     <message>
+        <source>Recognize text</source>
+        <translation>텍스트 인식</translation>
+    </message>
+    <message>
         <source>GIF recording</source>
         <translation>GIF 녹화</translation>
     </message>
@@ -3431,6 +3443,41 @@ SOFTWARE.</translation></message>
     <message>
         <source>Open link</source>
         <translation>링크 열기</translation>
+    </message>
+</context>
+<context>
+    <name>TextRecognitionWindow</name>
+    <message>
+        <source>Text recognition</source>
+        <translation>텍스트 인식</translation>
+    </message>
+    <message>
+        <source>Recognizing...</source>
+        <translation>인식 중...</translation>
+    </message>
+    <message>
+        <source>Recognized %1 characters</source>
+        <translation>%1자를 인식했습니다</translation>
+    </message>
+    <message>
+        <source>No text found in the selection.</source>
+        <translation>선택 영역에서 텍스트를 찾지 못했습니다.</translation>
+    </message>
+    <message>
+        <source>This build does not include the text recognition engine.</source>
+        <translation>이 빌드에는 텍스트 인식 엔진이 포함되어 있지 않습니다.</translation>
+    </message>
+    <message>
+        <source>Text recognition failed.</source>
+        <translation>텍스트 인식에 실패했습니다.</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>복사</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>복사됨</translation>
     </message>
 </context>
 </TS>

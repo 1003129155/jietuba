@@ -334,6 +334,10 @@ Replace it?</source>
         <translation>スクリーンショット翻訳</translation>
     </message>
     <message>
+        <source>Recognize Text</source>
+        <translation>文字認識</translation>
+    </message>
+    <message>
         <source>Cursor Move Keys</source>
         <translation>カーソル移動キー</translation>
     </message>
@@ -909,6 +913,10 @@ Replace it?</source>
     <message>
         <source>Screenshot translate (OCR + Translate)</source>
         <translation>スクショ翻訳（OCR + 翻訳）</translation>
+    </message>
+    <message>
+        <source>Recognize text (OCR)</source>
+        <translation>文字認識（OCR）</translation>
     </message>
     <message>
         <source>Scan QR code / barcode</source>
@@ -3379,6 +3387,10 @@ SOFTWARE.</translation></message>
         <translation>コードスキャン</translation>
     </message>
     <message>
+        <source>Recognize text</source>
+        <translation>文字認識</translation>
+    </message>
+    <message>
         <source>GIF recording</source>
         <translation>GIF録画</translation>
     </message>
@@ -3472,6 +3484,41 @@ SOFTWARE.</translation></message>
     <message>
         <source>Open link</source>
         <translation>リンクを開く</translation>
+    </message>
+</context>
+<context>
+    <name>TextRecognitionWindow</name>
+    <message>
+        <source>Text recognition</source>
+        <translation>文字認識</translation>
+    </message>
+    <message>
+        <source>Recognizing...</source>
+        <translation>認識中...</translation>
+    </message>
+    <message>
+        <source>Recognized %1 characters</source>
+        <translation>%1 文字を認識しました</translation>
+    </message>
+    <message>
+        <source>No text found in the selection.</source>
+        <translation>選択範囲から文字が見つかりませんでした。</translation>
+    </message>
+    <message>
+        <source>This build does not include the text recognition engine.</source>
+        <translation>このビルドには文字認識エンジンが含まれていません。</translation>
+    </message>
+    <message>
+        <source>Text recognition failed.</source>
+        <translation>文字認識に失敗しました。</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>コピー</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>コピーしました</translation>
     </message>
 </context>
 </TS>

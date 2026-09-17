@@ -36,6 +36,7 @@ class ScreenshotShortcutHandler(ShortcutHandler):
             "inapp_confirm", "inapp_pin", "inapp_undo", "inapp_redo",
             "inapp_delete",
             "inapp_zoom_in", "inapp_zoom_out", "inapp_translate",
+            "inapp_text_recognize",
         ]
         self._tool_shortcuts = tuple(ANNOTATION_TOOL_SHORTCUTS)
         self._bindings = load_inapp_bindings(
@@ -130,6 +131,13 @@ class ScreenshotShortcutHandler(ShortcutHandler):
             if w.scene and w.scene.selection_model.is_confirmed:
                 if hasattr(w, 'toolbar') and w.toolbar:
                     w.toolbar.screenshot_translate_clicked.emit()
+                return True
+
+        # 文字识别
+        if self._match(event, "inapp_text_recognize"):
+            if w.scene and w.scene.selection_model.is_confirmed:
+                if hasattr(w, 'toolbar') and w.toolbar:
+                    w.toolbar.text_recognize_clicked.emit()
                 return True
 
         # 放大镜缩放属于可配置截图动作，优先于工具键。
@@ -592,6 +600,7 @@ class ScreenshotWindow(QWidget):
         self.toolbar.pin_clicked.connect(self._handle_pin)
         self.toolbar.long_screenshot_clicked.connect(self.start_long_screenshot_mode)
         self.toolbar.screenshot_translate_clicked.connect(self._handle_screenshot_translate)
+        self.toolbar.text_recognize_clicked.connect(self._handle_text_recognize)
         self.toolbar.scan_code_clicked.connect(self._handle_scan_code)
         self.toolbar.gif_record_clicked.connect(self.start_gif_record_mode)
 
@@ -631,6 +640,10 @@ class ScreenshotWindow(QWidget):
     def _handle_screenshot_translate(self):
         if self.action_handler:
             self.action_handler.handle_screenshot_translate()
+
+    def _handle_text_recognize(self):
+        if self.action_handler:
+            self.action_handler.handle_text_recognize()
 
     def _handle_scan_code(self):
         if self.action_handler:

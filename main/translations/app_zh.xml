@@ -332,6 +332,10 @@ Replace it?</source>
         <translation>截图翻译</translation>
     </message>
     <message>
+        <source>Recognize Text</source>
+        <translation>文字识别</translation>
+    </message>
+    <message>
         <source>Cursor Move Keys</source>
         <translation>鼠标微移按键</translation>
     </message>
@@ -906,6 +910,10 @@ Replace it?</source>
     <message>
         <source>Screenshot translate (OCR + Translate)</source>
         <translation>截图翻译（OCR + 翻译）</translation>
+    </message>
+    <message>
+        <source>Recognize text (OCR)</source>
+        <translation>文字识别（OCR）</translation>
     </message>
     <message>
         <source>Scan QR code / barcode</source>
@@ -3400,6 +3408,10 @@ SOFTWARE.</translation></message>
         <translation>扫码</translation>
     </message>
     <message>
+        <source>Recognize text</source>
+        <translation>文字识别</translation>
+    </message>
+    <message>
         <source>GIF recording</source>
         <translation>GIF 录制</translation>
     </message>
@@ -3493,6 +3505,41 @@ SOFTWARE.</translation></message>
     <message>
         <source>Open link</source>
         <translation>打开链接</translation>
+    </message>
+</context>
+<context>
+    <name>TextRecognitionWindow</name>
+    <message>
+        <source>Text recognition</source>
+        <translation>文字识别</translation>
+    </message>
+    <message>
+        <source>Recognizing...</source>
+        <translation>识别中...</translation>
+    </message>
+    <message>
+        <source>Recognized %1 characters</source>
+        <translation>识别到 %1 个字符</translation>
+    </message>
+    <message>
+        <source>No text found in the selection.</source>
+        <translation>选区内没有识别到文字。</translation>
+    </message>
+    <message>
+        <source>This build does not include the text recognition engine.</source>
+        <translation>当前版本不包含文字识别引擎。</translation>
+    </message>
+    <message>
+        <source>Text recognition failed.</source>
+        <translation>文字识别失败。</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>复制</translation>
+    </message>
+    <message>
+        <source>Copied</source>
+        <translation>已复制</translation>
     </message>
 </context>
 </TS>

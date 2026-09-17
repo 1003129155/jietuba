@@ -75,6 +75,7 @@ APP_DEFAULT_SETTINGS = {
     "inapp_zoom_in": "pageup",
     "inapp_zoom_out": "pagedown",
     "inapp_translate": "shift+c",
+    "inapp_text_recognize": "shift+t",
     "inapp_cursor_move_mode": "both",
     **{key: default for key, _tool, _label, default in ANNOTATION_TOOL_SHORTCUTS},
 }

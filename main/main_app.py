@@ -176,6 +176,12 @@ class MainApp(QObject):
         except Exception as e:
             log_exception(e, T("清理翻译线程"))
         try:
+            from text_recognition import shutdown_recognition
+
+            shutdown_recognition()
+        except Exception as e:
+            log_exception(e, T("等待文字识别线程"))
+        try:
             if hasattr(self, "_logger") and self._logger:
                 self._logger.close()
         except Exception as e:

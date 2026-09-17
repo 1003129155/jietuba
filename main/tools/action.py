@@ -200,6 +200,19 @@ class ActionTools:
             **params
         )
     
+    def handle_text_recognize(self):
+        """文字识别：识别选区里的文字，关掉截图界面后在结果窗口里显示
+
+        识别比扫码慢得多（本地引擎几百毫秒起），所以窗口先出来等，识别在它的后台线程里跑。
+        """
+        from text_recognition import show_text_recognition
+
+        image = self._selection_base_image()
+        if image is None:
+            return
+        self._cleanup_and_close()
+        show_text_recognition(image)
+
     def handle_scan_code(self):
         """扫码：识别选区里的二维码 / 条形码，关掉截图界面后在结果窗口里列出"""
         from barcode import show_barcode_result

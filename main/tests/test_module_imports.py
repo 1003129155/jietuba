@@ -19,7 +19,7 @@ import pytest
 # 这些包在导入时会创建 Qt 对象或访问 Windows API，需要 QApplication 已就绪
 PACKAGES = [
     "canvas", "capture", "clipboard", "core", "gif", "ocr",
-    "pin", "settings", "stitch", "tools", "translation", "ui",
+    "pin", "settings", "stitch", "text_recognition", "tools", "translation", "ui",
 ]
 
 
