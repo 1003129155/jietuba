@@ -620,6 +620,10 @@ class SettingsDialog(FrostedFramelessDialog):
             self.clipboard_hotkey_edit.setText(defaults["clipboard_hotkey"])
         if hasattr(self, 'clipboard_hotkey_edit_2'):
             self.clipboard_hotkey_edit_2.setText(defaults["clipboard_hotkey_2"])
+        if hasattr(self, 'pin_clipboard_hotkey_edit'):
+            self.pin_clipboard_hotkey_edit.setText(defaults["pin_clipboard_hotkey"])
+        if hasattr(self, 'pin_clipboard_hotkey_edit_2'):
+            self.pin_clipboard_hotkey_edit_2.setText(defaults["pin_clipboard_hotkey_2"])
         if hasattr(self, 'translation_hotkey_edit'):
             self.translation_hotkey_edit.setText(defaults["translation_hotkey"])
         if hasattr(self, 'translation_hotkey_edit_2'):
@@ -991,6 +995,10 @@ class SettingsDialog(FrostedFramelessDialog):
             self.config_manager.set_clipboard_hotkey(self.clipboard_hotkey_edit.text().strip())
         if hasattr(self, 'clipboard_hotkey_edit_2'):
             self.config_manager.set_clipboard_hotkey_2(self.clipboard_hotkey_edit_2.text().strip())
+        if hasattr(self, 'pin_clipboard_hotkey_edit'):
+            self.config_manager.set_pin_clipboard_hotkey(self.pin_clipboard_hotkey_edit.text().strip())
+        if hasattr(self, 'pin_clipboard_hotkey_edit_2'):
+            self.config_manager.set_pin_clipboard_hotkey_2(self.pin_clipboard_hotkey_edit_2.text().strip())
 
         # 7.5 应用内快捷键
         if hasattr(self, '_inapp_edits'):
@@ -1103,6 +1111,7 @@ class SettingsDialog(FrostedFramelessDialog):
             "hotkey_input", "hotkey_input_2",
             "clipboard_hotkey_edit", "clipboard_hotkey_edit_2",
             "translation_hotkey_edit", "translation_hotkey_edit_2",
+            "pin_clipboard_hotkey_edit", "pin_clipboard_hotkey_edit_2",
             "deepl_api_key_input", "amazon_translate_region_input",
             "amazon_translate_access_key_input",
             "amazon_translate_secret_key_input",
@@ -1161,7 +1170,8 @@ class SettingsDialog(FrostedFramelessDialog):
         # 文本类
         for attr in ('hotkey_input', 'hotkey_input_2', 'clipboard_hotkey_edit',
                       'translation_hotkey_edit', 'translation_hotkey_edit_2',
-                      'clipboard_hotkey_edit_2', 'save_path_lbl', 'path_lbl',
+                      'clipboard_hotkey_edit_2', 'pin_clipboard_hotkey_edit',
+                      'pin_clipboard_hotkey_edit_2', 'save_path_lbl', 'path_lbl',
                       'deepl_api_key_input', 'amazon_translate_region_input',
                       'amazon_translate_access_key_input',
                       'amazon_translate_secret_key_input',
@@ -1299,6 +1309,10 @@ class SettingsDialog(FrostedFramelessDialog):
             self.clipboard_hotkey_edit.setText(self.config_manager.get_clipboard_hotkey())
         if hasattr(self, 'clipboard_hotkey_edit_2'):
             self.clipboard_hotkey_edit_2.setText(self.config_manager.get_clipboard_hotkey_2())
+        if hasattr(self, 'pin_clipboard_hotkey_edit'):
+            self.pin_clipboard_hotkey_edit.setText(self.config_manager.get_pin_clipboard_hotkey())
+        if hasattr(self, 'pin_clipboard_hotkey_edit_2'):
+            self.pin_clipboard_hotkey_edit_2.setText(self.config_manager.get_pin_clipboard_hotkey_2())
         if hasattr(self, 'translation_hotkey_edit'):
             self.translation_hotkey_edit.setText(
                 self.config_manager.get_translation_hotkey()

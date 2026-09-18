@@ -167,6 +167,8 @@ class ToolSettingsManager(QObject):
         "hotkey_2": "",                            # 截图备用热键
         "clipboard_hotkey": "ctrl+2",              # 剪贴板管理器的快捷键
         "clipboard_hotkey_2": "",                  # 剪贴板管理器的备用快捷键
+        "pin_clipboard_hotkey": "",                # 钉住剪贴板图片的快捷键（默认不占键，需手动设置）
+        "pin_clipboard_hotkey_2": "",              # 钉住剪贴板图片的备用快捷键
         "translation_hotkey": "",                  # 翻译主热键
         "translation_hotkey_2": "",                # 翻译备用热键
         "global_hotkeys_disabled": False,           # 是否禁用全局热键
@@ -634,6 +636,30 @@ class ToolSettingsManager(QObject):
     def set_clipboard_hotkey_2(self, value: str):
         """设置剪贴板管理器备用快捷键"""
         self.qsettings.setValue("clipboard/hotkey_2", value)
+    
+    def get_pin_clipboard_hotkey(self) -> str:
+        """获取「钉住剪贴板图片」快捷键"""
+        return self.qsettings.value(
+            "clipboard/pin_hotkey",
+            self.APP_DEFAULT_SETTINGS["pin_clipboard_hotkey"],
+            type=str,
+        )
+    
+    def set_pin_clipboard_hotkey(self, value: str):
+        """设置「钉住剪贴板图片」快捷键"""
+        self.qsettings.setValue("clipboard/pin_hotkey", value)
+    
+    def get_pin_clipboard_hotkey_2(self) -> str:
+        """获取「钉住剪贴板图片」备用快捷键"""
+        return self.qsettings.value(
+            "clipboard/pin_hotkey_2",
+            self.APP_DEFAULT_SETTINGS["pin_clipboard_hotkey_2"],
+            type=str,
+        )
+    
+    def set_pin_clipboard_hotkey_2(self, value: str):
+        """设置「钉住剪贴板图片」备用快捷键"""
+        self.qsettings.setValue("clipboard/pin_hotkey_2", value)
 
     def get_translation_hotkey(self) -> str:
         """获取智能翻译全局快捷键。"""

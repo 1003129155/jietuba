@@ -1257,6 +1257,14 @@ Replace it?</source>
         <translation>クリップボード (2)</translation>
     </message>
     <message>
+        <source>Pin Clipboard Image</source>
+        <translation>ピン画像を作成</translation>
+    </message>
+    <message>
+        <source>Pin Clipboard Image (2)</source>
+        <translation>ピン画像を作成 (2)</translation>
+    </message>
+    <message>
         <source>Hotkey Registration Failed</source>
         <translation>ホットキーの登録に失敗しました</translation>
     </message>
@@ -1438,6 +1446,7 @@ Replace it?</source>
         <translation>翻訳</translation>
     </message>
     <message><source>Translation Hotkey</source><translation>翻訳ショートカット</translation></message>
+    <message><source>Pin Clipboard Image</source><translation>ピン画像を作成</translation></message>
     <message>
         <source>Translation Settings</source>
         <translation>翻訳設定</translation>

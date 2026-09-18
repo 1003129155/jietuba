@@ -1254,6 +1254,14 @@ Replace it?</source>
         <translation>剪贴板 (2)</translation>
     </message>
     <message>
+        <source>Pin Clipboard Image</source>
+        <translation>生成钉图</translation>
+    </message>
+    <message>
+        <source>Pin Clipboard Image (2)</source>
+        <translation>生成钉图 (2)</translation>
+    </message>
+    <message>
         <source>Hotkey Registration Failed</source>
         <translation>热键注册失败</translation>
     </message>
@@ -1469,6 +1477,7 @@ Replace it?</source>
         <translation>翻译</translation>
     </message>
     <message><source>Translation Hotkey</source><translation>翻译快捷键</translation></message>
+    <message><source>Pin Clipboard Image</source><translation>生成钉图</translation></message>
     <message>
         <source>Translation Settings</source>
         <translation>翻译设置</translation>

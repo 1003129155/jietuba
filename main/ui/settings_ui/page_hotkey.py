@@ -48,7 +48,7 @@ _EDIT_W = 140
 _EDIT_H = 28
 _SEGMENT_HINT_STYLE = "font-size: 12px; background: transparent;"
 
-# 六个全局快捷键属于同一个冲突域；任意两个业务不能占用同一个实际按键。
+# 全局快捷键同属一个冲突域；任意两个业务不能占用同一个实际按键。
 GLOBAL_HOTKEY_EDIT_ATTRS = (
     "hotkey_input",
     "hotkey_input_2",
@@ -56,6 +56,8 @@ GLOBAL_HOTKEY_EDIT_ATTRS = (
     "clipboard_hotkey_edit_2",
     "translation_hotkey_edit",
     "translation_hotkey_edit_2",
+    "pin_clipboard_hotkey_edit",
+    "pin_clipboard_hotkey_edit_2",
 )
 
 
@@ -67,7 +69,7 @@ def _iter_global_hotkey_edits(dialog):
 
 
 def validate_global_hotkey_edits(dialog, *, check_system: bool = False) -> bool:
-    """校验设置窗口上的六个全局快捷键。
+    """校验设置窗口上的全局快捷键。
 
     这里只回答「哪几个控件属于同一个冲突域」，判重规则本身在
     ui.hotkey_edit.validate_hotkey_group——欢迎向导复用的是同一份。
@@ -174,6 +176,40 @@ def create_hotkey_page(dialog) -> QWidget:
     cb_card.setFixedHeight(80)
     grp_global.addSettingCard(cb_card)
 
+    # 钉住剪贴板图片热键（主 + 备用）
+    pin_card = WhiteCard(grp_global)
+    pin_h = QHBoxLayout(pin_card)
+    pin_h.setContentsMargins(20, 8, 20, 8)
+    pin_h.setSpacing(12)
+
+    pin_lbl = QLabel(dialog.tr("Pin Clipboard Image"), pin_card)
+    apply_theme_text_style(pin_lbl, 14)
+    pin_h.addWidget(pin_lbl)
+    pin_h.addStretch()
+
+    pin_v = QVBoxLayout()
+    pin_v.setSpacing(5)
+    dialog.pin_clipboard_hotkey_edit = HotkeyEdit()
+    dialog.pin_clipboard_hotkey_edit.setText(
+        dialog.config_manager.get_pin_clipboard_hotkey()
+    )
+    dialog.pin_clipboard_hotkey_edit.setPlaceholderText(dialog.tr("e.g.: ctrl+shift+a"))
+    dialog.pin_clipboard_hotkey_edit.setFixedWidth(200)
+    dialog.pin_clipboard_hotkey_edit.setStyleSheet(input_style)
+    pin_v.addWidget(dialog.pin_clipboard_hotkey_edit)
+
+    dialog.pin_clipboard_hotkey_edit_2 = HotkeyEdit()
+    dialog.pin_clipboard_hotkey_edit_2.setText(
+        dialog.config_manager.get_pin_clipboard_hotkey_2()
+    )
+    dialog.pin_clipboard_hotkey_edit_2.setPlaceholderText(dialog.tr("e.g.: ctrl+shift+a"))
+    dialog.pin_clipboard_hotkey_edit_2.setFixedWidth(200)
+    dialog.pin_clipboard_hotkey_edit_2.setStyleSheet(input_style)
+    pin_v.addWidget(dialog.pin_clipboard_hotkey_edit_2)
+    pin_h.addLayout(pin_v)
+    pin_card.setFixedHeight(80)
+    grp_global.addSettingCard(pin_card)
+
     # 智能翻译热键（主 + 备用）
     tr_card = WhiteCard(grp_global)
     tr_h = QHBoxLayout(tr_card)
@@ -212,7 +248,7 @@ def create_hotkey_page(dialog) -> QWidget:
     tr_card.setFixedHeight(80)
     grp_global.addSettingCard(tr_card)
 
-    # 全局热键统一判重。连接放在六个输入框全部创建之后，避免初始化过程中
+    # 全局热键统一判重。连接放在所有输入框创建之后，避免初始化过程中
     # 只看到半组控件；最后主动跑一次，以识别配置文件里遗留的旧冲突。
     for edit in _iter_global_hotkey_edits(dialog):
         edit.textChanged.connect(

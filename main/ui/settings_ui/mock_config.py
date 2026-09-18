@@ -14,6 +14,8 @@ APP_DEFAULT_SETTINGS = {
     "hotkey_2": "ctrl+shift+a",
     "clipboard_hotkey": "ctrl+shift+v",
     "clipboard_hotkey_2": "ctrl+shift+v",
+    "pin_clipboard_hotkey": "",
+    "pin_clipboard_hotkey_2": "",
     "translation_hotkey": "",
     "translation_hotkey_2": "",
     "double_click_copy_close": True,
@@ -188,6 +190,10 @@ class MockConfig:
     def set_clipboard_hotkey(self, v): pass
     def get_clipboard_hotkey_2(self): return "ctrl+shift+v"
     def set_clipboard_hotkey_2(self, v): pass
+    def get_pin_clipboard_hotkey(self): return ""
+    def set_pin_clipboard_hotkey(self, v): pass
+    def get_pin_clipboard_hotkey_2(self): return ""
+    def set_pin_clipboard_hotkey_2(self, v): pass
     def get_translation_hotkey(self): return ""
     def set_translation_hotkey(self, v): pass
     def get_translation_hotkey_2(self): return ""

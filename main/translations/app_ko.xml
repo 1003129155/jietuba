@@ -1244,6 +1244,14 @@ Replace it?</source>
         <translation>클립보드 (2)</translation>
     </message>
     <message>
+        <source>Pin Clipboard Image</source>
+        <translation>고정 이미지 생성</translation>
+    </message>
+    <message>
+        <source>Pin Clipboard Image (2)</source>
+        <translation>고정 이미지 생성 (2)</translation>
+    </message>
+    <message>
         <source>Hotkey Registration Failed</source>
         <translation>단축키 등록 실패</translation>
     </message>
@@ -1401,6 +1409,7 @@ Replace it?</source>
         <translation>번역</translation>
     </message>
     <message><source>Translation Hotkey</source><translation>번역 단축키</translation></message>
+    <message><source>Pin Clipboard Image</source><translation>고정 이미지 생성</translation></message>
     <message>
         <source>Translation Settings</source>
         <translation>번역 설정</translation>
