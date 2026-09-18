@@ -856,7 +856,8 @@ def parse_shortcut_to_qt(text: str):
             mods |= _MOD_MAP[p]
         elif p in key_map:
             key = _Qt.Key(key_map[p])
-        elif len(p) == 1 and p.isalpha():
+        elif len(p) == 1 and (p.isalpha() or p.isdigit()):
+            # Qt.Key_0..Key_9 数值上等于 ord('0')..ord('9')，和字母走同一套技巧
             key = _Qt.Key(ord(p.upper()))
         elif p.startswith("f") and p[1:].isdigit():
             fn = int(p[1:])
