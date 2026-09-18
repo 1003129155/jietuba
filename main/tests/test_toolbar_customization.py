@@ -63,7 +63,7 @@ class TestNormalizeLayout:
         assert dict(layout)["scan_code"] == MORE
 
     def test_locked_buttons_are_always_shown(self):
-        assert {"arrow", "number", "rect"} <= LOCKED
+        assert {"confirm"} <= LOCKED
         layout = dict(normalize_layout([
             (key, HIDE if index % 2 else MORE) for index, key in enumerate(LOCKED)
         ]))
@@ -231,10 +231,16 @@ class TestLayoutDialog:
         assert dialog._rows["pin"].combo.isEnabled()
         dialog.close()
 
-    def test_all_editable_rows_fit_without_a_scrollbar(self, qapp):
+    def test_rows_fit_the_screen_and_scroll_only_when_they_dont(self, qapp):
+        """锁定按钮变少后行数涨了不少：能整屏展示就不滚动，屏幕矮到放不下才滚动，但对话框不能超出屏幕"""
         dialog = self._dialog(default_layout())
-        assert dialog._scroll.viewport().height() >= dialog._card.sizeHint().height()
-        assert not dialog._scroll.verticalScrollBar().isVisible()
+        screen_height = QApplication.primaryScreen().availableGeometry().height()
+        content_height = dialog._card.sizeHint().height() + 2
+        if content_height <= screen_height - 40:
+            assert dialog._scroll.viewport().height() >= dialog._card.sizeHint().height()
+            assert not dialog._scroll.verticalScrollBar().isVisible()
+        else:
+            assert dialog.height() <= screen_height
         dialog.close()
 
     def test_restore_defaults_resets_order_and_modes(self, qapp):

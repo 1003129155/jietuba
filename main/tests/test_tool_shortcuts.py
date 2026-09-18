@@ -164,6 +164,17 @@ def test_exact_modifiers_and_custom_binding(monkeypatch, isolated_manager):
     assert window.toolbar.selected == [("text", False)]
 
 
+def test_custom_binding_accepts_bare_digit(monkeypatch, isolated_manager):
+    """回归：parse_shortcut_to_qt 曾经只认字母，数字键设置后按下去没反应"""
+    isolated_manager.set_inapp_shortcut("inapp_tool_text", "1")
+    monkeypatch.setattr("core.shortcut_manager.load_move_keys", lambda: {})
+    window = _window()
+    handler = ScreenshotShortcutHandler(window)
+
+    assert handler.handle_key(_key_event(Qt.Key.Key_1)) is True
+    assert window.toolbar.selected == [("text", False)]
+
+
 def test_legacy_escape_binding_is_ignored_at_runtime(monkeypatch, isolated_manager):
     isolated_manager.set_inapp_shortcut("inapp_tool_text", "esc")
     monkeypatch.setattr("core.shortcut_manager.load_move_keys", lambda: {})

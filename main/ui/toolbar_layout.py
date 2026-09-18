@@ -25,11 +25,9 @@ DEFAULT_ORDER = (
 # 默认收进「…」的按钮，其余默认始终显示。后加的低频功能放这里，免得把工具栏默认宽度越撑越宽
 DEFAULT_MORE = frozenset({"text_recognize", "scan_code", "spotlight"})
 
-# 核心编辑操作固定显示，也不出现在工具栏调整界面中。
-LOCKED = frozenset({
-    "pen", "highlighter", "arrow", "number", "rect", "eraser",
-    "undo", "redo", "cancel", "confirm",
-})
+# 确定按钮固定显示、不可调整，也不出现在工具栏调整界面中：截图必须始终有办法收尾。
+# 其余按钮都是普通编辑操作，用户可以自由排序、收进「…」或隐藏。
+LOCKED = frozenset({"confirm"})
 
 SETTING_KEY = "screenshot_toolbar_layout"
 
