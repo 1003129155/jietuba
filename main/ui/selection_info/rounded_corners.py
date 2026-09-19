@@ -266,8 +266,8 @@ class RoundedCornersLogic(QObject):
         self._btn.installEventFilter(self)
 
         # 安装绘制钩子
-        self._original_paint = None      # paint 仍用传统方式（只有圆角 patch，无链式问题）
-        self._install_paint_hook()
+        self._original_render = None     # render 仍用传统方式（只有圆角 patch，无链式问题）
+        self._install_render_hook()
         self._install_mask_hook()        # 通过 HookManager
         self._install_export_hook()      # 通过 HookManager
 
@@ -297,7 +297,7 @@ class RoundedCornersLogic(QObject):
         else:
             self._popup.hide()
         # 刷新预览
-        self._item.update()
+        self._item.request_repaint()
         self._mask.update()
 
     @property
@@ -333,18 +333,18 @@ class RoundedCornersLogic(QObject):
         # 持久化
         if self._config:
             self._config.set_app_setting("screenshot_rounded_radius", value)
-        self._item.update()
+        self._item.request_repaint()
         self._mask.update()
 
     # ------------------------------------------------------------------
-    # Hook: SelectionItem.paint() 绘制圆角边框
+    # Hook: SelectionItem.render() 绘制圆角边框
     # ------------------------------------------------------------------
-    def _install_paint_hook(self):
+    def _install_render_hook(self):
         item = self._item
-        self._original_paint = item.paint
+        self._original_render = item.render
         logic = self
 
-        def _hooked_paint(painter: QPainter, option, widget=None):
+        def _hooked_render(painter: QPainter):
             if item._model.is_empty():
                 return
 
@@ -354,7 +354,8 @@ class RoundedCornersLogic(QObject):
                 # ── 圆角边框 ──
                 r = logic._radius
                 from core.theme import get_theme
-                pen = QPen(get_theme().theme_color, 4, Qt.PenStyle.SolidLine)
+                pen = QPen(get_theme().theme_color, item.BORDER_WIDTH,
+                           Qt.PenStyle.SolidLine)
                 painter.setPen(pen)
                 painter.setBrush(Qt.BrushStyle.NoBrush)
                 painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -365,9 +366,9 @@ class RoundedCornersLogic(QObject):
                     _draw_handles(painter, rect, item, skip_corners=True)
             else:
                 # 原始绘制
-                logic._original_paint(painter, option, widget)
+                logic._original_render(painter)
 
-        item.paint = _hooked_paint
+        item.render = _hooked_render
 
     # ------------------------------------------------------------------
     # Hook: MaskOverlay.paintEvent() 四角补遮罩（通过 HookManager）
@@ -475,9 +476,9 @@ class RoundedCornersLogic(QObject):
     # 卸载
     # ------------------------------------------------------------------
     def uninstall(self):
-        # paint hook（传统方式，只有圆角用）
-        if self._original_paint:
-            self._item.paint = self._original_paint
+        # render hook（传统方式，只有圆角用）
+        if self._original_render:
+            self._item.render = self._original_render
         # mask / export hook（通过 HookManager）
         if self._hook_mgr:
             self._hook_mgr.unregister(self._mask, 'paintEvent', self._mask_callback)
@@ -502,7 +503,7 @@ def _draw_handles(painter: QPainter, rect: QRectF, item, skip_corners: bool = Fa
     for handle_id, pos in handles.items():
         if skip_corners and handle_id in _CORNER_HANDLES:
             continue
-        painter.setPen(QPen(QColor(255, 255, 255), 2))
+        painter.setPen(QPen(QColor(255, 255, 255), item.HANDLE_RING_WIDTH))
         painter.setBrush(QColor(48, 200, 192))
         painter.drawEllipse(pos, item.HANDLE_SIZE // 2 + 1, item.HANDLE_SIZE // 2 + 1)
 

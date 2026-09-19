@@ -426,6 +426,14 @@ Replace it?</source>
         <translation>自动识别鼠标光标位置的窗口。</translation>
     </message>
     <message>
+        <source>Window Switch Animation</source>
+        <translation>窗口切换动画</translation>
+    </message>
+    <message>
+        <source>Slide the selection when it moves from one window to another.</source>
+        <translation>选区在窗口之间移动时滑动过渡。</translation>
+    </message>
+    <message>
         <source>💡 How to use:</source>
         <translation>💡 使用方法:</translation>
     </message>

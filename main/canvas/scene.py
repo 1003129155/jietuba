@@ -182,6 +182,8 @@ class CanvasScene(QGraphicsScene):
         from PySide6.QtWidgets import QGraphicsEllipseItem
         
         drawing_items = []
+        # SelectionItem 不画东西了，但仍在场景里接收鼠标事件，
+        # 所以枚举标注图元时依然要排除它（否则会被当成标注克隆进钉图）
         excluded_items = {self.background, self.selection_item}
         
         # 使用场景的 items() 方法查找矩形范围内的项目

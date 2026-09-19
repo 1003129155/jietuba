@@ -428,6 +428,14 @@ Replace it?</source>
         <translation>マウスカーソル位置のウィンドウを自動認識します。</translation>
     </message>
     <message>
+        <source>Window Switch Animation</source>
+        <translation>ウィンドウ切り替えアニメーション</translation>
+    </message>
+    <message>
+        <source>Slide the selection when it moves from one window to another.</source>
+        <translation>選択範囲がウィンドウ間を移動するときにスライドします。</translation>
+    </message>
+    <message>
         <source>💡 How to use:</source>
         <translation>💡 使い方:</translation>
     </message>

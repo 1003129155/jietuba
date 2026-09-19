@@ -207,6 +207,7 @@ canvas/
 ├── selection_model.py       # SelectionModel — 選択グラフィックスアイテムの管理
 ├── undo.py                  # CommandUndoStack — アンドゥ/リドゥスタック
 ├── smart_edit_controller.py # SmartEditController — 選択/編集モード切替
+├── smart_selection_anim.py  # SmartSelectionAnimator — ウィンドウ切り替え時の選択範囲の補間
 ├── handle_editor.py         # LayerEditor / EditHandle — コントロールポイントドラッグ編集
 ├── gestures.py              # マウスジェスチャの状態機械 — 文字の端ドラッグ、ラバーバンド選択、保留中のクリック編集
 ├── handle_overlay.py        # HandleOverlay — 編集ハンドル専用の合成レイヤー、シーン全体の再描画を回避
@@ -571,6 +572,7 @@ ui/
 ├── hotkey_edit.py           # HotkeyEdit — グローバルホットキーエディター
 ├── inapp_key_edit.py        # InAppKeyEdit — アプリ内ショートカットエディター
 ├── mask_overlay.py          # マスクオーバーレイヤー
+├── selection_overlay.py     # SelectionOverlayWidget — マスク上に重なる選択装飾レイヤー
 ├── base_settings_panel.py   # BaseSettingsPanel / StepperWidget — 設定パネル基底クラス
 ├── paint_settings_panel.py  # PaintSettingsPanel — ブラシ設定パネル
 ├── shape_settings_panel.py  # ShapeSettingsPanel — 形状設定パネル

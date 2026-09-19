@@ -78,9 +78,12 @@ class CanvasView(QGraphicsView):
         
         # 智能选区相关
         self.smart_selection_enabled = False
+        self.smart_selection_animated = False  # 换窗口时补间，由设置开启
         self.window_finder = None  # WindowFinder 实例（按需创建）
         self._last_smart_selection_pos = None  # 上次智能选区触发的位置（防抖）
         self._last_smart_selection_rect = QRectF()  # 缓存上次的智能选区矩形
+        from canvas.smart_selection_anim import SmartSelectionAnimator
+        self._smart_selection_anim = SmartSelectionAnimator(self._set_selection_rect_now, self)
         
         # 初始化光标管理器
         from tools.cursor_manager import CursorManager
@@ -236,6 +239,9 @@ class CanvasView(QGraphicsView):
             self.window_finder.clear()
             self.window_finder = None
 
+        if getattr(self, "_smart_selection_anim", None):
+            self._smart_selection_anim.stop()
+
         self.cursor_manager = None
         self.smart_edit_controller = None
         self.canvas_scene = None
@@ -360,6 +366,7 @@ class CanvasView(QGraphicsView):
             log_debug(T("已启用，找到 {window_count} 个窗口", window_count=len(self.window_finder.windows)), "SmartSelect")
         else:
             log_debug(T("已禁用"), "SmartSelect")
+            self._smart_selection_anim.stop()
             if self.window_finder:
                 self.window_finder.clear()
     
@@ -418,6 +425,25 @@ class CanvasView(QGraphicsView):
         self._last_smart_selection_rect = result
         
         return result
+    
+    def _set_selection_rect_now(self, rect: QRectF):
+        """补间每帧的落点。视图关闭后 canvas_scene 会被置空，定时器可能还差一拍。"""
+        if self._is_closed or self.canvas_scene is None:
+            return
+        self.canvas_scene.selection_model.set_rect(rect)
+    
+    def _apply_smart_selection_rect(self, rect: QRectF, *, animate: bool):
+        """把智能选区矩形送进 selection_model。
+        
+        animate=False 用于按下、首次出现这类必须落在真实窗口矩形上的时机——
+        补间中途的矩形不对应任何一个窗口，此时截图会截出插值结果。
+        """
+        if animate and self.smart_selection_animated:
+            self._smart_selection_anim.animate_to(
+                self.canvas_scene.selection_model.rect(), rect
+            )
+        else:
+            self._smart_selection_anim.snap_to(rect)
     
     # ========================================================================
     # 智能编辑控制器回调
@@ -1235,11 +1261,13 @@ class CanvasView(QGraphicsView):
                 self.canvas_scene.selection_model.activate()
                 if not self.canvas_scene.selection_model.is_dragging:
                     self.canvas_scene.selection_model.start_dragging()
-                self.canvas_scene.selection_model.set_rect(smart_rect)
+                self._apply_smart_selection_rect(smart_rect, animate=True)
             else:
+                self._smart_selection_anim.stop()
                 if self.canvas_scene.selection_model.is_dragging:
                     self.canvas_scene.selection_model.stop_dragging()
         else:
+            self._smart_selection_anim.stop()
             if self.canvas_scene.selection_model.is_dragging:
                 self.canvas_scene.selection_model.stop_dragging()
     

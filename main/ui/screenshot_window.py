@@ -15,6 +15,7 @@ from capture.capture_service import CaptureService
 from ui.toolbar import Toolbar
 from ui.magnifier import MagnifierOverlay
 from ui.mask_overlay import MaskOverlayWidget
+from ui.selection_overlay import SelectionOverlayWidget
 from ui.selection_info import SelectionInfoPanel, SelectionInfoController
 from tools.action import ActionTools
 from settings import get_tool_settings_manager
@@ -256,6 +257,7 @@ class ScreenshotWindow(QWidget):
         # 启用智能选区（从配置读取）
         self.smart_selection_enabled = self.config_manager.get_smart_selection()
         self.view.enable_smart_selection(self.smart_selection_enabled)
+        self.view.smart_selection_animated = self.config_manager.get_smart_selection_animation()
         
         # 4. 初始化工具栏（一次性创建，后续复用）
         self.toolbar = Toolbar(self)
@@ -274,6 +276,13 @@ class ScreenshotWindow(QWidget):
         # 6. 遮罩叠层（QWidget），覆盖整个窗口，位于 View 之上
         self.mask_overlay = MaskOverlayWidget(self, self.scene.selection_model)
         self.mask_overlay.setGeometry(0, 0, int(self.virtual_width), int(self.virtual_height))
+
+        # 6.1 选区装饰浮层，必须在遮罩之上，否则边框/手柄跨出选区的部分会被压暗
+        self.selection_overlay = SelectionOverlayWidget(
+            self, self.scene.selection_item, self.scene.selection_model
+        )
+        self.selection_overlay.setGeometry(0, 0, int(self.virtual_width), int(self.virtual_height))
+        self.selection_overlay.raise_()
 
         _t4 = time.perf_counter()
         _timings['Action+Mask'] = (_t4 - _t3) * 1000
@@ -378,6 +387,7 @@ class ScreenshotWindow(QWidget):
         
         self.smart_selection_enabled = self.config_manager.get_smart_selection()
         self.view.enable_smart_selection(self.smart_selection_enabled)
+        self.view.smart_selection_animated = self.config_manager.get_smart_selection_animation()
         
         # 创建新的 ActionHandler（引用新 scene）
         self.action_handler = ActionTools(
@@ -390,6 +400,11 @@ class ScreenshotWindow(QWidget):
         self.mask_overlay.rebind_model(self.scene.selection_model)
         self.mask_overlay.setGeometry(0, 0, int(self.virtual_width), int(self.virtual_height))
         self.mask_overlay.raise_()
+
+        # 复用 selection_overlay —— 绑到新 scene 的 item/model，并保持在遮罩之上
+        self.selection_overlay.rebind(self.scene.selection_item, self.scene.selection_model)
+        self.selection_overlay.setGeometry(0, 0, int(self.virtual_width), int(self.virtual_height))
+        self.selection_overlay.raise_()
         
         # 复用 info_panel —— swap view 引用，重建 controller
         self.info_panel._view = self.view
@@ -747,7 +762,8 @@ class ScreenshotWindow(QWidget):
             smart_rect = self.view._get_smart_selection_rect(scene_pos)
             if not smart_rect.isEmpty():
                 self.scene.selection_model.activate()
-                self.scene.selection_model.set_rect(smart_rect)
+                # 首次出现没有起点可补间，直接到位
+                self.view._apply_smart_selection_rect(smart_rect, animate=False)
                 log_debug(T("智能选区初始化: 鼠标位置({x}, {y}) -> 选区{rect}",
                              x=cursor_pos.x(), y=cursor_pos.y(), rect=smart_rect), "ScreenshotWindow")
 
@@ -768,6 +784,7 @@ class ScreenshotWindow(QWidget):
             return
         self.view.setGeometry(self.rect())
         self.mask_overlay.setGeometry(self.rect())
+        self.selection_overlay.setGeometry(self.rect())
         # 放大镜是独立小浮层，无需在 resizeEvent 中同步尺寸
         if self.scene.selection_model.is_confirmed:
             self.update_toolbar_position()
@@ -840,6 +857,9 @@ class ScreenshotWindow(QWidget):
         if hasattr(self, 'mask_overlay') and self.mask_overlay:
             self.mask_overlay.deleteLater()
             self.mask_overlay = None
+        if getattr(self, 'selection_overlay', None) is not None:
+            self.selection_overlay.deleteLater()
+            self.selection_overlay = None
         
         if hasattr(self, 'info_panel') and self.info_panel:
             self.info_panel.deleteLater()

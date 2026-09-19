@@ -209,6 +209,7 @@ canvas/
 ├── selection_model.py       # SelectionModel — 管理被选中的图形项，支持多选
 ├── undo.py                  # CommandUndoStack — 撤销/重做栈，支持添加、删除、批量删除、编辑命令
 ├── smart_edit_controller.py # SmartEditController — 智能编辑控制器，处理选择与编辑模式切换
+├── smart_selection_anim.py  # SmartSelectionAnimator — 智能选区换窗口时的矩形补间
 ├── handle_editor.py         # LayerEditor / EditHandle — 图层编辑器，提供控制点拖拽编辑
 ├── gestures.py              # 鼠标手势状态机 — 文字边缘拖动、拉选区、挂起的单击编辑
 ├── handle_overlay.py        # HandleOverlay — 编辑控制点的独立合成层，避免整场景重绘
@@ -648,6 +649,7 @@ ui/
 ├── hotkey_edit.py           # HotkeyEdit — 全局快捷键编辑框
 ├── inapp_key_edit.py        # InAppKeyEdit — 应用内快捷键编辑框
 ├── mask_overlay.py          # 遮罩覆盖层
+├── selection_overlay.py     # SelectionOverlayWidget — 选区装饰浮层，压在遮罩之上
 ├── base_settings_panel.py   # BaseSettingsPanel / StepperWidget — 设置面板基类
 ├── paint_settings_panel.py  # PaintSettingsPanel — 画笔设置面板
 ├── shape_settings_panel.py  # ShapeSettingsPanel — 形状设置面板

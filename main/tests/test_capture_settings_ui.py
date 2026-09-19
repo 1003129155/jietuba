@@ -322,3 +322,65 @@ def test_double_click_setting_translations_exist_and_load(qapp):
         assert translator.load(str(translations / f"app_{language}.qm"))
         for source, translated in expected.items():
             assert translator.translate("SettingsDialog", source) == translated
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+def test_capture_page_reads_smart_selection_animation_toggle(qapp, tmp_path, enabled):
+    manager = _manager(tmp_path)
+    manager.set_smart_selection_animation(enabled)
+    dialog = SimpleNamespace(
+        config_manager=manager,
+        tr=lambda text: text,
+        _change_save_dir=lambda: None,
+        _open_save_dir=lambda: None,
+    )
+
+    page = create_capture_page(dialog)
+
+    try:
+        assert dialog.smart_animation_toggle.isChecked() is enabled
+    finally:
+        page.deleteLater()
+        qapp.processEvents()
+
+
+def test_smart_selection_animation_defaults_off(tmp_path):
+    assert _manager(tmp_path).get_smart_selection_animation() is False
+
+
+def test_settings_dialog_saves_smart_selection_animation_toggle(
+    monkeypatch,
+    qapp,
+    tmp_path,
+):
+    """改动这个开关要能被"未保存改动"检测到——快照是白名单，漏加就静默失效。"""
+    manager = _manager(tmp_path)
+    manager.set_log_dir(str(tmp_path))
+    monkeypatch.setattr("ui.settings_ui.dialog.log_info", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        "core.shortcut_manager.HotkeySystem.check_hotkey_availability",
+        lambda _self, _hotkey: True,
+    )
+    dialog = SettingsDialog(manager)
+
+    for attr in (
+        "log_toggle",
+        "autostart_toggle",
+        "language_combo",
+        "_ui_theme_combo",
+        "_appearance_theme_color",
+        "_appearance_mask_color",
+        "_inapp_edits",
+    ):
+        if hasattr(dialog, attr):
+            delattr(dialog, attr)
+
+    dialog._settings_snapshot = dialog._snapshot_settings()
+    dialog.smart_animation_toggle.setChecked(True)
+
+    assert dialog._has_unsaved_changes()
+    dialog.accept()
+    assert manager.get_smart_selection_animation() is True
+
+    dialog.deleteLater()
+    qapp.processEvents()

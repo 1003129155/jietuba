@@ -422,6 +422,14 @@ Replace it?</translation>
         <translation>Automatically recognizes UI elements at mouse cursor position.</translation>
     </message>
     <message>
+        <source>Window Switch Animation</source>
+        <translation>Window Switch Animation</translation>
+    </message>
+    <message>
+        <source>Slide the selection when it moves from one window to another.</source>
+        <translation>Slide the selection when it moves from one window to another.</translation>
+    </message>
+    <message>
         <source>💡 How to use:</source>
         <translation>💡 How to use:</translation>
     </message>

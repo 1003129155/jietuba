@@ -86,6 +86,16 @@ def create_capture_page(dialog) -> QWidget:
     dialog.smart_toggle = smart_card
     grp_smart.addSettingCard(smart_card)
 
+    smart_anim_card = SwitchSettingCard(
+        FluentIcon.SYNC,
+        dialog.tr("Window Switch Animation"),
+        dialog.tr("Slide the selection when it moves from one window to another."),
+        parent=grp_smart,
+    )
+    smart_anim_card.setChecked(dialog.config_manager.get_smart_selection_animation())
+    dialog.smart_animation_toggle = smart_anim_card
+    grp_smart.addSettingCard(smart_anim_card)
+
     layout.addWidget(grp_smart)
 
     # ── 截图保存 ──────────────────────────────────────

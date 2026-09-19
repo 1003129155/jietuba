@@ -208,6 +208,7 @@ canvas/
 ├── selection_model.py       # SelectionModel — manages selected graphics items
 ├── undo.py                  # CommandUndoStack — undo/redo stack (add, delete, batch, edit commands)
 ├── smart_edit_controller.py # SmartEditController — handles selection/edit mode switching
+├── smart_selection_anim.py  # SmartSelectionAnimator — tweens the selection when it hops between windows
 ├── handle_editor.py         # LayerEditor / EditHandle — control point drag editing
 ├── gestures.py              # Mouse gesture state machines — text edge drag, rubber-band select, pending click-to-edit
 ├── handle_overlay.py        # HandleOverlay — separate compositing layer for edit handles, avoids full-scene repaint
@@ -572,6 +573,7 @@ ui/
 ├── hotkey_edit.py           # HotkeyEdit — global hotkey editor
 ├── inapp_key_edit.py        # InAppKeyEdit — in-app shortcut editor
 ├── mask_overlay.py          # mask overlay layer
+├── selection_overlay.py     # SelectionOverlayWidget — selection chrome layer above the mask
 ├── base_settings_panel.py   # BaseSettingsPanel / StepperWidget — settings panel base class
 ├── paint_settings_panel.py  # PaintSettingsPanel — brush settings panel
 ├── shape_settings_panel.py  # ShapeSettingsPanel — shape settings panel

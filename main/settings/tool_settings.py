@@ -197,6 +197,7 @@ class ToolSettingsManager(QObject):
 
         # 智能选择
         "smart_selection": True,              # 智能选区（窗口/控件识别）
+        "smart_selection_animation": False,   # 换窗口时补间而不是瞬间跳变
 
         # 截图保存
         "screenshot_save_enabled": True,       # 自动保存截图
@@ -723,6 +724,18 @@ class ToolSettingsManager(QObject):
     def set_smart_selection(self, value: bool):
         """设置智能选区"""
         self.qsettings.setValue("app/smart_selection", value)
+
+    def get_smart_selection_animation(self) -> bool:
+        """获取智能选区换窗口动画设置"""
+        return self.qsettings.value(
+            "app/smart_selection_animation",
+            self.APP_DEFAULT_SETTINGS["smart_selection_animation"],
+            type=bool,
+        )
+
+    def set_smart_selection_animation(self, value: bool):
+        """设置智能选区换窗口动画"""
+        self.qsettings.setValue("app/smart_selection_animation", value)
 
     def get_double_click_copy_close_enabled(self) -> bool:
         """获取双击选区后复制并关闭的启用状态。"""

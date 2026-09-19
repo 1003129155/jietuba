@@ -176,8 +176,11 @@ class GifRecordWindow(QObject):
         # 重新定位面板
         self._record_toolbar.reposition_panels()
 
-    def _reposition_toolbar(self, toolbar: QWidget):
+    def _reposition_toolbar(self, toolbar: QWidget | None):
         """工具栏智能定位：优先选区下方 → 上方 → 左侧 → 右侧"""
+        if toolbar is None:
+            return
+
         r = self._rect
         tw = toolbar.width()
         th = toolbar.height()
@@ -544,4 +547,3 @@ class GifRecordWindow(QObject):
 
         _request_trim(1000)
         self.deleteLater()
- 

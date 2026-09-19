@@ -701,6 +701,8 @@ class SettingsDialog(FrostedFramelessDialog):
             )
         if hasattr(self, 'smart_toggle'):
             self.smart_toggle.setChecked(defaults["smart_selection"])
+        if hasattr(self, 'smart_animation_toggle'):
+            self.smart_animation_toggle.setChecked(defaults["smart_selection_animation"])
         if hasattr(self, 'save_toggle'):
             self.save_toggle.setChecked(defaults["screenshot_save_enabled"])
         if hasattr(self, 'save_path_lbl'):
@@ -835,6 +837,10 @@ class SettingsDialog(FrostedFramelessDialog):
             )
         if hasattr(self, 'smart_toggle'):
             self.config_manager.set_smart_selection(self.smart_toggle.isChecked())
+        if hasattr(self, 'smart_animation_toggle'):
+            self.config_manager.set_smart_selection_animation(
+                self.smart_animation_toggle.isChecked()
+            )
 
         # 2. 日志设置
         if hasattr(self, 'log_toggle'):
@@ -1149,7 +1155,7 @@ class SettingsDialog(FrostedFramelessDialog):
         for attr in ('double_click_copy_close_toggle',
                       'cross_tool_selection_toggle',
                       'text_always_on_top_toggle',
-                      'smart_toggle',
+                      'smart_toggle', 'smart_animation_toggle',
                       'save_toggle', 'ocr_enable_toggle',
                       'ocr_grayscale_toggle', 'ocr_upscale_toggle',
                       'split_sentences_toggle',
@@ -1311,6 +1317,11 @@ class SettingsDialog(FrostedFramelessDialog):
 
         if hasattr(self, 'smart_toggle'):
             self.smart_toggle.setChecked(self.config_manager.get_smart_selection())
+
+        if hasattr(self, 'smart_animation_toggle'):
+            self.smart_animation_toggle.setChecked(
+                self.config_manager.get_smart_selection_animation()
+            )
 
         if hasattr(self, 'double_click_copy_close_toggle'):
             self.double_click_copy_close_toggle.setChecked(

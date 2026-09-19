@@ -61,15 +61,9 @@ class ExportService:
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
             
-            # 隐藏选区框，只渲染背景和绘图内容
-            # （遮罩层已移至 QWidget 叠层，不在场景内，无需处理）
-            selection_was_visible = self.scene.selection_item.isVisible()
-            self.scene.selection_item.setVisible(False)
-            
+            # 选区框和遮罩都已移出场景（各自的 QWidget 叠层），
+            # 场景里只剩背景和绘图内容，直接渲染即可
             self.scene.render(painter, QRectF(0, 0, w, h), selection_rect)
-            
-            # 恢复选区框的原始可见性
-            self.scene.selection_item.setVisible(selection_was_visible)
         finally:
             painter.end()
         

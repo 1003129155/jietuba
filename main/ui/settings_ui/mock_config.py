@@ -22,6 +22,7 @@ APP_DEFAULT_SETTINGS = {
     "cross_tool_selection": True,
     "text_always_on_top": True,
     "smart_selection": True,
+    "smart_selection_animation": False,
     "log_enabled": True,
     "log_level": "INFO",
     "log_retention_days": 7,
@@ -143,6 +144,8 @@ class MockConfig:
     def set_text_always_on_top_enabled(self, v): pass
     def get_smart_selection(self): return False
     def set_smart_selection(self, v): pass
+    def get_smart_selection_animation(self): return False
+    def set_smart_selection_animation(self, v): pass
     def get_log_enabled(self): return True
     def set_log_enabled(self, v): pass
     def get_log_dir(self): return os.path.expanduser("~")

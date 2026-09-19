@@ -421,6 +421,14 @@ Replace it?</source>
         <translation>마우스 커서 위치의 UI 요소를 자동으로 인식합니다.</translation>
     </message>
     <message>
+        <source>Window Switch Animation</source>
+        <translation>창 전환 애니메이션</translation>
+    </message>
+    <message>
+        <source>Slide the selection when it moves from one window to another.</source>
+        <translation>선택 영역이 창 사이를 이동할 때 미끄러지듯 이동합니다.</translation>
+    </message>
+    <message>
         <source>💡 How to use:</source>
         <translation>💡 사용 방법:</translation>
     </message>
