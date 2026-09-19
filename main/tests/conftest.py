@@ -33,6 +33,24 @@ def qapp():
     yield app
 
 
+@pytest.fixture(autouse=True)
+def flush_qt_deferred_deletes():
+    """Destroy QObjects scheduled with deleteLater before the next test.
+
+    Many GUI tests construct short-lived widget trees and intentionally use
+    ``deleteLater()`` for Qt-safe teardown.  Pytest does not run a Qt event
+    loop between ordinary tests, so those trees otherwise accumulate for the
+    entire process.  Deliver only DeferredDelete events here; processing all
+    events could also fire unrelated timers left by the test under cleanup.
+    """
+    yield
+
+    from PySide6.QtCore import QCoreApplication, QEvent
+
+    if QCoreApplication.instance() is not None:
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+
+
 @pytest.fixture(scope="session", autouse=True)
 def isolated_tool_settings(tmp_path_factory):
     """让全局工具设置单例落在临时文件上，而不是开发机真实的配置。

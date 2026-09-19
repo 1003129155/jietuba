@@ -19,6 +19,11 @@ jobs:
             python-architecture: x64
             python-machine: amd64
             rust-target: x86_64-pc-windows-msvc
+          - arch: arm64
+            runner: windows-11-arm
+            python-architecture: arm64
+            python-machine: arm64
+            rust-target: aarch64-pc-windows-msvc
     runs-on: ${{ matrix.runner }}
     env:
       PYTHONFAULTHANDLER: "1"
@@ -91,46 +96,7 @@ jobs:
           Write-Host ("Probe Python exit code: {0} (0x{1:X8})" -f $code, ($code -band 0xffffffff))
           exit $code
 
-      - name: Bisect full-suite access violation
-        if: matrix.arch == 'x64'
-        run: |
-          function Invoke-Probe {
-            param(
-              [string]$Label,
-              [string[]]$Paths,
-              [bool]$WithCoverage
-            )
-
-            $arguments = @("-X", "faulthandler", "-m", "pytest") + $Paths + @(
-              "-c", "main/tests/pytest.ini", "-q"
-            )
-            if ($WithCoverage) {
-              $arguments += @("--cov", "--cov-config=.coveragerc", "--cov-report=")
-            }
-
-            Write-Host "===== PROBE START: $Label ====="
-            & python @arguments
-            $code = $LASTEXITCODE
-            Write-Host ("PROBE RESULT: {0}: {1} (0x{2:X8})" -f $Label, $code, ($code -band 0xffffffff))
-          }
-
-          $screenshot = "main/tests/test_screenshot_preload_thread.py"
-          $before = @(
-            Get-ChildItem main/tests/test_*.py |
-              Sort-Object Name |
-              Where-Object Name -LT "test_stitch_integration.py" |
-              ForEach-Object FullName
-          )
-
-          Invoke-Probe "screenshot-only" @($screenshot) $false
-          Invoke-Probe "prefix-42-plus-screenshot" @($before[0..41] + $screenshot) $false
-          Invoke-Probe "prefix-55-plus-screenshot" @($before[0..54] + $screenshot) $false
-          Invoke-Probe "prefix-62-plus-screenshot" @($before[0..61] + $screenshot) $false
-          Invoke-Probe "prefix-68-plus-screenshot" @($before[0..67] + $screenshot) $false
-          exit 0
-
       - name: Run test suite with coverage
-        if: ${{ false }}
         # 从仓库根目录运行，保证 .coveragerc 里的相对路径能正确解析。
         # --cov-fail-under 是一个只升不降的棘轮：覆盖率掉下去 CI 就红，
         # 补完测试后把这个数字往上调。
