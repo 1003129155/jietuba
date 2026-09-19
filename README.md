@@ -342,6 +342,7 @@ core/
 ├── qt_utils.py              # safe_disconnect() — Qt signal safe disconnect
 ├── log_translations/        # per-module log text translation helpers
 ├── constants.py             # Global constants (fonts, paths, etc.)
+├── update_checker.py        # Asynchronous GitHub release lookup and version comparison
 └── ui_theme.py              # UIThemeManager — light/dark appearance for app windows and native Qt widgets
 ```
 

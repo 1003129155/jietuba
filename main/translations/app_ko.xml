@@ -3185,6 +3185,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.</translation></message>
     <message><source>Source Code</source><translation>소스 코드</translation></message>
     <message><source>Open GitHub</source><translation>GitHub 열기</translation></message>
+    <message><source>Version</source><translation>버전</translation></message>
+    <message><source>Check for Updates</source><translation>업데이트 확인</translation></message>
+    <message><source>Checking...</source><translation>확인 중...</translation></message>
+    <message><source>Update Check</source><translation>업데이트 확인</translation></message>
+    <message><source>You're using the latest version (%1).</source><translation>최신 버전(%1)을 사용 중입니다.</translation></message>
+    <message><source>Update Available</source><translation>업데이트 사용 가능</translation></message>
+    <message><source>Current version: %1</source><translation>현재 버전: %1</translation></message>
+    <message><source>Latest version: %1</source><translation>최신 버전: %1</translation></message>
+    <message><source>What's new:</source><translation>업데이트 내용:</translation></message>
+    <message><source>No release notes provided.</source><translation>릴리스 노트가 없습니다.</translation></message>
+    <message><source>Download:</source><translation>다운로드:</translation></message>
+    <message><source>Open Download Page</source><translation>다운로드 페이지 열기</translation></message>
+    <message><source>Update Check Failed</source><translation>업데이트 확인 실패</translation></message>
+    <message><source>Unable to check for updates. Please check your network connection and try again.</source><translation>업데이트를 확인할 수 없습니다. 네트워크 연결을 확인하고 다시 시도하세요.</translation></message>
     <!-- Developer page -->
     <message><source>Long Screenshot</source><translation>긴 스크린샷</translation></message>
     <message><source>Tools</source><translation>도구</translation></message>

@@ -3094,6 +3094,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.</translation></message>
     <message><source>Source Code</source><translation>Source Code</translation></message>
     <message><source>Open GitHub</source><translation>Open GitHub</translation></message>
+    <message><source>Version</source><translation>Version</translation></message>
+    <message><source>Check for Updates</source><translation>Check for Updates</translation></message>
+    <message><source>Checking...</source><translation>Checking...</translation></message>
+    <message><source>Update Check</source><translation>Update Check</translation></message>
+    <message><source>You're using the latest version (%1).</source><translation>You're using the latest version (%1).</translation></message>
+    <message><source>Update Available</source><translation>Update Available</translation></message>
+    <message><source>Current version: %1</source><translation>Current version: %1</translation></message>
+    <message><source>Latest version: %1</source><translation>Latest version: %1</translation></message>
+    <message><source>What's new:</source><translation>What's new:</translation></message>
+    <message><source>No release notes provided.</source><translation>No release notes provided.</translation></message>
+    <message><source>Download:</source><translation>Download:</translation></message>
+    <message><source>Open Download Page</source><translation>Open Download Page</translation></message>
+    <message><source>Update Check Failed</source><translation>Update Check Failed</translation></message>
+    <message><source>Unable to check for updates. Please check your network connection and try again.</source><translation>Unable to check for updates. Please check your network connection and try again.</translation></message>
     <!-- Developer page -->
     <message><source>Long Screenshot</source><translation>Long Screenshot</translation></message>
     <message><source>Tools</source><translation>Tools</translation></message>
