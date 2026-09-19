@@ -28,7 +28,6 @@ import json
 import re
 import sys
 import os
-import time
 from datetime import datetime
 
 # 确保 main/ 在 sys.path（和 compare_translation_providers.py 同款引导）

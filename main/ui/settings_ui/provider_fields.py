@@ -12,7 +12,7 @@ QStackedWidget 分页。共享布局会做出一个谁都不好用的万能组�
 漏法在结构上不可能发生——界面不认服务商名字，只认注册表里的声明。
 """
 
-from translation.provider import TextField, ToggleField
+from translation.provider import ToggleField
 
 from core.logger import log_exception, T
 
