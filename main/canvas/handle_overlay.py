@@ -31,7 +31,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QRect, Qt
-from PySide6.QtGui import QPainter
+from PySide6.QtGui import QPainter, QRegion
 from PySide6.QtWidgets import QWidget
 
 from core import safe_event
@@ -103,11 +103,28 @@ class HandleOverlayWidget(QWidget):
         if not dirty.isEmpty():
             self.update(dirty)
 
+    def _still_on_screen(self, repainted: QRegion, drawn: QRect) -> QRect:
+        """这一帧过后，屏幕上还留着手柄像素的范围。
+
+        不能直接记成"手柄现在在哪"：浮层压在 viewport 上，图元自己失效一小块
+        就会顺带重绘这一块浮层，而这种被动重绘完全可能发生在图元几何已经变了、
+        refresh() 还没轮到的中间态。
+
+        所以按"这次重绘到底盖住了多少旧区域"来算：没盖全就把旧区域继续记着，
+        下一次失效连它一起带走，然后自然收敛回精确值。
+
+        用相减判断"盖全了没有"，不能用 QRegion.contains(QRect)：它的语义是相交
+        而不是包含，沾上一点就返回 True。
+        """
+        if QRegion(self._painted).subtracted(repainted).isEmpty():
+            return drawn
+        return drawn.united(self._painted)
+
     @safe_event
     def paintEvent(self, event):
         editor = self._editor()
         if editor is None or not editor.is_editing():
-            self._painted = QRect()
+            self._painted = self._still_on_screen(event.region(), QRect())
             return
 
         painter = QPainter(self)
@@ -119,6 +136,6 @@ class HandleOverlayWidget(QWidget):
         finally:
             painter.end()
 
-        # 记录这一帧手柄实际落在哪里。视图变换导致的被动重绘也会走到这里，
-        # 所以 _painted 始终反映屏幕上的真实情况，不依赖任何人来通知。
-        self._painted = self._handles_viewport_rect()
+        # 视图变换导致的被动重绘也会走到这里，所以 _painted 始终反映屏幕上的
+        # 真实情况，不依赖任何人来通知。
+        self._painted = self._still_on_screen(event.region(), self._handles_viewport_rect())
