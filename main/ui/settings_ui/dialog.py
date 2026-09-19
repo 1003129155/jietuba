@@ -671,6 +671,10 @@ class SettingsDialog(FrostedFramelessDialog):
             )
             if index >= 0:
                 self._ui_theme_combo.setCurrentIndex(index)
+        if hasattr(self, '_ui_scale_combo'):
+            index = self._ui_scale_combo.findData(defaults.get("ui_scale_percent", 100))
+            if index >= 0:
+                self._ui_scale_combo.setCurrentIndex(index)
         if hasattr(self, '_appearance_theme_color'):
             self._appearance_theme_color = QColor(defaults["theme_color"])
             _update_color_btn(self._theme_color_btn, self._appearance_theme_color)
@@ -994,10 +998,15 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'info_hide_on_drag_toggle'):
             self.config_manager.set_app_setting("screenshot_info_hide_on_drag", self.info_hide_on_drag_toggle.isChecked())
 
-        # 11. 外观设置（主题色、遮罩色）
+        # 11. 外观设置（主题色、遮罩色、界面缩放）
         if hasattr(self, '_ui_theme_combo'):
             from core.ui_theme import get_ui_theme
             get_ui_theme().set_mode(self._ui_theme_combo.currentData())
+
+        # 缩放比例一变，已建出来的工具栏/面板会自己收到 scale_changed 重算
+        if hasattr(self, '_ui_scale_combo'):
+            from core.ui_scale import get_ui_scale
+            get_ui_scale().set_percent(self._ui_scale_combo.currentData())
 
         from core.theme import get_theme
         theme = get_theme()
@@ -1160,7 +1169,7 @@ class SettingsDialog(FrostedFramelessDialog):
                       'log_level_combo',
                       'language_combo', 'engine_combo', 'cursor_move_combo',
                       'magnifier_color_format_combo', 'log_retention_combo',
-                      '_ui_theme_combo'):
+                      '_ui_theme_combo', '_ui_scale_combo'):
             w = getattr(self, attr, None)
             if w is not None:
                 snap[attr] = w.currentIndex()
@@ -1419,6 +1428,12 @@ class SettingsDialog(FrostedFramelessDialog):
             index = self._ui_theme_combo.findData(get_ui_theme().mode.value)
             if index >= 0:
                 self._ui_theme_combo.setCurrentIndex(index)
+
+        if hasattr(self, '_ui_scale_combo'):
+            from core.ui_scale import get_ui_scale
+            index = self._ui_scale_combo.findData(get_ui_scale().percent)
+            if index >= 0:
+                self._ui_scale_combo.setCurrentIndex(index)
 
         if hasattr(self, '_theme_color_btn'):
             from core.theme import get_theme

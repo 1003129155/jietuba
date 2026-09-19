@@ -3320,6 +3320,14 @@ SOFTWARE.</translation></message>
         <translation>표시 모드를 선택하세요.</translation>
     </message>
     <message>
+        <source>Toolbar &amp; Panel Scale</source>
+        <translation>도구 모음 및 패널 배율</translation>
+    </message>
+    <message>
+        <source>Size of toolbars, tool panels and popups.</source>
+        <translation>도구 모음, 설정 패널, 팝업의 표시 크기입니다.</translation>
+    </message>
+    <message>
         <source>System</source>
         <translation>시스템</translation>
     </message>

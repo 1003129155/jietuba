@@ -134,6 +134,31 @@ def _build_application_section(dialog, grp: SettingCardGroup):
     card.hBoxLayout.addSpacing(16)
     grp.addSettingCard(card)
 
+    _build_ui_scale_card(dialog, grp)
+
+
+def _build_ui_scale_card(dialog, grp: SettingCardGroup):
+    """工具栏与面板缩放：只作用于操作界面，不影响截图像素尺寸和绘制内容。"""
+    from core.ui_scale import get_ui_scale, UIScaleManager
+
+    card = FSettingCard(
+        FluentIcon.LAYOUT,
+        dialog.tr("Toolbar & Panel Scale"),
+        dialog.tr("Size of toolbars, tool panels and popups."),
+        parent=grp,
+    )
+    dialog._ui_scale_combo = ComboBox(card)
+    dialog._ui_scale_combo.setFixedWidth(150)
+    for percent in UIScaleManager.PERCENT_OPTIONS:
+        dialog._ui_scale_combo.addItem(f"{percent}%", userData=percent)
+    index = dialog._ui_scale_combo.findData(get_ui_scale().percent)
+    dialog._ui_scale_combo.setCurrentIndex(max(0, index))
+    card.hBoxLayout.addWidget(
+        dialog._ui_scale_combo, 0, Qt.AlignmentFlag.AlignRight
+    )
+    card.hBoxLayout.addSpacing(16)
+    grp.addSettingCard(card)
+
 
 # ================================================================
 # 截图外观

@@ -452,7 +452,8 @@ class ScrollCaptureWindow(QWidget):
         """根据屏幕边界将工具栏对齐到截图区域上方居中，支持上/下/左/右四向智能回退"""
         if not hasattr(self, 'toolbar') or self.toolbar is None:
             return
-        margin = 10
+        from core.ui_scale import scaled
+        margin = scaled(10)
         screen = self.screen()
         if screen is None:
             screen = QApplication.primaryScreen()

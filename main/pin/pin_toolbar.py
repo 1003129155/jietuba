@@ -46,6 +46,10 @@ class PinToolbar(Toolbar):
         """钉图的排布是固定的，不跟随用户对截图工具栏的配置"""
         self._arrange(self.LAYOUT)
 
+    def _reposition_self(self):
+        if self.isVisible() and self.parent_pin_window is not None:
+            self.position_near_window(self.parent_pin_window)
+
     def position_near_window(self, pin_window):
         """
         将工具栏定位到钉图正下方，右对齐。

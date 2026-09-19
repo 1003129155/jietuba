@@ -7,6 +7,8 @@ from PySide6.QtWidgets import QPushButton, QMenu
 from PySide6.QtCore import Qt, QPoint, Signal
 from PySide6.QtGui import QIcon, QCursor, QAction
 
+from core.ui_scale import scaled
+
 
 # ── 进度条通用样式 ─────────────────────────────────────
 PROGRESS_BAR_STYLE = """
@@ -50,10 +52,15 @@ class ClickMenuButton(QPushButton):
         color = "#333" if self._enabled_flag else "#bbb"
         bg = "#f5f5f5" if self._enabled_flag else "#ebebeb"
         self.setStyleSheet(
-            f"QPushButton {{ font-size: 12px; color: {color}; padding: 1px 5px;"
-            f" border: 1px solid #ddd; border-radius: 3px; background: {bg}; }}"
+            f"QPushButton {{ font-size: {scaled(12)}px; color: {color};"
+            f" padding: {scaled(1)}px {scaled(5)}px;"
+            f" border: 1px solid #ddd; border-radius: {scaled(3)}px; background: {bg}; }}"
             f"QPushButton:hover {{ background: #e8e8e8; }}"
         )
+
+    def apply_scale(self):
+        """按当前比例重挂样式（尺寸全靠样式表里的字号和内边距）"""
+        self._apply_style()
 
     def _update_text(self):
         self.setText(self._options[self._current_index][0])
@@ -68,19 +75,19 @@ class ClickMenuButton(QPushButton):
 
     def _show_menu(self):
         menu = QMenu(self)
-        menu.setStyleSheet("""
-            QMenu {
+        menu.setStyleSheet(f"""
+            QMenu {{
                 background: white;
                 border: 1px solid #ddd;
-                border-radius: 4px;
-                padding: 2px 0;
-            }
-            QMenu::item {
-                padding: 4px 16px;
-                font-size: 12px;
+                border-radius: {scaled(4)}px;
+                padding: {scaled(2)}px 0;
+            }}
+            QMenu::item {{
+                padding: {scaled(4)}px {scaled(16)}px;
+                font-size: {scaled(12)}px;
                 color: #333;
-            }
-            QMenu::item:selected { background: #f0f0f0; }
+            }}
+            QMenu::item:selected {{ background: #f0f0f0; }}
         """)
         for i, (text, value) in enumerate(self._options):
             act = QAction(text, menu)

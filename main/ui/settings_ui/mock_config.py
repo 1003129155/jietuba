@@ -69,6 +69,7 @@ APP_DEFAULT_SETTINGS = {
     "clipboard_auto_cleanup": False,
     "magnifier_color_copy_format": "rgb_hex",
     "ui_theme_mode": "system",
+    "ui_scale_percent": 100,
     "inapp_confirm": "ctrl+c",
     "inapp_pin": "ctrl+d",
     "inapp_undo": "ctrl+z",

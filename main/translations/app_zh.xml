@@ -3394,6 +3394,14 @@ SOFTWARE.</translation></message>
         <translation>选择显示模式。</translation>
     </message>
     <message>
+        <source>Toolbar &amp; Panel Scale</source>
+        <translation>工具栏与面板缩放</translation>
+    </message>
+    <message>
+        <source>Size of toolbars, tool panels and popups.</source>
+        <translation>工具栏、二级面板和弹层的显示大小。</translation>
+    </message>
+    <message>
         <source>System</source>
         <translation>系统</translation>
     </message>

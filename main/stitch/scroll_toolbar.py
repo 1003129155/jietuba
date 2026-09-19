@@ -9,9 +9,10 @@ scroll_toolbar.py - 滚动截图浮动工具栏模块
 """
 
 from PySide6.QtWidgets import QWidget, QPushButton, QVBoxLayout, QHBoxLayout
-from PySide6.QtCore import Qt, QPoint, Signal
+from PySide6.QtCore import Qt, QPoint, QSize, Signal
 from PySide6.QtGui import QPainter, QColor, QPainterPath
 from core.theme import get_theme
+from core.ui_scale import get_ui_scale, scaled
 from core import safe_event
 
 
@@ -24,13 +25,22 @@ class _DragHandle(QWidget):
     """
 
     _DOT_COLOR = QColor(255, 255, 255)
+    BASE_WIDTH = 14
+    BASE_DOT_RADIUS = 3
+    BASE_DOT_GAP = 9
+    BASE_CORNER_RADIUS = 4
+
     reset_requested = Signal()  # 双击时发出，请求切回自动定位
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedWidth(14)
         self.setCursor(Qt.CursorShape.SizeAllCursor)
         self._manual_mode = False
+        self.apply_scale()
+
+    def apply_scale(self):
+        self.setFixedWidth(scaled(self.BASE_WIDTH))
+        self.update()
 
     def set_manual_mode(self, manual: bool):
         if self._manual_mode != manual:
@@ -47,7 +57,7 @@ class _DragHandle(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        radius = 4
+        radius = scaled(self.BASE_CORNER_RADIUS)
         r = self.rect()
         path = QPainterPath()
         path.moveTo(r.left() + radius, r.top())
@@ -64,7 +74,7 @@ class _DragHandle(QWidget):
             cy = r.center().y()
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(self._DOT_COLOR)
-            dot_r, gap = 3, 9
+            dot_r, gap = scaled(self.BASE_DOT_RADIUS), scaled(self.BASE_DOT_GAP)
             for dy in (-gap, 0, gap):
                 painter.drawEllipse(QPoint(cx, cy + dy), dot_r, dot_r)
 
@@ -81,6 +91,12 @@ class FloatingToolbar(QWidget):
     finish_clicked = Signal()
     cancel_clicked = Signal()
 
+    # 基准尺寸（100% 下的实际像素）
+    BASE_HEIGHT = 40
+    BASE_MIN_WIDTH = 200
+    BASE_BTN = 32
+    BASE_ICON = 24
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent_window = parent
@@ -92,6 +108,8 @@ class FloatingToolbar(QWidget):
 
         self._setup_toolbar_window()
         self._setup_toolbar_ui()
+        # 改比例后自行重算尺寸（连接随本部件销毁自动断开）
+        get_ui_scale().scale_changed.connect(self.apply_scale)
 
     # ------------------------------------------------------------------
     # 窗口与 UI 初始化
@@ -106,29 +124,50 @@ class FloatingToolbar(QWidget):
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
-        self.setFixedHeight(40)
-        self.setMinimumWidth(200)
+    def apply_scale(self):
+        """按当前比例重算浮动工具栏的尺寸，方向、按钮状态都不动。"""
+        self.setFixedHeight(scaled(self.BASE_HEIGHT))
+        self.setMinimumWidth(scaled(self.BASE_MIN_WIDTH))
+        self._container.setStyleSheet(self._container_qss())
+        self._row_layout.setContentsMargins(0, 0, scaled(10), 0)
+        self._row_layout.setSpacing(scaled(8))
+        self.left_handle.apply_scale()
+        self.direction_btn.setStyleSheet(self._direction_btn_style())
+        btn_sz = scaled(self.BASE_BTN)
+        icon_sz = scaled(self.BASE_ICON)
+        for button in self._icon_buttons:
+            button.setFixedSize(btn_sz, btn_sz)
+            button.setIconSize(QSize(icon_sz, icon_sz))
+            button.setStyleSheet(self._icon_btn_style())
+        self.adjustSize()
+        # 宽高变了要重新贴回滚动窗口旁边；用户手动拖过位置的不动
+        if (not self._manual_positioned and self.parent_window is not None
+                and hasattr(self.parent_window, '_position_floating_toolbar')):
+            self.parent_window._position_floating_toolbar()
 
-    def _setup_toolbar_ui(self):
-        """设置工具栏 UI"""
+    def _container_qss(self) -> str:
         theme_hex = get_theme().theme_color_hex
-        container = QWidget()
-        container.setObjectName("toolbar_container")
-        container.setStyleSheet(f"""
+        return f"""
             QWidget#toolbar_container {{
                 background-color: white;
                 border: 2px solid {theme_hex};
-                border-radius: 5px;
+                border-radius: {scaled(5)}px;
             }}
-        """)
+        """
+
+    def _setup_toolbar_ui(self):
+        """设置工具栏 UI"""
+        container = QWidget()
+        container.setObjectName("toolbar_container")
+        self._container = container
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(container)
 
         toolbar_layout = QHBoxLayout(container)
-        toolbar_layout.setContentsMargins(0, 0, 10, 0)
-        toolbar_layout.setSpacing(8)
+        self._row_layout = toolbar_layout
+        self._icon_buttons = []
 
         # 左侧拖动手柄
         left_handle = _DragHandle(container)
@@ -140,82 +179,83 @@ class FloatingToolbar(QWidget):
 
         # 方向切换按钮
         self.direction_btn = QPushButton("↕️ " + self.tr("Vertical"))
-        self.direction_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #2196F3;
-                color: white;
-                border: none;
-                padding: 5px 10px;
-                font-size: 9pt;
-                border-radius: 3px;
-                font-weight: bold;
-                min-width: 50px;
-            }
-            QPushButton:hover {
-                background-color: #1976D2;
-            }
-        """)
         self.direction_btn.clicked.connect(self.direction_changed.emit)
         toolbar_layout.addWidget(self.direction_btn, 0, Qt.AlignmentFlag.AlignVCenter)
 
         # 手动截图按钮（SVG 图标 - 相机样式）
         from core.resource_manager import ResourceManager
-        from PySide6.QtCore import QSize
 
         self.manual_capture_btn = QPushButton()
         self.manual_capture_btn.setIcon(ResourceManager.get_icon(ResourceManager.get_resource_path("svg/托盘.svg")))
-        self.manual_capture_btn.setIconSize(QSize(24, 24))
-        self.manual_capture_btn.setFixedSize(32, 32)
+        self._icon_buttons.append(self.manual_capture_btn)
         self.manual_capture_btn.setToolTip(self.tr("Take screenshot manually"))
-        self.manual_capture_btn.setStyleSheet(self._icon_btn_style())
         self.manual_capture_btn.clicked.connect(self.manual_capture.emit)
         toolbar_layout.addWidget(self.manual_capture_btn, 0, Qt.AlignmentFlag.AlignVCenter)
 
         # 钉图按钮
         self.pin_btn = QPushButton()
         self.pin_btn.setIcon(ResourceManager.get_icon(ResourceManager.get_resource_path("svg/钉图.svg")))
-        self.pin_btn.setIconSize(QSize(24, 24))
-        self.pin_btn.setFixedSize(32, 32)
+        self._icon_buttons.append(self.pin_btn)
         self.pin_btn.setToolTip(self.tr("Pin to desktop"))
-        self.pin_btn.setStyleSheet(self._icon_btn_style())
         self.pin_btn.clicked.connect(self.pin_clicked.emit)
         toolbar_layout.addWidget(self.pin_btn, 0, Qt.AlignmentFlag.AlignVCenter)
 
         # 完成按钮
         self.finish_btn = QPushButton()
         self.finish_btn.setIcon(ResourceManager.get_icon(ResourceManager.get_resource_path("svg/确定.svg")))
-        self.finish_btn.setIconSize(QSize(24, 24))
-        self.finish_btn.setFixedSize(32, 32)
+        self._icon_buttons.append(self.finish_btn)
         self.finish_btn.setToolTip(self.tr("Finish and save"))
-        self.finish_btn.setStyleSheet(self._icon_btn_style())
         self.finish_btn.clicked.connect(self.finish_clicked.emit)
         toolbar_layout.addWidget(self.finish_btn, 0, Qt.AlignmentFlag.AlignVCenter)
 
         # 取消按钮
         self.cancel_btn = QPushButton()
         self.cancel_btn.setIcon(ResourceManager.get_icon(ResourceManager.get_resource_path("svg/关闭.svg")))
-        self.cancel_btn.setIconSize(QSize(24, 24))
-        self.cancel_btn.setFixedSize(32, 32)
+        self._icon_buttons.append(self.cancel_btn)
         self.cancel_btn.setToolTip(self.tr("Cancel long screenshot"))
-        self.cancel_btn.setStyleSheet(self._icon_btn_style())
         self.cancel_btn.clicked.connect(self.cancel_clicked.emit)
         toolbar_layout.addWidget(self.cancel_btn, 0, Qt.AlignmentFlag.AlignVCenter)
+
+        self.apply_scale()
+
+    @staticmethod
+    def _direction_btn_style() -> str:
+        """方向切换按钮样式。
+
+        字号用 pt 而不是 px：pt 跟随系统 DPI，本项目关掉了 Qt 的高 DPI 缩放，
+        换成 px 会让这个按钮在高分屏上比原来小一圈。
+        """
+        return f"""
+            QPushButton {{
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                padding: {scaled(5)}px {scaled(10)}px;
+                font-size: {scaled(9)}pt;
+                border-radius: {scaled(3)}px;
+                font-weight: bold;
+                min-width: {scaled(50)}px;
+            }}
+            QPushButton:hover {{
+                background-color: #1976D2;
+            }}
+        """
 
     @staticmethod
     def _icon_btn_style() -> str:
         """通用图标按钮样式"""
-        return """
-            QPushButton {
+        return f"""
+            QPushButton {{
                 background-color: transparent;
                 border: none;
-                border-radius: 3px;
-            }
-            QPushButton:hover {
+                border-radius: {scaled(3)}px;
+            }}
+            QPushButton:hover {{
                 background-color: rgba(0, 0, 0, 0.05);
-            }
-            QPushButton:pressed {
+            }}
+            QPushButton:pressed {{
                 background-color: rgba(0, 0, 0, 0.1);
-            }
+            }}
         """
 
     # ------------------------------------------------------------------

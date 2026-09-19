@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt, Signal, QEvent, QPointF, QSize
 from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPixmap
 from .base_settings_panel import (
     HoverPopup, StepperWidget, build_settings_panel_stylesheet,
-    paint_rounded_panel, PANEL_SCALE,
+    paint_rounded_panel,
 )
 from .color_picker_button import ColorPickerButton
 from canvas.items import TextItem
@@ -21,6 +21,7 @@ from core.constants import (
     normalize_text_font_family,
 )
 from core import safe_event
+from core.ui_scale import scaled
 from core.logger import log_exception, T
 
 
@@ -83,21 +84,30 @@ def render_text_effect_icon(side: int, ratio: float = 1.0, *, outline_width: flo
     return pixmap
 
 
-def _preset_color_button(color_hex: str, side: int, tooltip: str) -> QPushButton:
-    button = QPushButton()
+# Qt 的 QWIDGETSIZE_MAX，PySide6 没导出这个常量
+_WIDGET_SIZE_MAX = 16777215
+
+
+def _style_preset_color_button(button: QPushButton, color_hex: str, side: int):
+    """按当前比例给预设色块定尺寸和样式（建按钮和改比例共用）"""
     button.setFixedSize(side, side)
-    button.setToolTip(tooltip)
     border_color = "#888888" if color_hex == "#FFFFFF" else "#333333"
     button.setStyleSheet(f"""
         QPushButton {{
             background-color: {color_hex};
             border: 1px solid {border_color};
-            border-radius: 6px;
+            border-radius: {scaled(6)}px;
         }}
         QPushButton:hover {{
             border: 2px solid #000;
         }}
     """)
+
+
+def _preset_color_button(color_hex: str, side: int, tooltip: str) -> QPushButton:
+    button = QPushButton()
+    button.setToolTip(tooltip)
+    _style_preset_color_button(button, color_hex, side)
     return button
 
 
@@ -156,13 +166,31 @@ class TextSettingsPanel(QWidget):
     outline_changed = Signal(bool, QColor, float)  # 宽度是 TextItem.OUTLINE_WIDTH_LEVELS 之一
     shadow_changed = Signal(bool, QColor)          # 颜色的 alpha 即阴影不透明度
 
-    # 弹出层里的控件。描边粗细虽只有四档，但用带刻度的离散滑条呈现：
-    # 比四个零散的小方块更紧凑，也不会伪装成可取任意数值的连续滑条。
-    _POPUP_CONTROLS_QSS = f"""
+    # 基准尺寸（100% 下的实际像素）
+    BASE_MARGIN_H = 9
+    BASE_MARGIN_V = 7
+    BASE_SPACING = 9
+    BASE_SIZE_SPIN_WIDTH = 54
+    BASE_BTN = 25
+    BASE_EFFECT_ICON = 18
+    BASE_PRESET_BTN = 22
+    BASE_FONT_VIEW_WIDTH = 200
+    BASE_POPUP_COLOR_BTN = 24
+    BASE_OPACITY_LABEL_WIDTH = 36
+    BASE_OUTLINE_SLIDER_WIDTH = 108
+
+    @staticmethod
+    def _popup_controls_qss() -> str:
+        """弹出层里的控件样式。
+
+        描边粗细虽只有四档，但用带刻度的离散滑条呈现：比四个零散的小方块更紧凑，
+        也不会伪装成可取任意数值的连续滑条。尺寸按当前比例算，改比例后要重新挂。
+        """
+        return f"""
         QPushButton {{
             background-color: white;
             border: 1px solid #ddd;
-            border-radius: 3px;
+            border-radius: {scaled(3)}px;
             padding: 0px;
         }}
         QPushButton:hover {{
@@ -175,31 +203,31 @@ class TextSettingsPanel(QWidget):
             background-color: transparent;
         }}
         QSlider#outlineWidthSlider {{
-            min-height: 24px;
+            min-height: {scaled(24)}px;
         }}
         QSlider#outlineWidthSlider::groove:horizontal {{
-            height: 4px;
-            margin: 0 6px;
+            height: {scaled(4)}px;
+            margin: 0 {scaled(6)}px;
             background: #d7d7d7;
-            border-radius: 2px;
+            border-radius: {scaled(2)}px;
         }}
         QSlider#outlineWidthSlider::sub-page:horizontal {{
-            margin: 0 6px;
+            margin: 0 {scaled(6)}px;
             background: #0078d7;
-            border-radius: 2px;
+            border-radius: {scaled(2)}px;
         }}
         QSlider#outlineWidthSlider::add-page:horizontal {{
-            margin: 0 6px;
+            margin: 0 {scaled(6)}px;
             background: #d7d7d7;
-            border-radius: 2px;
+            border-radius: {scaled(2)}px;
         }}
         QSlider#outlineWidthSlider::handle:horizontal {{
-            width: 12px;
-            height: 12px;
-            margin: -5px -6px;
+            width: {scaled(12)}px;
+            height: {scaled(12)}px;
+            margin: {-scaled(5)}px {-scaled(6)}px;
             background: #0078d7;
             border: 2px solid white;
-            border-radius: 7px;
+            border-radius: {scaled(7)}px;
         }}
         QSlider#outlineWidthSlider::handle:horizontal:hover {{
             background: #0067b8;
@@ -213,7 +241,7 @@ class TextSettingsPanel(QWidget):
         QLabel {{
             color: #333;
             font-family: {CSS_FONT_FAMILY};
-            font-size: 11px;
+            font-size: {scaled(11)}px;
         }}
     """
 
@@ -243,28 +271,100 @@ class TextSettingsPanel(QWidget):
     def paintEvent(self, event):
         paint_rounded_panel(self)
 
-    def _init_ui(self):
-        """初始化UI布局"""
-        self.setStyleSheet(build_settings_panel_stylesheet(
+    def _build_stylesheet(self) -> str:
+        return build_settings_panel_stylesheet(
             combo_enabled=True,
             combo_padding="2px 8px 2px 4px",
             combo_min_width=40,
             combo_max_width=120
         ) + f"""
             QCheckBox {{
-                spacing: 5px;
+                spacing: {scaled(5)}px;
                 background-color: transparent;
                 border: none;
                 font-family: {CSS_FONT_FAMILY};
-                font-size: 12px;
+                font-size: {scaled(12)}px;
                 color: #333;
             }}
-        """)
+        """
 
+    def apply_scale(self):
+        """按当前比例重算面板和三个效果弹出层的尺寸，字体、颜色、开关状态不变。"""
+        self.setStyleSheet(self._build_stylesheet())
+        mh, mv = scaled(self.BASE_MARGIN_H), scaled(self.BASE_MARGIN_V)
+        layout = self.layout()
+        layout.setContentsMargins(mh, mv, mh, mv)
+        layout.setSpacing(scaled(self.BASE_SPACING))
+
+        self.font_combo.view().setMinimumWidth(scaled(self.BASE_FONT_VIEW_WIDTH))
+        self.size_spin.setFixedWidth(scaled(self.BASE_SIZE_SPIN_WIDTH))
+
+        btn_sz = scaled(self.BASE_BTN)
+        for button, decoration in self._font_style_buttons:
+            button.setFixedSize(btn_sz, btn_sz)
+            button.setStyleSheet(f"""
+                QPushButton {{
+                    {decoration}
+                    font-size: {scaled(14)}px;
+                    font-family: Arial, sans-serif;
+                }}
+            """)
+
+        icon_sz = scaled(self.BASE_EFFECT_ICON)
+        ratio = self.devicePixelRatioF()
+        self.outline_btn.setIcon(QIcon(render_text_effect_icon(
+            icon_sz, ratio, outline_width=TextItem.DEFAULT_OUTLINE_WIDTH)))
+        self.shadow_btn.setIcon(QIcon(render_text_effect_icon(icon_sz, ratio, shadow=True)))
+        for button in (self.background_btn, self.outline_btn, self.shadow_btn):
+            button.setFixedSize(btn_sz, btn_sz)
+            button.setIconSize(QSize(icon_sz, icon_sz))
+        self._update_background_btn_style()
+
+        self.color_btn.setFixedSize(btn_sz, btn_sz)
+        preset_sz = scaled(self.BASE_PRESET_BTN)
+        for button, color_str in self._preset_buttons:
+            _style_preset_color_button(button, color_str, preset_sz)
+
+        self._apply_popup_scale()
+        self.adjustSize()
+        self.update()
+
+    def _apply_popup_scale(self):
+        """三个效果弹出层的尺寸，和面板一起按比例重算"""
+        qss = self._popup_controls_qss()
+        color_side = scaled(self.BASE_POPUP_COLOR_BTN)
+        for popup_layout, colors_layout in self._popup_layouts:
+            popup_layout.setContentsMargins(scaled(8), scaled(6), scaled(8), scaled(6))
+            popup_layout.setSpacing(scaled(6))
+            colors_layout.setSpacing(scaled(6))
+        for button, color_hex in self._popup_color_buttons:
+            if color_hex is None:
+                button.setFixedSize(color_side, color_side)
+            else:
+                _style_preset_color_button(button, color_hex, color_side)
+        for label in self._opacity_labels:
+            label.setFixedWidth(scaled(self.BASE_OPACITY_LABEL_WIDTH))
+
+        icon_side = scaled(self.BASE_EFFECT_ICON)
+        ratio = self.devicePixelRatioF()
+        for preview, level in zip(self._outline_width_previews,
+                                  (TextItem.OUTLINE_WIDTH_LEVELS[0],
+                                   TextItem.OUTLINE_WIDTH_LEVELS[-1])):
+            preview.setFixedSize(icon_side, icon_side)
+            preview.setPixmap(render_text_effect_icon(icon_side, ratio, outline_width=level))
+        self._outline_row.setSpacing(scaled(5))
+        self.outline_width_slider.setFixedWidth(scaled(self.BASE_OUTLINE_SLIDER_WIDTH))
+
+        for popup in self._effect_popups.values():
+            popup.set_extra_stylesheet(qss)
+            # 先松开上一次收口的上限，否则量出来的还是旧宽度
+            popup.setMaximumWidth(_WIDGET_SIZE_MAX)
+            popup.adjustSize()
+            self._fit_effect_popup_width(popup)
+
+    def _init_ui(self):
+        """初始化UI布局"""
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(round(10 * PANEL_SCALE), round(8 * PANEL_SCALE),
-                                  round(10 * PANEL_SCALE), round(8 * PANEL_SCALE))
-        layout.setSpacing(round(10 * PANEL_SCALE))
 
         # === 1. 基础样式区 ===
 
@@ -283,81 +383,50 @@ class TextSettingsPanel(QWidget):
         # 确保字体组合框有合理的最大可见项数
         self.font_combo.setMaxVisibleItems(15)
         # 设置下拉列表的最小宽度，确保字体名称完整显示
-        self.font_combo.view().setMinimumWidth(200)
+        self.font_combo.view().setMinimumWidth(scaled(self.BASE_FONT_VIEW_WIDTH))
 
         layout.addWidget(self.font_combo)
 
         # 字号选择
         self.size_spin = StepperWidget(16, 8, 144)
-        self.size_spin.setFixedWidth(round(60 * PANEL_SCALE))
         self.size_spin.setToolTip(self.tr("Font Size"))
         layout.addWidget(self.size_spin)
 
-        # 样式按钮组 (粗体/斜体/下划线)
-        _btn_sz = round(28 * PANEL_SCALE)
+        # 样式按钮组 (粗体/斜体/下划线)。字重/斜体/下划线靠 CSS 保证，不依赖字体变体
         self.bold_btn = QPushButton("B")
         self.bold_btn.setCheckable(True)
-        self.bold_btn.setFixedSize(_btn_sz, _btn_sz)
         self.bold_btn.setToolTip(self.tr("Bold"))
-        # 使用CSS确保粗体效果，不依赖字体变体
-        self.bold_btn.setStyleSheet("""
-            QPushButton {
-                font-weight: bold;
-                font-size: 14px;
-                font-family: Arial, sans-serif;
-            }
-        """)
 
         self.italic_btn = QPushButton("I")
         self.italic_btn.setCheckable(True)
-        self.italic_btn.setFixedSize(_btn_sz, _btn_sz)
         self.italic_btn.setToolTip(self.tr("Italic"))
-        # 使用CSS确保斜体效果
-        self.italic_btn.setStyleSheet("""
-            QPushButton {
-                font-style: italic;
-                font-size: 14px;
-                font-family: Arial, sans-serif;
-            }
-        """)
 
         self.underline_btn = QPushButton("U")
         self.underline_btn.setCheckable(True)
-        self.underline_btn.setFixedSize(_btn_sz, _btn_sz)
         self.underline_btn.setToolTip(self.tr("Underline"))
-        # 使用CSS确保下划线效果
-        self.underline_btn.setStyleSheet("""
-            QPushButton {
-                text-decoration: underline;
-                font-size: 14px;
-                font-family: Arial, sans-serif;
-            }
-        """)
+
+        self._font_style_buttons = (
+            (self.bold_btn, "font-weight: bold;"),
+            (self.italic_btn, "font-style: italic;"),
+            (self.underline_btn, "text-decoration: underline;"),
+        )
 
         layout.addWidget(self.bold_btn)
         layout.addWidget(self.italic_btn)
         layout.addWidget(self.underline_btn)
 
         # 背景 / 描边 / 阴影：都是"开关 + 打开后悬停弹出设置层"
-        _icon_sz = round(20 * PANEL_SCALE)
-        ratio = self.devicePixelRatioF()
         self.background_btn = QPushButton("BG")
         self.outline_btn = QPushButton()
-        self.outline_btn.setIcon(QIcon(render_text_effect_icon(
-            _icon_sz, ratio, outline_width=TextItem.DEFAULT_OUTLINE_WIDTH)))
         self.shadow_btn = QPushButton()
-        self.shadow_btn.setIcon(QIcon(render_text_effect_icon(_icon_sz, ratio, shadow=True)))
         for button, tip in (
             (self.background_btn, self.tr("Text Background")),
             (self.outline_btn, self.tr("Text Outline")),
             (self.shadow_btn, self.tr("Text Shadow")),
         ):
             button.setCheckable(True)
-            button.setFixedSize(_btn_sz, _btn_sz)
-            button.setIconSize(QSize(_icon_sz, _icon_sz))
             button.setToolTip(tip)
             layout.addWidget(button)
-        self._update_background_btn_style()
 
         # 分隔线
         line1 = QFrame()
@@ -370,7 +439,7 @@ class TextSettingsPanel(QWidget):
 
         # 颜色选择按钮
         self.color_btn = ColorPickerButton(
-            self.current_color, size=_btn_sz, show_alpha=True
+            self.current_color, size=scaled(self.BASE_BTN), show_alpha=True
         )
         self.color_btn.setToolTip(self.tr("Custom Color"))
         layout.addWidget(self.color_btn)
@@ -385,15 +454,21 @@ class TextSettingsPanel(QWidget):
             "#FFFFFF", # 白色
         ]
 
-        _preset_sz = round(24 * PANEL_SCALE)
+        self._preset_buttons = []
         for color_str in preset_colors:
-            btn = _preset_color_button(color_str, _preset_sz, color_str)
+            btn = _preset_color_button(color_str, scaled(self.BASE_PRESET_BTN), color_str)
             btn.clicked.connect(lambda checked, c=color_str: self._on_preset_color_clicked(c))
             layout.addWidget(btn)
+            self._preset_buttons.append((btn, color_str))
 
         layout.addStretch()
 
+        # 弹出层里按比例算尺寸的控件，改比例时按这些清单重算
+        self._popup_layouts = []
+        self._popup_color_buttons = []
+        self._opacity_labels = []
         self._init_effect_popups()
+        self.apply_scale()
 
     def _init_effect_popups(self):
         """三个效果各自的弹出层：第一行都是颜色，第二行是各自的"量"。"""
@@ -435,23 +510,24 @@ class TextSettingsPanel(QWidget):
     def _build_effect_popup(self, toggle: QPushButton, custom_tip: str, on_color):
         """建一个挂在效果开关上的弹出层，放好颜色那一行；返回弹出层和它的自定义颜色按钮。"""
         popup = HoverPopup(self)
-        popup.setStyleSheet(popup.styleSheet() + self._POPUP_CONTROLS_QSS)
+        popup.set_extra_stylesheet(self._popup_controls_qss())
         popup_layout = QVBoxLayout(popup)
-        popup_layout.setContentsMargins(8, 6, 8, 6)
-        popup_layout.setSpacing(6)
 
         colors_layout = QHBoxLayout()
-        colors_layout.setSpacing(6)
         colors_layout.addStretch()
+        self._popup_layouts.append((popup_layout, colors_layout))
+        color_side = scaled(self.BASE_POPUP_COLOR_BTN)
         # 颜色和不透明度分开调（不透明度有自己的滑块），自定义色不带 alpha 通道
-        custom = ColorPickerButton(QColor("white"), show_alpha=False, size=24)
+        custom = ColorPickerButton(QColor("white"), show_alpha=False, size=color_side)
         custom.setToolTip(custom_tip)
         custom.color_changed.connect(on_color)
         colors_layout.addWidget(custom)
+        self._popup_color_buttons.append((custom, None))
         for color_hex, name in EFFECT_PRESET_COLORS:
-            preset = _preset_color_button(color_hex, 24, self.tr(name))
+            preset = _preset_color_button(color_hex, color_side, self.tr(name))
             preset.clicked.connect(lambda _checked=False, c=color_hex: on_color(QColor(c)))
             colors_layout.addWidget(preset)
+            self._popup_color_buttons.append((preset, color_hex))
         colors_layout.addStretch()
         popup_layout.addLayout(colors_layout)
 
@@ -472,7 +548,7 @@ class TextSettingsPanel(QWidget):
         slider.setRange(0, 255)
         slider.setToolTip(tip)
         label = QLabel()
-        label.setFixedWidth(round(40 * PANEL_SCALE))
+        self._opacity_labels.append(label)
         row = QHBoxLayout()
         row.addWidget(slider)
         row.addWidget(label)
@@ -482,10 +558,10 @@ class TextSettingsPanel(QWidget):
 
     def _add_outline_width_slider(self, popup: HoverPopup) -> QSlider:
         """建立四档离散滑条；两端图标说明从细到粗的方向。"""
-        icon_side = round(20 * PANEL_SCALE)
+        icon_side = scaled(self.BASE_EFFECT_ICON)
         ratio = self.devicePixelRatioF()
         row = QHBoxLayout()
-        row.setSpacing(round(6 * PANEL_SCALE))
+        self._outline_row = row
 
         previews = []
         for level, tip in (
@@ -508,7 +584,6 @@ class TextSettingsPanel(QWidget):
         slider.setTickPosition(QSlider.TickPosition.TicksBelow)
         slider.setTracking(False)
         slider.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        slider.setFixedWidth(round(120 * PANEL_SCALE))
 
         row.addWidget(previews[0])
         row.addWidget(slider)
@@ -586,7 +661,7 @@ class TextSettingsPanel(QWidget):
                     background-color: rgba({color.red()}, {color.green()}, {color.blue()}, {alpha});
                     color: {text_color};
                     border: 1px solid #999;
-                    font-size: 12px;
+                    font-size: {scaled(12)}px;
                 }}
             """)
         else:

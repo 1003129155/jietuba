@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
 )
 from core.resource_manager import ResourceManager
 from core.theme import get_theme
+from core.ui_scale import get_ui_scale, scaled, scaled_f
 from core import log_debug, safe_event
 from core.logger import log_exception, T
 from .toolbar_layout import MORE, SHOW, load_layout, save_layout
@@ -59,7 +60,7 @@ def _paint_end_strip(widget, *, dots, mirrored=False):
     if mirrored:
         painter.translate(r.width(), 0)
         painter.scale(-1, 1)
-    radius = 4
+    radius = scaled(4)
     path = QPainterPath()
     path.moveTo(r.left() + radius, r.top())
     path.lineTo(r.right(), r.top())
@@ -81,8 +82,10 @@ def _paint_vertical_dots(painter, rect, color):
     cy = rect.center().y()
     painter.setPen(Qt.PenStyle.NoPen)
     painter.setBrush(color)
-    for dy in (-9, 0, 9):
-        painter.drawEllipse(QPoint(cx, cy + dy), 3, 3)
+    step = scaled(9)
+    dot = scaled(3)
+    for dy in (-step, 0, step):
+        painter.drawEllipse(QPoint(cx, cy + dy), dot, dot)
 
 
 class _MoreHandle(QAbstractButton):
@@ -118,8 +121,8 @@ def _paint_toolbar_frame(widget):
     painter = QPainter(widget)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-    radius = 6.0
-    pen_width = 2.0
+    radius = scaled_f(6.0)
+    pen_width = scaled_f(2.0)
     half = pen_width / 2
     rect = QRectF(widget.rect()).adjusted(half, half, -half, -half)
 
@@ -155,7 +158,7 @@ def _button_qss():
         }}
         QPushButton:checked {{
             background-color: rgba({tc.red()}, {tc.green()}, {tc.blue()}, 0.3);
-            border: 1px solid {get_theme().theme_color_hex};
+            border: {scaled(1)}px solid {get_theme().theme_color_hex};
         }}
     """
 
@@ -167,7 +170,9 @@ class _MorePopup(QWidget):
     """
 
     COLUMNS = 5   # 每行几个按钮
-    PADDING = 4
+    BASE_PADDING = 4
+    BASE_ADJUST_ICON = 14
+    BASE_ADJUST_FONT = 12
 
     hover_changed = Signal(bool)
 
@@ -176,22 +181,27 @@ class _MorePopup(QWidget):
         from .fluent_lite import FluentIcon
 
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-        self.setStyleSheet(_button_qss() + """
-            QPushButton#more_adjust {
-                color: #5F6368;
-                font-size: 12px;
-                padding: 0px 8px;
-            }
-        """)
         self.adjust_btn = QPushButton(self)
         self.adjust_btn.setObjectName("more_adjust")
         self.adjust_btn.setIcon(FluentIcon.SETTING.icon())
-        self.adjust_btn.setIconSize(QSize(14, 14))
         self.adjust_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.apply_scale()
+
+    def apply_scale(self):
+        """按当前比例刷新自身尺寸；网格布局在下次 set_buttons 时用新的 cell 重算"""
+        self.setStyleSheet(_button_qss() + f"""
+            QPushButton#more_adjust {{
+                color: #5F6368;
+                font-size: {scaled(self.BASE_ADJUST_FONT)}px;
+                padding: 0px {scaled(8)}px;
+            }}
+        """)
+        icon = scaled(self.BASE_ADJUST_ICON)
+        self.adjust_btn.setIconSize(QSize(icon, icon))
 
     def set_buttons(self, buttons, cell):
         """把 buttons 按每行 COLUMNS 个排成网格，每格 cell 大小；「调整」放在网格下方靠右"""
-        pad = self.PADDING
+        pad = scaled(self.BASE_PADDING)
         for index, button in enumerate(buttons):
             if button.parent() is not self:
                 button.setParent(self)
@@ -227,12 +237,16 @@ class Toolbar(QWidget):
     """
     截图工具栏
     """
-    # ── 整体缩放因子 ──────────────────────────────────────
-    # 修改这一个数值即可等比例缩放整个工具栏。
-    # 1.0  → 默认尺寸（按钮 45px，图标 32/36px）
-    # 0.8  → 缩小 20%
-    # 1.2  → 放大 20%
-    SCALE: float = 0.90
+    # ── 基准尺寸（100% 比例下的实际像素）──────────────────
+    # 原先是 45/50/36/32/28 再统一乘 0.90 的 SCALE，现已把 0.90 折进基准值，
+    # 「100%」就等于当前的实际显示大小；整体比例改由 core/ui_scale 控制。
+    BASE_BTN_WIDTH = 40      # 工具按钮宽
+    BASE_BTN_HEIGHT = 40     # 所有按钮高（也是工具栏高度）
+    BASE_WIDE_WIDTH = 45     # 功能按钮宽（长截图、保存、结束截图、确定等）
+    BASE_ICON_WIDE = 32      # 功能按钮图标
+    BASE_ICON_TOOL = 29      # 工具按钮图标
+    BASE_ICON_ERASER = 25    # 橡皮擦图标
+    HANDLE_WIDTH_RATIO = 0.32   # 拖动手柄宽 / 工具栏高
 
     # 信号定义
     tool_changed = Signal(str)  # 工具切换信号(tool_id)
@@ -292,27 +306,16 @@ class Toolbar(QWidget):
         # 按钮登记表：key → 按钮 / 宽度。这里只建按钮、不定位置，位置统一由 _arrange
         # 按排布摆放——截图读用户配置，钉图用固定列表，两边共用同一段摆放逻辑。
         self._buttons = {}
-        self._button_widths = {}
+        self._button_bases = {}    # key → (基准按钮宽, 基准图标边长)，改比例时据此重算
+        self._button_widths = {}   # key → 当前比例下的按钮宽，由 _apply_button_sizes 填
         self._folded_keys = []    # 收进「…」弹层的按钮，弹层展开时才摆进去
         self._more_popup = None   # 用到才建，见 _show_more_popup
 
         self._make_floating(self)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
 
-        # ── 根据 SCALE 计算实际尺寸 ──────────────────────
-        s = self.SCALE
-        btn_width  = round(45 * s)   # 工具按钮宽
-        btn_height = round(45 * s)   # 所有按钮高（工具栏高度）
-        wide_w     = round(50 * s)   # 功能按钮宽（长截图、保存、结束截图、确定等）
-        icon_wide  = round(36 * s)   # 功能按钮图标尺寸
-        icon_tool  = round(32 * s)   # 工具按钮图标尺寸
-        icon_eraser = round(28 * s)  # 橡皮擦图标尺寸
-        self._btn_height = btn_height
-
-        # 左侧拖动手柄（青绿色竖条）
-        handle_w = round(btn_height * 0.32)   # 宽度约为高度的 1/3
+        # 左侧拖动手柄（青绿色竖条），尺寸随比例由 _apply_button_sizes 给出
         self.drag_handle = _DragHandle(self)
-        self.drag_handle.setGeometry(0, 0, handle_w, btn_height)
         self.drag_handle.setToolTip(self.tr("Drag to move"))
         self.drag_handle.installEventFilter(self)   # 事件透传，拖动由 Toolbar 统一处理
         self.drag_handle.reset_requested.connect(self._reset_auto_position)
@@ -325,8 +328,8 @@ class Toolbar(QWidget):
         # 记录所有 tooltip 源文本，供语言切换后整体刷新（按钮在 _add_button 里登记）
         self._tooltip_sources = {self.drag_handle: "Drag to move"}
 
-        wide = (wide_w, icon_wide)
-        tool = (btn_width, icon_tool)
+        wide = (self.BASE_WIDE_WIDTH, self.BASE_ICON_WIDE)
+        tool = (self.BASE_BTN_WIDTH, self.BASE_ICON_TOOL)
 
         self.long_screenshot_btn = self._add_button(
             "long_screenshot", "svg/长截图.svg", "Long screenshot (scroll)", wide,
@@ -362,7 +365,8 @@ class Toolbar(QWidget):
         self.ellipse_btn = self._add_tool_button("ellipse", "svg/圆框.svg", "Draw ellipse", tool)
         self.text_btn = self._add_tool_button("text", "svg/文字.svg", "Add text", tool)
         self.eraser_btn = self._add_tool_button(
-            "eraser", "svg/橡皮.svg", "Eraser tool", (btn_width, icon_eraser))
+            "eraser", "svg/橡皮.svg", "Eraser tool",
+            (self.BASE_BTN_WIDTH, self.BASE_ICON_ERASER))
 
         self.undo_btn = self._add_button("undo", "svg/撤回.svg", "Undo", tool, self.undo_clicked.emit)
         self.redo_btn = self._add_button("redo", "svg/复原.svg", "Redo", tool, self.redo_clicked.emit)
@@ -380,12 +384,13 @@ class Toolbar(QWidget):
         self.more_btn.clicked.connect(self._show_more_popup)
         self.more_btn.installEventFilter(self)
         self._buttons["more"] = self.more_btn
-        self._button_widths["more"] = handle_w
+        # 「…」与拖动手柄同宽，图标是自绘的三点，没有 QIcon 要缩
+        self._button_bases["more"] = (self.BASE_BTN_HEIGHT * self.HANDLE_WIDTH_RATIO, 0)
 
-        # 背景和圆角描边由 paintEvent 手动绘制，#toolbar_root 保持透明
+        # 背景和圆角描边由 paintEvent 手动绘制，#toolbar_root 保持透明。
+        # objectName 必须在挂样式表之前设好，否则 #toolbar_root 选不中自己
         self.setObjectName("toolbar_root")
-        self.setStyleSheet("#toolbar_root { background-color: transparent; border: none; }"
-                           + _button_qss())
+        self._apply_button_sizes()
 
         # 收集所有工具按钮
         self.tool_buttons = {
@@ -410,17 +415,22 @@ class Toolbar(QWidget):
         from core.i18n import I18nManager
         I18nManager.instance().language_changed.connect(self._retranslate)
 
+        # 改比例后自行重算尺寸（连接随本部件销毁自动断开）
+        get_ui_scale().scale_changed.connect(self.apply_scale)
+
     # ========================================================================
     # 按钮排布与「…」弹层
     # ========================================================================
 
     def _add_button(self, key, icon, tooltip, size, on_click, *, checkable=False):
-        """建一个按钮并登记到排布表。size 为 (按钮宽, 图标边长)；位置由 _arrange 决定。"""
-        width, icon_size = size
+        """建一个按钮并登记到排布表。
+
+        size 为 (基准按钮宽, 基准图标边长)，实际像素由 _apply_button_sizes 按当前
+        比例算出，位置由 _arrange 决定。
+        """
         button = QPushButton(self)
         button.setToolTip(self.tr(tooltip))
         button.setIcon(cached_icon(icon))
-        button.setIconSize(QSize(icon_size, icon_size))
         button.setCheckable(checkable)
         # 按钮不接受键盘焦点，防止 Space/Enter 等按键通过按钮意外触发逻辑
         button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -429,9 +439,23 @@ class Toolbar(QWidget):
         button.clicked.connect(self._hide_more_popup)
         button.clicked.connect(on_click)
         self._buttons[key] = button
-        self._button_widths[key] = width
+        self._button_bases[key] = size
         self._tooltip_sources[button] = tooltip
         return button
+
+    def _apply_button_sizes(self):
+        """按当前比例把基准尺寸落到手柄和各按钮上（只定尺寸，摆位置是 _arrange 的事）"""
+        # 按钮样式里的选中态描边也跟着比例走，改比例时整份重挂
+        self.setStyleSheet("#toolbar_root { background-color: transparent; border: none; }"
+                           + _button_qss())
+        self._btn_height = scaled(self.BASE_BTN_HEIGHT)
+        handle_w = scaled(self.BASE_BTN_HEIGHT * self.HANDLE_WIDTH_RATIO)
+        self.drag_handle.setGeometry(0, 0, handle_w, self._btn_height)
+        for key, (base_width, base_icon) in self._button_bases.items():
+            self._button_widths[key] = scaled(base_width)
+            if base_icon:
+                icon_size = scaled(base_icon)
+                self._buttons[key].setIconSize(QSize(icon_size, icon_size))
 
     def _add_tool_button(self, tool_id, icon, tooltip, size):
         """绘制工具按钮：可选中，点击走 select_tool 的切换逻辑"""
@@ -478,6 +502,39 @@ class Toolbar(QWidget):
         layout = load_layout()
         self._folded_keys = [key for key, mode in layout if mode == MORE]
         self._arrange([key for key, mode in layout if mode == SHOW] + ["more"])
+
+    PANEL_ATTRS = ('paint_panel', 'shape_panel', 'arrow_panel',
+                   'number_panel', 'text_panel', 'mosaic_panel')
+
+    def _iter_panels(self):
+        """已建出来的二级设置面板"""
+        for attr in self.PANEL_ATTRS:
+            panel = getattr(self, attr, None)
+            if panel is not None:
+                yield panel
+
+    def apply_scale(self):
+        """按当前比例重算尺寸并重新排布、定位。
+
+        只改尺寸：当前工具、按钮选中态、面板里的数值都保持不动。
+        已显示的实例立即生效；隐藏或复用中的实例由宿主在下次显示前调用。
+        """
+        self._hide_more_popup()
+        self._apply_button_sizes()
+        self.reload_layout()
+        popup = getattr(self, '_more_popup', None)
+        if popup is not None:
+            popup.apply_scale()
+        for panel in self._iter_panels():
+            panel.apply_scale()
+        self._reposition_self()
+        self._sync_all_panels_position()
+
+    def _reposition_self(self):
+        """宽高变了以后重新贴位。钉图工具栏没有 update_toolbar_position，自己覆盖。"""
+        host = self._host_window()
+        if host is not None and hasattr(host, 'update_toolbar_position'):
+            host.update_toolbar_position()
 
     def _show_more_popup(self):
         """展开「…」弹层，把收起的按钮摆进去。
@@ -1113,7 +1170,7 @@ class Toolbar(QWidget):
         screen = self._get_screen_by_center(global_rect)
         screen_rect = screen.geometry()
         
-        margin = 10  # 边距
+        margin = scaled(10)  # 边距
         
         # 策略1: 下方右对齐（需要放得下工具栏 + 二级菜单的总高度）
         # 对齐的锚点是「确定」的右边缘而非整个工具栏：这样鼠标松手时正下方还是「确定」，
@@ -1161,9 +1218,9 @@ class Toolbar(QWidget):
 
     def _get_max_panel_height(self) -> int:
         """获取所有二级菜单面板的最大高度（含间距），用于一级工具栏定位时预留空间"""
-        gap = 5
+        gap = scaled(5)
         max_h = 0
-        for attr in ('paint_panel', 'shape_panel', 'arrow_panel', 'number_panel', 'text_panel', 'mosaic_panel'):
+        for attr in Toolbar.PANEL_ATTRS:
             panel = getattr(self, attr, None)
             if panel:
                 max_h = max(max_h, panel.sizeHint().height())
@@ -1262,7 +1319,7 @@ class Toolbar(QWidget):
             return
         
         toolbar_global_pos = self.mapToGlobal(QPoint(0, 0))
-        gap = 5
+        gap = scaled(5)
         panel_h = panel.height()
         toolbar_h = self.height()
         
@@ -1304,10 +1361,11 @@ class Toolbar(QWidget):
         panel_x = toolbar_global_pos.x()
         if align_right:
             panel_x += self.width() - panel.width()
+        edge = scaled(5)
         if panel_x + panel.width() > screen_rect.right():
-            panel_x = screen_rect.right() - panel.width() - 5
+            panel_x = screen_rect.right() - panel.width() - edge
         if panel_x < screen_rect.left():
-            panel_x = screen_rect.left() + 5
+            panel_x = screen_rect.left() + edge
         
         final_pos = QPoint(panel_x, panel_y)
         if panel.parent():

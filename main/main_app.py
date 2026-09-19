@@ -126,6 +126,10 @@ class MainApp(QObject):
         # 初始化主题颜色管理器
         from core.theme import get_theme
         get_theme().init(self.config_manager)
+
+        # 初始化操作界面缩放管理器（工具栏/面板建出来之前必须先载入比例）
+        from core.ui_scale import get_ui_scale
+        get_ui_scale().init(self.config_manager)
         
         # 输出DPI信息用于调试
         try:

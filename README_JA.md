@@ -331,6 +331,7 @@ core/
 ├── crash_handler.py         # install_crash_hooks() — グローバル例外キャッチ
 ├── resource_manager.py      # ResourceManager — SVG/画像リソースローディング
 ├── theme.py                 # ThemeManager — アプリテーマカラー管理
+├── ui_scale.py              # UIScaleManager — ツールバー/パネル/ポップアップ共通の拡大率
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — 国際化
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — グローバル＆アプリ内ホットキー
 ├── save.py                  # SaveService — ファイル保存サービス（高品質 PDF 出力対応）

@@ -236,7 +236,7 @@ def test_the_popup_uses_the_panel_palette_not_its_own_dark_theme(qapp):
 def test_the_popup_icons_stay_small(qapp):
     from ui.number_settings_panel import NumberStylePopup
 
-    assert NumberStylePopup.ITEM_SIDE <= 24
+    assert NumberStylePopup.BASE_ITEM_SIDE <= 24
 
 
 @pytest.mark.parametrize("at_top", [True, False])
@@ -322,7 +322,7 @@ def test_the_style_picker_does_not_track_the_annotation_colour(qapp):
     assert "set_color" not in NumberSettingsPanel.__dict__
 
     first = _image_bytes(popup._buttons[ALL_STYLES[0]].icon().pixmap(20).toImage())
-    popup._render_previews()
+    popup.apply_scale()
     second = _image_bytes(popup._buttons[ALL_STYLES[0]].icon().pixmap(20).toImage())
     assert first == second, "预览图不应随任何颜色变化"
 

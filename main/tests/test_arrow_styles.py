@@ -21,8 +21,8 @@ from ui.arrow_settings_panel import (
     ARROW_STYLE_NAMES,
     PREVIEW_INK,
     PREVIEW_INK_SELECTED,
-    PREVIEW_ROW_SIZE,
-    PREVIEW_SIZE,
+    preview_row_size,
+    preview_size,
     ArrowSettingsPanel,
     render_arrow_style_preview,
 )
@@ -54,7 +54,7 @@ def _image_bytes(image):
 
 
 def _preview_bytes(style, ink=PREVIEW_INK):
-    image = render_arrow_style_preview(style, ink, PREVIEW_SIZE).toImage()
+    image = render_arrow_style_preview(style, ink, preview_size()).toImage()
     return _image_bytes(image.convertToFormat(QImage.Format.Format_ARGB32))
 
 
@@ -230,7 +230,7 @@ def test_every_row_in_the_panel_has_its_own_picture(qapp):
         combo = panel.arrow_style_combo
         shots = []
         for index in range(combo.count()):
-            image = combo.itemIcon(index).pixmap(PREVIEW_SIZE).toImage()
+            image = combo.itemIcon(index).pixmap(preview_size()).toImage()
             assert not image.isNull()
             inked = any(image.pixelColor(x, y).alpha()
                         for x in range(image.width())
@@ -250,8 +250,8 @@ def test_the_selected_row_gets_its_own_legible_icon(qapp):
     panel = ArrowSettingsPanel()
     try:
         icon = panel.arrow_style_combo.itemIcon(0)
-        normal = icon.pixmap(PREVIEW_SIZE, QIcon.Mode.Normal).toImage()
-        selected = icon.pixmap(PREVIEW_SIZE, QIcon.Mode.Selected).toImage()
+        normal = icon.pixmap(preview_size(), QIcon.Mode.Normal).toImage()
+        selected = icon.pixmap(preview_size(), QIcon.Mode.Selected).toImage()
         assert not normal.isNull() and not selected.isNull()
         assert _image_bytes(normal) != _image_bytes(selected)
     finally:
@@ -299,13 +299,13 @@ def test_the_dropdown_puts_the_preview_in_the_middle(qapp):
     panel = ArrowSettingsPanel()
     try:
         combo = panel.arrow_style_combo
-        block = QPixmap(PREVIEW_SIZE)
+        block = QPixmap(preview_size())
         block.fill(QColor("#000000"))
         combo.setItemIcon(0, QIcon(block))
 
         # 故意画进一行比预览宽出一截的行里：行到底多宽不由我们说了算（列表撑
         # 开、缩放变了都会变），宽出多少都得把预览摆回正中
-        row = QRect(0, 0, PREVIEW_ROW_SIZE.width() + 40, PREVIEW_ROW_SIZE.height())
+        row = QRect(0, 0, preview_row_size().width() + 40, preview_row_size().height())
         image = QImage(row.size(), QImage.Format.Format_ARGB32)
         image.fill(Qt.GlobalColor.transparent)
         option = QStyleOptionViewItem()
@@ -324,7 +324,7 @@ def test_the_dropdown_puts_the_preview_in_the_middle(qapp):
         left, right = inked[0], image.width() - 1 - inked[-1]
         assert abs(left - right) <= 1, f"预览没摆在行的正中：左 {left}px 右 {right}px"
         assert left >= 4, "预览贴在行的边线上"
-        assert combo.view().minimumWidth() >= PREVIEW_ROW_SIZE.width(),             "弹出列表没按行宽撑开，预览会被挤回去"
+        assert combo.view().minimumWidth() >= preview_row_size().width(),             "弹出列表没按行宽撑开，预览会被挤回去"
     finally:
         panel.deleteLater()
 
@@ -332,8 +332,8 @@ def test_the_dropdown_puts_the_preview_in_the_middle(qapp):
 def test_the_preview_fits_the_row(qapp):
     """预览图顶到边的话，下拉里每种样式都会被切掉上下两刀。"""
     for style in ArrowItem.STYLES:
-        image = render_arrow_style_preview(style, PREVIEW_INK, PREVIEW_SIZE).toImage()
-        assert image.size() == QSize(PREVIEW_SIZE.width(), PREVIEW_SIZE.height())
+        image = render_arrow_style_preview(style, PREVIEW_INK, preview_size()).toImage()
+        assert image.size() == QSize(preview_size().width(), preview_size().height())
 
         for x in range(image.width()):
             assert image.pixelColor(x, 0).alpha() == 0, f"{style} 顶到上边了"

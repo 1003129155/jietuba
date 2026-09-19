@@ -16,9 +16,12 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, QPoint, QRectF, QSize, Signal
 from PySide6.QtGui import QColor, QPainter, QPen, QBrush, QCursor
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton
+from PySide6.QtWidgets import (
+    QWidget, QHBoxLayout, QLabel, QPushButton, QSpacerItem, QSizePolicy,
+)
 
 from core.resource_manager import ResourceManager
+from core.ui_scale import get_ui_scale, scaled
 from core import safe_event
 from core.logger import log_exception, T
 
@@ -35,36 +38,44 @@ class SelectionInfoPanel(QWidget):
 
     _BG = QColor(30, 30, 30, 210)
     _BORDER_COLOR = QColor(255, 255, 255, 140)
-    _RADIUS = 7
-    _HEIGHT = 34
-    _MARGIN_ABOVE = 7   # 面板底部到选区顶部的间距
+
+    # 基准尺寸（100% 下的实际像素）
+    BASE_RADIUS = 7
+    BASE_HEIGHT = 34
+    BASE_MARGIN_ABOVE = 7   # 面板底部到选区顶部的间距
+    BASE_BTN = 26
+    BASE_ICON = 19
+    BASE_SEP_HEIGHT = 19
+    BASE_FONT = 14
 
     def __init__(self, parent: QWidget, view):
         super().__init__(parent)
         self._view = view
+        self._last_rect = None   # 改比例后要按新尺寸重新贴回选区上方
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-        self.setFixedHeight(self._HEIGHT)
         self._init_ui()
         self.hide()
+        # 改比例后自行重算尺寸（连接随本部件销毁自动断开）
+        get_ui_scale().scale_changed.connect(self.apply_scale)
 
     # ------------------------------------------------------------------
     # UI
     # ------------------------------------------------------------------
     def _init_ui(self):
         lay = QHBoxLayout(self)
-        lay.setContentsMargins(10, 0, 5, 0)
-        lay.setSpacing(7)
+        self._row_layout = lay
 
         # 坐标 + 尺寸
         self._info_label = QLabel()
-        self._info_label.setStyleSheet(
-            "color: #D0D0D0; font-size: 14px; background: transparent;"
-        )
         lay.addWidget(self._info_label)
-        lay.addSpacing(5)
+        # 留引用，改比例时连这段间隔一起重算
+        self._label_spacer = QSpacerItem(scaled(5), 0,
+                                         QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
+        lay.addItem(self._label_spacer)
 
         # 按钮（顺序：圆角 → 纵横比 → 描边阴影）
+        self._buttons = []
         self.btn_rounded = self._make_btn("圆角.svg", checkable=True,
                                            tip="Rounded Corners")
         self.btn_lock = self._make_btn("保持纵横比.svg", checkable=True,
@@ -77,7 +88,6 @@ class SelectionInfoPanel(QWidget):
 
         # 分隔线
         self._sep = QLabel()
-        self._sep.setFixedSize(1, 19)
         self._sep.setStyleSheet("background: rgba(255,255,255,30);")
         lay.addWidget(self._sep)
 
@@ -101,28 +111,55 @@ class SelectionInfoPanel(QWidget):
         for w in self._action_widgets:
             w.hide()
 
-        self.adjustSize()
+        self.apply_scale()
 
     def _make_btn(self, svg: str, checkable=False, tip="") -> QPushButton:
         btn = QPushButton()
-        btn.setFixedSize(26, 26)
         btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         btn.setCheckable(checkable)
         btn.setToolTip(self.tr(tip))
-        btn.setStyleSheet("""
-            QPushButton { background: transparent; border: none; border-radius: 4px; padding: 2px; }
-            QPushButton:hover { background: rgba(255,255,255,40); }
-            QPushButton:checked { background: rgba(64,224,208,80); }
-        """)
         try:
             path = ResourceManager.get_icon_path(svg)
             btn.setIcon(ResourceManager.get_icon(path))
-            btn.setIconSize(QSize(19, 19))
         except Exception as e:
             log_exception(e, T("加载按钮图标"))
             btn.setText(tip[:2])  # 找不到图标时用文字兜底
+        self._buttons.append(btn)
         return btn
+
+    # ------------------------------------------------------------------
+    # 缩放
+    # ------------------------------------------------------------------
+    def apply_scale(self):
+        """按当前比例重算面板尺寸。开关状态和尺寸文字都不动，只改显示大小。"""
+        self.setFixedHeight(scaled(self.BASE_HEIGHT))
+        self._row_layout.setContentsMargins(scaled(10), 0, scaled(5), 0)
+        self._row_layout.setSpacing(scaled(7))
+        self._info_label.setStyleSheet(
+            f"color: #D0D0D0; font-size: {scaled(self.BASE_FONT)}px; background: transparent;"
+        )
+        btn_sz = scaled(self.BASE_BTN)
+        icon_sz = scaled(self.BASE_ICON)
+        radius = scaled(4)
+        padding = scaled(2)
+        for btn in self._buttons:
+            btn.setFixedSize(btn_sz, btn_sz)
+            btn.setIconSize(QSize(icon_sz, icon_sz))
+            btn.setStyleSheet(f"""
+                QPushButton {{ background: transparent; border: none;
+                               border-radius: {radius}px; padding: {padding}px; }}
+                QPushButton:hover {{ background: rgba(255,255,255,40); }}
+                QPushButton:checked {{ background: rgba(64,224,208,80); }}
+            """)
+        self._sep.setFixedSize(1, scaled(self.BASE_SEP_HEIGHT))
+        self._label_spacer.changeSize(scaled(5), 0,
+                                      QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
+        self._row_layout.invalidate()
+        self.adjustSize()
+        self.update()
+        if self.isVisible() and self._view is not None and self._last_rect is not None:
+            self.follow_rect(self._last_rect)
 
     # ------------------------------------------------------------------
     # 位置跟随（由 controller 调用）
@@ -135,6 +172,7 @@ class SelectionInfoPanel(QWidget):
           2. 选区左侧上方（垂直排列）
           3. 选区右侧上方（垂直排列）
         """
+        self._last_rect = QRectF(scene_rect)
         if scene_rect.isEmpty():
             self.hide()
             return
@@ -142,7 +180,7 @@ class SelectionInfoPanel(QWidget):
         vp = self._view.viewport()
         vw, vh = vp.width(), vp.height()
         pw, ph = self.width(), self.height()
-        gap = self._MARGIN_ABOVE
+        gap = scaled(self.BASE_MARGIN_ABOVE)
 
         # 选区在 view 坐标系中的边界
         view_tl = self._view.mapFromScene(scene_rect.topLeft())
@@ -178,8 +216,9 @@ class SelectionInfoPanel(QWidget):
             return
 
         # ── 兜底：选区内部左上角 ──
-        x = max(0, sel_left + 4)
-        y = sel_top + 4
+        inset = scaled(4)
+        x = max(0, sel_left + inset)
+        y = sel_top + inset
         self.move(QPoint(x, y))
 
     def set_confirmed(self, confirmed: bool):
@@ -212,7 +251,8 @@ class SelectionInfoPanel(QWidget):
         p.setBrush(QBrush(self._BG))
         # 往内缩 0.5px，避免描边被裁切
         r = self.rect().adjusted(1, 1, -1, -1)
-        p.drawRoundedRect(r, self._RADIUS, self._RADIUS)
+        radius = scaled(self.BASE_RADIUS)
+        p.drawRoundedRect(r, radius, radius)
         p.end()
         super().paintEvent(event)
  

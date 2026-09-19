@@ -15,6 +15,7 @@ from PySide6.QtGui import (
 from ._widgets import svg_icon as _svg_icon, ClickMenuButton as _ClickMenuButton
 from core import safe_event
 from core.i18n import make_tr
+from core.ui_scale import get_ui_scale, scaled
 
 
 _tr = make_tr("GifPlaybackToolbar")
@@ -29,16 +30,20 @@ class RangeSlider(QWidget):
     trim_changed   = Signal(int, int)   # (start_index, end_index)
     seek_requested = Signal(int)        # 点击空白处快速跳转
 
-    _TRACK_H   = 6
-    _HANDLE_W  = 10
-    _HANDLE_H  = 20
-    _PLAYHEAD_W = 4
+    # 基准尺寸（100% 下的实际像素）。手柄的点击判定也走这几个值，
+    # 显示和可点区域才不会在缩放后错开。
+    BASE_TRACK_H = 6
+    BASE_HANDLE_W = 10
+    BASE_HANDLE_H = 20
+    BASE_PLAYHEAD_W = 4
+    BASE_HEIGHT = 32
+    BASE_MIN_WIDTH = 200
+    BASE_GRAB_SLACK = 4
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedHeight(32)
-        self.setMinimumWidth(200)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.apply_scale()
 
         self._total = 1          # 总帧数
         self._trim_start = 0
@@ -48,6 +53,12 @@ class RangeSlider(QWidget):
         self._dragging: str | None = None  # "start" | "end" | None
 
     # ── 外部 API ──
+
+    def apply_scale(self):
+        """按当前比例重算时间轴自身的尺寸"""
+        self.setFixedHeight(scaled(self.BASE_HEIGHT))
+        self.setMinimumWidth(scaled(self.BASE_MIN_WIDTH))
+        self.update()
 
     def set_range(self, total: int):
         self._total = max(total, 1)
@@ -78,9 +89,10 @@ class RangeSlider(QWidget):
     # ── 坐标转换 ──
 
     def _track_rect(self) -> QRect:
-        margin = self._HANDLE_W
-        y = (self.height() - self._TRACK_H) // 2
-        return QRect(margin, y, self.width() - 2 * margin, self._TRACK_H)
+        track_h = scaled(self.BASE_TRACK_H)
+        margin = scaled(self.BASE_HANDLE_W)
+        y = (self.height() - track_h) // 2
+        return QRect(margin, y, self.width() - 2 * margin, track_h)
 
     def _index_to_x(self, index: int) -> int:
         tr = self._track_rect()
@@ -93,15 +105,17 @@ class RangeSlider(QWidget):
         ratio = max(0.0, min(1.0, (x - tr.left()) / max(tr.width(), 1)))
         return round(ratio * (self._total - 1))
 
+    def _handle_rect(self, index: int) -> QRect:
+        w, h = scaled(self.BASE_HANDLE_W), scaled(self.BASE_HANDLE_H)
+        x = self._index_to_x(index)
+        y = (self.height() - h) // 2
+        return QRect(x - w // 2, y, w, h)
+
     def _start_handle_rect(self) -> QRect:
-        x = self._index_to_x(self._trim_start)
-        y = (self.height() - self._HANDLE_H) // 2
-        return QRect(x - self._HANDLE_W // 2, y, self._HANDLE_W, self._HANDLE_H)
+        return self._handle_rect(self._trim_start)
 
     def _end_handle_rect(self) -> QRect:
-        x = self._index_to_x(self._trim_end)
-        y = (self.height() - self._HANDLE_H) // 2
-        return QRect(x - self._HANDLE_W // 2, y, self._HANDLE_W, self._HANDLE_H)
+        return self._handle_rect(self._trim_end)
 
     # ── 绘制 ──
 
@@ -134,11 +148,13 @@ class RangeSlider(QWidget):
             p.drawRoundedRect(rect, 2, 2)
 
         # 播放指针
+        playhead_w = scaled(self.BASE_PLAYHEAD_W)
+        handle_h = scaled(self.BASE_HANDLE_H)
         px = self._index_to_x(self._playhead)
-        py = (self.height() - self._HANDLE_H) // 2
+        py = (self.height() - handle_h) // 2
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QBrush(QColor(244, 67, 54)))
-        p.drawRoundedRect(QRect(px - self._PLAYHEAD_W // 2, py, self._PLAYHEAD_W, self._HANDLE_H), 2, 2)
+        p.drawRoundedRect(QRect(px - playhead_w // 2, py, playhead_w, handle_h), 2, 2)
 
         p.end()
 
@@ -147,9 +163,10 @@ class RangeSlider(QWidget):
     @safe_event
     def mousePressEvent(self, ev):
         pos = ev.pos()
-        if self._start_handle_rect().adjusted(-4, -4, 4, 4).contains(pos):
+        slack = scaled(self.BASE_GRAB_SLACK)
+        if self._start_handle_rect().adjusted(-slack, -slack, slack, slack).contains(pos):
             self._dragging = "start"
-        elif self._end_handle_rect().adjusted(-4, -4, 4, 4).contains(pos):
+        elif self._end_handle_rect().adjusted(-slack, -slack, slack, slack).contains(pos):
             self._dragging = "end"
         else:
             # 点击空白处 → seek
@@ -191,6 +208,13 @@ class PlaybackToolbar(QWidget):
     close_requested = Signal()
     cursor_toggled  = Signal(bool)   # 鼠标光标显示开关
 
+    # 基准尺寸（100% 下的实际像素）
+    BASE_BTN_W = 34
+    BASE_BTN_H = 30
+    BASE_ICON = 22
+    BASE_HEIGHT = 76
+    BASE_MIN_WIDTH = 400
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowFlags(
@@ -203,26 +227,55 @@ class PlaybackToolbar(QWidget):
 
         self._playing = False
         self._build_ui()
+        # 改比例后自行重算尺寸（连接随本部件销毁自动断开）
+        get_ui_scale().scale_changed.connect(self.apply_scale)
+
+    def _container_qss(self) -> str:
+        return f"""
+            QWidget {{
+                background-color: white;
+                border: 2px solid #333;
+                border-radius: {scaled(6)}px;
+            }}
+            QPushButton {{
+                background: transparent;
+                border: none;
+                border-radius: {scaled(4)}px;
+                font-size: {scaled(13)}px;
+            }}
+            QPushButton:hover {{ background: rgba(0,0,0,0.06); }}
+            QPushButton:pressed {{ background: rgba(0,0,0,0.12); }}
+            QPushButton:checked {{ background: rgba(64,224,208,0.22); border: 1px solid rgba(64,224,208,0.6); }}
+            QLabel {{ border: none; }}
+        """
+
+    def _set_button_icon(self, button, svg: str):
+        """设图标并记下用的是哪张 svg —— svg 按像素光栅化，改比例要按新尺寸重画"""
+        self._button_svgs[button] = svg
+        button.setIcon(_svg_icon(svg, scaled(self.BASE_ICON)))
+
+    def apply_scale(self):
+        """按当前比例重算回放工具栏和时间轴的尺寸，播放位置和裁剪范围不动。"""
+        self._container.setStyleSheet(self._container_qss())
+        self._vbox.setContentsMargins(scaled(10), scaled(6), scaled(10), scaled(6))
+        self._vbox.setSpacing(scaled(4))
+        self._row.setSpacing(scaled(6))
+        self._slider.apply_scale()
+        self._time_label.setStyleSheet(f"color: #666; font-size: {scaled(12)}px;")
+        self._speed_label.apply_scale()
+        btn_w, btn_h = scaled(self.BASE_BTN_W), scaled(self.BASE_BTN_H)
+        icon = scaled(self.BASE_ICON)
+        for button, svg in self._button_svgs.items():
+            button.setFixedSize(btn_w, btn_h)
+            button.setIconSize(QSize(icon, icon))
+            button.setIcon(_svg_icon(svg, icon))
+        self.setMinimumWidth(scaled(self.BASE_MIN_WIDTH))
+        self.setFixedHeight(scaled(self.BASE_HEIGHT))
 
     def _build_ui(self):
         container = QWidget(self)
-        container.setStyleSheet("""
-            QWidget {
-                background-color: white;
-                border: 2px solid #333;
-                border-radius: 6px;
-            }
-            QPushButton {
-                background: transparent;
-                border: none;
-                border-radius: 4px;
-                font-size: 13px;
-            }
-            QPushButton:hover { background: rgba(0,0,0,0.06); }
-            QPushButton:pressed { background: rgba(0,0,0,0.12); }
-            QPushButton:checked { background: rgba(64,224,208,0.22); border: 1px solid rgba(64,224,208,0.6); }
-            QLabel { border: none; }
-        """)
+        self._container = container
+        self._button_svgs = {}
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -230,8 +283,7 @@ class PlaybackToolbar(QWidget):
         outer.addWidget(container)
 
         vbox = QVBoxLayout(container)
-        vbox.setContentsMargins(10, 6, 10, 6)
-        vbox.setSpacing(4)
+        self._vbox = vbox
 
         # 第一行：RangeSlider
         self._slider = RangeSlider()
@@ -241,20 +293,17 @@ class PlaybackToolbar(QWidget):
 
         # 第二行：按钮
         row = QHBoxLayout()
-        row.setSpacing(6)
+        self._row = row
 
         # 播放/暂停  ← 回放窗口：停止时显示"重开录制"，播放时显示"暂停录制"
         self._play_btn = QPushButton()
-        self._play_btn.setFixedSize(34, 30)
-        self._play_btn.setIconSize(QSize(22, 22))
-        self._play_btn.setIcon(_svg_icon("重开录制.svg"))   # 初始=停止状态
+        self._set_button_icon(self._play_btn, "重开录制.svg")   # 初始=停止状态
         self._play_btn.setToolTip(_tr("播放"))
         self._play_btn.clicked.connect(self._on_play_clicked)
         row.addWidget(self._play_btn)
 
         # 时间标签（替代帧号标签）
         self._time_label = QLabel("00:00 / 00:00")
-        self._time_label.setStyleSheet("color: #666; font-size: 12px;")
         row.addWidget(self._time_label)
 
         # 速度选择（点击弹出菜单）
@@ -278,55 +327,44 @@ class PlaybackToolbar(QWidget):
 
         # 重新录制
         self._rerecord_btn = QPushButton()
-        self._rerecord_btn.setFixedSize(34, 30)
-        self._rerecord_btn.setIconSize(QSize(22, 22))
-        self._rerecord_btn.setIcon(_svg_icon("重新录制.svg"))
+        self._set_button_icon(self._rerecord_btn, "重新录制.svg")
         self._rerecord_btn.setToolTip(_tr("重新录制"))
         self._rerecord_btn.clicked.connect(self.rerecord.emit)
         row.addWidget(self._rerecord_btn)
 
         # 鼠标光标显示开关（重新录制右侧，默认开启并显示选中样式）
         self._cursor_btn = QPushButton()
-        self._cursor_btn.setFixedSize(34, 30)
-        self._cursor_btn.setIconSize(QSize(22, 22))
         self._cursor_btn.setCheckable(True)
         self._cursor_btn.setChecked(True)
         self._cursor_btn.setToolTip(_tr("显示鼠标光标"))
-        self._cursor_btn.setIcon(_svg_icon("鼠标.svg"))
+        self._set_button_icon(self._cursor_btn, "鼠标.svg")
         self._cursor_btn.clicked.connect(self._on_cursor_toggled)
         row.addWidget(self._cursor_btn)
 
         # 复制到剪贴板
         self._copy_btn = QPushButton()
-        self._copy_btn.setFixedSize(34, 30)
-        self._copy_btn.setIconSize(QSize(22, 22))
-        self._copy_btn.setIcon(_svg_icon("复制.svg"))
+        self._set_button_icon(self._copy_btn, "复制.svg")
         self._copy_btn.setToolTip(_tr("复制到剪贴板"))
         self._copy_btn.clicked.connect(self._on_copy_clicked)
         row.addWidget(self._copy_btn)
 
         # 另存为
         self._save_btn = QPushButton()
-        self._save_btn.setFixedSize(34, 30)
-        self._save_btn.setIconSize(QSize(22, 22))
-        self._save_btn.setIcon(_svg_icon("保存.svg"))
+        self._set_button_icon(self._save_btn, "保存.svg")
         self._save_btn.setToolTip(_tr("另存为"))
         self._save_btn.clicked.connect(self._on_save_clicked)
         row.addWidget(self._save_btn)
 
         # 关闭
         self._close_btn = QPushButton()
-        self._close_btn.setFixedSize(34, 30)
-        self._close_btn.setIconSize(QSize(22, 22))
-        self._close_btn.setIcon(_svg_icon("关闭.svg"))
+        self._set_button_icon(self._close_btn, "关闭.svg")
         self._close_btn.setToolTip(_tr("关闭"))
         self._close_btn.clicked.connect(self.close_requested.emit)
         row.addWidget(self._close_btn)
 
         vbox.addLayout(row)
 
-        self.setMinimumWidth(400)
-        self.setFixedHeight(76)
+        self.apply_scale()
 
     # ── 外部 API ──
 
@@ -371,11 +409,11 @@ class PlaybackToolbar(QWidget):
         self._playing = playing
         if playing:
             # 播放中 → 显示暂停图标
-            self._play_btn.setIcon(_svg_icon("暂停录制.svg"))
+            self._set_button_icon(self._play_btn, "暂停录制.svg")
             self._play_btn.setToolTip(_tr("暂停"))
         else:
             # 停止/暂停 → 显示播放图标
-            self._play_btn.setIcon(_svg_icon("重开录制.svg"))
+            self._set_button_icon(self._play_btn, "重开录制.svg")
             self._play_btn.setToolTip(_tr("播放"))
 
     # ── 回调 ──

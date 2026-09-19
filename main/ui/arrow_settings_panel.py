@@ -10,8 +10,9 @@ from PySide6.QtCore import Qt, Signal, QPoint, QRect, QSize, QPointF
 from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
 from canvas.items import ArrowItem
 from core.i18n import make_tr
+from core.ui_scale import scaled, scaled_f
 from tools.base import Tool
-from .base_settings_panel import StepperWidget, build_settings_panel_stylesheet, paint_rounded_panel, PANEL_SCALE
+from .base_settings_panel import StepperWidget, build_settings_panel_stylesheet, paint_rounded_panel
 from .color_picker_button import ColorPickerButton
 from core import safe_event
 
@@ -30,14 +31,14 @@ ARROW_STYLE_NAMES = {
     ArrowItem.STYLE_BAR_ARROW: "Dimension Arrow",
 }
 
-# 预览图尺寸：够装下按 PREVIEW_STROKE_WIDTH 算出来的箭头头部，再大就只是把下拉
+# 预览图尺寸：够装下按 BASE_PREVIEW_STROKE_WIDTH 算出来的箭头头部，再大就只是把下拉
 # 每一行白白撑高
-PREVIEW_SIZE = QSize(80, 22)
+BASE_PREVIEW_SIZE = QSize(80, 22)
 # 下拉一行的大小。比预览图宽出来的部分就是行两侧的余白：不留的话，箭头尖直接
 # 顶在行的边线上，九行糊成一片
-PREVIEW_ROW_SIZE = QSize(96, 26)
+BASE_PREVIEW_ROW_SIZE = QSize(96, 26)
 # 画预览用的线宽。箭头各部件的尺寸都是按线宽算的，这里调大调小 = 整支预览一起缩放
-PREVIEW_STROKE_WIDTH = 3
+BASE_PREVIEW_STROKE_WIDTH = 3
 # 图标固定用中性墨色：这是样式选择器不是颜色选择器，跟着当前颜色走的话，
 # 选浅色标注时白底上的图标自己就看不见了（和序号样式条同一个理由）。
 # 下拉选中行是蓝底，深墨色会糊在上面，所以另备一张白的挂到 Selected 模式。
@@ -45,6 +46,16 @@ PREVIEW_INK = QColor("#444444")
 PREVIEW_INK_SELECTED = QColor("#FFFFFF")
 
 _icon_cache = {}
+
+
+def preview_size() -> QSize:
+    """当前比例下的预览图尺寸"""
+    return QSize(scaled(BASE_PREVIEW_SIZE.width()), scaled(BASE_PREVIEW_SIZE.height()))
+
+
+def preview_row_size() -> QSize:
+    """当前比例下的下拉行尺寸"""
+    return QSize(scaled(BASE_PREVIEW_ROW_SIZE.width()), scaled(BASE_PREVIEW_ROW_SIZE.height()))
 
 
 def render_arrow_style_preview(style: str, ink: QColor, size: QSize, ratio: float = 1.0) -> QPixmap:
@@ -60,12 +71,12 @@ def render_arrow_style_preview(style: str, ink: QColor, size: QSize, ratio: floa
     pixmap.fill(Qt.GlobalColor.transparent)
 
     # 预览图自己也留一圈余白：箭头画到贴边的话，收起来的那个框里它就顶着边框
-    padding = 6.0
+    padding = scaled_f(6.0)
     middle = size.height() / 2.0
     item = ArrowItem(
         QPointF(padding, middle),
         QPointF(size.width() - padding, middle),
-        QPen(ink, PREVIEW_STROKE_WIDTH),
+        QPen(ink, scaled_f(BASE_PREVIEW_STROKE_WIDTH)),
         style,
     )
 
@@ -79,21 +90,23 @@ def render_arrow_style_preview(style: str, ink: QColor, size: QSize, ratio: floa
 
 
 def arrow_style_icon(style: str, ratio: float = 2.0) -> QIcon:
-    """样式下拉用的图标（进程内缓存，一种样式只画一次）"""
-    cached = _icon_cache.get((style, ratio))
+    """样式下拉用的图标（进程内缓存，一种样式、一个尺寸只画一次）"""
+    size = preview_size()
+    key = (style, ratio, size.width(), size.height())
+    cached = _icon_cache.get(key)
     if cached is not None:
         return cached
 
     icon = QIcon()
     icon.addPixmap(
-        render_arrow_style_preview(style, PREVIEW_INK, PREVIEW_SIZE, ratio),
+        render_arrow_style_preview(style, PREVIEW_INK, size, ratio),
         QIcon.Mode.Normal
     )
     icon.addPixmap(
-        render_arrow_style_preview(style, PREVIEW_INK_SELECTED, PREVIEW_SIZE, ratio),
+        render_arrow_style_preview(style, PREVIEW_INK_SELECTED, size, ratio),
         QIcon.Mode.Selected
     )
-    _icon_cache[(style, ratio)] = icon
+    _icon_cache[key] = icon
     return icon
 
 
@@ -106,7 +119,7 @@ class StylePreviewDelegate(QStyledItemDelegate):
     """
 
     def sizeHint(self, option, index):
-        return QSize(PREVIEW_ROW_SIZE)
+        return preview_row_size()
 
     def paint(self, painter, option, index):
         opt = QStyleOptionViewItem(option)
@@ -126,7 +139,7 @@ class StylePreviewDelegate(QStyledItemDelegate):
                 else QIcon.Mode.Normal)
         # 按预览图自己的尺寸摆，不按行宽拉满：拉满就等于把 2 倍图放大回来，
         # 既糊又重新贴到行的两条边上
-        target = QRect(QPoint(0, 0), PREVIEW_SIZE.boundedTo(opt.rect.size()))
+        target = QRect(QPoint(0, 0), preview_size().boundedTo(opt.rect.size()))
         target.moveCenter(opt.rect.center())
         icon.paint(painter, target, Qt.AlignmentFlag.AlignCenter, mode, QIcon.State.Off)
 
@@ -138,6 +151,17 @@ class ArrowSettingsPanel(QWidget):
     size_changed = Signal(int)
     color_changed = Signal(QColor)
     opacity_changed = Signal(int)  # 兼容旧接口（无控件）
+
+    # 基准尺寸（100% 下的实际像素）
+    BASE_MARGIN_H = 9
+    BASE_MARGIN_V = 7
+    BASE_SPACING = 9
+    BASE_SIZE_SPIN_WIDTH = 54
+    BASE_OPACITY_SPIN_WIDTH = 65
+    BASE_COLOR_BTN = 25
+    BASE_PRESET_BTN = 22
+    BASE_PRESET_RADIUS = 6
+    BASE_COMBO_WIDTH = 88
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -154,24 +178,58 @@ class ArrowSettingsPanel(QWidget):
     def paintEvent(self, event):
         paint_rounded_panel(self)
 
-    def _init_ui(self):
-        """初始化UI布局"""
-        self.setStyleSheet(build_settings_panel_stylesheet(
+    def _build_stylesheet(self) -> str:
+        return build_settings_panel_stylesheet(
             combo_enabled=True,
             combo_padding="1px",
-            combo_min_width=88,
-            combo_max_width=88,
+            combo_min_width=self.BASE_COMBO_WIDTH,
+            combo_max_width=self.BASE_COMBO_WIDTH,
             combo_padding_compact=True
-        ))
+        )
 
+    def apply_scale(self):
+        """按当前比例重算面板尺寸。数值、样式、颜色都不动，只改显示大小。"""
+        self.setStyleSheet(self._build_stylesheet())
+        mh, mv = scaled(self.BASE_MARGIN_H), scaled(self.BASE_MARGIN_V)
+        layout = self.layout()
+        layout.setContentsMargins(mh, mv, mh, mv)
+        layout.setSpacing(scaled(self.BASE_SPACING))
+
+        self.arrow_style_combo.setIconSize(preview_size())
+        self.arrow_style_combo.view().setMinimumWidth(preview_row_size().width())
+        for index in range(self.arrow_style_combo.count()):
+            style = self.arrow_style_combo.itemData(index)
+            if style:
+                self.arrow_style_combo.setItemIcon(index, arrow_style_icon(style))
+
+        self.size_spin.setFixedWidth(scaled(self.BASE_SIZE_SPIN_WIDTH))
+        self.opacity_spin.setFixedWidth(scaled(self.BASE_OPACITY_SPIN_WIDTH))
+        color_btn = scaled(self.BASE_COLOR_BTN)
+        self.color_btn.setFixedSize(color_btn, color_btn)
+        preset = scaled(self.BASE_PRESET_BTN)
+        radius = scaled(self.BASE_PRESET_RADIUS)
+        for btn, color_str in self._preset_buttons:
+            btn.setFixedSize(preset, preset)
+            border_color = "#888888" if color_str == "#FFFFFF" else "#333333"
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {color_str};
+                    border: 1px solid {border_color};
+                    border-radius: {radius}px;
+                }}
+                QPushButton:hover {{
+                    border: 2px solid #000;
+                }}
+            """)
+        self.adjustSize()
+        self.update()
+
+    def _init_ui(self):
+        """初始化UI布局"""
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(round(10 * PANEL_SCALE), round(8 * PANEL_SCALE),
-                                  round(10 * PANEL_SCALE), round(8 * PANEL_SCALE))
-        layout.setSpacing(round(10 * PANEL_SCALE))
 
         # === 1. 基础样式区 ===
         self.arrow_style_combo = QComboBox()
-        self.arrow_style_combo.setIconSize(PREVIEW_SIZE)
         for style in ArrowItem.STYLES:
             self.arrow_style_combo.addItem(arrow_style_icon(style), "", style)
             name = ARROW_STYLE_NAMES.get(style)
@@ -187,19 +245,16 @@ class ArrowSettingsPanel(QWidget):
         )
         # 弹出列表默认只有收起来那个框那么宽，80px 的预览塞进去要被缩一道还贴边；
         # 按行宽把它撑开，预览才能按原尺寸摆在正中
-        self.arrow_style_combo.view().setMinimumWidth(PREVIEW_ROW_SIZE.width())
         layout.addWidget(self.arrow_style_combo)
 
         # 线宽选择：范围跟 ArrowTool（未覆写 MIN/MAX_WIDTH）实际允许的宽度一致，
         # 否则滚轮等入口能把宽度调到面板显示范围之外，图元继续变大但面板数字卡住不动
         self.size_spin = StepperWidget(self.current_size, Tool.MIN_WIDTH, Tool.MAX_WIDTH)
-        self.size_spin.setFixedWidth(round(60 * PANEL_SCALE))
         self.size_spin.setToolTip(self.tr("Line Width"))
         layout.addWidget(self.size_spin)
 
         # 透明度选择（百分比）
         self.opacity_spin = StepperWidget(self._opacity_to_percent(self._cached_opacity), 0, 100, "%")
-        self.opacity_spin.setFixedWidth(round(72 * PANEL_SCALE))
         self.opacity_spin.setToolTip(self.tr("Opacity (%)"))
         layout.addWidget(self.opacity_spin)
 
@@ -212,7 +267,7 @@ class ArrowSettingsPanel(QWidget):
 
         # === 2. 颜色预设区 ===
         self.color_btn = ColorPickerButton(
-            self.current_color, size=round(28 * PANEL_SCALE), show_alpha=True
+            self.current_color, size=scaled(self.BASE_COLOR_BTN), show_alpha=True
         )
         self.color_btn.setToolTip(self.tr("Custom Color"))
         layout.addWidget(self.color_btn)
@@ -226,25 +281,16 @@ class ArrowSettingsPanel(QWidget):
             "#FFFFFF",
         ]
 
+        self._preset_buttons = []
         for color_str in preset_colors:
             btn = QPushButton()
-            btn.setFixedSize(round(24 * PANEL_SCALE), round(24 * PANEL_SCALE))
             btn.setToolTip(color_str)
-            border_color = "#888888" if color_str == "#FFFFFF" else "#333333"
-            btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {color_str};
-                    border: 1px solid {border_color};
-                    border-radius: 6px;
-                }}
-                QPushButton:hover {{
-                    border: 2px solid #000;
-                }}
-            """)
             btn.clicked.connect(lambda checked, c=color_str: self._on_preset_color_clicked(c))
             layout.addWidget(btn)
+            self._preset_buttons.append((btn, color_str))
 
         layout.addStretch()
+        self.apply_scale()
 
     def _connect_signals(self):
         """连接内部信号"""

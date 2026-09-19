@@ -17,6 +17,7 @@ from PySide6.QtGui import QColor
 
 from ._widgets import svg_icon as _svg_icon
 from core.i18n import make_tr
+from core.ui_scale import get_ui_scale, scaled
 from core.logger import log_exception, T
 
 
@@ -45,8 +46,10 @@ class GifDrawingToolbar(QWidget):
     opacity_changed = Signal(int)            # 0-255
     deactivate_requested = Signal()          # 取消绘制（回到穿透）
 
-    _BTN_SIZE = 30
-    _ICON_SIZE = 20
+    # 基准尺寸（100% 下的实际像素）
+    BASE_BTN = 30
+    BASE_ICON = 20
+    BASE_HEIGHT = 40
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -57,48 +60,82 @@ class GifDrawingToolbar(QWidget):
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.setFixedHeight(40)
 
         self._current_tool: str | None = None
         self._tool_buttons: dict[str, QPushButton] = {}
 
         self._build_ui()
         self._init_settings_panels()
+        # 改比例后自行重算尺寸（连接随本部件销毁自动断开）
+        get_ui_scale().scale_changed.connect(self.apply_scale)
 
     # ── 一级工具栏 UI ──
 
-    def _build_ui(self):
-        container = QWidget(self)
-        container.setStyleSheet("""
-            QWidget {
+    def _container_qss(self) -> str:
+        return f"""
+            QWidget {{
                 background-color: white;
                 border: 2px solid #333;
-                border-radius: 6px;
-            }
-            QPushButton {
+                border-radius: {scaled(6)}px;
+            }}
+            QPushButton {{
                 background: transparent;
                 border: none;
-                border-radius: 4px;
-            }
-            QPushButton:hover { background: rgba(0,0,0,0.06); }
-            QPushButton:pressed { background: rgba(0,0,0,0.12); }
-            QPushButton:checked { background: rgba(0,120,215,0.15); border: 1px solid #0078D7; }
-        """)
+                border-radius: {scaled(4)}px;
+            }}
+            QPushButton:hover {{ background: rgba(0,0,0,0.06); }}
+            QPushButton:pressed {{ background: rgba(0,0,0,0.12); }}
+            QPushButton:checked {{ background: rgba(0,120,215,0.15); border: 1px solid #0078D7; }}
+        """
+
+    def _set_button_icon(self, button, svg: str):
+        """设图标并记下用的是哪张 svg —— svg 按像素光栅化，改比例要按新尺寸重画"""
+        self._button_svgs[button] = svg
+        button.setIcon(_svg_icon(svg, scaled(self.BASE_ICON)))
+
+    def apply_scale(self):
+        """按当前比例重算工具栏和二级面板的尺寸，当前工具与面板数值不动。"""
+        self._apply_scale_sizes()
+        for panel in self._iter_panels():
+            panel.apply_scale()
+        self.adjustSize()
+        self.reposition_panels()
+
+    def _apply_scale_sizes(self):
+        """把基准尺寸按当前比例落到工具栏自己的控件上"""
+        self.setFixedHeight(scaled(self.BASE_HEIGHT))
+        self._container.setStyleSheet(self._container_qss())
+        self._row_layout.setContentsMargins(scaled(6), scaled(3), scaled(6), scaled(3))
+        self._row_layout.setSpacing(scaled(2))
+        btn_sz = scaled(self.BASE_BTN)
+        icon_sz = scaled(self.BASE_ICON)
+        for button, svg in self._button_svgs.items():
+            button.setFixedSize(btn_sz, btn_sz)
+            button.setIconSize(QSize(icon_sz, icon_sz))
+            button.setIcon(_svg_icon(svg, icon_sz))
+
+    def _iter_panels(self):
+        for attr in ('paint_panel', 'shape_panel', 'arrow_panel', 'text_panel'):
+            panel = getattr(self, attr, None)
+            if panel is not None:
+                yield panel
+
+    def _build_ui(self):
+        container = QWidget(self)
+        self._container = container
+        self._button_svgs = {}
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.addWidget(container)
 
         layout = QHBoxLayout(container)
-        layout.setContentsMargins(6, 3, 6, 3)
-        layout.setSpacing(2)
+        self._row_layout = layout
 
         # 工具按钮
         for tool_id, svg_file, tip_key in _TOOL_BUTTONS:
             btn = QPushButton()
-            btn.setFixedSize(self._BTN_SIZE, self._BTN_SIZE)
-            btn.setIconSize(QSize(self._ICON_SIZE, self._ICON_SIZE))
-            btn.setIcon(_svg_icon(svg_file))
+            self._set_button_icon(btn, svg_file)
             btn.setToolTip(_tr(tip_key))
             btn.setCheckable(True)
             btn.clicked.connect(lambda checked, tid=tool_id: self._on_tool_clicked(tid))
@@ -106,36 +143,32 @@ class GifDrawingToolbar(QWidget):
             self._tool_buttons[tool_id] = btn
 
         # 分隔
-        layout.addSpacing(6)
+        layout.addSpacing(scaled(6))
 
         # 撤销
         self._undo_btn = QPushButton()
-        self._undo_btn.setFixedSize(self._BTN_SIZE, self._BTN_SIZE)
-        self._undo_btn.setIconSize(QSize(self._ICON_SIZE, self._ICON_SIZE))
-        self._undo_btn.setIcon(_svg_icon("撤回.svg"))
+        self._set_button_icon(self._undo_btn, "撤回.svg")
         self._undo_btn.setToolTip(_tr("撤销"))
         self._undo_btn.clicked.connect(self.undo_requested.emit)
         layout.addWidget(self._undo_btn)
 
         # 重做
         self._redo_btn = QPushButton()
-        self._redo_btn.setFixedSize(self._BTN_SIZE, self._BTN_SIZE)
-        self._redo_btn.setIconSize(QSize(self._ICON_SIZE, self._ICON_SIZE))
-        self._redo_btn.setIcon(_svg_icon("复原.svg"))
+        self._set_button_icon(self._redo_btn, "复原.svg")
         self._redo_btn.setToolTip(_tr("重做"))
         self._redo_btn.clicked.connect(self.redo_requested.emit)
         layout.addWidget(self._redo_btn)
 
-        layout.addSpacing(4)
+        layout.addSpacing(scaled(4))
 
         # 退出绘制
         self._exit_btn = QPushButton()
-        self._exit_btn.setFixedSize(self._BTN_SIZE, self._BTN_SIZE)
-        self._exit_btn.setIconSize(QSize(self._ICON_SIZE, self._ICON_SIZE))
-        self._exit_btn.setIcon(_svg_icon("关闭.svg"))
+        self._set_button_icon(self._exit_btn, "关闭.svg")
         self._exit_btn.setToolTip(_tr("退出绘制"))
         self._exit_btn.clicked.connect(self._on_exit)
         layout.addWidget(self._exit_btn)
+
+        self._apply_scale_sizes()
 
     # ── 二级设置面板 ──
 
@@ -228,7 +261,7 @@ class GifDrawingToolbar(QWidget):
         tb_pos = self.pos()
         tb_w = self.width()
         panel_w = panel.sizeHint().width()
-        gap = 4
+        gap = scaled(4)
 
         x = tb_pos.x() + (tb_w - panel_w) // 2
         y = tb_pos.y() - panel.sizeHint().height() - gap

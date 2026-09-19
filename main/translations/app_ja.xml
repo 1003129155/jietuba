@@ -3361,6 +3361,14 @@ SOFTWARE.</translation></message>
         <translation>表示モードを選択します。</translation>
     </message>
     <message>
+        <source>Toolbar &amp; Panel Scale</source>
+        <translation>ツールバーとパネルの拡大率</translation>
+    </message>
+    <message>
+        <source>Size of toolbars, tool panels and popups.</source>
+        <translation>ツールバー・設定パネル・ポップアップの表示サイズ。</translation>
+    </message>
+    <message>
         <source>System</source>
         <translation>システム</translation>
     </message>

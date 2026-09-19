@@ -3229,6 +3229,14 @@ SOFTWARE.</translation></message>
         <translation>Choose a display mode.</translation>
     </message>
     <message>
+        <source>Toolbar &amp; Panel Scale</source>
+        <translation>Toolbar &amp; Panel Scale</translation>
+    </message>
+    <message>
+        <source>Size of toolbars, tool panels and popups.</source>
+        <translation>Size of toolbars, tool panels and popups.</translation>
+    </message>
+    <message>
         <source>System</source>
         <translation>System</translation>
     </message>

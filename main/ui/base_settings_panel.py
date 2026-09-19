@@ -3,12 +3,6 @@
 提供通用的颜色、大小、透明度选择组件
 统一为箭头/文字风格布局
 """
-# ── 整体缩放因子 ────────────────────────────────────────────
-# 与 Toolbar.SCALE 联动，修改此值可等比例缩放所有二级设置面板。
-# 1.0  → 默认尺寸
-# 0.8  → 缩小 20%
-# 1.2  → 放大 20%
-PANEL_SCALE: float = 0.90
 from PySide6.QtWidgets import (
     QApplication,
     QWidget,
@@ -25,6 +19,7 @@ from core import safe_event
 from core.constants import CSS_FONT_FAMILY
 from core.i18n import tr as translate_text
 from core.resource_manager import ResourceManager
+from core.ui_scale import scaled, scaled_f
 from .color_picker_button import ColorPickerButton
 
 
@@ -33,8 +28,8 @@ def paint_rounded_panel(widget):
     painter = QPainter(widget)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-    radius = 6.0
-    pen_width = 2.0
+    radius = scaled_f(6.0)
+    pen_width = scaled_f(2.0)
     half = pen_width / 2
     rect = QRectF(widget.rect()).adjusted(half, half, -half, -half)
 
@@ -52,7 +47,7 @@ def set_step_button_icon(button: QToolButton, direction: str):
     icon_name = "step_up.svg" if direction == "up" else "step_down.svg"
     button.setArrowType(Qt.ArrowType.NoArrow)
     button.setIcon(ResourceManager.get_icon(ResourceManager.get_icon_path(icon_name)))
-    button.setIconSize(QSize(round(10 * PANEL_SCALE), round(6 * PANEL_SCALE)))
+    button.setIconSize(QSize(scaled(9), scaled(5)))
 
 
 def build_settings_panel_stylesheet(
@@ -63,20 +58,26 @@ def build_settings_panel_stylesheet(
     combo_max_width: int = 90,
     combo_padding_compact: bool = False
 ) -> str:
-    """构建设置面板统一样式"""
+    """构建设置面板统一样式。
+
+    传入的宽度和样式里的字号、内边距、圆角都是 100% 下的基准值，按当前比例换算；
+    改比例后要重新调用一次，样式表本身不会跟着比例走。
+    """
+    font_px = scaled(12)
+    radius = scaled(3)
     combo_block = ""
     if combo_enabled:
         combo_block = f"""
             QComboBox {{
                 border: 1px solid #ccc;
-                border-radius: 3px;
+                border-radius: {radius}px;
                 padding: 0px;
                 padding-right: 0px;
                 background: white;
-                min-width: {combo_min_width}px;
-                max-width: {combo_max_width}px;
+                min-width: {scaled(combo_min_width)}px;
+                max-width: {scaled(combo_max_width)}px;
                 font-family: {CSS_FONT_FAMILY};
-                font-size: 12px;
+                font-size: {font_px}px;
                 color: #333;
             }}
             QComboBox:hover {{
@@ -87,8 +88,8 @@ def build_settings_panel_stylesheet(
                 subcontrol-position: top right;
                 width: 0px;
                 border: none;
-                border-top-right-radius: 3px;
-                border-bottom-right-radius: 3px;
+                border-top-right-radius: {radius}px;
+                border-bottom-right-radius: {radius}px;
                 background: white;
             }}
             QComboBox::down-arrow {{
@@ -107,13 +108,13 @@ def build_settings_panel_stylesheet(
                 selection-background-color: #0078d7;
                 selection-color: white;
                 font-family: {CSS_FONT_FAMILY};
-                font-size: 12px;
+                font-size: {font_px}px;
                 color: #333;
                 outline: none;
             }}
             QComboBox QAbstractItemView::item {{
-                padding: 3px 6px;
-                min-height: 18px;
+                padding: {scaled(3)}px {scaled(6)}px;
+                min-height: {scaled(18)}px;
                 color: #333;
                 background: white;
             }}
@@ -135,10 +136,10 @@ def build_settings_panel_stylesheet(
         QPushButton {{
             background-color: white;
             border: 1px solid #ddd;
-            border-radius: 3px;
-            padding: 4px;
+            border-radius: {radius}px;
+            padding: {scaled(4)}px;
             font-family: {CSS_FONT_FAMILY};
-            font-size: 12px;
+            font-size: {font_px}px;
         }}
         QPushButton:hover {{
             background-color: #f0f0f0;
@@ -150,20 +151,20 @@ def build_settings_panel_stylesheet(
         }}
         QSpinBox {{
             border: 1px solid #ccc;
-            border-radius: 3px;
-            padding: 2px 2px 2px 4px;
+            border-radius: {radius}px;
+            padding: {scaled(2)}px {scaled(2)}px {scaled(2)}px {scaled(4)}px;
             background: white;
             font-family: {CSS_FONT_FAMILY};
-            font-size: 12px;
+            font-size: {font_px}px;
             color: #333;
         }}
         QSpinBox::up-button {{
             subcontrol-origin: border;
             subcontrol-position: top right;
-            width: 18px;
+            width: {scaled(18)}px;
             border-left: 1px solid #ccc;
             border-bottom: 1px solid #ccc;
-            border-top-right-radius: 3px;
+            border-top-right-radius: {radius}px;
             background: white;
         }}
         QSpinBox::up-button:hover {{
@@ -174,18 +175,18 @@ def build_settings_panel_stylesheet(
         }}
         QSpinBox::up-arrow {{
             image: none;
-            border-left: 4px solid transparent;
-            border-right: 4px solid transparent;
-            border-bottom: 6px solid #666;
+            border-left: {scaled(4)}px solid transparent;
+            border-right: {scaled(4)}px solid transparent;
+            border-bottom: {scaled(6)}px solid #666;
             width: 0;
             height: 0;
         }}
         QSpinBox::down-button {{
             subcontrol-origin: border;
             subcontrol-position: bottom right;
-            width: 18px;
+            width: {scaled(18)}px;
             border-left: 1px solid #ccc;
-            border-bottom-right-radius: 3px;
+            border-bottom-right-radius: {radius}px;
             background: white;
         }}
         QSpinBox::down-button:hover {{
@@ -196,9 +197,9 @@ def build_settings_panel_stylesheet(
         }}
         QSpinBox::down-arrow {{
             image: none;
-            border-left: 4px solid transparent;
-            border-right: 4px solid transparent;
-            border-top: 6px solid #666;
+            border-left: {scaled(4)}px solid transparent;
+            border-right: {scaled(4)}px solid transparent;
+            border-top: {scaled(6)}px solid #666;
             width: 0;
             height: 0;
         }}
@@ -207,12 +208,12 @@ def build_settings_panel_stylesheet(
             background-color: transparent;
             border: none;
             font-family: {CSS_FONT_FAMILY};
-            font-size: 12px;
+            font-size: {font_px}px;
         }}
         QFrame#separator {{
             background-color: #ddd;
             width: 1px;
-            margin: 4px 4px;
+            margin: {scaled(4)}px {scaled(4)}px;
             border: none;
         }}
         {combo_block}
@@ -224,6 +225,14 @@ class StepperWidget(QWidget):
 
     valueChanged = Signal(int)
 
+    # 基准尺寸（100% 下的实际像素）
+    BASE_LABEL_HEIGHT = 23
+    BASE_BTN_WIDTH = 16
+    BASE_BTN_HEIGHT = 13
+    BASE_LABEL_MIN_WIDTH = 26
+    BASE_BTN_COLUMN = 22   # setFixedWidth 里留给上下按钮那一列的宽度
+    BASE_SPACING = 4
+
     def __init__(self, value: int = 0, minimum: int = 0, maximum: int = 100, suffix: str = "", parent=None):
         super().__init__(parent)
         self._min = int(minimum)
@@ -233,27 +242,19 @@ class StepperWidget(QWidget):
 
         self._label = QLabel()
         self._label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._label.setFixedHeight(round(26 * PANEL_SCALE))
-        self._label.setStyleSheet(
-            "QLabel { background: transparent; color: #333; border: 1px solid #999; border-radius: 6px; padding: 0 6px; font-weight: bold; }"
-        )
 
         btn_wrap = QWidget()
         btn_layout = QVBoxLayout(btn_wrap)
         btn_layout.setContentsMargins(0, 0, 0, 0)
-        btn_layout.setSpacing(2)
+        btn_layout.setSpacing(scaled(2))
 
         self._up_btn = QToolButton()
-        set_step_button_icon(self._up_btn, "up")
-        self._up_btn.setFixedSize(round(18 * PANEL_SCALE), round(14 * PANEL_SCALE))
         self._up_btn.setAutoRepeat(True)
         self._up_btn.setAutoRepeatDelay(300)
         self._up_btn.setAutoRepeatInterval(60)
         btn_layout.addWidget(self._up_btn)
 
         self._down_btn = QToolButton()
-        set_step_button_icon(self._down_btn, "down")
-        self._down_btn.setFixedSize(round(18 * PANEL_SCALE), round(14 * PANEL_SCALE))
         self._down_btn.setAutoRepeat(True)
         self._down_btn.setAutoRepeatDelay(300)
         self._down_btn.setAutoRepeatInterval(60)
@@ -261,13 +262,25 @@ class StepperWidget(QWidget):
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
         layout.addWidget(self._label)
         layout.addWidget(btn_wrap)
 
         self._up_btn.clicked.connect(lambda: self._step(1))
         self._down_btn.clicked.connect(lambda: self._step(-1))
+        self._apply_scale_sizes()
         self._refresh_label()
+
+    def _apply_scale_sizes(self):
+        """按当前比例重算标签和步进按钮的尺寸"""
+        self._label.setFixedHeight(scaled(self.BASE_LABEL_HEIGHT))
+        self._label.setStyleSheet(
+            f"QLabel {{ background: transparent; color: #333; border: 1px solid #999;"
+            f" border-radius: {scaled(6)}px; padding: 0 {scaled(6)}px; font-weight: bold; }}"
+        )
+        for direction, button in (("up", self._up_btn), ("down", self._down_btn)):
+            set_step_button_icon(button, direction)
+            button.setFixedSize(scaled(self.BASE_BTN_WIDTH), scaled(self.BASE_BTN_HEIGHT))
+        self.layout().setSpacing(scaled(self.BASE_SPACING))
 
     def _clamp(self, value: int) -> int:
         return max(self._min, min(self._max, int(value)))
@@ -308,7 +321,10 @@ class StepperWidget(QWidget):
 
     def setFixedWidth(self, width: int):
         super().setFixedWidth(width)
-        label_width = max(26, int(width) - 22)
+        # width 已是按比例算好的像素，扣掉的按钮列宽和最小值也要跟着比例走
+        self._apply_scale_sizes()
+        label_width = max(scaled(self.BASE_LABEL_MIN_WIDTH),
+                          int(width) - scaled(self.BASE_BTN_COLUMN))
         self._label.setFixedWidth(label_width)
 
     @safe_event
@@ -329,7 +345,7 @@ def popup_position(panel: QWidget, anchor: QWidget, popup: QWidget) -> QPoint:
     工具栏由它自己登记在面板的 _owner_toolbar 上：面板的 Qt parent 是工具栏的
     parent，不是工具栏本身。没登记（比如 GIF 录制的面板）就按"在下方"处理。
     """
-    gap = 4
+    gap = scaled(4)
     panel_rect = QRect(panel.mapToGlobal(QPoint(0, 0)), panel.size())
     anchor_top_left = anchor.mapToGlobal(QPoint(0, 0))
 
@@ -380,9 +396,8 @@ class HoverPopup(QWidget):
         # 只描弹出层自己这一层：QSS 的类型选择器连子类一起匹配，写成裸 QWidget
         # 会给里面每个控件都套上边框。配色沿用设置面板的白底浅色，不另造深色。
         self.setObjectName("HoverPopup")
-        self.setStyleSheet(
-            "#HoverPopup { background: white; border: 1px solid #ccc; border-radius: 3px; }"
-        )
+        self._extra_qss = ""
+        self.apply_scale()
 
         self._close_timer = QTimer(self)
         self._close_timer.setSingleShot(True)
@@ -399,6 +414,18 @@ class HoverPopup(QWidget):
         if watched is self.parentWidget() and event.type() == QEvent.Type.Hide:
             self.hide()
         return super().eventFilter(watched, event)
+
+    def set_extra_stylesheet(self, qss: str):
+        """弹出层内部控件的样式。和基础样式分开存，改比例时两段一起重挂。"""
+        self._extra_qss = qss or ""
+        self.apply_scale()
+
+    def apply_scale(self):
+        """按当前比例重挂样式。子类补自己的控件尺寸时记得先调 super()。"""
+        self.setStyleSheet(
+            f"#HoverPopup {{ background: white; border: 1px solid #ccc;"
+            f" border-radius: {scaled(3)}px; }}" + self._extra_qss
+        )
 
     def show_beside(self, panel: QWidget, anchor: QWidget):
         self.keep_open()
@@ -426,6 +453,16 @@ class BaseSettingsPanel(QWidget):
     """设置面板基类 - 统一风格布局"""
 
     TRANSLATION_CONTEXT = "ArrowSettingsPanel"
+    # 基准尺寸 —— 100% 比例下的实际像素。原先这些值写成 round(N * PANEL_SCALE)，
+    # 0.90 已折进基准值；改比例时一律从基准重算，不在已缩放的结果上再乘。
+    BASE_MARGIN_H = 9
+    BASE_MARGIN_V = 7
+    BASE_SPACING = 9
+    BASE_SIZE_SPIN_WIDTH = 54
+    BASE_OPACITY_SPIN_WIDTH = 65
+    BASE_COLOR_BTN = 25
+    BASE_PRESET_BTN = 22
+    BASE_PRESET_RADIUS = 6
     SIZE_RANGE = (1, 99)
     SIZE_DEFAULT = 5
     SIZE_TOOLTIP = "Line Width"
@@ -453,20 +490,13 @@ class BaseSettingsPanel(QWidget):
         
     def _init_ui(self):
         """初始化UI - 统一布局"""
-        self.setStyleSheet(build_settings_panel_stylesheet())
-
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(round(10 * PANEL_SCALE), round(8 * PANEL_SCALE),
-                                  round(10 * PANEL_SCALE), round(8 * PANEL_SCALE))
-        layout.setSpacing(round(10 * PANEL_SCALE))
 
         self.size_spin = StepperWidget(self.current_size, self.SIZE_RANGE[0], self.SIZE_RANGE[1])
-        self.size_spin.setFixedWidth(round(60 * PANEL_SCALE))
         self.size_spin.setToolTip(self._tr(self.SIZE_TOOLTIP))
         layout.addWidget(self.size_spin)
 
         self.opacity_spin = StepperWidget(self._opacity_to_percent(self.current_opacity), 0, 100, "%")
-        self.opacity_spin.setFixedWidth(round(72 * PANEL_SCALE))
         self.opacity_spin.setToolTip(self._tr(self.OPACITY_TOOLTIP))
         layout.addWidget(self.opacity_spin)
 
@@ -477,7 +507,7 @@ class BaseSettingsPanel(QWidget):
         layout.addWidget(line1)
 
         self.color_picker_btn = ColorPickerButton(
-            self.current_color, size=round(28 * PANEL_SCALE), show_alpha=True
+            self.current_color, size=scaled(self.BASE_COLOR_BTN), show_alpha=True
         )
         self.color_picker_btn.setToolTip(self._tr("Custom Color"))
         layout.addWidget(self.color_picker_btn)
@@ -491,23 +521,13 @@ class BaseSettingsPanel(QWidget):
             "#FFFFFF",
         ]
 
+        self._preset_buttons = []
         for color_str in preset_colors:
             btn = QPushButton()
-            btn.setFixedSize(round(24 * PANEL_SCALE), round(24 * PANEL_SCALE))
             btn.setToolTip(color_str)
-            border_color = "#888888" if color_str == "#FFFFFF" else "#333333"
-            btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {color_str};
-                    border: 1px solid {border_color};
-                    border-radius: 6px;
-                }}
-                QPushButton:hover {{
-                    border: 2px solid #000;
-                }}
-            """)
             btn.clicked.connect(lambda checked, c=color_str: self._apply_preset_color(c))
             layout.addWidget(btn)
+            self._preset_buttons.append((btn, color_str))
 
         layout.addStretch()
 
@@ -516,10 +536,56 @@ class BaseSettingsPanel(QWidget):
         self.color_picker_btn.color_changed.connect(self._on_color_picked)
 
         self._build_extra_controls(layout)
+        self.apply_scale()
 
     def _build_extra_controls(self, layout: QHBoxLayout):
         """扩展控件 - 子类可选实现"""
         return
+
+    # ========================================================================
+    # 缩放
+    # ========================================================================
+
+    def _build_stylesheet(self) -> str:
+        """面板样式。要定制下拉框参数的子类覆盖这里，改比例后会被重新调用。"""
+        return build_settings_panel_stylesheet()
+
+    def _apply_scale_sizes(self):
+        """把基准尺寸按当前比例落到各控件上。
+
+        子类的扩展控件在覆盖里补上，并先调用 super()。
+        """
+        layout = self.layout()
+        if layout is not None:
+            mh, mv = scaled(self.BASE_MARGIN_H), scaled(self.BASE_MARGIN_V)
+            layout.setContentsMargins(mh, mv, mh, mv)
+            layout.setSpacing(scaled(self.BASE_SPACING))
+        self.size_spin.setFixedWidth(scaled(self.BASE_SIZE_SPIN_WIDTH))
+        self.opacity_spin.setFixedWidth(scaled(self.BASE_OPACITY_SPIN_WIDTH))
+        color_btn = scaled(self.BASE_COLOR_BTN)
+        self.color_picker_btn.setFixedSize(color_btn, color_btn)
+        preset = scaled(self.BASE_PRESET_BTN)
+        radius = scaled(self.BASE_PRESET_RADIUS)
+        for btn, color_str in self._preset_buttons:
+            btn.setFixedSize(preset, preset)
+            border_color = "#888888" if color_str == "#FFFFFF" else "#333333"
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {color_str};
+                    border: 1px solid {border_color};
+                    border-radius: {radius}px;
+                }}
+                QPushButton:hover {{
+                    border: 2px solid #000;
+                }}
+            """)
+
+    def apply_scale(self):
+        """按当前比例重算面板尺寸。数值、颜色、工具状态都不动，只改显示大小。"""
+        self.setStyleSheet(self._build_stylesheet())
+        self._apply_scale_sizes()
+        self.adjustSize()
+        self.update()
 
     def _tr(self, text: str) -> str:
         """统一翻译入口（与箭头面板一致的翻译上下文）"""

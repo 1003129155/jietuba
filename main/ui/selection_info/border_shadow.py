@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from core.logger import log_debug, T
 from core import safe_event
+from core.ui_scale import get_ui_scale, scaled
 from ..color_picker_button import ColorPickerButton
 
 
@@ -56,11 +57,15 @@ class BorderShadowPopup(QWidget):
     visibility_changed = Signal(bool)       # 面板显示/隐藏
 
     _BG = QColor(30, 30, 30, 230)
-    _RADIUS = 6
+
+    # 基准尺寸（100% 下的实际像素）
+    BASE_RADIUS = 6
+    BASE_WIDTH = 200
+    BASE_COLOR_BLOCK = 18
+    BASE_VALUE_LABEL_WIDTH = 28
 
     def __init__(self, parent: QWidget):
         super().__init__(parent)
-        self.setFixedWidth(200)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setMouseTracking(True)
@@ -74,6 +79,8 @@ class BorderShadowPopup(QWidget):
         self._hide_timer.setInterval(200)
         self._hide_timer.timeout.connect(self._do_hide)
         self.hide()
+        # 改比例后自行重算尺寸（连接随本部件销毁自动断开）
+        get_ui_scale().scale_changed.connect(self.apply_scale)
 
     @staticmethod
     def _get_theme_hex() -> str:
@@ -85,8 +92,7 @@ class BorderShadowPopup(QWidget):
     # ------------------------------------------------------------------
     def _init_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(10, 8, 10, 8)
-        root.setSpacing(6)
+        self._root_layout = root
 
         # ── 第一行：[■色 阴影]  [■色 描边] 均分宽度 ──
         row_mode = QHBoxLayout()
@@ -96,37 +102,36 @@ class BorderShadowPopup(QWidget):
         self._shadow_group = QWidget()
         self._shadow_group.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         shadow_lay = QHBoxLayout(self._shadow_group)
-        shadow_lay.setContentsMargins(6, 4, 6, 4)
-        shadow_lay.setSpacing(5)
+        self._shadow_row = shadow_lay
         self._shadow_color_block = ColorPickerButton(
-            QColor(self._shadow_color), show_alpha=True, size=18, rainbow_ring=False
+            QColor(self._shadow_color), show_alpha=True,
+            size=scaled(self.BASE_COLOR_BLOCK), rainbow_ring=False
         )
         self._shadow_color_block.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self._shadow_color_block.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._shadow_color_block.setToolTip(self.tr("Select shadow color"))
         self._shadow_label = QLabel(self.tr("Shadow"))
-        self._shadow_label.setStyleSheet("color: #D0D0D0; font-size: 12px; background: transparent;")
         shadow_lay.addWidget(self._shadow_color_block)
         shadow_lay.addWidget(self._shadow_label)
         shadow_lay.addStretch()
         row_mode.addWidget(self._shadow_group, 1)
 
-        row_mode.addSpacing(6)
+        self._mode_row = row_mode
+        row_mode.addSpacing(scaled(6))
 
         # 描边组（颜色块 + 文字，整体可点击切换模式）
         self._border_group = QWidget()
         self._border_group.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         border_lay = QHBoxLayout(self._border_group)
-        border_lay.setContentsMargins(6, 4, 6, 4)
-        border_lay.setSpacing(5)
+        self._border_row = border_lay
         self._border_color_block = ColorPickerButton(
-            QColor(self._border_color), show_alpha=True, size=18, rainbow_ring=False
+            QColor(self._border_color), show_alpha=True,
+            size=scaled(self.BASE_COLOR_BLOCK), rainbow_ring=False
         )
         self._border_color_block.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self._border_color_block.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._border_color_block.setToolTip(self.tr("Select border color"))
         self._border_label = QLabel(self.tr("Border"))
-        self._border_label.setStyleSheet("color: #D0D0D0; font-size: 12px; background: transparent;")
         border_lay.addWidget(self._border_color_block)
         border_lay.addWidget(self._border_label)
         border_lay.addStretch()
@@ -136,48 +141,28 @@ class BorderShadowPopup(QWidget):
 
         # ── 第二行：颜色块 + 滑块 + 数值 ──
         row_slider = QHBoxLayout()
-        row_slider.setSpacing(6)
+        self._slider_row = row_slider
 
-        lbl_size = QLabel(self.tr("Size"))
-        lbl_size.setStyleSheet("color: #AAAAAA; font-size: 12px; background: transparent;")
-        row_slider.addWidget(lbl_size)
+        self._size_label = QLabel(self.tr("Size"))
+        row_slider.addWidget(self._size_label)
 
         self._slider = QSlider(Qt.Orientation.Horizontal)
         self._slider.setRange(1, 50)
         self._slider.setValue(21)
         self._slider.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self._slider.setStyleSheet("""
-            QSlider::groove:horizontal {
-                height: 4px; background: #555; border-radius: 2px;
-            }
-            QSlider::handle:horizontal {
-                width: 12px; height: 12px; margin: -4px 0;
-                background: """ + self._get_theme_hex() + """; border-radius: 6px;
-            }
-            QSlider::sub-page:horizontal {
-                background: """ + self._get_theme_hex() + """; border-radius: 2px;
-            }
-        """)
         row_slider.addWidget(self._slider, 1)
 
         self._label_val = QLabel("21")
-        self._label_val.setFixedWidth(28)
         self._label_val.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._label_val.setStyleSheet("color: #D0D0D0; font-size: 12px; background: transparent;")
         row_slider.addWidget(self._label_val)
         root.addLayout(row_slider)
 
         # ── 第三行：持久开关 ──
         self._chk_persist = QCheckBox(self.tr("Keep enabled for every screenshot"))
         self._chk_persist.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self._chk_persist.setStyleSheet("""
-            QCheckBox { color: #AAAAAA; font-size: 11px; background: transparent; spacing: 4px; }
-            QCheckBox::indicator { width: 14px; height: 14px; border: 1px solid #666; border-radius: 3px; background: transparent; }
-            QCheckBox::indicator:checked { background: """ + self._get_theme_hex() + """; border-color: """ + self._get_theme_hex() + """; }
-        """)
         root.addWidget(self._chk_persist)
 
-        self.adjustSize()
+        self.apply_scale()
 
         # ── 信号 ──
         self._shadow_group.mousePressEvent = lambda e: (
@@ -206,17 +191,67 @@ class BorderShadowPopup(QWidget):
         self._border_color = color.name()
         self.border_color_changed.emit(self._border_color)
 
+    def apply_scale(self):
+        """按当前比例重算弹层尺寸。模式、颜色、大小数值都不动。"""
+        theme_hex = self._get_theme_hex()
+        self.setFixedWidth(scaled(self.BASE_WIDTH))
+        self._root_layout.setContentsMargins(scaled(10), scaled(8), scaled(10), scaled(8))
+        self._root_layout.setSpacing(scaled(6))
+        for row in (self._shadow_row, self._border_row):
+            row.setContentsMargins(scaled(6), scaled(4), scaled(6), scaled(4))
+            row.setSpacing(scaled(5))
+        self._slider_row.setSpacing(scaled(6))
+
+        block = scaled(self.BASE_COLOR_BLOCK)
+        for color_block in (self._shadow_color_block, self._border_color_block):
+            color_block.setFixedSize(block, block)
+
+        self._size_label.setStyleSheet(
+            f"color: #AAAAAA; font-size: {scaled(12)}px; background: transparent;")
+        self._slider.setStyleSheet(f"""
+            QSlider::groove:horizontal {{
+                height: {scaled(4)}px; background: #555; border-radius: {scaled(2)}px;
+            }}
+            QSlider::handle:horizontal {{
+                width: {scaled(12)}px; height: {scaled(12)}px; margin: {-scaled(4)}px 0;
+                background: {theme_hex}; border-radius: {scaled(6)}px;
+            }}
+            QSlider::sub-page:horizontal {{
+                background: {theme_hex}; border-radius: {scaled(2)}px;
+            }}
+        """)
+        self._label_val.setFixedWidth(scaled(self.BASE_VALUE_LABEL_WIDTH))
+        self._label_val.setStyleSheet(
+            f"color: #D0D0D0; font-size: {scaled(12)}px; background: transparent;")
+        indicator = scaled(14)
+        self._chk_persist.setStyleSheet(f"""
+            QCheckBox {{ color: #AAAAAA; font-size: {scaled(11)}px;
+                         background: transparent; spacing: {scaled(4)}px; }}
+            QCheckBox::indicator {{ width: {indicator}px; height: {indicator}px;
+                                    border: 1px solid #666; border-radius: {scaled(3)}px;
+                                    background: transparent; }}
+            QCheckBox::indicator:checked {{ background: {theme_hex};
+                                            border-color: {theme_hex}; }}
+        """)
+        self._refresh_mode_buttons()
+        self.adjustSize()
+        self.update()
+        if self.isVisible() and getattr(self, "_anchor", None) is not None:
+            self.show_near(self._anchor)
+
     def _refresh_mode_buttons(self):
         """刷新组容器的高亮状态（选中整组出现背景）"""
-        _ACTIVE = """
+        radius = scaled(4)
+        font_px = scaled(12)
+        _ACTIVE = f"""
             background: rgba(64,224,208,50);
             border: 1px solid rgba(64,224,208,120);
-            border-radius: 4px;
+            border-radius: {radius}px;
         """
-        _INACTIVE = """
+        _INACTIVE = f"""
             background: transparent;
             border: none;
-            border-radius: 4px;
+            border-radius: {radius}px;
         """
         for group, label, mode in [
             (self._shadow_group, self._shadow_label, "shadow"),
@@ -224,10 +259,12 @@ class BorderShadowPopup(QWidget):
         ]:
             if mode == self._current_mode:
                 group.setStyleSheet(_ACTIVE)
-                label.setStyleSheet("color: #FFFFFF; font-size: 12px; background: transparent;")
+                label.setStyleSheet(
+                    f"color: #FFFFFF; font-size: {font_px}px; background: transparent;")
             else:
                 group.setStyleSheet(_INACTIVE)
-                label.setStyleSheet("color: #999999; font-size: 12px; background: transparent;")
+                label.setStyleSheet(
+                    f"color: #999999; font-size: {font_px}px; background: transparent;")
 
     # ------------------------------------------------------------------
     # 状态访问
@@ -305,6 +342,7 @@ class BorderShadowPopup(QWidget):
 
     def show_near(self, anchor: QWidget):
         """优先显示在 anchor 按钮的正上方，空间不够则显示在下方"""
+        self._anchor = anchor
         parent = self.parentWidget()
         pw = parent.width()
 
@@ -317,7 +355,7 @@ class BorderShadowPopup(QWidget):
         x = max(0, x)
 
         # ── 垂直方向：优先上方 ──
-        gap = 4
+        gap = scaled(4)
         above_global = anchor.mapToGlobal(QPoint(0, -self.height() - gap))
         above_local = parent.mapFromGlobal(above_global)
         if above_local.y() >= 0:
@@ -363,7 +401,8 @@ class BorderShadowPopup(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QBrush(self._BG))
-        p.drawRoundedRect(self.rect(), self._RADIUS, self._RADIUS)
+        radius = scaled(self.BASE_RADIUS)
+        p.drawRoundedRect(self.rect(), radius, radius)
         p.end()
         super().paintEvent(event)
 

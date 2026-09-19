@@ -29,6 +29,7 @@ except ImportError:
     log_error = _l.error
     T = lambda template, **kwargs: template.format(**kwargs) if kwargs else template
 
+from core.ui_scale import get_ui_scale, scaled
 from core.platform_utils import request_trim_working_set as _request_trim
 
 
@@ -82,9 +83,17 @@ class GifRecordWindow(QObject):
         self._record_toolbar.set_record_rect(self._rect)
         self._reposition_toolbar(self._record_toolbar)
 
+        # 工具栏自己会按新比例重算尺寸，但贴在录制区哪一侧是这里算的，得重贴一次
+        get_ui_scale().scale_changed.connect(self._reposition_current_toolbar)
+
         # 初始穿透
         self._enter_state(AppState.IDLE)
         log_debug(T("GifRecordWindow 初始化完成"), "GIF")
+
+    def _reposition_current_toolbar(self):
+        pb_tb = self._playback.playback_toolbar
+        toolbar = pb_tb if pb_tb and pb_tb.isVisible() else self._record_toolbar
+        self._reposition_toolbar(toolbar)
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # 信号连接
@@ -172,7 +181,7 @@ class GifRecordWindow(QObject):
         r = self._rect
         tw = toolbar.width()
         th = toolbar.height()
-        gap = 4
+        gap = scaled(4)
 
         # 根据录制区域中心点获取所属屏幕，而非固定使用主屏
         center = r.center()
