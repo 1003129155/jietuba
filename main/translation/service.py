@@ -88,6 +88,7 @@ def create_default_translation_service(config=None) -> TranslationService:
         AmazonTranslateProvider,
         AzureTranslateProvider,
         BaiduTranslateProvider,
+        DeepSeekProvider,
         DeepLProvider,
         GoogleTranslateProvider,
     )
@@ -117,5 +118,10 @@ def create_default_translation_service(config=None) -> TranslationService:
         BaiduTranslateProvider.provider_id,
         BaiduTranslateProvider,
         display_name=BaiduTranslateProvider.display_name,
+    )
+    registry.register(
+        DeepSeekProvider.provider_id,
+        DeepSeekProvider,
+        display_name=DeepSeekProvider.display_name,
     )
     return TranslationService(registry, config)

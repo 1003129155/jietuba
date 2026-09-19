@@ -503,7 +503,9 @@ translation/
 │   ├── google.py            # Google
 │   ├── azure.py             # Azure
 │   ├── amazon.py            # Amazon
-│   └── baidu.py             # Baidu
+│   ├── baidu.py             # Baidu
+│   ├── deepseek.py          # DeepSeek (LLM)
+│   └── openai_compatible.py # OpenAI 兼容接口基类
 ├── smart_translation_controller.py # SmartTranslationController — ワンキー選択テキスト検出＆ポップアップルーティング
 ├── translation_popup.py     # TranslationPopup — コンパクト翻訳ポップアップ（選択テキスト/手入力）
 ├── deepl_service.py         # DeepLService / TranslationThread — 旧版 DeepL API 非同期翻訳

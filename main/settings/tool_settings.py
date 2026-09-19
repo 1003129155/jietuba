@@ -268,6 +268,9 @@ class ToolSettingsManager(QObject):
         "azure_translate_endpoint": "",
         "baidu_translate_appid": "",
         "baidu_translate_secret_key": "",
+        "deepseek_api_key": "",
+        "deepseek_model": "",          # 空=用 provider 里的默认模型
+        "deepseek_base_url": "",       # 空=用官方地址
         "translation_target_lang": "",         # 翻译目标语言（空为跟随系统语言）
         "translation_split_sentences": True,   # 自动分句
         "translation_preserve_formatting": True,  # 保留格式
@@ -967,6 +970,14 @@ class ToolSettingsManager(QObject):
                 "appid": self.get_baidu_translate_appid(),
                 "secret_key": self.get_baidu_translate_secret_key(),
             }
+        if provider_id == "deepseek":
+            # model/base_url 留空时由 provider 用自己的默认值，
+            # 所以这里原样传空串而不是在这边兜底
+            return {
+                "api_key": self.get_deepseek_api_key(),
+                "model": self.get_deepseek_model(),
+                "base_url": self.get_deepseek_base_url(),
+            }
         return {}
     
     def get_deepl_api_key(self) -> str:
@@ -1114,6 +1125,45 @@ class ToolSettingsManager(QObject):
     def set_baidu_translate_secret_key(self, value: str):
         self.qsettings.setValue(
             "translation/providers/baidu/secret_key",
+            (value or "").strip(),
+        )
+
+    def get_deepseek_api_key(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/deepseek/api_key",
+            self.APP_DEFAULT_SETTINGS["deepseek_api_key"],
+            type=str,
+        )
+
+    def set_deepseek_api_key(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/deepseek/api_key",
+            (value or "").strip(),
+        )
+
+    def get_deepseek_model(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/deepseek/model",
+            self.APP_DEFAULT_SETTINGS["deepseek_model"],
+            type=str,
+        )
+
+    def set_deepseek_model(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/deepseek/model",
+            (value or "").strip(),
+        )
+
+    def get_deepseek_base_url(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/deepseek/base_url",
+            self.APP_DEFAULT_SETTINGS["deepseek_base_url"],
+            type=str,
+        )
+
+    def set_deepseek_base_url(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/deepseek/base_url",
             (value or "").strip(),
         )
 

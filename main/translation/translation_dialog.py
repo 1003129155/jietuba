@@ -31,6 +31,7 @@ from qframelesswindow import FramelessWindow, TitleBar
 
 from core import log_debug, log_info
 from core.i18n import make_tr
+from .ui.widgets import EllipsisAnimator
 from core.resource_manager import ResourceManager
 from settings import get_tool_settings_manager
 from ui.fluent_lite import TextEdit
@@ -471,6 +472,9 @@ class TranslationDialog(FramelessWindow):
         self.target_edit.setReadOnly(True)
         self.target_edit.setPlaceholderText(_tr("Translation will appear here..."))
         self.target_edit.setPlainText(self.translated_text)
+        self._loading_dots = EllipsisAnimator(
+            self, on_tick=self.target_edit.setPlainText
+        )
         target_layout.addWidget(self.target_edit, 1)
 
         target_tools = QHBoxLayout()
@@ -632,6 +636,7 @@ class TranslationDialog(FramelessWindow):
         self.target_edit.style().polish(self.target_edit)
 
     def set_translation_result(self, translated_text: str, detected_lang: str = "") -> None:
+        self._loading_dots.stop()
         self._set_target_state(error=False, loading=False)
         self.target_edit.setPlainText(translated_text)
         self.translated_text = translated_text
@@ -641,6 +646,7 @@ class TranslationDialog(FramelessWindow):
         self.set_busy(False)
 
     def set_translation_error(self, error_msg: str) -> None:
+        self._loading_dots.stop()
         self._last_error_message = error_msg
         self._set_target_state(error=True, loading=False)
         self.target_edit.setPlainText(f'{_tr("Translation failed:")} {error_msg}')
@@ -649,6 +655,9 @@ class TranslationDialog(FramelessWindow):
     def set_loading(self) -> None:
         self._set_target_state(error=False, loading=True)
         self.target_edit.setPlainText(_tr("Translating..."))
+        # 这条路径以前是一行静止的文字，而小窗口那边的点在转——同一个应用
+        # 两种表现，只因为动画当初只加在了小窗口上。
+        self._loading_dots.start()
         self.set_busy(True)
 
     def set_busy(self, busy: bool) -> None:

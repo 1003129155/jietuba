@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from core.i18n import make_tr
+from .ui.widgets import EllipsisAnimator
 from ui.fluent_lite import TextEdit
 from .translation_dialog import DARK, LIGHT, Palette
 from .languages import TRANSLATION_LANGUAGES
@@ -62,7 +63,6 @@ class TranslationPopup(QWidget):
         self._suppress_auto = False
         self._backend_ready = True
         self._drag_offset: QPoint | None = None
-        self._loading_step = 0
         self._target_lang = "ZH"  # 当前目标语言
 
         self.setObjectName("translationPopup")
@@ -75,9 +75,9 @@ class TranslationPopup(QWidget):
         self._build_ui()
         self.set_theme("dark")
 
-        self._loading_timer = QTimer(self)
-        self._loading_timer.setInterval(320)
-        self._loading_timer.timeout.connect(self._advance_loading)
+        self._loading_dots = EllipsisAnimator(
+            self, on_tick=self.result_edit.setPlainText
+        )
 
         self._manual_debounce = QTimer(self)
         self._manual_debounce.setSingleShot(True)
@@ -226,7 +226,7 @@ class TranslationPopup(QWidget):
                 ``False`` for selection translation so the source application
                 keeps its focus and selection.
         """
-        self._loading_timer.stop()
+        self._loading_dots.stop()
         self._manual_debounce.stop()
         self._source_text = source_text.strip()
         self._translated_text = ""
@@ -262,12 +262,11 @@ class TranslationPopup(QWidget):
         self.result_edit.setProperty("error", False)
         self.result_edit.setPlainText(_tr("Translating..."))
         self._refresh_result_style()
-        self._loading_step = 0
-        self._loading_timer.start()
+        self._loading_dots.start()
 
     def _hide_result(self) -> None:
         """Collapse the result area while there is nothing to translate."""
-        self._loading_timer.stop()
+        self._loading_dots.stop()
         self.result_edit.clear()
         self.result_edit.setProperty("error", False)
         self._refresh_result_style()
@@ -285,7 +284,7 @@ class TranslationPopup(QWidget):
             return
 
     def show_result(self, translated_text: str, detected_lang: str = "") -> None:
-        self._loading_timer.stop()
+        self._loading_dots.stop()
         self._translated_text = translated_text
         self._error_text = "" if translated_text else _tr("No translation result")
         self.result_edit.setProperty("error", False)
@@ -298,7 +297,7 @@ class TranslationPopup(QWidget):
         self._fit_content()
 
     def show_error(self, message: str) -> None:
-        self._loading_timer.stop()
+        self._loading_dots.stop()
         self._translated_text = ""
         self._error_text = message
         self.result_edit.setProperty("error", True)
@@ -387,11 +386,6 @@ class TranslationPopup(QWidget):
             """
         )
         self.update()
-
-    def _advance_loading(self) -> None:
-        self._loading_step = (self._loading_step + 1) % 4
-        base = _tr("Translating...").rstrip(".。…")
-        self.result_edit.setPlainText(base + "." * self._loading_step)
 
     def _on_source_changed(self) -> None:
         if self._suppress_auto:
@@ -485,7 +479,7 @@ class TranslationPopup(QWidget):
 
     def _hide_popup(self) -> None:
         self._manual_debounce.stop()
-        self._loading_timer.stop()
+        self._loading_dots.stop()
         self.hide()
 
     def paintEvent(self, event) -> None:
