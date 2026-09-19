@@ -44,14 +44,14 @@ def theme_popup_hover_background() -> str:
     return theme_color("#EAF2FA", "#36393F")
 
 
-def theme_text_style(font_size: int = 13, bold: bool = False, extra: str = "") -> str:
+def theme_text_style(font_size: int = 14, bold: bool = False, extra: str = "") -> str:
     weight = " font-weight: 600;" if bold else ""
     suffix = f" {extra.strip()}" if extra.strip() else ""
     color = get_ui_theme().tokens.text
     return f"font-size: {font_size}px; color: {color}; background: transparent;{weight}{suffix}"
 
 
-def theme_caption_style(font_size: int = 12, extra: str = "") -> str:
+def theme_caption_style(font_size: int = 13, extra: str = "") -> str:
     suffix = f" {extra.strip()}" if extra.strip() else ""
     color = get_ui_theme().tokens.text_muted
     return f"font-size: {font_size}px; color: {color}; background: transparent;{suffix}"
@@ -59,7 +59,7 @@ def theme_caption_style(font_size: int = 12, extra: str = "") -> str:
 
 def apply_theme_text_style(
     widget: QWidget,
-    font_size: int = 13,
+    font_size: int = 14,
     bold: bool = False,
     extra: str = "",
     caption: bool = False,
@@ -93,7 +93,7 @@ def theme_menu_style() -> str:
         }}
         QMenu::item {{
             padding: 6px 20px;
-            font-size: 13px;
+            font-size: 14px;
             color: {get_ui_theme().tokens.text};
             background: transparent;
         }}
@@ -145,7 +145,7 @@ def make_row(label, ctrl_widget: QWidget) -> QHBoxLayout:
     row.setSpacing(10)
     if isinstance(label, str):
         lbl = QLabel(label)
-        apply_theme_text_style(lbl, 13)
+        apply_theme_text_style(lbl, 14)
     else:
         lbl = label
     row.addWidget(lbl, 1)
@@ -156,7 +156,7 @@ def make_row(label, ctrl_widget: QWidget) -> QHBoxLayout:
 def make_card_title(text: str) -> QLabel:
     """创建卡片标题"""
     lbl = QLabel(text)
-    apply_theme_text_style(lbl, 14, bold=True)
+    apply_theme_text_style(lbl, 15, bold=True)
     return lbl
 
 

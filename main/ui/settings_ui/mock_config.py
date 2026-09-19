@@ -268,7 +268,7 @@ class MockConfig:
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    app.setFont(QFont("Microsoft YaHei", 9))
+    app.setFont(QFont("Microsoft YaHei", 10))
 
     from .dialog import SettingsDialog
     dlg = SettingsDialog(MockConfig())

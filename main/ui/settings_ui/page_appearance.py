@@ -270,7 +270,7 @@ def _build_clipboard_section(dialog, grp: SettingCardGroup):
                         border: {bw}px solid {bc};
                         border-radius: 3px;
                         color: {text_color};
-                        font-size: 12px; font-weight: bold;
+                        font-size: 13px; font-weight: bold;
                         text-align: left; padding-left: 6px;
                     }}
                     QPushButton:hover {{ border: 2px solid {accent}; }}

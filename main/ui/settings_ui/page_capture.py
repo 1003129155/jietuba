@@ -108,11 +108,11 @@ def create_capture_page(dialog) -> QWidget:
     path_h.setSpacing(12)
 
     path_icon_lbl = QLabel(dialog.tr("Save Folder:"), path_card)
-    apply_theme_text_style(path_icon_lbl, 14)
+    apply_theme_text_style(path_icon_lbl, 15)
     dialog.save_path_lbl = QLabel(dialog.config_manager.get_screenshot_save_path(), path_card)
     dialog.save_path_lbl.setWordWrap(True)
     dialog.save_path_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
-    apply_theme_text_style(dialog.save_path_lbl, 12, caption=True)
+    apply_theme_text_style(dialog.save_path_lbl, 13, caption=True)
 
     btn_change = PushButton(dialog.tr("Change"), path_card)
     btn_change.setFixedHeight(32)
