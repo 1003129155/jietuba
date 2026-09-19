@@ -7,7 +7,7 @@ from .clipboard_controller import (
     calc_topbar_capacity,
 )
 from .foreground_tracker import ForegroundWindowTracker
-from .paste_keystroke import paste_to_target, send_ctrl_v, set_foreground_window
+from .paste_keystroke import send_ctrl_v, set_foreground_window
 from .selection_manager import SelectionManager
 
 __all__ = [

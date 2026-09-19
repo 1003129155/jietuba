@@ -31,7 +31,6 @@ TRANSLATIONS: dict[str, str] = {
     "检测到模态窗口 {modal_type}，忽略截图触发": "Detected modal window {modal_type}, ignoring screenshot trigger",
     "截图窗口已存在，忽略重复触发": "Screenshot window already exists, ignoring duplicate trigger",
     "后台截图线程进行中，忽略重复触发": "Background screenshot thread in progress, ignoring duplicate trigger",
-    "关闭剪贴板窗口": "Closing the clipboard window",
     "启动后台截图线程": "Starting background screenshot thread",
     "后台截图失败": "Background screenshot failed",
     "后台截图完成，准备截图窗口": "Background screenshot complete, preparing screenshot window",
