@@ -575,7 +575,8 @@ translation/
 │   ├── deepl.py             # DeepL
 │   ├── google.py            # Google
 │   ├── azure.py             # Azure
-│   └── amazon.py            # Amazon
+│   ├── amazon.py            # Amazon
+│   └── baidu.py             # Baidu
 ├── smart_translation_controller.py # SmartTranslationController — 一键选中文字探测与翻译弹窗路由
 ├── translation_popup.py     # TranslationPopup — 紧凑翻译弹窗（选中文字/手动输入两种模式）
 ├── deepl_service.py         # DeepLService / TranslationThread — 旧版 DeepL API 异步翻译

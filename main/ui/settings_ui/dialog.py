@@ -782,6 +782,14 @@ class SettingsDialog(FrostedFramelessDialog):
             self.azure_translate_endpoint_input.setText(
                 defaults["azure_translate_endpoint"]
             )
+        if hasattr(self, 'baidu_translate_appid_input'):
+            self.baidu_translate_appid_input.setText(
+                defaults["baidu_translate_appid"]
+            )
+        if hasattr(self, 'baidu_translate_secret_key_input'):
+            self.baidu_translate_secret_key_input.setText(
+                defaults["baidu_translate_secret_key"]
+            )
         if hasattr(self, 'translation_target_combo'):
             index = self.translation_target_combo.findData(defaults["translation_target_lang"])
             if index >= 0:
@@ -955,6 +963,18 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'azure_translate_endpoint_input'):
             self.config_manager.set_azure_translate_endpoint(
                 self.azure_translate_endpoint_input.text().strip()
+            )
+        # 这一串每加一家服务商都得手工补两处（这里和上面的恢复默认），漏了不会
+        # 报错——hasattr 守卫会把它吞掉，表现成「填了、存不上、永远说未配置」。
+        # 百度就这么漏过一次。欢迎页那边是从 CREDENTIAL_FIELDS 反射出来的，不
+        # 用补；这里迟早该改成同一套，见 page_translation 顶部的说明。
+        if hasattr(self, 'baidu_translate_appid_input'):
+            self.config_manager.set_baidu_translate_appid(
+                self.baidu_translate_appid_input.text().strip()
+            )
+        if hasattr(self, 'baidu_translate_secret_key_input'):
+            self.config_manager.set_baidu_translate_secret_key(
+                self.baidu_translate_secret_key_input.text().strip()
             )
         if hasattr(self, 'translation_target_combo'):
             self.config_manager.set_translation_target_lang(self.translation_target_combo.currentData())

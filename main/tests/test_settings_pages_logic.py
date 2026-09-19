@@ -364,6 +364,7 @@ PROVIDER_GROUPS = {
     "amazon": "amazon_translate_settings_group",
     "google": "google_translate_settings_group",
     "azure": "azure_translate_settings_group",
+    "baidu": "baidu_translate_settings_group",
 }
 
 

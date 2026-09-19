@@ -754,6 +754,22 @@ Replace it?</source>
         <translation>可选，留空使用默认值</translation>
     </message>
     <message>
+        <source>Baidu Translate</source>
+        <translation>百度翻译</translation>
+    </message>
+    <message>
+        <source>Baidu APPID</source>
+        <translation>百度 APPID</translation>
+    </message>
+    <message>
+        <source>Baidu Secret Key</source>
+        <translation>百度密钥</translation>
+    </message>
+    <message>
+        <source>Paired with APPID in the Baidu console</source>
+        <translation>控制台「开发者信息」里与 APPID 成对的密钥</translation>
+    </message>
+    <message>
         <source>Translation Options</source>
         <translation>翻译选项</translation>
     </message>
@@ -2866,6 +2882,26 @@ Replace it?</source>
     <message>
         <source>Google API Key</source>
         <translation>Google API Key</translation>
+    </message>
+    <message>
+        <source>Baidu APPID</source>
+        <translation>百度 APPID</translation>
+    </message>
+    <message>
+        <source>Baidu Secret Key</source>
+        <translation>百度密钥</translation>
+    </message>
+    <message>
+        <source>Paired with APPID in the Baidu console</source>
+        <translation>控制台「开发者信息」里与 APPID 成对的密钥</translation>
+    </message>
+    <message>
+        <source>APPID</source>
+        <translation>APPID</translation>
+    </message>
+    <message>
+        <source>API Key</source>
+        <translation>API Key</translation>
     </message>
     <message>
         <source>AWS 区域</source>

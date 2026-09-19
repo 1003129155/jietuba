@@ -266,6 +266,8 @@ class ToolSettingsManager(QObject):
         "azure_translate_api_key": "",
         "azure_translate_region": "",
         "azure_translate_endpoint": "",
+        "baidu_translate_appid": "",
+        "baidu_translate_secret_key": "",
         "translation_target_lang": "",         # 翻译目标语言（空为跟随系统语言）
         "translation_split_sentences": True,   # 自动分句
         "translation_preserve_formatting": True,  # 保留格式
@@ -960,6 +962,11 @@ class ToolSettingsManager(QObject):
                 "region": self.get_azure_translate_region(),
                 "endpoint": self.get_azure_translate_endpoint(),
             }
+        if provider_id == "baidu":
+            return {
+                "appid": self.get_baidu_translate_appid(),
+                "secret_key": self.get_baidu_translate_secret_key(),
+            }
         return {}
     
     def get_deepl_api_key(self) -> str:
@@ -1083,7 +1090,33 @@ class ToolSettingsManager(QObject):
             "translation/providers/azure/endpoint",
             (value or "").strip(),
         )
-    
+
+    def get_baidu_translate_appid(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/baidu/appid",
+            self.APP_DEFAULT_SETTINGS["baidu_translate_appid"],
+            type=str,
+        )
+
+    def set_baidu_translate_appid(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/baidu/appid",
+            (value or "").strip(),
+        )
+
+    def get_baidu_translate_secret_key(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/baidu/secret_key",
+            self.APP_DEFAULT_SETTINGS["baidu_translate_secret_key"],
+            type=str,
+        )
+
+    def set_baidu_translate_secret_key(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/baidu/secret_key",
+            (value or "").strip(),
+        )
+
     def get_translation_target_lang(self) -> str:
         """
         获取翻译目标语言

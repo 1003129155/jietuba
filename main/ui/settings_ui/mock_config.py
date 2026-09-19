@@ -57,6 +57,8 @@ APP_DEFAULT_SETTINGS = {
     "azure_translate_api_key": "",
     "azure_translate_region": "",
     "azure_translate_endpoint": "",
+    "baidu_translate_appid": "",
+    "baidu_translate_secret_key": "",
     "translation_target_lang": "",
     "translation_split_sentences": True,
     "translation_preserve_formatting": True,
@@ -155,6 +157,8 @@ class MockConfig:
             }
         if provider_id == "google":
             return {"api_key": ""}
+        if provider_id == "baidu":
+            return {"appid": "", "secret_key": ""}
         return {}
     def get_amazon_translate_region(self): return "us-west-2"
     def set_amazon_translate_region(self, v): pass
@@ -172,6 +176,12 @@ class MockConfig:
     def set_azure_translate_region(self, v): pass
     def get_azure_translate_endpoint(self): return ""
     def set_azure_translate_endpoint(self, v): pass
+    # 这个类没有 __getattr__ 兜底，页面里 get_xxx 调到缺的方法就是 AttributeError。
+    # 新增服务商时漏补这两行，设置页的独立预览入口会直接崩在构造阶段。
+    def get_baidu_translate_appid(self): return ""
+    def set_baidu_translate_appid(self, v): pass
+    def get_baidu_translate_secret_key(self): return ""
+    def set_baidu_translate_secret_key(self, v): pass
     def get_app_setting(self, key, default=None):
         if default is None:
             default = self.APP_DEFAULT_SETTINGS.get(key)
