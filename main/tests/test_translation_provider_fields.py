@@ -82,6 +82,70 @@ def test_declared_keys_have_defaults(declared_fields):
     assert not missing, missing
 
 
+_PRE_EXISTING_NON_ASCII = {
+    ("amazon", "AWS 区域"),
+    ("amazon", "可选，临时凭据使用"),
+}
+
+
+def _declared_ui_strings(meta):
+    for f in tuple(meta.credentials) + tuple(meta.options):
+        yield "label", f.label
+        for attr in ("placeholder", "description"):
+            text = getattr(f, attr, "")
+            if text:
+                yield attr, text
+    if meta.notice:
+        yield "notice", meta.notice
+    if meta.help_label:
+        yield "help_label", meta.help_label
+
+
+def test_declared_ui_strings_are_ascii_source(registry):
+    offenders = [
+        (meta.provider_id, kind, text)
+        for meta in registry.available_providers()
+        for kind, text in _declared_ui_strings(meta)
+        if any(ord(c) > 127 for c in text)
+        and (meta.provider_id, text) not in _PRE_EXISTING_NON_ASCII
+    ]
+    assert not offenders, offenders
+
+
+def test_declared_labels_and_notices_have_a_chinese_entry(registry):
+    import xml.etree.ElementTree as ET
+    from pathlib import Path
+
+    # 相对工作目录取会挂：pytest 可以从仓库根跑，也可以从 main/ 跑
+    xml_path = Path(__file__).resolve().parent.parent / "translations" / "app_zh.xml"
+    tree = ET.parse(xml_path)
+    known = {}
+    for context in tree.getroot().iter("context"):
+        name = context.findtext("name") or ""
+        known.setdefault(name, set()).update(
+            (m.findtext("source") or "") for m in context.iter("message")
+        )
+
+    def needs_entry(provider_id, text):
+        return (provider_id, text) not in _PRE_EXISTING_NON_ASCII
+
+    missing = []
+    for meta in registry.available_providers():
+        for kind, text in _declared_ui_strings(meta):
+            if kind not in ("label", "notice"):
+                continue
+            if not needs_entry(meta.provider_id, text):
+                continue
+            if text not in known.get("SettingsDialog", ()):
+                missing.append(("SettingsDialog", meta.provider_id, text))
+        for f in meta.credentials:
+            if not needs_entry(meta.provider_id, f.label):
+                continue
+            if f.label not in known.get("WelcomeWizard", ()):
+                missing.append(("WelcomeWizard", meta.provider_id, f.label))
+    assert not missing, missing
+
+
 def test_supported_request_options_are_real_option_keys(registry):
     """声明支持一个不存在的选项名，界面上就是永远不显示，且不会报错。"""
     known = {"split_sentences", "preserve_formatting"}

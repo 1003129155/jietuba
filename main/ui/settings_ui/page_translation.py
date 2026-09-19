@@ -340,8 +340,9 @@ def _notice_html(dialog, metadata) -> str:
     if metadata.notice:
         parts.append(dialog.tr(metadata.notice))
     if metadata.help_url:
+        label = dialog.tr(metadata.help_label) if metadata.help_label else ""
         parts.append(
             f'<a href="{metadata.help_url}" style="color:{ACCENT};">'
-            f'{metadata.help_label or metadata.help_url}</a>'
+            f'{label or metadata.help_url}</a>'
         )
     return ("💡 " + " ".join(parts)) if parts else ""

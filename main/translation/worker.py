@@ -38,6 +38,11 @@ class TranslationWorker(QThread):
         except ValueError as exc:
             self._configuration_error = str(exc)
 
+    def effective_timeout_ms(self) -> int:
+        if self._provider is None:
+            return 0
+        return int(self._provider.effective_timeout(self._request) * 1000)
+
     def run(self) -> None:
         try:
             if self._provider is None:

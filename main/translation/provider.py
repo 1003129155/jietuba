@@ -74,6 +74,10 @@ class TranslationProvider(ABC):
     NOTICE: str = ""
     HELP_LABEL: str = ""
     HELP_URL: str = ""
+    MIN_TIMEOUT: int = 0
+
+    def effective_timeout(self, request: TranslationRequest) -> int:
+        return max(request.timeout, self.MIN_TIMEOUT)
 
     @abstractmethod
     def is_configured(self) -> bool:

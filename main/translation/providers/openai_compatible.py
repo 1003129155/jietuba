@@ -142,7 +142,7 @@ class OpenAICompatibleProvider(TranslationProvider):
             },
         )
 
-        timeout = max(request.timeout, self.MIN_TIMEOUT)
+        timeout = self.effective_timeout(request)
         try:
             with urllib.request.urlopen(
                 http_request, timeout=timeout

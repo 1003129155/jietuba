@@ -283,6 +283,13 @@ def test_llm_timeout_floor_is_raised_above_the_shared_default(capture):
     assert capture["timeout"] == DeepSeekProvider.MIN_TIMEOUT
 
 
+def test_effective_timeout_is_what_actually_reaches_the_socket(capture):
+    request = TranslationRequest("Hello", "ZH", timeout=10)
+    provider = _provider()
+    provider.translate(request)
+    assert capture["timeout"] == provider.effective_timeout(request)
+
+
 def test_a_longer_caller_timeout_still_wins(capture):
     """只抬下限，不封顶——调用方要求更长就听它的。"""
     longer = DeepSeekProvider.MIN_TIMEOUT + 30

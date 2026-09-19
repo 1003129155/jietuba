@@ -75,14 +75,14 @@ class BaiduTranslateProvider(TranslationProvider):
 
     CREDENTIAL_FIELDS = (
         TextField("baidu_translate_appid", "Baidu APPID", "APPID"),
-        # 标签写「密钥」而不是「API Key」：控制台上这一栏就叫密钥，且百度另有
-        # 一个叫 API Key 的东西（大模型单独申请的那个）。叫错名字的直接后果是
-        # 用户填了 API Key、撞 54001，而界面上只显示 invalid token，无从判断。
-        TextField("baidu_translate_secret_key", "Baidu 密钥",
-                  "控制台「开发者信息」里与 APPID 成对的密钥",
+        # 叫 Secret Key 而不是 API Key：控制台上这一栏就叫密钥，且百度另有一个
+        # 叫 API Key 的东西（大模型单独申请的那个）。标签写错的后果是用户填了
+        # API Key、服务端回 54001 invalid token，界面上看不出填错了哪一个。
+        TextField("baidu_translate_secret_key", "Baidu Secret Key",
+                  "Paired with APPID in the Baidu console",
                   secret=True),
     )
-    HELP_LABEL = "百度翻译开放平台 · 开发者信息"
+    HELP_LABEL = "Baidu Translate Open Platform"
     HELP_URL = "https://fanyi-api.baidu.com/manage/developer"
 
     def is_configured(self) -> bool:
@@ -96,7 +96,7 @@ class BaiduTranslateProvider(TranslationProvider):
         if not self.is_configured():
             return self._error(
                 TranslationErrorCode.NOT_CONFIGURED,
-                "Baidu Translate APPID/密钥 is not configured",
+                "Baidu Translate APPID/Secret Key is not configured",
             )
 
         # salt 必须是数字：服务端 AITextRequest.Salt 是 uint64，传字符串会被回

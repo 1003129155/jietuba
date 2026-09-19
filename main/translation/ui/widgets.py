@@ -33,10 +33,6 @@ class EllipsisAnimator(QObject):
         self._timer.setTimerType(Qt.TimerType.CoarseTimer)
         self._timer.timeout.connect(self._advance)
 
-    def set_tick_callback(self, callback) -> None:
-        """回调是宿主的方法，构造时还不存在，所以单独设。"""
-        self._on_tick = callback
-
     def start(self) -> None:
         self._step = 0
         self._timer.start()

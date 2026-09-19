@@ -339,7 +339,7 @@ class TranslationPage(BasePage):
         if metadata.help_url:
             form.addRow("", self._credential_hint(
                 f'<a href="{metadata.help_url}" '
-                f'style="color:{ACCENT};">{metadata.help_label}</a>'
+                f'style="color:{ACCENT};">{_tr(metadata.help_label)}</a>'
             ))
         self._add_provider_page(metadata.provider_id, page)
 

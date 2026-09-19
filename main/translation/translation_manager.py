@@ -654,7 +654,25 @@ class TranslationManager(QObject):
         self._popup = None
         self._stop_current_thread()
 
-    def shutdown(self, timeout_ms: int = 11000, ocr_timeout_ms: int = 3000) -> None:
+    _SHUTDOWN_SLACK_MS = 1000
+    _FALLBACK_NETWORK_TIMEOUT_MS = 10000
+
+    def _network_shutdown_budget_ms(self, threads) -> int:
+        budget = 0
+        for thread in threads:
+            if not thread.isRunning():
+                continue
+            per_thread = getattr(thread, "effective_timeout_ms", None)
+            budget = max(
+                budget,
+                per_thread() if callable(per_thread)
+                else self._FALLBACK_NETWORK_TIMEOUT_MS,
+            )
+        return (budget + self._SHUTDOWN_SLACK_MS) if budget else 0
+
+    def shutdown(
+        self, timeout_ms: int | None = None, ocr_timeout_ms: int = 3000
+    ) -> None:
         """Close translation UI and let all network/OCR workers finish before exit."""
         self.close_dialog()
         threads = list(self._threads)
@@ -662,6 +680,8 @@ class TranslationManager(QObject):
             if thread.isRunning():
                 thread.requestInterruption()
 
+        if timeout_ms is None:
+            timeout_ms = self._network_shutdown_budget_ms(threads)
         deadline = time.monotonic() + max(0, timeout_ms) / 1000
         for thread in threads:
             if not thread.isRunning():
