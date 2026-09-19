@@ -197,6 +197,7 @@ class ToolSettingsManager(QObject):
 
         # 智能选择
         "smart_selection": True,              # 智能选区（窗口/控件识别）
+        "smart_selection_animation": False,   # 换窗口时补间而不是瞬间跳变
 
         # 截图保存
         "screenshot_save_enabled": True,       # 自动保存截图
@@ -229,6 +230,7 @@ class ToolSettingsManager(QObject):
         # ==================== 3. 剪贴板 ====================
         "clipboard_enabled": True,             # 剪贴板监听启用
         "clipboard_auto_paste": True,          # 选择后自动粘贴（发送 Ctrl+V）
+        "clipboard_close_after_paste": True,   # 粘贴后关闭窗口（关掉则窗口常驻，可连续粘贴）
         "clipboard_history_limit": 1000,        # 历史记录数量限制（0 为不限制）
         "clipboard_auto_cleanup": True,        # 自动清理超出限制的记录
         "clipboard_window_width": 450,         # 剪贴板窗口默认宽度
@@ -248,6 +250,9 @@ class ToolSettingsManager(QObject):
 
         # ==================== 4. 外观 ====================
         "ui_theme_mode": "system",             # 界面主题（system/light/dark）
+        # 工具栏与面板缩放百分比，档位见 core/ui_scale.UIScaleManager.PERCENT_OPTIONS。
+        # 100 = 当前发布版本的实际显示大小，只作用于操作界面，不改内容数据
+        "ui_scale_percent": 100,
         "theme_color": "#40E0D0",              # 主题色（青绿色 Turquoise）
         "mask_color_r": 0,                     # 遮罩色 R（0-255）
         "mask_color_g": 0,                     # 遮罩色 G（0-255）
@@ -719,6 +724,18 @@ class ToolSettingsManager(QObject):
     def set_smart_selection(self, value: bool):
         """设置智能选区"""
         self.qsettings.setValue("app/smart_selection", value)
+
+    def get_smart_selection_animation(self) -> bool:
+        """获取智能选区换窗口动画设置"""
+        return self.qsettings.value(
+            "app/smart_selection_animation",
+            self.APP_DEFAULT_SETTINGS["smart_selection_animation"],
+            type=bool,
+        )
+
+    def set_smart_selection_animation(self, value: bool):
+        """设置智能选区换窗口动画"""
+        self.qsettings.setValue("app/smart_selection_animation", value)
 
     def get_double_click_copy_close_enabled(self) -> bool:
         """获取双击选区后复制并关闭的启用状态。"""
@@ -1276,6 +1293,18 @@ class ToolSettingsManager(QObject):
     def set_clipboard_auto_paste(self, value: bool):
         """设置是否自动粘贴"""
         self.qsettings.setValue("clipboard/auto_paste", value)
+
+    def get_clipboard_close_after_paste(self) -> bool:
+        """获取粘贴后是否关闭窗口"""
+        return self.qsettings.value(
+            "clipboard/close_after_paste",
+            self.APP_DEFAULT_SETTINGS["clipboard_close_after_paste"],
+            type=bool,
+        )
+
+    def set_clipboard_close_after_paste(self, value: bool):
+        """设置粘贴后是否关闭窗口"""
+        self.qsettings.setValue("clipboard/close_after_paste", value)
     
     def get_clipboard_history_limit(self) -> int:
         """获取历史记录数量限制"""

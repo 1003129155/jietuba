@@ -22,6 +22,7 @@ APP_DEFAULT_SETTINGS = {
     "cross_tool_selection": True,
     "text_always_on_top": True,
     "smart_selection": True,
+    "smart_selection_animation": False,
     "log_enabled": True,
     "log_level": "INFO",
     "log_retention_days": 7,
@@ -64,10 +65,12 @@ APP_DEFAULT_SETTINGS = {
     "translation_preserve_formatting": True,
     "clipboard_enabled": True,
     "clipboard_auto_paste": False,
+    "clipboard_close_after_paste": True,
     "clipboard_history_limit": 100,
     "clipboard_auto_cleanup": False,
     "magnifier_color_copy_format": "rgb_hex",
     "ui_theme_mode": "system",
+    "ui_scale_percent": 100,
     "inapp_confirm": "ctrl+c",
     "inapp_pin": "ctrl+d",
     "inapp_undo": "ctrl+z",
@@ -141,6 +144,8 @@ class MockConfig:
     def set_text_always_on_top_enabled(self, v): pass
     def get_smart_selection(self): return False
     def set_smart_selection(self, v): pass
+    def get_smart_selection_animation(self): return False
+    def set_smart_selection_animation(self, v): pass
     def get_log_enabled(self): return True
     def set_log_enabled(self, v): pass
     def get_log_dir(self): return os.path.expanduser("~")
@@ -246,6 +251,8 @@ class MockConfig:
     def set_clipboard_enabled(self, v): pass
     def get_clipboard_auto_paste(self): return False
     def set_clipboard_auto_paste(self, v): pass
+    def get_clipboard_close_after_paste(self): return True
+    def set_clipboard_close_after_paste(self, v): pass
     def get_clipboard_history_limit(self): return 100
     def set_clipboard_history_limit(self, v): pass
     def get_clipboard_db_path(self): return ""
@@ -264,7 +271,7 @@ class MockConfig:
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    app.setFont(QFont("Microsoft YaHei", 9))
+    app.setFont(QFont("Microsoft YaHei", 10))
 
     from .dialog import SettingsDialog
     dlg = SettingsDialog(MockConfig())

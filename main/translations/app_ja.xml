@@ -428,6 +428,14 @@ Replace it?</source>
         <translation>マウスカーソル位置のウィンドウを自動認識します。</translation>
     </message>
     <message>
+        <source>Window Switch Animation</source>
+        <translation>ウィンドウ切り替えアニメーション</translation>
+    </message>
+    <message>
+        <source>Slide the selection when it moves from one window to another.</source>
+        <translation>選択範囲がウィンドウ間を移動するときにスライドします。</translation>
+    </message>
+    <message>
         <source>💡 How to use:</source>
         <translation>💡 使い方:</translation>
     </message>
@@ -1635,6 +1643,10 @@ Replace it?</source>
     <message>
         <source>Auto Paste After Selection</source>
         <translation>選択後に自動コピペ</translation>
+    </message>
+    <message>
+        <source>Close After Paste</source>
+        <translation>貼り付け後にウィンドウを閉じる</translation>
     </message>
     <message>
         <source>Move to Top After Paste</source>
@@ -3226,6 +3238,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.</translation></message>
     <message><source>Source Code</source><translation>ソースコード</translation></message>
     <message><source>Open GitHub</source><translation>GitHubを開く</translation></message>
+    <message><source>Version</source><translation>バージョン</translation></message>
+    <message><source>Check for Updates</source><translation>更新を確認</translation></message>
+    <message><source>Checking...</source><translation>確認中...</translation></message>
+    <message><source>Update Check</source><translation>更新の確認</translation></message>
+    <message><source>You're using the latest version (%1).</source><translation>最新バージョン（%1）を使用中です。</translation></message>
+    <message><source>Update Available</source><translation>更新があります</translation></message>
+    <message><source>Current version: %1</source><translation>現在のバージョン: %1</translation></message>
+    <message><source>Latest version: %1</source><translation>最新バージョン: %1</translation></message>
+    <message><source>What's new:</source><translation>更新内容:</translation></message>
+    <message><source>No release notes provided.</source><translation>リリースノートはありません。</translation></message>
+    <message><source>Download:</source><translation>ダウンロード:</translation></message>
+    <message><source>Open Download Page</source><translation>ダウンロードページを開く</translation></message>
+    <message><source>Update Check Failed</source><translation>更新の確認に失敗しました</translation></message>
+    <message><source>Unable to check for updates. Please check your network connection and try again.</source><translation>更新を確認できません。ネットワーク接続を確認して再試行してください。</translation></message>
     <!-- 開発者ページ -->
     <message><source>Long Screenshot</source><translation>長スクリーンショット</translation></message>
     <message><source>Tools</source><translation>ツール</translation></message>
@@ -3355,6 +3381,14 @@ SOFTWARE.</translation></message>
     <message>
         <source>Choose a display mode.</source>
         <translation>表示モードを選択します。</translation>
+    </message>
+    <message>
+        <source>Toolbar &amp; Panel Scale</source>
+        <translation>ツールバーとパネルの拡大率</translation>
+    </message>
+    <message>
+        <source>Size of toolbars, tool panels and popups.</source>
+        <translation>ツールバー・設定パネル・ポップアップの表示サイズ。</translation>
     </message>
     <message>
         <source>System</source>

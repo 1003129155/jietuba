@@ -5,7 +5,8 @@
 from PySide6.QtWidgets import QComboBox, QHBoxLayout
 from PySide6.QtCore import Signal, QSize
 from core.resource_manager import ResourceManager
-from .base_settings_panel import BaseSettingsPanel, StepperWidget, build_settings_panel_stylesheet, PANEL_SCALE
+from core.ui_scale import scaled
+from .base_settings_panel import BaseSettingsPanel, StepperWidget, build_settings_panel_stylesheet
 from .color_picker_button import ColorPickerButton
 
 def _cached_icon(svg_name):
@@ -20,32 +21,39 @@ class ShapeSettingsPanel(BaseSettingsPanel):
     SIZE_DEFAULT = 3
     SIZE_TOOLTIP = "Line Width"
 
+    # 基准尺寸（100% 下的实际像素）
+    BASE_COMBO_WIDTH = 88
+    BASE_COMBO_ICON_H = 16
+
     line_style_changed = Signal(str)  # solid / dashed / dashed_dense
 
     def __init__(self, parent=None):
         self.current_line_style = "solid"
         super().__init__(parent)
 
-    def _init_ui(self):
-        """重写初始化UI以添加线条样式选择"""
-        self.setStyleSheet(build_settings_panel_stylesheet(
+    def _build_stylesheet(self) -> str:
+        return build_settings_panel_stylesheet(
             combo_enabled=True,
             combo_padding="1px",
-            combo_min_width=88,
-            combo_max_width=88,
+            combo_min_width=self.BASE_COMBO_WIDTH,
+            combo_max_width=self.BASE_COMBO_WIDTH,
             combo_padding_compact=True
-        ))
+        )
+
+    def _apply_scale_sizes(self):
+        super()._apply_scale_sizes()
+        self.line_style_combo.setIconSize(
+            QSize(scaled(self.BASE_COMBO_WIDTH), scaled(self.BASE_COMBO_ICON_H)))
+
+    def _init_ui(self):
+        """重写初始化UI以添加线条样式选择"""
 
         from PySide6.QtWidgets import QPushButton, QFrame
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(round(10 * PANEL_SCALE), round(8 * PANEL_SCALE),
-                                  round(10 * PANEL_SCALE), round(8 * PANEL_SCALE))
-        layout.setSpacing(round(10 * PANEL_SCALE))
 
         # === 1. 线条样式选择 ===
         self.line_style_combo = QComboBox()
-        self.line_style_combo.setIconSize(QSize(88, 16))
         from pathlib import Path
         solid_icon_path = ResourceManager.get_icon_path("line_solid.svg")
         dashed_icon_path = ResourceManager.get_icon_path("line_dash.svg")
@@ -72,12 +80,10 @@ class ShapeSettingsPanel(BaseSettingsPanel):
 
         # === 2. 基础控件（尺寸、透明度等）===
         self.size_spin = StepperWidget(self.current_size, self.SIZE_RANGE[0], self.SIZE_RANGE[1])
-        self.size_spin.setFixedWidth(round(60 * PANEL_SCALE))
         self.size_spin.setToolTip(self._tr(self.SIZE_TOOLTIP))
         layout.addWidget(self.size_spin)
 
         self.opacity_spin = StepperWidget(self._opacity_to_percent(self.current_opacity), 0, 100, "%")
-        self.opacity_spin.setFixedWidth(round(72 * PANEL_SCALE))
         self.opacity_spin.setToolTip(self._tr(self.OPACITY_TOOLTIP))
         layout.addWidget(self.opacity_spin)
 
@@ -89,7 +95,7 @@ class ShapeSettingsPanel(BaseSettingsPanel):
 
         # === 3. 颜色选择 ===
         self.color_picker_btn = ColorPickerButton(
-            self.current_color, size=round(28 * PANEL_SCALE), show_alpha=True
+            self.current_color, size=scaled(self.BASE_COLOR_BTN), show_alpha=True
         )
         self.color_picker_btn.setToolTip(self._tr("Custom Color"))
         layout.addWidget(self.color_picker_btn)
@@ -103,23 +109,13 @@ class ShapeSettingsPanel(BaseSettingsPanel):
             "#FFFFFF",
         ]
 
+        self._preset_buttons = []
         for color_str in preset_colors:
             btn = QPushButton()
-            btn.setFixedSize(round(24 * PANEL_SCALE), round(24 * PANEL_SCALE))
             btn.setToolTip(color_str)
-            border_color = "#888888" if color_str == "#FFFFFF" else "#333333"
-            btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {color_str};
-                    border: 1px solid {border_color};
-                    border-radius: 6px;
-                }}
-                QPushButton:hover {{
-                    border: 2px solid #000;
-                }}
-            """)
             btn.clicked.connect(lambda checked, c=color_str: self._apply_preset_color(c))
             layout.addWidget(btn)
+            self._preset_buttons.append((btn, color_str))
 
         layout.addStretch()
 
@@ -129,6 +125,7 @@ class ShapeSettingsPanel(BaseSettingsPanel):
         self.color_picker_btn.color_changed.connect(self._on_color_picked)
 
         self._build_extra_controls(layout)
+        self.apply_scale()
 
     def _on_line_style_changed(self):
         """线条样式改变"""

@@ -23,7 +23,14 @@ class SelectionItem(QGraphicsItem):
     Z-order: 15
     """
     
-    HANDLE_SIZE = 10  # 控制点大小
+    HANDLE_SIZE = 14  # 控制点大小（也是命中判定半径，见 handle_at_position）
+    HANDLE_RING_WIDTH = 3  # 控制点白色外圈笔宽
+
+    # 选区边框笔宽（物理像素——场景用屏幕物理坐标，视图 transform 为 1:1）。
+    # 描边居中跨在选区边界上，内外各占一半。
+    # 圆角预览 (ui/selection_info/rounded_corners.py) 替换本类 render 时复用这个值，
+    # 改这里就够，不必两边同步。
+    BORDER_WIDTH = 6
     
     # 手柄标识
     HANDLE_NONE = 0
@@ -38,20 +45,29 @@ class SelectionItem(QGraphicsItem):
     HANDLE_BODY = 9 # 移动整个选区
     
     # 预缓存绘制常量，避免 paint() 每帧创建临时 Qt 对象
-    _pen_handle_outer = QPen(QColor(255, 255, 255), 2)
+    _pen_handle_outer = QPen(QColor(255, 255, 255), HANDLE_RING_WIDTH)
     
     def __init__(self, model: SelectionModel):
         super().__init__()
         self.setZValue(15)
         
         self._model = model
+        # 只连几何：装饰的重绘由 SelectionOverlayWidget 自己监听 model 信号
         self._model.rectChanged.connect(self.update_bounds)
-        self._model.draggingChanged.connect(self._on_dragging_changed)
         
         # 可交互（用于拖拽调整选区）
         self.setAcceptedMouseButtons(Qt.MouseButton.LeftButton)
         self.setAcceptHoverEvents(True) # 启用悬停事件以改变光标
-        
+
+        # 本项只提供命中区，不产生像素。设了这个标志 Qt 不再调 paint()，
+        # 「装饰不进 scene.render()」就是结构保证，而不是靠 paint() 的空函数体。
+        # 命中和事件不受影响；prepareGeometryChange() 标脏的那块区域也照旧。
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemHasNoContents, True)
+
+        # 浮层装上后指向它的 refresh。装饰不再画在场景里，QGraphicsItem.update()
+        # 已经什么都不会重绘，改动装饰外观的地方要走这里。
+        self.repaint_requested = None
+
         self.active_handle = self.HANDLE_NONE
         self.start_pos = QPointF()
         self.start_rect = QRectF()
@@ -68,24 +84,60 @@ class SelectionItem(QGraphicsItem):
         return rect.adjusted(-20, -20, 20, 20)
     
     def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: QWidget = None):
-        """绘制选区边框、尺寸标注和控制点"""
+        """空实现：选区装饰由 SelectionOverlayWidget 画在遮罩之上。
+
+        本项留在场景里只为接收鼠标事件（boundingRect 即命中区）。设了
+        ItemHasNoContents，Qt 根本不会调到这里；保留空实现是为了直接调用它的
+        地方（测试、以及历史上手动 paint 的路径）同样画不出东西。
+        """
+        return
+
+    def request_repaint(self):
+        """请求浮层重绘装饰。浮层没装上时是空操作。"""
+        if self.repaint_requested is not None:
+            self.repaint_requested()
+
+    def visual_bounds(self) -> QRectF:
+        """render() 会画到的范围（场景坐标）；没东西可画时返回空矩形。
+
+        和 render() 挨在一起，浮层据此算失效区，不需要知道画的是什么。
+        """
+        if self._model.is_empty():
+            return QRectF()
+        # 边框描边外溢半个笔宽；手柄骑在边界上，外溢半径 + 白圈笔宽
+        pad = max(self.BORDER_WIDTH / 2.0,
+                  self.HANDLE_SIZE / 2.0 + 1 + self.HANDLE_RING_WIDTH)
+        return self._model.rect().adjusted(-pad, -pad, pad, pad)
+
+    def render(self, painter: QPainter):
+        """绘制选区边框和控制点（场景坐标）。
+
+        由 SelectionOverlayWidget 调用，不是 QGraphicsItem.paint。浮层压在遮罩
+        之上，所以跨出选区边界的描边不会再被半透明黑压暗。
+        """
         if self._model.is_empty():
             return
-        
+
         rect = self._model.rect()
-        
+
         # 绘制边框（每次从 theme 单例读取，确保颜色实时生效）
+        # 边框关抗锯齿：矩形是轴对齐的，开了只会在小数坐标下把 6px 硬边糊成
+        # 5px + 2 个过渡像素。而小数矩形是常态——补间的每一帧、锁定长宽比都会产生。
         tc = get_theme().theme_color
-        painter.setPen(QPen(tc, 4, Qt.PenStyle.SolidLine))
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+        painter.setPen(QPen(tc, self.BORDER_WIDTH, Qt.PenStyle.SolidLine))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRect(rect)
-        
+
         # 拖拽时或选区未确认时（智能选区预览）隐藏控制点
         # 1. 降低渲染压力
         # 2. 避免在预览时出现"画蛇添足"的手柄
         if self._model.is_dragging or not self._model.is_confirmed:
             return
-        
+
+        # 控制点是圆，抗锯齿必须开
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+
         # 绘制8个控制点（使用预缓存的 QPen/QBrush）
         handles = self._get_handle_positions(rect)
         outer_r = self.HANDLE_SIZE // 2 + 1
@@ -96,7 +148,7 @@ class SelectionItem(QGraphicsItem):
             painter.setPen(self._pen_handle_outer)
             painter.setBrush(brush_handle)
             painter.drawEllipse(pos, outer_r, outer_r)
-            
+
             # 内圈（纯主题色填充）
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawEllipse(pos, inner_r, inner_r)
@@ -122,13 +174,12 @@ class SelectionItem(QGraphicsItem):
         }
     
     def update_bounds(self, *_):
-        """更新边界"""
+        """选区变化后同步命中区。
+
+        boundingRect 是本项唯一还起作用的东西（鼠标命中区），必须让场景索引知道
+        它变了。不再调 update()——paint 已是空实现。
+        """
         self.prepareGeometryChange()
-        self.update()
-    
-    def _on_dragging_changed(self, is_dragging: bool):
-        """拖拽状态改变时刷新显示（隐藏/显示控制点）"""
-        self.update()
 
     def hoverMoveEvent(self, event):
         """鼠标悬停：改变光标形状"""

@@ -426,6 +426,14 @@ Replace it?</source>
         <translation>自动识别鼠标光标位置的窗口。</translation>
     </message>
     <message>
+        <source>Window Switch Animation</source>
+        <translation>窗口切换动画</translation>
+    </message>
+    <message>
+        <source>Slide the selection when it moves from one window to another.</source>
+        <translation>选区在窗口之间移动时滑动过渡。</translation>
+    </message>
+    <message>
         <source>💡 How to use:</source>
         <translation>💡 使用方法:</translation>
     </message>
@@ -1670,6 +1678,10 @@ Replace it?</source>
     <message>
         <source>Auto Paste After Selection</source>
         <translation>选择后自动粘贴</translation>
+    </message>
+    <message>
+        <source>Close After Paste</source>
+        <translation>粘贴后关闭窗口</translation>
     </message>
     <message>
         <source>Move to Top After Paste</source>
@@ -3246,6 +3258,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.</translation></message>
     <message><source>Source Code</source><translation>源代码</translation></message>
     <message><source>Open GitHub</source><translation>打开GitHub</translation></message>
+    <message><source>Version</source><translation>版本</translation></message>
+    <message><source>Check for Updates</source><translation>检查更新</translation></message>
+    <message><source>Checking...</source><translation>正在检查...</translation></message>
+    <message><source>Update Check</source><translation>更新检查</translation></message>
+    <message><source>You're using the latest version (%1).</source><translation>您正在使用最新版本（%1）。</translation></message>
+    <message><source>Update Available</source><translation>有可用更新</translation></message>
+    <message><source>Current version: %1</source><translation>当前版本：%1</translation></message>
+    <message><source>Latest version: %1</source><translation>最新版本：%1</translation></message>
+    <message><source>What's new:</source><translation>更新内容：</translation></message>
+    <message><source>No release notes provided.</source><translation>未提供更新说明。</translation></message>
+    <message><source>Download:</source><translation>下载地址：</translation></message>
+    <message><source>Open Download Page</source><translation>打开下载页面</translation></message>
+    <message><source>Update Check Failed</source><translation>更新检查失败</translation></message>
+    <message><source>Unable to check for updates. Please check your network connection and try again.</source><translation>无法检查更新。请检查网络连接后重试。</translation></message>
     <!-- 开发者页 -->
     <message><source>Long Screenshot</source><translation>长截图</translation></message>
     <message><source>Tools</source><translation>工具</translation></message>
@@ -3388,6 +3414,14 @@ SOFTWARE.</translation></message>
     <message>
         <source>Choose a display mode.</source>
         <translation>选择显示模式。</translation>
+    </message>
+    <message>
+        <source>Toolbar &amp; Panel Scale</source>
+        <translation>工具栏与面板缩放</translation>
+    </message>
+    <message>
+        <source>Size of toolbars, tool panels and popups.</source>
+        <translation>工具栏、二级面板和弹层的显示大小。</translation>
     </message>
     <message>
         <source>System</source>

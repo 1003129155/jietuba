@@ -207,6 +207,7 @@ canvas/
 ├── selection_model.py       # SelectionModel — 選択グラフィックスアイテムの管理
 ├── undo.py                  # CommandUndoStack — アンドゥ/リドゥスタック
 ├── smart_edit_controller.py # SmartEditController — 選択/編集モード切替
+├── smart_selection_anim.py  # SmartSelectionAnimator — ウィンドウ切り替え時の選択範囲の補間
 ├── handle_editor.py         # LayerEditor / EditHandle — コントロールポイントドラッグ編集
 ├── gestures.py              # マウスジェスチャの状態機械 — 文字の端ドラッグ、ラバーバンド選択、保留中のクリック編集
 ├── handle_overlay.py        # HandleOverlay — 編集ハンドル専用の合成レイヤー、シーン全体の再描画を回避
@@ -257,6 +258,8 @@ clipboard/
 │   ├── clipboard_controller.py   # ClipboardController — 読み込み、貼り付け、コンテキストメニュー
 │   ├── selection_manager.py      # SelectionManager — リスト選択状態管理
 │   ├── context_menu_controller.py  # ContextMenuController — コンテキストメニューのデータと動作の組み立て
+│   ├── foreground_tracker.py    # ForegroundWindowTracker — 貼り付け先ウィンドウを記憶
+│   ├── paste_keystroke.py       # 対象ウィンドウにフォーカスを戻してから Ctrl+V を送信
 │   └── __init__.py
 ├── core/                    # データ層 — pyclipboard ラッパー、モデル、グループ種別
 │   ├── manager.py           # ClipboardManager — 保存、監視、貼り付け API
@@ -329,6 +332,7 @@ core/
 ├── crash_handler.py         # install_crash_hooks() — グローバル例外キャッチ
 ├── resource_manager.py      # ResourceManager — SVG/画像リソースローディング
 ├── theme.py                 # ThemeManager — アプリテーマカラー管理
+├── ui_scale.py              # UIScaleManager — ツールバー/パネル/ポップアップ共通の拡大率
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — 国際化
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — グローバル＆アプリ内ホットキー
 ├── save.py                  # SaveService — ファイル保存サービス（高品質 PDF 出力対応）
@@ -338,6 +342,7 @@ core/
 ├── qt_utils.py              # safe_disconnect() — Qtシグナル安全切断
 ├── log_translations/        # 各モジュールのログ翻訳ヘルパー
 ├── constants.py             # グローバル定数（フォント、パス等）
+├── update_checker.py        # GitHub 最新リリースの非同期取得とバージョン比較
 └── ui_theme.py              # UIThemeManager — アプリ窓と Qt ネイティブ部品のライト/ダーク外観
 ```
 
@@ -567,6 +572,7 @@ ui/
 ├── hotkey_edit.py           # HotkeyEdit — グローバルホットキーエディター
 ├── inapp_key_edit.py        # InAppKeyEdit — アプリ内ショートカットエディター
 ├── mask_overlay.py          # マスクオーバーレイヤー
+├── selection_overlay.py     # SelectionOverlayWidget — マスク上に重なる選択装飾レイヤー
 ├── base_settings_panel.py   # BaseSettingsPanel / StepperWidget — 設定パネル基底クラス
 ├── paint_settings_panel.py  # PaintSettingsPanel — ブラシ設定パネル
 ├── shape_settings_panel.py  # ShapeSettingsPanel — 形状設定パネル

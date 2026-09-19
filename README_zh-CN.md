@@ -209,6 +209,7 @@ canvas/
 ├── selection_model.py       # SelectionModel — 管理被选中的图形项，支持多选
 ├── undo.py                  # CommandUndoStack — 撤销/重做栈，支持添加、删除、批量删除、编辑命令
 ├── smart_edit_controller.py # SmartEditController — 智能编辑控制器，处理选择与编辑模式切换
+├── smart_selection_anim.py  # SmartSelectionAnimator — 智能选区换窗口时的矩形补间
 ├── handle_editor.py         # LayerEditor / EditHandle — 图层编辑器，提供控制点拖拽编辑
 ├── gestures.py              # 鼠标手势状态机 — 文字边缘拖动、拉选区、挂起的单击编辑
 ├── handle_overlay.py        # HandleOverlay — 编辑控制点的独立合成层，避免整场景重绘
@@ -274,6 +275,8 @@ clipboard/
 │   ├── clipboard_controller.py   # ClipboardController — 历史加载、粘贴和菜单逻辑
 │   ├── selection_manager.py      # SelectionManager — 列表选择状态管理
 │   ├── context_menu_controller.py  # ContextMenuController — 右键菜单数据与行为组装
+│   ├── foreground_tracker.py    # ForegroundWindowTracker — 记住粘贴目标窗口
+│   ├── paste_keystroke.py       # 把焦点还给目标窗口后发送 Ctrl+V
 │   └── __init__.py
 ├── core/                    # 数据层 — pyclipboard 封装、数据模型、分组类型
 │   ├── manager.py           # ClipboardManager — 数据存储、监听、粘贴 API
@@ -349,6 +352,7 @@ core/
 ├── crash_handler.py         # install_crash_hooks() — 全局异常和线程异常捕获
 ├── resource_manager.py      # ResourceManager — SVG/图片等资源加载管理
 ├── theme.py                 # ThemeManager — 应用级主题颜色管理
+├── ui_scale.py              # UIScaleManager — 工具栏/面板/弹层共用的缩放比例
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — 国际化管理，多语言支持
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — 全局热键和应用内快捷键管理
 ├── save.py                  # SaveService — 文件保存服务（自动命名、路径管理、高质量 PDF 输出）
@@ -358,6 +362,7 @@ core/
 ├── qt_utils.py              # safe_disconnect() — Qt 信号安全断开工具
 ├── log_translations/        # 各模块日志文本翻译辅助
 ├── constants.py             # 全局常量定义（字体、路径等）
+├── update_checker.py        # GitHub 最新版本异步查询与版本比较
 └── ui_theme.py              # UIThemeManager — 应用窗口与原生 Qt 控件的明暗外观（截图配色仍在 theme.py）
 ```
 
@@ -644,6 +649,7 @@ ui/
 ├── hotkey_edit.py           # HotkeyEdit — 全局快捷键编辑框
 ├── inapp_key_edit.py        # InAppKeyEdit — 应用内快捷键编辑框
 ├── mask_overlay.py          # 遮罩覆盖层
+├── selection_overlay.py     # SelectionOverlayWidget — 选区装饰浮层，压在遮罩之上
 ├── base_settings_panel.py   # BaseSettingsPanel / StepperWidget — 设置面板基类
 ├── paint_settings_panel.py  # PaintSettingsPanel — 画笔设置面板
 ├── shape_settings_panel.py  # ShapeSettingsPanel — 形状设置面板

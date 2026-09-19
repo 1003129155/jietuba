@@ -103,16 +103,16 @@ def create_log_page(dialog) -> QWidget:
     path_v.setSpacing(8)
 
     path_title = QLabel(dialog.tr("Save Location:"), path_card)
-    apply_theme_text_style(path_title, 14)
+    apply_theme_text_style(path_title, 15)
     path_v.addWidget(path_title)
 
     dialog.path_lbl = QLabel(dialog.config_manager.get_log_dir(), path_card)
     dialog.path_lbl.setWordWrap(True)
-    apply_theme_text_style(dialog.path_lbl, 12, caption=True)
+    apply_theme_text_style(dialog.path_lbl, 13, caption=True)
     path_v.addWidget(dialog.path_lbl)
 
     dialog.latest_log_lbl = QLabel("", path_card)
-    apply_theme_text_style(dialog.latest_log_lbl, 12, caption=True)
+    apply_theme_text_style(dialog.latest_log_lbl, 13, caption=True)
     dialog.latest_log_lbl.setWordWrap(True)
     refresh_latest_log_label(dialog)
     path_v.addWidget(dialog.latest_log_lbl)

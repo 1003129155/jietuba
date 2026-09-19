@@ -99,8 +99,8 @@ class SettingsDialog(FrostedFramelessDialog):
         self._setup_titlebar()
 
         self.setWindowTitle("jietuba")
-        self.resize(900, 670)
-        self.setFont(QFont(DEFAULT_FONT_FAMILY, 10))
+        self.resize(1050, 750)
+        self.setFont(QFont(DEFAULT_FONT_FAMILY, 11))
         self.setObjectName("SettingsDialog")
 
         self._setup_ui()
@@ -173,9 +173,9 @@ class SettingsDialog(FrostedFramelessDialog):
         text_box.setContentsMargins(0, 0, 0, 0)
         text_box.setSpacing(2)
         app_name_lbl = BodyLabel(self.tr("jietuba"))
-        apply_theme_text_style(app_name_lbl, 15, bold=True)
+        apply_theme_text_style(app_name_lbl, 16, bold=True)
         app_desc_lbl = QLabel(self.tr("Settings"))
-        apply_theme_text_style(app_desc_lbl, 12, caption=True)
+        apply_theme_text_style(app_desc_lbl, 13, caption=True)
         text_box.addWidget(app_name_lbl)
         text_box.addWidget(app_desc_lbl)
         logo_layout.addLayout(text_box, 1)
@@ -199,7 +199,7 @@ class SettingsDialog(FrostedFramelessDialog):
 
         self.content_title = QLabel(self.tr("Shortcut Settings"))
         apply_theme_text_style(
-            self.content_title, 20, bold=True,
+            self.content_title, 21, bold=True,
             extra="padding: 0 6px 2px 6px;"
         )
 
@@ -269,11 +269,11 @@ class SettingsDialog(FrostedFramelessDialog):
         row = QHBoxLayout()
         text_layout = QVBoxLayout()
         lbl_title = QLabel(title)
-        apply_theme_text_style(lbl_title, 13)
+        apply_theme_text_style(lbl_title, 14)
         text_layout.addWidget(lbl_title)
         if desc:
             lbl_desc = QLabel(desc)
-            apply_theme_text_style(lbl_desc, 12, caption=True)
+            apply_theme_text_style(lbl_desc, 13, caption=True)
             text_layout.addWidget(lbl_desc)
         row.addLayout(text_layout)
         row.addStretch()
@@ -294,7 +294,7 @@ class SettingsDialog(FrostedFramelessDialog):
                 border: 1px solid {border_color}; border-radius: 4px;
                 padding: 4px 8px; background-color: {input_bg};
                 color: {text_color}; font-family: {CSS_FONT_FAMILY};
-                font-size: 12px;
+                font-size: 13px;
             }}
             QLineEdit:focus, QSpinBox:focus {{
                 border: 1px solid {ACCENT}; background-color: {focus_bg};
@@ -340,7 +340,7 @@ class SettingsDialog(FrostedFramelessDialog):
                 border: 1px solid {border_color}; background: {popup_bg};
                 selection-background-color: {ACCENT}; selection-color: white;
                 font-family: {CSS_FONT_FAMILY};
-                font-size: 12px; color: {text_color}; outline: none;
+                font-size: 13px; color: {text_color}; outline: none;
             }}
             QComboBox QAbstractItemView::item {{
                 padding: 6px 8px; min-height: 24px; color: {text_color}; background: {popup_bg};
@@ -477,7 +477,7 @@ class SettingsDialog(FrostedFramelessDialog):
                 background: rgba(255, 255, 255, 0.18);
                 border: 1px solid rgba(77, 88, 101, 0.38);
                 border-radius: 12px;
-                font-size: 16px;
+                font-size: 17px;
                 font-weight: 500;
                 outline: none;
             }
@@ -508,7 +508,7 @@ class SettingsDialog(FrostedFramelessDialog):
                     stop:0 #91AABD, stop:0.52 %s, stop:1 #607F9A);
                 border: 1px solid rgba(255, 255, 255, 0.34);
                 border-radius: 12px;
-                font-size: 16px;
+                font-size: 17px;
                 font-weight: 600;
                 outline: none;
             }
@@ -548,7 +548,7 @@ class SettingsDialog(FrostedFramelessDialog):
                     background: {t.surface};
                     border: 1px solid {t.border_hover};
                     border-radius: 12px;
-                    font-size: 16px;
+                    font-size: 17px;
                     font-weight: 500;
                     outline: none;
                 }}
@@ -570,7 +570,7 @@ class SettingsDialog(FrostedFramelessDialog):
                     background: {t.accent};
                     border: 1px solid rgba(255, 255, 255, 0.28);
                     border-radius: 12px;
-                    font-size: 16px;
+                    font-size: 17px;
                     font-weight: 600;
                     outline: none;
                 }}
@@ -671,6 +671,10 @@ class SettingsDialog(FrostedFramelessDialog):
             )
             if index >= 0:
                 self._ui_theme_combo.setCurrentIndex(index)
+        if hasattr(self, '_ui_scale_combo'):
+            index = self._ui_scale_combo.findData(defaults.get("ui_scale_percent", 100))
+            if index >= 0:
+                self._ui_scale_combo.setCurrentIndex(index)
         if hasattr(self, '_appearance_theme_color'):
             self._appearance_theme_color = QColor(defaults["theme_color"])
             _update_color_btn(self._theme_color_btn, self._appearance_theme_color)
@@ -697,6 +701,8 @@ class SettingsDialog(FrostedFramelessDialog):
             )
         if hasattr(self, 'smart_toggle'):
             self.smart_toggle.setChecked(defaults["smart_selection"])
+        if hasattr(self, 'smart_animation_toggle'):
+            self.smart_animation_toggle.setChecked(defaults["smart_selection_animation"])
         if hasattr(self, 'save_toggle'):
             self.save_toggle.setChecked(defaults["screenshot_save_enabled"])
         if hasattr(self, 'save_path_lbl'):
@@ -831,6 +837,10 @@ class SettingsDialog(FrostedFramelessDialog):
             )
         if hasattr(self, 'smart_toggle'):
             self.config_manager.set_smart_selection(self.smart_toggle.isChecked())
+        if hasattr(self, 'smart_animation_toggle'):
+            self.config_manager.set_smart_selection_animation(
+                self.smart_animation_toggle.isChecked()
+            )
 
         # 2. 日志设置
         if hasattr(self, 'log_toggle'):
@@ -994,10 +1004,15 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'info_hide_on_drag_toggle'):
             self.config_manager.set_app_setting("screenshot_info_hide_on_drag", self.info_hide_on_drag_toggle.isChecked())
 
-        # 11. 外观设置（主题色、遮罩色）
+        # 11. 外观设置（主题色、遮罩色、界面缩放）
         if hasattr(self, '_ui_theme_combo'):
             from core.ui_theme import get_ui_theme
             get_ui_theme().set_mode(self._ui_theme_combo.currentData())
+
+        # 缩放比例一变，已建出来的工具栏/面板会自己收到 scale_changed 重算
+        if hasattr(self, '_ui_scale_combo'):
+            from core.ui_scale import get_ui_scale
+            get_ui_scale().set_percent(self._ui_scale_combo.currentData())
 
         from core.theme import get_theme
         theme = get_theme()
@@ -1078,7 +1093,7 @@ class SettingsDialog(FrostedFramelessDialog):
             widget.setStyleSheet(input_style)
         self.content_title.setStyleSheet(
             theme_text_style(
-                20, bold=True,
+                21, bold=True,
                 extra="padding: 0 6px 2px 6px;"
             )
         )
@@ -1140,7 +1155,7 @@ class SettingsDialog(FrostedFramelessDialog):
         for attr in ('double_click_copy_close_toggle',
                       'cross_tool_selection_toggle',
                       'text_always_on_top_toggle',
-                      'smart_toggle',
+                      'smart_toggle', 'smart_animation_toggle',
                       'save_toggle', 'ocr_enable_toggle',
                       'ocr_grayscale_toggle', 'ocr_upscale_toggle',
                       'split_sentences_toggle',
@@ -1160,7 +1175,7 @@ class SettingsDialog(FrostedFramelessDialog):
                       'log_level_combo',
                       'language_combo', 'engine_combo', 'cursor_move_combo',
                       'magnifier_color_format_combo', 'log_retention_combo',
-                      '_ui_theme_combo'):
+                      '_ui_theme_combo', '_ui_scale_combo'):
             w = getattr(self, attr, None)
             if w is not None:
                 snap[attr] = w.currentIndex()
@@ -1303,6 +1318,11 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'smart_toggle'):
             self.smart_toggle.setChecked(self.config_manager.get_smart_selection())
 
+        if hasattr(self, 'smart_animation_toggle'):
+            self.smart_animation_toggle.setChecked(
+                self.config_manager.get_smart_selection_animation()
+            )
+
         if hasattr(self, 'double_click_copy_close_toggle'):
             self.double_click_copy_close_toggle.setChecked(
                 self.config_manager.get_double_click_copy_close_enabled()
@@ -1419,6 +1439,12 @@ class SettingsDialog(FrostedFramelessDialog):
             index = self._ui_theme_combo.findData(get_ui_theme().mode.value)
             if index >= 0:
                 self._ui_theme_combo.setCurrentIndex(index)
+
+        if hasattr(self, '_ui_scale_combo'):
+            from core.ui_scale import get_ui_scale
+            index = self._ui_scale_combo.findData(get_ui_scale().percent)
+            if index >= 0:
+                self._ui_scale_combo.setCurrentIndex(index)
 
         if hasattr(self, '_theme_color_btn'):
             from core.theme import get_theme

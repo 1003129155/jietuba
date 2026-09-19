@@ -5,7 +5,8 @@
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QPushButton, QButtonGroup, QWidget
 from PySide6.QtCore import Signal, QSize
 from core.resource_manager import ResourceManager
-from .base_settings_panel import BaseSettingsPanel, StepperWidget, build_settings_panel_stylesheet, PANEL_SCALE
+from core.ui_scale import scaled
+from .base_settings_panel import BaseSettingsPanel, StepperWidget, build_settings_panel_stylesheet
 from .color_picker_button import ColorPickerButton
 
 def _cached_icon(svg_name):
@@ -19,6 +20,12 @@ class PaintSettingsPanel(BaseSettingsPanel):
     SIZE_RANGE = (1, 99)
     SIZE_DEFAULT = 5
     SIZE_TOOLTIP = "Line Width"
+
+    # 基准尺寸（100% 下的实际像素）
+    BASE_COMBO_WIDTH = 88
+    BASE_COMBO_ICON_H = 16
+    BASE_MODE_BTN = 27
+    BASE_MODE_ICON = 22
     
     # 线条样式改变信号
     line_style_changed = Signal(str)  # solid / dashed / dashed_dense
@@ -30,52 +37,50 @@ class PaintSettingsPanel(BaseSettingsPanel):
         self.current_highlighter_mode = "freehand"
         super().__init__(parent)
         
-    def _init_ui(self):
-        """重写初始化UI以添加线条样式选择"""
-        # 使用支持 ComboBox 的样式表
-        self.setStyleSheet(build_settings_panel_stylesheet(
+    def _build_stylesheet(self) -> str:
+        return build_settings_panel_stylesheet(
             combo_enabled=True,
             combo_padding="1px",
-            combo_min_width=88,
-            combo_max_width=88,
+            combo_min_width=self.BASE_COMBO_WIDTH,
+            combo_max_width=self.BASE_COMBO_WIDTH,
             combo_padding_compact=True
-        ))
-        
-        # 调用基类的初始化（但不包括样式表设置，因为我们已经设置了）
+        )
+
+    def _apply_scale_sizes(self):
+        super()._apply_scale_sizes()
+        mode_btn = scaled(self.BASE_MODE_BTN)
+        mode_icon = scaled(self.BASE_MODE_ICON)
+        for btn in (self.freehand_btn, self.rect_btn):
+            btn.setFixedSize(mode_btn, mode_btn)
+            btn.setIconSize(QSize(mode_icon, mode_icon))
+        self.mode_widget.layout().setSpacing(scaled(2))
+        self.line_style_combo.setIconSize(
+            QSize(scaled(self.BASE_COMBO_WIDTH), scaled(self.BASE_COMBO_ICON_H)))
+        self._color_layout.setSpacing(scaled(self.BASE_SPACING))
+
+    def _init_ui(self):
+        """重写初始化UI以添加线条样式选择"""
         from PySide6.QtWidgets import QFrame
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(round(10 * PANEL_SCALE), round(8 * PANEL_SCALE),
-                                  round(10 * PANEL_SCALE), round(8 * PANEL_SCALE))
-        layout.setSpacing(round(10 * PANEL_SCALE))
 
         # === 0. 荧光笔模式切换 ===
         self.mode_widget = QWidget()
         mode_layout = QHBoxLayout(self.mode_widget)
         mode_layout.setContentsMargins(0, 0, 0, 0)
-        mode_layout.setSpacing(2)
-
-        _btn_sz = round(30 * PANEL_SCALE)
-        _icon_sz = round(24 * PANEL_SCALE)
 
         self.freehand_btn = QPushButton()
         self.freehand_btn.setCheckable(True)
-        self.freehand_btn.setFixedSize(_btn_sz, _btn_sz)
         self.freehand_btn.setToolTip(self._tr("Freehand Highlight"))
-        pen_icon_path = ResourceManager.get_icon_path("画笔.svg")
-        if pen_icon_path:
+        if ResourceManager.get_icon_path("画笔.svg"):
             self.freehand_btn.setIcon(_cached_icon("画笔.svg"))
-            self.freehand_btn.setIconSize(QSize(_icon_sz, _icon_sz))
         self.freehand_btn.setStyleSheet("QPushButton { padding: 0px; }")
 
         self.rect_btn = QPushButton()
         self.rect_btn.setCheckable(True)
-        self.rect_btn.setFixedSize(_btn_sz, _btn_sz)
         self.rect_btn.setToolTip(self._tr("Rect Highlight"))
-        rect_icon_path = ResourceManager.get_icon_path("方框.svg")
-        if rect_icon_path:
+        if ResourceManager.get_icon_path("方框.svg"):
             self.rect_btn.setIcon(_cached_icon("方框.svg"))
-            self.rect_btn.setIconSize(QSize(_icon_sz, _icon_sz))
         self.rect_btn.setStyleSheet("QPushButton { padding: 0px; }")
 
         self.mode_group = QButtonGroup(self)
@@ -89,7 +94,6 @@ class PaintSettingsPanel(BaseSettingsPanel):
         
         # === 1. 线条样式选择 ===
         self.line_style_combo = QComboBox()
-        self.line_style_combo.setIconSize(QSize(88, 16))
         # 添加实线和虚线选项
         from pathlib import Path
         solid_icon_path = ResourceManager.get_icon_path("line_solid.svg")
@@ -118,12 +122,10 @@ class PaintSettingsPanel(BaseSettingsPanel):
 
         # === 2. 基础控件（尺寸、透明度等）===
         self.size_spin = StepperWidget(self.current_size, self.SIZE_RANGE[0], self.SIZE_RANGE[1])
-        self.size_spin.setFixedWidth(round(60 * PANEL_SCALE))
         self.size_spin.setToolTip(self._tr(self.SIZE_TOOLTIP))
         layout.addWidget(self.size_spin)
 
         self.opacity_spin = StepperWidget(self._opacity_to_percent(self.current_opacity), 0, 100, "%")
-        self.opacity_spin.setFixedWidth(round(72 * PANEL_SCALE))
         self.opacity_spin.setToolTip(self._tr(self.OPACITY_TOOLTIP))
         layout.addWidget(self.opacity_spin)
 
@@ -131,7 +133,7 @@ class PaintSettingsPanel(BaseSettingsPanel):
         self.color_widget = QWidget()
         color_layout = QHBoxLayout(self.color_widget)
         color_layout.setContentsMargins(0, 0, 0, 0)
-        color_layout.setSpacing(round(10 * PANEL_SCALE))
+        self._color_layout = color_layout
         layout.addWidget(self.color_widget)
 
         line1 = QFrame()
@@ -141,7 +143,7 @@ class PaintSettingsPanel(BaseSettingsPanel):
         color_layout.addWidget(line1)
 
         self.color_picker_btn = ColorPickerButton(
-            self.current_color, size=round(28 * PANEL_SCALE), show_alpha=True
+            self.current_color, size=scaled(self.BASE_COLOR_BTN), show_alpha=True
         )
         self.color_picker_btn.setToolTip(self._tr("Custom Color"))
         color_layout.addWidget(self.color_picker_btn)
@@ -155,23 +157,13 @@ class PaintSettingsPanel(BaseSettingsPanel):
             "#FFFFFF",
         ]
 
+        self._preset_buttons = []
         for color_str in preset_colors:
             btn = QPushButton()
-            btn.setFixedSize(round(24 * PANEL_SCALE), round(24 * PANEL_SCALE))
             btn.setToolTip(color_str)
-            border_color = "#888888" if color_str == "#FFFFFF" else "#333333"
-            btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {color_str};
-                    border: 1px solid {border_color};
-                    border-radius: 6px;
-                }}
-                QPushButton:hover {{
-                    border: 2px solid #000;
-                }}
-            """)
             btn.clicked.connect(lambda checked, c=color_str: self._apply_preset_color(c))
             color_layout.addWidget(btn)
+            self._preset_buttons.append((btn, color_str))
 
         layout.addStretch()
 
@@ -183,6 +175,7 @@ class PaintSettingsPanel(BaseSettingsPanel):
         self.color_picker_btn.color_changed.connect(self._on_color_picked)
 
         self._build_extra_controls(layout)
+        self.apply_scale()
 
         # 默认模式
         self.set_highlighter_mode(self.current_highlighter_mode)

@@ -100,10 +100,23 @@ TRANSLATIONS: dict[str, str] = {
     "调整内容顺序失败: {e}": "Failed to reorder content: {e}",
     "按分组查询失败: {e}": "Failed to query by group: {e}",
 
-    # clipboard_controller.py
-    "获取前台窗口": "Getting foreground window",
+    # foreground_tracker.py
+    "读取前台窗口": "Reading foreground window",
+    "取样前台窗口": "Sampling the foreground window",
+    "校验窗口句柄": "Validating window handle",
+    "读取窗口进程": "Reading window process",
+    "读取窗口类名": "Reading window class name",
+    "读取窗口扩展样式": "Reading window extended style",
+    "粘贴目标更新为 {hwnd} ({cls})": "Paste target updated to {hwnd} ({cls})",
+
+    # paste_keystroke.py
     "设置前台窗口": "Setting foreground window",
+    "释放修饰键": "Releasing modifier keys",
     "发送 Ctrl+V 失败: {e}": "Failed to send Ctrl+V: {e}",
+    "目标窗口 {hwnd} 未切到前台，按当前焦点粘贴": "Target window {hwnd} did not come to the foreground; pasting to the current focus",
+    "目标窗口 {hwnd} 未切到前台，放弃本次补按键": "Target window {hwnd} did not come to the foreground; skipping the synthetic paste",
+
+    # clipboard_controller.py
     "加载剪贴板设置": "Loading clipboard settings",
     "保存自动粘贴设置": "Saving auto-paste setting",
     "保存带格式粘贴设置": "Saving paste-with-formatting setting",

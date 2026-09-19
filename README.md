@@ -208,6 +208,7 @@ canvas/
 ├── selection_model.py       # SelectionModel — manages selected graphics items
 ├── undo.py                  # CommandUndoStack — undo/redo stack (add, delete, batch, edit commands)
 ├── smart_edit_controller.py # SmartEditController — handles selection/edit mode switching
+├── smart_selection_anim.py  # SmartSelectionAnimator — tweens the selection when it hops between windows
 ├── handle_editor.py         # LayerEditor / EditHandle — control point drag editing
 ├── gestures.py              # Mouse gesture state machines — text edge drag, rubber-band select, pending click-to-edit
 ├── handle_overlay.py        # HandleOverlay — separate compositing layer for edit handles, avoids full-scene repaint
@@ -258,6 +259,8 @@ clipboard/
 │   ├── clipboard_controller.py   # ClipboardController — loading, pasting, context menu logic
 │   ├── selection_manager.py      # SelectionManager — list selection state
 │   ├── context_menu_controller.py  # ContextMenuController — assembles context menu data and actions
+│   ├── foreground_tracker.py    # ForegroundWindowTracker — remembers the window to paste into
+│   ├── paste_keystroke.py       # Restores focus to the target window, then sends Ctrl+V
 │   └── __init__.py
 ├── core/                    # Data layer — pyclipboard wrapper, models, group types
 │   ├── manager.py           # ClipboardManager — storage, monitoring, and paste API
@@ -330,6 +333,7 @@ core/
 ├── crash_handler.py         # install_crash_hooks() — global exception catching
 ├── resource_manager.py      # ResourceManager — SVG/image resource loading
 ├── theme.py                 # ThemeManager — application theme colors
+├── ui_scale.py              # UIScaleManager — one scale factor for toolbars, panels and popups
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — internationalization
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — global & in-app hotkeys
 ├── save.py                  # SaveService — file save service (auto naming, high-quality PDF output)
@@ -339,6 +343,7 @@ core/
 ├── qt_utils.py              # safe_disconnect() — Qt signal safe disconnect
 ├── log_translations/        # per-module log text translation helpers
 ├── constants.py             # Global constants (fonts, paths, etc.)
+├── update_checker.py        # Asynchronous GitHub release lookup and version comparison
 └── ui_theme.py              # UIThemeManager — light/dark appearance for app windows and native Qt widgets
 ```
 
@@ -568,6 +573,7 @@ ui/
 ├── hotkey_edit.py           # HotkeyEdit — global hotkey editor
 ├── inapp_key_edit.py        # InAppKeyEdit — in-app shortcut editor
 ├── mask_overlay.py          # mask overlay layer
+├── selection_overlay.py     # SelectionOverlayWidget — selection chrome layer above the mask
 ├── base_settings_panel.py   # BaseSettingsPanel / StepperWidget — settings panel base class
 ├── paint_settings_panel.py  # PaintSettingsPanel — brush settings panel
 ├── shape_settings_panel.py  # ShapeSettingsPanel — shape settings panel

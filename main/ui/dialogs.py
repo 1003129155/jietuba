@@ -4,9 +4,12 @@
 替代 QMessageBox 以解决焦点抢夺和跨窗口置顶问题。
 """
 
+from html import escape
+
 from PySide6.QtWidgets import QApplication, QDialog, QVBoxLayout, QLabel, QDialogButtonBox, QCheckBox
 from PySide6.QtWidgets import QScrollArea, QWidget
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QUrl
+from PySide6.QtGui import QDesktopServices
 from core.i18n import make_tr
 
 
@@ -219,6 +222,78 @@ def show_text_dialog(parent, title, content):
     ok_button.setDefault(True)
     ok_button.clicked.connect(dialog.accept)
 
+    dialog.exec()
+
+
+def show_update_dialog(
+    parent,
+    title,
+    content,
+    download_caption,
+    download_url,
+    download_button_text,
+):
+    """显示可滚动的更新说明、下载地址和打开下载页按钮。"""
+    ok_text = _translate_dialog_text("OK")
+
+    dialog = StandardDialog(parent, title, "")
+    dialog.resize(660, 480)
+    dialog.label.hide()
+    dialog.layout().setContentsMargins(18, 14, 18, 14)
+    dialog.layout().setSpacing(10)
+
+    scroll = QScrollArea(dialog)
+    scroll.setWidgetResizable(True)
+    scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+    scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    scroll.setStyleSheet(
+        "QScrollArea { border: none; background: transparent; } "
+        "QScrollArea > QWidget > QWidget { background: transparent; }"
+    )
+
+    content_widget = QWidget(scroll)
+    content_layout = QVBoxLayout(content_widget)
+    content_layout.setContentsMargins(0, 0, 0, 0)
+    content_layout.setSpacing(8)
+
+    content_label = QLabel(content, content_widget)
+    content_label.setTextFormat(Qt.TextFormat.PlainText)
+    content_label.setWordWrap(True)
+    content_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+    content_label.setStyleSheet(
+        "font-size: 13px; line-height: 1.45; background: transparent;"
+    )
+    content_layout.addWidget(content_label)
+
+    download_label = QLabel(download_caption, content_widget)
+    download_label.setStyleSheet(
+        "font-size: 13px; font-weight: 600; background: transparent;"
+    )
+    content_layout.addWidget(download_label)
+
+    escaped_url = escape(download_url, quote=True)
+    link_label = QLabel(f'<a href="{escaped_url}">{escaped_url}</a>', content_widget)
+    link_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+    link_label.setOpenExternalLinks(True)
+    link_label.setWordWrap(True)
+    content_layout.addWidget(link_label)
+    content_layout.addStretch(1)
+
+    scroll.setWidget(content_widget)
+    dialog.layout().insertWidget(dialog.layout().count() - 1, scroll, 1)
+
+    download_button = dialog.button_box.addButton(
+        download_button_text, QDialogButtonBox.ButtonRole.AcceptRole
+    )
+    download_button.clicked.connect(
+        lambda: QDesktopServices.openUrl(QUrl(download_url))
+    )
+    download_button.clicked.connect(dialog.accept)
+
+    ok_button = dialog.button_box.addButton(
+        ok_text, QDialogButtonBox.ButtonRole.RejectRole
+    )
+    ok_button.clicked.connect(dialog.accept)
     dialog.exec()
 
 

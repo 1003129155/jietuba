@@ -48,7 +48,7 @@ INAPP_KEYS = SCREENSHOT_KEYS + TOOL_KEYS + PIN_KEYS
 
 _EDIT_W = 140
 _EDIT_H = 28
-_SEGMENT_HINT_STYLE = "font-size: 12px; background: transparent;"
+_SEGMENT_HINT_STYLE = "font-size: 13px; background: transparent;"
 
 # 全局快捷键同属一个冲突域；任意两个业务不能占用同一个实际按键。
 GLOBAL_HOTKEY_EDIT_ATTRS = (
@@ -91,7 +91,7 @@ def _build_shortcut_row(dialog, parent, title: str, editor: QWidget) -> QWidget:
     row_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
     title_label = QLabel(title, row_card)
-    apply_theme_text_style(title_label, 13)
+    apply_theme_text_style(title_label, 14)
     row_layout.addWidget(title_label, 1)
     row_layout.addWidget(editor, 0, Qt.AlignmentFlag.AlignRight)
     return row_card
@@ -125,7 +125,7 @@ def create_hotkey_page(dialog) -> QWidget:
     ss_h.setSpacing(12)
 
     ss_lbl = QLabel(dialog.tr("Screenshot Hotkey"), ss_card)
-    apply_theme_text_style(ss_lbl, 14)
+    apply_theme_text_style(ss_lbl, 15)
     ss_h.addWidget(ss_lbl)
     ss_h.addStretch()
 
@@ -155,7 +155,7 @@ def create_hotkey_page(dialog) -> QWidget:
     cb_h.setSpacing(12)
 
     cb_lbl = QLabel(dialog.tr("Clipboard Hotkey"), cb_card)
-    apply_theme_text_style(cb_lbl, 14)
+    apply_theme_text_style(cb_lbl, 15)
     cb_h.addWidget(cb_lbl)
     cb_h.addStretch()
 
@@ -185,7 +185,7 @@ def create_hotkey_page(dialog) -> QWidget:
     pin_h.setSpacing(12)
 
     pin_lbl = QLabel(dialog.tr("Pin Clipboard Image"), pin_card)
-    apply_theme_text_style(pin_lbl, 14)
+    apply_theme_text_style(pin_lbl, 15)
     pin_h.addWidget(pin_lbl)
     pin_h.addStretch()
 
@@ -219,7 +219,7 @@ def create_hotkey_page(dialog) -> QWidget:
     tr_h.setSpacing(12)
 
     tr_lbl = QLabel(dialog.tr("Translation Hotkey"), tr_card)
-    apply_theme_text_style(tr_lbl, 14)
+    apply_theme_text_style(tr_lbl, 15)
     tr_h.addWidget(tr_lbl)
     tr_h.addStretch()
 

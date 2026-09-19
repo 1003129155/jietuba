@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from core.logger import log_debug, T
+from core.ui_scale import get_ui_scale, scaled
 from core import safe_event
 
 
@@ -43,18 +44,23 @@ class RoundedSliderPopup(QWidget):
     radius_changed = Signal(int)   # 半径值改变
 
     _BG = QColor(30, 30, 30, 220)
-    _RADIUS = 6
-    _HEIGHT = 30
-    _WIDTH = 180
+
+    # 基准尺寸（100% 下的实际像素）
+    BASE_RADIUS = 6
+    BASE_HEIGHT = 30
+    BASE_WIDTH = 180
+    BASE_SLIDER_WIDTH = 110
+    BASE_LABEL_WIDTH = 30
 
     def __init__(self, parent: QWidget):
         super().__init__(parent)
-        self.setFixedSize(self._WIDTH, self._HEIGHT)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setMouseTracking(True)
         self._init_ui()
         self.hide()
+        # 改比例后自行重算尺寸（连接随本部件销毁自动断开）
+        get_ui_scale().scale_changed.connect(self.apply_scale)
 
         # 延时隐藏定时器
         self._hide_timer = QTimer(self)
@@ -64,42 +70,51 @@ class RoundedSliderPopup(QWidget):
 
     def _init_ui(self):
         lay = QHBoxLayout(self)
-        lay.setContentsMargins(10, 0, 10, 0)
-        lay.setSpacing(6)
+        self._row_layout = lay
 
         # 滑块
         self._slider = QSlider(Qt.Orientation.Horizontal)
         self._slider.setRange(0, 100)
         self._slider.setValue(16)
-        self._slider.setFixedWidth(110)
         self._slider.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        from core.theme import get_theme
-        _thx = get_theme().theme_color_hex
-        self._slider.setStyleSheet(f"""
-            QSlider::groove:horizontal {{
-                height: 4px; background: #555; border-radius: 2px;
-            }}
-            QSlider::handle:horizontal {{
-                width: 12px; height: 12px; margin: -4px 0;
-                background: {_thx}; border-radius: 6px;
-            }}
-            QSlider::sub-page:horizontal {{
-                background: {_thx}; border-radius: 2px;
-            }}
-        """)
         lay.addWidget(self._slider)
 
         # 数值标签
         self._label = QLabel("16")
-        self._label.setFixedWidth(30)
         self._label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._label.setStyleSheet(
-            "color: #D0D0D0; font-size: 12px; background: transparent;"
-        )
         lay.addWidget(self._label)
 
         # 信号
         self._slider.valueChanged.connect(self._on_value_changed)
+        self.apply_scale()
+
+    def apply_scale(self):
+        """按当前比例重算弹层尺寸，半径数值不动。"""
+        self.setFixedSize(scaled(self.BASE_WIDTH), scaled(self.BASE_HEIGHT))
+        self._row_layout.setContentsMargins(scaled(10), 0, scaled(10), 0)
+        self._row_layout.setSpacing(scaled(6))
+        self._slider.setFixedWidth(scaled(self.BASE_SLIDER_WIDTH))
+        from core.theme import get_theme
+        _thx = get_theme().theme_color_hex
+        self._slider.setStyleSheet(f"""
+            QSlider::groove:horizontal {{
+                height: {scaled(4)}px; background: #555; border-radius: {scaled(2)}px;
+            }}
+            QSlider::handle:horizontal {{
+                width: {scaled(12)}px; height: {scaled(12)}px; margin: {-scaled(4)}px 0;
+                background: {_thx}; border-radius: {scaled(6)}px;
+            }}
+            QSlider::sub-page:horizontal {{
+                background: {_thx}; border-radius: {scaled(2)}px;
+            }}
+        """)
+        self._label.setFixedWidth(scaled(self.BASE_LABEL_WIDTH))
+        self._label.setStyleSheet(
+            f"color: #D0D0D0; font-size: {scaled(12)}px; background: transparent;"
+        )
+        self.update()
+        if self.isVisible() and getattr(self, "_anchor", None) is not None:
+            self.show_near(self._anchor)
 
     def _on_value_changed(self, value: int):
         self._label.setText(str(value))
@@ -132,6 +147,7 @@ class RoundedSliderPopup(QWidget):
 
     def show_near(self, anchor: QWidget):
         """优先显示在 anchor 按钮的正上方，空间不够则显示在下方"""
+        self._anchor = anchor
         parent = self.parentWidget()
         pw = parent.width()
 
@@ -144,7 +160,7 @@ class RoundedSliderPopup(QWidget):
         x = max(0, x)
 
         # ── 垂直方向：优先上方 ──
-        gap = 4
+        gap = scaled(4)
         above_global = anchor.mapToGlobal(QPoint(0, -self.height() - gap))
         above_local = parent.mapFromGlobal(above_global)
         if above_local.y() >= 0:
@@ -180,7 +196,8 @@ class RoundedSliderPopup(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QBrush(self._BG))
-        p.drawRoundedRect(self.rect(), self._RADIUS, self._RADIUS)
+        radius = scaled(self.BASE_RADIUS)
+        p.drawRoundedRect(self.rect(), radius, radius)
         p.end()
         super().paintEvent(event)
 
@@ -249,8 +266,8 @@ class RoundedCornersLogic(QObject):
         self._btn.installEventFilter(self)
 
         # 安装绘制钩子
-        self._original_paint = None      # paint 仍用传统方式（只有圆角 patch，无链式问题）
-        self._install_paint_hook()
+        self._original_render = None     # render 仍用传统方式（只有圆角 patch，无链式问题）
+        self._install_render_hook()
         self._install_mask_hook()        # 通过 HookManager
         self._install_export_hook()      # 通过 HookManager
 
@@ -280,7 +297,7 @@ class RoundedCornersLogic(QObject):
         else:
             self._popup.hide()
         # 刷新预览
-        self._item.update()
+        self._item.request_repaint()
         self._mask.update()
 
     @property
@@ -316,18 +333,18 @@ class RoundedCornersLogic(QObject):
         # 持久化
         if self._config:
             self._config.set_app_setting("screenshot_rounded_radius", value)
-        self._item.update()
+        self._item.request_repaint()
         self._mask.update()
 
     # ------------------------------------------------------------------
-    # Hook: SelectionItem.paint() 绘制圆角边框
+    # Hook: SelectionItem.render() 绘制圆角边框
     # ------------------------------------------------------------------
-    def _install_paint_hook(self):
+    def _install_render_hook(self):
         item = self._item
-        self._original_paint = item.paint
+        self._original_render = item.render
         logic = self
 
-        def _hooked_paint(painter: QPainter, option, widget=None):
+        def _hooked_render(painter: QPainter):
             if item._model.is_empty():
                 return
 
@@ -337,7 +354,8 @@ class RoundedCornersLogic(QObject):
                 # ── 圆角边框 ──
                 r = logic._radius
                 from core.theme import get_theme
-                pen = QPen(get_theme().theme_color, 4, Qt.PenStyle.SolidLine)
+                pen = QPen(get_theme().theme_color, item.BORDER_WIDTH,
+                           Qt.PenStyle.SolidLine)
                 painter.setPen(pen)
                 painter.setBrush(Qt.BrushStyle.NoBrush)
                 painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -348,9 +366,9 @@ class RoundedCornersLogic(QObject):
                     _draw_handles(painter, rect, item, skip_corners=True)
             else:
                 # 原始绘制
-                logic._original_paint(painter, option, widget)
+                logic._original_render(painter)
 
-        item.paint = _hooked_paint
+        item.render = _hooked_render
 
     # ------------------------------------------------------------------
     # Hook: MaskOverlay.paintEvent() 四角补遮罩（通过 HookManager）
@@ -458,9 +476,9 @@ class RoundedCornersLogic(QObject):
     # 卸载
     # ------------------------------------------------------------------
     def uninstall(self):
-        # paint hook（传统方式，只有圆角用）
-        if self._original_paint:
-            self._item.paint = self._original_paint
+        # render hook（传统方式，只有圆角用）
+        if self._original_render:
+            self._item.render = self._original_render
         # mask / export hook（通过 HookManager）
         if self._hook_mgr:
             self._hook_mgr.unregister(self._mask, 'paintEvent', self._mask_callback)
@@ -485,7 +503,7 @@ def _draw_handles(painter: QPainter, rect: QRectF, item, skip_corners: bool = Fa
     for handle_id, pos in handles.items():
         if skip_corners and handle_id in _CORNER_HANDLES:
             continue
-        painter.setPen(QPen(QColor(255, 255, 255), 2))
+        painter.setPen(QPen(QColor(255, 255, 255), item.HANDLE_RING_WIDTH))
         painter.setBrush(QColor(48, 200, 192))
         painter.drawEllipse(pos, item.HANDLE_SIZE // 2 + 1, item.HANDLE_SIZE // 2 + 1)
 

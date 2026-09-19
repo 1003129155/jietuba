@@ -14,6 +14,7 @@ from PySide6.QtGui import QCursor, QColor
 
 from ._widgets import svg_icon as _svg_icon, ClickMenuButton as _ClickMenuButton
 from core.i18n import make_tr
+from core.ui_scale import get_ui_scale, scaled
 from core import safe_event
 from core.logger import log_exception, T
 
@@ -61,6 +62,14 @@ class RecordToolbar(QWidget):
     outline_changed = Signal(bool, QColor, float)   # enabled, color, width
     shadow_changed  = Signal(bool, QColor)          # enabled, color（alpha 即不透明度）
 
+    # 基准尺寸（100% 下的实际像素）
+    BASE_HEIGHT = 44
+    BASE_BTN = 32
+    BASE_ICON = 20
+    BASE_SEP_HEIGHT = 24
+    BASE_HANDLE_WIDTH = 28
+    BASE_HANDLE_ICON = 18
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowFlags(
@@ -70,7 +79,6 @@ class RecordToolbar(QWidget):
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.setFixedHeight(44)
 
         self._recording = False
         self._paused = False
@@ -82,38 +90,87 @@ class RecordToolbar(QWidget):
 
         self._build_ui()
         self._init_settings_panels()
+        # 改比例后自行重算尺寸（连接随本部件销毁自动断开）
+        get_ui_scale().scale_changed.connect(self.apply_scale)
 
     # ── UI 构建 ──────────────────────────────────────────────
 
-    def _build_ui(self):
-        container = QWidget(self)
-        container.setStyleSheet("""
-            QWidget {
+    def _container_qss(self) -> str:
+        return f"""
+            QWidget {{
                 background-color: white;
                 border: 2px solid #333;
-                border-radius: 6px;
-            }
-            QPushButton {
+                border-radius: {scaled(6)}px;
+            }}
+            QPushButton {{
                 background: transparent;
                 border: none;
-                border-radius: 4px;
-            }
-            QPushButton:hover { background: rgba(0,0,0,0.06); }
-            QPushButton:pressed { background: rgba(0,0,0,0.12); }
-            QPushButton:disabled { opacity: 0.4; }
-            QPushButton:checked { background: rgba(0,120,215,0.15); border: 1px solid #0078D7; }
-        """)
+                border-radius: {scaled(4)}px;
+            }}
+            QPushButton:hover {{ background: rgba(0,0,0,0.06); }}
+            QPushButton:pressed {{ background: rgba(0,0,0,0.12); }}
+            QPushButton:disabled {{ opacity: 0.4; }}
+            QPushButton:checked {{ background: rgba(0,120,215,0.15); border: 1px solid #0078D7; }}
+        """
+
+    def _time_label_qss(self) -> str:
+        return (f"color: #666; font-size: {scaled(12)}px; border: none;"
+                f" min-width: {scaled(38)}px;")
+
+    def apply_scale(self):
+        """按当前比例重算工具栏和二级面板的尺寸。录制状态、工具选择都不动。"""
+        self._apply_scale_sizes()
+        for panel in self._iter_panels():
+            panel.apply_scale()
+        self.adjustSize()
+        self.reposition_panels()
+
+    def _iter_panels(self):
+        for attr in ('paint_panel', 'shape_panel', 'arrow_panel', 'text_panel'):
+            panel = getattr(self, attr, None)
+            if panel is not None:
+                yield panel
+
+    def _set_button_icon(self, button: QPushButton, svg: str):
+        """设按钮图标并记下用的是哪张 svg —— svg 是按像素光栅化的，改比例要按新尺寸重画"""
+        self._button_svgs[button] = svg
+        button.setIcon(_svg_icon(svg, scaled(self.BASE_ICON)))
+
+    def _apply_scale_sizes(self):
+        """把基准尺寸按当前比例落到工具栏自己的控件上"""
+        self.setFixedHeight(scaled(self.BASE_HEIGHT))
+        self._container.setStyleSheet(self._container_qss())
+        self._row_layout.setContentsMargins(scaled(8), scaled(4), scaled(8), scaled(4))
+        self._row_layout.setSpacing(scaled(4))
+
+        btn_sz = scaled(self.BASE_BTN)
+        icon_sz = scaled(self.BASE_ICON)
+        for button, svg in self._button_svgs.items():
+            button.setFixedSize(btn_sz, btn_sz)
+            button.setIconSize(QSize(icon_sz, icon_sz))
+            button.setIcon(_svg_icon(svg, icon_sz))
+        self._time_label.setStyleSheet(self._time_label_qss())
+        self._fps_btn.apply_scale()
+        for sep in self._separators:
+            sep.setFixedSize(1, scaled(self.BASE_SEP_HEIGHT))
+        handle_icon = scaled(self.BASE_HANDLE_ICON)
+        self._move_handle.setFixedSize(scaled(self.BASE_HANDLE_WIDTH), btn_sz)
+        self._move_handle.setPixmap(
+            _svg_icon("移动窗口.svg", handle_icon).pixmap(QSize(handle_icon, handle_icon)))
+
+    def _build_ui(self):
+        container = QWidget(self)
+        self._container = container
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.addWidget(container)
 
         layout = QHBoxLayout(container)
-        layout.setContentsMargins(8, 4, 8, 4)
-        layout.setSpacing(4)
-
-        BS = 32   # 按钮大小
-        IS = 20   # 图标大小
+        self._row_layout = layout
+        # 建按钮时先不定尺寸，统一由 _apply_scale_sizes 按当前比例算
+        self._button_svgs = {}   # 按钮 → 它当前用的 svg，改比例时按新尺寸重画
+        self._separators = []
 
         # ── 左侧：录制控制 ──
 
@@ -142,18 +199,14 @@ class RecordToolbar(QWidget):
 
         # 1. 录制 / 停止
         self._record_btn = QPushButton()
-        self._record_btn.setFixedSize(BS, BS)
-        self._record_btn.setIconSize(QSize(IS, IS))
-        self._record_btn.setIcon(_svg_icon("开始录制.svg"))
+        self._set_button_icon(self._record_btn, "开始录制.svg")
         self._record_btn.setToolTip(_tr("开始录制"))
         self._record_btn.clicked.connect(self._on_record_clicked)
         layout.addWidget(self._record_btn)
 
         # 2. 暂停 / 恢复
         self._pause_btn = QPushButton()
-        self._pause_btn.setFixedSize(BS, BS)
-        self._pause_btn.setIconSize(QSize(IS, IS))
-        self._pause_btn.setIcon(_svg_icon("暂停不可.svg"))
+        self._set_button_icon(self._pause_btn, "暂停不可.svg")
         self._pause_btn.setToolTip(_tr("暂停录制"))
         self._pause_btn.setEnabled(False)
         self._pause_btn.clicked.connect(self._on_pause_clicked)
@@ -161,23 +214,18 @@ class RecordToolbar(QWidget):
 
         # 录制时间
         self._time_label = QLabel("00:00")
-        self._time_label.setStyleSheet(
-            "color: #666; font-size: 12px; border: none; min-width: 38px;"
-        )
         layout.addWidget(self._time_label)
 
         # ── 分隔线 ──
         sep = QWidget()
-        sep.setFixedSize(1, 24)
         sep.setStyleSheet("background: #ccc; border: none;")
+        self._separators.append(sep)
         layout.addWidget(sep)
 
         # ── 中间：绘制工具 ──
         for tool_id, svg_file, tip in _DRAW_TOOLS:
             btn = QPushButton()
-            btn.setFixedSize(BS, BS)
-            btn.setIconSize(QSize(IS, IS))
-            btn.setIcon(_svg_icon(svg_file))
+            self._set_button_icon(btn, svg_file)
             btn.setToolTip(_tr(tip))
             btn.setCheckable(True)
             btn.clicked.connect(lambda checked, tid=tool_id: self._on_tool_clicked(tid))
@@ -186,23 +234,19 @@ class RecordToolbar(QWidget):
 
         # ── 分隔线 ──
         sep2 = QWidget()
-        sep2.setFixedSize(1, 24)
         sep2.setStyleSheet("background: #ccc; border: none;")
+        self._separators.append(sep2)
         layout.addWidget(sep2)
 
         # ── 撤销 / 重做 ──
         self._undo_btn = QPushButton()
-        self._undo_btn.setFixedSize(BS, BS)
-        self._undo_btn.setIconSize(QSize(IS, IS))
-        self._undo_btn.setIcon(_svg_icon("撤回.svg"))
+        self._set_button_icon(self._undo_btn, "撤回.svg")
         self._undo_btn.setToolTip(_tr("撤销"))
         self._undo_btn.clicked.connect(self.undo_requested.emit)
         layout.addWidget(self._undo_btn)
 
         self._redo_btn = QPushButton()
-        self._redo_btn.setFixedSize(BS, BS)
-        self._redo_btn.setIconSize(QSize(IS, IS))
-        self._redo_btn.setIcon(_svg_icon("复原.svg"))
+        self._set_button_icon(self._redo_btn, "复原.svg")
         self._redo_btn.setToolTip(_tr("重做"))
         self._redo_btn.clicked.connect(self.redo_requested.emit)
         layout.addWidget(self._redo_btn)
@@ -211,9 +255,6 @@ class RecordToolbar(QWidget):
         layout.addStretch()
 
         self._move_handle = QLabel()
-        self._move_handle.setFixedSize(28, BS)
-        pm = _svg_icon("移动窗口.svg", 18).pixmap(QSize(18, 18))
-        self._move_handle.setPixmap(pm)
         self._move_handle.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._move_handle.setStyleSheet("QLabel { background: transparent; border: none; }")
         self._move_handle.setCursor(QCursor(Qt.CursorShape.SizeAllCursor))
@@ -223,12 +264,12 @@ class RecordToolbar(QWidget):
         layout.addWidget(self._move_handle)
 
         self._close_btn = QPushButton()
-        self._close_btn.setFixedSize(BS, BS)
-        self._close_btn.setIconSize(QSize(IS, IS))
-        self._close_btn.setIcon(_svg_icon("关闭.svg"))
+        self._set_button_icon(self._close_btn, "关闭.svg")
         self._close_btn.setToolTip(_tr("关闭"))
         self._close_btn.clicked.connect(self.close_requested.emit)
         layout.addWidget(self._close_btn)
+
+        self._apply_scale_sizes()
 
     # ── 二级设置面板 ──────────────────────────────────────────
 
@@ -399,7 +440,7 @@ class RecordToolbar(QWidget):
         tb_h = self.height()
         panel_w = panel.sizeHint().width()
         panel_h = panel.sizeHint().height()
-        gap = 4
+        gap = scaled(4)
 
         # 根据工具栏所在位置获取对应屏幕，而非固定主屏
         screen = QApplication.screenAt(tb_pos)
@@ -466,12 +507,10 @@ class RecordToolbar(QWidget):
 
     def get_max_panel_height(self) -> int:
         """获取所有二级设置面板的最大高度（含间距），供工具栏定位时预留空间"""
-        gap = 4
+        gap = scaled(4)
         max_h = 0
-        for attr in ('paint_panel', 'shape_panel', 'arrow_panel', 'text_panel'):
-            panel = getattr(self, attr, None)
-            if panel:
-                max_h = max(max_h, panel.sizeHint().height())
+        for panel in self._iter_panels():
+            max_h = max(max_h, panel.sizeHint().height())
         return (max_h + gap) if max_h else 0
 
     # ── 绘制工具回调 ─────────────────────────────────────────
@@ -541,19 +580,17 @@ class RecordToolbar(QWidget):
         self._current_tool = None
         self._update_tool_checked()
         self._hide_all_panels()
-        self._record_btn.setIcon(_svg_icon("开始录制.svg"))
+        self._set_button_icon(self._record_btn, "开始录制.svg")
         self._record_btn.setToolTip(_tr("开始录制"))
         self._pause_btn.setEnabled(False)
-        self._pause_btn.setIcon(_svg_icon("暂停不可.svg"))
+        self._set_button_icon(self._pause_btn, "暂停不可.svg")
         self._pause_btn.setToolTip(_tr("暂停录制"))
         self._fps_btn.set_enabled(True)
         self._move_handle.setEnabled(True)
         self._move_handle.setCursor(QCursor(Qt.CursorShape.SizeAllCursor))
         self._move_handle.setToolTip("")
         self._time_label.setText("00:00")
-        self._time_label.setStyleSheet(
-            "color: #666; font-size: 12px; border: none; min-width: 38px;"
-        )
+        self._time_label.setStyleSheet(self._time_label_qss())
 
     def get_current_fps(self) -> int:
         return self._fps_btn.current_value()
@@ -563,10 +600,10 @@ class RecordToolbar(QWidget):
     def _on_record_clicked(self):
         if not self._recording:
             self._recording = True
-            self._record_btn.setIcon(_svg_icon("结束录制.svg"))
+            self._set_button_icon(self._record_btn, "结束录制.svg")
             self._record_btn.setToolTip(_tr("停止录制"))
             self._pause_btn.setEnabled(True)
-            self._pause_btn.setIcon(_svg_icon("暂停录制.svg"))
+            self._set_button_icon(self._pause_btn, "暂停录制.svg")
             self._pause_btn.setToolTip(_tr("暂停录制"))
             self._fps_btn.set_enabled(False)
             self._move_handle.setEnabled(False)
@@ -576,10 +613,10 @@ class RecordToolbar(QWidget):
         else:
             self._recording = False
             self._paused = False
-            self._record_btn.setIcon(_svg_icon("开始录制.svg"))
+            self._set_button_icon(self._record_btn, "开始录制.svg")
             self._record_btn.setToolTip(_tr("开始录制"))
             self._pause_btn.setEnabled(False)
-            self._pause_btn.setIcon(_svg_icon("暂停不可.svg"))
+            self._set_button_icon(self._pause_btn, "暂停不可.svg")
             self._pause_btn.setToolTip(_tr("暂停录制"))
             self._fps_btn.set_enabled(True)
             self._move_handle.setEnabled(True)
@@ -591,10 +628,10 @@ class RecordToolbar(QWidget):
     def _on_pause_clicked(self):
         self._paused = not self._paused
         if self._paused:
-            self._pause_btn.setIcon(_svg_icon("重开录制.svg"))
+            self._set_button_icon(self._pause_btn, "重开录制.svg")
             self._pause_btn.setToolTip(_tr("恢复录制"))
         else:
-            self._pause_btn.setIcon(_svg_icon("暂停录制.svg"))
+            self._set_button_icon(self._pause_btn, "暂停录制.svg")
             self._pause_btn.setToolTip(_tr("暂停录制"))
         self.pause_toggled.emit(self._paused)
 

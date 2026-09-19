@@ -50,11 +50,12 @@ class SelectionDrag:
         model.activate()
         # 开始拖拽，隐藏控制点（降低渲染压力）
         model.start_dragging()
-        # 智能选区：点击时立即更新选区（防止 activate 清除选区）
+        # 智能选区：点击时立即更新选区（防止 activate 清除选区）。
+        # 跳过补间——按下这一刻选区必须是真实窗口矩形，否则截到的是插值中间态。
         if view.smart_selection_enabled:
-            smart_rect = view._get_smart_selection_rect(scene_pos)
-            if not smart_rect.isEmpty():
-                model.set_rect(smart_rect)
+            view._apply_smart_selection_rect(
+                view._get_smart_selection_rect(scene_pos), animate=False
+            )
 
     def perform(self, scene_pos: QPointF):
         view = self._view

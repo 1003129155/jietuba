@@ -12,9 +12,10 @@ from PySide6.QtCore import Qt, Signal, QSize, QPointF
 from PySide6.QtGui import QColor, QIcon, QImage, QPainter, QPixmap, QPolygonF
 from core.resource_manager import ResourceManager
 from core.i18n import make_tr
+from core.ui_scale import scaled
 from tools.mosaic import MosaicTool
 from .base_settings_panel import (
-    StepperWidget, build_settings_panel_stylesheet, paint_rounded_panel, PANEL_SCALE,
+    StepperWidget, build_settings_panel_stylesheet, paint_rounded_panel,
 )
 from core import safe_event
 
@@ -138,6 +139,15 @@ class MosaicSettingsPanel(QWidget):
     size_changed = Signal(int)
     block_size_changed = Signal(int)  # 马赛克/模糊粒度
 
+    # 基准尺寸（100% 下的实际像素）
+    BASE_MARGIN_H = 9
+    BASE_MARGIN_V = 7
+    BASE_SPACING = 9
+    BASE_SIZE_SPIN_WIDTH = 54
+    BASE_BTN = 27
+    BASE_ICON = 22
+    BASE_COMBO_WIDTH = 72
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -154,45 +164,60 @@ class MosaicSettingsPanel(QWidget):
     def paintEvent(self, event):
         paint_rounded_panel(self)
 
+    def _build_stylesheet(self) -> str:
+        return build_settings_panel_stylesheet(
+            combo_enabled=True,
+            combo_padding="1px",
+            combo_min_width=self.BASE_COMBO_WIDTH,
+            combo_max_width=self.BASE_COMBO_WIDTH,
+            combo_padding_compact=True,
+        )
+
+    def apply_scale(self):
+        """按当前比例重算面板尺寸。模式、粒度、笔刷大小都不动，只改显示大小。"""
+        self.setStyleSheet(self._build_stylesheet())
+        mh, mv = scaled(self.BASE_MARGIN_H), scaled(self.BASE_MARGIN_V)
+        layout = self.layout()
+        layout.setContentsMargins(mh, mv, mh, mv)
+        layout.setSpacing(scaled(self.BASE_SPACING))
+
+        btn_sz = scaled(self.BASE_BTN)
+        icon_sz = scaled(self.BASE_ICON)
+        for btn in (self.freehand_btn, self.rect_btn):
+            btn.setFixedSize(btn_sz, btn_sz)
+            btn.setIconSize(QSize(icon_sz, icon_sz))
+        self.mode_widget.layout().setSpacing(scaled(2))
+        self.size_spin.setFixedWidth(scaled(self.BASE_SIZE_SPIN_WIDTH))
+        for button in self.block_size_buttons.values():
+            button.setFixedSize(btn_sz, btn_sz)
+            button.setIconSize(QSize(icon_sz, icon_sz))
+        self._block_size_layout.setSpacing(scaled(2))
+        # 档位图样是按 _swatch_side 的像素画的，改比例后要重画
+        self._swatch_side = icon_sz
+        self._refresh_block_size_icons()
+        self.adjustSize()
+        self.update()
+
     def _init_ui(self):
         from tools.base import Tool
 
-        self.setStyleSheet(build_settings_panel_stylesheet(
-            combo_enabled=True,
-            combo_padding="1px",
-            combo_min_width=72,
-            combo_max_width=72,
-            combo_padding_compact=True,
-        ))
-
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(round(10 * PANEL_SCALE), round(8 * PANEL_SCALE),
-                                  round(10 * PANEL_SCALE), round(8 * PANEL_SCALE))
-        layout.setSpacing(round(10 * PANEL_SCALE))
 
         # === 左侧：框选/画笔模式切换 ===
         self.mode_widget = QWidget()
         mode_layout = QHBoxLayout(self.mode_widget)
         mode_layout.setContentsMargins(0, 0, 0, 0)
-        mode_layout.setSpacing(2)
-
-        _btn_sz = round(30 * PANEL_SCALE)
-        _icon_sz = round(24 * PANEL_SCALE)
 
         self.freehand_btn = QPushButton()
         self.freehand_btn.setCheckable(True)
-        self.freehand_btn.setFixedSize(_btn_sz, _btn_sz)
         self.freehand_btn.setToolTip(_tr("Freehand Mosaic"))
         self.freehand_btn.setIcon(_cached_icon("画笔.svg"))
-        self.freehand_btn.setIconSize(QSize(_icon_sz, _icon_sz))
         self.freehand_btn.setStyleSheet("QPushButton { padding: 0px; }")
 
         self.rect_btn = QPushButton()
         self.rect_btn.setCheckable(True)
-        self.rect_btn.setFixedSize(_btn_sz, _btn_sz)
         self.rect_btn.setToolTip(_tr("Rect Mosaic"))
         self.rect_btn.setIcon(_cached_icon("方框.svg"))
-        self.rect_btn.setIconSize(QSize(_icon_sz, _icon_sz))
         self.rect_btn.setStyleSheet("QPushButton { padding: 0px; }")
 
         self.mode_group = QButtonGroup(self)
@@ -206,7 +231,6 @@ class MosaicSettingsPanel(QWidget):
 
         # === 笔刷大小 ===
         self.size_spin = StepperWidget(self.current_size, Tool.MIN_WIDTH, Tool.MAX_WIDTH)
-        self.size_spin.setFixedWidth(round(60 * PANEL_SCALE))
         self.size_spin.setToolTip(_tr("Brush Size"))
         layout.addWidget(self.size_spin)
 
@@ -234,7 +258,7 @@ class MosaicSettingsPanel(QWidget):
         block_size_widget = QWidget()
         block_size_layout = QHBoxLayout(block_size_widget)
         block_size_layout.setContentsMargins(0, 0, 0, 0)
-        block_size_layout.setSpacing(2)
+        self._block_size_layout = block_size_layout
 
         # 面板通用的选中态是浅灰底（#e0e0e0），和悬停的 #f0f0f0 只差一点点；
         # 这四个按钮又被图样铺满，底色基本露不出来。所以选中态改用一圈主题色
@@ -244,12 +268,10 @@ class MosaicSettingsPanel(QWidget):
             "QPushButton:hover { border-color: #bbb; }"
             "QPushButton:checked { border: 2px solid #0078d7; }"
         )
-        self._swatch_side = _icon_sz
+        self._swatch_side = scaled(self.BASE_ICON)
         for index, level in enumerate(MosaicTool.BLOCK_SIZE_LEVELS):
             button = QPushButton()
             button.setCheckable(True)
-            button.setFixedSize(_btn_sz, _btn_sz)
-            button.setIconSize(QSize(_icon_sz, _icon_sz))
             button.setToolTip(_tr(BLOCK_SIZE_TIPS[index]))
             button.setStyleSheet(level_button_qss)
             self.block_size_group.addButton(button)
@@ -266,6 +288,7 @@ class MosaicSettingsPanel(QWidget):
         self.style_combo.setMaxVisibleItems(10)
         layout.addWidget(self.style_combo)
 
+        self.apply_scale()
         self.set_draw_mode(self.current_draw_mode)
         self.set_style(self.current_style)
         self.set_block_size(self.current_block_size)

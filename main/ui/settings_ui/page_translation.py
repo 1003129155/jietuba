@@ -217,7 +217,7 @@ def create_translation_page(dialog) -> QWidget:
     info_label = QLabel(page)
     info_label.setOpenExternalLinks(True)
     info_label.setWordWrap(True)
-    info_label.setStyleSheet("padding: 5px; font-size: 12px; color: #999;")
+    info_label.setStyleSheet("padding: 5px; font-size: 13px; color: #999;")
     layout.addWidget(info_label)
     dialog.translation_notice_label = info_label
 
@@ -252,7 +252,7 @@ def _build_field(dialog, section, field):
     row.setSpacing(10)
 
     title = QLabel(dialog.tr(field.label), card)
-    apply_theme_text_style(title, 14)
+    apply_theme_text_style(title, 15)
     title.setFixedWidth(_LABEL_WIDTH)
     row.addWidget(title)
 
