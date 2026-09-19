@@ -26,6 +26,8 @@ jobs:
             rust-target: aarch64-pc-windows-msvc
     runs-on: ${{ matrix.runner }}
     env:
+      PYTHONFAULTHANDLER: "1"
+      RUST_BACKTRACE: full
       # PySide6 GUI 组件在无桌面会话的 CI Runner 上需要离屏渲染
       QT_QPA_PLATFORM: offscreen
 
@@ -85,17 +87,29 @@ jobs:
         # 当前为零告警，新增违规会让 CI 变红。
         run: ruff check main
 
+      - name: Probe longstitch failure path in a clean process
+        run: |
+          python -X faulthandler -m pytest `
+            main/tests/test_stitch_integration.py::TestAutoDirection::test_failure_falls_back_to_forward_direction `
+            -c main/tests/pytest.ini -vv -s
+          $code = $LASTEXITCODE
+          Write-Host ("Probe Python exit code: {0} (0x{1:X8})" -f $code, ($code -band 0xffffffff))
+          exit $code
+
       - name: Run test suite with coverage
         # 从仓库根目录运行，保证 .coveragerc 里的相对路径能正确解析。
         # --cov-fail-under 是一个只升不降的棘轮：覆盖率掉下去 CI 就红，
         # 补完测试后把这个数字往上调。
-        run: >
-          pytest main/tests -v
-          -c main/tests/pytest.ini
-          --cov --cov-config=.coveragerc
-          --cov-report=term:skip-covered
-          --cov-report=xml
-          --cov-fail-under=37
+        run: |
+          python -X faulthandler -m pytest main/tests -v `
+            -c main/tests/pytest.ini `
+            --cov --cov-config=.coveragerc `
+            --cov-report=term:skip-covered `
+            --cov-report=xml `
+            --cov-fail-under=37
+          $code = $LASTEXITCODE
+          Write-Host ("Full-suite Python exit code: {0} (0x{1:X8})" -f $code, ($code -band 0xffffffff))
+          exit $code
 
       - name: Exercise the real ARM64 clipboard watcher
         if: matrix.arch == 'arm64'
