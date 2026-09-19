@@ -1009,13 +1009,13 @@ class ClipboardWindow(QWidget, FramelessMixin):
     def _special_paste(self, item_id: int, action_key: str):
         """执行特殊粘贴：先记录前台窗口，再调用 controller 的加工粘贴。"""
         self.controller._previous_window_hwnd = get_foreground_window()
-        self.controller.paste_transformed_text(item_id, action_key, on_close_callback=self.close)
+        self.controller.paste_transformed_text(item_id, action_key, on_close_callback=self.close, explicit=True)
         self.item_pasted.emit(item_id)
 
     def _file_special_paste(self, item_id: int, action_key: str):
         """执行文件项特殊粘贴。"""
         self.controller._previous_window_hwnd = get_foreground_window()
-        self.controller.paste_file_text(item_id, action_key, on_close_callback=self.close)
+        self.controller.paste_file_text(item_id, action_key, on_close_callback=self.close, explicit=True)
         self.item_pasted.emit(item_id)
 
     def _move_item_to_group(self, item_id: int, group_id: Optional[int]):
@@ -1072,8 +1072,9 @@ class ClipboardWindow(QWidget, FramelessMixin):
             log_warning(T("打开文件失败: {e}", e=e), "Clipboard")
 
     def _paste_item_to_clipboard(self, item_id: int):
+        """右键菜单的"粘贴"：用户点这一下就是要粘一次，explicit=True 跳过自动粘贴开关。"""
         self.controller._previous_window_hwnd = get_foreground_window()
-        if self.controller.paste_item(item_id, on_close_callback=self.close):
+        if self.controller.paste_item(item_id, on_close_callback=self.close, explicit=True):
             self.item_pasted.emit(item_id)
 
     def _save_image_as(self, item_id: int):

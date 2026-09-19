@@ -18,7 +18,7 @@ from ..models import (
     TranslationResult,
     normalize_language_code,
 )
-from ..provider import CredentialField, TranslationProvider
+from ..provider import TextField, TranslationProvider
 
 
 class AmazonTranslateProvider(TranslationProvider):
@@ -54,13 +54,13 @@ class AmazonTranslateProvider(TranslationProvider):
         ).strip()
 
     CREDENTIAL_FIELDS = (
-        CredentialField("amazon_translate_region", "AWS 区域", "us-west-2"),
-        CredentialField("amazon_translate_access_key_id", "Access Key ID",
-                        "AKIA..."),
-        CredentialField("amazon_translate_secret_access_key",
-                        "Secret Access Key", "Secret Access Key", secret=True),
-        CredentialField("amazon_translate_session_token", "Session Token",
-                        "可选，临时凭据使用", secret=True),
+        TextField("amazon_translate_region", "AWS 区域", "us-west-2"),
+        TextField("amazon_translate_access_key_id", "Access Key ID",
+                  "AKIA..."),
+        TextField("amazon_translate_secret_access_key",
+                  "Secret Access Key", "Secret Access Key", secret=True),
+        TextField("amazon_translate_session_token", "Session Token",
+                  "可选，临时凭据使用", secret=True),
     )
     HELP_LABEL = "console.aws.amazon.com"
     HELP_URL = "https://console.aws.amazon.com/iam/home#/security_credentials"
@@ -131,6 +131,18 @@ class AmazonTranslateProvider(TranslationProvider):
             )
         except urllib.error.HTTPError as exc:
             return self._http_error(exc)
+        except TimeoutError:
+            # 读超时抛的是 TimeoutError，它不是 URLError 的子类，不加这条就会
+            # 一路掉进下面的兜底：归类成 UNKNOWN，还把「The read operation
+            # timed out」这种英文原文直接甩给用户。
+            log_error(
+                f"Amazon Translate timed out after {request.timeout}s",
+                "AmazonTranslate",
+            )
+            return self._error(
+                TranslationErrorCode.NETWORK_ERROR,
+                f"Request timed out after {request.timeout}s",
+            )
         except urllib.error.URLError as exc:
             reason = getattr(exc, "reason", exc)
             log_error(

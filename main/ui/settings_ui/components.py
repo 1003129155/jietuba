@@ -2,7 +2,9 @@
 """
 设置窗口 — 共享 UI 组件库
 """
-from PySide6.QtWidgets import QWidget, QFrame, QVBoxLayout, QHBoxLayout, QLabel
+from PySide6.QtWidgets import (
+    QWidget, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QSizePolicy,
+)
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QColor, QPainter
 from core import safe_event
@@ -107,12 +109,35 @@ class SettingCardGroup(_SettingCardGroupBase):
     def addSettingCard(self, card: QWidget):
         super().addSettingCard(card)
 
+    def __init__(self, title, parent=None):
+        super().__init__(title, parent)
+        # 竖直方向不吃富余空间：页面末尾有 addStretch()，本该由它吸收多出来的高度。
+        # 默认策略下组会把富余摊进卡片之间，表现为组顶部凭空多一段空白，
+        # 同时把后面的卡片顶出可视区。
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+
+    def refreshHeight(self):
+        """按当前可见的卡片重算最小高度。
+
+        只在 showEvent 里算一次是不够的：卡片显隐变化后（翻译页切换服务商时，
+        同一个组里换成行数不同的另一批凭证），旧的 minimumHeight 会留着不动，
+        表现为组顶部多出一段空白、页面底部的卡片被切掉。
+        """
+        # 上下限一起锁死。只设 minimum 的话，组内的 _card_container 是默认策略，
+        # 会把页面分给组的富余高度全吃进去，摊在卡片之间。
+        self.setFixedHeight(self.cardLayout.heightForWidth(self.width()) + 46)
+
     @safe_event
     def showEvent(self, e):
         super().showEvent(e)
-        # 显示后 card.height() 才准确，重新算 minimumHeight
-        h = self.cardLayout.heightForWidth(self.width()) + 46
-        self.setMinimumHeight(h)
+        # 显示后 card.height() 才准确，重新算高度
+        self.refreshHeight()
+
+    @safe_event
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        # 宽度变了，带换行描述的卡片行数会变，高度得跟着重算
+        self.refreshHeight()
 
 def make_row(label, ctrl_widget: QWidget) -> QHBoxLayout:
     """创建统一的「标签 — 控件」行。"""

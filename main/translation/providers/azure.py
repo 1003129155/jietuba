@@ -18,7 +18,7 @@ from ..models import (
     TranslationResult,
     normalize_language_code,
 )
-from ..provider import CredentialField, TranslationProvider
+from ..provider import TextField, TranslationProvider
 
 
 class AzureTranslateProvider(TranslationProvider):
@@ -46,11 +46,11 @@ class AzureTranslateProvider(TranslationProvider):
         ).strip().rstrip("/")
 
     CREDENTIAL_FIELDS = (
-        CredentialField("azure_translate_api_key", "Azure API Key",
-                        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", secret=True),
-        CredentialField("azure_translate_region", "Azure Region", "eastasia"),
-        CredentialField("azure_translate_endpoint", "Azure Endpoint",
-                        "Optional, use default if empty"),
+        TextField("azure_translate_api_key", "Azure API Key",
+                  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", secret=True),
+        TextField("azure_translate_region", "Azure Region", "eastasia"),
+        TextField("azure_translate_endpoint", "Azure Endpoint",
+                  "Optional, use default if empty"),
     )
     HELP_LABEL = "portal.azure.com"
     HELP_URL = "https://portal.azure.com/"
@@ -144,6 +144,18 @@ class AzureTranslateProvider(TranslationProvider):
             )
         except urllib.error.HTTPError as exc:
             return self._http_error(exc)
+        except TimeoutError:
+            # 读超时抛的是 TimeoutError，它不是 URLError 的子类，不加这条就会
+            # 一路掉进下面的兜底：归类成 UNKNOWN，还把「The read operation
+            # timed out」这种英文原文直接甩给用户。
+            log_error(
+                f"Azure Translate timed out after {request.timeout}s",
+                "AzureTranslate",
+            )
+            return self._error(
+                TranslationErrorCode.NETWORK_ERROR,
+                f"Request timed out after {request.timeout}s",
+            )
         except urllib.error.URLError as exc:
             reason = getattr(exc, "reason", exc)
             log_error(

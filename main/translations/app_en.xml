@@ -1217,6 +1217,8 @@ Replace it?</translation>
     <message><source>Screenshot (2)</source><translation>Screenshot (2)</translation></message>
     <message><source>Translation (2)</source><translation>Translation (2)</translation></message>
     <message><source>Clipboard (2)</source><translation>Clipboard (2)</translation></message>
+    <message><source>Pin Clipboard Image</source><translation>Create Pin Image</translation></message>
+    <message><source>Pin Clipboard Image (2)</source><translation>Create Pin Image (2)</translation></message>
     <message><source>Hotkey Registration Failed</source><translation>Hotkey Registration Failed</translation></message>
     <message><source>The following hotkeys failed to register:</source><translation>The following hotkeys failed to register:</translation></message>
     <message><source>The hotkey may be occupied by other programs. Please try a different combination.</source><translation>The hotkey may be occupied by other programs. Please try a different combination.</translation></message>
@@ -1376,6 +1378,7 @@ Replace it?</translation>
         <translation>Translation</translation>
     </message>
     <message><source>Translation Hotkey</source><translation>Translation Hotkey</translation></message>
+    <message><source>Pin Clipboard Image</source><translation>Create Pin Image</translation></message>
     <message>
         <source>Translation Settings</source>
         <translation>Translation Settings</translation>

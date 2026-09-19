@@ -515,12 +515,36 @@ class ClipboardController(QObject):
     
     # ==================== 项目操作 ====================
     
-    def paste_item(self, item_id: int, on_close_callback: Optional[Callable] = None) -> bool:
+    def _send_paste_keystroke(self, explicit: bool):
+        """粘贴完成后替用户按一次 Ctrl+V。
+
+        explicit=True 表示用户在右键菜单里明确点了"粘贴"/"特殊粘贴"——这本身
+        就是一次手动粘贴动作，所以不受"选择后自动粘贴"开关约束；那个开关管的
+        只是选中项目（双击/回车/数字键）时要不要顺手替你粘上去。
+        """
+        if not explicit and not self.auto_paste_enabled:
+            return
+
+        # 先恢复之前的窗口焦点，再发送 Ctrl+V
+        def do_paste():
+            if self._previous_window_hwnd:
+                set_foreground_window(self._previous_window_hwnd)
+            # 稍微延迟确保焦点切换完成
+            QTimer.singleShot(30, send_ctrl_v)
+
+        # 延迟执行，确保剪贴板窗口已关闭/隐藏
+        QTimer.singleShot(50, do_paste)
+
+    def paste_item(
+        self, item_id: int, on_close_callback: Optional[Callable] = None,
+        explicit: bool = False,
+    ) -> bool:
         """粘贴项目
         
         Args:
             item_id: 项目ID
             on_close_callback: 关闭窗口的回调函数
+            explicit: 是否为用户显式触发的粘贴（右键菜单），True 时无视自动粘贴开关
         
         Returns:
             是否粘贴成功
@@ -542,24 +566,14 @@ class ClipboardController(QObject):
             if on_close_callback:
                 on_close_callback()
             
-            # 自动粘贴：发送 Ctrl+V
-            if self.auto_paste_enabled:
-                # 先恢复之前的窗口焦点，再发送 Ctrl+V
-                def do_paste():
-                    if self._previous_window_hwnd:
-                        set_foreground_window(self._previous_window_hwnd)
-                    # 稍微延迟确保焦点切换完成
-                    QTimer.singleShot(30, send_ctrl_v)
-                
-                # 延迟执行，确保剪贴板窗口已关闭/隐藏
-                QTimer.singleShot(50, do_paste)
-            
+            self._send_paste_keystroke(explicit)
             return True
         return False
 
     def paste_transformed_text(
         self, item_id: int, transform_key: str,
         on_close_callback: Optional[Callable] = None,
+        explicit: bool = False,
     ) -> bool:
         """对文本项内容做加工后写入系统剪贴板并触发粘贴。
 
@@ -568,6 +582,7 @@ class ClipboardController(QObject):
             transform_key: 转换键名（对应 TRANSFORM_REGISTRY 的 key，
                 特殊值 "special_paste_plain_text" 表示粘贴纯文本不带格式）
             on_close_callback: 关闭窗口的回调函数
+            explicit: 是否为用户显式触发的粘贴（右键菜单），True 时无视自动粘贴开关
 
         Returns:
             是否成功
@@ -580,12 +595,7 @@ class ClipboardController(QObject):
                 log_info(T("保持顺序粘贴项 {item_id}", item_id=item_id), "Clipboard")
                 if on_close_callback:
                     on_close_callback()
-                if self.auto_paste_enabled:
-                    def do_paste_order():
-                        if self._previous_window_hwnd:
-                            set_foreground_window(self._previous_window_hwnd)
-                        QTimer.singleShot(30, send_ctrl_v)
-                    QTimer.singleShot(50, do_paste_order)
+                self._send_paste_keystroke(explicit)
                 return True
             return False
 
@@ -603,12 +613,7 @@ class ClipboardController(QObject):
             log_info(T("粘贴纯文本项 {item_id}", item_id=item_id), "Clipboard")
             if on_close_callback:
                 on_close_callback()
-            if self.auto_paste_enabled:
-                def do_paste():
-                    if self._previous_window_hwnd:
-                        set_foreground_window(self._previous_window_hwnd)
-                    QTimer.singleShot(30, send_ctrl_v)
-                QTimer.singleShot(50, do_paste)
+            self._send_paste_keystroke(explicit)
             return True
 
         from ..core.text_transform import TRANSFORM_REGISTRY
@@ -646,20 +651,13 @@ class ClipboardController(QObject):
         if on_close_callback:
             on_close_callback()
 
-        # 自动粘贴：发送 Ctrl+V
-        if self.auto_paste_enabled:
-            def do_paste():
-                if self._previous_window_hwnd:
-                    set_foreground_window(self._previous_window_hwnd)
-                QTimer.singleShot(30, send_ctrl_v)
-
-            QTimer.singleShot(50, do_paste)
-
+        self._send_paste_keystroke(explicit)
         return True
 
     def paste_file_text(
         self, item_id: int, transform_key: str,
         on_close_callback: Optional[Callable] = None,
+        explicit: bool = False,
     ) -> bool:
         """将文件项转换为纯文本后写入剪贴板并触发粘贴。"""
         import pyclipboard
@@ -700,14 +698,7 @@ class ClipboardController(QObject):
         if on_close_callback:
             on_close_callback()
 
-        if self.auto_paste_enabled:
-            def do_paste():
-                if self._previous_window_hwnd:
-                    set_foreground_window(self._previous_window_hwnd)
-                QTimer.singleShot(30, send_ctrl_v)
-
-            QTimer.singleShot(50, do_paste)
-
+        self._send_paste_keystroke(explicit)
         return True
 
     def delete_item(self, item_id: int) -> bool:

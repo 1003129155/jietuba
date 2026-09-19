@@ -30,7 +30,9 @@ class ScreenshotShortcutHandler(ShortcutHandler):
     def __init__(self, window: 'ScreenshotWindow'):
         self._window = window
         # 从配置读取应用内快捷键（一次性，截图窗口生命周期内不变）
-        from core.shortcut_manager import load_inapp_bindings, load_move_keys
+        from core.shortcut_manager import (
+            load_inapp_bindings, load_inapp_mouse_bindings, load_move_keys,
+        )
         from settings import ANNOTATION_TOOL_SHORTCUTS
         action_keys = [
             "inapp_confirm", "inapp_pin", "inapp_undo", "inapp_redo",
@@ -39,9 +41,9 @@ class ScreenshotShortcutHandler(ShortcutHandler):
             "inapp_text_recognize",
         ]
         self._tool_shortcuts = tuple(ANNOTATION_TOOL_SHORTCUTS)
-        self._bindings = load_inapp_bindings(
-            action_keys + [entry[0] for entry in self._tool_shortcuts]
-        )
+        bound_keys = action_keys + [entry[0] for entry in self._tool_shortcuts]
+        self._bindings = load_inapp_bindings(bound_keys)
+        self._mouse_bindings = load_inapp_mouse_bindings(bound_keys)
         self._move_keys = load_move_keys()
 
     @property
@@ -64,31 +66,41 @@ class ScreenshotShortcutHandler(ShortcutHandler):
                 and QApplication.activeModalWidget() is None)
 
     def _match(self, event, cfg_key: str) -> bool:
-        """检查按键事件是否匹配某个绑定"""
-        binding = self._bindings.get(cfg_key)
-        if not binding:
-            return False
-        want_key, want_mods = binding
-        return event.key() == want_key and event.modifiers() == want_mods
+        """检查事件是否匹配某个绑定（键盘组合或鼠标键）"""
+        from core.shortcut_manager import match_inapp_binding
+        return match_inapp_binding(
+            event, cfg_key, self._bindings, self._mouse_bindings
+        )
+
+    def handle_mouse(self, event) -> bool:
+        """中键走和键盘完全相同的那条 if 链，见 ShortcutHandler.handle_mouse。"""
+        return self.handle_key(event)
 
     def handle_key(self, event) -> bool:
+        from core.shortcut_manager import event_is_auto_repeat, event_key
+
         w = self._window
+        # 中键也走这条链（见 handle_mouse）。鼠标事件没有 key()，这里取到的是
+        # Key_unknown，所以下面所有键专属的分支——文字编辑放行、ESC、鼠标微移、
+        # 硬编码的取色 C 和 Enter——对中键自然全部落空，只剩 _match 驱动的那些
+        # 分支有效。不必逐条再加「这是不是鼠标事件」的判断。
+        key = event_key(event)
         if hasattr(w, "view") and hasattr(w.view, "invalidate_double_click_candidate"):
             w.view.invalidate_double_click_candidate()
         is_text_editing = w._is_text_editing()
 
         # 文字编辑模式下，部分按键交给 QGraphicsTextItem
         if is_text_editing:
-            if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
                 return False
-            if event.key() in (Qt.Key.Key_C, Qt.Key.Key_D):
+            if key in (Qt.Key.Key_C, Qt.Key.Key_D):
                 return False
-            if (event.key() in (Qt.Key.Key_Z, Qt.Key.Key_Y)
+            if (key in (Qt.Key.Key_Z, Qt.Key.Key_Y)
                     and event.modifiers() == Qt.KeyboardModifier.ControlModifier):
                 return False
 
         # ESC — 固定不可自定义
-        if event.key() == Qt.Key.Key_Escape:
+        if key == Qt.Key.Key_Escape:
             w.cleanup_and_close()
             return True
 
@@ -158,13 +170,13 @@ class ScreenshotShortcutHandler(ShortcutHandler):
             for cfg_key, tool_id, _label, _default in self._tool_shortcuts:
                 if not self._match(event, cfg_key):
                     continue
-                if not event.isAutoRepeat() and hasattr(w, "toolbar") and w.toolbar:
+                if not event_is_auto_repeat(event) and hasattr(w, "toolbar") and w.toolbar:
                     w.toolbar.select_tool(tool_id, toggle=False)
                 return True
 
         # ── 鼠标微移（配置动作/工具之后）──
         if not is_text_editing:
-            delta = self._move_keys.get(event.key())
+            delta = self._move_keys.get(key)
             if delta and event.modifiers() == Qt.KeyboardModifier.NoModifier:
                 from PySide6.QtGui import QCursor
                 p = QCursor.pos()
@@ -172,7 +184,7 @@ class ScreenshotShortcutHandler(ShortcutHandler):
                 return True
 
         # 取色（单键 C，无修饰键 — 保留硬编码）
-        if event.key() == Qt.Key.Key_C:
+        if key == Qt.Key.Key_C:
             if event.modifiers() == Qt.KeyboardModifier.NoModifier:
                 mo = getattr(w, 'magnifier_overlay', None)
                 if mo and mo.cursor_scene_pos is not None and mo._should_render():
@@ -181,7 +193,7 @@ class ScreenshotShortcutHandler(ShortcutHandler):
                         return True
 
         # Enter 确认（固定）
-        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+        if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             if w.scene and w.scene.selection_model.is_confirmed:
                 w.action_handler.handle_confirm()
                 return True

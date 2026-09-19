@@ -1,7 +1,10 @@
 import datetime as dt
+import hashlib
 import io
 import json
 import urllib.error
+
+import pytest
 
 from translation.models import (
     TranslationErrorCode,
@@ -10,6 +13,7 @@ from translation.models import (
 )
 from translation.provider import TranslationProvider
 from translation.providers.amazon import AmazonTranslateProvider
+from translation.providers.baidu import BaiduTranslateProvider
 from translation.providers.deepl import DeepLProvider
 from translation.providers.google import GoogleTranslateProvider
 from translation.registry import ProviderRegistry
@@ -362,3 +366,182 @@ def test_google_provider_maps_quota_error(monkeypatch):
 
     assert not result.success
     assert result.error_code is TranslationErrorCode.RATE_LIMITED
+
+
+def _baidu_provider(**overrides):
+    config = {"appid": "20260101000000001", "secret_key": "baidu-secret"}
+    config.update(overrides)
+    return BaiduTranslateProvider(config)
+
+
+def test_baidu_provider_signs_request_and_maps_language_codes(monkeypatch):
+    captured = {}
+
+    class _Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            pass
+
+        def read(self):
+            return json.dumps(
+                {
+                    "from": "en",
+                    "to": "zh",
+                    "trans_result": [{"src": "Hello", "dst": "你好"}],
+                }
+            ).encode("utf-8")
+
+    def _urlopen(request, timeout):
+        captured["request"] = request
+        captured["timeout"] = timeout
+        return _Response()
+
+    monkeypatch.setattr(
+        "translation.providers.baidu.urllib.request.urlopen", _urlopen
+    )
+    result = _baidu_provider().translate(
+        TranslationRequest("Hello", "zh-Hans", source_lang="en", timeout=6)
+    )
+
+    assert result.success
+    assert result.translated_text == "你好"
+    assert result.detected_source_lang == "en"
+    assert captured["timeout"] == 6
+    # 走签名鉴权，不带 Authorization 头。带了反而会让服务端改走 Bearer 分支、
+    # 回 54001 invalid token。
+    headers = {
+        key.lower(): value
+        for key, value in captured["request"].header_items()
+    }
+    assert "authorization" not in headers
+
+    body = json.loads(captured["request"].data.decode("utf-8"))
+    assert body["appid"] == "20260101000000001"
+    assert body["from"] == "en"
+    assert body["to"] == "zh"
+    assert body["q"] == "Hello"
+    # salt 必须是 JSON 数字：服务端 AITextRequest.Salt 是 uint64，字符串会被
+    # 回 53001 parse json body error。
+    assert isinstance(body["salt"], int)
+    # appid 反过来必须是字符串，同样是服务端结构体定死的。
+    assert isinstance(body["appid"], str)
+    assert body["sign"] == hashlib.md5(
+        f"20260101000000001Hello{body['salt']}baidu-secret".encode("utf-8")
+    ).hexdigest()
+
+
+def test_baidu_provider_maps_ukrainian_to_baidus_three_letter_code():
+    """百度要 ukr，透传 uk 会被回 58001 语言方向不支持（实测）。
+
+    其余 18 个目标语种实测透传或现有映射都正确，所以这里只钉住这一个特例。
+    """
+    assert BaiduTranslateProvider._to_baidu_code("uk") == "ukr"
+    assert BaiduTranslateProvider._from_baidu_code("ukr") == "uk"
+    # 看着像该用三字母码、实则透传就对的几个，钉住防止被"顺手补全"
+    for code in ("tr", "id", "th", "nl", "pl", "it"):
+        assert BaiduTranslateProvider._to_baidu_code(code) == code
+
+
+def test_baidu_provider_joins_multiline_trans_result(monkeypatch):
+    class _Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            pass
+
+        def read(self):
+            return json.dumps(
+                {
+                    "from": "zh",
+                    "to": "en",
+                    "trans_result": [
+                        {"src": "你好", "dst": "Hello"},
+                        {"src": "世界", "dst": "World"},
+                    ],
+                }
+            ).encode("utf-8")
+
+    monkeypatch.setattr(
+        "translation.providers.baidu.urllib.request.urlopen",
+        lambda *_a, **_k: _Response(),
+    )
+    result = _baidu_provider().translate(
+        TranslationRequest("你好\n世界", "en")
+    )
+
+    assert result.success
+    assert result.translated_text == "Hello\nWorld"
+
+
+def test_baidu_provider_maps_api_level_error_despite_http_200(monkeypatch):
+    """百度鉴权/参数错误也回 HTTP 200，错误信息在 body 的 error_code 里。"""
+
+    class _Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            pass
+
+        def read(self):
+            return json.dumps(
+                {"error_code": "52003", "error_msg": "UNAUTHORIZED USER"}
+            ).encode("utf-8")
+
+    monkeypatch.setattr(
+        "translation.providers.baidu.urllib.request.urlopen",
+        lambda *_a, **_k: _Response(),
+    )
+    result = _baidu_provider().translate(
+        TranslationRequest("Hello", "zh-Hans")
+    )
+
+    assert not result.success
+    assert result.error_code is TranslationErrorCode.AUTH_FAILED
+    assert result.error_message == "UNAUTHORIZED USER"
+
+
+def test_baidu_provider_rejects_when_not_configured():
+    result = BaiduTranslateProvider({}).translate(
+        TranslationRequest("Hello", "zh-Hans")
+    )
+
+    assert not result.success
+    assert result.error_code is TranslationErrorCode.NOT_CONFIGURED
+
+
+def test_baidu_provider_maps_body_parse_error_to_invalid_request():
+    """53001 文档没列，是打真实接口撞出来的（字段类型写错时服务端回它）。"""
+    assert BaiduTranslateProvider._map_api_error_code("53001") is (
+        TranslationErrorCode.INVALID_REQUEST
+    )
+
+
+# ============================================================================
+# 读超时：TimeoutError 不是 URLError 的子类，每家都得单列一条
+# ============================================================================
+
+@pytest.mark.parametrize("module_path,make", [
+    ("translation.providers.baidu",
+     lambda: BaiduTranslateProvider(
+         {"appid": "20260101000000001", "secret_key": "s"})),
+    ("translation.providers.google",
+     lambda: GoogleTranslateProvider({"api_key": "k"})),
+    ("translation.providers.amazon", _amazon_provider),
+])
+def test_read_timeout_is_a_network_error(monkeypatch, module_path, make):
+    """漏了这条，用户看到的是没翻译的「The read operation timed out」，
+    而且归类成 UNKNOWN，上层没法按网络问题处理。"""
+    def _urlopen(*_args, **_kwargs):
+        raise TimeoutError("The read operation timed out")
+
+    monkeypatch.setattr(module_path + ".urllib.request.urlopen", _urlopen)
+    result = make().translate(TranslationRequest("Hello", "ZH"))
+
+    assert not result.success
+    assert result.error_code is TranslationErrorCode.NETWORK_ERROR
+    assert "timed out" in result.error_message.lower()
+    assert "read operation" not in result.error_message.lower()

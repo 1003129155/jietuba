@@ -14,10 +14,12 @@ def _get_shortcut_display(cfg_key: str) -> str:
     """从配置读取快捷键并返回大写显示文本（如 "CTRL+C"、"R"、"SPACE"）"""
     from settings import get_tool_settings_manager
     cfg = get_tool_settings_manager()
+    from core.shortcut_manager import inapp_shortcut_display_text
     text = cfg.get_inapp_shortcut(cfg_key)
     if not text:
         text = cfg.APP_DEFAULT_SETTINGS.get(cfg_key, "")
-    return text.upper() if text else ""
+    # 绑成鼠标中键时显示「中键」，而不是配置里那个 MOUSEMIDDLE
+    return inapp_shortcut_display_text(text)
 
 
 class PinContextMenu:

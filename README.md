@@ -503,7 +503,10 @@ translation/
 │   ├── deepl.py             # DeepL
 │   ├── google.py            # Google
 │   ├── azure.py             # Azure
-│   └── amazon.py            # Amazon
+│   ├── amazon.py            # Amazon
+│   ├── baidu.py             # Baidu
+│   ├── deepseek.py          # DeepSeek (LLM)
+│   └── openai_compatible.py # OpenAI 兼容接口基类
 ├── smart_translation_controller.py # SmartTranslationController — one-hotkey text probe and popup routing
 ├── translation_popup.py     # TranslationPopup — compact popup (selected text / typed input)
 ├── deepl_service.py         # DeepLService / TranslationThread — legacy async DeepL API calls
@@ -588,6 +591,7 @@ ui/
 │   ├── page_clipboard.py    # Clipboard settings
 │   ├── page_hotkey.py       # Hotkey settings
 │   ├── page_translation.py  # Translation settings
+│   ├── provider_fields.py   # 服务商字段的读写（按声明）
 │   ├── page_log.py          # Log settings
 │   ├── page_developer.py    # Developer settings
 │   ├── page_misc.py         # Miscellaneous settings

@@ -7,6 +7,8 @@ TRANSLATIONS: dict[str, str] = {
     "无法创建钉图：图片数据加载失败 (image_id={image_id})": "Cannot create pin: failed to load image data (image_id={image_id})",
     "无法创建钉图：图片解码失败": "Cannot create pin: failed to decode image",
     "从剪贴板创建钉图窗口成功 (item_id={item_id})": "Pin window created from clipboard item (item_id={item_id})",
+    "已钉住系统剪贴板中的图片": "Pinned the image currently on the system clipboard",
+    "剪贴板和历史中都没有图片，钉图已跳过": "No image on the clipboard or in history, pin skipped",
     "创建钉图窗口失败: {e}": "Failed to create pin window: {e}",
 
     # models.py

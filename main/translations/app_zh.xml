@@ -754,6 +754,42 @@ Replace it?</source>
         <translation>可选，留空使用默认值</translation>
     </message>
     <message>
+        <source>Baidu Translate</source>
+        <translation>百度翻译</translation>
+    </message>
+    <message>
+        <source>Baidu APPID</source>
+        <translation>百度 APPID</translation>
+    </message>
+    <message>
+        <source>Baidu Secret Key</source>
+        <translation>百度密钥</translation>
+    </message>
+    <message>
+        <source>Paired with APPID in the Baidu console</source>
+        <translation>控制台「开发者信息」里与 APPID 成对的密钥</translation>
+    </message>
+    <message>
+        <source>Baidu Translate Open Platform</source>
+        <translation>百度翻译开放平台 · 开发者信息</translation>
+    </message>
+    <message>
+        <source>DeepSeek API Key</source>
+        <translation>DeepSeek API Key</translation>
+    </message>
+    <message>
+        <source>Model</source>
+        <translation>模型</translation>
+    </message>
+    <message>
+        <source>API Base URL</source>
+        <translation>API 地址</translation>
+    </message>
+    <message>
+        <source>LLM translation: better with context and idioms, but slower, billed per token, and may refuse some content</source>
+        <translation>大模型翻译：更懂上下文和习惯用法，但更慢、按 token 计费，且可能拒绝部分内容</translation>
+    </message>
+    <message>
         <source>Translation Options</source>
         <translation>翻译选项</translation>
     </message>
@@ -1254,6 +1290,14 @@ Replace it?</source>
         <translation>剪贴板 (2)</translation>
     </message>
     <message>
+        <source>Pin Clipboard Image</source>
+        <translation>生成钉图</translation>
+    </message>
+    <message>
+        <source>Pin Clipboard Image (2)</source>
+        <translation>生成钉图 (2)</translation>
+    </message>
+    <message>
         <source>Hotkey Registration Failed</source>
         <translation>热键注册失败</translation>
     </message>
@@ -1469,6 +1513,7 @@ Replace it?</source>
         <translation>翻译</translation>
     </message>
     <message><source>Translation Hotkey</source><translation>翻译快捷键</translation></message>
+    <message><source>Pin Clipboard Image</source><translation>生成钉图</translation></message>
     <message>
         <source>Translation Settings</source>
         <translation>翻译设置</translation>
@@ -2859,6 +2904,42 @@ Replace it?</source>
         <translation>Google API Key</translation>
     </message>
     <message>
+        <source>Baidu APPID</source>
+        <translation>百度 APPID</translation>
+    </message>
+    <message>
+        <source>Baidu Secret Key</source>
+        <translation>百度密钥</translation>
+    </message>
+    <message>
+        <source>Paired with APPID in the Baidu console</source>
+        <translation>控制台「开发者信息」里与 APPID 成对的密钥</translation>
+    </message>
+    <message>
+        <source>Baidu Translate Open Platform</source>
+        <translation>百度翻译开放平台 · 开发者信息</translation>
+    </message>
+    <message>
+        <source>DeepSeek API Key</source>
+        <translation>DeepSeek API Key</translation>
+    </message>
+    <message>
+        <source>Model</source>
+        <translation>模型</translation>
+    </message>
+    <message>
+        <source>API Base URL</source>
+        <translation>API 地址</translation>
+    </message>
+    <message>
+        <source>APPID</source>
+        <translation>APPID</translation>
+    </message>
+    <message>
+        <source>API Key</source>
+        <translation>API Key</translation>
+    </message>
+    <message>
         <source>AWS 区域</source>
         <translation>AWS 区域</translation>
     </message>
@@ -3540,6 +3621,13 @@ SOFTWARE.</translation></message>
     <message>
         <source>Copied</source>
         <translation>已复制</translation>
+    </message>
+</context>
+<context>
+    <name>InAppShortcut</name>
+    <message>
+        <source>Middle</source>
+        <translation>中键</translation>
     </message>
 </context>
 </TS>

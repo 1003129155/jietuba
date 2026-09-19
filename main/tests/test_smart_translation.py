@@ -382,6 +382,80 @@ def test_shutdown_interrupts_and_joins_translation_workers(monkeypatch, qapp):
     assert not worker.running
 
 
+class _SilentWorker:
+    def __init__(self, running=True):
+        self.running = running
+        self.wait_timeout = None
+
+    def isRunning(self):
+        return self.running
+
+    def requestInterruption(self):
+        pass
+
+    def wait(self, timeout):
+        self.wait_timeout = timeout
+        self.running = False
+        return True
+
+
+class _BudgetWorker(_SilentWorker):
+    def __init__(self, timeout_ms, running=True):
+        super().__init__(running=running)
+        self._timeout_ms = timeout_ms
+
+    def effective_timeout_ms(self):
+        return self._timeout_ms
+
+
+def _run_shutdown(monkeypatch, *workers):
+    manager = TranslationManager()
+    monkeypatch.setattr(manager, "close_dialog", lambda: None)
+    for w in workers:
+        manager._threads.add(w)
+    manager.shutdown()
+    return manager
+
+
+def test_shutdown_budget_follows_the_slowest_running_provider(monkeypatch, qapp):
+    from translation.providers.deepseek import DeepSeekProvider
+
+    floor_ms = DeepSeekProvider.MIN_TIMEOUT * 1000
+    worker = _BudgetWorker(timeout_ms=floor_ms)
+    _run_shutdown(monkeypatch, worker)
+
+    assert worker.wait_timeout >= floor_ms, (
+        f"只等了 {worker.wait_timeout}ms，短于该引擎自己的 {floor_ms}ms 超时"
+    )
+
+
+def test_shutdown_budget_takes_the_max_across_running_threads(monkeypatch, qapp):
+    slow = _BudgetWorker(timeout_ms=30000)
+    fast = _BudgetWorker(timeout_ms=10000)
+    _run_shutdown(monkeypatch, fast, slow)
+
+    assert slow.wait_timeout >= 30000
+
+
+def test_shutdown_does_not_wait_for_threads_that_already_finished(
+    monkeypatch, qapp
+):
+    done = _BudgetWorker(timeout_ms=30000, running=False)
+    manager = _run_shutdown(monkeypatch, done)
+
+    assert done.wait_timeout is None
+    assert manager._network_shutdown_budget_ms([done]) == 0
+
+
+def test_a_thread_that_cannot_report_its_timeout_still_gets_waited_for(
+    monkeypatch, qapp
+):
+    worker = _SilentWorker()
+    _run_shutdown(monkeypatch, worker)
+
+    assert worker.wait_timeout >= TranslationManager._FALLBACK_NETWORK_TIMEOUT_MS
+
+
 class _FakeOCRThread:
     """形状对齐真正的 OCRThread：isRunning/cancel/wait，但不真的起一条线程。"""
 

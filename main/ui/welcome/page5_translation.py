@@ -16,6 +16,7 @@ from ui.fluent_lite import ComboBox, LineEdit
 from core import safe_event
 from core.i18n import make_tr
 from core.logger import log_error, log_exception, T
+from ui.settings_ui import provider_fields
 
 if __package__:
     from .base_page import (
@@ -231,10 +232,11 @@ class TranslationPage(BasePage):
         # 表单是手写的，结果 azure 在下拉框里选得到、下面却还留着上一个引擎的
         # 表单。现在两者同源，新增引擎不必再来这里补一次。
         provider_order = {"google": 0, "deepl": 1, "azure": 2, "amazon": 3}
+        self._registry = create_default_translation_service(
+            self._config
+        ).registry
         self._provider_metadata = sorted(
-            create_default_translation_service(
-                self._config
-            ).registry.available_providers(),
+            self._registry.available_providers(),
             key=lambda item: provider_order.get(item.provider_id, 99),
         )
         for metadata in self._provider_metadata:
@@ -327,7 +329,7 @@ class TranslationPage(BasePage):
         page, form = self._credential_page()
         for field in metadata.credentials:
             edit = self._credential_edit(
-                self._read_credential(field.config_key),
+                self._read_credential(field),
                 _tr(field.placeholder) if field.placeholder else "",
                 password=field.secret,
             )
@@ -337,28 +339,12 @@ class TranslationPage(BasePage):
         if metadata.help_url:
             form.addRow("", self._credential_hint(
                 f'<a href="{metadata.help_url}" '
-                f'style="color:{ACCENT};">{metadata.help_label}</a>'
+                f'style="color:{ACCENT};">{_tr(metadata.help_label)}</a>'
             ))
         self._add_provider_page(metadata.provider_id, page)
 
-    def _read_credential(self, config_key: str) -> str:
-        getter = getattr(self._config, "get_" + config_key, None)
-        if getter is None:
-            return ""
-        try:
-            return getter() or ""
-        except Exception as e:
-            log_exception(e, T("读取翻译凭据 {config_key}", config_key=config_key))
-            return ""
-
-    def _write_credential(self, config_key: str, value: str):
-        setter = getattr(self._config, "set_" + config_key, None)
-        if setter is None:
-            return
-        try:
-            setter(value)
-        except Exception as e:
-            log_exception(e, T("保存翻译凭据 {config_key}", config_key=config_key))
+    def _read_credential(self, field) -> str:
+        return provider_fields.read_config(self._config, field)
 
     def _credential_page(self):
         page = QWidget()
@@ -451,8 +437,13 @@ class TranslationPage(BasePage):
         provider_id = self._provider_combo.currentData() or "google"
         if hasattr(self._config, "set_translation_provider"):
             self._config.set_translation_provider(provider_id)
-        for config_key, edit in self._credential_edits.items():
-            self._write_credential(config_key, edit.text().strip())
+        # 和设置页走同一套读写。以前两个页面各有一份反射实现，
+        # 行为要靠人去对齐（裁不裁空白、异常怎么吞），对不齐也不会报错。
+        provider_fields.save_from(
+            self._config,
+            provider_fields.all_fields(self._registry),
+            self._credential_edits,
+        )
         lang = self._lang_combo.currentData()
         if lang:
             self._config.set_app_setting("translation_target_lang", lang)

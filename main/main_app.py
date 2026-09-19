@@ -21,7 +21,7 @@ from core.logger import (
 )
 
 # ── 全局版本号 ────────────────────────────────────────────
-APP_VERSION = "2.0.2"
+APP_VERSION = "2.0.3"
 
 
 def create_fallback_app_icon():
@@ -336,6 +336,22 @@ class MainApp(QObject):
                 else:
                     log_warning(T("剪贴板备用热键注册失败: {clipboard_hotkey_2}", clipboard_hotkey_2=clipboard_hotkey_2), "Hotkey")
                     failed_hotkeys.append((self.tr("Clipboard (2)"), clipboard_hotkey_2))
+
+        # 注册「钉住剪贴板图片」热键（主 + 备用）。刻意放在 clipboard_enabled
+        # 判断之外：这条路径优先钉系统剪贴板里的图，历史功能关掉时照样有用。
+        # 默认两个都留空——不自作主张占用用户的按键，想用就自己设一个。
+        pin_clipboard_hotkeys = (
+            (self.config_manager.get_pin_clipboard_hotkey(), self.tr("Pin Clipboard Image")),
+            (self.config_manager.get_pin_clipboard_hotkey_2(), self.tr("Pin Clipboard Image (2)")),
+        )
+        for pin_clipboard_hotkey, label in pin_clipboard_hotkeys:
+            if not pin_clipboard_hotkey:
+                continue
+            if self.hotkey_system.register_hotkey(pin_clipboard_hotkey, self.pin_clipboard_image):
+                log_info(T("钉图热键已注册: {pin_clipboard_hotkey}", pin_clipboard_hotkey=pin_clipboard_hotkey), "Hotkey")
+            else:
+                log_warning(T("钉图热键注册失败: {pin_clipboard_hotkey}", pin_clipboard_hotkey=pin_clipboard_hotkey), "Hotkey")
+                failed_hotkeys.append((label, pin_clipboard_hotkey))
         
         # 如果有注册失败的热键且需要显示提示
         if show_error and failed_hotkeys:
@@ -627,6 +643,16 @@ class MainApp(QObject):
 
         except Exception as e:
             log_exception(e, T("打开剪切板窗口失败"))
+
+    def pin_clipboard_image(self):
+        """把剪贴板里的图片钉到鼠标位置。"""
+        from PySide6.QtGui import QCursor
+        from clipboard.ui.windows.pin_window import pin_latest_clipboard_image
+
+        try:
+            pin_latest_clipboard_image(QCursor.pos())
+        except Exception as e:
+            log_exception(e, T("钉住剪贴板图片失败"))
         
     def quit_app(self):
         # 完全销毁缓存的截图窗口

@@ -157,6 +157,16 @@ class DeepLService:
                 "error": error_msg
             }
             
+        except TimeoutError:
+            # TimeoutError 不是 URLError 的子类，不单列就会掉进最下面的兜底，
+            # 变成一条英文原文「The read operation timed out」。
+            log_error(T("请求超时（{seconds} 秒）", seconds=timeout), "DeepL")
+            return {
+                "success": False,
+                "translated_text": "",
+                "error": f"Request timed out after {timeout}s"
+            }
+
         except urllib.error.URLError as e:
             log_error(T("网络错误: {reason}", reason=e.reason), "DeepL")
             return {

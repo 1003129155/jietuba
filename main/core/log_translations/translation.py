@@ -46,6 +46,7 @@ TRANSLATIONS: dict[str, str] = {
     "翻译成功: {detected_lang} -> {target_lang}": "Translation succeeded: {detected_lang} -> {target_lang}",
     "HTTP 错误: {error_msg}": "HTTP error: {error_msg}",
     "网络错误: {reason}": "Network error: {reason}",
+    "请求超时（{seconds} 秒）": "Request timed out after {seconds}s",
     "JSON 解析失败: {e}": "Failed to parse JSON: {e}",
     "未知错误: {e}": "Unknown error: {e}",
     "翻译线程异常: {e}": "Translation thread exception: {e}",

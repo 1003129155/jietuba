@@ -11,7 +11,7 @@ from ..models import (
     TranslationResult,
     normalize_language_code,
 )
-from ..provider import CredentialField, TranslationProvider
+from ..provider import TextField, ToggleField, TranslationProvider
 
 
 class DeepLProvider(TranslationProvider):
@@ -49,9 +49,22 @@ class DeepLProvider(TranslationProvider):
         self._use_pro = bool(config.get("use_pro", False))
 
     CREDENTIAL_FIELDS = (
-        CredentialField("deepl_api_key", "DeepL API Key",
-                        "DeepL API Key", secret=True),
+        TextField("deepl_api_key", "DeepL API Key",
+                  "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx", secret=True),
     )
+    OPTION_FIELDS = (
+        ToggleField("deepl_use_pro", "Use DeepL Pro API",
+                    "Enable if you have a paid DeepL subscription",
+                    icon_name="CERTIFICATE"),
+    )
+    # 只有 DeepL 的接口收这两个参数。声明在这里而不是在界面里判断引擎名，
+    # 界面才能「按声明渲染」而不是「按名字特判」。
+    # 注意这只影响界面显不显示：请求里这两个参数对每家都照发，别家自己忽略。
+    SUPPORTED_REQUEST_OPTIONS = frozenset({
+        "split_sentences",
+        "preserve_formatting",
+    })
+    NOTICE = "DeepL free tier: 500,000 chars/month. Get API key at"
     HELP_LABEL = "deepl.com/pro-api"
     HELP_URL = "https://www.deepl.com/pro-api"
 

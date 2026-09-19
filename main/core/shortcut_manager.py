@@ -85,6 +85,82 @@ def is_mouse_button_hotkey(hotkey_str: str) -> bool:
     return isinstance(hotkey_str, str) and hotkey_str.strip().lower() in _MOUSE_BUTTON_TOKENS
 
 
+# ======================================================================
+# 应用内鼠标键 token
+# ======================================================================
+# 中键只做应用内快捷键，**故意不加进 _MOUSE_BUTTON_TOKENS**——那个集合是全局
+# 热键的路由依据，进了它就意味着挂低级钩子、全局抑制中键。侧键敢那么做是因为
+# 它非标准，多数程序不依赖；中键是三大标准键之一，全局吞掉会让所有程序的中键
+# 失效（粘贴、关标签页、自动滚动）。
+#
+# 应用内不需要钩子：自家窗口有焦点时 Qt 直接派发 mousePressEvent，
+# 见 ShortcutManager.eventFilter。
+MOUSE_BUTTON_MIDDLE = "mousemiddle"
+_INAPP_MOUSE_TOKENS = frozenset({MOUSE_BUTTON_MIDDLE})
+
+
+def is_inapp_mouse_shortcut(text: str) -> bool:
+    """text 是否是应用内鼠标键绑定（可带修饰键，如 "ctrl+mousemiddle"）。"""
+    return parse_inapp_mouse_to_qt(text) is not None
+
+
+def _split_modifiers(text: str):
+    """把 "ctrl+shift+x" 拆成 (修饰键位掩码, 剩下的非修饰片段列表)。
+
+    键盘和鼠标两条解析路径共用，免得「Ctrl 怎么算」有两份实现。
+    """
+    from PySide6.QtCore import Qt as _Qt
+
+    mod_map = {
+        "ctrl": _Qt.KeyboardModifier.ControlModifier,
+        "shift": _Qt.KeyboardModifier.ShiftModifier,
+        "alt": _Qt.KeyboardModifier.AltModifier,
+    }
+    mods = _Qt.KeyboardModifier.NoModifier
+    rest = []
+    for part in [p.strip() for p in (text or "").lower().split("+") if p.strip()]:
+        if part in mod_map:
+            mods |= mod_map[part]
+        else:
+            rest.append(part)
+    return mods, rest
+
+
+def parse_inapp_mouse_to_qt(text: str):
+    """把 "mousemiddle" / "ctrl+mousemiddle" 解析成 (Qt.MouseButton, 修饰键)。
+
+    返回 None 表示这不是鼠标绑定——调用方据此回退到键盘解析。两种绑定存在
+    同一个配置项里，靠这里区分，所以解析失败必须安静返回而不是抛。
+    """
+    from PySide6.QtCore import Qt as _Qt
+
+    if not text or not isinstance(text, str):
+        return None
+    mods, rest = _split_modifiers(text)
+    if len(rest) != 1 or rest[0] not in _INAPP_MOUSE_TOKENS:
+        return None
+    return (_Qt.MouseButton.MiddleButton, mods)
+
+
+def inapp_shortcut_display_text(text: str) -> str:
+    """配置值 → 菜单里显示的文字。
+
+    录入框显示的是配置值本身（和全局侧键一致），但右键菜单里挤一个
+    "MOUSEMIDDLE" 太难看，这里换成短标签。
+    """
+    if not text:
+        return ""
+    mods, rest = _split_modifiers(text)
+    if len(rest) == 1 and rest[0] in _INAPP_MOUSE_TOKENS:
+        from PySide6.QtCore import QCoreApplication
+
+        prefix = text.rsplit("+", 1)[0].upper() + "+" if "+" in text else ""
+        # 这是界面文案，走 Qt 的翻译；模块里那个 T() 是日志翻译（中文源串 →
+        # 英文），方向正相反，别用错。
+        return prefix + QCoreApplication.translate("InAppShortcut", "Middle")
+    return text.upper()
+
+
 def hotkey_identity(hotkey_str: str):
     """把热键字符串归一成可比较的身份，用于判断两处绑定是否是同一个键。
 
@@ -133,6 +209,22 @@ class ShortcutHandler(ABC):
             False — 不处理，交给下一个 handler
         """
         ...
+
+    def handle_mouse(self, event) -> bool:
+        """
+        处理应用内鼠标键事件（可选覆写）。
+
+        只在中键按下时被调用（见 ShortcutManager._filter_inapp_mouse），
+        语义和 handle_key 完全一致：返回 True 表示已消费。
+
+        绝大多数 handler 的实现就是 ``return self.handle_key(event)``——
+        handle_key 里靠 _match 驱动的分支对两种事件都成立，而键专属的分支
+        （ESC 之类）经 event_key() 取值后对鼠标事件自然落空。这样两种事件
+        共用同一条 if 链，不会出现「键盘改了、鼠标那份忘了改」。
+
+        默认实现：不处理，返回 False。
+        """
+        return False
 
     def handle_hotkey(self, hotkey_id: int, callback: Callable) -> bool:
         """
@@ -261,6 +353,10 @@ class ShortcutManager(QObject):
             self._on_mouse_button_triggered, Qt.ConnectionType.QueuedConnection
         )
 
+        # ── 应用内鼠标键 ──
+        # 按下被消费时置位，好让配对的抬起/双击一起吞掉，见 _filter_inapp_mouse
+        self._inapp_mouse_claimed = False
+
         # 安装原生事件过滤器（WM_HOTKEY）
         self._native_filter = _HotkeyEventFilter(self, self._id_to_callback)
 
@@ -358,9 +454,65 @@ class ShortcutManager(QObject):
 
         return False
 
+    # 中键的按下/抬起/双击。三种都要管：只吞掉按下的话，控件会收到一个没有
+    # 配对按下的抬起，行为未定义——和全局侧键那边成对抑制是同一个理由。
+    _INAPP_MOUSE_EVENT_TYPES = frozenset({
+        QEvent.Type.MouseButtonPress,
+        QEvent.Type.MouseButtonRelease,
+        QEvent.Type.MouseButtonDblClick,
+    })
+
+    def _filter_inapp_mouse(self, obj, event) -> bool:
+        """应用内鼠标键分发。
+
+        这个过滤器装在 QApplication 上，应用里每一次点击都要过一遍，所以第一件
+        事就是把非中键挡掉：一次比较，不查表、不遍历 handler。
+        """
+        if event.button() != Qt.MouseButton.MiddleButton:
+            return False
+
+        # 录入框必须自己收到这一下才能录到绑定。它同时也可能落在某个钉图上方，
+        # 而钉图 handler 的 is_active() 只看指针位置、不看焦点，不挡住就会被
+        # 先一步消费掉——键盘那边是靠 _is_text_input_active 挡的，鼠标没有
+        # 对应机制，只能由录入框自己声明。
+        if getattr(obj, "_captures_inapp_mouse_shortcut", False):
+            return False
+
+        if event.type() != QEvent.Type.MouseButtonPress:
+            return self._inapp_mouse_claimed
+
+        self._inapp_mouse_claimed = self._dispatch_inapp_mouse(event)
+        return self._inapp_mouse_claimed
+
+    def _dispatch_inapp_mouse(self, event) -> bool:
+        """按优先级问一遍 handler 链，语义对齐 eventFilter 里的键盘分发。"""
+        for handler in self._handlers:
+            try:
+                if handler.is_active() and handler.handle_mouse(event):
+                    log_debug(
+                        T(
+                            "鼠标键被 {handler_name} 消费 (button={button})",
+                            handler_name=handler.handler_name,
+                            button=int(event.button().value),
+                        ),
+                        "Shortcut",
+                    )
+                    return True
+            except RuntimeError:
+                continue
+            except Exception as e:
+                log_exception(
+                    e, f"ShortcutManager: {handler.handler_name}.handle_mouse"
+                )
+                continue
+        return False
+
     @safe_event
     def eventFilter(self, obj, event):
-        if event.type() != QEvent.Type.KeyPress:
+        event_type = event.type()
+        if event_type in self._INAPP_MOUSE_EVENT_TYPES:
+            return self._filter_inapp_mouse(obj, event)
+        if event_type != QEvent.Type.KeyPress:
             return False
 
         # 文字输入控件获焦时，优先让控件处理按键
@@ -837,24 +989,17 @@ def parse_shortcut_to_qt(text: str):
     if not text or not isinstance(text, str):
         return None
 
-    parts = [p.strip() for p in text.lower().split("+") if p.strip()]
+    # 修饰键的拆法和鼠标绑定共用一份：同一个配置项可能是键盘也可能是鼠标，
+    # 两边对 "ctrl" 的理解必须一致
+    mods, parts = _split_modifiers(text)
     if not parts:
         return None
 
-    _MOD_MAP = {
-        "ctrl": _Qt.KeyboardModifier.ControlModifier,
-        "shift": _Qt.KeyboardModifier.ShiftModifier,
-        "alt": _Qt.KeyboardModifier.AltModifier,
-    }
     key_map = get_key_parse_map()
-
-    mods = _Qt.KeyboardModifier.NoModifier
     key = _Qt.Key.Key_unknown
 
     for p in parts:
-        if p in _MOD_MAP:
-            mods |= _MOD_MAP[p]
-        elif p in key_map:
+        if p in key_map:
             key = _Qt.Key(key_map[p])
         elif len(p) == 1 and (p.isalpha() or p.isdigit()):
             # Qt.Key_0..Key_9 数值上等于 ord('0')..ord('9')，和字母走同一套技巧
@@ -875,9 +1020,23 @@ def is_reserved_inapp_shortcut(text: str) -> bool:
     return bool(parsed and parsed[0] == Qt.Key.Key_Escape)
 
 
+# 不传 keys_of_interest 时读哪些。键盘和鼠标两个 loader 共用，免得加了一项
+# 只在其中一张表里生效。
+_DEFAULT_INAPP_KEYS = (
+    "inapp_confirm", "inapp_pin", "inapp_undo", "inapp_redo",
+    "inapp_delete",
+    "inapp_copy_pin", "inapp_thumbnail", "inapp_toggle_toolbar",
+    "inapp_zoom_in", "inapp_zoom_out", "inapp_translate",
+    "inapp_text_recognize",
+)
+
+
 def load_inapp_bindings(keys_of_interest: Optional[List[str]] = None) -> Dict:
     """
     从 config_manager 读取应用内快捷键，返回 {cfg_key: (Qt.Key, Qt.KeyboardModifier)} 字典。
+
+    绑定成鼠标键的配置项在这里解析不出来，会被跳过——它们由
+    load_inapp_mouse_bindings 负责。
 
     Args:
         keys_of_interest: 需要读取的配置键列表，为 None 时使用全部默认键。
@@ -885,13 +1044,7 @@ def load_inapp_bindings(keys_of_interest: Optional[List[str]] = None) -> Dict:
     from settings import get_tool_settings_manager
     cfg = get_tool_settings_manager()
     if keys_of_interest is None:
-        keys_of_interest = [
-            "inapp_confirm", "inapp_pin", "inapp_undo", "inapp_redo",
-            "inapp_delete",
-            "inapp_copy_pin", "inapp_thumbnail", "inapp_toggle_toolbar",
-            "inapp_zoom_in", "inapp_zoom_out", "inapp_translate",
-            "inapp_text_recognize",
-        ]
+        keys_of_interest = list(_DEFAULT_INAPP_KEYS)
 
     result = {}
     for k in keys_of_interest:
@@ -902,6 +1055,69 @@ def load_inapp_bindings(keys_of_interest: Optional[List[str]] = None) -> Dict:
         if parsed:
             result[k] = parsed
     return result
+
+
+def load_inapp_mouse_bindings(
+    keys_of_interest: Optional[List[str]] = None
+) -> Dict:
+    """应用内鼠标键绑定 {cfg_key: (Qt.MouseButton, 修饰键)}。
+
+    和 load_inapp_bindings 读同一批配置项、同一个字符串，只是解析成鼠标绑定。
+    一个配置项要么是键盘要么是鼠标，所以两张表天然互不相交——解析不了的那边
+    自己跳过就行，不需要谁去协调。
+    """
+    from settings import get_tool_settings_manager
+
+    cfg = get_tool_settings_manager()
+    if keys_of_interest is None:
+        keys_of_interest = list(_DEFAULT_INAPP_KEYS)
+
+    result = {}
+    for k in keys_of_interest:
+        parsed = parse_inapp_mouse_to_qt(cfg.get_inapp_shortcut(k))
+        if parsed:
+            result[k] = parsed
+    return result
+
+
+def event_key(event):
+    """事件的 Qt.Key；鼠标事件返回 Key_unknown。
+
+    handle_key 的主体同时要跑键盘事件和鼠标事件（见 ShortcutHandler.handle_mouse），
+    而鼠标事件没有 key()。统一从这里取之后，键专属的那些分支（ESC、鼠标微移键、
+    硬编码的取色 C）对鼠标事件自然全部落空，不必每条各加一次判断。
+    """
+    getter = getattr(event, "key", None)
+    return getter() if callable(getter) else Qt.Key.Key_unknown
+
+
+def event_is_auto_repeat(event) -> bool:
+    """事件是否是键盘自动重复；鼠标事件没有这个概念，返回 False。"""
+    getter = getattr(event, "isAutoRepeat", None)
+    return bool(getter()) if callable(getter) else False
+
+
+def is_mouse_shortcut_event(event) -> bool:
+    """这是不是一个按鼠标绑定来匹配的事件（有 button() 就是）。"""
+    return callable(getattr(event, "button", None))
+
+
+def match_inapp_binding(event, cfg_key, key_bindings, mouse_bindings=None) -> bool:
+    """事件是否匹配某个配置项的绑定。
+
+    同一个配置项要么存键盘组合、要么存鼠标键，按事件类型查对应那张表。
+    三个 handler 共用一份，免得「怎么算匹配」散成三份实现——加中键之前它就
+    已经在三个文件里各抄了一遍。
+    """
+    if is_mouse_shortcut_event(event):
+        binding = (mouse_bindings or {}).get(cfg_key)
+        return bool(binding) and (
+            event.button() == binding[0] and event.modifiers() == binding[1]
+        )
+    binding = (key_bindings or {}).get(cfg_key)
+    return bool(binding) and (
+        event.key() == binding[0] and event.modifiers() == binding[1]
+    )
 
 
 def load_move_keys() -> Dict:

@@ -359,54 +359,113 @@ class TestThemeColourTable:
 # page_translation：服务商切换的控件显隐
 # ============================================================================
 
-PROVIDER_GROUPS = {
-    "deepl": "deepl_settings_group",
-    "amazon": "amazon_translate_settings_group",
-    "google": "google_translate_settings_group",
-    "azure": "azure_translate_settings_group",
-}
+def _registry():
+    """真实注册表。测试不自己列服务商名单，加一家会自动被下面的用例覆盖。"""
+    from translation.service import create_default_translation_service
+
+    class _Config:
+        def get_translation_provider(self):
+            return ""
+
+        def get_translation_provider_config(self, provider_id):
+            return {}
+
+    return create_default_translation_service(_Config()).registry
 
 
-def _translation_dialog(provider, with_optional=False):
+def _translation_dialog(provider, registry, with_optional=True):
+    """用假控件拼一个够 _update_provider_groups 用的 dialog。
+
+    刻意不用 MagicMock：源码用 getattr(dialog, ..., None) 做分支判断，
+    而 MagicMock 的任意属性都存在，会让所有分支恒为真、测出假的通过。
+    """
     dialog = SimpleNamespace(
-        translation_provider_combo=SimpleNamespace(currentData=lambda: provider))
-    for attr in PROVIDER_GROUPS.values():
-        setattr(dialog, attr, _Visibility())
+        translation_provider_combo=SimpleNamespace(
+            currentData=lambda: provider),
+        translation_registry=registry,
+        tr=lambda text: text,
+        provider_sections={
+            m.provider_id: _Visibility()
+            for m in registry.available_providers()
+        },
+    )
     if with_optional:
-        for attr in ("deepl_translation_info_label", "split_sentences_toggle",
-                     "preserve_formatting_toggle"):
-            setattr(dialog, attr, _Visibility())
+        dialog.request_option_cards = {
+            "split_sentences": _Visibility(),
+            "preserve_formatting": _Visibility(),
+        }
+        dialog.request_options_section = _Visibility()
+        dialog.translation_notice_label = _NoticeLabel()
     return dialog
+
+
+class _NoticeLabel(_Visibility):
+    def __init__(self):
+        super().__init__()
+        self.text_value = ""
+
+    def setText(self, value):
+        self.text_value = value
+
+    def text(self):
+        return self.text_value
 
 
 class TestProviderGroupVisibility:
 
-    def test_only_the_selected_provider_group_is_visible(self):
-        for provider, visible_attr in PROVIDER_GROUPS.items():
-            dialog = _translation_dialog(provider)
+    def test_only_the_selected_provider_section_is_visible(self):
+        registry = _registry()
+        for meta in registry.available_providers():
+            dialog = _translation_dialog(meta.provider_id, registry)
             page_translation._update_provider_groups(dialog)
-            for attr in PROVIDER_GROUPS.values():
-                expected = attr == visible_attr
-                assert getattr(dialog, attr).visible is expected, (provider, attr)
+            for pid, section in dialog.provider_sections.items():
+                expected = pid == meta.provider_id
+                assert section.visible is expected, (meta.provider_id, pid)
 
-    def test_an_unknown_provider_hides_every_group(self):
+    def test_an_unknown_provider_hides_every_section(self):
         """服务商列表由 registry 动态给出，出现未知值时不能留着上一个的输入框"""
+        registry = _registry()
         for provider in (None, "", "some_future_provider"):
-            dialog = _translation_dialog(provider)
+            dialog = _translation_dialog(provider, registry)
             page_translation._update_provider_groups(dialog)
-            for attr in PROVIDER_GROUPS.values():
-                assert getattr(dialog, attr).visible is False, (provider, attr)
+            for pid, section in dialog.provider_sections.items():
+                assert section.visible is False, (provider, pid)
 
-    def test_deepl_only_options_follow_the_deepl_selection(self):
-        for provider in ("deepl", "google", "amazon", "azure"):
-            dialog = _translation_dialog(provider, with_optional=True)
+    def test_request_options_follow_each_providers_declaration(self):
+        """通用选项显不显示，由 provider 自己声明的能力决定，不按名字特判。"""
+        registry = _registry()
+        for meta in registry.available_providers():
+            dialog = _translation_dialog(meta.provider_id, registry)
             page_translation._update_provider_groups(dialog)
-            expected = provider == "deepl"
-            assert dialog.deepl_translation_info_label.visible is expected, provider
-            assert dialog.split_sentences_toggle.visible is expected, provider
-            assert dialog.preserve_formatting_toggle.visible is expected, provider
+            for key, card in dialog.request_option_cards.items():
+                expected = key in meta.supported_request_options
+                assert card.visible is expected, (meta.provider_id, key)
+            assert dialog.request_options_section.visible is bool(
+                meta.supported_request_options
+            ), meta.provider_id
+
+    def test_at_least_one_provider_declares_request_options(self):
+        """否则上面那条用例会在「全都不支持」时空转、看起来也是绿的。"""
+        registry = _registry()
+        assert any(
+            m.supported_request_options
+            for m in registry.available_providers()
+        )
+
+    def test_notice_line_comes_from_the_active_providers_metadata(self):
+        registry = _registry()
+        for meta in registry.available_providers():
+            dialog = _translation_dialog(meta.provider_id, registry)
+            page_translation._update_provider_groups(dialog)
+            text = dialog.translation_notice_label.text()
+            if meta.help_url:
+                assert meta.help_url in text, meta.provider_id
+            if meta.notice:
+                assert meta.notice in text, meta.provider_id
 
     def test_optional_widgets_absent_before_the_page_is_built(self):
-        dialog = _translation_dialog("deepl", with_optional=False)
+        """页面还没建好就被调到时不能炸——构造顺序变动过好几次。"""
+        registry = _registry()
+        dialog = _translation_dialog("deepl", registry, with_optional=False)
         page_translation._update_provider_groups(dialog)
-        assert dialog.deepl_settings_group.visible is True
+        assert dialog.provider_sections["deepl"].visible is True

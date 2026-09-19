@@ -575,7 +575,10 @@ translation/
 │   ├── deepl.py             # DeepL
 │   ├── google.py            # Google
 │   ├── azure.py             # Azure
-│   └── amazon.py            # Amazon
+│   ├── amazon.py            # Amazon
+│   ├── baidu.py             # Baidu
+│   ├── deepseek.py          # DeepSeek (LLM)
+│   └── openai_compatible.py # OpenAI 兼容接口基类
 ├── smart_translation_controller.py # SmartTranslationController — 一键选中文字探测与翻译弹窗路由
 ├── translation_popup.py     # TranslationPopup — 紧凑翻译弹窗（选中文字/手动输入两种模式）
 ├── deepl_service.py         # DeepLService / TranslationThread — 旧版 DeepL API 异步翻译
@@ -665,6 +668,7 @@ ui/
 │   ├── page_clipboard.py    # 剪贴板设置页
 │   ├── page_hotkey.py       # 快捷键设置页
 │   ├── page_translation.py  # 翻译设置页
+│   ├── provider_fields.py   # 服务商字段的读写（按声明）
 │   ├── page_log.py          # 日志设置页
 │   ├── page_developer.py    # 开发者设置页
 │   ├── page_misc.py         # 杂项设置页

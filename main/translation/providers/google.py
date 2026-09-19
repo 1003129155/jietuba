@@ -17,7 +17,7 @@ from ..models import (
     TranslationResult,
     normalize_language_code,
 )
-from ..provider import CredentialField, TranslationProvider
+from ..provider import TextField, TranslationProvider
 
 
 class GoogleTranslateProvider(TranslationProvider):
@@ -39,8 +39,8 @@ class GoogleTranslateProvider(TranslationProvider):
         self._api_key = str(config.get("api_key", "") or "").strip()
 
     CREDENTIAL_FIELDS = (
-        CredentialField("google_translate_api_key", "Google API Key",
-                        "Google API Key", secret=True),
+        TextField("google_translate_api_key", "Google API Key",
+                  "Google API Key", secret=True),
     )
     HELP_LABEL = "Google Cloud Console"
     HELP_URL = "https://console.cloud.google.com/apis/credentials"
@@ -107,6 +107,18 @@ class GoogleTranslateProvider(TranslationProvider):
             )
         except urllib.error.HTTPError as exc:
             return self._http_error(exc)
+        except TimeoutError:
+            # 读超时抛的是 TimeoutError，它不是 URLError 的子类，不加这条就会
+            # 一路掉进下面的兜底：归类成 UNKNOWN，还把「The read operation
+            # timed out」这种英文原文直接甩给用户。
+            log_error(
+                f"Google Translate timed out after {request.timeout}s",
+                "GoogleTranslate",
+            )
+            return self._error(
+                TranslationErrorCode.NETWORK_ERROR,
+                f"Request timed out after {request.timeout}s",
+            )
         except urllib.error.URLError as exc:
             reason = getattr(exc, "reason", exc)
             log_error(

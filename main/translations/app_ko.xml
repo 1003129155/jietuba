@@ -776,6 +776,38 @@ Replace it?</source>
         <source>Keep original text formatting</source>
         <translation>원본 텍스트 서식을 유지</translation>
     </message>
+    <message>
+        <source>Baidu APPID</source>
+        <translation>Baidu APPID</translation>
+    </message>
+    <message>
+        <source>Baidu Secret Key</source>
+        <translation>Baidu 시크릿 키</translation>
+    </message>
+    <message>
+        <source>Paired with APPID in the Baidu console</source>
+        <translation>Baidu 콘솔의 개발자 정보에서 APPID와 짝을 이루는 키</translation>
+    </message>
+    <message>
+        <source>Baidu Translate Open Platform</source>
+        <translation>Baidu 번역 개방 플랫폼</translation>
+    </message>
+    <message>
+        <source>DeepSeek API Key</source>
+        <translation>DeepSeek API 키</translation>
+    </message>
+    <message>
+        <source>Model</source>
+        <translation>모델</translation>
+    </message>
+    <message>
+        <source>API Base URL</source>
+        <translation>API 기본 URL</translation>
+    </message>
+    <message>
+        <source>LLM translation: better with context and idioms, but slower, billed per token, and may refuse some content</source>
+        <translation>LLM 번역: 문맥과 관용 표현에 강하지만 느리고 토큰 단위로 과금되며 일부 내용은 거부될 수 있습니다</translation>
+    </message>
 </context>
 
 <context>
@@ -1244,6 +1276,14 @@ Replace it?</source>
         <translation>클립보드 (2)</translation>
     </message>
     <message>
+        <source>Pin Clipboard Image</source>
+        <translation>고정 이미지 생성</translation>
+    </message>
+    <message>
+        <source>Pin Clipboard Image (2)</source>
+        <translation>고정 이미지 생성 (2)</translation>
+    </message>
+    <message>
         <source>Hotkey Registration Failed</source>
         <translation>단축키 등록 실패</translation>
     </message>
@@ -1401,6 +1441,7 @@ Replace it?</source>
         <translation>번역</translation>
     </message>
     <message><source>Translation Hotkey</source><translation>번역 단축키</translation></message>
+    <message><source>Pin Clipboard Image</source><translation>고정 이미지 생성</translation></message>
     <message>
         <source>Translation Settings</source>
         <translation>번역 설정</translation>
@@ -2992,6 +3033,34 @@ Replace it?</source>
         <source>当前按下</source>
         <translation>누르는 중</translation>
     </message>
+    <message>
+        <source>Baidu APPID</source>
+        <translation>Baidu APPID</translation>
+    </message>
+    <message>
+        <source>Baidu Secret Key</source>
+        <translation>Baidu 시크릿 키</translation>
+    </message>
+    <message>
+        <source>Paired with APPID in the Baidu console</source>
+        <translation>Baidu 콘솔의 개발자 정보에서 APPID와 짝을 이루는 키</translation>
+    </message>
+    <message>
+        <source>Baidu Translate Open Platform</source>
+        <translation>Baidu 번역 개방 플랫폼</translation>
+    </message>
+    <message>
+        <source>DeepSeek API Key</source>
+        <translation>DeepSeek API 키</translation>
+    </message>
+    <message>
+        <source>Model</source>
+        <translation>모델</translation>
+    </message>
+    <message>
+        <source>API Base URL</source>
+        <translation>API 기본 URL</translation>
+    </message>
 </context>
 
 <!-- ========== GIF Record Toolbar ========== -->
@@ -3478,6 +3547,13 @@ SOFTWARE.</translation></message>
     <message>
         <source>Copied</source>
         <translation>복사됨</translation>
+    </message>
+</context>
+<context>
+    <name>InAppShortcut</name>
+    <message>
+        <source>Middle</source>
+        <translation>가운데 버튼</translation>
     </message>
 </context>
 </TS>
