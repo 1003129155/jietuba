@@ -1528,6 +1528,10 @@ Replace it?</translation>
         <translation>Auto Paste After Selection</translation>
     </message>
     <message>
+        <source>Close After Paste</source>
+        <translation>Close After Paste</translation>
+    </message>
+    <message>
         <source>Move to Top After Paste</source>
         <translation>Move to Top After Paste</translation>
     </message>

@@ -1672,6 +1672,10 @@ Replace it?</source>
         <translation>选择后自动粘贴</translation>
     </message>
     <message>
+        <source>Close After Paste</source>
+        <translation>粘贴后关闭窗口</translation>
+    </message>
+    <message>
         <source>Move to Top After Paste</source>
         <translation>粘贴后移到最前</translation>
     </message>

@@ -27,6 +27,7 @@ def show_setting_menu(
     # 当前状态
     paste_with_html: bool,
     auto_paste: bool,
+    close_after_paste: bool,
     move_to_top: bool,
     show_metadata: bool,
     preserve_search: bool,
@@ -39,6 +40,7 @@ def show_setting_menu(
     # 回调
     on_toggle_paste_html: Callable,
     on_toggle_auto_paste: Callable,
+    on_toggle_close_after_paste: Callable,
     on_toggle_move_to_top: Callable,
     on_toggle_show_metadata: Callable,
     on_toggle_preserve_search: Callable,
@@ -66,6 +68,7 @@ def show_setting_menu(
 
     _toggle_action("Paste with Format", paste_with_html, on_toggle_paste_html)
     _toggle_action("Auto Paste After Selection", auto_paste, on_toggle_auto_paste)
+    _toggle_action("Close After Paste", close_after_paste, on_toggle_close_after_paste)
     _toggle_action("Move to Top After Paste", move_to_top, on_toggle_move_to_top)
     _toggle_action("Show Time and Source", show_metadata, on_toggle_show_metadata)
     _toggle_action("Preserve Search on Reopen", preserve_search, on_toggle_preserve_search)

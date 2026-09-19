@@ -257,6 +257,8 @@ clipboard/
 │   ├── clipboard_controller.py   # ClipboardController — 読み込み、貼り付け、コンテキストメニュー
 │   ├── selection_manager.py      # SelectionManager — リスト選択状態管理
 │   ├── context_menu_controller.py  # ContextMenuController — コンテキストメニューのデータと動作の組み立て
+│   ├── foreground_tracker.py    # ForegroundWindowTracker — 貼り付け先ウィンドウを記憶
+│   ├── paste_keystroke.py       # 対象ウィンドウにフォーカスを戻してから Ctrl+V を送信
 │   └── __init__.py
 ├── core/                    # データ層 — pyclipboard ラッパー、モデル、グループ種別
 │   ├── manager.py           # ClipboardManager — 保存、監視、貼り付け API

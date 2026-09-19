@@ -20,11 +20,10 @@ def controller(monkeypatch):
 
 
 def _capture_keystrokes(monkeypatch):
-    """把 QTimer.singleShot 换成立即执行，记录 send_ctrl_v 被调用几次。"""
+    """把 QTimer.singleShot 换成立即执行，记录补按键被触发几次。"""
     calls = []
     monkeypatch.setattr(controller_module.QTimer, "singleShot", lambda _ms, fn: fn())
-    monkeypatch.setattr(controller_module, "set_foreground_window", lambda _hwnd: None)
-    monkeypatch.setattr(controller_module, "send_ctrl_v", lambda: calls.append(1))
+    monkeypatch.setattr(controller_module, "paste_to_target", lambda hwnd: calls.append(hwnd))
     return calls
 
 
@@ -40,7 +39,6 @@ def _capture_keystrokes(monkeypatch):
 def test_paste_keystroke_gating(monkeypatch, controller, auto_paste_enabled, explicit, expected):
     calls = _capture_keystrokes(monkeypatch)
     controller.auto_paste_enabled = auto_paste_enabled
-    controller._previous_window_hwnd = 1234
 
     controller._send_paste_keystroke(explicit)
 
@@ -63,7 +61,6 @@ def test_right_click_paste_sends_ctrl_v_with_auto_paste_off(monkeypatch, control
 
     controller.manager = _Manager()
     controller.auto_paste_enabled = False
-    controller._previous_window_hwnd = 1234
 
     assert controller.paste_item(1, explicit=True) is True
     assert len(calls) == 1

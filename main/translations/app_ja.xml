@@ -1637,6 +1637,10 @@ Replace it?</source>
         <translation>選択後に自動コピペ</translation>
     </message>
     <message>
+        <source>Close After Paste</source>
+        <translation>貼り付け後にウィンドウを閉じる</translation>
+    </message>
+    <message>
         <source>Move to Top After Paste</source>
         <translation>コピペ後に最上位へ</translation>
     </message>

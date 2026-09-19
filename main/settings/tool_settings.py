@@ -229,6 +229,7 @@ class ToolSettingsManager(QObject):
         # ==================== 3. 剪贴板 ====================
         "clipboard_enabled": True,             # 剪贴板监听启用
         "clipboard_auto_paste": True,          # 选择后自动粘贴（发送 Ctrl+V）
+        "clipboard_close_after_paste": True,   # 粘贴后关闭窗口（关掉则窗口常驻，可连续粘贴）
         "clipboard_history_limit": 1000,        # 历史记录数量限制（0 为不限制）
         "clipboard_auto_cleanup": True,        # 自动清理超出限制的记录
         "clipboard_window_width": 450,         # 剪贴板窗口默认宽度
@@ -1276,6 +1277,18 @@ class ToolSettingsManager(QObject):
     def set_clipboard_auto_paste(self, value: bool):
         """设置是否自动粘贴"""
         self.qsettings.setValue("clipboard/auto_paste", value)
+
+    def get_clipboard_close_after_paste(self) -> bool:
+        """获取粘贴后是否关闭窗口"""
+        return self.qsettings.value(
+            "clipboard/close_after_paste",
+            self.APP_DEFAULT_SETTINGS["clipboard_close_after_paste"],
+            type=bool,
+        )
+
+    def set_clipboard_close_after_paste(self, value: bool):
+        """设置粘贴后是否关闭窗口"""
+        self.qsettings.setValue("clipboard/close_after_paste", value)
     
     def get_clipboard_history_limit(self) -> int:
         """获取历史记录数量限制"""

@@ -34,7 +34,7 @@ from core.shortcut_manager import ShortcutHandler, ShortcutManager
 from ui.dialogs import show_confirm_dialog
 from ui.fluent_lite import LineEdit
 
-from ...controllers import ClipboardController, SelectionManager, get_foreground_window
+from ...controllers import ClipboardController, SelectionManager
 from ...core import ClipboardItem, ClipboardManager, GroupType
 from ..theme.theme_styles import ThemeStyleGenerator
 from ..theme.themes import Theme, get_theme_manager
@@ -44,6 +44,15 @@ from ..menus.item_context_menu import ClipboardItemContextMenu
 from ..widgets.group_bar import GroupBar
 from ..widgets.item_delegate import ClipboardItemDelegate, ROLE_ITEM_DATA, ROLE_ITEM_ID
 from ..widgets.preview_popup import PreviewPopup
+
+
+# 数字/字母直选条目只认裸按键。带 Ctrl 的组合必须放行：本应用自己模拟的
+# Ctrl+V 在窗口常驻时会回到这里，被当成"粘贴第 31 条"就会自激成死循环。
+_DIRECT_PICK_BLOCKERS = (
+    Qt.KeyboardModifier.ControlModifier
+    | Qt.KeyboardModifier.AltModifier
+    | Qt.KeyboardModifier.MetaModifier
+)
 
 
 class ClipboardShortcutHandler(ShortcutHandler):
@@ -63,7 +72,12 @@ class ClipboardShortcutHandler(ShortcutHandler):
     def is_active(self) -> bool:
         w = self._window
         try:
-            return w is not None and w.isVisible()
+            if w is None or not w.isVisible():
+                return False
+            # 可见不等于有焦点：窗口设成粘贴后常驻时会一直挂在画面上。分发器按
+            # 优先级问一遍谁 active，这里只看可见的话，钉图、画布等真正获焦的界面
+            # 会被抢走按键（例如 Esc）。
+            return w.isActiveWindow()
         except RuntimeError:
             return False
 
@@ -90,6 +104,9 @@ class ClipboardShortcutHandler(ShortcutHandler):
         if key == Qt.Key.Key_F and modifiers == Qt.KeyboardModifier.ControlModifier:
             w.search_input.setFocus()
             return True
+
+        if modifiers & _DIRECT_PICK_BLOCKERS:
+            return False
 
         if Qt.Key.Key_1 <= key <= Qt.Key.Key_9:
             focus_widget = w.search_input
@@ -123,7 +140,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
 
     item_pasted = Signal(int)
     closed = Signal()
-    new_item_received = Signal()
+    new_item_received = Signal(object)
     _offscreen_warmup_done = False
 
     def __init__(self, parent=None):
@@ -134,6 +151,8 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self.controller.loading_state_changed.connect(self._on_loading_changed)
         self.controller.reload_required.connect(self._on_reload_required)
         self.controller.load_completed.connect(self._on_load_completed)
+        self.controller.item_inserted.connect(self._on_item_inserted)
+        self.controller.item_moved_to_top.connect(self._on_item_moved_to_top)
 
         self.selected_item_id: Optional[int] = None
         self._is_loading = False
@@ -164,6 +183,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self._apply_opacity()
         self._setup_shortcuts()
 
+        self.controller.set_paste_target_exclusion(self._is_paste_picker_surface)
         PreviewPopup.instance().set_manager(self.manager)
         self._warmup_offscreen_once()
 
@@ -176,6 +196,25 @@ class ClipboardWindow(QWidget, FramelessMixin):
                 self.list_widget.clear()
         else:
             self._append_items(items)
+
+    def _on_item_inserted(self, item: ClipboardItem, row: int):
+        """单条新内容插进列表：不重建、不滚动、不动选中项和预览。"""
+        list_item = QListWidgetItem()
+        list_item.setData(ROLE_ITEM_ID, item.id)
+        list_item.setData(ROLE_ITEM_DATA, item)
+        self.list_widget.insertItem(row, list_item)
+        self.selection_manager.shift_selection_after_insert(row)
+
+    def _on_item_moved_to_top(self, item_id: int, row: int):
+        """条目移到最前：搬动已有的行，不重建列表。"""
+        for index in range(self.list_widget.count()):
+            if self.list_widget.item(index).data(ROLE_ITEM_ID) != item_id:
+                continue
+            if index == row:
+                return
+            self.list_widget.insertItem(row, self.list_widget.takeItem(index))
+            self.selection_manager.shift_selection_after_move(index, row)
+            return
 
     def _on_loading_changed(self, is_loading: bool):
         self._is_loading = is_loading
@@ -591,6 +630,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
             tr=self.tr,
             paste_with_html=self.controller.paste_with_html,
             auto_paste=self.config.get_clipboard_auto_paste(),
+            close_after_paste=self.config.get_clipboard_close_after_paste(),
             move_to_top=self.config.get_clipboard_move_to_top_on_paste(),
             show_metadata=self.config.get_clipboard_show_metadata(),
             preserve_search=self.config.get_clipboard_preserve_search(),
@@ -602,6 +642,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
             font_size_options=self.config.get_clipboard_font_size_options(),
             on_toggle_paste_html=self._toggle_paste_with_html,
             on_toggle_auto_paste=self._toggle_auto_paste,
+            on_toggle_close_after_paste=self._toggle_close_after_paste,
             on_toggle_move_to_top=self._toggle_move_to_top_on_paste,
             on_toggle_show_metadata=self._toggle_show_metadata,
             on_toggle_preserve_search=self._toggle_preserve_search,
@@ -658,6 +699,9 @@ class ClipboardWindow(QWidget, FramelessMixin):
 
     def _toggle_auto_paste(self, checked: bool):
         self.controller.set_auto_paste(checked)
+
+    def _toggle_close_after_paste(self, checked: bool):
+        self.config.set_clipboard_close_after_paste(checked)
 
     def _toggle_move_to_top_on_paste(self, checked: bool):
         self.controller.set_move_to_top_on_paste(checked)
@@ -927,6 +971,21 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self.config.set_clipboard_group_bar_position(position)
         self._apply_opacity()
 
+    def _is_paste_picker_surface(self, hwnd: int) -> bool:
+        """hwnd 是不是这个拾取窗口本身。
+
+        只认它一个。内容编辑窗口、截图标注、翻译窗口同属本进程，但都是用户
+        真会往里粘的地方，按进程排除会把它们一起挡掉。
+        """
+        widget = QWidget.find(hwnd)
+        return widget is not None and widget.window() is self
+
+    def _paste_close_callback(self):
+        """粘贴后关闭窗口的回调；开关关掉时返回 None，窗口常驻可连续粘贴。"""
+        if not self.config.get_clipboard_close_after_paste():
+            return None
+        return self.close
+
     def _get_item_data(self, item_id: int) -> Optional[ClipboardItem]:
         for item in self.controller.current_items:
             if item.id == item_id:
@@ -940,8 +999,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
             if current_group is not None and current_group.group_type == GroupType.FILE:
                 self._open_file_item(item_id)
                 return
-        self.controller._previous_window_hwnd = get_foreground_window()
-        if self.controller.paste_item(item_id, on_close_callback=self.close):
+        if self.controller.paste_item(item_id, on_close_callback=self._paste_close_callback()):
             self.item_pasted.emit(item_id)
 
     def _paste_selected(self):
@@ -1007,15 +1065,17 @@ class ClipboardWindow(QWidget, FramelessMixin):
         return None
 
     def _special_paste(self, item_id: int, action_key: str):
-        """执行特殊粘贴：先记录前台窗口，再调用 controller 的加工粘贴。"""
-        self.controller._previous_window_hwnd = get_foreground_window()
-        self.controller.paste_transformed_text(item_id, action_key, on_close_callback=self.close, explicit=True)
+        """执行特殊粘贴。"""
+        self.controller.paste_transformed_text(
+            item_id, action_key, on_close_callback=self._paste_close_callback(), explicit=True
+        )
         self.item_pasted.emit(item_id)
 
     def _file_special_paste(self, item_id: int, action_key: str):
         """执行文件项特殊粘贴。"""
-        self.controller._previous_window_hwnd = get_foreground_window()
-        self.controller.paste_file_text(item_id, action_key, on_close_callback=self.close, explicit=True)
+        self.controller.paste_file_text(
+            item_id, action_key, on_close_callback=self._paste_close_callback(), explicit=True
+        )
         self.item_pasted.emit(item_id)
 
     def _move_item_to_group(self, item_id: int, group_id: Optional[int]):
@@ -1073,8 +1133,9 @@ class ClipboardWindow(QWidget, FramelessMixin):
 
     def _paste_item_to_clipboard(self, item_id: int):
         """右键菜单的"粘贴"：用户点这一下就是要粘一次，explicit=True 跳过自动粘贴开关。"""
-        self.controller._previous_window_hwnd = get_foreground_window()
-        if self.controller.paste_item(item_id, on_close_callback=self.close, explicit=True):
+        if self.controller.paste_item(
+            item_id, on_close_callback=self._paste_close_callback(), explicit=True
+        ):
             self.item_pasted.emit(item_id)
 
     def _save_image_as(self, item_id: int):
@@ -1161,11 +1222,11 @@ class ClipboardWindow(QWidget, FramelessMixin):
     def _on_clear_clicked(self):
         self.controller.clear_history(parent_widget=self)
 
-    def _on_new_item(self):
-        self.controller.on_new_content(self.isVisible())
+    def _on_new_item(self, item=None):
+        self.controller.on_new_content(self.isVisible(), item)
 
-    def notify_new_content(self):
-        self.new_item_received.emit()
+    def notify_new_content(self, item=None):
+        self.new_item_received.emit(item)
 
     def _warmup_offscreen_once(self):
         if ClipboardWindow._offscreen_warmup_done:
@@ -1255,6 +1316,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
         # 键盘/悬停事件，也不能在主窗口隐藏后重新拉起预览。
         PreviewPopup.instance().set_display_enabled(False)
         self._fl_reset()
+        self.controller.on_window_hide()
 
         if not self.config.get_clipboard_preserve_search() and self.search_input.text():
             self.search_input.clear()
@@ -1296,6 +1358,11 @@ class ClipboardWindow(QWidget, FramelessMixin):
 
     def _check_and_hide(self):
         if self.isActiveWindow():
+            return
+
+        # 常驻模式靠用户主动关闭。粘贴本身就会把焦点交给目标窗口，
+        # 这里按失焦隐藏处理的话，关掉开关等于没有生效。
+        if not self.config.get_clipboard_close_after_paste():
             return
 
         # A modal confirmation dialog (for example the item-delete prompt) and

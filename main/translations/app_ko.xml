@@ -1591,6 +1591,10 @@ Replace it?</source>
         <translation>선택 후 자동 붙여넣기</translation>
     </message>
     <message>
+        <source>Close After Paste</source>
+        <translation>붙여넣기 후 창 닫기</translation>
+    </message>
+    <message>
         <source>Move to Top After Paste</source>
         <translation>붙여넣기 후 맨 위로 이동</translation>
     </message>

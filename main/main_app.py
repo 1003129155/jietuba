@@ -458,6 +458,15 @@ class MainApp(QObject):
             if isinstance(w, QColorDialog) and w.isVisible():
                 w.reject()
 
+        # 剪贴板窗口可能被设为粘贴后常驻，会连同它一起被截进图里。用 close
+        # 而不是 hide：hide 不会关掉它已弹出的右键菜单，那个菜单是置顶的，
+        # 照样会进画面。截图是主功能，不能因为这里出状况就起不来。
+        try:
+            if self.clipboard_window and self.clipboard_window.isVisible():
+                self.clipboard_window.close()
+        except Exception as e:
+            log_exception(e, T("关闭剪贴板窗口"))
+
         log_info(T("启动后台截图线程"), "MainApp")
         
         # 在后台线程执行 mss.grab()，避免主线程被阻塞 100~500ms
@@ -563,7 +572,7 @@ class MainApp(QObject):
     def _on_clipboard_item_received(self, item):
         """Refresh clipboard UI on the GUI thread without owning probe logic."""
         if self.clipboard_window:
-            self.clipboard_window.notify_new_content()
+            self.clipboard_window.notify_new_content(item)
 
     def set_clipboard_monitoring_enabled(self, enabled: bool) -> bool:
         """Synchronize the Rust clipboard watcher with the saved setting.

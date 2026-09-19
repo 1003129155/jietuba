@@ -279,6 +279,8 @@ def _change_clipboard_data_location(dialog):
             if not confirmed:
                 return
 
+        _close_open_clipboard_windows()
+
         if not cm.release_storage():
             show_warning_dialog(dialog, dialog.tr("Error"), dialog.tr("Failed to close the current clipboard database."))
             return
@@ -365,6 +367,22 @@ def _on_clipboard_move_failed(dialog, cm, progress, worker, old_db_path: str, me
         dialog._clipboard_move_thread = None
         dialog._clipboard_move_progress = None
     show_warning_dialog(dialog, dialog.tr("Error"), message)
+
+
+def _close_open_clipboard_windows():
+    """迁移期间后端会被释放，窗口上的任何操作都会静默失效，先关掉。
+
+    以前窗口一失焦就自己隐藏，碰不到这段时间；设成粘贴后常驻之后就碰得到了。
+    用 close 而不是 hide：closeEvent 会注销快捷键处理器、并关掉已弹出的
+    右键菜单，那些菜单项按下去同样会打到已经释放的后端。
+    """
+    try:
+        from PySide6.QtWidgets import QApplication
+        for widget in QApplication.topLevelWidgets():
+            if hasattr(widget, "request_data_refresh") and widget.isVisible():
+                widget.close()
+    except Exception:
+        pass
 
 
 def _refresh_open_clipboard_windows():

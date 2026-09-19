@@ -64,6 +64,7 @@ APP_DEFAULT_SETTINGS = {
     "translation_preserve_formatting": True,
     "clipboard_enabled": True,
     "clipboard_auto_paste": False,
+    "clipboard_close_after_paste": True,
     "clipboard_history_limit": 100,
     "clipboard_auto_cleanup": False,
     "magnifier_color_copy_format": "rgb_hex",
@@ -246,6 +247,8 @@ class MockConfig:
     def set_clipboard_enabled(self, v): pass
     def get_clipboard_auto_paste(self): return False
     def set_clipboard_auto_paste(self, v): pass
+    def get_clipboard_close_after_paste(self): return True
+    def set_clipboard_close_after_paste(self, v): pass
     def get_clipboard_history_limit(self): return 100
     def set_clipboard_history_limit(self, v): pass
     def get_clipboard_db_path(self): return ""
