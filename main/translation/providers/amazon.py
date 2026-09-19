@@ -131,6 +131,18 @@ class AmazonTranslateProvider(TranslationProvider):
             )
         except urllib.error.HTTPError as exc:
             return self._http_error(exc)
+        except TimeoutError:
+            # 读超时抛的是 TimeoutError，它不是 URLError 的子类，不加这条就会
+            # 一路掉进下面的兜底：归类成 UNKNOWN，还把「The read operation
+            # timed out」这种英文原文直接甩给用户。
+            log_error(
+                f"Amazon Translate timed out after {request.timeout}s",
+                "AmazonTranslate",
+            )
+            return self._error(
+                TranslationErrorCode.NETWORK_ERROR,
+                f"Request timed out after {request.timeout}s",
+            )
         except urllib.error.URLError as exc:
             reason = getattr(exc, "reason", exc)
             log_error(

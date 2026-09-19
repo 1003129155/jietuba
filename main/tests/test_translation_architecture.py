@@ -4,6 +4,8 @@ import io
 import json
 import urllib.error
 
+import pytest
+
 from translation.models import (
     TranslationErrorCode,
     TranslationRequest,
@@ -516,3 +518,30 @@ def test_baidu_provider_maps_body_parse_error_to_invalid_request():
     assert BaiduTranslateProvider._map_api_error_code("53001") is (
         TranslationErrorCode.INVALID_REQUEST
     )
+
+
+# ============================================================================
+# 读超时：TimeoutError 不是 URLError 的子类，每家都得单列一条
+# ============================================================================
+
+@pytest.mark.parametrize("module_path,make", [
+    ("translation.providers.baidu",
+     lambda: BaiduTranslateProvider(
+         {"appid": "20260101000000001", "secret_key": "s"})),
+    ("translation.providers.google",
+     lambda: GoogleTranslateProvider({"api_key": "k"})),
+    ("translation.providers.amazon", _amazon_provider),
+])
+def test_read_timeout_is_a_network_error(monkeypatch, module_path, make):
+    """漏了这条，用户看到的是没翻译的「The read operation timed out」，
+    而且归类成 UNKNOWN，上层没法按网络问题处理。"""
+    def _urlopen(*_args, **_kwargs):
+        raise TimeoutError("The read operation timed out")
+
+    monkeypatch.setattr(module_path + ".urllib.request.urlopen", _urlopen)
+    result = make().translate(TranslationRequest("Hello", "ZH"))
+
+    assert not result.success
+    assert result.error_code is TranslationErrorCode.NETWORK_ERROR
+    assert "timed out" in result.error_message.lower()
+    assert "read operation" not in result.error_message.lower()
