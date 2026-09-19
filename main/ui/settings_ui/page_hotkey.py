@@ -15,7 +15,9 @@ from .components import SettingCardGroup, WhiteCard, apply_theme_text_style
 from ..hotkey_edit import HotkeyEdit, validate_hotkey_group
 from ..inapp_key_edit import InAppKeyEdit
 from settings import ANNOTATION_TOOL_SHORTCUTS
-from core.shortcut_manager import is_reserved_inapp_shortcut
+from core.shortcut_manager import (
+    inapp_shortcut_display_text, is_reserved_inapp_shortcut,
+)
 
 
 # ── 应用内快捷键定义表（分组）──────────────────────────────
@@ -410,7 +412,7 @@ def _on_shortcut_changed(dialog, changed_key: str, new_text: str, base_style: st
         dialog,
         dialog.tr("Shortcut Conflict"),
         dialog.tr('"%1" is already used by "%2".\nReplace it?')
-            .replace('%1', new_text.upper())
+            .replace('%1', inapp_shortcut_display_text(new_text))
             .replace('%2', conflict_label),
     )
 

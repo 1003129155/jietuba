@@ -12,12 +12,17 @@ from PySide6.QtWidgets import QLineEdit
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeyEvent, QKeySequence
 
-from core.shortcut_manager import get_key_display_map
+from core.shortcut_manager import MOUSE_BUTTON_MIDDLE, get_key_display_map
 from core import safe_event
 
 
 class InAppKeyEdit(QLineEdit):
-    """应用内快捷键录入框 — 点击后按下想要的键组合即可"""
+    """应用内快捷键录入框 — 点击后按下想要的键组合即可（也可按鼠标中键）"""
+
+    # ShortcutManager 的应用内鼠标分发看这个标记来放行：不放行的话，指针只要
+    # 恰好停在某个钉图上方，中键就会先被钉图 handler 消费掉，这里永远录不到。
+    # 键盘那侧靠 _is_text_input_active 达到同样效果，鼠标没有对应机制。
+    _captures_inapp_mouse_shortcut = True
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -25,6 +30,32 @@ class InAppKeyEdit(QLineEdit):
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setPlaceholderText("...")
+
+    # ── 鼠标事件 ──────────────────────────────────────────
+
+    @safe_event
+    def mousePressEvent(self, event):
+        """中键录成绑定，其余按键交还给 QLineEdit（左键要用来获取焦点）。
+
+        只做中键：侧键走的是全局热键那套低级钩子，Qt 这里根本收不到；左右键
+        在应用里到处都有用途，录成快捷键会让界面没法操作。
+        """
+        if event.button() != Qt.MouseButton.MiddleButton:
+            super().mousePressEvent(event)
+            return
+        event.accept()
+        self.setFocus(Qt.FocusReason.MouseFocusReason)
+        parts = []
+        mods = event.modifiers()
+        if mods & Qt.KeyboardModifier.ControlModifier:
+            parts.append("Ctrl")
+        if mods & Qt.KeyboardModifier.ShiftModifier:
+            parts.append("Shift")
+        if mods & Qt.KeyboardModifier.AltModifier:
+            parts.append("Alt")
+        parts.append(MOUSE_BUTTON_MIDDLE)
+        # 存进配置的就是这段文本，所以必须是解析器认识的形态（全小写）
+        self.setText("+".join(parts).lower())
 
     # ── 键盘事件 ──────────────────────────────────────────
 

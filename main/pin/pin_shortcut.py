@@ -13,7 +13,10 @@ from PySide6.QtCore import QObject, Qt
 from PySide6.QtGui import QCursor
 from core import log_info, log_error
 from core.logger import T
-from core.shortcut_manager import ShortcutManager, ShortcutHandler, load_inapp_bindings
+from core.shortcut_manager import (
+    ShortcutManager, ShortcutHandler, event_key,
+    load_inapp_bindings, load_inapp_mouse_bindings, match_inapp_binding,
+)
 
 
 class _PinHandlerBase(ShortcutHandler):
@@ -25,22 +28,25 @@ class _PinHandlerBase(ShortcutHandler):
     def __init__(self, controller: 'PinShortcutController'):
         self._controller = controller
         # 从配置读取钉图相关绑定
-        self._bindings = load_inapp_bindings(self._PIN_KEYS)
+        self.reload_bindings()
 
     def reload_bindings(self):
         """重新读取配置（设置变更后调用）"""
         self._bindings = load_inapp_bindings(self._PIN_KEYS)
+        self._mouse_bindings = load_inapp_mouse_bindings(self._PIN_KEYS)
 
     def _find_pin_under_cursor(self):
         return self._controller._find_pin_under_cursor()
 
     def _match(self, event, cfg_key: str) -> bool:
-        """检查按键事件是否匹配某个配置的快捷键"""
-        binding = self._bindings.get(cfg_key)
-        if not binding:
-            return False
-        want_key, want_mods = binding
-        return event.key() == want_key and event.modifiers() == want_mods
+        """检查事件是否匹配某个配置的快捷键（键盘组合或鼠标键）"""
+        return match_inapp_binding(
+            event, cfg_key, self._bindings, self._mouse_bindings
+        )
+
+    def handle_mouse(self, event) -> bool:
+        """中键走和键盘完全相同的那条 if 链，见 ShortcutHandler.handle_mouse。"""
+        return self.handle_key(event)
 
     # ------------------------------------------------------------------
     # 系统热键拦截
@@ -124,7 +130,7 @@ class PinEditShortcutHandler(_PinHandlerBase):
         if not (pin.canvas and pin.canvas.is_editing):
             return False
 
-        key = event.key()
+        key = event_key(event)
 
         # 配置的复制快捷键
         if self._match(event, "inapp_copy_pin"):
@@ -201,7 +207,7 @@ class PinNormalShortcutHandler(_PinHandlerBase):
         if pin.canvas and pin.canvas.is_editing:
             return False
 
-        key = event.key()
+        key = event_key(event)
 
         # 配置的复制快捷键
         if self._match(event, "inapp_copy_pin"):

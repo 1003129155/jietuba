@@ -12,7 +12,8 @@ QObject），它是"按键 → 动作"的唯一入口：确认、钉图、撤销
 而现有测试完全不覆盖它。
 
 隔离方式：用 __new__ 跳过 __init__（它会去读用户配置里的快捷键绑定），
-手工装配 _bindings / _move_keys / _window，用假事件对象和 MagicMock 窗口驱动。
+手工装配 _bindings / _mouse_bindings / _move_keys / _window，用假事件对象和
+MagicMock 窗口驱动。
 """
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -38,6 +39,21 @@ BINDINGS = {
     "inapp_zoom_in": (Qt.Key.Key_Plus, NO_MOD),
     "inapp_zoom_out": (Qt.Key.Key_Minus, NO_MOD),
 }
+
+
+class _FakeMouseEvent:
+    """中键事件。刻意不提供 key() 和 isAutoRepeat()——handle_key 里若有哪条
+    分支绕过 event_key()/event_is_auto_repeat() 直接取，就会在这里炸出来。"""
+
+    def __init__(self, button=Qt.MouseButton.MiddleButton, modifiers=NO_MOD):
+        self._button = button
+        self._mods = modifiers
+
+    def button(self):
+        return self._button
+
+    def modifiers(self):
+        return self._mods
 
 
 class _FakeKeyEvent:
@@ -79,10 +95,12 @@ def _make_magnifier(should_render=True, has_cursor=True, copy_ok=True):
     return magnifier
 
 
-def _make_handler(window, move_keys=None):
+def _make_handler(window, move_keys=None, mouse_bindings=None):
     handler = ScreenshotShortcutHandler.__new__(ScreenshotShortcutHandler)
     handler._window = window
     handler._bindings = dict(BINDINGS)
+    # 鼠标键绑定表。本文件只驱动键盘事件，但 _match 两张表都要查，缺了会 AttributeError
+    handler._mouse_bindings = dict(mouse_bindings or {})
     handler._move_keys = dict(move_keys or {})
     # __init__ 被跳过，补上工具快捷键表（本文件只测动作/移动/放大镜分发）
     handler._tool_shortcuts = ()
@@ -350,4 +368,43 @@ class TestUnhandledKeys:
         handler = _make_handler(window)
         handler._bindings = {}
         assert handler.handle_key(_FakeKeyEvent(Qt.Key.Key_Space)) is False
+        window.action_handler.handle_confirm.assert_not_called()
+
+
+class TestMiddleClickBinding:
+    """绑成中键的动作要和绑成键盘时走同一条 if 链。"""
+
+    def test_middle_click_triggers_the_bound_action(self):
+        window = _make_window(confirmed=True)
+        handler = _make_handler(window, mouse_bindings={
+            "inapp_confirm": (Qt.MouseButton.MiddleButton, NO_MOD)})
+        assert handler.handle_mouse(_FakeMouseEvent()) is True
+        window.action_handler.handle_confirm.assert_called_once()
+
+    def test_middle_click_respects_the_same_guards_as_the_keyboard(self):
+        """确认动作在选区未确认时不该触发，鼠标这条路也一样。"""
+        window = _make_window(confirmed=False)
+        handler = _make_handler(window, mouse_bindings={
+            "inapp_confirm": (Qt.MouseButton.MiddleButton, NO_MOD)})
+        assert handler.handle_mouse(_FakeMouseEvent()) is False
+        window.action_handler.handle_confirm.assert_not_called()
+
+    def test_an_unbound_middle_click_trips_no_key_only_branch(self):
+        """ESC、Enter、取色 C 都是硬编码的键专属分支，必须对鼠标事件全部落空。
+
+        它们靠 event_key() 返回 Key_unknown 落空；谁把那里改回 event.key()，
+        这条会直接 AttributeError。
+        """
+        window = _make_window(confirmed=True)
+        handler = _make_handler(window)
+        assert handler.handle_mouse(_FakeMouseEvent()) is False
+        window.cleanup_and_close.assert_not_called()
+        window.action_handler.handle_confirm.assert_not_called()
+
+    def test_other_buttons_are_not_the_middle_binding(self):
+        window = _make_window(confirmed=True)
+        handler = _make_handler(window, mouse_bindings={
+            "inapp_confirm": (Qt.MouseButton.MiddleButton, NO_MOD)})
+        left = _FakeMouseEvent(button=Qt.MouseButton.LeftButton)
+        assert handler.handle_mouse(left) is False
         window.action_handler.handle_confirm.assert_not_called()

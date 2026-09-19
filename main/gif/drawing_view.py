@@ -40,7 +40,10 @@ except ImportError:
     log_debug = log_info = _l.info
     T = lambda template, **kwargs: template.format(**kwargs) if kwargs else template
 
-from core.shortcut_manager import ShortcutManager, ShortcutHandler, load_inapp_bindings
+from core.shortcut_manager import (
+    ShortcutManager, ShortcutHandler, event_key,
+    load_inapp_bindings, load_inapp_mouse_bindings, match_inapp_binding,
+)
 from core import safe_event
 
 
@@ -210,6 +213,7 @@ class GifDrawingShortcutHandler(ShortcutHandler):
     def __init__(self, view: 'GifDrawingView'):
         self._view = view
         self._bindings = load_inapp_bindings(["inapp_delete"])
+        self._mouse_bindings = load_inapp_mouse_bindings(["inapp_delete"])
 
     @property
     def priority(self) -> int:
@@ -227,22 +231,26 @@ class GifDrawingShortcutHandler(ShortcutHandler):
             return False
 
     def _match(self, event, cfg_key: str) -> bool:
-        binding = self._bindings.get(cfg_key)
-        if not binding:
-            return False
-        want_key, want_mods = binding
-        return event.key() == want_key and event.modifiers() == want_mods
+        return match_inapp_binding(
+            event, cfg_key, self._bindings, self._mouse_bindings
+        )
+
+    def handle_mouse(self, event) -> bool:
+        """中键走和键盘完全相同的那条 if 链，见 ShortcutHandler.handle_mouse。"""
+        return self.handle_key(event)
 
     def handle_key(self, event) -> bool:
         v = self._view
-        if event.key() == Qt.Key.Key_Escape:
+        # 鼠标事件没有 key()，取到的是 Key_unknown，下面这些键专属分支自然落空
+        key = event_key(event)
+        if key == Qt.Key.Key_Escape:
             v.activate_tool("cursor")
             return True
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            if event.key() == Qt.Key.Key_Z:
+            if key == Qt.Key.Key_Z:
                 v._gif_scene.undo_stack.undo()
                 return True
-            if event.key() == Qt.Key.Key_Y:
+            if key == Qt.Key.Key_Y:
                 v._gif_scene.undo_stack.redo()
                 return True
         # 删除选中图元
