@@ -666,6 +666,7 @@ ui/
 │   ├── page_clipboard.py    # 剪贴板设置页
 │   ├── page_hotkey.py       # 快捷键设置页
 │   ├── page_translation.py  # 翻译设置页
+│   ├── provider_fields.py   # 服务商字段的读写（按声明）
 │   ├── page_log.py          # 日志设置页
 │   ├── page_developer.py    # 开发者设置页
 │   ├── page_misc.py         # 杂项设置页

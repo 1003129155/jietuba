@@ -17,7 +17,7 @@ from ..models import (
     TranslationRequest,
     TranslationResult,
 )
-from ..provider import CredentialField, TranslationProvider
+from ..provider import TextField, TranslationProvider
 
 
 class BaiduTranslateProvider(TranslationProvider):
@@ -74,13 +74,13 @@ class BaiduTranslateProvider(TranslationProvider):
         self._secret_key = str(config.get("secret_key", "") or "").strip()
 
     CREDENTIAL_FIELDS = (
-        CredentialField("baidu_translate_appid", "Baidu APPID", "APPID"),
+        TextField("baidu_translate_appid", "Baidu APPID", "APPID"),
         # 标签写「密钥」而不是「API Key」：控制台上这一栏就叫密钥，且百度另有
         # 一个叫 API Key 的东西（大模型单独申请的那个）。叫错名字的直接后果是
         # 用户填了 API Key、撞 54001，而界面上只显示 invalid token，无从判断。
-        CredentialField("baidu_translate_secret_key", "Baidu 密钥",
-                        "控制台「开发者信息」里与 APPID 成对的密钥",
-                        secret=True),
+        TextField("baidu_translate_secret_key", "Baidu 密钥",
+                  "控制台「开发者信息」里与 APPID 成对的密钥",
+                  secret=True),
     )
     HELP_LABEL = "百度翻译开放平台 · 开发者信息"
     HELP_URL = "https://fanyi-api.baidu.com/manage/developer"

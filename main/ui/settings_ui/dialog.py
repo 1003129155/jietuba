@@ -36,6 +36,7 @@ from .page_hotkey import create_hotkey_page, validate_global_hotkey_edits
 from .page_capture import create_capture_page
 from .page_clipboard import create_clipboard_page
 from .page_translation import create_translation_page
+from . import provider_fields
 from .page_log import create_log_page, refresh_latest_log_label
 from .page_misc import create_misc_page
 from .page_appearance import create_appearance_page
@@ -746,58 +747,28 @@ class SettingsDialog(FrostedFramelessDialog):
             )
             if index >= 0:
                 self.translation_provider_combo.setCurrentIndex(index)
-        if hasattr(self, 'deepl_api_key_input'):
-            self.deepl_api_key_input.setText(defaults["deepl_api_key"])
-        if hasattr(self, 'deepl_pro_toggle'):
-            self.deepl_pro_toggle.setChecked(defaults["deepl_use_pro"])
-        if hasattr(self, 'amazon_translate_region_input'):
-            self.amazon_translate_region_input.setText(
-                defaults["amazon_translate_region"]
-            )
-        if hasattr(self, 'amazon_translate_access_key_input'):
-            self.amazon_translate_access_key_input.setText(
-                defaults["amazon_translate_access_key_id"]
-            )
-        if hasattr(self, 'amazon_translate_secret_key_input'):
-            self.amazon_translate_secret_key_input.setText(
-                defaults["amazon_translate_secret_access_key"]
-            )
-        if hasattr(self, 'amazon_translate_session_token_input'):
-            self.amazon_translate_session_token_input.setText(
-                defaults["amazon_translate_session_token"]
-            )
-        if hasattr(self, 'google_translate_api_key_input'):
-            self.google_translate_api_key_input.setText(
-                defaults["google_translate_api_key"]
-            )
-        if hasattr(self, 'azure_translate_api_key_input'):
-            self.azure_translate_api_key_input.setText(
-                defaults["azure_translate_api_key"]
-            )
-        if hasattr(self, 'azure_translate_region_input'):
-            self.azure_translate_region_input.setText(
-                defaults["azure_translate_region"]
-            )
-        if hasattr(self, 'azure_translate_endpoint_input'):
-            self.azure_translate_endpoint_input.setText(
-                defaults["azure_translate_endpoint"]
-            )
-        if hasattr(self, 'baidu_translate_appid_input'):
-            self.baidu_translate_appid_input.setText(
-                defaults["baidu_translate_appid"]
-            )
-        if hasattr(self, 'baidu_translate_secret_key_input'):
-            self.baidu_translate_secret_key_input.setText(
-                defaults["baidu_translate_secret_key"]
+        # 各家凭据和独有开关都按注册表的声明恢复，不再一家家手写。
+        # 手写那版加 baidu 时漏过一次，而漏了不报错——恢复默认会默默少恢复两项。
+        if hasattr(self, 'provider_field_widgets'):
+            provider_fields.reset_to_defaults(
+                defaults,
+                provider_fields.all_fields(self.translation_registry),
+                self.provider_field_widgets,
             )
         if hasattr(self, 'translation_target_combo'):
-            index = self.translation_target_combo.findData(defaults["translation_target_lang"])
+            index = self.translation_target_combo.findData(
+                defaults["translation_target_lang"]
+            )
             if index >= 0:
                 self.translation_target_combo.setCurrentIndex(index)
         if hasattr(self, 'split_sentences_toggle'):
-            self.split_sentences_toggle.setChecked(defaults["translation_split_sentences"])
+            self.split_sentences_toggle.setChecked(
+                defaults["translation_split_sentences"]
+            )
         if hasattr(self, 'preserve_formatting_toggle'):
-            self.preserve_formatting_toggle.setChecked(defaults["translation_preserve_formatting"])
+            self.preserve_formatting_toggle.setChecked(
+                defaults["translation_preserve_formatting"]
+            )
 
     def _reset_clipboard_page(self):
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
@@ -928,53 +899,15 @@ class SettingsDialog(FrostedFramelessDialog):
             self.config_manager.set_translation_provider(
                 self.translation_provider_combo.currentData()
             )
-        if hasattr(self, 'deepl_api_key_input'):
-            self.config_manager.set_deepl_api_key(self.deepl_api_key_input.text().strip())
-        if hasattr(self, 'deepl_pro_toggle'):
-            self.config_manager.set_deepl_use_pro(self.deepl_pro_toggle.isChecked())
-        if hasattr(self, 'amazon_translate_region_input'):
-            self.config_manager.set_amazon_translate_region(
-                self.amazon_translate_region_input.text().strip()
-            )
-        if hasattr(self, 'amazon_translate_access_key_input'):
-            self.config_manager.set_amazon_translate_access_key_id(
-                self.amazon_translate_access_key_input.text().strip()
-            )
-        if hasattr(self, 'amazon_translate_secret_key_input'):
-            self.config_manager.set_amazon_translate_secret_access_key(
-                self.amazon_translate_secret_key_input.text().strip()
-            )
-        if hasattr(self, 'amazon_translate_session_token_input'):
-            self.config_manager.set_amazon_translate_session_token(
-                self.amazon_translate_session_token_input.text().strip()
-            )
-        if hasattr(self, 'google_translate_api_key_input'):
-            self.config_manager.set_google_translate_api_key(
-                self.google_translate_api_key_input.text().strip()
-            )
-        if hasattr(self, 'azure_translate_api_key_input'):
-            self.config_manager.set_azure_translate_api_key(
-                self.azure_translate_api_key_input.text().strip()
-            )
-        if hasattr(self, 'azure_translate_region_input'):
-            self.config_manager.set_azure_translate_region(
-                self.azure_translate_region_input.text().strip()
-            )
-        if hasattr(self, 'azure_translate_endpoint_input'):
-            self.config_manager.set_azure_translate_endpoint(
-                self.azure_translate_endpoint_input.text().strip()
-            )
-        # 这一串每加一家服务商都得手工补两处（这里和上面的恢复默认），漏了不会
-        # 报错——hasattr 守卫会把它吞掉，表现成「填了、存不上、永远说未配置」。
-        # 百度就这么漏过一次。欢迎页那边是从 CREDENTIAL_FIELDS 反射出来的，不
-        # 用补；这里迟早该改成同一套，见 page_translation 顶部的说明。
-        if hasattr(self, 'baidu_translate_appid_input'):
-            self.config_manager.set_baidu_translate_appid(
-                self.baidu_translate_appid_input.text().strip()
-            )
-        if hasattr(self, 'baidu_translate_secret_key_input'):
-            self.config_manager.set_baidu_translate_secret_key(
-                self.baidu_translate_secret_key_input.text().strip()
+        # 各家凭据和独有开关统一按注册表的声明保存。以前这里是一长串手写的
+        # if hasattr(...)，加一家就得补一段；补漏了不报错——hasattr 把
+        # AttributeError 一起吞了，表现成「填了、存不上、一直说未配置」。
+        # baidu 就这么漏过一次，而当时全部测试都是绿的。
+        if hasattr(self, 'provider_field_widgets'):
+            provider_fields.save_from(
+                self.config_manager,
+                provider_fields.all_fields(self.translation_registry),
+                self.provider_field_widgets,
             )
         if hasattr(self, 'translation_target_combo'):
             self.config_manager.set_translation_target_lang(self.translation_target_combo.currentData())
@@ -1132,14 +1065,14 @@ class SettingsDialog(FrostedFramelessDialog):
             "clipboard_hotkey_edit", "clipboard_hotkey_edit_2",
             "translation_hotkey_edit", "translation_hotkey_edit_2",
             "pin_clipboard_hotkey_edit", "pin_clipboard_hotkey_edit_2",
-            "deepl_api_key_input", "amazon_translate_region_input",
-            "amazon_translate_access_key_input",
-            "amazon_translate_secret_key_input",
-            "amazon_translate_session_token_input",
-            "google_translate_api_key_input",
         ):
             widget = getattr(self, attr, None)
             if widget is not None:
+                widget.setStyleSheet(input_style)
+        # 翻译凭据的输入框是按声明动态建的，从 provider_field_widgets 取。
+        # 上面那张手写清单里 azure/baidu 一直缺席，切主题时它们不跟着变。
+        for widget in getattr(self, "provider_field_widgets", {}).values():
+            if hasattr(widget, "setEchoMode"):
                 widget.setStyleSheet(input_style)
         for widget in getattr(self, "_inapp_edits", {}).values():
             widget.setStyleSheet(input_style)
@@ -1192,14 +1125,17 @@ class SettingsDialog(FrostedFramelessDialog):
                       'translation_hotkey_edit', 'translation_hotkey_edit_2',
                       'clipboard_hotkey_edit_2', 'pin_clipboard_hotkey_edit',
                       'pin_clipboard_hotkey_edit_2', 'save_path_lbl', 'path_lbl',
-                      'deepl_api_key_input', 'amazon_translate_region_input',
-                      'amazon_translate_access_key_input',
-                      'amazon_translate_secret_key_input',
-                      'amazon_translate_session_token_input',
-                      'google_translate_api_key_input'):
+                      ):
             w = getattr(self, attr, None)
             if w is not None:
                 snap[attr] = w.text()
+        # 翻译凭据按声明取。以前是手写清单，只列了 deepl/amazon/google——改动
+        # azure 或 baidu 的凭据后直接关窗，不会弹「未保存」提示，改动就没了。
+        if hasattr(self, 'provider_field_widgets'):
+            for f in provider_fields.all_fields(self.translation_registry):
+                w = self.provider_field_widgets.get(f.config_key)
+                if w is not None:
+                    snap[f.config_key] = provider_fields.widget_value(f, w)
         # 开关类
         for attr in ('double_click_copy_close_toggle',
                       'cross_tool_selection_toggle',
@@ -1207,7 +1143,7 @@ class SettingsDialog(FrostedFramelessDialog):
                       'smart_toggle',
                       'save_toggle', 'ocr_enable_toggle',
                       'ocr_grayscale_toggle', 'ocr_upscale_toggle',
-                      'deepl_pro_toggle', 'split_sentences_toggle',
+                      'split_sentences_toggle',
                       'preserve_formatting_toggle', 'log_toggle',
                       'clipboard_enabled_toggle', 'clipboard_auto_paste_toggle',
                       'autostart_toggle', 'show_main_window_toggle',
@@ -1409,29 +1345,14 @@ class SettingsDialog(FrostedFramelessDialog):
             )
             if index >= 0:
                 self.translation_provider_combo.setCurrentIndex(index)
-        if hasattr(self, 'deepl_api_key_input'):
-            self.deepl_api_key_input.setText(self.config_manager.get_deepl_api_key())
-        if hasattr(self, 'deepl_pro_toggle'):
-            self.deepl_pro_toggle.setChecked(self.config_manager.get_deepl_use_pro())
-        if hasattr(self, 'amazon_translate_region_input'):
-            self.amazon_translate_region_input.setText(
-                self.config_manager.get_amazon_translate_region()
-            )
-        if hasattr(self, 'amazon_translate_access_key_input'):
-            self.amazon_translate_access_key_input.setText(
-                self.config_manager.get_amazon_translate_access_key_id()
-            )
-        if hasattr(self, 'amazon_translate_secret_key_input'):
-            self.amazon_translate_secret_key_input.setText(
-                self.config_manager.get_amazon_translate_secret_access_key()
-            )
-        if hasattr(self, 'amazon_translate_session_token_input'):
-            self.amazon_translate_session_token_input.setText(
-                self.config_manager.get_amazon_translate_session_token()
-            )
-        if hasattr(self, 'google_translate_api_key_input'):
-            self.google_translate_api_key_input.setText(
-                self.config_manager.get_google_translate_api_key()
+        # 各家凭据/开关按声明重载。手写那版只覆盖了 deepl/amazon/google，
+        # azure 和 baidu 从来没被重载过——外部改了配置再打开设置页，看到的
+        # 还是旧值。
+        if hasattr(self, 'provider_field_widgets'):
+            provider_fields.load_into(
+                self.config_manager,
+                provider_fields.all_fields(self.translation_registry),
+                self.provider_field_widgets,
             )
         if hasattr(self, 'translation_target_combo'):
             index = self.translation_target_combo.findData(self.config_manager.get_app_setting("translation_target_lang", ""))

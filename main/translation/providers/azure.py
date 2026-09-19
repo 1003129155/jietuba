@@ -18,7 +18,7 @@ from ..models import (
     TranslationResult,
     normalize_language_code,
 )
-from ..provider import CredentialField, TranslationProvider
+from ..provider import TextField, TranslationProvider
 
 
 class AzureTranslateProvider(TranslationProvider):
@@ -46,11 +46,11 @@ class AzureTranslateProvider(TranslationProvider):
         ).strip().rstrip("/")
 
     CREDENTIAL_FIELDS = (
-        CredentialField("azure_translate_api_key", "Azure API Key",
-                        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", secret=True),
-        CredentialField("azure_translate_region", "Azure Region", "eastasia"),
-        CredentialField("azure_translate_endpoint", "Azure Endpoint",
-                        "Optional, use default if empty"),
+        TextField("azure_translate_api_key", "Azure API Key",
+                  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", secret=True),
+        TextField("azure_translate_region", "Azure Region", "eastasia"),
+        TextField("azure_translate_endpoint", "Azure Endpoint",
+                  "Optional, use default if empty"),
     )
     HELP_LABEL = "portal.azure.com"
     HELP_URL = "https://portal.azure.com/"

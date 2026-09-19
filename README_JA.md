@@ -588,6 +588,7 @@ ui/
 │   ├── page_clipboard.py    # クリップボード設定
 │   ├── page_hotkey.py       # ホットキー設定
 │   ├── page_translation.py  # 翻訳設定
+│   ├── provider_fields.py   # 服务商字段的读写（按声明）
 │   ├── page_log.py          # ログ設定
 │   ├── page_developer.py    # 開発者設定
 │   ├── page_misc.py         # その他設定
