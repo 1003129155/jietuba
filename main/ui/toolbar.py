@@ -247,6 +247,7 @@ class Toolbar(QWidget):
     BASE_ICON_TOOL = 29      # 工具按钮图标
     BASE_ICON_ERASER = 25    # 橡皮擦图标
     HANDLE_WIDTH_RATIO = 0.32   # 拖动手柄宽 / 工具栏高
+    BASE_RIGHT_NUDGE = 4     # 自动定位时整体右移，目视微调，不是算出来的
 
     # 信号定义
     tool_changed = Signal(str)  # 工具切换信号(tool_id)
@@ -1176,7 +1177,7 @@ class Toolbar(QWidget):
         # 对齐的锚点是「确定」的右边缘而非整个工具栏：这样鼠标松手时正下方还是「确定」，
         # 「…」豁出去多占的这点宽度不影响落点手感
         more_w = self._button_widths.get("more", 0)
-        x = global_rect.right() - toolbar_w + more_w
+        x = global_rect.right() - toolbar_w + more_w + scaled(self.BASE_RIGHT_NUDGE)
         y = global_rect.bottom() + margin
         toolbar_below = True
 
