@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
+from core.ui_scale import dialog_scaled
 from ui.dialogs import show_confirm_dialog
 from ui.fluent_lite import (
     ComboBox, CaptionLabel, SegmentedWidget,
@@ -81,13 +82,19 @@ def validate_global_hotkey_edits(dialog, *, check_system: bool = False) -> bool:
     )
 
 
+_ROW_HEIGHT = 46
+_ROW_SPACING = 8
+
+
 def _build_shortcut_row(dialog, parent, title: str, editor: QWidget) -> QWidget:
     row_card = WhiteCard(parent)
-    row_card.setFixedHeight(46)
+    row_card.setFixedHeight(dialog_scaled(_ROW_HEIGHT))
 
     row_layout = QHBoxLayout(row_card)
-    row_layout.setContentsMargins(16, 0, 14, 0)
-    row_layout.setSpacing(12)
+    row_layout.setContentsMargins(
+        dialog_scaled(16), 0, dialog_scaled(14), 0
+    )
+    row_layout.setSpacing(dialog_scaled(12))
     row_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
     title_label = QLabel(title, row_card)
@@ -98,7 +105,7 @@ def _build_shortcut_row(dialog, parent, title: str, editor: QWidget) -> QWidget:
 
 
 def _stack_page_height(row_count: int) -> int:
-    return row_count * 46 + max(0, row_count - 1) * 8
+    return row_count * dialog_scaled(_ROW_HEIGHT) + max(0, row_count - 1) * dialog_scaled(_ROW_SPACING)
 
 
 def create_hotkey_page(dialog) -> QWidget:
@@ -121,8 +128,8 @@ def create_hotkey_page(dialog) -> QWidget:
     # 截图热键（主 + 备用）
     ss_card = WhiteCard(grp_global)
     ss_h = QHBoxLayout(ss_card)
-    ss_h.setContentsMargins(20, 8, 20, 8)
-    ss_h.setSpacing(12)
+    ss_h.setContentsMargins(dialog_scaled(20), dialog_scaled(8), dialog_scaled(20), dialog_scaled(8))
+    ss_h.setSpacing(dialog_scaled(12))
 
     ss_lbl = QLabel(dialog.tr("Screenshot Hotkey"), ss_card)
     apply_theme_text_style(ss_lbl, 15)
@@ -130,29 +137,29 @@ def create_hotkey_page(dialog) -> QWidget:
     ss_h.addStretch()
 
     ss_v = QVBoxLayout()
-    ss_v.setSpacing(5)
+    ss_v.setSpacing(dialog_scaled(5))
     dialog.hotkey_input = HotkeyEdit()
     dialog.hotkey_input.setText(dialog.current_hotkey)
     dialog.hotkey_input.setPlaceholderText(dialog.tr("e.g.: ctrl+shift+a"))
-    dialog.hotkey_input.setFixedWidth(200)
+    dialog.hotkey_input.setFixedWidth(dialog_scaled(200))
     dialog.hotkey_input.setStyleSheet(input_style)
     ss_v.addWidget(dialog.hotkey_input)
 
     dialog.hotkey_input_2 = HotkeyEdit()
     dialog.hotkey_input_2.setText(dialog.config_manager.get_hotkey_2())
     dialog.hotkey_input_2.setPlaceholderText(dialog.tr("e.g.: ctrl+shift+a"))
-    dialog.hotkey_input_2.setFixedWidth(200)
+    dialog.hotkey_input_2.setFixedWidth(dialog_scaled(200))
     dialog.hotkey_input_2.setStyleSheet(input_style)
     ss_v.addWidget(dialog.hotkey_input_2)
     ss_h.addLayout(ss_v)
-    ss_card.setFixedHeight(80)
+    ss_card.setFixedHeight(dialog_scaled(80))
     grp_global.addSettingCard(ss_card)
 
     # 剪贴板热键（主 + 备用）
     cb_card = WhiteCard(grp_global)
     cb_h = QHBoxLayout(cb_card)
-    cb_h.setContentsMargins(20, 8, 20, 8)
-    cb_h.setSpacing(12)
+    cb_h.setContentsMargins(dialog_scaled(20), dialog_scaled(8), dialog_scaled(20), dialog_scaled(8))
+    cb_h.setSpacing(dialog_scaled(12))
 
     cb_lbl = QLabel(dialog.tr("Clipboard Hotkey"), cb_card)
     apply_theme_text_style(cb_lbl, 15)
@@ -160,29 +167,29 @@ def create_hotkey_page(dialog) -> QWidget:
     cb_h.addStretch()
 
     cb_v = QVBoxLayout()
-    cb_v.setSpacing(5)
+    cb_v.setSpacing(dialog_scaled(5))
     dialog.clipboard_hotkey_edit = HotkeyEdit()
     dialog.clipboard_hotkey_edit.setText(dialog.config_manager.get_clipboard_hotkey())
     dialog.clipboard_hotkey_edit.setPlaceholderText(dialog.tr("e.g.: ctrl+shift+a"))
-    dialog.clipboard_hotkey_edit.setFixedWidth(200)
+    dialog.clipboard_hotkey_edit.setFixedWidth(dialog_scaled(200))
     dialog.clipboard_hotkey_edit.setStyleSheet(input_style)
     cb_v.addWidget(dialog.clipboard_hotkey_edit)
 
     dialog.clipboard_hotkey_edit_2 = HotkeyEdit()
     dialog.clipboard_hotkey_edit_2.setText(dialog.config_manager.get_clipboard_hotkey_2())
     dialog.clipboard_hotkey_edit_2.setPlaceholderText(dialog.tr("e.g.: ctrl+shift+a"))
-    dialog.clipboard_hotkey_edit_2.setFixedWidth(200)
+    dialog.clipboard_hotkey_edit_2.setFixedWidth(dialog_scaled(200))
     dialog.clipboard_hotkey_edit_2.setStyleSheet(input_style)
     cb_v.addWidget(dialog.clipboard_hotkey_edit_2)
     cb_h.addLayout(cb_v)
-    cb_card.setFixedHeight(80)
+    cb_card.setFixedHeight(dialog_scaled(80))
     grp_global.addSettingCard(cb_card)
 
     # 钉住剪贴板图片热键（主 + 备用）
     pin_card = WhiteCard(grp_global)
     pin_h = QHBoxLayout(pin_card)
-    pin_h.setContentsMargins(20, 8, 20, 8)
-    pin_h.setSpacing(12)
+    pin_h.setContentsMargins(dialog_scaled(20), dialog_scaled(8), dialog_scaled(20), dialog_scaled(8))
+    pin_h.setSpacing(dialog_scaled(12))
 
     pin_lbl = QLabel(dialog.tr("Pin Clipboard Image"), pin_card)
     apply_theme_text_style(pin_lbl, 15)
@@ -190,13 +197,13 @@ def create_hotkey_page(dialog) -> QWidget:
     pin_h.addStretch()
 
     pin_v = QVBoxLayout()
-    pin_v.setSpacing(5)
+    pin_v.setSpacing(dialog_scaled(5))
     dialog.pin_clipboard_hotkey_edit = HotkeyEdit()
     dialog.pin_clipboard_hotkey_edit.setText(
         dialog.config_manager.get_pin_clipboard_hotkey()
     )
     dialog.pin_clipboard_hotkey_edit.setPlaceholderText(dialog.tr("e.g.: ctrl+shift+a"))
-    dialog.pin_clipboard_hotkey_edit.setFixedWidth(200)
+    dialog.pin_clipboard_hotkey_edit.setFixedWidth(dialog_scaled(200))
     dialog.pin_clipboard_hotkey_edit.setStyleSheet(input_style)
     pin_v.addWidget(dialog.pin_clipboard_hotkey_edit)
 
@@ -205,18 +212,18 @@ def create_hotkey_page(dialog) -> QWidget:
         dialog.config_manager.get_pin_clipboard_hotkey_2()
     )
     dialog.pin_clipboard_hotkey_edit_2.setPlaceholderText(dialog.tr("e.g.: ctrl+shift+a"))
-    dialog.pin_clipboard_hotkey_edit_2.setFixedWidth(200)
+    dialog.pin_clipboard_hotkey_edit_2.setFixedWidth(dialog_scaled(200))
     dialog.pin_clipboard_hotkey_edit_2.setStyleSheet(input_style)
     pin_v.addWidget(dialog.pin_clipboard_hotkey_edit_2)
     pin_h.addLayout(pin_v)
-    pin_card.setFixedHeight(80)
+    pin_card.setFixedHeight(dialog_scaled(80))
     grp_global.addSettingCard(pin_card)
 
     # 智能翻译热键（主 + 备用）
     tr_card = WhiteCard(grp_global)
     tr_h = QHBoxLayout(tr_card)
-    tr_h.setContentsMargins(20, 8, 20, 8)
-    tr_h.setSpacing(12)
+    tr_h.setContentsMargins(dialog_scaled(20), dialog_scaled(8), dialog_scaled(20), dialog_scaled(8))
+    tr_h.setSpacing(dialog_scaled(12))
 
     tr_lbl = QLabel(dialog.tr("Translation Hotkey"), tr_card)
     apply_theme_text_style(tr_lbl, 15)
@@ -224,7 +231,7 @@ def create_hotkey_page(dialog) -> QWidget:
     tr_h.addStretch()
 
     tr_v = QVBoxLayout()
-    tr_v.setSpacing(5)
+    tr_v.setSpacing(dialog_scaled(5))
     dialog.translation_hotkey_edit = HotkeyEdit()
     dialog.translation_hotkey_edit.setText(
         dialog.config_manager.get_translation_hotkey()
@@ -232,7 +239,7 @@ def create_hotkey_page(dialog) -> QWidget:
     dialog.translation_hotkey_edit.setPlaceholderText(
         dialog.tr("e.g.: ctrl+shift+a")
     )
-    dialog.translation_hotkey_edit.setFixedWidth(200)
+    dialog.translation_hotkey_edit.setFixedWidth(dialog_scaled(200))
     dialog.translation_hotkey_edit.setStyleSheet(input_style)
     tr_v.addWidget(dialog.translation_hotkey_edit)
 
@@ -243,11 +250,11 @@ def create_hotkey_page(dialog) -> QWidget:
     dialog.translation_hotkey_edit_2.setPlaceholderText(
         dialog.tr("e.g.: ctrl+shift+a")
     )
-    dialog.translation_hotkey_edit_2.setFixedWidth(200)
+    dialog.translation_hotkey_edit_2.setFixedWidth(dialog_scaled(200))
     dialog.translation_hotkey_edit_2.setStyleSheet(input_style)
     tr_v.addWidget(dialog.translation_hotkey_edit_2)
     tr_h.addLayout(tr_v)
-    tr_card.setFixedHeight(80)
+    tr_card.setFixedHeight(dialog_scaled(80))
     grp_global.addSettingCard(tr_card)
 
     # 全局热键统一判重。连接放在所有输入框创建之后，避免初始化过程中
@@ -268,11 +275,13 @@ def create_hotkey_page(dialog) -> QWidget:
 
     tab_card = WhiteCard(grp_inapp)
     tab_layout = QVBoxLayout(tab_card)
-    tab_layout.setContentsMargins(16, 16, 16, 16)
-    tab_layout.setSpacing(12)
+    tab_layout.setContentsMargins(
+        dialog_scaled(16), dialog_scaled(16), dialog_scaled(16), dialog_scaled(16)
+    )
+    tab_layout.setSpacing(dialog_scaled(12))
 
     tab_switch = SegmentedWidget(tab_card)
-    tab_switch.setFixedHeight(34)
+    tab_switch.setFixedHeight(dialog_scaled(34))
     tab_switch.setIndicatorColor(ACCENT, ACCENT)
 
     stack = QStackedWidget(tab_card)
@@ -283,11 +292,11 @@ def create_hotkey_page(dialog) -> QWidget:
         page = QWidget()
         vbox = QVBoxLayout(page)
         vbox.setContentsMargins(0, 0, 0, 0)
-        vbox.setSpacing(8)
+        vbox.setSpacing(dialog_scaled(_ROW_SPACING))
 
         for cfg_key, tr_src, default in keys_list:
             edit = InAppKeyEdit()
-            edit.setFixedSize(_EDIT_W, _EDIT_H)
+            edit.setFixedSize(dialog_scaled(_EDIT_W), dialog_scaled(_EDIT_H))
             edit.setStyleSheet(input_style)
             value = dialog.config_manager.get_inapp_shortcut(cfg_key)
             edit.setText("" if is_reserved_inapp_shortcut(value) else value)
@@ -305,7 +314,7 @@ def create_hotkey_page(dialog) -> QWidget:
 
     # 鼠标微移模式
     dialog.cursor_move_combo = ComboBox()
-    dialog.cursor_move_combo.setFixedSize(_EDIT_W, _EDIT_H)
+    dialog.cursor_move_combo.setFixedSize(dialog_scaled(_EDIT_W), dialog_scaled(_EDIT_H))
     dialog.cursor_move_combo.addItem("WASD + ↑↓←→", userData="both")
     dialog.cursor_move_combo.addItem("↑↓←→", userData="arrows")
     dialog.cursor_move_combo.addItem("WASD", userData="wasd")
@@ -341,7 +350,7 @@ def create_hotkey_page(dialog) -> QWidget:
     tools_h = _stack_page_height(len(TOOL_KEYS))
     pin_h = _stack_page_height(len(PIN_KEYS))
     stack.setMinimumHeight(max(screenshot_h, tools_h, pin_h))
-    tab_card.setFixedHeight(max(screenshot_h, tools_h, pin_h) + 80)
+    tab_card.setFixedHeight(max(screenshot_h, tools_h, pin_h) + dialog_scaled(80))
     grp_inapp.addSettingCard(tab_card)
 
     # 冲突检测
@@ -359,7 +368,7 @@ def create_hotkey_page(dialog) -> QWidget:
         dialog.tr("💡 Configured shortcuts take priority over WASD and C. Arrow keys remain available; Esc is reserved."),
         view,
     )
-    hint.setStyleSheet("padding: 5px;")
+    hint.setStyleSheet(f"padding: {dialog_scaled(5)}px;")
     layout.addWidget(hint)
 
     layout.addStretch()

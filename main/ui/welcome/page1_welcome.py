@@ -4,6 +4,7 @@
 from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QLabel, QWidget
 from PySide6.QtCore import Qt, QRectF
 from PySide6.QtGui import QColor, QPainter, QPen, QIcon, QFont
+from core.ui_scale import dialog_scaled
 from ui.fluent_lite import ComboBox
 
 from core.i18n import make_tr
@@ -35,7 +36,7 @@ class _ProductCanvas(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setMinimumHeight(220)
+        self.setMinimumHeight(dialog_scaled(220))
         self.setStyleSheet("background: transparent;")
 
     @safe_event
@@ -171,9 +172,9 @@ class _WelcomeIllus(IllustrationArea):
     def _build_content(self):
         # 品牌锁定区域
         brand = QHBoxLayout()
-        brand.setSpacing(10)
+        brand.setSpacing(dialog_scaled(10))
         self._icon_lbl = QLabel(self)
-        self._icon_lbl.setFixedSize(42, 42)
+        self._icon_lbl.setFixedSize(dialog_scaled(42), dialog_scaled(42))
         self._icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._try_load_icon()
 
@@ -206,13 +207,13 @@ class _WelcomeIllus(IllustrationArea):
     def _apply_welcome_child_theme(self, _tokens=None):
         theme = welcome_theme()
         fallback_style = (
-            f" font-size: 16px; font-weight: 700; color: {theme.accent};"
+            f" font-size: {dialog_scaled(16)}px; font-weight: 700; color: {theme.accent};"
             if self._icon_lbl.property("welcomeFallbackIcon")
             else ""
         )
         self._icon_lbl.setStyleSheet(
             f"background: {theme.panel}; border: 1px solid {theme.border};"
-            f" border-radius: 10px;{fallback_style}"
+            f" border-radius: {dialog_scaled(10)}px;{fallback_style}"
         )
         apply_welcome_label_style(self._name_lbl)
         apply_welcome_label_style(self._meta_lbl)
@@ -224,7 +225,7 @@ class _WelcomeIllus(IllustrationArea):
             import os
             path = ResourceManager.get_resource_path("svg/托盘.svg")
             if os.path.exists(path):
-                px = QIcon(path).pixmap(25, 25)
+                px = QIcon(path).pixmap(dialog_scaled(25), dialog_scaled(25))
                 self._icon_lbl.setPixmap(px)
                 return
         except Exception as e:
@@ -268,8 +269,8 @@ class WelcomePage(BasePage):
 
         # 下拉框（靠左，固定宽度）
         self._lang_combo = ComboBox()
-        self._lang_combo.setFixedWidth(200)
-        self._lang_combo.setFixedHeight(36)
+        self._lang_combo.setFixedWidth(dialog_scaled(200))
+        self._lang_combo.setFixedHeight(dialog_scaled(36))
         self._lang_combo.setCursor(Qt.CursorShape.PointingHandCursor)
 
         try:
@@ -295,7 +296,7 @@ class WelcomePage(BasePage):
         layout.addLayout(row)
 
         # 全局主题
-        layout.addSpacing(20)
+        layout.addSpacing(dialog_scaled(20))
         self._theme_lbl = QLabel(_theme_label_tr("Theme"))
         set_welcome_label_style(
             self._theme_lbl, role="primary", font_size=14, weight=600
@@ -303,8 +304,8 @@ class WelcomePage(BasePage):
         layout.addWidget(self._theme_lbl)
 
         self._theme_combo = ComboBox()
-        self._theme_combo.setFixedWidth(200)
-        self._theme_combo.setFixedHeight(36)
+        self._theme_combo.setFixedWidth(dialog_scaled(200))
+        self._theme_combo.setFixedHeight(dialog_scaled(36))
         self._theme_combo.setCursor(Qt.CursorShape.PointingHandCursor)
         self._populate_theme_combo()
         self._theme_combo.currentIndexChanged.connect(self._on_theme_changed)

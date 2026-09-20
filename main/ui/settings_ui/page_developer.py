@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QScrollArea,
 )
 from PySide6.QtCore import Qt
+from core.ui_scale import dialog_scaled
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
     FluentIcon, ComboBox, DoubleSpinBox, SpinBox,
@@ -21,8 +22,8 @@ def create_developer_page(dialog) -> QWidget:
     view = QWidget()
     view.setStyleSheet("background: transparent;")
     layout = QVBoxLayout(view)
-    layout.setContentsMargins(0, 0, 10, 0)
-    layout.setSpacing(20)
+    layout.setContentsMargins(0, 0, dialog_scaled(10), 0)
+    layout.setSpacing(dialog_scaled(20))
 
     # ════ 长截图 ════
     grp_stitch = SettingCardGroup(dialog.tr("Long Screenshot"), view)
@@ -36,12 +37,12 @@ def create_developer_page(dialog) -> QWidget:
     dialog.engine_combo = ComboBox(engine_card)
     dialog.engine_combo.addItems([dialog.tr("Rust Hash (Recommended)")])
     dialog.engine_combo.setItemData(0, "hash_rust")
-    dialog.engine_combo.setFixedWidth(200)
+    dialog.engine_combo.setFixedWidth(dialog_scaled(200))
     dialog.engine_combo.setCurrentIndex(0)
     engine_card.hBoxLayout.addWidget(
         dialog.engine_combo, 0, Qt.AlignmentFlag.AlignRight
     )
-    engine_card.hBoxLayout.addSpacing(16)
+    engine_card.hBoxLayout.addSpacing(dialog_scaled(16))
     grp_stitch.addSettingCard(engine_card)
 
     # 滚动冷却
@@ -58,11 +59,11 @@ def create_developer_page(dialog) -> QWidget:
     dialog.cooldown_spinbox.setValue(
         dialog.config_manager.get_scroll_cooldown()
     )
-    dialog.cooldown_spinbox.setFixedWidth(110)
+    dialog.cooldown_spinbox.setFixedWidth(dialog_scaled(110))
     cooldown_card.hBoxLayout.addWidget(
         dialog.cooldown_spinbox, 0, Qt.AlignmentFlag.AlignRight
     )
-    cooldown_card.hBoxLayout.addSpacing(16)
+    cooldown_card.hBoxLayout.addSpacing(dialog_scaled(16))
     grp_stitch.addSettingCard(cooldown_card)
 
     # 后续截图顶部忽略像素
@@ -78,11 +79,11 @@ def create_developer_page(dialog) -> QWidget:
     dialog.ignore_top_pixels_spinbox.setValue(
         dialog.config_manager.get_long_stitch_ignore_top_pixels()
     )
-    dialog.ignore_top_pixels_spinbox.setFixedWidth(110)
+    dialog.ignore_top_pixels_spinbox.setFixedWidth(dialog_scaled(110))
     ignore_top_card.hBoxLayout.addWidget(
         dialog.ignore_top_pixels_spinbox, 0, Qt.AlignmentFlag.AlignRight
     )
-    ignore_top_card.hBoxLayout.addSpacing(16)
+    ignore_top_card.hBoxLayout.addSpacing(dialog_scaled(16))
     grp_stitch.addSettingCard(ignore_top_card)
 
     layout.addWidget(grp_stitch)
@@ -101,7 +102,7 @@ def create_developer_page(dialog) -> QWidget:
     wizard_card.hBoxLayout.addWidget(
         btn_wizard, 0, Qt.AlignmentFlag.AlignRight
     )
-    wizard_card.hBoxLayout.addSpacing(16)
+    wizard_card.hBoxLayout.addSpacing(dialog_scaled(16))
     grp_tools.addSettingCard(wizard_card)
 
     layout.addWidget(grp_tools)
@@ -114,7 +115,7 @@ def create_developer_page(dialog) -> QWidget:
         view,
     )
     preload_desc.setWordWrap(True)
-    preload_desc.setStyleSheet("padding: 0 0 4px 0;")
+    preload_desc.setStyleSheet(f"padding: 0 0 {dialog_scaled(4)}px 0;")
     layout.addWidget(preload_desc)
 
     _preload_items = [

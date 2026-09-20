@@ -13,6 +13,7 @@ from core.shortcut_manager import (
 )
 from core import safe_event
 from core.i18n import make_tr
+from core.ui_scale import dialog_scaled
 from core.ui_theme import get_ui_theme
 
 _tr = make_tr("HotkeyEdit")
@@ -118,7 +119,7 @@ class HotkeyEdit(QWidget):
         self._validation_error = ""
         self.layout = QHBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.setSpacing(5)
+        self.layout.setSpacing(dialog_scaled(5))
 
         self.edit = _HotkeyLineEdit(self)
         self.layout.addWidget(self.edit)
@@ -126,7 +127,7 @@ class HotkeyEdit(QWidget):
         # Status indicator
         self.status_lbl = QLabel()
         self.status_lbl.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
-        self.status_lbl.setFixedWidth(20)  # Reserve space
+        self.status_lbl.setFixedWidth(dialog_scaled(20))  # Reserve space
         self.status_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)  # Center icon
         self.layout.addWidget(self.status_lbl)
         
@@ -291,11 +292,11 @@ class _HotkeyLineEdit(QLineEdit):
         self.setStyleSheet(f"""
             QLineEdit {{
                 border: 1px solid {tokens.border_hover};
-                border-radius: 6px;
-                padding: 4px 8px;
+                border-radius: {dialog_scaled(6)}px;
+                padding: {dialog_scaled(4)}px {dialog_scaled(8)}px;
                 background: {tokens.input_background};
                 color: {tokens.text};
-                font-size: 13px;
+                font-size: {dialog_scaled(13)}px;
             }}
             QLineEdit:focus {{
                 border: 2px solid {tokens.accent};

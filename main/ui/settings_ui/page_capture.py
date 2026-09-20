@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QLabel,
 )
 from PySide6.QtCore import Qt
+from core.ui_scale import dialog_scaled
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
     FluentIcon, ComboBox, CaptionLabel,
@@ -23,8 +24,8 @@ def create_capture_page(dialog) -> QWidget:
     view = QWidget()
     view.setStyleSheet("background: transparent;")
     layout = QVBoxLayout(view)
-    layout.setContentsMargins(0, 0, 10, 0)
-    layout.setSpacing(20)
+    layout.setContentsMargins(0, 0, dialog_scaled(10), 0)
+    layout.setSpacing(dialog_scaled(20))
 
     # ── 截图交互 ──────────────────────────────────────
     grp_behavior = SettingCardGroup(dialog.tr("Capture Behavior"), view)
@@ -114,8 +115,8 @@ def create_capture_page(dialog) -> QWidget:
     # 保存路径（卡片）
     path_card = WhiteCard(grp_save)
     path_h = QHBoxLayout(path_card)
-    path_h.setContentsMargins(20, 12, 20, 12)
-    path_h.setSpacing(12)
+    path_h.setContentsMargins(dialog_scaled(20), dialog_scaled(12), dialog_scaled(20), dialog_scaled(12))
+    path_h.setSpacing(dialog_scaled(12))
 
     path_icon_lbl = QLabel(dialog.tr("Save Folder:"), path_card)
     apply_theme_text_style(path_icon_lbl, 15)
@@ -125,17 +126,17 @@ def create_capture_page(dialog) -> QWidget:
     apply_theme_text_style(dialog.save_path_lbl, 13, caption=True)
 
     btn_change = PushButton(dialog.tr("Change"), path_card)
-    btn_change.setFixedHeight(32)
+    btn_change.setFixedHeight(dialog_scaled(32))
     btn_change.clicked.connect(dialog._change_save_dir)
     btn_open = PushButton(dialog.tr("Open"), path_card)
-    btn_open.setFixedHeight(32)
+    btn_open.setFixedHeight(dialog_scaled(32))
     btn_open.clicked.connect(dialog._open_save_dir)
 
     path_h.addWidget(path_icon_lbl)
     path_h.addWidget(dialog.save_path_lbl, 1)
     path_h.addWidget(btn_change)
     path_h.addWidget(btn_open)
-    path_card.setFixedHeight(58)
+    path_card.setFixedHeight(dialog_scaled(58))
     grp_save.addSettingCard(path_card)
 
     # 保存格式
@@ -151,7 +152,7 @@ def create_capture_page(dialog) -> QWidget:
     dialog.screenshot_format_combo.addItem("BMP", userData="BMP")
     dialog.screenshot_format_combo.addItem("WebP", userData="WEBP")
     dialog.screenshot_format_combo.addItem("PDF", userData="PDF")
-    dialog.screenshot_format_combo.setFixedWidth(110)
+    dialog.screenshot_format_combo.setFixedWidth(dialog_scaled(110))
     _fmt_idx = {"PNG": 0, "JPG": 1, "BMP": 2, "WEBP": 3, "PDF": 4}.get(
         dialog.config_manager.get_screenshot_format().upper(), 0
     )

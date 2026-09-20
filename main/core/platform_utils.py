@@ -3,6 +3,7 @@
 # 跨模块调用的平台相关功能集中在这里，避免分散在各个模块中直接调用 Win32 API 导致的重复代码和维护困难。
 import os
 import ctypes
+import math
 
 from core.logger import log_exception, T
 
@@ -59,6 +60,62 @@ def set_dpi_awareness():
             ctypes.windll.user32.SetProcessDPIAware()
         except Exception as e2:
             log_exception(e2, "SetProcessDPIAware")
+
+
+def get_system_dpi(default: float = 96.0) -> float:
+    """返回 Windows 主显示器使用的有效 DPI。
+
+    本项目通过 ``QT_ENABLE_HIGHDPI_SCALING=0`` 关闭了 Qt 的自动缩放，
+    因此 ``QScreen.logicalDotsPerInch()`` 通常只会返回 96，不能拿来判断
+    Windows 设置里的 125% / 150% 缩放。这里优先直接读取 Win32；旧版
+    Windows 没有 ``GetDpiForSystem`` 时再回退到设备上下文。
+    """
+    try:
+        fallback = float(default)
+    except (TypeError, ValueError, OverflowError):
+        fallback = 96.0
+    if not math.isfinite(fallback) or fallback <= 0:
+        fallback = 96.0
+
+    if os.name != "nt":
+        return fallback
+
+    try:
+        get_dpi = ctypes.windll.user32.GetDpiForSystem
+        get_dpi.argtypes = []
+        get_dpi.restype = ctypes.c_uint
+        dpi = int(get_dpi())
+        if dpi > 0:
+            return float(dpi)
+    except Exception:
+        # GetDpiForSystem 从 Windows 10 1607 起可用，旧系统继续走下方兜底。
+        pass
+
+    dc = None
+    try:
+        user32 = ctypes.windll.user32
+        gdi32 = ctypes.windll.gdi32
+        user32.GetDC.argtypes = [ctypes.c_void_p]
+        user32.GetDC.restype = ctypes.c_void_p
+        user32.ReleaseDC.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        user32.ReleaseDC.restype = ctypes.c_int
+        gdi32.GetDeviceCaps.argtypes = [ctypes.c_void_p, ctypes.c_int]
+        gdi32.GetDeviceCaps.restype = ctypes.c_int
+        dc = user32.GetDC(None)
+        if dc:
+            dpi = int(gdi32.GetDeviceCaps(dc, 88))  # LOGPIXELSX
+            if dpi > 0:
+                return float(dpi)
+    except Exception:
+        pass
+    finally:
+        if dc:
+            try:
+                ctypes.windll.user32.ReleaseDC(None, dc)
+            except Exception:
+                pass
+
+    return fallback
 
 
 # ──────────────────────────────────────────────
@@ -223,4 +280,3 @@ def get_last_error() -> int:
     except Exception as e:
         log_exception(e, "GetLastError")
         return -1
- 

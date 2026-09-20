@@ -3347,7 +3347,15 @@ SOFTWARE.</translation></message>
     </message>
     <message>
         <source>Size of toolbars, tool panels and popups.</source>
-        <translation>도구 모음, 설정 패널, 팝업의 표시 크기입니다.</translation>
+        <translation>도구 모음의 표시 크기입니다.</translation>
+    </message>
+    <message>
+        <source>Window Scale</source>
+        <translation>창 크기</translation>
+    </message>
+    <message>
+        <source>Font and size of application windows.</source>
+        <translation>애플리케이션 창의 글꼴과 크기입니다.</translation>
     </message>
     <message>
         <source>System</source>

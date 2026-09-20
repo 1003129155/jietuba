@@ -253,6 +253,8 @@ class ToolSettingsManager(QObject):
         # 工具栏与面板缩放百分比，档位见 core/ui_scale.UIScaleManager.PERCENT_OPTIONS。
         # 100 = 当前发布版本的实际显示大小，只作用于操作界面，不改内容数据
         "ui_scale_percent": 100,
+        # 独立业务窗口缩放百分比，档位同上
+        "dialog_scale_percent": 100,
         "theme_color": "#40E0D0",              # 主题色（青绿色 Turquoise）
         "mask_color_r": 0,                     # 遮罩色 R（0-255）
         "mask_color_g": 0,                     # 遮罩色 G（0-255）

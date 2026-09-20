@@ -2,6 +2,7 @@
 
 from PySide6.QtWidgets import QLabel, QSizePolicy, QWidget
 
+from core.ui_scale import widget_scaled as _px
 from core.ui_theme import get_ui_theme
 
 from .theme import FONT_FAMILY, ui_tokens
@@ -30,7 +31,7 @@ class BodyLabel(QLabel):
     def _apply_theme(self, _tokens=None):
         self.setStyleSheet(
             f"background: transparent; color: {ui_tokens(self).text}; "
-            f"font: 13px {FONT_FAMILY};"
+            f"font: {_px(self, 13)}px {FONT_FAMILY};"
         )
 
 
@@ -46,5 +47,5 @@ class CaptionLabel(QLabel):
     def _apply_theme(self, _tokens=None):
         self.setStyleSheet(
             f"background: transparent; color: {ui_tokens(self).text_muted}; "
-            f"font: 12px {FONT_FAMILY};"
+            f"font: {_px(self, 12)}px {FONT_FAMILY};"
         )

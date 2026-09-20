@@ -3388,7 +3388,15 @@ SOFTWARE.</translation></message>
     </message>
     <message>
         <source>Size of toolbars, tool panels and popups.</source>
-        <translation>ツールバー・設定パネル・ポップアップの表示サイズ。</translation>
+        <translation>ツールバーの表示サイズ。</translation>
+    </message>
+    <message>
+        <source>Window Scale</source>
+        <translation>ウィンドウの拡大率</translation>
+    </message>
+    <message>
+        <source>Font and size of application windows.</source>
+        <translation>アプリケーションウィンドウのフォントとサイズ。</translation>
     </message>
     <message>
         <source>System</source>

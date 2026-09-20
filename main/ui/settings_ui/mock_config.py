@@ -71,6 +71,7 @@ APP_DEFAULT_SETTINGS = {
     "magnifier_color_copy_format": "rgb_hex",
     "ui_theme_mode": "system",
     "ui_scale_percent": 100,
+    "dialog_scale_percent": 100,
     "inapp_confirm": "ctrl+c",
     "inapp_pin": "ctrl+d",
     "inapp_undo": "ctrl+z",

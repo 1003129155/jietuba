@@ -14,6 +14,7 @@ from PySide6.QtWidgets import QApplication, QHBoxLayout, QVBoxLayout
 from core import safe_event
 from core.i18n import make_tr
 from core.logger import log_info, T
+from core.ui_scale import configure_dialog_control, dialog_scaled, scale_dialog_font
 from core.ui_theme import get_ui_theme
 from ui.dialogs import track_modeless_dialog
 from ui.fluent_lite import (
@@ -52,31 +53,38 @@ class TextRecognitionWindow(FrostedFramelessDialog):
 
     def __init__(self, image, parent=None):
         super().__init__(parent)
+        scale_dialog_font(self)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         title_bar = FluentTitleBar(self)
+        configure_dialog_control(title_bar)
         self.setTitleBar(title_bar)
         title_bar.iconLabel.hide()
         # 同扫码结果窗口：隐藏图标后标题会紧贴窗口左边，补回原生标题栏的留白
-        title_bar.hBoxLayout.setContentsMargins(12, 0, 0, 0)
+        title_bar.hBoxLayout.setContentsMargins(dialog_scaled(12), 0, 0, 0)
         self.setWindowTitle(_tr("Text recognition"))
 
         self.status_label = CaptionLabel(_tr("Recognizing..."), self)
+        configure_dialog_control(self.status_label)
         self.text_edit = TextEdit(self)
         self.text_edit.setAcceptRichText(False)
         self.text_edit.setReadOnly(True)    # 识别中不给改，出结果再放开
 
         self.copy_button = PrimaryPushButton(_tr("Copy"), self)
+        configure_dialog_control(self.copy_button)
         self.copy_button.setEnabled(False)
         self.copy_button.clicked.connect(self._copy)
 
         footer = QHBoxLayout()
-        footer.setSpacing(8)
+        footer.setSpacing(dialog_scaled(8))
         footer.addWidget(self.status_label, 1)
         footer.addWidget(self.copy_button)
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(12, title_bar.height() + 4, 12, 12)
-        root.setSpacing(8)
+        root.setContentsMargins(
+            dialog_scaled(12), title_bar.height() + dialog_scaled(4),
+            dialog_scaled(12), dialog_scaled(12),
+        )
+        root.setSpacing(dialog_scaled(8))
         root.addWidget(self.text_edit, 1)
         root.addLayout(footer)
 
@@ -93,8 +101,8 @@ class TextRecognitionWindow(FrostedFramelessDialog):
         t = ui_tokens(self)
         self.text_edit.setStyleSheet(
             f"QTextEdit {{ background: {t.input_background}; color: {t.text}; "
-            f"border: 1px solid {t.border}; border-radius: 6px; padding: 8px 10px; "
-            f"font: 14px {FONT_FAMILY}; selection-background-color: {t.accent}; "
+            f"border: 1px solid {t.border}; border-radius: 6px; padding: {dialog_scaled(8)}px {dialog_scaled(10)}px; "
+            f"font: {dialog_scaled(14)}px {FONT_FAMILY}; selection-background-color: {t.accent}; "
             f"selection-color: {t.selected_text}; }}"
             + scrollbar_qss(self)
         )
@@ -104,8 +112,8 @@ class TextRecognitionWindow(FrostedFramelessDialog):
         screen = QApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()
         available = screen.availableGeometry()
         self.resize(
-            min(self.WIDTH, available.width()),
-            min(self.HEIGHT, available.height()),
+            min(dialog_scaled(self.WIDTH), available.width()),
+            min(dialog_scaled(self.HEIGHT), available.height()),
         )
         self.move(available.center() - self.rect().center())
 

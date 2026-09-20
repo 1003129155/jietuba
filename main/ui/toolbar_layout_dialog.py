@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 
 from core import safe_event
 from core.i18n import make_tr
+from core.ui_scale import configure_dialog_control, dialog_scaled, dialog_scaled_f, scale_dialog_font
 from ui.fluent_lite import (
     BodyLabel, CaptionLabel, ComboBox, PrimaryPushButton, PushButton,
     SimpleCardWidget, TransparentPushButton, ui_tokens,
@@ -69,7 +70,7 @@ class _Grip(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedSize(16, 28)
+        self.setFixedSize(dialog_scaled(16), dialog_scaled(28))
         self.setCursor(Qt.CursorShape.OpenHandCursor)
 
     @safe_event
@@ -99,7 +100,11 @@ class _Grip(QWidget):
         center = QPointF(self.rect().center())
         for dx in (-3, 3):
             for dy in (-6, 0, 6):
-                painter.drawEllipse(center + QPointF(dx, dy), 1.5, 1.5)
+                painter.drawEllipse(
+                    center + QPointF(dialog_scaled(dx), dialog_scaled(dy)),
+                    dialog_scaled_f(1.5),
+                    dialog_scaled_f(1.5),
+                )
         painter.end()
 
 
@@ -115,21 +120,29 @@ class _Row(QWidget):
 
         # 图标垫一块白底：工具栏图标是照着白底工具栏画的深色图标，深色主题下直接放看不清
         icon_label = QLabel(self)
-        icon_label.setFixedSize(28, 28)
+        icon_label.setFixedSize(dialog_scaled(28), dialog_scaled(28))
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon_label.setPixmap(icon.pixmap(20, 20))
-        icon_label.setStyleSheet("background: #FFFFFF; border-radius: 6px;")
+        icon_label.setPixmap(icon.pixmap(dialog_scaled(20), dialog_scaled(20)))
+        icon_label.setStyleSheet(
+            f"background: #FFFFFF; border-radius: {dialog_scaled(6)}px;"
+        )
 
         self.combo = ComboBox(self)
+        configure_dialog_control(self.combo)
         for mode, text in MODE_NAMES:
             self.combo.addItem(_tr(text), mode)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 3, 8, 3)
-        layout.setSpacing(10)
+        layout.setContentsMargins(
+            dialog_scaled(8), dialog_scaled(3),
+            dialog_scaled(8), dialog_scaled(3),
+        )
+        layout.setSpacing(dialog_scaled(10))
         layout.addWidget(self.grip)
         layout.addWidget(icon_label)
-        layout.addWidget(BodyLabel(_tr(BUTTON_NAMES[key]), self), 1)
+        name_label = BodyLabel(_tr(BUTTON_NAMES[key]), self)
+        configure_dialog_control(name_label)
+        layout.addWidget(name_label, 1)
         layout.addWidget(self.combo)
 
     def mode(self):
@@ -151,7 +164,7 @@ class _Row(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(ui_tokens(self).accent_soft))
-        painter.drawRoundedRect(self.rect(), 8, 8)
+        painter.drawRoundedRect(self.rect(), dialog_scaled(8), dialog_scaled(8))
         painter.end()
 
 
@@ -160,6 +173,7 @@ class ToolbarLayoutDialog(QDialog):
 
     def __init__(self, layout, icons, parent=None):
         super().__init__(parent)
+        scale_dialog_font(self)
         self.setWindowTitle(_tr("Customize Toolbar"))
         # 从全屏置顶的截图窗口里打开，和截图里的取色对话框一样置顶，免得被截图窗口盖住
         self.setWindowFlags(
@@ -172,7 +186,10 @@ class ToolbarLayoutDialog(QDialog):
 
         self._card = SimpleCardWidget()
         self._list_layout = QVBoxLayout(self._card)
-        self._list_layout.setContentsMargins(6, 6, 6, 6)
+        self._list_layout.setContentsMargins(
+            dialog_scaled(6), dialog_scaled(6),
+            dialog_scaled(6), dialog_scaled(6),
+        )
         self._list_layout.setSpacing(0)
         self._list_layout.addStretch(1)
 
@@ -196,12 +213,16 @@ class ToolbarLayoutDialog(QDialog):
 
         hint = CaptionLabel(
             _tr("Drag the handle to reorder. Use the drop-down to change visibility."), self)
+        configure_dialog_control(hint)
 
         reset_btn = TransparentPushButton(_tr("Restore defaults"), self)
+        configure_dialog_control(reset_btn)
         reset_btn.clicked.connect(lambda: self._fill(default_layout()))
         ok_btn = PrimaryPushButton(_tr("OK"), self)
+        configure_dialog_control(ok_btn)
         ok_btn.clicked.connect(self.accept)
         cancel_btn = PushButton(_tr("Cancel"), self)
+        configure_dialog_control(cancel_btn)
         cancel_btn.clicked.connect(self.reject)
 
         buttons = QHBoxLayout()
@@ -211,8 +232,11 @@ class ToolbarLayoutDialog(QDialog):
         buttons.addWidget(cancel_btn)
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(16, 16, 16, 14)
-        root.setSpacing(10)
+        root.setContentsMargins(
+            dialog_scaled(16), dialog_scaled(16),
+            dialog_scaled(16), dialog_scaled(14),
+        )
+        root.setSpacing(dialog_scaled(10))
         root.addWidget(self._scroll, 1)
         root.addWidget(hint)
         root.addLayout(buttons)
@@ -256,14 +280,14 @@ class ToolbarLayoutDialog(QDialog):
         desired_height = self.sizeHint().height()
         screen = self.parentWidget().screen() if self.parentWidget() else QApplication.primaryScreen()
         if screen is not None:
-            max_height = max(360, screen.availableGeometry().height() - 40)
+            max_height = max(dialog_scaled(360), screen.availableGeometry().height() - dialog_scaled(40))
             if desired_height > max_height:
                 non_list_height = desired_height - content_height
-                content_height = max(180, max_height - non_list_height)
+                content_height = max(dialog_scaled(180), max_height - non_list_height)
                 self._scroll.setFixedHeight(content_height)
                 desired_height = non_list_height + content_height
 
-        self.resize(480, desired_height)
+        self.resize(dialog_scaled(480), desired_height)
 
     def _drag_row(self, row, global_y):
         """被拖的行跟着鼠标换位：它该排第几，就看其余行里有几行的中线在鼠标上方"""

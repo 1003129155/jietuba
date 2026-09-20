@@ -190,6 +190,17 @@ def test_compact_popup_reuses_existing_translation_palette(qapp):
     popup.close()
 
 
+def test_empty_compact_popup_does_not_add_vertical_blank_space(qapp):
+    popup = TranslationPopup()
+    try:
+        popup.show_popup("", QPoint(10, 10))
+        qapp.processEvents()
+
+        assert popup.height() == popup.sizeHint().height()
+    finally:
+        popup.close()
+
+
 def test_compact_popup_uses_current_application_theme_when_created(qapp):
     manager = TranslationManager()
     manager._ui_theme = SimpleNamespace(is_dark=False)
