@@ -1,54 +1,31 @@
 import json
+import urllib.error
 
 import pytest
-from PySide6.QtNetwork import QNetworkReply
 
 from core.constants import PROJECT_RELEASES_LATEST_URL
 from core.update_checker import (
     GitHubReleaseChecker,
     UpdateCheckError,
     comparable_version,
+    fetch_latest_release,
     is_newer_version,
     parse_release_payload,
 )
 
 
-class _FakeSignal:
-    def __init__(self):
-        self.callback = None
-
-    def connect(self, callback):
-        self.callback = callback
-
-
-class _FakeReply:
-    def __init__(self, payload=b"", error=QNetworkReply.NetworkError.NoError):
-        self.finished = _FakeSignal()
+class _FakeResponse:
+    def __init__(self, payload):
         self.payload = payload
-        self.network_error = error
-        self.deleted = False
 
-    def error(self):
-        return self.network_error
+    def __enter__(self):
+        return self
 
-    def errorString(self):
-        return "network unavailable"
+    def __exit__(self, *_args):
+        return False
 
-    def readAll(self):
+    def read(self):
         return self.payload
-
-    def deleteLater(self):
-        self.deleted = True
-
-
-class _FakeManager:
-    def __init__(self, reply):
-        self.reply = reply
-        self.requests = []
-
-    def get(self, request):
-        self.requests.append(request)
-        return self.reply
 
 
 @pytest.mark.parametrize(
@@ -102,61 +79,63 @@ def test_parse_release_payload_rejects_unusable_responses(payload):
         parse_release_payload(payload)
 
 
-def test_checker_builds_the_github_request_and_rejects_overlapping_checks(qapp):
-    reply = _FakeReply()
+def test_fetch_latest_release_builds_github_request(monkeypatch):
+    calls = []
+
+    def urlopen(request, timeout):
+        calls.append((request, timeout))
+        return _FakeResponse(b'{"tag_name": "v2.0.5", "body": "Bug fixes"}')
+
+    monkeypatch.setattr("core.update_checker.urllib.request.urlopen", urlopen)
+
+    release = fetch_latest_release(4321)
+
+    request, timeout = calls[0]
+    assert release.tag_name == "v2.0.5"
+    assert timeout == 4.321
+    assert request.get_header("Accept") == "application/vnd.github+json"
+    assert request.get_header("User-agent") == "jietuba-update-checker"
+
+
+def test_fetch_latest_release_reports_network_errors(monkeypatch):
+    def urlopen(_request, timeout):
+        assert timeout == 10
+        raise urllib.error.URLError("network unavailable")
+
+    monkeypatch.setattr("core.update_checker.urllib.request.urlopen", urlopen)
+
+    with pytest.raises(UpdateCheckError, match="network unavailable"):
+        fetch_latest_release(10_000)
+
+
+def test_checker_runs_request_in_background_and_rejects_overlapping_checks(
+    monkeypatch, qapp, qtbot
+):
+    def urlopen(_request, timeout):
+        assert timeout == 4.321
+        return _FakeResponse(b'{"tag_name": "v2.0.5"}')
+
+    monkeypatch.setattr("core.update_checker.urllib.request.urlopen", urlopen)
     checker = GitHubReleaseChecker(timeout_ms=4321)
-    checker._manager = _FakeManager(reply)
 
-    assert checker.check() is True
-    assert checker.is_checking is True
-    assert checker.check() is False
-    assert reply.finished.callback == checker._on_finished
+    with qtbot.waitSignal(checker.release_found) as blocker:
+        assert checker.check() is True
+        assert checker.is_checking is True
+        assert checker.check() is False
 
-    request = checker._manager.requests[0]
-    assert request.rawHeader("Accept") == b"application/vnd.github+json"
-    assert request.rawHeader("User-Agent") == b"jietuba-update-checker"
-    assert request.transferTimeout() == 4321
+    assert blocker.args[0].tag_name == "v2.0.5"
+    qtbot.waitUntil(lambda: not checker.is_checking)
 
 
-def test_checker_emits_a_release_and_cleans_up_the_reply(qapp):
-    reply = _FakeReply(b'{"tag_name": "v2.0.5", "body": "Bug fixes"}')
-    checker = GitHubReleaseChecker()
-    found = []
-    checker.release_found.connect(found.append)
-    checker._reply = reply
+def test_checker_recovers_from_an_unexpected_worker_error(monkeypatch, qapp, qtbot):
+    def urlopen(_request, _timeout):
+        raise RuntimeError("unexpected failure")
 
-    checker._on_finished()
-
-    assert checker.is_checking is False
-    assert [release.tag_name for release in found] == ["v2.0.5"]
-    assert reply.deleted is True
-
-
-@pytest.mark.parametrize(
-    ("reply", "message"),
-    (
-        (
-            _FakeReply(error=QNetworkReply.NetworkError.ConnectionRefusedError),
-            "network unavailable",
-        ),
-        (_FakeReply(b"not-json"), "Invalid response from GitHub"),
-    ),
-)
-def test_checker_reports_network_and_payload_errors(qapp, reply, message):
-    checker = GitHubReleaseChecker()
-    failures = []
-    checker.failed.connect(failures.append)
-    checker._reply = reply
-
-    checker._on_finished()
-
-    assert failures == [message]
-    assert reply.deleted is True
-
-
-def test_stale_finished_signal_is_ignored(qapp):
+    monkeypatch.setattr("core.update_checker.urllib.request.urlopen", urlopen)
     checker = GitHubReleaseChecker()
 
-    checker._on_finished()
+    with qtbot.waitSignal(checker.failed) as blocker:
+        assert checker.check() is True
 
-    assert checker.is_checking is False
+    assert blocker.args == ["Unexpected update-check error"]
+    qtbot.waitUntil(lambda: not checker.is_checking)
