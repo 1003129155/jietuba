@@ -1174,9 +1174,9 @@ class Toolbar(QWidget):
         
         # 策略1: 下方右对齐（需要放得下工具栏 + 二级菜单的总高度）
         # 对齐的锚点是「确定」的右边缘而非整个工具栏：这样鼠标松手时正下方还是「确定」，
-        # 「…」豁出去多占的这点宽度不影响落点手感
+        # 「…」豁出去多占的这点宽度不影响落点手感；末尾 4px 是目视微调，不是算出来的
         more_w = self._button_widths.get("more", 0)
-        x = global_rect.right() - toolbar_w + more_w
+        x = global_rect.right() - toolbar_w + more_w + scaled(4)
         y = global_rect.bottom() + margin
         toolbar_below = True
 
