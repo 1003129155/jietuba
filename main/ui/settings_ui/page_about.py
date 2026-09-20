@@ -3,6 +3,7 @@
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea
 from PySide6.QtCore import Qt
+from core.ui_scale import dialog_scaled
 from ui.fluent_lite import (
     SettingCard, FluentIcon,
     HyperlinkButton, PushButton,
@@ -29,8 +30,8 @@ def create_about_page(dialog) -> QScrollArea:
     view = QWidget()
     view.setStyleSheet("background: transparent;")
     layout = QVBoxLayout(view)
-    layout.setContentsMargins(0, 20, 10, 20)
-    layout.setSpacing(16)
+    layout.setContentsMargins(0, dialog_scaled(20), dialog_scaled(10), dialog_scaled(20))
+    layout.setSpacing(dialog_scaled(16))
 
     # ── 关于信息 ─────────────────────────────────────────────
     group = SettingCardGroup(dialog.tr("About"), view)
@@ -47,7 +48,7 @@ def create_about_page(dialog) -> QScrollArea:
     name_card.hBoxLayout.addWidget(
         check_update_btn, 0, Qt.AlignmentFlag.AlignRight
     )
-    name_card.hBoxLayout.addSpacing(16)
+    name_card.hBoxLayout.addSpacing(dialog_scaled(16))
     group.addSettingCard(name_card)
 
     release_checker = GitHubReleaseChecker(dialog)
@@ -131,7 +132,7 @@ def create_about_page(dialog) -> QScrollArea:
         )
     )
     license_card.hBoxLayout.addWidget(details_btn, 0, Qt.AlignmentFlag.AlignRight)
-    license_card.hBoxLayout.addSpacing(16)
+    license_card.hBoxLayout.addSpacing(dialog_scaled(16))
     group.addSettingCard(license_card)
 
     # GitHub 链接卡片
@@ -147,7 +148,7 @@ def create_about_page(dialog) -> QScrollArea:
         parent=github_card,
     )
     github_card.hBoxLayout.addWidget(link_btn, 0, Qt.AlignmentFlag.AlignRight)
-    github_card.hBoxLayout.addSpacing(16)
+    github_card.hBoxLayout.addSpacing(dialog_scaled(16))
     group.addSettingCard(github_card)
 
     layout.addWidget(group)

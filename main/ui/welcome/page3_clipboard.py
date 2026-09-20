@@ -16,6 +16,7 @@ from PySide6.QtGui import (
 from core import safe_event
 from core.i18n import make_tr
 from core.logger import log_exception, T
+from core.ui_scale import dialog_scaled
 from ui.fluent_lite import SpinBox, ComboBox
 
 if __package__:
@@ -62,7 +63,7 @@ class _ClipboardFeatureAnimation(QWidget):
         self.setStyleSheet("background: transparent;")
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.setMinimumHeight(280)
+        self.setMinimumHeight(dialog_scaled(280))
         self._elapsed_ms = 0
         self._refresh_text()
         self._connect_clipboard_appearance()
@@ -643,7 +644,9 @@ class _ClipboardFeatureIllus(IllustrationArea):
     """欢迎页左侧的非交互剪贴板功能演示。"""
 
     def _build_content(self):
-        self._layout.setContentsMargins(10, 10, 10, 10)
+        self._layout.setContentsMargins(
+            dialog_scaled(10), dialog_scaled(10), dialog_scaled(10), dialog_scaled(10)
+        )
         self.animation = _ClipboardFeatureAnimation(self)
         self._layout.addWidget(self.animation, 1)
 
@@ -678,10 +681,10 @@ class _ThemeSwatchRow(QWidget):
 
         row = QHBoxLayout(self)
         row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(6)
+        row.setSpacing(dialog_scaled(6))
         for name, (accent, background) in PRESET_THEME_SWATCHES.items():
             button = QPushButton(self)
-            button.setFixedSize(self.SWATCH_W, self.SWATCH_H)
+            button.setFixedSize(dialog_scaled(self.SWATCH_W), dialog_scaled(self.SWATCH_H))
             button.setCursor(Qt.CursorShape.PointingHandCursor)
             button.setToolTip(name)
             button.clicked.connect(lambda _checked=False, n=name: self._pick(n))
@@ -712,7 +715,7 @@ class _ThemeSwatchRow(QWidget):
                         stop:0 {background}, stop:0.5 {background},
                         stop:0.5 {accent}, stop:1 {accent});
                     border: {width}px solid {border};
-                    border-radius: 4px;
+                    border-radius: {dialog_scaled(4)}px;
                 }}
                 QPushButton:hover {{ border: 2px solid {theme.accent}; }}
             """)
@@ -752,7 +755,7 @@ class ClipboardHotkeyPage(BasePage):
             self._history_limit_desc, role="muted", font_size=12, weight=400
         )
         layout.addWidget(self._history_limit_desc)
-        layout.addSpacing(4)
+        layout.addSpacing(dialog_scaled(4))
 
         self._history_limit_spin = SpinBox()
         self._history_limit_spin.setRange(0, 10000)
@@ -779,13 +782,13 @@ class ClipboardHotkeyPage(BasePage):
         from clipboard.ui.theme.themes import get_theme_manager
         theme_manager = get_theme_manager()
 
-        layout.addSpacing(14)
+        layout.addSpacing(dialog_scaled(14))
         self._appearance_lbl = QLabel(_tr("剪贴板外观"))
         set_welcome_label_style(
             self._appearance_lbl, role="primary", font_size=14, weight=600
         )
         layout.addWidget(self._appearance_lbl)
-        layout.addSpacing(6)
+        layout.addSpacing(dialog_scaled(6))
 
         # 当前主题问 ThemeManager 而不是问配置：写也是走它（set_theme 自己负责
         # 落盘并广播），读写同源才不会出现「配置里是 A、界面上高亮 B」。
@@ -797,10 +800,10 @@ class ClipboardHotkeyPage(BasePage):
         )
         layout.addWidget(row)
 
-        layout.addSpacing(8)
+        layout.addSpacing(dialog_scaled(8))
         self._font_combo = ComboBox()
-        self._font_combo.setFixedWidth(124)
-        self._font_combo.setFixedHeight(32)
+        self._font_combo.setFixedWidth(dialog_scaled(124))
+        self._font_combo.setFixedHeight(dialog_scaled(32))
         self._font_combo.setCursor(Qt.CursorShape.PointingHandCursor)
         for size in self._config.get_clipboard_font_size_options():
             self._font_combo.addItem(f"{size}px", userData=size)
@@ -813,10 +816,10 @@ class ClipboardHotkeyPage(BasePage):
         )
         layout.addWidget(row)
 
-        layout.addSpacing(8)
+        layout.addSpacing(dialog_scaled(8))
         self._opacity_combo = ComboBox()
-        self._opacity_combo.setFixedWidth(124)
-        self._opacity_combo.setFixedHeight(32)
+        self._opacity_combo.setFixedWidth(dialog_scaled(124))
+        self._opacity_combo.setFixedHeight(dialog_scaled(32))
         self._opacity_combo.setCursor(Qt.CursorShape.PointingHandCursor)
         self._opacity_options = list(
             self._config.get_clipboard_window_opacity_options()

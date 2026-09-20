@@ -2,7 +2,14 @@
 """操作界面缩放：换算规则、100% 基线、反复切换不漂移。"""
 import pytest
 
-from core.ui_scale import UIScaleManager, get_ui_scale, scaled, scaled_f
+from core.ui_scale import (
+    UIScaleManager,
+    apply_first_run_scale_defaults,
+    get_ui_scale,
+    recommended_scale_percent,
+    scaled,
+    scaled_f,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -29,6 +36,48 @@ def restore_scale():
 ])
 def test_percent_is_snapped_to_a_real_option(given, expected):
     assert UIScaleManager.normalize_percent(given) == expected
+
+
+@pytest.mark.parametrize(("dpi", "expected"), [
+    (72, 100),
+    (96, 100),
+    (97, 125),
+    (120, 125),
+    (144, 125),  # 正好 150% 仍使用较保守的 125% 档位
+    (145, 150),
+    (168, 150),
+    (0, 100),
+    ("invalid", 100),
+    (float("nan"), 100),
+])
+def test_system_dpi_is_mapped_to_a_supported_scale(dpi, expected):
+    assert recommended_scale_percent(dpi) == expected
+
+
+def test_system_dpi_read_failure_falls_back_to_100(monkeypatch):
+    def fail_to_read_dpi():
+        raise RuntimeError("DPI API unavailable")
+
+    monkeypatch.setattr("core.platform_utils.get_system_dpi", fail_to_read_dpi)
+    assert recommended_scale_percent() == 100
+
+
+def test_first_run_scale_defaults_are_written_once(tmp_settings):
+    from settings.tool_settings import ToolSettingsManager
+
+    config = ToolSettingsManager(qsettings=tmp_settings)
+    assert apply_first_run_scale_defaults(config, system_dpi=120) == 125
+    assert config.get_app_setting("ui_scale_percent") == 125
+    assert config.get_app_setting("dialog_scale_percent") == 125
+
+    # 首次运行标记还没写入时也可能重进初始化；已存在的用户值必须保留。
+    config.set_app_setting("ui_scale_percent", 90)
+    assert apply_first_run_scale_defaults(config, system_dpi=144) == 125
+    assert config.get_app_setting("ui_scale_percent") == 90
+    assert config.get_app_setting("dialog_scale_percent") == 125
+
+    config.mark_as_run()
+    assert apply_first_run_scale_defaults(config, system_dpi=168) is None
 
 
 def test_zero_stays_zero_and_thin_things_never_vanish():

@@ -20,6 +20,7 @@ from core import log_info, safe_event
 from core.i18n import make_tr
 from core.logger import T
 from core.theme import contrast_ink, get_theme
+from core.ui_scale import configure_dialog_control, dialog_scaled, scale_dialog_font
 from core.ui_theme import get_ui_theme
 from ui.dialogs import track_modeless_dialog
 from ui.fluent_lite import (
@@ -69,13 +70,14 @@ def _paint_badge(painter, center, number):
     color = get_theme().theme_color
     painter.setPen(Qt.PenStyle.NoPen)
     painter.setBrush(color)
-    painter.drawEllipse(center, _BADGE_RADIUS, _BADGE_RADIUS)
+    radius = dialog_scaled(_BADGE_RADIUS)
+    painter.drawEllipse(center, radius, radius)
     font = painter.font()
-    font.setPixelSize(12)
+    font.setPixelSize(dialog_scaled(12))
     font.setBold(True)
     painter.setFont(font)
     painter.setPen(contrast_ink(color))
-    box = QRectF(center.x() - _BADGE_RADIUS, center.y() - _BADGE_RADIUS, 2 * _BADGE_RADIUS, 2 * _BADGE_RADIUS)
+    box = QRectF(center.x() - radius, center.y() - radius, 2 * radius, 2 * radius)
     painter.drawText(box, Qt.AlignmentFlag.AlignCenter, str(number))
 
 
@@ -93,7 +95,7 @@ class _CodeImageView(QWidget):
         self._codes = codes
         self._active = -1
         self.setMouseTracking(True)
-        self.setMinimumSize(240, 180)
+        self.setMinimumSize(dialog_scaled(240), dialog_scaled(180))
 
     def set_active(self, index):
         if index != self._active:
@@ -133,8 +135,8 @@ class _CodeImageView(QWidget):
             # 码贴着图边时，圆标会被控件边缘裁掉一半，往里收到完整可见
             corner = outline.boundingRect().topLeft()
             center = QPointF(
-                min(max(corner.x(), _BADGE_RADIUS), self.width() - _BADGE_RADIUS),
-                min(max(corner.y(), _BADGE_RADIUS), self.height() - _BADGE_RADIUS),
+                min(max(corner.x(), dialog_scaled(_BADGE_RADIUS)), self.width() - dialog_scaled(_BADGE_RADIUS)),
+                min(max(corner.y(), dialog_scaled(_BADGE_RADIUS)), self.height() - dialog_scaled(_BADGE_RADIUS)),
             )
             _paint_badge(painter, center, index + 1)
         painter.end()
@@ -158,7 +160,8 @@ class _Badge(QWidget):
     def __init__(self, number, parent=None):
         super().__init__(parent)
         self._number = number
-        self.setFixedSize(2 * _BADGE_RADIUS, 2 * _BADGE_RADIUS)
+        diameter = dialog_scaled(2 * _BADGE_RADIUS)
+        self.setFixedSize(diameter, diameter)
 
     @safe_event
     def paintEvent(self, event):
@@ -193,7 +196,7 @@ class _CodeText(TextEdit):
     def _apply_theme(self, _tokens=None):
         t = ui_tokens(self)
         self.setStyleSheet(
-            f"QTextEdit {{ background: transparent; color: {t.text}; font: 13px {FONT_FAMILY}; "
+            f"QTextEdit {{ background: transparent; color: {t.text}; font: {dialog_scaled(13)}px {FONT_FAMILY}; "
             f"selection-background-color: {t.accent}; selection-color: {t.selected_text}; }}"
         )
 
@@ -209,11 +212,14 @@ class _CodeCard(SimpleCardWidget):
         self.setProperty("active", False)
 
         header = QHBoxLayout()
-        header.setSpacing(8)
+        header.setSpacing(dialog_scaled(8))
         header.addWidget(_Badge(index + 1, self))
-        header.addWidget(CaptionLabel(code.format_name, self), 1)
+        format_label = CaptionLabel(code.format_name, self)
+        configure_dialog_control(format_label)
+        header.addWidget(format_label, 1)
 
         self.copy_button = PushButton(_tr("Copy"), self)
+        configure_dialog_control(self.copy_button)
         self.copy_button.clicked.connect(lambda: self._copy(code.text))
         buttons = QHBoxLayout()
         buttons.addStretch(1)
@@ -222,12 +228,16 @@ class _CodeCard(SimpleCardWidget):
         link = _web_link(code.text)
         if link is not None:
             self.open_button = PrimaryPushButton(_tr("Open link"), self)
+            configure_dialog_control(self.open_button)
             self.open_button.clicked.connect(lambda: QDesktopServices.openUrl(link))
             buttons.addWidget(self.open_button)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 10, 12, 10)
-        layout.setSpacing(6)
+        layout.setContentsMargins(
+            dialog_scaled(12), dialog_scaled(10),
+            dialog_scaled(12), dialog_scaled(10),
+        )
+        layout.setSpacing(dialog_scaled(6))
         layout.addLayout(header)
         layout.addWidget(_CodeText(code.text, self))
         layout.addLayout(buttons)
@@ -269,12 +279,14 @@ class BarcodeResultWindow(FrostedFramelessDialog):
 
     def __init__(self, image, codes, parent=None):
         super().__init__(parent)
+        scale_dialog_font(self)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         title_bar = FluentTitleBar(self)
+        configure_dialog_control(title_bar)
         self.setTitleBar(title_bar)
         title_bar.iconLabel.hide()
         # 同欢迎向导：隐藏图标后标题会紧贴窗口左边，补回原生标题栏的留白
-        title_bar.hBoxLayout.setContentsMargins(12, 0, 0, 0)
+        title_bar.hBoxLayout.setContentsMargins(dialog_scaled(12), 0, 0, 0)
         self.setWindowTitle(_tr("Scan result"))
 
         self.image_view = _CodeImageView(image, codes, self)
@@ -285,12 +297,13 @@ class BarcodeResultWindow(FrostedFramelessDialog):
         else:
             summary = _tr("No QR code or barcode found")
         self.summary_label = BodyLabel(summary, self)
+        configure_dialog_control(self.summary_label)
         self.summary_label.setWordWrap(True)
 
         cards_host = QWidget()
         cards_layout = QVBoxLayout(cards_host)
         cards_layout.setContentsMargins(0, 0, 0, 0)
-        cards_layout.setSpacing(8)
+        cards_layout.setSpacing(dialog_scaled(8))
         self.cards = []
         for index, code in enumerate(codes):
             card = _CodeCard(index, code, cards_host)
@@ -298,8 +311,10 @@ class BarcodeResultWindow(FrostedFramelessDialog):
             cards_layout.addWidget(card)
             self.cards.append(card)
         if not codes:
-            cards_layout.addWidget(
-                CaptionLabel(_tr("Make sure the whole code is inside the selection."), cards_host))
+            empty_hint = CaptionLabel(
+                _tr("Make sure the whole code is inside the selection."), cards_host)
+            configure_dialog_control(empty_hint)
+            cards_layout.addWidget(empty_hint)
         cards_layout.addStretch(1)
 
         self._scroll = QScrollArea(self)
@@ -309,16 +324,20 @@ class BarcodeResultWindow(FrostedFramelessDialog):
         self._scroll.setWidget(cards_host)
 
         panel = QWidget(self)
-        panel.setFixedWidth(self.PANEL_WIDTH)
+        self._panel = panel
+        panel.setFixedWidth(dialog_scaled(self.PANEL_WIDTH))
         panel_layout = QVBoxLayout(panel)
         panel_layout.setContentsMargins(0, 0, 0, 0)
-        panel_layout.setSpacing(8)
+        panel_layout.setSpacing(dialog_scaled(8))
         panel_layout.addWidget(self.summary_label)
         panel_layout.addWidget(self._scroll, 1)
 
         root = QHBoxLayout(self)
-        root.setContentsMargins(12, title_bar.height() + 4, 12, 12)
-        root.setSpacing(12)
+        root.setContentsMargins(
+            dialog_scaled(12), title_bar.height() + dialog_scaled(4),
+            dialog_scaled(12), dialog_scaled(12),
+        )
+        root.setSpacing(dialog_scaled(12))
         root.addWidget(self.image_view, 1)
         root.addWidget(panel)
 
@@ -338,12 +357,12 @@ class BarcodeResultWindow(FrostedFramelessDialog):
         screen = QApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()
         available = screen.availableGeometry()
         margins = self.layout().contentsMargins()
-        width = (image.width() + self.layout().spacing() + self.PANEL_WIDTH
+        width = (image.width() + self.layout().spacing() + self._panel.width()
                  + margins.left() + margins.right())
         height = image.height() + margins.top() + margins.bottom()
         self.resize(
-            max(640, min(width, int(available.width() * 0.8))),
-            max(420, min(height, int(available.height() * 0.8))),
+            max(dialog_scaled(640), min(width, int(available.width() * 0.8))),
+            max(dialog_scaled(420), min(height, int(available.height() * 0.8))),
         )
         self.move(available.center() - self.rect().center())
 

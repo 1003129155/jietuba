@@ -42,6 +42,7 @@ from ui.fluent_lite import (
     scrollbar_qss,
 )
 from core import safe_event
+from core.ui_scale import configure_dialog_control, configure_dialog_controls
 from core.ui_theme import get_ui_theme
 from ui.dialogs import show_confirm_dialog, show_info_dialog, show_warning_dialog
 
@@ -74,10 +75,10 @@ from ..forms.group_icon_picker import (
 from ..forms.import_export_form import build_import_export_form
 from ..forms.text_content_form import build_edit_text_content_form, build_text_content_form
 from ..layout_scale import (
-    MANAGE_DIALOG_HEIGHT,
-    MANAGE_DIALOG_MIN_HEIGHT,
-    MANAGE_DIALOG_MIN_WIDTH,
-    MANAGE_DIALOG_WIDTH,
+    manage_dialog_height,
+    manage_dialog_min_height,
+    manage_dialog_min_width,
+    manage_dialog_width,
     scale_ui,
     scale_x,
     scale_y,
@@ -100,6 +101,8 @@ def _qt_object_is_valid(obj) -> bool:
 def get_manage_dialog(manager: ClipboardManager = None) -> "ManageDialog":
     """获取管理窗口的单例实例"""
     global _manage_window_instance
+    if not _qt_object_is_valid(_manage_window_instance):
+        _manage_window_instance = None
     if _manage_window_instance is None:
         if manager is None:
             manager = ClipboardManager()
@@ -109,7 +112,27 @@ def get_manage_dialog(manager: ClipboardManager = None) -> "ManageDialog":
 
 def get_existing_manage_dialog() -> Optional["ManageDialog"]:
     """获取已存在的管理窗口实例，不主动创建。"""
+    global _manage_window_instance
+    if not _qt_object_is_valid(_manage_window_instance):
+        _manage_window_instance = None
     return _manage_window_instance
+
+
+def destroy_manage_dialog() -> bool:
+    """销毁缓存的管理窗口，返回它销毁前是否可见。"""
+    global _manage_window_instance
+    dialog = _manage_window_instance
+    _manage_window_instance = None
+
+    if not _qt_object_is_valid(dialog):
+        return False
+
+    was_visible = dialog.isVisible()
+    # closeEvent() 有意只隐藏窗口并忽略关闭，因此这里必须绕过 close()，
+    # 直接安排 QObject 销毁，才能让下次打开按新的构造期参数重建。
+    dialog.hide()
+    dialog.deleteLater()
+    return was_visible
 
 
 class ManageDialog(FrostedFramelessDialog):
@@ -131,8 +154,8 @@ class ManageDialog(FrostedFramelessDialog):
         self._setup_titlebar()
 
         self.setWindowTitle(self.tr("Clipboard Management"))
-        self.setMinimumSize(MANAGE_DIALOG_MIN_WIDTH, MANAGE_DIALOG_MIN_HEIGHT)
-        self.resize(MANAGE_DIALOG_WIDTH, MANAGE_DIALOG_HEIGHT)
+        self.setMinimumSize(manage_dialog_min_width(), manage_dialog_min_height())
+        self.resize(manage_dialog_width(), manage_dialog_height())
         self.setWindowFlags(
             self.windowFlags()
             | Qt.WindowType.Window
@@ -154,6 +177,9 @@ class ManageDialog(FrostedFramelessDialog):
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
 
         self._setup_ui()
+        # Static Fluent controls are created once.  Opt them into the
+        # standalone-window scale before any dynamic detail form is built.
+        configure_dialog_controls(self)
         self._switch_mode("group")
         self._center_on_screen()
         self._apply_ui_theme(get_ui_theme().tokens)
@@ -221,9 +247,10 @@ class ManageDialog(FrostedFramelessDialog):
                 border: none;
                 outline: none;
                 color: {tokens.text};
+                font-size: {scale_ui(13)}px;
             }}
             QListWidget::item {{
-                padding: 0px {scale_x(12)}px;
+                padding: {scale_y(5)}px {scale_x(12)}px;
                 border-bottom: 1px solid {tokens.separator};
                 color: {tokens.text};
             }}
@@ -308,6 +335,10 @@ class ManageDialog(FrostedFramelessDialog):
 
     def _setup_titlebar(self):
         title_bar = FluentTitleBar(self)
+        # Mark before _setup_ui(), which derives the content top margin from
+        # titleBar.height(); an unscaled height puts the columns under the
+        # caption buttons.
+        configure_dialog_control(title_bar)
         self.setTitleBar(title_bar)
         title_bar.setDoubleClickEnabled(True)
 
@@ -417,15 +448,6 @@ class ManageDialog(FrostedFramelessDialog):
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(0, scale_y(8), 0, scale_y(8))
         layout.setSpacing(scale_y(4))
-
-        title = BodyLabel(self.tr("Management"))
-        self.nav_title = title
-        title.setStyleSheet(
-            f"font-size: {scale_ui(14)}px; font-weight: 600; "
-            f"padding: {scale_y(8)}px {scale_x(12)}px {scale_y(8)}px {scale_x(12)}px; "
-            "background: transparent;"
-        )
-        layout.addWidget(title)
 
         self.nav_interface = NavigationInterface(parent=widget, showMenuButton=False, showReturnButton=False, collapsible=False)
         self.nav_interface.setExpandWidth(scale_x(168))
@@ -878,6 +900,16 @@ class ManageDialog(FrostedFramelessDialog):
 
         clear_layout(self.detail_layout)
 
+    def _finish_detail_form_setup(self):
+        """Apply window scaling and theme to a freshly rebuilt detail form."""
+        # Detail forms are destroyed and recreated when the selection or mode
+        # changes, so the one-time setup in __init__ cannot cover these new
+        # controls.  Mark only this subtree to avoid touching existing widgets
+        # or compounding any geometry values.
+        configure_dialog_controls(self.detail_content)
+        self._refresh_theme_scope()
+        self._apply_dynamic_form_theme()
+
     def _is_current_detail_form_token(self, form_token: Optional[int]) -> bool:
         return form_token is None or form_token == self._detail_form_token
 
@@ -891,8 +923,7 @@ class ManageDialog(FrostedFramelessDialog):
 
         build_new_group_form(self)
         self._update_group_form_header()
-        self._refresh_theme_scope()
-        self._apply_dynamic_form_theme()
+        self._finish_detail_form_setup()
 
     def _on_group_type_toggled(self, checked: bool, form_token: Optional[int] = None):
         """分组类型切换时，若用户未手动修改图标则自动切换默认图标"""
@@ -998,8 +1029,7 @@ class ManageDialog(FrostedFramelessDialog):
 
         build_edit_group_form(self, group)
         self._update_group_form_header()
-        self._refresh_theme_scope()
-        self._apply_dynamic_form_theme()
+        self._finish_detail_form_setup()
 
     def _get_selected_group(self) -> Optional[Group]:
         """获取当前选中分组对象"""
@@ -1042,7 +1072,7 @@ class ManageDialog(FrostedFramelessDialog):
             hint = CaptionLabel(self.tr("Please select a group above, or create a group first"))
             self.detail_layout.addWidget(hint)
             self.detail_layout.addStretch()
-            self._refresh_theme_scope()
+            self._finish_detail_form_setup()
             return
 
         selected_group = self._get_selected_group()
@@ -1050,8 +1080,7 @@ class ManageDialog(FrostedFramelessDialog):
             self._build_file_content_form()
         else:
             self._build_text_content_form()
-        self._refresh_theme_scope()
-        self._apply_dynamic_form_theme()
+        self._finish_detail_form_setup()
 
     def _build_text_content_form(self):
         """普通分组 — 文本内容输入表单"""
@@ -1109,8 +1138,7 @@ class ManageDialog(FrostedFramelessDialog):
 
         if item.content_type == "file":
             self.detail_layout.addStretch()
-        self._refresh_theme_scope()
-        self._apply_dynamic_form_theme()
+        self._finish_detail_form_setup()
 
     def _show_import_export_form(self):
         """显示导入导出表单"""
@@ -1121,8 +1149,7 @@ class ManageDialog(FrostedFramelessDialog):
         self.save_btn.hide()
 
         build_import_export_form(self)
-        self._refresh_theme_scope()
-        self._apply_dynamic_form_theme()
+        self._finish_detail_form_setup()
 
     def _select_icon(self, btn: QPushButton):
         """选择图标（旧方法，保留兼容）"""
@@ -1369,6 +1396,7 @@ class ManageDialog(FrostedFramelessDialog):
 
 __all__ = [
     "ManageDialog",
+    "destroy_manage_dialog",
     "get_existing_manage_dialog",
     "get_manage_dialog",
 ]

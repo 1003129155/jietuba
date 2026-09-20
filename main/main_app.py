@@ -107,6 +107,19 @@ class MainApp(QObject):
         setup_logger(self.config_manager)
         self._logger = get_logger()
         self.app.aboutToQuit.connect(self._on_about_to_quit)
+
+        # Qt 的自动高 DPI 缩放已关闭。首次进入欢迎向导前，按 Windows 的
+        # 显示缩放为两套界面比例选一个初始档位；已有值（包括用户选择）不覆盖。
+        from core.ui_scale import apply_first_run_scale_defaults
+        recommended_scale = apply_first_run_scale_defaults(self.config_manager)
+        if recommended_scale is not None:
+            log_info(
+                T(
+                    "首次启动，系统推荐界面比例: {percent}%",
+                    percent=recommended_scale,
+                ),
+                "DPI",
+            )
         
         # 初始化翻译系统
         from core.i18n import I18nManager
@@ -130,6 +143,10 @@ class MainApp(QObject):
         # 初始化操作界面缩放管理器（工具栏/面板建出来之前必须先载入比例）
         from core.ui_scale import get_ui_scale
         get_ui_scale().init(self.config_manager)
+
+        # 初始化独立窗口缩放管理器（设置/剪贴板管理/翻译窗口）
+        from core.ui_scale import get_dialog_scale
+        get_dialog_scale().init(self.config_manager)
         
         # 输出DPI信息用于调试
         try:
@@ -221,20 +238,9 @@ class MainApp(QObject):
         # 更新托盘菜单
         self._update_tray_menu()
         
-        # 重新创建设置窗口（因为设置窗口是预加载的，需要重建才能更新翻译）
+        # 设置窗口是预加载的，需要重建才能更新翻译。
         if self.settings_window:
-            was_visible = self.settings_window.isVisible()
-            self.settings_window.close()
-            self.settings_window.deleteLater()
-            self.settings_window = None
-            
-            # 重新创建设置窗口
-            self._preloader.preload_settings()
-            
-            # 如果之前是显示状态，重新显示
-            if was_visible:
-                self.settings_window.show()
-                self.settings_window.activateWindow()
+            self._recreate_settings_window()
         
         # 关闭翻译窗口（下次打开时会用新语言创建）
         from translation import TranslationManager
@@ -548,6 +554,11 @@ class MainApp(QObject):
 
     def on_settings_accepted(self):
         """设置保存后更新热键和剪贴板设置"""
+        accepted_window = self.sender()
+        dialog_scale_changed = bool(getattr(
+            accepted_window, "_dialog_scale_changed_on_accept", False
+        ))
+
         self.set_clipboard_monitoring_enabled(
             self.config_manager.get_clipboard_enabled()
         )
@@ -559,6 +570,56 @@ class MainApp(QObject):
             # 同时更新历史限制
             if hasattr(self, 'clipboard_manager') and self.clipboard_manager:
                 self.clipboard_manager._apply_history_limit()
+
+        if dialog_scale_changed:
+            self._recreate_clipboard_manage_dialog()
+            # accepted 信号发出时旧窗口已经隐藏，所以这里明确要求把按新比例
+            # 构造的窗口重新打开，而不是依据旧窗口当前的可见状态。
+            self._recreate_settings_window(reopen=True)
+
+    def _recreate_clipboard_manage_dialog(self):
+        """Discard the cached clipboard manager UI after window-scale changes."""
+        from clipboard import (
+            destroy_manage_dialog,
+            get_existing_manage_dialog,
+            get_manage_dialog,
+        )
+
+        old_dialog = get_existing_manage_dialog()
+        if old_dialog is None:
+            return
+
+        manager = old_dialog.manager
+        was_visible = destroy_manage_dialog()
+        if not was_visible:
+            return
+
+        dialog = get_manage_dialog(manager)
+        if self.clipboard_window:
+            self.clipboard_window._connect_manage_dialog(dialog)
+        dialog.show_and_activate()
+
+    def _recreate_settings_window(self, reopen=None):
+        """Rebuild the cached settings UI after a process-wide UI setting changes.
+
+        ``reopen=None`` preserves whether the old window was visible.  Callers
+        running from QDialog.accepted can pass ``True`` because Qt has already
+        hidden the accepted dialog before emitting that signal.
+        """
+        window = self.settings_window
+        if window is None:
+            return
+
+        if reopen is None:
+            reopen = window.isVisible()
+
+        window.hide()
+        window.deleteLater()
+        self.settings_window = None
+
+        self._preloader.preload_settings()
+        if reopen:
+            self.open_settings()
     
     def open_translator(self):
         """打开翻译窗口"""

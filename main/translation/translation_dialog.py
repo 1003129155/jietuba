@@ -27,18 +27,28 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from qframelesswindow import FramelessWindow, TitleBar
+from qframelesswindow import FramelessWindow
 
 from core import log_debug, log_info
 from core.i18n import make_tr
+from core.ui_scale import configure_dialog_control, dialog_scaled, get_dialog_scale
 from .ui.widgets import EllipsisAnimator
 from core.resource_manager import ResourceManager
 from settings import get_tool_settings_manager
-from ui.fluent_lite import TextEdit
+from ui.fluent_lite import FluentTitleBar, TextEdit
 from .languages import TRANSLATION_LANGUAGES
 
 
 _tr = make_tr("TranslationDialog")
+
+
+# Keep rectangular surfaces restrained.  Pills and circular controls use their
+# own half-height radii below; applying those large radii to panes and popup
+# surfaces makes Qt's stylesheet corners look swollen, especially when the
+# standalone-window scale is above 100%.
+WINDOW_CORNER_RADIUS = 8
+SURFACE_CORNER_RADIUS = 8
+CONTROL_CORNER_RADIUS = 6
 
 
 @dataclass(frozen=True)
@@ -107,7 +117,7 @@ class VectorToolButton(QAbstractButton):
         self.setToolTip(tooltip)
         self.setAccessibleName(tooltip)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedSize(32, 30)
+        self.setFixedSize(dialog_scaled(32), dialog_scaled(30))
 
     def set_tooltip(self, tooltip: str) -> None:
         self.setToolTip(tooltip)
@@ -136,7 +146,13 @@ class VectorToolButton(QAbstractButton):
         else:
             painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawRoundedRect(QRectF(self.rect()).adjusted(2, 2, -2, -2), 9, 9)
+        painter.drawRoundedRect(
+            QRectF(self.rect()).adjusted(
+                dialog_scaled(2), dialog_scaled(2),
+                -dialog_scaled(2), -dialog_scaled(2),
+            ),
+            dialog_scaled(9), dialog_scaled(9),
+        )
 
         color = QColor(self._palette.text if self.underMouse() else self._palette.text_2)
         pen = QPen(color, 1.8)
@@ -145,6 +161,10 @@ class VectorToolButton(QAbstractButton):
         painter.setPen(pen)
         painter.setBrush(Qt.BrushStyle.NoBrush)
 
+        # 图标是一组互相咬合的手绘坐标，整体 scale() 而不是逐点取整，
+        # 否则各点独立四舍五入会让复制/清空图标的相对比例跑偏。
+        painter.save()
+        painter.scale(get_dialog_scale().factor, get_dialog_scale().factor)
         if self._icon_name == "copy":
             painter.drawRoundedRect(QRectF(7.5, 6.5, 11, 12), 2, 2)
             painter.drawRoundedRect(QRectF(11.5, 10.5, 11, 12), 2, 2)
@@ -154,6 +174,7 @@ class VectorToolButton(QAbstractButton):
             painter.drawRoundedRect(QRectF(10.0, 11.0, 10.0, 12.0), 2, 2)
             painter.drawLine(13.5, 14.0, 13.5, 20.0)
             painter.drawLine(16.5, 14.0, 16.5, 20.0)
+        painter.restore()
 
 
 class TranslateButton(QAbstractButton):
@@ -166,7 +187,7 @@ class TranslateButton(QAbstractButton):
         self.setText(self._idle_text)
         self.setToolTip(_tr("Translate text"))
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedSize(96, 34)
+        self.setFixedSize(dialog_scaled(96), dialog_scaled(34))
 
     def retranslate(self, busy: bool) -> None:
         self._idle_text = _tr("Translate")
@@ -195,32 +216,87 @@ class TranslateButton(QAbstractButton):
             color = "#6689bb"
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(color))
-        painter.drawRoundedRect(QRectF(self.rect()), 17, 17)
+        painter.drawRoundedRect(QRectF(self.rect()), dialog_scaled(17), dialog_scaled(17))
 
         painter.setPen(QColor("white"))
-        painter.setFont(QFont("Microsoft YaHei UI", 10, QFont.Weight.DemiBold))
+        painter.setFont(QFont("Microsoft YaHei UI", dialog_scaled(10), QFont.Weight.DemiBold))
         painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, self.text())
 
 
-class DashboardTitleBar(TitleBar):
-    """App identity, backend state, pin state and native window controls."""
+class PinIconButton(QAbstractButton):
+    """Background-free always-on-top toggle using the pin SVG asset."""
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self._palette = DARK
+        self.icon_path = ResourceManager.get_icon_path("钉图.svg")
+        self._icon = ResourceManager.get_icon(self.icon_path)
+        self.setAccessibleName(_tr("Toggle always on top"))
+        self.setCheckable(True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedSize(dialog_scaled(32), dialog_scaled(32))
+
+    def apply_palette(self, palette: Palette) -> None:
+        self._palette = palette
+        self.update()
+
+    def enterEvent(self, event) -> None:
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:
+        self.update()
+        super().leaveEvent(event)
+
+    def paintEvent(self, event) -> None:
+        del event
+        side = dialog_scaled(20)
+        pixmap = self._icon.pixmap(side, side)
+        if pixmap.isNull():
+            return
+
+        if self.isChecked():
+            color = self._palette.accent
+        elif self.underMouse():
+            color = self._palette.text
+        else:
+            color = self._palette.text_2
+
+        icon_painter = QPainter(pixmap)
+        icon_painter.setCompositionMode(
+            QPainter.CompositionMode.CompositionMode_SourceIn
+        )
+        icon_painter.fillRect(pixmap.rect(), QColor(color))
+        icon_painter.end()
+
+        painter = QPainter(self)
+        x = (self.width() - pixmap.width()) // 2
+        y = (self.height() - pixmap.height()) // 2
+        painter.drawPixmap(x, y, pixmap)
+
+
+class DashboardTitleBar(FluentTitleBar):
+    """Shared Fluent title bar plus the always-on-top control."""
+
+    # The base constructor reaches _apply_caption_colors before the instance
+    # has been handed a palette.
+    _palette = DARK
 
     def __init__(self, parent: QWidget):
         super().__init__(parent)
-        self.setFixedHeight(48)
-        self.hBoxLayout.setContentsMargins(16, 0, 10, 0)
-        self.hBoxLayout.setSpacing(6)
+        self.hBoxLayout.setContentsMargins(dialog_scaled(12), 0, 0, 0)
+        self.hBoxLayout.setSpacing(0)
 
-        self.logo = QLabel(self)
+        self.logo = self.iconLabel
         self.logo.setObjectName("appLogo")
-        self.logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.logo.setAccessibleName(_tr("Translation"))
-        self.logo.setFixedSize(24, 24)
-        logo_icon = ResourceManager.get_icon(ResourceManager.get_icon_path("翻译.svg"), 22)
+        logo_icon = ResourceManager.get_icon(
+            ResourceManager.get_icon_path("翻译.svg"), dialog_scaled(22)
+        )
         if logo_icon.isNull():
             self.logo.setText(_tr("Translation"))
         else:
-            logo_pixmap = logo_icon.pixmap(16, 16)
+            logo_pixmap = logo_icon.pixmap(dialog_scaled(16), dialog_scaled(16))
             logo_painter = QPainter(logo_pixmap)
             logo_painter.setCompositionMode(
                 QPainter.CompositionMode.CompositionMode_SourceIn
@@ -229,38 +305,37 @@ class DashboardTitleBar(TitleBar):
             logo_painter.end()
             self.logo.setPixmap(logo_pixmap)
 
-        self.app_name = QLabel("jietuba", self)
+        self.app_name = self.titleLabel
+        self.app_name.setText("jietuba")
         self.app_name.setObjectName("appName")
-        self.hBoxLayout.insertWidget(0, self.logo)
-        self.hBoxLayout.insertWidget(1, self.app_name)
 
-        self.backend_badge = QLabel(_tr("Engine not configured"), self)
-        self.backend_badge.setObjectName("backendBadge")
-        self.backend_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.backend_badge.setFixedHeight(22)
-        self.hBoxLayout.insertWidget(self.hBoxLayout.count() - 3, self.backend_badge)
-
-        self.pin_button = QPushButton(_tr("Pin"), self)
+        self.pin_button = PinIconButton(self)
         self.pin_button.setObjectName("pinButton")
-        self.pin_button.setAccessibleName(_tr("Toggle always on top"))
-        self.pin_button.setCheckable(True)
-        self.pin_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.pin_button.setFixedHeight(24)
         self.update_translations()
-        self.hBoxLayout.insertWidget(self.hBoxLayout.count() - 3, self.pin_button)
 
-        for button in (self.minBtn, self.maxBtn, self.closeBtn):
-            button.setFixedSize(38, 30)
+        controls_index = self.hBoxLayout.indexOf(self.minBtn)
+        self.hBoxLayout.insertWidget(controls_index, self.pin_button)
+        self.hBoxLayout.insertSpacing(controls_index + 1, dialog_scaled(8))
 
     def update_translations(self) -> None:
-        self.pin_button.setText(_tr("Pin"))
-        pin_width = self.pin_button.fontMetrics().horizontalAdvance(self.pin_button.text()) + 20
-        self.pin_button.setFixedWidth(max(48, min(pin_width, 88)))
-        self.minBtn.setToolTip(_tr("Minimize"))
-        self.maxBtn.setToolTip(_tr("Maximize"))
-        self.closeBtn.setToolTip(_tr("Close"))
+        self.pin_button.setAccessibleName(_tr("Toggle always on top"))
+        # Caption symbols are universally understood; keep their names for
+        # accessibility without showing redundant hover bubbles.
+        for button, name in (
+            (self.minBtn, _tr("Minimize")),
+            (self.maxBtn, _tr("Maximize")),
+            (self.closeBtn, _tr("Close")),
+        ):
+            button.setToolTip("")
+            button.setAccessibleName(name)
 
     def apply_palette(self, palette: Palette) -> None:
+        self._palette = palette
+        self.pin_button.apply_palette(palette)
+        self._apply_caption_colors()
+
+    def _apply_caption_colors(self):
+        palette = self._palette
         for button in (self.minBtn, self.maxBtn, self.closeBtn):
             button.setNormalColor(QColor(palette.text_2))
             button.setHoverColor(QColor(palette.text))
@@ -333,15 +408,16 @@ class TranslationDialog(FramelessWindow):
 
         self.setObjectName("dashboardWindow")
         self.setWindowTitle("jietuba")
-        self.setMinimumSize(self.MINIMUM_WIDTH, self.MINIMUM_HEIGHT)
-        self.resize(self.DEFAULT_WIDTH, self.DEFAULT_HEIGHT)
-        self.setFont(QFont("Microsoft YaHei UI", 10))
+        self.setMinimumSize(dialog_scaled(self.MINIMUM_WIDTH), dialog_scaled(self.MINIMUM_HEIGHT))
+        self.resize(dialog_scaled(self.DEFAULT_WIDTH), dialog_scaled(self.DEFAULT_HEIGHT))
+        self.setFont(QFont("Microsoft YaHei UI", dialog_scaled(10)))
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAutoFillBackground(False)
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, self._is_on_top)
 
         self.dashboard_title_bar = DashboardTitleBar(self)
+        configure_dialog_control(self.dashboard_title_bar)
         self.setTitleBar(self.dashboard_title_bar)
         self.dashboard_title_bar.pin_button.setChecked(self._is_on_top)
         self.dashboard_title_bar.pin_button.clicked.connect(self._on_toggle_pin)
@@ -364,8 +440,12 @@ class TranslationDialog(FramelessWindow):
     @classmethod
     def initial_size_for_available_geometry(cls, available_geometry) -> tuple[int, int]:
         """Return the initial size, reduced to the screen when possible."""
-        width = max(cls.MINIMUM_WIDTH, min(cls.DEFAULT_WIDTH, available_geometry.width()))
-        height = max(cls.MINIMUM_HEIGHT, min(cls.DEFAULT_HEIGHT, available_geometry.height()))
+        minimum_width = dialog_scaled(cls.MINIMUM_WIDTH)
+        minimum_height = dialog_scaled(cls.MINIMUM_HEIGHT)
+        default_width = dialog_scaled(cls.DEFAULT_WIDTH)
+        default_height = dialog_scaled(cls.DEFAULT_HEIGHT)
+        width = max(minimum_width, min(default_width, available_geometry.width()))
+        height = max(minimum_height, min(default_height, available_geometry.height()))
         return width, height
 
     def _place_initial_window(self, position: QPoint | None) -> None:
@@ -396,12 +476,15 @@ class TranslationDialog(FramelessWindow):
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
-        root.setContentsMargins(18, 48, 18, 15)
+        root.setContentsMargins(
+            dialog_scaled(18), self.dashboard_title_bar.height() + dialog_scaled(6),
+            dialog_scaled(18), dialog_scaled(15),
+        )
         root.setSpacing(0)
 
         language_bar = QHBoxLayout()
-        language_bar.setContentsMargins(0, 2, 0, 14)
-        language_bar.setSpacing(12)
+        language_bar.setContentsMargins(0, dialog_scaled(2), 0, dialog_scaled(14))
+        language_bar.setSpacing(dialog_scaled(12))
         language_bar.addStretch()
 
         self.source_language = self._language_combo(include_auto=True)
@@ -418,7 +501,7 @@ class TranslationDialog(FramelessWindow):
         self.swap_button.setObjectName("swapButton")
         self.swap_button.setToolTip(_tr("Swap languages"))
         self.swap_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.swap_button.setFixedSize(36, 36)
+        self.swap_button.setFixedSize(dialog_scaled(36), dialog_scaled(36))
         self.swap_button.clicked.connect(self._swap_languages)
 
         language_bar.addWidget(self.source_language)
@@ -428,13 +511,16 @@ class TranslationDialog(FramelessWindow):
         root.addLayout(language_bar)
 
         panes = QHBoxLayout()
-        panes.setSpacing(13)
+        panes.setSpacing(dialog_scaled(13))
 
         self.source_pane = FocusPane()
         self.source_pane.setObjectName("sourcePane")
         source_layout = QVBoxLayout(self.source_pane)
-        source_layout.setContentsMargins(10, 10, 10, 8)
-        source_layout.setSpacing(2)
+        source_layout.setContentsMargins(
+            dialog_scaled(10), dialog_scaled(10),
+            dialog_scaled(10), dialog_scaled(8),
+        )
+        source_layout.setSpacing(dialog_scaled(2))
 
         self.source_edit = SourceEdit()
         self.source_edit.setObjectName("sourceEdit")
@@ -447,7 +533,7 @@ class TranslationDialog(FramelessWindow):
         source_layout.addWidget(self.source_edit, 1)
 
         source_tools = QHBoxLayout()
-        source_tools.setSpacing(3)
+        source_tools.setSpacing(dialog_scaled(3))
         self.copy_source_button = self._tool_button("copy", _tr("Copy Original"))
         self.copy_source_button.clicked.connect(self._copy_source)
         self.clear_source_button = self._tool_button("trash", _tr("Clear Original"))
@@ -463,8 +549,11 @@ class TranslationDialog(FramelessWindow):
         self.target_pane = QFrame()
         self.target_pane.setObjectName("targetPane")
         target_layout = QVBoxLayout(self.target_pane)
-        target_layout.setContentsMargins(10, 10, 10, 8)
-        target_layout.setSpacing(2)
+        target_layout.setContentsMargins(
+            dialog_scaled(10), dialog_scaled(10),
+            dialog_scaled(10), dialog_scaled(8),
+        )
+        target_layout.setSpacing(dialog_scaled(2))
 
         self.target_edit = TextEdit()
         self.target_edit.setObjectName("targetEdit")
@@ -478,6 +567,7 @@ class TranslationDialog(FramelessWindow):
         target_layout.addWidget(self.target_edit, 1)
 
         target_tools = QHBoxLayout()
+        target_tools.setSpacing(dialog_scaled(3))
         self.copy_target_button = self._tool_button("copy", _tr("Copy Translation"))
         self.copy_target_button.clicked.connect(self._copy_target)
         target_tools.addWidget(self.copy_target_button)
@@ -489,7 +579,12 @@ class TranslationDialog(FramelessWindow):
         root.addLayout(panes, 1)
 
         footer = QHBoxLayout()
-        footer.setContentsMargins(2, 13, 2, 0)
+        footer.setContentsMargins(dialog_scaled(2), dialog_scaled(13), dialog_scaled(2), 0)
+        self.backend_badge = QLabel(_tr("Engine not configured"), self)
+        self.backend_badge.setObjectName("backendBadge")
+        self.backend_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.backend_badge.setFixedHeight(dialog_scaled(22))
+        footer.addWidget(self.backend_badge)
         footer.addStretch()
         self.translate_button = TranslateButton()
         self.translate_btn = self.translate_button
@@ -520,8 +615,8 @@ class TranslationDialog(FramelessWindow):
             combo.addItem(_tr("Auto Detect"), "auto")
         for code, name in TRANSLATION_LANGUAGES.items():
             combo.addItem(name, code)
-        combo.setFixedWidth(150)
-        combo.setFixedHeight(36)
+        combo.setFixedWidth(dialog_scaled(150))
+        combo.setFixedHeight(dialog_scaled(36))
         return combo
 
     def _swap_languages(self) -> None:
@@ -582,7 +677,7 @@ class TranslationDialog(FramelessWindow):
         self.translate_button.retranslate(not self.translate_button.isEnabled())
         self._update_count()
         if not getattr(self, "_backend_configured", False):
-            self.dashboard_title_bar.backend_badge.setText(_tr("Engine not configured"))
+            self.backend_badge.setText(_tr("Engine not configured"))
         if self.target_edit.property("loading"):
             self.target_edit.setPlainText(_tr("Translating..."))
         elif self.target_edit.property("error") and hasattr(self, "_last_error_message"):
@@ -698,7 +793,7 @@ class TranslationDialog(FramelessWindow):
 
     def set_backend_badge(self, text: str, configured: bool = True) -> None:
         self._backend_configured = configured
-        badge = self.dashboard_title_bar.backend_badge
+        badge = self.backend_badge
         badge.setText(text)
         badge.setProperty("configured", configured)
         badge.style().unpolish(badge)
@@ -711,12 +806,12 @@ class TranslationDialog(FramelessWindow):
         painter.fillRect(self.rect(), Qt.GlobalColor.transparent)
         painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
 
-        radius = 0.0 if self.isMaximized() else 8.0
+        radius = 0.0 if self.isMaximized() else dialog_scaled(WINDOW_CORNER_RADIUS)
         rect = QRectF(self.rect())
         if not self.isMaximized():
             rect.adjust(0.5, 0.5, -0.5, -0.5)
         if self._theme_name == "dark":
-            background = QLinearGradient(0, 0, 0, min(190, self.height()))
+            background = QLinearGradient(0, 0, 0, min(dialog_scaled(190), self.height()))
             background.setColorAt(0.0, QColor("#4d4f56"))
             background.setColorAt(1.0, QColor("#41434a"))
             painter.setBrush(background)
@@ -744,55 +839,53 @@ class TranslationDialog(FramelessWindow):
 
     @staticmethod
     def _style_sheet(p: Palette) -> str:
+        s = dialog_scaled
+        stroke = s(1)
         return f"""
-        QWidget {{ color: {p.text}; font-size: 13px; }}
+        QWidget {{ color: {p.text}; font-size: {s(13)}px; }}
         QLabel#appLogo {{
-            color: white; background: {p.accent}; border: none; border-radius: 7px;
-            font-size: 9px; font-weight: 700;
+            color: white; background: {p.accent}; border: none; border-radius: {s(7)}px;
+            font-size: {s(9)}px; font-weight: 700;
         }}
-        QLabel#appName {{ font-size: 13px; font-weight: 600; padding-left: 3px; }}
+        QLabel#appName {{ font-size: {s(13)}px; font-weight: 600; padding-left: {s(3)}px; }}
         QLabel#backendBadge {{
             color: {p.accent}; background: {p.accent_tint};
-            border-radius: 11px; padding: 0 10px; font-size: 11px; font-weight: 600;
+            border-radius: {s(11)}px; padding: 0 {s(10)}px; font-size: {s(11)}px; font-weight: 600;
         }}
         QLabel#backendBadge[configured="true"] {{ color: {p.green}; }}
-        QPushButton#pinButton {{
-            color: {p.text_2}; background: {p.fill}; border: none;
-            border-radius: 12px; font-size: 11px; font-weight: 600;
-        }}
-        QPushButton#pinButton:hover {{ color: {p.text}; background: {p.fill_hover}; }}
-        QPushButton#pinButton:checked {{ color: white; background: {p.accent}; }}
         QComboBox#languageCombo {{
-            color: {p.text}; background: {p.fill}; border: none; border-radius: 18px;
-            padding: 0 14px;
+            color: {p.text}; background: {p.fill}; border: none; border-radius: {s(18)}px;
+            padding: 0 {s(14)}px;
         }}
         QComboBox#languageCombo:hover {{ background: {p.fill_hover}; }}
-        QComboBox#languageCombo::drop-down {{ border: none; width: 24px; }}
+        QComboBox#languageCombo::drop-down {{ border: none; width: {s(24)}px; }}
         QComboBox#languageCombo QAbstractItemView {{
             color: {p.text}; background: {p.surface_strong};
-            border: 1px solid {p.fill_hover}; border-radius: 9px; padding: 5px;
+            border: {stroke}px solid {p.fill_hover}; border-radius: {s(CONTROL_CORNER_RADIUS)}px;
+            padding: {s(5)}px;
             outline: none; selection-color: white; selection-background-color: {p.accent};
         }}
         QPushButton#swapButton {{
             color: {p.accent}; background: {p.accent_tint}; border: none;
-            border-radius: 18px; font-size: 19px; font-weight: 500;
+            border-radius: {s(18)}px; font-size: {s(19)}px; font-weight: 500;
         }}
         QPushButton#swapButton:hover {{ background: {p.fill_hover}; }}
         QFrame#sourcePane, QFrame#targetPane {{
-            background: {p.field}; border: 1.5px solid transparent; border-radius: 16px;
+            background: {p.field}; border: {stroke}px solid transparent;
+            border-radius: {s(SURFACE_CORNER_RADIUS)}px;
         }}
         QFrame#sourcePane[focused="true"] {{ border-color: {p.accent}; }}
         QTextEdit#sourceEdit, QTextEdit#targetEdit {{
             color: {p.text}; background: transparent; border: none;
-            padding: 1px 3px; font-size: 15px;
+            padding: {s(1)}px {s(3)}px; font-size: {s(15)}px;
             selection-color: white; selection-background-color: {p.accent};
         }}
         QTextEdit#targetEdit[error="true"] {{ color: {p.danger}; }}
         QTextEdit#targetEdit[loading="true"] {{ color: {p.text_2}; font-style: italic; }}
-        QLabel#characterCount {{ color: {p.text_3}; font-size: 11px; padding-right: 5px; }}
-        QScrollBar:vertical {{ background: transparent; width: 7px; margin: 2px; }}
+        QLabel#characterCount {{ color: {p.text_3}; font-size: {s(11)}px; padding-right: {s(5)}px; }}
+        QScrollBar:vertical {{ background: transparent; width: {s(7)}px; margin: {s(2)}px; }}
         QScrollBar::handle:vertical {{
-            background: {p.fill}; min-height: 28px; border-radius: 3px;
+            background: {p.fill}; min-height: {s(28)}px; border-radius: {s(3)}px;
         }}
         QScrollBar::handle:vertical:hover {{ background: {p.fill_hover}; }}
         QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}

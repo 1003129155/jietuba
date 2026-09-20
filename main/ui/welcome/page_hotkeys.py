@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QRectF
 from PySide6.QtGui import QPainter, QColor, QPen, QFont
+from core.ui_scale import dialog_scaled
 
 from core.i18n import make_tr
 from core.logger import log_exception, T
@@ -109,7 +110,7 @@ class _KeyboardMap(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setMinimumHeight(230)
+        self.setMinimumHeight(dialog_scaled(230))
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self._pressed = frozenset()
         # 逐键缩字号的结果按 (键标, 键宽) 缓存：键盘是静态的，没必要每帧重算
@@ -341,7 +342,9 @@ class _KeyboardMap(QWidget):
 
 class _HotkeyIllus(IllustrationArea):
     def _build_content(self):
-        self._layout.setContentsMargins(10, 10, 10, 10)
+        self._layout.setContentsMargins(
+            dialog_scaled(10), dialog_scaled(10), dialog_scaled(10), dialog_scaled(10)
+        )
         self.keyboard_map = _KeyboardMap(self)
         self._layout.addWidget(self.keyboard_map, 1)
 
@@ -406,7 +409,7 @@ class HotkeyPage(BasePage):
             self.ROWS
         ):
             if index:
-                layout.addSpacing(14)
+                layout.addSpacing(dialog_scaled(14))
 
             section_lbl = QLabel(_tr(title))
             set_welcome_label_style(
@@ -414,7 +417,7 @@ class HotkeyPage(BasePage):
             )
             layout.addWidget(section_lbl)
             self._section_labels.append((section_lbl, title))
-            layout.addSpacing(6)
+            layout.addSpacing(dialog_scaled(6))
 
             pair = []
             for slot_title, accessor in (("主快捷键", getter), ("备用", getter_2)):
@@ -425,7 +428,7 @@ class HotkeyPage(BasePage):
                 )
 
                 slot_lbl = QLabel(_tr(slot_title))
-                slot_lbl.setFixedWidth(self._SLOT_LABEL_W)
+                slot_lbl.setFixedWidth(dialog_scaled(self._SLOT_LABEL_W))
                 set_welcome_label_style(
                     slot_lbl, role="muted", font_size=12, weight=400
                 )
@@ -433,18 +436,18 @@ class HotkeyPage(BasePage):
 
                 row = QHBoxLayout()
                 row.setContentsMargins(0, 0, 0, 0)
-                row.setSpacing(8)
+                row.setSpacing(dialog_scaled(8))
                 row.addWidget(slot_lbl)
                 row.addWidget(edit, 1)
                 layout.addLayout(row)
                 if slot_title == "主快捷键":
-                    layout.addSpacing(6)
+                    layout.addSpacing(dialog_scaled(6))
 
                 self._edits.append(edit)
                 pair.append(edit)
             self._row_edits.append(tuple(pair))
 
-        layout.addSpacing(14)
+        layout.addSpacing(dialog_scaled(14))
         self._hint = QLabel(
             _tr("点击输入框后，按下快捷键或鼠标侧键即可录入。")
         )

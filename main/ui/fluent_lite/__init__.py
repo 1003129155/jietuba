@@ -4,6 +4,7 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPalette
 from PySide6.QtWidgets import QRadioButton as _QRadioButton, QStyle, QStyleOptionButton
 
+from core.ui_scale import widget_scaled as _px
 from core.ui_theme import get_ui_theme
 
 from .buttons import (
@@ -31,26 +32,29 @@ class RadioButton(_QRadioButton):
         get_ui_theme().theme_changed.connect(self._apply_theme)
 
     def _apply_theme(self, _tokens=None):
+        spacing = _px(self, self._LABEL_SPACING)
         self.setStyleSheet(
             f"QRadioButton {{ color: {ui_tokens(self).text}; "
-            f"spacing: {self._LABEL_SPACING}px; font: 13px {FONT_FAMILY}; }}"
-            "QRadioButton::indicator { width: 16px; height: 16px; }"
+            f"spacing: {spacing}px; font: {_px(self, 13)}px {FONT_FAMILY}; }}"
+            f"QRadioButton::indicator {{ width: {_px(self, 16)}px; height: {_px(self, 16)}px; }}"
         )
 
     def _label_rect(self, indicator):
         """Return a text rect that can never overlap the custom indicator."""
         label_rect = self.rect()
+        spacing = _px(self, self._LABEL_SPACING)
         if self.layoutDirection() == Qt.LayoutDirection.RightToLeft:
-            label_rect.setRight(indicator.left() - self._LABEL_SPACING - 1)
+            label_rect.setRight(indicator.left() - spacing - 1)
         else:
-            label_rect.setLeft(indicator.right() + self._LABEL_SPACING + 1)
+            label_rect.setLeft(indicator.right() + spacing + 1)
         return label_rect
 
-    @staticmethod
-    def _indicator_ellipse(indicator):
+    def _indicator_ellipse(self, indicator):
         """Keep the antialiased one-pixel outline inside the indicator box."""
         center = QRectF(indicator).center()
-        return center, QRectF(center.x() - 7.0, center.y() - 7.0, 14.0, 14.0)
+        diameter = float(_px(self, 14))
+        radius = diameter / 2.0
+        return center, QRectF(center.x() - radius, center.y() - radius, diameter, diameter)
 
     def paintEvent(self, event):
         """Draw a crisp dot instead of Qt's thick, square-looking QSS ring."""
@@ -85,7 +89,16 @@ class RadioButton(_QRadioButton):
         if self.isChecked():
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(QColor("#FFFFFF"))
-            painter.drawEllipse(QRectF(center.x() - 3.0, center.y() - 3.0, 6.0, 6.0))
+            dot_diameter = float(_px(self, 6))
+            dot_radius = dot_diameter / 2.0
+            painter.drawEllipse(
+                QRectF(
+                    center.x() - dot_radius,
+                    center.y() - dot_radius,
+                    dot_diameter,
+                    dot_diameter,
+                )
+            )
 
 
 __all__ = [

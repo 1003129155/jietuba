@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QColor, QPainter
 from core import safe_event
+from core.ui_scale import dialog_scaled
 from core.ui_theme import get_ui_theme
 
 from ui.fluent_lite import (
@@ -48,13 +49,13 @@ def theme_text_style(font_size: int = 14, bold: bool = False, extra: str = "") -
     weight = " font-weight: 600;" if bold else ""
     suffix = f" {extra.strip()}" if extra.strip() else ""
     color = get_ui_theme().tokens.text
-    return f"font-size: {font_size}px; color: {color}; background: transparent;{weight}{suffix}"
+    return f"font-size: {dialog_scaled(font_size)}px; color: {color}; background: transparent;{weight}{suffix}"
 
 
 def theme_caption_style(font_size: int = 13, extra: str = "") -> str:
     suffix = f" {extra.strip()}" if extra.strip() else ""
     color = get_ui_theme().tokens.text_muted
-    return f"font-size: {font_size}px; color: {color}; background: transparent;{suffix}"
+    return f"font-size: {dialog_scaled(font_size)}px; color: {color}; background: transparent;{suffix}"
 
 
 def apply_theme_text_style(
@@ -88,12 +89,12 @@ def theme_menu_style() -> str:
             background-color: {theme_popup_background()};
             color: {get_ui_theme().tokens.text};
             border: 1px solid {theme_border_color()};
-            border-radius: 6px;
-            padding: 4px 0;
+            border-radius: {dialog_scaled(6)}px;
+            padding: {dialog_scaled(4)}px 0;
         }}
         QMenu::item {{
-            padding: 6px 20px;
-            font-size: 14px;
+            padding: {dialog_scaled(6)}px {dialog_scaled(20)}px;
+            font-size: {dialog_scaled(14)}px;
             color: {get_ui_theme().tokens.text};
             background: transparent;
         }}
@@ -125,7 +126,7 @@ class SettingCardGroup(_SettingCardGroupBase):
         """
         # 上下限一起锁死。只设 minimum 的话，组内的 _card_container 是默认策略，
         # 会把页面分给组的富余高度全吃进去，摊在卡片之间。
-        self.setFixedHeight(self.cardLayout.heightForWidth(self.width()) + 46)
+        self.setFixedHeight(self.cardLayout.heightForWidth(self.width()) + dialog_scaled(46))
 
     @safe_event
     def showEvent(self, e):
@@ -163,8 +164,8 @@ def make_card_title(text: str) -> QLabel:
 def adjust_button_width(button, min_width: int = 0, horizontal_padding: int = 28):
     """按当前文字和图标内容调整按钮宽度。"""
     button.ensurePolished()
-    content_width = button.sizeHint().width() + horizontal_padding
-    button.setMinimumWidth(max(min_width, content_width))
+    content_width = button.sizeHint().width() + dialog_scaled(horizontal_padding)
+    button.setMinimumWidth(max(dialog_scaled(min_width), content_width))
 
 
 class ToggleSwitch(SwitchButton):
@@ -258,7 +259,7 @@ class WhiteCard(QFrame):
         else:
             painter.setBrush(QColor(255, 255, 255, 46))
             painter.setPen(QColor(255, 255, 255, 76))
-        painter.drawRoundedRect(rect, 11, 11)
+        painter.drawRoundedRect(rect, dialog_scaled(11), dialog_scaled(11))
 
 
 def make_switch_card(dialog, icon, title, content, checked, attr_name, parent=None):

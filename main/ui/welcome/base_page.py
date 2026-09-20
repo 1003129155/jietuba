@@ -9,6 +9,7 @@ from typing import Optional, Tuple
 from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QSizePolicy
+from core.ui_scale import dialog_scaled
 from ui.fluent_lite import SwitchButton
 # ACCENT 在本文件内未直接使用，wizard 和 page5_translation 是从这里导入它的，
 # 属于有意的转发导出，不要删。
@@ -137,7 +138,7 @@ def apply_welcome_label_style(label: QLabel) -> None:
     weight = int(label.property("welcomeFontWeight") or 400)
     extra = str(label.property("welcomeStyleExtra") or "")
     label.setStyleSheet(
-        f"font-size: {size}px; font-weight: {weight}; color: {color};"
+        f"font-size: {dialog_scaled(size)}px; font-weight: {weight}; color: {color};"
         f" background: transparent; border: none; {extra}"
     )
 
@@ -150,7 +151,7 @@ class ToggleSwitch(SwitchButton):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedSize(44, 24)
+        self.setFixedSize(dialog_scaled(44), dialog_scaled(24))
         self.checkedChanged.connect(self.toggled.emit)
 
 
@@ -170,8 +171,10 @@ class IllustrationArea(QFrame):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         self._layout = QVBoxLayout(self)
-        self._layout.setContentsMargins(22, 22, 22, 22)
-        self._layout.setSpacing(12)
+        self._layout.setContentsMargins(
+            dialog_scaled(22), dialog_scaled(22), dialog_scaled(22), dialog_scaled(22)
+        )
+        self._layout.setSpacing(dialog_scaled(12))
         self._layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self._build_content()
@@ -183,7 +186,7 @@ class IllustrationArea(QFrame):
             #IllustrationArea {{
                 background: {theme.illustration};
                 border: 1px solid {theme.border};
-                border-radius: {RADIUS}px;
+                border-radius: {dialog_scaled(RADIUS)}px;
             }}
         """)
         self.update()
@@ -193,8 +196,10 @@ class IllustrationArea(QFrame):
         # 默认不放任何内容
         return
 
-    def set_pixmap(self, pixmap: QPixmap, max_size: QSize = QSize(280, 180)) -> None:
+    def set_pixmap(self, pixmap: QPixmap, max_size: QSize | None = None) -> None:
         """便捷方法：在区域中央显示一张图片"""
+        if max_size is None:
+            max_size = QSize(dialog_scaled(280), dialog_scaled(180))
         lbl = QLabel(self)
         lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         scaled = pixmap.scaled(
@@ -222,15 +227,17 @@ class BasePage(QWidget):
         self.setObjectName("BasePage")
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(30, 24, 30, 22)
-        root.setSpacing(20)
+        root.setContentsMargins(
+            dialog_scaled(30), dialog_scaled(24), dialog_scaled(30), dialog_scaled(22)
+        )
+        root.setSpacing(dialog_scaled(20))
 
         # —— 顶部：本步骤说明 ——
         header = QWidget(self)
         header.setStyleSheet("background: transparent;")
         header_layout = QVBoxLayout(header)
         header_layout.setContentsMargins(0, 0, 0, 0)
-        header_layout.setSpacing(7)
+        header_layout.setSpacing(dialog_scaled(7))
 
         self.title_label: Optional[QLabel] = None
         if title:
@@ -254,10 +261,10 @@ class BasePage(QWidget):
         # —— 主体：左侧功能预览，右侧配置卡片 ——
         body = QHBoxLayout()
         body.setContentsMargins(0, 0, 0, 0)
-        body.setSpacing(18)
+        body.setSpacing(dialog_scaled(18))
 
         self.illus_area = self._create_illustration()
-        self.illus_area.setFixedWidth(300)
+        self.illus_area.setFixedWidth(dialog_scaled(300))
         body.addWidget(self.illus_area)
 
         content_widget = QFrame(self)
@@ -266,8 +273,10 @@ class BasePage(QWidget):
         self._content_widget = content_widget
 
         self.content_layout = QVBoxLayout(content_widget)
-        self.content_layout.setContentsMargins(24, 24, 24, 20)
-        self.content_layout.setSpacing(10)
+        self.content_layout.setContentsMargins(
+            dialog_scaled(24), dialog_scaled(24), dialog_scaled(24), dialog_scaled(20)
+        )
+        self.content_layout.setSpacing(dialog_scaled(10))
 
         self._build_controls(self.content_layout)
         self.content_layout.addStretch()
@@ -285,7 +294,7 @@ class BasePage(QWidget):
             #ContentPanel {{
                 background: {theme.panel};
                 border: 1px solid {theme.border};
-                border-radius: {RADIUS}px;
+                border-radius: {dialog_scaled(RADIUS)}px;
             }}
         """)
         self.illus_area._apply_welcome_theme(tokens)
@@ -298,7 +307,7 @@ class BasePage(QWidget):
                     #SettingRow {{
                         background: {theme.panel_subtle};
                         border: 1px solid {theme.border};
-                        border-radius: 10px;
+                        border-radius: {dialog_scaled(10)}px;
                     }}
                 """)
             callback = getattr(widget, "_apply_welcome_child_theme", None)
@@ -341,11 +350,13 @@ class BasePage(QWidget):
         container.setProperty("welcomeSettingRow", True)
 
         vbox = QVBoxLayout(container)
-        vbox.setContentsMargins(14, 11, 12, 11)
-        vbox.setSpacing(4)
+        vbox.setContentsMargins(
+            dialog_scaled(14), dialog_scaled(11), dialog_scaled(12), dialog_scaled(11)
+        )
+        vbox.setSpacing(dialog_scaled(4))
 
         row = QHBoxLayout()
-        row.setSpacing(12)
+        row.setSpacing(dialog_scaled(12))
 
         lbl = QLabel(label_text, container)
         set_welcome_label_style(lbl, role="primary", font_size=14, weight=600)

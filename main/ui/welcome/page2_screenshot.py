@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QSize, QTimer, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QPixmap, QPainter, QColor, QPen
+from core.ui_scale import dialog_scaled
 from ui.fluent_lite import PushButton, FluentIcon, LineEdit, ComboBox
 from ui.fluent_lite.theme import to_qicon
 from core.i18n import make_tr
@@ -116,7 +117,7 @@ class _IconCell(QWidget):
         self._get_path = get_path
         self._svg_rel = svg_rel
         self._active = False
-        self.setFixedSize(_BTN_ACTIVE, _BTN_ACTIVE)
+        self.setFixedSize(dialog_scaled(_BTN_ACTIVE), dialog_scaled(_BTN_ACTIVE))
         self._lbl = QLabel(self)
         self._lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
@@ -124,9 +125,9 @@ class _IconCell(QWidget):
 
     def _render(self, active: bool):
         theme = welcome_theme()
-        icon_sz = _ICON_ACTIVE if active else _ICON_NORMAL
-        btn_sz  = _BTN_ACTIVE  if active else _BTN_NORMAL
-        offset = (_BTN_ACTIVE - btn_sz) // 2
+        icon_sz = dialog_scaled(_ICON_ACTIVE if active else _ICON_NORMAL)
+        btn_sz  = dialog_scaled(_BTN_ACTIVE  if active else _BTN_NORMAL)
+        offset = (dialog_scaled(_BTN_ACTIVE) - btn_sz) // 2
         self._lbl.setGeometry(offset, offset, btn_sz, btn_sz)
         icon = to_qicon(self._get_path(self._svg_rel), self)
         if not icon.isNull():
@@ -144,7 +145,7 @@ class _IconCell(QWidget):
         else:
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(QColor(theme.panel_subtle))
-        painter.drawRoundedRect(0, 0, btn_sz, btn_sz, 10, 10)
+        painter.drawRoundedRect(0, 0, btn_sz, btn_sz, dialog_scaled(10), dialog_scaled(10))
         ix = (btn_sz - icon_sz) // 2
         painter.drawPixmap(ix, ix, pix)
         painter.end()
@@ -161,8 +162,10 @@ class _ToolPreviewIllus(IllustrationArea):
     """紧凑版工具轮播插画区"""
 
     def _build_content(self):
-        self._layout.setContentsMargins(14, 16, 14, 12)
-        self._layout.setSpacing(5)
+        self._layout.setContentsMargins(
+            dialog_scaled(14), dialog_scaled(16), dialog_scaled(14), dialog_scaled(12)
+        )
+        self._layout.setSpacing(dialog_scaled(5))
 
         self._get_path = _get_path_fn()
         self._cells: list[_IconCell] = []
@@ -175,7 +178,7 @@ class _ToolPreviewIllus(IllustrationArea):
             row_w.setStyleSheet("background: transparent;")
             row_l = QHBoxLayout(row_w)
             row_l.setContentsMargins(0, 0, 0, 0)
-            row_l.setSpacing(3)
+            row_l.setSpacing(dialog_scaled(3))
             row_l.addStretch()
             for svg_rel, _nk, _dk in row_items:
                 cell = _IconCell(svg_rel, self._get_path, row_w)
@@ -188,8 +191,10 @@ class _ToolPreviewIllus(IllustrationArea):
         info_w = QWidget()
         info_w.setStyleSheet("background: transparent;")
         info_l = QVBoxLayout(info_w)
-        info_l.setContentsMargins(8, 2, 8, 0)
-        info_l.setSpacing(1)
+        info_l.setContentsMargins(
+            dialog_scaled(8), dialog_scaled(2), dialog_scaled(8), 0
+        )
+        info_l.setSpacing(dialog_scaled(1))
 
         self._name_lbl = QLabel()
         self._name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -286,7 +291,7 @@ class ScreenshotHotkeyPage(BasePage):
             )
         )
         layout.addWidget(autosave_row)
-        layout.addSpacing(12)
+        layout.addSpacing(dialog_scaled(12))
 
         # ── 保存位置区 ────────────────────────────────
         self._save_lbl = QLabel("截图保存位置")
@@ -301,22 +306,22 @@ class ScreenshotHotkeyPage(BasePage):
             self._save_desc, role="muted", font_size=12, weight=400
         )
         layout.addWidget(self._save_desc)
-        layout.addSpacing(4)
+        layout.addSpacing(dialog_scaled(4))
 
         # 路径输入框 + 浏览按钮横排
         path_row = QHBoxLayout()
-        path_row.setSpacing(6)
+        path_row.setSpacing(dialog_scaled(6))
 
         self._path_edit = LineEdit()
         self._path_edit.setText(self._config.get_screenshot_save_path())
         self._path_edit.setPlaceholderText("...")
-        self._path_edit.setFixedHeight(36)
+        self._path_edit.setFixedHeight(dialog_scaled(36))
         self._path_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         self._browse_btn = PushButton(_tr("浏览"))
         self._browse_btn.setIcon(FluentIcon.FOLDER)
-        self._browse_btn.setFixedHeight(36)
-        self._browse_btn.setMinimumWidth(92)
+        self._browse_btn.setFixedHeight(dialog_scaled(36))
+        self._browse_btn.setMinimumWidth(dialog_scaled(92))
         self._browse_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._browse_btn.clicked.connect(self._browse_path)
 
@@ -325,10 +330,10 @@ class ScreenshotHotkeyPage(BasePage):
         layout.addLayout(path_row)
 
         # ── 保存格式 ──────────────────────────────────
-        layout.addSpacing(12)
+        layout.addSpacing(dialog_scaled(12))
         self._format_combo = ComboBox()
-        self._format_combo.setFixedWidth(112)
-        self._format_combo.setFixedHeight(32)
+        self._format_combo.setFixedWidth(dialog_scaled(112))
+        self._format_combo.setFixedHeight(dialog_scaled(32))
         self._format_combo.setCursor(Qt.CursorShape.PointingHandCursor)
         for display, value in self.SAVE_FORMATS:
             self._format_combo.addItem(display, userData=value)
@@ -341,7 +346,7 @@ class ScreenshotHotkeyPage(BasePage):
         layout.addWidget(format_row)
 
         # ── 智能选区 ──────────────────────────────────
-        layout.addSpacing(12)
+        layout.addSpacing(dialog_scaled(12))
         self._smart_toggle = ToggleSwitch()
         self._smart_toggle.setChecked(self._config.get_smart_selection())
         smart_row, self._smart_lbl, self._smart_desc = (

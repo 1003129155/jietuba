@@ -5,6 +5,7 @@ from enum import Enum
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import QButtonGroup, QPushButton, QVBoxLayout, QWidget
 
+from core.ui_scale import dialog_scaled
 from core.ui_theme import get_ui_theme
 
 from .theme import ACCENT, FONT_FAMILY, to_qicon, ui_tokens
@@ -41,7 +42,7 @@ class NavigationInterface(QWidget):
         button.setObjectName("FluentLiteNavItem")
         button.setCheckable(True)
         button.setIcon(to_qicon(icon, button))
-        button.setIconSize(QSize(18, 18))
+        button.setIconSize(QSize(dialog_scaled(18), dialog_scaled(18)))
         button.setCursor(Qt.CursorShape.PointingHandCursor)
         # Labels are already visible in the expanded navigation.  Creating a
         # duplicate tooltip for every item leaves an unwanted popup on hover;
@@ -49,13 +50,13 @@ class NavigationInterface(QWidget):
         if tooltip:
             button.setToolTip(str(tooltip))
         button.setStyleSheet(f"""
-            QPushButton#FluentLiteNavItem {{ min-height: 40px; padding: 2px 13px; text-align: left;
-                color: #000000; background: transparent; border: 1px solid transparent; border-radius: 11px;
-                font: 13px {FONT_FAMILY}; }}
+            QPushButton#FluentLiteNavItem {{ min-height: {dialog_scaled(40)}px; padding: {dialog_scaled(2)}px {dialog_scaled(13)}px; text-align: left;
+                color: #000000; background: transparent; border: 1px solid transparent; border-radius: {dialog_scaled(11)}px;
+                font: {dialog_scaled(13)}px {FONT_FAMILY}; }}
             QPushButton#FluentLiteNavItem:hover {{ color: #000000; background: rgba(255,255,255,.46); }}
             QPushButton#FluentLiteNavItem:checked {{ color: #000000; background: rgba(255,255,255,.82);
                 border: 1px solid rgba(255,255,255,.94); border-left: 4px solid {ACCENT};
-                padding-left: 10px; font-weight: 600; }}
+                padding-left: {dialog_scaled(10)}px; font-weight: 600; }}
         """)
         button.clicked.connect(lambda checked=False, key=routeKey: self.setCurrentItem(key))
         if onClick:
@@ -71,13 +72,13 @@ class NavigationInterface(QWidget):
     def _style_button(self, button):
         t = ui_tokens(button)
         button.setStyleSheet(f"""
-            QPushButton#FluentLiteNavItem {{ min-height: 40px; padding: 2px 13px; text-align: left;
-                color: {t.text}; background: transparent; border: 1px solid transparent; border-radius: 11px;
-                font: 13px {FONT_FAMILY}; }}
+            QPushButton#FluentLiteNavItem {{ min-height: {dialog_scaled(40)}px; padding: {dialog_scaled(2)}px {dialog_scaled(13)}px; text-align: left;
+                color: {t.text}; background: transparent; border: 1px solid transparent; border-radius: {dialog_scaled(11)}px;
+                font: {dialog_scaled(13)}px {FONT_FAMILY}; }}
             QPushButton#FluentLiteNavItem:hover {{ color: {t.text}; background: {t.surface_subtle}; }}
             QPushButton#FluentLiteNavItem:checked {{ color: {t.text}; background: {t.surface_strong};
                 border: 1px solid {t.border}; border-left: 4px solid {ACCENT};
-                padding-left: 10px; font-weight: 600; }}
+                padding-left: {dialog_scaled(10)}px; font-weight: 600; }}
         """)
 
     def _apply_theme(self, _tokens=None):

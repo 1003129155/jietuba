@@ -5,11 +5,12 @@ import shutil
 import sys
 
 from core.logger import log_exception, T
+from core.ui_scale import dialog_scaled
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea,
     QFileDialog, QProgressDialog,
 )
-from PySide6.QtCore import Qt, QThread, Signal, QSize
+from PySide6.QtCore import Qt, QThread, Signal
 from ui.dialogs import (
     show_info_dialog, show_warning_dialog, show_confirm_dialog,
     show_confirm_checkbox_dialog,
@@ -31,8 +32,8 @@ def create_clipboard_page(dialog) -> QWidget:
     view = QWidget()
     view.setStyleSheet("background: transparent;")
     layout = QVBoxLayout(view)
-    layout.setContentsMargins(0, 0, 10, 0)
-    layout.setSpacing(20)
+    layout.setContentsMargins(0, 0, dialog_scaled(10), 0)
+    layout.setSpacing(dialog_scaled(20))
 
     # ════ 基本设置 ════
     grp_basic = SettingCardGroup(dialog.tr("Basic Settings"), view)
@@ -63,7 +64,7 @@ def create_clipboard_page(dialog) -> QWidget:
     dialog.clipboard_history_limit_spin.setValue(
         dialog.config_manager.get_clipboard_history_limit()
     )
-    dialog.clipboard_history_limit_spin.setFixedWidth(150)
+    dialog.clipboard_history_limit_spin.setFixedWidth(dialog_scaled(150))
     limit_card.hBoxLayout.addWidget(
         dialog.clipboard_history_limit_spin, 0, Qt.AlignmentFlag.AlignRight
     )
@@ -105,11 +106,11 @@ def create_clipboard_page(dialog) -> QWidget:
     # 清理
     cleanup_card = WhiteCard(grp_data)
     cleanup_h = QHBoxLayout(cleanup_card)
-    cleanup_h.setContentsMargins(20, 12, 20, 12)
-    cleanup_h.setSpacing(12)
+    cleanup_h.setContentsMargins(dialog_scaled(20), dialog_scaled(12), dialog_scaled(20), dialog_scaled(12))
+    cleanup_h.setSpacing(dialog_scaled(12))
 
     cleanup_left = QVBoxLayout()
-    cleanup_left.setSpacing(2)
+    cleanup_left.setSpacing(dialog_scaled(2))
     cleanup_title = QLabel(dialog.tr("Clear Clipboard History"), cleanup_card)
     apply_theme_text_style(cleanup_title, 15)
     cleanup_left.addWidget(cleanup_title)
@@ -120,10 +121,9 @@ def create_clipboard_page(dialog) -> QWidget:
 
     # 手动刷新按钮 + 大小标签
     size_row = QHBoxLayout()
-    size_row.setSpacing(4)
+    size_row.setSpacing(dialog_scaled(4))
     refresh_btn = TransparentToolButton(FluentIcon.SYNC, cleanup_card)
-    refresh_btn.setFixedSize(48, 48)
-    refresh_btn.setIconSize(QSize(32, 32))
+    refresh_btn.setBaseMetrics(48, 32)
     refresh_btn.clicked.connect(lambda: _refresh_clipboard_size_async(dialog))
     dialog._clipboard_refresh_btn = refresh_btn
     size_row.addWidget(refresh_btn)
@@ -139,7 +139,7 @@ def create_clipboard_page(dialog) -> QWidget:
     clear_btn = PrimaryPushButton(dialog.tr("Clear History"), cleanup_card)
     clear_btn.clicked.connect(lambda: _clear_clipboard_history(dialog))
     cleanup_h.addWidget(clear_btn)
-    cleanup_card.setFixedHeight(72)
+    cleanup_card.setFixedHeight(dialog_scaled(72))
     grp_data.addSettingCard(cleanup_card)
 
     layout.addWidget(grp_data)

@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QPainter, QColor, QFont, QPen
+from core.ui_scale import dialog_scaled
 from ui.fluent_lite import ComboBox, LineEdit
 from core import safe_event
 from core.i18n import make_tr
@@ -219,12 +220,14 @@ class TranslationPage(BasePage):
         self._settings_card.setObjectName("SettingRow")
         self._settings_card.setProperty("welcomeSettingRow", True)
         card_layout = QVBoxLayout(self._settings_card)
-        card_layout.setContentsMargins(22, 18, 22, 18)
-        card_layout.setSpacing(14)
+        card_layout.setContentsMargins(
+            dialog_scaled(22), dialog_scaled(18), dialog_scaled(22), dialog_scaled(18)
+        )
+        card_layout.setSpacing(dialog_scaled(14))
         layout.addWidget(self._settings_card)
 
         self._provider_combo = ComboBox()
-        self._provider_combo.setMinimumWidth(280)
+        self._provider_combo.setMinimumWidth(dialog_scaled(280))
         self._provider_combo.setCursor(Qt.CursorShape.PointingHandCursor)
         from translation.service import create_default_translation_service
 
@@ -273,7 +276,7 @@ class TranslationPage(BasePage):
 
         # 目标语言
         self._lang_combo = ComboBox()
-        self._lang_combo.setMinimumWidth(240)
+        self._lang_combo.setMinimumWidth(dialog_scaled(240))
         self._lang_combo.setCursor(Qt.CursorShape.PointingHandCursor)
         self._populate_lang_combo()
         row, self._row_lang_lbl = self._config_row(
@@ -350,9 +353,9 @@ class TranslationPage(BasePage):
         page = QWidget()
         page.setStyleSheet("background: transparent;")
         form = QFormLayout(page)
-        form.setContentsMargins(0, 2, 0, 2)
-        form.setHorizontalSpacing(_FORM_COLUMN_GAP)
-        form.setVerticalSpacing(7)
+        form.setContentsMargins(0, dialog_scaled(2), 0, dialog_scaled(2))
+        form.setHorizontalSpacing(dialog_scaled(_FORM_COLUMN_GAP))
+        form.setVerticalSpacing(dialog_scaled(7))
         form.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow
         )
@@ -364,12 +367,12 @@ class TranslationPage(BasePage):
         row_widget.setStyleSheet("background: transparent;")
         row = QHBoxLayout(row_widget)
         row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(_FORM_COLUMN_GAP)
+        row.setSpacing(dialog_scaled(_FORM_COLUMN_GAP))
         label = QLabel(_tr(text), row_widget)
         set_welcome_label_style(
             label, role="primary", font_size=14, weight=600
         )
-        label.setFixedWidth(_FORM_LABEL_WIDTH)
+        label.setFixedWidth(dialog_scaled(_FORM_LABEL_WIDTH))
         control.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )
@@ -392,7 +395,7 @@ class TranslationPage(BasePage):
         set_welcome_label_style(
             label, role="primary", font_size=12, weight=600
         )
-        label.setFixedWidth(_FORM_LABEL_WIDTH)
+        label.setFixedWidth(dialog_scaled(_FORM_LABEL_WIDTH))
         self._credential_labels = getattr(
             self, "_credential_labels", []
         )
@@ -430,7 +433,7 @@ class TranslationPage(BasePage):
         # borders.  Keep a small layout allowance as well so the final
         # row/focus border is never clipped at fractional DPI scales.
         self._credential_stack.setFixedHeight(
-            max(68, page.sizeHint().height() + 12)
+            max(dialog_scaled(68), page.sizeHint().height() + dialog_scaled(12))
         )
 
     def save(self):

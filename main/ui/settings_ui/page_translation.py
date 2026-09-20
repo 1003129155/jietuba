@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QLineEdit, QScrollArea, QFrame,
 )
 from PySide6.QtCore import Qt
+from core.ui_scale import dialog_scaled
 from ui.fluent_lite.theme import ACCENT, ui_tokens
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
@@ -63,7 +64,7 @@ class _ProviderSection(QWidget):
 
     def _add_separator(self):
         separator = QFrame(self)
-        separator.setFixedHeight(1)
+        separator.setFixedHeight(dialog_scaled(1))
         self._separators.append(separator)
         self._v.addWidget(separator)
 
@@ -79,7 +80,7 @@ class _ProviderSection(QWidget):
         color = ui_tokens(self).separator
         for separator in self._separators:
             separator.setStyleSheet(
-                f"background: {color}; border: none; margin-left: 52px;"
+                f"background: {color}; border: none; margin-left: {dialog_scaled(52)}px;"
             )
 
 
@@ -92,8 +93,8 @@ def create_translation_page(dialog) -> QWidget:
     page = QWidget()
     page.setStyleSheet("background: transparent;")
     layout = QVBoxLayout(page)
-    layout.setContentsMargins(0, 0, 10, 0)
-    layout.setSpacing(20)
+    layout.setContentsMargins(0, 0, dialog_scaled(10), 0)
+    layout.setSpacing(dialog_scaled(20))
 
     service = create_default_translation_service(dialog.config_manager)
     dialog.translation_registry = service.registry
@@ -108,7 +109,7 @@ def create_translation_page(dialog) -> QWidget:
         parent=grp_engine,
     )
     dialog.translation_provider_combo = ComboBox(engine_card)
-    dialog.translation_provider_combo.setFixedWidth(180)
+    dialog.translation_provider_combo.setFixedWidth(dialog_scaled(180))
     current_provider = dialog.config_manager.get_translation_provider()
     current_provider_index = 0
     for index, metadata in enumerate(service.registry.available_providers()):
@@ -121,7 +122,7 @@ def create_translation_page(dialog) -> QWidget:
     engine_card.hBoxLayout.addWidget(
         dialog.translation_provider_combo, 0, Qt.AlignmentFlag.AlignRight
     )
-    engine_card.hBoxLayout.addSpacing(16)
+    engine_card.hBoxLayout.addSpacing(dialog_scaled(16))
     grp_engine.addSettingCard(engine_card)
 
     providers_host = QWidget(grp_engine)
@@ -155,7 +156,7 @@ def create_translation_page(dialog) -> QWidget:
         parent=grp_opts,
     )
     dialog.translation_target_combo = ComboBox(lang_card)
-    dialog.translation_target_combo.setFixedWidth(180)
+    dialog.translation_target_combo.setFixedWidth(dialog_scaled(180))
 
     lang_options = [("", dialog.tr("Auto (System)"))]
     lang_options.extend(list(TRANSLATION_LANGUAGES.items()))
@@ -172,7 +173,7 @@ def create_translation_page(dialog) -> QWidget:
     lang_card.hBoxLayout.addWidget(
         dialog.translation_target_combo, 0, Qt.AlignmentFlag.AlignRight
     )
-    lang_card.hBoxLayout.addSpacing(16)
+    lang_card.hBoxLayout.addSpacing(dialog_scaled(16))
     grp_opts.addSettingCard(lang_card)
 
     # 不是每家都吃这些参数，所以整体包进一个 section：单独隐藏两张卡的话，
@@ -217,7 +218,9 @@ def create_translation_page(dialog) -> QWidget:
     info_label = QLabel(page)
     info_label.setOpenExternalLinks(True)
     info_label.setWordWrap(True)
-    info_label.setStyleSheet("padding: 5px; font-size: 13px; color: #999;")
+    info_label.setStyleSheet(
+        f"padding: {dialog_scaled(5)}px; font-size: {dialog_scaled(13)}px; color: #999;"
+    )
     layout.addWidget(info_label)
     dialog.translation_notice_label = info_label
 
@@ -248,12 +251,14 @@ def _build_field(dialog, section, field):
 
     card = WhiteCard(section)
     row = QHBoxLayout(card)
-    row.setContentsMargins(_ROW_LEFT_MARGIN, 12, 20, 12)
-    row.setSpacing(10)
+    row.setContentsMargins(
+        dialog_scaled(_ROW_LEFT_MARGIN), dialog_scaled(12), dialog_scaled(20), dialog_scaled(12)
+    )
+    row.setSpacing(dialog_scaled(10))
 
     title = QLabel(dialog.tr(field.label), card)
     apply_theme_text_style(title, 15)
-    title.setFixedWidth(_LABEL_WIDTH)
+    title.setFixedWidth(dialog_scaled(_LABEL_WIDTH))
     row.addWidget(title)
 
     edit = LineEdit(card, use_default_style=False)
@@ -269,14 +274,14 @@ def _build_field(dialog, section, field):
     # 六个 secret 字段只有一个能查看——填错了另外五个，肉眼没法核对。
     if field.secret:
         button = PushButton(dialog.tr("Show"), card)
-        button.setFixedHeight(32)
+        button.setFixedHeight(dialog_scaled(32))
         adjust_button_width(button, min_width=60)
         button.clicked.connect(
             lambda _checked=False, e=edit, b=button: _toggle_secret(dialog, e, b)
         )
         row.addWidget(button)
 
-    card.setFixedHeight(58)
+    card.setFixedHeight(dialog_scaled(58))
     section.addSettingCard(card)
     return edit
 

@@ -3421,7 +3421,15 @@ SOFTWARE.</translation></message>
     </message>
     <message>
         <source>Size of toolbars, tool panels and popups.</source>
-        <translation>工具栏、二级面板和弹层的显示大小。</translation>
+        <translation>工具栏的显示大小。</translation>
+    </message>
+    <message>
+        <source>Window Scale</source>
+        <translation>窗口缩放</translation>
+    </message>
+    <message>
+        <source>Font and size of application windows.</source>
+        <translation>应用窗口的字体与尺寸。</translation>
     </message>
     <message>
         <source>System</source>

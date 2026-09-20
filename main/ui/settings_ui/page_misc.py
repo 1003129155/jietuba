@@ -2,6 +2,7 @@
 """杂项设置页 — Fluent Design"""
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea
 from PySide6.QtCore import Qt
+from core.ui_scale import dialog_scaled
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
     FluentIcon, ComboBox, CaptionLabel,
@@ -18,8 +19,8 @@ def create_misc_page(dialog) -> QWidget:
     view = QWidget()
     view.setStyleSheet("background: transparent;")
     layout = QVBoxLayout(view)
-    layout.setContentsMargins(0, 0, 10, 0)
-    layout.setSpacing(20)
+    layout.setContentsMargins(0, 0, dialog_scaled(10), 0)
+    layout.setSpacing(dialog_scaled(20))
 
     # ════ 启动行为 ════
     grp_startup = SettingCardGroup(dialog.tr("Startup"), view)
@@ -77,7 +78,7 @@ def create_misc_page(dialog) -> QWidget:
         parent=grp_ops,
     )
     dialog.magnifier_color_format_combo = ComboBox(fmt_card)
-    dialog.magnifier_color_format_combo.setFixedWidth(140)
+    dialog.magnifier_color_format_combo.setFixedWidth(dialog_scaled(140))
     dialog.magnifier_color_format_combo.addItem(dialog.tr("RGB+HEX"), userData="rgb_hex")
     dialog.magnifier_color_format_combo.addItem(dialog.tr("RGB only"), userData="rgb")
     dialog.magnifier_color_format_combo.addItem(dialog.tr("HEX only"), userData="hex")
@@ -91,7 +92,7 @@ def create_misc_page(dialog) -> QWidget:
     fmt_card.hBoxLayout.addWidget(
         dialog.magnifier_color_format_combo, 0, Qt.AlignmentFlag.AlignRight
     )
-    fmt_card.hBoxLayout.addSpacing(16)
+    fmt_card.hBoxLayout.addSpacing(dialog_scaled(16))
     grp_ops.addSettingCard(fmt_card)
 
     # 界面语言
@@ -102,7 +103,7 @@ def create_misc_page(dialog) -> QWidget:
         parent=grp_ops,
     )
     dialog.language_combo = ComboBox(lang_card)
-    dialog.language_combo.setFixedWidth(140)
+    dialog.language_combo.setFixedWidth(dialog_scaled(140))
 
     from core.i18n import I18nManager
     for code, name in I18nManager.get_available_languages().items():
@@ -115,7 +116,7 @@ def create_misc_page(dialog) -> QWidget:
     lang_card.hBoxLayout.addWidget(
         dialog.language_combo, 0, Qt.AlignmentFlag.AlignRight
     )
-    lang_card.hBoxLayout.addSpacing(16)
+    lang_card.hBoxLayout.addSpacing(dialog_scaled(16))
     grp_ops.addSettingCard(lang_card)
 
     layout.addWidget(grp_ops)
@@ -125,7 +126,7 @@ def create_misc_page(dialog) -> QWidget:
         dialog.tr("💡 Hint: Even with background startup, you can operate from system tray."),
         view,
     )
-    hint.setStyleSheet("padding: 5px;")
+    hint.setStyleSheet(f"padding: {dialog_scaled(5)}px;")
     layout.addWidget(hint)
 
     layout.addStretch()

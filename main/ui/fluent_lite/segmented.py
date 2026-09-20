@@ -3,6 +3,7 @@
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QWidget
 
+from core.ui_scale import dialog_scaled
 from core.ui_theme import get_ui_theme
 
 from .theme import ACCENT, FONT_FAMILY, ui_tokens
@@ -19,16 +20,18 @@ class SegmentedWidget(QWidget):
         self._group = QButtonGroup(self)
         self._group.setExclusive(True)
         self._layout = QHBoxLayout(self)
-        self._layout.setContentsMargins(3, 3, 3, 3)
-        self._layout.setSpacing(3)
+        self._layout.setContentsMargins(
+            dialog_scaled(3), dialog_scaled(3), dialog_scaled(3), dialog_scaled(3)
+        )
+        self._layout.setSpacing(dialog_scaled(3))
         self._apply_theme()
         get_ui_theme().theme_changed.connect(self._apply_theme)
 
     def _style(self):
         t = ui_tokens(self)
         return f"""
-            QPushButton {{ padding: 4px 14px; color: {t.text_muted}; background: transparent;
-                border: none; border-radius: 9px; font: 12px {FONT_FAMILY}; }}
+            QPushButton {{ padding: {dialog_scaled(4)}px {dialog_scaled(14)}px; color: {t.text_muted}; background: transparent;
+                border: none; border-radius: {dialog_scaled(9)}px; font: {dialog_scaled(12)}px {FONT_FAMILY}; }}
             QPushButton:hover {{ color: {t.text}; background: {t.surface_subtle}; }}
             QPushButton:checked {{ color: {t.text}; background: {t.surface_strong}; border: 1px solid {t.border};
                 font-weight: 600; }}
@@ -38,7 +41,7 @@ class SegmentedWidget(QWidget):
         t = ui_tokens(self)
         self.setStyleSheet(
             f"background: {t.surface_subtle}; border: 1px solid {t.border}; "
-            "border-radius: 11px;"
+            f"border-radius: {dialog_scaled(11)}px;"
         )
         for button in self._items.values():
             button.setStyleSheet(self._style())

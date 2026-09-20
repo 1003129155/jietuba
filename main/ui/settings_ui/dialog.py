@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QWidget, QDialogButtonBox,
     QFileDialog,
 )
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import Qt, Signal
 from ui.dialogs import show_info_dialog, show_warning_dialog
 from PySide6.QtGui import QColor, QFont, QIcon
 
@@ -30,6 +30,7 @@ from ui.fluent_lite.theme import ACCENT, ACCENT_HOVER, ACCENT_PRESSED
 from core import log_info, safe_event
 from core.logger import log_exception, T
 from core.constants import CSS_FONT_FAMILY, DEFAULT_FONT_FAMILY
+from core.ui_scale import configure_dialog_control, configure_dialog_controls, dialog_scaled
 
 # 页面创建函数
 from .page_hotkey import create_hotkey_page, validate_global_hotkey_edits
@@ -56,15 +57,15 @@ class _FooterPrimaryButton(PrimaryPushButton):
     def __init__(self, text, parent=None):
         super().__init__(text, parent)
         self._sparkle = QLabel(self)
-        self._sparkle.setFixedSize(18, 22)
+        self._sparkle.setFixedSize(dialog_scaled(18), dialog_scaled(22))
         self._sparkle.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._sparkle.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        self._sparkle.setPixmap(FluentIcon.SPARKLE.icon().pixmap(16, 16))
+        self._sparkle.setPixmap(FluentIcon.SPARKLE.icon().pixmap(dialog_scaled(16), dialog_scaled(16)))
         self._sparkle.setStyleSheet("background: transparent; border: none;")
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self._sparkle.move(self.width() - 24, (self.height() - self._sparkle.height()) // 2)
+        self._sparkle.move(self.width() - dialog_scaled(24), (self.height() - self._sparkle.height()) // 2)
 
 
 def save_inapp_shortcut_edits(config_manager, edits):
@@ -88,6 +89,11 @@ class SettingsDialog(FrostedFramelessDialog):
     def __init__(self, config_manager=None, current_hotkey="ctrl+shift+a", parent=None):
         super().__init__(parent)
         self.config_manager = config_manager
+        # MainApp uses this after accepted() to decide whether the cached
+        # settings window must be rebuilt.  Most settings can be refreshed in
+        # place, but standalone-window sizing is calculated while widgets are
+        # constructed, so reusing this instance would keep the old geometry.
+        self._dialog_scale_changed_on_accept = False
         self.current_hotkey = current_hotkey
         self.main_window = parent
         self._skip_unsaved_close_prompt = False
@@ -99,8 +105,8 @@ class SettingsDialog(FrostedFramelessDialog):
         self._setup_titlebar()
 
         self.setWindowTitle("jietuba")
-        self.resize(1050, 750)
-        self.setFont(QFont(DEFAULT_FONT_FAMILY, 11))
+        self.resize(dialog_scaled(1050), dialog_scaled(750))
+        self.setFont(QFont(DEFAULT_FONT_FAMILY, dialog_scaled(11)))
         self.setObjectName("SettingsDialog")
 
         self._setup_ui()
@@ -110,6 +116,7 @@ class SettingsDialog(FrostedFramelessDialog):
     def _setup_titlebar(self):
         """用 FluentTitleBar 替换默认标题栏"""
         title_bar = FluentTitleBar(self)
+        configure_dialog_control(title_bar)
         self.setTitleBar(title_bar)
         title_bar.iconLabel.hide()
         title_bar.titleLabel.hide()
@@ -132,38 +139,42 @@ class SettingsDialog(FrostedFramelessDialog):
     # ================================================================
 
     def _setup_ui(self):
-        sidebar_width = 212
-        title_bar_height = self.titleBar.height() if getattr(self, 'titleBar', None) else 32
+        sidebar_width = dialog_scaled(212)
+        title_bar_height = self.titleBar.height() if getattr(self, 'titleBar', None) else dialog_scaled(32)
 
         main_layout = QHBoxLayout(self)
-        main_layout.setContentsMargins(10, title_bar_height + 6, 10, 10)
-        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(
+            dialog_scaled(10), title_bar_height + dialog_scaled(6), dialog_scaled(10), dialog_scaled(10)
+        )
+        main_layout.setSpacing(dialog_scaled(10))
 
         # 1. 左侧面板
         left_panel = QWidget()
         left_panel.setObjectName("SettingsLeftPanel")
         left_panel.setFixedWidth(sidebar_width)
         left_v = QVBoxLayout(left_panel)
-        left_v.setContentsMargins(10, 6, 10, 10)
-        left_v.setSpacing(8)
+        left_v.setContentsMargins(dialog_scaled(10), dialog_scaled(6), dialog_scaled(10), dialog_scaled(10))
+        left_v.setSpacing(dialog_scaled(8))
 
         # logo 区
         logo_area = QWidget()
-        logo_area.setFixedHeight(78)
+        logo_area.setFixedHeight(dialog_scaled(78))
         logo_layout = QHBoxLayout(logo_area)
-        logo_layout.setContentsMargins(12, 10, 12, 10)
-        logo_layout.setSpacing(10)
+        logo_layout.setContentsMargins(
+            dialog_scaled(12), dialog_scaled(10), dialog_scaled(12), dialog_scaled(10)
+        )
+        logo_layout.setSpacing(dialog_scaled(10))
         logo_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
         logo_icon_lbl = QLabel()
-        logo_icon_lbl.setFixedSize(36, 36)
+        logo_icon_lbl.setFixedSize(dialog_scaled(36), dialog_scaled(36))
         logo_icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         try:
             from core.resource_manager import ResourceManager
             icon_path = ResourceManager.get_resource_path("svg/托盘.svg")
             if os.path.exists(icon_path):
-                pm = QIcon(icon_path).pixmap(36, 36)
+                pm = QIcon(icon_path).pixmap(dialog_scaled(36), dialog_scaled(36))
                 logo_icon_lbl.setPixmap(pm)
         except Exception as e:
             log_exception(e, T("加载 Logo 图标"))
@@ -171,7 +182,7 @@ class SettingsDialog(FrostedFramelessDialog):
 
         text_box = QVBoxLayout()
         text_box.setContentsMargins(0, 0, 0, 0)
-        text_box.setSpacing(2)
+        text_box.setSpacing(dialog_scaled(2))
         app_name_lbl = BodyLabel(self.tr("jietuba"))
         apply_theme_text_style(app_name_lbl, 16, bold=True)
         app_desc_lbl = QLabel(self.tr("Settings"))
@@ -194,13 +205,17 @@ class SettingsDialog(FrostedFramelessDialog):
         self.right_area = right_area
         right_area.setObjectName("SettingsRightArea")
         right_layout = QVBoxLayout(right_area)
-        right_layout.setContentsMargins(24, 16, 24, 18)
-        right_layout.setSpacing(14)
+        right_layout.setContentsMargins(
+            dialog_scaled(24), dialog_scaled(16), dialog_scaled(24), dialog_scaled(18)
+        )
+        right_layout.setSpacing(dialog_scaled(14))
 
         self.content_title = QLabel(self.tr("Shortcut Settings"))
         apply_theme_text_style(
             self.content_title, 21, bold=True,
-            extra="padding: 0 6px 2px 6px;"
+            extra=(
+                f"padding: 0 {dialog_scaled(6)}px {dialog_scaled(2)}px {dialog_scaled(6)}px;"
+            ),
         )
 
         self.content_stack = QStackedWidget()
@@ -213,6 +228,10 @@ class SettingsDialog(FrostedFramelessDialog):
         self.content_stack.addWidget(create_misc_page(self))             # 6
         self.content_stack.addWidget(create_developer_page(self))        # 7
         self.content_stack.addWidget(create_about_page(self))            # 8
+
+        # 九个分页都是一次性建完、切换只换可见性（不是懒加载/动态重建），
+        # 建完后统一扫一遍即可覆盖全部分页里的 fluent_lite 控件。
+        configure_dialog_controls(self.content_stack)
 
         right_layout.addWidget(self.content_title)
         right_layout.addWidget(self.content_stack)
@@ -228,11 +247,11 @@ class SettingsDialog(FrostedFramelessDialog):
         """创建左侧导航栏"""
         nav = NavigationInterface(parent=parent, showMenuButton=False, showReturnButton=False, collapsible=False)
         nav.setObjectName("SettingsNavigation")
-        nav.setExpandWidth(188)
+        nav.setExpandWidth(dialog_scaled(188))
         nav.setMinimumExpandWidth(0)
         nav.expand(useAni=False)
-        nav.setMinimumWidth(188)
-        nav.setMaximumWidth(196)
+        nav.setMinimumWidth(dialog_scaled(188))
+        nav.setMaximumWidth(dialog_scaled(196))
 
         self._nav_items = [
             ("shortcuts", FluentIcon.COMMAND_PROMPT, self.tr("Shortcuts"), 0, NavigationItemPosition.TOP),
@@ -289,61 +308,62 @@ class SettingsDialog(FrostedFramelessDialog):
         border_color = theme_color("#D9DDE3", "#3A3D43")
         focus_bg = theme_color("#FFFFFF", "#25272B")
         arrow_color = theme_color("#666666", "#D0D0D0")
+        s = dialog_scaled
         return f"""
             QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {{
-                border: 1px solid {border_color}; border-radius: 4px;
-                padding: 4px 8px; background-color: {input_bg};
+                border: 1px solid {border_color}; border-radius: {s(4)}px;
+                padding: {s(4)}px {s(8)}px; background-color: {input_bg};
                 color: {text_color}; font-family: {CSS_FONT_FAMILY};
-                font-size: 13px;
+                font-size: {s(13)}px;
             }}
             QLineEdit:focus, QSpinBox:focus {{
                 border: 1px solid {ACCENT}; background-color: {focus_bg};
             }}
-            QSpinBox, QDoubleSpinBox {{ padding-right: 24px; }}
+            QSpinBox, QDoubleSpinBox {{ padding-right: {s(24)}px; }}
             QSpinBox::up-button, QDoubleSpinBox::up-button {{
                 subcontrol-origin: border; subcontrol-position: top right;
-                width: 20px; border-left: 1px solid {border_color};
-                border-bottom: 1px solid {border_color}; border-top-right-radius: 4px;
+                width: {s(20)}px; border-left: 1px solid {border_color};
+                border-bottom: 1px solid {border_color}; border-top-right-radius: {s(4)}px;
                 background: {input_bg};
             }}
             QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover {{ background: {popup_hover}; }}
             QSpinBox::up-button:pressed, QDoubleSpinBox::up-button:pressed {{ background: #DCE8F4; }}
             QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{
-                image: none; border-left: 4px solid transparent;
-                border-right: 4px solid transparent; border-bottom: 6px solid {arrow_color};
+                image: none; border-left: {s(4)}px solid transparent;
+                border-right: {s(4)}px solid transparent; border-bottom: {s(6)}px solid {arrow_color};
                 width: 0; height: 0;
             }}
             QSpinBox::down-button, QDoubleSpinBox::down-button {{
                 subcontrol-origin: border; subcontrol-position: bottom right;
-                width: 20px; border-left: 1px solid {border_color};
-                border-bottom-right-radius: 4px; background: {input_bg};
+                width: {s(20)}px; border-left: 1px solid {border_color};
+                border-bottom-right-radius: {s(4)}px; background: {input_bg};
             }}
             QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{ background: {popup_hover}; }}
             QSpinBox::down-button:pressed, QDoubleSpinBox::down-button:pressed {{ background: #DCE8F4; }}
             QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
-                image: none; border-left: 4px solid transparent;
-                border-right: 4px solid transparent; border-top: 6px solid {arrow_color};
+                image: none; border-left: {s(4)}px solid transparent;
+                border-right: {s(4)}px solid transparent; border-top: {s(6)}px solid {arrow_color};
                 width: 0; height: 0;
             }}
             QComboBox::drop-down {{
                 subcontrol-origin: padding; subcontrol-position: top right;
-                width: 20px; border-left: 1px solid {border_color};
-                border-top-right-radius: 4px; border-bottom-right-radius: 4px;
+                width: {s(20)}px; border-left: 1px solid {border_color};
+                border-top-right-radius: {s(4)}px; border-bottom-right-radius: {s(4)}px;
                 background: {input_bg};
             }}
             QComboBox::down-arrow {{
-                image: none; border-left: 4px solid transparent;
-                border-right: 4px solid transparent; border-top: 6px solid {arrow_color};
-                width: 0; height: 0; margin-right: 6px;
+                image: none; border-left: {s(4)}px solid transparent;
+                border-right: {s(4)}px solid transparent; border-top: {s(6)}px solid {arrow_color};
+                width: 0; height: 0; margin-right: {s(6)}px;
             }}
             QComboBox QAbstractItemView {{
                 border: 1px solid {border_color}; background: {popup_bg};
                 selection-background-color: {ACCENT}; selection-color: white;
                 font-family: {CSS_FONT_FAMILY};
-                font-size: 13px; color: {text_color}; outline: none;
+                font-size: {s(13)}px; color: {text_color}; outline: none;
             }}
             QComboBox QAbstractItemView::item {{
-                padding: 6px 8px; min-height: 24px; color: {text_color}; background: {popup_bg};
+                padding: {s(6)}px {s(8)}px; min-height: {s(24)}px; color: {text_color}; background: {popup_bg};
             }}
             QComboBox QAbstractItemView::item:hover {{
                 background-color: {popup_hover}; color: {text_color};
@@ -454,61 +474,67 @@ class SettingsDialog(FrostedFramelessDialog):
     # ================================================================
 
     def _create_button_area(self):
+        s = dialog_scaled
         layout = QHBoxLayout()
-        layout.setSpacing(12)
+        layout.setSpacing(s(12))
 
+        # The footer sits outside content_stack, so its controls are not
+        # covered by the sweep in _setup_ui and have to opt in themselves.
         reset_btn = TransparentPushButton(self.tr("Reset This Page"))
+        configure_dialog_control(reset_btn)
         reset_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         reset_btn.setIcon(FluentIcon.DELETE)
         reset_btn.clicked.connect(self._reset_current_page)
 
         cancel_btn = FluentPushButton(self.tr("Cancel"))
+        configure_dialog_control(cancel_btn)
         self._footer_cancel_btn = cancel_btn
-        cancel_btn.setFixedHeight(46)
-        cancel_btn.setMinimumWidth(150)
+        cancel_btn.setFixedHeight(s(46))
+        cancel_btn.setMinimumWidth(s(150))
         cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         cancel_btn.setIcon(FluentIcon.CANCEL)
-        cancel_btn.setIconSize(QSize(22, 22))
-        cancel_btn.setStyleSheet("""
-            QPushButton {
-                min-height: 44px;
-                padding: 0 24px;
+        cancel_btn.setBaseIconSize(22)
+        cancel_btn.setStyleSheet(f"""
+            QPushButton {{
+                min-height: {s(44)}px;
+                padding: 0 {s(24)}px;
                 color: #20262D;
                 background: rgba(255, 255, 255, 0.18);
                 border: 1px solid rgba(77, 88, 101, 0.38);
-                border-radius: 12px;
-                font-size: 17px;
+                border-radius: {s(12)}px;
+                font-size: {s(17)}px;
                 font-weight: 500;
                 outline: none;
-            }
-            QPushButton:hover {
+            }}
+            QPushButton:hover {{
                 background: rgba(255, 255, 255, 0.46);
                 border-color: rgba(55, 68, 82, 0.55);
-            }
-            QPushButton:pressed {
+            }}
+            QPushButton:pressed {{
                 background: rgba(220, 228, 236, 0.60);
                 border-color: rgba(55, 68, 82, 0.66);
-            }
+            }}
         """)
         cancel_btn.clicked.connect(self.reject)
 
         ok_btn = _FooterPrimaryButton(self.tr("Apply"))
+        configure_dialog_control(ok_btn)
         self._footer_ok_btn = ok_btn
-        ok_btn.setFixedHeight(46)
-        ok_btn.setMinimumWidth(150)
+        ok_btn.setFixedHeight(s(46))
+        ok_btn.setMinimumWidth(s(150))
         ok_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         ok_btn.setIcon(FluentIcon.CHECK)
-        ok_btn.setIconSize(QSize(23, 23))
+        ok_btn.setBaseIconSize(23)
         ok_btn.setStyleSheet("""
             QPushButton {
-                min-height: 44px;
-                padding: 0 25px;
+                min-height: %dpx;
+                padding: 0 %dpx;
                 color: white;
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                     stop:0 #91AABD, stop:0.52 %s, stop:1 #607F9A);
                 border: 1px solid rgba(255, 255, 255, 0.34);
-                border-radius: 12px;
-                font-size: 17px;
+                border-radius: %dpx;
+                font-size: %dpx;
                 font-weight: 600;
                 outline: none;
             }
@@ -525,7 +551,7 @@ class SettingsDialog(FrostedFramelessDialog):
                 color: rgba(255, 255, 255, 0.72);
                 background: rgba(151, 170, 186, 0.68);
             }
-        """ % (ACCENT, ACCENT_HOVER, ACCENT_PRESSED))
+        """ % (s(44), s(25), ACCENT, s(12), s(17), ACCENT_HOVER, ACCENT_PRESSED))
         ok_btn.clicked.connect(self.accept)
         self._apply_footer_styles()
 
@@ -538,17 +564,18 @@ class SettingsDialog(FrostedFramelessDialog):
     def _apply_footer_styles(self):
         from core.ui_theme import get_ui_theme
         t = get_ui_theme().tokens
+        s = dialog_scaled
         cancel_btn = getattr(self, "_footer_cancel_btn", None)
         if cancel_btn is not None:
             cancel_btn.setStyleSheet(f"""
                 QPushButton {{
-                    min-height: 44px;
-                    padding: 0 24px;
+                    min-height: {s(44)}px;
+                    padding: 0 {s(24)}px;
                     color: {t.text};
                     background: {t.surface};
                     border: 1px solid {t.border_hover};
-                    border-radius: 12px;
-                    font-size: 17px;
+                    border-radius: {s(12)}px;
+                    font-size: {s(17)}px;
                     font-weight: 500;
                     outline: none;
                 }}
@@ -564,13 +591,13 @@ class SettingsDialog(FrostedFramelessDialog):
         if ok_btn is not None:
             ok_btn.setStyleSheet(f"""
                 QPushButton {{
-                    min-height: 44px;
-                    padding: 0 25px;
+                    min-height: {s(44)}px;
+                    padding: 0 {s(25)}px;
                     color: #FFFFFF;
                     background: {t.accent};
                     border: 1px solid rgba(255, 255, 255, 0.28);
-                    border-radius: 12px;
-                    font-size: 17px;
+                    border-radius: {s(12)}px;
+                    font-size: {s(17)}px;
                     font-weight: 600;
                     outline: none;
                 }}
@@ -675,6 +702,10 @@ class SettingsDialog(FrostedFramelessDialog):
             index = self._ui_scale_combo.findData(defaults.get("ui_scale_percent", 100))
             if index >= 0:
                 self._ui_scale_combo.setCurrentIndex(index)
+        if hasattr(self, '_dialog_scale_combo'):
+            index = self._dialog_scale_combo.findData(defaults.get("dialog_scale_percent", 100))
+            if index >= 0:
+                self._dialog_scale_combo.setCurrentIndex(index)
         if hasattr(self, '_appearance_theme_color'):
             self._appearance_theme_color = QColor(defaults["theme_color"])
             _update_color_btn(self._theme_color_btn, self._appearance_theme_color)
@@ -791,6 +822,8 @@ class SettingsDialog(FrostedFramelessDialog):
 
     def accept(self):
         """保存所有设置"""
+        self._dialog_scale_changed_on_accept = False
+
         # 六个全局快捷键必须先整体通过校验。这里发生在任何 set_* 之前，
         # 因而冲突值不会写入配置，窗口也不会关闭。
         if not validate_global_hotkey_edits(self, check_system=True):
@@ -1014,6 +1047,14 @@ class SettingsDialog(FrostedFramelessDialog):
             from core.ui_scale import get_ui_scale
             get_ui_scale().set_percent(self._ui_scale_combo.currentData())
 
+        # 窗口缩放在后续新建的独立窗口中按各自基准尺寸生效；这里不对当前设置
+        # 窗口做事后整体拉伸，避免固定高度控件与已布局内容相互挤压。
+        if hasattr(self, '_dialog_scale_combo'):
+            from core.ui_scale import get_dialog_scale
+            self._dialog_scale_changed_on_accept = get_dialog_scale().set_percent(
+                self._dialog_scale_combo.currentData()
+            )
+
         from core.theme import get_theme
         theme = get_theme()
         if hasattr(self, '_appearance_theme_color'):
@@ -1175,7 +1216,7 @@ class SettingsDialog(FrostedFramelessDialog):
                       'log_level_combo',
                       'language_combo', 'engine_combo', 'cursor_move_combo',
                       'magnifier_color_format_combo', 'log_retention_combo',
-                      '_ui_theme_combo', '_ui_scale_combo'):
+                      '_ui_theme_combo', '_ui_scale_combo', '_dialog_scale_combo'):
             w = getattr(self, attr, None)
             if w is not None:
                 snap[attr] = w.currentIndex()
@@ -1445,6 +1486,12 @@ class SettingsDialog(FrostedFramelessDialog):
             index = self._ui_scale_combo.findData(get_ui_scale().percent)
             if index >= 0:
                 self._ui_scale_combo.setCurrentIndex(index)
+
+        if hasattr(self, '_dialog_scale_combo'):
+            from core.ui_scale import get_dialog_scale
+            index = self._dialog_scale_combo.findData(get_dialog_scale().percent)
+            if index >= 0:
+                self._dialog_scale_combo.setCurrentIndex(index)
 
         if hasattr(self, '_theme_color_btn'):
             from core.theme import get_theme

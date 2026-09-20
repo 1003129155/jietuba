@@ -17,9 +17,16 @@ from PySide6.QtWidgets import (
 )
 
 from core.i18n import make_tr
+from core.ui_scale import dialog_scaled
 from .ui.widgets import EllipsisAnimator
 from ui.fluent_lite import TextEdit
-from .translation_dialog import DARK, LIGHT, Palette
+from .translation_dialog import (
+    CONTROL_CORNER_RADIUS,
+    DARK,
+    LIGHT,
+    Palette,
+    WINDOW_CORNER_RADIUS,
+)
 from .languages import TRANSLATION_LANGUAGES
 
 
@@ -41,7 +48,10 @@ class TranslationPopup(QWidget):
     target_lang_changed = Signal(str)  # 目标语言变更信号
 
     WIDTH = 420
-    MIN_HEIGHT = 176
+    # The empty-input layout naturally needs 132 px.  Keeping a taller floor
+    # only makes QVBoxLayout distribute the surplus as blank space above and
+    # below the controls.
+    MIN_HEIGHT = 132
     MAX_HEIGHT = 520
     SOURCE_MIN_HEIGHT = 44
     SOURCE_MAX_HEIGHT = 120
@@ -68,9 +78,9 @@ class TranslationPopup(QWidget):
         self.setObjectName("translationPopup")
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
-        self.setFont(QFont("Microsoft YaHei UI", 10))
-        self.setFixedWidth(self.WIDTH)
-        self.setMinimumHeight(self.MIN_HEIGHT)
+        self.setFont(QFont("Microsoft YaHei UI", dialog_scaled(10)))
+        self.setFixedWidth(dialog_scaled(self.WIDTH))
+        self.setMinimumHeight(dialog_scaled(self.MIN_HEIGHT))
 
         self._build_ui()
         self.set_theme("dark")
@@ -89,49 +99,49 @@ class TranslationPopup(QWidget):
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
-        root.setContentsMargins(12, 10, 12, 11)
-        root.setSpacing(8)
+        root.setContentsMargins(dialog_scaled(12), dialog_scaled(10), dialog_scaled(12), dialog_scaled(11))
+        root.setSpacing(dialog_scaled(8))
 
         header = QHBoxLayout()
         # Left margin 0 keeps the badge pill flush with the input box below it.
         header.setContentsMargins(0, 0, 0, 0)
-        header.setSpacing(8)
+        header.setSpacing(dialog_scaled(8))
 
         # No window title: the engine badge already identifies the popup, and
         # the empty space next to it still works as the drag handle.
         self.backend_badge = QLabel(_tr("Engine not configured"), self)
         self.backend_badge.setObjectName("popupBadge")
-        self.backend_badge.setFixedHeight(21)
+        self.backend_badge.setFixedHeight(dialog_scaled(21))
         header.addWidget(self.backend_badge)
         header.addStretch(1)
 
         self.close_button = QPushButton("×", self)
         self.close_button.setObjectName("popupClose")
         self.close_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.close_button.setFixedSize(28, 26)
-        self.close_button.setToolTip(_tr("Close"))
+        self.close_button.setFixedSize(dialog_scaled(28), dialog_scaled(26))
+        self.close_button.setAccessibleName(_tr("Close"))
         self.close_button.clicked.connect(self._hide_popup)
         header.addWidget(self.close_button)
         root.addLayout(header)
 
         self.source_edit = self._make_text_view("popupSource", editable=True)
-        self.source_edit.setMaximumHeight(self.SOURCE_MAX_HEIGHT)
+        self.source_edit.setMaximumHeight(dialog_scaled(self.SOURCE_MAX_HEIGHT))
         self.source_edit.setPlaceholderText(_tr("Enter text to translate..."))
         self.source_edit.textChanged.connect(self._on_source_changed)
         root.addWidget(self.source_edit)
 
         self.divider = QFrame(self)
         self.divider.setObjectName("popupDivider")
-        self.divider.setFixedHeight(1)
+        self.divider.setFixedHeight(dialog_scaled(1))
         root.addWidget(self.divider)
 
         self.result_edit = self._make_text_view("popupResult")
-        self.result_edit.setMaximumHeight(self.RESULT_MAX_HEIGHT)
+        self.result_edit.setMaximumHeight(dialog_scaled(self.RESULT_MAX_HEIGHT))
         root.addWidget(self.result_edit)
 
         footer = QHBoxLayout()
-        footer.setContentsMargins(0, 1, 0, 0)
-        footer.setSpacing(7)
+        footer.setContentsMargins(0, dialog_scaled(1), 0, 0)
+        footer.setSpacing(dialog_scaled(7))
 
         # 目标语言标签
         lang_label = QLabel(_tr("Target") + ": ", self)
@@ -325,61 +335,64 @@ class TranslationPopup(QWidget):
     def set_theme(self, theme_name: str) -> None:
         self._palette = LIGHT if theme_name == "light" else DARK
         p = self._palette
+        s = dialog_scaled
+        stroke = s(1)
         self.setStyleSheet(
             f"""
             QWidget#translationPopup {{ background: transparent; color: {p.text}; }}
             QLabel#popupBadge {{
-                color: {p.green}; background: {p.accent_tint}; border-radius: 7px;
-                padding: 0 8px; font-size: 11px; font-weight: 600;
+                color: {p.green}; background: {p.accent_tint}; border-radius: {s(7)}px;
+                padding: 0 {s(8)}px; font-size: {s(11)}px; font-weight: 600;
             }}
             QLabel#popupBadge[ready="false"] {{ color: {p.text_2}; background: {p.fill}; }}
             QPushButton#popupClose {{
                 color: {p.text_2}; background: transparent; border: none;
-                border-radius: 8px; font-size: 19px;
+                border-radius: {s(CONTROL_CORNER_RADIUS)}px; font-size: {s(19)}px;
             }}
             QPushButton#popupClose:hover {{ color: white; background: {p.danger}; }}
             QTextEdit#popupSource {{
                 color: {p.text}; background: {p.field};
-                border: 1px solid {p.fill_hover}; border-radius: 9px;
-                padding: 7px 9px; font-size: 14px;
+                border: {stroke}px solid {p.fill_hover};
+                border-radius: {s(CONTROL_CORNER_RADIUS)}px;
+                padding: {s(7)}px {s(9)}px; font-size: {s(14)}px;
             }}
             QTextEdit#popupSource:focus {{ border-color: {p.accent}; }}
             QTextEdit#popupResult {{
                 color: {p.text}; background: transparent; border: none;
-                padding: 2px 3px; font-size: 14px; font-weight: 550;
+                padding: {s(2)}px {s(3)}px; font-size: {s(14)}px; font-weight: 550;
             }}
             QTextEdit#popupResult[error="true"] {{ color: {p.danger}; font-weight: 500; }}
             QFrame#popupDivider {{ background: {p.fill_hover}; border: none; }}
             QLabel#popupLangLabel {{
-                color: {p.text_3}; font-size: 11px; padding-left: 3px;
+                color: {p.text_3}; font-size: {s(11)}px; padding-left: {s(3)}px;
             }}
             QPushButton#popupLangButton {{
                 color: {p.text_2}; background: transparent; border: none;
-                border-radius: 6px; padding: 4px 8px; font-size: 12px; font-weight: 600;
+                border-radius: {s(CONTROL_CORNER_RADIUS)}px; padding: {s(4)}px {s(8)}px; font-size: {s(12)}px; font-weight: 600;
                 text-align: left;
             }}
             QPushButton#popupLangButton:hover {{ 
                 color: {p.text}; background: {p.fill}; 
             }}
             QPushButton#popupChip, QPushButton#popupPrimary {{
-                border: none; border-radius: 8px; padding: 6px 10px;
-                background: transparent; font-size: 12px; font-weight: 600;
+                border: none; border-radius: {s(CONTROL_CORNER_RADIUS)}px; padding: {s(6)}px {s(10)}px;
+                background: transparent; font-size: {s(12)}px; font-weight: 600;
             }}
             QPushButton#popupChip {{ color: {p.text_2}; }}
             QPushButton#popupChip:hover {{ color: {p.text}; background: {p.fill}; }}
             QPushButton#popupChip:disabled {{ color: {p.text_3}; background: transparent; }}
             QPushButton#popupPrimary {{ color: {p.accent}; }}
             QPushButton#popupPrimary:hover {{ background: {p.accent_tint}; }}
-            QScrollBar:vertical {{ background: transparent; width: 5px; margin: 2px 0; }}
-            QScrollBar::handle:vertical {{ background: {p.fill_hover}; border-radius: 2px; min-height: 20px; }}
+            QScrollBar:vertical {{ background: transparent; width: {s(5)}px; margin: {s(2)}px 0; }}
+            QScrollBar::handle:vertical {{ background: {p.fill_hover}; border-radius: {s(2)}px; min-height: {s(20)}px; }}
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
             QMenu#popupLangMenu {{
-                background: {p.surface_strong}; border: 1px solid {p.fill_hover};
-                border-radius: 9px; padding: 5px;
+                background: {p.surface_strong}; border: {stroke}px solid {p.fill_hover};
+                border-radius: {s(CONTROL_CORNER_RADIUS)}px; padding: {s(5)}px;
             }}
             QMenu#popupLangMenu::item {{
-                color: {p.text}; background: transparent; padding: 6px 12px;
-                border-radius: 6px; font-size: 12px;
+                color: {p.text}; background: transparent; padding: {s(6)}px {s(12)}px;
+                border-radius: {s(CONTROL_CORNER_RADIUS)}px; font-size: {s(12)}px;
             }}
             QMenu#popupLangMenu::item:selected {{ background: {p.accent}; color: white; }}
             QMenu#popupLangMenu::item:checked {{ font-weight: 600; }}
@@ -421,20 +434,20 @@ class TranslationPopup(QWidget):
         self.result_edit.style().polish(self.result_edit)
 
     def _fit_text_view(self, view: TextEdit, minimum: int, maximum: int) -> None:
-        doc_height = int(view.document().size().height()) + 10
+        doc_height = int(view.document().size().height()) + dialog_scaled(10)
         view.setFixedHeight(max(minimum, min(doc_height, maximum)))
 
     def _fit_content(self) -> None:
         self._fit_text_view(
-            self.source_edit, self.SOURCE_MIN_HEIGHT, self.SOURCE_MAX_HEIGHT
+            self.source_edit, dialog_scaled(self.SOURCE_MIN_HEIGHT), dialog_scaled(self.SOURCE_MAX_HEIGHT)
         )
         if self.result_edit.isVisible():
             self._fit_text_view(
-                self.result_edit, self.RESULT_MIN_HEIGHT, self.RESULT_MAX_HEIGHT
+                self.result_edit, dialog_scaled(self.RESULT_MIN_HEIGHT), dialog_scaled(self.RESULT_MAX_HEIGHT)
             )
         self.layout().activate()
         desired = self.sizeHint().height()
-        self.setFixedHeight(max(self.MIN_HEIGHT, min(desired, self.MAX_HEIGHT)))
+        self.setFixedHeight(max(dialog_scaled(self.MIN_HEIGHT), min(desired, dialog_scaled(self.MAX_HEIGHT))))
 
     def _place_near(self, position: QPoint) -> None:
         screen = QApplication.screenAt(position) or QApplication.primaryScreen()
@@ -442,14 +455,14 @@ class TranslationPopup(QWidget):
             self.move(position)
             return
         area = screen.availableGeometry()
-        x = position.x() + 14
-        y = position.y() + 22
-        if x + self.width() > area.right() - 8:
-            x = area.right() - self.width() - 8
-        if y + self.height() > area.bottom() - 8:
-            y = position.y() - self.height() - 16
-        x = max(area.left() + 8, x)
-        y = max(area.top() + 8, y)
+        x = position.x() + dialog_scaled(14)
+        y = position.y() + dialog_scaled(22)
+        if x + self.width() > area.right() - dialog_scaled(8):
+            x = area.right() - self.width() - dialog_scaled(8)
+        if y + self.height() > area.bottom() - dialog_scaled(8):
+            y = position.y() - self.height() - dialog_scaled(16)
+        x = max(area.left() + dialog_scaled(8), x)
+        y = max(area.top() + dialog_scaled(8), y)
         self.move(x, y)
 
     def _show_animated(self) -> None:
@@ -485,13 +498,20 @@ class TranslationPopup(QWidget):
     def paintEvent(self, event) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
-        painter.setPen(QPen(self._palette.fill_hover_color, 1))
+        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
+        painter.fillRect(self.rect(), Qt.GlobalColor.transparent)
+        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
+
+        stroke_width = max(1, dialog_scaled(1))
+        inset = stroke_width / 2.0
+        rect = QRectF(self.rect()).adjusted(inset, inset, -inset, -inset)
+        painter.setPen(QPen(self._palette.fill_hover_color, stroke_width))
         painter.setBrush(QColor(self._palette.window))
-        painter.drawRoundedRect(rect, 12, 12)
+        radius = dialog_scaled(WINDOW_CORNER_RADIUS)
+        painter.drawRoundedRect(rect, radius, radius)
 
     def mousePressEvent(self, event) -> None:
-        if event.button() == Qt.MouseButton.LeftButton and event.position().y() <= 42:
+        if event.button() == Qt.MouseButton.LeftButton and event.position().y() <= dialog_scaled(42):
             self._drag_offset = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
             event.accept()
             return

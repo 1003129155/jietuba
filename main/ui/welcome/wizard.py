@@ -11,6 +11,7 @@ from PySide6.QtGui import QColor, QPainter, QPen, QIcon
 from core.i18n import make_tr
 from core.logger import log_exception, T
 from core import safe_event
+from core.ui_scale import configure_dialog_control, configure_dialog_controls, dialog_scaled
 from core.ui_theme import UIThemeManager, get_ui_theme
 from ui.fluent_lite import (
     PushButton as FluentPushButton,
@@ -46,17 +47,19 @@ class _StepItem(QFrame):
         self._index = index
         self._hovered = False
         self.setObjectName("StepItem")
-        self.setFixedHeight(52)
+        self.setFixedHeight(dialog_scaled(52))
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
         row = QHBoxLayout(self)
-        row.setContentsMargins(10, 7, 10, 7)
-        row.setSpacing(11)
+        row.setContentsMargins(
+            dialog_scaled(10), dialog_scaled(7), dialog_scaled(10), dialog_scaled(7)
+        )
+        row.setSpacing(dialog_scaled(11))
 
         self._number = QLabel(str(index + 1), self)
         self._number.setObjectName("StepNumber")
-        self._number.setFixedSize(28, 28)
+        self._number.setFixedSize(dialog_scaled(28), dialog_scaled(28))
         self._number.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._number.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
@@ -84,26 +87,27 @@ class _StepItem(QFrame):
         active = getattr(self, "_active", False)
         completed = getattr(self, "_completed", False)
         interactive = self._hovered or self.hasFocus()
+        s = dialog_scaled
         if active:
             self.setStyleSheet(f"""
                 #StepItem {{
                     background: {theme.accent_soft};
                     border: 1px solid {theme.border_strong};
-                    border-radius: 10px;
+                    border-radius: {s(10)}px;
                 }}
                 #StepNumber {{
                     background: {theme.accent};
                     color: #FFFFFF;
                     border: none;
-                    border-radius: 14px;
-                    font-size: 12px;
+                    border-radius: {s(14)}px;
+                    font-size: {s(12)}px;
                     font-weight: 700;
                 }}
                 #StepText {{
                     color: {theme.text};
                     background: transparent;
                     border: none;
-                    font-size: 13px;
+                    font-size: {s(13)}px;
                     font-weight: 700;
                 }}
             """)
@@ -114,21 +118,21 @@ class _StepItem(QFrame):
                 #StepItem {{
                     background: {background};
                     border: 1px solid {border};
-                    border-radius: 10px;
+                    border-radius: {s(10)}px;
                 }}
                 #StepNumber {{
                     background: {theme.panel};
                     color: {theme.accent};
                     border: 1px solid {theme.border_strong};
-                    border-radius: 14px;
-                    font-size: 12px;
+                    border-radius: {s(14)}px;
+                    font-size: {s(12)}px;
                     font-weight: 700;
                 }}
                 #StepText {{
                     color: {theme.text};
                     background: transparent;
                     border: none;
-                    font-size: 13px;
+                    font-size: {s(13)}px;
                     font-weight: 600;
                 }}
             """)
@@ -139,21 +143,21 @@ class _StepItem(QFrame):
                 #StepItem {{
                     background: {background};
                     border: 1px solid {border};
-                    border-radius: 10px;
+                    border-radius: {s(10)}px;
                 }}
                 #StepNumber {{
                     background: transparent;
                     color: {theme.text_soft};
                     border: 1px solid {theme.border_strong};
-                    border-radius: 14px;
-                    font-size: 12px;
+                    border-radius: {s(14)}px;
+                    font-size: {s(12)}px;
                     font-weight: 600;
                 }}
                 #StepText {{
                     color: {theme.text_muted};
                     background: transparent;
                     border: none;
-                    font-size: 13px;
+                    font-size: {s(13)}px;
                     font-weight: 500;
                 }}
             """)
@@ -202,8 +206,8 @@ class _DotIndicator(QWidget):
         super().__init__(parent)
         self._count = count
         self._current = 0
-        self.setFixedHeight(16)
-        self.setMinimumWidth(count * 20)
+        self.setFixedHeight(dialog_scaled(16))
+        self.setMinimumWidth(count * dialog_scaled(20))
 
     def set_current(self, idx: int):
         self._current = idx
@@ -214,8 +218,8 @@ class _DotIndicator(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         w = self.width()
-        dot_r = 4
-        gap = 14
+        dot_r = dialog_scaled(4)
+        gap = dialog_scaled(14)
         total_w = self._count * (dot_r * 2) + (self._count - 1) * (gap - dot_r * 2)
         x = (w - total_w) // 2
         cy = self.height() // 2
@@ -254,7 +258,7 @@ class WelcomeWizard(FrostedFramelessDialog):
         # 否则 setWindowFlags 会清除固定大小约束，导致拖动时布局反复重算、高度抖动。
         # MSWindowsFixedSizeDialogHint 在 Windows 上额外锁定窗口不可调整大小。
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.MSWindowsFixedSizeDialogHint)
-        self.setFixedSize(self.WINDOW_W, self.WINDOW_H)
+        self.setFixedSize(dialog_scaled(self.WINDOW_W), dialog_scaled(self.WINDOW_H))
         self.setStyleSheet("background: transparent; border: none;")
 
         self._build_ui()
@@ -270,12 +274,13 @@ class WelcomeWizard(FrostedFramelessDialog):
 
     def _setup_titlebar(self):
         title_bar = FluentTitleBar(self)
+        configure_dialog_control(title_bar)
         self.setTitleBar(title_bar)
         title_bar.iconLabel.hide()
         title_bar.maxBtn.hide()
         title_bar.minBtn.hide()
         # 隐藏图标后标题会紧贴窗口左边，看起来像被裁歪了；保留原生标题栏留白。
-        title_bar.hBoxLayout.setContentsMargins(12, 0, 0, 0)
+        title_bar.hBoxLayout.setContentsMargins(dialog_scaled(12), 0, 0, 0)
         title_bar.setDoubleClickEnabled(False)
 
     def _init_language(self):
@@ -297,8 +302,10 @@ class WelcomeWizard(FrostedFramelessDialog):
     # ── UI 构建 ──────────────────────────────────────────
     def _build_ui(self):
         root = QVBoxLayout(self)
-        title_height = self.titleBar.height() if getattr(self, "titleBar", None) else 32
-        root.setContentsMargins(8, title_height + 4, 8, 8)
+        title_height = self.titleBar.height() if getattr(self, "titleBar", None) else dialog_scaled(32)
+        root.setContentsMargins(
+            dialog_scaled(8), title_height + dialog_scaled(4), dialog_scaled(8), dialog_scaled(8)
+        )
         root.setSpacing(0)
 
         shell = QFrame(self)
@@ -311,22 +318,24 @@ class WelcomeWizard(FrostedFramelessDialog):
         # 左侧：品牌与流程导航
         sidebar = QFrame(shell)
         sidebar.setObjectName("WizardSidebar")
-        sidebar.setFixedWidth(224)
+        sidebar.setFixedWidth(dialog_scaled(224))
         self._sidebar = sidebar
         side_layout = QVBoxLayout(sidebar)
-        side_layout.setContentsMargins(20, 23, 20, 20)
-        side_layout.setSpacing(4)
+        side_layout.setContentsMargins(
+            dialog_scaled(20), dialog_scaled(23), dialog_scaled(20), dialog_scaled(20)
+        )
+        side_layout.setSpacing(dialog_scaled(4))
 
         brand_row = QHBoxLayout()
-        brand_row.setSpacing(11)
+        brand_row.setSpacing(dialog_scaled(11))
         self._brand_icon = QLabel(sidebar)
-        self._brand_icon.setFixedSize(38, 38)
+        self._brand_icon.setFixedSize(dialog_scaled(38), dialog_scaled(38))
         self._brand_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         try:
             from core.resource_manager import ResourceManager
             icon = QIcon(ResourceManager.get_resource_path("svg/托盘.svg"))
             if not icon.isNull():
-                self._brand_icon.setPixmap(icon.pixmap(24, 24))
+                self._brand_icon.setPixmap(icon.pixmap(dialog_scaled(24), dialog_scaled(24)))
         except Exception as e:
             log_exception(e, T("欢迎向导品牌图标"))
 
@@ -339,7 +348,7 @@ class WelcomeWizard(FrostedFramelessDialog):
         brand_row.addWidget(self._brand_icon)
         brand_row.addLayout(brand_text, 1)
         side_layout.addLayout(brand_row)
-        side_layout.addSpacing(24)
+        side_layout.addSpacing(dialog_scaled(24))
 
         self._step_items = []
         for idx in range(self.PAGE_COUNT):
@@ -365,19 +374,21 @@ class WelcomeWizard(FrostedFramelessDialog):
         right_layout.addWidget(self._stack, 1)
 
         line = QFrame(right)
-        line.setFixedHeight(1)
+        line.setFixedHeight(dialog_scaled(1))
         self._nav_line = line
         right_layout.addWidget(line)
 
         nav = QWidget(right)
-        nav.setFixedHeight(66)
+        nav.setFixedHeight(dialog_scaled(66))
         self._nav = nav
         nav_layout = QHBoxLayout(nav)
-        nav_layout.setContentsMargins(30, 14, 30, 14)
-        nav_layout.setSpacing(10)
+        nav_layout.setContentsMargins(
+            dialog_scaled(30), dialog_scaled(14), dialog_scaled(30), dialog_scaled(14)
+        )
+        nav_layout.setSpacing(dialog_scaled(10))
 
         self._btn_skip = TransparentPushButton()
-        self._btn_skip.setFixedHeight(36)
+        self._btn_skip.setFixedHeight(dialog_scaled(36))
         self._btn_skip.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_skip.clicked.connect(self._finish)
 
@@ -385,20 +396,20 @@ class WelcomeWizard(FrostedFramelessDialog):
 
         self._btn_back = FluentPushButton()
         self._btn_back.setObjectName("btnBack")
-        self._btn_back.setFixedSize(96, 36)
+        self._btn_back.setFixedSize(dialog_scaled(96), dialog_scaled(36))
         self._btn_back.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_back.clicked.connect(self._go_back)
 
         self._btn_next = PrimaryPushButton()
         self._btn_next.setObjectName("btnNext")
-        self._btn_next.setFixedSize(112, 36)
+        self._btn_next.setFixedSize(dialog_scaled(112), dialog_scaled(36))
         self._btn_next.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_next.clicked.connect(self._go_next)
 
         nav_layout.addWidget(self._btn_skip)
         nav_layout.addStretch()
         nav_layout.addWidget(self._page_count)
-        nav_layout.addSpacing(8)
+        nav_layout.addSpacing(dialog_scaled(8))
         nav_layout.addWidget(self._btn_back)
         nav_layout.addWidget(self._btn_next)
 
@@ -409,12 +420,13 @@ class WelcomeWizard(FrostedFramelessDialog):
 
     def _apply_welcome_theme(self, tokens=None):
         theme = welcome_theme()
+        s = dialog_scaled
         self.setPalette(UIThemeManager.build_palette(get_ui_theme().tokens))
         self._shell.setStyleSheet(f"""
             #WizardSurface {{
                 background: {theme.page};
                 border: 1px solid {theme.border};
-                border-radius: 14px;
+                border-radius: {s(14)}px;
             }}
         """)
         self._sidebar.setStyleSheet(f"""
@@ -422,7 +434,7 @@ class WelcomeWizard(FrostedFramelessDialog):
                 background: {theme.sidebar};
                 border: none;
                 border-right: 1px solid {theme.border};
-                border-radius: 14px;
+                border-radius: {s(14)}px;
             }}
         """)
         self._right.setStyleSheet(
@@ -434,22 +446,22 @@ class WelcomeWizard(FrostedFramelessDialog):
         )
         self._brand_icon.setStyleSheet(
             f"background: {theme.panel}; border: 1px solid {theme.border};"
-            " border-radius: 10px;"
+            f" border-radius: {s(10)}px;"
         )
         self._brand_name.setStyleSheet(
-            f"font-size: 17px; font-weight: 700; color: {theme.text};"
+            f"font-size: {s(17)}px; font-weight: 700; color: {theme.text};"
             " background: transparent;"
         )
         self._brand_meta.setStyleSheet(
-            f"font-size: 9px; font-weight: 600; letter-spacing: 1px;"
+            f"font-size: {s(9)}px; font-weight: 600; letter-spacing: 1px;"
             f" color: {theme.text_soft}; background: transparent;"
         )
         self._setup_meta.setStyleSheet(
-            f"font-size: 10px; font-weight: 600; color: {theme.text_soft};"
+            f"font-size: {s(10)}px; font-weight: 600; color: {theme.text_soft};"
             " background: transparent; letter-spacing: 1px;"
         )
         self._page_count.setStyleSheet(
-            f"font-size: 12px; font-weight: 600; color: {theme.text_muted};"
+            f"font-size: {s(12)}px; font-weight: 600; color: {theme.text_muted};"
             " background: transparent;"
         )
         for item in self._step_items:
@@ -484,6 +496,9 @@ class WelcomeWizard(FrostedFramelessDialog):
         ]
         for page in self._pages:
             self._stack.addWidget(page)
+        # 六个页面都是一次性建完、切换只换可见性，建完后统一扫一遍即可覆盖
+        # 页面里的 fluent_lite 控件（自己手绘的控件仍各自负责自己的基准值）。
+        configure_dialog_controls(self._stack)
         self._refresh_step_labels()
 
     def _refresh_theme_scope(self):
@@ -494,7 +509,10 @@ class WelcomeWizard(FrostedFramelessDialog):
             if callable(apply_theme):
                 apply_theme(tokens)
             else:
-                widget.update()
+                # QAbstractItemView (e.g. a combo box's popup list) overloads
+                # update() with a QModelIndex overload that shadows QWidget's
+                # no-arg one; call the base implementation explicitly.
+                QWidget.update(widget)
 
     # ── 导航逻辑 ─────────────────────────────────────────
     def _go_to_page(self, index: int):
