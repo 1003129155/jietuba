@@ -45,6 +45,7 @@ class ActionTools:
 
         save_service = None
         save_kwargs = None
+        write_file_reference = True
 
         if self.config_manager and self.config_manager.get_screenshot_save_enabled():
             fmt = self.config_manager.get_screenshot_format()
@@ -54,11 +55,13 @@ class ActionTools:
                 prefix="",
                 image_format=fmt,
             )
+            write_file_reference = self.config_manager.get_clipboard_file_reference_enabled()
 
         deliver_image_async(
             image,
             save_service=save_service,
             save_kwargs=save_kwargs,
+            write_file_reference=write_file_reference,
         )
         if save_service is not None:
             log_debug(T("已完成复制到剪贴板，已提交异步保存任务"), "Action")

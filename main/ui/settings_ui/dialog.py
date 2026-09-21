@@ -753,6 +753,10 @@ class SettingsDialog(FrostedFramelessDialog):
             self.smart_animation_toggle.setChecked(defaults["smart_selection_animation"])
         if hasattr(self, 'save_toggle'):
             self.save_toggle.setChecked(defaults["screenshot_save_enabled"])
+        if hasattr(self, 'clipboard_file_reference_toggle'):
+            self.clipboard_file_reference_toggle.setChecked(
+                defaults["clipboard_file_reference_enabled"]
+            )
         if hasattr(self, 'save_path_lbl'):
             self.save_path_lbl.setText(defaults["screenshot_save_path"])
         if hasattr(self, 'screenshot_format_combo'):
@@ -939,6 +943,10 @@ class SettingsDialog(FrostedFramelessDialog):
         # 3. 截图保存
         if hasattr(self, 'save_toggle'):
             self.config_manager.set_screenshot_save_enabled(self.save_toggle.isChecked())
+        if hasattr(self, 'clipboard_file_reference_toggle'):
+            self.config_manager.set_clipboard_file_reference_enabled(
+                self.clipboard_file_reference_toggle.isChecked()
+            )
         if hasattr(self, 'save_path_lbl'):
             self.config_manager.set_screenshot_save_path(self.save_path_lbl.text())
         if hasattr(self, 'screenshot_format_combo'):
@@ -1222,7 +1230,7 @@ class SettingsDialog(FrostedFramelessDialog):
                       'cross_tool_selection_toggle',
                       'text_always_on_top_toggle',
                       'smart_animation_toggle',
-                      'save_toggle', 'ocr_enable_toggle',
+                      'save_toggle', 'clipboard_file_reference_toggle', 'ocr_enable_toggle',
                       'ocr_grayscale_toggle', 'ocr_upscale_toggle',
                       'split_sentences_toggle',
                       'preserve_formatting_toggle', 'log_toggle',
@@ -1410,6 +1418,10 @@ class SettingsDialog(FrostedFramelessDialog):
 
         if hasattr(self, 'save_toggle'):
             self.save_toggle.setChecked(self.config_manager.get_screenshot_save_enabled())
+        if hasattr(self, 'clipboard_file_reference_toggle'):
+            self.clipboard_file_reference_toggle.setChecked(
+                self.config_manager.get_clipboard_file_reference_enabled()
+            )
         if hasattr(self, 'save_path_lbl'):
             self.save_path_lbl.setText(self.config_manager.get_screenshot_save_path())
         if hasattr(self, 'screenshot_format_combo'):

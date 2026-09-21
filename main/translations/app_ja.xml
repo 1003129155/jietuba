@@ -486,6 +486,14 @@ Replace it?</source>
         <translation>キャプチャ時にファイルとして自動保存します。</translation>
     </message>
     <message>
+        <source>Write File Path to Clipboard</source>
+        <translation>クリップボードにファイルパスを書き込む</translation>
+    </message>
+    <message>
+        <source>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Requires Auto-save Screenshots to be enabled.</source>
+        <translation>ファイルパスしか認識しないツール（一部のターミナルアプリなど）でもスクリーンショットを貼り付けられるようになります。「スクリーンショットの自動保存」を有効にする必要があります。</translation>
+    </message>
+    <message>
         <source>Save Folder:</source>
         <translation>保存フォルダ:</translation>
     </message>

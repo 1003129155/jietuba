@@ -484,6 +484,14 @@ Replace it?</source>
         <translation>截图时自动保存为文件。</translation>
     </message>
     <message>
+        <source>Write File Path to Clipboard</source>
+        <translation>写入文件路径到剪贴板</translation>
+    </message>
+    <message>
+        <source>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Requires Auto-save Screenshots to be enabled.</source>
+        <translation>让只认文件路径的工具（如部分终端程序）也能粘贴截图。需要开启"自动保存截图"。</translation>
+    </message>
+    <message>
         <source>Save Folder:</source>
         <translation>保存文件夹:</translation>
     </message>

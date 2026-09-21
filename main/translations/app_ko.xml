@@ -479,6 +479,14 @@ Replace it?</source>
         <translation>캡처 시 파일로 자동 저장합니다.</translation>
     </message>
     <message>
+        <source>Write File Path to Clipboard</source>
+        <translation>클립보드에 파일 경로 쓰기</translation>
+    </message>
+    <message>
+        <source>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Requires Auto-save Screenshots to be enabled.</source>
+        <translation>파일 경로만 인식하는 도구(일부 터미널 앱 등)에서도 스크린샷을 붙여넣을 수 있게 합니다. "스크린샷 자동 저장"을 켜야 적용됩니다.</translation>
+    </message>
+    <message>
         <source>Save Folder:</source>
         <translation>저장 폴더:</translation>
     </message>

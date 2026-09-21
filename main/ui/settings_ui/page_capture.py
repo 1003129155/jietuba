@@ -182,6 +182,23 @@ def create_capture_page(dialog) -> QWidget:
     fmt_card.hBoxLayout.addSpacing(16)
     grp_save.addSettingCard(fmt_card)
 
+    # 写入文件路径到剪贴板（CF_HDROP）。是否生效取决于自动保存截图是否
+    # 开启（没有落盘就没有路径可写），这个依赖在 ActionTools 里按需读取
+    # 判断，不在 UI 上做联动禁用——开关各自独立存储，互不覆盖，重新打开
+    # 自动保存时也不需要再点一次这个开关。
+    file_ref_card = SwitchSettingCard(
+        FluentIcon.COMMAND_PROMPT,
+        dialog.tr("Write File Path to Clipboard"),
+        dialog.tr(
+            "Lets tools that only recognize a file path (e.g. some terminal apps) "
+            "paste the screenshot too. Requires Auto-save Screenshots to be enabled."
+        ),
+        parent=grp_save,
+    )
+    file_ref_card.setChecked(dialog.config_manager.get_clipboard_file_reference_enabled())
+    dialog.clipboard_file_reference_toggle = file_ref_card
+    grp_save.addSettingCard(file_ref_card)
+
     layout.addWidget(grp_save)
 
     # ── OCR ───────────────────────────────────────────

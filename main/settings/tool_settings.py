@@ -216,6 +216,7 @@ class ToolSettingsManager(QObject):
         "screenshot_save_path": os.path.join(os.path.expanduser("~"), "Pictures", "jietuba_photos"),  # 默认保存路径
         "screenshot_format": "PNG",            # 保存格式: PNG / JPG / BMP / WEBP / PDF
         "screenshot_quality": 85,              # 有损格式质量 (1-100, PNG/BMP忽略)
+        "clipboard_file_reference_enabled": True,  # 复制时同时写入文件路径（CF_HDROP），需自动保存截图开启才生效
 
         # 截图圆角
         "screenshot_rounded_enabled": False,   # 圆角截图开关
@@ -906,6 +907,18 @@ class ToolSettingsManager(QObject):
     def set_screenshot_format(self, value: str):
         """设置截图保存格式 (PNG/JPG/BMP/WEBP/PDF)"""
         self.qsettings.setValue("app/screenshot_format", value.upper())
+
+    def get_clipboard_file_reference_enabled(self) -> bool:
+        """获取复制时是否同时写入文件路径（CF_HDROP），需自动保存截图开启才生效"""
+        return self.qsettings.value(
+            "app/clipboard_file_reference_enabled",
+            self.APP_DEFAULT_SETTINGS["clipboard_file_reference_enabled"],
+            type=bool,
+        )
+
+    def set_clipboard_file_reference_enabled(self, value: bool):
+        """设置复制时是否同时写入文件路径（CF_HDROP）"""
+        self.qsettings.setValue("app/clipboard_file_reference_enabled", value)
 
     def get_screenshot_quality(self) -> int:
         """获取截图保存质量 (1-100, PNG/BMP时忽略)"""

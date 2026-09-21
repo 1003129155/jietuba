@@ -480,6 +480,14 @@ Replace it?</translation>
         <translation>Automatically saves as file when capturing.</translation>
     </message>
     <message>
+        <source>Write File Path to Clipboard</source>
+        <translation>Write File Path to Clipboard</translation>
+    </message>
+    <message>
+        <source>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Requires Auto-save Screenshots to be enabled.</source>
+        <translation>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Requires Auto-save Screenshots to be enabled.</translation>
+    </message>
+    <message>
         <source>Save Folder:</source>
         <translation>Save Folder:</translation>
     </message>

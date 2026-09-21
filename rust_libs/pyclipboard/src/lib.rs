@@ -845,13 +845,13 @@ impl PyClipboardManager {
                     // ── 第三步：构造主记录 ────────────────────────────────────
                     let mut main_item: PyClipboardItem;
 
+                    // 图片优先于文件路径判断：剪贴板带图片数据时，无论是否同时
+                    // 带 CF_HDROP（例如截图工具为兼容只认文件路径的粘贴目标而
+                    // 附带的文件引用，或看图软件复制文件时附带的预览位图），
+                    // 内容本质上还是图片，应按图片展示缩略图。
                     if let Some(text) = text_val {
                         main_item = PyClipboardItem::new(0, text, "text".to_string());
                         main_item.html_content = html_content;
-                        main_item.source_app = source_app;
-                    } else if let Some(files) = files_val {
-                        let content = serde_json::json!({ "files": files }).to_string();
-                        main_item = PyClipboardItem::new(0, content, "file".to_string());
                         main_item.source_app = source_app;
                     } else if image_val.is_some() {
                         // 单张图片：落盘 PNG，生成缩略图
@@ -890,6 +890,10 @@ impl PyClipboardManager {
                         );
                         main_item.image_id = Some(image_id);
                         main_item.thumbnail = thumbnail;
+                        main_item.source_app = source_app;
+                    } else if let Some(files) = files_val {
+                        let content = serde_json::json!({ "files": files }).to_string();
+                        main_item = PyClipboardItem::new(0, content, "file".to_string());
                         main_item.source_app = source_app;
                     } else {
                         // raw_image_fallback：多图/EMF 等高层 API 无法解析的图片内容

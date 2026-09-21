@@ -65,13 +65,18 @@ class SaveService:
         suffix: str = "",
         image_format: str = "PNG",
         pdf_dpi: int = DEFAULT_PDF_DPI,
+        target_path: Optional[str] = None,
     ) -> tuple[bool, Optional[str]]:
-        """Save a QImage synchronously and return the result path."""
+        """Save a QImage synchronously and return the result path.
+
+        target_path 由调用方通过 reserve_save_path 提前占用时传入，
+        跳过重新计算/占用文件名。
+        """
         if image is None or image.isNull():
             log_warning("QImage is null, skip saving", "Save")
             return False, None
 
-        target_path = self._compose_path(directory, prefix, suffix, image_format)
+        target_path = target_path or self._compose_path(directory, prefix, suffix, image_format)
         success = self.save_qimage_to_path(
             image,
             target_path,
@@ -79,6 +84,21 @@ class SaveService:
             pdf_dpi=pdf_dpi,
         )
         return success, target_path
+
+    def reserve_save_path(
+        self,
+        *,
+        directory: Optional[str] = None,
+        prefix: str = "截图",
+        suffix: str = "",
+        image_format: str = "PNG",
+    ) -> str:
+        """提前占用一个保存路径（只创建空文件，不编码/写入像素）。
+
+        用于需要在图像真正落盘前就拿到确定路径的场景，例如把文件路径
+        和位图一起写入剪切板。
+        """
+        return self._compose_path(directory, prefix, suffix, image_format)
 
     def save_qimage_to_path(
         self,

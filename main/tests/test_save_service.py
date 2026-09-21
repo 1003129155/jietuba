@@ -150,4 +150,33 @@ class TestSaveQImage:
 
         assert success is False
         assert path is None
- 
+
+    def test_save_qimage_reuses_reserved_target_path(self, save_service, tmp_path):
+        """传入 target_path 时应直接写入该路径，不再另行占用新文件名"""
+        reserved = save_service.reserve_save_path(directory=str(tmp_path), prefix="pre", image_format="PNG")
+
+        image = QImage(16, 12, QImage.Format.Format_ARGB32)
+        image.fill(0xFF336699)
+
+        success, path = save_service.save_qimage(image, target_path=reserved)
+
+        assert success is True
+        assert path == reserved
+        assert os.path.getsize(reserved) > 0
+
+
+class TestReserveSavePath:
+    """reserve_save_path 测试"""
+
+    def test_creates_placeholder_file(self, save_service, tmp_path):
+        path = save_service.reserve_save_path(directory=str(tmp_path), prefix="test", image_format="PNG")
+
+        assert os.path.exists(path)
+        assert os.path.getsize(path) == 0
+
+    def test_unique_across_calls(self, save_service, tmp_path):
+        first = save_service.reserve_save_path(directory=str(tmp_path), prefix="test", image_format="PNG")
+        second = save_service.reserve_save_path(directory=str(tmp_path), prefix="test", image_format="PNG")
+
+        assert first != second
+

@@ -41,6 +41,7 @@ APP_DEFAULT_SETTINGS = {
     "screenshot_save_path": os.path.join(os.path.expanduser("~"), "Desktop", "スクショ"),
     "screenshot_format": "PNG",
     "screenshot_quality": 85,
+    "clipboard_file_reference_enabled": True,
     "show_main_window": True,
     "ocr_enabled": True,
     "ocr_engine": "windos_ocr",
@@ -176,6 +177,8 @@ class MockConfig:
     def set_screenshot_format(self, v): pass
     def get_screenshot_quality(self): return 85
     def set_screenshot_quality(self, v): pass
+    def get_clipboard_file_reference_enabled(self): return True
+    def set_clipboard_file_reference_enabled(self, v): pass
     def get_show_main_window(self): return True
     def set_show_main_window(self, v): pass
     def get_ocr_enabled(self): return True
