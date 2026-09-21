@@ -21,6 +21,12 @@ from PySide6.QtCore import QSettings, Signal, QObject
 from PySide6.QtGui import QColor
 
 
+# 智能选区的三档，顺序就是设置页下拉框的顺序。off 是总开关关掉，不作为
+# smart_selection_mode 的取值落盘，所以 STORED_… 从第二项起。
+SMART_SELECTION_MODES = ("off", "window", "element")
+STORED_SMART_SELECTION_MODES = SMART_SELECTION_MODES[1:]
+
+
 ANNOTATION_TOOL_SHORTCUTS = (
     ("inapp_tool_cursor", "cursor", "Select / Cursor", "s"),
     ("inapp_tool_pen", "pen", "Pen", "p"),
@@ -199,8 +205,10 @@ class ToolSettingsManager(QObject):
         "screenshot_toolbar_layout": "",      # 截图工具栏按钮排布（JSON，空 = 默认排布，见 ui/toolbar_layout.py）
 
         # 智能选择
-        "smart_selection": True,              # 智能选区（窗口/控件识别）
-        "smart_selection_mode": "element",   # window / element；总开关独立保留
+        "smart_selection": True,              # 智能选区总开关
+        # 默认只到窗口：控件检测要把整棵无障碍树扫回来，耗时和稳定性都由目标
+        # 程序的提供方决定，不该是所有人默认承担的。
+        "smart_selection_mode": "window",     # window / element，见 SMART_SELECTION_MODES
         "smart_selection_animation": False,   # 换窗口时补间而不是瞬间跳变
 
         # 截图保存
@@ -265,6 +273,9 @@ class ToolSettingsManager(QObject):
         # 选区手柄显示：all=八个 / corners=四角 / none=不显示。
         # 只管画不画，八个方向照样能拖动调整选区，见 canvas/items/selection_item.py
         "selection_handle_style": "all",
+        # 选区手柄大小：small/medium/large，同时决定圆点直径和外圈描边宽度，
+        # 档位见 core/theme.ThemeManager.HANDLE_SIZE_OPTIONS
+        "selection_handle_size": "small",
         "mask_color_r": 0,                     # 遮罩色 R（0-255）
         "mask_color_g": 0,                     # 遮罩色 G（0-255）
         "mask_color_b": 0,                     # 遮罩色 B（0-255）
@@ -728,19 +739,20 @@ class ToolSettingsManager(QObject):
         """设置鼠标微移模式"""
         self.qsettings.setValue("inapp/inapp_cursor_move_mode", value)
 
-    def get_smart_selection_mode(self, *, include_disabled: bool = False) -> str:
-        """返回生效模式；设置页可在总开关关闭时读取上次的检测方式。"""
-        if not include_disabled and not self.get_smart_selection():
+    def get_smart_selection_mode(self) -> str:
+        """返回生效的检测方式：off / window / element。"""
+        if not self.get_smart_selection():
             return "off"
         mode = self.qsettings.value(
             "app/smart_selection_mode", self.APP_DEFAULT_SETTINGS["smart_selection_mode"], type=str
         ).lower()
-        return mode if mode in {"window", "element"} else self.APP_DEFAULT_SETTINGS["smart_selection_mode"]
+        default = self.APP_DEFAULT_SETTINGS["smart_selection_mode"]
+        return mode if mode in STORED_SMART_SELECTION_MODES else default
 
     def set_smart_selection_mode(self, mode: str):
-        """设置智能选区模式。"""
+        """设置智能选区模式。off 不写 mode，关掉再打开还是原来的粒度。"""
         mode = str(mode or "off").lower()
-        if mode not in {"off", "window", "element"}:
+        if mode not in SMART_SELECTION_MODES:
             mode = self.APP_DEFAULT_SETTINGS["smart_selection_mode"]
         if mode != "off":
             self.qsettings.setValue("app/smart_selection_mode", mode)

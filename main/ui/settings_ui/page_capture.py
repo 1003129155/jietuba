@@ -12,6 +12,7 @@ from ui.fluent_lite import (
     FluentIcon, ComboBox, CaptionLabel,
     PushButton,
 )
+from settings.tool_settings import SMART_SELECTION_MODES
 from .components import SettingCardGroup, WhiteCard, apply_theme_text_style
 
 
@@ -77,20 +78,38 @@ def create_capture_page(dialog) -> QWidget:
     # ── 智能选区 ──────────────────────────────────────
     grp_smart = SettingCardGroup(dialog.tr("Smart Selection"), view)
 
-    smart_card = SwitchSettingCard(
+    # 三档做成一个下拉框而不是"总开关 + 下钻子开关"：配置本来就只有
+    # off/window/element 三个值，拆成两个开关会多出"总开关关着、下钻开着"
+    # 这个非法组合，只能再用 setEnabled 联动去遮。
+    mode_card = FSettingCard(
         FluentIcon.CAMERA,
-        dialog.tr("Enable Smart Selection"),
-        dialog.tr("Automatically recognizes UI elements at mouse cursor position."),
+        dialog.tr("Detection Mode"),
+        dialog.tr(
+            "Snap the selection to the window or control under the cursor. "
+            "Control detection reads the accessibility tree and takes longer on "
+            "large windows."
+        ),
         parent=grp_smart,
     )
-    smart_card.setChecked(dialog.config_manager.get_smart_selection())
-    dialog.smart_toggle = smart_card
-    grp_smart.addSettingCard(smart_card)
+    dialog.smart_mode_combo = ComboBox(mode_card)
+    for label, mode in ((dialog.tr("Off"), "off"),
+                        (dialog.tr("Window Only"), "window"),
+                        (dialog.tr("Detect Controls"), "element")):
+        dialog.smart_mode_combo.addItem(label, userData=mode)
+    dialog.smart_mode_combo.setFixedWidth(dialog_scaled(130))
+    dialog.smart_mode_combo.setCurrentIndex(
+        SMART_SELECTION_MODES.index(dialog.config_manager.get_smart_selection_mode())
+    )
+    mode_card.hBoxLayout.addWidget(
+        dialog.smart_mode_combo, 0, Qt.AlignmentFlag.AlignRight
+    )
+    mode_card.hBoxLayout.addSpacing(16)
+    grp_smart.addSettingCard(mode_card)
 
     smart_anim_card = SwitchSettingCard(
         FluentIcon.SYNC,
-        dialog.tr("Window Switch Animation"),
-        dialog.tr("Slide the selection when it moves from one window to another."),
+        dialog.tr("Selection Switch Animation"),
+        dialog.tr("Slide the selection when it moves from one window or control to another."),
         parent=grp_smart,
     )
     smart_anim_card.setChecked(dialog.config_manager.get_smart_selection_animation())

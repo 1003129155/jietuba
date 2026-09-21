@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from PySide6.QtCore import QSettings, QTranslator
 
-from settings.tool_settings import ToolSettingsManager
+from settings.tool_settings import SMART_SELECTION_MODES, ToolSettingsManager
 from ui.settings_ui.dialog import SettingsDialog
 from ui.settings_ui.page_capture import create_capture_page
 
@@ -346,6 +346,98 @@ def test_capture_page_reads_smart_selection_animation_toggle(qapp, tmp_path, ena
 
 def test_smart_selection_animation_defaults_off(tmp_path):
     assert _manager(tmp_path).get_smart_selection_animation() is False
+
+
+def test_detection_mode_preserves_legacy_off_and_remembers_element_preference(tmp_path):
+    manager = _manager(tmp_path)
+    manager.qsettings.setValue("app/smart_selection", False)
+    assert manager.get_smart_selection_mode() == "off"
+    manager.set_smart_selection_mode("element")
+    manager.set_smart_selection_mode("off")
+    manager.qsettings.sync()
+    reopened = _manager(tmp_path)
+    assert reopened.get_smart_selection_mode() == "off"
+    # 选回"不检测"不抹掉粒度偏好：再打开还是控件级，不用重新翻设置。
+    reopened.set_smart_selection(True)
+    assert reopened.get_smart_selection_mode() == "element"
+    reopened.reset_app_settings()
+    assert reopened.get_smart_selection_mode() == "window"
+
+
+@pytest.mark.parametrize("language", ["en", "ja", "ko", "zh"])
+def test_smart_selection_card_texts_are_translated_in_every_language(qapp, tmp_path, language):
+    """文案取自页面上真正显示的控件，改了标题或描述而漏翻译时这里会红。
+
+    按 source 硬编码的对照表拦不住改文案：旧 source 还留在翻译文件里，
+    表照样对得上，界面上漏出来的却是英文原文。
+    """
+    translations = Path(__file__).parents[1] / "translations"
+    translator = QTranslator()
+    assert translator.load(str(translations / f"app_{language}.qm"))
+
+    dialog = SimpleNamespace(config_manager=_manager(tmp_path), tr=lambda text: text,
+                             _change_save_dir=lambda: None, _open_save_dir=lambda: None)
+    page = create_capture_page(dialog)
+    try:
+        combo = dialog.smart_mode_combo
+        sources = [label.text()
+                   for card in (combo.parent(), dialog.smart_animation_toggle)
+                   for label in (card.titleLabel, card.contentLabel)]
+        sources += [combo.itemText(i) for i in range(combo.count())]
+        assert len(sources) == 7 and all(sources)
+        for source in sources:
+            assert translator.translate("SettingsDialog", source), (language, source)
+    finally:
+        page.deleteLater()
+
+
+@pytest.mark.parametrize("mode", ["window", "element", "off"])
+def test_capture_page_loads_detection_mode(qapp, tmp_path, mode):
+    manager = _manager(tmp_path)
+    manager.set_smart_selection_mode(mode)
+    dialog = SimpleNamespace(config_manager=manager, tr=lambda text: text,
+                             _change_save_dir=lambda: None, _open_save_dir=lambda: None)
+    page = create_capture_page(dialog)
+    try:
+        combo = dialog.smart_mode_combo
+        assert combo.currentData() == mode
+        # 三档是全部合法状态，没有"总开关关着还能选下钻"这种组合要遮。
+        assert [combo.itemData(i) for i in range(combo.count())] == list(SMART_SELECTION_MODES)
+    finally:
+        page.deleteLater()
+
+
+def test_detection_mode_defaults_to_window_only(tmp_path):
+    """默认只到窗口：控件检测的代价由提供方决定，不该是默认承担的；
+    而总开关维持开启，老用户升级后不会莫名其妙丢掉智能选区。"""
+    assert _manager(tmp_path).get_smart_selection_mode() == "window"
+
+
+def test_detection_mode_changes_are_saved_and_reset_in_settings_dialog(monkeypatch, qapp, tmp_path):
+    manager = _manager(tmp_path)
+    manager.set_log_dir(str(tmp_path))
+    monkeypatch.setattr("ui.settings_ui.dialog.log_info", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr("core.shortcut_manager.HotkeySystem.check_hotkey_availability",
+                        lambda _self, _hotkey: True)
+    dialog = SettingsDialog(manager)
+    try:
+        for attr in ("log_toggle", "autostart_toggle", "language_combo", "_ui_theme_combo",
+                     "_appearance_theme_color", "_appearance_mask_color", "_inapp_edits"):
+            if hasattr(dialog, attr):
+                delattr(dialog, attr)
+        dialog._settings_snapshot = dialog._snapshot_settings()
+        combo = dialog.smart_mode_combo
+        combo.setCurrentIndex(SMART_SELECTION_MODES.index("element"))
+        assert dialog._has_unsaved_changes()
+        dialog.accept()
+        assert manager.get_smart_selection_mode() == "element"
+        combo.setCurrentIndex(SMART_SELECTION_MODES.index("off"))
+        dialog.accept()
+        assert manager.get_smart_selection_mode() == "off"
+        dialog._reset_screenshot_settings_page()
+        assert combo.currentData() == "window"
+    finally:
+        dialog.deleteLater()
 
 
 def test_settings_dialog_saves_smart_selection_animation_toggle(

@@ -426,36 +426,32 @@ Replace it?</translation>
     
     <!-- Smart Selection Page -->
     <message>
-        <source>Enable Smart Selection</source>
-        <translation>Enable Smart Selection</translation>
+        <source>Detection Mode</source>
+        <translation>Detection Mode</translation>
     </message>
     <message>
-        <source>Automatically recognizes UI elements at mouse cursor position.</source>
-        <translation>Automatically recognizes UI elements at mouse cursor position.</translation>
+        <source>Snap the selection to the window or control under the cursor. Control detection reads the accessibility tree and takes longer on large windows.</source>
+        <translation>Snap the selection to the window or control under the cursor. Control detection reads the accessibility tree and takes longer on large windows.</translation>
     </message>
     <message>
-        <source>UI Detection Mode</source>
-        <translation>UI Detection Mode</translation>
-    </message>
-    <message>
-        <source>Choose whether Smart Selection detects individual controls or only application windows.</source>
-        <translation>Choose whether Smart Selection detects individual controls or only application windows.</translation>
-    </message>
-    <message>
-        <source>Detect Elements</source>
-        <translation>Detect Elements</translation>
+        <source>Off</source>
+        <translation>Off</translation>
     </message>
     <message>
         <source>Window Only</source>
         <translation>Window Only</translation>
     </message>
     <message>
-        <source>Window Switch Animation</source>
-        <translation>Window Switch Animation</translation>
+        <source>Detect Controls</source>
+        <translation>Detect Controls</translation>
     </message>
     <message>
-        <source>Slide the selection when it moves from one window to another.</source>
-        <translation>Slide the selection when it moves from one window to another.</translation>
+        <source>Selection Switch Animation</source>
+        <translation>Selection Switch Animation</translation>
+    </message>
+    <message>
+        <source>Slide the selection when it moves from one window or control to another.</source>
+        <translation>Slide the selection when it moves from one window or control to another.</translation>
     </message>
     <message>
         <source>💡 How to use:</source>
@@ -3315,6 +3311,14 @@ SOFTWARE.</translation></message>
         <translation>Hidden handles can still be dragged to resize.</translation>
     </message>
     <message>
+        <source>Selection Handle Size</source>
+        <translation>Selection Handle Size</translation>
+    </message>
+    <message>
+        <source>Size of the selection handles.</source>
+        <translation>Size of the selection handles.</translation>
+    </message>
+    <message>
         <source>8 handles</source>
         <translation>8 handles</translation>
     </message>
@@ -3325,6 +3329,18 @@ SOFTWARE.</translation></message>
     <message>
         <source>None</source>
         <translation>None</translation>
+    </message>
+    <message>
+        <source>Small</source>
+        <translation>Small</translation>
+    </message>
+    <message>
+        <source>Medium</source>
+        <translation>Medium</translation>
+    </message>
+    <message>
+        <source>Large</source>
+        <translation>Large</translation>
     </message>
     <message>
         <source>System</source>

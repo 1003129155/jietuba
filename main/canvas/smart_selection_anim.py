@@ -1,6 +1,6 @@
 ﻿# -*- coding: utf-8 -*-
 """
-智能选区在窗口之间跳转时的补间。
+智能选区在窗口、控件之间跳转时的补间。
 """
 
 from PySide6.QtCore import QEasingCurve, QElapsedTimer, QObject, QRectF, Qt, QTimer
@@ -9,8 +9,9 @@ from PySide6.QtCore import QEasingCurve, QElapsedTimer, QObject, QRectF, Qt, QTi
 class SmartSelectionAnimator(QObject):
     """把智能选区从当前矩形补间到目标矩形。
 
-    只服务于 hover 预览。hover 的选区是整块窗口矩形，换窗口时位置和尺寸同时大跳，
-    直接赋值在视觉上是闪现，眼睛要重新找边框在哪。
+    只服务于 hover 预览。hover 的选区是整块窗口矩形或其中的一个控件，跳转时位置
+    和尺寸同时变，直接赋值在视觉上是闪现，眼睛要重新找边框在哪。窗口和控件之间
+    不分路径：该不该补间由下面的 MIN_TRAVEL_PX 按位移判定。
 
     补间本身只改矩形，每帧的真实开销来自 selection_model.rectChanged 驱动的重绘——
     遮罩脏区是新旧选区的并集，跨屏幕的大跳意味着每帧接近全屏的半透明填充。
@@ -20,8 +21,10 @@ class SmartSelectionAnimator(QObject):
 
     DURATION_MS = 90
     FRAME_MS = 16
-    # 四角总位移小于这个值就直接到位：补间看不出来，白付一轮重绘
-    MIN_TRAVEL_PX = 24
+    # 四角总位移小于这个值就直接到位：补间看不出来，白付一轮重绘。量的是四个角
+    # 的位移之和，所以挡住的是同一块区域内的微调；相邻控件之间（一个 30px 宽的
+    # 按钮左右两边各挪 30，合计 60）仍然走补间。
+    MIN_TRAVEL_PX = 40
 
     def __init__(self, apply_rect, parent=None):
         super().__init__(parent)

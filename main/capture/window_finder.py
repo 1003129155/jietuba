@@ -9,7 +9,10 @@
 """
 
 import ctypes
+import ctypes.wintypes
 from typing import List, Tuple, Optional
+from PySide6.QtCore import QRect
+from PySide6.QtGui import QRegion
 from core import log_debug, log_warning, log_error
 from core.logger import log_exception, T
 
@@ -23,6 +26,15 @@ except ImportError:
 
 # DPI 感知已在 main_app.py 中设置，此处不再重复调用
 # 避免 "访问被拒绝" 警告（DPI 设置只能调用一次）
+
+class _MonitorInfo(ctypes.Structure):
+    _fields_ = [
+        ("cbSize", ctypes.wintypes.DWORD),
+        ("rcMonitor", ctypes.wintypes.RECT),
+        ("rcWork", ctypes.wintypes.RECT),
+        ("dwFlags", ctypes.wintypes.DWORD),
+    ]
+
 
 def get_window_rect_no_shadow(hwnd):
     """
@@ -207,6 +219,37 @@ class WindowFinder:
             log_error(T("枚举窗口失败: {e}", e=e), module="SmartSelection")
             self.windows = []
     
+    def windows_by_exposed_area(self) -> List[int]:
+        """按露在外面的面积从大到小排的窗口句柄，完全被遮住的不返回。
+
+        命中测试按 Z 序取第一个盖住鼠标的窗口，所以一个窗口只有没被上层盖住的
+        那部分才可能被选中：全屏窗口底下的东西，鼠标放哪都选不到。预热按这个
+        顺序取，既不会去碰选不中的窗口，也不会漏掉 Z 序靠后但露着一大块的。
+        """
+        covered = QRegion()
+        scored = []
+        for hwnd, rect, _title in self.windows:
+            shape = QRegion(QRect(rect[0], rect[1], rect[2] - rect[0], rect[3] - rect[1]))
+            exposed = shape.subtracted(covered)
+            area = sum(part.width() * part.height() for part in exposed)
+            if area > 0:
+                scored.append((area, hwnd))
+            covered = covered.united(shape)
+        scored.sort(key=lambda item: -item[0])
+        return [hwnd for _area, hwnd in scored]
+
+    def find_window_at_point_info(self, x: int, y: int) -> Optional[Tuple[int, List[int], str]]:
+        """返回鼠标下方已缓存窗口的句柄、矩形和标题。
+
+        截图浮层显示后，按屏幕坐标重新做命中测试会先碰到浮层自身；因此 UI
+        Automation 的元素检测必须复用截图开始前枚举到的底层窗口句柄。
+        """
+        for hwnd, rect, title in self.windows:
+            x1, y1, x2, y2 = rect
+            if x1 <= x <= x2 and y1 <= y <= y2:
+                return hwnd, rect, title
+        return None
+
     def find_window_at_point(self, x: int, y: int, fallback_rect: Optional[List[int]] = None) -> List[int]:
         """
         根据鼠标位置查找最顶层的包含窗口（基于 Z-order）
@@ -252,6 +295,27 @@ class WindowFinder:
             # 默认返回虚拟桌面尺寸（包含所有显示器）
             return self._get_virtual_desktop_rect()
     
+    def find_monitor_rect_at_point(self, x: int, y: int) -> List[int]:
+        """鼠标所在那块屏幕的矩形（物理像素）。
+
+        智能选区最外一级用它而不是虚拟桌面：多屏时"整屏"指的是鼠标底下那块屏，
+        另一块屏上的内容不该被一起框进来。
+        """
+        try:
+            user32 = ctypes.windll.user32
+            user32.MonitorFromPoint.argtypes = [ctypes.wintypes.POINT, ctypes.wintypes.DWORD]
+            user32.MonitorFromPoint.restype = ctypes.wintypes.HANDLE
+            info = _MonitorInfo()
+            info.cbSize = ctypes.sizeof(_MonitorInfo)
+            # MONITOR_DEFAULTTONEAREST = 2：坐标落在屏幕之间的缝里也要有答案
+            monitor = user32.MonitorFromPoint(ctypes.wintypes.POINT(x, y), 2)
+            if monitor and user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
+                rect = info.rcMonitor
+                return [rect.left, rect.top, rect.right, rect.bottom]
+        except Exception as e:
+            log_exception(e, T("获取鼠标所在显示器"))
+        return self._get_virtual_desktop_rect()
+
     def _get_virtual_desktop_rect(self) -> List[int]:
         """获取虚拟桌面尺寸（包含所有显示器）"""
         try:

@@ -12,7 +12,6 @@
 """
 import PyInstaller.__main__
 from pathlib import Path
-import sys
 import os
 
 # 路径配置
@@ -59,6 +58,8 @@ hidden_imports = [
     'win32api',
     'win32con',
     'win32gui',
+    'comtypes.client',
+    'comtypes.gen.UIAutomationClient',
     'pynput',
     'darkdetect',
 ]
@@ -143,6 +144,11 @@ excludes = [
 
 if __name__ == '__main__':
     os.chdir(REPO_DIR)
+
+    # Generate the UIA typelib wrapper before Analysis so the onefile build
+    # includes its dynamic imports without requiring a writable runtime cache.
+    import comtypes.client
+    comtypes.client.GetModule("UIAutomationCore.dll")
 
     print("=" * 60)
     print(f"开始打包 {EXE_NAME} (onefile 模式，PP-OCR 版本)")

@@ -137,6 +137,7 @@ DEFAULTS = {
     "inapp_confirm": "ctrl+c",
     "inapp_pin": "ctrl+d",
     "smart_selection": True,
+    "smart_selection_mode": "window",
     "screenshot_save_enabled": True,
     "screenshot_save_path": r"D:\shots",
     "screenshot_format": "PNG",
@@ -179,13 +180,13 @@ class TestSnapshotSettings:
     def test_each_widget_family_uses_its_own_getter(self):
         fake = SimpleNamespace(
             hotkey_input=_TextWidget("k"),
-            smart_toggle=_Toggle(True),
+            save_toggle=_Toggle(True),
             log_level_combo=_Combo(index=3),
             cooldown_spinbox=_Spin(0.25),
         )
         snap = SettingsDialog._snapshot_settings(fake)
         assert snap["hotkey_input"] == "k"
-        assert snap["smart_toggle"] is True
+        assert snap["save_toggle"] is True
         assert snap["log_level_combo"] == 3
         assert snap["cooldown_spinbox"] == 0.25
 
@@ -471,16 +472,23 @@ class TestResetScreenshotSettingsPage:
     def test_toggles_and_path_follow_the_defaults(self):
         fake = SimpleNamespace(
             config_manager=_config(),
-            smart_toggle=_Toggle(False),
             save_toggle=_Toggle(False),
             save_path_lbl=_TextWidget(),
             ocr_enable_toggle=_Toggle(False),
         )
         SettingsDialog._reset_screenshot_settings_page(fake)
-        assert fake.smart_toggle.set_checked == [True]
         assert fake.save_toggle.set_checked == [True]
         assert fake.save_path_lbl.set_texts == [r"D:\shots"]
         assert fake.ocr_enable_toggle.set_checked == [True]
+
+    def test_detection_mode_combo_follows_the_defaults(self):
+        """默认里总开关和粒度是两项，下拉框要把它们合成一个档位。"""
+        for enabled, expected in ((True, 1), (False, 0)):
+            defaults = dict(DEFAULTS, smart_selection=enabled, smart_selection_mode="window")
+            combo = _Combo(index=2)
+            fake = SimpleNamespace(config_manager=_config(defaults), smart_mode_combo=combo)
+            SettingsDialog._reset_screenshot_settings_page(fake)
+            assert combo.set_indexes == [expected], enabled
 
     def test_unknown_ocr_engine_leaves_the_combo_alone(self):
         combo = _Combo(data_map={})

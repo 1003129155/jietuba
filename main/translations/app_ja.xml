@@ -432,36 +432,32 @@ Replace it?</source>
     
     <!-- Smart Selection Page -->
     <message>
-        <source>Enable Smart Selection</source>
-        <translation>スマート選択を有効にする</translation>
+        <source>Detection Mode</source>
+        <translation>検出方式</translation>
     </message>
     <message>
-        <source>Automatically recognizes UI elements at mouse cursor position.</source>
-        <translation>マウスカーソル位置のウィンドウを自動認識します。</translation>
+        <source>Snap the selection to the window or control under the cursor. Control detection reads the accessibility tree and takes longer on large windows.</source>
+        <translation>カーソル下のウィンドウやコントロールに選択範囲を自動で合わせます。コントロール検出はアクセシビリティツリーを読むため、大きなウィンドウほど時間がかかります。</translation>
     </message>
     <message>
-        <source>UI Detection Mode</source>
-        <translation>UI 検出モード</translation>
-    </message>
-    <message>
-        <source>Choose whether Smart Selection detects individual controls or only application windows.</source>
-        <translation>スマート選択で個別のコントロールを検出するか、アプリケーションウィンドウのみを検出するかを選択します。</translation>
-    </message>
-    <message>
-        <source>Detect Elements</source>
-        <translation>要素を検出</translation>
+        <source>Off</source>
+        <translation>検出しない</translation>
     </message>
     <message>
         <source>Window Only</source>
         <translation>ウィンドウのみ</translation>
     </message>
     <message>
-        <source>Window Switch Animation</source>
-        <translation>ウィンドウ切り替えアニメーション</translation>
+        <source>Detect Controls</source>
+        <translation>コントロールを検出</translation>
     </message>
     <message>
-        <source>Slide the selection when it moves from one window to another.</source>
-        <translation>選択範囲がウィンドウ間を移動するときにスライドします。</translation>
+        <source>Selection Switch Animation</source>
+        <translation>選択範囲の切り替えアニメーション</translation>
+    </message>
+    <message>
+        <source>Slide the selection when it moves from one window or control to another.</source>
+        <translation>選択範囲がウィンドウやコントロール間を移動するときにスライドします。</translation>
     </message>
     <message>
         <source>💡 How to use:</source>
@@ -3447,6 +3443,14 @@ SOFTWARE.</translation></message>
         <translation>非表示にしてもドラッグでサイズを変更できます。</translation>
     </message>
     <message>
+        <source>Selection Handle Size</source>
+        <translation>選択ハンドルの大きさ</translation>
+    </message>
+    <message>
+        <source>Size of the selection handles.</source>
+        <translation>選択ハンドルの大きさ。</translation>
+    </message>
+    <message>
         <source>8 handles</source>
         <translation>ハンドル 8 個</translation>
     </message>
@@ -3457,6 +3461,18 @@ SOFTWARE.</translation></message>
     <message>
         <source>None</source>
         <translation>表示しない</translation>
+    </message>
+    <message>
+        <source>Small</source>
+        <translation>小</translation>
+    </message>
+    <message>
+        <source>Medium</source>
+        <translation>中</translation>
+    </message>
+    <message>
+        <source>Large</source>
+        <translation>大</translation>
     </message>
     <message>
         <source>System</source>

@@ -19,6 +19,7 @@ from ui.selection_overlay import SelectionOverlayWidget
 from ui.selection_info import SelectionInfoPanel, SelectionInfoController
 from tools.action import ActionTools
 from settings import get_tool_settings_manager
+from settings.tool_settings import SMART_SELECTION_MODES
 from core.logger import log_debug, log_info, log_exception, T
 from core import safe_event
 from core.shortcut_manager import ShortcutManager, ShortcutHandler
@@ -386,13 +387,13 @@ class ScreenshotWindow(QWidget):
         )
 
     def _get_configured_smart_selection_mode(self) -> str:
-        """读取新模式设置，并让旧配置对象继续使用元素优先的默认行为。"""
+        """读取检测方式；没有这项设置的旧配置对象退回窗口级，和默认值一致。"""
         getter = getattr(self.config_manager, "get_smart_selection_mode", None)
         if callable(getter):
             mode = str(getter() or "").lower()
-            if mode in {"off", "window", "element"}:
+            if mode in SMART_SELECTION_MODES:
                 return mode
-        return "element" if self.config_manager.get_smart_selection() else "off"
+        return "window" if self.config_manager.get_smart_selection() else "off"
 
     # ------------------------------------------------------------------
     # 窗口复用：准备新的截图会话

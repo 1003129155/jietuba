@@ -21,7 +21,7 @@ APP_DEFAULT_SETTINGS = {
     "double_click_copy_close": True,
     "cross_tool_selection": True,
     "text_always_on_top": True,
-    "smart_selection": True,
+    "smart_selection": False,
     "smart_selection_mode": "element",
     "smart_selection_animation": False,
     "log_enabled": True,
@@ -148,7 +148,7 @@ class MockConfig:
     def set_text_always_on_top_enabled(self, v): pass
     def get_smart_selection(self): return False
     def set_smart_selection(self, v): pass
-    def get_smart_selection_mode(self, *, include_disabled=False): return "element" if include_disabled else "off"
+    def get_smart_selection_mode(self): return "window"
     def set_smart_selection_mode(self, v): pass
     def get_smart_selection_animation(self): return False
     def set_smart_selection_animation(self, v): pass

@@ -31,6 +31,7 @@ from core import log_info, safe_event
 from core.logger import log_exception, T
 from core.constants import CSS_FONT_FAMILY, DEFAULT_FONT_FAMILY
 from core.ui_scale import configure_dialog_control, configure_dialog_controls, dialog_scaled
+from settings.tool_settings import SMART_SELECTION_MODES
 
 # 页面创建函数
 from .page_hotkey import create_hotkey_page, validate_global_hotkey_edits
@@ -744,14 +745,10 @@ class SettingsDialog(FrostedFramelessDialog):
             self.text_always_on_top_toggle.setChecked(
                 defaults["text_always_on_top"]
             )
-        if hasattr(self, 'smart_toggle'):
-            self.smart_toggle.setChecked(defaults["smart_selection"])
-        if hasattr(self, 'smart_selection_mode_combo'):
-            index = self.smart_selection_mode_combo.findData(
-                defaults["smart_selection_mode"]
-            )
-            if index >= 0:
-                self.smart_selection_mode_combo.setCurrentIndex(index)
+        if hasattr(self, 'smart_mode_combo'):
+            self.smart_mode_combo.setCurrentIndex(SMART_SELECTION_MODES.index(
+                defaults["smart_selection_mode"] if defaults["smart_selection"] else "off"
+            ))
         if hasattr(self, 'smart_animation_toggle'):
             self.smart_animation_toggle.setChecked(defaults["smart_selection_animation"])
         if hasattr(self, 'save_toggle'):
@@ -888,11 +885,10 @@ class SettingsDialog(FrostedFramelessDialog):
             self.config_manager.set_text_always_on_top_enabled(
                 self.text_always_on_top_toggle.isChecked()
             )
-        if hasattr(self, 'smart_toggle'):
-            mode_combo = getattr(self, 'smart_selection_mode_combo', None)
-            if mode_combo is not None:
-                self.config_manager.set_smart_selection_mode(mode_combo.currentData())
-            self.config_manager.set_smart_selection(self.smart_toggle.isChecked())
+        if hasattr(self, 'smart_mode_combo'):
+            self.config_manager.set_smart_selection_mode(
+                self.smart_mode_combo.currentData()
+            )
         if hasattr(self, 'smart_animation_toggle'):
             self.config_manager.set_smart_selection_animation(
                 self.smart_animation_toggle.isChecked()
@@ -1225,7 +1221,7 @@ class SettingsDialog(FrostedFramelessDialog):
         for attr in ('double_click_copy_close_toggle',
                       'cross_tool_selection_toggle',
                       'text_always_on_top_toggle',
-                      'smart_toggle', 'smart_animation_toggle',
+                      'smart_animation_toggle',
                       'save_toggle', 'ocr_enable_toggle',
                       'ocr_grayscale_toggle', 'ocr_upscale_toggle',
                       'split_sentences_toggle',
@@ -1240,14 +1236,14 @@ class SettingsDialog(FrostedFramelessDialog):
             if w is not None:
                 snap[attr] = w.isChecked()
         # 下拉框类
-        for attr in ('screenshot_format_combo', 'smart_selection_mode_combo', 'ocr_engine_combo',
+        for attr in ('screenshot_format_combo', 'ocr_engine_combo',
                       'translation_provider_combo', 'translation_target_combo',
                       'log_level_combo',
                       'language_combo', 'engine_combo', 'cursor_move_combo',
                       'magnifier_color_format_combo', 'log_retention_combo',
                       '_ui_theme_combo', '_ui_scale_combo', '_dialog_scale_combo',
                       '_selection_border_combo', '_selection_handle_combo',
-                      '_selection_handle_size_combo'):
+                      '_selection_handle_size_combo', 'smart_mode_combo'):
             w = getattr(self, attr, None)
             if w is not None:
                 snap[attr] = w.currentIndex()
@@ -1387,17 +1383,10 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'ignore_top_pixels_spinbox'):
             self.ignore_top_pixels_spinbox.setValue(self.config_manager.get_long_stitch_ignore_top_pixels())
 
-        if hasattr(self, 'smart_toggle'):
-            self.smart_toggle.setChecked(self.config_manager.get_smart_selection())
-
-        if hasattr(self, 'smart_selection_mode_combo'):
-            mode = self.config_manager.get_smart_selection_mode(include_disabled=True)
-            index = self.smart_selection_mode_combo.findData(mode)
-            if index >= 0:
-                self.smart_selection_mode_combo.setCurrentIndex(index)
-            self.smart_selection_mode_combo.setEnabled(
-                self.config_manager.get_smart_selection()
-            )
+        if hasattr(self, 'smart_mode_combo'):
+            self.smart_mode_combo.setCurrentIndex(SMART_SELECTION_MODES.index(
+                self.config_manager.get_smart_selection_mode()
+            ))
 
         if hasattr(self, 'smart_animation_toggle'):
             self.smart_animation_toggle.setChecked(

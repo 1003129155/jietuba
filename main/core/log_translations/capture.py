@@ -8,9 +8,12 @@ TRANSLATIONS: dict[str, str] = {
     "找到 {count} 个有效窗口": "Found {count} valid windows",
     "检测到的窗口列表（前5个）:": "Detected window list (first 5):",
     "{index}. 标题: {title}, 大小: {width}x{height}, 位置: ({x}, {y})": "{index}. Title: {title}, Size: {width}x{height}, Position: ({x}, {y})",
+    "控件扫描耗时 {elapsed} ms，{count} 个元素{error}":
+        "Control scan took {elapsed} ms, {count} elements{error}",
     "枚举窗口失败: {e}": "Failed to enumerate windows: {e}",
     "鼠标({x}, {y})处找到窗口: '{title}', 大小: {width}x{height}, Z-order: {idx}": "Found window at cursor ({x}, {y}): '{title}', size: {width}x{height}, Z-order: {idx}",
     "在鼠标位置({x}, {y})未找到有效窗口，返回备选矩形": "No valid window found at cursor position ({x}, {y}), returning fallback rect",
+    "获取鼠标所在显示器": "Failed to get the monitor under the cursor",
     "获取虚拟屏幕尺寸": "Failed to get virtual screen size",
     "降级获取主显示器尺寸": "Falling back to primary monitor size",
     "查找窗口失败: {e}": "Failed to find window: {e}",
