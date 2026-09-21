@@ -303,8 +303,20 @@ Replace it?</source>
         <translation>선택 항목 삭제</translation>
     </message>
     <message>
+        <source>Restore Last Region</source>
+        <translation>이전 선택 영역 복원</translation>
+    </message>
+    <message>
         <source>Copy Pinned Image</source>
         <translation>고정 이미지 복사</translation>
+    </message>
+    <message>
+        <source>Copy All Text</source>
+        <translation>모든 텍스트 복사</translation>
+    </message>
+    <message>
+        <source>Reset Size</source>
+        <translation>크기 초기화</translation>
     </message>
     <message>
         <source>Toggle Thumbnail</source>
@@ -413,20 +425,32 @@ Replace it?</source>
     
     <!-- Smart Selection Page -->
     <message>
-        <source>Enable Smart Selection</source>
-        <translation>스마트 선택 사용</translation>
+        <source>Detection Mode</source>
+        <translation>감지 방식</translation>
     </message>
     <message>
-        <source>Automatically recognizes UI elements at mouse cursor position.</source>
-        <translation>마우스 커서 위치의 UI 요소를 자동으로 인식합니다.</translation>
+        <source>Snap the selection to the window or control under the cursor. Control detection reads the accessibility tree and takes longer on large windows.</source>
+        <translation>커서 아래의 창 또는 컨트롤에 선택 영역을 자동으로 맞춥니다. 컨트롤 감지는 접근성 트리를 읽으므로 창이 클수록 오래 걸립니다.</translation>
     </message>
     <message>
-        <source>Window Switch Animation</source>
-        <translation>창 전환 애니메이션</translation>
+        <source>Off</source>
+        <translation>감지 안 함</translation>
     </message>
     <message>
-        <source>Slide the selection when it moves from one window to another.</source>
-        <translation>선택 영역이 창 사이를 이동할 때 미끄러지듯 이동합니다.</translation>
+        <source>Window Only</source>
+        <translation>창만</translation>
+    </message>
+    <message>
+        <source>Detect Controls</source>
+        <translation>컨트롤 감지</translation>
+    </message>
+    <message>
+        <source>Selection Switch Animation</source>
+        <translation>선택 영역 전환 애니메이션</translation>
+    </message>
+    <message>
+        <source>Slide the selection when it moves from one window or control to another.</source>
+        <translation>선택 영역이 창이나 컨트롤 사이를 이동할 때 미끄러지듯 전환합니다.</translation>
     </message>
     <message>
         <source>💡 How to use:</source>
@@ -453,6 +477,14 @@ Replace it?</source>
     <message>
         <source>Automatically saves as file when capturing.</source>
         <translation>캡처 시 파일로 자동 저장합니다.</translation>
+    </message>
+    <message>
+        <source>Write File Path to Clipboard</source>
+        <translation>클립보드에 파일 경로 쓰기</translation>
+    </message>
+    <message>
+        <source>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Requires Auto-save Screenshots to be enabled.</source>
+        <translation>파일 경로만 인식하는 도구(일부 터미널 앱 등)에서도 스크린샷을 붙여넣을 수 있게 합니다. "스크린샷 자동 저장"을 켜야 적용됩니다.</translation>
     </message>
     <message>
         <source>Save Folder:</source>
@@ -1097,6 +1129,10 @@ Replace it?</source>
     <message>
         <source>No text was recognized</source>
         <translation>텍스트를 인식하지 못했습니다</translation>
+    </message>
+    <message>
+        <source>Text copied</source>
+        <translation>텍스트를 복사했습니다</translation>
     </message>
     <message>
         <source>OCR recognition failed: {error}</source>
@@ -3356,6 +3392,54 @@ SOFTWARE.</translation></message>
     <message>
         <source>Font and size of application windows.</source>
         <translation>애플리케이션 창의 글꼴과 크기입니다.</translation>
+    </message>
+    <message>
+        <source>Selection Border Width</source>
+        <translation>선택 영역 테두리 두께</translation>
+    </message>
+    <message>
+        <source>Thickness of the selection outline.</source>
+        <translation>선택 영역 테두리 선의 두께입니다.</translation>
+    </message>
+    <message>
+        <source>Selection Handles</source>
+        <translation>선택 핸들</translation>
+    </message>
+    <message>
+        <source>Hidden handles can still be dragged to resize.</source>
+        <translation>숨겨도 드래그하여 크기를 조절할 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>Selection Handle Size</source>
+        <translation>선택 핸들 크기</translation>
+    </message>
+    <message>
+        <source>Size of the selection handles.</source>
+        <translation>선택 핸들의 크기입니다.</translation>
+    </message>
+    <message>
+        <source>8 handles</source>
+        <translation>핸들 8개</translation>
+    </message>
+    <message>
+        <source>4 corners</source>
+        <translation>모서리 4개</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>표시 안 함</translation>
+    </message>
+    <message>
+        <source>Small</source>
+        <translation>작게</translation>
+    </message>
+    <message>
+        <source>Medium</source>
+        <translation>보통</translation>
+    </message>
+    <message>
+        <source>Large</source>
+        <translation>크게</translation>
     </message>
     <message>
         <source>System</source>

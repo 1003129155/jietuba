@@ -21,6 +21,11 @@ class ToolController:
         
         log_debug(T("初始化"), "ToolController")
     
+    @property
+    def current_tool_id(self) -> str:
+        """当前工具 id；没有工具激活时视为 "cursor"（未开启任何绘制功能）。"""
+        return self.current_tool.id if self.current_tool else "cursor"
+
     def add_tool_changed_callback(self, callback):
         """添加工具切换回调"""
         self.tool_changed_callbacks.append(callback)

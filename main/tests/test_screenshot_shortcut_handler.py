@@ -18,9 +18,12 @@ MagicMock 窗口驱动。
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from PySide6.QtCore import Qt
+import pytest
+from PySide6.QtCore import Qt, QRect, QRectF
 from PySide6.QtWidgets import QApplication
 
+from core import last_capture_region as region_module
+from core.last_capture_region import set_last_region
 from ui.screenshot_window import ScreenshotShortcutHandler
 
 NO_MOD = Qt.KeyboardModifier.NoModifier
@@ -38,6 +41,7 @@ BINDINGS = {
     "inapp_translate": (Qt.Key.Key_T, CTRL),
     "inapp_zoom_in": (Qt.Key.Key_Plus, NO_MOD),
     "inapp_zoom_out": (Qt.Key.Key_Minus, NO_MOD),
+    "inapp_restore_last_region": (Qt.Key.Key_L, NO_MOD),
 }
 
 
@@ -69,12 +73,17 @@ class _FakeKeyEvent:
 
 
 def _make_window(text_editing=False, confirmed=True, can_undo=True, can_redo=True,
-                 magnifier=None):
+                 magnifier=None, tool_id="cursor",
+                 virtual_geometry=(0, 0, 1920, 1080)):
     """
     一个"什么都能被观测"的假截图窗口。
 
     注意 MagicMock 的任意属性都是真值，所以凡是被 if 判断的开关都必须显式赋值，
     否则用例会在错误的分支上通过。
+
+    tool_id=None 模拟选区尚未确认、没有工具激活的状态；ToolController.current_tool_id
+    把这种状态也归一成 "cursor"（见 tools/controller.py），和 tool_id="cursor" 是
+    同一档语义（没有绘制工具在用），两者都应让"恢复上次选区"生效。
     """
     window = MagicMock()
     window._is_closing = False
@@ -84,6 +93,10 @@ def _make_window(text_editing=False, confirmed=True, can_undo=True, can_redo=Tru
     window.scene.undo_stack.canUndo.return_value = can_undo
     window.scene.undo_stack.canRedo.return_value = can_redo
     window.magnifier_overlay = magnifier
+    window.scene.tool_controller.current_tool_id = tool_id or "cursor"
+    window.virtual_x, window.virtual_y, window.virtual_width, window.virtual_height = (
+        virtual_geometry
+    )
     return window
 
 
@@ -251,6 +264,57 @@ class TestTranslate:
         window = _make_window(confirmed=False)
         assert _make_handler(window).handle_key(_FakeKeyEvent(Qt.Key.Key_T, CTRL)) is False
         window.toolbar.screenshot_translate_clicked.emit.assert_not_called()
+
+
+class TestRestoreLastRegion:
+    """按住恢复上次选区键（默认 L）时的分发逻辑，见 _restore_last_region。"""
+
+    @pytest.fixture(autouse=True)
+    def _reset_region(self):
+        region_module._last_region = None
+        yield
+        region_module._last_region = None
+
+    def test_restores_the_remembered_region_when_no_tool_is_active(self):
+        set_last_region(QRect(100, 200, 300, 150))
+        window = _make_window(confirmed=False, tool_id=None)
+        assert _make_handler(window).handle_key(_FakeKeyEvent(Qt.Key.Key_L)) is True
+        window.scene.selection_model.initialize_confirmed_rect.assert_called_once_with(
+            QRectF(100, 200, 300, 150)
+        )
+
+    def test_absolute_coordinates_are_translated_to_the_current_window_origin(self):
+        """记的是虚拟桌面绝对坐标，还原时要按本次会话的虚拟桌面原点换算回本地坐标。"""
+        set_last_region(QRect(2020, 300, 400, 200))
+        window = _make_window(tool_id="cursor", virtual_geometry=(1920, 0, 1920, 1080))
+        assert _make_handler(window).handle_key(_FakeKeyEvent(Qt.Key.Key_L)) is True
+        window.scene.selection_model.initialize_confirmed_rect.assert_called_once_with(
+            QRectF(100, 300, 400, 200)
+        )
+
+    def test_does_nothing_while_a_drawing_tool_is_active(self):
+        """已经选中绘制工具时不响应，避免覆盖正在进行的标注。"""
+        set_last_region(QRect(0, 0, 300, 200))
+        window = _make_window(tool_id="pen")
+        assert _make_handler(window).handle_key(_FakeKeyEvent(Qt.Key.Key_L)) is False
+        window.scene.selection_model.initialize_confirmed_rect.assert_not_called()
+
+    def test_does_nothing_when_nothing_has_been_remembered_yet(self):
+        window = _make_window(tool_id="cursor")
+        assert _make_handler(window).handle_key(_FakeKeyEvent(Qt.Key.Key_L)) is False
+        window.scene.selection_model.initialize_confirmed_rect.assert_not_called()
+
+    def test_does_nothing_when_the_remembered_region_no_longer_fits_the_virtual_desktop(self):
+        """典型场景：拔掉了显示器，上次选区落在当前虚拟桌面范围之外。"""
+        set_last_region(QRect(3000, 0, 300, 200))
+        window = _make_window(tool_id="cursor", virtual_geometry=(0, 0, 1920, 1080))
+        assert _make_handler(window).handle_key(_FakeKeyEvent(Qt.Key.Key_L)) is False
+        window.scene.selection_model.initialize_confirmed_rect.assert_not_called()
+
+    def test_missing_scene_does_not_raise(self):
+        window = _make_window(tool_id="cursor")
+        window.scene = None
+        assert _make_handler(window).handle_key(_FakeKeyEvent(Qt.Key.Key_L)) is False
 
 
 class TestTextEditingPassthrough:

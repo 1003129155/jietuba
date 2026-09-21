@@ -12,6 +12,7 @@ from ui.fluent_lite import (
     FluentIcon, ComboBox, CaptionLabel,
     PushButton,
 )
+from settings.tool_settings import SMART_SELECTION_MODES
 from .components import SettingCardGroup, WhiteCard, apply_theme_text_style
 
 
@@ -77,20 +78,38 @@ def create_capture_page(dialog) -> QWidget:
     # ── 智能选区 ──────────────────────────────────────
     grp_smart = SettingCardGroup(dialog.tr("Smart Selection"), view)
 
-    smart_card = SwitchSettingCard(
+    # 三档做成一个下拉框而不是"总开关 + 下钻子开关"：配置本来就只有
+    # off/window/element 三个值，拆成两个开关会多出"总开关关着、下钻开着"
+    # 这个非法组合，只能再用 setEnabled 联动去遮。
+    mode_card = FSettingCard(
         FluentIcon.CAMERA,
-        dialog.tr("Enable Smart Selection"),
-        dialog.tr("Automatically recognizes UI elements at mouse cursor position."),
+        dialog.tr("Detection Mode"),
+        dialog.tr(
+            "Snap the selection to the window or control under the cursor. "
+            "Control detection reads the accessibility tree and takes longer on "
+            "large windows."
+        ),
         parent=grp_smart,
     )
-    smart_card.setChecked(dialog.config_manager.get_smart_selection())
-    dialog.smart_toggle = smart_card
-    grp_smart.addSettingCard(smart_card)
+    dialog.smart_mode_combo = ComboBox(mode_card)
+    for label, mode in ((dialog.tr("Off"), "off"),
+                        (dialog.tr("Window Only"), "window"),
+                        (dialog.tr("Detect Controls"), "element")):
+        dialog.smart_mode_combo.addItem(label, userData=mode)
+    dialog.smart_mode_combo.setFixedWidth(dialog_scaled(130))
+    dialog.smart_mode_combo.setCurrentIndex(
+        SMART_SELECTION_MODES.index(dialog.config_manager.get_smart_selection_mode())
+    )
+    mode_card.hBoxLayout.addWidget(
+        dialog.smart_mode_combo, 0, Qt.AlignmentFlag.AlignRight
+    )
+    mode_card.hBoxLayout.addSpacing(16)
+    grp_smart.addSettingCard(mode_card)
 
     smart_anim_card = SwitchSettingCard(
         FluentIcon.SYNC,
-        dialog.tr("Window Switch Animation"),
-        dialog.tr("Slide the selection when it moves from one window to another."),
+        dialog.tr("Selection Switch Animation"),
+        dialog.tr("Slide the selection when it moves from one window or control to another."),
         parent=grp_smart,
     )
     smart_anim_card.setChecked(dialog.config_manager.get_smart_selection_animation())
@@ -162,6 +181,23 @@ def create_capture_page(dialog) -> QWidget:
     )
     fmt_card.hBoxLayout.addSpacing(16)
     grp_save.addSettingCard(fmt_card)
+
+    # 写入文件路径到剪贴板（CF_HDROP）。是否生效取决于自动保存截图是否
+    # 开启（没有落盘就没有路径可写），这个依赖在 ActionTools 里按需读取
+    # 判断，不在 UI 上做联动禁用——开关各自独立存储，互不覆盖，重新打开
+    # 自动保存时也不需要再点一次这个开关。
+    file_ref_card = SwitchSettingCard(
+        FluentIcon.COMMAND_PROMPT,
+        dialog.tr("Write File Path to Clipboard"),
+        dialog.tr(
+            "Lets tools that only recognize a file path (e.g. some terminal apps) "
+            "paste the screenshot too. Requires Auto-save Screenshots to be enabled."
+        ),
+        parent=grp_save,
+    )
+    file_ref_card.setChecked(dialog.config_manager.get_clipboard_file_reference_enabled())
+    dialog.clipboard_file_reference_toggle = file_ref_card
+    grp_save.addSettingCard(file_ref_card)
 
     layout.addWidget(grp_save)
 

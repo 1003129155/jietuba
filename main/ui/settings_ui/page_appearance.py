@@ -193,7 +193,7 @@ def _build_dialog_scale_card(dialog, grp: SettingCardGroup):
 # ================================================================
 
 def _build_screenshot_section(dialog, grp: SettingCardGroup):
-    """截图外观：主题色 + 遮罩色"""
+    """截图外观：主题色 + 遮罩色 + 选区边框与手柄"""
     from core.theme import get_theme
     theme = get_theme()
 
@@ -249,6 +249,88 @@ def _build_screenshot_section(dialog, grp: SettingCardGroup):
     )
     mask_card.hBoxLayout.addSpacing(16)
     grp.addSettingCard(mask_card)
+
+    _build_selection_border_card(dialog, grp)
+    _build_selection_handle_card(dialog, grp)
+    _build_selection_handle_size_card(dialog, grp)
+
+
+def _build_selection_border_card(dialog, grp: SettingCardGroup):
+    """选区边框笔宽。档位由主题管理器给出，设置页不自己列一遍。"""
+    from core.theme import ThemeManager, get_theme
+
+    card = FSettingCard(
+        FluentIcon.EDIT,
+        dialog.tr("Selection Border Width"),
+        dialog.tr("Thickness of the selection outline."),
+        parent=grp,
+    )
+    dialog._selection_border_combo = ComboBox(card)
+    dialog._selection_border_combo.setFixedWidth(dialog_scaled(_CTRL_W))
+    for width in ThemeManager.BORDER_WIDTH_OPTIONS:
+        dialog._selection_border_combo.addItem(f"{width}px", userData=width)
+    index = dialog._selection_border_combo.findData(get_theme().selection_border_width)
+    dialog._selection_border_combo.setCurrentIndex(max(0, index))
+    card.hBoxLayout.addWidget(
+        dialog._selection_border_combo, 0, Qt.AlignmentFlag.AlignRight
+    )
+    card.hBoxLayout.addSpacing(16)
+    grp.addSettingCard(card)
+
+
+def _build_selection_handle_card(dialog, grp: SettingCardGroup):
+    """选区手柄显示档位。关掉只是不画，八个方向照样能拖。"""
+    from core.theme import ThemeManager, get_theme
+
+    card = FSettingCard(
+        FluentIcon.ALIGNMENT,
+        dialog.tr("Selection Handles"),
+        dialog.tr("Hidden handles can still be dragged to resize."),
+        parent=grp,
+    )
+    dialog._selection_handle_combo = ComboBox(card)
+    dialog._selection_handle_combo.setFixedWidth(dialog_scaled(150))
+    for value, label in (
+        (ThemeManager.HANDLES_ALL, dialog.tr("8 handles")),
+        (ThemeManager.HANDLES_CORNERS, dialog.tr("4 corners")),
+        (ThemeManager.HANDLES_NONE, dialog.tr("None")),
+    ):
+        dialog._selection_handle_combo.addItem(label, userData=value)
+    index = dialog._selection_handle_combo.findData(get_theme().selection_handle_style)
+    dialog._selection_handle_combo.setCurrentIndex(max(0, index))
+    card.hBoxLayout.addWidget(
+        dialog._selection_handle_combo, 0, Qt.AlignmentFlag.AlignRight
+    )
+    card.hBoxLayout.addSpacing(16)
+    grp.addSettingCard(card)
+
+
+def _build_selection_handle_size_card(dialog, grp: SettingCardGroup):
+    """选区手柄大小。圆点直径和外圈描边粗细是一体的观感，只给小/中/大三档，
+    不拆成两个像素级设置项。"""
+    from core.theme import ThemeManager, get_theme
+
+    card = FSettingCard(
+        FluentIcon.EDIT,
+        dialog.tr("Selection Handle Size"),
+        dialog.tr("Size of the selection handles."),
+        parent=grp,
+    )
+    dialog._selection_handle_size_combo = ComboBox(card)
+    dialog._selection_handle_size_combo.setFixedWidth(dialog_scaled(_CTRL_W))
+    for value, label in (
+        (ThemeManager.HANDLE_SIZE_SMALL, dialog.tr("Small")),
+        (ThemeManager.HANDLE_SIZE_MEDIUM, dialog.tr("Medium")),
+        (ThemeManager.HANDLE_SIZE_LARGE, dialog.tr("Large")),
+    ):
+        dialog._selection_handle_size_combo.addItem(label, userData=value)
+    index = dialog._selection_handle_size_combo.findData(get_theme().selection_handle_size)
+    dialog._selection_handle_size_combo.setCurrentIndex(max(0, index))
+    card.hBoxLayout.addWidget(
+        dialog._selection_handle_size_combo, 0, Qt.AlignmentFlag.AlignRight
+    )
+    card.hBoxLayout.addSpacing(16)
+    grp.addSettingCard(card)
 
 
 # ================================================================

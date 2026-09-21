@@ -191,6 +191,14 @@ class TestShortcutKeyTables:
             keys = [entry[0] for entry in table]
             assert len(keys) == len(set(keys)), keys
 
+    def test_defaults_match_the_factory_settings(self):
+        """表里的默认值是 APP_DEFAULT_SETTINGS 的副本，两边对不上就会恢复出错"""
+        from settings.tool_settings import ToolSettingsManager
+
+        factory = ToolSettingsManager.APP_DEFAULT_SETTINGS
+        for cfg_key, _label, default in page_hotkey.INAPP_KEYS:
+            assert factory.get(cfg_key) == default, cfg_key
+
 
 def _factory_default(key):
     for table in (page_hotkey.SCREENSHOT_KEYS, page_hotkey.TOOL_KEYS, page_hotkey.PIN_KEYS):

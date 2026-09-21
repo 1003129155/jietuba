@@ -94,7 +94,7 @@ OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_det
 |------|------|------|------|
 | [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.3.1 | GIF/视频合成编码器 |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | 长截图拼接算法 |
-| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.1 | 剪贴板底层操作 |
+| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.2 | 剪贴板底层操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
 
 预编译包面向 Windows x86_64 和 ARM64；各包的 Python 版本声明均为 `>=3.11`，Rust 绑定均启用了 `abi3-py311`，详见各包的 `pyproject.toml` 和 `Cargo.toml`。
@@ -247,6 +247,7 @@ canvas/
 capture/
 ├── __init__.py
 ├── capture_service.py       # CaptureService — 截图服务，屏幕截图核心逻辑
+├── uia_element_finder.py    # 后台 UI Automation 元素检测与选区快照缓存
 └── window_finder.py         # WindowFinder — 窗口查找器，智能选择窗口，识别光标下的窗口
 ```
 
@@ -355,6 +356,7 @@ core/
 ├── ui_scale.py              # UIScaleManager — 工具栏/面板/弹层共用的缩放比例
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — 国际化管理，多语言支持
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — 全局热键和应用内快捷键管理
+├── last_capture_region.py   # 进程内存的"上次截图区域"，供恢复选区快捷键使用
 ├── save.py                  # SaveService — 文件保存服务（自动命名、路径管理、高质量 PDF 输出）
 ├── export.py                # ExportService — 图像导出服务
 ├── clipboard_utils.py       # copy_image_to_clipboard() — 图像复制到系统剪贴板

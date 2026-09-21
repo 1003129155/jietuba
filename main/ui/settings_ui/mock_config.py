@@ -21,7 +21,8 @@ APP_DEFAULT_SETTINGS = {
     "double_click_copy_close": True,
     "cross_tool_selection": True,
     "text_always_on_top": True,
-    "smart_selection": True,
+    "smart_selection": False,
+    "smart_selection_mode": "element",
     "smart_selection_animation": False,
     "log_enabled": True,
     "log_level": "INFO",
@@ -40,6 +41,7 @@ APP_DEFAULT_SETTINGS = {
     "screenshot_save_path": os.path.join(os.path.expanduser("~"), "Desktop", "スクショ"),
     "screenshot_format": "PNG",
     "screenshot_quality": 85,
+    "clipboard_file_reference_enabled": True,
     "show_main_window": True,
     "ocr_enabled": True,
     "ocr_engine": "windos_ocr",
@@ -78,6 +80,8 @@ APP_DEFAULT_SETTINGS = {
     "inapp_redo": "ctrl+y",
     "inapp_delete": "delete",
     "inapp_copy_pin": "ctrl+c",
+    "inapp_copy_pin_text": "ctrl+shift+c",
+    "inapp_pin_reset_size": "mousemiddle",
     "inapp_thumbnail": "r",
     "inapp_toggle_toolbar": "space",
     "inapp_zoom_in": "pageup",
@@ -145,6 +149,8 @@ class MockConfig:
     def set_text_always_on_top_enabled(self, v): pass
     def get_smart_selection(self): return False
     def set_smart_selection(self, v): pass
+    def get_smart_selection_mode(self): return "window"
+    def set_smart_selection_mode(self, v): pass
     def get_smart_selection_animation(self): return False
     def set_smart_selection_animation(self, v): pass
     def get_log_enabled(self): return True
@@ -171,6 +177,8 @@ class MockConfig:
     def set_screenshot_format(self, v): pass
     def get_screenshot_quality(self): return 85
     def set_screenshot_quality(self, v): pass
+    def get_clipboard_file_reference_enabled(self): return True
+    def set_clipboard_file_reference_enabled(self, v): pass
     def get_show_main_window(self): return True
     def set_show_main_window(self, v): pass
     def get_ocr_enabled(self): return True

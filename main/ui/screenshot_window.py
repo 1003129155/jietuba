@@ -6,7 +6,7 @@
 
 import gc
 from PySide6.QtWidgets import QApplication, QWidget, QGraphicsTextItem
-from PySide6.QtCore import Qt, QTimer, QRect
+from PySide6.QtCore import Qt, QTimer, QRect, QRectF
 from PySide6.QtGui import QPixmap
 from ui.dialogs import show_modeless_warning_dialog
 
@@ -19,6 +19,7 @@ from ui.selection_overlay import SelectionOverlayWidget
 from ui.selection_info import SelectionInfoPanel, SelectionInfoController
 from tools.action import ActionTools
 from settings import get_tool_settings_manager
+from settings.tool_settings import SMART_SELECTION_MODES
 from core.logger import log_debug, log_info, log_exception, T
 from core import safe_event
 from core.shortcut_manager import ShortcutManager, ShortcutHandler
@@ -37,7 +38,7 @@ class ScreenshotShortcutHandler(ShortcutHandler):
         from settings import ANNOTATION_TOOL_SHORTCUTS
         action_keys = [
             "inapp_confirm", "inapp_pin", "inapp_undo", "inapp_redo",
-            "inapp_delete",
+            "inapp_delete", "inapp_restore_last_region",
             "inapp_zoom_in", "inapp_zoom_out", "inapp_translate",
             "inapp_text_recognize",
         ]
@@ -104,6 +105,11 @@ class ScreenshotShortcutHandler(ShortcutHandler):
         if key == Qt.Key.Key_Escape:
             w.cleanup_and_close()
             return True
+
+        # 恢复上次截图区域
+        if self._match(event, "inapp_restore_last_region"):
+            if self._restore_last_region():
+                return True
 
         # 确认截图
         if self._match(event, "inapp_confirm"):
@@ -201,6 +207,33 @@ class ScreenshotShortcutHandler(ShortcutHandler):
 
         return False
 
+    def _restore_last_region(self) -> bool:
+        """把选区还原成上次截图使用过的区域。
+
+        只在没有任何绘制工具开着时响应（同 view.py 的 is_drawing_tool 判断），
+        避免覆盖正在使用的标注。记忆的是虚拟桌面绝对坐标，换算回本次会话的
+        本地坐标后，落在当前虚拟桌面范围外（换了显示器排布等）就安静地不做
+        任何事，不当错误处理。
+        """
+        w = self._window
+        if not w.scene:
+            return False
+        if w.scene.tool_controller.current_tool_id != "cursor":
+            return False
+
+        from core.last_capture_region import get_last_region
+        absolute = get_last_region()
+        if absolute is None:
+            return False
+
+        local_rect = absolute.translated(-round(w.virtual_x), -round(w.virtual_y))
+        virtual_bounds = QRect(0, 0, round(w.virtual_width), round(w.virtual_height))
+        if not virtual_bounds.contains(local_rect):
+            return False
+
+        w.scene.selection_model.initialize_confirmed_rect(QRectF(local_rect))
+        return True
+
 
 class ScreenshotWindow(QWidget):
     def __init__(self, config_manager=None, prefetched_image=None, prefetched_rect=None):
@@ -255,8 +288,9 @@ class ScreenshotWindow(QWidget):
         _timings['Scene+View'] = (_t2 - _t1) * 1000
         
         # 启用智能选区（从配置读取）
-        self.smart_selection_enabled = self.config_manager.get_smart_selection()
-        self.view.enable_smart_selection(self.smart_selection_enabled)
+        self.smart_selection_mode = self._get_configured_smart_selection_mode()
+        self.smart_selection_enabled = self.smart_selection_mode != "off"
+        self.view.enable_smart_selection(self.smart_selection_mode)
         self.view.smart_selection_animated = self.config_manager.get_smart_selection_animation()
         
         # 4. 初始化工具栏（一次性创建，后续复用）
@@ -352,6 +386,15 @@ class ScreenshotWindow(QWidget):
             cross_tool_select=self.config_manager.get_cross_tool_selection_enabled(),
         )
 
+    def _get_configured_smart_selection_mode(self) -> str:
+        """读取检测方式；没有这项设置的旧配置对象退回窗口级，和默认值一致。"""
+        getter = getattr(self.config_manager, "get_smart_selection_mode", None)
+        if callable(getter):
+            mode = str(getter() or "").lower()
+            if mode in SMART_SELECTION_MODES:
+                return mode
+        return "window" if self.config_manager.get_smart_selection() else "off"
+
     # ------------------------------------------------------------------
     # 窗口复用：准备新的截图会话
     # ------------------------------------------------------------------
@@ -385,8 +428,9 @@ class ScreenshotWindow(QWidget):
         self.view.setGeometry(0, 0, int(self.virtual_width), int(self.virtual_height))
         self.view.lower()  # 确保 view 在最底层，overlay 在上方
         
-        self.smart_selection_enabled = self.config_manager.get_smart_selection()
-        self.view.enable_smart_selection(self.smart_selection_enabled)
+        self.smart_selection_mode = self._get_configured_smart_selection_mode()
+        self.smart_selection_enabled = self.smart_selection_mode != "off"
+        self.view.enable_smart_selection(self.smart_selection_mode)
         self.view.smart_selection_animated = self.config_manager.get_smart_selection_animation()
         
         # 创建新的 ActionHandler（引用新 scene）

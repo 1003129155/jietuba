@@ -1024,8 +1024,9 @@ def is_reserved_inapp_shortcut(text: str) -> bool:
 # 只在其中一张表里生效。
 _DEFAULT_INAPP_KEYS = (
     "inapp_confirm", "inapp_pin", "inapp_undo", "inapp_redo",
-    "inapp_delete",
-    "inapp_copy_pin", "inapp_thumbnail", "inapp_toggle_toolbar",
+    "inapp_delete", "inapp_restore_last_region",
+    "inapp_copy_pin", "inapp_copy_pin_text", "inapp_pin_reset_size",
+    "inapp_thumbnail", "inapp_toggle_toolbar",
     "inapp_zoom_in", "inapp_zoom_out", "inapp_translate",
     "inapp_text_recognize",
 )

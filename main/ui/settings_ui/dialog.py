@@ -31,6 +31,7 @@ from core import log_info, safe_event
 from core.logger import log_exception, T
 from core.constants import CSS_FONT_FAMILY, DEFAULT_FONT_FAMILY
 from core.ui_scale import configure_dialog_control, configure_dialog_controls, dialog_scaled
+from settings.tool_settings import SMART_SELECTION_MODES
 
 # 页面创建函数
 from .page_hotkey import create_hotkey_page, validate_global_hotkey_edits
@@ -715,6 +716,20 @@ class SettingsDialog(FrostedFramelessDialog):
                 defaults["mask_color_b"]
             )
             _update_color_btn(self._mask_color_btn, self._appearance_mask_color)
+        if hasattr(self, '_selection_border_combo'):
+            index = self._selection_border_combo.findData(defaults["selection_border_width"])
+            if index >= 0:
+                self._selection_border_combo.setCurrentIndex(index)
+        if hasattr(self, '_selection_handle_combo'):
+            index = self._selection_handle_combo.findData(defaults["selection_handle_style"])
+            if index >= 0:
+                self._selection_handle_combo.setCurrentIndex(index)
+        if hasattr(self, '_selection_handle_size_combo'):
+            index = self._selection_handle_size_combo.findData(
+                defaults["selection_handle_size"]
+            )
+            if index >= 0:
+                self._selection_handle_size_combo.setCurrentIndex(index)
 
     def _reset_screenshot_settings_page(self):
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
@@ -730,12 +745,18 @@ class SettingsDialog(FrostedFramelessDialog):
             self.text_always_on_top_toggle.setChecked(
                 defaults["text_always_on_top"]
             )
-        if hasattr(self, 'smart_toggle'):
-            self.smart_toggle.setChecked(defaults["smart_selection"])
+        if hasattr(self, 'smart_mode_combo'):
+            self.smart_mode_combo.setCurrentIndex(SMART_SELECTION_MODES.index(
+                defaults["smart_selection_mode"] if defaults["smart_selection"] else "off"
+            ))
         if hasattr(self, 'smart_animation_toggle'):
             self.smart_animation_toggle.setChecked(defaults["smart_selection_animation"])
         if hasattr(self, 'save_toggle'):
             self.save_toggle.setChecked(defaults["screenshot_save_enabled"])
+        if hasattr(self, 'clipboard_file_reference_toggle'):
+            self.clipboard_file_reference_toggle.setChecked(
+                defaults["clipboard_file_reference_enabled"]
+            )
         if hasattr(self, 'save_path_lbl'):
             self.save_path_lbl.setText(defaults["screenshot_save_path"])
         if hasattr(self, 'screenshot_format_combo'):
@@ -868,8 +889,10 @@ class SettingsDialog(FrostedFramelessDialog):
             self.config_manager.set_text_always_on_top_enabled(
                 self.text_always_on_top_toggle.isChecked()
             )
-        if hasattr(self, 'smart_toggle'):
-            self.config_manager.set_smart_selection(self.smart_toggle.isChecked())
+        if hasattr(self, 'smart_mode_combo'):
+            self.config_manager.set_smart_selection_mode(
+                self.smart_mode_combo.currentData()
+            )
         if hasattr(self, 'smart_animation_toggle'):
             self.config_manager.set_smart_selection_animation(
                 self.smart_animation_toggle.isChecked()
@@ -920,6 +943,10 @@ class SettingsDialog(FrostedFramelessDialog):
         # 3. 截图保存
         if hasattr(self, 'save_toggle'):
             self.config_manager.set_screenshot_save_enabled(self.save_toggle.isChecked())
+        if hasattr(self, 'clipboard_file_reference_toggle'):
+            self.config_manager.set_clipboard_file_reference_enabled(
+                self.clipboard_file_reference_toggle.isChecked()
+            )
         if hasattr(self, 'save_path_lbl'):
             self.config_manager.set_screenshot_save_path(self.save_path_lbl.text())
         if hasattr(self, 'screenshot_format_combo'):
@@ -1037,7 +1064,7 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'info_hide_on_drag_toggle'):
             self.config_manager.set_app_setting("screenshot_info_hide_on_drag", self.info_hide_on_drag_toggle.isChecked())
 
-        # 11. 外观设置（主题色、遮罩色、界面缩放）
+        # 11. 外观设置（主题色、遮罩色、选区外观、界面缩放）
         if hasattr(self, '_ui_theme_combo'):
             from core.ui_theme import get_ui_theme
             get_ui_theme().set_mode(self._ui_theme_combo.currentData())
@@ -1061,6 +1088,12 @@ class SettingsDialog(FrostedFramelessDialog):
             theme.set_theme_color(self._appearance_theme_color)
         if hasattr(self, '_appearance_mask_color'):
             theme.set_mask_color(self._appearance_mask_color)
+        if hasattr(self, '_selection_border_combo'):
+            theme.set_selection_border_width(self._selection_border_combo.currentData())
+        if hasattr(self, '_selection_handle_combo'):
+            theme.set_selection_handle_style(self._selection_handle_combo.currentData())
+        if hasattr(self, '_selection_handle_size_combo'):
+            theme.set_selection_handle_size(self._selection_handle_size_combo.currentData())
 
         log_info("すべての設定を保存しました", "Settings")
         self._settings_snapshot = self._snapshot_settings()
@@ -1196,8 +1229,8 @@ class SettingsDialog(FrostedFramelessDialog):
         for attr in ('double_click_copy_close_toggle',
                       'cross_tool_selection_toggle',
                       'text_always_on_top_toggle',
-                      'smart_toggle', 'smart_animation_toggle',
-                      'save_toggle', 'ocr_enable_toggle',
+                      'smart_animation_toggle',
+                      'save_toggle', 'clipboard_file_reference_toggle', 'ocr_enable_toggle',
                       'ocr_grayscale_toggle', 'ocr_upscale_toggle',
                       'split_sentences_toggle',
                       'preserve_formatting_toggle', 'log_toggle',
@@ -1216,7 +1249,9 @@ class SettingsDialog(FrostedFramelessDialog):
                       'log_level_combo',
                       'language_combo', 'engine_combo', 'cursor_move_combo',
                       'magnifier_color_format_combo', 'log_retention_combo',
-                      '_ui_theme_combo', '_ui_scale_combo', '_dialog_scale_combo'):
+                      '_ui_theme_combo', '_ui_scale_combo', '_dialog_scale_combo',
+                      '_selection_border_combo', '_selection_handle_combo',
+                      '_selection_handle_size_combo', 'smart_mode_combo'):
             w = getattr(self, attr, None)
             if w is not None:
                 snap[attr] = w.currentIndex()
@@ -1356,8 +1391,10 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'ignore_top_pixels_spinbox'):
             self.ignore_top_pixels_spinbox.setValue(self.config_manager.get_long_stitch_ignore_top_pixels())
 
-        if hasattr(self, 'smart_toggle'):
-            self.smart_toggle.setChecked(self.config_manager.get_smart_selection())
+        if hasattr(self, 'smart_mode_combo'):
+            self.smart_mode_combo.setCurrentIndex(SMART_SELECTION_MODES.index(
+                self.config_manager.get_smart_selection_mode()
+            ))
 
         if hasattr(self, 'smart_animation_toggle'):
             self.smart_animation_toggle.setChecked(
@@ -1381,6 +1418,10 @@ class SettingsDialog(FrostedFramelessDialog):
 
         if hasattr(self, 'save_toggle'):
             self.save_toggle.setChecked(self.config_manager.get_screenshot_save_enabled())
+        if hasattr(self, 'clipboard_file_reference_toggle'):
+            self.clipboard_file_reference_toggle.setChecked(
+                self.config_manager.get_clipboard_file_reference_enabled()
+            )
         if hasattr(self, 'save_path_lbl'):
             self.save_path_lbl.setText(self.config_manager.get_screenshot_save_path())
         if hasattr(self, 'screenshot_format_combo'):
@@ -1502,6 +1543,30 @@ class SettingsDialog(FrostedFramelessDialog):
             self._appearance_mask_color = QColor(mc.red(), mc.green(), mc.blue())
             _update_color_btn(self._theme_color_btn, self._appearance_theme_color)
             _update_color_btn(self._mask_color_btn, self._appearance_mask_color)
+
+        if hasattr(self, '_selection_border_combo'):
+            from core.theme import get_theme
+            index = self._selection_border_combo.findData(
+                get_theme().selection_border_width
+            )
+            if index >= 0:
+                self._selection_border_combo.setCurrentIndex(index)
+
+        if hasattr(self, '_selection_handle_combo'):
+            from core.theme import get_theme
+            index = self._selection_handle_combo.findData(
+                get_theme().selection_handle_style
+            )
+            if index >= 0:
+                self._selection_handle_combo.setCurrentIndex(index)
+
+        if hasattr(self, '_selection_handle_size_combo'):
+            from core.theme import get_theme
+            index = self._selection_handle_size_combo.findData(
+                get_theme().selection_handle_size
+            )
+            if index >= 0:
+                self._selection_handle_size_combo.setCurrentIndex(index)
 
         # 剪切板主题色同步（在别处改了主题色后打开设置，确保显示最新值）
         if hasattr(self, '_clip_theme_btn'):

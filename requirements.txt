@@ -8,6 +8,7 @@ pillow==12.1.1
 mss==10.1.0
 pynput==1.8.1
 pywin32==311
+comtypes==1.4.16
 darkdetect==0.8.0
 emoji==2.15.0
 av==17.0.0
@@ -17,5 +18,5 @@ zxing-cpp==3.1.1
 # ===== 自制 Rust 库（PyPI 发行名，import 名不同——见各包 README）=====
 j-gif==0.3.1
 j-stitch==0.4.0
-j-clipboard==0.4.1
+j-clipboard==0.4.2
 j-ppocr==0.2.0

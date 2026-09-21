@@ -354,7 +354,7 @@ class RoundedCornersLogic(QObject):
                 # ── 圆角边框 ──
                 r = logic._radius
                 from core.theme import get_theme
-                pen = QPen(get_theme().theme_color, item.BORDER_WIDTH,
+                pen = QPen(get_theme().theme_color, item.border_width,
                            Qt.PenStyle.SolidLine)
                 painter.setPen(pen)
                 painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -362,8 +362,8 @@ class RoundedCornersLogic(QObject):
                 painter.drawRoundedRect(rect, r, r)
 
                 # 控制点（圆角模式下隐藏四角手柄）
-                if not item._model.is_dragging and item._model.is_confirmed:
-                    _draw_handles(painter, rect, item, skip_corners=True)
+                if item.handles_visible():
+                    item.draw_handles(painter, rect, skip_corners=True)
             else:
                 # 原始绘制
                 logic._original_render(painter)
@@ -485,29 +485,3 @@ class RoundedCornersLogic(QObject):
             self._hook_mgr.unregister(self._export, 'export', self._export_callback)
         self._popup.hide()
         self._popup.deleteLater()
-
-
-# =====================================================================
-# 辅助绘制函数（从 SelectionItem.paint 中提取，供 hook 复用）
-# =====================================================================
-
-def _draw_handles(painter: QPainter, rect: QRectF, item, skip_corners: bool = False):
-    """绘制控制点。skip_corners=True 时跳过四角手柄（圆角模式）"""
-    _CORNER_HANDLES = {
-        item.HANDLE_TOP_LEFT,
-        item.HANDLE_TOP_RIGHT,
-        item.HANDLE_BOTTOM_LEFT,
-        item.HANDLE_BOTTOM_RIGHT,
-    }
-    handles = item._get_handle_positions(rect)
-    for handle_id, pos in handles.items():
-        if skip_corners and handle_id in _CORNER_HANDLES:
-            continue
-        painter.setPen(QPen(QColor(255, 255, 255), item.HANDLE_RING_WIDTH))
-        painter.setBrush(QColor(48, 200, 192))
-        painter.drawEllipse(pos, item.HANDLE_SIZE // 2 + 1, item.HANDLE_SIZE // 2 + 1)
-
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(48, 200, 192))
-        painter.drawEllipse(pos, item.HANDLE_SIZE // 2, item.HANDLE_SIZE // 2)
- 

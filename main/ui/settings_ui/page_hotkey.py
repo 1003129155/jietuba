@@ -28,6 +28,7 @@ SCREENSHOT_KEYS = [
     ("inapp_undo",      "Undo",                   "ctrl+z"),
     ("inapp_redo",      "Redo",                   "ctrl+y"),
     ("inapp_delete",    "Delete Selected",        "delete"),
+    ("inapp_restore_last_region", "Restore Last Region", "l"),
     ("inapp_zoom_in",   "Magnifier Zoom In",      "pageup"),
     ("inapp_zoom_out",  "Magnifier Zoom Out",     "pagedown"),
     ("inapp_translate", "Screenshot Translate",    "shift+c"),
@@ -36,6 +37,8 @@ SCREENSHOT_KEYS = [
 
 PIN_KEYS = [
     ("inapp_copy_pin",        "Copy Pinned Image",      "ctrl+c"),
+    ("inapp_copy_pin_text",   "Copy All Text",          "ctrl+shift+c"),
+    ("inapp_pin_reset_size",  "Reset Size",             "mousemiddle"),
     ("inapp_thumbnail",       "Toggle Thumbnail",       "r"),
     ("inapp_toggle_toolbar",  "Toggle Toolbar",         "space"),
 ]

@@ -304,8 +304,20 @@ Replace it?</translation>
         <translation>Delete Selected</translation>
     </message>
     <message>
+        <source>Restore Last Region</source>
+        <translation>Restore Last Region</translation>
+    </message>
+    <message>
         <source>Copy Pinned Image</source>
         <translation>Copy Pinned Image</translation>
+    </message>
+    <message>
+        <source>Copy All Text</source>
+        <translation>Copy All Text</translation>
+    </message>
+    <message>
+        <source>Reset Size</source>
+        <translation>Reset Size</translation>
     </message>
     <message>
         <source>Toggle Thumbnail</source>
@@ -414,20 +426,32 @@ Replace it?</translation>
     
     <!-- Smart Selection Page -->
     <message>
-        <source>Enable Smart Selection</source>
-        <translation>Enable Smart Selection</translation>
+        <source>Detection Mode</source>
+        <translation>Detection Mode</translation>
     </message>
     <message>
-        <source>Automatically recognizes UI elements at mouse cursor position.</source>
-        <translation>Automatically recognizes UI elements at mouse cursor position.</translation>
+        <source>Snap the selection to the window or control under the cursor. Control detection reads the accessibility tree and takes longer on large windows.</source>
+        <translation>Snap the selection to the window or control under the cursor. Control detection reads the accessibility tree and takes longer on large windows.</translation>
     </message>
     <message>
-        <source>Window Switch Animation</source>
-        <translation>Window Switch Animation</translation>
+        <source>Off</source>
+        <translation>Off</translation>
     </message>
     <message>
-        <source>Slide the selection when it moves from one window to another.</source>
-        <translation>Slide the selection when it moves from one window to another.</translation>
+        <source>Window Only</source>
+        <translation>Window Only</translation>
+    </message>
+    <message>
+        <source>Detect Controls</source>
+        <translation>Detect Controls</translation>
+    </message>
+    <message>
+        <source>Selection Switch Animation</source>
+        <translation>Selection Switch Animation</translation>
+    </message>
+    <message>
+        <source>Slide the selection when it moves from one window or control to another.</source>
+        <translation>Slide the selection when it moves from one window or control to another.</translation>
     </message>
     <message>
         <source>💡 How to use:</source>
@@ -454,6 +478,14 @@ Replace it?</translation>
     <message>
         <source>Automatically saves as file when capturing.</source>
         <translation>Automatically saves as file when capturing.</translation>
+    </message>
+    <message>
+        <source>Write File Path to Clipboard</source>
+        <translation>Write File Path to Clipboard</translation>
+    </message>
+    <message>
+        <source>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Requires Auto-save Screenshots to be enabled.</source>
+        <translation>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Requires Auto-save Screenshots to be enabled.</translation>
     </message>
     <message>
         <source>Save Folder:</source>
@@ -1066,6 +1098,10 @@ Replace it?</translation>
     <message>
         <source>No text was recognized</source>
         <translation>No text was recognized</translation>
+    </message>
+    <message>
+        <source>Text copied</source>
+        <translation>Text copied</translation>
     </message>
     <message>
         <source>OCR recognition failed: {error}</source>
@@ -3265,6 +3301,54 @@ SOFTWARE.</translation></message>
     <message>
         <source>Font and size of application windows.</source>
         <translation>Font and size of application windows.</translation>
+    </message>
+    <message>
+        <source>Selection Border Width</source>
+        <translation>Selection Border Width</translation>
+    </message>
+    <message>
+        <source>Thickness of the selection outline.</source>
+        <translation>Thickness of the selection outline.</translation>
+    </message>
+    <message>
+        <source>Selection Handles</source>
+        <translation>Selection Handles</translation>
+    </message>
+    <message>
+        <source>Hidden handles can still be dragged to resize.</source>
+        <translation>Hidden handles can still be dragged to resize.</translation>
+    </message>
+    <message>
+        <source>Selection Handle Size</source>
+        <translation>Selection Handle Size</translation>
+    </message>
+    <message>
+        <source>Size of the selection handles.</source>
+        <translation>Size of the selection handles.</translation>
+    </message>
+    <message>
+        <source>8 handles</source>
+        <translation>8 handles</translation>
+    </message>
+    <message>
+        <source>4 corners</source>
+        <translation>4 corners</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>None</translation>
+    </message>
+    <message>
+        <source>Small</source>
+        <translation>Small</translation>
+    </message>
+    <message>
+        <source>Medium</source>
+        <translation>Medium</translation>
+    </message>
+    <message>
+        <source>Large</source>
+        <translation>Large</translation>
     </message>
     <message>
         <source>System</source>

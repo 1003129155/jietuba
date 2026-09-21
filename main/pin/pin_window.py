@@ -12,7 +12,7 @@
 - PinTranslationHelper：翻译功能助手
 """
 
-from PySide6.QtWidgets import QWidget, QLabel
+from PySide6.QtWidgets import QWidget, QLabel, QApplication
 from PySide6.QtCore import Qt, QPoint, QTimer, Signal, QRectF, QEvent
 from PySide6.QtGui import (
     QPixmap, QImage, QPainter, QMouseEvent, QWheelEvent, QKeyEvent,
@@ -630,7 +630,7 @@ class PinWindow(QWidget):
     def _start_ocr_for_translation(self):
         if self._is_closed:
             return
-        if self._ocr_mgr.recognize_for_translation():
+        if self._ocr_mgr.recognize_then(self._on_ocr_translation_finished):
             log_info(T("OCR 识别中，翻译将在识别完成后自动执行"), "Translate")
         else:
             log_warning(T("无法启动钉图 OCR 识别"), "Translate")
@@ -811,6 +811,24 @@ class PinWindow(QWidget):
             image = self.get_current_image()
             deliver_image_async(image)
         self._with_edit_paused(_do_copy)
+
+    def copy_all_text(self):
+        """复制钉图中识别到的全部文字；尚未识别过则先识别再复制。"""
+        layer = self.ocr_text_layer
+        if self._ocr_has_result and layer is not None and layer.has_text():
+            self._copy_ocr_text(True, layer.get_all_text(separator="\n"))
+            return
+        if not self._ocr_mgr.recognize_then(self._copy_ocr_text):
+            self._show_hint_label(self.tr("OCR recognition could not be started"))
+
+    def _copy_ocr_text(self, success: bool, result: str):
+        """recognize_then 的回调：成功时 result 是全部文字，失败原因已由它记日志。"""
+        if not success or not result.strip():
+            self._show_hint_label(self.tr("No text was recognized"))
+            return
+        QApplication.clipboard().setText(result)
+        log_info(T("已复制钉图文字: {count} 字符", count=len(result)), "PinWindow")
+        self._show_hint_label(self.tr("Text copied"))
 
     # ==================================================================
     # 窗口关闭 / 资源清理

@@ -36,6 +36,8 @@ TRANSLATIONS: dict[str, str] = {
         "Async image delivery complete clipboard={clipboard_ok} save={save_ok} "
         "clipboard={clipboard_ms:.1f}ms save={save_ms:.1f}ms total={total_ms:.1f}ms",
     "图像投递: 后台任务失败 ({exc})": "Image delivery: background task failed ({exc})",
+    "图像投递: 预留保存路径失败，剪贴板不写入文件路径 ({exc})":
+        "Image delivery: failed to reserve a save path, the clipboard carries no file path ({exc})",
     "剪贴板: {path_name} 写入时剪贴板被占用，准备重试 {attempt_next}/{total_attempts}":
         "Clipboard: {path_name} write found the clipboard busy, retrying {attempt_next}/{total_attempts}",
     "已复制到剪切板 (Win32) "

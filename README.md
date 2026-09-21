@@ -93,7 +93,7 @@ These four packages are included in `requirements.txt` and install with the runt
 |------|------|------|------|
 | [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.3.1 | GIF/video composition encoder |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | Long screenshot stitching algorithm |
-| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.1 | Low-level clipboard operations |
+| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.2 | Low-level clipboard operations |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
 
 The available prebuilt wheels target Windows x86_64 and ARM64. Each package declares `>=3.11` and enables `abi3-py311` in its Rust bindings; see each package's `pyproject.toml` and `Cargo.toml`.
@@ -236,6 +236,7 @@ Screen capture and smart window detection.
 ```text
 capture/
 ├── capture_service.py       # CaptureService — core screenshot logic
+├── uia_element_finder.py    # Background UI Automation element snapshots for smart selection
 └── window_finder.py         # WindowFinder — smart window selection, cursor-based detection
 ```
 
@@ -336,6 +337,7 @@ core/
 ├── ui_scale.py              # UIScaleManager — one scale factor for toolbars, panels and popups
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — internationalization
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — global & in-app hotkeys
+├── last_capture_region.py   # In-memory "last capture region" for the restore-region hotkey
 ├── save.py                  # SaveService — file save service (auto naming, high-quality PDF output)
 ├── export.py                # ExportService — image export
 ├── clipboard_utils.py       # copy_image_to_clipboard() — copy images to system clipboard

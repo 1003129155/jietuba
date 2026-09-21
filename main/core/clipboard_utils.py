@@ -1,7 +1,9 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 剪切板图像写入工具
-Windows 使用 Win32 写入 CF_DIBV5 + PNG。
+Windows 使用 Win32 写入 CF_DIBV5 + PNG；若已知保存路径，同一次事务里
+一并写入 CF_HDROP，供只认文件路径、不解析位图格式的粘贴目标（如部分
+终端 CLI）使用。
 """
 
 from __future__ import annotations
@@ -26,11 +28,16 @@ _CLIPBOARD_BUSY_HRESULT = -2147221040  # 0x800401D0 = CLIPBRD_E_CANT_OPEN
 _CLIPBOARD_WRITE_RETRY_DELAYS = (0.0, 0.02, 0.05, 0.1, 0.2, 0.35)
 
 
-def copy_image_to_clipboard(image: QImage) -> None:
+def copy_image_to_clipboard(image: QImage, file_reference: str | None = None) -> None:
     """将 QImage 复制到系统剪切板。
 
     Windows 下使用 Win32 方式写入 `CF_DIBV5 + PNG`，
     并在剪切板被占用时自动重试。
+
+    file_reference 不为空时，会在同一次剪切板事务里一并写入 CF_HDROP。
+    合并进同一次事务是为了只触发一次"剪切板内容变化"通知——分两次
+    写入会被剪切板历史一类的监听者当成两条独立记录。调用方需确保
+    该路径此时已经存在（哪怕是空文件），否则粘贴目标可能读到空内容。
     """
     if image.isNull():
         log_warning(T("剪切板: 图像为空"), "Clipboard")
@@ -38,7 +45,7 @@ def copy_image_to_clipboard(image: QImage) -> None:
 
     if sys.platform == "win32":
         try:
-            _copy_win32(image)
+            _copy_win32(image, file_reference)
             return
         except Exception as e:
             log_warning(T("剪切板: Win32 写入失败 ({e})", e=e), "Clipboard")
@@ -53,8 +60,16 @@ def deliver_image_async(
     copy_to_clipboard: bool = True,
     save_service: "SaveService | None" = None,
     save_kwargs: dict | None = None,
+    write_file_reference: bool = True,
 ) -> threading.Thread | None:
-    """复制到剪贴板并可选在后台线程中保存图像。"""
+    """复制到剪贴板并可选在后台线程中保存图像。
+
+    同时请求复制与自动保存时，默认会先用 SaveService.reserve_save_path
+    （只创建空文件，不编码像素，耗时可忽略）在主线程确定保存路径，
+    这样复制时就能把 CF_HDROP 和位图格式一起写入剪切板，无需等待
+    图像真正编码落盘。write_file_reference=False 时跳过这一步，
+    剪切板上只有位图格式，不带文件路径。
+    """
     if image is None or image.isNull():
         log_warning(T("图像投递: 图像为空，跳过"), "Clipboard")
         return None
@@ -65,9 +80,19 @@ def deliver_image_async(
 
     save_kwargs = dict(save_kwargs or {})
 
+    target_path = None
+    if copy_to_clipboard and save_service is not None and write_file_reference and sys.platform == "win32":
+        try:
+            target_path = save_service.reserve_save_path(**save_kwargs)
+        except Exception as exc:
+            # 保存目录不可写（外接盘拔掉、网络盘断连）时占不到路径。复制只是
+            # 调用方那条"确定"链的前半段，抛出去会连带跳过关闭窗口；降级成不带
+            # 文件引用，保存的失败仍交回后台线程。
+            log_warning(T("图像投递: 预留保存路径失败，剪贴板不写入文件路径 ({exc})", exc=exc), "Clipboard")
+
     if copy_to_clipboard:
         if sys.platform == "win32":
-            copy_image_to_clipboard(image)
+            copy_image_to_clipboard(image, file_reference=target_path)
         else:
             log_debug(T("图像投递: 非 Windows 平台，剪贴板仍走主线程回退"), "Clipboard")
             copy_image_to_clipboard(image)
@@ -88,7 +113,7 @@ def deliver_image_async(
             t1 = _time.perf_counter()
 
             if save_service is not None:
-                save_ok, _ = save_service.save_qimage(image, **save_kwargs)
+                save_ok, _ = save_service.save_qimage(image, target_path=target_path, **save_kwargs)
             t2 = _time.perf_counter()
 
             log_debug(
@@ -115,9 +140,9 @@ def deliver_image_async(
 
 # ─── Win32 实现 ───────────────────────────────────────────────────────
 
-def _copy_win32(image: QImage) -> None:
-    """用 Win32 API 写入 CF_DIBV5 + PNG。"""
-    _run_clipboard_write_with_retry(lambda: _copy_win32_legacy(image), "Win32")
+def _copy_win32(image: QImage, file_reference: str | None) -> None:
+    """用 Win32 API 写入 CF_DIBV5 + PNG（可选同时写入 CF_HDROP）。"""
+    _run_clipboard_write_with_retry(lambda: _copy_win32_legacy(image, file_reference), "Win32")
 
 
 def _run_clipboard_write_with_retry(operation, path_name: str) -> None:
@@ -167,8 +192,8 @@ def _is_clipboard_busy_error(exc: Exception) -> bool:
     return False
 
 
-def _copy_win32_legacy(image: QImage) -> None:
-    """用 Win32 API 直接写入 CF_DIBV5 + PNG 到系统剪切板。"""
+def _copy_win32_legacy(image: QImage, file_reference: str | None) -> None:
+    """用 Win32 API 直接写入 CF_DIBV5 + PNG（可选 CF_HDROP）到系统剪切板。"""
     import win32clipboard
 
     import time as _time
@@ -183,6 +208,7 @@ def _copy_win32_legacy(image: QImage) -> None:
 
     # 注册 PNG 格式
     fmt_png = win32clipboard.RegisterClipboardFormat("PNG")
+    hdrop_data = _build_hdrop(file_reference) if file_reference else None
 
     with _CLIPBOARD_WRITE_LOCK:
         win32clipboard.OpenClipboard(0)
@@ -190,6 +216,8 @@ def _copy_win32_legacy(image: QImage) -> None:
             win32clipboard.EmptyClipboard()
             win32clipboard.SetClipboardData(fmt_png, png_data)     # "PNG"
             win32clipboard.SetClipboardData(17, dibv5_data)       # CF_DIBV5 = 17
+            if hdrop_data is not None:
+                win32clipboard.SetClipboardData(15, hdrop_data)  # CF_HDROP = 15
         finally:
             win32clipboard.CloseClipboard()
     _t3 = _time.perf_counter()
@@ -265,6 +293,13 @@ def _build_png(image: QImage) -> bytes:
     return bytes(buf.data())
 
 
+def _build_hdrop(path: str) -> bytes:
+    """构造 CF_HDROP 所需的 DROPFILES 结构（含单个文件路径）。"""
+    name = path.encode("utf-16-le") + b"\x00\x00" + b"\x00\x00"  # 双 NUL 结尾
+    header = struct.pack("<Iiiii", 20, 0, 0, 0, 1)  # pFiles=20（结构体大小），fWide=1
+    return header + name
+
+
 # ─── Qt 回退实现 ──────────────────────────────────────────────────────
 
 def _copy_qt_fallback(image: QImage) -> None:
@@ -272,4 +307,3 @@ def _copy_qt_fallback(image: QImage) -> None:
     from PySide6.QtWidgets import QApplication
     QApplication.clipboard().setImage(image)
     log_info(T("已复制到剪切板 (Qt)"), "Clipboard")
- 

@@ -21,6 +21,12 @@ from PySide6.QtCore import QSettings, Signal, QObject
 from PySide6.QtGui import QColor
 
 
+# 智能选区的三档，顺序就是设置页下拉框的顺序。off 是总开关关掉，不作为
+# smart_selection_mode 的取值落盘，所以 STORED_… 从第二项起。
+SMART_SELECTION_MODES = ("off", "window", "element")
+STORED_SMART_SELECTION_MODES = SMART_SELECTION_MODES[1:]
+
+
 ANNOTATION_TOOL_SHORTCUTS = (
     ("inapp_tool_cursor", "cursor", "Select / Cursor", "s"),
     ("inapp_tool_pen", "pen", "Pen", "p"),
@@ -179,7 +185,10 @@ class ToolSettingsManager(QObject):
         "inapp_undo": "ctrl+z",                # 撤销
         "inapp_redo": "ctrl+y",                # 重做
         "inapp_delete": "delete",              # 删除选中图元
+        "inapp_restore_last_region": "l",      # 选区未确认/无绘制工具激活时，还原为上次截图的区域
         "inapp_copy_pin": "ctrl+c",            # 复制钉图内容
+        "inapp_copy_pin_text": "ctrl+shift+c", # 复制钉图识别到的全部文字
+        "inapp_pin_reset_size": "mousemiddle", # 钉图恢复 100% 大小
         "inapp_thumbnail": "r",                # 切换缩略图模式
         "inapp_toggle_toolbar": "space",       # 切换工具栏
         "inapp_zoom_in": "pageup",             # 放大镜放大
@@ -196,7 +205,10 @@ class ToolSettingsManager(QObject):
         "screenshot_toolbar_layout": "",      # 截图工具栏按钮排布（JSON，空 = 默认排布，见 ui/toolbar_layout.py）
 
         # 智能选择
-        "smart_selection": True,              # 智能选区（窗口/控件识别）
+        "smart_selection": True,              # 智能选区总开关
+        # 默认只到窗口：控件检测要把整棵无障碍树扫回来，耗时和稳定性都由目标
+        # 程序的提供方决定，不该是所有人默认承担的。
+        "smart_selection_mode": "window",     # window / element，见 SMART_SELECTION_MODES
         "smart_selection_animation": False,   # 换窗口时补间而不是瞬间跳变
 
         # 截图保存
@@ -204,6 +216,7 @@ class ToolSettingsManager(QObject):
         "screenshot_save_path": os.path.join(os.path.expanduser("~"), "Pictures", "jietuba_photos"),  # 默认保存路径
         "screenshot_format": "PNG",            # 保存格式: PNG / JPG / BMP / WEBP / PDF
         "screenshot_quality": 85,              # 有损格式质量 (1-100, PNG/BMP忽略)
+        "clipboard_file_reference_enabled": True,  # 复制时同时写入文件路径（CF_HDROP），需自动保存截图开启才生效
 
         # 截图圆角
         "screenshot_rounded_enabled": False,   # 圆角截图开关
@@ -256,6 +269,14 @@ class ToolSettingsManager(QObject):
         # 独立业务窗口缩放百分比，档位同上
         "dialog_scale_percent": 100,
         "theme_color": "#40E0D0",              # 主题色（青绿色 Turquoise）
+        # 选区边框笔宽（物理像素），档位见 core/theme.ThemeManager.BORDER_WIDTH_OPTIONS
+        "selection_border_width": 4,
+        # 选区手柄显示：all=八个 / corners=四角 / none=不显示。
+        # 只管画不画，八个方向照样能拖动调整选区，见 canvas/items/selection_item.py
+        "selection_handle_style": "all",
+        # 选区手柄大小：small/medium/large，同时决定圆点直径和外圈描边宽度，
+        # 档位见 core/theme.ThemeManager.HANDLE_SIZE_OPTIONS
+        "selection_handle_size": "small",
         "mask_color_r": 0,                     # 遮罩色 R（0-255）
         "mask_color_g": 0,                     # 遮罩色 G（0-255）
         "mask_color_b": 0,                     # 遮罩色 B（0-255）
@@ -719,13 +740,32 @@ class ToolSettingsManager(QObject):
         """设置鼠标微移模式"""
         self.qsettings.setValue("inapp/inapp_cursor_move_mode", value)
 
+    def get_smart_selection_mode(self) -> str:
+        """返回生效的检测方式：off / window / element。"""
+        if not self.get_smart_selection():
+            return "off"
+        mode = self.qsettings.value(
+            "app/smart_selection_mode", self.APP_DEFAULT_SETTINGS["smart_selection_mode"], type=str
+        ).lower()
+        default = self.APP_DEFAULT_SETTINGS["smart_selection_mode"]
+        return mode if mode in STORED_SMART_SELECTION_MODES else default
+
+    def set_smart_selection_mode(self, mode: str):
+        """设置智能选区模式。off 不写 mode，关掉再打开还是原来的粒度。"""
+        mode = str(mode or "off").lower()
+        if mode not in SMART_SELECTION_MODES:
+            mode = self.APP_DEFAULT_SETTINGS["smart_selection_mode"]
+        if mode != "off":
+            self.qsettings.setValue("app/smart_selection_mode", mode)
+        self.qsettings.setValue("app/smart_selection", mode != "off")
+
     def get_smart_selection(self) -> bool:
-        """获取智能选区设置"""
+        """获取智能选区总开关。"""
         return self.qsettings.value("app/smart_selection", self.APP_DEFAULT_SETTINGS["smart_selection"], type=bool)
     
     def set_smart_selection(self, value: bool):
-        """设置智能选区"""
-        self.qsettings.setValue("app/smart_selection", value)
+        """设置智能选区总开关，同时保留已选择的检测模式。"""
+        self.qsettings.setValue("app/smart_selection", bool(value))
 
     def get_smart_selection_animation(self) -> bool:
         """获取智能选区换窗口动画设置"""
@@ -867,6 +907,18 @@ class ToolSettingsManager(QObject):
     def set_screenshot_format(self, value: str):
         """设置截图保存格式 (PNG/JPG/BMP/WEBP/PDF)"""
         self.qsettings.setValue("app/screenshot_format", value.upper())
+
+    def get_clipboard_file_reference_enabled(self) -> bool:
+        """获取复制时是否同时写入文件路径（CF_HDROP），需自动保存截图开启才生效"""
+        return self.qsettings.value(
+            "app/clipboard_file_reference_enabled",
+            self.APP_DEFAULT_SETTINGS["clipboard_file_reference_enabled"],
+            type=bool,
+        )
+
+    def set_clipboard_file_reference_enabled(self, value: bool):
+        """设置复制时是否同时写入文件路径（CF_HDROP）"""
+        self.qsettings.setValue("app/clipboard_file_reference_enabled", value)
 
     def get_screenshot_quality(self) -> int:
         """获取截图保存质量 (1-100, PNG/BMP时忽略)"""

@@ -93,7 +93,7 @@ OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は、�
 |------|------|------|------|
 | [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.3.1 | GIF/動画合成エンコーダー |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | 長いスクリーンショット結合アルゴリズム |
-| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.1 | クリップボード操作 |
+| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.2 | クリップボード操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
 
 ビルド済み wheel は Windows x86_64 および ARM64 向けです。各パッケージの Python バージョン指定は `>=3.11` で、Rust バインディングでは `abi3-py311` を有効にしています。詳細は各パッケージの `pyproject.toml` と `Cargo.toml` を参照してください。
@@ -235,6 +235,7 @@ canvas/
 ```text
 capture/
 ├── capture_service.py       # CaptureService — スクリーンショットコアロジック
+├── uia_element_finder.py    # UI Automation によるバックグラウンド要素検出・キャッシュ
 └── window_finder.py         # WindowFinder — スマートウィンドウ選択、カーソル位置検出
 ```
 
@@ -335,6 +336,7 @@ core/
 ├── ui_scale.py              # UIScaleManager — ツールバー/パネル/ポップアップ共通の拡大率
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — 国際化
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — グローバル＆アプリ内ホットキー
+├── last_capture_region.py   # 「前回の選択範囲を復元」用のプロセス内メモリ
 ├── save.py                  # SaveService — ファイル保存サービス（高品質 PDF 出力対応）
 ├── export.py                # ExportService — 画像エクスポート
 ├── clipboard_utils.py       # copy_image_to_clipboard() — 画像をクリップボードにコピー
