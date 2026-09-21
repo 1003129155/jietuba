@@ -304,8 +304,20 @@ Replace it?</translation>
         <translation>Delete Selected</translation>
     </message>
     <message>
+        <source>Restore Last Region</source>
+        <translation>Restore Last Region</translation>
+    </message>
+    <message>
         <source>Copy Pinned Image</source>
         <translation>Copy Pinned Image</translation>
+    </message>
+    <message>
+        <source>Copy All Text</source>
+        <translation>Copy All Text</translation>
+    </message>
+    <message>
+        <source>Reset Size</source>
+        <translation>Reset Size</translation>
     </message>
     <message>
         <source>Toggle Thumbnail</source>
@@ -420,6 +432,22 @@ Replace it?</translation>
     <message>
         <source>Automatically recognizes UI elements at mouse cursor position.</source>
         <translation>Automatically recognizes UI elements at mouse cursor position.</translation>
+    </message>
+    <message>
+        <source>UI Detection Mode</source>
+        <translation>UI Detection Mode</translation>
+    </message>
+    <message>
+        <source>Choose whether Smart Selection detects individual controls or only application windows.</source>
+        <translation>Choose whether Smart Selection detects individual controls or only application windows.</translation>
+    </message>
+    <message>
+        <source>Detect Elements</source>
+        <translation>Detect Elements</translation>
+    </message>
+    <message>
+        <source>Window Only</source>
+        <translation>Window Only</translation>
     </message>
     <message>
         <source>Window Switch Animation</source>
@@ -1066,6 +1094,10 @@ Replace it?</translation>
     <message>
         <source>No text was recognized</source>
         <translation>No text was recognized</translation>
+    </message>
+    <message>
+        <source>Text copied</source>
+        <translation>Text copied</translation>
     </message>
     <message>
         <source>OCR recognition failed: {error}</source>
@@ -3265,6 +3297,34 @@ SOFTWARE.</translation></message>
     <message>
         <source>Font and size of application windows.</source>
         <translation>Font and size of application windows.</translation>
+    </message>
+    <message>
+        <source>Selection Border Width</source>
+        <translation>Selection Border Width</translation>
+    </message>
+    <message>
+        <source>Thickness of the selection outline.</source>
+        <translation>Thickness of the selection outline.</translation>
+    </message>
+    <message>
+        <source>Selection Handles</source>
+        <translation>Selection Handles</translation>
+    </message>
+    <message>
+        <source>Hidden handles can still be dragged to resize.</source>
+        <translation>Hidden handles can still be dragged to resize.</translation>
+    </message>
+    <message>
+        <source>8 handles</source>
+        <translation>8 handles</translation>
+    </message>
+    <message>
+        <source>4 corners</source>
+        <translation>4 corners</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>None</translation>
     </message>
     <message>
         <source>System</source>

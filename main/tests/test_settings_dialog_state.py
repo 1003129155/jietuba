@@ -721,3 +721,59 @@ class TestRefreshClipboardSize:
         assert scheduled[0][1] is fake._refresh_clipboard_size
         # 延时分支只排定，不应立刻写标签
         assert label.set_texts == []
+
+
+class TestSelectionAppearanceCombos:
+    """选区边框 / 手柄样式 / 手柄大小三个下拉框的两条回填路径。
+
+    它们是恢复默认和打开设置页时各写一次的同一组控件，错位了不会报错，
+    只会安静地显示成另一档。
+    """
+
+    DEFAULTS = {
+        "selection_border_width": 4,
+        "selection_handle_style": "all",
+        "selection_handle_size": "small",
+    }
+
+    def test_reset_writes_the_default_of_each_combo(self):
+        fake = SimpleNamespace(
+            config_manager=SimpleNamespace(APP_DEFAULT_SETTINGS=self.DEFAULTS),
+            _selection_border_combo=_Combo(index=7, data_map={4: 3}),
+            _selection_handle_combo=_Combo(index=7, data_map={"all": 0}),
+            _selection_handle_size_combo=_Combo(index=7, data_map={"small": 0}),
+        )
+
+        SettingsDialog._reset_appearance_page(fake)
+
+        assert fake._selection_border_combo.set_indexes == [3]
+        assert fake._selection_handle_combo.set_indexes == [0]
+        assert fake._selection_handle_size_combo.set_indexes == [0]
+
+    def test_reset_leaves_a_combo_alone_when_the_default_is_not_listed(self):
+        fake = SimpleNamespace(
+            config_manager=SimpleNamespace(APP_DEFAULT_SETTINGS=self.DEFAULTS),
+            _selection_border_combo=_Combo(index=7),
+        )
+
+        SettingsDialog._reset_appearance_page(fake)
+
+        assert fake._selection_border_combo.set_indexes == []
+
+    def test_opening_settings_takes_the_values_from_the_theme(self, monkeypatch):
+        """回填读的是主题而不是配置：别处改完主题色后再打开设置要显示最新值。"""
+        theme = SimpleNamespace(selection_border_width=2,
+                                selection_handle_style="corners",
+                                selection_handle_size="large")
+        monkeypatch.setattr("core.theme.get_theme", lambda: theme)
+        fake = SimpleNamespace(
+            _selection_border_combo=_Combo(data_map={2: 1}),
+            _selection_handle_combo=_Combo(data_map={"corners": 1}),
+            _selection_handle_size_combo=_Combo(data_map={"large": 2}),
+        )
+
+        SettingsDialog.refresh_settings(fake)
+
+        assert fake._selection_border_combo.set_indexes == [1]
+        assert fake._selection_handle_combo.set_indexes == [1]
+        assert fake._selection_handle_size_combo.set_indexes == [2]

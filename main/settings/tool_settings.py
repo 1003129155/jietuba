@@ -179,7 +179,10 @@ class ToolSettingsManager(QObject):
         "inapp_undo": "ctrl+z",                # 撤销
         "inapp_redo": "ctrl+y",                # 重做
         "inapp_delete": "delete",              # 删除选中图元
+        "inapp_restore_last_region": "l",      # 选区未确认/无绘制工具激活时，还原为上次截图的区域
         "inapp_copy_pin": "ctrl+c",            # 复制钉图内容
+        "inapp_copy_pin_text": "ctrl+shift+c", # 复制钉图识别到的全部文字
+        "inapp_pin_reset_size": "mousemiddle", # 钉图恢复 100% 大小
         "inapp_thumbnail": "r",                # 切换缩略图模式
         "inapp_toggle_toolbar": "space",       # 切换工具栏
         "inapp_zoom_in": "pageup",             # 放大镜放大
@@ -197,6 +200,7 @@ class ToolSettingsManager(QObject):
 
         # 智能选择
         "smart_selection": True,              # 智能选区（窗口/控件识别）
+        "smart_selection_mode": "element",   # window / element；总开关独立保留
         "smart_selection_animation": False,   # 换窗口时补间而不是瞬间跳变
 
         # 截图保存
@@ -256,6 +260,11 @@ class ToolSettingsManager(QObject):
         # 独立业务窗口缩放百分比，档位同上
         "dialog_scale_percent": 100,
         "theme_color": "#40E0D0",              # 主题色（青绿色 Turquoise）
+        # 选区边框笔宽（物理像素），档位见 core/theme.ThemeManager.BORDER_WIDTH_OPTIONS
+        "selection_border_width": 4,
+        # 选区手柄显示：all=八个 / corners=四角 / none=不显示。
+        # 只管画不画，八个方向照样能拖动调整选区，见 canvas/items/selection_item.py
+        "selection_handle_style": "all",
         "mask_color_r": 0,                     # 遮罩色 R（0-255）
         "mask_color_g": 0,                     # 遮罩色 G（0-255）
         "mask_color_b": 0,                     # 遮罩色 B（0-255）
@@ -719,13 +728,31 @@ class ToolSettingsManager(QObject):
         """设置鼠标微移模式"""
         self.qsettings.setValue("inapp/inapp_cursor_move_mode", value)
 
+    def get_smart_selection_mode(self, *, include_disabled: bool = False) -> str:
+        """返回生效模式；设置页可在总开关关闭时读取上次的检测方式。"""
+        if not include_disabled and not self.get_smart_selection():
+            return "off"
+        mode = self.qsettings.value(
+            "app/smart_selection_mode", self.APP_DEFAULT_SETTINGS["smart_selection_mode"], type=str
+        ).lower()
+        return mode if mode in {"window", "element"} else self.APP_DEFAULT_SETTINGS["smart_selection_mode"]
+
+    def set_smart_selection_mode(self, mode: str):
+        """设置智能选区模式。"""
+        mode = str(mode or "off").lower()
+        if mode not in {"off", "window", "element"}:
+            mode = self.APP_DEFAULT_SETTINGS["smart_selection_mode"]
+        if mode != "off":
+            self.qsettings.setValue("app/smart_selection_mode", mode)
+        self.qsettings.setValue("app/smart_selection", mode != "off")
+
     def get_smart_selection(self) -> bool:
-        """获取智能选区设置"""
+        """获取智能选区总开关。"""
         return self.qsettings.value("app/smart_selection", self.APP_DEFAULT_SETTINGS["smart_selection"], type=bool)
     
     def set_smart_selection(self, value: bool):
-        """设置智能选区"""
-        self.qsettings.setValue("app/smart_selection", value)
+        """设置智能选区总开关，同时保留已选择的检测模式。"""
+        self.qsettings.setValue("app/smart_selection", bool(value))
 
     def get_smart_selection_animation(self) -> bool:
         """获取智能选区换窗口动画设置"""

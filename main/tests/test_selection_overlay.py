@@ -75,7 +75,7 @@ def test_border_is_full_width_and_undimmed(stack, qapp):
     out = _compose(host, scene, mask, overlay, qapp)
 
     pure = _theme_name(scene)
-    width = int(scene.selection_item.BORDER_WIDTH)
+    width = int(scene.selection_item.border_width)
     left = int(SEL.left())
     y = int(SEL.top()) + 20  # 避开上边与角手柄
 

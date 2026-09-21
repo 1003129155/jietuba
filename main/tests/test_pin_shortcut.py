@@ -15,8 +15,8 @@ pin_shortcut.py 决定了鼠标悬停在钉图上时按键会发生什么，此�
 - 鼠标下方钉图的查找：上层优先，且要跳过已销毁的窗口。
 """
 import pytest
-from PySide6.QtCore import Qt, QRect, QPoint
-from PySide6.QtGui import QKeyEvent, QCursor
+from PySide6.QtCore import Qt, QRect, QPoint, QPointF, QEvent
+from PySide6.QtGui import QKeyEvent, QMouseEvent, QCursor
 from PySide6.QtWidgets import QApplication
 
 
@@ -78,10 +78,14 @@ class FakePin:
         self.view = None
         self._is_closed = False
 
+        self._thumbnail_mode = False
+
         self.copied = 0
+        self.text_copied = 0
         self.closed = 0
         self.thumbnail_toggled = 0
         self.toolbar_toggled = 0
+        self.size_resets = 0
 
     def geometry(self):
         return self._rect
@@ -101,6 +105,12 @@ class FakePin:
     def toggle_toolbar(self):
         self.toolbar_toggled += 1
 
+    def copy_all_text(self):
+        self.text_copied += 1
+
+    def reset_to_original_size(self):
+        self.size_resets += 1
+
 
 class FakeController:
     """替代 PinShortcutController，由测试直接指定鼠标下方是哪个钉图"""
@@ -116,21 +126,43 @@ def _key_event(key, modifiers=Qt.KeyboardModifier.NoModifier):
     return QKeyEvent(QKeyEvent.Type.KeyPress, key, modifiers)
 
 
+def _middle_click_event(modifiers=Qt.KeyboardModifier.NoModifier):
+    button = Qt.MouseButton.MiddleButton
+    return QMouseEvent(QEvent.Type.MouseButtonPress, QPointF(0, 0), QPointF(0, 0),
+                       button, button, modifiers)
+
+
+def _isolated(handler):
+    """清掉构造时读进来的绑定，只留测试自己用 _bind 指定的那几个。
+
+    Handler 一建出来就会读配置，而工具设置单例在整个会话里是共享的：别的测试
+    往里写过什么，这里就会读到什么，按键落到哪个分支便不再由本文件决定。
+    """
+    handler._bindings.clear()
+    handler._mouse_bindings.clear()
+    return handler
+
+
 @pytest.fixture
 def edit_handler(qapp):
     from pin.pin_shortcut import PinEditShortcutHandler
-    return PinEditShortcutHandler(FakeController())
+    return _isolated(PinEditShortcutHandler(FakeController()))
 
 
 @pytest.fixture
 def normal_handler(qapp):
     from pin.pin_shortcut import PinNormalShortcutHandler
-    return PinNormalShortcutHandler(FakeController())
+    return _isolated(PinNormalShortcutHandler(FakeController()))
 
 
 def _bind(handler, cfg_key, key, mods=Qt.KeyboardModifier.NoModifier):
     """直接指定某个配置项对应的按键，避免测试依赖用户的本地配置"""
     handler._bindings[cfg_key] = (key, mods)
+
+
+def _bind_middle(handler, cfg_key, mods=Qt.KeyboardModifier.NoModifier):
+    """同上，但绑的是鼠标中键"""
+    handler._mouse_bindings[cfg_key] = (Qt.MouseButton.MiddleButton, mods)
 
 
 # ============================================================================
@@ -322,6 +354,60 @@ class TestEditModeKeys:
 
         assert edit_handler.handle_key(_key_event(Qt.Key.Key_Escape)) is False
         assert pin.canvas.deactivated == 0
+
+
+# ============================================================================
+# 两种模式共用的快捷键
+# ============================================================================
+
+class TestSharedKeys:
+    """复制全部文字、恢复原始大小在编辑态和普通态下行为一致"""
+
+    @pytest.fixture(params=["normal", "edit"])
+    def handler_and_pin(self, request, edit_handler, normal_handler):
+        if request.param == "edit":
+            handler, pin = edit_handler, FakePin(editing=True)
+        else:
+            handler, pin = normal_handler, FakePin(editing=False)
+        handler._controller.pin = pin
+        return handler, pin
+
+    def test_copy_text_key_copies_all_recognized_text(self, handler_and_pin):
+        handler, pin = handler_and_pin
+        _bind(handler, "inapp_copy_pin_text", Qt.Key.Key_C,
+              Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier)
+
+        event = _key_event(
+            Qt.Key.Key_C,
+            Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier,
+        )
+        assert handler.handle_key(event) is True
+        assert pin.text_copied == 1
+        assert pin.copied == 0      # 复制的是文字，不是整张图
+
+    def test_middle_click_resets_the_pin_to_its_original_size(self, handler_and_pin):
+        handler, pin = handler_and_pin
+        _bind_middle(handler, "inapp_pin_reset_size")
+
+        assert handler.handle_mouse(_middle_click_event()) is True
+        assert pin.size_resets == 1
+
+    def test_reset_size_is_unavailable_in_thumbnail_mode(self, handler_and_pin):
+        """缩略图的窗口尺寸由缩略图逻辑决定，与右键菜单一样不提供此项"""
+        handler, pin = handler_and_pin
+        pin._thumbnail_mode = True
+        _bind_middle(handler, "inapp_pin_reset_size")
+
+        assert handler.handle_mouse(_middle_click_event()) is False
+        assert pin.size_resets == 0
+
+    def test_middle_click_without_a_binding_is_passed_through(self, handler_and_pin):
+        """没绑中键时必须放行，否则钉图会吞掉所有中键点击"""
+        handler, pin = handler_and_pin
+        handler._mouse_bindings.clear()
+
+        assert handler.handle_mouse(_middle_click_event()) is False
+        assert pin.size_resets == 0
 
 
 # ============================================================================

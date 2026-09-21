@@ -336,6 +336,7 @@ core/
 ├── ui_scale.py              # UIScaleManager — one scale factor for toolbars, panels and popups
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — internationalization
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — global & in-app hotkeys
+├── last_capture_region.py   # In-memory "last capture region" for the restore-region hotkey
 ├── save.py                  # SaveService — file save service (auto naming, high-quality PDF output)
 ├── export.py                # ExportService — image export
 ├── clipboard_utils.py       # copy_image_to_clipboard() — copy images to system clipboard

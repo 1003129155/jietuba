@@ -308,8 +308,20 @@ Replace it?</source>
         <translation>删除选中图元</translation>
     </message>
     <message>
+        <source>Restore Last Region</source>
+        <translation>恢复上次选区</translation>
+    </message>
+    <message>
         <source>Copy Pinned Image</source>
         <translation>复制钉图内容</translation>
+    </message>
+    <message>
+        <source>Copy All Text</source>
+        <translation>复制全部文本</translation>
+    </message>
+    <message>
+        <source>Reset Size</source>
+        <translation>重置大小</translation>
     </message>
     <message>
         <source>Toggle Thumbnail</source>
@@ -424,6 +436,22 @@ Replace it?</source>
     <message>
         <source>Automatically recognizes UI elements at mouse cursor position.</source>
         <translation>自动识别鼠标光标位置的窗口。</translation>
+    </message>
+    <message>
+        <source>UI Detection Mode</source>
+        <translation>UI 检测模式</translation>
+    </message>
+    <message>
+        <source>Choose whether Smart Selection detects individual controls or only application windows.</source>
+        <translation>选择智能选区是检测单个控件，还是仅检测应用窗口。</translation>
+    </message>
+    <message>
+        <source>Detect Elements</source>
+        <translation>检测元素</translation>
+    </message>
+    <message>
+        <source>Window Only</source>
+        <translation>仅窗口</translation>
     </message>
     <message>
         <source>Window Switch Animation</source>
@@ -1111,6 +1139,10 @@ Replace it?</source>
     <message>
         <source>No text was recognized</source>
         <translation>未识别到文字</translation>
+    </message>
+    <message>
+        <source>Text copied</source>
+        <translation>文字已复制</translation>
     </message>
     <message>
         <source>OCR recognition failed: {error}</source>
@@ -3430,6 +3462,34 @@ SOFTWARE.</translation></message>
     <message>
         <source>Font and size of application windows.</source>
         <translation>应用窗口的字体与尺寸。</translation>
+    </message>
+    <message>
+        <source>Selection Border Width</source>
+        <translation>选区边框粗细</translation>
+    </message>
+    <message>
+        <source>Thickness of the selection outline.</source>
+        <translation>选区边框线条的粗细。</translation>
+    </message>
+    <message>
+        <source>Selection Handles</source>
+        <translation>选区手柄</translation>
+    </message>
+    <message>
+        <source>Hidden handles can still be dragged to resize.</source>
+        <translation>隐藏后依然可以拖动边角调整选区。</translation>
+    </message>
+    <message>
+        <source>8 handles</source>
+        <translation>8 个手柄</translation>
+    </message>
+    <message>
+        <source>4 corners</source>
+        <translation>仅四角</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>不显示</translation>
     </message>
     <message>
         <source>System</source>

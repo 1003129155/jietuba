@@ -355,6 +355,7 @@ core/
 ├── ui_scale.py              # UIScaleManager — 工具栏/面板/弹层共用的缩放比例
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — 国际化管理，多语言支持
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — 全局热键和应用内快捷键管理
+├── last_capture_region.py   # 进程内存的"上次截图区域"，供恢复选区快捷键使用
 ├── save.py                  # SaveService — 文件保存服务（自动命名、路径管理、高质量 PDF 输出）
 ├── export.py                # ExportService — 图像导出服务
 ├── clipboard_utils.py       # copy_image_to_clipboard() — 图像复制到系统剪贴板

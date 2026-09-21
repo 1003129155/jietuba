@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 from canvas.selection_model import SelectionModel
 from .text_item import TextItem
 from core.logger import log_debug, T
-from core.theme import get_theme
+from core.theme import get_theme, ThemeManager
 from core import safe_event
 
 
@@ -22,15 +22,6 @@ class SelectionItem(QGraphicsItem):
     选区框 - 显示边框和8个控制点
     Z-order: 15
     """
-    
-    HANDLE_SIZE = 14  # 控制点大小（也是命中判定半径，见 handle_at_position）
-    HANDLE_RING_WIDTH = 3  # 控制点白色外圈笔宽
-
-    # 选区边框笔宽（物理像素——场景用屏幕物理坐标，视图 transform 为 1:1）。
-    # 描边居中跨在选区边界上，内外各占一半。
-    # 圆角预览 (ui/selection_info/rounded_corners.py) 替换本类 render 时复用这个值，
-    # 改这里就够，不必两边同步。
-    BORDER_WIDTH = 6
     
     # 手柄标识
     HANDLE_NONE = 0
@@ -43,10 +34,14 @@ class SelectionItem(QGraphicsItem):
     HANDLE_BOTTOM = 7
     HANDLE_BOTTOM_RIGHT = 8
     HANDLE_BODY = 9 # 移动整个选区
-    
-    # 预缓存绘制常量，避免 paint() 每帧创建临时 Qt 对象
-    _pen_handle_outer = QPen(QColor(255, 255, 255), HANDLE_RING_WIDTH)
-    
+
+    CORNER_HANDLES = (HANDLE_TOP_LEFT, HANDLE_TOP_RIGHT,
+                      HANDLE_BOTTOM_LEFT, HANDLE_BOTTOM_RIGHT)
+
+    # 手柄在一条边上占掉的长度超过边长的这个比例，整组手柄就不画了：再挤下去
+    # 手柄互相压住，也把选区里的内容盖没了。
+    HANDLE_CROWDING_RATIO = 0.8
+
     def __init__(self, model: SelectionModel):
         super().__init__()
         self.setZValue(15)
@@ -74,6 +69,30 @@ class SelectionItem(QGraphicsItem):
         
         log_debug(T("选区框创建"), "Canvas")
     
+    @property
+    def border_width(self) -> int:
+        """选区边框笔宽（物理像素——场景用屏幕物理坐标，视图 transform 为 1:1）。
+
+        描边居中跨在选区边界上，内外各占一半。每次取值都回主题单例读，
+        用户在设置里改完下一次截图就生效，不必逐处通知。
+        """
+        return get_theme().selection_border_width
+
+    @property
+    def handle_size(self) -> int:
+        """控制点直径（物理像素，也是命中判定半径，见 _hit_test），随手柄大小档位变化。"""
+        return get_theme().selection_handle_diameter
+
+    @property
+    def handle_ring_width(self) -> int:
+        """控制点白色外圈笔宽（物理像素），同样每次从主题单例读取。"""
+        return get_theme().selection_handle_ring_width
+
+    @property
+    def handle_visual_diameter(self) -> int:
+        """控制点连白色外圈在内的视觉直径（物理像素）。"""
+        return self.handle_size + self.handle_ring_width
+
     def boundingRect(self) -> QRectF:
         """边界矩形"""
         if self._model.is_empty():
@@ -104,9 +123,10 @@ class SelectionItem(QGraphicsItem):
         """
         if self._model.is_empty():
             return QRectF()
-        # 边框描边外溢半个笔宽；手柄骑在边界上，外溢半径 + 白圈笔宽
-        pad = max(self.BORDER_WIDTH / 2.0,
-                  self.HANDLE_SIZE / 2.0 + 1 + self.HANDLE_RING_WIDTH)
+        # 边框描边外溢半个笔宽；手柄骑在边界上，外溢半径 + 白圈笔宽。
+        # 手柄关掉时这里仍按手柄算，多留几像素失效区不会画出东西，也省一条分支。
+        pad = max(self.border_width / 2.0,
+                  self.handle_size / 2.0 + 1 + self.handle_ring_width)
         return self._model.rect().adjusted(-pad, -pad, pad, pad)
 
     def render(self, painter: QPainter):
@@ -125,27 +145,63 @@ class SelectionItem(QGraphicsItem):
         # 5px + 2 个过渡像素。而小数矩形是常态——补间的每一帧、锁定长宽比都会产生。
         tc = get_theme().theme_color
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
-        painter.setPen(QPen(tc, self.BORDER_WIDTH, Qt.PenStyle.SolidLine))
+        painter.setPen(QPen(tc, self.border_width, Qt.PenStyle.SolidLine))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRect(rect)
 
-        # 拖拽时或选区未确认时（智能选区预览）隐藏控制点
-        # 1. 降低渲染压力
-        # 2. 避免在预览时出现"画蛇添足"的手柄
+        if self.handles_visible():
+            self.draw_handles(painter, rect)
+
+    def handles_visible(self) -> bool:
+        """这一帧是否画控制点。圆角预览走另一条绘制路径，判断共用这里。
+
+        不画的三种情况：拖拽中（降低渲染压力）、选区未确认（智能选区预览阶段
+        的手柄是画蛇添足）、选区小到挤不下手柄（见 HANDLE_CROWDING_RATIO）。
+
+        只管画不画——命中判定不看它，八个方向始终可拖，与「手柄档位关掉」一致。
+        """
+        if self._model.is_empty():
+            return False
         if self._model.is_dragging or not self._model.is_confirmed:
+            return False
+
+        style = get_theme().selection_handle_style
+        if style == ThemeManager.HANDLES_NONE:
+            return False
+
+        # 一条边上：全显示是两个角手柄各占半个身位加中点手柄一个，合计两个直径；
+        # 只画四角时合计一个。手柄骑在边界上，两个方向的排布相同，取短边即可。
+        occupied = self.handle_visual_diameter * (
+            2 if style == ThemeManager.HANDLES_ALL else 1)
+        rect = self._model.rect()
+        return occupied <= min(rect.width(), rect.height()) * self.HANDLE_CROWDING_RATIO
+
+    def draw_handles(self, painter: QPainter, rect: QRectF, skip_corners: bool = False):
+        """绘制控制点。圆角预览也调这里，手柄档位和配色只有这一份实现。
+
+        skip_corners=True 跳过四角（圆角模式下四角手柄贴不住弧线）。
+        """
+        style = get_theme().selection_handle_style
+        if style == ThemeManager.HANDLES_NONE:
             return
 
         # 控制点是圆，抗锯齿必须开
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
-        # 绘制8个控制点（使用预缓存的 QPen/QBrush）
         handles = self._get_handle_positions(rect)
-        outer_r = self.HANDLE_SIZE // 2 + 1
-        inner_r = self.HANDLE_SIZE // 2
-        brush_handle = QBrush(tc)
-        for pos in handles.values():
+        outer_r = self.handle_size // 2 + 1
+        inner_r = self.handle_size // 2
+        brush_handle = QBrush(get_theme().theme_color)
+        pen_handle_outer = QPen(QColor(255, 255, 255), self.handle_ring_width)
+        for handle_id, pos in handles.items():
+            if handle_id in self.CORNER_HANDLES:
+                if skip_corners:
+                    continue
+            elif style == ThemeManager.HANDLES_CORNERS:
+                continue
+
             # 外圈（白色边框 + 主题色填充）
-            painter.setPen(self._pen_handle_outer)
+            painter.setPen(pen_handle_outer)
             painter.setBrush(brush_handle)
             painter.drawEllipse(pos, outer_r, outer_r)
 
@@ -287,7 +343,7 @@ class SelectionItem(QGraphicsItem):
         # 检查控制点
         for handle_id, handle_pos in handles.items():
             # 简单的距离检测
-            if (pos - handle_pos).manhattanLength() < self.HANDLE_SIZE:
+            if (pos - handle_pos).manhattanLength() < self.handle_size:
                 return handle_id
                 
         # 检查是否在矩形内部

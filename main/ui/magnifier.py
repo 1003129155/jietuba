@@ -475,9 +475,8 @@ class MagnifierOverlay(QWidget):
 				return False
 		except AttributeError:
 			pass
-		current_tool = self.scene.tool_controller.current_tool
 		if (self.scene.selection_model.is_confirmed and
-				current_tool and current_tool.id != 'cursor'):
+				self.scene.tool_controller.current_tool_id != 'cursor'):
 			return False
 		return True
 

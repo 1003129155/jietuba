@@ -715,6 +715,20 @@ class SettingsDialog(FrostedFramelessDialog):
                 defaults["mask_color_b"]
             )
             _update_color_btn(self._mask_color_btn, self._appearance_mask_color)
+        if hasattr(self, '_selection_border_combo'):
+            index = self._selection_border_combo.findData(defaults["selection_border_width"])
+            if index >= 0:
+                self._selection_border_combo.setCurrentIndex(index)
+        if hasattr(self, '_selection_handle_combo'):
+            index = self._selection_handle_combo.findData(defaults["selection_handle_style"])
+            if index >= 0:
+                self._selection_handle_combo.setCurrentIndex(index)
+        if hasattr(self, '_selection_handle_size_combo'):
+            index = self._selection_handle_size_combo.findData(
+                defaults["selection_handle_size"]
+            )
+            if index >= 0:
+                self._selection_handle_size_combo.setCurrentIndex(index)
 
     def _reset_screenshot_settings_page(self):
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
@@ -732,6 +746,12 @@ class SettingsDialog(FrostedFramelessDialog):
             )
         if hasattr(self, 'smart_toggle'):
             self.smart_toggle.setChecked(defaults["smart_selection"])
+        if hasattr(self, 'smart_selection_mode_combo'):
+            index = self.smart_selection_mode_combo.findData(
+                defaults["smart_selection_mode"]
+            )
+            if index >= 0:
+                self.smart_selection_mode_combo.setCurrentIndex(index)
         if hasattr(self, 'smart_animation_toggle'):
             self.smart_animation_toggle.setChecked(defaults["smart_selection_animation"])
         if hasattr(self, 'save_toggle'):
@@ -869,6 +889,9 @@ class SettingsDialog(FrostedFramelessDialog):
                 self.text_always_on_top_toggle.isChecked()
             )
         if hasattr(self, 'smart_toggle'):
+            mode_combo = getattr(self, 'smart_selection_mode_combo', None)
+            if mode_combo is not None:
+                self.config_manager.set_smart_selection_mode(mode_combo.currentData())
             self.config_manager.set_smart_selection(self.smart_toggle.isChecked())
         if hasattr(self, 'smart_animation_toggle'):
             self.config_manager.set_smart_selection_animation(
@@ -1037,7 +1060,7 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'info_hide_on_drag_toggle'):
             self.config_manager.set_app_setting("screenshot_info_hide_on_drag", self.info_hide_on_drag_toggle.isChecked())
 
-        # 11. 外观设置（主题色、遮罩色、界面缩放）
+        # 11. 外观设置（主题色、遮罩色、选区外观、界面缩放）
         if hasattr(self, '_ui_theme_combo'):
             from core.ui_theme import get_ui_theme
             get_ui_theme().set_mode(self._ui_theme_combo.currentData())
@@ -1061,6 +1084,12 @@ class SettingsDialog(FrostedFramelessDialog):
             theme.set_theme_color(self._appearance_theme_color)
         if hasattr(self, '_appearance_mask_color'):
             theme.set_mask_color(self._appearance_mask_color)
+        if hasattr(self, '_selection_border_combo'):
+            theme.set_selection_border_width(self._selection_border_combo.currentData())
+        if hasattr(self, '_selection_handle_combo'):
+            theme.set_selection_handle_style(self._selection_handle_combo.currentData())
+        if hasattr(self, '_selection_handle_size_combo'):
+            theme.set_selection_handle_size(self._selection_handle_size_combo.currentData())
 
         log_info("すべての設定を保存しました", "Settings")
         self._settings_snapshot = self._snapshot_settings()
@@ -1211,12 +1240,14 @@ class SettingsDialog(FrostedFramelessDialog):
             if w is not None:
                 snap[attr] = w.isChecked()
         # 下拉框类
-        for attr in ('screenshot_format_combo', 'ocr_engine_combo',
+        for attr in ('screenshot_format_combo', 'smart_selection_mode_combo', 'ocr_engine_combo',
                       'translation_provider_combo', 'translation_target_combo',
                       'log_level_combo',
                       'language_combo', 'engine_combo', 'cursor_move_combo',
                       'magnifier_color_format_combo', 'log_retention_combo',
-                      '_ui_theme_combo', '_ui_scale_combo', '_dialog_scale_combo'):
+                      '_ui_theme_combo', '_ui_scale_combo', '_dialog_scale_combo',
+                      '_selection_border_combo', '_selection_handle_combo',
+                      '_selection_handle_size_combo'):
             w = getattr(self, attr, None)
             if w is not None:
                 snap[attr] = w.currentIndex()
@@ -1358,6 +1389,15 @@ class SettingsDialog(FrostedFramelessDialog):
 
         if hasattr(self, 'smart_toggle'):
             self.smart_toggle.setChecked(self.config_manager.get_smart_selection())
+
+        if hasattr(self, 'smart_selection_mode_combo'):
+            mode = self.config_manager.get_smart_selection_mode(include_disabled=True)
+            index = self.smart_selection_mode_combo.findData(mode)
+            if index >= 0:
+                self.smart_selection_mode_combo.setCurrentIndex(index)
+            self.smart_selection_mode_combo.setEnabled(
+                self.config_manager.get_smart_selection()
+            )
 
         if hasattr(self, 'smart_animation_toggle'):
             self.smart_animation_toggle.setChecked(
@@ -1502,6 +1542,30 @@ class SettingsDialog(FrostedFramelessDialog):
             self._appearance_mask_color = QColor(mc.red(), mc.green(), mc.blue())
             _update_color_btn(self._theme_color_btn, self._appearance_theme_color)
             _update_color_btn(self._mask_color_btn, self._appearance_mask_color)
+
+        if hasattr(self, '_selection_border_combo'):
+            from core.theme import get_theme
+            index = self._selection_border_combo.findData(
+                get_theme().selection_border_width
+            )
+            if index >= 0:
+                self._selection_border_combo.setCurrentIndex(index)
+
+        if hasattr(self, '_selection_handle_combo'):
+            from core.theme import get_theme
+            index = self._selection_handle_combo.findData(
+                get_theme().selection_handle_style
+            )
+            if index >= 0:
+                self._selection_handle_combo.setCurrentIndex(index)
+
+        if hasattr(self, '_selection_handle_size_combo'):
+            from core.theme import get_theme
+            index = self._selection_handle_size_combo.findData(
+                get_theme().selection_handle_size
+            )
+            if index >= 0:
+                self._selection_handle_size_combo.setCurrentIndex(index)
 
         # 剪切板主题色同步（在别处改了主题色后打开设置，确保显示最新值）
         if hasattr(self, '_clip_theme_btn'):

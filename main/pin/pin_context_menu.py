@@ -132,7 +132,11 @@ class PinContextMenu:
             menu.addAction(translate_action)
             
             # 恢复原始大小
-            reset_size_action = QAction(self.parent.tr("Reset size"), self.parent)
+            reset_key = _get_shortcut_display("inapp_pin_reset_size")
+            reset_label = self.parent.tr("Reset size")
+            if reset_key:
+                reset_label += f" ({reset_key})"
+            reset_size_action = QAction(reset_label, self.parent)
             reset_size_action.triggered.connect(self.parent.reset_to_original_size)
             menu.addAction(reset_size_action)
             

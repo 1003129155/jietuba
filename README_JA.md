@@ -335,6 +335,7 @@ core/
 ├── ui_scale.py              # UIScaleManager — ツールバー/パネル/ポップアップ共通の拡大率
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — 国際化
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — グローバル＆アプリ内ホットキー
+├── last_capture_region.py   # 「前回の選択範囲を復元」用のプロセス内メモリ
 ├── save.py                  # SaveService — ファイル保存サービス（高品質 PDF 出力対応）
 ├── export.py                # ExportService — 画像エクスポート
 ├── clipboard_utils.py       # copy_image_to_clipboard() — 画像をクリップボードにコピー

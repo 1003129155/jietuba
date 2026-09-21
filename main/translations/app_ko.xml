@@ -303,8 +303,20 @@ Replace it?</source>
         <translation>선택 항목 삭제</translation>
     </message>
     <message>
+        <source>Restore Last Region</source>
+        <translation>이전 선택 영역 복원</translation>
+    </message>
+    <message>
         <source>Copy Pinned Image</source>
         <translation>고정 이미지 복사</translation>
+    </message>
+    <message>
+        <source>Copy All Text</source>
+        <translation>모든 텍스트 복사</translation>
+    </message>
+    <message>
+        <source>Reset Size</source>
+        <translation>크기 초기화</translation>
     </message>
     <message>
         <source>Toggle Thumbnail</source>
@@ -419,6 +431,22 @@ Replace it?</source>
     <message>
         <source>Automatically recognizes UI elements at mouse cursor position.</source>
         <translation>마우스 커서 위치의 UI 요소를 자동으로 인식합니다.</translation>
+    </message>
+    <message>
+        <source>UI Detection Mode</source>
+        <translation>UI 감지 모드</translation>
+    </message>
+    <message>
+        <source>Choose whether Smart Selection detects individual controls or only application windows.</source>
+        <translation>스마트 선택에서 개별 컨트롤을 감지할지, 애플리케이션 창만 감지할지 선택합니다.</translation>
+    </message>
+    <message>
+        <source>Detect Elements</source>
+        <translation>요소 감지</translation>
+    </message>
+    <message>
+        <source>Window Only</source>
+        <translation>창만</translation>
     </message>
     <message>
         <source>Window Switch Animation</source>
@@ -1097,6 +1125,10 @@ Replace it?</source>
     <message>
         <source>No text was recognized</source>
         <translation>텍스트를 인식하지 못했습니다</translation>
+    </message>
+    <message>
+        <source>Text copied</source>
+        <translation>텍스트를 복사했습니다</translation>
     </message>
     <message>
         <source>OCR recognition failed: {error}</source>
@@ -3356,6 +3388,34 @@ SOFTWARE.</translation></message>
     <message>
         <source>Font and size of application windows.</source>
         <translation>애플리케이션 창의 글꼴과 크기입니다.</translation>
+    </message>
+    <message>
+        <source>Selection Border Width</source>
+        <translation>선택 영역 테두리 두께</translation>
+    </message>
+    <message>
+        <source>Thickness of the selection outline.</source>
+        <translation>선택 영역 테두리 선의 두께입니다.</translation>
+    </message>
+    <message>
+        <source>Selection Handles</source>
+        <translation>선택 핸들</translation>
+    </message>
+    <message>
+        <source>Hidden handles can still be dragged to resize.</source>
+        <translation>숨겨도 드래그하여 크기를 조절할 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>8 handles</source>
+        <translation>핸들 8개</translation>
+    </message>
+    <message>
+        <source>4 corners</source>
+        <translation>모서리 4개</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>표시 안 함</translation>
     </message>
     <message>
         <source>System</source>

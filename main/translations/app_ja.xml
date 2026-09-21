@@ -310,8 +310,20 @@ Replace it?</source>
         <translation>選択項目を削除</translation>
     </message>
     <message>
+        <source>Restore Last Region</source>
+        <translation>前回の選択範囲を復元</translation>
+    </message>
+    <message>
         <source>Copy Pinned Image</source>
         <translation>ピン画像をコピー</translation>
+    </message>
+    <message>
+        <source>Copy All Text</source>
+        <translation>すべてのテキストをコピー</translation>
+    </message>
+    <message>
+        <source>Reset Size</source>
+        <translation>サイズを100%にする</translation>
     </message>
     <message>
         <source>Toggle Thumbnail</source>
@@ -426,6 +438,22 @@ Replace it?</source>
     <message>
         <source>Automatically recognizes UI elements at mouse cursor position.</source>
         <translation>マウスカーソル位置のウィンドウを自動認識します。</translation>
+    </message>
+    <message>
+        <source>UI Detection Mode</source>
+        <translation>UI 検出モード</translation>
+    </message>
+    <message>
+        <source>Choose whether Smart Selection detects individual controls or only application windows.</source>
+        <translation>スマート選択で個別のコントロールを検出するか、アプリケーションウィンドウのみを検出するかを選択します。</translation>
+    </message>
+    <message>
+        <source>Detect Elements</source>
+        <translation>要素を検出</translation>
+    </message>
+    <message>
+        <source>Window Only</source>
+        <translation>ウィンドウのみ</translation>
     </message>
     <message>
         <source>Window Switch Animation</source>
@@ -1110,6 +1138,10 @@ Replace it?</source>
     <message>
         <source>No text was recognized</source>
         <translation>テキストを認識できませんでした</translation>
+    </message>
+    <message>
+        <source>Text copied</source>
+        <translation>テキストをコピーしました</translation>
     </message>
     <message>
         <source>OCR recognition failed: {error}</source>
@@ -3397,6 +3429,34 @@ SOFTWARE.</translation></message>
     <message>
         <source>Font and size of application windows.</source>
         <translation>アプリケーションウィンドウのフォントとサイズ。</translation>
+    </message>
+    <message>
+        <source>Selection Border Width</source>
+        <translation>選択範囲の枠の太さ</translation>
+    </message>
+    <message>
+        <source>Thickness of the selection outline.</source>
+        <translation>選択範囲の枠線の太さ。</translation>
+    </message>
+    <message>
+        <source>Selection Handles</source>
+        <translation>選択ハンドル</translation>
+    </message>
+    <message>
+        <source>Hidden handles can still be dragged to resize.</source>
+        <translation>非表示にしてもドラッグでサイズを変更できます。</translation>
+    </message>
+    <message>
+        <source>8 handles</source>
+        <translation>ハンドル 8 個</translation>
+    </message>
+    <message>
+        <source>4 corners</source>
+        <translation>四隅のみ</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>表示しない</translation>
     </message>
     <message>
         <source>System</source>

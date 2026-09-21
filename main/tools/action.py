@@ -33,8 +33,11 @@ class ActionTools:
         from core.clipboard_utils import deliver_image_async
         self._temporarily_exit_editing()
 
+        selection_rect = self.export_service.scene.selection_model.rect()
+        self._remember_last_region(selection_rect)
+
         # 导出选区图像（包含背景和绘制内容）
-        image = self.export_service.export(self.export_service.scene.selection_model.rect())
+        image = self.export_service.export(selection_rect)
 
         # 导出完成后立即隐藏窗口（数据已拿到，后续操作不需要窗口可见）
         if self.parent_window:
@@ -92,6 +95,7 @@ class ActionTools:
                 file_path = f"{file_path}.{image_format.lower()}"
 
             selection_rect = self.export_service.scene.selection_model.rect()
+            self._remember_last_region(selection_rect)
             if selection_rect.isEmpty():
                 selection_rect = self.export_service.scene.sceneRect()
             image = self.export_service.export(selection_rect)
@@ -110,9 +114,10 @@ class ActionTools:
         2. 绘制层：通过向量数据继承，可继续编辑
         """
         self._temporarily_exit_editing()
-        
+
         selection_rect = self.scene.selection_model.rect()
-        
+        self._remember_last_region(selection_rect)
+
         # 获取纯净底图（不含绘制内容）
         base_image = self.export_service.export_base_image_only(selection_rect)
         
@@ -234,12 +239,27 @@ class ActionTools:
             show_modeless_warning_dialog(
                 self.parent_window, _tr("Warning"), _tr("Please select a valid capture area first."))
             return None
-        image = self.export_service.export_base_image_only(self.scene.selection_model.rect())
+        selection_rect = self.scene.selection_model.rect()
+        self._remember_last_region(selection_rect)
+        image = self.export_service.export_base_image_only(selection_rect)
         if image is None or image.isNull():
             show_modeless_warning_dialog(
                 self.parent_window, _tr("Error"), _tr("Failed to capture the selected area."))
             return None
         return image
+
+    def _remember_last_region(self, rect):
+        """记住这次截图用的区域（换算成虚拟桌面绝对坐标），供下次截图时用快捷键还原。"""
+        if not self.parent_window or rect.isEmpty():
+            return
+        from core.last_capture_region import set_last_region
+        from PySide6.QtCore import QRect
+        set_last_region(QRect(
+            round(self.parent_window.virtual_x + rect.x()),
+            round(self.parent_window.virtual_y + rect.y()),
+            round(rect.width()),
+            round(rect.height()),
+        ))
 
     def _temporarily_exit_editing(self):
         """
@@ -250,11 +270,11 @@ class ActionTools:
             return
         
         tool_controller = self.scene.tool_controller
-        current_tool = tool_controller.current_tool
-        
+        current_tool_id = tool_controller.current_tool_id
+
         # 如果当前不是cursor工具，则切换到cursor
-        if current_tool and current_tool.id != "cursor":
-            log_debug(T("从 {tool_id} 切换到 cursor", tool_id=current_tool.id), "Action")
+        if current_tool_id != "cursor":
+            log_debug(T("从 {tool_id} 切换到 cursor", tool_id=current_tool_id), "Action")
             tool_controller.activate("cursor")
         
         # 取消智能编辑的选择（清除控制点手柄）和隐藏画笔指示器
