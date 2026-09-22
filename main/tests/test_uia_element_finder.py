@@ -1,7 +1,9 @@
 """Element picking, provider failures and capture-session cancellation."""
 
 from queue import Empty
+import sys
 import threading
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -414,3 +416,75 @@ def test_worker_close_does_not_wait_for_blocked_provider():
             thread.join(3)
     with pytest.raises(Empty):
         session.replies.get_nowait()
+
+
+# ============================================================================
+# 冷启动：两个 worker 第一次建 backend 不能撞在一起
+# ============================================================================
+
+def _fake_comtypes(watch):
+    """假 comtypes，在 CreateCacheRequest 处数有几个线程同时在建 backend。"""
+    def create_cache_request():
+        with watch["lock"]:
+            watch["inside"] += 1
+            watch["peak"] = max(watch["peak"], watch["inside"])
+        time.sleep(0.02)        # 留足另一个线程抢进来的窗口
+        with watch["lock"]:
+            watch["inside"] -= 1
+        return SimpleNamespace(
+            TreeScope=None, AutomationElementMode=None,
+            AddProperty=lambda prop: None,
+        )
+
+    automation = SimpleNamespace(
+        ConnectionTimeout=0, TransactionTimeout=0,
+        CreateCacheRequest=create_cache_request,
+        ControlViewCondition=object(),
+        CreatePropertyCondition=lambda prop, value: object(),
+        CreateAndCondition=lambda first, second: object(),
+    )
+    client = SimpleNamespace(
+        CUIAutomation8=object(), IUIAutomation2=object(),
+        CUIAutomation=object(), IUIAutomation=object(),
+        TreeScope_Element=0, TreeScope_Descendants=1,
+        AutomationElementMode_None=0,
+        UIA_BoundingRectanglePropertyId=0, UIA_IsOffscreenPropertyId=1,
+    )
+    fake = SimpleNamespace(
+        COMError=type("COMError", (Exception,), {}),
+        COINIT_MULTITHREADED=0,
+        CoInitializeEx=lambda flags: None,
+        CoUninitialize=lambda: None,
+    )
+    fake.client = SimpleNamespace(
+        gen_dir="", GetModule=lambda name: client,
+        CreateObject=lambda cls, interface=None: automation,
+    )
+    return fake
+
+
+def test_two_workers_never_build_their_backends_at_the_same_time(monkeypatch):
+    """两个 worker 的首次 setup 撞在一起时，CreateCacheRequest 会吐裸 E_FAIL。"""
+    watch = {"lock": threading.Lock(), "inside": 0, "peak": 0}
+    fake = _fake_comtypes(watch)
+    monkeypatch.setitem(sys.modules, "comtypes", fake)
+    monkeypatch.setitem(sys.modules, "comtypes.client", fake.client)
+
+    both_ready = threading.Barrier(2, timeout=5)
+    errors = []
+
+    def build():
+        try:
+            both_ready.wait()
+            _UIABackend().close()
+        except BaseException as exc:      # noqa: BLE001 - 线程里的失败要带回主线程
+            errors.append(exc)
+
+    threads = [threading.Thread(target=build) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(5)
+
+    assert not errors
+    assert watch["peak"] == 1
