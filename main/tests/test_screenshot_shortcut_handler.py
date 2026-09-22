@@ -283,13 +283,13 @@ class TestRestoreLastRegion:
             QRectF(100, 200, 300, 150)
         )
 
-    def test_absolute_coordinates_are_translated_to_the_current_window_origin(self):
-        """记的是虚拟桌面绝对坐标，还原时要按本次会话的虚拟桌面原点换算回本地坐标。"""
-        set_last_region(QRect(2020, 300, 400, 200))
-        window = _make_window(tool_id="cursor", virtual_geometry=(1920, 0, 1920, 1080))
+    def test_region_on_a_monitor_left_of_the_primary_is_restored(self):
+        """副屏在主屏左边时虚拟桌面原点是负的，选区坐标也是负的，不能判成越界。"""
+        set_last_region(QRect(-1870, 50, 400, 300))
+        window = _make_window(tool_id="cursor", virtual_geometry=(-1920, 0, 3840, 1080))
         assert _make_handler(window).handle_key(_FakeKeyEvent(Qt.Key.Key_L)) is True
         window.scene.selection_model.initialize_confirmed_rect.assert_called_once_with(
-            QRectF(100, 300, 400, 200)
+            QRectF(-1870, 50, 400, 300)
         )
 
     def test_does_nothing_while_a_drawing_tool_is_active(self):

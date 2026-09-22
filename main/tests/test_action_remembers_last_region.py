@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
-"""ActionTools._remember_last_region —— 把本地选区坐标换算成虚拟桌面绝对坐标存起来。
+"""ActionTools._remember_last_region —— 把选区的场景坐标存成"上次选区"。
 
-只测这一个纯函数：它是"恢复上次选区"快捷键的写入侧，换算错了坐标，
-快捷键就会把选区放到错误的位置，且没有任何报错能提示出来。
+场景坐标就是虚拟桌面绝对坐标：CanvasScene 直接拿虚拟桌面矩形当 sceneRect，
+所以这里不做任何换算。存错了坐标，"恢复上次选区"快捷键就会把选区放到错误的
+位置，且没有任何报错能提示出来。
 """
-from types import SimpleNamespace
-
 import pytest
 from PySide6.QtCore import QRectF
 
@@ -21,22 +20,20 @@ def _reset_region():
     region_module._last_region = None
 
 
-def _make_action_tools(virtual_x=0, virtual_y=0):
-    tools = ActionTools.__new__(ActionTools)
-    tools.parent_window = SimpleNamespace(virtual_x=virtual_x, virtual_y=virtual_y)
-    return tools
+def _make_action_tools():
+    return ActionTools.__new__(ActionTools)
 
 
-def test_local_rect_is_offset_by_the_virtual_desktop_origin():
-    tools = _make_action_tools(virtual_x=100, virtual_y=50)
+def test_scene_rect_is_stored_without_any_conversion():
+    tools = _make_action_tools()
     tools._remember_last_region(QRectF(10, 20, 300, 200))
-    assert get_last_region().getRect() == (110, 70, 300, 200)
+    assert get_last_region().getRect() == (10, 20, 300, 200)
 
 
-def test_negative_virtual_origin_is_handled_as_well():
-    """次屏在主屏左侧/上方时，虚拟桌面原点可以是负数。"""
-    tools = _make_action_tools(virtual_x=-1920, virtual_y=0)
-    tools._remember_last_region(QRectF(50, 50, 400, 300))
+def test_region_on_a_monitor_left_of_the_primary_keeps_its_negative_coordinates():
+    """副屏在主屏左侧时场景坐标是负的，不能被换算掉或当成越界丢弃。"""
+    tools = _make_action_tools()
+    tools._remember_last_region(QRectF(-1870, 50, 400, 300))
     assert get_last_region().getRect() == (-1870, 50, 400, 300)
 
 
@@ -45,10 +42,3 @@ def test_empty_rect_does_not_overwrite_the_remembered_region():
     tools._remember_last_region(QRectF(10, 20, 300, 200))
     tools._remember_last_region(QRectF())
     assert get_last_region().getRect() == (10, 20, 300, 200)
-
-
-def test_missing_parent_window_does_not_raise():
-    tools = ActionTools.__new__(ActionTools)
-    tools.parent_window = None
-    tools._remember_last_region(QRectF(10, 20, 300, 200))
-    assert get_last_region() is None

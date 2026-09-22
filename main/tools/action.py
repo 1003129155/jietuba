@@ -252,16 +252,17 @@ class ActionTools:
         return image
 
     def _remember_last_region(self, rect):
-        """记住这次截图用的区域（换算成虚拟桌面绝对坐标），供下次截图时用快捷键还原。"""
-        if not self.parent_window or rect.isEmpty():
+        """记住这次截图用的区域，供下次截图时用快捷键还原。
+
+        场景坐标就是虚拟桌面绝对坐标，直接存，不再叠一层窗口偏移。
+        """
+        if rect.isEmpty():
             return
         from core.last_capture_region import set_last_region
         from PySide6.QtCore import QRect
         set_last_region(QRect(
-            round(self.parent_window.virtual_x + rect.x()),
-            round(self.parent_window.virtual_y + rect.y()),
-            round(rect.width()),
-            round(rect.height()),
+            round(rect.x()), round(rect.y()),
+            round(rect.width()), round(rect.height()),
         ))
 
     def _temporarily_exit_editing(self):

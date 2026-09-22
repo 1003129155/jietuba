@@ -211,9 +211,9 @@ class ScreenshotShortcutHandler(ShortcutHandler):
         """把选区还原成上次截图使用过的区域。
 
         只在没有任何绘制工具开着时响应（同 view.py 的 is_drawing_tool 判断），
-        避免覆盖正在使用的标注。记忆的是虚拟桌面绝对坐标，换算回本次会话的
-        本地坐标后，落在当前虚拟桌面范围外（换了显示器排布等）就安静地不做
-        任何事，不当错误处理。
+        避免覆盖正在使用的标注。记忆的是虚拟桌面绝对坐标，也就是场景坐标，
+        落在当前虚拟桌面范围外（换了显示器排布等）就安静地不做任何事，不当
+        错误处理。
         """
         w = self._window
         if not w.scene:
@@ -226,12 +226,13 @@ class ScreenshotShortcutHandler(ShortcutHandler):
         if absolute is None:
             return False
 
-        local_rect = absolute.translated(-round(w.virtual_x), -round(w.virtual_y))
-        virtual_bounds = QRect(0, 0, round(w.virtual_width), round(w.virtual_height))
-        if not virtual_bounds.contains(local_rect):
+        # 副屏在主屏左边/上边时虚拟桌面左上角是负的，范围不能从原点量起。
+        virtual_bounds = QRect(round(w.virtual_x), round(w.virtual_y),
+                               round(w.virtual_width), round(w.virtual_height))
+        if not virtual_bounds.contains(absolute):
             return False
 
-        w.scene.selection_model.initialize_confirmed_rect(QRectF(local_rect))
+        w.scene.selection_model.initialize_confirmed_rect(QRectF(absolute))
         return True
 
 
