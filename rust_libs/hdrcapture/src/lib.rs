@@ -96,40 +96,62 @@ fn monitor_info_to_py<'py>(py: Python<'py>, info: &FrameMonitorInfo) -> PyResult
     Ok(dict)
 }
 
+/// 一张 sRGB `BGRA8` 截图。
+///
+/// 像素在构造时一次性搬进 `PyBytes`，Rust 侧的 `Vec` 随即释放，因此一帧全程只占一份
+/// 缓冲；重复读取 `bgra` 只是增加引用计数，不会像每次现转那样反复分配整幅图。
 #[pyclass(module = "hdrcapture", name = "Frame")]
 pub struct PyFrame {
-    frame: HdrFrame,
+    bgra: Py<PyBytes>,
+    width: u32,
+    height: u32,
+    monitor_info: Vec<FrameMonitorInfo>,
+}
+
+impl PyFrame {
+    fn from_frame(py: Python<'_>, frame: HdrFrame) -> Self {
+        Self {
+            bgra: PyBytes::new_bound(py, frame.bgra()).unbind(),
+            width: frame.width,
+            height: frame.height,
+            monitor_info: frame.monitor_info,
+        }
+    }
 }
 
 #[pymethods]
 impl PyFrame {
     #[getter]
     const fn width(&self) -> u32 {
-        self.frame.width
+        self.width
     }
 
     #[getter]
     const fn height(&self) -> u32 {
-        self.frame.height
+        self.height
     }
 
     /// 紧凑的 sRGB BGRA8，无行填充，可直接交给 QImage / Pillow。
     #[getter]
-    fn bgra<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
-        PyBytes::new_bound(py, self.frame.bgra())
+    fn bgra(&self, py: Python<'_>) -> Py<PyBytes> {
+        self.bgra.clone_ref(py)
     }
 
     /// 去掉 Alpha 的 BGR8；按需分配，不用就不付这份拷贝。
     #[getter]
     fn bgr<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
-        PyBytes::new_bound(py, &self.frame.bgr())
+        let bgra = self.bgra.bind(py).as_bytes();
+        let mut bgr = Vec::with_capacity(bgra.len() / 4 * 3);
+        for pixel in bgra.chunks_exact(4) {
+            bgr.extend_from_slice(&pixel[..3]);
+        }
+        PyBytes::new_bound(py, &bgr)
     }
 
     /// 本帧每个参与物理输出的来源诊断（HDR 状态、DXGI 源格式等）。
     #[getter]
     fn monitor_info<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
         let items = self
-            .frame
             .monitor_info
             .iter()
             .map(|info| monitor_info_to_py(py, info))
@@ -140,9 +162,9 @@ impl PyFrame {
     fn __repr__(&self) -> String {
         format!(
             "Frame(width={}, height={}, monitors={})",
-            self.frame.width,
-            self.frame.height,
-            self.frame.monitor_info.len()
+            self.width,
+            self.height,
+            self.monitor_info.len()
         )
     }
 }
@@ -198,7 +220,7 @@ impl PyCapture {
             }
         });
 
-        result.map(|frame| PyFrame { frame }).map_err(|error| to_py_error(&error))
+        result.map(|frame| PyFrame::from_frame(py, frame)).map_err(|error| to_py_error(&error))
     }
 
     /// 端到端与最终读回阶段的滚动耗时（毫秒）。
