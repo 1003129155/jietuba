@@ -441,15 +441,15 @@ Replace it?</source>
     </message>
     <message>
         <source>Off</source>
-        <translation>検出しない</translation>
+        <translation>オフ</translation>
     </message>
     <message>
-        <source>Window Only</source>
-        <translation>ウィンドウのみ</translation>
+        <source>Window</source>
+        <translation>ウィンドウ</translation>
     </message>
     <message>
-        <source>Detect Controls</source>
-        <translation>コントロールを検出</translation>
+        <source>Control</source>
+        <translation>コントロール</translation>
     </message>
     <message>
         <source>Selection Switch Animation</source>

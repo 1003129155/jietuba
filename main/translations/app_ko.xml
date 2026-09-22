@@ -434,15 +434,15 @@ Replace it?</source>
     </message>
     <message>
         <source>Off</source>
-        <translation>감지 안 함</translation>
+        <translation>끄기</translation>
     </message>
     <message>
-        <source>Window Only</source>
-        <translation>창만</translation>
+        <source>Window</source>
+        <translation>창</translation>
     </message>
     <message>
-        <source>Detect Controls</source>
-        <translation>컨트롤 감지</translation>
+        <source>Control</source>
+        <translation>컨트롤</translation>
     </message>
     <message>
         <source>Selection Switch Animation</source>
