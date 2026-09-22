@@ -93,10 +93,10 @@ def create_capture_page(dialog) -> QWidget:
     )
     dialog.smart_mode_combo = ComboBox(mode_card)
     for label, mode in ((dialog.tr("Off"), "off"),
-                        (dialog.tr("Window Only"), "window"),
-                        (dialog.tr("Detect Controls"), "element")):
+                        (dialog.tr("Window"), "window"),
+                        (dialog.tr("Control"), "element")):
         dialog.smart_mode_combo.addItem(label, userData=mode)
-    dialog.smart_mode_combo.setFixedWidth(dialog_scaled(130))
+    dialog.smart_mode_combo.setFixedWidth(dialog_scaled(150))
     dialog.smart_mode_combo.setCurrentIndex(
         SMART_SELECTION_MODES.index(dialog.config_manager.get_smart_selection_mode())
     )

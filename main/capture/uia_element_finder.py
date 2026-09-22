@@ -22,6 +22,12 @@ from core.logger import T
 
 Rect = tuple[int, int, int, int]
 
+# 两个 worker 同时冷启动会让新建的 CUIAutomation8 首次调用失败——
+# CreateCacheRequest 返回裸 E_FAIL，UIA 客户端库自己的首次初始化不可重入，
+# comtypes 这条路上也没有任何锁。串行化只发生在每个线程的第一次，scan 全在
+# 锁外，并行扫描的收益一分不损失。
+_UIA_INIT_LOCK = threading.Lock()
+
 
 @dataclass(frozen=True)
 class UIAElementSnapshot:
@@ -124,31 +130,33 @@ class _UIABackend:
             import comtypes.client
 
             comtypes.client.gen_dir = None
-            client = comtypes.client.GetModule("UIAutomationCore.dll")
-            try:
-                automation = comtypes.client.CreateObject(
-                    client.CUIAutomation8, interface=client.IUIAutomation2
+            with _UIA_INIT_LOCK:
+                client = comtypes.client.GetModule("UIAutomationCore.dll")
+                try:
+                    automation = comtypes.client.CreateObject(
+                        client.CUIAutomation8, interface=client.IUIAutomation2
+                    )
+                    automation.ConnectionTimeout = 300
+                    automation.TransactionTimeout = 300
+                except (AttributeError, OSError, comtypes.COMError):
+                    automation = comtypes.client.CreateObject(
+                        client.CUIAutomation, interface=client.IUIAutomation
+                    )
+                cache = automation.CreateCacheRequest()
+                cache.TreeScope = client.TreeScope_Element
+                cache.AutomationElementMode = client.AutomationElementMode_None
+                cache.AddProperty(client.UIA_BoundingRectanglePropertyId)
+                # Offscreen elements dominate deep trees. Discarding them here
+                # would still pay to marshal each one across the process
+                # boundary, so the provider filters instead: ~290ms drops to
+                # ~90ms on Chrome windows for an identical set of on-screen
+                # rectangles.
+                condition = automation.CreateAndCondition(
+                    automation.ControlViewCondition,
+                    automation.CreatePropertyCondition(
+                        client.UIA_IsOffscreenPropertyId, False
+                    ),
                 )
-                automation.ConnectionTimeout = 300
-                automation.TransactionTimeout = 300
-            except (AttributeError, OSError, comtypes.COMError):
-                automation = comtypes.client.CreateObject(
-                    client.CUIAutomation, interface=client.IUIAutomation
-                )
-            cache = automation.CreateCacheRequest()
-            cache.TreeScope = client.TreeScope_Element
-            cache.AutomationElementMode = client.AutomationElementMode_None
-            cache.AddProperty(client.UIA_BoundingRectanglePropertyId)
-            # Offscreen elements dominate deep trees. Discarding them here would
-            # still pay to marshal each one across the process boundary, so the
-            # provider filters instead: ~290ms drops to ~90ms on Chrome windows
-            # for an identical set of on-screen rectangles.
-            condition = automation.CreateAndCondition(
-                automation.ControlViewCondition,
-                automation.CreatePropertyCondition(
-                    client.UIA_IsOffscreenPropertyId, False
-                ),
-            )
             self._automation, self._client = automation, client
             self._cache_request, self._condition = cache, condition
         except Exception:

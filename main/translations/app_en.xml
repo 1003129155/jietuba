@@ -438,12 +438,12 @@ Replace it?</translation>
         <translation>Off</translation>
     </message>
     <message>
-        <source>Window Only</source>
-        <translation>Window Only</translation>
+        <source>Window</source>
+        <translation>Window</translation>
     </message>
     <message>
-        <source>Detect Controls</source>
-        <translation>Detect Controls</translation>
+        <source>Control</source>
+        <translation>Control</translation>
     </message>
     <message>
         <source>Selection Switch Animation</source>
