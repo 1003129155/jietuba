@@ -43,7 +43,6 @@ TRANSLATIONS: dict[str, str] = {
     # pin_ocr_manager.py
     "OCR处理完成，总耗时: {elapsed:.3f}秒": "OCR processing complete, total time: {elapsed:.3f}s",
     "识别失败: {e}，耗时: {elapsed:.3f}秒": "Recognition failed: {e}, elapsed: {elapsed:.3f}s",
-    "钉图文字选择已关闭，跳过自动 OCR": "Pin text selection is disabled, skipping automatic OCR",
     "钉图自动 OCR 已关闭，跳过自动识别": "Automatic pin OCR is disabled, skipping automatic recognition",
     "OCR 模块不可用（无OCR版本），静默跳过": "OCR module unavailable (non-OCR build), silently skipping",
     "OCR 引擎初始化失败": "OCR engine initialization failed",

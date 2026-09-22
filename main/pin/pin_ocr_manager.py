@@ -64,13 +64,16 @@ class PinOCRManager:
 
     def __init__(self, pin_window, config_manager):
         self._win = pin_window
-        self._cfg = config_manager
         self.ocr_text_layer = None
         self.ocr_thread = None
         self._ocr_has_result = False
         # OCR 完成后要执行的回调，见 recognize_then
         self._pending_callbacks = []
-        self._text_selection_enabled = True
+        # 初值取自动 OCR 设置：自动识别关掉时这张钉图还没有文字层，右键菜单必须
+        # 如实显示为关闭，否则第一次点击只是把它翻成关闭，用户得点两次才会识别。
+        self._text_selection_enabled = bool(
+            config_manager and config_manager.get_ocr_enabled()
+        )
         self._temporary_enabled = True
 
     # ------------------------------------------------------------------
@@ -106,17 +109,11 @@ class PinOCRManager:
             if self.ocr_thread is not None:
                 return True
 
-            if not force:
-                if not self._cfg:
-                    return False
-
-                if not self._text_selection_enabled:
-                    log_info(T("钉图文字选择已关闭，跳过自动 OCR"), "OCR")
-                    return False
-
-                if not self._cfg.get_ocr_enabled():
-                    log_info(T("钉图自动 OCR 已关闭，跳过自动识别"), "OCR")
-                    return False
+            # 自动识别这一路只在钉图创建后跑一次，那时开关还是初值，也就是自动
+            # OCR 设置本身，所以两个条件合成一个就够。
+            if not force and not self._text_selection_enabled:
+                log_info(T("钉图自动 OCR 已关闭，跳过自动识别"), "OCR")
+                return False
 
             if not is_ocr_available():
                 log_debug(T("OCR 模块不可用（无OCR版本），静默跳过"), "OCR")
@@ -128,8 +125,11 @@ class PinOCRManager:
 
             log_debug(T("OCR 引擎已就绪（支持中日韩英混合识别）"), "OCR")
 
+            # 走到这里识别一定会发起：自动识别路径的开关本来就是开的，force 路径
+            # 则是用户主动要文字，识别的代价已经付了，文字选择跟着可用。
+            self._text_selection_enabled = True
+
             if self.ocr_text_layer is None:
-                # 即使文字选择当前关闭，也保留识别结果供翻译使用。
                 self.ocr_text_layer = OCRTextLayer(self._win)
                 cr = self._win.content_rect()
                 self.ocr_text_layer.setGeometry(cr.toRect())

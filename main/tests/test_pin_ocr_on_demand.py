@@ -39,16 +39,47 @@ def test_automatic_recognition_obeys_the_pin_auto_ocr_setting(monkeypatch):
     initialize.assert_not_called()
 
 
-def test_forced_recognition_ignores_the_pin_auto_ocr_setting(monkeypatch):
-    manager = _manager(auto_ocr=False)
+def _stub_ocr(monkeypatch, manager):
+    """让 init_now 走到启动识别那一步，不真的加载 OCR 引擎。"""
     monkeypatch.setattr("ocr.is_ocr_available", lambda: True)
     monkeypatch.setattr("ocr.initialize_ocr", lambda: True)
     monkeypatch.setattr("pin.ocr_text_layer.OCRTextLayer", _TextLayer)
     monkeypatch.setattr(manager, "_start_recognition", Mock(return_value=True))
 
+
+def test_forced_recognition_ignores_the_pin_auto_ocr_setting(monkeypatch):
+    manager = _manager(auto_ocr=False)
+    _stub_ocr(monkeypatch, manager)
+
     assert manager.init_now(force=True) is True
     assert isinstance(manager.ocr_text_layer, _TextLayer)
     manager._start_recognition.assert_called_once_with()
+
+
+def test_text_selection_starts_off_when_automatic_recognition_is_off():
+    """右键菜单读的就是这个值，它说开着就得真有文字层可选。"""
+    assert _manager(auto_ocr=False).text_selection_enabled is False
+    assert _manager(auto_ocr=True).text_selection_enabled is True
+
+
+def test_one_toggle_starts_recognition_when_automatic_recognition_is_off(monkeypatch):
+    """关掉自动识别后，菜单里点一次「文字选择」就该识别，而不是先关再开。"""
+    manager = _manager(auto_ocr=False)
+    _stub_ocr(monkeypatch, manager)
+
+    assert manager.toggle_text_selection() is True
+    manager._start_recognition.assert_called_once_with()
+    assert manager.ocr_text_layer.enabled is True
+
+
+def test_forced_recognition_makes_text_selection_available(monkeypatch):
+    """翻译等操作已经付了识别的代价，文字选择要跟着可用。"""
+    manager = _manager(auto_ocr=False)
+    _stub_ocr(monkeypatch, manager)
+
+    assert manager.init_now(force=True) is True
+    assert manager.text_selection_enabled is True
+    assert manager.ocr_text_layer.enabled is True
 
 
 def test_pending_request_queues_a_callback_and_forces_recognition(monkeypatch):
