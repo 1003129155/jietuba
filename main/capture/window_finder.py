@@ -36,6 +36,15 @@ class _MonitorInfo(ctypes.Structure):
     ]
 
 
+_user32 = ctypes.windll.user32
+# HMONITOR 是指针宽度的句柄。不声明签名时 ctypes 按 32 位 int 传参，
+# 副屏拿到的大句柄会溢出，整个查询退回虚拟桌面。
+_user32.MonitorFromPoint.argtypes = [ctypes.wintypes.POINT, ctypes.wintypes.DWORD]
+_user32.MonitorFromPoint.restype = ctypes.wintypes.HANDLE
+_user32.GetMonitorInfoW.argtypes = [ctypes.wintypes.HANDLE, ctypes.POINTER(_MonitorInfo)]
+_user32.GetMonitorInfoW.restype = ctypes.wintypes.BOOL
+
+
 def get_window_rect_no_shadow(hwnd):
     """
     获取去除阴影的真实窗口矩形 (物理像素)
@@ -302,14 +311,11 @@ class WindowFinder:
         另一块屏上的内容不该被一起框进来。
         """
         try:
-            user32 = ctypes.windll.user32
-            user32.MonitorFromPoint.argtypes = [ctypes.wintypes.POINT, ctypes.wintypes.DWORD]
-            user32.MonitorFromPoint.restype = ctypes.wintypes.HANDLE
             info = _MonitorInfo()
             info.cbSize = ctypes.sizeof(_MonitorInfo)
             # MONITOR_DEFAULTTONEAREST = 2：坐标落在屏幕之间的缝里也要有答案
-            monitor = user32.MonitorFromPoint(ctypes.wintypes.POINT(x, y), 2)
-            if monitor and user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
+            monitor = _user32.MonitorFromPoint(ctypes.wintypes.POINT(x, y), 2)
+            if monitor and _user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
                 rect = info.rcMonitor
                 return [rect.left, rect.top, rect.right, rect.bottom]
         except Exception as e:

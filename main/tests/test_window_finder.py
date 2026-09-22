@@ -12,6 +12,8 @@ WindowFinder 单元测试
 find_windows()（EnumWindows 真实枚举）和 get_window_rect_no_shadow()（DWM API）
 依赖真实 win32 会话，在无桌面的 CI runner 上不可测，不在本文件覆盖范围内。
 """
+import ctypes
+
 import pytest
 from unittest.mock import patch, MagicMock
 
@@ -150,3 +152,14 @@ class TestIsSmartSelectionAvailable:
     def test_reflects_module_flag_false(self):
         with patch.object(window_finder_module, "WINDOWS_API_AVAILABLE", False):
             assert is_smart_selection_available() is False
+
+
+class TestMonitorHandleWidth:
+    """HMONITOR 是指针宽度的句柄，主屏常是小值，副屏能超过 32 位。"""
+
+    def test_large_monitor_handle_survives_argument_conversion(self):
+        """没声明 argtypes 时 ctypes 按 32 位 int 转参数，副屏句柄会 OverflowError。"""
+        info = window_finder_module._MonitorInfo()
+        info.cbSize = ctypes.sizeof(window_finder_module._MonitorInfo)
+        # 假句柄，调用必然返回 0；这里只要求它别在转换实参时就抛异常
+        window_finder_module._user32.GetMonitorInfoW(0x1F4A2B30000, ctypes.byref(info))
