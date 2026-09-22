@@ -457,9 +457,9 @@ class MainApp(QObject):
         if self._activate_blocking_modal():
             return
         
-        # 后台截图线程正在运行时也忽略重复触发
-        if getattr(self, '_capture_thread', None) and self._capture_thread.isRunning():
-            log_debug(T("后台截图线程进行中，忽略重复触发"), "MainApp")
+        # 截图已排队但还没落到窗口上时，忽略重复触发
+        if getattr(self, '_capture_pending', False):
+            log_debug(T("截图进行中，忽略重复触发"), "MainApp")
             return
 
         # 关闭所有已打开的颜色选择器（避免其遮挡截图界面或触发焦点冲突）
@@ -477,29 +477,30 @@ class MainApp(QObject):
         except Exception as e:
             log_exception(e, T("关闭剪贴板窗口"))
 
-        log_info(T("启动后台截图线程"), "MainApp")
-        
-        # 在后台线程执行 mss.grab()，避免主线程被阻塞 100~500ms
-        from PySide6.QtCore import QThread, Signal
+        # 不另起线程：hdrcapture 的 DXGI 会话被钉在创建它的线程上，子线程建会话会让主线程
+        # 的其它调用点永远回落 mss；而它本身只要 5~10ms，起一个 QThread 比这还贵。
+        # 仍然延后一轮事件循环，给上面刚 close 掉的剪贴板窗口留出从画面上消失的时间。
+        from PySide6.QtCore import QTimer
 
-        class CaptureThread(QThread):
-            captured = Signal(object, object)  # (QImage, QRectF)
+        self._capture_pending = True
+        QTimer.singleShot(0, self._capture_and_prepare_window)
 
-            def run(self):
-                try:
-                    from capture.capture_service import CaptureService
-                    image, rect = CaptureService().capture_all_screens()
-                    self.captured.emit(image, rect)
-                except Exception as e:
-                    log_exception(e, T("后台截图失败"))
+    def _capture_and_prepare_window(self):
+        """在主线程截图，随后创建或复用截图窗口"""
+        try:
+            from capture.capture_service import CaptureService
+            image, rect = CaptureService().capture_all_screens()
+        except Exception as e:
+            log_exception(e, T("截图失败"))
+            return
+        finally:
+            self._capture_pending = False
 
-        self._capture_thread = CaptureThread()
-        self._capture_thread.captured.connect(self._on_capture_ready)
-        self._capture_thread.start()
+        self._on_capture_ready(image, rect)
 
     def _on_capture_ready(self, image, rect):
-        """后台截图完成后，在主线程创建或复用截图窗口"""
-        log_debug(T("后台截图完成，准备截图窗口"), "MainApp")
+        """截图完成后创建或复用截图窗口"""
+        log_debug(T("截图完成，准备截图窗口"), "MainApp")
 
         # 截图采集期间也可能弹出模态窗口，避免在线程结束后创建一个被锁死的界面。
         if self._activate_blocking_modal():
@@ -761,7 +762,7 @@ class MainApp(QObject):
             self.settings_window = None
 
         # 等待预加载线程结束（最多 2 秒，避免卡退出）
-        for attr in ('_screenshot_preload_thread', '_ocr_preload_thread', '_capture_thread'):
+        for attr in ('_screenshot_preload_thread', '_ocr_preload_thread'):
             thread = getattr(self, attr, None)
             if thread and thread.isRunning():
                 thread.wait(2000)

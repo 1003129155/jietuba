@@ -44,6 +44,7 @@ hidden_imports = [
     'longstitch',
     'gifrecorder',
     'ppocr_rust',
+    'hdrcapture',
     'zxingcpp',
     'PIL',
     'PIL.Image',
