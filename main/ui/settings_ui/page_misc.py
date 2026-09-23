@@ -1,7 +1,6 @@
 ﻿# -*- coding: utf-8 -*-
 """杂项设置页 — Fluent Design"""
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea
-from PySide6.QtCore import Qt
 from core.ui_scale import dialog_scaled
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
@@ -50,50 +49,8 @@ def create_misc_page(dialog) -> QWidget:
 
     layout.addWidget(grp_startup)
 
-    # ════ 钉图 ════
-    grp_pin = SettingCardGroup(dialog.tr("Pin Window"), view)
-
-    pin_card = SwitchSettingCard(
-        FluentIcon.PIN,
-        dialog.tr("Auto-show Drawing Tools on Pin"),
-        dialog.tr("On: Shows toolbar when mouse enters pinned window.")
-        + "\n"
-        + dialog.tr("Off: Show via right-click toolbar button."),
-        parent=grp_pin,
-    )
-    pin_card.setChecked(dialog.config_manager.get_pin_auto_toolbar())
-    dialog.pin_auto_toolbar_toggle = pin_card
-    grp_pin.addSettingCard(pin_card)
-
-    layout.addWidget(grp_pin)
-
     # ════ 操作 ════
     grp_ops = SettingCardGroup(dialog.tr("Operation"), view)
-
-    # 颜色复制格式
-    fmt_card = FSettingCard(
-        FluentIcon.PALETTE,
-        dialog.tr("Color Copy Format"),
-        dialog.tr("Used when copying color info in magnifier."),
-        parent=grp_ops,
-    )
-    dialog.magnifier_color_format_combo = ComboBox(fmt_card)
-    dialog.magnifier_color_format_combo.setFixedWidth(dialog_scaled(140))
-    dialog.magnifier_color_format_combo.addItem(dialog.tr("RGB+HEX"), userData="rgb_hex")
-    dialog.magnifier_color_format_combo.addItem(dialog.tr("RGB only"), userData="rgb")
-    dialog.magnifier_color_format_combo.addItem(dialog.tr("HEX only"), userData="hex")
-
-    current_format = dialog.config_manager.get_app_setting(
-        "magnifier_color_copy_format", "rgb_hex"
-    )
-    idx = dialog.magnifier_color_format_combo.findData(current_format)
-    if idx >= 0:
-        dialog.magnifier_color_format_combo.setCurrentIndex(idx)
-    fmt_card.hBoxLayout.addWidget(
-        dialog.magnifier_color_format_combo, 0, Qt.AlignmentFlag.AlignRight
-    )
-    fmt_card.hBoxLayout.addSpacing(dialog_scaled(16))
-    grp_ops.addSettingCard(fmt_card)
 
     # 界面语言
     lang_card = FSettingCard(
@@ -103,7 +60,6 @@ def create_misc_page(dialog) -> QWidget:
         parent=grp_ops,
     )
     dialog.language_combo = ComboBox(lang_card)
-    dialog.language_combo.setFixedWidth(dialog_scaled(140))
 
     from core.i18n import I18nManager
     for code, name in I18nManager.get_available_languages().items():
@@ -113,10 +69,7 @@ def create_misc_page(dialog) -> QWidget:
     index = dialog.language_combo.findData(current_lang)
     if index >= 0:
         dialog.language_combo.setCurrentIndex(index)
-    lang_card.hBoxLayout.addWidget(
-        dialog.language_combo, 0, Qt.AlignmentFlag.AlignRight
-    )
-    lang_card.hBoxLayout.addSpacing(dialog_scaled(16))
+    lang_card.addControl(dialog.language_combo)
     grp_ops.addSettingCard(lang_card)
 
     layout.addWidget(grp_ops)
