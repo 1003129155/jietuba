@@ -50,7 +50,7 @@ _SHELL_CLASSES = frozenset({
 
 # 取样间隔。用户在目标窗口里停留不足一个间隔就切回来的情况会漏采，所以取值
 # 需要短于一次"切过去点一下再切回来"的最短耗时。
-_SAMPLE_INTERVAL_MS = 400
+_SAMPLE_INTERVAL_MS = 200
 
 
 def get_foreground_hwnd() -> Optional[int]:
@@ -147,6 +147,12 @@ class ForegroundWindowTracker:
     def stop(self):
         if self._timer is not None:
             self._timer.stop()
+
+    def set_interval(self, interval_ms: int):
+        """更新取样间隔，定时器运行中也立即生效。"""
+        self._interval_ms = interval_ms
+        if self._timer is not None:
+            self._timer.setInterval(interval_ms)
 
     def sample(self) -> bool:
         """取样一次，返回是否更新了目标。

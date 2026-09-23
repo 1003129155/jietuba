@@ -836,6 +836,12 @@ class SettingsDialog(FrostedFramelessDialog):
             self.clipboard_auto_paste_toggle.setChecked(defaults["clipboard_auto_paste"])
         if hasattr(self, 'clipboard_history_limit_spin'):
             self.clipboard_history_limit_spin.setValue(defaults["clipboard_history_limit"])
+        if hasattr(self, 'clipboard_scan_interval_combo'):
+            idx = self.clipboard_scan_interval_combo.findData(
+                defaults["clipboard_foreground_scan_interval_ms"]
+            )
+            if idx >= 0:
+                self.clipboard_scan_interval_combo.setCurrentIndex(idx)
 
     # ================================================================
     # 保存（accept）
@@ -1014,6 +1020,10 @@ class SettingsDialog(FrostedFramelessDialog):
             self.config_manager.set_clipboard_enabled(self.clipboard_enabled_toggle.isChecked())
         if hasattr(self, 'clipboard_history_limit_spin'):
             self.config_manager.set_clipboard_history_limit(self.clipboard_history_limit_spin.value())
+        if hasattr(self, 'clipboard_scan_interval_combo'):
+            interval_ms = self.clipboard_scan_interval_combo.currentData()
+            if interval_ms is not None:
+                self.config_manager.set_clipboard_foreground_scan_interval_ms(interval_ms)
         if hasattr(self, 'clipboard_hotkey_edit'):
             self.config_manager.set_clipboard_hotkey(self.clipboard_hotkey_edit.text().strip())
         if hasattr(self, 'clipboard_hotkey_edit_2'):
@@ -1484,6 +1494,12 @@ class SettingsDialog(FrostedFramelessDialog):
             self.clipboard_auto_paste_toggle.setChecked(self.config_manager.get_clipboard_auto_paste())
         if hasattr(self, 'clipboard_history_limit_spin'):
             self.clipboard_history_limit_spin.setValue(self.config_manager.get_clipboard_history_limit())
+        if hasattr(self, 'clipboard_scan_interval_combo'):
+            idx = self.clipboard_scan_interval_combo.findData(
+                self.config_manager.get_clipboard_foreground_scan_interval_ms()
+            )
+            if idx >= 0:
+                self.clipboard_scan_interval_combo.setCurrentIndex(idx)
 
         if hasattr(self, 'autostart_toggle'):
             from ..welcome.page6_finish import FinishPage as _FP
