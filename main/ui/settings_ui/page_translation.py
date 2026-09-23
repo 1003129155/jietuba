@@ -426,9 +426,13 @@ def _fetch_models(dialog, provider_id, edit, button):
 
 def _show_near(button, text):
     """状态行在这一家表单的最底下，离模型那一行隔着好几行高级选项，
-    失败时在按钮旁边再提示一次。"""
+    失败时在按钮旁边再提示一次。
+
+    不传 button 作为所属控件：传了的话 Qt 会把按钮的样式表套到提示框上，
+    不再用全局主题里的 QToolTip 配色，结果是黑底深色字。
+    """
     QToolTip.showText(
-        button.mapToGlobal(QPoint(0, button.height())), text, button, QRect(), 8000
+        button.mapToGlobal(QPoint(0, button.height())), text, None, QRect(), 8000
     )
 
 

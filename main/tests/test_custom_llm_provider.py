@@ -423,3 +423,7 @@ def test_fetch_failure_is_shown_next_to_the_button(qapp, qtbot, server, settings
 
     assert status.text() == "✗ invalid key"
     assert QToolTip.text() == "✗ invalid key"
+    # 套上按钮样式表的提示框是黑底深色字，得用全局主题的配色
+    tips = [w for w in qapp.topLevelWidgets()
+            if w.metaObject().className() == "QTipLabel" and w.isVisible()]
+    assert tips and not tips[0].styleSheet()
