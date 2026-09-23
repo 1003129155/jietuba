@@ -16,9 +16,10 @@ try:
 except ImportError:
     hdrcapture = None
 
-# 每个物理输出的 DXGI 等待预算。预算内等到一次新的 present 才返回，因此拿到的是
-# 「此刻」的桌面；给 0 会返回最近一帧，可能早于调用方刚做的改动（例如隐藏自身窗口）。
-_HDR_TIMEOUT_MS = 100
+# 每个物理输出的 DXGI 等待预算。0 表示取走已排队的 present 但不等待新的：桌面没有新
+# present 就意味着画面没变，此时缓存帧正是当前画面。给非 0 值会在静止桌面上一直等到下一次
+# present，实测该机空闲时约 66ms 一次，截图反而比 mss 还慢。
+_HDR_TIMEOUT_MS = 0
 
 
 class _HdrSession:
