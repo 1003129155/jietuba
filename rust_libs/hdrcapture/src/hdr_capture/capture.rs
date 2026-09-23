@@ -3,6 +3,9 @@
 use std::time::{Duration, Instant};
 
 use windows::Win32::Graphics::Direct3D11::{ID3D11Device, ID3D11DeviceContext, ID3D11Texture2D};
+use windows::Win32::Graphics::Dxgi::Common::{
+    DXGI_MODE_ROTATION_IDENTITY, DXGI_MODE_ROTATION_ROTATE90, DXGI_MODE_ROTATION_ROTATE270,
+};
 
 use super::display::{self, MonitorDescriptor, Rect};
 use super::gpu::{self, GpuCompositor, GpuToneMapper};
@@ -188,6 +191,12 @@ struct MonitorSession {
     shares_primary_device: bool,
     source_format: DxgiDuplicationFormat,
     has_frame: bool,
+    /// Frame dimensions Desktop Duplication actually delivers, i.e. the panel's native
+    /// pre-rotation orientation. Differs from `display.rect` (post-rotation) whenever the monitor
+    /// is rotated a quarter turn; comparing acquired frames against this instead of `display.rect`
+    /// is what makes an ordinary rotated frame distinguishable from a real display-mode change.
+    native_width: u32,
+    native_height: u32,
 }
 
 impl MonitorSession {
@@ -213,12 +222,21 @@ impl MonitorSession {
             Err(error) => return Err(Error::Duplication(error)),
         };
         let source_format = duplication.0.format();
-        let converter = GpuToneMapper::new(
-            duplication.0.device(),
-            duplication.0.width(),
-            duplication.0.height(),
-            display.sdr_white_level,
-        )?;
+        // `IDXGIOutputDuplication::GetDesc().ModeDesc` reports the desktop-space (post-rotation)
+        // mode, matching `display.rect` exactly. The frame texture `AcquireNextFrame` actually
+        // hands back is in the panel's native (pre-rotation) orientation, so on a rotated monitor
+        // this is swapped relative to the real per-frame dimensions. A failed rotation query (for
+        // example on an indirect display driver) is treated as unrotated.
+        let rotation =
+            unsafe { duplication.0.output().GetDesc() }.map_or(DXGI_MODE_ROTATION_IDENTITY, |desc| desc.Rotation);
+        let quarter_turn = rotation.0 == DXGI_MODE_ROTATION_ROTATE90.0 || rotation.0 == DXGI_MODE_ROTATION_ROTATE270.0;
+        let (native_width, native_height) = if quarter_turn {
+            (duplication.0.height(), duplication.0.width())
+        } else {
+            (duplication.0.width(), duplication.0.height())
+        };
+        let converter =
+            GpuToneMapper::new(duplication.0.device(), native_width, native_height, display.sdr_white_level, rotation)?;
 
         Ok(Self {
             display,
@@ -227,6 +245,8 @@ impl MonitorSession {
             shares_primary_device: duplication.1,
             source_format,
             has_frame: false,
+            native_width,
+            native_height,
         })
     }
 
@@ -248,11 +268,14 @@ impl MonitorSession {
                     }
                 }
                 Ok(frame) => {
-                    if frame.width() != self.display.rect.width || frame.height() != self.display.rect.height {
+                    // Compared against the panel's native (pre-rotation) dimensions, not
+                    // `display.rect`: a rotated monitor's frames never match `display.rect`
+                    // directly, and that mismatch is expected on every frame, not a mode change.
+                    if frame.width() != self.native_width || frame.height() != self.native_height {
                         return Err(Error::DimensionsChanged {
                             index: self.display.index,
-                            expected_width: self.display.rect.width,
-                            expected_height: self.display.rect.height,
+                            expected_width: self.native_width,
+                            expected_height: self.native_height,
                             actual_width: frame.width(),
                             actual_height: frame.height(),
                         });
@@ -405,6 +428,13 @@ impl Capture {
         let stats = std::mem::take(&mut self.stats);
         let grab_samples = std::mem::take(&mut self.grab_samples);
         let readback_samples = std::mem::take(&mut self.readback_samples);
+        // DXGI allows only one live IDXGIOutputDuplication per output, so the replacement sessions
+        // must be built after the current ones are gone, not before: building `rebuilt` while
+        // `self.sessions` is still alive fails DuplicateOutput1 with E_INVALIDARG for every output
+        // that the old and new session sets have in common. If `from_displays` fails here, the next
+        // `refresh_topology` retries from a clean slate rather than this half-torn-down one.
+        self.sessions.clear();
+        self.compositor = None;
         let mut rebuilt = Self::from_displays(self.timeout_ms, displays)?;
         rebuilt.stats = stats;
         rebuilt.grab_samples = grab_samples;
@@ -687,7 +717,8 @@ mod virtual_desktop_simulation {
         ID3D11Texture2D,
     };
     use windows::Win32::Graphics::Dxgi::Common::{
-        DXGI_FORMAT, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_SAMPLE_DESC,
+        DXGI_FORMAT, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_R16G16B16A16_FLOAT, DXGI_MODE_ROTATION_IDENTITY,
+        DXGI_SAMPLE_DESC,
     };
 
     use super::gpu::{GpuCompositor, GpuToneMapper};
@@ -786,7 +817,13 @@ mod virtual_desktop_simulation {
         for monitor in monitors {
             let (source, format) = source_texture(&device, monitor);
             let converter =
-                GpuToneMapper::new(&device, monitor.rect.width, monitor.rect.height, monitor.sdr_white_level)
+                GpuToneMapper::new(
+                    &device,
+                    monitor.rect.width,
+                    monitor.rect.height,
+                    monitor.sdr_white_level,
+                    DXGI_MODE_ROTATION_IDENTITY,
+                )
                     .expect("tone mapper");
             converter.convert(&context, &source, format).expect("per-monitor conversion");
             converters.push(converter);
@@ -1005,7 +1042,13 @@ mod virtual_desktop_simulation {
         for monitor in monitors {
             let (source, format) = source_texture(&device, monitor);
             let converter =
-                GpuToneMapper::new(&device, monitor.rect.width, monitor.rect.height, monitor.sdr_white_level)
+                GpuToneMapper::new(
+                    &device,
+                    monitor.rect.width,
+                    monitor.rect.height,
+                    monitor.sdr_white_level,
+                    DXGI_MODE_ROTATION_IDENTITY,
+                )
                     .expect("tone mapper");
             sources.push((source, format));
             converters.push(converter);

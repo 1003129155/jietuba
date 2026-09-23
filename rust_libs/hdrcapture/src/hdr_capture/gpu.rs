@@ -21,7 +21,10 @@ use windows::Win32::Graphics::Direct3D11::{
     ID3D11InputLayout, ID3D11PixelShader, ID3D11RenderTargetView, ID3D11SamplerState, ID3D11ShaderResourceView,
     ID3D11Texture2D, ID3D11VertexShader,
 };
-use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SAMPLE_DESC};
+use windows::Win32::Graphics::Dxgi::Common::{
+    DXGI_FORMAT, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_MODE_ROTATION, DXGI_MODE_ROTATION_ROTATE90,
+    DXGI_MODE_ROTATION_ROTATE180, DXGI_MODE_ROTATION_ROTATE270, DXGI_SAMPLE_DESC,
+};
 use windows::core::s;
 
 use crate::d3d11::{MappedStagingTexture, StagingTexture};
@@ -72,8 +75,21 @@ float3 linear_to_srgb(float3 value) {
 cbuffer ToneMapParams : register(b0) {
     // Where this desktop's white sits on the scRGB scale, from Windows' SDR white level.
     float sdr_white_level;
-    float3 tone_map_padding;
+    // Clockwise quarter-turns (0-3) needed to bring a DXGI Desktop Duplication frame - always
+    // delivered in the panel's native, pre-rotation orientation - upright to match the rotated
+    // desktop rectangle Windows reports for this monitor.
+    float rotation_steps;
+    float2 tone_map_padding;
 };
+
+// Maps a sample coordinate in the (possibly rotated) output back to the source texture, which is
+// always in the panel's native orientation.
+float2 unrotate_uv(float2 uv, float steps) {
+    if (steps < 0.5) return uv;
+    if (steps < 1.5) return float2(uv.y, 1.0 - uv.x);
+    if (steps < 2.5) return float2(1.0 - uv.x, 1.0 - uv.y);
+    return float2(1.0 - uv.y, uv.x);
+}
 
 // Must stay identical to HIGHLIGHT_KNEE in color.rs: that module is the readable reference
 // implementation of this shader, and a silent divergence between them is invisible in tests.
@@ -89,7 +105,7 @@ float3 tone_map_highlights(float3 value, float white_level) {
 }
 
 float4 ps_hdr(VsOut input) : SV_TARGET {
-    float4 sampled = source_texture.SampleLevel(source_sampler, input.uv, 0.0);
+    float4 sampled = source_texture.SampleLevel(source_sampler, unrotate_uv(input.uv, rotation_steps), 0.0);
     // Desktop Duplication's FP16 HDR representation is scRGB: linear values with sRGB primaries.
     float3 display = linear_to_srgb(tone_map_highlights(sampled.rgb, sdr_white_level));
     return float4(display, saturate(sampled.a));
@@ -98,7 +114,7 @@ float4 ps_hdr(VsOut input) : SV_TARGET {
 float4 ps_rgba8(VsOut input) : SV_TARGET {
     // Sampling exposes logical RGBA channels.  The BGRA render-target format performs the
     // physical channel layout conversion, preserving ordinary SDR pixels without a gamma pass.
-    return source_texture.SampleLevel(source_sampler, input.uv, 0.0);
+    return source_texture.SampleLevel(source_sampler, unrotate_uv(input.uv, rotation_steps), 0.0);
 }
 "#;
 
@@ -169,6 +185,7 @@ fn create_default_texture(
 pub(super) struct GpuToneMapper {
     width: u32,
     height: u32,
+    rotated: bool,
     output: ID3D11Texture2D,
     output_rtv: ID3D11RenderTargetView,
     staging: StagingTexture,
@@ -176,6 +193,8 @@ pub(super) struct GpuToneMapper {
     source_rgba16f_srv: ID3D11ShaderResourceView,
     source_rgba8: ID3D11Texture2D,
     source_rgba8_srv: ID3D11ShaderResourceView,
+    source_bgra8: ID3D11Texture2D,
+    source_bgra8_srv: ID3D11ShaderResourceView,
     vertex_shader: ID3D11VertexShader,
     hdr_pixel_shader: ID3D11PixelShader,
     rgba8_pixel_shader: ID3D11PixelShader,
@@ -183,13 +202,42 @@ pub(super) struct GpuToneMapper {
     tone_map_params: ID3D11Buffer,
 }
 
+/// Clockwise quarter-turns needed to undo a `DXGI_MODE_ROTATION` and bring a Desktop Duplication
+/// frame - always delivered in the panel's native, pre-rotation orientation - upright.
+const fn rotation_steps(rotation: DXGI_MODE_ROTATION) -> u32 {
+    if rotation.0 == DXGI_MODE_ROTATION_ROTATE90.0 {
+        1
+    } else if rotation.0 == DXGI_MODE_ROTATION_ROTATE180.0 {
+        2
+    } else if rotation.0 == DXGI_MODE_ROTATION_ROTATE270.0 {
+        3
+    } else {
+        0
+    }
+}
+
 impl GpuToneMapper {
     /// Creates reusable conversion and readback resources for a monitor.
     ///
-    /// `sdr_white_level` is the monitor's current Windows SDR white level on the scRGB scale. It
-    /// is baked into an immutable constant buffer because a session is rebuilt whenever display
-    /// state changes, so the value cannot go stale while these resources live.
-    pub(super) fn new(device: &ID3D11Device, width: u32, height: u32, sdr_white_level: f32) -> Result<Self, Error> {
+    /// `native_width`/`native_height` are the dimensions Desktop Duplication actually delivers
+    /// frames in, i.e. the panel's pre-rotation orientation. `rotation` is the monitor's current
+    /// `DXGI_MODE_ROTATION`; when it is a quarter turn, the output texture (and therefore every
+    /// [`Self::readback`]) is sized `native_height x native_width` and sampling is rotated in the
+    /// pixel shader to match. `sdr_white_level` is the monitor's current Windows SDR white level on
+    /// the scRGB scale. Both are baked into an immutable constant buffer because a session is
+    /// rebuilt whenever display state changes, so neither value can go stale while these resources
+    /// live.
+    pub(super) fn new(
+        device: &ID3D11Device,
+        native_width: u32,
+        native_height: u32,
+        sdr_white_level: f32,
+        rotation: DXGI_MODE_ROTATION,
+    ) -> Result<Self, Error> {
+        let steps = rotation_steps(rotation);
+        let rotated = steps == 1 || steps == 3;
+        let (width, height) = if rotated { (native_height, native_width) } else { (native_width, native_height) };
+
         let output = create_default_texture(
             device,
             width,
@@ -203,8 +251,8 @@ impl GpuToneMapper {
 
         let source_rgba16f = create_default_texture(
             device,
-            width,
-            height,
+            native_width,
+            native_height,
             windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT_R16G16B16A16_FLOAT,
             D3D11_BIND_SHADER_RESOURCE.0 as u32,
         )?;
@@ -214,14 +262,28 @@ impl GpuToneMapper {
 
         let source_rgba8 = create_default_texture(
             device,
-            width,
-            height,
+            native_width,
+            native_height,
             windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT_R8G8B8A8_UNORM,
             D3D11_BIND_SHADER_RESOURCE.0 as u32,
         )?;
         let mut source_rgba8_srv = None;
         unsafe { device.CreateShaderResourceView(&source_rgba8, None, Some(&mut source_rgba8_srv))? };
         let source_rgba8_srv = source_rgba8_srv.ok_or(Error::MissingObject("an SDR shader-resource view"))?;
+
+        // Only needed to rotate a Bgra8-format frame (the common SDR case): CopyResource can't
+        // rotate, so a rotated Bgra8 source must be routed through the shader like the other two
+        // formats, which requires its own same-format shader-resource view.
+        let source_bgra8 = create_default_texture(
+            device,
+            native_width,
+            native_height,
+            DXGI_FORMAT_B8G8R8A8_UNORM,
+            D3D11_BIND_SHADER_RESOURCE.0 as u32,
+        )?;
+        let mut source_bgra8_srv = None;
+        unsafe { device.CreateShaderResourceView(&source_bgra8, None, Some(&mut source_bgra8_srv))? };
+        let source_bgra8_srv = source_bgra8_srv.ok_or(Error::MissingObject("a BGRA shader-resource view"))?;
 
         let vertex_byte_code = compile_shader(s!("vs_main"), s!("vs_4_0"))?;
         let hdr_pixel_byte_code = compile_shader(s!("ps_hdr"), s!("ps_4_0"))?;
@@ -250,8 +312,8 @@ impl GpuToneMapper {
         let mut sampler = None;
         unsafe { device.CreateSamplerState(&sampler_desc, Some(&mut sampler))? };
 
-        // A constant buffer is 16-byte aligned, so the scalar is padded out to one float4.
-        let tone_map_constants: [f32; 4] = [sdr_white_level, 0.0, 0.0, 0.0];
+        // A constant buffer is 16-byte aligned, so the two scalars are padded out to one float4.
+        let tone_map_constants: [f32; 4] = [sdr_white_level, steps as f32, 0.0, 0.0];
         let buffer_desc = D3D11_BUFFER_DESC {
             ByteWidth: size_of_val(&tone_map_constants) as u32,
             Usage: D3D11_USAGE_IMMUTABLE,
@@ -266,6 +328,7 @@ impl GpuToneMapper {
         Ok(Self {
             width,
             height,
+            rotated,
             output,
             output_rtv,
             staging: StagingTexture::new(device, width, height, DXGI_FORMAT_B8G8R8A8_UNORM)?,
@@ -273,6 +336,8 @@ impl GpuToneMapper {
             source_rgba16f_srv,
             source_rgba8,
             source_rgba8_srv,
+            source_bgra8,
+            source_bgra8_srv,
             vertex_shader: vertex_shader.ok_or(Error::MissingObject("a vertex shader"))?,
             hdr_pixel_shader: hdr_pixel_shader.ok_or(Error::MissingObject("an HDR pixel shader"))?,
             rgba8_pixel_shader: rgba8_pixel_shader.ok_or(Error::MissingObject("an SDR pixel shader"))?,
@@ -294,9 +359,15 @@ impl GpuToneMapper {
         format: DxgiDuplicationFormat,
     ) -> Result<(), Error> {
         match format {
-            DxgiDuplicationFormat::Bgra8 => {
+            // A straight copy can't rotate, so a rotated monitor must go through the shader even
+            // for the format that would otherwise need no conversion at all.
+            DxgiDuplicationFormat::Bgra8 if !self.rotated => {
                 unsafe { context.CopyResource(&self.output, source) };
                 Ok(())
+            }
+            DxgiDuplicationFormat::Bgra8 => {
+                unsafe { context.CopyResource(&self.source_bgra8, source) };
+                self.draw(context, &self.source_bgra8_srv, &self.rgba8_pixel_shader)
             }
             DxgiDuplicationFormat::Rgba16F => {
                 unsafe { context.CopyResource(&self.source_rgba16f, source) };
