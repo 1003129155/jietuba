@@ -82,6 +82,19 @@ def test_forced_recognition_makes_text_selection_available(monkeypatch):
     assert manager.ocr_text_layer.enabled is True
 
 
+def test_forced_recognition_re_enables_a_layer_the_user_turned_off(monkeypatch):
+    """菜单显示开着，文字层就得真的开着，否则又要点两次。"""
+    manager = _manager(auto_ocr=True)
+    _stub_ocr(monkeypatch, manager)
+    assert manager.init_now() is True
+    manager.set_text_selection_enabled(False)
+    assert manager.ocr_text_layer.enabled is False
+
+    assert manager.init_now(force=True) is True
+    assert manager.text_selection_enabled is True
+    assert manager.ocr_text_layer.enabled is True
+
+
 def test_pending_request_queues_a_callback_and_forces_recognition(monkeypatch):
     manager = _manager(auto_ocr=False)
     start = Mock(return_value=True)
