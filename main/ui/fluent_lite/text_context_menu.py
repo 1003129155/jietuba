@@ -42,9 +42,17 @@ def _translate_standard_actions(menu) -> None:
 def create_text_context_menu(editor):
     """Create a standard editor menu using the active app theme and language."""
     menu = editor.createStandardContextMenu()
-    tokens = ui_tokens(editor)
     _translate_standard_actions(menu)
+    style_popup_menu(menu, ui_tokens(editor))
+    return menu
 
+
+def style_popup_menu(menu, tokens) -> None:
+    """Give a popup menu the app theme regardless of its parent's stylesheet.
+
+    A menu parented to a styled widget inherits that widget's stylesheet instead
+    of the global QMenu rules, which renders it black.
+    """
     # Standard editor menus are transient top-level windows. On Windows they
     # may otherwise retain the OS dark popup renderer while the app is light.
     fusion_style = QStyleFactory.create("Fusion")
@@ -83,7 +91,6 @@ def create_text_context_menu(editor):
             margin: 4px 7px;
         }}
     """)
-    return menu
 
 
 def show_text_context_menu(editor, global_pos) -> None:

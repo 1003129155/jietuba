@@ -385,12 +385,16 @@ def test_fetched_models_are_offered_and_the_pick_is_filled_in(
     from ui.settings_ui.dialog import SettingsDialog
 
     offered = []
+    backgrounds = []
 
     class _Menu(QMenu):
         """真 exec 会进模态循环；给 Qt 类打补丁不生效，只能换成子类。"""
 
         def exec(self, *_args):
             offered.extend(action.text() for action in self.actions())
+            self.adjustSize()
+            image = self.grab().toImage()
+            backgrounds.append(image.pixelColor(image.width() - 8, image.height() - 8).name())
             self.actions()[0].trigger()
 
     monkeypatch.setattr(page_translation, "QMenu", _Menu)
@@ -404,6 +408,9 @@ def test_fetched_models_are_offered_and_the_pick_is_filled_in(
 
     assert offered == ["llama3", "qwen3.5:2b"]
     assert edit.text() == "llama3"
+    # 挂在输入框下的菜单会继承输入框的样式表，不单独上主题色就是黑底
+    from ui.fluent_lite.theme import ui_tokens
+    assert backgrounds == [ui_tokens(edit).popup_background.lower()]
     assert button.isEnabled()
 
 

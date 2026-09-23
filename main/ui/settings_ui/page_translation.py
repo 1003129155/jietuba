@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 )
 from shiboken6 import isValid
 from core.ui_scale import dialog_scaled
+from ui.fluent_lite.text_context_menu import style_popup_menu
 from ui.fluent_lite.theme import ACCENT, ui_tokens
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
@@ -414,6 +415,7 @@ def _fetch_models(dialog, provider_id, edit, button):
             return
         _show_status(dialog, provider_id, "")
         menu = QMenu(edit)
+        style_popup_menu(menu, ui_tokens(edit))
         for model in value:
             menu.addAction(model).triggered.connect(
                 lambda _checked=False, m=model: edit.setText(m)
