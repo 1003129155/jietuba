@@ -230,17 +230,17 @@ def test_refresh_settings_repaints_clipboard_theme_button(monkeypatch, qapp, tmp
     manager = _manager(tmp_path)
     manager.set_clipboard_theme("pink")
     monkeypatch.setattr("settings.get_tool_settings_manager", lambda: manager)
-    styles = []
+    fills = []
     dialog = SimpleNamespace(
         config_manager=manager,
-        _clip_theme_btn=SimpleNamespace(setStyleSheet=styles.append),
+        _clip_theme_btn=SimpleNamespace(setFill=fills.append),
         _clip_theme_name="light",
     )
 
     SettingsDialog.refresh_settings(dialog)
 
     assert dialog._clip_theme_name == "pink"
-    assert styles and "#E91E63" in styles[-1]
+    assert fills and "#E91E63" in fills[-1]
 
 
 def test_double_click_setting_translations_exist_and_load(qapp):
@@ -429,7 +429,9 @@ def test_smart_selection_card_texts_are_translated_in_every_language(qapp, tmp_p
     try:
         combo = dialog.smart_mode_combo
         sources = [label.text()
-                   for card in (combo.parent(), dialog.smart_animation_toggle)
+                   # 下拉框挂在卡片的控件列容器里，往上两层才是卡片
+                   for card in (combo.parentWidget().parentWidget(),
+                                dialog.smart_animation_toggle)
                    for label in (card.titleLabel, card.contentLabel)]
         sources += [combo.itemText(i) for i in range(combo.count())]
         assert len(sources) == 7 and all(sources)

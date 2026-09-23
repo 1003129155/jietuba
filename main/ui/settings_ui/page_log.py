@@ -8,13 +8,12 @@ import glob
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea,
 )
-from PySide6.QtCore import Qt
 from core.ui_scale import dialog_scaled
 from ui.dialogs import show_info_dialog
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
     FluentIcon, ComboBox,
-    PushButton,
+    PushButton, card_right_margin,
 )
 from .components import SettingCardGroup, WhiteCard, apply_theme_text_style
 
@@ -58,16 +57,12 @@ def create_log_page(dialog) -> QWidget:
     dialog.log_level_combo.setItemData(1, "INFO")
     dialog.log_level_combo.setItemData(2, "WARNING")
     dialog.log_level_combo.setItemData(3, "ERROR")
-    dialog.log_level_combo.setFixedWidth(dialog_scaled(130))
     current_level = dialog.config_manager.get_log_level()
     level_idx = {"DEBUG": 0, "INFO": 1, "WARNING": 2, "ERROR": 3}.get(
         current_level, 2
     )
     dialog.log_level_combo.setCurrentIndex(level_idx)
-    level_card.hBoxLayout.addWidget(
-        dialog.log_level_combo, 0, Qt.AlignmentFlag.AlignRight
-    )
-    level_card.hBoxLayout.addSpacing(dialog_scaled(16))
+    level_card.addControl(dialog.log_level_combo)
     grp_log.addSettingCard(level_card)
 
     # 保留天数
@@ -86,11 +81,7 @@ def create_log_page(dialog) -> QWidget:
     if retention_idx < 0:
         retention_idx = dialog.log_retention_combo.findData(7)
     dialog.log_retention_combo.setCurrentIndex(max(retention_idx, 0))
-    dialog.log_retention_combo.setFixedWidth(dialog_scaled(150))
-    retention_card.hBoxLayout.addWidget(
-        dialog.log_retention_combo, 0, Qt.AlignmentFlag.AlignRight
-    )
-    retention_card.hBoxLayout.addSpacing(dialog_scaled(16))
+    retention_card.addControl(dialog.log_retention_combo)
     grp_log.addSettingCard(retention_card)
 
     layout.addWidget(grp_log)
@@ -100,11 +91,13 @@ def create_log_page(dialog) -> QWidget:
 
     path_card = WhiteCard(grp_path)
     path_v = QVBoxLayout(path_card)
-    path_v.setContentsMargins(dialog_scaled(20), dialog_scaled(14), dialog_scaled(20), dialog_scaled(14))
+    path_v.setContentsMargins(
+        dialog_scaled(20), dialog_scaled(14), card_right_margin(), dialog_scaled(14)
+    )
     path_v.setSpacing(dialog_scaled(8))
 
     path_title = QLabel(dialog.tr("Save Location:"), path_card)
-    apply_theme_text_style(path_title, 15)
+    apply_theme_text_style(path_title, 13, bold=True)
     path_v.addWidget(path_title)
 
     dialog.path_lbl = QLabel(dialog.config_manager.get_log_dir(), path_card)

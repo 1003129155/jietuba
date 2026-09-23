@@ -40,7 +40,8 @@ def test_check_button_reports_when_current_version_is_latest(monkeypatch, qapp, 
     dialog, page, button, checker = _create_page(monkeypatch, qapp)
 
     qtbot.mouseClick(button, Qt.MouseButton.LeftButton)
-    version_card = button.parentWidget()
+    # 按钮挂在卡片的控件列容器里，往上两层才是卡片
+    version_card = button.parentWidget().parentWidget()
     assert version_card.titleLabel.text() == "Version"
     assert version_card.contentLabel.text() == page_about.APP_VERSION
     assert checker.started

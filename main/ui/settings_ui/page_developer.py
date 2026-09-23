@@ -3,7 +3,6 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QScrollArea,
 )
-from PySide6.QtCore import Qt
 from core.ui_scale import dialog_scaled
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
@@ -37,12 +36,8 @@ def create_developer_page(dialog) -> QWidget:
     dialog.engine_combo = ComboBox(engine_card)
     dialog.engine_combo.addItems([dialog.tr("Rust Hash (Recommended)")])
     dialog.engine_combo.setItemData(0, "hash_rust")
-    dialog.engine_combo.setFixedWidth(dialog_scaled(200))
     dialog.engine_combo.setCurrentIndex(0)
-    engine_card.hBoxLayout.addWidget(
-        dialog.engine_combo, 0, Qt.AlignmentFlag.AlignRight
-    )
-    engine_card.hBoxLayout.addSpacing(dialog_scaled(16))
+    engine_card.addControl(dialog.engine_combo)
     grp_stitch.addSettingCard(engine_card)
 
     # 滚动冷却
@@ -59,11 +54,7 @@ def create_developer_page(dialog) -> QWidget:
     dialog.cooldown_spinbox.setValue(
         dialog.config_manager.get_scroll_cooldown()
     )
-    dialog.cooldown_spinbox.setFixedWidth(dialog_scaled(110))
-    cooldown_card.hBoxLayout.addWidget(
-        dialog.cooldown_spinbox, 0, Qt.AlignmentFlag.AlignRight
-    )
-    cooldown_card.hBoxLayout.addSpacing(dialog_scaled(16))
+    cooldown_card.addControl(dialog.cooldown_spinbox)
     grp_stitch.addSettingCard(cooldown_card)
 
     # 后续截图顶部忽略像素
@@ -79,11 +70,7 @@ def create_developer_page(dialog) -> QWidget:
     dialog.ignore_top_pixels_spinbox.setValue(
         dialog.config_manager.get_long_stitch_ignore_top_pixels()
     )
-    dialog.ignore_top_pixels_spinbox.setFixedWidth(dialog_scaled(110))
-    ignore_top_card.hBoxLayout.addWidget(
-        dialog.ignore_top_pixels_spinbox, 0, Qt.AlignmentFlag.AlignRight
-    )
-    ignore_top_card.hBoxLayout.addSpacing(dialog_scaled(16))
+    ignore_top_card.addControl(dialog.ignore_top_pixels_spinbox)
     grp_stitch.addSettingCard(ignore_top_card)
 
     layout.addWidget(grp_stitch)
@@ -99,10 +86,7 @@ def create_developer_page(dialog) -> QWidget:
     )
     btn_wizard = PrimaryPushButton(dialog.tr("Open Wizard"), wizard_card)
     btn_wizard.clicked.connect(dialog._open_welcome_wizard)
-    wizard_card.hBoxLayout.addWidget(
-        btn_wizard, 0, Qt.AlignmentFlag.AlignRight
-    )
-    wizard_card.hBoxLayout.addSpacing(dialog_scaled(16))
+    wizard_card.addControl(btn_wizard)
     grp_tools.addSettingCard(wizard_card)
 
     layout.addWidget(grp_tools)

@@ -1,8 +1,8 @@
 ﻿# -*- coding: utf-8 -*-
 """关于页面"""
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea
 from core.ui_scale import dialog_scaled
 from ui.fluent_lite import (
     SettingCard, FluentIcon,
@@ -45,10 +45,7 @@ def create_about_page(dialog) -> QScrollArea:
     )
     check_update_btn = PushButton(dialog.tr("Check for Updates"), name_card)
     check_update_btn.setObjectName("checkUpdateButton")
-    name_card.hBoxLayout.addWidget(
-        check_update_btn, 0, Qt.AlignmentFlag.AlignRight
-    )
-    name_card.hBoxLayout.addSpacing(dialog_scaled(16))
+    name_card.addControl(check_update_btn)
     group.addSettingCard(name_card)
 
     release_checker = GitHubReleaseChecker(dialog)
@@ -131,8 +128,7 @@ def create_about_page(dialog) -> QScrollArea:
             dialog.tr("MIT License Text"),
         )
     )
-    license_card.hBoxLayout.addWidget(details_btn, 0, Qt.AlignmentFlag.AlignRight)
-    license_card.hBoxLayout.addSpacing(dialog_scaled(16))
+    license_card.addControl(details_btn, align=Qt.AlignmentFlag.AlignLeft)
     group.addSettingCard(license_card)
 
     # GitHub 链接卡片
@@ -147,8 +143,7 @@ def create_about_page(dialog) -> QScrollArea:
         text=dialog.tr("Open GitHub"),
         parent=github_card,
     )
-    github_card.hBoxLayout.addWidget(link_btn, 0, Qt.AlignmentFlag.AlignRight)
-    github_card.hBoxLayout.addSpacing(dialog_scaled(16))
+    github_card.addControl(link_btn, align=Qt.AlignmentFlag.AlignLeft)
     group.addSettingCard(github_card)
 
     layout.addWidget(group)
