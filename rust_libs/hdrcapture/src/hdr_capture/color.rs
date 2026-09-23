@@ -18,14 +18,6 @@ const REC2020_TO_SRGB: [[f32; 3]; 3] = [
 const RGBA16F_BYTES_PER_PIXEL: usize = 8;
 const BGRA8_BYTES_PER_PIXEL: usize = 4;
 const MAX_FINITE_F16: f32 = 65_504.0;
-/// Linear level, relative to desktop white, below which content passes through untouched.
-///
-/// Desktop capture is display-referred: shadows and midtones are already the finished pixels the
-/// user sees, so darkening them to buy highlight range is the "washed out" failure this library
-/// exists to avoid. Only the top tenth of the range is reshaped, which keeps every ordinary UI
-/// pixel bit-exact while still giving values above desktop white a smooth path to white instead
-/// of a hard clamp.
-const HIGHLIGHT_KNEE: f32 = 0.9;
 
 /// Identifies the RGB primaries used by an `RGBA16F` source buffer.
 ///
@@ -133,20 +125,160 @@ pub fn linear_rec2020_to_linear_srgb(rgb: LinearRgb) -> LinearRgb {
 /// content by its "SDR content brightness" slider, so without this step the same screen yields a
 /// different screenshot on every display. A non-positive or non-finite value is treated as `1.0`.
 ///
-/// After normalization the curve is applied per component: it is the identity below
-/// [`HIGHLIGHT_KNEE`], then rolls off asymptotically towards white. Negative values and NaN clamp
-/// to black, and positive infinity maps to white. Because the roll-off is per component rather
-/// than per luminance, a very bright saturated color can shift hue slightly as it approaches
-/// white; neutral content cannot.
+/// After normalization, a pixel whose brightest component is at most desktop white is returned
+/// unchanged, so SDR desktop content matches a GDI capture bit for bit. 8-bit sRGB has no code
+/// values above white, so keeping SDR exact leaves no room to grade highlights: a brighter pixel is
+/// divided by its brightest component, which lands that component on white and keeps the ratios
+/// between components, and therefore the hue, instead of clamping each component separately.
+/// Negative values and NaN clamp to black, and positive infinity maps to white.
 #[inline]
 #[must_use]
 pub fn tone_map_highlights(rgb: LinearRgb, sdr_white_level: f32) -> LinearRgb {
+    let normalized = normalize_to_white(rgb, sdr_white_level);
+    let peak = max_component(normalized);
+    if peak <= 1.0 {
+        return normalized;
+    }
+    // Divide rather than multiply by `1 / peak`: the reciprocal of a huge peak is subnormal and
+    // would leave the brightest component just short of 1.0.
+    normalized.map(|value| normalize_unit(value / peak))
+}
+
+/// Linear level, relative to desktop white, above which a pixel counts as HDR content.
+///
+/// FP16 rounding already puts SDR white a little above 1.0, so the threshold sits 2 % higher.
+/// Must stay identical to `HDR_CONTENT_THRESHOLD` in the GPU shader.
+pub const HDR_CONTENT_THRESHOLD: f32 = 1.02;
+
+/// Minimum share of a frame's pixels that must be HDR content before adaptive tone mapping
+/// darkens the frame, so a handful of stray pixels cannot dim a whole screenshot.
+const MIN_HDR_PIXEL_FRACTION: f64 = 0.000_1;
+/// A statistics tile contributes its peak only when it holds at least this many HDR pixels, so a
+/// lone hot pixel cannot set the curve.
+const MIN_TILE_HDR_PIXELS: f32 = 4.0;
+/// Quantile of the qualifying tile peaks taken as the frame peak. The few brightest tiles, such as
+/// a sun disc, are left to clip instead of darkening everything else to make room for them.
+const PEAK_TILE_QUANTILE: f32 = 0.95;
+
+/// GPU statistics for one tile: its brightest component relative to desktop white, and how many
+/// of its pixels exceed [`HDR_CONTENT_THRESHOLD`].
+pub type TileStats = [f32; 2];
+
+/// Picks the peak, relative to desktop white, that adaptive tone mapping should fit into the
+/// output, or `None` when the frame holds too little HDR content to justify darkening it.
+#[must_use]
+pub fn adaptive_peak(tiles: &[TileStats], pixel_count: u64) -> Option<f32> {
+    let hdr_pixels: f64 = tiles.iter().map(|tile| f64::from(tile[1])).sum();
+    if hdr_pixels == 0.0 || hdr_pixels < pixel_count as f64 * MIN_HDR_PIXEL_FRACTION {
+        return None;
+    }
+
+    let mut peaks: Vec<f32> = tiles
+        .iter()
+        .filter(|tile| tile[1] >= MIN_TILE_HDR_PIXELS)
+        .map(|tile| sanitize_linear(tile[0]))
+        .collect();
+    if peaks.is_empty() {
+        return None;
+    }
+    peaks.sort_by(f32::total_cmp);
+    let rank = (peaks.len() as f32 * PEAK_TILE_QUANTILE).ceil() as usize;
+    Some(peaks[rank.clamp(1, peaks.len()) - 1])
+}
+
+/// SMPTE ST 2094-50 reference-white tone curve, the one Skia uses to render HDR gain-map images on
+/// SDR displays.
+///
+/// It fits `[0, peak]` (relative to desktop white) into `[0, 1]`: everything up to desktop white is
+/// scaled by `output_white`, and the range above it follows a quadratic Bézier that reaches 1.0 at
+/// the peak. The bigger the peak, the more desktop white is darkened, down to half at a 1000-nit
+/// peak over the BT.2408 203-nit reference white.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ReferenceWhiteCurve {
+    input_maximum: f32,
+    output_white: f32,
+    xa: f32,
+    xb: f32,
+    ya: f32,
+    yb: f32,
+}
+
+impl ReferenceWhiteCurve {
+    const KAPPA: f32 = 0.65;
+
+    /// Builds the curve for a frame whose content peaks at `peak` times desktop white.
+    #[must_use]
+    pub fn new(peak: f32) -> Self {
+        let input_maximum = if peak.is_nan() { 1.000_1 } else { peak.clamp(1.000_1, 64.0) };
+        let reference_headroom = (1000.0_f32 / 203.0).log2();
+        let compression = (input_maximum.log2() / reference_headroom).min(1.0);
+        let output_white = 0.5_f32.mul_add(-compression, 1.0);
+        let x_middle = (1.0 - Self::KAPPA) + Self::KAPPA / output_white;
+        let y_middle = (1.0 - Self::KAPPA).mul_add(output_white, Self::KAPPA);
+        Self {
+            input_maximum,
+            output_white,
+            xa: 2.0_f32.mul_add(-x_middle, 1.0) + input_maximum,
+            xb: 2.0_f32.mul_add(x_middle, -2.0),
+            ya: 2.0_f32.mul_add(-y_middle, output_white) + 1.0,
+            yb: 2.0_f32.mul_add(y_middle, -2.0 * output_white),
+        }
+    }
+
+    /// Where desktop white lands, as a linear fraction of output white.
+    #[must_use]
+    pub const fn output_white(&self) -> f32 {
+        self.output_white
+    }
+
+    /// Gain to apply to all three components of a pixel whose brightest component is
+    /// `max_component`. Must stay identical to `reference_white_gain` in the GPU shader.
+    #[must_use]
+    pub fn gain(&self, max_component: f32) -> f32 {
+        if max_component <= 1.0 {
+            return self.output_white;
+        }
+        if max_component >= self.input_maximum {
+            return 1.0 / max_component;
+        }
+        // Solve x(t) = 1 + xb t + xa t^2 for t, then evaluate y(t) = output_white + yb t + ya t^2.
+        let t = if self.xa.abs() < 0.000_01 {
+            (max_component - 1.0) / self.xb
+        } else {
+            let discriminant = self.xb.mul_add(self.xb, -4.0 * self.xa * (1.0 - max_component));
+            (-self.xb + discriminant.max(0.0).sqrt()) / (2.0 * self.xa)
+        };
+        let t = t.clamp(0.0, 1.0);
+        t.mul_add(t.mul_add(self.ya, self.yb), self.output_white) / max_component
+    }
+
+    /// Values for the shader's `AdaptiveToneMap` constant buffer, in declaration order.
+    #[must_use]
+    pub const fn shader_constants(&self) -> [f32; 8] {
+        [1.0, self.input_maximum, self.output_white, self.xa, self.xb, self.ya, self.yb, 0.0]
+    }
+}
+
+/// Adaptive counterpart of [`tone_map_highlights`]: the readable reference for the shader path
+/// used when a frame carries HDR content. The same gain scales all three components, so hue is
+/// kept.
+#[inline]
+#[must_use]
+pub fn tone_map_adaptive(rgb: LinearRgb, sdr_white_level: f32, curve: &ReferenceWhiteCurve) -> LinearRgb {
+    let normalized = normalize_to_white(rgb, sdr_white_level);
+    let gain = curve.gain(max_component(normalized));
+    normalized.map(|value| normalize_unit(value * gain))
+}
+
+#[inline]
+fn normalize_to_white(rgb: LinearRgb, sdr_white_level: f32) -> LinearRgb {
     let scale = if sdr_white_level.is_finite() && sdr_white_level > 0.0 { sdr_white_level } else { 1.0 };
-    [
-        tone_map_highlight_channel(rgb[0] / scale),
-        tone_map_highlight_channel(rgb[1] / scale),
-        tone_map_highlight_channel(rgb[2] / scale),
-    ]
+    rgb.map(|value| sanitize_linear(value / scale))
+}
+
+#[inline]
+fn max_component(rgb: LinearRgb) -> f32 {
+    rgb[0].max(rgb[1]).max(rgb[2])
 }
 
 /// Encodes a normalized linear-sRGB component with the sRGB opto-electronic transfer function.
@@ -308,20 +440,12 @@ fn convert_into(
 }
 
 #[inline]
-fn tone_map_highlight_channel(value: f32) -> f32 {
+fn sanitize_linear(value: f32) -> f32 {
     if value.is_nan() || value <= 0.0 {
-        return 0.0;
+        0.0
+    } else {
+        value.min(f32::MAX)
     }
-    if value <= HIGHLIGHT_KNEE {
-        return value;
-    }
-
-    // f(x) = 1 - h * exp(-(x - k) / h), with h = 1 - k. It meets the identity segment at `k` with
-    // matching value and slope, so the join is invisible, and approaches 1.0 without reaching it,
-    // so no finite input hard-clips. Positive infinity falls out of the same expression as 1.0.
-    let headroom = 1.0 - HIGHLIGHT_KNEE;
-    let excess = (value - HIGHLIGHT_KNEE) / headroom;
-    normalize_unit(headroom.mul_add(-(-excess).exp(), 1.0))
 }
 
 #[inline]
@@ -401,8 +525,9 @@ fn f16_bits_to_f32(bits: u16) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::{
-        DitherMode, Error, Rgba16fColorSpace, f16_bits_to_f32, linear_rec2020_to_linear_srgb, quantize_to_u8,
-        rgba16f_to_bgra8, rgba16f_to_bgra8_into, srgb_encode, tone_map_highlights,
+        DitherMode, Error, ReferenceWhiteCurve, Rgba16fColorSpace, adaptive_peak, f16_bits_to_f32,
+        linear_rec2020_to_linear_srgb, quantize_to_u8, rgba16f_to_bgra8, rgba16f_to_bgra8_into, srgb_encode,
+        tone_map_adaptive, tone_map_highlights,
     };
 
     fn assert_close(actual: f32, expected: f32, tolerance: f32) {
@@ -444,50 +569,43 @@ mod tests {
     }
 
     #[test]
-    fn tone_mapper_preserves_desktop_content_and_compresses_highlights() {
-        // Everything below the knee is the identity, so ordinary UI pixels survive untouched.
+    fn tone_mapper_preserves_desktop_content_and_keeps_highlight_hue() {
         let preserved = tone_map_highlights([0.0, 0.18, 0.9], 1.0);
-        assert_close(preserved[0], 0.0, 0.0);
-        assert_close(preserved[1], 0.18, 0.0);
-        assert_close(preserved[2], 0.9, 0.0);
+        assert_eq!(preserved, [0.0, 0.18, 0.9]);
+        assert_eq!(tone_map_highlights([1.0, 1.0, 1.0], 1.0), [1.0, 1.0, 1.0]);
 
-        // Desktop white itself is nudged just below 1.0, leaving room above it.
-        let white = tone_map_highlights([1.0, 1.0, 1.0], 1.0);
-        assert_close(white[0], 0.1_f32.mul_add(-(-1.0_f32).exp(), 1.0), 0.000_001);
-        assert!(white[0] < 1.0);
-
-        // The join at the knee is continuous, so no edge appears where the roll-off begins.
-        let knee = tone_map_highlights([0.9, 0.900_01, 0.91], 1.0);
-        assert_close(knee[0], 0.9, 0.0);
-        assert!(knee[1] >= knee[0] && knee[1] - knee[0] < 0.000_1);
-        assert!(knee[2] > knee[1]);
-
-        // Above desktop white the curve keeps rising towards white without ever reaching it.
-        let highlight = tone_map_highlights([1.05, 1.1, 1.2], 1.0);
-        assert!(highlight[0] > white[0]);
-        assert!(highlight[1] > highlight[0]);
-        assert!(highlight[2] > highlight[1]);
-        assert!(highlight[2] < 1.0);
+        // 8-bit output has nothing above white, so a neutral highlight is white...
+        assert_eq!(tone_map_highlights([3.0, 3.0, 3.0], 1.0), [1.0, 1.0, 1.0]);
+        // ...and a colored one keeps its component ratios rather than clamping to (1, 1, 0).
+        let orange = tone_map_highlights([4.0, 2.0, 0.0], 1.0);
+        assert_close(orange[0], 1.0, 0.0);
+        assert_close(orange[1], 0.5, 0.000_001);
+        assert_close(orange[2], 0.0, 0.0);
 
         let sanitized = tone_map_highlights([-1.0, f32::NAN, f32::INFINITY], 1.0);
-        assert_close(sanitized[0], 0.0, 0.0);
-        assert_close(sanitized[1], 0.0, 0.0);
-        assert_close(sanitized[2], 1.0, 0.0);
+        assert_eq!(sanitized, [0.0, 0.0, 1.0]);
     }
 
     #[test]
-    fn highlight_range_above_desktop_white_is_bounded_by_8_bit_output() {
-        // 8-bit sRGB simply cannot hold much range above white, and pretending otherwise would
-        // mean darkening all ordinary desktop content to buy a few code values. This pins where
-        // the practical ceiling sits so a future curve change has to face the trade-off openly.
-        let white = quantize_to_u8(srgb_encode(tone_map_highlights([1.0; 3], 1.0)[0]), 0, 0, DitherMode::None);
-        assert_eq!(white, 251);
+    fn desktop_content_survives_the_scrgb_round_trip_bit_exact() {
+        // Windows composes an SDR pixel into FP16 scRGB as its linear value times the SDR white
+        // level. Every 8-bit code must come back unchanged, or captures stop matching GDI and
+        // picked colors are off; desktop white landing a hair above 1.0 is the fragile case.
+        fn srgb_decode(encoded: f32) -> f32 {
+            if encoded <= 0.040_45 { encoded / 12.92 } else { ((encoded + 0.055) / 1.055).powf(2.4) }
+        }
+        fn round_to_f16(value: f32) -> f32 {
+            f32::from_bits((value.to_bits() + 0x1000) & !0x1fff)
+        }
 
-        let just_above = quantize_to_u8(srgb_encode(tone_map_highlights([1.1; 3], 1.0)[0]), 0, 0, DitherMode::None);
-        assert!(just_above > white, "a highlight just above white must still be distinguishable");
-
-        let far_above = quantize_to_u8(srgb_encode(tone_map_highlights([1.3; 3], 1.0)[0]), 0, 0, DitherMode::None);
-        assert_eq!(far_above, 255, "beyond roughly 1.2x desktop white the output is saturated");
+        for white_level in [1.0_f32, 2.5, 4.1, 6.0] {
+            for code in 0_u8..=255 {
+                let linear = round_to_f16(srgb_decode(f32::from(code) / 255.0) * white_level);
+                let mapped = tone_map_highlights([linear, linear, linear], white_level)[0];
+                let output = quantize_to_u8(srgb_encode(mapped), 0, 0, DitherMode::None);
+                assert_eq!(output, code, "white level {white_level}");
+            }
+        }
     }
 
     #[test]
@@ -507,6 +625,61 @@ mod tests {
             let fallback = tone_map_highlights([0.18, 0.18, 0.18], bogus);
             assert_close(fallback[0], 0.18, 0.000_001);
         }
+    }
+
+    #[test]
+    fn reference_white_curve_fits_the_peak_into_the_output() {
+        for peak in [1.2_f32, 2.0, 4.0, 10.0, 64.0] {
+            let curve = ReferenceWhiteCurve::new(peak);
+            let output = |x: f32| x * curve.gain(x);
+
+            // Desktop white is darkened to make room, never brightened, and at most halved.
+            assert!(curve.output_white() < 1.0 && curve.output_white() >= 0.5, "peak {peak}");
+            assert_close(output(1.0), curve.output_white(), 0.000_001);
+            // The peak lands on white, and the curve rises monotonically on the way there.
+            assert_close(output(peak), 1.0, 0.000_1);
+            let samples: Vec<f32> = (0..=200).map(|i| output(peak * i as f32 / 200.0)).collect();
+            assert!(samples.windows(2).all(|pair| pair[1] >= pair[0] - 0.000_001), "peak {peak}");
+        }
+
+        // A barely-HDR frame is barely darkened; a 1000-nit-class peak halves desktop white.
+        assert!(ReferenceWhiteCurve::new(1.2).output_white() > 0.9);
+        assert_close(ReferenceWhiteCurve::new(10.0).output_white(), 0.5, 0.0);
+    }
+
+    #[test]
+    fn adaptive_mapping_scales_all_components_by_one_gain() {
+        let curve = ReferenceWhiteCurve::new(4.0);
+        let grey = tone_map_adaptive([0.18, 0.18, 0.18], 1.0, &curve);
+        assert_close(grey[0], 0.18 * curve.output_white(), 0.000_001);
+
+        let orange = tone_map_adaptive([8.0, 4.0, 0.0], 2.0, &curve);
+        assert_close(orange[0], 1.0, 0.000_1);
+        assert_close(orange[1], 0.5, 0.000_1);
+        assert_close(orange[2], 0.0, 0.0);
+    }
+
+    #[test]
+    fn adaptive_peak_needs_real_hdr_content() {
+        let sdr_tile = [0.9, 0.0];
+        assert_eq!(adaptive_peak(&[sdr_tile; 100], 102_400), None);
+
+        // A few stray bright pixels are not enough to darken a whole screenshot.
+        let mut tiles = vec![sdr_tile; 100];
+        tiles[0] = [30.0, 3.0];
+        assert_eq!(adaptive_peak(&tiles, 1_000_000), None);
+
+        // Real content qualifies; the tile that holds a lone hot pixel does not set the peak.
+        let mut tiles = vec![[2.0, 500.0]; 40];
+        tiles.push([50.0, 1.0]);
+        assert_eq!(adaptive_peak(&tiles, 1_000_000), Some(2.0));
+    }
+
+    #[test]
+    fn adaptive_peak_leaves_the_brightest_few_tiles_to_clip() {
+        let mut tiles = vec![[2.0, 500.0]; 99];
+        tiles.push([40.0, 500.0]);
+        assert_eq!(adaptive_peak(&tiles, 1_000_000), Some(2.0));
     }
 
     #[test]

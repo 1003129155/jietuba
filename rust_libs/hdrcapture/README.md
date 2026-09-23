@@ -1,15 +1,15 @@
 # hdrcapture
 
 HDR 正确的 Windows 桌面截图。DXGI Desktop Duplication 取 FP16 源帧，GPU 上按该屏的
-Windows SDR 白点归一化并做高光 roll-off，输出紧凑的 sRGB `BGRA8`。
+Windows SDR 白点归一化，输出紧凑的 sRGB `BGRA8`：
 
-`mss` 用的是 GDI `BitBlt`，在开启 HDR 的显示器上会把超出桌面白的内容硬截断为纯白。
-本机实测（2560×1440，HDR 开启，SDR 白点 4.1）：
+- 不超过 SDR 白的内容原样输出，与 GDI 截图逐像素一致；
+- 超出 SDR 白的高光除以最亮的通道，整体缩回白色、保持色相。8 位 sRGB 在白色之上没有码值，
+  SDR 原样输出就没有余地给高光分层次。
 
-| | 纯白像素占比 | median |
-|---|---|---|
-| hdrcapture | 0.00 % | 5.0 ms |
-| mss | 28.5 % | 15.5 ms |
+`mss` 用的是 GDI `BitBlt`，在开启 HDR 的显示器上会把超出桌面白的内容逐通道硬截断，彩色高光
+会偏色。本机（2560×1440，HDR 开启，SDR 白点 4.1）整屏抓取 median：hdrcapture 5.0 ms，
+mss 15.5 ms。
 
 ```python
 import hdrcapture
@@ -22,6 +22,17 @@ monitor.rect                               # (x, y, width, height)，物理像�
 ```
 
 `grab()` 也接受整数索引或带 `index` 键的字典，便于从 `mss` 迁移。
+
+## 自适应色调映射
+
+`grab(monitor, adaptive=True)`：某块 HDR 屏上超过 SDR 白 2% 的像素占到一定比例时，整块屏按
+SMPTE ST 2094-50 参考白曲线（Skia 渲染 HDR 增益图用的同一条）压暗，SDR 白最多压到一半，
+腾出的范围留给高光层次。峰值取 32×32 分块统计里合格分块峰值的 95 分位，个别极亮的小块留给它
+截断。没有足够 HDR 内容的屏与默认的固定映射逐像素相同。本次用的峰值记在
+`frame.monitor_info[i]["tone_map_peak"]`，未启用时为 `None`。
+
+映射随画面内容变化，同一内容多次抓取结果可能不同；滚动拼接、逐帧录制这类要求重叠部分一致的
+场景用默认的固定映射。
 
 异常均继承自 `hdrcapture.CaptureError`（其自身继承 `RuntimeError`）：
 `InitialFrameTimeout`、`AccessLost`、`DimensionsChanged`、`InvalidMonitorIndex`。

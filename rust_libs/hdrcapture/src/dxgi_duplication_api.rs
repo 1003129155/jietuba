@@ -76,6 +76,9 @@ pub enum Error {
     /// Windows API error.
     #[error("Windows API error: {0}")]
     WindowsError(#[from] windows::core::Error),
+    /// DXGI reported a pixel format other than the ones requested from `DuplicateOutput1`.
+    #[error("DXGI returned unsupported duplication format {0}")]
+    UnsupportedFormat(i32),
 }
 
 /// Supported DXGI formats for duplication.
@@ -87,6 +90,20 @@ pub enum DxgiDuplicationFormat {
     Rgba8,
     /// 8-bit BGRA format.
     Bgra8,
+}
+
+impl DxgiDuplicationFormat {
+    /// Maps a DXGI format; anything else is an error rather than a panic, because pyo3 turns a
+    /// panic into `PanicException`, which derives from `BaseException` and so escapes the callers'
+    /// `except Exception` fallbacks.
+    fn from_dxgi(format: DXGI_FORMAT) -> Result<Self, Error> {
+        match format {
+            DXGI_FORMAT_R16G16B16A16_FLOAT => Ok(Self::Rgba16F),
+            DXGI_FORMAT_R8G8B8A8_UNORM => Ok(Self::Rgba8),
+            DXGI_FORMAT_B8G8R8A8_UNORM => Ok(Self::Bgra8),
+            other => Err(Error::UnsupportedFormat(other.0)),
+        }
+    }
 }
 
 const DEFAULT_DUPLICATION_FORMATS: [DXGI_FORMAT; 3] =
@@ -105,6 +122,8 @@ pub struct DxgiDuplicationApi {
     duplication: IDXGIOutputDuplication,
     /// Description of the duplication, including format and dimensions.
     duplication_desc: DXGI_OUTDUPL_DESC,
+    /// `duplication_desc.ModeDesc.Format`, validated when the duplication is created.
+    format: DxgiDuplicationFormat,
     /// The DXGI device associated with the Direct3D device.
     dxgi_device: IDXGIDevice4,
     /// The DXGI output associated with this duplication.
@@ -170,16 +189,24 @@ impl DxgiDuplicationApi {
         let output = find_output_for_monitor(&dxgi_device, monitor)?;
         let duplication = unsafe { output.DuplicateOutput1(&d3d_device, 0, supported_formats)? };
         let duplication_desc = unsafe { duplication.GetDesc() };
+        let format = DxgiDuplicationFormat::from_dxgi(duplication_desc.ModeDesc.Format)?;
 
         Ok(Self {
             d3d_device,
             d3d_device_context,
             duplication,
             duplication_desc,
+            format,
             dxgi_device,
             output,
             is_holding_frame: false,
         })
+    }
+
+    /// Hands the currently held frame back to DWM; a no-op when no frame is held.
+    #[inline]
+    pub fn release_frame(&mut self) -> Result<(), Error> {
+        self.release_frame_if_needed()
     }
 
     fn release_frame_if_needed(&mut self) -> Result<(), Error> {
@@ -211,12 +238,14 @@ impl DxgiDuplicationApi {
 
         let duplication = unsafe { output.DuplicateOutput1(&d3d_device, 0, supported_formats)? };
         let duplication_desc = unsafe { duplication.GetDesc() };
+        let format = DxgiDuplicationFormat::from_dxgi(duplication_desc.ModeDesc.Format)?;
 
         Ok(Self {
             d3d_device,
             d3d_device_context,
             duplication,
             duplication_desc,
+            format,
             dxgi_device,
             output,
             is_holding_frame: false,
@@ -342,12 +371,7 @@ impl DxgiDuplicationApi {
     #[inline]
     #[must_use]
     pub const fn format(&self) -> DxgiDuplicationFormat {
-        match self.duplication_desc.ModeDesc.Format {
-            DXGI_FORMAT_R16G16B16A16_FLOAT => DxgiDuplicationFormat::Rgba16F,
-            DXGI_FORMAT_R8G8B8A8_UNORM => DxgiDuplicationFormat::Rgba8,
-            DXGI_FORMAT_B8G8R8A8_UNORM => DxgiDuplicationFormat::Bgra8,
-            _ => unreachable!(),
-        }
+        self.format
     }
 
     /// Gets the refresh rate of the duplication as (numerator, denominator).
@@ -407,6 +431,7 @@ impl DxgiDuplicationApi {
         // Obtain texture description to get size/format details.
         let mut frame_desc = D3D11_TEXTURE2D_DESC::default();
         unsafe { frame_texture.GetDesc(&mut frame_desc) };
+        let format = DxgiDuplicationFormat::from_dxgi(frame_desc.Format)?;
 
         Ok(DxgiDuplicationFrame {
             d3d_device: &self.d3d_device,
@@ -414,6 +439,7 @@ impl DxgiDuplicationApi {
             duplication: &self.duplication,
             texture: frame_texture,
             texture_desc: frame_desc,
+            format,
             frame_info,
         })
     }
@@ -434,6 +460,8 @@ pub struct DxgiDuplicationFrame<'a> {
     duplication: &'a IDXGIOutputDuplication,
     texture: ID3D11Texture2D,
     texture_desc: D3D11_TEXTURE2D_DESC,
+    /// `texture_desc.Format`, validated when the frame is acquired.
+    format: DxgiDuplicationFormat,
     frame_info: DXGI_OUTDUPL_FRAME_INFO,
 }
 
@@ -456,12 +484,7 @@ impl<'a> DxgiDuplicationFrame<'a> {
     #[inline]
     #[must_use]
     pub const fn format(&self) -> DxgiDuplicationFormat {
-        match self.texture_desc.Format {
-            DXGI_FORMAT_R16G16B16A16_FLOAT => DxgiDuplicationFormat::Rgba16F,
-            DXGI_FORMAT_R8G8B8A8_UNORM => DxgiDuplicationFormat::Rgba8,
-            DXGI_FORMAT_B8G8R8A8_UNORM => DxgiDuplicationFormat::Bgra8,
-            _ => unreachable!(),
-        }
+        self.format
     }
 
     /// Gets the underlying Direct3D device associated with this frame.
@@ -841,5 +864,24 @@ impl<'a> DxgiDuplicationFrameBuffer<'a> {
             DxgiDuplicationFormat::Rgba16F => 8,
             DxgiDuplicationFormat::Rgba8 | DxgiDuplicationFormat::Bgra8 => 4,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_R10G10B10A2_UNORM, DXGI_FORMAT_R16G16B16A16_FLOAT};
+
+    use super::{DxgiDuplicationFormat, Error};
+
+    #[test]
+    fn unexpected_dxgi_format_is_an_error_not_a_panic() {
+        assert_eq!(
+            DxgiDuplicationFormat::from_dxgi(DXGI_FORMAT_R16G16B16A16_FLOAT).ok(),
+            Some(DxgiDuplicationFormat::Rgba16F)
+        );
+        assert!(matches!(
+            DxgiDuplicationFormat::from_dxgi(DXGI_FORMAT_R10G10B10A2_UNORM),
+            Err(Error::UnsupportedFormat(code)) if code == DXGI_FORMAT_R10G10B10A2_UNORM.0
+        ));
     }
 }
