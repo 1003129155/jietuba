@@ -9,6 +9,16 @@ from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QBrush
 from PySide6.QtWidgets import QWidget
 
 from core import log_debug, safe_event, T
+from settings import color_formats
+
+
+# 信息区里每一行颜色文字轮流用的颜色，按行序循环取
+_LINE_COLORS = (
+	QColor(255, 200, 100),
+	QColor(200, 150, 255),
+	QColor(150, 220, 255),
+	QColor(180, 240, 160),
+)
 
 
 class MagnifierOverlay(QWidget):
@@ -22,10 +32,12 @@ class MagnifierOverlay(QWidget):
 	MAG_WIDTH = 150   # 放大镜宽度
 	MAG_HEIGHT = 120  # 放大镜高度
 	INFO_WIDTH = 150  # 信息框宽度
-	INFO_HEIGHT = 90  # 信息框高度
+	INFO_LINE_HEIGHT = 20   # 信息区一行的高度
+	INFO_PADDING_V = 10     # 信息区上下留白合计
 	SAMPLE_SIZE = 48
 	EDGE_MARGIN = 16
-	COMBINED_HEIGHT = MAG_HEIGHT + INFO_HEIGHT  # 合并后的总高度
+	# 像素格子小于这个边长时不画网格：格子再小，网格线就盖住像素本身了
+	GRID_MIN_CELL = 5
 
 	def __init__(self, parent: QWidget, scene, view, config_manager=None):
 		super().__init__(parent)
@@ -74,12 +86,12 @@ class MagnifierOverlay(QWidget):
 		self._brush_bg = QBrush(QColor(40, 40, 45, 220))
 		self._brush_black_a = QBrush(QColor(0, 0, 0, 180))
 		self._color_pos = QColor(100, 240, 220)
-		self._color_rgb = QColor(255, 200, 100)
-		self._color_hex = QColor(200, 150, 255)
 		self._color_hint = QColor(180, 180, 180)
 
+		self._refresh_display_options()
+
 		# ── 固定尺寸，不再覆盖整个父窗口 ──
-		self.setFixedSize(self.INFO_WIDTH, self.COMBINED_HEIGHT)
+		self.setFixedSize(self.INFO_WIDTH, self.combined_height)
 
 		self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 		self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
@@ -107,6 +119,43 @@ class MagnifierOverlay(QWidget):
 		self._pen_teal_2 = QPen(_tc, 2)
 		self._pen_teal_1 = QPen(_tc, 1)
 		self._brush_crosshair = QBrush(_tc_semi)  # 半透明主题色，用于十字色带
+		_tc_grid = QColor(_tc)
+		_tc_grid.setAlpha(160)  # 够看清像素边界，又不至于把像素本身的颜色盖掉
+		self._pen_grid = QPen(_tc_grid, 1)
+
+	def _refresh_display_options(self):
+		"""读一遍放大镜的显示开关。
+
+		和 _refresh_theme_colors 同理：截图窗口跨会话复用，同一个实例可能横跨
+		用户改设置的前后，所以每个新会话（rebind）都要重读，不能只在 __init__
+		里读一次。
+		"""
+		config = self.config_manager
+		if config is None:
+			self._enabled = True
+			self._show_grid = False
+			self._show_swatch = True
+			self._show_hint = True
+			self._formats = color_formats.enabled_formats(color_formats.default_formats())
+			return
+		self._enabled = bool(config.get_app_setting("magnifier_enabled"))
+		self._show_grid = bool(config.get_app_setting("magnifier_grid"))
+		self._show_swatch = bool(config.get_app_setting("magnifier_swatch"))
+		self._show_hint = bool(config.get_app_setting("magnifier_hint"))
+		self._formats = color_formats.enabled_formats(color_formats.load(config))
+		# 行数变了，按最长一行重算字号
+		self._fixed_info_font = None
+		self._fixed_info_metrics = None
+
+	@property
+	def combined_height(self) -> int:
+		"""放大图加信息区的总高。
+
+		信息区是一行坐标 + 每个启用的颜色格式一行，再加可选的快捷键提示行，
+		所以高度随用户勾了几个格式变。
+		"""
+		lines = 1 + len(self._formats) + (1 if self._show_hint else 0)
+		return self.MAG_HEIGHT + self.INFO_LINE_HEIGHT * lines + self.INFO_PADDING_V
 
 	# ------------------------------------------------------------------
 	# 外部控制
@@ -124,8 +173,10 @@ class MagnifierOverlay(QWidget):
 		self._fixed_hint_font = None
 		self._fixed_info_metrics = None
 		self._fixed_hint_metrics = None
-		# 新会话开始，主题色可能在上一次会话结束后被改过，重新读一遍。
+		# 新会话开始，主题色和显示开关都可能在上一次会话结束后被改过，重新读一遍。
 		self._refresh_theme_colors()
+		self._refresh_display_options()
+		self.setFixedSize(self.INFO_WIDTH, self.combined_height)
 		self.hide()
 
 	def update_cursor(self, scene_pos: QPointF):
@@ -178,18 +229,10 @@ class MagnifierOverlay(QWidget):
 		"""获取当前放大镜颜色信息文本（简洁格式）。"""
 		image = self._background_image()
 		color = self._sample_color(image)
-		copy_format = "rgb_hex"
-		if self.config_manager:
-			try:
-				copy_format = self.config_manager.get_app_setting("magnifier_color_copy_format", "rgb_hex")
-			except Exception:
-				copy_format = "rgb_hex"
-
-		if copy_format == "rgb":
-			return f"{color.red()}, {color.green()}, {color.blue()}"
-		if copy_format == "hex":
-			return f"{color.name().upper()}"
-		return f"{color.red()}, {color.green()}, {color.blue()}  {color.name().upper()}"
+		# 勾选的格式都显示在放大镜上，复制的是排在最前的那一个
+		formats = self._formats or color_formats.enabled_formats(
+			color_formats.default_formats())
+		return formats[0].render(color)
 
 	def copy_color_info(self) -> bool:
 		"""复制当前颜色信息到剪贴板。"""
@@ -236,7 +279,7 @@ class MagnifierOverlay(QWidget):
 		painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
 		# 整个 widget 就是放大镜+信息框，从 (0,0) 开始绘制
-		combined_rect = QRect(0, 0, self.INFO_WIDTH, self.COMBINED_HEIGHT)
+		combined_rect = QRect(0, 0, self.INFO_WIDTH, self.combined_height)
 		image = self._background_image()
 		color = self._sample_color(image)
 		self._update_sample_cache(image)
@@ -291,20 +334,18 @@ class MagnifierOverlay(QWidget):
 			max_x = 15360
 			max_y = 4320
 		
-		# 三行中哪行最宽取决于实际像素宽度（不是字符数）
+		# 哪行最宽取决于实际像素宽度（不是字符数）：坐标行按虚拟桌面右下角算，
+		# 颜色行按每个启用格式渲染一个最长的颜色（各分量都取三位数）算。
 		# 用 base_size 字体测量各模板的像素宽度，取最宽的来决定字号
-		worst_pos = f"POS: {max_x}, {max_y}"
-		worst_rgb = "RGB: 255, 255, 255"
-		worst_hex = "HEX: #FFFFFF"
+		candidates = [f"POS: {max_x}, {max_y}"]
+		widest_color = QColor(255, 255, 255)
+		candidates.extend(fmt.render(widest_color) for fmt in self._formats)
 		
 		test_font = QFont("Microsoft YaHei", 11)
 		test_font.setBold(True)
 		painter.setFont(test_font)
 		tm = painter.fontMetrics()
-		worst_data = max(
-			(worst_pos, worst_rgb, worst_hex),
-			key=lambda t: tm.horizontalAdvance(t)
-		)
+		worst_data = max(candidates, key=lambda t: tm.horizontalAdvance(t))
 		
 		self._fixed_info_font = self._get_fitted_font(
 			painter, worst_data, text_rect_width, 13, 5
@@ -322,10 +363,31 @@ class MagnifierOverlay(QWidget):
 		self._fixed_info_metrics = QFontMetrics(self._fixed_info_font)
 		self._fixed_hint_metrics = QFontMetrics(self._fixed_hint_font)
 	
+	def _draw_pixel_grid(self, painter: QPainter, mag_rect: QRect, src: QRect):
+		"""沿像素边界画网格。
+
+		格子尺寸按 drawImage 实际用的源矩形算，而不是按理论倍率——源矩形取整
+		之后和理论值会差半个像素，按理论值画出来的网格会整体偏移，越往边缘越明显。
+		"""
+		if src.width() <= 0 or src.height() <= 0:
+			return
+		cell_w = mag_rect.width() / src.width()
+		cell_h = mag_rect.height() / src.height()
+		if min(cell_w, cell_h) < self.GRID_MIN_CELL:
+			return
+		painter.setPen(self._pen_grid)
+		for i in range(1, src.width()):
+			x = round(mag_rect.left() + i * cell_w)
+			painter.drawLine(x, mag_rect.top(), x, mag_rect.bottom())
+		for j in range(1, src.height()):
+			y = round(mag_rect.top() + j * cell_h)
+			painter.drawLine(mag_rect.left(), y, mag_rect.right(), y)
+
 	def _draw_combined_magnifier(self, painter: QPainter, rect: QRect, color: QColor):
 		"""绘制合并的放大镜+信息框"""
 		mag_rect = QRect(rect.x(), rect.y(), self.MAG_WIDTH, self.MAG_HEIGHT)
-		info_rect = QRect(rect.x(), rect.y() + self.MAG_HEIGHT, self.INFO_WIDTH, self.INFO_HEIGHT)
+		info_rect = QRect(rect.x(), rect.y() + self.MAG_HEIGHT, self.INFO_WIDTH,
+		                  rect.height() - self.MAG_HEIGHT)
 
 		# 以宽边（MAG_WIDTH）为基准计算像素格子大小，保证正方形
 		# 虚拟正方形边长 = MAG_WIDTH，源图也是正方形，1:1 映射 → 像素格子正方形
@@ -361,7 +423,10 @@ class MagnifierOverlay(QWidget):
 				sr.width(),
 				crop_h_px,
 			)
-			painter.drawImage(mag_rect, self._cached_sample_image, src_crop.toRect())
+			drawn_src = src_crop.toRect()
+			painter.drawImage(mag_rect, self._cached_sample_image, drawn_src)
+			if self._show_grid:
+				self._draw_pixel_grid(painter, mag_rect, drawn_src)
 
 			painter.restore()
 
@@ -394,16 +459,17 @@ class MagnifierOverlay(QWidget):
 		)
 		
 		# 右上角显示取色颜色方块（贴在外框右上角）
-		color_box_size = 20
-		color_box_rect = QRect(
-			mag_rect.right() - color_box_size - 4,
-			mag_rect.top() + 4,
-			color_box_size,
-			color_box_size
-		)
-		painter.setPen(self._pen_white_2)
-		painter.setBrush(QBrush(color))
-		painter.drawRect(color_box_rect)
+		if self._show_swatch:
+			color_box_size = 20
+			color_box_rect = QRect(
+				mag_rect.right() - color_box_size - 4,
+				mag_rect.top() + 4,
+				color_box_size,
+				color_box_size
+			)
+			painter.setPen(self._pen_white_2)
+			painter.setBrush(QBrush(color))
+			painter.drawRect(color_box_rect)
 		
 		# 绘制分隔线
 		painter.setPen(self._pen_teal_1)
@@ -413,15 +479,16 @@ class MagnifierOverlay(QWidget):
 		painter.setBrush(Qt.BrushStyle.NoBrush)
 
 		pos = self.cursor_scene_pos or QPointF(0, 0)
-		rgb_text = f"RGB: {color.red()}, {color.green()}, {color.blue()}"
-		hex_text = f"HEX: {color.name().upper()}"
 		pos_text = f"POS: {int(pos.x())}, {int(pos.y())}"
 		hint_text = self.tr("Press C to copy color info")
+		lines = [(pos_text, self._color_pos)]
+		for index, fmt in enumerate(self._formats):
+			lines.append((fmt.render(color), _LINE_COLORS[index % len(_LINE_COLORS)]))
 
 		# 定义每行文字的固定矩形区域 (宽度锁定)
 		text_padding_left = 6
 		text_padding_right = 3
-		line_height = 20
+		line_height = self.INFO_LINE_HEIGHT
 		text_rect_width = info_rect.width() - text_padding_left - text_padding_right
 		
 		# 首帧：用虚拟桌面最大坐标模板一次性确定字号
@@ -436,22 +503,20 @@ class MagnifierOverlay(QWidget):
 		info_descent = info_metrics.descent()
 		painter.setFont(self._fixed_info_font)
 		
-		for text, text_color, y_pos in (
-			(pos_text, self._color_pos, base_y),
-			(rgb_text, self._color_rgb, base_y + line_height),
-			(hex_text, self._color_hex, base_y + line_height * 2),
-		):
+		for index, (text, text_color) in enumerate(lines):
 			painter.setPen(text_color)
+			y_pos = base_y + line_height * index
 			y_centered = y_pos + (line_height + info_text_height) // 2 - info_descent
 			painter.drawText(text_x, y_centered, text)
 		
-		# hint 行：单独字号
-		painter.setFont(self._fixed_hint_font)
-		painter.setPen(self._color_hint)
-		hint_metrics = self._fixed_hint_metrics
-		y_hint = base_y + line_height * 3
-		y_centered = y_hint + (line_height + hint_metrics.height()) // 2 - hint_metrics.descent()
-		painter.drawText(text_x, y_centered, hint_text)
+		# hint 行：单独字号，排在所有颜色行之后
+		if self._show_hint:
+			painter.setFont(self._fixed_hint_font)
+			painter.setPen(self._color_hint)
+			hint_metrics = self._fixed_hint_metrics
+			y_hint = base_y + line_height * len(lines)
+			y_centered = y_hint + (line_height + hint_metrics.height()) // 2 - hint_metrics.descent()
+			painter.drawText(text_x, y_centered, hint_text)
 
 		# ── 最终外框描边（最后绘制，保证在所有内容之上） ──
 		painter.setPen(self._pen_teal_2)
@@ -463,6 +528,8 @@ class MagnifierOverlay(QWidget):
 	# 数据准备
 	# ------------------------------------------------------------------
 	def _should_render(self) -> bool:
+		if not self._enabled:
+			return False
 		if self.cursor_scene_pos is None or not self.scene or not self.view:
 			return False
 		view = self.view
@@ -565,7 +632,7 @@ class MagnifierOverlay(QWidget):
 
 		margin = self.EDGE_MARGIN
 		w = self.INFO_WIDTH
-		h = self.COMBINED_HEIGHT
+		h = self.combined_height
 		pw = parent.width()
 		ph = parent.height()
 

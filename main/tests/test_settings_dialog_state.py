@@ -149,7 +149,11 @@ DEFAULTS = {
     "log_dir": r"D:\logs",
     "show_main_window": True,
     "pin_auto_toolbar": False,
-    "magnifier_color_copy_format": "rgb_hex",
+    "magnifier_enabled": True,
+    "magnifier_grid": False,
+    "magnifier_swatch": True,
+    "magnifier_hint": False,
+    "magnifier_color_formats": "",
     "clipboard_enabled": True,
     "clipboard_auto_paste": False,
     "clipboard_history_limit": 100,
@@ -474,11 +478,13 @@ class TestResetScreenshotSettingsPage:
             config_manager=_config(),
             save_toggle=_Toggle(False),
             save_path_lbl=_TextWidget(),
+            pin_auto_toolbar_toggle=_Toggle(True),
             ocr_enable_toggle=_Toggle(False),
         )
         SettingsDialog._reset_screenshot_settings_page(fake)
         assert fake.save_toggle.set_checked == [True]
         assert fake.save_path_lbl.set_texts == [r"D:\shots"]
+        assert fake.pin_auto_toolbar_toggle.set_checked == [False]
         assert fake.ocr_enable_toggle.set_checked == [True]
 
     def test_detection_mode_combo_follows_the_defaults(self):
@@ -489,6 +495,33 @@ class TestResetScreenshotSettingsPage:
             fake = SimpleNamespace(config_manager=_config(defaults), smart_mode_combo=combo)
             SettingsDialog._reset_screenshot_settings_page(fake)
             assert combo.set_indexes == [expected], enabled
+
+    def test_magnifier_toggles_follow_the_defaults(self):
+        fake = SimpleNamespace(
+            config_manager=_config(),
+            magnifier_enabled_toggle=_Toggle(False),
+            magnifier_grid_toggle=_Toggle(True),
+            magnifier_swatch_toggle=_Toggle(False),
+            magnifier_hint_toggle=_Toggle(True),
+        )
+        SettingsDialog._reset_screenshot_settings_page(fake)
+        assert fake.magnifier_enabled_toggle.set_checked == [True]
+        assert fake.magnifier_grid_toggle.set_checked == [False]
+        assert fake.magnifier_swatch_toggle.set_checked == [True]
+        assert fake.magnifier_hint_toggle.set_checked == [False]
+
+    def test_magnifier_colour_formats_go_back_to_the_builtin_list(self):
+        """格式列表是可编辑的，恢复默认要把自定义格式一起扔掉。"""
+        from settings.color_formats import ColorFormat
+
+        fake = SimpleNamespace(
+            config_manager=_config(),
+            magnifier_color_formats=[ColorFormat("Unity", "Color({r})", enabled=True)],
+        )
+        SettingsDialog._reset_screenshot_settings_page(fake)
+        names = [f.name for f in fake.magnifier_color_formats]
+        assert "Unity" not in names
+        assert [f.name for f in fake.magnifier_color_formats if f.enabled] == ["RGB + HEX"]
 
     def test_unknown_ocr_engine_leaves_the_combo_alone(self):
         combo = _Combo(data_map={})
@@ -545,22 +578,14 @@ class TestResetMiscPage:
             SettingsDialog._reset_misc_page(fake)
             assert toggle.set_checked == [False], configured
 
-    def test_window_and_pin_toggles_follow_the_defaults(self):
+    def test_window_toggle_follows_the_defaults(self):
         fake = SimpleNamespace(
             config_manager=_config(),
             show_main_window_toggle=_Toggle(False),
-            pin_auto_toolbar_toggle=_Toggle(True),
         )
         SettingsDialog._reset_misc_page(fake)
         assert fake.show_main_window_toggle.set_checked == [True]
-        assert fake.pin_auto_toolbar_toggle.set_checked == [False]
 
-    def test_colour_format_is_selected_by_data(self):
-        combo = _Combo(data_map={"rgb_hex": 1})
-        fake = SimpleNamespace(
-            config_manager=_config(), magnifier_color_format_combo=combo)
-        SettingsDialog._reset_misc_page(fake)
-        assert combo.set_indexes == [1]
 
 
 class TestResetClipboardPage:

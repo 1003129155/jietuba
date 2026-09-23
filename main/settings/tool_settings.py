@@ -314,7 +314,14 @@ class ToolSettingsManager(QObject):
         # ==================== 7. 其他 ====================
         "show_main_window": False,             # 运行后自动弹出窗口显示（默认后台启动）
         "language": "en",                      # 界面语言（ja/en/zh/ko）
-        "magnifier_color_copy_format": "rgb_hex",  # 放大镜复制颜色信息格式（rgb_hex/rgb/hex）
+        "magnifier_enabled": True,             # 截图时是否显示放大镜
+        "magnifier_grid": False,               # 放大镜上画像素网格线
+        "magnifier_swatch": True,              # 放大图右上角显示取到的颜色
+        "magnifier_hint": True,                # 放大镜信息区显示取色快捷键提示行
+        # 放大镜的颜色格式列表（JSON，见 settings/color_formats.py）。空串表示还没
+        # 存过，那时会按下面这个旧的单选键迁移出一份。
+        "magnifier_color_formats": "",
+        "magnifier_color_copy_format": "rgb_hex",  # 旧版单选的格式，只用于迁移
         "magnifier_zoom": 4.0,                 # 放大镜默认倍率（1.0 ~ 10.0）
         "magnifier_zoom_min": 2.0,             # 放大镜最小倍率
         "magnifier_zoom_max": 10.0,            # 放大镜最大倍率

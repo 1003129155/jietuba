@@ -619,6 +619,14 @@ class SettingsDialog(FrostedFramelessDialog):
     # 重置页面
     # ================================================================
 
+    def _save_magnifier_color_formats(self):
+        """颜色格式列表是在管理窗口里编辑的，先留在实例上，点「应用」才落盘。"""
+        formats = getattr(self, 'magnifier_color_formats', None)
+        if formats is None:
+            return
+        from settings import color_formats
+        color_formats.save(self.config_manager, formats)
+
     def _reset_current_page(self):
         current_index = self.content_stack.currentIndex()
         if current_index == 0:
@@ -762,6 +770,18 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'screenshot_format_combo'):
             idx = {"PNG": 0, "JPG": 1, "BMP": 2, "WEBP": 3, "PDF": 4}.get(defaults["screenshot_format"].upper(), 0)
             self.screenshot_format_combo.setCurrentIndex(idx)
+        for attr, key in (('magnifier_enabled_toggle', 'magnifier_enabled'),
+                          ('magnifier_grid_toggle', 'magnifier_grid'),
+                          ('magnifier_swatch_toggle', 'magnifier_swatch'),
+                          ('magnifier_hint_toggle', 'magnifier_hint')):
+            toggle = getattr(self, attr, None)
+            if toggle is not None:
+                toggle.setChecked(defaults[key])
+        if hasattr(self, 'magnifier_color_formats'):
+            from settings import color_formats
+            self.magnifier_color_formats = color_formats.default_formats()
+        if hasattr(self, 'pin_auto_toolbar_toggle'):
+            self.pin_auto_toolbar_toggle.setChecked(defaults["pin_auto_toolbar"])
         if hasattr(self, 'ocr_enable_toggle'):
             self.ocr_enable_toggle.setChecked(defaults["ocr_enabled"])
         if hasattr(self, 'ocr_engine_combo'):
@@ -790,12 +810,6 @@ class SettingsDialog(FrostedFramelessDialog):
             self.autostart_toggle.setChecked(False)
         if hasattr(self, 'show_main_window_toggle'):
             self.show_main_window_toggle.setChecked(defaults["show_main_window"])
-        if hasattr(self, 'pin_auto_toolbar_toggle'):
-            self.pin_auto_toolbar_toggle.setChecked(defaults["pin_auto_toolbar"])
-        if hasattr(self, 'magnifier_color_format_combo'):
-            index = self.magnifier_color_format_combo.findData(defaults.get("magnifier_color_copy_format", "rgb_hex"))
-            if index >= 0:
-                self.magnifier_color_format_combo.setCurrentIndex(index)
 
     def _reset_translation_page(self):
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
@@ -958,6 +972,15 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'screenshot_format_combo'):
             self.config_manager.set_screenshot_format(self.screenshot_format_combo.currentData())
 
+        # 3.5 放大镜
+        for attr, key in (('magnifier_enabled_toggle', 'magnifier_enabled'),
+                          ('magnifier_grid_toggle', 'magnifier_grid'),
+                          ('magnifier_swatch_toggle', 'magnifier_swatch'),
+                          ('magnifier_hint_toggle', 'magnifier_hint')):
+            toggle = getattr(self, attr, None)
+            if toggle is not None:
+                self.config_manager.set_app_setting(key, toggle.isChecked())
+
         # 4. OCR
         if hasattr(self, 'ocr_enable_toggle'):
             self.config_manager.set_ocr_enabled(self.ocr_enable_toggle.isChecked())
@@ -1000,11 +1023,7 @@ class SettingsDialog(FrostedFramelessDialog):
             self.config_manager.set_show_main_window(self.show_main_window_toggle.isChecked())
         if hasattr(self, 'pin_auto_toolbar_toggle'):
             self.config_manager.set_pin_auto_toolbar(self.pin_auto_toolbar_toggle.isChecked())
-        if hasattr(self, 'magnifier_color_format_combo'):
-            self.config_manager.set_app_setting(
-                "magnifier_color_copy_format",
-                self.magnifier_color_format_combo.currentData()
-            )
+        self._save_magnifier_color_formats()
 
         # 界面语言
         if hasattr(self, 'language_combo'):
@@ -1240,7 +1259,10 @@ class SettingsDialog(FrostedFramelessDialog):
                       'cross_tool_selection_toggle',
                       'text_always_on_top_toggle',
                       'smart_animation_toggle',
-                      'save_toggle', 'clipboard_file_reference_toggle', 'ocr_enable_toggle',
+                      'save_toggle', 'clipboard_file_reference_toggle',
+                      'magnifier_enabled_toggle', 'magnifier_grid_toggle',
+                      'magnifier_swatch_toggle', 'magnifier_hint_toggle',
+                      'ocr_enable_toggle',
                       'ocr_grayscale_toggle', 'ocr_upscale_toggle',
                       'split_sentences_toggle',
                       'preserve_formatting_toggle', 'log_toggle',
@@ -1258,10 +1280,11 @@ class SettingsDialog(FrostedFramelessDialog):
                       'translation_provider_combo', 'translation_target_combo',
                       'log_level_combo',
                       'language_combo', 'engine_combo', 'cursor_move_combo',
-                      'magnifier_color_format_combo', 'log_retention_combo',
+                      'log_retention_combo',
                       '_ui_theme_combo', '_ui_scale_combo', '_dialog_scale_combo',
                       '_selection_border_combo', '_selection_handle_combo',
-                      '_selection_handle_size_combo', 'smart_mode_combo'):
+                      '_selection_handle_size_combo', 'smart_mode_combo',
+                      'clipboard_scan_interval_combo'):
             w = getattr(self, attr, None)
             if w is not None:
                 snap[attr] = w.currentIndex()
@@ -1438,6 +1461,16 @@ class SettingsDialog(FrostedFramelessDialog):
             idx = {"PNG": 0, "JPG": 1, "BMP": 2, "WEBP": 3, "PDF": 4}.get(
                 self.config_manager.get_screenshot_format().upper(), 0)
             self.screenshot_format_combo.setCurrentIndex(idx)
+        for attr, key in (('magnifier_enabled_toggle', 'magnifier_enabled'),
+                          ('magnifier_grid_toggle', 'magnifier_grid'),
+                          ('magnifier_swatch_toggle', 'magnifier_swatch'),
+                          ('magnifier_hint_toggle', 'magnifier_hint')):
+            toggle = getattr(self, attr, None)
+            if toggle is not None:
+                toggle.setChecked(self.config_manager.get_app_setting(key))
+        if hasattr(self, 'magnifier_color_formats'):
+            from settings import color_formats
+            self.magnifier_color_formats = color_formats.load(self.config_manager)
         if hasattr(self, 'ocr_enable_toggle'):
             self.ocr_enable_toggle.setChecked(self.config_manager.get_ocr_enabled())
         if hasattr(self, 'ocr_engine_combo'):
