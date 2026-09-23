@@ -506,8 +506,8 @@ Replace it?</source>
         <translation>ファイルパスしか認識しないツール（一部のターミナルアプリなど）でもスクリーンショットを貼り付けられるようになります。「スクリーンショットの自動保存」を有効にする必要があります。</translation>
     </message>
     <message>
-        <source>Save Folder:</source>
-        <translation>保存フォルダ:</translation>
+        <source>Save Folder</source>
+        <translation>保存フォルダ</translation>
     </message>
     <message>
         <source>Save Format:</source>
@@ -867,6 +867,9 @@ Replace it?</source>
         <source>LLM translation: better with context and idioms, but slower, billed per token, and may refuse some content</source>
         <translation>大規模言語モデル翻訳：文脈や慣用表現に強い一方、速度が遅く、トークン単位の課金で、内容によっては拒否されることがあります</translation>
     </message>
+    <message><source>Color Formats</source><translation>カラー形式</translation></message>
+    <message><source>Which formats the magnifier shows, and which one the copy shortcut uses.</source><translation>拡大鏡に表示する形式と、ショートカットでコピーする形式を決めます。</translation></message>
+    <message><source>Manage Color Formats</source><translation>カラー形式を管理</translation></message>
 </context>
 
 <context>
@@ -2346,6 +2349,14 @@ Replace it?</source>
         <translation>保持する最大履歴数（0 = 無制限）</translation>
     </message>
     <message>
+        <source>Window Scan Interval</source>
+        <translation>ウィンドウ検出間隔</translation>
+    </message>
+    <message>
+        <source>How often the foreground window is sampled to find the paste target (only while this panel is open)</source>
+        <translation>パネル表示中、この間隔でフォアグラウンドウィンドウを検出し貼り付け先を特定します（パネル表示中のみ動作）</translation>
+    </message>
+    <message>
         <source>Auto Cleanup Old Items</source>
         <translation>古いアイテムを自動削除</translation>
     </message>
@@ -2364,10 +2375,6 @@ Replace it?</source>
     <message>
         <source>Clipboard module not available</source>
         <translation>クリップボードモジュールが利用できません</translation>
-    </message>
-    <message>
-        <source>Open Folder</source>
-        <translation>開く</translation>
     </message>
     <message>
         <source>Clear Clipboard History</source>
@@ -2676,18 +2683,6 @@ Replace it?</source>
     <message>
         <source>Used when copying color info in magnifier.</source>
         <translation>拡大鏡で色情報をコピーする時に使用します。</translation>
-    </message>
-    <message>
-        <source>RGB+HEX</source>
-        <translation>RGB+HEX</translation>
-    </message>
-    <message>
-        <source>RGB only</source>
-        <translation>RGBのみ</translation>
-    </message>
-    <message>
-        <source>HEX only</source>
-        <translation>HEXのみ</translation>
     </message>
 </context>
 
@@ -3255,7 +3250,16 @@ Replace it?</source>
     <message><source>Success</source><translation>成功</translation></message>
     <!-- その他ページのグループヘッダー -->
     <message><source>Startup</source><translation>起動</translation></message>
-    <message><source>Pin Window</source><translation>ピン留めウィンドウ</translation></message>
+    <message><source>Show Magnifier</source><translation>拡大鏡を表示</translation></message>
+    <message><source>Follows the cursor while selecting, and picks the color under it.</source><translation>選択中にカーソルに追従し、カーソル下の色を取得できます。</translation></message>
+    <message><source>Pixel Grid</source><translation>ピクセルグリッド</translation></message>
+    <message><source>Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels.</source><translation>拡大表示で各ピクセルの境界を描きます。倍率が低いときは線がピクセルを覆うため自動的に非表示になります。</translation></message>
+    <message><source>Shortcut Hint</source><translation>ショートカットのヒント</translation></message>
+    <message><source>Show the color-copy shortcut under the readings. Off makes the magnifier shorter.</source><translation>数値の下に色をコピーするショートカットを表示します。オフにすると拡大鏡が少し低くなります。</translation></message>
+    <message><source>Color Swatch</source><translation>取得色のスウォッチ</translation></message>
+    <message><source>Show the picked color in the top-right corner of the magnified view.</source><translation>拡大表示の右上に、取得中の色を表示します。</translation></message>
+    <message><source>Magnifier</source><translation>拡大鏡</translation></message>
+    <message><source>Pin Settings</source><translation>ピン留め設定</translation></message>
     <message><source>Operation</source><translation>操作</translation></message>
     <!-- 情報ページ -->
     <message><source>Features</source><translation>機能</translation></message>
@@ -3395,7 +3399,6 @@ SOFTWARE.</translation></message>
 
 <context>
     <name>SettingsDialog</name>
-    <message><source>Change Location</source><translation>変更</translation></message>
     <message><source>Current clipboard database path is unavailable.</source><translation>現在のクリップボードデータベースの場所を取得できません。</translation></message>
     <message><source>Choose Clipboard Data Folder</source><translation>クリップボードデータフォルダーを選択</translation></message>
     <message><source>Info</source><translation>情報</translation></message>
@@ -3734,5 +3737,24 @@ SOFTWARE.</translation></message>
         <source>Middle</source>
         <translation>中ボタン</translation>
     </message>
+</context>
+<context>
+    <name>ColorFormatDialog</name>
+    <message><source>Manage Color Formats</source><translation>カラー形式を管理</translation></message>
+    <message><source>Checked formats show on the magnifier. The first one is what the copy shortcut puts on the clipboard — drag it to the top to change that.</source><translation>チェックした形式が拡大鏡に表示されます。ショートカットでコピーされるのは一番上の形式です。変えたいものを先頭へドラッグしてください。</translation></message>
+    <message><source>Add Color Format</source><translation>カラー形式を追加</translation></message>
+    <message><source>Edit Color Format</source><translation>カラー形式を編集</translation></message>
+    <message><source>Delete Color Format</source><translation>カラー形式を削除</translation></message>
+    <message><source>Delete “%1”?</source><translation>「%1」を削除しますか？</translation></message>
+    <message><source>Restore defaults</source><translation>既定に戻す</translation></message>
+    <message><source>Name</source><translation>名前</translation></message>
+    <message><source>Name shown in the list</source><translation>一覧に表示される名前</translation></message>
+    <message><source>Template</source><translation>テンプレート</translation></message>
+    <message><source>Placeholders: </source><translation>使用できるプレースホルダー: </translation></message>
+    <message><source>Preview: </source><translation>プレビュー: </translation></message>
+    <message><source>Edit</source><translation>編集</translation></message>
+    <message><source>Delete</source><translation>削除</translation></message>
+    <message><source>OK</source><translation>OK</translation></message>
+    <message><source>Cancel</source><translation>キャンセル</translation></message>
 </context>
 </TS>
