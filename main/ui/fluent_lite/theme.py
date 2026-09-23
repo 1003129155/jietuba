@@ -21,6 +21,15 @@ ACCENT_SOFT = "#DFE8EF"
 ACCENT_SUBTLE = "rgba(111, 143, 171, 0.18)"
 FOCUS_RING = "rgba(111, 143, 171, 0.24)"
 
+# 输入类控件（下拉框、数字框、单行输入）的外框度量。要和它们排在同一列、
+# 看起来该是一家的控件——比如外观页那几个色块按钮——按这里取值，不要各写
+# 一套数字，否则改了一边就会高矮或圆角对不上。
+INPUT_RADIUS = 10
+INPUT_CONTENT_HEIGHT = 26
+INPUT_PADDING_V = 4
+INPUT_PADDING_H = 11
+INPUT_HEIGHT = INPUT_CONTENT_HEIGHT + 2 * INPUT_PADDING_V + 2
+
 def ui_tokens(widget=None):
     """Return semantic colours, honoring an optional top-level theme scope."""
     current = widget

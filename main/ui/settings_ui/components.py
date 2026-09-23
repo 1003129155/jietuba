@@ -124,6 +124,8 @@ class SettingCardGroup(_SettingCardGroupBase):
         同一个组里换成行数不同的另一批凭证），旧的 minimumHeight 会留着不动，
         表现为组顶部多出一段空白、页面底部的卡片被切掉。
         """
+        # 列宽影响左侧说明的折行数，因而影响高度，要先于高度算。
+        self._sync_control_column()
         # 上下限一起锁死。只设 minimum 的话，组内的 _card_container 是默认策略，
         # 会把页面分给组的富余高度全吃进去，摊在卡片之间。
         self.setFixedHeight(self.cardLayout.heightForWidth(self.width()) + dialog_scaled(46))

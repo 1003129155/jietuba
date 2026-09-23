@@ -350,17 +350,17 @@ class TestThemeColourTable:
         assert "dark" in PRESET_THEME_SWATCHES
 
     def test_theme_button_is_painted_with_its_swatch(self):
-        styles = []
-        button = SimpleNamespace(setStyleSheet=styles.append)
+        fills = []
+        button = SimpleNamespace(setFill=fills.append)
         page_appearance._apply_clip_theme_btn_style(button, "pink")
         accent, background = PRESET_THEME_SWATCHES["pink"]
-        assert accent in styles[-1] and background in styles[-1]
+        assert accent in fills[-1] and background in fills[-1]
 
     def test_unknown_theme_leaves_button_untouched(self):
-        styles = []
-        button = SimpleNamespace(setStyleSheet=styles.append)
+        fills = []
+        button = SimpleNamespace(setFill=fills.append)
         page_appearance._apply_clip_theme_btn_style(button, "no-such-theme")
-        assert styles == []
+        assert fills == []
 
 
 # ============================================================================

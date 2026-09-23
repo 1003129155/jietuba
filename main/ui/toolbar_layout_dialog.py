@@ -2,27 +2,21 @@
 截图工具栏排布对话框：拖左侧手柄调整顺序，下拉框选择每个按钮的显示方式
 
 对话框只负责编辑；读写配置、重排工具栏由调用方 Toolbar._open_layout_dialog 完成。
-
-行没有做成 QListWidget 的条目再用内置拖放：InternalMove 会把被拖的条目删掉再插入，
-setItemWidget 挂上去的下拉框会跟着丢失。这里每一行就是布局里的普通部件，拖动时
-直接在布局里换位置。
+拖动换位那套在 ui.reorderable_rows 里，和放大镜的颜色格式对话框共用。
 """
 
-from functools import partial
-
-from PySide6.QtCore import QPoint, QPointF, Qt, Signal
-from PySide6.QtGui import QColor, QPainter
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QApplication, QDialog, QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget,
+    QApplication, QDialog, QHBoxLayout, QLabel, QVBoxLayout,
 )
 
-from core import safe_event
 from core.i18n import make_tr
-from core.ui_scale import configure_dialog_control, dialog_scaled, dialog_scaled_f, scale_dialog_font
+from core.ui_scale import configure_dialog_control, dialog_scaled, scale_dialog_font
 from ui.fluent_lite import (
     BodyLabel, CaptionLabel, ComboBox, PrimaryPushButton, PushButton,
-    SimpleCardWidget, TransparentPushButton, ui_tokens,
+    TransparentPushButton, ui_tokens,
 )
+from ui.reorderable_rows import DraggableRow, ReorderableRowList
 from ui.toolbar_layout import (
     DEFAULT_ORDER, HIDE, LOCKED, MORE, SHOW, default_layout, normalize_layout,
 )
@@ -61,62 +55,12 @@ MODE_NAMES = (
 )
 
 
-class _Grip(QWidget):
-    """行首的拖动手柄（2×3 圆点）。只把按下、拖动、松开报出去，换位由对话框做。"""
-
-    pressed = Signal()
-    dragged = Signal(int)   # 鼠标的全局 y
-    released = Signal()
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setFixedSize(dialog_scaled(16), dialog_scaled(28))
-        self.setCursor(Qt.CursorShape.OpenHandCursor)
-
-    @safe_event
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.setCursor(Qt.CursorShape.ClosedHandCursor)
-            self.pressed.emit()
-
-    @safe_event
-    def mouseMoveEvent(self, event):
-        # 按下后 Qt 会隐式抓住鼠标，拖出手柄、拖出对话框也照样收得到移动事件
-        if event.buttons() == Qt.MouseButton.LeftButton:
-            self.dragged.emit(event.globalPosition().toPoint().y())
-
-    @safe_event
-    def mouseReleaseEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.setCursor(Qt.CursorShape.OpenHandCursor)
-            self.released.emit()
-
-    @safe_event
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(ui_tokens(self).text_muted))
-        center = QPointF(self.rect().center())
-        for dx in (-3, 3):
-            for dy in (-6, 0, 6):
-                painter.drawEllipse(
-                    center + QPointF(dialog_scaled(dx), dialog_scaled(dy)),
-                    dialog_scaled_f(1.5),
-                    dialog_scaled_f(1.5),
-                )
-        painter.end()
-
-
-class _Row(QWidget):
+class _Row(DraggableRow):
     """一行：拖动手柄、按钮图标、名称、显示方式下拉框"""
 
     def __init__(self, key, icon, parent=None):
         super().__init__(parent)
         self.key = key
-        self._dragging = False
-
-        self.grip = _Grip(self)
 
         # 图标垫一块白底：工具栏图标是照着白底工具栏画的深色图标，深色主题下直接放看不清
         icon_label = QLabel(self)
@@ -151,22 +95,6 @@ class _Row(QWidget):
     def set_mode(self, mode):
         self.combo.setCurrentIndex(self.combo.findData(mode))
 
-    def set_dragging(self, dragging):
-        """拖动中的行垫一层强调色，让用户看清自己拖的是哪一行"""
-        self._dragging = dragging
-        self.update()
-
-    @safe_event
-    def paintEvent(self, event):
-        if not self._dragging:
-            return
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(ui_tokens(self).accent_soft))
-        painter.drawRoundedRect(self.rect(), dialog_scaled(8), dialog_scaled(8))
-        painter.end()
-
 
 class ToolbarLayoutDialog(QDialog):
     """编辑截图工具栏排布。layout 为 [(按钮, 显示方式)]，icons 为 按钮 → QIcon。"""
@@ -184,32 +112,10 @@ class ToolbarLayoutDialog(QDialog):
         )
         self.setStyleSheet(f"QDialog {{ background: {ui_tokens(self).window}; }}")
 
-        self._card = SimpleCardWidget()
-        self._list_layout = QVBoxLayout(self._card)
-        self._list_layout.setContentsMargins(
-            dialog_scaled(6), dialog_scaled(6),
-            dialog_scaled(6), dialog_scaled(6),
-        )
-        self._list_layout.setSpacing(0)
-        self._list_layout.addStretch(1)
+        self._list = ReorderableRowList(self)
 
         # 固定按钮不显示灰色禁用行；这里只为真正可调整的按钮创建界面。
-        self._rows = {}
-        for key in DEFAULT_ORDER:
-            if key in LOCKED:
-                continue
-            row = _Row(key, icons[key], self._card)
-            row.grip.pressed.connect(partial(row.set_dragging, True))
-            row.grip.dragged.connect(partial(self._drag_row, row))
-            row.grip.released.connect(partial(row.set_dragging, False))
-            self._rows[key] = row
-
-        self._scroll = QScrollArea(self)
-        self._scroll.setWidgetResizable(True)
-        self._scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self._scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
-        self._scroll.setWidget(self._card)
+        self._rows = {key: _Row(key, icons[key]) for key in DEFAULT_ORDER if key not in LOCKED}
 
         hint = CaptionLabel(
             _tr("Drag the handle to reorder. Use the drop-down to change visibility."), self)
@@ -237,7 +143,7 @@ class ToolbarLayoutDialog(QDialog):
             dialog_scaled(16), dialog_scaled(14),
         )
         root.setSpacing(dialog_scaled(10))
-        root.addWidget(self._scroll, 1)
+        root.addWidget(self._list, 1)
         root.addWidget(hint)
         root.addLayout(buttons)
 
@@ -246,14 +152,10 @@ class ToolbarLayoutDialog(QDialog):
 
     def entries(self):
         """编辑结果；不可调整的固定按钮按进入/重置对话框时的位置合并回来。"""
-        entries = [(row.key, row.mode()) for row in self._ordered_rows()]
+        entries = [(row.key, row.mode()) for row in self._list.rows()]
         for index, key in self._locked_slots:
             entries.insert(min(index, len(entries)), (key, SHOW))
         return normalize_layout(entries)
-
-    def _ordered_rows(self):
-        items = (self._list_layout.itemAt(i) for i in range(self._list_layout.count()))
-        return [item.widget() for item in items if item.widget() is not None]
 
     def _fill(self, layout):
         """按排布摆放各行、设置下拉框"""
@@ -264,18 +166,13 @@ class ToolbarLayoutDialog(QDialog):
         editable = [(key, mode) for key, mode in normalized if key not in LOCKED]
         for index, (key, mode) in enumerate(editable):
             row = self._rows[key]
-            self._place(row, index)
+            self._list.add_row(row, index)
             row.set_mode(mode)
-
-    def _place(self, row, index):
-        self._list_layout.removeWidget(row)
-        self._list_layout.insertWidget(index, row)
 
     def _fit_height_to_rows(self):
         """优先完整展示全部可调整行；只有超过屏幕可用高度时才让列表滚动。"""
-        self._list_layout.activate()
-        content_height = self._list_layout.sizeHint().height() + 2
-        self._scroll.setFixedHeight(content_height)
+        content_height = self._list.content_height()
+        self._list.setFixedHeight(content_height)
 
         desired_height = self.sizeHint().height()
         screen = self.parentWidget().screen() if self.parentWidget() else QApplication.primaryScreen()
@@ -284,21 +181,7 @@ class ToolbarLayoutDialog(QDialog):
             if desired_height > max_height:
                 non_list_height = desired_height - content_height
                 content_height = max(dialog_scaled(180), max_height - non_list_height)
-                self._scroll.setFixedHeight(content_height)
+                self._list.setFixedHeight(content_height)
                 desired_height = non_list_height + content_height
 
         self.resize(dialog_scaled(480), desired_height)
-
-    def _drag_row(self, row, global_y):
-        """被拖的行跟着鼠标换位：它该排第几，就看其余行里有几行的中线在鼠标上方"""
-        y = self._card.mapFromGlobal(QPoint(0, global_y)).y()
-        index = sum(
-            1 for other in self._ordered_rows()
-            if other is not row and other.geometry().center().y() < y
-        )
-        if self._list_layout.indexOf(row) != index:
-            self._place(row, index)
-            # 立刻按新顺序算出各行几何，下一次鼠标移动才能基于新位置判断
-            self._list_layout.activate()
-        # 拖到可见区域外时让滚动跟上
-        self._scroll.ensureWidgetVisible(row, 0, 0)

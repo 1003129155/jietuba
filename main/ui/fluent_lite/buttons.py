@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QSize, QUrl
+from PySide6.QtCore import QSize, Qt, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QPushButton, QToolButton, QWidget
 
@@ -10,7 +10,8 @@ from core.ui_scale import widget_scaled as _px
 from core.ui_theme import get_ui_theme
 
 from .theme import (
-    ACCENT, ACCENT_HOVER, ACCENT_PRESSED, FONT_FAMILY, to_qicon, ui_tokens,
+    ACCENT, ACCENT_HOVER, ACCENT_PRESSED, FONT_FAMILY, INPUT_CONTENT_HEIGHT,
+    INPUT_PADDING_V, INPUT_RADIUS, to_qicon, ui_tokens,
 )
 
 
@@ -104,6 +105,50 @@ class PushButton(_ScaledIcon, QPushButton):
         self._apply_scaled_icon_size()
         if self._theme_icon_source is not None:
             super().setIcon(to_qicon(self._theme_icon_source, self))
+
+
+class ColorSwatchButton(PushButton):
+    """一块颜色本身就是内容的按钮：设置页里选主题色、遮罩色、配色都用它。
+
+    外框几何取输入控件那一套（见 theme.INPUT_*）——它总是和下拉框排在同一
+    列里，高度或圆角差一点就看得出来。填充色走 setFill()，不要在外面直接
+    setStyleSheet：_apply_theme 在主题切换和缩放标记时会重设样式表，外面写
+    的会被冲掉。
+    """
+
+    def __init__(self, parent=None):
+        self._fill = "transparent"
+        self._selected = False
+        self._text_color = None
+        super().__init__(parent)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def setFill(self, fill: str):
+        """fill 是 CSS 背景值：一个 rgb()/#hex，或者 qlineargradient(...)。"""
+        self._fill = fill
+        self._apply_theme()
+
+    def setSelected(self, selected: bool):
+        self._selected = bool(selected)
+        self._apply_theme()
+
+    def setTextColor(self, color):
+        """按钮上那个勾的颜色。填充色深浅由调用方决定，主题决定不了。"""
+        self._text_color = color
+        self._apply_theme()
+
+    def _style_sheet(self):
+        t = ui_tokens(self)
+        s = lambda value: _px(self, value)
+        border = f"2px solid {ACCENT}" if self._selected else f"1px solid {t.border}"
+        hover = border if self._selected else f"1px solid {t.border_hover}"
+        return f"""
+        QPushButton {{ background: {self._fill}; border: {border};
+         border-radius: {s(INPUT_RADIUS)}px; min-height: {s(INPUT_CONTENT_HEIGHT)}px;
+         padding: {s(INPUT_PADDING_V)}px 0; color: {self._text_color or t.text};
+         font: 600 {s(13)}px {FONT_FAMILY}; outline: none; }}
+        QPushButton:hover {{ border: {hover}; }}
+        """
 
 
 class PrimaryPushButton(PushButton):

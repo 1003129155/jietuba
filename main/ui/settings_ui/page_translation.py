@@ -13,13 +13,12 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QLineEdit, QScrollArea, QFrame,
 )
-from PySide6.QtCore import Qt
 from core.ui_scale import dialog_scaled
 from ui.fluent_lite.theme import ACCENT, ui_tokens
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
     FluentIcon, ComboBox, LineEdit,
-    PushButton,
+    PushButton, card_right_margin,
 )
 from core.ui_theme import get_ui_theme
 from .components import (
@@ -109,7 +108,6 @@ def create_translation_page(dialog) -> QWidget:
         parent=grp_engine,
     )
     dialog.translation_provider_combo = ComboBox(engine_card)
-    dialog.translation_provider_combo.setFixedWidth(dialog_scaled(180))
     current_provider = dialog.config_manager.get_translation_provider()
     current_provider_index = 0
     for index, metadata in enumerate(service.registry.available_providers()):
@@ -119,10 +117,7 @@ def create_translation_page(dialog) -> QWidget:
         if metadata.provider_id == current_provider:
             current_provider_index = index
     dialog.translation_provider_combo.setCurrentIndex(current_provider_index)
-    engine_card.hBoxLayout.addWidget(
-        dialog.translation_provider_combo, 0, Qt.AlignmentFlag.AlignRight
-    )
-    engine_card.hBoxLayout.addSpacing(dialog_scaled(16))
+    engine_card.addControl(dialog.translation_provider_combo)
     grp_engine.addSettingCard(engine_card)
 
     providers_host = QWidget(grp_engine)
@@ -156,7 +151,6 @@ def create_translation_page(dialog) -> QWidget:
         parent=grp_opts,
     )
     dialog.translation_target_combo = ComboBox(lang_card)
-    dialog.translation_target_combo.setFixedWidth(dialog_scaled(180))
 
     lang_options = [("", dialog.tr("Auto (System)"))]
     lang_options.extend(list(TRANSLATION_LANGUAGES.items()))
@@ -170,10 +164,7 @@ def create_translation_page(dialog) -> QWidget:
             current_index = i
     dialog.translation_target_combo.setCurrentIndex(current_index)
 
-    lang_card.hBoxLayout.addWidget(
-        dialog.translation_target_combo, 0, Qt.AlignmentFlag.AlignRight
-    )
-    lang_card.hBoxLayout.addSpacing(dialog_scaled(16))
+    lang_card.addControl(dialog.translation_target_combo)
     grp_opts.addSettingCard(lang_card)
 
     # 不是每家都吃这些参数，所以整体包进一个 section：单独隐藏两张卡的话，
@@ -252,12 +243,12 @@ def _build_field(dialog, section, field):
     card = WhiteCard(section)
     row = QHBoxLayout(card)
     row.setContentsMargins(
-        dialog_scaled(_ROW_LEFT_MARGIN), dialog_scaled(12), dialog_scaled(20), dialog_scaled(12)
+        dialog_scaled(_ROW_LEFT_MARGIN), dialog_scaled(12), card_right_margin(), dialog_scaled(12)
     )
     row.setSpacing(dialog_scaled(10))
 
     title = QLabel(dialog.tr(field.label), card)
-    apply_theme_text_style(title, 15)
+    apply_theme_text_style(title, 13, bold=True)
     title.setFixedWidth(dialog_scaled(_LABEL_WIDTH))
     row.addWidget(title)
 

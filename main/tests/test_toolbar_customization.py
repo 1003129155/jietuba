@@ -214,7 +214,7 @@ class TestLayoutDialog:
 
         # 把「钉图」拖到第一行上沿：其余可调整行的中线都在鼠标下方，它就该排第一
         top = rows["long_screenshot"].mapToGlobal(QPoint(0, 1)).y()
-        dialog._drag_row(rows["pin"], top)
+        dialog._list._drag_row(rows["pin"], top)
         rows["mosaic"].set_mode(MORE)
 
         entries = dialog.entries()
@@ -235,10 +235,10 @@ class TestLayoutDialog:
         """锁定按钮变少后行数涨了不少：能整屏展示就不滚动，屏幕矮到放不下才滚动，但对话框不能超出屏幕"""
         dialog = self._dialog(default_layout())
         screen_height = QApplication.primaryScreen().availableGeometry().height()
-        content_height = dialog._card.sizeHint().height() + 2
+        content_height = dialog._list.content_height()
         if content_height <= screen_height - 40:
-            assert dialog._scroll.viewport().height() >= dialog._card.sizeHint().height()
-            assert not dialog._scroll.verticalScrollBar().isVisible()
+            assert dialog._list.viewport().height() >= content_height - 2
+            assert not dialog._list.verticalScrollBar().isVisible()
         else:
             assert dialog.height() <= screen_height
         dialog.close()
