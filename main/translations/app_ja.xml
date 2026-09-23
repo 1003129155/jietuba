@@ -854,6 +854,74 @@ Replace it?</source>
     <message><source>Color Formats</source><translation>カラー形式</translation></message>
     <message><source>Which formats the magnifier shows, and which one the copy shortcut uses.</source><translation>拡大鏡に表示する形式と、ショートカットでコピーする形式を決めます。</translation></message>
     <message><source>Manage Color Formats</source><translation>カラー形式を管理</translation></message>
+    <message>
+        <source>Custom LLM</source>
+        <translation>カスタム LLM</translation>
+    </message>
+    <message>
+        <source>API Key</source>
+        <translation>API キー</translation>
+    </message>
+    <message>
+        <source>Temperature</source>
+        <translation>温度</translation>
+    </message>
+    <message>
+        <source>Timeout (s)</source>
+        <translation>タイムアウト（秒）</translation>
+    </message>
+    <message>
+        <source>Instructions</source>
+        <translation>追加の指示</translation>
+    </message>
+    <message>
+        <source>Extra Body</source>
+        <translation>追加ボディ</translation>
+    </message>
+    <message>
+        <source>JSON Mode</source>
+        <translation>JSON モード</translation>
+    </message>
+    <message>
+        <source>Ask for JSON replies. If the service rejects it, the request is retried without; turn it off to skip that retry</source>
+        <translation>JSON 形式での応答を要求します。サービスが対応していない場合は外して再試行します。オフにするとその再試行を省けます</translation>
+    </message>
+    <message>
+        <source>Optional for local models</source>
+        <translation>ローカルモデルでは省略可</translation>
+    </message>
+    <message>
+        <source>Server default</source>
+        <translation>サーバーの既定値</translation>
+    </message>
+    <message>
+        <source>e.g. Keep product names untranslated</source>
+        <translation>例：製品名は翻訳しない</translation>
+    </message>
+    <message>
+        <source>Any OpenAI-compatible service. Ollama: http://localhost:11434/v1, LM Studio: http://localhost:1234/v1</source>
+        <translation>任意の OpenAI 互換サービス。Ollama: http://localhost:11434/v1、LM Studio: http://localhost:1234/v1</translation>
+    </message>
+    <message>
+        <source>Fetch Models</source>
+        <translation>モデル取得</translation>
+    </message>
+    <message>
+        <source>Test Connection</source>
+        <translation>接続テスト</translation>
+    </message>
+    <message>
+        <source>Testing...</source>
+        <translation>テスト中…</translation>
+    </message>
+    <message>
+        <source>Fetching models...</source>
+        <translation>モデルを取得中…</translation>
+    </message>
+    <message>
+        <source>No models returned</source>
+        <translation>モデルが返されませんでした</translation>
+    </message>
 </context>
 
 <context>
@@ -3144,6 +3212,14 @@ Replace it?</source>
     <message>
         <source>API Base URL</source>
         <translation>API ベース URL</translation>
+    </message>
+    <message>
+        <source>Custom LLM</source>
+        <translation>カスタム LLM</translation>
+    </message>
+    <message>
+        <source>Optional for local models</source>
+        <translation>ローカルモデルでは省略可</translation>
     </message>
 </context>
 

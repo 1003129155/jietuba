@@ -9,10 +9,12 @@ translation/provider.py 的 Field / ProviderMetadata），界面只负责按声�
 补漏了不会报错：azure 漏在表单那侧（选得到、下面空白），baidu 漏在保存那侧
 （填了、存不上、一直说未配置）。现在这两种漏法在结构上都不成立了。
 """
+from PySide6.QtCore import QPoint, Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QLineEdit, QScrollArea, QFrame,
+    QLineEdit, QScrollArea, QFrame, QMenu,
 )
+from shiboken6 import isValid
 from core.ui_scale import dialog_scaled
 from ui.fluent_lite.theme import ACCENT, ui_tokens
 from ui.fluent_lite import (
@@ -27,8 +29,10 @@ from .components import (
 from . import provider_fields
 
 from translation.languages import TRANSLATION_LANGUAGES
-from translation.provider import ToggleField
-from translation.service import create_default_translation_service
+from translation.models import TranslationRequest
+from translation.provider import ModelField, ToggleField
+from translation.service import TranslationService, create_default_translation_service
+from translation.worker import TranslationWorker
 
 
 # 标签列宽。各家字段数和标签长度不同，固定宽度是为了切换服务商时输入框不左右跳。
@@ -111,8 +115,9 @@ def create_translation_page(dialog) -> QWidget:
     current_provider = dialog.config_manager.get_translation_provider()
     current_provider_index = 0
     for index, metadata in enumerate(service.registry.available_providers()):
+        # 品牌名没有翻译条目，原样返回；只有「自定义」这类名字会变
         dialog.translation_provider_combo.addItem(
-            metadata.display_name, userData=metadata.provider_id
+            dialog.tr(metadata.display_name), userData=metadata.provider_id
         )
         if metadata.provider_id == current_provider:
             current_provider_index = index
@@ -130,11 +135,13 @@ def create_translation_page(dialog) -> QWidget:
     # 而同一时刻只有一家可见，另外几条线会孤零零留着。
     dialog.provider_sections = {}
     dialog.provider_field_widgets = {}
+    dialog.provider_status_labels = {}
     for metadata in service.registry.available_providers():
         section = _ProviderSection(providers_host)
         for field in tuple(metadata.credentials) + tuple(metadata.options):
-            widget = _build_field(dialog, section, field)
+            widget = _build_field(dialog, section, field, metadata.provider_id)
             dialog.provider_field_widgets[field.config_key] = widget
+        _build_test_row(dialog, section, metadata.provider_id)
         providers_layout.addWidget(section)
         dialog.provider_sections[metadata.provider_id] = section
 
@@ -225,7 +232,7 @@ def create_translation_page(dialog) -> QWidget:
     return scroll
 
 
-def _build_field(dialog, section, field):
+def _build_field(dialog, section, field, provider_id):
     """按 Field 的类型造一行控件，并塞进 section。"""
     if isinstance(field, ToggleField):
         card = SwitchSettingCard(
@@ -272,9 +279,150 @@ def _build_field(dialog, section, field):
         )
         row.addWidget(button)
 
+    if isinstance(field, ModelField):
+        button = PushButton(dialog.tr("Fetch Models"), card)
+        button.setFixedHeight(dialog_scaled(32))
+        adjust_button_width(button, min_width=60)
+        button.clicked.connect(
+            lambda _checked=False, e=edit, b=button:
+                _fetch_models(dialog, provider_id, e, b)
+        )
+        row.addWidget(button)
+
     card.setFixedHeight(dialog_scaled(58))
     section.addSettingCard(card)
     return edit
+
+
+def _build_test_row(dialog, section, provider_id):
+    """每家最后一行：用表单里的当前值（含未保存的）发一句测试翻译。"""
+    card = WhiteCard(section)
+    row = QHBoxLayout(card)
+    row.setContentsMargins(
+        dialog_scaled(_ROW_LEFT_MARGIN), dialog_scaled(12), card_right_margin(), dialog_scaled(12)
+    )
+    row.setSpacing(dialog_scaled(10))
+
+    status = QLabel(card)
+    status.setWordWrap(True)
+    status.setTextInteractionFlags(status.textInteractionFlags() | Qt.TextInteractionFlag.TextSelectableByMouse)
+    apply_theme_text_style(status, 13, caption=True)
+    row.addWidget(status, 1)
+    dialog.provider_status_labels[provider_id] = status
+
+    button = PushButton(dialog.tr("Test Connection"), card)
+    button.setFixedHeight(dialog_scaled(32))
+    adjust_button_width(button, min_width=60)
+    button.clicked.connect(
+        lambda _checked=False, b=button: _test_connection(dialog, provider_id, b)
+    )
+    row.addWidget(button)
+
+    card.setMinimumHeight(dialog_scaled(58))
+    section.addSettingCard(card)
+
+
+# 后台请求的线程。不挂在设置窗口上：窗口关掉时线程可能还在等网络，
+# 父对象一析构就会连带销毁正在运行的 QThread。
+_running_threads = set()
+
+
+def _keep_until_finished(thread):
+    _running_threads.add(thread)
+
+    def release():
+        _running_threads.discard(thread)
+        thread.deleteLater()
+
+    thread.finished.connect(release)
+    thread.start()
+
+
+class _ModelListThread(QThread):
+    finished_signal = Signal(bool, object)  # (成功, 模型列表 / 错误信息)
+
+    def __init__(self, provider):
+        super().__init__()
+        self._provider = provider
+
+    def run(self):
+        try:
+            self.finished_signal.emit(True, self._provider.list_models())
+        except Exception as exc:
+            self.finished_signal.emit(False, str(exc))
+
+
+def _pending_service(dialog, provider_id):
+    fields = provider_fields.provider_fields(dialog.translation_registry, provider_id)
+    config = provider_fields.PendingConfig(
+        dialog.config_manager, fields, dialog.provider_field_widgets
+    )
+    return TranslationService(dialog.translation_registry, config)
+
+
+def _show_status(dialog, provider_id, text):
+    label = dialog.provider_status_labels.get(provider_id)
+    if label is not None and isValid(label):
+        label.setText(text)
+
+
+def _test_connection(dialog, provider_id, button):
+    target = ""
+    combo = getattr(dialog, "translation_target_combo", None)
+    if combo is not None:
+        target = combo.currentData() or ""
+    request = TranslationRequest("Hello, world!", target or "ZH")
+    worker = TranslationWorker(
+        _pending_service(dialog, provider_id), request, provider_id=provider_id
+    )
+
+    button.setEnabled(False)
+    _show_status(dialog, provider_id, dialog.tr("Testing..."))
+
+    def done(result):
+        if not isValid(button):
+            return
+        button.setEnabled(True)
+        if result.success:
+            _show_status(dialog, provider_id, "✓ " + result.translated_text)
+        else:
+            _show_status(dialog, provider_id, "✗ " + result.error_message)
+
+    worker.finished_signal.connect(done)
+    _keep_until_finished(worker)
+
+
+def _fetch_models(dialog, provider_id, edit, button):
+    try:
+        provider = _pending_service(dialog, provider_id).provider(provider_id)
+    except ValueError as exc:
+        _show_status(dialog, provider_id, "✗ " + str(exc))
+        return
+    thread = _ModelListThread(provider)
+
+    button.setEnabled(False)
+    _show_status(dialog, provider_id, dialog.tr("Fetching models..."))
+
+    def done(ok, value):
+        if not isValid(button):
+            return
+        button.setEnabled(True)
+        if not ok:
+            _show_status(dialog, provider_id, "✗ " + value)
+            return
+        if not value:
+            _show_status(dialog, provider_id, dialog.tr("No models returned"))
+            return
+        _show_status(dialog, provider_id, "")
+        menu = QMenu(edit)
+        for model in value:
+            menu.addAction(model).triggered.connect(
+                lambda _checked=False, m=model: edit.setText(m)
+            )
+        menu.exec(edit.mapToGlobal(QPoint(0, edit.height())))
+
+    thread.finished_signal.connect(done)
+    _keep_until_finished(thread)
 
 
 def _icon_for(field):

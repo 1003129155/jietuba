@@ -90,6 +90,32 @@ def reset_to_defaults(defaults, fields, widgets):
         apply_widget_value(f, widget, defaults[f.config_key])
 
 
+class PendingConfig:
+    """表单里还没保存的值叠在真实配置上，给「测试连接」「获取模型」用。
+
+    字段的 get_<config_key> 返回表单值，其余方法原样转给真实配置。
+    get_translation_provider_config 借用真实配置类上的实现，这样
+    「设置键 → provider 参数」的映射和正式翻译走的是同一份，不会各写一套。
+    """
+
+    def __init__(self, config, fields, widgets):
+        self._config = config
+        self._values = {
+            f.config_key: widget_value(f, widgets[f.config_key])
+            for f in fields if f.config_key in widgets
+        }
+
+    def __getattr__(self, name):
+        key = name[len("get_"):] if name.startswith("get_") else None
+        if key is not None and key in self._values:
+            value = self._values[key]
+            return lambda: value
+        return getattr(self._config, name)
+
+    def get_translation_provider_config(self, provider_id):
+        return type(self._config).get_translation_provider_config(self, provider_id)
+
+
 def provider_fields(registry, provider_id):
     """某一家的全部设置项（凭据 + 独有选项）。"""
     meta = registry.metadata(provider_id)

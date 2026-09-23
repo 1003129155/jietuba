@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from ..provider import TextField
+from ..provider import ModelField, TextField
 from .openai_compatible import OpenAICompatibleProvider
 
 
@@ -32,7 +32,7 @@ class DeepSeekProvider(OpenAICompatibleProvider):
         # 模型名做成可填项，是因为它真的会变：deepseek-chat 这一代名字已经
         # 换成 deepseek-flash / deepseek-v4-pro，旧名虽然还接受但已停用。
         # 留个口子，下次改名不用等发版。
-        TextField("deepseek_model", "Model", DEFAULT_MODEL),
+        ModelField("deepseek_model", "Model", DEFAULT_MODEL),
         # 地址一般不用动。留着是为了走代理/镜像，或者指向任何别的
         # OpenAI 兼容服务（通义、Kimi、本地 Ollama）。
         TextField("deepseek_base_url", "API Base URL", DEFAULT_BASE_URL),

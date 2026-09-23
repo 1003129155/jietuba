@@ -847,6 +847,74 @@ Replace it?</source>
     <message><source>Color Formats</source><translation>색상 형식</translation></message>
     <message><source>Which formats the magnifier shows, and which one the copy shortcut uses.</source><translation>돋보기에 표시할 형식과 단축키로 복사할 형식을 정합니다.</translation></message>
     <message><source>Manage Color Formats</source><translation>색상 형식 관리</translation></message>
+    <message>
+        <source>Custom LLM</source>
+        <translation>사용자 지정 LLM</translation>
+    </message>
+    <message>
+        <source>API Key</source>
+        <translation>API 키</translation>
+    </message>
+    <message>
+        <source>Temperature</source>
+        <translation>온도</translation>
+    </message>
+    <message>
+        <source>Timeout (s)</source>
+        <translation>시간 제한(초)</translation>
+    </message>
+    <message>
+        <source>Instructions</source>
+        <translation>추가 지시</translation>
+    </message>
+    <message>
+        <source>Extra Body</source>
+        <translation>추가 요청 본문</translation>
+    </message>
+    <message>
+        <source>JSON Mode</source>
+        <translation>JSON 모드</translation>
+    </message>
+    <message>
+        <source>Ask for JSON replies. If the service rejects it, the request is retried without; turn it off to skip that retry</source>
+        <translation>JSON 형식 응답을 요청합니다. 서비스가 지원하지 않으면 빼고 한 번 다시 시도합니다. 끄면 재시도를 건너뜁니다</translation>
+    </message>
+    <message>
+        <source>Optional for local models</source>
+        <translation>로컬 모델은 비워도 됨</translation>
+    </message>
+    <message>
+        <source>Server default</source>
+        <translation>서버 기본값</translation>
+    </message>
+    <message>
+        <source>e.g. Keep product names untranslated</source>
+        <translation>예: 제품명은 번역하지 않음</translation>
+    </message>
+    <message>
+        <source>Any OpenAI-compatible service. Ollama: http://localhost:11434/v1, LM Studio: http://localhost:1234/v1</source>
+        <translation>모든 OpenAI 호환 서비스. Ollama: http://localhost:11434/v1, LM Studio: http://localhost:1234/v1</translation>
+    </message>
+    <message>
+        <source>Fetch Models</source>
+        <translation>모델 가져오기</translation>
+    </message>
+    <message>
+        <source>Test Connection</source>
+        <translation>연결 테스트</translation>
+    </message>
+    <message>
+        <source>Testing...</source>
+        <translation>테스트 중…</translation>
+    </message>
+    <message>
+        <source>Fetching models...</source>
+        <translation>모델 가져오는 중…</translation>
+    </message>
+    <message>
+        <source>No models returned</source>
+        <translation>반환된 모델이 없습니다</translation>
+    </message>
 </context>
 
 <context>
@@ -3099,6 +3167,14 @@ Replace it?</source>
     <message>
         <source>API Base URL</source>
         <translation>API 기본 URL</translation>
+    </message>
+    <message>
+        <source>Custom LLM</source>
+        <translation>사용자 지정 LLM</translation>
+    </message>
+    <message>
+        <source>Optional for local models</source>
+        <translation>로컬 모델은 비워도 됨</translation>
     </message>
 </context>
 

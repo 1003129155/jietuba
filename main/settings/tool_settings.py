@@ -301,6 +301,15 @@ class ToolSettingsManager(QObject):
         "deepseek_api_key": "",
         "deepseek_model": "",          # 空=用 provider 里的默认模型
         "deepseek_base_url": "",       # 空=用官方地址
+        # 自定义 OpenAI 兼容服务。温度、超时留空表示用服务端 / provider 的默认值
+        "custom_llm_base_url": "",
+        "custom_llm_api_key": "",
+        "custom_llm_model": "",
+        "custom_llm_temperature": "",
+        "custom_llm_timeout": "",
+        "custom_llm_instructions": "",
+        "custom_llm_extra_body": "",   # JSON 对象，原样并入请求体
+        "custom_llm_json_mode": True,
         "translation_target_lang": "",         # 翻译目标语言（空为跟随系统语言）
         "translation_split_sentences": True,   # 自动分句
         "translation_preserve_formatting": True,  # 保留格式
@@ -1058,6 +1067,17 @@ class ToolSettingsManager(QObject):
                 "model": self.get_deepseek_model(),
                 "base_url": self.get_deepseek_base_url(),
             }
+        if provider_id == "custom_llm":
+            return {
+                "base_url": self.get_custom_llm_base_url(),
+                "api_key": self.get_custom_llm_api_key(),
+                "model": self.get_custom_llm_model(),
+                "temperature": self.get_custom_llm_temperature(),
+                "timeout": self.get_custom_llm_timeout(),
+                "instructions": self.get_custom_llm_instructions(),
+                "extra_body": self.get_custom_llm_extra_body(),
+                "json_mode": self.get_custom_llm_json_mode(),
+            }
         return {}
     
     def get_deepl_api_key(self) -> str:
@@ -1245,6 +1265,72 @@ class ToolSettingsManager(QObject):
         self.qsettings.setValue(
             "translation/providers/deepseek/base_url",
             (value or "").strip(),
+        )
+
+    def _get_custom_llm_text(self, key: str) -> str:
+        return self.qsettings.value(
+            f"translation/providers/custom_llm/{key}",
+            self.APP_DEFAULT_SETTINGS[f"custom_llm_{key}"],
+            type=str,
+        )
+
+    def _set_custom_llm_text(self, key: str, value: str):
+        self.qsettings.setValue(
+            f"translation/providers/custom_llm/{key}", (value or "").strip()
+        )
+
+    def get_custom_llm_base_url(self) -> str:
+        return self._get_custom_llm_text("base_url")
+
+    def set_custom_llm_base_url(self, value: str):
+        self._set_custom_llm_text("base_url", value)
+
+    def get_custom_llm_api_key(self) -> str:
+        return self._get_custom_llm_text("api_key")
+
+    def set_custom_llm_api_key(self, value: str):
+        self._set_custom_llm_text("api_key", value)
+
+    def get_custom_llm_model(self) -> str:
+        return self._get_custom_llm_text("model")
+
+    def set_custom_llm_model(self, value: str):
+        self._set_custom_llm_text("model", value)
+
+    def get_custom_llm_temperature(self) -> str:
+        return self._get_custom_llm_text("temperature")
+
+    def set_custom_llm_temperature(self, value: str):
+        self._set_custom_llm_text("temperature", value)
+
+    def get_custom_llm_timeout(self) -> str:
+        return self._get_custom_llm_text("timeout")
+
+    def set_custom_llm_timeout(self, value: str):
+        self._set_custom_llm_text("timeout", value)
+
+    def get_custom_llm_instructions(self) -> str:
+        return self._get_custom_llm_text("instructions")
+
+    def set_custom_llm_instructions(self, value: str):
+        self._set_custom_llm_text("instructions", value)
+
+    def get_custom_llm_extra_body(self) -> str:
+        return self._get_custom_llm_text("extra_body")
+
+    def set_custom_llm_extra_body(self, value: str):
+        self._set_custom_llm_text("extra_body", value)
+
+    def get_custom_llm_json_mode(self) -> bool:
+        return self.qsettings.value(
+            "translation/providers/custom_llm/json_mode",
+            self.APP_DEFAULT_SETTINGS["custom_llm_json_mode"],
+            type=bool,
+        )
+
+    def set_custom_llm_json_mode(self, value: bool):
+        self.qsettings.setValue(
+            "translation/providers/custom_llm/json_mode", bool(value)
         )
 
     def get_translation_target_lang(self) -> str:

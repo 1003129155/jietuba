@@ -244,7 +244,7 @@ class TranslationPage(BasePage):
         )
         for metadata in self._provider_metadata:
             self._provider_combo.addItem(
-                metadata.display_name, metadata.provider_id
+                _tr(metadata.display_name), metadata.provider_id
             )
         saved_provider = (
             self._config.get_translation_provider()
@@ -295,7 +295,9 @@ class TranslationPage(BasePage):
             self._row_lang_lbl.setText(_tr("翻译目标语言"))
         for label, text in getattr(self, "_credential_labels", []):
             label.setText(_tr(text))
-        for metadata in getattr(self, "_provider_metadata", ()):
+        for index, metadata in enumerate(getattr(self, "_provider_metadata", ())):
+            # 品牌名没有翻译条目，原样返回；只有「自定义」这类名字会变
+            self._provider_combo.setItemText(index, _tr(metadata.display_name))
             for field in metadata.credentials:
                 edit = self._credential_edits.get(field.config_key)
                 if edit is not None and field.placeholder:

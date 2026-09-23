@@ -40,6 +40,12 @@ class TextField(Field):
 
 
 @dataclass(frozen=True)
+class ModelField(TextField):
+    """模型名输入框。设置页会在旁边放一个按钮，用 provider 的 list_models()
+    拉取可选模型；不认识它的界面（欢迎页）当普通 TextField 渲染。"""
+
+
+@dataclass(frozen=True)
 class ToggleField(Field):
     """一个开关。用于某一家引擎独有的布尔选项，例如 DeepL 的 Pro。"""
 
@@ -89,6 +95,11 @@ class TranslationProvider(ABC):
 
     def supported_target_languages(self) -> set[str] | None:
         return None
+
+    def list_models(self) -> list[str]:
+        """接口可用的模型名。只有声明了 ModelField 的 provider 需要实现；
+        失败时抛 RuntimeError，消息直接给用户看。"""
+        raise NotImplementedError
 
     @classmethod
     def metadata(cls) -> ProviderMetadata:

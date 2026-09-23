@@ -585,6 +585,7 @@ translation/
 │   ├── azure.py             # Azure
 │   ├── amazon.py            # Amazon
 │   ├── baidu.py             # Baidu
+│   ├── custom_llm.py        # 自定义 OpenAI 兼容服务（Ollama、LM Studio 等）
 │   ├── deepseek.py          # DeepSeek (LLM)
 │   └── openai_compatible.py # OpenAI 兼容接口基类
 ├── smart_translation_controller.py # SmartTranslationController — 一键选中文字探测与翻译弹窗路由

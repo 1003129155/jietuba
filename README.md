@@ -513,6 +513,7 @@ translation/
 │   ├── azure.py             # Azure
 │   ├── amazon.py            # Amazon
 │   ├── baidu.py             # Baidu
+│   ├── custom_llm.py        # Custom OpenAI-compatible service (Ollama, LM Studio…)
 │   ├── deepseek.py          # DeepSeek (LLM)
 │   └── openai_compatible.py # OpenAI 兼容接口基类
 ├── smart_translation_controller.py # SmartTranslationController — one-hotkey text probe and popup routing

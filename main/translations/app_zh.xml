@@ -856,6 +856,74 @@ Replace it?</source>
     <message><source>Color Formats</source><translation>颜色格式</translation></message>
     <message><source>Which formats the magnifier shows, and which one the copy shortcut uses.</source><translation>放大镜上显示哪些格式，以及按键复制的是哪一个。</translation></message>
     <message><source>Manage Color Formats</source><translation>管理颜色格式</translation></message>
+    <message>
+        <source>Custom LLM</source>
+        <translation>自定义 LLM</translation>
+    </message>
+    <message>
+        <source>API Key</source>
+        <translation>API Key</translation>
+    </message>
+    <message>
+        <source>Temperature</source>
+        <translation>温度</translation>
+    </message>
+    <message>
+        <source>Timeout (s)</source>
+        <translation>超时（秒）</translation>
+    </message>
+    <message>
+        <source>Instructions</source>
+        <translation>附加要求</translation>
+    </message>
+    <message>
+        <source>Extra Body</source>
+        <translation>附加请求体</translation>
+    </message>
+    <message>
+        <source>JSON Mode</source>
+        <translation>JSON 模式</translation>
+    </message>
+    <message>
+        <source>Ask for JSON replies. If the service rejects it, the request is retried without; turn it off to skip that retry</source>
+        <translation>要求模型以 JSON 回复。服务不支持时会去掉后自动重试一次；关闭可省掉这次重试</translation>
+    </message>
+    <message>
+        <source>Optional for local models</source>
+        <translation>本地模型可不填</translation>
+    </message>
+    <message>
+        <source>Server default</source>
+        <translation>使用服务端默认值</translation>
+    </message>
+    <message>
+        <source>e.g. Keep product names untranslated</source>
+        <translation>例如：产品名保留原文</translation>
+    </message>
+    <message>
+        <source>Any OpenAI-compatible service. Ollama: http://localhost:11434/v1, LM Studio: http://localhost:1234/v1</source>
+        <translation>任意 OpenAI 兼容服务。Ollama：http://localhost:11434/v1，LM Studio：http://localhost:1234/v1</translation>
+    </message>
+    <message>
+        <source>Fetch Models</source>
+        <translation>获取模型</translation>
+    </message>
+    <message>
+        <source>Test Connection</source>
+        <translation>测试连接</translation>
+    </message>
+    <message>
+        <source>Testing...</source>
+        <translation>测试中…</translation>
+    </message>
+    <message>
+        <source>Fetching models...</source>
+        <translation>正在获取模型…</translation>
+    </message>
+    <message>
+        <source>No models returned</source>
+        <translation>服务没有返回任何模型</translation>
+    </message>
 </context>
 
 <context>
@@ -3163,6 +3231,14 @@ Replace it?</source>
     <message>
         <source>当前按下</source>
         <translation>当前按下</translation>
+    </message>
+    <message>
+        <source>Custom LLM</source>
+        <translation>自定义 LLM</translation>
+    </message>
+    <message>
+        <source>Optional for local models</source>
+        <translation>本地模型可不填</translation>
     </message>
 </context>
 
