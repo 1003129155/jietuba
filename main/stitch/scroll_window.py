@@ -45,6 +45,7 @@ from .jietuba_long_stitch_unified import (
 )
 
 from settings import get_tool_settings_manager
+from capture.capture_service import grab_region_hdr
 from core.save import SaveService
 from core import log_debug, log_info, safe_event
 from core.logger import log_exception, T, LogMsg
@@ -340,6 +341,9 @@ class ScrollCaptureWindow(QWidget):
         self.scroll_cooldown = settings.value('screenshot/scroll_cooldown', 0.15, type=float)
         self.capture_mode = "immediate"  # 截图模式: "immediate"立即 或 "wait"等待停止
         
+        # HDR 截图失败后，本次长截图剩下的帧都走 grabWindow，见 _grab_capture_rect
+        self._use_hdr = True
+
         # 去重相关
         self.last_screenshot_hash = None  # 上一张截图的哈希值（用于去重）
         self.duplicate_threshold = 0.95  # 相似度阈值（95%以上认为重复）
@@ -1151,44 +1155,60 @@ class ScrollCaptureWindow(QWidget):
             if widget_rect.intersects(self.capture_rect):
                 set_window_exclude_from_capture(int(widget.winId()), exclude)
     
+    def _grab_capture_rect(self) -> Optional[QImage]:
+        """抓取 capture_rect，失败返回 None。
+
+        先走 HDR；失败后本次长截图剩下的帧都用 grabWindow，不再来回切换：拼接靠相邻帧
+        重叠部分逐像素一致，而两条路径抓出的像素值并不完全相同。
+        """
+        if self._use_hdr:
+            try:
+                return grab_region_hdr(self.capture_rect)
+            except Exception as e:
+                self._use_hdr = False
+                _log_stitch(T("HDR 截图失败，本次长截图改用 GDI: {error}", error=e), force=True)
+
+        # 获取包含截图区域的屏幕
+        app = QGuiApplication.instance()
+        capture_center_x = self.capture_rect.x() + self.capture_rect.width() // 2
+        capture_center_y = self.capture_rect.y() + self.capture_rect.height() // 2
+        center_point = QPoint(capture_center_x, capture_center_y)
+
+        screen = app.screenAt(center_point)
+        if screen is None:
+            _log_stitch(T("[WARN] 截图区域不在任何显示器范围内，使用主显示器"), force=True)
+            screen = app.primaryScreen()
+
+        screen_geometry = screen.geometry()
+
+        # 将虚拟桌面坐标转换为相对于目标屏幕的坐标
+        relative_x = self.capture_rect.x() - screen_geometry.x()
+        relative_y = self.capture_rect.y() - screen_geometry.y()
+
+        # 使用屏幕相对坐标截图
+        pixmap = screen.grabWindow(
+            0,
+            relative_x,
+            relative_y,
+            self.capture_rect.width(),
+            self.capture_rect.height()
+        )
+        if pixmap.isNull():
+            return None
+        return pixmap.toImage()
+
     def _do_capture(self):
         """执行截图并实时拼接"""
         stitch_successful = True
         # 截图前：排除与截图区域重叠的 UI 窗口
         self._exclude_overlapping_ui(True)
         try:
-            # 获取包含截图区域的屏幕
-            app = QGuiApplication.instance()
-            capture_center_x = self.capture_rect.x() + self.capture_rect.width() // 2
-            capture_center_y = self.capture_rect.y() + self.capture_rect.height() // 2
-            center_point = QPoint(capture_center_x, capture_center_y)
-            
-            screen = app.screenAt(center_point)
-            if screen is None:
-                _log_stitch(T("[WARN] 截图区域不在任何显示器范围内，使用主显示器"), force=True)
-                screen = app.primaryScreen()
-            
-            screen_geometry = screen.geometry()
-            
-            # 将虚拟桌面坐标转换为相对于目标屏幕的坐标
-            relative_x = self.capture_rect.x() - screen_geometry.x()
-            relative_y = self.capture_rect.y() - screen_geometry.y()
-            
-            # 使用屏幕相对坐标截图
-            pixmap = screen.grabWindow(
-                0,
-                relative_x,
-                relative_y,
-                self.capture_rect.width(),
-                self.capture_rect.height()
-            )
-            
-            if pixmap.isNull():
+            qimage = self._grab_capture_rect()
+            if qimage is None:
                 _log_stitch(T("[ERROR] 截图失败"), force=True)
                 return
-            
+
             # PySide6: bits() 返回 memoryview，直接转 bytes
-            qimage = pixmap.toImage()
             buffer = bytes(qimage.bits())
             pil_image = Image.frombytes(
                 'RGBA',
