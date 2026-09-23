@@ -250,6 +250,8 @@ class ToolSettingsManager(QObject):
         "clipboard_close_after_paste": True,   # 粘贴后关闭窗口（关掉则窗口常驻，可连续粘贴）
         "clipboard_history_limit": 1000,        # 历史记录数量限制（0 为不限制）
         "clipboard_auto_cleanup": True,        # 自动清理超出限制的记录
+        "clipboard_foreground_scan_interval_ms": 200,  # 前台窗口取样频率（毫秒），仅面板打开时生效
+        "clipboard_foreground_scan_interval_options": [100, 200, 300, 400, 500, 600],  # 频率可选项
         "clipboard_window_width": 450,         # 剪贴板窗口默认宽度
         "clipboard_window_height": 750,        # 剪贴板窗口默认高度
         "clipboard_window_opacity": 20,         # 剪贴板窗口透明度（0=不透明）
@@ -1386,6 +1388,22 @@ class ToolSettingsManager(QObject):
     def set_clipboard_history_limit(self, value: int):
         """设置历史记录数量限制"""
         self.qsettings.setValue("clipboard/history_limit", max(0, value))
+
+    def get_clipboard_foreground_scan_interval_ms(self) -> int:
+        """获取剪贴板面板前台窗口取样频率（毫秒）"""
+        return self.qsettings.value(
+            "clipboard/foreground_scan_interval_ms",
+            self.APP_DEFAULT_SETTINGS["clipboard_foreground_scan_interval_ms"],
+            type=int,
+        )
+
+    def set_clipboard_foreground_scan_interval_ms(self, value: int):
+        """设置剪贴板面板前台窗口取样频率（毫秒）"""
+        self.qsettings.setValue("clipboard/foreground_scan_interval_ms", max(50, int(value)))
+
+    def get_clipboard_foreground_scan_interval_options(self) -> list:
+        """获取剪贴板前台窗口取样频率可选项"""
+        return self.APP_DEFAULT_SETTINGS["clipboard_foreground_scan_interval_options"]
 
     def get_clipboard_db_path(self) -> str:
         """获取剪贴板数据库自定义路径（空字符串表示使用后端默认位置）"""

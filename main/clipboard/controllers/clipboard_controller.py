@@ -117,6 +117,7 @@ class ClipboardController(QObject):
             config = get_tool_settings_manager()
             self.auto_paste_enabled = config.get_clipboard_auto_paste()
             self.paste_with_html = config.get_app_setting("clipboard_paste_with_html", True)
+            self._foreground_tracker.set_interval(config.get_clipboard_foreground_scan_interval_ms())
         except Exception as e:
             log_exception(e, T("加载剪贴板设置"))
             # 默认开启自动粘贴和带格式粘贴

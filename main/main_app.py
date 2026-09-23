@@ -571,6 +571,7 @@ class MainApp(QObject):
         # 通知剪贴板窗口重新加载设置
         if hasattr(self, 'clipboard_window') and self.clipboard_window:
             self.clipboard_window._load_settings()
+            self.clipboard_window.controller._load_settings()
             # 同时更新历史限制
             if hasattr(self, 'clipboard_manager') and self.clipboard_manager:
                 self.clipboard_manager._apply_history_limit()

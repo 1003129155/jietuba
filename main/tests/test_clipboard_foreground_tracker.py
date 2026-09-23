@@ -141,6 +141,31 @@ def test_nothing_is_excluded_before_the_window_registers_itself(fake_desktop):
     assert instance.target_hwnd == 11
 
 
+def test_set_interval_before_start_configures_the_timer(fake_desktop, qapp):
+    """设置页保存的频率要在窗口下次显示、定时器创建时就生效。"""
+    fake_desktop.focus(fake_desktop.add(11))
+    instance = ForegroundWindowTracker()
+    instance.set_interval(1500)
+
+    instance.start()
+    try:
+        assert instance._timer.interval() == 1500
+    finally:
+        instance.stop()
+
+
+def test_set_interval_updates_a_running_timer_live(fake_desktop, qapp):
+    """面板开着的时候改设置也要立即生效，不用等下次打开面板。"""
+    fake_desktop.focus(fake_desktop.add(11))
+    instance = ForegroundWindowTracker()
+    instance.start()
+    try:
+        instance.set_interval(800)
+        assert instance._timer.interval() == 800
+    finally:
+        instance.stop()
+
+
 def test_sample_never_raises_into_the_timer(fake_desktop):
     """取样由定时器驱动，异常逃出去会终止进程。
 

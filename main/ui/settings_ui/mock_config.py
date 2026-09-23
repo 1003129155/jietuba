@@ -271,6 +271,9 @@ class MockConfig:
     def set_clipboard_db_path(self, v): pass
     def get_clipboard_auto_cleanup(self): return False
     def set_clipboard_auto_cleanup(self, v): pass
+    def get_clipboard_foreground_scan_interval_ms(self): return 200
+    def set_clipboard_foreground_scan_interval_ms(self, v): pass
+    def get_clipboard_foreground_scan_interval_options(self): return [100, 200, 300, 400, 500, 600]
     def get_inapp_shortcut(self, key):
         return self.settings.value(
             f"inapp/{key}", self.APP_DEFAULT_SETTINGS.get(key, ""), type=str
