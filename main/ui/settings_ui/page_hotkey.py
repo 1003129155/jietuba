@@ -318,7 +318,7 @@ def create_hotkey_page(dialog) -> QWidget:
     # 鼠标微移模式
     dialog.cursor_move_combo = ComboBox()
     dialog.cursor_move_combo.setFixedSize(dialog_scaled(_EDIT_W), dialog_scaled(_EDIT_H))
-    dialog.cursor_move_combo.addItem("WASD + ↑↓←→", userData="both")
+    dialog.cursor_move_combo.addItem("WASD+↑↓←→", userData="both")
     dialog.cursor_move_combo.addItem("↑↓←→", userData="arrows")
     dialog.cursor_move_combo.addItem("WASD", userData="wasd")
 

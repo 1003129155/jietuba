@@ -361,10 +361,6 @@ Replace it?</source>
         <translation>합성 엔진</translation>
     </message>
     <message>
-        <source>Rust Hash (Recommended)</source>
-        <translation>Rust 해시 (권장)</translation>
-    </message>
-    <message>
         <source>Python Hash (Debug)</source>
         <translation>Python 해시 (디버그)</translation>
     </message>

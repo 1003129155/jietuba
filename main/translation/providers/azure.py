@@ -25,7 +25,7 @@ class AzureTranslateProvider(TranslationProvider):
     """Microsoft Azure Translator (Cognitive Services) REST API v3.0."""
 
     provider_id = "azure"
-    display_name = "Azure Translator"
+    display_name = "Azure"
     API_URL = "https://api.cognitive.microsofttranslator.com/translate"
     API_VERSION = "3.0"
     MAX_TEXT_LENGTH = 50_000

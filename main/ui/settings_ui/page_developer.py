@@ -34,7 +34,7 @@ def create_developer_page(dialog) -> QWidget:
         parent=grp_stitch,
     )
     dialog.engine_combo = ComboBox(engine_card)
-    dialog.engine_combo.addItems([dialog.tr("Rust Hash (Recommended)")])
+    dialog.engine_combo.addItems(["Rust Hash"])
     dialog.engine_combo.setItemData(0, "hash_rust")
     dialog.engine_combo.setCurrentIndex(0)
     engine_card.addControl(dialog.engine_combo)

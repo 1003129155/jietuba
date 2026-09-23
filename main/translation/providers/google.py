@@ -24,7 +24,7 @@ class GoogleTranslateProvider(TranslationProvider):
     """Google NMT translation through the API-key-compatible v2 REST API."""
 
     provider_id = "google"
-    display_name = "Google Translation"
+    display_name = "Google"
     API_URL = "https://translation.googleapis.com/language/translate/v2"
 
     _LANGUAGE_CODES = {

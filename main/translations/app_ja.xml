@@ -368,10 +368,6 @@ Replace it?</source>
         <translation>拼接エンジン</translation>
     </message>
     <message>
-        <source>Rust Hash (Recommended)</source>
-        <translation>ハッシュ値マッチング</translation>
-    </message>
-    <message>
         <source>Python Hash (Debug)</source>
         <translation>デバッグ用</translation>
     </message>

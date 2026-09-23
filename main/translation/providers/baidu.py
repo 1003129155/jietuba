@@ -31,7 +31,7 @@ class BaiduTranslateProvider(TranslationProvider):
     """
 
     provider_id = "baidu"
-    display_name = "Baidu Translate"
+    display_name = "Baidu"
     API_URL = "https://fanyi-api.baidu.com/ait/api/aiTextTranslate"
 
     # 百度的语种代码和本应用内部代码（BCP-47 风格）不完全一致，这里只列出

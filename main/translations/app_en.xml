@@ -362,10 +362,6 @@ Replace it?</translation>
         <translation>Stitching Engine</translation>
     </message>
     <message>
-        <source>Rust Hash (Recommended)</source>
-        <translation>Rust Hash (Recommended)</translation>
-    </message>
-    <message>
         <source>Python Hash (Debug)</source>
         <translation>Python Hash (Debug)</translation>
     </message>

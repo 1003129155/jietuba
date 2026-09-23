@@ -25,7 +25,7 @@ class AmazonTranslateProvider(TranslationProvider):
     """Amazon Translate adapter without the boto3/botocore dependency."""
 
     provider_id = "amazon"
-    display_name = "Amazon Translate"
+    display_name = "Amazon"
 
     SERVICE = "translate"
     TARGET = "AWSShineFrontendService_20170701.TranslateText"

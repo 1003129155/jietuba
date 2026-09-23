@@ -366,10 +366,6 @@ Replace it?</source>
         <translation>拼接引擎</translation>
     </message>
     <message>
-        <source>Rust Hash (Recommended)</source>
-        <translation>哈希值匹配 (推荐)</translation>
-    </message>
-    <message>
         <source>Python Hash (Debug)</source>
         <translation>调试用</translation>
     </message>

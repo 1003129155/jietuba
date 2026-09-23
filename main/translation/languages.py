@@ -24,7 +24,7 @@ TRANSLATION_LANGUAGES = {
     "TR": "Türkçe",
     "TH": "ไทย",
     "AR": "العربية",
-    "ID": "Bahasa Indonesia",
+    "ID": "Indonesia",
     "UK": "Українська",
 }
 
