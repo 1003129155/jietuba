@@ -492,8 +492,8 @@ Replace it?</source>
         <translation>让只认文件路径的工具（如部分终端程序）也能粘贴截图。需要开启"自动保存截图"。</translation>
     </message>
     <message>
-        <source>Save Folder:</source>
-        <translation>保存文件夹:</translation>
+        <source>Save Folder</source>
+        <translation>保存文件夹</translation>
     </message>
     <message>
         <source>Save Format:</source>
@@ -857,6 +857,9 @@ Replace it?</source>
         <source>Keep original text formatting</source>
         <translation>保持原文格式</translation>
     </message>
+    <message><source>Color Formats</source><translation>颜色格式</translation></message>
+    <message><source>Which formats the magnifier shows, and which one the copy shortcut uses.</source><translation>放大镜上显示哪些格式，以及按键复制的是哪一个。</translation></message>
+    <message><source>Manage Color Formats</source><translation>管理颜色格式</translation></message>
 </context>
 
 <context>
@@ -2373,6 +2376,14 @@ Replace it?</source>
         <translation>保留的最大项目数（0 = 无限制）</translation>
     </message>
     <message>
+        <source>Window Scan Interval</source>
+        <translation>窗口扫描频率</translation>
+    </message>
+    <message>
+        <source>How often the foreground window is sampled to find the paste target (only while this panel is open)</source>
+        <translation>面板打开时按此频率识别前台窗口以确定粘贴目标（仅面板可见时生效）</translation>
+    </message>
+    <message>
         <source>Auto Cleanup Old Items</source>
         <translation>自动清理旧项目</translation>
     </message>
@@ -2391,10 +2402,6 @@ Replace it?</source>
     <message>
         <source>Clipboard module not available</source>
         <translation>剪贴板模块不可用</translation>
-    </message>
-    <message>
-        <source>Open Folder</source>
-        <translation>打开</translation>
     </message>
     <message>
         <source>Clear Clipboard History</source>
@@ -2703,18 +2710,6 @@ Replace it?</source>
     <message>
         <source>Used when copying color info in magnifier.</source>
         <translation>按 C 复制颜色信息时使用</translation>
-    </message>
-    <message>
-        <source>RGB+HEX</source>
-        <translation>RGB+HEX</translation>
-    </message>
-    <message>
-        <source>RGB only</source>
-        <translation>单RGB</translation>
-    </message>
-    <message>
-        <source>HEX only</source>
-        <translation>单HEX</translation>
     </message>
 </context>
 
@@ -3263,7 +3258,16 @@ Replace it?</source>
     <message><source>Success</source><translation>成功</translation></message>
     <!-- 杂项页分组标题 -->
     <message><source>Startup</source><translation>启动</translation></message>
-    <message><source>Pin Window</source><translation>钉图窗口</translation></message>
+    <message><source>Show Magnifier</source><translation>显示放大镜</translation></message>
+    <message><source>Follows the cursor while selecting, and picks the color under it.</source><translation>选区时跟随光标显示，并可取光标下的颜色。</translation></message>
+    <message><source>Pixel Grid</source><translation>像素网格线</translation></message>
+    <message><source>Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels.</source><translation>在放大图上勾出每个像素的边界。倍率低时自动不画，否则网格线会盖住像素本身。</translation></message>
+    <message><source>Shortcut Hint</source><translation>快捷键提示</translation></message>
+    <message><source>Show the color-copy shortcut under the readings. Off makes the magnifier shorter.</source><translation>在数值下方显示复制颜色的快捷键。关掉后放大镜会变矮一些。</translation></message>
+    <message><source>Color Swatch</source><translation>取色色块</translation></message>
+    <message><source>Show the picked color in the top-right corner of the magnified view.</source><translation>在放大图右上角显示当前取到的颜色。</translation></message>
+    <message><source>Magnifier</source><translation>放大镜</translation></message>
+    <message><source>Pin Settings</source><translation>钉图设定</translation></message>
     <message><source>Operation</source><translation>操作</translation></message>
     <!-- 关于页 -->
     <message><source>Features</source><translation>功能特色</translation></message>
@@ -3416,7 +3420,6 @@ SOFTWARE.</translation></message>
 
 <context>
     <name>SettingsDialog</name>
-    <message><source>Change Location</source><translation>更改</translation></message>
     <message><source>Current clipboard database path is unavailable.</source><translation>无法获取当前剪贴板数据库路径。</translation></message>
     <message><source>Choose Clipboard Data Folder</source><translation>选择剪贴板数据文件夹</translation></message>
     <message><source>Info</source><translation>提示</translation></message>
@@ -3755,5 +3758,24 @@ SOFTWARE.</translation></message>
         <source>Middle</source>
         <translation>中键</translation>
     </message>
+</context>
+<context>
+    <name>ColorFormatDialog</name>
+    <message><source>Manage Color Formats</source><translation>管理颜色格式</translation></message>
+    <message><source>Checked formats show on the magnifier. The first one is what the copy shortcut puts on the clipboard — drag it to the top to change that.</source><translation>勾选的格式会显示在放大镜上。排在第一位的那个才是按键复制到剪贴板的内容——想换就把它拖到最前面。</translation></message>
+    <message><source>Add Color Format</source><translation>添加颜色格式</translation></message>
+    <message><source>Edit Color Format</source><translation>编辑颜色格式</translation></message>
+    <message><source>Delete Color Format</source><translation>删除颜色格式</translation></message>
+    <message><source>Delete “%1”?</source><translation>确定删除“%1”吗？</translation></message>
+    <message><source>Restore defaults</source><translation>恢复默认</translation></message>
+    <message><source>Name</source><translation>名称</translation></message>
+    <message><source>Name shown in the list</source><translation>在列表里显示的名称</translation></message>
+    <message><source>Template</source><translation>模板</translation></message>
+    <message><source>Placeholders: </source><translation>可用占位符：</translation></message>
+    <message><source>Preview: </source><translation>预览：</translation></message>
+    <message><source>Edit</source><translation>编辑</translation></message>
+    <message><source>Delete</source><translation>删除</translation></message>
+    <message><source>OK</source><translation>确定</translation></message>
+    <message><source>Cancel</source><translation>取消</translation></message>
 </context>
 </TS>

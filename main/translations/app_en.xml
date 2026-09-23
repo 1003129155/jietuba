@@ -488,8 +488,8 @@ Replace it?</translation>
         <translation>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Requires Auto-save Screenshots to be enabled.</translation>
     </message>
     <message>
-        <source>Save Folder:</source>
-        <translation>Save Folder:</translation>
+        <source>Save Folder</source>
+        <translation>Save Folder</translation>
     </message>
     <message>
         <source>Save Format:</source>
@@ -817,6 +817,9 @@ Replace it?</translation>
         <source>Keep original text formatting</source>
         <translation>Keep original text formatting</translation>
     </message>
+    <message><source>Color Formats</source><translation>Color Formats</translation></message>
+    <message><source>Which formats the magnifier shows, and which one the copy shortcut uses.</source><translation>Which formats the magnifier shows, and which one the copy shortcut uses.</translation></message>
+    <message><source>Manage Color Formats</source><translation>Manage Color Formats</translation></message>
 </context>
 
 <context>
@@ -2226,6 +2229,14 @@ Replace it?</translation>
         <translation>Maximum number of items to keep (0 = unlimited)</translation>
     </message>
     <message>
+        <source>Window Scan Interval</source>
+        <translation>Window Scan Interval</translation>
+    </message>
+    <message>
+        <source>How often the foreground window is sampled to find the paste target (only while this panel is open)</source>
+        <translation>How often the foreground window is sampled to find the paste target (only while this panel is open)</translation>
+    </message>
+    <message>
         <source>Auto Cleanup Old Items</source>
         <translation>Auto Cleanup Old Items</translation>
     </message>
@@ -2244,10 +2255,6 @@ Replace it?</translation>
     <message>
         <source>Clipboard module not available</source>
         <translation>Clipboard module not available</translation>
-    </message>
-    <message>
-        <source>Open Folder</source>
-        <translation>Open Folder</translation>
     </message>
     <message>
         <source>Clear Clipboard History</source>
@@ -2556,18 +2563,6 @@ Replace it?</translation>
     <message>
         <source>Used when copying color info in magnifier.</source>
         <translation>Used when copying color info in magnifier.</translation>
-    </message>
-    <message>
-        <source>RGB+HEX</source>
-        <translation>RGB+HEX</translation>
-    </message>
-    <message>
-        <source>RGB only</source>
-        <translation>RGB only</translation>
-    </message>
-    <message>
-        <source>HEX only</source>
-        <translation>HEX only</translation>
     </message>
 </context>
 
@@ -3107,7 +3102,16 @@ You can tweak more options in Settings anytime.</translation>
     <message><source>Success</source><translation>Success</translation></message>
     <!-- Misc page group headers -->
     <message><source>Startup</source><translation>Startup</translation></message>
-    <message><source>Pin Window</source><translation>Pin Window</translation></message>
+    <message><source>Show Magnifier</source><translation>Show Magnifier</translation></message>
+    <message><source>Follows the cursor while selecting, and picks the color under it.</source><translation>Follows the cursor while selecting, and picks the color under it.</translation></message>
+    <message><source>Pixel Grid</source><translation>Pixel Grid</translation></message>
+    <message><source>Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels.</source><translation>Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels.</translation></message>
+    <message><source>Shortcut Hint</source><translation>Shortcut Hint</translation></message>
+    <message><source>Show the color-copy shortcut under the readings. Off makes the magnifier shorter.</source><translation>Show the color-copy shortcut under the readings. Off makes the magnifier shorter.</translation></message>
+    <message><source>Color Swatch</source><translation>Color Swatch</translation></message>
+    <message><source>Show the picked color in the top-right corner of the magnified view.</source><translation>Show the picked color in the top-right corner of the magnified view.</translation></message>
+    <message><source>Magnifier</source><translation>Magnifier</translation></message>
+    <message><source>Pin Settings</source><translation>Pin Settings</translation></message>
     <message><source>Operation</source><translation>Operation</translation></message>
     <!-- About page -->
     <message><source>Features</source><translation>Features</translation></message>
@@ -3251,7 +3255,6 @@ SOFTWARE.</translation></message>
 
 <context>
     <name>SettingsDialog</name>
-    <message><source>Change Location</source><translation>Change Location</translation></message>
     <message><source>Current clipboard database path is unavailable.</source><translation>Current clipboard database path is unavailable.</translation></message>
     <message><source>Choose Clipboard Data Folder</source><translation>Choose Clipboard Data Folder</translation></message>
     <message><source>Info</source><translation>Info</translation></message>
@@ -3583,5 +3586,24 @@ SOFTWARE.</translation></message>
         <source>Copied</source>
         <translation>Copied</translation>
     </message>
+</context>
+<context>
+    <name>ColorFormatDialog</name>
+    <message><source>Manage Color Formats</source><translation>Manage Color Formats</translation></message>
+    <message><source>Checked formats show on the magnifier. The first one is what the copy shortcut puts on the clipboard — drag it to the top to change that.</source><translation>Checked formats show on the magnifier. The first one is what the copy shortcut puts on the clipboard — drag it to the top to change that.</translation></message>
+    <message><source>Add Color Format</source><translation>Add Color Format</translation></message>
+    <message><source>Edit Color Format</source><translation>Edit Color Format</translation></message>
+    <message><source>Delete Color Format</source><translation>Delete Color Format</translation></message>
+    <message><source>Delete “%1”?</source><translation>Delete “%1”?</translation></message>
+    <message><source>Restore defaults</source><translation>Restore defaults</translation></message>
+    <message><source>Name</source><translation>Name</translation></message>
+    <message><source>Name shown in the list</source><translation>Name shown in the list</translation></message>
+    <message><source>Template</source><translation>Template</translation></message>
+    <message><source>Placeholders: </source><translation>Placeholders: </translation></message>
+    <message><source>Preview: </source><translation>Preview: </translation></message>
+    <message><source>Edit</source><translation>Edit</translation></message>
+    <message><source>Delete</source><translation>Delete</translation></message>
+    <message><source>OK</source><translation>OK</translation></message>
+    <message><source>Cancel</source><translation>Cancel</translation></message>
 </context>
 </TS>
