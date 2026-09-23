@@ -1304,6 +1304,9 @@ class SettingsDialog(FrostedFramelessDialog):
             snap['theme_color'] = self._appearance_theme_color.name()
         if hasattr(self, '_appearance_mask_color'):
             snap['mask_color'] = self._appearance_mask_color.name()
+        # 颜色格式在单独的管理窗口里编辑，没有对应的控件可读
+        if hasattr(self, 'magnifier_color_formats'):
+            snap['magnifier_color_formats'] = tuple(self.magnifier_color_formats)
         return snap
 
     def _has_unsaved_changes(self):

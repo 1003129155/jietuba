@@ -510,17 +510,16 @@ class TestResetScreenshotSettingsPage:
         assert fake.magnifier_swatch_toggle.set_checked == [True]
         assert fake.magnifier_hint_toggle.set_checked == [False]
 
-    def test_magnifier_colour_formats_go_back_to_the_builtin_list(self):
-        """格式列表是可编辑的，恢复默认要把自定义格式一起扔掉。"""
+    def test_magnifier_colour_formats_go_back_to_the_default_order(self):
+        """恢复默认要回到预设的顺序和勾选。"""
         from settings.color_formats import ColorFormat
 
         fake = SimpleNamespace(
             config_manager=_config(),
-            magnifier_color_formats=[ColorFormat("Unity", "Color({r})", enabled=True)],
+            magnifier_color_formats=[ColorFormat("CSS hsl()", "", enabled=True)],
         )
         SettingsDialog._reset_screenshot_settings_page(fake)
-        names = [f.name for f in fake.magnifier_color_formats]
-        assert "Unity" not in names
+        assert fake.magnifier_color_formats[0].name == "RGB + HEX"
         assert [f.name for f in fake.magnifier_color_formats if f.enabled] == ["RGB + HEX"]
 
     def test_unknown_ocr_engine_leaves_the_combo_alone(self):

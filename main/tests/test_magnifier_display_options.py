@@ -34,8 +34,7 @@ class _Config:
         self.values.update(values)
         if formats is not None:
             self.values[color_formats.SETTING_KEY] = json.dumps([
-                {"name": f.name, "template": f.template,
-                 "enabled": f.enabled, "builtin": f.builtin}
+                {"name": f.name, "enabled": f.enabled}
                 for f in formats
             ])
         self.qsettings = SimpleNamespace(value=lambda key, default, type=None: default)
@@ -221,8 +220,7 @@ class TestColorFormats:
         assert magnifier.get_color_info_text() == "230, 153, 60"
 
         magnifier.config_manager.values[color_formats.SETTING_KEY] = json.dumps([
-            {"name": f.name, "template": f.template,
-             "enabled": f.enabled, "builtin": f.builtin}
+            {"name": f.name, "enabled": f.enabled}
             for f in _only("CSS hsl()")
         ])
         magnifier.rebind(scene=None, view=None)

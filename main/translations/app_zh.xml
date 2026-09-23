@@ -3763,18 +3763,7 @@ SOFTWARE.</translation></message>
     <name>ColorFormatDialog</name>
     <message><source>Manage Color Formats</source><translation>管理颜色格式</translation></message>
     <message><source>Checked formats show on the magnifier. The first one is what the copy shortcut puts on the clipboard — drag it to the top to change that.</source><translation>勾选的格式会显示在放大镜上。排在第一位的那个才是按键复制到剪贴板的内容——想换就把它拖到最前面。</translation></message>
-    <message><source>Add Color Format</source><translation>添加颜色格式</translation></message>
-    <message><source>Edit Color Format</source><translation>编辑颜色格式</translation></message>
-    <message><source>Delete Color Format</source><translation>删除颜色格式</translation></message>
-    <message><source>Delete “%1”?</source><translation>确定删除“%1”吗？</translation></message>
     <message><source>Restore defaults</source><translation>恢复默认</translation></message>
-    <message><source>Name</source><translation>名称</translation></message>
-    <message><source>Name shown in the list</source><translation>在列表里显示的名称</translation></message>
-    <message><source>Template</source><translation>模板</translation></message>
-    <message><source>Placeholders: </source><translation>可用占位符：</translation></message>
-    <message><source>Preview: </source><translation>预览：</translation></message>
-    <message><source>Edit</source><translation>编辑</translation></message>
-    <message><source>Delete</source><translation>删除</translation></message>
     <message><source>OK</source><translation>确定</translation></message>
     <message><source>Cancel</source><translation>取消</translation></message>
 </context>

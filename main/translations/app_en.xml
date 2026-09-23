@@ -3591,18 +3591,7 @@ SOFTWARE.</translation></message>
     <name>ColorFormatDialog</name>
     <message><source>Manage Color Formats</source><translation>Manage Color Formats</translation></message>
     <message><source>Checked formats show on the magnifier. The first one is what the copy shortcut puts on the clipboard — drag it to the top to change that.</source><translation>Checked formats show on the magnifier. The first one is what the copy shortcut puts on the clipboard — drag it to the top to change that.</translation></message>
-    <message><source>Add Color Format</source><translation>Add Color Format</translation></message>
-    <message><source>Edit Color Format</source><translation>Edit Color Format</translation></message>
-    <message><source>Delete Color Format</source><translation>Delete Color Format</translation></message>
-    <message><source>Delete “%1”?</source><translation>Delete “%1”?</translation></message>
     <message><source>Restore defaults</source><translation>Restore defaults</translation></message>
-    <message><source>Name</source><translation>Name</translation></message>
-    <message><source>Name shown in the list</source><translation>Name shown in the list</translation></message>
-    <message><source>Template</source><translation>Template</translation></message>
-    <message><source>Placeholders: </source><translation>Placeholders: </translation></message>
-    <message><source>Preview: </source><translation>Preview: </translation></message>
-    <message><source>Edit</source><translation>Edit</translation></message>
-    <message><source>Delete</source><translation>Delete</translation></message>
     <message><source>OK</source><translation>OK</translation></message>
     <message><source>Cancel</source><translation>Cancel</translation></message>
 </context>

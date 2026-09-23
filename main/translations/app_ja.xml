@@ -3730,18 +3730,7 @@ SOFTWARE.</translation></message>
     <name>ColorFormatDialog</name>
     <message><source>Manage Color Formats</source><translation>カラー形式を管理</translation></message>
     <message><source>Checked formats show on the magnifier. The first one is what the copy shortcut puts on the clipboard — drag it to the top to change that.</source><translation>チェックした形式が拡大鏡に表示されます。ショートカットでコピーされるのは一番上の形式です。変えたいものを先頭へドラッグしてください。</translation></message>
-    <message><source>Add Color Format</source><translation>カラー形式を追加</translation></message>
-    <message><source>Edit Color Format</source><translation>カラー形式を編集</translation></message>
-    <message><source>Delete Color Format</source><translation>カラー形式を削除</translation></message>
-    <message><source>Delete “%1”?</source><translation>「%1」を削除しますか？</translation></message>
     <message><source>Restore defaults</source><translation>既定に戻す</translation></message>
-    <message><source>Name</source><translation>名前</translation></message>
-    <message><source>Name shown in the list</source><translation>一覧に表示される名前</translation></message>
-    <message><source>Template</source><translation>テンプレート</translation></message>
-    <message><source>Placeholders: </source><translation>使用できるプレースホルダー: </translation></message>
-    <message><source>Preview: </source><translation>プレビュー: </translation></message>
-    <message><source>Edit</source><translation>編集</translation></message>
-    <message><source>Delete</source><translation>削除</translation></message>
     <message><source>OK</source><translation>OK</translation></message>
     <message><source>Cancel</source><translation>キャンセル</translation></message>
 </context>
