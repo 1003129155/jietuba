@@ -13,7 +13,9 @@ use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList};
 
-use crate::hdr_capture::{Capture as HdrCapture, Error as HdrError, Frame as HdrFrame, FrameMonitorInfo, Monitor};
+use crate::hdr_capture::{
+    Capture as HdrCapture, Error as HdrError, Frame as HdrFrame, FrameMonitorInfo, Monitor, ToneMapping,
+};
 
 create_exception!(hdrcapture, CaptureError, PyRuntimeError);
 create_exception!(hdrcapture, InitialFrameTimeout, CaptureError);
@@ -93,6 +95,7 @@ fn monitor_info_to_py<'py>(py: Python<'py>, info: &FrameMonitorInfo) -> PyResult
     dict.set_item("source_format", &info.source_format)?;
     dict.set_item("source_color_space", info.source_color_space.clone())?;
     dict.set_item("output_format", &info.output_format)?;
+    dict.set_item("tone_map_peak", info.tone_map_peak)?;
     Ok(dict)
 }
 
@@ -206,18 +209,26 @@ impl PyCapture {
     /// 捕获虚拟桌面或单块显示器，返回始终为 sRGB BGRA8。
     ///
     /// `timeout_ms` 是**每个物理输出**的 DXGI 等待预算，不是整次调用的总预算。
-    #[pyo3(signature = (monitor, timeout_ms = None))]
-    fn grab(&mut self, py: Python<'_>, monitor: &Bound<'_, PyAny>, timeout_ms: Option<u32>) -> PyResult<PyFrame> {
+    ///
+    /// `adaptive=True` 时，画面里有足够的 HDR 内容就整屏压暗、给高光留出层次，结果随内容变化；
+    /// 默认的固定映射让 SDR 内容逐像素不变，同一内容多次抓取结果一致，拼接和录制要用它。
+    #[pyo3(signature = (monitor, timeout_ms = None, adaptive = false))]
+    fn grab(
+        &mut self,
+        py: Python<'_>,
+        monitor: &Bound<'_, PyAny>,
+        timeout_ms: Option<u32>,
+        adaptive: bool,
+    ) -> PyResult<PyFrame> {
         let index = resolve_monitor_index(monitor)?;
         let capture = GilReleased(self.inner()?);
+        let tone_mapping = if adaptive { ToneMapping::Adaptive } else { ToneMapping::Static };
 
         // 等待 present 期间持有 GIL 会冻结整个解释器，实测单次可达预算上限。
         let result = py.allow_threads(move || {
             let capture = capture;
-            match timeout_ms {
-                Some(timeout_ms) => capture.0.grab_with_timeout(index, timeout_ms),
-                None => capture.0.grab(index),
-            }
+            let timeout_ms = timeout_ms.unwrap_or_else(|| capture.0.timeout_ms());
+            capture.0.grab_with_tone_mapping(index, timeout_ms, tone_mapping)
         });
 
         result.map(|frame| PyFrame::from_frame(py, frame)).map_err(|error| to_py_error(&error))

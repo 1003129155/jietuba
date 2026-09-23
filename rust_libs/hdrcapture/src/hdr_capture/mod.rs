@@ -13,4 +13,4 @@ pub mod display;
 mod capture;
 mod gpu;
 
-pub use capture::{Capture, CaptureStats, Error, Frame, FrameMonitorInfo, Monitor};
+pub use capture::{Capture, CaptureStats, Error, Frame, FrameMonitorInfo, Monitor, ToneMapping};

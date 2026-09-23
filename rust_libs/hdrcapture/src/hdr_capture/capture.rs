@@ -40,8 +40,24 @@ pub struct Monitor {
     pub hdr_supported: bool,
 }
 
+/// How FP16 HDR pixels are fitted into 8-bit sRGB output. SDR monitors are unaffected.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum ToneMapping {
+    /// SDR content passes through bit-exact and brighter pixels are scaled back to white.
+    ///
+    /// The result depends only on each pixel, so overlapping captures of the same content match,
+    /// which is what scroll stitching and frame-to-frame recording rely on.
+    #[default]
+    Static,
+    /// When a monitor shows enough HDR content, its whole image is darkened along the
+    /// ST 2094-50 reference-white curve so highlights keep their gradation; otherwise identical to
+    /// [`Self::Static`]. The curve follows the content, so the same pixel can map differently
+    /// from one capture to the next.
+    Adaptive,
+}
+
 /// Per-output provenance attached to a completed [`Frame`].
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct FrameMonitorInfo {
     /// One-based physical monitor index.
     pub index: usize,
@@ -55,10 +71,13 @@ pub struct FrameMonitorInfo {
     pub source_color_space: Option<String>,
     /// The capture library's fixed output format, always `"bgra8"`.
     pub output_format: String,
+    /// Peak, relative to desktop white, that adaptive tone mapping fitted into the output;
+    /// `None` when the monitor was mapped statically.
+    pub tone_map_peak: Option<f32>,
 }
 
 /// A tightly packed sRGB `BGRA8` screenshot.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Frame {
     /// Tightly packed sRGB pixels in blue, green, red, alpha byte order.
     pub bgra: Vec<u8>,
@@ -250,7 +269,15 @@ impl MonitorSession {
         })
     }
 
-    fn update(&mut self, timeout_ms: u32) -> Result<(), Error> {
+    /// Acquires the newest desktop frame, if any, and renders the monitor with `tone_mapping`.
+    fn update(&mut self, timeout_ms: u32, tone_mapping: ToneMapping) -> Result<(), Error> {
+        self.acquire(timeout_ms, tone_mapping)?;
+        // A cached frame may last have been rendered for a caller that asked for other tone mapping.
+        self.converter.render(self.duplication.device_context(), tone_mapping)?;
+        Ok(())
+    }
+
+    fn acquire(&mut self, timeout_ms: u32, tone_mapping: ToneMapping) -> Result<(), Error> {
         let deadline = Instant::now() + Duration::from_millis(u64::from(timeout_ms));
 
         loop {
@@ -260,13 +287,8 @@ impl MonitorSession {
             // desktop image carries no new content: the texture is blank before the first real
             // present and merely stale after it, so it must never be converted as if it were a
             // capture. Accepting it is what produced intermittently black first screenshots.
-            match self.duplication.acquire_next_frame(remaining_ms(deadline)) {
-                Ok(frame) if frame.frame_info().LastPresentTime == 0 => {
-                    if self.has_frame {
-                        // The retained converted frame is still the most recent desktop content.
-                        return Ok(());
-                    }
-                }
+            let converted = match self.duplication.acquire_next_frame(remaining_ms(deadline)) {
+                Ok(frame) if frame.frame_info().LastPresentTime == 0 => false,
                 Ok(frame) => {
                     // Compared against the panel's native (pre-rotation) dimensions, not
                     // `display.rect`: a rotated monitor's frames never match `display.rect`
@@ -281,9 +303,9 @@ impl MonitorSession {
                         });
                     }
                     self.source_format = frame.format();
-                    self.converter.convert(frame.device_context(), frame.texture(), self.source_format)?;
+                    self.converter.convert(frame.device_context(), frame.texture(), self.source_format, tone_mapping)?;
                     self.has_frame = true;
-                    return Ok(());
+                    true
                 }
                 Err(DuplicationError::Timeout) if self.has_frame => return Ok(()),
                 Err(DuplicationError::Timeout) => {
@@ -291,6 +313,19 @@ impl MonitorSession {
                 }
                 Err(DuplicationError::AccessLost) => return Err(Error::AccessLost),
                 Err(error) => return Err(Error::Duplication(error)),
+            };
+
+            // DWM cannot deliver newer desktop updates while a frame is held. Holding it until the
+            // next `grab` makes a zero-budget grab release and immediately re-acquire before DWM
+            // has caught up, so it returns the previous grab's image however long ago that was.
+            self.duplication.release_frame().map_err(|error| match error {
+                DuplicationError::AccessLost => Error::AccessLost,
+                error => Error::Duplication(error),
+            })?;
+
+            // The retained converted frame is still the most recent desktop content.
+            if converted || self.has_frame {
+                return Ok(());
             }
 
             // Only a content-free frame reaches this point, and only before the first real one.
@@ -308,6 +343,7 @@ impl MonitorSession {
             source_format: source_format_name(self.source_format).to_owned(),
             source_color_space: self.display.color_space.clone(),
             output_format: "bgra8".to_owned(),
+            tone_map_peak: self.converter.tone_map_peak(),
         }
     }
 }
@@ -389,23 +425,39 @@ impl Capture {
         self.grab_with_timeout(monitor_index, self.timeout_ms)
     }
 
+    /// The per-output DXGI wait budget [`Self::grab`] uses.
+    #[must_use]
+    pub const fn timeout_ms(&self) -> u32 {
+        self.timeout_ms
+    }
+
     /// Captures a monitor with a one-call DXGI wait budget that overrides the configured default.
     ///
     /// This is useful for polling applications that normally keep a longer default timeout but
     /// occasionally need a non-blocking or low-latency capture attempt. A cached frame is still
     /// returned when no new desktop present arrives within the supplied interval.
     pub fn grab_with_timeout(&mut self, monitor_index: usize, timeout_ms: u32) -> Result<Frame, Error> {
+        self.grab_with_tone_mapping(monitor_index, timeout_ms, ToneMapping::Static)
+    }
+
+    /// Captures a monitor like [`Self::grab_with_timeout`], fitting HDR pixels with `tone_mapping`.
+    pub fn grab_with_tone_mapping(
+        &mut self,
+        monitor_index: usize,
+        timeout_ms: u32,
+        tone_mapping: ToneMapping,
+    ) -> Result<Frame, Error> {
         let start = Instant::now();
         self.refresh_topology()?;
 
-        let result = self.grab_once(monitor_index, timeout_ms).or_else(|error| {
+        let result = self.grab_once(monitor_index, timeout_ms, tone_mapping).or_else(|error| {
             if !matches!(error, Error::AccessLost | Error::DimensionsChanged { .. }) {
                 return Err(error);
             }
             // A display mode change invalidates both the duplication object and often the HDR
             // format. Re-enumerate first, then retry exactly once so persistent failures surface.
             self.rebuild(display::enumerate_displays()?)?;
-            self.grab_once(monitor_index, timeout_ms)
+            self.grab_once(monitor_index, timeout_ms, tone_mapping)
         });
 
         if let Ok(frame) = result {
@@ -443,15 +495,15 @@ impl Capture {
         Ok(())
     }
 
-    fn grab_once(&mut self, monitor_index: usize, timeout_ms: u32) -> Result<Frame, Error> {
+    fn grab_once(&mut self, monitor_index: usize, timeout_ms: u32, tone_mapping: ToneMapping) -> Result<Frame, Error> {
         if monitor_index == 0 {
-            self.grab_virtual_desktop(timeout_ms)
+            self.grab_virtual_desktop(timeout_ms, tone_mapping)
         } else {
-            self.grab_monitor(monitor_index, timeout_ms)
+            self.grab_monitor(monitor_index, timeout_ms, tone_mapping)
         }
     }
 
-    fn grab_monitor(&mut self, monitor_index: usize, timeout_ms: u32) -> Result<Frame, Error> {
+    fn grab_monitor(&mut self, monitor_index: usize, timeout_ms: u32, tone_mapping: ToneMapping) -> Result<Frame, Error> {
         let readback_start = Instant::now();
         let (bgra, width, height, monitor_info) = {
             let session = self
@@ -459,7 +511,7 @@ impl Capture {
                 .iter_mut()
                 .find(|session| session.display.index == monitor_index)
                 .ok_or(Error::InvalidMonitorIndex { index: monitor_index })?;
-            session.update(timeout_ms)?;
+            session.update(timeout_ms, tone_mapping)?;
             (
                 session.converter.readback(session.duplication.device_context())?,
                 session.display.rect.width,
@@ -471,9 +523,9 @@ impl Capture {
         Ok(Frame { bgra, width, height, monitor_info: vec![monitor_info] })
     }
 
-    fn grab_virtual_desktop(&mut self, timeout_ms: u32) -> Result<Frame, Error> {
+    fn grab_virtual_desktop(&mut self, timeout_ms: u32, tone_mapping: ToneMapping) -> Result<Frame, Error> {
         for session in &mut self.sessions {
-            session.update(timeout_ms)?;
+            session.update(timeout_ms, tone_mapping)?;
         }
 
         let readback_start = Instant::now();
@@ -722,7 +774,8 @@ mod virtual_desktop_simulation {
     };
 
     use super::gpu::{GpuCompositor, GpuToneMapper};
-    use super::{offset_from_virtual, virtual_rect};
+    use super::{ToneMapping, offset_from_virtual, virtual_rect};
+    use crate::hdr_capture::color::{ReferenceWhiteCurve, srgb_encode};
     use crate::d3d11::create_d3d_device;
     use crate::dxgi_duplication_api::DxgiDuplicationFormat;
     use crate::hdr_capture::display::{MonitorDescriptor, Rect};
@@ -816,7 +869,7 @@ mod virtual_desktop_simulation {
         let mut converters = Vec::new();
         for monitor in monitors {
             let (source, format) = source_texture(&device, monitor);
-            let converter =
+            let mut converter =
                 GpuToneMapper::new(
                     &device,
                     monitor.rect.width,
@@ -825,7 +878,7 @@ mod virtual_desktop_simulation {
                     DXGI_MODE_ROTATION_IDENTITY,
                 )
                     .expect("tone mapper");
-            converter.convert(&context, &source, format).expect("per-monitor conversion");
+            converter.convert(&context, &source, format, ToneMapping::Static).expect("per-monitor conversion");
             converters.push(converter);
         }
 
@@ -904,7 +957,7 @@ mod virtual_desktop_simulation {
                 rect: Rect::new(0, 0, 640, 480),
                 hdr: true,
                 sdr_white_level: 4.0,
-                fill: [4.0, 4.0, 4.0],
+                fill: [0.72, 0.72, 0.72],
             },
             SimulatedMonitor {
                 rect: Rect::new(640, 120, 320, 240),
@@ -920,16 +973,97 @@ mod virtual_desktop_simulation {
         assert_eq!((desktop.width, desktop.height), (960, 480));
         assert_eq!(frame.len(), 960 * 480 * 4);
 
-        // The HDR monitor's desktop white must land on the same 251 the CPU reference produces.
-        // Raw scRGB 4.0 would clip to 255, so this only passes if the white level reached the
+        // scRGB 0.72 under a white level of 4.0 is the SDR grey 0.18, which encodes to 118; the raw
+        // value would encode to about 220, so this only passes if the white level reached the
         // shader and was applied per monitor.
-        assert_near(pixel(&frame, desktop, 320, 240), [251, 251, 251], "HDR monitor white");
+        assert_near(pixel(&frame, desktop, 320, 240), [118, 118, 118], "HDR monitor grey");
 
         // The SDR monitor beside it is copied through untouched, so its white stays exactly 255.
         assert_eq!(pixel(&frame, desktop, 800, 240), [255, 255, 255, 255], "SDR monitor white");
 
         // The gap above the shorter, lower monitor is cleared rather than left undefined.
         assert_eq!(pixel(&frame, desktop, 800, 40), [0, 0, 0, 255], "gap above the SDR monitor");
+    }
+
+    /// An HDR monitor whose top half shows `top` and bottom half `bottom`, both scRGB.
+    fn split_hdr_texture(device: &ID3D11Device, width: u32, height: u32, top: f32, bottom: f32) -> ID3D11Texture2D {
+        let pixel = |value: f32| {
+            let mut bytes = Vec::with_capacity(8);
+            for channel in [value, value, value, 1.0] {
+                bytes.extend_from_slice(&f16_bits(channel).to_le_bytes());
+            }
+            bytes
+        };
+        let (top_pixel, bottom_pixel) = (pixel(top), pixel(bottom));
+        let mut pixels = Vec::with_capacity((width * height * 8) as usize);
+        for y in 0..height {
+            let row_pixel = if y < height / 2 { &top_pixel } else { &bottom_pixel };
+            for _ in 0..width {
+                pixels.extend_from_slice(row_pixel);
+            }
+        }
+        let desc = D3D11_TEXTURE2D_DESC {
+            Width: width,
+            Height: height,
+            MipLevels: 1,
+            ArraySize: 1,
+            Format: DXGI_FORMAT_R16G16B16A16_FLOAT,
+            SampleDesc: DXGI_SAMPLE_DESC { Count: 1, Quality: 0 },
+            Usage: D3D11_USAGE_DEFAULT,
+            BindFlags: D3D11_BIND_SHADER_RESOURCE.0 as u32,
+            ..Default::default()
+        };
+        let data = D3D11_SUBRESOURCE_DATA { pSysMem: pixels.as_ptr().cast(), SysMemPitch: width * 8, ..Default::default() };
+        let mut created = None;
+        // SAFETY: `pixels` covers the whole surface described above and outlives this call.
+        unsafe { device.CreateTexture2D(&desc, Some(&data), Some(&mut created)) }.expect("create split texture");
+        created.expect("D3D11 returned no texture")
+    }
+
+    #[test]
+    fn adaptive_tone_mapping_darkens_only_frames_with_hdr_content() {
+        const WIDTH: u32 = 640;
+        const HEIGHT: u32 = 480;
+        let monitor = Rect::new(0, 0, WIDTH, HEIGHT);
+        let (device, context) = create_d3d_device().expect("this crate requires a D3D11 device");
+        let mut converter =
+            GpuToneMapper::new(&device, WIDTH, HEIGHT, 4.0, DXGI_MODE_ROTATION_IDENTITY).expect("tone mapper");
+        let grey = |frame: &[u8]| pixel(frame, monitor, 320, 100)[0];
+
+        // scRGB 0.72 under a white level of 4.0 is the SDR grey 0.18 (code 118); 12.0 is 3x white.
+        let mixed = split_hdr_texture(&device, WIDTH, HEIGHT, 0.72, 12.0);
+        converter.convert(&context, &mixed, DxgiDuplicationFormat::Rgba16F, ToneMapping::Adaptive).expect("adaptive");
+        let adaptive = converter.readback(&context).expect("adaptive readback");
+        assert_eq!(converter.tone_map_peak(), Some(3.0));
+        let curve = ReferenceWhiteCurve::new(3.0);
+        let expected_grey = (srgb_encode(0.179_931_64 * curve.output_white()) * 255.0).round() as u8;
+        assert!(grey(&adaptive).abs_diff(expected_grey) <= 1, "grey {} vs {expected_grey}", grey(&adaptive));
+        assert!(grey(&adaptive) < 118, "SDR content is darkened to make room for the highlights");
+        assert_eq!(pixel(&adaptive, monitor, 320, 400)[..3], [255, 255, 255], "the peak lands on white");
+
+        // The same retained frame re-rendered for a static caller, without a new present.
+        converter.render(&context, ToneMapping::Static).expect("static re-render");
+        let static_frame = converter.readback(&context).expect("static readback");
+        assert_eq!(converter.tone_map_peak(), None);
+        assert!(grey(&static_frame).abs_diff(118) <= 1);
+
+        // A frame without HDR content is left exactly as the static mapping produces it.
+        let sdr_only = split_hdr_texture(&device, WIDTH, HEIGHT, 0.72, 0.72);
+        converter.convert(&context, &sdr_only, DxgiDuplicationFormat::Rgba16F, ToneMapping::Adaptive).expect("sdr");
+        assert_eq!(converter.tone_map_peak(), None);
+        assert_eq!(converter.readback(&context).expect("sdr readback"), static_frame_for(&device, &context, &sdr_only));
+    }
+
+    fn static_frame_for(
+        device: &ID3D11Device,
+        context: &windows::Win32::Graphics::Direct3D11::ID3D11DeviceContext,
+        source: &ID3D11Texture2D,
+    ) -> Vec<u8> {
+        let (width, height) = (640, 480);
+        let mut converter =
+            GpuToneMapper::new(device, width, height, 4.0, DXGI_MODE_ROTATION_IDENTITY).expect("tone mapper");
+        converter.convert(context, source, DxgiDuplicationFormat::Rgba16F, ToneMapping::Static).expect("static");
+        converter.readback(context).expect("static readback")
     }
 
     #[test]
@@ -1054,20 +1188,21 @@ mod virtual_desktop_simulation {
             converters.push(converter);
         }
         let mut compositor = GpuCompositor::new(&device, desktop.width, desktop.height).expect("compositor");
-        let placements: Vec<_> = converters
+        let owned_placements: Vec<_> = converters
             .iter()
             .zip(monitors)
             .map(|(converter, monitor)| {
                 let left = offset_from_virtual(monitor.rect.x, desktop.x).expect("in-range x offset");
                 let top = offset_from_virtual(monitor.rect.y, desktop.y).expect("in-range y offset");
-                (converter.output(), left, top)
+                (converter.output().clone(), left, top)
             })
             .collect();
+        let placements: Vec<_> = owned_placements.iter().map(|(texture, left, top)| (texture, *left, *top)).collect();
 
         // Warm up: the first GPU dispatch on a device pays driver/shader compilation costs that a
         // long-lived capture session would already have absorbed before this loop matters.
-        for (converter, (source, format)) in converters.iter().zip(&sources) {
-            converter.convert(&context, source, *format).expect("warmup conversion");
+        for (converter, (source, format)) in converters.iter_mut().zip(&sources) {
+            converter.convert(&context, source, *format, ToneMapping::Static).expect("warmup conversion");
         }
         compositor.compose(&context, &placements);
         compositor.readback(&context).expect("warmup readback");
@@ -1076,8 +1211,8 @@ mod virtual_desktop_simulation {
         let mut samples = Vec::with_capacity(ITERATIONS);
         for _ in 0..ITERATIONS {
             let start = Instant::now();
-            for (converter, (source, format)) in converters.iter().zip(&sources) {
-                converter.convert(&context, source, *format).expect("conversion");
+            for (converter, (source, format)) in converters.iter_mut().zip(&sources) {
+                converter.convert(&context, source, *format, ToneMapping::Static).expect("conversion");
             }
             compositor.compose(&context, &placements);
             compositor.readback(&context).expect("readback");
