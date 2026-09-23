@@ -710,7 +710,8 @@ class MainApp(QObject):
             if not self.clipboard_window:
                 self.clipboard_window = ClipboardWindow()
             
-            self.clipboard_window.setWindowState(self.clipboard_window.windowState() & ~Qt.WindowState.WindowMinimized | Qt.WindowState.WindowActive)
+            # 不能带 WindowActive：它会在 show 之前激活窗口，showEvent 里就采不到原来的前台窗口（粘贴目标）
+            self.clipboard_window.setWindowState(self.clipboard_window.windowState() & ~Qt.WindowState.WindowMinimized)
             self.clipboard_window.show()
             self.clipboard_window.raise_()
             self.clipboard_window.activateWindow()
