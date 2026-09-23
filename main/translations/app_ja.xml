@@ -130,8 +130,8 @@
         <translation>スクリーンショットモジュールのプリロード</translation>
     </message>
     <message>
-        <source>Pre-load mss, canvas, tools in background thread</source>
-        <translation>バックグラウンドスレッドで mss、キャンバス、ツールを事前読み込み</translation>
+        <source>Pre-load the capture engine, canvas and tools</source>
+        <translation>キャプチャエンジン、キャンバス、ツールを事前読み込み</translation>
     </message>
     <message>
         <source>Preload Toolbar</source>
@@ -370,6 +370,18 @@ Replace it?</source>
     <message>
         <source>Rust Hash (Recommended)</source>
         <translation>ハッシュ値マッチング</translation>
+    </message>
+    <message>
+        <source>Capture Engine</source>
+        <translation>キャプチャエンジン</translation>
+    </message>
+    <message>
+        <source>Auto uses HDR and falls back to MSS when HDR fails. Choosing HDR or MSS uses only that engine, with no fallback.</source>
+        <translation>自動では HDR を優先し、失敗すると MSS に切り替えます。HDR または MSS を選ぶとそのエンジンだけを使い、失敗しても切り替えません。</translation>
+    </message>
+    <message>
+        <source>Auto (Recommended)</source>
+        <translation>自動（推奨）</translation>
     </message>
     <message>
         <source>Python Hash (Debug)</source>

@@ -31,7 +31,7 @@ from core import log_info, safe_event
 from core.logger import log_exception, T
 from core.constants import CSS_FONT_FAMILY, DEFAULT_FONT_FAMILY
 from core.ui_scale import configure_dialog_control, configure_dialog_controls, dialog_scaled
-from settings.tool_settings import SMART_SELECTION_MODES
+from settings.tool_settings import CAPTURE_ENGINES, SMART_SELECTION_MODES
 
 # 页面创建函数
 from .page_hotkey import create_hotkey_page, validate_global_hotkey_edits
@@ -669,6 +669,10 @@ class SettingsDialog(FrostedFramelessDialog):
     def _reset_long_screenshot_page(self):
         """重置开发者选项页。"""
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
+        if hasattr(self, 'capture_engine_combo'):
+            self.capture_engine_combo.setCurrentIndex(
+                CAPTURE_ENGINES.index(defaults["capture_engine"])
+            )
         if hasattr(self, 'engine_combo'):
             index = self.engine_combo.findData(defaults["long_stitch_engine"])
             if index >= 0:
@@ -1041,6 +1045,8 @@ class SettingsDialog(FrostedFramelessDialog):
             )
 
         # 8. 长截图/开发者
+        if hasattr(self, 'capture_engine_combo'):
+            self.config_manager.set_capture_engine(self.capture_engine_combo.currentData())
         if hasattr(self, 'engine_combo'):
             self.config_manager.set_long_stitch_engine(self.engine_combo.currentData())
         if hasattr(self, 'cooldown_spinbox'):
@@ -1251,7 +1257,8 @@ class SettingsDialog(FrostedFramelessDialog):
                       'magnifier_color_format_combo', 'log_retention_combo',
                       '_ui_theme_combo', '_ui_scale_combo', '_dialog_scale_combo',
                       '_selection_border_combo', '_selection_handle_combo',
-                      '_selection_handle_size_combo', 'smart_mode_combo'):
+                      '_selection_handle_size_combo', 'smart_mode_combo',
+                      'capture_engine_combo'):
             w = getattr(self, attr, None)
             if w is not None:
                 snap[attr] = w.currentIndex()
@@ -1380,6 +1387,11 @@ class SettingsDialog(FrostedFramelessDialog):
             idx = self.cursor_move_combo.findData(mode)
             if idx >= 0:
                 self.cursor_move_combo.setCurrentIndex(idx)
+
+        if hasattr(self, 'capture_engine_combo'):
+            self.capture_engine_combo.setCurrentIndex(
+                CAPTURE_ENGINES.index(self.config_manager.get_capture_engine())
+            )
 
         if hasattr(self, 'engine_combo'):
             engine = self.config_manager.get_long_stitch_engine()

@@ -128,8 +128,8 @@
         <translation>Preload Screenshot Modules</translation>
     </message>
     <message>
-        <source>Pre-load mss, canvas, tools in background thread</source>
-        <translation>Pre-load mss, canvas, tools in background thread</translation>
+        <source>Pre-load the capture engine, canvas and tools</source>
+        <translation>Pre-load the capture engine, canvas and tools</translation>
     </message>
     <message>
         <source>Preload Toolbar</source>
@@ -364,6 +364,18 @@ Replace it?</translation>
     <message>
         <source>Rust Hash (Recommended)</source>
         <translation>Rust Hash (Recommended)</translation>
+    </message>
+    <message>
+        <source>Capture Engine</source>
+        <translation>Capture Engine</translation>
+    </message>
+    <message>
+        <source>Auto uses HDR and falls back to MSS when HDR fails. Choosing HDR or MSS uses only that engine, with no fallback.</source>
+        <translation>Auto uses HDR and falls back to MSS when HDR fails. Choosing HDR or MSS uses only that engine, with no fallback.</translation>
+    </message>
+    <message>
+        <source>Auto (Recommended)</source>
+        <translation>Auto (Recommended)</translation>
     </message>
     <message>
         <source>Python Hash (Debug)</source>

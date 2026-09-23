@@ -128,8 +128,8 @@
         <translation>预加载截图模块</translation>
     </message>
     <message>
-        <source>Pre-load mss, canvas, tools in background thread</source>
-        <translation>在后台线程中预加载 mss、画布、工具等模块</translation>
+        <source>Pre-load the capture engine, canvas and tools</source>
+        <translation>预加载截图引擎、画布、工具等模块</translation>
     </message>
     <message>
         <source>Preload Toolbar</source>
@@ -368,6 +368,18 @@ Replace it?</source>
     <message>
         <source>Rust Hash (Recommended)</source>
         <translation>哈希值匹配 (推荐)</translation>
+    </message>
+    <message>
+        <source>Capture Engine</source>
+        <translation>截图引擎</translation>
+    </message>
+    <message>
+        <source>Auto uses HDR and falls back to MSS when HDR fails. Choosing HDR or MSS uses only that engine, with no fallback.</source>
+        <translation>自动：优先用 HDR，失败时回落到 MSS。选 HDR 或 MSS 则只用该引擎，失败不回落。</translation>
+    </message>
+    <message>
+        <source>Auto (Recommended)</source>
+        <translation>自动 (推荐)</translation>
     </message>
     <message>
         <source>Python Hash (Debug)</source>

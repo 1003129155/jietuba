@@ -28,6 +28,7 @@ APP_DEFAULT_SETTINGS = {
     "log_level": "INFO",
     "log_retention_days": 7,
     "log_dir": os.path.expanduser("~"),
+    "capture_engine": "auto",
     "long_stitch_engine": "hash_rust",
     "scroll_cooldown": 0.15,
     "long_stitch_ignore_top_pixels": 0,
@@ -161,6 +162,8 @@ class MockConfig:
     def set_log_level(self, v): pass
     def get_log_retention_days(self): return 7
     def set_log_retention_days(self, v): pass
+    def get_capture_engine(self): return "auto"
+    def set_capture_engine(self, v): pass
     def get_long_stitch_engine(self): return "hash_rust"
     def set_long_stitch_engine(self, v): pass
     def get_long_stitch_debug(self): return False

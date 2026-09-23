@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from PySide6.QtGui import QImage
-from PySide6.QtCore import QRectF
+from PySide6.QtCore import QRect, QRectF
 
 from capture.capture_service import CaptureService
 
@@ -151,6 +151,14 @@ class TestHdrBackend:
         assert image.width() == 2560
         assert rect.width() == 2560
 
+    def test_screenshot_uses_adaptive_tone_mapping(self, qapp):
+        capture = _make_fake_hdr_capture((0, 0, 100, 100), 100, 100)
+
+        with patch("capture.capture_service._HdrSession.acquire", return_value=capture):
+            CaptureService("hdr").capture_all_screens()
+
+        assert capture.grab.call_args.kwargs["adaptive"] is True
+
     def test_rect_comes_from_monitor_tuple(self, qapp):
         """monitor.rect 是 (x, y, w, h) 元组，负坐标需原样传给 QRectF"""
         service = CaptureService()
@@ -200,3 +208,206 @@ class TestHdrBackend:
         capture.grab.return_value = None
         _ = image.constBits()
         assert image.width() == 100
+
+
+class TestExplicitEngine:
+    """指定引擎时只用那一个，失败不回落。"""
+
+    def test_default_engine_comes_from_settings(self):
+        from settings.tool_settings import get_tool_settings_manager
+
+        manager = get_tool_settings_manager()
+        manager.set_capture_engine("mss")
+        try:
+            assert CaptureService().engine == "mss"
+        finally:
+            manager.set_capture_engine("auto")
+
+    def test_mss_engine_never_opens_hdr_session(self, qapp):
+        acquire = MagicMock()
+        mock_mss, _ = _make_fake_mss({"left": 0, "top": 0, "width": 640, "height": 480},
+                                     _make_fake_screenshot(640, 480))
+
+        with patch("capture.capture_service._HdrSession.acquire", acquire), \
+             patch("capture.capture_service.mss.mss", mock_mss):
+            image, _rect = CaptureService("mss").capture_all_screens()
+
+        acquire.assert_not_called()
+        assert image.width() == 640
+
+    def test_hdr_engine_raises_without_session(self, qapp):
+        mock_mss = MagicMock()
+        with patch("capture.capture_service._HdrSession.acquire", return_value=None), \
+             patch("capture.capture_service.mss.mss", mock_mss), \
+             pytest.raises(RuntimeError):
+            CaptureService("hdr").capture_all_screens()
+
+        mock_mss.assert_not_called()
+
+    def test_hdr_engine_raises_when_grab_fails(self, qapp):
+        capture = _make_fake_hdr_capture((0, 0, 100, 100), 100, 100)
+        capture.grab.side_effect = RuntimeError("did not deliver an initial frame")
+        mock_mss = MagicMock()
+
+        with patch("capture.capture_service._HdrSession.acquire", return_value=capture), \
+             patch("capture.capture_service.mss.mss", mock_mss), \
+             pytest.raises(RuntimeError, match="initial frame"):
+            CaptureService("hdr").capture_all_screens()
+
+        mock_mss.assert_not_called()
+
+
+def _fake_monitor(rect):
+    monitor = MagicMock()
+    monitor.rect = rect
+    return monitor
+
+
+def _gradient_frame(width, height):
+    """每个像素的 B 通道 = x % 256、G 通道 = y % 256，用来核对裁剪位置。"""
+    frame = MagicMock()
+    frame.width = width
+    frame.height = height
+    frame.bgra = bytes(
+        channel
+        for y in range(height) for x in range(width)
+        for channel in (x % 256, y % 256, 0, 255)
+    )
+    return frame
+
+
+class TestGrabRegionHdr:
+    """长截图用的区域抓取。"""
+
+    def _session(self, monitors, frame):
+        session = MagicMock()
+        session.monitors = monitors
+        session.grab.return_value = frame
+        return session
+
+    def test_reads_back_only_the_monitor_containing_region(self, qapp):
+        from capture.capture_service import grab_region_hdr
+
+        desktop = _fake_monitor((-64, 0, 128, 32))
+        left = _fake_monitor((-64, 0, 64, 32))
+        right = _fake_monitor((0, 0, 64, 32))
+        session = self._session([desktop, left, right], _gradient_frame(64, 32))
+
+        with patch("capture.capture_service._HdrSession.acquire", return_value=session):
+            image = grab_region_hdr(QRect(-54, 5, 20, 10))
+
+        assert session.grab.call_args.args[0] is left
+        assert (image.width(), image.height()) == (20, 10)
+        # 区域左上角 (-54, 5) 在左屏里是 (10, 5)
+        color = image.pixelColor(0, 0)
+        assert (color.blue(), color.green()) == (10, 5)
+
+    def test_region_across_monitors_reads_virtual_desktop(self, qapp):
+        from capture.capture_service import grab_region_hdr
+
+        desktop = _fake_monitor((-64, 0, 128, 32))
+        monitors = [desktop, _fake_monitor((-64, 0, 64, 32)), _fake_monitor((0, 0, 64, 32))]
+        session = self._session(monitors, _gradient_frame(128, 32))
+
+        with patch("capture.capture_service._HdrSession.acquire", return_value=session):
+            image = grab_region_hdr(QRect(-10, 0, 20, 8))
+
+        assert session.grab.call_args.args[0] is desktop
+        color = image.pixelColor(0, 0)
+        assert (color.blue(), color.green()) == (54, 0)
+
+    def test_uses_static_tone_mapping(self, qapp):
+        """长截图靠相邻帧逐像素一致拼接，映射不能随画面内容变化。"""
+        from capture.capture_service import grab_region_hdr
+
+        session = self._session([_fake_monitor((0, 0, 64, 32))], _gradient_frame(64, 32))
+        with patch("capture.capture_service._HdrSession.acquire", return_value=session):
+            grab_region_hdr(QRect(0, 0, 10, 10))
+
+        assert session.grab.call_args.kwargs["adaptive"] is False
+
+    def test_raises_without_session(self, qapp):
+        from capture.capture_service import grab_region_hdr
+
+        with patch("capture.capture_service._HdrSession.acquire", return_value=None), \
+             pytest.raises(RuntimeError):
+            grab_region_hdr(QRect(0, 0, 10, 10))
+
+    def test_waits_for_dwm_before_grabbing(self, qapp):
+        """刚设的截图排除要等下一次 DWM 合成才进 DXGI 帧。"""
+        from capture.capture_service import grab_region_hdr
+
+        order = MagicMock()
+        session = self._session([_fake_monitor((0, 0, 64, 32))], _gradient_frame(64, 32))
+        order.attach_mock(session.grab, "grab")
+
+        with patch("capture.capture_service._HdrSession.acquire", return_value=session), \
+             patch("capture.capture_service.ctypes.windll.dwmapi.DwmFlush") as flush:
+            order.attach_mock(flush, "flush")
+            grab_region_hdr(QRect(0, 0, 10, 10))
+
+        assert [name for name, *_ in order.mock_calls if name in ("flush", "grab")] == ["flush", "grab"]
+
+
+@pytest.fixture
+def fake_hdrcapture():
+    """替换 hdrcapture 模块并清空进程级会话状态，测完还原。"""
+    from capture.capture_service import _HdrSession
+
+    module = MagicMock()
+    with patch("capture.capture_service.hdrcapture", module), \
+         patch.multiple(_HdrSession, _capture=None, _owner_thread=None, _failed=False):
+        yield module
+
+
+class TestHdrSessionLifecycle:
+
+    def test_creation_failure_is_remembered(self, fake_hdrcapture):
+        from capture.capture_service import _HdrSession
+
+        fake_hdrcapture.Capture.side_effect = OSError("DXGI_ERROR_UNSUPPORTED")
+        assert _HdrSession.acquire() is None
+        assert _HdrSession.acquire() is None
+        assert fake_hdrcapture.Capture.call_count == 1
+
+    def test_warm_up_failure_is_retried_on_first_capture(self, fake_hdrcapture):
+        """开机自启时桌面可能还没就绪，预热失败不能把 HDR 永久关掉。"""
+        from capture.capture_service import _HdrSession, warm_up_hdr_session
+
+        fake_hdrcapture.Capture.side_effect = [OSError("not ready"), MagicMock()]
+        assert warm_up_hdr_session() is False
+        assert _HdrSession.acquire() is not None
+
+    def test_warm_up_keeps_session_for_capture(self, fake_hdrcapture):
+        from capture.capture_service import _HdrSession, warm_up_hdr_session
+
+        assert warm_up_hdr_session() is True
+        assert _HdrSession.acquire() is fake_hdrcapture.Capture.return_value
+        assert fake_hdrcapture.Capture.call_count == 1
+
+    def test_switching_to_mss_closes_session(self, fake_hdrcapture):
+        from capture.capture_service import _HdrSession, apply_capture_engine
+
+        session = _HdrSession.acquire()
+        apply_capture_engine("mss")
+
+        session.close.assert_called_once()
+        assert _HdrSession._capture is None
+
+    @pytest.mark.parametrize("engine", ["auto", "hdr"])
+    def test_switching_back_retries_failed_session(self, fake_hdrcapture, engine):
+        from capture.capture_service import _HdrSession, apply_capture_engine
+
+        fake_hdrcapture.Capture.side_effect = [OSError("unsupported"), MagicMock()]
+        assert _HdrSession.acquire() is None
+        apply_capture_engine(engine)
+        assert _HdrSession.acquire() is not None
+
+    def test_keeping_hdr_does_not_rebuild_session(self, fake_hdrcapture):
+        from capture.capture_service import _HdrSession, apply_capture_engine
+
+        session = _HdrSession.acquire()
+        apply_capture_engine("auto")
+
+        session.close.assert_not_called()
+        assert _HdrSession.acquire() is session

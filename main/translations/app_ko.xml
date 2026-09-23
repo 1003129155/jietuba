@@ -127,8 +127,8 @@
         <translation>스크린샷 모듈 미리 로드</translation>
     </message>
     <message>
-        <source>Pre-load mss, canvas, tools in background thread</source>
-        <translation>백그라운드 스레드에서 mss, canvas, tools를 미리 로드합니다</translation>
+        <source>Pre-load the capture engine, canvas and tools</source>
+        <translation>캡처 엔진, 캔버스, 도구를 미리 로드합니다</translation>
     </message>
     <message>
         <source>Preload Toolbar</source>
@@ -363,6 +363,18 @@ Replace it?</source>
     <message>
         <source>Rust Hash (Recommended)</source>
         <translation>Rust 해시 (권장)</translation>
+    </message>
+    <message>
+        <source>Capture Engine</source>
+        <translation>캡처 엔진</translation>
+    </message>
+    <message>
+        <source>Auto uses HDR and falls back to MSS when HDR fails. Choosing HDR or MSS uses only that engine, with no fallback.</source>
+        <translation>자동은 HDR을 우선 사용하고 실패하면 MSS로 전환합니다. HDR 또는 MSS를 선택하면 해당 엔진만 사용하며 실패해도 전환하지 않습니다.</translation>
+    </message>
+    <message>
+        <source>Auto (Recommended)</source>
+        <translation>자동 (권장)</translation>
     </message>
     <message>
         <source>Python Hash (Debug)</source>

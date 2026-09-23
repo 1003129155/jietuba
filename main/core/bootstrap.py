@@ -222,7 +222,7 @@ class PreloadManager:
     """
     管理应用启动后的链式预加载
     
-    执行顺序：字体 → 截图模块(子线程) → 工具栏 → OCR(子线程) → 设置窗口 → 剪贴板 → 显示主界面
+    执行顺序：字体 → 截图模块(子线程) → HDR 捕获会话 → 工具栏 → OCR(子线程) → 设置窗口 → 剪贴板 → 显示主界面
     主线程任务用 singleShot(0) 衔接（让事件循环处理一轮再继续）
     子线程任务用 finished 信号衔接
     """
@@ -243,7 +243,12 @@ class PreloadManager:
         
         cfg = self.config
         if cfg.get_app_setting("preload_screenshot", True):
-            self._steps.append(self._preload_screenshot_modules)
+            engine = cfg.get_capture_engine()
+            self._steps.append(
+                lambda: self._preload_screenshot_modules(warm_up_mss=engine != "hdr")
+            )
+            if engine != "mss":
+                self._steps.append(self._preload_hdr_session)
         if cfg.get_app_setting("preload_toolbar", True):
             self._steps.append(self._preload_toolbar_assets)
         if cfg.get_app_setting("preload_ocr", True):
@@ -298,12 +303,20 @@ class PreloadManager:
         except Exception as e:
             log_warning(T("工具栏预加载失败: {e}", e=e), "Preload")
     
-    def _preload_screenshot_modules(self):
+    def _preload_hdr_session(self):
+        """在主线程建好 HDR 捕获会话。
+
+        不能放进截图预加载线程：会话被钉在创建它的线程上，截图却在主线程。
+        """
+        from capture.capture_service import warm_up_hdr_session
+        warm_up_hdr_session()
+
+    def _preload_screenshot_modules(self, warm_up_mss=True):
         """
         在后台线程预加载截图相关模块
 
         首次截图时需要加载大量模块，在低配电脑上会导致明显卡顿：
-        1. mss - 屏幕截图库，首次导入需要初始化 Windows API
+        1. mss - 屏幕截图库，首次导入需要初始化 Windows API；截图引擎指定 HDR 时用不到，跳过
         2. ui.screenshot_window 及其整条 import 链 - canvas、toolbar、
            magnifier、mask_overlay、selection_info、tools 包下全部工具类
         3. win32gui - 智能选区依赖
@@ -323,10 +336,11 @@ class PreloadManager:
                     log_debug(T("开始预加载截图相关模块..."), "Preload")
 
                     # 1. 预加载并预热 mss（屏幕截图库）
-                    import mss
-                    with mss.mss() as sct:
-                        sct.grab({"left": 0, "top": 0, "width": 1, "height": 1})
-                    log_debug(T("mss 模块已加载并预热"), "Preload")
+                    if warm_up_mss:
+                        import mss
+                        with mss.mss() as sct:
+                            sct.grab({"left": 0, "top": 0, "width": 1, "height": 1})
+                        log_debug(T("mss 模块已加载并预热"), "Preload")
 
                     # 2/3/5. 预加载 canvas、tools、工具栏等 UI 组件。这条 import 链会
                     # 拖出 canvas、ui.toolbar、ui.magnifier、ui.mask_overlay、

@@ -10,6 +10,7 @@ from ui.fluent_lite import (
     FluentIcon, ComboBox, DoubleSpinBox, SpinBox,
     CaptionLabel, PrimaryPushButton,
 )
+from settings.tool_settings import CAPTURE_ENGINES
 from .components import SettingCardGroup
 
 
@@ -24,6 +25,35 @@ def create_developer_page(dialog) -> QWidget:
     layout = QVBoxLayout(view)
     layout.setContentsMargins(0, 0, dialog_scaled(10), 0)
     layout.setSpacing(dialog_scaled(20))
+
+    # ════ 截图 ════
+    grp_capture = SettingCardGroup(dialog.tr("Screenshot"), view)
+
+    capture_engine_card = FSettingCard(
+        FluentIcon.CAMERA,
+        dialog.tr("Capture Engine"),
+        dialog.tr(
+            "Auto uses HDR and falls back to MSS when HDR fails. "
+            "Choosing HDR or MSS uses only that engine, with no fallback."
+        ),
+        parent=grp_capture,
+    )
+    dialog.capture_engine_combo = ComboBox(capture_engine_card)
+    for label, engine in ((dialog.tr("Auto (Recommended)"), "auto"),
+                          ("MSS", "mss"),
+                          ("HDR", "hdr")):
+        dialog.capture_engine_combo.addItem(label, userData=engine)
+    dialog.capture_engine_combo.setCurrentIndex(
+        CAPTURE_ENGINES.index(dialog.config_manager.get_capture_engine())
+    )
+    dialog.capture_engine_combo.setFixedWidth(dialog_scaled(200))
+    capture_engine_card.hBoxLayout.addWidget(
+        dialog.capture_engine_combo, 0, Qt.AlignmentFlag.AlignRight
+    )
+    capture_engine_card.hBoxLayout.addSpacing(dialog_scaled(16))
+    grp_capture.addSettingCard(capture_engine_card)
+
+    layout.addWidget(grp_capture)
 
     # ════ 长截图 ════
     grp_stitch = SettingCardGroup(dialog.tr("Long Screenshot"), view)
@@ -121,7 +151,7 @@ def create_developer_page(dialog) -> QWidget:
     _preload_items = [
         ("preload_screenshot_toggle", FluentIcon.CAMERA,
          dialog.tr("Preload Screenshot Modules"),
-         dialog.tr("Pre-load mss, canvas, tools in background thread"),
+         dialog.tr("Pre-load the capture engine, canvas and tools"),
          "preload_screenshot"),
         ("preload_toolbar_toggle", FluentIcon.LAYOUT,
          dialog.tr("Preload Toolbar"),

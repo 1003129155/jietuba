@@ -564,6 +564,9 @@ class MainApp(QObject):
             self.config_manager.get_clipboard_enabled()
         )
         self.update_hotkey(show_error=True)
+
+        from capture.capture_service import apply_capture_engine
+        apply_capture_engine(self.config_manager.get_capture_engine())
         
         # 通知剪贴板窗口重新加载设置
         if hasattr(self, 'clipboard_window') and self.clipboard_window:

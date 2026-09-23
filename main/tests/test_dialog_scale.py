@@ -377,7 +377,8 @@ def test_accept_discards_settings_cache_only_when_window_scale_changed(
     accepted_window = SimpleNamespace(_dialog_scale_changed_on_accept=changed)
     app = SimpleNamespace(
         sender=lambda: accepted_window,
-        config_manager=SimpleNamespace(get_clipboard_enabled=lambda: True),
+        config_manager=SimpleNamespace(get_clipboard_enabled=lambda: True,
+                                       get_capture_engine=lambda: "auto"),
         set_clipboard_monitoring_enabled=lambda _enabled: None,
         update_hotkey=lambda **_kwargs: None,
         _recreate_clipboard_manage_dialog=lambda: reopened.append("clipboard"),

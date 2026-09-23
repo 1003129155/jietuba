@@ -26,6 +26,10 @@ from PySide6.QtGui import QColor
 SMART_SELECTION_MODES = ("off", "window", "element")
 STORED_SMART_SELECTION_MODES = SMART_SELECTION_MODES[1:]
 
+# 截图引擎，顺序就是设置页下拉框的顺序。auto 先走 HDR、失败回落 mss；
+# 指定 mss / hdr 时只用那一个，失败不回落。
+CAPTURE_ENGINES = ("auto", "mss", "hdr")
+
 
 ANNOTATION_TOOL_SHORTCUTS = (
     ("inapp_tool_cursor", "cursor", "Select / Cursor", "s"),
@@ -320,6 +324,8 @@ class ToolSettingsManager(QObject):
         "pin_default_opacity": 1.0,            # 钉图默认透明度（0.1-1.0）
 
         # ==================== 8. 开发者 ====================
+        "capture_engine": "auto",              # 截图引擎，见 CAPTURE_ENGINES
+
         # 长截图
         "long_stitch_engine": "hash_rust",     # 长截图引擎（hash_rust）
         "long_stitch_debug": False,            # 长截图调试模式
@@ -855,6 +861,19 @@ class ToolSettingsManager(QObject):
     def set_long_stitch_engine(self, value: str):
         """设置长截图引擎"""
         self.qsettings.setValue("app/long_stitch_engine", value)
+
+    def get_capture_engine(self) -> str:
+        """获取截图引擎：auto / mss / hdr。"""
+        default = self.APP_DEFAULT_SETTINGS["capture_engine"]
+        engine = str(self.qsettings.value("app/capture_engine", default, type=str)).lower()
+        return engine if engine in CAPTURE_ENGINES else default
+
+    def set_capture_engine(self, value: str):
+        """设置截图引擎。"""
+        engine = str(value or "").lower()
+        if engine not in CAPTURE_ENGINES:
+            engine = self.APP_DEFAULT_SETTINGS["capture_engine"]
+        self.qsettings.setValue("app/capture_engine", engine)
     
     def get_scroll_cooldown(self) -> float:
         """获取滚动后等待时间（秒）"""
