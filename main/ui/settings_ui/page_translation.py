@@ -9,10 +9,10 @@ translation/provider.py 的 Field / ProviderMetadata），界面只负责按声�
 补漏了不会报错：azure 漏在表单那侧（选得到、下面空白），baidu 漏在保存那侧
 （填了、存不上、一直说未配置）。现在这两种漏法在结构上都不成立了。
 """
-from PySide6.QtCore import QPoint, Qt, QThread, Signal
+from PySide6.QtCore import QPoint, QRect, Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QLineEdit, QScrollArea, QFrame, QMenu,
+    QLineEdit, QScrollArea, QFrame, QMenu, QToolTip,
 )
 from shiboken6 import isValid
 from core.ui_scale import dialog_scaled
@@ -407,11 +407,10 @@ def _fetch_models(dialog, provider_id, edit, button):
         if not isValid(button):
             return
         button.setEnabled(True)
-        if not ok:
-            _show_status(dialog, provider_id, "✗ " + value)
-            return
-        if not value:
-            _show_status(dialog, provider_id, dialog.tr("No models returned"))
+        if not ok or not value:
+            text = "✗ " + value if not ok else dialog.tr("No models returned")
+            _show_status(dialog, provider_id, text)
+            _show_near(button, text)
             return
         _show_status(dialog, provider_id, "")
         menu = QMenu(edit)
@@ -423,6 +422,14 @@ def _fetch_models(dialog, provider_id, edit, button):
 
     thread.finished_signal.connect(done)
     _keep_until_finished(thread)
+
+
+def _show_near(button, text):
+    """状态行在这一家表单的最底下，离模型那一行隔着好几行高级选项，
+    失败时在按钮旁边再提示一次。"""
+    QToolTip.showText(
+        button.mapToGlobal(QPoint(0, button.height())), text, button, QRect(), 8000
+    )
 
 
 def _icon_for(field):

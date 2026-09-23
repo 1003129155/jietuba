@@ -368,3 +368,58 @@ def test_empty_reply_without_reasoning_keeps_the_generic_message(server):
     server["replies"][0]["choices"][0]["finish_reason"] = "content_filter"
     result = _provider().translate(TranslationRequest("Hello", "ZH"))
     assert "finish_reason=content_filter" in result.error_message
+
+
+def _fetch_button(dialog, key):
+    from ui.fluent_lite import PushButton
+
+    edit = dialog.provider_field_widgets[key]
+    return edit, next(b for b in edit.parentWidget().findChildren(PushButton)
+                      if b.text() == dialog.tr("Fetch Models"))
+
+
+def test_fetched_models_are_offered_and_the_pick_is_filled_in(
+        qapp, qtbot, server, settings, monkeypatch):
+    from PySide6.QtWidgets import QMenu
+    from ui.settings_ui import page_translation
+    from ui.settings_ui.dialog import SettingsDialog
+
+    offered = []
+
+    class _Menu(QMenu):
+        """真 exec 会进模态循环；给 Qt 类打补丁不生效，只能换成子类。"""
+
+        def exec(self, *_args):
+            offered.extend(action.text() for action in self.actions())
+            self.actions()[0].trigger()
+
+    monkeypatch.setattr(page_translation, "QMenu", _Menu)
+    server["replies"] = [{"data": [{"id": "qwen3.5:2b"}, {"id": "llama3"}]}]
+    dialog = SettingsDialog(config_manager=settings)
+    dialog.provider_field_widgets["custom_llm_base_url"].setText("http://localhost:9/v1")
+    edit, button = _fetch_button(dialog, "custom_llm_model")
+
+    button.click()
+    qtbot.waitUntil(lambda: bool(offered), timeout=5000)
+
+    assert offered == ["llama3", "qwen3.5:2b"]
+    assert edit.text() == "llama3"
+    assert button.isEnabled()
+
+
+def test_fetch_failure_is_shown_next_to_the_button(qapp, qtbot, server, settings):
+    """状态行在表单最底下，只写那里的话用户会以为按钮没反应。"""
+    from PySide6.QtWidgets import QToolTip
+    from ui.settings_ui.dialog import SettingsDialog
+
+    server["replies"] = [_http_error(401, {"error": {"message": "invalid key"}})]
+    dialog = SettingsDialog(config_manager=settings)
+    dialog.provider_field_widgets["custom_llm_base_url"].setText("http://localhost:9/v1")
+    _edit, button = _fetch_button(dialog, "custom_llm_model")
+    status = dialog.provider_status_labels["custom_llm"]
+
+    button.click()
+    qtbot.waitUntil(lambda: status.text().startswith("✗"), timeout=5000)
+
+    assert status.text() == "✗ invalid key"
+    assert QToolTip.text() == "✗ invalid key"
