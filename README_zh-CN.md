@@ -489,6 +489,7 @@ pin/
 ```text
 settings/
 ├── __init__.py
+├── color_formats.py         # 放大镜颜色格式模板：渲染、读取、保存
 └── tool_settings.py         # ToolSettingsManager / ToolSettings — 管理工具颜色、大小、热键等配置
 ```
 
@@ -642,6 +643,7 @@ ui/
 ├── toolbar.py               # Toolbar / _DragHandle — 可拖动工具栏基类
 ├── toolbar_layout.py        # 截图工具栏按钮排布（顺序 / 显示方式）的归一化与读写
 ├── toolbar_layout_dialog.py # ToolbarLayoutDialog — 截图工具栏排布对话框
+├── reorderable_rows.py      # DragGrip / DraggableRow / ReorderableRowList — 可拖动重排的行列表
 ├── tray_menu.py             # TrayMenu — 系统托盘菜单
 ├── screenshot_window.py     # ScreenshotWindow — 截图主窗口（全屏覆盖、选区绘制）
 ├── dialogs.py               # StandardDialog / 对话框函数集 — 确认、警告、信息、错误对话框
@@ -673,6 +675,7 @@ ui/
 │   ├── components.py        # SettingCardGroup / ToggleSwitch — 设置组件库
 │   ├── page_appearance.py   # 外观设置页（主题、语言等）
 │   ├── page_capture.py      # 截图设置页
+│   ├── color_format_dialog.py # ColorFormatDialog — 放大镜颜色格式管理窗口
 │   ├── page_clipboard.py    # 剪贴板设置页
 │   ├── page_hotkey.py       # 快捷键设置页
 │   ├── page_translation.py  # 翻译设置页

@@ -440,6 +440,7 @@ pin/
 
 ```text
 settings/
+├── color_formats.py         # magnifier color format templates: render, load, save
 └── tool_settings.py         # ToolSettingsManager / ToolSettings — tool color, size, hotkey config
 ```
 
@@ -566,6 +567,7 @@ ui/
 ├── toolbar.py               # Toolbar / _DragHandle — draggable toolbar base class
 ├── toolbar_layout.py        # screenshot toolbar button layout (order / visibility): normalize, load, save
 ├── toolbar_layout_dialog.py # ToolbarLayoutDialog — screenshot toolbar layout editor
+├── reorderable_rows.py      # DragGrip / DraggableRow / ReorderableRowList — drag-to-reorder rows
 ├── tray_menu.py             # TrayMenu — system tray menu
 ├── screenshot_window.py     # ScreenshotWindow — full-screen capture window (region drawing)
 ├── dialogs.py               # StandardDialog — confirm, warning, info, error dialogs
@@ -596,6 +598,7 @@ ui/
 │   ├── components.py        # SettingCardGroup / ToggleSwitch — setting components
 │   ├── page_appearance.py   # Appearance settings (theme, language)
 │   ├── page_capture.py      # Capture settings
+│   ├── color_format_dialog.py # ColorFormatDialog — magnifier color format editor
 │   ├── page_clipboard.py    # Clipboard settings
 │   ├── page_hotkey.py       # Hotkey settings
 │   ├── page_translation.py  # Translation settings
