@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtWidgets import QApplication
 
+from core.ui_scale import dialog_scaled
 from core.ui_theme import DARK_TOKENS
 import translation.smart_translation_controller as smart_translation_controller_mod
 from translation.smart_translation_controller import SmartTranslationController
@@ -197,6 +198,26 @@ def test_empty_compact_popup_does_not_add_vertical_blank_space(qapp):
         qapp.processEvents()
 
         assert popup.height() == popup.sizeHint().height()
+    finally:
+        popup.close()
+
+
+def test_reopened_popup_sizes_loading_state_to_loading_text(qapp):
+    popup = TranslationPopup()
+    loading_height = dialog_scaled(popup.RESULT_MIN_HEIGHT)
+    try:
+        popup.show_popup("first", QPoint(10, 10))
+        qapp.processEvents()
+        assert popup.result_edit.height() == loading_height
+
+        popup.show_result("\n".join(["a long translated line"] * 8))
+        qapp.processEvents()
+        assert popup.result_edit.height() > loading_height
+        popup.hide()
+
+        popup.show_popup("second", QPoint(10, 10))
+        qapp.processEvents()
+        assert popup.result_edit.height() == loading_height
     finally:
         popup.close()
 

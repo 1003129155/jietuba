@@ -441,7 +441,8 @@ class TranslationPopup(QWidget):
         self._fit_text_view(
             self.source_edit, dialog_scaled(self.SOURCE_MIN_HEIGHT), dialog_scaled(self.SOURCE_MAX_HEIGHT)
         )
-        if self.result_edit.isVisible():
+        # show_popup 在窗口显示前就要算高度，此时 isVisible() 恒为 False，只能看自身的隐藏标记
+        if not self.result_edit.isHidden():
             self._fit_text_view(
                 self.result_edit, dialog_scaled(self.RESULT_MIN_HEIGHT), dialog_scaled(self.RESULT_MAX_HEIGHT)
             )
