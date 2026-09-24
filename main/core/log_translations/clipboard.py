@@ -11,6 +11,9 @@ TRANSLATIONS: dict[str, str] = {
     "剪贴板和历史中都没有图片，钉图已跳过": "No image on the clipboard or in history, pin skipped",
     "创建钉图窗口失败: {e}": "Failed to create pin window: {e}",
 
+    # manage_dialog.py
+    "管理窗口已隐藏，已释放预览、列表和缩略图缓存": "Manage window hidden; released preview, list and thumbnail cache",
+
     # models.py
     "解析文件类型显示文本": "Parsing file type display text",
 

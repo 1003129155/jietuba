@@ -275,6 +275,7 @@ clipboard/
 │   └── manage_dialog_service.py  # 管理ウィンドウの保存ロジック
 ├── ui/
 │   ├── layout_scale.py           # 管理ウィンドウ共通のサイズ定数
+│   ├── image_item_actions.py     # 画像項目の読み込みと保存、両ウィンドウで共用
 │   ├── dialogs/
 │   │   └── manage_dialog.py      # グループ・内容・入出力を扱う3ペイン管理ウィンドウ
 │   ├── forms/
@@ -282,7 +283,9 @@ clipboard/
 │   │   ├── text_content_form.py
 │   │   ├── file_content_form.py
 │   │   ├── import_export_form.py
-│   │   └── group_icon_picker.py
+│   │   ├── group_icon_picker.py
+│   │   ├── form_widgets.py
+│   │   └── image_content_form.py
 │   ├── menus/
 │   │   ├── action_menu.py
 │   │   ├── group_context_menu.py
@@ -297,11 +300,12 @@ clipboard/
 │   │   ├── themes.py
 │   │   └── theme_styles.py
 │   ├── widgets/
-│   │   ├── draggable_list_widget.py
 │   │   ├── group_bar.py
 │   │   ├── item_delegate.py
 │   │   ├── item_widget.py
-│   │   └── preview_popup.py
+│   │   ├── preview_popup.py
+│   │   ├── manage_rows.py
+│   │   └── reorder_list.py
 │   └── windows/
 │       ├── clipboard_window.py   # 履歴ウィンドウ、検索、プレビュー、高速貼り付け
 │       └── pin_window.py         # 履歴項目からピンを作成

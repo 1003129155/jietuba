@@ -7,8 +7,15 @@ from core.ui_scale import get_dialog_scale
 MANAGE_DIALOG_BASE_WIDTH = 900
 MANAGE_DIALOG_BASE_HEIGHT = 600
 
-MANAGE_DIALOG_MIN_WIDTH_BASE = 820
-MANAGE_DIALOG_MIN_HEIGHT_BASE = 580
+# 打开时的默认尺寸，与上面的设计稿基准分开：基准只用来推算下面的外框换算比例。
+MANAGE_DIALOG_DEFAULT_WIDTH = 1160
+MANAGE_DIALOG_DEFAULT_HEIGHT = 760
+
+MANAGE_DIALOG_MIN_WIDTH_BASE = 960
+MANAGE_DIALOG_MIN_HEIGHT_BASE = 600
+
+# 默认尺寸最多占所在屏幕可用区域的比例，小屏上底部按钮不能被挤出屏幕。
+_SCREEN_FILL = 0.92
 
 # 900x600 是设计稿基准，+20/+120 是实际窗口比设计稿多出的外框留白；
 # 二者的比值是固定的"设计稿 -> 实际窗口"换算比例，和用户的窗口缩放设置无关。
@@ -29,11 +36,11 @@ def _scale(value: int, factor: float) -> int:
 
 
 def manage_dialog_width() -> int:
-    return round(MANAGE_DIALOG_BASE_WIDTH * _CHROME_SCALE_X * _dialog_factor())
+    return round(MANAGE_DIALOG_DEFAULT_WIDTH * _dialog_factor())
 
 
 def manage_dialog_height() -> int:
-    return round(MANAGE_DIALOG_BASE_HEIGHT * _CHROME_SCALE_Y * _dialog_factor())
+    return round(MANAGE_DIALOG_DEFAULT_HEIGHT * _dialog_factor())
 
 
 def manage_dialog_min_width() -> int:
@@ -42,6 +49,13 @@ def manage_dialog_min_width() -> int:
 
 def manage_dialog_min_height() -> int:
     return round(MANAGE_DIALOG_MIN_HEIGHT_BASE * _dialog_factor())
+
+
+def fit_manage_dialog_size(available_width: int, available_height: int) -> tuple:
+    """默认尺寸按屏幕可用区域收缩，但不小于最小尺寸。"""
+    width = min(manage_dialog_width(), int(available_width * _SCREEN_FILL))
+    height = min(manage_dialog_height(), int(available_height * _SCREEN_FILL))
+    return max(width, manage_dialog_min_width()), max(height, manage_dialog_min_height())
 
 
 def scale_x(value: int) -> int:

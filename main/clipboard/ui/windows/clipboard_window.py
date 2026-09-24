@@ -6,7 +6,6 @@
 """
 
 import os
-import re
 from time import perf_counter
 from typing import List, Optional
 
@@ -949,6 +948,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
     def _on_add_group_clicked(self):
         dialog = get_manage_dialog(self.manager)
         self._connect_manage_dialog(dialog)
+        dialog._switch_page(0)
         dialog.show_and_activate()
 
     def _on_add_item_clicked(self):
@@ -1139,59 +1139,9 @@ class ClipboardWindow(QWidget, FramelessMixin):
             self.item_pasted.emit(item_id)
 
     def _save_image_as(self, item_id: int):
-        import os
+        from ..image_item_actions import save_image_item_as
 
-        from PySide6.QtGui import QImage
-        from PySide6.QtWidgets import QFileDialog
-        from ui.dialogs import show_warning_dialog
-        from core.save import SaveService
-
-        clipboard_item = self.controller.get_item(item_id)
-        if clipboard_item is None or clipboard_item.content_type != "image" or not clipboard_item.image_id:
-            return
-
-        image_data = self.manager.get_image_data(clipboard_item.image_id)
-        if not image_data:
-            show_warning_dialog(self, self.tr("Save Failed"), self.tr("Image data is unavailable."))
-            return
-
-        image = QImage()
-        if not image.loadFromData(image_data):
-            show_warning_dialog(self, self.tr("Save Failed"), self.tr("Failed to load image data."))
-            return
-
-        if clipboard_item.created_at:
-            default_name = f"clipboard_image_{clipboard_item.created_at.strftime('%Y%m%d_%H%M%S')}.png"
-        else:
-            default_name = f"clipboard_image_{clipboard_item.id}.png"
-
-        file_path, selected_filter = QFileDialog.getSaveFileName(
-            self,
-            self.tr("Save as"),
-            default_name,
-            self.tr("PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp);;WebP Image (*.webp);;PDF (*.pdf)"),
-        )
-        if not file_path:
-            return
-
-        image_format = self._format_from_save_filter(file_path, selected_filter)
-        if not os.path.splitext(file_path)[1]:
-            file_path = f"{file_path}.{image_format.lower()}"
-
-        save_service = SaveService()
-        if not save_service.save_qimage_to_path(image, file_path, image_format=image_format):
-            show_warning_dialog(self, self.tr("Save Failed"), self.tr("Failed to save image."))
-
-    @staticmethod
-    def _format_from_save_filter(file_path: str, selected_filter: str) -> str:
-        ext = os.path.splitext(file_path)[1].lstrip(".")
-        if ext:
-            return ext.upper()
-        # 从过滤器字符串中提取第一个扩展名，如 "JPEG (*.jpg *.jpeg)" → "jpg"
-        match = re.search(r'\*\.(\w+)', selected_filter)
-        if match:
-            return match.group(1).upper()
-        return "PNG"
+        save_image_item_as(self, self.manager, self.controller.get_item(item_id))
 
     def _open_file_location(self, item_id: int):
         import json

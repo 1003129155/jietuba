@@ -276,6 +276,7 @@ clipboard/
 │   └── manage_dialog_service.py  # persistence logic for the management window
 ├── ui/
 │   ├── layout_scale.py           # Shared size metrics for the management dialog
+│   ├── image_item_actions.py     # load and save-as for image items, shared by both windows
 │   ├── dialogs/
 │   │   └── manage_dialog.py      # three-pane management window for groups and content
 │   ├── forms/
@@ -283,7 +284,9 @@ clipboard/
 │   │   ├── text_content_form.py
 │   │   ├── file_content_form.py
 │   │   ├── import_export_form.py
-│   │   └── group_icon_picker.py
+│   │   ├── group_icon_picker.py
+│   │   ├── form_widgets.py
+│   │   └── image_content_form.py
 │   ├── menus/
 │   │   ├── action_menu.py
 │   │   ├── group_context_menu.py
@@ -298,11 +301,12 @@ clipboard/
 │   │   ├── themes.py
 │   │   └── theme_styles.py
 │   ├── widgets/
-│   │   ├── draggable_list_widget.py
 │   │   ├── group_bar.py
 │   │   ├── item_delegate.py
 │   │   ├── item_widget.py
-│   │   └── preview_popup.py
+│   │   ├── preview_popup.py
+│   │   ├── manage_rows.py
+│   │   └── reorder_list.py
 │   └── windows/
 │       ├── clipboard_window.py   # history window, search, preview, quick paste
 │       └── pin_window.py         # create pins from history items

@@ -23,6 +23,7 @@ import clipboard.ui.dialogs.manage_dialog as manage_dialog_mod
 from clipboard.controllers.clipboard_controller import ClipboardController
 from clipboard.core import ClipboardItem, Group, GroupType
 from clipboard.ui.dialogs.manage_dialog import ManageDialog
+from clipboard.ui.widgets.manage_rows import ICON_ROLE
 from core.i18n import I18nManager
 from core.ui_theme import DARK_TOKENS, LIGHT_TOKENS, get_ui_theme
 from ui.fluent_lite import LineEdit, TextEdit
@@ -43,6 +44,9 @@ class DummyClipboardManager:
         self.added_items = []
         self.move_requests = []
         self.updated_items = []
+        self.item_groups = {}
+        self.item_moves = []
+        self.group_moves = []
         self._next_item_id = 1
 
     @property
@@ -77,7 +81,7 @@ class DummyClipboardManager:
         return self.items.get(item_id)
 
     def get_by_group(self, group_id, offset=0, limit=50):
-        return []
+        return [item for item in self.items.values() if self.item_groups.get(item.id) == group_id]
 
     def add_item(self, content, content_type, title=None):
         item_id = self._next_item_id
@@ -98,6 +102,14 @@ class DummyClipboardManager:
 
     def delete_item(self, item_id):
         self.items.pop(item_id, None)
+        return True
+
+    def move_item_between(self, item_id, before_id=None, after_id=None):
+        self.item_moves.append((item_id, before_id, after_id))
+        return True
+
+    def move_group_between(self, group_id, before_id=None, after_id=None):
+        self.group_moves.append((group_id, before_id, after_id))
         return True
 
 
@@ -206,10 +218,10 @@ class TestManageDialog:
         original_mode = theme.mode
         try:
             theme.set_mode("light", persist=False)
-            assert LIGHT_TOKENS.surface_subtle in dlg.nav_column.styleSheet()
+            assert LIGHT_TOKENS.danger_soft in dlg.styleSheet()
 
             theme.set_mode("dark", persist=False)
-            assert DARK_TOKENS.surface_subtle in dlg.nav_column.styleSheet()
+            assert DARK_TOKENS.danger_soft in dlg.styleSheet()
             assert not hasattr(dlg, "_clipboard_theme_manager")
         finally:
             theme.set_mode(original_mode.value, persist=False)
@@ -274,8 +286,8 @@ class TestManageDialog:
 
         dlg._refresh_group_list()
 
-        texts = [dlg.list_widget.item(i).text() for i in range(dlg.list_widget.count())]
-        assert "⚡ 快速启动" in texts
+        rows = [dlg.group_list.item(i) for i in range(dlg.group_list.count())]
+        assert ("⚡", "快速启动") in [(row.data(ICON_ROLE), row.text()) for row in rows]
 
     def test_make_unique_group_name_appends_incremental_suffix(self, dialog):
         dlg, _manager = dialog
@@ -288,6 +300,7 @@ class TestManageDialog:
         warnings = []
         monkeypatch.setattr(manage_dialog_mod, "show_warning_dialog", lambda *args: warnings.append(args[2]))
 
+        dlg._show_new_group_form()
         dlg.group_name_input.setText("工作")
         dlg._save_group()
 
@@ -318,8 +331,8 @@ class TestManageDialog:
         dlg.refresh_after_external_change(deleted_group_id=2)
 
         assert dlg.editing_group_id is None
-        texts = [dlg.list_widget.item(i).text() for i in range(dlg.list_widget.count())]
-        assert all("学习" not in text for text in texts)
+        texts = [dlg.group_list.item(i).text() for i in range(dlg.group_list.count())]
+        assert "学习" not in texts
 
     def test_group_delete_clears_editing_state_without_warning(self, dialog, monkeypatch):
         dlg, manager = dialog

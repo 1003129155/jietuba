@@ -9,9 +9,10 @@
 from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QWidget
 
-from ui.fluent_lite import CaptionLabel, LineEdit
+from ui.fluent_lite import LineEdit
 from ui.fluent_lite.theme import ui_tokens
 from ..layout_scale import scale_ui, scale_x, scale_y
+from .form_widgets import field_hint
 
 try:
     from ..resources.emoji_data import get_emoji_groups, get_group_icon
@@ -23,38 +24,19 @@ def create_group_icon_picker(dialog, current_icon: str = "📁"):
     """创建分组图标选择器。"""
     form_token = getattr(dialog, "_detail_form_token", None)
     input_row = QHBoxLayout()
-    input_row.setSpacing(scale_x(12))
+    input_row.setSpacing(scale_ui(12))
+
+    dialog.icon_preview = _IconPreview(current_icon)
+    input_row.addWidget(dialog.icon_preview)
 
     dialog.icon_input = LineEdit()
     dialog.icon_input.setPlaceholderText(dialog.tr("Enter or paste emoji..."))
     dialog.icon_input.setText(current_icon)
     dialog.icon_input.setMaxLength(4)
-    dialog.icon_input.setStyleSheet(
-        dialog.icon_input.styleSheet()
-        + f"QLineEdit {{ font-size: {scale_ui(18)}px; "
-          f"min-width: {scale_x(120)}px; max-width: {scale_x(150)}px; }}"
-    )
+    dialog.icon_input.setFixedWidth(scale_ui(180))
     dialog.icon_input.textChanged.connect(lambda text, token=form_token: dialog._on_icon_input_changed(text, token))
     input_row.addWidget(dialog.icon_input)
-
-    preview_label = CaptionLabel(dialog.tr("Preview:"))
-    input_row.addWidget(preview_label)
-
-    dialog.icon_preview = QLabel(current_icon)
-    dialog.icon_preview.setFixedSize(scale_ui(48), scale_ui(48))
-    dialog.icon_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    tokens = ui_tokens(dialog)
-    dialog.icon_preview.setStyleSheet(
-        f"""
-            QLabel {{
-                font-size: {scale_ui(28)}px;
-                background: {tokens.surface_subtle};
-                border: 2px solid {tokens.border};
-                border-radius: {scale_ui(8)}px;
-            }}
-        """
-    )
-    input_row.addWidget(dialog.icon_preview)
+    input_row.addWidget(field_hint(dialog.tr("or pick one below")))
     input_row.addStretch()
     dialog.detail_layout.addLayout(input_row)
 
@@ -90,6 +72,23 @@ def create_group_icon_picker(dialog, current_icon: str = "📁"):
 
     dialog._emoji_current_idx = 0
     QTimer.singleShot(0, lambda token=form_token: dialog._switch_emoji_group(0, token))
+
+
+class _IconPreview(QLabel):
+    """当前分组图标的大号预览方块。"""
+
+    def __init__(self, icon: str):
+        super().__init__(icon)
+        self.setFixedSize(scale_ui(48), scale_ui(48))
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._apply_theme()
+
+    def _apply_theme(self, _tokens=None):
+        tokens = ui_tokens(self)
+        self.setStyleSheet(
+            f"QLabel {{ font-size: {scale_ui(26)}px; background: {tokens.accent_soft};"
+            f" border: none; border-radius: {scale_ui(12)}px; }}"
+        )
 
 
 def emoji_tab_style(active: bool, dialog=None) -> str:
@@ -152,6 +151,7 @@ def switch_emoji_group(dialog, group_idx: int):
     cols = max(1, avail_w // (btn_size + spacing))
 
     container = QWidget()
+    container.setStyleSheet("background: transparent;")
     container.setMaximumWidth(avail_w + scale_x(4))
     grid = QGridLayout(container)
     grid.setSpacing(spacing)
