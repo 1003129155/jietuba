@@ -57,6 +57,17 @@ class UIThemeTokens:
     popup_hover: str
     separator: str
     switch_off: str
+    # 白字压在 accent 上只有 3.4:1，不够正文对比度；实心按钮这类要承载白字
+    # 的填充改用深一档的 accent_strong（4.9:1），开关、指示条仍用 accent。
+    accent_strong: str
+    accent_strong_hover: str
+    accent_strong_pressed: str
+    # 浅强调底（accent_soft）上的文字和图标，比如导航与标签页的选中项。
+    accent_text: str
+    success: str
+    danger: str
+    danger_soft: str
+    status_idle: str
     selected_text: str = "#FFFFFF"
 
     @property
@@ -68,15 +79,19 @@ _COMMON = {
     "accent": "#6F8FAB",
     "accent_hover": "#627F99",
     "accent_pressed": "#526D85",
+    "accent_strong": "#58748D",
+    "accent_strong_hover": "#4F6A82",
+    "accent_strong_pressed": "#465E73",
 }
 
 LIGHT_TOKENS = UIThemeTokens(
     mode=UIThemeMode.LIGHT,
     **_COMMON,
     accent_soft="#DFE8EF",
-    window="#D9E3EC",
-    window_top="#DFE7EE",
-    window_bottom="#CDD8E2",
+    accent_text="#465E73",
+    window="#EEF0F3",
+    window_top="#F5F6F8",
+    window_bottom="#ECEEF1",
     surface="rgba(255, 255, 255, 0.92)",
     surface_strong="rgba(255, 255, 255, 0.98)",
     surface_subtle="rgba(248, 251, 253, 0.85)",
@@ -86,18 +101,23 @@ LIGHT_TOKENS = UIThemeTokens(
     text_disabled="#9AA39D",
     border="rgba(112, 130, 119, 0.20)",
     border_hover="rgba(76, 101, 86, 0.34)",
-    window_border="#B4C1CD",
+    window_border="#D3D7DC",
     input_background="#FFFFFF",
     popup_background="#FFFFFF",
     popup_hover="#EAF2FA",
     separator="rgba(98, 116, 105, 0.13)",
     switch_off="#C4CCC6",
+    success="#3E9B63",
+    danger="#CF4F4B",
+    danger_soft="#FBECEB",
+    status_idle="#BCC5BF",
 )
 
 DARK_TOKENS = UIThemeTokens(
     mode=UIThemeMode.DARK,
     **_COMMON,
     accent_soft="#31404C",
+    accent_text="#B9CCDD",
     window="#1B1E22",
     window_top="#24282D",
     window_bottom="#191C20",
@@ -116,6 +136,10 @@ DARK_TOKENS = UIThemeTokens(
     popup_hover="#363B42",
     separator="rgba(255, 255, 255, 0.10)",
     switch_off="#626A73",
+    success="#4FAE74",
+    danger="#E0605B",
+    danger_soft="rgba(224, 96, 91, 0.14)",
+    status_idle="#5A6168",
 )
 
 

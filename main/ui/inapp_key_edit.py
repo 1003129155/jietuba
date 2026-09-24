@@ -3,20 +3,20 @@
 应用内快捷键录入框
 
 与 HotkeyEdit 的区别：
-- 不检查系统热键冲突（不显示 ✅/❌）
+- 不检查系统热键冲突（没有状态图标）
 - 允许单个字母键（如 "C"）作为合法输入
 - 允许 Shift+字母 组合（如 "Shift+C"）
-- 样式更紧凑
 """
-from PySide6.QtWidgets import QLineEdit
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeyEvent, QKeySequence
 
 from core.shortcut_manager import MOUSE_BUTTON_MIDDLE, get_key_display_map
 from core import safe_event
 
+from .key_chip import KeyChipLineEdit
 
-class InAppKeyEdit(QLineEdit):
+
+class InAppKeyEdit(KeyChipLineEdit):
     """应用内快捷键录入框 — 点击后按下想要的键组合即可（也可按鼠标中键）"""
 
     # ShortcutManager 的应用内鼠标分发看这个标记来放行：不放行的话，指针只要
@@ -28,14 +28,12 @@ class InAppKeyEdit(QLineEdit):
         super().__init__(parent)
         self.setReadOnly(True)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setPlaceholderText("...")
 
     # ── 鼠标事件 ──────────────────────────────────────────
 
     @safe_event
     def mousePressEvent(self, event):
-        """中键录成绑定，其余按键交还给 QLineEdit（左键要用来获取焦点）。
+        """中键录成绑定，其余按键交还给按键块（左键获取焦点或点 × 清除）。
 
         只做中键：侧键走的是全局热键那套低级钩子，Qt 这里根本收不到；左右键
         在应用里到处都有用途，录成快捷键会让界面没法操作。

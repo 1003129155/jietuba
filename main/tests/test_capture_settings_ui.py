@@ -153,8 +153,8 @@ def test_global_hotkey_duplicates_are_marked_and_never_persisted(
 
     # 模拟用户把备用键改成与主键相同：两个输入框都应立即显示冲突。
     dialog.hotkey_input_2.setText("ctrl+shift+a")
-    assert dialog.hotkey_input.status_lbl.text() == "❌"
-    assert dialog.hotkey_input_2.status_lbl.text() == "❌"
+    assert dialog.hotkey_input.status_state == "error"
+    assert dialog.hotkey_input_2.status_state == "error"
 
     dialog.accept()
 
@@ -165,8 +165,8 @@ def test_global_hotkey_duplicates_are_marked_and_never_persisted(
 
     # 冲突解除后，两项恢复各自的系统可用性结果。
     dialog.hotkey_input_2.setText("ctrl+alt+b")
-    assert dialog.hotkey_input.status_lbl.text() == "✅"
-    assert dialog.hotkey_input_2.status_lbl.text() == "✅"
+    assert dialog.hotkey_input.status_state == "ok"
+    assert dialog.hotkey_input_2.status_state == "ok"
 
     dialog.deleteLater()
     qapp.processEvents()

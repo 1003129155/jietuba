@@ -3765,4 +3765,49 @@ SOFTWARE.</translation></message>
     <message><source>OK</source><translation>확인</translation></message>
     <message><source>Cancel</source><translation>취소</translation></message>
 </context>
+<context>
+    <name>KeyChip</name>
+    <message>
+        <source>Mouse Back</source>
+        <translation>마우스 뒤로 버튼</translation>
+    </message>
+    <message>
+        <source>Mouse Forward</source>
+        <translation>마우스 앞으로 버튼</translation>
+    </message>
+    <message>
+        <source>Add shortcut</source>
+        <translation>단축키 추가</translation>
+    </message>
+    <message>
+        <source>Press keys…</source>
+        <translation>키를 누르세요…</translation>
+    </message>
+</context>
+<context>
+    <name>HotkeyEdit</name>
+    <message>
+        <source>Not set</source>
+        <translation>설정 안 됨</translation>
+    </message>
+    <message>
+        <source>Available</source>
+        <translation>사용 가능</translation>
+    </message>
+    <message>
+        <source>Already in use by another app.</source>
+        <translation>다른 앱에서 사용 중입니다.</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Works anytime</source>
+        <translation>언제든지 실행됩니다</translation>
+    </message>
+    <message>
+        <source>Only in screenshot and pin windows</source>
+        <translation>스크린샷 및 고정 창에서만 작동</translation>
+    </message>
+</context>
 </TS>

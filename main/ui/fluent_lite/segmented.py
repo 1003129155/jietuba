@@ -33,8 +33,7 @@ class SegmentedWidget(QWidget):
             QPushButton {{ padding: {dialog_scaled(4)}px {dialog_scaled(14)}px; color: {t.text_muted}; background: transparent;
                 border: none; border-radius: {dialog_scaled(9)}px; font: {dialog_scaled(12)}px {FONT_FAMILY}; }}
             QPushButton:hover {{ color: {t.text}; background: {t.surface_subtle}; }}
-            QPushButton:checked {{ color: {t.text}; background: {t.surface_strong}; border: 1px solid {t.border};
-                font-weight: 600; }}
+            QPushButton:checked {{ color: {t.accent_text}; background: {t.accent_soft}; font-weight: 600; }}
         """
 
     def _apply_theme(self, _tokens=None):

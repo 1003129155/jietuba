@@ -257,7 +257,7 @@ def test_manage_dialog_scales_static_and_rebuilt_detail_controls(qapp):
         assert dialog.save_btn.property("dialog_scale_factor") == 1.5
         assert "font: 600 20px" in dialog.save_btn.styleSheet()
         assert not hasattr(dialog, "nav_title")
-        assert "font-size: 22px" in dialog.list_widget.styleSheet()
+        assert "font-size: 18px" in dialog.list_widget.styleSheet()
         assert "padding: 9px" in dialog.list_widget.styleSheet()
 
         first_name_input = dialog.group_name_input
@@ -626,12 +626,10 @@ def test_settings_footer_icons_keep_their_size_across_theme_changes(
     get_dialog_scale().set_percent(150)
     dialog = SettingsDialog()
     try:
-        assert dialog._footer_cancel_btn.iconSize().width() == dialog_scaled(22)
-        assert dialog._footer_ok_btn.iconSize().width() == dialog_scaled(23)
+        assert dialog._footer_ok_btn.iconSize().width() == dialog_scaled(16)
 
         toggle_app_theme()
-        assert dialog._footer_cancel_btn.iconSize().width() == dialog_scaled(22)
-        assert dialog._footer_ok_btn.iconSize().width() == dialog_scaled(23)
+        assert dialog._footer_ok_btn.iconSize().width() == dialog_scaled(16)
     finally:
         dialog.hide()
         dialog.deleteLater()

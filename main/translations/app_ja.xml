@@ -3806,4 +3806,49 @@ SOFTWARE.</translation></message>
     <message><source>OK</source><translation>OK</translation></message>
     <message><source>Cancel</source><translation>キャンセル</translation></message>
 </context>
+<context>
+    <name>KeyChip</name>
+    <message>
+        <source>Mouse Back</source>
+        <translation>マウスの戻るボタン</translation>
+    </message>
+    <message>
+        <source>Mouse Forward</source>
+        <translation>マウスの進むボタン</translation>
+    </message>
+    <message>
+        <source>Add shortcut</source>
+        <translation>ショートカットを追加</translation>
+    </message>
+    <message>
+        <source>Press keys…</source>
+        <translation>キーを押してください…</translation>
+    </message>
+</context>
+<context>
+    <name>HotkeyEdit</name>
+    <message>
+        <source>Not set</source>
+        <translation>未設定</translation>
+    </message>
+    <message>
+        <source>Available</source>
+        <translation>使用可能</translation>
+    </message>
+    <message>
+        <source>Already in use by another app.</source>
+        <translation>他のアプリで使用中です。</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Works anytime</source>
+        <translation>いつでも呼び出せます</translation>
+    </message>
+    <message>
+        <source>Only in screenshot and pin windows</source>
+        <translation>スクリーンショットとピン留め画像のウィンドウでのみ有効</translation>
+    </message>
+</context>
 </TS>

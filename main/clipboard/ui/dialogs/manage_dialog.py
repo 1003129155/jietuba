@@ -247,7 +247,7 @@ class ManageDialog(FrostedFramelessDialog):
                 border: none;
                 outline: none;
                 color: {tokens.text};
-                font-size: {scale_ui(13)}px;
+                font-size: {scale_ui(11)}px;
             }}
             QListWidget::item {{
                 padding: {scale_y(5)}px {scale_x(12)}px;
@@ -508,7 +508,7 @@ class ManageDialog(FrostedFramelessDialog):
         header_layout.setSpacing(scale_y(8))
 
         self.list_title = BodyLabel(self.tr("Group List"))
-        self.list_title.setStyleSheet(f"font-size: {scale_ui(13)}px; font-weight: 500; background: transparent;")
+        self.list_title.setStyleSheet(f"font-size: {scale_ui(11)}px; font-weight: 500; background: transparent;")
         header_layout.addWidget(self.list_title)
 
         self.group_combo = ComboBox()

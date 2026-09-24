@@ -404,7 +404,7 @@ class TestHotkeyEditMouseCapture:
         widget.edit._shortcut_handler.handle_mouse_hotkey(MOUSE_BUTTON_BACK, None)
         assert widget.text() == MOUSE_BUTTON_BACK
         widget._check_availability_now()
-        assert widget.status_lbl.text() == "✅"
+        assert widget.status_state == "ok"
 
     def test_focus_acquires_and_releases_the_side_button_hold(self, qapp, clean_mouse_registry):
         """失焦必须把独占还回去，否则用户关掉设置窗口后侧键还在被我们吞。"""

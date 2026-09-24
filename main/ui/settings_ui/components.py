@@ -5,7 +5,7 @@
 from PySide6.QtWidgets import (
     QWidget, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QSizePolicy,
 )
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QRect, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QPainter
 from core import safe_event
 from core.ui_scale import dialog_scaled
@@ -14,6 +14,18 @@ from core.ui_theme import get_ui_theme
 from ui.fluent_lite import (
     SwitchButton, SimpleCardWidget, SwitchSettingCard as _SwitchSettingCard, SettingCardGroup as _SettingCardGroupBase,
 )
+from ui.fluent_lite.theme import css_color, tinted_icon
+
+
+# 四个全局功能各有固定色相，饱和度压低，和蓝灰强调色放在一起不跳；
+# 其余设置行统一用 neutral。每项是 ((浅色底, 浅色图标), (深色底, 深色图标))。
+FEATURE_TONES = {
+    "capture": (("#F3E3E3", "#B0575A"), ("rgba(227, 154, 156, 0.16)", "#E39A9C")),
+    "clipboard": (("#E1EEE6", "#4E8A67"), ("rgba(140, 201, 165, 0.15)", "#8CC9A5")),
+    "pin": (("#F5EAD9", "#9E6B28"), ("rgba(224, 176, 112, 0.15)", "#E0B070")),
+    "translate": (("#E9E4F3", "#7A63A8"), ("rgba(183, 163, 227, 0.16)", "#B7A3E3")),
+    "neutral": (("#E3EAF0", "#526D85"), ("rgba(111, 143, 171, 0.20)", "#AFC3D4")),
+}
 
 
 def theme_color(light: str, dark: str) -> str:
@@ -22,11 +34,7 @@ def theme_color(light: str, dark: str) -> str:
 
 
 def theme_surface_color() -> str:
-    return theme_color("rgba(239, 244, 250, 0.91)", "#202124")
-
-
-def theme_sidebar_color() -> str:
-    return theme_color("rgba(246, 249, 252, 0.54)", "#25272B")
+    return theme_color("#FAFBFC", "#202124")
 
 
 def theme_border_color() -> str:
@@ -262,6 +270,113 @@ class WhiteCard(QFrame):
             painter.setBrush(QColor(255, 255, 255, 46))
             painter.setPen(QColor(255, 255, 255, 76))
         painter.drawRoundedRect(rect, dialog_scaled(11), dialog_scaled(11))
+
+
+class IconBadge(QWidget):
+    """设置行左侧的图标块。
+
+    tone 取 FEATURE_TONES 的键时画带底色的方块；为 None 时只画图标，
+    muted 决定图标用次要文字色还是正文色。
+    """
+
+    def __init__(self, icon, tone="neutral", parent=None, *, size=36, icon_size=20, muted=True):
+        super().__init__(parent)
+        self._icon = icon
+        self._tone = tone
+        self._icon_size = icon_size
+        self._muted = muted
+        self.setFixedSize(dialog_scaled(size), dialog_scaled(size))
+        get_ui_theme().theme_changed.connect(self.update)
+
+    @safe_event
+    def paintEvent(self, e):
+        t = get_ui_theme().tokens
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        if self._tone is None:
+            fg = t.text_muted if self._muted else t.text
+        else:
+            bg, fg = FEATURE_TONES[self._tone][1 if t.is_dark else 0]
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(css_color(bg))
+            radius = dialog_scaled(10)
+            painter.drawRoundedRect(QRectF(self.rect()), radius, radius)
+        if self._icon is None:
+            return
+        side = dialog_scaled(self._icon_size)
+        target = QRect(0, 0, side, side)
+        target.moveCenter(self.rect().center())
+        tinted_icon(self._icon, fg).paint(painter, target)
+
+
+class _Separator(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedHeight(1)
+        get_ui_theme().theme_changed.connect(self.update)
+
+    @safe_event
+    def paintEvent(self, e):
+        QPainter(self).fillRect(self.rect(), css_color(get_ui_theme().tokens.separator))
+
+
+class SectionCard(QFrame):
+    """标题放在卡片内的设置分组：图标 + 标题 + 一句说明，下面逐行排列。
+
+    用普通布局而不是 SettingCardGroup 的 ExpandLayout，高度跟着内容走，
+    不需要手动 setFixedHeight。
+    """
+
+    def __init__(self, icon, title, caption="", parent=None):
+        super().__init__(parent)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.bodyLayout = QVBoxLayout(self)
+        self.bodyLayout.setContentsMargins(dialog_scaled(20), 0, dialog_scaled(20), dialog_scaled(4))
+        self.bodyLayout.setSpacing(0)
+
+        header = QWidget(self)
+        header.setFixedHeight(dialog_scaled(50))
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(dialog_scaled(10))
+        header_layout.addWidget(
+            IconBadge(icon, None, header, size=20, icon_size=19, muted=False)
+        )
+        self.titleLabel = QLabel(title, header)
+        apply_theme_text_style(self.titleLabel, 15, bold=True)
+        header_layout.addWidget(self.titleLabel)
+        self.captionLabel = None
+        if caption:
+            self.captionLabel = QLabel(caption, header)
+            apply_theme_text_style(self.captionLabel, 12, caption=True)
+            header_layout.addWidget(self.captionLabel)
+        header_layout.addStretch(1)
+        self.bodyLayout.addWidget(header)
+        get_ui_theme().theme_changed.connect(self.update)
+
+    def addRow(self, widget: QWidget):
+        """加一行，上方带分隔线。"""
+        add_separated_row(self.bodyLayout, widget)
+
+    def addWidget(self, widget: QWidget):
+        """加一块不带分隔线的内容（标签页切换条这类）。"""
+        self.bodyLayout.addWidget(widget)
+
+    @safe_event
+    def paintEvent(self, e):
+        t = get_ui_theme().tokens
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(css_color(t.border))
+        painter.setBrush(css_color(t.surface))
+        radius = dialog_scaled(15)
+        painter.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), radius, radius)
+
+
+def add_separated_row(layout, widget: QWidget):
+    """往竖排布局里加一行，上方带一条主题色分隔线。"""
+    layout.addWidget(_Separator(widget.parentWidget()))
+    layout.addWidget(widget)
 
 
 def make_switch_card(dialog, icon, title, content, checked, attr_name, parent=None):

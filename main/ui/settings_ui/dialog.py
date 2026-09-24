@@ -25,7 +25,7 @@ from ui.fluent_lite import (
     FrostedFramelessDialog,
 )
 from ui.fluent_lite import FluentTitleBar, scrollbar_qss
-from ui.fluent_lite.theme import ACCENT, ACCENT_HOVER, ACCENT_PRESSED
+from ui.fluent_lite.theme import ACCENT
 
 from core import log_info, safe_event
 from core.logger import log_exception, T
@@ -45,28 +45,11 @@ from .page_appearance import create_appearance_page
 from .page_developer import create_developer_page
 from .page_about import create_about_page
 from .components import (
-    theme_surface_color, theme_sidebar_color,
+    theme_surface_color,
     theme_input_background, theme_popup_background,
     theme_popup_hover_background, theme_text_style, theme_menu_style, theme_color, refresh_theme_widget_styles,
     apply_theme_text_style,
 )
-
-
-class _FooterPrimaryButton(PrimaryPushButton):
-    """Large dialog action button with a subtle trailing sparkle."""
-
-    def __init__(self, text, parent=None):
-        super().__init__(text, parent)
-        self._sparkle = QLabel(self)
-        self._sparkle.setFixedSize(dialog_scaled(18), dialog_scaled(22))
-        self._sparkle.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._sparkle.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        self._sparkle.setPixmap(FluentIcon.SPARKLE.icon().pixmap(dialog_scaled(16), dialog_scaled(16)))
-        self._sparkle.setStyleSheet("background: transparent; border: none;")
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._sparkle.move(self.width() - dialog_scaled(24), (self.height() - self._sparkle.height()) // 2)
 
 
 def save_inapp_shortcut_edits(config_manager, edits):
@@ -477,82 +460,32 @@ class SettingsDialog(FrostedFramelessDialog):
     def _create_button_area(self):
         s = dialog_scaled
         layout = QHBoxLayout()
-        layout.setSpacing(s(12))
+        layout.setSpacing(s(10))
 
         # The footer sits outside content_stack, so its controls are not
         # covered by the sweep in _setup_ui and have to opt in themselves.
         reset_btn = TransparentPushButton(self.tr("Reset This Page"))
         configure_dialog_control(reset_btn)
         reset_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        reset_btn.setIcon(FluentIcon.DELETE)
+        reset_btn.setIcon(FluentIcon.SYNC)
         reset_btn.clicked.connect(self._reset_current_page)
 
         cancel_btn = FluentPushButton(self.tr("Cancel"))
         configure_dialog_control(cancel_btn)
         self._footer_cancel_btn = cancel_btn
-        cancel_btn.setFixedHeight(s(46))
-        cancel_btn.setMinimumWidth(s(150))
+        cancel_btn.setFixedHeight(s(42))
+        cancel_btn.setMinimumWidth(s(120))
         cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        cancel_btn.setIcon(FluentIcon.CANCEL)
-        cancel_btn.setBaseIconSize(22)
-        cancel_btn.setStyleSheet(f"""
-            QPushButton {{
-                min-height: {s(44)}px;
-                padding: 0 {s(24)}px;
-                color: #20262D;
-                background: rgba(255, 255, 255, 0.18);
-                border: 1px solid rgba(77, 88, 101, 0.38);
-                border-radius: {s(12)}px;
-                font-size: {s(17)}px;
-                font-weight: 500;
-                outline: none;
-            }}
-            QPushButton:hover {{
-                background: rgba(255, 255, 255, 0.46);
-                border-color: rgba(55, 68, 82, 0.55);
-            }}
-            QPushButton:pressed {{
-                background: rgba(220, 228, 236, 0.60);
-                border-color: rgba(55, 68, 82, 0.66);
-            }}
-        """)
         cancel_btn.clicked.connect(self.reject)
 
-        ok_btn = _FooterPrimaryButton(self.tr("Apply"))
+        ok_btn = PrimaryPushButton(self.tr("Apply"))
         configure_dialog_control(ok_btn)
         self._footer_ok_btn = ok_btn
-        ok_btn.setFixedHeight(s(46))
-        ok_btn.setMinimumWidth(s(150))
+        ok_btn.setFixedHeight(s(42))
+        ok_btn.setMinimumWidth(s(120))
         ok_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         ok_btn.setIcon(FluentIcon.CHECK)
-        ok_btn.setBaseIconSize(23)
-        ok_btn.setStyleSheet("""
-            QPushButton {
-                min-height: %dpx;
-                padding: 0 %dpx;
-                color: white;
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #91AABD, stop:0.52 %s, stop:1 #607F9A);
-                border: 1px solid rgba(255, 255, 255, 0.34);
-                border-radius: %dpx;
-                font-size: %dpx;
-                font-weight: 600;
-                outline: none;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #9AAFC0, stop:0.52 %s, stop:1 #58748D);
-            }
-            QPushButton:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 %s, stop:1 #465E73);
-                padding-top: 2px;
-            }
-            QPushButton:disabled {
-                color: rgba(255, 255, 255, 0.72);
-                background: rgba(151, 170, 186, 0.68);
-            }
-        """ % (s(44), s(25), ACCENT, s(12), s(17), ACCENT_HOVER, ACCENT_PRESSED))
+        ok_btn.setBaseIconSize(16)
         ok_btn.clicked.connect(self.accept)
         self._apply_footer_styles()
 
@@ -570,19 +503,18 @@ class SettingsDialog(FrostedFramelessDialog):
         if cancel_btn is not None:
             cancel_btn.setStyleSheet(f"""
                 QPushButton {{
-                    min-height: {s(44)}px;
-                    padding: 0 {s(24)}px;
+                    min-height: {s(40)}px;
+                    padding: 0 {s(22)}px;
                     color: {t.text};
                     background: {t.surface};
                     border: 1px solid {t.border_hover};
                     border-radius: {s(12)}px;
-                    font-size: {s(17)}px;
+                    font-size: {s(15)}px;
                     font-weight: 500;
                     outline: none;
                 }}
                 QPushButton:hover {{
                     background: {t.surface_hover};
-                    border-color: {t.border_hover};
                 }}
                 QPushButton:pressed {{
                     background: {t.surface_subtle};
@@ -592,26 +524,28 @@ class SettingsDialog(FrostedFramelessDialog):
         if ok_btn is not None:
             ok_btn.setStyleSheet(f"""
                 QPushButton {{
-                    min-height: {s(44)}px;
-                    padding: 0 {s(25)}px;
+                    min-height: {s(40)}px;
+                    padding: 0 {s(22)}px;
                     color: #FFFFFF;
-                    background: {t.accent};
-                    border: 1px solid rgba(255, 255, 255, 0.28);
+                    background: {t.accent_strong};
+                    border: 1px solid {t.accent_strong};
                     border-radius: {s(12)}px;
-                    font-size: {s(17)}px;
+                    font-size: {s(15)}px;
                     font-weight: 600;
                     outline: none;
                 }}
                 QPushButton:hover {{
-                    background: {t.accent_hover};
+                    background: {t.accent_strong_hover};
+                    border-color: {t.accent_strong_hover};
                 }}
                 QPushButton:pressed {{
-                    background: {t.accent_pressed};
-                    padding-top: 2px;
+                    background: {t.accent_strong_pressed};
+                    border-color: {t.accent_strong_pressed};
                 }}
                 QPushButton:disabled {{
                     color: rgba(255, 255, 255, 0.72);
                     background: #687D8F;
+                    border-color: #687D8F;
                 }}
             """)
 
@@ -1155,14 +1089,15 @@ class SettingsDialog(FrostedFramelessDialog):
                 border: none;
             }}
             QWidget#SettingsLeftPanel {{
-                background-color: {theme_sidebar_color()};
+                /* 侧栏直接坐在窗口底色上，不再单独成块。 */
+                background-color: transparent;
                 border: none;
-                border-radius: 8px;
+                border-radius: 12px;
             }}
             QWidget#SettingsRightArea {{
                 background: {theme_surface_color()};
-                border: none;
-                border-radius: 8px;
+                border: 1px solid {tokens.separator};
+                border-radius: 12px;
             }}
             QLabel {{
                 color: {tokens.text};
@@ -1178,22 +1113,11 @@ class SettingsDialog(FrostedFramelessDialog):
         refresh_theme_widget_styles(self)
         self._apply_footer_styles()
         input_style = self._get_input_style()
-        for attr in (
-            "hotkey_input", "hotkey_input_2",
-            "clipboard_hotkey_edit", "clipboard_hotkey_edit_2",
-            "translation_hotkey_edit", "translation_hotkey_edit_2",
-            "pin_clipboard_hotkey_edit", "pin_clipboard_hotkey_edit_2",
-        ):
-            widget = getattr(self, attr, None)
-            if widget is not None:
-                widget.setStyleSheet(input_style)
         # 翻译凭据的输入框是按声明动态建的，从 provider_field_widgets 取。
         # 上面那张手写清单里 azure/baidu 一直缺席，切主题时它们不跟着变。
         for widget in getattr(self, "provider_field_widgets", {}).values():
             if hasattr(widget, "setEchoMode"):
                 widget.setStyleSheet(input_style)
-        for widget in getattr(self, "_inapp_edits", {}).values():
-            widget.setStyleSheet(input_style)
         self.content_title.setStyleSheet(
             theme_text_style(
                 21, bold=True,

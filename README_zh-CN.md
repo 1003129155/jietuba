@@ -653,6 +653,7 @@ ui/
 ├── color_picker_button.py   # ColorPickerButton — 颜色选择按钮
 ├── hotkey_edit.py           # HotkeyEdit — 全局快捷键编辑框
 ├── inapp_key_edit.py        # InAppKeyEdit — 应用内快捷键编辑框
+├── key_chip.py              # KeyChipLineEdit / StatusIcon — 快捷键按键块与状态图标
 ├── mask_overlay.py          # 遮罩覆盖层
 ├── selection_overlay.py     # SelectionOverlayWidget — 选区装饰浮层，压在遮罩之上
 ├── base_settings_panel.py   # BaseSettingsPanel / StepperWidget — 设置面板基类

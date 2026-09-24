@@ -577,6 +577,7 @@ ui/
 ├── color_picker_button.py   # ColorPickerButton — color selection button
 ├── hotkey_edit.py           # HotkeyEdit — global hotkey editor
 ├── inapp_key_edit.py        # InAppKeyEdit — in-app shortcut editor
+├── key_chip.py              # KeyChipLineEdit / StatusIcon — shared shortcut chip look
 ├── mask_overlay.py          # mask overlay layer
 ├── selection_overlay.py     # SelectionOverlayWidget — selection chrome layer above the mask
 ├── base_settings_panel.py   # BaseSettingsPanel / StepperWidget — settings panel base class

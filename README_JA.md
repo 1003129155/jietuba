@@ -576,6 +576,7 @@ ui/
 ├── color_picker_button.py   # ColorPickerButton — カラー選択ボタン
 ├── hotkey_edit.py           # HotkeyEdit — グローバルホットキーエディター
 ├── inapp_key_edit.py        # InAppKeyEdit — アプリ内ショートカットエディター
+├── key_chip.py              # KeyChipLineEdit / StatusIcon — ショートカットのキー表示と状態アイコン
 ├── mask_overlay.py          # マスクオーバーレイヤー
 ├── selection_overlay.py     # SelectionOverlayWidget — マスク上に重なる選択装飾レイヤー
 ├── base_settings_panel.py   # BaseSettingsPanel / StepperWidget — 設定パネル基底クラス

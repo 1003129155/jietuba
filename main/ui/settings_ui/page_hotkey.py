@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """快捷键设置页 — Fluent Design"""
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea,
@@ -6,19 +6,19 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
+from core.resource_manager import ResourceManager
 from core.ui_scale import dialog_scaled
 from ui.dialogs import show_confirm_dialog
 from ui.fluent_lite import (
-    ComboBox, CaptionLabel, SegmentedWidget,
+    ComboBox, CaptionLabel, FluentIcon, SegmentedWidget,
 )
 from ui.fluent_lite.theme import ACCENT
-from .components import SettingCardGroup, WhiteCard, apply_theme_text_style
+from .components import IconBadge, SectionCard, add_separated_row, apply_theme_text_style
 from ..hotkey_edit import HotkeyEdit, validate_hotkey_group
 from ..inapp_key_edit import InAppKeyEdit
+from ..key_chip import CHIP_WIDTH, STATUS_GAP, STATUS_SIZE, format_shortcut_text
 from settings import ANNOTATION_TOOL_SHORTCUTS
-from core.shortcut_manager import (
-    inapp_shortcut_display_text, is_reserved_inapp_shortcut,
-)
+from core.shortcut_manager import is_reserved_inapp_shortcut
 
 
 # ── 应用内快捷键定义表（分组）──────────────────────────────
@@ -50,9 +50,36 @@ TOOL_KEYS = [
 
 INAPP_KEYS = SCREENSHOT_KEYS + TOOL_KEYS + PIN_KEYS
 
-_EDIT_W = 140
-_EDIT_H = 28
-_SEGMENT_HINT_STYLE = "font-size: 13px; background: transparent;"
+# 应用内各项的行图标，尽量沿用工具栏上同一功能的图标。字符串是 svg/ 下的文件名。
+# 行图标会被整体着色，工具栏的序号图标是白底圆，着色后只剩实心圆点，所以用线框版。
+_INAPP_ICONS = {
+    "inapp_confirm": "确定.svg",
+    "inapp_pin": "钉图.svg",
+    "inapp_undo": "撤回.svg",
+    "inapp_redo": "复原.svg",
+    "inapp_delete": FluentIcon.DELETE,
+    "inapp_restore_last_region": FluentIcon.HISTORY,
+    "inapp_zoom_in": FluentIcon.SEARCH,
+    "inapp_zoom_out": FluentIcon.SEARCH,
+    "inapp_translate": FluentIcon.LANGUAGE,
+    "inapp_text_recognize": "文字识别.svg",
+    "inapp_tool_cursor": "鼠标.svg",
+    "inapp_tool_pen": "画笔.svg",
+    "inapp_tool_highlighter": "荧光笔.svg",
+    "inapp_tool_mosaic": "马赛克.svg",
+    "inapp_tool_arrow": "箭头.svg",
+    "inapp_tool_number": "序号线框.svg",
+    "inapp_tool_rect": "方框.svg",
+    "inapp_tool_ellipse": "圆框.svg",
+    "inapp_tool_text": "文字.svg",
+    "inapp_tool_eraser": "橡皮.svg",
+    "inapp_copy_pin": "复制.svg",
+    "inapp_copy_pin_text": "文字识别.svg",
+    "inapp_pin_reset_size": "长截图.svg",
+    "inapp_thumbnail": FluentIcon.HIDE,
+    "inapp_toggle_toolbar": "开发.svg",
+}
+_CURSOR_MOVE_ICON = "移动窗口.svg"
 
 # 全局快捷键同属一个冲突域；任意两个业务不能占用同一个实际按键。
 GLOBAL_HOTKEY_EDIT_ATTRS = (
@@ -65,6 +92,25 @@ GLOBAL_HOTKEY_EDIT_ATTRS = (
     "pin_clipboard_hotkey_edit",
     "pin_clipboard_hotkey_edit_2",
 )
+
+# (主键属性, 备用键属性, 标题, 色调, 图标, 读主键, 读备用键)
+_GLOBAL_ROWS = (
+    ("hotkey_input", "hotkey_input_2", "Screenshot Hotkey", "capture", FluentIcon.CAMERA,
+     lambda d: d.current_hotkey, lambda d: d.config_manager.get_hotkey_2()),
+    ("clipboard_hotkey_edit", "clipboard_hotkey_edit_2", "Clipboard Hotkey", "clipboard", FluentIcon.PASTE,
+     lambda d: d.config_manager.get_clipboard_hotkey(),
+     lambda d: d.config_manager.get_clipboard_hotkey_2()),
+    ("pin_clipboard_hotkey_edit", "pin_clipboard_hotkey_edit_2", "Pin Clipboard Image", "pin", FluentIcon.PIN,
+     lambda d: d.config_manager.get_pin_clipboard_hotkey(),
+     lambda d: d.config_manager.get_pin_clipboard_hotkey_2()),
+    ("translation_hotkey_edit", "translation_hotkey_edit_2", "Translation Hotkey", "translate", FluentIcon.LANGUAGE,
+     lambda d: d.config_manager.get_translation_hotkey(),
+     lambda d: d.config_manager.get_translation_hotkey_2()),
+)
+
+_INAPP_ROW_HEIGHT = 44
+# 应用内的按键块和全局的按键块右边缘对齐：后者右侧还有一个状态图标。
+_STATUS_COLUMN = STATUS_GAP + STATUS_SIZE
 
 
 def _iter_global_hotkey_edits(dialog):
@@ -85,30 +131,55 @@ def validate_global_hotkey_edits(dialog, *, check_system: bool = False) -> bool:
     )
 
 
-_ROW_HEIGHT = 46
-_ROW_SPACING = 8
+def _icon_ref(ref):
+    if isinstance(ref, str):
+        return ResourceManager.get_icon_path(ref)
+    return ref
 
 
-def _build_shortcut_row(dialog, parent, title: str, editor: QWidget) -> QWidget:
-    row_card = WhiteCard(parent)
-    row_card.setFixedHeight(dialog_scaled(_ROW_HEIGHT))
-
-    row_layout = QHBoxLayout(row_card)
-    row_layout.setContentsMargins(
-        dialog_scaled(16), 0, dialog_scaled(14), 0
-    )
-    row_layout.setSpacing(dialog_scaled(12))
-    row_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-
-    title_label = QLabel(title, row_card)
-    apply_theme_text_style(title_label, 14)
-    row_layout.addWidget(title_label, 1)
-    row_layout.addWidget(editor, 0, Qt.AlignmentFlag.AlignRight)
-    return row_card
+def _row_label(parent, text: str) -> QLabel:
+    label = QLabel(text, parent)
+    apply_theme_text_style(label, 14, extra="font-weight: 500;")
+    return label
 
 
-def _stack_page_height(row_count: int) -> int:
-    return row_count * dialog_scaled(_ROW_HEIGHT) + max(0, row_count - 1) * dialog_scaled(_ROW_SPACING)
+def _global_row(parent, title, tone, icon, editors) -> QWidget:
+    row = QWidget(parent)
+    layout = QHBoxLayout(row)
+    layout.setContentsMargins(0, dialog_scaled(8), 0, dialog_scaled(8))
+    layout.setSpacing(dialog_scaled(14))
+    layout.addWidget(IconBadge(icon, tone, row))
+    layout.addWidget(_row_label(row, title), 1)
+
+    column = QVBoxLayout()
+    column.setSpacing(dialog_scaled(5))
+    for edit in editors:
+        edit.setFixedWidth(dialog_scaled(CHIP_WIDTH + _STATUS_COLUMN))
+        column.addWidget(edit)
+    layout.addLayout(column)
+    return row
+
+
+def _inapp_row(parent, icon, title, editor) -> QWidget:
+    row = QWidget(parent)
+    row.setFixedHeight(dialog_scaled(_INAPP_ROW_HEIGHT))
+    layout = QHBoxLayout(row)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(dialog_scaled(14))
+    layout.addWidget(IconBadge(_icon_ref(icon) if icon else None, None, row))
+    layout.addWidget(_row_label(row, title), 1)
+
+    # 宽度定在外层槽位上：ComboBox 每次重算样式都会重设最小宽度，
+    # 直接对它 setFixedWidth 撑不住，会缩回内容宽度。
+    slot = QWidget(row)
+    slot.setFixedWidth(dialog_scaled(CHIP_WIDTH))
+    slot_layout = QHBoxLayout(slot)
+    slot_layout.setContentsMargins(0, 0, 0, 0)
+    slot_layout.addWidget(editor)
+    layout.addWidget(slot, 0, Qt.AlignmentFlag.AlignVCenter)
+    # 布局不会在控件和 spacer 之间再插 spacing，这段宽度就是全部间距。
+    layout.addSpacing(dialog_scaled(_STATUS_COLUMN))
+    return row
 
 
 def create_hotkey_page(dialog) -> QWidget:
@@ -120,145 +191,24 @@ def create_hotkey_page(dialog) -> QWidget:
     view = QWidget()
     view.setStyleSheet("background: transparent;")
     layout = QVBoxLayout(view)
-    layout.setContentsMargins(0, 0, 10, 0)
-    layout.setSpacing(20)
-
-    input_style = dialog._get_input_style()
+    layout.setContentsMargins(0, 0, dialog_scaled(10), 0)
+    layout.setSpacing(dialog_scaled(16))
 
     # ════ 全局热键 ════
-    grp_global = SettingCardGroup(dialog.tr("Global Hotkeys"), view)
-
-    # 截图热键（主 + 备用）
-    ss_card = WhiteCard(grp_global)
-    ss_h = QHBoxLayout(ss_card)
-    ss_h.setContentsMargins(dialog_scaled(20), dialog_scaled(8), dialog_scaled(20), dialog_scaled(8))
-    ss_h.setSpacing(dialog_scaled(12))
-
-    ss_lbl = QLabel(dialog.tr("Screenshot Hotkey"), ss_card)
-    apply_theme_text_style(ss_lbl, 15)
-    ss_h.addWidget(ss_lbl)
-    ss_h.addStretch()
-
-    ss_v = QVBoxLayout()
-    ss_v.setSpacing(dialog_scaled(5))
-    dialog.hotkey_input = HotkeyEdit()
-    dialog.hotkey_input.setText(dialog.current_hotkey)
-    dialog.hotkey_input.setPlaceholderText(dialog.tr("e.g.: ctrl+shift+a"))
-    dialog.hotkey_input.setFixedWidth(dialog_scaled(200))
-    dialog.hotkey_input.setStyleSheet(input_style)
-    ss_v.addWidget(dialog.hotkey_input)
-
-    dialog.hotkey_input_2 = HotkeyEdit()
-    dialog.hotkey_input_2.setText(dialog.config_manager.get_hotkey_2())
-    dialog.hotkey_input_2.setPlaceholderText(dialog.tr("e.g.: ctrl+shift+a"))
-    dialog.hotkey_input_2.setFixedWidth(dialog_scaled(200))
-    dialog.hotkey_input_2.setStyleSheet(input_style)
-    ss_v.addWidget(dialog.hotkey_input_2)
-    ss_h.addLayout(ss_v)
-    ss_card.setFixedHeight(dialog_scaled(80))
-    grp_global.addSettingCard(ss_card)
-
-    # 剪贴板热键（主 + 备用）
-    cb_card = WhiteCard(grp_global)
-    cb_h = QHBoxLayout(cb_card)
-    cb_h.setContentsMargins(dialog_scaled(20), dialog_scaled(8), dialog_scaled(20), dialog_scaled(8))
-    cb_h.setSpacing(dialog_scaled(12))
-
-    cb_lbl = QLabel(dialog.tr("Clipboard Hotkey"), cb_card)
-    apply_theme_text_style(cb_lbl, 15)
-    cb_h.addWidget(cb_lbl)
-    cb_h.addStretch()
-
-    cb_v = QVBoxLayout()
-    cb_v.setSpacing(dialog_scaled(5))
-    dialog.clipboard_hotkey_edit = HotkeyEdit()
-    dialog.clipboard_hotkey_edit.setText(dialog.config_manager.get_clipboard_hotkey())
-    dialog.clipboard_hotkey_edit.setPlaceholderText(dialog.tr("e.g.: ctrl+shift+a"))
-    dialog.clipboard_hotkey_edit.setFixedWidth(dialog_scaled(200))
-    dialog.clipboard_hotkey_edit.setStyleSheet(input_style)
-    cb_v.addWidget(dialog.clipboard_hotkey_edit)
-
-    dialog.clipboard_hotkey_edit_2 = HotkeyEdit()
-    dialog.clipboard_hotkey_edit_2.setText(dialog.config_manager.get_clipboard_hotkey_2())
-    dialog.clipboard_hotkey_edit_2.setPlaceholderText(dialog.tr("e.g.: ctrl+shift+a"))
-    dialog.clipboard_hotkey_edit_2.setFixedWidth(dialog_scaled(200))
-    dialog.clipboard_hotkey_edit_2.setStyleSheet(input_style)
-    cb_v.addWidget(dialog.clipboard_hotkey_edit_2)
-    cb_h.addLayout(cb_v)
-    cb_card.setFixedHeight(dialog_scaled(80))
-    grp_global.addSettingCard(cb_card)
-
-    # 钉住剪贴板图片热键（主 + 备用）
-    pin_card = WhiteCard(grp_global)
-    pin_h = QHBoxLayout(pin_card)
-    pin_h.setContentsMargins(dialog_scaled(20), dialog_scaled(8), dialog_scaled(20), dialog_scaled(8))
-    pin_h.setSpacing(dialog_scaled(12))
-
-    pin_lbl = QLabel(dialog.tr("Pin Clipboard Image"), pin_card)
-    apply_theme_text_style(pin_lbl, 15)
-    pin_h.addWidget(pin_lbl)
-    pin_h.addStretch()
-
-    pin_v = QVBoxLayout()
-    pin_v.setSpacing(dialog_scaled(5))
-    dialog.pin_clipboard_hotkey_edit = HotkeyEdit()
-    dialog.pin_clipboard_hotkey_edit.setText(
-        dialog.config_manager.get_pin_clipboard_hotkey()
+    grp_global = SectionCard(
+        ResourceManager.get_icon_path("热键.svg"),
+        dialog.tr("Global Hotkeys"),
+        dialog.tr("Works anytime"),
+        view,
     )
-    dialog.pin_clipboard_hotkey_edit.setPlaceholderText(dialog.tr("e.g.: ctrl+shift+a"))
-    dialog.pin_clipboard_hotkey_edit.setFixedWidth(dialog_scaled(200))
-    dialog.pin_clipboard_hotkey_edit.setStyleSheet(input_style)
-    pin_v.addWidget(dialog.pin_clipboard_hotkey_edit)
-
-    dialog.pin_clipboard_hotkey_edit_2 = HotkeyEdit()
-    dialog.pin_clipboard_hotkey_edit_2.setText(
-        dialog.config_manager.get_pin_clipboard_hotkey_2()
-    )
-    dialog.pin_clipboard_hotkey_edit_2.setPlaceholderText(dialog.tr("e.g.: ctrl+shift+a"))
-    dialog.pin_clipboard_hotkey_edit_2.setFixedWidth(dialog_scaled(200))
-    dialog.pin_clipboard_hotkey_edit_2.setStyleSheet(input_style)
-    pin_v.addWidget(dialog.pin_clipboard_hotkey_edit_2)
-    pin_h.addLayout(pin_v)
-    pin_card.setFixedHeight(dialog_scaled(80))
-    grp_global.addSettingCard(pin_card)
-
-    # 智能翻译热键（主 + 备用）
-    tr_card = WhiteCard(grp_global)
-    tr_h = QHBoxLayout(tr_card)
-    tr_h.setContentsMargins(dialog_scaled(20), dialog_scaled(8), dialog_scaled(20), dialog_scaled(8))
-    tr_h.setSpacing(dialog_scaled(12))
-
-    tr_lbl = QLabel(dialog.tr("Translation Hotkey"), tr_card)
-    apply_theme_text_style(tr_lbl, 15)
-    tr_h.addWidget(tr_lbl)
-    tr_h.addStretch()
-
-    tr_v = QVBoxLayout()
-    tr_v.setSpacing(dialog_scaled(5))
-    dialog.translation_hotkey_edit = HotkeyEdit()
-    dialog.translation_hotkey_edit.setText(
-        dialog.config_manager.get_translation_hotkey()
-    )
-    dialog.translation_hotkey_edit.setPlaceholderText(
-        dialog.tr("e.g.: ctrl+shift+a")
-    )
-    dialog.translation_hotkey_edit.setFixedWidth(dialog_scaled(200))
-    dialog.translation_hotkey_edit.setStyleSheet(input_style)
-    tr_v.addWidget(dialog.translation_hotkey_edit)
-
-    dialog.translation_hotkey_edit_2 = HotkeyEdit()
-    dialog.translation_hotkey_edit_2.setText(
-        dialog.config_manager.get_translation_hotkey_2()
-    )
-    dialog.translation_hotkey_edit_2.setPlaceholderText(
-        dialog.tr("e.g.: ctrl+shift+a")
-    )
-    dialog.translation_hotkey_edit_2.setFixedWidth(dialog_scaled(200))
-    dialog.translation_hotkey_edit_2.setStyleSheet(input_style)
-    tr_v.addWidget(dialog.translation_hotkey_edit_2)
-    tr_h.addLayout(tr_v)
-    tr_card.setFixedHeight(dialog_scaled(80))
-    grp_global.addSettingCard(tr_card)
+    for attr, attr_2, title, tone, icon, read, read_2 in _GLOBAL_ROWS:
+        editors = []
+        for name, reader in ((attr, read), (attr_2, read_2)):
+            edit = HotkeyEdit()
+            edit.setText(reader(dialog))
+            setattr(dialog, name, edit)
+            editors.append(edit)
+        grp_global.addRow(_global_row(grp_global, dialog.tr(title), tone, icon, editors))
 
     # 全局热键统一判重。连接放在所有输入框创建之后，避免初始化过程中
     # 只看到半组控件；最后主动跑一次，以识别配置文件里遗留的旧冲突。
@@ -271,53 +221,48 @@ def create_hotkey_page(dialog) -> QWidget:
     layout.addWidget(grp_global)
 
     # ════ 应用内快捷键 ════
-    grp_inapp = SettingCardGroup(dialog.tr("In-App Shortcuts"), view)
+    grp_inapp = SectionCard(
+        FluentIcon.LAYOUT,
+        dialog.tr("In-App Shortcuts"),
+        dialog.tr("Only in screenshot and pin windows"),
+        view,
+    )
 
     dialog._inapp_edits = {}
     dialog._inapp_groups = {}
 
-    tab_card = WhiteCard(grp_inapp)
-    tab_layout = QVBoxLayout(tab_card)
-    tab_layout.setContentsMargins(
-        dialog_scaled(16), dialog_scaled(16), dialog_scaled(16), dialog_scaled(16)
-    )
-    tab_layout.setSpacing(dialog_scaled(12))
-
-    tab_switch = SegmentedWidget(tab_card)
+    tab_switch = SegmentedWidget(grp_inapp)
     tab_switch.setFixedHeight(dialog_scaled(34))
     tab_switch.setIndicatorColor(ACCENT, ACCENT)
 
-    stack = QStackedWidget(tab_card)
+    stack = QStackedWidget(grp_inapp)
     stack.setObjectName("InAppShortcutStack")
     stack.setStyleSheet("#InAppShortcutStack { background: transparent; border: none; }")
 
-    def _build_tab(keys_list: list, group_name: str, extra_widgets=None) -> QWidget:
+    def _build_tab(keys_list: list, group_name: str, extra_rows=()) -> QWidget:
         page = QWidget()
         vbox = QVBoxLayout(page)
         vbox.setContentsMargins(0, 0, 0, 0)
-        vbox.setSpacing(dialog_scaled(_ROW_SPACING))
+        vbox.setSpacing(0)
 
-        for cfg_key, tr_src, default in keys_list:
+        for cfg_key, tr_src, _default in keys_list:
             edit = InAppKeyEdit()
-            edit.setFixedSize(dialog_scaled(_EDIT_W), dialog_scaled(_EDIT_H))
-            edit.setStyleSheet(input_style)
             value = dialog.config_manager.get_inapp_shortcut(cfg_key)
             edit.setText("" if is_reserved_inapp_shortcut(value) else value)
             dialog._inapp_edits[cfg_key] = edit
             dialog._inapp_groups[cfg_key] = group_name
+            add_separated_row(
+                vbox, _inapp_row(page, _INAPP_ICONS.get(cfg_key), dialog.tr(tr_src), edit)
+            )
 
-            vbox.addWidget(_build_shortcut_row(dialog, page, dialog.tr(tr_src), edit))
-
-        if extra_widgets:
-            for w in extra_widgets:
-                vbox.addWidget(w)
+        for build_row in extra_rows:
+            add_separated_row(vbox, build_row(page))
 
         vbox.addStretch(1)
         return page
 
     # 鼠标微移模式
     dialog.cursor_move_combo = ComboBox()
-    dialog.cursor_move_combo.setFixedSize(dialog_scaled(_EDIT_W), dialog_scaled(_EDIT_H))
     dialog.cursor_move_combo.addItem("WASD+↑↓←→", userData="both")
     dialog.cursor_move_combo.addItem("↑↓←→", userData="arrows")
     dialog.cursor_move_combo.addItem("WASD", userData="wasd")
@@ -327,12 +272,13 @@ def create_hotkey_page(dialog) -> QWidget:
     if idx >= 0:
         dialog.cursor_move_combo.setCurrentIndex(idx)
 
-    move_row = _build_shortcut_row(
-        dialog, tab_card, dialog.tr("Cursor Move Keys"), dialog.cursor_move_combo
-    )
-
     screenshot_tab = _build_tab(
-        SCREENSHOT_KEYS, "screenshot", extra_widgets=[move_row]
+        SCREENSHOT_KEYS, "screenshot",
+        extra_rows=[
+            lambda page: _inapp_row(
+                page, _CURSOR_MOVE_ICON, dialog.tr("Cursor Move Keys"), dialog.cursor_move_combo
+            )
+        ],
     )
     tools_tab = _build_tab(TOOL_KEYS, "screenshot")
     pin_tab = _build_tab(PIN_KEYS, "pin")
@@ -346,22 +292,18 @@ def create_hotkey_page(dialog) -> QWidget:
     tab_switch.addItem("pin", dialog.tr("Pin Shortcuts"), lambda: stack.setCurrentIndex(2))
     tab_switch.setCurrentItem("screenshot")
 
-    tab_layout.addWidget(tab_switch, 0, Qt.AlignmentFlag.AlignLeft)
-    tab_layout.addWidget(stack)
-
-    screenshot_h = _stack_page_height(len(SCREENSHOT_KEYS) + 1)
-    tools_h = _stack_page_height(len(TOOL_KEYS))
-    pin_h = _stack_page_height(len(PIN_KEYS))
-    stack.setMinimumHeight(max(screenshot_h, tools_h, pin_h))
-    tab_card.setFixedHeight(max(screenshot_h, tools_h, pin_h) + dialog_scaled(80))
-    grp_inapp.addSettingCard(tab_card)
+    tab_row = QWidget(grp_inapp)
+    tab_row_layout = QHBoxLayout(tab_row)
+    tab_row_layout.setContentsMargins(0, 0, 0, dialog_scaled(10))
+    tab_row_layout.addWidget(tab_switch)
+    tab_row_layout.addStretch(1)
+    grp_inapp.addWidget(tab_row)
+    grp_inapp.addWidget(stack)
 
     # 冲突检测
     for cfg_key, edit in dialog._inapp_edits.items():
         edit.textChanged.connect(
-            lambda text, k=cfg_key: _on_shortcut_changed(
-                dialog, k, text, input_style
-            )
+            lambda text, k=cfg_key: _on_shortcut_changed(dialog, k, text)
         )
 
     layout.addWidget(grp_inapp)
@@ -381,7 +323,7 @@ def create_hotkey_page(dialog) -> QWidget:
 
 # ── 输入后冲突检测（交互式弹窗）──────────────────────────
 
-def _on_shortcut_changed(dialog, changed_key: str, new_text: str, base_style: str):
+def _on_shortcut_changed(dialog, changed_key: str, new_text: str):
     """某个输入框值变化时，检查同组内是否冲突，弹窗询问是否替换"""
     new_text = new_text.strip().lower()
     # 忽略空值、未完成的中间态（如 "ctrl+"）
@@ -424,7 +366,7 @@ def _on_shortcut_changed(dialog, changed_key: str, new_text: str, base_style: st
         dialog,
         dialog.tr("Shortcut Conflict"),
         dialog.tr('"%1" is already used by "%2".\nReplace it?')
-            .replace('%1', inapp_shortcut_display_text(new_text))
+            .replace('%1', format_shortcut_text(new_text))
             .replace('%2', conflict_label),
     )
 
@@ -438,4 +380,3 @@ def _on_shortcut_changed(dialog, changed_key: str, new_text: str, base_style: st
 
     current_edit.blockSignals(False)
     conflict_edit.blockSignals(False)
- 

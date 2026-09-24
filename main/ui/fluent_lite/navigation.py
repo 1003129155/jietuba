@@ -3,12 +3,13 @@
 from enum import Enum
 
 from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QButtonGroup, QPushButton, QVBoxLayout, QWidget
 
 from core.ui_scale import dialog_scaled
 from core.ui_theme import get_ui_theme
 
-from .theme import ACCENT, FONT_FAMILY, to_qicon, ui_tokens
+from .theme import ACCENT, FONT_FAMILY, tinted_icon, to_qicon, ui_tokens
 
 
 class NavigationItemPosition(Enum):
@@ -41,7 +42,6 @@ class NavigationInterface(QWidget):
         button = QPushButton(str(text), self)
         button.setObjectName("FluentLiteNavItem")
         button.setCheckable(True)
-        button.setIcon(to_qicon(icon, button))
         button.setIconSize(QSize(dialog_scaled(18), dialog_scaled(18)))
         button.setCursor(Qt.CursorShape.PointingHandCursor)
         # Labels are already visible in the expanded navigation.  Creating a
@@ -49,22 +49,15 @@ class NavigationInterface(QWidget):
         # only opt in when a caller has genuinely extra context to show.
         if tooltip:
             button.setToolTip(str(tooltip))
-        button.setStyleSheet(f"""
-            QPushButton#FluentLiteNavItem {{ min-height: {dialog_scaled(40)}px; padding: {dialog_scaled(2)}px {dialog_scaled(13)}px; text-align: left;
-                color: #000000; background: transparent; border: 1px solid transparent; border-radius: {dialog_scaled(11)}px;
-                font: {dialog_scaled(13)}px {FONT_FAMILY}; }}
-            QPushButton#FluentLiteNavItem:hover {{ color: #000000; background: rgba(255,255,255,.46); }}
-            QPushButton#FluentLiteNavItem:checked {{ color: #000000; background: rgba(255,255,255,.82);
-                border: 1px solid rgba(255,255,255,.94); border-left: 4px solid {ACCENT};
-                padding-left: {dialog_scaled(10)}px; font-weight: 600; }}
-        """)
         button.clicked.connect(lambda checked=False, key=routeKey: self.setCurrentItem(key))
         if onClick:
             button.clicked.connect(onClick)
         self._group.addButton(button)
         self._items[routeKey] = button
         self._icons[routeKey] = icon
+        button.toggled.connect(lambda _checked, key=routeKey: self._apply_icon(key))
         self._style_button(button)
+        self._apply_icon(routeKey)
         target = self._bottom if position == NavigationItemPosition.BOTTOM else self._top
         target.addWidget(button)
         return button
@@ -75,16 +68,25 @@ class NavigationInterface(QWidget):
             QPushButton#FluentLiteNavItem {{ min-height: {dialog_scaled(40)}px; padding: {dialog_scaled(2)}px {dialog_scaled(13)}px; text-align: left;
                 color: {t.text}; background: transparent; border: 1px solid transparent; border-radius: {dialog_scaled(11)}px;
                 font: {dialog_scaled(13)}px {FONT_FAMILY}; }}
-            QPushButton#FluentLiteNavItem:hover {{ color: {t.text}; background: {t.surface_subtle}; }}
-            QPushButton#FluentLiteNavItem:checked {{ color: {t.text}; background: {t.surface_strong};
-                border: 1px solid {t.border}; border-left: 4px solid {ACCENT};
+            QPushButton#FluentLiteNavItem:hover {{ color: {t.text}; background: {t.surface_strong}; }}
+            QPushButton#FluentLiteNavItem:checked {{ color: {t.accent_text}; background: {t.accent_soft};
+                border: 1px solid transparent; border-left: 4px solid {ACCENT};
                 padding-left: {dialog_scaled(10)}px; font-weight: 600; }}
         """)
 
+    def _apply_icon(self, route_key):
+        """选中项的图标跟文字一起换成强调色，其余跟正文色。"""
+        button = self._items[route_key]
+        icon = self._icons[route_key]
+        if button.isChecked() and not isinstance(icon, QIcon):
+            button.setIcon(tinted_icon(icon, ui_tokens(button).accent_text))
+        else:
+            button.setIcon(to_qicon(icon, button))
+
     def _apply_theme(self, _tokens=None):
         for route_key, button in self._items.items():
-            button.setIcon(to_qicon(self._icons[route_key], button))
             self._style_button(button)
+            self._apply_icon(route_key)
 
     def setCurrentItem(self, routeKey):
         button = self._items.get(routeKey)

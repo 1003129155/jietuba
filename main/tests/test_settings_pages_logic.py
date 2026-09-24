@@ -153,21 +153,8 @@ class TestApplySizeToLabel:
 
 
 # ============================================================================
-# page_hotkey：布局高度与同组冲突检测
+# page_hotkey：按键表与同组冲突检测
 # ============================================================================
-
-class TestStackPageHeight:
-
-    def test_no_rows_take_no_height(self):
-        assert page_hotkey._stack_page_height(0) == 0
-
-    def test_single_row_has_no_spacing(self):
-        assert page_hotkey._stack_page_height(1) == 46
-
-    def test_each_extra_row_adds_its_height_plus_one_gap(self):
-        for rows, expected in ((2, 100), (3, 154), (8, 424)):
-            assert page_hotkey._stack_page_height(rows) == expected, rows
-
 
 class TestShortcutKeyTables:
     """常量表是冲突检测和默认值回退的数据源，结构错了两处逻辑一起失效"""
@@ -231,7 +218,7 @@ class TestShortcutConflictDetection:
         edits = {"inapp_undo": _Edit("ctrl+z"), "inapp_redo": _Edit("ctrl+z")}
         dialog = _hotkey_dialog(edits, {"inapp_undo": "shot", "inapp_redo": "shot"})
         for text in ("", "   "):
-            page_hotkey._on_shortcut_changed(dialog, "inapp_redo", text, "")
+            page_hotkey._on_shortcut_changed(dialog, "inapp_redo", text)
         assert asked == []
 
     def test_half_typed_combination_is_ignored(self, monkeypatch):
@@ -240,7 +227,7 @@ class TestShortcutConflictDetection:
                             lambda *a, **k: asked.append(a) or True)
         edits = {"inapp_undo": _Edit("ctrl+"), "inapp_redo": _Edit("ctrl+")}
         dialog = _hotkey_dialog(edits, {"inapp_undo": "shot", "inapp_redo": "shot"})
-        page_hotkey._on_shortcut_changed(dialog, "inapp_redo", "ctrl+", "")
+        page_hotkey._on_shortcut_changed(dialog, "inapp_redo", "ctrl+")
         assert asked == []
 
     def test_distinct_shortcuts_raise_no_conflict(self, monkeypatch):
@@ -249,7 +236,7 @@ class TestShortcutConflictDetection:
                             lambda *a, **k: asked.append(a) or True)
         edits = {"inapp_undo": _Edit("ctrl+z"), "inapp_redo": _Edit("ctrl+y")}
         dialog = _hotkey_dialog(edits, {"inapp_undo": "shot", "inapp_redo": "shot"})
-        page_hotkey._on_shortcut_changed(dialog, "inapp_redo", "ctrl+y", "")
+        page_hotkey._on_shortcut_changed(dialog, "inapp_redo", "ctrl+y")
         assert asked == []
 
     def test_same_shortcut_in_a_different_group_is_allowed(self, monkeypatch):
@@ -263,7 +250,7 @@ class TestShortcutConflictDetection:
         edits = {"inapp_confirm": _Edit("ctrl+c"), "inapp_copy_pin": _Edit("ctrl+c")}
         dialog = _hotkey_dialog(
             edits, {"inapp_confirm": "shot", "inapp_copy_pin": "pin"})
-        page_hotkey._on_shortcut_changed(dialog, "inapp_copy_pin", "ctrl+c", "")
+        page_hotkey._on_shortcut_changed(dialog, "inapp_copy_pin", "ctrl+c")
         assert asked == []
 
     def test_comparison_ignores_case_and_padding(self, monkeypatch):
@@ -272,14 +259,14 @@ class TestShortcutConflictDetection:
                             lambda *a, **k: asked.append(a) or True)
         edits = {"inapp_undo": _Edit("  CTRL+Z  "), "inapp_redo": _Edit("x")}
         dialog = _hotkey_dialog(edits, {"inapp_undo": "shot", "inapp_redo": "shot"})
-        page_hotkey._on_shortcut_changed(dialog, "inapp_redo", " Ctrl+Z ", "")
+        page_hotkey._on_shortcut_changed(dialog, "inapp_redo", " Ctrl+Z ")
         assert len(asked) == 1
 
     def test_accepting_the_prompt_clears_the_older_binding(self, monkeypatch):
         monkeypatch.setattr(page_hotkey, "show_confirm_dialog", lambda *a, **k: True)
         edits = {"inapp_undo": _Edit("ctrl+z"), "inapp_redo": _Edit("ctrl+z")}
         dialog = _hotkey_dialog(edits, {"inapp_undo": "shot", "inapp_redo": "shot"})
-        page_hotkey._on_shortcut_changed(dialog, "inapp_redo", "ctrl+z", "")
+        page_hotkey._on_shortcut_changed(dialog, "inapp_redo", "ctrl+z")
         assert edits["inapp_undo"].set_texts == [""]
         assert edits["inapp_redo"].set_texts == []
 
@@ -289,7 +276,7 @@ class TestShortcutConflictDetection:
         dialog = _hotkey_dialog(
             edits, {"inapp_undo": "shot", "inapp_redo": "shot"},
             stored={"inapp_redo": "ctrl+shift+y"})
-        page_hotkey._on_shortcut_changed(dialog, "inapp_redo", "ctrl+z", "")
+        page_hotkey._on_shortcut_changed(dialog, "inapp_redo", "ctrl+z")
         assert edits["inapp_redo"].set_texts == ["ctrl+shift+y"]
         assert edits["inapp_undo"].set_texts == []
 
@@ -298,7 +285,7 @@ class TestShortcutConflictDetection:
         monkeypatch.setattr(page_hotkey, "show_confirm_dialog", lambda *a, **k: False)
         edits = {"inapp_undo": _Edit("ctrl+z"), "inapp_redo": _Edit("ctrl+z")}
         dialog = _hotkey_dialog(edits, {"inapp_undo": "shot", "inapp_redo": "shot"})
-        page_hotkey._on_shortcut_changed(dialog, "inapp_redo", "ctrl+z", "")
+        page_hotkey._on_shortcut_changed(dialog, "inapp_redo", "ctrl+z")
         # 表里 inapp_redo 的默认值
         assert edits["inapp_redo"].set_texts == ["ctrl+y"]
 
@@ -307,7 +294,7 @@ class TestShortcutConflictDetection:
         monkeypatch.setattr(page_hotkey, "show_confirm_dialog", lambda *a, **k: True)
         edits = {"inapp_undo": _Edit("ctrl+z"), "inapp_redo": _Edit("ctrl+z")}
         dialog = _hotkey_dialog(edits, {"inapp_undo": "shot", "inapp_redo": "shot"})
-        page_hotkey._on_shortcut_changed(dialog, "inapp_redo", "ctrl+z", "")
+        page_hotkey._on_shortcut_changed(dialog, "inapp_redo", "ctrl+z")
         for edit in edits.values():
             assert edit.block_calls == [True, False]
 
@@ -322,12 +309,12 @@ class TestShortcutConflictDetection:
         monkeypatch.setattr(page_hotkey, "show_confirm_dialog", _fake_confirm)
         edits = {"inapp_undo": _Edit("ctrl+z"), "inapp_redo": _Edit("ctrl+z")}
         dialog = _hotkey_dialog(edits, {"inapp_undo": "shot", "inapp_redo": "shot"})
-        page_hotkey._on_shortcut_changed(dialog, "inapp_redo", "ctrl+z", "")
+        page_hotkey._on_shortcut_changed(dialog, "inapp_redo", "ctrl+z")
         assert captured["title"] == "Shortcut Conflict"
         # 占位符必须被真正替换掉，而不是把 %1/%2 显示给用户
         assert "%1" not in captured["message"]
         assert "%2" not in captured["message"]
-        assert "CTRL+Z" in captured["message"]
+        assert "Ctrl + Z" in captured["message"]
         assert "Undo" in captured["message"]
 
 

@@ -80,6 +80,25 @@ def to_qicon(icon, widget=None) -> QIcon:
     return _tinted_icon(path, ui_tokens(widget).text)
 
 
+def css_color(value: str) -> QColor:
+    """Parse a token colour for QPainter; QColor itself rejects rgb()/rgba()."""
+    text = value.strip()
+    if text.startswith(("rgba(", "rgb(")):
+        channels = [part.strip() for part in text[text.index("(") + 1:-1].split(",")]
+        color = QColor(*(int(channel) for channel in channels[:3]))
+        if len(channels) == 4:
+            color.setAlphaF(float(channels[3]))
+        return color
+    return QColor(text)
+
+
+def tinted_icon(icon, color: str) -> QIcon:
+    """Tint a FluentIcon or an SVG path to an explicit colour."""
+    path_getter = getattr(icon, "path", None)
+    path = path_getter() if callable(path_getter) else str(icon)
+    return _tinted_icon(path, color)
+
+
 @lru_cache(maxsize=128)
 def _tinted_icon(path: str, color: str) -> QIcon:
     source = ResourceManager.get_icon(path)

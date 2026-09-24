@@ -3839,4 +3839,49 @@ SOFTWARE.</translation></message>
     <message><source>OK</source><translation>确定</translation></message>
     <message><source>Cancel</source><translation>取消</translation></message>
 </context>
+<context>
+    <name>KeyChip</name>
+    <message>
+        <source>Mouse Back</source>
+        <translation>鼠标后退键</translation>
+    </message>
+    <message>
+        <source>Mouse Forward</source>
+        <translation>鼠标前进键</translation>
+    </message>
+    <message>
+        <source>Add shortcut</source>
+        <translation>添加快捷键</translation>
+    </message>
+    <message>
+        <source>Press keys…</source>
+        <translation>请按下快捷键…</translation>
+    </message>
+</context>
+<context>
+    <name>HotkeyEdit</name>
+    <message>
+        <source>Not set</source>
+        <translation>未设置</translation>
+    </message>
+    <message>
+        <source>Available</source>
+        <translation>可用</translation>
+    </message>
+    <message>
+        <source>Already in use by another app.</source>
+        <translation>已被其他程序占用。</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Works anytime</source>
+        <translation>在任何时候都能触发</translation>
+    </message>
+    <message>
+        <source>Only in screenshot and pin windows</source>
+        <translation>只在截图和钉图窗口里生效</translation>
+    </message>
+</context>
 </TS>
