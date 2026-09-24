@@ -14,6 +14,7 @@ focusOutEvent），而这需要一个"活跃"的 scene——没有 CanvasView �
 setFocus()/clearFocus() 会静默失效。所以这里都构造并 show() 一个真实
 CanvasView（offscreen 平台下安全、不会弹出真实窗口）。
 """
+import pytest
 from PySide6.QtCore import QPoint, QPointF, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QFont, QImage
 from PySide6.QtWidgets import QWidget
@@ -29,7 +30,22 @@ def _image(w=200, h=200):
     return img
 
 
-def _active_scene(qapp):
+@pytest.fixture
+def track():
+    """登记本用例建的 scene / 窗口，结束时 deleteLater，由 conftest 在用例间冲掉。
+
+    view、scene、PinCanvas 及其父窗口彼此成环，不显式回收就只能等循环 GC
+    在后续用例的任意时刻析构它们，这会写坏堆、让后面的 Qt 用例随机崩溃。
+    """
+    objects = []
+    yield objects.append
+    for obj in reversed(objects):
+        if isinstance(obj, QWidget):
+            obj.close()
+        obj.deleteLater()
+
+
+def _active_scene(qapp, track):
     """返回 (scene, view)：调用方必须把两者都一直持有到用例结束。
 
     QGraphicsItem.setFocus()/clearFocus() 只在 scene "活跃"（isActive()）时
@@ -38,7 +54,9 @@ def _active_scene(qapp):
     这里的操作会静默地什么都不做。显式 activateWindow() 把它抢过来。
     """
     scene = CanvasScene(_image(), QRectF(0, 0, 200, 200))
+    track(scene)
     view = CanvasView(scene)
+    track(view)
     view.show()
     view.activateWindow()
     qapp.processEvents()
@@ -58,8 +76,8 @@ def _leave_edit(item, qapp):
     qapp.processEvents()
 
 
-def test_creating_text_and_clicking_away_without_typing_leaves_no_undo_trace(qapp):
-    scene, view = _active_scene(qapp)
+def test_creating_text_and_clicking_away_without_typing_leaves_no_undo_trace(qapp, track):
+    scene, view = _active_scene(qapp, track)
     # provisional=True 和 TextTool 创建时一致：创建者不入栈，交给失焦结算。
     item = TextItem("", QPointF(50, 50), QFont("Arial", 16), QColor("black"), provisional=True)
     scene.addItem(item)
@@ -73,8 +91,8 @@ def test_creating_text_and_clicking_away_without_typing_leaves_no_undo_trace(qap
     assert scene.undo_stack.canUndo() is False
 
 
-def test_clearing_a_committed_text_item_is_undoable_with_its_content(qapp):
-    scene, view = _active_scene(qapp)
+def test_clearing_a_committed_text_item_is_undoable_with_its_content(qapp, track):
+    scene, view = _active_scene(qapp, track)
     item = TextItem("", QPointF(50, 50), QFont("Arial", 16), QColor("black"), provisional=True)
     scene.addItem(item)
 
@@ -102,7 +120,7 @@ def test_clearing_a_committed_text_item_is_undoable_with_its_content(qapp):
     assert item.toPlainText() == ""
 
 
-def test_pin_canvas_clone_of_a_committed_text_item_stays_undo_safe(qapp):
+def test_pin_canvas_clone_of_a_committed_text_item_stays_undo_safe(qapp, track):
     """钉图克隆的文字标注本来就是真实内容，不是刚创建的空壳。
 
     initialize_from_items 会把克隆图元推进钉图自己的撤销栈。克隆路径不需要、
@@ -113,14 +131,18 @@ def test_pin_canvas_clone_of_a_committed_text_item_stays_undo_safe(qapp):
     from pin.pin_canvas import PinCanvas
 
     source_scene = CanvasScene(_image(), QRectF(0, 0, 200, 200))
+    track(source_scene)
     src_item = TextItem("pinned text", QPointF(20, 20), QFont("Arial", 16), QColor("black"))
     source_scene.addItem(src_item)
 
     parent = QWidget()
+    track(parent)
     parent._is_editing = False
     parent.toolbar = None
     pin = PinCanvas(parent, QSize(200, 200), _image())
+    track(pin.scene)
     pin_view = CanvasView(pin.scene)
+    track(pin_view)
     pin_view.show()
     pin_view.activateWindow()
     qapp.processEvents()
