@@ -4,31 +4,31 @@ scroll_toolbar.py - 滚动截图浮动工具栏模块
 提供滚动截图窗口使用的可拖动浮动工具栏及其辅助部件。
 
 主要类:
-- _DragHandle     : 工具栏左端拖动手柄（主题色圆角竖条，支持手动模式圆点 + 双击复位信号）
+- _DragHandle     : 工具栏左端拖动手柄（竖排灰点，手动模式加深 + 双击复位信号）
 - FloatingToolbar : 可拖动的浮动工具栏，包含方向切换、手动截图、钉图、完成、取消等按钮
 """
 
 from PySide6.QtWidgets import QWidget, QPushButton, QVBoxLayout, QHBoxLayout
 from PySide6.QtCore import Qt, QPoint, QSize, Signal
-from PySide6.QtGui import QPainter, QColor, QPainterPath
+from PySide6.QtGui import QPainter, QColor
 from core.theme import get_theme
 from core.ui_scale import get_ui_scale, scaled
 from core import safe_event
 
 
 class _DragHandle(QWidget):
-    """工具栏左端拖动手柄 —— 主题色圆角竖条
+    """工具栏左端拖动手柄 —— 竖排灰点，不填主题色
 
     两种视觉状态:
-    - 自动定位模式: 纯色填充
-    - 手动定位模式: 纯色填充 + 三个白色圆点（提示可双击复位）
+    - 自动定位模式: 浅灰圆点
+    - 手动定位模式: 深灰圆点（提示可双击复位）
     """
 
-    _DOT_COLOR = QColor(255, 255, 255)
+    _DOT_COLOR = QColor(0x5F, 0x63, 0x68)
+    _DOT_COLOR_IDLE = QColor(0xB4, 0xB8, 0xBE)
     BASE_WIDTH = 14
-    BASE_DOT_RADIUS = 3
-    BASE_DOT_GAP = 9
-    BASE_CORNER_RADIUS = 4
+    BASE_DOT_RADIUS = 2
+    BASE_DOT_GAP = 7
 
     reset_requested = Signal()  # 双击时发出，请求切回自动定位
 
@@ -57,26 +57,14 @@ class _DragHandle(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        radius = scaled(self.BASE_CORNER_RADIUS)
         r = self.rect()
-        path = QPainterPath()
-        path.moveTo(r.left() + radius, r.top())
-        path.lineTo(r.right(), r.top())
-        path.lineTo(r.right(), r.bottom())
-        path.lineTo(r.left() + radius, r.bottom())
-        path.quadTo(r.left(), r.bottom(), r.left(), r.bottom() - radius)
-        path.lineTo(r.left(), r.top() + radius)
-        path.quadTo(r.left(), r.top(), r.left() + radius, r.top())
-        painter.fillPath(path, get_theme().theme_color)
-
-        if self._manual_mode:
-            cx = r.center().x()
-            cy = r.center().y()
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(self._DOT_COLOR)
-            dot_r, gap = scaled(self.BASE_DOT_RADIUS), scaled(self.BASE_DOT_GAP)
-            for dy in (-gap, 0, gap):
-                painter.drawEllipse(QPoint(cx, cy + dy), dot_r, dot_r)
+        cx = r.center().x()
+        cy = r.center().y()
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(self._DOT_COLOR if self._manual_mode else self._DOT_COLOR_IDLE)
+        dot_r, gap = scaled(self.BASE_DOT_RADIUS), scaled(self.BASE_DOT_GAP)
+        for dy in (-gap, 0, gap):
+            painter.drawEllipse(QPoint(cx, cy + dy), dot_r, dot_r)
 
         painter.end()
 

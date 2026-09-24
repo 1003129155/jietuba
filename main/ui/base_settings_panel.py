@@ -23,20 +23,24 @@ from core.ui_scale import scaled, scaled_f
 from .color_picker_button import ColorPickerButton
 
 
+PANEL_RADIUS = 6.0
+
+
 def paint_rounded_panel(widget):
-    """为设置面板绘制圆角背景 + 描边（公共函数，供所有面板调用）"""
+    """白底圆角 + 浅灰细描边。设置面板、截图工具栏和「…」弹层共用，四角靠 WA_TranslucentBackground 保持透明"""
     painter = QPainter(widget)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-    radius = scaled_f(6.0)
-    pen_width = scaled_f(2.0)
+    radius = scaled_f(PANEL_RADIUS)
+    pen_width = scaled_f(1.0)
     half = pen_width / 2
     rect = QRectF(widget.rect()).adjusted(half, half, -half, -half)
 
     path = QPainterPath()
     path.addRoundedRect(rect, radius, radius)
 
-    painter.setPen(QPen(QColor("#333333"), pen_width))
+    # 半透明黑：白色截图上能看出边界，深色截图上几乎不可见，不会像描边框
+    painter.setPen(QPen(QColor(0, 0, 0, 36), pen_width))
     painter.setBrush(QBrush(QColor("#ffffff")))
     painter.drawPath(path)
     painter.end()

@@ -2,8 +2,8 @@
 工具栏 - 截图工具栏UI
 """
 
-from PySide6.QtCore import Qt, QSize, Signal, QRect, QRectF, QPoint, QTimer
-from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QBrush
+from PySide6.QtCore import Qt, QSize, Signal, QRect, QRectF, QPoint, QPointF, QTimer
+from PySide6.QtGui import QColor, QFont, QPainter
 from PySide6.QtWidgets import (
     QAbstractButton, QWidget, QPushButton, QApplication
 )
@@ -12,15 +12,16 @@ from core.theme import get_theme
 from core.ui_scale import get_ui_scale, scaled, scaled_f
 from core import log_debug, safe_event
 from core.logger import log_exception, T
+from .base_settings_panel import paint_rounded_panel
 from .toolbar_layout import MORE, SHOW, load_layout, save_layout
 
 
 class _DragHandle(QWidget):
-    """工具栏左端拖动手柄 —— 青绿色圆角竖条，与选区框配色一致
-    
+    """工具栏左端拖动手柄 —— 与右端「…」同样的竖排灰点
+
     两种视觉状态:
-    - 自动定位模式: 纯色填充
-    - 手动定位模式: 纯色填充 + 三个白色圆点（提示可双击复位）
+    - 自动定位模式: 浅灰圆点
+    - 手动定位模式: 深灰圆点（提示可双击复位）
     """
 
     reset_requested = Signal()  # 双击时发出，请求切回自动定位
@@ -48,50 +49,36 @@ class _DragHandle(QWidget):
         _paint_end_strip(self, dots=self._manual_mode)
 
 
-def _paint_end_strip(widget, *, dots, mirrored=False):
-    """绘制工具栏左端的主题色拖动竖条。
+_GRIP_DOT_COLOR = QColor(0x5F, 0x63, 0x68)
+_GRIP_DOT_COLOR_IDLE = QColor(0xB4, 0xB8, 0xBE)
 
-    只有朝外的两个角是圆角，贴合工具栏整体的圆角；mirrored 用于需要左右翻转的场景。
-    dots 时在正中竖排三个白点。
+
+def _paint_end_strip(widget, *, dots):
+    """绘制工具栏左端的拖动手柄：不填主题色，和工具栏白底融为一体。
+
+    dots 表示手动定位模式，圆点加深，提示可双击复位。
     """
     painter = QPainter(widget)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    r = widget.rect()
-    if mirrored:
-        painter.translate(r.width(), 0)
-        painter.scale(-1, 1)
-    radius = scaled(4)
-    path = QPainterPath()
-    path.moveTo(r.left() + radius, r.top())
-    path.lineTo(r.right(), r.top())
-    path.lineTo(r.right(), r.bottom())
-    path.lineTo(r.left() + radius, r.bottom())
-    path.quadTo(r.left(), r.bottom(), r.left(), r.bottom() - radius)
-    path.lineTo(r.left(), r.top() + radius)
-    path.quadTo(r.left(), r.top(), r.left() + radius, r.top())
-    painter.fillPath(path, get_theme().theme_color)
-
-    if dots:
-        _paint_vertical_dots(painter, r, QColor(255, 255, 255))
+    _paint_vertical_dots(painter, widget.rect(), _GRIP_DOT_COLOR if dots else _GRIP_DOT_COLOR_IDLE)
     painter.end()
 
 
 def _paint_vertical_dots(painter, rect, color):
     """在给定区域正中绘制竖排三点。"""
-    cx = rect.center().x()
-    cy = rect.center().y()
+    center = QRectF(rect).center()
     painter.setPen(Qt.PenStyle.NoPen)
     painter.setBrush(color)
-    step = scaled(9)
-    dot = scaled(3)
+    step = scaled_f(7)
+    dot = scaled_f(2)
     for dy in (-step, 0, step):
-        painter.drawEllipse(QPoint(cx, cy + dy), dot, dot)
+        painter.drawEllipse(QPointF(center.x(), center.y() + dy), dot, dot)
 
 
 class _MoreHandle(QAbstractButton):
-    """工具栏右端的「…」：白色工具栏背景上的竖排黑点。
+    """工具栏右端的「…」：白色工具栏背景上的竖排灰点。
 
-    宽度和拖动手柄一样，但不再重复左侧的主题色竖条，让按钮与工具栏白底融为一体。
+    宽度和样式都与左侧拖动手柄一致。
     不设 tooltip：悬停本身就会立刻弹出面板，系统提示框反而会盖住刚弹出的面板。
     """
 
@@ -104,7 +91,7 @@ class _MoreHandle(QAbstractButton):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        _paint_vertical_dots(painter, self.rect(), QColor(0, 0, 0))
+        _paint_vertical_dots(painter, self.rect(), _GRIP_DOT_COLOR)
         painter.end()
 
 
@@ -116,49 +103,30 @@ def cached_icon(relative_path):
     """获取缓存的 QIcon（首次加载 SVG，后续复用）"""
     return ResourceManager.get_icon(ResourceManager.get_resource_path(relative_path))
 
-def _paint_toolbar_frame(widget):
-    """白底圆角 + 主题色描边。工具栏和「…」弹层共用，四角靠 WA_TranslucentBackground 保持透明"""
-    painter = QPainter(widget)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-    radius = scaled_f(6.0)
-    pen_width = scaled_f(2.0)
-    half = pen_width / 2
-    rect = QRectF(widget.rect()).adjusted(half, half, -half, -half)
-
-    path = QPainterPath()
-    path.addRoundedRect(rect, radius, radius)
-
-    painter.setPen(QPen(get_theme().theme_color, pen_width))
-    painter.setBrush(QBrush(QColor(255, 255, 255)))
-    painter.drawPath(path)
-    painter.end()
-
 def _button_qss():
     """工具栏按钮样式。
 
     按钮会在工具栏和「…」弹层之间换父部件，而样式表沿父子链级联，所以两边必须挂
     同一份，否则按钮一挪进弹层就变回系统默认外观。
+    margin 让悬停、选中底色内缩成圆角块，不贴工具栏上下边。
     """
     tc = get_theme().theme_color
     return f"""
         QPushButton {{
-            background-color: rgba(0, 0, 0, 0.02);
+            background-color: transparent;
             border: none;
-            border-radius: 0px;
+            border-radius: {scaled(5)}px;
+            margin: {scaled(3)}px;
             padding: 0px;
         }}
         QPushButton:hover {{
-            background-color: rgba(0, 0, 0, 0.08);
-            border-radius: 0px;
+            background-color: rgba(0, 0, 0, 0.06);
         }}
         QPushButton:pressed {{
-            background-color: rgba(0, 0, 0, 0.15);
-            border-radius: 0px;
+            background-color: rgba(0, 0, 0, 0.12);
         }}
         QPushButton:checked {{
             background-color: rgba({tc.red()}, {tc.green()}, {tc.blue()}, 0.3);
-            border: {scaled(1)}px solid {get_theme().theme_color_hex};
         }}
     """
 
@@ -221,7 +189,7 @@ class _MorePopup(QWidget):
 
     @safe_event
     def paintEvent(self, event):
-        _paint_toolbar_frame(self)
+        paint_rounded_panel(self)
 
     @safe_event
     def enterEvent(self, event):
@@ -245,7 +213,6 @@ class Toolbar(QWidget):
     BASE_WIDE_WIDTH = 45     # 功能按钮宽（长截图、保存、结束截图、确定等）
     BASE_ICON_WIDE = 32      # 功能按钮图标
     BASE_ICON_TOOL = 29      # 工具按钮图标
-    BASE_ICON_ERASER = 25    # 橡皮擦图标
     HANDLE_WIDTH_RATIO = 0.32   # 拖动手柄宽 / 工具栏高
     BASE_RIGHT_NUDGE = 4     # 自动定位时整体右移，目视微调，不是算出来的
 
@@ -365,9 +332,7 @@ class Toolbar(QWidget):
         self.rect_btn = self._add_tool_button("rect", "svg/方框.svg", "Draw rectangle", tool)
         self.ellipse_btn = self._add_tool_button("ellipse", "svg/圆框.svg", "Draw ellipse", tool)
         self.text_btn = self._add_tool_button("text", "svg/文字.svg", "Add text", tool)
-        self.eraser_btn = self._add_tool_button(
-            "eraser", "svg/橡皮.svg", "Eraser tool",
-            (self.BASE_BTN_WIDTH, self.BASE_ICON_ERASER))
+        self.eraser_btn = self._add_tool_button("eraser", "svg/橡皮.svg", "Eraser tool", tool)
 
         self.undo_btn = self._add_button("undo", "svg/撤回.svg", "Undo", tool, self.undo_clicked.emit)
         self.redo_btn = self._add_button("redo", "svg/复原.svg", "Redo", tool, self.redo_clicked.emit)
@@ -446,7 +411,7 @@ class Toolbar(QWidget):
 
     def _apply_button_sizes(self):
         """按当前比例把基准尺寸落到手柄和各按钮上（只定尺寸，摆位置是 _arrange 的事）"""
-        # 按钮样式里的选中态描边也跟着比例走，改比例时整份重挂
+        # 按钮样式里的内缩和圆角也跟着比例走，改比例时整份重挂
         self.setStyleSheet("#toolbar_root { background-color: transparent; border: none; }"
                            + _button_qss())
         self._btn_height = scaled(self.BASE_BTN_HEIGHT)
@@ -703,8 +668,8 @@ class Toolbar(QWidget):
 
     @safe_event
     def paintEvent(self, event):
-        """手动绘制圆角白色背景 + 主题色描边，确保四角真正透明"""
-        _paint_toolbar_frame(self)
+        """手动绘制圆角白底和细描边，确保四角真正透明"""
+        paint_rounded_panel(self)
         
     def _load_saved_settings(self):
         """把每个工具的持久化设置回填到它的二级面板。"""
