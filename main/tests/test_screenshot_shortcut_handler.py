@@ -207,6 +207,55 @@ class TestConfirmAndPin:
         window.action_handler.handle_pin.assert_not_called()
 
 
+class TestGlobalPinHotkey:
+    """全局钉图热键被 RegisterHotKey 吃掉、到不了截图窗口，由 MainApp 转发到这里。"""
+
+    def test_pins_the_confirmed_selection(self):
+        window = _make_window(confirmed=True)
+        _make_handler(window).pin_from_global_hotkey()
+        window.action_handler.handle_pin.assert_called_once()
+
+    def test_does_nothing_before_selection_is_confirmed(self):
+        window = _make_window(confirmed=False)
+        _make_handler(window).pin_from_global_hotkey()
+        window.action_handler.handle_pin.assert_not_called()
+
+    def test_still_pins_while_editing_text(self):
+        window = _make_window(confirmed=True, text_editing=True)
+        _make_handler(window).pin_from_global_hotkey()
+        window.action_handler.handle_pin.assert_called_once()
+
+    def test_does_nothing_while_window_is_closing(self):
+        window = _make_window(confirmed=True)
+        window._is_closing = True
+        _make_handler(window).pin_from_global_hotkey()
+        window.action_handler.handle_pin.assert_not_called()
+
+    def test_main_app_forwards_to_an_active_screenshot_session(self, monkeypatch):
+        from main_app import MainApp
+        import clipboard.ui.windows.pin_window as pin_window_module
+        pin_clipboard = MagicMock()
+        monkeypatch.setattr(pin_window_module, "pin_latest_clipboard_image", pin_clipboard)
+
+        app = SimpleNamespace(screenshot_window=MagicMock(_session_active=True))
+        MainApp.pin_clipboard_image(app)
+
+        app.screenshot_window.pin_from_global_hotkey.assert_called_once()
+        pin_clipboard.assert_not_called()
+
+    def test_main_app_pins_clipboard_outside_a_screenshot_session(self, monkeypatch):
+        from main_app import MainApp
+        import clipboard.ui.windows.pin_window as pin_window_module
+        pin_clipboard = MagicMock()
+        monkeypatch.setattr(pin_window_module, "pin_latest_clipboard_image", pin_clipboard)
+
+        app = SimpleNamespace(screenshot_window=MagicMock(_session_active=False))
+        MainApp.pin_clipboard_image(app)
+
+        app.screenshot_window.pin_from_global_hotkey.assert_not_called()
+        pin_clipboard.assert_called_once()
+
+
 class TestUndoRedo:
 
     def test_undo_runs_when_the_stack_allows_it(self):
