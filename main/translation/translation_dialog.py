@@ -434,6 +434,9 @@ class TranslationDialog(FramelessWindow):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAutoFillBackground(False)
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, self._is_on_top)
+        # 改 WindowFlags 会重建原生窗口，无边框库加的 WS_THICKFRAME 和阴影随之丢失，
+        # 边缘就拖不动了，要重新加回去
+        self.updateFrameless()
 
         self.dashboard_title_bar = DashboardTitleBar(self)
         configure_dialog_control(self.dashboard_title_bar)
@@ -720,6 +723,7 @@ class TranslationDialog(FramelessWindow):
         position = self.pos()
         was_visible = self.isVisible()
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, checked)
+        self.updateFrameless()
         self.move(position)
         if was_visible:
             self.show()

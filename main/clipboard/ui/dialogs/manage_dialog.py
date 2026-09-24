@@ -163,6 +163,9 @@ class ManageDialog(FrostedFramelessDialog):
             | Qt.WindowType.WindowMinimizeButtonHint
             | Qt.WindowType.WindowMaximizeButtonHint
         )
+        # setWindowFlags 会重建原生窗口，无边框库加的 WS_THICKFRAME 和阴影随之丢失，
+        # 边缘就拖不动了，要重新加回去
+        self.updateFrameless()
         try:
             from core.resource_manager import ResourceManager
             import os

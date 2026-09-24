@@ -209,6 +209,57 @@ class _DummyClipboardManager:
         return []
 
 
+def test_manage_dialog_restores_frameless_styles_after_changing_flags(qapp, monkeypatch):
+    """构造时改 WindowFlags 会重建原生窗口，无边框库加的 WS_THICKFRAME 随之丢失：
+    边缘命中测试照样返回 HTLEFT 等，但系统不给调整大小的光标，也拖不动。
+    测试跑在 offscreen 平台上没有真实窗口样式可查，只能检查改完标志后重新调用了
+    updateFrameless。"""
+    from PySide6.QtCore import Qt
+    import clipboard.ui.dialogs.manage_dialog as manage_dialog_mod
+    from clipboard.ui.dialogs.manage_dialog import ManageDialog
+
+    flags_at_update = []
+    original = ManageDialog.updateFrameless
+
+    def spy(self):
+        flags_at_update.append(self.windowFlags())
+        original(self)
+
+    monkeypatch.setattr(ManageDialog, "updateFrameless", spy)
+    manage_dialog_mod._manage_window_instance = None
+    dialog = ManageDialog(_DummyClipboardManager())
+    try:
+        assert any(flags & Qt.WindowType.WindowMaximizeButtonHint for flags in flags_at_update)
+    finally:
+        dialog.deleteLater()
+        manage_dialog_mod._manage_window_instance = None
+
+
+def test_translation_dialog_restores_frameless_styles_after_pin_flag_changes(qapp, monkeypatch):
+    """同上：置顶靠改 WindowFlags 实现，构造时和每次切换都要重新 updateFrameless。"""
+    from PySide6.QtCore import Qt
+    from translation.translation_dialog import TranslationDialog
+
+    flags_at_update = []
+    original = TranslationDialog.updateFrameless
+
+    def spy(self):
+        flags_at_update.append(self.windowFlags())
+        original(self)
+
+    monkeypatch.setattr(TranslationDialog, "updateFrameless", spy)
+    monkeypatch.setattr(TranslationDialog, "_stay_on_top", False)
+    dialog = TranslationDialog()
+    try:
+        # 第一次来自无边框库自己的初始化，第二次才是改完置顶标志之后
+        assert len(flags_at_update) == 2
+        dialog.dashboard_title_bar.pin_button.click()
+        assert len(flags_at_update) == 3
+        assert flags_at_update[-1] & Qt.WindowType.WindowStaysOnTopHint
+    finally:
+        dialog.deleteLater()
+
+
 def test_manage_dialog_reads_the_window_scale_at_construction_time(qapp):
     """管理窗口的尺寸来自 layout_scale 里实时求值的函数，不是模块加载时冻结的常量：
     否则用户改了窗口缩放设置后，管理窗口要重启进程才会变。"""
@@ -257,7 +308,7 @@ def test_manage_dialog_scales_static_and_rebuilt_detail_controls(qapp):
         assert dialog.save_btn.property("dialog_scale_factor") == 1.5
         assert "font: 600 20px" in dialog.save_btn.styleSheet()
         assert not hasattr(dialog, "nav_title")
-        assert "font-size: 18px" in dialog.list_widget.styleSheet()
+        assert "font-size: 16px" in dialog.list_widget.styleSheet()
         assert "padding: 9px" in dialog.list_widget.styleSheet()
 
         first_name_input = dialog.group_name_input

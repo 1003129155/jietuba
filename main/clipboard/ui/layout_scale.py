@@ -14,7 +14,6 @@ MANAGE_DIALOG_MIN_HEIGHT_BASE = 580
 # 二者的比值是固定的"设计稿 -> 实际窗口"换算比例，和用户的窗口缩放设置无关。
 _CHROME_SCALE_X = (MANAGE_DIALOG_BASE_WIDTH + 20) / MANAGE_DIALOG_BASE_WIDTH
 _CHROME_SCALE_Y = (MANAGE_DIALOG_BASE_HEIGHT + 120) / MANAGE_DIALOG_BASE_HEIGHT
-_CHROME_SCALE_UI = (_CHROME_SCALE_X + _CHROME_SCALE_Y) / 2
 
 
 def _dialog_factor() -> float:
@@ -54,4 +53,6 @@ def scale_y(value: int) -> int:
 
 
 def scale_ui(value: int) -> int:
-    return _scale(value, _CHROME_SCALE_UI * _dialog_factor())
+    """字号、圆角、内边距。不乘设计稿换算比例：那是窗口外框的留白，
+    乘上去字会比其他窗口大一圈。"""
+    return _scale(value, _dialog_factor())
