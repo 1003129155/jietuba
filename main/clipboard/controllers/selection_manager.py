@@ -93,11 +93,24 @@ class SelectionManager(QObject):
             self._selected_index += 1
 
     def shift_selection_after_move(self, from_row: int, to_row: int):
-        """列表把 from_row 的行上移到 to_row 后同步选中下标。"""
+        """列表把 from_row 的行移到 to_row 后同步选中下标。"""
         if self._selected_index == from_row:
             self._selected_index = to_row
         elif to_row <= self._selected_index < from_row:
             self._selected_index += 1
+        elif from_row < self._selected_index <= to_row:
+            self._selected_index -= 1
+
+    def shift_selection_after_remove(self, row: int):
+        """列表摘掉 row 后同步选中和悬停下标；被摘的正是选中行时清空选中。"""
+        if self._hovered_index == row:
+            self._hovered_index = -1
+        elif self._hovered_index > row:
+            self._hovered_index -= 1
+        if self._selected_index == row:
+            self.clear_selection()
+        elif self._selected_index > row:
+            self._selected_index -= 1
 
     def clear_selection(self, reset_keyboard_state: bool = False):
         """清除当前选中（不一定重置键盘导航状态）"""

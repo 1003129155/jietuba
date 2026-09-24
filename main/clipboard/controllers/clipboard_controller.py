@@ -72,6 +72,8 @@ class ClipboardController(QObject):
     load_completed = Signal()  # 单次加载完全完成（_is_loading 已设为 False）
     item_inserted = Signal(object, int)  # (item, row) 单条新内容已插入当前列表
     item_moved_to_top = Signal(int, int)  # (item_id, row) 条目已移到最前
+    item_removed = Signal(int)  # (row) 条目已移出当前列表
+    item_row_moved = Signal(int, int)  # (from_row, to_row) 条目在当前列表里换了位置
     
     def __init__(self, manager: ClipboardManager):
         super().__init__()
@@ -684,7 +686,7 @@ class ClipboardController(QObject):
     def delete_item(self, item_id: int) -> bool:
         """删除项目"""
         if self.manager.delete_item(item_id):
-            self.load_history()
+            self._remove_loaded_item(item_id)
             return True
         return False
 
@@ -697,9 +699,39 @@ class ClipboardController(QObject):
         """将项目移动到分组"""
         if self.manager.move_to_group(item_id, group_id):
             log_info(T("已移动到分组 {group_id}", group_id=group_id), "Clipboard")
-            self.load_history()
+            # 历史视图不按分组过滤，条目原样留在列表里；分组视图里它离开了当前分组
+            if self.current_group_id is not None and group_id != self.current_group_id:
+                self._remove_loaded_item(item_id)
             return True
         return False
+
+    def _loaded_index(self, item_id: int) -> Optional[int]:
+        return next((i for i, existing in enumerate(self.current_items) if existing.id == item_id), None)
+
+    def _remove_loaded_item(self, item_id: int):
+        """从已加载的列表里摘掉一条，不重载、不滚动。"""
+        index = self._loaded_index(item_id)
+        if index is None:
+            return
+        self.current_items.pop(index)
+        # 分页按偏移量取数，已加载区域少了一行，下一页要跟着前移，否则交界那条会被跳过
+        self._current_offset -= 1
+        self.item_removed.emit(index)
+
+    def _move_loaded_item(self, item_id: int, direction: int):
+        """分组内上移 / 下移一格：交换已加载的两行，不重载、不滚动。"""
+        index = self._loaded_index(item_id)
+        target = None if index is None else index + (-1 if direction < 0 else 1)
+        # 搜索过滤后相邻两行在分组里不一定相邻，邻居未加载时也定不了位置，这两种情况整表重查
+        if self._search_text or target is None or not 0 <= target < len(self.current_items):
+            self.load_history()
+            return
+        # 排序先按是否置顶，跨过置顶边界只改了 item_order，显示顺序不变
+        if self.current_items[index].is_pinned != self.current_items[target].is_pinned:
+            return
+        items = self.current_items
+        items[index], items[target] = items[target], items[index]
+        self.item_row_moved.emit(index, target)
 
     def get_item_move_state(self, item_id: int, group_id: Optional[int]) -> tuple[bool, bool]:
         """获取分组内容是否可上移/下移"""
@@ -734,7 +766,7 @@ class ClipboardController(QObject):
 
         if self.manager.move_item_between(item_id, before_id=before_id, after_id=after_id):
             if self.current_group_id == group_id:
-                self.load_history()
+                self._move_loaded_item(item_id, direction)
             return True
         return False
 

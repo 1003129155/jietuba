@@ -151,6 +151,8 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self.controller.load_completed.connect(self._on_load_completed)
         self.controller.item_inserted.connect(self._on_item_inserted)
         self.controller.item_moved_to_top.connect(self._on_item_moved_to_top)
+        self.controller.item_removed.connect(self._on_item_removed)
+        self.controller.item_row_moved.connect(self._on_item_row_moved)
 
         self.selected_item_id: Optional[int] = None
         self._is_loading = False
@@ -213,6 +215,27 @@ class ClipboardWindow(QWidget, FramelessMixin):
             self.list_widget.insertItem(row, self.list_widget.takeItem(index))
             self.selection_manager.shift_selection_after_move(index, row)
             return
+
+    # takeItem 会让 Qt 的当前项悄悄落到相邻行，选中管理器会误以为用户选了那一行；
+    # 这里屏蔽列表信号，选中下标由 shift_selection_* 统一调整。
+    def _on_item_removed(self, row: int):
+        """单条内容移出当前列表：只摘这一行，保持滚动位置。"""
+        self.list_widget.blockSignals(True)
+        try:
+            self.list_widget.takeItem(row)
+        finally:
+            self.list_widget.blockSignals(False)
+        self.selection_manager.shift_selection_after_remove(row)
+        # 摘掉一行后可能不够填满窗口，需要时补下一页
+        QTimer.singleShot(0, self._check_and_load_more_if_needed)
+
+    def _on_item_row_moved(self, from_row: int, to_row: int):
+        self.list_widget.blockSignals(True)
+        try:
+            self.list_widget.insertItem(to_row, self.list_widget.takeItem(from_row))
+        finally:
+            self.list_widget.blockSignals(False)
+        self.selection_manager.shift_selection_after_move(from_row, to_row)
 
     def _on_loading_changed(self, is_loading: bool):
         self._is_loading = is_loading
