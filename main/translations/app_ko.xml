@@ -1077,16 +1077,8 @@ Replace it?</source>
         <translation>확인 후 저장</translation>
     </message>
     <message>
-        <source>Pin image (Ctrl+D)</source>
-        <translation>이미지 고정 (Ctrl+D)</translation>
-    </message>
-    <message>
         <source>Cancel screenshot (ESC)</source>
         <translation>스크린샷 취소 (ESC)</translation>
-    </message>
-    <message>
-        <source>Confirm and save (Ctrl+C / Enter)</source>
-        <translation>확인 후 저장 (Ctrl+C / Enter)</translation>
     </message>
     <message>
         <source>Copy to clipboard</source>
@@ -2353,6 +2345,222 @@ Replace it?</source>
     <message>
         <source>Failed to import: {error}</source>
         <translation>가져오기 실패: {error}</translation>
+    </message>
+    <message>
+        <source>Back up saved text content as CSV, or import it on another computer</source>
+        <translation>저장한 텍스트를 CSV로 백업하거나 다른 PC에서 가져올 수 있습니다</translation>
+    </message>
+    <message>
+        <source>Clipboard</source>
+        <translation>클립보드</translation>
+    </message>
+    <message>
+        <source>Create a group on the left first</source>
+        <translation>먼저 왼쪽에서 그룹을 만드세요</translation>
+    </message>
+    <message>
+        <source>Created {time}</source>
+        <translation>생성 {time}</translation>
+    </message>
+    <message>
+        <source>Delete Group</source>
+        <translation>그룹 삭제</translation>
+    </message>
+    <message>
+        <source>Drag or press Alt+Up/Down to reorder</source>
+        <translation>드래그하거나 Alt+↑/↓로 순서 변경</translation>
+    </message>
+    <message>
+        <source>General</source>
+        <translation>일반</translation>
+    </message>
+    <message>
+        <source>Groups</source>
+        <translation>그룹</translation>
+    </message>
+    <message>
+        <source>Hidden</source>
+        <translation>숨김</translation>
+    </message>
+    <message>
+        <source>Icon</source>
+        <translation>아이콘</translation>
+    </message>
+    <message>
+        <source>Import / Export</source>
+        <translation>가져오기 / 내보내기</translation>
+    </message>
+    <message>
+        <source>Launch</source>
+        <translation>실행</translation>
+    </message>
+    <message>
+        <source>Move to Bottom</source>
+        <translation>맨 아래로 이동</translation>
+    </message>
+    <message>
+        <source>Move to Top</source>
+        <translation>맨 위로 이동</translation>
+    </message>
+    <message>
+        <source>No Group</source>
+        <translation>그룹 없음</translation>
+    </message>
+    <message>
+        <source>No content in this group yet</source>
+        <translation>이 그룹에는 아직 내용이 없습니다</translation>
+    </message>
+    <message>
+        <source>No matching content</source>
+        <translation>일치하는 내용이 없습니다</translation>
+    </message>
+    <message>
+        <source>Not shown on the panel</source>
+        <translation>패널에 표시 안 함</translation>
+    </message>
+    <message>
+        <source>Open files or folders</source>
+        <translation>파일 또는 폴더 열기</translation>
+    </message>
+    <message>
+        <source>Paste text or files</source>
+        <translation>텍스트나 파일 붙여넣기</translation>
+    </message>
+    <message>
+        <source>Please create a group first</source>
+        <translation>먼저 그룹을 만드세요</translation>
+    </message>
+    <message>
+        <source>Quick Launch</source>
+        <translation>빠른 실행</translation>
+    </message>
+    <message>
+        <source>Saved Content</source>
+        <translation>저장된 내용</translation>
+    </message>
+    <message>
+        <source>Saved to "{group}"</source>
+        <translation>'{group}'에 저장</translation>
+    </message>
+    <message>
+        <source>Search title or content</source>
+        <translation>제목 또는 내용 검색</translation>
+    </message>
+    <message>
+        <source>or pick one below</source>
+        <translation>또는 아래에서 선택</translation>
+    </message>
+    <message>
+        <source>{count} items</source>
+        <translation>{count}개</translation>
+    </message>
+    <message>
+        <source>{visible} of {count} items</source>
+        <translation>{count}개 중 {visible}개</translation>
+    </message>
+    <message>
+        <source>Enter title (e.g., Restart Command)...</source>
+        <translation>제목 입력 (예: 재시작 명령)...</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>복사</translation>
+    </message>
+    <message>
+        <source>Double-click to pin it on screen</source>
+        <translation>더블클릭하여 화면에 고정</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>파일</translation>
+    </message>
+    <message>
+        <source>From {app}</source>
+        <translation>{app}에서</translation>
+    </message>
+    <message>
+        <source>Image</source>
+        <translation>이미지</translation>
+    </message>
+    <message>
+        <source>Pin to Screen</source>
+        <translation>화면에 고정</translation>
+    </message>
+    <message>
+        <source>Save As...</source>
+        <translation>다른 이름으로 저장...</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>텍스트</translation>
+    </message>
+    <message>
+        <source>The original image is no longer available</source>
+        <translation>원본 이미지가 더 이상 없습니다 (정리되었을 수 있음)</translation>
+    </message>
+    <message>
+        <source>Choose Image File</source>
+        <translation>이미지 파일 선택</translation>
+    </message>
+    <message>
+        <source>Drag an image here</source>
+        <translation>여기로 이미지를 끌어오세요</translation>
+    </message>
+    <message>
+        <source>Image Already Saved</source>
+        <translation>이미 저장된 이미지</translation>
+    </message>
+    <message>
+        <source>Images (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.ico)</source>
+        <translation>이미지 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.ico)</translation>
+    </message>
+    <message>
+        <source>Paste from Clipboard</source>
+        <translation>클립보드에서 붙여넣기</translation>
+    </message>
+    <message>
+        <source>Please choose an image first</source>
+        <translation>먼저 이미지를 선택하세요</translation>
+    </message>
+    <message>
+        <source>The image is saved through clipboard history, so it will replace what is currently on the clipboard</source>
+        <translation>이미지는 클립보드 기록을 통해 저장되므로 추가할 때 현재 클립보드 내용이 바뀝니다</translation>
+    </message>
+    <message>
+        <source>The image was not recorded. Make sure clipboard history is turned on.</source>
+        <translation>이미지가 기록되지 않았습니다. 클립보드 기록이 켜져 있는지 확인하세요.</translation>
+    </message>
+    <message>
+        <source>There is no image on the clipboard</source>
+        <translation>클립보드에 이미지가 없습니다</translation>
+    </message>
+    <message>
+        <source>This file could not be opened as an image</source>
+        <translation>이 파일을 이미지로 열 수 없습니다</translation>
+    </message>
+    <message>
+        <source>This image is already in "{group}". Move it to "{target}"?</source>
+        <translation>이 이미지는 '{group}'에 있습니다. '{target}'(으)로 옮길까요?</translation>
+    </message>
+    <message>
+        <source>Turn on clipboard history first: images are saved through it</source>
+        <translation>먼저 클립보드 기록을 켜세요. 이미지는 이를 통해 저장됩니다</translation>
+    </message>
+    <message>
+        <source>Move to Group</source>
+        <translation>그룹으로 이동</translation>
+    </message>
+    <message>
+        <source>Drop on a group to move it there</source>
+        <translation>그룹 위에 놓으면 이동됩니다</translation>
+    </message>
+    <message>
+        <source>New</source>
+        <translation>새로 만들기</translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation>편집</translation>
     </message>
 </context>
 

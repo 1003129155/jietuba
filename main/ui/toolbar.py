@@ -340,9 +340,9 @@ class Toolbar(QWidget):
         self.cancel_btn = self._add_button(
             "cancel", "svg/结束截图.svg", "Cancel screenshot (ESC)", wide, self.cancel_clicked.emit)
         self.pin_btn = self._add_button(
-            "pin", "svg/钉图.svg", "Pin image (Ctrl+D)", wide, self.pin_clicked.emit)
+            "pin", "svg/钉图.svg", "Pin image", wide, self.pin_clicked.emit)
         self.confirm_btn = self._add_button(
-            "confirm", "svg/确定.svg", "Confirm and save (Ctrl+C / Enter)", wide,
+            "confirm", "svg/确定.svg", "Confirm and save", wide,
             self.confirm_clicked.emit)
 
         # 「…」：悬停或点击展开被收起的按钮；和普通按钮一样登记进排布表，由 _arrange 固定摆在最右
