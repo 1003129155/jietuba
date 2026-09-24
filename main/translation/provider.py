@@ -96,6 +96,11 @@ class TranslationProvider(ABC):
     def supported_target_languages(self) -> set[str] | None:
         return None
 
+    def display_label(self, translated_name: str) -> str:
+        """翻译窗口里显示的服务名。translated_name 是 display_name 按界面语言
+        翻译后的结果；翻译要在界面层做，这里拿不到 Qt 的翻译上下文。"""
+        return translated_name
+
     def list_models(self) -> list[str]:
         """接口可用的模型名。只有声明了 ModelField 的 provider 需要实现；
         失败时抛 RuntimeError，消息直接给用户看。"""

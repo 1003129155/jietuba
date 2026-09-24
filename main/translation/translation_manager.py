@@ -29,8 +29,13 @@ import time
 from typing import Optional
 from PySide6.QtCore import QCoreApplication, QObject, QPoint, QTimer, Signal
 
+from core.i18n import make_tr
 from core.logger import log_info, log_debug, log_error, log_warning, T
 from core.ui_theme import get_ui_theme
+
+
+# 服务名显示在翻译窗口的标签上，和窗口共用一个翻译上下文
+_tr = make_tr("TranslationDialog")
 
 
 class TranslationManager(QObject):
@@ -103,9 +108,11 @@ class TranslationManager(QObject):
 
     def _backend_name(self) -> str:
         try:
-            return self._translation_service.provider_name()
+            return self._translation_service.provider_label(
+                _tr, overrides=self._provider_overrides()
+            )
         except ValueError:
-            return self.tr("Engine not configured")
+            return _tr("Engine not configured")
 
     def _activate_surface(self, target: str) -> None:
         """Keep the full editor and compact popup mutually exclusive."""

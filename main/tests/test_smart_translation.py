@@ -557,3 +557,31 @@ def test_shutdown_is_a_noop_when_no_ocr_thread_was_ever_started():
     assert not hasattr(manager, "_ocr_thread")
 
     manager.shutdown(timeout_ms=0, ocr_timeout_ms=10)  # 不应抛异常
+
+
+def _assert_badge_elided(badge, full_text, padding):
+    max_width = dialog_scaled(220)
+    assert badge.text() != full_text and badge.text().endswith("…")
+    assert badge.toolTip() == full_text
+    assert badge.maximumWidth() == max_width
+    assert badge.fontMetrics().horizontalAdvance(badge.text()) <= max_width - 2 * dialog_scaled(padding)
+
+
+def test_long_engine_names_are_elided_on_both_windows(qapp):
+    from translation.translation_dialog import TranslationDialog
+
+    long_name = "My very long self-hosted model name " * 4
+    popup = TranslationPopup()
+    dialog = TranslationDialog()
+    try:
+        popup.set_backend_status(long_name, True)
+        _assert_badge_elided(popup.backend_badge, long_name, 8)
+        dialog.set_backend_badge(long_name, True)
+        _assert_badge_elided(dialog.backend_badge, long_name, 10)
+
+        popup.set_backend_status("DeepL", True)
+        assert popup.backend_badge.text() == "DeepL"
+        assert popup.backend_badge.toolTip() == ""
+    finally:
+        popup.close()
+        dialog.close()

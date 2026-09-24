@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Any, Protocol
 
 from .models import TranslationErrorCode, TranslationRequest, TranslationResult
@@ -43,6 +43,21 @@ class TranslationService:
     def provider_name(self, provider_id: str | None = None) -> str:
         selected = provider_id or self.active_provider_id()
         return self.registry.metadata(selected).display_name
+
+    def provider_label(
+        self,
+        translate: Callable[[str], str] = str,
+        provider_id: str | None = None,
+        overrides: Mapping[str, Any] | None = None,
+    ) -> str:
+        """翻译窗口上显示的服务名。自定义服务可以换成用户起的名字，
+        所以要按当前配置建出 provider 来问，不能只看注册表。
+
+        注册表也收不继承 TranslationProvider 的工厂，那种就只用注册名。
+        """
+        name = translate(self.provider_name(provider_id))
+        label = getattr(self.provider(provider_id, overrides), "display_label", None)
+        return label(name) if callable(label) else name
 
     def is_configured(
         self,
@@ -88,7 +103,7 @@ def create_default_translation_service(config=None) -> TranslationService:
         AmazonTranslateProvider,
         AzureTranslateProvider,
         BaiduTranslateProvider,
-        CustomLLMProvider,
+        CUSTOM_LLM_PROVIDERS,
         DeepSeekProvider,
         DeepLProvider,
         GoogleTranslateProvider,
@@ -125,9 +140,10 @@ def create_default_translation_service(config=None) -> TranslationService:
         DeepSeekProvider,
         display_name=DeepSeekProvider.display_name,
     )
-    registry.register(
-        CustomLLMProvider.provider_id,
-        CustomLLMProvider,
-        display_name=CustomLLMProvider.display_name,
-    )
+    for provider in CUSTOM_LLM_PROVIDERS:
+        registry.register(
+            provider.provider_id,
+            provider,
+            display_name=provider.display_name,
+        )
     return TranslationService(registry, config)

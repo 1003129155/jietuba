@@ -49,6 +49,25 @@ _tr = make_tr("TranslationDialog")
 WINDOW_CORNER_RADIUS = 8
 SURFACE_CORNER_RADIUS = 8
 CONTROL_CORNER_RADIUS = 6
+# 服务名标签的最大宽度（未缩放）。自定义服务的名字是用户起的，不设上限会把
+# 标题栏或底栏挤变形。
+BADGE_MAX_WIDTH = 220
+
+
+def set_badge_text(badge: QLabel, text: str, padding: int) -> None:
+    """超出 BADGE_MAX_WIDTH 时截断成省略号，完整名字放到悬停提示里。
+
+    padding 是样式表里标签单侧的水平内边距（未缩放）。
+    """
+    max_width = dialog_scaled(BADGE_MAX_WIDTH)
+    badge.setMaximumWidth(max_width)
+    # 字号和粗细来自样式表，先 polish 才能量得准
+    badge.ensurePolished()
+    shown = badge.fontMetrics().elidedText(
+        text, Qt.TextElideMode.ElideRight, max_width - 2 * dialog_scaled(padding)
+    )
+    badge.setText(shown)
+    badge.setToolTip(text if shown != text else "")
 
 
 @dataclass(frozen=True)
@@ -794,10 +813,10 @@ class TranslationDialog(FramelessWindow):
     def set_backend_badge(self, text: str, configured: bool = True) -> None:
         self._backend_configured = configured
         badge = self.backend_badge
-        badge.setText(text)
         badge.setProperty("configured", configured)
         badge.style().unpolish(badge)
         badge.style().polish(badge)
+        set_badge_text(badge, text, padding=10)
 
     def paintEvent(self, event) -> None:
         painter = QPainter(self)

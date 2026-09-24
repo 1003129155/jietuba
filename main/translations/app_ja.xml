@@ -855,8 +855,16 @@ Replace it?</source>
     <message><source>Which formats the magnifier shows, and which one the copy shortcut uses.</source><translation>拡大鏡に表示する形式と、ショートカットでコピーする形式を決めます。</translation></message>
     <message><source>Manage Color Formats</source><translation>カラー形式を管理</translation></message>
     <message>
-        <source>Custom LLM</source>
-        <translation>カスタム LLM</translation>
+        <source>Custom LLM-1</source>
+        <translation>カスタム LLM-1</translation>
+    </message>
+    <message>
+        <source>Custom LLM-2</source>
+        <translation>カスタム LLM-2</translation>
+    </message>
+    <message>
+        <source>Custom LLM-3</source>
+        <translation>カスタム LLM-3</translation>
     </message>
     <message>
         <source>API Key</source>
@@ -873,6 +881,14 @@ Replace it?</source>
     <message>
         <source>Instructions</source>
         <translation>追加の指示</translation>
+    </message>
+    <message>
+        <source>Display Name</source>
+        <translation>表示名</translation>
+    </message>
+    <message>
+        <source>Shown in the translation window</source>
+        <translation>翻訳ウィンドウに表示されます</translation>
     </message>
     <message>
         <source>Extra Body</source>
@@ -1424,6 +1440,18 @@ Replace it?</source>
 <!-- ========== Translation Dialog ========== -->
 <context>
     <name>TranslationDialog</name>
+    <message>
+        <source>Custom LLM-1</source>
+        <translation>カスタム LLM-1</translation>
+    </message>
+    <message>
+        <source>Custom LLM-2</source>
+        <translation>カスタム LLM-2</translation>
+    </message>
+    <message>
+        <source>Custom LLM-3</source>
+        <translation>カスタム LLM-3</translation>
+    </message>
     <message>
         <source>Translator</source>
         <translation>翻訳</translation>
@@ -3214,8 +3242,16 @@ Replace it?</source>
         <translation>API ベース URL</translation>
     </message>
     <message>
-        <source>Custom LLM</source>
-        <translation>カスタム LLM</translation>
+        <source>Custom LLM-1</source>
+        <translation>カスタム LLM-1</translation>
+    </message>
+    <message>
+        <source>Custom LLM-2</source>
+        <translation>カスタム LLM-2</translation>
+    </message>
+    <message>
+        <source>Custom LLM-3</source>
+        <translation>カスタム LLM-3</translation>
     </message>
     <message>
         <source>Optional for local models</source>

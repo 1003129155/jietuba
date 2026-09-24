@@ -434,3 +434,122 @@ def test_fetch_failure_is_shown_next_to_the_button(qapp, qtbot, server, settings
     tips = [w for w in qapp.topLevelWidgets()
             if w.metaObject().className() == "QTipLabel" and w.isVisible()]
     assert tips and not tips[0].styleSheet()
+
+
+# ============================================================================
+# 三个保存位置
+# ============================================================================
+
+_SLOT_IDS = ["custom_llm", "custom_llm_2", "custom_llm_3"]
+
+
+def test_each_slot_is_its_own_engine_with_its_own_settings():
+    from settings.tool_settings import CUSTOM_LLM_PROVIDER_IDS, ToolSettingsManager
+    from translation.providers.custom_llm import CUSTOM_LLM_PROVIDERS
+    from translation.service import create_default_translation_service
+
+    registry = create_default_translation_service(object()).registry
+    assert [p.provider_id for p in CUSTOM_LLM_PROVIDERS] == list(CUSTOM_LLM_PROVIDER_IDS) == _SLOT_IDS
+    assert [registry.metadata(i).display_name for i in _SLOT_IDS] == [
+        "Custom LLM-1", "Custom LLM-2", "Custom LLM-3"]
+
+    keys = [{f.config_key for f in P.all_fields()} for P in CUSTOM_LLM_PROVIDERS]
+    assert not (keys[0] & keys[1] or keys[0] & keys[2] or keys[1] & keys[2])
+    # 界面按 config_key 找 get_/set_，恢复默认按它查默认值表；缺一个就是静默存不上
+    for key in set().union(*keys):
+        assert callable(getattr(ToolSettingsManager, "get_" + key, None)), key
+        assert callable(getattr(ToolSettingsManager, "set_" + key, None)), key
+        assert key in ToolSettingsManager.APP_DEFAULT_SETTINGS, key
+
+
+def test_first_slot_reads_settings_saved_before_there_were_three(settings):
+    settings.qsettings.setValue("translation/providers/custom_llm/model", "old-model")
+    settings.qsettings.setValue("translation/providers/custom_llm/json_mode", False)
+
+    config = settings.get_translation_provider_config("custom_llm")
+    assert config["model"] == "old-model"
+    assert config["json_mode"] is False
+
+
+def test_slots_do_not_share_values(settings):
+    from translation.service import create_default_translation_service
+
+    settings.set_custom_llm_2_base_url("http://localhost:1234/v1")
+    settings.set_custom_llm_2_model(" phi-4 ")
+    settings.set_custom_llm_2_json_mode(False)
+
+    assert settings.get_custom_llm_model() == ""
+    assert settings.get_custom_llm_json_mode() is True
+    assert settings.get_custom_llm_3_model() == ""
+
+    settings.set_translation_provider("custom_llm_2")
+    provider = create_default_translation_service(settings).provider()
+    assert provider.provider_id == "custom_llm_2"
+    assert provider.api_url == "http://localhost:1234/v1/chat/completions"
+    assert provider._model == "phi-4"
+    assert provider._json_mode is False
+
+
+@pytest.mark.parametrize("name, model, expected", [
+    ("家里的 Ollama", "qwen3:8b", "家里的 Ollama"),
+    ("  ", "qwen3:8b", "自定义 LLM-2 · qwen3:8b"),
+    ("", "", "自定义 LLM-2"),
+])
+def test_window_label_prefers_name_then_model(settings, name, model, expected):
+    from translation.service import create_default_translation_service
+
+    settings.set_translation_provider("custom_llm_2")
+    settings.set_custom_llm_2_name(name)
+    settings.set_custom_llm_2_model(model)
+    service = create_default_translation_service(settings)
+
+    label = service.provider_label(lambda text: text.replace("Custom LLM", "自定义 LLM"))
+    assert label == expected
+
+
+def test_other_engines_show_their_translated_name(settings):
+    from translation.service import create_default_translation_service
+
+    settings.set_translation_provider("deepseek")
+    service = create_default_translation_service(settings)
+    assert service.provider_label(str.upper) == "DEEPSEEK"
+
+
+def test_translation_windows_get_the_slot_label(settings):
+    from translation.service import create_default_translation_service
+    from translation.translation_manager import TranslationManager
+
+    settings.set_translation_provider("custom_llm_3")
+    settings.set_custom_llm_3_model("llama3")
+    from core.i18n import make_tr
+
+    manager = TranslationManager(create_default_translation_service(settings))
+    # 别的测试可能留下了已安装的翻译器，所以按窗口的翻译上下文取期望值
+    expected = make_tr("TranslationDialog")("Custom LLM-3") + " · llama3"
+    assert manager._backend_name() == expected
+
+
+def test_settings_page_offers_every_slot_and_saves_the_one_edited(qapp, settings):
+    from ui.settings_ui.dialog import SettingsDialog
+
+    dialog = SettingsDialog(config_manager=settings)
+    combo = dialog.translation_provider_combo
+    assert [combo.itemData(i) for i in range(combo.count())][-3:] == _SLOT_IDS
+    assert [combo.itemText(i) for i in range(combo.count())][-3:] == [
+        dialog.tr(f"Custom LLM-{i}") for i in (1, 2, 3)]
+
+    combo.setCurrentIndex(combo.findData("custom_llm_2"))
+    assert not dialog.provider_sections["custom_llm_2"].isHidden()
+    assert dialog.provider_sections["custom_llm"].isHidden()
+
+    # 快照平时在 showEvent 里取，这里不弹窗，手动取一次
+    dialog._settings_snapshot = dialog._snapshot_settings()
+    dialog.provider_field_widgets["custom_llm_2_name"].setText(" Work ")
+    dialog.provider_field_widgets["custom_llm_2_model"].setText("gpt-4o")
+    assert dialog._has_unsaved_changes()
+    dialog.accept()
+
+    assert settings.get_translation_provider() == "custom_llm_2"
+    assert settings.get_custom_llm_2_name() == "Work"
+    assert settings.get_custom_llm_2_model() == "gpt-4o"
+    assert settings.get_custom_llm_model() == ""

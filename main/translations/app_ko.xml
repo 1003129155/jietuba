@@ -848,8 +848,16 @@ Replace it?</source>
     <message><source>Which formats the magnifier shows, and which one the copy shortcut uses.</source><translation>돋보기에 표시할 형식과 단축키로 복사할 형식을 정합니다.</translation></message>
     <message><source>Manage Color Formats</source><translation>색상 형식 관리</translation></message>
     <message>
-        <source>Custom LLM</source>
-        <translation>사용자 지정 LLM</translation>
+        <source>Custom LLM-1</source>
+        <translation>사용자 지정 LLM-1</translation>
+    </message>
+    <message>
+        <source>Custom LLM-2</source>
+        <translation>사용자 지정 LLM-2</translation>
+    </message>
+    <message>
+        <source>Custom LLM-3</source>
+        <translation>사용자 지정 LLM-3</translation>
     </message>
     <message>
         <source>API Key</source>
@@ -866,6 +874,14 @@ Replace it?</source>
     <message>
         <source>Instructions</source>
         <translation>추가 지시</translation>
+    </message>
+    <message>
+        <source>Display Name</source>
+        <translation>표시 이름</translation>
+    </message>
+    <message>
+        <source>Shown in the translation window</source>
+        <translation>번역 창에 표시됩니다</translation>
     </message>
     <message>
         <source>Extra Body</source>
@@ -1411,6 +1427,18 @@ Replace it?</source>
 <!-- ========== Translation Dialog ========== -->
 <context>
     <name>TranslationDialog</name>
+    <message>
+        <source>Custom LLM-1</source>
+        <translation>사용자 지정 LLM-1</translation>
+    </message>
+    <message>
+        <source>Custom LLM-2</source>
+        <translation>사용자 지정 LLM-2</translation>
+    </message>
+    <message>
+        <source>Custom LLM-3</source>
+        <translation>사용자 지정 LLM-3</translation>
+    </message>
     <message>
         <source>Translation Result</source>
         <translation>번역 결과</translation>
@@ -3169,8 +3197,16 @@ Replace it?</source>
         <translation>API 기본 URL</translation>
     </message>
     <message>
-        <source>Custom LLM</source>
-        <translation>사용자 지정 LLM</translation>
+        <source>Custom LLM-1</source>
+        <translation>사용자 지정 LLM-1</translation>
+    </message>
+    <message>
+        <source>Custom LLM-2</source>
+        <translation>사용자 지정 LLM-2</translation>
+    </message>
+    <message>
+        <source>Custom LLM-3</source>
+        <translation>사용자 지정 LLM-3</translation>
     </message>
     <message>
         <source>Optional for local models</source>

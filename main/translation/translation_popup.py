@@ -26,6 +26,7 @@ from .translation_dialog import (
     LIGHT,
     Palette,
     WINDOW_CORNER_RADIUS,
+    set_badge_text,
 )
 from .languages import TRANSLATION_LANGUAGES
 
@@ -325,12 +326,11 @@ class TranslationPopup(QWidget):
 
     def set_backend_status(self, name: str, ready: bool) -> None:
         self._backend_ready = ready
-        self.backend_badge.setText(
-            name if ready else _tr("Engine not configured")
-        )
-        self.backend_badge.setProperty("ready", ready)
-        self.backend_badge.style().unpolish(self.backend_badge)
-        self.backend_badge.style().polish(self.backend_badge)
+        badge = self.backend_badge
+        badge.setProperty("ready", ready)
+        badge.style().unpolish(badge)
+        badge.style().polish(badge)
+        set_badge_text(badge, name if ready else _tr("Engine not configured"), padding=8)
 
     def set_theme(self, theme_name: str) -> None:
         self._palette = LIGHT if theme_name == "light" else DARK

@@ -857,8 +857,16 @@ Replace it?</source>
     <message><source>Which formats the magnifier shows, and which one the copy shortcut uses.</source><translation>放大镜上显示哪些格式，以及按键复制的是哪一个。</translation></message>
     <message><source>Manage Color Formats</source><translation>管理颜色格式</translation></message>
     <message>
-        <source>Custom LLM</source>
-        <translation>自定义 LLM</translation>
+        <source>Custom LLM-1</source>
+        <translation>自定义 LLM-1</translation>
+    </message>
+    <message>
+        <source>Custom LLM-2</source>
+        <translation>自定义 LLM-2</translation>
+    </message>
+    <message>
+        <source>Custom LLM-3</source>
+        <translation>自定义 LLM-3</translation>
     </message>
     <message>
         <source>API Key</source>
@@ -875,6 +883,14 @@ Replace it?</source>
     <message>
         <source>Instructions</source>
         <translation>附加要求</translation>
+    </message>
+    <message>
+        <source>Display Name</source>
+        <translation>显示名称</translation>
+    </message>
+    <message>
+        <source>Shown in the translation window</source>
+        <translation>显示在翻译窗口上</translation>
     </message>
     <message>
         <source>Extra Body</source>
@@ -1425,6 +1441,18 @@ Replace it?</source>
 <!-- ========== Translation Dialog ========== -->
 <context>
     <name>TranslationDialog</name>
+    <message>
+        <source>Custom LLM-1</source>
+        <translation>自定义 LLM-1</translation>
+    </message>
+    <message>
+        <source>Custom LLM-2</source>
+        <translation>自定义 LLM-2</translation>
+    </message>
+    <message>
+        <source>Custom LLM-3</source>
+        <translation>自定义 LLM-3</translation>
+    </message>
     <message>
         <source>Translator</source>
         <translation>翻译</translation>
@@ -3233,8 +3261,16 @@ Replace it?</source>
         <translation>当前按下</translation>
     </message>
     <message>
-        <source>Custom LLM</source>
-        <translation>自定义 LLM</translation>
+        <source>Custom LLM-1</source>
+        <translation>自定义 LLM-1</translation>
+    </message>
+    <message>
+        <source>Custom LLM-2</source>
+        <translation>自定义 LLM-2</translation>
+    </message>
+    <message>
+        <source>Custom LLM-3</source>
+        <translation>自定义 LLM-3</translation>
     </message>
     <message>
         <source>Optional for local models</source>
