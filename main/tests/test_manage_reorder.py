@@ -639,6 +639,46 @@ class TestDragHints:
         assert all(groups.is_row_droppable(row) for row in range(groups.count()))
 
 
+class TestEntryPoints:
+    def test_add_group_button_opens_the_new_group_form(self, make_dialog, monkeypatch):
+        """管理窗口是单例，上次停在内容表单时，从剪贴板窗口点“+”也要切回新建分组。"""
+        import clipboard.ui.windows.clipboard_window as clipboard_window_mod
+        from types import SimpleNamespace
+
+        dialog = make_dialog(_manager_with_items(2))
+        assert dialog.current_mode == "content"
+        monkeypatch.setattr(clipboard_window_mod, "get_manage_dialog", lambda _manager: dialog)
+        window = SimpleNamespace(manager=dialog.manager, _connect_manage_dialog=lambda _dialog: None)
+
+        clipboard_window_mod.ClipboardWindow._on_add_group_clicked(window)
+
+        assert dialog.current_mode == "group"
+        assert dialog.editing_group_id is None
+
+    def test_deleting_a_group_stays_on_the_new_group_form(self, make_dialog, monkeypatch):
+        manager = _manager_with_items(2)
+        dialog = make_dialog(manager)
+        monkeypatch.setattr(manage_dialog_mod, "show_confirm_dialog", lambda *args: True)
+        dialog._show_edit_group_form(2)
+
+        dialog._on_delete_clicked()
+
+        assert manager.deleted_groups == [2]
+        assert dialog.current_mode == "group"
+        assert dialog.editing_group_id is None
+        assert _ids(dialog.group_list) == [1]
+        assert _ids(dialog.item_list) == [1, 2]
+
+    def test_import_export_page_offers_the_csv_encodings(self, make_dialog):
+        dialog = make_dialog(_manager_with_items(1))
+
+        dialog._switch_mode("import_export")
+
+        combo = dialog.export_encoding_combo
+        assert dialog.current_mode == "import_export"
+        assert [combo.itemData(i) for i in range(combo.count())] == ["utf-8-sig", "utf-8", "shift_jis", "gbk"]
+
+
 def test_edit_group_button_is_labelled(make_dialog):
     dialog = make_dialog(_two_group_manager())
 

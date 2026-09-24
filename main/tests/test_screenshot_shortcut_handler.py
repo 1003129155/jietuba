@@ -521,3 +521,14 @@ class TestMiddleClickBinding:
         left = _FakeMouseEvent(button=Qt.MouseButton.LeftButton)
         assert handler.handle_mouse(left) is False
         window.action_handler.handle_confirm.assert_not_called()
+
+
+class TestWindowForwardsGlobalPin:
+    def test_window_hands_the_global_pin_to_its_shortcut_handler(self):
+        from ui.screenshot_window import ScreenshotWindow
+
+        handler = MagicMock()
+        ScreenshotWindow.pin_from_global_hotkey(SimpleNamespace(_shortcut_handler=handler))
+        ScreenshotWindow.pin_from_global_hotkey(SimpleNamespace(_shortcut_handler=None))
+
+        handler.pin_from_global_hotkey.assert_called_once_with()

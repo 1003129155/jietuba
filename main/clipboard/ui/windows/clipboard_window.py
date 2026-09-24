@@ -5,7 +5,6 @@
 提供的剪贴板历史管理界面。
 """
 
-import os
 from time import perf_counter
 from typing import List, Optional
 
