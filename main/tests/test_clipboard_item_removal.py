@@ -176,23 +176,20 @@ def test_selection_index_follows_a_row_moved_down():
     assert manager._selected_index == 4
 
 
-def test_selection_and_hover_follow_a_removed_row():
+def test_selection_follows_a_removed_row_but_hover_stays_under_the_mouse():
     manager = SelectionManager.__new__(SelectionManager)
     cleared = []
     manager.clear_selection = lambda: cleared.append(1)
 
     manager._selected_index, manager._hovered_index = 5, 2
     manager.shift_selection_after_remove(2)
-    assert (manager._selected_index, manager._hovered_index) == (4, -1)
+    assert (manager._selected_index, manager._hovered_index) == (4, 2)
 
-    manager.shift_selection_after_remove(0)
-    assert (manager._selected_index, manager._hovered_index) == (3, -1)
-    manager._hovered_index = 6
     manager.shift_selection_after_remove(7)
-    assert (manager._selected_index, manager._hovered_index) == (3, 6)
+    assert manager._selected_index == 4
     assert cleared == []
 
-    manager.shift_selection_after_remove(3)
+    manager.shift_selection_after_remove(4)
     assert cleared == [1]
 
 

@@ -307,7 +307,11 @@ class ManageDialog(FrostedFramelessDialog):
     @safe_event
     def showEvent(self, event):
         super().showEvent(event)
-        # 从外部定位打开（open_item_editor 等）时列表已提前加载，这里不会重复加载
+        # 从外部定位打开（open_item_editor、_switch_mode 等）时已提前装回，这里不会重复加载
+        self._reload_if_released()
+
+    def _reload_if_released(self):
+        """隐藏时放掉了列表和表单：显示前或从外部切换表单前先装回来，否则装回会盖掉刚切的表单。"""
         if self._needs_reload:
             self._refresh_group_list()
             self._on_group_selected(self.selected_group_id)
@@ -924,6 +928,7 @@ class ManageDialog(FrostedFramelessDialog):
 
     def _switch_mode(self, mode: str):
         """右栏切到指定编辑对象：group 新建分组 / content 新增内容 / import_export。"""
+        self._reload_if_released()
         if mode == "group":
             self._show_new_group_form()
         elif mode == "import_export":
@@ -1462,7 +1467,7 @@ class ManageDialog(FrostedFramelessDialog):
     def _save_image_title(self, item):
         """图片内容不可编辑，只保存标题。
 
-        内容按原图尺寸重写成 [宽x高]：旧版把图片条目当文本编辑，内容可能已被改坏，保存一次即可恢复。
+        内容按原图尺寸重写成 [宽x高]，库里被改坏的内容（如 [30x20]1212）随之纠正。
         """
         title = self.title_input.text().strip() or None
         size = getattr(self, "_editing_image_size", None)
@@ -1517,8 +1522,10 @@ class ManageDialog(FrostedFramelessDialog):
         self._file_captured_image(item, request)
 
     def _find_captured_image(self, request):
-        # 刚记下或被去重顶上来的那条 updated_at 不早于写入时刻；尺寸再对一次，免得认错别的图
-        for item in self.manager.get_history(0, 30, content_type="image"):
+        # 刚记下或被去重顶上来的那条 updated_at 不早于写入时刻；尺寸再对一次，免得认错别的图。
+        # 历史按置顶优先排序，不按尺寸过滤的话置顶图片多了会把新记录挤出前 30 条。
+        rows = self.manager.get_history(0, 30, search=request["content"], content_type="image")
+        for item in rows:
             if (item.content == request["content"] and item.updated_at is not None
                     and item.updated_at.timestamp() >= request["since"]):
                 return item
@@ -1551,7 +1558,8 @@ class ManageDialog(FrostedFramelessDialog):
 
         self.content_added.emit(target_id)
         self.data_changed.emit()
-        if self.selected_group_id != target_id:
+        # 窗口隐藏期间列表和表单已放掉，重新显示时整体装回；这里刷新会清掉待装回标记
+        if self._needs_reload or self.selected_group_id != target_id:
             return
         self._refresh_content_list()
         row = self.item_list.row_of_id(item.id)

@@ -102,11 +102,10 @@ class SelectionManager(QObject):
             self._selected_index -= 1
 
     def shift_selection_after_remove(self, row: int):
-        """列表摘掉 row 后同步选中和悬停下标；被摘的正是选中行时清空选中。"""
-        if self._hovered_index == row:
-            self._hovered_index = -1
-        elif self._hovered_index > row:
-            self._hovered_index -= 1
+        """列表摘掉 row 后同步选中下标；被摘的正是选中行时清空选中。
+
+        悬停下标记的是鼠标所在的行号，列表没滚动时鼠标下还是这个行号，不跟着条目挪。
+        """
         if self._selected_index == row:
             self.clear_selection()
         elif self._selected_index > row:

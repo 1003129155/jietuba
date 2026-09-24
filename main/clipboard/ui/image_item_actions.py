@@ -14,7 +14,7 @@ from ui.dialogs import show_warning_dialog
 
 
 def _tr(text: str) -> str:
-    # 这些文案最早写在剪贴板窗口里，沿用它的翻译上下文，已有译文不用重录。
+    # 译文登记在 ClipboardWindow 上下文下。
     return QCoreApplication.translate("ClipboardWindow", text)
 
 

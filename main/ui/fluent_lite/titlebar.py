@@ -155,6 +155,7 @@ class FluentTitleBar(TitleBar):
     def setIcon(self, icon):
         side = _px(self, 16)
         self.iconLabel.setPixmap(icon.pixmap(side, side))
+        self._place_centered_title()
 
     def center_title(self):
         """图标和标题改为在整条标题栏里居中，不再贴左。"""

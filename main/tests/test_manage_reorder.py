@@ -434,9 +434,13 @@ class _MonitoredManager(DummyClipboardManager):
         self.items[item_id].updated_at = _dt.now()
         return item_id
 
-    def get_history(self, offset=0, limit=50, content_type=None, **_kwargs):
-        items = [item for item in self.items.values() if content_type in (None, item.content_type)]
-        items.sort(key=lambda item: item.updated_at or item.created_at, reverse=True)
+    def get_history(self, offset=0, limit=50, search=None, content_type=None, **_kwargs):
+        items = [
+            item for item in self.items.values()
+            if content_type in (None, item.content_type) and (not search or search in item.content)
+        ]
+        # 与后端一致：置顶优先
+        items.sort(key=lambda item: (item.is_pinned, item.updated_at or item.created_at), reverse=True)
         return items[offset:offset + limit]
 
     def move_to_group(self, item_id, group_id):
@@ -529,6 +533,50 @@ class TestAddImage:
         assert warnings == [dialog.tr("The image was not recorded. Make sure clipboard history is turned on.")]
         assert dialog.save_btn.isEnabled()
         assert dialog._image_request is None
+
+    def test_many_pinned_images_do_not_hide_the_new_record(self, make_dialog, fake_clipboard_write):
+        from datetime import datetime as _dt
+
+        manager = _MonitoredManager()
+        fake_clipboard_write["manager"] = manager
+        for item_id in range(200, 240):
+            manager.items[item_id] = ClipboardItem(
+                id=item_id, content="[10x10]", content_type="image", image_id=f"p{item_id}",
+                is_pinned=True, created_at=_dt.now())
+        dialog = _open_image_form(make_dialog, manager)
+        dialog._set_pending_image(_solid_image())
+
+        dialog._save_content()
+        dialog._poll_captured_image()
+
+        item_id = next(i for i, item in manager.items.items() if item.content == "[40x30]")
+        assert manager.item_groups[item_id] == 1
+
+    def test_image_filed_after_the_window_closed_shows_up_on_reopen(
+        self, make_dialog, fake_clipboard_write, monkeypatch
+    ):
+        import core.platform_utils as platform_utils
+
+        monkeypatch.setattr(platform_utils, "request_trim_working_set", lambda *args: None)
+        manager = _MonitoredManager()
+        fake_clipboard_write["manager"] = manager
+        dialog = _open_image_form(make_dialog, manager)
+        dialog.show()
+        dialog._set_pending_image(_solid_image())
+        dialog._save_content()
+        dialog.close()
+
+        dialog._poll_captured_image()
+
+        item_id = next(i for i, item in manager.items.items() if item.content_type == "image")
+        assert manager.item_groups[item_id] == 1
+        assert dialog._needs_reload is True
+
+        dialog.show_and_activate()
+
+        assert dialog.item_list.row_of_id(item_id) >= 0
+        assert dialog.detail_layout.count() > 0
+        assert dialog.save_btn.isEnabled()
 
     def test_image_page_is_disabled_while_history_is_off(self, make_dialog):
         dialog = _open_image_form(make_dialog, _MonitoredManager(monitoring=False))
@@ -640,20 +688,28 @@ class TestDragHints:
 
 
 class TestEntryPoints:
-    def test_add_group_button_opens_the_new_group_form(self, make_dialog, monkeypatch):
-        """管理窗口是单例，上次停在内容表单时，从剪贴板窗口点“+”也要切回新建分组。"""
+    @pytest.mark.parametrize("closed_before", [False, True])
+    def test_add_group_button_opens_the_new_group_form(self, make_dialog, monkeypatch, closed_before):
+        """管理窗口是单例：停在内容表单、或关窗时放掉了表单，从剪贴板窗口点“+”都要落到新建分组。"""
         import clipboard.ui.windows.clipboard_window as clipboard_window_mod
+        import core.platform_utils as platform_utils
         from types import SimpleNamespace
 
+        monkeypatch.setattr(platform_utils, "request_trim_working_set", lambda *args: None)
         dialog = make_dialog(_manager_with_items(2))
         assert dialog.current_mode == "content"
+        if closed_before:
+            dialog.show()
+            dialog.close()
         monkeypatch.setattr(clipboard_window_mod, "get_manage_dialog", lambda _manager: dialog)
         window = SimpleNamespace(manager=dialog.manager, _connect_manage_dialog=lambda _dialog: None)
 
         clipboard_window_mod.ClipboardWindow._on_add_group_clicked(window)
 
+        assert dialog.isVisible()
         assert dialog.current_mode == "group"
         assert dialog.editing_group_id is None
+        assert _ids(dialog.item_list) == [1, 2]
 
     def test_deleting_a_group_stays_on_the_new_group_form(self, make_dialog, monkeypatch):
         manager = _manager_with_items(2)
