@@ -2,7 +2,7 @@
 """剪贴板管理窗口的排序与列表行为。"""
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 from PySide6.QtCore import QEvent, QObject, Qt
@@ -479,10 +479,14 @@ def _solid_image(color="#6F8FAB", width=40, height=30):
 
 
 class TestAddImage:
-    def test_new_image_is_captured_titled_and_moved_into_the_group(self, make_dialog, fake_clipboard_write):
+    def test_new_image_is_captured_titled_and_moved_into_the_group(
+        self, make_dialog, fake_clipboard_write, monkeypatch
+    ):
         manager = _MonitoredManager()
         fake_clipboard_write["manager"] = manager
         dialog = _open_image_form(make_dialog, manager)
+        lookups = []
+        monkeypatch.setattr(dialog, "_group_of_item", lookups.append)
         dialog._set_pending_image(_solid_image())
         dialog.title_input.setText("配色")
 
@@ -490,6 +494,8 @@ class TestAddImage:
         dialog._poll_captured_image()
 
         item_id = next(i for i, item in manager.items.items() if item.content_type == "image")
+        # 新建的记录不可能已在分组里，不用逐个分组去查
+        assert lookups == []
         assert manager.item_groups[item_id] == 1
         assert manager.updated_items[-1] == (item_id, "[40x30]", "配色")
         assert dialog.item_list.row_of_id(item_id) >= 0
@@ -500,6 +506,7 @@ class TestAddImage:
         manager = _MonitoredManager()
         fake_clipboard_write["manager"] = manager
         existing = manager.capture(_solid_image())
+        manager.items[existing].created_at -= timedelta(hours=1)
         manager.item_groups[existing] = 2
         asked = []
         monkeypatch.setattr(manage_dialog_mod, "show_confirm_dialog",

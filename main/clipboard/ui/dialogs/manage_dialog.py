@@ -1542,7 +1542,9 @@ class ManageDialog(FrostedFramelessDialog):
         target = next((g for g in self.manager.get_groups() if g.id == target_id), None)
         if target is None:
             return
-        current = self._group_of_item(item.id)
+        # 刚新建的记录不可能已在分组里；去重只刷新 updated_at，created_at 早于写入时刻的才是被顶上来的老记录
+        is_new = item.created_at is not None and item.created_at.timestamp() >= request["since"]
+        current = None if is_new else self._group_of_item(item.id)
         # 同一张图库里只有一条（按内容去重），已在别的分组时只能移过来，不能复制一份
         if current is not None and current.id != target_id and not show_confirm_dialog(
             self, self.tr("Image Already Saved"),
