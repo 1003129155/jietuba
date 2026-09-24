@@ -1091,16 +1091,8 @@ Replace it?</source>
         <translation>确定并保存</translation>
     </message>
     <message>
-        <source>Pin image (Ctrl+D)</source>
-        <translation>钉图 (Ctrl+D)</translation>
-    </message>
-    <message>
         <source>Cancel screenshot (ESC)</source>
         <translation>结束截图 (ESC)</translation>
-    </message>
-    <message>
-        <source>Confirm and save (Ctrl+C / Enter)</source>
-        <translation>确定并保存 (Ctrl+C / Enter)</translation>
     </message>
     <message>
         <source>Copy to clipboard</source>
@@ -2437,6 +2429,218 @@ Replace it?</source>
     <message>
         <source>Failed to import: {error}</source>
         <translation>导入失败：{error}</translation>
+    </message>
+    <message>
+        <source>Back up saved text content as CSV, or import it on another computer</source>
+        <translation>把保存的文本内容备份为 CSV，或在另一台电脑上导入</translation>
+    </message>
+    <message>
+        <source>Clipboard</source>
+        <translation>剪贴板</translation>
+    </message>
+    <message>
+        <source>Create a group on the left first</source>
+        <translation>先在左侧新建一个分组</translation>
+    </message>
+    <message>
+        <source>Created {time}</source>
+        <translation>创建于 {time}</translation>
+    </message>
+    <message>
+        <source>Delete Group</source>
+        <translation>删除分组</translation>
+    </message>
+    <message>
+        <source>Drag or press Alt+Up/Down to reorder</source>
+        <translation>拖动或按 Alt+↑/↓ 调整顺序</translation>
+    </message>
+    <message>
+        <source>General</source>
+        <translation>通用</translation>
+    </message>
+    <message>
+        <source>Groups</source>
+        <translation>分组</translation>
+    </message>
+    <message>
+        <source>Hidden</source>
+        <translation>隐藏</translation>
+    </message>
+    <message>
+        <source>Icon</source>
+        <translation>图标</translation>
+    </message>
+    <message>
+        <source>Import / Export</source>
+        <translation>导入 / 导出</translation>
+    </message>
+    <message>
+        <source>Launch</source>
+        <translation>启动</translation>
+    </message>
+    <message>
+        <source>Move to Bottom</source>
+        <translation>移到最后</translation>
+    </message>
+    <message>
+        <source>Move to Top</source>
+        <translation>移到最前</translation>
+    </message>
+    <message>
+        <source>No Group</source>
+        <translation>暂无分组</translation>
+    </message>
+    <message>
+        <source>No content in this group yet</source>
+        <translation>这个分组还没有内容</translation>
+    </message>
+    <message>
+        <source>No matching content</source>
+        <translation>没有匹配的内容</translation>
+    </message>
+    <message>
+        <source>Not shown on the panel</source>
+        <translation>不在面板上显示</translation>
+    </message>
+    <message>
+        <source>Open files or folders</source>
+        <translation>打开文件或文件夹</translation>
+    </message>
+    <message>
+        <source>Paste text or files</source>
+        <translation>粘贴文字或文件</translation>
+    </message>
+    <message>
+        <source>Please create a group first</source>
+        <translation>请先新建一个分组</translation>
+    </message>
+    <message>
+        <source>Quick Launch</source>
+        <translation>快速启动</translation>
+    </message>
+    <message>
+        <source>Saved Content</source>
+        <translation>内容管理</translation>
+    </message>
+    <message>
+        <source>Saved to "{group}"</source>
+        <translation>保存到「{group}」</translation>
+    </message>
+    <message>
+        <source>Search title or content</source>
+        <translation>搜索标题或内容</translation>
+    </message>
+    <message>
+        <source>or pick one below</source>
+        <translation>或在下方挑选</translation>
+    </message>
+    <message>
+        <source>{count} items</source>
+        <translation>共 {count} 条</translation>
+    </message>
+    <message>
+        <source>{visible} of {count} items</source>
+        <translation>找到 {visible} 条，共 {count} 条</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>复制</translation>
+    </message>
+    <message>
+        <source>Double-click to pin it on screen</source>
+        <translation>双击钉到屏幕上</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>文件</translation>
+    </message>
+    <message>
+        <source>From {app}</source>
+        <translation>来自 {app}</translation>
+    </message>
+    <message>
+        <source>Image</source>
+        <translation>图片</translation>
+    </message>
+    <message>
+        <source>Pin to Screen</source>
+        <translation>钉图</translation>
+    </message>
+    <message>
+        <source>Save As...</source>
+        <translation>另存为...</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>文本</translation>
+    </message>
+    <message>
+        <source>The original image is no longer available</source>
+        <translation>原图已不存在（可能已被清理）</translation>
+    </message>
+    <message>
+        <source>Choose Image File</source>
+        <translation>选择图片文件</translation>
+    </message>
+    <message>
+        <source>Drag an image here</source>
+        <translation>将图片拖到这里</translation>
+    </message>
+    <message>
+        <source>Image Already Saved</source>
+        <translation>图片已存在</translation>
+    </message>
+    <message>
+        <source>Images (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.ico)</source>
+        <translation>图片 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.ico)</translation>
+    </message>
+    <message>
+        <source>Paste from Clipboard</source>
+        <translation>从剪贴板粘贴</translation>
+    </message>
+    <message>
+        <source>Please choose an image first</source>
+        <translation>请先选择一张图片</translation>
+    </message>
+    <message>
+        <source>The image is saved through clipboard history, so it will replace what is currently on the clipboard</source>
+        <translation>图片会经由剪贴板记录保存，添加时会替换当前剪贴板里的内容</translation>
+    </message>
+    <message>
+        <source>The image was not recorded. Make sure clipboard history is turned on.</source>
+        <translation>没有检测到图片被记录，请确认剪贴板记录已开启。</translation>
+    </message>
+    <message>
+        <source>There is no image on the clipboard</source>
+        <translation>剪贴板里没有图片</translation>
+    </message>
+    <message>
+        <source>This file could not be opened as an image</source>
+        <translation>无法将这个文件作为图片打开</translation>
+    </message>
+    <message>
+        <source>This image is already in "{group}". Move it to "{target}"?</source>
+        <translation>这张图片已在「{group}」中，要移到「{target}」吗？</translation>
+    </message>
+    <message>
+        <source>Turn on clipboard history first: images are saved through it</source>
+        <translation>请先开启剪贴板记录：图片需要经由它保存</translation>
+    </message>
+    <message>
+        <source>Move to Group</source>
+        <translation>移动到分组</translation>
+    </message>
+    <message>
+        <source>Drop on a group to move it there</source>
+        <translation>拖到分组上松开即可移动</translation>
+    </message>
+    <message>
+        <source>New</source>
+        <translation>新建</translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation>编辑</translation>
     </message>
 </context>
 

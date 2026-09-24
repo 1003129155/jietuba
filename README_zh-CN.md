@@ -292,6 +292,7 @@ clipboard/
 │   └── manage_dialog_service.py  # 管理窗口保存逻辑
 ├── ui/
 │   ├── layout_scale.py           # 管理窗口共用尺寸常量
+│   ├── image_item_actions.py     # 图片条目的读取与另存为，剪贴板窗口和管理窗口共用
 │   ├── dialogs/
 │   │   └── manage_dialog.py      # 三栏管理窗口：分组、内容、导入导出
 │   ├── forms/
@@ -299,7 +300,9 @@ clipboard/
 │   │   ├── text_content_form.py
 │   │   ├── file_content_form.py
 │   │   ├── import_export_form.py
-│   │   └── group_icon_picker.py
+│   │   ├── group_icon_picker.py
+│   │   ├── form_widgets.py
+│   │   └── image_content_form.py
 │   ├── menus/
 │   │   ├── action_menu.py
 │   │   ├── group_context_menu.py
@@ -314,11 +317,12 @@ clipboard/
 │   │   ├── themes.py
 │   │   └── theme_styles.py
 │   ├── widgets/
-│   │   ├── draggable_list_widget.py
 │   │   ├── group_bar.py
 │   │   ├── item_delegate.py
 │   │   ├── item_widget.py
-│   │   └── preview_popup.py
+│   │   ├── preview_popup.py
+│   │   ├── manage_rows.py
+│   │   └── reorder_list.py
 │   └── windows/
 │       ├── clipboard_window.py   # 历史窗口、搜索、预览与快捷粘贴
 │       └── pin_window.py         # 从历史条目创建钉图

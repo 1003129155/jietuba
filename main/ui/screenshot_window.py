@@ -74,6 +74,22 @@ class ScreenshotShortcutHandler(ShortcutHandler):
             event, cfg_key, self._bindings, self._mouse_bindings
         )
 
+    def _pin_if_confirmed(self) -> bool:
+        w = self._window
+        if w.scene and w.scene.selection_model.is_confirmed:
+            w.action_handler.handle_pin()
+            return True
+        return False
+
+    def pin_from_global_hotkey(self) -> None:
+        """全局钉图热键在截图中按下时，等同应用内钉图键。
+
+        RegisterHotKey 会在按键到达截图窗口前吃掉它，所以由 MainApp 转发过来。
+        与应用内键不同，文字编辑中也照常钉图：handle_pin 会先退出编辑。
+        """
+        if self.is_active():
+            self._pin_if_confirmed()
+
     def handle_mouse(self, event) -> bool:
         """中键走和键盘完全相同的那条 if 链，见 ShortcutHandler.handle_mouse。"""
         return self.handle_key(event)
@@ -119,8 +135,7 @@ class ScreenshotShortcutHandler(ShortcutHandler):
 
         # 钉图
         if self._match(event, "inapp_pin"):
-            if w.scene and w.scene.selection_model.is_confirmed:
-                w.action_handler.handle_pin()
+            if self._pin_if_confirmed():
                 return True
 
         # 撤销
@@ -708,6 +723,11 @@ class ScreenshotWindow(QWidget):
     def _handle_pin(self):
         if self.action_handler:
             self.action_handler.handle_pin()
+
+    def pin_from_global_hotkey(self):
+        handler = getattr(self, '_shortcut_handler', None)
+        if handler:
+            handler.pin_from_global_hotkey()
 
     def _handle_screenshot_translate(self):
         if self.action_handler:

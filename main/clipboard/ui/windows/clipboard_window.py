@@ -5,8 +5,6 @@
 提供的剪贴板历史管理界面。
 """
 
-import os
-import re
 from time import perf_counter
 from typing import List, Optional
 
@@ -153,6 +151,8 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self.controller.load_completed.connect(self._on_load_completed)
         self.controller.item_inserted.connect(self._on_item_inserted)
         self.controller.item_moved_to_top.connect(self._on_item_moved_to_top)
+        self.controller.item_removed.connect(self._on_item_removed)
+        self.controller.item_row_moved.connect(self._on_item_row_moved)
 
         self.selected_item_id: Optional[int] = None
         self._is_loading = False
@@ -215,6 +215,27 @@ class ClipboardWindow(QWidget, FramelessMixin):
             self.list_widget.insertItem(row, self.list_widget.takeItem(index))
             self.selection_manager.shift_selection_after_move(index, row)
             return
+
+    # takeItem 会让 Qt 的当前项悄悄落到相邻行，选中管理器会误以为用户选了那一行；
+    # 这里屏蔽列表信号，选中下标由 shift_selection_* 统一调整。
+    def _on_item_removed(self, row: int):
+        """单条内容移出当前列表：只摘这一行，保持滚动位置。"""
+        self.list_widget.blockSignals(True)
+        try:
+            self.list_widget.takeItem(row)
+        finally:
+            self.list_widget.blockSignals(False)
+        self.selection_manager.shift_selection_after_remove(row)
+        # 摘掉一行后可能不够填满窗口，需要时补下一页
+        QTimer.singleShot(0, self._check_and_load_more_if_needed)
+
+    def _on_item_row_moved(self, from_row: int, to_row: int):
+        self.list_widget.blockSignals(True)
+        try:
+            self.list_widget.insertItem(to_row, self.list_widget.takeItem(from_row))
+        finally:
+            self.list_widget.blockSignals(False)
+        self.selection_manager.shift_selection_after_move(from_row, to_row)
 
     def _on_loading_changed(self, is_loading: bool):
         self._is_loading = is_loading
@@ -949,6 +970,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
     def _on_add_group_clicked(self):
         dialog = get_manage_dialog(self.manager)
         self._connect_manage_dialog(dialog)
+        dialog._switch_page(0)
         dialog.show_and_activate()
 
     def _on_add_item_clicked(self):
@@ -1139,59 +1161,9 @@ class ClipboardWindow(QWidget, FramelessMixin):
             self.item_pasted.emit(item_id)
 
     def _save_image_as(self, item_id: int):
-        import os
+        from ..image_item_actions import save_image_item_as
 
-        from PySide6.QtGui import QImage
-        from PySide6.QtWidgets import QFileDialog
-        from ui.dialogs import show_warning_dialog
-        from core.save import SaveService
-
-        clipboard_item = self.controller.get_item(item_id)
-        if clipboard_item is None or clipboard_item.content_type != "image" or not clipboard_item.image_id:
-            return
-
-        image_data = self.manager.get_image_data(clipboard_item.image_id)
-        if not image_data:
-            show_warning_dialog(self, self.tr("Save Failed"), self.tr("Image data is unavailable."))
-            return
-
-        image = QImage()
-        if not image.loadFromData(image_data):
-            show_warning_dialog(self, self.tr("Save Failed"), self.tr("Failed to load image data."))
-            return
-
-        if clipboard_item.created_at:
-            default_name = f"clipboard_image_{clipboard_item.created_at.strftime('%Y%m%d_%H%M%S')}.png"
-        else:
-            default_name = f"clipboard_image_{clipboard_item.id}.png"
-
-        file_path, selected_filter = QFileDialog.getSaveFileName(
-            self,
-            self.tr("Save as"),
-            default_name,
-            self.tr("PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp);;WebP Image (*.webp);;PDF (*.pdf)"),
-        )
-        if not file_path:
-            return
-
-        image_format = self._format_from_save_filter(file_path, selected_filter)
-        if not os.path.splitext(file_path)[1]:
-            file_path = f"{file_path}.{image_format.lower()}"
-
-        save_service = SaveService()
-        if not save_service.save_qimage_to_path(image, file_path, image_format=image_format):
-            show_warning_dialog(self, self.tr("Save Failed"), self.tr("Failed to save image."))
-
-    @staticmethod
-    def _format_from_save_filter(file_path: str, selected_filter: str) -> str:
-        ext = os.path.splitext(file_path)[1].lstrip(".")
-        if ext:
-            return ext.upper()
-        # 从过滤器字符串中提取第一个扩展名，如 "JPEG (*.jpg *.jpeg)" → "jpg"
-        match = re.search(r'\*\.(\w+)', selected_filter)
-        if match:
-            return match.group(1).upper()
-        return "PNG"
+        save_image_item_as(self, self.manager, self.controller.get_item(item_id))
 
     def _open_file_location(self, item_id: int):
         import json

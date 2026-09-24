@@ -126,6 +126,7 @@ class FluentTitleBar(TitleBar):
             "background: transparent;"
         )
         self._apply_caption_colors()
+        self._place_centered_title()
 
     def _apply_caption_colors(self):
         """Caption-button colours, as a single overridable source.
@@ -149,7 +150,31 @@ class FluentTitleBar(TitleBar):
 
     def setTitle(self, title):
         self.titleLabel.setText(str(title))
+        self._place_centered_title()
 
     def setIcon(self, icon):
         side = _px(self, 16)
         self.iconLabel.setPixmap(icon.pixmap(side, side))
+        self._place_centered_title()
+
+    def center_title(self):
+        """图标和标题改为在整条标题栏里居中，不再贴左。"""
+        self.hBoxLayout.removeWidget(self.iconLabel)
+        self.hBoxLayout.removeWidget(self.titleLabel)
+        self._title_centered = True
+        self._place_centered_title()
+
+    def _place_centered_title(self):
+        if not getattr(self, "_title_centered", False):
+            return
+        self.titleLabel.adjustSize()
+        gap = _px(self, 6)
+        icon_w = self.iconLabel.width() + gap if self.iconLabel.pixmap() and not self.iconLabel.pixmap().isNull() else 0
+        left = (self.width() - icon_w - self.titleLabel.width()) // 2
+        if icon_w:
+            self.iconLabel.move(left, (self.height() - self.iconLabel.height()) // 2)
+        self.titleLabel.move(left + icon_w, (self.height() - self.titleLabel.height()) // 2)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._place_centered_title()

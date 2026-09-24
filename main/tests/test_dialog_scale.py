@@ -2,6 +2,8 @@
 """Standalone-window scale uses explicit base metrics, never a post-layout sweep."""
 
 import pytest
+from PySide6.QtCore import QModelIndex
+from PySide6.QtWidgets import QStyleOptionViewItem
 
 from core.ui_scale import dialog_scaled, get_dialog_scale
 
@@ -265,11 +267,14 @@ def test_manage_dialog_reads_the_window_scale_at_construction_time(qapp):
     否则用户改了窗口缩放设置后，管理窗口要重启进程才会变。"""
     import clipboard.ui.dialogs.manage_dialog as manage_dialog_mod
     from clipboard.ui.dialogs.manage_dialog import ManageDialog
+    from PySide6.QtWidgets import QApplication
     from clipboard.ui.layout_scale import (
+        fit_manage_dialog_size,
         manage_dialog_min_height,
         manage_dialog_min_width,
-        manage_dialog_width,
     )
+
+    screen = QApplication.primaryScreen().availableGeometry()
 
     manage_dialog_mod._manage_window_instance = None
     get_dialog_scale().set_percent(80)
@@ -277,7 +282,7 @@ def test_manage_dialog_reads_the_window_scale_at_construction_time(qapp):
     try:
         assert small.minimumWidth() == manage_dialog_min_width()
         assert small.minimumHeight() == manage_dialog_min_height()
-        assert small.width() == manage_dialog_width()
+        assert small.width() == fit_manage_dialog_size(screen.width(), screen.height())[0]
     finally:
         small.hide()
         small.deleteLater()
@@ -288,7 +293,7 @@ def test_manage_dialog_reads_the_window_scale_at_construction_time(qapp):
     try:
         assert large.minimumWidth() == manage_dialog_min_width()
         assert large.minimumWidth() > small.minimumWidth()
-        assert large.width() == manage_dialog_width()
+        assert large.width() == fit_manage_dialog_size(screen.width(), screen.height())[0]
         assert large.width() > small.width()
     finally:
         large.hide()
@@ -305,17 +310,21 @@ def test_manage_dialog_scales_static_and_rebuilt_detail_controls(qapp):
     get_dialog_scale().set_percent(150)
     dialog = ManageDialog(_DummyClipboardManager())
     try:
-        assert dialog.save_btn.property("dialog_scale_factor") == 1.5
-        assert "font: 600 20px" in dialog.save_btn.styleSheet()
-        assert not hasattr(dialog, "nav_title")
-        assert "font-size: 16px" in dialog.list_widget.styleSheet()
-        assert "padding: 9px" in dialog.list_widget.styleSheet()
+        # 保存按钮的 36px 高、13px 字号按 150% 放大
+        assert f"min-height: {dialog_scaled(36)}px" in dialog.styleSheet()
+        assert f"font-size: {dialog_scaled(13)}px" in dialog.styleSheet()
+        assert dialog_scaled(36) == 54
+        assert dialog.search_input.property("dialog_scale_factor") == 1.5
+        assert "min-height: 39px" in dialog.search_input.styleSheet()
+        option = QStyleOptionViewItem()
+        row_height = dialog.item_list.itemDelegate().sizeHint(option, QModelIndex()).height()
+        assert row_height == dialog_scaled(34)
 
+        dialog._show_new_group_form()
         first_name_input = dialog.group_name_input
         assert first_name_input.property("dialog_scale_factor") == 1.5
         assert "min-height: 39px" in first_name_input.styleSheet()
-        assert "font: 20px" in dialog.radio_normal.styleSheet()
-        assert "width: 24px" in dialog.radio_normal.styleSheet()
+        assert dialog.radio_normal.sizeHint().height() == dialog_scaled(58)
 
         # Switching/reselecting rebuilds the form from scratch; new controls
         # must receive the marker as well.
@@ -706,3 +715,22 @@ def test_clipboard_refresh_button_scales_through_the_real_settings_page(
     finally:
         dialog.hide()
         dialog.deleteLater()
+
+
+def test_manage_dialog_default_size_fits_small_screens():
+    """默认尺寸按屏幕收缩，但不小于最小尺寸；大屏上用完整的默认尺寸。"""
+    from clipboard.ui.layout_scale import (
+        fit_manage_dialog_size,
+        manage_dialog_height,
+        manage_dialog_min_height,
+        manage_dialog_min_width,
+        manage_dialog_width,
+    )
+
+    get_dialog_scale().set_percent(100)
+    assert fit_manage_dialog_size(2560, 1400) == (manage_dialog_width(), manage_dialog_height())
+
+    width, height = fit_manage_dialog_size(1366, 728)
+    assert width == 1160
+    assert height == int(728 * 0.92)
+    assert fit_manage_dialog_size(800, 500) == (manage_dialog_min_width(), manage_dialog_min_height())

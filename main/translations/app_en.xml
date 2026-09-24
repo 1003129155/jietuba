@@ -962,16 +962,8 @@ Replace it?</translation>
         <translation>Confirm and save</translation>
     </message>
     <message>
-        <source>Pin image (Ctrl+D)</source>
-        <translation>Pin image (Ctrl+D)</translation>
-    </message>
-    <message>
         <source>Cancel screenshot (ESC)</source>
         <translation>Cancel screenshot (ESC)</translation>
-    </message>
-    <message>
-        <source>Confirm and save (Ctrl+C / Enter)</source>
-        <translation>Confirm and save (Ctrl+C / Enter)</translation>
     </message>
     <message>
         <source>Copy to clipboard</source>
@@ -2194,6 +2186,222 @@ Replace it?</translation>
     <message>
         <source>Failed to import: {error}</source>
         <translation>Failed to import: {error}</translation>
+    </message>
+    <message>
+        <source>Back up saved text content as CSV, or import it on another computer</source>
+        <translation>Back up saved text content as CSV, or import it on another computer</translation>
+    </message>
+    <message>
+        <source>Clipboard</source>
+        <translation>Clipboard</translation>
+    </message>
+    <message>
+        <source>Create a group on the left first</source>
+        <translation>Create a group on the left first</translation>
+    </message>
+    <message>
+        <source>Created {time}</source>
+        <translation>Created {time}</translation>
+    </message>
+    <message>
+        <source>Delete Group</source>
+        <translation>Delete Group</translation>
+    </message>
+    <message>
+        <source>Drag or press Alt+Up/Down to reorder</source>
+        <translation>Drag or press Alt+Up/Down to reorder</translation>
+    </message>
+    <message>
+        <source>General</source>
+        <translation>General</translation>
+    </message>
+    <message>
+        <source>Groups</source>
+        <translation>Groups</translation>
+    </message>
+    <message>
+        <source>Hidden</source>
+        <translation>Hidden</translation>
+    </message>
+    <message>
+        <source>Icon</source>
+        <translation>Icon</translation>
+    </message>
+    <message>
+        <source>Import / Export</source>
+        <translation>Import / Export</translation>
+    </message>
+    <message>
+        <source>Launch</source>
+        <translation>Launch</translation>
+    </message>
+    <message>
+        <source>Move to Bottom</source>
+        <translation>Move to Bottom</translation>
+    </message>
+    <message>
+        <source>Move to Top</source>
+        <translation>Move to Top</translation>
+    </message>
+    <message>
+        <source>No Group</source>
+        <translation>No Group</translation>
+    </message>
+    <message>
+        <source>No content in this group yet</source>
+        <translation>No content in this group yet</translation>
+    </message>
+    <message>
+        <source>No matching content</source>
+        <translation>No matching content</translation>
+    </message>
+    <message>
+        <source>Not shown on the panel</source>
+        <translation>Not shown on the panel</translation>
+    </message>
+    <message>
+        <source>Open files or folders</source>
+        <translation>Open files or folders</translation>
+    </message>
+    <message>
+        <source>Paste text or files</source>
+        <translation>Paste text or files</translation>
+    </message>
+    <message>
+        <source>Please create a group first</source>
+        <translation>Please create a group first</translation>
+    </message>
+    <message>
+        <source>Quick Launch</source>
+        <translation>Quick Launch</translation>
+    </message>
+    <message>
+        <source>Saved Content</source>
+        <translation>Saved Content</translation>
+    </message>
+    <message>
+        <source>Saved to "{group}"</source>
+        <translation>Saved to "{group}"</translation>
+    </message>
+    <message>
+        <source>Search title or content</source>
+        <translation>Search title or content</translation>
+    </message>
+    <message>
+        <source>or pick one below</source>
+        <translation>or pick one below</translation>
+    </message>
+    <message>
+        <source>{count} items</source>
+        <translation>{count} items</translation>
+    </message>
+    <message>
+        <source>{visible} of {count} items</source>
+        <translation>{visible} of {count} items</translation>
+    </message>
+    <message>
+        <source>Enter title (e.g., Restart Command)...</source>
+        <translation>Enter title (e.g., Restart Command)...</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>Copy</translation>
+    </message>
+    <message>
+        <source>Double-click to pin it on screen</source>
+        <translation>Double-click to pin it on screen</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>File</translation>
+    </message>
+    <message>
+        <source>From {app}</source>
+        <translation>From {app}</translation>
+    </message>
+    <message>
+        <source>Image</source>
+        <translation>Image</translation>
+    </message>
+    <message>
+        <source>Pin to Screen</source>
+        <translation>Pin to Screen</translation>
+    </message>
+    <message>
+        <source>Save As...</source>
+        <translation>Save As...</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>Text</translation>
+    </message>
+    <message>
+        <source>The original image is no longer available</source>
+        <translation>The original image is no longer available</translation>
+    </message>
+    <message>
+        <source>Choose Image File</source>
+        <translation>Choose Image File</translation>
+    </message>
+    <message>
+        <source>Drag an image here</source>
+        <translation>Drag an image here</translation>
+    </message>
+    <message>
+        <source>Image Already Saved</source>
+        <translation>Image Already Saved</translation>
+    </message>
+    <message>
+        <source>Images (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.ico)</source>
+        <translation>Images (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.ico)</translation>
+    </message>
+    <message>
+        <source>Paste from Clipboard</source>
+        <translation>Paste from Clipboard</translation>
+    </message>
+    <message>
+        <source>Please choose an image first</source>
+        <translation>Please choose an image first</translation>
+    </message>
+    <message>
+        <source>The image is saved through clipboard history, so it will replace what is currently on the clipboard</source>
+        <translation>The image is saved through clipboard history, so it will replace what is currently on the clipboard</translation>
+    </message>
+    <message>
+        <source>The image was not recorded. Make sure clipboard history is turned on.</source>
+        <translation>The image was not recorded. Make sure clipboard history is turned on.</translation>
+    </message>
+    <message>
+        <source>There is no image on the clipboard</source>
+        <translation>There is no image on the clipboard</translation>
+    </message>
+    <message>
+        <source>This file could not be opened as an image</source>
+        <translation>This file could not be opened as an image</translation>
+    </message>
+    <message>
+        <source>This image is already in "{group}". Move it to "{target}"?</source>
+        <translation>This image is already in "{group}". Move it to "{target}"?</translation>
+    </message>
+    <message>
+        <source>Turn on clipboard history first: images are saved through it</source>
+        <translation>Turn on clipboard history first: images are saved through it</translation>
+    </message>
+    <message>
+        <source>Move to Group</source>
+        <translation>Move to Group</translation>
+    </message>
+    <message>
+        <source>Drop on a group to move it there</source>
+        <translation>Drop on a group to move it there</translation>
+    </message>
+    <message>
+        <source>New</source>
+        <translation>New</translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation>Edit</translation>
     </message>
 </context>
 

@@ -21,7 +21,7 @@ from core.logger import (
 )
 
 # ── 全局版本号 ────────────────────────────────────────────
-APP_VERSION = "2.0.7"
+APP_VERSION = "2.0.8"
 
 
 def create_fallback_app_icon():
@@ -721,7 +721,12 @@ class MainApp(QObject):
             log_exception(e, T("打开剪切板窗口失败"))
 
     def pin_clipboard_image(self):
-        """把剪贴板里的图片钉到鼠标位置。"""
+        """把剪贴板里的图片钉到鼠标位置；截图中则改为钉当前选区。"""
+        window = self.screenshot_window
+        if window and getattr(window, '_session_active', False):
+            window.pin_from_global_hotkey()
+            return
+
         from PySide6.QtGui import QCursor
         from clipboard.ui.windows.pin_window import pin_latest_clipboard_image
 

@@ -1090,16 +1090,8 @@ Replace it?</source>
         <translation>確定して保存</translation>
     </message>
     <message>
-        <source>Pin image (Ctrl+D)</source>
-        <translation>ピン留め (Ctrl+D)</translation>
-    </message>
-    <message>
         <source>Cancel screenshot (ESC)</source>
         <translation>スクリーンショットを終了 (ESC)</translation>
-    </message>
-    <message>
-        <source>Confirm and save (Ctrl+C / Enter)</source>
-        <translation>確定して保存 (Ctrl+C / Enter)</translation>
     </message>
     <message>
         <source>Copy to clipboard</source>
@@ -2398,6 +2390,222 @@ Replace it?</source>
     <message>
         <source>Failed to import: {error}</source>
         <translation>インポートに失敗しました: {error}</translation>
+    </message>
+    <message>
+        <source>Back up saved text content as CSV, or import it on another computer</source>
+        <translation>保存したテキストを CSV にバックアップしたり、別の PC で読み込んだりできます</translation>
+    </message>
+    <message>
+        <source>Clipboard</source>
+        <translation>クリップボード</translation>
+    </message>
+    <message>
+        <source>Create a group on the left first</source>
+        <translation>まず左側でグループを作成してください</translation>
+    </message>
+    <message>
+        <source>Created {time}</source>
+        <translation>作成日時 {time}</translation>
+    </message>
+    <message>
+        <source>Delete Group</source>
+        <translation>グループを削除</translation>
+    </message>
+    <message>
+        <source>Drag or press Alt+Up/Down to reorder</source>
+        <translation>ドラッグまたは Alt+↑/↓ で並べ替え</translation>
+    </message>
+    <message>
+        <source>General</source>
+        <translation>汎用</translation>
+    </message>
+    <message>
+        <source>Groups</source>
+        <translation>グループ</translation>
+    </message>
+    <message>
+        <source>Hidden</source>
+        <translation>非表示</translation>
+    </message>
+    <message>
+        <source>Icon</source>
+        <translation>アイコン</translation>
+    </message>
+    <message>
+        <source>Import / Export</source>
+        <translation>インポート / エクスポート</translation>
+    </message>
+    <message>
+        <source>Launch</source>
+        <translation>起動</translation>
+    </message>
+    <message>
+        <source>Move to Bottom</source>
+        <translation>一番下へ移動</translation>
+    </message>
+    <message>
+        <source>Move to Top</source>
+        <translation>一番上へ移動</translation>
+    </message>
+    <message>
+        <source>No Group</source>
+        <translation>グループなし</translation>
+    </message>
+    <message>
+        <source>No content in this group yet</source>
+        <translation>このグループにはまだ内容がありません</translation>
+    </message>
+    <message>
+        <source>No matching content</source>
+        <translation>一致する内容がありません</translation>
+    </message>
+    <message>
+        <source>Not shown on the panel</source>
+        <translation>パネルに表示しない</translation>
+    </message>
+    <message>
+        <source>Open files or folders</source>
+        <translation>ファイルやフォルダを開く</translation>
+    </message>
+    <message>
+        <source>Paste text or files</source>
+        <translation>テキストやファイルを貼り付け</translation>
+    </message>
+    <message>
+        <source>Please create a group first</source>
+        <translation>先にグループを作成してください</translation>
+    </message>
+    <message>
+        <source>Quick Launch</source>
+        <translation>クイック起動</translation>
+    </message>
+    <message>
+        <source>Saved Content</source>
+        <translation>保存した内容</translation>
+    </message>
+    <message>
+        <source>Saved to "{group}"</source>
+        <translation>「{group}」に保存</translation>
+    </message>
+    <message>
+        <source>Search title or content</source>
+        <translation>タイトルや内容を検索</translation>
+    </message>
+    <message>
+        <source>or pick one below</source>
+        <translation>または下から選択</translation>
+    </message>
+    <message>
+        <source>{count} items</source>
+        <translation>{count} 件</translation>
+    </message>
+    <message>
+        <source>{visible} of {count} items</source>
+        <translation>{count} 件中 {visible} 件</translation>
+    </message>
+    <message>
+        <source>Enter title (e.g., Restart Command)...</source>
+        <translation>タイトルを入力（例：再起動コマンド）...</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>コピー</translation>
+    </message>
+    <message>
+        <source>Double-click to pin it on screen</source>
+        <translation>ダブルクリックで画面に固定</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>ファイル</translation>
+    </message>
+    <message>
+        <source>From {app}</source>
+        <translation>{app} から</translation>
+    </message>
+    <message>
+        <source>Image</source>
+        <translation>画像</translation>
+    </message>
+    <message>
+        <source>Pin to Screen</source>
+        <translation>ピン留め</translation>
+    </message>
+    <message>
+        <source>Save As...</source>
+        <translation>名前を付けて保存...</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>テキスト</translation>
+    </message>
+    <message>
+        <source>The original image is no longer available</source>
+        <translation>元の画像はもう存在しません（削除された可能性があります）</translation>
+    </message>
+    <message>
+        <source>Choose Image File</source>
+        <translation>画像ファイルを選択</translation>
+    </message>
+    <message>
+        <source>Drag an image here</source>
+        <translation>ここに画像をドラッグ</translation>
+    </message>
+    <message>
+        <source>Image Already Saved</source>
+        <translation>画像は保存済みです</translation>
+    </message>
+    <message>
+        <source>Images (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.ico)</source>
+        <translation>画像 (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.ico)</translation>
+    </message>
+    <message>
+        <source>Paste from Clipboard</source>
+        <translation>クリップボードから貼り付け</translation>
+    </message>
+    <message>
+        <source>Please choose an image first</source>
+        <translation>先に画像を選択してください</translation>
+    </message>
+    <message>
+        <source>The image is saved through clipboard history, so it will replace what is currently on the clipboard</source>
+        <translation>画像はクリップボード履歴を経由して保存されるため、追加時に現在のクリップボードの内容が置き換わります</translation>
+    </message>
+    <message>
+        <source>The image was not recorded. Make sure clipboard history is turned on.</source>
+        <translation>画像が記録されませんでした。クリップボード履歴がオンになっているか確認してください。</translation>
+    </message>
+    <message>
+        <source>There is no image on the clipboard</source>
+        <translation>クリップボードに画像がありません</translation>
+    </message>
+    <message>
+        <source>This file could not be opened as an image</source>
+        <translation>このファイルを画像として開けません</translation>
+    </message>
+    <message>
+        <source>This image is already in "{group}". Move it to "{target}"?</source>
+        <translation>この画像は「{group}」にあります。「{target}」に移動しますか？</translation>
+    </message>
+    <message>
+        <source>Turn on clipboard history first: images are saved through it</source>
+        <translation>先にクリップボード履歴をオンにしてください（画像はそれを経由して保存されます）</translation>
+    </message>
+    <message>
+        <source>Move to Group</source>
+        <translation>グループへ移動</translation>
+    </message>
+    <message>
+        <source>Drop on a group to move it there</source>
+        <translation>グループの上で離すと移動します</translation>
+    </message>
+    <message>
+        <source>New</source>
+        <translation>新規</translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation>編集</translation>
     </message>
 </context>
 

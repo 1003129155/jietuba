@@ -9,9 +9,10 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout
 
-from ui.fluent_lite import BodyLabel, LineEdit, PushButton as FluentPushButton
+from ui.fluent_lite import LineEdit, PushButton as FluentPushButton
 from ui.fluent_lite.theme import ui_tokens
 from ..layout_scale import scale_ui, scale_x, scale_y
+from .form_widgets import field_label
 
 
 class FileDropZone(QFrame):
@@ -21,9 +22,10 @@ class FileDropZone(QFrame):
         super().__init__(parent)
         self._on_path_dropped = on_path_dropped
         self._drag_active = False
+        self.setObjectName("FileDropZone")
 
         self.setAcceptDrops(True)
-        self.setMinimumHeight(scale_y(204))
+        self.setMinimumHeight(scale_ui(150))
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(scale_x(12), scale_y(10), scale_x(12), scale_y(10))
@@ -38,7 +40,8 @@ class FileDropZone(QFrame):
     def _apply_theme(self, tokens=None):
         tokens = tokens or ui_tokens(self)
         self._default_style = (
-            "QFrame {"
+            # QLabel 也是 QFrame，只写 QFrame 会让提示文字再套一层虚线框
+            "QFrame#FileDropZone {"
             f"border: 2px dashed {tokens.border_hover};"
             f"border-radius: {scale_ui(10)}px;"
             f"background: {tokens.surface_subtle};"
@@ -50,7 +53,7 @@ class FileDropZone(QFrame):
             "}"
         )
         self._hover_style = (
-            "QFrame {"
+            "QFrame#FileDropZone {"
             f"border: 2px dashed {tokens.accent};"
             f"border-radius: {scale_ui(10)}px;"
             f"background: {tokens.accent_soft};"
@@ -120,15 +123,13 @@ def build_file_content_form(dialog, add_stretch: bool = True):
     """构建文件分组内容输入表单。"""
     dialog.selected_file_path = None
 
-    title_label = BodyLabel(dialog.tr("Title (Optional)"))
-    dialog.detail_layout.addWidget(title_label)
+    dialog.detail_layout.addWidget(field_label(dialog.tr("Title (Optional)"), top_gap=False))
 
     dialog.title_input = LineEdit()
     dialog.title_input.setPlaceholderText(dialog.tr("Enter title..."))
     dialog.detail_layout.addWidget(dialog.title_input)
 
-    file_label = BodyLabel(dialog.tr("File Path"))
-    dialog.detail_layout.addWidget(file_label)
+    dialog.detail_layout.addWidget(field_label(dialog.tr("File Path")))
 
     dialog.file_path_input = LineEdit()
     dialog.file_path_input.setPlaceholderText(dialog.tr("Select a file..."))

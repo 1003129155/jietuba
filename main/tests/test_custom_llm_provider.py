@@ -529,9 +529,14 @@ def test_translation_windows_get_the_slot_label(settings):
     assert manager._backend_name() == expected
 
 
-def test_settings_page_offers_every_slot_and_saves_the_one_edited(qapp, settings):
+def test_settings_page_offers_every_slot_and_saves_the_one_edited(qapp, settings, monkeypatch):
     from ui.settings_ui.dialog import SettingsDialog
 
+    # accept() 会向系统试注册全局热键；本机若有程序占着默认键，会弹出模态警告卡住
+    monkeypatch.setattr(
+        "core.shortcut_manager.HotkeySystem.check_hotkey_availability",
+        lambda _self, _hotkey: True,
+    )
     dialog = SettingsDialog(config_manager=settings)
     combo = dialog.translation_provider_combo
     assert [combo.itemData(i) for i in range(combo.count())][-3:] == _SLOT_IDS
