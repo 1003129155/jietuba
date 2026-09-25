@@ -44,6 +44,7 @@ APP_DEFAULT_SETTINGS = {
     "screenshot_format": "PNG",
     "screenshot_quality": 85,
     "clipboard_file_reference_enabled": True,
+    "autostart_enabled": True,
     "show_main_window": True,
     "ocr_enabled": True,
     "ocr_engine": "windos_ocr",

@@ -205,7 +205,7 @@ class FinishPage(BasePage):
     def _build_controls(self, layout: QVBoxLayout):
         # ── 开机自启 ──────────────────────────────────────
         self._autostart_switch = ToggleSwitch()
-        self._autostart_switch.setChecked(True)  # 欢迎向导默认开启
+        self._autostart_switch.setChecked(self._config.get_app_setting("autostart_enabled"))
         row_auto, self._autostart_lbl, self._autostart_desc = \
             self._make_setting_row_with_refs(
                 _tr("开机自启"),
@@ -407,6 +407,8 @@ class FinishPage(BasePage):
         # 文件/网络路径操作放到后台线程，避免 UNC 路径探测阻塞主线程
         autostart_on = hasattr(self, "_autostart_switch") and self._autostart_switch.isChecked()
         desktop_on   = hasattr(self, "_desktop_switch")   and self._desktop_switch.isChecked()
+        if hasattr(self._config, "set_app_setting"):
+            self._config.set_app_setting("autostart_enabled", autostart_on)
 
         import threading
         def _bg():

@@ -169,6 +169,7 @@ DEFAULTS = {
     "clipboard_enabled": True,
     "clipboard_auto_paste": False,
     "clipboard_history_limit": 100,
+    "autostart_enabled": True,
 }
 
 
@@ -603,17 +604,14 @@ class TestResetLogPage:
 
 class TestResetMiscPage:
 
-    def test_autostart_is_always_cleared_regardless_of_defaults(self):
-        """
-        开机自启动不从默认值恢复，而是硬编码关闭——它对应的是注册表状态，
-        恢复默认应当保守地取消自启动。
-        """
+    def test_autostart_follows_the_defaults(self):
+        """开机自启默认开启，恢复默认按配置的默认值来。"""
         for configured in (True, False):
-            defaults = dict(DEFAULTS, autostart=configured)
-            toggle = _Toggle(True)
+            defaults = dict(DEFAULTS, autostart_enabled=configured)
+            toggle = _Toggle(not configured)
             fake = SimpleNamespace(config_manager=_config(defaults), autostart_toggle=toggle)
             SettingsDialog._reset_misc_page(fake)
-            assert toggle.set_checked == [False], configured
+            assert toggle.set_checked == [configured], configured
 
     def test_window_toggle_follows_the_defaults(self):
         fake = SimpleNamespace(

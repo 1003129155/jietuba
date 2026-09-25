@@ -811,7 +811,7 @@ class SettingsDialog(FrostedFramelessDialog):
     def _reset_misc_page(self):
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
         if hasattr(self, 'autostart_toggle'):
-            self.autostart_toggle.setChecked(False)
+            self.autostart_toggle.setChecked(defaults["autostart_enabled"])
         if hasattr(self, 'show_main_window_toggle'):
             self.show_main_window_toggle.setChecked(defaults["show_main_window"])
 
@@ -1049,6 +1049,8 @@ class SettingsDialog(FrostedFramelessDialog):
         # 6. 杂项
         if hasattr(self, 'autostart_toggle'):
             from ..welcome.page6_finish import FinishPage as _FP
+            # 开关状态落配置，下次打开按配置显示（未设置过时默认开启）
+            self.config_manager.set_app_setting("autostart_enabled", self.autostart_toggle.isChecked())
             _FP._set_autostart(self.autostart_toggle.isChecked())
         if hasattr(self, 'show_main_window_toggle'):
             self.config_manager.set_show_main_window(self.show_main_window_toggle.isChecked())
@@ -1619,8 +1621,7 @@ class SettingsDialog(FrostedFramelessDialog):
                 self.clipboard_scan_interval_combo.setCurrentIndex(idx)
 
         if hasattr(self, 'autostart_toggle'):
-            from ..welcome.page6_finish import FinishPage as _FP
-            self.autostart_toggle.setChecked(_FP._get_autostart())
+            self.autostart_toggle.setChecked(self.config_manager.get_app_setting("autostart_enabled"))
         if hasattr(self, 'show_main_window_toggle'):
             self.show_main_window_toggle.setChecked(self.config_manager.get_show_main_window())
         if hasattr(self, 'pin_auto_toolbar_toggle'):

@@ -398,6 +398,7 @@ class ToolSettingsManager(QObject):
         "log_retention_days": 7,               # 日志保留天数（0表示永久保留）
 
         # ==================== 7. 其他 ====================
+        "autostart_enabled": True,             # 开机自启默认开启
         "show_main_window": False,             # 运行后自动弹出窗口显示（默认后台启动）
         "language": "en",                      # 界面语言（ja/en/zh/ko）
         "magnifier_enabled": True,             # 截图时是否显示放大镜
