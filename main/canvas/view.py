@@ -1171,7 +1171,11 @@ class CanvasView(QGraphicsView):
             return None
         if event.button() != Qt.MouseButton.LeftButton:
             return None
-        if event.modifiers() != Qt.KeyboardModifier.NoModifier:
+        matcher = getattr(self.window(), "_matches_capture_double_click", None)
+        if callable(matcher):
+            if not matcher(event):
+                return None
+        elif event.modifiers() != Qt.KeyboardModifier.NoModifier:
             return None
         if self.selection_drag.active or self.drawing.active or self.selection_drag.dragging:
             return None
@@ -1202,7 +1206,11 @@ class CanvasView(QGraphicsView):
             return False
         if event.button() != Qt.MouseButton.LeftButton:
             return False
-        if event.modifiers() != Qt.KeyboardModifier.NoModifier:
+        matcher = getattr(self.window(), "_matches_capture_double_click", None)
+        if callable(matcher):
+            if not matcher(event):
+                return False
+        elif event.modifiers() != Qt.KeyboardModifier.NoModifier:
             return False
         if candidate["dragged"] or self.drawing.active or self.selection_drag.active:
             return False
@@ -1221,9 +1229,8 @@ class CanvasView(QGraphicsView):
             return False
 
         handler = getattr(self.window(), "_handle_double_click", None)
-        if handler is None:
-            handler = getattr(self.window(), "_handle_confirm", None)
-        if not callable(handler):
+        confirm_handler = getattr(self.window(), "_handle_confirm", None)
+        if not callable(handler) and not callable(confirm_handler):
             return False
 
         # 下面靠撤销栈的前后差异判断第一下点击留下了什么，前提是它的持久改动
@@ -1278,7 +1285,9 @@ class CanvasView(QGraphicsView):
         self.selection_drag.dragging = False
 
         event.accept()
-        handler()
+        if callable(handler):
+            return bool(handler(event))
+        confirm_handler()
         return True
 
     def invalidate_double_click_candidate(self):

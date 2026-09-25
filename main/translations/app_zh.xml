@@ -314,6 +314,14 @@
         <translation>同组内存在重复的快捷键，请先修正冲突。</translation>
     </message>
     <message>
+        <source>The following shortcuts conflict:</source>
+        <translation>以下快捷键存在冲突：</translation>
+    </message>
+    <message>
+        <source>Change one shortcut in each row before applying.</source>
+        <translation>请修改每一行中的一个快捷键后再应用。</translation>
+    </message>
+    <message>
         <source>This is the same as a global hotkey — the system intercepts it first, so it won't work here.</source>
         <translation>和某个全局快捷键相同，会被系统先拦截，这个快捷键实际不会生效。</translation>
     </message>
@@ -1018,7 +1026,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Mouse Shortcuts</source>
-        <translation>鼠标快捷键</translation>
+        <translation>应用内鼠标快捷键</translation>
     </message>
     <message>
         <source>Mouse Wheel</source>

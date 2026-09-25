@@ -5,18 +5,9 @@
 想关回来只能到这一页，所以每一项的说明都要写清楚开着时会发生什么。
 """
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea
-from PySide6.QtCore import Qt
 from core.ui_scale import dialog_scaled
-from ui.fluent_lite import (
-    CaptionLabel,
-    FluentIcon,
-    SettingCard as FSettingCard,
-    SwitchButton,
-    SwitchSettingCard,
-)
-from settings.tool_settings import CAPTURE_ACTIONS, CAPTURE_TRIGGERS, get_capture_action
+from ui.fluent_lite import FluentIcon, SwitchSettingCard
 from .components import SettingCardGroup
-from .page_capture import CaptureActionComboBox
 from core.ui_theme import set_own_style
 
 
@@ -36,6 +27,19 @@ def create_quick_actions_page(dialog) -> QWidget:
 
     if not hasattr(dialog, '_behavior_controls'):
         dialog._behavior_controls = {}
+    crosshair_card = SwitchSettingCard(
+        FluentIcon.LAYOUT,
+        dialog.tr("Fullscreen Crosshair"),
+        dialog.tr(
+            "Show horizontal and vertical guide lines across the screen while capturing."
+        ),
+        parent=grp_capture,
+    )
+    crosshair_card.setChecked(
+        dialog.config_manager.get_app_setting("capture_fullscreen_crosshair", False)
+    )
+    dialog._behavior_controls["capture_fullscreen_crosshair"] = crosshair_card
+    grp_capture.addSettingCard(crosshair_card)
 
     cross_tool_card = SwitchSettingCard(
         FluentIcon.EDIT,
@@ -64,39 +68,6 @@ def create_quick_actions_page(dialog) -> QWidget:
     )
     dialog.text_always_on_top_toggle = text_top_card
     grp_capture.addSettingCard(text_top_card)
-
-    for trigger, label, _default in CAPTURE_TRIGGERS:
-        card = FSettingCard(FluentIcon.CAMERA, dialog.tr(label), parent=grp_capture)
-        combo = CaptureActionComboBox(card)
-        combo.setFixedWidth(dialog_scaled(150))
-        for action, title in CAPTURE_ACTIONS:
-            combo.addItem(dialog.tr(title), userData=action)
-        combo.setCurrentIndex(
-            combo.findData(get_capture_action(dialog.config_manager, trigger))
-        )
-
-        exit_label = CaptionLabel(dialog.tr("Exit capture after action"), card)
-        exit_label.setWordWrap(True)
-        exit_check = SwitchButton(card)
-        exit_check.setAccessibleName(dialog.tr("Exit capture after action"))
-        exit_check.setChecked(
-            dialog.config_manager.get_app_setting(f"capture_{trigger}_exit", True)
-        )
-        exit_check.setEnabled(combo.currentData() != "none")
-        combo.currentIndexChanged.connect(
-            lambda _index, c=combo, check=exit_check: check.setEnabled(
-                c.currentData() != "none"
-            )
-        )
-
-        card.hBoxLayout.insertWidget(
-            card.hBoxLayout.indexOf(card.controlContainer), combo
-        )
-        card.addControl(exit_label)
-        card.addControl(exit_check, align=Qt.AlignmentFlag.AlignRight)
-        dialog._behavior_controls[f"capture_{trigger}_action"] = combo
-        dialog._behavior_controls[f"capture_{trigger}_exit"] = exit_check
-        grp_capture.addSettingCard(card)
 
     layout.addWidget(grp_capture)
 

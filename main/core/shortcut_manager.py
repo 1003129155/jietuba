@@ -126,6 +126,14 @@ def _split_modifiers(text: str):
     return mods, rest
 
 
+def mouse_gesture_binding_matches(binding: str, event, gesture: str) -> bool:
+    """Whether an action-oriented mouse binding matches this Qt event."""
+    if not isinstance(binding, str) or not binding:
+        return False
+    modifiers, parts = _split_modifiers(binding)
+    return parts == [gesture] and event.modifiers() == modifiers
+
+
 def parse_inapp_mouse_to_qt(text: str):
     """把 "mousemiddle" / "ctrl+mousemiddle" 解析成 (Qt.MouseButton, 修饰键)。
 

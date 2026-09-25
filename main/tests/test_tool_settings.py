@@ -281,11 +281,13 @@ class TestToolSettingsManager:
 
     def test_reset_app_settings_restores_inapp_shortcut_defaults(self, manager):
         manager.set_inapp_shortcut("inapp_confirm", "alt+k")
+        manager.set_inapp_shortcut("inapp_pin", "alt+p")
         manager.set_inapp_shortcut("inapp_tool_text", "")
 
         manager.reset_app_settings()
 
         assert manager.get_inapp_shortcut("inapp_confirm") == "ctrl+c"
+        assert manager.get_inapp_shortcut("inapp_pin") == "mousemiddle"
         assert manager.get_inapp_shortcut("inapp_tool_text") == "t"
 
     def test_translation_provider_configuration(self, manager):

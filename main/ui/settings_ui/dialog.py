@@ -34,7 +34,12 @@ from core.ui_scale import configure_dialog_control, configure_dialog_controls, d
 from settings.tool_settings import SMART_SELECTION_MODES
 
 # 页面创建函数
-from .page_hotkey import create_hotkey_page, validate_global_hotkey_edits
+from .page_hotkey import (
+    create_hotkey_page,
+    validate_global_hotkey_edits,
+    mouse_binding_conflicts,
+    mouse_binding_conflict_message,
+)
 from .page_capture import create_capture_page
 from .page_quick_actions import create_quick_actions_page
 from .page_clipboard import create_clipboard_page
@@ -49,7 +54,7 @@ from .components import (
     theme_surface_color,
     theme_input_background, theme_popup_background,
     theme_popup_hover_background, theme_text_style, theme_menu_style, theme_color, refresh_theme_widget_styles,
-    apply_theme_text_style,
+    apply_theme_text_style, disable_wheel_on_value_controls,
 )
 
 
@@ -222,6 +227,7 @@ class SettingsDialog(FrostedFramelessDialog):
         # 分页都是一次性建完、切换只换可见性（不是懒加载/动态重建），
         # 建完后统一扫一遍即可覆盖全部分页里的 fluent_lite 控件。
         configure_dialog_controls(self.content_stack)
+        disable_wheel_on_value_controls(self.content_stack)
 
         right_layout.addWidget(self.content_title)
         right_layout.addWidget(self.content_stack)
@@ -232,6 +238,12 @@ class SettingsDialog(FrostedFramelessDialog):
         self._apply_dialog_stylesheet()
 
         self._set_current_nav("shortcuts")
+        # The existing snapshot is also the single source of truth for the
+        # Apply button.  Build the baseline only after every page exists, then
+        # listen to all editable descendants so the footer reacts immediately.
+        self._settings_snapshot = self._snapshot_settings()
+        self._connect_action_button_tracking()
+        self._update_action_buttons()
 
     def _create_navigation(self, parent=None):
         """创建左侧导航栏"""
@@ -477,6 +489,7 @@ class SettingsDialog(FrostedFramelessDialog):
         reset_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         reset_btn.setIcon(FluentIcon.SYNC)
         reset_btn.clicked.connect(self._reset_current_page)
+        reset_btn.clicked.connect(self._update_action_buttons)
 
         cancel_btn = FluentPushButton(self.tr("Cancel"))
         configure_dialog_control(cancel_btn)
@@ -551,11 +564,47 @@ class SettingsDialog(FrostedFramelessDialog):
                     border-color: {t.accent_strong_pressed};
                 }}
                 QPushButton:disabled {{
-                    color: rgba(255, 255, 255, 0.72);
-                    background: #687D8F;
-                    border-color: #687D8F;
+                    color: {t.text_disabled};
+                    background: {t.surface_subtle};
+                    border-color: {t.border};
                 }}
             """)
+
+    def _connect_action_button_tracking(self):
+        """Keep Apply in sync with edits made anywhere in the settings pages."""
+        signal_names = (
+            "textChanged",
+            "checkedChanged",
+            "toggled",
+            "currentIndexChanged",
+            "valueChanged",
+            # Buttons that open a picker or editor may update state only after
+            # their modal child closes, without emitting a value signal.
+            "clicked",
+        )
+        for widget in self.content_stack.findChildren(QWidget):
+            for signal_name in signal_names:
+                signal = getattr(widget, signal_name, None)
+                if signal is None:
+                    continue
+                try:
+                    signal.connect(self._update_action_buttons)
+                except (AttributeError, TypeError):
+                    # Some Qt properties look signal-like through bindings but
+                    # do not expose a connectable bound signal.
+                    continue
+
+    def _update_action_buttons(self, *_args):
+        """Enable Apply only while the current values differ from the baseline."""
+        apply_btn = getattr(self, "_footer_ok_btn", None)
+        if apply_btn is None:
+            return
+        dirty = self._has_unsaved_changes()
+        apply_btn.setEnabled(dirty)
+        apply_btn.setCursor(
+            Qt.CursorShape.PointingHandCursor
+            if dirty else Qt.CursorShape.ArrowCursor
+        )
 
     # ================================================================
     # 重置页面
@@ -689,19 +738,10 @@ class SettingsDialog(FrostedFramelessDialog):
                 self._selection_handle_size_combo.setCurrentIndex(index)
 
     def _reset_quick_actions_page(self):
-        capture_action_keys = {
-            f"capture_{trigger}_{suffix}"
-            for trigger in ("double_click", "middle_click", "enter")
-            for suffix in ("action", "exit")
-        }
         SettingsDialog._refresh_behavior_controls(
-            self, defaults=True, keys=capture_action_keys
+            self, defaults=True, keys={"capture_fullscreen_crosshair"}
         )
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
-        if hasattr(self, 'double_click_copy_close_toggle'):
-            self.double_click_copy_close_toggle.setChecked(
-                defaults["double_click_copy_close"]
-            )
         if hasattr(self, 'ocr_copy_directly_toggle'):
             self.ocr_copy_directly_toggle.setChecked(defaults["ocr_copy_directly"])
         if hasattr(self, 'barcode_copy_single_toggle'):
@@ -716,9 +756,6 @@ class SettingsDialog(FrostedFramelessDialog):
             )
 
     def _reset_screenshot_settings_page(self):
-        SettingsDialog._refresh_behavior_controls(
-            self, defaults=True, keys={"capture_fullscreen_crosshair"}
-        )
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
         if hasattr(self, 'smart_mode_combo'):
             self.smart_mode_combo.setCurrentIndex(SMART_SELECTION_MODES.index(
@@ -849,6 +886,17 @@ class SettingsDialog(FrostedFramelessDialog):
             )
             return False
 
+        mouse_conflicts = mouse_binding_conflicts(self)
+        if mouse_conflicts:
+            self.content_stack.setCurrentIndex(0)
+            self._set_current_nav("shortcuts")
+            show_warning_dialog(
+                self,
+                self.tr("Shortcut Conflict"),
+                mouse_binding_conflict_message(self, mouse_conflicts),
+            )
+            return False
+
         # 防止保存过程中（比如语言切换触发的窗口重建）触发未保存确认弹窗
         self._skip_unsaved_close_prompt = True
 
@@ -871,16 +919,10 @@ class SettingsDialog(FrostedFramelessDialog):
             self.config_manager.set_app_setting(key, value)
 
         behavior_controls = getattr(self, '_behavior_controls', {})
-        double_click_action = behavior_controls.get("capture_double_click_action")
-        if double_click_action is not None:
-            exit_control = behavior_controls.get("capture_double_click_exit")
-            legacy_enabled = double_click_action.currentData() == "copy"
-            if exit_control is not None:
-                legacy_enabled = legacy_enabled and exit_control.isChecked()
-            self.config_manager.set_double_click_copy_close_enabled(legacy_enabled)
-        elif hasattr(self, 'double_click_copy_close_toggle'):
+        capture_copy = behavior_controls.get("mouse_capture_copy")
+        if capture_copy is not None:
             self.config_manager.set_double_click_copy_close_enabled(
-                self.double_click_copy_close_toggle.isChecked()
+                capture_copy.currentData() == "doubleleft"
             )
         if hasattr(self, 'ocr_copy_directly_toggle'):
             self.config_manager.set_ocr_copy_directly_enabled(
@@ -1120,6 +1162,7 @@ class SettingsDialog(FrostedFramelessDialog):
 
         log_info("すべての設定を保存しました", "Settings")
         self._settings_snapshot = self._snapshot_settings()
+        self._update_action_buttons()
         self.config_manager.qsettings.sync()
         self._skip_unsaved_close_prompt = True
         try:
@@ -1205,6 +1248,7 @@ class SettingsDialog(FrostedFramelessDialog):
         self._apply_dialog_stylesheet()
         self.refresh_settings()
         self._settings_snapshot = self._snapshot_settings()
+        self._update_action_buttons()
         super().showEvent(event)
         self._apply_taskbar_icon()
 
@@ -1248,8 +1292,7 @@ class SettingsDialog(FrostedFramelessDialog):
                 if w is not None:
                     snap[f.config_key] = provider_fields.widget_value(f, w)
         # 开关类
-        for attr in ('double_click_copy_close_toggle',
-                      'ocr_copy_directly_toggle', 'barcode_copy_single_toggle',
+        for attr in ('ocr_copy_directly_toggle', 'barcode_copy_single_toggle',
                       'cross_tool_selection_toggle',
                       'text_always_on_top_toggle',
                       'smart_animation_toggle',
@@ -1379,7 +1422,11 @@ class SettingsDialog(FrostedFramelessDialog):
             log_exception(e, T("设置任务栏图标"))
 
     def _refresh_behavior_controls(self, *, defaults=False, prefix="", keys=None):
-        from settings.tool_settings import ToolSettingsManager, get_capture_action, get_pin_mouse_binding
+        from settings.tool_settings import (
+            ToolSettingsManager,
+            get_capture_mouse_binding,
+            get_pin_mouse_binding,
+        )
 
         for key, control in getattr(self, '_behavior_controls', {}).items():
             if keys is not None and key not in keys:
@@ -1389,8 +1436,10 @@ class SettingsDialog(FrostedFramelessDialog):
             default = ToolSettingsManager.APP_DEFAULT_SETTINGS[key]
             if defaults:
                 value = default
-            elif key.startswith("capture_") and key.endswith("_action"):
-                value = get_capture_action(self.config_manager, key[len("capture_"):-len("_action")])
+            elif key.startswith("mouse_capture_"):
+                value = get_capture_mouse_binding(
+                    self.config_manager, key[len("mouse_capture_"):]
+                )
             elif key.startswith("mouse_pin_"):
                 value = get_pin_mouse_binding(self.config_manager, key[len("mouse_pin_"):])
             else:
@@ -1465,11 +1514,6 @@ class SettingsDialog(FrostedFramelessDialog):
                 self.config_manager.get_smart_selection_animation()
             )
 
-        if (hasattr(self, 'double_click_copy_close_toggle')
-                and 'capture_double_click_action' not in getattr(self, '_behavior_controls', {})):
-            self.double_click_copy_close_toggle.setChecked(
-                self.config_manager.get_double_click_copy_close_enabled()
-            )
         if hasattr(self, 'ocr_copy_directly_toggle'):
             self.ocr_copy_directly_toggle.setChecked(
                 self.config_manager.get_ocr_copy_directly_enabled()

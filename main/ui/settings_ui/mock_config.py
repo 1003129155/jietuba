@@ -82,7 +82,7 @@ APP_DEFAULT_SETTINGS = {
     "ui_scale_percent": 100,
     "dialog_scale_percent": 100,
     "inapp_confirm": "ctrl+c",
-    "inapp_pin": "ctrl+d",
+    "inapp_pin": "mousemiddle",
     "inapp_undo": "ctrl+z",
     "inapp_redo": "ctrl+y",
     "inapp_delete": "delete",

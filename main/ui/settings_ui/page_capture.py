@@ -14,19 +14,6 @@ from .components import SettingCardGroup
 from core.ui_theme import set_own_style
 
 
-class CaptureActionComboBox(ComboBox):
-    """Action selector retaining the legacy enabled/disabled control interface."""
-
-    def isChecked(self):
-        return self.currentData() != "none"
-
-    def setChecked(self, enabled):
-        if not enabled:
-            self.setCurrentIndex(self.findData("none"))
-        elif not self.isChecked():
-            self.setCurrentIndex(self.findData("copy"))
-
-
 def create_capture_page(dialog) -> QWidget:
     """截图設定 ─ 智能选区 + 保存设置 + 放大镜 + 钉图"""
     scroll = QScrollArea()
@@ -39,21 +26,6 @@ def create_capture_page(dialog) -> QWidget:
     layout.setContentsMargins(0, 0, dialog_scaled(10), 0)
     layout.setSpacing(dialog_scaled(20))
 
-    # ── 截图显示 ──────────────────────────────────────
-    grp_behavior = SettingCardGroup(dialog.tr("Capture Behavior"), view)
-
-    if not hasattr(dialog, '_behavior_controls'):
-        dialog._behavior_controls = {}
-    crosshair_card = SwitchSettingCard(
-        FluentIcon.LAYOUT, dialog.tr("Fullscreen Crosshair"),
-        dialog.tr("Show horizontal and vertical guide lines across the screen while capturing."),
-        parent=grp_behavior,
-    )
-    crosshair_card.setChecked(dialog.config_manager.get_app_setting("capture_fullscreen_crosshair", False))
-    dialog._behavior_controls["capture_fullscreen_crosshair"] = crosshair_card
-    grp_behavior.addSettingCard(crosshair_card)
-
-    layout.addWidget(grp_behavior)
     # ── 智能选区 ──────────────────────────────────────
     grp_smart = SettingCardGroup(dialog.tr("Smart Selection"), view)
 

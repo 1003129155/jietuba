@@ -180,7 +180,9 @@ class TestShortcutKeyTables:
                 cfg_key, label, default = entry
                 assert cfg_key.startswith("inapp_"), cfg_key
                 assert label and isinstance(label, str)
-                assert default and isinstance(default, str)
+                # 空串是合法默认值：该项的出厂绑定改由专属的鼠标动作设置承载
+                # （如 inapp_pin_reset_size），这里留空避免重复定义。
+                assert isinstance(default, str)
 
     def test_combined_table_is_the_concatenation_of_all_groups(self):
         assert page_hotkey.INAPP_KEYS == sum(_ALL_TABLES, [])
@@ -192,6 +194,16 @@ class TestShortcutKeyTables:
         ):
             keys = [entry[0] for entry in table]
             assert len(keys) == len(set(keys)), keys
+
+    def test_screenshot_action_labels_match_mouse_action_labels(self):
+        """同一个截图动作不应因触发方式不同而显示两套名称。"""
+        from settings.tool_settings import CAPTURE_MOUSE_ACTIONS
+
+        mouse_labels = {action: label for action, label, _default, _kind in CAPTURE_MOUSE_ACTIONS}
+        shortcut_labels = {cfg_key: label for cfg_key, label, _default in page_hotkey.SCREENSHOT_KEYS}
+
+        assert shortcut_labels["inapp_confirm"] == mouse_labels["copy"]
+        assert shortcut_labels["inapp_pin"] == mouse_labels["pin"]
 
     def test_defaults_match_the_factory_settings(self):
         """表里的默认值是 APP_DEFAULT_SETTINGS 的副本，两边对不上就会恢复出错"""
@@ -225,6 +237,64 @@ def _hotkey_dialog(edits, groups, stored=None):
 
 
 class TestShortcutConflictDetection:
+
+    def test_save_time_warning_lists_every_mouse_conflict_and_owner(self):
+        class _Binding:
+            def __init__(self, value):
+                self.value = value
+
+            def currentData(self):
+                return self.value
+
+        dialog = SimpleNamespace(
+            _behavior_controls={
+                "mouse_capture_copy": _Binding("middle"),
+                "mouse_capture_pin": _Binding("middle"),
+                "mouse_capture_save": _Binding("doubleleft"),
+                "mouse_capture_quick_save": _Binding("doubleleft"),
+                "mouse_pin_zoom": _Binding("wheel"),
+                "mouse_pin_opacity": _Binding("wheel"),
+            },
+            _inapp_edits={},
+            _inapp_groups={},
+            tr=lambda text: text,
+        )
+
+        conflicts = page_hotkey.mouse_binding_conflicts(dialog)
+
+        assert conflicts == [
+            ("Screenshot Shortcuts", "Middle Click",
+             ("Copy to Clipboard (Mouse Shortcuts)",
+              "Pin to Screen (Mouse Shortcuts)")),
+            ("Screenshot Shortcuts", "Left Double-click",
+             ("Save to File (Mouse Shortcuts)",
+              "Quick Save (Mouse Shortcuts)")),
+            ("Pin Shortcuts", "Mouse Wheel",
+             ("Zoom Pinned Image (Mouse Shortcuts)",
+              "Adjust Opacity (Mouse Shortcuts)")),
+        ]
+        message = page_hotkey.mouse_binding_conflict_message(dialog, conflicts)
+        assert message.count("\n• ") == 3
+        assert "Middle Click: Copy to Clipboard (Mouse Shortcuts)" in message
+        assert "Mouse Wheel: Zoom Pinned Image (Mouse Shortcuts)" in message
+
+    def test_mouse_conflict_names_an_in_app_shortcut_owner(self):
+        class _Binding:
+            def currentData(self):
+                return "ctrl+middle"
+
+        dialog = SimpleNamespace(
+            _behavior_controls={"mouse_capture_pin": _Binding()},
+            _inapp_edits={"inapp_pin": _Edit("ctrl+mousemiddle")},
+            _inapp_groups={"inapp_pin": "screenshot"},
+            tr=lambda text: text,
+        )
+
+        assert page_hotkey.mouse_binding_conflicts(dialog) == [
+            ("Screenshot Shortcuts", "Ctrl + Middle Click",
+             ("Pin to Screen (Mouse Shortcuts)",
+              "Pin to Screen (In-App Shortcuts)")),
+        ]
 
     def test_blank_input_is_ignored(self, monkeypatch):
         asked = []

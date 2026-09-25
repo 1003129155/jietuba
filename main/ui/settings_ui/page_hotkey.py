@@ -20,7 +20,12 @@ from ..key_chip import CHIP_WIDTH, STATUS_GAP, STATUS_SIZE, format_shortcut_text
 from settings import ANNOTATION_TOOL_SHORTCUTS, clipboard_pick_keys
 from core.shortcut_manager import is_reserved_inapp_shortcut, is_inapp_mouse_shortcut
 from core.ui_theme import set_own_style
-from settings.tool_settings import PIN_MOUSE_ACTIONS, get_pin_mouse_binding
+from settings.tool_settings import (
+    CAPTURE_MOUSE_ACTIONS,
+    PIN_MOUSE_ACTIONS,
+    get_capture_mouse_binding,
+    get_pin_mouse_binding,
+)
 
 
 class MouseBindingEditor(QWidget):
@@ -41,6 +46,9 @@ class MouseBindingEditor(QWidget):
             "click": (("left", "Left Click"), ("middle", "Middle Click"), ("right", "Right Click"),
                       ("doubleleft", "Left Double-click"), ("doublemiddle", "Middle Double-click"),
                       ("doubleright", "Right Double-click")),
+            # 截图画布的左键单击负责选区/标注、右键负责退出，因此只开放
+            # 不抢占既有交互的中键单击和左键双击。
+            "capture": (("middle", "Middle Click"), ("doubleleft", "Left Double-click")),
         }[kind]
         for value, label in (("", "No Action"),) + gestures:
             self.gesture.addItem(dialog.tr(label), userData=value)
@@ -59,33 +67,187 @@ class MouseBindingEditor(QWidget):
         self.gesture.setCurrentIndex(max(0, self.gesture.findData(parts[-1])))
 
 
-def _create_mouse_shortcuts(dialog, parent):
-    group = SectionCard(FluentIcon.PIN, dialog.tr("Mouse Shortcuts"),
-                        dialog.tr("Use + / - instead of the wheel with the same modifiers"), parent)
+def _build_mouse_shortcut_tab(
+    dialog, *, actions, key_prefix, action_icons, binding_getter
+):
+    page = QWidget()
+    page_layout = QVBoxLayout(page)
+    page_layout.setContentsMargins(0, 0, 0, 0)
+    page_layout.setSpacing(0)
     if not hasattr(dialog, '_behavior_controls'):
         dialog._behavior_controls = {}
-    for action, label, _default, kind in PIN_MOUSE_ACTIONS:
-        card = QWidget(group)
+    for action, label, _default, kind in actions:
+        card = QWidget(page)
         row = QHBoxLayout(card)
         row.setContentsMargins(0, dialog_scaled(8), 0, dialog_scaled(8))
         row.setSpacing(dialog_scaled(14))
-        row.addWidget(IconBadge(FluentIcon.PIN, "pin", card))
+        # 和上方“应用内快捷键”一致：图标表达这一行的具体动作，
+        # 不再给整个标签页重复使用相机/图钉分类图标。
+        icon = action_icons.get(action)
+        row.addWidget(IconBadge(_icon_ref(icon) if icon else None, None, card))
         title = _row_label(card, dialog.tr(label))
         title.setWordWrap(True)
         row.addWidget(title, 1)
         editor = MouseBindingEditor(dialog, kind, card)
         editor.setFixedWidth(dialog_scaled(320))
-        editor.setBinding(get_pin_mouse_binding(dialog.config_manager, action))
-        dialog._behavior_controls[f"mouse_pin_{action}"] = editor
+        editor.setBinding(binding_getter(dialog.config_manager, action))
+        dialog._behavior_controls[f"{key_prefix}{action}"] = editor
         row.addWidget(editor)
-        group.addRow(card)
+        add_separated_row(page_layout, card)
+    page_layout.addStretch(1)
+    return page
+
+
+def _create_mouse_shortcuts(dialog, parent):
+    group = SectionCard(
+        ResourceManager.get_icon_path("鼠标.svg"),
+        dialog.tr("Mouse Shortcuts"),
+        parent=parent,
+    )
+
+    tab_switch = SegmentedWidget(group)
+    tab_switch.setFixedHeight(dialog_scaled(34))
+    tab_switch.setIndicatorColor(ACCENT, ACCENT)
+
+    stack = QStackedWidget(group)
+    stack.setObjectName("MouseShortcutStack")
+    stack.setStyleSheet("#MouseShortcutStack { background: transparent; border: none; }")
+
+    stack.addWidget(_build_mouse_shortcut_tab(
+        dialog,
+        actions=CAPTURE_MOUSE_ACTIONS,
+        key_prefix="mouse_capture_",
+        action_icons=_CAPTURE_MOUSE_ICONS,
+        binding_getter=get_capture_mouse_binding,
+    ))
+    stack.addWidget(_build_mouse_shortcut_tab(
+        dialog,
+        actions=PIN_MOUSE_ACTIONS,
+        key_prefix="mouse_pin_",
+        action_icons=_PIN_MOUSE_ICONS,
+        binding_getter=get_pin_mouse_binding,
+    ))
+
+    tab_switch.addItem(
+        "screenshot", dialog.tr("Screenshot Shortcuts"),
+        lambda: stack.setCurrentIndex(0),
+    )
+    tab_switch.addItem(
+        "pin", dialog.tr("Pin Shortcuts"),
+        lambda: stack.setCurrentIndex(1),
+    )
+    tab_switch.setCurrentItem("screenshot")
+
+    tab_row = QWidget(group)
+    tab_row_layout = QHBoxLayout(tab_row)
+    tab_row_layout.setContentsMargins(0, 0, 0, dialog_scaled(10))
+    tab_row_layout.addWidget(tab_switch)
+    tab_row_layout.addStretch(1)
+    group.addWidget(tab_row)
+    group.addWidget(stack)
     return group
+
+
+def validate_mouse_bindings(dialog) -> bool:
+    """Mouse gestures must be unique inside each active window context."""
+    return not mouse_binding_conflicts(dialog)
+
+
+def _normalized_mouse_binding(binding: str) -> str:
+    parts = [part for part in str(binding or "").lower().split("+") if part]
+    return "+".join("middle" if part == "mousemiddle" else part for part in parts)
+
+
+def _mouse_binding_text(dialog, binding: str) -> str:
+    """Return the same friendly mouse names used by the binding editors."""
+    parts = _normalized_mouse_binding(binding).split("+")
+    gesture = parts[-1]
+    gesture_source = {
+        "wheel": "Mouse Wheel",
+        "dragleft": "Left Drag",
+        "dragmiddle": "Middle Drag",
+        "dragright": "Right Drag",
+        "left": "Left Click",
+        "middle": "Middle Click",
+        "right": "Right Click",
+        "doubleleft": "Left Double-click",
+        "doublemiddle": "Middle Double-click",
+        "doubleright": "Right Double-click",
+    }.get(gesture, gesture)
+    modifier_text = format_shortcut_text("+".join(parts[:-1]))
+    gesture_text = dialog.tr(gesture_source)
+    return f"{modifier_text} + {gesture_text}" if modifier_text else gesture_text
+
+
+def mouse_binding_conflicts(dialog) -> list[tuple[str, str, tuple[str, ...]]]:
+    """List every duplicated mouse binding with its context and owners.
+
+    The old save-time validator returned only a boolean, which left the warning
+    dialog unable to tell the user what to fix.  Keeping the detailed result
+    here also ensures validation and the displayed explanation cannot drift.
+    """
+    controls = getattr(dialog, '_behavior_controls', {})
+    inapp_edits = getattr(dialog, '_inapp_edits', {})
+    inapp_groups = getattr(dialog, '_inapp_groups', {})
+    conflicts = []
+
+    domains = (
+        ("mouse_capture_", "screenshot", "Screenshot Shortcuts", CAPTURE_MOUSE_ACTIONS),
+        ("mouse_pin_", "pin", "Pin Shortcuts", PIN_MOUSE_ACTIONS),
+    )
+    for prefix, inapp_group, context_source, actions in domains:
+        owners_by_binding = {}
+
+        # Follow the UI row order so both the conflict list and its owners are
+        # stable and easy to find on the settings page.
+        for action, label_source, _default, _kind in actions:
+            control = controls.get(f"{prefix}{action}")
+            if control is None:
+                continue
+            binding = _normalized_mouse_binding(control.currentData())
+            if binding:
+                owners_by_binding.setdefault(binding, []).append(
+                    f"{dialog.tr(label_source)} ({dialog.tr('Mouse Shortcuts')})"
+                )
+
+        for key, edit in inapp_edits.items():
+            if inapp_groups.get(key) != inapp_group:
+                continue
+            raw_binding = edit.text()
+            binding = _normalized_mouse_binding(raw_binding)
+            if is_inapp_mouse_shortcut(raw_binding) and binding:
+                owners_by_binding.setdefault(binding, []).append(
+                    f"{_inapp_label(dialog, key)} ({dialog.tr('In-App Shortcuts')})"
+                )
+
+        for binding, owners in owners_by_binding.items():
+            if len(owners) > 1:
+                conflicts.append((
+                    dialog.tr(context_source),
+                    _mouse_binding_text(dialog, binding),
+                    tuple(owners),
+                ))
+
+    return conflicts
+
+
+def mouse_binding_conflict_message(dialog, conflicts=None) -> str:
+    """Build a concise, actionable save-time warning for mouse conflicts."""
+    if conflicts is None:
+        conflicts = mouse_binding_conflicts(dialog)
+    lines = [dialog.tr("The following shortcuts conflict:"), ""]
+    lines.extend(
+        f"• {context} · {binding}: {' / '.join(owners)}"
+        for context, binding, owners in conflicts
+    )
+    lines.extend(("", dialog.tr("Change one shortcut in each row before applying.")))
+    return "\n".join(lines)
 
 
 # ── 应用内快捷键定义表（分组）──────────────────────────────
 SCREENSHOT_KEYS = [
-    ("inapp_confirm",   "Confirm Screenshot",     "ctrl+c"),
-    ("inapp_pin",       "Pin Image",              "ctrl+d"),
+    ("inapp_confirm",   "Copy to Clipboard",      "ctrl+c"),
+    ("inapp_pin",       "Pin to Screen",           "mousemiddle"),
     ("inapp_undo",      "Undo",                   "ctrl+z"),
     ("inapp_redo",      "Redo",                   "ctrl+y"),
     ("inapp_delete",    "Delete Selected",        "delete"),
@@ -99,7 +261,7 @@ SCREENSHOT_KEYS = [
 PIN_KEYS = [
     ("inapp_copy_pin",        "Copy Pinned Image",      "ctrl+c"),
     ("inapp_copy_pin_text",   "Copy All Text",          "ctrl+shift+c"),
-    ("inapp_pin_reset_size",  "Reset Size",             "mousemiddle"),
+    ("inapp_pin_reset_size",  "Reset Size",             ""),
     ("inapp_thumbnail",       "Toggle Thumbnail",       "r"),
     ("inapp_toggle_toolbar",  "Toggle Toolbar",         "space"),
 ]
@@ -152,6 +314,27 @@ _INAPP_ICONS = {
     "inapp_clipboard_quick_edit": FluentIcon.EDIT,
     "inapp_clipboard_edit_save": FluentIcon.SAVE,
     "inapp_clipboard_edit_save_paste": FluentIcon.SEND,
+}
+
+# 鼠标动作与上方应用内快捷键沿用同一套具体功能图标；只有鼠标手势的
+# 录入方式不同，不应退化成每行重复相机/图钉的分类图标。
+_CAPTURE_MOUSE_ICONS = {
+    "copy": _INAPP_ICONS["inapp_confirm"],
+    "pin": _INAPP_ICONS["inapp_pin"],
+    "save": "保存.svg",
+    "quick_save": FluentIcon.DOWNLOAD,
+}
+
+_PIN_MOUSE_ICONS = {
+    "zoom": FluentIcon.SEARCH,
+    "opacity": FluentIcon.TRANSPARENT,
+    # 工具栏的“关闭.svg”自带红色圆形底；作为可着色的行图标时，
+    # 底和白色叉号会合并成一整块蒙版，因此这里使用纯叉号图标。
+    "close": FluentIcon.CLOSE,
+    "reset": _INAPP_ICONS["inapp_pin_reset_size"],
+    "thumbnail": _INAPP_ICONS["inapp_thumbnail"],
+    "region": "选择.svg",
+    "copy_text": _INAPP_ICONS["inapp_copy_pin_text"],
 }
 _CURSOR_MOVE_ICON = "移动窗口.svg"
 

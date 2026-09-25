@@ -19,7 +19,11 @@ from ui.selection_overlay import SelectionOverlayWidget
 from ui.selection_info import SelectionInfoPanel, SelectionInfoController
 from tools.action import ActionTools
 from settings import get_tool_settings_manager
-from settings.tool_settings import SMART_SELECTION_MODES, get_capture_action
+from settings.tool_settings import (
+    CAPTURE_MOUSE_ACTIONS,
+    SMART_SELECTION_MODES,
+    get_capture_mouse_binding,
+)
 from core.logger import log_debug, log_info, log_exception, T
 from core import safe_event
 from core.shortcut_manager import ShortcutManager, ShortcutHandler
@@ -95,15 +99,15 @@ class ScreenshotShortcutHandler(ShortcutHandler):
         w = self._window
         if (event.button() == Qt.MouseButton.MiddleButton
                 and hasattr(event, 'globalPosition')
-                and event.modifiers() == Qt.KeyboardModifier.NoModifier and not w._is_text_editing()):
-            # A deliberate in-app binding still takes precedence over the default gesture.
-            if not any(self._match(event, key) for key in self._mouse_bindings):
-                view = getattr(w, 'view', None)
-                if view is not None and view.viewport().rect().contains(
-                    view.viewport().mapFromGlobal(event.globalPosition().toPoint())
-                ):
-                    if w.action_handler.handle_capture_action("middle_click"):
-                        return True
+                and not w._is_text_editing()):
+            view = getattr(w, 'view', None)
+            action = w._matching_capture_mouse_action(event, "middle")
+            if (action is not None and view is not None
+                    and view.viewport().rect().contains(
+                        view.viewport().mapFromGlobal(event.globalPosition().toPoint())
+                    )
+                    and w.action_handler.handle_capture_action(action)):
+                return True
         return self.handle_key(event)
 
     def handle_key(self, event) -> bool:
@@ -226,16 +230,11 @@ class ScreenshotShortcutHandler(ShortcutHandler):
                         w.cleanup_and_close()
                         return True
 
-        # Bare Enter uses capture behavior; modified shortcuts keep their bindings.
-        if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and event.modifiers() == Qt.KeyboardModifier.NoModifier:
+        # Enter 确认（固定）；鼠标动作配置不改变现有键盘逻辑。
+        if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             if w.scene and w.scene.selection_model.is_confirmed:
                 if not event_is_auto_repeat(event):
-                    config = getattr(w, 'config_manager', None)
-                    if (get_capture_action(config, "enter") == "copy"
-                            and (config is None or config.get_app_setting("capture_enter_exit", True))):
-                        w.action_handler.handle_confirm()
-                    else:
-                        w.action_handler.handle_capture_action("enter")
+                    w.action_handler.handle_confirm()
                 return True
 
         return False
@@ -418,11 +417,30 @@ class ScreenshotWindow(QWidget):
         return CanvasView(
             scene,
             self,
-            confirm_on_double_click=(
-                get_capture_action(self.config_manager, "double_click") != "none"
+            confirm_on_double_click=ScreenshotWindow._has_capture_mouse_gesture(
+                self, "doubleleft"
             ),
             cross_tool_select=self.config_manager.get_cross_tool_selection_enabled(),
         )
+
+    def _has_capture_mouse_gesture(self, gesture):
+        return any(
+            str(get_capture_mouse_binding(self.config_manager, action)).split("+")[-1]
+            == gesture
+            for action, _label, _default, _kind in CAPTURE_MOUSE_ACTIONS
+        )
+
+    def _matching_capture_mouse_action(self, event, gesture):
+        from core.shortcut_manager import mouse_gesture_binding_matches
+
+        for action, _label, _default, _kind in CAPTURE_MOUSE_ACTIONS:
+            binding = get_capture_mouse_binding(self.config_manager, action)
+            if mouse_gesture_binding_matches(binding, event, gesture):
+                return action
+        return None
+
+    def _matches_capture_double_click(self, event):
+        return self._matching_capture_mouse_action(event, "doubleleft") is not None
 
     def _get_configured_smart_selection_mode(self) -> str:
         """读取检测方式；没有这项设置的旧配置对象退回窗口级，和默认值一致。"""
@@ -737,9 +755,11 @@ class ScreenshotWindow(QWidget):
         if self.action_handler:
             self.action_handler.handle_confirm()
 
-    def _handle_double_click(self):
-        if self.action_handler:
-            self.action_handler.handle_capture_action("double_click")
+    def _handle_double_click(self, event):
+        if not self.action_handler:
+            return False
+        action = self._matching_capture_mouse_action(event, "doubleleft")
+        return bool(action and self.action_handler.handle_capture_action(action))
 
     def _handle_copy(self):
         if self.action_handler:

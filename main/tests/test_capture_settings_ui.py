@@ -5,7 +5,11 @@ from types import SimpleNamespace
 import pytest
 from PySide6.QtCore import QSettings, QTranslator
 
-from settings.tool_settings import SMART_SELECTION_MODES, ToolSettingsManager, get_capture_action
+from settings.tool_settings import (
+    SMART_SELECTION_MODES,
+    ToolSettingsManager,
+    get_capture_mouse_binding,
+)
 from ui.settings_ui.dialog import SettingsDialog
 from ui.settings_ui.page_capture import create_capture_page
 from ui.settings_ui.page_quick_actions import create_quick_actions_page
@@ -22,7 +26,6 @@ def _manager(tmp_path):
 @pytest.mark.parametrize("enabled", [True, False])
 def test_quick_actions_page_reads_its_toggles(qapp, tmp_path, enabled):
     manager = _manager(tmp_path)
-    manager.set_double_click_copy_close_enabled(enabled)
     manager.set_ocr_copy_directly_enabled(enabled)
     manager.set_barcode_copy_single_enabled(enabled)
     dialog = SimpleNamespace(config_manager=manager, tr=lambda text: text)
@@ -30,11 +33,6 @@ def test_quick_actions_page_reads_its_toggles(qapp, tmp_path, enabled):
     page = create_quick_actions_page(dialog)
 
     try:
-        expected_action = "copy" if enabled else "none"
-        assert (
-            dialog._behavior_controls["capture_double_click_action"].currentData()
-            == expected_action
-        )
         assert dialog.ocr_copy_directly_toggle.isChecked() is enabled
         assert dialog.barcode_copy_single_toggle.isChecked() is enabled
     finally:
@@ -47,6 +45,7 @@ def test_quick_actions_page_reads_annotation_behavior_toggles(qapp, tmp_path, en
     manager = _manager(tmp_path)
     manager.set_cross_tool_selection_enabled(enabled)
     manager.set_text_always_on_top_enabled(enabled)
+    manager.set_app_setting("capture_fullscreen_crosshair", enabled)
     dialog = SimpleNamespace(config_manager=manager, tr=lambda text: text)
 
     page = create_quick_actions_page(dialog)
@@ -54,6 +53,7 @@ def test_quick_actions_page_reads_annotation_behavior_toggles(qapp, tmp_path, en
     try:
         assert dialog.cross_tool_selection_toggle.isChecked() is enabled
         assert dialog.text_always_on_top_toggle.isChecked() is enabled
+        assert dialog._behavior_controls["capture_fullscreen_crosshair"].isChecked() is enabled
     finally:
         page.deleteLater()
         qapp.processEvents()
@@ -89,12 +89,15 @@ def test_annotation_behavior_toggles_moved_off_the_capture_page(qapp, tmp_path):
     try:
         assert not hasattr(dialog, "cross_tool_selection_toggle")
         assert not hasattr(dialog, "text_always_on_top_toggle")
+        assert "capture_fullscreen_crosshair" not in getattr(
+            dialog, "_behavior_controls", {}
+        )
     finally:
         page.deleteLater()
         qapp.processEvents()
 
 
-def test_settings_dialog_saves_double_click_action(monkeypatch, qapp, tmp_path):
+def test_settings_dialog_saves_capture_mouse_binding(monkeypatch, qapp, tmp_path):
     manager = _manager(tmp_path)
     manager.set_log_dir(str(tmp_path))
     monkeypatch.setattr("ui.settings_ui.dialog.log_info", lambda *_args, **_kwargs: None)
@@ -117,17 +120,38 @@ def test_settings_dialog_saves_double_click_action(monkeypatch, qapp, tmp_path):
             delattr(dialog, attr)
 
     dialog._settings_snapshot = dialog._snapshot_settings()
-    double_click = dialog._behavior_controls["capture_double_click_action"]
-    double_click.setCurrentIndex(double_click.findData("none"))
+    dialog._behavior_controls["mouse_capture_copy"].setBinding("")
     dialog.ocr_copy_directly_toggle.setChecked(True)
     dialog.barcode_copy_single_toggle.setChecked(True)
 
     assert dialog._has_unsaved_changes()
     dialog.accept()
-    assert get_capture_action(manager, "double_click") == "none"
+    assert get_capture_mouse_binding(manager, "copy") == ""
     assert manager.get_double_click_copy_close_enabled() is False
     assert manager.get_ocr_copy_directly_enabled() is True
     assert manager.get_barcode_copy_single_enabled() is True
+
+    dialog.deleteLater()
+    qapp.processEvents()
+
+
+def test_apply_button_tracks_settings_dirty_state(qapp, tmp_path):
+    manager = _manager(tmp_path)
+    dialog = SettingsDialog(manager)
+
+    dialog._settings_snapshot = dialog._snapshot_settings()
+    dialog._update_action_buttons()
+    assert dialog._footer_ok_btn.isEnabled() is False
+
+    dialog.save_toggle.setChecked(not dialog.save_toggle.isChecked())
+    assert dialog._footer_ok_btn.isEnabled() is True
+
+    # A successful apply refreshes the baseline and therefore returns the
+    # footer to its clean state.  Model that final step without persisting the
+    # rest of this full settings dialog in a focused UI-state test.
+    dialog._settings_snapshot = dialog._snapshot_settings()
+    dialog._update_action_buttons()
+    assert dialog._footer_ok_btn.isEnabled() is False
 
     dialog.deleteLater()
     qapp.processEvents()
@@ -221,27 +245,23 @@ def test_quick_actions_toggles_reset_refresh_and_snapshot(qapp, tmp_path):
         box.setChecked = lambda checked: setattr(box, "value", checked)
         return box
 
-    double_click = toggle(False)
     ocr = toggle(True)
     barcode = toggle(True)
     dialog = SimpleNamespace(
         config_manager=manager,
-        double_click_copy_close_toggle=double_click,
         ocr_copy_directly_toggle=ocr,
         barcode_copy_single_toggle=barcode,
     )
 
     SettingsDialog._reset_quick_actions_page(dialog)
-    assert (double_click.value, ocr.value, barcode.value) == (True, False, False)
+    assert (ocr.value, barcode.value) == (False, False)
 
-    manager.set_double_click_copy_close_enabled(False)
     manager.set_ocr_copy_directly_enabled(True)
     manager.set_barcode_copy_single_enabled(True)
     SettingsDialog.refresh_settings(dialog)
-    assert (double_click.value, ocr.value, barcode.value) == (False, True, True)
+    assert (ocr.value, barcode.value) == (True, True)
 
     snapshot = SettingsDialog._snapshot_settings(dialog)
-    assert snapshot["double_click_copy_close_toggle"] is False
     assert snapshot["ocr_copy_directly_toggle"] is True
     assert snapshot["barcode_copy_single_toggle"] is True
 

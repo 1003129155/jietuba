@@ -167,26 +167,16 @@ class ActionTools:
         if self.parent_window and close_after:
             self._cleanup_and_close()
 
-    def handle_capture_action(self, trigger):
-        """Execute a configured gesture without changing toolbar shortcuts."""
-        from settings.tool_settings import get_capture_action
-
+    def handle_capture_action(self, action):
+        """Execute one screenshot action selected by a mouse binding."""
         if not self.scene.selection_model.is_confirmed or self.scene.selection_model.rect().isEmpty():
             return False
-        action = get_capture_action(self.config_manager, trigger)
-        close_after = self.config_manager.get_app_setting(f"capture_{trigger}_exit", True)
-        if action == "none":
-            return False
         if action == "copy":
-            self._copy_save_and_close(close_after=close_after)
+            self.handle_copy()
         elif action == "pin":
-            self.handle_pin(close_after=close_after)
-            if not close_after and self.parent_window:
-                self.parent_window.raise_()
-                self.parent_window.activateWindow()
-                self.parent_window.setFocus()
+            self.handle_pin()
         elif action == "save":
-            self.handle_save(close_after=close_after)
+            self.handle_save()
         elif action == "quick_save":
             self._temporarily_exit_editing()
             rect = self.scene.selection_model.rect()
@@ -196,11 +186,13 @@ class ActionTools:
                 image, directory=self.config_manager.get_screenshot_save_path(),
                 prefix="", image_format=self.config_manager.get_screenshot_format(),
             )
-            if success and close_after:
+            if success:
                 self._cleanup_and_close()
-            elif not success:
+            else:
                 from ui.dialogs import show_warning_dialog
                 show_warning_dialog(self.parent_window, _tr("Save Failed"), path or "")
+        else:
+            return False
         return True
 
     def handle_screenshot_translate(self):

@@ -316,6 +316,14 @@
         <translation>同じグループ内にショートカットの重複があります。先に修正してください。</translation>
     </message>
     <message>
+        <source>The following shortcuts conflict:</source>
+        <translation>次のショートカットが競合しています：</translation>
+    </message>
+    <message>
+        <source>Change one shortcut in each row before applying.</source>
+        <translation>各行のいずれかのショートカットを変更してから適用してください。</translation>
+    </message>
+    <message>
         <source>This is the same as a global hotkey — the system intercepts it first, so it won't work here.</source>
         <translation>グローバルショートカットと同じキーです。システムが先に処理するため、ここでは動作しません。</translation>
     </message>
@@ -1016,7 +1024,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Mouse Shortcuts</source>
-        <translation>マウスショートカット</translation>
+        <translation>アプリ内マウスショートカット</translation>
     </message>
     <message>
         <source>Mouse Wheel</source>

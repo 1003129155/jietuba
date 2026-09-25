@@ -26,24 +26,21 @@ from PySide6.QtGui import QColor
 SMART_SELECTION_MODES = ("off", "window", "element")
 STORED_SMART_SELECTION_MODES = SMART_SELECTION_MODES[1:]
 
-CAPTURE_ACTIONS = (
-    ("none", "No Action"), ("copy", "Copy to Clipboard"), ("pin", "Pin to Screen"),
-    ("save", "Save to File"), ("quick_save", "Quick Save"),
-)
-CAPTURE_TRIGGERS = (
-    ("double_click", "Left Double-click", "copy"),
-    ("middle_click", "Middle Click", "pin"),
-    ("enter", "Enter Key", "copy"),
+CAPTURE_MOUSE_ACTIONS = (
+    ("copy", "Copy to Clipboard", "doubleleft", "capture"),
+    ("pin", "Pin to Screen", "", "capture"),
+    ("save", "Save to File", "", "capture"),
+    ("quick_save", "Quick Save", "", "capture"),
 )
 
 PIN_MOUSE_ACTIONS = (
     ("zoom", "Zoom Pinned Image", "wheel", "wheel"),
     ("opacity", "Adjust Opacity", "ctrl+wheel", "wheel"),
-    ("close", "Close Pinned Image", "doubleleft", "click"),
-    ("reset", "Reset Pinned Image Size", "middle", "click"),
+    ("close", "Close Pinned Image", "", "click"),
+    ("reset", "Reset Pinned Image Size", "", "click"),
     ("thumbnail", "Toggle Pin Thumbnail", "shift+doubleleft", "click"),
     ("region", "Select Thumbnail Region", "dragright", "drag"),
-    ("copy_text", "Copy Selected Text", "right", "click"),
+    ("copy_text", "Copy Selected Text", "", "click"),
 )
 
 
@@ -58,14 +55,22 @@ def get_pin_mouse_binding(config, action):
     return config.get_app_setting(f"mouse_pin_{action}", default)
 
 
-def get_capture_action(config, trigger):
-    """Read an action while respecting the legacy double-click opt-out."""
-    default = dict((key, action) for key, _label, action in CAPTURE_TRIGGERS)[trigger]
-    if trigger == "double_click" and not config.get_double_click_copy_close_enabled():
-        default = "none"
-    getter = getattr(config, 'get_app_setting', None)
-    action = getter(f"capture_{trigger}_action", default) if callable(getter) else default
-    return action if action in dict(CAPTURE_ACTIONS) else default
+def get_capture_mouse_binding(config, action):
+    """Return one mouse gesture for a screenshot action.
+
+    The old double-click switch remains a migration fallback only. New mouse
+    bindings use one action-oriented namespace and never alter keyboard shortcuts.
+    """
+    default = next(
+        binding
+        for key, _label, binding, _kind in CAPTURE_MOUSE_ACTIONS
+        if key == action
+    )
+    if config is None:
+        return default
+    if action == "copy" and not config.get_double_click_copy_close_enabled():
+        default = ""
+    return config.get_app_setting(f"mouse_capture_{action}", default)
 
 
 ANNOTATION_TOOL_SHORTCUTS = (
@@ -242,14 +247,14 @@ class ToolSettingsManager(QObject):
 
         # 应用内快捷键
         "inapp_confirm": "ctrl+c",             # 确认截图（复制到剪贴板）
-        "inapp_pin": "ctrl+d",                 # 钉图
+        "inapp_pin": "mousemiddle",            # 钉图
         "inapp_undo": "ctrl+z",                # 撤销
         "inapp_redo": "ctrl+y",                # 重做
         "inapp_delete": "delete",              # 删除选中图元
         "inapp_restore_last_region": "l",      # 选区未确认/无绘制工具激活时，还原为上次截图的区域
         "inapp_copy_pin": "ctrl+c",            # 复制钉图内容
         "inapp_copy_pin_text": "ctrl+shift+c", # 复制钉图识别到的全部文字
-        "inapp_pin_reset_size": "mousemiddle", # 钉图恢复 100% 大小
+        "inapp_pin_reset_size": "",          # 钉图恢复 100% 大小（鼠标绑定另设）
         "inapp_thumbnail": "r",                # 切换缩略图模式
         "inapp_toggle_toolbar": "space",       # 切换工具栏
         "inapp_zoom_in": "pageup",             # 放大镜放大
@@ -265,13 +270,8 @@ class ToolSettingsManager(QObject):
         # ==================== 2. 截图 ====================
         # 截图交互
         "double_click_copy_close": True,      # 兼容旧版双击设置
-        "capture_double_click_action": "copy",
-        "capture_double_click_exit": True,
-        "capture_middle_click_action": "pin",
-        "capture_middle_click_exit": True,
-        "capture_enter_action": "copy",
-        "capture_enter_exit": True,
         "capture_fullscreen_crosshair": False,
+        **{f"mouse_capture_{key}": binding for key, _label, binding, _kind in CAPTURE_MOUSE_ACTIONS},
         **{f"mouse_pin_{key}": binding for key, _label, binding, _kind in PIN_MOUSE_ACTIONS},
         "cross_tool_selection": True,         # Ctrl 临时跨工具选择标注
         "text_always_on_top": True,           # 文字标注始终高于其他绘制标注

@@ -7,9 +7,14 @@ from unittest.mock import MagicMock
 import pytest
 from PySide6.QtCore import QEvent, QPoint, QPointF, QRectF, QSettings, Qt
 from PySide6.QtGui import QCloseEvent, QImage, QKeyEvent, QMouseEvent, QWheelEvent
-from PySide6.QtWidgets import QApplication, QWidget
+from PySide6.QtWidgets import QApplication, QStackedWidget, QWidget
 
-from settings.tool_settings import CAPTURE_TRIGGERS, ToolSettingsManager, get_capture_action
+from settings.tool_settings import (
+    CAPTURE_MOUSE_ACTIONS,
+    PIN_MOUSE_ACTIONS,
+    ToolSettingsManager,
+    get_capture_mouse_binding,
+)
 from tools.action import ActionTools
 from ui.settings_ui.dialog import SettingsDialog
 
@@ -55,8 +60,7 @@ def test_apply_saves_without_closing_and_resets_dirty_state(settings, config, qa
     settings.settings_applied.connect(lambda: applied.append(True))
     settings.accepted.connect(lambda: accepted.append(True))
     choose(settings, 'capture_fullscreen_crosshair', True)
-    choose(settings, 'capture_enter_action', 'quick_save')
-    choose(settings, 'capture_enter_exit', False)
+    choose(settings, 'mouse_capture_quick_save', 'ctrl+middle')
     choose(settings, 'mouse_pin_close', 'ctrl+doublemiddle')
     assert settings._has_unsaved_changes()
     settings._footer_ok_btn.click()
@@ -64,7 +68,7 @@ def test_apply_saves_without_closing_and_resets_dirty_state(settings, config, qa
     assert settings.isVisible()
     assert applied == [True] and not accepted
     assert config.get_app_setting('capture_fullscreen_crosshair') is True
-    assert config.get_app_setting('capture_enter_action') == 'quick_save'
+    assert config.get_app_setting('mouse_capture_quick_save') == 'ctrl+middle'
     assert config.get_app_setting('mouse_pin_close') == 'ctrl+doublemiddle'
     assert not settings._has_unsaved_changes()
     choose(settings, 'capture_fullscreen_crosshair', False)
@@ -74,18 +78,16 @@ def test_apply_saves_without_closing_and_resets_dirty_state(settings, config, qa
 
 
 def test_reset_refresh_all_new_controls(settings, config):
-    choose(settings, 'capture_enter_action', 'none')
-    assert not settings._behavior_controls['capture_enter_exit'].isEnabled()
-    settings._reset_quick_actions_page()
-    assert settings._behavior_controls['capture_enter_action'].currentData() == 'copy'
-    assert settings._behavior_controls['capture_enter_exit'].isEnabled()
+    choose(settings, 'mouse_capture_copy', 'ctrl+doubleleft')
     choose(settings, 'mouse_pin_close', 'ctrl+right')
     settings._reset_hotkey_page()
-    assert settings._behavior_controls['mouse_pin_close'].currentData() == 'doubleleft'
-    config.set_app_setting('capture_enter_action', 'pin')
+    assert settings._behavior_controls['mouse_capture_copy'].currentData() == 'doubleleft'
+    assert settings._behavior_controls['mouse_pin_close'].currentData() == ''
+    assert settings._behavior_controls['mouse_pin_reset'].currentData() == ''
+    config.set_app_setting('mouse_capture_save', 'shift+middle')
     config.set_app_setting('mouse_pin_opacity', 'alt+wheel')
     settings.refresh_settings()
-    assert settings._behavior_controls['capture_enter_action'].currentData() == 'pin'
+    assert settings._behavior_controls['mouse_capture_save'].currentData() == 'shift+middle'
     assert settings._behavior_controls['mouse_pin_opacity'].currentData() == 'alt+wheel'
 
 
@@ -101,14 +103,14 @@ def test_invalid_apply_and_save_on_close_keep_window_open(settings, monkeypatch)
     assert settings.isVisible()
 
 
-@pytest.mark.parametrize('trigger,_label,default', CAPTURE_TRIGGERS)
-def test_capture_action_persistence_and_legacy(config, trigger, _label, default):
-    assert get_capture_action(config, trigger) == default
-    if trigger == 'double_click':
+@pytest.mark.parametrize('action,_label,default,_kind', CAPTURE_MOUSE_ACTIONS)
+def test_capture_mouse_binding_persistence_and_legacy(config, action, _label, default, _kind):
+    assert get_capture_mouse_binding(config, action) == default
+    if action == 'copy':
         config.set_double_click_copy_close_enabled(False)
-        assert get_capture_action(config, trigger) == 'none'
-    config.set_app_setting(f'capture_{trigger}_action', 'save')
-    assert get_capture_action(config, trigger) == 'save'
+        assert get_capture_mouse_binding(config, action) == ''
+    config.set_app_setting(f'mouse_capture_{action}', 'ctrl+middle')
+    assert get_capture_mouse_binding(config, action) == 'ctrl+middle'
 
 
 @pytest.fixture
@@ -126,47 +128,37 @@ def actions(config, monkeypatch):
     return tools
 
 
-@pytest.mark.parametrize('close', [False, True])
-@pytest.mark.parametrize('trigger,_label,_default', CAPTURE_TRIGGERS)
-def test_copy_action_respects_close_flag(actions, config, close, trigger, _label, _default):
+def test_copy_action_closes_capture(actions, config):
     config.set_screenshot_save_enabled(False)
-    config.set_app_setting(f'capture_{trigger}_action', 'copy')
-    config.set_app_setting(f'capture_{trigger}_exit', close)
-    assert actions.handle_capture_action(trigger)
-    assert actions.parent_window.hide.called is close
-    assert actions.parent_window.cleanup_and_close.called is close
+    assert actions.handle_capture_action('copy')
+    actions.parent_window.hide.assert_called_once()
+    actions.parent_window.cleanup_and_close.assert_called_once()
 
 
 def test_none_and_unconfirmed_do_nothing(actions, config):
-    config.set_app_setting('capture_enter_action', 'none')
-    assert actions.handle_capture_action('enter') is False
+    assert actions.handle_capture_action('unknown') is False
     actions.export_service.export.assert_not_called()
     actions.scene.selection_model.is_confirmed = False
-    config.set_app_setting('capture_enter_action', 'copy')
-    assert actions.handle_capture_action('enter') is False
+    assert actions.handle_capture_action('copy') is False
 
 
-@pytest.mark.parametrize('close', [False, True])
-def test_quick_save_writes_file_even_when_auto_save_disabled(actions, config, close):
+def test_quick_save_writes_file_even_when_auto_save_disabled(actions, config):
     config.set_screenshot_save_enabled(False)
-    config.set_app_setting('capture_enter_action', 'quick_save')
-    config.set_app_setting('capture_enter_exit', close)
-    actions.handle_capture_action('enter')
+    actions.handle_capture_action('quick_save')
     files = list(Path(config.get_screenshot_save_path()).glob('*'))
     assert len(files) == 1
     assert not QImage(str(files[0])).isNull()
-    assert actions.parent_window.cleanup_and_close.called is close
+    actions.parent_window.cleanup_and_close.assert_called_once()
 
 
 def test_save_cancel_or_failure_preserves_capture(actions, config, monkeypatch, tmp_path):
-    config.set_app_setting('capture_enter_action', 'save')
     monkeypatch.setattr('tools.action.QFileDialog.getSaveFileName', lambda *_a: ('', ''))
-    actions.handle_capture_action('enter')
+    actions.handle_capture_action('save')
     actions.parent_window.cleanup_and_close.assert_not_called()
     monkeypatch.setattr('tools.action.QFileDialog.getSaveFileName', lambda *_a: (str(tmp_path / 'out.png'), 'PNG (*.png)'))
     monkeypatch.setattr('ui.dialogs.show_warning_dialog', lambda *_a: None)
     actions.save_service.save_qimage_to_path = MagicMock(return_value=False)
-    actions.handle_capture_action('enter')
+    actions.handle_capture_action('save')
     actions.parent_window.cleanup_and_close.assert_not_called()
 
 
@@ -199,15 +191,15 @@ def test_mouse_reset_change_and_disable_apply_to_existing_pin(pin, config, monke
     reset = MagicMock()
     monkeypatch.setattr(pin, 'reset_to_original_size', reset)
     gesture(pin, Qt.MiddleButton)
-    reset.assert_called_once()
+    reset.assert_not_called()
     config.set_app_setting('mouse_pin_reset', 'ctrl+middle')
     gesture(pin, Qt.MiddleButton)
-    assert reset.call_count == 1
+    assert reset.call_count == 0
     gesture(pin, Qt.MiddleButton, Qt.ControlModifier)
-    assert reset.call_count == 2
+    assert reset.call_count == 1
     config.set_app_setting('mouse_pin_reset', '')
     gesture(pin, Qt.MiddleButton, Qt.ControlModifier)
-    assert reset.call_count == 2
+    assert reset.call_count == 1
 
 
 def test_wheel_modifiers_and_keyboard_alternatives(pin, config):
@@ -256,7 +248,9 @@ def test_default_thumbnail_double_click_and_editing_guard(pin, monkeypatch):
     assert toggle.call_count == 1
 
 
-def test_copy_text_and_right_click_menu(pin, monkeypatch):
+def test_copy_text_and_right_click_menu(pin, config, monkeypatch):
+    # 默认已不绑定，显式绑右键验证「复制选中文字」的行为
+    config.set_app_setting('mouse_pin_copy_text', 'right')
     copy = MagicMock()
     menu = MagicMock()
     layer = SimpleNamespace(get_selected_text=lambda: 'selected', _copy_selected_text=copy)
@@ -318,7 +312,7 @@ def test_screenshot_reuse_rebinds_crosshair_and_capture_actions(config, qapp, mo
     window.cleanup_and_close()
     assert window.mask_overlay._crosshair_position is None
     config.set_app_setting('capture_fullscreen_crosshair', False)
-    config.set_app_setting('capture_double_click_action', 'none')
+    config.set_app_setting('mouse_capture_copy', '')
     window.prepare_new_session(image, QRectF(0, 0, 400, 300))
     assert window.view.viewport() is not old_viewport
     assert not window.view._fullscreen_crosshair
@@ -374,21 +368,45 @@ def test_crosshair_replaces_cursor_and_keeps_export_clean(qapp):
     scene.deleteLater()
 
 
-def test_capture_actions_follow_text_top_with_inline_switches(settings, qapp):
-    from ui.fluent_lite import SwitchButton
-    settings._on_nav_changed(9, 'quick_actions')
+def test_capture_mouse_actions_live_with_shortcuts(settings, qapp):
+    settings._on_nav_changed(0, 'shortcuts')
     qapp.processEvents()
-    previous_y = settings.text_always_on_top_toggle.mapTo(settings, QPoint()).y()
-    for trigger, _label, _default in CAPTURE_TRIGGERS:
-        combo = settings._behavior_controls[f'capture_{trigger}_action']
-        switch = settings._behavior_controls[f'capture_{trigger}_exit']
-        assert isinstance(switch, SwitchButton)
-        combo_center = combo.mapTo(settings, combo.rect().center())
-        switch_center = switch.mapTo(settings, switch.rect().center())
-        assert abs(combo_center.y() - switch_center.y()) <= 1
-        assert combo_center.y() > previous_y
-        assert switch_center.x() > combo_center.x()
-        previous_y = combo_center.y()
+    stack = settings.findChild(QStackedWidget, 'MouseShortcutStack')
+    assert stack is not None
+    assert stack.count() == 2
+    assert stack.currentIndex() == 0
+    for action, _label, default, _kind in CAPTURE_MOUSE_ACTIONS:
+        editor = settings._behavior_controls[f'mouse_capture_{action}']
+        assert editor.currentData() == default
+        assert editor.isVisible()
+
+    stack.setCurrentIndex(1)
+    qapp.processEvents()
+    assert not settings._behavior_controls['mouse_capture_copy'].isVisible()
+    for action, _label, _default, _kind in PIN_MOUSE_ACTIONS:
+        assert settings._behavior_controls[f'mouse_pin_{action}'].isVisible()
+
+
+def test_duplicate_capture_mouse_bindings_block_apply(settings, monkeypatch):
+    warnings = []
+    monkeypatch.setattr(
+        'ui.settings_ui.dialog.show_warning_dialog',
+        lambda _parent, title, message: warnings.append((title, message)),
+    )
+    choose(settings, 'mouse_capture_copy', 'middle')
+    choose(settings, 'mouse_capture_pin', 'middle')
+    assert settings.apply_settings() is False
+    assert len(warnings) == 1
+    assert "Middle Click" in warnings[0][1]
+    assert "Copy to Clipboard" in warnings[0][1]
+    assert "Pin to Screen" in warnings[0][1]
+
+
+def test_capture_mouse_binding_conflicts_with_inapp_mouse_shortcut(settings, monkeypatch):
+    monkeypatch.setattr('ui.settings_ui.dialog.show_warning_dialog', lambda *_a: None)
+    choose(settings, 'mouse_capture_pin', 'ctrl+middle')
+    settings._inapp_edits['inapp_pin'].setText('ctrl+mousemiddle')
+    assert settings.apply_settings() is False
 
 
 def test_right_single_click_keeps_menu_available_with_double_click_binding(pin, config, monkeypatch, qtbot):

@@ -309,6 +309,14 @@
         <translation>동일한 그룹 내 일부 앱 내 단축키가 서로 충돌합니다. 먼저 수정해 주세요.</translation>
     </message>
     <message>
+        <source>The following shortcuts conflict:</source>
+        <translation>다음 단축키가 충돌합니다:</translation>
+    </message>
+    <message>
+        <source>Change one shortcut in each row before applying.</source>
+        <translation>각 행의 단축키 중 하나를 변경한 후 적용하세요.</translation>
+    </message>
+    <message>
         <source>This is the same as a global hotkey — the system intercepts it first, so it won't work here.</source>
         <translation>전역 단축키와 동일합니다. 시스템이 먼저 가로채므로 여기서는 작동하지 않습니다.</translation>
     </message>
@@ -1009,7 +1017,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Mouse Shortcuts</source>
-        <translation>마우스 단축키</translation>
+        <translation>앱 내 마우스 단축키</translation>
     </message>
     <message>
         <source>Mouse Wheel</source>

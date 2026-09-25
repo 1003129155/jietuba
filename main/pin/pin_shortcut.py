@@ -16,16 +16,12 @@ from core.logger import T
 from core.shortcut_manager import (
     ShortcutManager, ShortcutHandler, event_key,
     load_inapp_bindings, load_inapp_mouse_bindings, match_inapp_binding,
+    mouse_gesture_binding_matches,
 )
 
 
 def mouse_binding_matches(binding, event, gesture):
-    from core.shortcut_manager import _split_modifiers
-
-    if not isinstance(binding, str) or not binding:
-        return False
-    modifiers, parts = _split_modifiers(binding)
-    return parts == [gesture] and event.modifiers() == modifiers
+    return mouse_gesture_binding_matches(binding, event, gesture)
 
 
 class _PinHandlerBase(ShortcutHandler):

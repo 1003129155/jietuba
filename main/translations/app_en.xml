@@ -310,6 +310,14 @@
         <translation>Some in-app shortcuts conflict within the same group. Please fix them first.</translation>
     </message>
     <message>
+        <source>The following shortcuts conflict:</source>
+        <translation>The following shortcuts conflict:</translation>
+    </message>
+    <message>
+        <source>Change one shortcut in each row before applying.</source>
+        <translation>Change one shortcut in each row before applying.</translation>
+    </message>
+    <message>
         <source>This is the same as a global hotkey — the system intercepts it first, so it won't work here.</source>
         <translation>This is the same as a global hotkey — the system intercepts it first, so it won't work here.</translation>
     </message>
@@ -894,7 +902,7 @@ Replace it?</translation>
     </message>
     <message>
         <source>Mouse Shortcuts</source>
-        <translation>Mouse Shortcuts</translation>
+        <translation>In-App Mouse Shortcuts</translation>
     </message>
     <message>
         <source>Mouse Wheel</source>

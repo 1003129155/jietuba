@@ -125,6 +125,18 @@ class _Color:
         return self._name
 
 
+class _Button:
+    def __init__(self):
+        self.enabled = None
+        self.cursor = None
+
+    def setEnabled(self, enabled):
+        self.enabled = enabled
+
+    def setCursor(self, cursor):
+        self.cursor = cursor
+
+
 # 覆盖各 _reset_* 方法会读到的键
 DEFAULTS = {
     "hotkey": "ctrl+shift+a",
@@ -135,7 +147,7 @@ DEFAULTS = {
     "translation_hotkey_2": "",
     "inapp_cursor_move_mode": "both",
     "inapp_confirm": "ctrl+c",
-    "inapp_pin": "ctrl+d",
+    "inapp_pin": "mousemiddle",
     "smart_selection": True,
     "smart_selection_mode": "window",
     "screenshot_save_enabled": True,
@@ -240,6 +252,30 @@ class TestHasUnsavedChanges:
         )
         assert SettingsDialog._has_unsaved_changes(fake) is True
 
+
+class TestApplyButtonState:
+
+    def test_apply_is_disabled_when_values_match_the_snapshot(self):
+        button = _Button()
+        fake = SimpleNamespace(
+            _footer_ok_btn=button,
+            _has_unsaved_changes=lambda: False,
+        )
+
+        SettingsDialog._update_action_buttons(fake)
+
+        assert button.enabled is False
+
+    def test_apply_is_enabled_as_soon_as_values_are_dirty(self):
+        button = _Button()
+        fake = SimpleNamespace(
+            _footer_ok_btn=button,
+            _has_unsaved_changes=lambda: True,
+        )
+
+        SettingsDialog._update_action_buttons(fake)
+
+        assert button.enabled is True
 
 class TestHotkeyAccessors:
 
