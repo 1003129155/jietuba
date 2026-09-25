@@ -491,7 +491,9 @@ class SettingsDialog(FrostedFramelessDialog):
         reset_btn.clicked.connect(self._reset_current_page)
         reset_btn.clicked.connect(self._update_action_buttons)
 
-        cancel_btn = FluentPushButton(self.tr("Cancel"))
+        # 独立于下面"未保存变更"确认框里的 Cancel（那个是"留在设置里，不关闭"，
+        # 语义不同）：这个按钮点了就直接关闭设置窗口，用不同的源文本避免共用翻译。
+        cancel_btn = FluentPushButton(self.tr("Cancel / Close"))
         configure_dialog_control(cancel_btn)
         self._footer_cancel_btn = cancel_btn
         cancel_btn.setFixedHeight(s(42))
@@ -776,7 +778,6 @@ class SettingsDialog(FrostedFramelessDialog):
             self.screenshot_format_combo.setCurrentIndex(idx)
         for attr, key in (('magnifier_enabled_toggle', 'magnifier_enabled'),
                           ('magnifier_grid_toggle', 'magnifier_grid'),
-                          ('magnifier_swatch_toggle', 'magnifier_swatch'),
                           ('magnifier_hint_toggle', 'magnifier_hint')):
             toggle = getattr(self, attr, None)
             if toggle is not None:
@@ -1006,7 +1007,6 @@ class SettingsDialog(FrostedFramelessDialog):
         # 3.5 放大镜
         for attr, key in (('magnifier_enabled_toggle', 'magnifier_enabled'),
                           ('magnifier_grid_toggle', 'magnifier_grid'),
-                          ('magnifier_swatch_toggle', 'magnifier_swatch'),
                           ('magnifier_hint_toggle', 'magnifier_hint')):
             toggle = getattr(self, attr, None)
             if toggle is not None:
@@ -1300,7 +1300,7 @@ class SettingsDialog(FrostedFramelessDialog):
                       'smart_animation_toggle',
                       'save_toggle', 'clipboard_file_reference_toggle',
                       'magnifier_enabled_toggle', 'magnifier_grid_toggle',
-                      'magnifier_swatch_toggle', 'magnifier_hint_toggle',
+                      'magnifier_hint_toggle',
                       'ocr_enable_toggle',
                       'ocr_grayscale_toggle', 'ocr_upscale_toggle',
                       'split_sentences_toggle',
@@ -1549,7 +1549,6 @@ class SettingsDialog(FrostedFramelessDialog):
             self.screenshot_format_combo.setCurrentIndex(idx)
         for attr, key in (('magnifier_enabled_toggle', 'magnifier_enabled'),
                           ('magnifier_grid_toggle', 'magnifier_grid'),
-                          ('magnifier_swatch_toggle', 'magnifier_swatch'),
                           ('magnifier_hint_toggle', 'magnifier_hint')):
             toggle = getattr(self, attr, None)
             if toggle is not None:
