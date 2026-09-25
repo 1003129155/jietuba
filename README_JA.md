@@ -6,7 +6,8 @@
 
 [Windows 版をダウンロード](https://github.com/1003129155/jietuba/releases/latest) · [ソースから実行](#source-setup) · [開発とテスト](#development)
 
-![jietuba demo](https://github.com/user-attachments/assets/5318b991-b0de-46a2-9c0e-d75eeae2a827)
+<img width="1391" height="844" alt="21" src="https://github.com/user-attachments/assets/5eb5e82a-7a5f-4c60-a877-679d1b29cf0c" />
+
 
 ## 概要
 
