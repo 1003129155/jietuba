@@ -192,6 +192,10 @@
         <translation>取消</translation>
     </message>
     <message>
+        <source>Cancel / Close</source>
+        <translation>取消/关闭</translation>
+    </message>
+    <message>
         <source>Apply</source>
         <translation>应用</translation>
     </message>
@@ -266,6 +270,38 @@
         <translation>钉图快捷键</translation>
     </message>
     <message>
+        <source>Clipboard Shortcuts</source>
+        <translation>剪贴板快捷键</translation>
+    </message>
+    <message>
+        <source>Quick Edit</source>
+        <translation>快速编辑</translation>
+    </message>
+    <message>
+        <source>Save Edit</source>
+        <translation>保存编辑</translation>
+    </message>
+    <message>
+        <source>Save and Paste</source>
+        <translation>保存并粘贴</translation>
+    </message>
+    <message>
+        <source>Direct Pick Keys</source>
+        <translation>直选粘贴</translation>
+    </message>
+    <message>
+        <source>Digits + Letters</source>
+        <translation>数字 + 字母</translation>
+    </message>
+    <message>
+        <source>Letters</source>
+        <translation>仅字母</translation>
+    </message>
+    <message>
+        <source>Digits</source>
+        <translation>仅数字</translation>
+    </message>
+    <message>
         <source>Shortcut conflict within group!</source>
         <translation>同组内快捷键冲突！</translation>
     </message>
@@ -280,6 +316,18 @@
     <message>
         <source>Some in-app shortcuts conflict within the same group. Please fix them first.</source>
         <translation>同组内存在重复的快捷键，请先修正冲突。</translation>
+    </message>
+    <message>
+        <source>The following shortcuts conflict:</source>
+        <translation>以下快捷键存在冲突：</translation>
+    </message>
+    <message>
+        <source>Change one shortcut in each row before applying.</source>
+        <translation>请修改每一行中的一个快捷键后再应用。</translation>
+    </message>
+    <message>
+        <source>This is the same as a global hotkey — the system intercepts it first, so it won't work here.</source>
+        <translation>和某个全局快捷键相同，会被系统先拦截，这个快捷键实际不会生效。</translation>
     </message>
     <message>
         <source>"%1" is already used by "%2".
@@ -854,7 +902,7 @@ Replace it?</source>
         <translation>保持原文格式</translation>
     </message>
     <message><source>Color Formats</source><translation>颜色格式</translation></message>
-    <message><source>Which formats the magnifier shows, and which one the copy shortcut uses.</source><translation>放大镜上显示哪些格式，以及按键复制的是哪一个。</translation></message>
+    <message><source>Which formats Shift cycles through on the magnifier, for C to copy.</source><translation>放大镜上按 Shift 在哪些格式之间切换，按 C 复制当前显示的那个。</translation></message>
     <message><source>Manage Color Formats</source><translation>管理颜色格式</translation></message>
     <message>
         <source>Custom LLM-1</source>
@@ -940,6 +988,126 @@ Replace it?</source>
         <source>No models returned</source>
         <translation>服务没有返回任何模型</translation>
     </message>
+    <message>
+        <source>Copy to Clipboard</source>
+        <translation>复制到剪贴板</translation>
+    </message>
+    <message>
+        <source>Pin to Screen</source>
+        <translation>贴到屏幕</translation>
+    </message>
+    <message>
+        <source>Save to File</source>
+        <translation>保存到文件</translation>
+    </message>
+    <message>
+        <source>Quick Save</source>
+        <translation>快捷保存</translation>
+    </message>
+    <message>
+        <source>Left Double-click</source>
+        <translation>左键双击</translation>
+    </message>
+    <message>
+        <source>Middle Click</source>
+        <translation>中键单击</translation>
+    </message>
+    <message>
+        <source>Enter Key</source>
+        <translation>回车键</translation>
+    </message>
+    <message>
+        <source>Exit capture after action</source>
+        <translation>执行后退出截图</translation>
+    </message>
+    <message>
+        <source>Fullscreen Crosshair</source>
+        <translation>全屏十字线</translation>
+    </message>
+    <message>
+        <source>Show horizontal and vertical guide lines across the screen while capturing.</source>
+        <translation>截图时显示随鼠标移动、贯穿全屏的水平和垂直辅助线。</translation>
+    </message>
+    <message>
+        <source>Mouse Shortcuts</source>
+        <translation>应用内鼠标快捷键</translation>
+    </message>
+    <message>
+        <source>Mouse Wheel</source>
+        <translation>鼠标滚轮</translation>
+    </message>
+    <message>
+        <source>Left Click</source>
+        <translation>左键单击</translation>
+    </message>
+    <message>
+        <source>Right Click</source>
+        <translation>右键单击</translation>
+    </message>
+    <message>
+        <source>Middle Double-click</source>
+        <translation>中键双击</translation>
+    </message>
+    <message>
+        <source>Right Double-click</source>
+        <translation>右键双击</translation>
+    </message>
+    <message>
+        <source>Left Drag</source>
+        <translation>鼠标左键拖拽</translation>
+    </message>
+    <message>
+        <source>Middle Drag</source>
+        <translation>鼠标中键拖拽</translation>
+    </message>
+    <message>
+        <source>Right Drag</source>
+        <translation>鼠标右键拖拽</translation>
+    </message>
+    <message>
+        <source>Zoom Pinned Image</source>
+        <translation>钉图缩放</translation>
+    </message>
+    <message>
+        <source>Adjust Opacity</source>
+        <translation>调整透明度</translation>
+    </message>
+    <message>
+        <source>Close Pinned Image</source>
+        <translation>关闭钉图</translation>
+    </message>
+    <message>
+        <source>Reset Pinned Image Size</source>
+        <translation>重置钉图大小</translation>
+    </message>
+    <message>
+        <source>Toggle Pin Thumbnail</source>
+        <translation>快速缩略钉图</translation>
+    </message>
+    <message>
+        <source>Select Thumbnail Region</source>
+        <translation>选区缩略钉图</translation>
+    </message>
+    <message>
+        <source>Copy Selected Text</source>
+        <translation>复制选中文字</translation>
+    </message>
+    <message>
+        <source>Pin mouse actions apply outside annotation mode. Conflicts use the first matching action. Copy text uses the selected OCR text; otherwise right-click opens the menu.</source>
+        <translation>钉图鼠标动作在非标注模式下生效，冲突时从上到下优先匹配。复制文本针对已选中的识别文字；未选中文字时，右键仍打开菜单。</translation>
+    </message>
+    <message>
+        <source>Use + / - instead of the wheel with the same modifiers</source>
+        <translation>可用 + / - 代替滚轮，修饰键相同</translation>
+    </message>
+    <message>
+        <source>No Modifier</source>
+        <translation>无</translation>
+    </message>
+    <message>
+        <source>No Action</source>
+        <translation>无</translation>
+    </message>
 </context>
 
 <context>
@@ -971,6 +1139,10 @@ Replace it?</source>
     <message>
         <source>Please configure DeepL API key in Settings.</source>
         <translation>请先在设置中配置 DeepL API 密钥</translation>
+    </message>
+    <message>
+        <source>Save Failed</source>
+        <translation>保存失败</translation>
     </message>
 </context>
 
@@ -1831,6 +2003,22 @@ Replace it?</source>
         <translation>字体大小</translation>
     </message>
     <message>
+        <source>Image Size</source>
+        <translation>图片大小</translation>
+    </message>
+    <message>
+        <source>Small</source>
+        <translation>小</translation>
+    </message>
+    <message>
+        <source>Medium</source>
+        <translation>中</translation>
+    </message>
+    <message>
+        <source>Large</source>
+        <translation>大</translation>
+    </message>
+    <message>
         <source>Theme</source>
         <translation>主题</translation>
     </message>
@@ -2011,6 +2199,10 @@ Replace it?</source>
     <message>
         <source>Remove Line Breaks</source>
         <translation>移除换行符</translation>
+    </message>
+    <message>
+        <source>Quick Edit</source>
+        <translation>快速编辑</translation>
     </message>
     <message>
         <source>Paste with Current Time</source>
@@ -2991,10 +3183,8 @@ Replace it?</source>
 
 <context>
     <name>MagnifierOverlay</name>
-    <message>
-        <source>Press C to copy color info</source>
-        <translation>按 C 复制颜色信息</translation>
-    </message>
+    <message><source>Shift: Switch color format</source><translation>Shift: 切换颜色格式</translation></message>
+    <message><source>C: Copy color value</source><translation>C: 复制颜色值</translation></message>
 </context>
 
 <context>
@@ -3575,9 +3765,7 @@ Replace it?</source>
     <message><source>Pixel Grid</source><translation>像素网格线</translation></message>
     <message><source>Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels.</source><translation>在放大图上勾出每个像素的边界。倍率低时自动不画，否则网格线会盖住像素本身。</translation></message>
     <message><source>Shortcut Hint</source><translation>快捷键提示</translation></message>
-    <message><source>Show the color-copy shortcut under the readings. Off makes the magnifier shorter.</source><translation>在数值下方显示复制颜色的快捷键。关掉后放大镜会变矮一些。</translation></message>
-    <message><source>Color Swatch</source><translation>取色色块</translation></message>
-    <message><source>Show the picked color in the top-right corner of the magnified view.</source><translation>在放大图右上角显示当前取到的颜色。</translation></message>
+    <message><source>Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.</source><translation>在数值下方显示切换格式和复制颜色的快捷键。关掉后放大镜会变矮一些。</translation></message>
     <message><source>Magnifier</source><translation>放大镜</translation></message>
     <message><source>Pin Settings</source><translation>钉图设定</translation></message>
     <message><source>Operation</source><translation>操作</translation></message>
@@ -4074,7 +4262,7 @@ SOFTWARE.</translation></message>
 <context>
     <name>ColorFormatDialog</name>
     <message><source>Manage Color Formats</source><translation>管理颜色格式</translation></message>
-    <message><source>Checked formats show on the magnifier. The first one is what the copy shortcut puts on the clipboard — drag it to the top to change that.</source><translation>勾选的格式会显示在放大镜上。排在第一位的那个才是按键复制到剪贴板的内容——想换就把它拖到最前面。</translation></message>
+    <message><source>The magnifier shows one checked format at a time — Shift cycles between them, C copies whichever is shown. Drag one to the top to make it the default.</source><translation>放大镜一次只显示一个勾选的格式：Shift 循环切换，C 复制当前显示的那个。拖到第一位的就是默认显示的格式。</translation></message>
     <message><source>Restore defaults</source><translation>恢复默认</translation></message>
     <message><source>OK</source><translation>确定</translation></message>
     <message><source>Cancel</source><translation>取消</translation></message>
@@ -4120,8 +4308,72 @@ SOFTWARE.</translation></message>
         <translation>在任何时候都能触发</translation>
     </message>
     <message>
-        <source>Only in screenshot and pin windows</source>
-        <translation>只在截图和钉图窗口里生效</translation>
+        <source>Only in screenshot, pin and clipboard windows</source>
+        <translation>只在截图、钉图和剪贴板窗口里生效</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Quick Actions</source>
+        <translation>快捷行为</translation>
+    </message>
+    <message>
+        <source>Text Recognition and Scanning</source>
+        <translation>文字识别与扫码</translation>
+    </message>
+    <message>
+        <source>Copy Recognized Text Directly</source>
+        <translation>文字识别直接复制</translation>
+    </message>
+    <message>
+        <source>Copy the recognized text straight to the clipboard instead of opening the result window.</source>
+        <translation>识别完成后把文字直接复制到剪贴板，不弹出结果窗口。</translation>
+    </message>
+    <message>
+        <source>Copy a Single Code Directly</source>
+        <translation>扫码直接复制</translation>
+    </message>
+    <message>
+        <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
+        <translation>只识别到一个二维码或条形码时直接复制内容，不弹出结果窗口；识别到多个码时仍会弹出。</translation>
+    </message>
+</context>
+<context>
+    <name>TextRecognitionWindow</name>
+    <message>
+        <source>Copy directly next time</source>
+        <translation>下次直接复制结果</translation>
+    </message>
+    <message>
+        <source>Copied %1 characters</source>
+        <translation>已复制 %1 个字符</translation>
+    </message>
+</context>
+<context>
+    <name>BarcodeResultWindow</name>
+    <message>
+        <source>Copy directly if only one code</source>
+        <translation>只有一个码时直接复制</translation>
+    </message>
+    <message>
+        <source>Copied: %1</source>
+        <translation>已复制：%1</translation>
+    </message>
+</context>
+<context>
+    <name>ClipboardQuickEdit</name>
+    <message>
+        <source>Save</source>
+        <translation>保存</translation>
+    </message>
+    <message>
+        <source>Save and Paste</source>
+        <translation>保存并粘贴</translation>
+    </message>
+    <message>
+        <source>Formatting will be removed</source>
+        <translation>保存后将变为纯文本</translation>
     </message>
 </context>
 </TS>

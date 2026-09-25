@@ -30,6 +30,7 @@ from core.logger import log_debug, T
 from core import safe_event
 from core.ui_scale import get_ui_scale, scaled
 from ..color_picker_button import ColorPickerButton
+from core.ui_theme import set_own_style
 
 
 # =====================================================================
@@ -206,7 +207,7 @@ class BorderShadowPopup(QWidget):
         for color_block in (self._shadow_color_block, self._border_color_block):
             color_block.setFixedSize(block, block)
 
-        self._size_label.setStyleSheet(
+        set_own_style(self._size_label,
             f"color: #AAAAAA; font-size: {scaled(12)}px; background: transparent;")
         self._slider.setStyleSheet(f"""
             QSlider::groove:horizontal {{
@@ -221,7 +222,7 @@ class BorderShadowPopup(QWidget):
             }}
         """)
         self._label_val.setFixedWidth(scaled(self.BASE_VALUE_LABEL_WIDTH))
-        self._label_val.setStyleSheet(
+        set_own_style(self._label_val,
             f"color: #D0D0D0; font-size: {scaled(12)}px; background: transparent;")
         indicator = scaled(14)
         self._chk_persist.setStyleSheet(f"""
@@ -259,11 +260,11 @@ class BorderShadowPopup(QWidget):
         ]:
             if mode == self._current_mode:
                 group.setStyleSheet(_ACTIVE)
-                label.setStyleSheet(
+                set_own_style(label,
                     f"color: #FFFFFF; font-size: {font_px}px; background: transparent;")
             else:
                 group.setStyleSheet(_INACTIVE)
-                label.setStyleSheet(
+                set_own_style(label,
                     f"color: #999999; font-size: {font_px}px; background: transparent;")
 
     # ------------------------------------------------------------------

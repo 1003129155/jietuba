@@ -16,11 +16,13 @@ from core.i18n import make_tr
 from core.logger import log_info, T
 from core.ui_scale import configure_dialog_control, dialog_scaled, scale_dialog_font
 from core.ui_theme import get_ui_theme
+from settings import get_tool_settings_manager
 from ui.dialogs import track_modeless_dialog
 from ui.fluent_lite import (
-    FONT_FAMILY, CaptionLabel, FluentTitleBar, FrostedFramelessDialog,
+    FONT_FAMILY, CaptionLabel, CheckBox, FluentTitleBar, FrostedFramelessDialog,
     PrimaryPushButton, TextEdit, scrollbar_qss, ui_tokens,
 )
+from ui.toast import Toast
 
 from .recognizer import NO_TEXT, UNAVAILABLE, recognize_async
 
@@ -35,6 +37,11 @@ def show_text_recognition(image):
     window.raise_()
     window.activateWindow()
     return window
+
+
+def copy_text_recognition(image):
+    """识别 image 里的文字直接复制，只在光标旁提示结果。快捷行为「文字识别直接复制」走这里"""
+    return _RecognitionToast(image)
 
 
 def _reason_text(reason):
@@ -74,9 +81,17 @@ class TextRecognitionWindow(FrostedFramelessDialog):
         self.copy_button.setEnabled(False)
         self.copy_button.clicked.connect(self._copy)
 
+        # 勾上即生效：本窗口照常用完，下次识别起就不再弹窗；在设置的「快捷行为」页关回来
+        self.copy_directly_check = CheckBox(_tr("Copy directly next time"), self)
+        configure_dialog_control(self.copy_directly_check)
+        self.copy_directly_check.setChecked(get_tool_settings_manager().get_ocr_copy_directly_enabled())
+        self.copy_directly_check.toggled.connect(
+            get_tool_settings_manager().set_ocr_copy_directly_enabled)
+
         footer = QHBoxLayout()
         footer.setSpacing(dialog_scaled(8))
         footer.addWidget(self.status_label, 1)
+        footer.addWidget(self.copy_directly_check)
         footer.addWidget(self.copy_button)
 
         root = QVBoxLayout(self)
@@ -143,3 +158,19 @@ class TextRecognitionWindow(FrostedFramelessDialog):
             self._thread.cancel()   # 结果不要了；线程自己跑完、自己回收
             self._thread = None
         super().closeEvent(event)
+
+
+class _RecognitionToast(Toast):
+    """识别期间显示"识别中…"，结果回来写进剪贴板并换成结果文案；失败时剪贴板不动"""
+
+    def __init__(self, image):
+        super().__init__(_tr("Recognizing..."))
+        recognize_async(image, self._on_recognized)
+
+    def _on_recognized(self, text, reason):
+        if reason:
+            self.finish(_reason_text(reason))
+            return
+        QApplication.clipboard().setText(text)
+        log_info(T("文字识别完成并直接复制: {count} 个字符", count=len(text)), "OCR")
+        self.finish(_tr("Copied %1 characters").replace("%1", str(len(text))))

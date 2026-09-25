@@ -21,6 +21,7 @@ from ui.fluent_lite import (
     PushButton, PrimaryPushButton, TransparentToolButton,
 )
 from .components import SettingCardGroup
+from core.ui_theme import set_own_style
 
 
 def create_clipboard_page(dialog) -> QWidget:
@@ -30,7 +31,7 @@ def create_clipboard_page(dialog) -> QWidget:
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 
     view = QWidget()
-    view.setStyleSheet("background: transparent;")
+    set_own_style(view, "background: transparent;")
     layout = QVBoxLayout(view)
     layout.setContentsMargins(0, 0, dialog_scaled(10), 0)
     layout.setSpacing(dialog_scaled(20))

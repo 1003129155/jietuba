@@ -14,7 +14,7 @@ from typing import Optional
 
 from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QColor, QGuiApplication, QPalette
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QWidget
 
 
 class UIThemeMode(str, Enum):
@@ -326,6 +326,18 @@ class UIThemeManager(QObject):
                 margin: 4px 7px;
             }}
         """
+
+
+def set_own_style(widget: QWidget, declarations: str) -> None:
+    """给控件设一段只按自身类名匹配的样式，不写成无选择器的样式表。
+
+    Qt 显示提示框时会沿用悬停控件所有祖先的样式表，且优先级高于全局的
+    QToolTip 规则。无选择器、以及 QWidget/QFrame/QLabel 这类会匹配到
+    QTipLabel 的规则里若有透明背景，提示框就会画成黑底深色字。类选择器
+    ".类名" 只匹配这个确切的类，永远匹配不到 QTipLabel。
+    """
+    name = widget.metaObject().className()
+    widget.setStyleSheet(f".{name} {{ {declarations} }}")
 
 
 _manager: Optional[UIThemeManager] = None

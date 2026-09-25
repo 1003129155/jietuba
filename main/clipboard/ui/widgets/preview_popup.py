@@ -8,18 +8,55 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QApplication
 )
-from PySide6.QtCore import Qt, QPoint, QTimer
+from PySide6.QtCore import Qt, QPoint, QSize, QTimer
 from PySide6.QtGui import QPixmap
 
 from core.logger import T, log_exception
 from core.i18n import make_tr
 from ui.fluent_lite import TextEdit
 from typing import TYPE_CHECKING
+from core.ui_theme import set_own_style
 
 _tr = make_tr("ClipboardPreview")
 
 if TYPE_CHECKING:
     from ...core import ClipboardManager, ClipboardItem
+
+
+def side_position(size: QSize, pos: QPoint, avoid_rect=None, prefer_side: str = "auto", gap: int = 10) -> QPoint:
+    """浮层左上角位置：放在 avoid_rect（通常是剪贴板窗口）左侧或右侧，并限制在屏幕内。
+
+    prefer_side 为 "left" / "right" / "auto"（优先右侧）；首选侧放不下时换另一侧，
+    两侧都放不下时取空间较大的一侧。没有 avoid_rect 时放在 pos 右侧。
+    """
+    screen = QApplication.screenAt(pos) or QApplication.primaryScreen()
+    screen_geo = screen.availableGeometry()
+    width, height = size.width(), size.height()
+
+    x = pos.x() + 20
+    y = pos.y()
+
+    if avoid_rect is not None:
+        left_x = avoid_rect.left() - width - gap
+        right_x = avoid_rect.right() + gap
+        left_fits = avoid_rect.left() - screen_geo.left() >= width + gap
+        right_fits = screen_geo.right() - avoid_rect.right() >= width + gap
+        roomier_x = right_x if screen_geo.right() - avoid_rect.right() >= avoid_rect.left() - screen_geo.left() else left_x
+
+        if prefer_side == "left":
+            x = left_x if left_fits else right_x if right_fits else roomier_x
+        else:
+            x = right_x if right_fits else left_x if left_fits else roomier_x
+
+    if x + width > screen_geo.right():
+        x = screen_geo.right() - width - gap
+    if x < screen_geo.left():
+        x = screen_geo.left()
+    if y + height > screen_geo.bottom():
+        y = screen_geo.bottom() - height - gap
+    if y < screen_geo.top():
+        y = screen_geo.top()
+    return QPoint(x, y)
 
 
 class PreviewPopup(QWidget):
@@ -107,7 +144,7 @@ class PreviewPopup(QWidget):
         # 图片预览（默认隐藏）
         self.image_label = QLabel()
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.image_label.setStyleSheet("background: #F0F0F0; border: 1px solid #E0E0E0; border-radius: 4px;")
+        set_own_style(self.image_label, "background: #F0F0F0; border: 1px solid #E0E0E0; border-radius: 4px;")
         self.image_label.hide()
         layout.addWidget(self.image_label)
     
@@ -183,61 +220,7 @@ class PreviewPopup(QWidget):
         
         # 调整位置（在触发位置右侧显示）
         self.adjustSize()
-
-        screen = QApplication.screenAt(pos) or QApplication.primaryScreen()
-        screen_geo = screen.availableGeometry() if screen else QApplication.primaryScreen().availableGeometry()
-
-        gap = 10
-        x = pos.x() + 20
-        y = pos.y()
-
-        avoid_rect = self._pending_avoid_rect
-        prefer_side = self._pending_prefer_side or "auto"
-
-        if avoid_rect is not None:
-            left_space = avoid_rect.left() - screen_geo.left()
-            right_space = screen_geo.right() - avoid_rect.right()
-
-            def place_left():
-                return avoid_rect.left() - self.width() - gap
-
-            def place_right():
-                return avoid_rect.right() + gap
-
-            if prefer_side == "left":
-                if left_space >= self.width() + gap:
-                    x = place_left()
-                elif right_space >= self.width() + gap:
-                    x = place_right()
-                else:
-                    x = place_right() if right_space >= left_space else place_left()
-            elif prefer_side == "right":
-                if right_space >= self.width() + gap:
-                    x = place_right()
-                elif left_space >= self.width() + gap:
-                    x = place_left()
-                else:
-                    x = place_left() if left_space >= right_space else place_right()
-            else:
-                # auto: 优先右侧，不够再左侧
-                if right_space >= self.width() + gap:
-                    x = place_right()
-                elif left_space >= self.width() + gap:
-                    x = place_left()
-                else:
-                    x = place_right() if right_space >= left_space else place_left()
-
-        # 确保不超出屏幕
-        if x + self.width() > screen_geo.right():
-            x = screen_geo.right() - self.width() - gap
-        if x < screen_geo.left():
-            x = screen_geo.left()
-        if y + self.height() > screen_geo.bottom():
-            y = screen_geo.bottom() - self.height() - gap
-        if y < screen_geo.top():
-            y = screen_geo.top()
-
-        self.move(x, y)
+        self.move(side_position(self.size(), pos, self._pending_avoid_rect, self._pending_prefer_side or "auto"))
         self.show()
     
     def _show_text_preview(self, item: 'ClipboardItem'):
@@ -482,5 +465,5 @@ class PreviewPopup(QWidget):
             self.hide()
 
 
-__all__ = ["PreviewPopup"]
+__all__ = ["PreviewPopup", "side_position"]
  

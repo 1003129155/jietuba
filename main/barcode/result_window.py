@@ -22,11 +22,13 @@ from core.logger import T
 from core.theme import contrast_ink, get_theme
 from core.ui_scale import configure_dialog_control, dialog_scaled, scale_dialog_font
 from core.ui_theme import get_ui_theme
+from settings import get_tool_settings_manager
 from ui.dialogs import track_modeless_dialog
 from ui.fluent_lite import (
-    FONT_FAMILY, BodyLabel, CaptionLabel, FluentTitleBar, FrostedFramelessDialog,
+    FONT_FAMILY, BodyLabel, CaptionLabel, CheckBox, FluentTitleBar, FrostedFramelessDialog,
     PrimaryPushButton, PushButton, SimpleCardWidget, TextEdit, scrollbar_qss, ui_tokens,
 )
+from ui.toast import show_toast
 
 from .reader import read_codes
 
@@ -35,16 +37,24 @@ _tr = make_tr("BarcodeResultWindow")
 _BADGE_RADIUS = 10
 
 
-def show_barcode_result(image):
+def show_barcode_result(image, copy_single=False):
     """识别 image 里的码并弹出结果窗口。
 
     解码直接在主线程做，不开后台线程、也没有"识别中"的等待态：实测 2560×1440 整屏约
     65 ms、普通大小的选区十几 ms，截图界面一关窗口就带着结果出来，等待态只会一闪而过。
+
+    copy_single 为真且恰好一个码时不开窗口，直接复制并在光标旁提示，返回 None；
+    多个码要用户挑，没识别到要看提示，这两种照常开窗口。
     """
     started = time.perf_counter()
     codes = read_codes(image)
     log_info(T("扫码完成: 识别到 {count} 个码, 耗时 {elapsed_ms:.0f} ms",
                count=len(codes), elapsed_ms=(time.perf_counter() - started) * 1000), "Barcode")
+
+    if copy_single and len(codes) == 1:
+        QApplication.clipboard().setText(codes[0].text)
+        show_toast(_tr("Copied: %1").replace("%1", codes[0].text))
+        return None
 
     window = BarcodeResultWindow(image, codes)
     track_modeless_dialog(window)
@@ -329,8 +339,16 @@ class BarcodeResultWindow(FrostedFramelessDialog):
         panel_layout = QVBoxLayout(panel)
         panel_layout.setContentsMargins(0, 0, 0, 0)
         panel_layout.setSpacing(dialog_scaled(8))
+        # 勾上即生效，下次扫码起只有一个码就不再弹窗；在设置的「快捷行为」页关回来
+        self.copy_single_check = CheckBox(_tr("Copy directly if only one code"), panel)
+        configure_dialog_control(self.copy_single_check)
+        self.copy_single_check.setChecked(get_tool_settings_manager().get_barcode_copy_single_enabled())
+        self.copy_single_check.toggled.connect(
+            get_tool_settings_manager().set_barcode_copy_single_enabled)
+
         panel_layout.addWidget(self.summary_label)
         panel_layout.addWidget(self._scroll, 1)
+        panel_layout.addWidget(self.copy_single_check)
 
         root = QHBoxLayout(self)
         root.setContentsMargins(

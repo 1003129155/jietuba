@@ -191,6 +191,10 @@
         <translation>취소</translation>
     </message>
     <message>
+        <source>Cancel / Close</source>
+        <translation>취소</translation>
+    </message>
+    <message>
         <source>Apply</source>
         <translation>적용</translation>
     </message>
@@ -261,6 +265,38 @@
         <translation>고정 창 단축키</translation>
     </message>
     <message>
+        <source>Clipboard Shortcuts</source>
+        <translation>클립보드 단축키</translation>
+    </message>
+    <message>
+        <source>Quick Edit</source>
+        <translation>빠른 편집</translation>
+    </message>
+    <message>
+        <source>Save Edit</source>
+        <translation>편집 저장</translation>
+    </message>
+    <message>
+        <source>Save and Paste</source>
+        <translation>저장 후 붙여넣기</translation>
+    </message>
+    <message>
+        <source>Direct Pick Keys</source>
+        <translation>바로 붙여넣기 키</translation>
+    </message>
+    <message>
+        <source>Digits + Letters</source>
+        <translation>숫자 + 문자</translation>
+    </message>
+    <message>
+        <source>Letters</source>
+        <translation>문자만</translation>
+    </message>
+    <message>
+        <source>Digits</source>
+        <translation>숫자만</translation>
+    </message>
+    <message>
         <source>Shortcut conflict within group!</source>
         <translation>그룹 내 단축키가 충돌합니다!</translation>
     </message>
@@ -275,6 +311,18 @@
     <message>
         <source>Some in-app shortcuts conflict within the same group. Please fix them first.</source>
         <translation>동일한 그룹 내 일부 앱 내 단축키가 서로 충돌합니다. 먼저 수정해 주세요.</translation>
+    </message>
+    <message>
+        <source>The following shortcuts conflict:</source>
+        <translation>다음 단축키가 충돌합니다:</translation>
+    </message>
+    <message>
+        <source>Change one shortcut in each row before applying.</source>
+        <translation>각 행의 단축키 중 하나를 변경한 후 적용하세요.</translation>
+    </message>
+    <message>
+        <source>This is the same as a global hotkey — the system intercepts it first, so it won't work here.</source>
+        <translation>전역 단축키와 동일합니다. 시스템이 먼저 가로채므로 여기서는 작동하지 않습니다.</translation>
     </message>
     <message>
         <source>"%1" is already used by "%2".
@@ -845,7 +893,7 @@ Replace it?</source>
         <translation>LLM 번역: 문맥과 관용 표현에 강하지만 느리고 토큰 단위로 과금되며 일부 내용은 거부될 수 있습니다</translation>
     </message>
     <message><source>Color Formats</source><translation>색상 형식</translation></message>
-    <message><source>Which formats the magnifier shows, and which one the copy shortcut uses.</source><translation>돋보기에 표시할 형식과 단축키로 복사할 형식을 정합니다.</translation></message>
+    <message><source>Which formats Shift cycles through on the magnifier, for C to copy.</source><translation>돋보기에서 Shift로 전환할 형식입니다. C는 현재 표시된 형식을 복사합니다.</translation></message>
     <message><source>Manage Color Formats</source><translation>색상 형식 관리</translation></message>
     <message>
         <source>Custom LLM-1</source>
@@ -931,6 +979,126 @@ Replace it?</source>
         <source>No models returned</source>
         <translation>반환된 모델이 없습니다</translation>
     </message>
+    <message>
+        <source>Copy to Clipboard</source>
+        <translation>클립보드에 복사</translation>
+    </message>
+    <message>
+        <source>Pin to Screen</source>
+        <translation>화면에 고정</translation>
+    </message>
+    <message>
+        <source>Save to File</source>
+        <translation>파일로 저장</translation>
+    </message>
+    <message>
+        <source>Quick Save</source>
+        <translation>빠른 저장</translation>
+    </message>
+    <message>
+        <source>Left Double-click</source>
+        <translation>왼쪽 더블 클릭</translation>
+    </message>
+    <message>
+        <source>Middle Click</source>
+        <translation>가운데 클릭</translation>
+    </message>
+    <message>
+        <source>Enter Key</source>
+        <translation>Enter 키</translation>
+    </message>
+    <message>
+        <source>Exit capture after action</source>
+        <translation>실행 후 캡처 종료</translation>
+    </message>
+    <message>
+        <source>Fullscreen Crosshair</source>
+        <translation>전체 화면 십자선</translation>
+    </message>
+    <message>
+        <source>Show horizontal and vertical guide lines across the screen while capturing.</source>
+        <translation>캡처 중 마우스를 따라 화면 전체에 가로 및 세로 안내선을 표시합니다.</translation>
+    </message>
+    <message>
+        <source>Mouse Shortcuts</source>
+        <translation>앱 내 마우스 단축키</translation>
+    </message>
+    <message>
+        <source>Mouse Wheel</source>
+        <translation>마우스 휠</translation>
+    </message>
+    <message>
+        <source>Left Click</source>
+        <translation>왼쪽 클릭</translation>
+    </message>
+    <message>
+        <source>Right Click</source>
+        <translation>오른쪽 클릭</translation>
+    </message>
+    <message>
+        <source>Middle Double-click</source>
+        <translation>가운데 더블 클릭</translation>
+    </message>
+    <message>
+        <source>Right Double-click</source>
+        <translation>오른쪽 더블 클릭</translation>
+    </message>
+    <message>
+        <source>Left Drag</source>
+        <translation>왼쪽 버튼 드래그</translation>
+    </message>
+    <message>
+        <source>Middle Drag</source>
+        <translation>가운데 버튼 드래그</translation>
+    </message>
+    <message>
+        <source>Right Drag</source>
+        <translation>오른쪽 버튼 드래그</translation>
+    </message>
+    <message>
+        <source>Zoom Pinned Image</source>
+        <translation>고정 이미지 확대/축소</translation>
+    </message>
+    <message>
+        <source>Adjust Opacity</source>
+        <translation>불투명도 조절</translation>
+    </message>
+    <message>
+        <source>Close Pinned Image</source>
+        <translation>고정 이미지 닫기</translation>
+    </message>
+    <message>
+        <source>Reset Pinned Image Size</source>
+        <translation>고정 이미지 크기 초기화</translation>
+    </message>
+    <message>
+        <source>Toggle Pin Thumbnail</source>
+        <translation>고정 이미지 썸네일 전환</translation>
+    </message>
+    <message>
+        <source>Select Thumbnail Region</source>
+        <translation>썸네일 영역 선택</translation>
+    </message>
+    <message>
+        <source>Copy Selected Text</source>
+        <translation>선택한 텍스트 복사</translation>
+    </message>
+    <message>
+        <source>Pin mouse actions apply outside annotation mode. Conflicts use the first matching action. Copy text uses the selected OCR text; otherwise right-click opens the menu.</source>
+        <translation>마우스 동작은 주석 모드 밖에서 적용되며, 충돌 시 위쪽 동작이 우선합니다. 선택한 OCR 텍스트를 복사하고, 선택이 없으면 오른쪽 클릭으로 메뉴를 엽니다.</translation>
+    </message>
+    <message>
+        <source>Use + / - instead of the wheel with the same modifiers</source>
+        <translation>같은 보조 키와 + / -로 휠 동작 대체</translation>
+    </message>
+    <message>
+        <source>No Modifier</source>
+        <translation>없음</translation>
+    </message>
+    <message>
+        <source>No Action</source>
+        <translation>없음</translation>
+    </message>
 </context>
 
 <context>
@@ -962,6 +1130,10 @@ Replace it?</source>
     <message>
         <source>Please configure DeepL API key in Settings.</source>
         <translation>설정에서 DeepL API 키를 구성해 주세요.</translation>
+    </message>
+    <message>
+        <source>Save Failed</source>
+        <translation>저장 실패</translation>
     </message>
 </context>
 
@@ -1750,6 +1922,22 @@ Replace it?</source>
         <translation>글꼴 크기</translation>
     </message>
     <message>
+        <source>Image Size</source>
+        <translation>이미지 크기</translation>
+    </message>
+    <message>
+        <source>Small</source>
+        <translation>작게</translation>
+    </message>
+    <message>
+        <source>Medium</source>
+        <translation>보통</translation>
+    </message>
+    <message>
+        <source>Large</source>
+        <translation>크게</translation>
+    </message>
+    <message>
         <source>Theme</source>
         <translation>테마</translation>
     </message>
@@ -1931,6 +2119,10 @@ Replace it?</source>
     <message>
         <source>Remove Line Breaks</source>
         <translation>줄바꿈 제거</translation>
+    </message>
+    <message>
+        <source>Quick Edit</source>
+        <translation>빠른 편집</translation>
     </message>
     <message>
         <source>Paste with Current Time</source>
@@ -2911,10 +3103,8 @@ Replace it?</source>
 
 <context>
     <name>MagnifierOverlay</name>
-    <message>
-        <source>Press C to copy color info</source>
-        <translation>색상 정보를 복사하려면 C를 누르세요</translation>
-    </message>
+    <message><source>Shift: Switch color format</source><translation>Shift: 색상 형식 전환</translation></message>
+    <message><source>C: Copy color value</source><translation>C: 색상 값 복사</translation></message>
 </context>
 
 <context>
@@ -3514,9 +3704,7 @@ Replace it?</source>
     <message><source>Pixel Grid</source><translation>픽셀 격자</translation></message>
     <message><source>Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels.</source><translation>확대 화면에서 각 픽셀의 경계를 그립니다. 배율이 낮을 때는 선이 픽셀을 덮으므로 자동으로 숨깁니다.</translation></message>
     <message><source>Shortcut Hint</source><translation>단축키 안내</translation></message>
-    <message><source>Show the color-copy shortcut under the readings. Off makes the magnifier shorter.</source><translation>수치 아래에 색 복사 단축키를 표시합니다. 끄면 돋보기가 조금 짧아집니다.</translation></message>
-    <message><source>Color Swatch</source><translation>추출 색상 칩</translation></message>
-    <message><source>Show the picked color in the top-right corner of the magnified view.</source><translation>확대 화면 오른쪽 위에 현재 추출한 색을 표시합니다.</translation></message>
+    <message><source>Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.</source><translation>수치 아래에 형식 전환과 색 복사 단축키를 표시합니다. 끄면 돋보기가 조금 짧아집니다.</translation></message>
     <message><source>Magnifier</source><translation>돋보기</translation></message>
     <message><source>Pin Settings</source><translation>핀 고정 설정</translation></message>
     <message><source>Operation</source><translation>동작</translation></message>
@@ -4004,7 +4192,7 @@ SOFTWARE.</translation></message>
 <context>
     <name>ColorFormatDialog</name>
     <message><source>Manage Color Formats</source><translation>색상 형식 관리</translation></message>
-    <message><source>Checked formats show on the magnifier. The first one is what the copy shortcut puts on the clipboard — drag it to the top to change that.</source><translation>선택한 형식이 돋보기에 표시됩니다. 단축키로 복사되는 것은 맨 위의 형식이므로, 바꾸려면 위로 끌어다 놓으세요.</translation></message>
+    <message><source>The magnifier shows one checked format at a time — Shift cycles between them, C copies whichever is shown. Drag one to the top to make it the default.</source><translation>돋보기에는 선택한 형식이 한 번에 하나씩 표시됩니다. Shift로 전환하고 C로 현재 표시된 값을 복사합니다. 맨 위로 끌어 놓은 형식이 기본으로 표시됩니다.</translation></message>
     <message><source>Restore defaults</source><translation>기본값 복원</translation></message>
     <message><source>OK</source><translation>확인</translation></message>
     <message><source>Cancel</source><translation>취소</translation></message>
@@ -4050,8 +4238,72 @@ SOFTWARE.</translation></message>
         <translation>언제든지 실행됩니다</translation>
     </message>
     <message>
-        <source>Only in screenshot and pin windows</source>
-        <translation>스크린샷 및 고정 창에서만 작동</translation>
+        <source>Only in screenshot, pin and clipboard windows</source>
+        <translation>스크린샷, 고정 창, 클립보드 창에서만 작동</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Quick Actions</source>
+        <translation>빠른 동작</translation>
+    </message>
+    <message>
+        <source>Text Recognition and Scanning</source>
+        <translation>텍스트 인식 및 코드 스캔</translation>
+    </message>
+    <message>
+        <source>Copy Recognized Text Directly</source>
+        <translation>인식한 텍스트 바로 복사</translation>
+    </message>
+    <message>
+        <source>Copy the recognized text straight to the clipboard instead of opening the result window.</source>
+        <translation>결과 창을 열지 않고 인식한 텍스트를 바로 클립보드에 복사합니다.</translation>
+    </message>
+    <message>
+        <source>Copy a Single Code Directly</source>
+        <translation>코드가 하나면 바로 복사</translation>
+    </message>
+    <message>
+        <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
+        <translation>QR 코드나 바코드가 하나만 인식되면 결과 창을 열지 않고 내용을 복사합니다. 여러 개가 인식되면 결과 창이 열립니다.</translation>
+    </message>
+</context>
+<context>
+    <name>TextRecognitionWindow</name>
+    <message>
+        <source>Copy directly next time</source>
+        <translation>다음부터 바로 복사</translation>
+    </message>
+    <message>
+        <source>Copied %1 characters</source>
+        <translation>%1자를 복사했습니다</translation>
+    </message>
+</context>
+<context>
+    <name>BarcodeResultWindow</name>
+    <message>
+        <source>Copy directly if only one code</source>
+        <translation>코드가 하나면 바로 복사</translation>
+    </message>
+    <message>
+        <source>Copied: %1</source>
+        <translation>복사함: %1</translation>
+    </message>
+</context>
+<context>
+    <name>ClipboardQuickEdit</name>
+    <message>
+        <source>Save</source>
+        <translation>저장</translation>
+    </message>
+    <message>
+        <source>Save and Paste</source>
+        <translation>저장 후 붙여넣기</translation>
+    </message>
+    <message>
+        <source>Formatting will be removed</source>
+        <translation>저장하면 일반 텍스트로 바뀝니다</translation>
     </message>
 </context>
 </TS>

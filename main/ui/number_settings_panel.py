@@ -18,6 +18,7 @@ from tools.number import NumberTool
 
 from core.i18n import make_tr
 from core.ui_scale import scaled
+from core.ui_theme import set_own_style
 from .base_settings_panel import BaseSettingsPanel, HoverPopup, set_step_button_icon
 
 # 样式弹出条与序号面板共用同一翻译上下文
@@ -138,7 +139,7 @@ class NumberSettingsPanel(BaseSettingsPanel):
         self.next_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         # 这里要显示的是下一个序号会长成什么样，所以连样式一起画，
         # 而不是用 CSS 画一个永远是空心圆的假框。
-        self.next_preview.setStyleSheet("QLabel { background: transparent; }")
+        set_own_style(self.next_preview, "background: transparent;")
         layout.insertWidget(0, self.next_preview)
 
         self._next_value = 1

@@ -344,6 +344,7 @@ class TestNumberHandleEditor:
         assert h_inc.position.y() == rect.top()
         assert h_del.position.x() == rect.right()
         assert h_del.position.y() == rect.top()
-        assert h_dec.position.x() == rect.left()
-        assert h_dec.position.y() == rect.top() + editor.NUMBER_BUTTON_SIZE + editor.NUMBER_BUTTON_GAP
+        dec_center = editor.screen_center(h_dec)
+        assert dec_center.x() == rect.left()
+        assert dec_center.y() == rect.top() + editor.NUMBER_BUTTON_SIZE + editor.NUMBER_BUTTON_GAP
 

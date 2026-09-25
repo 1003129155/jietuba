@@ -19,6 +19,8 @@ APP_DEFAULT_SETTINGS = {
     "translation_hotkey": "",
     "translation_hotkey_2": "",
     "double_click_copy_close": True,
+    "ocr_copy_directly": False,
+    "barcode_copy_single": False,
     "cross_tool_selection": True,
     "text_always_on_top": True,
     "smart_selection": False,
@@ -42,6 +44,7 @@ APP_DEFAULT_SETTINGS = {
     "screenshot_format": "PNG",
     "screenshot_quality": 85,
     "clipboard_file_reference_enabled": True,
+    "autostart_enabled": True,
     "show_main_window": True,
     "ocr_enabled": True,
     "ocr_engine": "windos_ocr",
@@ -72,15 +75,14 @@ APP_DEFAULT_SETTINGS = {
     "clipboard_auto_cleanup": False,
     "magnifier_enabled": True,
     "magnifier_grid": False,
-    "magnifier_swatch": True,
     "magnifier_hint": True,
     "magnifier_color_formats": "",
-    "magnifier_color_copy_format": "rgb_hex",
+    "magnifier_color_copy_format": "",
     "ui_theme_mode": "system",
     "ui_scale_percent": 100,
     "dialog_scale_percent": 100,
     "inapp_confirm": "ctrl+c",
-    "inapp_pin": "ctrl+d",
+    "inapp_pin": "mousemiddle",
     "inapp_undo": "ctrl+z",
     "inapp_redo": "ctrl+y",
     "inapp_delete": "delete",
@@ -148,6 +150,10 @@ class MockConfig:
     # --- getter / setter stubs ---
     def get_double_click_copy_close_enabled(self): return True
     def set_double_click_copy_close_enabled(self, v): pass
+    def get_ocr_copy_directly_enabled(self): return False
+    def set_ocr_copy_directly_enabled(self, v): pass
+    def get_barcode_copy_single_enabled(self): return False
+    def set_barcode_copy_single_enabled(self, v): pass
     def get_cross_tool_selection_enabled(self): return True
     def set_cross_tool_selection_enabled(self, v): pass
     def get_text_always_on_top_enabled(self): return True
@@ -284,6 +290,8 @@ class MockConfig:
         self.settings.setValue(f"inapp/{key}", value)
     def get_inapp_cursor_move_mode(self): return "both"
     def set_inapp_cursor_move_mode(self, value): pass
+    def get_inapp_clipboard_pick_mode(self): return "both"
+    def set_inapp_clipboard_pick_mode(self, value): pass
 
 
 if __name__ == "__main__":

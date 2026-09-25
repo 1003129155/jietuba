@@ -108,6 +108,17 @@ def _make_magnifier(should_render=True, has_cursor=True, copy_ok=True):
     return magnifier
 
 
+class _FakeShiftEvent(_FakeKeyEvent):
+    """Shift 键事件。补上 isAutoRepeat()，用来单独测自动重复被挡下的分支。"""
+
+    def __init__(self, auto_repeat=False):
+        super().__init__(Qt.Key.Key_Shift)
+        self._auto_repeat = auto_repeat
+
+    def isAutoRepeat(self):
+        return self._auto_repeat
+
+
 def _make_handler(window, move_keys=None, mouse_bindings=None):
     handler = ScreenshotShortcutHandler.__new__(ScreenshotShortcutHandler)
     handler._window = window
@@ -468,6 +479,29 @@ class TestMagnifier:
         window = _make_window(magnifier=magnifier)
         assert _make_handler(window).handle_key(_FakeKeyEvent(Qt.Key.Key_C)) is False
         window.cleanup_and_close.assert_not_called()
+
+    def test_bare_shift_cycles_the_colour_format(self):
+        magnifier = _make_magnifier()
+        window = _make_window(magnifier=magnifier)
+        assert _make_handler(window).handle_key(_FakeShiftEvent()) is True
+        magnifier.cycle_color_format.assert_called_once()
+
+    def test_shift_auto_repeat_is_ignored(self):
+        """按住 Shift 不放不该疯狂循环切换格式，只认第一次按下。"""
+        magnifier = _make_magnifier()
+        window = _make_window(magnifier=magnifier)
+        assert _make_handler(window).handle_key(_FakeShiftEvent(auto_repeat=True)) is False
+        magnifier.cycle_color_format.assert_not_called()
+
+    def test_shift_is_ignored_when_the_magnifier_is_not_rendering(self):
+        magnifier = _make_magnifier(should_render=False)
+        window = _make_window(magnifier=magnifier)
+        assert _make_handler(window).handle_key(_FakeShiftEvent()) is False
+        magnifier.cycle_color_format.assert_not_called()
+
+    def test_shift_is_ignored_without_a_magnifier(self):
+        window = _make_window(magnifier=None)
+        assert _make_handler(window).handle_key(_FakeShiftEvent()) is False
 
 
 class TestUnhandledKeys:

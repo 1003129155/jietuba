@@ -24,6 +24,7 @@ class PinThumbnailMode:
         self._size = 100               # 缩略图尺寸（像素）
         self._prev_geometry = None      # 进入前的窗口几何
         self._scene_center = None       # 缩略图显示的场景中心点
+        self._region_rect = None
 
     # ------------------------------------------------------------------
     # 公开属性
@@ -52,7 +53,15 @@ class PinThumbnailMode:
     # 进入缩略图模式
     # ------------------------------------------------------------------
 
-    def _enter(self):
+    def enter_region(self, rect):
+        """Show a user-selected scene region without changing the source image."""
+        if self._active:
+            return
+        rect = rect.intersected(self._win.canvas.scene.sceneRect())
+        if not rect.isEmpty():
+            self._enter(rect)
+
+    def _enter(self, region=None):
         win = self._win
         # 保存当前窗口几何
         self._prev_geometry = win.geometry()
@@ -76,7 +85,14 @@ class PinThumbnailMode:
         new_x = cursor_pos.x() - size // 2
         new_y = cursor_pos.y() - size // 2
 
-        win.setGeometry(new_x, new_y, size, size)
+        self._region_rect = QRectF(region) if region is not None else None
+        if self._region_rect is not None:
+            local_rect = win.view.mapFromScene(self._region_rect).boundingRect()
+            origin = win.view.viewport().mapToGlobal(local_rect.topLeft())
+            self._scene_center = self._region_rect.center()
+            win.setGeometry(origin.x(), origin.y(), max(3, local_rect.width()), max(3, local_rect.height()))
+        else:
+            win.setGeometry(new_x, new_y, size, size)
 
         # 更新视图
         self.update_view()
@@ -128,6 +144,7 @@ class PinThumbnailMode:
         self._active = False
         self._scene_center = None
         self._prev_geometry = None
+        self._region_rect = None
 
         win.setGeometry(new_x, new_y, prev_size.width(), prev_size.height())
         win._update_view_transform()
@@ -154,6 +171,11 @@ class PinThumbnailMode:
         if not win.view or not self._scene_center:
             return
 
+        if self._region_rect is not None:
+            win.view.resetTransform()
+            win.view.fitInView(self._region_rect, Qt.AspectRatioMode.KeepAspectRatio)
+            return
+
         half = self._size / 2
         scene_left = self._scene_center.x() - half
         scene_top = self._scene_center.y() - half
@@ -169,4 +191,3 @@ class PinThumbnailMode:
         win.view.resetTransform()
         view_rect = QRectF(scene_left, scene_top, self._size, self._size)
         win.view.fitInView(view_rect, Qt.AspectRatioMode.KeepAspectRatio)
- 

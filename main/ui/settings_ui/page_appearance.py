@@ -12,6 +12,7 @@ from ui.fluent_lite import (
     ComboBox, CaptionLabel, ColorSwatchButton,
 )
 from .components import SettingCardGroup, theme_menu_style
+from core.ui_theme import set_own_style
 
 
 def _update_color_btn(btn, color: QColor):
@@ -42,7 +43,7 @@ def create_appearance_page(dialog) -> QWidget:
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 
     view = QWidget()
-    view.setStyleSheet("background: transparent;")
+    set_own_style(view, "background: transparent;")
     layout = QVBoxLayout(view)
     layout.setContentsMargins(0, 0, dialog_scaled(10), 0)
     layout.setSpacing(dialog_scaled(20))

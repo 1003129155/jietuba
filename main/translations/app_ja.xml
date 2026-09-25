@@ -194,6 +194,10 @@
         <translation>キャンセル</translation>
     </message>
     <message>
+        <source>Cancel / Close</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
         <source>Apply</source>
         <translation>適用</translation>
     </message>
@@ -268,6 +272,38 @@
         <translation>ピン留め画像</translation>
     </message>
     <message>
+        <source>Clipboard Shortcuts</source>
+        <translation>クリップボード</translation>
+    </message>
+    <message>
+        <source>Quick Edit</source>
+        <translation>クイック編集</translation>
+    </message>
+    <message>
+        <source>Save Edit</source>
+        <translation>編集を保存</translation>
+    </message>
+    <message>
+        <source>Save and Paste</source>
+        <translation>保存して貼り付け</translation>
+    </message>
+    <message>
+        <source>Direct Pick Keys</source>
+        <translation>番号キーで貼り付け</translation>
+    </message>
+    <message>
+        <source>Digits + Letters</source>
+        <translation>数字 + 英字</translation>
+    </message>
+    <message>
+        <source>Letters</source>
+        <translation>英字のみ</translation>
+    </message>
+    <message>
+        <source>Digits</source>
+        <translation>数字のみ</translation>
+    </message>
+    <message>
         <source>Shortcut conflict within group!</source>
         <translation>グループ内でショートカットが重複しています！</translation>
     </message>
@@ -282,6 +318,18 @@
     <message>
         <source>Some in-app shortcuts conflict within the same group. Please fix them first.</source>
         <translation>同じグループ内にショートカットの重複があります。先に修正してください。</translation>
+    </message>
+    <message>
+        <source>The following shortcuts conflict:</source>
+        <translation>次のショートカットが競合しています：</translation>
+    </message>
+    <message>
+        <source>Change one shortcut in each row before applying.</source>
+        <translation>各行のいずれかのショートカットを変更してから適用してください。</translation>
+    </message>
+    <message>
+        <source>This is the same as a global hotkey — the system intercepts it first, so it won't work here.</source>
+        <translation>グローバルショートカットと同じキーです。システムが先に処理するため、ここでは動作しません。</translation>
     </message>
     <message>
         <source>"%1" is already used by "%2".
@@ -852,7 +900,7 @@ Replace it?</source>
         <translation>大規模言語モデル翻訳：文脈や慣用表現に強い一方、速度が遅く、トークン単位の課金で、内容によっては拒否されることがあります</translation>
     </message>
     <message><source>Color Formats</source><translation>カラー形式</translation></message>
-    <message><source>Which formats the magnifier shows, and which one the copy shortcut uses.</source><translation>拡大鏡に表示する形式と、ショートカットでコピーする形式を決めます。</translation></message>
+    <message><source>Which formats Shift cycles through on the magnifier, for C to copy.</source><translation>拡大鏡で Shift を押して切り替える形式です。C で表示中の形式をコピーします。</translation></message>
     <message><source>Manage Color Formats</source><translation>カラー形式を管理</translation></message>
     <message>
         <source>Custom LLM-1</source>
@@ -938,6 +986,126 @@ Replace it?</source>
         <source>No models returned</source>
         <translation>モデルが返されませんでした</translation>
     </message>
+    <message>
+        <source>Copy to Clipboard</source>
+        <translation>クリップボードにコピー</translation>
+    </message>
+    <message>
+        <source>Pin to Screen</source>
+        <translation>画面にピン留め</translation>
+    </message>
+    <message>
+        <source>Save to File</source>
+        <translation>ファイルに保存</translation>
+    </message>
+    <message>
+        <source>Quick Save</source>
+        <translation>クイック保存</translation>
+    </message>
+    <message>
+        <source>Left Double-click</source>
+        <translation>左ダブルクリック</translation>
+    </message>
+    <message>
+        <source>Middle Click</source>
+        <translation>中クリック</translation>
+    </message>
+    <message>
+        <source>Enter Key</source>
+        <translation>Enter キー</translation>
+    </message>
+    <message>
+        <source>Exit capture after action</source>
+        <translation>実行後にキャプチャを終了</translation>
+    </message>
+    <message>
+        <source>Fullscreen Crosshair</source>
+        <translation>全画面クロスヘア</translation>
+    </message>
+    <message>
+        <source>Show horizontal and vertical guide lines across the screen while capturing.</source>
+        <translation>キャプチャ中、マウスに追従する水平・垂直の補助線を画面全体に表示します。</translation>
+    </message>
+    <message>
+        <source>Mouse Shortcuts</source>
+        <translation>アプリ内マウスショートカット</translation>
+    </message>
+    <message>
+        <source>Mouse Wheel</source>
+        <translation>マウスホイール</translation>
+    </message>
+    <message>
+        <source>Left Click</source>
+        <translation>左クリック</translation>
+    </message>
+    <message>
+        <source>Right Click</source>
+        <translation>右クリック</translation>
+    </message>
+    <message>
+        <source>Middle Double-click</source>
+        <translation>中ダブルクリック</translation>
+    </message>
+    <message>
+        <source>Right Double-click</source>
+        <translation>右ダブルクリック</translation>
+    </message>
+    <message>
+        <source>Left Drag</source>
+        <translation>左ドラッグ</translation>
+    </message>
+    <message>
+        <source>Middle Drag</source>
+        <translation>中ドラッグ</translation>
+    </message>
+    <message>
+        <source>Right Drag</source>
+        <translation>右ドラッグ</translation>
+    </message>
+    <message>
+        <source>Zoom Pinned Image</source>
+        <translation>ピン留め画像の拡大・縮小</translation>
+    </message>
+    <message>
+        <source>Adjust Opacity</source>
+        <translation>不透明度の調整</translation>
+    </message>
+    <message>
+        <source>Close Pinned Image</source>
+        <translation>ピン留め画像を閉じる</translation>
+    </message>
+    <message>
+        <source>Reset Pinned Image Size</source>
+        <translation>ピン留め画像のサイズをリセット</translation>
+    </message>
+    <message>
+        <source>Toggle Pin Thumbnail</source>
+        <translation>ピン留め画像のサムネイル切替</translation>
+    </message>
+    <message>
+        <source>Select Thumbnail Region</source>
+        <translation>サムネイル領域の選択</translation>
+    </message>
+    <message>
+        <source>Copy Selected Text</source>
+        <translation>選択したテキストをコピー</translation>
+    </message>
+    <message>
+        <source>Pin mouse actions apply outside annotation mode. Conflicts use the first matching action. Copy text uses the selected OCR text; otherwise right-click opens the menu.</source>
+        <translation>マウス操作は注釈モード以外で有効です。競合時は上から優先します。選択した認識テキストをコピーし、未選択時の右クリックはメニューを開きます。</translation>
+    </message>
+    <message>
+        <source>Use + / - instead of the wheel with the same modifiers</source>
+        <translation>同じ修飾キーと + / - でホイール操作を代用</translation>
+    </message>
+    <message>
+        <source>No Modifier</source>
+        <translation>なし</translation>
+    </message>
+    <message>
+        <source>No Action</source>
+        <translation>なし</translation>
+    </message>
 </context>
 
 <context>
@@ -969,6 +1137,10 @@ Replace it?</source>
     <message>
         <source>Please configure DeepL API key in Settings.</source>
         <translation>設定で DeepL API キーを設定してください。</translation>
+    </message>
+    <message>
+        <source>Save Failed</source>
+        <translation>保存に失敗しました</translation>
     </message>
 </context>
 
@@ -1796,6 +1968,22 @@ Replace it?</source>
         <translation>文字サイズ</translation>
     </message>
     <message>
+        <source>Image Size</source>
+        <translation>画像サイズ</translation>
+    </message>
+    <message>
+        <source>Small</source>
+        <translation>小</translation>
+    </message>
+    <message>
+        <source>Medium</source>
+        <translation>中</translation>
+    </message>
+    <message>
+        <source>Large</source>
+        <translation>大</translation>
+    </message>
+    <message>
         <source>Theme</source>
         <translation>配色</translation>
     </message>
@@ -1976,6 +2164,10 @@ Replace it?</source>
     <message>
         <source>Remove Line Breaks</source>
         <translation>改行を削除</translation>
+    </message>
+    <message>
+        <source>Quick Edit</source>
+        <translation>クイック編集</translation>
     </message>
     <message>
         <source>Paste with Current Time</source>
@@ -2956,10 +3148,8 @@ Replace it?</source>
 
 <context>
     <name>MagnifierOverlay</name>
-    <message>
-        <source>Press C to copy color info</source>
-        <translation>C を押してコピー</translation>
-    </message>
+    <message><source>Shift: Switch color format</source><translation>Shift: カラー形式を切り替え</translation></message>
+    <message><source>C: Copy color value</source><translation>C: カラー値をコピー</translation></message>
 </context>
 
 <context>
@@ -3559,9 +3749,7 @@ Replace it?</source>
     <message><source>Pixel Grid</source><translation>ピクセルグリッド</translation></message>
     <message><source>Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels.</source><translation>拡大表示で各ピクセルの境界を描きます。倍率が低いときは線がピクセルを覆うため自動的に非表示になります。</translation></message>
     <message><source>Shortcut Hint</source><translation>ショートカットのヒント</translation></message>
-    <message><source>Show the color-copy shortcut under the readings. Off makes the magnifier shorter.</source><translation>数値の下に色をコピーするショートカットを表示します。オフにすると拡大鏡が少し低くなります。</translation></message>
-    <message><source>Color Swatch</source><translation>取得色のスウォッチ</translation></message>
-    <message><source>Show the picked color in the top-right corner of the magnified view.</source><translation>拡大表示の右上に、取得中の色を表示します。</translation></message>
+    <message><source>Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.</source><translation>数値の下に形式の切り替えと色のコピーのショートカットを表示します。オフにすると拡大鏡が少し低くなります。</translation></message>
     <message><source>Magnifier</source><translation>拡大鏡</translation></message>
     <message><source>Pin Settings</source><translation>ピン留め設定</translation></message>
     <message><source>Operation</source><translation>操作</translation></message>
@@ -4045,7 +4233,7 @@ SOFTWARE.</translation></message>
 <context>
     <name>ColorFormatDialog</name>
     <message><source>Manage Color Formats</source><translation>カラー形式を管理</translation></message>
-    <message><source>Checked formats show on the magnifier. The first one is what the copy shortcut puts on the clipboard — drag it to the top to change that.</source><translation>チェックした形式が拡大鏡に表示されます。ショートカットでコピーされるのは一番上の形式です。変えたいものを先頭へドラッグしてください。</translation></message>
+    <message><source>The magnifier shows one checked format at a time — Shift cycles between them, C copies whichever is shown. Drag one to the top to make it the default.</source><translation>拡大鏡にはチェックした形式を一度に一つだけ表示します。Shift で切り替え、C で表示中の値をコピーします。先頭にドラッグした形式が既定の表示になります。</translation></message>
     <message><source>Restore defaults</source><translation>既定に戻す</translation></message>
     <message><source>OK</source><translation>OK</translation></message>
     <message><source>Cancel</source><translation>キャンセル</translation></message>
@@ -4091,8 +4279,72 @@ SOFTWARE.</translation></message>
         <translation>いつでも呼び出せます</translation>
     </message>
     <message>
-        <source>Only in screenshot and pin windows</source>
-        <translation>スクリーンショットとピン留め画像のウィンドウでのみ有効</translation>
+        <source>Only in screenshot, pin and clipboard windows</source>
+        <translation>スクリーンショット、ピン留め画像、クリップボードのウィンドウでのみ有効</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Quick Actions</source>
+        <translation>クイック動作</translation>
+    </message>
+    <message>
+        <source>Text Recognition and Scanning</source>
+        <translation>文字認識とコード読み取り</translation>
+    </message>
+    <message>
+        <source>Copy Recognized Text Directly</source>
+        <translation>認識したテキストを直接コピー</translation>
+    </message>
+    <message>
+        <source>Copy the recognized text straight to the clipboard instead of opening the result window.</source>
+        <translation>結果ウィンドウを開かずに、認識したテキストをそのままクリップボードへコピーします。</translation>
+    </message>
+    <message>
+        <source>Copy a Single Code Directly</source>
+        <translation>コードが 1 つなら直接コピー</translation>
+    </message>
+    <message>
+        <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
+        <translation>QR コードやバーコードが 1 つだけ見つかった場合は、結果ウィンドウを開かずに内容をコピーします。複数見つかった場合はこれまでどおり開きます。</translation>
+    </message>
+</context>
+<context>
+    <name>TextRecognitionWindow</name>
+    <message>
+        <source>Copy directly next time</source>
+        <translation>次回から直接コピー</translation>
+    </message>
+    <message>
+        <source>Copied %1 characters</source>
+        <translation>%1 文字をコピーしました</translation>
+    </message>
+</context>
+<context>
+    <name>BarcodeResultWindow</name>
+    <message>
+        <source>Copy directly if only one code</source>
+        <translation>コードが 1 つなら直接コピー</translation>
+    </message>
+    <message>
+        <source>Copied: %1</source>
+        <translation>コピーしました：%1</translation>
+    </message>
+</context>
+<context>
+    <name>ClipboardQuickEdit</name>
+    <message>
+        <source>Save</source>
+        <translation>保存</translation>
+    </message>
+    <message>
+        <source>Save and Paste</source>
+        <translation>保存して貼り付け</translation>
+    </message>
+    <message>
+        <source>Formatting will be removed</source>
+        <translation>保存するとプレーンテキストになります</translation>
     </message>
 </context>
 </TS>

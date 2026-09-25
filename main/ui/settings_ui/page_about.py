@@ -19,6 +19,7 @@ from core import T, log_warning
 from core.constants import PROJECT_GITHUB_URL
 from core.update_checker import GitHubReleaseChecker, ReleaseInfo, is_newer_version
 from main_app import APP_VERSION
+from core.ui_theme import set_own_style
 
 
 def create_about_page(dialog) -> QScrollArea:
@@ -28,7 +29,7 @@ def create_about_page(dialog) -> QScrollArea:
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 
     view = QWidget()
-    view.setStyleSheet("background: transparent;")
+    set_own_style(view, "background: transparent;")
     layout = QVBoxLayout(view)
     layout.setContentsMargins(0, dialog_scaled(20), dialog_scaled(10), dialog_scaled(20))
     layout.setSpacing(dialog_scaled(16))

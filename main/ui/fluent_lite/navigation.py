@@ -7,7 +7,7 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QButtonGroup, QPushButton, QVBoxLayout, QWidget
 
 from core.ui_scale import dialog_scaled
-from core.ui_theme import get_ui_theme
+from core.ui_theme import get_ui_theme, set_own_style
 
 from .theme import ACCENT, FONT_FAMILY, tinted_icon, to_qicon, ui_tokens
 
@@ -35,7 +35,7 @@ class NavigationInterface(QWidget):
         self._layout.addLayout(self._top)
         self._layout.addStretch(1)
         self._layout.addLayout(self._bottom)
-        self.setStyleSheet("background: transparent;")
+        set_own_style(self, "background: transparent;")
         get_ui_theme().theme_changed.connect(self._apply_theme)
 
     def addItem(self, routeKey, icon, text, onClick, position=NavigationItemPosition.TOP, tooltip=None):

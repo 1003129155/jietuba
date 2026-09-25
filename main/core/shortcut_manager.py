@@ -126,6 +126,14 @@ def _split_modifiers(text: str):
     return mods, rest
 
 
+def mouse_gesture_binding_matches(binding: str, event, gesture: str) -> bool:
+    """Whether an action-oriented mouse binding matches this Qt event."""
+    if not isinstance(binding, str) or not binding:
+        return False
+    modifiers, parts = _split_modifiers(binding)
+    return parts == [gesture] and event.modifiers() == modifiers
+
+
 def parse_inapp_mouse_to_qt(text: str):
     """把 "mousemiddle" / "ctrl+mousemiddle" 解析成 (Qt.MouseButton, 修饰键)。
 
@@ -1117,8 +1125,15 @@ def match_inapp_binding(event, cfg_key, key_bindings, mouse_bindings=None) -> bo
         )
     binding = (key_bindings or {}).get(cfg_key)
     return bool(binding) and (
-        event.key() == binding[0] and event.modifiers() == binding[1]
+        _same_key(event.key(), binding[0])
+        and event.modifiers() & ~Qt.KeyboardModifier.KeypadModifier == binding[1]
     )
+
+
+def _same_key(pressed, bound) -> bool:
+    """主键盘回车是 Key_Return、小键盘回车是 Key_Enter，配置里都写作 "enter"。"""
+    enter_keys = (Qt.Key.Key_Return, Qt.Key.Key_Enter)
+    return pressed == bound or (pressed in enter_keys and bound in enter_keys)
 
 
 def load_move_keys() -> Dict:

@@ -28,11 +28,12 @@ from PySide6.QtWidgets import (
 
 from core import safe_event
 from core.logger import T, log_debug, log_exception
-from core.shortcut_manager import ShortcutHandler, ShortcutManager
+from core.shortcut_manager import ShortcutHandler, ShortcutManager, load_inapp_bindings, match_inapp_binding
 from ui.dialogs import show_confirm_dialog
 from ui.fluent_lite import LineEdit
 
 from ...controllers import ClipboardController, SelectionManager
+from ...controllers.context_menu_controller import is_quick_editable
 from ...core import ClipboardItem, ClipboardManager, GroupType
 from ..theme.theme_styles import ThemeStyleGenerator
 from ..theme.themes import Theme, get_theme_manager
@@ -42,6 +43,8 @@ from ..menus.item_context_menu import ClipboardItemContextMenu
 from ..widgets.group_bar import GroupBar
 from ..widgets.item_delegate import ClipboardItemDelegate, ROLE_ITEM_DATA, ROLE_ITEM_ID
 from ..widgets.preview_popup import PreviewPopup
+from ..widgets.quick_edit_popup import QuickEditPopup, QuickEditResult
+from core.ui_theme import set_own_style
 
 
 # 数字/字母直选条目只认裸按键。带 Ctrl 的组合必须放行：本应用自己模拟的
@@ -53,11 +56,22 @@ _DIRECT_PICK_BLOCKERS = (
 )
 
 
+QUICK_EDIT_SHORTCUT = "inapp_clipboard_quick_edit"
+
+
 class ClipboardShortcutHandler(ShortcutHandler):
     """剪贴板窗口快捷键处理器 (priority=60)"""
 
     def __init__(self, window: "ClipboardWindow"):
         self._window = window
+        self.reload_bindings()
+
+    def reload_bindings(self):
+        """读取可配置的快捷键；窗口每次显示时调用，设置改动下次打开生效。"""
+        from settings import clipboard_pick_keys, get_tool_settings_manager
+
+        self._bindings = load_inapp_bindings([QUICK_EDIT_SHORTCUT])
+        self.pick_keys = clipboard_pick_keys(get_tool_settings_manager().get_inapp_clipboard_pick_mode())
 
     @property
     def priority(self) -> int:
@@ -84,6 +98,15 @@ class ClipboardShortcutHandler(ShortcutHandler):
         key = event.key()
         modifiers = event.modifiers()
 
+        # 快速编辑浮层与本窗口共享激活状态，Esc/Tab 这类透传键要留给编辑框
+        quick_edit = getattr(w, "quick_edit_popup", None)
+        if quick_edit is not None and quick_edit.is_open:
+            return False
+
+        # 用户配置的键优先于下面固定的 Enter / 直选字母
+        if match_inapp_binding(event, QUICK_EDIT_SHORTCUT, self._bindings) and w._edit_selected():
+            return True
+
         if key == Qt.Key.Key_Escape:
             if hasattr(w, "selection_manager") and w.selection_manager._selected_index >= 0:
                 w.selection_manager.reset()
@@ -106,31 +129,23 @@ class ClipboardShortcutHandler(ShortcutHandler):
         if modifiers & _DIRECT_PICK_BLOCKERS:
             return False
 
-        if Qt.Key.Key_1 <= key <= Qt.Key.Key_9:
-            focus_widget = w.search_input
-            from PySide6.QtWidgets import QApplication as _App
-
-            if _App.focusWidget() is not focus_widget:
-                index = key - Qt.Key.Key_1
-                items = w.controller.current_items
-                if index < len(items):
-                    w._on_paste_item(items[index].id)
-                    return True
-            return False
-
-        if Qt.Key.Key_A <= key <= Qt.Key.Key_Z:
-            focus_widget = w.search_input
-            from PySide6.QtWidgets import QApplication as _App
-
-            if _App.focusWidget() is not focus_widget:
-                index = 9 + (key - Qt.Key.Key_A)
-                items = w.controller.current_items
-                if index < len(items):
-                    w._on_paste_item(items[index].id)
-                    return True
-            return False
-
+        char = _pick_char(key)
+        index = self.pick_keys.find(char) if char else -1
+        if index >= 0 and QApplication.focusWidget() is not w.search_input:
+            items = w.controller.current_items
+            if index < len(items):
+                w._on_paste_item(items[index].id)
+                return True
         return False
+
+
+def _pick_char(key) -> str:
+    """直选键对应的字符；不是 1-9、A-Z 时返回空串。"""
+    if Qt.Key.Key_1 <= key <= Qt.Key.Key_9:
+        return str(key - Qt.Key.Key_1 + 1)
+    if Qt.Key.Key_A <= key <= Qt.Key.Key_Z:
+        return chr(ord("a") + key - Qt.Key.Key_A)
+    return ""
 
 
 class ClipboardWindow(QWidget, FramelessMixin):
@@ -153,8 +168,10 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self.controller.item_moved_to_top.connect(self._on_item_moved_to_top)
         self.controller.item_removed.connect(self._on_item_removed)
         self.controller.item_row_moved.connect(self._on_item_row_moved)
+        self.controller.item_updated.connect(self._on_item_updated)
 
         self.selected_item_id: Optional[int] = None
+        self.quick_edit_popup: Optional[QuickEditPopup] = None
         self._is_loading = False
         self._ignore_manage_refresh_when_hidden = True
         self._auto_fill_max_pages = 3
@@ -236,6 +253,11 @@ class ClipboardWindow(QWidget, FramelessMixin):
         finally:
             self.list_widget.blockSignals(False)
         self.selection_manager.shift_selection_after_move(from_row, to_row)
+
+    def _on_item_updated(self, row: int, item: ClipboardItem):
+        list_item = self.list_widget.item(row)
+        if list_item is not None and list_item.data(ROLE_ITEM_ID) == item.id:
+            list_item.setData(ROLE_ITEM_DATA, item)
 
     def _on_loading_changed(self, is_loading: bool):
         self._is_loading = is_loading
@@ -424,7 +446,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self.content_layout.setSpacing(0)
 
         self.left_widget = QWidget()
-        self.left_widget.setStyleSheet("background: transparent;")
+        set_own_style(self.left_widget, "background: transparent;")
         self.left_layout = QVBoxLayout(self.left_widget)
         self.left_layout.setContentsMargins(0, 0, 0, 0)
         self.left_layout.setSpacing(0)
@@ -470,6 +492,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
             window_opacity=self.window_opacity,
             show_metadata=show_metadata,
             line_height_padding=line_height_padding,
+            image_size=self.config.get_clipboard_image_size(),
         )
         self.list_widget.setItemDelegate(self._item_delegate)
         self.list_widget.setMouseTracking(True)
@@ -657,6 +680,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
             preserve_search=self.config.get_clipboard_preserve_search(),
             window_opacity=self.window_opacity,
             current_font_size=self.config.get_clipboard_font_size(),
+            current_image_size=self.config.get_clipboard_image_size(),
             current_theme_name=self.theme_manager.get_current_theme().name,
             current_group_bar_position=self.group_bar_position,
             opacity_options=self.config.get_clipboard_window_opacity_options(),
@@ -669,6 +693,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
             on_toggle_preserve_search=self._toggle_preserve_search,
             on_set_opacity=self._set_window_opacity,
             on_set_font_size=self._set_font_size,
+            on_set_image_size=self._set_image_size,
             on_set_theme=self._set_theme,
             on_add_item=self._on_add_item_clicked,
             on_set_group_bar_position=self._set_group_bar_position,
@@ -749,6 +774,12 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self.config.set_clipboard_font_size(size)
         if hasattr(self, "_item_delegate"):
             self._item_delegate.set_display_lines(size)
+        self._refresh_list()
+
+    def _set_image_size(self, size: str):
+        self.config.set_clipboard_image_size(size)
+        if hasattr(self, "_item_delegate"):
+            self._item_delegate.set_image_size(size)
         self._refresh_list()
 
     def _set_theme(self, theme_name: str):
@@ -910,7 +941,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
             self.start_date_edit.calendarWidget().setStyleSheet(calendar_style)
             self.end_date_edit.calendarWidget().setStyleSheet(calendar_style)
         if hasattr(self, "time_filter_separator"):
-            self.time_filter_separator.setStyleSheet(
+            set_own_style(self.time_filter_separator,
                 f"background: transparent; border: none; color: {self.current_theme.colors.text_secondary};"
             )
         if hasattr(self, "apply_time_filter_btn"):
@@ -994,13 +1025,13 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self._apply_opacity()
 
     def _is_paste_picker_surface(self, hwnd: int) -> bool:
-        """hwnd 是不是这个拾取窗口本身。
+        """hwnd 是不是这个拾取窗口，或挂在它名下的窗口（快速编辑框、确认框）。
 
-        只认它一个。内容编辑窗口、截图标注、翻译窗口同属本进程，但都是用户
+        只认这些。内容编辑窗口、截图标注、翻译窗口同属本进程，但都是用户
         真会往里粘的地方，按进程排除会把它们一起挡掉。
         """
         widget = QWidget.find(hwnd)
-        return widget is not None and widget.window() is self
+        return widget is not None and self._owns_window(widget.window())
 
     def _paste_close_callback(self):
         """粘贴后关闭窗口的回调；开关关掉时返回 None，窗口常驻可连续粘贴。"""
@@ -1056,6 +1087,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
             "save_image_as": lambda: self._save_image_as(item_id),
             "toggle_pin": lambda: self._toggle_pin(item_id),
             "open_file_location": lambda: self._open_file_location(item_id),
+            "quick_edit_item": lambda: self._quick_edit_item(item_id),
             "edit_item": lambda: self._edit_item(item_id),
             "move_item_up": lambda: self._move_item_order(item_id, -1),
             "move_item_down": lambda: self._move_item_order(item_id, 1),
@@ -1113,6 +1145,60 @@ class ClipboardWindow(QWidget, FramelessMixin):
             group_added_callback=self.group_bar.refresh_buttons,
             data_changed_callback=self._on_manage_data_changed,
         )
+
+    def _edit_selected(self) -> bool:
+        """快速编辑快捷键：文本打开快速编辑，分组里的其他内容打开分组编辑。"""
+        item_id = self.selection_manager.get_current_item_id()
+        item = self._get_item_data(item_id) if item_id else None
+        if item is None:
+            return False
+        if is_quick_editable(item):
+            self._quick_edit_item(item_id)
+            return True
+        if self.controller.current_group_id is not None:
+            self._edit_item(item_id)
+            return True
+        return False
+
+    def _quick_edit_item(self, item_id: int):
+        item = self._get_item_data(item_id)
+        if item is None:
+            return
+        if self.quick_edit_popup is None:
+            self.quick_edit_popup = QuickEditPopup(self)
+            self.quick_edit_popup.finished.connect(self._on_quick_edit_finished)
+        PreviewPopup.instance().set_display_enabled(False)
+        self.quick_edit_popup.open_for(item, self._row_global_pos(item_id), self.frameGeometry(), self.current_theme)
+
+    def _row_global_pos(self, item_id: int) -> QPoint:
+        for row in range(self.list_widget.count()):
+            list_item = self.list_widget.item(row)
+            if list_item.data(ROLE_ITEM_ID) == item_id:
+                rect = self.list_widget.visualItemRect(list_item)
+                if not rect.isNull():
+                    return self.list_widget.viewport().mapToGlobal(rect.topLeft())
+        return QCursor.pos()
+
+    def _on_quick_edit_finished(self, result: QuickEditResult):
+        if self.isVisible():
+            PreviewPopup.instance().set_display_enabled(True)
+        saved = result.text is None or self._save_quick_edit(result.item_id, result.text)
+        if result.paste and saved:
+            self._paste_item_to_clipboard(result.item_id)
+        elif result.focus_left:
+            # 点到了别的程序时按失焦规则隐藏；点回本窗口则保持
+            QTimer.singleShot(100, self._check_and_hide)
+        elif self.isVisible():
+            self.activateWindow()
+            self.list_widget.setFocus()
+
+    def _save_quick_edit(self, item_id: int, text: str) -> bool:
+        item = self._get_item_data(item_id)
+        if item is None:
+            return False
+        if text == item.content:
+            return True
+        return self.controller.update_item_content(item_id, text)
 
     def _toggle_pin(self, item_id: int):
         self.controller.toggle_pin(item_id)
@@ -1237,6 +1323,8 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self.setWindowOpacity(0)
 
         if hasattr(self, "_shortcut_handler") and self._shortcut_handler:
+            self._shortcut_handler.reload_bindings()
+            self._item_delegate.set_pick_keys(self._shortcut_handler.pick_keys)
             ShortcutManager.instance().register(self._shortcut_handler)
 
         self._fl_reset()
@@ -1287,6 +1375,8 @@ class ClipboardWindow(QWidget, FramelessMixin):
         # 先关闭预览入口。这样即使后续清理抛出异常，或队列中还有迟到的
         # 键盘/悬停事件，也不能在主窗口隐藏后重新拉起预览。
         PreviewPopup.instance().set_display_enabled(False)
+        if self.quick_edit_popup is not None:
+            self.quick_edit_popup.close_for_focus_loss()
         self._fl_reset()
         self.controller.on_window_hide()
 

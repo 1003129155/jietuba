@@ -34,8 +34,14 @@ from core.ui_scale import configure_dialog_control, configure_dialog_controls, d
 from settings.tool_settings import SMART_SELECTION_MODES
 
 # 页面创建函数
-from .page_hotkey import create_hotkey_page, validate_global_hotkey_edits
+from .page_hotkey import (
+    create_hotkey_page,
+    validate_global_hotkey_edits,
+    mouse_binding_conflicts,
+    mouse_binding_conflict_message,
+)
 from .page_capture import create_capture_page
+from .page_quick_actions import create_quick_actions_page
 from .page_clipboard import create_clipboard_page
 from .page_translation import create_translation_page
 from . import provider_fields
@@ -48,7 +54,7 @@ from .components import (
     theme_surface_color,
     theme_input_background, theme_popup_background,
     theme_popup_hover_background, theme_text_style, theme_menu_style, theme_color, refresh_theme_widget_styles,
-    apply_theme_text_style,
+    apply_theme_text_style, disable_wheel_on_value_controls,
 )
 
 
@@ -69,15 +75,19 @@ class SettingsDialog(FrostedFramelessDialog):
     """现代化设置对话框 - Fluent 风格（无系统标题栏）"""
 
     wizard_requested = Signal()
+    settings_applied = Signal()
 
     def __init__(self, config_manager=None, current_hotkey="ctrl+shift+a", parent=None):
         super().__init__(parent)
         self.config_manager = config_manager
-        # MainApp uses this after accepted() to decide whether the cached
+        self._behavior_controls = {}
+        # MainApp uses this after settings_applied to decide whether the cached
         # settings window must be rebuilt.  Most settings can be refreshed in
         # place, but standalone-window sizing is calculated while widgets are
         # constructed, so reusing this instance would keep the old geometry.
         self._dialog_scale_changed_on_accept = False
+        self._language_changed_on_apply = False
+        self._close_after_apply = False
         self.current_hotkey = current_hotkey
         self.main_window = parent
         self._skip_unsaved_close_prompt = False
@@ -212,10 +222,12 @@ class SettingsDialog(FrostedFramelessDialog):
         self.content_stack.addWidget(create_misc_page(self))             # 6
         self.content_stack.addWidget(create_developer_page(self))        # 7
         self.content_stack.addWidget(create_about_page(self))            # 8
+        self.content_stack.addWidget(create_quick_actions_page(self))    # 9
 
-        # 九个分页都是一次性建完、切换只换可见性（不是懒加载/动态重建），
+        # 分页都是一次性建完、切换只换可见性（不是懒加载/动态重建），
         # 建完后统一扫一遍即可覆盖全部分页里的 fluent_lite 控件。
         configure_dialog_controls(self.content_stack)
+        disable_wheel_on_value_controls(self.content_stack)
 
         right_layout.addWidget(self.content_title)
         right_layout.addWidget(self.content_stack)
@@ -226,6 +238,12 @@ class SettingsDialog(FrostedFramelessDialog):
         self._apply_dialog_stylesheet()
 
         self._set_current_nav("shortcuts")
+        # The existing snapshot is also the single source of truth for the
+        # Apply button.  Build the baseline only after every page exists, then
+        # listen to all editable descendants so the footer reacts immediately.
+        self._settings_snapshot = self._snapshot_settings()
+        self._connect_action_button_tracking()
+        self._update_action_buttons()
 
     def _create_navigation(self, parent=None):
         """创建左侧导航栏"""
@@ -240,6 +258,7 @@ class SettingsDialog(FrostedFramelessDialog):
         self._nav_items = [
             ("shortcuts", FluentIcon.COMMAND_PROMPT, self.tr("Shortcuts"), 0, NavigationItemPosition.TOP),
             ("capture", FluentIcon.CAMERA, self.tr("Capture Settings"), 1, NavigationItemPosition.TOP),
+            ("quick_actions", FluentIcon.STOP_WATCH, self.tr("Quick Actions"), 9, NavigationItemPosition.TOP),
             ("clipboard", FluentIcon.PASTE, self.tr("Clipboard"), 2, NavigationItemPosition.TOP),
             ("appearance", FluentIcon.BRUSH, self.tr("Appearance"), 3, NavigationItemPosition.TOP),
             ("translation", FluentIcon.LANGUAGE, self.tr("Translation"), 4, NavigationItemPosition.TOP),
@@ -371,6 +390,7 @@ class SettingsDialog(FrostedFramelessDialog):
             5: self.tr("Log Settings"),
             6: self.tr("Other Settings"),
             8: self.tr("Software Information"),
+            9: self.tr("Quick Actions"),
         }
 
         if stack_index in title_map:
@@ -469,8 +489,11 @@ class SettingsDialog(FrostedFramelessDialog):
         reset_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         reset_btn.setIcon(FluentIcon.SYNC)
         reset_btn.clicked.connect(self._reset_current_page)
+        reset_btn.clicked.connect(self._update_action_buttons)
 
-        cancel_btn = FluentPushButton(self.tr("Cancel"))
+        # 独立于下面"未保存变更"确认框里的 Cancel（那个是"留在设置里，不关闭"，
+        # 语义不同）：这个按钮点了就直接关闭设置窗口，用不同的源文本避免共用翻译。
+        cancel_btn = FluentPushButton(self.tr("Cancel / Close"))
         configure_dialog_control(cancel_btn)
         self._footer_cancel_btn = cancel_btn
         cancel_btn.setFixedHeight(s(42))
@@ -486,7 +509,7 @@ class SettingsDialog(FrostedFramelessDialog):
         ok_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         ok_btn.setIcon(FluentIcon.CHECK)
         ok_btn.setBaseIconSize(16)
-        ok_btn.clicked.connect(self.accept)
+        ok_btn.clicked.connect(self.apply_settings)
         self._apply_footer_styles()
 
         layout.addWidget(reset_btn)
@@ -543,11 +566,47 @@ class SettingsDialog(FrostedFramelessDialog):
                     border-color: {t.accent_strong_pressed};
                 }}
                 QPushButton:disabled {{
-                    color: rgba(255, 255, 255, 0.72);
-                    background: #687D8F;
-                    border-color: #687D8F;
+                    color: {t.text_disabled};
+                    background: {t.surface_subtle};
+                    border-color: {t.border};
                 }}
             """)
+
+    def _connect_action_button_tracking(self):
+        """Keep Apply in sync with edits made anywhere in the settings pages."""
+        signal_names = (
+            "textChanged",
+            "checkedChanged",
+            "toggled",
+            "currentIndexChanged",
+            "valueChanged",
+            # Buttons that open a picker or editor may update state only after
+            # their modal child closes, without emitting a value signal.
+            "clicked",
+        )
+        for widget in self.content_stack.findChildren(QWidget):
+            for signal_name in signal_names:
+                signal = getattr(widget, signal_name, None)
+                if signal is None:
+                    continue
+                try:
+                    signal.connect(self._update_action_buttons)
+                except (AttributeError, TypeError):
+                    # Some Qt properties look signal-like through bindings but
+                    # do not expose a connectable bound signal.
+                    continue
+
+    def _update_action_buttons(self, *_args):
+        """Enable Apply only while the current values differ from the baseline."""
+        apply_btn = getattr(self, "_footer_ok_btn", None)
+        if apply_btn is None:
+            return
+        dirty = self._has_unsaved_changes()
+        apply_btn.setEnabled(dirty)
+        apply_btn.setCursor(
+            Qt.CursorShape.PointingHandCursor
+            if dirty else Qt.CursorShape.ArrowCursor
+        )
 
     # ================================================================
     # 重置页面
@@ -581,8 +640,11 @@ class SettingsDialog(FrostedFramelessDialog):
             self._reset_long_screenshot_page()
         elif current_index == 8:
             pass
+        elif current_index == 9:
+            self._reset_quick_actions_page()
 
     def _reset_hotkey_page(self):
+        SettingsDialog._refresh_behavior_controls(self, defaults=True, prefix="mouse_")
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
         self.hotkey_input.setText(defaults["hotkey"])
         if hasattr(self, 'hotkey_input_2'):
@@ -602,11 +664,15 @@ class SettingsDialog(FrostedFramelessDialog):
         # 应用内快捷键
         if hasattr(self, '_inapp_edits'):
             for cfg_key, edit in self._inapp_edits.items():
-                edit.setText(defaults.get(cfg_key, ""))
+                edit.setText("" if cfg_key == "inapp_pin_reset_size" else defaults.get(cfg_key, ""))
         if hasattr(self, 'cursor_move_combo'):
             idx = self.cursor_move_combo.findData(defaults["inapp_cursor_move_mode"])
             if idx >= 0:
                 self.cursor_move_combo.setCurrentIndex(idx)
+        if hasattr(self, 'clipboard_pick_combo'):
+            idx = self.clipboard_pick_combo.findData(defaults["inapp_clipboard_pick_mode"])
+            if idx >= 0:
+                self.clipboard_pick_combo.setCurrentIndex(idx)
 
     def _reset_long_screenshot_page(self):
         """重置开发者选项页。"""
@@ -673,12 +739,15 @@ class SettingsDialog(FrostedFramelessDialog):
             if index >= 0:
                 self._selection_handle_size_combo.setCurrentIndex(index)
 
-    def _reset_screenshot_settings_page(self):
+    def _reset_quick_actions_page(self):
+        SettingsDialog._refresh_behavior_controls(
+            self, defaults=True, keys={"capture_fullscreen_crosshair"}
+        )
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
-        if hasattr(self, 'double_click_copy_close_toggle'):
-            self.double_click_copy_close_toggle.setChecked(
-                defaults["double_click_copy_close"]
-            )
+        if hasattr(self, 'ocr_copy_directly_toggle'):
+            self.ocr_copy_directly_toggle.setChecked(defaults["ocr_copy_directly"])
+        if hasattr(self, 'barcode_copy_single_toggle'):
+            self.barcode_copy_single_toggle.setChecked(defaults["barcode_copy_single"])
         if hasattr(self, 'cross_tool_selection_toggle'):
             self.cross_tool_selection_toggle.setChecked(
                 defaults["cross_tool_selection"]
@@ -687,6 +756,9 @@ class SettingsDialog(FrostedFramelessDialog):
             self.text_always_on_top_toggle.setChecked(
                 defaults["text_always_on_top"]
             )
+
+    def _reset_screenshot_settings_page(self):
+        defaults = self.config_manager.APP_DEFAULT_SETTINGS
         if hasattr(self, 'smart_mode_combo'):
             self.smart_mode_combo.setCurrentIndex(SMART_SELECTION_MODES.index(
                 defaults["smart_selection_mode"] if defaults["smart_selection"] else "off"
@@ -706,7 +778,6 @@ class SettingsDialog(FrostedFramelessDialog):
             self.screenshot_format_combo.setCurrentIndex(idx)
         for attr, key in (('magnifier_enabled_toggle', 'magnifier_enabled'),
                           ('magnifier_grid_toggle', 'magnifier_grid'),
-                          ('magnifier_swatch_toggle', 'magnifier_swatch'),
                           ('magnifier_hint_toggle', 'magnifier_hint')):
             toggle = getattr(self, attr, None)
             if toggle is not None:
@@ -741,7 +812,7 @@ class SettingsDialog(FrostedFramelessDialog):
     def _reset_misc_page(self):
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
         if hasattr(self, 'autostart_toggle'):
-            self.autostart_toggle.setChecked(False)
+            self.autostart_toggle.setChecked(defaults["autostart_enabled"])
         if hasattr(self, 'show_main_window_toggle'):
             self.show_main_window_toggle.setChecked(defaults["show_main_window"])
 
@@ -795,9 +866,11 @@ class SettingsDialog(FrostedFramelessDialog):
     # 保存（accept）
     # ================================================================
 
-    def accept(self):
-        """保存所有设置"""
+    def apply_settings(self, *, close_after=False):
+        """Save and notify the application without closing this window."""
         self._dialog_scale_changed_on_accept = False
+        self._language_changed_on_apply = False
+        self._close_after_apply = close_after
 
         # 六个全局快捷键必须先整体通过校验。这里发生在任何 set_* 之前，
         # 因而冲突值不会写入配置，窗口也不会关闭。
@@ -812,7 +885,18 @@ class SettingsDialog(FrostedFramelessDialog):
                     "Please fix them before applying."
                 ),
             )
-            return
+            return False
+
+        mouse_conflicts = mouse_binding_conflicts(self)
+        if mouse_conflicts:
+            self.content_stack.setCurrentIndex(0)
+            self._set_current_nav("shortcuts")
+            show_warning_dialog(
+                self,
+                self.tr("Shortcut Conflict"),
+                mouse_binding_conflict_message(self, mouse_conflicts),
+            )
+            return False
 
         # 防止保存过程中（比如语言切换触发的窗口重建）触发未保存确认弹窗
         self._skip_unsaved_close_prompt = True
@@ -830,10 +914,24 @@ class SettingsDialog(FrostedFramelessDialog):
                 self.translation_hotkey_edit_2.text().strip()
             )
 
-        # 1. 截图交互（双击确认 + 智能选区）
-        if hasattr(self, 'double_click_copy_close_toggle'):
+        # 1. 快捷行为 + 截图交互（智能选区）
+        for key, control in getattr(self, '_behavior_controls', {}).items():
+            value = control.currentData() if hasattr(control, 'currentData') else control.isChecked()
+            self.config_manager.set_app_setting(key, value)
+
+        behavior_controls = getattr(self, '_behavior_controls', {})
+        capture_copy = behavior_controls.get("mouse_capture_copy")
+        if capture_copy is not None:
             self.config_manager.set_double_click_copy_close_enabled(
-                self.double_click_copy_close_toggle.isChecked()
+                capture_copy.currentData() == "doubleleft"
+            )
+        if hasattr(self, 'ocr_copy_directly_toggle'):
+            self.config_manager.set_ocr_copy_directly_enabled(
+                self.ocr_copy_directly_toggle.isChecked()
+            )
+        if hasattr(self, 'barcode_copy_single_toggle'):
+            self.config_manager.set_barcode_copy_single_enabled(
+                self.barcode_copy_single_toggle.isChecked()
             )
         if hasattr(self, 'cross_tool_selection_toggle'):
             self.config_manager.set_cross_tool_selection_enabled(
@@ -909,7 +1007,6 @@ class SettingsDialog(FrostedFramelessDialog):
         # 3.5 放大镜
         for attr, key in (('magnifier_enabled_toggle', 'magnifier_enabled'),
                           ('magnifier_grid_toggle', 'magnifier_grid'),
-                          ('magnifier_swatch_toggle', 'magnifier_swatch'),
                           ('magnifier_hint_toggle', 'magnifier_hint')):
             toggle = getattr(self, attr, None)
             if toggle is not None:
@@ -952,6 +1049,8 @@ class SettingsDialog(FrostedFramelessDialog):
         # 6. 杂项
         if hasattr(self, 'autostart_toggle'):
             from ..welcome.page6_finish import FinishPage as _FP
+            # 开关状态落配置，下次打开按配置显示（未设置过时默认开启）
+            self.config_manager.set_app_setting("autostart_enabled", self.autostart_toggle.isChecked())
             _FP._set_autostart(self.autostart_toggle.isChecked())
         if hasattr(self, 'show_main_window_toggle'):
             self.config_manager.set_show_main_window(self.show_main_window_toggle.isChecked())
@@ -965,6 +1064,7 @@ class SettingsDialog(FrostedFramelessDialog):
             old_lang = self.config_manager.get_app_setting("language", "ja")
             self.config_manager.qsettings.setValue("app/language", new_lang)
             if new_lang != old_lang:
+                self._language_changed_on_apply = True
                 from core.i18n import I18nManager
                 I18nManager.load_language(new_lang)
 
@@ -1001,6 +1101,10 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'cursor_move_combo'):
             self.config_manager.set_inapp_cursor_move_mode(
                 self.cursor_move_combo.currentData()
+            )
+        if hasattr(self, 'clipboard_pick_combo'):
+            self.config_manager.set_inapp_clipboard_pick_mode(
+                self.clipboard_pick_combo.currentData()
             )
 
         # 8. 长截图/开发者
@@ -1060,11 +1164,19 @@ class SettingsDialog(FrostedFramelessDialog):
 
         log_info("すべての設定を保存しました", "Settings")
         self._settings_snapshot = self._snapshot_settings()
+        self._update_action_buttons()
+        self.config_manager.qsettings.sync()
         self._skip_unsaved_close_prompt = True
         try:
-            super().accept()
+            self.settings_applied.emit()
         finally:
             self._skip_unsaved_close_prompt = False
+        return True
+
+    def accept(self):
+        """Explicit save-and-close, including the unsaved-changes prompt."""
+        if self.apply_settings(close_after=True):
+            super().accept()
 
     # ================================================================
     # showEvent / refresh
@@ -1138,6 +1250,7 @@ class SettingsDialog(FrostedFramelessDialog):
         self._apply_dialog_stylesheet()
         self.refresh_settings()
         self._settings_snapshot = self._snapshot_settings()
+        self._update_action_buttons()
         super().showEvent(event)
         self._apply_taskbar_icon()
 
@@ -1162,6 +1275,8 @@ class SettingsDialog(FrostedFramelessDialog):
     def _snapshot_settings(self):
         """捕获所有可编辑控件的当前值，返回 dict"""
         snap = {}
+        for key, control in getattr(self, '_behavior_controls', {}).items():
+            snap[key] = control.currentData() if hasattr(control, 'currentData') else control.isChecked()
         # 文本类
         for attr in ('hotkey_input', 'hotkey_input_2', 'clipboard_hotkey_edit',
                       'translation_hotkey_edit', 'translation_hotkey_edit_2',
@@ -1179,13 +1294,13 @@ class SettingsDialog(FrostedFramelessDialog):
                 if w is not None:
                     snap[f.config_key] = provider_fields.widget_value(f, w)
         # 开关类
-        for attr in ('double_click_copy_close_toggle',
+        for attr in ('ocr_copy_directly_toggle', 'barcode_copy_single_toggle',
                       'cross_tool_selection_toggle',
                       'text_always_on_top_toggle',
                       'smart_animation_toggle',
                       'save_toggle', 'clipboard_file_reference_toggle',
                       'magnifier_enabled_toggle', 'magnifier_grid_toggle',
-                      'magnifier_swatch_toggle', 'magnifier_hint_toggle',
+                      'magnifier_hint_toggle',
                       'ocr_enable_toggle',
                       'ocr_grayscale_toggle', 'ocr_upscale_toggle',
                       'split_sentences_toggle',
@@ -1203,7 +1318,7 @@ class SettingsDialog(FrostedFramelessDialog):
         for attr in ('screenshot_format_combo', 'ocr_engine_combo',
                       'translation_provider_combo', 'translation_target_combo',
                       'log_level_combo',
-                      'language_combo', 'engine_combo', 'cursor_move_combo',
+                      'language_combo', 'engine_combo', 'cursor_move_combo', 'clipboard_pick_combo',
                       'log_retention_combo',
                       '_ui_theme_combo', '_ui_scale_combo', '_dialog_scale_combo',
                       '_selection_border_combo', '_selection_handle_combo',
@@ -1267,8 +1382,10 @@ class SettingsDialog(FrostedFramelessDialog):
         if self._has_unsaved_changes():
             action = self._confirm_close_with_unsaved_changes()
             if action == "save":
-                self.accept()
-                event.accept()
+                if self.apply_settings(close_after=True):
+                    event.accept()
+                else:
+                    event.ignore()
             elif action == "discard":
                 event.accept()
             else:
@@ -1306,8 +1423,40 @@ class SettingsDialog(FrostedFramelessDialog):
         except Exception as e:
             log_exception(e, T("设置任务栏图标"))
 
+    def _refresh_behavior_controls(self, *, defaults=False, prefix="", keys=None):
+        from settings.tool_settings import (
+            ToolSettingsManager,
+            get_capture_mouse_binding,
+            get_pin_mouse_binding,
+        )
+
+        for key, control in getattr(self, '_behavior_controls', {}).items():
+            if keys is not None and key not in keys:
+                continue
+            if keys is None and not key.startswith(prefix):
+                continue
+            default = ToolSettingsManager.APP_DEFAULT_SETTINGS[key]
+            if defaults:
+                value = default
+            elif key.startswith("mouse_capture_"):
+                value = get_capture_mouse_binding(
+                    self.config_manager, key[len("mouse_capture_"):]
+                )
+            elif key.startswith("mouse_pin_"):
+                value = get_pin_mouse_binding(self.config_manager, key[len("mouse_pin_"):])
+            else:
+                value = self.config_manager.get_app_setting(key, default)
+            if hasattr(control, 'setBinding'):
+                control.setBinding(value)
+            elif hasattr(control, 'findData'):
+                index = control.findData(value)
+                control.setCurrentIndex(index if index >= 0 else control.findData(default))
+            else:
+                control.setChecked(bool(value))
+
     def refresh_settings(self):
         """从配置管理器重新读取所有设置并更新界面"""
+        SettingsDialog._refresh_behavior_controls(self)
         if hasattr(self, 'hotkey_input'):
             self.hotkey_input.setText(self.config_manager.get_hotkey())
         if hasattr(self, 'hotkey_input_2'):
@@ -1331,15 +1480,21 @@ class SettingsDialog(FrostedFramelessDialog):
 
         # 应用内快捷键
         if hasattr(self, '_inapp_edits'):
-            from core.shortcut_manager import is_reserved_inapp_shortcut
+            from core.shortcut_manager import is_reserved_inapp_shortcut, is_inapp_mouse_shortcut
             for cfg_key, edit in self._inapp_edits.items():
                 val = self.config_manager.get_inapp_shortcut(cfg_key)
+                if cfg_key == "inapp_pin_reset_size" and is_inapp_mouse_shortcut(val):
+                    val = ""
                 edit.setText("" if is_reserved_inapp_shortcut(val) else val)
         if hasattr(self, 'cursor_move_combo'):
             mode = self.config_manager.get_inapp_cursor_move_mode()
             idx = self.cursor_move_combo.findData(mode)
             if idx >= 0:
                 self.cursor_move_combo.setCurrentIndex(idx)
+        if hasattr(self, 'clipboard_pick_combo'):
+            idx = self.clipboard_pick_combo.findData(self.config_manager.get_inapp_clipboard_pick_mode())
+            if idx >= 0:
+                self.clipboard_pick_combo.setCurrentIndex(idx)
 
         if hasattr(self, 'engine_combo'):
             engine = self.config_manager.get_long_stitch_engine()
@@ -1361,9 +1516,13 @@ class SettingsDialog(FrostedFramelessDialog):
                 self.config_manager.get_smart_selection_animation()
             )
 
-        if hasattr(self, 'double_click_copy_close_toggle'):
-            self.double_click_copy_close_toggle.setChecked(
-                self.config_manager.get_double_click_copy_close_enabled()
+        if hasattr(self, 'ocr_copy_directly_toggle'):
+            self.ocr_copy_directly_toggle.setChecked(
+                self.config_manager.get_ocr_copy_directly_enabled()
+            )
+        if hasattr(self, 'barcode_copy_single_toggle'):
+            self.barcode_copy_single_toggle.setChecked(
+                self.config_manager.get_barcode_copy_single_enabled()
             )
 
         if hasattr(self, 'cross_tool_selection_toggle'):
@@ -1390,7 +1549,6 @@ class SettingsDialog(FrostedFramelessDialog):
             self.screenshot_format_combo.setCurrentIndex(idx)
         for attr, key in (('magnifier_enabled_toggle', 'magnifier_enabled'),
                           ('magnifier_grid_toggle', 'magnifier_grid'),
-                          ('magnifier_swatch_toggle', 'magnifier_swatch'),
                           ('magnifier_hint_toggle', 'magnifier_hint')):
             toggle = getattr(self, attr, None)
             if toggle is not None:
@@ -1462,8 +1620,7 @@ class SettingsDialog(FrostedFramelessDialog):
                 self.clipboard_scan_interval_combo.setCurrentIndex(idx)
 
         if hasattr(self, 'autostart_toggle'):
-            from ..welcome.page6_finish import FinishPage as _FP
-            self.autostart_toggle.setChecked(_FP._get_autostart())
+            self.autostart_toggle.setChecked(self.config_manager.get_app_setting("autostart_enabled"))
         if hasattr(self, 'show_main_window_toggle'):
             self.show_main_window_toggle.setChecked(self.config_manager.get_show_main_window())
         if hasattr(self, 'pin_auto_toolbar_toggle'):

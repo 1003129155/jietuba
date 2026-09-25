@@ -14,6 +14,7 @@ from PySide6.QtGui import QPainter, QRegion, QPainterPath
 
 from canvas import CanvasView
 from core import safe_event
+from core.ui_theme import set_own_style
 
 
 class PinCanvasView(CanvasView):
@@ -38,7 +39,7 @@ class PinCanvasView(CanvasView):
 
         # 透明背景、无边框
         self.setFrameShape(QFrame.Shape.NoFrame)
-        self.setStyleSheet("background: transparent;")
+        set_own_style(self, "background: transparent;")
         
         # 设置视口背景透明
         self.viewport().setAutoFillBackground(False)

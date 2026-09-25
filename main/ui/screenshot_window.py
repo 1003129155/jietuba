@@ -19,7 +19,11 @@ from ui.selection_overlay import SelectionOverlayWidget
 from ui.selection_info import SelectionInfoPanel, SelectionInfoController
 from tools.action import ActionTools
 from settings import get_tool_settings_manager
-from settings.tool_settings import SMART_SELECTION_MODES
+from settings.tool_settings import (
+    CAPTURE_MOUSE_ACTIONS,
+    SMART_SELECTION_MODES,
+    get_capture_mouse_binding,
+)
 from core.logger import log_debug, log_info, log_exception, T
 from core import safe_event
 from core.shortcut_manager import ShortcutManager, ShortcutHandler
@@ -92,6 +96,18 @@ class ScreenshotShortcutHandler(ShortcutHandler):
 
     def handle_mouse(self, event) -> bool:
         """中键走和键盘完全相同的那条 if 链，见 ShortcutHandler.handle_mouse。"""
+        w = self._window
+        if (event.button() == Qt.MouseButton.MiddleButton
+                and hasattr(event, 'globalPosition')
+                and not w._is_text_editing()):
+            view = getattr(w, 'view', None)
+            action = w._matching_capture_mouse_action(event, "middle")
+            if (action is not None and view is not None
+                    and view.viewport().rect().contains(
+                        view.viewport().mapFromGlobal(event.globalPosition().toPoint())
+                    )
+                    and w.action_handler.handle_capture_action(action)):
+                return True
         return self.handle_key(event)
 
     def handle_key(self, event) -> bool:
@@ -205,6 +221,14 @@ class ScreenshotShortcutHandler(ShortcutHandler):
                 QCursor.setPos(p.x() + delta[0], p.y() + delta[1])
                 return True
 
+        # 取色格式循环切换（单键 Shift，无其它修饰键 — 保留硬编码，和 C 一对）
+        if key == Qt.Key.Key_Shift:
+            if not event_is_auto_repeat(event):
+                mo = getattr(w, 'magnifier_overlay', None)
+                if mo and mo.cursor_scene_pos is not None and mo._should_render():
+                    mo.cycle_color_format()
+                    return True
+
         # 取色（单键 C，无修饰键 — 保留硬编码）
         if key == Qt.Key.Key_C:
             if event.modifiers() == Qt.KeyboardModifier.NoModifier:
@@ -214,10 +238,11 @@ class ScreenshotShortcutHandler(ShortcutHandler):
                         w.cleanup_and_close()
                         return True
 
-        # Enter 确认（固定）
+        # Enter 确认（固定）；鼠标动作配置不改变现有键盘逻辑。
         if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             if w.scene and w.scene.selection_model.is_confirmed:
-                w.action_handler.handle_confirm()
+                if not event_is_auto_repeat(event):
+                    w.action_handler.handle_confirm()
                 return True
 
         return False
@@ -334,6 +359,10 @@ class ScreenshotWindow(QWidget):
         self.selection_overlay.setGeometry(0, 0, int(self.virtual_width), int(self.virtual_height))
         self.selection_overlay.raise_()
 
+        self.view.set_fullscreen_crosshair(
+            self.config_manager.get_app_setting("capture_fullscreen_crosshair", False), self.mask_overlay
+        )
+
         _t4 = time.perf_counter()
         _timings['Action+Mask'] = (_t4 - _t3) * 1000
 
@@ -396,11 +425,30 @@ class ScreenshotWindow(QWidget):
         return CanvasView(
             scene,
             self,
-            confirm_on_double_click=(
-                self.config_manager.get_double_click_copy_close_enabled()
+            confirm_on_double_click=ScreenshotWindow._has_capture_mouse_gesture(
+                self, "doubleleft"
             ),
             cross_tool_select=self.config_manager.get_cross_tool_selection_enabled(),
         )
+
+    def _has_capture_mouse_gesture(self, gesture):
+        return any(
+            str(get_capture_mouse_binding(self.config_manager, action)).split("+")[-1]
+            == gesture
+            for action, _label, _default, _kind in CAPTURE_MOUSE_ACTIONS
+        )
+
+    def _matching_capture_mouse_action(self, event, gesture):
+        from core.shortcut_manager import mouse_gesture_binding_matches
+
+        for action, _label, _default, _kind in CAPTURE_MOUSE_ACTIONS:
+            binding = get_capture_mouse_binding(self.config_manager, action)
+            if mouse_gesture_binding_matches(binding, event, gesture):
+                return action
+        return None
+
+    def _matches_capture_double_click(self, event):
+        return self._matching_capture_mouse_action(event, "doubleleft") is not None
 
     def _get_configured_smart_selection_mode(self) -> str:
         """读取检测方式；没有这项设置的旧配置对象退回窗口级，和默认值一致。"""
@@ -465,6 +513,9 @@ class ScreenshotWindow(QWidget):
         self.selection_overlay.rebind(self.scene.selection_item, self.scene.selection_model)
         self.selection_overlay.setGeometry(0, 0, int(self.virtual_width), int(self.virtual_height))
         self.selection_overlay.raise_()
+        self.view.set_fullscreen_crosshair(
+            self.config_manager.get_app_setting("capture_fullscreen_crosshair", False), self.mask_overlay
+        )
         
         # 复用 info_panel —— swap view 引用，重建 controller
         self.info_panel._view = self.view
@@ -711,6 +762,12 @@ class ScreenshotWindow(QWidget):
     def _handle_confirm(self):
         if self.action_handler:
             self.action_handler.handle_confirm()
+
+    def _handle_double_click(self, event):
+        if not self.action_handler:
+            return False
+        action = self._matching_capture_mouse_action(event, "doubleleft")
+        return bool(action and self.action_handler.handle_capture_action(action))
 
     def _handle_copy(self):
         if self.action_handler:

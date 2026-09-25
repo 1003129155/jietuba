@@ -28,7 +28,6 @@ class _Config:
         self.values = {
             "magnifier_enabled": True,
             "magnifier_grid": False,
-            "magnifier_swatch": True,
             "magnifier_hint": True,
         }
         self.values.update(values)
@@ -140,8 +139,8 @@ def _bind_to_a_drawable_session(magnifier):
     """
     image = QImage(64, 64, QImage.Format.Format_ARGB32)
     image.fill(_BACKDROP)
-    # 只有光标底下那一格是另一种颜色：右上角的取色块画的是它，而放大图在
-    # 同一位置显示的是光标右上方的背景色，两者一比就知道色块画没画。
+    # 只有光标底下那一格是另一种颜色：取色块画的就是它，放大图右上角显示的
+    # 则是光标右上方的背景色，两处一比就知道色块画在了哪。
     image.setPixelColor(32, 32, _PICKED)
     magnifier.scene = SimpleNamespace(
         background=SimpleNamespace(image=lambda: image),
@@ -172,19 +171,32 @@ def test_grid_switch_decides_whether_it_is_drawn(parent, monkeypatch, grid_on):
     assert bool(calls) is grid_on
 
 
-@pytest.mark.parametrize("swatch_on", [True, False])
-def test_swatch_switch_decides_whether_the_colour_box_is_drawn(parent, swatch_on):
-    """右上角那块取色方块，开着才画。"""
-    magnifier = _magnifier(parent, magnifier_swatch=swatch_on)
+def test_swatch_sits_in_the_value_row_not_on_the_magnified_view(parent):
+    """取色色块和颜色值同一行、一直显示；放大图右上角不再画它。"""
+    magnifier = _magnifier(parent)
     _bind_to_a_drawable_session(magnifier)
 
     rendered = magnifier.grab().toImage()
-    box = rendered.pixelColor(MagnifierOverlay.MAG_WIDTH - 14, 14)
-    assert (box == _PICKED) is swatch_on
+    assert rendered.pixelColor(magnifier.MAG_WIDTH - 14, 14) != _PICKED
+    info_pixels = (
+        rendered.pixelColor(x, y)
+        for y in range(magnifier.MAG_HEIGHT, rendered.height())
+        for x in range(rendered.width())
+    )
+    assert any(pixel == _PICKED for pixel in info_pixels)
+
+
+def test_shift_hint_only_shows_when_there_is_something_to_switch_to(parent):
+    """只勾了一个格式时 Shift 什么也不做，提示里不该出现它。"""
+    one = _magnifier(parent, formats=_only("RGB"))
+    two = _magnifier(parent, formats=_only("RGB", "HEX"))
+    assert one._hint_texts() == ["C: Copy color value"]
+    assert two._hint_texts() == ["Shift: Switch color format", "C: Copy color value"]
+    assert two.combined_height - one.combined_height == MagnifierOverlay.INFO_LINE_HEIGHT
 
 
 class TestColorFormats:
-    """勾选的格式都显示在放大镜上，复制的是排在最前的那一个。"""
+    """放大镜同一时间只显示一个格式，默认是列表里第一个启用的。"""
 
     SAMPLE = QColor(230, 153, 60)
 
@@ -198,20 +210,38 @@ class TestColorFormats:
         self._pick_sample(magnifier)
         assert magnifier.get_color_info_text() == "rgb(230, 153, 60)"
 
-    def test_reordering_changes_what_gets_copied(self, parent):
-        """把哪个格式拖到最前，按键复制的就是哪个——这正是列表顺序的意义。"""
+    def test_reordering_changes_the_default_shown_format(self, parent):
+        """把哪个格式拖到最前，循环从哪个开始——这正是列表顺序的意义。"""
         magnifier = _magnifier(parent, formats=_only("HEX", "CSS rgb()"))
         self._pick_sample(magnifier)
         assert magnifier.get_color_info_text() == "#E6993C"
 
-    def test_every_enabled_format_gets_its_own_line(self, parent):
-        """信息区是一行坐标加每个格式一行，高度跟着勾选的条数走。"""
+    def test_enabling_more_formats_does_not_change_the_height(self, parent):
+        """同一时间只显示一个格式（Shift 循环切换），高度不再跟着勾选条数走。"""
         one = _magnifier(parent, formats=_only("RGB"), magnifier_hint=False)
         three = _magnifier(parent, formats=_only("RGB", "HEX", "CSS hsl()"),
                            magnifier_hint=False)
-        assert three.combined_height - one.combined_height == (
-            2 * MagnifierOverlay.INFO_LINE_HEIGHT
-        )
+        assert three.combined_height == one.combined_height
+
+    def test_shift_cycles_to_the_next_enabled_format(self, parent):
+        magnifier = _magnifier(parent, formats=_only("RGB", "HEX", "CSS hsl()"))
+        self._pick_sample(magnifier)
+        assert magnifier.get_color_info_text() == "230, 153, 60"
+
+        magnifier.cycle_color_format()
+        assert magnifier.get_color_info_text() == "#E6993C"
+
+        magnifier.cycle_color_format()
+        assert magnifier.get_color_info_text() == "hsl(32, 77%, 57%)"
+
+        magnifier.cycle_color_format()   # 循环回到第一个
+        assert magnifier.get_color_info_text() == "230, 153, 60"
+
+    def test_shift_is_a_no_op_with_only_one_format_enabled(self, parent):
+        magnifier = _magnifier(parent, formats=_only("HEX"))
+        self._pick_sample(magnifier)
+        magnifier.cycle_color_format()
+        assert magnifier.get_color_info_text() == "#E6993C"
 
     def test_new_session_picks_up_edited_formats(self, parent):
         """格式是在设置窗口里改的，下一次截图（rebind）就该按新的显示。"""

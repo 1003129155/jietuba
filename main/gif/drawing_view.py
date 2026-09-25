@@ -45,6 +45,7 @@ from core.shortcut_manager import (
     load_inapp_bindings, load_inapp_mouse_bindings, match_inapp_binding,
 )
 from core import safe_event
+from core.ui_theme import set_own_style
 
 
 # ── Win32 穿透常量 ──
@@ -285,7 +286,7 @@ class GifDrawingView(CanvasView):
             | Qt.WindowType.Tool
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setStyleSheet("background: transparent;")
+        set_own_style(self, "background: transparent;")
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
         # 渲染

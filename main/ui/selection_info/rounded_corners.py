@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 from core.logger import log_debug, T
 from core.ui_scale import get_ui_scale, scaled
 from core import safe_event
+from core.ui_theme import set_own_style
 
 
 # =====================================================================
@@ -109,7 +110,7 @@ class RoundedSliderPopup(QWidget):
             }}
         """)
         self._label.setFixedWidth(scaled(self.BASE_LABEL_WIDTH))
-        self._label.setStyleSheet(
+        set_own_style(self._label,
             f"color: #D0D0D0; font-size: {scaled(12)}px; background: transparent;"
         )
         self.update()

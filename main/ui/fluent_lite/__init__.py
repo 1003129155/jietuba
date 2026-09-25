@@ -1,8 +1,10 @@
 """Project-owned, pure PySide6 replacement for the used Fluent widgets."""
 
-from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QColor, QPainter, QPalette
-from PySide6.QtWidgets import QRadioButton as _QRadioButton, QStyle, QStyleOptionButton
+from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtGui import QColor, QPainter, QPainterPath, QPalette, QPen
+from PySide6.QtWidgets import (
+    QCheckBox as _QCheckBox, QRadioButton as _QRadioButton, QStyle, QStyleOptionButton,
+)
 
 from core.ui_scale import widget_scaled as _px
 from core.ui_theme import get_ui_theme
@@ -107,11 +109,70 @@ class RadioButton(_QRadioButton):
             )
 
 
+class CheckBox(_QCheckBox):
+    """勾选框。和 RadioButton 一样自己画指示器和文字，避开 QSS 方框发虚、文字压住方框的问题"""
+
+    _LABEL_SPACING = 7
+
+    def __init__(self, text="", parent=None):
+        super().__init__(text, parent)
+        self._apply_theme()
+        get_ui_theme().theme_changed.connect(self._apply_theme)
+
+    def _apply_theme(self, _tokens=None):
+        spacing = _px(self, self._LABEL_SPACING)
+        self.setStyleSheet(
+            f"QCheckBox {{ color: {ui_tokens(self).text}; background: transparent; "
+            f"spacing: {spacing}px; font: {_px(self, 13)}px {FONT_FAMILY}; }}"
+            f"QCheckBox::indicator {{ width: {_px(self, 16)}px; height: {_px(self, 16)}px; }}"
+        )
+
+    def paintEvent(self, event):
+        option = QStyleOptionButton()
+        self.initStyleOption(option)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        indicator = self.style().subElementRect(
+            QStyle.SubElement.SE_CheckBoxIndicator, option, self
+        )
+        label_rect = self.rect()
+        spacing = _px(self, self._LABEL_SPACING)
+        text_flags = Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextShowMnemonic
+        if self.layoutDirection() == Qt.LayoutDirection.RightToLeft:
+            label_rect.setRight(indicator.left() - spacing - 1)
+            text_flags |= Qt.AlignmentFlag.AlignRight
+        else:
+            label_rect.setLeft(indicator.right() + spacing + 1)
+            text_flags |= Qt.AlignmentFlag.AlignLeft
+        painter.setPen(option.palette.color(QPalette.ColorRole.WindowText))
+        painter.drawText(label_rect, text_flags, option.text)
+
+        tokens = ui_tokens(self)
+        checked = self.isChecked()
+        box = QRectF(indicator).adjusted(0.5, 0.5, -0.5, -0.5)
+        radius = float(_px(self, 4))
+        painter.setPen(QColor(ACCENT if checked or self.underMouse() else tokens.border_hover))
+        painter.setBrush(QColor(ACCENT if checked else tokens.input_background))
+        painter.drawRoundedRect(box, radius, radius)
+        if checked:
+            pen = QPen(QColor("#FFFFFF"), max(1.5, box.width() / 9))
+            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            painter.setPen(pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            x, y, w, h = box.x(), box.y(), box.width(), box.height()
+            tick = QPainterPath(QPointF(x + w * 0.26, y + h * 0.52))
+            tick.lineTo(x + w * 0.43, y + h * 0.69)
+            tick.lineTo(x + w * 0.75, y + h * 0.34)
+            painter.drawPath(tick)
+
+
 __all__ = [
     "PushButton", "PrimaryPushButton", "TransparentPushButton", "TransparentToolButton",
     "ColorSwatchButton",
     "HyperlinkButton", "BodyLabel", "CaptionLabel", "ComboBox", "LineEdit", "TextEdit", "SpinBox",
-    "DoubleSpinBox", "RadioButton", "SwitchButton", "SegmentedWidget", "FluentIcon",
+    "DoubleSpinBox", "RadioButton", "CheckBox", "SwitchButton", "SegmentedWidget", "FluentIcon",
     "SettingCard", "SwitchSettingCard", "SettingCardGroup", "SimpleCardWidget",
     "card_right_margin",
     "NavigationInterface", "NavigationItemPosition", "FluentTitleBar", "FramelessDialog",

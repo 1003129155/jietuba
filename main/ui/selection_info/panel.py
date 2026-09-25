@@ -24,6 +24,7 @@ from core.resource_manager import ResourceManager
 from core.ui_scale import get_ui_scale, scaled
 from core import safe_event
 from core.logger import log_exception, T
+from core.ui_theme import set_own_style
 
 
 class SelectionInfoPanel(QWidget):
@@ -88,7 +89,7 @@ class SelectionInfoPanel(QWidget):
 
         # 分隔线
         self._sep = QLabel()
-        self._sep.setStyleSheet("background: rgba(255,255,255,30);")
+        set_own_style(self._sep, "background: rgba(255,255,255,30);")
         lay.addWidget(self._sep)
 
         # 刷新背景按钮（最右）
@@ -136,7 +137,7 @@ class SelectionInfoPanel(QWidget):
         self.setFixedHeight(scaled(self.BASE_HEIGHT))
         self._row_layout.setContentsMargins(scaled(10), 0, scaled(5), 0)
         self._row_layout.setSpacing(scaled(7))
-        self._info_label.setStyleSheet(
+        set_own_style(self._info_label,
             f"color: #D0D0D0; font-size: {scaled(self.BASE_FONT)}px; background: transparent;"
         )
         btn_sz = scaled(self.BASE_BTN)

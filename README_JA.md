@@ -93,7 +93,7 @@ OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は、�
 |------|------|------|------|
 | [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.3.1 | GIF/動画合成エンコーダー |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | 長いスクリーンショット結合アルゴリズム |
-| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.2 | クリップボード操作 |
+| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.4 | クリップボード操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
 
 ビルド済み wheel は Windows x86_64 および ARM64 向けです。各パッケージの Python バージョン指定は `>=3.11` で、Rust バインディングでは `abi3-py311` を有効にしています。詳細は各パッケージの `pyproject.toml` と `Cargo.toml` を参照してください。
@@ -304,6 +304,7 @@ clipboard/
 │   │   ├── item_delegate.py
 │   │   ├── item_widget.py
 │   │   ├── preview_popup.py
+│   │   ├── quick_edit_popup.py
 │   │   ├── manage_rows.py
 │   │   └── reorder_list.py
 │   └── windows/
@@ -575,6 +576,7 @@ ui/
 ├── tray_menu.py             # TrayMenu — システムトレイメニュー
 ├── screenshot_window.py     # ScreenshotWindow — フルスクリーンキャプチャウィンドウ
 ├── dialogs.py               # StandardDialog — 確認、警告、情報、エラーダイアログ
+├── toast.py                 # Toast — カーソル横に出る、フォーカスを奪わない一行通知
 ├── magnifier.py             # MagnifierOverlay — ピクセルレベル拡大鏡
 ├── color_picker_dialog.py   # ColorPickerDialog — カスタムHSVカラーピッカー
 ├── color_picker_button.py   # ColorPickerButton — カラー選択ボタン
@@ -603,6 +605,7 @@ ui/
 │   ├── components.py        # SettingCardGroup / ToggleSwitch — 設定コンポーネント
 │   ├── page_appearance.py   # 外観設定（テーマ、言語）
 │   ├── page_capture.py      # キャプチャ設定
+│   ├── page_quick_actions.py # クイック動作設定（確認・結果ウィンドウの省略）
 │   ├── color_format_dialog.py # ColorFormatDialog — 拡大鏡のカラー形式を管理するダイアログ
 │   ├── page_clipboard.py    # クリップボード設定
 │   ├── page_hotkey.py       # ホットキー設定

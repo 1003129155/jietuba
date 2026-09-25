@@ -26,6 +26,52 @@ from PySide6.QtGui import QColor
 SMART_SELECTION_MODES = ("off", "window", "element")
 STORED_SMART_SELECTION_MODES = SMART_SELECTION_MODES[1:]
 
+CAPTURE_MOUSE_ACTIONS = (
+    ("copy", "Copy to Clipboard", "doubleleft", "capture"),
+    ("pin", "Pin to Screen", "", "capture"),
+    ("save", "Save to File", "", "capture"),
+    ("quick_save", "Quick Save", "", "capture"),
+)
+
+PIN_MOUSE_ACTIONS = (
+    ("zoom", "Zoom Pinned Image", "wheel", "wheel"),
+    ("opacity", "Adjust Opacity", "ctrl+wheel", "wheel"),
+    ("close", "Close Pinned Image", "", "click"),
+    ("reset", "Reset Pinned Image Size", "", "click"),
+    ("thumbnail", "Toggle Pin Thumbnail", "shift+doubleleft", "click"),
+    ("region", "Select Thumbnail Region", "dragright", "drag"),
+    ("copy_text", "Copy Selected Text", "", "click"),
+)
+
+
+def get_pin_mouse_binding(config, action):
+    default = next(binding for key, _label, binding, _kind in PIN_MOUSE_ACTIONS if key == action)
+    if config is None:
+        return default
+    if action == "reset":
+        legacy = config.get_inapp_shortcut("inapp_pin_reset_size")
+        if isinstance(legacy, str) and "mousemiddle" in legacy:
+            default = legacy.replace("mousemiddle", "middle")
+    return config.get_app_setting(f"mouse_pin_{action}", default)
+
+
+def get_capture_mouse_binding(config, action):
+    """Return one mouse gesture for a screenshot action.
+
+    The old double-click switch remains a migration fallback only. New mouse
+    bindings use one action-oriented namespace and never alter keyboard shortcuts.
+    """
+    default = next(
+        binding
+        for key, _label, binding, _kind in CAPTURE_MOUSE_ACTIONS
+        if key == action
+    )
+    if config is None:
+        return default
+    if action == "copy" and not config.get_double_click_copy_close_enabled():
+        default = ""
+    return config.get_app_setting(f"mouse_capture_{action}", default)
+
 
 ANNOTATION_TOOL_SHORTCUTS = (
     ("inapp_tool_cursor", "cursor", "Select / Cursor", "s"),
@@ -39,6 +85,18 @@ ANNOTATION_TOOL_SHORTCUTS = (
     ("inapp_tool_text", "text", "Text", "t"),
     ("inapp_tool_eraser", "eraser", "Eraser", "e"),
 )
+
+# 剪贴板窗口的直选粘贴键，按顺序对应列表第 1、2… 条
+CLIPBOARD_PICK_KEYS = {
+    "both": "123456789abcdefghijklmnopqrstuvwxyz",
+    "letters": "abcdefghijklmnopqrstuvwxyz",
+    "digits": "123456789",
+}
+
+
+def clipboard_pick_keys(mode: str) -> str:
+    return CLIPBOARD_PICK_KEYS.get(mode, CLIPBOARD_PICK_KEYS["both"])
+
 
 # 自定义 OpenAI 兼容服务的三个保存位置，和 translation/providers/custom_llm.py
 # 的 CUSTOM_LLM_PROVIDERS 一一对应。第 1 个沿用单槽位时代的 custom_llm。
@@ -189,28 +247,39 @@ class ToolSettingsManager(QObject):
 
         # 应用内快捷键
         "inapp_confirm": "ctrl+c",             # 确认截图（复制到剪贴板）
-        "inapp_pin": "ctrl+d",                 # 钉图
+        "inapp_pin": "mousemiddle",            # 钉图
         "inapp_undo": "ctrl+z",                # 撤销
         "inapp_redo": "ctrl+y",                # 重做
         "inapp_delete": "delete",              # 删除选中图元
         "inapp_restore_last_region": "l",      # 选区未确认/无绘制工具激活时，还原为上次截图的区域
         "inapp_copy_pin": "ctrl+c",            # 复制钉图内容
         "inapp_copy_pin_text": "ctrl+shift+c", # 复制钉图识别到的全部文字
-        "inapp_pin_reset_size": "mousemiddle", # 钉图恢复 100% 大小
+        "inapp_pin_reset_size": "",          # 钉图恢复 100% 大小（鼠标绑定另设）
         "inapp_thumbnail": "r",                # 切换缩略图模式
         "inapp_toggle_toolbar": "space",       # 切换工具栏
         "inapp_zoom_in": "pageup",             # 放大镜放大
         "inapp_zoom_out": "pagedown",          # 放大镜缩小
         "inapp_translate": "shift+c",          # 截图翻译
         "inapp_text_recognize": "shift+t",     # 文字识别
+        "inapp_clipboard_quick_edit": "tab",   # 剪贴板：快速编辑选中的文本
+        "inapp_clipboard_edit_save": "ctrl+enter",              # 快速编辑框：保存
+        "inapp_clipboard_edit_save_paste": "ctrl+shift+enter",  # 快速编辑框：保存并粘贴
         "inapp_cursor_move_mode": "both",      # 鼠标微移模式: both / arrows / wasd
+        "inapp_clipboard_pick_mode": "both",   # 剪贴板直选粘贴键: both / letters / digits
         **{key: default for key, _tool, _label, default in ANNOTATION_TOOL_SHORTCUTS},
         # ==================== 2. 截图 ====================
         # 截图交互
-        "double_click_copy_close": True,      # 双击选区复制到剪贴板并关闭
+        "double_click_copy_close": True,      # 兼容旧版双击设置
+        "capture_fullscreen_crosshair": False,
+        **{f"mouse_capture_{key}": binding for key, _label, binding, _kind in CAPTURE_MOUSE_ACTIONS},
+        **{f"mouse_pin_{key}": binding for key, _label, binding, _kind in PIN_MOUSE_ACTIONS},
         "cross_tool_selection": True,         # Ctrl 临时跨工具选择标注
         "text_always_on_top": True,           # 文字标注始终高于其他绘制标注
         "screenshot_toolbar_layout": "",      # 截图工具栏按钮排布（JSON，空 = 默认排布，见 ui/toolbar_layout.py）
+
+        # 快捷行为：跳过结果窗口
+        "ocr_copy_directly": False,           # 文字识别后直接复制，不弹结果窗口
+        "barcode_copy_single": False,         # 只扫到一个码时直接复制，不弹结果窗口
 
         # 智能选择
         "smart_selection": True,              # 智能选区总开关
@@ -264,6 +333,7 @@ class ToolSettingsManager(QObject):
         "clipboard_show_metadata": True,       # 显示时间和来源信息
         "clipboard_font_size": 17,            # 剪贴板项字体大小（像素）
         "clipboard_font_size_options": [15, 16, 17, 18, 19, 20],  # 字体大小可选项
+        "clipboard_image_size": "small",       # 图片条目高度档位（small/medium/large）
         "clipboard_line_height_padding": 8,   # 多行显示时的额外行高边距（像素，用于确保完整显示）
         "clipboard_display_lines": 1,          # 剪贴板项最大显示行数
         "clipboard_theme": "light",            # 剪贴板窗口主题（light/dark/blue/green/pink/purple/orange）
@@ -328,16 +398,17 @@ class ToolSettingsManager(QObject):
         "log_retention_days": 7,               # 日志保留天数（0表示永久保留）
 
         # ==================== 7. 其他 ====================
+        "autostart_enabled": True,             # 开机自启默认开启
         "show_main_window": False,             # 运行后自动弹出窗口显示（默认后台启动）
         "language": "en",                      # 界面语言（ja/en/zh/ko）
         "magnifier_enabled": True,             # 截图时是否显示放大镜
         "magnifier_grid": False,               # 放大镜上画像素网格线
-        "magnifier_swatch": True,              # 放大图右上角显示取到的颜色
-        "magnifier_hint": True,                # 放大镜信息区显示取色快捷键提示行
+        "magnifier_hint": True,                # 放大镜信息区显示切换格式/取色快捷键提示行
         # 放大镜的颜色格式列表（JSON，见 settings/color_formats.py）。空串表示还没
         # 存过，那时会按下面这个旧的单选键迁移出一份。
         "magnifier_color_formats": "",
-        "magnifier_color_copy_format": "rgb_hex",  # 旧版单选的格式，只用于迁移
+        # 旧版单选的格式，只用于迁移。留空：重置设置后不能再按旧默认迁移，要落到当前默认
+        "magnifier_color_copy_format": "",
         "magnifier_zoom": 4.0,                 # 放大镜默认倍率（1.0 ~ 10.0）
         "magnifier_zoom_min": 2.0,             # 放大镜最小倍率
         "magnifier_zoom_max": 10.0,            # 放大镜最大倍率
@@ -765,6 +836,16 @@ class ToolSettingsManager(QObject):
         """设置鼠标微移模式"""
         self.qsettings.setValue("inapp/inapp_cursor_move_mode", value)
 
+    def get_inapp_clipboard_pick_mode(self) -> str:
+        """剪贴板直选粘贴键 (both / letters / digits)"""
+        return self.qsettings.value(
+            "inapp/inapp_clipboard_pick_mode",
+            self.APP_DEFAULT_SETTINGS["inapp_clipboard_pick_mode"], type=str
+        )
+
+    def set_inapp_clipboard_pick_mode(self, value: str):
+        self.qsettings.setValue("inapp/inapp_clipboard_pick_mode", value)
+
     def get_smart_selection_mode(self) -> str:
         """返回生效的检测方式：off / window / element。"""
         if not self.get_smart_selection():
@@ -839,6 +920,28 @@ class ToolSettingsManager(QObject):
     def set_text_always_on_top_enabled(self, value: bool):
         """设置文字标注是否始终位于其他绘制标注之上。"""
         self.qsettings.setValue("app/text_always_on_top", value)
+
+    def get_ocr_copy_directly_enabled(self) -> bool:
+        """文字识别后是否直接复制、不弹结果窗口。"""
+        return self.qsettings.value(
+            "app/ocr_copy_directly",
+            self.APP_DEFAULT_SETTINGS["ocr_copy_directly"],
+            type=bool,
+        )
+
+    def set_ocr_copy_directly_enabled(self, value: bool):
+        self.qsettings.setValue("app/ocr_copy_directly", value)
+
+    def get_barcode_copy_single_enabled(self) -> bool:
+        """只扫到一个码时是否直接复制、不弹结果窗口。"""
+        return self.qsettings.value(
+            "app/barcode_copy_single",
+            self.APP_DEFAULT_SETTINGS["barcode_copy_single"],
+            type=bool,
+        )
+
+    def set_barcode_copy_single_enabled(self, value: bool):
+        self.qsettings.setValue("app/barcode_copy_single", value)
 
     
     def get_log_enabled(self) -> bool:
@@ -1496,6 +1599,21 @@ class ToolSettingsManager(QObject):
         """获取剪贴板字体大小选项"""
         return self.APP_DEFAULT_SETTINGS["clipboard_font_size_options"]
     
+    CLIPBOARD_IMAGE_SIZES = ("small", "medium", "large")
+
+    def get_clipboard_image_size(self) -> str:
+        """获取剪贴板图片条目高度档位"""
+        value = self.qsettings.value("clipboard/image_size",
+                                     self.APP_DEFAULT_SETTINGS["clipboard_image_size"], type=str)
+        if value not in self.CLIPBOARD_IMAGE_SIZES:
+            return self.APP_DEFAULT_SETTINGS["clipboard_image_size"]
+        return value
+
+    def set_clipboard_image_size(self, value: str):
+        """设置剪贴板图片条目高度档位"""
+        if value in self.CLIPBOARD_IMAGE_SIZES:
+            self.qsettings.setValue("clipboard/image_size", value)
+
     def get_clipboard_show_metadata(self) -> bool:
         """获取是否显示时间和来源信息"""
         return self.qsettings.value("clipboard/show_metadata", 
@@ -1655,4 +1773,3 @@ def get_tool_settings_manager(qsettings: Optional[QSettings] = None) -> ToolSett
     if _tool_settings_manager is None:
         _tool_settings_manager = ToolSettingsManager(qsettings=qsettings)
     return _tool_settings_manager
-

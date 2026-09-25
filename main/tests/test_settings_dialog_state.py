@@ -125,6 +125,18 @@ class _Color:
         return self._name
 
 
+class _Button:
+    def __init__(self):
+        self.enabled = None
+        self.cursor = None
+
+    def setEnabled(self, enabled):
+        self.enabled = enabled
+
+    def setCursor(self, cursor):
+        self.cursor = cursor
+
+
 # 覆盖各 _reset_* 方法会读到的键
 DEFAULTS = {
     "hotkey": "ctrl+shift+a",
@@ -135,7 +147,7 @@ DEFAULTS = {
     "translation_hotkey_2": "",
     "inapp_cursor_move_mode": "both",
     "inapp_confirm": "ctrl+c",
-    "inapp_pin": "ctrl+d",
+    "inapp_pin": "mousemiddle",
     "smart_selection": True,
     "smart_selection_mode": "window",
     "screenshot_save_enabled": True,
@@ -151,12 +163,12 @@ DEFAULTS = {
     "pin_auto_toolbar": False,
     "magnifier_enabled": True,
     "magnifier_grid": False,
-    "magnifier_swatch": True,
     "magnifier_hint": False,
     "magnifier_color_formats": "",
     "clipboard_enabled": True,
     "clipboard_auto_paste": False,
     "clipboard_history_limit": 100,
+    "autostart_enabled": True,
 }
 
 
@@ -240,6 +252,30 @@ class TestHasUnsavedChanges:
         )
         assert SettingsDialog._has_unsaved_changes(fake) is True
 
+
+class TestApplyButtonState:
+
+    def test_apply_is_disabled_when_values_match_the_snapshot(self):
+        button = _Button()
+        fake = SimpleNamespace(
+            _footer_ok_btn=button,
+            _has_unsaved_changes=lambda: False,
+        )
+
+        SettingsDialog._update_action_buttons(fake)
+
+        assert button.enabled is False
+
+    def test_apply_is_enabled_as_soon_as_values_are_dirty(self):
+        button = _Button()
+        fake = SimpleNamespace(
+            _footer_ok_btn=button,
+            _has_unsaved_changes=lambda: True,
+        )
+
+        SettingsDialog._update_action_buttons(fake)
+
+        assert button.enabled is True
 
 class TestHotkeyAccessors:
 
@@ -349,6 +385,7 @@ RESET_METHODS = (
     "_reset_log_page",
     "_reset_misc_page",
     "_reset_long_screenshot_page",
+    "_reset_quick_actions_page",
 )
 
 # stack 下标 → 应被调用的方法名
@@ -361,6 +398,7 @@ INDEX_TO_METHOD = {
     5: "_reset_log_page",
     6: "_reset_misc_page",
     7: "_reset_long_screenshot_page",
+    9: "_reset_quick_actions_page",
 }
 
 
@@ -386,7 +424,7 @@ class TestResetCurrentPageDispatch:
         assert not any(getattr(fake, name).called for name in RESET_METHODS)
 
     def test_unknown_index_resets_nothing(self):
-        for index in (-1, 9, 99):
+        for index in (-1, 10, 99):
             fake = _dispatch_fake(index)
             SettingsDialog._reset_current_page(fake)
             assert not any(getattr(fake, name).called for name in RESET_METHODS), index
@@ -501,13 +539,11 @@ class TestResetScreenshotSettingsPage:
             config_manager=_config(),
             magnifier_enabled_toggle=_Toggle(False),
             magnifier_grid_toggle=_Toggle(True),
-            magnifier_swatch_toggle=_Toggle(False),
             magnifier_hint_toggle=_Toggle(True),
         )
         SettingsDialog._reset_screenshot_settings_page(fake)
         assert fake.magnifier_enabled_toggle.set_checked == [True]
         assert fake.magnifier_grid_toggle.set_checked == [False]
-        assert fake.magnifier_swatch_toggle.set_checked == [True]
         assert fake.magnifier_hint_toggle.set_checked == [False]
 
     def test_magnifier_colour_formats_go_back_to_the_default_order(self):
@@ -519,8 +555,8 @@ class TestResetScreenshotSettingsPage:
             magnifier_color_formats=[ColorFormat("CSS hsl()", "", enabled=True)],
         )
         SettingsDialog._reset_screenshot_settings_page(fake)
-        assert fake.magnifier_color_formats[0].name == "RGB + HEX"
-        assert [f.name for f in fake.magnifier_color_formats if f.enabled] == ["RGB + HEX"]
+        assert fake.magnifier_color_formats[0].name == "RGB"
+        assert [f.name for f in fake.magnifier_color_formats if f.enabled] == ["RGB", "HEX"]
 
     def test_unknown_ocr_engine_leaves_the_combo_alone(self):
         combo = _Combo(data_map={})
@@ -565,17 +601,14 @@ class TestResetLogPage:
 
 class TestResetMiscPage:
 
-    def test_autostart_is_always_cleared_regardless_of_defaults(self):
-        """
-        开机自启动不从默认值恢复，而是硬编码关闭——它对应的是注册表状态，
-        恢复默认应当保守地取消自启动。
-        """
+    def test_autostart_follows_the_defaults(self):
+        """开机自启默认开启，恢复默认按配置的默认值来。"""
         for configured in (True, False):
-            defaults = dict(DEFAULTS, autostart=configured)
-            toggle = _Toggle(True)
+            defaults = dict(DEFAULTS, autostart_enabled=configured)
+            toggle = _Toggle(not configured)
             fake = SimpleNamespace(config_manager=_config(defaults), autostart_toggle=toggle)
             SettingsDialog._reset_misc_page(fake)
-            assert toggle.set_checked == [False], configured
+            assert toggle.set_checked == [configured], configured
 
     def test_window_toggle_follows_the_defaults(self):
         fake = SimpleNamespace(
@@ -618,6 +651,7 @@ NAV_TITLES = {
     5: "Log Settings",
     6: "Other Settings",
     8: "Software Information",
+    9: "Quick Actions",
 }
 
 
@@ -660,7 +694,7 @@ class TestOnNavChanged:
         assert not fake._refresh_after_page_change.called
 
     def test_unknown_index_changes_nothing(self):
-        for index in (-1, 9, 99):
+        for index in (-1, 10, 99):
             fake = _nav_fake()
             SettingsDialog._on_nav_changed(fake, index)
             assert fake.content_stack.set_indexes == [], index

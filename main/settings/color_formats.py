@@ -3,8 +3,9 @@
 
 格式只有下面这几种预设，用户能改的只是勾选哪些、按什么顺序排。
 
-顺序有意义：勾选的格式都会显示在放大镜上，而按下取色键复制的是排在最前的
-那一个——所以「把某个格式拖到第一位」就是「把它设成主格式」。
+放大镜同一时间只显示一个格式，Shift 在勾选的几个之间循环切换，C 复制当前
+显示的那个。顺序仍然有意义：循环从列表首位开始，「拖到第一位」就是设成
+默认显示的那个。
 """
 from __future__ import annotations
 
@@ -18,7 +19,6 @@ LEGACY_SETTING_KEY = "magnifier_color_copy_format"
 # 名称是技术写法（RGB、HEX、CSS 函数名），四种语言下都一样，不进翻译。
 # 名称同时是存储用的标识，改名会让已保存的勾选和顺序对不上。
 BUILTIN_FORMATS = (
-    ("RGB + HEX", "{r}, {g}, {b}  #{hex}"),
     ("RGB", "{r}, {g}, {b}"),
     ("CSS rgb()", "rgb({r}, {g}, {b})"),
     ("HEX", "#{hex}"),
@@ -26,10 +26,14 @@ BUILTIN_FORMATS = (
     ("CSS hsl()", "hsl({h}, {s}%, {l}%)"),
 )
 _TEMPLATES = dict(BUILTIN_FORMATS)
+# RGB 排在 HEX 前面，所以默认按取色键复制的是 RGB
+DEFAULT_ENABLED = ("RGB", "HEX")
 
-# 早先那版单选下拉的取值 → 现在对应的格式名
+# 早先那版单选下拉的取值 → 现在对应的格式名。
+# "rgb_hex"（RGB + HEX 合并显示）已经没有对应格式了，不再迁移到某一个具体
+# 格式——_migrate_from_legacy 找不到映射时会落回 default_formats()，恰好就是
+# RGB、HEX 都启用，跟老用户原来看到的两个值一致，只是从合并一行变成循环切换。
 _LEGACY_NAMES = {
-    "rgb_hex": "RGB + HEX",
     "rgb": "RGB",
     "rgb_css": "CSS rgb()",
     "hex": "HEX",
@@ -59,10 +63,10 @@ class ColorFormat:
 
 
 def default_formats() -> list[ColorFormat]:
-    """全部预设，默认只启用第一个。"""
+    """全部预设按原顺序排，启用 DEFAULT_ENABLED 里的几个。"""
     return [
-        ColorFormat(name, template, enabled=(index == 0))
-        for index, (name, template) in enumerate(BUILTIN_FORMATS)
+        ColorFormat(name, template, enabled=(name in DEFAULT_ENABLED))
+        for name, template in BUILTIN_FORMATS
     ]
 
 
@@ -118,6 +122,8 @@ def load(config_manager) -> list[ColorFormat]:
 def _migrate_from_legacy(config_manager) -> list[ColorFormat]:
     legacy = config_manager.get_app_setting(LEGACY_SETTING_KEY, "")
     wanted = _LEGACY_NAMES.get(legacy)
+    if wanted is None:
+        return default_formats()
     formats = [
         ColorFormat(name, template, enabled=(name == wanted))
         for name, template in BUILTIN_FORMATS

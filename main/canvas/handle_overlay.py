@@ -8,8 +8,11 @@
 一个外扩过的脏区（历史上就是 `margin = 25` 这个魔数）。猜错一次就是残影，而
 且每加一种新手柄都要重新猜一次。
 
-浮层把"猜"换成了"问"：失效范围直接取自 handle.get_rect() 的并集——手柄画在
-哪里，就失效到哪里，同一个真相源。
+浮层把"猜"换成了"问"：失效范围直接取自 LayerEditor.screen_rect() 的并集——
+手柄画在哪里，就失效到哪里，同一个真相源。
+
+手柄是界面而不是内容，所以在 viewport 坐标里画：锚点跟着视图变换走，方块
+大小和描边保持屏幕像素，钉图缩放后也不会跟着变大变小。
 
 两个反直觉但必须遵守的约束（都是踩出来的）：
 
@@ -40,7 +43,7 @@ from core import safe_event
 class HandleOverlayWidget(QWidget):
     """绘制 LayerEditor 控制点的透明浮层，铺满 viewport，按需局部失效。"""
 
-    # 手柄描边 + 抗锯齿会溢出 get_rect() 一点点
+    # 手柄描边 + 抗锯齿会溢出 screen_rect() 一点点
     EDGE_ALLOWANCE = 3
 
     def __init__(self, view):
@@ -70,19 +73,19 @@ class HandleOverlayWidget(QWidget):
     def _handles_viewport_rect(self) -> QRect:
         """chrome 在 viewport 坐标下的包围盒；没东西可画时返回空矩形。
 
-        范围由 LayerEditor.visual_bounds() 给出——它和 render() 挨在一起，
+        范围由 LayerEditor.screen_bounds() 给出——它和 render() 挨在一起，
         所以浮层不需要知道 chrome 到底画了些什么。
         """
         editor = self._editor()
         if editor is None:
             return QRect()
 
-        bounds = editor.visual_bounds()
+        bounds = editor.screen_bounds()
         if bounds.isNull():
             return QRect()
 
         pad = self.EDGE_ALLOWANCE
-        rect = self._view.viewportTransform().mapRect(bounds).toAlignedRect()
+        rect = bounds.toAlignedRect()
         return rect.adjusted(-pad, -pad, pad, pad).intersected(self.rect())
 
     # ------------------------------------------------------------------
@@ -130,8 +133,7 @@ class HandleOverlayWidget(QWidget):
         painter = QPainter(self)
         try:
             painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-            # 浮层与 viewport 同尺寸同原点，所以 viewportTransform 直接可用
-            painter.setWorldTransform(self._view.viewportTransform())
+            # 浮层与 viewport 同尺寸同原点，editor 给出的屏幕坐标可直接画
             editor.render(painter)
         finally:
             painter.end()

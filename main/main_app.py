@@ -21,7 +21,7 @@ from core.logger import (
 )
 
 # ── 全局版本号 ────────────────────────────────────────────
-APP_VERSION = "2.0.8"
+APP_VERSION = "2.0.9"
 
 
 def create_fallback_app_icon():
@@ -239,7 +239,7 @@ class MainApp(QObject):
         self._update_tray_menu()
         
         # 设置窗口是预加载的，需要重建才能更新翻译。
-        if self.settings_window:
+        if self.settings_window and not getattr(self.settings_window, '_skip_unsaved_close_prompt', False):
             self._recreate_settings_window()
         
         # 关闭翻译窗口（下次打开时会用新语言创建）
@@ -574,9 +574,8 @@ class MainApp(QObject):
 
         if dialog_scale_changed:
             self._recreate_clipboard_manage_dialog()
-            # accepted 信号发出时旧窗口已经隐藏，所以这里明确要求把按新比例
-            # 构造的窗口重新打开，而不是依据旧窗口当前的可见状态。
-            self._recreate_settings_window(reopen=True)
+        if dialog_scale_changed or getattr(accepted_window, '_language_changed_on_apply', False):
+            self._recreate_settings_window(reopen=not getattr(accepted_window, '_close_after_apply', False))
 
     def _recreate_clipboard_manage_dialog(self):
         """Discard the cached clipboard manager UI after window-scale changes."""
@@ -603,9 +602,9 @@ class MainApp(QObject):
     def _recreate_settings_window(self, reopen=None):
         """Rebuild the cached settings UI after a process-wide UI setting changes.
 
-        ``reopen=None`` preserves whether the old window was visible.  Callers
-        running from QDialog.accepted can pass ``True`` because Qt has already
-        hidden the accepted dialog before emitting that signal.
+        ``reopen=None`` preserves whether the old window was visible. Applying
+        settings requests ``True``; saving on close requests ``False`` so that
+        rebuilding the cached window does not cancel the user's close request.
         """
         window = self.settings_window
         if window is None:

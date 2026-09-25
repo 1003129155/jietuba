@@ -5,7 +5,7 @@
 from typing import Optional
 
 from PySide6.QtWidgets import QApplication, QGraphicsView, QGraphicsTextItem
-from PySide6.QtCore import Qt, QPointF, QRectF, QTimer
+from PySide6.QtCore import Qt, QPointF, QRectF, QTimer, QEvent
 from PySide6.QtGui import QPen, QColor, QBrush, QCursor
 import shiboken6
 from canvas.items import (
@@ -169,9 +169,9 @@ class CanvasView(QGraphicsView):
         # 这样内容层的脏区只需要描述内容，不必再为"手柄能凸出多远"外扩。
         from canvas.handle_overlay import HandleOverlayWidget
         self._handle_overlay = HandleOverlayWidget(self)
-        self.smart_edit_controller.layer_editor.repaint_requested = (
-            self.request_handles_repaint
-        )
+        layer_editor = self.smart_edit_controller.layer_editor
+        layer_editor.repaint_requested = self.request_handles_repaint
+        layer_editor.screen_transform = self.viewportTransform
 
         # 手柄位置是图元几何的派生量，所以直接跟着场景变化走，而不是依赖每条
         # 改动路径记得通知。
@@ -213,10 +213,67 @@ class CanvasView(QGraphicsView):
         if viewport is not None:
             viewport.setCursor(cursor)
 
+    def set_fullscreen_crosshair(self, enabled, overlay=None):
+        """Replace the ordinary cross cursor using the existing screenshot mask."""
+        old_overlay = getattr(self, '_crosshair_surface', None)
+        if old_overlay is not None:
+            old_overlay.set_crosshair_position(None)
+        was_active = getattr(self, '_crosshair_active', False)
+        self._crosshair_surface = overlay
+        self._fullscreen_crosshair = bool(enabled and overlay is not None)
+        self._crosshair_active = False
+        self._crosshair_inside = self.viewport().underMouse()
+        self._crosshair_global_pos = QCursor.pos()
+        if was_active:
+            self.setCursor(Qt.CursorShape.CrossCursor)
+        self._sync_fullscreen_crosshair()
+
+    def _sync_fullscreen_crosshair(self):
+        if not getattr(self, '_fullscreen_crosshair', False):
+            return
+        if getattr(self, '_syncing_crosshair', False):
+            return
+        self._syncing_crosshair = True
+        try:
+            viewport = self.viewport()
+            shape = viewport.cursor().shape()
+            if shape == Qt.CursorShape.CrossCursor:
+                self._crosshair_active = True
+                viewport.setCursor(Qt.CursorShape.BlankCursor)
+            elif shape != Qt.CursorShape.BlankCursor:
+                self._crosshair_active = False
+            position = None
+            if self._crosshair_active and self._crosshair_inside:
+                position = self._crosshair_surface.mapFromGlobal(self._crosshair_global_pos)
+            self._crosshair_surface.set_crosshair_position(position)
+        finally:
+            self._syncing_crosshair = False
+
+    def viewportEvent(self, event):
+        if getattr(self, '_fullscreen_crosshair', False):
+            kind = event.type()
+            if kind == QEvent.Type.MouseMove:
+                self._crosshair_inside = True
+                self._crosshair_global_pos = event.globalPosition().toPoint()
+                # Paint before potentially expensive smart-selection processing.
+                self._sync_fullscreen_crosshair()
+            elif kind == QEvent.Type.Enter:
+                self._crosshair_inside = True
+                self._crosshair_global_pos = QCursor.pos()
+                self._sync_fullscreen_crosshair()
+            elif kind in (QEvent.Type.Leave, QEvent.Type.Hide):
+                self._crosshair_inside = False
+                self._sync_fullscreen_crosshair()
+            elif kind == QEvent.Type.CursorChange:
+                # Scene items also set viewport cursors (resize, move, text).
+                self._sync_fullscreen_crosshair()
+        return super().viewportEvent(event)
+
     def cleanup(self):
         """断开会话级信号和引用，避免旧 view 在销毁期收到晚到回调。"""
         if self._is_closed:
             return
+        self.set_fullscreen_crosshair(False)
         self.item_drag.finish(commit=True)
         self._is_closed = True
 
@@ -248,6 +305,7 @@ class CanvasView(QGraphicsView):
         layer_editor = getattr(controller, "layer_editor", None)
         if layer_editor is not None:
             layer_editor.repaint_requested = None
+            layer_editor.screen_transform = None
 
         if controller is not None:
             safe_disconnect(controller.cursor_change_request, self._on_edit_cursor_change)
@@ -1113,7 +1171,11 @@ class CanvasView(QGraphicsView):
             return None
         if event.button() != Qt.MouseButton.LeftButton:
             return None
-        if event.modifiers() != Qt.KeyboardModifier.NoModifier:
+        matcher = getattr(self.window(), "_matches_capture_double_click", None)
+        if callable(matcher):
+            if not matcher(event):
+                return None
+        elif event.modifiers() != Qt.KeyboardModifier.NoModifier:
             return None
         if self.selection_drag.active or self.drawing.active or self.selection_drag.dragging:
             return None
@@ -1144,7 +1206,11 @@ class CanvasView(QGraphicsView):
             return False
         if event.button() != Qt.MouseButton.LeftButton:
             return False
-        if event.modifiers() != Qt.KeyboardModifier.NoModifier:
+        matcher = getattr(self.window(), "_matches_capture_double_click", None)
+        if callable(matcher):
+            if not matcher(event):
+                return False
+        elif event.modifiers() != Qt.KeyboardModifier.NoModifier:
             return False
         if candidate["dragged"] or self.drawing.active or self.selection_drag.active:
             return False
@@ -1162,8 +1228,9 @@ class CanvasView(QGraphicsView):
         if (tool.id if tool else None) != candidate["tool_id"]:
             return False
 
-        handler = getattr(self.window(), "_handle_confirm", None)
-        if not callable(handler):
+        handler = getattr(self.window(), "_handle_double_click", None)
+        confirm_handler = getattr(self.window(), "_handle_confirm", None)
+        if not callable(handler) and not callable(confirm_handler):
             return False
 
         # 下面靠撤销栈的前后差异判断第一下点击留下了什么，前提是它的持久改动
@@ -1218,7 +1285,9 @@ class CanvasView(QGraphicsView):
         self.selection_drag.dragging = False
 
         event.accept()
-        handler()
+        if callable(handler):
+            return bool(handler(event))
+        confirm_handler()
         return True
 
     def invalidate_double_click_candidate(self):

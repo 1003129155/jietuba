@@ -162,6 +162,26 @@ class TestToolSettingsManager:
         reloaded.reset_app_settings()
         assert reloaded.get_double_click_copy_close_enabled() is True
 
+    @pytest.mark.parametrize(("getter_name", "setter_name"), [
+        ("get_ocr_copy_directly_enabled", "set_ocr_copy_directly_enabled"),
+        ("get_barcode_copy_single_enabled", "set_barcode_copy_single_enabled"),
+    ])
+    def test_quick_actions_default_off_persist_and_reset(
+        self, manager, monkeypatch, getter_name, setter_name
+    ):
+        """跳过结果窗口的快捷行为默认关闭：老用户升级后行为不变。"""
+        assert getattr(manager, getter_name)() is False
+
+        getattr(manager, setter_name)(True)
+        manager.qsettings.sync()
+        reloaded = ToolSettingsManager(qsettings=QSettings(
+            manager.qsettings.fileName(), QSettings.Format.IniFormat))
+        assert getattr(reloaded, getter_name)() is True
+
+        monkeypatch.setattr("core.logger.log_info", lambda *_args, **_kwargs: None)
+        reloaded.reset_app_settings()
+        assert getattr(reloaded, getter_name)() is False
+
     @pytest.mark.parametrize(
         ("getter_name", "setter_name", "setting_key"),
         [
@@ -261,11 +281,13 @@ class TestToolSettingsManager:
 
     def test_reset_app_settings_restores_inapp_shortcut_defaults(self, manager):
         manager.set_inapp_shortcut("inapp_confirm", "alt+k")
+        manager.set_inapp_shortcut("inapp_pin", "alt+p")
         manager.set_inapp_shortcut("inapp_tool_text", "")
 
         manager.reset_app_settings()
 
         assert manager.get_inapp_shortcut("inapp_confirm") == "ctrl+c"
+        assert manager.get_inapp_shortcut("inapp_pin") == "mousemiddle"
         assert manager.get_inapp_shortcut("inapp_tool_text") == "t"
 
     def test_translation_provider_configuration(self, manager):

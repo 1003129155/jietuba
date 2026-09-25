@@ -21,6 +21,7 @@ from ...core import ClipboardManager, Group
 from ..menus.group_context_menu import ClipboardGroupContextMenu
 from ..theme.themes import Theme
 from ..theme.theme_styles import ThemeStyleGenerator
+from core.ui_theme import set_own_style
 
 
 class GroupBar(QWidget):
@@ -77,7 +78,7 @@ class GroupBar(QWidget):
         self.bar_layout: Optional[QBoxLayout] = None
         self.group_buttons_widget: QWidget = QWidget(self)
         self.group_buttons_widget.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.group_buttons_widget.setStyleSheet("background: transparent;")
+        set_own_style(self.group_buttons_widget, "background: transparent;")
         self.group_buttons_layout: Optional[QBoxLayout] = None
 
     # ================================================================
@@ -345,7 +346,7 @@ class GroupBar(QWidget):
         # --- 添加按钮到布局 ---
         if is_top:
             self.bar_layout.addWidget(self.clipboard_btn)
-            sep = QFrame(); sep.setFixedWidth(1); sep.setStyleSheet("background: #E0E0E0;")
+            sep = QFrame(); sep.setFixedWidth(1); set_own_style(sep, "background: #E0E0E0;")
             self.bar_layout.addWidget(sep)
             self.bar_layout.addWidget(self.group_buttons_widget)
             self.group_buttons_layout.addWidget(self.add_group_btn)
@@ -353,7 +354,7 @@ class GroupBar(QWidget):
             self.bar_layout.addWidget(self.close_btn)
         else:
             self.bar_layout.addWidget(self.close_btn)
-            sep = QFrame(); sep.setFixedHeight(1); sep.setStyleSheet("background: #E0E0E0;")
+            sep = QFrame(); sep.setFixedHeight(1); set_own_style(sep, "background: #E0E0E0;")
             self.bar_layout.addWidget(sep)
             self.bar_layout.addWidget(self.clipboard_btn)
             self.bar_layout.addWidget(self.group_buttons_widget)

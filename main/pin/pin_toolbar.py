@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QApplication
 
 from ui.toolbar import Toolbar
 from core import safe_event
+from core.ui_theme import set_own_style
 
 
 class PinToolbar(Toolbar):
@@ -188,7 +189,7 @@ if __name__ == "__main__":
     mock_pin = QWidget()
     mock_pin.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
     mock_pin.setGeometry(100, 100, 400, 300)
-    mock_pin.setStyleSheet("background-color: lightblue; border: 2px solid black;")
+    set_own_style(mock_pin, "background-color: lightblue; border: 2px solid black;")
 
     label = QLabel("Mock pin window", mock_pin)
     label.setAlignment(Qt.AlignmentFlag.AlignCenter)

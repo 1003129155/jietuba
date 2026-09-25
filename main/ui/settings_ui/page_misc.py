@@ -7,6 +7,7 @@ from ui.fluent_lite import (
     FluentIcon, ComboBox, CaptionLabel,
 )
 from .components import SettingCardGroup
+from core.ui_theme import set_own_style
 
 
 def create_misc_page(dialog) -> QWidget:
@@ -16,7 +17,7 @@ def create_misc_page(dialog) -> QWidget:
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 
     view = QWidget()
-    view.setStyleSheet("background: transparent;")
+    set_own_style(view, "background: transparent;")
     layout = QVBoxLayout(view)
     layout.setContentsMargins(0, 0, dialog_scaled(10), 0)
     layout.setSpacing(dialog_scaled(20))
@@ -25,14 +26,13 @@ def create_misc_page(dialog) -> QWidget:
     grp_startup = SettingCardGroup(dialog.tr("Startup"), view)
 
     # 开机自启
-    from ..welcome.page6_finish import FinishPage as _FP
     autostart_card = SwitchSettingCard(
         FluentIcon.POWER_BUTTON,
         dialog.tr("Launch on Startup"),
         dialog.tr("Register in Windows startup via registry."),
         parent=grp_startup,
     )
-    autostart_card.setChecked(_FP._get_autostart())
+    autostart_card.setChecked(dialog.config_manager.get_app_setting("autostart_enabled"))
     dialog.autostart_toggle = autostart_card
     grp_startup.addSettingCard(autostart_card)
 

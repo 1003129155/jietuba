@@ -15,6 +15,7 @@ from PySide6.QtGui import QCursor, QColor
 from ._widgets import svg_icon as _svg_icon, ClickMenuButton as _ClickMenuButton
 from core.i18n import make_tr
 from core.ui_scale import get_ui_scale, scaled
+from core.ui_theme import set_own_style
 from core import safe_event
 from core.logger import log_exception, T
 
@@ -218,7 +219,7 @@ class RecordToolbar(QWidget):
 
         # ── 分隔线 ──
         sep = QWidget()
-        sep.setStyleSheet("background: #ccc; border: none;")
+        set_own_style(sep, "background: #ccc; border: none;")
         self._separators.append(sep)
         layout.addWidget(sep)
 
@@ -234,7 +235,7 @@ class RecordToolbar(QWidget):
 
         # ── 分隔线 ──
         sep2 = QWidget()
-        sep2.setStyleSheet("background: #ccc; border: none;")
+        set_own_style(sep2, "background: #ccc; border: none;")
         self._separators.append(sep2)
         layout.addWidget(sep2)
 
@@ -256,7 +257,7 @@ class RecordToolbar(QWidget):
 
         self._move_handle = QLabel()
         self._move_handle.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._move_handle.setStyleSheet("QLabel { background: transparent; border: none; }")
+        set_own_style(self._move_handle, "background: transparent; border: none;")
         self._move_handle.setCursor(QCursor(Qt.CursorShape.SizeAllCursor))
         self._move_handle.mousePressEvent   = self._handle_press
         self._move_handle.mouseMoveEvent    = self._handle_move

@@ -19,7 +19,7 @@ import math
 
 import pytest
 from PySide6.QtCore import QPointF, QRect, QRectF
-from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPainterPath, QPen, QRegion
+from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPainterPath, QPen, QRegion, QTransform
 from PySide6.QtWidgets import QApplication
 
 
@@ -55,11 +55,10 @@ def _select(view, item):
 def _visible_handle_rects(view):
     """每个手柄在 viewport 坐标下、落在视口内的绘制区域。"""
     editor = view.smart_edit_controller.layer_editor
-    transform = view.viewportTransform()
     viewport_rect = view.viewport().rect()
     rects = []
     for handle in editor.handles:
-        painted = transform.mapRect(handle.get_rect()).toAlignedRect()
+        painted = editor.screen_rect(handle).toAlignedRect()
         visible = painted.intersected(viewport_rect)
         if not visible.isEmpty():
             rects.append((handle.handle_type, visible))
@@ -584,3 +583,90 @@ def test_a_destroyed_selection_reads_back_as_no_selection(view):
     # 撤销栈再发一次信号也不能炸
     controller._on_undo_index_changed()
     assert controller.mode in (SelectionMode.NONE, controller.mode)
+
+
+# ---------------------------------------------------------------------------
+# 手柄是界面：屏幕尺寸和点击范围不随视图缩放
+# ---------------------------------------------------------------------------
+
+def _corner_br(editor):
+    from canvas.handle_editor import HandleType
+
+    return next(h for h in editor.handles if h.handle_type == HandleType.CORNER_BR)
+
+
+@pytest.mark.parametrize(
+    "transform",
+    [
+        QTransform.fromScale(0.5, 0.5),
+        QTransform.fromScale(2.0, 2.0),
+        QTransform.fromScale(3.5, 3.5),
+        QTransform().rotate(90) * QTransform.fromScale(-2.0, 2.0),
+    ],
+    ids=["50%", "200%", "350%", "rotated-flipped-200%"],
+)
+def test_handle_keeps_screen_size_and_hit_area_under_view_transform(view, qapp, transform):
+    """钉图缩放是整体缩放 view，手柄不能跟着内容一起变大变小。"""
+    from canvas.handle_editor import LayerEditor
+    from canvas.items import RectItem
+
+    _select(view, RectItem(QRectF(300, 250, 120, 90), QPen(QColor("red"), 3)))
+    view.setTransform(transform)
+    editor = view.smart_edit_controller.layer_editor
+    editor.refresh_handles()
+    corner = _corner_br(editor)
+
+    anchor = view.viewportTransform().map(corner.position)
+    rect = editor.screen_rect(corner)
+    assert rect.width() == pytest.approx(LayerEditor.HANDLE_SIZE)
+    assert rect.center().x() == pytest.approx(anchor.x())
+    assert rect.center().y() == pytest.approx(anchor.y())
+
+    to_scene = view.viewportTransform().inverted()[0]
+    reach = corner.size / 2 + corner.hit_area_padding
+    assert editor.hit_test(to_scene.map(anchor + QPointF(reach - 1, 0))) is corner
+    assert editor.hit_test(to_scene.map(anchor + QPointF(reach + 1, 0))) is not corner
+
+
+def test_zoomed_handles_are_painted_at_screen_size(view, qapp):
+    """浮层实际画出的手柄像素也要是屏幕尺寸，而不只是算出来的矩形。"""
+    from canvas.handle_editor import LayerEditor
+    from canvas.items import RectItem
+
+    # 放在场景中心，放大后视图居中滚动，手柄仍在视口内
+    _select(view, RectItem(QRectF(360, 260, 40, 40), QPen(QColor("red"), 3)))
+    view.scale(3.0, 3.0)
+    qapp.processEvents()
+    editor = view.smart_edit_controller.layer_editor
+    rect = editor.screen_rect(_corner_br(editor))
+    assert view.viewport().rect().contains(rect.toAlignedRect()), "前置条件：手柄应在视口内"
+
+    image = view._handle_overlay.grab().toImage()
+    painted = QRect()
+    # 探测范围只比手柄大一圈：够看出是否被放大，又碰不到内侧的圆角手柄
+    probe = rect.toAlignedRect().adjusted(-4, -4, 4, 4)
+    for x in range(probe.left(), probe.right() + 1):
+        for y in range(probe.top(), probe.bottom() + 1):
+            if image.valid(x, y) and image.pixelColor(x, y).alpha() > 0:
+                painted = painted.united(QRect(x, y, 1, 1))
+
+    assert not painted.isEmpty(), "前置条件：手柄应当画出来了"
+    border = LayerEditor.HANDLE_BORDER_WIDTH
+    assert painted.width() <= LayerEditor.HANDLE_SIZE + border + 2
+
+
+def test_number_button_gap_stays_in_screen_pixels(view, qapp):
+    from canvas.handle_editor import HandleType, LayerEditor
+    from canvas.items import NumberItem
+
+    _select(view, NumberItem(3, QPointF(200, 200), 18.0, QColor("red")))
+    view.scale(2.5, 2.5)
+    editor = view.smart_edit_controller.layer_editor
+    editor.refresh_handles()
+    by_type = {h.handle_type: h for h in editor.handles}
+
+    plus = editor.screen_center(by_type[HandleType.NUMBER_INCREMENT])
+    minus = editor.screen_center(by_type[HandleType.NUMBER_DECREMENT])
+    step = LayerEditor.FUNCTIONAL_HANDLE_SIZE + LayerEditor.NUMBER_BUTTON_GAP
+    assert minus.x() == pytest.approx(plus.x())
+    assert minus.y() - plus.y() == pytest.approx(step)

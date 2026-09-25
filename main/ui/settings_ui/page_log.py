@@ -16,6 +16,7 @@ from ui.fluent_lite import (
     PushButton, card_right_margin,
 )
 from .components import SettingCardGroup, WhiteCard, apply_theme_text_style
+from core.ui_theme import set_own_style
 
 
 def create_log_page(dialog) -> QWidget:
@@ -25,7 +26,7 @@ def create_log_page(dialog) -> QWidget:
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 
     view = QWidget()
-    view.setStyleSheet("background: transparent;")
+    set_own_style(view, "background: transparent;")
     layout = QVBoxLayout(view)
     layout.setContentsMargins(0, 0, dialog_scaled(10), 0)
     layout.setSpacing(dialog_scaled(20))

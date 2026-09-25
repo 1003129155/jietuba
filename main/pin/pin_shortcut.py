@@ -16,7 +16,12 @@ from core.logger import T
 from core.shortcut_manager import (
     ShortcutManager, ShortcutHandler, event_key,
     load_inapp_bindings, load_inapp_mouse_bindings, match_inapp_binding,
+    mouse_gesture_binding_matches,
 )
+
+
+def mouse_binding_matches(binding, event, gesture):
+    return mouse_gesture_binding_matches(binding, event, gesture)
 
 
 class _PinHandlerBase(ShortcutHandler):
@@ -37,6 +42,8 @@ class _PinHandlerBase(ShortcutHandler):
         """重新读取配置（设置变更后调用）"""
         self._bindings = load_inapp_bindings(self._PIN_KEYS)
         self._mouse_bindings = load_inapp_mouse_bindings(self._PIN_KEYS)
+        # Mouse reset is managed by the dedicated mouse settings (including migration).
+        self._mouse_bindings.pop("inapp_pin_reset_size", None)
 
     def _find_pin_under_cursor(self):
         return self._controller._find_pin_under_cursor()
@@ -218,6 +225,7 @@ class PinNormalShortcutHandler(_PinHandlerBase):
         # 非编辑模式才激活
         if pin.canvas and pin.canvas.is_editing:
             return False
+
         return True
 
     def handle_key(self, event) -> bool:
@@ -230,6 +238,9 @@ class PinNormalShortcutHandler(_PinHandlerBase):
         key = event_key(event)
 
         if self._handle_shared(pin, event):
+            return True
+
+        if hasattr(pin, 'handle_mouse_alternative_key') and pin.handle_mouse_alternative_key(event):
             return True
 
         # 切换缩略图模式
@@ -325,4 +336,3 @@ class PinShortcutController(QObject):
             return not getattr(win, '_is_closed', True)
         except RuntimeError:
             return False
- 

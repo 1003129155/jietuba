@@ -61,6 +61,7 @@ def test_build_context_menu_for_grouped_text_item_uses_rule_table(monkeypatch):
         "special_paste_menu",
         "toggle_pin",
         "move_group_menu",
+        "quick_edit_item",
         "edit_item",
         "move_item_up",
         "move_item_down",

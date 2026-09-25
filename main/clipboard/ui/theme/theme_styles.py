@@ -259,6 +259,50 @@ class ThemeStyleGenerator:
             }}
         """
 
+    def generate_quick_edit_style(self) -> str:
+        """生成快速编辑浮层样式"""
+        return f"""
+            QuickEditPopup {{
+                background: {self.colors.bg_primary};
+                border: 1px solid {self.colors.border_accent};
+                border-radius: 8px;
+            }}
+            QTextEdit {{
+                background: {self.colors.bg_primary};
+                border: 1px solid {self.colors.border_primary};
+                border-radius: 4px;
+                padding: 4px 6px;
+                font-size: 13px;
+                color: {self.colors.text_primary};
+            }}
+            QTextEdit:focus {{
+                border-color: {self.colors.border_accent};
+            }}
+            QLabel {{
+                color: {self.colors.text_tertiary};
+                font-size: 12px;
+            }}
+            QPushButton {{
+                background: {self.colors.bg_secondary};
+                color: {self.colors.text_primary};
+                border: 1px solid {self.colors.border_primary};
+                border-radius: 4px;
+                padding: 4px 12px;
+                font-size: 12px;
+            }}
+            QPushButton:hover {{
+                background: {self.colors.bg_hover};
+            }}
+            QPushButton#primary {{
+                background: {self.colors.accent_primary};
+                color: white;
+                border: none;
+            }}
+            QPushButton#primary:hover {{
+                background: {self.colors.accent_hover};
+            }}
+        """
+
     def generate_menu_style(self) -> str:
         """生成右键菜单样式"""
         return f"""

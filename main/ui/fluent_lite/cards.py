@@ -6,7 +6,7 @@ from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from core.ui_scale import dialog_scaled
-from core.ui_theme import get_ui_theme
+from core.ui_theme import get_ui_theme, set_own_style
 
 from .labels import BodyLabel, CaptionLabel
 from .switch import SwitchButton
@@ -70,7 +70,7 @@ class SettingCard(QFrame):
         self.iconLabel.setFixedSize(dialog_scaled(24), dialog_scaled(24))
         self.iconLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.iconLabel.setPixmap(to_qicon(icon).pixmap(dialog_scaled(20), dialog_scaled(20)))
-        self.iconLabel.setStyleSheet("background: transparent; border: none;")
+        set_own_style(self.iconLabel, "background: transparent; border: none;")
         self.hBoxLayout.addWidget(self.iconLabel)
 
         self._text_layout = QVBoxLayout()
@@ -85,7 +85,7 @@ class SettingCard(QFrame):
         self.hBoxLayout.addLayout(self._text_layout, 1)
 
         self.controlContainer = QWidget(self)
-        self.controlContainer.setStyleSheet("background: transparent; border: none;")
+        set_own_style(self.controlContainer, "background: transparent; border: none;")
         self.controlLayout = QHBoxLayout(self.controlContainer)
         self.controlLayout.setContentsMargins(0, 0, 0, 0)
         self.controlLayout.setSpacing(dialog_scaled(8))
@@ -103,11 +103,11 @@ class SettingCard(QFrame):
         self.iconLabel.setPixmap(
             to_qicon(self._theme_icon, self).pixmap(dialog_scaled(20), dialog_scaled(20))
         )
-        self.titleLabel.setStyleSheet(
+        set_own_style(self.titleLabel,
             f"color: {t.text}; font: 600 {dialog_scaled(13)}px {FONT_FAMILY}; "
             "background: transparent; border: none;"
         )
-        self.contentLabel.setStyleSheet(
+        set_own_style(self.contentLabel,
             f"color: {t.text_muted}; font: {dialog_scaled(12)}px {FONT_FAMILY}; "
             "background: transparent; border: none;"
         )
@@ -205,7 +205,7 @@ class SettingCardGroup(QWidget):
 
     def _apply_theme(self, _tokens=None):
         t = ui_tokens(self)
-        self.titleLabel.setStyleSheet(
+        set_own_style(self.titleLabel,
             f"color: {t.text}; font: 600 {dialog_scaled(12)}px {FONT_FAMILY}; "
             f"padding: {dialog_scaled(2)}px {dialog_scaled(8)}px 0 {dialog_scaled(8)}px; background: transparent;"
         )
@@ -217,7 +217,7 @@ class SettingCardGroup(QWidget):
             }}
         """)
         for separator in self._separators:
-            separator.setStyleSheet(
+            set_own_style(separator,
                 f"background: {t.separator}; border: none; margin-left: {dialog_scaled(52)}px;"
             )
 
@@ -225,7 +225,7 @@ class SettingCardGroup(QWidget):
         if self._cards:
             separator = QFrame(self._card_container)
             separator.setFixedHeight(dialog_scaled(1))
-            separator.setStyleSheet(
+            set_own_style(separator,
                 f"background: {ui_tokens(self).separator}; border: none; margin-left: {dialog_scaled(52)}px;"
             )
             self.cardLayout.addWidget(separator)

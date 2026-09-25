@@ -94,7 +94,7 @@ OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_det
 |------|------|------|------|
 | [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.3.1 | GIF/视频合成编码器 |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | 长截图拼接算法 |
-| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.2 | 剪贴板底层操作 |
+| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.4 | 剪贴板底层操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
 
 预编译包面向 Windows x86_64 和 ARM64；各包的 Python 版本声明均为 `>=3.11`，Rust 绑定均启用了 `abi3-py311`，详见各包的 `pyproject.toml` 和 `Cargo.toml`。
@@ -321,6 +321,7 @@ clipboard/
 │   │   ├── item_delegate.py
 │   │   ├── item_widget.py
 │   │   ├── preview_popup.py
+│   │   ├── quick_edit_popup.py
 │   │   ├── manage_rows.py
 │   │   └── reorder_list.py
 │   └── windows/
@@ -652,6 +653,7 @@ ui/
 ├── tray_menu.py             # TrayMenu — 系统托盘菜单
 ├── screenshot_window.py     # ScreenshotWindow — 截图主窗口（全屏覆盖、选区绘制）
 ├── dialogs.py               # StandardDialog / 对话框函数集 — 确认、警告、信息、错误对话框
+├── toast.py                 # Toast — 光标旁不抢焦点的一行轻提示
 ├── magnifier.py             # MagnifierOverlay — 放大镜覆盖层（像素级取色）
 ├── color_picker_dialog.py   # ColorPickerDialog — 自定义HSV颜色选择器
 ├── color_picker_button.py   # ColorPickerButton — 颜色选择按钮
@@ -681,6 +683,7 @@ ui/
 │   ├── components.py        # SettingCardGroup / ToggleSwitch — 设置组件库
 │   ├── page_appearance.py   # 外观设置页（主题、语言等）
 │   ├── page_capture.py      # 截图设置页
+│   ├── page_quick_actions.py # 快捷行为设置页（跳过确认或结果窗口）
 │   ├── color_format_dialog.py # ColorFormatDialog — 放大镜颜色格式管理窗口
 │   ├── page_clipboard.py    # 剪贴板设置页
 │   ├── page_hotkey.py       # 快捷键设置页

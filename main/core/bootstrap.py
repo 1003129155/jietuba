@@ -434,7 +434,7 @@ class PreloadManager:
             log_debug(T("预加载设置窗口..."), "Preload")
             current_hotkey = self.config.get_hotkey()
             self.app.settings_window = SettingsDialog(self.config, current_hotkey)
-            self.app.settings_window.accepted.connect(self.app.on_settings_accepted)
+            self.app.settings_window.settings_applied.connect(self.app.on_settings_accepted)
             self.app.settings_window.wizard_requested.connect(self.app._on_wizard_requested)
             log_debug(T("设置窗口预加载完成"), "Preload")
     

@@ -869,11 +869,40 @@ impl Database {
     }
     
     /// 更新内容项（标题和内容）
+    ///
+    /// 内容变化时一并清掉 html_content 和原始格式：粘贴优先按原始格式还原，
+    /// 留着会粘出编辑前的内容。只改标题时保留，避免无谓丢失富文本。
     pub fn update_item(&self, id: i64, title: Option<&str>, content: &str) -> Result<(), String> {
-        self.conn.execute(
-            "UPDATE clipboard SET title = ?, content = ?, updated_at = ? WHERE id = ?",
-            params![title, content, chrono::Local::now().timestamp(), id],
+        let now = chrono::Local::now().timestamp();
+        let content_changed = match self.conn.query_row(
+            "SELECT content FROM clipboard WHERE id = ?",
+            params![id],
+            |row| row.get::<_, String>(0),
+        ) {
+            Ok(old) => old != content,
+            Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(()),
+            Err(e) => return Err(format!("更新内容失败: {}", e)),
+        };
+
+        if !content_changed {
+            self.conn.execute(
+                "UPDATE clipboard SET title = ?, updated_at = ? WHERE id = ?",
+                params![title, now, id],
+            ).map_err(|e| format!("更新内容失败: {}", e))?;
+            return Ok(());
+        }
+
+        let tx = self.conn.unchecked_transaction()
+            .map_err(|e| format!("更新内容失败: {}", e))?;
+        tx.execute(
+            "UPDATE clipboard SET title = ?, content = ?, html_content = NULL, char_count = ?, updated_at = ? WHERE id = ?",
+            params![title, content, content.chars().count() as i64, now, id],
         ).map_err(|e| format!("更新内容失败: {}", e))?;
+        tx.execute(
+            "DELETE FROM clipboard_formats WHERE event_id = ?",
+            params![id],
+        ).map_err(|e| format!("删除 formats 失败: {}", e))?;
+        tx.commit().map_err(|e| format!("更新内容失败: {}", e))?;
         Ok(())
     }
 
@@ -1027,5 +1056,50 @@ impl Database {
         ).map_err(|e| format!("清理失败: {}", e))?;
         
         Ok(deleted as i64)
+    }
+}
+
+#[cfg(test)]
+mod update_item_tests {
+    use super::Database;
+    use crate::types::PyClipboardItem;
+
+    fn db_with_captured_text(text: &str) -> (Database, i64) {
+        let db = Database::new(":memory:").unwrap();
+        let mut item = PyClipboardItem::new(0, text.to_string(), "text".to_string());
+        item.html_content = Some(format!("<b>{}</b>", text));
+        let id = db.insert_item(&item).unwrap();
+        let raw: Vec<u8> = format!("{}\0", text).encode_utf16().flat_map(u16::to_le_bytes).collect();
+        db.insert_formats(id, &[(13, "CF_UNICODETEXT".to_string(), raw)]).unwrap();
+        (db, id)
+    }
+
+    #[test]
+    fn editing_content_drops_stale_formats_and_html() {
+        let (db, id) = db_with_captured_text("旧内容");
+        db.update_item(id, None, "新内容").unwrap();
+
+        let item = db.get_item_by_id(id).unwrap().unwrap();
+        assert_eq!(item.content, "新内容");
+        assert_eq!(item.html_content, None);
+        assert_eq!(item.char_count, Some(3));
+        assert!(db.get_formats(id).unwrap().is_empty());
+    }
+
+    #[test]
+    fn editing_only_title_keeps_rich_formats() {
+        let (db, id) = db_with_captured_text("内容");
+        db.update_item(id, Some("标题"), "内容").unwrap();
+
+        let item = db.get_item_by_id(id).unwrap().unwrap();
+        assert_eq!(item.title.as_deref(), Some("标题"));
+        assert_eq!(item.html_content.as_deref(), Some("<b>内容</b>"));
+        assert_eq!(db.get_formats(id).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn updating_missing_item_is_a_no_op() {
+        let db = Database::new(":memory:").unwrap();
+        assert!(db.update_item(42, None, "x").is_ok());
     }
 }

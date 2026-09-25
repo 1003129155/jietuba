@@ -12,8 +12,10 @@
 - PinTranslationHelper：翻译功能助手
 """
 
-from PySide6.QtWidgets import QWidget, QLabel, QApplication
-from PySide6.QtCore import Qt, QPoint, QTimer, Signal, QRectF, QEvent
+import math
+
+from PySide6.QtWidgets import QWidget, QLabel, QApplication, QRubberBand
+from PySide6.QtCore import Qt, QPoint, QTimer, Signal, QRect, QRectF, QEvent
 from PySide6.QtGui import (
     QPixmap, QImage, QPainter, QMouseEvent, QWheelEvent, QKeyEvent,
     QTransform,
@@ -30,6 +32,8 @@ from core import log_debug, log_info, log_warning, log_error, safe_event
 from core.theme import get_theme
 from core.logger import log_exception, T
 from core.clipboard_utils import deliver_image_async
+from settings.tool_settings import PIN_MOUSE_ACTIONS, get_pin_mouse_binding
+from .pin_shortcut import mouse_binding_matches
 
 
 class PinWindow(QWidget):
@@ -80,6 +84,14 @@ class PinWindow(QWidget):
         self._drag_start_pos = QPoint()
         self._drag_start_window_pos = QPoint()
         self._last_hover_state = False
+        self._mouse_gesture = None
+        self._mouse_swallow_release = None
+        self._mouse_band = None
+        self._mouse_click_timer = QTimer(self)
+        self._mouse_click_timer.setSingleShot(True)
+        self._mouse_click_timer.timeout.connect(self._finish_mouse_click)
+        self._pending_mouse_action = None
+        self._pending_mouse_position = None
 
         # ====== 设置窗口属性 ======
         self.setWindowFlags(
@@ -115,7 +127,7 @@ class PinWindow(QWidget):
         # ====== 缩放百分比提示 ======
         self._zoom_label = QLabel(self)
         self._zoom_label.setStyleSheet(
-            "QLabel {"
+            ".QLabel {"
             "  color: #2EC4B6;"
             "  background: rgba(0, 0, 0, 160);"
             "  border-radius: 4px;"
@@ -353,10 +365,11 @@ class PinWindow(QWidget):
         else:
             self.view.scale(scale_x, scale_y)
 
-        # 通知光标管理器更新缩放（光标大小跟随视觉缩放）
+        # 画笔宽度按图片像素存储，光标要跟随视觉缩放才能预览真实落笔粗细。
+        # 取行列式而不是 scale_x：旋转 90°/270° 时宽高互换，scale_x 不是实际缩放。
         cursor_mgr = getattr(self.view, 'cursor_manager', None)
         if cursor_mgr:
-            cursor_mgr.update_view_scale(float(scale_x))
+            cursor_mgr.update_view_scale(math.sqrt(abs(self.view.transform().determinant())))
 
     def _refresh_background_for_scale(self):
         if not getattr(self, 'canvas', None) or not getattr(self.canvas, 'scene', None):
@@ -448,6 +461,9 @@ class PinWindow(QWidget):
 
     @safe_event
     def mousePressEvent(self, event: QMouseEvent):
+        if self._handle_mouse_gesture(event):
+            event.accept()
+            return
         self._set_hover_state(True)
         if event.button() == Qt.MouseButton.LeftButton and not (self.canvas and self.canvas.is_editing):
             self.start_window_drag(event.globalPosition().toPoint())
@@ -457,6 +473,9 @@ class PinWindow(QWidget):
 
     @safe_event
     def mouseMoveEvent(self, event: QMouseEvent):
+        if self._handle_mouse_gesture(event):
+            event.accept()
+            return
         self._set_hover_state(True)
         if self._is_dragging:
             self.update_window_drag(event.globalPosition().toPoint())
@@ -466,6 +485,9 @@ class PinWindow(QWidget):
 
     @safe_event
     def mouseReleaseEvent(self, event: QMouseEvent):
+        if self._handle_mouse_gesture(event):
+            event.accept()
+            return
         if event.button() == Qt.MouseButton.LeftButton and self._is_dragging:
             self.end_window_drag()
             event.accept()
@@ -482,13 +504,25 @@ class PinWindow(QWidget):
             event.ignore()
             return
         delta = event.angleDelta().y()
-        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            # Ctrl + 滚轮：调整窗口透明度，每格 ±5%
+        if delta == 0:
+            event.ignore()
+            return
+        config = getattr(self, 'config_manager', None)
+        zoom = mouse_binding_matches(get_pin_mouse_binding(config, "zoom"), event, "wheel")
+        opacity = mouse_binding_matches(get_pin_mouse_binding(config, "opacity"), event, "wheel")
+        if zoom or opacity:
+            PinWindow._adjust_mouse_value(self, "zoom" if zoom else "opacity", delta)
+        else:
+            event.ignore()
+
+    def _adjust_mouse_value(self, action, delta):
+        if action == "opacity":
+            # 调整窗口透明度，每格 ±5%
             step = 0.05 if delta > 0 else -0.05
             self._win_opacity = max(0.15, min(1.0, self._win_opacity + step))
             self.setWindowOpacity(self._win_opacity)
             self._show_hint_label(f"α {int(self._win_opacity * 100)}%")
-        else:
+        elif action == "zoom":
             # 普通滚轮：调整窗口大小
             self._is_scaling = True
             # 缩小必须使用放大倍率的倒数，否则放大后再缩小会产生累计误差。
@@ -518,6 +552,143 @@ class PinWindow(QWidget):
             self.update()
             self._scale_timer.start()
             self._show_zoom_percent()
+
+    def handle_mouse_alternative_key(self, event):
+        from core.shortcut_manager import event_key, _split_modifiers
+
+        key = event_key(event)
+        if key not in (Qt.Key.Key_Plus, Qt.Key.Key_Equal, Qt.Key.Key_Minus):
+            return False
+        if QApplication.activeModalWidget() is not None or self._thumbnail_mode:
+            return False
+        modifier_options = [event.modifiers()]
+        # Prefer an explicit Shift binding, then allow Shift used to type '+'.
+        if key == Qt.Key.Key_Plus:
+            modifier_options.append(event.modifiers() & ~Qt.KeyboardModifier.ShiftModifier)
+        for modifiers in modifier_options:
+            for action in ("zoom", "opacity"):
+                binding = get_pin_mouse_binding(self.config_manager, action)
+                if not binding:
+                    continue
+                expected, _parts = _split_modifiers(binding)
+                if modifiers == expected:
+                    self._adjust_mouse_value(action, 120 if key != Qt.Key.Key_Minus else -120)
+                    return True
+        return False
+
+    def _matching_mouse_action(self, event, gesture):
+        for action, _label, _default, kind in PIN_MOUSE_ACTIONS:
+            if kind != "wheel" and mouse_binding_matches(
+                get_pin_mouse_binding(self.config_manager, action), event, gesture
+            ):
+                if action == "copy_text":
+                    layer = self.ocr_text_layer
+                    if not layer or not layer.get_selected_text():
+                        continue
+                return action
+        return None
+
+    def _run_mouse_action(self, action, position=None):
+        if self._is_closed:
+            return
+        if action == "close":
+            self.close_window()
+        elif action == "reset" and not self._thumbnail_mode:
+            self.reset_to_original_size()
+        elif action == "thumbnail":
+            self.toggle_thumbnail_mode()
+        elif action == "copy_text" and self.ocr_text_layer:
+            self.ocr_text_layer._copy_selected_text()
+        elif action == "context_menu" and position is not None:
+            self.show_context_menu(position)
+
+    def _finish_mouse_click(self):
+        action = self._pending_mouse_action
+        position = self._pending_mouse_position
+        self._pending_mouse_action = None
+        self._pending_mouse_position = None
+        self._run_mouse_action(action, position)
+
+    def _handle_mouse_gesture(self, event):
+        if self._is_closed or (self.canvas and self.canvas.is_editing):
+            return False
+        if QApplication.activeModalWidget() is not None:
+            return False
+        kind = event.type()
+        if kind not in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseButtonDblClick,
+                        QEvent.Type.MouseMove, QEvent.Type.MouseButtonRelease):
+            return False
+        names = {Qt.MouseButton.LeftButton: "left", Qt.MouseButton.MiddleButton: "middle",
+                 Qt.MouseButton.RightButton: "right"}
+        button = event.button()
+        gesture = names.get(button)
+        if kind == QEvent.Type.MouseButtonRelease and button == self._mouse_swallow_release:
+            self._mouse_swallow_release = None
+            return True
+        if kind == QEvent.Type.MouseButtonDblClick and gesture:
+            action = self._matching_mouse_action(event, "double" + gesture)
+            if action:
+                self._mouse_click_timer.stop()
+                self._pending_mouse_action = None
+                self._pending_mouse_position = None
+                self._mouse_gesture = None
+                self.end_window_drag()
+                self.view._window_dragging = False
+                self._mouse_swallow_release = button
+                self._run_mouse_action(action)
+                return True
+        if kind == QEvent.Type.MouseButtonPress and gesture:
+            action = self._matching_mouse_action(event, gesture)
+            region = self._matching_mouse_action(event, "drag" + gesture) == "region"
+            defer_menu = gesture == "right" and self._matching_mouse_action(event, "doubleright") is not None
+            if action or (region and not self._thumbnail_mode) or defer_menu:
+                self._mouse_gesture = (button, event.globalPosition().toPoint(), action, region)
+                return True
+        state = self._mouse_gesture
+        if state is None:
+            return False
+        drag_button, start, action, region = state
+        current = event.globalPosition().toPoint()
+        dragged = (current - start).manhattanLength() >= QApplication.startDragDistance()
+        if kind == QEvent.Type.MouseMove:
+            if region and dragged:
+                if self._mouse_band is None:
+                    self._mouse_band = QRubberBand(QRubberBand.Shape.Rectangle, self.view.viewport())
+                rect = QRect(self.view.viewport().mapFromGlobal(start),
+                             self.view.viewport().mapFromGlobal(current)).normalized()
+                self._mouse_band.setGeometry(rect.intersected(self.view.viewport().rect()))
+                self._mouse_band.show()
+                self._mouse_band.raise_()
+            return True
+        if kind == QEvent.Type.MouseButtonRelease and button == drag_button:
+            self._mouse_gesture = None
+            if self._mouse_band is not None:
+                self._mouse_band.hide()
+            if region and dragged:
+                rect = QRect(self.view.viewport().mapFromGlobal(start),
+                             self.view.viewport().mapFromGlobal(current)).normalized()
+                rect = rect.intersected(self.view.viewport().rect())
+                if rect.width() > 2 and rect.height() > 2:
+                    self._thumbnail.enter_region(self.view.mapToScene(rect).boundingRect())
+            elif not dragged:
+                if action is None and button == Qt.MouseButton.RightButton:
+                    action = "context_menu"
+                if action:
+                    if self._matching_mouse_action(event, "double" + names[button]):
+                        self._pending_mouse_action = action
+                        self._pending_mouse_position = current
+                        self._mouse_click_timer.start(QApplication.doubleClickInterval())
+                    else:
+                        self._run_mouse_action(action, current)
+            return True
+        return False
+
+    @safe_event
+    def mouseDoubleClickEvent(self, event):
+        if self._handle_mouse_gesture(event):
+            event.accept()
+            return
+        super().mouseDoubleClickEvent(event)
 
     def _apply_smooth_scaling(self):
         if self._is_closed:
@@ -559,6 +730,9 @@ class PinWindow(QWidget):
 
     @safe_event
     def eventFilter(self, obj, event):
+        if self.view and obj in (self.view.viewport(), self.ocr_text_layer):
+            if self._handle_mouse_gesture(event):
+                return True
         if self.view and obj == self.view.viewport():
             if event.type() in (QEvent.Type.Enter, QEvent.Type.HoverEnter, QEvent.Type.MouseMove):
                 self._set_hover_state(True)

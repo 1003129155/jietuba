@@ -4,12 +4,13 @@
 """
 from PySide6.QtWidgets import (
     QWidget, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QSizePolicy,
+    QAbstractScrollArea, QAbstractSpinBox, QApplication, QComboBox,
 )
-from PySide6.QtCore import QRect, QRectF, QSize, Qt, Signal
+from PySide6.QtCore import QEvent, QObject, QRect, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QPainter
 from core import safe_event
 from core.ui_scale import dialog_scaled
-from core.ui_theme import get_ui_theme
+from core.ui_theme import get_ui_theme, set_own_style
 
 from ui.fluent_lite import (
     SwitchButton, SimpleCardWidget, SwitchSettingCard as _SwitchSettingCard, SettingCardGroup as _SettingCardGroupBase,
@@ -26,6 +27,33 @@ FEATURE_TONES = {
     "translate": (("#E9E4F3", "#7A63A8"), ("rgba(183, 163, 227, 0.16)", "#B7A3E3")),
     "neutral": (("#E3EAF0", "#526D85"), ("rgba(111, 143, 171, 0.20)", "#AFC3D4")),
 }
+
+
+class _WheelPassThrough(QObject):
+    """把滚轮事件转交给最近的外层滚动区，控件自身不处理。
+
+    显式转发而不是 ignore 后等 Qt 冒泡：非系统产生的滚轮事件 Qt 不会冒泡。
+    """
+
+    def eventFilter(self, obj, event):
+        if event.type() != QEvent.Type.Wheel:
+            return False
+        parent = obj.parentWidget()
+        while parent is not None and not isinstance(parent, QAbstractScrollArea):
+            parent = parent.parentWidget()
+        if parent is not None:
+            QApplication.sendEvent(parent.viewport(), event)
+        # 已转发过，标记接受以免 Qt 再沿父链冒泡一次。
+        event.accept()
+        return True
+
+
+def disable_wheel_on_value_controls(root: QWidget) -> None:
+    """设置页滚动时指针常会停在下拉框/数值框上，不能让滚轮改掉它们的值。"""
+    wheel_filter = _WheelPassThrough(root)
+    for widget in root.findChildren(QWidget):
+        if isinstance(widget, (QComboBox, QAbstractSpinBox)):
+            widget.installEventFilter(wheel_filter)
 
 
 def theme_color(light: str, dark: str) -> str:
@@ -212,7 +240,7 @@ class HLine(QFrame):
         super().__init__()
         self.setFrameShape(QFrame.Shape.HLine)
         self.setFrameShadow(QFrame.Shadow.Sunken)
-        self.setStyleSheet("background-color: #F0F0F0; border: none; max-height: 1px;")
+        set_own_style(self, "background-color: #F0F0F0; border: none; max-height: 1px;")
 
 
 # ── Fluent 辅助 ──────────────────────────────────────
@@ -239,7 +267,7 @@ class TransparentCard(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFrameShape(QFrame.Shape.NoFrame)
-        self.setStyleSheet("background: transparent; border: none;")
+        set_own_style(self, "background: transparent; border: none;")
 
 
 class WhiteCard(QFrame):

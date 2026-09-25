@@ -23,12 +23,14 @@ from ui.settings_ui import page_appearance, page_clipboard, page_hotkey, page_tr
 
 
 class _Edit:
-    """假快捷键输入框：记录 setText 与 blockSignals 的调用"""
+    """假快捷键输入框：记录 setText / blockSignals / setErrorState / setToolTip 的调用"""
 
     def __init__(self, text=""):
         self._text = text
         self.set_texts = []
         self.block_calls = []
+        self.error_states = []
+        self.tooltips = []
 
     def text(self):
         return self._text
@@ -39,6 +41,12 @@ class _Edit:
 
     def blockSignals(self, value):
         self.block_calls.append(value)
+
+    def setErrorState(self, value):
+        self.error_states.append(value)
+
+    def setToolTip(self, value):
+        self.tooltips.append(value)
 
 
 class _Visibility:
@@ -156,27 +164,46 @@ class TestApplySizeToLabel:
 # page_hotkey：按键表与同组冲突检测
 # ============================================================================
 
+_ALL_TABLES = (
+    page_hotkey.SCREENSHOT_KEYS, page_hotkey.TOOL_KEYS, page_hotkey.PIN_KEYS,
+    page_hotkey.CLIPBOARD_KEYS, page_hotkey.CLIPBOARD_EDITOR_KEYS,
+)
+
+
 class TestShortcutKeyTables:
     """常量表是冲突检测和默认值回退的数据源，结构错了两处逻辑一起失效"""
 
     def test_every_entry_is_a_key_label_default_triple(self):
-        for table in (page_hotkey.SCREENSHOT_KEYS, page_hotkey.TOOL_KEYS, page_hotkey.PIN_KEYS):
+        for table in _ALL_TABLES:
             for entry in table:
                 assert len(entry) == 3, entry
                 cfg_key, label, default = entry
                 assert cfg_key.startswith("inapp_"), cfg_key
                 assert label and isinstance(label, str)
-                assert default and isinstance(default, str)
+                # 空串是合法默认值：该项的出厂绑定改由专属的鼠标动作设置承载
+                # （如 inapp_pin_reset_size），这里留空避免重复定义。
+                assert isinstance(default, str)
 
-    def test_combined_table_is_the_concatenation_of_both_groups(self):
-        assert page_hotkey.INAPP_KEYS == (
-            page_hotkey.SCREENSHOT_KEYS + page_hotkey.TOOL_KEYS + page_hotkey.PIN_KEYS
-        )
+    def test_combined_table_is_the_concatenation_of_all_groups(self):
+        assert page_hotkey.INAPP_KEYS == sum(_ALL_TABLES, [])
 
     def test_config_keys_are_unique_within_each_group(self):
-        for table in (page_hotkey.SCREENSHOT_KEYS, page_hotkey.PIN_KEYS):
+        for table in (
+            page_hotkey.SCREENSHOT_KEYS, page_hotkey.PIN_KEYS,
+            page_hotkey.CLIPBOARD_KEYS + page_hotkey.CLIPBOARD_EDITOR_KEYS,
+        ):
             keys = [entry[0] for entry in table]
             assert len(keys) == len(set(keys)), keys
+
+    def test_screenshot_action_labels_match_mouse_action_labels(self):
+        """同一个截图动作不应因触发方式不同而显示两套名称。"""
+        from settings.tool_settings import CAPTURE_MOUSE_ACTIONS
+
+        mouse_labels = {action: label for action, label, _default, _kind in CAPTURE_MOUSE_ACTIONS}
+        shortcut_labels = {cfg_key: label for cfg_key, label, _default in page_hotkey.SCREENSHOT_KEYS}
+
+        assert shortcut_labels["inapp_confirm"] == mouse_labels["copy"]
+        assert shortcut_labels["inapp_pin"] == mouse_labels["pin"]
 
     def test_defaults_match_the_factory_settings(self):
         """表里的默认值是 APP_DEFAULT_SETTINGS 的副本，两边对不上就会恢复出错"""
@@ -188,7 +215,7 @@ class TestShortcutKeyTables:
 
 
 def _factory_default(key):
-    for table in (page_hotkey.SCREENSHOT_KEYS, page_hotkey.TOOL_KEYS, page_hotkey.PIN_KEYS):
+    for table in _ALL_TABLES:
         for cfg, _tr, default in table:
             if cfg == key:
                 return default
@@ -210,6 +237,64 @@ def _hotkey_dialog(edits, groups, stored=None):
 
 
 class TestShortcutConflictDetection:
+
+    def test_save_time_warning_lists_every_mouse_conflict_and_owner(self):
+        class _Binding:
+            def __init__(self, value):
+                self.value = value
+
+            def currentData(self):
+                return self.value
+
+        dialog = SimpleNamespace(
+            _behavior_controls={
+                "mouse_capture_copy": _Binding("middle"),
+                "mouse_capture_pin": _Binding("middle"),
+                "mouse_capture_save": _Binding("doubleleft"),
+                "mouse_capture_quick_save": _Binding("doubleleft"),
+                "mouse_pin_zoom": _Binding("wheel"),
+                "mouse_pin_opacity": _Binding("wheel"),
+            },
+            _inapp_edits={},
+            _inapp_groups={},
+            tr=lambda text: text,
+        )
+
+        conflicts = page_hotkey.mouse_binding_conflicts(dialog)
+
+        assert conflicts == [
+            ("Screenshot Shortcuts", "Middle Click",
+             ("Copy to Clipboard (Mouse Shortcuts)",
+              "Pin to Screen (Mouse Shortcuts)")),
+            ("Screenshot Shortcuts", "Left Double-click",
+             ("Save to File (Mouse Shortcuts)",
+              "Quick Save (Mouse Shortcuts)")),
+            ("Pin Shortcuts", "Mouse Wheel",
+             ("Zoom Pinned Image (Mouse Shortcuts)",
+              "Adjust Opacity (Mouse Shortcuts)")),
+        ]
+        message = page_hotkey.mouse_binding_conflict_message(dialog, conflicts)
+        assert message.count("\n• ") == 3
+        assert "Middle Click: Copy to Clipboard (Mouse Shortcuts)" in message
+        assert "Mouse Wheel: Zoom Pinned Image (Mouse Shortcuts)" in message
+
+    def test_mouse_conflict_names_an_in_app_shortcut_owner(self):
+        class _Binding:
+            def currentData(self):
+                return "ctrl+middle"
+
+        dialog = SimpleNamespace(
+            _behavior_controls={"mouse_capture_pin": _Binding()},
+            _inapp_edits={"inapp_pin": _Edit("ctrl+mousemiddle")},
+            _inapp_groups={"inapp_pin": "screenshot"},
+            tr=lambda text: text,
+        )
+
+        assert page_hotkey.mouse_binding_conflicts(dialog) == [
+            ("Screenshot Shortcuts", "Ctrl + Middle Click",
+             ("Pin to Screen (Mouse Shortcuts)",
+              "Pin to Screen (In-App Shortcuts)")),
+        ]
 
     def test_blank_input_is_ignored(self, monkeypatch):
         asked = []
@@ -316,6 +401,69 @@ class TestShortcutConflictDetection:
         assert "%2" not in captured["message"]
         assert "Ctrl + Z" in captured["message"]
         assert "Undo" in captured["message"]
+
+
+def _hotkey_dialog_with_globals(edits, **global_texts):
+    """全局热键录入框只在 GLOBAL_HOTKEY_EDIT_ATTRS 里点名的属性才会被读到，
+    未传的属性留空即可——空值不参与撞键判断。"""
+    globals_ = {
+        attr: _Edit(global_texts.get(attr, ""))
+        for attr in page_hotkey.GLOBAL_HOTKEY_EDIT_ATTRS
+    }
+    return SimpleNamespace(_inapp_edits=edits, tr=lambda text: text, **globals_)
+
+
+class TestInAppShadowedByGlobalHotkey:
+    """全局热键靠系统 RegisterHotKey 抢在按键到达窗口之前，应用内快捷键
+    如果和它撞了同一个键组合，实际上收不到按键——这里只负责标出来，
+    不改动、不阻止任何已保存的值。"""
+
+    def test_matching_global_hotkey_is_flagged(self):
+        edits = {"inapp_undo": _Edit("ctrl+shift+a")}
+        dialog = _hotkey_dialog_with_globals(edits, hotkey_input="ctrl+shift+a")
+        page_hotkey._refresh_inapp_shadow_states(dialog)
+        assert edits["inapp_undo"].error_states[-1] is True
+        assert edits["inapp_undo"].tooltips[-1]
+
+    def test_distinct_shortcut_is_not_flagged(self):
+        edits = {"inapp_undo": _Edit("ctrl+z")}
+        dialog = _hotkey_dialog_with_globals(edits, hotkey_input="ctrl+shift+a")
+        page_hotkey._refresh_inapp_shadow_states(dialog)
+        assert edits["inapp_undo"].error_states[-1] is False
+        assert edits["inapp_undo"].tooltips[-1] == ""
+
+    def test_empty_inapp_value_is_never_flagged(self):
+        edits = {"inapp_undo": _Edit("")}
+        dialog = _hotkey_dialog_with_globals(edits, hotkey_input="")
+        page_hotkey._refresh_inapp_shadow_states(dialog)
+        assert edits["inapp_undo"].error_states[-1] is False
+
+    def test_comparison_ignores_case_and_padding(self):
+        edits = {"inapp_undo": _Edit("  CTRL+SHIFT+A  ")}
+        dialog = _hotkey_dialog_with_globals(edits, hotkey_input="ctrl+shift+a")
+        page_hotkey._refresh_inapp_shadow_states(dialog)
+        assert edits["inapp_undo"].error_states[-1] is True
+
+    def test_half_typed_global_value_does_not_count(self):
+        """全局那边还没录完（如 "ctrl+"）时不成立，不能拿它去误判撞键。"""
+        edits = {"inapp_undo": _Edit("ctrl+")}
+        dialog = _hotkey_dialog_with_globals(edits, hotkey_input="ctrl+")
+        page_hotkey._refresh_inapp_shadow_states(dialog)
+        assert edits["inapp_undo"].error_states[-1] is False
+
+    def test_clearing_the_global_hotkey_lifts_the_flag(self):
+        edits = {"inapp_undo": _Edit("ctrl+shift+a")}
+        dialog = _hotkey_dialog_with_globals(edits, hotkey_input="ctrl+shift+a")
+        page_hotkey._refresh_inapp_shadow_states(dialog)
+        assert edits["inapp_undo"].error_states[-1] is True
+
+        dialog.hotkey_input.setText("")
+        page_hotkey._refresh_inapp_shadow_states(dialog)
+        assert edits["inapp_undo"].error_states[-1] is False
+
+    def test_missing_inapp_edits_is_a_noop(self):
+        dialog = SimpleNamespace(tr=lambda text: text)
+        page_hotkey._refresh_inapp_shadow_states(dialog)  # 不应抛异常
 
 
 # ============================================================================

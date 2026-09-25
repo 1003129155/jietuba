@@ -13,6 +13,7 @@ from ui.fluent_lite import LineEdit
 from ui.fluent_lite.theme import ui_tokens
 from ..layout_scale import scale_ui, scale_x, scale_y
 from .form_widgets import field_hint
+from core.ui_theme import set_own_style
 
 try:
     from ..resources.emoji_data import get_emoji_groups, get_group_icon
@@ -151,7 +152,7 @@ def switch_emoji_group(dialog, group_idx: int):
     cols = max(1, avail_w // (btn_size + spacing))
 
     container = QWidget()
-    container.setStyleSheet("background: transparent;")
+    set_own_style(container, "background: transparent;")
     container.setMaximumWidth(avail_w + scale_x(4))
     grid = QGridLayout(container)
     grid.setSpacing(spacing)

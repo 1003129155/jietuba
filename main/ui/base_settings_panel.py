@@ -20,6 +20,7 @@ from core.constants import CSS_FONT_FAMILY
 from core.i18n import tr as translate_text
 from core.resource_manager import ResourceManager
 from core.ui_scale import scaled, scaled_f
+from core.ui_theme import set_own_style
 from .color_picker_button import ColorPickerButton
 
 
@@ -277,9 +278,10 @@ class StepperWidget(QWidget):
     def _apply_scale_sizes(self):
         """按当前比例重算标签和步进按钮的尺寸"""
         self._label.setFixedHeight(scaled(self.BASE_LABEL_HEIGHT))
-        self._label.setStyleSheet(
-            f"QLabel {{ background: transparent; color: #333; border: 1px solid #999;"
-            f" border-radius: {scaled(6)}px; padding: 0 {scaled(6)}px; font-weight: bold; }}"
+        set_own_style(
+            self._label,
+            f"background: transparent; color: #333; border: 1px solid #999;"
+            f" border-radius: {scaled(6)}px; padding: 0 {scaled(6)}px; font-weight: bold;",
         )
         for direction, button in (("up", self._up_btn), ("down", self._down_btn)):
             set_step_button_icon(button, direction)

@@ -99,6 +99,7 @@ def test_screenshot_view_factory_reads_capture_behavior_settings(
     window = SimpleNamespace(
         config_manager=SimpleNamespace(
             get_double_click_copy_close_enabled=lambda: double_click_enabled,
+            get_app_setting=lambda _key, default=None: default,
             get_cross_tool_selection_enabled=lambda: cross_tool_enabled,
         ),
     )
