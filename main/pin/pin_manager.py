@@ -111,6 +111,11 @@ class PinManager(QObject):
         
         # 添加到列表
         self.pin_windows.append(pin_window)
+
+        # A capture can now pin an image while keeping the capture session open.
+        if self._topmost_suppressed:
+            _user32.SetWindowPos(int(pin_window.winId()), _HWND_NOTOPMOST, 0, 0, 0, 0, _SWP_FLAGS)
+            self._suppressed_pins.append(pin_window)
         
         # 发送创建信号
         self.pin_created.emit(pin_window)

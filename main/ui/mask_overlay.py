@@ -1,7 +1,7 @@
 ﻿"""
 遮罩浮层 —— 独立 QWidget，覆盖整个 ScreenshotWindow。
 
-选区外半透明黑色遮罩。
+选区外半透明黑色遮罩，以及替代系统十字光标的全屏准星。
 作为 QWidget overlay 只需要在 selection_model.rectChanged 时局部 update()，
 不参与 QGraphicsScene 的渲染管线，不影响 scene.render() 导出。
 
@@ -13,7 +13,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QRect, QRectF, Qt
-from PySide6.QtGui import QColor, QPainter
+from PySide6.QtGui import QColor, QPainter, QPen, QRegion
 from PySide6.QtWidgets import QWidget
 from core import safe_event
 
@@ -21,13 +21,14 @@ from core import safe_event
 class MaskOverlayWidget(QWidget):
     """选区外半透明遮罩（QWidget 浮层）。
 
-    职责单一：在选区外绘制半透明黑色遮罩。
+    在选区外绘制半透明黑色遮罩，并在同一绘制过程中显示全屏准星。
     不绘制尺寸标注（由 SelectionItem 负责）。
     """
 
     def __init__(self, parent: QWidget, selection_model):
         super().__init__(parent)
         self._model = selection_model
+        self._crosshair_position = None
         # 从主题管理器获取遮罩颜色
         from core.theme import get_theme
         self._mask_color = get_theme().mask_color
@@ -54,6 +55,7 @@ class MaskOverlayWidget(QWidget):
         from core.qt_utils import safe_disconnect
         safe_disconnect(self._model.rectChanged, self._on_rect_changed)
         self._model = selection_model
+        self._crosshair_position = None
         self._last_local_sel = QRect()
         self._model.rectChanged.connect(self._on_rect_changed)
         # 遮罩颜色只在 __init__ 里读过一次；截图窗口跨会话复用，运行期在设置里
@@ -62,6 +64,29 @@ class MaskOverlayWidget(QWidget):
         from core.theme import get_theme
         self._mask_color = get_theme().mask_color
         self.update()
+
+    def set_crosshair_position(self, position):
+        """Draw one software cursor, in the same pass as the screenshot mask."""
+        if position == self._crosshair_position:
+            return
+        dirty = QRegion()
+        for point in (self._crosshair_position, position):
+            if point is not None:
+                dirty |= QRegion(0, point.y() - 2, self.width(), 5)
+                dirty |= QRegion(point.x() - 2, 0, 5, self.height())
+        self._crosshair_position = position
+        # Flush the small changed strips now; don't queue a second cursor behind
+        # selection detection or annotation processing in the view.
+        self.repaint(dirty)
+
+    def _paint_crosshair(self, painter):
+        if self._crosshair_position is None:
+            return
+        x, y = self._crosshair_position.x(), self._crosshair_position.y()
+        for color, width in ((QColor(0, 0, 0, 150), 3), (QColor(255, 255, 255, 230), 1)):
+            painter.setPen(QPen(color, width))
+            painter.drawLine(0, y, self.width() - 1, y)
+            painter.drawLine(x, 0, x, self.height() - 1)
 
     def set_mask_color(self, color: QColor):
         """允许外部调整遮罩颜色/透明度。"""
@@ -107,6 +132,7 @@ class MaskOverlayWidget(QWidget):
             # 没有选区，全屏遮罩
             painter.fillRect(full, self._mask_color)
             self._last_local_sel = QRect()
+            self._paint_crosshair(painter)
             painter.end()
             return
 
@@ -139,5 +165,5 @@ class MaskOverlayWidget(QWidget):
         if right < fw:
             painter.fillRect(right, sy, fw - right, sh, color)
 
+        self._paint_crosshair(painter)
         painter.end()
- 

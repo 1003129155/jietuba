@@ -18,8 +18,68 @@ from ..hotkey_edit import HotkeyEdit, validate_hotkey_group
 from ..inapp_key_edit import InAppKeyEdit
 from ..key_chip import CHIP_WIDTH, STATUS_GAP, STATUS_SIZE, format_shortcut_text
 from settings import ANNOTATION_TOOL_SHORTCUTS, clipboard_pick_keys
-from core.shortcut_manager import is_reserved_inapp_shortcut
+from core.shortcut_manager import is_reserved_inapp_shortcut, is_inapp_mouse_shortcut
 from core.ui_theme import set_own_style
+from settings.tool_settings import PIN_MOUSE_ACTIONS, get_pin_mouse_binding
+
+
+class MouseBindingEditor(QWidget):
+    """A modifier combination and a mouse gesture, with no global mouse hooks."""
+
+    def __init__(self, dialog, kind, parent=None):
+        super().__init__(parent)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(dialog_scaled(8))
+        self.modifiers = ComboBox(self)
+        for value in ("", "ctrl", "shift", "alt", "ctrl+shift", "ctrl+alt", "shift+alt", "ctrl+shift+alt"):
+            self.modifiers.addItem(value.title() if value else dialog.tr("No Modifier"), userData=value)
+        self.gesture = ComboBox(self)
+        gestures = {
+            "wheel": (("wheel", "Mouse Wheel"),),
+            "drag": (("dragleft", "Left Drag"), ("dragmiddle", "Middle Drag"), ("dragright", "Right Drag")),
+            "click": (("left", "Left Click"), ("middle", "Middle Click"), ("right", "Right Click"),
+                      ("doubleleft", "Left Double-click"), ("doublemiddle", "Middle Double-click"),
+                      ("doubleright", "Right Double-click")),
+        }[kind]
+        for value, label in (("", "No Action"),) + gestures:
+            self.gesture.addItem(dialog.tr(label), userData=value)
+        layout.addWidget(self.modifiers)
+        layout.addWidget(self.gesture)
+
+    def currentData(self):
+        gesture = self.gesture.currentData()
+        modifiers = self.modifiers.currentData()
+        return f"{modifiers}+{gesture}" if gesture and modifiers else gesture
+
+    def setBinding(self, binding):
+        parts = str(binding or "").lower().split("+")
+        modifiers = "+".join(key for key in ("ctrl", "shift", "alt") if key in parts[:-1])
+        self.modifiers.setCurrentIndex(max(0, self.modifiers.findData(modifiers)))
+        self.gesture.setCurrentIndex(max(0, self.gesture.findData(parts[-1])))
+
+
+def _create_mouse_shortcuts(dialog, parent):
+    group = SectionCard(FluentIcon.PIN, dialog.tr("Mouse Shortcuts"),
+                        dialog.tr("Use + / - instead of the wheel with the same modifiers"), parent)
+    if not hasattr(dialog, '_behavior_controls'):
+        dialog._behavior_controls = {}
+    for action, label, _default, kind in PIN_MOUSE_ACTIONS:
+        card = QWidget(group)
+        row = QHBoxLayout(card)
+        row.setContentsMargins(0, dialog_scaled(8), 0, dialog_scaled(8))
+        row.setSpacing(dialog_scaled(14))
+        row.addWidget(IconBadge(FluentIcon.PIN, "pin", card))
+        title = _row_label(card, dialog.tr(label))
+        title.setWordWrap(True)
+        row.addWidget(title, 1)
+        editor = MouseBindingEditor(dialog, kind, card)
+        editor.setFixedWidth(dialog_scaled(320))
+        editor.setBinding(get_pin_mouse_binding(dialog.config_manager, action))
+        dialog._behavior_controls[f"mouse_pin_{action}"] = editor
+        row.addWidget(editor)
+        group.addRow(card)
+    return group
 
 
 # ── 应用内快捷键定义表（分组）──────────────────────────────
@@ -295,8 +355,14 @@ def create_hotkey_page(dialog) -> QWidget:
         vbox.setSpacing(0)
 
         for cfg_key, tr_src, _default in keys_list:
-            edit = InAppKeyEdit(allow_mouse=allow_mouse, allow_text_keys=cfg_key not in text_input_keys)
+            edit = InAppKeyEdit(
+                allow_mouse=allow_mouse and cfg_key != "inapp_pin_reset_size",
+                allow_text_keys=cfg_key not in text_input_keys,
+            )
             value = dialog.config_manager.get_inapp_shortcut(cfg_key)
+            if cfg_key == "inapp_pin_reset_size" and is_inapp_mouse_shortcut(value):
+                # The mouse binding is edited in the dedicated mouse section below.
+                value = ""
             edit.setText("" if is_reserved_inapp_shortcut(value) else value)
             dialog._inapp_edits[cfg_key] = edit
             dialog._inapp_groups[cfg_key] = group_name
@@ -385,6 +451,12 @@ def create_hotkey_page(dialog) -> QWidget:
     )
 
     layout.addWidget(grp_inapp)
+
+    layout.addWidget(_create_mouse_shortcuts(dialog, view))
+    layout.addWidget(CaptionLabel(
+        dialog.tr("Pin mouse actions apply outside annotation mode. Conflicts use the first matching action. "
+                  "Copy text uses the selected OCR text; otherwise right-click opens the menu."), view,
+    ))
 
     # 提示
     hint = CaptionLabel(

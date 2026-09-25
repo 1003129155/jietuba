@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from PySide6.QtCore import QSettings, QTranslator
 
-from settings.tool_settings import SMART_SELECTION_MODES, ToolSettingsManager
+from settings.tool_settings import SMART_SELECTION_MODES, ToolSettingsManager, get_capture_action
 from ui.settings_ui.dialog import SettingsDialog
 from ui.settings_ui.page_capture import create_capture_page
 from ui.settings_ui.page_quick_actions import create_quick_actions_page
@@ -30,7 +30,11 @@ def test_quick_actions_page_reads_its_toggles(qapp, tmp_path, enabled):
     page = create_quick_actions_page(dialog)
 
     try:
-        assert dialog.double_click_copy_close_toggle.isChecked() is enabled
+        expected_action = "copy" if enabled else "none"
+        assert (
+            dialog._behavior_controls["capture_double_click_action"].currentData()
+            == expected_action
+        )
         assert dialog.ocr_copy_directly_toggle.isChecked() is enabled
         assert dialog.barcode_copy_single_toggle.isChecked() is enabled
     finally:
@@ -90,7 +94,7 @@ def test_annotation_behavior_toggles_moved_off_the_capture_page(qapp, tmp_path):
         qapp.processEvents()
 
 
-def test_settings_dialog_saves_double_click_toggle(monkeypatch, qapp, tmp_path):
+def test_settings_dialog_saves_double_click_action(monkeypatch, qapp, tmp_path):
     manager = _manager(tmp_path)
     manager.set_log_dir(str(tmp_path))
     monkeypatch.setattr("ui.settings_ui.dialog.log_info", lambda *_args, **_kwargs: None)
@@ -113,12 +117,14 @@ def test_settings_dialog_saves_double_click_toggle(monkeypatch, qapp, tmp_path):
             delattr(dialog, attr)
 
     dialog._settings_snapshot = dialog._snapshot_settings()
-    dialog.double_click_copy_close_toggle.setChecked(False)
+    double_click = dialog._behavior_controls["capture_double_click_action"]
+    double_click.setCurrentIndex(double_click.findData("none"))
     dialog.ocr_copy_directly_toggle.setChecked(True)
     dialog.barcode_copy_single_toggle.setChecked(True)
 
     assert dialog._has_unsaved_changes()
     dialog.accept()
+    assert get_capture_action(manager, "double_click") == "none"
     assert manager.get_double_click_copy_close_enabled() is False
     assert manager.get_ocr_copy_directly_enabled() is True
     assert manager.get_barcode_copy_single_enabled() is True

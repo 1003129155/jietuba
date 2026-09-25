@@ -5,7 +5,7 @@
 from typing import Optional
 
 from PySide6.QtWidgets import QApplication, QGraphicsView, QGraphicsTextItem
-from PySide6.QtCore import Qt, QPointF, QRectF, QTimer
+from PySide6.QtCore import Qt, QPointF, QRectF, QTimer, QEvent
 from PySide6.QtGui import QPen, QColor, QBrush, QCursor
 import shiboken6
 from canvas.items import (
@@ -213,10 +213,67 @@ class CanvasView(QGraphicsView):
         if viewport is not None:
             viewport.setCursor(cursor)
 
+    def set_fullscreen_crosshair(self, enabled, overlay=None):
+        """Replace the ordinary cross cursor using the existing screenshot mask."""
+        old_overlay = getattr(self, '_crosshair_surface', None)
+        if old_overlay is not None:
+            old_overlay.set_crosshair_position(None)
+        was_active = getattr(self, '_crosshair_active', False)
+        self._crosshair_surface = overlay
+        self._fullscreen_crosshair = bool(enabled and overlay is not None)
+        self._crosshair_active = False
+        self._crosshair_inside = self.viewport().underMouse()
+        self._crosshair_global_pos = QCursor.pos()
+        if was_active:
+            self.setCursor(Qt.CursorShape.CrossCursor)
+        self._sync_fullscreen_crosshair()
+
+    def _sync_fullscreen_crosshair(self):
+        if not getattr(self, '_fullscreen_crosshair', False):
+            return
+        if getattr(self, '_syncing_crosshair', False):
+            return
+        self._syncing_crosshair = True
+        try:
+            viewport = self.viewport()
+            shape = viewport.cursor().shape()
+            if shape == Qt.CursorShape.CrossCursor:
+                self._crosshair_active = True
+                viewport.setCursor(Qt.CursorShape.BlankCursor)
+            elif shape != Qt.CursorShape.BlankCursor:
+                self._crosshair_active = False
+            position = None
+            if self._crosshair_active and self._crosshair_inside:
+                position = self._crosshair_surface.mapFromGlobal(self._crosshair_global_pos)
+            self._crosshair_surface.set_crosshair_position(position)
+        finally:
+            self._syncing_crosshair = False
+
+    def viewportEvent(self, event):
+        if getattr(self, '_fullscreen_crosshair', False):
+            kind = event.type()
+            if kind == QEvent.Type.MouseMove:
+                self._crosshair_inside = True
+                self._crosshair_global_pos = event.globalPosition().toPoint()
+                # Paint before potentially expensive smart-selection processing.
+                self._sync_fullscreen_crosshair()
+            elif kind == QEvent.Type.Enter:
+                self._crosshair_inside = True
+                self._crosshair_global_pos = QCursor.pos()
+                self._sync_fullscreen_crosshair()
+            elif kind in (QEvent.Type.Leave, QEvent.Type.Hide):
+                self._crosshair_inside = False
+                self._sync_fullscreen_crosshair()
+            elif kind == QEvent.Type.CursorChange:
+                # Scene items also set viewport cursors (resize, move, text).
+                self._sync_fullscreen_crosshair()
+        return super().viewportEvent(event)
+
     def cleanup(self):
         """断开会话级信号和引用，避免旧 view 在销毁期收到晚到回调。"""
         if self._is_closed:
             return
+        self.set_fullscreen_crosshair(False)
         self.item_drag.finish(commit=True)
         self._is_closed = True
 
@@ -1163,7 +1220,9 @@ class CanvasView(QGraphicsView):
         if (tool.id if tool else None) != candidate["tool_id"]:
             return False
 
-        handler = getattr(self.window(), "_handle_confirm", None)
+        handler = getattr(self.window(), "_handle_double_click", None)
+        if handler is None:
+            handler = getattr(self.window(), "_handle_confirm", None)
         if not callable(handler):
             return False
 

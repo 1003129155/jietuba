@@ -974,6 +974,126 @@ Replace it?</source>
         <source>No models returned</source>
         <translation>モデルが返されませんでした</translation>
     </message>
+    <message>
+        <source>Copy to Clipboard</source>
+        <translation>クリップボードにコピー</translation>
+    </message>
+    <message>
+        <source>Pin to Screen</source>
+        <translation>画面にピン留め</translation>
+    </message>
+    <message>
+        <source>Save to File</source>
+        <translation>ファイルに保存</translation>
+    </message>
+    <message>
+        <source>Quick Save</source>
+        <translation>クイック保存</translation>
+    </message>
+    <message>
+        <source>Left Double-click</source>
+        <translation>左ダブルクリック</translation>
+    </message>
+    <message>
+        <source>Middle Click</source>
+        <translation>中クリック</translation>
+    </message>
+    <message>
+        <source>Enter Key</source>
+        <translation>Enter キー</translation>
+    </message>
+    <message>
+        <source>Exit capture after action</source>
+        <translation>実行後にキャプチャを終了</translation>
+    </message>
+    <message>
+        <source>Fullscreen Crosshair</source>
+        <translation>全画面クロスヘア</translation>
+    </message>
+    <message>
+        <source>Show horizontal and vertical guide lines across the screen while capturing.</source>
+        <translation>キャプチャ中、マウスに追従する水平・垂直の補助線を画面全体に表示します。</translation>
+    </message>
+    <message>
+        <source>Mouse Shortcuts</source>
+        <translation>マウスショートカット</translation>
+    </message>
+    <message>
+        <source>Mouse Wheel</source>
+        <translation>マウスホイール</translation>
+    </message>
+    <message>
+        <source>Left Click</source>
+        <translation>左クリック</translation>
+    </message>
+    <message>
+        <source>Right Click</source>
+        <translation>右クリック</translation>
+    </message>
+    <message>
+        <source>Middle Double-click</source>
+        <translation>中ダブルクリック</translation>
+    </message>
+    <message>
+        <source>Right Double-click</source>
+        <translation>右ダブルクリック</translation>
+    </message>
+    <message>
+        <source>Left Drag</source>
+        <translation>左ドラッグ</translation>
+    </message>
+    <message>
+        <source>Middle Drag</source>
+        <translation>中ドラッグ</translation>
+    </message>
+    <message>
+        <source>Right Drag</source>
+        <translation>右ドラッグ</translation>
+    </message>
+    <message>
+        <source>Zoom Pinned Image</source>
+        <translation>ピン留め画像の拡大・縮小</translation>
+    </message>
+    <message>
+        <source>Adjust Opacity</source>
+        <translation>不透明度の調整</translation>
+    </message>
+    <message>
+        <source>Close Pinned Image</source>
+        <translation>ピン留め画像を閉じる</translation>
+    </message>
+    <message>
+        <source>Reset Pinned Image Size</source>
+        <translation>ピン留め画像のサイズをリセット</translation>
+    </message>
+    <message>
+        <source>Toggle Pin Thumbnail</source>
+        <translation>ピン留め画像のサムネイル切替</translation>
+    </message>
+    <message>
+        <source>Select Thumbnail Region</source>
+        <translation>サムネイル領域の選択</translation>
+    </message>
+    <message>
+        <source>Copy Selected Text</source>
+        <translation>選択したテキストをコピー</translation>
+    </message>
+    <message>
+        <source>Pin mouse actions apply outside annotation mode. Conflicts use the first matching action. Copy text uses the selected OCR text; otherwise right-click opens the menu.</source>
+        <translation>マウス操作は注釈モード以外で有効です。競合時は上から優先します。選択した認識テキストをコピーし、未選択時の右クリックはメニューを開きます。</translation>
+    </message>
+    <message>
+        <source>Use + / - instead of the wheel with the same modifiers</source>
+        <translation>同じ修飾キーと + / - でホイール操作を代用</translation>
+    </message>
+    <message>
+        <source>No Modifier</source>
+        <translation>なし</translation>
+    </message>
+    <message>
+        <source>No Action</source>
+        <translation>なし</translation>
+    </message>
 </context>
 
 <context>
@@ -1005,6 +1125,10 @@ Replace it?</source>
     <message>
         <source>Please configure DeepL API key in Settings.</source>
         <translation>設定で DeepL API キーを設定してください。</translation>
+    </message>
+    <message>
+        <source>Save Failed</source>
+        <translation>保存に失敗しました</translation>
     </message>
 </context>
 
