@@ -52,8 +52,13 @@ class MouseBindingEditor(QWidget):
         }[kind]
         for value, label in (("", "No Action"),) + gestures:
             self.gesture.addItem(dialog.tr(label), userData=value)
-        layout.addWidget(self.modifiers)
-        layout.addWidget(self.gesture)
+        plus = QLabel("+", self)
+        plus.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        apply_theme_text_style(plus, 14, caption=True)
+        # 两侧等分剩余宽度，加号才能在每一行都落在同一列上
+        layout.addWidget(self.modifiers, 1)
+        layout.addWidget(plus)
+        layout.addWidget(self.gesture, 1)
 
     def currentData(self):
         gesture = self.gesture.currentData()
