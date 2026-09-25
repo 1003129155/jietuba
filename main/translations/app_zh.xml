@@ -192,6 +192,10 @@
         <translation>取消</translation>
     </message>
     <message>
+        <source>Cancel / Close</source>
+        <translation>取消/关闭</translation>
+    </message>
+    <message>
         <source>Apply</source>
         <translation>应用</translation>
     </message>
@@ -898,7 +902,7 @@ Replace it?</source>
         <translation>保持原文格式</translation>
     </message>
     <message><source>Color Formats</source><translation>颜色格式</translation></message>
-    <message><source>Which formats the magnifier shows, and which one the copy shortcut uses.</source><translation>放大镜上显示哪些格式，以及按键复制的是哪一个。</translation></message>
+    <message><source>Which formats Shift cycles through on the magnifier, for C to copy.</source><translation>放大镜上按 Shift 在哪些格式之间切换，按 C 复制当前显示的那个。</translation></message>
     <message><source>Manage Color Formats</source><translation>管理颜色格式</translation></message>
     <message>
         <source>Custom LLM-1</source>
@@ -3179,10 +3183,8 @@ Replace it?</source>
 
 <context>
     <name>MagnifierOverlay</name>
-    <message>
-        <source>Press C to copy color info</source>
-        <translation>按 C 复制颜色信息</translation>
-    </message>
+    <message><source>Shift: Switch color format</source><translation>Shift: 切换颜色格式</translation></message>
+    <message><source>C: Copy color value</source><translation>C: 复制颜色值</translation></message>
 </context>
 
 <context>
@@ -3763,9 +3765,7 @@ Replace it?</source>
     <message><source>Pixel Grid</source><translation>像素网格线</translation></message>
     <message><source>Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels.</source><translation>在放大图上勾出每个像素的边界。倍率低时自动不画，否则网格线会盖住像素本身。</translation></message>
     <message><source>Shortcut Hint</source><translation>快捷键提示</translation></message>
-    <message><source>Show the color-copy shortcut under the readings. Off makes the magnifier shorter.</source><translation>在数值下方显示复制颜色的快捷键。关掉后放大镜会变矮一些。</translation></message>
-    <message><source>Color Swatch</source><translation>取色色块</translation></message>
-    <message><source>Show the picked color in the top-right corner of the magnified view.</source><translation>在放大图右上角显示当前取到的颜色。</translation></message>
+    <message><source>Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.</source><translation>在数值下方显示切换格式和复制颜色的快捷键。关掉后放大镜会变矮一些。</translation></message>
     <message><source>Magnifier</source><translation>放大镜</translation></message>
     <message><source>Pin Settings</source><translation>钉图设定</translation></message>
     <message><source>Operation</source><translation>操作</translation></message>
@@ -4262,7 +4262,7 @@ SOFTWARE.</translation></message>
 <context>
     <name>ColorFormatDialog</name>
     <message><source>Manage Color Formats</source><translation>管理颜色格式</translation></message>
-    <message><source>Checked formats show on the magnifier. The first one is what the copy shortcut puts on the clipboard — drag it to the top to change that.</source><translation>勾选的格式会显示在放大镜上。排在第一位的那个才是按键复制到剪贴板的内容——想换就把它拖到最前面。</translation></message>
+    <message><source>The magnifier shows one checked format at a time — Shift cycles between them, C copies whichever is shown. Drag one to the top to make it the default.</source><translation>放大镜一次只显示一个勾选的格式：Shift 循环切换，C 复制当前显示的那个。拖到第一位的就是默认显示的格式。</translation></message>
     <message><source>Restore defaults</source><translation>恢复默认</translation></message>
     <message><source>OK</source><translation>确定</translation></message>
     <message><source>Cancel</source><translation>取消</translation></message>

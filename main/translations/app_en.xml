@@ -192,6 +192,10 @@
         <translation>Cancel</translation>
     </message>
     <message>
+        <source>Cancel / Close</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
         <source>Apply</source>
         <translation>Apply</translation>
     </message>
@@ -858,7 +862,7 @@ Replace it?</translation>
         <translation>Keep original text formatting</translation>
     </message>
     <message><source>Color Formats</source><translation>Color Formats</translation></message>
-    <message><source>Which formats the magnifier shows, and which one the copy shortcut uses.</source><translation>Which formats the magnifier shows, and which one the copy shortcut uses.</translation></message>
+    <message><source>Which formats Shift cycles through on the magnifier, for C to copy.</source><translation>Which formats Shift cycles through on the magnifier, for C to copy.</translation></message>
     <message><source>Manage Color Formats</source><translation>Manage Color Formats</translation></message>
     <message>
         <source>Copy to Clipboard</source>
@@ -2940,10 +2944,8 @@ Replace it?</translation>
 
 <context>
     <name>MagnifierOverlay</name>
-    <message>
-        <source>Press C to copy color info</source>
-        <translation>Press C to copy color info</translation>
-    </message>
+    <message><source>Shift: Switch color format</source><translation>Shift: Switch color format</translation></message>
+    <message><source>C: Copy color value</source><translation>C: Copy color value</translation></message>
 </context>
 
 <context>
@@ -3499,9 +3501,7 @@ You can tweak more options in Settings anytime.</translation>
     <message><source>Pixel Grid</source><translation>Pixel Grid</translation></message>
     <message><source>Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels.</source><translation>Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels.</translation></message>
     <message><source>Shortcut Hint</source><translation>Shortcut Hint</translation></message>
-    <message><source>Show the color-copy shortcut under the readings. Off makes the magnifier shorter.</source><translation>Show the color-copy shortcut under the readings. Off makes the magnifier shorter.</translation></message>
-    <message><source>Color Swatch</source><translation>Color Swatch</translation></message>
-    <message><source>Show the picked color in the top-right corner of the magnified view.</source><translation>Show the picked color in the top-right corner of the magnified view.</translation></message>
+    <message><source>Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.</source><translation>Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.</translation></message>
     <message><source>Magnifier</source><translation>Magnifier</translation></message>
     <message><source>Pin Settings</source><translation>Pin Settings</translation></message>
     <message><source>Operation</source><translation>Operation</translation></message>
@@ -3982,7 +3982,7 @@ SOFTWARE.</translation></message>
 <context>
     <name>ColorFormatDialog</name>
     <message><source>Manage Color Formats</source><translation>Manage Color Formats</translation></message>
-    <message><source>Checked formats show on the magnifier. The first one is what the copy shortcut puts on the clipboard — drag it to the top to change that.</source><translation>Checked formats show on the magnifier. The first one is what the copy shortcut puts on the clipboard — drag it to the top to change that.</translation></message>
+    <message><source>The magnifier shows one checked format at a time — Shift cycles between them, C copies whichever is shown. Drag one to the top to make it the default.</source><translation>The magnifier shows one checked format at a time — Shift cycles between them, C copies whichever is shown. Drag one to the top to make it the default.</translation></message>
     <message><source>Restore defaults</source><translation>Restore defaults</translation></message>
     <message><source>OK</source><translation>OK</translation></message>
     <message><source>Cancel</source><translation>Cancel</translation></message>

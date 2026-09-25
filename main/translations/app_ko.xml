@@ -191,6 +191,10 @@
         <translation>취소</translation>
     </message>
     <message>
+        <source>Cancel / Close</source>
+        <translation>취소</translation>
+    </message>
+    <message>
         <source>Apply</source>
         <translation>적용</translation>
     </message>
@@ -889,7 +893,7 @@ Replace it?</source>
         <translation>LLM 번역: 문맥과 관용 표현에 강하지만 느리고 토큰 단위로 과금되며 일부 내용은 거부될 수 있습니다</translation>
     </message>
     <message><source>Color Formats</source><translation>색상 형식</translation></message>
-    <message><source>Which formats the magnifier shows, and which one the copy shortcut uses.</source><translation>돋보기에 표시할 형식과 단축키로 복사할 형식을 정합니다.</translation></message>
+    <message><source>Which formats Shift cycles through on the magnifier, for C to copy.</source><translation>돋보기에서 Shift로 전환할 형식입니다. C는 현재 표시된 형식을 복사합니다.</translation></message>
     <message><source>Manage Color Formats</source><translation>색상 형식 관리</translation></message>
     <message>
         <source>Custom LLM-1</source>
@@ -3099,10 +3103,8 @@ Replace it?</source>
 
 <context>
     <name>MagnifierOverlay</name>
-    <message>
-        <source>Press C to copy color info</source>
-        <translation>색상 정보를 복사하려면 C를 누르세요</translation>
-    </message>
+    <message><source>Shift: Switch color format</source><translation>Shift: 색상 형식 전환</translation></message>
+    <message><source>C: Copy color value</source><translation>C: 색상 값 복사</translation></message>
 </context>
 
 <context>
@@ -3702,9 +3704,7 @@ Replace it?</source>
     <message><source>Pixel Grid</source><translation>픽셀 격자</translation></message>
     <message><source>Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels.</source><translation>확대 화면에서 각 픽셀의 경계를 그립니다. 배율이 낮을 때는 선이 픽셀을 덮으므로 자동으로 숨깁니다.</translation></message>
     <message><source>Shortcut Hint</source><translation>단축키 안내</translation></message>
-    <message><source>Show the color-copy shortcut under the readings. Off makes the magnifier shorter.</source><translation>수치 아래에 색 복사 단축키를 표시합니다. 끄면 돋보기가 조금 짧아집니다.</translation></message>
-    <message><source>Color Swatch</source><translation>추출 색상 칩</translation></message>
-    <message><source>Show the picked color in the top-right corner of the magnified view.</source><translation>확대 화면 오른쪽 위에 현재 추출한 색을 표시합니다.</translation></message>
+    <message><source>Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.</source><translation>수치 아래에 형식 전환과 색 복사 단축키를 표시합니다. 끄면 돋보기가 조금 짧아집니다.</translation></message>
     <message><source>Magnifier</source><translation>돋보기</translation></message>
     <message><source>Pin Settings</source><translation>핀 고정 설정</translation></message>
     <message><source>Operation</source><translation>동작</translation></message>
@@ -4192,7 +4192,7 @@ SOFTWARE.</translation></message>
 <context>
     <name>ColorFormatDialog</name>
     <message><source>Manage Color Formats</source><translation>색상 형식 관리</translation></message>
-    <message><source>Checked formats show on the magnifier. The first one is what the copy shortcut puts on the clipboard — drag it to the top to change that.</source><translation>선택한 형식이 돋보기에 표시됩니다. 단축키로 복사되는 것은 맨 위의 형식이므로, 바꾸려면 위로 끌어다 놓으세요.</translation></message>
+    <message><source>The magnifier shows one checked format at a time — Shift cycles between them, C copies whichever is shown. Drag one to the top to make it the default.</source><translation>돋보기에는 선택한 형식이 한 번에 하나씩 표시됩니다. Shift로 전환하고 C로 현재 표시된 값을 복사합니다. 맨 위로 끌어 놓은 형식이 기본으로 표시됩니다.</translation></message>
     <message><source>Restore defaults</source><translation>기본값 복원</translation></message>
     <message><source>OK</source><translation>확인</translation></message>
     <message><source>Cancel</source><translation>취소</translation></message>

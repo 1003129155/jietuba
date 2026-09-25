@@ -32,7 +32,6 @@ class TestRender:
     def test_builtin_templates_render_ready_to_paste_strings(self):
         rendered = {f.name: f.render(SAMPLE) for f in color_formats.default_formats()}
         assert rendered == {
-            "RGB + HEX": "230, 153, 60  #E6993C",
             "RGB": "230, 153, 60",
             "CSS rgb()": "rgb(230, 153, 60)",
             "HEX": "#E6993C",
@@ -116,10 +115,10 @@ class TestLoadSave:
         assert loaded == color_formats.default_formats()
         assert [f.name for f in loaded if f.enabled] == ["RGB", "HEX"]
 
-    def test_legacy_rgb_hex_choice_is_still_migrated(self):
-        """老版本里明确存过的 RGB + HEX 照旧迁移，不被新默认顶掉。"""
+    def test_legacy_rgb_hex_choice_falls_back_to_the_default_pair(self):
+        """RGB + HEX 合并格式已经没有了，老版本这个选择退回默认（RGB、HEX 都启用）。"""
         config = _Config(magnifier_color_copy_format="rgb_hex")
-        assert [f.name for f in color_formats.load(config) if f.enabled] == ["RGB + HEX"]
+        assert [f.name for f in color_formats.load(config) if f.enabled] == ["RGB", "HEX"]
 
     def test_reset_app_settings_lands_on_the_default(self):
         """重置会把每个键写回默认值；旧单选键的默认要是空的，才不会按旧默认再迁移一次。"""

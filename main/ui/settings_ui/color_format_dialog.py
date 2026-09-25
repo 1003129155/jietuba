@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """放大镜颜色格式的管理窗口。
 
-格式只有固定的几种预设。勾选决定哪些格式显示在放大镜上，顺序决定按取色键复制的
-是哪一个——复制的永远是排在最前的那条，所以「拖到第一位」就是「设为主格式」。
+格式只有固定的几种预设。勾选决定哪些格式参与放大镜上的循环显示（Shift 切换，
+C 复制当前显示的那个），顺序决定循环从哪个开始——「拖到第一位」就是设成默认
+显示的格式。
 
 对话框只负责编辑，读写配置由调用方做（和 ToolbarLayoutDialog 一样的分工）。
 """
@@ -82,8 +83,9 @@ class ColorFormatDialog(QDialog):
         self._list = ReorderableRowList(self)
 
         hint = CaptionLabel(
-            _tr("Checked formats show on the magnifier. The first one is what the "
-                "copy shortcut puts on the clipboard — drag it to the top to change that."),
+            _tr("The magnifier shows one checked format at a time — Shift cycles "
+                "between them, C copies whichever is shown. Drag one to the top "
+                "to make it the default."),
             self)
         hint.setWordWrap(True)
         configure_dialog_control(hint)

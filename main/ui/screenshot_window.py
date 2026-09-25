@@ -221,6 +221,14 @@ class ScreenshotShortcutHandler(ShortcutHandler):
                 QCursor.setPos(p.x() + delta[0], p.y() + delta[1])
                 return True
 
+        # 取色格式循环切换（单键 Shift，无其它修饰键 — 保留硬编码，和 C 一对）
+        if key == Qt.Key.Key_Shift:
+            if not event_is_auto_repeat(event):
+                mo = getattr(w, 'magnifier_overlay', None)
+                if mo and mo.cursor_scene_pos is not None and mo._should_render():
+                    mo.cycle_color_format()
+                    return True
+
         # 取色（单键 C，无修饰键 — 保留硬编码）
         if key == Qt.Key.Key_C:
             if event.modifiers() == Qt.KeyboardModifier.NoModifier:

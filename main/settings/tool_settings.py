@@ -403,8 +403,7 @@ class ToolSettingsManager(QObject):
         "language": "en",                      # 界面语言（ja/en/zh/ko）
         "magnifier_enabled": True,             # 截图时是否显示放大镜
         "magnifier_grid": False,               # 放大镜上画像素网格线
-        "magnifier_swatch": True,              # 放大图右上角显示取到的颜色
-        "magnifier_hint": True,                # 放大镜信息区显示取色快捷键提示行
+        "magnifier_hint": True,                # 放大镜信息区显示切换格式/取色快捷键提示行
         # 放大镜的颜色格式列表（JSON，见 settings/color_formats.py）。空串表示还没
         # 存过，那时会按下面这个旧的单选键迁移出一份。
         "magnifier_color_formats": "",

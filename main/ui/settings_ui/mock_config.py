@@ -75,7 +75,6 @@ APP_DEFAULT_SETTINGS = {
     "clipboard_auto_cleanup": False,
     "magnifier_enabled": True,
     "magnifier_grid": False,
-    "magnifier_swatch": True,
     "magnifier_hint": True,
     "magnifier_color_formats": "",
     "magnifier_color_copy_format": "",

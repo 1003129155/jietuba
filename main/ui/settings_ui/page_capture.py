@@ -157,20 +157,11 @@ def create_capture_page(dialog) -> QWidget:
     dialog.magnifier_grid_toggle = grid_card
     grp_magnifier.addSettingCard(grid_card)
 
-    swatch_card = SwitchSettingCard(
-        FluentIcon.BRUSH,
-        dialog.tr("Color Swatch"),
-        dialog.tr("Show the picked color in the top-right corner of the magnified view."),
-        parent=grp_magnifier,
-    )
-    swatch_card.setChecked(dialog.config_manager.get_app_setting("magnifier_swatch"))
-    dialog.magnifier_swatch_toggle = swatch_card
-    grp_magnifier.addSettingCard(swatch_card)
-
     hint_card = SwitchSettingCard(
         FluentIcon.INFO,
         dialog.tr("Shortcut Hint"),
-        dialog.tr("Show the color-copy shortcut under the readings. Off makes the magnifier shorter."),
+        dialog.tr("Show the switch-format and copy-color shortcuts under the readings. "
+                  "Off makes the magnifier shorter."),
         parent=grp_magnifier,
     )
     hint_card.setChecked(dialog.config_manager.get_app_setting("magnifier_hint"))
@@ -182,7 +173,7 @@ def create_capture_page(dialog) -> QWidget:
     fmt_card = FSettingCard(
         FluentIcon.PALETTE,
         dialog.tr("Color Formats"),
-        dialog.tr("Which formats the magnifier shows, and which one the copy shortcut uses."),
+        dialog.tr("Which formats Shift cycles through on the magnifier, for C to copy."),
         parent=grp_magnifier,
     )
     dialog.magnifier_color_formats = color_formats.load(dialog.config_manager)

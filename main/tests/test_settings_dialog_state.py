@@ -163,7 +163,6 @@ DEFAULTS = {
     "pin_auto_toolbar": False,
     "magnifier_enabled": True,
     "magnifier_grid": False,
-    "magnifier_swatch": True,
     "magnifier_hint": False,
     "magnifier_color_formats": "",
     "clipboard_enabled": True,
@@ -540,13 +539,11 @@ class TestResetScreenshotSettingsPage:
             config_manager=_config(),
             magnifier_enabled_toggle=_Toggle(False),
             magnifier_grid_toggle=_Toggle(True),
-            magnifier_swatch_toggle=_Toggle(False),
             magnifier_hint_toggle=_Toggle(True),
         )
         SettingsDialog._reset_screenshot_settings_page(fake)
         assert fake.magnifier_enabled_toggle.set_checked == [True]
         assert fake.magnifier_grid_toggle.set_checked == [False]
-        assert fake.magnifier_swatch_toggle.set_checked == [True]
         assert fake.magnifier_hint_toggle.set_checked == [False]
 
     def test_magnifier_colour_formats_go_back_to_the_default_order(self):
@@ -558,7 +555,7 @@ class TestResetScreenshotSettingsPage:
             magnifier_color_formats=[ColorFormat("CSS hsl()", "", enabled=True)],
         )
         SettingsDialog._reset_screenshot_settings_page(fake)
-        assert fake.magnifier_color_formats[0].name == "RGB + HEX"
+        assert fake.magnifier_color_formats[0].name == "RGB"
         assert [f.name for f in fake.magnifier_color_formats if f.enabled] == ["RGB", "HEX"]
 
     def test_unknown_ocr_engine_leaves_the_combo_alone(self):
