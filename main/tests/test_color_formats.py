@@ -111,12 +111,26 @@ class TestLoadSave:
         loaded = color_formats.load(config)
         assert [f.name for f in loaded if f.enabled] == ["HEX"]
 
-    def test_legacy_default_keeps_the_original_default_checked(self):
-        assert [f.name for f in color_formats.load(_Config()) if f.enabled] == ["RGB + HEX"]
+    def test_nothing_stored_gets_the_default(self):
+        loaded = color_formats.load(_Config())
+        assert loaded == color_formats.default_formats()
+        assert [f.name for f in loaded if f.enabled] == ["RGB", "HEX"]
+
+    def test_legacy_rgb_hex_choice_is_still_migrated(self):
+        """老版本里明确存过的 RGB + HEX 照旧迁移，不被新默认顶掉。"""
+        config = _Config(magnifier_color_copy_format="rgb_hex")
+        assert [f.name for f in color_formats.load(config) if f.enabled] == ["RGB + HEX"]
+
+    def test_reset_app_settings_lands_on_the_default(self):
+        """重置会把每个键写回默认值；旧单选键的默认要是空的，才不会按旧默认再迁移一次。"""
+        from settings.tool_settings import ToolSettingsManager
+
+        config = _Config(**ToolSettingsManager.APP_DEFAULT_SETTINGS)
+        assert color_formats.load(config) == color_formats.default_formats()
 
     def test_corrupted_payload_falls_back_instead_of_raising(self):
         config = _Config(**{color_formats.SETTING_KEY: "not json at all"})
-        assert [f.name for f in color_formats.load(config) if f.enabled] == ["RGB + HEX"]
+        assert color_formats.load(config) == color_formats.default_formats()
 
 
 class TestDialog:
@@ -136,7 +150,7 @@ class TestDialog:
     def test_checking_a_row_enables_that_format(self, dialog):
         rows = {row.format.name: row for row in dialog._list.rows()}
         rows["CSS rgb()"].check.setChecked(True)
-        assert [f.name for f in dialog.entries() if f.enabled] == ["RGB + HEX", "CSS rgb()"]
+        assert [f.name for f in dialog.entries() if f.enabled] == ["RGB", "CSS rgb()", "HEX"]
 
     def test_dragging_a_row_to_the_top_makes_it_the_copy_format(self, dialog, qapp):
         from PySide6.QtCore import QPoint

@@ -15,7 +15,9 @@ from PySide6.QtWidgets import QApplication
 
 from barcode import BarcodeResultWindow, DecodedCode, read_codes, result_window, show_barcode_result
 from barcode.reader import _reading_order
+from settings import get_tool_settings_manager
 from tools.action import ActionTools
+from ui.toast import Toast
 from ui.toolbar import Toolbar
 
 Format = zxingcpp.BarcodeFormat
@@ -172,6 +174,55 @@ class TestResultWindow:
         window.close()
 
 
+class TestCopySingleCode:
+    """快捷行为「扫码直接复制」：恰好一个码才跳过窗口"""
+
+    @pytest.fixture(autouse=True)
+    def _close_toasts(self, qapp):
+        yield
+        for widget in list(getattr(qapp, "_modeless_dialogs", [])):
+            if isinstance(widget, Toast):
+                widget.close()
+        QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+
+    def test_one_code_is_copied_without_a_window(self, qapp):
+        QApplication.clipboard().setText("before")
+        image = _canvas([("HELLO-128", Format.Code128, 3, 80, 60)], width=600, height=300)
+
+        assert show_barcode_result(image, copy_single=True) is None
+
+        assert QApplication.clipboard().text() == "HELLO-128"
+        toasts = [w for w in qapp._modeless_dialogs if isinstance(w, Toast)]
+        assert len(toasts) == 1
+        assert "HELLO-128" in toasts[0].label.text()
+
+    def test_several_codes_still_open_the_window(self, qapp, two_codes):
+        QApplication.clipboard().setText("before")
+        window = show_barcode_result(two_codes, copy_single=True)
+        assert isinstance(window, BarcodeResultWindow)
+        assert QApplication.clipboard().text() == "before"
+        window.close()
+
+    def test_no_code_still_opens_the_window(self, qapp):
+        blank = QImage(400, 300, QImage.Format.Format_RGB32)
+        blank.fill(QColor("white"))
+        window = show_barcode_result(blank, copy_single=True)
+        assert isinstance(window, BarcodeResultWindow)
+        window.close()
+
+    def test_checkbox_in_the_window_writes_the_setting(self, qapp, two_codes):
+        manager = get_tool_settings_manager()
+        manager.set_barcode_copy_single_enabled(False)
+        window = BarcodeResultWindow(two_codes, read_codes(two_codes))
+        try:
+            assert not window.copy_single_check.isChecked()
+            window.copy_single_check.setChecked(True)
+            assert manager.get_barcode_copy_single_enabled() is True
+        finally:
+            window.close()
+            manager.set_barcode_copy_single_enabled(False)
+
+
 @pytest.mark.parametrize("text, openable", [
     ("https://example.com/a?b=1", True),
     ("  http://example.com  ", True),
@@ -220,16 +271,29 @@ class TestScanAction:
         steps = []
         tools = self._tools(two_codes)
         tools.parent_window.cleanup_and_close.side_effect = lambda: steps.append("close capture")
-        monkeypatch.setattr("barcode.show_barcode_result", lambda image: steps.append(("show", image)))
+        monkeypatch.setattr("barcode.show_barcode_result",
+                            lambda image, copy_single: steps.append(("show", image, copy_single)))
 
         tools.handle_scan_code()
 
-        assert steps == ["close capture", ("show", two_codes)]
+        assert steps == ["close capture", ("show", two_codes, False)]
+
+    def test_copy_single_setting_is_passed_along(self, monkeypatch, two_codes):
+        calls = []
+        tools = self._tools(two_codes)
+        tools.config_manager = MagicMock()
+        tools.config_manager.get_barcode_copy_single_enabled.return_value = True
+        monkeypatch.setattr("barcode.show_barcode_result",
+                            lambda image, copy_single: calls.append(copy_single))
+
+        tools.handle_scan_code()
+
+        assert calls == [True]
 
     def test_without_a_confirmed_selection_it_only_warns(self, monkeypatch, two_codes):
         warnings = []
         monkeypatch.setattr("ui.dialogs.show_modeless_warning_dialog", lambda *args: warnings.append(args))
-        monkeypatch.setattr("barcode.show_barcode_result", lambda image: pytest.fail("不该弹出结果窗口"))
+        monkeypatch.setattr("barcode.show_barcode_result", lambda *_a, **_k: pytest.fail("不该弹出结果窗口"))
         tools = self._tools(two_codes, confirmed=False)
 
         tools.handle_scan_code()

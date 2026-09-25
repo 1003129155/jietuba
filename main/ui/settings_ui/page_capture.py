@@ -12,66 +12,20 @@ from ui.fluent_lite import (
 from settings import color_formats
 from settings.tool_settings import SMART_SELECTION_MODES
 from .components import SettingCardGroup
+from core.ui_theme import set_own_style
 
 
 def create_capture_page(dialog) -> QWidget:
-    """截图設定 ─ 交互行为 + 智能选区 + 放大镜 + 保存设置 + 钉图"""
+    """截图設定 ─ 智能选区 + 保存设置 + 放大镜 + 钉图"""
     scroll = QScrollArea()
     scroll.setWidgetResizable(True)
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 
     view = QWidget()
-    view.setStyleSheet("background: transparent;")
+    set_own_style(view, "background: transparent;")
     layout = QVBoxLayout(view)
     layout.setContentsMargins(0, 0, dialog_scaled(10), 0)
     layout.setSpacing(dialog_scaled(20))
-
-    # ── 截图交互 ──────────────────────────────────────
-    grp_behavior = SettingCardGroup(dialog.tr("Capture Behavior"), view)
-
-    double_click_card = SwitchSettingCard(
-        FluentIcon.CAMERA,
-        dialog.tr("Double-click to Copy and Close"),
-        dialog.tr(
-            "Double-click the selected screenshot to copy it to the clipboard and close the capture."
-        ),
-        parent=grp_behavior,
-    )
-    double_click_card.setChecked(
-        dialog.config_manager.get_double_click_copy_close_enabled()
-    )
-    dialog.double_click_copy_close_toggle = double_click_card
-    grp_behavior.addSettingCard(double_click_card)
-
-    cross_tool_card = SwitchSettingCard(
-        FluentIcon.EDIT,
-        dialog.tr("Enable Ctrl Cross-Tool Selection"),
-        dialog.tr(
-            "Hold Ctrl and click any editable annotation to adjust it without switching tools."
-        ),
-        parent=grp_behavior,
-    )
-    cross_tool_card.setChecked(
-        dialog.config_manager.get_cross_tool_selection_enabled()
-    )
-    dialog.cross_tool_selection_toggle = cross_tool_card
-    grp_behavior.addSettingCard(cross_tool_card)
-
-    text_top_card = SwitchSettingCard(
-        FluentIcon.FONT,
-        dialog.tr("Keep Text Annotations on Top"),
-        dialog.tr(
-            "Keep text above other annotations, including ones drawn later."
-        ),
-        parent=grp_behavior,
-    )
-    text_top_card.setChecked(
-        dialog.config_manager.get_text_always_on_top_enabled()
-    )
-    dialog.text_always_on_top_toggle = text_top_card
-    grp_behavior.addSettingCard(text_top_card)
-
-    layout.addWidget(grp_behavior)
 
     # ── 智能选区 ──────────────────────────────────────
     grp_smart = SettingCardGroup(dialog.tr("Smart Selection"), view)
@@ -111,66 +65,6 @@ def create_capture_page(dialog) -> QWidget:
     grp_smart.addSettingCard(smart_anim_card)
 
     layout.addWidget(grp_smart)
-
-    # ── 放大镜 ────────────────────────────────────────
-    grp_magnifier = SettingCardGroup(dialog.tr("Magnifier"), view)
-
-    magnifier_card = SwitchSettingCard(
-        FluentIcon.SEARCH,
-        dialog.tr("Show Magnifier"),
-        dialog.tr("Follows the cursor while selecting, and picks the color under it."),
-        parent=grp_magnifier,
-    )
-    magnifier_card.setChecked(dialog.config_manager.get_app_setting("magnifier_enabled"))
-    dialog.magnifier_enabled_toggle = magnifier_card
-    grp_magnifier.addSettingCard(magnifier_card)
-
-    grid_card = SwitchSettingCard(
-        FluentIcon.LAYOUT,
-        dialog.tr("Pixel Grid"),
-        dialog.tr("Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels."),
-        parent=grp_magnifier,
-    )
-    grid_card.setChecked(dialog.config_manager.get_app_setting("magnifier_grid"))
-    dialog.magnifier_grid_toggle = grid_card
-    grp_magnifier.addSettingCard(grid_card)
-
-    swatch_card = SwitchSettingCard(
-        FluentIcon.BRUSH,
-        dialog.tr("Color Swatch"),
-        dialog.tr("Show the picked color in the top-right corner of the magnified view."),
-        parent=grp_magnifier,
-    )
-    swatch_card.setChecked(dialog.config_manager.get_app_setting("magnifier_swatch"))
-    dialog.magnifier_swatch_toggle = swatch_card
-    grp_magnifier.addSettingCard(swatch_card)
-
-    hint_card = SwitchSettingCard(
-        FluentIcon.INFO,
-        dialog.tr("Shortcut Hint"),
-        dialog.tr("Show the color-copy shortcut under the readings. Off makes the magnifier shorter."),
-        parent=grp_magnifier,
-    )
-    hint_card.setChecked(dialog.config_manager.get_app_setting("magnifier_hint"))
-    dialog.magnifier_hint_toggle = hint_card
-    grp_magnifier.addSettingCard(hint_card)
-
-    # 格式可以勾选多条、还能自己加，一个下拉装不下，另开一个管理窗口。
-    # 编辑结果先存在 dialog 上，点「应用」时才落盘。
-    fmt_card = FSettingCard(
-        FluentIcon.PALETTE,
-        dialog.tr("Color Formats"),
-        dialog.tr("Which formats the magnifier shows, and which one the copy shortcut uses."),
-        parent=grp_magnifier,
-    )
-    dialog.magnifier_color_formats = color_formats.load(dialog.config_manager)
-    manage_btn = PushButton(dialog.tr("Manage Color Formats"), fmt_card)
-    manage_btn.clicked.connect(lambda: _manage_color_formats(dialog))
-    dialog.magnifier_color_formats_btn = manage_btn
-    fmt_card.addControl(manage_btn)
-    grp_magnifier.addSettingCard(fmt_card)
-
-    layout.addWidget(grp_magnifier)
 
     # ── 截图保存 ──────────────────────────────────────
     grp_save = SettingCardGroup(dialog.tr("Save Settings"), view)
@@ -240,6 +134,66 @@ def create_capture_page(dialog) -> QWidget:
     grp_save.addSettingCard(fmt_card)
 
     layout.addWidget(grp_save)
+
+    # ── 放大镜 ────────────────────────────────────────
+    grp_magnifier = SettingCardGroup(dialog.tr("Magnifier"), view)
+
+    magnifier_card = SwitchSettingCard(
+        FluentIcon.SEARCH,
+        dialog.tr("Show Magnifier"),
+        dialog.tr("Follows the cursor while selecting, and picks the color under it."),
+        parent=grp_magnifier,
+    )
+    magnifier_card.setChecked(dialog.config_manager.get_app_setting("magnifier_enabled"))
+    dialog.magnifier_enabled_toggle = magnifier_card
+    grp_magnifier.addSettingCard(magnifier_card)
+
+    grid_card = SwitchSettingCard(
+        FluentIcon.LAYOUT,
+        dialog.tr("Pixel Grid"),
+        dialog.tr("Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels."),
+        parent=grp_magnifier,
+    )
+    grid_card.setChecked(dialog.config_manager.get_app_setting("magnifier_grid"))
+    dialog.magnifier_grid_toggle = grid_card
+    grp_magnifier.addSettingCard(grid_card)
+
+    swatch_card = SwitchSettingCard(
+        FluentIcon.BRUSH,
+        dialog.tr("Color Swatch"),
+        dialog.tr("Show the picked color in the top-right corner of the magnified view."),
+        parent=grp_magnifier,
+    )
+    swatch_card.setChecked(dialog.config_manager.get_app_setting("magnifier_swatch"))
+    dialog.magnifier_swatch_toggle = swatch_card
+    grp_magnifier.addSettingCard(swatch_card)
+
+    hint_card = SwitchSettingCard(
+        FluentIcon.INFO,
+        dialog.tr("Shortcut Hint"),
+        dialog.tr("Show the color-copy shortcut under the readings. Off makes the magnifier shorter."),
+        parent=grp_magnifier,
+    )
+    hint_card.setChecked(dialog.config_manager.get_app_setting("magnifier_hint"))
+    dialog.magnifier_hint_toggle = hint_card
+    grp_magnifier.addSettingCard(hint_card)
+
+    # 格式可以勾选多条、还能自己加，一个下拉装不下，另开一个管理窗口。
+    # 编辑结果先存在 dialog 上，点「应用」时才落盘。
+    fmt_card = FSettingCard(
+        FluentIcon.PALETTE,
+        dialog.tr("Color Formats"),
+        dialog.tr("Which formats the magnifier shows, and which one the copy shortcut uses."),
+        parent=grp_magnifier,
+    )
+    dialog.magnifier_color_formats = color_formats.load(dialog.config_manager)
+    manage_btn = PushButton(dialog.tr("Manage Color Formats"), fmt_card)
+    manage_btn.clicked.connect(lambda: _manage_color_formats(dialog))
+    dialog.magnifier_color_formats_btn = manage_btn
+    fmt_card.addControl(manage_btn)
+    grp_magnifier.addSettingCard(fmt_card)
+
+    layout.addWidget(grp_magnifier)
 
     # ── 钉图 ──────────────────────────────────────────
     # 自动开工具栏和自动 OCR 都是「钉完图之后自动做什么」，归在一处。

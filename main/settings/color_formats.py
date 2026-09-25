@@ -26,6 +26,8 @@ BUILTIN_FORMATS = (
     ("CSS hsl()", "hsl({h}, {s}%, {l}%)"),
 )
 _TEMPLATES = dict(BUILTIN_FORMATS)
+# RGB 排在 HEX 前面，所以默认按取色键复制的是 RGB
+DEFAULT_ENABLED = ("RGB", "HEX")
 
 # 早先那版单选下拉的取值 → 现在对应的格式名
 _LEGACY_NAMES = {
@@ -59,10 +61,10 @@ class ColorFormat:
 
 
 def default_formats() -> list[ColorFormat]:
-    """全部预设，默认只启用第一个。"""
+    """全部预设按原顺序排，启用 DEFAULT_ENABLED 里的几个。"""
     return [
-        ColorFormat(name, template, enabled=(index == 0))
-        for index, (name, template) in enumerate(BUILTIN_FORMATS)
+        ColorFormat(name, template, enabled=(name in DEFAULT_ENABLED))
+        for name, template in BUILTIN_FORMATS
     ]
 
 
@@ -118,6 +120,8 @@ def load(config_manager) -> list[ColorFormat]:
 def _migrate_from_legacy(config_manager) -> list[ColorFormat]:
     legacy = config_manager.get_app_setting(LEGACY_SETTING_KEY, "")
     wanted = _LEGACY_NAMES.get(legacy)
+    if wanted is None:
+        return default_formats()
     formats = [
         ColorFormat(name, template, enabled=(name == wanted))
         for name, template in BUILTIN_FORMATS

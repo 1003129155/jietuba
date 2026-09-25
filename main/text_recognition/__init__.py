@@ -3,12 +3,13 @@
 - recognize_async: 后台识别一张图，结果报成 (文字, 失败原因键)
 - shutdown_recognition: 退出前等还在跑的识别线程结束
 - show_text_recognition: 识别并弹出结果窗口，截图工具栏的「文字识别」按钮走这里
+- copy_text_recognition: 识别后直接复制、不弹窗，开了快捷行为「文字识别直接复制」时走这里
 """
 
 from .recognizer import RecognizeThread, recognize_async, shutdown_recognition
-from .result_window import TextRecognitionWindow, show_text_recognition
+from .result_window import TextRecognitionWindow, copy_text_recognition, show_text_recognition
 
 __all__ = [
     "RecognizeThread", "recognize_async", "shutdown_recognition",
-    "TextRecognitionWindow", "show_text_recognition",
+    "TextRecognitionWindow", "show_text_recognition", "copy_text_recognition",
 ]

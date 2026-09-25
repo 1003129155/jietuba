@@ -213,13 +213,16 @@ class ActionTools:
 
         识别比扫码慢得多（本地引擎几百毫秒起），所以窗口先出来等，识别在它的后台线程里跑。
         """
-        from text_recognition import show_text_recognition
+        from text_recognition import copy_text_recognition, show_text_recognition
 
         image = self._selection_base_image()
         if image is None:
             return
         self._cleanup_and_close()
-        show_text_recognition(image)
+        if self.config_manager and self.config_manager.get_ocr_copy_directly_enabled():
+            copy_text_recognition(image)
+        else:
+            show_text_recognition(image)
 
     def handle_scan_code(self):
         """扫码：识别选区里的二维码 / 条形码，关掉截图界面后在结果窗口里列出"""
@@ -229,7 +232,8 @@ class ActionTools:
         if image is None:
             return
         self._cleanup_and_close()
-        show_barcode_result(image)
+        copy_single = bool(self.config_manager and self.config_manager.get_barcode_copy_single_enabled())
+        show_barcode_result(image, copy_single=copy_single)
 
     def _selection_base_image(self):
         """选区的纯净底图——不含标注，画上去的框和马赛克会挡住文字和码。

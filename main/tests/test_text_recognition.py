@@ -17,6 +17,7 @@ from PySide6.QtWidgets import QApplication
 import text_recognition
 from text_recognition import TextRecognitionWindow, recognize_async, shutdown_recognition
 from text_recognition import result_window
+from settings import get_tool_settings_manager
 from text_recognition.recognizer import FAILED, NO_TEXT, UNAVAILABLE, _running
 from tools.action import ActionTools
 from ui.toolbar import Toolbar
@@ -278,6 +279,57 @@ class TestResultWindow:
         assert window not in qapp._modeless_dialogs
 
 
+class TestCopyDirectly:
+    """快捷行为「文字识别直接复制」：不开窗口，结果进剪贴板，光标旁提示"""
+
+    def _start(self, qapp):
+        """返回 (提示, 识别线程)。线程从登记表里取：提示本身不留线程引用"""
+        before = set(_running)
+        toast = text_recognition.copy_text_recognition(_blank_image())
+        (thread,) = set(_running) - before
+        return toast, thread
+
+    def test_recognized_text_goes_to_the_clipboard(self, qapp, monkeypatch):
+        QApplication.clipboard().setText("before")
+        _fake_ocr(monkeypatch, result=_ocr_dict("recognized line"), delay=0.1)
+        toast, thread = self._start(qapp)
+        assert toast.label.text() == result_window._tr("Recognizing...")
+
+        _run_to_completion(qapp, thread)
+
+        assert QApplication.clipboard().text() == "recognized line"
+        assert toast.label.text() == result_window._tr("Copied %1 characters").replace("%1", "15")
+        toast.close()
+
+    @pytest.mark.parametrize("kwargs, reason", [
+        ({"result": {"code": 100, "data": []}}, NO_TEXT),
+        ({"available": False}, UNAVAILABLE),
+    ])
+    def test_failure_says_why_and_leaves_the_clipboard_alone(self, qapp, monkeypatch, kwargs, reason):
+        QApplication.clipboard().setText("before")
+        _fake_ocr(monkeypatch, **kwargs)
+        toast, thread = self._start(qapp)
+        _run_to_completion(qapp, thread)
+
+        assert QApplication.clipboard().text() == "before"
+        assert toast.label.text() == result_window._reason_text(reason)
+        toast.close()
+
+    def test_checkbox_in_the_window_writes_the_setting(self, qapp, monkeypatch):
+        _fake_ocr(monkeypatch, result=_ocr_dict("x"))
+        manager = get_tool_settings_manager()
+        manager.set_ocr_copy_directly_enabled(False)
+        window = TextRecognitionWindow(_blank_image())
+        try:
+            assert not window.copy_directly_check.isChecked()
+            window.copy_directly_check.setChecked(True)
+            assert manager.get_ocr_copy_directly_enabled() is True
+        finally:
+            window.close()
+            manager.set_ocr_copy_directly_enabled(False)
+            shutdown_recognition()
+
+
 def test_toolbar_button_emits_its_signal(qapp):
     toolbar = Toolbar()
     clicks = []
@@ -320,6 +372,21 @@ class TestTextRecognizeAction:
         tools.handle_text_recognize()
 
         assert steps == ["close capture", ("show", image)]
+
+    def test_copy_directly_setting_skips_the_window(self, monkeypatch):
+        steps = []
+        image = _blank_image()
+        tools = self._tools(image)
+        tools.config_manager = MagicMock()
+        tools.config_manager.get_ocr_copy_directly_enabled.return_value = True
+        monkeypatch.setattr("text_recognition.show_text_recognition",
+                            lambda shown: pytest.fail("不该弹出结果窗口"))
+        monkeypatch.setattr("text_recognition.copy_text_recognition",
+                            lambda shown: steps.append(("copy", shown)))
+
+        tools.handle_text_recognize()
+
+        assert steps == [("copy", image)]
 
     def test_without_a_confirmed_selection_it_only_warns(self, monkeypatch):
         warnings = []

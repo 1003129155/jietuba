@@ -36,6 +36,7 @@ from settings.tool_settings import SMART_SELECTION_MODES
 # 页面创建函数
 from .page_hotkey import create_hotkey_page, validate_global_hotkey_edits
 from .page_capture import create_capture_page
+from .page_quick_actions import create_quick_actions_page
 from .page_clipboard import create_clipboard_page
 from .page_translation import create_translation_page
 from . import provider_fields
@@ -212,8 +213,9 @@ class SettingsDialog(FrostedFramelessDialog):
         self.content_stack.addWidget(create_misc_page(self))             # 6
         self.content_stack.addWidget(create_developer_page(self))        # 7
         self.content_stack.addWidget(create_about_page(self))            # 8
+        self.content_stack.addWidget(create_quick_actions_page(self))    # 9
 
-        # 九个分页都是一次性建完、切换只换可见性（不是懒加载/动态重建），
+        # 分页都是一次性建完、切换只换可见性（不是懒加载/动态重建），
         # 建完后统一扫一遍即可覆盖全部分页里的 fluent_lite 控件。
         configure_dialog_controls(self.content_stack)
 
@@ -240,6 +242,7 @@ class SettingsDialog(FrostedFramelessDialog):
         self._nav_items = [
             ("shortcuts", FluentIcon.COMMAND_PROMPT, self.tr("Shortcuts"), 0, NavigationItemPosition.TOP),
             ("capture", FluentIcon.CAMERA, self.tr("Capture Settings"), 1, NavigationItemPosition.TOP),
+            ("quick_actions", FluentIcon.STOP_WATCH, self.tr("Quick Actions"), 9, NavigationItemPosition.TOP),
             ("clipboard", FluentIcon.PASTE, self.tr("Clipboard"), 2, NavigationItemPosition.TOP),
             ("appearance", FluentIcon.BRUSH, self.tr("Appearance"), 3, NavigationItemPosition.TOP),
             ("translation", FluentIcon.LANGUAGE, self.tr("Translation"), 4, NavigationItemPosition.TOP),
@@ -371,6 +374,7 @@ class SettingsDialog(FrostedFramelessDialog):
             5: self.tr("Log Settings"),
             6: self.tr("Other Settings"),
             8: self.tr("Software Information"),
+            9: self.tr("Quick Actions"),
         }
 
         if stack_index in title_map:
@@ -581,6 +585,8 @@ class SettingsDialog(FrostedFramelessDialog):
             self._reset_long_screenshot_page()
         elif current_index == 8:
             pass
+        elif current_index == 9:
+            self._reset_quick_actions_page()
 
     def _reset_hotkey_page(self):
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
@@ -607,6 +613,10 @@ class SettingsDialog(FrostedFramelessDialog):
             idx = self.cursor_move_combo.findData(defaults["inapp_cursor_move_mode"])
             if idx >= 0:
                 self.cursor_move_combo.setCurrentIndex(idx)
+        if hasattr(self, 'clipboard_pick_combo'):
+            idx = self.clipboard_pick_combo.findData(defaults["inapp_clipboard_pick_mode"])
+            if idx >= 0:
+                self.clipboard_pick_combo.setCurrentIndex(idx)
 
     def _reset_long_screenshot_page(self):
         """重置开发者选项页。"""
@@ -673,12 +683,16 @@ class SettingsDialog(FrostedFramelessDialog):
             if index >= 0:
                 self._selection_handle_size_combo.setCurrentIndex(index)
 
-    def _reset_screenshot_settings_page(self):
+    def _reset_quick_actions_page(self):
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
         if hasattr(self, 'double_click_copy_close_toggle'):
             self.double_click_copy_close_toggle.setChecked(
                 defaults["double_click_copy_close"]
             )
+        if hasattr(self, 'ocr_copy_directly_toggle'):
+            self.ocr_copy_directly_toggle.setChecked(defaults["ocr_copy_directly"])
+        if hasattr(self, 'barcode_copy_single_toggle'):
+            self.barcode_copy_single_toggle.setChecked(defaults["barcode_copy_single"])
         if hasattr(self, 'cross_tool_selection_toggle'):
             self.cross_tool_selection_toggle.setChecked(
                 defaults["cross_tool_selection"]
@@ -687,6 +701,9 @@ class SettingsDialog(FrostedFramelessDialog):
             self.text_always_on_top_toggle.setChecked(
                 defaults["text_always_on_top"]
             )
+
+    def _reset_screenshot_settings_page(self):
+        defaults = self.config_manager.APP_DEFAULT_SETTINGS
         if hasattr(self, 'smart_mode_combo'):
             self.smart_mode_combo.setCurrentIndex(SMART_SELECTION_MODES.index(
                 defaults["smart_selection_mode"] if defaults["smart_selection"] else "off"
@@ -830,10 +847,18 @@ class SettingsDialog(FrostedFramelessDialog):
                 self.translation_hotkey_edit_2.text().strip()
             )
 
-        # 1. 截图交互（双击确认 + 智能选区）
+        # 1. 快捷行为 + 截图交互（智能选区）
         if hasattr(self, 'double_click_copy_close_toggle'):
             self.config_manager.set_double_click_copy_close_enabled(
                 self.double_click_copy_close_toggle.isChecked()
+            )
+        if hasattr(self, 'ocr_copy_directly_toggle'):
+            self.config_manager.set_ocr_copy_directly_enabled(
+                self.ocr_copy_directly_toggle.isChecked()
+            )
+        if hasattr(self, 'barcode_copy_single_toggle'):
+            self.config_manager.set_barcode_copy_single_enabled(
+                self.barcode_copy_single_toggle.isChecked()
             )
         if hasattr(self, 'cross_tool_selection_toggle'):
             self.config_manager.set_cross_tool_selection_enabled(
@@ -1001,6 +1026,10 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'cursor_move_combo'):
             self.config_manager.set_inapp_cursor_move_mode(
                 self.cursor_move_combo.currentData()
+            )
+        if hasattr(self, 'clipboard_pick_combo'):
+            self.config_manager.set_inapp_clipboard_pick_mode(
+                self.clipboard_pick_combo.currentData()
             )
 
         # 8. 长截图/开发者
@@ -1180,6 +1209,7 @@ class SettingsDialog(FrostedFramelessDialog):
                     snap[f.config_key] = provider_fields.widget_value(f, w)
         # 开关类
         for attr in ('double_click_copy_close_toggle',
+                      'ocr_copy_directly_toggle', 'barcode_copy_single_toggle',
                       'cross_tool_selection_toggle',
                       'text_always_on_top_toggle',
                       'smart_animation_toggle',
@@ -1203,7 +1233,7 @@ class SettingsDialog(FrostedFramelessDialog):
         for attr in ('screenshot_format_combo', 'ocr_engine_combo',
                       'translation_provider_combo', 'translation_target_combo',
                       'log_level_combo',
-                      'language_combo', 'engine_combo', 'cursor_move_combo',
+                      'language_combo', 'engine_combo', 'cursor_move_combo', 'clipboard_pick_combo',
                       'log_retention_combo',
                       '_ui_theme_combo', '_ui_scale_combo', '_dialog_scale_combo',
                       '_selection_border_combo', '_selection_handle_combo',
@@ -1340,6 +1370,10 @@ class SettingsDialog(FrostedFramelessDialog):
             idx = self.cursor_move_combo.findData(mode)
             if idx >= 0:
                 self.cursor_move_combo.setCurrentIndex(idx)
+        if hasattr(self, 'clipboard_pick_combo'):
+            idx = self.clipboard_pick_combo.findData(self.config_manager.get_inapp_clipboard_pick_mode())
+            if idx >= 0:
+                self.clipboard_pick_combo.setCurrentIndex(idx)
 
         if hasattr(self, 'engine_combo'):
             engine = self.config_manager.get_long_stitch_engine()
@@ -1364,6 +1398,14 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'double_click_copy_close_toggle'):
             self.double_click_copy_close_toggle.setChecked(
                 self.config_manager.get_double_click_copy_close_enabled()
+            )
+        if hasattr(self, 'ocr_copy_directly_toggle'):
+            self.ocr_copy_directly_toggle.setChecked(
+                self.config_manager.get_ocr_copy_directly_enabled()
+            )
+        if hasattr(self, 'barcode_copy_single_toggle'):
+            self.barcode_copy_single_toggle.setChecked(
+                self.config_manager.get_barcode_copy_single_enabled()
             )
 
         if hasattr(self, 'cross_tool_selection_toggle'):
