@@ -6,7 +6,8 @@
 
 [Download for Windows](https://github.com/1003129155/jietuba/releases/latest) · [Run from Source](#source-setup) · [Development and Tests](#development)
 
-![jietuba demo](https://github.com/user-attachments/assets/5318b991-b0de-46a2-9c0e-d75eeae2a827)
+
+<img width="1391" height="844" alt="21" src="https://github.com/user-attachments/assets/01770043-6dbe-4c9f-b1d9-5d9eb467c559" />
 
 ## Overview
 
