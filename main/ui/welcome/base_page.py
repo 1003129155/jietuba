@@ -14,7 +14,7 @@ from ui.fluent_lite import SwitchButton
 # ACCENT 在本文件内未直接使用，wizard 和 page5_translation 是从这里导入它的，
 # 属于有意的转发导出，不要删。
 from ui.fluent_lite.theme import ACCENT, ACCENT_HOVER  # noqa: F401
-from core.ui_theme import get_ui_theme
+from core.ui_theme import get_ui_theme, set_own_style
 
 
 # ─────────────────────────────────────────
@@ -137,7 +137,7 @@ def apply_welcome_label_style(label: QLabel) -> None:
     size = int(label.property("welcomeFontSize") or 13)
     weight = int(label.property("welcomeFontWeight") or 400)
     extra = str(label.property("welcomeStyleExtra") or "")
-    label.setStyleSheet(
+    set_own_style(label,
         f"font-size: {dialog_scaled(size)}px; font-weight: {weight}; color: {color};"
         f" background: transparent; border: none; {extra}"
     )
@@ -234,7 +234,7 @@ class BasePage(QWidget):
 
         # —— 顶部：本步骤说明 ——
         header = QWidget(self)
-        header.setStyleSheet("background: transparent;")
+        set_own_style(header, "background: transparent;")
         header_layout = QVBoxLayout(header)
         header_layout.setContentsMargins(0, 0, 0, 0)
         header_layout.setSpacing(dialog_scaled(7))

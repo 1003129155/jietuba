@@ -15,6 +15,7 @@ from .playback_engine import PlaybackEngine
 from .playback_toolbar import PlaybackToolbar
 from .composer import ComposerProgressDialog
 from .cursor_overlay import CursorOverlay
+from core.ui_theme import set_own_style
 
 try:
     from core.logger import log_debug, log_info, log_warning, log_error, log_exception, T
@@ -109,7 +110,7 @@ class PlaybackController(QObject):
             | Qt.WindowType.Tool
         )
         self._preview_label.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
-        self._preview_label.setStyleSheet("background: black;")
+        set_own_style(self._preview_label, "background: black;")
         self._preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._preview_label.setGeometry(self._rect)
         self._preview_label.show()

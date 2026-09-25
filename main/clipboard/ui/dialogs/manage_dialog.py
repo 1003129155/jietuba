@@ -50,7 +50,7 @@ from ui.settings_ui.components import (
 )
 from core import safe_event
 from core.ui_scale import configure_dialog_control, configure_dialog_controls, dialog_scaled
-from core.ui_theme import get_ui_theme
+from core.ui_theme import get_ui_theme, set_own_style
 from ui.dialogs import show_confirm_dialog, show_info_dialog, show_warning_dialog
 
 from ...core import ClipboardManager, Group, GroupType
@@ -647,7 +647,7 @@ class ManageDialog(FrostedFramelessDialog):
                 background: {tokens.accent_strong_pressed};
             }}
         """ + scrollbar_qss(self))
-        self.column_separator.setStyleSheet(f"background: {tokens.separator}; border: none;")
+        set_own_style(self.column_separator, f"background: {tokens.separator}; border: none;")
         self._search_action.setIcon(tinted_icon(FluentIcon.SEARCH, tokens.text_muted))
         self.import_export_btn.setIcon(tinted_icon(FluentIcon.SYNC, tokens.text_muted))
         self.edit_group_btn.setIcon(tinted_icon(FluentIcon.EDIT, tokens.accent_text))

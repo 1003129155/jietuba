@@ -4,7 +4,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QWidget
 
 from core.ui_scale import dialog_scaled
-from core.ui_theme import get_ui_theme
+from core.ui_theme import get_ui_theme, set_own_style
 
 from .theme import ACCENT, FONT_FAMILY, ui_tokens
 
@@ -38,7 +38,7 @@ class SegmentedWidget(QWidget):
 
     def _apply_theme(self, _tokens=None):
         t = ui_tokens(self)
-        self.setStyleSheet(
+        set_own_style(self,
             f"background: {t.surface_subtle}; border: 1px solid {t.border}; "
             f"border-radius: {dialog_scaled(11)}px;"
         )

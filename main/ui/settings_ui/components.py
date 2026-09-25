@@ -9,7 +9,7 @@ from PySide6.QtCore import QRect, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QPainter
 from core import safe_event
 from core.ui_scale import dialog_scaled
-from core.ui_theme import get_ui_theme
+from core.ui_theme import get_ui_theme, set_own_style
 
 from ui.fluent_lite import (
     SwitchButton, SimpleCardWidget, SwitchSettingCard as _SwitchSettingCard, SettingCardGroup as _SettingCardGroupBase,
@@ -212,7 +212,7 @@ class HLine(QFrame):
         super().__init__()
         self.setFrameShape(QFrame.Shape.HLine)
         self.setFrameShadow(QFrame.Shadow.Sunken)
-        self.setStyleSheet("background-color: #F0F0F0; border: none; max-height: 1px;")
+        set_own_style(self, "background-color: #F0F0F0; border: none; max-height: 1px;")
 
 
 # ── Fluent 辅助 ──────────────────────────────────────
@@ -239,7 +239,7 @@ class TransparentCard(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFrameShape(QFrame.Shape.NoFrame)
-        self.setStyleSheet("background: transparent; border: none;")
+        set_own_style(self, "background: transparent; border: none;")
 
 
 class WhiteCard(QFrame):

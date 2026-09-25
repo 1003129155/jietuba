@@ -16,6 +16,7 @@ from core.ui_scale import dialog_scaled
 from ui.fluent_lite import PushButton, FluentIcon, LineEdit, ComboBox
 from ui.fluent_lite.theme import to_qicon
 from core.i18n import make_tr
+from core.ui_theme import set_own_style
 
 if __package__:
     from .base_page import (
@@ -175,7 +176,7 @@ class _ToolPreviewIllus(IllustrationArea):
         rows = [_TOOLS[:5], _TOOLS[5:10], _TOOLS[10:]]
         for row_items in rows:
             row_w = QWidget()
-            row_w.setStyleSheet("background: transparent;")
+            set_own_style(row_w, "background: transparent;")
             row_l = QHBoxLayout(row_w)
             row_l.setContentsMargins(0, 0, 0, 0)
             row_l.setSpacing(dialog_scaled(3))
@@ -189,7 +190,7 @@ class _ToolPreviewIllus(IllustrationArea):
 
         # 名称 + 说明文字（紧凑）
         info_w = QWidget()
-        info_w.setStyleSheet("background: transparent;")
+        set_own_style(info_w, "background: transparent;")
         info_l = QVBoxLayout(info_w)
         info_l.setContentsMargins(
             dialog_scaled(8), dialog_scaled(2), dialog_scaled(8), 0

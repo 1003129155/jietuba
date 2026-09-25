@@ -12,7 +12,7 @@ from core.i18n import make_tr
 from core.logger import log_exception, T
 from core import safe_event
 from core.ui_scale import configure_dialog_control, configure_dialog_controls, dialog_scaled
-from core.ui_theme import UIThemeManager, get_ui_theme
+from core.ui_theme import UIThemeManager, get_ui_theme, set_own_style
 from ui.fluent_lite import (
     PushButton as FluentPushButton,
     PrimaryPushButton,
@@ -259,7 +259,7 @@ class WelcomeWizard(FrostedFramelessDialog):
         # MSWindowsFixedSizeDialogHint 在 Windows 上额外锁定窗口不可调整大小。
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.MSWindowsFixedSizeDialogHint)
         self.setFixedSize(dialog_scaled(self.WINDOW_W), dialog_scaled(self.WINDOW_H))
-        self.setStyleSheet("background: transparent; border: none;")
+        set_own_style(self, "background: transparent; border: none;")
 
         self._build_ui()
         self._build_pages()
@@ -440,27 +440,27 @@ class WelcomeWizard(FrostedFramelessDialog):
         self._right.setStyleSheet(
             f"#WizardContent {{ background: {theme.page}; border: none; }}"
         )
-        self._nav.setStyleSheet(f"background: {theme.page}; border: none;")
-        self._nav_line.setStyleSheet(
+        set_own_style(self._nav, f"background: {theme.page}; border: none;")
+        set_own_style(self._nav_line,
             f"background: {theme.separator}; border: none;"
         )
-        self._brand_icon.setStyleSheet(
+        set_own_style(self._brand_icon,
             f"background: {theme.panel}; border: 1px solid {theme.border};"
             f" border-radius: {s(10)}px;"
         )
-        self._brand_name.setStyleSheet(
+        set_own_style(self._brand_name,
             f"font-size: {s(17)}px; font-weight: 700; color: {theme.text};"
             " background: transparent;"
         )
-        self._brand_meta.setStyleSheet(
+        set_own_style(self._brand_meta,
             f"font-size: {s(9)}px; font-weight: 600; letter-spacing: 1px;"
             f" color: {theme.text_soft}; background: transparent;"
         )
-        self._setup_meta.setStyleSheet(
+        set_own_style(self._setup_meta,
             f"font-size: {s(10)}px; font-weight: 600; color: {theme.text_soft};"
             " background: transparent; letter-spacing: 1px;"
         )
-        self._page_count.setStyleSheet(
+        set_own_style(self._page_count,
             f"font-size: {s(12)}px; font-weight: 600; color: {theme.text_muted};"
             " background: transparent;"
         )

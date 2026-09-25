@@ -11,6 +11,7 @@ from PySide6.QtWidgets import QScrollArea, QWidget
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices
 from core.i18n import make_tr
+from core.ui_theme import set_own_style
 
 
 _translate_dialog_text = make_tr("StandardDialog")
@@ -37,7 +38,7 @@ class StandardDialog(QDialog):
                 background: #FFFFFF;
                 color: #202124;
             }
-            QLabel {
+            .QLabel {
                 background: transparent;
                 color: #202124;
                 font-size: 13px;
@@ -211,7 +212,7 @@ def show_text_dialog(parent, title, content):
     content_label = QLabel(content, content_widget)
     content_label.setWordWrap(True)
     content_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-    content_label.setStyleSheet("font-size: 13px; line-height: 1.45; background: transparent;")
+    set_own_style(content_label, "font-size: 13px; line-height: 1.45; background: transparent;")
     content_layout.addWidget(content_label)
     content_layout.addStretch(1)
 
@@ -260,13 +261,13 @@ def show_update_dialog(
     content_label.setTextFormat(Qt.TextFormat.PlainText)
     content_label.setWordWrap(True)
     content_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-    content_label.setStyleSheet(
+    set_own_style(content_label,
         "font-size: 13px; line-height: 1.45; background: transparent;"
     )
     content_layout.addWidget(content_label)
 
     download_label = QLabel(download_caption, content_widget)
-    download_label.setStyleSheet(
+    set_own_style(download_label,
         "font-size: 13px; font-weight: 600; background: transparent;"
     )
     content_layout.addWidget(download_label)

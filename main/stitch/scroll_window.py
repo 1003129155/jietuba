@@ -49,6 +49,7 @@ from core.save import SaveService
 from core import log_debug, log_info, safe_event
 from core.logger import log_exception, T, LogMsg
 from .scroll_toolbar import FloatingToolbar  # 浮动工具栏（独立模块）
+from core.ui_theme import set_own_style
 
 _MODULE_TAG = "LongStitch"
 
@@ -149,7 +150,7 @@ class PreviewPanel(QWidget):
         self.preview_label = QLabel()
         self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.preview_label.setFixedSize(self.width(), self.height())
-        self.preview_label.setStyleSheet(
+        set_own_style(self.preview_label,
             "background: rgba(0, 0, 0, 0.25);"
             "border: 1px solid rgba(0, 0, 0, 0.8);"
             "border-radius: 8px;"
@@ -163,7 +164,7 @@ class PreviewPanel(QWidget):
         self.count_label = QLabel("0", self.preview_label)
         self.count_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.count_label.setFixedSize(40, 24)
-        self.count_label.setStyleSheet("""
+        set_own_style(self.count_label, """
             background: rgba(33, 150, 243, 0.9);
             color: white;
             border: 1px solid rgba(33, 150, 243, 1);
@@ -177,7 +178,7 @@ class PreviewPanel(QWidget):
         self.warning_icon = QLabel("!", self.preview_label)
         self.warning_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.warning_icon.setFixedSize(32, 32)
-        self.warning_icon.setStyleSheet(
+        set_own_style(self.warning_icon,
             "background: rgba(255, 255, 255, 0.9);"
             "color: #ff4d4f;"
             "border: 1px solid rgba(255, 77, 79, 0.65);"

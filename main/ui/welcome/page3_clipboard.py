@@ -18,6 +18,7 @@ from core.i18n import make_tr
 from core.logger import log_exception, T
 from core.ui_scale import dialog_scaled
 from ui.fluent_lite import SpinBox, ComboBox
+from core.ui_theme import set_own_style
 
 if __package__:
     from .base_page import (
@@ -60,7 +61,7 @@ class _ClipboardFeatureAnimation(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet("background: transparent;")
+        set_own_style(self, "background: transparent;")
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setMinimumHeight(dialog_scaled(280))
@@ -672,7 +673,7 @@ class _ThemeSwatchRow(QWidget):
 
     def __init__(self, current: str, on_pick, parent=None):
         super().__init__(parent)
-        self.setStyleSheet("background: transparent;")
+        set_own_style(self, "background: transparent;")
         from clipboard.ui.theme.themes import PRESET_THEME_SWATCHES
 
         self._on_pick = on_pick

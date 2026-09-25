@@ -13,6 +13,7 @@ from PySide6.QtGui import QPainter, QColor, QPen, QPainterPath
 from core import safe_event
 from core.i18n import make_tr
 from core.logger import log_info, log_exception, T
+from core.ui_theme import set_own_style
 
 if __package__:
     from .base_page import (
@@ -55,7 +56,7 @@ class _CheckAnim(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet("background: transparent;")
+        set_own_style(self, "background: transparent;")
         self._elapsed = QElapsedTimer()
         self._time_ms = self.DURATION_MS
         self._has_been_shown = False

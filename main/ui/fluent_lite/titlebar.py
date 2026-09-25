@@ -7,7 +7,7 @@ from qframelesswindow import TitleBar, TitleBarButton
 from qframelesswindow.utils import toggleMaxState
 
 from core.ui_scale import widget_scaled as _px
-from core.ui_theme import get_ui_theme
+from core.ui_theme import get_ui_theme, set_own_style
 
 from .theme import FONT_FAMILY, ui_tokens
 
@@ -121,7 +121,7 @@ class FluentTitleBar(TitleBar):
         self.iconLabel.setFixedSize(_px(self, 22), _px(self, 22))
         for button in (self.minBtn, self.maxBtn, self.closeBtn):
             button.setFixedSize(_px(self, 46), _px(self, 32))
-        self.titleLabel.setStyleSheet(
+        set_own_style(self.titleLabel,
             f"color: {tokens.text}; font: {_px(self, 12)}px {FONT_FAMILY}; "
             "background: transparent;"
         )

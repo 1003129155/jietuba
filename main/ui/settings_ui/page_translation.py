@@ -23,7 +23,7 @@ from ui.fluent_lite import (
     FluentIcon, ComboBox, LineEdit,
     PushButton, card_right_margin,
 )
-from core.ui_theme import get_ui_theme
+from core.ui_theme import get_ui_theme, set_own_style
 from .components import (
     SettingCardGroup, WhiteCard, adjust_button_width, apply_theme_text_style,
 )
@@ -83,7 +83,7 @@ class _ProviderSection(QWidget):
     def _apply_separator_theme(self, _tokens=None):
         color = ui_tokens(self).separator
         for separator in self._separators:
-            separator.setStyleSheet(
+            set_own_style(separator,
                 f"background: {color}; border: none; margin-left: {dialog_scaled(52)}px;"
             )
 
@@ -95,7 +95,7 @@ def create_translation_page(dialog) -> QWidget:
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 
     page = QWidget()
-    page.setStyleSheet("background: transparent;")
+    set_own_style(page, "background: transparent;")
     layout = QVBoxLayout(page)
     layout.setContentsMargins(0, 0, dialog_scaled(10), 0)
     layout.setSpacing(dialog_scaled(20))

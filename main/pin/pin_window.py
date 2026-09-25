@@ -12,6 +12,8 @@
 - PinTranslationHelper：翻译功能助手
 """
 
+import math
+
 from PySide6.QtWidgets import QWidget, QLabel, QApplication
 from PySide6.QtCore import Qt, QPoint, QTimer, Signal, QRectF, QEvent
 from PySide6.QtGui import (
@@ -115,7 +117,7 @@ class PinWindow(QWidget):
         # ====== 缩放百分比提示 ======
         self._zoom_label = QLabel(self)
         self._zoom_label.setStyleSheet(
-            "QLabel {"
+            ".QLabel {"
             "  color: #2EC4B6;"
             "  background: rgba(0, 0, 0, 160);"
             "  border-radius: 4px;"
@@ -353,10 +355,11 @@ class PinWindow(QWidget):
         else:
             self.view.scale(scale_x, scale_y)
 
-        # 通知光标管理器更新缩放（光标大小跟随视觉缩放）
+        # 画笔宽度按图片像素存储，光标要跟随视觉缩放才能预览真实落笔粗细。
+        # 取行列式而不是 scale_x：旋转 90°/270° 时宽高互换，scale_x 不是实际缩放。
         cursor_mgr = getattr(self.view, 'cursor_manager', None)
         if cursor_mgr:
-            cursor_mgr.update_view_scale(float(scale_x))
+            cursor_mgr.update_view_scale(math.sqrt(abs(self.view.transform().determinant())))
 
     def _refresh_background_for_scale(self):
         if not getattr(self, 'canvas', None) or not getattr(self.canvas, 'scene', None):

@@ -20,6 +20,7 @@ from ui.reorderable_rows import DraggableRow, ReorderableRowList
 from ui.toolbar_layout import (
     DEFAULT_ORDER, HIDE, LOCKED, MORE, SHOW, default_layout, normalize_layout,
 )
+from core.ui_theme import set_own_style
 
 _tr = make_tr("ToolbarLayoutDialog")
 
@@ -67,7 +68,7 @@ class _Row(DraggableRow):
         icon_label.setFixedSize(dialog_scaled(28), dialog_scaled(28))
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         icon_label.setPixmap(icon.pixmap(dialog_scaled(20), dialog_scaled(20)))
-        icon_label.setStyleSheet(
+        set_own_style(icon_label,
             f"background: #FFFFFF; border-radius: {dialog_scaled(6)}px;"
         )
 

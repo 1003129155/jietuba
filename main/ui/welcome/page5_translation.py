@@ -18,6 +18,7 @@ from core import safe_event
 from core.i18n import make_tr
 from core.logger import log_error, log_exception, T
 from ui.settings_ui import provider_fields
+from core.ui_theme import set_own_style
 
 if __package__:
     from .base_page import (
@@ -70,7 +71,7 @@ class _TransAnim(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet("background: transparent;")
+        set_own_style(self, "background: transparent;")
         self._phase = 0
         self._alpha = 1.0          # 当前渐变进度 0.0-1.0
         self._refresh_texts()
@@ -263,7 +264,7 @@ class TranslationPage(BasePage):
         card_layout.addWidget(provider_row)
 
         self._credential_stack = QStackedWidget()
-        self._credential_stack.setStyleSheet("background: transparent;")
+        set_own_style(self._credential_stack, "background: transparent;")
         self._provider_pages = {}
         self._credential_edits = {}
         for metadata in self._provider_metadata:
@@ -353,7 +354,7 @@ class TranslationPage(BasePage):
 
     def _credential_page(self):
         page = QWidget()
-        page.setStyleSheet("background: transparent;")
+        set_own_style(page, "background: transparent;")
         form = QFormLayout(page)
         form.setContentsMargins(0, dialog_scaled(2), 0, dialog_scaled(2))
         form.setHorizontalSpacing(dialog_scaled(_FORM_COLUMN_GAP))
@@ -366,7 +367,7 @@ class TranslationPage(BasePage):
     @staticmethod
     def _config_row(text: str, control):
         row_widget = QWidget()
-        row_widget.setStyleSheet("background: transparent;")
+        set_own_style(row_widget, "background: transparent;")
         row = QHBoxLayout(row_widget)
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(dialog_scaled(_FORM_COLUMN_GAP))

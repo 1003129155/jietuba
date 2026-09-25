@@ -10,6 +10,7 @@ from ui.fluent_lite import ComboBox
 from core.i18n import make_tr
 from core.logger import log_exception, T
 from core import safe_event
+from core.ui_theme import set_own_style
 
 if __package__:
     from .base_page import (
@@ -37,7 +38,7 @@ class _ProductCanvas(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMinimumHeight(dialog_scaled(220))
-        self.setStyleSheet("background: transparent;")
+        set_own_style(self, "background: transparent;")
 
     @safe_event
     def paintEvent(self, event):
@@ -211,7 +212,7 @@ class _WelcomeIllus(IllustrationArea):
             if self._icon_lbl.property("welcomeFallbackIcon")
             else ""
         )
-        self._icon_lbl.setStyleSheet(
+        set_own_style(self._icon_lbl,
             f"background: {theme.panel}; border: 1px solid {theme.border};"
             f" border-radius: {dialog_scaled(10)}px;{fallback_style}"
         )
