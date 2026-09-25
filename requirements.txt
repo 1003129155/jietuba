@@ -18,5 +18,5 @@ zxing-cpp==3.1.1
 # ===== 自制 Rust 库（PyPI 发行名，import 名不同——见各包 README）=====
 j-gif==0.3.1
 j-stitch==0.4.0
-j-clipboard==0.4.2
+j-clipboard==0.4.3
 j-ppocr==0.2.0
