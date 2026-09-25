@@ -6,7 +6,8 @@
 
 [下载 Windows 版](https://github.com/1003129155/jietuba/releases/latest) · [源码运行](#source-setup) · [开发与测试](#development)
 
-![jietuba_gif_20260404_000903](https://github.com/user-attachments/assets/5318b991-b0de-46a2-9c0e-d75eeae2a827)
+<img width="1391" height="844" alt="21" src="https://github.com/user-attachments/assets/3f25de58-2780-4a28-931b-8430f764ee51" />
+
 
 ## 项目简介
 
