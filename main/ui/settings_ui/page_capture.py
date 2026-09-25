@@ -3,15 +3,29 @@
 import importlib.util
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea
+from PySide6.QtCore import Qt
 from core.ui_scale import dialog_scaled
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
     FluentIcon, ComboBox, CaptionLabel,
-    PushButton,
+    PushButton, SwitchButton,
 )
 from settings import color_formats
-from settings.tool_settings import SMART_SELECTION_MODES
+from settings.tool_settings import SMART_SELECTION_MODES, CAPTURE_ACTIONS, CAPTURE_TRIGGERS, get_capture_action
 from .components import SettingCardGroup
+
+
+class CaptureActionComboBox(ComboBox):
+    """Action selector retaining the legacy enabled/disabled control interface."""
+
+    def isChecked(self):
+        return self.currentData() != "none"
+
+    def setChecked(self, enabled):
+        if not enabled:
+            self.setCurrentIndex(self.findData("none"))
+        elif not self.isChecked():
+            self.setCurrentIndex(self.findData("copy"))
 
 
 def create_capture_page(dialog) -> QWidget:
@@ -29,19 +43,16 @@ def create_capture_page(dialog) -> QWidget:
     # ── 截图交互 ──────────────────────────────────────
     grp_behavior = SettingCardGroup(dialog.tr("Capture Behavior"), view)
 
-    double_click_card = SwitchSettingCard(
-        FluentIcon.CAMERA,
-        dialog.tr("Double-click to Copy and Close"),
-        dialog.tr(
-            "Double-click the selected screenshot to copy it to the clipboard and close the capture."
-        ),
+    if not hasattr(dialog, '_behavior_controls'):
+        dialog._behavior_controls = {}
+    crosshair_card = SwitchSettingCard(
+        FluentIcon.LAYOUT, dialog.tr("Fullscreen Crosshair"),
+        dialog.tr("Show horizontal and vertical guide lines across the screen while capturing."),
         parent=grp_behavior,
     )
-    double_click_card.setChecked(
-        dialog.config_manager.get_double_click_copy_close_enabled()
-    )
-    dialog.double_click_copy_close_toggle = double_click_card
-    grp_behavior.addSettingCard(double_click_card)
+    crosshair_card.setChecked(dialog.config_manager.get_app_setting("capture_fullscreen_crosshair", False))
+    dialog._behavior_controls["capture_fullscreen_crosshair"] = crosshair_card
+    grp_behavior.addSettingCard(crosshair_card)
 
     cross_tool_card = SwitchSettingCard(
         FluentIcon.EDIT,
@@ -70,6 +81,31 @@ def create_capture_page(dialog) -> QWidget:
     )
     dialog.text_always_on_top_toggle = text_top_card
     grp_behavior.addSettingCard(text_top_card)
+
+    for trigger, label, _default in CAPTURE_TRIGGERS:
+        card = FSettingCard(FluentIcon.CAMERA, dialog.tr(label), parent=grp_behavior)
+        combo = CaptureActionComboBox(card)
+        combo.setFixedWidth(dialog_scaled(150))
+        for action, title in CAPTURE_ACTIONS:
+            combo.addItem(dialog.tr(title), userData=action)
+        combo.setCurrentIndex(combo.findData(get_capture_action(dialog.config_manager, trigger)))
+        exit_label = CaptionLabel(dialog.tr("Exit capture after action"), card)
+        exit_label.setWordWrap(True)
+        exit_check = SwitchButton(card)
+        exit_check.setAccessibleName(dialog.tr("Exit capture after action"))
+        exit_check.setChecked(dialog.config_manager.get_app_setting(f"capture_{trigger}_exit", True))
+        exit_check.setEnabled(combo.currentData() != "none")
+        combo.currentIndexChanged.connect(
+            lambda _index, c=combo, check=exit_check: check.setEnabled(c.currentData() != "none")
+        )
+        card.hBoxLayout.insertWidget(card.hBoxLayout.indexOf(card.controlContainer), combo)
+        card.addControl(exit_label)
+        card.addControl(exit_check, align=Qt.AlignmentFlag.AlignRight)
+        dialog._behavior_controls[f"capture_{trigger}_action"] = combo
+        dialog._behavior_controls[f"capture_{trigger}_exit"] = exit_check
+        if trigger == "double_click":
+            dialog.double_click_copy_close_toggle = combo
+        grp_behavior.addSettingCard(card)
 
     layout.addWidget(grp_behavior)
 

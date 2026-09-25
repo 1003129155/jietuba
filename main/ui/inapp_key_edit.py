@@ -24,8 +24,9 @@ class InAppKeyEdit(KeyChipLineEdit):
     # 键盘那侧靠 _is_text_input_active 达到同样效果，鼠标没有对应机制。
     _captures_inapp_mouse_shortcut = True
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, *, allow_mouse=True):
         super().__init__(parent)
+        self._allow_mouse = allow_mouse
         self.setReadOnly(True)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
@@ -42,6 +43,8 @@ class InAppKeyEdit(KeyChipLineEdit):
             super().mousePressEvent(event)
             return
         event.accept()
+        if not self._allow_mouse:
+            return
         self.setFocus(Qt.FocusReason.MouseFocusReason)
         parts = []
         mods = event.modifiers()

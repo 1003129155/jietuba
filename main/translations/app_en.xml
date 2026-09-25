@@ -816,6 +816,126 @@ Replace it?</translation>
     <message><source>Color Formats</source><translation>Color Formats</translation></message>
     <message><source>Which formats the magnifier shows, and which one the copy shortcut uses.</source><translation>Which formats the magnifier shows, and which one the copy shortcut uses.</translation></message>
     <message><source>Manage Color Formats</source><translation>Manage Color Formats</translation></message>
+    <message>
+        <source>Copy to Clipboard</source>
+        <translation>Copy to Clipboard</translation>
+    </message>
+    <message>
+        <source>Pin to Screen</source>
+        <translation>Pin to Screen</translation>
+    </message>
+    <message>
+        <source>Save to File</source>
+        <translation>Save to File</translation>
+    </message>
+    <message>
+        <source>Quick Save</source>
+        <translation>Quick Save</translation>
+    </message>
+    <message>
+        <source>Left Double-click</source>
+        <translation>Left Double-click</translation>
+    </message>
+    <message>
+        <source>Middle Click</source>
+        <translation>Middle Click</translation>
+    </message>
+    <message>
+        <source>Enter Key</source>
+        <translation>Enter Key</translation>
+    </message>
+    <message>
+        <source>Exit capture after action</source>
+        <translation>Exit capture after action</translation>
+    </message>
+    <message>
+        <source>Fullscreen Crosshair</source>
+        <translation>Fullscreen Crosshair</translation>
+    </message>
+    <message>
+        <source>Show horizontal and vertical guide lines across the screen while capturing.</source>
+        <translation>Show horizontal and vertical guide lines across the screen while capturing.</translation>
+    </message>
+    <message>
+        <source>Mouse Shortcuts</source>
+        <translation>Mouse Shortcuts</translation>
+    </message>
+    <message>
+        <source>Mouse Wheel</source>
+        <translation>Mouse Wheel</translation>
+    </message>
+    <message>
+        <source>Left Click</source>
+        <translation>Left Click</translation>
+    </message>
+    <message>
+        <source>Right Click</source>
+        <translation>Right Click</translation>
+    </message>
+    <message>
+        <source>Middle Double-click</source>
+        <translation>Middle Double-click</translation>
+    </message>
+    <message>
+        <source>Right Double-click</source>
+        <translation>Right Double-click</translation>
+    </message>
+    <message>
+        <source>Left Drag</source>
+        <translation>Left Drag</translation>
+    </message>
+    <message>
+        <source>Middle Drag</source>
+        <translation>Middle Drag</translation>
+    </message>
+    <message>
+        <source>Right Drag</source>
+        <translation>Right Drag</translation>
+    </message>
+    <message>
+        <source>Zoom Pinned Image</source>
+        <translation>Zoom Pinned Image</translation>
+    </message>
+    <message>
+        <source>Adjust Opacity</source>
+        <translation>Adjust Opacity</translation>
+    </message>
+    <message>
+        <source>Close Pinned Image</source>
+        <translation>Close Pinned Image</translation>
+    </message>
+    <message>
+        <source>Reset Pinned Image Size</source>
+        <translation>Reset Pinned Image Size</translation>
+    </message>
+    <message>
+        <source>Toggle Pin Thumbnail</source>
+        <translation>Toggle Pin Thumbnail</translation>
+    </message>
+    <message>
+        <source>Select Thumbnail Region</source>
+        <translation>Select Thumbnail Region</translation>
+    </message>
+    <message>
+        <source>Copy Selected Text</source>
+        <translation>Copy Selected Text</translation>
+    </message>
+    <message>
+        <source>Pin mouse actions apply outside annotation mode. Conflicts use the first matching action. Copy text uses the selected OCR text; otherwise right-click opens the menu.</source>
+        <translation>Pin mouse actions apply outside annotation mode. Conflicts use the first matching action. Copy text uses the selected OCR text; otherwise right-click opens the menu.</translation>
+    </message>
+    <message>
+        <source>Use + / - instead of the wheel with the same modifiers</source>
+        <translation>Use + / - instead of the wheel with the same modifiers</translation>
+    </message>
+    <message>
+        <source>No Modifier</source>
+        <translation>None</translation>
+    </message>
+    <message>
+        <source>No Action</source>
+        <translation>None</translation>
+    </message>
 </context>
 
 <context>
@@ -847,6 +967,10 @@ Replace it?</translation>
     <message>
         <source>Please configure DeepL API key in Settings.</source>
         <translation>Please configure DeepL API key in Settings.</translation>
+    </message>
+    <message>
+        <source>Save Failed</source>
+        <translation>Save Failed</translation>
     </message>
 </context>
 

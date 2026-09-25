@@ -28,7 +28,7 @@ class ActionTools:
         self.export_service = ExportService(scene)
         self.save_service = SaveService(config_manager=self.config_manager)
 
-    def _copy_save_and_close(self):
+    def _copy_save_and_close(self, *, close_after=True):
         """核心操作：导出选区 → 复制到剪贴板 → 自动保存 → 关闭窗口"""
         from core.clipboard_utils import deliver_image_async
         self._temporarily_exit_editing()
@@ -40,7 +40,7 @@ class ActionTools:
         image = self.export_service.export(selection_rect)
 
         # 导出完成后立即隐藏窗口（数据已拿到，后续操作不需要窗口可见）
-        if self.parent_window:
+        if self.parent_window and close_after:
             self.parent_window.hide()
 
         save_service = None
@@ -68,7 +68,7 @@ class ActionTools:
         else:
             log_debug(T("已完成复制到剪贴板"), "Action")
 
-        if self.parent_window:
+        if self.parent_window and close_after:
             self._cleanup_and_close()
     
     def handle_confirm(self):
@@ -79,7 +79,7 @@ class ActionTools:
         """复制：将选区内容复制到剪贴板（行为与确定相同）"""
         self._copy_save_and_close()
     
-    def handle_save(self):
+    def handle_save(self, *, close_after=True):
         """保存：弹出对话框让用户选择保存位置"""
         self._temporarily_exit_editing()
 
@@ -104,11 +104,13 @@ class ActionTools:
             image = self.export_service.export(selection_rect)
             if self.save_service.save_qimage_to_path(image, file_path, image_format=image_format):
                 log_info(T("已保存到: {file_path}", file_path=file_path), "Action")
-            
-            if self.parent_window:
-                self._cleanup_and_close()
+                if self.parent_window and close_after:
+                    self._cleanup_and_close()
+            else:
+                from ui.dialogs import show_warning_dialog
+                show_warning_dialog(self.parent_window, _tr("Save Failed"), file_path)
     
-    def handle_pin(self):
+    def handle_pin(self, *, close_after=True):
         """
         钉图：创建钉图窗口，显示选区内容
         
@@ -156,14 +158,50 @@ class ActionTools:
         result_image = self.export_service.export(selection_rect)
 
         # 数据已拿到，提前隐藏截图窗口
-        if self.parent_window:
+        if self.parent_window and close_after:
             self.parent_window.hide()
 
         deliver_image_async(result_image)
         log_debug(T("已完成复制到剪贴板"), "PinAction")
         
-        if self.parent_window:
+        if self.parent_window and close_after:
             self._cleanup_and_close()
+
+    def handle_capture_action(self, trigger):
+        """Execute a configured gesture without changing toolbar shortcuts."""
+        from settings.tool_settings import get_capture_action
+
+        if not self.scene.selection_model.is_confirmed or self.scene.selection_model.rect().isEmpty():
+            return False
+        action = get_capture_action(self.config_manager, trigger)
+        close_after = self.config_manager.get_app_setting(f"capture_{trigger}_exit", True)
+        if action == "none":
+            return False
+        if action == "copy":
+            self._copy_save_and_close(close_after=close_after)
+        elif action == "pin":
+            self.handle_pin(close_after=close_after)
+            if not close_after and self.parent_window:
+                self.parent_window.raise_()
+                self.parent_window.activateWindow()
+                self.parent_window.setFocus()
+        elif action == "save":
+            self.handle_save(close_after=close_after)
+        elif action == "quick_save":
+            self._temporarily_exit_editing()
+            rect = self.scene.selection_model.rect()
+            self._remember_last_region(rect)
+            image = self.export_service.export(rect)
+            success, path = self.save_service.save_qimage(
+                image, directory=self.config_manager.get_screenshot_save_path(),
+                prefix="", image_format=self.config_manager.get_screenshot_format(),
+            )
+            if success and close_after:
+                self._cleanup_and_close()
+            elif not success:
+                from ui.dialogs import show_warning_dialog
+                show_warning_dialog(self.parent_window, _tr("Save Failed"), path or "")
+        return True
 
     def handle_screenshot_translate(self):
         """

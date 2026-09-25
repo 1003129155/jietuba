@@ -940,6 +940,126 @@ Replace it?</source>
         <source>No models returned</source>
         <translation>服务没有返回任何模型</translation>
     </message>
+    <message>
+        <source>Copy to Clipboard</source>
+        <translation>复制到剪贴板</translation>
+    </message>
+    <message>
+        <source>Pin to Screen</source>
+        <translation>贴到屏幕</translation>
+    </message>
+    <message>
+        <source>Save to File</source>
+        <translation>保存到文件</translation>
+    </message>
+    <message>
+        <source>Quick Save</source>
+        <translation>快捷保存</translation>
+    </message>
+    <message>
+        <source>Left Double-click</source>
+        <translation>左键双击</translation>
+    </message>
+    <message>
+        <source>Middle Click</source>
+        <translation>中键单击</translation>
+    </message>
+    <message>
+        <source>Enter Key</source>
+        <translation>回车键</translation>
+    </message>
+    <message>
+        <source>Exit capture after action</source>
+        <translation>执行后退出截图</translation>
+    </message>
+    <message>
+        <source>Fullscreen Crosshair</source>
+        <translation>全屏十字线</translation>
+    </message>
+    <message>
+        <source>Show horizontal and vertical guide lines across the screen while capturing.</source>
+        <translation>截图时显示随鼠标移动、贯穿全屏的水平和垂直辅助线。</translation>
+    </message>
+    <message>
+        <source>Mouse Shortcuts</source>
+        <translation>鼠标快捷键</translation>
+    </message>
+    <message>
+        <source>Mouse Wheel</source>
+        <translation>鼠标滚轮</translation>
+    </message>
+    <message>
+        <source>Left Click</source>
+        <translation>左键单击</translation>
+    </message>
+    <message>
+        <source>Right Click</source>
+        <translation>右键单击</translation>
+    </message>
+    <message>
+        <source>Middle Double-click</source>
+        <translation>中键双击</translation>
+    </message>
+    <message>
+        <source>Right Double-click</source>
+        <translation>右键双击</translation>
+    </message>
+    <message>
+        <source>Left Drag</source>
+        <translation>鼠标左键拖拽</translation>
+    </message>
+    <message>
+        <source>Middle Drag</source>
+        <translation>鼠标中键拖拽</translation>
+    </message>
+    <message>
+        <source>Right Drag</source>
+        <translation>鼠标右键拖拽</translation>
+    </message>
+    <message>
+        <source>Zoom Pinned Image</source>
+        <translation>钉图缩放</translation>
+    </message>
+    <message>
+        <source>Adjust Opacity</source>
+        <translation>调整透明度</translation>
+    </message>
+    <message>
+        <source>Close Pinned Image</source>
+        <translation>关闭钉图</translation>
+    </message>
+    <message>
+        <source>Reset Pinned Image Size</source>
+        <translation>重置钉图大小</translation>
+    </message>
+    <message>
+        <source>Toggle Pin Thumbnail</source>
+        <translation>快速缩略钉图</translation>
+    </message>
+    <message>
+        <source>Select Thumbnail Region</source>
+        <translation>选区缩略钉图</translation>
+    </message>
+    <message>
+        <source>Copy Selected Text</source>
+        <translation>复制选中文字</translation>
+    </message>
+    <message>
+        <source>Pin mouse actions apply outside annotation mode. Conflicts use the first matching action. Copy text uses the selected OCR text; otherwise right-click opens the menu.</source>
+        <translation>钉图鼠标动作在非标注模式下生效，冲突时从上到下优先匹配。复制文本针对已选中的识别文字；未选中文字时，右键仍打开菜单。</translation>
+    </message>
+    <message>
+        <source>Use + / - instead of the wheel with the same modifiers</source>
+        <translation>可用 + / - 代替滚轮，修饰键相同</translation>
+    </message>
+    <message>
+        <source>No Modifier</source>
+        <translation>无</translation>
+    </message>
+    <message>
+        <source>No Action</source>
+        <translation>无</translation>
+    </message>
 </context>
 
 <context>
@@ -971,6 +1091,10 @@ Replace it?</source>
     <message>
         <source>Please configure DeepL API key in Settings.</source>
         <translation>请先在设置中配置 DeepL API 密钥</translation>
+    </message>
+    <message>
+        <source>Save Failed</source>
+        <translation>保存失败</translation>
     </message>
 </context>
 

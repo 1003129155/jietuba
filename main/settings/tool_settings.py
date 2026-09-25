@@ -26,6 +26,47 @@ from PySide6.QtGui import QColor
 SMART_SELECTION_MODES = ("off", "window", "element")
 STORED_SMART_SELECTION_MODES = SMART_SELECTION_MODES[1:]
 
+CAPTURE_ACTIONS = (
+    ("none", "No Action"), ("copy", "Copy to Clipboard"), ("pin", "Pin to Screen"),
+    ("save", "Save to File"), ("quick_save", "Quick Save"),
+)
+CAPTURE_TRIGGERS = (
+    ("double_click", "Left Double-click", "copy"),
+    ("middle_click", "Middle Click", "pin"),
+    ("enter", "Enter Key", "copy"),
+)
+
+PIN_MOUSE_ACTIONS = (
+    ("zoom", "Zoom Pinned Image", "wheel", "wheel"),
+    ("opacity", "Adjust Opacity", "ctrl+wheel", "wheel"),
+    ("close", "Close Pinned Image", "doubleleft", "click"),
+    ("reset", "Reset Pinned Image Size", "middle", "click"),
+    ("thumbnail", "Toggle Pin Thumbnail", "shift+doubleleft", "click"),
+    ("region", "Select Thumbnail Region", "dragright", "drag"),
+    ("copy_text", "Copy Selected Text", "right", "click"),
+)
+
+
+def get_pin_mouse_binding(config, action):
+    default = next(binding for key, _label, binding, _kind in PIN_MOUSE_ACTIONS if key == action)
+    if config is None:
+        return default
+    if action == "reset":
+        legacy = config.get_inapp_shortcut("inapp_pin_reset_size")
+        if isinstance(legacy, str) and "mousemiddle" in legacy:
+            default = legacy.replace("mousemiddle", "middle")
+    return config.get_app_setting(f"mouse_pin_{action}", default)
+
+
+def get_capture_action(config, trigger):
+    """Read an action while respecting the legacy double-click opt-out."""
+    default = dict((key, action) for key, _label, action in CAPTURE_TRIGGERS)[trigger]
+    if trigger == "double_click" and not config.get_double_click_copy_close_enabled():
+        default = "none"
+    getter = getattr(config, 'get_app_setting', None)
+    action = getter(f"capture_{trigger}_action", default) if callable(getter) else default
+    return action if action in dict(CAPTURE_ACTIONS) else default
+
 
 ANNOTATION_TOOL_SHORTCUTS = (
     ("inapp_tool_cursor", "cursor", "Select / Cursor", "s"),
@@ -207,7 +248,15 @@ class ToolSettingsManager(QObject):
         **{key: default for key, _tool, _label, default in ANNOTATION_TOOL_SHORTCUTS},
         # ==================== 2. 截图 ====================
         # 截图交互
-        "double_click_copy_close": True,      # 双击选区复制到剪贴板并关闭
+        "double_click_copy_close": True,      # 兼容旧版双击设置
+        "capture_double_click_action": "copy",
+        "capture_double_click_exit": True,
+        "capture_middle_click_action": "pin",
+        "capture_middle_click_exit": True,
+        "capture_enter_action": "copy",
+        "capture_enter_exit": True,
+        "capture_fullscreen_crosshair": False,
+        **{f"mouse_pin_{key}": binding for key, _label, binding, _kind in PIN_MOUSE_ACTIONS},
         "cross_tool_selection": True,         # Ctrl 临时跨工具选择标注
         "text_always_on_top": True,           # 文字标注始终高于其他绘制标注
         "screenshot_toolbar_layout": "",      # 截图工具栏按钮排布（JSON，空 = 默认排布，见 ui/toolbar_layout.py）
@@ -1655,4 +1704,3 @@ def get_tool_settings_manager(qsettings: Optional[QSettings] = None) -> ToolSett
     if _tool_settings_manager is None:
         _tool_settings_manager = ToolSettingsManager(qsettings=qsettings)
     return _tool_settings_manager
-

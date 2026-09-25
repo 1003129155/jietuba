@@ -19,7 +19,7 @@ from ui.selection_overlay import SelectionOverlayWidget
 from ui.selection_info import SelectionInfoPanel, SelectionInfoController
 from tools.action import ActionTools
 from settings import get_tool_settings_manager
-from settings.tool_settings import SMART_SELECTION_MODES
+from settings.tool_settings import SMART_SELECTION_MODES, get_capture_action
 from core.logger import log_debug, log_info, log_exception, T
 from core import safe_event
 from core.shortcut_manager import ShortcutManager, ShortcutHandler
@@ -92,6 +92,18 @@ class ScreenshotShortcutHandler(ShortcutHandler):
 
     def handle_mouse(self, event) -> bool:
         """中键走和键盘完全相同的那条 if 链，见 ShortcutHandler.handle_mouse。"""
+        w = self._window
+        if (event.button() == Qt.MouseButton.MiddleButton
+                and hasattr(event, 'globalPosition')
+                and event.modifiers() == Qt.KeyboardModifier.NoModifier and not w._is_text_editing()):
+            # A deliberate in-app binding still takes precedence over the default gesture.
+            if not any(self._match(event, key) for key in self._mouse_bindings):
+                view = getattr(w, 'view', None)
+                if view is not None and view.viewport().rect().contains(
+                    view.viewport().mapFromGlobal(event.globalPosition().toPoint())
+                ):
+                    if w.action_handler.handle_capture_action("middle_click"):
+                        return True
         return self.handle_key(event)
 
     def handle_key(self, event) -> bool:
@@ -214,10 +226,16 @@ class ScreenshotShortcutHandler(ShortcutHandler):
                         w.cleanup_and_close()
                         return True
 
-        # Enter 确认（固定）
-        if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+        # Bare Enter uses capture behavior; modified shortcuts keep their bindings.
+        if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and event.modifiers() == Qt.KeyboardModifier.NoModifier:
             if w.scene and w.scene.selection_model.is_confirmed:
-                w.action_handler.handle_confirm()
+                if not event_is_auto_repeat(event):
+                    config = getattr(w, 'config_manager', None)
+                    if (get_capture_action(config, "enter") == "copy"
+                            and (config is None or config.get_app_setting("capture_enter_exit", True))):
+                        w.action_handler.handle_confirm()
+                    else:
+                        w.action_handler.handle_capture_action("enter")
                 return True
 
         return False
@@ -334,6 +352,10 @@ class ScreenshotWindow(QWidget):
         self.selection_overlay.setGeometry(0, 0, int(self.virtual_width), int(self.virtual_height))
         self.selection_overlay.raise_()
 
+        self.view.set_fullscreen_crosshair(
+            self.config_manager.get_app_setting("capture_fullscreen_crosshair", False), self.mask_overlay
+        )
+
         _t4 = time.perf_counter()
         _timings['Action+Mask'] = (_t4 - _t3) * 1000
 
@@ -397,7 +419,7 @@ class ScreenshotWindow(QWidget):
             scene,
             self,
             confirm_on_double_click=(
-                self.config_manager.get_double_click_copy_close_enabled()
+                get_capture_action(self.config_manager, "double_click") != "none"
             ),
             cross_tool_select=self.config_manager.get_cross_tool_selection_enabled(),
         )
@@ -465,6 +487,9 @@ class ScreenshotWindow(QWidget):
         self.selection_overlay.rebind(self.scene.selection_item, self.scene.selection_model)
         self.selection_overlay.setGeometry(0, 0, int(self.virtual_width), int(self.virtual_height))
         self.selection_overlay.raise_()
+        self.view.set_fullscreen_crosshair(
+            self.config_manager.get_app_setting("capture_fullscreen_crosshair", False), self.mask_overlay
+        )
         
         # 复用 info_panel —— swap view 引用，重建 controller
         self.info_panel._view = self.view
@@ -711,6 +736,10 @@ class ScreenshotWindow(QWidget):
     def _handle_confirm(self):
         if self.action_handler:
             self.action_handler.handle_confirm()
+
+    def _handle_double_click(self):
+        if self.action_handler:
+            self.action_handler.handle_capture_action("double_click")
 
     def _handle_copy(self):
         if self.action_handler:

@@ -931,6 +931,126 @@ Replace it?</source>
         <source>No models returned</source>
         <translation>반환된 모델이 없습니다</translation>
     </message>
+    <message>
+        <source>Copy to Clipboard</source>
+        <translation>클립보드에 복사</translation>
+    </message>
+    <message>
+        <source>Pin to Screen</source>
+        <translation>화면에 고정</translation>
+    </message>
+    <message>
+        <source>Save to File</source>
+        <translation>파일로 저장</translation>
+    </message>
+    <message>
+        <source>Quick Save</source>
+        <translation>빠른 저장</translation>
+    </message>
+    <message>
+        <source>Left Double-click</source>
+        <translation>왼쪽 더블 클릭</translation>
+    </message>
+    <message>
+        <source>Middle Click</source>
+        <translation>가운데 클릭</translation>
+    </message>
+    <message>
+        <source>Enter Key</source>
+        <translation>Enter 키</translation>
+    </message>
+    <message>
+        <source>Exit capture after action</source>
+        <translation>실행 후 캡처 종료</translation>
+    </message>
+    <message>
+        <source>Fullscreen Crosshair</source>
+        <translation>전체 화면 십자선</translation>
+    </message>
+    <message>
+        <source>Show horizontal and vertical guide lines across the screen while capturing.</source>
+        <translation>캡처 중 마우스를 따라 화면 전체에 가로 및 세로 안내선을 표시합니다.</translation>
+    </message>
+    <message>
+        <source>Mouse Shortcuts</source>
+        <translation>마우스 단축키</translation>
+    </message>
+    <message>
+        <source>Mouse Wheel</source>
+        <translation>마우스 휠</translation>
+    </message>
+    <message>
+        <source>Left Click</source>
+        <translation>왼쪽 클릭</translation>
+    </message>
+    <message>
+        <source>Right Click</source>
+        <translation>오른쪽 클릭</translation>
+    </message>
+    <message>
+        <source>Middle Double-click</source>
+        <translation>가운데 더블 클릭</translation>
+    </message>
+    <message>
+        <source>Right Double-click</source>
+        <translation>오른쪽 더블 클릭</translation>
+    </message>
+    <message>
+        <source>Left Drag</source>
+        <translation>왼쪽 버튼 드래그</translation>
+    </message>
+    <message>
+        <source>Middle Drag</source>
+        <translation>가운데 버튼 드래그</translation>
+    </message>
+    <message>
+        <source>Right Drag</source>
+        <translation>오른쪽 버튼 드래그</translation>
+    </message>
+    <message>
+        <source>Zoom Pinned Image</source>
+        <translation>고정 이미지 확대/축소</translation>
+    </message>
+    <message>
+        <source>Adjust Opacity</source>
+        <translation>불투명도 조절</translation>
+    </message>
+    <message>
+        <source>Close Pinned Image</source>
+        <translation>고정 이미지 닫기</translation>
+    </message>
+    <message>
+        <source>Reset Pinned Image Size</source>
+        <translation>고정 이미지 크기 초기화</translation>
+    </message>
+    <message>
+        <source>Toggle Pin Thumbnail</source>
+        <translation>고정 이미지 썸네일 전환</translation>
+    </message>
+    <message>
+        <source>Select Thumbnail Region</source>
+        <translation>썸네일 영역 선택</translation>
+    </message>
+    <message>
+        <source>Copy Selected Text</source>
+        <translation>선택한 텍스트 복사</translation>
+    </message>
+    <message>
+        <source>Pin mouse actions apply outside annotation mode. Conflicts use the first matching action. Copy text uses the selected OCR text; otherwise right-click opens the menu.</source>
+        <translation>마우스 동작은 주석 모드 밖에서 적용되며, 충돌 시 위쪽 동작이 우선합니다. 선택한 OCR 텍스트를 복사하고, 선택이 없으면 오른쪽 클릭으로 메뉴를 엽니다.</translation>
+    </message>
+    <message>
+        <source>Use + / - instead of the wheel with the same modifiers</source>
+        <translation>같은 보조 키와 + / -로 휠 동작 대체</translation>
+    </message>
+    <message>
+        <source>No Modifier</source>
+        <translation>없음</translation>
+    </message>
+    <message>
+        <source>No Action</source>
+        <translation>없음</translation>
+    </message>
 </context>
 
 <context>
@@ -962,6 +1082,10 @@ Replace it?</source>
     <message>
         <source>Please configure DeepL API key in Settings.</source>
         <translation>설정에서 DeepL API 키를 구성해 주세요.</translation>
+    </message>
+    <message>
+        <source>Save Failed</source>
+        <translation>저장 실패</translation>
     </message>
 </context>
 

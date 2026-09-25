@@ -69,15 +69,19 @@ class SettingsDialog(FrostedFramelessDialog):
     """现代化设置对话框 - Fluent 风格（无系统标题栏）"""
 
     wizard_requested = Signal()
+    settings_applied = Signal()
 
     def __init__(self, config_manager=None, current_hotkey="ctrl+shift+a", parent=None):
         super().__init__(parent)
         self.config_manager = config_manager
-        # MainApp uses this after accepted() to decide whether the cached
+        self._behavior_controls = {}
+        # MainApp uses this after settings_applied to decide whether the cached
         # settings window must be rebuilt.  Most settings can be refreshed in
         # place, but standalone-window sizing is calculated while widgets are
         # constructed, so reusing this instance would keep the old geometry.
         self._dialog_scale_changed_on_accept = False
+        self._language_changed_on_apply = False
+        self._close_after_apply = False
         self.current_hotkey = current_hotkey
         self.main_window = parent
         self._skip_unsaved_close_prompt = False
@@ -486,7 +490,7 @@ class SettingsDialog(FrostedFramelessDialog):
         ok_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         ok_btn.setIcon(FluentIcon.CHECK)
         ok_btn.setBaseIconSize(16)
-        ok_btn.clicked.connect(self.accept)
+        ok_btn.clicked.connect(self.apply_settings)
         self._apply_footer_styles()
 
         layout.addWidget(reset_btn)
@@ -583,6 +587,7 @@ class SettingsDialog(FrostedFramelessDialog):
             pass
 
     def _reset_hotkey_page(self):
+        SettingsDialog._refresh_behavior_controls(self, defaults=True, prefix="mouse_")
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
         self.hotkey_input.setText(defaults["hotkey"])
         if hasattr(self, 'hotkey_input_2'):
@@ -602,7 +607,7 @@ class SettingsDialog(FrostedFramelessDialog):
         # 应用内快捷键
         if hasattr(self, '_inapp_edits'):
             for cfg_key, edit in self._inapp_edits.items():
-                edit.setText(defaults.get(cfg_key, ""))
+                edit.setText("" if cfg_key == "inapp_pin_reset_size" else defaults.get(cfg_key, ""))
         if hasattr(self, 'cursor_move_combo'):
             idx = self.cursor_move_combo.findData(defaults["inapp_cursor_move_mode"])
             if idx >= 0:
@@ -674,6 +679,7 @@ class SettingsDialog(FrostedFramelessDialog):
                 self._selection_handle_size_combo.setCurrentIndex(index)
 
     def _reset_screenshot_settings_page(self):
+        SettingsDialog._refresh_behavior_controls(self, defaults=True, prefix="capture_")
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
         if hasattr(self, 'double_click_copy_close_toggle'):
             self.double_click_copy_close_toggle.setChecked(
@@ -795,9 +801,11 @@ class SettingsDialog(FrostedFramelessDialog):
     # 保存（accept）
     # ================================================================
 
-    def accept(self):
-        """保存所有设置"""
+    def apply_settings(self, *, close_after=False):
+        """Save and notify the application without closing this window."""
         self._dialog_scale_changed_on_accept = False
+        self._language_changed_on_apply = False
+        self._close_after_apply = close_after
 
         # 六个全局快捷键必须先整体通过校验。这里发生在任何 set_* 之前，
         # 因而冲突值不会写入配置，窗口也不会关闭。
@@ -812,7 +820,7 @@ class SettingsDialog(FrostedFramelessDialog):
                     "Please fix them before applying."
                 ),
             )
-            return
+            return False
 
         # 防止保存过程中（比如语言切换触发的窗口重建）触发未保存确认弹窗
         self._skip_unsaved_close_prompt = True
@@ -831,6 +839,9 @@ class SettingsDialog(FrostedFramelessDialog):
             )
 
         # 1. 截图交互（双击确认 + 智能选区）
+        for key, control in getattr(self, '_behavior_controls', {}).items():
+            value = control.currentData() if hasattr(control, 'currentData') else control.isChecked()
+            self.config_manager.set_app_setting(key, value)
         if hasattr(self, 'double_click_copy_close_toggle'):
             self.config_manager.set_double_click_copy_close_enabled(
                 self.double_click_copy_close_toggle.isChecked()
@@ -965,6 +976,7 @@ class SettingsDialog(FrostedFramelessDialog):
             old_lang = self.config_manager.get_app_setting("language", "ja")
             self.config_manager.qsettings.setValue("app/language", new_lang)
             if new_lang != old_lang:
+                self._language_changed_on_apply = True
                 from core.i18n import I18nManager
                 I18nManager.load_language(new_lang)
 
@@ -1060,11 +1072,18 @@ class SettingsDialog(FrostedFramelessDialog):
 
         log_info("すべての設定を保存しました", "Settings")
         self._settings_snapshot = self._snapshot_settings()
+        self.config_manager.qsettings.sync()
         self._skip_unsaved_close_prompt = True
         try:
-            super().accept()
+            self.settings_applied.emit()
         finally:
             self._skip_unsaved_close_prompt = False
+        return True
+
+    def accept(self):
+        """Explicit save-and-close, including the unsaved-changes prompt."""
+        if self.apply_settings(close_after=True):
+            super().accept()
 
     # ================================================================
     # showEvent / refresh
@@ -1162,6 +1181,8 @@ class SettingsDialog(FrostedFramelessDialog):
     def _snapshot_settings(self):
         """捕获所有可编辑控件的当前值，返回 dict"""
         snap = {}
+        for key, control in getattr(self, '_behavior_controls', {}).items():
+            snap[key] = control.currentData() if hasattr(control, 'currentData') else control.isChecked()
         # 文本类
         for attr in ('hotkey_input', 'hotkey_input_2', 'clipboard_hotkey_edit',
                       'translation_hotkey_edit', 'translation_hotkey_edit_2',
@@ -1267,8 +1288,10 @@ class SettingsDialog(FrostedFramelessDialog):
         if self._has_unsaved_changes():
             action = self._confirm_close_with_unsaved_changes()
             if action == "save":
-                self.accept()
-                event.accept()
+                if self.apply_settings(close_after=True):
+                    event.accept()
+                else:
+                    event.ignore()
             elif action == "discard":
                 event.accept()
             else:
@@ -1306,8 +1329,32 @@ class SettingsDialog(FrostedFramelessDialog):
         except Exception as e:
             log_exception(e, T("设置任务栏图标"))
 
+    def _refresh_behavior_controls(self, *, defaults=False, prefix=""):
+        from settings.tool_settings import ToolSettingsManager, get_capture_action, get_pin_mouse_binding
+
+        for key, control in getattr(self, '_behavior_controls', {}).items():
+            if not key.startswith(prefix):
+                continue
+            default = ToolSettingsManager.APP_DEFAULT_SETTINGS[key]
+            if defaults:
+                value = default
+            elif key.startswith("capture_") and key.endswith("_action"):
+                value = get_capture_action(self.config_manager, key[len("capture_"):-len("_action")])
+            elif key.startswith("mouse_pin_"):
+                value = get_pin_mouse_binding(self.config_manager, key[len("mouse_pin_"):])
+            else:
+                value = self.config_manager.get_app_setting(key, default)
+            if hasattr(control, 'setBinding'):
+                control.setBinding(value)
+            elif hasattr(control, 'findData'):
+                index = control.findData(value)
+                control.setCurrentIndex(index if index >= 0 else control.findData(default))
+            else:
+                control.setChecked(bool(value))
+
     def refresh_settings(self):
         """从配置管理器重新读取所有设置并更新界面"""
+        SettingsDialog._refresh_behavior_controls(self)
         if hasattr(self, 'hotkey_input'):
             self.hotkey_input.setText(self.config_manager.get_hotkey())
         if hasattr(self, 'hotkey_input_2'):
@@ -1331,9 +1378,11 @@ class SettingsDialog(FrostedFramelessDialog):
 
         # 应用内快捷键
         if hasattr(self, '_inapp_edits'):
-            from core.shortcut_manager import is_reserved_inapp_shortcut
+            from core.shortcut_manager import is_reserved_inapp_shortcut, is_inapp_mouse_shortcut
             for cfg_key, edit in self._inapp_edits.items():
                 val = self.config_manager.get_inapp_shortcut(cfg_key)
+                if cfg_key == "inapp_pin_reset_size" and is_inapp_mouse_shortcut(val):
+                    val = ""
                 edit.setText("" if is_reserved_inapp_shortcut(val) else val)
         if hasattr(self, 'cursor_move_combo'):
             mode = self.config_manager.get_inapp_cursor_move_mode()
@@ -1361,7 +1410,8 @@ class SettingsDialog(FrostedFramelessDialog):
                 self.config_manager.get_smart_selection_animation()
             )
 
-        if hasattr(self, 'double_click_copy_close_toggle'):
+        if (hasattr(self, 'double_click_copy_close_toggle')
+                and 'capture_double_click_action' not in getattr(self, '_behavior_controls', {})):
             self.double_click_copy_close_toggle.setChecked(
                 self.config_manager.get_double_click_copy_close_enabled()
             )
