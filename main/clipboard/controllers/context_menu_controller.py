@@ -170,6 +170,11 @@ def _is_text_item(state: _ItemContextMenuState) -> bool:
     return state.clipboard_item.content_type == "text"
 
 
+def is_quick_editable(item: ClipboardItem) -> bool:
+    """文本条目都能快速编辑；保存时带回原标题，分组内容也不受影响。"""
+    return item.content_type == "text"
+
+
 _ITEM_CONTEXT_MENU_SPECS: Tuple[_ItemContextMenuSpec, ...] = (
     _ItemContextMenuSpec(key="paste", label="Paste"),
     _ItemContextMenuSpec(
@@ -199,6 +204,11 @@ _ITEM_CONTEXT_MENU_SPECS: Tuple[_ItemContextMenuSpec, ...] = (
         children_builder=_build_move_group_menu_children,
     ),
     _ItemContextMenuSpec(key="sep_before_order", is_separator=True),
+    _ItemContextMenuSpec(
+        key="quick_edit_item",
+        label="Quick Edit",
+        predicate=lambda state: is_quick_editable(state.clipboard_item),
+    ),
     _ItemContextMenuSpec(key="edit_item", label="Edit", predicate=lambda state: state.in_group),
     _ItemContextMenuSpec(
         key="move_item_up",
@@ -335,4 +345,4 @@ class ClipboardContextMenuController:
         return _normalize_menu_actions(actions)
 
 
-__all__ = ["ClipboardContextMenuController", "ContextMenuData", "MenuAction"]
+__all__ = ["ClipboardContextMenuController", "ContextMenuData", "MenuAction", "is_quick_editable"]

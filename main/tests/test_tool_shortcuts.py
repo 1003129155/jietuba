@@ -79,6 +79,32 @@ def test_explicit_empty_binding_is_not_loaded(isolated_manager):
     assert "inapp_tool_text" not in load_inapp_bindings(["inapp_tool_text"])
 
 
+@pytest.mark.parametrize(
+    "key, modifiers",
+    [
+        (Qt.Key.Key_Return, Qt.KeyboardModifier.ControlModifier),
+        (Qt.Key.Key_Enter, Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.KeypadModifier),
+    ],
+    ids=["main-keyboard", "keypad"],
+)
+def test_enter_binding_matches_both_enter_keys(key, modifiers):
+    """录入主键盘回车存下的是 "enter"，解析出来却是小键盘的 Key_Enter。"""
+    from core.shortcut_manager import match_inapp_binding, parse_shortcut_to_qt
+
+    bindings = {"k": parse_shortcut_to_qt("ctrl+enter")}
+
+    assert match_inapp_binding(QKeyEvent(QKeyEvent.Type.KeyPress, key, modifiers), "k", bindings)
+
+
+def test_enter_binding_still_checks_modifiers():
+    from core.shortcut_manager import match_inapp_binding, parse_shortcut_to_qt
+
+    bindings = {"k": parse_shortcut_to_qt("ctrl+enter")}
+    event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_Return, Qt.KeyboardModifier.NoModifier)
+
+    assert not match_inapp_binding(event, "k", bindings)
+
+
 def test_escape_is_reserved_for_inapp_bindings():
     from core.shortcut_manager import is_reserved_inapp_shortcut
 
@@ -209,7 +235,10 @@ def test_settings_page_exposes_tool_tab_shared_conflict_group_and_empty_value(
         assert dialog._inapp_groups["inapp_confirm"] == "screenshot"
         assert dialog._inapp_groups["inapp_tool_text"] == "screenshot"
         assert dialog._inapp_groups["inapp_copy_pin"] == "pin"
+        assert dialog._inapp_groups["inapp_clipboard_quick_edit"] == "clipboard"
+        assert dialog._inapp_groups["inapp_clipboard_edit_save_paste"] == "clipboard"
         assert dialog._inapp_edits["inapp_tool_text"].text() == ""
+        assert dialog._inapp_edits["inapp_clipboard_quick_edit"].text() == "tab"
     finally:
         page.close()
 

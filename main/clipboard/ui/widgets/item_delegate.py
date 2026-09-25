@@ -29,10 +29,12 @@ from core.logger import T, log_error
 ROLE_ITEM_DATA = Qt.ItemDataRole.UserRole + 1      # ClipboardItem 对象
 ROLE_ITEM_ID = Qt.ItemDataRole.UserRole             # item.id（保持兼容）
 
-# 前 35 个项目的快捷键标签（1-9, a-z），带全角冒号
-_SHORTCUT_LABELS = [str(i) + '：' for i in range(1, 10)] + [chr(c) + '：' for c in range(ord('a'), ord('z') + 1)]
 # 快捷键标签区域宽度（含冒号需要更宽）
 _SHORTCUT_BADGE_WIDTH = 26
+
+# 图片条目高度档位 -> 占普通条目的行数
+IMAGE_ROW_SPANS = {"small": 1, "medium": 1.5, "large": 2}
+_MIN_IMAGE_ROW_HEIGHT = 42
 
 
 def _hex_to_qcolor(hex_color: str, alpha: int = 255) -> QColor:
@@ -75,6 +77,7 @@ class ClipboardItemDelegate(QStyledItemDelegate):
         show_metadata: bool = True,
         line_height_padding: int = 8,
         show_shortcuts: bool = True,
+        image_size: str = "small",
     ):
         super().__init__(parent)
         self._theme: Theme = theme
@@ -83,8 +86,10 @@ class ClipboardItemDelegate(QStyledItemDelegate):
         self._show_metadata = show_metadata
         self._line_height_padding = line_height_padding
         self._show_shortcuts = show_shortcuts
+        self._shortcut_labels = self._labels_for("123456789abcdefghijklmnopqrstuvwxyz")
         self._hide_file_icon = False
         self._highlighted_id: Optional[int] = None
+        self._image_row_span = IMAGE_ROW_SPANS.get(image_size, 1)
 
         # 预计算颜色缓存（主题变化时重建）
         self._colors_cache: Dict = {}
@@ -113,8 +118,20 @@ class ClipboardItemDelegate(QStyledItemDelegate):
     def set_show_metadata(self, show: bool):
         self._show_metadata = show
 
+    def set_image_size(self, size: str):
+        self._image_row_span = IMAGE_ROW_SPANS.get(size, 1)
+
     def set_show_shortcuts(self, show: bool):
         self._show_shortcuts = show
+
+    def set_pick_keys(self, keys: str):
+        """直选粘贴键，按顺序标在前几行上。"""
+        self._shortcut_labels = self._labels_for(keys)
+
+    @staticmethod
+    def _labels_for(keys: str) -> list:
+        # 带全角冒号
+        return [key + '：' for key in keys]
 
     def set_hide_file_icon(self, hide: bool):
         self._hide_file_icon = hide
@@ -207,10 +224,10 @@ class ClipboardItemDelegate(QStyledItemDelegate):
         painter.setPen(pen)
         painter.drawLine(rect.left(), rect.bottom(), rect.right(), rect.bottom())
 
-        # ---- 快捷键徽标（前35项，左侧固定区域） ----
+        # ---- 快捷键徽标（直选键对应的前几项，左侧固定区域） ----
         shortcut_badge_width = _SHORTCUT_BADGE_WIDTH if self._show_shortcuts else 0
-        if self._show_shortcuts and row < len(_SHORTCUT_LABELS):
-            label = _SHORTCUT_LABELS[row]
+        if self._show_shortcuts and row < len(self._shortcut_labels):
+            label = self._shortcut_labels[row]
             shortcut_font = self._font_cache["shortcut"]
             painter.setFont(shortcut_font)
             painter.setPen(cc["shortcut_text"])
@@ -224,7 +241,7 @@ class ClipboardItemDelegate(QStyledItemDelegate):
 
         # ---- 内容区域 ----
         # 有快捷键徽标时：徽标宽度 + 4px 间距；无徽标时：标准左边距 12px
-        if self._show_shortcuts and row < len(_SHORTCUT_LABELS):
+        if self._show_shortcuts and row < len(self._shortcut_labels):
             content_left = rect.left() + shortcut_badge_width + 4
         else:
             content_left = rect.left() + 12
@@ -239,9 +256,18 @@ class ClipboardItemDelegate(QStyledItemDelegate):
         if item_data.content_type == "image" and item_data.thumbnail:
             pixmap = self._get_thumbnail(item_data.thumbnail)
             if pixmap:
-                thumb_rect = QRect(x_offset, content_top + 1, 40, 40)
+                # 等比缩放进行高的方框（留出底部分隔线），靠左、垂直居中
+                side = rect.height() - 2
+                scaled = pixmap.size().scaled(side, side, Qt.AspectRatioMode.KeepAspectRatio)
+                thumb_rect = QRect(
+                    x_offset,
+                    rect.top() + 1 + (side - scaled.height()) // 2,
+                    scaled.width(),
+                    scaled.height(),
+                )
+                painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
                 painter.drawPixmap(thumb_rect, pixmap)
-                x_offset += 44  # 40 + 4间距
+                x_offset += scaled.width() + 6
         elif item_data.icon and not (self._hide_file_icon and item_data.content_type == "file"):
             painter.setFont(self._font_cache["icon"])
             painter.setPen(cc["text_primary"])
@@ -298,7 +324,7 @@ class ClipboardItemDelegate(QStyledItemDelegate):
 
         item_data: ClipboardItem = index.data(ROLE_ITEM_DATA)
         if item_data and item_data.content_type == "image" and item_data.thumbnail:
-            content_height = max(content_height, 42)  # 缩略图最小高度
+            content_height = max(int(content_height * self._image_row_span), _MIN_IMAGE_ROW_HEIGHT)
 
         return QSize(option.rect.width() if option.rect.width() > 0 else 300, content_height)
 

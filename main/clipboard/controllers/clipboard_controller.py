@@ -74,6 +74,7 @@ class ClipboardController(QObject):
     item_moved_to_top = Signal(int, int)  # (item_id, row) 条目已移到最前
     item_removed = Signal(int)  # (row) 条目已移出当前列表
     item_row_moved = Signal(int, int)  # (from_row, to_row) 条目在当前列表里换了位置
+    item_updated = Signal(int, object)  # (row, item) 条目内容已改，原地刷新这一行
     
     def __init__(self, manager: ClipboardManager):
         super().__init__()
@@ -704,6 +705,20 @@ class ClipboardController(QObject):
                 self._remove_loaded_item(item_id)
             return True
         return False
+
+    def update_item_content(self, item_id: int, content: str) -> bool:
+        """改写条目正文，保留标题；已加载的那一行原地刷新。"""
+        item = self.get_item(item_id)
+        if item is None:
+            return False
+        if not self.manager.update_item(item_id, content, title=item.title):
+            return False
+        index = self._loaded_index(item_id)
+        updated = self.get_item(item_id)
+        if index is not None and updated is not None:
+            self.current_items[index] = updated
+            self.item_updated.emit(index, updated)
+        return True
 
     def _loaded_index(self, item_id: int) -> Optional[int]:
         return next((i for i, existing in enumerate(self.current_items) if existing.id == item_id), None)

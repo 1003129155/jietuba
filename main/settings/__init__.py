@@ -22,11 +22,13 @@
 from .tool_settings import (
     ANNOTATION_TOOL_SHORTCUTS,
     ToolSettingsManager,
+    clipboard_pick_keys,
     get_tool_settings_manager,
 )
 
 __all__ = [
     'ANNOTATION_TOOL_SHORTCUTS',
     'ToolSettingsManager',
+    'clipboard_pick_keys',
     'get_tool_settings_manager',
 ]

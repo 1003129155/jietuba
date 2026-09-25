@@ -7,13 +7,20 @@
 - 允许单个字母键（如 "C"）作为合法输入
 - 允许 Shift+字母 组合（如 "Shift+C"）
 """
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QKeyEvent, QKeySequence
 
 from core.shortcut_manager import MOUSE_BUTTON_MIDDLE, get_key_display_map
 from core import safe_event
 
 from .key_chip import KeyChipLineEdit
+
+
+_CURSOR_KEYS = frozenset({
+    Qt.Key.Key_Left, Qt.Key.Key_Right, Qt.Key.Key_Up, Qt.Key.Key_Down,
+    Qt.Key.Key_Home, Qt.Key.Key_End, Qt.Key.Key_PageUp, Qt.Key.Key_PageDown,
+    Qt.Key.Key_Delete,
+})
 
 
 class InAppKeyEdit(KeyChipLineEdit):
@@ -24,10 +31,21 @@ class InAppKeyEdit(KeyChipLineEdit):
     # 键盘那侧靠 _is_text_input_active 达到同样效果，鼠标没有对应机制。
     _captures_inapp_mouse_shortcut = True
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, allow_mouse: bool = True, allow_text_keys: bool = True):
         super().__init__(parent)
+        # 所属窗口的快捷键处理器不接鼠标键时关掉，否则录上了也不会生效
+        self._allow_mouse = allow_mouse
+        # 在文本框里生效的快捷键不能占用打字和移动光标的键
+        self._allow_text_keys = allow_text_keys
         self.setReadOnly(True)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
+    def event(self, event):
+        # Tab 默认被拿去切换焦点，到不了 keyPressEvent，这里截下来当普通按键录入
+        if event.type() == QEvent.Type.KeyPress and event.key() in (Qt.Key.Key_Tab, Qt.Key.Key_Backtab):
+            self.keyPressEvent(event)
+            return True
+        return super().event(event)
 
     # ── 鼠标事件 ──────────────────────────────────────────
 
@@ -38,7 +56,7 @@ class InAppKeyEdit(KeyChipLineEdit):
         只做中键：侧键走的是全局热键那套低级钩子，Qt 这里根本收不到；左右键
         在应用里到处都有用途，录成快捷键会让界面没法操作。
         """
-        if event.button() != Qt.MouseButton.MiddleButton:
+        if event.button() != Qt.MouseButton.MiddleButton or not self._allow_mouse:
             super().mousePressEvent(event)
             return
         event.accept()
@@ -92,6 +110,9 @@ class InAppKeyEdit(KeyChipLineEdit):
             self.setText("")
             return
 
+        if not self._allow_text_keys and self._is_text_editing_key(event):
+            return
+
         # 获取主键文字
         key_text = self._key_to_text(key)
         if not key_text:
@@ -125,6 +146,14 @@ class InAppKeyEdit(KeyChipLineEdit):
         pass  # 禁止右键菜单
 
     # ── 内部 ──────────────────────────────────────────────
+
+    @staticmethod
+    def _is_text_editing_key(event: QKeyEvent) -> bool:
+        """不带 Ctrl/Alt 时会输入字符或移动光标的键。"""
+        if event.modifiers() & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier):
+            return False
+        text = event.text()
+        return (bool(text) and text.isprintable()) or event.key() in _CURSOR_KEYS
 
     @staticmethod
     def _key_to_text(key: int) -> str:

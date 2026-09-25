@@ -33,6 +33,7 @@ def show_setting_menu(
     preserve_search: bool,
     window_opacity: int,
     current_font_size: int,
+    current_image_size: str = "small",
     current_theme_name: str,
     current_group_bar_position: str = "right",
     opacity_options: list,
@@ -46,6 +47,7 @@ def show_setting_menu(
     on_toggle_preserve_search: Callable,
     on_set_opacity: Callable,
     on_set_font_size: Callable,
+    on_set_image_size: Optional[Callable] = None,
     on_set_theme: Callable,
     on_add_item: Callable,
     on_set_group_bar_position: Optional[Callable] = None,
@@ -93,6 +95,16 @@ def show_setting_menu(
         act.setCheckable(True)
         act.setChecked(current_font_size == size)
         act.triggered.connect(lambda _c, s=size: on_set_font_size(s))
+
+    # ── 图片大小子菜单 ──
+    if on_set_image_size is not None:
+        image_menu = menu.addMenu(tr("Image Size"))
+        image_menu.setStyleSheet(menu_style)
+        for key, label in [("small", tr("Small")), ("medium", tr("Medium")), ("large", tr("Large"))]:
+            act = image_menu.addAction(label)
+            act.setCheckable(True)
+            act.setChecked(current_image_size == key)
+            act.triggered.connect(lambda _c, k=key: on_set_image_size(k))
 
     # ── 主题子菜单 ──
     theme_menu = menu.addMenu(tr("Theme"))

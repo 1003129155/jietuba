@@ -17,8 +17,9 @@ from .components import IconBadge, SectionCard, add_separated_row, apply_theme_t
 from ..hotkey_edit import HotkeyEdit, validate_hotkey_group
 from ..inapp_key_edit import InAppKeyEdit
 from ..key_chip import CHIP_WIDTH, STATUS_GAP, STATUS_SIZE, format_shortcut_text
-from settings import ANNOTATION_TOOL_SHORTCUTS
+from settings import ANNOTATION_TOOL_SHORTCUTS, clipboard_pick_keys
 from core.shortcut_manager import is_reserved_inapp_shortcut
+from core.ui_theme import set_own_style
 
 
 # ── 应用内快捷键定义表（分组）──────────────────────────────
@@ -48,7 +49,17 @@ TOOL_KEYS = [
     for cfg_key, _tool_id, label, default in ANNOTATION_TOOL_SHORTCUTS
 ]
 
-INAPP_KEYS = SCREENSHOT_KEYS + TOOL_KEYS + PIN_KEYS
+CLIPBOARD_KEYS = [
+    ("inapp_clipboard_quick_edit", "Quick Edit", "tab"),
+]
+
+# 在快速编辑框的文本框里生效，不能占用会输入字符的键
+CLIPBOARD_EDITOR_KEYS = [
+    ("inapp_clipboard_edit_save", "Save Edit", "ctrl+enter"),
+    ("inapp_clipboard_edit_save_paste", "Save and Paste", "ctrl+shift+enter"),
+]
+
+INAPP_KEYS = SCREENSHOT_KEYS + TOOL_KEYS + PIN_KEYS + CLIPBOARD_KEYS + CLIPBOARD_EDITOR_KEYS
 
 # 应用内各项的行图标，尽量沿用工具栏上同一功能的图标。字符串是 svg/ 下的文件名。
 # 行图标会被整体着色，工具栏的序号图标是白底圆，着色后只剩实心圆点，所以用线框版。
@@ -78,6 +89,9 @@ _INAPP_ICONS = {
     "inapp_pin_reset_size": "长截图.svg",
     "inapp_thumbnail": FluentIcon.HIDE,
     "inapp_toggle_toolbar": "开发.svg",
+    "inapp_clipboard_quick_edit": FluentIcon.EDIT,
+    "inapp_clipboard_edit_save": FluentIcon.SAVE,
+    "inapp_clipboard_edit_save_paste": FluentIcon.SEND,
 }
 _CURSOR_MOVE_ICON = "移动窗口.svg"
 
@@ -129,6 +143,37 @@ def validate_global_hotkey_edits(dialog, *, check_system: bool = False) -> bool:
     return validate_hotkey_group(
         _iter_global_hotkey_edits(dialog), check_system=check_system
     )
+
+
+def _global_hotkey_values(dialog) -> set:
+    """当前各全局热键录入框里的有效值；留空和未录完的前缀（如 "ctrl+"）不算。"""
+    return {
+        text
+        for edit in _iter_global_hotkey_edits(dialog)
+        for text in (edit.text().strip().lower(),)
+        if text and not text.endswith("+")
+    }
+
+
+def _refresh_inapp_shadow_states(dialog):
+    """标出和某个全局热键撞了键的应用内快捷键。
+
+    全局热键靠系统 RegisterHotKey 在按键到达窗口前就拦下了它，撞键的应用内
+    快捷键实际收不到按键、形同虚设；这里只负责提示，不改动任何已保存的值。
+    """
+    inapp_edits = getattr(dialog, "_inapp_edits", None)
+    if not inapp_edits:
+        return
+    globals_ = _global_hotkey_values(dialog)
+    tip = dialog.tr(
+        "This is the same as a global hotkey — the system intercepts it "
+        "first, so it won't work here."
+    )
+    for edit in inapp_edits.values():
+        text = edit.text().strip().lower()
+        shadowed = bool(text) and text in globals_
+        edit.setErrorState(shadowed)
+        edit.setToolTip(tip if shadowed else "")
 
 
 def _icon_ref(ref):
@@ -189,7 +234,7 @@ def create_hotkey_page(dialog) -> QWidget:
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 
     view = QWidget()
-    view.setStyleSheet("background: transparent;")
+    set_own_style(view, "background: transparent;")
     layout = QVBoxLayout(view)
     layout.setContentsMargins(0, 0, dialog_scaled(10), 0)
     layout.setSpacing(dialog_scaled(16))
@@ -216,6 +261,10 @@ def create_hotkey_page(dialog) -> QWidget:
         edit.textChanged.connect(
             lambda _text, d=dialog: validate_global_hotkey_edits(d)
         )
+        # 全局热键一变，应用内快捷键里和它撞了键的那些也要跟着更新提示。
+        edit.textChanged.connect(
+            lambda _text, d=dialog: _refresh_inapp_shadow_states(d)
+        )
     validate_global_hotkey_edits(dialog)
 
     layout.addWidget(grp_global)
@@ -224,7 +273,7 @@ def create_hotkey_page(dialog) -> QWidget:
     grp_inapp = SectionCard(
         FluentIcon.LAYOUT,
         dialog.tr("In-App Shortcuts"),
-        dialog.tr("Only in screenshot and pin windows"),
+        dialog.tr("Only in screenshot, pin and clipboard windows"),
         view,
     )
 
@@ -239,14 +288,14 @@ def create_hotkey_page(dialog) -> QWidget:
     stack.setObjectName("InAppShortcutStack")
     stack.setStyleSheet("#InAppShortcutStack { background: transparent; border: none; }")
 
-    def _build_tab(keys_list: list, group_name: str, extra_rows=()) -> QWidget:
+    def _build_tab(keys_list: list, group_name: str, extra_rows=(), allow_mouse=True, text_input_keys=()) -> QWidget:
         page = QWidget()
         vbox = QVBoxLayout(page)
         vbox.setContentsMargins(0, 0, 0, 0)
         vbox.setSpacing(0)
 
         for cfg_key, tr_src, _default in keys_list:
-            edit = InAppKeyEdit()
+            edit = InAppKeyEdit(allow_mouse=allow_mouse, allow_text_keys=cfg_key not in text_input_keys)
             value = dialog.config_manager.get_inapp_shortcut(cfg_key)
             edit.setText("" if is_reserved_inapp_shortcut(value) else value)
             dialog._inapp_edits[cfg_key] = edit
@@ -282,14 +331,34 @@ def create_hotkey_page(dialog) -> QWidget:
     )
     tools_tab = _build_tab(TOOL_KEYS, "screenshot")
     pin_tab = _build_tab(PIN_KEYS, "pin")
+    # 直选粘贴键不单独配置，只选用哪一套；判重时算进剪贴板组
+    dialog.clipboard_pick_combo = ComboBox()
+    for mode, label in (("both", "Digits + Letters"), ("letters", "Letters"), ("digits", "Digits")):
+        dialog.clipboard_pick_combo.addItem(dialog.tr(label), userData=mode)
+    idx = dialog.clipboard_pick_combo.findData(dialog.config_manager.get_inapp_clipboard_pick_mode())
+    if idx >= 0:
+        dialog.clipboard_pick_combo.setCurrentIndex(idx)
+
+    # 剪贴板窗口的快捷键处理器只接键盘
+    clipboard_tab = _build_tab(
+        CLIPBOARD_KEYS + CLIPBOARD_EDITOR_KEYS, "clipboard", allow_mouse=False,
+        text_input_keys={cfg_key for cfg_key, _label, _default in CLIPBOARD_EDITOR_KEYS},
+        extra_rows=[
+            lambda page: _inapp_row(
+                page, FluentIcon.PASTE, dialog.tr("Direct Pick Keys"), dialog.clipboard_pick_combo
+            )
+        ],
+    )
 
     stack.addWidget(screenshot_tab)
     stack.addWidget(tools_tab)
     stack.addWidget(pin_tab)
+    stack.addWidget(clipboard_tab)
 
     tab_switch.addItem("screenshot", dialog.tr("Screenshot Shortcuts"), lambda: stack.setCurrentIndex(0))
     tab_switch.addItem("tools", dialog.tr("Annotation Tools"), lambda: stack.setCurrentIndex(1))
     tab_switch.addItem("pin", dialog.tr("Pin Shortcuts"), lambda: stack.setCurrentIndex(2))
+    tab_switch.addItem("clipboard", dialog.tr("Clipboard Shortcuts"), lambda: stack.setCurrentIndex(3))
     tab_switch.setCurrentItem("screenshot")
 
     tab_row = QWidget(grp_inapp)
@@ -305,6 +374,15 @@ def create_hotkey_page(dialog) -> QWidget:
         edit.textChanged.connect(
             lambda text, k=cfg_key: _on_shortcut_changed(dialog, k, text)
         )
+        edit.textChanged.connect(
+            lambda _text, d=dialog: _refresh_inapp_shadow_states(d)
+        )
+    # 主动跑一次，标出配置文件里已经和全局热键撞键的项。
+    _refresh_inapp_shadow_states(dialog)
+    dialog._clipboard_pick_mode = dialog.clipboard_pick_combo.currentData()
+    dialog.clipboard_pick_combo.currentIndexChanged.connect(
+        lambda _index: _on_pick_mode_changed(dialog)
+    )
 
     layout.addWidget(grp_inapp)
 
@@ -344,15 +422,11 @@ def _on_shortcut_changed(dialog, changed_key: str, new_text: str):
             break
 
     if conflict_key is None:
-        return  # 无冲突
+        if my_group == "clipboard":
+            _check_pick_conflict(dialog, changed_key, new_text)
+        return
 
-    # 找到冲突项的显示名
-    conflict_label = conflict_key
-    for keys_list in (SCREENSHOT_KEYS, TOOL_KEYS, PIN_KEYS):
-        for cfg, tr_src, _default in keys_list:
-            if cfg == conflict_key:
-                conflict_label = dialog.tr(tr_src)
-                break
+    conflict_label = _inapp_label(dialog, conflict_key)
 
     # 弹窗询问
     current_edit = dialog._inapp_edits[changed_key]
@@ -362,15 +436,7 @@ def _on_shortcut_changed(dialog, changed_key: str, new_text: str):
     current_edit.blockSignals(True)
     conflict_edit.blockSignals(True)
 
-    ret = show_confirm_dialog(
-        dialog,
-        dialog.tr("Shortcut Conflict"),
-        dialog.tr('"%1" is already used by "%2".\nReplace it?')
-            .replace('%1', format_shortcut_text(new_text))
-            .replace('%2', conflict_label),
-    )
-
-    if ret is True:
+    if _ask_replace(dialog, new_text, conflict_label):
         # 清空旧的，保留新的
         conflict_edit.setText("")
     else:
@@ -380,3 +446,73 @@ def _on_shortcut_changed(dialog, changed_key: str, new_text: str):
 
     current_edit.blockSignals(False)
     conflict_edit.blockSignals(False)
+
+
+def _inapp_label(dialog, cfg_key: str) -> str:
+    for cfg, tr_src, _default in INAPP_KEYS:
+        if cfg == cfg_key:
+            return dialog.tr(tr_src)
+    return cfg_key
+
+
+def _pick_char_of(text: str) -> str:
+    """会被剪贴板直选吃掉的键（"e"、"shift+e"、"3"）对应的字符，否则空串。
+
+    直选只挡 Ctrl/Alt/Win，按住 Shift 的字母同样会被直选接走。
+    """
+    *mods, main = text.strip().lower().split("+")
+    if set(mods) - {"shift"}:
+        return ""
+    return main if len(main) == 1 and main in clipboard_pick_keys("both") else ""
+
+
+def _ask_replace(dialog, key_text: str, owner_label: str) -> bool:
+    return show_confirm_dialog(
+        dialog,
+        dialog.tr("Shortcut Conflict"),
+        dialog.tr('"%1" is already used by "%2".\nReplace it?')
+            .replace('%1', format_shortcut_text(key_text))
+            .replace('%2', owner_label),
+    ) is True
+
+
+def _set_pick_mode(dialog, mode: str):
+    combo = dialog.clipboard_pick_combo
+    combo.blockSignals(True)
+    combo.setCurrentIndex(combo.findData(mode))
+    combo.blockSignals(False)
+    dialog._clipboard_pick_mode = mode
+
+
+def _check_pick_conflict(dialog, changed_key: str, new_text: str):
+    """剪贴板快捷键占用了当前直选键：替换则直选切到不含它的那一套，否则撤销输入。"""
+    char = _pick_char_of(new_text)
+    if not char or char not in clipboard_pick_keys(dialog._clipboard_pick_mode):
+        return
+    if _ask_replace(dialog, new_text, dialog.tr("Direct Pick Keys")):
+        _set_pick_mode(dialog, "letters" if char.isdigit() else "digits")
+        return
+    edit = dialog._inapp_edits[changed_key]
+    old_val = dialog.config_manager.get_inapp_shortcut(changed_key)
+    edit.blockSignals(True)
+    edit.setText("" if is_reserved_inapp_shortcut(old_val) else old_val)
+    edit.blockSignals(False)
+
+
+def _on_pick_mode_changed(dialog):
+    """换一套直选键后，逐个检查剪贴板快捷键有没有被它占用。"""
+    mode = dialog.clipboard_pick_combo.currentData()
+    keys = clipboard_pick_keys(mode)
+    for cfg_key, edit in dialog._inapp_edits.items():
+        if dialog._inapp_groups.get(cfg_key) != "clipboard":
+            continue
+        char = _pick_char_of(edit.text())
+        if not char or char not in keys:
+            continue
+        if not _ask_replace(dialog, edit.text(), _inapp_label(dialog, cfg_key)):
+            _set_pick_mode(dialog, dialog._clipboard_pick_mode)
+            return
+        edit.blockSignals(True)
+        edit.setText("")
+        edit.blockSignals(False)
+    dialog._clipboard_pick_mode = mode
