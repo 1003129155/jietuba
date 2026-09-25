@@ -169,9 +169,9 @@ class CanvasView(QGraphicsView):
         # 这样内容层的脏区只需要描述内容，不必再为"手柄能凸出多远"外扩。
         from canvas.handle_overlay import HandleOverlayWidget
         self._handle_overlay = HandleOverlayWidget(self)
-        self.smart_edit_controller.layer_editor.repaint_requested = (
-            self.request_handles_repaint
-        )
+        layer_editor = self.smart_edit_controller.layer_editor
+        layer_editor.repaint_requested = self.request_handles_repaint
+        layer_editor.screen_transform = self.viewportTransform
 
         # 手柄位置是图元几何的派生量，所以直接跟着场景变化走，而不是依赖每条
         # 改动路径记得通知。
@@ -248,6 +248,7 @@ class CanvasView(QGraphicsView):
         layer_editor = getattr(controller, "layer_editor", None)
         if layer_editor is not None:
             layer_editor.repaint_requested = None
+            layer_editor.screen_transform = None
 
         if controller is not None:
             safe_disconnect(controller.cursor_change_request, self._on_edit_cursor_change)

@@ -123,7 +123,8 @@ def test_empty_text_box_is_wide_enough_for_its_corner_buttons(qapp):
     assert item.content_rect().width() < LayerEditor.FUNCTIONAL_HANDLE_SIZE
     assert item.interaction_rect().width() >= TextItem.MIN_INTERACTION_WIDTH
 
-    rects = {handle.handle_type: handle.get_rect() for handle in item.get_edit_handles()}
+    editor = LayerEditor()
+    rects = {handle.handle_type: editor.screen_rect(handle) for handle in item.get_edit_handles()}
     assert not rects[HandleType.ROTATE].intersects(rects[HandleType.ITEM_DELETE])
 
 

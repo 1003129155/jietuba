@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import math
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional, List, Tuple, Dict, Any, Union, Callable
 
@@ -67,37 +67,30 @@ class HandleType(Enum):
 
 @dataclass
 class EditHandle:
-    """编辑控制点（坐标系由调用方保证一致：推荐 scene 坐标）"""
+    """编辑控制点。
+
+    position 是 scene 坐标的锚点，属于内容，跟着视图缩放走；size、
+    hit_area_padding、offset 是屏幕像素，属于界面，任何缩放下都一样大、
+    一样好点。屏幕位置由 LayerEditor 按当前视图变换换算。
+    """
     id: int
     handle_type: HandleType
     position: QPointF
     cursor: Union[Qt.CursorShape, QCursor]  # 支持内置光标和自定义光标
     size: int = 8
     hit_area_padding: int = 8  # 命中判定扩展区域（增加可点击范围）
+    offset: QPointF = field(default_factory=QPointF)  # 锚点换算到屏幕后再平移
 
-    def get_rect(self) -> QRectF:
-        """获取显示区域（实际绘制大小）"""
+    def rect_at(self, center: QPointF) -> QRectF:
+        """以屏幕坐标 center 为中心的显示区域"""
         half = self.size / 2
-        return QRectF(
-            self.position.x() - half,
-            self.position.y() - half,
-            self.size,
-            self.size,
-        )
-    
-    def get_hit_rect(self) -> QRectF:
-        """获取判定区域（比显示区域大，更容易点击）"""
-        half = (self.size + self.hit_area_padding * 2) / 2
-        return QRectF(
-            self.position.x() - half,
-            self.position.y() - half,
-            self.size + self.hit_area_padding * 2,
-            self.size + self.hit_area_padding * 2,
-        )
+        return QRectF(center.x() - half, center.y() - half, self.size, self.size)
 
-    def contains(self, pos: QPointF) -> bool:
-        """命中检测（使用扩大的判定区域）"""
-        return self.get_hit_rect().contains(pos)
+    def hit_rect_at(self, center: QPointF) -> QRectF:
+        """以屏幕坐标 center 为中心的判定区域（比显示区域大，更容易点击）"""
+        side = self.size + self.hit_area_padding * 2
+        half = side / 2
+        return QRectF(center.x() - half, center.y() - half, side, side)
 
 
 class LayerEditor:
@@ -111,7 +104,10 @@ class LayerEditor:
     - start_drag(hit, scene_pos)
     - drag_to(scene_pos, keep_ratio=shift_pressed)
     - old_state, new_state = end_drag(undo_stack)
-    - render(painter)  # painter 需在 scene 坐标系
+    - render(painter)  # painter 需在屏幕（viewport）坐标系
+
+    交互接口收发的都是 scene 坐标；手柄的大小、判定范围和绘制在屏幕坐标里
+    完成，经 screen_transform 换算。
     """
 
     # 视觉配置
@@ -150,6 +146,10 @@ class LayerEditor:
         # 由 View 注入（CanvasView.request_handles_repaint），无 View 时为 None。
         # 必须在下面那些会触发重绘的属性赋值之前初始化。
         self.repaint_requested: Optional[Callable[[], None]] = None
+
+        # scene → 屏幕的变换，由 View 注入（CanvasView.viewportTransform）。
+        # 无 View 时按两者重合处理。
+        self.screen_transform: Optional[Callable[[], QTransform]] = None
 
         # 🆕 拖动状态标志：用于在拖动时隐藏旋转手柄
         self._is_moving_item = False
@@ -331,14 +331,15 @@ class LayerEditor:
     def _generate_number_handles(self, rect: QRectF) -> List[EditHandle]:
         """序号工具：+ 在左上角，- 在 + 正下方，X 在右上角与 + 对称。"""
         size = self.FUNCTIONAL_HANDLE_SIZE
-        step = size + self.NUMBER_BUTTON_GAP
-        lx = rect.left()
-        rx = rect.right()
-        ty = rect.top()
+        # 按钮间距是界面尺寸，放在屏幕偏移里，不随视图缩放
+        step = QPointF(0, size + self.NUMBER_BUTTON_GAP)
+        top_left = rect.topLeft()
+        top_right = rect.topRight()
+        cursor = Qt.CursorShape.PointingHandCursor
         return [
-            EditHandle(200, HandleType.NUMBER_INCREMENT, QPointF(lx, ty), Qt.CursorShape.PointingHandCursor, size, 2),
-            EditHandle(201, HandleType.NUMBER_DECREMENT, QPointF(lx, ty + step), Qt.CursorShape.PointingHandCursor, size, 2),
-            EditHandle(202, HandleType.NUMBER_DELETE, QPointF(rx, ty), Qt.CursorShape.PointingHandCursor, size, 2),
+            EditHandle(200, HandleType.NUMBER_INCREMENT, top_left, cursor, size, 2),
+            EditHandle(201, HandleType.NUMBER_DECREMENT, top_left, cursor, size, 2, step),
+            EditHandle(202, HandleType.NUMBER_DELETE, top_right, cursor, size, 2),
         ]
 
     def _is_number_item(self, layer: Any) -> bool:
@@ -547,8 +548,8 @@ class LayerEditor:
         if max_r <= 0:
             return
 
-        # 视觉偏移：即使 r=0，手柄也在内侧 MIN_OFFSET 处显示，方便用户发现和点击
-        r_visual = max(r, self.RADIUS_HANDLE_MIN_OFFSET)
+        # 视觉偏移：即使 r=0，手柄也在内侧 MIN_OFFSET 屏幕像素处显示，方便用户发现和点击
+        r_visual = max(r, self.RADIUS_HANDLE_MIN_OFFSET * self.scene_units_per_pixel())
         r_visual = min(r_visual, max_r)
 
         r_cursor = Qt.CursorShape.SizeAllCursor
@@ -578,10 +579,31 @@ class LayerEditor:
     # 命中/悬停/光标
     # =========================================================================
     
+    def _to_screen(self) -> QTransform:
+        if self.screen_transform is None:
+            return QTransform()
+        return self.screen_transform()
+
+    def scene_units_per_pixel(self) -> float:
+        """一个屏幕像素对应多少 scene 单位。
+
+        用行列式取面积缩放的平方根，视图带旋转或翻转时 m11 可能为 0 或负数。
+        """
+        scale = math.sqrt(abs(self._to_screen().determinant()))
+        return 1.0 / scale if scale > 1e-9 else 1.0
+
+    def screen_center(self, handle: EditHandle) -> QPointF:
+        return self._to_screen().map(handle.position) + handle.offset
+
+    def screen_rect(self, handle: EditHandle) -> QRectF:
+        """手柄在屏幕坐标下的绘制区域"""
+        return handle.rect_at(self.screen_center(handle))
+
     def hit_test(self, pos: QPointF) -> Optional[EditHandle]:
-        """命中测试：鼠标是否点到某个控制点（pos 需与 handle.position 同坐标系，推荐 scene）"""
+        """命中测试：scene 坐标 pos 是否点到某个控制点"""
+        screen_pos = self._to_screen().map(pos)
         for h in self.handles:
-            if h.contains(pos):
+            if h.hit_rect_at(self.screen_center(h)).contains(screen_pos):
                 return h
         return None
 
@@ -1231,8 +1253,8 @@ class LayerEditor:
     # 渲染
     # =========================================================================
 
-    def visual_bounds(self) -> QRectF:
-        """render() 会画到的 scene 范围。
+    def screen_bounds(self) -> QRectF:
+        """render() 会画到的屏幕范围。
 
         和 render() 是一对：改了 render() 画什么，就必须同步改这里。放在它
         隔壁而不是让调用方去猜，是因为"猜 chrome 有多大"正是这套代码历史上
@@ -1244,18 +1266,12 @@ class LayerEditor:
         self.refresh_handles()
         bounds = QRectF()
         for handle in self.handles:
-            bounds = bounds.united(handle.get_rect())
+            bounds = bounds.united(self.screen_rect(handle))
 
         return bounds
 
     def render(self, painter: QPainter):
-        """
-        渲染编辑控制点
-
-        [WARN] painter 必须与 handle.position 使用同一坐标系：
-        - 推荐：在 QGraphicsView.drawForeground(painter, rect) 中调用，
-          这时 painter 在 scene 坐标系
-        """
+        """渲染编辑控制点。painter 必须在屏幕（viewport）坐标系。"""
         if not self.is_editing():
             return
 
@@ -1296,8 +1312,8 @@ class LayerEditor:
                 # 正常状态：白色填充，蓝色边框
                 painter.setPen(QPen(self.HANDLE_COLOR, self.HANDLE_BORDER_WIDTH))
                 painter.setBrush(QBrush(self.HANDLE_FILL))
-            
-            painter.drawRect(h.get_rect())
+
+            painter.drawRect(self.screen_rect(h))
         
         # 绘制箭头弯曲控制点（圆形，区别于端点）
         for h in control_handles:
@@ -1310,15 +1326,15 @@ class LayerEditor:
                 # 控制点使用淡蓝色填充以区分
                 painter.setPen(QPen(self.HANDLE_COLOR, self.HANDLE_BORDER_WIDTH))
                 painter.setBrush(QBrush(QColor(200, 230, 255)))
-            
-            center = h.position
+
+            center = self.screen_center(h)
             radius = h.size / 2
             painter.drawEllipse(center, radius, radius)
 
         # 绘制圆角控制点（菱形，橙色，区别于普通手柄）
         for h in radius_handles:
             is_hovered = self.hovered_handle is not None and self.hovered_handle.id == h.id
-            center = h.position
+            center = self.screen_center(h)
             half = h.size / 2.0
             diamond = QPolygonF([
                 QPointF(center.x(), center.y() - half),
@@ -1361,7 +1377,7 @@ class LayerEditor:
         if is_hovered:
             fill = fill.lighter(118)
         ink = contrast_ink(fill)
-        rect = handle.get_rect()
+        rect = self.screen_rect(handle)
 
         painter.save()
         painter.setPen(QPen(QColor(255, 255, 255), 1.4))
