@@ -268,6 +268,38 @@
         <translation>ピン留め画像</translation>
     </message>
     <message>
+        <source>Clipboard Shortcuts</source>
+        <translation>クリップボード</translation>
+    </message>
+    <message>
+        <source>Quick Edit</source>
+        <translation>クイック編集</translation>
+    </message>
+    <message>
+        <source>Save Edit</source>
+        <translation>編集を保存</translation>
+    </message>
+    <message>
+        <source>Save and Paste</source>
+        <translation>保存して貼り付け</translation>
+    </message>
+    <message>
+        <source>Direct Pick Keys</source>
+        <translation>番号キーで貼り付け</translation>
+    </message>
+    <message>
+        <source>Digits + Letters</source>
+        <translation>数字 + 英字</translation>
+    </message>
+    <message>
+        <source>Letters</source>
+        <translation>英字のみ</translation>
+    </message>
+    <message>
+        <source>Digits</source>
+        <translation>数字のみ</translation>
+    </message>
+    <message>
         <source>Shortcut conflict within group!</source>
         <translation>グループ内でショートカットが重複しています！</translation>
     </message>
@@ -282,6 +314,10 @@
     <message>
         <source>Some in-app shortcuts conflict within the same group. Please fix them first.</source>
         <translation>同じグループ内にショートカットの重複があります。先に修正してください。</translation>
+    </message>
+    <message>
+        <source>This is the same as a global hotkey — the system intercepts it first, so it won't work here.</source>
+        <translation>グローバルショートカットと同じキーです。システムが先に処理するため、ここでは動作しません。</translation>
     </message>
     <message>
         <source>"%1" is already used by "%2".
@@ -1796,6 +1832,22 @@ Replace it?</source>
         <translation>文字サイズ</translation>
     </message>
     <message>
+        <source>Image Size</source>
+        <translation>画像サイズ</translation>
+    </message>
+    <message>
+        <source>Small</source>
+        <translation>小</translation>
+    </message>
+    <message>
+        <source>Medium</source>
+        <translation>中</translation>
+    </message>
+    <message>
+        <source>Large</source>
+        <translation>大</translation>
+    </message>
+    <message>
         <source>Theme</source>
         <translation>配色</translation>
     </message>
@@ -1976,6 +2028,10 @@ Replace it?</source>
     <message>
         <source>Remove Line Breaks</source>
         <translation>改行を削除</translation>
+    </message>
+    <message>
+        <source>Quick Edit</source>
+        <translation>クイック編集</translation>
     </message>
     <message>
         <source>Paste with Current Time</source>
@@ -4091,8 +4147,72 @@ SOFTWARE.</translation></message>
         <translation>いつでも呼び出せます</translation>
     </message>
     <message>
-        <source>Only in screenshot and pin windows</source>
-        <translation>スクリーンショットとピン留め画像のウィンドウでのみ有効</translation>
+        <source>Only in screenshot, pin and clipboard windows</source>
+        <translation>スクリーンショット、ピン留め画像、クリップボードのウィンドウでのみ有効</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Quick Actions</source>
+        <translation>クイック動作</translation>
+    </message>
+    <message>
+        <source>Text Recognition and Scanning</source>
+        <translation>文字認識とコード読み取り</translation>
+    </message>
+    <message>
+        <source>Copy Recognized Text Directly</source>
+        <translation>認識したテキストを直接コピー</translation>
+    </message>
+    <message>
+        <source>Copy the recognized text straight to the clipboard instead of opening the result window.</source>
+        <translation>結果ウィンドウを開かずに、認識したテキストをそのままクリップボードへコピーします。</translation>
+    </message>
+    <message>
+        <source>Copy a Single Code Directly</source>
+        <translation>コードが 1 つなら直接コピー</translation>
+    </message>
+    <message>
+        <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
+        <translation>QR コードやバーコードが 1 つだけ見つかった場合は、結果ウィンドウを開かずに内容をコピーします。複数見つかった場合はこれまでどおり開きます。</translation>
+    </message>
+</context>
+<context>
+    <name>TextRecognitionWindow</name>
+    <message>
+        <source>Copy directly next time</source>
+        <translation>次回から直接コピー</translation>
+    </message>
+    <message>
+        <source>Copied %1 characters</source>
+        <translation>%1 文字をコピーしました</translation>
+    </message>
+</context>
+<context>
+    <name>BarcodeResultWindow</name>
+    <message>
+        <source>Copy directly if only one code</source>
+        <translation>コードが 1 つなら直接コピー</translation>
+    </message>
+    <message>
+        <source>Copied: %1</source>
+        <translation>コピーしました：%1</translation>
+    </message>
+</context>
+<context>
+    <name>ClipboardQuickEdit</name>
+    <message>
+        <source>Save</source>
+        <translation>保存</translation>
+    </message>
+    <message>
+        <source>Save and Paste</source>
+        <translation>保存して貼り付け</translation>
+    </message>
+    <message>
+        <source>Formatting will be removed</source>
+        <translation>保存するとプレーンテキストになります</translation>
     </message>
 </context>
 </TS>

@@ -305,6 +305,7 @@ clipboard/
 │   │   ├── item_delegate.py
 │   │   ├── item_widget.py
 │   │   ├── preview_popup.py
+│   │   ├── quick_edit_popup.py
 │   │   ├── manage_rows.py
 │   │   └── reorder_list.py
 │   └── windows/
@@ -576,6 +577,7 @@ ui/
 ├── tray_menu.py             # TrayMenu — system tray menu
 ├── screenshot_window.py     # ScreenshotWindow — full-screen capture window (region drawing)
 ├── dialogs.py               # StandardDialog — confirm, warning, info, error dialogs
+├── toast.py                 # Toast — one-line hint by the cursor that never takes focus
 ├── magnifier.py             # MagnifierOverlay — pixel-level magnifier
 ├── color_picker_dialog.py   # ColorPickerDialog — custom HSV color picker
 ├── color_picker_button.py   # ColorPickerButton — color selection button
@@ -604,6 +606,7 @@ ui/
 │   ├── components.py        # SettingCardGroup / ToggleSwitch — setting components
 │   ├── page_appearance.py   # Appearance settings (theme, language)
 │   ├── page_capture.py      # Capture settings
+│   ├── page_quick_actions.py # Quick actions settings (skip confirm or result windows)
 │   ├── color_format_dialog.py # ColorFormatDialog — magnifier color format editor
 │   ├── page_clipboard.py    # Clipboard settings
 │   ├── page_hotkey.py       # Hotkey settings

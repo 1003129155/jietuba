@@ -261,6 +261,38 @@
         <translation>고정 창 단축키</translation>
     </message>
     <message>
+        <source>Clipboard Shortcuts</source>
+        <translation>클립보드 단축키</translation>
+    </message>
+    <message>
+        <source>Quick Edit</source>
+        <translation>빠른 편집</translation>
+    </message>
+    <message>
+        <source>Save Edit</source>
+        <translation>편집 저장</translation>
+    </message>
+    <message>
+        <source>Save and Paste</source>
+        <translation>저장 후 붙여넣기</translation>
+    </message>
+    <message>
+        <source>Direct Pick Keys</source>
+        <translation>바로 붙여넣기 키</translation>
+    </message>
+    <message>
+        <source>Digits + Letters</source>
+        <translation>숫자 + 문자</translation>
+    </message>
+    <message>
+        <source>Letters</source>
+        <translation>문자만</translation>
+    </message>
+    <message>
+        <source>Digits</source>
+        <translation>숫자만</translation>
+    </message>
+    <message>
         <source>Shortcut conflict within group!</source>
         <translation>그룹 내 단축키가 충돌합니다!</translation>
     </message>
@@ -275,6 +307,10 @@
     <message>
         <source>Some in-app shortcuts conflict within the same group. Please fix them first.</source>
         <translation>동일한 그룹 내 일부 앱 내 단축키가 서로 충돌합니다. 먼저 수정해 주세요.</translation>
+    </message>
+    <message>
+        <source>This is the same as a global hotkey — the system intercepts it first, so it won't work here.</source>
+        <translation>전역 단축키와 동일합니다. 시스템이 먼저 가로채므로 여기서는 작동하지 않습니다.</translation>
     </message>
     <message>
         <source>"%1" is already used by "%2".
@@ -1750,6 +1786,22 @@ Replace it?</source>
         <translation>글꼴 크기</translation>
     </message>
     <message>
+        <source>Image Size</source>
+        <translation>이미지 크기</translation>
+    </message>
+    <message>
+        <source>Small</source>
+        <translation>작게</translation>
+    </message>
+    <message>
+        <source>Medium</source>
+        <translation>보통</translation>
+    </message>
+    <message>
+        <source>Large</source>
+        <translation>크게</translation>
+    </message>
+    <message>
         <source>Theme</source>
         <translation>테마</translation>
     </message>
@@ -1931,6 +1983,10 @@ Replace it?</source>
     <message>
         <source>Remove Line Breaks</source>
         <translation>줄바꿈 제거</translation>
+    </message>
+    <message>
+        <source>Quick Edit</source>
+        <translation>빠른 편집</translation>
     </message>
     <message>
         <source>Paste with Current Time</source>
@@ -4050,8 +4106,72 @@ SOFTWARE.</translation></message>
         <translation>언제든지 실행됩니다</translation>
     </message>
     <message>
-        <source>Only in screenshot and pin windows</source>
-        <translation>스크린샷 및 고정 창에서만 작동</translation>
+        <source>Only in screenshot, pin and clipboard windows</source>
+        <translation>스크린샷, 고정 창, 클립보드 창에서만 작동</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Quick Actions</source>
+        <translation>빠른 동작</translation>
+    </message>
+    <message>
+        <source>Text Recognition and Scanning</source>
+        <translation>텍스트 인식 및 코드 스캔</translation>
+    </message>
+    <message>
+        <source>Copy Recognized Text Directly</source>
+        <translation>인식한 텍스트 바로 복사</translation>
+    </message>
+    <message>
+        <source>Copy the recognized text straight to the clipboard instead of opening the result window.</source>
+        <translation>결과 창을 열지 않고 인식한 텍스트를 바로 클립보드에 복사합니다.</translation>
+    </message>
+    <message>
+        <source>Copy a Single Code Directly</source>
+        <translation>코드가 하나면 바로 복사</translation>
+    </message>
+    <message>
+        <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
+        <translation>QR 코드나 바코드가 하나만 인식되면 결과 창을 열지 않고 내용을 복사합니다. 여러 개가 인식되면 결과 창이 열립니다.</translation>
+    </message>
+</context>
+<context>
+    <name>TextRecognitionWindow</name>
+    <message>
+        <source>Copy directly next time</source>
+        <translation>다음부터 바로 복사</translation>
+    </message>
+    <message>
+        <source>Copied %1 characters</source>
+        <translation>%1자를 복사했습니다</translation>
+    </message>
+</context>
+<context>
+    <name>BarcodeResultWindow</name>
+    <message>
+        <source>Copy directly if only one code</source>
+        <translation>코드가 하나면 바로 복사</translation>
+    </message>
+    <message>
+        <source>Copied: %1</source>
+        <translation>복사함: %1</translation>
+    </message>
+</context>
+<context>
+    <name>ClipboardQuickEdit</name>
+    <message>
+        <source>Save</source>
+        <translation>저장</translation>
+    </message>
+    <message>
+        <source>Save and Paste</source>
+        <translation>저장 후 붙여넣기</translation>
+    </message>
+    <message>
+        <source>Formatting will be removed</source>
+        <translation>저장하면 일반 텍스트로 바뀝니다</translation>
     </message>
 </context>
 </TS>

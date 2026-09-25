@@ -262,6 +262,38 @@
         <translation>Pin Shortcuts</translation>
     </message>
     <message>
+        <source>Clipboard Shortcuts</source>
+        <translation>Clipboard Shortcuts</translation>
+    </message>
+    <message>
+        <source>Quick Edit</source>
+        <translation>Quick Edit</translation>
+    </message>
+    <message>
+        <source>Save Edit</source>
+        <translation>Save Edit</translation>
+    </message>
+    <message>
+        <source>Save and Paste</source>
+        <translation>Save and Paste</translation>
+    </message>
+    <message>
+        <source>Direct Pick Keys</source>
+        <translation>Direct Pick Keys</translation>
+    </message>
+    <message>
+        <source>Digits + Letters</source>
+        <translation>Digits + Letters</translation>
+    </message>
+    <message>
+        <source>Letters</source>
+        <translation>Letters</translation>
+    </message>
+    <message>
+        <source>Digits</source>
+        <translation>Digits</translation>
+    </message>
+    <message>
         <source>Shortcut conflict within group!</source>
         <translation>Shortcut conflict within group!</translation>
     </message>
@@ -276,6 +308,10 @@
     <message>
         <source>Some in-app shortcuts conflict within the same group. Please fix them first.</source>
         <translation>Some in-app shortcuts conflict within the same group. Please fix them first.</translation>
+    </message>
+    <message>
+        <source>This is the same as a global hotkey — the system intercepts it first, so it won't work here.</source>
+        <translation>This is the same as a global hotkey — the system intercepts it first, so it won't work here.</translation>
     </message>
     <message>
         <source>"%1" is already used by "%2".
@@ -1591,6 +1627,22 @@ Replace it?</translation>
         <translation>Font Size</translation>
     </message>
     <message>
+        <source>Image Size</source>
+        <translation>Image Size</translation>
+    </message>
+    <message>
+        <source>Small</source>
+        <translation>Small</translation>
+    </message>
+    <message>
+        <source>Medium</source>
+        <translation>Medium</translation>
+    </message>
+    <message>
+        <source>Large</source>
+        <translation>Large</translation>
+    </message>
+    <message>
         <source>Theme</source>
         <translation>Theme</translation>
     </message>
@@ -1772,6 +1824,10 @@ Replace it?</translation>
     <message>
         <source>Remove Line Breaks</source>
         <translation>Remove Line Breaks</translation>
+    </message>
+    <message>
+        <source>Quick Edit</source>
+        <translation>Quick Edit</translation>
     </message>
     <message>
         <source>Paste with Current Time</source>
@@ -3840,8 +3896,72 @@ SOFTWARE.</translation></message>
         <translation>Works anytime</translation>
     </message>
     <message>
-        <source>Only in screenshot and pin windows</source>
-        <translation>Only in screenshot and pin windows</translation>
+        <source>Only in screenshot, pin and clipboard windows</source>
+        <translation>Only in screenshot, pin and clipboard windows</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Quick Actions</source>
+        <translation>Quick Actions</translation>
+    </message>
+    <message>
+        <source>Text Recognition and Scanning</source>
+        <translation>Text Recognition and Scanning</translation>
+    </message>
+    <message>
+        <source>Copy Recognized Text Directly</source>
+        <translation>Copy Recognized Text Directly</translation>
+    </message>
+    <message>
+        <source>Copy the recognized text straight to the clipboard instead of opening the result window.</source>
+        <translation>Copy the recognized text straight to the clipboard instead of opening the result window.</translation>
+    </message>
+    <message>
+        <source>Copy a Single Code Directly</source>
+        <translation>Copy a Single Code Directly</translation>
+    </message>
+    <message>
+        <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
+        <translation>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</translation>
+    </message>
+</context>
+<context>
+    <name>TextRecognitionWindow</name>
+    <message>
+        <source>Copy directly next time</source>
+        <translation>Copy directly next time</translation>
+    </message>
+    <message>
+        <source>Copied %1 characters</source>
+        <translation>Copied %1 characters</translation>
+    </message>
+</context>
+<context>
+    <name>BarcodeResultWindow</name>
+    <message>
+        <source>Copy directly if only one code</source>
+        <translation>Copy directly if only one code</translation>
+    </message>
+    <message>
+        <source>Copied: %1</source>
+        <translation>Copied: %1</translation>
+    </message>
+</context>
+<context>
+    <name>ClipboardQuickEdit</name>
+    <message>
+        <source>Save</source>
+        <translation>Save</translation>
+    </message>
+    <message>
+        <source>Save and Paste</source>
+        <translation>Save and Paste</translation>
+    </message>
+    <message>
+        <source>Formatting will be removed</source>
+        <translation>Formatting will be removed</translation>
     </message>
 </context>
 </TS>

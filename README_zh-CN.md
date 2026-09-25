@@ -321,6 +321,7 @@ clipboard/
 │   │   ├── item_delegate.py
 │   │   ├── item_widget.py
 │   │   ├── preview_popup.py
+│   │   ├── quick_edit_popup.py
 │   │   ├── manage_rows.py
 │   │   └── reorder_list.py
 │   └── windows/
@@ -652,6 +653,7 @@ ui/
 ├── tray_menu.py             # TrayMenu — 系统托盘菜单
 ├── screenshot_window.py     # ScreenshotWindow — 截图主窗口（全屏覆盖、选区绘制）
 ├── dialogs.py               # StandardDialog / 对话框函数集 — 确认、警告、信息、错误对话框
+├── toast.py                 # Toast — 光标旁不抢焦点的一行轻提示
 ├── magnifier.py             # MagnifierOverlay — 放大镜覆盖层（像素级取色）
 ├── color_picker_dialog.py   # ColorPickerDialog — 自定义HSV颜色选择器
 ├── color_picker_button.py   # ColorPickerButton — 颜色选择按钮
@@ -681,6 +683,7 @@ ui/
 │   ├── components.py        # SettingCardGroup / ToggleSwitch — 设置组件库
 │   ├── page_appearance.py   # 外观设置页（主题、语言等）
 │   ├── page_capture.py      # 截图设置页
+│   ├── page_quick_actions.py # 快捷行为设置页（跳过确认或结果窗口）
 │   ├── color_format_dialog.py # ColorFormatDialog — 放大镜颜色格式管理窗口
 │   ├── page_clipboard.py    # 剪贴板设置页
 │   ├── page_hotkey.py       # 快捷键设置页

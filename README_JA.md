@@ -304,6 +304,7 @@ clipboard/
 │   │   ├── item_delegate.py
 │   │   ├── item_widget.py
 │   │   ├── preview_popup.py
+│   │   ├── quick_edit_popup.py
 │   │   ├── manage_rows.py
 │   │   └── reorder_list.py
 │   └── windows/
@@ -575,6 +576,7 @@ ui/
 ├── tray_menu.py             # TrayMenu — システムトレイメニュー
 ├── screenshot_window.py     # ScreenshotWindow — フルスクリーンキャプチャウィンドウ
 ├── dialogs.py               # StandardDialog — 確認、警告、情報、エラーダイアログ
+├── toast.py                 # Toast — カーソル横に出る、フォーカスを奪わない一行通知
 ├── magnifier.py             # MagnifierOverlay — ピクセルレベル拡大鏡
 ├── color_picker_dialog.py   # ColorPickerDialog — カスタムHSVカラーピッカー
 ├── color_picker_button.py   # ColorPickerButton — カラー選択ボタン
@@ -603,6 +605,7 @@ ui/
 │   ├── components.py        # SettingCardGroup / ToggleSwitch — 設定コンポーネント
 │   ├── page_appearance.py   # 外観設定（テーマ、言語）
 │   ├── page_capture.py      # キャプチャ設定
+│   ├── page_quick_actions.py # クイック動作設定（確認・結果ウィンドウの省略）
 │   ├── color_format_dialog.py # ColorFormatDialog — 拡大鏡のカラー形式を管理するダイアログ
 │   ├── page_clipboard.py    # クリップボード設定
 │   ├── page_hotkey.py       # ホットキー設定
