@@ -24,6 +24,9 @@ from settings.tool_settings import (
     CAPTURE_MOUSE_ACTIONS,
     PIN_MOUSE_ACTIONS,
     CLIPBOARD_MOUSE_ACTIONS,
+    QUICK_CAPTURE_ACTIONS,
+    QUICK_CAPTURE_MODIFIERS,
+    ToolSettingsManager,
     get_clipboard_mouse_binding,
     get_capture_mouse_binding,
     get_pin_mouse_binding,
@@ -73,6 +76,62 @@ class MouseBindingEditor(QWidget):
         modifiers = "+".join(key for key in ("ctrl", "shift", "alt") if key in parts[:-1])
         self.modifiers.setCurrentIndex(max(0, self.modifiers.findData(modifiers)))
         self.gesture.setCurrentIndex(max(0, self.gesture.findData(parts[-1])))
+
+
+def _create_quick_capture(dialog, parent):
+    group = SectionCard(FluentIcon.CAMERA, dialog.tr("Quick Capture"), parent=parent)
+    if not hasattr(dialog, "_behavior_controls"):
+        dialog._behavior_controls = {}
+
+    row = QWidget(group)
+    layout = QHBoxLayout(row)
+    layout.setContentsMargins(0, dialog_scaled(8), 0, dialog_scaled(8))
+    layout.setSpacing(dialog_scaled(8))
+    modifiers = []
+    for number, title in ((1, "First Modifier"), (2, "Second Modifier")):
+        combo = ComboBox(row)
+        combo.setAccessibleName(dialog.tr(title))
+        combo.setToolTip(dialog.tr(title))
+        for value in QUICK_CAPTURE_MODIFIERS:
+            combo.addItem(value.title() if value else dialog.tr("No Modifier"), userData=value)
+        key = f"quick_capture_modifier_{number}"
+        default = ToolSettingsManager.APP_DEFAULT_SETTINGS[key]
+        index = combo.findData(dialog.config_manager.get_app_setting(key, default))
+        combo.setCurrentIndex(index if index >= 0 else combo.findData(default))
+        dialog._behavior_controls[key] = combo
+        modifiers.append(combo)
+        layout.addWidget(combo, 1)
+        plus = QLabel("+", row)
+        apply_theme_text_style(plus, 14, caption=True)
+        layout.addWidget(plus)
+
+    layout.addWidget(_row_label(row, dialog.tr("Left Drag")))
+    action = ComboBox(row)
+    action.setAccessibleName(dialog.tr("Quick Capture"))
+    for value, label in QUICK_CAPTURE_ACTIONS:
+        action.addItem(dialog.tr(label), userData=value)
+    default = ToolSettingsManager.APP_DEFAULT_SETTINGS["quick_capture_action"]
+    index = action.findData(dialog.config_manager.get_app_setting("quick_capture_action", default))
+    action.setCurrentIndex(index if index >= 0 else action.findData(default))
+    dialog._behavior_controls["quick_capture_action"] = action
+    layout.addWidget(action, 2)
+
+    def normalize_modifiers():
+        # A duplicate modifier is the same gesture as a single modifier.
+        if modifiers[0].currentData() and modifiers[0].currentData() == modifiers[1].currentData():
+            modifiers[1].setCurrentIndex(modifiers[1].findData(""))
+
+    for combo in modifiers:
+        combo.currentIndexChanged.connect(normalize_modifiers)
+    normalize_modifiers()
+    group.addWidget(row)
+    hint = CaptionLabel(dialog.tr(
+        "Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. "
+        "Select at least one modifier to enable Quick Capture."
+    ), group)
+    hint.setWordWrap(True)
+    group.addWidget(hint)
+    return group
 
 
 def _build_mouse_shortcut_tab(
@@ -546,6 +605,7 @@ def create_hotkey_page(dialog) -> QWidget:
     validate_global_hotkey_edits(dialog)
 
     layout.addWidget(grp_global)
+    layout.addWidget(_create_quick_capture(dialog, view))
 
     # ════ 应用内快捷键 ════
     grp_inapp = SectionCard(

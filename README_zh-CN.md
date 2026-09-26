@@ -249,6 +249,7 @@ capture/
 ├── __init__.py
 ├── capture_service.py       # CaptureService — 截图服务，屏幕截图核心逻辑
 ├── system_cursor.py         # SystemCursor — 记录截屏时的鼠标指针并画进截图
+├── quick_capture_controller.py # QuickCaptureController — 修饰键拖动截图与动作分发
 ├── uia_element_finder.py    # 后台 UI Automation 元素检测与选区快照缓存
 └── window_finder.py         # WindowFinder — 窗口查找器，智能选择窗口，识别光标下的窗口
 ```
@@ -364,6 +365,7 @@ core/
 ├── ui_scale.py              # UIScaleManager — 工具栏/面板/弹层共用的缩放比例
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — 国际化管理，多语言支持
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — 全局热键和应用内快捷键管理
+├── quick_capture_input.py    # 全局修饰键拖动监听与快速截图手势状态
 ├── last_capture_region.py   # 进程内存的"上次截图区域"，供恢复选区快捷键使用
 ├── save.py                  # SaveService — 文件保存服务（自动命名、路径管理、高质量 PDF 输出）
 ├── export.py                # ExportService — 图像导出服务
@@ -655,6 +657,7 @@ ui/
 ├── reorderable_rows.py      # DragGrip / DraggableRow / ReorderableRowList — 可拖动重排的行列表
 ├── tray_menu.py             # TrayMenu — 系统托盘菜单
 ├── screenshot_window.py     # ScreenshotWindow — 截图主窗口（全屏覆盖、选区绘制）
+├── quick_capture_overlay.py # 快速截图透明浮层，复用普通截图的选框、坐标和放大镜
 ├── dialogs.py               # StandardDialog / 对话框函数集 — 确认、警告、信息、错误对话框
 ├── toast.py                 # Toast — 光标旁不抢焦点的一行轻提示
 ├── magnifier.py             # MagnifierOverlay — 放大镜覆盖层（像素级取色）

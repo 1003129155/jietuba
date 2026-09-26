@@ -7,7 +7,7 @@ import pytest
 from PySide6.QtCore import QEvent, QPoint, QPointF, QSettings, Qt
 from PySide6.QtGui import QContextMenuEvent, QMouseEvent, QKeyEvent
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QListWidget, QListWidgetItem, QWidget, QStackedWidget
+from PySide6.QtWidgets import QApplication, QLineEdit, QListWidget, QListWidgetItem, QWidget, QStackedWidget
 
 from clipboard.controllers.mouse_shortcut_controller import ClipboardMouseController
 from clipboard.controllers.selection_manager import SelectionManager
@@ -154,6 +154,26 @@ def test_pending_click_tracks_item_id_across_insertions(window, qtbot):
     window.list_widget.insertItem(0, row)
     qtbot.waitUntil(lambda: window._on_paste_item.called)
     window._on_paste_item.assert_called_once_with(1)
+
+
+def test_pending_click_is_cancelled_when_focus_moves_to_search(window, qtbot):
+    window.config.set_app_setting('mouse_clipboard_quick_edit', 'doubleleft')
+    window.resize(320, 290)
+    search = QLineEdit(window)
+    search.setGeometry(0, 250, 320, 30)
+    search.show()
+    click(window)
+    assert window.mouse._timer.isActive()
+
+    # Typing into a text input bypasses the application's shortcut handlers.
+    # Moving focus within the clipboard window must itself cancel the paste.
+    QTest.mouseClick(search, Qt.LeftButton)
+    assert search.hasFocus()
+    QTest.keyClicks(search, 'query')
+    assert not window.mouse._timer.isActive()
+    qtbot.wait(120)
+    window._on_paste_item.assert_not_called()
+    assert search.text() == 'query'
 
 
 def test_global_keyboard_handler_cancels_pending_paste(window, qtbot):

@@ -71,7 +71,8 @@ class ClipboardMouseController(QObject):
 
     def eventFilter(self, obj, event):
         kind = event.type()
-        if kind in (QEvent.Type.Hide, QEvent.Type.WindowDeactivate, QEvent.Type.KeyPress, QEvent.Type.Wheel):
+        if kind in (QEvent.Type.Hide, QEvent.Type.WindowDeactivate, QEvent.Type.FocusOut,
+                    QEvent.Type.KeyPress, QEvent.Type.Wheel):
             self.cancel()
         # Native mouse context menus must not bypass a remapped right button.
         if kind == QEvent.Type.ContextMenu:

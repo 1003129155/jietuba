@@ -51,6 +51,15 @@ CLIPBOARD_MOUSE_ACTIONS = (
     ("menu", "Open Context Menu", "right", "click"),
 )
 
+QUICK_CAPTURE_MODIFIERS = ("", "ctrl", "shift", "win", "alt")
+QUICK_CAPTURE_ACTIONS = (
+    ("none", "No Action"),
+    ("pin", "Capture and Pin"),
+    ("copy", "Capture and Copy"),
+    ("copy_pin", "Capture, Copy and Pin"),
+    ("edit", "Normal Capture"),
+)
+
 
 def get_clipboard_mouse_binding(config, action):
     default = next(binding for key, _label, binding, _kind in CLIPBOARD_MOUSE_ACTIONS if key == action)
@@ -257,6 +266,11 @@ class ToolSettingsManager(QObject):
         "translation_hotkey": "",                  # 翻译主热键
         "translation_hotkey_2": "",                # 翻译备用热键
         "global_hotkeys_disabled": False,           # 是否禁用全局热键
+
+        # 按住修饰键、左键拖动快速截图；没有修饰键或动作设为 none 时停用。
+        "quick_capture_modifier_1": "win",
+        "quick_capture_modifier_2": "",
+        "quick_capture_action": "copy_pin",
 
         # 应用内快捷键
         "inapp_confirm": "ctrl+c",             # 确认截图（复制到剪贴板）

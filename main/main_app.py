@@ -176,6 +176,9 @@ class MainApp(QObject):
         # 剪贴板管理器
         self.clipboard_manager = None
 
+        from capture.quick_capture_controller import QuickCaptureController
+        self.quick_capture = QuickCaptureController(self)
+
         from translation.smart_translation_controller import SmartTranslationController
         self.smart_translation_controller = SmartTranslationController(self)
         self.clipboard_item_received.connect(self._on_clipboard_item_received)
@@ -190,6 +193,9 @@ class MainApp(QObject):
 
     def _on_about_to_quit(self):
         """应用退出前收尾"""
+        quick_capture = getattr(self, 'quick_capture', None)
+        if quick_capture:
+            quick_capture.close()
         try:
             from translation import TranslationManager
 
@@ -220,6 +226,9 @@ class MainApp(QObject):
         self.hotkey_system.unregister_all()
 
         # 3. 显示向导
+        quick_capture = getattr(self, 'quick_capture', None)
+        if quick_capture:
+            quick_capture.suspend()
         try:
             from ui.welcome import WelcomeWizard
             wizard = WelcomeWizard(self.config_manager)
@@ -363,6 +372,10 @@ class MainApp(QObject):
                 log_warning(T("钉图热键注册失败: {pin_clipboard_hotkey}", pin_clipboard_hotkey=pin_clipboard_hotkey), "Hotkey")
                 failed_hotkeys.append((label, pin_clipboard_hotkey))
         
+        quick_capture = getattr(self, 'quick_capture', None)
+        if quick_capture:
+            quick_capture.refresh()
+
         # 如果有注册失败的热键且需要显示提示
         if show_error and failed_hotkeys:
             self._show_hotkey_error(failed_hotkeys)
@@ -371,6 +384,9 @@ class MainApp(QObject):
         """禁用/启用所有全局热键，并立即应用。"""
         self.config_manager.set_app_setting("global_hotkeys_disabled", disabled)
         self.hotkey_system.set_suppressed(disabled)
+        quick_capture = getattr(self, 'quick_capture', None)
+        if quick_capture:
+            quick_capture.refresh()
         if disabled:
             log_info(T("全局热键已临时禁用（保留注册，仅忽略回调）"), "Hotkey")
         else:
@@ -436,6 +452,9 @@ class MainApp(QObject):
             
     def start_screenshot(self):
         """启动截图 - 管理截图窗口生命周期"""
+        quick_capture = getattr(self, 'quick_capture', None)
+        if quick_capture and quick_capture.busy:
+            return
         
         # 已有截图窗口且会话活跃 → 忽略重复触发，并把焦点还给截图窗口
         if self.screenshot_window and getattr(self.screenshot_window, '_session_active', False):
@@ -499,7 +518,17 @@ class MainApp(QObject):
 
         self._capture_thread = CaptureThread()
         self._capture_thread.captured.connect(self._on_capture_ready)
-        self._capture_thread.start()
+        if quick_capture:
+            quick_capture.set_capture_pending(True)
+            self._capture_thread.finished.connect(
+                quick_capture.capture_preparation_finished, Qt.ConnectionType.QueuedConnection
+            )
+        try:
+            self._capture_thread.start()
+        except Exception:
+            if quick_capture:
+                quick_capture.set_capture_pending(False)
+            raise
 
     def _on_capture_ready(self, image, rect, cursor=None):
         """后台截图完成后，在主线程创建或复用截图窗口"""
@@ -509,24 +538,31 @@ class MainApp(QObject):
         if self._activate_blocking_modal():
             return
         
-        if self.screenshot_window is not None:
-            # 复用已有窗口（节省 ~250ms 的 UI 壳创建时间）
-            log_debug(T("复用已有截图窗口"), "MainApp")
-            self.screenshot_window.prepare_new_session(image, rect, cursor)
-        else:
-            # 首次创建
-            log_debug(T("首次创建截图窗口"), "MainApp")
-            # 延迟到真正需要时才导入：这条 import 链拖着 canvas/toolbar/tools 一整套
-            # 模块，放在文件顶部会在 QApplication 建立之前、启动阶段就被迫付掉这笔
-            # 开销。后台预加载线程（bootstrap.py _preload_screenshot_modules）会尽
-            # 量抢先把它导入好，这里通常只是从 sys.modules 里取一下。
-            from ui.screenshot_window import ScreenshotWindow
-            self.screenshot_window = ScreenshotWindow(
-                self.config_manager,
-                prefetched_image=image,
-                prefetched_rect=rect,
-                prefetched_cursor=cursor,
-            )
+        quick_capture = getattr(self, 'quick_capture', None)
+        if quick_capture:
+            quick_capture.set_capture_pending(True)
+        try:
+            if self.screenshot_window is not None:
+                # 复用已有窗口（节省 ~250ms 的 UI 壳创建时间）
+                log_debug(T("复用已有截图窗口"), "MainApp")
+                self.screenshot_window.prepare_new_session(image, rect, cursor)
+            else:
+                # 首次创建
+                log_debug(T("首次创建截图窗口"), "MainApp")
+                # 延迟到真正需要时才导入：这条 import 链拖着 canvas/toolbar/tools 一整套
+                # 模块，放在文件顶部会在 QApplication 建立之前、启动阶段就被迫付掉这笔
+                # 开销。后台预加载线程（bootstrap.py _preload_screenshot_modules）会尽
+                # 量抢先把它导入好，这里通常只是从 sys.modules 里取一下。
+                from ui.screenshot_window import ScreenshotWindow
+                self.screenshot_window = ScreenshotWindow(
+                    self.config_manager,
+                    prefetched_image=image,
+                    prefetched_rect=rect,
+                    prefetched_cursor=cursor,
+                )
+        finally:
+            if quick_capture:
+                quick_capture.set_capture_pending(False)
     
     def open_settings(self):
         """打开设置窗口"""
@@ -740,6 +776,9 @@ class MainApp(QObject):
             log_exception(e, T("钉住剪贴板图片失败"))
         
     def quit_app(self):
+        quick_capture = getattr(self, 'quick_capture', None)
+        if quick_capture:
+            quick_capture.close()
         # 完全销毁缓存的截图窗口
         if self.screenshot_window:
             try:

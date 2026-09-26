@@ -9,6 +9,42 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Quick capture failed. Please try again.</source>
+        <translation>快速截图失败，请重试。</translation>
+    </message>
+    <message>
+        <source>Quick Capture</source>
+        <translation>快速截图</translation>
+    </message>
+    <message>
+        <source>First Modifier</source>
+        <translation>第一个修饰键</translation>
+    </message>
+    <message>
+        <source>Second Modifier</source>
+        <translation>第二个修饰键</translation>
+    </message>
+    <message>
+        <source>Capture and Pin</source>
+        <translation>截图并贴图</translation>
+    </message>
+    <message>
+        <source>Capture and Copy</source>
+        <translation>截图并自动复制</translation>
+    </message>
+    <message>
+        <source>Capture, Copy and Pin</source>
+        <translation>截图、复制并贴图</translation>
+    </message>
+    <message>
+        <source>Normal Capture</source>
+        <translation>普通截图</translation>
+    </message>
+    <message>
+        <source>Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. Select at least one modifier to enable Quick Capture.</source>
+        <translation>按住修饰键并按鼠标左键拖动，松开鼠标执行截图，Esc 取消。至少选择一个修饰键才能启用快速截图。</translation>
+    </message>
+    <message>
         <source>Shortcuts</source>
         <translation>快捷键</translation>
     </message>
