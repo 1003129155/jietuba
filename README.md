@@ -236,6 +236,7 @@ Screen capture and smart window detection.
 ```text
 capture/
 ├── capture_service.py       # CaptureService — core screenshot logic
+├── system_cursor.py         # SystemCursor — snapshots the mouse pointer and draws it into screenshots
 ├── uia_element_finder.py    # Background UI Automation element snapshots for smart selection
 └── window_finder.py         # WindowFinder — smart window selection, cursor-based detection
 ```

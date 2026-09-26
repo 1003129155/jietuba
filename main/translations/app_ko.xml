@@ -1024,6 +1024,14 @@ Replace it?</source>
         <translation>캡처 중 마우스를 따라 화면 전체에 가로 및 세로 안내선을 표시합니다.</translation>
     </message>
     <message>
+        <source>Include Mouse Pointer</source>
+        <translation>마우스 포인터 포함</translation>
+    </message>
+    <message>
+        <source>Draw the mouse pointer into the screenshot where it was when capturing started.</source>
+        <translation>캡처를 시작한 순간의 위치에 마우스 포인터를 그려 넣습니다.</translation>
+    </message>
+    <message>
         <source>Mouse Shortcuts</source>
         <translation>앱 내 마우스 단축키</translation>
     </message>

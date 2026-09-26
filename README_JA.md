@@ -235,6 +235,7 @@ canvas/
 ```text
 capture/
 ├── capture_service.py       # CaptureService — スクリーンショットコアロジック
+├── system_cursor.py         # SystemCursor — キャプチャ時のマウスポインターを記録し画像に描き込む
 ├── uia_element_finder.py    # UI Automation によるバックグラウンド要素検出・キャッシュ
 └── window_finder.py         # WindowFinder — スマートウィンドウ選択、カーソル位置検出
 ```

@@ -909,6 +909,14 @@ Replace it?</translation>
         <translation>Show horizontal and vertical guide lines across the screen while capturing.</translation>
     </message>
     <message>
+        <source>Include Mouse Pointer</source>
+        <translation>Include Mouse Pointer</translation>
+    </message>
+    <message>
+        <source>Draw the mouse pointer into the screenshot where it was when capturing started.</source>
+        <translation>Draw the mouse pointer into the screenshot where it was when capturing started.</translation>
+    </message>
+    <message>
         <source>Mouse Shortcuts</source>
         <translation>In-App Mouse Shortcuts</translation>
     </message>

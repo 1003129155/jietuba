@@ -200,7 +200,10 @@ class SelectionInfoController:
             if not getattr(win, '_exclude_from_capture_set', False):
                 win._set_exclude_from_capture(True)
                 win._exclude_from_capture_set = True
-            new_image, _ = CaptureService().capture_all_screens()
+            # 此时指针正按在刷新按钮上，沿用会话开始时记下的那份
+            new_image, _ = CaptureService().capture_all_screens(
+                getattr(win, '_capture_cursor', None)
+            )
             win.original_image = new_image
             win.scene.background.update_image(new_image)
         except Exception as e:
