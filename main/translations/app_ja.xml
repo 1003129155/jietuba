@@ -10,6 +10,42 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Quick capture failed. Please try again.</source>
+        <translation>クイックキャプチャに失敗しました。もう一度お試しください。</translation>
+    </message>
+    <message>
+        <source>Quick Capture</source>
+        <translation>クイックキャプチャ</translation>
+    </message>
+    <message>
+        <source>First Modifier</source>
+        <translation>1つ目の修飾キー</translation>
+    </message>
+    <message>
+        <source>Second Modifier</source>
+        <translation>2つ目の修飾キー</translation>
+    </message>
+    <message>
+        <source>Capture and Pin</source>
+        <translation>撮影してピン留め</translation>
+    </message>
+    <message>
+        <source>Capture and Copy</source>
+        <translation>撮影してコピー</translation>
+    </message>
+    <message>
+        <source>Capture, Copy and Pin</source>
+        <translation>撮影・コピーしてピン留め</translation>
+    </message>
+    <message>
+        <source>Normal Capture</source>
+        <translation>通常のスクリーンショット</translation>
+    </message>
+    <message>
+        <source>Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. Select at least one modifier to enable Quick Capture.</source>
+        <translation>修飾キーを押しながらマウスの左ボタンでドラッグします。ボタンを離すと撮影し、Esc でキャンセルします。有効にするには修飾キーを1つ以上選択してください。</translation>
+    </message>
+    <message>
         <source>Shortcuts</source>
         <translation>ショートカット</translation>
     </message>
@@ -1117,6 +1153,18 @@ Replace it?</source>
     <message>
         <source>No Action</source>
         <translation>なし</translation>
+    </message>
+    <message>
+        <source>Paste</source>
+        <translation>貼り付け</translation>
+    </message>
+    <message>
+        <source>Open Context Menu</source>
+        <translation>メニューを開く</translation>
+    </message>
+    <message>
+        <source>Pin applies to images; quick edit applies to text. Single clicks wait for the system double-click interval when the same button also has an available double-click action.</source>
+        <translation>ピン留めは画像、クイック編集はテキストが対象です。同じボタンに有効なクリックとダブルクリックの操作がある場合、クリックはシステムのダブルクリック判定時間だけ待機します。</translation>
     </message>
 </context>
 

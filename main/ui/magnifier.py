@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Optional
 
 from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, Qt
-from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QBrush
+from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPainterPath, QPen, QBrush
 from PySide6.QtWidgets import QWidget
 
 from core import log_debug, safe_event, T
@@ -45,6 +45,8 @@ class MagnifierOverlay(QWidget):
 		self.view = view
 		self.config_manager = config_manager
 		self.cursor_scene_pos: Optional[QPointF] = None
+		self._sample_image = None
+		self._sample_rect = None
 		# 创建字体时不使用QFont.Weight.Bold，改用setBold避免字体变体问题
 		self._font = QFont("Microsoft YaHei", 10)
 		self._font.setBold(True)
@@ -210,6 +212,8 @@ class MagnifierOverlay(QWidget):
 		self.scene = scene
 		self.view = view
 		self.cursor_scene_pos = None
+		self._sample_image = None
+		self._sample_rect = None
 		self._last_sample_pt = None
 		self._cached_source_rect = None
 		self._cached_sample_image = None
@@ -224,6 +228,16 @@ class MagnifierOverlay(QWidget):
 		self._refresh_display_options()
 		self.apply_scale()
 		self.hide()
+
+	def set_sample_image(self, image, global_rect):
+		"""提供实时局部采样，绘制仍与普通截图共用；None 恢复场景底图。"""
+		self._sample_image = QImage(image) if image is not None else None
+		self._sample_rect = QRectF(global_rect) if image is not None else None
+		# 静止光标下画面也会变化，不能继续复用上一帧的小图缓存。
+		self._last_sample_pt = None
+		self._cached_source_rect = None
+		self._cached_sample_image = None
+		self.refresh()
 
 	def cycle_color_format(self):
 		"""切换到下一个启用的颜色格式（循环），供 Shift 键调用。
@@ -325,6 +339,12 @@ class MagnifierOverlay(QWidget):
 	def get_zoom_factor(self) -> float:
 		"""获取当前放大倍数"""
 		return self._zoom_factor
+
+	@property
+	def sample_size(self) -> int:
+		"""当前倍率所需的奇数边长，保证中心像素与准星重合。"""
+		size = max(int(self.SAMPLE_SIZE / self._zoom_factor), 4)
+		return size + 1 if size % 2 == 0 else size
 
 	# ------------------------------------------------------------------
 	# QWidget 接口
@@ -606,13 +626,15 @@ class MagnifierOverlay(QWidget):
 		return True
 
 	def _background_image(self):
+		if self._sample_image is not None:
+			return self._sample_image
 		background = getattr(self.scene, 'background', None)
 		if background and hasattr(background, 'image'):
 			return background.image()
 		return None
 
 	def _scene_to_image_point(self, scene_pos: QPointF) -> Optional[QPoint]:
-		rect = getattr(self.scene, 'scene_rect', None)
+		rect = self._sample_rect if self._sample_rect is not None else getattr(self.scene, 'scene_rect', None)
 		if rect is None:
 			return None
 		# 使用 floor 取整，确保取的是鼠标所在的像素块
@@ -622,7 +644,7 @@ class MagnifierOverlay(QWidget):
 	
 	def _scene_to_pixel_center(self, scene_pos: QPointF) -> Optional[QPointF]:
 		"""将场景坐标转换为对齐到像素中心的场景坐标"""
-		rect = getattr(self.scene, 'scene_rect', None)
+		rect = self._sample_rect if self._sample_rect is not None else getattr(self.scene, 'scene_rect', None)
 		if rect is None:
 			return None
 		# 转换到图像坐标
@@ -661,9 +683,7 @@ class MagnifierOverlay(QWidget):
 		
 		# 根据放大倍数动态调整采样区域大小
 		# 确保采样区域为奇数大小，这样中心像素正好在中间
-		sample_size = max(int(self.SAMPLE_SIZE / self._zoom_factor), 4)
-		if sample_size % 2 == 0:
-			sample_size += 1  # 确保是奇数
+		sample_size = self.sample_size
 		half = sample_size // 2
 		src = QRect(pt.x() - half, pt.y() - half, sample_size, sample_size)
 		src = src.intersected(image.rect())

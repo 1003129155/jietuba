@@ -33,6 +33,7 @@ from ui.dialogs import show_confirm_dialog
 from ui.fluent_lite import LineEdit
 
 from ...controllers import ClipboardController, SelectionManager
+from ...controllers.mouse_shortcut_controller import ClipboardMouseController
 from ...controllers.context_menu_controller import is_quick_editable
 from ...core import ClipboardItem, ClipboardManager, GroupType
 from ..theme.theme_styles import ThemeStyleGenerator
@@ -95,6 +96,9 @@ class ClipboardShortcutHandler(ShortcutHandler):
 
     def handle_key(self, event) -> bool:
         w = self._window
+        mouse = getattr(w, "_mouse_controller", None)
+        if mouse is not None:
+            mouse.cancel()
         key = event.key()
         modifiers = event.modifiers()
 
@@ -505,6 +509,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self.selection_manager.item_activated.connect(self._on_paste_item)
         self.selection_manager.request_sidebar_focus.connect(self._enter_sidebar_mode)
         self.selection_manager.request_group_switch.connect(self._on_top_group_switch)
+        self._mouse_controller = ClipboardMouseController(self)
 
         self.list_widget.itemSelectionChanged.connect(self._on_selection_changed)
 
@@ -1046,6 +1051,9 @@ class ClipboardWindow(QWidget, FramelessMixin):
         return None
 
     def _on_paste_item(self, item_id: int):
+        mouse = getattr(self, "_mouse_controller", None)
+        if mouse is not None:
+            mouse.cancel()
         if self.controller.current_group_id is not None:
             groups = self.controller.manager.get_groups()
             current_group = next((group for group in groups if group.id == self.controller.current_group_id), None)
@@ -1068,6 +1076,12 @@ class ClipboardWindow(QWidget, FramelessMixin):
         if not item_id:
             return
 
+        self._show_item_context_menu(item_id, pos)
+
+    def _show_item_context_menu(self, item_id, pos):
+        mouse = getattr(self, "_mouse_controller", None)
+        if mouse is not None:
+            mouse.cancel()
         ctx = self.controller.build_context_menu_data(item_id)
         if ctx is None:
             return
@@ -1161,6 +1175,9 @@ class ClipboardWindow(QWidget, FramelessMixin):
         return False
 
     def _quick_edit_item(self, item_id: int):
+        mouse = getattr(self, "_mouse_controller", None)
+        if mouse is not None:
+            mouse.cancel()
         item = self._get_item_data(item_id)
         if item is None:
             return

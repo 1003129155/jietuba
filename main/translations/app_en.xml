@@ -9,6 +9,42 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Quick capture failed. Please try again.</source>
+        <translation>Quick capture failed. Please try again.</translation>
+    </message>
+    <message>
+        <source>Quick Capture</source>
+        <translation>Quick Capture</translation>
+    </message>
+    <message>
+        <source>First Modifier</source>
+        <translation>First Modifier</translation>
+    </message>
+    <message>
+        <source>Second Modifier</source>
+        <translation>Second Modifier</translation>
+    </message>
+    <message>
+        <source>Capture and Pin</source>
+        <translation>Capture and Pin</translation>
+    </message>
+    <message>
+        <source>Capture and Copy</source>
+        <translation>Capture and Copy</translation>
+    </message>
+    <message>
+        <source>Capture, Copy and Pin</source>
+        <translation>Capture, Copy and Pin</translation>
+    </message>
+    <message>
+        <source>Normal Capture</source>
+        <translation>Normal Capture</translation>
+    </message>
+    <message>
+        <source>Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. Select at least one modifier to enable Quick Capture.</source>
+        <translation>Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. Select at least one modifier to enable Quick Capture.</translation>
+    </message>
+    <message>
         <source>Shortcuts</source>
         <translation>Shortcuts</translation>
     </message>
@@ -995,6 +1031,18 @@ Replace it?</translation>
     <message>
         <source>No Action</source>
         <translation>None</translation>
+    </message>
+    <message>
+        <source>Paste</source>
+        <translation>Paste</translation>
+    </message>
+    <message>
+        <source>Open Context Menu</source>
+        <translation>Open Context Menu</translation>
+    </message>
+    <message>
+        <source>Pin applies to images; quick edit applies to text. Single clicks wait for the system double-click interval when the same button also has an available double-click action.</source>
+        <translation>Pin applies to images; quick edit applies to text. Single clicks wait for the system double-click interval when the same button also has an available double-click action.</translation>
     </message>
 </context>
 

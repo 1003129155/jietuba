@@ -23,6 +23,11 @@ from core.ui_theme import set_own_style
 from settings.tool_settings import (
     CAPTURE_MOUSE_ACTIONS,
     PIN_MOUSE_ACTIONS,
+    CLIPBOARD_MOUSE_ACTIONS,
+    QUICK_CAPTURE_ACTIONS,
+    QUICK_CAPTURE_MODIFIERS,
+    ToolSettingsManager,
+    get_clipboard_mouse_binding,
     get_capture_mouse_binding,
     get_pin_mouse_binding,
 )
@@ -71,6 +76,62 @@ class MouseBindingEditor(QWidget):
         modifiers = "+".join(key for key in ("ctrl", "shift", "alt") if key in parts[:-1])
         self.modifiers.setCurrentIndex(max(0, self.modifiers.findData(modifiers)))
         self.gesture.setCurrentIndex(max(0, self.gesture.findData(parts[-1])))
+
+
+def _create_quick_capture(dialog, parent):
+    group = SectionCard(FluentIcon.CAMERA, dialog.tr("Quick Capture"), parent=parent)
+    if not hasattr(dialog, "_behavior_controls"):
+        dialog._behavior_controls = {}
+
+    row = QWidget(group)
+    layout = QHBoxLayout(row)
+    layout.setContentsMargins(0, dialog_scaled(8), 0, dialog_scaled(8))
+    layout.setSpacing(dialog_scaled(8))
+    modifiers = []
+    for number, title in ((1, "First Modifier"), (2, "Second Modifier")):
+        combo = ComboBox(row)
+        combo.setAccessibleName(dialog.tr(title))
+        combo.setToolTip(dialog.tr(title))
+        for value in QUICK_CAPTURE_MODIFIERS:
+            combo.addItem(value.title() if value else dialog.tr("No Modifier"), userData=value)
+        key = f"quick_capture_modifier_{number}"
+        default = ToolSettingsManager.APP_DEFAULT_SETTINGS[key]
+        index = combo.findData(dialog.config_manager.get_app_setting(key, default))
+        combo.setCurrentIndex(index if index >= 0 else combo.findData(default))
+        dialog._behavior_controls[key] = combo
+        modifiers.append(combo)
+        layout.addWidget(combo, 1)
+        plus = QLabel("+", row)
+        apply_theme_text_style(plus, 14, caption=True)
+        layout.addWidget(plus)
+
+    layout.addWidget(_row_label(row, dialog.tr("Left Drag")))
+    action = ComboBox(row)
+    action.setAccessibleName(dialog.tr("Quick Capture"))
+    for value, label in QUICK_CAPTURE_ACTIONS:
+        action.addItem(dialog.tr(label), userData=value)
+    default = ToolSettingsManager.APP_DEFAULT_SETTINGS["quick_capture_action"]
+    index = action.findData(dialog.config_manager.get_app_setting("quick_capture_action", default))
+    action.setCurrentIndex(index if index >= 0 else action.findData(default))
+    dialog._behavior_controls["quick_capture_action"] = action
+    layout.addWidget(action, 2)
+
+    def normalize_modifiers():
+        # A duplicate modifier is the same gesture as a single modifier.
+        if modifiers[0].currentData() and modifiers[0].currentData() == modifiers[1].currentData():
+            modifiers[1].setCurrentIndex(modifiers[1].findData(""))
+
+    for combo in modifiers:
+        combo.currentIndexChanged.connect(normalize_modifiers)
+    normalize_modifiers()
+    group.addWidget(row)
+    hint = CaptionLabel(dialog.tr(
+        "Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. "
+        "Select at least one modifier to enable Quick Capture."
+    ), group)
+    hint.setWordWrap(True)
+    group.addWidget(hint)
+    return group
 
 
 def _build_mouse_shortcut_tab(
@@ -133,6 +194,21 @@ def _create_mouse_shortcuts(dialog, parent):
         action_icons=_PIN_MOUSE_ICONS,
         binding_getter=get_pin_mouse_binding,
     ))
+    clipboard_page = _build_mouse_shortcut_tab(
+        dialog,
+        actions=CLIPBOARD_MOUSE_ACTIONS,
+        key_prefix="mouse_clipboard_",
+        action_icons={"paste": FluentIcon.PASTE, "pin": FluentIcon.PIN,
+                      "quick_edit": FluentIcon.EDIT, "menu": FluentIcon.LAYOUT},
+        binding_getter=get_clipboard_mouse_binding,
+    )
+    hint = CaptionLabel(dialog.tr(
+        "Pin applies to images; quick edit applies to text. Single clicks wait for the system "
+        "double-click interval when the same button also has an available double-click action."
+    ), clipboard_page)
+    hint.setWordWrap(True)
+    clipboard_page.layout().insertWidget(clipboard_page.layout().count() - 1, hint)
+    stack.addWidget(clipboard_page)
 
     tab_switch.addItem(
         "screenshot", dialog.tr("Screenshot Shortcuts"),
@@ -141,6 +217,10 @@ def _create_mouse_shortcuts(dialog, parent):
     tab_switch.addItem(
         "pin", dialog.tr("Pin Shortcuts"),
         lambda: stack.setCurrentIndex(1),
+    )
+    tab_switch.addItem(
+        "clipboard", dialog.tr("Clipboard Shortcuts"),
+        lambda: stack.setCurrentIndex(2),
     )
     tab_switch.setCurrentItem("screenshot")
 
@@ -200,9 +280,11 @@ def mouse_binding_conflicts(dialog) -> list[tuple[str, str, tuple[str, ...]]]:
     domains = (
         ("mouse_capture_", "screenshot", "Screenshot Shortcuts", CAPTURE_MOUSE_ACTIONS),
         ("mouse_pin_", "pin", "Pin Shortcuts", PIN_MOUSE_ACTIONS),
+        ("mouse_clipboard_", "clipboard", "Clipboard Shortcuts", CLIPBOARD_MOUSE_ACTIONS),
     )
     for prefix, inapp_group, context_source, actions in domains:
         owners_by_binding = {}
+        actions_by_binding = {}
 
         # Follow the UI row order so both the conflict list and its owners are
         # stable and easy to find on the settings page.
@@ -212,6 +294,7 @@ def mouse_binding_conflicts(dialog) -> list[tuple[str, str, tuple[str, ...]]]:
                 continue
             binding = _normalized_mouse_binding(control.currentData())
             if binding:
+                actions_by_binding.setdefault(binding, set()).add(action)
                 owners_by_binding.setdefault(binding, []).append(
                     f"{dialog.tr(label_source)} ({dialog.tr('Mouse Shortcuts')})"
                 )
@@ -227,6 +310,10 @@ def mouse_binding_conflicts(dialog) -> list[tuple[str, str, tuple[str, ...]]]:
                 )
 
         for binding, owners in owners_by_binding.items():
+            # Image pinning and text editing cannot act on the same item.
+            if (prefix == "mouse_clipboard_" and len(owners) == 2
+                    and actions_by_binding.get(binding) == {"pin", "quick_edit"}):
+                continue
             if len(owners) > 1:
                 conflicts.append((
                     dialog.tr(context_source),
@@ -518,6 +605,7 @@ def create_hotkey_page(dialog) -> QWidget:
     validate_global_hotkey_edits(dialog)
 
     layout.addWidget(grp_global)
+    layout.addWidget(_create_quick_capture(dialog, view))
 
     # ════ 应用内快捷键 ════
     grp_inapp = SectionCard(

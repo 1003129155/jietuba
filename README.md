@@ -238,6 +238,7 @@ Screen capture and smart window detection.
 capture/
 ├── capture_service.py       # CaptureService — core screenshot logic
 ├── system_cursor.py         # SystemCursor — snapshots the mouse pointer and draws it into screenshots
+├── quick_capture_controller.py # QuickCaptureController — modifier-drag capture and action dispatch
 ├── uia_element_finder.py    # Background UI Automation element snapshots for smart selection
 └── window_finder.py         # WindowFinder — smart window selection, cursor-based detection
 ```
@@ -261,6 +262,7 @@ clipboard/
 ├── controllers/             # Control layer — history loading, paste flow, menus, selection state
 │   ├── clipboard_controller.py   # ClipboardController — loading, pasting, context menu logic
 │   ├── selection_manager.py      # SelectionManager — list selection state
+│   ├── mouse_shortcut_controller.py  # Clipboard row mouse gestures and single/double-click dispatch
 │   ├── context_menu_controller.py  # ContextMenuController — assembles context menu data and actions
 │   ├── foreground_tracker.py    # ForegroundWindowTracker — remembers the window to paste into
 │   ├── paste_keystroke.py       # Restores focus to the target window, then sends Ctrl+V
@@ -344,6 +346,7 @@ core/
 ├── ui_scale.py              # UIScaleManager — one scale factor for toolbars, panels and popups
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — internationalization
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — global & in-app hotkeys
+├── quick_capture_input.py    # Global modifier-drag input and quick capture gesture state
 ├── last_capture_region.py   # In-memory "last capture region" for the restore-region hotkey
 ├── save.py                  # SaveService — file save service (auto naming, high-quality PDF output)
 ├── export.py                # ExportService — image export
@@ -578,6 +581,7 @@ ui/
 ├── reorderable_rows.py      # DragGrip / DraggableRow / ReorderableRowList — drag-to-reorder rows
 ├── tray_menu.py             # TrayMenu — system tray menu
 ├── screenshot_window.py     # ScreenshotWindow — full-screen capture window (region drawing)
+├── quick_capture_overlay.py # Transparent quick capture layer reusing the normal selection, coordinates and magnifier
 ├── dialogs.py               # StandardDialog — confirm, warning, info, error dialogs
 ├── toast.py                 # Toast — one-line hint by the cursor that never takes focus
 ├── magnifier.py             # MagnifierOverlay — pixel-level magnifier
