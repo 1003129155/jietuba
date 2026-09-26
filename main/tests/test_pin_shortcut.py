@@ -12,7 +12,8 @@ pin_shortcut.py 决定了鼠标悬停在钉图上时按键会发生什么，此�
   标注一起关掉。
 - 复制键优先复制 OCR 选中的文字，没有选区时才复制整张图。
 - 未识别的按键必须返回 False 向下传递，否则会吞掉别的模块的快捷键。
-- 鼠标下方钉图的查找：上层优先，且要跳过已销毁的窗口。
+- 鼠标下方钉图的查找：上层优先，且要跳过已销毁的窗口；截图期间钉图
+  被压在截图层下面，不算在鼠标下方。
 """
 import pytest
 from PySide6.QtCore import Qt, QRect, QPoint, QPointF, QEvent
@@ -419,11 +420,14 @@ class TestFindPinUnderCursor:
 
     @pytest.fixture
     def controller(self, qapp):
+        from pin.pin_manager import PinManager
         from pin.pin_shortcut import PinShortcutController
         ctrl = PinShortcutController.instance()
         ctrl._pin_windows = []       # 隔离全局单例的既有状态
+        PinManager._instance = None  # 截图压制状态也在单例上
         yield ctrl
         ctrl._pin_windows = []
+        PinManager._instance = None
 
     def test_returns_none_when_no_pin_is_under_the_cursor(self, controller, monkeypatch):
         monkeypatch.setattr(QCursor, "pos", staticmethod(lambda: QPoint(500, 500)))
@@ -459,6 +463,37 @@ class TestFindPinUnderCursor:
 
         assert controller._find_pin_under_cursor() is alive
         assert dead not in controller._pin_windows
+
+    def test_pins_under_a_capture_are_not_under_the_cursor(self, controller, monkeypatch):
+        from pin.pin_manager import PinManager
+        monkeypatch.setattr(QCursor, "pos", staticmethod(lambda: QPoint(50, 50)))
+        pin = FakePin(rect=QRect(0, 0, 100, 100))
+        controller.register(pin)
+        manager = PinManager.instance()
+
+        manager.suppress_topmost()
+        assert controller._find_pin_under_cursor() is None
+
+        manager.restore_topmost()
+        assert controller._find_pin_under_cursor() is pin
+
+    def test_keys_during_a_capture_do_not_reach_the_covered_pin(self, controller, monkeypatch):
+        """截图选区未确认时截图窗口不接 Ctrl+C 和 R，它们会继续往下分发"""
+        from pin.pin_manager import PinManager
+        from pin.pin_shortcut import PinNormalShortcutHandler
+        monkeypatch.setattr(QCursor, "pos", staticmethod(lambda: QPoint(50, 50)))
+        pin = FakePin(rect=QRect(0, 0, 100, 100))
+        controller.register(pin)
+        handler = _isolated(PinNormalShortcutHandler(controller))
+        _bind(handler, "inapp_copy_pin", Qt.Key.Key_C, Qt.KeyboardModifier.ControlModifier)
+        _bind(handler, "inapp_thumbnail", Qt.Key.Key_R)
+        manager = PinManager.instance()
+        manager.suppress_topmost()
+
+        assert handler.is_active() is False
+        assert handler.handle_key(_key_event(Qt.Key.Key_C, Qt.KeyboardModifier.ControlModifier)) is False
+        assert handler.handle_key(_key_event(Qt.Key.Key_R)) is False
+        assert (pin.copied, pin.thumbnail_toggled) == (0, 0)
 
     def test_register_is_idempotent(self, controller):
         pin = FakePin()

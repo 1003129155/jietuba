@@ -18,6 +18,7 @@ from core.shortcut_manager import (
     load_inapp_bindings, load_inapp_mouse_bindings, match_inapp_binding,
     mouse_gesture_binding_matches,
 )
+from .pin_manager import PinManager
 
 
 def mouse_binding_matches(binding, event, gesture):
@@ -310,6 +311,11 @@ class PinShortcutController(QObject):
 
     def _find_pin_under_cursor(self):
         """查找鼠标当前位置下方的钉图窗口（最上层优先）"""
+        # 截图期间钉图被压在截图层下面。截图窗口没接的键（如选区未确认时的
+        # 复制键）会继续往下分发，只按几何位置找钉图就会落到这个看不见的钉图上。
+        if PinManager.instance().topmost_suppressed:
+            return None
+
         cursor_pos = QCursor.pos()
 
         # 清理已关闭的窗口引用
