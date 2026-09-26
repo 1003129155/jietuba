@@ -31,6 +31,7 @@ CAPTURE_MOUSE_ACTIONS = (
     ("pin", "Pin to Screen", "", "capture"),
     ("save", "Save to File", "", "capture"),
     ("quick_save", "Quick Save", "", "capture"),
+    ("close", "Close Screenshot", "right", "capture"),
 )
 
 PIN_MOUSE_ACTIONS = (

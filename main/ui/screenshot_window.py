@@ -98,10 +98,12 @@ class ScreenshotShortcutHandler(ShortcutHandler):
         """中键走和键盘完全相同的那条 if 链，见 ShortcutHandler.handle_mouse。"""
         w = self._window
         if (event.button() == Qt.MouseButton.MiddleButton
-                and hasattr(event, 'globalPosition')
-                and not w._is_text_editing()):
+                and hasattr(event, 'globalPosition')):
             view = getattr(w, 'view', None)
             action = w._matching_capture_mouse_action(event, "middle")
+            # 文字编辑中只放行关闭，和 ESC 一致
+            if action != "close" and w._is_text_editing():
+                action = None
             if (action is not None and view is not None
                     and view.viewport().rect().contains(
                         view.viewport().mapFromGlobal(event.globalPosition().toPoint())
@@ -449,6 +451,15 @@ class ScreenshotWindow(QWidget):
 
     def _matches_capture_double_click(self, event):
         return self._matching_capture_mouse_action(event, "doubleleft") is not None
+
+    def _handle_capture_right_click(self, event):
+        action = self._matching_capture_mouse_action(event, "right")
+        if action is None or not self.action_handler:
+            return
+        # 与中键一致：文字编辑中只响应关闭
+        if action != "close" and self._is_text_editing():
+            return
+        self.action_handler.handle_capture_action(action)
 
     def _get_configured_smart_selection_mode(self) -> str:
         """读取检测方式；没有这项设置的旧配置对象退回窗口级，和默认值一致。"""

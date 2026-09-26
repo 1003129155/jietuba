@@ -548,6 +548,16 @@ class TestMiddleClickBinding:
         window.cleanup_and_close.assert_not_called()
         window.action_handler.handle_confirm.assert_not_called()
 
+    @pytest.mark.parametrize("action,handled", [("close", True), ("copy", False)])
+    def test_only_close_runs_while_editing_text(self, action, handled):
+        window = _make_window(text_editing=True)
+        window._matching_capture_mouse_action.return_value = action
+        handler = _make_handler(window)
+        event = _FakeMouseEvent()
+        event.globalPosition = MagicMock()
+        assert handler.handle_mouse(event) is handled
+        assert window.action_handler.handle_capture_action.called is handled
+
     def test_other_buttons_are_not_the_middle_binding(self):
         window = _make_window(confirmed=True)
         handler = _make_handler(window, mouse_bindings={

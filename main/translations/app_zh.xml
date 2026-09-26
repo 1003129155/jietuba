@@ -1005,6 +1005,10 @@ Replace it?</source>
         <translation>快捷保存</translation>
     </message>
     <message>
+        <source>Close Screenshot</source>
+        <translation>关闭截图</translation>
+    </message>
+    <message>
         <source>Left Double-click</source>
         <translation>左键双击</translation>
     </message>

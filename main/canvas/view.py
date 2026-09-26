@@ -988,34 +988,44 @@ class CanvasView(QGraphicsView):
             self.canvas_scene.update()
         return applied
 
+    def _route_capture_right_button(self, event, *, dispatch):
+        """截图窗口的右键只用于鼠标动作，不进入选区、绘图和编辑逻辑。
+
+        右键未绑定动作时抬起也要吞掉，否则会提前结束左键正在进行的绘制或拖动。
+        """
+        if event.button() != Qt.MouseButton.RightButton:
+            return False
+        handler = getattr(self.window(), "_handle_capture_right_click", None)
+        if not callable(handler):
+            return False
+        event.accept()
+        if dispatch:
+            handler(event)
+        return True
+
+    @safe_event
+    def contextMenuEvent(self, event):
+        # 截图窗口的右键留给鼠标动作；文字图元自带的菜单弹出时会夺走焦点，提前结束编辑
+        if callable(getattr(self.window(), "_handle_capture_right_click", None)):
+            event.accept()
+            return
+        super().contextMenuEvent(event)
+
     @safe_event
     def mousePressEvent(self, event):
         """
         鼠标按下
         
         优先级逻辑：
-        0. 右键 → 直接退出截图（仅截图窗口）
+        0. 右键 → 交给截图窗口的鼠标动作（仅截图窗口）
         1. 选区未确认 → 创建选区
         2. 选区已确认：
            a. 优先检查智能编辑（选中已有图元 + 控制点拖拽）
            b. 如果未处理，再执行绘图工具逻辑
         """
-        # 右键直接退出截图（复用 ESC 的清理逻辑）
-        # 只在截图窗口中生效，钉图窗口不响应
-        if event.button() == Qt.MouseButton.RightButton:
-            # 检查父窗口类型，只对 ScreenshotWindow 生效
-            parent_window = self.window()
-            if parent_window and parent_window.__class__.__name__ == 'ScreenshotWindow':
-                log_debug(T("右键退出截图"), "CanvasView")
-                event.accept()  # 立即接受事件
-                # 复用 cleanup_and_close 方法，与 ESC 保持一致
-                if hasattr(parent_window, 'cleanup_and_close'):
-                    parent_window.cleanup_and_close()
-                else:
-                    parent_window.close()
-                return
-            # 钉图窗口：不处理右键，让事件继续传递（显示右键菜单）
-        
+        if self._route_capture_right_button(event, dispatch=True):
+            return
+
         scene_pos = self.mapToScene(event.pos())
         self._double_click_candidate = None
         # 新的一次点击开始前重置单击编辑状态
@@ -1138,6 +1148,10 @@ class CanvasView(QGraphicsView):
         导致序号 +/- 按钮等点击型控制点丢失第二次点击。
         此处将双击事件重新路由到 handle_edit_press，确保快速连点生效。
         """
+        # 快速连点右键的第二下同样按单击处理
+        if self._route_capture_right_button(event, dispatch=True):
+            return
+
         # 仅处理选区已确认的情况（与 mousePressEvent 一致）
         if not self.canvas_scene or not self.canvas_scene.selection_model.is_confirmed:
             super().mouseDoubleClickEvent(event)
@@ -1544,6 +1558,9 @@ class CanvasView(QGraphicsView):
         3. 智能编辑控制点拖拽 → LayerEditor 处理
         4. 其他情况 → 智能编辑 + 传递给 Scene
         """
+        if self._route_capture_right_button(event, dispatch=False):
+            return
+
         scene_pos = self.mapToScene(event.pos())
         
         if self.text_drag.active:

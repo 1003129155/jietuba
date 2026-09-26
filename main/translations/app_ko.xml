@@ -996,6 +996,10 @@ Replace it?</source>
         <translation>빠른 저장</translation>
     </message>
     <message>
+        <source>Close Screenshot</source>
+        <translation>스크린샷 닫기</translation>
+    </message>
+    <message>
         <source>Left Double-click</source>
         <translation>왼쪽 더블 클릭</translation>
     </message>
