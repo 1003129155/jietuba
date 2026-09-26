@@ -169,6 +169,10 @@ class ActionTools:
 
     def handle_capture_action(self, action):
         """Execute one screenshot action selected by a mouse binding."""
+        # 关闭和 ESC 一样不依赖选区，框选前也要能退出
+        if action == "close":
+            self._cleanup_and_close()
+            return True
         if not self.scene.selection_model.is_confirmed or self.scene.selection_model.rect().isEmpty():
             return False
         if action == "copy":

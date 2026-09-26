@@ -31,6 +31,7 @@ CAPTURE_MOUSE_ACTIONS = (
     ("pin", "Pin to Screen", "", "capture"),
     ("save", "Save to File", "", "capture"),
     ("quick_save", "Quick Save", "", "capture"),
+    ("close", "Close Screenshot", "right", "capture"),
 )
 
 PIN_MOUSE_ACTIONS = (
@@ -271,6 +272,7 @@ class ToolSettingsManager(QObject):
         # 截图交互
         "double_click_copy_close": True,      # 兼容旧版双击设置
         "capture_fullscreen_crosshair": False,
+        "capture_include_cursor": False,      # 截图时把鼠标指针画进去
         **{f"mouse_capture_{key}": binding for key, _label, binding, _kind in CAPTURE_MOUSE_ACTIONS},
         **{f"mouse_pin_{key}": binding for key, _label, binding, _kind in PIN_MOUSE_ACTIONS},
         "cross_tool_selection": True,         # Ctrl 临时跨工具选择标注

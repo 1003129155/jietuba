@@ -5,6 +5,7 @@
 import mss
 from PySide6.QtGui import QImage
 from PySide6.QtCore import QRectF
+from core.logger import log_exception, T
 
 class CaptureService:
     """
@@ -12,10 +13,13 @@ class CaptureService:
     负责使用 mss 获取多显示器截图
     """
     
-    def capture_all_screens(self):
+    def capture_all_screens(self, cursor=None):
         """
         捕获所有屏幕
         
+        Args:
+            cursor: SystemCursor，给定时把它画进截图
+
         Returns:
             tuple: (QImage, QRectF) 
             - QImage: 包含所有屏幕的完整截图
@@ -41,6 +45,13 @@ class CaptureService:
             # 拷贝一份，因为 screenshot.bgra 的生命周期依赖于 mss
             original_image = qimage.copy()
             
+            if cursor is not None:
+                # 截图是主功能，画指针出错时退回不带指针的截图
+                try:
+                    cursor.draw_onto(original_image, all_monitors['left'], all_monitors['top'])
+                except Exception as e:
+                    log_exception(e, T("绘制鼠标指针"))
+
             # 虚拟桌面几何信息
             virtual_x = all_monitors['left']
             virtual_y = all_monitors['top']

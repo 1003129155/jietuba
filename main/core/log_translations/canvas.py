@@ -20,7 +20,6 @@ TRANSLATIONS: dict[str, str] = {
     "无法同步形状面板: {exc}": "Failed to sync shape panel: {exc}",
     "无法同步画笔面板: {exc}": "Failed to sync brush panel: {exc}",
     "显示编辑面板失败: {e}": "Failed to show edit panel: {e}",
-    "右键退出截图": "Right-click exiting screenshot",
     "选区已确认，当前工具: {current_tool_id}": "Selection confirmed, current tool: {current_tool_id}",
     "结束文本编辑": "Ending text editing",
     "控制点拖拽被处理": "Handle drag was processed",

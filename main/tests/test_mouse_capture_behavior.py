@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from PySide6.QtCore import QEvent, QPoint, QPointF, QRectF, QSettings, Qt
-from PySide6.QtGui import QCloseEvent, QImage, QKeyEvent, QMouseEvent, QWheelEvent
+from PySide6.QtGui import QCloseEvent, QContextMenuEvent, QImage, QKeyEvent, QMouseEvent, QWheelEvent
 from PySide6.QtWidgets import QApplication, QStackedWidget, QWidget
 
 from settings.tool_settings import (
@@ -132,6 +132,13 @@ def test_copy_action_closes_capture(actions, config):
     config.set_screenshot_save_enabled(False)
     assert actions.handle_capture_action('copy')
     actions.parent_window.hide.assert_called_once()
+    actions.parent_window.cleanup_and_close.assert_called_once()
+
+
+def test_close_action_does_not_need_a_selection(actions):
+    actions.scene.selection_model.is_confirmed = False
+    assert actions.handle_capture_action('close') is True
+    actions.export_service.export.assert_not_called()
     actions.parent_window.cleanup_and_close.assert_called_once()
 
 
@@ -319,6 +326,73 @@ def test_screenshot_reuse_rebinds_crosshair_and_capture_actions(config, qapp, mo
     assert not window.view.confirm_on_double_click
     window.cleanup_and_close()
     window.deleteLater()
+
+
+@pytest.fixture
+def capture(config, qapp, monkeypatch):
+    from ui.screenshot_window import ScreenshotWindow
+    from pin.pin_manager import PinManager
+    monkeypatch.setattr(PinManager, 'suppress_topmost', lambda self: None)
+    monkeypatch.setattr(PinManager, 'restore_topmost', lambda self: None)
+    image = QImage(400, 300, QImage.Format_ARGB32)
+    image.fill(Qt.blue)
+    window = ScreenshotWindow(config, prefetched_image=image, prefetched_rect=QRectF(0, 0, 400, 300))
+    qapp.processEvents()
+    close = MagicMock()
+    monkeypatch.setattr(window, 'cleanup_and_close', close)
+    yield window, close
+    ScreenshotWindow.cleanup_and_close(window)
+    window.deleteLater()
+
+
+def send_mouse(window, kind, button, point=(30, 30), modifiers=Qt.NoModifier):
+    QApplication.sendEvent(window.view.viewport(), mouse_event(window, kind, button, point, modifiers))
+
+
+def test_right_click_closes_capture_by_default(capture):
+    window, close = capture
+    send_mouse(window, QEvent.MouseButtonPress, Qt.RightButton)
+    close.assert_called_once()
+
+
+def test_right_click_runs_the_rebound_capture_action(capture, config, monkeypatch):
+    window, close = capture
+    config.set_app_setting('mouse_capture_close', 'middle')
+    config.set_app_setting('mouse_capture_copy', 'right')
+    run = MagicMock(return_value=True)
+    monkeypatch.setattr(window.action_handler, 'handle_capture_action', run)
+    send_mouse(window, QEvent.MouseButtonPress, Qt.RightButton)
+    run.assert_called_once_with('copy')
+    close.assert_not_called()
+    monkeypatch.setattr(window, '_is_text_editing', lambda: True)
+    send_mouse(window, QEvent.MouseButtonPress, Qt.RightButton)
+    assert run.call_count == 1
+
+
+def test_unbound_right_click_never_reaches_selection_or_drawing(capture, config):
+    window, close = capture
+    config.set_app_setting('mouse_capture_close', '')
+    for kind in (QEvent.MouseButtonPress, QEvent.MouseButtonRelease, QEvent.MouseButtonDblClick):
+        send_mouse(window, kind, Qt.RightButton)
+    assert not window.view.selection_drag.active
+    close.assert_not_called()
+
+    # 左键拖动中间插进来的右键抬起不能提前结束这次拖动
+    send_mouse(window, QEvent.MouseButtonPress, Qt.LeftButton)
+    assert window.view.selection_drag.active
+    send_mouse(window, QEvent.MouseButtonPress, Qt.RightButton)
+    send_mouse(window, QEvent.MouseButtonRelease, Qt.RightButton)
+    assert window.view.selection_drag.active
+    send_mouse(window, QEvent.MouseButtonRelease, Qt.LeftButton)
+    assert not window.view.selection_drag.active
+
+
+def test_capture_view_suppresses_context_menu(capture):
+    window, _close = capture
+    event = QContextMenuEvent(QContextMenuEvent.Mouse, QPoint(30, 30), QPoint(30, 30))
+    event.ignore()
+    window.view.contextMenuEvent(event)
+    assert event.isAccepted()
 
 
 def test_crosshair_replaces_cursor_and_keeps_export_clean(qapp):

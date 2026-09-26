@@ -292,6 +292,11 @@ class PinManager(QObject):
     # ------------------------------------------------------------------
     # 使用 Win32 SetWindowPos 直接切换 TOPMOST/NOTOPMOST，
     # ------------------------------------------------------------------
+    @property
+    def topmost_suppressed(self) -> bool:
+        """截图会话期间为 True，此时所有钉图都在截图层下面。"""
+        return self._topmost_suppressed
+
     def suppress_topmost(self):
         """将所有置顶 pin 窗口降级为普通窗口（NOTOPMOST）。"""
         if self._topmost_suppressed:

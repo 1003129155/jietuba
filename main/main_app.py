@@ -21,7 +21,7 @@ from core.logger import (
 )
 
 # ── 全局版本号 ────────────────────────────────────────────
-APP_VERSION = "2.0.9"
+APP_VERSION = "2.0.10"
 
 
 def create_fallback_app_icon():
@@ -482,14 +482,18 @@ class MainApp(QObject):
         # 在后台线程执行 mss.grab()，避免主线程被阻塞 100~500ms
         from PySide6.QtCore import QThread, Signal
 
+        include_cursor = self.config_manager.get_app_setting("capture_include_cursor", False)
+
         class CaptureThread(QThread):
-            captured = Signal(object, object)  # (QImage, QRectF)
+            captured = Signal(object, object, object)  # (QImage, QRectF, SystemCursor | None)
 
             def run(self):
                 try:
                     from capture.capture_service import CaptureService
-                    image, rect = CaptureService().capture_all_screens()
-                    self.captured.emit(image, rect)
+                    from capture.system_cursor import SystemCursor
+                    cursor = SystemCursor.grab() if include_cursor else None
+                    image, rect = CaptureService().capture_all_screens(cursor)
+                    self.captured.emit(image, rect, cursor)
                 except Exception as e:
                     log_exception(e, T("后台截图失败"))
 
@@ -497,7 +501,7 @@ class MainApp(QObject):
         self._capture_thread.captured.connect(self._on_capture_ready)
         self._capture_thread.start()
 
-    def _on_capture_ready(self, image, rect):
+    def _on_capture_ready(self, image, rect, cursor=None):
         """后台截图完成后，在主线程创建或复用截图窗口"""
         log_debug(T("后台截图完成，准备截图窗口"), "MainApp")
 
@@ -508,7 +512,7 @@ class MainApp(QObject):
         if self.screenshot_window is not None:
             # 复用已有窗口（节省 ~250ms 的 UI 壳创建时间）
             log_debug(T("复用已有截图窗口"), "MainApp")
-            self.screenshot_window.prepare_new_session(image, rect)
+            self.screenshot_window.prepare_new_session(image, rect, cursor)
         else:
             # 首次创建
             log_debug(T("首次创建截图窗口"), "MainApp")
@@ -521,6 +525,7 @@ class MainApp(QObject):
                 self.config_manager,
                 prefetched_image=image,
                 prefetched_rect=rect,
+                prefetched_cursor=cursor,
             )
     
     def open_settings(self):

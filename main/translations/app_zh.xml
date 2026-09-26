@@ -1005,6 +1005,10 @@ Replace it?</source>
         <translation>快捷保存</translation>
     </message>
     <message>
+        <source>Close Screenshot</source>
+        <translation>关闭截图</translation>
+    </message>
+    <message>
         <source>Left Double-click</source>
         <translation>左键双击</translation>
     </message>
@@ -1027,6 +1031,14 @@ Replace it?</source>
     <message>
         <source>Show horizontal and vertical guide lines across the screen while capturing.</source>
         <translation>截图时显示随鼠标移动、贯穿全屏的水平和垂直辅助线。</translation>
+    </message>
+    <message>
+        <source>Include Mouse Pointer</source>
+        <translation>截图包含鼠标指针</translation>
+    </message>
+    <message>
+        <source>Draw the mouse pointer into the screenshot where it was when capturing started.</source>
+        <translation>开始截图时，把鼠标指针按当时的位置画进截图。</translation>
     </message>
     <message>
         <source>Mouse Shortcuts</source>

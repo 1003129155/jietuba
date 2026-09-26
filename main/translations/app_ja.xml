@@ -1003,6 +1003,10 @@ Replace it?</source>
         <translation>クイック保存</translation>
     </message>
     <message>
+        <source>Close Screenshot</source>
+        <translation>スクリーンショットを閉じる</translation>
+    </message>
+    <message>
         <source>Left Double-click</source>
         <translation>左ダブルクリック</translation>
     </message>
@@ -1025,6 +1029,14 @@ Replace it?</source>
     <message>
         <source>Show horizontal and vertical guide lines across the screen while capturing.</source>
         <translation>キャプチャ中、マウスに追従する水平・垂直の補助線を画面全体に表示します。</translation>
+    </message>
+    <message>
+        <source>Include Mouse Pointer</source>
+        <translation>マウスポインターを含める</translation>
+    </message>
+    <message>
+        <source>Draw the mouse pointer into the screenshot where it was when capturing started.</source>
+        <translation>キャプチャ開始時の位置にマウスポインターを描き込みます。</translation>
     </message>
     <message>
         <source>Mouse Shortcuts</source>

@@ -46,6 +46,7 @@ def test_quick_actions_page_reads_annotation_behavior_toggles(qapp, tmp_path, en
     manager.set_cross_tool_selection_enabled(enabled)
     manager.set_text_always_on_top_enabled(enabled)
     manager.set_app_setting("capture_fullscreen_crosshair", enabled)
+    manager.set_app_setting("capture_include_cursor", enabled)
     dialog = SimpleNamespace(config_manager=manager, tr=lambda text: text)
 
     page = create_quick_actions_page(dialog)
@@ -54,6 +55,7 @@ def test_quick_actions_page_reads_annotation_behavior_toggles(qapp, tmp_path, en
         assert dialog.cross_tool_selection_toggle.isChecked() is enabled
         assert dialog.text_always_on_top_toggle.isChecked() is enabled
         assert dialog._behavior_controls["capture_fullscreen_crosshair"].isChecked() is enabled
+        assert dialog._behavior_controls["capture_include_cursor"].isChecked() is enabled
     finally:
         page.deleteLater()
         qapp.processEvents()

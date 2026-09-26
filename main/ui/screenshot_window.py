@@ -12,6 +12,7 @@ from ui.dialogs import show_modeless_warning_dialog
 
 from canvas import CanvasScene, CanvasView
 from capture.capture_service import CaptureService
+from capture.system_cursor import SystemCursor
 from ui.toolbar import Toolbar
 from ui.magnifier import MagnifierOverlay
 from ui.mask_overlay import MaskOverlayWidget
@@ -98,10 +99,12 @@ class ScreenshotShortcutHandler(ShortcutHandler):
         """中键走和键盘完全相同的那条 if 链，见 ShortcutHandler.handle_mouse。"""
         w = self._window
         if (event.button() == Qt.MouseButton.MiddleButton
-                and hasattr(event, 'globalPosition')
-                and not w._is_text_editing()):
+                and hasattr(event, 'globalPosition')):
             view = getattr(w, 'view', None)
             action = w._matching_capture_mouse_action(event, "middle")
+            # 文字编辑中只放行关闭，和 ESC 一致
+            if action != "close" and w._is_text_editing():
+                action = None
             if (action is not None and view is not None
                     and view.viewport().rect().contains(
                         view.viewport().mapFromGlobal(event.globalPosition().toPoint())
@@ -277,7 +280,8 @@ class ScreenshotShortcutHandler(ShortcutHandler):
 
 
 class ScreenshotWindow(QWidget):
-    def __init__(self, config_manager=None, prefetched_image=None, prefetched_rect=None):
+    def __init__(self, config_manager=None, prefetched_image=None, prefetched_rect=None,
+                 prefetched_cursor=None):
         super().__init__()
         
         # 不设置 WA_DeleteOnClose —— 窗口复用，由 main_app 管理生命周期
@@ -293,13 +297,20 @@ class ScreenshotWindow(QWidget):
         _timings = {}   # 收集各阶段耗时，最后统一输出
         
         # 1. 获取屏幕截图：优先使用调用方预取的图像（已在后台线程截好），否则同步截图
+        # 截屏时画进去的指针，刷新背景时按它重画
         if prefetched_image is not None and prefetched_rect is not None:
             self.original_image = prefetched_image
             rect = prefetched_rect
+            self._capture_cursor = prefetched_cursor
             _timings['截屏'] = 0.0  # 预取，主线程耗时为 0
         else:
             capture_service = CaptureService()
-            self.original_image, rect = capture_service.capture_all_screens()
+            self._capture_cursor = (
+                SystemCursor.grab()
+                if self.config_manager.get_app_setting("capture_include_cursor", False)
+                else None
+            )
+            self.original_image, rect = capture_service.capture_all_screens(self._capture_cursor)
             _timings['截屏'] = (time.perf_counter() - _t0) * 1000
         
         _t1 = time.perf_counter()
@@ -450,6 +461,15 @@ class ScreenshotWindow(QWidget):
     def _matches_capture_double_click(self, event):
         return self._matching_capture_mouse_action(event, "doubleleft") is not None
 
+    def _handle_capture_right_click(self, event):
+        action = self._matching_capture_mouse_action(event, "right")
+        if action is None or not self.action_handler:
+            return
+        # 与中键一致：文字编辑中只响应关闭
+        if action != "close" and self._is_text_editing():
+            return
+        self.action_handler.handle_capture_action(action)
+
     def _get_configured_smart_selection_mode(self) -> str:
         """读取检测方式；没有这项设置的旧配置对象退回窗口级，和默认值一致。"""
         getter = getattr(self.config_manager, "get_smart_selection_mode", None)
@@ -462,7 +482,7 @@ class ScreenshotWindow(QWidget):
     # ------------------------------------------------------------------
     # 窗口复用：准备新的截图会话
     # ------------------------------------------------------------------
-    def prepare_new_session(self, prefetched_image, prefetched_rect):
+    def prepare_new_session(self, prefetched_image, prefetched_rect, prefetched_cursor=None):
         """复用已有窗口，准备新一次截图会话。
         
         释放旧会话的重数据（~66MB 图像），保留轻量 UI 壳（toolbar/magnifier 等），
@@ -477,6 +497,7 @@ class ScreenshotWindow(QWidget):
         rect = prefetched_rect
         
         self.original_image = image
+        self._capture_cursor = prefetched_cursor
         self.virtual_x = rect.x()
         self.virtual_y = rect.y()
         self.virtual_width = rect.width()
@@ -608,6 +629,7 @@ class ScreenshotWindow(QWidget):
         # 释放大图片内存
         if hasattr(self, 'original_image'):
             self.original_image = None
+        self._capture_cursor = None
         
         # 清空放大镜缓存（保留 widget）
         if hasattr(self, 'magnifier_overlay') and self.magnifier_overlay:

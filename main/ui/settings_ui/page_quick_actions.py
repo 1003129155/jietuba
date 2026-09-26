@@ -41,6 +41,20 @@ def create_quick_actions_page(dialog) -> QWidget:
     dialog._behavior_controls["capture_fullscreen_crosshair"] = crosshair_card
     grp_capture.addSettingCard(crosshair_card)
 
+    cursor_card = SwitchSettingCard(
+        FluentIcon.CAMERA,
+        dialog.tr("Include Mouse Pointer"),
+        dialog.tr(
+            "Draw the mouse pointer into the screenshot where it was when capturing started."
+        ),
+        parent=grp_capture,
+    )
+    cursor_card.setChecked(
+        dialog.config_manager.get_app_setting("capture_include_cursor", False)
+    )
+    dialog._behavior_controls["capture_include_cursor"] = cursor_card
+    grp_capture.addSettingCard(cursor_card)
+
     cross_tool_card = SwitchSettingCard(
         FluentIcon.EDIT,
         dialog.tr("Enable Ctrl Cross-Tool Selection"),

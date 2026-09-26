@@ -46,9 +46,10 @@ class MouseBindingEditor(QWidget):
             "click": (("left", "Left Click"), ("middle", "Middle Click"), ("right", "Right Click"),
                       ("doubleleft", "Left Double-click"), ("doublemiddle", "Middle Double-click"),
                       ("doubleright", "Right Double-click")),
-            # 截图画布的左键单击负责选区/标注、右键负责退出，因此只开放
-            # 不抢占既有交互的中键单击和左键双击。
-            "capture": (("middle", "Middle Click"), ("doubleleft", "Left Double-click")),
+            # 截图画布的左键单击负责选区/标注，不开放；右键不设双击，
+            # 否则单击要等双击超时才能响应。
+            "capture": (("middle", "Middle Click"), ("right", "Right Click"),
+                        ("doubleleft", "Left Double-click")),
         }[kind]
         for value, label in (("", "No Action"),) + gestures:
             self.gesture.addItem(dialog.tr(label), userData=value)
@@ -328,6 +329,7 @@ _CAPTURE_MOUSE_ICONS = {
     "pin": _INAPP_ICONS["inapp_pin"],
     "save": "保存.svg",
     "quick_save": FluentIcon.DOWNLOAD,
+    "close": FluentIcon.CLOSE,
 }
 
 _PIN_MOUSE_ICONS = {

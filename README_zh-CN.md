@@ -248,6 +248,7 @@ canvas/
 capture/
 ├── __init__.py
 ├── capture_service.py       # CaptureService — 截图服务，屏幕截图核心逻辑
+├── system_cursor.py         # SystemCursor — 记录截屏时的鼠标指针并画进截图
 ├── uia_element_finder.py    # 后台 UI Automation 元素检测与选区快照缓存
 └── window_finder.py         # WindowFinder — 窗口查找器，智能选择窗口，识别光标下的窗口
 ```
