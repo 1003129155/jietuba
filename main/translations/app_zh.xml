@@ -1120,6 +1120,18 @@ Replace it?</source>
         <source>No Action</source>
         <translation>无</translation>
     </message>
+    <message>
+        <source>Paste</source>
+        <translation>粘贴</translation>
+    </message>
+    <message>
+        <source>Open Context Menu</source>
+        <translation>打开菜单</translation>
+    </message>
+    <message>
+        <source>Pin applies to images; quick edit applies to text. Single clicks wait for the system double-click interval when the same button also has an available double-click action.</source>
+        <translation>钉图适用于图片，快速编辑适用于文本。同一按键同时绑定了可用的单击和双击动作时，单击会等待系统双击判定时间。</translation>
+    </message>
 </context>
 
 <context>

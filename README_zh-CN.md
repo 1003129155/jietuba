@@ -277,6 +277,7 @@ clipboard/
 ├── controllers/             # 控制层 — 历史加载、粘贴流程、右键菜单、选择状态
 │   ├── clipboard_controller.py   # ClipboardController — 历史加载、粘贴和菜单逻辑
 │   ├── selection_manager.py      # SelectionManager — 列表选择状态管理
+│   ├── mouse_shortcut_controller.py  # 剪贴板条目鼠标快捷键与单击/双击判定
 │   ├── context_menu_controller.py  # ContextMenuController — 右键菜单数据与行为组装
 │   ├── foreground_tracker.py    # ForegroundWindowTracker — 记住粘贴目标窗口
 │   ├── paste_keystroke.py       # 把焦点还给目标窗口后发送 Ctrl+V

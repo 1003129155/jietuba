@@ -260,6 +260,7 @@ clipboard/
 ├── controllers/             # 制御層 — 履歴読み込み、貼り付け処理、メニュー、選択状態
 │   ├── clipboard_controller.py   # ClipboardController — 読み込み、貼り付け、コンテキストメニュー
 │   ├── selection_manager.py      # SelectionManager — リスト選択状態管理
+│   ├── mouse_shortcut_controller.py  # クリップボード項目のマウス操作とクリック判定
 │   ├── context_menu_controller.py  # ContextMenuController — コンテキストメニューのデータと動作の組み立て
 │   ├── foreground_tracker.py    # ForegroundWindowTracker — 貼り付け先ウィンドウを記憶
 │   ├── paste_keystroke.py       # 対象ウィンドウにフォーカスを戻してから Ctrl+V を送信

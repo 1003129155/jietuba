@@ -23,6 +23,8 @@ from core.ui_theme import set_own_style
 from settings.tool_settings import (
     CAPTURE_MOUSE_ACTIONS,
     PIN_MOUSE_ACTIONS,
+    CLIPBOARD_MOUSE_ACTIONS,
+    get_clipboard_mouse_binding,
     get_capture_mouse_binding,
     get_pin_mouse_binding,
 )
@@ -133,6 +135,21 @@ def _create_mouse_shortcuts(dialog, parent):
         action_icons=_PIN_MOUSE_ICONS,
         binding_getter=get_pin_mouse_binding,
     ))
+    clipboard_page = _build_mouse_shortcut_tab(
+        dialog,
+        actions=CLIPBOARD_MOUSE_ACTIONS,
+        key_prefix="mouse_clipboard_",
+        action_icons={"paste": FluentIcon.PASTE, "pin": FluentIcon.PIN,
+                      "quick_edit": FluentIcon.EDIT, "menu": FluentIcon.LAYOUT},
+        binding_getter=get_clipboard_mouse_binding,
+    )
+    hint = CaptionLabel(dialog.tr(
+        "Pin applies to images; quick edit applies to text. Single clicks wait for the system "
+        "double-click interval when the same button also has an available double-click action."
+    ), clipboard_page)
+    hint.setWordWrap(True)
+    clipboard_page.layout().insertWidget(clipboard_page.layout().count() - 1, hint)
+    stack.addWidget(clipboard_page)
 
     tab_switch.addItem(
         "screenshot", dialog.tr("Screenshot Shortcuts"),
@@ -141,6 +158,10 @@ def _create_mouse_shortcuts(dialog, parent):
     tab_switch.addItem(
         "pin", dialog.tr("Pin Shortcuts"),
         lambda: stack.setCurrentIndex(1),
+    )
+    tab_switch.addItem(
+        "clipboard", dialog.tr("Clipboard Shortcuts"),
+        lambda: stack.setCurrentIndex(2),
     )
     tab_switch.setCurrentItem("screenshot")
 
@@ -200,9 +221,11 @@ def mouse_binding_conflicts(dialog) -> list[tuple[str, str, tuple[str, ...]]]:
     domains = (
         ("mouse_capture_", "screenshot", "Screenshot Shortcuts", CAPTURE_MOUSE_ACTIONS),
         ("mouse_pin_", "pin", "Pin Shortcuts", PIN_MOUSE_ACTIONS),
+        ("mouse_clipboard_", "clipboard", "Clipboard Shortcuts", CLIPBOARD_MOUSE_ACTIONS),
     )
     for prefix, inapp_group, context_source, actions in domains:
         owners_by_binding = {}
+        actions_by_binding = {}
 
         # Follow the UI row order so both the conflict list and its owners are
         # stable and easy to find on the settings page.
@@ -212,6 +235,7 @@ def mouse_binding_conflicts(dialog) -> list[tuple[str, str, tuple[str, ...]]]:
                 continue
             binding = _normalized_mouse_binding(control.currentData())
             if binding:
+                actions_by_binding.setdefault(binding, set()).add(action)
                 owners_by_binding.setdefault(binding, []).append(
                     f"{dialog.tr(label_source)} ({dialog.tr('Mouse Shortcuts')})"
                 )
@@ -227,6 +251,10 @@ def mouse_binding_conflicts(dialog) -> list[tuple[str, str, tuple[str, ...]]]:
                 )
 
         for binding, owners in owners_by_binding.items():
+            # Image pinning and text editing cannot act on the same item.
+            if (prefix == "mouse_clipboard_" and len(owners) == 2
+                    and actions_by_binding.get(binding) == {"pin", "quick_edit"}):
+                continue
             if len(owners) > 1:
                 conflicts.append((
                     dialog.tr(context_source),

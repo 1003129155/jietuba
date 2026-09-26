@@ -261,6 +261,7 @@ clipboard/
 ├── controllers/             # Control layer — history loading, paste flow, menus, selection state
 │   ├── clipboard_controller.py   # ClipboardController — loading, pasting, context menu logic
 │   ├── selection_manager.py      # SelectionManager — list selection state
+│   ├── mouse_shortcut_controller.py  # Clipboard row mouse gestures and single/double-click dispatch
 │   ├── context_menu_controller.py  # ContextMenuController — assembles context menu data and actions
 │   ├── foreground_tracker.py    # ForegroundWindowTracker — remembers the window to paste into
 │   ├── paste_keystroke.py       # Restores focus to the target window, then sends Ctrl+V

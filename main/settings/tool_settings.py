@@ -44,6 +44,18 @@ PIN_MOUSE_ACTIONS = (
     ("copy_text", "Copy Selected Text", "", "click"),
 )
 
+CLIPBOARD_MOUSE_ACTIONS = (
+    ("paste", "Paste", "left", "click"),
+    ("pin", "Pin to Screen", "middle", "click"),
+    ("quick_edit", "Quick Edit", "middle", "click"),
+    ("menu", "Open Context Menu", "right", "click"),
+)
+
+
+def get_clipboard_mouse_binding(config, action):
+    default = next(binding for key, _label, binding, _kind in CLIPBOARD_MOUSE_ACTIONS if key == action)
+    return config.get_app_setting(f"mouse_clipboard_{action}", default)
+
 
 def get_pin_mouse_binding(config, action):
     default = next(binding for key, _label, binding, _kind in PIN_MOUSE_ACTIONS if key == action)
@@ -275,6 +287,7 @@ class ToolSettingsManager(QObject):
         "capture_include_cursor": False,      # 截图时把鼠标指针画进去
         **{f"mouse_capture_{key}": binding for key, _label, binding, _kind in CAPTURE_MOUSE_ACTIONS},
         **{f"mouse_pin_{key}": binding for key, _label, binding, _kind in PIN_MOUSE_ACTIONS},
+        **{f"mouse_clipboard_{key}": binding for key, _label, binding, _kind in CLIPBOARD_MOUSE_ACTIONS},
         "cross_tool_selection": True,         # Ctrl 临时跨工具选择标注
         "text_always_on_top": True,           # 文字标注始终高于其他绘制标注
         "screenshot_toolbar_layout": "",      # 截图工具栏按钮排布（JSON，空 = 默认排布，见 ui/toolbar_layout.py）

@@ -1118,6 +1118,18 @@ Replace it?</source>
         <source>No Action</source>
         <translation>なし</translation>
     </message>
+    <message>
+        <source>Paste</source>
+        <translation>貼り付け</translation>
+    </message>
+    <message>
+        <source>Open Context Menu</source>
+        <translation>メニューを開く</translation>
+    </message>
+    <message>
+        <source>Pin applies to images; quick edit applies to text. Single clicks wait for the system double-click interval when the same button also has an available double-click action.</source>
+        <translation>ピン留めは画像、クイック編集はテキストが対象です。同じボタンに有効なクリックとダブルクリックの操作がある場合、クリックはシステムのダブルクリック判定時間だけ待機します。</translation>
+    </message>
 </context>
 
 <context>

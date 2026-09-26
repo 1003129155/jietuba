@@ -996,6 +996,18 @@ Replace it?</translation>
         <source>No Action</source>
         <translation>None</translation>
     </message>
+    <message>
+        <source>Paste</source>
+        <translation>Paste</translation>
+    </message>
+    <message>
+        <source>Open Context Menu</source>
+        <translation>Open Context Menu</translation>
+    </message>
+    <message>
+        <source>Pin applies to images; quick edit applies to text. Single clicks wait for the system double-click interval when the same button also has an available double-click action.</source>
+        <translation>Pin applies to images; quick edit applies to text. Single clicks wait for the system double-click interval when the same button also has an available double-click action.</translation>
+    </message>
 </context>
 
 <context>

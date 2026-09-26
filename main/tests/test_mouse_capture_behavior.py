@@ -447,7 +447,7 @@ def test_capture_mouse_actions_live_with_shortcuts(settings, qapp):
     qapp.processEvents()
     stack = settings.findChild(QStackedWidget, 'MouseShortcutStack')
     assert stack is not None
-    assert stack.count() == 2
+    assert stack.count() == 3
     assert stack.currentIndex() == 0
     for action, _label, default, _kind in CAPTURE_MOUSE_ACTIONS:
         editor = settings._behavior_controls[f'mouse_capture_{action}']
