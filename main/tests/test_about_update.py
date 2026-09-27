@@ -67,13 +67,16 @@ def test_new_release_shows_notes_and_download_address(monkeypatch, qapp, qtbot):
         "show_update_dialog",
         lambda *args: update_calls.append(args),
     )
+    # 没被识别成新版本时会弹「已是最新」的模态框，无界面环境下会一直卡住
+    monkeypatch.setattr(page_about, "show_info_dialog", lambda *args: None)
     dialog, page, button, checker = _create_page(monkeypatch, qapp)
 
     qtbot.mouseClick(button, Qt.MouseButton.LeftButton)
+    # 取一个永远比当前版本新的号，改版本号时不用跟着改
     checker.release_found.emit(
         ReleaseInfo(
-            "v2.1.0",
-            "Version 2.1",
+            "v99.0.0",
+            "Version 99",
             "Added update checking.",
             PROJECT_RELEASES_LATEST_URL,
         )
@@ -83,7 +86,7 @@ def test_new_release_shows_notes_and_download_address(monkeypatch, qapp, qtbot):
     _, title, content, download_caption, url, action_text = update_calls[0]
     assert title == "Update Available"
     assert f"Current version: {page_about.APP_VERSION}" in content
-    assert "Latest version: v2.1.0" in content
+    assert "Latest version: v99.0.0" in content
     assert "Added update checking." in content
     assert download_caption == "Download:"
     assert url == PROJECT_RELEASES_LATEST_URL
