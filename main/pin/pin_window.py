@@ -8,6 +8,7 @@
 - PinOCRManager：OCR 初始化和线程管理
 - PinThumbnailMode：缩略图模式逻辑
 - PinControlButtons：控制按钮管理器
+- PinHoverControls：控制按钮和工具栏的显隐
 - PinContextMenu：右键菜单管理器
 - PinTranslationHelper：翻译功能助手
 """
@@ -22,6 +23,7 @@ from PySide6.QtGui import (
 )
 from .pin_canvas_view import PinCanvasView
 from .pin_controls import PinControlButtons
+from .pin_hover import PinHoverControls
 from .pin_context_menu import PinContextMenu
 from .pin_translation import PinTranslationHelper
 from .pin_border_overlay import PinBorderOverlay
@@ -83,7 +85,6 @@ class PinWindow(QWidget):
         self._is_editing = False
         self._drag_start_pos = QPoint()
         self._drag_start_window_pos = QPoint()
-        self._last_hover_state = False
         self._mouse_gesture = None
         self._mouse_swallow_release = None
         self._mouse_band = None
@@ -173,6 +174,7 @@ class PinWindow(QWidget):
 
         # ====== 工具栏（按需创建） ======
         self.toolbar = None
+        self.hover_controls = PinHoverControls(self)
 
         # ====== OCR 管理器 ======
         self._ocr_mgr = PinOCRManager(self, config_manager)
@@ -258,57 +260,6 @@ class PinWindow(QWidget):
         """更新按钮位置"""
         if hasattr(self, '_control_buttons'):
             self._control_buttons.update_positions(self.width())
-
-    # ==================================================================
-    # 悬停 / 控制按钮
-    # ==================================================================
-
-    def _auto_toolbar_enabled(self) -> bool:
-        return self.config_manager.get_pin_auto_toolbar() if self.config_manager else True
-
-    def _ensure_hover_controls_visible(self):
-        if not self.close_button.isVisible():
-            self.close_button.show()
-        self.close_button.raise_()
-
-        if self._thumbnail_mode:
-            return
-
-        if not self._auto_toolbar_enabled() and not self.toolbar_toggle_button.isVisible():
-            self.toolbar_toggle_button.show()
-        self.toolbar_toggle_button.raise_()
-
-        if self._auto_toolbar_enabled():
-            toolbar_hidden = not self.toolbar or not self.toolbar.isVisible()
-            if toolbar_hidden and not self._is_closed:
-                self.show_toolbar()
-
-    def _set_hover_state(self, hovering: bool):
-        if hovering:
-            self._ensure_hover_controls_visible()
-            if self.toolbar:
-                self.toolbar.on_parent_hover(True)
-            self._last_hover_state = True
-            return
-        if self.toolbar:
-            self.toolbar.on_parent_hover(False)
-        self._last_hover_state = False
-        QTimer.singleShot(300, self._delayed_hide_buttons)
-
-    def _delayed_hide_buttons(self):
-        if self._is_closed:
-            return
-        if self._last_hover_state:
-            return
-        if not self.underMouse():
-            self.close_button.hide()
-            self.toolbar_toggle_button.hide()
-
-    def _set_control_buttons_visible(self, visible: bool):
-        if hasattr(self, 'close_button') and self.close_button:
-            self.close_button.setVisible(visible)
-        if hasattr(self, 'toolbar_toggle_button') and self.toolbar_toggle_button:
-            self.toolbar_toggle_button.setVisible(visible)
 
     # ==================================================================
     # 窗口拖动
@@ -464,7 +415,7 @@ class PinWindow(QWidget):
         if self._handle_mouse_gesture(event):
             event.accept()
             return
-        self._set_hover_state(True)
+        self.hover_controls.set_pin_hovered(True)
         if event.button() == Qt.MouseButton.LeftButton and not (self.canvas and self.canvas.is_editing):
             self.start_window_drag(event.globalPosition().toPoint())
             event.accept()
@@ -476,7 +427,7 @@ class PinWindow(QWidget):
         if self._handle_mouse_gesture(event):
             event.accept()
             return
-        self._set_hover_state(True)
+        self.hover_controls.set_pin_hovered(True)
         if self._is_dragging:
             self.update_window_drag(event.globalPosition().toPoint())
             event.accept()
@@ -715,12 +666,12 @@ class PinWindow(QWidget):
     @safe_event
     def enterEvent(self, event):
         super().enterEvent(event)
-        self._set_hover_state(True)
+        self.hover_controls.set_pin_hovered(True)
 
     @safe_event
     def leaveEvent(self, event):
         super().leaveEvent(event)
-        self._set_hover_state(False)
+        self.hover_controls.recheck_pin_hovered()
 
     @safe_event
     def keyPressEvent(self, event: QKeyEvent):
@@ -735,9 +686,9 @@ class PinWindow(QWidget):
                 return True
         if self.view and obj == self.view.viewport():
             if event.type() in (QEvent.Type.Enter, QEvent.Type.HoverEnter, QEvent.Type.MouseMove):
-                self._set_hover_state(True)
+                self.hover_controls.set_pin_hovered(True)
             elif event.type() in (QEvent.Type.Leave, QEvent.Type.HoverLeave):
-                self._set_hover_state(False)
+                self.hover_controls.recheck_pin_hovered()
         return super().eventFilter(obj, event)
 
     # ==================================================================
@@ -751,38 +702,31 @@ class PinWindow(QWidget):
     # 工具栏管理
     # ==================================================================
 
-    def show_toolbar(self):
+    def toggle_toolbar(self):
+        self.hover_controls.toggle_toolbar()
+
+    # 下面两个只由 PinHoverControls.sync() 调用
+    def _show_toolbar(self):
         if not self.toolbar:
             from .pin_toolbar import PinToolbar
             self.toolbar = PinToolbar(parent_pin_window=self, config_manager=self.config_manager)
             if self.canvas:
                 self.canvas.connect_toolbar(self.toolbar, self.view)
             log_debug(T("创建工具栏，信号已由 PinCanvas 连接"), "PinWindow")
-
-        auto = self.config_manager.get_pin_auto_toolbar() if self.config_manager else True
-        if auto:
-            self.toolbar.enable_auto_hide(True)
-            self.toolbar.set_auto_hide_delay(2000)
-        else:
-            self.toolbar.enable_auto_hide(False)
         self.toolbar.show()
 
-    def hide_toolbar(self):
-        if self.toolbar:
-            if hasattr(self.toolbar, '_hide_all_panels'):
-                self.toolbar._hide_all_panels()
-            if hasattr(self.toolbar, 'current_tool') and self.toolbar.current_tool:
-                for btn in self.toolbar.tool_buttons.values():
-                    btn.setChecked(False)
-                self.toolbar.current_tool = None
-                self.toolbar.tool_changed.emit("cursor")
-            self.toolbar.hide()
-
-    def toggle_toolbar(self):
-        if self.toolbar and self.toolbar.isVisible():
-            self.hide_toolbar()
-        else:
-            self.show_toolbar()
+    def _hide_toolbar(self):
+        if not self.toolbar:
+            return
+        if hasattr(self.toolbar, '_hide_all_panels'):
+            self.toolbar._hide_all_panels()
+        # 先隐藏再退出工具：退出工具会回调 sync()，那时工具栏得已经是隐藏状态
+        self.toolbar.hide()
+        if getattr(self.toolbar, 'current_tool', None):
+            for btn in self.toolbar.tool_buttons.values():
+                btn.setChecked(False)
+            self.toolbar.current_tool = None
+            self.toolbar.tool_changed.emit("cursor")
 
     # ==================================================================
     # 翻译
@@ -822,15 +766,21 @@ class PinWindow(QWidget):
     # ==================================================================
 
     def show_context_menu(self, global_pos: QPoint):
-        if hasattr(self, '_context_menu'):
-            state = {
-                'toolbar_visible': self.toolbar and self.toolbar.isVisible(),
-                'stay_on_top': bool(self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint),
-                'shadow_enabled': self.halo_enabled,
-                'text_selection_enabled': self._text_selection_enabled,
-                'thumbnail_mode': self._thumbnail_mode,
-            }
+        if not hasattr(self, '_context_menu'):
+            return
+        state = {
+            'toolbar_visible': self.toolbar and self.toolbar.isVisible(),
+            'stay_on_top': bool(self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint),
+            'shadow_enabled': self.halo_enabled,
+            'text_selection_enabled': self._text_selection_enabled,
+            'thumbnail_mode': self._thumbnail_mode,
+        }
+        # 菜单开着算悬停，工具栏不会在背后被收起，菜单上的开关状态就一直准确
+        self.hover_controls.set_menu_open(True)
+        try:
             self._context_menu.show(global_pos, state)
+        finally:
+            self.hover_controls.set_menu_open(False)
 
     def toggle_stay_on_top(self):
         flags = self.windowFlags()
@@ -1028,6 +978,9 @@ class PinWindow(QWidget):
                 log_exception(e, T("注销快捷键控制器"))
 
             # 定时器
+            if hasattr(self, 'hover_controls'):
+                self.hover_controls.stop()
+
             if hasattr(self, '_scale_timer') and self._scale_timer:
                 try:
                     self._scale_timer.stop()

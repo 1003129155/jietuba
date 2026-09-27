@@ -424,6 +424,7 @@ pin/
 ├── pin_manager.py           # PinManager — 全ピンウィンドウ管理（シングルトン）
 ├── pin_toolbar.py           # PinToolbar — ピンツールバー
 ├── pin_controls.py          # PinControlButtons — 閉じる、編集、コピーボタン
+├── pin_hover.py             # PinHoverControls — ホバーボタンとツールバーの表示判定
 ├── pin_context_menu.py      # PinContextMenu — 右クリックメニュー
 ├── pin_border_overlay.py    # PinBorderOverlay — ボーダーエフェクトオーバーレイ
 ├── pin_ocr_manager.py       # PinOCRManager / _OCRThread — 非同期OCR認識

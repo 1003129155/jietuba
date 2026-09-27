@@ -490,8 +490,7 @@ class PinCanvas(QObject):
             self.is_editing = editing_mode
             self.parent_window._is_editing = editing_mode
             self._is_drawing = False
-            if getattr(self.parent_window, 'toolbar', None):
-                self.parent_window.toolbar.on_parent_editing_state_changed(editing_mode)
+            self._notify_editing_changed()
             return True
         except Exception as e:
             log_error(T("工具激活失败: {e}", e=e), "PinCanvas")
@@ -499,10 +498,14 @@ class PinCanvas(QObject):
             traceback.print_exc()
             self.is_editing = False
             self.parent_window._is_editing = False
-            if getattr(self.parent_window, 'toolbar', None):
-                self.parent_window.toolbar.on_parent_editing_state_changed(False)
+            self._notify_editing_changed()
             return False
     
+    def _notify_editing_changed(self):
+        hover_controls = getattr(self.parent_window, 'hover_controls', None)
+        if hover_controls is not None:
+            hover_controls.on_editing_changed()
+
     def deactivate_tool(self):
         """退出编辑模式"""
         # 切换到 cursor 工具（默认工具）
@@ -522,8 +525,7 @@ class PinCanvas(QObject):
         self.is_editing = False
         self._is_drawing = False
         self.parent_window._is_editing = False
-        if getattr(self.parent_window, 'toolbar', None):
-            self.parent_window.toolbar.on_parent_editing_state_changed(False)
+        self._notify_editing_changed()
 
         # 确保非编辑状态下光标恢复为箭头
         # （ESC 路径不会触发 enterEvent，所以需要主动设置）
