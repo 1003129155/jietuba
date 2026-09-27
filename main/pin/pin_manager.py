@@ -231,6 +231,14 @@ class PinManager(QObject):
 
         log_debug(T("已移动 {count} 个钉图到屏幕中心", count=len(self.pin_windows)), "PinManager")
 
+    def refresh_all_appearance(self):
+        """设置保存后把外观设置下发给已打开的钉图。"""
+        for pin_window in self.get_all_pins():
+            try:
+                pin_window.refresh_appearance()
+            except Exception as e:
+                log_error(T("刷新钉图外观失败: {e}", e=e), "PinManager")
+
     def set_all_thumbnail_mode(self, active: bool):
         """批量进入或退出缩略图模式。"""
         changed = 0

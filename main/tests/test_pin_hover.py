@@ -36,19 +36,23 @@ class FakeButtons:
 
 
 class FakeConfig:
-    def __init__(self, auto):
+    def __init__(self, auto, hover_buttons=True):
         self.auto = auto
+        self.hover_buttons = hover_buttons
 
     def get_pin_auto_toolbar(self):
         return self.auto
+
+    def get_app_setting(self, key, default):
+        return {"pin_hover_buttons": self.hover_buttons}.get(key, default)
 
 
 class FakePin(QObject):
     """只实现 PinHoverControls 读写的那部分 PinWindow 接口"""
 
-    def __init__(self, auto):
+    def __init__(self, auto, hover_buttons=True):
         super().__init__()
-        self.config_manager = FakeConfig(auto)
+        self.config_manager = FakeConfig(auto, hover_buttons)
         self._is_closed = False
         self._is_editing = False
         self._thumbnail_mode = False
@@ -79,8 +83,8 @@ def _expire(timer):
 def make(qapp):
     created = []
 
-    def _make(auto=True):
-        pin = FakePin(auto)
+    def _make(auto=True, hover_buttons=True):
+        pin = FakePin(auto, hover_buttons)
         ctrl = PinHoverControls(pin)
         created.append(ctrl)
         return pin, ctrl
@@ -314,3 +318,9 @@ class TestButtons:
         ctrl.set_pin_hovered(True)
         assert pin._control_buttons.close
         assert pin._control_buttons.toolbar is expected
+
+    def test_setting_off_hides_both_buttons(self, make):
+        pin, ctrl = make(auto=False, hover_buttons=False)
+        ctrl.set_pin_hovered(True)
+        assert not pin._control_buttons.close
+        assert not pin._control_buttons.toolbar

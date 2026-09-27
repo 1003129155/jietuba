@@ -5,7 +5,7 @@
 pin_context_menu.py 只有 102 条语句，但覆盖率仅 10.8%，而它是贴图窗口的
 主要操作入口——复制、保存、翻译、旋转翻转、置顶、缩略图、关闭全在这里分发。
 它最容易回归的地方是缩略图模式：那时候大半菜单项要隐藏（缩略图上没有工具栏、
-没有阴影、也没法选文字），只留复制/保存/置顶/缩略图/关闭。这个 if 分支写错，
+没有描边、也没法选文字），只留复制/保存/置顶/缩略图/关闭。这个 if 分支写错，
 用户会在缩略图上点到一个不该出现的菜单项，然后触发一个作用在隐藏控件上的动作。
 
 隔离方式：不构造 PinWindow，但 QAction 和 QMenu 都要求 parent 是真正的 QObject，
@@ -126,7 +126,7 @@ class TestNormalModeStructure:
         assert labels[0] == "Copy"
         assert labels[1] == "Save as"
         for prefix in ("Translate", "Reset size", "Image transform", "Toolbar",
-                       "Always on top", "Shadow effect", "Text selection",
+                       "Always on top", "Border", "Text selection",
                        "Thumbnail mode", "Close"):
             assert _has(menu, prefix), prefix
 
@@ -163,7 +163,7 @@ class TestThumbnailModeStructure:
             self, parent, stub_shortcuts):
         menu = _build(parent, thumbnail_mode=True)
         for prefix in ("Translate", "Reset size", "Image transform",
-                       "Toolbar", "Shadow effect", "Text selection"):
+                       "Toolbar", "Border", "Text selection"):
             assert not _has(menu, prefix), prefix
 
     def test_thumbnail_mode_offers_exactly_five_actions(self, parent, stub_shortcuts):
@@ -194,7 +194,7 @@ class TestToggleMarkers:
         cases = {
             "Toolbar": "toolbar_visible",
             "Always on top": "stay_on_top",
-            "Shadow effect": "shadow_enabled",
+            "Border": "border_enabled",
             "Text selection": "text_selection_enabled",
         }
         for prefix, key in cases.items():
@@ -203,9 +203,9 @@ class TestToggleMarkers:
                 text = _find(menu, prefix).text()
                 assert text.endswith("●" if enabled else "○"), (prefix, enabled)
 
-    def test_shadow_and_text_selection_default_to_enabled(self, parent, stub_shortcuts):
+    def test_border_and_text_selection_default_to_enabled(self, parent, stub_shortcuts):
         menu = _build(parent, thumbnail_mode=False)
-        assert _find(menu, "Shadow effect").text().endswith("●")
+        assert _find(menu, "Border").text().endswith("●")
         assert _find(menu, "Text selection").text().endswith("●")
 
     def test_toolbar_and_stay_on_top_default_to_disabled(self, parent, stub_shortcuts):
@@ -267,7 +267,7 @@ class TestActionDispatch:
             "Reset size": "reset_to_original_size",
             "Toolbar": "toggle_toolbar",
             "Always on top": "toggle_stay_on_top",
-            "Shadow effect": "toggle_border_effect",
+            "Border": "toggle_border_effect",
             "Text selection": "toggle_text_selection",
             "Thumbnail mode": "toggle_thumbnail_mode",
             "Close": "close_window",

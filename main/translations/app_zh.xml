@@ -1041,6 +1041,26 @@ Replace it?</source>
         <translation>开始截图时，把鼠标指针按当时的位置画进截图。</translation>
     </message>
     <message>
+        <source>Pin</source>
+        <translation>钉图</translation>
+    </message>
+    <message>
+        <source>Rounded Corners and Shadow</source>
+        <translation>圆角与阴影</translation>
+    </message>
+    <message>
+        <source>Windows 11 rounds the corners of pinned images and adds a shadow. Turn off to show the whole image with square corners and no shadow.</source>
+        <translation>Windows 11 会给钉图加圆角和阴影。关闭后钉图以直角显示，四个角不再被裁掉，也没有阴影。</translation>
+    </message>
+    <message>
+        <source>Hover Buttons</source>
+        <translation>悬停时显示按钮</translation>
+    </message>
+    <message>
+        <source>Show the close and toolbar buttons in the top-right corner when the mouse is over a pinned image. When off, use the right-click menu or shortcuts.</source>
+        <translation>鼠标移到钉图上时，在右上角显示关闭和工具栏按钮。关闭后可用右键菜单或快捷键操作。</translation>
+    </message>
+    <message>
         <source>Mouse Shortcuts</source>
         <translation>应用内鼠标快捷键</translation>
     </message>
@@ -1356,8 +1376,8 @@ Replace it?</source>
         <translation>文字选择</translation>
     </message>
     <message>
-        <source>Shadow effect</source>
-        <translation>阴影效果</translation>
+        <source>Border</source>
+        <translation>描边</translation>
     </message>
     <message>
         <source>Close</source>

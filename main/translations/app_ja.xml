@@ -1039,6 +1039,26 @@ Replace it?</source>
         <translation>キャプチャ開始時の位置にマウスポインターを描き込みます。</translation>
     </message>
     <message>
+        <source>Pin</source>
+        <translation>ピン留め</translation>
+    </message>
+    <message>
+        <source>Rounded Corners and Shadow</source>
+        <translation>角丸と影</translation>
+    </message>
+    <message>
+        <source>Windows 11 rounds the corners of pinned images and adds a shadow. Turn off to show the whole image with square corners and no shadow.</source>
+        <translation>Windows 11 はピン留め画像の角を丸め、影を付けます。オフにすると角が欠けない直角で画像全体を表示し、影も付きません。</translation>
+    </message>
+    <message>
+        <source>Hover Buttons</source>
+        <translation>ホバー時にボタンを表示</translation>
+    </message>
+    <message>
+        <source>Show the close and toolbar buttons in the top-right corner when the mouse is over a pinned image. When off, use the right-click menu or shortcuts.</source>
+        <translation>ピン留め画像にマウスを乗せたとき、右上に閉じるボタンとツールバーボタンを表示します。オフの場合は右クリックメニューかショートカットで操作します。</translation>
+    </message>
+    <message>
         <source>Mouse Shortcuts</source>
         <translation>アプリ内マウスショートカット</translation>
     </message>
@@ -1355,8 +1375,8 @@ Replace it?</source>
         <translation>テキスト選択</translation>
     </message>
     <message>
-        <source>Shadow effect</source>
-        <translation>影効果</translation>
+        <source>Border</source>
+        <translation>枠線</translation>
     </message>
     <message>
         <source>Close</source>

@@ -34,6 +34,7 @@ from core import log_debug, log_info, log_warning, log_error, safe_event
 from core.theme import get_theme
 from core.logger import log_exception, T
 from core.clipboard_utils import deliver_image_async
+from core.platform_utils import set_window_rounded_corners
 from settings.tool_settings import PIN_MOUSE_ACTIONS, get_pin_mouse_binding
 from .pin_shortcut import mouse_binding_matches
 
@@ -43,7 +44,7 @@ class PinWindow(QWidget):
     钉图窗口 - 可拖动、缩放、编辑的置顶图像窗口
 
     核心特性:
-    - 无边框置顶窗口 + 描边/阴影效果
+    - 无边框置顶窗口 + 描边效果
     - 拖动移动 / 滚轮缩放
     - 鼠标悬停显示控制按钮
     - ESC 关闭 / R 缩略图模式
@@ -71,8 +72,9 @@ class PinWindow(QWidget):
         self.drawing_items = drawing_items or []
         self.selection_offset = selection_offset or QPoint(0, 0)
 
-        # ====== 光晕/阴影样式参数 ======
-        self.halo_enabled = True
+        # ====== 描边样式参数 ======
+        self.border_enabled = True
+        self._square_corners = False   # 是否已让系统去掉圆角
         self.corner = 0
         self.border_width = 2
         tc = get_theme().theme_color
@@ -101,7 +103,7 @@ class PinWindow(QWidget):
             Qt.WindowType.WindowStaysOnTopHint
         )
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
-        if self.halo_enabled:
+        if self.border_enabled:
             self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setMouseTracking(True)
 
@@ -187,7 +189,7 @@ class PinWindow(QWidget):
 
         # ====== 描边 Overlay（单圈主题色，无阴影）======
         self.border_overlay = None
-        if self.halo_enabled:
+        if self.border_enabled:
             self.border_overlay = PinBorderOverlay(
                 self, corner_radius=self.corner, border_color=self.border_color)
             self.border_overlay.setGeometry(0, 0, self.width(), self.height())
@@ -260,6 +262,32 @@ class PinWindow(QWidget):
         """更新按钮位置"""
         if hasattr(self, '_control_buttons'):
             self._control_buttons.update_positions(self.width())
+
+    # ==================================================================
+    # 外观设置
+    # ==================================================================
+
+    def refresh_appearance(self):
+        """设置页保存后让已打开的钉图跟上外观设置"""
+        if self._is_closed:
+            return
+        self._apply_window_corners()
+        self.hover_controls.sync()
+
+    def _apply_window_corners(self):
+        rounded = (self.config_manager.get_app_setting("pin_rounded_corners", True)
+                   if self.config_manager else True)
+        # 没关过圆角就不碰系统设置，保持 Windows 默认行为
+        if rounded and not self._square_corners:
+            return
+        set_window_rounded_corners(int(self.winId()), rounded)
+        self._square_corners = not rounded
+
+    @safe_event
+    def showEvent(self, event):
+        super().showEvent(event)
+        # 每次显示系统都会把圆角恢复成默认（隐藏再显示、切换置顶都会），要重新设置
+        self._apply_window_corners()
 
     # ==================================================================
     # 窗口拖动
@@ -771,7 +799,7 @@ class PinWindow(QWidget):
         state = {
             'toolbar_visible': self.toolbar and self.toolbar.isVisible(),
             'stay_on_top': bool(self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint),
-            'shadow_enabled': self.halo_enabled,
+            'border_enabled': self.border_enabled,
             'text_selection_enabled': self._text_selection_enabled,
             'thumbnail_mode': self._thumbnail_mode,
         }
@@ -794,7 +822,7 @@ class PinWindow(QWidget):
         self.show()
 
     def toggle_border_effect(self):
-        self.halo_enabled = not self.halo_enabled
+        self.border_enabled = not self.border_enabled
         self._image_transform._refresh_border(self)
         self.update()
 
