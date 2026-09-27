@@ -645,6 +645,7 @@ class SettingsDialog(FrostedFramelessDialog):
 
     def _reset_hotkey_page(self):
         SettingsDialog._refresh_behavior_controls(self, defaults=True, prefix="mouse_")
+        SettingsDialog._refresh_behavior_controls(self, defaults=True, prefix="quick_capture_")
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
         self.hotkey_input.setText(defaults["hotkey"])
         if hasattr(self, 'hotkey_input_2'):

@@ -44,6 +44,27 @@ PIN_MOUSE_ACTIONS = (
     ("copy_text", "Copy Selected Text", "", "click"),
 )
 
+CLIPBOARD_MOUSE_ACTIONS = (
+    ("paste", "Paste", "left", "click"),
+    ("pin", "Pin to Screen", "middle", "click"),
+    ("quick_edit", "Quick Edit", "middle", "click"),
+    ("menu", "Open Context Menu", "right", "click"),
+)
+
+QUICK_CAPTURE_MODIFIERS = ("", "ctrl", "shift", "win", "alt")
+QUICK_CAPTURE_ACTIONS = (
+    ("none", "No Action"),
+    ("pin", "Capture and Pin"),
+    ("copy", "Capture and Copy"),
+    ("copy_pin", "Capture, Copy and Pin"),
+    ("edit", "Normal Capture"),
+)
+
+
+def get_clipboard_mouse_binding(config, action):
+    default = next(binding for key, _label, binding, _kind in CLIPBOARD_MOUSE_ACTIONS if key == action)
+    return config.get_app_setting(f"mouse_clipboard_{action}", default)
+
 
 def get_pin_mouse_binding(config, action):
     default = next(binding for key, _label, binding, _kind in PIN_MOUSE_ACTIONS if key == action)
@@ -246,6 +267,11 @@ class ToolSettingsManager(QObject):
         "translation_hotkey_2": "",                # 翻译备用热键
         "global_hotkeys_disabled": False,           # 是否禁用全局热键
 
+        # 按住修饰键、左键拖动快速截图；没有修饰键或动作设为 none 时停用。
+        "quick_capture_modifier_1": "win",
+        "quick_capture_modifier_2": "",
+        "quick_capture_action": "copy_pin",
+
         # 应用内快捷键
         "inapp_confirm": "ctrl+c",             # 确认截图（复制到剪贴板）
         "inapp_pin": "mousemiddle",            # 钉图
@@ -275,6 +301,7 @@ class ToolSettingsManager(QObject):
         "capture_include_cursor": False,      # 截图时把鼠标指针画进去
         **{f"mouse_capture_{key}": binding for key, _label, binding, _kind in CAPTURE_MOUSE_ACTIONS},
         **{f"mouse_pin_{key}": binding for key, _label, binding, _kind in PIN_MOUSE_ACTIONS},
+        **{f"mouse_clipboard_{key}": binding for key, _label, binding, _kind in CLIPBOARD_MOUSE_ACTIONS},
         "cross_tool_selection": True,         # Ctrl 临时跨工具选择标注
         "text_always_on_top": True,           # 文字标注始终高于其他绘制标注
         "screenshot_toolbar_layout": "",      # 截图工具栏按钮排布（JSON，空 = 默认排布，见 ui/toolbar_layout.py）

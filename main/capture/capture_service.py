@@ -12,6 +12,22 @@ class CaptureService:
     截图捕获服务
     负责使用 mss 获取多显示器截图
     """
+
+    def capture_region(self, rect, cursor=None):
+        """Capture an absolute physical-pixel region, including negative origins."""
+        if rect.width() <= 0 or rect.height() <= 0:
+            raise ValueError("Capture region must have positive dimensions")
+        monitor = dict(left=rect.x(), top=rect.y(), width=rect.width(), height=rect.height())
+        with mss.mss() as sct:
+            shot = sct.grab(monitor)
+            image = QImage(shot.bgra, shot.width, shot.height, shot.width * 4,
+                           QImage.Format.Format_RGB32).copy()
+        if cursor is not None:
+            try:
+                cursor.draw_onto(image, rect.x(), rect.y())
+            except Exception as exc:
+                log_exception(exc, T("绘制鼠标指针"))
+        return image
     
     def capture_all_screens(self, cursor=None):
         """
