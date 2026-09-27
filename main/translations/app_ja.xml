@@ -42,8 +42,24 @@
         <translation>通常のスクリーンショット</translation>
     </message>
     <message>
-        <source>Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. Off by default: choose an action and at least one modifier to turn it on. Some security software may warn about keyboard monitoring once it is on; allow it to keep using Quick Capture.</source>
-        <translation>修飾キーを押しながらマウスの左ボタンでドラッグします。ボタンを離すと撮影し、Esc でキャンセルします。既定ではオフです。動作と修飾キーを1つ以上選択すると有効になります。有効にすると、一部のセキュリティソフトがキーボード入力の監視について警告することがあります。許可すれば引き続き使用できます。</translation>
+        <source>Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. Some security software may warn about keyboard monitoring once a gesture is added; allow it to keep using Quick Capture.</source>
+        <translation>修飾キーを押しながらマウスの左ボタンでドラッグします。ボタンを離すと撮影し、Esc でキャンセルします。ジェスチャーを追加すると、一部のセキュリティソフトがキーボード入力の監視について警告することがあります。許可すれば引き続き使用できます。</translation>
+    </message>
+    <message>
+        <source>No gestures yet. Quick Capture is off.</source>
+        <translation>ジェスチャーがまだありません。クイックキャプチャはオフです。</translation>
+    </message>
+    <message>
+        <source>Add Gesture</source>
+        <translation>ジェスチャーを追加</translation>
+    </message>
+    <message>
+        <source>Remove Gesture</source>
+        <translation>ジェスチャーを削除</translation>
+    </message>
+    <message>
+        <source>Gesture %1</source>
+        <translation>ジェスチャー %1</translation>
     </message>
     <message>
         <source>Shortcuts</source>

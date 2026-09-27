@@ -41,8 +41,24 @@
         <translation>普通截图</translation>
     </message>
     <message>
-        <source>Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. Off by default: choose an action and at least one modifier to turn it on. Some security software may warn about keyboard monitoring once it is on; allow it to keep using Quick Capture.</source>
-        <translation>按住修饰键并按鼠标左键拖动，松开鼠标执行截图，Esc 取消。默认关闭，选择一个动作并至少选择一个修饰键即可启用。启用后部分安全软件可能提示监控键盘输入，允许即可正常使用。</translation>
+        <source>Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. Some security software may warn about keyboard monitoring once a gesture is added; allow it to keep using Quick Capture.</source>
+        <translation>按住修饰键并按鼠标左键拖动，松开鼠标执行截图，Esc 取消。添加手势后部分安全软件可能提示监控键盘输入，允许即可正常使用。</translation>
+    </message>
+    <message>
+        <source>No gestures yet. Quick Capture is off.</source>
+        <translation>还没有添加手势，快速截图处于关闭状态。</translation>
+    </message>
+    <message>
+        <source>Add Gesture</source>
+        <translation>添加手势</translation>
+    </message>
+    <message>
+        <source>Remove Gesture</source>
+        <translation>删除手势</translation>
+    </message>
+    <message>
+        <source>Gesture %1</source>
+        <translation>手势 %1</translation>
     </message>
     <message>
         <source>Shortcuts</source>

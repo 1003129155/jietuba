@@ -4,13 +4,14 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea,
     QStackedWidget,
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 
 from core.resource_manager import ResourceManager
-from core.ui_scale import dialog_scaled
+from core.ui_scale import configure_dialog_controls, dialog_scaled
 from ui.dialogs import show_confirm_dialog
 from ui.fluent_lite import (
     ComboBox, CaptionLabel, FluentIcon, SegmentedWidget,
+    TransparentPushButton, TransparentToolButton,
 )
 from ui.fluent_lite.theme import ACCENT
 from .components import IconBadge, SectionCard, add_separated_row, apply_theme_text_style
@@ -26,8 +27,9 @@ from settings.tool_settings import (
     CLIPBOARD_MOUSE_ACTIONS,
     QUICK_CAPTURE_ACTIONS,
     QUICK_CAPTURE_MODIFIERS,
-    ToolSettingsManager,
+    dump_quick_capture_bindings,
     get_clipboard_mouse_binding,
+    parse_quick_capture_bindings,
     get_capture_mouse_binding,
     get_pin_mouse_binding,
 )
@@ -78,57 +80,175 @@ class MouseBindingEditor(QWidget):
         self.gesture.setCurrentIndex(max(0, self.gesture.findData(parts[-1])))
 
 
+# 新手势优先给 Win 组合：单按 Ctrl / Shift / Alt 再点击在别的软件里很常用，默认给它们容易误触。
+_QUICK_CAPTURE_SUGGESTED = tuple(frozenset(keys) for keys in (
+    ("win",), ("shift", "win"), ("ctrl", "win"), ("win", "alt"),
+    ("ctrl", "alt"), ("ctrl", "shift"), ("shift", "alt"),
+    ("ctrl",), ("shift",), ("alt",),
+))
+
+
+def _modifier_title(key: str) -> str:
+    return key.title()
+
+
+def quick_capture_binding_text(dialog, modifiers) -> str:
+    keys = [key for key in QUICK_CAPTURE_MODIFIERS if key in modifiers]
+    return " + ".join([*(_modifier_title(key) for key in keys), dialog.tr("Left Drag")])
+
+
+class _QuickCaptureRow(QWidget):
+    """一个手势：修饰键 + 修饰键 + 左键拖拽 + 动作 + 删除。"""
+
+    changed = Signal()
+    remove_requested = Signal(object)
+
+    def __init__(self, dialog, modifiers, action, parent=None):
+        super().__init__(parent)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, dialog_scaled(4), 0, dialog_scaled(4))
+        layout.setSpacing(dialog_scaled(8))
+
+        keys = [key for key in QUICK_CAPTURE_MODIFIERS if key in modifiers]
+        # 第一个修饰键没有「无」，每个手势至少按住一个修饰键
+        self._first = ComboBox(self)
+        self._first.setAccessibleName(dialog.tr("First Modifier"))
+        for key in QUICK_CAPTURE_MODIFIERS:
+            self._first.addItem(_modifier_title(key), userData=key)
+        self._second = ComboBox(self)
+        self._second.setAccessibleName(dialog.tr("Second Modifier"))
+        self._second.addItem(dialog.tr("No Modifier"), userData="")
+        for key in QUICK_CAPTURE_MODIFIERS:
+            self._second.addItem(_modifier_title(key), userData=key)
+        self._first.setCurrentIndex(max(0, self._first.findData(keys[0] if keys else "win")))
+        self._second.setCurrentIndex(max(0, self._second.findData(keys[1] if len(keys) > 1 else "")))
+        plus = QLabel("+", self)
+        apply_theme_text_style(plus, 14, caption=True)
+
+        self._action = ComboBox(self)
+        self._action.setAccessibleName(dialog.tr("Quick Capture"))
+        for value, label in QUICK_CAPTURE_ACTIONS:
+            self._action.addItem(dialog.tr(label), userData=value)
+        self._action.setCurrentIndex(max(0, self._action.findData(action)))
+
+        remove = TransparentToolButton(FluentIcon.DELETE, self)
+        remove.setToolTip(dialog.tr("Remove Gesture"))
+        remove.setAccessibleName(dialog.tr("Remove Gesture"))
+
+        layout.addWidget(self._first, 1)
+        layout.addWidget(plus)
+        layout.addWidget(self._second, 1)
+        layout.addWidget(_row_label(self, dialog.tr("Left Drag")))
+        layout.addWidget(self._action, 2)
+        layout.addWidget(remove)
+
+        self._first.currentIndexChanged.connect(self._on_modifier_changed)
+        self._second.currentIndexChanged.connect(self._on_modifier_changed)
+        self._action.currentIndexChanged.connect(self.changed)
+        remove.clicked.connect(lambda: self.remove_requested.emit(self))
+
+    def modifiers(self) -> frozenset:
+        return frozenset(key for key in (self._first.currentData(), self._second.currentData()) if key)
+
+    def action(self) -> str:
+        return self._action.currentData()
+
+    def _on_modifier_changed(self):
+        # 两个框选同一个键，就是只按这一个键
+        if self._second.currentData() == self._first.currentData():
+            self._second.setCurrentIndex(self._second.findData(""))
+        self.changed.emit()
+
+
+class QuickCaptureBindingsEditor(QWidget):
+    """快速截图的手势列表。
+
+    挂在 dialog._behavior_controls["quick_capture_bindings"] 上：currentData() 给出要保存的
+    JSON，setBinding() 按 JSON 回填，保存、未保存检测、刷新和恢复默认都走通用逻辑。
+    """
+
+    # 设置窗口按信号名扫描子控件来跟踪改动；行会随 setBinding 重建，所以由列表本身发出
+    valueChanged = Signal()
+
+    def __init__(self, dialog, parent=None):
+        super().__init__(parent)
+        self._dialog = dialog
+        self._rows = []
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        self._rows_layout = QVBoxLayout()
+        self._rows_layout.setContentsMargins(0, 0, 0, 0)
+        self._rows_layout.setSpacing(0)
+        layout.addLayout(self._rows_layout)
+        self._empty = CaptionLabel(dialog.tr("No gestures yet. Quick Capture is off."), self)
+        layout.addWidget(self._empty)
+        self._add = TransparentPushButton(dialog.tr("Add Gesture"), self)
+        self._add.clicked.connect(self.add_suggested)
+        layout.addWidget(self._add, 0, Qt.AlignmentFlag.AlignLeft)
+        self._sync()
+
+    def currentData(self) -> str:
+        return dump_quick_capture_bindings(self.bindings())
+
+    def setBinding(self, raw):
+        for row in tuple(self._rows):
+            self._remove(row)
+        for modifiers, action in parse_quick_capture_bindings(raw):
+            self._append(modifiers, action)
+        self._sync()
+
+    def bindings(self) -> tuple:
+        """逐行的 (修饰键, 动作)，重复的组合也原样给出，留给保存前的冲突检查。"""
+        return tuple((row.modifiers(), row.action()) for row in self._rows)
+
+    def add_suggested(self):
+        used = {row.modifiers() for row in self._rows}
+        modifiers = next((keys for keys in _QUICK_CAPTURE_SUGGESTED if keys not in used), None)
+        if modifiers is None:
+            return
+        used_actions = {row.action() for row in self._rows}
+        action = next((value for value, _label in QUICK_CAPTURE_ACTIONS if value not in used_actions),
+                      QUICK_CAPTURE_ACTIONS[0][0])
+        configure_dialog_controls(self._append(modifiers, action))
+        self._sync()
+
+    def _append(self, modifiers, action):
+        row = _QuickCaptureRow(self._dialog, modifiers, action, self)
+        row.changed.connect(self.valueChanged)
+        row.remove_requested.connect(self._on_remove_requested)
+        self._rows.append(row)
+        self._rows_layout.addWidget(row)
+        return row
+
+    def _on_remove_requested(self, row):
+        self._remove(row)
+        self._sync()
+
+    def _remove(self, row):
+        self._rows.remove(row)
+        self._rows_layout.removeWidget(row)
+        row.hide()
+        row.deleteLater()
+
+    def _sync(self):
+        self._empty.setVisible(not self._rows)
+        self._add.setEnabled(len(self._rows) < len(_QUICK_CAPTURE_SUGGESTED))
+        self.valueChanged.emit()
+
+
 def _create_quick_capture(dialog, parent):
     group = SectionCard(FluentIcon.CAMERA, dialog.tr("Quick Capture"), parent=parent)
     if not hasattr(dialog, "_behavior_controls"):
         dialog._behavior_controls = {}
-
-    row = QWidget(group)
-    layout = QHBoxLayout(row)
-    layout.setContentsMargins(0, dialog_scaled(8), 0, dialog_scaled(8))
-    layout.setSpacing(dialog_scaled(8))
-    modifiers = []
-    for number, title in ((1, "First Modifier"), (2, "Second Modifier")):
-        combo = ComboBox(row)
-        combo.setAccessibleName(dialog.tr(title))
-        combo.setToolTip(dialog.tr(title))
-        for value in QUICK_CAPTURE_MODIFIERS:
-            combo.addItem(value.title() if value else dialog.tr("No Modifier"), userData=value)
-        key = f"quick_capture_modifier_{number}"
-        default = ToolSettingsManager.APP_DEFAULT_SETTINGS[key]
-        index = combo.findData(dialog.config_manager.get_app_setting(key, default))
-        combo.setCurrentIndex(index if index >= 0 else combo.findData(default))
-        dialog._behavior_controls[key] = combo
-        modifiers.append(combo)
-        layout.addWidget(combo, 1)
-        plus = QLabel("+", row)
-        apply_theme_text_style(plus, 14, caption=True)
-        layout.addWidget(plus)
-
-    layout.addWidget(_row_label(row, dialog.tr("Left Drag")))
-    action = ComboBox(row)
-    action.setAccessibleName(dialog.tr("Quick Capture"))
-    for value, label in QUICK_CAPTURE_ACTIONS:
-        action.addItem(dialog.tr(label), userData=value)
-    default = ToolSettingsManager.APP_DEFAULT_SETTINGS["quick_capture_action"]
-    index = action.findData(dialog.config_manager.get_app_setting("quick_capture_action", default))
-    action.setCurrentIndex(index if index >= 0 else action.findData(default))
-    dialog._behavior_controls["quick_capture_action"] = action
-    layout.addWidget(action, 2)
-
-    def normalize_modifiers():
-        # A duplicate modifier is the same gesture as a single modifier.
-        if modifiers[0].currentData() and modifiers[0].currentData() == modifiers[1].currentData():
-            modifiers[1].setCurrentIndex(modifiers[1].findData(""))
-
-    for combo in modifiers:
-        combo.currentIndexChanged.connect(normalize_modifiers)
-    normalize_modifiers()
-    group.addWidget(row)
+    editor = QuickCaptureBindingsEditor(dialog, group)
+    editor.setBinding(dialog.config_manager.get_app_setting("quick_capture_bindings"))
+    dialog._behavior_controls["quick_capture_bindings"] = editor
+    group.addWidget(editor)
     hint = CaptionLabel(dialog.tr(
         "Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. "
-        "Off by default: choose an action and at least one modifier to turn it on. "
-        "Some security software may warn about keyboard monitoring once it is on; allow it to keep using Quick Capture."
+        "Some security software may warn about keyboard monitoring once a gesture is added; "
+        "allow it to keep using Quick Capture."
     ), group)
     hint.setWordWrap(True)
     group.addWidget(hint)
@@ -321,6 +441,16 @@ def mouse_binding_conflicts(dialog) -> list[tuple[str, str, tuple[str, ...]]]:
                     _mouse_binding_text(dialog, binding),
                     tuple(owners),
                 ))
+
+    quick_capture = controls.get("quick_capture_bindings")
+    if quick_capture is not None:
+        rows_by_modifiers = {}
+        for number, (modifiers, _action) in enumerate(quick_capture.bindings(), 1):
+            rows_by_modifiers.setdefault(modifiers, []).append(dialog.tr("Gesture %1").replace("%1", str(number)))
+        conflicts.extend(
+            (dialog.tr("Quick Capture"), quick_capture_binding_text(dialog, modifiers), tuple(rows))
+            for modifiers, rows in rows_by_modifiers.items() if len(rows) > 1
+        )
 
     return conflicts
 

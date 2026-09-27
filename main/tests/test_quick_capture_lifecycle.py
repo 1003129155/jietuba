@@ -8,11 +8,15 @@ import pytest
 from main_app import MainApp
 
 
+WIN_COPY_PIN = '[{"modifiers": ["win"], "action": "copy_pin"}]'
+CTRL_ALT_PIN = '[{"modifiers": ["ctrl", "alt"], "action": "pin"}]'
+
+
 @pytest.fixture
 def app(monkeypatch):
     for name in ("log_info", "log_debug", "log_exception"):
         monkeypatch.setattr(f"main_app.{name}", Mock())
-    saved = {"global_hotkeys_disabled": False, "quick_capture_action": "copy_pin"}
+    saved = {"global_hotkeys_disabled": False, "quick_capture_bindings": WIN_COPY_PIN}
     config = SimpleNamespace(
         get_app_setting=lambda key, default=None: saved.get(key, default),
         set_app_setting=lambda key, value: saved.__setitem__(key, value),
@@ -49,11 +53,9 @@ def test_applying_hotkey_settings_refreshes_quick_capture_with_current_preferenc
     applied = []
     app.quick_capture.refresh.side_effect = lambda: applied.append(dict(app.saved_settings))
     app.update_hotkey()
-    app.saved_settings["quick_capture_action"] = "pin"
-    app.saved_settings["quick_capture_modifier_1"] = "ctrl"
+    app.saved_settings["quick_capture_bindings"] = CTRL_ALT_PIN
     app.update_hotkey()
-    assert [state["quick_capture_action"] for state in applied] == ["copy_pin", "pin"]
-    assert applied[-1]["quick_capture_modifier_1"] == "ctrl"
+    assert [state["quick_capture_bindings"] for state in applied] == [WIN_COPY_PIN, CTRL_ALT_PIN]
     app.hotkey_system.register_hotkey.assert_not_called()
 
 

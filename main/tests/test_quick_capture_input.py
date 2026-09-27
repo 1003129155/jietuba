@@ -74,7 +74,7 @@ def keyboard(fixture, message, key, flags=0, backend=None):
 
 
 def start(fixture, modifiers=frozenset({"win"}), keys=(0x5B,)):
-    fixture.source.configure(modifiers, True)
+    fixture.source.configure([modifiers], True)
     fixture.down.update(keys)
     assert mouse(fixture, WM_LBUTTONDOWN)
 
@@ -162,9 +162,9 @@ def test_gesture_invalidation_discards_pending_motion(capture_input, transition)
     if transition == "cancel":
         f.source.cancel()
     elif transition == "disable":
-        f.source.configure(frozenset({"win"}), False)
+        f.source.configure([frozenset({"win"})], False)
     elif transition == "reconfigure":
-        f.source.configure(frozenset({"ctrl"}), True)
+        f.source.configure([frozenset({"ctrl"})], True)
     elif transition == "close":
         f.source.close()
     else:
@@ -178,7 +178,7 @@ def test_reapplying_same_configuration_preserves_pending_motion(capture_input):
     f = capture_input
     start(f)
     assert not mouse(f, WM_MOUSEMOVE, 70, 80)
-    f.source.configure(frozenset({"win"}), True)
+    f.source.configure([frozenset({"win"})], True)
     f.flush()
     assert f.moves == [1]
     assert f.source.take_position(1) == (70, 80)
@@ -211,7 +211,7 @@ def test_injected_motion_does_not_change_position_or_notify(capture_input, flags
 
 def test_motion_outside_gesture_does_not_notify(capture_input):
     f = capture_input
-    f.source.configure(frozenset({"win"}), True)
+    f.source.configure([frozenset({"win"})], True)
     assert not mouse(f, WM_MOUSEMOVE, 70, 80)
     start(f)
     f.source.cancel()
@@ -223,7 +223,7 @@ def test_motion_outside_gesture_does_not_notify(capture_input):
 
 def test_blocked_input_passes_matching_clicks_then_resumes_without_reinstall(capture_input):
     f = capture_input
-    f.source.configure(frozenset({"ctrl"}), True)
+    f.source.configure([frozenset({"ctrl"})], True)
     f.down.add(0xA2)
     f.source.set_blocked(True)
     assert not mouse(f, WM_LBUTTONDOWN)
@@ -268,7 +268,7 @@ def test_left_and_right_modifiers(capture_input, name, key):
 
 def test_two_modifiers_require_exact_match(capture_input):
     f = capture_input
-    f.source.configure(frozenset({"ctrl", "shift"}), True)
+    f.source.configure([frozenset({"ctrl", "shift"})], True)
     f.down.add(0xA2)
     assert not mouse(f, WM_LBUTTONDOWN)
     f.down.update((0xA0, 0x5B))
@@ -282,18 +282,46 @@ def test_two_modifiers_require_exact_match(capture_input):
                                         frozenset({"ctrl", "alt", "shift"})])
 def test_invalid_modifiers_cannot_capture_plain_clicks(capture_input, modifiers):
     f = capture_input
-    f.source.configure(modifiers, True)
+    f.source.configure([modifiers], True)
     f.flush()
     assert not f.created
     assert len(f.errors) == 1
 
 
+def test_each_configured_modifier_set_starts_its_own_gesture(capture_input):
+    f = capture_input
+    f.source.configure([frozenset({"win"}), frozenset({"shift", "win"})], True)
+    f.down.update({0x5B})
+    assert mouse(f, WM_LBUTTONDOWN)
+    assert f.source.gesture_modifiers(1) == frozenset({"win"})
+    assert mouse(f, WM_LBUTTONUP)
+    f.down.add(0xA0)
+    assert mouse(f, WM_LBUTTONDOWN)
+    assert f.source.gesture_modifiers(2) == frozenset({"shift", "win"})
+    assert f.source.gesture_modifiers(1) is None
+    assert mouse(f, WM_LBUTTONUP)
+    f.down.clear()
+    f.down.add(0xA2)
+    assert not mouse(f, WM_LBUTTONDOWN)
+
+
+def test_modifiers_must_match_one_set_exactly(capture_input):
+    f = capture_input
+    f.source.configure([frozenset({"ctrl", "win"})], True)
+    f.down.update({0x5B})
+    assert not mouse(f, WM_LBUTTONDOWN)
+    f.down.update({0xA2, 0xA0})
+    assert not mouse(f, WM_LBUTTONDOWN)
+    f.down.discard(0xA0)
+    assert mouse(f, WM_LBUTTONDOWN)
+
+
 def test_disabled_configuration_is_idle_and_repeated_enable_is_idempotent(capture_input):
     f = capture_input
-    f.source.configure(frozenset({"win"}), False)
+    f.source.configure([frozenset({"win"})], False)
     assert not f.created
-    f.source.configure(frozenset({"win"}), True)
-    f.source.configure(frozenset({"win"}), True)
+    f.source.configure([frozenset({"win"})], True)
+    f.source.configure([frozenset({"win"})], True)
     assert len(f.created) == 1
     assert not mouse(f, WM_MOUSEMOVE)
     assert not mouse(f, WM_LBUTTONDOWN)
@@ -347,7 +375,7 @@ def test_alt_system_key_release_is_cancelled_normally(capture_input):
 @pytest.mark.parametrize("flags", [1, 2, 3])
 def test_injected_mouse_never_starts_or_finishes_a_physical_drag(capture_input, flags):
     f = capture_input
-    f.source.configure(frozenset({"win"}), True)
+    f.source.configure([frozenset({"win"})], True)
     f.down.add(0x5B)
     assert not mouse(f, WM_LBUTTONDOWN, flags=flags)
     assert mouse(f, WM_LBUTTONDOWN)
@@ -369,7 +397,7 @@ def test_disable_waits_for_claimed_left_and_escape_releases(capture_input):
     f = capture_input
     start(f)
     keyboard(f, WM_KEYDOWN, VK_ESCAPE)
-    f.source.configure(frozenset({"win"}), False)
+    f.source.configure([frozenset({"win"})], False)
     assert not f.created[-1].stopped
     assert mouse(f, WM_LBUTTONUP)
     f.flush()
@@ -387,13 +415,13 @@ def test_reconfigure_invalidates_queued_finish_and_old_callbacks(capture_input):
     start(f)
     first = f.created[-1]
     assert mouse(f, WM_LBUTTONUP)
-    f.source.configure(frozenset({"ctrl"}), True)
+    f.source.configure([frozenset({"ctrl"})], True)
     assert not f.source.accepts(1)
     assert not keyboard(f, WM_KEYUP, 0x5B)
     f.down.clear()
-    f.source.configure(frozenset({"ctrl"}), False)
+    f.source.configure([frozenset({"ctrl"})], False)
     assert first.stopped
-    f.source.configure(frozenset({"ctrl"}), True)
+    f.source.configure([frozenset({"ctrl"})], True)
     assert len(f.created) == 2
     assert not mouse(f, WM_LBUTTONDOWN, backend=first)
     first.failure("stale")
@@ -416,7 +444,7 @@ def test_cancel_invalidates_finished_signal_and_next_gesture_is_distinct(capture
 def test_reconfigure_during_drag_keeps_mouse_pair_claimed(capture_input):
     f = capture_input
     start(f)
-    f.source.configure(frozenset({"ctrl"}), True)
+    f.source.configure([frozenset({"ctrl"})], True)
     assert not f.source.dragging
     assert mouse(f, WM_LBUTTONDOWN)  # no second start until the real UP
     assert mouse(f, WM_LBUTTONUP)
@@ -433,14 +461,14 @@ def test_close_is_final_and_stops_backend(capture_input):
     assert first.stopped
     assert not f.source.accepts(1)
     assert not mouse(f, WM_LBUTTONDOWN, backend=first)
-    f.source.configure(frozenset({"win"}), True)
+    f.source.configure([frozenset({"win"})], True)
     assert len(f.created) == 1
 
 
 def test_hook_start_failure_and_async_failure_are_reported(capture_input, monkeypatch):
     f = capture_input
     monkeypatch.setattr(FakeHooks, "start", lambda self: (_ for _ in ()).throw(OSError("start failed")))
-    f.source.configure(frozenset({"win"}), True)
+    f.source.configure([frozenset({"win"})], True)
     f.flush()
     assert f.errors == ["start failed"]
     assert f.created[-1].stopped
@@ -543,9 +571,9 @@ def test_menu_release_protection_survives_gesture_state_changes(capture_input, t
     if transition == "cancel":
         f.source.cancel()
     elif transition == "disable":
-        f.source.configure(frozenset({"win"}), False)
+        f.source.configure([frozenset({"win"})], False)
     else:
-        f.source.configure(frozenset({"ctrl"}), True)
+        f.source.configure([frozenset({"ctrl"})], True)
     assert not f.source.dragging
     assert mouse(f, WM_LBUTTONUP)
     f.flush()
@@ -563,7 +591,7 @@ def test_disabling_after_completed_capture_waits_for_win_release(capture_input):
     start(f)
     assert mouse(f, WM_LBUTTONUP)
     f.flush()
-    f.source.configure(frozenset({"win"}), False)
+    f.source.configure([frozenset({"win"})], False)
     assert not f.created[-1].stopped
     assert not keyboard(f, WM_KEYUP, 0x5B)
     f.flush()
@@ -574,7 +602,7 @@ def test_disabling_after_completed_capture_waits_for_win_release(capture_input):
 @pytest.mark.parametrize("key", [0x5B, 0x5C])
 def test_plain_win_key_before_and_after_capture_keeps_native_behavior(capture_input, key):
     f = capture_input
-    f.source.configure(frozenset({"win"}), True)
+    f.source.configure([frozenset({"win"})], True)
     assert not keyboard(f, WM_KEYDOWN, key)
     assert not keyboard(f, WM_KEYUP, key)
     assert not f.masks
@@ -617,7 +645,7 @@ def test_unrelated_menu_key_release_is_not_masked(capture_input):
                                          (0xA1, "cycle_color")])
 def test_magnifier_commands_are_queued_and_paired(capture_input, key, command):
     f = capture_input
-    f.source.configure(frozenset({"win"}), True)
+    f.source.configure([frozenset({"win"})], True)
     assert not keyboard(f, WM_KEYDOWN, key)
     start(f)
     assert keyboard(f, WM_KEYDOWN, key)
@@ -654,7 +682,7 @@ def test_disabling_waits_for_held_command_release(capture_input):
     f = capture_input
     start(f)
     assert keyboard(f, WM_KEYDOWN, 0xBB)
-    f.source.configure(frozenset({"win"}), False)
+    f.source.configure([frozenset({"win"})], False)
     assert mouse(f, WM_LBUTTONUP)
     f.flush()
     assert not f.created[-1].stopped
@@ -739,7 +767,7 @@ def test_both_shift_keys_held_before_drag_are_required_not_commands(capture_inpu
 
 def test_wheel_only_zoom_during_drag_and_accumulates_precise_delta(capture_input):
     f = capture_input
-    f.source.configure(frozenset({"win"}), True)
+    f.source.configure([frozenset({"win"})], True)
     assert not mouse(f, WM_MOUSEWHEEL, delta=120)
     start(f)
     assert mouse(f, WM_MOUSEWHEEL, delta=60)

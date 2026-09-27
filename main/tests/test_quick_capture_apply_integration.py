@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QDialog, QWidget
 from capture import quick_capture_controller as capture_module
 from core import quick_capture_input as input_module
 from main_app import MainApp
-from settings.tool_settings import ToolSettingsManager
+from settings.tool_settings import ToolSettingsManager, parse_quick_capture_bindings
 from ui.settings_ui.dialog import SettingsDialog
 
 
@@ -109,7 +109,7 @@ def integration(qapp, qtbot, tmp_settings, tmp_path, monkeypatch):
     config.set_log_dir(str(tmp_path))
     config.set_screenshot_save_path(str(tmp_path / "captures"))
     config.set_clipboard_enabled(False)
-    config.set_app_setting("quick_capture_action", "copy_pin")
+    config.set_app_setting("quick_capture_bindings", '[{"modifiers": ["win"], "action": "copy_pin"}]')
     app = AppHarness(config)
     dialog = SettingsDialog(config, current_hotkey=config.get_hotkey())
     for attr in ("log_toggle", "autostart_toggle", "language_combo"):
@@ -129,11 +129,20 @@ def integration(qapp, qtbot, tmp_settings, tmp_path, monkeypatch):
     app.deleteLater()
 
 
-def choose(fixture, key, value):
-    control = fixture.dialog._behavior_controls[f"quick_capture_{key}"]
-    index = control.findData(value)
-    assert index >= 0
-    control.setCurrentIndex(index)
+def editor(fixture):
+    return fixture.dialog._behavior_controls["quick_capture_bindings"]
+
+
+def set_row(fixture, index, first, second, action):
+    row = editor(fixture)._rows[index]
+    for combo, value in ((row._first, first), (row._second, second), (row._action, action)):
+        position = combo.findData(value)
+        assert position >= 0
+        combo.setCurrentIndex(position)
+
+
+def saved(fixture):
+    return parse_quick_capture_bindings(fixture.config.get_app_setting("quick_capture_bindings"))
 
 
 def apply(fixture):
@@ -189,8 +198,7 @@ def matching_ctrl_click(fixture):
 
 
 def configure_ctrl(fixture):
-    fixture.config.set_app_setting("quick_capture_modifier_1", "ctrl")
-    fixture.config.set_app_setting("quick_capture_modifier_2", "")
+    fixture.config.set_app_setting("quick_capture_bindings", '[{"modifiers": ["ctrl"], "action": "copy_pin"}]')
     fixture.app.quick_capture.refresh()
 
 
@@ -306,12 +314,9 @@ def test_apply_switches_real_dispatch_from_win_to_ctrl_alt_without_closing_setti
     drag(fixture, [0x5B], accepted=True)
     assert fixture.pinned.call_count == 1
 
-    choose(fixture, "modifier_1", "ctrl")
-    choose(fixture, "modifier_2", "alt")
-    choose(fixture, "action", "copy")
+    set_row(fixture, 0, "ctrl", "alt", "copy")
     apply(fixture)
-    assert fixture.config.get_app_setting("quick_capture_modifier_1") == "ctrl"
-    assert fixture.config.get_app_setting("quick_capture_modifier_2") == "alt"
+    assert saved(fixture) == ((frozenset({"ctrl", "alt"}), "copy"),)
     drag(fixture, [0x5B], accepted=False)
     drag(fixture, [0xA2], accepted=False)
     drag(fixture, [0xA2, 0xA4], accepted=True)
@@ -319,22 +324,35 @@ def test_apply_switches_real_dispatch_from_win_to_ctrl_alt_without_closing_setti
     fixture.app.set_clipboard_monitoring_enabled.assert_called_once_with(False)
 
 
-def test_apply_disabled_action_and_restore_defaults_reconfigure_real_input(integration):
+def test_two_gestures_dispatch_their_own_actions_through_real_input(integration):
     fixture = integration
-    choose(fixture, "modifier_1", "ctrl")
-    choose(fixture, "modifier_2", "alt")
-    choose(fixture, "action", "copy")
+    editor(fixture).add_suggested()
+    set_row(fixture, 1, "shift", "win", "copy")
+    apply(fixture)
+    drag(fixture, [0x5B], accepted=True)
+    assert (fixture.copied.call_count, fixture.pinned.call_count) == (1, 1)
+    drag(fixture, [0xA0, 0x5B], accepted=True)
+    assert (fixture.copied.call_count, fixture.pinned.call_count) == (2, 1)
+
+
+def test_removing_every_gesture_and_restore_defaults_unhook_real_input(integration):
+    fixture = integration
+    set_row(fixture, 0, "ctrl", "alt", "copy")
     apply(fixture)
     drag(fixture, [0xA2, 0xA4], accepted=True)
-    choose(fixture, "action", "none")
+    row = editor(fixture)._rows[0]
+    row.remove_requested.emit(row)
     apply(fixture)
     assert fixture.hooks[-1].stopped
     drag(fixture, [0xA2, 0xA4], accepted=False)
 
     # 默认关闭：恢复默认后不再挂钩子，任何修饰键拖动都不认领
+    editor(fixture).add_suggested()
+    apply(fixture)
+    assert not fixture.hooks[-1].stopped
     fixture.dialog._reset_hotkey_page()
     apply(fixture)
-    assert fixture.config.get_app_setting("quick_capture_action") == "none"
+    assert saved(fixture) == ()
     assert fixture.hooks[-1].stopped
     drag(fixture, [0xA2, 0xA4], accepted=False)
     drag(fixture, [0x5B], accepted=False)

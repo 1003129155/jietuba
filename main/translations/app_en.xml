@@ -41,8 +41,24 @@
         <translation>Normal Capture</translation>
     </message>
     <message>
-        <source>Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. Off by default: choose an action and at least one modifier to turn it on. Some security software may warn about keyboard monitoring once it is on; allow it to keep using Quick Capture.</source>
-        <translation>Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. Off by default: choose an action and at least one modifier to turn it on. Some security software may warn about keyboard monitoring once it is on; allow it to keep using Quick Capture.</translation>
+        <source>Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. Some security software may warn about keyboard monitoring once a gesture is added; allow it to keep using Quick Capture.</source>
+        <translation>Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. Some security software may warn about keyboard monitoring once a gesture is added; allow it to keep using Quick Capture.</translation>
+    </message>
+    <message>
+        <source>No gestures yet. Quick Capture is off.</source>
+        <translation>No gestures yet. Quick Capture is off.</translation>
+    </message>
+    <message>
+        <source>Add Gesture</source>
+        <translation>Add Gesture</translation>
+    </message>
+    <message>
+        <source>Remove Gesture</source>
+        <translation>Remove Gesture</translation>
+    </message>
+    <message>
+        <source>Gesture %1</source>
+        <translation>Gesture %1</translation>
     </message>
     <message>
         <source>Shortcuts</source>

@@ -6,7 +6,9 @@ from types import SimpleNamespace
 import pytest
 from PySide6.QtCore import QSettings, QTranslator
 
-from settings.tool_settings import ToolSettingsManager
+from settings.tool_settings import (
+    ToolSettingsManager, dump_quick_capture_bindings, parse_quick_capture_bindings,
+)
 from ui.settings_ui.dialog import SettingsDialog
 from ui.settings_ui.page_hotkey import _create_quick_capture
 
@@ -32,86 +34,110 @@ def settings(qapp, config, monkeypatch):
     dialog.deleteLater()
 
 
-def choose(dialog, key, value):
-    control = dialog._behavior_controls[f"quick_capture_{key}"]
-    index = control.findData(value)
+def editor(dialog):
+    return dialog._behavior_controls["quick_capture_bindings"]
+
+
+def saved(config):
+    return parse_quick_capture_bindings(config.get_app_setting("quick_capture_bindings"))
+
+
+def choose(combo, value):
+    index = combo.findData(value)
     assert index >= 0
-    control.setCurrentIndex(index)
+    combo.setCurrentIndex(index)
 
 
-def values(dialog):
-    return tuple(dialog._behavior_controls[f"quick_capture_{key}"].currentData()
-                 for key in ("modifier_1", "modifier_2", "action"))
+WIN = frozenset({"win"})
+SHIFT_WIN = frozenset({"shift", "win"})
+CTRL_WIN = frozenset({"ctrl", "win"})
 
 
-def test_defaults_and_modifier_only_choices(settings, config):
-    assert values(settings) == ("win", "", "none")
-    for key in ("modifier_1", "modifier_2"):
-        combo = settings._behavior_controls[f"quick_capture_{key}"]
-        assert [combo.itemData(i) for i in range(combo.count())] == ["", "ctrl", "shift", "win", "alt"]
-        assert not combo.isEditable()
-    assert config.get_app_setting("quick_capture_action") == "none"
+def test_off_by_default_with_no_gestures(settings, config):
+    assert editor(settings).bindings() == ()
+    assert editor(settings)._empty.isVisibleTo(settings)
+    assert saved(config) == ()
 
 
-@pytest.mark.parametrize("action", ["none", "pin", "copy", "copy_pin", "edit"])
-def test_apply_persists_modifiers_and_action(settings, config, action):
-    choose(settings, "modifier_1", "ctrl")
-    choose(settings, "modifier_2", "shift")
-    choose(settings, "action", action)
+def test_added_gestures_suggest_unused_combinations_and_actions(settings):
+    for _ in range(3):
+        editor(settings).add_suggested()
+    assert editor(settings).bindings() == (
+        (WIN, "copy_pin"), (SHIFT_WIN, "pin"), (CTRL_WIN, "copy"),
+    )
+    assert not editor(settings)._empty.isVisibleTo(settings)
+
+
+def test_add_stops_once_every_combination_is_used(settings):
+    for _ in range(20):
+        editor(settings).add_suggested()
+    combinations = [modifiers for modifiers, _action in editor(settings).bindings()]
+    assert len(combinations) == 10 == len(set(combinations))
+    assert not editor(settings)._add.isEnabled()
+
+
+def test_apply_persists_gestures_and_they_reload(settings, config):
+    editor(settings).add_suggested()
+    editor(settings).add_suggested()
+    row = editor(settings)._rows[1]
+    choose(row._first, "ctrl")
+    choose(row._second, "alt")
+    choose(row._action, "edit")
     assert settings._has_unsaved_changes()
     assert settings.apply_settings()
     assert not settings._has_unsaved_changes()
-    assert config.get_app_setting("quick_capture_modifier_1") == "ctrl"
-    assert config.get_app_setting("quick_capture_modifier_2") == "shift"
-    assert config.get_app_setting("quick_capture_action") == action
+    expected = ((WIN, "copy_pin"), (frozenset({"ctrl", "alt"}), "edit"))
+    assert saved(config) == expected
     restored = ToolSettingsManager(qsettings=QSettings(config.qsettings.fileName(), QSettings.IniFormat))
-    assert restored.get_app_setting("quick_capture_modifier_1") == "ctrl"
-    assert restored.get_app_setting("quick_capture_modifier_2") == "shift"
-    assert restored.get_app_setting("quick_capture_action") == action
+    assert saved(restored) == expected
 
 
-def test_no_modifiers_can_be_saved_to_disable_quick_capture(settings, config):
-    choose(settings, "modifier_1", "")
-    choose(settings, "modifier_2", "")
+def test_removing_a_gesture(settings, config):
+    editor(settings).add_suggested()
+    editor(settings).add_suggested()
+    editor(settings)._rows[0].remove_requested.emit(editor(settings)._rows[0])
+    assert editor(settings).bindings() == ((SHIFT_WIN, "pin"),)
     assert settings.apply_settings()
-    assert config.get_app_setting("quick_capture_modifier_1") == ""
-    assert config.get_app_setting("quick_capture_modifier_2") == ""
+    assert saved(config) == ((SHIFT_WIN, "pin"),)
 
 
-def test_duplicate_modifiers_are_collapsed_from_either_combo(settings):
-    choose(settings, "modifier_2", "win")
-    assert values(settings)[:2] == ("win", "")
-    choose(settings, "modifier_2", "shift")
-    choose(settings, "modifier_1", "shift")
-    assert values(settings)[:2] == ("shift", "")
+def test_every_gesture_needs_a_modifier_and_a_repeated_key_counts_once(settings):
+    editor(settings).add_suggested()
+    row = editor(settings)._rows[0]
+    assert "" not in [row._first.itemData(i) for i in range(row._first.count())]
+    choose(row._second, "win")
+    assert row.modifiers() == WIN
+    assert row._second.currentData() == ""
 
 
-def test_refresh_uses_saved_values_and_reset_is_not_saved_implicitly(settings, config):
-    config.set_app_setting("quick_capture_modifier_1", "alt")
-    config.set_app_setting("quick_capture_modifier_2", "ctrl")
-    config.set_app_setting("quick_capture_action", "edit")
+def test_same_combination_twice_blocks_apply(settings, config, monkeypatch):
+    warnings = []
+    monkeypatch.setattr("ui.settings_ui.dialog.show_warning_dialog", lambda *args: warnings.append(args))
+    editor(settings).add_suggested()
+    editor(settings).add_suggested()
+    choose(editor(settings)._rows[1]._first, "win")
+    choose(editor(settings)._rows[1]._second, "")
+    assert not settings.apply_settings()
+    assert "Win + Left Drag: Gesture 1 / Gesture 2" in warnings[0][2]
+    assert saved(config) == ()
+
+
+def test_refresh_uses_saved_value_and_reset_is_not_saved_implicitly(settings, config):
+    config.set_app_setting("quick_capture_bindings", dump_quick_capture_bindings(((CTRL_WIN, "edit"),)))
     settings.refresh_settings()
-    assert values(settings) == ("alt", "ctrl", "edit")
+    assert editor(settings).bindings() == ((CTRL_WIN, "edit"),)
     settings._reset_hotkey_page()
-    assert values(settings) == ("win", "", "none")
-    assert config.get_app_setting("quick_capture_action") == "edit"
+    assert editor(settings).bindings() == ()
+    assert saved(config) == ((CTRL_WIN, "edit"),)
     assert settings.apply_settings()
-    assert config.get_app_setting("quick_capture_action") == "none"
+    assert saved(config) == ()
 
 
-def test_invalid_saved_values_fall_back_to_defaults(settings, config):
-    for key in ("modifier_1", "modifier_2", "action"):
-        config.set_app_setting(f"quick_capture_{key}", "unknown")
-    settings.refresh_settings()
-    assert values(settings) == ("win", "", "none")
-
-
-def test_initial_invalid_values_fall_back_to_defaults(qapp, config):
-    for key in ("modifier_1", "modifier_2", "action"):
-        config.set_app_setting(f"quick_capture_{key}", "unknown")
+def test_unreadable_saved_value_shows_no_gestures(qapp, config):
+    config.set_app_setting("quick_capture_bindings", "not json")
     dialog = SimpleNamespace(config_manager=config, tr=lambda text: text)
     card = _create_quick_capture(dialog, None)
-    assert values(dialog) == ("win", "", "none")
+    assert dialog._behavior_controls["quick_capture_bindings"].bindings() == ()
     card.deleteLater()
 
 
@@ -124,8 +150,9 @@ def test_compiled_quick_capture_translations(qapp, language):
         "Quick Capture", "First Modifier", "Second Modifier", "Capture and Pin", "Capture and Copy",
         "Quick capture failed. Please try again.",
         "Capture, Copy and Pin", "Normal Capture",
+        "Add Gesture", "Remove Gesture", "Gesture %1", "No gestures yet. Quick Capture is off.",
         "Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. "
-        "Off by default: choose an action and at least one modifier to turn it on. "
-        "Some security software may warn about keyboard monitoring once it is on; allow it to keep using Quick Capture.",
+        "Some security software may warn about keyboard monitoring once a gesture is added; "
+        "allow it to keep using Quick Capture.",
     ):
         assert translator.translate("SettingsDialog", source)

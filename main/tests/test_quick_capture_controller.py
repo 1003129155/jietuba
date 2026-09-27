@@ -10,7 +10,7 @@ from PySide6.QtGui import QImage
 
 from capture import quick_capture_controller as module
 from canvas.selection_model import SelectionModel
-from settings.tool_settings import ToolSettingsManager
+from settings.tool_settings import ToolSettingsManager, dump_quick_capture_bindings
 
 
 class FakeInput(QObject):
@@ -27,6 +27,7 @@ class FakeInput(QObject):
         self.cancel = Mock()
         self.close = Mock()
         self.accepts = Mock(return_value=True)
+        self.gesture_modifiers = Mock(return_value=frozenset({"win"}))
         self.take_position = Mock(side_effect=lambda _token: self.position)
 
 
@@ -91,12 +92,20 @@ def capture(qapp, tmp_settings, monkeypatch):
     monkeypatch.setattr(module, "trim_working_set", Mock())
     config = ToolSettingsManager(tmp_settings)
     # 快速截图默认关闭；这里的用例测的是开启后的手势流程
-    config.set_app_setting("quick_capture_action", "copy_pin")
+    bind(config, "copy_pin")
     app = FakeApp(config)
     controller = module.QuickCaptureController(app)
     controller.refresh()
     yield controller
     controller.close()
+
+
+def bind(config, *gestures):
+    """bind(config, "pin") 等于 Win 拖动钉图；也可以传 ((修饰键, ...), 动作) 配多个。"""
+    if len(gestures) == 1 and isinstance(gestures[0], str):
+        gestures = ((("win",), gestures[0]),)
+    config.set_app_setting("quick_capture_bindings", dump_quick_capture_bindings(
+        tuple((frozenset(keys), action) for keys, action in gestures)))
 
 
 def test_default_configuration_installs_no_hooks(qapp, tmp_settings, monkeypatch):
@@ -168,7 +177,7 @@ def test_working_set_trim_waits_for_capture_and_skips_normal_editor(capture, qtb
     from pin.pin_manager import PinManager
     monkeypatch.setattr(PinManager, "instance", lambda: Mock())
     capture.main_app.config_manager.set_app_setting("magnifier_enabled", False)
-    capture.main_app.config_manager.set_app_setting("quick_capture_action", action)
+    bind(capture.main_app.config_manager, action)
     capture.refresh()
     assert capture._trim_timer.interval() == 1500
     capture._trim_timer.setInterval(30)
@@ -258,7 +267,7 @@ def test_actions_use_exact_absolute_selection(capture, qtbot, monkeypatch, actio
     from pin.pin_manager import PinManager
     pin_manager = Mock()
     monkeypatch.setattr(PinManager, "instance", lambda: pin_manager)
-    capture.main_app.config_manager.set_app_setting("quick_capture_action", action)
+    bind(capture.main_app.config_manager, action)
     capture.refresh()
     start(capture, qtbot)
     move(capture)
@@ -282,9 +291,11 @@ def test_actions_use_exact_absolute_selection(capture, qtbot, monkeypatch, actio
 
 
 @pytest.mark.parametrize("setting,value", [
-    ("global_hotkeys_disabled", True), ("quick_capture_action", "none"),
-    ("quick_capture_modifier_1", ""), ("quick_capture_modifier_1", "unknown"),
-    ("quick_capture_action", "unknown"),
+    ("global_hotkeys_disabled", True), ("quick_capture_bindings", ""),
+    ("quick_capture_bindings", "not json"),
+    ("quick_capture_bindings", '[{"modifiers": ["unknown"], "action": "pin"}]'),
+    ("quick_capture_bindings", '[{"modifiers": ["win"], "action": "unknown"}]'),
+    ("quick_capture_bindings", '[{"modifiers": ["ctrl", "alt", "win"], "action": "pin"}]'),
 ])
 def test_disabled_or_invalid_configuration_does_not_arm(capture, setting, value):
     capture.main_app.config_manager.set_app_setting(setting, value)
@@ -329,13 +340,30 @@ def test_queued_motion_cannot_reopen_overlay_after_release(capture, qtbot, monke
     assert capture._worker.region == QRect(-50, -20, 80, 60)
 
 
-def test_two_modifiers_and_duplicate_modifiers(capture):
-    capture.main_app.config_manager.set_app_setting("quick_capture_modifier_2", "ctrl")
+def test_every_gesture_reaches_input_and_a_repeated_combination_keeps_the_first(capture):
+    capture.main_app.config_manager.set_app_setting("quick_capture_bindings", (
+        '[{"modifiers": ["win"], "action": "pin"}, {"modifiers": ["ctrl", "win"], "action": "copy"},'
+        ' {"modifiers": ["win"], "action": "edit"}]'
+    ))
     capture.refresh()
-    capture.input.configure.assert_called_with(frozenset(("win", "ctrl")), True)
-    capture.main_app.config_manager.set_app_setting("quick_capture_modifier_2", "win")
+    capture.input.configure.assert_called_with(
+        frozenset({frozenset({"win"}), frozenset({"ctrl", "win"})}), True)
+    assert capture._actions[frozenset({"win"})] == "pin"
+
+
+def test_each_gesture_runs_the_action_of_its_modifiers(capture, qtbot):
+    bind(capture.main_app.config_manager, (("win",), "pin"), (("shift", "win"), "copy"))
     capture.refresh()
-    capture.input.configure.assert_called_with(frozenset(("win",)), True)
+    capture.input.gesture_modifiers.return_value = frozenset({"shift", "win"})
+    start(capture, qtbot)
+    assert finish(capture, qtbot).action == "copy"
+
+
+def test_start_matching_no_gesture_is_cancelled(capture):
+    capture.input.gesture_modifiers.return_value = None
+    capture._on_input("start", 1, 10, 10)
+    assert capture._active is None
+    capture.input.cancel.assert_called()
 
 
 def test_click_without_drag_never_captures(capture, qtbot):
@@ -357,7 +385,7 @@ def test_no_recursive_preview_when_window_cannot_be_excluded(capture, qtbot, mon
 
 
 def test_small_edit_region_does_not_expand_past_screen_edge(capture, qtbot):
-    capture.main_app.config_manager.set_app_setting("quick_capture_action", "edit")
+    bind(capture.main_app.config_manager, "edit")
     capture.refresh()
     start(capture, qtbot, x=397, y=396)
     worker = finish(capture, qtbot, x=400, y=400)
@@ -581,7 +609,7 @@ def test_cursor_preference_reaches_capture_worker(capture, qtbot, include_cursor
 
 
 def test_edit_delivery_preserves_captured_cursor_and_selection(capture, qtbot):
-    capture.main_app.config_manager.set_app_setting("quick_capture_action", "edit")
+    bind(capture.main_app.config_manager, "edit")
     capture.main_app.config_manager.set_app_setting("capture_include_cursor", True)
     capture.refresh()
     start(capture, qtbot)

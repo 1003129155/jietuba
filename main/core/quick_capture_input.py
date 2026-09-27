@@ -207,7 +207,9 @@ class QuickCaptureInput(QObject):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._lock = threading.RLock()
-        self._modifiers = frozenset({"win"})
+        self._bindings = frozenset()
+        # Modifiers held by the current gesture; key handling during a drag uses these.
+        self._modifiers = frozenset()
         self._enabled = False
         self._blocked = False
         self._closed = False
@@ -253,17 +255,26 @@ class QuickCaptureInput(QObject):
         with self._lock:
             return not self._closed and self._invalid_through < gesture_id <= self._gesture_id
 
-    def configure(self, modifiers: frozenset[str], enabled: bool):
-        modifiers = frozenset(modifiers)
-        valid = bool(modifiers) and len(modifiers) <= 2 and modifiers <= _MODIFIER_KEYS.keys()
+    def gesture_modifiers(self, gesture_id: int):
+        """Modifiers of the current gesture only; a newer gesture may start before a queued start arrives."""
+        with self._lock:
+            return self._modifiers if gesture_id == self._gesture_id else None
+
+    def configure(self, bindings, enabled: bool):
+        """Each binding is a modifier set; the held modifiers must equal one of them exactly."""
+        bindings = frozenset(frozenset(modifiers) for modifiers in bindings)
+        valid = bool(bindings) and all(
+            modifiers and len(modifiers) <= 2 and modifiers <= _MODIFIER_KEYS.keys()
+            for modifiers in bindings
+        )
         requested_enabled = bool(enabled)
         with self._lock:
             if self._closed:
                 return
             enabled = bool(enabled and valid)
-            if modifiers != self._modifiers or not enabled:
+            if bindings != self._bindings or not enabled:
                 self._cancel_locked()
-            self._modifiers, self._enabled = modifiers, enabled
+            self._bindings, self._enabled = bindings, enabled
         if not valid and requested_enabled:
             self.failure.emit("Quick capture requires one or two modifiers")
         self._sync_backend()
@@ -343,8 +354,10 @@ class QuickCaptureInput(QObject):
             if message == WM_LBUTTONDOWN:
                 if self._claimed_left:
                     return True
-                if not self._enabled or self._blocked or _current_modifiers() != self._modifiers:
+                held = _current_modifiers() if self._enabled and not self._blocked else None
+                if held not in self._bindings:
                     return False
+                self._modifiers = held
                 self._gesture_id += 1
                 self._pending_move = None
                 self._claimed_left = self._dragging = True

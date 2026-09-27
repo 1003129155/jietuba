@@ -13,7 +13,7 @@ from core.last_capture_region import set_last_region
 from core.logger import log_debug, log_error
 from core.platform_utils import trim_working_set
 from core.quick_capture_input import QuickCaptureInput
-from settings.tool_settings import QUICK_CAPTURE_ACTIONS, QUICK_CAPTURE_MODIFIERS
+from settings.tool_settings import get_quick_capture_bindings
 from ui.quick_capture_overlay import QuickCaptureOverlay, selection_rect
 
 
@@ -155,7 +155,8 @@ class QuickCaptureController(QObject):
         self._result_valid = False
         self._closed = False
         self._enabled = False
-        self._action = "none"
+        self._actions = {}
+        self._active_action = None
         self._start = QPoint()
         self._bounds = QRect()
         self._capture_pending = False
@@ -174,20 +175,16 @@ class QuickCaptureController(QObject):
         """Apply saved settings, including the tray's global-hotkey pause."""
         self.cancel()
         config = self.main_app.config_manager
-        # 不传回退值，未保存时统一取 APP_DEFAULT_SETTINGS，和设置页显示的默认值一致
-        first = config.get_app_setting("quick_capture_modifier_1")
-        second = config.get_app_setting("quick_capture_modifier_2")
-        self._action = config.get_app_setting("quick_capture_action")
-        valid = first in QUICK_CAPTURE_MODIFIERS and second in QUICK_CAPTURE_MODIFIERS
-        modifiers = frozenset(key for key in (first, second) if key) if valid else frozenset()
+        self._actions = dict(get_quick_capture_bindings(config))
         self._enabled = bool(
-            modifiers and self._action in dict(QUICK_CAPTURE_ACTIONS) and self._action != "none"
-            and not self._closed and not config.get_app_setting("global_hotkeys_disabled", False)
+            self._actions and not self._closed
+            and not config.get_app_setting("global_hotkeys_disabled", False)
         )
         self.sync_input_availability()
-        self.input.configure(modifiers, self._enabled)
-        log_debug(f"Quick capture binding applied: modifiers={'+'.join(sorted(modifiers))}, "
-                  f"action={self._action}, enabled={self._enabled}", "QuickCapture")
+        self.input.configure(frozenset(self._actions), self._enabled)
+        gestures = ", ".join(f"{'+'.join(sorted(modifiers))}={action}"
+                             for modifiers, action in self._actions.items())
+        log_debug(f"Quick capture bindings applied: [{gestures}], enabled={self._enabled}", "QuickCapture")
 
     def suspend(self):
         self.cancel()
@@ -233,7 +230,8 @@ class QuickCaptureController(QObject):
         if kind != "cancel" and not self.input.accepts(token):
             return
         if kind == "start":
-            if not self._enabled or self.busy or self._blocked():
+            action = self._actions.get(self.input.gesture_modifiers(token))
+            if not self._enabled or action is None or self.busy or self._blocked():
                 log_debug("Quick capture ignored: disabled, busy, or a capture/modal window is active", "QuickCapture")
                 self.input.cancel()
                 return
@@ -243,6 +241,7 @@ class QuickCaptureController(QObject):
                 self.input.cancel()
                 return
             self._active = token
+            self._active_action = action
             self._trim_timer.stop()
             if self.overlay is None:
                 self.overlay = QuickCaptureOverlay(self.main_app.config_manager)
@@ -349,7 +348,7 @@ class QuickCaptureController(QObject):
 
     def _capture(self, region):
         self._result_valid = True
-        worker = QuickCaptureWorker(region, self._action, self)
+        worker = QuickCaptureWorker(region, self._active_action, self)
         worker.include_cursor = bool(self.main_app.config_manager.get_app_setting("capture_include_cursor", False))
         self._worker = worker
         worker.captured.connect(self._deliver, Qt.ConnectionType.QueuedConnection)
