@@ -89,11 +89,28 @@ def capture(qapp, tmp_settings, monkeypatch):
     monkeypatch.setattr(module, "deliver_image_async", Mock())
     monkeypatch.setattr(module, "set_last_region", Mock())
     monkeypatch.setattr(module, "trim_working_set", Mock())
-    app = FakeApp(ToolSettingsManager(tmp_settings))
+    config = ToolSettingsManager(tmp_settings)
+    # 快速截图默认关闭；这里的用例测的是开启后的手势流程
+    config.set_app_setting("quick_capture_action", "copy_pin")
+    app = FakeApp(config)
     controller = module.QuickCaptureController(app)
     controller.refresh()
     yield controller
     controller.close()
+
+
+def test_default_configuration_installs_no_hooks(qapp, tmp_settings, monkeypatch):
+    """默认关闭：没选动作的用户不挂任何全局钩子"""
+    from core import quick_capture_input as input_module
+    created = []
+    monkeypatch.setattr(input_module, "_Win32Hooks", lambda *callbacks: created.append(callbacks))
+    controller = module.QuickCaptureController(FakeApp(ToolSettingsManager(tmp_settings)))
+    try:
+        controller.refresh()
+        assert not controller._enabled
+        assert created == []
+    finally:
+        controller.close()
 
 
 def start(controller, qtbot, token=1, x=-50, y=-20):

@@ -127,7 +127,8 @@ def _create_quick_capture(dialog, parent):
     group.addWidget(row)
     hint = CaptionLabel(dialog.tr(
         "Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. "
-        "Select at least one modifier to enable Quick Capture."
+        "Off by default: choose an action and at least one modifier to turn it on. "
+        "Some security software may warn about keyboard monitoring once it is on; allow it to keep using Quick Capture."
     ), group)
     hint.setWordWrap(True)
     group.addWidget(hint)

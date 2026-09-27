@@ -268,9 +268,10 @@ class ToolSettingsManager(QObject):
         "global_hotkeys_disabled": False,           # 是否禁用全局热键
 
         # 按住修饰键、左键拖动快速截图；没有修饰键或动作设为 none 时停用。
+        # 默认关闭：开启后常驻全局鼠标和键盘钩子，由用户主动选择。
         "quick_capture_modifier_1": "win",
         "quick_capture_modifier_2": "",
-        "quick_capture_action": "copy_pin",
+        "quick_capture_action": "none",
 
         # 应用内快捷键
         "inapp_confirm": "ctrl+c",             # 确认截图（复制到剪贴板）

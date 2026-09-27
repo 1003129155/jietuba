@@ -42,8 +42,8 @@
         <translation>通常のスクリーンショット</translation>
     </message>
     <message>
-        <source>Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. Select at least one modifier to enable Quick Capture.</source>
-        <translation>修飾キーを押しながらマウスの左ボタンでドラッグします。ボタンを離すと撮影し、Esc でキャンセルします。有効にするには修飾キーを1つ以上選択してください。</translation>
+        <source>Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. Off by default: choose an action and at least one modifier to turn it on. Some security software may warn about keyboard monitoring once it is on; allow it to keep using Quick Capture.</source>
+        <translation>修飾キーを押しながらマウスの左ボタンでドラッグします。ボタンを離すと撮影し、Esc でキャンセルします。既定ではオフです。動作と修飾キーを1つ以上選択すると有効になります。有効にすると、一部のセキュリティソフトがキーボード入力の監視について警告することがあります。許可すれば引き続き使用できます。</translation>
     </message>
     <message>
         <source>Shortcuts</source>

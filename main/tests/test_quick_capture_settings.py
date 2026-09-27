@@ -45,12 +45,12 @@ def values(dialog):
 
 
 def test_defaults_and_modifier_only_choices(settings, config):
-    assert values(settings) == ("win", "", "copy_pin")
+    assert values(settings) == ("win", "", "none")
     for key in ("modifier_1", "modifier_2"):
         combo = settings._behavior_controls[f"quick_capture_{key}"]
         assert [combo.itemData(i) for i in range(combo.count())] == ["", "ctrl", "shift", "win", "alt"]
         assert not combo.isEditable()
-    assert config.get_app_setting("quick_capture_action") == "copy_pin"
+    assert config.get_app_setting("quick_capture_action") == "none"
 
 
 @pytest.mark.parametrize("action", ["none", "pin", "copy", "copy_pin", "edit"])
@@ -93,17 +93,17 @@ def test_refresh_uses_saved_values_and_reset_is_not_saved_implicitly(settings, c
     settings.refresh_settings()
     assert values(settings) == ("alt", "ctrl", "edit")
     settings._reset_hotkey_page()
-    assert values(settings) == ("win", "", "copy_pin")
+    assert values(settings) == ("win", "", "none")
     assert config.get_app_setting("quick_capture_action") == "edit"
     assert settings.apply_settings()
-    assert config.get_app_setting("quick_capture_action") == "copy_pin"
+    assert config.get_app_setting("quick_capture_action") == "none"
 
 
 def test_invalid_saved_values_fall_back_to_defaults(settings, config):
     for key in ("modifier_1", "modifier_2", "action"):
         config.set_app_setting(f"quick_capture_{key}", "unknown")
     settings.refresh_settings()
-    assert values(settings) == ("win", "", "copy_pin")
+    assert values(settings) == ("win", "", "none")
 
 
 def test_initial_invalid_values_fall_back_to_defaults(qapp, config):
@@ -111,7 +111,7 @@ def test_initial_invalid_values_fall_back_to_defaults(qapp, config):
         config.set_app_setting(f"quick_capture_{key}", "unknown")
     dialog = SimpleNamespace(config_manager=config, tr=lambda text: text)
     card = _create_quick_capture(dialog, None)
-    assert values(dialog) == ("win", "", "copy_pin")
+    assert values(dialog) == ("win", "", "none")
     card.deleteLater()
 
 
@@ -125,6 +125,7 @@ def test_compiled_quick_capture_translations(qapp, language):
         "Quick capture failed. Please try again.",
         "Capture, Copy and Pin", "Normal Capture",
         "Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. "
-        "Select at least one modifier to enable Quick Capture.",
+        "Off by default: choose an action and at least one modifier to turn it on. "
+        "Some security software may warn about keyboard monitoring once it is on; allow it to keep using Quick Capture.",
     ):
         assert translator.translate("SettingsDialog", source)

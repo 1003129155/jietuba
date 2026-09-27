@@ -26,7 +26,7 @@
     </message>
     <message>
         <source>Capture and Pin</source>
-        <translation>截图并贴图</translation>
+        <translation>截图并钉图</translation>
     </message>
     <message>
         <source>Capture and Copy</source>
@@ -34,15 +34,15 @@
     </message>
     <message>
         <source>Capture, Copy and Pin</source>
-        <translation>截图、复制并贴图</translation>
+        <translation>截图、复制并钉图</translation>
     </message>
     <message>
         <source>Normal Capture</source>
         <translation>普通截图</translation>
     </message>
     <message>
-        <source>Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. Select at least one modifier to enable Quick Capture.</source>
-        <translation>按住修饰键并按鼠标左键拖动，松开鼠标执行截图，Esc 取消。至少选择一个修饰键才能启用快速截图。</translation>
+        <source>Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. Off by default: choose an action and at least one modifier to turn it on. Some security software may warn about keyboard monitoring once it is on; allow it to keep using Quick Capture.</source>
+        <translation>按住修饰键并按鼠标左键拖动，松开鼠标执行截图，Esc 取消。默认关闭，选择一个动作并至少选择一个修饰键即可启用。启用后部分安全软件可能提示监控键盘输入，允许即可正常使用。</translation>
     </message>
     <message>
         <source>Shortcuts</source>

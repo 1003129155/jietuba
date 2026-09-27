@@ -174,9 +174,10 @@ class QuickCaptureController(QObject):
         """Apply saved settings, including the tray's global-hotkey pause."""
         self.cancel()
         config = self.main_app.config_manager
-        first = config.get_app_setting("quick_capture_modifier_1", "win")
-        second = config.get_app_setting("quick_capture_modifier_2", "")
-        self._action = config.get_app_setting("quick_capture_action", "copy_pin")
+        # 不传回退值，未保存时统一取 APP_DEFAULT_SETTINGS，和设置页显示的默认值一致
+        first = config.get_app_setting("quick_capture_modifier_1")
+        second = config.get_app_setting("quick_capture_modifier_2")
+        self._action = config.get_app_setting("quick_capture_action")
         valid = first in QUICK_CAPTURE_MODIFIERS and second in QUICK_CAPTURE_MODIFIERS
         modifiers = frozenset(key for key in (first, second) if key) if valid else frozenset()
         self._enabled = bool(

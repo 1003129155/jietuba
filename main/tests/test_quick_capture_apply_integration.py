@@ -109,6 +109,7 @@ def integration(qapp, qtbot, tmp_settings, tmp_path, monkeypatch):
     config.set_log_dir(str(tmp_path))
     config.set_screenshot_save_path(str(tmp_path / "captures"))
     config.set_clipboard_enabled(False)
+    config.set_app_setting("quick_capture_action", "copy_pin")
     app = AppHarness(config)
     dialog = SettingsDialog(config, current_hotkey=config.get_hotkey())
     for attr in ("log_toggle", "autostart_toggle", "language_combo"):
@@ -330,10 +331,11 @@ def test_apply_disabled_action_and_restore_defaults_reconfigure_real_input(integ
     assert fixture.hooks[-1].stopped
     drag(fixture, [0xA2, 0xA4], accepted=False)
 
+    # 默认关闭：恢复默认后不再挂钩子，任何修饰键拖动都不认领
     fixture.dialog._reset_hotkey_page()
     apply(fixture)
-    assert fixture.config.get_app_setting("quick_capture_action") == "copy_pin"
-    assert fixture.hooks[-1].started and not fixture.hooks[-1].stopped
+    assert fixture.config.get_app_setting("quick_capture_action") == "none"
+    assert fixture.hooks[-1].stopped
     drag(fixture, [0xA2, 0xA4], accepted=False)
-    drag(fixture, [0x5B], accepted=True)
-    assert fixture.pinned.call_count == 1
+    drag(fixture, [0x5B], accepted=False)
+    assert fixture.pinned.call_count == 0
