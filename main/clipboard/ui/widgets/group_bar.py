@@ -16,12 +16,19 @@ from PySide6.QtCore import Qt, Signal, QTimer, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QCursor, QAction
 
 from typing import Optional, List
+
+from core.ui_scale import scaled
 from ...controllers import ClipboardController
 from ...core import ClipboardManager, Group
 from ..menus.group_context_menu import ClipboardGroupContextMenu
 from ..theme.themes import Theme
 from ..theme.theme_styles import ThemeStyleGenerator
 from core.ui_theme import set_own_style
+
+
+# 100% 时的尺寸，实际像素按「工具栏与面板缩放」换算
+_BUTTON = 34
+_BAR = 40
 
 
 class GroupBar(QWidget):
@@ -105,6 +112,15 @@ class GroupBar(QWidget):
         self._build_bar()
         QTimer.singleShot(0, self.refresh_buttons)
 
+    def apply_scale(self):
+        """跟随「工具栏与面板缩放」：常驻按钮重设尺寸和样式，再按当前位置重建按钮栏"""
+        for btn in (self.close_btn, self.clipboard_btn, self.add_group_btn):
+            btn.setFixedSize(scaled(_BUTTON), scaled(_BUTTON))
+        self.close_btn.setStyleSheet(self._get_close_btn_style())
+        self.set_theme(self.current_theme)
+        self._build_bar()
+        QTimer.singleShot(0, self.refresh_buttons)
+
     def set_theme(self, theme: Theme):
         """主题切换时刷新样式"""
         self.current_theme = theme
@@ -128,27 +144,27 @@ class GroupBar(QWidget):
             self.group_buttons_layout.addWidget(btn)
             self.group_buttons.append(btn)
 
-        self.group_buttons_layout.addSpacing(8)
+        self.group_buttons_layout.addSpacing(scaled(8))
 
         if hidden_groups:
             overflow_btn = QPushButton("···")
-            overflow_btn.setFixedSize(34, 28)
+            overflow_btn.setFixedSize(scaled(_BUTTON), scaled(28))
             overflow_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             overflow_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             overflow_btn.setToolTip(self.tr("More groups ({n})").format(n=len(hidden_groups)))
-            overflow_btn.setStyleSheet("""
-                QPushButton {
+            overflow_btn.setStyleSheet(f"""
+                QPushButton {{
                     background: transparent;
                     color: #9CA3AF;
                     border: none;
-                    font-size: 24px;
+                    font-size: {scaled(24)}px;
                     font-weight: 600;
                     padding: 0px;
                     letter-spacing: 1px;
-                }
-                QPushButton:hover {
+                }}
+                QPushButton:hover {{
                     color: #374151;
-                }
+                }}
             """)
             overflow_btn.clicked.connect(
                 lambda _checked, hg=hidden_groups: self._show_overflow_group_menu(hg)
@@ -217,30 +233,17 @@ class GroupBar(QWidget):
 
     def _create_close_btn(self) -> QPushButton:
         btn = QPushButton("×")
-        btn.setFixedSize(34, 34)
+        btn.setFixedSize(scaled(_BUTTON), scaled(_BUTTON))
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setToolTip(self.tr("Close"))
         btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        btn.setStyleSheet("""
-            QPushButton {
-                background: transparent;
-                color: #999999;
-                border: none;
-                font-size: 20px;
-                padding: 0px;
-            }
-            QPushButton:hover {
-                background: #FFEBEE;
-                color: #F44336;
-                border-radius: 4px;
-            }
-        """)
+        btn.setStyleSheet(self._get_close_btn_style())
         btn.clicked.connect(self.close_requested.emit)
         return btn
 
     def _create_clipboard_btn(self) -> QPushButton:
         btn = QPushButton("📋")
-        btn.setFixedSize(34, 34)
+        btn.setFixedSize(scaled(_BUTTON), scaled(_BUTTON))
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setToolTip(self.tr("Clipboard History"))
         btn.setCheckable(True)
@@ -252,7 +255,7 @@ class GroupBar(QWidget):
 
     def _create_add_group_btn(self) -> QPushButton:
         btn = QPushButton("+")
-        btn.setFixedSize(34, 34)
+        btn.setFixedSize(scaled(_BUTTON), scaled(_BUTTON))
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         btn.setStyleSheet(self._get_add_group_btn_style())
@@ -262,7 +265,7 @@ class GroupBar(QWidget):
     def _make_group_btn(self, group: Group) -> QPushButton:
         icon = group.icon if group.icon else "📁"
         btn = QPushButton(icon)
-        btn.setFixedSize(34, 34)
+        btn.setFixedSize(scaled(_BUTTON), scaled(_BUTTON))
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setToolTip(group.name)
         btn.setCheckable(True)
@@ -318,30 +321,30 @@ class GroupBar(QWidget):
             self._clear_bar_layout()
             self.bar_layout.setDirection(direction)
 
+        bar = scaled(_BAR)
         if is_top:
-            self.setMinimumHeight(40)
-            self.setMaximumHeight(40)
+            self.setMinimumHeight(bar)
+            self.setMaximumHeight(bar)
             self.setMinimumWidth(0)
             self.setMaximumWidth(16777215)
             self.setStyleSheet("QWidget { background: #FAFAFA; border-bottom: 1px solid #E0E0E0; }")
-            self.bar_layout.setContentsMargins(2, 2, 2, 2)
-            self.bar_layout.setSpacing(4)
+            self.bar_layout.setContentsMargins(scaled(2), scaled(2), scaled(2), scaled(2))
         else:
-            self.setMinimumWidth(40)
-            self.setMaximumWidth(40)
+            self.setMinimumWidth(bar)
+            self.setMaximumWidth(bar)
             self.setMinimumHeight(0)
             self.setMaximumHeight(16777215)
             border_side = "border-right" if pos == "left" else "border-left"
             self.setStyleSheet(f"QWidget {{ background: #FAFAFA; {border_side}: 1px solid #E0E0E0; }}")
-            self.bar_layout.setContentsMargins(2, 8, 2, 8)
-            self.bar_layout.setSpacing(4)
+            self.bar_layout.setContentsMargins(scaled(2), scaled(8), scaled(2), scaled(8))
+        self.bar_layout.setSpacing(scaled(4))
 
         if self.group_buttons_layout is None:
             self.group_buttons_layout = QBoxLayout(direction, self.group_buttons_widget)
             self.group_buttons_layout.setContentsMargins(0, 0, 0, 0)
-            self.group_buttons_layout.setSpacing(4)
         else:
             self.group_buttons_layout.setDirection(direction)
+        self.group_buttons_layout.setSpacing(scaled(4))
 
         # --- 添加按钮到布局 ---
         if is_top:
@@ -375,15 +378,31 @@ class GroupBar(QWidget):
     #  样式
     # ================================================================
 
+    def _get_close_btn_style(self) -> str:
+        return f"""
+            QPushButton {{
+                background: transparent;
+                color: #999999;
+                border: none;
+                font-size: {scaled(20)}px;
+                padding: 0px;
+            }}
+            QPushButton:hover {{
+                background: #FFEBEE;
+                color: #F44336;
+                border-radius: {scaled(4)}px;
+            }}
+        """
+
     def _get_sidebar_btn_style(self) -> str:
         theme = self.current_theme.colors
         return f"""
             QPushButton {{
                 background: transparent;
                 color: {theme.text_secondary};
-                border: 2px solid transparent;
-                font-size: 20px;
-                border-radius: 4px;
+                border: {scaled(2)}px solid transparent;
+                font-size: {scaled(20)}px;
+                border-radius: {scaled(4)}px;
                 padding: 0px;
             }}
             QPushButton:hover {{
@@ -392,15 +411,15 @@ class GroupBar(QWidget):
             QPushButton:checked {{
                 background: {theme.bg_selected};
                 color: {theme.accent_primary};
-                border: 2px solid {theme.error};
+                border: {scaled(2)}px solid {theme.error};
             }}
             QToolTip {{
                 background: {theme.bg_primary};
                 color: {theme.text_primary};
                 border: 1px solid {theme.border_primary};
-                border-radius: 4px;
-                padding: 4px 8px;
-                font-size: 12px;
+                border-radius: {scaled(4)}px;
+                padding: {scaled(4)}px {scaled(8)}px;
+                font-size: {scaled(12)}px;
             }}
         """
 
@@ -416,9 +435,9 @@ class GroupBar(QWidget):
             QPushButton {{
                 background-color: {bg_color};
                 color: {theme.success};
-                border: 2px dashed {theme.success};
-                border-radius: 4px;
-                font-size: 20px;
+                border: {scaled(2)}px dashed {theme.success};
+                border-radius: {scaled(4)}px;
+                font-size: {scaled(20)}px;
                 font-weight: bold;
                 padding: 0px;
             }}

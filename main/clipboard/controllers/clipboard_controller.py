@@ -19,13 +19,14 @@ from .context_menu_controller import ClipboardContextMenuController, ContextMenu
 from .foreground_tracker import ForegroundWindowTracker
 from .paste_keystroke import paste_to_target
 from core.logger import T, log_debug, log_info, log_error, log_exception
+from core.ui_scale import scaled
 
 
 # ============================================================
 # 侧边栏溢出计算
 # ============================================================
 
-# 布局常量（与 window.py 右栏 UI 一致）
+# 布局常量（与 group_bar.py 的按钮栏一致，100% 时的像素；bar 的实际尺寸已按面板缩放放大）
 _TOP_USED = 8 + 34 + 4 + 1 + 4 + 34 + 4
 _BOTTOM_RESERVED = 8 + 34 + 4 + 34 + 8
 _BTN_SLOT = 34 + 4
@@ -40,16 +41,16 @@ def calc_sidebar_capacity(right_bar_height: int) -> int:
     """计算右侧按钮栏在当前高度下最多能显示的分组按钮数量。-1 表示未初始化。"""
     if right_bar_height <= 0:
         return -1
-    available = right_bar_height - _TOP_USED - _BOTTOM_RESERVED
-    return 0 if available <= 0 else available // _BTN_SLOT
+    available = right_bar_height - scaled(_TOP_USED) - scaled(_BOTTOM_RESERVED)
+    return 0 if available <= 0 else available // scaled(_BTN_SLOT)
 
 
 def calc_topbar_capacity(bar_width: int) -> int:
     """计算顶部横栏在当前宽度下最多能显示的分组按钮数量。"""
     if bar_width <= 0:
         return -1
-    available = bar_width - _H_LEFT_USED - _H_RIGHT_RESERVED
-    return 0 if available <= 0 else available // _H_BTN_SLOT
+    available = bar_width - scaled(_H_LEFT_USED) - scaled(_H_RIGHT_RESERVED)
+    return 0 if available <= 0 else available // scaled(_H_BTN_SLOT)
 
 
 class ClipboardController(QObject):

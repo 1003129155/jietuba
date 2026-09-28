@@ -115,7 +115,7 @@ def _build_ui_scale_card(dialog, grp: SettingCardGroup):
     card = FSettingCard(
         FluentIcon.LAYOUT,
         dialog.tr("Toolbar & Panel Scale"),
-        dialog.tr("Size of toolbars, tool panels and popups."),
+        dialog.tr("Size of toolbars, tool panels, popups and the clipboard window."),
         parent=grp,
     )
     dialog._ui_scale_combo = ComboBox(card)

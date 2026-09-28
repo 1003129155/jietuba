@@ -5,11 +5,17 @@
 将主题颜色转换为 Qt StyleSheet
 """
 
+from core.ui_scale import scaled
+
 from .themes import Theme
 
 
 class ThemeStyleGenerator:
-    """主题样式生成器"""
+    """主题样式生成器
+
+    剪贴板弹出窗口用到的那些样式按「工具栏与面板缩放」换算尺寸（1px 的线保持不变）；
+    管理对话框走「窗口缩放」，不用这里的样式。
+    """
     
     def __init__(self, theme: Theme):
         self.theme = theme
@@ -28,15 +34,15 @@ class ThemeStyleGenerator:
             QFrame#mainContainer {{
                 background: rgba({self._hex_to_rgb(self.colors.bg_primary)}, {alpha / 255});
                 border: 1px solid {self.colors.border_primary};
-                border-radius: 4px;
+                border-radius: {scaled(4)}px;
             }}
             QToolTip {{
                 background: {self.colors.bg_primary};
                 color: {self.colors.text_primary};
                 border: 1px solid {self.colors.border_primary};
-                border-radius: 4px;
-                padding: 4px 8px;
-                font-size: 12px;
+                border-radius: {scaled(4)}px;
+                padding: {scaled(4)}px {scaled(8)}px;
+                font-size: {scaled(12)}px;
             }}
         """
     
@@ -265,14 +271,14 @@ class ThemeStyleGenerator:
             QuickEditPopup {{
                 background: {self.colors.bg_primary};
                 border: 1px solid {self.colors.border_accent};
-                border-radius: 8px;
+                border-radius: {scaled(8)}px;
             }}
             QTextEdit {{
                 background: {self.colors.bg_primary};
                 border: 1px solid {self.colors.border_primary};
-                border-radius: 4px;
-                padding: 4px 6px;
-                font-size: 13px;
+                border-radius: {scaled(4)}px;
+                padding: {scaled(4)}px {scaled(6)}px;
+                font-size: {scaled(13)}px;
                 color: {self.colors.text_primary};
             }}
             QTextEdit:focus {{
@@ -280,15 +286,15 @@ class ThemeStyleGenerator:
             }}
             QLabel {{
                 color: {self.colors.text_tertiary};
-                font-size: 12px;
+                font-size: {scaled(12)}px;
             }}
             QPushButton {{
                 background: {self.colors.bg_secondary};
                 color: {self.colors.text_primary};
                 border: 1px solid {self.colors.border_primary};
-                border-radius: 4px;
-                padding: 4px 12px;
-                font-size: 12px;
+                border-radius: {scaled(4)}px;
+                padding: {scaled(4)}px {scaled(12)}px;
+                font-size: {scaled(12)}px;
             }}
             QPushButton:hover {{
                 background: {self.colors.bg_hover};
@@ -309,11 +315,11 @@ class ThemeStyleGenerator:
             QMenu {{
                 background: {self.colors.bg_primary};
                 border: 1px solid {self.colors.border_primary};
-                border-radius: 4px;
-                padding: 4px;
+                border-radius: {scaled(4)}px;
+                padding: {scaled(4)}px;
             }}
             QMenu::item {{
-                padding: 8px 20px;
+                padding: {scaled(8)}px {scaled(20)}px;
                 color: {self.colors.text_primary};
             }}
             QMenu::item:selected {{
@@ -322,7 +328,7 @@ class ThemeStyleGenerator:
             QMenu::separator {{
                 height: 1px;
                 background: {self.colors.border_primary};
-                margin: 4px 8px;
+                margin: {scaled(4)}px {scaled(8)}px;
             }}
         """
 
@@ -334,8 +340,8 @@ class ThemeStyleGenerator:
                 background: {bg};
                 border: none;
                 color: {self.colors.text_primary};
-                font-size: 13px;
-                padding: 4px;
+                font-size: {scaled(13)}px;
+                padding: {scaled(4)}px;
             }}
         """
 
@@ -346,13 +352,13 @@ class ThemeStyleGenerator:
                 background: transparent;
                 color: {self.colors.text_tertiary};
                 border: none;
-                font-size: 16px;
+                font-size: {scaled(16)}px;
                 padding: 0px;
             }}
             QPushButton:hover {{
                 background: {self.colors.bg_hover};
                 color: {self.colors.text_primary};
-                border-radius: 12px;
+                border-radius: {scaled(12)}px;
             }}
         """
 
@@ -363,8 +369,8 @@ class ThemeStyleGenerator:
                 background: transparent;
                 color: {self.colors.text_secondary};
                 border: none;
-                border-radius: 4px;
-                font-size: 17px;
+                border-radius: {scaled(4)}px;
+                font-size: {scaled(17)}px;
                 padding: 0px;
             }}
             QToolButton:hover {{
@@ -384,9 +390,9 @@ class ThemeStyleGenerator:
                 background: {self.colors.bg_primary};
                 color: {self.colors.text_primary};
                 border: 1px solid {self.colors.border_primary};
-                border-radius: 4px;
-                padding: 4px 8px;
-                font-size: 12px;
+                border-radius: {scaled(4)}px;
+                padding: {scaled(4)}px {scaled(8)}px;
+                font-size: {scaled(12)}px;
             }}
             QDateEdit:focus {{
                 border-color: {self.colors.border_accent};
@@ -398,19 +404,19 @@ class ThemeStyleGenerator:
             QDateEdit::drop-down {{
                 subcontrol-origin: padding;
                 subcontrol-position: top right;
-                width: 18px;
+                width: {scaled(18)}px;
                 border-left: 1px solid {self.colors.border_primary};
-                border-top-right-radius: 4px;
-                border-bottom-right-radius: 4px;
+                border-top-right-radius: {scaled(4)}px;
+                border-bottom-right-radius: {scaled(4)}px;
                 background: {self.colors.bg_tertiary};
             }}
             QDateEdit::down-arrow {{
                 image: none;
                 width: 0px;
                 height: 0px;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 5px solid {self.colors.text_secondary};
+                border-left: {scaled(4)}px solid transparent;
+                border-right: {scaled(4)}px solid transparent;
+                border-top: {scaled(5)}px solid {self.colors.text_secondary};
             }}
         """
 
@@ -431,8 +437,8 @@ class ThemeStyleGenerator:
                 background: transparent;
                 color: {self.colors.text_primary};
                 border: none;
-                border-radius: 4px;
-                padding: 4px;
+                border-radius: {scaled(4)}px;
+                padding: {scaled(4)}px;
             }}
             QCalendarWidget QToolButton:hover {{
                 background: {self.colors.bg_hover};
@@ -450,8 +456,8 @@ class ThemeStyleGenerator:
                 background: {self.colors.bg_primary};
                 color: {self.colors.text_primary};
                 border: 1px solid {self.colors.border_primary};
-                border-radius: 4px;
-                padding: 2px 4px;
+                border-radius: {scaled(4)}px;
+                padding: {scaled(2)}px {scaled(4)}px;
             }}
             QCalendarWidget QAbstractItemView {{
                 background: {self.colors.bg_primary};
@@ -482,9 +488,9 @@ class ThemeStyleGenerator:
                 background: {bg};
                 color: {fg};
                 border: 1px solid {border};
-                border-radius: 4px;
+                border-radius: {scaled(4)}px;
                 padding: 0px;
-                font-size: 12px;
+                font-size: {scaled(12)}px;
                 font-weight: 500;
             }}
             QToolButton:hover {{
@@ -541,9 +547,9 @@ class ThemeStyleGenerator:
                 background: {self.colors.bg_primary};
                 color: {self.colors.text_primary};
                 border: 1px solid {self.colors.border_primary};
-                border-radius: 4px;
-                padding: 3px 6px;
-                font-size: 12px;
+                border-radius: {scaled(4)}px;
+                padding: {scaled(3)}px {scaled(6)}px;
+                font-size: {scaled(12)}px;
                 text-align: center;
             }}
             QToolButton:hover {{
@@ -561,12 +567,12 @@ class ThemeStyleGenerator:
                 background: transparent;
                 color: {self.colors.text_secondary};
                 border: none;
-                font-size: 18px;
+                font-size: {scaled(18)}px;
                 font-weight: normal;
             }}
             QPushButton:hover {{
                 background: {self.colors.bg_hover};
-                border-radius: 4px;
+                border-radius: {scaled(4)}px;
             }}
         """
     

@@ -16,6 +16,7 @@ from core.i18n import make_tr
 from ui.fluent_lite import TextEdit
 from typing import TYPE_CHECKING
 from core.ui_theme import set_own_style
+from core.ui_scale import scaled as _px
 
 _tr = make_tr("ClipboardPreview")
 
@@ -23,17 +24,19 @@ if TYPE_CHECKING:
     from ...core import ClipboardManager, ClipboardItem
 
 
-def side_position(size: QSize, pos: QPoint, avoid_rect=None, prefer_side: str = "auto", gap: int = 10) -> QPoint:
+def side_position(size: QSize, pos: QPoint, avoid_rect=None, prefer_side: str = "auto", gap: int = None) -> QPoint:
     """浮层左上角位置：放在 avoid_rect（通常是剪贴板窗口）左侧或右侧，并限制在屏幕内。
 
     prefer_side 为 "left" / "right" / "auto"（优先右侧）；首选侧放不下时换另一侧，
     两侧都放不下时取空间较大的一侧。没有 avoid_rect 时放在 pos 右侧。
     """
+    if gap is None:
+        gap = _px(10)
     screen = QApplication.screenAt(pos) or QApplication.primaryScreen()
     screen_geo = screen.availableGeometry()
     width, height = size.width(), size.height()
 
-    x = pos.x() + 20
+    x = pos.x() + _px(20)
     y = pos.y()
 
     if avoid_rect is not None:
@@ -81,14 +84,6 @@ class PreviewPopup(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
         
-        self.setStyleSheet("""
-            PreviewPopup {
-                background: #FAFAFA;
-                border: 1px solid #D0D0D0;
-                border-radius: 8px;
-            }
-        """)
-        
         self._setup_ui()
         self._manager = None
         self._current_item_id = None
@@ -107,13 +102,12 @@ class PreviewPopup(QWidget):
     
     def _setup_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(2, 2, 2, 2)
+        self._layout = layout
         layout.setSpacing(0)
         
         # 标题行（仅用于文本预览，图片预览时隐藏）
         self.title_label = QLabel()
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        self.title_label.setStyleSheet("font-size: 12px; color: #666; font-weight: bold; padding-left: 4px;")
         self.title_label.hide()  # 默认隐藏
         layout.addWidget(self.title_label)
         
@@ -125,28 +119,43 @@ class PreviewPopup(QWidget):
         # 禁用滚动条
         self.content_widget.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.content_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.content_widget.setStyleSheet("""
-            QTextEdit {
-                background: #FAFAFA;
-                border: 1px solid #E0E0E0;
-                border-radius: 4px;
-                padding: 4px 8px;
-                font-size: 13px;
-                color: #333;
-            }
-        """)
-        # 设置文档边距为0，减少额外空间
-        self.content_widget.document().setDocumentMargin(2)
-        # 只设置最大尺寸，让内容自适应
-        self.content_widget.setMaximumSize(500, 400)
         layout.addWidget(self.content_widget)
         
         # 图片预览（默认隐藏）
         self.image_label = QLabel()
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        set_own_style(self.image_label, "background: #F0F0F0; border: 1px solid #E0E0E0; border-radius: 4px;")
         self.image_label.hide()
         layout.addWidget(self.image_label)
+        self.apply_scale()
+
+    def apply_scale(self):
+        """跟随「工具栏与面板缩放」重设样式和尺寸上限；显示中的预览下次显示时按新尺寸排版"""
+        self.setStyleSheet(f"""
+            PreviewPopup {{
+                background: #FAFAFA;
+                border: 1px solid #D0D0D0;
+                border-radius: {_px(8)}px;
+            }}
+        """)
+        margin = _px(2)
+        self._layout.setContentsMargins(margin, margin, margin, margin)
+        self.title_label.setStyleSheet(
+            f"font-size: {_px(12)}px; color: #666; font-weight: bold; padding-left: {_px(4)}px;")
+        self.content_widget.setStyleSheet(f"""
+            QTextEdit {{
+                background: #FAFAFA;
+                border: 1px solid #E0E0E0;
+                border-radius: {_px(4)}px;
+                padding: {_px(4)}px {_px(8)}px;
+                font-size: {_px(13)}px;
+                color: #333;
+            }}
+        """)
+        self.content_widget.document().setDocumentMargin(_px(2))
+        # 只设置最大尺寸，让内容自适应
+        self.content_widget.setMaximumSize(_px(500), _px(400))
+        set_own_style(self.image_label,
+                      f"background: #F0F0F0; border: 1px solid #E0E0E0; border-radius: {_px(4)}px;")
     
     def set_manager(self, manager: 'ClipboardManager'):
         """设置剪贴板管理器（用于加载图片）"""
@@ -238,7 +247,7 @@ class PreviewPopup(QWidget):
         
         # 先重置尺寸约束
         self.content_widget.setMinimumSize(0, 0)
-        self.content_widget.setMaximumSize(500, 400)
+        self.content_widget.setMaximumSize(_px(500), _px(400))
         
         self.content_widget.setPlainText(content)
         
@@ -316,7 +325,7 @@ class PreviewPopup(QWidget):
             
             # 先重置尺寸约束
             self.content_widget.setMinimumSize(0, 0)
-            self.content_widget.setMaximumSize(500, 400)
+            self.content_widget.setMaximumSize(_px(500), _px(400))
             
             self.content_widget.setPlainText(text)
             
@@ -327,7 +336,7 @@ class PreviewPopup(QWidget):
         except Exception as e:
             log_exception(e, T("加载文本预览"))
             self.content_widget.setMinimumSize(0, 0)
-            self.content_widget.setMaximumSize(500, 400)
+            self.content_widget.setMaximumSize(_px(500), _px(400))
             self.content_widget.setPlainText(item.content)
             self._adjust_content_size()
             self.content_widget.show()
@@ -351,15 +360,15 @@ class PreviewPopup(QWidget):
             line_width = font_metrics.horizontalAdvance(line)
             max_line_width = max(max_line_width, line_width)
         
-        # padding 计算：CSS padding 4px 上下 + 8px 左右 + 边框 2px + 文档边距 2px
-        h_padding = 8 * 2 + 2 * 2 + 4  # 左右 padding + 边框 + 余量
-        v_padding = 4 * 2 + 2 * 2 + 4  # 上下 padding + 边框 + 文档边距
+        # padding 计算：CSS padding 4px 上下 + 8px 左右 + 边框 2px + 文档边距 2px（均为 100% 时的值）
+        h_padding = _px(8) * 2 + _px(2) * 2 + _px(4)  # 左右 padding + 边框 + 余量
+        v_padding = _px(4) * 2 + _px(2) * 2 + _px(4)  # 上下 padding + 边框 + 文档边距
         
         ideal_width = max_line_width + h_padding
         
         # 限制最大宽度
-        max_width = 500
-        min_width = 80
+        max_width = _px(500)
+        min_width = _px(80)
         
         if ideal_width <= max_width:
             # 内容不需要换行，使用理想宽度
@@ -377,7 +386,7 @@ class PreviewPopup(QWidget):
             actual_height = int(doc.size().height()) + v_padding
         
         # 限制高度范围
-        max_height = 550
+        max_height = _px(550)
         min_height = line_height + v_padding  # 至少能显示一行
         
         actual_height = min(actual_height, max_height)
@@ -414,7 +423,7 @@ class PreviewPopup(QWidget):
                 pixmap.loadFromData(image_data)
                 # 缩放到合适大小
                 scaled = pixmap.scaled(
-                    400, 300,
+                    _px(400), _px(300),
                     Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation
                 )
@@ -433,7 +442,7 @@ class PreviewPopup(QWidget):
                     pixmap = QPixmap()
                     pixmap.loadFromData(image_data)
                     scaled = pixmap.scaled(
-                        400, 300,
+                        _px(400), _px(300),
                         Qt.AspectRatioMode.KeepAspectRatio,
                         Qt.TransformationMode.SmoothTransformation
                     )

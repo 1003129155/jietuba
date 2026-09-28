@@ -3985,8 +3985,8 @@ SOFTWARE.</translation></message>
         <translation>도구 모음 및 패널 배율</translation>
     </message>
     <message>
-        <source>Size of toolbars, tool panels and popups.</source>
-        <translation>도구 모음의 표시 크기입니다.</translation>
+        <source>Size of toolbars, tool panels, popups and the clipboard window.</source>
+        <translation>도구 모음, 도구 패널, 팝업과 클립보드 창의 표시 크기입니다.</translation>
     </message>
     <message>
         <source>Window Scale</source>

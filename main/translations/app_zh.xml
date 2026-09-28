@@ -4055,8 +4055,8 @@ SOFTWARE.</translation></message>
         <translation>工具栏与面板缩放</translation>
     </message>
     <message>
-        <source>Size of toolbars, tool panels and popups.</source>
-        <translation>工具栏的显示大小。</translation>
+        <source>Size of toolbars, tool panels, popups and the clipboard window.</source>
+        <translation>工具栏、工具面板、弹层和剪贴板窗口的显示大小。</translation>
     </message>
     <message>
         <source>Window Scale</source>

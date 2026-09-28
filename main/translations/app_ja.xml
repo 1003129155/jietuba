@@ -4026,8 +4026,8 @@ SOFTWARE.</translation></message>
         <translation>ツールバーとパネルの拡大率</translation>
     </message>
     <message>
-        <source>Size of toolbars, tool panels and popups.</source>
-        <translation>ツールバーの表示サイズ。</translation>
+        <source>Size of toolbars, tool panels, popups and the clipboard window.</source>
+        <translation>ツールバー、ツールパネル、ポップアップ、クリップボードウィンドウの表示サイズ。</translation>
     </message>
     <message>
         <source>Window Scale</source>

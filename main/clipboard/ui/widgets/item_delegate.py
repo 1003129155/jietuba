@@ -23,6 +23,7 @@ from PySide6.QtGui import (
 from ...core import ClipboardItem
 from ..theme.themes import Theme
 from core.logger import T, log_error
+from core.ui_scale import scaled as _px
 
 
 # QListWidgetItem 自定义数据角色
@@ -111,6 +112,14 @@ class ClipboardItemDelegate(QStyledItemDelegate):
         self._display_lines = lines
         self._rebuild_font_cache()
 
+    def apply_scale(self):
+        """跟随「工具栏与面板缩放」：字体按新比例重建，行高和边距在绘制时现算"""
+        self._rebuild_font_cache()
+
+    def _font_size(self) -> int:
+        """设置里的字号是 100% 时的像素值，再乘面板缩放比例"""
+        return _px(self._display_lines if self._display_lines >= 10 else 15)
+
     def set_window_opacity(self, opacity: int):
         self._window_opacity = opacity
         self._rebuild_color_cache()
@@ -163,18 +172,18 @@ class ClipboardItemDelegate(QStyledItemDelegate):
 
     def _rebuild_font_cache(self):
         """预创建 paint 中需要的所有 QFont 和 QFontMetrics"""
-        font_size = self._display_lines if self._display_lines >= 10 else 15
+        font_size = self._font_size()
 
         # 快捷键字体
         sf = QFont()
-        sf.setPixelSize(max(10, font_size - 1))
+        sf.setPixelSize(max(_px(10), font_size - 1))
         sf.setBold(True)
         self._font_cache["shortcut"] = sf
         self._fm_cache["shortcut"] = QFontMetrics(sf)
 
         # 图标字体
         icf = QFont()
-        icf.setPixelSize(16)
+        icf.setPixelSize(_px(16))
         self._font_cache["icon"] = icf
 
         # 内容字体
@@ -185,7 +194,7 @@ class ClipboardItemDelegate(QStyledItemDelegate):
 
         # 元数据字体
         mf = QFont()
-        mf.setPixelSize(10)
+        mf.setPixelSize(_px(10))
         self._font_cache["meta"] = mf
 
     # ========== 核心绘制 ==========
@@ -216,7 +225,7 @@ class ClipboardItemDelegate(QStyledItemDelegate):
 
         # ---- 左边框（选中指示条） ----
         if is_selected:
-            painter.fillRect(QRect(rect.left(), rect.top(), 3, rect.height()), cc["border_selected"])
+            painter.fillRect(QRect(rect.left(), rect.top(), _px(3), rect.height()), cc["border_selected"])
 
         # ---- 底部分隔线 ----
         pen = QPen(cc["border_bottom"])
@@ -225,7 +234,7 @@ class ClipboardItemDelegate(QStyledItemDelegate):
         painter.drawLine(rect.left(), rect.bottom(), rect.right(), rect.bottom())
 
         # ---- 快捷键徽标（直选键对应的前几项，左侧固定区域） ----
-        shortcut_badge_width = _SHORTCUT_BADGE_WIDTH if self._show_shortcuts else 0
+        shortcut_badge_width = _px(_SHORTCUT_BADGE_WIDTH) if self._show_shortcuts else 0
         if self._show_shortcuts and row < len(self._shortcut_labels):
             label = self._shortcut_labels[row]
             shortcut_font = self._font_cache["shortcut"]
@@ -234,7 +243,7 @@ class ClipboardItemDelegate(QStyledItemDelegate):
             # 用 QFontMetrics 精确居中：从选中指示条(3px)之后的区域水平居中
             fm_s = self._fm_cache["shortcut"]
             text_w = fm_s.horizontalAdvance(label)
-            badge_area_left = rect.left() + 3  # 跳过左侧选中指示条
+            badge_area_left = rect.left() + _px(3)  # 跳过左侧选中指示条
             badge_x = badge_area_left + (shortcut_badge_width - text_w) // 2
             badge_y = rect.top() + (rect.height() + fm_s.ascent() - fm_s.descent()) // 2
             painter.drawText(badge_x, badge_y, label)
@@ -242,14 +251,14 @@ class ClipboardItemDelegate(QStyledItemDelegate):
         # ---- 内容区域 ----
         # 有快捷键徽标时：徽标宽度 + 4px 间距；无徽标时：标准左边距 12px
         if self._show_shortcuts and row < len(self._shortcut_labels):
-            content_left = rect.left() + shortcut_badge_width + 4
+            content_left = rect.left() + shortcut_badge_width + _px(4)
         else:
-            content_left = rect.left() + 12
-        content_right = rect.right() - 5  # 右边距
+            content_left = rect.left() + _px(12)
+        content_right = rect.right() - _px(5)  # 右边距
         content_top = rect.top() + 1
         content_width = content_right - content_left
 
-        font_size = self._display_lines if self._display_lines >= 10 else 15
+        font_size = self._font_size()
         x_offset = content_left
 
         # ---- 图标 / 缩略图 ----
@@ -267,13 +276,13 @@ class ClipboardItemDelegate(QStyledItemDelegate):
                 )
                 painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
                 painter.drawPixmap(thumb_rect, pixmap)
-                x_offset += scaled.width() + 6
+                x_offset += scaled.width() + _px(6)
         elif item_data.icon and not (self._hide_file_icon and item_data.content_type == "file"):
             painter.setFont(self._font_cache["icon"])
             painter.setPen(cc["text_primary"])
-            icon_rect = QRect(x_offset, content_top, 24, int(font_size * 1.4))
+            icon_rect = QRect(x_offset, content_top, _px(24), int(font_size * 1.4))
             painter.drawText(icon_rect, Qt.AlignmentFlag.AlignVCenter, item_data.icon)
-            x_offset += 24
+            x_offset += _px(24)
 
         # ---- 内容文字 ----
         content_font = self._font_cache["content"]
@@ -285,7 +294,7 @@ class ClipboardItemDelegate(QStyledItemDelegate):
         # 如果有 标记，给右侧留空间
         pin_width = 0
         if item_data.is_pinned:
-            pin_width = 24
+            pin_width = _px(24)
 
         display_text = item_data.display_text
         fm = self._fm_cache["content"]
@@ -310,21 +319,21 @@ class ClipboardItemDelegate(QStyledItemDelegate):
             meta_text = " · ".join(meta_parts)
 
             meta_y = content_top + int(font_size * 1.4)
-            meta_rect = QRect(content_left, meta_y, content_width, 16)
+            meta_rect = QRect(content_left, meta_y, content_width, _px(16))
             painter.drawText(meta_rect, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, meta_text)
 
         painter.restore()
 
     def sizeHint(self, option: QStyleOptionViewItem, index: QModelIndex) -> QSize:
-        font_size = self._display_lines if self._display_lines >= 10 else 15
-        content_height = int(font_size * 1.4) + 2  # 内容行 + 上下边距
+        font_size = self._font_size()
+        content_height = int(font_size * 1.4) + 2  # 内容行 + 上下各 1px 分隔
 
         if self._show_metadata:
-            content_height += 16  # 元数据行高
+            content_height += _px(16)  # 元数据行高
 
         item_data: ClipboardItem = index.data(ROLE_ITEM_DATA)
         if item_data and item_data.content_type == "image" and item_data.thumbnail:
-            content_height = max(int(content_height * self._image_row_span), _MIN_IMAGE_ROW_HEIGHT)
+            content_height = max(int(content_height * self._image_row_span), _px(_MIN_IMAGE_ROW_HEIGHT))
 
         return QSize(option.rect.width() if option.rect.width() > 0 else 300, content_height)
 
