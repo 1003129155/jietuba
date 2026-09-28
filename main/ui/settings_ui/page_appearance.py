@@ -319,11 +319,10 @@ def _build_pin_section(dialog, grp: SettingCardGroup):
 # ================================================================
 
 def _build_clipboard_section(dialog, grp: SettingCardGroup):
-    """剪贴板外观：主题 + 字体大小 + 透明度"""
-    from clipboard.ui.theme.themes import PRESET_THEME_SWATCHES, get_theme_manager
+    """剪贴板外观：主题 + 字体大小 + 透明度。和其它设置一样，点应用才保存生效。"""
+    from clipboard.ui.theme.themes import PRESET_THEME_SWATCHES
     from settings import get_tool_settings_manager
     config = get_tool_settings_manager()
-    theme_mgr = get_theme_manager()
 
     # ── 剪贴板主题（颜色块按钮） ──────────────────────
     current_theme_name = config.get_clipboard_theme()
@@ -354,9 +353,12 @@ def _build_clipboard_section(dialog, grp: SettingCardGroup):
         def _on_click(name: str):
             dialog._clip_theme_name = name
             _apply_clip_theme_btn_style(dialog._clip_theme_btn, name)
-            theme_mgr.set_theme(name)
             _update_btns(name)
             menu.close()
+            # 主题存在属性里，没有控件信号能带动应用按钮
+            update_buttons = getattr(dialog, "_update_action_buttons", None)
+            if update_buttons is not None:
+                update_buttons()
 
         for tname, (accent, bg) in PRESET_THEME_SWATCHES.items():
             wa = QWidgetAction(menu)
@@ -396,14 +398,6 @@ def _build_clipboard_section(dialog, grp: SettingCardGroup):
     idx = dialog._clip_font_combo.findData(current_font)
     if idx >= 0:
         dialog._clip_font_combo.setCurrentIndex(idx)
-
-    def _on_font_changed(index):
-        size = dialog._clip_font_combo.itemData(index)
-        if size is not None:
-            config.set_clipboard_font_size(size)
-            theme_mgr.notify_font_size_changed(size)
-
-    dialog._clip_font_combo.currentIndexChanged.connect(_on_font_changed)
     font_card.addControl(dialog._clip_font_combo)
     grp.addSettingCard(font_card)
 
@@ -423,14 +417,6 @@ def _build_clipboard_section(dialog, grp: SettingCardGroup):
     idx = dialog._clip_opacity_combo.findData(current_opacity)
     if idx >= 0:
         dialog._clip_opacity_combo.setCurrentIndex(idx)
-
-    def _on_opacity_changed(index):
-        percent = dialog._clip_opacity_combo.itemData(index)
-        if percent is not None:
-            config.set_clipboard_window_opacity(percent)
-            theme_mgr.notify_opacity_changed(percent)
-
-    dialog._clip_opacity_combo.currentIndexChanged.connect(_on_opacity_changed)
     opacity_card.addControl(dialog._clip_opacity_combo)
     grp.addSettingCard(opacity_card)
  

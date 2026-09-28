@@ -452,6 +452,7 @@ pin/
 ```text
 settings/
 ├── color_formats.py         # magnifier color format templates: render, load, save
+├── settings_transfer.py     # export/import settings-page options as a JSON file
 └── tool_settings.py         # ToolSettingsManager / ToolSettings — tool color, size, hotkey config
 ```
 
