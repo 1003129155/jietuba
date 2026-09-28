@@ -343,7 +343,7 @@ class TestSystemCursorDrawOnto:
         assert not _changed(outside, white)
 
 
-def test_capture_region_uses_absolute_pixels_and_owns_buffer():
+def test_capture_region_uses_absolute_pixels_and_owns_buffer(no_hdr):
     pixels = bytearray([30, 20, 10, 255] * 12)
     shot = MagicMock(width=4, height=3, bgra=pixels)
     with patch("capture.capture_service.mss.mss") as mss_factory:
@@ -358,7 +358,7 @@ def test_capture_region_uses_absolute_pixels_and_owns_buffer():
 
 
 @pytest.mark.parametrize("draw_fails", [False, True])
-def test_capture_region_composes_cursor_relative_to_region(draw_fails):
+def test_capture_region_composes_cursor_relative_to_region(no_hdr, draw_fails):
     cursor = MagicMock()
     if draw_fails:
         cursor.draw_onto.side_effect = RuntimeError("cursor unavailable")
@@ -377,6 +377,54 @@ def test_capture_region_rejects_empty_or_reversed_bounds(rect):
         with pytest.raises(ValueError, match="positive dimensions"):
             CaptureService().capture_region(rect)
     mss_factory.assert_not_called()
+
+
+class TestCaptureRegionHdr:
+    """快速截图的选区走 HDR 会话，和主截图同样用自适应映射。"""
+
+    def test_region_uses_adaptive_hdr_and_skips_mss(self, qapp):
+        session = MagicMock()
+        session.monitors = [_fake_monitor((-64, 0, 128, 32)), _fake_monitor((-64, 0, 64, 32)),
+                            _fake_monitor((0, 0, 64, 32))]
+        session.grab.return_value = _gradient_frame(64, 32)
+        mock_mss = MagicMock()
+
+        with patch("capture.capture_service._HdrSession.acquire", return_value=session),              patch("capture.capture_service.mss.mss", mock_mss):
+            image = CaptureService("auto").capture_region(QRect(-54, 5, 20, 10))
+
+        mock_mss.assert_not_called()
+        assert session.grab.call_args.kwargs["adaptive"] is True
+        assert (image.width(), image.height()) == (20, 10)
+        color = image.pixelColor(0, 0)
+        assert (color.blue(), color.green()) == (10, 5)
+
+    def test_cursor_is_drawn_on_hdr_region(self, qapp):
+        session = MagicMock()
+        session.monitors = [_fake_monitor((0, 0, 64, 32))]
+        session.grab.return_value = _gradient_frame(64, 32)
+        cursor = MagicMock()
+
+        with patch("capture.capture_service._HdrSession.acquire", return_value=session):
+            image = CaptureService("hdr").capture_region(QRect(8, 4, 20, 10), cursor)
+
+        cursor.draw_onto.assert_called_once_with(image, 8, 4)
+
+    def test_auto_falls_back_to_mss_when_hdr_grab_fails(self, qapp):
+        session = MagicMock()
+        session.monitors = [_fake_monitor((0, 0, 64, 32))]
+        session.grab.side_effect = RuntimeError("access lost")
+        shot = MagicMock(width=4, height=3, bgra=bytes([30, 20, 10, 255] * 12))
+
+        with patch("capture.capture_service._HdrSession.acquire", return_value=session),              patch("capture.capture_service.mss.mss") as mss_factory:
+            mss_factory.return_value.__enter__.return_value.grab.return_value = shot
+            image = CaptureService("auto").capture_region(QRect(0, 0, 4, 3))
+
+        assert image.width() == 4
+
+    def test_hdr_engine_raises_without_session(self, qapp):
+        with patch("capture.capture_service._HdrSession.acquire", return_value=None),              patch("capture.capture_service.mss.mss") as mss_factory,              pytest.raises(RuntimeError):
+            CaptureService("hdr").capture_region(QRect(0, 0, 4, 3))
+        mss_factory.assert_not_called()
 
 
 class TestExplicitEngine:
@@ -525,11 +573,31 @@ def fake_hdrcapture():
 
     module = MagicMock()
     with patch("capture.capture_service.hdrcapture", module), \
-         patch.multiple(_HdrSession, _capture=None, _owner_thread=None, _failed=False):
+         patch.multiple(_HdrSession, _capture=None, _failed=False):
         yield module
 
 
 class TestHdrSessionLifecycle:
+
+    def test_worker_thread_neither_creates_nor_uses_session(self, fake_hdrcapture):
+        """子线程先来也不能把会话钉在自己身上，否则主线程之后全部拿不到。"""
+        import threading
+        from capture.capture_service import _HdrSession
+
+        results = []
+        worker = threading.Thread(target=lambda: results.append(_HdrSession.acquire()))
+        worker.start()
+        worker.join()
+
+        assert results == [None]
+        fake_hdrcapture.Capture.assert_not_called()
+        session = _HdrSession.acquire()
+        assert session is fake_hdrcapture.Capture.return_value
+
+        worker = threading.Thread(target=lambda: results.append(_HdrSession.acquire()))
+        worker.start()
+        worker.join()
+        assert results == [None, None]
 
     def test_creation_failure_is_remembered(self, fake_hdrcapture):
         from capture.capture_service import _HdrSession

@@ -29,36 +29,34 @@ class _HdrSession:
     会话必须常驻：新建会话要先等到一次真实的桌面 present 才有首帧，显示器休眠时
     等不到，每次截图都重建就等于每次都冒这个险。
 
-    pyo3 把会话钉在创建它的线程上（D3D11 immediate context 非线程安全），所以只认
-    第一个使用它的线程，其余线程拿到 None。
+    pyo3 把会话钉在创建它的线程上（D3D11 immediate context 非线程安全）。截图、快速截图、
+    长截图都在 GUI 主线程取帧，所以只在主线程建会话、只给主线程用；子线程先来建会话会把它
+    钉在一个用完就退出的线程上，之后主线程全部拿不到。
 
     建会话失败后记住失败，不在每次截图时重试；forget_failure() / reset() 清掉这个记录。
     """
 
     _lock = threading.Lock()
     _capture = None
-    _owner_thread = None
     _failed = False
 
     @classmethod
     def acquire(cls):
-        """返回可用的会话；不可用时返回 None。"""
+        """返回可用的会话；不可用或不在主线程时返回 None。"""
         if hdrcapture is None or cls._failed:
+            return None
+        if threading.current_thread() is not threading.main_thread():
             return None
 
         with cls._lock:
             if cls._capture is None:
                 try:
                     cls._capture = hdrcapture.Capture(timeout_ms=_HDR_TIMEOUT_MS)
-                    cls._owner_thread = threading.get_ident()
                     log_debug(T("HDR 捕获会话已建立"), "CaptureService")
                 except Exception as e:
                     cls._failed = True
                     log_exception(e, T("建立 HDR 捕获会话失败"))
                     return None
-
-            if cls._owner_thread != threading.get_ident():
-                return None
             return cls._capture
 
     @classmethod
@@ -70,13 +68,12 @@ class _HdrSession:
     def reset(cls):
         """释放会话并清掉失败记录。
 
-        必须在会话所属线程调用：unsendable 对象在别的线程上 close 会直接抛错。
+        必须在主线程调用：unsendable 对象在别的线程上 close 会直接抛错。
         """
         with cls._lock:
             if cls._capture is not None:
                 cls._capture.close()
             cls._capture = None
-            cls._owner_thread = None
             cls._failed = False
 
 
@@ -98,20 +95,25 @@ def _grab_hdr_frame(session, monitor, adaptive=False):
     return frame
 
 
-def grab_region_hdr(rect):
+def grab_region_hdr(rect, adaptive=False):
     """用 HDR 会话抓虚拟桌面上的一块区域（物理像素坐标），返回 QImage。
 
-    区域落在单块屏内时只回读那块屏，跨屏才回读整个虚拟桌面：多屏时每帧都回读整个
-    桌面，瞬时内存和拷贝量都会按屏数翻倍。须在会话所属线程调用，拿不到会话时抛 RuntimeError。
+    须在主线程调用，拿不到会话时抛 RuntimeError。adaptive 见 _grab_hdr_frame。
     """
     session = _HdrSession.acquire()
     if session is None:
         raise RuntimeError("HDR capture session unavailable")
+    return _grab_region(session, rect, adaptive)
 
+
+def _grab_region(session, rect, adaptive):
+    """区域落在单块屏内时只回读那块屏，跨屏才回读整个虚拟桌面：多屏时每帧都回读整个
+    桌面，瞬时内存和拷贝量都会按屏数翻倍。
+    """
     # 热插拔或改显示设置后会话会重建，monitor 列表每次重新读取。
     monitors = session.monitors
     monitor = next((m for m in monitors[1:] if _contains(m.rect, rect)), monitors[0])
-    frame = _grab_hdr_frame(session, monitor)
+    frame = _grab_hdr_frame(session, monitor, adaptive=adaptive)
 
     left, top = monitor.rect[0], monitor.rect[1]
     # QImage 只是借用 frame.bgra 的内存，copy 出区域后就不再引用它。
@@ -172,11 +174,11 @@ class CaptureService:
         """Capture an absolute physical-pixel region, including negative origins."""
         if rect.width() <= 0 or rect.height() <= 0:
             raise ValueError("Capture region must have positive dimensions")
-        monitor = dict(left=rect.x(), top=rect.y(), width=rect.width(), height=rect.height())
-        with mss.mss() as sct:
-            shot = sct.grab(monitor)
-            image = QImage(shot.bgra, shot.width, shot.height, shot.width * 4,
-                           QImage.Format.Format_RGB32).copy()
+        # 和主截图同样用自适应映射，同一块画面两种方式截出来一致。
+        image = self._with_engine(
+            lambda session: _grab_region(session, rect, adaptive=True),
+            lambda: self._capture_region_with_mss(rect),
+        )
         _draw_cursor(image, rect.x(), rect.y(), cursor)
         return image
 
@@ -192,26 +194,26 @@ class CaptureService:
             - QImage: 包含所有屏幕的完整截图
             - QRectF: 虚拟桌面的几何信息 (x, y, width, height)
         """
-        image, rect = self._capture_screens()
+        image, rect = self._with_engine(self._capture_with_hdr, self._capture_with_mss)
         _draw_cursor(image, int(rect.x()), int(rect.y()), cursor)
         return image, rect
 
-    def _capture_screens(self):
+    def _with_engine(self, capture_hdr, capture_mss):
         if self.engine == "mss":
-            return self._capture_with_mss()
+            return capture_mss()
 
         session = _HdrSession.acquire()
         if self.engine == "hdr":
             if session is None:
                 raise RuntimeError("HDR capture session unavailable")
-            return self._capture_with_hdr(session)
+            return capture_hdr(session)
 
         if session is not None:
             try:
-                return self._capture_with_hdr(session)
+                return capture_hdr(session)
             except Exception as e:
                 log_warning(T("HDR 截图失败，回落 mss: {error}", error=e), "CaptureService")
-        return self._capture_with_mss()
+        return capture_mss()
 
     @staticmethod
     def _capture_with_hdr(session):
@@ -228,6 +230,14 @@ class CaptureService:
 
         x, y, width, height = monitor.rect
         return qimage, QRectF(x, y, width, height)
+
+    @staticmethod
+    def _capture_region_with_mss(rect):
+        monitor = dict(left=rect.x(), top=rect.y(), width=rect.width(), height=rect.height())
+        with mss.mss() as sct:
+            shot = sct.grab(monitor)
+            return QImage(shot.bgra, shot.width, shot.height, shot.width * 4,
+                          QImage.Format.Format_RGB32).copy()
 
     def _capture_with_mss(self):
         with mss.mss() as sct:
