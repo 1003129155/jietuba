@@ -165,6 +165,9 @@ pub enum Error {
     /// DXGI invalidated a session because display state changed.
     #[error("DXGI duplication access was lost")]
     AccessLost,
+    /// No duplication sessions exist because the last rebuild failed; the next capture retries it.
+    #[error("no capture sessions are available after a failed rebuild")]
+    SessionsUnavailable,
     /// A monitor's DXGI frame dimensions no longer match its display-topology rectangle.
     #[error(
         "monitor {index} changed dimensions from {expected_width}x{expected_height} to {actual_width}x{actual_height}"
@@ -451,11 +454,12 @@ impl Capture {
         self.refresh_topology()?;
 
         let result = self.grab_once(monitor_index, timeout_ms, tone_mapping).or_else(|error| {
-            if !matches!(error, Error::AccessLost | Error::DimensionsChanged { .. }) {
+            if !matches!(error, Error::AccessLost | Error::DimensionsChanged { .. }) && !self.device_lost() {
                 return Err(error);
             }
             // A display mode change invalidates both the duplication object and often the HDR
-            // format. Re-enumerate first, then retry exactly once so persistent failures surface.
+            // format; a lost device fails every later call. Re-enumerate first, then retry exactly
+            // once so persistent failures surface.
             self.rebuild(display::enumerate_displays()?)?;
             self.grab_once(monitor_index, timeout_ms, tone_mapping)
         });
@@ -466,6 +470,15 @@ impl Capture {
         } else {
             result
         }
+    }
+
+    /// Whether a session's D3D device was removed or reset, e.g. by a driver update, a TDR
+    /// recovery, or a GPU switch. Errors from such a device are not tied to one HRESULT, so the
+    /// device is asked directly.
+    fn device_lost(&self) -> bool {
+        self.sessions
+            .iter()
+            .any(|session| unsafe { session.duplication.device().GetDeviceRemovedReason() }.is_err())
     }
 
     fn refresh_topology(&mut self) -> Result<(), Error> {
@@ -483,10 +496,12 @@ impl Capture {
         // DXGI allows only one live IDXGIOutputDuplication per output, so the replacement sessions
         // must be built after the current ones are gone, not before: building `rebuilt` while
         // `self.sessions` is still alive fails DuplicateOutput1 with E_INVALIDARG for every output
-        // that the old and new session sets have in common. If `from_displays` fails here, the next
-        // `refresh_topology` retries from a clean slate rather than this half-torn-down one.
+        // that the old and new session sets have in common. Clearing `displays` as well makes a
+        // failed `from_displays` look like a topology change, so the next `refresh_topology`
+        // retries the rebuild instead of capturing with no sessions.
         self.sessions.clear();
         self.compositor = None;
+        self.displays.clear();
         let mut rebuilt = Self::from_displays(self.timeout_ms, displays)?;
         rebuilt.stats = stats;
         rebuilt.grab_samples = grab_samples;
@@ -524,6 +539,10 @@ impl Capture {
     }
 
     fn grab_virtual_desktop(&mut self, timeout_ms: u32, tone_mapping: ToneMapping) -> Result<Frame, Error> {
+        // With no sessions the CPU composition below would return an all-black desktop as success.
+        if self.sessions.is_empty() {
+            return Err(Error::SessionsUnavailable);
+        }
         for session in &mut self.sessions {
             session.update(timeout_ms, tone_mapping)?;
         }
@@ -1233,5 +1252,28 @@ mod virtual_desktop_simulation {
             desktop.x,
             desktop.y
         );
+    }
+}
+
+#[cfg(test)]
+mod real_desktop {
+    //! Needs an interactive desktop with Desktop Duplication, which CI runners lack.
+    //! Run with `cargo test -p hdrcapture -- --ignored`. Kept to a single test: a process may
+    //! hold only one duplication session per output, so parallel tests would fail each other.
+
+    use super::{Capture, Error, ToneMapping};
+
+    #[test]
+    #[ignore = "needs a real desktop"]
+    fn a_failed_rebuild_errors_until_the_next_grab_rebuilds() {
+        let mut capture = Capture::with_timeout(100).expect("capture session");
+        assert!(capture.rebuild(Vec::new()).is_err());
+
+        let result = capture.grab_virtual_desktop(0, ToneMapping::Static);
+        assert!(matches!(result, Err(Error::SessionsUnavailable)), "a black desktop must not pass as a capture");
+
+        let frame = capture.grab(0).expect("the next grab rebuilds the sessions");
+        assert!(!capture.sessions.is_empty());
+        assert_eq!((frame.width, frame.height), (capture.virtual_rect.width, capture.virtual_rect.height));
     }
 }
