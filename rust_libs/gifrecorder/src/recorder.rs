@@ -335,8 +335,10 @@ mod tests {
 
     #[test]
     fn resume_does_not_wait_for_the_pause_poll() {
-        let store = small_store(20);
-        let mut session = RecordSession::start(store.clone(), 0, 0, 64, 48, 20, false).unwrap();
+        // 恢复后下一帧仍按原节拍排期；帧间隔取 10ms，远小于暂停时 50ms 的兜底轮询，
+        // 这样测到的就是 resume() 有没有叫醒线程。
+        let store = small_store(100);
+        let mut session = RecordSession::start(store.clone(), 0, 0, 64, 48, 100, false).unwrap();
         wait_for_frames(&store, 1, Duration::from_secs(2));
         session.pause();
         thread::sleep(Duration::from_millis(120));
@@ -345,7 +347,7 @@ mod tests {
         session.resume();
         let next_frame = wait_for_frames(&store, paused_count + 1, Duration::from_secs(2));
         session.stop();
-        assert!(next_frame < Duration::from_millis(45), "first frame after resume took {next_frame:?}");
+        assert!(next_frame < Duration::from_millis(40), "first frame after resume took {next_frame:?}");
     }
 
     #[test]
