@@ -980,14 +980,6 @@ Replace it?</translation>
         <translation>Middle Click</translation>
     </message>
     <message>
-        <source>Enter Key</source>
-        <translation>Enter Key</translation>
-    </message>
-    <message>
-        <source>Exit capture after action</source>
-        <translation>Exit capture after action</translation>
-    </message>
-    <message>
         <source>Fullscreen Crosshair</source>
         <translation>Fullscreen Crosshair</translation>
     </message>
@@ -1086,10 +1078,6 @@ Replace it?</translation>
     <message>
         <source>Copy Selected Text</source>
         <translation>Copy Selected Text</translation>
-    </message>
-    <message>
-        <source>Use + / - instead of the wheel with the same modifiers</source>
-        <translation>Use + / - instead of the wheel with the same modifiers</translation>
     </message>
     <message>
         <source>No Modifier</source>
