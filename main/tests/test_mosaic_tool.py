@@ -51,6 +51,13 @@ def _assert_images_close(actual, expected, tolerance=4, aa_edge_pixels=0):
 AA_EDGE_PIXELS = 64
 
 
+def _dispose(scene):
+    """照 PinCanvas.cleanup 的顺序收尾：先清撤销栈打破 命令→图元→场景 的循环引用再删场景。
+    留给垃圾回收的话，场景会在之后某个测试里被回收，撤销栈的信号打进半销毁的场景，进程直接崩溃。"""
+    scene.undo_stack.clear()
+    scene.deleteLater()
+
+
 def _draw_mosaic(scene, start=QPointF(8, 32), end=QPointF(56, 32), width=16):
     scene.activate_tool("mosaic")
     scene.update_style(width=width)
@@ -347,6 +354,7 @@ def test_mosaic_push_post_commit_failure_keeps_one_coherent_command(monkeypatch,
     assert scene.undo_stack.count() == 1
     assert scene.undo_stack.index() == 1
     assert len([item for item in scene.items() if isinstance(item, MosaicItem)]) == 1
+    _dispose(scene)
 
 
 def test_mosaic_push_exception_with_different_command_does_not_claim_ownership(monkeypatch, qapp):
@@ -371,6 +379,7 @@ def test_mosaic_push_exception_with_different_command_does_not_claim_ownership(m
 
     assert not any(isinstance(item, MosaicItem) for item in scene.items())
     assert scene.undo_stack.command(0).item is other
+    _dispose(scene)
 
 
 def test_mosaic_null_reduced_image_cleans_view_and_next_stroke_works(monkeypatch, qapp):
@@ -406,6 +415,8 @@ def test_mosaic_null_reduced_image_cleans_view_and_next_stroke_works(monkeypatch
     assert scene.undo_stack.count() == 1
     assert any(isinstance(item, MosaicItem) for item in scene.items())
     parent.close()
+    parent.deleteLater()
+    _dispose(scene)
 
 
 def test_pin_registers_mosaic_and_can_draw_with_it(qapp):
