@@ -127,8 +127,12 @@ class PinManager(QObject):
     def _on_pin_closed(self, pin_window):
         """钉图窗口关闭回调"""
         if pin_window in self.pin_windows:
+            from core.platform_utils import request_trim_working_set
+
             self.pin_windows.remove(pin_window)
             self.pin_closed.emit(pin_window)
+            # 一次关好几张时去抖合并，只回收一次
+            request_trim_working_set(1500)
             
             log_debug(T("钉图已关闭 (剩余 {count} 个)", count=len(self.pin_windows)), "PinManager")
 

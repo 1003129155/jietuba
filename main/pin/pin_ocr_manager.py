@@ -261,6 +261,9 @@ class PinOCRManager:
                     self.ocr_thread = None
             except Exception as e:
                 log_exception(e, T("清理OCR线程"))
+            # 引擎推理时调进来的内存页，识别完就还回去
+            from core.platform_utils import request_trim_working_set
+            request_trim_working_set()
 
     # ------------------------------------------------------------------
     # 清理
