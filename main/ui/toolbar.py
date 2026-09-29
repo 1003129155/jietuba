@@ -329,8 +329,8 @@ class Toolbar(QWidget):
         self.arrow_btn = self._add_tool_button("arrow", "svg/箭头.svg", "Draw arrow", tool)
         self.number_btn = self._add_tool_button(
             "number", "svg/序号.svg", "Number (Shift+scroll to change number)", tool)
-        self.rect_btn = self._add_tool_button("rect", "svg/方框.svg", "Draw rectangle", tool)
-        self.ellipse_btn = self._add_tool_button("ellipse", "svg/圆框.svg", "Draw ellipse", tool)
+        self.rect_btn = self._add_tool_button("rect", "svg/方框.svg", "Draw rectangle (hold Shift for square)", tool)
+        self.ellipse_btn = self._add_tool_button("ellipse", "svg/圆框.svg", "Draw ellipse (hold Shift for circle)", tool)
         self.text_btn = self._add_tool_button("text", "svg/文字.svg", "Add text", tool)
         self.eraser_btn = self._add_tool_button("eraser", "svg/橡皮.svg", "Eraser tool", tool)
 

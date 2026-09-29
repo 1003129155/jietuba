@@ -2,11 +2,13 @@
 工具基类和上下文
 """
 
+import math
 from dataclasses import dataclass
 from typing import Optional
 
 from PySide6.QtGui import QColor
-from PySide6.QtCore import QPointF
+from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtWidgets import QApplication
 
 
 @dataclass
@@ -169,5 +171,22 @@ def color_with_opacity(source: QColor, opacity: Optional[float]) -> QColor:
     opacity = max(0.0, min(1.0, float(opacity)))
     color.setAlphaF(opacity)
     return color
+
+
+def drag_rect(start: QPointF, end: QPointF, square: bool = False) -> QRectF:
+    """从 start 拖到 end 围出的矩形。
+
+    square 时是正方形：边长取两个方向里较长的一边，朝鼠标所在的方向展开。
+    """
+    if square:
+        dx, dy = end.x() - start.x(), end.y() - start.y()
+        side = max(abs(dx), abs(dy))
+        end = QPointF(start.x() + math.copysign(side, dx), start.y() + math.copysign(side, dy))
+    return QRectF(start, end).normalized()
+
+
+def shift_held() -> bool:
+    """正在处理的这次输入事件是否按着 Shift。"""
+    return bool(QApplication.keyboardModifiers() & Qt.KeyboardModifier.ShiftModifier)
 
  
