@@ -34,7 +34,13 @@ struct SessionControl {
     paused: AtomicBool,
     /// 最近一帧的截取路径 (0=尚无, 1=DXGI, 2=GDI)
     backend: AtomicU8,
+    /// 录制线程已定好截取来源（DXGI 会话建好或已放弃），此后 begin 即刻开始截取
+    ready: AtomicBool,
 }
+
+/// 暂停时的兜底轮询间隔：resume()/stop() 会 unpark，正常用不到它。
+/// 测试构建里调长，才分得清线程是被叫醒的还是等到了兜底。
+const PAUSE_POLL: Duration = Duration::from_millis(if cfg!(test) { 1000 } else { 50 });
 
 /// [`RecordSession::begin`] 交给录制线程的参数
 struct Begin {
@@ -65,6 +71,7 @@ impl RecordSession {
             stop: AtomicBool::new(false),
             paused: AtomicBool::new(false),
             backend: AtomicU8::new(0),
+            ready: AtomicBool::new(false),
         });
         let (sender, receiver) = mpsc::channel();
         let ctrl = control.clone();
@@ -185,6 +192,11 @@ impl RecordSession {
     pub fn store(&self) -> Option<&Arc<FrameStore>> {
         self.store.as_ref()
     }
+
+    /// 录制线程是否已定好截取来源；之前调用 begin，第一帧要等 DXGI 会话建完
+    pub fn is_ready(&self) -> bool {
+        self.control.ready.load(Ordering::Acquire)
+    }
 }
 
 impl Drop for RecordSession {
@@ -202,6 +214,7 @@ fn session_thread(begin: Receiver<Begin>, ctrl: Arc<SessionControl>, prefer_dxgi
     } else {
         None
     };
+    ctrl.ready.store(true, Ordering::Release);
     // 通道关闭说明还没开始录制就被停止了
     let Ok(Begin { store, left, top, width, height, fps }) = begin.recv() else {
         return;
@@ -236,8 +249,7 @@ fn capture_loop(store: Arc<FrameStore>, ctrl: Arc<SessionControl>, mut capturer:
             if pause_start.is_none() {
                 pause_start = Some(Instant::now());
             }
-            // resume()/stop() 会 unpark，这里只是兜底的轮询间隔
-            thread::park_timeout(Duration::from_millis(50));
+            thread::park_timeout(PAUSE_POLL);
             continue;
         } else if let Some(ps) = pause_start.take() {
             // 刚从暂停恢复：累加暂停时长
@@ -308,17 +320,22 @@ mod tests {
     #[test]
     fn prepared_session_captures_as_soon_as_it_begins() {
         let mut session = RecordSession::prepare(true);
-        // 给录制线程时间建好 DXGI 会话（没有 DXGI 的环境会回落 GDI）
-        thread::sleep(Duration::from_millis(400));
+        // 建 DXGI 会话的耗时看机器：没有显卡的 CI 上要一秒多，没有 DXGI 的环境会放弃改用 GDI
+        let setup = Instant::now();
+        while !session.is_ready() && setup.elapsed() < Duration::from_secs(10) {
+            thread::sleep(Duration::from_millis(5));
+        }
+        assert!(session.is_ready());
         assert!(!session.is_recording());
 
-        let store = small_store(10);
-        session.begin(store.clone(), 0, 0, 64, 48, 10).unwrap();
-        let first_frame = wait_for_frames(&store, 1, Duration::from_secs(2));
+        // 1fps：开始后若没有立即截取，第一帧要等将近一整个帧间隔
+        let store = small_store(1);
+        session.begin(store.clone(), 0, 0, 64, 48, 1).unwrap();
+        let first_frame = wait_for_frames(&store, 1, Duration::from_secs(3));
         session.stop();
 
         assert!(store.frame_count() >= 1);
-        assert!(first_frame < Duration::from_millis(100), "first frame after {first_frame:?}");
+        assert!(first_frame < Duration::from_millis(500), "first frame after {first_frame:?}");
     }
 
     #[test]
@@ -335,8 +352,8 @@ mod tests {
 
     #[test]
     fn resume_does_not_wait_for_the_pause_poll() {
-        // 恢复后下一帧仍按原节拍排期；帧间隔取 10ms，远小于暂停时 50ms 的兜底轮询，
-        // 这样测到的就是 resume() 有没有叫醒线程。
+        // 恢复后下一帧仍按原节拍排期；帧间隔取 10ms，测试构建的兜底轮询是 PAUSE_POLL（1s），
+        // 截一帧再慢也用不了它的一半，这样测到的就是 resume() 有没有叫醒线程。
         let store = small_store(100);
         let mut session = RecordSession::start(store.clone(), 0, 0, 64, 48, 100, false).unwrap();
         wait_for_frames(&store, 1, Duration::from_secs(2));
@@ -345,9 +362,9 @@ mod tests {
 
         let paused_count = store.frame_count();
         session.resume();
-        let next_frame = wait_for_frames(&store, paused_count + 1, Duration::from_secs(2));
+        let next_frame = wait_for_frames(&store, paused_count + 1, Duration::from_secs(3));
         session.stop();
-        assert!(next_frame < Duration::from_millis(40), "first frame after resume took {next_frame:?}");
+        assert!(next_frame < PAUSE_POLL / 2, "first frame after resume took {next_frame:?}");
     }
 
     #[test]
