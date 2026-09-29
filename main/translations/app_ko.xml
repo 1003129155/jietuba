@@ -8,6 +8,42 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Quick capture failed. Please try again.</source>
+        <translation>빠른 캡처에 실패했습니다. 다시 시도하세요.</translation>
+    </message>
+    <message>
+        <source>Quick Capture</source>
+        <translation>빠른 캡처</translation>
+    </message>
+    <message>
+        <source>First Modifier</source>
+        <translation>첫 번째 보조 키</translation>
+    </message>
+    <message>
+        <source>Second Modifier</source>
+        <translation>두 번째 보조 키</translation>
+    </message>
+    <message>
+        <source>Capture and Pin</source>
+        <translation>캡처 후 고정</translation>
+    </message>
+    <message>
+        <source>Capture and Copy</source>
+        <translation>캡처 후 복사</translation>
+    </message>
+    <message>
+        <source>Capture, Copy and Pin</source>
+        <translation>캡처, 복사 후 고정</translation>
+    </message>
+    <message>
+        <source>Normal Capture</source>
+        <translation>일반 캡처</translation>
+    </message>
+    <message>
+        <source>Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. Select at least one modifier to enable Quick Capture.</source>
+        <translation>보조 키를 누른 채 마우스 왼쪽 버튼으로 드래그하세요. 버튼을 놓으면 캡처하고 Esc로 취소합니다. 빠른 캡처를 사용하려면 보조 키를 하나 이상 선택하세요.</translation>
+    </message>
+    <message>
         <source>Shortcuts</source>
         <translation>단축키</translation>
     </message>
@@ -1110,6 +1146,18 @@ Replace it?</source>
     <message>
         <source>No Action</source>
         <translation>없음</translation>
+    </message>
+    <message>
+        <source>Paste</source>
+        <translation>붙여넣기</translation>
+    </message>
+    <message>
+        <source>Open Context Menu</source>
+        <translation>메뉴 열기</translation>
+    </message>
+    <message>
+        <source>Pin applies to images; quick edit applies to text. Single clicks wait for the system double-click interval when the same button also has an available double-click action.</source>
+        <translation>고정은 이미지에, 빠른 편집은 텍스트에 적용됩니다. 같은 버튼에 사용 가능한 클릭 및 두 번 클릭 동작이 모두 지정되어 있으면 시스템의 두 번 클릭 판정 시간만큼 클릭 실행을 기다립니다.</translation>
     </message>
 </context>
 

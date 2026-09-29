@@ -15,7 +15,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from PySide6.QtGui import QColor, QImage
-from PySide6.QtCore import QRectF
+from PySide6.QtCore import QRect, QRectF
 
 from capture.capture_service import CaptureService
 from capture.system_cursor import SystemCursor, _icon_geometry, _user32 as _cursor_user32
@@ -263,3 +263,39 @@ class TestSystemCursorDrawOnto:
         outside = _filled(white, size=50)
         cursor.draw_onto(outside, 500, 500)
         assert not _changed(outside, white)
+
+
+def test_capture_region_uses_absolute_pixels_and_owns_buffer():
+    pixels = bytearray([30, 20, 10, 255] * 12)
+    shot = MagicMock(width=4, height=3, bgra=pixels)
+    with patch("capture.capture_service.mss.mss") as mss_factory:
+        context = mss_factory.return_value.__enter__.return_value
+        context.grab.return_value = shot
+        result = CaptureService().capture_region(QRect(-20, -40, 4, 3))
+    context.grab.assert_called_once_with(dict(left=-20, top=-40, width=4, height=3))
+    pixels[:] = bytes(len(pixels))
+    assert result.size().width() == 4
+    assert result.size().height() == 3
+    assert result.pixelColor(0, 0).getRgb() == (10, 20, 30, 255)
+
+
+@pytest.mark.parametrize("draw_fails", [False, True])
+def test_capture_region_composes_cursor_relative_to_region(draw_fails):
+    cursor = MagicMock()
+    if draw_fails:
+        cursor.draw_onto.side_effect = RuntimeError("cursor unavailable")
+    shot = MagicMock(width=4, height=3, bgra=bytes([30, 20, 10, 255] * 12))
+    with patch("capture.capture_service.mss.mss") as mss_factory:
+        mss_factory.return_value.__enter__.return_value.grab.return_value = shot
+        result = CaptureService().capture_region(QRect(-20, -40, 4, 3), cursor)
+    cursor.draw_onto.assert_called_once_with(result, -20, -40)
+    assert not result.isNull()
+    assert result.pixelColor(0, 0).getRgb() == (10, 20, 30, 255)
+
+
+@pytest.mark.parametrize("rect", [QRect(), QRect(10, 10, 0, 4), QRect(10, 10, -1, 4)])
+def test_capture_region_rejects_empty_or_reversed_bounds(rect):
+    with patch("capture.capture_service.mss.mss") as mss_factory:
+        with pytest.raises(ValueError, match="positive dimensions"):
+            CaptureService().capture_region(rect)
+    mss_factory.assert_not_called()

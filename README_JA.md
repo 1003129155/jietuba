@@ -237,6 +237,7 @@ canvas/
 capture/
 ├── capture_service.py       # CaptureService — スクリーンショットコアロジック
 ├── system_cursor.py         # SystemCursor — キャプチャ時のマウスポインターを記録し画像に描き込む
+├── quick_capture_controller.py # QuickCaptureController — 修飾キー＋ドラッグ撮影とアクション実行
 ├── uia_element_finder.py    # UI Automation によるバックグラウンド要素検出・キャッシュ
 └── window_finder.py         # WindowFinder — スマートウィンドウ選択、カーソル位置検出
 ```
@@ -260,6 +261,7 @@ clipboard/
 ├── controllers/             # 制御層 — 履歴読み込み、貼り付け処理、メニュー、選択状態
 │   ├── clipboard_controller.py   # ClipboardController — 読み込み、貼り付け、コンテキストメニュー
 │   ├── selection_manager.py      # SelectionManager — リスト選択状態管理
+│   ├── mouse_shortcut_controller.py  # クリップボード項目のマウス操作とクリック判定
 │   ├── context_menu_controller.py  # ContextMenuController — コンテキストメニューのデータと動作の組み立て
 │   ├── foreground_tracker.py    # ForegroundWindowTracker — 貼り付け先ウィンドウを記憶
 │   ├── paste_keystroke.py       # 対象ウィンドウにフォーカスを戻してから Ctrl+V を送信
@@ -343,6 +345,7 @@ core/
 ├── ui_scale.py              # UIScaleManager — ツールバー/パネル/ポップアップ共通の拡大率
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — 国際化
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — グローバル＆アプリ内ホットキー
+├── quick_capture_input.py    # グローバル修飾キー＋ドラッグ入力と撮影ジェスチャの状態管理
 ├── last_capture_region.py   # 「前回の選択範囲を復元」用のプロセス内メモリ
 ├── save.py                  # SaveService — ファイル保存サービス（高品質 PDF 出力対応）
 ├── export.py                # ExportService — 画像エクスポート
@@ -577,6 +580,7 @@ ui/
 ├── reorderable_rows.py      # DragGrip / DraggableRow / ReorderableRowList — ドラッグで並べ替えられる行リスト
 ├── tray_menu.py             # TrayMenu — システムトレイメニュー
 ├── screenshot_window.py     # ScreenshotWindow — フルスクリーンキャプチャウィンドウ
+├── quick_capture_overlay.py # 通常キャプチャの選択枠・座標・拡大鏡を再利用する透明レイヤー
 ├── dialogs.py               # StandardDialog — 確認、警告、情報、エラーダイアログ
 ├── toast.py                 # Toast — カーソル横に出る、フォーカスを奪わない一行通知
 ├── magnifier.py             # MagnifierOverlay — ピクセルレベル拡大鏡
