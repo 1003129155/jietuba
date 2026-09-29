@@ -3809,8 +3809,8 @@ SOFTWARE.</translation></message>
         <translation>Toolbar &amp; Panel Scale</translation>
     </message>
     <message>
-        <source>Size of toolbars, tool panels and popups.</source>
-        <translation>Size of the toolbar.</translation>
+        <source>Size of toolbars, tool panels, popups and the clipboard window.</source>
+        <translation>Size of toolbars, tool panels, popups and the clipboard window.</translation>
     </message>
     <message>
         <source>Window Scale</source>

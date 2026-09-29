@@ -10,6 +10,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWi
 
 from core import safe_event
 from core.i18n import make_tr
+from core.ui_scale import scaled
 from core.shortcut_manager import load_inapp_bindings, match_inapp_binding
 from settings import get_tool_settings_manager
 from ui.fluent_lite import TextEdit
@@ -53,8 +54,7 @@ class QuickEditPopup(QWidget):
         self._bindings = {}
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(6)
+        self._layout = layout
 
         self.editor = TextEdit()
         self.editor.setAcceptRichText(False)
@@ -62,7 +62,7 @@ class QuickEditPopup(QWidget):
         layout.addWidget(self.editor)
 
         footer = QHBoxLayout()
-        footer.setSpacing(6)
+        self._footer = footer
         self.format_hint = QLabel()
         footer.addWidget(self.format_hint, 1)
         self.save_button = QPushButton()
@@ -76,8 +76,6 @@ class QuickEditPopup(QWidget):
 
         self.save_button.clicked.connect(lambda: self.commit(paste=False))
         self.save_and_paste_button.clicked.connect(lambda: self.commit(paste=True))
-
-        self.resize(420, 240)
 
     @property
     def is_open(self) -> bool:
@@ -98,6 +96,12 @@ class QuickEditPopup(QWidget):
         # 改了内容会清掉原始格式，粘贴只剩纯文本
         self.format_hint.setText(_tr("Formatting will be removed") if item.html_content else "")
         self.setStyleSheet(ThemeStyleGenerator(theme).generate_quick_edit_style())
+        # 尺寸跟随「工具栏与面板缩放」，每次打开按当时的比例排版
+        margin = scaled(8)
+        self._layout.setContentsMargins(margin, margin, margin, margin)
+        self._layout.setSpacing(scaled(6))
+        self._footer.setSpacing(scaled(6))
+        self.resize(scaled(420), scaled(240))
 
         self.move(side_position(self.size(), anchor, avoid_rect, prefer_side="left"))
         self.show()
