@@ -90,11 +90,11 @@ def test_pin_appearance_reads_its_toggles(qapp, tmp_path, monkeypatch, enabled):
         qapp.processEvents()
 
 
-def test_pin_appearance_defaults_both_toggles_on(qapp, tmp_path, monkeypatch):
+def test_pin_appearance_defaults_to_square_corners_with_hover_buttons(qapp, tmp_path, monkeypatch):
     dialog, group = _build_pin_appearance(monkeypatch, _manager(tmp_path), win11=True)
 
     try:
-        assert dialog._behavior_controls["pin_rounded_corners"].isChecked()
+        assert not dialog._behavior_controls["pin_rounded_corners"].isChecked()
         assert dialog._behavior_controls["pin_hover_buttons"].isChecked()
     finally:
         group.deleteLater()

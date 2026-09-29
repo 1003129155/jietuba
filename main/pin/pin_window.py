@@ -279,8 +279,7 @@ class PinWindow(QWidget):
         self.hover_controls.sync()
 
     def _apply_window_corners(self):
-        rounded = (self.config_manager.get_app_setting("pin_rounded_corners", True)
-                   if self.config_manager else True)
+        rounded = bool(self.config_manager and self.config_manager.get_app_setting("pin_rounded_corners"))
         # 没关过圆角就不碰系统设置，保持 Windows 默认行为
         if rounded and not self._square_corners:
             return

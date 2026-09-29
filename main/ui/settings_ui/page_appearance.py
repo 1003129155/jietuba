@@ -296,7 +296,7 @@ def _build_pin_section(dialog, grp: SettingCardGroup):
             ),
             parent=grp,
         )
-        corners_card.setChecked(config.get_app_setting("pin_rounded_corners", True))
+        corners_card.setChecked(config.get_app_setting("pin_rounded_corners"))
         dialog._behavior_controls["pin_rounded_corners"] = corners_card
         grp.addSettingCard(corners_card)
 
