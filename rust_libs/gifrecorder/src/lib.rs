@@ -505,6 +505,9 @@ impl PyFrameDecoder {
 /// 使用方法:
 ///     store = gifrecorder.FrameStore(w, h, fps)
 ///     session = gifrecorder.RecordSession(store, left, top, w, h, fps)
+///     # 或者先预备、稍后再开始，省掉开录时建 DXGI 会话的延迟：
+///     #   session = gifrecorder.RecordSession.prepare()
+///     #   session.begin(store, left, top, w, h, fps)
 ///     # ... 录制中 ...
 ///     session.pause()
 ///     session.resume()
@@ -548,6 +551,34 @@ impl PyRecordSession {
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))?;
 
         Ok(Self { inner: Some(session), stopped_backend: None })
+    }
+
+    /// 预备录制：立即在录制线程里建好 DXGI 会话，调用 begin() 才开始截取
+    ///
+    /// Args:
+    ///     prefer_dxgi: 同构造函数
+    #[staticmethod]
+    #[pyo3(signature = (prefer_dxgi=true))]
+    fn prepare(prefer_dxgi: bool) -> Self {
+        Self { inner: Some(RecordSession::prepare(prefer_dxgi)), stopped_backend: None }
+    }
+
+    /// 开始截取；只能调用一次。参数同构造函数
+    fn begin(
+        &mut self,
+        store: &PyFrameStore,
+        left: i32,
+        top: i32,
+        width: i32,
+        height: i32,
+        fps: u32,
+    ) -> PyResult<()> {
+        let session = self.inner.as_mut().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err("session already stopped")
+        })?;
+        session
+            .begin(store.inner.clone(), left, top, width, height, fps)
+            .map_err(pyo3::exceptions::PyRuntimeError::new_err)
     }
 
     /// 暂停录制

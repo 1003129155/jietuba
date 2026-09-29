@@ -11,6 +11,14 @@ A process can hold only one DXGI duplication per monitor. `RecordSession` opens 
 own on the recording thread, so release any other session first, or pass
 `prefer_dxgi=False` to record with GDI only.
 
+Opening the DXGI session takes around 100 ms. To start recording without that delay,
+prepare the session while the recording UI is up and begin it later:
+
+```python
+session = gifrecorder.RecordSession.prepare()        # builds the DXGI session now
+session.begin(store, left, top, width, height, fps)  # first frame arrives immediately
+```
+
 - `FrameStore` -- accepts BGRA/RGB frames, stores them JPEG-compressed, exports GIF
 - `FrameDecoder` -- background decoding for playback over a bounded channel
 - `RecordSession` -- recording state machine (recording / paused / stopped)

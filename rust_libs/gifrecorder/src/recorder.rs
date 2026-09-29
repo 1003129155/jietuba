@@ -2,7 +2,7 @@
 //!
 //! 架构：
 //!   Rust 线程: FrameSource::grab() → FrameStore::push_bgra()
-//!   Python 侧: 仅调用 start/pause/resume/stop，完全不碰像素
+//!   Python 侧: 仅调用 prepare/begin/pause/resume/stop，完全不碰像素
 //!
 //! 优势：
 //!   - 零 GIL 争用（截屏 + JPEG 压缩全在 Rust 线程）
@@ -10,11 +10,12 @@
 //!   - 精确 fps 节拍控制
 
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use crate::frame_source::{Backend, FrameSource};
+use crate::frame_source::{Backend, DxgiCapture, FrameSource};
 use crate::frame_store::FrameStore;
 
 /// 录制会话状态
@@ -35,21 +36,73 @@ struct SessionControl {
     backend: AtomicU8,
 }
 
+/// [`RecordSession::begin`] 交给录制线程的参数
+struct Begin {
+    store: Arc<FrameStore>,
+    left: i32,
+    top: i32,
+    width: i32,
+    height: i32,
+    fps: u32,
+}
+
 /// 录制会话
 pub struct RecordSession {
     control: Arc<SessionControl>,
     handle: Option<JoinHandle<()>>,
-    store: Arc<FrameStore>,
+    begin: Option<Sender<Begin>>,
+    store: Option<Arc<FrameStore>>,
 }
 
 impl RecordSession {
-    /// 启动录制会话
+    /// 预备录制：立即起录制线程并在其中建好 DXGI 会话，[`Self::begin`] 之后才开始截取。
+    ///
+    /// 建 DXGI 会话要几十到上百毫秒；录制界面一打开就预备，点录制时画面即刻开始。
+    /// `prefer_dxgi` 为 false 时只用 GDI。
+    pub fn prepare(prefer_dxgi: bool) -> Self {
+        let control = Arc::new(SessionControl {
+            state: AtomicU8::new(SESSION_IDLE),
+            stop: AtomicBool::new(false),
+            paused: AtomicBool::new(false),
+            backend: AtomicU8::new(0),
+        });
+        let (sender, receiver) = mpsc::channel();
+        let ctrl = control.clone();
+        let handle = thread::spawn(move || session_thread(receiver, ctrl, prefer_dxgi));
+
+        Self {
+            control,
+            handle: Some(handle),
+            begin: Some(sender),
+            store: None,
+        }
+    }
+
+    /// 开始截取，每个会话只能调用一次
     ///
     /// * `store`  — 帧存储（共享 Arc）
     /// * `left`, `top` — 屏幕截取起点
     /// * `width`, `height` — 截取区域大小
     /// * `fps` — 目标帧率
-    /// * `prefer_dxgi` — 见 [`FrameSource::new`]
+    pub fn begin(
+        &mut self,
+        store: Arc<FrameStore>,
+        left: i32,
+        top: i32,
+        width: i32,
+        height: i32,
+        fps: u32,
+    ) -> Result<(), String> {
+        let sender = self.begin.take().ok_or("recording has already begun")?;
+        self.control.state.store(SESSION_RECORDING, Ordering::Release);
+        sender
+            .send(Begin { store: store.clone(), left, top, width, height, fps })
+            .map_err(|_| "recording thread has exited".to_string())?;
+        self.store = Some(store);
+        Ok(())
+    }
+
+    /// 预备并立即开始录制
     pub fn start(
         store: Arc<FrameStore>,
         left: i32,
@@ -59,47 +112,43 @@ impl RecordSession {
         fps: u32,
         prefer_dxgi: bool,
     ) -> Result<Self, String> {
-        let control = Arc::new(SessionControl {
-            state: AtomicU8::new(SESSION_RECORDING),
-            stop: AtomicBool::new(false),
-            paused: AtomicBool::new(false),
-            backend: AtomicU8::new(0),
-        });
-
-        let ctrl = control.clone();
-        let store_clone = store.clone();
-
-        let handle = thread::spawn(move || {
-            capture_loop(store_clone, ctrl, left, top, width, height, fps, prefer_dxgi);
-        });
-
-        Ok(Self {
-            control,
-            handle: Some(handle),
-            store,
-        })
+        let mut session = Self::prepare(prefer_dxgi);
+        session.begin(store, left, top, width, height, fps)?;
+        Ok(session)
     }
 
     /// 暂停录制
     pub fn pause(&self) {
         self.control.paused.store(true, Ordering::Release);
         self.control.state.store(SESSION_PAUSED, Ordering::Release);
+        self.wake();
     }
 
     /// 恢复录制
     pub fn resume(&self) {
         self.control.paused.store(false, Ordering::Release);
         self.control.state.store(SESSION_RECORDING, Ordering::Release);
+        self.wake();
     }
 
     /// 停止录制（阻塞等待线程退出）
     pub fn stop(&mut self) {
         self.control.stop.store(true, Ordering::Release);
         self.control.paused.store(false, Ordering::Release); // 解除暂停
+        // 还没 begin 的线程在等参数，关掉通道让它退出
+        self.begin = None;
         if let Some(h) = self.handle.take() {
+            h.thread().unpark();
             let _ = h.join();
         }
         self.control.state.store(SESSION_STOPPED, Ordering::Release);
+    }
+
+    /// 录制线程在帧间和暂停时 park，状态变化后叫醒它，不必等满一个间隔
+    fn wake(&self) {
+        if let Some(h) = &self.handle {
+            h.thread().unpark();
+        }
     }
 
     /// 当前状态
@@ -132,9 +181,9 @@ impl RecordSession {
         }
     }
 
-    /// 获取 FrameStore 引用
-    pub fn store(&self) -> &Arc<FrameStore> {
-        &self.store
+    /// 获取 FrameStore 引用；begin 之前为 None
+    pub fn store(&self) -> Option<&Arc<FrameStore>> {
+        self.store.as_ref()
     }
 }
 
@@ -144,19 +193,20 @@ impl Drop for RecordSession {
     }
 }
 
-/// 截屏循环（在独立线程运行）
-fn capture_loop(
-    store: Arc<FrameStore>,
-    ctrl: Arc<SessionControl>,
-    left: i32,
-    top: i32,
-    width: i32,
-    height: i32,
-    fps: u32,
-    prefer_dxgi: bool,
-) {
-    // DXGI 会话绑定在创建它的线程上，必须在录制线程里建
-    let mut capturer = match FrameSource::new(left, top, width, height, prefer_dxgi) {
+/// 录制线程：先建 DXGI 会话（它绑定在创建它的线程上），再等 begin 的参数
+fn session_thread(begin: Receiver<Begin>, ctrl: Arc<SessionControl>, prefer_dxgi: bool) {
+    let dxgi = if prefer_dxgi {
+        DxgiCapture::new()
+            .map_err(|e| eprintln!("[gifrecorder] DXGI 会话建立失败，改用 GDI: {e}"))
+            .ok()
+    } else {
+        None
+    };
+    // 通道关闭说明还没开始录制就被停止了
+    let Ok(Begin { store, left, top, width, height, fps }) = begin.recv() else {
+        return;
+    };
+    let capturer = match FrameSource::new(dxgi, left, top, width, height) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("[gifrecorder] FrameSource 创建失败: {e}");
@@ -164,7 +214,11 @@ fn capture_loop(
             return;
         }
     };
+    capture_loop(store, ctrl, capturer, fps);
+}
 
+/// 截屏循环（在录制线程运行）
+fn capture_loop(store: Arc<FrameStore>, ctrl: Arc<SessionControl>, mut capturer: FrameSource, fps: u32) {
     let frame_interval = Duration::from_secs_f64(1.0 / fps as f64);
     let record_start = Instant::now();
     let mut frame_count: u64 = 0;
@@ -182,8 +236,8 @@ fn capture_loop(
             if pause_start.is_none() {
                 pause_start = Some(Instant::now());
             }
-            // 暂停期间 spin-sleep 50ms
-            thread::sleep(Duration::from_millis(50));
+            // resume()/stop() 会 unpark，这里只是兜底的轮询间隔
+            thread::park_timeout(Duration::from_millis(50));
             continue;
         } else if let Some(ps) = pause_start.take() {
             // 刚从暂停恢复：累加暂停时长
@@ -191,16 +245,15 @@ fn capture_loop(
         }
 
         // ── fps 节拍控制 ──
+        // park 而不是 sleep：stop()/pause() 会 unpark，停止不必等满一个帧间隔。
+        // park 可能提前返回，所以醒来后回到循环顶部重新检查。
         let target_time = frame_interval * frame_count as u32;
         let wall_elapsed = record_start.elapsed() - pause_offset;
         if wall_elapsed < target_time {
-            let sleep = target_time - wall_elapsed;
-            if sleep > Duration::from_micros(500) {
-                thread::sleep(sleep);
-            }
-            // 再次检查停止
-            if ctrl.stop.load(Ordering::Acquire) {
-                break;
+            let remaining = target_time - wall_elapsed;
+            if remaining > Duration::from_micros(500) {
+                thread::park_timeout(remaining);
+                continue;
             }
         }
 
@@ -236,6 +289,81 @@ fn capture_loop(
 mod tests {
     use super::*;
     use crate::frame_store::RecordConfig;
+
+    fn small_store(fps: u32) -> Arc<FrameStore> {
+        Arc::new(FrameStore::new(64, 48, fps, RecordConfig {
+            jpeg_quality: 80,
+            ..Default::default()
+        }))
+    }
+
+    fn wait_for_frames(store: &FrameStore, count: usize, limit: Duration) -> Duration {
+        let start = Instant::now();
+        while store.frame_count() < count && start.elapsed() < limit {
+            thread::sleep(Duration::from_millis(1));
+        }
+        start.elapsed()
+    }
+
+    #[test]
+    fn prepared_session_captures_as_soon_as_it_begins() {
+        let mut session = RecordSession::prepare(true);
+        // 给录制线程时间建好 DXGI 会话（没有 DXGI 的环境会回落 GDI）
+        thread::sleep(Duration::from_millis(400));
+        assert!(!session.is_recording());
+
+        let store = small_store(10);
+        session.begin(store.clone(), 0, 0, 64, 48, 10).unwrap();
+        let first_frame = wait_for_frames(&store, 1, Duration::from_secs(2));
+        session.stop();
+
+        assert!(store.frame_count() >= 1);
+        assert!(first_frame < Duration::from_millis(100), "first frame after {first_frame:?}");
+    }
+
+    #[test]
+    fn stop_does_not_wait_for_the_next_frame() {
+        let store = small_store(1);
+        let mut session = RecordSession::start(store.clone(), 0, 0, 64, 48, 1, false).unwrap();
+        wait_for_frames(&store, 1, Duration::from_secs(2));
+
+        // 1fps 时下一帧要等将近 1 秒，stop() 应当叫醒线程而不是等它
+        let stop_start = Instant::now();
+        session.stop();
+        assert!(stop_start.elapsed() < Duration::from_millis(300), "stop took {:?}", stop_start.elapsed());
+    }
+
+    #[test]
+    fn resume_does_not_wait_for_the_pause_poll() {
+        let store = small_store(20);
+        let mut session = RecordSession::start(store.clone(), 0, 0, 64, 48, 20, false).unwrap();
+        wait_for_frames(&store, 1, Duration::from_secs(2));
+        session.pause();
+        thread::sleep(Duration::from_millis(120));
+
+        let paused_count = store.frame_count();
+        session.resume();
+        let next_frame = wait_for_frames(&store, paused_count + 1, Duration::from_secs(2));
+        session.stop();
+        assert!(next_frame < Duration::from_millis(45), "first frame after resume took {next_frame:?}");
+    }
+
+    #[test]
+    fn stopping_a_prepared_session_before_it_begins_records_nothing() {
+        let mut session = RecordSession::prepare(false);
+        session.stop();
+        assert!(session.is_stopped());
+        assert!(session.store().is_none());
+        assert!(session.backend().is_none());
+    }
+
+    #[test]
+    fn a_session_begins_only_once() {
+        let mut session = RecordSession::prepare(false);
+        session.begin(small_store(10), 0, 0, 64, 48, 10).unwrap();
+        assert!(session.begin(small_store(10), 0, 0, 64, 48, 10).is_err());
+        session.stop();
+    }
 
     #[test]
     fn record_session_basic() {
