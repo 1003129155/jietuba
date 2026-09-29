@@ -1,6 +1,5 @@
 """Synthetic quick-capture gestures: never install hooks or use the real clipboard."""
 
-import threading
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -10,14 +9,15 @@ from PySide6.QtGui import QImage
 
 from capture import quick_capture_controller as module
 from canvas.selection_model import SelectionModel
-from settings.tool_settings import ToolSettingsManager, dump_quick_capture_bindings
+from settings.tool_settings import QUICK_CAPTURE_ACTIONS, ToolSettingsManager
+
+WIN_LEFT = (frozenset({"win"}), "left")
 
 
 class FakeInput(QObject):
     event = Signal(str, int, int, int)
     moved = Signal(int)
     failure = Signal(str)
-    command = Signal(str)
     position = (0, 0)
 
     def __init__(self, parent):
@@ -27,7 +27,7 @@ class FakeInput(QObject):
         self.cancel = Mock()
         self.close = Mock()
         self.accepts = Mock(return_value=True)
-        self.gesture_modifiers = Mock(return_value=frozenset({"win"}))
+        self.gesture_binding = Mock(return_value=WIN_LEFT)
         self.take_position = Mock(side_effect=lambda _token: self.position)
 
 
@@ -44,25 +44,6 @@ class FakeWorker(QObject):
         self.start = Mock()
         self.requestInterruption = Mock()
         self.wait = Mock()
-
-
-class FakePreview(QObject):
-    failed = Signal(str)
-    frame_ready = Signal()
-    finished = Signal()
-
-    def __init__(self, source, bounds, parent):
-        super().__init__(parent)
-        self.source, self.bounds = source, bounds
-        self.frame = None
-        self.start = Mock()
-        self.stop = Mock()
-        self.wait = Mock()
-        self.request_sample = Mock()
-
-    def take_frame(self):
-        frame, self.frame = self.frame, None
-        return frame
 
 
 class FakeApp(QObject):
@@ -84,14 +65,12 @@ class FakeApp(QObject):
 def capture(qapp, tmp_settings, monkeypatch):
     monkeypatch.setattr(module, "QuickCaptureInput", FakeInput)
     monkeypatch.setattr(module, "QuickCaptureWorker", FakeWorker)
-    monkeypatch.setattr(module, "QuickCapturePreview", FakePreview)
     monkeypatch.setattr(module, "desktop_bounds", lambda: QRect(-100, -100, 500, 500))
     monkeypatch.setattr("ui.quick_capture_overlay.set_window_exclude_from_capture", Mock())
     monkeypatch.setattr(module, "deliver_screenshot", Mock())
     monkeypatch.setattr(module, "set_last_region", Mock())
-    monkeypatch.setattr(module, "trim_working_set", Mock())
+    monkeypatch.setattr(module, "request_trim_working_set", Mock())
     config = ToolSettingsManager(tmp_settings)
-    # 快速截图默认关闭；这里的用例测的是开启后的手势流程
     bind(config, "copy_pin")
     app = FakeApp(config)
     controller = module.QuickCaptureController(app)
@@ -101,23 +80,21 @@ def capture(qapp, tmp_settings, monkeypatch):
 
 
 def bind(config, *gestures):
-    """bind(config, "pin") 等于 Win 拖动钉图；也可以传 ((修饰键, ...), 动作) 配多个。"""
+    """bind(config, "pin") 等于只配 Win 左键拖动钉图；也可以传 (手势, 动作) 配多个。"""
     if len(gestures) == 1 and isinstance(gestures[0], str):
-        gestures = ((("win",), gestures[0]),)
-    config.set_app_setting("quick_capture_bindings", dump_quick_capture_bindings(
-        tuple((frozenset(keys), action) for keys, action in gestures)))
+        gestures = (("win+dragleft", gestures[0]),)
+    bound = {action: gesture for gesture, action in reversed(gestures)}
+    for action, *_ in QUICK_CAPTURE_ACTIONS:
+        config.set_app_setting(f"quick_capture_{action}", bound.get(action, ""))
 
 
-def test_default_configuration_installs_no_hooks(qapp, tmp_settings, monkeypatch):
-    """默认关闭：没选动作的用户不挂任何全局钩子"""
-    from core import quick_capture_input as input_module
-    created = []
-    monkeypatch.setattr(input_module, "_Win32Hooks", lambda *callbacks: created.append(callbacks))
+def test_default_configuration_binds_win_left_drag_to_pin(qapp, tmp_settings, monkeypatch):
+    monkeypatch.setattr(module, "QuickCaptureInput", FakeInput)
     controller = module.QuickCaptureController(FakeApp(ToolSettingsManager(tmp_settings)))
     try:
         controller.refresh()
-        assert not controller._enabled
-        assert created == []
+        assert controller._actions == {WIN_LEFT: "pin"}
+        controller.input.configure.assert_called_with(frozenset({WIN_LEFT}), True)
     finally:
         controller.close()
 
@@ -173,90 +150,42 @@ def image():
 
 
 @pytest.mark.parametrize("action", ["copy", "pin", "copy_pin", "edit"])
-def test_working_set_trim_waits_for_capture_and_skips_normal_editor(capture, qtbot, monkeypatch, action):
+def test_trim_is_requested_once_capture_is_over(capture, qtbot, monkeypatch, action):
+    # 转入普通截图时由共用回收的忙碌判断顺延，这里照常请求
     from pin.pin_manager import PinManager
     monkeypatch.setattr(PinManager, "instance", lambda: Mock())
-    capture.main_app.config_manager.set_app_setting("magnifier_enabled", False)
     bind(capture.main_app.config_manager, action)
     capture.refresh()
-    assert capture._trim_timer.interval() == 1500
-    capture._trim_timer.setInterval(30)
     start(capture, qtbot)
     worker = finish(capture, qtbot)
-    qtbot.wait(70)
-    module.trim_working_set.assert_not_called()
+    module.request_trim_working_set.assert_not_called()
     worker.captured.emit(image(), QRectF(-100, -100, 500, 500))
     qtbot.waitUntil(lambda: module.set_last_region.called)
+    module.request_trim_working_set.assert_not_called()
     worker.finished.emit()
-    module.trim_working_set.assert_not_called()
-    if action == "edit":
-        qtbot.wait(70)
-        module.trim_working_set.assert_not_called()
-    else:
-        qtbot.waitUntil(lambda: module.trim_working_set.called)
-        module.trim_working_set.assert_called_once_with()
+    module.request_trim_working_set.assert_called_once_with(1500)
 
 
 @pytest.mark.parametrize("ending", ["cancel", "empty", "failure"])
-def test_working_set_trim_covers_cancel_empty_selection_and_failure(capture, qtbot, ending):
-    capture.main_app.config_manager.set_app_setting("magnifier_enabled", False)
-    capture._trim_timer.setInterval(30)
+def test_trim_is_requested_after_cancel_empty_selection_and_failure(capture, qtbot, ending):
     start(capture, qtbot)
     if ending == "failure":
         worker = finish(capture, qtbot)
         worker.failed.emit("synthetic capture failure")
         qtbot.waitUntil(lambda: capture.main_app.tray_icon.showMessage.called)
+        module.request_trim_working_set.assert_not_called()
         worker.finished.emit()
     elif ending == "empty":
         capture._on_input("finish", 1, -50, -20)
     else:
         capture.cancel()
-    module.trim_working_set.assert_not_called()
-    qtbot.waitUntil(lambda: module.trim_working_set.called)
-    module.trim_working_set.assert_called_once_with()
+    module.request_trim_working_set.assert_called_once_with(1500)
 
 
-def test_working_set_trim_waits_for_sampler_exit(capture, qtbot):
-    capture._trim_timer.setInterval(30)
+def test_closed_controller_requests_no_trim(capture, qtbot):
     start(capture, qtbot)
-    preview = capture._preview
-    capture.cancel()
-    qtbot.wait(70)
-    module.trim_working_set.assert_not_called()
-    preview.finished.emit()
-    qtbot.waitUntil(lambda: module.trim_working_set.called)
-    module.trim_working_set.assert_called_once_with()
-
-
-def test_new_drag_cancels_pending_trim_and_rearms_after_finish(capture, qtbot):
-    capture.main_app.config_manager.set_app_setting("magnifier_enabled", False)
-    capture._trim_timer.setInterval(100)
-    start(capture, qtbot)
-    capture.cancel()
-    assert capture._trim_timer.isActive()
-    start(capture, qtbot, token=2)
-    assert not capture._trim_timer.isActive()
-    qtbot.wait(150)
-    module.trim_working_set.assert_not_called()
-    capture.cancel()
-    qtbot.waitUntil(lambda: module.trim_working_set.called)
-    module.trim_working_set.assert_called_once_with()
-
-
-@pytest.mark.parametrize("busy_state", ["preparing", "editing", "closed"])
-def test_pending_trim_does_not_run_during_normal_capture_or_shutdown(capture, qtbot, busy_state):
-    capture.main_app.config_manager.set_app_setting("magnifier_enabled", False)
-    capture._trim_timer.setInterval(30)
-    start(capture, qtbot)
-    capture.cancel()
-    if busy_state == "preparing":
-        capture.set_capture_pending(True)
-    elif busy_state == "editing":
-        capture.main_app.screenshot_window = SimpleNamespace(_session_active=True)
-    else:
-        capture.close()
-    qtbot.wait(70)
-    module.trim_working_set.assert_not_called()
+    capture.close()
+    module.request_trim_working_set.assert_not_called()
 
 
 @pytest.mark.parametrize("action,copy,pin,edit", [
@@ -284,12 +213,50 @@ def test_actions_use_exact_absolute_selection(capture, qtbot, monkeypatch, actio
     assert pin_manager.create_pin.called == pin
     assert capture.main_app._on_capture_ready.called == edit
     if pin:
-        assert pin_manager.create_pin.call_args.args[1] == QPoint(-50, -20)
+        # 钉图自动识别文字仍按钉图自己的设置，不由快捷键决定
+        assert pin_manager.create_pin.call_args.args[1:] == (QPoint(-50, -20), capture.main_app.config_manager)
+        assert not pin_manager.create_pin.call_args.kwargs
     if edit:
         assert capture.main_app.selection.rect() == QRectF(-50, -20, 80, 60)
         assert capture.main_app.selection.is_confirmed
     worker.finished.emit()
     qtbot.waitUntil(lambda: not capture.busy)
+
+
+@pytest.mark.parametrize("copy_directly", [False, True])
+def test_recognize_text_follows_the_copy_directly_setting(capture, qtbot, monkeypatch, copy_directly):
+    import text_recognition
+    show, copy = Mock(), Mock()
+    monkeypatch.setattr(text_recognition, "show_text_recognition", show)
+    monkeypatch.setattr(text_recognition, "copy_text_recognition", copy)
+    config = capture.main_app.config_manager
+    config.set_ocr_copy_directly_enabled(copy_directly)
+    bind(config, "ocr")
+    capture.refresh()
+    start(capture, qtbot)
+    result = image()
+    finish(capture, qtbot).captured.emit(result, QRectF(-50, -20, 80, 60))
+    qtbot.waitUntil(lambda: module.set_last_region.called)
+    (copy if copy_directly else show).assert_called_once_with(result)
+    (show if copy_directly else copy).assert_not_called()
+    module.deliver_screenshot.assert_not_called()
+
+
+def test_translate_opens_translation_with_the_selected_pixels(capture, qtbot, monkeypatch):
+    from translation import TranslationManager
+    manager = Mock()
+    monkeypatch.setattr(TranslationManager, "instance", lambda: manager)
+    config = capture.main_app.config_manager
+    bind(config, "translate")
+    capture.refresh()
+    start(capture, qtbot)
+    finish(capture, qtbot).captured.emit(image(), QRectF(-50, -20, 80, 60))
+    qtbot.waitUntil(lambda: module.set_last_region.called)
+    manager.translate_from_image.assert_called_once()
+    kwargs = manager.translate_from_image.call_args.kwargs
+    assert kwargs["pixmap"].size().toTuple() == (80, 60)
+    assert {key: kwargs[key] for key in kwargs if key != "pixmap"} == config.get_translation_request_params()
+    module.deliver_screenshot.assert_not_called()
 
 
 @pytest.mark.parametrize("auto_save", [True, False])
@@ -321,15 +288,21 @@ def test_auto_save_applies_to_every_quick_capture_action(capture, qtbot, monkeyp
     assert clipboard_utils.copy_image_to_clipboard.called == copy
 
 
-@pytest.mark.parametrize("setting,value", [
-    ("global_hotkeys_disabled", True), ("quick_capture_bindings", ""),
-    ("quick_capture_bindings", "not json"),
-    ("quick_capture_bindings", '[{"modifiers": ["unknown"], "action": "pin"}]'),
-    ("quick_capture_bindings", '[{"modifiers": ["win"], "action": "unknown"}]'),
-    ("quick_capture_bindings", '[{"modifiers": ["ctrl", "alt", "win"], "action": "pin"}]'),
+def test_hotkey_pause_disarms_the_default_binding(capture):
+    bind(capture.main_app.config_manager, "pin")
+    capture.main_app.config_manager.set_app_setting("global_hotkeys_disabled", True)
+    capture.refresh()
+    assert not capture._enabled
+    assert capture.input.configure.call_args.args[1] is False
+    capture._on_input("start", 1, 10, 10)
+    assert not capture.busy
+
+
+@pytest.mark.parametrize("gesture", [
+    "", "dragleft", "win+left", "win+dragx3", "unknown+dragleft", "ctrl+alt+win+dragleft", "win+",
 ])
-def test_disabled_or_invalid_configuration_does_not_arm(capture, setting, value):
-    capture.main_app.config_manager.set_app_setting(setting, value)
+def test_invalid_bindings_do_not_arm(capture, gesture):
+    bind(capture.main_app.config_manager, (gesture, "pin"))
     capture.refresh()
     assert not capture._enabled
     assert capture.input.configure.call_args.args[1] is False
@@ -344,10 +317,9 @@ def test_motion_updates_selection_on_gui_event_delivery_without_waiting_for_a_ti
     move(capture, x=61, y=83)
     rendered.assert_called_once_with(QPoint(-50, -20), QPoint(61, 83), capture._bounds)
     assert capture.overlay.model.rect() == QRectF(-50, -20, 111, 103)
-    capture._preview.request_sample.assert_called_once_with()
 
 
-def test_stale_or_consumed_motion_cannot_redraw_or_sample(capture, qtbot, monkeypatch):
+def test_stale_or_consumed_motion_cannot_redraw(capture, qtbot, monkeypatch):
     start(capture, qtbot, token=2)
     rendered = Mock()
     monkeypatch.setattr(capture.overlay, "show_selection", rendered)
@@ -356,7 +328,6 @@ def test_stale_or_consumed_motion_cannot_redraw_or_sample(capture, qtbot, monkey
     capture.input.take_position.side_effect = None
     move(capture, token=2)
     rendered.assert_not_called()
-    capture._preview.request_sample.assert_not_called()
 
 
 def test_queued_motion_cannot_reopen_overlay_after_release(capture, qtbot, monkeypatch):
@@ -371,27 +342,28 @@ def test_queued_motion_cannot_reopen_overlay_after_release(capture, qtbot, monke
     assert capture._worker.region == QRect(-50, -20, 80, 60)
 
 
-def test_every_gesture_reaches_input_and_a_repeated_combination_keeps_the_first(capture):
-    capture.main_app.config_manager.set_app_setting("quick_capture_bindings", (
-        '[{"modifiers": ["win"], "action": "pin"}, {"modifiers": ["ctrl", "win"], "action": "copy"},'
-        ' {"modifiers": ["win"], "action": "edit"}]'
-    ))
+def test_every_binding_reaches_input_and_a_repeated_combination_keeps_the_first(capture):
+    bind(capture.main_app.config_manager,
+         ("win+dragleft", "pin"), ("ctrl+win+dragleft", "copy"), ("win+dragright", "ocr"),
+         ("win+dragleft", "edit"))
     capture.refresh()
-    capture.input.configure.assert_called_with(
-        frozenset({frozenset({"win"}), frozenset({"ctrl", "win"})}), True)
-    assert capture._actions[frozenset({"win"})] == "pin"
+    capture.input.configure.assert_called_with(frozenset({
+        WIN_LEFT, (frozenset({"ctrl", "win"}), "left"), (frozenset({"win"}), "right"),
+    }), True)
+    assert capture._actions[WIN_LEFT] == "pin"
+    assert "edit" not in capture._actions.values()
 
 
-def test_each_gesture_runs_the_action_of_its_modifiers(capture, qtbot):
-    bind(capture.main_app.config_manager, (("win",), "pin"), (("shift", "win"), "copy"))
+def test_each_gesture_runs_the_action_of_its_binding(capture, qtbot):
+    bind(capture.main_app.config_manager, ("win+dragleft", "pin"), ("win+dragx1", "copy"))
     capture.refresh()
-    capture.input.gesture_modifiers.return_value = frozenset({"shift", "win"})
+    capture.input.gesture_binding.return_value = (frozenset({"win"}), "x1")
     start(capture, qtbot)
     assert finish(capture, qtbot).action == "copy"
 
 
 def test_start_matching_no_gesture_is_cancelled(capture):
-    capture.input.gesture_modifiers.return_value = None
+    capture.input.gesture_binding.return_value = None
     capture._on_input("start", 1, 10, 10)
     assert capture._active is None
     capture.input.cancel.assert_called()
@@ -404,12 +376,10 @@ def test_click_without_drag_never_captures(capture, qtbot):
     assert not capture.overlay.isVisible()
 
 
-def test_no_recursive_preview_when_window_cannot_be_excluded(capture, qtbot, monkeypatch):
+def test_overlay_that_cannot_be_excluded_still_hides_before_capture(capture, qtbot, monkeypatch):
     monkeypatch.setattr("ui.quick_capture_overlay.set_window_exclude_from_capture", lambda *_args: False)
     start(capture, qtbot)
     assert capture.overlay.isVisible()
-    assert capture._preview is None
-    assert not capture.overlay.magnifier_overlay.isVisible()
     worker = finish(capture, qtbot)
     assert worker.region == QRect(-50, -20, 80, 60)
     assert not capture.overlay.isVisible()
@@ -491,152 +461,16 @@ def test_capture_failure_closes_overlay_and_notifies(capture, qtbot):
     capture.main_app.tray_icon.showMessage.assert_called_once()
 
 
-def test_live_preview_updates_magnifier_and_stops_before_capture(capture, qtbot, monkeypatch):
-    start(capture, qtbot)
-    preview = capture._preview
-    assert preview.source is capture.input
-    preview.start.assert_called_once()
-    received = Mock(wraps=capture.overlay.set_sample_image)
-    monkeypatch.setattr(capture.overlay, "set_sample_image", received)
-    sample = image()
-    frame = (sample, QRect(-80, -50, 80, 60))
-    preview.frame = frame
-    preview.frame_ready.emit()
-    qtbot.waitUntil(lambda: received.called)
-    received.assert_called_once_with(*frame)
-    assert capture.overlay._sample_ready
-    assert capture.overlay.config_manager is capture.main_app.config_manager
-    move(capture)
-    assert received.call_count == 1
-    preview.request_sample.assert_called_once_with()
-
-    finish(capture, qtbot)
-    preview.stop.assert_called_once()
-    assert capture._preview is None
-    assert not capture.overlay._sample_ready
-    preview.frame = (image(), QRect(-50, -20, 80, 60))
-    preview.frame_ready.emit()
-    module.QApplication.processEvents()
-    assert received.call_count == 1
-    preview.finished.emit()
-    assert preview not in capture._preview_workers
-
-
-def test_disabling_magnifier_avoids_sampling_but_keeps_capture(capture, qtbot):
-    capture.main_app.config_manager.set_app_setting("magnifier_enabled", False)
-    start(capture, qtbot)
-    assert capture._preview is None
-    assert not capture._preview_workers
-    worker = finish(capture, qtbot)
-    worker.start.assert_called_once()
-
-
-@pytest.mark.parametrize("action", ["cancel", "suspend", "failure", "close"])
-def test_ending_drag_stops_live_sampling(capture, qtbot, action):
-    start(capture, qtbot)
-    preview = capture._preview
-    if action == "failure":
-        preview.failed.emit("Synthetic sampling failure")
-        qtbot.waitUntil(lambda: not capture.busy)
-    else:
-        getattr(capture, action)()
-    preview.stop.assert_called()
-    assert capture._preview is None
-    assert capture._active is None
-    if capture.overlay is not None:
-        assert not capture.overlay.isVisible()
-    if action == "close":
-        preview.wait.assert_called_once()
-
-
-def test_late_preview_finish_cannot_clear_new_drag_preview(capture, qtbot):
-    start(capture, qtbot)
-    previous = capture._preview
-    capture.cancel()
-    start(capture, qtbot, token=2)
-    current = capture._preview
-    assert current is not previous
-    previous.finished.emit()
-    assert capture._preview is current
-    assert previous not in capture._preview_workers
-    assert current in capture._preview_workers
-    capture.close()
-    current.wait.assert_called_once()
-
-
-def test_queued_failure_from_old_preview_cannot_cancel_a_new_drag(capture, qtbot):
-    start(capture, qtbot)
-    previous = capture._preview
-    previous.failed.emit("A previous preview failed")
-    capture.cancel()
-    # Start again before the old queued failure reaches the GUI event loop.
-    capture._on_input("start", 2, -30, -10)
-    current = capture._preview
-    module.QApplication.processEvents()
-    assert capture._active == 2
-    assert capture._preview is current
-    assert capture.overlay.isVisible()
-    capture.main_app.tray_icon.showMessage.assert_not_called()
-
-
-def test_queued_frame_from_old_preview_cannot_replace_new_session_sample(capture, qtbot, monkeypatch):
-    start(capture, qtbot)
-    previous = capture._preview
-    previous.frame = (image(), QRect(-50, -20, 80, 60))
-    previous.frame_ready.emit()
-    capture.cancel()
-    capture._on_input("start", 2, -30, -10)
-    received = Mock()
-    monkeypatch.setattr(capture.overlay, "set_sample_image", received)
-    module.QApplication.processEvents()
-    received.assert_not_called()
-    assert capture._active == 2
-    assert capture._preview is not previous
-
-
-def test_stationary_preview_cancels_when_a_modal_appears(capture, qtbot, monkeypatch):
-    start(capture, qtbot)
-    preview = capture._preview
-    monkeypatch.setattr(module.QApplication, "activeModalWidget", lambda: object())
-    preview.frame = (image(), QRect(-80, -50, 80, 60))
-    preview.frame_ready.emit()
-    module.QApplication.processEvents()
-    preview.stop.assert_called_once()
-    assert capture._active is None
-    assert not capture.overlay.isVisible()
-
-
-def test_close_waits_for_old_and_current_sampling_workers(capture, qtbot):
-    start(capture, qtbot)
-    previous = capture._preview
-    capture.cancel()
-    start(capture, qtbot, token=2)
-    current = capture._preview
-    capture.close()
-    previous.wait.assert_called_once()
-    current.wait.assert_called_once()
-
-
-@pytest.mark.parametrize("command", ["cycle_color", "copy_color", "zoom_in", "zoom_out"])
-def test_input_commands_reach_only_an_active_capture(capture, qtbot, monkeypatch, command):
-    start(capture, qtbot)
-    handle = Mock()
-    monkeypatch.setattr(capture.overlay, "handle_command", handle)
-    capture.input.command.emit(command)
-    qtbot.waitUntil(lambda: handle.called)
-    handle.assert_called_once_with(command)
-    capture.cancel()
-    capture.input.command.emit(command)
-    module.QApplication.processEvents()
-    assert handle.call_count == 1
-
-
 @pytest.mark.parametrize("include_cursor", [False, True])
-def test_cursor_preference_reaches_capture_worker(capture, qtbot, include_cursor):
+@pytest.mark.parametrize("action,cursor_allowed", [("copy", True), ("edit", True), ("ocr", False),
+                                                    ("translate", False)])
+def test_cursor_preference_reaches_capture_worker(capture, qtbot, include_cursor, action, cursor_allowed):
+    bind(capture.main_app.config_manager, action)
     capture.main_app.config_manager.set_app_setting("capture_include_cursor", include_cursor)
+    capture.refresh()
     start(capture, qtbot)
     worker = finish(capture, qtbot)
-    assert worker.include_cursor is include_cursor
+    assert worker.include_cursor is (include_cursor and cursor_allowed)
 
 
 def test_edit_delivery_preserves_captured_cursor_and_selection(capture, qtbot):
@@ -654,156 +488,6 @@ def test_edit_delivery_preserves_captured_cursor_and_selection(capture, qtbot):
     capture.main_app._on_capture_ready.assert_called_once_with(result, bounds, cursor)
     assert capture.main_app.selection.rect() == QRectF(-50, -20, 80, 60)
     assert capture.main_app.selection.is_confirmed
-
-
-@pytest.mark.parametrize("position,expected", [
-    ((100, 120), QRect(52, 72, 96, 96)),
-    ((-98, -98), QRect(-100, -100, 50, 50)),
-])
-def test_live_preview_samples_only_a_clipped_cursor_patch(qapp, monkeypatch, position, expected):
-    preview = module.QuickCapturePreview(SimpleNamespace(position=position), QRect(-100, -100, 500, 500))
-    pixels = bytearray(b"\x66\x44\x22\xff" * expected.width() * expected.height())
-    desktop = Mock()
-    context = Mock()
-    context.__enter__ = Mock(return_value=desktop)
-    context.__exit__ = Mock(return_value=False)
-
-    def grab(_monitor):
-        return SimpleNamespace(width=expected.width(), height=expected.height(), bgra=pixels)
-
-    desktop.grab.side_effect = grab
-    monkeypatch.setattr("mss.mss", lambda: context)
-    preview.frame_ready.connect(preview.stop)
-    preview.run()
-    desktop.grab.assert_called_once_with(dict(left=expected.x(), top=expected.y(),
-                                             width=expected.width(), height=expected.height()))
-    result, region = preview.take_frame()
-    assert region == expected
-    pixels[:] = b"\x00" * len(pixels)
-    assert result.pixel(0, 0) == 0xff224466
-    context.__exit__.assert_called_once()
-    preview.deleteLater()
-
-
-def test_preview_coalesces_unconsumed_frames_and_rearms_after_consumption(qapp):
-    preview = module.QuickCapturePreview(SimpleNamespace(position=(10, 20)), QRect(0, 0, 500, 500))
-    notified = Mock()
-    preview.frame_ready.connect(notified)
-    sample = image()
-    for offset in range(100):
-        preview._publish_frame(sample, QRect(offset, offset, 80, 60))
-    notified.assert_called_once_with()
-    assert preview.take_frame() == (sample, QRect(99, 99, 80, 60))
-    assert preview.take_frame() is None
-    preview._publish_frame(sample, QRect(101, 102, 80, 60))
-    assert notified.call_count == 2
-    assert preview.take_frame() == (sample, QRect(101, 102, 80, 60))
-    preview.stop()
-    preview._publish_frame(sample, QRect(103, 104, 80, 60))
-    assert preview.take_frame() is None
-    assert notified.call_count == 2
-    preview.deleteLater()
-
-
-def test_movement_during_sampling_wakes_next_sample_with_latest_position(qapp, monkeypatch):
-    source = SimpleNamespace(position=(100, 120))
-    preview = module.QuickCapturePreview(source, QRect(0, 0, 500, 500))
-    waits, regions = [], []
-
-    class RecordingWake(threading.Event):
-        def wait(self, timeout=None):
-            waits.append(self.is_set())
-            if len(waits) == 2:
-                preview.stop()
-            return super().wait(0)
-
-    preview._sample_requested = RecordingWake()
-
-    def grab(region):
-        regions.append(region)
-        if len(regions) == 1:
-            source.position = (220, 200)
-            preview.request_sample()
-        return SimpleNamespace(width=region["width"], height=region["height"],
-                               bgra=b"\x66\x44\x22\xff" * region["width"] * region["height"])
-
-    context = Mock()
-    context.__enter__ = Mock(return_value=SimpleNamespace(grab=grab))
-    context.__exit__ = Mock(return_value=False)
-    monkeypatch.setattr("mss.mss", lambda: context)
-    preview.run()
-    assert waits == [True, False]
-    assert [(region["left"], region["top"]) for region in regions] == [(52, 72), (172, 152)]
-    assert preview.take_frame()[1] == QRect(172, 152, 96, 96)
-    preview.deleteLater()
-
-
-def test_stop_wakes_a_sampler_waiting_for_movement(qapp):
-    preview = module.QuickCapturePreview(SimpleNamespace(position=(10, 20)), QRect(0, 0, 500, 500))
-    assert not preview._sample_requested.is_set()
-    preview.stop()
-    assert preview._sample_requested.wait(0)
-    preview.deleteLater()
-
-
-def test_stop_during_wakeup_reset_does_not_start_another_grab(qapp, monkeypatch):
-    preview = module.QuickCapturePreview(SimpleNamespace(position=(10, 20)), QRect(0, 0, 500, 500))
-
-    class StopOnClear(threading.Event):
-        def clear(self):
-            preview.stop()
-            super().clear()
-
-    preview._sample_requested = StopOnClear()
-    desktop = Mock()
-    context = Mock()
-    context.__enter__ = Mock(return_value=desktop)
-    context.__exit__ = Mock(return_value=False)
-    monkeypatch.setattr("mss.mss", lambda: context)
-    preview.run()
-    desktop.grab.assert_not_called()
-    assert preview.take_frame() is None
-    preview.deleteLater()
-
-
-def test_stopped_preview_does_not_sample_desktop(qapp, monkeypatch):
-    desktop = Mock()
-    context = Mock()
-    context.__enter__ = Mock(return_value=desktop)
-    context.__exit__ = Mock(return_value=False)
-    monkeypatch.setattr("mss.mss", lambda: context)
-    preview = module.QuickCapturePreview(SimpleNamespace(position=(10, 20)), QRect(0, 0, 500, 500))
-    preview.stop()
-    preview.run()
-    desktop.grab.assert_not_called()
-    assert preview.take_frame() is None
-    preview.deleteLater()
-
-
-@pytest.mark.parametrize("cancelled", [False, True])
-def test_preview_reports_sample_failure_unless_already_cancelled(qapp, monkeypatch, cancelled):
-    preview = module.QuickCapturePreview(SimpleNamespace(position=(10, 20)), QRect(0, 0, 500, 500))
-    desktop = Mock()
-    context = Mock()
-    context.__enter__ = Mock(return_value=desktop)
-    context.__exit__ = Mock(return_value=False)
-
-    def grab(_monitor):
-        if cancelled:
-            preview.stop()
-        raise RuntimeError("Synthetic read failure")
-
-    desktop.grab.side_effect = grab
-    monkeypatch.setattr("mss.mss", lambda: context)
-    failure = Mock()
-    preview.failed.connect(failure)
-    preview.run()
-    if cancelled:
-        failure.assert_not_called()
-    else:
-        failure.assert_called_once_with("Synthetic read failure")
-    assert preview.take_frame() is None
-    preview.deleteLater()
 
 
 @pytest.mark.parametrize("action", ["copy", "edit"])
@@ -827,18 +511,19 @@ def test_worker_passes_captured_cursor_to_capture_service(qapp, monkeypatch, act
     assert worker.cursor is cursor
     success.assert_called_once()
     if action == "edit":
-        service.capture_all_screens.assert_called_once_with(*((cursor,) if cursor_available else ()))
+        service.capture_all_screens.assert_called_once_with(cursor)
     else:
-        service.capture_region.assert_called_once_with(region, *((cursor,) if cursor_available else ()))
+        service.capture_region.assert_called_once_with(region, cursor)
     worker.deleteLater()
 
 
-@pytest.mark.parametrize("action", ["pin", "copy", "copy_pin", "edit"])
+@pytest.mark.parametrize("action", ["pin", "copy", "copy_pin", "ocr", "translate", "edit"])
 def test_worker_flushes_before_capture_and_keeps_pixels_owned(qapp, monkeypatch, action):
     events = []
     service = Mock()
-    service.capture_region.side_effect = lambda rect: events.append("region") or image()
-    service.capture_all_screens.side_effect = lambda: (events.append("all") or image(), QRectF(-100, 0, 500, 400))
+    service.capture_region.side_effect = lambda rect, cursor: events.append("region") or image()
+    service.capture_all_screens.side_effect = lambda cursor: (events.append("all") or image(),
+                                                              QRectF(-100, 0, 500, 400))
     monkeypatch.setattr(module, "CaptureService", lambda: service)
     monkeypatch.setattr(module, "flush_desktop", lambda: events.append("flush"))
     worker = module.QuickCaptureWorker(QRect(-50, 10, 80, 60), action)
@@ -848,7 +533,8 @@ def test_worker_flushes_before_capture_and_keeps_pixels_owned(qapp, monkeypatch,
     assert events == ["flush", "all" if action == "edit" else "region"]
     assert received[0][0].pixel(0, 0) == 0xff224466
     if action != "edit":
-        service.capture_region.assert_called_once_with(QRect(-50, 10, 80, 60))
+        service.capture_region.assert_called_once_with(QRect(-50, 10, 80, 60), None)
+        assert received[0][1] == QRectF(-50, 10, 80, 60)
     worker.deleteLater()
 
 

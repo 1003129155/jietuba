@@ -115,8 +115,8 @@ def test_reuses_normal_capture_widgets_without_a_frozen_background(overlay, qapp
     assert isinstance(overlay.selection_item, SelectionItem)
     assert isinstance(overlay.selection_overlay, SelectionOverlayWidget)
     assert isinstance(overlay.info_panel, SelectionInfoPanel)
-    assert isinstance(overlay.magnifier_overlay, MagnifierOverlay)
-    assert overlay.scene.background is None
+    # 拖动时只画选框和尺寸，不建放大镜
+    assert not overlay.findChildren(MagnifierOverlay)
     qapp.processEvents()
     image = QImage(overlay.size(), QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(Qt.GlobalColor.transparent)
@@ -133,7 +133,6 @@ def test_reuses_normal_capture_widgets_without_a_frozen_background(overlay, qapp
     assert "70,90" in overlay.info_panel._info_label.text()
     assert "160 × 100 px" in overlay.info_panel._info_label.text()
     assert not overlay.info_panel.btn_border.isVisible()
-    assert not overlay.magnifier_overlay.isVisible(), "收到真实采样前不画假色值"
 
 
 @pytest.mark.parametrize("width,color", [(1, "#E91E63"), (4, "#40E0D0"), (8, "#5267DA")])
@@ -217,112 +216,34 @@ def test_capture_exclusion_failure_does_not_stop_overlay(overlay, monkeypatch):
     exclude.assert_called_once_with(int(overlay.winId()), True)
 
 
-def test_hide_clears_samples_and_next_session_reloads_normal_capture_options(overlay):
+def test_hide_ends_session_and_next_session_reloads_normal_capture_options(overlay):
     bounds = QRect(0, 0, 500, 400)
     overlay.show_selection(QPoint(20, 90), QPoint(230, 190), bounds)
-    sample = QImage(64, 64, QImage.Format.Format_RGB32)
-    sample.fill(QColor("#EE4455"))
-    overlay.set_sample_image(sample, QRect(198, 158, 64, 64))
-    assert overlay.magnifier_overlay.isVisible()
+    assert overlay.info_panel.isVisible()
     overlay.hide()
-    assert not overlay._sample_ready
     assert overlay.model.is_empty()
-    assert overlay.magnifier_overlay._sample_image is None
-    overlay.set_sample_image(sample, QRect(198, 158, 64, 64))
-    assert not overlay.magnifier_overlay.isVisible(), "结束后的迟到样本不重新显示"
 
     overlay.config_manager.set_app_setting("screenshot_info_hide_on_drag", True)
-    overlay.config_manager.set_app_setting("magnifier_enabled", False)
-    overlay.config_manager.set_app_setting("magnifier_grid", True)
-    overlay.config_manager.set_app_setting("magnifier_hint", False)
     overlay.show_selection(QPoint(20, 90), QPoint(230, 190), bounds)
-    overlay.set_sample_image(sample, QRect(198, 158, 64, 64))
+    assert overlay.selection_overlay.isVisible()
     assert not overlay.info_panel.isVisible()
-    assert not overlay.magnifier_overlay.isVisible()
-    assert overlay.magnifier_overlay._show_grid
-    assert not overlay.magnifier_overlay._show_hint
-
-
-def test_pointer_outside_latest_sample_hides_stale_color_until_new_sample(overlay):
-    bounds = QRect(0, 0, 500, 400)
-    overlay.show_selection(QPoint(20, 90), QPoint(230, 190), bounds)
-    sample = QImage(64, 64, QImage.Format.Format_RGB32)
-    sample.fill(QColor("#EE4455"))
-    overlay.set_sample_image(sample, QRect(198, 158, 64, 64))
-    assert overlay.magnifier_overlay.isVisible()
-    overlay.show_selection(QPoint(20, 90), QPoint(262, 190), bounds)
-    assert not overlay.magnifier_overlay.isVisible(), "采样矩形右边界是排除端点，不能显示白色假像素"
-    overlay.show_selection(QPoint(20, 90), QPoint(350, 290), bounds)
-    assert not overlay.magnifier_overlay.isVisible()
-    overlay.set_sample_image(sample, QRect(318, 258, 64, 64))
-    assert overlay.magnifier_overlay.isVisible()
-
-
-def test_pointer_near_patch_edge_waits_for_complete_magnifier_sample(overlay):
-    bounds = QRect(-100, -100, 500, 400)
-    overlay.show_selection(QPoint(-80, -80), QPoint(-20, 0), bounds)
-    overlay.magnifier_overlay._zoom_factor = 2.0
-    sample = QImage(96, 96, QImage.Format.Format_RGB32)
-    sample.fill(QColor("#EE4455"))
-    overlay.set_sample_image(sample, QRect(-68, -48, 96, 96))
-    assert overlay.magnifier_overlay.isVisible()
-    overlay.show_selection(QPoint(-80, -80), QPoint(24, 0), bounds)
-    assert not overlay.magnifier_overlay.isVisible(), "仅中心像素在patch内不足以显示正确倍率"
-    overlay.set_sample_image(sample, QRect(-24, -48, 96, 96))
-    assert overlay.magnifier_overlay.isVisible()
-
-
-def test_actual_desktop_edge_allows_the_same_clipped_sample_as_normal_capture(overlay):
-    bounds = QRect(-100, -100, 500, 400)
-    overlay.show_selection(QPoint(20, 20), QPoint(-100, -100), bounds)
-    overlay.magnifier_overlay._zoom_factor = 2.0
-    sample = QImage(48, 48, QImage.Format.Format_RGB32)
-    sample.fill(QColor("#EE4455"))
-    overlay.set_sample_image(sample, QRect(-100, -100, 48, 48))
-    assert overlay.magnifier_overlay.isVisible(), "真实屏幕边缘裁切与普通截图一致"
-
-
-def test_repeated_drag_frames_keep_magnifier_above_overlapping_info_panel(overlay):
-    bounds = QRect(0, 0, 500, 400)
-    start, end = QPoint(280, 270), QPoint(450, 390)
-    overlay.show_selection(start, end, bounds)
-    sample = QImage(96, 96, QImage.Format.Format_RGB32)
-    sample.fill(QColor("#EE4455"))
-    overlay.set_sample_image(sample, QRect(402, 342, 96, 96))
-    assert overlay.info_panel.geometry().intersects(overlay.magnifier_overlay.geometry())
-    before = overlay.grab().toImage()
-    overlay.show_selection(start, end, bounds)
-    assert overlay.grab().toImage() == before, "更新坐标不能把面板提到放大镜上方"
 
 
 def test_stationary_drag_does_not_relayout_or_repaint_unchanged_overlays(overlay, monkeypatch):
     bounds = QRect(0, 0, 500, 400)
     start, end = QPoint(20, 90), QPoint(230, 190)
     overlay.show_selection(start, end, bounds)
-    sample = QImage(96, 96, QImage.Format.Format_RGB32)
-    sample.fill(QColor("#EE4455"))
-    overlay.set_sample_image(sample, QRect(182, 142, 96, 96))
     before = overlay.grab().toImage()
     info = Mock(wraps=overlay.info_panel.update_info_text)
     geometry = Mock(wraps=overlay.setGeometry)
-    cursor = Mock(wraps=overlay.magnifier_overlay.update_cursor)
     monkeypatch.setattr(overlay.info_panel, "update_info_text", info)
     monkeypatch.setattr(overlay, "setGeometry", geometry)
-    monkeypatch.setattr(overlay.magnifier_overlay, "update_cursor", cursor)
 
     for _ in range(20):
         overlay.show_selection(start, end, bounds)
     info.assert_not_called()
     geometry.assert_not_called()
-    cursor.assert_not_called()
     assert overlay.grab().toImage() == before
-
-    # 新样本仍须更新静止光标的颜色，不能将取样刷新一起去重。
-    sample.fill(QColor("#11AA77"))
-    overlay.set_sample_image(sample, QRect(182, 142, 96, 96))
-    cursor.assert_called_once()
-    assert overlay.magnifier_overlay._sample_color(sample) == QColor("#11AA77")
-    assert overlay.grab().toImage() != before
 
 
 def test_drag_updates_selection_without_resetting_virtual_desktop_geometry(overlay, monkeypatch):
@@ -372,28 +293,3 @@ def test_reusing_same_bounds_restores_frame_and_info_after_session_ends(overlay)
     assert overlay.info_panel.isVisible()
     assert overlay.model.is_dragging
     assert overlay.grab().toImage() == before
-
-
-def test_commands_use_normal_magnifier_actions_and_do_not_copy_stale_color(overlay, monkeypatch):
-    magnifier = overlay.magnifier_overlay
-    copy = Mock()
-    monkeypatch.setattr(magnifier, "copy_color_info", copy)
-    overlay.handle_command("copy_color")
-    copy.assert_not_called()
-    overlay.show_selection(QPoint(20, 90), QPoint(230, 190), QRect(0, 0, 500, 400))
-    overlay.handle_command("copy_color")
-    copy.assert_not_called()
-    sample = QImage(64, 64, QImage.Format.Format_RGB32)
-    sample.fill(QColor("#EE4455"))
-    overlay.set_sample_image(sample, QRect(198, 158, 64, 64))
-    overlay.handle_command("copy_color")
-    copy.assert_called_once()
-    before = magnifier.get_zoom_factor()
-    overlay.handle_command("zoom_in")
-    assert magnifier.get_zoom_factor() == before + 0.25
-    overlay.handle_command("zoom_out")
-    assert magnifier.get_zoom_factor() == before
-    cycle = Mock()
-    monkeypatch.setattr(magnifier, "cycle_color_format", cycle)
-    overlay.handle_command("cycle_color")
-    cycle.assert_called_once()

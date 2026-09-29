@@ -9,56 +9,36 @@
 <context>
     <name>SettingsDialog</name>
     <message>
-        <source>Quick capture failed. Please try again.</source>
-        <translation>Quick capture failed. Please try again.</translation>
+        <source>Region Text Recognition</source>
+        <translation>Region Text Recognition</translation>
     </message>
     <message>
-        <source>Quick Capture</source>
-        <translation>Quick Capture</translation>
+        <source>Region Translation</source>
+        <translation>Region Translation</translation>
     </message>
     <message>
-        <source>First Modifier</source>
-        <translation>First Modifier</translation>
+        <source>Copy and Pin</source>
+        <translation>Copy and Pin</translation>
     </message>
     <message>
-        <source>Second Modifier</source>
-        <translation>Second Modifier</translation>
+        <source>Capture and Edit</source>
+        <translation>Capture and Edit</translation>
     </message>
     <message>
-        <source>Capture and Pin</source>
-        <translation>Capture and Pin</translation>
+        <source>Back Button Drag</source>
+        <translation>Back Button Drag</translation>
     </message>
     <message>
-        <source>Capture and Copy</source>
-        <translation>Capture and Copy</translation>
+        <source>Forward Button Drag</source>
+        <translation>Forward Button Drag</translation>
     </message>
     <message>
-        <source>Capture, Copy and Pin</source>
-        <translation>Capture, Copy and Pin</translation>
+        <source>Hold modifier keys and drag the mouse</source>
+        <translation>Hold modifier keys and drag the mouse</translation>
     </message>
     <message>
-        <source>Normal Capture</source>
-        <translation>Normal Capture</translation>
-    </message>
-    <message>
-        <source>Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. Some security software may warn about keyboard monitoring once a gesture is added; allow it to keep using Quick Capture.</source>
-        <translation>Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. Some security software may warn about keyboard monitoring once a gesture is added; allow it to keep using Quick Capture.</translation>
-    </message>
-    <message>
-        <source>No gestures yet. Quick Capture is off.</source>
-        <translation>No gestures yet. Quick Capture is off.</translation>
-    </message>
-    <message>
-        <source>Add Gesture</source>
-        <translation>Add Gesture</translation>
-    </message>
-    <message>
-        <source>Remove Gesture</source>
-        <translation>Remove Gesture</translation>
-    </message>
-    <message>
-        <source>Gesture %1</source>
-        <translation>Gesture %1</translation>
+        <source>Capture failed. Please try again.</source>
+        <translation>Capture failed. Please try again.</translation>
     </message>
     <message>
         <source>Shortcuts</source>
@@ -312,7 +292,6 @@
     <message><source>Ellipse</source><translation>Ellipse</translation></message>
     <message><source>Text</source><translation>Text</translation></message>
     <message><source>Eraser</source><translation>Eraser</translation></message>
-    <message><source>💡 Configured shortcuts take priority over WASD and C. Arrow keys remain available; Esc is reserved.</source><translation>💡 Configured shortcuts take priority over WASD and C. Arrow keys remain available; Esc is reserved.</translation></message>
     <message>
         <source>Pin Shortcuts</source>
         <translation>Pin Shortcuts</translation>
@@ -1050,7 +1029,7 @@ Replace it?</translation>
     </message>
     <message>
         <source>Mouse Shortcuts</source>
-        <translation>In-App Mouse Shortcuts</translation>
+        <translation>Mouse Shortcuts</translation>
     </message>
     <message>
         <source>Mouse Wheel</source>
@@ -1113,10 +1092,6 @@ Replace it?</translation>
         <translation>Copy Selected Text</translation>
     </message>
     <message>
-        <source>Pin mouse actions apply outside annotation mode. Conflicts use the first matching action. Copy text uses the selected OCR text; otherwise right-click opens the menu.</source>
-        <translation>Pin mouse actions apply outside annotation mode. Conflicts use the first matching action. Copy text uses the selected OCR text; otherwise right-click opens the menu.</translation>
-    </message>
-    <message>
         <source>Use + / - instead of the wheel with the same modifiers</source>
         <translation>Use + / - instead of the wheel with the same modifiers</translation>
     </message>
@@ -1135,10 +1110,6 @@ Replace it?</translation>
     <message>
         <source>Open Context Menu</source>
         <translation>Open Context Menu</translation>
-    </message>
-    <message>
-        <source>Pin applies to images; quick edit applies to text. Single clicks wait for the system double-click interval when the same button also has an available double-click action.</source>
-        <translation>Pin applies to images; quick edit applies to text. Single clicks wait for the system double-click interval when the same button also has an available double-click action.</translation>
     </message>
 </context>
 
@@ -4213,6 +4184,18 @@ SOFTWARE.</translation></message>
     <message>
         <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
         <translation>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</translation>
+    </message>
+    <message>
+        <source>Global Mouse Shortcuts</source>
+        <translation>Global Mouse Shortcuts</translation>
+    </message>
+    <message>
+        <source>In-App Mouse Shortcuts</source>
+        <translation>In-App Mouse Shortcuts</translation>
+    </message>
+    <message>
+        <source>Quick Edit Text</source>
+        <translation>Quick Edit Text</translation>
     </message>
 </context>
 <context>

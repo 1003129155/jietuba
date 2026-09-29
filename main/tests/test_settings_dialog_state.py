@@ -386,6 +386,7 @@ RESET_METHODS = (
     "_reset_misc_page",
     "_reset_long_screenshot_page",
     "_reset_quick_actions_page",
+    "_reset_mouse_page",
 )
 
 # stack 下标 → 应被调用的方法名
@@ -399,6 +400,7 @@ INDEX_TO_METHOD = {
     6: "_reset_misc_page",
     7: "_reset_long_screenshot_page",
     9: "_reset_quick_actions_page",
+    10: "_reset_mouse_page",
 }
 
 
@@ -424,7 +426,7 @@ class TestResetCurrentPageDispatch:
         assert not any(getattr(fake, name).called for name in RESET_METHODS)
 
     def test_unknown_index_resets_nothing(self):
-        for index in (-1, 10, 99):
+        for index in (-1, 11, 99):
             fake = _dispatch_fake(index)
             SettingsDialog._reset_current_page(fake)
             assert not any(getattr(fake, name).called for name in RESET_METHODS), index
@@ -652,6 +654,7 @@ NAV_TITLES = {
     6: "Other Settings",
     8: "Software Information",
     9: "Quick Actions",
+    10: "Mouse Shortcuts",
 }
 
 
@@ -694,7 +697,7 @@ class TestOnNavChanged:
         assert not fake._refresh_after_page_change.called
 
     def test_unknown_index_changes_nothing(self):
-        for index in (-1, 10, 99):
+        for index in (-1, 11, 99):
             fake = _nav_fake()
             SettingsDialog._on_nav_changed(fake, index)
             assert fake.content_stack.set_indexes == [], index

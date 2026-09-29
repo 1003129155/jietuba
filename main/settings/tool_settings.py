@@ -15,7 +15,6 @@
 每个工具都有独立的设置，并且会记忆最后使用的状态
 """
 
-import json
 import os
 from typing import Dict, Any, Optional
 from PySide6.QtCore import QSettings, Signal, QObject
@@ -47,55 +46,40 @@ PIN_MOUSE_ACTIONS = (
 
 CLIPBOARD_MOUSE_ACTIONS = (
     ("paste", "Paste", "left", "click"),
-    ("pin", "Pin to Screen", "middle", "click"),
-    ("quick_edit", "Quick Edit", "middle", "click"),
+    ("pin", "Pin Image", "middle", "click"),
+    ("quick_edit", "Quick Edit Text", "middle", "click"),
     ("menu", "Open Context Menu", "right", "click"),
 )
 
+# 全局鼠标快捷键：按住修饰键拖动鼠标，写法同应用内鼠标快捷键，如 "win+dragleft"
+QUICK_CAPTURE_ACTIONS = (
+    ("copy", "Screenshot", "", "global"),
+    ("pin", "Pin to Screen", "win+dragleft", "global"),
+    ("copy_pin", "Copy and Pin", "", "global"),
+    ("ocr", "Region Text Recognition", "", "global"),
+    ("translate", "Region Translation", "", "global"),
+    ("edit", "Capture and Edit", "", "global"),
+)
 # 和全局热键录制时的拼接顺序一致：Ctrl、Shift、Alt、Win
 QUICK_CAPTURE_MODIFIERS = ("ctrl", "shift", "alt", "win")
-QUICK_CAPTURE_ACTIONS = (
-    ("copy_pin", "Capture, Copy and Pin"),
-    ("pin", "Capture and Pin"),
-    ("copy", "Capture and Copy"),
-    ("edit", "Normal Capture"),
-)
+QUICK_CAPTURE_BUTTONS = ("left", "middle", "right", "x1", "x2")
 
 
-def parse_quick_capture_bindings(raw) -> tuple:
-    """快速截图手势：((修饰键集合, 动作), ...)。
-
-    格式不对的项、超过两个修饰键的项、与前面重复的修饰键组合一律丢掉，
-    拿到的每一项都能直接用。
-    """
-    try:
-        items = json.loads(raw) if raw else []
-    except ValueError:
-        return ()
-    actions = dict(QUICK_CAPTURE_ACTIONS)
-    result, seen = [], set()
-    for item in items if isinstance(items, list) else ():
-        if not isinstance(item, dict) or not isinstance(item.get("modifiers"), list):
-            continue
-        modifiers = frozenset(item["modifiers"])
-        action = item.get("action")
-        if (not 1 <= len(modifiers) <= 2 or not modifiers <= set(QUICK_CAPTURE_MODIFIERS)
-                or action not in actions or modifiers in seen):
-            continue
-        seen.add(modifiers)
-        result.append((modifiers, action))
-    return tuple(result)
+def get_quick_capture_binding(config, action):
+    default = next(binding for key, _label, binding, _kind in QUICK_CAPTURE_ACTIONS if key == action)
+    return config.get_app_setting(f"quick_capture_{action}", default)
 
 
-def dump_quick_capture_bindings(bindings) -> str:
-    return json.dumps([
-        {"modifiers": [key for key in QUICK_CAPTURE_MODIFIERS if key in modifiers], "action": action}
-        for modifiers, action in bindings
-    ]) if bindings else ""
-
-
-def get_quick_capture_bindings(config) -> tuple:
-    return parse_quick_capture_bindings(config.get_app_setting("quick_capture_bindings"))
+def get_quick_capture_bindings(config) -> dict:
+    """{(修饰键集合, 鼠标键): 动作}。修饰键须为 1–2 个；和排在前面的动作重复的组合丢掉。"""
+    bindings = {}
+    for action, *_ in QUICK_CAPTURE_ACTIONS:
+        *modifiers, gesture = str(get_quick_capture_binding(config, action) or "").lower().split("+")
+        modifiers, button = frozenset(modifiers), gesture.removeprefix("drag")
+        if (gesture.startswith("drag") and button in QUICK_CAPTURE_BUTTONS
+                and 1 <= len(modifiers) <= 2 and modifiers <= set(QUICK_CAPTURE_MODIFIERS)):
+            bindings.setdefault((modifiers, button), action)
+    return bindings
 
 
 def get_clipboard_mouse_binding(config, action):
@@ -309,9 +293,8 @@ class ToolSettingsManager(QObject):
         "translation_hotkey_2": "",                # 翻译备用热键
         "global_hotkeys_disabled": False,           # 是否禁用全局热键
 
-        # 按住修饰键、左键拖动快速截图，JSON 列表，格式见 parse_quick_capture_bindings。
-        # 默认为空即关闭：开启后常驻全局鼠标和键盘钩子，由用户主动添加手势。
-        "quick_capture_bindings": "",
+        # 全局鼠标快捷键，用户清空后存空串，不会被默认值补回来
+        **{f"quick_capture_{key}": binding for key, _label, binding, _kind in QUICK_CAPTURE_ACTIONS},
 
         # 应用内快捷键
         "inapp_confirm": "ctrl+c",             # 确认截图（复制到剪贴板）

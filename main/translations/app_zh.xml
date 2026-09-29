@@ -9,56 +9,36 @@
 <context>
     <name>SettingsDialog</name>
     <message>
-        <source>Quick capture failed. Please try again.</source>
-        <translation>快速截图失败，请重试。</translation>
+        <source>Region Text Recognition</source>
+        <translation>区域识别文字</translation>
     </message>
     <message>
-        <source>Quick Capture</source>
-        <translation>快速截图</translation>
+        <source>Region Translation</source>
+        <translation>区域翻译</translation>
     </message>
     <message>
-        <source>First Modifier</source>
-        <translation>第一个修饰键</translation>
+        <source>Copy and Pin</source>
+        <translation>复制后钉图</translation>
     </message>
     <message>
-        <source>Second Modifier</source>
-        <translation>第二个修饰键</translation>
+        <source>Capture and Edit</source>
+        <translation>截图并编辑</translation>
     </message>
     <message>
-        <source>Capture and Pin</source>
-        <translation>截图并钉图</translation>
+        <source>Back Button Drag</source>
+        <translation>鼠标后退键拖拽</translation>
     </message>
     <message>
-        <source>Capture and Copy</source>
-        <translation>截图并自动复制</translation>
+        <source>Forward Button Drag</source>
+        <translation>鼠标前进键拖拽</translation>
     </message>
     <message>
-        <source>Capture, Copy and Pin</source>
-        <translation>截图、复制并钉图</translation>
+        <source>Hold modifier keys and drag the mouse</source>
+        <translation>按住修饰键拖动鼠标</translation>
     </message>
     <message>
-        <source>Normal Capture</source>
-        <translation>普通截图</translation>
-    </message>
-    <message>
-        <source>Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. Some security software may warn about keyboard monitoring once a gesture is added; allow it to keep using Quick Capture.</source>
-        <translation>按住修饰键并按鼠标左键拖动，松开鼠标执行截图，Esc 取消。添加手势后部分安全软件可能提示监控键盘输入，允许即可正常使用。</translation>
-    </message>
-    <message>
-        <source>No gestures yet. Quick Capture is off.</source>
-        <translation>还没有添加手势，快速截图处于关闭状态。</translation>
-    </message>
-    <message>
-        <source>Add Gesture</source>
-        <translation>添加手势</translation>
-    </message>
-    <message>
-        <source>Remove Gesture</source>
-        <translation>删除手势</translation>
-    </message>
-    <message>
-        <source>Gesture %1</source>
-        <translation>手势 %1</translation>
+        <source>Capture failed. Please try again.</source>
+        <translation>截图失败，请重试。</translation>
     </message>
     <message>
         <source>Shortcuts</source>
@@ -316,7 +296,6 @@
     <message><source>Ellipse</source><translation>椭圆</translation></message>
     <message><source>Text</source><translation>文字</translation></message>
     <message><source>Eraser</source><translation>橡皮擦</translation></message>
-    <message><source>💡 Configured shortcuts take priority over WASD and C. Arrow keys remain available; Esc is reserved.</source><translation>💡 已配置的快捷键优先于 WASD 和 C；方向键仍可用，Esc 为保留键。</translation></message>
     <message>
         <source>Pin Shortcuts</source>
         <translation>钉图快捷键</translation>
@@ -393,7 +372,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Pin Image</source>
-        <translation>钉图</translation>
+        <translation>图片钉图</translation>
     </message>
     <message>
         <source>Undo</source>
@@ -1106,7 +1085,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Pin to Screen</source>
-        <translation>贴到屏幕</translation>
+        <translation>钉图</translation>
     </message>
     <message>
         <source>Save to File</source>
@@ -1174,7 +1153,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Mouse Shortcuts</source>
-        <translation>应用内鼠标快捷键</translation>
+        <translation>鼠标快捷键</translation>
     </message>
     <message>
         <source>Mouse Wheel</source>
@@ -1237,10 +1216,6 @@ Replace it?</source>
         <translation>复制选中文字</translation>
     </message>
     <message>
-        <source>Pin mouse actions apply outside annotation mode. Conflicts use the first matching action. Copy text uses the selected OCR text; otherwise right-click opens the menu.</source>
-        <translation>钉图鼠标动作在非标注模式下生效，冲突时从上到下优先匹配。复制文本针对已选中的识别文字；未选中文字时，右键仍打开菜单。</translation>
-    </message>
-    <message>
         <source>Use + / - instead of the wheel with the same modifiers</source>
         <translation>可用 + / - 代替滚轮，修饰键相同</translation>
     </message>
@@ -1259,10 +1234,6 @@ Replace it?</source>
     <message>
         <source>Open Context Menu</source>
         <translation>打开菜单</translation>
-    </message>
-    <message>
-        <source>Pin applies to images; quick edit applies to text. Single clicks wait for the system double-click interval when the same button also has an available double-click action.</source>
-        <translation>钉图适用于图片，快速编辑适用于文本。同一按键同时绑定了可用的单击和双击动作时，单击会等待系统双击判定时间。</translation>
     </message>
 </context>
 
@@ -4493,6 +4464,18 @@ SOFTWARE.</translation></message>
     <message>
         <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
         <translation>只识别到一个二维码或条形码时直接复制内容，不弹出结果窗口；识别到多个码时仍会弹出。</translation>
+    </message>
+    <message>
+        <source>Global Mouse Shortcuts</source>
+        <translation>全局鼠标快捷键</translation>
+    </message>
+    <message>
+        <source>In-App Mouse Shortcuts</source>
+        <translation>应用内鼠标快捷键</translation>
+    </message>
+    <message>
+        <source>Quick Edit Text</source>
+        <translation>文本快速编辑</translation>
     </message>
 </context>
 <context>

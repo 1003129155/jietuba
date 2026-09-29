@@ -619,6 +619,7 @@ ui/
 │   ├── color_format_dialog.py # ColorFormatDialog — magnifier color format editor
 │   ├── page_clipboard.py    # Clipboard settings
 │   ├── page_hotkey.py       # Hotkey settings
+│   ├── page_mouse.py        # Mouse shortcut settings
 │   ├── page_translation.py  # Translation settings
 │   ├── provider_fields.py   # 服务商字段的读写（按声明）
 │   ├── page_log.py          # Log settings

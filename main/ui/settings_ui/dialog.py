@@ -30,16 +30,13 @@ from ui.fluent_lite.theme import ACCENT
 from core import log_info, safe_event
 from core.logger import log_exception, T
 from core.constants import CSS_FONT_FAMILY, DEFAULT_FONT_FAMILY
+from core.resource_manager import ResourceManager
 from core.ui_scale import configure_dialog_control, configure_dialog_controls, dialog_scaled
 from settings.tool_settings import CAPTURE_ENGINES, SMART_SELECTION_MODES
 
 # 页面创建函数
-from .page_hotkey import (
-    create_hotkey_page,
-    validate_global_hotkey_edits,
-    mouse_binding_conflicts,
-    mouse_binding_conflict_message,
-)
+from .page_hotkey import create_hotkey_page, validate_global_hotkey_edits
+from .page_mouse import create_mouse_page, mouse_binding_conflicts, mouse_binding_conflict_message
 from .page_capture import create_capture_page
 from .page_quick_actions import create_quick_actions_page
 from .page_clipboard import create_clipboard_page
@@ -225,6 +222,7 @@ class SettingsDialog(FrostedFramelessDialog):
         self.content_stack.addWidget(create_developer_page(self))        # 7
         self.content_stack.addWidget(create_about_page(self))            # 8
         self.content_stack.addWidget(create_quick_actions_page(self))    # 9
+        self.content_stack.addWidget(create_mouse_page(self))            # 10
 
         # 分页都是一次性建完、切换只换可见性（不是懒加载/动态重建），
         # 建完后统一扫一遍即可覆盖全部分页里的 fluent_lite 控件。
@@ -259,6 +257,8 @@ class SettingsDialog(FrostedFramelessDialog):
 
         self._nav_items = [
             ("shortcuts", FluentIcon.COMMAND_PROMPT, self.tr("Shortcuts"), 0, NavigationItemPosition.TOP),
+            ("mouse", ResourceManager.get_icon_path("鼠标.svg"), self.tr("Mouse Shortcuts"), 10,
+             NavigationItemPosition.TOP),
             ("capture", FluentIcon.CAMERA, self.tr("Capture Settings"), 1, NavigationItemPosition.TOP),
             ("quick_actions", FluentIcon.STOP_WATCH, self.tr("Quick Actions"), 9, NavigationItemPosition.TOP),
             ("clipboard", FluentIcon.PASTE, self.tr("Clipboard"), 2, NavigationItemPosition.TOP),
@@ -393,6 +393,7 @@ class SettingsDialog(FrostedFramelessDialog):
             6: self.tr("Other Settings"),
             8: self.tr("Software Information"),
             9: self.tr("Quick Actions"),
+            10: self.tr("Mouse Shortcuts"),
         }
 
         if stack_index in title_map:
@@ -644,10 +645,14 @@ class SettingsDialog(FrostedFramelessDialog):
             pass
         elif current_index == 9:
             self._reset_quick_actions_page()
+        elif current_index == 10:
+            self._reset_mouse_page()
 
-    def _reset_hotkey_page(self):
+    def _reset_mouse_page(self):
         SettingsDialog._refresh_behavior_controls(self, defaults=True, prefix="mouse_")
         SettingsDialog._refresh_behavior_controls(self, defaults=True, prefix="quick_capture_")
+
+    def _reset_hotkey_page(self):
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
         self.hotkey_input.setText(defaults["hotkey"])
         if hasattr(self, 'hotkey_input_2'):
@@ -899,8 +904,7 @@ class SettingsDialog(FrostedFramelessDialog):
 
         mouse_conflicts = mouse_binding_conflicts(self)
         if mouse_conflicts:
-            self.content_stack.setCurrentIndex(0)
-            self._set_current_nav("shortcuts")
+            self._on_nav_changed(10, "mouse")
             show_warning_dialog(
                 self,
                 self.tr("Shortcut Conflict"),

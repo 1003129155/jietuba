@@ -10,56 +10,36 @@
 <context>
     <name>SettingsDialog</name>
     <message>
-        <source>Quick capture failed. Please try again.</source>
-        <translation>クイックキャプチャに失敗しました。もう一度お試しください。</translation>
+        <source>Region Text Recognition</source>
+        <translation>範囲の文字認識</translation>
     </message>
     <message>
-        <source>Quick Capture</source>
-        <translation>クイックキャプチャ</translation>
+        <source>Region Translation</source>
+        <translation>範囲翻訳</translation>
     </message>
     <message>
-        <source>First Modifier</source>
-        <translation>1つ目の修飾キー</translation>
+        <source>Copy and Pin</source>
+        <translation>コピーしてピン留め</translation>
     </message>
     <message>
-        <source>Second Modifier</source>
-        <translation>2つ目の修飾キー</translation>
+        <source>Capture and Edit</source>
+        <translation>撮影して編集</translation>
     </message>
     <message>
-        <source>Capture and Pin</source>
-        <translation>撮影してピン留め</translation>
+        <source>Back Button Drag</source>
+        <translation>戻るボタンドラッグ</translation>
     </message>
     <message>
-        <source>Capture and Copy</source>
-        <translation>撮影してコピー</translation>
+        <source>Forward Button Drag</source>
+        <translation>進むボタンドラッグ</translation>
     </message>
     <message>
-        <source>Capture, Copy and Pin</source>
-        <translation>撮影・コピーしてピン留め</translation>
+        <source>Hold modifier keys and drag the mouse</source>
+        <translation>修飾キーを押しながらマウスでドラッグ</translation>
     </message>
     <message>
-        <source>Normal Capture</source>
-        <translation>通常のスクリーンショット</translation>
-    </message>
-    <message>
-        <source>Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. Some security software may warn about keyboard monitoring once a gesture is added; allow it to keep using Quick Capture.</source>
-        <translation>修飾キーを押しながらマウスの左ボタンでドラッグします。ボタンを離すと撮影し、Esc でキャンセルします。ジェスチャーを追加すると、一部のセキュリティソフトがキーボード入力の監視について警告することがあります。許可すれば引き続き使用できます。</translation>
-    </message>
-    <message>
-        <source>No gestures yet. Quick Capture is off.</source>
-        <translation>ジェスチャーがまだありません。クイックキャプチャはオフです。</translation>
-    </message>
-    <message>
-        <source>Add Gesture</source>
-        <translation>ジェスチャーを追加</translation>
-    </message>
-    <message>
-        <source>Remove Gesture</source>
-        <translation>ジェスチャーを削除</translation>
-    </message>
-    <message>
-        <source>Gesture %1</source>
-        <translation>ジェスチャー %1</translation>
+        <source>Capture failed. Please try again.</source>
+        <translation>キャプチャに失敗しました。もう一度お試しください。</translation>
     </message>
     <message>
         <source>Shortcuts</source>
@@ -318,7 +298,6 @@
     <message><source>Ellipse</source><translation>楕円</translation></message>
     <message><source>Text</source><translation>テキスト</translation></message>
     <message><source>Eraser</source><translation>消しゴム</translation></message>
-    <message><source>💡 Configured shortcuts take priority over WASD and C. Arrow keys remain available; Esc is reserved.</source><translation>💡 設定したショートカットは WASD と C より優先されます。矢印キーは使用でき、Esc は予約されています。</translation></message>
     <message>
         <source>Pin Shortcuts</source>
         <translation>ピン留め画像</translation>
@@ -395,7 +374,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Pin Image</source>
-        <translation>ピン留め</translation>
+        <translation>画像をピン留め</translation>
     </message>
     <message>
         <source>Undo</source>
@@ -1172,7 +1151,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Mouse Shortcuts</source>
-        <translation>アプリ内マウスショートカット</translation>
+        <translation>マウスショートカット</translation>
     </message>
     <message>
         <source>Mouse Wheel</source>
@@ -1235,10 +1214,6 @@ Replace it?</source>
         <translation>選択したテキストをコピー</translation>
     </message>
     <message>
-        <source>Pin mouse actions apply outside annotation mode. Conflicts use the first matching action. Copy text uses the selected OCR text; otherwise right-click opens the menu.</source>
-        <translation>マウス操作は注釈モード以外で有効です。競合時は上から優先します。選択した認識テキストをコピーし、未選択時の右クリックはメニューを開きます。</translation>
-    </message>
-    <message>
         <source>Use + / - instead of the wheel with the same modifiers</source>
         <translation>同じ修飾キーと + / - でホイール操作を代用</translation>
     </message>
@@ -1257,10 +1232,6 @@ Replace it?</source>
     <message>
         <source>Open Context Menu</source>
         <translation>メニューを開く</translation>
-    </message>
-    <message>
-        <source>Pin applies to images; quick edit applies to text. Single clicks wait for the system double-click interval when the same button also has an available double-click action.</source>
-        <translation>ピン留めは画像、クイック編集はテキストが対象です。同じボタンに有効なクリックとダブルクリックの操作がある場合、クリックはシステムのダブルクリック判定時間だけ待機します。</translation>
     </message>
 </context>
 
@@ -4464,6 +4435,18 @@ SOFTWARE.</translation></message>
     <message>
         <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
         <translation>QR コードやバーコードが 1 つだけ見つかった場合は、結果ウィンドウを開かずに内容をコピーします。複数見つかった場合はこれまでどおり開きます。</translation>
+    </message>
+    <message>
+        <source>Global Mouse Shortcuts</source>
+        <translation>グローバルマウスショートカット</translation>
+    </message>
+    <message>
+        <source>In-App Mouse Shortcuts</source>
+        <translation>アプリ内マウスショートカット</translation>
+    </message>
+    <message>
+        <source>Quick Edit Text</source>
+        <translation>テキストをクイック編集</translation>
     </message>
 </context>
 <context>

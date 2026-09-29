@@ -618,6 +618,7 @@ ui/
 │   ├── color_format_dialog.py # ColorFormatDialog — 拡大鏡のカラー形式を管理するダイアログ
 │   ├── page_clipboard.py    # クリップボード設定
 │   ├── page_hotkey.py       # ホットキー設定
+│   ├── page_mouse.py        # マウスショートカット設定
 │   ├── page_translation.py  # 翻訳設定
 │   ├── provider_fields.py   # 服务商字段的读写（按声明）
 │   ├── page_log.py          # ログ設定

@@ -1,10 +1,9 @@
-"""快速截图透明浮层：复用普通截图的选框、信息面板和放大镜。"""
+"""快速截图透明浮层：复用普通截图的选框和尺寸信息，不画放大镜。"""
 
 import ctypes
 from ctypes import wintypes
-from types import SimpleNamespace
 
-from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, QSizeF, Qt
+from PySide6.QtCore import QPoint, QRect, QRectF, QSizeF, Qt
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QWidget
 
@@ -12,7 +11,6 @@ from canvas.items.selection_item import SelectionItem
 from canvas.selection_model import SelectionModel
 from core.platform_utils import set_window_exclude_from_capture
 from settings import get_tool_settings_manager
-from ui.magnifier import MagnifierOverlay
 from ui.selection_info.panel import SelectionInfoPanel
 from ui.selection_overlay import SelectionOverlayWidget
 
@@ -48,12 +46,10 @@ def selection_rect(start: QPoint, end: QPoint, bounds: QRect) -> QRect:
 
 
 class _CaptureView:
-    """仅适配现有浮层所需的坐标与交互状态，不创建画布或绘图工具。"""
+    """尺寸信息面板只用到坐标换算，不创建画布。"""
 
     def __init__(self, window):
         self.window = window
-        self.drawing = SimpleNamespace(active=False)
-        self.text_drag = SimpleNamespace(active=False)
 
     def viewport(self):
         return self.window
@@ -86,8 +82,6 @@ class QuickCaptureOverlay(QWidget):
         self._capture_exclusion_requested = False
         self.capture_excluded = False
         self._session_active = False
-        self._sample_ready = False
-        self._cursor = QPointF()
 
         self.model = SelectionModel()
         self.model.setParent(self)
@@ -95,12 +89,8 @@ class QuickCaptureOverlay(QWidget):
         self.selection_item = SelectionItem(self.model)
         self.selection_overlay = SelectionOverlayWidget(self, self.selection_item, self.model)
         self.view = _CaptureView(self)
-        self.scene = SimpleNamespace(
-            scene_rect=QRectF(), selection_model=self.model, background=None,
-            tool_controller=SimpleNamespace(current_tool_id="cursor"),
-        )
+        self._bounds = QRectF()
         self.info_panel = SelectionInfoPanel(self, self.view)
-        self.magnifier_overlay = MagnifierOverlay(self, self.scene, self.view, self.config_manager)
 
     def show_selection(self, start: QPoint, end: QPoint, bounds: QRect):
         """根据绝对物理坐标更新原有截图部件，不绘制底图或灰色遮罩。"""
@@ -110,8 +100,6 @@ class QuickCaptureOverlay(QWidget):
         new_session = not self._session_active
         if new_session:
             self._session_active = True
-            self._sample_ready = False
-            self.magnifier_overlay.rebind(self.scene, self.view)
             self._hide_info = self.config_manager.get_app_setting("screenshot_info_hide_on_drag", False)
             self.info_panel.set_confirmed(False)
             self.info_panel.apply_scale()
@@ -119,10 +107,10 @@ class QuickCaptureOverlay(QWidget):
             self.model.start_dragging()
 
         scene_bounds = QRectF(bounds)
-        bounds_changed = scene_bounds != self.scene.scene_rect
+        bounds_changed = scene_bounds != self._bounds
         if bounds_changed:
             self.setGeometry(bounds)
-            self.scene.scene_rect = scene_bounds
+            self._bounds = scene_bounds
             self.selection_overlay.setGeometry(self.rect())
         if new_session:
             self.selection_overlay.show()
@@ -148,10 +136,6 @@ class QuickCaptureOverlay(QWidget):
                 self.info_panel.show()
                 self.info_panel.raise_()
 
-        cursor = QPointF(end)
-        if new_session or cursor != self._cursor or bounds_changed:
-            self._cursor = cursor
-            self._update_magnifier()
         if not self.isVisible():
             self.show()
         if not self._capture_exclusion_requested:
@@ -160,51 +144,13 @@ class QuickCaptureOverlay(QWidget):
             self.capture_excluded = set_window_exclude_from_capture(int(self.winId()), True)
             self._capture_exclusion_requested = True
 
-    def _update_magnifier(self):
-        sample_rect = self.magnifier_overlay._sample_rect
-        side = self.magnifier_overlay.sample_size
-        needed = QRect(int(self._cursor.x()) - side // 2, int(self._cursor.y()) - side // 2,
-                       side, side).intersected(self.scene.scene_rect.toAlignedRect())
-        if (self._sample_ready and not needed.isEmpty()
-                and sample_rect.toAlignedRect().contains(needed)
-                and sample_rect.toAlignedRect().contains(self._cursor.toPoint())):
-            self.magnifier_overlay.update_cursor(self._cursor)
-        else:
-            self.magnifier_overlay.clear_cursor()
-
-    def set_sample_image(self, image, global_rect):
-        """GUI 线程接收本次拖动的局部图像；迟到的帧不重新显示已结束的浮层。"""
-        if not self._session_active:
-            return
-        self._sample_ready = image is not None and not image.isNull()
-        self.magnifier_overlay.set_sample_image(image if self._sample_ready else None, global_rect)
-        self._update_magnifier()
-
-    def handle_command(self, command):
-        if not self._session_active:
-            return
-        magnifier = self.magnifier_overlay
-        if command == "cycle_color":
-            magnifier.cycle_color_format()
-        elif command == "copy_color":
-            if self._sample_ready and magnifier.cursor_scene_pos is not None:
-                magnifier.copy_color_info()
-        elif command == "zoom_in":
-            magnifier.adjust_zoom(1)
-        elif command == "zoom_out":
-            magnifier.adjust_zoom(-1)
-        self._update_magnifier()
-
     def clear(self):
         self._session_active = False
-        self._sample_ready = False
         self._selection_rect = QRect()
         self.model.stop_dragging()
         self.model.deactivate()
         self.selection_overlay.hide()
         self.info_panel.hide()
-        self.magnifier_overlay.clear_cursor()
-        self.magnifier_overlay.set_sample_image(None, None)
 
     def hideEvent(self, event):
         self.clear()
