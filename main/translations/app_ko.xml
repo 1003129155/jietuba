@@ -751,6 +751,54 @@ Replace it?</source>
         <source>💡 Hint: Even with background startup, you can operate from system tray.</source>
         <translation>💡 팁: 백그라운드 시작 상태에서도 시스템 트레이에서 조작할 수 있습니다.</translation>
     </message>
+    <message>
+        <source>Settings Backup</source>
+        <translation>설정 백업</translation>
+    </message>
+    <message>
+        <source>Export Settings</source>
+        <translation>설정 내보내기</translation>
+    </message>
+    <message>
+        <source>Save settings to a file, including translation API keys. Folder locations are not included.</source>
+        <translation>설정을 파일로 저장합니다. 번역 서비스 API 키는 포함되고 폴더 위치는 포함되지 않습니다.</translation>
+    </message>
+    <message>
+        <source>Export</source>
+        <translation>내보내기</translation>
+    </message>
+    <message>
+        <source>Import Settings</source>
+        <translation>설정 가져오기</translation>
+    </message>
+    <message>
+        <source>Load settings from an exported file. Folder locations stay unchanged.</source>
+        <translation>내보낸 파일에서 설정을 불러옵니다. 폴더 위치는 바뀌지 않습니다.</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>가져오기</translation>
+    </message>
+    <message>
+        <source>Settings File (*.json)</source>
+        <translation>설정 파일 (*.json)</translation>
+    </message>
+    <message>
+        <source>Could not write the file: %1</source>
+        <translation>파일을 쓸 수 없습니다: %1</translation>
+    </message>
+    <message>
+        <source>Settings exported to %1</source>
+        <translation>설정을 %1에 내보냈습니다.</translation>
+    </message>
+    <message>
+        <source>This file is not a Jietuba settings file, or it is damaged.</source>
+        <translation>이 파일은 Jietuba 설정 파일이 아니거나 손상되었습니다.</translation>
+    </message>
+    <message>
+        <source>Settings loaded. Click Apply to use them.</source>
+        <translation>설정을 불러왔습니다. [적용]을 누르면 반영됩니다.</translation>
+    </message>
     
     <!-- Info Page -->
     <message>

@@ -752,6 +752,54 @@ Replace it?</translation>
         <source>💡 Hint: Even with background startup, you can operate from system tray.</source>
         <translation>💡 Hint: Even with background startup, you can operate from system tray.</translation>
     </message>
+    <message>
+        <source>Settings Backup</source>
+        <translation>Settings Backup</translation>
+    </message>
+    <message>
+        <source>Export Settings</source>
+        <translation>Export Settings</translation>
+    </message>
+    <message>
+        <source>Save settings to a file, including translation API keys. Folder locations are not included.</source>
+        <translation>Save settings to a file, including translation API keys. Folder locations are not included.</translation>
+    </message>
+    <message>
+        <source>Export</source>
+        <translation>Export</translation>
+    </message>
+    <message>
+        <source>Import Settings</source>
+        <translation>Import Settings</translation>
+    </message>
+    <message>
+        <source>Load settings from an exported file. Folder locations stay unchanged.</source>
+        <translation>Load settings from an exported file. Folder locations stay unchanged.</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>Import</translation>
+    </message>
+    <message>
+        <source>Settings File (*.json)</source>
+        <translation>Settings File (*.json)</translation>
+    </message>
+    <message>
+        <source>Could not write the file: %1</source>
+        <translation>Could not write the file: %1</translation>
+    </message>
+    <message>
+        <source>Settings exported to %1</source>
+        <translation>Settings exported to %1</translation>
+    </message>
+    <message>
+        <source>This file is not a Jietuba settings file, or it is damaged.</source>
+        <translation>This file is not a Jietuba settings file, or it is damaged.</translation>
+    </message>
+    <message>
+        <source>Settings loaded. Click Apply to use them.</source>
+        <translation>Settings loaded. Click Apply to use them.</translation>
+    </message>
     
     <!-- Info Page -->
     <message>
