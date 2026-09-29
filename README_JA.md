@@ -116,6 +116,14 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 Windows 版のビルドは `python build_with_ocr_onefile.py` で実行できます。生成物は `dist/jietuba_pp.exe` と `dist/models/` です。[自動リリースワークフロー](.github/workflows/build.yml)では、x64 と ARM64 のアーカイブを個別に生成します。
 
+### コードコメント
+
+コメントには、コード自体では表せない制約と設計上の理由だけを、短く正確に書きます。
+
+- 調査の経緯、変更履歴、障害の振り返り、開発中の推論は書きません。
+- 他のソフトウェアやプロジェクトに言及せず、根拠にもしません。
+- 長い説明文にせず、コード、関数名、テスト名で分かることは繰り返しません。
+
 ---
 
 ## ディレクトリ構造
