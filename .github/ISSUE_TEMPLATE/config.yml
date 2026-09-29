@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 使用说明
+    url: https://github.com/1003129155/jietuba/blob/master2/README_zh-CN.md
+    about: 查看功能介绍、下载方式和源码运行说明。
+  - name: 最新发布版本
+    url: https://github.com/1003129155/jietuba/releases/latest
+    about: 查看发布说明和 Windows x64 / ARM64 下载包。
