@@ -77,6 +77,15 @@ impl Rect {
     pub const fn bottom(self) -> i64 {
         self.y as i64 + self.height as i64
     }
+
+    /// Returns whether `other` lies entirely inside this rectangle.
+    #[must_use]
+    pub const fn contains(self, other: Self) -> bool {
+        other.x as i64 >= self.x as i64
+            && other.y as i64 >= self.y as i64
+            && other.right() <= self.right()
+            && other.bottom() <= self.bottom()
+    }
 }
 
 /// A display monitor and its current Windows Advanced Color diagnostics.
@@ -592,5 +601,15 @@ mod tests {
     fn rectangle_rejects_reversed_edges() {
         assert!(rect_from_edges(100, 0, 99, 10).is_err());
         assert!(rect_from_edges(0, 100, 10, 99).is_err());
+    }
+
+    #[test]
+    fn containment_includes_shared_edges_and_negative_origins() {
+        let monitor = Rect::new(-1920, 0, 1920, 1080);
+        assert!(monitor.contains(monitor));
+        assert!(monitor.contains(Rect::new(-1920, 1000, 10, 80)));
+        assert!(!monitor.contains(Rect::new(-10, 0, 11, 10)), "one column past the right edge");
+        assert!(!monitor.contains(Rect::new(-1921, 0, 10, 10)));
+        assert!(!monitor.contains(Rect::new(0, 0, 10, 10)));
     }
 }

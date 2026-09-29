@@ -14,7 +14,7 @@ use windows::Win32::Graphics::Direct3D::{
     ID3DBlob, ID3DInclude,
 };
 use windows::Win32::Graphics::Direct3D11::{
-    D3D11_BIND_CONSTANT_BUFFER, D3D11_BIND_RENDER_TARGET, D3D11_BIND_SHADER_RESOURCE, D3D11_BUFFER_DESC,
+    D3D11_BIND_CONSTANT_BUFFER, D3D11_BOX, D3D11_BIND_RENDER_TARGET, D3D11_BIND_SHADER_RESOURCE, D3D11_BUFFER_DESC,
     D3D11_COMPARISON_NEVER, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_FLOAT32_MAX, D3D11_SAMPLER_DESC,
     D3D11_SUBRESOURCE_DATA, D3D11_TEXTURE_ADDRESS_CLAMP, D3D11_TEXTURE2D_DESC, D3D11_USAGE_DEFAULT,
     D3D11_USAGE_IMMUTABLE, D3D11_VIEWPORT, ID3D11Buffer, ID3D11DepthStencilView, ID3D11Device, ID3D11DeviceContext,
@@ -255,6 +255,8 @@ pub(super) struct GpuToneMapper {
     output: ID3D11Texture2D,
     output_rtv: ID3D11RenderTargetView,
     staging: StagingTexture,
+    /// Sized to the last region read back; replaced when the region size changes.
+    region_staging: Option<StagingTexture>,
     source_rgba16f: ID3D11Texture2D,
     source_rgba16f_srv: ID3D11ShaderResourceView,
     source_rgba8: ID3D11Texture2D,
@@ -440,6 +442,7 @@ impl GpuToneMapper {
             output,
             output_rtv,
             staging: StagingTexture::new(device, width, height, DXGI_FORMAT_B8G8R8A8_UNORM)?,
+            region_staging: None,
             source_rgba16f,
             source_rgba16f_srv,
             source_rgba8,
@@ -610,15 +613,42 @@ impl GpuToneMapper {
     pub(super) fn readback(&mut self, context: &ID3D11DeviceContext) -> Result<Vec<u8>, Error> {
         unsafe { context.CopyResource(self.staging.texture(), &self.output) };
         let mapped = MappedStagingTexture::map_borrowed(context, &mut self.staging)?;
-        let row_pitch = mapped.row_pitch() as usize;
-        let source = mapped.as_slice(self.height);
-        let packed_row = self.width as usize * 4;
-        let mut result = Vec::with_capacity(packed_row * self.height as usize);
-        for row in source.chunks_exact(row_pitch).take(self.height as usize) {
-            result.extend_from_slice(&row[..packed_row]);
-        }
-        Ok(result)
+        Ok(pack_rows(&mapped, self.width, self.height))
     }
+
+    /// Reads back only the `width` x `height` pixels at (`x`, `y`) of the normalized texture, so a
+    /// small region never pays for a whole-monitor copy. The caller keeps the region inside the
+    /// output.
+    pub(super) fn readback_region(
+        &mut self,
+        device: &ID3D11Device,
+        context: &ID3D11DeviceContext,
+        (x, y, width, height): (u32, u32, u32, u32),
+    ) -> Result<Vec<u8>, Error> {
+        let reusable = self.region_staging.as_ref().is_some_and(|staging| {
+            let desc = staging.desc();
+            desc.Width == width && desc.Height == height
+        });
+        if !reusable {
+            self.region_staging = Some(StagingTexture::new(device, width, height, DXGI_FORMAT_B8G8R8A8_UNORM)?);
+        }
+        let staging = self.region_staging.as_mut().ok_or(Error::MissingObject("a region staging texture"))?;
+        let bounds = D3D11_BOX { left: x, top: y, front: 0, right: x + width, bottom: y + height, back: 1 };
+        unsafe { context.CopySubresourceRegion(staging.texture(), 0, 0, 0, 0, &self.output, 0, Some(&bounds)) };
+        let mapped = MappedStagingTexture::map_borrowed(context, staging)?;
+        Ok(pack_rows(&mapped, width, height))
+    }
+}
+
+/// Strips the row padding D3D11 adds to a mapped texture.
+fn pack_rows(mapped: &MappedStagingTexture<'_>, width: u32, height: u32) -> Vec<u8> {
+    let row_pitch = mapped.row_pitch() as usize;
+    let packed_row = width as usize * 4;
+    let mut result = Vec::with_capacity(packed_row * height as usize);
+    for row in mapped.as_slice(height).chunks_exact(row_pitch).take(height as usize) {
+        result.extend_from_slice(&row[..packed_row]);
+    }
+    result
 }
 
 /// A reusable BGRA8 virtual-desktop texture and its one-shot CPU readback buffer.
@@ -665,13 +695,6 @@ impl GpuCompositor {
     pub(super) fn readback(&mut self, context: &ID3D11DeviceContext) -> Result<Vec<u8>, Error> {
         unsafe { context.CopyResource(self.staging.texture(), &self.texture) };
         let mapped = MappedStagingTexture::map_borrowed(context, &mut self.staging)?;
-        let row_pitch = mapped.row_pitch() as usize;
-        let source = mapped.as_slice(self.height);
-        let packed_row = self.width as usize * 4;
-        let mut result = Vec::with_capacity(packed_row * self.height as usize);
-        for row in source.chunks_exact(row_pitch).take(self.height as usize) {
-            result.extend_from_slice(&row[..packed_row]);
-        }
-        Ok(result)
+        Ok(pack_rows(&mapped, self.width, self.height))
     }
 }

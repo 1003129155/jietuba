@@ -19,7 +19,14 @@ monitor = cap.monitors[0]                  # 0 = 完整虚拟桌面
 frame = cap.grab(monitor)
 frame.bgra                                 # bytes，紧凑 BGRA8，无行填充
 monitor.rect                               # (x, y, width, height)，物理像素，可为负
+region = cap.grab_region(100, 200, 640, 360)  # 只读回这块区域，参数同样是物理像素
 ```
+
+`grab_region()` 落在单块屏内时在 GPU 上裁好再读回，跨屏才合成整个虚拟桌面再裁；区域为空或
+超出虚拟桌面抛 `CaptureError`。
+
+关掉默认的 `python` feature 即是纯 Rust 库（`hdrcapture = { path = ..., default-features = false }`），
+gifrecorder 的录制线程就这样直接调 `Capture::grab_region`。
 
 `grab()` 也接受整数索引或带 `index` 键的字典，便于从 `mss` 迁移。
 
@@ -72,6 +79,7 @@ MIT，版权声明见 `LICENSE-UPSTREAM`（分发 `.pyd` 时必须随附）。
 - `monitor.rs`：删掉 `impl TryInto<GraphicsCaptureItemType> for Monitor`
   及对 `crate::settings` 的引用（那是 WGC 的桥接）。
 - 上述删除连带失效的 rustdoc 链接一并修正。
+- 文档示例里的 crate 路径由 `windows_capture` 改为 `hdrcapture`，否则作为 rlib 跑文档测试时编译不过。
 
 `src/lib.rs` 是本项目自己写的 pyo3 绑定，不来自上游。相对上游的
 `windows-capture-python` 有两处实质差异：

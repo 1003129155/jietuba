@@ -379,54 +379,6 @@ def test_capture_region_rejects_empty_or_reversed_bounds(rect):
     mss_factory.assert_not_called()
 
 
-class TestCaptureRegionHdr:
-    """快速截图的选区走 HDR 会话，和主截图同样用自适应映射。"""
-
-    def test_region_uses_adaptive_hdr_and_skips_mss(self, qapp):
-        session = MagicMock()
-        session.monitors = [_fake_monitor((-64, 0, 128, 32)), _fake_monitor((-64, 0, 64, 32)),
-                            _fake_monitor((0, 0, 64, 32))]
-        session.grab.return_value = _gradient_frame(64, 32)
-        mock_mss = MagicMock()
-
-        with patch("capture.capture_service._HdrSession.acquire", return_value=session),              patch("capture.capture_service.mss.mss", mock_mss):
-            image = CaptureService("auto").capture_region(QRect(-54, 5, 20, 10))
-
-        mock_mss.assert_not_called()
-        assert session.grab.call_args.kwargs["adaptive"] is True
-        assert (image.width(), image.height()) == (20, 10)
-        color = image.pixelColor(0, 0)
-        assert (color.blue(), color.green()) == (10, 5)
-
-    def test_cursor_is_drawn_on_hdr_region(self, qapp):
-        session = MagicMock()
-        session.monitors = [_fake_monitor((0, 0, 64, 32))]
-        session.grab.return_value = _gradient_frame(64, 32)
-        cursor = MagicMock()
-
-        with patch("capture.capture_service._HdrSession.acquire", return_value=session):
-            image = CaptureService("hdr").capture_region(QRect(8, 4, 20, 10), cursor)
-
-        cursor.draw_onto.assert_called_once_with(image, 8, 4)
-
-    def test_auto_falls_back_to_mss_when_hdr_grab_fails(self, qapp):
-        session = MagicMock()
-        session.monitors = [_fake_monitor((0, 0, 64, 32))]
-        session.grab.side_effect = RuntimeError("access lost")
-        shot = MagicMock(width=4, height=3, bgra=bytes([30, 20, 10, 255] * 12))
-
-        with patch("capture.capture_service._HdrSession.acquire", return_value=session),              patch("capture.capture_service.mss.mss") as mss_factory:
-            mss_factory.return_value.__enter__.return_value.grab.return_value = shot
-            image = CaptureService("auto").capture_region(QRect(0, 0, 4, 3))
-
-        assert image.width() == 4
-
-    def test_hdr_engine_raises_without_session(self, qapp):
-        with patch("capture.capture_service._HdrSession.acquire", return_value=None),              patch("capture.capture_service.mss.mss") as mss_factory,              pytest.raises(RuntimeError):
-            CaptureService("hdr").capture_region(QRect(0, 0, 4, 3))
-        mss_factory.assert_not_called()
-
-
 class TestExplicitEngine:
     """指定引擎时只用那一个，失败不回落。"""
 
@@ -474,12 +426,6 @@ class TestExplicitEngine:
         mock_mss.assert_not_called()
 
 
-def _fake_monitor(rect):
-    monitor = MagicMock()
-    monitor.rect = rect
-    return monitor
-
-
 def _gradient_frame(width, height):
     """每个像素的 B 通道 = x % 256、G 通道 = y % 256，用来核对裁剪位置。"""
     frame = MagicMock()
@@ -493,61 +439,42 @@ def _gradient_frame(width, height):
     return frame
 
 
+def _region_session(frame):
+    """符合 hdrcapture.Capture.grab_region 的假会话：返回的就是区域大小的帧。"""
+    session = MagicMock()
+    session.grab_region.return_value = frame
+    return session
+
+
 class TestGrabRegionHdr:
-    """长截图用的区域抓取。"""
+    """长截图用的区域抓取。选屏和裁剪在 hdrcapture 里完成，这里只管调用和转 QImage。"""
 
-    def _session(self, monitors, frame):
-        session = MagicMock()
-        session.monitors = monitors
-        session.grab.return_value = frame
-        return session
-
-    def test_reads_back_only_the_monitor_containing_region(self, qapp):
+    def test_passes_physical_region_and_keeps_pixel_order(self, qapp):
         from capture.capture_service import grab_region_hdr
 
-        desktop = _fake_monitor((-64, 0, 128, 32))
-        left = _fake_monitor((-64, 0, 64, 32))
-        right = _fake_monitor((0, 0, 64, 32))
-        session = self._session([desktop, left, right], _gradient_frame(64, 32))
-
+        session = _region_session(_gradient_frame(20, 10))
         with patch("capture.capture_service._HdrSession.acquire", return_value=session):
             image = grab_region_hdr(QRect(-54, 5, 20, 10))
 
-        assert session.grab.call_args.args[0] is left
+        assert session.grab_region.call_args.args == (-54, 5, 20, 10)
         assert (image.width(), image.height()) == (20, 10)
-        # 区域左上角 (-54, 5) 在左屏里是 (10, 5)
-        color = image.pixelColor(0, 0)
-        assert (color.blue(), color.green()) == (10, 5)
-
-    def test_region_across_monitors_reads_virtual_desktop(self, qapp):
-        from capture.capture_service import grab_region_hdr
-
-        desktop = _fake_monitor((-64, 0, 128, 32))
-        monitors = [desktop, _fake_monitor((-64, 0, 64, 32)), _fake_monitor((0, 0, 64, 32))]
-        session = self._session(monitors, _gradient_frame(128, 32))
-
-        with patch("capture.capture_service._HdrSession.acquire", return_value=session):
-            image = grab_region_hdr(QRect(-10, 0, 20, 8))
-
-        assert session.grab.call_args.args[0] is desktop
-        color = image.pixelColor(0, 0)
-        assert (color.blue(), color.green()) == (54, 0)
+        color = image.pixelColor(19, 9)
+        assert (color.blue(), color.green()) == (19, 9)
 
     def test_uses_static_tone_mapping(self, qapp):
         """长截图靠相邻帧逐像素一致拼接，映射不能随画面内容变化。"""
         from capture.capture_service import grab_region_hdr
 
-        session = self._session([_fake_monitor((0, 0, 64, 32))], _gradient_frame(64, 32))
+        session = _region_session(_gradient_frame(10, 10))
         with patch("capture.capture_service._HdrSession.acquire", return_value=session):
             grab_region_hdr(QRect(0, 0, 10, 10))
 
-        assert session.grab.call_args.kwargs["adaptive"] is False
+        assert session.grab_region.call_args.kwargs["adaptive"] is False
 
     def test_raises_without_session(self, qapp):
         from capture.capture_service import grab_region_hdr
 
-        with patch("capture.capture_service._HdrSession.acquire", return_value=None), \
-             pytest.raises(RuntimeError):
+        with patch("capture.capture_service._HdrSession.acquire", return_value=None),              pytest.raises(RuntimeError):
             grab_region_hdr(QRect(0, 0, 10, 10))
 
     def test_waits_for_dwm_before_grabbing(self, qapp):
@@ -555,15 +482,56 @@ class TestGrabRegionHdr:
         from capture.capture_service import grab_region_hdr
 
         order = MagicMock()
-        session = self._session([_fake_monitor((0, 0, 64, 32))], _gradient_frame(64, 32))
-        order.attach_mock(session.grab, "grab")
+        session = _region_session(_gradient_frame(10, 10))
+        order.attach_mock(session.grab_region, "grab_region")
 
-        with patch("capture.capture_service._HdrSession.acquire", return_value=session), \
-             patch("capture.capture_service.ctypes.windll.dwmapi.DwmFlush") as flush:
+        with patch("capture.capture_service._HdrSession.acquire", return_value=session),              patch("capture.capture_service.ctypes.windll.dwmapi.DwmFlush") as flush:
             order.attach_mock(flush, "flush")
             grab_region_hdr(QRect(0, 0, 10, 10))
 
-        assert [name for name, *_ in order.mock_calls if name in ("flush", "grab")] == ["flush", "grab"]
+        calls = [name for name, *_ in order.mock_calls if name in ("flush", "grab_region")]
+        assert calls == ["flush", "grab_region"]
+
+
+class TestCaptureRegionHdr:
+    """快速截图的选区走 HDR 会话，和主截图同样用自适应映射。"""
+
+    def test_region_uses_adaptive_hdr_and_skips_mss(self, qapp):
+        session = _region_session(_gradient_frame(20, 10))
+        mock_mss = MagicMock()
+
+        with patch("capture.capture_service._HdrSession.acquire", return_value=session),              patch("capture.capture_service.mss.mss", mock_mss):
+            image = CaptureService("auto").capture_region(QRect(-54, 5, 20, 10))
+
+        mock_mss.assert_not_called()
+        assert session.grab_region.call_args.args == (-54, 5, 20, 10)
+        assert session.grab_region.call_args.kwargs["adaptive"] is True
+        assert (image.width(), image.height()) == (20, 10)
+
+    def test_cursor_is_drawn_on_hdr_region(self, qapp):
+        session = _region_session(_gradient_frame(20, 10))
+        cursor = MagicMock()
+
+        with patch("capture.capture_service._HdrSession.acquire", return_value=session):
+            image = CaptureService("hdr").capture_region(QRect(8, 4, 20, 10), cursor)
+
+        cursor.draw_onto.assert_called_once_with(image, 8, 4)
+
+    def test_auto_falls_back_to_mss_when_hdr_grab_fails(self, qapp):
+        session = MagicMock()
+        session.grab_region.side_effect = RuntimeError("access lost")
+        shot = MagicMock(width=4, height=3, bgra=bytes([30, 20, 10, 255] * 12))
+
+        with patch("capture.capture_service._HdrSession.acquire", return_value=session),              patch("capture.capture_service.mss.mss") as mss_factory:
+            mss_factory.return_value.__enter__.return_value.grab.return_value = shot
+            image = CaptureService("auto").capture_region(QRect(0, 0, 4, 3))
+
+        assert image.width() == 4
+
+    def test_hdr_engine_raises_without_session(self, qapp):
+        with patch("capture.capture_service._HdrSession.acquire", return_value=None),              patch("capture.capture_service.mss.mss") as mss_factory,              pytest.raises(RuntimeError):
+            CaptureService("hdr").capture_region(QRect(0, 0, 4, 3))
+        mss_factory.assert_not_called()
 
 
 @pytest.fixture

@@ -151,6 +151,9 @@ pub enum Error {
     /// No active physical displays were found.
     #[error("Windows reported no active displays")]
     NoDisplays,
+    /// A requested region is empty or reaches outside the virtual desktop.
+    #[error("region {0:?} is empty or lies outside the virtual desktop")]
+    InvalidRegion(Rect),
     /// A virtual-desktop rectangle could not fit in an addressable D3D11 texture.
     #[error("virtual desktop dimensions are invalid or exceed D3D11 limits")]
     InvalidVirtualDesktop,
@@ -450,10 +453,22 @@ impl Capture {
         timeout_ms: u32,
         tone_mapping: ToneMapping,
     ) -> Result<Frame, Error> {
+        self.grab_with_retry(|capture| capture.grab_once(monitor_index, timeout_ms, tone_mapping))
+    }
+
+    /// Captures `region`, in virtual-desktop physical pixels, fitting HDR pixels with `tone_mapping`.
+    ///
+    /// A region inside one monitor is cropped on the GPU so only its pixels are read back; one that
+    /// spans monitors is cropped from the composed virtual desktop.
+    pub fn grab_region(&mut self, region: Rect, timeout_ms: u32, tone_mapping: ToneMapping) -> Result<Frame, Error> {
+        self.grab_with_retry(|capture| capture.grab_region_once(region, timeout_ms, tone_mapping))
+    }
+
+    fn grab_with_retry(&mut self, mut grab: impl FnMut(&mut Self) -> Result<Frame, Error>) -> Result<Frame, Error> {
         let start = Instant::now();
         self.refresh_topology()?;
 
-        let result = self.grab_once(monitor_index, timeout_ms, tone_mapping).or_else(|error| {
+        let result = grab(self).or_else(|error| {
             if !matches!(error, Error::AccessLost | Error::DimensionsChanged { .. }) && !self.device_lost() {
                 return Err(error);
             }
@@ -461,15 +476,13 @@ impl Capture {
             // format; a lost device fails every later call. Re-enumerate first, then retry exactly
             // once so persistent failures surface.
             self.rebuild(display::enumerate_displays()?)?;
-            self.grab_once(monitor_index, timeout_ms, tone_mapping)
+            grab(self)
         });
 
-        if let Ok(frame) = result {
+        if result.is_ok() {
             self.record_timing(start.elapsed(), Duration::ZERO);
-            Ok(frame)
-        } else {
-            result
         }
+        result
     }
 
     /// Whether a session's D3D device was removed or reset, e.g. by a driver update, a TDR
@@ -536,6 +549,34 @@ impl Capture {
         };
         self.record_readback_timing(readback_start.elapsed());
         Ok(Frame { bgra, width, height, monitor_info: vec![monitor_info] })
+    }
+
+    fn grab_region_once(&mut self, region: Rect, timeout_ms: u32, tone_mapping: ToneMapping) -> Result<Frame, Error> {
+        if region.width == 0 || region.height == 0 || !self.virtual_rect.contains(region) {
+            return Err(Error::InvalidRegion(region));
+        }
+        let Some(session) = self.sessions.iter_mut().find(|session| session.display.rect.contains(region)) else {
+            let desktop = self.grab_virtual_desktop(timeout_ms, tone_mapping)?;
+            return Ok(crop_frame(desktop, self.virtual_rect, region));
+        };
+
+        session.update(timeout_ms, tone_mapping)?;
+        let readback_start = Instant::now();
+        // Containment was checked above, so both offsets are non-negative and fit the output.
+        let offset = (
+            (i64::from(region.x) - i64::from(session.display.rect.x)) as u32,
+            (i64::from(region.y) - i64::from(session.display.rect.y)) as u32,
+            region.width,
+            region.height,
+        );
+        let bgra = session.converter.readback_region(
+            session.duplication.device(),
+            session.duplication.device_context(),
+            offset,
+        )?;
+        let monitor_info = vec![session.frame_info()];
+        self.record_readback_timing(readback_start.elapsed());
+        Ok(Frame { bgra, width: region.width, height: region.height, monitor_info })
     }
 
     fn grab_virtual_desktop(&mut self, timeout_ms: u32, tone_mapping: ToneMapping) -> Result<Frame, Error> {
@@ -625,6 +666,19 @@ impl Capture {
         self.stats.p95_grab_time = percentile_95(&self.grab_samples);
         self.stats.average_readback_time = average_duration(&self.readback_samples);
     }
+}
+
+/// Cuts `region` out of a composed virtual-desktop frame; the caller keeps it inside `desktop_rect`.
+fn crop_frame(desktop: Frame, desktop_rect: Rect, region: Rect) -> Frame {
+    let desktop_row = desktop.width as usize * 4;
+    let region_row = region.width as usize * 4;
+    let left = (i64::from(region.x) - i64::from(desktop_rect.x)) as usize * 4;
+    let top = (i64::from(region.y) - i64::from(desktop_rect.y)) as usize;
+    let mut bgra = Vec::with_capacity(region_row * region.height as usize);
+    for row in desktop.bgra.chunks_exact(desktop_row).skip(top).take(region.height as usize) {
+        bgra.extend_from_slice(&row[left..left + region_row]);
+    }
+    Frame { bgra, width: region.width, height: region.height, monitor_info: desktop.monitor_info }
 }
 
 impl From<gpu::Error> for Error {
@@ -793,7 +847,7 @@ mod virtual_desktop_simulation {
     };
 
     use super::gpu::{GpuCompositor, GpuToneMapper};
-    use super::{ToneMapping, offset_from_virtual, virtual_rect};
+    use super::{Frame, ToneMapping, offset_from_virtual, virtual_rect};
     use crate::hdr_capture::color::{ReferenceWhiteCurve, srgb_encode};
     use crate::d3d11::create_d3d_device;
     use crate::dxgi_duplication_api::DxgiDuplicationFormat;
@@ -1073,6 +1127,31 @@ mod virtual_desktop_simulation {
         assert_eq!(converter.readback(&context).expect("sdr readback"), static_frame_for(&device, &context, &sdr_only));
     }
 
+    #[test]
+    fn region_readback_matches_the_same_crop_of_a_full_readback() {
+        const WIDTH: u32 = 640;
+        const HEIGHT: u32 = 480;
+        let (device, context) = create_d3d_device().expect("this crate requires a D3D11 device");
+        let mut converter =
+            GpuToneMapper::new(&device, WIDTH, HEIGHT, 4.0, DXGI_MODE_ROTATION_IDENTITY).expect("tone mapper");
+        let source = split_hdr_texture(&device, WIDTH, HEIGHT, 0.72, 12.0);
+        converter.convert(&context, &source, DxgiDuplicationFormat::Rgba16F, ToneMapping::Static).expect("static");
+        let full = converter.readback(&context).expect("full readback");
+
+        // Straddles the split so both halves must land in the right rows; the second size forces
+        // the region staging texture to be replaced.
+        for (x, y, width, height) in [(100, 200, 300, 80), (7, 239, 33, 2), (0, 0, WIDTH, HEIGHT)] {
+            let region = converter.readback_region(&device, &context, (x, y, width, height)).expect("region");
+            let full_desktop = Frame { bgra: full.clone(), width: WIDTH, height: HEIGHT, monitor_info: Vec::new() };
+            let expected = super::crop_frame(
+                full_desktop,
+                Rect::new(0, 0, WIDTH, HEIGHT),
+                Rect::new(x as i32, y as i32, width, height),
+            );
+            assert_eq!(region, expected.bgra, "region {x},{y} {width}x{height}");
+        }
+    }
+
     fn static_frame_for(
         device: &ID3D11Device,
         context: &windows::Win32::Graphics::Direct3D11::ID3D11DeviceContext,
@@ -1252,6 +1331,27 @@ mod virtual_desktop_simulation {
             desktop.x,
             desktop.y
         );
+    }
+}
+
+#[cfg(test)]
+mod region_crop {
+    use super::{Frame, Rect, crop_frame};
+
+    #[test]
+    fn crop_uses_desktop_relative_offsets_for_negative_origins() {
+        // Each pixel stores its own desktop-relative (x, y) in blue and green.
+        let desktop = Rect::new(-4, -2, 8, 5);
+        let bgra = (0..desktop.height)
+            .flat_map(|y| (0..desktop.width).flat_map(move |x| [x as u8, y as u8, 0, 255]))
+            .collect();
+        let frame = Frame { bgra, width: desktop.width, height: desktop.height, monitor_info: Vec::new() };
+
+        let cropped = crop_frame(frame, desktop, Rect::new(-1, 0, 3, 2));
+
+        assert_eq!((cropped.width, cropped.height), (3, 2));
+        let origins: Vec<[u8; 2]> = cropped.bgra.chunks_exact(4).map(|p| [p[0], p[1]]).collect();
+        assert_eq!(origins, [[3, 2], [4, 2], [5, 2], [3, 3], [4, 3], [5, 3]]);
     }
 }
 

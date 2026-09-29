@@ -71,7 +71,7 @@ pub enum Error {
 ///
 /// # Examples
 /// ```no_run
-/// use windows_capture::monitor::Monitor;
+/// use hdrcapture::monitor::Monitor;
 ///
 /// // Primary monitor
 /// let primary = Monitor::primary().unwrap();
@@ -79,7 +79,7 @@ pub enum Error {
 /// ```
 ///
 /// ```no_run
-/// use windows_capture::monitor::Monitor;
+/// use hdrcapture::monitor::Monitor;
 ///
 /// // Enumerate all active monitors
 /// let monitors = Monitor::enumerate().unwrap();
@@ -89,7 +89,7 @@ pub enum Error {
 /// ```
 ///
 /// ```no_run
-/// use windows_capture::monitor::Monitor;
+/// use hdrcapture::monitor::Monitor;
 ///
 /// // Select by one-based index (e.g., 2nd monitor)
 /// let m2 = Monitor::from_index(2).unwrap();

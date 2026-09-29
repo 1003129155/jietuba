@@ -8,10 +8,15 @@ authors = ["JYAARU"]
 
 [lib]
 name = "hdrcapture"
-crate-type = ["cdylib"]
+# rlib 供 gifrecorder 以 default-features = false 依赖，录制线程直接调 Rust API
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["python"]
+python = ["dep:pyo3"]
 
 [dependencies]
-pyo3 = { version = "0.22", features = ["extension-module", "abi3-py311"] }
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py311"], optional = true }
 
 # Windows API：只保留 DXGI Desktop Duplication + D3D11 + DisplayConfig 所需。
 # 上游 30 项 feature 中 WinRT/WGC/媒体编码那部分随模块一并裁除（见 README）。

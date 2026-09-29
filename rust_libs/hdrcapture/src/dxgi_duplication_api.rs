@@ -6,8 +6,8 @@
 //!
 //! # Example
 //! ```ignore
-//! use windows_capture::dxgi_duplication_api::DxgiDuplicationApi;
-//! use windows_capture::monitor::Monitor;
+//! use hdrcapture::dxgi_duplication_api::DxgiDuplicationApi;
+//! use hdrcapture::monitor::Monitor;
 //!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     // Select the primary monitor

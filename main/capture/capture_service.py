@@ -88,11 +88,15 @@ def _grab_hdr_frame(session, monitor, adaptive=False):
     """
     ctypes.windll.dwmapi.DwmFlush()
     frame = session.grab(monitor, timeout_ms=_HDR_TIMEOUT_MS, adaptive=adaptive)
+    _log_tone_map_peaks(frame)
+    return frame
+
+
+def _log_tone_map_peaks(frame):
     for info in frame.monitor_info:
         if info.get("tone_map_peak") is not None:
             log_debug(T("HDR 自适应色调映射: 显示器 {index} 峰值 {peak} 倍 SDR 白",
                         index=info["index"], peak=f"{info['tone_map_peak']:.2f}"), "CaptureService")
-    return frame
 
 
 def grab_region_hdr(rect, adaptive=False):
@@ -107,25 +111,15 @@ def grab_region_hdr(rect, adaptive=False):
 
 
 def _grab_region(session, rect, adaptive):
-    """区域落在单块屏内时只回读那块屏，跨屏才回读整个虚拟桌面：多屏时每帧都回读整个
-    桌面，瞬时内存和拷贝量都会按屏数翻倍。
-    """
-    # 热插拔或改显示设置后会话会重建，monitor 列表每次重新读取。
-    monitors = session.monitors
-    monitor = next((m for m in monitors[1:] if _contains(m.rect, rect)), monitors[0])
-    frame = _grab_hdr_frame(session, monitor, adaptive=adaptive)
-
-    left, top = monitor.rect[0], monitor.rect[1]
-    # QImage 只是借用 frame.bgra 的内存，copy 出区域后就不再引用它。
-    full = QImage(frame.bgra, frame.width, frame.height, frame.width * 4, QImage.Format.Format_RGB32)
-    return full.copy(rect.x() - left, rect.y() - top, rect.width(), rect.height())
-
-
-def _contains(monitor_rect, rect):
-    x, y, width, height = monitor_rect
-    return (x <= rect.x() and y <= rect.y()
-            and rect.x() + rect.width() <= x + width
-            and rect.y() + rect.height() <= y + height)
+    """只读回这块区域：落在单块屏内时在 GPU 上裁好再读回，跨屏才合成整个虚拟桌面再裁。"""
+    # 等 DWM 合成的原因见 _grab_hdr_frame。
+    ctypes.windll.dwmapi.DwmFlush()
+    frame = session.grab_region(rect.x(), rect.y(), rect.width(), rect.height(),
+                                timeout_ms=_HDR_TIMEOUT_MS, adaptive=adaptive)
+    _log_tone_map_peaks(frame)
+    # copy() 不能省：QImage 不持有 bytes 引用。
+    return QImage(frame.bgra, frame.width, frame.height, frame.width * 4,
+                  QImage.Format.Format_RGB32).copy()
 
 
 def warm_up_hdr_session():
