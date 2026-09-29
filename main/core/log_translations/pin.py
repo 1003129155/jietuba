@@ -76,6 +76,7 @@ TRANSLATIONS: dict[str, str] = {
     "隐藏了 {count} 个钉图窗口": "Hidden {count} pin window(s)",
     "移动钉图到屏幕中心失败: {e}": "Failed to move pin to screen center: {e}",
     "已移动 {count} 个钉图到屏幕中心": "Moved {count} pin(s) to screen center",
+    "刷新钉图外观失败: {e}": "Failed to refresh pin appearance: {e}",
     "切换钉图缩略图模式失败: {e}": "Failed to toggle pin thumbnail mode: {e}",
     "{changed} 个钉图已进入缩略图模式": "{changed} pin(s) entered thumbnail mode",
     "{changed} 个钉图已退出缩略图模式": "{changed} pin(s) exited thumbnail mode",

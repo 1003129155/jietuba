@@ -101,8 +101,9 @@ class PinCanvasView(CanvasView):
 
     @safe_event
     def mouseMoveEvent(self, event):
-        if hasattr(self.pin_window, "_set_hover_state"):
-            self.pin_window._set_hover_state(True)
+        hover_controls = getattr(self.pin_window, "hover_controls", None)
+        if hover_controls is not None:
+            hover_controls.set_pin_hovered(True)
         if self._window_dragging:
             self.pin_window.update_window_drag(event.globalPosition().toPoint())
             event.accept()

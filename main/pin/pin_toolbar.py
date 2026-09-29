@@ -2,7 +2,7 @@
 钉图工具栏 - 基于截图工具栏做钉图场景定制
 """
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
 from ui.toolbar import Toolbar
@@ -15,7 +15,7 @@ class PinToolbar(Toolbar):
     钉图工具栏：
     1. 固定排布：没有截图专属按钮和「…」，多一个复制按钮，不读截图工具栏的排布配置
     2. 作为独立顶层窗口吸附在钉图附近
-    3. 支持自动隐藏与手动拖拽
+    3. 支持手动拖拽；显隐由钉图的 PinHoverControls 决定
     """
 
     # 绘制工具的顺序与截图工具栏的默认排布一致，用户在两个窗口里找同一个按钮时位置不变
@@ -30,14 +30,6 @@ class PinToolbar(Toolbar):
 
         self.parent_pin_window = parent_pin_window
         self.config_manager = config_manager
-
-        self.auto_hide_timer = QTimer(self)
-        self.auto_hide_timer.setSingleShot(True)
-        self.auto_hide_timer.setInterval(2000)
-        self.auto_hide_timer.timeout.connect(self._auto_hide)
-
-        self.auto_hide_enabled = False
-        self._parent_hovering = False
 
     def _host_window(self):
         """钉图工具栏是独立顶层窗口，parent() 为 None，宿主从这里拿。"""
@@ -103,41 +95,20 @@ class PinToolbar(Toolbar):
 
         super().show()
 
-        if self.auto_hide_timer.isActive():
-            self.auto_hide_timer.stop()
-
     @safe_event
     def enterEvent(self, event):
         super().enterEvent(event)
-        if self.auto_hide_timer.isActive():
-            self.auto_hide_timer.stop()
+        self._report_hover(True)
 
     @safe_event
     def leaveEvent(self, event):
         super().leaveEvent(event)
-        if self._should_auto_hide():
-            self.auto_hide_timer.start()
+        self._report_hover(False)
 
-    def _auto_hide(self):
-        if not self.auto_hide_enabled:
-            return
-
-        if self._is_parent_editing() or self._parent_hovering:
-            self.auto_hide_timer.start()
-            return
-
-        self.hide()
-
-    def enable_auto_hide(self, enabled: bool = True):
-        self.auto_hide_enabled = enabled
-
-        if enabled and self._should_auto_hide():
-            self.auto_hide_timer.start()
-        else:
-            self.auto_hide_timer.stop()
-
-    def set_auto_hide_delay(self, milliseconds: int):
-        self.auto_hide_timer.setInterval(milliseconds)
+    def _report_hover(self, hovered: bool):
+        hover_controls = getattr(self.parent_pin_window, "hover_controls", None)
+        if hover_controls is not None:
+            hover_controls.set_toolbar_hovered(hovered)
 
     def _reset_auto_position(self):
         """双击拖拽手柄后恢复自动吸附。"""
@@ -150,34 +121,6 @@ class PinToolbar(Toolbar):
         if self.isVisible() and self.parent_pin_window:
             self.position_near_window(self.parent_pin_window)
             self._sync_all_panels_position()
-
-    def on_parent_editing_state_changed(self, editing: bool):
-        if editing:
-            if self.auto_hide_timer.isActive():
-                self.auto_hide_timer.stop()
-        else:
-            if self._should_auto_hide() and not self.underMouse():
-                self.auto_hide_timer.start()
-
-    def _is_parent_editing(self) -> bool:
-        return bool(self.parent_pin_window and getattr(self.parent_pin_window, "_is_editing", False))
-
-    def on_parent_hover(self, hovering: bool):
-        self._parent_hovering = hovering
-        if hovering:
-            if self.auto_hide_timer.isActive():
-                self.auto_hide_timer.stop()
-        else:
-            if self._should_auto_hide() and not self.underMouse():
-                self.auto_hide_timer.start()
-
-    def _should_auto_hide(self) -> bool:
-        return (
-            self.auto_hide_enabled
-            and self.isVisible()
-            and not self._is_parent_editing()
-            and not self._parent_hovering
-        )
 
 
 if __name__ == "__main__":
@@ -197,8 +140,6 @@ if __name__ == "__main__":
     mock_pin.show()
 
     toolbar = PinToolbar(parent_pin_window=mock_pin)
-    toolbar.enable_auto_hide(True)
-    toolbar.set_auto_hide_delay(3000)
 
     toolbar.tool_changed.connect(lambda tool: print(f"Tool changed: {tool}"))
     toolbar.save_clicked.connect(lambda: print("Save clicked"))

@@ -249,7 +249,7 @@ class PinImageTransform:
     def _refresh_border(self, pin_window):
         """创建/刺新描边 Overlay（无阴影，仅单圈主题色线）"""
         from .pin_border_overlay import PinBorderOverlay
-        if pin_window.halo_enabled:
+        if pin_window.border_enabled:
             if not pin_window.border_overlay:
                 pin_window.border_overlay = PinBorderOverlay(
                     pin_window,
@@ -264,7 +264,7 @@ class PinImageTransform:
             if pin_window.border_overlay:
                 pin_window.border_overlay.hide()
         if pin_window.view:
-            radius = pin_window.corner if pin_window.halo_enabled else 0
+            radius = pin_window.corner if pin_window.border_enabled else 0
             pin_window.view.set_corner_radius(radius)
 
     # ==================================================================

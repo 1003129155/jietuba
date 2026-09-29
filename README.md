@@ -430,6 +430,7 @@ pin/
 ├── pin_manager.py           # PinManager — manages all pin windows (singleton)
 ├── pin_toolbar.py           # PinToolbar — pin toolbar
 ├── pin_controls.py          # PinControlButtons — close, edit, copy buttons
+├── pin_hover.py             # PinHoverControls — decides when hover buttons and toolbar show
 ├── pin_context_menu.py      # PinContextMenu — right-click menu
 ├── pin_border_overlay.py    # PinBorderOverlay — border effect overlay
 ├── pin_ocr_manager.py       # PinOCRManager / _OCRThread — async OCR recognition

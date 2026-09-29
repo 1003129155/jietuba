@@ -2,6 +2,7 @@
 """平台相关工具函数（Windows Win32 API 等）"""
 # 跨模块调用的平台相关功能集中在这里，避免分散在各个模块中直接调用 Win32 API 导致的重复代码和维护困难。
 import os
+import sys
 import ctypes
 import math
 
@@ -270,6 +271,41 @@ def set_window_exclude_from_capture(hwnd: int, exclude: bool) -> bool:
         return bool(result)
     except Exception as e:
         log_exception(e, "SetWindowDisplayAffinity")
+        return False
+
+
+# ──────────────────────────────────────────────
+# 窗口圆角（Windows 11）
+# ──────────────────────────────────────────────
+
+DWMWA_WINDOW_CORNER_PREFERENCE = 33
+DWMWCP_DONOTROUND = 1
+# 设过 DONOTROUND 后再设 DEFAULT 不会恢复圆角，开启时要显式用 ROUND
+DWMWCP_ROUND      = 2
+
+
+def supports_window_corner_preference() -> bool:
+    """Windows 11（build 22000）起系统会给顶层窗口加圆角和阴影，也允许逐个窗口关掉。"""
+    try:
+        return sys.getwindowsversion().build >= 22000
+    except AttributeError:
+        return False
+
+
+def set_window_rounded_corners(hwnd: int, rounded: bool) -> bool:
+    """设置系统是否给窗口加圆角。不加圆角时系统阴影也随之去掉。返回调用是否成功。"""
+    if not supports_window_corner_preference():
+        return False
+    try:
+        from ctypes import wintypes
+        value = ctypes.c_int(DWMWCP_ROUND if rounded else DWMWCP_DONOTROUND)
+        hr = ctypes.windll.dwmapi.DwmSetWindowAttribute(
+            wintypes.HWND(hwnd), DWMWA_WINDOW_CORNER_PREFERENCE,
+            ctypes.byref(value), ctypes.sizeof(value),
+        )
+        return hr == 0
+    except Exception as e:
+        log_exception(e, "DwmSetWindowAttribute")
         return False
 
 

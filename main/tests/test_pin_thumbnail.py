@@ -10,8 +10,8 @@ PinThumbnailMode 把钉图缩成鼠标位置上的一个小方块，再按原样
 - 进入时以鼠标所在的画面位置为取景中心；鼠标不在窗口上时退回画面中心
 - 取景框必须被夹在图像范围内，否则缩略图里会露出图像外的空白
 - 进入 → 退出应还原成原来的尺寸，且画面中心仍落在同一处
-- 进入时要退出编辑状态、关掉 OCR 层与工具栏，退出时再恢复，
-  否则缩略图上会浮着一个跟窗口一样大的工具栏
+- 进入时要退出编辑状态、关掉 OCR 层，退出时再恢复
+- 模式切换后要让悬停控件重新计算显隐，否则缩略图上会浮着工具栏和按钮
 """
 import pytest
 from PySide6.QtCore import QPoint, QRect, QSize, QRectF
@@ -50,22 +50,20 @@ class FakeCanvas:
 
 
 class FakeToolbar:
-    def __init__(self, visible=True):
-        self._visible = visible
+    def __init__(self):
         self.current_tool = None
         self.tool_buttons = {}
-        self.hidden = 0
-        self.panels_hidden = 0
 
-    def isVisible(self):
-        return self._visible
 
-    def hide(self):
-        self._visible = False
-        self.hidden += 1
+class FakeHoverControls:
+    """记录每次 sync() 时缩略图模式是否已生效"""
 
-    def _hide_all_panels(self):
-        self.panels_hidden += 1
+    def __init__(self):
+        self.mode = None
+        self.synced_with_active = []
+
+    def sync(self):
+        self.synced_with_active.append(self.mode.active)
 
 
 class FakeOCRManager:
@@ -91,8 +89,8 @@ class FakePinWindow:
         self.canvas = FakeCanvas(editing)
         self.toolbar = FakeToolbar() if toolbar else None
         self._ocr_mgr = FakeOCRManager()
+        self.hover_controls = FakeHoverControls()
 
-        self.control_visibility = []
         self.transform_updates = 0
         self.button_position_updates = 0
 
@@ -110,9 +108,6 @@ class FakePinWindow:
         return QRectF(0, 0, self._geometry.width(), self._geometry.height())
 
     # -- 回调 --
-    def _set_control_buttons_visible(self, visible):
-        self.control_visibility.append(visible)
-
     def _update_view_transform(self):
         self.transform_updates += 1
 
@@ -125,7 +120,10 @@ def mode(qapp):
     from pin.pin_thumbnail import PinThumbnailMode
 
     def _make(win=None, **kwargs):
-        return PinThumbnailMode(win or FakePinWindow(**kwargs))
+        win = win or FakePinWindow(**kwargs)
+        m = PinThumbnailMode(win)
+        win.hover_controls.mode = m
+        return m
 
     return _make
 
@@ -221,20 +219,12 @@ class TestEnter:
         assert win.canvas.deactivated == 1
         assert win.toolbar.current_tool is None
 
-    def test_entering_hides_the_toolbar_and_its_panels(self, mode, cursor_at):
+    def test_entering_resyncs_hover_controls_once_the_mode_is_on(self, mode, cursor_at):
         cursor_at(400, 250)
         win = FakePinWindow()
         mode(win).toggle()
 
-        assert win.toolbar.hidden == 1
-        assert win.toolbar.panels_hidden == 1
-
-    def test_entering_hides_the_control_buttons(self, mode, cursor_at):
-        cursor_at(400, 250)
-        win = FakePinWindow()
-        mode(win).toggle()
-
-        assert win.control_visibility == [False]
+        assert win.hover_controls.synced_with_active == [True]
 
     def test_entering_works_without_a_toolbar(self, mode, cursor_at):
         cursor_at(400, 250)
@@ -330,7 +320,7 @@ class TestExit:
         assert win._ocr_mgr.enabled_calls == [False, True]
         assert len(win._ocr_mgr.geometry_updates) == 1
 
-    def test_exiting_restores_the_control_buttons(self, mode, cursor_at):
+    def test_exiting_resyncs_hover_controls_once_the_mode_is_off(self, mode, cursor_at):
         cursor_at(400, 250)
         win = FakePinWindow()
         m = mode(win)
@@ -338,7 +328,7 @@ class TestExit:
         m.toggle()
         m.toggle()
 
-        assert win.control_visibility == [False, True]
+        assert win.hover_controls.synced_with_active == [True, False]
         assert win.button_position_updates == 1
 
     def test_exit_state_is_cleared(self, mode, cursor_at):

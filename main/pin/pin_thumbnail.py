@@ -110,15 +110,8 @@ class PinThumbnailMode:
                     btn.setChecked(False)
                 win.toolbar.current_tool = None
 
-        # 隐藏控制按钮和工具栏
-        win._set_control_buttons_visible(False)
-        if win.toolbar and win.toolbar.isVisible():
-            # 先关闭二级设置面板（颜色、线宽等弹出面板）
-            if hasattr(win.toolbar, '_hide_all_panels'):
-                win.toolbar._hide_all_panels()
-            win.toolbar.hide()
-
         self._active = True
+        win.hover_controls.sync()
         log_debug(T("进入缩略图模式，场景中心: ({scene_x:.1f}, {scene_y:.1f})", scene_x=scene_x, scene_y=scene_y), "PinWindow")
 
     # ------------------------------------------------------------------
@@ -155,8 +148,7 @@ class PinThumbnailMode:
             cr = win.content_rect()
             win._ocr_mgr.update_geometry(cr.toRect())
 
-        # 恢复控制按钮
-        win._set_control_buttons_visible(True)
+        win.hover_controls.sync()
         win.update_button_positions()
 
         log_debug(T("退出缩略图模式"), "PinWindow")

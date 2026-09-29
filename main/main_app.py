@@ -626,6 +626,9 @@ class MainApp(QObject):
             if hasattr(self, 'clipboard_manager') and self.clipboard_manager:
                 self.clipboard_manager._apply_history_limit()
 
+        from pin.pin_manager import PinManager
+        PinManager.instance().refresh_all_appearance()
+
         if dialog_scale_changed:
             self._recreate_clipboard_manage_dialog()
         if dialog_scale_changed or getattr(accepted_window, '_language_changed_on_apply', False):

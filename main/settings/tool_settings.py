@@ -448,6 +448,8 @@ class ToolSettingsManager(QObject):
         "magnifier_zoom_max": 10.0,            # 放大镜最大倍率
         "pin_auto_toolbar": False,             # 钉图自动显示工具栏
         "pin_default_opacity": 1.0,            # 钉图默认透明度（0.1-1.0）
+        "pin_rounded_corners": False,          # Windows 11 系统圆角和阴影
+        "pin_hover_buttons": True,             # 悬停时显示右上角按钮
 
         # ==================== 8. 开发者 ====================
         "capture_engine": "auto",              # 截图引擎，见 CAPTURE_ENGINES

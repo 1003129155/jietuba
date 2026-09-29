@@ -182,10 +182,6 @@ class OCRTextLayer(QWidget):
         self.selection_end: Optional[Tuple[int, int]] = None    # (item_index, char_index)
         self.is_selecting = False
         
-        # 双击检测
-        self.last_click_time = 0
-        self.last_click_pos: Optional[QPoint] = None
-        
         # 当前鼠标是否在文字上
         self._mouse_on_text = False
         
@@ -650,31 +646,30 @@ class OCRTextLayer(QWidget):
         event.accept()
         self.setFocus()
         
-        # 检测双击
-        import time
-        current_time = time.time()
-        is_double_click = False
+        # 单击：设置光标位置并开始选择；双击选中整块见 mouseDoubleClickEvent
+        self.selection_start = (item_idx, char_idx)
+        self.selection_end = (item_idx, char_idx)
+        self.is_selecting = True
         
-        if self.last_click_pos and self.last_click_time:
-            time_diff = current_time - self.last_click_time
-            pos_diff = (pos - self.last_click_pos).manhattanLength()
-            
-            # 双击条件：500ms 内，距离小于 5 像素
-            if time_diff < 0.5 and pos_diff < 5:
-                is_double_click = True
-        
-        self.last_click_time = current_time
-        self.last_click_pos = pos
-        
-        if is_double_click:
-            # 双击：选择整个文字块并自动复制
-            self._select_word(item_idx)
-        else:
-            # 单击：设置光标位置并开始选择
-            self.selection_start = (item_idx, char_idx)
-            self.selection_end = (item_idx, char_idx)
-            self.is_selecting = True
-        
+        self.update()
+    
+    @safe_event
+    def mouseDoubleClickEvent(self, event):
+        """双击文字选中整块，不复制。
+
+        用 Qt 的双击事件而不是自己比较两次按下的间隔：钉图的鼠标快捷键在事件过滤器里
+        先处理双击，被占用（例如双击关闭钉图）时这里收不到，判定标准也跟随系统设置。
+        """
+        if (self._is_parent_dragging() or not self._is_active()
+                or event.button() != Qt.MouseButton.LeftButton):
+            event.ignore()
+            return
+        item_idx, _char_idx = self._get_char_at_pos(event.pos(), strict=True)
+        if item_idx is None:
+            event.ignore()
+            return
+        event.accept()
+        self._select_word(item_idx)
         self.update()
     
     @safe_event
@@ -824,7 +819,7 @@ class OCRTextLayer(QWidget):
         return (None, None)
     
     def _select_word(self, item_idx: int):
-        """选择整个文字块（双击时）并自动复制"""
+        """选择整个文字块（双击时）"""
         if item_idx >= len(self.text_items):
             return
         
@@ -832,9 +827,6 @@ class OCRTextLayer(QWidget):
         self.selection_start = (item_idx, 0)
         self.selection_end = (item_idx, len(item.text))
         self.is_selecting = False
-        
-        # 立即复制
-        self._copy_selected_text()
     
     def _copy_selected_text(self):
         """复制选中的文字到剪贴板（Word 风格）"""

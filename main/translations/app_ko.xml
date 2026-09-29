@@ -1076,6 +1076,26 @@ Replace it?</source>
         <translation>캡처를 시작한 순간의 위치에 마우스 포인터를 그려 넣습니다.</translation>
     </message>
     <message>
+        <source>Pin</source>
+        <translation>고정</translation>
+    </message>
+    <message>
+        <source>Rounded Corners and Shadow</source>
+        <translation>둥근 모서리와 그림자</translation>
+    </message>
+    <message>
+        <source>Windows 11 rounds the corners of pinned images and adds a shadow. Turn off to show the whole image with square corners and no shadow.</source>
+        <translation>Windows 11은 고정된 이미지의 모서리를 둥글게 하고 그림자를 추가합니다. 끄면 모서리가 잘리지 않은 직각으로 이미지 전체를 표시하며 그림자도 없습니다.</translation>
+    </message>
+    <message>
+        <source>Hover Buttons</source>
+        <translation>마우스를 올리면 버튼 표시</translation>
+    </message>
+    <message>
+        <source>Show the close and toolbar buttons in the top-right corner when the mouse is over a pinned image. When off, use the right-click menu or shortcuts.</source>
+        <translation>고정된 이미지 위에 마우스를 올리면 오른쪽 위에 닫기 및 도구 모음 버튼을 표시합니다. 끄면 오른쪽 클릭 메뉴나 단축키를 사용하세요.</translation>
+    </message>
+    <message>
         <source>Mouse Shortcuts</source>
         <translation>앱 내 마우스 단축키</translation>
     </message>
@@ -1398,8 +1418,8 @@ Replace it?</source>
         <translation>텍스트 선택</translation>
     </message>
     <message>
-        <source>Shadow effect</source>
-        <translation>그림자 효과</translation>
+        <source>Border</source>
+        <translation>테두리</translation>
     </message>
     <message>
         <source>Close</source>
