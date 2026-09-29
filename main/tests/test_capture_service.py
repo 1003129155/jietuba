@@ -474,7 +474,8 @@ class TestGrabRegionHdr:
     def test_raises_without_session(self, qapp):
         from capture.capture_service import grab_region_hdr
 
-        with patch("capture.capture_service._HdrSession.acquire", return_value=None),              pytest.raises(RuntimeError):
+        with patch("capture.capture_service._HdrSession.acquire", return_value=None), \
+             pytest.raises(RuntimeError):
             grab_region_hdr(QRect(0, 0, 10, 10))
 
     def test_waits_for_dwm_before_grabbing(self, qapp):
@@ -485,7 +486,8 @@ class TestGrabRegionHdr:
         session = _region_session(_gradient_frame(10, 10))
         order.attach_mock(session.grab_region, "grab_region")
 
-        with patch("capture.capture_service._HdrSession.acquire", return_value=session),              patch("capture.capture_service.ctypes.windll.dwmapi.DwmFlush") as flush:
+        with patch("capture.capture_service._HdrSession.acquire", return_value=session), \
+             patch("capture.capture_service.ctypes.windll.dwmapi.DwmFlush") as flush:
             order.attach_mock(flush, "flush")
             grab_region_hdr(QRect(0, 0, 10, 10))
 
@@ -500,7 +502,8 @@ class TestCaptureRegionHdr:
         session = _region_session(_gradient_frame(20, 10))
         mock_mss = MagicMock()
 
-        with patch("capture.capture_service._HdrSession.acquire", return_value=session),              patch("capture.capture_service.mss.mss", mock_mss):
+        with patch("capture.capture_service._HdrSession.acquire", return_value=session), \
+             patch("capture.capture_service.mss.mss", mock_mss):
             image = CaptureService("auto").capture_region(QRect(-54, 5, 20, 10))
 
         mock_mss.assert_not_called()
@@ -522,14 +525,17 @@ class TestCaptureRegionHdr:
         session.grab_region.side_effect = RuntimeError("access lost")
         shot = MagicMock(width=4, height=3, bgra=bytes([30, 20, 10, 255] * 12))
 
-        with patch("capture.capture_service._HdrSession.acquire", return_value=session),              patch("capture.capture_service.mss.mss") as mss_factory:
+        with patch("capture.capture_service._HdrSession.acquire", return_value=session), \
+             patch("capture.capture_service.mss.mss") as mss_factory:
             mss_factory.return_value.__enter__.return_value.grab.return_value = shot
             image = CaptureService("auto").capture_region(QRect(0, 0, 4, 3))
 
         assert image.width() == 4
 
     def test_hdr_engine_raises_without_session(self, qapp):
-        with patch("capture.capture_service._HdrSession.acquire", return_value=None),              patch("capture.capture_service.mss.mss") as mss_factory,              pytest.raises(RuntimeError):
+        with patch("capture.capture_service._HdrSession.acquire", return_value=None), \
+             patch("capture.capture_service.mss.mss") as mss_factory, \
+             pytest.raises(RuntimeError):
             CaptureService("hdr").capture_region(QRect(0, 0, 4, 3))
         mss_factory.assert_not_called()
 
@@ -540,7 +546,8 @@ def fake_hdrcapture():
     from capture.capture_service import _HdrSession
 
     module = MagicMock()
-    with patch("capture.capture_service.hdrcapture", module),          patch.multiple(_HdrSession, _capture=None, _failed=False, _lent=False):
+    with patch("capture.capture_service.hdrcapture", module), \
+         patch.multiple(_HdrSession, _capture=None, _failed=False, _lent=False):
         yield module
         _HdrSession.drain()
 

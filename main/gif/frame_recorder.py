@@ -22,6 +22,8 @@ from typing import List, Optional, Tuple
 class _POINT(ctypes.Structure):
     _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
 
+from concurrent.futures import Future
+
 from PySide6.QtCore import QObject, QTimer, QRect, QThread, Signal
 
 from capture.capture_service import lend_hdr_session, return_hdr_session
@@ -36,9 +38,14 @@ except ImportError:
 
 
 def _session_stopped(session):
-    """Rust 录制线程已退出、DXGI 会话已释放：交还截图会话，并记下这次用的截取路径。"""
-    return_hdr_session()
+    """Rust 录制线程已退出：记下这次用的截取路径，排查"录出来高光过曝"时用。"""
     log_info(T("录制截取路径: {backend}", backend=getattr(session, "backend", None)), "GIF")
+
+
+def _completed(value) -> Future:
+    done = Future()
+    done.set_result(value)
+    return done
 
 
 # ── 数据结构 ──────────────────────────────────────────
@@ -107,6 +114,8 @@ class FrameRecorder(QObject):
         # gifrecorder 对象
         self._store = None            # gifrecorder.FrameStore
         self._session = None          # gifrecorder.RecordSession
+        self._prepared = None         # Future[RecordSession]，见 prepare()
+        self._hdr_lent = False        # 截图会话是否借给了录制线程
         self._rec_width: int = 0
         self._rec_height: int = 0
 
@@ -163,6 +172,54 @@ class FrameRecorder(QObject):
 
     # ── 生命周期 ──
 
+    def prepare(self):
+        """录制窗口打开、重新录制时调用：后台预备录制线程，点录制时画面即刻开始。
+
+        建 DXGI 会话要近百毫秒。同一进程每块屏只能有一个 duplication，所以录制线程建会话前
+        要先借走截图会话，直到 release() 才交还；两步都在截图会话线程上排队执行，不占 UI 线程。
+        截图引擎选 mss 时 GIF 也只用 GDI。
+        """
+        if not _gifrecorder_available or self._prepared is not None:
+            return
+        try:
+            # 首次导入约 10ms，放在开窗口时，别让点录制那一下卡住；失败由开录时的监听去报
+            import pynput.mouse  # noqa: F401
+        except Exception:
+            pass
+        from settings.tool_settings import get_tool_settings_manager
+        prefer_dxgi = get_tool_settings_manager().get_capture_engine() != "mss"
+
+        def make():
+            return gifrecorder.RecordSession.prepare(prefer_dxgi=prefer_dxgi)
+
+        if prefer_dxgi and not self._hdr_lent:
+            self._hdr_lent = True
+            self._prepared = lend_hdr_session(then=make)
+        else:
+            self._prepared = _completed(make())
+
+    def release(self):
+        """录制窗口关闭时调用：停掉预备或录制中的线程并交还截图会话，都在后台完成。"""
+        self._timer.stop()
+        self._stop_scroll_listener()
+        prepared, self._prepared = self._prepared, None
+        session, self._session = self._session, None
+
+        def stop_threads():
+            for pending in (prepared, _completed(session)):
+                try:
+                    running = pending.result() if pending is not None else None
+                    if running is not None:
+                        running.stop()
+                except Exception as e:
+                    log_exception(e, T("停止 Rust 截屏会话"))
+
+        if self._hdr_lent:
+            self._hdr_lent = False
+            return_hdr_session(after=stop_threads)
+        else:
+            stop_threads()
+
     def start(self):
         """开始录制。Rust 线程截屏（DXGI 优先，GDI 兜底）→ FrameStore。"""
         if self._state not in (RecordState.IDLE, RecordState.STOPPED):
@@ -203,19 +260,16 @@ class FrameRecorder(QObject):
             self._store = None
             return
 
-        # 启动 Rust 截屏会话（独立 Rust 线程）。截图引擎选 mss 时 GIF 也只用 GDI。
-        from settings.tool_settings import get_tool_settings_manager
-        prefer_dxgi = get_tool_settings_manager().get_capture_engine() != "mss"
-        if prefer_dxgi:
-            # 录制线程要建自己的 duplication，截图会话得先关掉
-            lend_hdr_session().result()
+        # 取出预备好的录制线程开始截取；没预备过就现在预备，画面会晚开始近百毫秒
+        self.prepare()
+        prepared, self._prepared = self._prepared, None
         try:
-            self._session = gifrecorder.RecordSession(
-                self._store, left, top, w, h, self._fps, prefer_dxgi=prefer_dxgi,
-            )
+            self._session = prepared.result()
+            self._session.begin(self._store, left, top, w, h, self._fps)
         except Exception as e:
-            return_hdr_session()
             log_error(T("RecordSession 启动失败: {e}", e=e), "GIF")
+            if self._session is not None:
+                self._session.stop()
             self._store = None
             self._session = None
             return
