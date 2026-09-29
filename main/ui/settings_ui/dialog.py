@@ -685,10 +685,6 @@ class SettingsDialog(FrostedFramelessDialog):
     def _reset_long_screenshot_page(self):
         """重置开发者选项页。"""
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
-        if hasattr(self, 'capture_engine_combo'):
-            self.capture_engine_combo.setCurrentIndex(
-                CAPTURE_ENGINES.index(defaults["capture_engine"])
-            )
         if hasattr(self, 'engine_combo'):
             index = self.engine_combo.findData(defaults["long_stitch_engine"])
             if index >= 0:
@@ -774,6 +770,10 @@ class SettingsDialog(FrostedFramelessDialog):
 
     def _reset_screenshot_settings_page(self):
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
+        if hasattr(self, 'capture_engine_combo'):
+            self.capture_engine_combo.setCurrentIndex(
+                CAPTURE_ENGINES.index(defaults["capture_engine"])
+            )
         if hasattr(self, 'smart_mode_combo'):
             self.smart_mode_combo.setCurrentIndex(SMART_SELECTION_MODES.index(
                 defaults["smart_selection_mode"] if defaults["smart_selection"] else "off"

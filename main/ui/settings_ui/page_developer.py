@@ -9,7 +9,6 @@ from ui.fluent_lite import (
     FluentIcon, ComboBox, DoubleSpinBox, SpinBox,
     CaptionLabel, PrimaryPushButton,
 )
-from settings.tool_settings import CAPTURE_ENGINES
 from .components import SettingCardGroup
 from core.ui_theme import set_own_style
 
@@ -25,31 +24,6 @@ def create_developer_page(dialog) -> QWidget:
     layout = QVBoxLayout(view)
     layout.setContentsMargins(0, 0, dialog_scaled(10), 0)
     layout.setSpacing(dialog_scaled(20))
-
-    # ════ 截图 ════
-    grp_capture = SettingCardGroup(dialog.tr("Screenshot"), view)
-
-    capture_engine_card = FSettingCard(
-        FluentIcon.CAMERA,
-        dialog.tr("Capture Engine"),
-        dialog.tr(
-            "Auto uses HDR only when a display has HDR turned on, and MSS otherwise or when HDR fails. "
-            "Choosing HDR or MSS always uses that engine, with no fallback."
-        ),
-        parent=grp_capture,
-    )
-    dialog.capture_engine_combo = ComboBox(capture_engine_card)
-    for label, engine in ((dialog.tr("Auto (Recommended)"), "auto"),
-                          ("MSS", "mss"),
-                          ("HDR", "hdr")):
-        dialog.capture_engine_combo.addItem(label, userData=engine)
-    dialog.capture_engine_combo.setCurrentIndex(
-        CAPTURE_ENGINES.index(dialog.config_manager.get_capture_engine())
-    )
-    capture_engine_card.addControl(dialog.capture_engine_combo)
-    grp_capture.addSettingCard(capture_engine_card)
-
-    layout.addWidget(grp_capture)
 
     # ════ 长截图 ════
     grp_stitch = SettingCardGroup(dialog.tr("Long Screenshot"), view)

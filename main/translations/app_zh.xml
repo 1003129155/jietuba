@@ -449,10 +449,6 @@ Replace it?</source>
         <translation>截图引擎</translation>
     </message>
     <message>
-        <source>Auto uses HDR only when a display has HDR turned on, and MSS otherwise or when HDR fails. Choosing HDR or MSS always uses that engine, with no fallback.</source>
-        <translation>自动：有显示器开着 HDR 时用 HDR，否则用 MSS；HDR 出错时也回落到 MSS。选 HDR 或 MSS 则始终只用该引擎，失败不回落。</translation>
-    </message>
-    <message>
         <source>Auto (Recommended)</source>
         <translation>自动 (推荐)</translation>
     </message>
@@ -4476,6 +4472,14 @@ SOFTWARE.</translation></message>
     <message>
         <source>Quick Edit Text</source>
         <translation>文本快速编辑</translation>
+    </message>
+    <message>
+        <source>Auto uses the HDR engine when a display has HDR turned on.</source>
+        <translation>自动：显示器开着 HDR 时使用 HDR 引擎。</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>标准</translation>
     </message>
 </context>
 <context>

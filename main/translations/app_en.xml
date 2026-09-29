@@ -445,10 +445,6 @@ Replace it?</translation>
         <translation>Capture Engine</translation>
     </message>
     <message>
-        <source>Auto uses HDR only when a display has HDR turned on, and MSS otherwise or when HDR fails. Choosing HDR or MSS always uses that engine, with no fallback.</source>
-        <translation>Auto uses HDR only when a display has HDR turned on, and MSS otherwise or when HDR fails. Choosing HDR or MSS always uses that engine, with no fallback.</translation>
-    </message>
-    <message>
         <source>Auto (Recommended)</source>
         <translation>Auto (Recommended)</translation>
     </message>
@@ -4196,6 +4192,14 @@ SOFTWARE.</translation></message>
     <message>
         <source>Quick Edit Text</source>
         <translation>Quick Edit Text</translation>
+    </message>
+    <message>
+        <source>Auto uses the HDR engine when a display has HDR turned on.</source>
+        <translation>Auto uses the HDR engine when a display has HDR turned on.</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>Standard</translation>
     </message>
 </context>
 <context>
