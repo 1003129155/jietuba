@@ -20,24 +20,24 @@ from settings.tool_settings import (
 )
 from ui.fluent_lite import ComboBox, FluentIcon, SegmentedWidget
 from ui.fluent_lite.theme import ACCENT
-from .components import IconBadge, SectionCard, add_separated_row, apply_theme_text_style
-from .page_hotkey import _INAPP_ICONS, _icon_ref, _inapp_label, _row_label
+from .components import IconBadge, SectionCard, add_separated_row, apply_theme_text_style, icon_ref, row_label
+from .page_hotkey import INAPP_ICONS, inapp_label
 from ..key_chip import format_shortcut_text
 
 
-# 鼠标动作与应用内快捷键沿用同一套具体功能图标，不退化成每行重复的分类图标
+# 行图标与键盘页「应用内快捷键」共用，表示这一行的具体动作
 _QUICK_CAPTURE_ICONS = {
-    "pin": _INAPP_ICONS["inapp_pin"],
-    "copy": _INAPP_ICONS["inapp_confirm"],
-    "copy_pin": _INAPP_ICONS["inapp_copy_pin"],
-    "ocr": _INAPP_ICONS["inapp_text_recognize"],
-    "translate": _INAPP_ICONS["inapp_translate"],
+    "pin": INAPP_ICONS["inapp_pin"],
+    "copy": INAPP_ICONS["inapp_confirm"],
+    "copy_pin": INAPP_ICONS["inapp_copy_pin"],
+    "ocr": INAPP_ICONS["inapp_text_recognize"],
+    "translate": INAPP_ICONS["inapp_translate"],
     "edit": FluentIcon.EDIT,
 }
 
 _CAPTURE_MOUSE_ICONS = {
-    "copy": _INAPP_ICONS["inapp_confirm"],
-    "pin": _INAPP_ICONS["inapp_pin"],
+    "copy": INAPP_ICONS["inapp_confirm"],
+    "pin": INAPP_ICONS["inapp_pin"],
     "save": "保存.svg",
     "quick_save": FluentIcon.DOWNLOAD,
     "close": FluentIcon.CLOSE,
@@ -49,10 +49,10 @@ _PIN_MOUSE_ICONS = {
     # 工具栏的“关闭.svg”自带红色圆形底；作为可着色的行图标时，
     # 底和白色叉号会合并成一整块蒙版，因此这里使用纯叉号图标。
     "close": FluentIcon.CLOSE,
-    "reset": _INAPP_ICONS["inapp_pin_reset_size"],
-    "thumbnail": _INAPP_ICONS["inapp_thumbnail"],
+    "reset": INAPP_ICONS["inapp_pin_reset_size"],
+    "thumbnail": INAPP_ICONS["inapp_thumbnail"],
     "region": "选择.svg",
-    "copy_text": _INAPP_ICONS["inapp_copy_pin_text"],
+    "copy_text": INAPP_ICONS["inapp_copy_pin_text"],
 }
 
 _CLIPBOARD_MOUSE_ICONS = {
@@ -63,7 +63,7 @@ _CLIPBOARD_MOUSE_ICONS = {
 }
 
 _INAPP_MODIFIERS = ("", "ctrl", "shift", "alt", "ctrl+shift", "ctrl+alt", "shift+alt", "ctrl+shift+alt")
-# 全局手势必须带修饰键。Win 组合排前面：单按 Ctrl / Shift / Alt 拖动在别的软件里很常用，容易误触
+# 全局手势必须带修饰键。Win 组合排在前面：单独 Ctrl / Shift / Alt 加拖动是常见操作，容易误触
 _GLOBAL_MODIFIERS = (
     "", "win", "ctrl+win", "shift+win", "alt+win", "ctrl+alt", "ctrl+shift", "shift+alt", "ctrl", "shift", "alt",
 )
@@ -148,10 +148,9 @@ def _build_mouse_rows(dialog, *, actions, key_prefix, action_icons, binding_gett
         row = QHBoxLayout(card)
         row.setContentsMargins(0, dialog_scaled(8), 0, dialog_scaled(8))
         row.setSpacing(dialog_scaled(14))
-        # 和键盘页的「应用内快捷键」一致：图标表达这一行的具体动作
         icon = action_icons.get(action)
-        row.addWidget(IconBadge(_icon_ref(icon) if icon else None, None, card))
-        title = _row_label(card, dialog.tr(label))
+        row.addWidget(IconBadge(icon_ref(icon) if icon else None, None, card))
+        title = row_label(card, dialog.tr(label))
         title.setWordWrap(True)
         row.addWidget(title, 1)
         editor = MouseBindingEditor(dialog, kind, card)
@@ -245,7 +244,7 @@ def _normalized_mouse_binding(binding: str) -> str:
 
 
 def _mouse_binding_text(dialog, binding: str) -> str:
-    """Return the same friendly mouse names used by the binding editors."""
+    """按设置页上的叫法显示鼠标绑定。"""
     parts = _normalized_mouse_binding(binding).split("+")
     gesture = parts[-1]
     modifier_text = format_shortcut_text("+".join(parts[:-1]))
@@ -254,12 +253,7 @@ def _mouse_binding_text(dialog, binding: str) -> str:
 
 
 def mouse_binding_conflicts(dialog) -> list[tuple[str, str, tuple[str, ...]]]:
-    """List every duplicated mouse binding with its context and owners.
-
-    The old save-time validator returned only a boolean, which left the warning
-    dialog unable to tell the user what to fix.  Keeping the detailed result
-    here also ensures validation and the displayed explanation cannot drift.
-    """
+    """列出所有重复的鼠标绑定，每项是 (所在范围, 绑定, 占用者)。"""
     controls = getattr(dialog, '_behavior_controls', {})
     inapp_edits = getattr(dialog, '_inapp_edits', {})
     inapp_groups = getattr(dialog, '_inapp_groups', {})
@@ -275,8 +269,7 @@ def mouse_binding_conflicts(dialog) -> list[tuple[str, str, tuple[str, ...]]]:
         owners_by_binding = {}
         actions_by_binding = {}
 
-        # Follow the UI row order so both the conflict list and its owners are
-        # stable and easy to find on the settings page.
+        # 按设置页的行序遍历，冲突和占用者的顺序与界面一致
         for action, label_source, _default, _kind in actions:
             control = controls.get(f"{prefix}{action}")
             if control is None:
@@ -295,11 +288,11 @@ def mouse_binding_conflicts(dialog) -> list[tuple[str, str, tuple[str, ...]]]:
             binding = _normalized_mouse_binding(raw_binding)
             if is_inapp_mouse_shortcut(raw_binding) and binding:
                 owners_by_binding.setdefault(binding, []).append(
-                    f"{_inapp_label(dialog, key)} ({dialog.tr('In-App Shortcuts')})"
+                    f"{inapp_label(dialog, key)} ({dialog.tr('In-App Shortcuts')})"
                 )
 
         for binding, owners in owners_by_binding.items():
-            # Image pinning and text editing cannot act on the same item.
+            # 钉图只对图片、快速编辑只对文字生效，两者可以共用一个手势
             if (prefix == "mouse_clipboard_" and len(owners) == 2
                     and actions_by_binding.get(binding) == {"pin", "quick_edit"}):
                 continue
@@ -314,7 +307,7 @@ def mouse_binding_conflicts(dialog) -> list[tuple[str, str, tuple[str, ...]]]:
 
 
 def mouse_binding_conflict_message(dialog, conflicts=None) -> str:
-    """Build a concise, actionable save-time warning for mouse conflicts."""
+    """保存时的冲突提示，逐条列出要改的绑定。"""
     if conflicts is None:
         conflicts = mouse_binding_conflicts(dialog)
     lines = [dialog.tr("The following shortcuts conflict:"), ""]

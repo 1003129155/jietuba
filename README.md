@@ -116,6 +116,14 @@ The [test directory](main/tests/) contains unit and integration tests for captur
 
 To build a Windows release, run `python build_with_ocr_onefile.py`. It produces `dist/jietuba_pp.exe` and `dist/models/`. The automated [release workflow](.github/workflows/build.yml) creates separate x64 and ARM64 archives.
 
+### Code Comments
+
+Comments explain only the constraints and design reasons that the code cannot express. Keep them short and precise:
+
+- No debugging stories, change history, incident write-ups, or development-time reasoning.
+- Do not mention other software or projects, or cite them as justification.
+- No essay-length explanations; do not repeat what the code, function names, or test names already say.
+
 ---
 
 ## Directory Structure

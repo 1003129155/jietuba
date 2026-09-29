@@ -292,7 +292,7 @@ impl MonitorSession {
             // further such frames afterwards. `LastPresentTime == 0` is how DXGI reports that the
             // desktop image carries no new content: the texture is blank before the first real
             // present and merely stale after it, so it must never be converted as if it were a
-            // capture. Accepting it is what produced intermittently black first screenshots.
+            // capture.
             let converted = match self.duplication.acquire_next_frame(remaining_ms(deadline)) {
                 Ok(frame) if frame.frame_info().LastPresentTime == 0 => false,
                 Ok(frame) => {
@@ -827,13 +827,13 @@ mod tests {
 
 #[cfg(test)]
 mod virtual_desktop_simulation {
-    //! Exercises multi-monitor composition on a machine that has only one display.
+    //! Exercises multi-monitor composition without multiple physical displays.
     //!
-    //! Windows reports only physically attached monitors, so the virtual-desktop path cannot be
-    //! covered by capturing this machine. These tests substitute synthetic per-monitor textures
-    //! for the DXGI frames and then run the real code: the same `GpuToneMapper` the capture path
-    //! uses per output, the same `virtual_rect` / `offset_from_virtual` geometry, and the same
-    //! `GpuCompositor`. Only the duplication source is simulated.
+    //! Windows reports only physically attached monitors, so real captures on a single-display
+    //! host cannot cover the virtual-desktop path. These tests substitute synthetic per-monitor
+    //! textures for the DXGI frames and then run the real code: the same `GpuToneMapper` the
+    //! capture path uses per output, the same `virtual_rect` / `offset_from_virtual` geometry, and
+    //! the same `GpuCompositor`. Only the duplication source is simulated.
 
     use std::time::{Duration, Instant};
 
@@ -1200,7 +1200,7 @@ mod virtual_desktop_simulation {
     fn virtual_desktop_composition_bench_at_realistic_sizes() {
         // Not a correctness test: measures the steady-state cost of per-monitor tone mapping plus
         // virtual-desktop composition and single readback, using synthetic source textures so it
-        // runs on a machine with only one physical display. Run with `--release --nocapture` to
+        // runs without multiple physical displays. Run with `--release --nocapture` to
         // see timings; debug-mode numbers are not representative of the real capture path.
         bench_layout(
             "dual 4K HDR side by side",

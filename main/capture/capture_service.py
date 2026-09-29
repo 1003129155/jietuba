@@ -18,32 +18,23 @@ try:
 except ImportError:
     hdrcapture = None
 
-# 每个物理输出的 DXGI 等待预算。0 表示取走已排队的 present 但不等待新的：桌面没有新
-# present 就意味着画面没变，此时缓存帧正是当前画面。给非 0 值会在静止桌面上一直等到下一次
-# present，实测该机空闲时约 66ms 一次，截图反而比 mss 还慢。
+# 每个物理输出的 DXGI 等帧预算。0 只取已排队的帧：没有新 present 说明画面没变，缓存帧就是
+# 当前画面；非 0 会让静止桌面上的截图一直等到下一次 present。
 _HDR_TIMEOUT_MS = 0
 
-# 新会话要等到一次真实的桌面 present 才有首帧，零预算的首次截图会拿不到。后台建好会话后
-# 在会话线程上按这个预算等一次；静止桌面等不到就算了，首次截图照旧回落。
+# 新会话要等到一次桌面 present 才有首帧。后台建会话后按这个预算等一次首帧，等不到时首次截图回落 mss。
 _PRIME_TIMEOUT_MS = 250
 
 
 class _HdrSession:
-    """进程内共享的 DXGI 捕获会话，由一条专用线程独占。
+    """进程内共享的 DXGI 捕获会话，建、用、关都在一条专用线程上执行。
 
-    会话必须常驻：新建会话要先等到一次真实的桌面 present 才有首帧，显示器休眠时
-    等不到，每次截图都重建就等于每次都冒这个险。
-
-    pyo3 把会话钉在创建它的线程上（D3D11 immediate context 非线程安全），在别的线程上
-    释放会被拒绝并泄漏，泄漏的 duplication 又会让这块屏再也建不起会话。所以建会话、取帧、
-    关会话全都提交到同一条线程执行，调用方只等结果：建会话约 90ms、关会话约 12ms，都不占
-    UI 线程。会话对象只存在 _capture 上，转发调用时不落进局部变量，异常回溯带不走它。
-
-    建会话失败后记住失败，不在每次截图时重试；forget_failure() / reset() 清掉这个记录。
-
-    同一进程每块屏只能有一个 DXGI duplication，第二个建不起来（E_INVALIDARG）。GIF 录制
-    线程要自建会话，所以 GIF 窗口开着期间会话处于借出状态：lend() 关掉这里的会话，
-    give_back() 之前 acquire 一律返回 None，且不记为失败。
+    - 会话常驻：新会话要等到一次桌面 present 才有首帧，显示器休眠时等不到。
+    - pyo3 把会话钉在创建它的线程上，在别的线程释放会被拒绝并泄漏，泄漏的 duplication 会让
+      这块屏再也建不起会话。会话只存在 _capture 上，不落进局部变量，异常回溯带不走它。
+    - 建会话失败后记住，不在每次截图时重试；forget_failure() / reset() 清除。
+    - 每块屏同时只能有一个 duplication：GIF 录制期间会话借给录制线程（lend），give_back()
+      之前 acquire 返回 None，不记为失败。
     """
 
     _executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="HdrCapture")
@@ -127,9 +118,9 @@ class _HdrSession:
 
     @classmethod
     def warm_up(cls, only_if=None):
-        """后台建会话，不等结果；only_if 在会话线程上判断，返回 False 时反而关掉会话。
+        """后台建会话，不等结果；only_if 在会话线程上判断，为 False 时关掉会话。
 
-        预热失败不记为失败：开机自启时桌面可能还没就绪，首次截图时再试一次。
+        预热失败不记为失败：开机自启时桌面可能还没就绪，留给首次截图重试。
         """
         def sync():
             if only_if is None or only_if():
@@ -140,10 +131,10 @@ class _HdrSession:
 
     @classmethod
     def refresh(cls, only_if=None):
-        """显示器配置变了：在后台按新配置重建会话，only_if 返回 False 时只释放。
+        """显示器配置变化后在后台重建会话，only_if 为 False 时只释放。
 
-        借出期间不动，录制线程的会话自己会发现配置变化。配置变化也可能让之前建不起来的会话
-        能建了，所以清掉失败记录。
+        借出期间不动，录制线程的会话自己处理配置变化。配置变化后原本建不起来的会话可能能建了，
+        所以清掉失败记录。
         """
         def rebuild():
             if cls._lent:
@@ -200,10 +191,10 @@ class _HdrSession:
 
     @classmethod
     def shutdown(cls):
-        """退出前在会话线程上关掉会话。
+        """退出前在会话线程上关掉会话，等关闭执行完再停线程。
 
-        先等关闭真正执行完再停线程：cancel_futures 会把还没轮到的关闭任务一并取消，会话就留到
-        解释器退出时在主线程上释放，被 pyo3 拒绝而泄漏。
+        不能用 cancel_futures：排队中的关闭任务被取消后，会话会在解释器退出时由主线程释放，
+        被 pyo3 拒绝而泄漏。
         """
         cls._submit(cls._close).result()
         cls._executor.shutdown(wait=True)
@@ -227,13 +218,11 @@ _SESSION_PROXY = _SessionProxy()
 
 
 def _grab_hdr_frame(session, monitor, adaptive=False):
-    """等 DWM 合成完当前改动再取帧。
+    """等 DWM 合成完当前改动再取帧：DXGI 取的是合成好的帧，刚关掉的窗口、刚设的截图排除
+    要到下一次合成才生效。
 
-    DXGI 拿到的是 DWM 合成好的帧，刚关掉的窗口、刚设的截图排除要到下一次合成才会体现；
-    GDI BitBlt 则是同步的。DwmFlush 阻塞到下一次合成完成，实测 3~9ms。
-
-    adaptive 见 hdrcapture.Capture.grab：画面有 HDR 内容时整屏压暗、保留高光层次，结果随内容
-    变化；长截图要求相邻帧的重叠部分逐像素一致，只能用默认的固定映射。
+    adaptive 见 hdrcapture.Capture.grab：有 HDR 内容时整屏压暗以保留高光，结果随画面变化；
+    长截图要求相邻帧重叠部分逐像素一致，只能用固定映射。
     """
     ctypes.windll.dwmapi.DwmFlush()
     frame = session.grab(monitor, timeout_ms=_HDR_TIMEOUT_MS, adaptive=adaptive)
@@ -272,7 +261,7 @@ def _grab_region(session, rect, adaptive):
 
 
 def hdr_display_active():
-    """是否有显示器开着 HDR（Windows 高级颜色）。不建会话、不加载显卡驱动，约 0.3ms。"""
+    """是否有显示器开着 HDR（Windows 高级颜色）。不建会话、不加载显卡驱动，每次截图前都可以调用。"""
     if hdrcapture is None:
         return False
     try:
@@ -285,8 +274,8 @@ def hdr_display_active():
 def uses_hdr_engine(engine=None):
     """按截图引擎设置决定这次要不要用 HDR 引擎。
 
-    auto 只在有显示器开着 HDR 时才用：SDR 屏上 HDR 引擎和 mss 截出来逐像素相同，常驻的
-    HDR 会话却要把显卡驱动加载进进程、占几十 MB 显存。每次截图都重新判断，开关 HDR 立即生效。
+    auto 只在有显示器开着 HDR 时用：SDR 屏上两种引擎结果逐像素相同，而常驻的 HDR 会话要把
+    显卡驱动加载进进程、占用显存。每次截图都重新判断，开关 HDR 立即生效。
     """
     if engine is None:
         from settings.tool_settings import get_tool_settings_manager
@@ -295,7 +284,7 @@ def uses_hdr_engine(engine=None):
 
 
 def warm_up_hdr_session(engine="auto"):
-    """在后台提前建好 HDR 会话，省掉首次截图时建会话的约 100ms；返回 Future，不必等。
+    """在后台提前建好 HDR 会话，首次截图不必等建会话；返回 Future。
 
     auto 下没有显示器开着 HDR 就不建（HDR 状态也在后台判断）。
     """
@@ -303,9 +292,9 @@ def warm_up_hdr_session(engine="auto"):
 
 
 def refresh_hdr_session(engine):
-    """显示器配置变了（插拔、改分辨率、开关 HDR）时调用：后台按新配置重建会话，HDR 已关则释放。
+    """显示器配置变化（插拔、改分辨率、开关 HDR）后调用：后台按新配置重建会话，HDR 已关则释放。
 
-    hdrcapture 在下次截图时也会发现配置变化并重建，但那样那次截图要多等约 100ms。
+    不提前重建时，下一次截图要等 hdrcapture 自己重建会话。
     """
     if engine == "mss":
         return None
@@ -334,8 +323,8 @@ def shutdown_hdr_session():
 def apply_capture_engine(engine):
     """设置里保存截图引擎后调用，不阻塞。
 
-    切到 mss 时释放 HDR 会话，不再占着 DXGI 资源；切到 auto / hdr 时清掉之前的建会话
-    失败记录，按新设置在后台建好或释放会话。
+    切到 mss 时释放 HDR 会话；切到 auto / hdr 时清掉建会话失败的记录，按新设置在后台建好
+    或释放会话。
     """
     if engine == "mss":
         _HdrSession.reset()
@@ -345,16 +334,13 @@ def apply_capture_engine(engine):
 
 
 class CaptureService:
-    """
-    截图捕获服务
-    负责获取多显示器虚拟桌面截图
+    """多显示器虚拟桌面截图。
 
-    hdrcapture 走 DXGI Desktop Duplication + GPU tone-map：开启 HDR 的显示器上
-    GDI BitBlt 会把超出桌面白的内容硬截断为纯白，mss 用的正是 BitBlt。
+    开着 HDR 的显示器上，GDI BitBlt（mss 所用）会把超出桌面白的内容截成纯白；hdrcapture 用
+    DXGI Desktop Duplication 在 GPU 上做色调映射。
 
-    engine 取值见 settings.tool_settings.CAPTURE_ENGINES。auto 在有显示器开着 HDR 时走
-    HDR，否则走 mss；拿不到会话或捕获失败时也回落 mss——有图总比没有强，哪怕那张图过曝。
-    指定 mss / hdr 时只用那一个，失败直接抛异常，由调用方记日志。
+    engine 见 settings.tool_settings.CAPTURE_ENGINES：auto 在有显示器开着 HDR 时用 HDR、否则用 mss，
+    HDR 拿不到会话或失败时也回落 mss；指定 mss / hdr 时只用那一个，失败直接抛异常。
     """
 
     def __init__(self, engine=None):
@@ -364,7 +350,7 @@ class CaptureService:
         self.engine = engine
 
     def capture_region(self, rect, cursor=None):
-        """Capture an absolute physical-pixel region, including negative origins."""
+        """截取虚拟桌面上的一块区域，坐标是物理像素，原点可以为负。"""
         if rect.width() <= 0 or rect.height() <= 0:
             raise ValueError("Capture region must have positive dimensions")
         # 和主截图同样用自适应映射，同一块画面两种方式截出来一致。
@@ -376,17 +362,7 @@ class CaptureService:
         return image
 
     def capture_all_screens(self, cursor=None):
-        """
-        捕获所有屏幕
-
-        Args:
-            cursor: SystemCursor，给定时把它画进截图
-
-        Returns:
-            tuple: (QImage, QRectF)
-            - QImage: 包含所有屏幕的完整截图
-            - QRectF: 虚拟桌面的几何信息 (x, y, width, height)
-        """
+        """截取整个虚拟桌面，返回 (QImage, 虚拟桌面矩形 QRectF)；给了 cursor 就把指针画进去。"""
         image, rect = self._with_engine(self._capture_with_hdr, self._capture_with_mss)
         _draw_cursor(image, int(rect.x()), int(rect.y()), cursor)
         return image, rect
@@ -460,8 +436,7 @@ class CaptureService:
 def _draw_cursor(image, origin_x, origin_y, cursor):
     """把 SystemCursor 画进截图；origin 是 image 左上角对应的屏幕坐标。
 
-    DXGI 帧和 BitBlt 都不含指针，两条捕获路径统一在这里补画。截图是主功能，画指针
-    出错时退回不带指针的截图。
+    DXGI 帧和 BitBlt 都不含指针，两条路径统一在这里补画；画指针出错时保留不带指针的截图。
     """
     if cursor is None:
         return

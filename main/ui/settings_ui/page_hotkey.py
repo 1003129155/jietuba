@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """快捷键设置页 — Fluent Design"""
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea,
+    QWidget, QVBoxLayout, QHBoxLayout, QScrollArea,
     QStackedWidget,
 )
 from PySide6.QtCore import Qt
@@ -13,7 +13,7 @@ from ui.fluent_lite import (
     ComboBox, FluentIcon, SegmentedWidget,
 )
 from ui.fluent_lite.theme import ACCENT
-from .components import IconBadge, SectionCard, add_separated_row, apply_theme_text_style
+from .components import IconBadge, SectionCard, add_separated_row, icon_ref, row_label
 from ..hotkey_edit import HotkeyEdit, validate_hotkey_group
 from ..inapp_key_edit import InAppKeyEdit
 from ..key_chip import CHIP_WIDTH, STATUS_GAP, STATUS_SIZE, format_shortcut_text
@@ -63,7 +63,7 @@ INAPP_KEYS = SCREENSHOT_KEYS + TOOL_KEYS + PIN_KEYS + CLIPBOARD_KEYS + CLIPBOARD
 
 # 应用内各项的行图标，尽量沿用工具栏上同一功能的图标。字符串是 svg/ 下的文件名。
 # 行图标会被整体着色，工具栏的序号图标是白底圆，着色后只剩实心圆点，所以用线框版。
-_INAPP_ICONS = {
+INAPP_ICONS = {
     "inapp_confirm": "确定.svg",
     "inapp_pin": "钉图.svg",
     "inapp_undo": "撤回.svg",
@@ -176,25 +176,13 @@ def _refresh_inapp_shadow_states(dialog):
         edit.setToolTip(tip if shadowed else "")
 
 
-def _icon_ref(ref):
-    if isinstance(ref, str):
-        return ResourceManager.get_icon_path(ref)
-    return ref
-
-
-def _row_label(parent, text: str) -> QLabel:
-    label = QLabel(text, parent)
-    apply_theme_text_style(label, 14, extra="font-weight: 500;")
-    return label
-
-
 def _global_row(parent, title, tone, icon, editors) -> QWidget:
     row = QWidget(parent)
     layout = QHBoxLayout(row)
     layout.setContentsMargins(0, dialog_scaled(8), 0, dialog_scaled(8))
     layout.setSpacing(dialog_scaled(14))
     layout.addWidget(IconBadge(icon, tone, row))
-    layout.addWidget(_row_label(row, title), 1)
+    layout.addWidget(row_label(row, title), 1)
 
     column = QVBoxLayout()
     column.setSpacing(dialog_scaled(5))
@@ -211,8 +199,8 @@ def _inapp_row(parent, icon, title, editor) -> QWidget:
     layout = QHBoxLayout(row)
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(dialog_scaled(14))
-    layout.addWidget(IconBadge(_icon_ref(icon) if icon else None, None, row))
-    layout.addWidget(_row_label(row, title), 1)
+    layout.addWidget(IconBadge(icon_ref(icon) if icon else None, None, row))
+    layout.addWidget(row_label(row, title), 1)
 
     # 宽度定在外层槽位上：ComboBox 每次重算样式都会重设最小宽度，
     # 直接对它 setFixedWidth 撑不住，会缩回内容宽度。
@@ -307,7 +295,7 @@ def create_hotkey_page(dialog) -> QWidget:
             dialog._inapp_edits[cfg_key] = edit
             dialog._inapp_groups[cfg_key] = group_name
             add_separated_row(
-                vbox, _inapp_row(page, _INAPP_ICONS.get(cfg_key), dialog.tr(tr_src), edit)
+                vbox, _inapp_row(page, INAPP_ICONS.get(cfg_key), dialog.tr(tr_src), edit)
             )
 
         for build_row in extra_rows:
@@ -423,7 +411,7 @@ def _on_shortcut_changed(dialog, changed_key: str, new_text: str):
             _check_pick_conflict(dialog, changed_key, new_text)
         return
 
-    conflict_label = _inapp_label(dialog, conflict_key)
+    conflict_label = inapp_label(dialog, conflict_key)
 
     # 弹窗询问
     current_edit = dialog._inapp_edits[changed_key]
@@ -445,7 +433,7 @@ def _on_shortcut_changed(dialog, changed_key: str, new_text: str):
     conflict_edit.blockSignals(False)
 
 
-def _inapp_label(dialog, cfg_key: str) -> str:
+def inapp_label(dialog, cfg_key: str) -> str:
     for cfg, tr_src, _default in INAPP_KEYS:
         if cfg == cfg_key:
             return dialog.tr(tr_src)
@@ -506,7 +494,7 @@ def _on_pick_mode_changed(dialog):
         char = _pick_char_of(edit.text())
         if not char or char not in keys:
             continue
-        if not _ask_replace(dialog, edit.text(), _inapp_label(dialog, cfg_key)):
+        if not _ask_replace(dialog, edit.text(), inapp_label(dialog, cfg_key)):
             _set_pick_mode(dialog, dialog._clipboard_pick_mode)
             return
         edit.blockSignals(True)

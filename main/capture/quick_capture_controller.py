@@ -1,4 +1,4 @@
-"""Global drag capture: keep the live desktop visible until the mouse is released."""
+"""全局鼠标快捷键：按住修饰键拖出选区，拖动期间桌面保持实时，松开后截图并执行动作。"""
 
 import ctypes
 import sys
@@ -23,7 +23,7 @@ _TEXT_ACTIONS = ("translate", "ocr")
 
 
 def desktop_bounds():
-    """The application disables Qt scaling: all capture coordinates are physical."""
+    """应用关闭了 Qt 缩放，截图坐标都是物理像素。"""
     bounds = QRect()
     for screen in QApplication.screens():
         bounds = bounds.united(screen.geometry())
@@ -31,8 +31,7 @@ def desktop_bounds():
 
 
 def flush_desktop():
-    # The overlay is already hidden on the GUI thread. Wait for the compositor
-    # on the worker, so the selection border never becomes part of the capture.
+    # 浮层已在 GUI 线程隐藏；在工作线程等一次合成，选框就不会被截进去
     if sys.platform == "win32":
         ctypes.windll.dwmapi.DwmFlush()
 
@@ -71,7 +70,7 @@ class QuickCaptureWorker(QThread):
 
 
 class QuickCaptureController(QObject):
-    """Own input hooks, one transparent overlay, and at most one capture worker."""
+    """持有输入钩子、一个透明浮层和至多一个抓屏线程。"""
 
     def __init__(self, main_app):
         super().__init__(main_app)
@@ -98,7 +97,7 @@ class QuickCaptureController(QObject):
         return self._active is not None or self._worker is not None
 
     def refresh(self):
-        """Apply saved settings, including the tray's global-hotkey pause."""
+        """按已保存的设置生效，包括托盘的「暂停全局热键」。"""
         self.cancel()
         config = self.main_app.config_manager
         self._actions = get_quick_capture_bindings(config)
@@ -119,28 +118,21 @@ class QuickCaptureController(QObject):
 
     def _blocked(self):
         screenshot = self.main_app.screenshot_window
-        thread = getattr(self.main_app, "_capture_thread", None)
         return bool(
             QApplication.activeModalWidget() is not None
             or (screenshot and getattr(screenshot, "_session_active", False))
-            or (thread and thread.isRunning())
         )
 
     def set_capture_pending(self, pending):
-        """Block before normal capture begins, including its first window build."""
+        """普通截图从排队到窗口建好期间，全局鼠标快捷键不响应。"""
         self._capture_pending = bool(pending)
         self.sync_input_availability()
-
-    @Slot()
-    def capture_preparation_finished(self):
-        self.set_capture_pending(False)
 
     def sync_input_availability(self):
         if self._closed:
             return
-        # A modal's Show event precedes activeModalWidget() registration. Read
-        # its visible window state here, on the GUI thread, before native input
-        # can be claimed. Hide similarly restores the shortcut immediately.
+        # 模态窗口的 Show 事件早于 activeModalWidget() 登记，所以直接看可见的模态窗口；
+        # Hide 时同样立即恢复
         modal_visible = any(window.isVisible() and window.isModal()
                             for window in QApplication.topLevelWidgets())
         self.input.set_blocked(self._capture_pending or self._blocked() or modal_visible)
@@ -265,7 +257,7 @@ class QuickCaptureController(QObject):
         window = self.main_app.screenshot_window
         if window and getattr(window, "_session_active", False):
             model = window.scene.selection_model
-            # 普通拖选至少 8px，快速截图的选区可能更小，尤其贴着屏幕边时
+            # 普通拖选至少 8px，这里的选区可能更小，尤其贴着屏幕边时
             minimum = QSizeF(model.min_size)
             try:
                 model.min_size = QSizeF(min(minimum.width(), region.width()),

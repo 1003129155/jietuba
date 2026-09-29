@@ -41,7 +41,7 @@ enum Attempt {
     GiveUp,
 }
 
-/// 最近一帧由哪条路径截取，供调用方记日志排查。
+/// 最近一帧由哪条路径截取，供调用方记日志。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Backend {
     Dxgi,

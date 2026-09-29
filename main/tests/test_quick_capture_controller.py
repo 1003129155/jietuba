@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
-from PySide6.QtCore import QObject, QPoint, QRect, QRectF, QSizeF, QThread, Qt, Signal
+from PySide6.QtCore import QObject, QPoint, QRect, QRectF, QSizeF, Signal
 from PySide6.QtGui import QImage
 
 from capture import quick_capture_controller as module
@@ -117,30 +117,11 @@ def move(controller, token=1, x=30, y=40):
     module.QApplication.processEvents()
 
 
-def test_native_capture_thread_finishes_availability_update_on_gui_thread(capture, qtbot, monkeypatch):
-    threads = []
+def test_pending_normal_capture_blocks_input_until_cleared(capture):
     capture.set_capture_pending(True)
-    original = capture.sync_input_availability
-
-    def record():
-        threads.append(QThread.currentThread())
-        original()
-
-    monkeypatch.setattr(capture, "sync_input_availability", record)
-
-    class Worker(QThread):
-        def run(self):
-            pass
-
-    worker = Worker()
-    worker.finished.connect(capture.capture_preparation_finished, Qt.ConnectionType.QueuedConnection)
-    worker.start()
-    assert worker.wait(2000)
-    qtbot.waitUntil(lambda: bool(threads))
-    assert threads == [module.QApplication.instance().thread()]
-    assert not capture._capture_pending
+    capture.input.set_blocked.assert_called_with(True)
+    capture.set_capture_pending(False)
     capture.input.set_blocked.assert_called_with(False)
-    worker.deleteLater()
 
 
 def image():
@@ -426,12 +407,8 @@ def test_cannot_start_during_other_capture_or_modal(capture, monkeypatch):
     capture._on_input("start", 1, 10, 10)
     assert not capture.busy
     capture.main_app.screenshot_window = None
-    capture.main_app._capture_thread = SimpleNamespace(isRunning=lambda: True)
-    capture._on_input("start", 2, 10, 10)
-    assert not capture.busy
-    capture.main_app._capture_thread = None
     monkeypatch.setattr(module.QApplication, "activeModalWidget", lambda: object())
-    capture._on_input("start", 3, 10, 10)
+    capture._on_input("start", 2, 10, 10)
     assert not capture.busy
 
 

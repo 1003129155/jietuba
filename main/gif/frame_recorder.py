@@ -38,7 +38,7 @@ except ImportError:
 
 
 def _session_stopped(session):
-    """Rust 录制线程已退出：记下这次用的截取路径，排查"录出来高光过曝"时用。"""
+    """Rust 录制线程已退出：在日志里记下本次的截取路径（DXGI / GDI）。"""
     log_info(T("录制截取路径: {backend}", backend=getattr(session, "backend", None)), "GIF")
 
 
@@ -173,16 +173,16 @@ class FrameRecorder(QObject):
     # ── 生命周期 ──
 
     def prepare(self):
-        """录制窗口打开、重新录制时调用：后台预备录制线程，点录制时画面即刻开始。
+        """录制窗口打开或重新录制时调用：在后台预备录制线程，点录制即出帧。
 
-        建 DXGI 会话要近百毫秒。同一进程每块屏只能有一个 duplication，所以录制线程建会话前
-        要先借走截图会话，直到 release() 才交还；两步都在截图会话线程上排队执行，不占 UI 线程。
-        用不用 DXGI 跟截图同一套规则（见 uses_hdr_engine），不用时只用 GDI，也不必借截图会话。
+        每块屏同时只能有一个 duplication：录制线程建会话前先借走截图会话，release() 时交还，
+        两步都在截图会话线程上执行。是否用 DXGI 与截图相同（见 uses_hdr_engine），不用时走 GDI，
+        不借会话。
         """
         if not _gifrecorder_available or self._prepared is not None:
             return
         try:
-            # 首次导入约 10ms，放在开窗口时，别让点录制那一下卡住；失败由开录时的监听去报
+            # 提前导入，点录制时不再卡一下；导入失败留给开录时的监听去报
             import pynput.mouse  # noqa: F401
         except Exception:
             pass
@@ -259,7 +259,7 @@ class FrameRecorder(QObject):
             self._store = None
             return
 
-        # 取出预备好的录制线程开始截取；没预备过就现在预备，画面会晚开始近百毫秒
+        # 取出预备好的录制线程；没预备过就现在预备，出帧会晚一些
         self.prepare()
         prepared, self._prepared = self._prepared, None
         try:

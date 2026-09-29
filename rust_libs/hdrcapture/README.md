@@ -8,7 +8,7 @@ Windows SDR 白点归一化，输出紧凑的 sRGB `BGRA8`：
   SDR 原样输出就没有余地给高光分层次。
 
 `mss` 用的是 GDI `BitBlt`，在开启 HDR 的显示器上会把超出桌面白的内容逐通道硬截断，彩色高光
-会偏色。本机（2560×1440，HDR 开启，SDR 白点 4.1）整屏抓取 median：hdrcapture 5.0 ms，
+会偏色。在 2560×1440、开启 HDR（SDR 白点 4.1）的显示器上，整屏抓取中位数：hdrcapture 5.0 ms，
 mss 15.5 ms。
 
 ```python

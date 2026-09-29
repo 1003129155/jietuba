@@ -108,8 +108,8 @@ fn monitor_info_to_py<'py>(py: Python<'py>, info: &FrameMonitorInfo) -> PyResult
 
 /// 一张 sRGB `BGRA8` 截图。
 ///
-/// 像素在构造时一次性搬进 `PyBytes`，Rust 侧的 `Vec` 随即释放，因此一帧全程只占一份
-/// 缓冲；重复读取 `bgra` 只是增加引用计数，不会像每次现转那样反复分配整幅图。
+/// 像素在构造时一次性搬进 `PyBytes`，Rust 侧的 `Vec` 随即释放，一帧只占一份缓冲；
+/// 重复读取 `bgra` 只增加引用计数，不复制。
 #[pyclass(module = "hdrcapture", name = "Frame")]
 pub struct PyFrame {
     bgra: Py<PyBytes>,
@@ -234,7 +234,7 @@ impl PyCapture {
         let capture = GilReleased(self.inner()?);
         let tone_mapping = if adaptive { ToneMapping::Adaptive } else { ToneMapping::Static };
 
-        // 等待 present 期间持有 GIL 会冻结整个解释器，实测单次可达预算上限。
+        // 等 present 可能耗尽整个预算，期间释放 GIL，不冻结解释器。
         let result = py.allow_threads(move || {
             let capture = capture;
             let timeout_ms = timeout_ms.unwrap_or_else(|| capture.0.timeout_ms());

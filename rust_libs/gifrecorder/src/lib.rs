@@ -1,6 +1,5 @@
 //! gifrecorder — Rust 实现的 GIF 录制器
 //!
-//! 替代 PyAV (67 MB) 的轻量级方案。
 //! 提供帧存储、JPEG 压缩、后台解码、GIF 导出、屏幕截取（DXGI 优先，GDI 兜底）。
 
 pub mod capture;
@@ -726,7 +725,6 @@ const STATE_STOPPED: u8 = 3;
 
 /// gifrecorder — Rust 实现的 GIF 录制器
 ///
-/// 替代 PyAV/FFmpeg，用于屏幕录制和 GIF 导出。
 /// 核心功能:
 ///   - FrameStore: 帧存储管理（JPEG 压缩、内存控制）
 ///   - RecordSession: 屏幕录制（独立 Rust 线程，DXGI 优先，GDI 兜底）

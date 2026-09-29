@@ -1095,14 +1095,6 @@ Replace it?</source>
         <translation>가운데 클릭</translation>
     </message>
     <message>
-        <source>Enter Key</source>
-        <translation>Enter 키</translation>
-    </message>
-    <message>
-        <source>Exit capture after action</source>
-        <translation>실행 후 캡처 종료</translation>
-    </message>
-    <message>
         <source>Fullscreen Crosshair</source>
         <translation>전체 화면 십자선</translation>
     </message>
@@ -1201,10 +1193,6 @@ Replace it?</source>
     <message>
         <source>Copy Selected Text</source>
         <translation>선택한 텍스트 복사</translation>
-    </message>
-    <message>
-        <source>Use + / - instead of the wheel with the same modifiers</source>
-        <translation>같은 보조 키와 + / -로 휠 동작 대체</translation>
     </message>
     <message>
         <source>No Modifier</source>

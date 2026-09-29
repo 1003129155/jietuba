@@ -1104,14 +1104,6 @@ Replace it?</source>
         <translation>中键单击</translation>
     </message>
     <message>
-        <source>Enter Key</source>
-        <translation>回车键</translation>
-    </message>
-    <message>
-        <source>Exit capture after action</source>
-        <translation>执行后退出截图</translation>
-    </message>
-    <message>
         <source>Fullscreen Crosshair</source>
         <translation>全屏十字线</translation>
     </message>
@@ -1210,10 +1202,6 @@ Replace it?</source>
     <message>
         <source>Copy Selected Text</source>
         <translation>复制选中文字</translation>
-    </message>
-    <message>
-        <source>Use + / - instead of the wheel with the same modifiers</source>
-        <translation>可用 + / - 代替滚轮，修饰键相同</translation>
     </message>
     <message>
         <source>No Modifier</source>

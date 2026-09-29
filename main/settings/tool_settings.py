@@ -116,7 +116,7 @@ def get_capture_mouse_binding(config, action):
     return config.get_app_setting(f"mouse_capture_{action}", default)
 
 
-# 截图引擎，顺序就是设置页下拉框的顺序。auto 先走 HDR、失败回落 mss；
+# 截图引擎，顺序就是设置页下拉框的顺序。auto 在有显示器开着 HDR 时用 HDR、失败回落 mss；
 # 指定 mss / hdr 时只用那一个，失败不回落。
 CAPTURE_ENGINES = ("auto", "mss", "hdr")
 

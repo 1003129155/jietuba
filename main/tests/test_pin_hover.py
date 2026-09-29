@@ -136,7 +136,7 @@ class TestAutoMode:
         assert pin.toolbar_shown
 
     def test_manual_close_is_not_undone_by_mouse_moves(self, make):
-        """回归：以前每次鼠标移动都会把刚手动关掉的工具栏重新弹出来"""
+        """鼠标移动不会把手动关掉的工具栏重新弹出来"""
         pin, ctrl = make(auto=True)
         ctrl.set_pin_hovered(True)
         ctrl.toggle_toolbar()

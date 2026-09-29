@@ -1,13 +1,8 @@
 //! 录制会话 — 在独立 Rust 线程中执行截屏循环
 //!
-//! 架构：
-//!   Rust 线程: FrameSource::grab() → FrameStore::push_bgra()
-//!   Python 侧: 仅调用 prepare/begin/pause/resume/stop，完全不碰像素
-//!
-//! 优势：
-//!   - 零 GIL 争用（截屏 + JPEG 压缩全在 Rust 线程）
-//!   - 无 mss 依赖（DXGI 优先，GDI BitBlt 兜底，见 frame_source）
-//!   - 精确 fps 节拍控制
+//! Rust 线程: FrameSource::grab() → FrameStore::push_bgra()，截屏和 JPEG 压缩都不占 GIL；
+//! 截取 DXGI 优先、GDI BitBlt 兜底，见 frame_source。
+//! Python 侧只调用 prepare/begin/pause/resume/stop，不碰像素。
 
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};

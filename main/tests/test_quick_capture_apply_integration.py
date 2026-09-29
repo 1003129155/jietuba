@@ -36,7 +36,7 @@ class AppHarness(QObject):
         self.hotkey_system.register_hotkey.return_value = True
         self.screenshot_window = self.clipboard_window = self.clipboard_manager = None
         self.settings_window = None
-        self._capture_thread = None
+        self._capture_pending = False
         self.tray_icon = Mock()
         self.start_screenshot = Mock()
         self.open_clipboard_window = Mock()

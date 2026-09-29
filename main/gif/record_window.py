@@ -524,10 +524,7 @@ class GifRecordWindow(QObject):
         self._compose_thread = None
         self._recorder = None   # 防止延迟回调访问
 
-        # ── 全部在主线程同步完成 ──
-        # PySide6 不允许从 threading.Thread emit Signal（与 PyQt6 不同），
-        # 而录制线程已交给 recorder.release() 在后台停止，
-        # 剩余的 engine.cleanup() 和 recorder.reset_data() 都是轻量调用。
+        # 录制线程由 recorder.release() 在后台停止；剩下的清理很轻，在主线程同步完成
         if engine:
             engine.stop_timer()
             engine.cleanup(blocking=True)

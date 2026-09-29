@@ -117,6 +117,14 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 构建 Windows 发行包可运行 `python build_with_ocr_onefile.py`，产物为 `dist/jietuba_pp.exe` 和 `dist/models/`。自动发行流程见 [build.yml](.github/workflows/build.yml)，会分别生成 x64 与 ARM64 压缩包。
 
+### 代码注释
+
+注释只说明代码本身表达不了的约束和设计原因，要短、要准：
+
+- 不写排查过程、修改历史、事故复盘和开发时的推演；
+- 不提其他软件或项目，也不拿它们当依据；
+- 不写成段的说明文，代码、函数名和测试名已经说清楚的不再重复。
+
 ---
 
 ## 目录结构总览

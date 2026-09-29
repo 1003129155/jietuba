@@ -8,15 +8,13 @@ import pytest
 from main_app import MainApp
 
 
-WIN_COPY_PIN = '[{"modifiers": ["win"], "action": "copy_pin"}]'
-CTRL_ALT_PIN = '[{"modifiers": ["ctrl", "alt"], "action": "pin"}]'
 
 
 @pytest.fixture
 def app(monkeypatch):
     for name in ("log_info", "log_debug", "log_exception"):
         monkeypatch.setattr(f"main_app.{name}", Mock())
-    saved = {"global_hotkeys_disabled": False, "quick_capture_bindings": WIN_COPY_PIN}
+    saved = {"global_hotkeys_disabled": False, "quick_capture_pin": "win+dragleft"}
     config = SimpleNamespace(
         get_app_setting=lambda key, default=None: saved.get(key, default),
         set_app_setting=lambda key, value: saved.__setitem__(key, value),
@@ -32,13 +30,13 @@ def app(monkeypatch):
         config_manager=config,
         saved_settings=saved,
         hotkey_system=Mock(),
-        quick_capture=Mock(spec=["busy", "refresh", "suspend", "close", "set_capture_pending",
-                                "capture_preparation_finished"]),
+        quick_capture=Mock(spec=["busy", "refresh", "suspend", "close", "set_capture_pending"]),
+        _display_watcher=Mock(),
         screenshot_window=None,
         clipboard_window=None,
         clipboard_manager=None,
         settings_window=None,
-        _capture_thread=None,
+        _capture_pending=False,
         _logger=Mock(),
         app=Mock(),
         tr=lambda text: text,
@@ -53,9 +51,9 @@ def test_applying_hotkey_settings_refreshes_quick_capture_with_current_preferenc
     applied = []
     app.quick_capture.refresh.side_effect = lambda: applied.append(dict(app.saved_settings))
     app.update_hotkey()
-    app.saved_settings["quick_capture_bindings"] = CTRL_ALT_PIN
+    app.saved_settings["quick_capture_pin"] = "ctrl+alt+dragright"
     app.update_hotkey()
-    assert [state["quick_capture_bindings"] for state in applied] == [WIN_COPY_PIN, CTRL_ALT_PIN]
+    assert [state["quick_capture_pin"] for state in applied] == ["win+dragleft", "ctrl+alt+dragright"]
     app.hotkey_system.register_hotkey.assert_not_called()
 
 
@@ -126,7 +124,7 @@ def test_normal_capture_cannot_steal_focus_during_a_quick_capture(app, qapp):
     MainApp.start_screenshot(app)
     existing_capture.activateWindow.assert_not_called()
     existing_capture.raise_.assert_not_called()
-    assert app._capture_thread is None
+    assert not app._capture_pending
 
     app.quick_capture.busy = False
     MainApp.start_screenshot(app)

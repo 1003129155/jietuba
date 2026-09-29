@@ -119,11 +119,10 @@ pub fn linear_rec2020_to_linear_srgb(rgb: LinearRgb) -> LinearRgb {
 
 /// Tone-maps linear HDR RGB to the normalized linear SDR range, relative to this desktop's white.
 ///
-/// `sdr_white_level` is where the capture's scRGB samples place the white the user actually sees,
-/// as reported by [`crate::hdr_capture::display::MonitorDescriptor::sdr_white_level`]. Dividing by
-/// it first is what makes the result independent of the machine: Windows scales SDR desktop
-/// content by its "SDR content brightness" slider, so without this step the same screen yields a
-/// different screenshot on every display. A non-positive or non-finite value is treated as `1.0`.
+/// Samples are first divided by `sdr_white_level` (see
+/// [`crate::hdr_capture::display::MonitorDescriptor::sdr_white_level`]), so the result does not
+/// depend on the Windows "SDR content brightness" setting. A non-positive or non-finite value is
+/// treated as `1.0`.
 ///
 /// After normalization, a pixel whose brightest component is at most desktop white is returned
 /// unchanged, so SDR desktop content matches a GDI capture bit for bit. 8-bit sRGB has no code
@@ -186,8 +185,7 @@ pub fn adaptive_peak(tiles: &[TileStats], pixel_count: u64) -> Option<f32> {
     Some(peaks[rank.clamp(1, peaks.len()) - 1])
 }
 
-/// SMPTE ST 2094-50 reference-white tone curve, the one Skia uses to render HDR gain-map images on
-/// SDR displays.
+/// SMPTE ST 2094-50 reference-white tone curve.
 ///
 /// It fits `[0, peak]` (relative to desktop white) into `[0, 1]`: everything up to desktop white is
 /// scaled by `output_white`, and the range above it follows a quadratic Bézier that reaches 1.0 at

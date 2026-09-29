@@ -16,7 +16,7 @@ from ui.selection_overlay import SelectionOverlayWidget
 
 
 def _disable_native_frame(hwnd):
-    """DWM 的边框、圆角和阴影不属于我们绘制的选区，也必须关闭。"""
+    """关掉 DWM 给窗口加的边框、圆角和阴影，浮层上只剩选区本身。"""
     if QGuiApplication.platformName() != "windows":
         return
     try:

@@ -1102,14 +1102,6 @@ Replace it?</source>
         <translation>中クリック</translation>
     </message>
     <message>
-        <source>Enter Key</source>
-        <translation>Enter キー</translation>
-    </message>
-    <message>
-        <source>Exit capture after action</source>
-        <translation>実行後にキャプチャを終了</translation>
-    </message>
-    <message>
         <source>Fullscreen Crosshair</source>
         <translation>全画面クロスヘア</translation>
     </message>
@@ -1208,10 +1200,6 @@ Replace it?</source>
     <message>
         <source>Copy Selected Text</source>
         <translation>選択したテキストをコピー</translation>
-    </message>
-    <message>
-        <source>Use + / - instead of the wheel with the same modifiers</source>
-        <translation>同じ修飾キーと + / - でホイール操作を代用</translation>
     </message>
     <message>
         <source>No Modifier</source>
