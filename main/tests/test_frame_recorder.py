@@ -65,8 +65,17 @@ def mock_win32_cursor():
 @pytest.fixture(autouse=True)
 def hdr_handoff():
     """录制开始/结束时对截图会话的借出与交还；不碰进程级的 _HdrSession 状态。"""
+    from concurrent.futures import Future
+
     events = []
-    with patch.object(frame_recorder_module, "lend_hdr_session", lambda: events.append("lend")),          patch.object(frame_recorder_module, "return_hdr_session", lambda: events.append("return")):
+
+    def lend(then=None):
+        events.append("lend")
+        done = Future()
+        done.set_result(then() if then else None)
+        return done
+
+    with patch.object(frame_recorder_module, "lend_hdr_session", lend),          patch.object(frame_recorder_module, "return_hdr_session", lambda after=None: events.append("return")):
         yield events
 
 

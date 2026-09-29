@@ -821,38 +821,6 @@ def test_worker_flushes_before_capture_and_keeps_pixels_owned(qapp, monkeypatch,
     worker.deleteLater()
 
 
-def test_worker_captures_on_gui_thread_and_delivers_before_finishing(qapp, qtbot, monkeypatch):
-    """HDR 会话只在主线程可用；_deliver 要在 _worker_finished 清掉 _worker 之前拿到结果。"""
-    monkeypatch.setattr(module, "flush_desktop", Mock())
-    threads, events = [], []
-    service = Mock()
-    service.capture_region.side_effect = lambda rect: threads.append(threading.current_thread()) or image()
-    monkeypatch.setattr(module, "CaptureService", lambda: service)
-    worker = module.QuickCaptureWorker(QRect(0, 0, 80, 60), "copy")
-    worker.captured.connect(lambda *args: events.append("captured"), Qt.ConnectionType.QueuedConnection)
-    worker.finished.connect(lambda: events.append("finished"), Qt.ConnectionType.QueuedConnection)
-
-    worker.start()
-    assert events == []
-    qtbot.waitUntil(lambda: events == ["captured", "finished"])
-    assert threads == [threading.main_thread()]
-    worker.deleteLater()
-
-
-def test_interrupted_worker_finishes_without_capturing(qapp, qtbot, monkeypatch):
-    service = Mock()
-    monkeypatch.setattr(module, "CaptureService", lambda: service)
-    worker = module.QuickCaptureWorker(QRect(0, 0, 80, 60), "copy")
-    finished = Mock()
-    worker.finished.connect(finished)
-
-    worker.start()
-    worker.requestInterruption()
-    qtbot.waitUntil(lambda: finished.called)
-    service.capture_region.assert_not_called()
-    worker.deleteLater()
-
-
 def test_worker_reports_errors_without_emitting_image(qapp, monkeypatch):
     monkeypatch.setattr(module, "flush_desktop", Mock(side_effect=RuntimeError("capture failed")))
     worker = module.QuickCaptureWorker(QRect(0, 0, 80, 60), "copy")

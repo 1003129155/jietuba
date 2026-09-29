@@ -188,8 +188,11 @@ impl PyCapture {
 impl PyCapture {
     #[new]
     #[pyo3(signature = (timeout_ms = 100))]
-    fn new(timeout_ms: u32) -> PyResult<Self> {
-        let capture = HdrCapture::with_timeout(timeout_ms).map_err(|error| to_py_error(&error))?;
+    fn new(py: Python<'_>, timeout_ms: u32) -> PyResult<Self> {
+        // 建会话约 90ms（D3D 设备、DuplicateOutput1、编译着色器），拿着 GIL 会让在后台线程
+        // 建会话的调用方照样卡住 UI 线程。
+        let created = py.allow_threads(move || GilReleased(HdrCapture::with_timeout(timeout_ms)));
+        let capture = created.0.map_err(|error| to_py_error(&error))?;
         Ok(Self { capture: Some(capture) })
     }
 
@@ -277,8 +280,12 @@ impl PyCapture {
     }
 
     /// 释放 DXGI 与 D3D11 资源。可重复调用。
-    fn close(&mut self) {
-        self.capture = None;
+    fn close(&mut self, py: Python<'_>) {
+        // 销毁 D3D 设备约 12ms，同样不拿着 GIL
+        if let Some(capture) = self.capture.take() {
+            let capture = GilReleased(capture);
+            py.allow_threads(move || drop(capture));
+        }
     }
 
     fn __enter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
@@ -287,11 +294,12 @@ impl PyCapture {
 
     fn __exit__(
         &mut self,
+        py: Python<'_>,
         _exc_type: &Bound<'_, PyAny>,
         _exc_value: &Bound<'_, PyAny>,
         _traceback: &Bound<'_, PyAny>,
     ) -> bool {
-        self.close();
+        self.close(py);
         false
     }
 }

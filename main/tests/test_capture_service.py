@@ -536,36 +536,48 @@ class TestCaptureRegionHdr:
 
 @pytest.fixture
 def fake_hdrcapture():
-    """替换 hdrcapture 模块并清空进程级会话状态，测完还原。"""
+    """替换 hdrcapture 模块并清空进程级会话状态；等会话线程上的任务跑完再还原。"""
     from capture.capture_service import _HdrSession
 
     module = MagicMock()
-    with patch("capture.capture_service.hdrcapture", module), \
-         patch.multiple(_HdrSession, _capture=None, _failed=False, _lent=False):
+    with patch("capture.capture_service.hdrcapture", module),          patch.multiple(_HdrSession, _capture=None, _failed=False, _lent=False):
         yield module
+        _HdrSession.drain()
+
+
+def _thread_names(mock):
+    """让 mock 每次被调用时记下所在线程名。"""
+    import threading
+
+    names = []
+    mock.side_effect = lambda *args, **kwargs: names.append(threading.current_thread().name)
+    return names
 
 
 class TestHdrSessionLifecycle:
 
-    def test_worker_thread_neither_creates_nor_uses_session(self, fake_hdrcapture):
-        """子线程先来也不能把会话钉在自己身上，否则主线程之后全部拿不到。"""
+    def test_session_is_created_used_and_closed_on_its_own_thread(self, fake_hdrcapture):
+        """pyo3 把会话钉在创建它的线程上；调用方可以在任意线程，UI 线程也不用等建会话。"""
         import threading
-        from capture.capture_service import _HdrSession
+        from capture.capture_service import _HdrSession, apply_capture_engine
 
-        results = []
-        worker = threading.Thread(target=lambda: results.append(_HdrSession.acquire()))
+        created_on = []
+        capture = MagicMock()
+        fake_hdrcapture.Capture.side_effect = lambda **kwargs: (
+            created_on.append(threading.current_thread().name) or capture)
+        grabbed_on = _thread_names(capture.grab)
+        closed_on = _thread_names(capture.close)
+
+        _HdrSession.acquire().grab(0)
+        worker = threading.Thread(target=lambda: _HdrSession.acquire().grab(0))
         worker.start()
         worker.join()
+        apply_capture_engine("mss")
+        _HdrSession.drain()
 
-        assert results == [None]
-        fake_hdrcapture.Capture.assert_not_called()
-        session = _HdrSession.acquire()
-        assert session is fake_hdrcapture.Capture.return_value
-
-        worker = threading.Thread(target=lambda: results.append(_HdrSession.acquire()))
-        worker.start()
-        worker.join()
-        assert results == [None, None]
+        assert fake_hdrcapture.Capture.call_count == 1
+        threads = set(created_on + grabbed_on + closed_on)
+        assert len(threads) == 1 and threads.pop().startswith("HdrCapture")
 
     def test_lent_session_is_closed_and_rebuilt_after_return(self, fake_hdrcapture):
         """GIF 录制线程要自建 DXGI 会话，借出期间这里既不持有也不新建。"""
@@ -574,16 +586,22 @@ class TestHdrSessionLifecycle:
         first = MagicMock()
         second = MagicMock()
         fake_hdrcapture.Capture.side_effect = [first, second]
-        assert _HdrSession.acquire() is first
+        proxy = _HdrSession.acquire()
+        assert proxy is not None
 
-        lend_hdr_session()
+        assert lend_hdr_session(then=lambda: "armed").result() == "armed"
         first.close.assert_called_once()
         assert _HdrSession.acquire() is None
+        with pytest.raises(RuntimeError):
+            proxy.grab(0)
         assert fake_hdrcapture.Capture.call_count == 1
 
-        return_hdr_session()
-        assert _HdrSession.acquire() is second
-        assert _HdrSession._failed is False
+        order = []
+        fake_hdrcapture.Capture.side_effect = lambda **kwargs: order.append("rebuilt") or second
+        return_hdr_session(after=lambda: order.append("recorder stopped")).result()
+        assert order == ["recorder stopped", "rebuilt"]
+        assert _HdrSession._capture is second
+        assert _HdrSession.acquire() is not None
 
     def test_creation_failure_is_remembered(self, fake_hdrcapture):
         from capture.capture_service import _HdrSession
@@ -598,23 +616,24 @@ class TestHdrSessionLifecycle:
         from capture.capture_service import _HdrSession, warm_up_hdr_session
 
         fake_hdrcapture.Capture.side_effect = [OSError("not ready"), MagicMock()]
-        assert warm_up_hdr_session() is False
+        warm_up_hdr_session().result()
         assert _HdrSession.acquire() is not None
 
     def test_warm_up_keeps_session_for_capture(self, fake_hdrcapture):
         from capture.capture_service import _HdrSession, warm_up_hdr_session
 
-        assert warm_up_hdr_session() is True
-        assert _HdrSession.acquire() is fake_hdrcapture.Capture.return_value
+        warm_up_hdr_session().result()
+        assert _HdrSession.acquire() is not None
         assert fake_hdrcapture.Capture.call_count == 1
 
     def test_switching_to_mss_closes_session(self, fake_hdrcapture):
         from capture.capture_service import _HdrSession, apply_capture_engine
 
-        session = _HdrSession.acquire()
+        _HdrSession.acquire()
         apply_capture_engine("mss")
+        _HdrSession.drain()
 
-        session.close.assert_called_once()
+        fake_hdrcapture.Capture.return_value.close.assert_called_once()
         assert _HdrSession._capture is None
 
     @pytest.mark.parametrize("engine", ["auto", "hdr"])
@@ -629,8 +648,9 @@ class TestHdrSessionLifecycle:
     def test_keeping_hdr_does_not_rebuild_session(self, fake_hdrcapture):
         from capture.capture_service import _HdrSession, apply_capture_engine
 
-        session = _HdrSession.acquire()
+        _HdrSession.acquire()
         apply_capture_engine("auto")
+        _HdrSession.drain()
 
-        session.close.assert_not_called()
-        assert _HdrSession.acquire() is session
+        fake_hdrcapture.Capture.return_value.close.assert_not_called()
+        assert fake_hdrcapture.Capture.call_count == 1

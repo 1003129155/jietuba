@@ -26,22 +26,15 @@ def desktop_bounds():
 
 
 def flush_desktop():
-    # The overlay is already hidden. Wait for the compositor so the selection
-    # border never becomes part of the capture.
+    # The overlay is already hidden on the GUI thread. Wait for the compositor
+    # on the worker, so the selection border never becomes part of the capture.
     if sys.platform == "win32":
         ctypes.windll.dwmapi.DwmFlush()
 
 
-class QuickCaptureWorker(QObject):
-    """在 GUI 线程的下一轮事件循环里完成一次快速截图。
-
-    HDR 捕获会话只在主线程可用（见 capture_service._HdrSession），放进子线程截图只能拿到
-    mss 的结果。接口沿用 QThread 的 start / wait / requestInterruption / finished。
-    """
-
+class QuickCaptureWorker(QThread):
     captured = Signal(object, object)
     failed = Signal(str)
-    finished = Signal()
 
     def __init__(self, region, action, parent=None):
         super().__init__(parent)
@@ -49,26 +42,6 @@ class QuickCaptureWorker(QObject):
         self.action = action
         self.include_cursor = False
         self.cursor = None
-        self._interrupted = False
-
-    def start(self):
-        QTimer.singleShot(0, self, self._run_once)
-
-    def requestInterruption(self):
-        self._interrupted = True
-
-    def isInterruptionRequested(self):
-        return self._interrupted
-
-    def wait(self):
-        return True
-
-    def _run_once(self):
-        try:
-            if not self._interrupted:
-                self.run()
-        finally:
-            self.finished.emit()
 
     def run(self):
         try:
@@ -380,8 +353,7 @@ class QuickCaptureController(QObject):
         self._worker = worker
         worker.captured.connect(self._deliver, Qt.ConnectionType.QueuedConnection)
         worker.failed.connect(self._on_failure, Qt.ConnectionType.QueuedConnection)
-        # 排队才能保证 _deliver 先于 _worker_finished：后者会清掉 _worker。
-        worker.finished.connect(self._worker_finished, Qt.ConnectionType.QueuedConnection)
+        worker.finished.connect(self._worker_finished)
         worker.start()
 
     @Slot(object, object)

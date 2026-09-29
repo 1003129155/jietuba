@@ -112,8 +112,9 @@ def test_about_to_quit_closes_quick_capture_before_other_cleanup(app, monkeypatc
     monkeypatch.setattr("translation.TranslationManager.cleanup", cleanup_translation)
     shutdown_recognition = Mock(side_effect=lambda: events.append("recognition"))
     monkeypatch.setattr("text_recognition.shutdown_recognition", shutdown_recognition)
+    monkeypatch.setattr("capture.capture_service.shutdown_hdr_session", lambda: events.append("hdr"))
     MainApp._on_about_to_quit(app)
-    assert events == ["close", "translation", "recognition"]
+    assert events == ["close", "translation", "recognition", "hdr"]
     app._logger.close.assert_called_once()
 
 

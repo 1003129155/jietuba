@@ -304,10 +304,7 @@ class PreloadManager:
             log_warning(T("工具栏预加载失败: {e}", e=e), "Preload")
     
     def _preload_hdr_session(self):
-        """在主线程建好 HDR 捕获会话。
-
-        不能放进截图预加载线程：会话被钉在创建它的线程上，截图却在主线程。
-        """
+        """在后台建好 HDR 捕获会话，UI 线程不等。"""
         from capture.capture_service import warm_up_hdr_session
         warm_up_hdr_session()
 

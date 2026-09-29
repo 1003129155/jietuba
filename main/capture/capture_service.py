@@ -4,6 +4,7 @@
 
 import ctypes
 import threading
+from concurrent.futures import ThreadPoolExecutor
 
 import mss
 from PySide6.QtGui import QImage
@@ -24,59 +25,120 @@ _HDR_TIMEOUT_MS = 0
 
 
 class _HdrSession:
-    """进程内共享的 DXGI 捕获会话。
+    """进程内共享的 DXGI 捕获会话，由一条专用线程独占。
 
     会话必须常驻：新建会话要先等到一次真实的桌面 present 才有首帧，显示器休眠时
     等不到，每次截图都重建就等于每次都冒这个险。
 
-    pyo3 把会话钉在创建它的线程上（D3D11 immediate context 非线程安全）。截图、快速截图、
-    长截图都在 GUI 主线程取帧，所以只在主线程建会话、只给主线程用；子线程先来建会话会把它
-    钉在一个用完就退出的线程上，之后主线程全部拿不到。
+    pyo3 把会话钉在创建它的线程上（D3D11 immediate context 非线程安全），在别的线程上
+    释放会被拒绝并泄漏，泄漏的 duplication 又会让这块屏再也建不起会话。所以建会话、取帧、
+    关会话全都提交到同一条线程执行，调用方只等结果：建会话约 90ms、关会话约 12ms，都不占
+    UI 线程。会话对象只存在 _capture 上，转发调用时不落进局部变量，异常回溯带不走它。
 
     建会话失败后记住失败，不在每次截图时重试；forget_failure() / reset() 清掉这个记录。
 
-    同一进程每块屏只能有一个 DXGI duplication，第二个建不起来（E_INVALIDARG）。GIF 录制线程
-    要自建会话，所以录制期间会话处于借出状态：lend() 关掉这里的会话，give_back() 之前
-    acquire 一律返回 None，且不记为失败。
+    同一进程每块屏只能有一个 DXGI duplication，第二个建不起来（E_INVALIDARG）。GIF 录制
+    线程要自建会话，所以 GIF 窗口开着期间会话处于借出状态：lend() 关掉这里的会话，
+    give_back() 之前 acquire 一律返回 None，且不记为失败。
     """
 
-    _lock = threading.Lock()
+    _executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="HdrCapture")
+    _worker_id = None
     _capture = None
     _failed = False
     _lent = False
 
     @classmethod
+    def _submit(cls, task):
+        return cls._executor.submit(cls._run_on_worker, task)
+
+    @classmethod
+    def _run_on_worker(cls, task):
+        cls._worker_id = threading.get_ident()
+        return task()
+
+    @classmethod
+    def _run(cls, task):
+        """在会话线程上执行并等结果；已在会话线程上时直接执行，否则会等自己而死锁。"""
+        if threading.get_ident() == cls._worker_id:
+            return task()
+        return cls._submit(task).result()
+
+    @classmethod
+    def _ensure(cls, remember_failure=True):
+        if hdrcapture is None or cls._failed or cls._lent:
+            return False
+        if cls._capture is None:
+            try:
+                cls._capture = hdrcapture.Capture(timeout_ms=_HDR_TIMEOUT_MS)
+                log_debug(T("HDR 捕获会话已建立"), "CaptureService")
+            except Exception as e:
+                if remember_failure:
+                    cls._failed = True
+                log_exception(e, T("建立 HDR 捕获会话失败"))
+                return False
+        return True
+
+    @classmethod
+    def _close(cls):
+        if cls._capture is not None:
+            cls._capture.close()
+            cls._capture = None
+
+    @classmethod
+    def call(cls, name, *args, **kwargs):
+        """在会话线程上调用 hdrcapture.Capture 的方法；会话已被借出或关闭时抛 RuntimeError。"""
+        def invoke():
+            if cls._capture is None:
+                raise RuntimeError("HDR capture session unavailable")
+            return getattr(cls._capture, name)(*args, **kwargs)
+        return cls._run(invoke)
+
+    @classmethod
+    def get(cls, name):
+        """在会话线程上读 hdrcapture.Capture 的属性。"""
+        def read():
+            if cls._capture is None:
+                raise RuntimeError("HDR capture session unavailable")
+            return getattr(cls._capture, name)
+        return cls._run(read)
+
+    @classmethod
     def acquire(cls):
-        """返回可用的会话；不可用、已借出或不在主线程时返回 None。"""
+        """返回会话代理；不可用或已借出时返回 None。会话通常已在后台建好，这里不必等。"""
         if hdrcapture is None or cls._failed or cls._lent:
             return None
-        if threading.current_thread() is not threading.main_thread():
-            return None
-
-        with cls._lock:
-            if cls._capture is None:
-                try:
-                    cls._capture = hdrcapture.Capture(timeout_ms=_HDR_TIMEOUT_MS)
-                    log_debug(T("HDR 捕获会话已建立"), "CaptureService")
-                except Exception as e:
-                    cls._failed = True
-                    log_exception(e, T("建立 HDR 捕获会话失败"))
-                    return None
-            return cls._capture
+        return _SESSION_PROXY if cls._run(cls._ensure) else None
 
     @classmethod
-    def lend(cls):
-        """须在主线程调用，理由同 reset()。"""
-        with cls._lock:
-            if cls._capture is not None:
-                cls._capture.close()
-            cls._capture = None
-            cls._lent = True
+    def warm_up(cls):
+        """后台建会话，不等结果。
+
+        预热失败不记为失败：开机自启时桌面可能还没就绪，首次截图时再试一次。
+        """
+        return cls._submit(lambda: cls._ensure(remember_failure=False))
 
     @classmethod
-    def give_back(cls):
-        """会话在下次 acquire 时重建。只改标志，任意线程可调。"""
-        cls._lent = False
+    def lend(cls, then=None):
+        """标记借出并在后台关掉会话；then 在会话关掉之后、同一线程上执行，返回值即 Future 的结果。"""
+        cls._lent = True
+
+        def close_then():
+            cls._close()
+            return then() if then is not None else None
+        return cls._submit(close_then)
+
+    @classmethod
+    def give_back(cls, after=None):
+        """after 先在会话线程上执行（等借用方释放自己的 duplication），之后收回并在后台重建会话。"""
+        def reclaim():
+            try:
+                if after is not None:
+                    after()
+            finally:
+                cls._lent = False
+            cls._ensure(remember_failure=False)
+        return cls._submit(reclaim)
 
     @classmethod
     def forget_failure(cls):
@@ -85,15 +147,37 @@ class _HdrSession:
 
     @classmethod
     def reset(cls):
-        """释放会话并清掉失败记录。
+        """在后台释放会话并清掉失败记录。"""
+        cls._failed = False
+        return cls._submit(cls._close)
 
-        必须在主线程调用：unsendable 对象在别的线程上 close 会直接抛错。
-        """
-        with cls._lock:
-            if cls._capture is not None:
-                cls._capture.close()
-            cls._capture = None
-            cls._failed = False
+    @classmethod
+    def drain(cls):
+        """等已提交的任务全部执行完。"""
+        cls._submit(lambda: None).result()
+
+    @classmethod
+    def shutdown(cls):
+        """退出前在会话线程上关掉会话，未开始的任务直接取消。"""
+        cls._submit(cls._close)
+        cls._executor.shutdown(wait=True, cancel_futures=True)
+
+
+class _SessionProxy:
+    """acquire() 返回的会话：接口同 hdrcapture.Capture，调用实际在会话线程上执行。"""
+
+    @property
+    def monitors(self):
+        return _HdrSession.get("monitors")
+
+    def grab(self, *args, **kwargs):
+        return _HdrSession.call("grab", *args, **kwargs)
+
+    def grab_region(self, *args, **kwargs):
+        return _HdrSession.call("grab_region", *args, **kwargs)
+
+
+_SESSION_PROXY = _SessionProxy()
 
 
 def _grab_hdr_frame(session, monitor, adaptive=False):
@@ -121,7 +205,7 @@ def _log_tone_map_peaks(frame):
 def grab_region_hdr(rect, adaptive=False):
     """用 HDR 会话抓虚拟桌面上的一块区域（物理像素坐标），返回 QImage。
 
-    须在主线程调用，拿不到会话时抛 RuntimeError。adaptive 见 _grab_hdr_frame。
+    拿不到会话时抛 RuntimeError。adaptive 见 _grab_hdr_frame。
     """
     session = _HdrSession.acquire()
     if session is None:
@@ -142,36 +226,40 @@ def _grab_region(session, rect, adaptive):
 
 
 def warm_up_hdr_session():
-    """在主线程提前建好 HDR 会话，省掉首次截图时建会话的约 100ms。
+    """在后台提前建好 HDR 会话，省掉首次截图时建会话的约 100ms；返回 Future，不必等。"""
+    return _HdrSession.warm_up()
 
-    预热失败不记为失败：开机自启时桌面可能还没就绪，首次截图时再试一次。
+
+def lend_hdr_session(then=None):
+    """GIF 录制窗口打开时调用：在后台关掉截图会话，腾出 duplication 给录制线程。
+
+    返回 Future，结果是 then() 的返回值；then 在会话关掉之后执行。借出期间截图拿不到
+    HDR 会话，按引擎设置回落 mss 或报错。
     """
-    if _HdrSession.acquire() is not None:
-        return True
-    _HdrSession.forget_failure()
-    return False
+    return _HdrSession.lend(then)
 
 
-def lend_hdr_session():
-    """GIF 录制开始前调用，须在主线程。录制期间截图拿不到 HDR 会话，按引擎设置回落 mss 或报错。"""
-    _HdrSession.lend()
+def return_hdr_session(after=None):
+    """GIF 录制窗口关闭时调用：after 负责停掉录制线程，之后在后台重建截图会话。"""
+    return _HdrSession.give_back(after)
 
 
-def return_hdr_session():
-    """GIF 录制线程退出后调用，任意线程均可。"""
-    _HdrSession.give_back()
+def shutdown_hdr_session():
+    """应用退出前调用。"""
+    _HdrSession.shutdown()
 
 
 def apply_capture_engine(engine):
-    """设置里保存截图引擎后调用，须在主线程。
+    """设置里保存截图引擎后调用，不阻塞。
 
     切到 mss 时释放 HDR 会话，不再占着 DXGI 资源；切到 auto / hdr 时清掉之前的建会话
-    失败记录，下次截图重试。
+    失败记录并在后台重建。
     """
     if engine == "mss":
         _HdrSession.reset()
     else:
         _HdrSession.forget_failure()
+        _HdrSession.warm_up()
 
 
 class CaptureService:

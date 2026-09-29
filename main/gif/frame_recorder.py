@@ -207,7 +207,8 @@ class FrameRecorder(QObject):
         from settings.tool_settings import get_tool_settings_manager
         prefer_dxgi = get_tool_settings_manager().get_capture_engine() != "mss"
         if prefer_dxgi:
-            lend_hdr_session()
+            # 录制线程要建自己的 duplication，截图会话得先关掉
+            lend_hdr_session().result()
         try:
             self._session = gifrecorder.RecordSession(
                 self._store, left, top, w, h, self._fps, prefer_dxgi=prefer_dxgi,

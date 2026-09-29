@@ -209,6 +209,12 @@ class MainApp(QObject):
         except Exception as e:
             log_exception(e, T("等待文字识别线程"))
         try:
+            from capture.capture_service import shutdown_hdr_session
+
+            shutdown_hdr_session()
+        except Exception as e:
+            log_exception(e, T("关闭 HDR 捕获会话"))
+        try:
             if hasattr(self, "_logger") and self._logger:
                 self._logger.close()
         except Exception as e:
