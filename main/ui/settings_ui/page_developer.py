@@ -33,8 +33,8 @@ def create_developer_page(dialog) -> QWidget:
         FluentIcon.CAMERA,
         dialog.tr("Capture Engine"),
         dialog.tr(
-            "Auto uses HDR and falls back to MSS when HDR fails. "
-            "Choosing HDR or MSS uses only that engine, with no fallback."
+            "Auto uses HDR only when a display has HDR turned on, and MSS otherwise or when HDR fails. "
+            "Choosing HDR or MSS always uses that engine, with no fallback."
         ),
         parent=grp_capture,
     )

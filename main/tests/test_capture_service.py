@@ -18,6 +18,7 @@ from PySide6.QtGui import QColor, QImage
 from PySide6.QtCore import QRect, QRectF
 
 from capture.capture_service import CaptureService
+from capture.capture_service import hdr_display_active as _real_hdr_display_active
 from capture.system_cursor import SystemCursor, _icon_geometry, _user32 as _cursor_user32
 
 _IDC_ARROW = 32512
@@ -58,6 +59,13 @@ def _make_fake_hdr_capture(rect, width, height):
     capture.monitors = [monitor]
     capture.grab.return_value = frame
     return capture
+
+
+@pytest.fixture(autouse=True)
+def hdr_display_on():
+    """默认有显示器开着 HDR，auto 引擎走 HDR 路径；个别用例改成 False 测 SDR 屏。"""
+    with patch("capture.capture_service.hdr_display_active", return_value=True) as active:
+        yield active
 
 
 @pytest.fixture
@@ -379,6 +387,78 @@ def test_capture_region_rejects_empty_or_reversed_bounds(rect):
     mss_factory.assert_not_called()
 
 
+class TestAutoEngineFollowsHdrDisplays:
+    """auto 只在有显示器开着 HDR 时用 HDR 引擎：SDR 屏上两者截出来一样，会话只占内存。"""
+
+    def test_auto_uses_mss_without_hdr_display_and_releases_session(self, qapp, hdr_display_on):
+        hdr_display_on.return_value = False
+        acquire = MagicMock()
+        mock_mss, _ = _make_fake_mss({"left": 0, "top": 0, "width": 640, "height": 480},
+                                     _make_fake_screenshot(640, 480))
+
+        with patch("capture.capture_service._HdrSession.acquire", acquire), \
+             patch("capture.capture_service._HdrSession.release") as release, \
+             patch("capture.capture_service.mss.mss", mock_mss):
+            image, _rect = CaptureService("auto").capture_all_screens()
+
+        acquire.assert_not_called()
+        release.assert_called_once()
+        assert image.width() == 640
+
+    def test_auto_region_uses_mss_without_hdr_display(self, qapp, hdr_display_on):
+        hdr_display_on.return_value = False
+        shot = MagicMock(width=4, height=3, bgra=bytes([30, 20, 10, 255] * 12))
+        acquire = MagicMock()
+
+        with patch("capture.capture_service._HdrSession.acquire", acquire), \
+             patch("capture.capture_service.mss.mss") as mss_factory:
+            mss_factory.return_value.__enter__.return_value.grab.return_value = shot
+            image = CaptureService("auto").capture_region(QRect(0, 0, 4, 3))
+
+        acquire.assert_not_called()
+        assert image.width() == 4
+
+    def test_hdr_engine_ignores_display_state(self, qapp, hdr_display_on):
+        hdr_display_on.return_value = False
+        capture = _make_fake_hdr_capture((0, 0, 100, 100), 100, 100)
+
+        with patch("capture.capture_service._HdrSession.acquire", return_value=capture):
+            CaptureService("hdr").capture_all_screens()
+
+        capture.grab.assert_called_once()
+
+    @pytest.mark.parametrize("engine, hdr_on, expected", [
+        ("auto", True, True), ("auto", False, False),
+        ("hdr", False, True), ("mss", True, False),
+    ])
+    def test_uses_hdr_engine(self, hdr_display_on, engine, hdr_on, expected):
+        from capture.capture_service import uses_hdr_engine
+
+        hdr_display_on.return_value = hdr_on
+        assert uses_hdr_engine(engine) is expected
+
+
+class TestHdrDisplayActive:
+    """测真实的 hdr_display_active（模块级替身挡不住导入时拿到的原函数），只替换 hdrcapture。"""
+
+    def test_any_display_with_hdr_counts(self):
+        displays = [MagicMock(hdr_enabled=False), MagicMock(hdr_enabled=True)]
+        with patch("capture.capture_service.hdrcapture") as module:
+            module.displays.return_value = displays
+            assert _real_hdr_display_active() is True
+            module.displays.return_value = displays[:1]
+            assert _real_hdr_display_active() is False
+
+    def test_missing_extension_means_no_hdr(self):
+        with patch("capture.capture_service.hdrcapture", None):
+            assert _real_hdr_display_active() is False
+
+    def test_query_failure_means_no_hdr(self):
+        with patch("capture.capture_service.hdrcapture") as module:
+            module.displays.side_effect = OSError("DisplayConfig failed")
+            assert _real_hdr_display_active() is False
+
+
 class TestExplicitEngine:
     """指定引擎时只用那一个，失败不回落。"""
 
@@ -651,6 +731,28 @@ class TestHdrSessionLifecycle:
         assert _HdrSession.acquire() is None
         apply_capture_engine(engine)
         assert _HdrSession.acquire() is not None
+
+    def test_auto_warm_up_skips_session_without_hdr_display(self, fake_hdrcapture, hdr_display_on):
+        from capture.capture_service import _HdrSession, warm_up_hdr_session
+
+        hdr_display_on.return_value = False
+        warm_up_hdr_session("auto").result()
+        fake_hdrcapture.Capture.assert_not_called()
+
+        warm_up_hdr_session("hdr").result()
+        assert _HdrSession._capture is fake_hdrcapture.Capture.return_value
+
+    def test_turning_hdr_off_releases_session_in_background(self, fake_hdrcapture, hdr_display_on):
+        from capture.capture_service import _HdrSession, apply_capture_engine
+
+        _HdrSession.acquire()
+        hdr_display_on.return_value = False
+        apply_capture_engine("auto")
+        _HdrSession.drain()
+
+        fake_hdrcapture.Capture.return_value.close.assert_called_once()
+        assert _HdrSession._capture is None
+        assert _HdrSession._failed is False
 
     def test_keeping_hdr_does_not_rebuild_session(self, fake_hdrcapture):
         from capture.capture_service import _HdrSession, apply_capture_engine

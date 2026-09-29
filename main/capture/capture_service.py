@@ -111,12 +111,23 @@ class _HdrSession:
         return _SESSION_PROXY if cls._run(cls._ensure) else None
 
     @classmethod
-    def warm_up(cls):
-        """后台建会话，不等结果。
+    def warm_up(cls, only_if=None):
+        """后台建会话，不等结果；only_if 在会话线程上判断，返回 False 时反而关掉会话。
 
         预热失败不记为失败：开机自启时桌面可能还没就绪，首次截图时再试一次。
         """
-        return cls._submit(lambda: cls._ensure(remember_failure=False))
+        def sync():
+            if only_if is None or only_if():
+                cls._ensure(remember_failure=False)
+            else:
+                cls._close()
+        return cls._submit(sync)
+
+    @classmethod
+    def release(cls):
+        """在后台关掉会话，不记为失败，下次 acquire 会重建。"""
+        if cls._capture is not None:
+            cls._submit(cls._close)
 
     @classmethod
     def lend(cls, then=None):
@@ -225,9 +236,35 @@ def _grab_region(session, rect, adaptive):
                   QImage.Format.Format_RGB32).copy()
 
 
-def warm_up_hdr_session():
-    """在后台提前建好 HDR 会话，省掉首次截图时建会话的约 100ms；返回 Future，不必等。"""
-    return _HdrSession.warm_up()
+def hdr_display_active():
+    """是否有显示器开着 HDR（Windows 高级颜色）。不建会话、不加载显卡驱动，约 0.3ms。"""
+    if hdrcapture is None:
+        return False
+    try:
+        return any(display.hdr_enabled for display in hdrcapture.displays())
+    except Exception as e:
+        log_warning(T("查询显示器 HDR 状态失败，按未开启处理: {error}", error=e), "CaptureService")
+        return False
+
+
+def uses_hdr_engine(engine=None):
+    """按截图引擎设置决定这次要不要用 HDR 引擎。
+
+    auto 只在有显示器开着 HDR 时才用：SDR 屏上 HDR 引擎和 mss 截出来逐像素相同，常驻的
+    HDR 会话却要把显卡驱动加载进进程、占几十 MB 显存。每次截图都重新判断，开关 HDR 立即生效。
+    """
+    if engine is None:
+        from settings.tool_settings import get_tool_settings_manager
+        engine = get_tool_settings_manager().get_capture_engine()
+    return engine == "hdr" or (engine == "auto" and hdr_display_active())
+
+
+def warm_up_hdr_session(engine="auto"):
+    """在后台提前建好 HDR 会话，省掉首次截图时建会话的约 100ms；返回 Future，不必等。
+
+    auto 下没有显示器开着 HDR 就不建（HDR 状态也在后台判断）。
+    """
+    return _HdrSession.warm_up(only_if=None if engine == "hdr" else hdr_display_active)
 
 
 def lend_hdr_session(then=None):
@@ -253,13 +290,13 @@ def apply_capture_engine(engine):
     """设置里保存截图引擎后调用，不阻塞。
 
     切到 mss 时释放 HDR 会话，不再占着 DXGI 资源；切到 auto / hdr 时清掉之前的建会话
-    失败记录并在后台重建。
+    失败记录，按新设置在后台建好或释放会话。
     """
     if engine == "mss":
         _HdrSession.reset()
     else:
         _HdrSession.forget_failure()
-        _HdrSession.warm_up()
+        warm_up_hdr_session(engine)
 
 
 class CaptureService:
@@ -270,9 +307,9 @@ class CaptureService:
     hdrcapture 走 DXGI Desktop Duplication + GPU tone-map：开启 HDR 的显示器上
     GDI BitBlt 会把超出桌面白的内容硬截断为纯白，mss 用的正是 BitBlt。
 
-    engine 取值见 settings.tool_settings.CAPTURE_ENGINES。auto 先走 HDR，拿不到会话或
-    捕获失败时回落 mss——有图总比没有强，哪怕那张图过曝；指定 mss / hdr 时失败直接
-    抛异常，由调用方记日志。
+    engine 取值见 settings.tool_settings.CAPTURE_ENGINES。auto 在有显示器开着 HDR 时走
+    HDR，否则走 mss；拿不到会话或捕获失败时也回落 mss——有图总比没有强，哪怕那张图过曝。
+    指定 mss / hdr 时只用那一个，失败直接抛异常，由调用方记日志。
     """
 
     def __init__(self, engine=None):
@@ -310,7 +347,9 @@ class CaptureService:
         return image, rect
 
     def _with_engine(self, capture_hdr, capture_mss):
-        if self.engine == "mss":
+        if not uses_hdr_engine(self.engine):
+            # auto 下 HDR 刚被关掉时，会话留着只占内存
+            _HdrSession.release()
             return capture_mss()
 
         session = _HdrSession.acquire()

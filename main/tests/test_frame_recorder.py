@@ -98,6 +98,11 @@ def mock_scroll_listener():
 class TestHdrSessionHandoff:
     """同一进程每块屏只能有一个 DXGI 会话：录制窗口开着期间截图会话借给录制线程，关窗口时交还。"""
 
+    @pytest.fixture(autouse=True)
+    def hdr_display_on(self):
+        with patch("capture.capture_service.hdr_display_active", return_value=True) as active:
+            yield active
+
     def _recorder(self, engine):
         from settings.tool_settings import get_tool_settings_manager
         get_tool_settings_manager().set_capture_engine(engine)
@@ -133,6 +138,19 @@ class TestHdrSessionHandoff:
     def test_mss_engine_records_with_gdi_and_keeps_session(self, qapp, mock_gifrecorder, hdr_handoff):
         fake_module, _, _ = mock_gifrecorder
         recorder = self._recorder("mss")
+        recorder.prepare()
+        recorder.start()
+        recorder.stop()
+        recorder.release()
+
+        fake_module.RecordSession.prepare.assert_called_once_with(prefer_dxgi=False)
+        assert hdr_handoff == []
+
+    def test_auto_on_sdr_displays_records_with_gdi_and_keeps_session(
+            self, qapp, mock_gifrecorder, hdr_handoff, hdr_display_on):
+        fake_module, _, _ = mock_gifrecorder
+        hdr_display_on.return_value = False
+        recorder = self._recorder("auto")
         recorder.prepare()
         recorder.start()
         recorder.stop()

@@ -45,7 +45,7 @@ from .jietuba_long_stitch_unified import (
 )
 
 from settings import get_tool_settings_manager
-from capture.capture_service import grab_region_hdr
+from capture.capture_service import grab_region_hdr, uses_hdr_engine
 from core.save import SaveService
 from core import log_debug, log_info, safe_event
 from core.logger import log_exception, T, LogMsg
@@ -340,8 +340,9 @@ class ScrollCaptureWindow(QWidget):
         self.scroll_cooldown = get_tool_settings_manager().get_scroll_cooldown()
         self.capture_mode = "immediate"  # 截图模式: "immediate"立即 或 "wait"等待停止
         
-        # HDR 截图失败后，本次长截图剩下的帧都走 grabWindow，见 _grab_capture_rect
-        self._use_hdr = True
+        # 开始时按截图引擎设置定下来，整段长截图不再切换；HDR 失败后剩下的帧走 grabWindow，
+        # 见 _grab_capture_rect
+        self._use_hdr = uses_hdr_engine()
 
         # 去重相关
         self.last_screenshot_hash = None  # 上一张截图的哈希值（用于去重）

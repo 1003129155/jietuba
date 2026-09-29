@@ -465,8 +465,8 @@ Replace it?</source>
         <translation>캡처 엔진</translation>
     </message>
     <message>
-        <source>Auto uses HDR and falls back to MSS when HDR fails. Choosing HDR or MSS uses only that engine, with no fallback.</source>
-        <translation>자동은 HDR을 우선 사용하고 실패하면 MSS로 전환합니다. HDR 또는 MSS를 선택하면 해당 엔진만 사용하며 실패해도 전환하지 않습니다.</translation>
+        <source>Auto uses HDR only when a display has HDR turned on, and MSS otherwise or when HDR fails. Choosing HDR or MSS always uses that engine, with no fallback.</source>
+        <translation>자동은 HDR이 켜진 디스플레이가 있을 때만 HDR을 사용하고, 그렇지 않거나 HDR이 실패하면 MSS를 사용합니다. HDR 또는 MSS를 선택하면 항상 해당 엔진만 사용하며 실패해도 전환하지 않습니다.</translation>
     </message>
     <message>
         <source>Auto (Recommended)</source>

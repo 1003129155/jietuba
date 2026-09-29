@@ -472,8 +472,8 @@ Replace it?</source>
         <translation>キャプチャエンジン</translation>
     </message>
     <message>
-        <source>Auto uses HDR and falls back to MSS when HDR fails. Choosing HDR or MSS uses only that engine, with no fallback.</source>
-        <translation>自動では HDR を優先し、失敗すると MSS に切り替えます。HDR または MSS を選ぶとそのエンジンだけを使い、失敗しても切り替えません。</translation>
+        <source>Auto uses HDR only when a display has HDR turned on, and MSS otherwise or when HDR fails. Choosing HDR or MSS always uses that engine, with no fallback.</source>
+        <translation>自動では、HDR が有効なディスプレイがあるときだけ HDR を使い、それ以外や HDR が失敗したときは MSS を使います。HDR または MSS を選ぶと常にそのエンジンだけを使い、失敗しても切り替えません。</translation>
     </message>
     <message>
         <source>Auto (Recommended)</source>

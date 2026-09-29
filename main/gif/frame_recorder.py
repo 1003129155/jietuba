@@ -26,7 +26,7 @@ from concurrent.futures import Future
 
 from PySide6.QtCore import QObject, QTimer, QRect, QThread, Signal
 
-from capture.capture_service import lend_hdr_session, return_hdr_session
+from capture.capture_service import lend_hdr_session, return_hdr_session, uses_hdr_engine
 from core.logger import log_error, log_info, log_exception, T
 
 try:
@@ -177,7 +177,7 @@ class FrameRecorder(QObject):
 
         建 DXGI 会话要近百毫秒。同一进程每块屏只能有一个 duplication，所以录制线程建会话前
         要先借走截图会话，直到 release() 才交还；两步都在截图会话线程上排队执行，不占 UI 线程。
-        截图引擎选 mss 时 GIF 也只用 GDI。
+        用不用 DXGI 跟截图同一套规则（见 uses_hdr_engine），不用时只用 GDI，也不必借截图会话。
         """
         if not _gifrecorder_available or self._prepared is not None:
             return
@@ -186,8 +186,7 @@ class FrameRecorder(QObject):
             import pynput.mouse  # noqa: F401
         except Exception:
             pass
-        from settings.tool_settings import get_tool_settings_manager
-        prefer_dxgi = get_tool_settings_manager().get_capture_engine() != "mss"
+        prefer_dxgi = uses_hdr_engine()
 
         def make():
             return gifrecorder.RecordSession.prepare(prefer_dxgi=prefer_dxgi)

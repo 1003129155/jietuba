@@ -5,7 +5,7 @@ use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList};
 
-use crate::hdr_capture::display::Rect;
+use crate::hdr_capture::display::{self, MonitorDescriptor, Rect};
 use crate::hdr_capture::{
     Capture as HdrCapture, Error as HdrError, Frame as HdrFrame, FrameMonitorInfo, Monitor, ToneMapping,
 };
@@ -63,6 +63,20 @@ impl From<&Monitor> for PyMonitor {
             friendly_name: monitor.friendly_name.clone(),
             hdr_enabled: monitor.hdr_enabled,
             hdr_supported: monitor.hdr_supported,
+        }
+    }
+}
+
+impl From<&MonitorDescriptor> for PyMonitor {
+    fn from(display: &MonitorDescriptor) -> Self {
+        Self {
+            index: display.index,
+            rect: (display.rect.x, display.rect.y, display.rect.width, display.rect.height),
+            is_virtual_desktop: false,
+            device_name: display.device_name.clone(),
+            friendly_name: display.friendly_name.clone(),
+            hdr_enabled: display.hdr_enabled,
+            hdr_supported: display.hdr_supported,
         }
     }
 }
@@ -304,6 +318,16 @@ impl PyCapture {
     }
 }
 
+/// 当前的物理显示器（不含虚拟桌面）及其 HDR 状态。不建捕获会话，也不创建 D3D 设备，
+/// 调用方可以每次截图前查一次，决定要不要用 HDR 会话。
+#[pyfunction]
+fn displays(py: Python<'_>) -> PyResult<Vec<PyMonitor>> {
+    let displays = py
+        .allow_threads(display::enumerate_displays)
+        .map_err(|error| to_py_error(&HdrError::from(error)))?;
+    Ok(displays.iter().map(PyMonitor::from).collect())
+}
+
 /// 接受 `Monitor`、整数索引，或带 `index` 键/属性的对象，便于从 mss 的 `monitors[0]` 字典迁移。
 fn resolve_monitor_index(monitor: &Bound<'_, PyAny>) -> PyResult<usize> {
     if let Ok(value) = monitor.extract::<PyRef<'_, PyMonitor>>() {
@@ -332,6 +356,7 @@ fn hdrcapture(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCapture>()?;
     module.add_class::<PyFrame>()?;
     module.add_class::<PyMonitor>()?;
+    module.add_function(wrap_pyfunction!(displays, module)?)?;
     module.add("CaptureError", module.py().get_type_bound::<CaptureError>())?;
     module.add("InitialFrameTimeout", module.py().get_type_bound::<InitialFrameTimeout>())?;
     module.add("AccessLost", module.py().get_type_bound::<AccessLost>())?;
