@@ -237,6 +237,7 @@ Screen capture and smart window detection.
 ```text
 capture/
 ├── capture_service.py       # CaptureService — core screenshot logic
+├── display_watcher.py       # DisplayChangeWatcher — rebuilds the HDR capture session in the background after display changes
 ├── system_cursor.py         # SystemCursor — snapshots the mouse pointer and draws it into screenshots
 ├── quick_capture_controller.py # QuickCaptureController — modifier-drag capture and action dispatch
 ├── uia_element_finder.py    # Background UI Automation element snapshots for smart selection

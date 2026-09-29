@@ -248,6 +248,7 @@ canvas/
 capture/
 ├── __init__.py
 ├── capture_service.py       # CaptureService — 截图服务，屏幕截图核心逻辑
+├── display_watcher.py       # DisplayChangeWatcher — 插拔显示器、改分辨率、开关 HDR 后在后台重建截图会话
 ├── system_cursor.py         # SystemCursor — 记录截屏时的鼠标指针并画进截图
 ├── quick_capture_controller.py # QuickCaptureController — 修饰键拖动截图与动作分发
 ├── uia_element_finder.py    # 后台 UI Automation 元素检测与选区快照缓存

@@ -179,6 +179,10 @@ class MainApp(QObject):
         from capture.quick_capture_controller import QuickCaptureController
         self.quick_capture = QuickCaptureController(self)
 
+        # 插拔显示器、改分辨率、开关 HDR 后在后台按新配置备好截图会话，不留给下一次截图去等
+        from capture.display_watcher import DisplayChangeWatcher
+        self._display_watcher = DisplayChangeWatcher(self._on_display_changed, self)
+
         from translation.smart_translation_controller import SmartTranslationController
         self.smart_translation_controller = SmartTranslationController(self)
         self.clipboard_item_received.connect(self._on_clipboard_item_received)
@@ -191,11 +195,20 @@ class MainApp(QObject):
         self._preloader = PreloadManager(self)
         self._preloader.build_and_start()
 
+    def _on_display_changed(self):
+        from capture.capture_service import refresh_hdr_session
+
+        log_debug(T("显示器配置变化，后台重建截图会话"), "MainApp")
+        refresh_hdr_session(self.config_manager.get_capture_engine())
+
     def _on_about_to_quit(self):
         """应用退出前收尾"""
         quick_capture = getattr(self, 'quick_capture', None)
         if quick_capture:
             quick_capture.close()
+        display_watcher = getattr(self, '_display_watcher', None)
+        if display_watcher:
+            display_watcher.close()
         try:
             from translation import TranslationManager
 

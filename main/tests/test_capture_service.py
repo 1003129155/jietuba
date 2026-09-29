@@ -754,6 +754,111 @@ class TestHdrSessionLifecycle:
         assert _HdrSession._capture is None
         assert _HdrSession._failed is False
 
+    @staticmethod
+    def _sessions_with_monitors(fake_hdrcapture, count=2):
+        """每次新建都返回一个新的假会话；monitors[0] 是虚拟桌面，其后是物理屏。"""
+        created = []
+
+        def make(**kwargs):
+            session = MagicMock()
+            session.monitors = [MagicMock(name="virtual")] + [MagicMock(name=f"m{i}") for i in range(count)]
+            created.append(session)
+            return session
+        fake_hdrcapture.Capture.side_effect = make
+        return created
+
+    def test_background_warm_up_waits_for_every_monitors_first_frame(self, fake_hdrcapture):
+        """新会话要等一次真实 present 才有首帧，后台先等掉，首次截图的零预算抓取才拿得到。"""
+        from capture.capture_service import _PRIME_TIMEOUT_MS, _HdrSession, warm_up_hdr_session
+
+        created = self._sessions_with_monitors(fake_hdrcapture)
+        warm_up_hdr_session("auto").result()
+
+        session = created[0]
+        assert [c.args[0] for c in session.grab.call_args_list] == session.monitors[1:]
+        assert all(c.kwargs["timeout_ms"] == _PRIME_TIMEOUT_MS for c in session.grab.call_args_list)
+        warm_up_hdr_session("auto").result()
+        assert session.grab.call_count == 2, "已有会话不再预取"
+        assert _HdrSession._capture is session
+
+    def test_priming_timeout_does_not_discard_the_session(self, fake_hdrcapture):
+        from capture.capture_service import _HdrSession, warm_up_hdr_session
+
+        created = self._sessions_with_monitors(fake_hdrcapture, count=1)
+        warm_up_hdr_session("auto").result()
+        assert _HdrSession._capture is created[0]
+
+        fake_hdrcapture.Capture.side_effect = None
+        fake_hdrcapture.Capture.return_value.monitors = [MagicMock(), MagicMock()]
+        fake_hdrcapture.Capture.return_value.grab.side_effect = RuntimeError("no present yet")
+        _HdrSession.refresh().result()
+        assert _HdrSession._capture is fake_hdrcapture.Capture.return_value
+
+    def test_display_change_rebuilds_session_with_new_topology(self, fake_hdrcapture):
+        from capture.capture_service import _HdrSession, refresh_hdr_session
+
+        created = self._sessions_with_monitors(fake_hdrcapture)
+        _HdrSession.acquire()
+        refresh_hdr_session("auto").result()
+
+        created[0].close.assert_called_once()
+        assert _HdrSession._capture is created[1]
+        assert created[1].grab.call_count == 2
+
+    def test_display_change_that_turns_hdr_off_only_releases(self, fake_hdrcapture, hdr_display_on):
+        from capture.capture_service import _HdrSession, refresh_hdr_session
+
+        created = self._sessions_with_monitors(fake_hdrcapture)
+        _HdrSession.acquire()
+        hdr_display_on.return_value = False
+        refresh_hdr_session("auto").result()
+
+        created[0].close.assert_called_once()
+        assert _HdrSession._capture is None
+        assert len(created) == 1
+
+    def test_display_change_retries_a_failed_session(self, fake_hdrcapture):
+        from capture.capture_service import _HdrSession, refresh_hdr_session
+
+        fake_hdrcapture.Capture.side_effect = [OSError("not ready"), MagicMock()]
+        assert _HdrSession.acquire() is None
+        refresh_hdr_session("hdr").result()
+        assert _HdrSession.acquire() is not None
+
+    def test_display_change_leaves_a_lent_session_alone(self, fake_hdrcapture):
+        """GIF 录制线程的会话会自己发现配置变化；这里重建会和它抢 duplication。"""
+        from capture.capture_service import _HdrSession, lend_hdr_session, refresh_hdr_session
+
+        lend_hdr_session().result()
+        refresh_hdr_session("auto").result()
+        fake_hdrcapture.Capture.assert_not_called()
+        assert _HdrSession._lent is True
+
+    def test_display_change_is_ignored_for_mss_engine(self, fake_hdrcapture):
+        from capture.capture_service import refresh_hdr_session
+
+        assert refresh_hdr_session("mss") is None
+        fake_hdrcapture.Capture.assert_not_called()
+
+    def test_shutdown_closes_session_on_its_own_thread_before_stopping(self, fake_hdrcapture):
+        """会话只能在创建它的线程上释放；关闭任务不能被当成未开始的任务取消掉。"""
+        from concurrent.futures import ThreadPoolExecutor
+        from capture.capture_service import _HdrSession, shutdown_hdr_session
+
+        # 用单独的线程池，并在 fake_hdrcapture 收尾（它要往共用线程池提交任务）之前还原
+        original = _HdrSession._executor, _HdrSession._worker_id
+        _HdrSession._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="HdrCapture")
+        try:
+            closed_on = _thread_names(fake_hdrcapture.Capture.return_value.close)
+            _HdrSession.acquire()
+
+            shutdown_hdr_session()
+
+            assert len(closed_on) == 1 and closed_on[0].startswith("HdrCapture")
+            assert _HdrSession._capture is None
+        finally:
+            _HdrSession._executor, _HdrSession._worker_id = original
+
     def test_keeping_hdr_does_not_rebuild_session(self, fake_hdrcapture):
         from capture.capture_service import _HdrSession, apply_capture_engine
 

@@ -23,6 +23,10 @@ except ImportError:
 # present，实测该机空闲时约 66ms 一次，截图反而比 mss 还慢。
 _HDR_TIMEOUT_MS = 0
 
+# 新会话要等到一次真实的桌面 present 才有首帧，零预算的首次截图会拿不到。后台建好会话后
+# 在会话线程上按这个预算等一次；静止桌面等不到就算了，首次截图照旧回落。
+_PRIME_TIMEOUT_MS = 250
+
 
 class _HdrSession:
     """进程内共享的 DXGI 捕获会话，由一条专用线程独占。
@@ -80,6 +84,17 @@ class _HdrSession:
         return True
 
     @classmethod
+    def _ensure_primed(cls):
+        """后台建会话用：新建的会话顺带等到首帧，已有的会话不动。"""
+        created = cls._capture is None
+        if cls._ensure(remember_failure=False) and created:
+            for monitor in cls._capture.monitors[1:]:
+                try:
+                    cls._capture.grab(monitor, timeout_ms=_PRIME_TIMEOUT_MS)
+                except Exception as e:
+                    log_debug(T("HDR 会话预取首帧未完成: {error}", error=e), "CaptureService")
+
+    @classmethod
     def _close(cls):
         if cls._capture is not None:
             cls._capture.close()
@@ -118,10 +133,26 @@ class _HdrSession:
         """
         def sync():
             if only_if is None or only_if():
-                cls._ensure(remember_failure=False)
+                cls._ensure_primed()
             else:
                 cls._close()
         return cls._submit(sync)
+
+    @classmethod
+    def refresh(cls, only_if=None):
+        """显示器配置变了：在后台按新配置重建会话，only_if 返回 False 时只释放。
+
+        借出期间不动，录制线程的会话自己会发现配置变化。配置变化也可能让之前建不起来的会话
+        能建了，所以清掉失败记录。
+        """
+        def rebuild():
+            if cls._lent:
+                return
+            cls._close()
+            cls._failed = False
+            if only_if is None or only_if():
+                cls._ensure_primed()
+        return cls._submit(rebuild)
 
     @classmethod
     def release(cls):
@@ -148,7 +179,7 @@ class _HdrSession:
                     after()
             finally:
                 cls._lent = False
-            cls._ensure(remember_failure=False)
+            cls._ensure_primed()
         return cls._submit(reclaim)
 
     @classmethod
@@ -169,9 +200,13 @@ class _HdrSession:
 
     @classmethod
     def shutdown(cls):
-        """退出前在会话线程上关掉会话，未开始的任务直接取消。"""
-        cls._submit(cls._close)
-        cls._executor.shutdown(wait=True, cancel_futures=True)
+        """退出前在会话线程上关掉会话。
+
+        先等关闭真正执行完再停线程：cancel_futures 会把还没轮到的关闭任务一并取消，会话就留到
+        解释器退出时在主线程上释放，被 pyo3 拒绝而泄漏。
+        """
+        cls._submit(cls._close).result()
+        cls._executor.shutdown(wait=True)
 
 
 class _SessionProxy:
@@ -265,6 +300,16 @@ def warm_up_hdr_session(engine="auto"):
     auto 下没有显示器开着 HDR 就不建（HDR 状态也在后台判断）。
     """
     return _HdrSession.warm_up(only_if=None if engine == "hdr" else hdr_display_active)
+
+
+def refresh_hdr_session(engine):
+    """显示器配置变了（插拔、改分辨率、开关 HDR）时调用：后台按新配置重建会话，HDR 已关则释放。
+
+    hdrcapture 在下次截图时也会发现配置变化并重建，但那样那次截图要多等约 100ms。
+    """
+    if engine == "mss":
+        return None
+    return _HdrSession.refresh(only_if=None if engine == "hdr" else hdr_display_active)
 
 
 def lend_hdr_session(then=None):

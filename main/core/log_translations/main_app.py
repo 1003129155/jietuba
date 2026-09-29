@@ -33,6 +33,7 @@ TRANSLATIONS: dict[str, str] = {
     "截图进行中，忽略重复触发": "Screenshot in progress, ignoring duplicate trigger",
     "截图失败": "Screenshot failed",
     "截图完成，准备截图窗口": "Screenshot complete, preparing screenshot window",
+    "显示器配置变化，后台重建截图会话": "Display configuration changed, rebuilding capture session in background",
     "复用已有截图窗口": "Reusing existing screenshot window",
     "首次创建截图窗口": "Creating screenshot window for the first time",
     "剪贴板监听已禁用，未创建管理器": "Clipboard monitoring disabled, manager not created",
