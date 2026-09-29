@@ -292,6 +292,36 @@ def set_window_exclude_from_capture(hwnd: int, exclude: bool) -> bool:
 
 
 # ──────────────────────────────────────────────
+# 窗口置顶
+# ──────────────────────────────────────────────
+
+HWND_TOPMOST   = -1
+HWND_NOTOPMOST = -2
+
+
+def set_window_topmost(hwnd: int, topmost: bool) -> bool:
+    """只改窗口的置顶层级，不动 Qt 的窗口标志。
+
+    改 WindowStaysOnTopHint 会让 Qt 隐藏并重设原生窗口，最大化状态、还原尺寸和
+    无边框库补上的样式都会被打乱。返回调用是否成功。
+    """
+    try:
+        from ctypes import wintypes
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int,
+                                        ctypes.c_int, ctypes.c_int, wintypes.UINT]
+        user32.SetWindowPos.restype = wintypes.BOOL
+        swp_nosize, swp_nomove, swp_noactivate = 0x0001, 0x0002, 0x0010
+        return bool(user32.SetWindowPos(
+            hwnd, HWND_TOPMOST if topmost else HWND_NOTOPMOST, 0, 0, 0, 0,
+            swp_nosize | swp_nomove | swp_noactivate,
+        ))
+    except Exception as e:
+        log_exception(e, "SetWindowPos")
+        return False
+
+
+# ──────────────────────────────────────────────
 # 窗口圆角（Windows 11）
 # ──────────────────────────────────────────────
 
