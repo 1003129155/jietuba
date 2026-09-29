@@ -34,16 +34,21 @@ class _HdrSession:
     钉在一个用完就退出的线程上，之后主线程全部拿不到。
 
     建会话失败后记住失败，不在每次截图时重试；forget_failure() / reset() 清掉这个记录。
+
+    同一进程每块屏只能有一个 DXGI duplication，第二个建不起来（E_INVALIDARG）。GIF 录制线程
+    要自建会话，所以录制期间会话处于借出状态：lend() 关掉这里的会话，give_back() 之前
+    acquire 一律返回 None，且不记为失败。
     """
 
     _lock = threading.Lock()
     _capture = None
     _failed = False
+    _lent = False
 
     @classmethod
     def acquire(cls):
-        """返回可用的会话；不可用或不在主线程时返回 None。"""
-        if hdrcapture is None or cls._failed:
+        """返回可用的会话；不可用、已借出或不在主线程时返回 None。"""
+        if hdrcapture is None or cls._failed or cls._lent:
             return None
         if threading.current_thread() is not threading.main_thread():
             return None
@@ -58,6 +63,20 @@ class _HdrSession:
                     log_exception(e, T("建立 HDR 捕获会话失败"))
                     return None
             return cls._capture
+
+    @classmethod
+    def lend(cls):
+        """须在主线程调用，理由同 reset()。"""
+        with cls._lock:
+            if cls._capture is not None:
+                cls._capture.close()
+            cls._capture = None
+            cls._lent = True
+
+    @classmethod
+    def give_back(cls):
+        """会话在下次 acquire 时重建。只改标志，任意线程可调。"""
+        cls._lent = False
 
     @classmethod
     def forget_failure(cls):
@@ -131,6 +150,16 @@ def warm_up_hdr_session():
         return True
     _HdrSession.forget_failure()
     return False
+
+
+def lend_hdr_session():
+    """GIF 录制开始前调用，须在主线程。录制期间截图拿不到 HDR 会话，按引擎设置回落 mss 或报错。"""
+    _HdrSession.lend()
+
+
+def return_hdr_session():
+    """GIF 录制线程退出后调用，任意线程均可。"""
+    _HdrSession.give_back()
 
 
 def apply_capture_engine(engine):

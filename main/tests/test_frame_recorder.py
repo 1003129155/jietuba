@@ -63,6 +63,14 @@ def mock_win32_cursor():
 
 
 @pytest.fixture(autouse=True)
+def hdr_handoff():
+    """录制开始/结束时对截图会话的借出与交还；不碰进程级的 _HdrSession 状态。"""
+    events = []
+    with patch.object(frame_recorder_module, "lend_hdr_session", lambda: events.append("lend")),          patch.object(frame_recorder_module, "return_hdr_session", lambda: events.append("return")):
+        yield events
+
+
+@pytest.fixture(autouse=True)
 def mock_scroll_listener():
     """屏蔽 pynput 监听线程的真实启动"""
     with patch.object(FrameRecorder, "_start_scroll_listener",
@@ -70,6 +78,53 @@ def mock_scroll_listener():
          patch.object(FrameRecorder, "_stop_scroll_listener",
                       new=lambda self: None):
         yield
+
+
+class TestHdrSessionHandoff:
+    """同一进程每块屏只能有一个 DXGI 会话：录制线程用 DXGI 时，截图会话要先借出、录完交还。"""
+
+    def _start(self, engine):
+        from settings.tool_settings import get_tool_settings_manager
+        get_tool_settings_manager().set_capture_engine(engine)
+        recorder = FrameRecorder()
+        recorder.set_rect(QRect(0, 0, 200, 200))
+        recorder.start()
+        return recorder
+
+    def test_lends_session_and_prefers_dxgi_by_default(self, qapp, mock_gifrecorder, hdr_handoff):
+        fake_module, _, fake_session = mock_gifrecorder
+        recorder = self._start("auto")
+
+        assert hdr_handoff == ["lend"]
+        assert fake_module.RecordSession.call_args.kwargs["prefer_dxgi"] is True
+        fake_session.stop.side_effect = lambda: hdr_handoff.append("stopped")
+        recorder.stop()
+        assert hdr_handoff == ["lend", "stopped", "return"]
+
+    def test_mss_engine_records_with_gdi_and_keeps_session(self, qapp, mock_gifrecorder, hdr_handoff):
+        fake_module, _, _ = mock_gifrecorder
+        self._start("mss").stop()
+
+        assert fake_module.RecordSession.call_args.kwargs["prefer_dxgi"] is False
+        assert "lend" not in hdr_handoff
+
+    def test_failed_start_returns_session(self, qapp, mock_gifrecorder, hdr_handoff):
+        fake_module, _, _ = mock_gifrecorder
+        fake_module.RecordSession.side_effect = RuntimeError("thread spawn failed")
+        recorder = self._start("auto")
+
+        assert recorder.state == RecordState.IDLE
+        assert hdr_handoff == ["lend", "return"]
+
+    def test_async_stop_returns_session_after_thread_exits(self, qapp, qtbot, mock_gifrecorder, hdr_handoff):
+        _, _, fake_session = mock_gifrecorder
+        recorder = self._start("auto")
+        fake_session.stop.side_effect = lambda: hdr_handoff.append("stopped")
+
+        with qtbot.waitSignal(recorder.stop_finished, timeout=3000):
+            recorder.stop_async()
+
+        assert hdr_handoff == ["lend", "stopped", "return"]
 
 
 class TestRecordStateMachine:

@@ -682,12 +682,13 @@ dependencies = [
 
 [[package]]
 name = "gifrecorder"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "color_quant",
  "crossbeam-channel",
  "fast_image_resize",
  "gif 0.13.3",
+ "hdrcapture",
  "image 0.25.9",
  "jpeg-encoder",
  "pyo3",

@@ -541,7 +541,7 @@ def fake_hdrcapture():
 
     module = MagicMock()
     with patch("capture.capture_service.hdrcapture", module), \
-         patch.multiple(_HdrSession, _capture=None, _failed=False):
+         patch.multiple(_HdrSession, _capture=None, _failed=False, _lent=False):
         yield module
 
 
@@ -566,6 +566,24 @@ class TestHdrSessionLifecycle:
         worker.start()
         worker.join()
         assert results == [None, None]
+
+    def test_lent_session_is_closed_and_rebuilt_after_return(self, fake_hdrcapture):
+        """GIF 录制线程要自建 DXGI 会话，借出期间这里既不持有也不新建。"""
+        from capture.capture_service import _HdrSession, lend_hdr_session, return_hdr_session
+
+        first = MagicMock()
+        second = MagicMock()
+        fake_hdrcapture.Capture.side_effect = [first, second]
+        assert _HdrSession.acquire() is first
+
+        lend_hdr_session()
+        first.close.assert_called_once()
+        assert _HdrSession.acquire() is None
+        assert fake_hdrcapture.Capture.call_count == 1
+
+        return_hdr_session()
+        assert _HdrSession.acquire() is second
+        assert _HdrSession._failed is False
 
     def test_creation_failure_is_remembered(self, fake_hdrcapture):
         from capture.capture_service import _HdrSession

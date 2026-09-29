@@ -24,6 +24,7 @@ class _POINT(ctypes.Structure):
 
 from PySide6.QtCore import QObject, QTimer, QRect, QThread, Signal
 
+from capture.capture_service import lend_hdr_session, return_hdr_session
 from core.logger import log_error, log_info, log_exception, T
 
 try:
@@ -32,6 +33,12 @@ try:
 except ImportError:
     gifrecorder = None
     _gifrecorder_available = False
+
+
+def _session_stopped(session):
+    """Rust 录制线程已退出、DXGI 会话已释放：交还截图会话，并记下这次用的截取路径。"""
+    return_hdr_session()
+    log_info(T("录制截取路径: {backend}", backend=getattr(session, "backend", None)), "GIF")
 
 
 # ── 数据结构 ──────────────────────────────────────────
@@ -157,7 +164,7 @@ class FrameRecorder(QObject):
     # ── 生命周期 ──
 
     def start(self):
-        """开始录制。Rust 线程 Win32 BitBlt 截屏 → FrameStore。"""
+        """开始录制。Rust 线程截屏（DXGI 优先，GDI 兜底）→ FrameStore。"""
         if self._state not in (RecordState.IDLE, RecordState.STOPPED):
             return
         self._frames.clear()
@@ -196,12 +203,17 @@ class FrameRecorder(QObject):
             self._store = None
             return
 
-        # 启动 Rust 截屏会话（Win32 BitBlt，独立 Rust 线程）
+        # 启动 Rust 截屏会话（独立 Rust 线程）。截图引擎选 mss 时 GIF 也只用 GDI。
+        from settings.tool_settings import get_tool_settings_manager
+        prefer_dxgi = get_tool_settings_manager().get_capture_engine() != "mss"
+        if prefer_dxgi:
+            lend_hdr_session()
         try:
             self._session = gifrecorder.RecordSession(
-                self._store, left, top, w, h, self._fps,
+                self._store, left, top, w, h, self._fps, prefer_dxgi=prefer_dxgi,
             )
         except Exception as e:
+            return_hdr_session()
             log_error(T("RecordSession 启动失败: {e}", e=e), "GIF")
             self._store = None
             self._session = None
@@ -215,7 +227,7 @@ class FrameRecorder(QObject):
         self._timer.start(1000 // self._fps)
         self._start_scroll_listener()
         self.state_changed.emit(self._state.name)
-        log_info(T("录制开始: {w}x{h} @ {fps}fps (Rust Win32 BitBlt)", w=w, h=h, fps=self._fps), "GIF")
+        log_info(T("录制开始: {w}x{h} @ {fps}fps", w=w, h=h, fps=self._fps), "GIF")
 
     def pause(self):
         """暂停录制"""
@@ -282,6 +294,7 @@ class FrameRecorder(QObject):
                             self._session.stop()
                         except Exception as e:
                             log_error(T("RecordSession.stop 异常: {e}", e=e), "GIF")
+                        _session_stopped(self._session)
                     if self._rec._store is not None:
                         self._rec._store.set_state(gifrecorder.STATE_STOPPED)
                     self._rec._sync_frames_from_store()
@@ -349,6 +362,7 @@ class FrameRecorder(QObject):
                 self._session.stop()
             except Exception as e:
                 log_exception(e, T("停止 Rust 截屏会话"))
+            _session_stopped(self._session)
             self._session = None
 
     def _sync_frames_from_store(self):

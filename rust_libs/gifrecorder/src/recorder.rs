@@ -1,12 +1,12 @@
 //! 录制会话 — 在独立 Rust 线程中执行截屏循环
 //!
 //! 架构：
-//!   Rust 线程: ScreenCapture::grab() → FrameStore::push_bgra()
+//!   Rust 线程: FrameSource::grab() → FrameStore::push_bgra()
 //!   Python 侧: 仅调用 start/pause/resume/stop，完全不碰像素
 //!
 //! 优势：
 //!   - 零 GIL 争用（截屏 + JPEG 压缩全在 Rust 线程）
-//!   - 无 mss 依赖（直接 Win32 BitBlt）
+//!   - 无 mss 依赖（DXGI 优先，GDI BitBlt 兜底，见 frame_source）
 //!   - 精确 fps 节拍控制
 
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
@@ -14,7 +14,7 @@ use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use crate::capture::ScreenCapture;
+use crate::frame_source::{Backend, FrameSource};
 use crate::frame_store::FrameStore;
 
 /// 录制会话状态
@@ -31,6 +31,8 @@ struct SessionControl {
     stop: AtomicBool,
     /// 暂停标志
     paused: AtomicBool,
+    /// 最近一帧的截取路径 (0=尚无, 1=DXGI, 2=GDI)
+    backend: AtomicU8,
 }
 
 /// 录制会话
@@ -47,6 +49,7 @@ impl RecordSession {
     /// * `left`, `top` — 屏幕截取起点
     /// * `width`, `height` — 截取区域大小
     /// * `fps` — 目标帧率
+    /// * `prefer_dxgi` — 见 [`FrameSource::new`]
     pub fn start(
         store: Arc<FrameStore>,
         left: i32,
@@ -54,18 +57,20 @@ impl RecordSession {
         width: i32,
         height: i32,
         fps: u32,
+        prefer_dxgi: bool,
     ) -> Result<Self, String> {
         let control = Arc::new(SessionControl {
             state: AtomicU8::new(SESSION_RECORDING),
             stop: AtomicBool::new(false),
             paused: AtomicBool::new(false),
+            backend: AtomicU8::new(0),
         });
 
         let ctrl = control.clone();
         let store_clone = store.clone();
 
         let handle = thread::spawn(move || {
-            capture_loop(store_clone, ctrl, left, top, width, height, fps);
+            capture_loop(store_clone, ctrl, left, top, width, height, fps, prefer_dxgi);
         });
 
         Ok(Self {
@@ -118,6 +123,15 @@ impl RecordSession {
         s == SESSION_STOPPED || s == SESSION_IDLE
     }
 
+    /// 最近一帧的截取路径："dxgi"、"gdi"，尚未截到帧时为 None
+    pub fn backend(&self) -> Option<&'static str> {
+        match self.control.backend.load(Ordering::Acquire) {
+            1 => Some("dxgi"),
+            2 => Some("gdi"),
+            _ => None,
+        }
+    }
+
     /// 获取 FrameStore 引用
     pub fn store(&self) -> &Arc<FrameStore> {
         &self.store
@@ -139,12 +153,13 @@ fn capture_loop(
     width: i32,
     height: i32,
     fps: u32,
+    prefer_dxgi: bool,
 ) {
-    // 创建 GDI 截屏上下文
-    let mut capturer = match ScreenCapture::new(left, top, width, height) {
+    // DXGI 会话绑定在创建它的线程上，必须在录制线程里建
+    let mut capturer = match FrameSource::new(left, top, width, height, prefer_dxgi) {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("[gifrecorder] ScreenCapture 创建失败: {e}");
+            eprintln!("[gifrecorder] FrameSource 创建失败: {e}");
             ctrl.state.store(SESSION_STOPPED, Ordering::Release);
             return;
         }
@@ -204,11 +219,17 @@ fn capture_loop(
 
         // ── 存入 FrameStore（JPEG 压缩在此发生）──
         let _ = store.push_bgra(bgra, elapsed_ms);
+        let backend = match capturer.last_backend() {
+            Some(Backend::Dxgi) => 1,
+            Some(Backend::Gdi) => 2,
+            None => 0,
+        };
+        ctrl.backend.store(backend, Ordering::Release);
 
         frame_count += 1;
     }
 
-    // 线程结束，capturer 在 Drop 中释放 GDI 资源
+    // 线程结束，capturer 在 Drop 中释放 DXGI 会话与 GDI 资源
 }
 
 #[cfg(test)]
@@ -224,7 +245,7 @@ mod tests {
         }));
 
         let mut session = RecordSession::start(
-            store.clone(), 0, 0, 64, 48, 10,
+            store.clone(), 0, 0, 64, 48, 10, true,
         ).unwrap();
 
         assert!(session.is_recording());
@@ -249,7 +270,7 @@ mod tests {
         }));
 
         let mut session = RecordSession::start(
-            store.clone(), 0, 0, 64, 48, 10,
+            store.clone(), 0, 0, 64, 48, 10, true,
         ).unwrap();
 
         // 录制 200ms
