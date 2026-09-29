@@ -2,9 +2,22 @@
 
 Screen recording to GIF for Python, implemented in Rust.
 
-Frames are captured through Win32 GDI (BitBlt), compressed to JPEG and kept in a
-native frame store, then encoded to GIF -- all on native threads, so the GIL is
-never held during recording or export.
+Frames are captured through DXGI Desktop Duplication (via hdrcapture, so HDR
+highlights are tone-mapped instead of clipped) with Win32 GDI (BitBlt) as the
+fallback, compressed to JPEG and kept in a native frame store, then encoded to
+GIF -- all on native threads, so the GIL is never held during recording or export.
+
+A process can hold only one DXGI duplication per monitor. `RecordSession` opens its
+own on the recording thread, so release any other session first, or pass
+`prefer_dxgi=False` to record with GDI only.
+
+Opening the DXGI session takes around 100 ms. To start recording without that delay,
+prepare the session while the recording UI is up and begin it later:
+
+```python
+session = gifrecorder.RecordSession.prepare()        # builds the DXGI session now
+session.begin(store, left, top, width, height, fps)  # first frame arrives immediately
+```
 
 - `FrameStore` -- accepts BGRA/RGB frames, stores them JPEG-compressed, exports GIF
 - `FrameDecoder` -- background decoding for playback over a bounded channel

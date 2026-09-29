@@ -36,7 +36,7 @@ def mock_gifrecorder():
     fake_module.FrameStore.return_value = fake_store
 
     fake_session = MagicMock()
-    fake_module.RecordSession.return_value = fake_session
+    fake_module.RecordSession.prepare.return_value = fake_session
 
     with patch.object(frame_recorder_module, "gifrecorder", fake_module), \
          patch.object(frame_recorder_module, "_gifrecorder_available", True):
@@ -63,6 +63,29 @@ def mock_win32_cursor():
 
 
 @pytest.fixture(autouse=True)
+def hdr_handoff():
+    """录制开始/结束时对截图会话的借出与交还；不碰进程级的 _HdrSession 状态。"""
+    from concurrent.futures import Future
+
+    events = []
+
+    def lend(then=None):
+        events.append("lend")
+        done = Future()
+        done.set_result(then() if then else None)
+        return done
+
+    def give_back(after=None):
+        if after is not None:
+            after()
+        events.append("return")
+
+    with patch.object(frame_recorder_module, "lend_hdr_session", lend), \
+         patch.object(frame_recorder_module, "return_hdr_session", give_back):
+        yield events
+
+
+@pytest.fixture(autouse=True)
 def mock_scroll_listener():
     """屏蔽 pynput 监听线程的真实启动"""
     with patch.object(FrameRecorder, "_start_scroll_listener",
@@ -70,6 +93,117 @@ def mock_scroll_listener():
          patch.object(FrameRecorder, "_stop_scroll_listener",
                       new=lambda self: None):
         yield
+
+
+class TestHdrSessionHandoff:
+    """同一进程每块屏只能有一个 DXGI 会话：录制窗口开着期间截图会话借给录制线程，关窗口时交还。"""
+
+    @pytest.fixture(autouse=True)
+    def hdr_display_on(self):
+        with patch("capture.capture_service.hdr_display_active", return_value=True) as active:
+            yield active
+
+    def _recorder(self, engine):
+        from settings.tool_settings import get_tool_settings_manager
+        get_tool_settings_manager().set_capture_engine(engine)
+        recorder = FrameRecorder()
+        recorder.set_rect(QRect(0, 0, 200, 200))
+        return recorder
+
+    def test_prepare_lends_session_and_readies_the_dxgi_thread(self, qapp, mock_gifrecorder, hdr_handoff):
+        fake_module, _, fake_session = mock_gifrecorder
+        recorder = self._recorder("auto")
+
+        recorder.prepare()
+        assert hdr_handoff == ["lend"]
+        fake_module.RecordSession.prepare.assert_called_once_with(prefer_dxgi=True)
+        fake_session.begin.assert_not_called()
+
+        recorder.start()
+        fake_session.begin.assert_called_once()
+        fake_module.RecordSession.prepare.assert_called_once()
+        recorder.stop()
+        assert hdr_handoff == ["lend"], "停止录制后窗口还开着，会话继续借着"
+
+    def test_start_without_prepare_prepares_on_demand(self, qapp, mock_gifrecorder, hdr_handoff):
+        _, _, fake_session = mock_gifrecorder
+        recorder = self._recorder("auto")
+        recorder.start()
+
+        assert recorder.state == RecordState.RECORDING
+        assert hdr_handoff == ["lend"]
+        fake_session.begin.assert_called_once()
+        recorder.stop()
+
+    def test_mss_engine_records_with_gdi_and_keeps_session(self, qapp, mock_gifrecorder, hdr_handoff):
+        fake_module, _, _ = mock_gifrecorder
+        recorder = self._recorder("mss")
+        recorder.prepare()
+        recorder.start()
+        recorder.stop()
+        recorder.release()
+
+        fake_module.RecordSession.prepare.assert_called_once_with(prefer_dxgi=False)
+        assert hdr_handoff == []
+
+    def test_auto_on_sdr_displays_records_with_gdi_and_keeps_session(
+            self, qapp, mock_gifrecorder, hdr_handoff, hdr_display_on):
+        fake_module, _, _ = mock_gifrecorder
+        hdr_display_on.return_value = False
+        recorder = self._recorder("auto")
+        recorder.prepare()
+        recorder.start()
+        recorder.stop()
+        recorder.release()
+
+        fake_module.RecordSession.prepare.assert_called_once_with(prefer_dxgi=False)
+        assert hdr_handoff == []
+
+    def test_rerecording_prepares_again_without_lending_twice(self, qapp, mock_gifrecorder, hdr_handoff):
+        fake_module, _, _ = mock_gifrecorder
+        recorder = self._recorder("auto")
+        recorder.prepare()
+        recorder.start()
+        recorder.stop()
+        recorder.reset()
+        recorder.prepare()
+
+        assert fake_module.RecordSession.prepare.call_count == 2
+        assert hdr_handoff == ["lend"]
+
+    @pytest.mark.parametrize("recorded", [False, True])
+    def test_release_stops_the_thread_before_returning_the_session(
+            self, qapp, mock_gifrecorder, hdr_handoff, recorded):
+        _, _, fake_session = mock_gifrecorder
+        recorder = self._recorder("auto")
+        recorder.prepare()
+        if recorded:
+            recorder.start()
+        fake_session.stop.side_effect = lambda: hdr_handoff.append("stopped")
+
+        recorder.release()
+
+        assert hdr_handoff == ["lend", "stopped", "return"]
+
+    def test_failed_begin_leaves_recorder_idle(self, qapp, mock_gifrecorder, hdr_handoff):
+        _, _, fake_session = mock_gifrecorder
+        fake_session.begin.side_effect = RuntimeError("recording thread has exited")
+        recorder = self._recorder("auto")
+        recorder.start()
+
+        assert recorder.state == RecordState.IDLE
+        fake_session.stop.assert_called_once()
+
+    def test_async_stop_keeps_session_lent(self, qapp, qtbot, mock_gifrecorder, hdr_handoff):
+        _, _, fake_session = mock_gifrecorder
+        recorder = self._recorder("auto")
+        recorder.start()
+        fake_session.stop.side_effect = lambda: hdr_handoff.append("stopped")
+
+        with qtbot.waitSignal(recorder.stop_finished, timeout=3000):
+            recorder.stop_async()
+
+        assert hdr_handoff == ["lend", "stopped"]
 
 
 class TestRecordStateMachine:
@@ -181,9 +315,9 @@ class TestRectInset:
         recorder = FrameRecorder()
         recorder.set_rect(QRect(300, 400, 202, 102))
         recorder.start()
-        # RecordSession 应以内缩后的 left/top 被调用: (300+1, 400+1)
-        fake_module.RecordSession.assert_called_once()
-        call_args = fake_module.RecordSession.call_args[0]
+        # 录制会话应以内缩后的 left/top 开始: (300+1, 400+1)
+        fake_session.begin.assert_called_once()
+        call_args = fake_session.begin.call_args[0]
         # 签名: (store, left, top, w, h, fps)
         assert call_args[1] == 301
         assert call_args[2] == 401

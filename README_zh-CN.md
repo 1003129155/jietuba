@@ -93,7 +93,7 @@ OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_det
 
 | pip 包名 | import 名 | 版本 | 功能 |
 |------|------|------|------|
-| [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.3.1 | GIF/视频合成编码器 |
+| [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.0 | GIF/视频合成编码器 |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | 长截图拼接算法 |
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.4 | 剪贴板底层操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
@@ -248,6 +248,7 @@ canvas/
 capture/
 ├── __init__.py
 ├── capture_service.py       # CaptureService — 截图服务，屏幕截图核心逻辑
+├── display_watcher.py       # DisplayChangeWatcher — 插拔显示器、改分辨率、开关 HDR 后在后台重建截图会话
 ├── system_cursor.py         # SystemCursor — 记录截屏时的鼠标指针并画进截图
 ├── quick_capture_controller.py # QuickCaptureController — 修饰键拖动截图与动作分发
 ├── uia_element_finder.py    # 后台 UI Automation 元素检测与选区快照缓存

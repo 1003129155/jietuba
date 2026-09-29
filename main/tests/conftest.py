@@ -76,6 +76,16 @@ def isolated_tool_settings(tmp_path_factory):
     tool_settings._tool_settings_manager = previous
 
 
+@pytest.fixture(autouse=True)
+def no_hdr_display(monkeypatch):
+    """默认按"没有显示器开着 HDR"跑，auto 截图引擎一律走 mss。
+
+    和上面的设置隔离同理：开发机开没开 HDR 不能改变测试走的路径。开着 HDR 的机器上 auto 会
+    真的建起 DXGI 会话，还会占住别的用例要用的 duplication。要测 HDR 路径的用例自己打开。
+    """
+    monkeypatch.setattr("capture.capture_service.hdr_display_active", lambda: False)
+
+
 @pytest.fixture
 def tmp_settings(tmp_path):
     """提供一个临时的 QSettings，避免污染真正的配置"""

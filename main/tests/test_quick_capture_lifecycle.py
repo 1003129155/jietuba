@@ -30,11 +30,12 @@ def app(monkeypatch):
         hotkey_system=Mock(),
         quick_capture=Mock(spec=["busy", "refresh", "suspend", "close", "set_capture_pending",
                                 "capture_preparation_finished"]),
+        _display_watcher=Mock(),
         screenshot_window=None,
         clipboard_window=None,
         clipboard_manager=None,
         settings_window=None,
-        _capture_thread=None,
+        _capture_pending=False,
         _logger=Mock(),
         app=Mock(),
         tr=lambda text: text,
@@ -110,8 +111,9 @@ def test_about_to_quit_closes_quick_capture_before_other_cleanup(app, monkeypatc
     monkeypatch.setattr("translation.TranslationManager.cleanup", cleanup_translation)
     shutdown_recognition = Mock(side_effect=lambda: events.append("recognition"))
     monkeypatch.setattr("text_recognition.shutdown_recognition", shutdown_recognition)
+    monkeypatch.setattr("capture.capture_service.shutdown_hdr_session", lambda: events.append("hdr"))
     MainApp._on_about_to_quit(app)
-    assert events == ["close", "translation", "recognition"]
+    assert events == ["close", "translation", "recognition", "hdr"]
     app._logger.close.assert_called_once()
 
 
@@ -123,7 +125,7 @@ def test_normal_capture_cannot_steal_focus_during_a_quick_capture(app, qapp):
     MainApp.start_screenshot(app)
     existing_capture.activateWindow.assert_not_called()
     existing_capture.raise_.assert_not_called()
-    assert app._capture_thread is None
+    assert not app._capture_pending
 
     app.quick_capture.busy = False
     MainApp.start_screenshot(app)

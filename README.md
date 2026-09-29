@@ -92,7 +92,7 @@ These four packages are included in `requirements.txt` and install with the runt
 
 | pip name | import name | Version | Description |
 |------|------|------|------|
-| [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.3.1 | GIF/video composition encoder |
+| [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.0 | GIF/video composition encoder |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | Long screenshot stitching algorithm |
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.4 | Low-level clipboard operations |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
@@ -237,6 +237,7 @@ Screen capture and smart window detection.
 ```text
 capture/
 ├── capture_service.py       # CaptureService — core screenshot logic
+├── display_watcher.py       # DisplayChangeWatcher — rebuilds the HDR capture session in the background after display changes
 ├── system_cursor.py         # SystemCursor — snapshots the mouse pointer and draws it into screenshots
 ├── quick_capture_controller.py # QuickCaptureController — modifier-drag capture and action dispatch
 ├── uia_element_finder.py    # Background UI Automation element snapshots for smart selection

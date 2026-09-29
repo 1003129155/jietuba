@@ -1,0 +1,30 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "j-hdrcapture"
+version = "0.1.0"
+description = "HDR-correct Windows desktop capture for Python: DXGI Desktop Duplication with GPU tone mapping to sRGB BGRA8"
+readme = "README.md"
+license = "MIT"
+# LICENSE-UPSTREAM 是 vendor 进来的 windows-capture 的许可；Rust 依赖静态链接进 .pyd，
+# 随分发附上它们的版权声明与许可全文
+license-files = ["LICENSE", "LICENSE-UPSTREAM", "THIRD-PARTY-NOTICES.txt"]
+authors = [{ name = "JYAARU" }]
+requires-python = ">=3.11"
+keywords = ["hdr", "screenshot", "screen-capture", "dxgi", "windows", "rust"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Rust",
+]
+
+[tool.maturin]
+# 发行名是 j-hdrcapture，import 名保持 hdrcapture 不变
+module-name = "hdrcapture"
+features = ["pyo3/extension-module"]

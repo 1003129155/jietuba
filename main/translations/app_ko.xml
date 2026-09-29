@@ -163,8 +163,8 @@
         <translation>스크린샷 모듈 미리 로드</translation>
     </message>
     <message>
-        <source>Pre-load mss, canvas, tools in background thread</source>
-        <translation>백그라운드 스레드에서 mss, canvas, tools를 미리 로드합니다</translation>
+        <source>Pre-load the capture engine, canvas and tools</source>
+        <translation>캡처 엔진, 캔버스, 도구를 미리 로드합니다</translation>
     </message>
     <message>
         <source>Preload Toolbar</source>
@@ -443,6 +443,14 @@ Replace it?</source>
     <message>
         <source>Stitching Engine</source>
         <translation>합성 엔진</translation>
+    </message>
+    <message>
+        <source>Capture Engine</source>
+        <translation>캡처 엔진</translation>
+    </message>
+    <message>
+        <source>Auto (Recommended)</source>
+        <translation>자동 (권장)</translation>
     </message>
     <message>
         <source>Python Hash (Debug)</source>
@@ -4327,6 +4335,14 @@ SOFTWARE.</translation></message>
     <message>
         <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
         <translation>QR 코드나 바코드가 하나만 인식되면 결과 창을 열지 않고 내용을 복사합니다. 여러 개가 인식되면 결과 창이 열립니다.</translation>
+    </message>
+    <message>
+        <source>Auto uses the HDR engine when a display has HDR turned on.</source>
+        <translation>자동: HDR이 켜진 디스플레이에서는 HDR 엔진을 사용합니다.</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>표준</translation>
     </message>
 </context>
 <context>

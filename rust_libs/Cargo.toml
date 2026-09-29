@@ -4,6 +4,7 @@ members = [
     "pyclipboard",
     "gifrecorder",
     "ppocr_rust",
+    "hdrcapture",
 ]
 resolver = "2"
 

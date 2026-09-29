@@ -166,8 +166,8 @@
         <translation>スクリーンショットモジュールのプリロード</translation>
     </message>
     <message>
-        <source>Pre-load mss, canvas, tools in background thread</source>
-        <translation>バックグラウンドスレッドで mss、キャンバス、ツールを事前読み込み</translation>
+        <source>Pre-load the capture engine, canvas and tools</source>
+        <translation>キャプチャエンジン、キャンバス、ツールを事前読み込み</translation>
     </message>
     <message>
         <source>Preload Toolbar</source>
@@ -450,6 +450,14 @@ Replace it?</source>
     <message>
         <source>Stitching Engine</source>
         <translation>拼接エンジン</translation>
+    </message>
+    <message>
+        <source>Capture Engine</source>
+        <translation>キャプチャエンジン</translation>
+    </message>
+    <message>
+        <source>Auto (Recommended)</source>
+        <translation>自動（推奨）</translation>
     </message>
     <message>
         <source>Python Hash (Debug)</source>
@@ -4368,6 +4376,14 @@ SOFTWARE.</translation></message>
     <message>
         <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
         <translation>QR コードやバーコードが 1 つだけ見つかった場合は、結果ウィンドウを開かずに内容をコピーします。複数見つかった場合はこれまでどおり開きます。</translation>
+    </message>
+    <message>
+        <source>Auto uses the HDR engine when a display has HDR turned on.</source>
+        <translation>自動：HDR がオンのディスプレイでは HDR エンジンを使います。</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>標準</translation>
     </message>
 </context>
 <context>

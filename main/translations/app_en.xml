@@ -164,8 +164,8 @@
         <translation>Preload Screenshot Modules</translation>
     </message>
     <message>
-        <source>Pre-load mss, canvas, tools in background thread</source>
-        <translation>Pre-load mss, canvas, tools in background thread</translation>
+        <source>Pre-load the capture engine, canvas and tools</source>
+        <translation>Pre-load the capture engine, canvas and tools</translation>
     </message>
     <message>
         <source>Preload Toolbar</source>
@@ -444,6 +444,14 @@ Replace it?</translation>
     <message>
         <source>Stitching Engine</source>
         <translation>Stitching Engine</translation>
+    </message>
+    <message>
+        <source>Capture Engine</source>
+        <translation>Capture Engine</translation>
+    </message>
+    <message>
+        <source>Auto (Recommended)</source>
+        <translation>Auto (Recommended)</translation>
     </message>
     <message>
         <source>Python Hash (Debug)</source>
@@ -4117,6 +4125,14 @@ SOFTWARE.</translation></message>
     <message>
         <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
         <translation>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</translation>
+    </message>
+    <message>
+        <source>Auto uses the HDR engine when a display has HDR turned on.</source>
+        <translation>Auto uses the HDR engine when a display has HDR turned on.</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>Standard</translation>
     </message>
 </context>
 <context>

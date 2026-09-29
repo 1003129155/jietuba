@@ -67,12 +67,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install maturin==1.12.6
-          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust") {
+          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust", "hdrcapture") {
             maturin build --locked --release --target ${{ matrix.rust-target }} -i python -m rust_libs/$crate/Cargo.toml --out wheelhouse
             if ($LASTEXITCODE -ne 0) { throw "$crate wheel build failed" }
           }
           python -m pip install (Get-ChildItem wheelhouse\*.whl).FullName
-          python -c "import gifrecorder, longstitch, pyclipboard, ppocr_rust; print('Native extension imports OK')"
+          python -c "import gifrecorder, longstitch, pyclipboard, ppocr_rust, hdrcapture; print('Native extension imports OK')"
 
       - name: Install Python dependencies
         run: |
