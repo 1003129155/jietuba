@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """快捷键设置页 — Fluent Design"""
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea,
+    QWidget, QVBoxLayout, QHBoxLayout, QScrollArea,
     QStackedWidget,
 )
 from PySide6.QtCore import Qt
@@ -10,331 +10,16 @@ from core.resource_manager import ResourceManager
 from core.ui_scale import dialog_scaled
 from ui.dialogs import show_confirm_dialog
 from ui.fluent_lite import (
-    ComboBox, CaptionLabel, FluentIcon, SegmentedWidget,
+    ComboBox, FluentIcon, SegmentedWidget,
 )
 from ui.fluent_lite.theme import ACCENT
-from .components import IconBadge, SectionCard, add_separated_row, apply_theme_text_style
+from .components import IconBadge, SectionCard, add_separated_row, icon_ref, row_label
 from ..hotkey_edit import HotkeyEdit, validate_hotkey_group
 from ..inapp_key_edit import InAppKeyEdit
 from ..key_chip import CHIP_WIDTH, STATUS_GAP, STATUS_SIZE, format_shortcut_text
 from settings import ANNOTATION_TOOL_SHORTCUTS, clipboard_pick_keys
 from core.shortcut_manager import is_reserved_inapp_shortcut, is_inapp_mouse_shortcut
 from core.ui_theme import set_own_style
-from settings.tool_settings import (
-    CAPTURE_MOUSE_ACTIONS,
-    PIN_MOUSE_ACTIONS,
-    CLIPBOARD_MOUSE_ACTIONS,
-    QUICK_CAPTURE_ACTIONS,
-    QUICK_CAPTURE_MODIFIERS,
-    ToolSettingsManager,
-    get_clipboard_mouse_binding,
-    get_capture_mouse_binding,
-    get_pin_mouse_binding,
-)
-
-
-class MouseBindingEditor(QWidget):
-    """A modifier combination and a mouse gesture, with no global mouse hooks."""
-
-    def __init__(self, dialog, kind, parent=None):
-        super().__init__(parent)
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(dialog_scaled(8))
-        self.modifiers = ComboBox(self)
-        for value in ("", "ctrl", "shift", "alt", "ctrl+shift", "ctrl+alt", "shift+alt", "ctrl+shift+alt"):
-            self.modifiers.addItem(value.title() if value else dialog.tr("No Modifier"), userData=value)
-        self.gesture = ComboBox(self)
-        gestures = {
-            "wheel": (("wheel", "Mouse Wheel"),),
-            "drag": (("dragleft", "Left Drag"), ("dragmiddle", "Middle Drag"), ("dragright", "Right Drag")),
-            "click": (("left", "Left Click"), ("middle", "Middle Click"), ("right", "Right Click"),
-                      ("doubleleft", "Left Double-click"), ("doublemiddle", "Middle Double-click"),
-                      ("doubleright", "Right Double-click")),
-            # 截图画布的左键单击负责选区/标注，不开放；右键不设双击，
-            # 否则单击要等双击超时才能响应。
-            "capture": (("middle", "Middle Click"), ("right", "Right Click"),
-                        ("doubleleft", "Left Double-click")),
-        }[kind]
-        for value, label in (("", "No Action"),) + gestures:
-            self.gesture.addItem(dialog.tr(label), userData=value)
-        plus = QLabel("+", self)
-        plus.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        apply_theme_text_style(plus, 14, caption=True)
-        # 两侧等分剩余宽度，加号才能在每一行都落在同一列上
-        layout.addWidget(self.modifiers, 1)
-        layout.addWidget(plus)
-        layout.addWidget(self.gesture, 1)
-
-    def currentData(self):
-        gesture = self.gesture.currentData()
-        modifiers = self.modifiers.currentData()
-        return f"{modifiers}+{gesture}" if gesture and modifiers else gesture
-
-    def setBinding(self, binding):
-        parts = str(binding or "").lower().split("+")
-        modifiers = "+".join(key for key in ("ctrl", "shift", "alt") if key in parts[:-1])
-        self.modifiers.setCurrentIndex(max(0, self.modifiers.findData(modifiers)))
-        self.gesture.setCurrentIndex(max(0, self.gesture.findData(parts[-1])))
-
-
-def _create_quick_capture(dialog, parent):
-    group = SectionCard(FluentIcon.CAMERA, dialog.tr("Quick Capture"), parent=parent)
-    if not hasattr(dialog, "_behavior_controls"):
-        dialog._behavior_controls = {}
-
-    row = QWidget(group)
-    layout = QHBoxLayout(row)
-    layout.setContentsMargins(0, dialog_scaled(8), 0, dialog_scaled(8))
-    layout.setSpacing(dialog_scaled(8))
-    modifiers = []
-    for number, title in ((1, "First Modifier"), (2, "Second Modifier")):
-        combo = ComboBox(row)
-        combo.setAccessibleName(dialog.tr(title))
-        combo.setToolTip(dialog.tr(title))
-        for value in QUICK_CAPTURE_MODIFIERS:
-            combo.addItem(value.title() if value else dialog.tr("No Modifier"), userData=value)
-        key = f"quick_capture_modifier_{number}"
-        default = ToolSettingsManager.APP_DEFAULT_SETTINGS[key]
-        index = combo.findData(dialog.config_manager.get_app_setting(key, default))
-        combo.setCurrentIndex(index if index >= 0 else combo.findData(default))
-        dialog._behavior_controls[key] = combo
-        modifiers.append(combo)
-        layout.addWidget(combo, 1)
-        plus = QLabel("+", row)
-        apply_theme_text_style(plus, 14, caption=True)
-        layout.addWidget(plus)
-
-    layout.addWidget(_row_label(row, dialog.tr("Left Drag")))
-    action = ComboBox(row)
-    action.setAccessibleName(dialog.tr("Quick Capture"))
-    for value, label in QUICK_CAPTURE_ACTIONS:
-        action.addItem(dialog.tr(label), userData=value)
-    default = ToolSettingsManager.APP_DEFAULT_SETTINGS["quick_capture_action"]
-    index = action.findData(dialog.config_manager.get_app_setting("quick_capture_action", default))
-    action.setCurrentIndex(index if index >= 0 else action.findData(default))
-    dialog._behavior_controls["quick_capture_action"] = action
-    layout.addWidget(action, 2)
-
-    def normalize_modifiers():
-        # A duplicate modifier is the same gesture as a single modifier.
-        if modifiers[0].currentData() and modifiers[0].currentData() == modifiers[1].currentData():
-            modifiers[1].setCurrentIndex(modifiers[1].findData(""))
-
-    for combo in modifiers:
-        combo.currentIndexChanged.connect(normalize_modifiers)
-    normalize_modifiers()
-    group.addWidget(row)
-    hint = CaptionLabel(dialog.tr(
-        "Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. "
-        "Select at least one modifier to enable Quick Capture."
-    ), group)
-    hint.setWordWrap(True)
-    group.addWidget(hint)
-    return group
-
-
-def _build_mouse_shortcut_tab(
-    dialog, *, actions, key_prefix, action_icons, binding_getter
-):
-    page = QWidget()
-    page_layout = QVBoxLayout(page)
-    page_layout.setContentsMargins(0, 0, 0, 0)
-    page_layout.setSpacing(0)
-    if not hasattr(dialog, '_behavior_controls'):
-        dialog._behavior_controls = {}
-    for action, label, _default, kind in actions:
-        card = QWidget(page)
-        row = QHBoxLayout(card)
-        row.setContentsMargins(0, dialog_scaled(8), 0, dialog_scaled(8))
-        row.setSpacing(dialog_scaled(14))
-        # 和上方“应用内快捷键”一致：图标表达这一行的具体动作，
-        # 不再给整个标签页重复使用相机/图钉分类图标。
-        icon = action_icons.get(action)
-        row.addWidget(IconBadge(_icon_ref(icon) if icon else None, None, card))
-        title = _row_label(card, dialog.tr(label))
-        title.setWordWrap(True)
-        row.addWidget(title, 1)
-        editor = MouseBindingEditor(dialog, kind, card)
-        editor.setFixedWidth(dialog_scaled(320))
-        editor.setBinding(binding_getter(dialog.config_manager, action))
-        dialog._behavior_controls[f"{key_prefix}{action}"] = editor
-        row.addWidget(editor)
-        add_separated_row(page_layout, card)
-    page_layout.addStretch(1)
-    return page
-
-
-def _create_mouse_shortcuts(dialog, parent):
-    group = SectionCard(
-        ResourceManager.get_icon_path("鼠标.svg"),
-        dialog.tr("Mouse Shortcuts"),
-        parent=parent,
-    )
-
-    tab_switch = SegmentedWidget(group)
-    tab_switch.setFixedHeight(dialog_scaled(34))
-    tab_switch.setIndicatorColor(ACCENT, ACCENT)
-
-    stack = QStackedWidget(group)
-    stack.setObjectName("MouseShortcutStack")
-    stack.setStyleSheet("#MouseShortcutStack { background: transparent; border: none; }")
-
-    stack.addWidget(_build_mouse_shortcut_tab(
-        dialog,
-        actions=CAPTURE_MOUSE_ACTIONS,
-        key_prefix="mouse_capture_",
-        action_icons=_CAPTURE_MOUSE_ICONS,
-        binding_getter=get_capture_mouse_binding,
-    ))
-    stack.addWidget(_build_mouse_shortcut_tab(
-        dialog,
-        actions=PIN_MOUSE_ACTIONS,
-        key_prefix="mouse_pin_",
-        action_icons=_PIN_MOUSE_ICONS,
-        binding_getter=get_pin_mouse_binding,
-    ))
-    clipboard_page = _build_mouse_shortcut_tab(
-        dialog,
-        actions=CLIPBOARD_MOUSE_ACTIONS,
-        key_prefix="mouse_clipboard_",
-        action_icons={"paste": FluentIcon.PASTE, "pin": FluentIcon.PIN,
-                      "quick_edit": FluentIcon.EDIT, "menu": FluentIcon.LAYOUT},
-        binding_getter=get_clipboard_mouse_binding,
-    )
-    hint = CaptionLabel(dialog.tr(
-        "Pin applies to images; quick edit applies to text. Single clicks wait for the system "
-        "double-click interval when the same button also has an available double-click action."
-    ), clipboard_page)
-    hint.setWordWrap(True)
-    clipboard_page.layout().insertWidget(clipboard_page.layout().count() - 1, hint)
-    stack.addWidget(clipboard_page)
-
-    tab_switch.addItem(
-        "screenshot", dialog.tr("Screenshot Shortcuts"),
-        lambda: stack.setCurrentIndex(0),
-    )
-    tab_switch.addItem(
-        "pin", dialog.tr("Pin Shortcuts"),
-        lambda: stack.setCurrentIndex(1),
-    )
-    tab_switch.addItem(
-        "clipboard", dialog.tr("Clipboard Shortcuts"),
-        lambda: stack.setCurrentIndex(2),
-    )
-    tab_switch.setCurrentItem("screenshot")
-
-    tab_row = QWidget(group)
-    tab_row_layout = QHBoxLayout(tab_row)
-    tab_row_layout.setContentsMargins(0, 0, 0, dialog_scaled(10))
-    tab_row_layout.addWidget(tab_switch)
-    tab_row_layout.addStretch(1)
-    group.addWidget(tab_row)
-    group.addWidget(stack)
-    return group
-
-
-def validate_mouse_bindings(dialog) -> bool:
-    """Mouse gestures must be unique inside each active window context."""
-    return not mouse_binding_conflicts(dialog)
-
-
-def _normalized_mouse_binding(binding: str) -> str:
-    parts = [part for part in str(binding or "").lower().split("+") if part]
-    return "+".join("middle" if part == "mousemiddle" else part for part in parts)
-
-
-def _mouse_binding_text(dialog, binding: str) -> str:
-    """Return the same friendly mouse names used by the binding editors."""
-    parts = _normalized_mouse_binding(binding).split("+")
-    gesture = parts[-1]
-    gesture_source = {
-        "wheel": "Mouse Wheel",
-        "dragleft": "Left Drag",
-        "dragmiddle": "Middle Drag",
-        "dragright": "Right Drag",
-        "left": "Left Click",
-        "middle": "Middle Click",
-        "right": "Right Click",
-        "doubleleft": "Left Double-click",
-        "doublemiddle": "Middle Double-click",
-        "doubleright": "Right Double-click",
-    }.get(gesture, gesture)
-    modifier_text = format_shortcut_text("+".join(parts[:-1]))
-    gesture_text = dialog.tr(gesture_source)
-    return f"{modifier_text} + {gesture_text}" if modifier_text else gesture_text
-
-
-def mouse_binding_conflicts(dialog) -> list[tuple[str, str, tuple[str, ...]]]:
-    """List every duplicated mouse binding with its context and owners.
-
-    The old save-time validator returned only a boolean, which left the warning
-    dialog unable to tell the user what to fix.  Keeping the detailed result
-    here also ensures validation and the displayed explanation cannot drift.
-    """
-    controls = getattr(dialog, '_behavior_controls', {})
-    inapp_edits = getattr(dialog, '_inapp_edits', {})
-    inapp_groups = getattr(dialog, '_inapp_groups', {})
-    conflicts = []
-
-    domains = (
-        ("mouse_capture_", "screenshot", "Screenshot Shortcuts", CAPTURE_MOUSE_ACTIONS),
-        ("mouse_pin_", "pin", "Pin Shortcuts", PIN_MOUSE_ACTIONS),
-        ("mouse_clipboard_", "clipboard", "Clipboard Shortcuts", CLIPBOARD_MOUSE_ACTIONS),
-    )
-    for prefix, inapp_group, context_source, actions in domains:
-        owners_by_binding = {}
-        actions_by_binding = {}
-
-        # Follow the UI row order so both the conflict list and its owners are
-        # stable and easy to find on the settings page.
-        for action, label_source, _default, _kind in actions:
-            control = controls.get(f"{prefix}{action}")
-            if control is None:
-                continue
-            binding = _normalized_mouse_binding(control.currentData())
-            if binding:
-                actions_by_binding.setdefault(binding, set()).add(action)
-                owners_by_binding.setdefault(binding, []).append(
-                    f"{dialog.tr(label_source)} ({dialog.tr('Mouse Shortcuts')})"
-                )
-
-        for key, edit in inapp_edits.items():
-            if inapp_groups.get(key) != inapp_group:
-                continue
-            raw_binding = edit.text()
-            binding = _normalized_mouse_binding(raw_binding)
-            if is_inapp_mouse_shortcut(raw_binding) and binding:
-                owners_by_binding.setdefault(binding, []).append(
-                    f"{_inapp_label(dialog, key)} ({dialog.tr('In-App Shortcuts')})"
-                )
-
-        for binding, owners in owners_by_binding.items():
-            # Image pinning and text editing cannot act on the same item.
-            if (prefix == "mouse_clipboard_" and len(owners) == 2
-                    and actions_by_binding.get(binding) == {"pin", "quick_edit"}):
-                continue
-            if len(owners) > 1:
-                conflicts.append((
-                    dialog.tr(context_source),
-                    _mouse_binding_text(dialog, binding),
-                    tuple(owners),
-                ))
-
-    return conflicts
-
-
-def mouse_binding_conflict_message(dialog, conflicts=None) -> str:
-    """Build a concise, actionable save-time warning for mouse conflicts."""
-    if conflicts is None:
-        conflicts = mouse_binding_conflicts(dialog)
-    lines = [dialog.tr("The following shortcuts conflict:"), ""]
-    lines.extend(
-        f"• {context} · {binding}: {' / '.join(owners)}"
-        for context, binding, owners in conflicts
-    )
-    lines.extend(("", dialog.tr("Change one shortcut in each row before applying.")))
-    return "\n".join(lines)
 
 
 # ── 应用内快捷键定义表（分组）──────────────────────────────
@@ -378,7 +63,7 @@ INAPP_KEYS = SCREENSHOT_KEYS + TOOL_KEYS + PIN_KEYS + CLIPBOARD_KEYS + CLIPBOARD
 
 # 应用内各项的行图标，尽量沿用工具栏上同一功能的图标。字符串是 svg/ 下的文件名。
 # 行图标会被整体着色，工具栏的序号图标是白底圆，着色后只剩实心圆点，所以用线框版。
-_INAPP_ICONS = {
+INAPP_ICONS = {
     "inapp_confirm": "确定.svg",
     "inapp_pin": "钉图.svg",
     "inapp_undo": "撤回.svg",
@@ -407,28 +92,6 @@ _INAPP_ICONS = {
     "inapp_clipboard_quick_edit": FluentIcon.EDIT,
     "inapp_clipboard_edit_save": FluentIcon.SAVE,
     "inapp_clipboard_edit_save_paste": FluentIcon.SEND,
-}
-
-# 鼠标动作与上方应用内快捷键沿用同一套具体功能图标；只有鼠标手势的
-# 录入方式不同，不应退化成每行重复相机/图钉的分类图标。
-_CAPTURE_MOUSE_ICONS = {
-    "copy": _INAPP_ICONS["inapp_confirm"],
-    "pin": _INAPP_ICONS["inapp_pin"],
-    "save": "保存.svg",
-    "quick_save": FluentIcon.DOWNLOAD,
-    "close": FluentIcon.CLOSE,
-}
-
-_PIN_MOUSE_ICONS = {
-    "zoom": FluentIcon.SEARCH,
-    "opacity": FluentIcon.TRANSPARENT,
-    # 工具栏的“关闭.svg”自带红色圆形底；作为可着色的行图标时，
-    # 底和白色叉号会合并成一整块蒙版，因此这里使用纯叉号图标。
-    "close": FluentIcon.CLOSE,
-    "reset": _INAPP_ICONS["inapp_pin_reset_size"],
-    "thumbnail": _INAPP_ICONS["inapp_thumbnail"],
-    "region": "选择.svg",
-    "copy_text": _INAPP_ICONS["inapp_copy_pin_text"],
 }
 _CURSOR_MOVE_ICON = "移动窗口.svg"
 
@@ -513,25 +176,13 @@ def _refresh_inapp_shadow_states(dialog):
         edit.setToolTip(tip if shadowed else "")
 
 
-def _icon_ref(ref):
-    if isinstance(ref, str):
-        return ResourceManager.get_icon_path(ref)
-    return ref
-
-
-def _row_label(parent, text: str) -> QLabel:
-    label = QLabel(text, parent)
-    apply_theme_text_style(label, 14, extra="font-weight: 500;")
-    return label
-
-
 def _global_row(parent, title, tone, icon, editors) -> QWidget:
     row = QWidget(parent)
     layout = QHBoxLayout(row)
     layout.setContentsMargins(0, dialog_scaled(8), 0, dialog_scaled(8))
     layout.setSpacing(dialog_scaled(14))
     layout.addWidget(IconBadge(icon, tone, row))
-    layout.addWidget(_row_label(row, title), 1)
+    layout.addWidget(row_label(row, title), 1)
 
     column = QVBoxLayout()
     column.setSpacing(dialog_scaled(5))
@@ -548,8 +199,8 @@ def _inapp_row(parent, icon, title, editor) -> QWidget:
     layout = QHBoxLayout(row)
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(dialog_scaled(14))
-    layout.addWidget(IconBadge(_icon_ref(icon) if icon else None, None, row))
-    layout.addWidget(_row_label(row, title), 1)
+    layout.addWidget(IconBadge(icon_ref(icon) if icon else None, None, row))
+    layout.addWidget(row_label(row, title), 1)
 
     # 宽度定在外层槽位上：ComboBox 每次重算样式都会重设最小宽度，
     # 直接对它 setFixedWidth 撑不住，会缩回内容宽度。
@@ -605,7 +256,6 @@ def create_hotkey_page(dialog) -> QWidget:
     validate_global_hotkey_edits(dialog)
 
     layout.addWidget(grp_global)
-    layout.addWidget(_create_quick_capture(dialog, view))
 
     # ════ 应用内快捷键 ════
     grp_inapp = SectionCard(
@@ -645,7 +295,7 @@ def create_hotkey_page(dialog) -> QWidget:
             dialog._inapp_edits[cfg_key] = edit
             dialog._inapp_groups[cfg_key] = group_name
             add_separated_row(
-                vbox, _inapp_row(page, _INAPP_ICONS.get(cfg_key), dialog.tr(tr_src), edit)
+                vbox, _inapp_row(page, INAPP_ICONS.get(cfg_key), dialog.tr(tr_src), edit)
             )
 
         for build_row in extra_rows:
@@ -729,21 +379,6 @@ def create_hotkey_page(dialog) -> QWidget:
     )
 
     layout.addWidget(grp_inapp)
-
-    layout.addWidget(_create_mouse_shortcuts(dialog, view))
-    layout.addWidget(CaptionLabel(
-        dialog.tr("Pin mouse actions apply outside annotation mode. Conflicts use the first matching action. "
-                  "Copy text uses the selected OCR text; otherwise right-click opens the menu."), view,
-    ))
-
-    # 提示
-    hint = CaptionLabel(
-        dialog.tr("💡 Configured shortcuts take priority over WASD and C. Arrow keys remain available; Esc is reserved."),
-        view,
-    )
-    hint.setStyleSheet(f"padding: {dialog_scaled(5)}px;")
-    layout.addWidget(hint)
-
     layout.addStretch()
     scroll.setWidget(view)
     return scroll
@@ -776,7 +411,7 @@ def _on_shortcut_changed(dialog, changed_key: str, new_text: str):
             _check_pick_conflict(dialog, changed_key, new_text)
         return
 
-    conflict_label = _inapp_label(dialog, conflict_key)
+    conflict_label = inapp_label(dialog, conflict_key)
 
     # 弹窗询问
     current_edit = dialog._inapp_edits[changed_key]
@@ -798,7 +433,7 @@ def _on_shortcut_changed(dialog, changed_key: str, new_text: str):
     conflict_edit.blockSignals(False)
 
 
-def _inapp_label(dialog, cfg_key: str) -> str:
+def inapp_label(dialog, cfg_key: str) -> str:
     for cfg, tr_src, _default in INAPP_KEYS:
         if cfg == cfg_key:
             return dialog.tr(tr_src)
@@ -859,7 +494,7 @@ def _on_pick_mode_changed(dialog):
         char = _pick_char_of(edit.text())
         if not char or char not in keys:
             continue
-        if not _ask_replace(dialog, edit.text(), _inapp_label(dialog, cfg_key)):
+        if not _ask_replace(dialog, edit.text(), inapp_label(dialog, cfg_key)):
             _set_pick_mode(dialog, dialog._clipboard_pick_mode)
             return
         edit.blockSignals(True)

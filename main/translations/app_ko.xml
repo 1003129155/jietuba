@@ -8,40 +8,36 @@
 <context>
     <name>SettingsDialog</name>
     <message>
-        <source>Quick capture failed. Please try again.</source>
-        <translation>빠른 캡처에 실패했습니다. 다시 시도하세요.</translation>
+        <source>Region Text Recognition</source>
+        <translation>영역 텍스트 인식</translation>
     </message>
     <message>
-        <source>Quick Capture</source>
-        <translation>빠른 캡처</translation>
+        <source>Region Translation</source>
+        <translation>영역 번역</translation>
     </message>
     <message>
-        <source>First Modifier</source>
-        <translation>첫 번째 보조 키</translation>
+        <source>Copy and Pin</source>
+        <translation>복사 후 고정</translation>
     </message>
     <message>
-        <source>Second Modifier</source>
-        <translation>두 번째 보조 키</translation>
+        <source>Capture and Edit</source>
+        <translation>캡처 후 편집</translation>
     </message>
     <message>
-        <source>Capture and Pin</source>
-        <translation>캡처 후 고정</translation>
+        <source>Back Button Drag</source>
+        <translation>뒤로 버튼 드래그</translation>
     </message>
     <message>
-        <source>Capture and Copy</source>
-        <translation>캡처 후 복사</translation>
+        <source>Forward Button Drag</source>
+        <translation>앞으로 버튼 드래그</translation>
     </message>
     <message>
-        <source>Capture, Copy and Pin</source>
-        <translation>캡처, 복사 후 고정</translation>
+        <source>Hold modifier keys and drag the mouse</source>
+        <translation>보조 키를 누른 채 마우스로 드래그</translation>
     </message>
     <message>
-        <source>Normal Capture</source>
-        <translation>일반 캡처</translation>
-    </message>
-    <message>
-        <source>Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. Select at least one modifier to enable Quick Capture.</source>
-        <translation>보조 키를 누른 채 마우스 왼쪽 버튼으로 드래그하세요. 버튼을 놓으면 캡처하고 Esc로 취소합니다. 빠른 캡처를 사용하려면 보조 키를 하나 이상 선택하세요.</translation>
+        <source>Capture failed. Please try again.</source>
+        <translation>캡처에 실패했습니다. 다시 시도하세요.</translation>
     </message>
     <message>
         <source>Shortcuts</source>
@@ -295,7 +291,6 @@
     <message><source>Ellipse</source><translation>타원</translation></message>
     <message><source>Text</source><translation>텍스트</translation></message>
     <message><source>Eraser</source><translation>지우개</translation></message>
-    <message><source>💡 Configured shortcuts take priority over WASD and C. Arrow keys remain available; Esc is reserved.</source><translation>💡 설정한 단축키는 WASD와 C보다 우선합니다. 방향키는 계속 사용할 수 있고 Esc는 예약 키입니다.</translation></message>
     <message>
         <source>Pin Shortcuts</source>
         <translation>고정 창 단축키</translation>
@@ -1097,7 +1092,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Mouse Shortcuts</source>
-        <translation>앱 내 마우스 단축키</translation>
+        <translation>마우스 단축키</translation>
     </message>
     <message>
         <source>Mouse Wheel</source>
@@ -1160,10 +1155,6 @@ Replace it?</source>
         <translation>선택한 텍스트 복사</translation>
     </message>
     <message>
-        <source>Pin mouse actions apply outside annotation mode. Conflicts use the first matching action. Copy text uses the selected OCR text; otherwise right-click opens the menu.</source>
-        <translation>마우스 동작은 주석 모드 밖에서 적용되며, 충돌 시 위쪽 동작이 우선합니다. 선택한 OCR 텍스트를 복사하고, 선택이 없으면 오른쪽 클릭으로 메뉴를 엽니다.</translation>
-    </message>
-    <message>
         <source>Use + / - instead of the wheel with the same modifiers</source>
         <translation>같은 보조 키와 + / -로 휠 동작 대체</translation>
     </message>
@@ -1182,10 +1173,6 @@ Replace it?</source>
     <message>
         <source>Open Context Menu</source>
         <translation>메뉴 열기</translation>
-    </message>
-    <message>
-        <source>Pin applies to images; quick edit applies to text. Single clicks wait for the system double-click interval when the same button also has an available double-click action.</source>
-        <translation>고정은 이미지에, 빠른 편집은 텍스트에 적용됩니다. 같은 버튼에 사용 가능한 클릭 및 두 번 클릭 동작이 모두 지정되어 있으면 시스템의 두 번 클릭 판정 시간만큼 클릭 실행을 기다립니다.</translation>
     </message>
 </context>
 
@@ -4355,6 +4342,18 @@ SOFTWARE.</translation></message>
     <message>
         <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
         <translation>QR 코드나 바코드가 하나만 인식되면 결과 창을 열지 않고 내용을 복사합니다. 여러 개가 인식되면 결과 창이 열립니다.</translation>
+    </message>
+    <message>
+        <source>Global Mouse Shortcuts</source>
+        <translation>전역 마우스 단축키</translation>
+    </message>
+    <message>
+        <source>In-App Mouse Shortcuts</source>
+        <translation>앱 내 마우스 단축키</translation>
+    </message>
+    <message>
+        <source>Quick Edit Text</source>
+        <translation>텍스트 빠른 편집</translation>
     </message>
     <message>
         <source>Auto uses the HDR engine when a display has HDR turned on.</source>

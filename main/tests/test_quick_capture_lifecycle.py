@@ -8,11 +8,13 @@ import pytest
 from main_app import MainApp
 
 
+
+
 @pytest.fixture
 def app(monkeypatch):
     for name in ("log_info", "log_debug", "log_exception"):
         monkeypatch.setattr(f"main_app.{name}", Mock())
-    saved = {"global_hotkeys_disabled": False, "quick_capture_action": "copy_pin"}
+    saved = {"global_hotkeys_disabled": False, "quick_capture_pin": "win+dragleft"}
     config = SimpleNamespace(
         get_app_setting=lambda key, default=None: saved.get(key, default),
         set_app_setting=lambda key, value: saved.__setitem__(key, value),
@@ -28,8 +30,7 @@ def app(monkeypatch):
         config_manager=config,
         saved_settings=saved,
         hotkey_system=Mock(),
-        quick_capture=Mock(spec=["busy", "refresh", "suspend", "close", "set_capture_pending",
-                                "capture_preparation_finished"]),
+        quick_capture=Mock(spec=["busy", "refresh", "suspend", "close", "set_capture_pending"]),
         _display_watcher=Mock(),
         screenshot_window=None,
         clipboard_window=None,
@@ -50,11 +51,9 @@ def test_applying_hotkey_settings_refreshes_quick_capture_with_current_preferenc
     applied = []
     app.quick_capture.refresh.side_effect = lambda: applied.append(dict(app.saved_settings))
     app.update_hotkey()
-    app.saved_settings["quick_capture_action"] = "pin"
-    app.saved_settings["quick_capture_modifier_1"] = "ctrl"
+    app.saved_settings["quick_capture_pin"] = "ctrl+alt+dragright"
     app.update_hotkey()
-    assert [state["quick_capture_action"] for state in applied] == ["copy_pin", "pin"]
-    assert applied[-1]["quick_capture_modifier_1"] == "ctrl"
+    assert [state["quick_capture_pin"] for state in applied] == ["win+dragleft", "ctrl+alt+dragright"]
     app.hotkey_system.register_hotkey.assert_not_called()
 
 

@@ -12,8 +12,15 @@ from PySide6.QtWidgets import QDialog, QWidget
 from capture import quick_capture_controller as capture_module
 from core import quick_capture_input as input_module
 from main_app import MainApp
-from settings.tool_settings import ToolSettingsManager
+from settings.tool_settings import QUICK_CAPTURE_ACTIONS, ToolSettingsManager, get_quick_capture_bindings
 from ui.settings_ui.dialog import SettingsDialog
+
+# button: (down message, up message, mouseData high word)
+BUTTONS = {
+    "left": (input_module.WM_LBUTTONDOWN, input_module.WM_LBUTTONUP, 0),
+    "right": (input_module.WM_RBUTTONDOWN, input_module.WM_RBUTTONUP, 0),
+    "x2": (input_module.WM_XBUTTONDOWN, input_module.WM_XBUTTONUP, 2),
+}
 
 
 class AppHarness(QObject):
@@ -29,7 +36,7 @@ class AppHarness(QObject):
         self.hotkey_system.register_hotkey.return_value = True
         self.screenshot_window = self.clipboard_window = self.clipboard_manager = None
         self.settings_window = None
-        self._capture_thread = None
+        self._capture_pending = False
         self.tray_icon = Mock()
         self.start_screenshot = Mock()
         self.open_clipboard_window = Mock()
@@ -50,20 +57,6 @@ class SyntheticHooks:
 
     def stop(self):
         self.stopped = True
-
-
-class SyntheticDesktop:
-    """The real magnifier worker receives deterministic pixels, never desktop data."""
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *_args):
-        pass
-
-    def grab(self, region):
-        width, height = region["width"], region["height"]
-        return SimpleNamespace(width=width, height=height, bgra=b"\x67\x45\x23\xff" * width * height)
 
 
 def synthetic_image(rect):
@@ -89,18 +82,18 @@ def integration(qapp, qtbot, tmp_settings, tmp_path, monkeypatch):
     )
     monkeypatch.setattr(input_module, "_Win32Hooks", create_hooks)
     monkeypatch.setattr(input_module, "_user32", lambda: native)
-    monkeypatch.setattr("mss.mss", SyntheticDesktop)
     monkeypatch.setattr(capture_module, "desktop_bounds", lambda: QRect(0, 0, 800, 600))
     monkeypatch.setattr(capture_module, "flush_desktop", lambda: None)
-    monkeypatch.setattr(capture_module.CaptureService, "capture_region", lambda _self, rect: synthetic_image(rect))
-    monkeypatch.setattr(capture_module.CaptureService, "capture_all_screens", lambda _self: (
+    monkeypatch.setattr(capture_module.CaptureService, "capture_region",
+                        lambda _self, rect, _cursor=None: synthetic_image(rect))
+    monkeypatch.setattr(capture_module.CaptureService, "capture_all_screens", lambda _self, _cursor=None: (
         synthetic_image(QRect(0, 0, 800, 600)), QRectF(0, 0, 800, 600),
     ))
     monkeypatch.setattr("ui.quick_capture_overlay.set_window_exclude_from_capture", Mock())
     copied, pinned = Mock(), Mock()
-    monkeypatch.setattr(capture_module, "deliver_image_async", copied)
+    monkeypatch.setattr(capture_module, "deliver_screenshot", copied)
     monkeypatch.setattr(capture_module, "set_last_region", Mock())
-    monkeypatch.setattr("pin.pin_manager.PinManager.instance", lambda: SimpleNamespace(create_pin=pinned))
+    monkeypatch.setattr("pin.pin_manager.PinManager.instance", lambda: SimpleNamespace(create_pin=pinned, refresh_all_appearance=lambda: None))
     monkeypatch.setattr("ui.settings_ui.dialog.validate_global_hotkey_edits", lambda *_a, **_kw: True)
     for name in ("log_info", "log_debug", "log_warning"):
         monkeypatch.setattr(f"main_app.{name}", Mock())
@@ -109,6 +102,7 @@ def integration(qapp, qtbot, tmp_settings, tmp_path, monkeypatch):
     config.set_log_dir(str(tmp_path))
     config.set_screenshot_save_path(str(tmp_path / "captures"))
     config.set_clipboard_enabled(False)
+    bind(config, copy_pin="win+dragleft")
     app = AppHarness(config)
     dialog = SettingsDialog(config, current_hotkey=config.get_hotkey())
     for attr in ("log_toggle", "autostart_toggle", "language_combo"):
@@ -128,11 +122,23 @@ def integration(qapp, qtbot, tmp_settings, tmp_path, monkeypatch):
     app.deleteLater()
 
 
-def choose(fixture, key, value):
-    control = fixture.dialog._behavior_controls[f"quick_capture_{key}"]
-    index = control.findData(value)
-    assert index >= 0
-    control.setCurrentIndex(index)
+def bind(config, **gestures):
+    for action, *_ in QUICK_CAPTURE_ACTIONS:
+        config.set_app_setting(f"quick_capture_{action}", gestures.get(action, ""))
+
+
+def set_binding(fixture, action, modifiers, gesture):
+    """像用户一样操作这一行的两个下拉框。"""
+    editor = fixture.dialog._behavior_controls[f"quick_capture_{action}"]
+    for combo, value in ((editor.modifiers, modifiers), (editor.gesture, gesture)):
+        position = combo.findData(value)
+        assert position >= 0
+        combo.setCurrentIndex(position)
+    assert editor.currentData() == (f"{modifiers}+{gesture}" if gesture else "")
+
+
+def saved(fixture):
+    return get_quick_capture_bindings(fixture.config)
 
 
 def apply(fixture):
@@ -143,22 +149,24 @@ def apply(fixture):
     assert not fixture.dialog._has_unsaved_changes()
 
 
-def drag(fixture, modifier_keys, *, accepted):
+def drag(fixture, modifier_keys, *, accepted, button="left"):
     fixture.keys.clear()
     fixture.keys.update(modifier_keys)
     backend = fixture.hooks[-1]
+    down, up, high = BUTTONS[button]
 
     def mouse(message, x, y):
-        return backend.mouse(message, SimpleNamespace(pt=SimpleNamespace(x=x, y=y), flags=0))
+        return backend.mouse(message, SimpleNamespace(pt=SimpleNamespace(x=x, y=y), flags=0,
+                                                      mouseData=high << 16))
 
     before = fixture.copied.call_count
-    assert bool(mouse(input_module.WM_LBUTTONDOWN, 100, 120)) is accepted
+    assert bool(mouse(down, 100, 120)) is accepted
     fixture.qapp.processEvents()
     if accepted:
         fixture.qtbot.waitUntil(lambda: fixture.app.quick_capture.overlay is not None
                                and fixture.app.quick_capture.overlay.isVisible())
     assert not mouse(input_module.WM_MOUSEMOVE, 220, 200)
-    assert bool(mouse(input_module.WM_LBUTTONUP, 220, 200)) is accepted
+    assert bool(mouse(up, 220, 200)) is accepted
     fixture.qapp.processEvents()
     if accepted:
         fixture.qtbot.waitUntil(lambda: fixture.copied.call_count == before + 1)
@@ -182,14 +190,13 @@ def drag(fixture, modifier_keys, *, accepted):
 def matching_ctrl_click(fixture):
     fixture.keys.add(0xA2)
     backend = fixture.hooks[-1]
-    data = SimpleNamespace(pt=SimpleNamespace(x=100, y=120), flags=0)
+    data = SimpleNamespace(pt=SimpleNamespace(x=100, y=120), flags=0, mouseData=0)
     return (backend.mouse(input_module.WM_LBUTTONDOWN, data),
             backend.mouse(input_module.WM_LBUTTONUP, data))
 
 
 def configure_ctrl(fixture):
-    fixture.config.set_app_setting("quick_capture_modifier_1", "ctrl")
-    fixture.config.set_app_setting("quick_capture_modifier_2", "")
+    bind(fixture.config, copy_pin="ctrl+dragleft")
     fixture.app.quick_capture.refresh()
 
 
@@ -254,18 +261,14 @@ def test_normal_capture_build_blocks_input_before_first_show_or_reuse(integratio
     drag(f, [0xA2], accepted=True)
 
 
-@pytest.mark.parametrize("magnifier_enabled", [False, True])
-def test_hook_thread_motion_burst_renders_latest_point_once_on_gui_thread(
-    integration, monkeypatch, magnifier_enabled,
-):
+def test_hook_thread_motion_burst_renders_latest_point_once_on_gui_thread(integration, monkeypatch):
     fixture = integration
     controller = fixture.app.quick_capture
-    fixture.config.set_app_setting("magnifier_enabled", magnifier_enabled)
     fixture.keys.add(0x5B)
     backend = fixture.hooks[-1]
 
     def mouse(message, x, y):
-        return backend.mouse(message, SimpleNamespace(pt=SimpleNamespace(x=x, y=y), flags=0))
+        return backend.mouse(message, SimpleNamespace(pt=SimpleNamespace(x=x, y=y), flags=0, mouseData=0))
 
     assert mouse(input_module.WM_LBUTTONDOWN, 100, 120)
     fixture.qapp.processEvents()
@@ -291,7 +294,6 @@ def test_hook_thread_motion_burst_renders_latest_point_once_on_gui_thread(
     assert painted_threads == [fixture.qapp.thread()]
     assert overlay.model.rect() == QRectF(100, 120, 500, 250)
     assert controller.input.take_position(controller._active) is None
-    assert (controller._preview is not None) is magnifier_enabled
     # Final capture uses the release position even if no move event announced it.
     assert mouse(input_module.WM_LBUTTONUP, 620, 380)
     fixture.qtbot.waitUntil(lambda: fixture.copied.called)
@@ -305,12 +307,10 @@ def test_apply_switches_real_dispatch_from_win_to_ctrl_alt_without_closing_setti
     drag(fixture, [0x5B], accepted=True)
     assert fixture.pinned.call_count == 1
 
-    choose(fixture, "modifier_1", "ctrl")
-    choose(fixture, "modifier_2", "alt")
-    choose(fixture, "action", "copy")
+    set_binding(fixture, "copy_pin", "", "")
+    set_binding(fixture, "copy", "ctrl+alt", "dragleft")
     apply(fixture)
-    assert fixture.config.get_app_setting("quick_capture_modifier_1") == "ctrl"
-    assert fixture.config.get_app_setting("quick_capture_modifier_2") == "alt"
+    assert saved(fixture) == {(frozenset({"ctrl", "alt"}), "left"): "copy"}
     drag(fixture, [0x5B], accepted=False)
     drag(fixture, [0xA2], accepted=False)
     drag(fixture, [0xA2, 0xA4], accepted=True)
@@ -318,22 +318,37 @@ def test_apply_switches_real_dispatch_from_win_to_ctrl_alt_without_closing_setti
     fixture.app.set_clipboard_monitoring_enabled.assert_called_once_with(False)
 
 
-def test_apply_disabled_action_and_restore_defaults_reconfigure_real_input(integration):
+def test_each_button_dispatches_its_own_action_through_real_input(integration):
     fixture = integration
-    choose(fixture, "modifier_1", "ctrl")
-    choose(fixture, "modifier_2", "alt")
-    choose(fixture, "action", "copy")
+    set_binding(fixture, "copy", "shift+win", "dragleft")
+    set_binding(fixture, "pin", "win", "dragright")
     apply(fixture)
-    drag(fixture, [0xA2, 0xA4], accepted=True)
-    choose(fixture, "action", "none")
-    apply(fixture)
-    assert fixture.hooks[-1].stopped
-    drag(fixture, [0xA2, 0xA4], accepted=False)
+    drag(fixture, [0x5B], accepted=True)
+    assert (fixture.copied.call_count, fixture.pinned.call_count) == (1, 1)
+    drag(fixture, [0xA0, 0x5B], accepted=True)
+    assert (fixture.copied.call_count, fixture.pinned.call_count) == (2, 1)
+    drag(fixture, [0x5B], accepted=True, button="right")
+    assert (fixture.copied.call_count, fixture.pinned.call_count) == (3, 2)
+    drag(fixture, [0x5B], accepted=False, button="x2")
 
-    fixture.dialog._reset_hotkey_page()
+    set_binding(fixture, "pin", "win", "dragx2")
     apply(fixture)
-    assert fixture.config.get_app_setting("quick_capture_action") == "copy_pin"
-    assert fixture.hooks[-1].started and not fixture.hooks[-1].stopped
-    drag(fixture, [0xA2, 0xA4], accepted=False)
+    drag(fixture, [0x5B], accepted=False, button="right")
+    drag(fixture, [0x5B], accepted=True, button="x2")
+    assert fixture.pinned.call_count == 3
+
+
+def test_clearing_every_binding_unhooks_and_defaults_bring_back_win_pin(integration):
+    fixture = integration
+    set_binding(fixture, "copy_pin", "", "")
+    apply(fixture)
+    assert saved(fixture) == {}
+    assert fixture.hooks[-1].stopped
+    drag(fixture, [0x5B], accepted=False)
+
+    fixture.dialog._reset_mouse_page()
+    apply(fixture)
+    assert saved(fixture) == {(frozenset({"win"}), "left"): "pin"}
+    assert not fixture.hooks[-1].stopped
     drag(fixture, [0x5B], accepted=True)
     assert fixture.pinned.call_count == 1

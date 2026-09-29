@@ -204,9 +204,7 @@ class MainApp(QObject):
 
     def _on_about_to_quit(self):
         """应用退出前收尾"""
-        quick_capture = getattr(self, 'quick_capture', None)
-        if quick_capture:
-            quick_capture.close()
+        self.quick_capture.close()
         self._display_watcher.close()
         try:
             from translation import TranslationManager
@@ -244,9 +242,7 @@ class MainApp(QObject):
         self.hotkey_system.unregister_all()
 
         # 3. 显示向导
-        quick_capture = getattr(self, 'quick_capture', None)
-        if quick_capture:
-            quick_capture.suspend()
+        self.quick_capture.suspend()
         try:
             from ui.welcome import WelcomeWizard
             wizard = WelcomeWizard(self.config_manager)
@@ -390,9 +386,7 @@ class MainApp(QObject):
                 log_warning(T("钉图热键注册失败: {pin_clipboard_hotkey}", pin_clipboard_hotkey=pin_clipboard_hotkey), "Hotkey")
                 failed_hotkeys.append((label, pin_clipboard_hotkey))
         
-        quick_capture = getattr(self, 'quick_capture', None)
-        if quick_capture:
-            quick_capture.refresh()
+        self.quick_capture.refresh()
 
         # 如果有注册失败的热键且需要显示提示
         if show_error and failed_hotkeys:
@@ -402,9 +396,7 @@ class MainApp(QObject):
         """禁用/启用所有全局热键，并立即应用。"""
         self.config_manager.set_app_setting("global_hotkeys_disabled", disabled)
         self.hotkey_system.set_suppressed(disabled)
-        quick_capture = getattr(self, 'quick_capture', None)
-        if quick_capture:
-            quick_capture.refresh()
+        self.quick_capture.refresh()
         if disabled:
             log_info(T("全局热键已临时禁用（保留注册，仅忽略回调）"), "Hotkey")
         else:
@@ -470,8 +462,7 @@ class MainApp(QObject):
             
     def start_screenshot(self):
         """启动截图 - 管理截图窗口生命周期"""
-        quick_capture = getattr(self, 'quick_capture', None)
-        if quick_capture and quick_capture.busy:
+        if self.quick_capture.busy:
             return
         
         # 已有截图窗口且会话活跃 → 忽略重复触发，并把焦点还给截图窗口
@@ -519,15 +510,12 @@ class MainApp(QObject):
         from PySide6.QtCore import QTimer
 
         self._capture_pending = True
-        quick_capture = getattr(self, 'quick_capture', None)
-        if quick_capture:
-            quick_capture.set_capture_pending(True)
+        self.quick_capture.set_capture_pending(True)
         QTimer.singleShot(0, self._capture_and_prepare_window)
 
     def _capture_and_prepare_window(self):
         """在主线程截图，随后创建或复用截图窗口"""
         include_cursor = self.config_manager.get_app_setting("capture_include_cursor", False)
-        quick_capture = getattr(self, 'quick_capture', None)
         try:
             from capture.capture_service import CaptureService
             from capture.system_cursor import SystemCursor
@@ -538,8 +526,7 @@ class MainApp(QObject):
             return
         finally:
             self._capture_pending = False
-            if quick_capture:
-                quick_capture.capture_preparation_finished()
+            self.quick_capture.set_capture_pending(False)
 
         self._on_capture_ready(image, rect, cursor)
 
@@ -551,9 +538,7 @@ class MainApp(QObject):
         if self._activate_blocking_modal():
             return
         
-        quick_capture = getattr(self, 'quick_capture', None)
-        if quick_capture:
-            quick_capture.set_capture_pending(True)
+        self.quick_capture.set_capture_pending(True)
         try:
             if self.screenshot_window is not None:
                 # 复用已有窗口（节省 ~250ms 的 UI 壳创建时间）
@@ -571,8 +556,7 @@ class MainApp(QObject):
                     prefetched_cursor=cursor,
                 )
         finally:
-            if quick_capture:
-                quick_capture.set_capture_pending(False)
+            self.quick_capture.set_capture_pending(False)
     
     def open_settings(self):
         """打开设置窗口"""
@@ -792,9 +776,7 @@ class MainApp(QObject):
             log_exception(e, T("钉住剪贴板图片失败"))
         
     def quit_app(self):
-        quick_capture = getattr(self, 'quick_capture', None)
-        if quick_capture:
-            quick_capture.close()
+        self.quick_capture.close()
         # 完全销毁缓存的截图窗口
         if self.screenshot_window:
             try:

@@ -1,3 +1,4 @@
+import pytest
 from PySide6.QtCore import QPoint, QPointF, QSettings, Qt
 from PySide6.QtGui import QWheelEvent
 from PySide6.QtWidgets import QApplication, QScrollArea
@@ -17,7 +18,13 @@ def _scroll_down(widget):
     QApplication.sendEvent(widget, event)
 
 
-def test_wheel_over_combo_scrolls_page_instead_of_changing_value(monkeypatch, qapp, tmp_path):
+@pytest.mark.parametrize("page_index,combo_of", [
+    (3, lambda dialog: dialog._ui_scale_combo),
+    # 全局鼠标快捷键每行两个下拉框，和其他设置页一样不能被滚轮改掉
+    (10, lambda dialog: dialog._behavior_controls["quick_capture_copy"].modifiers),
+    (10, lambda dialog: dialog._behavior_controls["quick_capture_copy"].gesture),
+])
+def test_wheel_over_combo_scrolls_page_instead_of_changing_value(monkeypatch, qapp, tmp_path, page_index, combo_of):
     qsettings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
     manager = ToolSettingsManager(qsettings=qsettings)
     manager.set_log_dir(str(tmp_path))
@@ -29,7 +36,7 @@ def test_wheel_over_combo_scrolls_page_instead_of_changing_value(monkeypatch, qa
     dialog = SettingsDialog(manager)
     try:
         dialog.resize(900, 420)
-        dialog.content_stack.setCurrentIndex(3)
+        dialog.content_stack.setCurrentIndex(page_index)
         dialog.show()
         qapp.processEvents()
 
@@ -39,7 +46,7 @@ def test_wheel_over_combo_scrolls_page_instead_of_changing_value(monkeypatch, qa
         assert bar.maximum() > 0
         bar.setValue(0)
 
-        combo = dialog._ui_scale_combo
+        combo = combo_of(dialog)
         combo.setCurrentIndex(0)
         _scroll_down(combo)
 

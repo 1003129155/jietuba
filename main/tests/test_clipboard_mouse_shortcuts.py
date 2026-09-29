@@ -15,7 +15,7 @@ from clipboard.core import ClipboardItem
 from clipboard.ui.windows.clipboard_window import ClipboardShortcutHandler
 from settings.tool_settings import CLIPBOARD_MOUSE_ACTIONS, ToolSettingsManager
 from ui.settings_ui.dialog import SettingsDialog
-from ui.settings_ui.page_hotkey import mouse_binding_conflicts
+from ui.settings_ui.page_mouse import mouse_binding_conflicts
 
 
 @pytest.fixture
@@ -253,6 +253,7 @@ def test_clipboard_tab_persists_resets_and_validates_bindings(qtbot, config, mon
         delattr(dialog, attr)
     dialog._skip_unsaved_close_prompt = True
     dialog.show()
+    dialog._on_nav_changed(10, 'mouse')
     stack = dialog.findChild(QStackedWidget, 'MouseShortcutStack')
     assert stack.count() == 3
     stack.setCurrentIndex(2)
@@ -267,7 +268,7 @@ def test_clipboard_tab_persists_resets_and_validates_bindings(qtbot, config, mon
     paste.setBinding('ctrl+left')
     assert dialog.apply_settings() is True
     assert config.get_app_setting('mouse_clipboard_paste') == 'ctrl+left'
-    dialog._reset_hotkey_page()
+    dialog._reset_mouse_page()
     assert paste.currentData() == 'left'
     assert dialog._behavior_controls['mouse_clipboard_quick_edit'].currentData() == 'middle'
     assert not mouse_binding_conflicts(dialog)

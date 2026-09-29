@@ -1,4 +1,4 @@
-"""Quick capture preferences persist and participate in normal settings workflows."""
+"""Global mouse shortcuts persist and participate in normal settings workflows."""
 
 from pathlib import Path
 from types import SimpleNamespace
@@ -6,9 +6,9 @@ from types import SimpleNamespace
 import pytest
 from PySide6.QtCore import QSettings, QTranslator
 
-from settings.tool_settings import ToolSettingsManager
+from settings.tool_settings import QUICK_CAPTURE_ACTIONS, ToolSettingsManager, get_quick_capture_bindings
 from ui.settings_ui.dialog import SettingsDialog
-from ui.settings_ui.page_hotkey import _create_quick_capture
+from ui.settings_ui.page_mouse import _create_global_section
 
 
 @pytest.fixture
@@ -32,99 +32,138 @@ def settings(qapp, config, monkeypatch):
     dialog.deleteLater()
 
 
-def choose(dialog, key, value):
-    control = dialog._behavior_controls[f"quick_capture_{key}"]
-    index = control.findData(value)
+def editor(dialog, action):
+    return dialog._behavior_controls[f"quick_capture_{action}"]
+
+
+def choose(combo, value):
+    index = combo.findData(value)
     assert index >= 0
-    control.setCurrentIndex(index)
+    combo.setCurrentIndex(index)
 
 
-def values(dialog):
-    return tuple(dialog._behavior_controls[f"quick_capture_{key}"].currentData()
-                 for key in ("modifier_1", "modifier_2", "action"))
+def win(button="left"):
+    return frozenset({"win"}), button
 
 
-def test_defaults_and_modifier_only_choices(settings, config):
-    assert values(settings) == ("win", "", "copy_pin")
-    for key in ("modifier_1", "modifier_2"):
-        combo = settings._behavior_controls[f"quick_capture_{key}"]
-        assert [combo.itemData(i) for i in range(combo.count())] == ["", "ctrl", "shift", "win", "alt"]
-        assert not combo.isEditable()
-    assert config.get_app_setting("quick_capture_action") == "copy_pin"
+def test_default_binds_win_left_drag_to_pin_and_leaves_other_rows_empty(settings, config):
+    assert [key for key in settings._behavior_controls if key.startswith("quick_capture_")] == [
+        f"quick_capture_{action}" for action, *_ in QUICK_CAPTURE_ACTIONS]
+    for action, *_ in QUICK_CAPTURE_ACTIONS:
+        assert editor(settings, action).currentData() == ("win+dragleft" if action == "pin" else "")
+    assert get_quick_capture_bindings(config) == {win(): "pin"}
 
 
-@pytest.mark.parametrize("action", ["none", "pin", "copy", "copy_pin", "edit"])
-def test_apply_persists_modifiers_and_action(settings, config, action):
-    choose(settings, "modifier_1", "ctrl")
-    choose(settings, "modifier_2", "shift")
-    choose(settings, "action", action)
+def test_every_mouse_button_can_be_chosen(settings):
+    gesture = editor(settings, "copy").gesture
+    assert [gesture.itemData(i) for i in range(gesture.count())] == [
+        "", "dragleft", "dragmiddle", "dragright", "dragx1", "dragx2"]
+
+
+def test_modifier_choices_need_one_or_two_keys_and_start_with_win(settings):
+    modifiers = editor(settings, "copy").modifiers
+    values = [modifiers.itemData(i) for i in range(modifiers.count())]
+    assert values[:2] == ["", "win"]
+    assert modifiers.itemText(0) == ""
+    assert all(1 <= len(value.split("+")) <= 2 for value in values[1:])
+
+
+def test_choosing_a_button_fills_in_win_and_clearing_either_side_clears_both(settings):
+    row = editor(settings, "ocr")
+    choose(row.gesture, "dragx1")
+    assert row.currentData() == "win+dragx1"
+    choose(row.modifiers, "ctrl+alt")
+    assert row.currentData() == "ctrl+alt+dragx1"
+    choose(row.gesture, "")
+    assert (row.modifiers.currentData(), row.currentData()) == ("", "")
+    choose(row.gesture, "dragmiddle")
+    choose(row.modifiers, "")
+    assert (row.gesture.currentData(), row.currentData()) == ("", "")
+
+
+def test_modifier_without_a_button_is_not_saved(settings, config):
+    choose(editor(settings, "copy").modifiers, "shift+win")
+    assert editor(settings, "copy").currentData() == ""
+    assert settings.apply_settings()
+    assert get_quick_capture_bindings(config) == {win(): "pin"}
+
+
+def test_apply_persists_every_button_and_it_reloads(settings, config):
+    choose(editor(settings, "pin").gesture, "")
+    for action, modifiers, gesture in (
+        ("copy", "ctrl+alt", "dragx1"), ("edit", "shift+win", "dragright"),
+        ("ocr", "alt", "dragmiddle"), ("translate", "win", "dragx2"), ("copy_pin", "ctrl", "dragleft"),
+    ):
+        choose(editor(settings, action).gesture, gesture)
+        choose(editor(settings, action).modifiers, modifiers)
     assert settings._has_unsaved_changes()
     assert settings.apply_settings()
     assert not settings._has_unsaved_changes()
-    assert config.get_app_setting("quick_capture_modifier_1") == "ctrl"
-    assert config.get_app_setting("quick_capture_modifier_2") == "shift"
-    assert config.get_app_setting("quick_capture_action") == action
+    expected = {
+        (frozenset({"ctrl", "alt"}), "x1"): "copy", (frozenset({"shift", "win"}), "right"): "edit",
+        (frozenset({"alt"}), "middle"): "ocr", win("x2"): "translate", (frozenset({"ctrl"}), "left"): "copy_pin",
+    }
+    assert get_quick_capture_bindings(config) == expected
     restored = ToolSettingsManager(qsettings=QSettings(config.qsettings.fileName(), QSettings.IniFormat))
-    assert restored.get_app_setting("quick_capture_modifier_1") == "ctrl"
-    assert restored.get_app_setting("quick_capture_modifier_2") == "shift"
-    assert restored.get_app_setting("quick_capture_action") == action
+    assert get_quick_capture_bindings(restored) == expected
 
 
-def test_no_modifiers_can_be_saved_to_disable_quick_capture(settings, config):
-    choose(settings, "modifier_1", "")
-    choose(settings, "modifier_2", "")
+def test_clearing_the_default_stays_cleared_after_reload(settings, config):
+    choose(editor(settings, "pin").gesture, "")
     assert settings.apply_settings()
-    assert config.get_app_setting("quick_capture_modifier_1") == ""
-    assert config.get_app_setting("quick_capture_modifier_2") == ""
+    restored = ToolSettingsManager(qsettings=QSettings(config.qsettings.fileName(), QSettings.IniFormat))
+    assert get_quick_capture_bindings(restored) == {}
 
 
-def test_duplicate_modifiers_are_collapsed_from_either_combo(settings):
-    choose(settings, "modifier_2", "win")
-    assert values(settings)[:2] == ("win", "")
-    choose(settings, "modifier_2", "shift")
-    choose(settings, "modifier_1", "shift")
-    assert values(settings)[:2] == ("shift", "")
+def test_same_gesture_on_two_rows_blocks_apply(settings, config, monkeypatch):
+    warnings = []
+    monkeypatch.setattr("ui.settings_ui.dialog.show_warning_dialog", lambda *args: warnings.append(args))
+    choose(editor(settings, "copy").gesture, "dragleft")
+    assert editor(settings, "copy").currentData() == "win+dragleft"
+    assert not settings.apply_settings()
+    assert ("Global Mouse Shortcuts · Win + Left Drag: "
+            "Screenshot (Mouse Shortcuts) / Pin to Screen (Mouse Shortcuts)") in warnings[0][2]
+    assert config.get_app_setting("quick_capture_copy") == ""
 
 
-def test_refresh_uses_saved_values_and_reset_is_not_saved_implicitly(settings, config):
-    config.set_app_setting("quick_capture_modifier_1", "alt")
-    config.set_app_setting("quick_capture_modifier_2", "ctrl")
-    config.set_app_setting("quick_capture_action", "edit")
-    settings.refresh_settings()
-    assert values(settings) == ("alt", "ctrl", "edit")
-    settings._reset_hotkey_page()
-    assert values(settings) == ("win", "", "copy_pin")
-    assert config.get_app_setting("quick_capture_action") == "edit"
+def test_same_modifiers_on_different_buttons_do_not_conflict(settings, config):
+    choose(editor(settings, "copy").gesture, "dragright")
     assert settings.apply_settings()
-    assert config.get_app_setting("quick_capture_action") == "copy_pin"
+    assert get_quick_capture_bindings(config) == {win(): "pin", win("right"): "copy"}
 
 
-def test_invalid_saved_values_fall_back_to_defaults(settings, config):
-    for key in ("modifier_1", "modifier_2", "action"):
-        config.set_app_setting(f"quick_capture_{key}", "unknown")
+def test_refresh_uses_saved_value_and_reset_is_not_saved_implicitly(settings, config):
+    config.set_app_setting("quick_capture_pin", "")
+    config.set_app_setting("quick_capture_edit", "ctrl+win+dragx2")
     settings.refresh_settings()
-    assert values(settings) == ("win", "", "copy_pin")
+    assert editor(settings, "pin").currentData() == ""
+    assert editor(settings, "edit").currentData() == "ctrl+win+dragx2"
+    settings._reset_mouse_page()
+    assert editor(settings, "pin").currentData() == "win+dragleft"
+    assert editor(settings, "edit").currentData() == ""
+    assert get_quick_capture_bindings(config) == {(frozenset({"ctrl", "win"}), "x2"): "edit"}
+    assert settings.apply_settings()
+    assert get_quick_capture_bindings(config) == {win(): "pin"}
 
 
-def test_initial_invalid_values_fall_back_to_defaults(qapp, config):
-    for key in ("modifier_1", "modifier_2", "action"):
-        config.set_app_setting(f"quick_capture_{key}", "unknown")
+@pytest.mark.parametrize("stored", ["not a gesture", "win+left", "ctrl+alt+shift+dragleft", "win+dragx3"])
+def test_unreadable_saved_value_shows_an_empty_row(qapp, config, stored):
+    config.set_app_setting("quick_capture_copy", stored)
     dialog = SimpleNamespace(config_manager=config, tr=lambda text: text)
-    card = _create_quick_capture(dialog, None)
-    assert values(dialog) == ("win", "", "copy_pin")
+    card = _create_global_section(dialog, None)
+    assert dialog._behavior_controls["quick_capture_copy"].currentData() == ""
+    assert (frozenset({"win"}), "left") in get_quick_capture_bindings(config)
     card.deleteLater()
 
 
 @pytest.mark.parametrize("language", ["en", "ja", "ko", "zh"])
-def test_compiled_quick_capture_translations(qapp, language):
+def test_compiled_global_mouse_translations(qapp, language):
     translator = QTranslator()
     path = Path(__file__).parents[1] / "translations" / f"app_{language}.qm"
     assert translator.load(str(path))
-    for source in (
-        "Quick Capture", "First Modifier", "Second Modifier", "Capture and Pin", "Capture and Copy",
-        "Quick capture failed. Please try again.",
-        "Capture, Copy and Pin", "Normal Capture",
-        "Hold the modifier keys and drag with the left mouse button. Release to capture, Esc to cancel. "
-        "Select at least one modifier to enable Quick Capture.",
-    ):
-        assert translator.translate("SettingsDialog", source)
+    sources = [label for _action, label, *_ in QUICK_CAPTURE_ACTIONS] + [
+        "Global Mouse Shortcuts", "Hold modifier keys and drag the mouse", "Back Button Drag",
+        "Forward Button Drag", "Capture failed. Please try again.",
+    ]
+    for source in sources:
+        assert translator.translate("SettingsDialog", source), source

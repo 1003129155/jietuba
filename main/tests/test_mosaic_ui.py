@@ -211,8 +211,6 @@ def test_annotation_shortcut_translations_exist_and_load(qapp):
             "Eraser": "지우개",
         },
     }
-    hint_source = "💡 Configured shortcuts take priority over WASD and C. Arrow keys remain available; Esc is reserved."
-
     for language, expected in expected_by_language.items():
         root = ET.parse(translations / f"app_{language}.xml").getroot()
         settings_context = next(
@@ -223,7 +221,7 @@ def test_annotation_shortcut_translations_exist_and_load(qapp):
         settings_sources = {
             node.text for node in settings_context.findall("message/source")
         }
-        assert set(expected) | {hint_source} <= settings_sources
+        assert set(expected) <= settings_sources
 
         translator = QTranslator()
         assert translator.load(str(translations / f"app_{language}.qm"))

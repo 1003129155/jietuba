@@ -1,24 +1,29 @@
-"""Global drag capture: keep the live desktop visible until the mouse is released."""
+"""全局鼠标快捷键：按住修饰键拖出选区，拖动期间桌面保持实时，松开后截图并执行动作。"""
 
 import ctypes
 import sys
-import threading
 
-from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QRectF, QSizeF, QThread, QTimer, Qt, Signal, Slot
+from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QRectF, QSizeF, QThread, Qt, Signal, Slot
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QWidget
 
 from capture.capture_service import CaptureService
-from core.clipboard_utils import deliver_image_async
+from core.clipboard_utils import deliver_screenshot
 from core.last_capture_region import set_last_region
 from core.logger import log_debug, log_error
-from core.platform_utils import trim_working_set
+from core.platform_utils import request_trim_working_set
 from core.quick_capture_input import QuickCaptureInput
-from settings.tool_settings import QUICK_CAPTURE_ACTIONS, QUICK_CAPTURE_MODIFIERS
+from settings.tool_settings import get_quick_capture_bindings
 from ui.quick_capture_overlay import QuickCaptureOverlay, selection_rect
 
 
+# 截图类动作：(复制到剪贴板, 钉图)
+_CAPTURE_ACTIONS = {"copy": (True, False), "pin": (False, True), "copy_pin": (True, True)}
+_TEXT_ACTIONS = ("translate", "ocr")
+
+
 def desktop_bounds():
-    """The application disables Qt scaling: all capture coordinates are physical."""
+    """应用关闭了 Qt 缩放，截图坐标都是物理像素。"""
     bounds = QRect()
     for screen in QApplication.screens():
         bounds = bounds.united(screen.geometry())
@@ -26,14 +31,13 @@ def desktop_bounds():
 
 
 def flush_desktop():
-    # The overlay is already hidden on the GUI thread. Wait for the compositor
-    # on the worker, so the selection border never becomes part of the capture.
+    # 浮层已在 GUI 线程隐藏；在工作线程等一次合成，选框就不会被截进去
     if sys.platform == "win32":
         ctypes.windll.dwmapi.DwmFlush()
 
 
 class QuickCaptureWorker(QThread):
-    captured = Signal(object, object)
+    captured = Signal(object, object)  # image, bounds
     failed = Signal(str)
 
     def __init__(self, region, action, parent=None):
@@ -53,11 +57,10 @@ class QuickCaptureWorker(QThread):
                 self.cursor = SystemCursor.grab()
             service = CaptureService()
             if self.action == "edit":
-                image, bounds = service.capture_all_screens(self.cursor) if self.cursor else service.capture_all_screens()
+                # 转入普通截图要整个桌面作底图，选区之后还能调
+                image, bounds = service.capture_all_screens(self.cursor)
             else:
-                image = (service.capture_region(self.region, self.cursor) if self.cursor
-                         else service.capture_region(self.region))
-                bounds = QRectF(self.region)
+                image, bounds = service.capture_region(self.region, self.cursor), QRectF(self.region)
             if image.isNull():
                 raise RuntimeError("The captured image is empty")
             if not self.isInterruptionRequested():
@@ -66,78 +69,8 @@ class QuickCaptureWorker(QThread):
             self.failed.emit(str(exc))
 
 
-class QuickCapturePreview(QThread):
-    """Sample a small live desktop patch; keep only the latest frame for the GUI."""
-
-    failed = Signal(str)
-    frame_ready = Signal()
-    SAMPLE_SIZE = 96
-
-    def __init__(self, source, bounds, parent=None):
-        super().__init__(parent)
-        self.source = source
-        self.bounds = QRect(bounds)
-        self._frame = None
-        self._frame_lock = threading.Lock()
-        self._frame_pending = False
-        self._stop_event = threading.Event()
-        self._sample_requested = threading.Event()
-
-    def request_sample(self):
-        self._sample_requested.set()
-
-    def take_frame(self):
-        """Consume the latest frame and allow one more queued notification."""
-        with self._frame_lock:
-            frame, self._frame = self._frame, None
-            self._frame_pending = False
-            return frame
-
-    def _publish_frame(self, image, region):
-        with self._frame_lock:
-            if self._stop_event.is_set():
-                return
-            self._frame = (image, region)
-            notify = not self._frame_pending
-            self._frame_pending = True
-        if notify:
-            self.frame_ready.emit()
-
-    def stop(self):
-        self._stop_event.set()
-        self._sample_requested.set()
-        self.requestInterruption()
-
-    def run(self):
-        import mss
-        from PySide6.QtGui import QImage
-        try:
-            with mss.mss() as desktop:
-                while not self._stop_event.is_set():
-                    self._sample_requested.clear()
-                    if self._stop_event.is_set():
-                        break
-                    x, y = self.source.position
-                    half = self.SAMPLE_SIZE // 2
-                    region = QRect(x - half, y - half, self.SAMPLE_SIZE, self.SAMPLE_SIZE).intersected(self.bounds)
-                    if not region.isEmpty():
-                        shot = desktop.grab(dict(left=region.x(), top=region.y(),
-                                                 width=region.width(), height=region.height()))
-                        image = QImage(shot.bgra, shot.width, shot.height, shot.width * 4,
-                                       QImage.Format.Format_RGB32).copy()
-                        # Publish an immutable pair. Neither thread mutates the image.
-                        self._publish_frame(image, region)
-                    # Movement wakes the sampler immediately. While stationary,
-                    # still refresh changing desktop pixels without busy-waiting.
-                    if not self._stop_event.is_set():
-                        self._sample_requested.wait(0.033)
-        except Exception as exc:
-            if not self._stop_event.is_set():
-                self.failed.emit(str(exc))
-
-
 class QuickCaptureController(QObject):
-    """Own input hooks, one transparent overlay, and at most one capture worker."""
+    """持有输入钩子、一个透明浮层和至多一个抓屏线程。"""
 
     def __init__(self, main_app):
         super().__init__(main_app)
@@ -146,24 +79,17 @@ class QuickCaptureController(QObject):
         self.input.event.connect(self._on_input, Qt.ConnectionType.QueuedConnection)
         self.input.moved.connect(self._on_moved, Qt.ConnectionType.QueuedConnection)
         self.input.failure.connect(self._on_failure, Qt.ConnectionType.QueuedConnection)
-        self.input.command.connect(self._on_command, Qt.ConnectionType.QueuedConnection)
         self.overlay = None
         self._active = None
         self._worker = None
-        self._preview = None
-        self._preview_workers = set()
         self._result_valid = False
         self._closed = False
         self._enabled = False
-        self._action = "none"
+        self._actions = {}
+        self._active_action = None
         self._start = QPoint()
         self._bounds = QRect()
         self._capture_pending = False
-        # 结束后静置 1.5 秒再收缩工作集；新拖选会取消等待，避免拖动时换页卡顿。
-        self._trim_timer = QTimer(self)
-        self._trim_timer.setSingleShot(True)
-        self._trim_timer.setInterval(1500)
-        self._trim_timer.timeout.connect(self._trim_working_set_if_idle)
         QApplication.instance().installEventFilter(self)
 
     @property
@@ -171,22 +97,19 @@ class QuickCaptureController(QObject):
         return self._active is not None or self._worker is not None
 
     def refresh(self):
-        """Apply saved settings, including the tray's global-hotkey pause."""
+        """按已保存的设置生效，包括托盘的「暂停全局热键」。"""
         self.cancel()
         config = self.main_app.config_manager
-        first = config.get_app_setting("quick_capture_modifier_1", "win")
-        second = config.get_app_setting("quick_capture_modifier_2", "")
-        self._action = config.get_app_setting("quick_capture_action", "copy_pin")
-        valid = first in QUICK_CAPTURE_MODIFIERS and second in QUICK_CAPTURE_MODIFIERS
-        modifiers = frozenset(key for key in (first, second) if key) if valid else frozenset()
+        self._actions = get_quick_capture_bindings(config)
         self._enabled = bool(
-            modifiers and self._action in dict(QUICK_CAPTURE_ACTIONS) and self._action != "none"
-            and not self._closed and not config.get_app_setting("global_hotkeys_disabled", False)
+            self._actions and not self._closed
+            and not config.get_app_setting("global_hotkeys_disabled", False)
         )
         self.sync_input_availability()
-        self.input.configure(modifiers, self._enabled)
-        log_debug(f"Quick capture binding applied: modifiers={'+'.join(sorted(modifiers))}, "
-                  f"action={self._action}, enabled={self._enabled}", "QuickCapture")
+        self.input.configure(frozenset(self._actions), self._enabled)
+        gestures = ", ".join(f"{'+'.join(sorted(modifiers))}+{button}={action}"
+                             for (modifiers, button), action in self._actions.items())
+        log_debug(f"Quick capture bindings applied: [{gestures}], enabled={self._enabled}", "QuickCapture")
 
     def suspend(self):
         self.cancel()
@@ -195,28 +118,21 @@ class QuickCaptureController(QObject):
 
     def _blocked(self):
         screenshot = self.main_app.screenshot_window
-        thread = getattr(self.main_app, "_capture_thread", None)
         return bool(
             QApplication.activeModalWidget() is not None
             or (screenshot and getattr(screenshot, "_session_active", False))
-            or (thread and thread.isRunning())
         )
 
     def set_capture_pending(self, pending):
-        """Block before normal capture begins, including its first window build."""
+        """普通截图从排队到窗口建好期间，全局鼠标快捷键不响应。"""
         self._capture_pending = bool(pending)
         self.sync_input_availability()
-
-    @Slot()
-    def capture_preparation_finished(self):
-        self.set_capture_pending(False)
 
     def sync_input_availability(self):
         if self._closed:
             return
-        # A modal's Show event precedes activeModalWidget() registration. Read
-        # its visible window state here, on the GUI thread, before native input
-        # can be claimed. Hide similarly restores the shortcut immediately.
+        # 模态窗口的 Show 事件早于 activeModalWidget() 登记，所以直接看可见的模态窗口；
+        # Hide 时同样立即恢复
         modal_visible = any(window.isVisible() and window.isModal()
                             for window in QApplication.topLevelWidgets())
         self.input.set_blocked(self._capture_pending or self._blocked() or modal_visible)
@@ -232,7 +148,8 @@ class QuickCaptureController(QObject):
         if kind != "cancel" and not self.input.accepts(token):
             return
         if kind == "start":
-            if not self._enabled or self.busy or self._blocked():
+            action = self._actions.get(self.input.gesture_binding(token))
+            if not self._enabled or action is None or self.busy or self._blocked():
                 log_debug("Quick capture ignored: disabled, busy, or a capture/modal window is active", "QuickCapture")
                 self.input.cancel()
                 return
@@ -242,17 +159,10 @@ class QuickCaptureController(QObject):
                 self.input.cancel()
                 return
             self._active = token
-            self._trim_timer.stop()
+            self._active_action = action
             if self.overlay is None:
                 self.overlay = QuickCaptureOverlay(self.main_app.config_manager)
             self.overlay.show_selection(self._start, self._start, self._bounds)
-            if self.overlay.capture_excluded and self.main_app.config_manager.get_app_setting("magnifier_enabled", True):
-                self._start_preview()
-            elif not self.overlay.capture_excluded:
-                # Capturing a visible overlay would feed its own border and
-                # magnifier back into the sampler. The final capture still
-                # works through the hide-before-grab fallback.
-                log_debug("Live magnifier unavailable: window capture exclusion failed", "QuickCapture")
         elif token == self._active:
             if kind == "cancel":
                 self.cancel()
@@ -261,6 +171,8 @@ class QuickCaptureController(QObject):
                 self._hide_selection()
                 if region.width() >= 2 and region.height() >= 2 and not self._blocked():
                     self._capture(region)
+                else:
+                    self._schedule_working_set_trim()
 
     @Slot(int)
     def _on_moved(self, token):
@@ -271,85 +183,34 @@ class QuickCaptureController(QObject):
             self.cancel()
             return
         self.overlay.show_selection(self._start, QPoint(*position), self._bounds)
-        if self._preview is not None:
-            self._preview.request_sample()
-
-    @Slot()
-    def _on_preview_frame(self):
-        preview = self.sender()
-        if preview is not self._preview or self._active is None:
-            return
-        if self._blocked():
-            self.cancel()
-            return
-        frame = preview.take_frame()
-        if frame is not None:
-            self.overlay.set_sample_image(*frame)
-
-    def _start_preview(self):
-        preview = QuickCapturePreview(self.input, self._bounds, self)
-        self._preview = preview
-        self._preview_workers.add(preview)
-        preview.frame_ready.connect(self._on_preview_frame, Qt.ConnectionType.QueuedConnection)
-        preview.failed.connect(self._on_preview_failure, Qt.ConnectionType.QueuedConnection)
-        preview.finished.connect(self._preview_finished)
-        preview.start()
-
-    @Slot(str)
-    def _on_preview_failure(self, message):
-        # A stopped sampler may already have queued an error. It must not
-        # cancel a later gesture or a capture that has already been released.
-        if self.sender() is self._preview:
-            self._on_failure(message)
-
-    @Slot()
-    def _preview_finished(self):
-        preview = self.sender()
-        if preview is self._preview:
-            self._preview = None
-        self._preview_workers.discard(preview)
-        preview.deleteLater()
-        self._schedule_working_set_trim()
-
-    @Slot(str)
-    def _on_command(self, command):
-        if self._active is not None and self.overlay is not None:
-            self.overlay.handle_command(command)
 
     def _hide_selection(self):
         was_active = self._active is not None
         self._active = None
-        if self._preview is not None:
-            self._preview.stop()
-            self._preview = None
         if self.overlay is not None:
             self.overlay.hide()
-        if was_active:
-            self._schedule_working_set_trim()
+        return was_active
 
     def _schedule_working_set_trim(self):
-        # 抓屏、采样线程都退出后再计时；重复结束通知只重置同一个定时器。
-        if not self._closed and not self.busy and not self._preview_workers:
-            self._trim_timer.start()
-
-    @Slot()
-    def _trim_working_set_if_idle(self):
-        # 转入普通截图后由普通截图负责收尾，不在编辑会话中收缩工作集。
-        if (not self._closed and not self.busy and not self._preview_workers
-                and not self._capture_pending and not self._blocked()):
-            trim_working_set()
+        # 抓屏线程退出后再请求；之后又开始拖动或转入了普通截图，由共用的忙碌判断顺延
+        if not self._closed and not self.busy:
+            request_trim_working_set(1500)
 
     def cancel(self):
         self.input.cancel()
-        self._hide_selection()
+        if self._hide_selection():
+            self._schedule_working_set_trim()
         self._result_valid = False
         if self._worker is not None:
             self._worker.requestInterruption()
 
     def _capture(self, region):
         self._result_valid = True
-        worker = QuickCaptureWorker(region, self._action, self)
-        worker.include_cursor = bool(self.main_app.config_manager.get_app_setting("capture_include_cursor", False))
+        action = self._active_action
+        worker = QuickCaptureWorker(region, action, self)
+        # 识别和翻译要的是字，画上指针只会挡住字
+        worker.include_cursor = action not in _TEXT_ACTIONS and bool(
+            self.main_app.config_manager.get_app_setting("capture_include_cursor", False))
         self._worker = worker
         worker.captured.connect(self._deliver, Qt.ConnectionType.QueuedConnection)
         worker.failed.connect(self._on_failure, Qt.ConnectionType.QueuedConnection)
@@ -362,36 +223,48 @@ class QuickCaptureController(QObject):
         if not self._result_valid or self._closed or worker is None or self._blocked():
             return
         region, action = worker.region, worker.action
+        config = self.main_app.config_manager
         try:
             if action == "edit":
                 region = region.intersected(bounds.toAlignedRect())
                 if region.isEmpty():
                     return
-                if getattr(worker, "cursor", None) is not None:
-                    self.main_app._on_capture_ready(image, bounds, worker.cursor)
+                self._open_normal_capture(image, bounds, worker.cursor, region)
+            elif action == "translate":
+                from translation import TranslationManager
+                TranslationManager.instance().translate_from_image(
+                    pixmap=QPixmap.fromImage(image), **config.get_translation_request_params())
+            elif action == "ocr":
+                # 和截图工具栏的「文字识别」一样，按设置弹结果窗口或直接复制
+                from text_recognition import copy_text_recognition, show_text_recognition
+                if config.get_ocr_copy_directly_enabled():
+                    copy_text_recognition(image)
                 else:
-                    self.main_app._on_capture_ready(image, bounds)
-                window = self.main_app.screenshot_window
-                if window and getattr(window, "_session_active", False):
-                    model = window.scene.selection_model
-                    # Normal drag selection has an 8px minimum. A precise quick
-                    # capture may be smaller, especially at a screen edge.
-                    minimum = QSizeF(model.min_size)
-                    try:
-                        model.min_size = QSizeF(min(minimum.width(), region.width()),
-                                                min(minimum.height(), region.height()))
-                        model.initialize_confirmed_rect(QRectF(region))
-                    finally:
-                        model.min_size = minimum
+                    show_text_recognition(image)
             else:
-                if action in ("copy", "copy_pin"):
-                    deliver_image_async(image)
-                if action in ("pin", "copy_pin"):
+                copy, pin = _CAPTURE_ACTIONS[action]
+                # 开着「自动保存截图」时这些动作都存文件
+                deliver_screenshot(image, config, copy_to_clipboard=copy)
+                if pin:
                     from pin.pin_manager import PinManager
-                    PinManager.instance().create_pin(image, region.topLeft(), self.main_app.config_manager)
+                    PinManager.instance().create_pin(image, region.topLeft(), config)
             set_last_region(region)
         except Exception as exc:
             self._on_failure(str(exc))
+
+    def _open_normal_capture(self, image, bounds, cursor, region):
+        self.main_app._on_capture_ready(image, bounds, cursor)
+        window = self.main_app.screenshot_window
+        if window and getattr(window, "_session_active", False):
+            model = window.scene.selection_model
+            # 普通拖选至少 8px，这里的选区可能更小，尤其贴着屏幕边时
+            minimum = QSizeF(model.min_size)
+            try:
+                model.min_size = QSizeF(min(minimum.width(), region.width()),
+                                        min(minimum.height(), region.height()))
+                model.initialize_confirmed_rect(QRectF(region))
+            finally:
+                model.min_size = minimum
 
     @Slot()
     def _worker_finished(self):
@@ -410,8 +283,8 @@ class QuickCaptureController(QObject):
         tray = getattr(self.main_app, "tray_icon", None)
         if tray is not None:
             tray.showMessage(
-                QApplication.translate("SettingsDialog", "Quick Capture"),
-                QApplication.translate("SettingsDialog", "Quick capture failed. Please try again."),
+                QApplication.translate("SettingsDialog", "Global Mouse Shortcuts"),
+                QApplication.translate("SettingsDialog", "Capture failed. Please try again."),
                 QSystemTrayIcon.MessageIcon.Warning,
             )
 
@@ -419,15 +292,11 @@ class QuickCaptureController(QObject):
         if self._closed:
             return
         self._closed = True
-        self._trim_timer.stop()
         QApplication.instance().removeEventFilter(self)
         self.cancel()
         self.input.close()
         if self._worker is not None:
             self._worker.wait()
-        for preview in tuple(self._preview_workers):
-            preview.stop()
-            preview.wait()
         if self.overlay is not None:
             self.overlay.close()
             self.overlay.deleteLater()

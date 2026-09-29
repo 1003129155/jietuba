@@ -6,6 +6,7 @@ import threading
 
 from unittest.mock import MagicMock
 
+import pytest
 from PySide6.QtGui import QImage
 
 
@@ -153,6 +154,41 @@ def test_deliver_image_async_skips_reservation_without_save_service(monkeypatch)
 
     assert result is None
     assert seen["file_reference"] is None
+
+
+@pytest.mark.parametrize("auto_save", [True, False])
+@pytest.mark.parametrize("copy", [True, False])
+def test_deliver_screenshot_follows_auto_save_setting(monkeypatch, auto_save, copy):
+    from core import clipboard_utils
+    from core.save import SaveService
+
+    config = MagicMock()
+    config.get_screenshot_save_enabled.return_value = auto_save
+    config.get_screenshot_save_path.return_value = "C:/shots"
+    config.get_screenshot_format.return_value = "JPG"
+    config.get_clipboard_file_reference_enabled.return_value = False
+    deliver = MagicMock(return_value="thread")
+    monkeypatch.setattr(clipboard_utils, "deliver_image_async", deliver)
+    image = object()
+
+    result = clipboard_utils.deliver_screenshot(image, config, copy_to_clipboard=copy)
+
+    if not auto_save and not copy:
+        assert result is None
+        deliver.assert_not_called()
+        return
+    assert result == "thread"
+    args, kwargs = deliver.call_args
+    assert args == (image,)
+    assert kwargs["copy_to_clipboard"] is copy
+    if auto_save:
+        assert isinstance(kwargs["save_service"], SaveService)
+        assert kwargs["save_kwargs"] == dict(directory="C:/shots", prefix="", image_format="JPG")
+        assert kwargs["write_file_reference"] is False
+    else:
+        assert kwargs["save_service"] is None
+        assert kwargs["write_file_reference"] is True
+        config.get_clipboard_file_reference_enabled.assert_not_called()
 
 
 def test_copy_win32_writes_hdrop_in_single_clipboard_transaction(monkeypatch):

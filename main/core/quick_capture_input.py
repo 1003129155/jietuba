@@ -1,8 +1,7 @@
-"""Global modifier + left-drag input for quick capture.
+"""Global modifier + mouse-drag input for quick capture.
 
 Hooks own only input state. Consumers must connect public signals with
-Qt.QueuedConnection and consume ``moved`` through ``take_position``. Preview
-workers may read ``position`` without consuming GUI movement notifications.
+Qt.QueuedConnection and consume ``moved`` through ``take_position``.
 No desktop capture, Qt widgets or settings access runs on the hook thread.
 """
 
@@ -17,7 +16,14 @@ from PySide6.QtCore import QObject, Qt, Signal
 WM_MOUSEMOVE = 0x0200
 WM_LBUTTONDOWN = 0x0201
 WM_LBUTTONUP = 0x0202
+WM_RBUTTONDOWN = 0x0204
+WM_RBUTTONUP = 0x0205
+WM_MBUTTONDOWN = 0x0207
+WM_MBUTTONUP = 0x0208
 WM_MOUSEWHEEL = 0x020A
+WM_XBUTTONDOWN = 0x020B
+WM_XBUTTONUP = 0x020C
+WM_MOUSEHWHEEL = 0x020E
 WM_KEYDOWN = 0x0100
 WM_KEYUP = 0x0101
 WM_SYSKEYDOWN = 0x0104
@@ -31,11 +37,9 @@ _MODIFIER_KEYS = {
 }
 _KEY_MODIFIERS = {vk: name for name, keys in _MODIFIER_KEYS.items() for vk in keys}
 _KEY_MODIFIERS.update({0x10: "shift", 0x11: "ctrl", 0x12: "alt"})
-_MAGNIFIER_COMMANDS = {
-    0x43: "copy_color",  # C
-    0xBB: "zoom_in", 0x6B: "zoom_in",  # main keyboard +/=, numpad +
-    0xBD: "zoom_out", 0x6D: "zoom_out",  # main keyboard -, numpad -
-}
+_BUTTONS = ("left", "middle", "right", "x1", "x2")
+_BUTTON_DOWN = {WM_LBUTTONDOWN: "left", WM_RBUTTONDOWN: "right", WM_MBUTTONDOWN: "middle", WM_XBUTTONDOWN: "x"}
+_BUTTON_UP = {WM_LBUTTONUP: "left", WM_RBUTTONUP: "right", WM_MBUTTONUP: "middle", WM_XBUTTONUP: "x"}
 
 
 class _MouseData(ctypes.Structure):
@@ -88,9 +92,13 @@ def _current_modifiers(exclude_vk=None):
                             for vk in keys))
 
 
-def _current_shift_keys():
-    api = _user32()
-    return frozenset(vk for vk in _MODIFIER_KEYS["shift"] if api.GetAsyncKeyState(vk) & 0x8000)
+def _button_of(table, message, data):
+    button = table.get(message)
+    if button == "x":
+        # The high word of mouseData tells side buttons apart: XBUTTON1 = 1, XBUTTON2 = 2.
+        # https://learn.microsoft.com/windows/win32/api/winuser/ns-winuser-msllhookstruct
+        button = {1: "x1", 2: "x2"}.get(data.mouseData >> 16)
+    return button
 
 
 def _current_menu_keys(modifiers):
@@ -200,14 +208,16 @@ class QuickCaptureInput(QObject):
 
     event = Signal(str, int, int, int)  # kind, gesture_id, physical screen x/y
     moved = Signal(int)  # gesture_id; at most one pending notification per gesture
-    command = Signal(str)  # magnifier command; queued to the active GUI gesture
     failure = Signal(str)
     _drained = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._lock = threading.RLock()
-        self._modifiers = frozenset({"win"})
+        self._bindings = frozenset()
+        # Modifiers and button of the current gesture; key handling during a drag uses these.
+        self._modifiers = frozenset()
+        self._button = None
         self._enabled = False
         self._blocked = False
         self._closed = False
@@ -218,18 +228,11 @@ class QuickCaptureInput(QObject):
         self._position = (0, 0)
         self._pending_move = None
         self._dragging = False
-        self._claimed_left = False
+        # Buttons whose press was swallowed; their release must be swallowed too.
+        self._claimed_buttons = set()
         self._claimed_escape = False
-        self._claimed_commands = {}
         self._pending_menu_keys = set()
-        self._gesture_shift_keys = frozenset()
-        self._wheel_remainder = 0
         self._drained.connect(self._sync_backend, Qt.ConnectionType.QueuedConnection)
-
-    @property
-    def position(self):
-        with self._lock:
-            return self._position
 
     def take_position(self, gesture_id: int):
         """Consume the latest move, leaving a newer gesture's notification intact."""
@@ -253,17 +256,26 @@ class QuickCaptureInput(QObject):
         with self._lock:
             return not self._closed and self._invalid_through < gesture_id <= self._gesture_id
 
-    def configure(self, modifiers: frozenset[str], enabled: bool):
-        modifiers = frozenset(modifiers)
-        valid = bool(modifiers) and len(modifiers) <= 2 and modifiers <= _MODIFIER_KEYS.keys()
+    def gesture_binding(self, gesture_id: int):
+        """(modifiers, button) of the current gesture only; a newer gesture may start before a queued start arrives."""
+        with self._lock:
+            return (self._modifiers, self._button) if gesture_id == self._gesture_id else None
+
+    def configure(self, bindings, enabled: bool):
+        """Each binding is (modifier set, button); the held modifiers must equal the set exactly."""
+        bindings = frozenset((frozenset(modifiers), button) for modifiers, button in bindings)
+        valid = bool(bindings) and all(
+            modifiers and len(modifiers) <= 2 and modifiers <= _MODIFIER_KEYS.keys() and button in _BUTTONS
+            for modifiers, button in bindings
+        )
         requested_enabled = bool(enabled)
         with self._lock:
             if self._closed:
                 return
             enabled = bool(enabled and valid)
-            if modifiers != self._modifiers or not enabled:
+            if bindings != self._bindings or not enabled:
                 self._cancel_locked()
-            self._modifiers, self._enabled = modifiers, enabled
+            self._bindings, self._enabled = bindings, enabled
         if not valid and requested_enabled:
             self.failure.emit("Quick capture requires one or two modifiers")
         self._sync_backend()
@@ -291,15 +303,15 @@ class QuickCaptureInput(QObject):
             self._closed = True
             self._enabled = False
             self._cancel_locked()
-            self._claimed_left = self._claimed_escape = False
-            self._claimed_commands.clear()
+            self._claimed_buttons.clear()
+            self._claimed_escape = False
             self._pending_menu_keys.clear()
         self._sync_backend()
 
     def _sync_backend(self):
         with self._lock:
-            needed = not self._closed and (self._enabled or self._claimed_left or self._claimed_escape
-                                          or self._claimed_commands or self._pending_menu_keys)
+            needed = not self._closed and (self._enabled or self._claimed_buttons or self._claimed_escape
+                                          or self._pending_menu_keys)
             if needed and self._backend is None:
                 self._generation += 1
                 generation = self._generation
@@ -324,8 +336,8 @@ class QuickCaptureInput(QObject):
                 return
             self._enabled = False
             self._cancel_locked()
-            self._claimed_left = self._claimed_escape = False
-            self._claimed_commands.clear()
+            self._claimed_buttons.clear()
+            self._claimed_escape = False
             self._pending_menu_keys.clear()
             backend, self._backend = self._backend, None
             self._generation += 1
@@ -340,46 +352,57 @@ class QuickCaptureInput(QObject):
             if generation != self._generation or self._closed:
                 return False
             self._position = (int(data.pt.x), int(data.pt.y))
-            if message == WM_LBUTTONDOWN:
-                if self._claimed_left:
-                    return True
-                if not self._enabled or self._blocked or _current_modifiers() != self._modifiers:
-                    return False
-                self._gesture_id += 1
-                self._pending_move = None
-                self._claimed_left = self._dragging = True
-                self._wheel_remainder = 0
-                self._gesture_shift_keys = _current_shift_keys() if "shift" in self._modifiers else frozenset()
-                # Win auto-repeat can re-arm Start after an early mask. Keep
-                # the actual held keys until their release, even after capture,
-                # cancellation or a settings change has ended this gesture.
-                self._pending_menu_keys.update(_current_menu_keys(self._modifiers))
-                self.event.emit("start", self._gesture_id, *self._position)
-                return True
-            if message == WM_LBUTTONUP and self._claimed_left:
-                self._claimed_left = False
-                self._pending_move = None
-                if self._dragging:
-                    self._dragging = False
-                    self.event.emit("finish", self._gesture_id, *self._position)
-                self._drained.emit()
-                return True
+            button = _button_of(_BUTTON_DOWN, message, data)
+            if button is not None:
+                return self._button_down(button)
+            button = _button_of(_BUTTON_UP, message, data)
+            if button is not None:
+                return self._button_up(button)
             if message == WM_MOUSEMOVE and self._dragging and self._pending_move is None:
                 # High-rate input only replaces the latest point until the GUI
                 # consumes it; never queue a repaint for every native packet.
                 self._pending_move = self._gesture_id
                 self.moved.emit(self._gesture_id)
-            if message == WM_MOUSEWHEEL and self._dragging:
-                delta = ctypes.c_short(data.mouseData >> 16).value
-                self._wheel_remainder += delta
-                while abs(self._wheel_remainder) >= 120:
-                    direction = 1 if self._wheel_remainder > 0 else -1
-                    self.command.emit("zoom_in" if direction > 0 else "zoom_out")
-                    self._wheel_remainder -= direction * 120
+            if message in (WM_MOUSEWHEEL, WM_MOUSEHWHEEL) and self._dragging:
+                # The desktop stays live: scrolling would move the content being framed.
                 return True
-            # Keep native cursor motion alive. The paired left-button events
-            # are suppressed, so the underlying application cannot start a drag.
+            # Keep native cursor motion alive. The paired button events are
+            # suppressed, so the underlying application cannot start a drag.
             return False
+
+    def _button_down(self, button):
+        if button in self._claimed_buttons:
+            return True
+        if self._dragging:
+            # Same reason as the wheel: a click would change the content being framed.
+            self._claimed_buttons.add(button)
+            return True
+        held = _current_modifiers() if self._enabled and not self._blocked else None
+        if (held, button) not in self._bindings:
+            return False
+        self._modifiers, self._button = held, button
+        self._gesture_id += 1
+        self._pending_move = None
+        self._dragging = True
+        self._claimed_buttons.add(button)
+        # Win auto-repeat can re-arm Start after an early mask. Keep
+        # the actual held keys until their release, even after capture,
+        # cancellation or a settings change has ended this gesture.
+        self._pending_menu_keys.update(_current_menu_keys(self._modifiers))
+        self.event.emit("start", self._gesture_id, *self._position)
+        return True
+
+    def _button_up(self, button):
+        if button not in self._claimed_buttons:
+            return False
+        self._claimed_buttons.discard(button)
+        if button == self._button:
+            self._pending_move = None
+            if self._dragging:
+                self._dragging = False
+                self.event.emit("finish", self._gesture_id, *self._position)
+        self._drained.emit()
+        return True
 
     def _keyboard_event(self, generation, message, data):
         if data.flags & 0x12:  # LLKHF_INJECTED / LOWER_IL_INJECTED
@@ -403,18 +426,6 @@ class QuickCaptureInput(QObject):
                 self._drained.emit()
                 # Never swallow the real release: Windows saw the original
                 # keydown and must also see keyup to clear its modifier state.
-            claimed_command = self._claimed_commands.get(data.vkCode)
-            if claimed_command is not None:
-                if released:
-                    del self._claimed_commands[data.vkCode]
-                    if (self._dragging and "shift" in self._modifiers
-                            and _KEY_MODIFIERS.get(data.vkCode) == "shift"
-                            and "shift" not in _current_modifiers(exclude_vk=data.vkCode)):
-                        self._cancel_locked()
-                    self._drained.emit()
-                elif pressed and self._dragging and claimed_command in ("zoom_in", "zoom_out"):
-                    self.command.emit(claimed_command)
-                return pressed or released
             if data.vkCode == VK_ESCAPE:
                 if pressed and (self._dragging or self._claimed_escape):
                     self._claimed_escape = True
@@ -423,25 +434,6 @@ class QuickCaptureInput(QObject):
                 if released and self._claimed_escape:
                     self._claimed_escape = False
                     self._drained.emit()
-                    return True
-            if self._dragging and pressed:
-                command = None
-                if modifier == "shift":
-                    # Initial Shift belongs to the gesture. A newly pressed
-                    # opposite-side Shift still switches the magnifier format.
-                    initial_shift = data.vkCode in self._gesture_shift_keys or (
-                        data.vkCode == 0x10 and self._gesture_shift_keys)
-                    if not initial_shift:
-                        command = "cycle_color"
-                elif data.vkCode in _MAGNIFIER_COMMANDS:
-                    # The held gesture modifiers are expected: Ctrl/Alt-based
-                    # gestures must still allow C and +/- while dragging.
-                    extra = _current_modifiers() - self._modifiers
-                    if not extra & {"ctrl", "alt"}:
-                        command = _MAGNIFIER_COMMANDS[data.vkCode]
-                if command is not None:
-                    self._claimed_commands[data.vkCode] = command
-                    self.command.emit(command)
                     return True
             if self._dragging and released and modifier in self._modifiers:
                 # LowLevelKeyboardProc runs before this key's async state updates.
