@@ -4,7 +4,7 @@
 
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QPen
-from .base import Tool, ToolContext, color_with_opacity
+from .base import Tool, ToolContext, color_with_opacity, drag_rect, shift_held
 from canvas.items import EllipseItem
 from canvas.undo import AddItemCommand
 from core.logger import log_debug, T
@@ -61,7 +61,8 @@ class EllipseTool(Tool):
     
     def on_move(self, pos: QPointF, ctx: ToolContext):
         if self.drawing and self.current_item:
-            rect = QRectF(self.start_pos, pos).normalized()
+            # 按住 Shift 画正圆
+            rect = drag_rect(self.start_pos, pos, square=shift_held())
             self.current_item.setRect(rect)
     
     def on_release(self, pos: QPointF, ctx: ToolContext):
@@ -69,8 +70,8 @@ class EllipseTool(Tool):
             self.drawing = False
             
             if self.current_item:
-                # 检查绘制尺寸是否满足最小要求
-                rect = QRectF(self.start_pos, pos).normalized()
+                # 按画出来的图元检查最小尺寸：松开鼠标前先放开 Shift，正圆也不会变回去
+                rect = self.current_item.rect()
                 if rect.width() < self.MIN_SIZE or rect.height() < self.MIN_SIZE:
                     # 尺寸过小，取消绘制
                     ctx.scene.removeItem(self.current_item)

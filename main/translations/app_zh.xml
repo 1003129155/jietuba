@@ -1338,12 +1338,12 @@ Replace it?</source>
         <translation>序号（Shift+滚轮可变号）</translation>
     </message>
     <message>
-        <source>Draw rectangle</source>
-        <translation>绘制矩形</translation>
+        <source>Draw rectangle (hold Shift for square)</source>
+        <translation>绘制矩形（按住Shift画正方形）</translation>
     </message>
     <message>
-        <source>Draw ellipse</source>
-        <translation>绘制椭圆</translation>
+        <source>Draw ellipse (hold Shift for circle)</source>
+        <translation>绘制椭圆（按住Shift画正圆）</translation>
     </message>
     <message>
         <source>Add text</source>

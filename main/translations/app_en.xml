@@ -1209,12 +1209,12 @@ Replace it?</translation>
         <translation>Number (Shift+scroll to change number)</translation>
     </message>
     <message>
-        <source>Draw rectangle</source>
-        <translation>Draw rectangle</translation>
+        <source>Draw rectangle (hold Shift for square)</source>
+        <translation>Draw rectangle (hold Shift for square)</translation>
     </message>
     <message>
-        <source>Draw ellipse</source>
-        <translation>Draw ellipse</translation>
+        <source>Draw ellipse (hold Shift for circle)</source>
+        <translation>Draw ellipse (hold Shift for circle)</translation>
     </message>
     <message>
         <source>Add text</source>

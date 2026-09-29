@@ -1337,12 +1337,12 @@ Replace it?</source>
         <translation>番号（Shift+スクロールで番号変更）</translation>
     </message>
     <message>
-        <source>Draw rectangle</source>
-        <translation>矩形を描画</translation>
+        <source>Draw rectangle (hold Shift for square)</source>
+        <translation>矩形を描画（Shiftキー押しながらで正方形）</translation>
     </message>
     <message>
-        <source>Draw ellipse</source>
-        <translation>円を描画</translation>
+        <source>Draw ellipse (hold Shift for circle)</source>
+        <translation>円を描画（Shiftキー押しながらで正円）</translation>
     </message>
     <message>
         <source>Add text</source>
