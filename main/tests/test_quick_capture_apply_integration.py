@@ -98,7 +98,7 @@ def integration(qapp, qtbot, tmp_settings, tmp_path, monkeypatch):
     ))
     monkeypatch.setattr("ui.quick_capture_overlay.set_window_exclude_from_capture", Mock())
     copied, pinned = Mock(), Mock()
-    monkeypatch.setattr(capture_module, "deliver_image_async", copied)
+    monkeypatch.setattr(capture_module, "deliver_screenshot", copied)
     monkeypatch.setattr(capture_module, "set_last_region", Mock())
     monkeypatch.setattr("pin.pin_manager.PinManager.instance", lambda: SimpleNamespace(create_pin=pinned, refresh_all_appearance=lambda: None))
     monkeypatch.setattr("ui.settings_ui.dialog.validate_global_hotkey_edits", lambda *_a, **_kw: True)

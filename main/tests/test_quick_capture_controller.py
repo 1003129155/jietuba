@@ -87,7 +87,7 @@ def capture(qapp, tmp_settings, monkeypatch):
     monkeypatch.setattr(module, "QuickCapturePreview", FakePreview)
     monkeypatch.setattr(module, "desktop_bounds", lambda: QRect(-100, -100, 500, 500))
     monkeypatch.setattr("ui.quick_capture_overlay.set_window_exclude_from_capture", Mock())
-    monkeypatch.setattr(module, "deliver_image_async", Mock())
+    monkeypatch.setattr(module, "deliver_screenshot", Mock())
     monkeypatch.setattr(module, "set_last_region", Mock())
     monkeypatch.setattr(module, "trim_working_set", Mock())
     config = ToolSettingsManager(tmp_settings)
@@ -278,7 +278,9 @@ def test_actions_use_exact_absolute_selection(capture, qtbot, monkeypatch, actio
     assert not capture.overlay.isVisible()
     worker.captured.emit(image(), QRectF(-100, -100, 500, 500))
     qtbot.waitUntil(lambda: module.set_last_region.called)
-    assert module.deliver_image_async.called == copy
+    assert module.deliver_screenshot.called == (not edit)
+    if not edit:
+        assert module.deliver_screenshot.call_args.kwargs["copy_to_clipboard"] == copy
     assert pin_manager.create_pin.called == pin
     assert capture.main_app._on_capture_ready.called == edit
     if pin:
@@ -288,6 +290,35 @@ def test_actions_use_exact_absolute_selection(capture, qtbot, monkeypatch, actio
         assert capture.main_app.selection.is_confirmed
     worker.finished.emit()
     qtbot.waitUntil(lambda: not capture.busy)
+
+
+@pytest.mark.parametrize("auto_save", [True, False])
+@pytest.mark.parametrize("action,copy", [("copy", True), ("pin", False), ("copy_pin", True)])
+def test_auto_save_applies_to_every_quick_capture_action(capture, qtbot, monkeypatch, tmp_path,
+                                                        action, copy, auto_save):
+    from core import clipboard_utils
+    from pin.pin_manager import PinManager
+    monkeypatch.setattr(PinManager, "instance", lambda: Mock())
+    monkeypatch.setattr(clipboard_utils, "copy_image_to_clipboard", Mock())
+    monkeypatch.setattr(module, "deliver_screenshot", clipboard_utils.deliver_screenshot)
+    config = capture.main_app.config_manager
+    config.set_screenshot_save_enabled(auto_save)
+    folder = tmp_path / "captures"
+    config.set_screenshot_save_path(str(folder))
+    bind(config, action)
+    capture.refresh()
+    start(capture, qtbot)
+    finish(capture, qtbot).captured.emit(image(), QRectF(-100, -100, 500, 500))
+    qtbot.waitUntil(lambda: module.set_last_region.called)
+
+    def saved():
+        return [QImage(str(path)).size().toTuple() for path in folder.glob("*")] if folder.exists() else []
+
+    if auto_save:
+        qtbot.waitUntil(lambda: saved() == [(80, 60)])
+    else:
+        assert saved() == []
+    assert clipboard_utils.copy_image_to_clipboard.called == copy
 
 
 @pytest.mark.parametrize("setting,value", [
@@ -416,7 +447,7 @@ def test_capture_result_is_discarded_when_settings_change(capture, qtbot):
     capture.refresh()
     worker.requestInterruption.assert_called()
     capture._deliver(image(), QRectF(-100, -100, 500, 500))
-    module.deliver_image_async.assert_not_called()
+    module.deliver_screenshot.assert_not_called()
     module.set_last_region.assert_not_called()
 
 

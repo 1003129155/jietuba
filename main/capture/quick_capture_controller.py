@@ -8,7 +8,7 @@ from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QRectF, QSizeF, QThre
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QWidget
 
 from capture.capture_service import CaptureService
-from core.clipboard_utils import deliver_image_async
+from core.clipboard_utils import deliver_screenshot
 from core.last_capture_region import set_last_region
 from core.logger import log_debug, log_error
 from core.platform_utils import trim_working_set
@@ -384,8 +384,9 @@ class QuickCaptureController(QObject):
                     finally:
                         model.min_size = minimum
             else:
-                if action in ("copy", "copy_pin"):
-                    deliver_image_async(image)
+                # 开着「自动保存截图」时三个动作都存文件，只钉图不复制
+                deliver_screenshot(image, self.main_app.config_manager,
+                                   copy_to_clipboard=action in ("copy", "copy_pin"))
                 if action in ("pin", "copy_pin"):
                     from pin.pin_manager import PinManager
                     PinManager.instance().create_pin(image, region.topLeft(), self.main_app.config_manager)
