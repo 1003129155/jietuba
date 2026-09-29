@@ -179,6 +179,9 @@ class MainApp(QObject):
         from capture.quick_capture_controller import QuickCaptureController
         self.quick_capture = QuickCaptureController(self)
 
+        from core.platform_utils import set_trim_busy_check
+        set_trim_busy_check(self._capture_busy)
+
         # 插拔显示器、改分辨率、开关 HDR 后在后台按新配置备好截图会话，不留给下一次截图去等
         from capture.display_watcher import DisplayChangeWatcher
         self._display_watcher = DisplayChangeWatcher(self._on_display_changed, self)
@@ -201,8 +204,20 @@ class MainApp(QObject):
         log_debug(T("显示器配置变化，后台重建截图会话"), "MainApp")
         refresh_hdr_session(self.config_manager.get_capture_engine())
 
+    def _capture_busy(self):
+        """截图正在准备或进行中、全局鼠标正在拖动或抓屏。"""
+        window = self.screenshot_window
+        quick_capture = getattr(self, 'quick_capture', None)
+        return bool(
+            getattr(self, '_capture_pending', False)
+            or (window and getattr(window, '_session_active', False))
+            or (quick_capture and quick_capture.busy)
+        )
+
     def _on_about_to_quit(self):
         """应用退出前收尾"""
+        from core.platform_utils import set_trim_busy_check
+        set_trim_busy_check(None)
         quick_capture = getattr(self, 'quick_capture', None)
         if quick_capture:
             quick_capture.close()

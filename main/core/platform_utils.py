@@ -4,6 +4,7 @@
 import os
 import sys
 import ctypes
+import gc
 import math
 
 from core.logger import log_exception, T
@@ -31,17 +32,33 @@ def trim_working_set():
 
 
 _trim_timer = None  # 延迟初始化，避免在 QApplication 创建前导入时崩溃
+_trim_busy = None
+
+
+def set_trim_busy_check(predicate):
+    """截图这类操作进行中返回 True 的判断；到点时在忙就顺延，免得操作中途把内存页换出去。"""
+    global _trim_busy
+    _trim_busy = predicate
 
 
 def request_trim_working_set(delay_ms: int = 1500):
-    """请求释放工作集（去抖）。多次调用只执行最后一次，避免 page fault 风暴。"""
+    """请求回收内存并释放工作集（去抖）。多次调用只执行最后一次，避免 page fault 风暴。"""
     global _trim_timer
     if _trim_timer is None:
         from PySide6.QtCore import QTimer
         _trim_timer = QTimer()
         _trim_timer.setSingleShot(True)
-        _trim_timer.timeout.connect(trim_working_set)
+        _trim_timer.timeout.connect(_trim_when_idle)
     _trim_timer.start(delay_ms)
+
+
+def _trim_when_idle():
+    if _trim_busy is not None and _trim_busy():
+        _trim_timer.start()
+        return
+    # 关掉的钉图、截图会话常在循环引用里，不回收要等 Python 自己做完整回收才释放
+    gc.collect()
+    trim_working_set()
 
 
 # ──────────────────────────────────────────────

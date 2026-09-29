@@ -80,8 +80,12 @@ def recognize_async(image: QImage, on_recognized) -> RecognizeThread:
 
 def _retire(thread):
     """线程跑完了（finished 派到主线程才走到这）：登记表里划掉，对象交给事件循环回收"""
+    from core.platform_utils import request_trim_working_set
+
     _running.discard(thread)
     thread.deleteLater()
+    # 引擎推理时调进来的内存页，识别完就还回去
+    request_trim_working_set()
 
 
 def shutdown_recognition(timeout_ms: int = 3000) -> None:
