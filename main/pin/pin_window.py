@@ -263,6 +263,10 @@ class PinWindow(QWidget):
         if hasattr(self, '_control_buttons'):
             self._control_buttons.update_positions(self.width())
 
+    def raise_control_buttons(self):
+        """后建的子控件默认叠在最上层，会盖住右上角按钮、接走它们的点击，建完要调这里。"""
+        self._control_buttons.raise_all()
+
     # ==================================================================
     # 外观设置
     # ==================================================================

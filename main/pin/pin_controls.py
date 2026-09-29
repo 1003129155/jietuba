@@ -123,14 +123,18 @@ class PinControlButtons:
         close_x = window_width - self.BUTTON_SIZE - self.MARGIN
         close_y = self.MARGIN
         self.close_button.move(close_x, close_y)
-        self.close_button.raise_()
         
         # 工具栏切换按钮在关闭按钮左边
         toolbar_x = close_x - self.BUTTON_SIZE - self.SPACING
         toolbar_y = self.MARGIN
         self.toolbar_toggle_button.move(toolbar_x, toolbar_y)
-        self.toolbar_toggle_button.raise_()
+        self.raise_all()
     
+    def raise_all(self):
+        """两个按钮回到最上层"""
+        self.close_button.raise_()
+        self.toolbar_toggle_button.raise_()
+
     def set_visible(self, close: bool, toolbar: bool):
         """显隐由 PinHoverControls 决定，这里只照做"""
         for button, visible in ((self.close_button, close), (self.toolbar_toggle_button, toolbar)):

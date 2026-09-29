@@ -24,7 +24,7 @@ class _TextLayer:
 
 
 def _manager(auto_ocr: bool):
-    window = SimpleNamespace(content_rect=lambda: QRectF(0, 0, 100, 50))
+    window = SimpleNamespace(content_rect=lambda: QRectF(0, 0, 100, 50), raise_control_buttons=Mock())
     config = SimpleNamespace(get_ocr_enabled=lambda: auto_ocr)
     return PinOCRManager(window, config)
 
@@ -54,6 +54,45 @@ def test_forced_recognition_ignores_the_pin_auto_ocr_setting(monkeypatch):
     assert manager.init_now(force=True) is True
     assert isinstance(manager.ocr_text_layer, _TextLayer)
     manager._start_recognition.assert_called_once_with()
+
+
+def test_hover_buttons_go_back_on_top_once_the_text_layer_exists(monkeypatch):
+    manager = _manager(auto_ocr=True)
+    _stub_ocr(monkeypatch, manager)
+    layer_existed = []
+    manager._win.raise_control_buttons.side_effect = (
+        lambda: layer_existed.append(manager.ocr_text_layer is not None))
+
+    assert manager.init_now() is True
+    assert layer_existed == [True]
+
+
+def test_pin_buttons_stay_clickable_when_the_text_layer_arrives_later(qapp, tmp_settings, monkeypatch):
+    """Ctrl+3 把钉图钉在光标下：悬停按钮先显示，文字层后建，按钮位置的点击不能落到文字层上。"""
+    from PySide6.QtCore import QPoint
+    from PySide6.QtGui import QImage
+    from settings.tool_settings import ToolSettingsManager
+
+    init_now = PinOCRManager.init_now
+    monkeypatch.setattr(PinOCRManager, "init_now", lambda self, force=False: False)
+    image = QImage(400, 300, QImage.Format.Format_RGB32)
+    image.fill(0xFF336699)
+    pin = PinWindow(image, QPoint(120, 120), ToolSettingsManager(tmp_settings))
+    try:
+        pin.show()
+        qapp.processEvents()
+        pin._control_buttons.set_visible(close=True, toolbar=True)
+        manager = pin._ocr_mgr
+        monkeypatch.setattr("ocr.is_ocr_available", lambda: True)
+        monkeypatch.setattr("ocr.initialize_ocr", lambda: True)
+        monkeypatch.setattr(manager, "_start_recognition", Mock(return_value=True))
+
+        assert init_now(manager) is True
+        assert manager.ocr_text_layer is not None
+        for button in (pin.close_button, pin.toolbar_toggle_button):
+            assert pin.childAt(button.geometry().center()) is button
+    finally:
+        pin.close_window()
 
 
 def test_text_selection_starts_off_when_automatic_recognition_is_off():

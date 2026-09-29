@@ -133,6 +133,8 @@ class PinOCRManager:
                 self.ocr_text_layer = OCRTextLayer(self._win)
                 cr = self._win.content_rect()
                 self.ocr_text_layer.setGeometry(cr.toRect())
+                # 钉图出现在光标下时悬停按钮先显示，文字层 300ms 后才建
+                self._win.raise_control_buttons()
                 log_debug(T("OCR层初始化几何: {rect}", rect=cr.toRect()), "OCR")
             # 文字层可能早就建好、被用户关掉了，开关改了就得同步到层上
             self._apply_text_layer_enabled()
