@@ -336,10 +336,25 @@ def test_unrelated_event_types_are_ignored(qapp):
     assert handler.keys == [] and handler.seen == []
 
 
+def test_errors_while_dispatching_still_hand_qt_a_false(qapp, monkeypatch):
+    """异常保护在分派方法上：出错时过滤器照样返回 False，不把异常抛给 Qt。"""
+    crashes = []
+    monkeypatch.setattr("core.crash_handler._write_crash", lambda tag, msg: crashes.append(tag))
+    manager = _manager(_KeyHandler())
+
+    def broken(*_args):
+        raise ValueError("boom")
+    monkeypatch.setattr(manager, "_is_text_input_active", broken)
+    monkeypatch.setattr(manager, "_dispatch_inapp_mouse", broken)
+
+    assert manager.eventFilter(None, _key(Qt.Key.Key_F5)) is False
+    assert manager.eventFilter(None, _mouse()) is False
+    assert len(crashes) == 2
+
+
 def test_mouse_move_never_enters_the_handler_chain(qapp):
     """鼠标移动是应用里最高频的事件，进 handler 链会让整个界面变卡。"""
     handler = _Handler()
     manager = _manager(handler)
-    assert QEvent.Type.MouseMove not in ShortcutManager._INAPP_MOUSE_EVENT_TYPES
     assert manager.eventFilter(None, QEvent(QEvent.Type.MouseMove)) is False
     assert handler.seen == []

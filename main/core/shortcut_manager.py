@@ -60,6 +60,14 @@ MOD_SHIFT = 0x0004
 MOD_WIN = 0x0008
 MOD_NOREPEAT = 0x4000
 
+# 应用级事件过滤器按类型分派时用；取成模块常量，免得每个事件都查一遍类属性。
+# 中键的按下/抬起/双击三种都要管：只吞掉按下的话，控件会收到一个没有配对按下的
+# 抬起，行为未定义——和全局侧键那边成对抑制是同一个理由。
+_KEY_PRESS = QEvent.Type.KeyPress
+_MOUSE_PRESS = QEvent.Type.MouseButtonPress
+_MOUSE_RELEASE = QEvent.Type.MouseButtonRelease
+_MOUSE_DBLCLICK = QEvent.Type.MouseButtonDblClick
+
 
 # ======================================================================
 # 鼠标侧键 token
@@ -462,14 +470,7 @@ class ShortcutManager(QObject):
 
         return False
 
-    # 中键的按下/抬起/双击。三种都要管：只吞掉按下的话，控件会收到一个没有
-    # 配对按下的抬起，行为未定义——和全局侧键那边成对抑制是同一个理由。
-    _INAPP_MOUSE_EVENT_TYPES = frozenset({
-        QEvent.Type.MouseButtonPress,
-        QEvent.Type.MouseButtonRelease,
-        QEvent.Type.MouseButtonDblClick,
-    })
-
+    @safe_event
     def _filter_inapp_mouse(self, obj, event) -> bool:
         """应用内鼠标键分发。
 
@@ -515,14 +516,18 @@ class ShortcutManager(QObject):
                 continue
         return False
 
-    @safe_event
     def eventFilter(self, obj, event):
+        # 装在 QApplication 上，每个事件都要进一次 Python：这里只判断类型，其余事件直接放行。
+        # 异常保护加在下面两个真正干活的方法上，不给每个事件多套一层包装。
         event_type = event.type()
-        if event_type in self._INAPP_MOUSE_EVENT_TYPES:
-            return self._filter_inapp_mouse(obj, event)
-        if event_type != QEvent.Type.KeyPress:
-            return False
+        if event_type == _KEY_PRESS:
+            return self._filter_key(event) is True
+        if event_type == _MOUSE_PRESS or event_type == _MOUSE_RELEASE or event_type == _MOUSE_DBLCLICK:
+            return self._filter_inapp_mouse(obj, event) is True
+        return False
 
+    @safe_event
+    def _filter_key(self, event) -> bool:
         # 文字输入控件获焦时，优先让控件处理按键
         if self._is_text_input_active(event):
             return False
