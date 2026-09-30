@@ -216,6 +216,19 @@ def test_capture_exclusion_failure_does_not_stop_overlay(overlay, monkeypatch):
     exclude.assert_called_once_with(int(overlay.winId()), True)
 
 
+def test_dismiss_repaints_an_empty_window_before_hiding(overlay, monkeypatch):
+    """分层窗口隐藏后保留最后一帧；先清空重画再隐藏，下次显示才不会闪出上次的选框。"""
+    overlay.show_selection(QPoint(20, 90), QPoint(230, 190), QRect(0, 0, 500, 400))
+    steps = []
+    monkeypatch.setattr(overlay, "repaint", lambda: steps.append(
+        ("repaint", overlay.isVisible(), overlay.selection_overlay.isVisible(), overlay.info_panel.isVisible())))
+    hide = overlay.hide
+    monkeypatch.setattr(overlay, "hide", lambda: (steps.append(("hide",)), hide()))
+    overlay.dismiss()
+    assert steps == [("repaint", True, False, False), ("hide",)]
+    assert not overlay.isVisible()
+
+
 def test_hide_ends_session_and_next_session_reloads_normal_capture_options(overlay):
     bounds = QRect(0, 0, 500, 400)
     overlay.show_selection(QPoint(20, 90), QPoint(230, 190), bounds)

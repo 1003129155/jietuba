@@ -188,7 +188,7 @@ class QuickCaptureController(QObject):
         was_active = self._active is not None
         self._active = None
         if self.overlay is not None:
-            self.overlay.hide()
+            self.overlay.dismiss()
         return was_active
 
     def _schedule_working_set_trim(self):

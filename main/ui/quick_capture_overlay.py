@@ -144,6 +144,14 @@ class QuickCaptureOverlay(QWidget):
             self.capture_excluded = set_window_exclude_from_capture(int(self.winId()), True)
             self._capture_exclusion_requested = True
 
+    def dismiss(self):
+        """结束这次拖动并隐藏。分层窗口隐藏后仍保留最后一帧，下次显示时会先闪出上次的选框，
+        所以先把整窗清成透明再隐藏。"""
+        if self.isVisible():
+            self.clear()
+            self.repaint()
+        self.hide()
+
     def clear(self):
         self._session_active = False
         self._selection_rect = QRect()
