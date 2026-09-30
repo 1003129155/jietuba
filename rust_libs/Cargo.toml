@@ -5,6 +5,7 @@ members = [
     "gifrecorder",
     "ppocr_rust",
     "hdrcapture",
+    "inputhub",
 ]
 resolver = "2"
 

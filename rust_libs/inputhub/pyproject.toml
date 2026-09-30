@@ -1,0 +1,29 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "j-input"
+version = "0.1.0"
+description = "Windows global input for Python: low-level mouse and keyboard hooks decided on a native thread, never waiting for the GIL"
+readme = "README.md"
+license = "MIT"
+# Rust 依赖静态链接进 .pyd，随分发附上它们的版权声明与许可全文
+license-files = ["LICENSE", "THIRD-PARTY-NOTICES.txt"]
+authors = [{ name = "JYAARU" }]
+requires-python = ">=3.11"
+keywords = ["hook", "global-hotkey", "mouse", "keyboard", "windows", "rust"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Rust",
+]
+
+[tool.maturin]
+# 发行名是 j-input，import 名是 inputhub
+module-name = "inputhub"
+features = ["pyo3/extension-module"]
