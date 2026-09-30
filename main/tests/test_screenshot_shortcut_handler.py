@@ -339,7 +339,7 @@ class TestRestoreLastRegion:
         set_last_region(QRect(100, 200, 300, 150))
         window = _make_window(confirmed=False, tool_id=None)
         assert _make_handler(window).handle_key(_FakeKeyEvent(Qt.Key.Key_L)) is True
-        window.scene.selection_model.initialize_confirmed_rect.assert_called_once_with(
+        window.scene.preset_selection.assert_called_once_with(
             QRectF(100, 200, 300, 150)
         )
 
@@ -348,7 +348,7 @@ class TestRestoreLastRegion:
         set_last_region(QRect(-1870, 50, 400, 300))
         window = _make_window(tool_id="cursor", virtual_geometry=(-1920, 0, 3840, 1080))
         assert _make_handler(window).handle_key(_FakeKeyEvent(Qt.Key.Key_L)) is True
-        window.scene.selection_model.initialize_confirmed_rect.assert_called_once_with(
+        window.scene.preset_selection.assert_called_once_with(
             QRectF(-1870, 50, 400, 300)
         )
 
@@ -357,19 +357,19 @@ class TestRestoreLastRegion:
         set_last_region(QRect(0, 0, 300, 200))
         window = _make_window(tool_id="pen")
         assert _make_handler(window).handle_key(_FakeKeyEvent(Qt.Key.Key_L)) is False
-        window.scene.selection_model.initialize_confirmed_rect.assert_not_called()
+        window.scene.preset_selection.assert_not_called()
 
     def test_does_nothing_when_nothing_has_been_remembered_yet(self):
         window = _make_window(tool_id="cursor")
         assert _make_handler(window).handle_key(_FakeKeyEvent(Qt.Key.Key_L)) is False
-        window.scene.selection_model.initialize_confirmed_rect.assert_not_called()
+        window.scene.preset_selection.assert_not_called()
 
     def test_does_nothing_when_the_remembered_region_no_longer_fits_the_virtual_desktop(self):
         """典型场景：拔掉了显示器，上次选区落在当前虚拟桌面范围之外。"""
         set_last_region(QRect(3000, 0, 300, 200))
         window = _make_window(tool_id="cursor", virtual_geometry=(0, 0, 1920, 1080))
         assert _make_handler(window).handle_key(_FakeKeyEvent(Qt.Key.Key_L)) is False
-        window.scene.selection_model.initialize_confirmed_rect.assert_not_called()
+        window.scene.preset_selection.assert_not_called()
 
     def test_missing_scene_does_not_raise(self):
         window = _make_window(tool_id="cursor")

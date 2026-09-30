@@ -3,7 +3,7 @@
 import ctypes
 import sys
 
-from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QRectF, QSizeF, QThread, Qt, Signal, Slot
+from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QRectF, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QWidget
 
@@ -256,15 +256,7 @@ class QuickCaptureController(QObject):
         self.main_app._on_capture_ready(image, bounds, cursor)
         window = self.main_app.screenshot_window
         if window and getattr(window, "_session_active", False):
-            model = window.scene.selection_model
-            # 普通拖选至少 8px，这里的选区可能更小，尤其贴着屏幕边时
-            minimum = QSizeF(model.min_size)
-            try:
-                model.min_size = QSizeF(min(minimum.width(), region.width()),
-                                        min(minimum.height(), region.height()))
-                model.initialize_confirmed_rect(QRectF(region))
-            finally:
-                model.min_size = minimum
+            window.scene.preset_selection(QRectF(region))
 
     @Slot()
     def _worker_finished(self):

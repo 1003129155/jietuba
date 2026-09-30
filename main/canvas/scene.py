@@ -3,7 +3,7 @@
 """
 
 from PySide6.QtWidgets import QGraphicsScene
-from PySide6.QtCore import Signal, Qt
+from PySide6.QtCore import QRectF, Signal, Qt
 
 from .items import BackgroundItem, SelectionItem, SpotlightCurtain
 from .selection_model import SelectionModel
@@ -38,7 +38,6 @@ class CanvasScene(QGraphicsScene):
         """
         super().__init__()
         
-        from PySide6.QtCore import QRectF
         self.scene_rect = QRectF(scene_rect)
         
         # 先创建选区模型
@@ -132,6 +131,12 @@ class CanvasScene(QGraphicsScene):
         # 但根据用户反馈"选区后没有可以调整的框"，说明这里不应该隐藏
         self.selection_item.show()
         
+        self.selectionConfirmed.emit()
+
+    def preset_selection(self, rect: QRectF):
+        """直接给出一个已确认的选区，和拖选后确认一样显示选框、发出确认信号。"""
+        self.selection_model.initialize_confirmed_rect(rect)
+        self.selection_item.show()
         self.selectionConfirmed.emit()
 
     def activate_tool(self, tool_id: str):

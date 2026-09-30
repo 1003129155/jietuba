@@ -57,7 +57,7 @@ class FakeApp(QObject):
 
     def _edit(self, image, bounds, cursor=None):
         self.screenshot_window = SimpleNamespace(
-            _session_active=True, scene=SimpleNamespace(selection_model=self.selection),
+            _session_active=True, scene=SimpleNamespace(preset_selection=self.selection.initialize_confirmed_rect),
         )
 
 

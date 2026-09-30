@@ -95,8 +95,9 @@ class SelectionModel(QObject):
         return self._is_confirmed
 
     def initialize_confirmed_rect(self, rect: QRectF):
-        """直接设置一个已确认的选区（用于预定义画布）"""
-        self.set_rect(rect)
+        """直接设置一个已确认的选区。给定区域原样使用，不受拖选最小尺寸的限制。"""
+        self._rect = QRectF(rect)
+        self.rectChanged.emit(QRectF(self._rect))
         self._is_active = False
         self._is_confirmed = True
         self.confirmed.emit(QRectF(self._rect))
