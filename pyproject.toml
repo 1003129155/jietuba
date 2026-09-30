@@ -10,7 +10,6 @@ dependencies = [
     "PySideSix-Frameless-Window==0.8.1",
     "pillow==12.1.1",
     "mss==10.1.0",
-    "pynput==1.8.1",
     "pywin32==311",
     "comtypes==1.4.16",
     "darkdetect==0.8.0",

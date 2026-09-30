@@ -182,6 +182,10 @@ pub enum Event {
         vk: u32,
         pressed: bool,
     },
+    /// 前台窗口变了；有订阅时每次切换都发，不做筛选
+    Foreground {
+        hwnd: isize,
+    },
     Failure {
         message: String,
     },
@@ -253,6 +257,7 @@ pub struct Engine {
     // 旁听订阅
     wheel_watchers: Vec<(Arc<str>, Option<Rect>)>,
     key_watchers: Vec<(Arc<str>, Vec<u32>)>,
+    foreground_watchers: Vec<Arc<str>>,
     sync_requested: bool,
 }
 
@@ -602,6 +607,25 @@ impl Engine {
         self.sync_requested = true;
     }
 
+    pub fn watch_foreground(&mut self, watcher: &str) {
+        if !self.foreground_watchers.iter().any(|w| &**w == watcher) {
+            self.foreground_watchers.push(Arc::from(watcher));
+            self.sync_requested = true;
+        }
+    }
+
+    pub fn unwatch_foreground(&mut self, watcher: &str) {
+        self.foreground_watchers.retain(|w| &**w != watcher);
+        self.sync_requested = true;
+    }
+
+    /// 同一次切换只发一个事件，不论有几个订阅方。
+    pub fn on_foreground(&mut self, hwnd: isize, emit: &mut dyn FnMut(Event)) {
+        if self.foreground_needed() {
+            emit(Event::Foreground { hwnd });
+        }
+    }
+
     // ------------------------------------------------------------------ 生命周期
 
     /// 是否需要挂低层钩子：有功能开着，或还有被吞掉的按下在等配对的抬起。
@@ -615,6 +639,11 @@ impl Engine {
                 || self.side_claimed != 0
                 || !self.wheel_watchers.is_empty()
                 || !self.key_watchers.is_empty())
+    }
+
+    /// 是否需要前台窗口事件钩子。
+    pub fn foreground_needed(&self) -> bool {
+        !self.closed && !self.foreground_watchers.is_empty()
     }
 
     /// 取走「钩子是否还需要」的重新评估请求。
@@ -640,6 +669,7 @@ impl Engine {
         self.clear_claims();
         self.wheel_watchers.clear();
         self.key_watchers.clear();
+        self.foreground_watchers.clear();
         self.sync_requested = true;
     }
 

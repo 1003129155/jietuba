@@ -2948,14 +2948,6 @@ Replace it?</source>
         <translation>保持する最大履歴数（0 = 無制限）</translation>
     </message>
     <message>
-        <source>Window Scan Interval</source>
-        <translation>ウィンドウ検出間隔</translation>
-    </message>
-    <message>
-        <source>How often the foreground window is sampled to find the paste target (only while this panel is open)</source>
-        <translation>パネル表示中、この間隔でフォアグラウンドウィンドウを検出し貼り付け先を特定します（パネル表示中のみ動作）</translation>
-    </message>
-    <message>
         <source>Auto Cleanup Old Items</source>
         <translation>古いアイテムを自動削除</translation>
     </message>

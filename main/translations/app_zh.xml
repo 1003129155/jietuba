@@ -2983,14 +2983,6 @@ Replace it?</source>
         <translation>保留的最大项目数（0 = 无限制）</translation>
     </message>
     <message>
-        <source>Window Scan Interval</source>
-        <translation>窗口扫描频率</translation>
-    </message>
-    <message>
-        <source>How often the foreground window is sampled to find the paste target (only while this panel is open)</source>
-        <translation>面板打开时按此频率识别前台窗口以确定粘贴目标（仅面板可见时生效）</translation>
-    </message>
-    <message>
         <source>Auto Cleanup Old Items</source>
         <translation>自动清理旧项目</translation>
     </message>

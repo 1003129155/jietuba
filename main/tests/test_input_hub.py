@@ -55,13 +55,21 @@ class Receiver(QObject):
 EVENTS = [("gesture", "start", 1, -5, 7), ("moved", 1), ("gesture", "finish", 1, 30, 40), ("failure", "boom")]
 
 
-def test_dispatch_routes_each_kind_and_ignores_unwired_ones(qapp):
+def test_dispatch_routes_every_kind_to_its_signal(qapp):
     hub = InputHub(QueueNative())
     receiver = Receiver(hub)
-    for event in [*EVENTS, ("side", "x1"), ("wheel", "w", 0, 0, 120, False), ("key", "k", 0x10, True)]:
+    others = []
+    hub.side_button.connect(lambda *args: others.append(("side", *args)))
+    hub.wheel.connect(lambda *args: others.append(("wheel", *args)))
+    hub.key.connect(lambda *args: others.append(("key", *args)))
+    hub.foreground.connect(lambda *args: others.append(("foreground", *args)))
+    wide_hwnd = 0x7FFF_FFFF_1234
+    extra = [("side", "x1"), ("wheel", "w", -5, 7, -240, True), ("key", "k", 0x10, True), ("foreground", wide_hwnd)]
+    for event in [*EVENTS, *extra, ("unknown", 1)]:
         hub.dispatch(event)
     qapp.processEvents()
     assert receiver.received == EVENTS
+    assert others == extra
 
 
 def test_consumer_thread_delivers_in_order_on_the_gui_thread_and_close_joins(qapp, qtbot):
@@ -95,6 +103,7 @@ def test_a_bad_event_is_logged_and_the_consumer_keeps_running(qapp, qtbot, monke
     hub.close()
 
 
+@pytest.mark.real_input_hub
 def test_real_hub_starts_without_low_level_hooks_and_closes_promptly(qapp):
     pytest.importorskip("inputhub")
     assert hub_module._hub is None

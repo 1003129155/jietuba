@@ -615,6 +615,32 @@ fn key_watchers_hear_presses_and_releases_without_swallowing() {
     assert_eq!(rig.key(0x41, true), (false, vec![]));
 }
 
+#[test]
+fn foreground_changes_are_reported_once_while_anyone_watches() {
+    let mut engine = Engine::new();
+    let mut events = Vec::new();
+    engine.on_foreground(7, &mut |e| events.push(e));
+    assert!(events.is_empty());
+    assert!(!engine.foreground_needed());
+    engine.watch_foreground("clipboard");
+    engine.watch_foreground("clipboard");
+    engine.watch_foreground("other");
+    assert!(engine.foreground_needed());
+    assert!(
+        !engine.hooks_needed(),
+        "foreground events need no low-level hooks"
+    );
+    engine.on_foreground(7, &mut |e| events.push(e));
+    assert_eq!(events, vec![Event::Foreground { hwnd: 7 }]);
+    engine.unwatch_foreground("clipboard");
+    assert!(engine.foreground_needed());
+    engine.unwatch_foreground("other");
+    assert!(!engine.foreground_needed());
+    engine.watch_foreground("clipboard");
+    engine.close(&mut |_| {});
+    assert!(!engine.foreground_needed());
+}
+
 // ---------------------------------------------------------------- 生命周期
 
 #[test]

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""前台窗口跟踪器：只认能收到模拟按键的外部窗口，取样不合格时保留上一次的目标。
+"""前台窗口跟踪器：只认能收到模拟按键的窗口，不合格时保留上一次的目标。
 
 这里每条断言都对应一种会把 Ctrl+V 发错地方的情况——目标被改成拾取窗口自己、
 被改成任务栏、被改成收不到按键的浮窗，或者指向一个已经关掉的窗口。
@@ -141,33 +141,58 @@ def test_nothing_is_excluded_before_the_window_registers_itself(fake_desktop):
     assert instance.target_hwnd == 11
 
 
-def test_set_interval_before_start_configures_the_timer(fake_desktop, qapp):
-    """设置页保存的频率要在窗口下次显示、定时器创建时就生效。"""
+def _switch(qapp, hwnd):
+    """一次前台切换，经输入中心排队送达（输入中心是测试替身，见 conftest）。"""
+    from core.input_hub import input_hub
+    input_hub().native.foreground(hwnd)
+    qapp.processEvents()
+
+
+def test_every_switch_while_shown_is_followed(fake_desktop, tracker, qapp):
+    """切过去点一下马上切回拾取窗口，也要记住那个窗口。"""
     fake_desktop.focus(fake_desktop.add(11))
-    instance = ForegroundWindowTracker()
-    instance.set_interval(1500)
-
-    instance.start()
+    tracker.start()
     try:
-        assert instance._timer.interval() == 1500
+        fake_desktop.add(22)
+        fake_desktop.add(33, cls="Shell_TrayWnd")
+        _switch(qapp, 22)
+        _switch(qapp, PICKER_HWND)
+        _switch(qapp, 33)
+        assert tracker.target_hwnd == 22
     finally:
-        instance.stop()
+        tracker.stop()
 
 
-def test_set_interval_updates_a_running_timer_live(fake_desktop, qapp):
-    """面板开着的时候改设置也要立即生效，不用等下次打开面板。"""
+def test_switches_after_stop_are_ignored_and_the_subscription_ends(fake_desktop, tracker, qapp):
+    from core.input_hub import input_hub
+
     fake_desktop.focus(fake_desktop.add(11))
-    instance = ForegroundWindowTracker()
-    instance.start()
+    tracker.start()
+    assert input_hub().native.foreground_needed
+    tracker.stop()
+    assert not input_hub().native.foreground_needed
+    fake_desktop.add(22)
+    input_hub().native.watch_foreground("other")
+    _switch(qapp, 22)
+    assert tracker.target_hwnd == 11
+
+
+def test_restart_does_not_subscribe_twice(fake_desktop, tracker, qapp):
+    fake_desktop.focus(fake_desktop.add(11))
+    tracker.start()
+    tracker.start()
     try:
-        instance.set_interval(800)
-        assert instance._timer.interval() == 800
+        fake_desktop.add(22)
+        _switch(qapp, 22)
+        assert tracker.target_hwnd == 22
     finally:
-        instance.stop()
+        tracker.stop()
+    from core.input_hub import input_hub
+    assert not input_hub().native.foreground_needed
 
 
-def test_sample_never_raises_into_the_timer(fake_desktop):
-    """取样由定时器驱动，异常逃出去会终止进程。
+def test_sample_never_raises_into_the_event_loop(fake_desktop):
+    """由排队的前台切换驱动，异常逃出去会终止进程。
 
     排除判断由窗口侧注入，窗口销毁后 Qt 包装对象会抛 RuntimeError。
     """

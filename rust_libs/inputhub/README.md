@@ -16,13 +16,14 @@ hub.configure_gestures([(["ctrl"], "left"), (["win"], "right")], True)
 hub.configure_side_buttons(True, ["x1"])               # swallow Back, report both side buttons
 hub.watch_wheel("stitch", (0, 0, 1920, 1080))          # wheel events inside this rectangle only
 hub.watch_keys("stitch", [0x10, 0xA0, 0xA1])           # Shift
+hub.watch_foreground("clipboard")                      # every foreground change, including this process
 
 event = hub.next_event()           # blocks with the GIL released; next_event(100) waits at most 100 ms
 # ("gesture", "start", id, x, y) / ("moved", id) / ("side", "x1") /
-# ("wheel", watcher, x, y, delta, horizontal) / ("key", watcher, vk, pressed) / ("failure", message)
+# ("wheel", watcher, x, y, delta, horizontal) / ("key", watcher, vk, pressed) /
+# ("foreground", hwnd) / ("failure", message)
 
 hub.take_position(gesture_id)      # latest cursor position of a drag, consumed once per ("moved", id)
-hub.last_external_foreground()     # HWND of the last foreground window of another process
 hub.close()                        # a pending next_event() returns None once queued events are drained
 ```
 
@@ -44,8 +45,9 @@ Injected input is ignored by gestures. `set_test_marker(value)` makes injected i
 ## Hook lifetime
 
 The low-level hooks are installed only while something needs them: enabled gestures or side buttons,
-a wheel or key watcher, or a swallowed press still waiting for its release. The foreground-window
-hook is out-of-context and stays installed while the hub is open.
+a wheel or key watcher, or a swallowed press still waiting for its release. The out-of-context
+foreground-window hook is installed only while a foreground watcher exists. Foreground events are not
+filtered; the caller decides which windows count.
 
 `inputhub.Engine` drives the same state machine without installing hooks, with held keys supplied by
 the caller; it exists for tests and may be called from any thread.

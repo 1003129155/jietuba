@@ -45,6 +45,7 @@ hidden_imports = [
     'gifrecorder',
     'ppocr_rust',
     'hdrcapture',
+    'inputhub',
     'zxingcpp',
     'PIL',
     'PIL.Image',
@@ -61,7 +62,6 @@ hidden_imports = [
     'win32gui',
     'comtypes.client',
     'comtypes.gen.UIAutomationClient',
-    'pynput',
     'darkdetect',
 ]
 

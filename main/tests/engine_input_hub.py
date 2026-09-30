@@ -47,6 +47,27 @@ class EngineHub:
     def gesture_binding(self, gesture_id):
         return self.engine.gesture_binding(gesture_id)
 
+    def configure_side_buttons(self, enabled, suppressed, capture_all=False):
+        self.engine.configure_side_buttons(enabled, suppressed, capture_all)
+
+    def watch_wheel(self, watcher, rect=None):
+        self.engine.watch_wheel(watcher, rect)
+
+    def unwatch_wheel(self, watcher):
+        self.engine.unwatch_wheel(watcher)
+
+    def watch_keys(self, watcher, keys):
+        self.engine.watch_keys(watcher, keys)
+
+    def unwatch_keys(self, watcher):
+        self.engine.unwatch_keys(watcher)
+
+    def watch_foreground(self, watcher):
+        self.engine.watch_foreground(watcher)
+
+    def unwatch_foreground(self, watcher):
+        self.engine.unwatch_foreground(watcher)
+
     def close(self):
         self._deliver(self.engine.close())
 
@@ -59,6 +80,10 @@ class EngineHub:
     @property
     def mask_calls(self):
         return self.engine.mask_calls
+
+    @property
+    def foreground_needed(self):
+        return self.engine.foreground_needed
 
     def hold(self, *keys):
         """这些键在装钩子之前就已按着，钩子没见过它们的按下。"""
@@ -83,6 +108,9 @@ class EngineHub:
             self.held.discard(vk)
         self._deliver(events)
         return suppress
+
+    def foreground(self, hwnd):
+        self._deliver(self.engine.foreground(hwnd))
 
     def fail(self, message):
         self._deliver(self.engine.fail(message))

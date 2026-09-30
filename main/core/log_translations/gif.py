@@ -66,7 +66,7 @@ TRANSLATIONS: dict[str, str] = {
     "RecordSession.stop 异常: {e}": "RecordSession.stop exception: {e}",
     "StopWorker 异常: {e}": "StopWorker exception: {e}",
     "停止 Rust 截屏会话": "Stopping Rust screen capture session",
-    "pynput 滚轮监听启动失败: {e}": "pynput scroll listener failed to start: {e}",
+    "滚轮监听启动失败: {e}": "Scroll listener failed to start: {e}",
     "停止滚轮监听": "Stopping scroll listener",
     "采集鼠标快照": "Capturing cursor snapshot",
 

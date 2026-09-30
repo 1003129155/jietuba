@@ -17,6 +17,10 @@ class InputHub(QObject):
 
     gesture = Signal(str, int, int, int)  # start / finish / cancel，手势编号，物理像素坐标
     moved = Signal(int)  # 手势编号；take_position 取走之前只发一次
+    side_button = Signal(str)  # x1 / x2
+    wheel = Signal(str, int, int, int, bool)  # 订阅名，物理像素坐标，滚动量（WHEEL_DELTA 倍数），是否横向
+    key = Signal(str, int, bool)  # 订阅名，虚拟键码，是否按下
+    foreground = Signal(object)  # 窗口句柄；64 位句柄不能走 int 信号
     failure = Signal(str)
 
     def __init__(self, native, parent=None):
@@ -43,6 +47,14 @@ class InputHub(QObject):
             self.gesture.emit(*event[1:])
         elif kind == "moved":
             self.moved.emit(event[1])
+        elif kind == "side":
+            self.side_button.emit(event[1])
+        elif kind == "wheel":
+            self.wheel.emit(*event[1:])
+        elif kind == "key":
+            self.key.emit(*event[1:])
+        elif kind == "foreground":
+            self.foreground.emit(event[1])
         elif kind == "failure":
             self.failure.emit(event[1])
 
@@ -64,11 +76,21 @@ def input_hub() -> InputHub:
     """首次调用时创建；只在 GUI 线程调用。低层钩子要等有功能用到时才装。"""
     global _hub
     if _hub is None:
-        import inputhub
-
-        _hub = InputHub(inputhub.Hub())
-        _hub.start()
+        _hub = _create()
     return _hub
+
+
+def existing_input_hub():
+    """已经创建的输入中心；还没人用过时返回 None，不会因此创建。"""
+    return _hub
+
+
+def _create() -> InputHub:
+    import inputhub
+
+    hub = InputHub(inputhub.Hub())
+    hub.start()
+    return hub
 
 
 def close_input_hub():

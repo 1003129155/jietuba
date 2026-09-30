@@ -1,23 +1,27 @@
 # -*- coding: utf-8 -*-
-"""前台窗口跟踪：记住最后一个不属于本进程的前台窗口，作为粘贴目标。
+"""前台窗口跟踪：记住最后一个可作为粘贴目标的前台窗口。
 
 粘贴是"把焦点还给目标窗口 + 模拟 Ctrl+V"。keybd_event 没有收件人，按键落到谁
 身上取决于那一刻谁持有焦点，所以必须先知道该把焦点还给谁。
 
 窗口失焦即隐藏时，show 时取一次样就够——记录和使用之间用户没有机会切换窗口。
-窗口一旦可以常驻（粘贴后不关闭），中途焦点会反复变化，必须持续取样。
+窗口一旦可以常驻（粘贴后不关闭），中途焦点会反复变化，必须持续跟踪：显示期间订阅
+输入中心的前台窗口事件，每一次切换都按顺序送来，切过去点一下马上切回来也不会漏。
 
-取样要排除拾取窗口自己：用户点在它上面时前台就是它，此刻记录等于把粘贴目标改
+每次都要排除拾取窗口自己：用户点在它上面时前台就是它，此刻记录等于把粘贴目标改
 成自己，Ctrl+V 会落进搜索框。但只排除它一个——本应用的其他窗口（内容编辑、截图
 标注、翻译）都是合法的粘贴目标，按进程排除会把它们一起误伤。同样排除任务栏、
 桌面，以及拿不到键盘焦点的窗口——它们收不到模拟按键。
-取样不合格时保留上一次的值，不回退到当前前台。
+不合格时保留上一次的值，不回退到当前前台。
 """
 
 import ctypes
 from ctypes import wintypes
 from typing import Callable, Optional
 
+from PySide6.QtCore import Qt
+
+from core.input_hub import input_hub
 from core.logger import T, log_debug, log_exception
 
 _user32 = ctypes.windll.user32
@@ -48,9 +52,7 @@ _SHELL_CLASSES = frozenset({
     "WorkerW",
 })
 
-# 取样间隔。用户在目标窗口里停留不足一个间隔就切回来的情况会漏采，所以取值
-# 需要短于一次"切过去点一下再切回来"的最短耗时。
-_SAMPLE_INTERVAL_MS = 200
+_WATCHER = "clipboard"
 
 
 def get_foreground_hwnd() -> Optional[int]:
@@ -110,17 +112,15 @@ def get_current_pid() -> int:
 
 
 class ForegroundWindowTracker:
-    """周期性取样前台窗口，保留最后一个可作为粘贴目标的句柄。
+    """保留最后一个可作为粘贴目标的前台窗口。
 
-    QTimer 延迟到 start() 才创建，这样控制器可以在没有 QApplication 的环境里
-    构造（测试直接调 sample()）。
+    前台切换事件经排队回到界面线程再判断，排除条件可以放心读 Qt 窗口。
     """
 
-    def __init__(self, interval_ms: int = _SAMPLE_INTERVAL_MS):
-        self._interval_ms = interval_ms
+    def __init__(self):
         self._target_hwnd: Optional[int] = None
         self._is_excluded: Optional[Callable[[int], bool]] = None
-        self._timer = None
+        self._hub = None
 
     def set_excluded(self, predicate: Optional[Callable[[int], bool]]):
         """注册"这个窗口不能当粘贴目标"的判断（拾取窗口自己）。"""
@@ -128,45 +128,47 @@ class ForegroundWindowTracker:
 
     @property
     def target_hwnd(self) -> Optional[int]:
-        """最后一次采到的粘贴目标；窗口已销毁时返回 None。"""
+        """最后一次记下的粘贴目标；窗口已销毁时返回 None。"""
         if not is_alive(self._target_hwnd):
             return None
         return self._target_hwnd
 
     def start(self):
-        """立即取样一次，然后开始周期取样。"""
+        """先看一次当前前台，再跟踪之后的每一次切换。"""
         self.sample()
-        if self._timer is None:
-            from PySide6.QtCore import QTimer
-
-            self._timer = QTimer()
-            self._timer.setInterval(self._interval_ms)
-            self._timer.timeout.connect(self.sample)
-        self._timer.start()
+        if self._hub is None:
+            hub = input_hub()
+            hub.foreground.connect(self._on_foreground, Qt.ConnectionType.QueuedConnection)
+            hub.native.watch_foreground(_WATCHER)
+            self._hub = hub
 
     def stop(self):
-        if self._timer is not None:
-            self._timer.stop()
-
-    def set_interval(self, interval_ms: int):
-        """更新取样间隔，定时器运行中也立即生效。"""
-        self._interval_ms = interval_ms
-        if self._timer is not None:
-            self._timer.setInterval(interval_ms)
+        hub, self._hub = self._hub, None
+        if hub is not None:
+            hub.native.unwatch_foreground(_WATCHER)
+            hub.foreground.disconnect(self._on_foreground)
 
     def sample(self) -> bool:
-        """取样一次，返回是否更新了目标。
+        """按当前前台窗口更新一次，返回是否更新了目标。"""
+        return self._consider(get_foreground_hwnd())
 
-        由定时器驱动，异常不能逃出去——PySide 下槽函数里未捕获的异常会终止进程。
+    def _on_foreground(self, hwnd: int):
+        # stop 之后才送到的切换不再算
+        if self._hub is not None:
+            self._consider(hwnd)
+
+    def _consider(self, hwnd: Optional[int]) -> bool:
+        """异常不能逃出去——PySide 下槽函数里未捕获的异常会终止进程。
         排除判断由窗口侧注入，窗口销毁后可能抛 RuntimeError。
         """
         try:
-            hwnd = self._read_candidate()
+            if not self._eligible(hwnd):
+                return False
         except Exception as e:
             log_exception(e, T("取样前台窗口"))
             return False
 
-        if hwnd is None or hwnd == self._target_hwnd:
+        if hwnd == self._target_hwnd:
             return False
         self._target_hwnd = hwnd
         log_debug(
@@ -175,15 +177,11 @@ class ForegroundWindowTracker:
         )
         return True
 
-    def _read_candidate(self) -> Optional[int]:
-        """读取当前前台窗口，不合格返回 None（调用方保留旧值）。"""
-        hwnd = get_foreground_hwnd()
+    def _eligible(self, hwnd: Optional[int]) -> bool:
         if not is_alive(hwnd):
-            return None
+            return False
         if not can_take_focus(hwnd):
-            return None
+            return False
         if get_window_class(hwnd) in _SHELL_CLASSES:
-            return None
-        if self._is_excluded is not None and self._is_excluded(hwnd):
-            return None
-        return hwnd
+            return False
+        return self._is_excluded is None or not self._is_excluded(hwnd)

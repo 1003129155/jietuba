@@ -86,6 +86,26 @@ def no_hdr_display(monkeypatch):
     monkeypatch.setattr("capture.capture_service.hdr_display_active", lambda: False)
 
 
+def pytest_configure(config):
+    config.addinivalue_line("markers", "real_input_hub: 使用真实的全局输入钩子，而不是测试替身")
+
+
+@pytest.fixture(autouse=True)
+def engine_backed_input_hub(request, monkeypatch):
+    """全局输入默认换成不装钩子的原生状态机。
+
+    真实的输入中心会挂系统级钩子，测试期间开发机上的侧键、滚轮会被吞掉或误触发。
+    要测真钩子的用例标 real_input_hub。
+    """
+    from core import input_hub
+
+    if request.node.get_closest_marker("real_input_hub") is None:
+        from tests.engine_input_hub import engine_input_hub
+        monkeypatch.setattr(input_hub, "_create", engine_input_hub)
+    yield
+    input_hub.close_input_hub()
+
+
 @pytest.fixture
 def tmp_settings(tmp_path):
     """提供一个临时的 QSettings，避免污染真正的配置"""

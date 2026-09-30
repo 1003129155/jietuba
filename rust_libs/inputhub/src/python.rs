@@ -6,6 +6,7 @@
 //!   ("side", "x1" | "x2")
 //!   ("wheel", watcher, x, y, delta, horizontal)
 //!   ("key", watcher, vk, pressed)
+//!   ("foreground", hwnd)
 //!   ("failure", message)
 
 use std::collections::HashSet;
@@ -45,6 +46,7 @@ fn event_to_py(py: Python<'_>, event: Event) -> PyObject {
             vk,
             pressed,
         } => ("key", &*watcher, vk, pressed).into_py(py),
+        Event::Foreground { hwnd } => ("foreground", hwnd).into_py(py),
         Event::Failure { message } => ("failure", message).into_py(py),
     }
 }
@@ -202,6 +204,15 @@ impl Hub {
         self.with_engine(|engine, _| engine.unwatch_keys(watcher));
     }
 
+    /// 有订阅时报告每一次前台窗口切换（含本进程的窗口），不做筛选。
+    fn watch_foreground(&self, watcher: &str) {
+        self.with_engine(|engine, _| engine.watch_foreground(watcher));
+    }
+
+    fn unwatch_foreground(&self, watcher: &str) {
+        self.with_engine(|engine, _| engine.unwatch_foreground(watcher));
+    }
+
     /// 等下一个事件，等待期间释放 GIL。timeout_ms 为 None 时一直等到有事件或 Hub 关闭。
     /// 超时或已关闭返回 None；关闭前排队的事件仍会先取完。
     #[pyo3(signature = (timeout_ms=None))]
@@ -217,10 +228,6 @@ impl Hub {
             }
         });
         received.map(|event| event_to_py(py, event))
-    }
-
-    fn last_external_foreground(&self) -> Option<isize> {
-        self.shared.last_external_foreground()
     }
 
     /// 仅供测试：附加信息等于 marker 的模拟输入按真实输入处理；0 关闭。
@@ -240,6 +247,10 @@ impl Hub {
         dict.set_item(
             "hooks_installed",
             stats.hooks_installed.load(Ordering::Acquire),
+        )?;
+        dict.set_item(
+            "foreground_hook_installed",
+            stats.foreground_hook_installed.load(Ordering::Acquire),
         )?;
         Ok(dict)
     }
@@ -483,6 +494,25 @@ impl Engine {
 
     fn unwatch_keys(&mut self, watcher: &str) {
         self.engine.unwatch_keys(watcher);
+    }
+
+    fn watch_foreground(&mut self, watcher: &str) {
+        self.engine.watch_foreground(watcher);
+    }
+
+    fn unwatch_foreground(&mut self, watcher: &str) {
+        self.engine.unwatch_foreground(watcher);
+    }
+
+    /// 模拟一次前台窗口切换。
+    fn foreground(&mut self, py: Python<'_>, hwnd: isize) -> Vec<PyObject> {
+        self.run(py, |engine, _, emit| engine.on_foreground(hwnd, emit))
+            .1
+    }
+
+    #[getter]
+    fn foreground_needed(&self) -> bool {
+        self.engine.foreground_needed()
     }
 
     #[getter]

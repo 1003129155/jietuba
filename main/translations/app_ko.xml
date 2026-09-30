@@ -2903,14 +2903,6 @@ Replace it?</source>
         <translation>유지할 최대 항목 수 (0 = 무제한)</translation>
     </message>
     <message>
-        <source>Window Scan Interval</source>
-        <translation>창 스캔 주기</translation>
-    </message>
-    <message>
-        <source>How often the foreground window is sampled to find the paste target (only while this panel is open)</source>
-        <translation>패널이 열려 있는 동안 이 주기로 전경 창을 검사해 붙여넣기 대상을 찾습니다(패널이 열려 있을 때만 동작)</translation>
-    </message>
-    <message>
         <source>Auto Cleanup Old Items</source>
         <translation>오래된 항목 자동 정리</translation>
     </message>

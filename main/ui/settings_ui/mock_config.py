@@ -282,9 +282,6 @@ class MockConfig:
     def set_clipboard_db_path(self, v): pass
     def get_clipboard_auto_cleanup(self): return False
     def set_clipboard_auto_cleanup(self, v): pass
-    def get_clipboard_foreground_scan_interval_ms(self): return 200
-    def set_clipboard_foreground_scan_interval_ms(self, v): pass
-    def get_clipboard_foreground_scan_interval_options(self): return [100, 200, 300, 400, 500, 600]
     def get_clipboard_theme(self): return "light"
     def set_clipboard_theme(self, v): pass
     def get_clipboard_font_size(self): return 17

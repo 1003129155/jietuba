@@ -1,50 +1,25 @@
 """Quick capture through the real system hooks: injected input carrying the hub's test marker.
 
 These tests move the cursor, click and press keys on the real desktop, so they only run with
-RUN_REAL_INPUT_TESTS=1. A separate topmost Tk window records what actually reaches the desktop.
-Another program whose own hook grabs the same gesture first can make them fail.
+RUN_REAL_INPUT_TESTS=1 (see tests/real_input.py). Another program whose own hook grabs the same
+gesture first can make them fail.
 """
 
-import ctypes
 import json
-import os
 import subprocess
 import sys
 import time
-from ctypes import wintypes
 from types import SimpleNamespace
 
 import pytest
 from PySide6.QtCore import Qt
 
-pytestmark = pytest.mark.skipif(
-    sys.platform != "win32" or os.environ.get("RUN_REAL_INPUT_TESTS") != "1",
-    reason="drives the real mouse and keyboard; set RUN_REAL_INPUT_TESTS=1",
+from tests.real_input import (
+    LEFT_DOWN, LEFT_UP, MIDDLE_DOWN, MIDDLE_UP, VK_ESCAPE, VK_LCONTROL, VK_LWIN, WHEEL,
+    MARKER, click, foreground_class, key, mouse, real_desktop, requires_real_input, send, user32,
 )
 
-MARKER = 0x4A544241
-VK_LCONTROL, VK_LWIN, VK_ESCAPE = 0xA2, 0x5B, 0x1B
-LEFT_DOWN, LEFT_UP, MIDDLE_DOWN, MIDDLE_UP, WHEEL = 0x0002, 0x0004, 0x0020, 0x0040, 0x0800
-PER_MONITOR_AWARE_V2 = ctypes.c_void_p(-4)
-
-TARGET = r"""
-import ctypes, sys, tkinter as tk
-ctypes.windll.user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4))
-log = open(sys.argv[1], "a", encoding="utf-8", buffering=1)
-root = tk.Tk()
-root.title("JIETUBA-REAL-INPUT")
-root.attributes("-topmost", True)
-root.geometry(f"520x360+{root.winfo_screenwidth() - 640}+200")
-for sequence, kind in (("<ButtonPress>", "press"), ("<ButtonRelease>", "release"), ("<MouseWheel>", "wheel"),
-                       ("<KeyPress>", "key"), ("<KeyRelease>", "keyup")):
-    root.bind(sequence, lambda event, kind=kind: log.write(
-        kind + (" " + event.keysym if kind.startswith("key") else "") + "\n"))
-def ready():
-    frame = ctypes.windll.user32.GetAncestor(root.winfo_id(), 2)
-    log.write(f"READY {frame} {root.winfo_rootx()} {root.winfo_rooty()} {root.winfo_width()} {root.winfo_height()}\n")
-root.after(400, ready)
-root.mainloop()
-"""
+pytestmark = requires_real_input
 
 MOVER = r"""
 import ctypes, json, sys, time
@@ -77,94 +52,30 @@ print(json.dumps(samples))
 """
 
 
-class MOUSEINPUT(ctypes.Structure):
-    _fields_ = [("dx", wintypes.LONG), ("dy", wintypes.LONG), ("mouseData", wintypes.DWORD),
-                ("dwFlags", wintypes.DWORD), ("time", wintypes.DWORD), ("dwExtraInfo", ctypes.c_size_t)]
-
-
-class KEYBDINPUT(ctypes.Structure):
-    _fields_ = [("wVk", wintypes.WORD), ("wScan", wintypes.WORD), ("dwFlags", wintypes.DWORD),
-                ("time", wintypes.DWORD), ("dwExtraInfo", ctypes.c_size_t)]
-
-
-class _InputUnion(ctypes.Union):
-    _fields_ = [("mi", MOUSEINPUT), ("ki", KEYBDINPUT)]
-
-
-class INPUT(ctypes.Structure):
-    _fields_ = [("type", wintypes.DWORD), ("value", _InputUnion)]
-
-
-user32 = ctypes.WinDLL("user32", use_last_error=True) if sys.platform == "win32" else None
-
-
-def send(*inputs):
-    array = (INPUT * len(inputs))(*inputs)
-    assert user32.SendInput(len(inputs), array, ctypes.sizeof(INPUT)) == len(inputs)
-    time.sleep(0.03)
-
-
-def mouse(x, y, flags=0, data=0):
-    left, top, width, height = (user32.GetSystemMetrics(index) for index in (76, 77, 78, 79))
-    # MOUSEEVENTF_VIRTUALDESK | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE
-    return INPUT(0, _InputUnion(mi=MOUSEINPUT(
-        (x - left) * 65535 // (width - 1), (y - top) * 65535 // (height - 1), data & 0xFFFFFFFF,
-        flags | 0x4000 | 0x8000 | 0x0001, 0, MARKER)))
-
-
-def key(vk, up=False):
-    return INPUT(1, _InputUnion(ki=KEYBDINPUT(vk, 0, 2 if up else 0, 0, MARKER)))
-
-
 def timed_sum(items):
     started = time.perf_counter()
     sum(range(items))
     return time.perf_counter() - started
 
 
-def foreground_class():
-    buffer = ctypes.create_unicode_buffer(128)
-    user32.GetClassNameW(user32.GetForegroundWindow(), buffer, 128)
-    return buffer.value
-
-
 @pytest.fixture
 def desktop(qapp, qtbot, tmp_path):
-    from core.input_hub import close_input_hub, input_hub
+    from core.input_hub import input_hub
     from core.quick_capture_input import QuickCaptureInput
 
-    # A deadlocked hook thread slows every input on the system and hangs teardown; end the run instead.
-    watchdog = subprocess.Popen([sys.executable, "-c", "import os, sys, time; time.sleep(30); os.kill(int(sys.argv[1]), 9)",
-                                 str(os.getpid())])
-    previous = user32.SetThreadDpiAwarenessContext(PER_MONITOR_AWARE_V2)
-    log = tmp_path / "target.log"
-    target = subprocess.Popen([sys.executable, "-c", TARGET, str(log)])
-    try:
-        qtbot.waitUntil(lambda: log.exists() and "READY" in log.read_text(encoding="utf-8"), timeout=10000)
-        ready = next(line for line in log.read_text(encoding="utf-8").splitlines() if line.startswith("READY"))
-        frame, left, top, width, height = map(int, ready.split()[1:])
+    with real_desktop(qtbot, tmp_path) as (target,):
         hub = input_hub()
         hub.native.set_test_marker(MARKER)
         source = QuickCaptureInput(hub=hub)
         events, moves = [], []
         source.event.connect(lambda *args: events.append(args), Qt.ConnectionType.QueuedConnection)
         source.moved.connect(moves.append, Qt.ConnectionType.QueuedConnection)
-        center = (left + width // 2, top + height // 2)
-
-        def seen():
-            return [line for line in log.read_text(encoding="utf-8").splitlines() if not line.startswith("READY")]
-
-        send(mouse(*center), mouse(*center, LEFT_DOWN), mouse(*center, LEFT_UP))
-        qtbot.waitUntil(lambda: user32.GetForegroundWindow() == frame and seen()[-1:] == ["release"], timeout=3000)
-        yield SimpleNamespace(source=source, hub=hub, events=events, moves=moves, frame=frame, center=center,
-                              seen=seen, qtbot=qtbot, qapp=qapp)
+        click(*target.center)
+        qtbot.waitUntil(lambda: user32.GetForegroundWindow() == target.frame and target.seen()[-1:] == ["release"],
+                        timeout=3000)
+        yield SimpleNamespace(source=source, hub=hub, events=events, moves=moves, frame=target.frame,
+                              center=target.center, seen=target.seen, qtbot=qtbot, qapp=qapp)
         source.close()
-    finally:
-        close_input_hub()
-        target.terminate()
-        target.wait(5)
-        user32.SetThreadDpiAwarenessContext(ctypes.c_void_p(previous))
-        watchdog.kill()
 
 
 def test_ctrl_drag_is_reported_and_never_reaches_the_window(desktop):
