@@ -286,7 +286,7 @@ class MockConfig:
     def set_clipboard_theme(self, v): pass
     def get_clipboard_font_size(self): return 17
     def set_clipboard_font_size(self, v): pass
-    def get_clipboard_font_size_options(self): return [15, 16, 17, 18, 19, 20]
+    def get_clipboard_font_size_options(self): return [15, 16, 17, 18, 19, 20, 22, 24]
     def get_clipboard_window_opacity(self): return 20
     def set_clipboard_window_opacity(self, v): pass
     def get_clipboard_window_opacity_options(self): return [0, 20, 30, 40, 50, 60]

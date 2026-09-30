@@ -384,7 +384,7 @@ class ToolSettingsManager(QObject):
         "clipboard_paste_with_html": True,     # 粘贴时是否带 HTML 格式
         "clipboard_show_metadata": True,       # 显示时间和来源信息
         "clipboard_font_size": 17,            # 剪贴板项字体大小（像素）
-        "clipboard_font_size_options": [15, 16, 17, 18, 19, 20],  # 字体大小可选项
+        "clipboard_font_size_options": [15, 16, 17, 18, 19, 20, 22, 24],  # 字体大小可选项
         "clipboard_image_size": "small",       # 图片条目高度档位（small/medium/large）
         "clipboard_line_height_padding": 8,   # 多行显示时的额外行高边距（像素，用于确保完整显示）
         "clipboard_display_lines": 1,          # 剪贴板项最大显示行数
