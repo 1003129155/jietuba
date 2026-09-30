@@ -115,6 +115,8 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 The [test directory](main/tests/) contains unit and integration tests for capture, clipboard operations, mosaic editing, pin zoom, GIF playback, OCR text layers, and other modules. The [CI workflow](.github/workflows/ci.yml) runs tests and coverage checks on Windows x86_64 and ARM64 with Python 3.11, plus static analysis on x86_64. Results are available in [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml).
 
+Tests that drive the real mouse and keyboard, such as `test_quick_capture_real_hooks.py`, are skipped by default. Set `RUN_REAL_INPUT_TESTS=1` to run them, and leave the mouse and keyboard alone while they run.
+
 To build a Windows release, run `python build_with_ocr_onefile.py`. It produces `dist/jietuba_pp.exe` and `dist/models/`. The automated [release workflow](.github/workflows/build.yml) creates separate x64 and ARM64 archives.
 
 ### Code Comments
@@ -356,7 +358,8 @@ core/
 ├── ui_scale.py              # UIScaleManager — one scale factor for toolbars, panels and popups
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — internationalization
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — global & in-app hotkeys
-├── quick_capture_input.py    # Global modifier-drag input and quick capture gesture state
+├── input_hub.py             # Shared global input: native hooks (j-input) off the GUI thread, events as Qt signals
+├── quick_capture_input.py    # Global mouse shortcut drag input on the shared input hub
 ├── last_capture_region.py   # In-memory "last capture region" for the restore-region hotkey
 ├── save.py                  # SaveService — file save service (auto naming, high-quality PDF output)
 ├── export.py                # ExportService — image export

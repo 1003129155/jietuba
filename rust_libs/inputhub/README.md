@@ -17,13 +17,13 @@ hub.configure_side_buttons(True, ["x1"])               # swallow Back, report bo
 hub.watch_wheel("stitch", (0, 0, 1920, 1080))          # wheel events inside this rectangle only
 hub.watch_keys("stitch", [0x10, 0xA0, 0xA1])           # Shift
 
-event = hub.next_event(100)        # waits up to 100 ms with the GIL released
+event = hub.next_event()           # blocks with the GIL released; next_event(100) waits at most 100 ms
 # ("gesture", "start", id, x, y) / ("moved", id) / ("side", "x1") /
 # ("wheel", watcher, x, y, delta, horizontal) / ("key", watcher, vk, pressed) / ("failure", message)
 
 hub.take_position(gesture_id)      # latest cursor position of a drag, consumed once per ("moved", id)
 hub.last_external_foreground()     # HWND of the last foreground window of another process
-hub.close()
+hub.close()                        # a pending next_event() returns None once queued events are drained
 ```
 
 ## Gestures
@@ -48,7 +48,7 @@ a wheel or key watcher, or a swallowed press still waiting for its release. The 
 hook is out-of-context and stays installed while the hub is open.
 
 `inputhub.Engine` drives the same state machine without installing hooks, with held keys supplied by
-the caller; it exists for tests.
+the caller; it exists for tests and may be called from any thread.
 
 The distribution is `j-input`; the module imports as `inputhub`. Without the default `python`
 feature the crate is a plain Rust library.

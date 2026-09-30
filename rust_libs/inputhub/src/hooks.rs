@@ -3,7 +3,7 @@
 //! 钩子回调只把系统结构转成状态机输入，当场返回吞或不吞；要交给界面的事件放进通道。
 //! 低层钩子按需安装：状态机不需要时整个卸掉，不给系统里每个输入事件多绕一趟。
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr::null_mut;
 use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU32, AtomicU64, AtomicUsize, Ordering};
@@ -52,9 +52,14 @@ pub struct Stats {
     pub hooks_installed: AtomicBool,
 }
 
+struct Guarded {
+    engine: Engine,
+    /// 关闭时取走，等事件的一方随即返回
+    tx: Option<Sender<Event>>,
+}
+
 pub struct Shared {
-    engine: Mutex<Engine>,
-    tx: Sender<Event>,
+    state: Mutex<Guarded>,
     test_marker: AtomicUsize,
     thread_id: AtomicU32,
     last_foreground: AtomicIsize,
@@ -64,20 +69,31 @@ pub struct Shared {
 impl Shared {
     /// 锁住状态机执行 f，事件送进通道；状态机要求重新评估钩子时通知钩子线程。
     pub fn with_engine<R>(&self, f: impl FnOnce(&mut Engine, &mut dyn FnMut(Event)) -> R) -> R {
-        let mut engine = self
-            .engine
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let tx = &self.tx;
-        let result = f(&mut engine, &mut |event| {
-            let _ = tx.send(event);
+        let mut guard = self.lock();
+        let Guarded { engine, tx } = &mut *guard;
+        let result = f(engine, &mut |event| {
+            if let Some(tx) = tx {
+                let _ = tx.send(event);
+            }
         });
         let sync = engine.take_sync_request();
-        drop(engine);
+        drop(guard);
         if sync {
             self.request_sync();
         }
         result
+    }
+
+    fn lock(&self) -> std::sync::MutexGuard<'_, Guarded> {
+        self.state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    /// 关闭状态机并断开事件通道：已排队的事件照常取完，之后等事件的调用立即返回。
+    pub fn close(&self) {
+        self.with_engine(|engine, emit| engine.close(emit));
+        self.lock().tx = None;
     }
 
     fn request_sync(&self) {
@@ -107,9 +123,15 @@ impl Shared {
         &self,
         run: impl FnOnce(&mut Engine, &mut dyn Platform, &mut dyn FnMut(Event)) -> bool,
     ) -> bool {
+        // 系统可能在本线程的系统调用里重入钩子回调；外层还拿着状态机的锁，重入时直接放行，
+        // 不能等锁，否则整个系统的输入都会卡住
+        if IN_ENGINE.get() {
+            return false;
+        }
         let start = Instant::now();
+        let mut platform = Win32Platform::default();
+        IN_ENGINE.set(true);
         let suppress = self.with_engine(|engine, emit| {
-            let mut platform = Win32Platform;
             match catch_unwind(AssertUnwindSafe(|| run(engine, &mut platform, emit))) {
                 Ok(suppress) => suppress,
                 Err(_) => {
@@ -118,6 +140,13 @@ impl Shared {
                 }
             }
         });
+        IN_ENGINE.set(false);
+        if platform.mask_requested {
+            // 解锁后、放行这次抬起之前发送：SendInput 会重入钩子回调
+            if let Err(message) = send_menu_mask() {
+                self.with_engine(|_, emit| emit(Event::Failure { message }));
+            }
+        }
         let elapsed = start.elapsed().as_nanos() as u64;
         self.stats
             .max_handle_ns
@@ -186,43 +215,54 @@ impl Shared {
     }
 }
 
-struct Win32Platform;
+#[derive(Default)]
+struct Win32Platform {
+    mask_requested: bool,
+}
 
 impl Platform for Win32Platform {
     fn key_held(&self, vk: u32) -> bool {
         unsafe { GetAsyncKeyState(vk as i32) as u16 & 0x8000 != 0 }
     }
 
+    /// 只记下请求，由 handle 在释放状态机的锁之后发送。
     fn mask_menu(&mut self) -> Result<(), String> {
-        // 0xE8 未分配：成对的按下、抬起让随后松开的 Win/Alt 不弹出菜单，又不吞掉真实的松开
-        let key = |flags| INPUT {
-            r#type: INPUT_KEYBOARD,
-            Anonymous: INPUT_0 {
-                ki: KEYBDINPUT {
-                    wVk: 0xE8,
-                    wScan: 0,
-                    dwFlags: flags,
-                    time: 0,
-                    dwExtraInfo: 0,
-                },
+        self.mask_requested = true;
+        Ok(())
+    }
+}
+
+fn send_menu_mask() -> Result<(), String> {
+    // 0xE8 未分配：成对的按下、抬起让随后松开的 Win/Alt 不弹出菜单，又不吞掉真实的松开
+    let key = |flags| INPUT {
+        r#type: INPUT_KEYBOARD,
+        Anonymous: INPUT_0 {
+            ki: KEYBDINPUT {
+                wVk: 0xE8,
+                wScan: 0,
+                dwFlags: flags,
+                time: 0,
+                dwExtraInfo: 0,
             },
-        };
-        let inputs = [key(0), key(KEYEVENTF_KEYUP)];
-        let sent = unsafe { SendInput(2, inputs.as_ptr(), std::mem::size_of::<INPUT>() as i32) };
-        if sent == 2 {
-            Ok(())
-        } else {
-            Err(format!(
-                "Could not mask the modifier menu (error {})",
-                unsafe { GetLastError() }
-            ))
-        }
+        },
+    };
+    let inputs = [key(0), key(KEYEVENTF_KEYUP)];
+    let sent = unsafe { SendInput(2, inputs.as_ptr(), std::mem::size_of::<INPUT>() as i32) };
+    if sent == 2 {
+        Ok(())
+    } else {
+        Err(format!(
+            "Could not mask the modifier menu (error {})",
+            unsafe { GetLastError() }
+        ))
     }
 }
 
 thread_local! {
     /// 钩子回调都在钩子线程上运行，从这里取共享状态，不经过全局锁
     static CURRENT: RefCell<Option<Arc<Shared>>> = const { RefCell::new(None) };
+    /// 本线程正拿着状态机的锁处理一个钩子事件
+    static IN_ENGINE: Cell<bool> = const { Cell::new(false) };
 }
 
 fn with_current<R>(f: impl FnOnce(&Shared) -> R) -> Option<R> {
@@ -302,8 +342,10 @@ impl HookThread {
     pub fn start() -> Result<(HookThread, Receiver<Event>), String> {
         let (tx, rx) = channel();
         let shared = Arc::new(Shared {
-            engine: Mutex::new(Engine::new()),
-            tx,
+            state: Mutex::new(Guarded {
+                engine: Engine::new(),
+                tx: Some(tx),
+            }),
             test_marker: AtomicUsize::new(0),
             thread_id: AtomicU32::new(0),
             last_foreground: AtomicIsize::new(0),

@@ -10,7 +10,7 @@
 
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{Receiver, RecvTimeoutError};
+use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -202,19 +202,21 @@ impl Hub {
         self.with_engine(|engine, _| engine.unwatch_keys(watcher));
     }
 
-    /// 等下一个事件，最多等 timeout_ms 毫秒；等待期间释放 GIL。超时或已关闭返回 None。
-    fn next_event(&self, py: Python<'_>, timeout_ms: u64) -> Option<PyObject> {
+    /// 等下一个事件，等待期间释放 GIL。timeout_ms 为 None 时一直等到有事件或 Hub 关闭。
+    /// 超时或已关闭返回 None；关闭前排队的事件仍会先取完。
+    #[pyo3(signature = (timeout_ms=None))]
+    fn next_event(&self, py: Python<'_>, timeout_ms: Option<u64>) -> Option<PyObject> {
         let received = py.allow_threads(|| {
             let events = self
                 .events
                 .lock()
                 .unwrap_or_else(|poisoned| poisoned.into_inner());
-            events.recv_timeout(Duration::from_millis(timeout_ms))
+            match timeout_ms {
+                Some(ms) => events.recv_timeout(Duration::from_millis(ms)).ok(),
+                None => events.recv().ok(),
+            }
         });
-        match received {
-            Ok(event) => Some(event_to_py(py, event)),
-            Err(RecvTimeoutError::Timeout | RecvTimeoutError::Disconnected) => None,
-        }
+        received.map(|event| event_to_py(py, event))
     }
 
     fn last_external_foreground(&self) -> Option<isize> {
@@ -242,9 +244,9 @@ impl Hub {
         Ok(dict)
     }
 
-    /// 取消进行中的手势、卸掉钩子并结束原生线程；之后不再产生事件。
+    /// 取消进行中的手势、卸掉钩子并结束原生线程；之后不再产生事件，正在等事件的调用随即返回。
     fn close(&self, py: Python<'_>) {
-        self.with_engine(|engine, emit| engine.close(emit));
+        self.shared.close();
         let thread = self
             .thread
             .lock()
@@ -265,7 +267,7 @@ impl Drop for Hub {
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .take();
         if let Some(mut thread) = thread {
-            self.shared.with_engine(|engine, emit| engine.close(emit));
+            self.shared.close();
             thread.stop();
             HUB_ACTIVE.store(false, Ordering::Release);
         }
@@ -293,7 +295,8 @@ impl Platform for FakePlatform {
 }
 
 /// 不装钩子、直接驱动状态机；按住的键由测试指定。每个方法返回这一步产生的事件。
-#[pyclass(module = "inputhub", unsendable)]
+/// 可以从别的线程调用，测试借此模拟钩子线程上的输入。
+#[pyclass(module = "inputhub")]
 pub struct Engine {
     engine: StateMachine,
     platform: FakePlatform,

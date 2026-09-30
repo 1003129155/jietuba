@@ -116,6 +116,8 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 [测试目录](main/tests/)包含截图、剪贴板、马赛克、钉图缩放、GIF 回放、OCR 文字层等模块的单元测试与集成测试。[CI 配置](.github/workflows/ci.yml)在 Windows x86_64 与 ARM64 的 Python 3.11 环境中执行测试及覆盖率检查，并在 x86_64 上执行静态检查；运行结果可在 [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml) 查看。
 
+会真实移动鼠标、点击和按键的测试（如 `test_quick_capture_real_hooks.py`）默认跳过；设置环境变量 `RUN_REAL_INPUT_TESTS=1` 后才运行，运行期间请不要操作鼠标和键盘。
+
 构建 Windows 发行包可运行 `python build_with_ocr_onefile.py`，产物为 `dist/jietuba_pp.exe` 和 `dist/models/`。自动发行流程见 [build.yml](.github/workflows/build.yml)，会分别生成 x64 与 ARM64 压缩包。
 
 ### 代码注释
@@ -375,7 +377,8 @@ core/
 ├── ui_scale.py              # UIScaleManager — 工具栏/面板/弹层共用的缩放比例
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — 国际化管理，多语言支持
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — 全局热键和应用内快捷键管理
-├── quick_capture_input.py    # 全局修饰键拖动监听与快速截图手势状态
+├── input_hub.py             # 进程共用的全局输入：原生钩子（j-input）不占界面线程，事件转成 Qt 信号
+├── quick_capture_input.py    # 全局鼠标快捷键的拖动输入，接在共用输入中心上
 ├── last_capture_region.py   # 进程内存的"上次截图区域"，供恢复选区快捷键使用
 ├── save.py                  # SaveService — 文件保存服务（自动命名、路径管理、高质量 PDF 输出）
 ├── export.py                # ExportService — 图像导出服务

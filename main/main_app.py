@@ -219,6 +219,8 @@ class MainApp(QObject):
         from core.platform_utils import set_trim_busy_check
         set_trim_busy_check(None)
         self.quick_capture.close()
+        from core.input_hub import close_input_hub
+        close_input_hub()
         self._display_watcher.close()
         try:
             from translation import TranslationManager

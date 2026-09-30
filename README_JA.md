@@ -115,6 +115,8 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 [テストディレクトリ](main/tests/)には、キャプチャ、クリップボード、モザイク編集、ピン留め画像のズーム、GIF 再生、OCR テキストレイヤーなどのユニットテスト・統合テストがあります。[CI 設定](.github/workflows/ci.yml)では Windows x86_64 と ARM64 の Python 3.11 環境でテストとカバレッジ検査を実行し、x86_64 では静的解析も行います。実行結果は [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml) で確認できます。
 
+実際にマウスとキーボードを操作するテスト（`test_quick_capture_real_hooks.py` など）は既定でスキップされます。環境変数 `RUN_REAL_INPUT_TESTS=1` を設定すると実行され、実行中はマウスとキーボードに触れないでください。
+
 Windows 版のビルドは `python build_with_ocr_onefile.py` で実行できます。生成物は `dist/jietuba_pp.exe` と `dist/models/` です。[自動リリースワークフロー](.github/workflows/build.yml)では、x64 と ARM64 のアーカイブを個別に生成します。
 
 ### コードコメント
@@ -355,7 +357,8 @@ core/
 ├── ui_scale.py              # UIScaleManager — ツールバー/パネル/ポップアップ共通の拡大率
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — 国際化
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — グローバル＆アプリ内ホットキー
-├── quick_capture_input.py    # グローバル修飾キー＋ドラッグ入力と撮影ジェスチャの状態管理
+├── input_hub.py             # プロセス共通のグローバル入力：ネイティブフック（j-input）は GUI スレッド外で動き、イベントを Qt シグナルで通知
+├── quick_capture_input.py    # グローバルマウスショートカットのドラッグ入力（共通入力ハブを利用）
 ├── last_capture_region.py   # 「前回の選択範囲を復元」用のプロセス内メモリ
 ├── save.py                  # SaveService — ファイル保存サービス（高品質 PDF 出力対応）
 ├── export.py                # ExportService — 画像エクスポート
