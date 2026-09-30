@@ -25,6 +25,7 @@ from clipboard.core import ClipboardItem, Group, GroupType
 from clipboard.ui.dialogs.manage_dialog import ManageDialog
 from clipboard.ui.widgets.manage_rows import ICON_ROLE
 from core.i18n import I18nManager
+from core.qt_utils import layout_widgets
 from core.ui_theme import DARK_TOKENS, LIGHT_TOKENS, get_ui_theme
 from ui.fluent_lite import LineEdit, TextEdit
 
@@ -410,11 +411,7 @@ class TestManageDialog:
 
         dlg.open_item_editor(7, file_group.id)
 
-        widgets = [
-            dlg.detail_layout.itemAt(i).widget()
-            for i in range(dlg.detail_layout.count())
-            if dlg.detail_layout.itemAt(i).widget() is not None
-        ]
+        widgets = layout_widgets(dlg.detail_layout)
         assert dlg.file_path_input.text() == file_path
         assert dlg.title_input.text() == "演示文件"
         assert all(not isinstance(widget, QTextEdit) for widget in widgets)
@@ -457,11 +454,7 @@ class TestManageDialog:
 
         dlg.open_item_editor(8, 1)
 
-        widgets = [
-            dlg.detail_layout.itemAt(i).widget()
-            for i in range(dlg.detail_layout.count())
-            if dlg.detail_layout.itemAt(i).widget() is not None
-        ]
+        widgets = layout_widgets(dlg.detail_layout)
         assert dlg.title_input.text() == "文本标题"
         assert dlg.content_edit.toPlainText() == "普通文本内容"
         assert any(isinstance(widget, QTextEdit) for widget in widgets)

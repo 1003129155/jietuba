@@ -15,6 +15,7 @@ from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import QScrollArea, QVBoxLayout, QWidget
 
 from core import safe_event
+from core.qt_utils import layout_widgets
 from core.ui_scale import dialog_scaled, dialog_scaled_f
 from ui.fluent_lite import SimpleCardWidget, ui_tokens
 
@@ -126,8 +127,7 @@ class ReorderableRowList(QScrollArea):
 
     def rows(self):
         """按当前显示顺序交出所有行。"""
-        items = (self._layout.itemAt(i) for i in range(self._layout.count()))
-        return [item.widget() for item in items if item.widget() is not None]
+        return layout_widgets(self._layout)
 
     def clear(self):
         for row in self.rows():
