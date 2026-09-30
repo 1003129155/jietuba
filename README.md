@@ -95,7 +95,7 @@ These five packages are included in `requirements.txt` and install with the runt
 | [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.0 | GIF/video composition encoder |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | Long screenshot stitching algorithm |
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.4 | Low-level clipboard operations |
-| [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
+| [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | HDR-correct desktop capture (DXGI Desktop Duplication + GPU tone mapping) |
 
 The available prebuilt wheels target Windows x86_64 and ARM64. Each package declares `>=3.11` and enables `abi3-py311` in its Rust bindings; see each package's `pyproject.toml` and `Cargo.toml`.
