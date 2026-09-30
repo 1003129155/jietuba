@@ -338,6 +338,7 @@ clipboard/
 - Dedicated three-pane management window for editing groups, text items, and file items
 - CSV import/export for text items
 - Themeable UI, quick paste shortcuts, and large image/long text preview popups
+- Optionally opens with Win+V in place of the Windows clipboard history (Quick Actions settings)
 
 ---
 
@@ -627,7 +628,7 @@ ui/
 │   ├── components.py        # SettingCardGroup / ToggleSwitch — setting components
 │   ├── page_appearance.py   # Appearance settings (theme, language)
 │   ├── page_capture.py      # Capture settings
-│   ├── page_quick_actions.py # Quick actions settings (skip confirm or result windows)
+│   ├── page_quick_actions.py # Quick actions settings (skip confirm or result windows, take over Win+V)
 │   ├── color_format_dialog.py # ColorFormatDialog — magnifier color format editor
 │   ├── page_clipboard.py    # Clipboard settings
 │   ├── page_hotkey.py       # Hotkey settings

@@ -22,6 +22,7 @@ TRANSLATIONS: dict[str, str] = {
     "剪贴板热键注册失败: {clipboard_hotkey}": "Clipboard hotkey registration failed: {clipboard_hotkey}",
     "剪贴板备用热键已注册: {clipboard_hotkey_2}": "Clipboard backup hotkey registered: {clipboard_hotkey_2}",
     "剪贴板备用热键注册失败: {clipboard_hotkey_2}": "Clipboard backup hotkey registration failed: {clipboard_hotkey_2}",
+    "接管 Win+V 失败": "Failed to take over Win+V",
     "钉图热键已注册: {pin_clipboard_hotkey}": "Pin clipboard image hotkey registered: {pin_clipboard_hotkey}",
     "钉图热键注册失败: {pin_clipboard_hotkey}": "Pin clipboard image hotkey registration failed: {pin_clipboard_hotkey}",
     "钉住剪贴板图片失败": "Failed to pin clipboard image",

@@ -115,6 +115,26 @@ def create_quick_actions_page(dialog) -> QWidget:
 
     layout.addWidget(grp_recognition)
 
+    # ── 剪贴板 ────────────────────────────────────────
+    grp_clipboard = SettingCardGroup(dialog.tr("Clipboard"), view)
+
+    win_v_card = SwitchSettingCard(
+        FluentIcon.PASTE,
+        dialog.tr("Open Clipboard with Win+V"),
+        dialog.tr(
+            "Win+V opens this app's clipboard instead of the Windows clipboard history. "
+            "Turn it off to give Win+V back to Windows."
+        ),
+        parent=grp_clipboard,
+    )
+    win_v_card.setChecked(
+        dialog.config_manager.get_app_setting("clipboard_take_over_win_v", False)
+    )
+    dialog._behavior_controls["clipboard_take_over_win_v"] = win_v_card
+    grp_clipboard.addSettingCard(win_v_card)
+
+    layout.addWidget(grp_clipboard)
+
     layout.addStretch()
     scroll.setWidget(view)
     return scroll

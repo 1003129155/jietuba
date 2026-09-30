@@ -4450,6 +4450,14 @@ SOFTWARE.</translation></message>
         <translation>只识别到一个二维码或条形码时直接复制内容，不弹出结果窗口；识别到多个码时仍会弹出。</translation>
     </message>
     <message>
+        <source>Open Clipboard with Win+V</source>
+        <translation>Win+V 打开剪贴板</translation>
+    </message>
+    <message>
+        <source>Win+V opens this app's clipboard instead of the Windows clipboard history. Turn it off to give Win+V back to Windows.</source>
+        <translation>按 Win+V 打开本软件的剪贴板，不再弹出系统剪贴板历史。关闭后 Win+V 交还给系统。</translation>
+    </message>
+    <message>
         <source>Global Mouse Shortcuts</source>
         <translation>全局鼠标快捷键</translation>
     </message>

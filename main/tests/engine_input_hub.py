@@ -50,6 +50,12 @@ class EngineHub:
     def configure_side_buttons(self, enabled, suppressed, capture_all=False):
         self.engine.configure_side_buttons(enabled, suppressed, capture_all)
 
+    def bind_hotkey(self, name, modifiers, vk):
+        return self.engine.bind_hotkey(name, modifiers, vk)
+
+    def unbind_hotkey(self, name):
+        self.engine.unbind_hotkey(name)
+
     def watch_wheel(self, watcher, rect=None):
         self.engine.watch_wheel(watcher, rect)
 

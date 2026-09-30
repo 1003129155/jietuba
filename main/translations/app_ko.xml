@@ -4380,6 +4380,14 @@ SOFTWARE.</translation></message>
         <translation>QR 코드나 바코드가 하나만 인식되면 결과 창을 열지 않고 내용을 복사합니다. 여러 개가 인식되면 결과 창이 열립니다.</translation>
     </message>
     <message>
+        <source>Open Clipboard with Win+V</source>
+        <translation>Win+V로 클립보드 열기</translation>
+    </message>
+    <message>
+        <source>Win+V opens this app's clipboard instead of the Windows clipboard history. Turn it off to give Win+V back to Windows.</source>
+        <translation>Win+V를 누르면 Windows 클립보드 기록 대신 이 앱의 클립보드가 열립니다. 끄면 Win+V를 다시 Windows가 사용합니다.</translation>
+    </message>
+    <message>
         <source>Global Mouse Shortcuts</source>
         <translation>전역 마우스 단축키</translation>
     </message>

@@ -1,7 +1,7 @@
 //! 输入状态机：钩子线程和测试共用，自身不调任何系统 API。
 //!
-//! 三层按固定顺序处理同一个事件：全局手势 → 侧键热键 → 旁听订阅。前一层吞掉的事件不再往后传，
-//! 所以修饰键完全匹配的手势优先于侧键热键。
+//! 三层按固定顺序处理同一个事件：全局手势 → 侧键热键或键盘热键 → 旁听订阅。前一层吞掉的事件
+//! 不再交给后面的热键层，所以修饰键完全匹配的手势优先于侧键热键。
 
 use std::sync::Arc;
 
@@ -170,6 +170,10 @@ pub enum Event {
     SideButton {
         button: Button,
     },
+    /// 键盘热键按下；长按的自动重复不再发
+    Hotkey {
+        name: Arc<str>,
+    },
     Wheel {
         watcher: Arc<str>,
         x: i32,
@@ -247,13 +251,17 @@ pub struct Engine {
     /// 按下被吞掉的键，抬起也必须吞掉
     claimed: u8,
     claimed_escape: bool,
-    /// 手势期间按着的 Win/Alt，松开时要先屏蔽菜单
+    /// 手势或热键期间按着的 Win/Alt，松开时要先屏蔽菜单
     pending_menu_keys: KeySet,
     // 侧键热键
     side_enabled: bool,
     side_suppressed: u8,
     side_capture_all: bool,
     side_claimed: u8,
+    // 键盘热键
+    hotkeys: Vec<(Arc<str>, Modifiers, u32)>,
+    /// 按下被热键吞掉的键，自动重复和抬起也必须吞掉
+    hotkey_claimed: KeySet,
     // 旁听订阅
     wheel_watchers: Vec<(Arc<str>, Option<Rect>)>,
     key_watchers: Vec<(Arc<str>, Vec<u32>)>,
@@ -297,7 +305,8 @@ impl Engine {
         if self.closed {
             return false;
         }
-        let suppress = !input.injected && self.gesture_key(input, platform, emit);
+        let suppress = (!input.injected && self.gesture_key(input, platform, emit))
+            || self.hotkey_key(input, platform, emit);
         for (watcher, keys) in &self.key_watchers {
             if keys.contains(&input.vk) {
                 emit(Event::Key {
@@ -364,20 +373,7 @@ impl Engine {
         self.pending_move = None;
         self.dragging = true;
         self.claimed |= button.bit();
-        // Win 的自动重复可能在提前屏蔽后重新激活开始菜单；按着的键一直记到它们松开，
-        // 即使手势已经结束、取消或设置变了
-        for (modifier, keys) in [
-            (Modifiers::WIN, [VK_LWIN, VK_RWIN]),
-            (Modifiers::ALT, [VK_LMENU, VK_RMENU]),
-        ] {
-            if held.contains(modifier) {
-                for vk in keys {
-                    if platform.key_held(vk) {
-                        self.pending_menu_keys.insert(vk);
-                    }
-                }
-            }
-        }
+        self.mask_menu_on_release(held, platform);
         emit(Event::GestureStart {
             id: self.gesture_id,
             x: self.x,
@@ -403,6 +399,63 @@ impl Engine {
             }
         }
         self.sync_requested = true;
+        true
+    }
+
+    /// 记下此刻按着的 Win/Alt，松开时先屏蔽菜单。
+    /// Win 的自动重复可能在提前屏蔽后重新激活开始菜单，所以一直记到它们松开，
+    /// 即使手势或热键已经结束、取消或设置变了。
+    fn mask_menu_on_release(&mut self, held: Modifiers, platform: &dyn Platform) {
+        for (modifier, keys) in [
+            (Modifiers::WIN, [VK_LWIN, VK_RWIN]),
+            (Modifiers::ALT, [VK_LMENU, VK_RMENU]),
+        ] {
+            if held.contains(modifier) {
+                for vk in keys {
+                    if platform.key_held(vk) {
+                        self.pending_menu_keys.insert(vk);
+                    }
+                }
+            }
+        }
+    }
+
+    fn hotkey_key(
+        &mut self,
+        input: KeyInput,
+        platform: &mut dyn Platform,
+        emit: &mut dyn FnMut(Event),
+    ) -> bool {
+        if input.injected {
+            return false;
+        }
+        if !input.pressed {
+            if self.hotkey_claimed.remove(input.vk) {
+                self.sync_requested = true;
+                return true;
+            }
+            return false;
+        }
+        if self.hotkey_claimed.0.contains(&input.vk) {
+            return true;
+        }
+        // 钩子先于这个键的异步状态更新被调用，此刻已按着说明是修饰键之前就按下的键在自动重复；
+        // 它的按下已经交给了别的程序，吞掉抬起会让那边一直当它按着
+        if platform.key_held(input.vk) {
+            return false;
+        }
+        let held = held_modifiers(platform, None);
+        let Some(name) = self
+            .hotkeys
+            .iter()
+            .find(|(_, modifiers, vk)| *vk == input.vk && *modifiers == held)
+            .map(|(name, _, _)| name.clone())
+        else {
+            return false;
+        };
+        self.hotkey_claimed.insert(input.vk);
+        self.mask_menu_on_release(held, platform);
+        emit(Event::Hotkey { name });
         true
     }
 
@@ -585,6 +638,23 @@ impl Engine {
         self.sync_requested = true;
     }
 
+    /// 按住的修饰键与 modifiers 完全一致时按下 vk，吞掉这个键的按下、自动重复和抬起并发一次事件。
+    /// 同名绑定会被替换。modifiers 至少一个、vk 不能是修饰键，否则不绑定并返回 false。
+    pub fn bind_hotkey(&mut self, name: &str, modifiers: Modifiers, vk: u32) -> bool {
+        self.unbind_hotkey(name);
+        if modifiers.count() == 0 || Modifiers::of_key(vk).is_some() || self.closed {
+            return false;
+        }
+        self.hotkeys.push((Arc::from(name), modifiers, vk));
+        true
+    }
+
+    /// 已被吞掉按下的键，抬起照样吞掉。
+    pub fn unbind_hotkey(&mut self, name: &str) {
+        self.hotkeys.retain(|(n, _, _)| &**n != name);
+        self.sync_requested = true;
+    }
+
     pub fn watch_wheel(&mut self, watcher: &str, rect: Option<Rect>) {
         self.unwatch_wheel(watcher);
         self.wheel_watchers.push((Arc::from(watcher), rect));
@@ -637,6 +707,8 @@ impl Engine {
                 || !self.pending_menu_keys.0.is_empty()
                 || self.side_enabled
                 || self.side_claimed != 0
+                || !self.hotkeys.is_empty()
+                || !self.hotkey_claimed.0.is_empty()
                 || !self.wheel_watchers.is_empty()
                 || !self.key_watchers.is_empty())
     }
@@ -655,6 +727,7 @@ impl Engine {
     pub fn fail(&mut self, message: String, emit: &mut dyn FnMut(Event)) {
         self.enabled = false;
         self.side_enabled = false;
+        self.hotkeys.clear();
         self.cancel(emit);
         self.clear_claims();
         self.sync_requested = true;
@@ -666,6 +739,7 @@ impl Engine {
         self.cancel(emit);
         self.closed = true;
         self.side_enabled = false;
+        self.hotkeys.clear();
         self.clear_claims();
         self.wheel_watchers.clear();
         self.key_watchers.clear();
@@ -678,6 +752,7 @@ impl Engine {
         self.claimed_escape = false;
         self.pending_menu_keys.0.clear();
         self.side_claimed = 0;
+        self.hotkey_claimed.0.clear();
     }
 }
 

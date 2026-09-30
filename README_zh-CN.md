@@ -355,6 +355,7 @@ clipboard/
 - 文本条目支持 CSV 导入/导出
 - 多主题 UI（亮色/暗色等）
 - 快捷键快速粘贴历史内容
+- 可在「快捷行为」里让 Win+V 打开本软件的剪贴板，代替系统剪贴板历史
 - 预览弹窗支持大图/长文查看
 
 ---
@@ -704,7 +705,7 @@ ui/
 │   ├── components.py        # SettingCardGroup / ToggleSwitch — 设置组件库
 │   ├── page_appearance.py   # 外观设置页（主题、语言等）
 │   ├── page_capture.py      # 截图设置页
-│   ├── page_quick_actions.py # 快捷行为设置页（跳过确认或结果窗口）
+│   ├── page_quick_actions.py # 快捷行为设置页（跳过确认或结果窗口、接管 Win+V）
 │   ├── color_format_dialog.py # ColorFormatDialog — 放大镜颜色格式管理窗口
 │   ├── page_clipboard.py    # 剪贴板设置页
 │   ├── page_hotkey.py       # 快捷键设置页

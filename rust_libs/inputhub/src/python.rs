@@ -4,6 +4,7 @@
 //!   ("gesture", "start" | "finish" | "cancel", id, x, y)
 //!   ("moved", id)
 //!   ("side", "x1" | "x2")
+//!   ("hotkey", name)
 //!   ("wheel", watcher, x, y, delta, horizontal)
 //!   ("key", watcher, vk, pressed)
 //!   ("foreground", hwnd)
@@ -34,6 +35,7 @@ fn event_to_py(py: Python<'_>, event: Event) -> PyObject {
         Event::GestureCancel { id, x, y } => ("gesture", "cancel", id, x, y).into_py(py),
         Event::GestureMoved { id } => ("moved", id).into_py(py),
         Event::SideButton { button } => ("side", button.name()).into_py(py),
+        Event::Hotkey { name } => ("hotkey", &*name).into_py(py),
         Event::Wheel {
             watcher,
             x,
@@ -87,6 +89,11 @@ fn parse_side_buttons(names: &[String]) -> PyResult<Vec<Button>> {
             _ => Err(PyValueError::new_err(format!("not a side button: {name}"))),
         })
         .collect()
+}
+
+fn parse_modifiers(names: &[String]) -> PyResult<Modifiers> {
+    Modifiers::parse(names.iter().map(String::as_str))
+        .ok_or_else(|| PyValueError::new_err(format!("unknown modifier in {names:?}")))
 }
 
 fn binding_to_py(
@@ -184,6 +191,17 @@ impl Hub {
             engine.configure_side_buttons(enabled, &suppressed, capture_all)
         });
         Ok(())
+    }
+
+    /// 按住的修饰键与 modifiers 完全一致时按下 vk：吞掉这个键的按下、自动重复和抬起，报告一次
+    /// ("hotkey", name)。同名绑定会被替换；返回是否绑定成功（至少一个修饰键、vk 不是修饰键）。
+    fn bind_hotkey(&self, name: &str, modifiers: Vec<String>, vk: u32) -> PyResult<bool> {
+        let modifiers = parse_modifiers(&modifiers)?;
+        Ok(self.with_engine(|engine, _| engine.bind_hotkey(name, modifiers, vk)))
+    }
+
+    fn unbind_hotkey(&self, name: &str) {
+        self.with_engine(|engine, _| engine.unbind_hotkey(name));
     }
 
     /// rect 为 (left, top, right, bottom) 物理像素；None 表示整个桌面。
@@ -477,6 +495,15 @@ impl Engine {
         self.engine
             .configure_side_buttons(enabled, &suppressed, capture_all);
         Ok(())
+    }
+
+    fn bind_hotkey(&mut self, name: &str, modifiers: Vec<String>, vk: u32) -> PyResult<bool> {
+        let modifiers = parse_modifiers(&modifiers)?;
+        Ok(self.engine.bind_hotkey(name, modifiers, vk))
+    }
+
+    fn unbind_hotkey(&mut self, name: &str) {
+        self.engine.unbind_hotkey(name);
     }
 
     #[pyo3(signature = (watcher, rect=None))]

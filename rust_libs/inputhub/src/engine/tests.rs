@@ -531,6 +531,157 @@ fn a_matching_gesture_takes_precedence_over_the_side_button_hotkey() {
     );
 }
 
+// ---------------------------------------------------------------- 键盘热键
+
+const VK_V: u32 = 0x56;
+
+fn hotkey_rig() -> Rig {
+    let mut engine = Engine::new();
+    assert!(engine.bind_hotkey("clipboard", Modifiers::WIN, VK_V));
+    Rig {
+        engine,
+        platform: FakePlatform::default(),
+    }
+}
+
+fn clipboard_hotkey() -> Event {
+    Event::Hotkey {
+        name: Arc::from("clipboard"),
+    }
+}
+
+#[test]
+fn a_hotkey_swallows_press_repeats_and_release_and_reports_once() {
+    let mut rig = hotkey_rig();
+    rig.key(VK_LWIN, true);
+    assert_eq!(rig.key(VK_V, true), (true, vec![clipboard_hotkey()]));
+    assert_eq!(rig.key(VK_V, true), (true, vec![]), "auto-repeat");
+    assert_eq!(rig.key(VK_V, false), (true, vec![]));
+    assert_eq!(rig.key(VK_V, true), (true, vec![clipboard_hotkey()]));
+    rig.key(VK_V, false);
+}
+
+#[test]
+fn releasing_win_after_a_hotkey_masks_the_start_menu_without_swallowing() {
+    let mut rig = hotkey_rig();
+    rig.key(VK_RWIN, true);
+    rig.key(VK_V, true);
+    rig.key(VK_V, false);
+    assert_eq!(rig.platform.masks, 0);
+    assert_eq!(rig.key(VK_RWIN, false), (false, vec![]));
+    assert_eq!(rig.platform.masks, 1);
+}
+
+#[test]
+fn releasing_win_before_the_key_still_masks_and_swallows_the_release() {
+    let mut rig = hotkey_rig();
+    rig.key(VK_LWIN, true);
+    rig.key(VK_V, true);
+    assert!(!rig.key(VK_LWIN, false).0);
+    assert_eq!(rig.platform.masks, 1);
+    assert_eq!(rig.key(VK_V, false), (true, vec![]));
+    assert!(!rig.key(VK_V, true).0, "plain V after Win is released");
+}
+
+#[test]
+fn hotkeys_need_exactly_their_modifiers() {
+    let mut rig = hotkey_rig();
+    assert_eq!(rig.key(VK_V, true), (false, vec![]));
+    rig.key(VK_V, false);
+    rig.key(VK_LWIN, true);
+    rig.key(VK_LSHIFT, true);
+    assert_eq!(rig.key(VK_V, true), (false, vec![]));
+    rig.key(VK_V, false);
+    rig.key(VK_LWIN, false);
+    assert_eq!(rig.platform.masks, 0, "nothing was swallowed");
+}
+
+#[test]
+fn a_key_held_before_the_modifiers_is_left_alone() {
+    let mut rig = hotkey_rig();
+    rig.key(VK_V, true);
+    rig.key(VK_LWIN, true);
+    assert_eq!(rig.key(VK_V, true), (false, vec![]), "auto-repeat");
+    assert!(!rig.key(VK_V, false).0);
+}
+
+#[test]
+fn injected_keys_never_trigger_hotkeys() {
+    let mut rig = hotkey_rig();
+    rig.key(VK_LWIN, true);
+    let mut events = Vec::new();
+    let input = KeyInput {
+        vk: VK_V,
+        pressed: true,
+        injected: true,
+    };
+    assert!(!rig
+        .engine
+        .on_key(input, &mut rig.platform, &mut |e| events.push(e)));
+    assert!(events.is_empty());
+}
+
+#[test]
+fn unbinding_keeps_swallowing_the_pending_release() {
+    let mut rig = hotkey_rig();
+    rig.key(VK_LWIN, true);
+    rig.key(VK_V, true);
+    rig.key(VK_LWIN, false);
+    rig.engine.unbind_hotkey("clipboard");
+    assert!(rig.engine.hooks_needed());
+    assert!(rig.key(VK_V, false).0);
+    assert!(!rig.engine.hooks_needed());
+    rig.key(VK_LWIN, true);
+    assert_eq!(rig.key(VK_V, true), (false, vec![]));
+}
+
+#[test]
+fn hotkeys_need_a_modifier_and_a_non_modifier_key() {
+    let mut engine = Engine::new();
+    assert!(!engine.bind_hotkey("bare", Modifiers::default(), VK_V));
+    assert!(!engine.bind_hotkey("modifier", Modifiers::WIN, VK_LSHIFT));
+    assert!(!engine.bind_hotkey("generic", Modifiers::WIN, 0x10));
+    assert!(!engine.hooks_needed());
+    assert!(engine.bind_hotkey("clipboard", Modifiers::WIN, VK_V));
+    assert!(engine.hooks_needed());
+    assert!(!engine.bind_hotkey("clipboard", Modifiers::default(), VK_V));
+    assert!(
+        !engine.hooks_needed(),
+        "an invalid rebind removes the old one"
+    );
+}
+
+#[test]
+fn a_gesture_swallowing_escape_takes_precedence_over_a_hotkey() {
+    let mut rig = Rig::new(&[(ctrl(), Button::Left)]);
+    assert!(rig.engine.bind_hotkey("esc", ctrl(), VK_ESCAPE));
+    rig.start_ctrl_left();
+    let (suppress, events) = rig.key(VK_ESCAPE, true);
+    assert!(suppress);
+    assert!(matches!(events.as_slice(), [Event::GestureCancel { .. }]));
+    rig.key(VK_ESCAPE, false);
+    assert_eq!(
+        rig.key(VK_ESCAPE, true),
+        (
+            true,
+            vec![Event::Hotkey {
+                name: Arc::from("esc")
+            }]
+        )
+    );
+}
+
+#[test]
+fn a_failure_drops_hotkeys_and_their_claims() {
+    let mut rig = hotkey_rig();
+    rig.key(VK_LWIN, true);
+    rig.key(VK_V, true);
+    rig.with(|e, emit| e.fail("hook lost".into(), emit));
+    assert!(!rig.engine.hooks_needed());
+    assert!(!rig.key(VK_V, false).0);
+    assert_eq!(rig.key(VK_V, true), (false, vec![]));
+}
+
 // ---------------------------------------------------------------- 旁听订阅
 
 #[test]

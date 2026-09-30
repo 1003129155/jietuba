@@ -18,6 +18,7 @@ class InputHub(QObject):
     gesture = Signal(str, int, int, int)  # start / finish / cancel，手势编号，物理像素坐标
     moved = Signal(int)  # 手势编号；take_position 取走之前只发一次
     side_button = Signal(str)  # x1 / x2
+    hotkey = Signal(str)  # bind_hotkey 时给的名字
     wheel = Signal(str, int, int, int, bool)  # 订阅名，物理像素坐标，滚动量（WHEEL_DELTA 倍数），是否横向
     key = Signal(str, int, bool)  # 订阅名，虚拟键码，是否按下
     foreground = Signal(object)  # 窗口句柄；64 位句柄不能走 int 信号
@@ -49,6 +50,8 @@ class InputHub(QObject):
             self.moved.emit(event[1])
         elif kind == "side":
             self.side_button.emit(event[1])
+        elif kind == "hotkey":
+            self.hotkey.emit(event[1])
         elif kind == "wheel":
             self.wheel.emit(*event[1:])
         elif kind == "key":

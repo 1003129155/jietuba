@@ -344,6 +344,24 @@ def test_quick_actions_toggles_reset_refresh_and_snapshot(qapp, tmp_path):
     assert snapshot["barcode_copy_single_toggle"] is True
 
 
+@pytest.mark.parametrize("enabled", [True, False])
+def test_win_v_take_over_toggle_reads_and_resets_to_off(qapp, tmp_path, enabled):
+    manager = _manager(tmp_path)
+    manager.set_app_setting("clipboard_take_over_win_v", enabled)
+    dialog = SimpleNamespace(config_manager=manager, tr=lambda text: text)
+
+    page = create_quick_actions_page(dialog)
+
+    try:
+        toggle = dialog._behavior_controls["clipboard_take_over_win_v"]
+        assert toggle.isChecked() is enabled
+        SettingsDialog._reset_quick_actions_page(dialog)
+        assert toggle.isChecked() is False
+    finally:
+        page.deleteLater()
+        qapp.processEvents()
+
+
 def test_annotation_behavior_toggles_reset_refresh_and_snapshot(qapp, tmp_path):
     manager = _manager(tmp_path)
 

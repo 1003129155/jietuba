@@ -60,11 +60,12 @@ def test_dispatch_routes_every_kind_to_its_signal(qapp):
     receiver = Receiver(hub)
     others = []
     hub.side_button.connect(lambda *args: others.append(("side", *args)))
+    hub.hotkey.connect(lambda *args: others.append(("hotkey", *args)))
     hub.wheel.connect(lambda *args: others.append(("wheel", *args)))
     hub.key.connect(lambda *args: others.append(("key", *args)))
     hub.foreground.connect(lambda *args: others.append(("foreground", *args)))
     wide_hwnd = 0x7FFF_FFFF_1234
-    extra = [("side", "x1"), ("wheel", "w", -5, 7, -240, True), ("key", "k", 0x10, True), ("foreground", wide_hwnd)]
+    extra = [("side", "x1"), ("hotkey", "clipboard"), ("wheel", "w", -5, 7, -240, True), ("key", "k", 0x10, True), ("foreground", wide_hwnd)]
     for event in [*EVENTS, *extra, ("unknown", 1)]:
         hub.dispatch(event)
     qapp.processEvents()

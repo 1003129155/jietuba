@@ -785,7 +785,8 @@ class SettingsDialog(FrostedFramelessDialog):
 
     def _reset_quick_actions_page(self):
         SettingsDialog._refresh_behavior_controls(
-            self, defaults=True, keys={"capture_fullscreen_crosshair", "capture_include_cursor"}
+            self, defaults=True,
+            keys={"capture_fullscreen_crosshair", "capture_include_cursor", "clipboard_take_over_win_v"},
         )
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
         if hasattr(self, 'ocr_copy_directly_toggle'):

@@ -1,12 +1,13 @@
 ﻿"""
 统一快捷键管理器
 
-合并了三套机制：
+合并了四套机制：
   1. 系统级全局热键 (Windows RegisterHotKey / WM_HOTKEY)
   2. 鼠标侧键全局热键 (共用输入中心的原生钩子)
-  3. 应用内 Qt KeyPress 事件分发
+  3. 系统占用的组合键 (如 Win+V，由输入中心的原生钩子接管)
+  4. 应用内 Qt KeyPress 事件分发
 
-三者共用同一条优先级 handler 链，解决模块间快捷键冲突问题。
+除 3 以外共用同一条优先级 handler 链，解决模块间快捷键冲突问题。
 
 架构：
     ShortcutManager (单例，安装在 QApplication 上)
@@ -357,6 +358,11 @@ class ShortcutManager(QObject):
         self._mouse_capture_refs = 0  # 处于聚焦状态的热键录入框数量
         self._side_button_hub = None  # 已连上侧键信号的输入中心
 
+        # ── 系统占用的组合键 ──
+        self._hook_hotkeys: Dict[str, Tuple[List[str], int, Callable]] = {}
+        self._bound_hook_hotkeys: Set[str] = set()
+        self._hook_hotkey_hub = None  # 已连上热键信号的输入中心
+
         # ── 应用内鼠标键 ──
         # 按下被消费时置位，好让配对的抬起/双击一起吞掉，见 _filter_inapp_mouse
         self._inapp_mouse_claimed = False
@@ -409,12 +415,13 @@ class ShortcutManager(QObject):
         return self._global_hotkeys_suppressed
 
     def set_global_hotkeys_suppressed(self, suppressed: bool):
-        """临时启用/禁用全局热键响应，不注销 Windows 热键。"""
+        """临时启用/禁用全局热键响应，不注销 Windows 热键；接管的系统组合键交还给系统。"""
         self._global_hotkeys_suppressed = bool(suppressed)
+        self._sync_hook_hotkeys()
 
     def has_registered_hotkeys(self) -> bool:
-        """当前是否持有已注册的全局热键（键盘或鼠标侧键）。"""
-        return bool(self._id_to_callback) or bool(self._mouse_callbacks)
+        """当前是否持有已注册的全局热键（键盘、鼠标侧键或接管的系统组合键）。"""
+        return bool(self._id_to_callback) or bool(self._mouse_callbacks) or bool(self._hook_hotkeys)
 
     # ==================================================================
     # Qt KeyPress 分发
@@ -711,6 +718,53 @@ class ShortcutManager(QObject):
         except Exception as e:
             log_error(f"鼠标侧键监听设置失败: {e}", module="Hotkey")
 
+    # ──────────────────────────────────────────────────────────────
+    # 系统占用的组合键
+    # ──────────────────────────────────────────────────────────────
+    #
+    # RegisterHotKey 注册不上系统自己占着的组合（如 Win+V），只能由钩子在系统
+    # 处理之前吞掉。吞掉后不响应等于让这个组合失效，所以临时禁用全局热键时
+    # 直接解绑，交还给系统，而不是像 RegisterHotKey 那样只忽略回调。
+
+    def register_hook_hotkey(self, name: str, modifiers: List[str], vk: int,
+                             callback: Callable) -> bool:
+        """接管一个组合键；modifiers 为 ctrl/shift/alt/win，须与按住的修饰键完全一致。"""
+        self._hook_hotkeys[name] = (list(modifiers), vk, callback)
+        self._sync_hook_hotkeys()
+        return name in self._bound_hook_hotkeys or self._global_hotkeys_suppressed
+
+    def _sync_hook_hotkeys(self):
+        """按当前登记和禁用状态绑定、解绑——状态变化的唯一出口（幂等）。"""
+        wanted = {} if self._global_hotkeys_suppressed else self._hook_hotkeys
+        try:
+            hub = input_hub() if wanted else existing_input_hub()
+            if hub is None:
+                return
+            if self._hook_hotkey_hub is not hub:
+                hub.hotkey.connect(self._on_hook_hotkey, Qt.ConnectionType.QueuedConnection)
+                self._hook_hotkey_hub = hub
+                self._bound_hook_hotkeys.clear()
+            for name in self._bound_hook_hotkeys - wanted.keys():
+                hub.native.unbind_hotkey(name)
+            self._bound_hook_hotkeys = {
+                name for name, (modifiers, vk, _callback) in wanted.items()
+                if hub.native.bind_hotkey(name, modifiers, vk)
+            }
+        except Exception as e:
+            log_error(f"系统组合键接管设置失败: {e}", module="Hotkey")
+
+    def _on_hook_hotkey(self, name: str):
+        # 禁用前已排队的事件照样会送到
+        if self._global_hotkeys_suppressed:
+            return
+        entry = self._hook_hotkeys.get(name)
+        if entry is None:
+            return
+        try:
+            entry[2]()
+        except Exception as e:
+            log_exception(e, T("系统组合键回调 name={name}", name=name))
+
     def check_hotkey_availability(self, hotkey_str: str) -> bool:
         """检查快捷键是否可用（通过临时注册测试）"""
         if is_mouse_button_hotkey(hotkey_str):
@@ -748,6 +802,9 @@ class ShortcutManager(QObject):
             ShortcutManager._registered_mouse_buttons_global.discard(token)
         self._mouse_callbacks.clear()
         self._sync_side_buttons()
+
+        self._hook_hotkeys.clear()
+        self._sync_hook_hotkeys()
 
     # ==================================================================
     # 热键字符串解析
@@ -836,6 +893,10 @@ class HotkeySystem:
 
     def register_hotkey(self, hotkey_str: str, callback: Callable) -> bool:
         return self._mgr.register_hotkey(hotkey_str, callback)
+
+    def register_hook_hotkey(self, name: str, modifiers: List[str], vk: int,
+                             callback: Callable) -> bool:
+        return self._mgr.register_hook_hotkey(name, modifiers, vk, callback)
 
     def check_hotkey_availability(self, hotkey_str: str) -> bool:
         return self._mgr.check_hotkey_availability(hotkey_str)

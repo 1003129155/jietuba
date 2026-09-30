@@ -4170,6 +4170,14 @@ SOFTWARE.</translation></message>
         <translation>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</translation>
     </message>
     <message>
+        <source>Open Clipboard with Win+V</source>
+        <translation>Open Clipboard with Win+V</translation>
+    </message>
+    <message>
+        <source>Win+V opens this app's clipboard instead of the Windows clipboard history. Turn it off to give Win+V back to Windows.</source>
+        <translation>Win+V opens this app's clipboard instead of the Windows clipboard history. Turn it off to give Win+V back to Windows.</translation>
+    </message>
+    <message>
         <source>Global Mouse Shortcuts</source>
         <translation>Global Mouse Shortcuts</translation>
     </message>
