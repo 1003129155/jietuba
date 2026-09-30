@@ -53,7 +53,7 @@ AA_EDGE_PIXELS = 64
 
 def _dispose(scene):
     """照 PinCanvas.cleanup 的顺序收尾：先清撤销栈打破 命令→图元→场景 的循环引用再删场景。
-    留给垃圾回收的话，场景会在之后某个测试里被回收，撤销栈的信号打进半销毁的场景，进程直接崩溃。"""
+    留给垃圾回收拆这个循环会写坏 C++ 堆，进程在之后某条测试里随机崩溃。"""
     scene.undo_stack.clear()
     scene.deleteLater()
 

@@ -1,5 +1,7 @@
 """测试用的输入中心：状态机是真正的原生实现（inputhub.Engine），不装钩子，输入由测试逐条给出。"""
 
+import weakref
+
 import inputhub
 
 from core.input_hub import InputHub
@@ -15,11 +17,11 @@ class EngineHub:
     def __init__(self):
         self.engine = inputhub.Engine()
         self.held = set()
-        self.sink = None
+        self.hub = None  # 弱引用：InputHub 持有本对象，反过来强引用会成循环
 
     def _deliver(self, events):
         for event in events:
-            self.sink(event)
+            self.hub().dispatch(event)
 
     # ---- 正式代码用到的 Hub 接口
 
@@ -128,5 +130,5 @@ class EngineHub:
 def engine_input_hub():
     native = EngineHub()
     hub = InputHub(native)
-    native.sink = hub.dispatch
+    native.hub = weakref.ref(hub)
     return hub

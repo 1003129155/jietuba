@@ -106,6 +106,33 @@ def engine_backed_input_hub(request, monkeypatch):
     input_hub.close_input_hub()
 
 
+@pytest.fixture(autouse=True)
+def clear_undo_stacks(monkeypatch):
+    """测试结束时清空这条测试里建过、仍然存在的撤销栈。
+
+    命令反向引用场景，场景又持有撤销栈；带马赛克命令的场景留给垃圾回收拆这个循环会写坏
+    C++ 堆，进程在之后某条测试里随机崩溃。正式代码释放场景前同样先清撤销栈。
+    """
+    import weakref
+
+    import shiboken6
+    from canvas.undo import CommandUndoStack
+
+    created = []
+    original_init = CommandUndoStack.__init__
+
+    def tracking_init(self, *args, **kwargs):
+        original_init(self, *args, **kwargs)
+        created.append(weakref.ref(self))
+
+    monkeypatch.setattr(CommandUndoStack, "__init__", tracking_init)
+    yield
+    for ref in created:
+        stack = ref()
+        if stack is not None and shiboken6.isValid(stack):
+            stack.clear()
+
+
 @pytest.fixture
 def tmp_settings(tmp_path):
     """提供一个临时的 QSettings，避免污染真正的配置"""
