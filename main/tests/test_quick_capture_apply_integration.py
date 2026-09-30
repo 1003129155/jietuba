@@ -105,6 +105,7 @@ def integration(qapp, qtbot, tmp_settings, tmp_path, monkeypatch):
     bind(config, copy_pin="win+dragleft")
     app = AppHarness(config)
     dialog = SettingsDialog(config, current_hotkey=config.get_hotkey())
+    dialog.build_all_pages()
     for attr in ("log_toggle", "autostart_toggle", "language_combo"):
         delattr(dialog, attr)
     app.settings_window = dialog

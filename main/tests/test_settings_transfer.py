@@ -109,6 +109,7 @@ def _dialog(config, monkeypatch, *, keep=()):
 
     monkeypatch.setattr("ui.settings_ui.dialog.validate_global_hotkey_edits", lambda *_a, **_kw: True)
     dialog = SettingsDialog(config)
+    dialog.build_all_pages()
     # 保存这个隔离的窗口不能改到本机的自启、日志和进程里的界面语言
     for attr in ("log_toggle", "autostart_toggle", "language_combo"):
         if attr not in keep:

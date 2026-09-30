@@ -248,6 +248,7 @@ def test_clipboard_tab_persists_resets_and_validates_bindings(qtbot, config, mon
     warnings = Mock()
     monkeypatch.setattr('ui.settings_ui.dialog.show_warning_dialog', warnings)
     dialog = SettingsDialog(config)
+    dialog.build_all_pages()
     qtbot.addWidget(dialog)
     for attr in ('log_toggle', 'autostart_toggle', 'language_combo'):
         delattr(dialog, attr)

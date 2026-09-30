@@ -180,6 +180,7 @@ def test_settings_dialog_saves_capture_mouse_binding(monkeypatch, qapp, tmp_path
         lambda _self, _hotkey: True,
     )
     dialog = SettingsDialog(manager)
+    dialog.build_all_pages()
 
     for attr in (
         "log_toggle",
@@ -212,6 +213,7 @@ def test_settings_dialog_saves_capture_mouse_binding(monkeypatch, qapp, tmp_path
 def test_apply_button_tracks_settings_dirty_state(qapp, tmp_path):
     manager = _manager(tmp_path)
     dialog = SettingsDialog(manager)
+    dialog.build_all_pages()
 
     dialog._settings_snapshot = dialog._snapshot_settings()
     dialog._update_action_buttons()
@@ -244,6 +246,7 @@ def test_settings_dialog_saves_annotation_behavior_toggles(
         lambda _self, _hotkey: True,
     )
     dialog = SettingsDialog(manager)
+    dialog.build_all_pages()
 
     for attr in (
         "log_toggle",
@@ -288,6 +291,7 @@ def test_global_hotkey_duplicates_are_marked_and_never_persisted(
         lambda _parent, title, message: warnings.append((title, message)),
     )
     dialog = SettingsDialog(manager, manager.get_hotkey())
+    dialog.build_all_pages()
 
     # 模拟用户把备用键改成与主键相同：两个输入框都应立即显示冲突。
     dialog.hotkey_input_2.setText("ctrl+shift+a")
@@ -632,6 +636,7 @@ def test_settings_dialog_saves_clipboard_file_reference_toggle(monkeypatch, qapp
     monkeypatch.setattr("core.shortcut_manager.HotkeySystem.check_hotkey_availability",
                         lambda _self, _hotkey: True)
     dialog = SettingsDialog(manager)
+    dialog.build_all_pages()
     try:
         for attr in ("log_toggle", "autostart_toggle", "language_combo", "_ui_theme_combo",
                      "_appearance_theme_color", "_appearance_mask_color", "_inapp_edits"):
@@ -663,6 +668,7 @@ def test_detection_mode_changes_are_saved_and_reset_in_settings_dialog(monkeypat
     monkeypatch.setattr("core.shortcut_manager.HotkeySystem.check_hotkey_availability",
                         lambda _self, _hotkey: True)
     dialog = SettingsDialog(manager)
+    dialog.build_all_pages()
     try:
         for attr in ("log_toggle", "autostart_toggle", "language_combo", "_ui_theme_combo",
                      "_appearance_theme_color", "_appearance_mask_color", "_inapp_edits"):
@@ -697,6 +703,7 @@ def test_settings_dialog_saves_smart_selection_animation_toggle(
         lambda _self, _hotkey: True,
     )
     dialog = SettingsDialog(manager)
+    dialog.build_all_pages()
 
     for attr in (
         "log_toggle",
