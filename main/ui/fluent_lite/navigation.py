@@ -7,7 +7,7 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QButtonGroup, QPushButton, QVBoxLayout, QWidget
 
 from core.ui_scale import dialog_scaled
-from core.ui_theme import get_ui_theme, set_own_style
+from core.ui_theme import apply_style_sheet, get_ui_theme, set_own_style
 
 from .theme import ACCENT, FONT_FAMILY, tinted_icon, to_qicon, ui_tokens
 
@@ -64,7 +64,7 @@ class NavigationInterface(QWidget):
 
     def _style_button(self, button):
         t = ui_tokens(button)
-        button.setStyleSheet(f"""
+        apply_style_sheet(button, f"""
             QPushButton#FluentLiteNavItem {{ min-height: {dialog_scaled(40)}px; padding: {dialog_scaled(2)}px {dialog_scaled(13)}px; text-align: left;
                 color: {t.text}; background: transparent; border: 1px solid transparent; border-radius: {dialog_scaled(11)}px;
                 font: {dialog_scaled(13)}px {FONT_FAMILY}; }}

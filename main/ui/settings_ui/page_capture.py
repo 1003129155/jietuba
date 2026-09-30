@@ -2,7 +2,7 @@
 """截图设置页 — Fluent Design"""
 import importlib.util
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea
+from PySide6.QtWidgets import QWidget, QVBoxLayout
 from core.ui_scale import dialog_scaled
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
@@ -10,13 +10,13 @@ from ui.fluent_lite import (
 )
 from settings import color_formats
 from settings.tool_settings import CAPTURE_ENGINES, SMART_SELECTION_MODES
-from .components import SettingCardGroup
+from .components import SettingCardGroup, page_scroll_area
 from core.ui_theme import set_own_style
 
 
 def create_capture_page(dialog) -> QWidget:
     """截图設定 ─ 截图引擎 + 智能选区 + 保存设置 + 放大镜 + 钉图"""
-    scroll = QScrollArea()
+    scroll = page_scroll_area(dialog)
     scroll.setWidgetResizable(True)
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 

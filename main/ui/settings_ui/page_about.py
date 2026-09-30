@@ -8,7 +8,7 @@ from ui.fluent_lite import (
     SettingCard, FluentIcon,
     HyperlinkButton, PushButton,
 )
-from .components import SettingCardGroup
+from .components import SettingCardGroup, page_scroll_area
 from ui.dialogs import (
     show_info_dialog,
     show_text_dialog,
@@ -24,7 +24,7 @@ from core.ui_theme import set_own_style
 
 def create_about_page(dialog) -> QScrollArea:
     """创建情報页面 - Fluent 风格"""
-    scroll = QScrollArea()
+    scroll = page_scroll_area(dialog)
     scroll.setWidgetResizable(True)
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 

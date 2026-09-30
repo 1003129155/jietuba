@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from core.qt_utils import layout_widgets
 from core.ui_scale import dialog_scaled
-from core.ui_theme import get_ui_theme, set_own_style
+from core.ui_theme import apply_style_sheet, get_ui_theme, set_own_style
 
 from .labels import BodyLabel, CaptionLabel
 from .switch import SwitchButton
@@ -95,7 +95,7 @@ class SettingCard(QFrame):
 
     def _apply_theme(self, _tokens=None):
         t = ui_tokens(self)
-        self.setStyleSheet(f"""
+        apply_style_sheet(self, f"""
             QFrame#FluentLiteSettingCard {{ background: transparent; border: none; border-radius: {dialog_scaled(12)}px; }}
             QFrame#FluentLiteSettingCard:hover {{ background: {t.surface_subtle}; border: none; }}
         """)
@@ -208,7 +208,7 @@ class SettingCardGroup(QWidget):
             f"color: {t.text}; font: 600 {dialog_scaled(12)}px {FONT_FAMILY}; "
             f"padding: {dialog_scaled(2)}px {dialog_scaled(8)}px 0 {dialog_scaled(8)}px; background: transparent;"
         )
-        self._card_container.setStyleSheet(f"""
+        apply_style_sheet(self._card_container, f"""
             QFrame#FluentLiteGroupBody {{
                 background: {t.surface};
                 border: 1px solid {t.border};
@@ -276,7 +276,7 @@ class SimpleCardWidget(QFrame):
 
     def _apply_theme(self, _tokens=None):
         t = ui_tokens(self)
-        self.setStyleSheet(
+        apply_style_sheet(self, 
             f"QFrame#FluentLiteSimpleCard {{ background: {t.surface}; "
             f"border: 1px solid {t.border}; border-radius: 14px; }}"
         )

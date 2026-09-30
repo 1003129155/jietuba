@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 """快捷键设置页 — Fluent Design"""
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QScrollArea,
-    QStackedWidget,
+    QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget,
 )
 from PySide6.QtCore import Qt
 
@@ -13,7 +12,7 @@ from ui.fluent_lite import (
     ComboBox, FluentIcon, SegmentedWidget,
 )
 from ui.fluent_lite.theme import ACCENT
-from .components import IconBadge, SectionCard, add_separated_row, icon_ref, row_label
+from .components import IconBadge, SectionCard, add_separated_row, icon_ref, row_label, page_scroll_area
 from ..hotkey_edit import HotkeyEdit, validate_hotkey_group
 from ..inapp_key_edit import InAppKeyEdit
 from ..key_chip import CHIP_WIDTH, STATUS_GAP, STATUS_SIZE, format_shortcut_text
@@ -217,7 +216,7 @@ def _inapp_row(parent, icon, title, editor) -> QWidget:
 
 def create_hotkey_page(dialog) -> QWidget:
     """创建快捷键设置页面 — Fluent Design"""
-    scroll = QScrollArea()
+    scroll = page_scroll_area(dialog)
     scroll.setWidgetResizable(True)
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 

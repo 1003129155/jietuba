@@ -4,20 +4,20 @@ import os
 from datetime import date
 
 from PySide6.QtCore import QStandardPaths
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea, QFileDialog
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QFileDialog
 from core.ui_scale import dialog_scaled
 from ui.dialogs import show_error_dialog, show_info_dialog
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
     FluentIcon, ComboBox, CaptionLabel, PushButton,
 )
-from .components import SettingCardGroup
+from .components import SettingCardGroup, page_scroll_area
 from core.ui_theme import set_own_style
 
 
 def create_misc_page(dialog) -> QWidget:
     """创建杂项设置页面 — Fluent Design"""
-    scroll = QScrollArea()
+    scroll = page_scroll_area(dialog)
     scroll.setWidgetResizable(True)
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 

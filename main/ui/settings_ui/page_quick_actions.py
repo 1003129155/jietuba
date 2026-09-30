@@ -4,15 +4,15 @@
 识别结果窗口里的勾选框和这里写的是同一个配置键：窗口里勾上后就不会再弹窗，
 想关回来只能到这一页，所以每一项的说明都要写清楚开着时会发生什么。
 """
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea
+from PySide6.QtWidgets import QWidget, QVBoxLayout
 from core.ui_scale import dialog_scaled
 from ui.fluent_lite import FluentIcon, SwitchSettingCard
-from .components import SettingCardGroup
+from .components import SettingCardGroup, page_scroll_area
 from core.ui_theme import set_own_style
 
 
 def create_quick_actions_page(dialog) -> QWidget:
-    scroll = QScrollArea()
+    scroll = page_scroll_area(dialog)
     scroll.setWidgetResizable(True)
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 

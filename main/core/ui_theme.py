@@ -328,6 +328,12 @@ class UIThemeManager(QObject):
         """
 
 
+def apply_style_sheet(widget: QWidget, sheet: str) -> None:
+    """内容没变就不设：setStyleSheet 不比较内容，每次都让控件和全部子控件重新计算样式。"""
+    if widget.styleSheet() != sheet:
+        widget.setStyleSheet(sheet)
+
+
 def set_own_style(widget: QWidget, declarations: str) -> None:
     """给控件设一段只按自身类名匹配的样式，不写成无选择器的样式表。
 
@@ -337,7 +343,7 @@ def set_own_style(widget: QWidget, declarations: str) -> None:
     ".类名" 只匹配这个确切的类，永远匹配不到 QTipLabel。
     """
     name = widget.metaObject().className()
-    widget.setStyleSheet(f".{name} {{ {declarations} }}")
+    apply_style_sheet(widget, f".{name} {{ {declarations} }}")
 
 
 _manager: Optional[UIThemeManager] = None

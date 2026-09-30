@@ -7,7 +7,7 @@ from qframelesswindow import TitleBar, TitleBarButton
 from qframelesswindow.utils import toggleMaxState
 
 from core.ui_scale import widget_scaled as _px
-from core.ui_theme import get_ui_theme, set_own_style
+from core.ui_theme import apply_style_sheet, get_ui_theme, set_own_style
 
 from .theme import FONT_FAMILY, ui_tokens
 
@@ -111,7 +111,7 @@ class FluentTitleBar(TitleBar):
         # Scope transparency to the title-bar container.  An unqualified
         # declaration cascades to child widgets and erases backgrounds such as
         # the translation window's logo, status badge and checked pin button.
-        self.setStyleSheet(
+        apply_style_sheet(self, 
             "QWidget#fluentTitleBar { background: transparent; }"
         )
 

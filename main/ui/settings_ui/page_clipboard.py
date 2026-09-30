@@ -7,7 +7,7 @@ import sys
 from core.logger import log_exception, T
 from core.ui_scale import dialog_scaled
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QScrollArea, QSizePolicy,
+    QWidget, QVBoxLayout, QSizePolicy,
     QFileDialog, QProgressDialog,
 )
 from PySide6.QtCore import Qt, QThread, Signal
@@ -20,13 +20,13 @@ from ui.fluent_lite import (
     FluentIcon, SpinBox, ComboBox, CaptionLabel,
     PushButton, PrimaryPushButton, TransparentToolButton,
 )
-from .components import SettingCardGroup
+from .components import SettingCardGroup, page_scroll_area
 from core.ui_theme import set_own_style
 
 
 def create_clipboard_page(dialog) -> QWidget:
     """创建剪贴板设置页面 — Fluent Design"""
-    scroll = QScrollArea()
+    scroll = page_scroll_area(dialog)
     scroll.setWidgetResizable(True)
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 
