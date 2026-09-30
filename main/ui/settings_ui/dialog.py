@@ -747,7 +747,7 @@ class SettingsDialog(FrostedFramelessDialog):
             if index >= 0:
                 self._selection_handle_size_combo.setCurrentIndex(index)
         SettingsDialog._refresh_behavior_controls(
-            self, defaults=True, keys={"pin_rounded_corners", "pin_hover_buttons"}
+            self, defaults=True, keys={"pin_rounded_corners", "pin_auto_border", "pin_hover_buttons"}
         )
 
     def _reset_quick_actions_page(self):

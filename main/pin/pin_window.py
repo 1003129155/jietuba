@@ -73,7 +73,7 @@ class PinWindow(QWidget):
         self.selection_offset = selection_offset or QPoint(0, 0)
 
         # ====== 描边样式参数 ======
-        self.border_enabled = True
+        self.border_enabled = bool(config_manager.get_app_setting("pin_auto_border")) if config_manager else True
         self._square_corners = False   # 是否已让系统去掉圆角
         self.corner = 0
         self.border_width = 2
@@ -103,8 +103,8 @@ class PinWindow(QWidget):
             Qt.WindowType.WindowStaysOnTopHint
         )
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
-        if self.border_enabled:
-            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        # 透明背景不随描边开关变，开关描边都是同一种窗口
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setMouseTracking(True)
 
         # ====== 底图 ======

@@ -107,7 +107,7 @@ class PinHoverControls:
             else:
                 win._hide_toolbar()
 
-        show_buttons = self._config("pin_hover_buttons", True) and (
+        show_buttons = self._hover_buttons_enabled() and (
             self._pin_hovered or self._menu_open or self._buttons_timer.isActive()
         )
         win._control_buttons.set_visible(
@@ -162,6 +162,6 @@ class PinHoverControls:
         cfg = self._win.config_manager
         return cfg.get_pin_auto_toolbar() if cfg else True
 
-    def _config(self, key: str, default):
+    def _hover_buttons_enabled(self):
         cfg = self._win.config_manager
-        return cfg.get_app_setting(key, default) if cfg else default
+        return bool(cfg.get_app_setting("pin_hover_buttons")) if cfg else False

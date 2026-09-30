@@ -77,25 +77,45 @@ def _build_pin_appearance(monkeypatch, manager, *, win11):
 @pytest.mark.parametrize("enabled", [True, False])
 def test_pin_appearance_reads_its_toggles(qapp, tmp_path, monkeypatch, enabled):
     manager = _manager(tmp_path)
-    manager.set_app_setting("pin_rounded_corners", enabled)
-    manager.set_app_setting("pin_hover_buttons", enabled)
+    for key in ("pin_rounded_corners", "pin_auto_border", "pin_hover_buttons"):
+        manager.set_app_setting(key, enabled)
 
     dialog, group = _build_pin_appearance(monkeypatch, manager, win11=True)
 
     try:
-        assert dialog._behavior_controls["pin_rounded_corners"].isChecked() is enabled
-        assert dialog._behavior_controls["pin_hover_buttons"].isChecked() is enabled
+        for key in ("pin_rounded_corners", "pin_auto_border", "pin_hover_buttons"):
+            assert dialog._behavior_controls[key].isChecked() is enabled
     finally:
         group.deleteLater()
         qapp.processEvents()
 
 
-def test_pin_appearance_defaults_to_square_corners_with_hover_buttons(qapp, tmp_path, monkeypatch):
+def test_pin_appearance_defaults_to_square_corners_with_border_and_no_hover_buttons(qapp, tmp_path, monkeypatch):
     dialog, group = _build_pin_appearance(monkeypatch, _manager(tmp_path), win11=True)
 
     try:
         assert not dialog._behavior_controls["pin_rounded_corners"].isChecked()
-        assert dialog._behavior_controls["pin_hover_buttons"].isChecked()
+        assert dialog._behavior_controls["pin_auto_border"].isChecked()
+        assert not dialog._behavior_controls["pin_hover_buttons"].isChecked()
+    finally:
+        group.deleteLater()
+        qapp.processEvents()
+
+
+def test_resetting_the_appearance_page_restores_pin_defaults(qapp, tmp_path, monkeypatch):
+    manager = _manager(tmp_path)
+    dialog, group = _build_pin_appearance(monkeypatch, manager, win11=True)
+    dialog.config_manager = manager
+    controls = dialog._behavior_controls
+
+    try:
+        controls["pin_rounded_corners"].setChecked(True)
+        controls["pin_auto_border"].setChecked(False)
+        controls["pin_hover_buttons"].setChecked(True)
+        SettingsDialog._reset_appearance_page(dialog)
+        assert not controls["pin_rounded_corners"].isChecked()
+        assert controls["pin_auto_border"].isChecked()
+        assert not controls["pin_hover_buttons"].isChecked()
     finally:
         group.deleteLater()
         qapp.processEvents()
@@ -106,6 +126,7 @@ def test_pin_appearance_has_no_corner_toggle_before_windows_11(qapp, tmp_path, m
 
     try:
         assert "pin_rounded_corners" not in dialog._behavior_controls
+        assert "pin_auto_border" in dialog._behavior_controls
         assert "pin_hover_buttons" in dialog._behavior_controls
     finally:
         group.deleteLater()

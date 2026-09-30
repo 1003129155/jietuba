@@ -1008,6 +1008,14 @@ Replace it?</translation>
         <translation>Windows 11 rounds the corners of pinned images and adds a shadow. Turn off to show the whole image with square corners and no shadow.</translation>
     </message>
     <message>
+        <source>Auto Border</source>
+        <translation>Auto Border</translation>
+    </message>
+    <message>
+        <source>New pinned images get a theme-colored border. Each image can still toggle it from the right-click menu.</source>
+        <translation>New pinned images get a theme-colored border. Each image can still toggle it from the right-click menu.</translation>
+    </message>
+    <message>
         <source>Hover Buttons</source>
         <translation>Hover Buttons</translation>
     </message>

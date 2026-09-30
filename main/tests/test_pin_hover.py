@@ -43,7 +43,7 @@ class FakeConfig:
     def get_pin_auto_toolbar(self):
         return self.auto
 
-    def get_app_setting(self, key, default):
+    def get_app_setting(self, key, default=None):
         return {"pin_hover_buttons": self.hover_buttons}.get(key, default)
 
 

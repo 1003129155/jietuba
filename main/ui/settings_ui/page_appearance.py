@@ -278,7 +278,10 @@ def _build_selection_handle_size_card(dialog, grp: SettingCardGroup):
 # ================================================================
 
 def _build_pin_section(dialog, grp: SettingCardGroup):
-    """钉图外观：系统圆角阴影 + 悬停按钮。保存后已打开的钉图立即跟上。"""
+    """钉图外观：系统圆角阴影、新钉图描边、悬停按钮。
+
+    圆角和按钮保存后已打开的钉图立即跟上；描边只决定之后新建的钉图，已有钉图在右键菜单里单独开关。
+    """
     from core.platform_utils import supports_window_corner_preference
     from settings import get_tool_settings_manager
     config = get_tool_settings_manager()
@@ -300,6 +303,16 @@ def _build_pin_section(dialog, grp: SettingCardGroup):
         dialog._behavior_controls["pin_rounded_corners"] = corners_card
         grp.addSettingCard(corners_card)
 
+    border_card = SwitchSettingCard(
+        FluentIcon.PALETTE,
+        dialog.tr("Auto Border"),
+        dialog.tr("New pinned images get a theme-colored border. Each image can still toggle it from the right-click menu."),
+        parent=grp,
+    )
+    border_card.setChecked(config.get_app_setting("pin_auto_border"))
+    dialog._behavior_controls["pin_auto_border"] = border_card
+    grp.addSettingCard(border_card)
+
     buttons_card = SwitchSettingCard(
         FluentIcon.CLOSE,
         dialog.tr("Hover Buttons"),
@@ -309,7 +322,7 @@ def _build_pin_section(dialog, grp: SettingCardGroup):
         ),
         parent=grp,
     )
-    buttons_card.setChecked(config.get_app_setting("pin_hover_buttons", True))
+    buttons_card.setChecked(config.get_app_setting("pin_hover_buttons"))
     dialog._behavior_controls["pin_hover_buttons"] = buttons_card
     grp.addSettingCard(buttons_card)
 
