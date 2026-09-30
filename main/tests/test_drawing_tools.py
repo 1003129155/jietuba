@@ -77,6 +77,13 @@ def _drag(tool, ctx, start, end, steps=3):
     tool.on_release(QPointF(*end), ctx)
 
 
+def _hold_shift(monkeypatch):
+    """让工具读到按着 Shift；改返回列表的第一项可以中途松开。"""
+    held = [Qt.KeyboardModifier.ShiftModifier]
+    monkeypatch.setattr(QApplication, "keyboardModifiers", staticmethod(lambda: held[0]))
+    return held
+
+
 # ============================================================================
 # 画笔
 # ============================================================================
@@ -155,6 +162,17 @@ class TestPenTool:
 # 矩形
 # ============================================================================
 
+@pytest.mark.parametrize("end,expected", [
+    ((150, 130), (100, 100, 50, 50)),   # 右下
+    ((60, 130), (60, 100, 40, 40)),     # 左下
+    ((130, 20), (100, 20, 80, 80)),     # 右上
+    ((70, 90), (70, 70, 30, 30)),       # 左上
+])
+def test_square_drag_rect_takes_the_longer_side_toward_the_cursor(end, expected):
+    from tools.base import drag_rect
+    assert drag_rect(QPointF(100, 100), QPointF(*end), square=True) == QRectF(*expected)
+
+
 class TestRectTool:
     """矩形"""
 
@@ -184,6 +202,22 @@ class TestRectTool:
         assert rect.height() > 0
         assert rect.width() == pytest.approx(120, abs=1)
         assert rect.height() == pytest.approx(80, abs=1)
+
+    def test_shift_draws_a_square(self, tool, ctx, scene, monkeypatch):
+        _hold_shift(monkeypatch)
+        _drag(tool, ctx, (200, 150), (80, 70))
+
+        assert _drawn_items(scene)[0].rect() == QRectF(80, 30, 120, 120)
+
+    def test_releasing_shift_before_the_mouse_keeps_the_drawn_square(self, tool, ctx, scene, monkeypatch):
+        """按住 Shift 拖成的正方形，先放 Shift 再松鼠标也照原样留下，不按扁长的鼠标轨迹判成误触"""
+        held = _hold_shift(monkeypatch)
+        tool.on_press(QPointF(20, 30), Qt.MouseButton.LeftButton, ctx)
+        tool.on_move(QPointF(140, 38), ctx)
+        held[0] = Qt.KeyboardModifier.NoModifier
+        tool.on_release(QPointF(140, 38), ctx)
+
+        assert _drawn_items(scene)[0].rect() == QRectF(20, 30, 120, 120)
 
     def test_tiny_drag_is_discarded(self, tool, ctx, scene, undo_stack):
         """小于 MIN_SIZE 的误触不应留下图元，也不应污染撤销栈"""
@@ -221,6 +255,12 @@ class TestEllipseTool:
         rect = items[0].rect()
         assert rect.width() == pytest.approx(120, abs=1)
         assert rect.height() == pytest.approx(80, abs=1)
+
+    def test_shift_draws_a_circle(self, tool, ctx, scene, monkeypatch):
+        _hold_shift(monkeypatch)
+        _drag(tool, ctx, (20, 30), (140, 110))
+
+        assert _drawn_items(scene)[0].rect() == QRectF(20, 30, 120, 120)
 
     def test_tiny_drag_is_discarded(self, tool, ctx, scene, undo_stack):
         _drag(tool, ctx, (50, 50), (52, 52))

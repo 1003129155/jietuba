@@ -89,14 +89,15 @@ OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_det
 
 ### Rust 扩展包
 
-以下四个包已包含在 `requirements.txt` 中，会在安装运行依赖时一并安装。它们可以独立使用，源码位于 [rust_libs/](rust_libs/)。PyPI 发行名与 Python 的 import 名对应如下：
+以下五个包已包含在 `requirements.txt` 中，会在安装运行依赖时一并安装。它们可以独立使用，源码位于 [rust_libs/](rust_libs/)。PyPI 发行名与 Python 的 import 名对应如下：
 
 | pip 包名 | import 名 | 版本 | 功能 |
 |------|------|------|------|
-| [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.3.1 | GIF/视频合成编码器 |
+| [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.0 | GIF/视频合成编码器 |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | 长截图拼接算法 |
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.4 | 剪贴板底层操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
+| [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | 支持 HDR 的桌面截图（DXGI Desktop Duplication + GPU 色调映射） |
 
 预编译包面向 Windows x86_64 和 ARM64；各包的 Python 版本声明均为 `>=3.11`，Rust 绑定均启用了 `abi3-py311`，详见各包的 `pyproject.toml` 和 `Cargo.toml`。
 
@@ -116,6 +117,14 @@ python -m pytest main/tests -c main/tests/pytest.ini
 [测试目录](main/tests/)包含截图、剪贴板、马赛克、钉图缩放、GIF 回放、OCR 文字层等模块的单元测试与集成测试。[CI 配置](.github/workflows/ci.yml)在 Windows x86_64 与 ARM64 的 Python 3.11 环境中执行测试及覆盖率检查，并在 x86_64 上执行静态检查；运行结果可在 [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml) 查看。
 
 构建 Windows 发行包可运行 `python build_with_ocr_onefile.py`，产物为 `dist/jietuba_pp.exe` 和 `dist/models/`。自动发行流程见 [build.yml](.github/workflows/build.yml)，会分别生成 x64 与 ARM64 压缩包。
+
+### 代码注释
+
+注释只说明代码本身表达不了的约束和设计原因，要短、要准：
+
+- 不写排查过程、修改历史、事故复盘和开发时的推演；
+- 不提其他软件或项目，也不拿它们当依据；
+- 不写成段的说明文，代码、函数名和测试名已经说清楚的不再重复。
 
 ---
 
@@ -248,7 +257,9 @@ canvas/
 capture/
 ├── __init__.py
 ├── capture_service.py       # CaptureService — 截图服务，屏幕截图核心逻辑
+├── display_watcher.py       # DisplayChangeWatcher — 插拔显示器、改分辨率、开关 HDR 后在后台重建截图会话
 ├── system_cursor.py         # SystemCursor — 记录截屏时的鼠标指针并画进截图
+├── quick_capture_controller.py # QuickCaptureController — 修饰键拖动截图与动作分发
 ├── uia_element_finder.py    # 后台 UI Automation 元素检测与选区快照缓存
 └── window_finder.py         # WindowFinder — 窗口查找器，智能选择窗口，识别光标下的窗口
 ```
@@ -277,6 +288,7 @@ clipboard/
 ├── controllers/             # 控制层 — 历史加载、粘贴流程、右键菜单、选择状态
 │   ├── clipboard_controller.py   # ClipboardController — 历史加载、粘贴和菜单逻辑
 │   ├── selection_manager.py      # SelectionManager — 列表选择状态管理
+│   ├── mouse_shortcut_controller.py  # 剪贴板条目鼠标快捷键与单击/双击判定
 │   ├── context_menu_controller.py  # ContextMenuController — 右键菜单数据与行为组装
 │   ├── foreground_tracker.py    # ForegroundWindowTracker — 记住粘贴目标窗口
 │   ├── paste_keystroke.py       # 把焦点还给目标窗口后发送 Ctrl+V
@@ -363,6 +375,7 @@ core/
 ├── ui_scale.py              # UIScaleManager — 工具栏/面板/弹层共用的缩放比例
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — 国际化管理，多语言支持
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — 全局热键和应用内快捷键管理
+├── quick_capture_input.py    # 全局修饰键拖动监听与快速截图手势状态
 ├── last_capture_region.py   # 进程内存的"上次截图区域"，供恢复选区快捷键使用
 ├── save.py                  # SaveService — 文件保存服务（自动命名、路径管理、高质量 PDF 输出）
 ├── export.py                # ExportService — 图像导出服务
@@ -465,6 +478,7 @@ pin/
 ├── pin_manager.py           # PinManager — 管理所有钉图窗口（单例）
 ├── pin_toolbar.py           # PinToolbar — 钉图工具栏
 ├── pin_controls.py          # PinControlButtons — 控制按钮（关闭、编辑、复制等）
+├── pin_hover.py             # PinHoverControls — 悬停按钮和工具栏的显隐决策
 ├── pin_context_menu.py      # PinContextMenu — 右键菜单
 ├── pin_border_overlay.py    # PinBorderOverlay — 边框效果覆盖层
 ├── pin_ocr_manager.py       # PinOCRManager / _OCRThread — 钉图OCR管理（异步识别）
@@ -497,6 +511,7 @@ pin/
 settings/
 ├── __init__.py
 ├── color_formats.py         # 放大镜颜色格式模板：渲染、读取、保存
+├── settings_transfer.py     # 设置界面选项导出/导入为 JSON 文件
 └── tool_settings.py         # ToolSettingsManager / ToolSettings — 管理工具颜色、大小、热键等配置
 ```
 
@@ -654,6 +669,7 @@ ui/
 ├── reorderable_rows.py      # DragGrip / DraggableRow / ReorderableRowList — 可拖动重排的行列表
 ├── tray_menu.py             # TrayMenu — 系统托盘菜单
 ├── screenshot_window.py     # ScreenshotWindow — 截图主窗口（全屏覆盖、选区绘制）
+├── quick_capture_overlay.py # 快速截图透明浮层，复用普通截图的选框、坐标和放大镜
 ├── dialogs.py               # StandardDialog / 对话框函数集 — 确认、警告、信息、错误对话框
 ├── toast.py                 # Toast — 光标旁不抢焦点的一行轻提示
 ├── magnifier.py             # MagnifierOverlay — 放大镜覆盖层（像素级取色）
@@ -689,6 +705,7 @@ ui/
 │   ├── color_format_dialog.py # ColorFormatDialog — 放大镜颜色格式管理窗口
 │   ├── page_clipboard.py    # 剪贴板设置页
 │   ├── page_hotkey.py       # 快捷键设置页
+│   ├── page_mouse.py        # 鼠标快捷键设置页
 │   ├── page_translation.py  # 翻译设置页
 │   ├── provider_fields.py   # 服务商字段的读写（按声明）
 │   ├── page_log.py          # 日志设置页

@@ -33,9 +33,11 @@ from ui.dialogs import show_confirm_dialog
 from ui.fluent_lite import LineEdit
 
 from ...controllers import ClipboardController, SelectionManager
+from ...controllers.mouse_shortcut_controller import ClipboardMouseController
 from ...controllers.context_menu_controller import is_quick_editable
 from ...core import ClipboardItem, ClipboardManager, GroupType
 from ..theme.theme_styles import ThemeStyleGenerator
+from core.ui_scale import get_ui_scale, scaled
 from ..theme.themes import Theme, get_theme_manager
 from ..mixins.frameless_mixin import FramelessMixin
 from ..dialogs.manage_dialog import ManageDialog, get_manage_dialog
@@ -95,6 +97,9 @@ class ClipboardShortcutHandler(ShortcutHandler):
 
     def handle_key(self, event) -> bool:
         w = self._window
+        mouse = getattr(w, "_mouse_controller", None)
+        if mouse is not None:
+            mouse.cancel()
         key = event.key()
         modifiers = event.modifiers()
 
@@ -187,6 +192,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self.theme_manager.theme_changed.connect(self._on_theme_changed)
         self.theme_manager.font_size_changed.connect(self._on_font_size_changed)
         self.theme_manager.opacity_changed.connect(self._on_opacity_changed)
+        get_ui_scale().scale_changed.connect(self.apply_scale)
         try:
             from core.i18n import I18nManager
 
@@ -275,6 +281,29 @@ class ClipboardWindow(QWidget, FramelessMixin):
 
     def _on_manage_data_changed(self):
         self.request_data_refresh("Manage dialog data")
+
+    def apply_scale(self):
+        """跟随「工具栏与面板缩放」：重设固定尺寸，再按新比例重新套样式、重排列表"""
+        self._apply_scale_metrics()
+        self.group_bar.apply_scale()
+        PreviewPopup.instance().apply_scale()
+        self._apply_theme()
+
+    def _apply_scale_metrics(self):
+        self.setMinimumSize(scaled(390), scaled(400))
+        for bar, layout in ((self.time_filter_bar, self._time_filter_layout),
+                            (self.bottom_bar, self._bottom_layout)):
+            bar.setFixedHeight(scaled(36))
+            layout.setContentsMargins(scaled(8), scaled(4), scaled(8), scaled(4))
+        self._time_filter_layout.setSpacing(scaled(5))
+        self._bottom_layout.setSpacing(scaled(8))
+        for widget, width, height in (
+            (self.start_date_edit, 114, 26), (self.end_date_edit, 114, 26),
+            (self.apply_time_filter_btn, 34, 26), (self.type_filter_btn, 66, 26),
+            (self.clear_time_filter_btn, 26, 26), (self.time_filter_toggle_btn, 28, 28),
+            (self.clear_search_btn, 24, 24), (self.menu_btn, 28, 28),
+        ):
+            widget.setFixedSize(scaled(width), scaled(height))
 
     def _on_theme_changed(self, theme: Theme):
         self.current_theme = theme
@@ -414,7 +443,6 @@ class ClipboardWindow(QWidget, FramelessMixin):
             | Qt.WindowType.Tool
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setMinimumSize(390, 400)
         self.resize(self._saved_width, self._saved_height)
 
         self.container = QFrame(self)
@@ -505,6 +533,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self.selection_manager.item_activated.connect(self._on_paste_item)
         self.selection_manager.request_sidebar_focus.connect(self._enter_sidebar_mode)
         self.selection_manager.request_group_switch.connect(self._on_top_group_switch)
+        self._mouse_controller = ClipboardMouseController(self)
 
         self.list_widget.itemSelectionChanged.connect(self._on_selection_changed)
 
@@ -515,17 +544,14 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self.left_layout.addWidget(self.list_widget, 1)
 
         self.time_filter_bar = QWidget()
-        self.time_filter_bar.setFixedHeight(36)
         self.time_filter_bar.hide()
         time_filter_layout = QHBoxLayout(self.time_filter_bar)
-        time_filter_layout.setContentsMargins(8, 4, 8, 4)
-        time_filter_layout.setSpacing(5)
+        self._time_filter_layout = time_filter_layout
 
         today = QDate.currentDate()
         self.start_date_edit = QDateEdit(today.addDays(-7))
         self.start_date_edit.setCalendarPopup(True)
         self.start_date_edit.setDisplayFormat("yyyy/MM/dd")
-        self.start_date_edit.setFixedSize(114, 26)
         self.start_date_edit.setToolTip(self.tr("Start date"))
         self.start_date_edit.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
         time_filter_layout.addWidget(self.start_date_edit)
@@ -537,7 +563,6 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self.end_date_edit = QDateEdit(today)
         self.end_date_edit.setCalendarPopup(True)
         self.end_date_edit.setDisplayFormat("yyyy/MM/dd")
-        self.end_date_edit.setFixedSize(114, 26)
         self.end_date_edit.setToolTip(self.tr("End date"))
         self.end_date_edit.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
         time_filter_layout.addWidget(self.end_date_edit)
@@ -545,7 +570,6 @@ class ClipboardWindow(QWidget, FramelessMixin):
 
         self.apply_time_filter_btn = QToolButton()
         self.apply_time_filter_btn.setText("OK")
-        self.apply_time_filter_btn.setFixedSize(34, 26)
         self.apply_time_filter_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.apply_time_filter_btn.setToolTip(self.tr("Apply time filter"))
         self.apply_time_filter_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -557,7 +581,6 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self.type_filter_labels = [self.tr("All"), self.tr("Text"), self.tr("Image"), self.tr("File")]
         self.type_filter_index = 0
         self.type_filter_btn = QToolButton()
-        self.type_filter_btn.setFixedSize(66, 26)
         self.type_filter_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.type_filter_btn.setToolTip(self.tr("Filter Type"))
         self.type_filter_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -575,7 +598,6 @@ class ClipboardWindow(QWidget, FramelessMixin):
 
         self.clear_time_filter_btn = QToolButton()
         self.clear_time_filter_btn.setText("X")
-        self.clear_time_filter_btn.setFixedSize(26, 26)
         self.clear_time_filter_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.clear_time_filter_btn.setToolTip(self.tr("Close filters"))
         self.clear_time_filter_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -584,7 +606,6 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self.left_layout.addWidget(self.time_filter_bar)
 
         self.bottom_bar = QWidget()
-        self.bottom_bar.setFixedHeight(36)
         self.bottom_bar.setStyleSheet(
             """
             QWidget {
@@ -594,12 +615,10 @@ class ClipboardWindow(QWidget, FramelessMixin):
         """
         )
         bottom_layout = QHBoxLayout(self.bottom_bar)
-        bottom_layout.setContentsMargins(8, 4, 8, 4)
-        bottom_layout.setSpacing(8)
+        self._bottom_layout = bottom_layout
 
         self.time_filter_toggle_btn = QToolButton()
         self.time_filter_toggle_btn.setArrowType(Qt.ArrowType.UpArrow)
-        self.time_filter_toggle_btn.setFixedSize(28, 28)
         self.time_filter_toggle_btn.setCheckable(True)
         self.time_filter_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.time_filter_toggle_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -615,7 +634,6 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self.selection_manager.set_search_input(self.search_input)
 
         self.clear_search_btn = QPushButton("×")
-        self.clear_search_btn.setFixedSize(24, 24)
         self.clear_search_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.clear_search_btn.setToolTip(self.tr("Clear search"))
         self.clear_search_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -625,7 +643,6 @@ class ClipboardWindow(QWidget, FramelessMixin):
         bottom_layout.addWidget(self.clear_search_btn)
 
         self.menu_btn = QPushButton("⚙")
-        self.menu_btn.setFixedSize(28, 28)
         self.menu_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.menu_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._apply_menu_btn_style()
@@ -651,6 +668,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self.group_bar.manage_groups_requested.connect(self._on_add_group_clicked)
         self.group_bar.manage_items_requested.connect(self._on_add_item_clicked)
         self.group_bar.build(self.content_layout, self.left_widget, self.left_layout)
+        self._apply_scale_metrics()
 
         self._setup_mouse_tracking_recursive(self)
 
@@ -943,6 +961,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
         if hasattr(self, "time_filter_separator"):
             set_own_style(self.time_filter_separator,
                 f"background: transparent; border: none; color: {self.current_theme.colors.text_secondary};"
+                f" font-size: {scaled(12)}px;"
             )
         if hasattr(self, "apply_time_filter_btn"):
             self.apply_time_filter_btn.setStyleSheet(generator.generate_time_filter_action_btn_style(primary=True))
@@ -1046,6 +1065,9 @@ class ClipboardWindow(QWidget, FramelessMixin):
         return None
 
     def _on_paste_item(self, item_id: int):
+        mouse = getattr(self, "_mouse_controller", None)
+        if mouse is not None:
+            mouse.cancel()
         if self.controller.current_group_id is not None:
             groups = self.controller.manager.get_groups()
             current_group = next((group for group in groups if group.id == self.controller.current_group_id), None)
@@ -1068,6 +1090,12 @@ class ClipboardWindow(QWidget, FramelessMixin):
         if not item_id:
             return
 
+        self._show_item_context_menu(item_id, pos)
+
+    def _show_item_context_menu(self, item_id, pos):
+        mouse = getattr(self, "_mouse_controller", None)
+        if mouse is not None:
+            mouse.cancel()
         ctx = self.controller.build_context_menu_data(item_id)
         if ctx is None:
             return
@@ -1161,6 +1189,9 @@ class ClipboardWindow(QWidget, FramelessMixin):
         return False
 
     def _quick_edit_item(self, item_id: int):
+        mouse = getattr(self, "_mouse_controller", None)
+        if mouse is not None:
+            mouse.cancel()
         item = self._get_item_data(item_id)
         if item is None:
             return

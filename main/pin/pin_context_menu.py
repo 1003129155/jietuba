@@ -47,7 +47,7 @@ class PinContextMenu:
             state: 当前状态字典，包含：
                 - toolbar_visible: 工具栏是否可见
                 - stay_on_top: 是否置顶
-                - shadow_enabled: 阴影是否启用
+                - border_enabled: 描边是否启用
                 - text_selection_enabled: 文字选择是否启用
         """
         menu = QMenu(self.parent)
@@ -171,7 +171,7 @@ class PinContextMenu:
         
         menu.addSeparator()
         
-        # --- 以下项目在缩略图模式下也隐藏（工具栏、阴影） ---
+        # --- 以下项目在缩略图模式下也隐藏（工具栏、描边） ---
         if not is_thumbnail:
             # 显示/隐藏工具栏
             toolbar_visible = state.get('toolbar_visible', False)
@@ -190,11 +190,11 @@ class PinContextMenu:
         menu.addAction(toggle_top_action)
         
         if not is_thumbnail:
-            # 切换阴影效果
-            shadow_enabled = state.get('shadow_enabled', True)
-            shadow_action = QAction(_toggle_text(self.parent.tr("Shadow effect"), shadow_enabled), self.parent)
-            shadow_action.triggered.connect(self.parent.toggle_border_effect)
-            menu.addAction(shadow_action)
+            # 切换描边
+            border_enabled = state.get('border_enabled', True)
+            border_action = QAction(_toggle_text(self.parent.tr("Border"), border_enabled), self.parent)
+            border_action.triggered.connect(self.parent.toggle_border_effect)
+            menu.addAction(border_action)
 
             # 切换文字选择
             text_selection_enabled = state.get('text_selection_enabled', True)

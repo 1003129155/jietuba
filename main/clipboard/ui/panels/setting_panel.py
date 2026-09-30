@@ -11,6 +11,8 @@ from PySide6.QtCore import Qt
 
 from typing import Optional, Callable
 
+from core.ui_scale import scaled
+
 from ..theme.themes import PRESET_THEME_SWATCHES
 
 
@@ -116,7 +118,7 @@ def show_setting_menu(
             is_sel = name == selected
             btn.setText("✓" if is_sel else "")
             text_color = "#FFFFFF" if name == "dark" else "#333333"
-            bw = 2 if is_sel else 1
+            bw = scaled(2) if is_sel else 1
             bc = accent if is_sel else "#CCCCCC"
             btn.setStyleSheet(f"""
                 QPushButton {{
@@ -124,12 +126,12 @@ def show_setting_menu(
                         stop:0 {bg}, stop:0.5 {bg},
                         stop:0.5 {accent}, stop:1 {accent});
                     border: {bw}px solid {bc};
-                    border-radius: 4px;
+                    border-radius: {scaled(4)}px;
                     color: {text_color};
-                    font-size: 12px; font-weight: bold;
-                    text-align: left; padding-left: 6px;
+                    font-size: {scaled(12)}px; font-weight: bold;
+                    text-align: left; padding-left: {scaled(6)}px;
                 }}
-                QPushButton:hover {{ border: 2px solid {accent}; }}
+                QPushButton:hover {{ border: {scaled(2)}px solid {accent}; }}
             """)
 
     def _on_theme_click(name: str):
@@ -140,7 +142,7 @@ def show_setting_menu(
     for theme_name, (accent_color, bg_color) in PRESET_THEME_SWATCHES.items():
         wa = QWidgetAction(theme_menu)
         btn = QPushButton()
-        btn.setFixedSize(120, 28)
+        btn.setFixedSize(scaled(120), scaled(28))
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.clicked.connect(lambda _c, n=theme_name: _on_theme_click(n))
         wa.setDefaultWidget(btn)

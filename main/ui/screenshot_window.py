@@ -275,7 +275,7 @@ class ScreenshotShortcutHandler(ShortcutHandler):
         if not virtual_bounds.contains(absolute):
             return False
 
-        w.scene.selection_model.initialize_confirmed_rect(QRectF(absolute))
+        w.scene.preset_selection(QRectF(absolute))
         return True
 
 

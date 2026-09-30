@@ -31,6 +31,7 @@ from qframelesswindow import FramelessWindow
 
 from core import log_debug, log_info
 from core.i18n import make_tr
+from core.platform_utils import set_window_topmost
 from core.ui_scale import configure_dialog_control, dialog_scaled, get_dialog_scale
 from .ui.widgets import EllipsisAnimator
 from core.resource_manager import ResourceManager
@@ -433,10 +434,6 @@ class TranslationDialog(FramelessWindow):
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setAutoFillBackground(False)
-        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, self._is_on_top)
-        # 改 WindowFlags 会重建原生窗口，无边框库加的 WS_THICKFRAME 和阴影随之丢失，
-        # 边缘就拖不动了，要重新加回去
-        self.updateFrameless()
 
         self.dashboard_title_bar = DashboardTitleBar(self)
         configure_dialog_control(self.dashboard_title_bar)
@@ -719,17 +716,14 @@ class TranslationDialog(FramelessWindow):
         self._is_on_top = checked
         TranslationDialog._stay_on_top = checked
         self._update_pin_tooltip()
-
-        position = self.pos()
-        was_visible = self.isVisible()
-        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, checked)
-        self.updateFrameless()
-        self.move(position)
-        if was_visible:
-            self.show()
-            self.raise_()
-            self.activateWindow()
+        set_window_topmost(int(self.winId()), checked)
         log_debug(f"Always on top: {checked}", "Translation")
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        # 置顶只改窗口层级、不设 WindowStaysOnTopHint（原因见 set_window_topmost），
+        # 显示时按当前状态设一次
+        set_window_topmost(int(self.winId()), self._is_on_top)
 
     def _update_pin_tooltip(self) -> None:
         state = _tr("Always on top: ON") if self._is_on_top else _tr("Always on top: OFF")

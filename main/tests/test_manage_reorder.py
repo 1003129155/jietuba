@@ -14,6 +14,7 @@ from clipboard.core import ClipboardItem
 from clipboard.ui.dialogs.manage_dialog import ManageDialog
 from clipboard.ui.widgets.manage_rows import ICON_ROLE, SEARCH_ROLE
 from clipboard.ui.widgets.reorder_list import ID_ROLE, ReorderListWidget
+from core.qt_utils import layout_widgets
 from core.ui_scale import dialog_scaled
 from tests.test_clipboard_manage_dialog import DummyClipboardManager
 
@@ -360,7 +361,7 @@ class TestImageItemForm:
         dialog._show_edit_content_form(7)
 
         assert dialog.image_preview is not None
-        widgets = [dialog.detail_layout.itemAt(i).widget() for i in range(dialog.detail_layout.count())]
+        widgets = layout_widgets(dialog.detail_layout)
         from PySide6.QtWidgets import QTextEdit
         assert not any(isinstance(widget, QTextEdit) for widget in widgets)
 

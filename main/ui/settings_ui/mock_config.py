@@ -30,6 +30,7 @@ APP_DEFAULT_SETTINGS = {
     "log_level": "INFO",
     "log_retention_days": 7,
     "log_dir": os.path.expanduser("~"),
+    "capture_engine": "auto",
     "long_stitch_engine": "hash_rust",
     "scroll_cooldown": 0.15,
     "long_stitch_ignore_top_pixels": 0,
@@ -172,6 +173,8 @@ class MockConfig:
     def set_log_level(self, v): pass
     def get_log_retention_days(self): return 7
     def set_log_retention_days(self, v): pass
+    def get_capture_engine(self): return "auto"
+    def set_capture_engine(self, v): pass
     def get_long_stitch_engine(self): return "hash_rust"
     def set_long_stitch_engine(self, v): pass
     def get_long_stitch_debug(self): return False
@@ -282,6 +285,14 @@ class MockConfig:
     def get_clipboard_foreground_scan_interval_ms(self): return 200
     def set_clipboard_foreground_scan_interval_ms(self, v): pass
     def get_clipboard_foreground_scan_interval_options(self): return [100, 200, 300, 400, 500, 600]
+    def get_clipboard_theme(self): return "light"
+    def set_clipboard_theme(self, v): pass
+    def get_clipboard_font_size(self): return 17
+    def set_clipboard_font_size(self, v): pass
+    def get_clipboard_font_size_options(self): return [15, 16, 17, 18, 19, 20]
+    def get_clipboard_window_opacity(self): return 20
+    def set_clipboard_window_opacity(self, v): pass
+    def get_clipboard_window_opacity_options(self): return [0, 20, 30, 40, 50, 60]
     def get_inapp_shortcut(self, key):
         return self.settings.value(
             f"inapp/{key}", self.APP_DEFAULT_SETTINGS.get(key, ""), type=str

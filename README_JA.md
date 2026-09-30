@@ -88,14 +88,15 @@ OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は、�
 
 ### Rust 拡張パッケージ
 
-以下の 4 パッケージは `requirements.txt` に含まれ、実行時依存パッケージと一緒にインストールされます。個別のライブラリとしても利用でき、ソースコードは [rust_libs/](rust_libs/) にあります。PyPI の配布名と Python の import 名の対応は次のとおりです。
+以下の 5 パッケージは `requirements.txt` に含まれ、実行時依存パッケージと一緒にインストールされます。個別のライブラリとしても利用でき、ソースコードは [rust_libs/](rust_libs/) にあります。PyPI の配布名と Python の import 名の対応は次のとおりです。
 
 | pip パッケージ名 | import 名 | バージョン | 機能 |
 |------|------|------|------|
-| [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.3.1 | GIF/動画合成エンコーダー |
+| [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.0 | GIF/動画合成エンコーダー |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | 長いスクリーンショット結合アルゴリズム |
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.4 | クリップボード操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
+| [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | HDR 対応のデスクトップキャプチャ（DXGI Desktop Duplication + GPU トーンマッピング） |
 
 ビルド済み wheel は Windows x86_64 および ARM64 向けです。各パッケージの Python バージョン指定は `>=3.11` で、Rust バインディングでは `abi3-py311` を有効にしています。詳細は各パッケージの `pyproject.toml` と `Cargo.toml` を参照してください。
 
@@ -115,6 +116,14 @@ python -m pytest main/tests -c main/tests/pytest.ini
 [テストディレクトリ](main/tests/)には、キャプチャ、クリップボード、モザイク編集、ピン留め画像のズーム、GIF 再生、OCR テキストレイヤーなどのユニットテスト・統合テストがあります。[CI 設定](.github/workflows/ci.yml)では Windows x86_64 と ARM64 の Python 3.11 環境でテストとカバレッジ検査を実行し、x86_64 では静的解析も行います。実行結果は [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml) で確認できます。
 
 Windows 版のビルドは `python build_with_ocr_onefile.py` で実行できます。生成物は `dist/jietuba_pp.exe` と `dist/models/` です。[自動リリースワークフロー](.github/workflows/build.yml)では、x64 と ARM64 のアーカイブを個別に生成します。
+
+### コードコメント
+
+コメントには、コード自体では表せない制約と設計上の理由だけを、短く正確に書きます。
+
+- 調査の経緯、変更履歴、障害の振り返り、開発中の推論は書きません。
+- 他のソフトウェアやプロジェクトに言及せず、根拠にもしません。
+- 長い説明文にせず、コード、関数名、テスト名で分かることは繰り返しません。
 
 ---
 
@@ -236,7 +245,9 @@ canvas/
 ```text
 capture/
 ├── capture_service.py       # CaptureService — スクリーンショットコアロジック
+├── display_watcher.py       # DisplayChangeWatcher — ディスプレイの接続・解像度・HDR が変わったらキャプチャセッションを裏で再構築
 ├── system_cursor.py         # SystemCursor — キャプチャ時のマウスポインターを記録し画像に描き込む
+├── quick_capture_controller.py # QuickCaptureController — 修飾キー＋ドラッグ撮影とアクション実行
 ├── uia_element_finder.py    # UI Automation によるバックグラウンド要素検出・キャッシュ
 └── window_finder.py         # WindowFinder — スマートウィンドウ選択、カーソル位置検出
 ```
@@ -260,6 +271,7 @@ clipboard/
 ├── controllers/             # 制御層 — 履歴読み込み、貼り付け処理、メニュー、選択状態
 │   ├── clipboard_controller.py   # ClipboardController — 読み込み、貼り付け、コンテキストメニュー
 │   ├── selection_manager.py      # SelectionManager — リスト選択状態管理
+│   ├── mouse_shortcut_controller.py  # クリップボード項目のマウス操作とクリック判定
 │   ├── context_menu_controller.py  # ContextMenuController — コンテキストメニューのデータと動作の組み立て
 │   ├── foreground_tracker.py    # ForegroundWindowTracker — 貼り付け先ウィンドウを記憶
 │   ├── paste_keystroke.py       # 対象ウィンドウにフォーカスを戻してから Ctrl+V を送信
@@ -343,6 +355,7 @@ core/
 ├── ui_scale.py              # UIScaleManager — ツールバー/パネル/ポップアップ共通の拡大率
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — 国際化
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — グローバル＆アプリ内ホットキー
+├── quick_capture_input.py    # グローバル修飾キー＋ドラッグ入力と撮影ジェスチャの状態管理
 ├── last_capture_region.py   # 「前回の選択範囲を復元」用のプロセス内メモリ
 ├── save.py                  # SaveService — ファイル保存サービス（高品質 PDF 出力対応）
 ├── export.py                # ExportService — 画像エクスポート
@@ -425,6 +438,7 @@ pin/
 ├── pin_manager.py           # PinManager — 全ピンウィンドウ管理（シングルトン）
 ├── pin_toolbar.py           # PinToolbar — ピンツールバー
 ├── pin_controls.py          # PinControlButtons — 閉じる、編集、コピーボタン
+├── pin_hover.py             # PinHoverControls — ホバーボタンとツールバーの表示判定
 ├── pin_context_menu.py      # PinContextMenu — 右クリックメニュー
 ├── pin_border_overlay.py    # PinBorderOverlay — ボーダーエフェクトオーバーレイ
 ├── pin_ocr_manager.py       # PinOCRManager / _OCRThread — 非同期OCR認識
@@ -447,6 +461,7 @@ pin/
 ```text
 settings/
 ├── color_formats.py         # 拡大鏡のカラー形式テンプレート：描画・読み込み・保存
+├── settings_transfer.py     # 設定画面の項目を JSON ファイルへエクスポート／インポート
 └── tool_settings.py         # ToolSettingsManager / ToolSettings — ツールの色、サイズ、ホットキー設定
 ```
 
@@ -577,6 +592,7 @@ ui/
 ├── reorderable_rows.py      # DragGrip / DraggableRow / ReorderableRowList — ドラッグで並べ替えられる行リスト
 ├── tray_menu.py             # TrayMenu — システムトレイメニュー
 ├── screenshot_window.py     # ScreenshotWindow — フルスクリーンキャプチャウィンドウ
+├── quick_capture_overlay.py # 通常キャプチャの選択枠・座標・拡大鏡を再利用する透明レイヤー
 ├── dialogs.py               # StandardDialog — 確認、警告、情報、エラーダイアログ
 ├── toast.py                 # Toast — カーソル横に出る、フォーカスを奪わない一行通知
 ├── magnifier.py             # MagnifierOverlay — ピクセルレベル拡大鏡
@@ -611,6 +627,7 @@ ui/
 │   ├── color_format_dialog.py # ColorFormatDialog — 拡大鏡のカラー形式を管理するダイアログ
 │   ├── page_clipboard.py    # クリップボード設定
 │   ├── page_hotkey.py       # ホットキー設定
+│   ├── page_mouse.py        # マウスショートカット設定
 │   ├── page_translation.py  # 翻訳設定
 │   ├── provider_fields.py   # 服务商字段的读写（按声明）
 │   ├── page_log.py          # ログ設定

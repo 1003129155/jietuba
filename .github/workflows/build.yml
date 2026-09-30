@@ -62,12 +62,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install maturin==1.12.6
-          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust") {
+          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust", "hdrcapture") {
             maturin build --locked --release --target ${{ matrix.rust-target }} -i python -m rust_libs/$crate/Cargo.toml --out wheelhouse
             if ($LASTEXITCODE -ne 0) { throw "$crate wheel build failed" }
           }
           python -m pip install (Get-ChildItem wheelhouse\*.whl).FullName
-          python -c "import gifrecorder, longstitch, pyclipboard, ppocr_rust; print('Native extension imports OK')"
+          python -c "import gifrecorder, longstitch, pyclipboard, ppocr_rust, hdrcapture; print('Native extension imports OK')"
 
       - name: Install Python dependencies
         run: |
@@ -76,6 +76,16 @@ jobs:
 
       - name: Build onefile exe with PyInstaller
         run: python build_with_ocr_onefile.py
+
+      - name: Add license notices
+        # 发布包里静态编入了第三方 Rust 代码（含 windows-capture 的 MIT 代码），随包附上版权声明与许可
+        run: |
+          New-Item -ItemType Directory -Force dist\licenses | Out-Null
+          Copy-Item LICENSE dist\licenses\LICENSE.txt
+          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust", "hdrcapture") {
+            Copy-Item rust_libs\$crate\THIRD-PARTY-NOTICES.txt dist\licenses\$crate-THIRD-PARTY-NOTICES.txt
+          }
+          Copy-Item rust_libs\hdrcapture\LICENSE-UPSTREAM dist\licenses\windows-capture-LICENSE.txt
 
       - name: Package dist as zip
         run: Compress-Archive -Path dist\* -DestinationPath jietuba_pp-${{ github.ref_name }}-${{ matrix.arch }}.zip
@@ -102,3 +112,5 @@ jobs:
         with:
           files: release-assets/*.zip
           generate_release_notes: true
+          # 先建草稿：发布说明审过、发布包验过之后再公开
+          draft: true

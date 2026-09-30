@@ -1,0 +1,112 @@
+name: Bug 反馈
+description: 报告截图、钉图、剪贴板、OCR 等功能的异常。
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请用标题简要描述问题，并尽量一次反馈一个独立问题。
+        提交前可以搜索[已有 issue](https://github.com/1003129155/jietuba/issues?q=is%3Aissue)，查看是否已有相同反馈。
+        截图、录屏和日志为选填；上传前请遮盖私人截图、剪贴板内容、账号和 API 密钥。
+
+  - type: input
+    id: version
+    attributes:
+      label: 软件版本
+      description: 填写实际使用的版本，可在设置的“关于”页面查看；源码或测试构建请补充分支、提交号或 PR 链接。无法启动时可填写下载的文件名。
+      placeholder: "版本号 / 下载的文件名 / 分支及提交号"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: installation
+    attributes:
+      label: 使用方式
+      options:
+        - GitHub Releases 下载的 Windows x64 版
+        - GitHub Releases 下载的 Windows ARM64 版
+        - 源码运行
+        - 自行打包或 PR 测试构建
+        - 第三方渠道下载
+        - 不确定
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: 系统环境
+      description: 填写 Windows 版本和系统架构，不清楚的部分可写“不确定”；源码运行时也请填写 Python 版本。
+      placeholder: "例如：Windows 11 24H2，x64；Python 3.11（仅源码运行需填）"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 涉及功能（可多选）
+      multiple: true
+      options:
+        - 启动、退出或更新
+        - 普通截图、选区或标注
+        - 全局鼠标快捷键（按住修饰键拖动）
+        - 长截图
+        - 钉图或钉图编辑
+        - 剪贴板历史、粘贴或分组
+        - OCR 或文字识别
+        - 翻译
+        - GIF 录制
+        - 保存、导出或复制
+        - 快捷键
+        - 设置、界面、语言或显示缩放
+        - 二维码或条形码识别
+        - 其他或不确定
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际发生了什么？
+      description: 描述异常现象；如有报错，请保留报错原文。性能问题可说明卡顿发生在何时，内存是否持续增长。
+      placeholder: "执行了什么操作，随后出现什么异常？"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 从打开软件或相关界面开始描述，写出涉及的设置和快捷键。偶发或无法稳定复现时，请说明出现前的操作及大致频率。
+      placeholder: |
+        1. 打开……，将……设置为……
+        2. 点击…… / 按下……
+        3. 出现……
+        复现频率：每次 / 偶发 / 仅出现过一次
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期行为
+      placeholder: "你期望相同操作得到什么结果？"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 相关设置或场景（选填）
+      description: 只填写与问题有关的信息，无需上传整个配置文件。
+      placeholder: |
+        显示问题：显示器数量、各屏分辨率和缩放比例、主副屏位置、是否启用 HDR。
+        快捷键问题：具体组合键、当时操作的软件、两个程序是否以管理员身份运行。
+        OCR / 翻译问题：引擎或服务名称、识别或翻译的语言（不要填写密钥）。
+        剪贴板问题：内容类型，以及是否同时运行其他剪贴板工具。
+        如升级后才出现，请补充最后一个正常使用的版本。
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 截图、录屏或日志（选填）
+      description: 可粘贴文字或拖入附件。日志默认在 %LOCALAPPDATA%\Jietuba\Logs；若修改过日志目录，以设置中的路径为准。只需提供问题发生时间附近的相关内容，并先移除隐私信息和密钥。
+      placeholder: "问题发生时间、相关报错或经过脱敏的附件；没有日志也可以提交。"

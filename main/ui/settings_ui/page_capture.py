@@ -9,13 +9,13 @@ from ui.fluent_lite import (
     FluentIcon, ComboBox, CaptionLabel, PushButton,
 )
 from settings import color_formats
-from settings.tool_settings import SMART_SELECTION_MODES
+from settings.tool_settings import CAPTURE_ENGINES, SMART_SELECTION_MODES
 from .components import SettingCardGroup
 from core.ui_theme import set_own_style
 
 
 def create_capture_page(dialog) -> QWidget:
-    """截图設定 ─ 智能选区 + 保存设置 + 放大镜 + 钉图"""
+    """截图設定 ─ 截图引擎 + 智能选区 + 保存设置 + 放大镜 + 钉图"""
     scroll = QScrollArea()
     scroll.setWidgetResizable(True)
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
@@ -25,6 +25,26 @@ def create_capture_page(dialog) -> QWidget:
     layout = QVBoxLayout(view)
     layout.setContentsMargins(0, 0, dialog_scaled(10), 0)
     layout.setSpacing(dialog_scaled(20))
+
+    # ── 截图引擎 ──────────────────────────────────────
+    grp_engine = SettingCardGroup(dialog.tr("Screenshot"), view)
+    engine_card = FSettingCard(
+        FluentIcon.CAMERA,
+        dialog.tr("Capture Engine"),
+        dialog.tr("Auto uses the HDR engine when a display has HDR turned on."),
+        parent=grp_engine,
+    )
+    dialog.capture_engine_combo = ComboBox(engine_card)
+    for label, engine in ((dialog.tr("Auto (Recommended)"), "auto"),
+                          (dialog.tr("Standard"), "mss"),
+                          ("HDR", "hdr")):
+        dialog.capture_engine_combo.addItem(label, userData=engine)
+    dialog.capture_engine_combo.setCurrentIndex(
+        CAPTURE_ENGINES.index(dialog.config_manager.get_capture_engine())
+    )
+    engine_card.addControl(dialog.capture_engine_combo)
+    grp_engine.addSettingCard(engine_card)
+    layout.addWidget(grp_engine)
 
     # ── 智能选区 ──────────────────────────────────────
     grp_smart = SettingCardGroup(dialog.tr("Smart Selection"), view)

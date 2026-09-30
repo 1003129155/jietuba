@@ -9,6 +9,38 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Region Text Recognition</source>
+        <translation>区域识别文字</translation>
+    </message>
+    <message>
+        <source>Region Translation</source>
+        <translation>区域翻译</translation>
+    </message>
+    <message>
+        <source>Copy and Pin</source>
+        <translation>复制后钉图</translation>
+    </message>
+    <message>
+        <source>Capture and Edit</source>
+        <translation>截图并编辑</translation>
+    </message>
+    <message>
+        <source>Back Button Drag</source>
+        <translation>鼠标后退键拖拽</translation>
+    </message>
+    <message>
+        <source>Forward Button Drag</source>
+        <translation>鼠标前进键拖拽</translation>
+    </message>
+    <message>
+        <source>Hold modifier keys and drag the mouse</source>
+        <translation>按住修饰键拖动鼠标</translation>
+    </message>
+    <message>
+        <source>Capture failed. Please try again.</source>
+        <translation>截图失败，请重试。</translation>
+    </message>
+    <message>
         <source>Shortcuts</source>
         <translation>快捷键</translation>
     </message>
@@ -128,8 +160,8 @@
         <translation>预加载截图模块</translation>
     </message>
     <message>
-        <source>Pre-load mss, canvas, tools in background thread</source>
-        <translation>在后台线程中预加载 mss、画布、工具等模块</translation>
+        <source>Pre-load the capture engine, canvas and tools</source>
+        <translation>预加载截图引擎、画布、工具等模块</translation>
     </message>
     <message>
         <source>Preload Toolbar</source>
@@ -264,7 +296,6 @@
     <message><source>Ellipse</source><translation>椭圆</translation></message>
     <message><source>Text</source><translation>文字</translation></message>
     <message><source>Eraser</source><translation>橡皮擦</translation></message>
-    <message><source>💡 Configured shortcuts take priority over WASD and C. Arrow keys remain available; Esc is reserved.</source><translation>💡 已配置的快捷键优先于 WASD 和 C；方向键仍可用，Esc 为保留键。</translation></message>
     <message>
         <source>Pin Shortcuts</source>
         <translation>钉图快捷键</translation>
@@ -341,7 +372,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Pin Image</source>
-        <translation>钉图</translation>
+        <translation>图片钉图</translation>
     </message>
     <message>
         <source>Undo</source>
@@ -412,6 +443,14 @@ Replace it?</source>
     <message>
         <source>Stitching Engine</source>
         <translation>拼接引擎</translation>
+    </message>
+    <message>
+        <source>Capture Engine</source>
+        <translation>截图引擎</translation>
+    </message>
+    <message>
+        <source>Auto (Recommended)</source>
+        <translation>自动 (推荐)</translation>
     </message>
     <message>
         <source>Python Hash (Debug)</source>
@@ -717,6 +756,54 @@ Replace it?</source>
         <source>💡 Hint: Even with background startup, you can operate from system tray.</source>
         <translation>💡 提示: 即使后台启动，也可以通过系统托盘操作。</translation>
     </message>
+    <message>
+        <source>Settings Backup</source>
+        <translation>设置备份</translation>
+    </message>
+    <message>
+        <source>Export Settings</source>
+        <translation>导出设置</translation>
+    </message>
+    <message>
+        <source>Save settings to a file, including translation API keys. Folder locations are not included.</source>
+        <translation>把设置保存到文件，包含翻译服务的 API 密钥；不包含各类文件夹位置。</translation>
+    </message>
+    <message>
+        <source>Export</source>
+        <translation>导出</translation>
+    </message>
+    <message>
+        <source>Import Settings</source>
+        <translation>导入设置</translation>
+    </message>
+    <message>
+        <source>Load settings from an exported file. Folder locations stay unchanged.</source>
+        <translation>从导出的文件载入设置；各类文件夹位置保持不变。</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>导入</translation>
+    </message>
+    <message>
+        <source>Settings File (*.json)</source>
+        <translation>设置文件 (*.json)</translation>
+    </message>
+    <message>
+        <source>Could not write the file: %1</source>
+        <translation>无法写入文件：%1</translation>
+    </message>
+    <message>
+        <source>Settings exported to %1</source>
+        <translation>设置已导出到 %1</translation>
+    </message>
+    <message>
+        <source>This file is not a Jietuba settings file, or it is damaged.</source>
+        <translation>这个文件不是 Jietuba 的设置文件，或者已经损坏。</translation>
+    </message>
+    <message>
+        <source>Settings loaded. Click Apply to use them.</source>
+        <translation>设置已载入，点「应用」后生效。</translation>
+    </message>
     
     <!-- Info Page -->
     <message>
@@ -994,7 +1081,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Pin to Screen</source>
-        <translation>贴到屏幕</translation>
+        <translation>钉图</translation>
     </message>
     <message>
         <source>Save to File</source>
@@ -1017,14 +1104,6 @@ Replace it?</source>
         <translation>中键单击</translation>
     </message>
     <message>
-        <source>Enter Key</source>
-        <translation>回车键</translation>
-    </message>
-    <message>
-        <source>Exit capture after action</source>
-        <translation>执行后退出截图</translation>
-    </message>
-    <message>
         <source>Fullscreen Crosshair</source>
         <translation>全屏十字线</translation>
     </message>
@@ -1041,8 +1120,36 @@ Replace it?</source>
         <translation>开始截图时，把鼠标指针按当时的位置画进截图。</translation>
     </message>
     <message>
+        <source>Pin</source>
+        <translation>钉图</translation>
+    </message>
+    <message>
+        <source>Rounded Corners and Shadow</source>
+        <translation>圆角与阴影</translation>
+    </message>
+    <message>
+        <source>Windows 11 rounds the corners of pinned images and adds a shadow. Turn off to show the whole image with square corners and no shadow.</source>
+        <translation>Windows 11 会给钉图加圆角和阴影。关闭后钉图以直角显示，四个角不再被裁掉，也没有阴影。</translation>
+    </message>
+    <message>
+        <source>Auto Border</source>
+        <translation>自动添加描边</translation>
+    </message>
+    <message>
+        <source>New pinned images get a theme-colored border. Each image can still toggle it from the right-click menu.</source>
+        <translation>新钉图四周显示一圈主题色描边，单张钉图仍可在右键菜单里开关。</translation>
+    </message>
+    <message>
+        <source>Hover Buttons</source>
+        <translation>悬停时显示按钮</translation>
+    </message>
+    <message>
+        <source>Show the close and toolbar buttons in the top-right corner when the mouse is over a pinned image. When off, use the right-click menu or shortcuts.</source>
+        <translation>鼠标移到钉图上时，在右上角显示关闭和工具栏按钮。关闭后可用右键菜单或快捷键操作。</translation>
+    </message>
+    <message>
         <source>Mouse Shortcuts</source>
-        <translation>应用内鼠标快捷键</translation>
+        <translation>鼠标快捷键</translation>
     </message>
     <message>
         <source>Mouse Wheel</source>
@@ -1105,20 +1212,20 @@ Replace it?</source>
         <translation>复制选中文字</translation>
     </message>
     <message>
-        <source>Pin mouse actions apply outside annotation mode. Conflicts use the first matching action. Copy text uses the selected OCR text; otherwise right-click opens the menu.</source>
-        <translation>钉图鼠标动作在非标注模式下生效，冲突时从上到下优先匹配。复制文本针对已选中的识别文字；未选中文字时，右键仍打开菜单。</translation>
-    </message>
-    <message>
-        <source>Use + / - instead of the wheel with the same modifiers</source>
-        <translation>可用 + / - 代替滚轮，修饰键相同</translation>
-    </message>
-    <message>
         <source>No Modifier</source>
         <translation>无</translation>
     </message>
     <message>
         <source>No Action</source>
         <translation>无</translation>
+    </message>
+    <message>
+        <source>Paste</source>
+        <translation>粘贴</translation>
+    </message>
+    <message>
+        <source>Open Context Menu</source>
+        <translation>打开菜单</translation>
     </message>
 </context>
 
@@ -1227,12 +1334,12 @@ Replace it?</source>
         <translation>序号（Shift+滚轮可变号）</translation>
     </message>
     <message>
-        <source>Draw rectangle</source>
-        <translation>绘制矩形</translation>
+        <source>Draw rectangle (hold Shift for square)</source>
+        <translation>绘制矩形（按住Shift画正方形）</translation>
     </message>
     <message>
-        <source>Draw ellipse</source>
-        <translation>绘制椭圆</translation>
+        <source>Draw ellipse (hold Shift for circle)</source>
+        <translation>绘制椭圆（按住Shift画正圆）</translation>
     </message>
     <message>
         <source>Add text</source>
@@ -1356,8 +1463,8 @@ Replace it?</source>
         <translation>文字选择</translation>
     </message>
     <message>
-        <source>Shadow effect</source>
-        <translation>阴影效果</translation>
+        <source>Border</source>
+        <translation>描边</translation>
     </message>
     <message>
         <source>Close</source>
@@ -3971,8 +4078,8 @@ SOFTWARE.</translation></message>
         <translation>工具栏与面板缩放</translation>
     </message>
     <message>
-        <source>Size of toolbars, tool panels and popups.</source>
-        <translation>工具栏的显示大小。</translation>
+        <source>Size of toolbars, tool panels, popups and the clipboard window.</source>
+        <translation>工具栏、工具面板、弹层和剪贴板窗口的显示大小。</translation>
     </message>
     <message>
         <source>Window Scale</source>
@@ -4349,6 +4456,26 @@ SOFTWARE.</translation></message>
     <message>
         <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
         <translation>只识别到一个二维码或条形码时直接复制内容，不弹出结果窗口；识别到多个码时仍会弹出。</translation>
+    </message>
+    <message>
+        <source>Global Mouse Shortcuts</source>
+        <translation>全局鼠标快捷键</translation>
+    </message>
+    <message>
+        <source>In-App Mouse Shortcuts</source>
+        <translation>应用内鼠标快捷键</translation>
+    </message>
+    <message>
+        <source>Quick Edit Text</source>
+        <translation>文本快速编辑</translation>
+    </message>
+    <message>
+        <source>Auto uses the HDR engine when a display has HDR turned on.</source>
+        <translation>自动：显示器开着 HDR 时使用 HDR 引擎。</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>标准</translation>
     </message>
 </context>
 <context>

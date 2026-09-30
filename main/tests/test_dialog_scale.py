@@ -237,28 +237,29 @@ def test_manage_dialog_restores_frameless_styles_after_changing_flags(qapp, monk
         manage_dialog_mod._manage_window_instance = None
 
 
-def test_translation_dialog_restores_frameless_styles_after_pin_flag_changes(qapp, monkeypatch):
-    """同上：置顶靠改 WindowFlags 实现，构造时和每次切换都要重新 updateFrameless。"""
+def test_translation_dialog_pins_by_z_order_without_touching_window_flags(qapp, monkeypatch):
+    """置顶只改窗口层级。改 WindowFlags 会隐藏并重设原生窗口，最大化状态、还原尺寸和
+    无边框样式会被打乱：取消置顶后点最大化没反应、边缘拖不动（issue #34）。"""
     from PySide6.QtCore import Qt
-    from translation.translation_dialog import TranslationDialog
+    import translation.translation_dialog as module
 
-    flags_at_update = []
-    original = TranslationDialog.updateFrameless
-
-    def spy(self):
-        flags_at_update.append(self.windowFlags())
-        original(self)
-
-    monkeypatch.setattr(TranslationDialog, "updateFrameless", spy)
-    monkeypatch.setattr(TranslationDialog, "_stay_on_top", False)
-    dialog = TranslationDialog()
+    applied = []
+    monkeypatch.setattr(module, "set_window_topmost", lambda _hwnd, topmost: applied.append(topmost))
+    monkeypatch.setattr(module.TranslationDialog, "_stay_on_top", True)
+    dialog = module.TranslationDialog()
     try:
-        # 第一次来自无边框库自己的初始化，第二次才是改完置顶标志之后
-        assert len(flags_at_update) == 2
+        flags = dialog.windowFlags()
+        assert not flags & Qt.WindowType.WindowStaysOnTopHint
+        dialog.show()
+        qapp.processEvents()
+        assert applied == [True]
+
         dialog.dashboard_title_bar.pin_button.click()
-        assert len(flags_at_update) == 3
-        assert flags_at_update[-1] & Qt.WindowType.WindowStaysOnTopHint
+        assert applied == [True, False]
+        assert module.TranslationDialog._stay_on_top is False
+        assert dialog.windowFlags() == flags
     finally:
+        dialog.close()
         dialog.deleteLater()
 
 
@@ -437,7 +438,8 @@ def test_accept_discards_settings_cache_only_when_window_scale_changed(
     accepted_window = SimpleNamespace(_dialog_scale_changed_on_accept=changed)
     app = SimpleNamespace(
         sender=lambda: accepted_window,
-        config_manager=SimpleNamespace(get_clipboard_enabled=lambda: True),
+        config_manager=SimpleNamespace(get_clipboard_enabled=lambda: True,
+                                       get_capture_engine=lambda: "auto"),
         set_clipboard_monitoring_enabled=lambda _enabled: None,
         update_hotkey=lambda **_kwargs: None,
         _recreate_clipboard_manage_dialog=lambda: reopened.append("clipboard"),

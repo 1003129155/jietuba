@@ -903,6 +903,8 @@ class TranslationManager(QObject):
         
         # 清理pixmap引用
         self._pending_pixmap = None
+        from core.platform_utils import request_trim_working_set
+        request_trim_working_set()
         
         if not self._is_dialog_valid():
             log_debug(T("翻译窗口已关闭，忽略OCR结果"), "Translation")

@@ -1,6 +1,6 @@
 [package]
 name = "gifrecorder"
-version = "0.3.1"
+version = "0.4.0"
 edition = "2021"
 license = "MIT"
 description = "GIF screen recording: capture → JPEG compress → store → decode → GIF export"
@@ -11,6 +11,9 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.22", features = ["extension-module", "abi3-py311"] }
+
+# DXGI 录制区域采集，HDR 屏上按固定映射转 sRGB；不带它的 pyo3 绑定
+hdrcapture = { path = "../hdrcapture", default-features = false }
 
 # JPEG 编解码 (纯 Rust, 无需 NASM / libjpeg-turbo)
 jpeg-encoder = "0.6"

@@ -9,7 +9,7 @@ from PySide6.QtGui import QColor
 from core.ui_scale import configure_dialog_controls, dialog_scaled
 from ui.fluent_lite import (
     SettingCard as FSettingCard, FluentIcon,
-    ComboBox, CaptionLabel, ColorSwatchButton,
+    ComboBox, CaptionLabel, ColorSwatchButton, SwitchSettingCard,
 )
 from .components import SettingCardGroup, theme_menu_style
 from core.ui_theme import set_own_style
@@ -57,6 +57,11 @@ def create_appearance_page(dialog) -> QWidget:
     grp_ss = SettingCardGroup(dialog.tr("Screenshot"), view)
     _build_screenshot_section(dialog, grp_ss)
     layout.addWidget(grp_ss)
+
+    # ── 钉图外观 ──────────────────────────────────────
+    grp_pin = SettingCardGroup(dialog.tr("Pin"), view)
+    _build_pin_section(dialog, grp_pin)
+    layout.addWidget(grp_pin)
 
     # ── 剪贴板外观 ────────────────────────────────────
     grp_clip = SettingCardGroup(dialog.tr("Clipboard"), view)
@@ -110,7 +115,7 @@ def _build_ui_scale_card(dialog, grp: SettingCardGroup):
     card = FSettingCard(
         FluentIcon.LAYOUT,
         dialog.tr("Toolbar & Panel Scale"),
-        dialog.tr("Size of toolbars, tool panels and popups."),
+        dialog.tr("Size of toolbars, tool panels, popups and the clipboard window."),
         parent=grp,
     )
     dialog._ui_scale_combo = ComboBox(card)
@@ -269,15 +274,68 @@ def _build_selection_handle_size_card(dialog, grp: SettingCardGroup):
 
 
 # ================================================================
+# 钉图外观
+# ================================================================
+
+def _build_pin_section(dialog, grp: SettingCardGroup):
+    """钉图外观：系统圆角阴影、新钉图描边、悬停按钮。
+
+    圆角和按钮保存后已打开的钉图立即跟上；描边只决定之后新建的钉图，已有钉图在右键菜单里单独开关。
+    """
+    from core.platform_utils import supports_window_corner_preference
+    from settings import get_tool_settings_manager
+    config = get_tool_settings_manager()
+    if not hasattr(dialog, '_behavior_controls'):
+        dialog._behavior_controls = {}
+
+    # 圆角和阴影是 Windows 11 加的，更早的系统上没有，也就不给这个开关
+    if supports_window_corner_preference():
+        corners_card = SwitchSettingCard(
+            FluentIcon.LAYOUT,
+            dialog.tr("Rounded Corners and Shadow"),
+            dialog.tr(
+                "Windows 11 rounds the corners of pinned images and adds a shadow. "
+                "Turn off to show the whole image with square corners and no shadow."
+            ),
+            parent=grp,
+        )
+        corners_card.setChecked(config.get_app_setting("pin_rounded_corners"))
+        dialog._behavior_controls["pin_rounded_corners"] = corners_card
+        grp.addSettingCard(corners_card)
+
+    border_card = SwitchSettingCard(
+        FluentIcon.PALETTE,
+        dialog.tr("Auto Border"),
+        dialog.tr("New pinned images get a theme-colored border. Each image can still toggle it from the right-click menu."),
+        parent=grp,
+    )
+    border_card.setChecked(config.get_app_setting("pin_auto_border"))
+    dialog._behavior_controls["pin_auto_border"] = border_card
+    grp.addSettingCard(border_card)
+
+    buttons_card = SwitchSettingCard(
+        FluentIcon.CLOSE,
+        dialog.tr("Hover Buttons"),
+        dialog.tr(
+            "Show the close and toolbar buttons in the top-right corner when the mouse "
+            "is over a pinned image. When off, use the right-click menu or shortcuts."
+        ),
+        parent=grp,
+    )
+    buttons_card.setChecked(config.get_app_setting("pin_hover_buttons"))
+    dialog._behavior_controls["pin_hover_buttons"] = buttons_card
+    grp.addSettingCard(buttons_card)
+
+
+# ================================================================
 # 剪贴板外观
 # ================================================================
 
 def _build_clipboard_section(dialog, grp: SettingCardGroup):
-    """剪贴板外观：主题 + 字体大小 + 透明度"""
-    from clipboard.ui.theme.themes import PRESET_THEME_SWATCHES, get_theme_manager
+    """剪贴板外观：主题 + 字体大小 + 透明度。和其它设置一样，点应用才保存生效。"""
+    from clipboard.ui.theme.themes import PRESET_THEME_SWATCHES
     from settings import get_tool_settings_manager
     config = get_tool_settings_manager()
-    theme_mgr = get_theme_manager()
 
     # ── 剪贴板主题（颜色块按钮） ──────────────────────
     current_theme_name = config.get_clipboard_theme()
@@ -308,9 +366,12 @@ def _build_clipboard_section(dialog, grp: SettingCardGroup):
         def _on_click(name: str):
             dialog._clip_theme_name = name
             _apply_clip_theme_btn_style(dialog._clip_theme_btn, name)
-            theme_mgr.set_theme(name)
             _update_btns(name)
             menu.close()
+            # 主题存在属性里，没有控件信号能带动应用按钮
+            update_buttons = getattr(dialog, "_update_action_buttons", None)
+            if update_buttons is not None:
+                update_buttons()
 
         for tname, (accent, bg) in PRESET_THEME_SWATCHES.items():
             wa = QWidgetAction(menu)
@@ -350,14 +411,6 @@ def _build_clipboard_section(dialog, grp: SettingCardGroup):
     idx = dialog._clip_font_combo.findData(current_font)
     if idx >= 0:
         dialog._clip_font_combo.setCurrentIndex(idx)
-
-    def _on_font_changed(index):
-        size = dialog._clip_font_combo.itemData(index)
-        if size is not None:
-            config.set_clipboard_font_size(size)
-            theme_mgr.notify_font_size_changed(size)
-
-    dialog._clip_font_combo.currentIndexChanged.connect(_on_font_changed)
     font_card.addControl(dialog._clip_font_combo)
     grp.addSettingCard(font_card)
 
@@ -377,14 +430,6 @@ def _build_clipboard_section(dialog, grp: SettingCardGroup):
     idx = dialog._clip_opacity_combo.findData(current_opacity)
     if idx >= 0:
         dialog._clip_opacity_combo.setCurrentIndex(idx)
-
-    def _on_opacity_changed(index):
-        percent = dialog._clip_opacity_combo.itemData(index)
-        if percent is not None:
-            config.set_clipboard_window_opacity(percent)
-            theme_mgr.notify_opacity_changed(percent)
-
-    dialog._clip_opacity_combo.currentIndexChanged.connect(_on_opacity_changed)
     opacity_card.addControl(dialog._clip_opacity_combo)
     grp.addSettingCard(opacity_card)
  

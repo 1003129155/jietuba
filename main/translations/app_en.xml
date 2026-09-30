@@ -9,6 +9,38 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Region Text Recognition</source>
+        <translation>Region Text Recognition</translation>
+    </message>
+    <message>
+        <source>Region Translation</source>
+        <translation>Region Translation</translation>
+    </message>
+    <message>
+        <source>Copy and Pin</source>
+        <translation>Copy and Pin</translation>
+    </message>
+    <message>
+        <source>Capture and Edit</source>
+        <translation>Capture and Edit</translation>
+    </message>
+    <message>
+        <source>Back Button Drag</source>
+        <translation>Back Button Drag</translation>
+    </message>
+    <message>
+        <source>Forward Button Drag</source>
+        <translation>Forward Button Drag</translation>
+    </message>
+    <message>
+        <source>Hold modifier keys and drag the mouse</source>
+        <translation>Hold modifier keys and drag the mouse</translation>
+    </message>
+    <message>
+        <source>Capture failed. Please try again.</source>
+        <translation>Capture failed. Please try again.</translation>
+    </message>
+    <message>
         <source>Shortcuts</source>
         <translation>Shortcuts</translation>
     </message>
@@ -128,8 +160,8 @@
         <translation>Preload Screenshot Modules</translation>
     </message>
     <message>
-        <source>Pre-load mss, canvas, tools in background thread</source>
-        <translation>Pre-load mss, canvas, tools in background thread</translation>
+        <source>Pre-load the capture engine, canvas and tools</source>
+        <translation>Pre-load the capture engine, canvas and tools</translation>
     </message>
     <message>
         <source>Preload Toolbar</source>
@@ -260,7 +292,6 @@
     <message><source>Ellipse</source><translation>Ellipse</translation></message>
     <message><source>Text</source><translation>Text</translation></message>
     <message><source>Eraser</source><translation>Eraser</translation></message>
-    <message><source>💡 Configured shortcuts take priority over WASD and C. Arrow keys remain available; Esc is reserved.</source><translation>💡 Configured shortcuts take priority over WASD and C. Arrow keys remain available; Esc is reserved.</translation></message>
     <message>
         <source>Pin Shortcuts</source>
         <translation>Pin Shortcuts</translation>
@@ -408,6 +439,14 @@ Replace it?</translation>
     <message>
         <source>Stitching Engine</source>
         <translation>Stitching Engine</translation>
+    </message>
+    <message>
+        <source>Capture Engine</source>
+        <translation>Capture Engine</translation>
+    </message>
+    <message>
+        <source>Auto (Recommended)</source>
+        <translation>Auto (Recommended)</translation>
     </message>
     <message>
         <source>Python Hash (Debug)</source>
@@ -713,6 +752,54 @@ Replace it?</translation>
         <source>💡 Hint: Even with background startup, you can operate from system tray.</source>
         <translation>💡 Hint: Even with background startup, you can operate from system tray.</translation>
     </message>
+    <message>
+        <source>Settings Backup</source>
+        <translation>Settings Backup</translation>
+    </message>
+    <message>
+        <source>Export Settings</source>
+        <translation>Export Settings</translation>
+    </message>
+    <message>
+        <source>Save settings to a file, including translation API keys. Folder locations are not included.</source>
+        <translation>Save settings to a file, including translation API keys. Folder locations are not included.</translation>
+    </message>
+    <message>
+        <source>Export</source>
+        <translation>Export</translation>
+    </message>
+    <message>
+        <source>Import Settings</source>
+        <translation>Import Settings</translation>
+    </message>
+    <message>
+        <source>Load settings from an exported file. Folder locations stay unchanged.</source>
+        <translation>Load settings from an exported file. Folder locations stay unchanged.</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>Import</translation>
+    </message>
+    <message>
+        <source>Settings File (*.json)</source>
+        <translation>Settings File (*.json)</translation>
+    </message>
+    <message>
+        <source>Could not write the file: %1</source>
+        <translation>Could not write the file: %1</translation>
+    </message>
+    <message>
+        <source>Settings exported to %1</source>
+        <translation>Settings exported to %1</translation>
+    </message>
+    <message>
+        <source>This file is not a Jietuba settings file, or it is damaged.</source>
+        <translation>This file is not a Jietuba settings file, or it is damaged.</translation>
+    </message>
+    <message>
+        <source>Settings loaded. Click Apply to use them.</source>
+        <translation>Settings loaded. Click Apply to use them.</translation>
+    </message>
     
     <!-- Info Page -->
     <message>
@@ -893,14 +980,6 @@ Replace it?</translation>
         <translation>Middle Click</translation>
     </message>
     <message>
-        <source>Enter Key</source>
-        <translation>Enter Key</translation>
-    </message>
-    <message>
-        <source>Exit capture after action</source>
-        <translation>Exit capture after action</translation>
-    </message>
-    <message>
         <source>Fullscreen Crosshair</source>
         <translation>Fullscreen Crosshair</translation>
     </message>
@@ -917,8 +996,36 @@ Replace it?</translation>
         <translation>Draw the mouse pointer into the screenshot where it was when capturing started.</translation>
     </message>
     <message>
+        <source>Pin</source>
+        <translation>Pin</translation>
+    </message>
+    <message>
+        <source>Rounded Corners and Shadow</source>
+        <translation>Rounded Corners and Shadow</translation>
+    </message>
+    <message>
+        <source>Windows 11 rounds the corners of pinned images and adds a shadow. Turn off to show the whole image with square corners and no shadow.</source>
+        <translation>Windows 11 rounds the corners of pinned images and adds a shadow. Turn off to show the whole image with square corners and no shadow.</translation>
+    </message>
+    <message>
+        <source>Auto Border</source>
+        <translation>Auto Border</translation>
+    </message>
+    <message>
+        <source>New pinned images get a theme-colored border. Each image can still toggle it from the right-click menu.</source>
+        <translation>New pinned images get a theme-colored border. Each image can still toggle it from the right-click menu.</translation>
+    </message>
+    <message>
+        <source>Hover Buttons</source>
+        <translation>Hover Buttons</translation>
+    </message>
+    <message>
+        <source>Show the close and toolbar buttons in the top-right corner when the mouse is over a pinned image. When off, use the right-click menu or shortcuts.</source>
+        <translation>Show the close and toolbar buttons in the top-right corner when the mouse is over a pinned image. When off, use the right-click menu or shortcuts.</translation>
+    </message>
+    <message>
         <source>Mouse Shortcuts</source>
-        <translation>In-App Mouse Shortcuts</translation>
+        <translation>Mouse Shortcuts</translation>
     </message>
     <message>
         <source>Mouse Wheel</source>
@@ -981,20 +1088,20 @@ Replace it?</translation>
         <translation>Copy Selected Text</translation>
     </message>
     <message>
-        <source>Pin mouse actions apply outside annotation mode. Conflicts use the first matching action. Copy text uses the selected OCR text; otherwise right-click opens the menu.</source>
-        <translation>Pin mouse actions apply outside annotation mode. Conflicts use the first matching action. Copy text uses the selected OCR text; otherwise right-click opens the menu.</translation>
-    </message>
-    <message>
-        <source>Use + / - instead of the wheel with the same modifiers</source>
-        <translation>Use + / - instead of the wheel with the same modifiers</translation>
-    </message>
-    <message>
         <source>No Modifier</source>
         <translation>None</translation>
     </message>
     <message>
         <source>No Action</source>
         <translation>None</translation>
+    </message>
+    <message>
+        <source>Paste</source>
+        <translation>Paste</translation>
+    </message>
+    <message>
+        <source>Open Context Menu</source>
+        <translation>Open Context Menu</translation>
     </message>
 </context>
 
@@ -1098,12 +1205,12 @@ Replace it?</translation>
         <translation>Number (Shift+scroll to change number)</translation>
     </message>
     <message>
-        <source>Draw rectangle</source>
-        <translation>Draw rectangle</translation>
+        <source>Draw rectangle (hold Shift for square)</source>
+        <translation>Draw rectangle (hold Shift for square)</translation>
     </message>
     <message>
-        <source>Draw ellipse</source>
-        <translation>Draw ellipse</translation>
+        <source>Draw ellipse (hold Shift for circle)</source>
+        <translation>Draw ellipse (hold Shift for circle)</translation>
     </message>
     <message>
         <source>Add text</source>
@@ -1227,8 +1334,8 @@ Replace it?</translation>
         <translation>Text selection</translation>
     </message>
     <message>
-        <source>Shadow effect</source>
-        <translation>Shadow effect</translation>
+        <source>Border</source>
+        <translation>Border</translation>
     </message>
     <message>
         <source>Close</source>
@@ -3698,8 +3805,8 @@ SOFTWARE.</translation></message>
         <translation>Toolbar &amp; Panel Scale</translation>
     </message>
     <message>
-        <source>Size of toolbars, tool panels and popups.</source>
-        <translation>Size of the toolbar.</translation>
+        <source>Size of toolbars, tool panels, popups and the clipboard window.</source>
+        <translation>Size of toolbars, tool panels, popups and the clipboard window.</translation>
     </message>
     <message>
         <source>Window Scale</source>
@@ -4069,6 +4176,26 @@ SOFTWARE.</translation></message>
     <message>
         <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
         <translation>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</translation>
+    </message>
+    <message>
+        <source>Global Mouse Shortcuts</source>
+        <translation>Global Mouse Shortcuts</translation>
+    </message>
+    <message>
+        <source>In-App Mouse Shortcuts</source>
+        <translation>In-App Mouse Shortcuts</translation>
+    </message>
+    <message>
+        <source>Quick Edit Text</source>
+        <translation>Quick Edit Text</translation>
+    </message>
+    <message>
+        <source>Auto uses the HDR engine when a display has HDR turned on.</source>
+        <translation>Auto uses the HDR engine when a display has HDR turned on.</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>Standard</translation>
     </message>
 </context>
 <context>

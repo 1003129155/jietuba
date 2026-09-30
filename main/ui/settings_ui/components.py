@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QEvent, QObject, QRect, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QPainter
 from core import safe_event
+from core.resource_manager import ResourceManager
 from core.ui_scale import dialog_scaled
 from core.ui_theme import get_ui_theme, set_own_style
 
@@ -405,6 +406,20 @@ def add_separated_row(layout, widget: QWidget):
     """往竖排布局里加一行，上方带一条主题色分隔线。"""
     layout.addWidget(_Separator(widget.parentWidget()))
     layout.addWidget(widget)
+
+
+def icon_ref(ref):
+    """svg/ 下的文件名转成完整路径，FluentIcon 原样返回。"""
+    if isinstance(ref, str):
+        return ResourceManager.get_icon_path(ref)
+    return ref
+
+
+def row_label(parent, text: str) -> QLabel:
+    """设置行的标题文字。"""
+    label = QLabel(text, parent)
+    apply_theme_text_style(label, 14, extra="font-weight: 500;")
+    return label
 
 
 def make_switch_card(dialog, icon, title, content, checked, attr_name, parent=None):

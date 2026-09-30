@@ -2,7 +2,9 @@
 """平台相关工具函数（Windows Win32 API 等）"""
 # 跨模块调用的平台相关功能集中在这里，避免分散在各个模块中直接调用 Win32 API 导致的重复代码和维护困难。
 import os
+import sys
 import ctypes
+import gc
 import math
 
 from core.logger import log_exception, T
@@ -30,17 +32,33 @@ def trim_working_set():
 
 
 _trim_timer = None  # 延迟初始化，避免在 QApplication 创建前导入时崩溃
+_trim_busy = None
+
+
+def set_trim_busy_check(predicate):
+    """截图这类操作进行中返回 True 的判断；到点时在忙就顺延，免得操作中途把内存页换出去。"""
+    global _trim_busy
+    _trim_busy = predicate
 
 
 def request_trim_working_set(delay_ms: int = 1500):
-    """请求释放工作集（去抖）。多次调用只执行最后一次，避免 page fault 风暴。"""
+    """请求回收内存并释放工作集（去抖）。多次调用只执行最后一次，避免 page fault 风暴。"""
     global _trim_timer
     if _trim_timer is None:
         from PySide6.QtCore import QTimer
         _trim_timer = QTimer()
         _trim_timer.setSingleShot(True)
-        _trim_timer.timeout.connect(trim_working_set)
+        _trim_timer.timeout.connect(_trim_when_idle)
     _trim_timer.start(delay_ms)
+
+
+def _trim_when_idle():
+    if _trim_busy is not None and _trim_busy():
+        _trim_timer.start()
+        return
+    # 关掉的钉图、截图会话常在循环引用里，不回收要等 Python 自己做完整回收才释放
+    gc.collect()
+    trim_working_set()
 
 
 # ──────────────────────────────────────────────
@@ -270,6 +288,71 @@ def set_window_exclude_from_capture(hwnd: int, exclude: bool) -> bool:
         return bool(result)
     except Exception as e:
         log_exception(e, "SetWindowDisplayAffinity")
+        return False
+
+
+# ──────────────────────────────────────────────
+# 窗口置顶
+# ──────────────────────────────────────────────
+
+HWND_TOPMOST   = -1
+HWND_NOTOPMOST = -2
+
+
+def set_window_topmost(hwnd: int, topmost: bool) -> bool:
+    """只改窗口的置顶层级，不动 Qt 的窗口标志。
+
+    改 WindowStaysOnTopHint 会让 Qt 隐藏并重设原生窗口，最大化状态、还原尺寸和
+    无边框库补上的样式都会被打乱。返回调用是否成功。
+    """
+    try:
+        from ctypes import wintypes
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int,
+                                        ctypes.c_int, ctypes.c_int, wintypes.UINT]
+        user32.SetWindowPos.restype = wintypes.BOOL
+        swp_nosize, swp_nomove, swp_noactivate = 0x0001, 0x0002, 0x0010
+        return bool(user32.SetWindowPos(
+            hwnd, HWND_TOPMOST if topmost else HWND_NOTOPMOST, 0, 0, 0, 0,
+            swp_nosize | swp_nomove | swp_noactivate,
+        ))
+    except Exception as e:
+        log_exception(e, "SetWindowPos")
+        return False
+
+
+# ──────────────────────────────────────────────
+# 窗口圆角（Windows 11）
+# ──────────────────────────────────────────────
+
+DWMWA_WINDOW_CORNER_PREFERENCE = 33
+DWMWCP_DONOTROUND = 1
+# 设过 DONOTROUND 后再设 DEFAULT 不会恢复圆角，开启时要显式用 ROUND
+DWMWCP_ROUND      = 2
+
+
+def supports_window_corner_preference() -> bool:
+    """Windows 11（build 22000）起系统会给顶层窗口加圆角和阴影，也允许逐个窗口关掉。"""
+    try:
+        return sys.getwindowsversion().build >= 22000
+    except AttributeError:
+        return False
+
+
+def set_window_rounded_corners(hwnd: int, rounded: bool) -> bool:
+    """设置系统是否给窗口加圆角。不加圆角时系统阴影也随之去掉。返回调用是否成功。"""
+    if not supports_window_corner_preference():
+        return False
+    try:
+        from ctypes import wintypes
+        value = ctypes.c_int(DWMWCP_ROUND if rounded else DWMWCP_DONOTROUND)
+        hr = ctypes.windll.dwmapi.DwmSetWindowAttribute(
+            wintypes.HWND(hwnd), DWMWA_WINDOW_CORNER_PREFERENCE,
+            ctypes.byref(value), ctypes.sizeof(value),
+        )
+        return hr == 0
+    except Exception as e:
+        log_exception(e, "DwmSetWindowAttribute")
         return False
 
 

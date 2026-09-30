@@ -21,7 +21,7 @@ from core.logger import (
 )
 
 # ── 全局版本号 ────────────────────────────────────────────
-APP_VERSION = "2.0.10"
+APP_VERSION = "2.1.0"
 
 
 def create_fallback_app_icon():
@@ -175,6 +175,17 @@ class MainApp(QObject):
         self.clipboard_window = None
         # 剪贴板管理器
         self.clipboard_manager = None
+        self._capture_pending = False
+
+        from capture.quick_capture_controller import QuickCaptureController
+        self.quick_capture = QuickCaptureController(self)
+
+        from core.platform_utils import set_trim_busy_check
+        set_trim_busy_check(self._capture_busy)
+
+        # 插拔显示器、改分辨率、开关 HDR 后在后台按新配置备好截图会话，不留给下一次截图去等
+        from capture.display_watcher import DisplayChangeWatcher
+        self._display_watcher = DisplayChangeWatcher(self._on_display_changed, self)
 
         from translation.smart_translation_controller import SmartTranslationController
         self.smart_translation_controller = SmartTranslationController(self)
@@ -188,8 +199,27 @@ class MainApp(QObject):
         self._preloader = PreloadManager(self)
         self._preloader.build_and_start()
 
+    def _on_display_changed(self):
+        from capture.capture_service import refresh_hdr_session
+
+        log_debug(T("显示器配置变化，后台重建截图会话"), "MainApp")
+        refresh_hdr_session(self.config_manager.get_capture_engine())
+
+    def _capture_busy(self):
+        """截图正在准备或进行中、全局鼠标正在拖动或抓屏。"""
+        window = self.screenshot_window
+        return bool(
+            self._capture_pending
+            or (window and getattr(window, '_session_active', False))
+            or self.quick_capture.busy
+        )
+
     def _on_about_to_quit(self):
         """应用退出前收尾"""
+        from core.platform_utils import set_trim_busy_check
+        set_trim_busy_check(None)
+        self.quick_capture.close()
+        self._display_watcher.close()
         try:
             from translation import TranslationManager
 
@@ -202,6 +232,12 @@ class MainApp(QObject):
             shutdown_recognition()
         except Exception as e:
             log_exception(e, T("等待文字识别线程"))
+        try:
+            from capture.capture_service import shutdown_hdr_session
+
+            shutdown_hdr_session()
+        except Exception as e:
+            log_exception(e, T("关闭 HDR 捕获会话"))
         try:
             if hasattr(self, "_logger") and self._logger:
                 self._logger.close()
@@ -220,6 +256,7 @@ class MainApp(QObject):
         self.hotkey_system.unregister_all()
 
         # 3. 显示向导
+        self.quick_capture.suspend()
         try:
             from ui.welcome import WelcomeWizard
             wizard = WelcomeWizard(self.config_manager)
@@ -363,6 +400,8 @@ class MainApp(QObject):
                 log_warning(T("钉图热键注册失败: {pin_clipboard_hotkey}", pin_clipboard_hotkey=pin_clipboard_hotkey), "Hotkey")
                 failed_hotkeys.append((label, pin_clipboard_hotkey))
         
+        self.quick_capture.refresh()
+
         # 如果有注册失败的热键且需要显示提示
         if show_error and failed_hotkeys:
             self._show_hotkey_error(failed_hotkeys)
@@ -371,6 +410,7 @@ class MainApp(QObject):
         """禁用/启用所有全局热键，并立即应用。"""
         self.config_manager.set_app_setting("global_hotkeys_disabled", disabled)
         self.hotkey_system.set_suppressed(disabled)
+        self.quick_capture.refresh()
         if disabled:
             log_info(T("全局热键已临时禁用（保留注册，仅忽略回调）"), "Hotkey")
         else:
@@ -436,6 +476,8 @@ class MainApp(QObject):
             
     def start_screenshot(self):
         """启动截图 - 管理截图窗口生命周期"""
+        if self.quick_capture.busy:
+            return
         
         # 已有截图窗口且会话活跃 → 忽略重复触发，并把焦点还给截图窗口
         if self.screenshot_window and getattr(self.screenshot_window, '_session_active', False):
@@ -457,9 +499,9 @@ class MainApp(QObject):
         if self._activate_blocking_modal():
             return
         
-        # 后台截图线程正在运行时也忽略重复触发
-        if getattr(self, '_capture_thread', None) and self._capture_thread.isRunning():
-            log_debug(T("后台截图线程进行中，忽略重复触发"), "MainApp")
+        # 截图已排队但还没落到窗口上时，忽略重复触发
+        if self._capture_pending:
+            log_debug(T("截图进行中，忽略重复触发"), "MainApp")
             return
 
         # 关闭所有已打开的颜色选择器（避免其遮挡截图界面或触发焦点冲突）
@@ -477,56 +519,58 @@ class MainApp(QObject):
         except Exception as e:
             log_exception(e, T("关闭剪贴板窗口"))
 
-        log_info(T("启动后台截图线程"), "MainApp")
-        
-        # 在后台线程执行 mss.grab()，避免主线程被阻塞 100~500ms
-        from PySide6.QtCore import QThread, Signal
+        # 延后一轮事件循环再截，让上面关掉的剪贴板窗口先从画面上消失。HDR 取帧在会话线程上
+        # 进行，这里只等结果，不另开线程。
+        from PySide6.QtCore import QTimer
 
+        self._capture_pending = True
+        self.quick_capture.set_capture_pending(True)
+        QTimer.singleShot(0, self._capture_and_prepare_window)
+
+    def _capture_and_prepare_window(self):
+        """在主线程截图，随后创建或复用截图窗口"""
         include_cursor = self.config_manager.get_app_setting("capture_include_cursor", False)
+        try:
+            from capture.capture_service import CaptureService
+            from capture.system_cursor import SystemCursor
+            cursor = SystemCursor.grab() if include_cursor else None
+            image, rect = CaptureService().capture_all_screens(cursor)
+        except Exception as e:
+            log_exception(e, T("截图失败"))
+            return
+        finally:
+            self._capture_pending = False
+            self.quick_capture.set_capture_pending(False)
 
-        class CaptureThread(QThread):
-            captured = Signal(object, object, object)  # (QImage, QRectF, SystemCursor | None)
-
-            def run(self):
-                try:
-                    from capture.capture_service import CaptureService
-                    from capture.system_cursor import SystemCursor
-                    cursor = SystemCursor.grab() if include_cursor else None
-                    image, rect = CaptureService().capture_all_screens(cursor)
-                    self.captured.emit(image, rect, cursor)
-                except Exception as e:
-                    log_exception(e, T("后台截图失败"))
-
-        self._capture_thread = CaptureThread()
-        self._capture_thread.captured.connect(self._on_capture_ready)
-        self._capture_thread.start()
+        self._on_capture_ready(image, rect, cursor)
 
     def _on_capture_ready(self, image, rect, cursor=None):
-        """后台截图完成后，在主线程创建或复用截图窗口"""
-        log_debug(T("后台截图完成，准备截图窗口"), "MainApp")
+        """截图完成后创建或复用截图窗口"""
+        log_debug(T("截图完成，准备截图窗口"), "MainApp")
 
-        # 截图采集期间也可能弹出模态窗口，避免在线程结束后创建一个被锁死的界面。
+        # 从排队到截完这段时间里也可能弹出模态窗口，避免创建一个被锁死的界面。
         if self._activate_blocking_modal():
             return
         
-        if self.screenshot_window is not None:
-            # 复用已有窗口（节省 ~250ms 的 UI 壳创建时间）
-            log_debug(T("复用已有截图窗口"), "MainApp")
-            self.screenshot_window.prepare_new_session(image, rect, cursor)
-        else:
-            # 首次创建
-            log_debug(T("首次创建截图窗口"), "MainApp")
-            # 延迟到真正需要时才导入：这条 import 链拖着 canvas/toolbar/tools 一整套
-            # 模块，放在文件顶部会在 QApplication 建立之前、启动阶段就被迫付掉这笔
-            # 开销。后台预加载线程（bootstrap.py _preload_screenshot_modules）会尽
-            # 量抢先把它导入好，这里通常只是从 sys.modules 里取一下。
-            from ui.screenshot_window import ScreenshotWindow
-            self.screenshot_window = ScreenshotWindow(
-                self.config_manager,
-                prefetched_image=image,
-                prefetched_rect=rect,
-                prefetched_cursor=cursor,
-            )
+        self.quick_capture.set_capture_pending(True)
+        try:
+            if self.screenshot_window is not None:
+                # 复用已有窗口（节省 ~250ms 的 UI 壳创建时间）
+                log_debug(T("复用已有截图窗口"), "MainApp")
+                self.screenshot_window.prepare_new_session(image, rect, cursor)
+            else:
+                # 首次创建
+                log_debug(T("首次创建截图窗口"), "MainApp")
+                # 延迟导入：这条 import 链很重，启动后由 bootstrap 在后台预加载，这里通常直接命中 sys.modules
+                from ui.screenshot_window import ScreenshotWindow
+                self.screenshot_window = ScreenshotWindow(
+                    self.config_manager,
+                    prefetched_image=image,
+                    prefetched_rect=rect,
+                    prefetched_cursor=cursor,
+                )
+        finally:
+            self.quick_capture.set_capture_pending(False)
     
     def open_settings(self):
         """打开设置窗口"""
@@ -568,6 +612,9 @@ class MainApp(QObject):
             self.config_manager.get_clipboard_enabled()
         )
         self.update_hotkey(show_error=True)
+
+        from capture.capture_service import apply_capture_engine
+        apply_capture_engine(self.config_manager.get_capture_engine())
         
         # 通知剪贴板窗口重新加载设置
         if hasattr(self, 'clipboard_window') and self.clipboard_window:
@@ -576,6 +623,9 @@ class MainApp(QObject):
             # 同时更新历史限制
             if hasattr(self, 'clipboard_manager') and self.clipboard_manager:
                 self.clipboard_manager._apply_history_limit()
+
+        from pin.pin_manager import PinManager
+        PinManager.instance().refresh_all_appearance()
 
         if dialog_scale_changed:
             self._recreate_clipboard_manage_dialog()
@@ -740,6 +790,7 @@ class MainApp(QObject):
             log_exception(e, T("钉住剪贴板图片失败"))
         
     def quit_app(self):
+        self.quick_capture.close()
         # 完全销毁缓存的截图窗口
         if self.screenshot_window:
             try:
@@ -772,7 +823,7 @@ class MainApp(QObject):
             self.settings_window = None
 
         # 等待预加载线程结束（最多 2 秒，避免卡退出）
-        for attr in ('_screenshot_preload_thread', '_ocr_preload_thread', '_capture_thread'):
+        for attr in ('_screenshot_preload_thread', '_ocr_preload_thread'):
             thread = getattr(self, attr, None)
             if thread and thread.isRunning():
                 thread.wait(2000)

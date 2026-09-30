@@ -138,6 +138,44 @@ def deliver_image_async(
     return thread
 
 
+def deliver_screenshot(
+    image: QImage,
+    config_manager,
+    *,
+    copy_to_clipboard: bool = True,
+    save_service: "SaveService | None" = None,
+) -> threading.Thread | None:
+    """交出一张截图：按需复制到剪贴板，开着「自动保存截图」时在后台存成文件。
+
+    save_service 沿用调用方已有的实例，不传就新建。
+    """
+    save_kwargs = None
+    write_file_reference = True
+    if config_manager is not None and config_manager.get_screenshot_save_enabled():
+        if save_service is None:
+            from core.save import SaveService
+            save_service = SaveService(config_manager=config_manager)
+        save_kwargs = dict(
+            directory=config_manager.get_screenshot_save_path(),
+            prefix="",
+            image_format=config_manager.get_screenshot_format(),
+        )
+        # 文件路径要等自动保存落盘才有，这个开关只在自动保存开着时读
+        write_file_reference = config_manager.get_clipboard_file_reference_enabled()
+    else:
+        save_service = None
+
+    if not copy_to_clipboard and save_service is None:
+        return None
+    return deliver_image_async(
+        image,
+        copy_to_clipboard=copy_to_clipboard,
+        save_service=save_service,
+        save_kwargs=save_kwargs,
+        write_file_reference=write_file_reference,
+    )
+
+
 # ─── Win32 实现 ───────────────────────────────────────────────────────
 
 def _copy_win32(image: QImage, file_reference: str | None) -> None:

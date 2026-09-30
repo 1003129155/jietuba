@@ -44,6 +44,48 @@ PIN_MOUSE_ACTIONS = (
     ("copy_text", "Copy Selected Text", "", "click"),
 )
 
+CLIPBOARD_MOUSE_ACTIONS = (
+    ("paste", "Paste", "left", "click"),
+    ("pin", "Pin Image", "middle", "click"),
+    ("quick_edit", "Quick Edit Text", "middle", "click"),
+    ("menu", "Open Context Menu", "right", "click"),
+)
+
+# 全局鼠标快捷键：按住修饰键拖动鼠标，写法同应用内鼠标快捷键，如 "win+dragleft"
+QUICK_CAPTURE_ACTIONS = (
+    ("copy", "Screenshot", "", "global"),
+    ("pin", "Pin to Screen", "win+dragleft", "global"),
+    ("copy_pin", "Copy and Pin", "", "global"),
+    ("ocr", "Region Text Recognition", "", "global"),
+    ("translate", "Region Translation", "", "global"),
+    ("edit", "Capture and Edit", "", "global"),
+)
+# 和全局热键录制时的拼接顺序一致：Ctrl、Shift、Alt、Win
+QUICK_CAPTURE_MODIFIERS = ("ctrl", "shift", "alt", "win")
+QUICK_CAPTURE_BUTTONS = ("left", "middle", "right", "x1", "x2")
+
+
+def get_quick_capture_binding(config, action):
+    default = next(binding for key, _label, binding, _kind in QUICK_CAPTURE_ACTIONS if key == action)
+    return config.get_app_setting(f"quick_capture_{action}", default)
+
+
+def get_quick_capture_bindings(config) -> dict:
+    """{(修饰键集合, 鼠标键): 动作}。修饰键须为 1–2 个；和排在前面的动作重复的组合丢掉。"""
+    bindings = {}
+    for action, *_ in QUICK_CAPTURE_ACTIONS:
+        *modifiers, gesture = str(get_quick_capture_binding(config, action) or "").lower().split("+")
+        modifiers, button = frozenset(modifiers), gesture.removeprefix("drag")
+        if (gesture.startswith("drag") and button in QUICK_CAPTURE_BUTTONS
+                and 1 <= len(modifiers) <= 2 and modifiers <= set(QUICK_CAPTURE_MODIFIERS)):
+            bindings.setdefault((modifiers, button), action)
+    return bindings
+
+
+def get_clipboard_mouse_binding(config, action):
+    default = next(binding for key, _label, binding, _kind in CLIPBOARD_MOUSE_ACTIONS if key == action)
+    return config.get_app_setting(f"mouse_clipboard_{action}", default)
+
 
 def get_pin_mouse_binding(config, action):
     default = next(binding for key, _label, binding, _kind in PIN_MOUSE_ACTIONS if key == action)
@@ -72,6 +114,11 @@ def get_capture_mouse_binding(config, action):
     if action == "copy" and not config.get_double_click_copy_close_enabled():
         default = ""
     return config.get_app_setting(f"mouse_capture_{action}", default)
+
+
+# 截图引擎，顺序就是设置页下拉框的顺序。auto 在有显示器开着 HDR 时用 HDR、失败回落 mss；
+# 指定 mss / hdr 时只用那一个，失败不回落。
+CAPTURE_ENGINES = ("auto", "mss", "hdr")
 
 
 ANNOTATION_TOOL_SHORTCUTS = (
@@ -246,6 +293,9 @@ class ToolSettingsManager(QObject):
         "translation_hotkey_2": "",                # 翻译备用热键
         "global_hotkeys_disabled": False,           # 是否禁用全局热键
 
+        # 全局鼠标快捷键，用户清空后存空串，不会被默认值补回来
+        **{f"quick_capture_{key}": binding for key, _label, binding, _kind in QUICK_CAPTURE_ACTIONS},
+
         # 应用内快捷键
         "inapp_confirm": "ctrl+c",             # 确认截图（复制到剪贴板）
         "inapp_pin": "mousemiddle",            # 钉图
@@ -275,6 +325,7 @@ class ToolSettingsManager(QObject):
         "capture_include_cursor": False,      # 截图时把鼠标指针画进去
         **{f"mouse_capture_{key}": binding for key, _label, binding, _kind in CAPTURE_MOUSE_ACTIONS},
         **{f"mouse_pin_{key}": binding for key, _label, binding, _kind in PIN_MOUSE_ACTIONS},
+        **{f"mouse_clipboard_{key}": binding for key, _label, binding, _kind in CLIPBOARD_MOUSE_ACTIONS},
         "cross_tool_selection": True,         # Ctrl 临时跨工具选择标注
         "text_always_on_top": True,           # 文字标注始终高于其他绘制标注
         "screenshot_toolbar_layout": "",      # 截图工具栏按钮排布（JSON，空 = 默认排布，见 ui/toolbar_layout.py）
@@ -416,8 +467,13 @@ class ToolSettingsManager(QObject):
         "magnifier_zoom_max": 10.0,            # 放大镜最大倍率
         "pin_auto_toolbar": False,             # 钉图自动显示工具栏
         "pin_default_opacity": 1.0,            # 钉图默认透明度（0.1-1.0）
+        "pin_rounded_corners": False,          # Windows 11 系统圆角和阴影
+        "pin_auto_border": True,               # 新钉图默认显示主题色描边
+        "pin_hover_buttons": False,            # 悬停时显示右上角按钮
 
         # ==================== 8. 开发者 ====================
+        "capture_engine": "auto",              # 截图引擎，见 CAPTURE_ENGINES
+
         # 长截图
         "long_stitch_engine": "hash_rust",     # 长截图引擎（hash_rust）
         "long_stitch_debug": False,            # 长截图调试模式
@@ -985,6 +1041,19 @@ class ToolSettingsManager(QObject):
     def set_long_stitch_engine(self, value: str):
         """设置长截图引擎"""
         self.qsettings.setValue("app/long_stitch_engine", value)
+
+    def get_capture_engine(self) -> str:
+        """获取截图引擎：auto / mss / hdr。"""
+        default = self.APP_DEFAULT_SETTINGS["capture_engine"]
+        engine = str(self.qsettings.value("app/capture_engine", default, type=str)).lower()
+        return engine if engine in CAPTURE_ENGINES else default
+
+    def set_capture_engine(self, value: str):
+        """设置截图引擎。"""
+        engine = str(value or "").lower()
+        if engine not in CAPTURE_ENGINES:
+            engine = self.APP_DEFAULT_SETTINGS["capture_engine"]
+        self.qsettings.setValue("app/capture_engine", engine)
     
     def get_scroll_cooldown(self) -> float:
         """获取滚动后等待时间（秒）"""

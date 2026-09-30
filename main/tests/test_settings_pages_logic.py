@@ -19,7 +19,7 @@ page_appearance.py(182/7.7%) 都不是类，而是 create_*_page(dialog) 工厂�
 from types import SimpleNamespace
 
 from clipboard.ui.theme.themes import PRESET_THEME_SWATCHES
-from ui.settings_ui import page_appearance, page_clipboard, page_hotkey, page_translation
+from ui.settings_ui import page_appearance, page_clipboard, page_hotkey, page_mouse, page_translation
 
 
 class _Edit:
@@ -260,7 +260,7 @@ class TestShortcutConflictDetection:
             tr=lambda text: text,
         )
 
-        conflicts = page_hotkey.mouse_binding_conflicts(dialog)
+        conflicts = page_mouse.mouse_binding_conflicts(dialog)
 
         assert conflicts == [
             ("Screenshot Shortcuts", "Middle Click",
@@ -273,10 +273,37 @@ class TestShortcutConflictDetection:
              ("Zoom Pinned Image (Mouse Shortcuts)",
               "Adjust Opacity (Mouse Shortcuts)")),
         ]
-        message = page_hotkey.mouse_binding_conflict_message(dialog, conflicts)
+        message = page_mouse.mouse_binding_conflict_message(dialog, conflicts)
         assert message.count("\n• ") == 3
         assert "Middle Click: Copy to Clipboard (Mouse Shortcuts)" in message
         assert "Mouse Wheel: Zoom Pinned Image (Mouse Shortcuts)" in message
+
+    def test_global_mouse_conflicts_compare_modifiers_and_button(self):
+        class _Binding:
+            def __init__(self, value):
+                self.value = value
+
+            def currentData(self):
+                return self.value
+
+        dialog = SimpleNamespace(
+            _behavior_controls={
+                "quick_capture_pin": _Binding("win+dragx1"),
+                "quick_capture_copy": _Binding("win+dragleft"),
+                "quick_capture_edit": _Binding("win+dragx1"),
+                # 全局手势总带修饰键，和应用内的同名手势分属不同的冲突域
+                "mouse_pin_region": _Binding("dragright"),
+                "quick_capture_ocr": _Binding("win+dragright"),
+            },
+            _inapp_edits={},
+            _inapp_groups={},
+            tr=lambda text: text,
+        )
+
+        assert page_mouse.mouse_binding_conflicts(dialog) == [
+            ("Global Mouse Shortcuts", "Win + Back Button Drag",
+             ("Pin to Screen (Mouse Shortcuts)", "Capture and Edit (Mouse Shortcuts)")),
+        ]
 
     def test_mouse_conflict_names_an_in_app_shortcut_owner(self):
         class _Binding:
@@ -290,7 +317,7 @@ class TestShortcutConflictDetection:
             tr=lambda text: text,
         )
 
-        assert page_hotkey.mouse_binding_conflicts(dialog) == [
+        assert page_mouse.mouse_binding_conflicts(dialog) == [
             ("Screenshot Shortcuts", "Ctrl + Middle Click",
              ("Pin to Screen (Mouse Shortcuts)",
               "Pin to Screen (In-App Shortcuts)")),

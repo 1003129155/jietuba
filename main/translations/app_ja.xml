@@ -10,6 +10,38 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Region Text Recognition</source>
+        <translation>範囲の文字認識</translation>
+    </message>
+    <message>
+        <source>Region Translation</source>
+        <translation>範囲翻訳</translation>
+    </message>
+    <message>
+        <source>Copy and Pin</source>
+        <translation>コピーしてピン留め</translation>
+    </message>
+    <message>
+        <source>Capture and Edit</source>
+        <translation>撮影して編集</translation>
+    </message>
+    <message>
+        <source>Back Button Drag</source>
+        <translation>戻るボタンドラッグ</translation>
+    </message>
+    <message>
+        <source>Forward Button Drag</source>
+        <translation>進むボタンドラッグ</translation>
+    </message>
+    <message>
+        <source>Hold modifier keys and drag the mouse</source>
+        <translation>修飾キーを押しながらマウスでドラッグ</translation>
+    </message>
+    <message>
+        <source>Capture failed. Please try again.</source>
+        <translation>キャプチャに失敗しました。もう一度お試しください。</translation>
+    </message>
+    <message>
         <source>Shortcuts</source>
         <translation>ショートカット</translation>
     </message>
@@ -130,8 +162,8 @@
         <translation>スクリーンショットモジュールのプリロード</translation>
     </message>
     <message>
-        <source>Pre-load mss, canvas, tools in background thread</source>
-        <translation>バックグラウンドスレッドで mss、キャンバス、ツールを事前読み込み</translation>
+        <source>Pre-load the capture engine, canvas and tools</source>
+        <translation>キャプチャエンジン、キャンバス、ツールを事前読み込み</translation>
     </message>
     <message>
         <source>Preload Toolbar</source>
@@ -266,7 +298,6 @@
     <message><source>Ellipse</source><translation>楕円</translation></message>
     <message><source>Text</source><translation>テキスト</translation></message>
     <message><source>Eraser</source><translation>消しゴム</translation></message>
-    <message><source>💡 Configured shortcuts take priority over WASD and C. Arrow keys remain available; Esc is reserved.</source><translation>💡 設定したショートカットは WASD と C より優先されます。矢印キーは使用でき、Esc は予約されています。</translation></message>
     <message>
         <source>Pin Shortcuts</source>
         <translation>ピン留め画像</translation>
@@ -343,7 +374,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Pin Image</source>
-        <translation>ピン留め</translation>
+        <translation>画像をピン留め</translation>
     </message>
     <message>
         <source>Undo</source>
@@ -414,6 +445,14 @@ Replace it?</source>
     <message>
         <source>Stitching Engine</source>
         <translation>拼接エンジン</translation>
+    </message>
+    <message>
+        <source>Capture Engine</source>
+        <translation>キャプチャエンジン</translation>
+    </message>
+    <message>
+        <source>Auto (Recommended)</source>
+        <translation>自動（推奨）</translation>
     </message>
     <message>
         <source>Python Hash (Debug)</source>
@@ -719,6 +758,54 @@ Replace it?</source>
         <source>💡 Hint: Even with background startup, you can operate from system tray.</source>
         <translation>💡 ヒント: バックグラウンド起動でも、タスクトレイから操作できます。</translation>
     </message>
+    <message>
+        <source>Settings Backup</source>
+        <translation>設定のバックアップ</translation>
+    </message>
+    <message>
+        <source>Export Settings</source>
+        <translation>設定をエクスポート</translation>
+    </message>
+    <message>
+        <source>Save settings to a file, including translation API keys. Folder locations are not included.</source>
+        <translation>設定をファイルに保存します。翻訳サービスの API キーを含み、フォルダーの場所は含みません。</translation>
+    </message>
+    <message>
+        <source>Export</source>
+        <translation>エクスポート</translation>
+    </message>
+    <message>
+        <source>Import Settings</source>
+        <translation>設定をインポート</translation>
+    </message>
+    <message>
+        <source>Load settings from an exported file. Folder locations stay unchanged.</source>
+        <translation>エクスポートしたファイルから設定を読み込みます。フォルダーの場所は変わりません。</translation>
+    </message>
+    <message>
+        <source>Import</source>
+        <translation>インポート</translation>
+    </message>
+    <message>
+        <source>Settings File (*.json)</source>
+        <translation>設定ファイル (*.json)</translation>
+    </message>
+    <message>
+        <source>Could not write the file: %1</source>
+        <translation>ファイルを書き込めませんでした: %1</translation>
+    </message>
+    <message>
+        <source>Settings exported to %1</source>
+        <translation>設定を %1 にエクスポートしました。</translation>
+    </message>
+    <message>
+        <source>This file is not a Jietuba settings file, or it is damaged.</source>
+        <translation>このファイルは Jietuba の設定ファイルではないか、破損しています。</translation>
+    </message>
+    <message>
+        <source>Settings loaded. Click Apply to use them.</source>
+        <translation>設定を読み込みました。「適用」をクリックすると反映されます。</translation>
+    </message>
     
     <!-- Info Page -->
     <message>
@@ -1015,14 +1102,6 @@ Replace it?</source>
         <translation>中クリック</translation>
     </message>
     <message>
-        <source>Enter Key</source>
-        <translation>Enter キー</translation>
-    </message>
-    <message>
-        <source>Exit capture after action</source>
-        <translation>実行後にキャプチャを終了</translation>
-    </message>
-    <message>
         <source>Fullscreen Crosshair</source>
         <translation>全画面クロスヘア</translation>
     </message>
@@ -1039,8 +1118,36 @@ Replace it?</source>
         <translation>キャプチャ開始時の位置にマウスポインターを描き込みます。</translation>
     </message>
     <message>
+        <source>Pin</source>
+        <translation>ピン留め</translation>
+    </message>
+    <message>
+        <source>Rounded Corners and Shadow</source>
+        <translation>角丸と影</translation>
+    </message>
+    <message>
+        <source>Windows 11 rounds the corners of pinned images and adds a shadow. Turn off to show the whole image with square corners and no shadow.</source>
+        <translation>Windows 11 はピン留め画像の角を丸め、影を付けます。オフにすると角が欠けない直角で画像全体を表示し、影も付きません。</translation>
+    </message>
+    <message>
+        <source>Auto Border</source>
+        <translation>枠線を自動で付ける</translation>
+    </message>
+    <message>
+        <source>New pinned images get a theme-colored border. Each image can still toggle it from the right-click menu.</source>
+        <translation>新しいピン留め画像の周りにテーマカラーの枠線を付けます。画像ごとに右クリックメニューで切り替えられます。</translation>
+    </message>
+    <message>
+        <source>Hover Buttons</source>
+        <translation>ホバー時にボタンを表示</translation>
+    </message>
+    <message>
+        <source>Show the close and toolbar buttons in the top-right corner when the mouse is over a pinned image. When off, use the right-click menu or shortcuts.</source>
+        <translation>ピン留め画像にマウスを乗せたとき、右上に閉じるボタンとツールバーボタンを表示します。オフの場合は右クリックメニューかショートカットで操作します。</translation>
+    </message>
+    <message>
         <source>Mouse Shortcuts</source>
-        <translation>アプリ内マウスショートカット</translation>
+        <translation>マウスショートカット</translation>
     </message>
     <message>
         <source>Mouse Wheel</source>
@@ -1103,20 +1210,20 @@ Replace it?</source>
         <translation>選択したテキストをコピー</translation>
     </message>
     <message>
-        <source>Pin mouse actions apply outside annotation mode. Conflicts use the first matching action. Copy text uses the selected OCR text; otherwise right-click opens the menu.</source>
-        <translation>マウス操作は注釈モード以外で有効です。競合時は上から優先します。選択した認識テキストをコピーし、未選択時の右クリックはメニューを開きます。</translation>
-    </message>
-    <message>
-        <source>Use + / - instead of the wheel with the same modifiers</source>
-        <translation>同じ修飾キーと + / - でホイール操作を代用</translation>
-    </message>
-    <message>
         <source>No Modifier</source>
         <translation>なし</translation>
     </message>
     <message>
         <source>No Action</source>
         <translation>なし</translation>
+    </message>
+    <message>
+        <source>Paste</source>
+        <translation>貼り付け</translation>
+    </message>
+    <message>
+        <source>Open Context Menu</source>
+        <translation>メニューを開く</translation>
     </message>
 </context>
 
@@ -1226,12 +1333,12 @@ Replace it?</source>
         <translation>番号（Shift+スクロールで番号変更）</translation>
     </message>
     <message>
-        <source>Draw rectangle</source>
-        <translation>矩形を描画</translation>
+        <source>Draw rectangle (hold Shift for square)</source>
+        <translation>矩形を描画（Shiftキー押しながらで正方形）</translation>
     </message>
     <message>
-        <source>Draw ellipse</source>
-        <translation>円を描画</translation>
+        <source>Draw ellipse (hold Shift for circle)</source>
+        <translation>円を描画（Shiftキー押しながらで正円）</translation>
     </message>
     <message>
         <source>Add text</source>
@@ -1355,8 +1462,8 @@ Replace it?</source>
         <translation>テキスト選択</translation>
     </message>
     <message>
-        <source>Shadow effect</source>
-        <translation>影効果</translation>
+        <source>Border</source>
+        <translation>枠線</translation>
     </message>
     <message>
         <source>Close</source>
@@ -3942,8 +4049,8 @@ SOFTWARE.</translation></message>
         <translation>ツールバーとパネルの拡大率</translation>
     </message>
     <message>
-        <source>Size of toolbars, tool panels and popups.</source>
-        <translation>ツールバーの表示サイズ。</translation>
+        <source>Size of toolbars, tool panels, popups and the clipboard window.</source>
+        <translation>ツールバー、ツールパネル、ポップアップ、クリップボードウィンドウの表示サイズ。</translation>
     </message>
     <message>
         <source>Window Scale</source>
@@ -4320,6 +4427,26 @@ SOFTWARE.</translation></message>
     <message>
         <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
         <translation>QR コードやバーコードが 1 つだけ見つかった場合は、結果ウィンドウを開かずに内容をコピーします。複数見つかった場合はこれまでどおり開きます。</translation>
+    </message>
+    <message>
+        <source>Global Mouse Shortcuts</source>
+        <translation>グローバルマウスショートカット</translation>
+    </message>
+    <message>
+        <source>In-App Mouse Shortcuts</source>
+        <translation>アプリ内マウスショートカット</translation>
+    </message>
+    <message>
+        <source>Quick Edit Text</source>
+        <translation>テキストをクイック編集</translation>
+    </message>
+    <message>
+        <source>Auto uses the HDR engine when a display has HDR turned on.</source>
+        <translation>自動：HDR がオンのディスプレイでは HDR エンジンを使います。</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>標準</translation>
     </message>
 </context>
 <context>

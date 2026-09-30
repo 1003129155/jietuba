@@ -106,7 +106,7 @@ def create_developer_page(dialog) -> QWidget:
     _preload_items = [
         ("preload_screenshot_toggle", FluentIcon.CAMERA,
          dialog.tr("Preload Screenshot Modules"),
-         dialog.tr("Pre-load mss, canvas, tools in background thread"),
+         dialog.tr("Pre-load the capture engine, canvas and tools"),
          "preload_screenshot"),
         ("preload_toolbar_toggle", FluentIcon.LAYOUT,
          dialog.tr("Preload Toolbar"),

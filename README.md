@@ -88,14 +88,15 @@ The repository includes `PP-OCRv6_det_small.onnx` and `PP-OCRv6_rec_small.onnx` 
 
 ### Rust Extension Packages
 
-These four packages are included in `requirements.txt` and install with the runtime dependencies. They can also be used independently; their source code is in [rust_libs/](rust_libs/). Their PyPI distribution names map to Python import names as follows:
+These five packages are included in `requirements.txt` and install with the runtime dependencies. They can also be used independently; their source code is in [rust_libs/](rust_libs/). Their PyPI distribution names map to Python import names as follows:
 
 | pip name | import name | Version | Description |
 |------|------|------|------|
-| [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.3.1 | GIF/video composition encoder |
+| [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.0 | GIF/video composition encoder |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | Long screenshot stitching algorithm |
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.4 | Low-level clipboard operations |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.0 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
+| [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | HDR-correct desktop capture (DXGI Desktop Duplication + GPU tone mapping) |
 
 The available prebuilt wheels target Windows x86_64 and ARM64. Each package declares `>=3.11` and enables `abi3-py311` in its Rust bindings; see each package's `pyproject.toml` and `Cargo.toml`.
 
@@ -115,6 +116,14 @@ python -m pytest main/tests -c main/tests/pytest.ini
 The [test directory](main/tests/) contains unit and integration tests for capture, clipboard operations, mosaic editing, pin zoom, GIF playback, OCR text layers, and other modules. The [CI workflow](.github/workflows/ci.yml) runs tests and coverage checks on Windows x86_64 and ARM64 with Python 3.11, plus static analysis on x86_64. Results are available in [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml).
 
 To build a Windows release, run `python build_with_ocr_onefile.py`. It produces `dist/jietuba_pp.exe` and `dist/models/`. The automated [release workflow](.github/workflows/build.yml) creates separate x64 and ARM64 archives.
+
+### Code Comments
+
+Comments explain only the constraints and design reasons that the code cannot express. Keep them short and precise:
+
+- No debugging stories, change history, incident write-ups, or development-time reasoning.
+- Do not mention other software or projects, or cite them as justification.
+- No essay-length explanations; do not repeat what the code, function names, or test names already say.
 
 ---
 
@@ -237,7 +246,9 @@ Screen capture and smart window detection.
 ```text
 capture/
 ├── capture_service.py       # CaptureService — core screenshot logic
+├── display_watcher.py       # DisplayChangeWatcher — rebuilds the HDR capture session in the background after display changes
 ├── system_cursor.py         # SystemCursor — snapshots the mouse pointer and draws it into screenshots
+├── quick_capture_controller.py # QuickCaptureController — modifier-drag capture and action dispatch
 ├── uia_element_finder.py    # Background UI Automation element snapshots for smart selection
 └── window_finder.py         # WindowFinder — smart window selection, cursor-based detection
 ```
@@ -261,6 +272,7 @@ clipboard/
 ├── controllers/             # Control layer — history loading, paste flow, menus, selection state
 │   ├── clipboard_controller.py   # ClipboardController — loading, pasting, context menu logic
 │   ├── selection_manager.py      # SelectionManager — list selection state
+│   ├── mouse_shortcut_controller.py  # Clipboard row mouse gestures and single/double-click dispatch
 │   ├── context_menu_controller.py  # ContextMenuController — assembles context menu data and actions
 │   ├── foreground_tracker.py    # ForegroundWindowTracker — remembers the window to paste into
 │   ├── paste_keystroke.py       # Restores focus to the target window, then sends Ctrl+V
@@ -344,6 +356,7 @@ core/
 ├── ui_scale.py              # UIScaleManager — one scale factor for toolbars, panels and popups
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — internationalization
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — global & in-app hotkeys
+├── quick_capture_input.py    # Global modifier-drag input and quick capture gesture state
 ├── last_capture_region.py   # In-memory "last capture region" for the restore-region hotkey
 ├── save.py                  # SaveService — file save service (auto naming, high-quality PDF output)
 ├── export.py                # ExportService — image export
@@ -426,6 +439,7 @@ pin/
 ├── pin_manager.py           # PinManager — manages all pin windows (singleton)
 ├── pin_toolbar.py           # PinToolbar — pin toolbar
 ├── pin_controls.py          # PinControlButtons — close, edit, copy buttons
+├── pin_hover.py             # PinHoverControls — decides when hover buttons and toolbar show
 ├── pin_context_menu.py      # PinContextMenu — right-click menu
 ├── pin_border_overlay.py    # PinBorderOverlay — border effect overlay
 ├── pin_ocr_manager.py       # PinOCRManager / _OCRThread — async OCR recognition
@@ -448,6 +462,7 @@ pin/
 ```text
 settings/
 ├── color_formats.py         # magnifier color format templates: render, load, save
+├── settings_transfer.py     # export/import settings-page options as a JSON file
 └── tool_settings.py         # ToolSettingsManager / ToolSettings — tool color, size, hotkey config
 ```
 
@@ -578,6 +593,7 @@ ui/
 ├── reorderable_rows.py      # DragGrip / DraggableRow / ReorderableRowList — drag-to-reorder rows
 ├── tray_menu.py             # TrayMenu — system tray menu
 ├── screenshot_window.py     # ScreenshotWindow — full-screen capture window (region drawing)
+├── quick_capture_overlay.py # Transparent quick capture layer reusing the normal selection, coordinates and magnifier
 ├── dialogs.py               # StandardDialog — confirm, warning, info, error dialogs
 ├── toast.py                 # Toast — one-line hint by the cursor that never takes focus
 ├── magnifier.py             # MagnifierOverlay — pixel-level magnifier
@@ -612,6 +628,7 @@ ui/
 │   ├── color_format_dialog.py # ColorFormatDialog — magnifier color format editor
 │   ├── page_clipboard.py    # Clipboard settings
 │   ├── page_hotkey.py       # Hotkey settings
+│   ├── page_mouse.py        # Mouse shortcut settings
 │   ├── page_translation.py  # Translation settings
 │   ├── provider_fields.py   # 服务商字段的读写（按声明）
 │   ├── page_log.py          # Log settings

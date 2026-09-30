@@ -1,10 +1,10 @@
 //! gifrecorder — Rust 实现的 GIF 录制器
 //!
-//! 替代 PyAV (67 MB) 的轻量级方案。
-//! 提供帧存储、JPEG 压缩、后台解码、GIF 导出、Win32 屏幕截取。
+//! 提供帧存储、JPEG 压缩、后台解码、GIF 导出、屏幕截取（DXGI 优先，GDI 兜底）。
 
 pub mod capture;
 pub mod decoder;
+mod frame_source;
 pub mod frame_store;
 pub mod gif_export;
 pub mod jpeg;
@@ -504,6 +504,9 @@ impl PyFrameDecoder {
 /// 使用方法:
 ///     store = gifrecorder.FrameStore(w, h, fps)
 ///     session = gifrecorder.RecordSession(store, left, top, w, h, fps)
+///     # 或者先预备、稍后再开始，省掉开录时建 DXGI 会话的延迟：
+///     #   session = gifrecorder.RecordSession.prepare()
+///     #   session.begin(store, left, top, w, h, fps)
 ///     # ... 录制中 ...
 ///     session.pause()
 ///     session.resume()
@@ -511,6 +514,8 @@ impl PyFrameDecoder {
 #[pyclass(name = "RecordSession")]
 struct PyRecordSession {
     inner: Option<RecordSession>,
+    /// stop() 取走 inner 前记下的截取路径
+    stopped_backend: Option<&'static str>,
 }
 
 #[pymethods]
@@ -524,7 +529,11 @@ impl PyRecordSession {
     ///     width: 截取区域宽度
     ///     height: 截取区域高度
     ///     fps: 目标帧率
+    ///     prefer_dxgi: 优先用 DXGI 截取（HDR 屏上颜色正确），拿不到帧时回落 GDI；
+    ///         False 时只用 GDI。DXGI 会话建在录制线程里，同一进程每块屏只能有一个，
+    ///         调用方须先释放自己持有的 DXGI 会话。
     #[new]
+    #[pyo3(signature = (store, left, top, width, height, fps, prefer_dxgi=true))]
     fn new(
         store: &PyFrameStore,
         left: i32,
@@ -532,14 +541,43 @@ impl PyRecordSession {
         width: i32,
         height: i32,
         fps: u32,
+        prefer_dxgi: bool,
     ) -> PyResult<Self> {
         let session = RecordSession::start(
             store.inner.clone(),
-            left, top, width, height, fps,
+            left, top, width, height, fps, prefer_dxgi,
         )
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))?;
 
-        Ok(Self { inner: Some(session) })
+        Ok(Self { inner: Some(session), stopped_backend: None })
+    }
+
+    /// 预备录制：立即在录制线程里建好 DXGI 会话，调用 begin() 才开始截取
+    ///
+    /// Args:
+    ///     prefer_dxgi: 同构造函数
+    #[staticmethod]
+    #[pyo3(signature = (prefer_dxgi=true))]
+    fn prepare(prefer_dxgi: bool) -> Self {
+        Self { inner: Some(RecordSession::prepare(prefer_dxgi)), stopped_backend: None }
+    }
+
+    /// 开始截取；只能调用一次。参数同构造函数
+    fn begin(
+        &mut self,
+        store: &PyFrameStore,
+        left: i32,
+        top: i32,
+        width: i32,
+        height: i32,
+        fps: u32,
+    ) -> PyResult<()> {
+        let session = self.inner.as_mut().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err("session already stopped")
+        })?;
+        session
+            .begin(store.inner.clone(), left, top, width, height, fps)
+            .map_err(pyo3::exceptions::PyRuntimeError::new_err)
     }
 
     /// 暂停录制
@@ -565,8 +603,15 @@ impl PyRecordSession {
         if let Some(mut session) = self.inner.take() {
             // 释放 GIL，让截屏线程能完成最后工作
             py.allow_threads(|| session.stop());
+            self.stopped_backend = session.backend();
         }
         Ok(())
+    }
+
+    /// 最近一帧的截取路径："dxgi" 或 "gdi"；还没截到帧时为 None。停止后保留最后的值。
+    #[getter]
+    fn backend(&self) -> Option<&'static str> {
+        self.inner.as_ref().map_or(self.stopped_backend, RecordSession::backend)
     }
 
     /// 当前状态 (0=idle, 1=recording, 2=paused, 3=stopped)
@@ -680,10 +725,9 @@ const STATE_STOPPED: u8 = 3;
 
 /// gifrecorder — Rust 实现的 GIF 录制器
 ///
-/// 替代 PyAV/FFmpeg，用于屏幕录制和 GIF 导出。
 /// 核心功能:
 ///   - FrameStore: 帧存储管理（JPEG 压缩、内存控制）
-///   - RecordSession: Win32 截屏录制（独立 Rust 线程）
+///   - RecordSession: 屏幕录制（独立 Rust 线程，DXGI 优先，GDI 兜底）
 ///   - FrameDecoder: 后台流式解码（回放用）
 ///   - export_gif: 高性能 GIF 导出
 #[pymodule]

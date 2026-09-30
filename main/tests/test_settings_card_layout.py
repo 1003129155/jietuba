@@ -8,6 +8,7 @@
 """
 import pytest
 
+from core.qt_utils import layout_widgets
 from core.ui_scale import dialog_scaled
 from ui.fluent_lite import SettingCard, SettingCardGroup
 from ui.settings_ui.dialog import SettingsDialog
@@ -77,12 +78,12 @@ def test_one_page_ends_every_control_column_at_the_same_line(dialog, qapp):
 def test_stretched_controls_start_at_the_left_edge_of_the_column(dialog, qapp):
     """下拉框、数字框、按钮铺满整列，左右边缘都落在列的两端。"""
     for card in _cards_of_every_page(dialog, qapp):
-        first = card.controlLayout.itemAt(0)
-        if first is None or first.widget() is None:
+        widgets = layout_widgets(card.controlLayout)
+        if not widgets or card.controlLayout.indexOf(widgets[0]) != 0:
             continue
         if card.controlLayout.stretch(0) != 1:
             continue
-        assert first.widget().x() == 0
+        assert widgets[0].x() == 0
 
 
 def test_switches_line_up_on_the_right_of_the_column(dialog, qapp):

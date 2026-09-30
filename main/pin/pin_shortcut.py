@@ -170,7 +170,7 @@ class PinEditShortcutHandler(_PinHandlerBase):
 
         key = event_key(event)
 
-        # 复制 / 复制文字 / 工具栏（hide_toolbar 会同时退出编辑）/ 恢复大小
+        # 复制 / 复制文字 / 工具栏（关工具栏会同时退出编辑）/ 恢复大小
         if self._handle_shared(pin, event):
             return True
 

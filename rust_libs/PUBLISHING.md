@@ -1,6 +1,6 @@
 # 发布到 PyPI
 
-四个包用 **PyPI API token** 发布。发布由 `.github/workflows/publish-pypi.yml`
+五个包用 **PyPI API token** 发布。发布由 `.github/workflows/publish-pypi.yml`
 手动触发，默认指向 TestPyPI。
 
 ## 一次性配置
@@ -12,8 +12,8 @@ required reviewers——发布不可逆，加一道确认是划算的。
 需要你做的只有一件事——生成两个 token，存成两个**仓库级** secret：
 
 1. <https://pypi.org/manage/account/token/> → Add API token → 作用域选
-   **Entire account**（此时四个项目还不存在，选不了按项目限定的作用域；
-   等四个包都发布过一次后，可以回来重新生成四个各自限定项目的 token 替换掉，
+   **Entire account**（新项目首次发布前还不存在，选不了按项目限定的作用域；
+   等各包都发布过一次后，可以回来重新生成各自限定项目的 token 替换掉，
    降低单个 token 的影响面）。
 2. 仓库 → Settings → Secrets and variables → Actions → New repository secret，
    名字填 `PYPI_API_TOKEN`，值粘贴刚生成的 token。
@@ -30,7 +30,7 @@ secret 覆盖那套机制，因为仓库级 secret 不参与那层覆盖。
 立刻去 PyPI 撤销重新生成。
 
 （此前这里写的是 Trusted Publishing／OIDC 方案：不存密钥、每次发布临时换取
-令牌、但要为四个包各填一次网页表单。两条路都能用，token 方案配置更快，
+令牌、但要为每个包各填一次网页表单。两条路都能用，token 方案配置更快，
 代价是多一个需要自己保管的长期密钥；如果之后想换回去，把
 `publish-pypi.yml` 的 `publish` job 换成 `permissions: id-token: write`
 并去掉 `password` 参数即可。）
@@ -56,7 +56,7 @@ secret 覆盖那套机制，因为仓库级 secret 不参与那层覆盖。
 ```bash
 cargo install cargo-about --locked --features cli
 cd rust_libs
-for c in gifrecorder longstitch ppocr_rust pyclipboard; do
+for c in gifrecorder longstitch ppocr_rust pyclipboard hdrcapture; do
   cargo about generate --manifest-path $c/Cargo.toml -o $c/THIRD-PARTY-NOTICES.txt notices.hbs
 done
 ```

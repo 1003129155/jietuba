@@ -1,0 +1,40 @@
+name: 功能建议
+description: 提出新功能或现有操作流程的改进建议。
+title: "[功能建议] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请用标题概括建议，并尽量一次讨论一个独立需求。
+        可以先查阅 [README](https://github.com/1003129155/jietuba/blob/master2/README_zh-CN.md)、[已有 issue](https://github.com/1003129155/jietuba/issues?q=is%3Aissue) 和 [PR](https://github.com/1003129155/jietuba/pulls)，确认是否已有相关功能或讨论。
+        无需提供代码或完整技术方案；清楚描述使用场景即可。
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 使用场景与遇到的问题
+      description: 你想完成什么任务？现在的操作有哪些不便？如果是在改进已有功能，请说明相关功能和当前使用的版本。
+      placeholder: "我经常需要……，目前要先……再……，不方便的地方是……"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 希望如何改进？
+      description: 描述期望的操作和结果；不知道具体界面或实现方式也没有关系。
+      placeholder: "希望在……时，可以通过……直接完成……"
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 尝试过的替代方式（选填）
+      description: 例如已有设置、快捷键或其他操作方式，以及它们为什么还不能满足需求。
+
+  - type: textarea
+    id: references
+    attributes:
+      label: 参考示例或补充信息（选填）
+      description: 可以附上相关 issue / PR、操作示意图、录屏或其他软件的功能说明。请描述值得参考的具体行为，并在上传附件前移除私人内容和密钥。

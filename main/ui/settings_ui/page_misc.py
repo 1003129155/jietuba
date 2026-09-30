@@ -1,10 +1,15 @@
 ﻿# -*- coding: utf-8 -*-
 """杂项设置页 — Fluent Design"""
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea
+import os
+from datetime import date
+
+from PySide6.QtCore import QStandardPaths
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea, QFileDialog
 from core.ui_scale import dialog_scaled
+from ui.dialogs import show_error_dialog, show_info_dialog
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
-    FluentIcon, ComboBox, CaptionLabel,
+    FluentIcon, ComboBox, CaptionLabel, PushButton,
 )
 from .components import SettingCardGroup
 from core.ui_theme import set_own_style
@@ -74,6 +79,33 @@ def create_misc_page(dialog) -> QWidget:
 
     layout.addWidget(grp_ops)
 
+    # ════ 设置备份 ════
+    grp_backup = SettingCardGroup(dialog.tr("Settings Backup"), view)
+
+    export_card = FSettingCard(
+        FluentIcon.SAVE,
+        dialog.tr("Export Settings"),
+        dialog.tr("Save settings to a file, including translation API keys. Folder locations are not included."),
+        parent=grp_backup,
+    )
+    dialog.export_settings_button = PushButton(dialog.tr("Export"), export_card)
+    dialog.export_settings_button.clicked.connect(lambda: export_settings_to_file(dialog))
+    export_card.addControl(dialog.export_settings_button)
+    grp_backup.addSettingCard(export_card)
+
+    import_card = FSettingCard(
+        FluentIcon.DOWNLOAD,
+        dialog.tr("Import Settings"),
+        dialog.tr("Load settings from an exported file. Folder locations stay unchanged."),
+        parent=grp_backup,
+    )
+    dialog.import_settings_button = PushButton(dialog.tr("Import"), import_card)
+    dialog.import_settings_button.clicked.connect(lambda: import_settings_from_file(dialog))
+    import_card.addControl(dialog.import_settings_button)
+    grp_backup.addSettingCard(import_card)
+
+    layout.addWidget(grp_backup)
+
     # 提示
     hint = CaptionLabel(
         dialog.tr("💡 Hint: Even with background startup, you can operate from system tray."),
@@ -86,3 +118,44 @@ def create_misc_page(dialog) -> QWidget:
     scroll.setWidget(view)
     return scroll
  
+
+
+def _documents_dir() -> str:
+    return QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation)
+
+
+def export_settings_to_file(dialog):
+    from main_app import APP_VERSION
+    from settings.settings_transfer import export_settings
+
+    # 导出的是已保存的设置，先把界面上还没应用的修改存进去
+    if dialog._has_unsaved_changes() and not dialog.apply_settings():
+        return
+
+    title = dialog.tr("Export Settings")
+    suggested = os.path.join(_documents_dir(), f"jietuba-settings-{date.today():%Y%m%d}.json")
+    path, _ = QFileDialog.getSaveFileName(dialog, title, suggested, dialog.tr("Settings File (*.json)"))
+    if not path:
+        return
+    try:
+        export_settings(dialog.config_manager, dialog.settings_keys(), path, APP_VERSION)
+    except OSError as e:
+        show_error_dialog(dialog, title, dialog.tr("Could not write the file: %1").replace("%1", str(e)))
+        return
+    show_info_dialog(dialog, title, dialog.tr("Settings exported to %1").replace("%1", path))
+
+
+def import_settings_from_file(dialog):
+    from settings.settings_transfer import SettingsFileError, read_settings_file
+
+    title = dialog.tr("Import Settings")
+    path, _ = QFileDialog.getOpenFileName(dialog, title, _documents_dir(), dialog.tr("Settings File (*.json)"))
+    if not path:
+        return
+    try:
+        values = read_settings_file(path)
+    except SettingsFileError:
+        show_error_dialog(dialog, title, dialog.tr("This file is not a Jietuba settings file, or it is damaged."))
+        return
+    dialog.load_imported_settings(values)
+    show_info_dialog(dialog, title, dialog.tr("Settings loaded. Click Apply to use them."))

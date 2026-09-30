@@ -5,6 +5,7 @@ from __future__ import annotations
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
+from core.qt_utils import layout_widgets
 from core.ui_scale import dialog_scaled
 from core.ui_theme import get_ui_theme, set_own_style
 
@@ -26,10 +27,8 @@ class ExpandLayout(QVBoxLayout):
         available_width = max(0, width - margins.left() - margins.right())
         height = margins.top() + margins.bottom()
         visible = 0
-        for index in range(self.count()):
-            item = self.itemAt(index)
-            widget = item.widget()
-            if widget is not None and not widget.isHidden():
+        for widget in layout_widgets(self):
+            if not widget.isHidden():
                 # Setting cards contain word-wrapped descriptions.  Their
                 # width-independent sizeHint may assume a very narrow text
                 # column and report several phantom lines, making the whole
@@ -127,11 +126,11 @@ class SettingCard(QFrame):
 
     def controlColumnHint(self) -> int:
         """这一行的控件排开需要多宽。"""
-        widths = []
-        for index in range(self.controlLayout.count()):
-            widget = self.controlLayout.itemAt(index).widget()
-            if widget is not None and not widget.isHidden():
-                widths.append(max(widget.sizeHint().width(), widget.minimumWidth()))
+        widths = [
+            max(widget.sizeHint().width(), widget.minimumWidth())
+            for widget in layout_widgets(self.controlLayout)
+            if not widget.isHidden()
+        ]
         if not widths:
             return 0
         return sum(widths) + self.controlLayout.spacing() * (len(widths) - 1)

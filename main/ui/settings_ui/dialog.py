@@ -30,16 +30,13 @@ from ui.fluent_lite.theme import ACCENT
 from core import log_info, safe_event
 from core.logger import log_exception, T
 from core.constants import CSS_FONT_FAMILY, DEFAULT_FONT_FAMILY
+from core.resource_manager import ResourceManager
 from core.ui_scale import configure_dialog_control, configure_dialog_controls, dialog_scaled
-from settings.tool_settings import SMART_SELECTION_MODES
+from settings.tool_settings import CAPTURE_ENGINES, SMART_SELECTION_MODES
 
 # 页面创建函数
-from .page_hotkey import (
-    create_hotkey_page,
-    validate_global_hotkey_edits,
-    mouse_binding_conflicts,
-    mouse_binding_conflict_message,
-)
+from .page_hotkey import create_hotkey_page, validate_global_hotkey_edits
+from .page_mouse import create_mouse_page, mouse_binding_conflicts, mouse_binding_conflict_message
 from .page_capture import create_capture_page
 from .page_quick_actions import create_quick_actions_page
 from .page_clipboard import create_clipboard_page
@@ -91,6 +88,8 @@ class SettingsDialog(FrostedFramelessDialog):
         self.current_hotkey = current_hotkey
         self.main_window = parent
         self._skip_unsaved_close_prompt = False
+        # 导入的设置已填进界面、还没应用；有些选项不在未保存检测的快照里
+        self._import_unsaved = False
         if self.config_manager is None:
             from .mock_config import MockConfig
             self.config_manager = MockConfig()
@@ -223,6 +222,7 @@ class SettingsDialog(FrostedFramelessDialog):
         self.content_stack.addWidget(create_developer_page(self))        # 7
         self.content_stack.addWidget(create_about_page(self))            # 8
         self.content_stack.addWidget(create_quick_actions_page(self))    # 9
+        self.content_stack.addWidget(create_mouse_page(self))            # 10
 
         # 分页都是一次性建完、切换只换可见性（不是懒加载/动态重建），
         # 建完后统一扫一遍即可覆盖全部分页里的 fluent_lite 控件。
@@ -257,6 +257,8 @@ class SettingsDialog(FrostedFramelessDialog):
 
         self._nav_items = [
             ("shortcuts", FluentIcon.COMMAND_PROMPT, self.tr("Shortcuts"), 0, NavigationItemPosition.TOP),
+            ("mouse", ResourceManager.get_icon_path("鼠标.svg"), self.tr("Mouse Shortcuts"), 10,
+             NavigationItemPosition.TOP),
             ("capture", FluentIcon.CAMERA, self.tr("Capture Settings"), 1, NavigationItemPosition.TOP),
             ("quick_actions", FluentIcon.STOP_WATCH, self.tr("Quick Actions"), 9, NavigationItemPosition.TOP),
             ("clipboard", FluentIcon.PASTE, self.tr("Clipboard"), 2, NavigationItemPosition.TOP),
@@ -391,6 +393,7 @@ class SettingsDialog(FrostedFramelessDialog):
             6: self.tr("Other Settings"),
             8: self.tr("Software Information"),
             9: self.tr("Quick Actions"),
+            10: self.tr("Mouse Shortcuts"),
         }
 
         if stack_index in title_map:
@@ -642,9 +645,14 @@ class SettingsDialog(FrostedFramelessDialog):
             pass
         elif current_index == 9:
             self._reset_quick_actions_page()
+        elif current_index == 10:
+            self._reset_mouse_page()
+
+    def _reset_mouse_page(self):
+        SettingsDialog._refresh_behavior_controls(self, defaults=True, prefix="mouse_")
+        SettingsDialog._refresh_behavior_controls(self, defaults=True, prefix="quick_capture_")
 
     def _reset_hotkey_page(self):
-        SettingsDialog._refresh_behavior_controls(self, defaults=True, prefix="mouse_")
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
         self.hotkey_input.setText(defaults["hotkey"])
         if hasattr(self, 'hotkey_input_2'):
@@ -738,6 +746,9 @@ class SettingsDialog(FrostedFramelessDialog):
             )
             if index >= 0:
                 self._selection_handle_size_combo.setCurrentIndex(index)
+        SettingsDialog._refresh_behavior_controls(
+            self, defaults=True, keys={"pin_rounded_corners", "pin_auto_border", "pin_hover_buttons"}
+        )
 
     def _reset_quick_actions_page(self):
         SettingsDialog._refresh_behavior_controls(
@@ -759,6 +770,10 @@ class SettingsDialog(FrostedFramelessDialog):
 
     def _reset_screenshot_settings_page(self):
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
+        if hasattr(self, 'capture_engine_combo'):
+            self.capture_engine_combo.setCurrentIndex(
+                CAPTURE_ENGINES.index(defaults["capture_engine"])
+            )
         if hasattr(self, 'smart_mode_combo'):
             self.smart_mode_combo.setCurrentIndex(SMART_SELECTION_MODES.index(
                 defaults["smart_selection_mode"] if defaults["smart_selection"] else "off"
@@ -889,8 +904,7 @@ class SettingsDialog(FrostedFramelessDialog):
 
         mouse_conflicts = mouse_binding_conflicts(self)
         if mouse_conflicts:
-            self.content_stack.setCurrentIndex(0)
-            self._set_current_nav("shortcuts")
+            self._on_nav_changed(10, "mouse")
             show_warning_dialog(
                 self,
                 self.tr("Shortcut Conflict"),
@@ -1108,6 +1122,8 @@ class SettingsDialog(FrostedFramelessDialog):
             )
 
         # 8. 长截图/开发者
+        if hasattr(self, 'capture_engine_combo'):
+            self.config_manager.set_capture_engine(self.capture_engine_combo.currentData())
         if hasattr(self, 'engine_combo'):
             self.config_manager.set_long_stitch_engine(self.engine_combo.currentData())
         if hasattr(self, 'cooldown_spinbox'):
@@ -1130,6 +1146,9 @@ class SettingsDialog(FrostedFramelessDialog):
         # 10. 截图信息面板行为
         if hasattr(self, 'info_hide_on_drag_toggle'):
             self.config_manager.set_app_setting("screenshot_info_hide_on_drag", self.info_hide_on_drag_toggle.isChecked())
+
+        # 10.5 剪贴板外观
+        self._apply_clipboard_appearance()
 
         # 11. 外观设置（主题色、遮罩色、选区外观、界面缩放）
         if hasattr(self, '_ui_theme_combo'):
@@ -1163,6 +1182,7 @@ class SettingsDialog(FrostedFramelessDialog):
             theme.set_selection_handle_size(self._selection_handle_size_combo.currentData())
 
         log_info("すべての設定を保存しました", "Settings")
+        self._import_unsaved = False
         self._settings_snapshot = self._snapshot_settings()
         self._update_action_buttons()
         self.config_manager.qsettings.sync()
@@ -1323,7 +1343,7 @@ class SettingsDialog(FrostedFramelessDialog):
                       '_ui_theme_combo', '_ui_scale_combo', '_dialog_scale_combo',
                       '_selection_border_combo', '_selection_handle_combo',
                       '_selection_handle_size_combo', 'smart_mode_combo',
-                      'clipboard_scan_interval_combo'):
+                      'clipboard_scan_interval_combo', 'capture_engine_combo'):
             w = getattr(self, attr, None)
             if w is not None:
                 snap[attr] = w.currentIndex()
@@ -1346,10 +1366,18 @@ class SettingsDialog(FrostedFramelessDialog):
         # 颜色格式在单独的管理窗口里编辑，没有对应的控件可读
         if hasattr(self, 'magnifier_color_formats'):
             snap['magnifier_color_formats'] = tuple(self.magnifier_color_formats)
+        for attr in ('_clip_font_combo', '_clip_opacity_combo'):
+            combo = getattr(self, attr, None)
+            if combo is not None:
+                snap[attr] = combo.currentData()
+        if hasattr(self, '_clip_theme_name'):
+            snap['_clip_theme_name'] = self._clip_theme_name
         return snap
 
     def _has_unsaved_changes(self):
         """比较当前状态和快照，判断是否有未保存的变更"""
+        if getattr(self, '_import_unsaved', False):
+            return True
         if not hasattr(self, '_settings_snapshot'):
             return False
         current = self._snapshot_settings()
@@ -1456,6 +1484,7 @@ class SettingsDialog(FrostedFramelessDialog):
 
     def refresh_settings(self):
         """从配置管理器重新读取所有设置并更新界面"""
+        self._import_unsaved = False
         SettingsDialog._refresh_behavior_controls(self)
         if hasattr(self, 'hotkey_input'):
             self.hotkey_input.setText(self.config_manager.get_hotkey())
@@ -1495,6 +1524,11 @@ class SettingsDialog(FrostedFramelessDialog):
             idx = self.clipboard_pick_combo.findData(self.config_manager.get_inapp_clipboard_pick_mode())
             if idx >= 0:
                 self.clipboard_pick_combo.setCurrentIndex(idx)
+
+        if hasattr(self, 'capture_engine_combo'):
+            self.capture_engine_combo.setCurrentIndex(
+                CAPTURE_ENGINES.index(self.config_manager.get_capture_engine())
+            )
 
         if hasattr(self, 'engine_combo'):
             engine = self.config_manager.get_long_stitch_engine()
@@ -1648,62 +1682,135 @@ class SettingsDialog(FrostedFramelessDialog):
                 self.config_manager.get_app_setting("screenshot_info_hide_on_drag")
             )
 
-        # 外观设置
-        if hasattr(self, '_ui_theme_combo'):
-            from core.ui_theme import get_ui_theme
-            index = self._ui_theme_combo.findData(get_ui_theme().mode.value)
+        # 剪贴板外观（在剪贴板窗口里改过后打开设置，也要显示最新值）
+        if hasattr(self, '_clip_theme_btn'):
+            from .page_appearance import _apply_clip_theme_btn_style
+            self._clip_theme_name = self.config_manager.get_clipboard_theme()
+            _apply_clip_theme_btn_style(self._clip_theme_btn, self._clip_theme_name)
+        if hasattr(self, '_clip_font_combo'):
+            index = self._clip_font_combo.findData(self.config_manager.get_clipboard_font_size())
             if index >= 0:
-                self._ui_theme_combo.setCurrentIndex(index)
+                self._clip_font_combo.setCurrentIndex(index)
+        if hasattr(self, '_clip_opacity_combo'):
+            index = self._clip_opacity_combo.findData(self.config_manager.get_clipboard_window_opacity())
+            if index >= 0:
+                self._clip_opacity_combo.setCurrentIndex(index)
 
-        if hasattr(self, '_ui_scale_combo'):
-            from core.ui_scale import get_ui_scale
-            index = self._ui_scale_combo.findData(get_ui_scale().percent)
-            if index >= 0:
-                self._ui_scale_combo.setCurrentIndex(index)
+        SettingsDialog._refresh_appearance_controls(self, SettingsDialog._runtime_appearance)
 
-        if hasattr(self, '_dialog_scale_combo'):
-            from core.ui_scale import get_dialog_scale
-            index = self._dialog_scale_combo.findData(get_dialog_scale().percent)
-            if index >= 0:
-                self._dialog_scale_combo.setCurrentIndex(index)
+    @staticmethod
+    def _runtime_appearance(key: str):
+        """外观项正在生效的值，由各自的管理器持有；别处改过后打开设置也显示最新值。"""
+        from core.theme import get_theme
+        from core.ui_scale import get_dialog_scale, get_ui_scale
+        from core.ui_theme import get_ui_theme
+
+        if key == "ui_theme_mode":
+            return get_ui_theme().mode.value
+        if key == "ui_scale_percent":
+            return get_ui_scale().percent
+        if key == "dialog_scale_percent":
+            return get_dialog_scale().percent
+        return getattr(get_theme(), key)
+
+    @staticmethod
+    def _configured_appearance(config):
+        """返回按各管理器启动时的读法、从 config 取外观项的函数。"""
+        from core.theme import ThemeManager
+        from core.ui_scale import UIScaleManager
+        from core.ui_theme import UIThemeMode
+        from settings.tool_settings import ToolSettingsManager
+
+        def value_of(key: str):
+            if key == "ui_theme_mode":
+                return UIThemeMode.coerce(config.get_app_setting(key, "system")).value
+            if key in ("ui_scale_percent", "dialog_scale_percent"):
+                return UIScaleManager.normalize_percent(config.get_app_setting(key))
+            if key == "theme_color":
+                color = QColor(config.get_app_setting(key))
+                return color if color.isValid() else QColor(ToolSettingsManager.APP_DEFAULT_SETTINGS[key])
+            if key == "mask_color":
+                return QColor(*(config.get_app_setting(f"mask_color_{c}") for c in "rgb"))
+            if key == "selection_border_width":
+                return ThemeManager._clamp_border_width(config.get_app_setting(key))
+            return config.get_app_setting(key)
+
+        return value_of
+
+    def _refresh_appearance_controls(self, value_of):
+        for attr, key in (('_ui_theme_combo', 'ui_theme_mode'),
+                          ('_ui_scale_combo', 'ui_scale_percent'),
+                          ('_dialog_scale_combo', 'dialog_scale_percent'),
+                          ('_selection_border_combo', 'selection_border_width'),
+                          ('_selection_handle_combo', 'selection_handle_style'),
+                          ('_selection_handle_size_combo', 'selection_handle_size')):
+            combo = getattr(self, attr, None)
+            if combo is not None:
+                index = combo.findData(value_of(key))
+                if index >= 0:
+                    combo.setCurrentIndex(index)
 
         if hasattr(self, '_theme_color_btn'):
-            from core.theme import get_theme
             from .page_appearance import _update_color_btn
-            theme = get_theme()
-            self._appearance_theme_color = QColor(theme.theme_color)
-            mc = theme.mask_color
+            self._appearance_theme_color = QColor(value_of("theme_color"))
+            mc = value_of("mask_color")
             self._appearance_mask_color = QColor(mc.red(), mc.green(), mc.blue())
             _update_color_btn(self._theme_color_btn, self._appearance_theme_color)
             _update_color_btn(self._mask_color_btn, self._appearance_mask_color)
 
-        if hasattr(self, '_selection_border_combo'):
-            from core.theme import get_theme
-            index = self._selection_border_combo.findData(
-                get_theme().selection_border_width
-            )
-            if index >= 0:
-                self._selection_border_combo.setCurrentIndex(index)
+    # ================================================================
+    # 导入设置
+    # ================================================================
 
-        if hasattr(self, '_selection_handle_combo'):
-            from core.theme import get_theme
-            index = self._selection_handle_combo.findData(
-                get_theme().selection_handle_style
-            )
-            if index >= 0:
-                self._selection_handle_combo.setCurrentIndex(index)
+    def load_imported_settings(self, values: dict):
+        """把导入的设置填进界面。和手动修改一样，点应用/保存才写入。"""
+        import tempfile
+        from settings.settings_transfer import preview_config
 
-        if hasattr(self, '_selection_handle_size_combo'):
-            from core.theme import get_theme
-            index = self._selection_handle_size_combo.findData(
-                get_theme().selection_handle_size
-            )
-            if index >= 0:
-                self._selection_handle_size_combo.setCurrentIndex(index)
+        config = self.config_manager
+        with tempfile.TemporaryDirectory() as tmp:
+            preview = preview_config(config, values, os.path.join(tmp, "import.ini"))
+            self.config_manager = preview
+            try:
+                self.refresh_settings()
+                SettingsDialog._refresh_appearance_controls(self, self._configured_appearance(preview))
+            finally:
+                self.config_manager = config
+            del preview
+        self._import_unsaved = True
+        self._update_action_buttons()
 
-        # 剪切板主题色同步（在别处改了主题色后打开设置，确保显示最新值）
-        if hasattr(self, '_clip_theme_btn'):
-            from settings import get_tool_settings_manager
-            from .page_appearance import _apply_clip_theme_btn_style
-            self._clip_theme_name = get_tool_settings_manager().get_clipboard_theme()
-            _apply_clip_theme_btn_style(self._clip_theme_btn, self._clip_theme_name)
+    def _apply_clipboard_appearance(self):
+        from clipboard.ui.theme.themes import get_theme_manager
+
+        config = self.config_manager
+        clip_theme = get_theme_manager()
+        name = getattr(self, '_clip_theme_name', None)
+        if name is not None:
+            config.set_clipboard_theme(name)
+            if clip_theme.get_current_theme().name != name:
+                clip_theme.set_theme(name)
+        font_combo = getattr(self, '_clip_font_combo', None)
+        if font_combo is not None and font_combo.currentData() is not None:
+            size = font_combo.currentData()
+            if size != config.get_clipboard_font_size():
+                config.set_clipboard_font_size(size)
+                clip_theme.notify_font_size_changed(size)
+        opacity_combo = getattr(self, '_clip_opacity_combo', None)
+        if opacity_combo is not None and opacity_combo.currentData() is not None:
+            percent = opacity_combo.currentData()
+            if percent != config.get_clipboard_window_opacity():
+                config.set_clipboard_window_opacity(percent)
+                clip_theme.notify_opacity_changed(percent)
+
+    def settings_keys(self) -> set:
+        """设置界面上各选项对应的配置键：刷新一遍界面，记下读过哪些键。"""
+        from settings.settings_transfer import recording_reads
+
+        with recording_reads(self.config_manager) as keys:
+            self.refresh_settings()
+            # 外观项平时从管理器回填，不经过配置，要按配置再回填一遍才读得到
+            SettingsDialog._refresh_appearance_controls(
+                self, SettingsDialog._configured_appearance(self.config_manager)
+            )
+        return keys
