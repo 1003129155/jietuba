@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
-from PySide6.QtCore import QObject, QRect, QRectF, QThread, Qt
+from PySide6.QtCore import QObject, QRect, QRectF, QThread, Qt, Signal
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QDialog, QWidget
 
@@ -201,7 +201,10 @@ def test_modal_show_passes_ctrl_click_and_hide_restores_quick_capture(integratio
 def test_normal_capture_build_blocks_input_before_first_show_or_reuse(integration, monkeypatch, reuse):
     f = integration
     configure_ctrl(f)
-    window = QWidget()
+    class CaptureWindow(QWidget):
+        session_ended = Signal()
+
+    window = CaptureWindow()
     window._session_active = False
     f.qtbot.addWidget(window)
     f.app._activate_blocking_modal = lambda: False

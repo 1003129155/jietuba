@@ -6,7 +6,7 @@
 
 import gc
 from PySide6.QtWidgets import QApplication, QWidget, QGraphicsTextItem
-from PySide6.QtCore import Qt, QTimer, QRect, QRectF
+from PySide6.QtCore import Qt, QTimer, QRect, QRectF, Signal
 from PySide6.QtGui import QPixmap
 from ui.dialogs import show_modeless_warning_dialog
 
@@ -280,6 +280,8 @@ class ScreenshotShortcutHandler(ShortcutHandler):
 
 
 class ScreenshotWindow(QWidget):
+    session_ended = Signal()
+
     def __init__(self, config_manager=None, prefetched_image=None, prefetched_rect=None,
                  prefetched_cursor=None):
         super().__init__()
@@ -684,6 +686,8 @@ class ScreenshotWindow(QWidget):
         
         gc.collect()
         log_info(T("截图会话资源释放完成"), "ScreenshotWindow")
+        # 复制可能已提前隐藏窗口，会话清理结束时仍需通知输入中心。
+        self.session_ended.emit()
 
     def _disconnect_session_signals(self):
         """断开本次会话连接到持久 toolbar 上的信号。

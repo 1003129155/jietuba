@@ -579,6 +579,8 @@ class MainApp(QObject):
                     prefetched_rect=rect,
                     prefetched_cursor=cursor,
                 )
+                # 持久窗口只连接一次，清理完会话后恢复全局拖选。
+                self.screenshot_window.session_ended.connect(self.quick_capture.sync_input_availability)
         finally:
             self.quick_capture.set_capture_pending(False)
     
