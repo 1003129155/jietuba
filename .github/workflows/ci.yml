@@ -63,6 +63,13 @@ jobs:
       - name: Run Rust unit tests
         run: cargo test --locked --workspace --release --target ${{ matrix.rust-target }} --manifest-path rust_libs/Cargo.toml
 
+      - name: Build standalone updater from this commit
+        run: |
+          cargo rustc --locked --release --target ${{ matrix.rust-target }} --manifest-path rust_libs/Cargo.toml -p jietuba-updater --bin jietuba_updater -- -C target-feature=+crt-static
+          if ($LASTEXITCODE -ne 0) { throw "Updater build failed" }
+          $helper = (Resolve-Path "rust_libs/target/${{ matrix.rust-target }}/release/jietuba_updater.exe").Path
+          "JIETUBA_UPDATER_EXE=$helper" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Build and install Rust wheels from this commit
         run: |
           python -m pip install --upgrade pip

@@ -119,7 +119,8 @@ class QuickCaptureController(QObject):
     def _blocked(self):
         screenshot = self.main_app.screenshot_window
         return bool(
-            QApplication.activeModalWidget() is not None
+            getattr(self.main_app, "_update_preparing", False)
+            or QApplication.activeModalWidget() is not None
             or (screenshot and getattr(screenshot, "_session_active", False))
         )
 

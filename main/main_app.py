@@ -179,6 +179,11 @@ class MainApp(QObject):
 
         from capture.quick_capture_controller import QuickCaptureController
         self.quick_capture = QuickCaptureController(self)
+        self._update_preparing = False
+        from core.update_controller import UpdateController
+        self.update_controller = UpdateController(self)
+        self.app._update_controller = self.update_controller
+        self.app.aboutToQuit.connect(self.update_controller.cancel)
 
         from core.platform_utils import set_trim_busy_check
         set_trim_busy_check(self._capture_busy)
@@ -486,7 +491,7 @@ class MainApp(QObject):
             
     def start_screenshot(self):
         """启动截图 - 管理截图窗口生命周期"""
-        if self.quick_capture.busy:
+        if getattr(self, "_update_preparing", False) or self.quick_capture.busy:
             return
         
         # 已有截图窗口且会话活跃 → 忽略重复触发，并把焦点还给截图窗口
@@ -584,6 +589,8 @@ class MainApp(QObject):
     
     def open_settings(self):
         """打开设置窗口"""
+        if getattr(self, "_update_preparing", False):
+            return
         if not self.settings_window:
             # Fallback: 如果还没预加载，立即创建
             self._preloader.preload_settings()
@@ -672,6 +679,8 @@ class MainApp(QObject):
         rebuilding the cached window does not cancel the user's close request.
         """
         window = self.settings_window
+        if getattr(self, "_update_preparing", False):
+            return
         if window is None:
             return
 
@@ -688,6 +697,8 @@ class MainApp(QObject):
     
     def open_translator(self):
         """打开翻译窗口"""
+        if getattr(self, "_update_preparing", False):
+            return
         from translation import TranslationManager
         
         params = self.config_manager.get_translation_request_params()
@@ -761,6 +772,8 @@ class MainApp(QObject):
     
     def open_clipboard_window(self):
         """打开剪切板历史窗口"""
+        if getattr(self, "_update_preparing", False):
+            return
         
         try:
             from clipboard import ClipboardWindow
@@ -786,6 +799,8 @@ class MainApp(QObject):
 
     def pin_clipboard_image(self):
         """把剪贴板里的图片钉到鼠标位置；截图中则改为钉当前选区。"""
+        if getattr(self, "_update_preparing", False):
+            return
         window = self.screenshot_window
         if window and getattr(window, '_session_active', False):
             window.pin_from_global_hotkey()
@@ -799,7 +814,76 @@ class MainApp(QObject):
         except Exception as e:
             log_exception(e, T("钉住剪贴板图片失败"))
         
+    def update_busy_reason(self):
+        from core import background_tasks
+        manager = getattr(self, 'clipboard_manager', None)
+        if background_tasks.busy() or self._capture_busy() or (manager and manager.pending_writes()):
+            return self.tr("Finish capturing or saving before updating. The download has been kept.")
+        # Preserve unexported recordings and scrolling captures until the user closes their windows.
+        if getattr(self.app, "_gif_window", None) or getattr(self.app, "_scroll_window", None):
+            return self.tr("Finish recording or scrolling and close that window before updating. The download has been kept.")
+        for widget in self.app.topLevelWidgets():
+            thread = getattr(widget, "_thread", None)
+            if type(widget).__name__ == "ComposerProgressDialog" and thread and thread.isRunning():
+                return self.tr("Finish exporting before updating. The download has been kept.")
+        for attr in ("_screenshot_preload_thread", "_ocr_preload_thread"):
+            thread = getattr(self, attr, None)
+            if thread and thread.isRunning():
+                return self.tr("Wait for application initialization to finish before updating.")
+        return ""
+
+    def prepare_for_update(self):
+        from core import background_tasks
+        from PySide6.QtCore import QSettings
+        reason = self.update_busy_reason()
+        if reason or not background_tasks.pause_if_idle():
+            return False, reason or self.tr("Finish saving before updating.")
+        self._update_preparing = True
+        self.quick_capture.suspend()
+        try:
+            manager = getattr(self, 'clipboard_manager', None)
+            if manager and not manager.pause_for_update():
+                self.cancel_update_preparation()
+                return False, self.tr("Finish saving before updating.")
+            if self.settings_window:
+                thread = getattr(self.settings_window, '_clipboard_move_thread', None)
+                if thread and thread.isRunning():
+                    self.cancel_update_preparation()
+                    return False, self.tr("Finish saving before updating.")
+            if self.settings_window and not self.settings_window.close():
+                self.cancel_update_preparation()
+                return False, self.tr("Update cancelled because the settings window was not closed.")
+            settings = self.config_manager.qsettings
+            settings.sync()
+            if settings.status() != QSettings.Status.NoError:
+                self.cancel_update_preparation()
+                return False, self.tr("Settings could not be saved. Update cancelled.")
+            self.settings_window = None
+            return True, ""
+        except Exception as exc:
+            self.cancel_update_preparation()
+            return False, str(exc)
+
+    def cancel_update_preparation(self):
+        from core import background_tasks
+        background_tasks.resume()
+        manager = getattr(self, 'clipboard_manager', None)
+        if manager:
+            manager.resume_after_update()
+        if getattr(self, "_update_preparing", False):
+            self._update_preparing = False
+            self.quick_capture.refresh()
+
     def quit_app(self):
+        # 关闭设置窗口
+        if self.settings_window:
+            try:
+                if not self.settings_window.close():
+                    return False
+            except Exception as exc:
+                log_exception(exc, T("关闭设置窗口"))
+                return False
+            self.settings_window = None
         self.quick_capture.close()
         # 完全销毁缓存的截图窗口
         if self.screenshot_window:
@@ -823,14 +907,6 @@ class MainApp(QObject):
                 self.clipboard_manager.stop_monitoring()
             except Exception as e:
                 log_exception(e, T("停止剪贴板监听"))
-
-        # 关闭设置窗口
-        if self.settings_window:
-            try:
-                self.settings_window.close()
-            except Exception as e:
-                log_exception(e, T("关闭设置窗口"))
-            self.settings_window = None
 
         # 等待预加载线程结束（最多 2 秒，避免卡退出）
         for attr in ('_screenshot_preload_thread', '_ocr_preload_thread'):

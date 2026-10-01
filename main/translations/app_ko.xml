@@ -4441,4 +4441,81 @@ SOFTWARE.</translation></message>
         <translation>저장하면 일반 텍스트로 바뀝니다</translation>
     </message>
 </context>
+<context>
+    <name>UpdateDialog</name>
+    <message>
+        <source>Update Available</source>
+        <translation>업데이트 가능</translation>
+    </message>
+    <message>
+        <source>No release notes provided.</source>
+        <translation>릴리스 노트가 없습니다.</translation>
+    </message>
+    <message>
+        <source>The application will restart after the download finishes.</source>
+        <translation>다운로드가 완료되면 업데이트를 설치하고 앱을 다시 시작합니다.</translation>
+    </message>
+    <message>
+        <source>Update and Restart</source>
+        <translation>업데이트 및 재시작</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>취소</translation>
+    </message>
+</context>
+<context>
+    <name>UpdateController</name>
+    <message>
+        <source>One-click updates are available in the packaged application.</source>
+        <translation>원클릭 업데이트는 패키지 앱에서 사용할 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>Downloading update...</source>
+        <translation>업데이트 다운로드 중…</translation>
+    </message>
+    <message>
+        <source>Preparing to restart...</source>
+        <translation>설치 및 재시작 준비 중…</translation>
+    </message>
+    <message>
+        <source>Update handoff failed.</source>
+        <translation>업데이트 인계에 실패했습니다.</translation>
+    </message>
+    <message>
+        <source>Update failed: %1</source>
+        <translation>업데이트 실패: %1</translation>
+    </message>
+</context>
+<context>
+    <name>MainApp</name>
+    <message>
+        <source>Finish capturing or saving before updating. The download has been kept.</source>
+        <translation>캡처 또는 저장을 마친 후 다시 시도하세요. 다운로드는 보관되었습니다.</translation>
+    </message>
+    <message>
+        <source>Finish recording or scrolling and close that window before updating. The download has been kept.</source>
+        <translation>녹화 또는 스크롤 캡처를 마치고 해당 창을 닫은 후 다시 시도하세요. 다운로드는 보관되었습니다.</translation>
+    </message>
+    <message>
+        <source>Finish exporting before updating. The download has been kept.</source>
+        <translation>내보내기를 마친 후 다시 시도하세요. 다운로드는 보관되었습니다.</translation>
+    </message>
+    <message>
+        <source>Wait for application initialization to finish before updating.</source>
+        <translation>앱 초기화가 완료된 후 다시 시도하세요.</translation>
+    </message>
+    <message>
+        <source>Finish saving before updating.</source>
+        <translation>저장을 마친 후 다시 시도하세요.</translation>
+    </message>
+    <message>
+        <source>Update cancelled because the settings window was not closed.</source>
+        <translation>설정 창이 닫히지 않아 업데이트를 취소했습니다.</translation>
+    </message>
+    <message>
+        <source>Settings could not be saved. Update cancelled.</source>
+        <translation>설정을 저장할 수 없어 업데이트를 취소했습니다.</translation>
+    </message>
+</context>
 </TS>

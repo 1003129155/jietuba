@@ -261,6 +261,17 @@ class ClipboardManager:
         if self.is_available:
             return self._manager.is_monitoring()
         return False
+
+    def pause_for_update(self) -> bool:
+        """Return busy immediately while native image encoding or storage writes are active."""
+        return not self.is_available or self._manager.pause_for_update()
+
+    def resume_after_update(self):
+        if self.is_available:
+            self._manager.resume_after_update()
+
+    def pending_writes(self) -> int:
+        return self._manager.pending_writes() if self.is_available else 0
     
     def get_history(self, offset: int = 0, limit: int = 50,
                     search: Optional[str] = None,
