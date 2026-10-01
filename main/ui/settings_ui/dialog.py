@@ -316,10 +316,14 @@ class SettingsDialog(FrostedFramelessDialog):
             return
         self._built_pages.add(index)
         page = _PAGE_BUILDERS[index](self)
+        # 移除当前页会让下一个占位成为当前页，插入的新页不会自动顶替，要手动切回来
+        was_current = self.content_stack.currentIndex() == index
         placeholder = self.content_stack.widget(index)
         self.content_stack.removeWidget(placeholder)
         placeholder.deleteLater()
         self.content_stack.insertWidget(index, page)
+        if was_current:
+            self.content_stack.setCurrentIndex(index)
         configure_dialog_controls(page)
         disable_wheel_on_value_controls(page)
         self._connect_action_button_tracking(page)

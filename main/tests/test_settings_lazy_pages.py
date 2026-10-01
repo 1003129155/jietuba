@@ -49,6 +49,24 @@ def test_opening_builds_only_the_shortcut_page(open_dialog):
     assert not hasattr(dialog, "provider_field_widgets")
 
 
+def test_opening_shows_the_shortcut_page(open_dialog):
+    dialog = open_dialog()
+
+    assert dialog.content_stack.currentIndex() == 0
+    assert dialog.content_stack.currentWidget().isAncestorOf(dialog.hotkey_input)
+
+
+def test_building_the_remaining_pages_keeps_the_page_on_screen(open_dialog):
+    dialog = open_dialog()
+    dialog._on_nav_changed(4, "translation")
+    shown = dialog.content_stack.currentWidget()
+
+    dialog.build_all_pages()
+
+    assert dialog.content_stack.currentIndex() == 4
+    assert dialog.content_stack.currentWidget() is shown
+
+
 def test_a_page_is_built_on_first_visit_and_reused(open_dialog):
     dialog = open_dialog()
 
