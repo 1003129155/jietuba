@@ -171,7 +171,8 @@ class SettingsDialog(FrostedFramelessDialog):
     # ================================================================
 
     def _setup_ui(self):
-        sidebar_width = dialog_scaled(212)
+        # 宽度要放得下最长的导航项（日文「マウスショートカット」选中加粗后）
+        sidebar_width = dialog_scaled(222)
         title_bar_height = self.titleBar.height() if getattr(self, 'titleBar', None) else dialog_scaled(32)
 
         main_layout = QHBoxLayout(self)
@@ -275,11 +276,11 @@ class SettingsDialog(FrostedFramelessDialog):
         """创建左侧导航栏"""
         nav = NavigationInterface(parent=parent, showMenuButton=False, showReturnButton=False, collapsible=False)
         nav.setObjectName("SettingsNavigation")
-        nav.setExpandWidth(dialog_scaled(188))
+        nav.setExpandWidth(dialog_scaled(198))
         nav.setMinimumExpandWidth(0)
         nav.expand(useAni=False)
-        nav.setMinimumWidth(dialog_scaled(188))
-        nav.setMaximumWidth(dialog_scaled(196))
+        nav.setMinimumWidth(dialog_scaled(198))
+        nav.setMaximumWidth(dialog_scaled(206))
 
         self._nav_items = [
             ("shortcuts", FluentIcon.COMMAND_PROMPT, self.tr("Shortcuts"), 0, NavigationItemPosition.TOP),
@@ -316,10 +317,14 @@ class SettingsDialog(FrostedFramelessDialog):
             return
         self._built_pages.add(index)
         page = _PAGE_BUILDERS[index](self)
+        # 移除当前页会让下一个占位成为当前页，插入的新页不会自动顶替，要手动切回来
+        was_current = self.content_stack.currentIndex() == index
         placeholder = self.content_stack.widget(index)
         self.content_stack.removeWidget(placeholder)
         placeholder.deleteLater()
         self.content_stack.insertWidget(index, page)
+        if was_current:
+            self.content_stack.setCurrentIndex(index)
         configure_dialog_controls(page)
         disable_wheel_on_value_controls(page)
         self._connect_action_button_tracking(page)

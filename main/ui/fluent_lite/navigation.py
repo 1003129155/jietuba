@@ -67,7 +67,7 @@ class NavigationInterface(QWidget):
         apply_style_sheet(button, f"""
             QPushButton#FluentLiteNavItem {{ min-height: {dialog_scaled(40)}px; padding: {dialog_scaled(2)}px {dialog_scaled(13)}px; text-align: left;
                 color: {t.text}; background: transparent; border: 1px solid transparent; border-radius: {dialog_scaled(11)}px;
-                font: {dialog_scaled(13)}px {FONT_FAMILY}; }}
+                font: {dialog_scaled(14)}px {FONT_FAMILY}; }}
             QPushButton#FluentLiteNavItem:hover {{ color: {t.text}; background: {t.surface_strong}; }}
             QPushButton#FluentLiteNavItem:checked {{ color: {t.accent_text}; background: {t.accent_soft};
                 border: 1px solid transparent; border-left: 4px solid {ACCENT};

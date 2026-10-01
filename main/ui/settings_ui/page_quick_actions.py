@@ -83,22 +83,17 @@ def create_quick_actions_page(dialog) -> QWidget:
     dialog.text_always_on_top_toggle = text_top_card
     grp_capture.addSettingCard(text_top_card)
 
-    layout.addWidget(grp_capture)
-
-    # ── 文字识别与扫码 ────────────────────────────────
-    grp_recognition = SettingCardGroup(dialog.tr("Text Recognition and Scanning"), view)
-
     ocr_card = SwitchSettingCard(
         FluentIcon.DOCUMENT,
         dialog.tr("Copy Recognized Text Directly"),
         dialog.tr(
             "Copy the recognized text straight to the clipboard instead of opening the result window."
         ),
-        parent=grp_recognition,
+        parent=grp_capture,
     )
     ocr_card.setChecked(dialog.config_manager.get_ocr_copy_directly_enabled())
     dialog.ocr_copy_directly_toggle = ocr_card
-    grp_recognition.addSettingCard(ocr_card)
+    grp_capture.addSettingCard(ocr_card)
 
     barcode_card = SwitchSettingCard(
         FluentIcon.SEARCH,
@@ -107,13 +102,13 @@ def create_quick_actions_page(dialog) -> QWidget:
             "When only one QR code or barcode is found, copy its content instead of opening "
             "the result window. Multiple codes still open it."
         ),
-        parent=grp_recognition,
+        parent=grp_capture,
     )
     barcode_card.setChecked(dialog.config_manager.get_barcode_copy_single_enabled())
     dialog.barcode_copy_single_toggle = barcode_card
-    grp_recognition.addSettingCard(barcode_card)
+    grp_capture.addSettingCard(barcode_card)
 
-    layout.addWidget(grp_recognition)
+    layout.addWidget(grp_capture)
 
     # ── 剪贴板 ────────────────────────────────────────
     grp_clipboard = SettingCardGroup(dialog.tr("Clipboard"), view)
@@ -127,9 +122,7 @@ def create_quick_actions_page(dialog) -> QWidget:
         ),
         parent=grp_clipboard,
     )
-    win_v_card.setChecked(
-        dialog.config_manager.get_app_setting("clipboard_take_over_win_v", False)
-    )
+    win_v_card.setChecked(dialog.config_manager.get_app_setting("clipboard_take_over_win_v"))
     dialog._behavior_controls["clipboard_take_over_win_v"] = win_v_card
     grp_clipboard.addSettingCard(win_v_card)
 

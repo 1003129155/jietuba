@@ -4401,10 +4401,6 @@ SOFTWARE.</translation></message>
         <translation>クイック動作</translation>
     </message>
     <message>
-        <source>Text Recognition and Scanning</source>
-        <translation>文字認識とコード読み取り</translation>
-    </message>
-    <message>
         <source>Copy Recognized Text Directly</source>
         <translation>認識したテキストを直接コピー</translation>
     </message>

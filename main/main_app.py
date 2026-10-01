@@ -387,7 +387,7 @@ class MainApp(QObject):
                     failed_hotkeys.append((self.tr("Clipboard (2)"), clipboard_hotkey_2))
 
             # Win+V 被系统占着，RegisterHotKey 注册不上，只能由输入钩子接管
-            if self.config_manager.get_app_setting("clipboard_take_over_win_v", False):
+            if self.config_manager.get_app_setting("clipboard_take_over_win_v"):
                 if not self.hotkey_system.register_hook_hotkey(
                     "clipboard", ["win"], ord("V"), self.open_clipboard_window
                 ):

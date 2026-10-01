@@ -98,10 +98,12 @@ class TestHookHotkey:
         assert mgr.register_hook_hotkey("bare", [], VK_V, Mock()) is False
 
 
-def _app(tmp_settings, *, take_over, clipboard_enabled=True):
+def _app(tmp_settings, *, take_over=None, clipboard_enabled=True):
+    """take_over 为 None 时不写设置，走默认值。"""
     config = ToolSettingsManager(qsettings=tmp_settings)
     config.set_clipboard_enabled(clipboard_enabled)
-    config.set_app_setting("clipboard_take_over_win_v", take_over)
+    if take_over is not None:
+        config.set_app_setting("clipboard_take_over_win_v", take_over)
     hotkeys = Mock()
     hotkeys.register_hotkey.return_value = True
     hotkeys.register_hook_hotkey.return_value = True
@@ -114,8 +116,9 @@ def _app(tmp_settings, *, take_over, clipboard_enabled=True):
 
 
 class TestUpdateHotkey:
-    def test_the_setting_takes_over_win_v_for_the_clipboard(self, tmp_settings):
-        app = _app(tmp_settings, take_over=True)
+    @pytest.mark.parametrize("take_over", [True, None])
+    def test_the_setting_takes_over_win_v_for_the_clipboard(self, tmp_settings, take_over):
+        app = _app(tmp_settings, take_over=take_over)
         MainApp.update_hotkey(app)
         app.hotkey_system.register_hook_hotkey.assert_called_once_with(
             "clipboard", ["win"], VK_V, app.open_clipboard_window
@@ -126,6 +129,28 @@ class TestUpdateHotkey:
         app = _app(tmp_settings, take_over=take_over, clipboard_enabled=clipboard_enabled)
         MainApp.update_hotkey(app)
         app.hotkey_system.register_hook_hotkey.assert_not_called()
+
+    @pytest.mark.parametrize("change", ["clipboard_off", "take_over_off"])
+    def test_turning_it_off_later_gives_win_v_back(self, tmp_settings, qapp, change):
+        app = _app(tmp_settings)
+        mgr = ShortcutManager()
+        app.hotkey_system = SimpleNamespace(
+            unregister_all=mgr.unregister_all_hotkeys,
+            set_suppressed=mgr.set_global_hotkeys_suppressed,
+            register_hotkey=Mock(return_value=True),
+            register_hook_hotkey=mgr.register_hook_hotkey,
+        )
+        MainApp.update_hotkey(app)
+        assert _win_v() is True
+
+        if change == "clipboard_off":
+            app.config_manager.set_clipboard_enabled(False)
+        else:
+            app.config_manager.set_app_setting("clipboard_take_over_win_v", False)
+        MainApp.update_hotkey(app)
+
+        assert _win_v() is False
+        assert not _hooks_needed()
 
     def test_a_failed_take_over_is_shown_with_the_other_failures(self, tmp_settings, monkeypatch):
         monkeypatch.setattr("main_app.log_warning", Mock())
