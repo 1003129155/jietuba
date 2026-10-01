@@ -21,7 +21,7 @@ from core.logger import (
 )
 
 # ── 全局版本号 ────────────────────────────────────────────
-APP_VERSION = "2.1.1"
+APP_VERSION = "2.1.2"
 
 
 def create_fallback_app_icon():
@@ -219,6 +219,8 @@ class MainApp(QObject):
         from core.platform_utils import set_trim_busy_check
         set_trim_busy_check(None)
         self.quick_capture.close()
+        from core.input_hub import close_input_hub
+        close_input_hub()
         self._display_watcher.close()
         try:
             from translation import TranslationManager
@@ -383,6 +385,14 @@ class MainApp(QObject):
                 else:
                     log_warning(T("剪贴板备用热键注册失败: {clipboard_hotkey_2}", clipboard_hotkey_2=clipboard_hotkey_2), "Hotkey")
                     failed_hotkeys.append((self.tr("Clipboard (2)"), clipboard_hotkey_2))
+
+            # Win+V 被系统占着，RegisterHotKey 注册不上，只能由输入钩子接管
+            if self.config_manager.get_app_setting("clipboard_take_over_win_v", False):
+                if not self.hotkey_system.register_hook_hotkey(
+                    "clipboard", ["win"], ord("V"), self.open_clipboard_window
+                ):
+                    log_warning(T("接管 Win+V 失败"), "Hotkey")
+                    failed_hotkeys.append((self.tr("Clipboard"), "win+v"))
 
         # 注册「钉住剪贴板图片」热键（主 + 备用）。刻意放在 clipboard_enabled
         # 判断之外：这条路径优先钉系统剪贴板里的图，历史功能关掉时照样有用。

@@ -7,7 +7,7 @@ import sys
 from core.logger import log_exception, T
 from core.ui_scale import dialog_scaled
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QScrollArea, QSizePolicy,
+    QWidget, QVBoxLayout, QSizePolicy,
     QFileDialog, QProgressDialog,
 )
 from PySide6.QtCore import Qt, QThread, Signal
@@ -17,16 +17,16 @@ from ui.dialogs import (
 )
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
-    FluentIcon, SpinBox, ComboBox, CaptionLabel,
+    FluentIcon, SpinBox, CaptionLabel,
     PushButton, PrimaryPushButton, TransparentToolButton,
 )
-from .components import SettingCardGroup
+from .components import SettingCardGroup, page_scroll_area
 from core.ui_theme import set_own_style
 
 
 def create_clipboard_page(dialog) -> QWidget:
     """创建剪贴板设置页面 — Fluent Design"""
-    scroll = QScrollArea()
+    scroll = page_scroll_area(dialog)
     scroll.setWidgetResizable(True)
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 
@@ -48,23 +48,6 @@ def create_clipboard_page(dialog) -> QWidget:
     enabled_card.setChecked(dialog.config_manager.get_clipboard_enabled())
     dialog.clipboard_enabled_toggle = enabled_card
     grp_basic.addSettingCard(enabled_card)
-
-    scan_interval_card = FSettingCard(
-        FluentIcon.STOP_WATCH,
-        dialog.tr("Window Scan Interval"),
-        dialog.tr("How often the foreground window is sampled to find the paste target (only while this panel is open)"),
-        parent=grp_basic,
-    )
-    dialog.clipboard_scan_interval_combo = ComboBox(scan_interval_card)
-    scan_interval_options = dialog.config_manager.get_clipboard_foreground_scan_interval_options()
-    current_scan_interval = dialog.config_manager.get_clipboard_foreground_scan_interval_ms()
-    for ms in scan_interval_options:
-        dialog.clipboard_scan_interval_combo.addItem(f"{ms} ms", userData=ms)
-    idx = dialog.clipboard_scan_interval_combo.findData(current_scan_interval)
-    if idx >= 0:
-        dialog.clipboard_scan_interval_combo.setCurrentIndex(idx)
-    scan_interval_card.addControl(dialog.clipboard_scan_interval_combo)
-    grp_basic.addSettingCard(scan_interval_card)
 
     layout.addWidget(grp_basic)
 

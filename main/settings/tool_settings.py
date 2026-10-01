@@ -333,6 +333,7 @@ class ToolSettingsManager(QObject):
         # 快捷行为：跳过结果窗口
         "ocr_copy_directly": False,           # 文字识别后直接复制，不弹结果窗口
         "barcode_copy_single": False,         # 只扫到一个码时直接复制，不弹结果窗口
+        "clipboard_take_over_win_v": False,   # Win+V 打开本软件的剪贴板，不再弹出系统剪贴板历史
 
         # 智能选择
         "smart_selection": True,              # 智能选区总开关
@@ -376,8 +377,6 @@ class ToolSettingsManager(QObject):
         "clipboard_close_after_paste": True,   # 粘贴后关闭窗口（关掉则窗口常驻，可连续粘贴）
         "clipboard_history_limit": 1000,        # 历史记录数量限制（0 为不限制）
         "clipboard_auto_cleanup": True,        # 自动清理超出限制的记录
-        "clipboard_foreground_scan_interval_ms": 200,  # 前台窗口取样频率（毫秒），仅面板打开时生效
-        "clipboard_foreground_scan_interval_options": [100, 200, 300, 400, 500, 600],  # 频率可选项
         "clipboard_window_width": 450,         # 剪贴板窗口默认宽度
         "clipboard_window_height": 750,        # 剪贴板窗口默认高度
         "clipboard_window_opacity": 20,         # 剪贴板窗口透明度（0=不透明）
@@ -385,7 +384,7 @@ class ToolSettingsManager(QObject):
         "clipboard_paste_with_html": True,     # 粘贴时是否带 HTML 格式
         "clipboard_show_metadata": True,       # 显示时间和来源信息
         "clipboard_font_size": 17,            # 剪贴板项字体大小（像素）
-        "clipboard_font_size_options": [15, 16, 17, 18, 19, 20],  # 字体大小可选项
+        "clipboard_font_size_options": [15, 16, 17, 18, 19, 20, 22, 24],  # 字体大小可选项
         "clipboard_image_size": "small",       # 图片条目高度档位（small/medium/large）
         "clipboard_line_height_padding": 8,   # 多行显示时的额外行高边距（像素，用于确保完整显示）
         "clipboard_display_lines": 1,          # 剪贴板项最大显示行数
@@ -1599,22 +1598,6 @@ class ToolSettingsManager(QObject):
     def set_clipboard_history_limit(self, value: int):
         """设置历史记录数量限制"""
         self.qsettings.setValue("clipboard/history_limit", max(0, value))
-
-    def get_clipboard_foreground_scan_interval_ms(self) -> int:
-        """获取剪贴板面板前台窗口取样频率（毫秒）"""
-        return self.qsettings.value(
-            "clipboard/foreground_scan_interval_ms",
-            self.APP_DEFAULT_SETTINGS["clipboard_foreground_scan_interval_ms"],
-            type=int,
-        )
-
-    def set_clipboard_foreground_scan_interval_ms(self, value: int):
-        """设置剪贴板面板前台窗口取样频率（毫秒）"""
-        self.qsettings.setValue("clipboard/foreground_scan_interval_ms", max(50, int(value)))
-
-    def get_clipboard_foreground_scan_interval_options(self) -> list:
-        """获取剪贴板前台窗口取样频率可选项"""
-        return self.APP_DEFAULT_SETTINGS["clipboard_foreground_scan_interval_options"]
 
     def get_clipboard_db_path(self) -> str:
         """获取剪贴板数据库自定义路径（空字符串表示使用后端默认位置）"""

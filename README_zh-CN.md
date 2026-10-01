@@ -89,7 +89,7 @@ OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_det
 
 ### Rust 扩展包
 
-以下五个包已包含在 `requirements.txt` 中，会在安装运行依赖时一并安装。它们可以独立使用，源码位于 [rust_libs/](rust_libs/)。PyPI 发行名与 Python 的 import 名对应如下：
+以下六个包已包含在 `requirements.txt` 中，会在安装运行依赖时一并安装。它们可以独立使用，源码位于 [rust_libs/](rust_libs/)。PyPI 发行名与 Python 的 import 名对应如下：
 
 | pip 包名 | import 名 | 版本 | 功能 |
 |------|------|------|------|
@@ -98,6 +98,7 @@ OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_det
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.4 | 剪贴板底层操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | 支持 HDR 的桌面截图（DXGI Desktop Duplication + GPU 色调映射） |
+| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.0 | 不占界面线程的全局鼠标键盘钩子（拖动手势、侧键、热键、滚轮、前台窗口） |
 
 预编译包面向 Windows x86_64 和 ARM64；各包的 Python 版本声明均为 `>=3.11`，Rust 绑定均启用了 `abi3-py311`，详见各包的 `pyproject.toml` 和 `Cargo.toml`。
 
@@ -115,6 +116,8 @@ python -m pytest main/tests -c main/tests/pytest.ini
 ```
 
 [测试目录](main/tests/)包含截图、剪贴板、马赛克、钉图缩放、GIF 回放、OCR 文字层等模块的单元测试与集成测试。[CI 配置](.github/workflows/ci.yml)在 Windows x86_64 与 ARM64 的 Python 3.11 环境中执行测试及覆盖率检查，并在 x86_64 上执行静态检查；运行结果可在 [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml) 查看。
+
+会真实移动鼠标、点击和按键的测试（如 `test_quick_capture_real_hooks.py`）默认跳过；设置环境变量 `RUN_REAL_INPUT_TESTS=1` 后才运行，运行期间请不要操作鼠标和键盘。
 
 构建 Windows 发行包可运行 `python build_with_ocr_onefile.py`，产物为 `dist/jietuba_pp.exe` 和 `dist/models/`。自动发行流程见 [build.yml](.github/workflows/build.yml)，会分别生成 x64 与 ARM64 压缩包。
 
@@ -353,6 +356,7 @@ clipboard/
 - 文本条目支持 CSV 导入/导出
 - 多主题 UI（亮色/暗色等）
 - 快捷键快速粘贴历史内容
+- 可在「快捷行为」里让 Win+V 打开本软件的剪贴板，代替系统剪贴板历史
 - 预览弹窗支持大图/长文查看
 
 ---
@@ -375,7 +379,8 @@ core/
 ├── ui_scale.py              # UIScaleManager — 工具栏/面板/弹层共用的缩放比例
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — 国际化管理，多语言支持
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — 全局热键和应用内快捷键管理
-├── quick_capture_input.py    # 全局修饰键拖动监听与快速截图手势状态
+├── input_hub.py             # 进程共用的全局输入：原生钩子（j-input）不占界面线程，事件转成 Qt 信号
+├── quick_capture_input.py    # 全局鼠标快捷键的拖动输入，接在共用输入中心上
 ├── last_capture_region.py   # 进程内存的"上次截图区域"，供恢复选区快捷键使用
 ├── save.py                  # SaveService — 文件保存服务（自动命名、路径管理、高质量 PDF 输出）
 ├── export.py                # ExportService — 图像导出服务
@@ -701,7 +706,7 @@ ui/
 │   ├── components.py        # SettingCardGroup / ToggleSwitch — 设置组件库
 │   ├── page_appearance.py   # 外观设置页（主题、语言等）
 │   ├── page_capture.py      # 截图设置页
-│   ├── page_quick_actions.py # 快捷行为设置页（跳过确认或结果窗口）
+│   ├── page_quick_actions.py # 快捷行为设置页（跳过确认或结果窗口、接管 Win+V）
 │   ├── color_format_dialog.py # ColorFormatDialog — 放大镜颜色格式管理窗口
 │   ├── page_clipboard.py    # 剪贴板设置页
 │   ├── page_hotkey.py       # 快捷键设置页

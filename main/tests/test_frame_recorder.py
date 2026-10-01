@@ -3,14 +3,14 @@
 FrameRecorder 单元测试
 
 覆盖 main/gif/frame_recorder.py 中不依赖真实 Rust gifrecorder 扩展、
-真实 Win32 截屏和 pynput 鼠标监听的纯逻辑部分：
+真实 Win32 截屏的纯逻辑部分：
 - 录制状态机（start/pause/resume/stop/reset 的合法状态转换与非法转换的静默拒绝）
 - 录制区域的 1px 内缩计算（避免录入选区边框线）
 - _sync_frames_from_store 的时间戳同步与鼠标轨迹索引映射
 - _tick 达到最大时长后自动停止
+- 录制期间的全局滚轮记进鼠标轨迹（输入中心是测试替身，见 conftest）
 
-真实截屏（RecordSession/FrameStore 的 Rust 实现）和 pynput 滚轮监听
-不在本文件覆盖范围内，用 mock 替身隔离。
+真实截屏（RecordSession/FrameStore 的 Rust 实现）不在本文件覆盖范围内，用 mock 替身隔离。
 """
 import pytest
 from unittest.mock import MagicMock, patch
@@ -18,6 +18,7 @@ from unittest.mock import MagicMock, patch
 from PySide6.QtCore import QRect
 
 import gif.frame_recorder as frame_recorder_module
+from core.input_hub import input_hub
 from gif.frame_recorder import FrameRecorder, RecordState, FrameData, CursorSnapshot
 
 
@@ -83,16 +84,6 @@ def hdr_handoff():
     with patch.object(frame_recorder_module, "lend_hdr_session", lend), \
          patch.object(frame_recorder_module, "return_hdr_session", give_back):
         yield events
-
-
-@pytest.fixture(autouse=True)
-def mock_scroll_listener():
-    """屏蔽 pynput 监听线程的真实启动"""
-    with patch.object(FrameRecorder, "_start_scroll_listener",
-                      new=lambda self: None), \
-         patch.object(FrameRecorder, "_stop_scroll_listener",
-                      new=lambda self: None):
-        yield
 
 
 class TestHdrSessionHandoff:
@@ -476,3 +467,35 @@ class TestResetData:
         assert recorder.store is None
         assert recorder.frames == []
         assert recorder.state == RecordState.IDLE
+
+
+class TestScrollTrack:
+    def _wheel(self, delta, horizontal=False):
+        input_hub().native.mouse("hwheel" if horizontal else "wheel", 50, 60, delta=delta)
+
+    def test_wheel_during_recording_marks_the_next_snapshot_once(self, qapp, mock_gifrecorder):
+        recorder = FrameRecorder()
+        recorder.set_rect(QRect(0, 0, 200, 200))
+        recorder.start()
+        self._wheel(-120)
+        self._wheel(40, horizontal=True)  # 横向滚轮不记
+        qapp.processEvents()
+        recorder._sample_cursor()
+        self._wheel(120)
+        qapp.processEvents()
+        recorder._sample_cursor()
+        recorder._sample_cursor()
+        assert [snapshot.scroll for snapshot in recorder._cursor_track] == [-1, 1, 0]
+        recorder._timer.stop()
+
+    def test_listening_stops_with_the_recording(self, qapp, mock_gifrecorder):
+        recorder = FrameRecorder()
+        recorder.set_rect(QRect(0, 0, 200, 200))
+        recorder.start()
+        assert input_hub().native.hooks_needed
+        recorder.stop()
+        assert not input_hub().native.hooks_needed
+        self._wheel(-120)
+        qapp.processEvents()
+        assert recorder._scroll_value == 0
+

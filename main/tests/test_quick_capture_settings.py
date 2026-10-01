@@ -23,6 +23,7 @@ def config(tmp_path):
 def settings(qapp, config, monkeypatch):
     monkeypatch.setattr("ui.settings_ui.dialog.validate_global_hotkey_edits", lambda *_a, **_kw: True)
     dialog = SettingsDialog(config)
+    dialog.build_all_pages()
     # Saving this isolated dialog must not change machine autostart or logging.
     for attr in ("log_toggle", "autostart_toggle", "language_combo"):
         delattr(dialog, attr)

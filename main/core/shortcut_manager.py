@@ -1,19 +1,20 @@
 ﻿"""
 统一快捷键管理器
 
-合并了三套机制：
+合并了四套机制：
   1. 系统级全局热键 (Windows RegisterHotKey / WM_HOTKEY)
-  2. 鼠标侧键全局热键 (pynput.mouse.Listener 后台线程)
-  3. 应用内 Qt KeyPress 事件分发
+  2. 鼠标侧键全局热键 (共用输入中心的原生钩子)
+  3. 系统占用的组合键 (如 Win+V，由输入中心的原生钩子接管)
+  4. 应用内 Qt KeyPress 事件分发
 
-三者共用同一条优先级 handler 链，解决模块间快捷键冲突问题。
+除 3 以外共用同一条优先级 handler 链，解决模块间快捷键冲突问题。
 
 架构：
     ShortcutManager (单例，安装在 QApplication 上)
       ├── 注册/注销 Windows 全局热键
       ├── _HotkeyEventFilter    — 拦截 WM_HOTKEY，交由 handler 链决定是否执行回调
-      ├── pynput.mouse.Listener — 后台线程监听鼠标侧键，经 Signal(QueuedConnection)
-      │                          转发回主线程，再交由 handler 链决定是否执行回调
+      ├── 输入中心的侧键事件   — 原生钩子当场吞掉已绑定的侧键，按下经排队信号
+      │                          转回主线程，再交由 handler 链决定是否执行回调
       ├── eventFilter           — 拦截 Qt KeyPress，按优先级分发
       └── handler 列表          — 统一的优先级分发链
 
@@ -41,13 +42,14 @@ from abc import ABC, abstractmethod
 from ctypes import wintypes
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
-from PySide6.QtCore import QAbstractNativeEventFilter, QEvent, QObject, Qt, Signal
+from PySide6.QtCore import QAbstractNativeEventFilter, QEvent, QObject, Qt
 from PySide6.QtWidgets import (
     QApplication, QAbstractSpinBox, QComboBox, QGraphicsView,
     QLineEdit, QPlainTextEdit, QTextEdit,
 )
 
 from core import log_debug, log_error, safe_event
+from core.input_hub import existing_input_hub, input_hub
 from core.logger import log_exception, T
 
 # ======================================================================
@@ -60,24 +62,28 @@ MOD_SHIFT = 0x0004
 MOD_WIN = 0x0008
 MOD_NOREPEAT = 0x4000
 
+# 应用级事件过滤器按类型分派时用；取成模块常量，免得每个事件都查一遍类属性。
+# 中键的按下/抬起/双击三种都要管：只吞掉按下的话，控件会收到一个没有配对按下的
+# 抬起，行为未定义——和全局侧键那边成对抑制是同一个理由。
+_KEY_PRESS = QEvent.Type.KeyPress
+_MOUSE_PRESS = QEvent.Type.MouseButtonPress
+_MOUSE_RELEASE = QEvent.Type.MouseButtonRelease
+_MOUSE_DBLCLICK = QEvent.Type.MouseButtonDblClick
+
 
 # ======================================================================
 # 鼠标侧键 token
 # ======================================================================
 # RegisterHotKey/WM_HOTKEY 只由键盘触发，鼠标侧键（XBUTTON1/XBUTTON2）永远
 # 走不通这条路径，因此用独立的字符串命名空间表示，与键盘组合键字符串分开
-# 解析、分开登记；真正的全局派发走后台 pynput.mouse.Listener（见下方
-# _ensure_mouse_listener_started），而不是 RegisterHotKey。
+# 解析、分开登记；全局派发走输入中心的低层钩子（见 _sync_side_buttons）。
 MOUSE_BUTTON_BACK = "mouseback"
 MOUSE_BUTTON_FORWARD = "mouseforward"
 _MOUSE_BUTTON_TOKENS = frozenset({MOUSE_BUTTON_BACK, MOUSE_BUTTON_FORWARD})
 
-# pynput 的 Button.x1 / Button.x2 → 我们的 token。按 name 匹配而不是按枚举对象，
-# 这样低级钩子回调里不必持有 pynput 模块的引用（见 _mouse_event_filter）。
-_PYNPUT_BUTTON_NAME_TOKENS = {
-    "x1": MOUSE_BUTTON_BACK,
-    "x2": MOUSE_BUTTON_FORWARD,
-}
+# 输入中心的侧键名 ↔ 我们的 token
+_SIDE_BUTTON_TOKENS = {"x1": MOUSE_BUTTON_BACK, "x2": MOUSE_BUTTON_FORWARD}
+_TOKEN_SIDE_BUTTONS = {token: name for name, token in _SIDE_BUTTON_TOKENS.items()}
 
 
 def is_mouse_button_hotkey(hotkey_str: str) -> bool:
@@ -325,7 +331,7 @@ class ShortcutManager(QObject):
 
     同时管理：
       - Windows RegisterHotKey 全局热键
-      - 鼠标侧键全局热键（pynput.mouse.Listener 后台线程）
+      - 鼠标侧键全局热键（共用输入中心的原生钩子）
       - Qt 应用内 KeyPress 事件
     """
 
@@ -335,10 +341,6 @@ class ShortcutManager(QObject):
     _registered_keys_global: Set[Tuple[int, int]] = set()
     # 类级变量，跟踪当前进程所有已登记的鼠标侧键 token
     _registered_mouse_buttons_global: Set[str] = set()
-
-    # pynput 回调运行在后台线程，用 Signal(QueuedConnection) 转发回主线程，
-    # 这样后续的 handler 链分发、回调执行都和键盘热键一样发生在主线程上。
-    _mouse_button_triggered = Signal(str)
 
     def __init__(self):
         super().__init__()
@@ -353,13 +355,13 @@ class ShortcutManager(QObject):
 
         # ── 鼠标侧键 ──
         self._mouse_callbacks: Dict[str, Callable] = {}
-        self._mouse_listener = None   # pynput.mouse.Listener，按需启停
         self._mouse_capture_refs = 0  # 处于聚焦状态的热键录入框数量
-        # 钩子线程只读、主线程整体替换的抑制集合，见 _mouse_event_filter
-        self._suppressed_mouse_tokens: frozenset = frozenset()
-        self._mouse_button_triggered.connect(
-            self._on_mouse_button_triggered, Qt.ConnectionType.QueuedConnection
-        )
+        self._side_button_hub = None  # 已连上侧键信号的输入中心
+
+        # ── 系统占用的组合键 ──
+        self._hook_hotkeys: Dict[str, Tuple[List[str], int, Callable]] = {}
+        self._bound_hook_hotkeys: Set[str] = set()
+        self._hook_hotkey_hub = None  # 已连上热键信号的输入中心
 
         # ── 应用内鼠标键 ──
         # 按下被消费时置位，好让配对的抬起/双击一起吞掉，见 _filter_inapp_mouse
@@ -413,12 +415,13 @@ class ShortcutManager(QObject):
         return self._global_hotkeys_suppressed
 
     def set_global_hotkeys_suppressed(self, suppressed: bool):
-        """临时启用/禁用全局热键响应，不注销 Windows 热键。"""
+        """临时启用/禁用全局热键响应，不注销 Windows 热键；接管的系统组合键交还给系统。"""
         self._global_hotkeys_suppressed = bool(suppressed)
+        self._sync_hook_hotkeys()
 
     def has_registered_hotkeys(self) -> bool:
-        """当前是否持有已注册的全局热键（键盘或鼠标侧键）。"""
-        return bool(self._id_to_callback) or bool(self._mouse_callbacks)
+        """当前是否持有已注册的全局热键（键盘、鼠标侧键或接管的系统组合键）。"""
+        return bool(self._id_to_callback) or bool(self._mouse_callbacks) or bool(self._hook_hotkeys)
 
     # ==================================================================
     # Qt KeyPress 分发
@@ -462,14 +465,7 @@ class ShortcutManager(QObject):
 
         return False
 
-    # 中键的按下/抬起/双击。三种都要管：只吞掉按下的话，控件会收到一个没有
-    # 配对按下的抬起，行为未定义——和全局侧键那边成对抑制是同一个理由。
-    _INAPP_MOUSE_EVENT_TYPES = frozenset({
-        QEvent.Type.MouseButtonPress,
-        QEvent.Type.MouseButtonRelease,
-        QEvent.Type.MouseButtonDblClick,
-    })
-
+    @safe_event
     def _filter_inapp_mouse(self, obj, event) -> bool:
         """应用内鼠标键分发。
 
@@ -515,14 +511,18 @@ class ShortcutManager(QObject):
                 continue
         return False
 
-    @safe_event
     def eventFilter(self, obj, event):
+        # 装在 QApplication 上，每个事件都要进一次 Python：这里只判断类型，其余事件直接放行。
+        # 异常保护加在下面两个真正干活的方法上，不给每个事件多套一层包装。
         event_type = event.type()
-        if event_type in self._INAPP_MOUSE_EVENT_TYPES:
-            return self._filter_inapp_mouse(obj, event)
-        if event_type != QEvent.Type.KeyPress:
-            return False
+        if event_type == _KEY_PRESS:
+            return self._filter_key(event) is True
+        if event_type == _MOUSE_PRESS or event_type == _MOUSE_RELEASE or event_type == _MOUSE_DBLCLICK:
+            return self._filter_inapp_mouse(obj, event) is True
+        return False
 
+    @safe_event
+    def _filter_key(self, event) -> bool:
         # 文字输入控件获焦时，优先让控件处理按键
         if self._is_text_input_active(event):
             return False
@@ -612,8 +612,13 @@ class ShortcutManager(QObject):
                 continue
         return False
 
+    def _on_side_button(self, name: str):
+        token = _SIDE_BUTTON_TOKENS.get(name)
+        if token is not None:
+            self._on_mouse_button_triggered(token)
+
     def _on_mouse_button_triggered(self, token: str):
-        """鼠标侧键点击的主线程入口（由 _mouse_button_triggered 信号排队转发而来）"""
+        """鼠标侧键点击的主线程入口（由输入中心的侧键信号排队转发而来）"""
         if self._global_hotkeys_suppressed:
             log_debug(
                 T("系统热键已临时禁用，忽略鼠标侧键回调 (token={token})", token=token),
@@ -665,112 +670,100 @@ class ShortcutManager(QObject):
             return False
         self._mouse_callbacks[token] = callback
         ShortcutManager._registered_mouse_buttons_global.add(token)
-        self._sync_mouse_listener()
+        self._sync_side_buttons()
         return True
 
     # ──────────────────────────────────────────────────────────────
-    # 鼠标侧键：低级钩子的生命周期与独占
+    # 鼠标侧键：低级钩子的独占范围
     # ──────────────────────────────────────────────────────────────
     #
     # 侧键不走 Qt 的焦点链（Qt 只在指针悬停于控件上时才派发 mousePressEvent），
-    # 只能靠 pynput 的 WH_MOUSE_LL 低级钩子。钩子同时承担两件事：
+    # 只能靠低级钩子。钩子同时承担两件事：
     #
     #   1. 独占：已绑定给我们的侧键从系统里吞掉，其它程序（浏览器、资源管理器
     #      的后退/前进）收不到，做到「绑了就只有我们好使」。
     #   2. 录入：热键录入框聚焦期间独占全部侧键，这样尚未绑定的侧键也能录到，
     #      且录入这一下不会顺带让后台浏览器退一页。
     #
-    # 两者都不成立时钩子必须摘掉，否则解绑之后侧键不会交还给其它程序。
+    # 两者都不成立时必须停用，否则解绑之后侧键不会交还给其它程序。
 
     def begin_mouse_capture(self):
         """热键录入框聚焦：独占全部侧键，使未绑定的侧键也能被录入。"""
         self._mouse_capture_refs += 1
-        self._sync_mouse_listener()
+        self._sync_side_buttons()
 
     def end_mouse_capture(self):
         """热键录入框失焦：释放独占，未绑定的侧键交还给其它程序。"""
         if self._mouse_capture_refs <= 0:
             return
         self._mouse_capture_refs -= 1
-        self._sync_mouse_listener()
+        self._sync_side_buttons()
 
-    def _desired_suppressed_tokens(self) -> frozenset:
-        """当前应当从系统里吞掉的侧键集合。"""
-        if self._mouse_capture_refs > 0:
-            return _MOUSE_BUTTON_TOKENS
-        return frozenset(self._mouse_callbacks)
+    def _sync_side_buttons(self):
+        """按当前状态设定侧键的上报与独占——状态变化的唯一出口（幂等）。"""
+        enabled = bool(self._mouse_callbacks) or self._mouse_capture_refs > 0
+        # 没人用过侧键时不为了「停用」去创建输入中心
+        hub = input_hub() if enabled else existing_input_hub()
+        if hub is None:
+            return
+        if self._side_button_hub is not hub:
+            hub.side_button.connect(self._on_side_button, Qt.ConnectionType.QueuedConnection)
+            self._side_button_hub = hub
+        try:
+            hub.native.configure_side_buttons(
+                enabled,
+                [_TOKEN_SIDE_BUTTONS[token] for token in self._mouse_callbacks],
+                self._mouse_capture_refs > 0,
+            )
+        except Exception as e:
+            log_error(f"鼠标侧键监听设置失败: {e}", module="Hotkey")
 
-    def _sync_mouse_listener(self):
-        """按当前状态收敛钩子的启停与抑制集合——状态变化的唯一出口（幂等）。"""
-        # 整体替换而非就地增删：赋值在 GIL 下是原子的，钩子线程只会读到替换前
-        # 或替换后的完整集合，不会看到中间态。
-        self._suppressed_mouse_tokens = self._desired_suppressed_tokens()
-        if self._mouse_callbacks or self._mouse_capture_refs > 0:
-            self._start_mouse_listener()
-        else:
-            self._stop_mouse_listener()
+    # ──────────────────────────────────────────────────────────────
+    # 系统占用的组合键
+    # ──────────────────────────────────────────────────────────────
+    #
+    # RegisterHotKey 注册不上系统自己占着的组合（如 Win+V），只能由钩子在系统
+    # 处理之前吞掉。吞掉后不响应等于让这个组合失效，所以临时禁用全局热键时
+    # 直接解绑，交还给系统，而不是像 RegisterHotKey 那样只忽略回调。
 
-    def _mouse_event_filter(self, msg, data):
-        """
-        WH_MOUSE_LL 钩子线程上的回调，必须保持 O(1)。
+    def register_hook_hotkey(self, name: str, modifiers: List[str], vk: int,
+                             callback: Callable) -> bool:
+        """接管一个组合键；modifiers 为 ctrl/shift/alt/win，须与按住的修饰键完全一致。"""
+        self._hook_hotkeys[name] = (list(modifiers), vk, callback)
+        self._sync_hook_hotkeys()
+        return name in self._bound_hook_hotkeys or self._global_hotkeys_suppressed
 
-        Windows 对低级钩子有 LowLevelHooksTimeout 限制，回调超时会被系统静默
-        摘掉钩子——没有异常、没有日志，表现为「侧键突然失灵」。所以这里只做查表
-        和信号排队，绝不接触 Qt 对象，也绝不等待主线程。
+    def _sync_hook_hotkeys(self):
+        """按当前登记和禁用状态绑定、解绑——状态变化的唯一出口（幂等）。"""
+        wanted = {} if self._global_hotkeys_suppressed else self._hook_hotkeys
+        try:
+            hub = input_hub() if wanted else existing_input_hub()
+            if hub is None:
+                return
+            if self._hook_hotkey_hub is not hub:
+                hub.hotkey.connect(self._on_hook_hotkey, Qt.ConnectionType.QueuedConnection)
+                self._hook_hotkey_hub = hub
+                self._bound_hook_hotkeys.clear()
+            for name in self._bound_hook_hotkeys - wanted.keys():
+                hub.native.unbind_hotkey(name)
+            self._bound_hook_hotkeys = {
+                name for name, (modifiers, vk, _callback) in wanted.items()
+                if hub.native.bind_hotkey(name, modifiers, vk)
+            }
+        except Exception as e:
+            log_error(f"系统组合键接管设置失败: {e}", module="Hotkey")
 
-        派发也必须在这里完成：suppress_event() 抛出的 SuppressException 会打断
-        pynput 的 _handle_message，被抑制的事件根本到不了 on_click。
-        """
-        listener = self._mouse_listener
-        if listener is None:
-            return False
-
-        by_index = listener.X_BUTTONS.get(msg)
-        if by_index is None:
-            return False
-        entry = by_index.get(data.mouseData >> 16)
+    def _on_hook_hotkey(self, name: str):
+        # 禁用前已排队的事件照样会送到
+        if self._global_hotkeys_suppressed:
+            return
+        entry = self._hook_hotkeys.get(name)
         if entry is None:
-            return False
-
-        button, pressed = entry
-        token = _PYNPUT_BUTTON_NAME_TOKENS.get(button.name)
-        if token is None:
-            return False
-
-        if pressed:
-            self._mouse_button_triggered.emit(token)
-        if token in self._suppressed_mouse_tokens:
-            # 按下与抬起成对抑制：只吞掉 DOWN 会让其它程序收到一个没有配对按下
-            # 的抬起事件，行为未定义。
-            listener.suppress_event()  # 抛出 SuppressException，就此结束
-        return False
-
-    def _start_mouse_listener(self):
-        """启动侧键监听线程（幂等）。"""
-        if self._mouse_listener is not None:
             return
         try:
-            from pynput import mouse
-            listener = mouse.Listener(win32_event_filter=self._mouse_event_filter)
-            # filter 在 start() 之后随时可能被钩子线程调用，先赋值再启动。
-            self._mouse_listener = listener
-            listener.start()
+            entry[2]()
         except Exception as e:
-            self._mouse_listener = None
-            log_error(f"鼠标侧键监听启动失败: {e}", module="Hotkey")
-
-    def _stop_mouse_listener(self):
-        """停止侧键监听线程并摘掉钩子（幂等）。"""
-        listener = self._mouse_listener
-        if listener is None:
-            return
-        # 先摘引用：停止过程中若还有事件进来，filter 读到 None 会直接放行，
-        # 不会把它吞掉。
-        self._mouse_listener = None
-        try:
-            listener.stop()
-        except Exception as e:
-            log_exception(e, T("停止鼠标侧键监听"))
+            log_exception(e, T("系统组合键回调 name={name}", name=name))
 
     def check_hotkey_availability(self, hotkey_str: str) -> bool:
         """检查快捷键是否可用（通过临时注册测试）"""
@@ -808,7 +801,10 @@ class ShortcutManager(QObject):
         for token in self._mouse_callbacks:
             ShortcutManager._registered_mouse_buttons_global.discard(token)
         self._mouse_callbacks.clear()
-        self._sync_mouse_listener()
+        self._sync_side_buttons()
+
+        self._hook_hotkeys.clear()
+        self._sync_hook_hotkeys()
 
     # ==================================================================
     # 热键字符串解析
@@ -897,6 +893,10 @@ class HotkeySystem:
 
     def register_hotkey(self, hotkey_str: str, callback: Callable) -> bool:
         return self._mgr.register_hotkey(hotkey_str, callback)
+
+    def register_hook_hotkey(self, name: str, modifiers: List[str], vk: int,
+                             callback: Callable) -> bool:
+        return self._mgr.register_hook_hotkey(name, modifiers, vk, callback)
 
     def check_hotkey_availability(self, hotkey_str: str) -> bool:
         return self._mgr.check_hotkey_availability(hotkey_str)

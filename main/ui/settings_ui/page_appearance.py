@@ -1,7 +1,7 @@
 ﻿# -*- coding: utf-8 -*-
 """外观设置页 — Fluent Design"""
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QScrollArea, QColorDialog, QWidgetAction,
+    QWidget, QVBoxLayout, QColorDialog, QWidgetAction,
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
@@ -11,7 +11,7 @@ from ui.fluent_lite import (
     SettingCard as FSettingCard, FluentIcon,
     ComboBox, CaptionLabel, ColorSwatchButton, SwitchSettingCard,
 )
-from .components import SettingCardGroup, theme_menu_style
+from .components import SettingCardGroup, theme_menu_style, page_scroll_area
 from core.ui_theme import set_own_style
 
 
@@ -38,7 +38,7 @@ def _apply_clip_theme_btn_style(btn, name: str):
 
 def create_appearance_page(dialog) -> QWidget:
     """创建外观设置页面 — Fluent Design"""
-    scroll = QScrollArea()
+    scroll = page_scroll_area(dialog)
     scroll.setWidgetResizable(True)
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 

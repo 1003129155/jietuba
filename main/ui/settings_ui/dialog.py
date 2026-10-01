@@ -55,6 +55,45 @@ from .components import (
 )
 
 
+# 按 content_stack 下标排列
+_PAGE_BUILDERS = (
+    create_hotkey_page,          # 0
+    create_capture_page,         # 1
+    create_clipboard_page,       # 2
+    create_appearance_page,      # 3
+    create_translation_page,     # 4
+    create_log_page,             # 5
+    create_misc_page,            # 6
+    create_developer_page,       # 7
+    create_about_page,           # 8
+    create_quick_actions_page,   # 9
+    create_mouse_page,           # 10
+)
+
+
+_TRACKED_SIGNALS = (
+    "textChanged",
+    "checkedChanged",
+    "toggled",
+    "currentIndexChanged",
+    "valueChanged",
+    # Buttons that open a picker or editor may update state only after
+    # their modal child closes, without emitting a value signal.
+    "clicked",
+)
+_tracked_signals_by_class = {}
+
+
+def _tracked_signals(widget_class) -> tuple:
+    """这类控件有哪些要跟踪的信号；按类缓存，不必对每个控件逐个试名字。"""
+    names = _tracked_signals_by_class.get(widget_class)
+    if names is None:
+        names = tuple(name for name in _TRACKED_SIGNALS
+                      if isinstance(getattr(widget_class, name, None), Signal))
+        _tracked_signals_by_class[widget_class] = names
+    return names
+
+
 def save_inapp_shortcut_edits(config_manager, edits):
     """Persist in-app editors while preserving empty-as-unbound semantics."""
     from core.shortcut_manager import is_reserved_inapp_shortcut
@@ -211,23 +250,13 @@ class SettingsDialog(FrostedFramelessDialog):
             ),
         )
 
+        # 各页第一次切到时才建（见 _ensure_page）：一次建完全部页面要一秒多，打开设置会卡住。
+        # 先放占位，下标保持不变
         self.content_stack = QStackedWidget()
-        self.content_stack.addWidget(create_hotkey_page(self))           # 0
-        self.content_stack.addWidget(create_capture_page(self))          # 1
-        self.content_stack.addWidget(create_clipboard_page(self))        # 2
-        self.content_stack.addWidget(create_appearance_page(self))       # 3
-        self.content_stack.addWidget(create_translation_page(self))      # 4
-        self.content_stack.addWidget(create_log_page(self))              # 5
-        self.content_stack.addWidget(create_misc_page(self))             # 6
-        self.content_stack.addWidget(create_developer_page(self))        # 7
-        self.content_stack.addWidget(create_about_page(self))            # 8
-        self.content_stack.addWidget(create_quick_actions_page(self))    # 9
-        self.content_stack.addWidget(create_mouse_page(self))            # 10
-
-        # 分页都是一次性建完、切换只换可见性（不是懒加载/动态重建），
-        # 建完后统一扫一遍即可覆盖全部分页里的 fluent_lite 控件。
-        configure_dialog_controls(self.content_stack)
-        disable_wheel_on_value_controls(self.content_stack)
+        self._built_pages = set()
+        for _ in _PAGE_BUILDERS:
+            self.content_stack.addWidget(QWidget())
+        self._ensure_page(0)
 
         right_layout.addWidget(self.content_title)
         right_layout.addWidget(self.content_stack)
@@ -238,11 +267,8 @@ class SettingsDialog(FrostedFramelessDialog):
         self._apply_dialog_stylesheet()
 
         self._set_current_nav("shortcuts")
-        # The existing snapshot is also the single source of truth for the
-        # Apply button.  Build the baseline only after every page exists, then
-        # listen to all editable descendants so the footer reacts immediately.
+        # 快照也是「应用」按钮是否可点的依据；之后建的页由 _ensure_page 补进来
         self._settings_snapshot = self._snapshot_settings()
-        self._connect_action_button_tracking()
         self._update_action_buttons()
 
     def _create_navigation(self, parent=None):
@@ -283,6 +309,29 @@ class SettingsDialog(FrostedFramelessDialog):
     def _set_current_nav(self, route_key: str):
         if hasattr(self, 'nav_list') and self.nav_list is not None:
             self.nav_list.setCurrentItem(route_key)
+
+    def _ensure_page(self, index: int):
+        """建出下标为 index 的页（已建过则不动），并把它的当前值补进未保存检测的基线。"""
+        if index in self._built_pages:
+            return
+        self._built_pages.add(index)
+        page = _PAGE_BUILDERS[index](self)
+        placeholder = self.content_stack.widget(index)
+        self.content_stack.removeWidget(placeholder)
+        placeholder.deleteLater()
+        self.content_stack.insertWidget(index, page)
+        configure_dialog_controls(page)
+        disable_wheel_on_value_controls(page)
+        self._connect_action_button_tracking(page)
+        baseline = getattr(self, '_settings_snapshot', None)
+        if baseline is not None:
+            for key, value in self._snapshot_settings().items():
+                baseline.setdefault(key, value)
+
+    def build_all_pages(self):
+        """导入、导出要经过每一页的控件，先全部建出来。"""
+        for index in range(len(_PAGE_BUILDERS)):
+            self._ensure_page(index)
 
     # ================================================================
     # 辅助方法
@@ -397,6 +446,7 @@ class SettingsDialog(FrostedFramelessDialog):
         }
 
         if stack_index in title_map:
+            self._ensure_page(stack_index)
             self.content_title.setText(title_map[stack_index])
             self.content_stack.setCurrentIndex(stack_index)
             if route_key:
@@ -423,6 +473,7 @@ class SettingsDialog(FrostedFramelessDialog):
             self._open_developer_page()
 
     def _open_developer_page(self):
+        self._ensure_page(7)
         self.content_stack.setCurrentIndex(7)
         self.content_title.setText(self.tr("Developer Options"))
         self.nav_list.clearCurrentItem()
@@ -575,29 +626,11 @@ class SettingsDialog(FrostedFramelessDialog):
                 }}
             """)
 
-    def _connect_action_button_tracking(self):
+    def _connect_action_button_tracking(self, page):
         """Keep Apply in sync with edits made anywhere in the settings pages."""
-        signal_names = (
-            "textChanged",
-            "checkedChanged",
-            "toggled",
-            "currentIndexChanged",
-            "valueChanged",
-            # Buttons that open a picker or editor may update state only after
-            # their modal child closes, without emitting a value signal.
-            "clicked",
-        )
-        for widget in self.content_stack.findChildren(QWidget):
-            for signal_name in signal_names:
-                signal = getattr(widget, signal_name, None)
-                if signal is None:
-                    continue
-                try:
-                    signal.connect(self._update_action_buttons)
-                except (AttributeError, TypeError):
-                    # Some Qt properties look signal-like through bindings but
-                    # do not expose a connectable bound signal.
-                    continue
+        for widget in page.findChildren(QWidget):
+            for signal_name in _tracked_signals(type(widget)):
+                getattr(widget, signal_name).connect(self._update_action_buttons)
 
     def _update_action_buttons(self, *_args):
         """Enable Apply only while the current values differ from the baseline."""
@@ -752,7 +785,8 @@ class SettingsDialog(FrostedFramelessDialog):
 
     def _reset_quick_actions_page(self):
         SettingsDialog._refresh_behavior_controls(
-            self, defaults=True, keys={"capture_fullscreen_crosshair", "capture_include_cursor"}
+            self, defaults=True,
+            keys={"capture_fullscreen_crosshair", "capture_include_cursor", "clipboard_take_over_win_v"},
         )
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
         if hasattr(self, 'ocr_copy_directly_toggle'):
@@ -870,12 +904,6 @@ class SettingsDialog(FrostedFramelessDialog):
             self.clipboard_auto_paste_toggle.setChecked(defaults["clipboard_auto_paste"])
         if hasattr(self, 'clipboard_history_limit_spin'):
             self.clipboard_history_limit_spin.setValue(defaults["clipboard_history_limit"])
-        if hasattr(self, 'clipboard_scan_interval_combo'):
-            idx = self.clipboard_scan_interval_combo.findData(
-                defaults["clipboard_foreground_scan_interval_ms"]
-            )
-            if idx >= 0:
-                self.clipboard_scan_interval_combo.setCurrentIndex(idx)
 
     # ================================================================
     # 保存（accept）
@@ -1087,10 +1115,6 @@ class SettingsDialog(FrostedFramelessDialog):
             self.config_manager.set_clipboard_enabled(self.clipboard_enabled_toggle.isChecked())
         if hasattr(self, 'clipboard_history_limit_spin'):
             self.config_manager.set_clipboard_history_limit(self.clipboard_history_limit_spin.value())
-        if hasattr(self, 'clipboard_scan_interval_combo'):
-            interval_ms = self.clipboard_scan_interval_combo.currentData()
-            if interval_ms is not None:
-                self.config_manager.set_clipboard_foreground_scan_interval_ms(interval_ms)
         if hasattr(self, 'clipboard_hotkey_edit'):
             self.config_manager.set_clipboard_hotkey(self.clipboard_hotkey_edit.text().strip())
         if hasattr(self, 'clipboard_hotkey_edit_2'):
@@ -1215,7 +1239,7 @@ class SettingsDialog(FrostedFramelessDialog):
         """根据当前主题生成并应用对话框样式表"""
         from core.ui_theme import get_ui_theme
         tokens = get_ui_theme().tokens
-        self.setStyleSheet(f"""
+        sheet = f"""
             #SettingsDialog {{
                 background: transparent;
                 border: none;
@@ -1237,7 +1261,10 @@ class SettingsDialog(FrostedFramelessDialog):
             QStackedWidget {{
                 background: transparent;
             }}
-        """ + scrollbar_qss(self))
+        """ + scrollbar_qss(self)
+        # 每次显示都会调到这里；内容没变不重设，重设会让整窗控件重新计算样式
+        if sheet != self.styleSheet():
+            self.setStyleSheet(sheet)
 
     def _on_ui_theme_changed(self, _tokens):
         """Rebuild window-local styles after an OS or user theme change."""
@@ -1343,7 +1370,7 @@ class SettingsDialog(FrostedFramelessDialog):
                       '_ui_theme_combo', '_ui_scale_combo', '_dialog_scale_combo',
                       '_selection_border_combo', '_selection_handle_combo',
                       '_selection_handle_size_combo', 'smart_mode_combo',
-                      'clipboard_scan_interval_combo', 'capture_engine_combo'):
+                      'capture_engine_combo'):
             w = getattr(self, attr, None)
             if w is not None:
                 snap[attr] = w.currentIndex()
@@ -1646,12 +1673,6 @@ class SettingsDialog(FrostedFramelessDialog):
             self.clipboard_auto_paste_toggle.setChecked(self.config_manager.get_clipboard_auto_paste())
         if hasattr(self, 'clipboard_history_limit_spin'):
             self.clipboard_history_limit_spin.setValue(self.config_manager.get_clipboard_history_limit())
-        if hasattr(self, 'clipboard_scan_interval_combo'):
-            idx = self.clipboard_scan_interval_combo.findData(
-                self.config_manager.get_clipboard_foreground_scan_interval_ms()
-            )
-            if idx >= 0:
-                self.clipboard_scan_interval_combo.setCurrentIndex(idx)
 
         if hasattr(self, 'autostart_toggle'):
             self.autostart_toggle.setChecked(self.config_manager.get_app_setting("autostart_enabled"))
@@ -1768,6 +1789,8 @@ class SettingsDialog(FrostedFramelessDialog):
         from settings.settings_transfer import preview_config
 
         config = self.config_manager
+        # 没建的页之后会按真实配置建出来，看不到导入的值
+        self.build_all_pages()
         with tempfile.TemporaryDirectory() as tmp:
             preview = preview_config(config, values, os.path.join(tmp, "import.ini"))
             self.config_manager = preview
@@ -1807,6 +1830,8 @@ class SettingsDialog(FrostedFramelessDialog):
         """设置界面上各选项对应的配置键：刷新一遍界面，记下读过哪些键。"""
         from settings.settings_transfer import recording_reads
 
+        # 没建的页读不到自己的键，导出会漏掉它们
+        self.build_all_pages()
         with recording_reads(self.config_manager) as keys:
             self.refresh_settings()
             # 外观项平时从管理器回填，不经过配置，要按配置再回填一遍才读得到

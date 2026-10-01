@@ -1,4 +1,4 @@
-"""Settings Apply reaches real quick-capture dispatch without native hooks or desktop data."""
+"""Settings Apply reaches real quick-capture dispatch without installing hooks or touching desktop data."""
 
 import threading
 from types import SimpleNamespace
@@ -13,14 +13,10 @@ from capture import quick_capture_controller as capture_module
 from core import quick_capture_input as input_module
 from main_app import MainApp
 from settings.tool_settings import QUICK_CAPTURE_ACTIONS, ToolSettingsManager, get_quick_capture_bindings
+from tests.engine_input_hub import engine_input_hub
 from ui.settings_ui.dialog import SettingsDialog
 
-# button: (down message, up message, mouseData high word)
-BUTTONS = {
-    "left": (input_module.WM_LBUTTONDOWN, input_module.WM_LBUTTONUP, 0),
-    "right": (input_module.WM_RBUTTONDOWN, input_module.WM_RBUTTONUP, 0),
-    "x2": (input_module.WM_XBUTTONDOWN, input_module.WM_XBUTTONUP, 2),
-}
+MENU_KEYS = (0x5B, 0x5C, 0xA4, 0xA5)
 
 
 class AppHarness(QObject):
@@ -47,18 +43,6 @@ class AppHarness(QObject):
         self.quick_capture = capture_module.QuickCaptureController(self)
 
 
-class SyntheticHooks:
-    def __init__(self, mouse, keyboard, failure):
-        self.mouse, self.keyboard, self.failure = mouse, keyboard, failure
-        self.started = self.stopped = False
-
-    def start(self):
-        self.started = True
-
-    def stop(self):
-        self.stopped = True
-
-
 def synthetic_image(rect):
     image = QImage(rect.width(), rect.height(), QImage.Format.Format_RGB32)
     image.fill(0xff234567)
@@ -67,21 +51,9 @@ def synthetic_image(rect):
 
 @pytest.fixture
 def integration(qapp, qtbot, tmp_settings, tmp_path, monkeypatch):
-    keys, hooks = set(), []
-
-    def create_hooks(*callbacks):
-        backend = SyntheticHooks(*callbacks)
-        hooks.append(backend)
-        return backend
-
-    # Keep the production modifier matching and input state machine. Only the
-    # calls that talk to Windows are replaced, including menu-mask SendInput.
-    native = SimpleNamespace(
-        GetAsyncKeyState=lambda key: 0x8000 if key in keys else 0,
-        SendInput=lambda count, _inputs, _size: count,
-    )
-    monkeypatch.setattr(input_module, "_Win32Hooks", create_hooks)
-    monkeypatch.setattr(input_module, "_user32", lambda: native)
+    # The production native state machine without hooks; tests feed it input directly.
+    hub = engine_input_hub()
+    monkeypatch.setattr(input_module, "input_hub", lambda: hub)
     monkeypatch.setattr(capture_module, "desktop_bounds", lambda: QRect(0, 0, 800, 600))
     monkeypatch.setattr(capture_module, "flush_desktop", lambda: None)
     monkeypatch.setattr(capture_module.CaptureService, "capture_region",
@@ -105,6 +77,7 @@ def integration(qapp, qtbot, tmp_settings, tmp_path, monkeypatch):
     bind(config, copy_pin="win+dragleft")
     app = AppHarness(config)
     dialog = SettingsDialog(config, current_hotkey=config.get_hotkey())
+    dialog.build_all_pages()
     for attr in ("log_toggle", "autostart_toggle", "language_combo"):
         delattr(dialog, attr)
     app.settings_window = dialog
@@ -112,9 +85,11 @@ def integration(qapp, qtbot, tmp_settings, tmp_path, monkeypatch):
     dialog.show()
     qapp.processEvents()
     app.update_hotkey()
-    yield SimpleNamespace(app=app, dialog=dialog, config=config, keys=keys, hooks=hooks,
+    yield SimpleNamespace(app=app, dialog=dialog, config=config, native=hub.native,
                           copied=copied, pinned=pinned, qtbot=qtbot, qapp=qapp)
     app.quick_capture.close()
+    hub.close()
+    hub.deleteLater()
     dialog._skip_unsaved_close_prompt = True
     dialog.close()
     dialog.deleteLater()
@@ -150,23 +125,17 @@ def apply(fixture):
 
 
 def drag(fixture, modifier_keys, *, accepted, button="left"):
-    fixture.keys.clear()
-    fixture.keys.update(modifier_keys)
-    backend = fixture.hooks[-1]
-    down, up, high = BUTTONS[button]
-
-    def mouse(message, x, y):
-        return backend.mouse(message, SimpleNamespace(pt=SimpleNamespace(x=x, y=y), flags=0,
-                                                      mouseData=high << 16))
-
-    before = fixture.copied.call_count
-    assert bool(mouse(down, 100, 120)) is accepted
+    native = fixture.native
+    native.release_all()
+    native.hold(*modifier_keys)
+    before, masks = fixture.copied.call_count, native.mask_calls
+    assert native.mouse("down", 100, 120, button) is accepted
     fixture.qapp.processEvents()
     if accepted:
         fixture.qtbot.waitUntil(lambda: fixture.app.quick_capture.overlay is not None
                                and fixture.app.quick_capture.overlay.isVisible())
-    assert not mouse(input_module.WM_MOUSEMOVE, 220, 200)
-    assert bool(mouse(up, 220, 200)) is accepted
+    assert not native.mouse("move", 220, 200)
+    assert native.mouse("up", 220, 200, button) is accepted
     fixture.qapp.processEvents()
     if accepted:
         fixture.qtbot.waitUntil(lambda: fixture.copied.call_count == before + 1)
@@ -180,19 +149,15 @@ def drag(fixture, modifier_keys, *, accepted, button="left"):
     # A complete gesture includes releasing its modifiers after the mouse.
     # The hook must remain alive until this release can mask Win/Alt menus.
     for key in reversed(modifier_keys):
-        message = input_module.WM_SYSKEYUP if key in (0xA4, 0xA5) else input_module.WM_KEYUP
-        assert not backend.keyboard(message, SimpleNamespace(vkCode=key, flags=0))
-        fixture.keys.remove(key)
+        assert not native.key(key, False)
     fixture.qapp.processEvents()
-    assert not fixture.app.quick_capture.input._pending_menu_keys
+    menu_keys = [key for key in modifier_keys if key in MENU_KEYS]
+    assert native.mask_calls == masks + (len(menu_keys) if accepted else 0)
 
 
 def matching_ctrl_click(fixture):
-    fixture.keys.add(0xA2)
-    backend = fixture.hooks[-1]
-    data = SimpleNamespace(pt=SimpleNamespace(x=100, y=120), flags=0, mouseData=0)
-    return (backend.mouse(input_module.WM_LBUTTONDOWN, data),
-            backend.mouse(input_module.WM_LBUTTONUP, data))
+    fixture.native.hold(0xA2)
+    return fixture.native.mouse("down", 100, 120, "left"), fixture.native.mouse("up", 100, 120, "left")
 
 
 def configure_ctrl(fixture):
@@ -264,13 +229,9 @@ def test_normal_capture_build_blocks_input_before_first_show_or_reuse(integratio
 def test_hook_thread_motion_burst_renders_latest_point_once_on_gui_thread(integration, monkeypatch):
     fixture = integration
     controller = fixture.app.quick_capture
-    fixture.keys.add(0x5B)
-    backend = fixture.hooks[-1]
-
-    def mouse(message, x, y):
-        return backend.mouse(message, SimpleNamespace(pt=SimpleNamespace(x=x, y=y), flags=0, mouseData=0))
-
-    assert mouse(input_module.WM_LBUTTONDOWN, 100, 120)
+    native = fixture.native
+    native.hold(0x5B)
+    assert native.mouse("down", 100, 120, "left")
     fixture.qapp.processEvents()
     overlay = controller.overlay
     painted_threads = []
@@ -284,7 +245,7 @@ def test_hook_thread_motion_burst_renders_latest_point_once_on_gui_thread(integr
 
     def burst():
         for offset in range(500):
-            mouse(input_module.WM_MOUSEMOVE, 101 + offset, 121 + offset // 2)
+            native.mouse("move", 101 + offset, 121 + offset // 2)
 
     producer = threading.Thread(target=burst)
     producer.start()
@@ -295,7 +256,7 @@ def test_hook_thread_motion_burst_renders_latest_point_once_on_gui_thread(integr
     assert overlay.model.rect() == QRectF(100, 120, 500, 250)
     assert controller.input.take_position(controller._active) is None
     # Final capture uses the release position even if no move event announced it.
-    assert mouse(input_module.WM_LBUTTONUP, 620, 380)
+    assert native.mouse("up", 620, 380, "left")
     fixture.qtbot.waitUntil(lambda: fixture.copied.called)
     assert fixture.copied.call_args.args[0].size().width() == 520
     assert fixture.copied.call_args.args[0].size().height() == 260
@@ -343,12 +304,12 @@ def test_clearing_every_binding_unhooks_and_defaults_bring_back_win_pin(integrat
     set_binding(fixture, "copy_pin", "", "")
     apply(fixture)
     assert saved(fixture) == {}
-    assert fixture.hooks[-1].stopped
+    assert not fixture.native.hooks_needed
     drag(fixture, [0x5B], accepted=False)
 
     fixture.dialog._reset_mouse_page()
     apply(fixture)
     assert saved(fixture) == {(frozenset({"win"}), "left"): "pin"}
-    assert not fixture.hooks[-1].stopped
+    assert fixture.native.hooks_needed
     drag(fixture, [0x5B], accepted=True)
     assert fixture.pinned.call_count == 1

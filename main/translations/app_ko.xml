@@ -2903,14 +2903,6 @@ Replace it?</source>
         <translation>유지할 최대 항목 수 (0 = 무제한)</translation>
     </message>
     <message>
-        <source>Window Scan Interval</source>
-        <translation>창 스캔 주기</translation>
-    </message>
-    <message>
-        <source>How often the foreground window is sampled to find the paste target (only while this panel is open)</source>
-        <translation>패널이 열려 있는 동안 이 주기로 전경 창을 검사해 붙여넣기 대상을 찾습니다(패널이 열려 있을 때만 동작)</translation>
-    </message>
-    <message>
         <source>Auto Cleanup Old Items</source>
         <translation>오래된 항목 자동 정리</translation>
     </message>
@@ -4386,6 +4378,14 @@ SOFTWARE.</translation></message>
     <message>
         <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
         <translation>QR 코드나 바코드가 하나만 인식되면 결과 창을 열지 않고 내용을 복사합니다. 여러 개가 인식되면 결과 창이 열립니다.</translation>
+    </message>
+    <message>
+        <source>Open Clipboard with Win+V</source>
+        <translation>Win+V로 클립보드 열기</translation>
+    </message>
+    <message>
+        <source>Win+V opens this app's clipboard instead of the Windows clipboard history. Turn it off to give Win+V back to Windows.</source>
+        <translation>Win+V를 누르면 Windows 클립보드 기록 대신 이 앱의 클립보드가 열립니다. 끄면 Win+V를 다시 Windows가 사용합니다.</translation>
     </message>
     <message>
         <source>Global Mouse Shortcuts</source>

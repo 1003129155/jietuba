@@ -30,7 +30,7 @@ class UIScaleManager:
     """操作界面缩放管理器（单例）"""
 
     # 设置界面提供的档位，存储时用整数百分比，避免浮点在 QSettings 里往返失真
-    PERCENT_OPTIONS = (80, 90, 100, 110, 125, 150)
+    PERCENT_OPTIONS = (80, 90, 100, 110, 125, 150, 175, 200)
     DEFAULT_PERCENT = 100
 
     _instance = None

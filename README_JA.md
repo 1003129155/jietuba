@@ -88,7 +88,7 @@ OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は、�
 
 ### Rust 拡張パッケージ
 
-以下の 5 パッケージは `requirements.txt` に含まれ、実行時依存パッケージと一緒にインストールされます。個別のライブラリとしても利用でき、ソースコードは [rust_libs/](rust_libs/) にあります。PyPI の配布名と Python の import 名の対応は次のとおりです。
+以下の 6 パッケージは `requirements.txt` に含まれ、実行時依存パッケージと一緒にインストールされます。個別のライブラリとしても利用でき、ソースコードは [rust_libs/](rust_libs/) にあります。PyPI の配布名と Python の import 名の対応は次のとおりです。
 
 | pip パッケージ名 | import 名 | バージョン | 機能 |
 |------|------|------|------|
@@ -97,6 +97,7 @@ OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は、�
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.4 | クリップボード操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | HDR 対応のデスクトップキャプチャ（DXGI Desktop Duplication + GPU トーンマッピング） |
+| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.0 | GUI スレッドを止めないグローバルなマウス・キーボードフック（ドラッグジェスチャ、サイドボタン、ホットキー、ホイール、前面ウィンドウ） |
 
 ビルド済み wheel は Windows x86_64 および ARM64 向けです。各パッケージの Python バージョン指定は `>=3.11` で、Rust バインディングでは `abi3-py311` を有効にしています。詳細は各パッケージの `pyproject.toml` と `Cargo.toml` を参照してください。
 
@@ -114,6 +115,8 @@ python -m pytest main/tests -c main/tests/pytest.ini
 ```
 
 [テストディレクトリ](main/tests/)には、キャプチャ、クリップボード、モザイク編集、ピン留め画像のズーム、GIF 再生、OCR テキストレイヤーなどのユニットテスト・統合テストがあります。[CI 設定](.github/workflows/ci.yml)では Windows x86_64 と ARM64 の Python 3.11 環境でテストとカバレッジ検査を実行し、x86_64 では静的解析も行います。実行結果は [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml) で確認できます。
+
+実際にマウスとキーボードを操作するテスト（`test_quick_capture_real_hooks.py` など）は既定でスキップされます。環境変数 `RUN_REAL_INPUT_TESTS=1` を設定すると実行され、実行中はマウスとキーボードに触れないでください。
 
 Windows 版のビルドは `python build_with_ocr_onefile.py` で実行できます。生成物は `dist/jietuba_pp.exe` と `dist/models/` です。[自動リリースワークフロー](.github/workflows/build.yml)では、x64 と ARM64 のアーカイブを個別に生成します。
 
@@ -335,6 +338,7 @@ clipboard/
 - 独立した3ペイン管理ウィンドウでグループ・テキスト内容・ファイル内容を編集可能
 - テキスト項目の CSV インポート/エクスポートに対応
 - テーマ切替、ショートカットによる高速貼り付け、大画像/長文プレビューに対応
+- 「クイック動作」設定で、Windows のクリップボード履歴の代わりに Win+V で開けるように設定可能
 
 ---
 
@@ -355,7 +359,8 @@ core/
 ├── ui_scale.py              # UIScaleManager — ツールバー/パネル/ポップアップ共通の拡大率
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — 国際化
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — グローバル＆アプリ内ホットキー
-├── quick_capture_input.py    # グローバル修飾キー＋ドラッグ入力と撮影ジェスチャの状態管理
+├── input_hub.py             # プロセス共通のグローバル入力：ネイティブフック（j-input）は GUI スレッド外で動き、イベントを Qt シグナルで通知
+├── quick_capture_input.py    # グローバルマウスショートカットのドラッグ入力（共通入力ハブを利用）
 ├── last_capture_region.py   # 「前回の選択範囲を復元」用のプロセス内メモリ
 ├── save.py                  # SaveService — ファイル保存サービス（高品質 PDF 出力対応）
 ├── export.py                # ExportService — 画像エクスポート
@@ -623,7 +628,7 @@ ui/
 │   ├── components.py        # SettingCardGroup / ToggleSwitch — 設定コンポーネント
 │   ├── page_appearance.py   # 外観設定（テーマ、言語）
 │   ├── page_capture.py      # キャプチャ設定
-│   ├── page_quick_actions.py # クイック動作設定（確認・結果ウィンドウの省略）
+│   ├── page_quick_actions.py # クイック動作設定（確認・結果ウィンドウの省略、Win+V の引き継ぎ）
 │   ├── color_format_dialog.py # ColorFormatDialog — 拡大鏡のカラー形式を管理するダイアログ
 │   ├── page_clipboard.py    # クリップボード設定
 │   ├── page_hotkey.py       # ホットキー設定

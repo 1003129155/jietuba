@@ -180,6 +180,7 @@ def test_settings_dialog_saves_capture_mouse_binding(monkeypatch, qapp, tmp_path
         lambda _self, _hotkey: True,
     )
     dialog = SettingsDialog(manager)
+    dialog.build_all_pages()
 
     for attr in (
         "log_toggle",
@@ -212,6 +213,7 @@ def test_settings_dialog_saves_capture_mouse_binding(monkeypatch, qapp, tmp_path
 def test_apply_button_tracks_settings_dirty_state(qapp, tmp_path):
     manager = _manager(tmp_path)
     dialog = SettingsDialog(manager)
+    dialog.build_all_pages()
 
     dialog._settings_snapshot = dialog._snapshot_settings()
     dialog._update_action_buttons()
@@ -244,6 +246,7 @@ def test_settings_dialog_saves_annotation_behavior_toggles(
         lambda _self, _hotkey: True,
     )
     dialog = SettingsDialog(manager)
+    dialog.build_all_pages()
 
     for attr in (
         "log_toggle",
@@ -288,6 +291,7 @@ def test_global_hotkey_duplicates_are_marked_and_never_persisted(
         lambda _parent, title, message: warnings.append((title, message)),
     )
     dialog = SettingsDialog(manager, manager.get_hotkey())
+    dialog.build_all_pages()
 
     # 模拟用户把备用键改成与主键相同：两个输入框都应立即显示冲突。
     dialog.hotkey_input_2.setText("ctrl+shift+a")
@@ -338,6 +342,24 @@ def test_quick_actions_toggles_reset_refresh_and_snapshot(qapp, tmp_path):
     snapshot = SettingsDialog._snapshot_settings(dialog)
     assert snapshot["ocr_copy_directly_toggle"] is True
     assert snapshot["barcode_copy_single_toggle"] is True
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+def test_win_v_take_over_toggle_reads_and_resets_to_off(qapp, tmp_path, enabled):
+    manager = _manager(tmp_path)
+    manager.set_app_setting("clipboard_take_over_win_v", enabled)
+    dialog = SimpleNamespace(config_manager=manager, tr=lambda text: text)
+
+    page = create_quick_actions_page(dialog)
+
+    try:
+        toggle = dialog._behavior_controls["clipboard_take_over_win_v"]
+        assert toggle.isChecked() is enabled
+        SettingsDialog._reset_quick_actions_page(dialog)
+        assert toggle.isChecked() is False
+    finally:
+        page.deleteLater()
+        qapp.processEvents()
 
 
 def test_annotation_behavior_toggles_reset_refresh_and_snapshot(qapp, tmp_path):
@@ -632,6 +654,7 @@ def test_settings_dialog_saves_clipboard_file_reference_toggle(monkeypatch, qapp
     monkeypatch.setattr("core.shortcut_manager.HotkeySystem.check_hotkey_availability",
                         lambda _self, _hotkey: True)
     dialog = SettingsDialog(manager)
+    dialog.build_all_pages()
     try:
         for attr in ("log_toggle", "autostart_toggle", "language_combo", "_ui_theme_combo",
                      "_appearance_theme_color", "_appearance_mask_color", "_inapp_edits"):
@@ -663,6 +686,7 @@ def test_detection_mode_changes_are_saved_and_reset_in_settings_dialog(monkeypat
     monkeypatch.setattr("core.shortcut_manager.HotkeySystem.check_hotkey_availability",
                         lambda _self, _hotkey: True)
     dialog = SettingsDialog(manager)
+    dialog.build_all_pages()
     try:
         for attr in ("log_toggle", "autostart_toggle", "language_combo", "_ui_theme_combo",
                      "_appearance_theme_color", "_appearance_mask_color", "_inapp_edits"):
@@ -697,6 +721,7 @@ def test_settings_dialog_saves_smart_selection_animation_toggle(
         lambda _self, _hotkey: True,
     )
     dialog = SettingsDialog(manager)
+    dialog.build_all_pages()
 
     for attr in (
         "log_toggle",

@@ -1,0 +1,25 @@
+[package]
+name = "inputhub"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Windows 全局输入：低层鼠标键盘钩子与前台窗口跟踪，决定在原生线程里做完，不经过 Python"
+authors = ["JYAARU"]
+
+[lib]
+name = "inputhub"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["python"]
+python = ["dep:pyo3"]
+
+[dependencies]
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py311"], optional = true }
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_System_Threading",
+    "Win32_UI_Accessibility",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+] }

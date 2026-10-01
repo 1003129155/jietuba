@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
 )
 
 from core.ui_scale import widget_scaled as _px
-from core.ui_theme import get_ui_theme
+from core.ui_theme import apply_style_sheet, get_ui_theme
 
 from .buttons import (
     ColorSwatchButton, HyperlinkButton, PrimaryPushButton, PushButton,
@@ -41,7 +41,7 @@ class RadioButton(_QRadioButton):
 
     def _apply_theme(self, _tokens=None):
         spacing = _px(self, self._LABEL_SPACING)
-        self.setStyleSheet(
+        apply_style_sheet(self, 
             f"QRadioButton {{ color: {ui_tokens(self).text}; "
             f"spacing: {spacing}px; font: {_px(self, 13)}px {FONT_FAMILY}; }}"
             f"QRadioButton::indicator {{ width: {_px(self, 16)}px; height: {_px(self, 16)}px; }}"
@@ -121,7 +121,7 @@ class CheckBox(_QCheckBox):
 
     def _apply_theme(self, _tokens=None):
         spacing = _px(self, self._LABEL_SPACING)
-        self.setStyleSheet(
+        apply_style_sheet(self, 
             f"QCheckBox {{ color: {ui_tokens(self).text}; background: transparent; "
             f"spacing: {spacing}px; font: {_px(self, 13)}px {FONT_FAMILY}; }}"
             f"QCheckBox::indicator {{ width: {_px(self, 16)}px; height: {_px(self, 16)}px; }}"

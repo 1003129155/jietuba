@@ -2744,14 +2744,6 @@ Replace it?</translation>
         <translation>Maximum number of items to keep (0 = unlimited)</translation>
     </message>
     <message>
-        <source>Window Scan Interval</source>
-        <translation>Window Scan Interval</translation>
-    </message>
-    <message>
-        <source>How often the foreground window is sampled to find the paste target (only while this panel is open)</source>
-        <translation>How often the foreground window is sampled to find the paste target (only while this panel is open)</translation>
-    </message>
-    <message>
         <source>Auto Cleanup Old Items</source>
         <translation>Auto Cleanup Old Items</translation>
     </message>
@@ -4176,6 +4168,14 @@ SOFTWARE.</translation></message>
     <message>
         <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
         <translation>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</translation>
+    </message>
+    <message>
+        <source>Open Clipboard with Win+V</source>
+        <translation>Open Clipboard with Win+V</translation>
+    </message>
+    <message>
+        <source>Win+V opens this app's clipboard instead of the Windows clipboard history. Turn it off to give Win+V back to Windows.</source>
+        <translation>Win+V opens this app's clipboard instead of the Windows clipboard history. Turn it off to give Win+V back to Windows.</translation>
     </message>
     <message>
         <source>Global Mouse Shortcuts</source>

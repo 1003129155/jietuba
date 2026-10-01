@@ -2,69 +2,24 @@
 """鼠标侧键快捷键：登记表、低级钩子的启停与独占、派发链、录入框捕获"""
 import pytest
 
-from pynput import mouse as _pynput_mouse
-
+from core.input_hub import existing_input_hub, input_hub
 from core.shortcut_manager import (
     ShortcutManager, ShortcutHandler, HotkeySystem,
     MOUSE_BUTTON_BACK, MOUSE_BUTTON_FORWARD,
     is_mouse_button_hotkey,
 )
 
-# 在任何 monkeypatch 之前抓住真实的 Listener：下面的替身会把
-# pynput.mouse.Listener 整个顶替掉，届时再去读这些常量读到的就是替身自己。
-_REAL_LISTENER = _pynput_mouse.Listener
-WM_XBUTTONDOWN = _REAL_LISTENER.WM_XBUTTONDOWN
-WM_XBUTTONUP = _REAL_LISTENER.WM_XBUTTONUP
-WM_MOUSEMOVE = _REAL_LISTENER.WM_MOUSEMOVE
-WM_LBUTTONDOWN = _REAL_LISTENER.WM_LBUTTONDOWN
+# 输入中心在测试里是不装钩子的原生状态机（见 conftest），侧键输入由测试逐条给出。
 
 
-# ============================================================================
-# 替身
-# ============================================================================
-# 真实的 pynput.mouse.Listener 会挂一个系统级 WH_MOUSE_LL 钩子，测试里既不该挂
-# 也没法断言。替身复刻它被我们用到的那部分接口：X_BUTTONS 映射表（直接借用
-# pynput 的真表，免得测试里再抄一份 Windows 常量）、start/stop、以及会抛异常的
-# suppress_event。
-
-class _Suppressed(Exception):
-    """替身版 SystemHook.SuppressException。"""
+def _side(button, pressed=True, injected=False) -> bool:
+    """模拟一次侧键输入，返回它是否被吞掉（True = 其它程序收不到）。"""
+    return input_hub().native.mouse("down" if pressed else "up", button=button, injected=injected)
 
 
-class _FakeMouseListener:
-    instances = []
-
-    def __init__(self, win32_event_filter=None, **_kwargs):
-        self.X_BUTTONS = _REAL_LISTENER.X_BUTTONS
-        self.win32_event_filter = win32_event_filter
-        self.started = False
-        self.stopped = False
-        _FakeMouseListener.instances.append(self)
-
-    def start(self):
-        self.started = True
-
-    def stop(self):
-        self.stopped = True
-
-    def suppress_event(self):
-        raise _Suppressed()
-
-
-class _FakeHookData:
-    """MSLLHOOKSTRUCT 里我们唯一读到的字段。"""
-
-    def __init__(self, xbutton_index):
-        self.mouseData = xbutton_index << 16
-
-
-def _hook_event(mgr, msg, xbutton_index) -> bool:
-    """模拟一次钩子回调，返回该事件是否被吞掉（True = 其它程序收不到）。"""
-    try:
-        mgr._mouse_event_filter(msg, _FakeHookData(xbutton_index))
-    except _Suppressed:
-        return True
-    return False
+def _hooks_needed() -> bool:
+    hub = existing_input_hub()
+    return hub is not None and hub.native.hooks_needed
 
 
 @pytest.fixture
@@ -72,20 +27,6 @@ def clean_mouse_registry():
     """鼠标侧键登记表是类级变量，测试间需要手动清理，避免互相污染。"""
     yield
     ShortcutManager._registered_mouse_buttons_global.clear()
-
-
-@pytest.fixture
-def fake_listener(monkeypatch):
-    """用替身顶替 pynput.mouse.Listener，并返回已创建实例的列表。"""
-    _FakeMouseListener.instances = []
-    monkeypatch.setattr("pynput.mouse.Listener", _FakeMouseListener)
-    return _FakeMouseListener.instances
-
-
-@pytest.fixture
-def no_real_mouse_listener(monkeypatch):
-    """只关心登记/派发语义、不关心钩子的用例，直接屏蔽掉启动。"""
-    monkeypatch.setattr(ShortcutManager, "_start_mouse_listener", lambda self: None)
 
 
 # ============================================================================
@@ -110,19 +51,19 @@ class TestIsMouseButtonHotkey:
 # ============================================================================
 
 class TestMouseHotkeyRegistration:
-    def test_register_then_duplicate_is_rejected(self, clean_mouse_registry, no_real_mouse_listener):
+    def test_register_then_duplicate_is_rejected(self, clean_mouse_registry):
         mgr = ShortcutManager()
         assert mgr.register_hotkey(MOUSE_BUTTON_BACK, lambda: None) is True
         assert mgr.has_registered_hotkeys() is True
         # 同一 token 被同进程重复注册，语义对齐 RegisterHotKey 拒绝重复注册
         assert mgr.register_hotkey(MOUSE_BUTTON_BACK, lambda: None) is False
 
-    def test_different_tokens_both_register(self, clean_mouse_registry, no_real_mouse_listener):
+    def test_different_tokens_both_register(self, clean_mouse_registry):
         mgr = ShortcutManager()
         assert mgr.register_hotkey(MOUSE_BUTTON_BACK, lambda: None) is True
         assert mgr.register_hotkey(MOUSE_BUTTON_FORWARD, lambda: None) is True
 
-    def test_unregister_all_clears_mouse_registry(self, clean_mouse_registry, no_real_mouse_listener):
+    def test_unregister_all_clears_mouse_registry(self, clean_mouse_registry):
         mgr = ShortcutManager()
         mgr.register_hotkey(MOUSE_BUTTON_BACK, lambda: None)
         mgr.unregister_all_hotkeys()
@@ -130,7 +71,7 @@ class TestMouseHotkeyRegistration:
         assert MOUSE_BUTTON_BACK not in ShortcutManager._registered_mouse_buttons_global
 
     def test_availability_always_true_regardless_of_registration(
-        self, clean_mouse_registry, no_real_mouse_listener
+        self, clean_mouse_registry
     ):
         hs = HotkeySystem()
         try:
@@ -150,153 +91,146 @@ class TestMouseHotkeyRegistration:
 # 浏览器后退键永远失灵，而且没有任何报错。
 
 class TestMouseHookLifecycle:
-    def test_hook_starts_on_first_binding_and_is_shared(self, clean_mouse_registry, fake_listener):
+    def test_hook_starts_on_first_binding(self, clean_mouse_registry):
         mgr = ShortcutManager()
         mgr.register_hotkey(MOUSE_BUTTON_BACK, lambda: None)
-        assert len(fake_listener) == 1
-        assert fake_listener[0].started is True
-
-        # 第二个 token 复用同一条监听线程，不该再起一个
+        assert _hooks_needed()
         mgr.register_hotkey(MOUSE_BUTTON_FORWARD, lambda: None)
-        assert len(fake_listener) == 1
+        assert _hooks_needed()
 
-    def test_hook_is_removed_when_last_binding_goes_away(self, clean_mouse_registry, fake_listener):
+    def test_hook_is_removed_when_last_binding_goes_away(self, clean_mouse_registry):
         """解绑后必须摘钩子，否则侧键再也回不到其它程序手里。"""
         mgr = ShortcutManager()
         mgr.register_hotkey(MOUSE_BUTTON_BACK, lambda: None)
         mgr.unregister_all_hotkeys()
 
-        assert fake_listener[0].stopped is True
-        assert mgr._mouse_listener is None
-        assert mgr._suppressed_mouse_tokens == frozenset()
+        assert not _hooks_needed()
+        assert _side("x1") is False
 
-    def test_no_hook_when_nothing_is_bound(self, clean_mouse_registry, fake_listener):
+    def test_no_input_hub_when_nothing_is_bound(self, clean_mouse_registry):
         mgr = ShortcutManager()
         mgr.register_hotkey("ctrl+shift+f9", lambda: None)  # 键盘热键不该牵动鼠标钩子
-        assert fake_listener == []
+        mgr.unregister_all_hotkeys()
+        assert existing_input_hub() is None
 
-    def test_capture_holds_the_hook_open_with_no_bindings(self, clean_mouse_registry, fake_listener):
+    def test_capture_holds_the_hook_open_with_no_bindings(self, clean_mouse_registry):
         """录入框聚焦时即使一个侧键都没绑，也要挂钩子，否则根本录不到。"""
         mgr = ShortcutManager()
         mgr.begin_mouse_capture()
-        assert len(fake_listener) == 1
-        assert mgr._suppressed_mouse_tokens == frozenset(
-            {MOUSE_BUTTON_BACK, MOUSE_BUTTON_FORWARD}
-        )
+        assert _hooks_needed()
+        assert _side("x1") is True and _side("x1", pressed=False) is True
+        assert _side("x2") is True and _side("x2", pressed=False) is True
 
         mgr.end_mouse_capture()
-        assert fake_listener[0].stopped is True
-        assert mgr._suppressed_mouse_tokens == frozenset()
+        assert not _hooks_needed()
 
-    def test_capture_is_reference_counted(self, clean_mouse_registry, fake_listener):
+    def test_capture_is_reference_counted(self, clean_mouse_registry):
         """两个录入框先后聚焦时，先失焦的那个不能把钩子提前摘掉。"""
         mgr = ShortcutManager()
         mgr.begin_mouse_capture()
         mgr.begin_mouse_capture()
         mgr.end_mouse_capture()
-        assert fake_listener[0].stopped is False
+        assert _hooks_needed()
 
         mgr.end_mouse_capture()
-        assert fake_listener[0].stopped is True
+        assert not _hooks_needed()
 
-    def test_end_capture_is_ignored_when_not_held(self, clean_mouse_registry, fake_listener):
+    def test_end_capture_is_ignored_when_not_held(self, clean_mouse_registry):
         """多余的释放不该把计数压成负数，否则后续 begin 会失效。"""
         mgr = ShortcutManager()
         mgr.end_mouse_capture()
         assert mgr._mouse_capture_refs == 0
         mgr.begin_mouse_capture()
-        assert len(fake_listener) == 1
+        assert _hooks_needed()
 
-    def test_unregister_during_capture_keeps_the_hook(self, clean_mouse_registry, fake_listener):
+    def test_unregister_during_capture_keeps_the_hook(self, clean_mouse_registry):
         """在设置窗口里改热键：解绑会走 unregister_all，但录入框还聚焦着。"""
         mgr = ShortcutManager()
         mgr.register_hotkey(MOUSE_BUTTON_BACK, lambda: None)
         mgr.begin_mouse_capture()
         mgr.unregister_all_hotkeys()
 
-        assert fake_listener[0].stopped is False
         # 录入期间仍独占全部侧键
-        assert mgr._suppressed_mouse_tokens == frozenset(
-            {MOUSE_BUTTON_BACK, MOUSE_BUTTON_FORWARD}
-        )
+        assert _side("x2") is True and _side("x2", pressed=False) is True
 
         mgr.end_mouse_capture()
-        assert fake_listener[0].stopped is True
+        assert not _hooks_needed()
 
-    def test_binding_survives_capture_release(self, clean_mouse_registry, fake_listener):
+    def test_binding_survives_capture_release(self, clean_mouse_registry):
         """录入结束后已绑定的 token 仍要独占，未绑定的要放行。"""
         mgr = ShortcutManager()
         mgr.register_hotkey(MOUSE_BUTTON_BACK, lambda: None)
         mgr.begin_mouse_capture()
         mgr.end_mouse_capture()
 
-        assert fake_listener[0].stopped is False
-        assert mgr._suppressed_mouse_tokens == frozenset({MOUSE_BUTTON_BACK})
+        assert _side("x1") is True and _side("x1", pressed=False) is True
+        assert _side("x2") is False
 
 
 # ============================================================================
-# 钩子回调：映射、独占范围、成对抑制
+# 钩子上的判断：独占范围、成对抑制、上报
 # ============================================================================
 
-class TestMouseEventFilter:
-    def test_bound_button_is_taken_from_the_rest_of_the_system(
-        self, clean_mouse_registry, fake_listener
-    ):
+class TestSideButtonInput:
+    def test_bound_button_is_taken_from_the_rest_of_the_system(self, clean_mouse_registry):
         mgr = ShortcutManager()
         mgr.register_hotkey(MOUSE_BUTTON_BACK, lambda: None)
-        down, up = WM_XBUTTONDOWN, WM_XBUTTONUP
 
         # 按下与抬起都要吞掉：只吞 DOWN 会让其它程序收到没有配对按下的抬起
-        assert _hook_event(mgr, down, 1) is True
-        assert _hook_event(mgr, up, 1) is True
+        assert _side("x1") is True
+        assert _side("x1", pressed=False) is True
 
-    def test_unbound_button_passes_through(self, clean_mouse_registry, fake_listener):
+    def test_unbound_button_passes_through(self, clean_mouse_registry):
         """只绑了后退键时，前进键必须照常交给浏览器。"""
         mgr = ShortcutManager()
         mgr.register_hotkey(MOUSE_BUTTON_BACK, lambda: None)
-        down = WM_XBUTTONDOWN
 
-        assert _hook_event(mgr, down, 2) is False
+        assert _side("x2") is False
+        assert _side("x2", pressed=False) is False
 
-    def test_capture_takes_every_side_button(self, clean_mouse_registry, fake_listener):
-        """录入期间两个侧键都独占，免得录这一下顺带让后台浏览器退一页。"""
+    def test_release_after_unbinding_is_still_swallowed(self, clean_mouse_registry):
+        """按下已被吞掉时解绑，抬起也要吞，别的程序不能收到没有按下的抬起。"""
         mgr = ShortcutManager()
-        mgr.begin_mouse_capture()
-        down = WM_XBUTTONDOWN
+        mgr.register_hotkey(MOUSE_BUTTON_BACK, lambda: None)
+        assert _side("x1") is True
+        mgr.unregister_all_hotkeys()
+        assert _side("x1", pressed=False) is True
+        assert not _hooks_needed()
+        assert _side("x1") is False
 
-        assert _hook_event(mgr, down, 1) is True
-        assert _hook_event(mgr, down, 2) is True
-
-    def test_press_emits_token_and_release_does_not(self, clean_mouse_registry, fake_listener):
+    def test_press_is_dispatched_once_and_release_is_not(self, qapp, clean_mouse_registry):
         mgr = ShortcutManager()
-        received = []
-        mgr._mouse_button_triggered.connect(received.append)
-        mgr.begin_mouse_capture()
-        down, up = WM_XBUTTONDOWN, WM_XBUTTONUP
+        calls = []
+        mgr.register_hotkey(MOUSE_BUTTON_BACK, lambda: calls.append("back"))
+        mgr.register_hotkey(MOUSE_BUTTON_FORWARD, lambda: calls.append("forward"))
 
-        _hook_event(mgr, down, 1)
-        _hook_event(mgr, up, 1)
-        _hook_event(mgr, down, 2)
+        _side("x1")
+        _side("x1", pressed=False)
+        _side("x2")
+        assert calls == []  # 经排队回到主线程
+        qapp.processEvents()
+        assert calls == ["back", "forward"]
 
-        assert received == [MOUSE_BUTTON_BACK, MOUSE_BUTTON_FORWARD]
+    def test_injected_side_buttons_count(self, qapp, clean_mouse_registry):
+        """鼠标驱动软件常用模拟输入发侧键，照样要生效。"""
+        mgr = ShortcutManager()
+        calls = []
+        mgr.register_hotkey(MOUSE_BUTTON_BACK, lambda: calls.append("back"))
 
-    def test_other_mouse_messages_are_left_alone(self, clean_mouse_registry, fake_listener):
+        assert _side("x1", injected=True) is True
+        assert _side("x1", pressed=False, injected=True) is True
+        qapp.processEvents()
+        assert calls == ["back"]
+
+    def test_other_mouse_input_is_left_alone(self, clean_mouse_registry):
         """移动和左键必须原样放行，不能因为钩子挂着就影响正常操作。"""
         mgr = ShortcutManager()
         mgr.begin_mouse_capture()
+        native = input_hub().native
 
-        assert _hook_event(mgr, WM_MOUSEMOVE, 0) is False
-        assert _hook_event(mgr, WM_LBUTTONDOWN, 0) is False
-
-    def test_filter_passes_through_after_the_hook_is_torn_down(
-        self, clean_mouse_registry, fake_listener
-    ):
-        """停止过程中还在路上的事件不能被吞掉。"""
-        mgr = ShortcutManager()
-        mgr.register_hotkey(MOUSE_BUTTON_BACK, lambda: None)
-        mgr.unregister_all_hotkeys()
-
-        assert _hook_event(mgr, WM_XBUTTONDOWN, 1) is False
+        assert native.mouse("move") is False
+        assert native.mouse("down", button="left") is False
+        assert native.mouse("up", button="left") is False
 
 
 # ============================================================================
@@ -304,7 +238,7 @@ class TestMouseEventFilter:
 # ============================================================================
 
 class TestMouseDispatch:
-    def test_triggered_slot_invokes_callback(self, clean_mouse_registry, no_real_mouse_listener):
+    def test_triggered_slot_invokes_callback(self, clean_mouse_registry):
         mgr = ShortcutManager()
         calls = []
         mgr.register_hotkey(MOUSE_BUTTON_BACK, lambda: calls.append("fired"))
@@ -312,7 +246,7 @@ class TestMouseDispatch:
         assert calls == ["fired"]
 
     def test_triggered_slot_respects_global_suppression(
-        self, clean_mouse_registry, no_real_mouse_listener
+        self, clean_mouse_registry
     ):
         mgr = ShortcutManager()
         calls = []
@@ -321,7 +255,7 @@ class TestMouseDispatch:
         mgr._on_mouse_button_triggered(MOUSE_BUTTON_BACK)
         assert calls == []
 
-    def test_handler_chain_runs_for_unbound_buttons(self, clean_mouse_registry, no_real_mouse_listener):
+    def test_handler_chain_runs_for_unbound_buttons(self, clean_mouse_registry):
         """录入的前提：没绑任何功能的侧键也要经过 handler 链。"""
         mgr = ShortcutManager()
         seen = []
@@ -347,7 +281,7 @@ class TestMouseDispatch:
         assert seen == [(MOUSE_BUTTON_FORWARD, None)]
 
     def test_handler_chain_can_intercept_bound_buttons(
-        self, clean_mouse_registry, no_real_mouse_listener
+        self, clean_mouse_registry
     ):
         mgr = ShortcutManager()
         calls = []

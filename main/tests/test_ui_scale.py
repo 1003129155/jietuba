@@ -30,7 +30,7 @@ def restore_scale():
 
 @pytest.mark.parametrize(("given", "expected"), [
     (100, 100), (80, 80), (150, 150),
-    (0, 80), (999, 150),          # 越界收到最近的档
+    (0, 80), (999, 200),          # 越界收到最近的档
     (97, 100), (118, 125),        # 非档位值吸附到最近的档
     (None, 100), ("abc", 100),    # 非法值回落默认
 ])
@@ -316,6 +316,7 @@ def test_apply_persists_the_scale_and_close_prompt_notices_it(monkeypatch, qapp,
     get_ui_scale().init(config)
 
     dialog = SettingsDialog(config)
+    dialog.build_all_pages()
     try:
         # 这几项会写到进程级单例或系统设置上，本用例只关心缩放
         for attr in ("log_toggle", "autostart_toggle", "language_combo",

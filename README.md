@@ -88,7 +88,7 @@ The repository includes `PP-OCRv6_det_small.onnx` and `PP-OCRv6_rec_small.onnx` 
 
 ### Rust Extension Packages
 
-These five packages are included in `requirements.txt` and install with the runtime dependencies. They can also be used independently; their source code is in [rust_libs/](rust_libs/). Their PyPI distribution names map to Python import names as follows:
+These six packages are included in `requirements.txt` and install with the runtime dependencies. They can also be used independently; their source code is in [rust_libs/](rust_libs/). Their PyPI distribution names map to Python import names as follows:
 
 | pip name | import name | Version | Description |
 |------|------|------|------|
@@ -97,6 +97,7 @@ These five packages are included in `requirements.txt` and install with the runt
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.4 | Low-level clipboard operations |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | HDR-correct desktop capture (DXGI Desktop Duplication + GPU tone mapping) |
+| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.0 | Global mouse and keyboard hooks off the GUI thread (gestures, side buttons, hotkeys, wheel, foreground window) |
 
 The available prebuilt wheels target Windows x86_64 and ARM64. Each package declares `>=3.11` and enables `abi3-py311` in its Rust bindings; see each package's `pyproject.toml` and `Cargo.toml`.
 
@@ -114,6 +115,8 @@ python -m pytest main/tests -c main/tests/pytest.ini
 ```
 
 The [test directory](main/tests/) contains unit and integration tests for capture, clipboard operations, mosaic editing, pin zoom, GIF playback, OCR text layers, and other modules. The [CI workflow](.github/workflows/ci.yml) runs tests and coverage checks on Windows x86_64 and ARM64 with Python 3.11, plus static analysis on x86_64. Results are available in [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml).
+
+Tests that drive the real mouse and keyboard, such as `test_quick_capture_real_hooks.py`, are skipped by default. Set `RUN_REAL_INPUT_TESTS=1` to run them, and leave the mouse and keyboard alone while they run.
 
 To build a Windows release, run `python build_with_ocr_onefile.py`. It produces `dist/jietuba_pp.exe` and `dist/models/`. The automated [release workflow](.github/workflows/build.yml) creates separate x64 and ARM64 archives.
 
@@ -336,6 +339,7 @@ clipboard/
 - Dedicated three-pane management window for editing groups, text items, and file items
 - CSV import/export for text items
 - Themeable UI, quick paste shortcuts, and large image/long text preview popups
+- Optionally opens with Win+V in place of the Windows clipboard history (Quick Actions settings)
 
 ---
 
@@ -356,7 +360,8 @@ core/
 ├── ui_scale.py              # UIScaleManager — one scale factor for toolbars, panels and popups
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — internationalization
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — global & in-app hotkeys
-├── quick_capture_input.py    # Global modifier-drag input and quick capture gesture state
+├── input_hub.py             # Shared global input: native hooks (j-input) off the GUI thread, events as Qt signals
+├── quick_capture_input.py    # Global mouse shortcut drag input on the shared input hub
 ├── last_capture_region.py   # In-memory "last capture region" for the restore-region hotkey
 ├── save.py                  # SaveService — file save service (auto naming, high-quality PDF output)
 ├── export.py                # ExportService — image export
@@ -624,7 +629,7 @@ ui/
 │   ├── components.py        # SettingCardGroup / ToggleSwitch — setting components
 │   ├── page_appearance.py   # Appearance settings (theme, language)
 │   ├── page_capture.py      # Capture settings
-│   ├── page_quick_actions.py # Quick actions settings (skip confirm or result windows)
+│   ├── page_quick_actions.py # Quick actions settings (skip confirm or result windows, take over Win+V)
 │   ├── color_format_dialog.py # ColorFormatDialog — magnifier color format editor
 │   ├── page_clipboard.py    # Clipboard settings
 │   ├── page_hotkey.py       # Hotkey settings

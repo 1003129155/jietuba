@@ -2948,14 +2948,6 @@ Replace it?</source>
         <translation>保持する最大履歴数（0 = 無制限）</translation>
     </message>
     <message>
-        <source>Window Scan Interval</source>
-        <translation>ウィンドウ検出間隔</translation>
-    </message>
-    <message>
-        <source>How often the foreground window is sampled to find the paste target (only while this panel is open)</source>
-        <translation>パネル表示中、この間隔でフォアグラウンドウィンドウを検出し貼り付け先を特定します（パネル表示中のみ動作）</translation>
-    </message>
-    <message>
         <source>Auto Cleanup Old Items</source>
         <translation>古いアイテムを自動削除</translation>
     </message>
@@ -4427,6 +4419,14 @@ SOFTWARE.</translation></message>
     <message>
         <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
         <translation>QR コードやバーコードが 1 つだけ見つかった場合は、結果ウィンドウを開かずに内容をコピーします。複数見つかった場合はこれまでどおり開きます。</translation>
+    </message>
+    <message>
+        <source>Open Clipboard with Win+V</source>
+        <translation>Win+V でクリップボードを開く</translation>
+    </message>
+    <message>
+        <source>Win+V opens this app's clipboard instead of the Windows clipboard history. Turn it off to give Win+V back to Windows.</source>
+        <translation>Win+V で Windows のクリップボード履歴ではなく、このアプリのクリップボードを開きます。オフにすると Win+V は Windows に戻ります。</translation>
     </message>
     <message>
         <source>Global Mouse Shortcuts</source>

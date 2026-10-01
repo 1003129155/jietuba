@@ -34,6 +34,7 @@ def test_wheel_over_combo_scrolls_page_instead_of_changing_value(monkeypatch, qa
         lambda _self, _hotkey: True,
     )
     dialog = SettingsDialog(manager)
+    dialog.build_all_pages()
     try:
         dialog.resize(900, 420)
         dialog.content_stack.setCurrentIndex(page_index)

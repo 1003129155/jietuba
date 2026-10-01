@@ -4,14 +4,14 @@
 """
 from PySide6.QtWidgets import (
     QWidget, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QSizePolicy,
-    QAbstractScrollArea, QAbstractSpinBox, QApplication, QComboBox,
+    QAbstractScrollArea, QAbstractSpinBox, QApplication, QComboBox, QScrollArea,
 )
 from PySide6.QtCore import QEvent, QObject, QRect, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QPainter
 from core import safe_event
 from core.resource_manager import ResourceManager
 from core.ui_scale import dialog_scaled
-from core.ui_theme import get_ui_theme, set_own_style
+from core.ui_theme import apply_style_sheet, get_ui_theme, set_own_style
 
 from ui.fluent_lite import (
     SwitchButton, SimpleCardWidget, SwitchSettingCard as _SwitchSettingCard, SettingCardGroup as _SettingCardGroupBase,
@@ -47,6 +47,14 @@ class _WheelPassThrough(QObject):
         # 已转发过，标记接受以免 Qt 再沿父链冒泡一次。
         event.accept()
         return True
+
+
+def page_scroll_area(dialog) -> QScrollArea:
+    """设置页最外层的滚动区，一建就挂到页面堆栈下。
+
+    内容先放进游离的滚动区、再整体挂进窗口，整页的样式要算两遍。
+    """
+    return QScrollArea(getattr(dialog, "content_stack", None))
 
 
 def disable_wheel_on_value_controls(root: QWidget) -> None:
@@ -109,7 +117,7 @@ def apply_theme_text_style(
         if caption
         else theme_text_style(font_size, bold, extra)
     )
-    widget.setStyleSheet(style)
+    apply_style_sheet(widget, style)
 
 
 def refresh_theme_widget_styles(root: QWidget):
@@ -223,7 +231,7 @@ class SettingCard(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("Card")
-        self.setStyleSheet("""
+        apply_style_sheet(self, """
             #Card {
                 background-color: #FFFFFF;
                 border-radius: 8px;

@@ -3,7 +3,7 @@
 滚动截图去重算法测试（stitch/scroll_window.py 的 aHash 部分）
 
 scroll_window.py 有 910 条语句、覆盖率约 10%，绝大多数方法依赖真实窗口滚动、
-pynput 钩子、QTimer 与 Win32 API，无法离线执行。但其中判断"这一帧和上一帧
+全局滚轮钩子、QTimer 与 Win32 API，无法离线执行。但其中判断"这一帧和上一帧
 是不是同一屏"的 _calculate_image_hash / _images_are_similar 是纯计算，
 只吃 PIL Image 和字符串，此前没有任何用例覆盖——一旦阈值或哈希位数被改动，
 长截图会静默地丢帧或收进重复帧，而测试全绿。

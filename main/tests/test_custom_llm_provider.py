@@ -319,6 +319,7 @@ def test_settings_page_offers_test_and_model_list(qapp):
     from ui.settings_ui.dialog import SettingsDialog
 
     dialog = SettingsDialog()
+    dialog.build_all_pages()
     assert set(dialog.provider_status_labels) == set(dialog.provider_sections)
 
     edit = dialog.provider_field_widgets["custom_llm_model"]
@@ -334,6 +335,7 @@ def test_test_button_reports_the_result_on_the_page(qapp, qtbot, server, setting
 
     # 不传配置时用的是预览用的 MockConfig，它不做设置键到 provider 参数的映射
     dialog = SettingsDialog(config_manager=settings)
+    dialog.build_all_pages()
     widgets = dialog.provider_field_widgets
     widgets["custom_llm_base_url"].setText("http://localhost:9/v1")
     widgets["custom_llm_model"].setText("typed-model")
@@ -400,6 +402,7 @@ def test_fetched_models_are_offered_and_the_pick_is_filled_in(
     monkeypatch.setattr(page_translation, "QMenu", _Menu)
     server["replies"] = [{"data": [{"id": "qwen3.5:2b"}, {"id": "llama3"}]}]
     dialog = SettingsDialog(config_manager=settings)
+    dialog.build_all_pages()
     dialog.provider_field_widgets["custom_llm_base_url"].setText("http://localhost:9/v1")
     edit, button = _fetch_button(dialog, "custom_llm_model")
 
@@ -421,6 +424,7 @@ def test_fetch_failure_is_shown_next_to_the_button(qapp, qtbot, server, settings
 
     server["replies"] = [_http_error(401, {"error": {"message": "invalid key"}})]
     dialog = SettingsDialog(config_manager=settings)
+    dialog.build_all_pages()
     dialog.provider_field_widgets["custom_llm_base_url"].setText("http://localhost:9/v1")
     _edit, button = _fetch_button(dialog, "custom_llm_model")
     status = dialog.provider_status_labels["custom_llm"]
@@ -538,6 +542,7 @@ def test_settings_page_offers_every_slot_and_saves_the_one_edited(qapp, settings
         lambda _self, _hotkey: True,
     )
     dialog = SettingsDialog(config_manager=settings)
+    dialog.build_all_pages()
     combo = dialog.translation_provider_combo
     assert [combo.itemData(i) for i in range(combo.count())][-3:] == _SLOT_IDS
     assert [combo.itemText(i) for i in range(combo.count())][-3:] == [

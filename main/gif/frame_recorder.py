@@ -24,9 +24,10 @@ class _POINT(ctypes.Structure):
 
 from concurrent.futures import Future
 
-from PySide6.QtCore import QObject, QTimer, QRect, QThread, Signal
+from PySide6.QtCore import QObject, QTimer, QRect, QThread, Qt, Signal
 
 from capture.capture_service import lend_hdr_session, return_hdr_session, uses_hdr_engine
+from core.input_hub import input_hub
 from core.logger import log_error, log_info, log_exception, T
 
 try:
@@ -79,6 +80,9 @@ class FrameData:
 
 # ── 采集器 ──────────────────────────────────────────
 
+_WHEEL_WATCHER = "gif"
+
+
 class FrameRecorder(QObject):
     """
     以指定帧率截屏，通过 gifrecorder.RecordSession (Rust) 驱动。
@@ -124,9 +128,9 @@ class FrameRecorder(QObject):
         self._rec_left: int = 0       # 录制区域屏幕左上角
         self._rec_top: int = 0
 
-        # pynput 滚轮监听（录制期间启动，读取后清零）
+        # 录制期间订阅全局竖向滚轮，每帧读取后清零
         self._scroll_value: int = 0   # 0=无, 1=向上, -1=向下
-        self._mouse_listener = None   # pynput.mouse.Listener
+        self._input_hub = None
 
     # ── 属性 ──
 
@@ -181,11 +185,6 @@ class FrameRecorder(QObject):
         """
         if not _gifrecorder_available or self._prepared is not None:
             return
-        try:
-            # 提前导入，点录制时不再卡一下；导入失败留给开录时的监听去报
-            import pynput.mouse  # noqa: F401
-        except Exception:
-            pass
         prefer_dxgi = uses_hdr_engine()
 
         def make():
@@ -479,32 +478,30 @@ class FrameRecorder(QObject):
         return bool(ctypes.windll.user32.GetAsyncKeyState(0x02) & 0x8000)
 
     def _start_scroll_listener(self):
-        """启动 pynput 滚轮监听（后台线程）"""
+        """录制期间订阅全局滚轮。"""
+        if self._input_hub is not None:
+            return
         try:
-            from pynput import mouse
-
-            def _on_scroll(x, y, dx, dy):
-                # dy>0=向上, dy<0=向下
-                if dy > 0:
-                    self._scroll_value = 1
-                elif dy < 0:
-                    self._scroll_value = -1
-
-            self._mouse_listener = mouse.Listener(on_scroll=_on_scroll)
-            self._mouse_listener.start()
+            hub = input_hub()
+            hub.wheel.connect(self._on_wheel, Qt.ConnectionType.QueuedConnection)
+            hub.native.watch_wheel(_WHEEL_WATCHER)
+            self._input_hub = hub
         except Exception as e:
-            log_error(T("pynput 滚轮监听启动失败: {e}", e=e), "GIF")
-            self._mouse_listener = None
+            log_error(T("滚轮监听启动失败: {e}", e=e), "GIF")
 
     def _stop_scroll_listener(self):
-        """停止 pynput 滚轮监听"""
-        if self._mouse_listener is not None:
+        hub, self._input_hub = self._input_hub, None
+        if hub is not None:
             try:
-                self._mouse_listener.stop()
+                hub.native.unwatch_wheel(_WHEEL_WATCHER)
+                hub.wheel.disconnect(self._on_wheel)
             except Exception as e:
                 log_exception(e, T("停止滚轮监听"))
-            self._mouse_listener = None
         self._scroll_value = 0
+
+    def _on_wheel(self, watcher, _x, _y, delta, horizontal):
+        if watcher == _WHEEL_WATCHER and not horizontal and delta:
+            self._scroll_value = 1 if delta > 0 else -1
 
     def _sample_cursor(self):
         """采集一次鼠标快照，追加到 _cursor_track"""

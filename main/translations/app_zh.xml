@@ -2983,14 +2983,6 @@ Replace it?</source>
         <translation>保留的最大项目数（0 = 无限制）</translation>
     </message>
     <message>
-        <source>Window Scan Interval</source>
-        <translation>窗口扫描频率</translation>
-    </message>
-    <message>
-        <source>How often the foreground window is sampled to find the paste target (only while this panel is open)</source>
-        <translation>面板打开时按此频率识别前台窗口以确定粘贴目标（仅面板可见时生效）</translation>
-    </message>
-    <message>
         <source>Auto Cleanup Old Items</source>
         <translation>自动清理旧项目</translation>
     </message>
@@ -4456,6 +4448,14 @@ SOFTWARE.</translation></message>
     <message>
         <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
         <translation>只识别到一个二维码或条形码时直接复制内容，不弹出结果窗口；识别到多个码时仍会弹出。</translation>
+    </message>
+    <message>
+        <source>Open Clipboard with Win+V</source>
+        <translation>Win+V 打开剪贴板</translation>
+    </message>
+    <message>
+        <source>Win+V opens this app's clipboard instead of the Windows clipboard history. Turn it off to give Win+V back to Windows.</source>
+        <translation>按 Win+V 打开本软件的剪贴板，不再弹出系统剪贴板历史。关闭后 Win+V 交还给系统。</translation>
     </message>
     <message>
         <source>Global Mouse Shortcuts</source>

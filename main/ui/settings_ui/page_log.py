@@ -6,7 +6,7 @@ import sys
 import glob
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 )
 from core.ui_scale import dialog_scaled
 from ui.dialogs import show_info_dialog
@@ -15,13 +15,13 @@ from ui.fluent_lite import (
     FluentIcon, ComboBox,
     PushButton, card_right_margin,
 )
-from .components import SettingCardGroup, WhiteCard, apply_theme_text_style
+from .components import SettingCardGroup, WhiteCard, apply_theme_text_style, page_scroll_area
 from core.ui_theme import set_own_style
 
 
 def create_log_page(dialog) -> QWidget:
     """创建日志设置页面 — Fluent Design"""
-    scroll = QScrollArea()
+    scroll = page_scroll_area(dialog)
     scroll.setWidgetResizable(True)
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 

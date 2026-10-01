@@ -131,6 +131,7 @@ TRANSLATIONS: dict[str, str] = {
     # core/shortcut_manager.py
     "系统热键已临时禁用，忽略回调 (id={hotkey_id})": "System hotkey temporarily disabled, ignoring callback (id={hotkey_id})",
     "热键回调 id={hotkey_id}": "Hotkey callback id={hotkey_id}",
+    "系统组合键回调 name={name}": "Taken-over system hotkey callback name={name}",
     "ShortcutManager 已安装（KeyPress + WM_HOTKEY）": "ShortcutManager installed (KeyPress + WM_HOTKEY)",
     "注册 handler: {handler_name} (优先级 {priority})，"
     "当前共 {handler_count} 个": "Registered handler: {handler_name} (priority {priority}), {handler_count} total",

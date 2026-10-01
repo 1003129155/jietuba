@@ -661,6 +661,7 @@ def test_clipboard_theme_swatches_keep_their_own_styling(qapp):
 
     get_dialog_scale().set_percent(150)
     dialog = SettingsDialog()
+    dialog.build_all_pages()
     try:
         dialog._clip_theme_btn.click()
         menu = dialog.findChild(QMenu)
@@ -687,6 +688,7 @@ def test_settings_footer_icons_keep_their_size_across_theme_changes(
 
     get_dialog_scale().set_percent(150)
     dialog = SettingsDialog()
+    dialog.build_all_pages()
     try:
         assert dialog._footer_ok_btn.iconSize().width() == dialog_scaled(16)
 
@@ -706,6 +708,7 @@ def test_clipboard_refresh_button_scales_through_the_real_settings_page(
 
     get_dialog_scale().set_percent(150)
     dialog = SettingsDialog()
+    dialog.build_all_pages()
     try:
         button = dialog._clipboard_refresh_btn
         assert button.width() == dialog_scaled(48)

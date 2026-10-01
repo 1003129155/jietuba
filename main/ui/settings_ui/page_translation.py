@@ -12,7 +12,7 @@ translation/provider.py 的 Field / ProviderMetadata），界面只负责按声�
 from PySide6.QtCore import QPoint, QRect, Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QLineEdit, QScrollArea, QFrame, QMenu, QToolTip,
+    QLineEdit, QFrame, QMenu, QToolTip,
 )
 from shiboken6 import isValid
 from core.ui_scale import dialog_scaled
@@ -25,6 +25,7 @@ from ui.fluent_lite import (
 )
 from core.ui_theme import get_ui_theme, set_own_style
 from .components import (
+    page_scroll_area,
     SettingCardGroup, WhiteCard, adjust_button_width, apply_theme_text_style,
 )
 from . import provider_fields
@@ -90,7 +91,7 @@ class _ProviderSection(QWidget):
 
 def create_translation_page(dialog) -> QWidget:
     """创建翻译设置页面 — Fluent Design"""
-    scroll = QScrollArea()
+    scroll = page_scroll_area(dialog)
     scroll.setWidgetResizable(True)
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 

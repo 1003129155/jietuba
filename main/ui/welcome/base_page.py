@@ -469,7 +469,7 @@ def _dev_bootstrap():
 
         def get_clipboard_font_size(self): return self._def("clipboard_font_size", 17)
         def set_clipboard_font_size(self, v): pass
-        def get_clipboard_font_size_options(self): return [15, 16, 17, 18, 19, 20]
+        def get_clipboard_font_size_options(self): return [15, 16, 17, 18, 19, 20, 22, 24]
 
         def get_clipboard_window_opacity(self):
             return self._def("clipboard_window_opacity", 20)

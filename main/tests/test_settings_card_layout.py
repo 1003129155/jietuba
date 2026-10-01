@@ -17,6 +17,7 @@ from ui.settings_ui.dialog import SettingsDialog
 @pytest.fixture
 def dialog(qapp):
     instance = SettingsDialog()
+    instance.build_all_pages()
     instance.show()
     qapp.processEvents()
     yield instance

@@ -169,6 +169,7 @@ def test_settings_page_builds_a_widget_for_every_declared_field(
     from ui.settings_ui.dialog import SettingsDialog
 
     dialog = SettingsDialog()
+    dialog.build_all_pages()
     built = set(dialog.provider_field_widgets)
     declared = {f.config_key for f in declared_fields}
     assert built == declared, {
@@ -181,6 +182,7 @@ def test_settings_page_builds_one_section_per_provider(qapp, registry):
     from ui.settings_ui.dialog import SettingsDialog
 
     dialog = SettingsDialog()
+    dialog.build_all_pages()
     assert set(dialog.provider_sections) == {
         m.provider_id for m in registry.available_providers()
     }

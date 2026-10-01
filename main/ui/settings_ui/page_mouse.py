@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """鼠标快捷键设置页：全局鼠标快捷键，以及截图、钉图、剪贴板窗口里的鼠标动作"""
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QScrollArea, QStackedWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QStackedWidget, QVBoxLayout, QWidget
 
 from core.resource_manager import ResourceManager
 from core.shortcut_manager import is_inapp_mouse_shortcut
@@ -20,7 +20,7 @@ from settings.tool_settings import (
 )
 from ui.fluent_lite import ComboBox, FluentIcon, SegmentedWidget
 from ui.fluent_lite.theme import ACCENT
-from .components import IconBadge, SectionCard, add_separated_row, apply_theme_text_style, icon_ref, row_label
+from .components import IconBadge, SectionCard, add_separated_row, apply_theme_text_style, icon_ref, row_label, page_scroll_area
 from .page_hotkey import INAPP_ICONS, inapp_label
 from ..key_chip import format_shortcut_text
 
@@ -220,7 +220,7 @@ def _create_inapp_section(dialog, parent):
 
 
 def create_mouse_page(dialog) -> QWidget:
-    scroll = QScrollArea()
+    scroll = page_scroll_area(dialog)
     scroll.setWidgetResizable(True)
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 

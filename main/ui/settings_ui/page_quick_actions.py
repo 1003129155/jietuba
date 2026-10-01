@@ -4,15 +4,15 @@
 识别结果窗口里的勾选框和这里写的是同一个配置键：窗口里勾上后就不会再弹窗，
 想关回来只能到这一页，所以每一项的说明都要写清楚开着时会发生什么。
 """
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea
+from PySide6.QtWidgets import QWidget, QVBoxLayout
 from core.ui_scale import dialog_scaled
 from ui.fluent_lite import FluentIcon, SwitchSettingCard
-from .components import SettingCardGroup
+from .components import SettingCardGroup, page_scroll_area
 from core.ui_theme import set_own_style
 
 
 def create_quick_actions_page(dialog) -> QWidget:
-    scroll = QScrollArea()
+    scroll = page_scroll_area(dialog)
     scroll.setWidgetResizable(True)
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 
@@ -114,6 +114,26 @@ def create_quick_actions_page(dialog) -> QWidget:
     grp_recognition.addSettingCard(barcode_card)
 
     layout.addWidget(grp_recognition)
+
+    # ── 剪贴板 ────────────────────────────────────────
+    grp_clipboard = SettingCardGroup(dialog.tr("Clipboard"), view)
+
+    win_v_card = SwitchSettingCard(
+        FluentIcon.PASTE,
+        dialog.tr("Open Clipboard with Win+V"),
+        dialog.tr(
+            "Win+V opens this app's clipboard instead of the Windows clipboard history. "
+            "Turn it off to give Win+V back to Windows."
+        ),
+        parent=grp_clipboard,
+    )
+    win_v_card.setChecked(
+        dialog.config_manager.get_app_setting("clipboard_take_over_win_v", False)
+    )
+    dialog._behavior_controls["clipboard_take_over_win_v"] = win_v_card
+    grp_clipboard.addSettingCard(win_v_card)
+
+    layout.addWidget(grp_clipboard)
 
     layout.addStretch()
     scroll.setWidget(view)

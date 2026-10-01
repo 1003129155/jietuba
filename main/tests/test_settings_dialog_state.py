@@ -663,6 +663,7 @@ def _nav_fake():
         tr=lambda text: text,
         content_title=_TextWidget(),
         content_stack=_Combo(),
+        _ensure_page=_Recorder(),
         _set_current_nav=_Recorder(),
         _refresh_after_page_change=_Recorder(),
     )
@@ -674,6 +675,7 @@ class TestOnNavChanged:
         for index, title in NAV_TITLES.items():
             fake = _nav_fake()
             SettingsDialog._on_nav_changed(fake, index)
+            assert fake._ensure_page.calls == [(index,)]
             assert fake.content_title.set_texts == [title], index
             assert fake.content_stack.set_indexes == [index]
             assert fake._refresh_after_page_change.called
@@ -692,6 +694,7 @@ class TestOnNavChanged:
         """下标 7 是隐藏的开发者页，只能由 _open_developer_page 进入"""
         fake = _nav_fake()
         SettingsDialog._on_nav_changed(fake, 7)
+        assert not fake._ensure_page.called
         assert fake.content_stack.set_indexes == []
         assert fake.content_title.set_texts == []
         assert not fake._refresh_after_page_change.called
@@ -720,9 +723,11 @@ class TestNavigationHelpers:
             content_stack=_Combo(),
             content_title=_TextWidget(),
             nav_list=SimpleNamespace(clearCurrentItem=_Recorder()),
+            _ensure_page=_Recorder(),
             _refresh_after_page_change=_Recorder(),
         )
         SettingsDialog._open_developer_page(fake)
+        assert fake._ensure_page.calls == [(7,)]
         assert fake.content_stack.set_indexes == [7]
         assert fake.content_title.set_texts == ["Developer Options"]
         assert fake.nav_list.clearCurrentItem.called

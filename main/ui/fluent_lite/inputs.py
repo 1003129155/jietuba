@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QSpinBox as _QSpinBox
 from PySide6.QtWidgets import QTextEdit as _QTextEdit
 
 from core.ui_scale import widget_scaled as _px
-from core.ui_theme import get_ui_theme
+from core.ui_theme import apply_style_sheet, get_ui_theme
 
 from .text_context_menu import TextContextMenuMixin, install_text_context_menu
 from .theme import (
@@ -58,7 +58,7 @@ class _ThemedInput:
         get_ui_theme().theme_changed.connect(self._apply_theme)
 
     def _apply_theme(self, _tokens=None):
-        self.setStyleSheet(_input_qss(self))
+        apply_style_sheet(self, _input_qss(self))
 
 
 class ComboBox(_ThemedInput, QComboBox):

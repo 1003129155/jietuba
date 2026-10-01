@@ -7,7 +7,7 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QPushButton, QToolButton, QWidget
 
 from core.ui_scale import widget_scaled as _px
-from core.ui_theme import get_ui_theme
+from core.ui_theme import apply_style_sheet, get_ui_theme
 
 from .theme import (
     ACCENT, ACCENT_HOVER, ACCENT_PRESSED, FONT_FAMILY, INPUT_CONTENT_HEIGHT,
@@ -101,7 +101,7 @@ class PushButton(_ScaledIcon, QPushButton):
         return _base_style(self)
 
     def _apply_theme(self, _tokens=None):
-        self.setStyleSheet(self._style_sheet())
+        apply_style_sheet(self, self._style_sheet())
         self._apply_scaled_icon_size()
         if self._theme_icon_source is not None:
             super().setIcon(to_qicon(self._theme_icon_source, self))
@@ -209,7 +209,7 @@ class TransparentToolButton(_ScaledIcon, QToolButton):
         s = lambda value: _px(self, value)
         self.setFixedSize(s(self._base_side), s(self._base_side))
         self._apply_scaled_icon_size()
-        self.setStyleSheet(f"""
+        apply_style_sheet(self, f"""
             QToolButton {{ background: transparent; border: none; border-radius: {s(9)}px; }}
             QToolButton:hover {{ background: {t.surface_hover}; }}
             QToolButton:pressed {{ background: {t.surface_subtle}; }}

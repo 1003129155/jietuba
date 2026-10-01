@@ -4,7 +4,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QWidget
 
 from core.ui_scale import dialog_scaled
-from core.ui_theme import get_ui_theme, set_own_style
+from core.ui_theme import apply_style_sheet, get_ui_theme, set_own_style
 
 from .theme import ACCENT, FONT_FAMILY, ui_tokens
 
@@ -43,7 +43,7 @@ class SegmentedWidget(QWidget):
             f"border-radius: {dialog_scaled(11)}px;"
         )
         for button in self._items.values():
-            button.setStyleSheet(self._style())
+            apply_style_sheet(button, self._style())
 
     def addItem(self, routeKey, text, onClick=None):
         self.insertItem(len(self._items), routeKey, text, onClick)
@@ -51,7 +51,7 @@ class SegmentedWidget(QWidget):
     def insertItem(self, index, routeKey, text, onClick=None):
         button = QPushButton(str(text), self)
         button.setCheckable(True)
-        button.setStyleSheet(self._style())
+        apply_style_sheet(button, self._style())
         button.clicked.connect(lambda checked=False, key=routeKey: self._on_clicked(key))
         if onClick:
             button.clicked.connect(onClick)
