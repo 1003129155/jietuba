@@ -88,7 +88,7 @@ OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は、�
 
 ### Rust 拡張パッケージ
 
-以下の 5 パッケージは `requirements.txt` に含まれ、実行時依存パッケージと一緒にインストールされます。個別のライブラリとしても利用でき、ソースコードは [rust_libs/](rust_libs/) にあります。PyPI の配布名と Python の import 名の対応は次のとおりです。
+以下の 6 パッケージは `requirements.txt` に含まれ、実行時依存パッケージと一緒にインストールされます。個別のライブラリとしても利用でき、ソースコードは [rust_libs/](rust_libs/) にあります。PyPI の配布名と Python の import 名の対応は次のとおりです。
 
 | pip パッケージ名 | import 名 | バージョン | 機能 |
 |------|------|------|------|
@@ -97,6 +97,7 @@ OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は、�
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.4 | クリップボード操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | HDR 対応のデスクトップキャプチャ（DXGI Desktop Duplication + GPU トーンマッピング） |
+| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.0 | GUI スレッドを止めないグローバルなマウス・キーボードフック（ドラッグジェスチャ、サイドボタン、ホットキー、ホイール、前面ウィンドウ） |
 
 ビルド済み wheel は Windows x86_64 および ARM64 向けです。各パッケージの Python バージョン指定は `>=3.11` で、Rust バインディングでは `abi3-py311` を有効にしています。詳細は各パッケージの `pyproject.toml` と `Cargo.toml` を参照してください。
 

@@ -86,7 +86,7 @@ jobs:
         # 「哪个 crate 的哪个版本用哪个许可证」这份清单一致，就等价于声明未过期。
         run: |
           $stale = $false
-          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust", "hdrcapture") {
+          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust", "hdrcapture", "inputhub") {
             $fresh = Join-Path $env:RUNNER_TEMP "$crate-notices.txt"
             cargo about generate --manifest-path rust_libs/$crate/Cargo.toml -o $fresh rust_libs/notices.hbs
             if ($LASTEXITCODE -ne 0) { throw "$crate 的许可声明生成失败" }
@@ -116,7 +116,7 @@ jobs:
         # 这些 crate 同属一个 workspace，共用一个 target/ 目录，
         # pyo3/image/rayon 这些共享依赖只编译一次。
         run: |
-          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust", "hdrcapture") {
+          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust", "hdrcapture", "inputhub") {
             Write-Host "::group::build $crate"
             maturin build --locked --release --target ${{ matrix.rust-target }} -i python -m rust_libs/$crate/Cargo.toml --out wheelhouse
             if ($LASTEXITCODE -ne 0) { throw "$crate 构建失败" }
@@ -127,7 +127,7 @@ jobs:
       - name: Smoke-test native wheels
         run: |
           python -m pip install (Get-ChildItem wheelhouse\*.whl).FullName
-          python -c "import gifrecorder, longstitch, pyclipboard, ppocr_rust, hdrcapture; print('Native extension imports OK')"
+          python -c "import gifrecorder, longstitch, pyclipboard, ppocr_rust, hdrcapture, inputhub; print('Native extension imports OK')"
 
       - name: Upload wheels
         # 供人工下载核查用；正式发布走 publish-pypi.yml，不依赖这份 artifact

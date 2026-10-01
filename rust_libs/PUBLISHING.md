@@ -1,6 +1,6 @@
 # 发布到 PyPI
 
-五个包用 **PyPI API token** 发布。发布由 `.github/workflows/publish-pypi.yml`
+六个包用 **PyPI API token** 发布。发布由 `.github/workflows/publish-pypi.yml`
 手动触发，默认指向 TestPyPI。
 
 ## 一次性配置
@@ -56,7 +56,7 @@ secret 覆盖那套机制，因为仓库级 secret 不参与那层覆盖。
 ```bash
 cargo install cargo-about --locked --features cli
 cd rust_libs
-for c in gifrecorder longstitch ppocr_rust pyclipboard hdrcapture; do
+for c in gifrecorder longstitch ppocr_rust pyclipboard hdrcapture inputhub; do
   cargo about generate --manifest-path $c/Cargo.toml -o $c/THIRD-PARTY-NOTICES.txt notices.hbs
 done
 ```

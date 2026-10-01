@@ -89,7 +89,7 @@ OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_det
 
 ### Rust 扩展包
 
-以下五个包已包含在 `requirements.txt` 中，会在安装运行依赖时一并安装。它们可以独立使用，源码位于 [rust_libs/](rust_libs/)。PyPI 发行名与 Python 的 import 名对应如下：
+以下六个包已包含在 `requirements.txt` 中，会在安装运行依赖时一并安装。它们可以独立使用，源码位于 [rust_libs/](rust_libs/)。PyPI 发行名与 Python 的 import 名对应如下：
 
 | pip 包名 | import 名 | 版本 | 功能 |
 |------|------|------|------|
@@ -98,6 +98,7 @@ OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_det
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.4 | 剪贴板底层操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | 支持 HDR 的桌面截图（DXGI Desktop Duplication + GPU 色调映射） |
+| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.0 | 不占界面线程的全局鼠标键盘钩子（拖动手势、侧键、热键、滚轮、前台窗口） |
 
 预编译包面向 Windows x86_64 和 ARM64；各包的 Python 版本声明均为 `>=3.11`，Rust 绑定均启用了 `abi3-py311`，详见各包的 `pyproject.toml` 和 `Cargo.toml`。
 

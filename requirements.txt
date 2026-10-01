@@ -20,3 +20,4 @@ j-stitch==0.4.0
 j-clipboard==0.4.4
 j-ppocr==0.2.1
 j-hdrcapture==0.1.0
+j-input==0.1.0
