@@ -4360,10 +4360,6 @@ SOFTWARE.</translation></message>
         <translation>빠른 동작</translation>
     </message>
     <message>
-        <source>Text Recognition and Scanning</source>
-        <translation>텍스트 인식 및 코드 스캔</translation>
-    </message>
-    <message>
         <source>Copy Recognized Text Directly</source>
         <translation>인식한 텍스트 바로 복사</translation>
     </message>

@@ -333,7 +333,7 @@ class ToolSettingsManager(QObject):
         # 快捷行为：跳过结果窗口
         "ocr_copy_directly": False,           # 文字识别后直接复制，不弹结果窗口
         "barcode_copy_single": False,         # 只扫到一个码时直接复制，不弹结果窗口
-        "clipboard_take_over_win_v": False,   # Win+V 打开本软件的剪贴板，不再弹出系统剪贴板历史
+        "clipboard_take_over_win_v": True,    # Win+V 打开本软件的剪贴板，不再弹出系统剪贴板历史
 
         # 智能选择
         "smart_selection": True,              # 智能选区总开关

@@ -345,7 +345,7 @@ def test_quick_actions_toggles_reset_refresh_and_snapshot(qapp, tmp_path):
 
 
 @pytest.mark.parametrize("enabled", [True, False])
-def test_win_v_take_over_toggle_reads_and_resets_to_off(qapp, tmp_path, enabled):
+def test_win_v_take_over_toggle_reads_and_resets_to_on(qapp, tmp_path, enabled):
     manager = _manager(tmp_path)
     manager.set_app_setting("clipboard_take_over_win_v", enabled)
     dialog = SimpleNamespace(config_manager=manager, tr=lambda text: text)
@@ -356,7 +356,7 @@ def test_win_v_take_over_toggle_reads_and_resets_to_off(qapp, tmp_path, enabled)
         toggle = dialog._behavior_controls["clipboard_take_over_win_v"]
         assert toggle.isChecked() is enabled
         SettingsDialog._reset_quick_actions_page(dialog)
-        assert toggle.isChecked() is False
+        assert toggle.isChecked() is True
     finally:
         page.deleteLater()
         qapp.processEvents()

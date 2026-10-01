@@ -4430,10 +4430,6 @@ SOFTWARE.</translation></message>
         <translation>快捷行为</translation>
     </message>
     <message>
-        <source>Text Recognition and Scanning</source>
-        <translation>文字识别与扫码</translation>
-    </message>
-    <message>
         <source>Copy Recognized Text Directly</source>
         <translation>文字识别直接复制</translation>
     </message>
