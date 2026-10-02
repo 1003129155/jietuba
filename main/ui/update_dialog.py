@@ -1,39 +1,41 @@
 from PySide6.QtCore import Signal, Qt
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QProgressBar, QPushButton, QHBoxLayout
+from PySide6.QtWidgets import QDialogButtonBox, QProgressBar
 from core.resource_manager import ResourceManager
 from ui.fluent_lite import TextEdit
+from ui.dialogs import StandardDialog
 
 
-class UpdateDialog(QDialog):
+class UpdateDialog(StandardDialog):
     update_requested = Signal()
     cancel_requested = Signal()
 
     def __init__(self, release):
-        super().__init__()
+        super().__init__(None, "", "")
+        self.setWindowModality(Qt.WindowModality.NonModal)
         self.setWindowTitle(self.tr("Update Available"))
         # Use the application icon from the shared rasterized resource cache.
         self.setWindowIcon(ResourceManager.get_icon_by_name("托盘.svg"))
-        self.resize(620, 460)
-        layout = QVBoxLayout(self)
+        self.resize(660, 480)
+        layout = self.layout()
+        layout.setContentsMargins(18, 14, 18, 14)
+        layout.setSpacing(10)
         self.notes = TextEdit(self)
         self.notes.setReadOnly(True)
         self.notes.setPlainText(release.tag_name + "\n\n" + (release.notes or self.tr("No release notes provided.")))
-        layout.addWidget(self.notes)
-        self.status = QLabel(self.tr("The application will restart after the download finishes."), self)
-        self.status.setWordWrap(True)
-        layout.addWidget(self.status)
+        layout.insertWidget(0, self.notes, 1)
+        self.status = self.label
+        self.status.setText(self.tr("The application will restart after the download finishes."))
         self.progress = QProgressBar(self)
         self.progress.setRange(0, 100)
-        layout.addWidget(self.progress)
-        row = QHBoxLayout()
-        self.action = QPushButton(self.tr("Update and Restart"), self)
+        layout.insertWidget(layout.count() - 1, self.progress)
+        self.action = self.button_box.addButton(
+            self.tr("Update and Restart"), QDialogButtonBox.ButtonRole.ActionRole
+        )
         self.action.clicked.connect(self.update_requested)
-        self.cancel_button = QPushButton(self.tr("Cancel"), self)
+        self.cancel_button = self.button_box.addButton(
+            self.tr("Cancel"), QDialogButtonBox.ButtonRole.RejectRole
+        )
         self.cancel_button.clicked.connect(self.close)
-        row.addStretch(1)
-        row.addWidget(self.action)
-        row.addWidget(self.cancel_button)
-        layout.addLayout(row)
         self.working = False
         self.committed = False
         self._modal_committed = False
