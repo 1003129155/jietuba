@@ -46,6 +46,8 @@ Windows x86_64 版および ARM64 版の配布パッケージは、そのまま�
 3. `jietuba_pp.exe` をダブルクリックして起動します。OCR モデルは配布パッケージに同梱されています。
 4. アプリにはデジタル署名がないため、ブラウザーからダウンロードすると Windows の警告が表示される場合があります。表示された場合は「詳細情報」をクリックし、「実行」を選択すると起動できます。
 
+更新機能を含む最初のリリースをインストールした後、**バージョン情報 → 更新を確認 → 更新して再起動**で更新できます。対応する GitHub Release ZIP をダウンロードし、メイン EXE のみを置換して再起動します。設定、クリップボード履歴、モデルなどのファイルは保持されます。録画、書き出し、保存を終了してからインストールしてください。直前の EXE は `.jietuba-update/` に保存されます。[復元手順](rust_libs/updater/README.md)を参照してください。
+
 ---
 
 <a id="source-setup"></a>
@@ -168,7 +170,8 @@ Windows 版のビルドは `python build_with_ocr_onefile.py` で実行できま
 │   ├── gifrecorder/         # GIF/動画合成エンコーダーソース
 │   ├── longstitch/          # 長いスクリーンショット結合アルゴリズムソース
 │   ├── pyclipboard/         # クリップボード低レベル操作ソース
-│   └── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX 認識エンジンソース
+│   ├── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX 認識エンジンソース
+│   └── updater/             # メイン EXE のみを置換する独立 Rust 更新プログラム
 │
 ├── models/                  # PP-OCR ONNX モデル（OCR に必須）
 │   ├── PP-OCRv6_det_small.onnx   # テキスト検出モデル (DBNet)
@@ -369,6 +372,9 @@ core/
 ├── qt_utils.py              # safe_disconnect() — Qtシグナル安全切断
 ├── log_translations/        # 各モジュールのログ翻訳ヘルパー
 ├── constants.py             # グローバル定数（フォント、パス等）
+├── background_tasks.py      # バックグラウンド保存の追跡
+├── updater_process.py       # Rust 更新プログラムとの非同期 JSONL 通信
+├── update_controller.py     # 更新ダウンロードと安全な再起動の調整
 ├── update_checker.py        # GitHub 最新リリースの非同期取得とバージョン比較
 └── ui_theme.py              # UIThemeManager — アプリ窓と Qt ネイティブ部品のライト/ダーク外観
 ```
@@ -598,6 +604,7 @@ ui/
 ├── tray_menu.py             # TrayMenu — システムトレイメニュー
 ├── screenshot_window.py     # ScreenshotWindow — フルスクリーンキャプチャウィンドウ
 ├── quick_capture_overlay.py # 通常キャプチャの選択枠・座標・拡大鏡を再利用する透明レイヤー
+├── update_dialog.py         # 更新内容とダウンロード進捗
 ├── dialogs.py               # StandardDialog — 確認、警告、情報、エラーダイアログ
 ├── toast.py                 # Toast — カーソル横に出る、フォーカスを奪わない一行通知
 ├── magnifier.py             # MagnifierOverlay — ピクセルレベル拡大鏡

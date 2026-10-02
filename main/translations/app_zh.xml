@@ -4511,4 +4511,81 @@ SOFTWARE.</translation></message>
         <translation>保存后将变为纯文本</translation>
     </message>
 </context>
+<context>
+    <name>UpdateDialog</name>
+    <message>
+        <source>Update Available</source>
+        <translation>发现新版本</translation>
+    </message>
+    <message>
+        <source>No release notes provided.</source>
+        <translation>没有提供更新说明。</translation>
+    </message>
+    <message>
+        <source>The application will restart after the download finishes.</source>
+        <translation>下载完成后将安装更新并重启软件。</translation>
+    </message>
+    <message>
+        <source>Update and Restart</source>
+        <translation>一键更新并重启</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+</context>
+<context>
+    <name>UpdateController</name>
+    <message>
+        <source>One-click updates are available in the packaged application.</source>
+        <translation>一键更新仅适用于打包版软件。</translation>
+    </message>
+    <message>
+        <source>Downloading update...</source>
+        <translation>正在下载更新…</translation>
+    </message>
+    <message>
+        <source>Preparing to restart...</source>
+        <translation>正在准备安装并重启…</translation>
+    </message>
+    <message>
+        <source>Update handoff failed.</source>
+        <translation>更新交接失败。</translation>
+    </message>
+    <message>
+        <source>Update failed: %1</source>
+        <translation>更新未完成：%1</translation>
+    </message>
+</context>
+<context>
+    <name>MainApp</name>
+    <message>
+        <source>Finish capturing or saving before updating. The download has been kept.</source>
+        <translation>请结束截图或后台保存后重试，下载结果已保留。</translation>
+    </message>
+    <message>
+        <source>Finish recording or scrolling and close that window before updating. The download has been kept.</source>
+        <translation>请结束录制或滚动截图并关闭相应窗口后重试，下载结果已保留。</translation>
+    </message>
+    <message>
+        <source>Finish exporting before updating. The download has been kept.</source>
+        <translation>请结束导出后重试，下载结果已保留。</translation>
+    </message>
+    <message>
+        <source>Wait for application initialization to finish before updating.</source>
+        <translation>请等待软件初始化完成后重试。</translation>
+    </message>
+    <message>
+        <source>Finish saving before updating.</source>
+        <translation>请结束保存后重试。</translation>
+    </message>
+    <message>
+        <source>Update cancelled because the settings window was not closed.</source>
+        <translation>设置窗口未关闭，已取消更新。</translation>
+    </message>
+    <message>
+        <source>Settings could not be saved. Update cancelled.</source>
+        <translation>设置保存失败，已取消更新。</translation>
+    </message>
+</context>
 </TS>

@@ -29,6 +29,28 @@ static SKIP_NEXT_CHANGE: AtomicBool = AtomicBool::new(false);
 static LAST_CALLBACK_EVENT: Lazy<Mutex<Option<(i64, Instant)>>> = Lazy::new(|| Mutex::new(None));
 const DUPLICATE_CALLBACK_WINDOW: Duration = Duration::from_millis(350);
 
+#[derive(Default)]
+struct UpdateWorkState { paused: bool, active: usize }
+static UPDATE_WORK: Lazy<Mutex<UpdateWorkState>> = Lazy::new(|| Mutex::new(UpdateWorkState::default()));
+struct UpdateWork<'a>(&'a Mutex<UpdateWorkState>);
+impl<'a> UpdateWork<'a> {
+    fn begin(state: &'a Mutex<UpdateWorkState>) -> Option<Self> {
+        let mut value = state.lock();
+        if value.paused { return None; }
+        value.active += 1;
+        Some(Self(state))
+    }
+}
+impl Drop for UpdateWork<'_> {
+    fn drop(&mut self) { self.0.lock().active -= 1; }
+}
+fn pause_update_work(state: &Mutex<UpdateWorkState>) -> bool {
+    let mut value = state.lock();
+    if value.active != 0 { return false; }
+    value.paused = true;
+    true
+}
+
 fn should_skip_callback(id: i64) -> bool {
     let now = Instant::now();
     let mut last = LAST_CALLBACK_EVENT.lock();
@@ -792,6 +814,7 @@ impl PyClipboardManager {
 
             impl ClipboardHandler for Handler {
                 fn on_clipboard_change(&mut self) {
+                    let Some(_work) = UpdateWork::begin(&UPDATE_WORK) else { return; };
                     if !IS_RUNNING.load(Ordering::Relaxed) {
                         return;
                     }
@@ -1105,6 +1128,13 @@ impl PyClipboardManager {
     fn is_monitoring(&self) -> bool {
         IS_RUNNING.load(Ordering::Relaxed)
     }
+
+    /// Return without waiting; the GUI keeps the download for a later retry when busy.
+    fn pause_for_update(&self) -> bool { pause_update_work(&UPDATE_WORK) }
+
+    fn resume_after_update(&self) { UPDATE_WORK.lock().paused = false; }
+
+    fn pending_writes(&self) -> usize { UPDATE_WORK.lock().active }
     
     /// 查询剪贴板历史
     /// 

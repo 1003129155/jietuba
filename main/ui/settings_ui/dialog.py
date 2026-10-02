@@ -1435,6 +1435,7 @@ class SettingsDialog(FrostedFramelessDialog):
     @safe_event
     def closeEvent(self, event):
         """关闭窗口前检查未保存变更"""
+        event.ignore()
         if self._skip_unsaved_close_prompt:
             event.accept()
             return

@@ -5,7 +5,7 @@
 """
 
 import os
-import threading
+from core.background_tasks import start_thread
 from datetime import datetime
 from typing import Callable, Optional
 
@@ -156,7 +156,7 @@ class SaveService:
             finally:
                 image_copy = None  # 解除引用，PIL Image 立即释放内存
 
-        threading.Thread(target=worker, daemon=True).start()
+        start_thread(worker)
         return target_path
 
     def _save_qimage_async(
@@ -186,7 +186,7 @@ class SaveService:
             finally:
                 image = None  # 解除引用，引用计数归零时 Qt 立即释放内存
 
-        threading.Thread(target=worker, daemon=True).start()
+        start_thread(worker)
         return target_path
 
     def _save_qimage_to_path(self, image: QImage, target_path: str, image_format: str) -> bool:

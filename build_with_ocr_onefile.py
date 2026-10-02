@@ -143,8 +143,28 @@ excludes = [
     'PySide6.QtWebSockets',
 ]
 
+def build_updater():
+    import platform
+    import subprocess
+    machine = platform.machine().lower()
+    targets = {"amd64": "x86_64-pc-windows-msvc", "x86_64": "x86_64-pc-windows-msvc",
+               "arm64": "aarch64-pc-windows-msvc", "aarch64": "aarch64-pc-windows-msvc"}
+    if machine not in targets:
+        raise RuntimeError(f"Unsupported Windows package architecture: {machine}")
+    target = targets[machine]
+    # Build the standalone helper separately with a static CRT so it can outlive the application.
+    command = ["cargo", "rustc", "--locked", "--release", "--target", target,
+               "--manifest-path", str(REPO_DIR / "rust_libs" / "Cargo.toml"),
+               "-p", "jietuba-updater", "--bin", "jietuba_updater", "--",
+               "-C", "target-feature=+crt-static"]
+    subprocess.run(command, check=True, cwd=REPO_DIR)
+    return REPO_DIR / "rust_libs" / "target" / target / "release" / "jietuba_updater.exe"
+
+
 if __name__ == '__main__':
     os.chdir(REPO_DIR)
+
+    updater_binary = build_updater()
 
     # Generate the UIA typelib wrapper before Analysis so the onefile build
     # includes its dynamic imports without requiring a writable runtime cache.
@@ -159,6 +179,8 @@ if __name__ == '__main__':
     print(f"构建目录: {BUILD_DIR}")
     print("=" * 60)
 
+    datas.append("rust_libs/updater/THIRD-PARTY-NOTICES.txt;updater")
+    binaries_repr = repr([(str(updater_binary), "updater")])
     datas_repr  = repr([(d.split(';')[0], d.split(';')[1]) for d in datas])
     hidden_repr = repr(hidden_imports)
     excl_repr   = repr(excludes)
@@ -171,7 +193,7 @@ import os as _os
 a = Analysis(
     ['{MAIN_APP}'],
     pathex=['main'],
-    binaries=[],
+    binaries={binaries_repr},
     datas={datas_repr},
     hiddenimports={hidden_repr},
     hookspath=[],

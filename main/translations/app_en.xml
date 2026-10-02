@@ -4231,4 +4231,81 @@ SOFTWARE.</translation></message>
         <translation>Formatting will be removed</translation>
     </message>
 </context>
+<context>
+    <name>UpdateDialog</name>
+    <message>
+        <source>Update Available</source>
+        <translation>Update Available</translation>
+    </message>
+    <message>
+        <source>No release notes provided.</source>
+        <translation>No release notes provided.</translation>
+    </message>
+    <message>
+        <source>The application will restart after the download finishes.</source>
+        <translation>The application will restart after the download finishes.</translation>
+    </message>
+    <message>
+        <source>Update and Restart</source>
+        <translation>Update and Restart</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+</context>
+<context>
+    <name>UpdateController</name>
+    <message>
+        <source>One-click updates are available in the packaged application.</source>
+        <translation>One-click updates are available in the packaged application.</translation>
+    </message>
+    <message>
+        <source>Downloading update...</source>
+        <translation>Downloading update...</translation>
+    </message>
+    <message>
+        <source>Preparing to restart...</source>
+        <translation>Preparing to restart...</translation>
+    </message>
+    <message>
+        <source>Update handoff failed.</source>
+        <translation>Update handoff failed.</translation>
+    </message>
+    <message>
+        <source>Update failed: %1</source>
+        <translation>Update failed: %1</translation>
+    </message>
+</context>
+<context>
+    <name>MainApp</name>
+    <message>
+        <source>Finish capturing or saving before updating. The download has been kept.</source>
+        <translation>Finish capturing or saving before updating. The download has been kept.</translation>
+    </message>
+    <message>
+        <source>Finish recording or scrolling and close that window before updating. The download has been kept.</source>
+        <translation>Finish recording or scrolling and close that window before updating. The download has been kept.</translation>
+    </message>
+    <message>
+        <source>Finish exporting before updating. The download has been kept.</source>
+        <translation>Finish exporting before updating. The download has been kept.</translation>
+    </message>
+    <message>
+        <source>Wait for application initialization to finish before updating.</source>
+        <translation>Wait for application initialization to finish before updating.</translation>
+    </message>
+    <message>
+        <source>Finish saving before updating.</source>
+        <translation>Finish saving before updating.</translation>
+    </message>
+    <message>
+        <source>Update cancelled because the settings window was not closed.</source>
+        <translation>Update cancelled because the settings window was not closed.</translation>
+    </message>
+    <message>
+        <source>Settings could not be saved. Update cancelled.</source>
+        <translation>Settings could not be saved. Update cancelled.</translation>
+    </message>
+</context>
 </TS>
