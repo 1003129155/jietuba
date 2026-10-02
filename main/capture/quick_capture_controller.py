@@ -3,9 +3,9 @@
 import ctypes
 import sys
 
-from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QRectF, QThread, Qt, Signal, Slot
+from PySide6.QtCore import QObject, QPoint, QRect, QRectF, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QWidget
+from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
 from capture.capture_service import CaptureService
 from core.clipboard_utils import deliver_screenshot
@@ -91,7 +91,6 @@ class QuickCaptureController(QObject):
         self._start = QPoint()
         self._bounds = QRect()
         self._capture_pending = False
-        QApplication.instance().installEventFilter(self)
 
     @property
     def busy(self):
@@ -130,15 +129,10 @@ class QuickCaptureController(QObject):
         self.sync_input_availability()
 
     def sync_input_availability(self):
+        """截图排队、会话开始结束时由调用方触发。应用模态只有欢迎向导，向导期间本控制器已暂停。"""
         if self._closed:
             return
         self.input.set_blocked(self._capture_pending or self._blocked())
-
-    def eventFilter(self, watched, event):
-        if (not self._closed and event.type() in (QEvent.Type.Show, QEvent.Type.Hide)
-                and isinstance(watched, QWidget) and watched.isWindow()):
-            self.sync_input_availability()
-        return False
 
     @Slot(str, int, int, int)
     def _on_input(self, kind, token, x, y):
@@ -281,7 +275,6 @@ class QuickCaptureController(QObject):
         if self._closed:
             return
         self._closed = True
-        QApplication.instance().removeEventFilter(self)
         self.cancel()
         self.input.close()
         if self._worker is not None:

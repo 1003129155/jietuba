@@ -62,15 +62,45 @@ def test_scan_catches_application_modal_calls():
     ]
 
 
-def test_modal_dialogs_go_through_window_modal_helpers():
-    found = []
+def _source_trees():
     for path in sorted(MAIN_DIR.rglob("*.py")):
         rel = path.relative_to(MAIN_DIR)
-        if rel.parts[0] == "tests" or "site-packages" in rel.parts or rel == Path("ui/dialogs.py"):
+        if rel.parts[0] == "tests" or "site-packages" in rel.parts:
             continue
-        tree = ast.parse(path.read_text(encoding="utf-8-sig"), filename=str(path))
-        found += [f"{rel}:{line} {call}" for line, call in _modal_calls(tree)]
+        yield rel, ast.parse(path.read_text(encoding="utf-8-sig"), filename=str(path))
+
+
+def test_modal_dialogs_go_through_window_modal_helpers():
+    found = [f"{rel}:{line} {call}" for rel, tree in _source_trees() if rel != Path("ui/dialogs.py")
+             for line, call in _modal_calls(tree)]
     assert found == [], "弹模态对话框请用 ui.dialogs 的 exec_dialog 或 get_* 文件对话框函数"
+
+
+def _application_modal_calls(tree):
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+            continue
+        args = " ".join(ast.unparse(arg) for arg in node.args)
+        if (node.func.attr == "setWindowModality" and "ApplicationModal" in args
+                or node.func.attr == "setModal" and args != "False"):
+            yield node.lineno, ast.unparse(node)
+
+
+def test_scan_catches_application_modality():
+    source = (
+        "dlg.setWindowModality(Qt.WindowModality.ApplicationModal)\n"
+        "dlg.setModal(True)\n"
+        "dlg.setWindowModality(Qt.WindowModality.WindowModal)\n"
+        "dlg.setModal(False)\n"
+    )
+    assert [line for line, _call in _application_modal_calls(ast.parse(source))] == [1, 2]
+
+
+def test_only_the_welcome_wizard_is_application_modal():
+    """快速截图不再监视窗口显示：它靠向导前后的暂停与恢复避开应用模态。"""
+    found = [f"{rel}:{line} {call}" for rel, tree in _source_trees() if rel != Path("ui/welcome/wizard.py")
+             for line, call in _application_modal_calls(tree)]
+    assert found == [], "应用模态会挡住截图层；确实需要时，像欢迎向导那样在前后暂停、恢复快速截图"
 
 
 class _Probe(QWidget):

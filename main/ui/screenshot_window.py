@@ -597,7 +597,13 @@ class ScreenshotWindow(QWidget):
         
         # 立即隐藏窗口
         self.hide()
-        
+        try:
+            self._release_session_resources()
+        finally:
+            # 复制可能已提前隐藏窗口；清理中途出错也要通知输入中心，否则快速截图一直被挡住
+            self.session_ended.emit()
+
+    def _release_session_resources(self):
         log_debug(T("开始释放截图会话资源（保留 UI 壳）"), "ScreenshotWindow")
         
         # 恢复窗口对截图 API 的可见性
@@ -686,8 +692,6 @@ class ScreenshotWindow(QWidget):
         
         gc.collect()
         log_info(T("截图会话资源释放完成"), "ScreenshotWindow")
-        # 复制可能已提前隐藏窗口，会话清理结束时仍需通知输入中心。
-        self.session_ended.emit()
 
     def _disconnect_session_signals(self):
         """断开本次会话连接到持久 toolbar 上的信号。
