@@ -223,6 +223,7 @@ impl StitchSession {
         let (start, end) = search_range(
             img1_len,
             img2_hashes.len(),
+            self.frame_height as usize,
             ignore_img1_top_ratio,
             ignore_img1_bottom_ratio,
         );
@@ -397,6 +398,20 @@ mod tests {
         let expected = stitch_by_pairs(&frames, 0.15);
         assert!(expected.height() > H * 3);
         assert_eq!(exported(&s), expected);
+    }
+
+    #[test]
+    fn upward_capture_keeps_every_row_however_long() {
+        // 帧由调用方翻转后推入；重叠 60 行，长图一旦超过 1200 行，按总长算的 5% 就会盖住它
+        let p = distinct_rows_page(2400);
+        let flip = |img: &RgbaImage| image::imageops::flip_vertical(img);
+        let tops: Vec<u32> = (0..=77).rev().map(|k| k * 30).collect();
+
+        let mut s = session();
+        for &top in &tops {
+            s.push_bgra(&to_bgra(&flip(&frame(&p, top))), false, 0.0, 0.05, false).unwrap();
+        }
+        assert_eq!(flip(&exported(&s)), image::imageops::crop_imm(&p, 0, 0, W, 2400).to_image());
     }
 
     #[test]

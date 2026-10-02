@@ -207,6 +207,7 @@ fn smart_stitch_core(
     let (search_start, search_end) = search_range(
         img1_len,
         img2_hashes.len(),
+        height2 as usize,
         ignore_img1_top_ratio,
         ignore_img1_bottom_ratio,
     );
@@ -238,10 +239,11 @@ fn smart_stitch_core(
     ))
 }
 
-/// img1 中参与匹配的行区间 [start, end)。
+/// img1 中参与匹配的行区间 [start, end)。`img2_len` 是参与匹配的 img2 行数，`frame_height` 是 img2 原图高度。
 pub(crate) fn search_range(
     img1_len: usize,
     img2_len: usize,
+    frame_height: usize,
     ignore_img1_top_ratio: f32,
     ignore_img1_bottom_ratio: f32,
 ) -> (usize, usize) {
@@ -261,9 +263,10 @@ pub(crate) fn search_range(
         let top_ignore = (img1_len as f32 * ignore_img1_top_ratio) as usize;
         search_start = search_start.max(top_ignore);
     }
-    // 忽略 img1 底部一定比例（上滑翻转态：标题栏被 flip 到底部）
+    // 忽略 img1 底部（上滑翻转态：标题栏被 flip 到底部）。按帧高算：标题栏只在最后一帧底部，
+    // 而重叠区也紧贴 img1 底部，按 img1 总长算的话，拼得越长忽略越多，会把重叠区整段切掉。
     if ignore_img1_bottom_ratio > 0.0 {
-        let bottom_ignore = (img1_len as f32 * ignore_img1_bottom_ratio) as usize;
+        let bottom_ignore = (frame_height.min(img1_len) as f32 * ignore_img1_bottom_ratio) as usize;
         search_end = search_end.saturating_sub(bottom_ignore);
     }
     // 防御：忽略过度导致区间反转时，回退到至少保留 1 行
@@ -603,5 +606,22 @@ fn stitch_two_images_smart_auto_internal(
             // 两个方向都失败
             return Err(if matches!(e1, StitchError::NoOverlap) { e2.clone() } else { e1.clone() });
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::search_range;
+
+    #[test]
+    fn bottom_ignore_follows_the_frame_height() {
+        assert_eq!(search_range(640, 640, 640, 0.0, 0.05), (0, 608));
+        assert_eq!(search_range(20_000, 640, 640, 0.0, 0.05), (20_000 - 1280, 20_000 - 32));
+    }
+
+    #[test]
+    fn top_ignore_only_matters_while_the_result_is_short() {
+        assert_eq!(search_range(640, 640, 640, 0.15, 0.0), (96, 640));
+        assert_eq!(search_range(20_000, 640, 640, 0.15, 0.0), (20_000 - 1280, 20_000));
     }
 }

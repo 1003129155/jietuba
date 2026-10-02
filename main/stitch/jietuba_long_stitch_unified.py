@@ -84,7 +84,7 @@ def stitch_images(images, ignore_img1_top_ratio=0.0, ignore_img1_bottom_ratio=0.
     参数:
         images: PIL Image 列表（按顺序排列）
         ignore_img1_top_ratio: 忽略 img1 顶部比例（下滑正常态用，排除固定标题栏）
-        ignore_img1_bottom_ratio: 忽略 img1 底部比例（上滑翻转态用，翻转后标题栏在底部）
+        ignore_img1_bottom_ratio: 忽略 img1 底部的行数，按新图高度的比例计（上滑翻转态用，翻转后标题栏在底部）
 
     返回:
         拼接后的 PIL Image，失败返回 None

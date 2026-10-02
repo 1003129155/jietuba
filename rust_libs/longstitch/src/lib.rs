@@ -55,7 +55,7 @@ impl PyStitchResult {
 ///   ignore_top_pixels        匹配时忽略顶部多少像素（躲开固定表头）
 ///   min_overlap_ratio        判定重叠成立所需的最小重叠占比
 ///   ignore_img1_top_ratio    匹配时忽略 img1 顶部的比例
-///   ignore_img1_bottom_ratio 匹配时忽略 img1 底部的比例
+///   ignore_img1_bottom_ratio 匹配时忽略 img1 底部的行数，按 img2 高度的比例计
 ///   debug                    向标准输出打印匹配过程
 ///
 /// 返回 StitchResult；两图接不上时返回 None。
@@ -215,7 +215,7 @@ impl PyStitchSession {
     /// 帧尺寸不符抛 StitchError。
     ///   detect_direction         自动判断新帧在上方还是下方，参数含义同 stitch()
     ///   ignore_img1_top_ratio    匹配时忽略拼接结果顶部的比例
-    ///   ignore_img1_bottom_ratio 匹配时忽略拼接结果底部的比例
+    ///   ignore_img1_bottom_ratio 匹配时忽略拼接结果底部的行数，按帧高的比例计
     #[pyo3(signature = (bgra, *, detect_direction = false, ignore_img1_top_ratio = 0.0, ignore_img1_bottom_ratio = 0.0, debug = false))]
     fn push(
         &mut self,

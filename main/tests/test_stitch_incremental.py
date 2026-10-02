@@ -195,6 +195,21 @@ def test_export_matches_pairwise_stitching(qapp, case):
     assert exported.convert("RGB").tobytes() == expected.convert("RGB").tobytes()
 
 
+@pytest.mark.parametrize("lock", ["down", "up"])
+def test_long_capture_keeps_every_row(qapp, lock):
+    """与原页面逐像素比对。重叠 150 行，长图超过 3000 行后底部忽略若随长度增长就会盖住它。"""
+    page = _page(6000, seed=8)
+    start, step = (0, 90) if lock == "down" else (6000 - H, -90)
+    frames = _vertical_frames(page, start, step, 80)
+    stitcher = _stitcher(_Collector())
+    try:
+        _submit_all(stitcher, frames, "vertical", lock)
+        exported = stitcher.export()
+    finally:
+        stitcher.close()
+    assert exported.convert("RGB").tobytes() == page.tobytes()
+
+
 def test_single_frame_exports_unchanged(qapp):
     frame = TALL.crop((0, 0, W, H))
     stitcher = _stitcher(_Collector())

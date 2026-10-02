@@ -18,7 +18,7 @@ from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QImage, QTransform
 
 # 原先逐对拼接时的匹配参数：向下滚动忽略长图顶部 15%（固定标题栏），
-# 向上滚动（帧已翻转，标题栏到了底部）忽略底部 5%；横向模式标题栏已转到侧边，都不忽略。
+# 向上滚动（帧已翻转，标题栏到了底部）忽略长图底部 5% 帧高；横向模式标题栏已转到侧边，都不忽略。
 _TOP_RATIO_DOWN = 0.15
 _BOTTOM_RATIO_UP = 0.05
 
