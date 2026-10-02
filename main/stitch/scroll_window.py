@@ -51,6 +51,7 @@ from core import log_debug, log_info, safe_event
 from core.input_hub import input_hub
 from core.logger import log_exception, T, LogMsg
 from .scroll_toolbar import FloatingToolbar  # 浮动工具栏（独立模块）
+from .incremental import Frame, IncrementalStitcher
 from core.ui_theme import set_own_style
 
 _MODULE_TAG = "LongStitch"
@@ -114,6 +115,7 @@ _INPUT_WATCHER = "stitch"
 WHEEL_DELTA = 120
 _PIXELS_PER_STEP = 25  # 滚轮一格按 25 像素估算，只用于记录
 _SHIFT_KEYS = (0xA0, 0xA1)  # 左右 Shift
+_PREVIEW_SIDE = 190  # 预览面板的固定边长，缩略图按它生成
 
 GWL_EXSTYLE = -20
 WS_EX_TRANSPARENT = 0x00000020
@@ -127,7 +129,7 @@ class PreviewPanel(QWidget):
         super().__init__(parent)
         self.setWindowFlags(Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self._fixed_side = 190  # 固定边长度
+        self._fixed_side = _PREVIEW_SIDE
         self._last_panel_size = None
         self.setFixedWidth(self._fixed_side)
         self.setFixedHeight(self._fixed_side)  # 初始正方形占位
@@ -217,26 +219,19 @@ class PreviewPanel(QWidget):
         self.preview_label.clear()
         self.preview_label.setText("")
 
-    def _pil_to_qpixmap(self, pil_image):
-        image = pil_image.convert("RGBA")
-        width, height = image.size
-        data = image.tobytes("raw", "RGBA")
-        # PyQt6: Format_RGBA8888 → Format.Format_RGBA8888
-        qimage = QImage(data, width, height, width * 4, QImage.Format.Format_RGBA8888)
-        return QPixmap.fromImage(qimage.copy())
-
-    def update_preview(self, pil_image, scroll_direction, screenshot_count):
-        if pil_image is None:
+    def update_preview(self, image: Optional[QImage], scroll_direction, screenshot_count):
+        """image 为拼接结果的缩略图（已还原朝向）。"""
+        if image is None or image.isNull():
             self._set_placeholder(scroll_direction, screenshot_count)
             return
 
-        pixmap = self._pil_to_qpixmap(pil_image)
+        pixmap = QPixmap.fromImage(image)
         img_w = pixmap.width()
         img_h = pixmap.height()
         if img_w <= 0 or img_h <= 0:
             return
 
-        F = self._fixed_side  # 210
+        F = self._fixed_side
 
         # 获取屏幕可用空间用于限制面板最大尺寸
         screen = QApplication.primaryScreen()
@@ -338,8 +333,18 @@ class ScrollCaptureWindow(QWidget):
         self._input_hub = None
         
         # 实时拼接相关
-        self.stitched_result = None  # 当前拼接的结果图
+        self.stitched_result = None  # 完成或钉图时导出的长图（已还原朝向）
+        self._latest_preview = None  # 后台送回的最新缩略图
         self.preview_warning_active = False
+        from .jietuba_long_stitch_unified import config as stitch_config
+        self._stitcher = IncrementalStitcher(
+            thumb_side=_PREVIEW_SIDE,
+            # 0 一向被当作「用库的默认值 20」处理
+            ignore_right_pixels=stitch_config.ignore_right_pixels or 20,
+            ignore_top_pixels=stitch_config.ignore_top_pixels,
+            parent=self,
+        )
+        self._stitcher.frame_done.connect(self._on_frame_stitched, Qt.ConnectionType.QueuedConnection)
         
         # 滚动检测相关
         self.last_scroll_time = 0  # 最后一次滚动的时间戳
@@ -643,25 +648,13 @@ class ScrollCaptureWindow(QWidget):
         panel.move(int(x), int(y))
 
     def _refresh_preview_panel(self):
-        """将最新拼接结果渲染到预览面板"""
+        """把最新的拼接缩略图显示到预览面板"""
         if not hasattr(self, 'preview_panel') or self.preview_panel is None:
             return
-        screenshot_count = len(self.screenshots)
-        display_image = None
-        if self.stitched_result is not None:
-            display_image = self.stitched_result
-            # 向上/向左滚动模式：先翻转（顺序：先翻转再旋转）
-            if self.scroll_locked_direction == "up" and screenshot_count >= 2:
-                display_image = display_image.transpose(Image.FLIP_TOP_BOTTOM)
-            if self.scroll_direction == "horizontal" and screenshot_count >= 2:
-                display_image = display_image.rotate(90, expand=True)
-        elif hasattr(self, '_last_screenshot') and self._last_screenshot is not None:
-            # 内存优化：使用 _last_screenshot 代替直接访问列表
-            display_image = self._last_screenshot
         self.preview_panel.update_preview(
-            display_image,
+            getattr(self, '_latest_preview', None),
             self.scroll_direction,
-            screenshot_count
+            len(self.screenshots)
         )
         # 面板大小可能变化，重新定位到不遮挡截图区域的位置
         self._position_preview_panel()
@@ -1132,8 +1125,10 @@ class ScrollCaptureWindow(QWidget):
         return pixmap.toImage()
 
     def _do_capture(self):
-        """执行截图并实时拼接"""
-        stitch_successful = True
+        """截图并提交给后台拼接，结论由 _on_frame_stitched 处理"""
+        stitcher = getattr(self, '_stitcher', None)
+        if stitcher is None:
+            return
         # 截图前：排除与截图区域重叠的 UI 窗口
         self._exclude_overlapping_ui(True)
         try:
@@ -1142,128 +1137,27 @@ class ScrollCaptureWindow(QWidget):
                 _log_stitch(T("[ERROR] 截图失败"), force=True)
                 return
 
-            # PySide6: bits() 返回 memoryview，直接转 bytes
-            buffer = bytes(qimage.bits())
-            pil_image = Image.frombytes(
-                'RGBA',
-                (qimage.width(), qimage.height()),
-                buffer,
-                'raw',
-                'BGRA'
-            ).convert('RGB')
-            
-            # 横向模式：从第2张图片开始旋转90度（顺时针）以便使用竖向拼接算法
-            is_first_image = len(self.screenshots) == 0
-            if self.scroll_direction == "horizontal" and not is_first_image:
-                pil_image = pil_image.rotate(-90, expand=True)
-            
-            # 向上滚动模式：翻转图片，把"从下往上"变成"从上往下"
-            if self.scroll_locked_direction == "up":
-                pil_image = pil_image.transpose(Image.FLIP_TOP_BOTTOM)
-            
-            self._last_screenshot = pil_image
-            self._screenshot_count = getattr(self, '_screenshot_count', 0) + 1
-            
+            image = qimage.convertToFormat(QImage.Format.Format_RGB32)
+            width, height = image.width(), image.height()
+            bgra = bytes(image.constBits())[:width * height * 4]
+
+            if not self.screenshots:
+                # 首帧另留一份 PIL 图，供去重哈希使用
+                self._last_screenshot = Image.frombuffer(
+                    "RGBA", (width, height), bgra, "raw", "BGRA", 0, 1).convert("RGB")
+
             # screenshots 列表只保留计数，不存储实际图像
-            if not hasattr(self, '_screenshots_count_only'):
-                self._screenshots_count_only = True
-                self.screenshots.clear()
             self.screenshots.append(None)
-            
-            screenshot_count = len(self.screenshots)
-            
-            try:
-                from .jietuba_long_stitch_unified import stitch_images, stitch_images_auto
-
-                if self.stitched_result is None:
-                    # 第一张图片
-                    self.stitched_result = pil_image
-                else:
-                    # 增量拼接
-                    # 横向模式：如果是第2张图片，需要先将第1张图片也旋转
-                    if self.scroll_direction == "horizontal" and screenshot_count == 2:
-                        self.stitched_result = self.stitched_result.rotate(-90, expand=True)
-                    
-                    # 向上/向左滚动模式：如果是第2张图片，需要先将第1张也翻转
-                    if self.scroll_locked_direction == "up" and screenshot_count == 2:
-                        self.stitched_result = self.stitched_result.transpose(Image.FLIP_TOP_BOTTOM)
-                    
-                    # 自动方向检测：第一次拼接时（方向未锁定），使用 Rust auto 接口
-                    if self.scroll_locked_direction is None and screenshot_count == 2:
-                        result, direction = stitch_images_auto(
-                            self.stitched_result, pil_image, debug=False
-                        )
-                        if result is not None and direction == "reverse":
-                            self.scroll_locked_direction = "up"
-                            # Rust auto 返回的是翻转态（对翻转图片拼接的产物），
-                            # 与 stitched_result 的全程翻转态约定一致，直接存储即可
-                            self.stitched_result = result
-                            arrow = "⬆️" if self.scroll_direction == "vertical" else "⬅️"
-                            _log_stitch(T("{arrow} 自动检测到反向滚动，已锁定", arrow=arrow))
-                            result = "HANDLED"
-                        elif result is not None:
-                            self.scroll_locked_direction = "down"
-                            self.stitched_result = result
-                            result = "HANDLED"
-                    else:
-                        # 方向已锁定，正常拼接
-                        # 忽略 img1 一定区域以排除顶部固定标题栏干扰。
-                        # 注意：判断依据是"Rust 收到的图是否翻转态"，不是屏幕滚动方向。
-                        #   - 横向模式：标题栏已被 rotate 转到侧边，不需要忽略
-                        #   - 竖向下滑（正常态）：标题栏在图顶部 → 忽略顶部 15%
-                        #   - 竖向上滑（翻转态，已 FLIP_TOP_BOTTOM）：标题栏被翻到底部 → 忽略底部 5%
-                        #     （底部同时是重叠区所在，比例取小值以免切掉真实重叠）
-                        ignore_top_ratio = 0.0
-                        ignore_bottom_ratio = 0.0
-                        if self.scroll_direction != "horizontal":
-                            if self.scroll_locked_direction == "up":
-                                ignore_bottom_ratio = 0.05
-                            else:
-                                ignore_top_ratio = 0.15
-                        result = stitch_images(
-                            [self.stitched_result, pil_image],
-                            ignore_img1_top_ratio=ignore_top_ratio,
-                            ignore_img1_bottom_ratio=ignore_bottom_ratio,
-                        )
-                    
-                    if result == "HANDLED":
-                        pass  # 已在上面处理
-                    elif result:
-                        self.stitched_result = result
-                    else:
-                        _log_stitch(T("[WARN] 第 {screenshot_count} 张拼接失败，未找到重叠区域", screenshot_count=screenshot_count), force=True)
-                        stitch_successful = False
-                        self._handle_stitch_failure(screenshot_count, "未找到可靠的重叠区域")
-
-            except Exception as e:
-                _log_stitch(T("[WARN] 第 {screenshot_count} 张拼接出错: {e}", screenshot_count=screenshot_count, e=e), force=True)
-                import traceback
-                traceback.print_exc()
-                stitch_successful = False
-                self._handle_stitch_failure(screenshot_count, f"算法异常：{e}")
-                
-                if self.stitched_result is None:
-                    self.stitched_result = pil_image
-            
-            if stitch_successful:
-                if len(self.screenshots) == 1:
-                    self.scroll_distances.append(0)
-                else:
-                    self.scroll_distances.append(self.current_scroll_distance)
-                self.current_scroll_distance = 0
-
-                if hasattr(self, 'preview_panel') and self.preview_panel:
-                    self.preview_panel.update_count(len(self.screenshots))
-
-                # 只输出一行关键信息
-                w, h = self.stitched_result.size
-                _log_stitch(T("📸 第 {screenshot_count} 张 → 拼接结果: {w}x{h}", screenshot_count=screenshot_count, w=w, h=h))
-                self._clear_preview_warning()
-            else:
-                self.current_scroll_distance = 0
-
-            self._refresh_preview_panel()
-
+            distance, self.current_scroll_distance = self.current_scroll_distance, 0
+            stitcher.submit(Frame(
+                bgra=bgra,
+                width=width,
+                height=height,
+                index=len(self.screenshots),
+                scroll_direction=self.scroll_direction,
+                locked=self.scroll_locked_direction,
+                distance=distance,
+            ))
         except Exception as e:
             _log_stitch(T("[ERROR] 截图时出错: {e}", e=e), force=True)
             import traceback
@@ -1271,6 +1165,46 @@ class ScrollCaptureWindow(QWidget):
         finally:
             # 截图完成：恢复 UI 窗口可被截图
             self._exclude_overlapping_ui(False)
+
+    def _on_frame_stitched(self, result):
+        """后台拼接完一帧，已在主线程。"""
+        if getattr(self, '_stitcher', None) is None:
+            return
+
+        if result.locked is not None and self.scroll_locked_direction is None:
+            # 自动判向的结论同步回来，之后的滚轮按这个方向过滤
+            self.scroll_locked_direction = result.locked
+            if result.locked == "up":
+                arrow = "⬆️" if self.scroll_direction == "vertical" else "⬅️"
+                _log_stitch(T("{arrow} 自动检测到反向滚动，已锁定", arrow=arrow))
+
+        if result.ok:
+            self.scroll_distances.append(0 if result.first else result.distance)
+            if hasattr(self, 'preview_panel') and self.preview_panel:
+                self.preview_panel.update_count(len(self.screenshots))
+            _log_stitch(T("📸 第 {screenshot_count} 张 → 拼接结果: {w}x{h}",
+                          screenshot_count=result.index, w=result.width, h=result.height))
+            self._clear_preview_warning()
+        elif result.error:
+            _log_stitch(T("[WARN] 第 {screenshot_count} 张拼接出错: {e}",
+                          screenshot_count=result.index, e=result.error), force=True)
+            self._handle_stitch_failure(result.index, f"算法异常：{result.error}")
+        else:
+            _log_stitch(T("[WARN] 第 {screenshot_count} 张拼接失败，未找到重叠区域",
+                          screenshot_count=result.index), force=True)
+            self._handle_stitch_failure(result.index, "未找到可靠的重叠区域")
+
+        if result.preview is not None:
+            self._latest_preview = result.preview
+        self._refresh_preview_panel()
+
+    def _export_result(self):
+        """等后台处理完已提交的帧，取出还原朝向后的完整长图。"""
+        stitcher = getattr(self, '_stitcher', None)
+        if stitcher is None:
+            return self.stitched_result
+        self.stitched_result = stitcher.export()
+        return self.stitched_result
     
     @safe_event
     def paintEvent(self, event):
@@ -1309,27 +1243,8 @@ class ScrollCaptureWindow(QWidget):
     def _on_finish(self):
         """完成按钮点击"""
         _log_stitch(T("[OK] 完成长截图，共 {count} 张图片", count=len(self.screenshots)), force=True)
-        
-        # 横向模式：将拼接结果逆时针旋转90度还原
-        # 只有在有2张及以上图片（发生了拼接）时才旋转
-        # 如果只有1张图片，不需要旋转（第1张图片没有被旋转）
-        # 向上/向左滚动模式：先翻转还原（必须在横向旋转之前）
-        if (self.scroll_locked_direction == "up" and 
-            self.stitched_result is not None and
-            len(self.screenshots) >= 2):
-            self.stitched_result = self.stitched_result.transpose(Image.FLIP_TOP_BOTTOM)
-        
-        # 横向模式：将拼接结果逆时针旋转90度还原
-        if (self.scroll_direction == "horizontal" and 
-            self.stitched_result is not None and 
-            len(self.screenshots) >= 2):
-            _log_stitch(T("🔄 横向模式：将拼接结果逆时针旋转90度还原（共{count}张）", count=len(self.screenshots)))
-            _log_stitch(T("   旋转前尺寸: {w}x{h}", w=self.stitched_result.size[0], h=self.stitched_result.size[1]))
-            self.stitched_result = self.stitched_result.rotate(90, expand=True)
-            _log_stitch(T("   旋转后尺寸: {w}x{h}", w=self.stitched_result.size[0], h=self.stitched_result.size[1]))
-        elif self.scroll_direction == "horizontal" and len(self.screenshots) == 1:
-            _log_stitch(T("📸 横向模式：只有1张图片，无需旋转"))
-        
+        self._export_result()
+
         # 自动保存文件
         self._save_result()
         
@@ -1413,24 +1328,13 @@ class ScrollCaptureWindow(QWidget):
             _log_stitch(T("[ERROR] config_manager 未设置，无法创建钉图"))
             return
 
-        # 获取拼接结果
-        result_image = self.stitched_result
+        # 获取拼接结果（导出时已还原朝向）
+        result_image = self._export_result()
 
         if result_image is None:
             _log_stitch(T("[WARN] 没有拼接结果，无法钉图"))
             return
-        
-        # 向上/向左滚动模式：先翻转还原（必须在横向旋转之前）
-        if (self.scroll_locked_direction == "up" and
-            len(self.screenshots) >= 2):
-            result_image = result_image.transpose(Image.FLIP_TOP_BOTTOM)
-        
-        # 横向模式：旋转结果
-        if (self.scroll_direction == "horizontal" and 
-            len(self.screenshots) >= 2):
-            _log_stitch(T("🔄 横向模式：旋转图片..."))
-            result_image = result_image.rotate(90, expand=True)
-        
+
         # 转换 PIL Image 到 QImage（使用原图，不缩放）
         try:
             from PySide6.QtGui import QImage
@@ -1497,6 +1401,11 @@ class ScrollCaptureWindow(QWidget):
             
             if hasattr(self, 'stitched_result'):
                 self.stitched_result = None
+
+            stitcher, self._stitcher = getattr(self, '_stitcher', None), None
+            if stitcher is not None:
+                stitcher.close()
+            self._latest_preview = None
             
             import gc
             gc.collect()

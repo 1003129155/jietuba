@@ -1,6 +1,7 @@
 pub mod error;
 pub mod hash;
 pub mod lcs;
+pub mod session;
 pub mod stitch;
 
 use pyo3::create_exception;
@@ -135,11 +136,139 @@ fn stitch_images(
     }
 }
 
+/// 会话推入一帧后的结论：长图先截到 keep 行，再接上新帧从 skip 行开始的部分。
+#[pyclass(frozen, name = "PushResult")]
+pub struct PyPushResult {
+    /// 拼接结果保留的行数（第一帧为 0）。
+    #[pyo3(get)]
+    keep: usize,
+    /// 新帧跳过的行数（第一帧为 0，即整帧追加）。
+    #[pyo3(get)]
+    skip: usize,
+    /// 推入后拼接结果的总行数。
+    #[pyo3(get)]
+    height: usize,
+    /// "forward" 或 "reverse"。
+    ///
+    /// 只有 detect_direction=True 时才可能是 "reverse"：会话里的长图已整体翻转，
+    /// 调用方此后要先翻转帧再推入，最终输出时再翻转还原。
+    #[pyo3(get)]
+    direction: String,
+}
+
+#[pymethods]
+impl PyPushResult {
+    fn __repr__(&self) -> String {
+        format!(
+            "PushResult(keep={}, skip={}, height={}, direction='{}')",
+            self.keep, self.skip, self.height, self.direction
+        )
+    }
+}
+
+/// 增量拼接会话。
+///
+/// 逐帧推入 BGRA 截图，会话只回传拼接参数；已拼好的长图留在会话里，
+/// 需要时用 export() 一次取出。匹配规则与 stitch() 相同。
+///
+/// 参数：
+///   width, height        每一帧的宽高
+///   ignore_right_pixels  匹配时忽略右侧多少像素（躲开滚动条）
+///   ignore_top_pixels    匹配时忽略新帧顶部多少像素（躲开固定表头）
+///   min_overlap_ratio    判定重叠成立所需的最小重叠占比
+#[pyclass(name = "StitchSession")]
+pub struct PyStitchSession {
+    inner: session::StitchSession,
+}
+
+#[pymethods]
+impl PyStitchSession {
+    #[new]
+    #[pyo3(signature = (width, height, *, ignore_right_pixels = 20, ignore_top_pixels = 0, min_overlap_ratio = 0.01))]
+    fn new(
+        width: u32,
+        height: u32,
+        ignore_right_pixels: u32,
+        ignore_top_pixels: u32,
+        min_overlap_ratio: f32,
+    ) -> PyResult<Self> {
+        session::StitchSession::new(width, height, ignore_right_pixels, ignore_top_pixels, min_overlap_ratio)
+            .map(|inner| Self { inner })
+            .map_err(|e| StitchError::new_err(e.to_string()))
+    }
+
+    /// 每一帧的宽度。
+    #[getter]
+    fn width(&self) -> u32 {
+        self.inner.width()
+    }
+
+    /// 当前拼接结果的行数，尚未推入任何帧时为 0。
+    #[getter]
+    fn height(&self) -> usize {
+        self.inner.height()
+    }
+
+    /// 推入一帧 BGRA 截图（bytes，长度须为 width*height*4）。
+    ///
+    /// 第一帧只作为起点。接不上时返回 None，会话保持不变；
+    /// 帧尺寸不符抛 StitchError。
+    ///   detect_direction         自动判断新帧在上方还是下方，参数含义同 stitch()
+    ///   ignore_img1_top_ratio    匹配时忽略拼接结果顶部的比例
+    ///   ignore_img1_bottom_ratio 匹配时忽略拼接结果底部的比例
+    #[pyo3(signature = (bgra, *, detect_direction = false, ignore_img1_top_ratio = 0.0, ignore_img1_bottom_ratio = 0.0, debug = false))]
+    fn push(
+        &mut self,
+        py: Python<'_>,
+        bgra: &[u8],
+        detect_direction: bool,
+        ignore_img1_top_ratio: f32,
+        ignore_img1_bottom_ratio: f32,
+        debug: bool,
+    ) -> PyResult<Option<PyPushResult>> {
+        let inner = &mut self.inner;
+        let outcome = py.allow_threads(|| {
+            inner.push_bgra(bgra, detect_direction, ignore_img1_top_ratio, ignore_img1_bottom_ratio, debug)
+        });
+        match outcome {
+            Ok(o) => Ok(Some(PyPushResult {
+                keep: o.keep,
+                skip: o.skip,
+                height: self.inner.height(),
+                direction: if o.reversed { "reverse" } else { "forward" }.to_string(),
+            })),
+            Err(CoreError::NoOverlap) => Ok(None),
+            Err(e) => Err(StitchError::new_err(e.to_string())),
+        }
+    }
+
+    /// 当前拼接结果，BGRA 字节，尺寸为 width x height。
+    fn export<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+        let inner = &self.inner;
+        // 直接写进新建的 bytes，不经中间缓冲；该对象此时还没交给 Python，释放 GIL 写入是安全的
+        PyBytes::new_bound_with(py, inner.byte_len(), |buf| {
+            py.allow_threads(|| inner.export_into(buf));
+            Ok(())
+        })
+    }
+
+    /// 立即释放拼接结果占用的内存。
+    fn close(&mut self) {
+        self.inner.clear();
+    }
+
+    fn __repr__(&self) -> String {
+        format!("StitchSession(width={}, height={})", self.inner.width(), self.inner.height())
+    }
+}
+
 #[pymodule]
 fn longstitch(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add("StitchError", m.py().get_type_bound::<StitchError>())?;
     m.add_class::<PyStitchResult>()?;
+    m.add_class::<PyPushResult>()?;
+    m.add_class::<PyStitchSession>()?;
     m.add_function(wrap_pyfunction!(stitch_images, m)?)?;
     Ok(())
 }

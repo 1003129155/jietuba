@@ -93,7 +93,7 @@ These six packages are included in `requirements.txt` and install with the runti
 | pip name | import name | Version | Description |
 |------|------|------|------|
 | [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.0 | GIF/video composition encoder |
-| [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | Long screenshot stitching algorithm |
+| [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.5.0 | Long screenshot stitching algorithm |
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.4 | Low-level clipboard operations |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | HDR-correct desktop capture (DXGI Desktop Duplication + GPU tone mapping) |
@@ -483,6 +483,7 @@ settings/
 
 ```text
 stitch/
+├── incremental.py                   # IncrementalStitcher — background stitching, preview thumbnails
 ├── jietuba_long_stitch_unified.py   # Stitching interface (calls the Rust longstitch)
 ├── scroll_window.py                 # ScrollCaptureWindow — scroll capture window
 └── scroll_toolbar.py                # Scroll capture toolbar

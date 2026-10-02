@@ -203,9 +203,49 @@ fn smart_stitch_core(
         debug,
     );
 
-    // 搜索区域设置（2倍窗口，容忍回滚）
     let img1_len = img1_rgba.height() as usize;
-    let img2_len = img2_hashes.len();
+    let (search_start, search_end) = search_range(
+        img1_len,
+        img2_hashes.len(),
+        ignore_img1_top_ratio,
+        ignore_img1_bottom_ratio,
+    );
+
+    let img1_search_region = compute_row_hashes_from_rgba_range(
+        img1_rgba,
+        search_start as u32,
+        search_end as u32,
+        ignore_right_pixels,
+        debug,
+    );
+
+    let (start_i, start_j_abs, overlap_length) = match_overlap(
+        &img1_search_region,
+        search_start,
+        img1_len,
+        &img2_hashes,
+        img2_hash_start,
+        min_overlap_ratio,
+        ignore_img1_top_ratio,
+        ignore_img1_bottom_ratio,
+        debug,
+    )?;
+
+    // 执行像素拼接
+    Ok(do_pixel_stitch(
+        img1_rgba, img2_rgba, final_width, height2,
+        start_i, start_j_abs, overlap_length, debug,
+    ))
+}
+
+/// img1 中参与匹配的行区间 [start, end)。
+pub(crate) fn search_range(
+    img1_len: usize,
+    img2_len: usize,
+    ignore_img1_top_ratio: f32,
+    ignore_img1_bottom_ratio: f32,
+) -> (usize, usize) {
+    // 搜索区域设置（2倍窗口，容忍回滚）
     let search_window = img2_len * 2;
     let mut search_start = if img1_len > search_window {
         img1_len - search_window
@@ -230,14 +270,25 @@ fn smart_stitch_core(
     if search_start >= search_end {
         search_start = search_end.saturating_sub(1);
     }
+    (search_start, search_end)
+}
 
-    let img1_search_region = compute_row_hashes_from_rgba_range(
-        img1_rgba,
-        search_start as u32,
-        search_end as u32,
-        ignore_right_pixels,
-        debug,
-    );
+/// 用行哈希找重叠并选定候选。
+///
+/// `img1_region` 是 img1[search_start..] 的哈希，`img2_hashes` 已跳过顶部 `img2_hash_start` 行。
+/// 返回 (img1 中重叠起点, img2 原图坐标下的重叠起点, 重叠行数)。
+pub(crate) fn match_overlap(
+    img1_region: &[u64],
+    search_start: usize,
+    img1_len: usize,
+    img2_hashes: &[u64],
+    img2_hash_start: usize,
+    min_overlap_ratio: f32,
+    ignore_img1_top_ratio: f32,
+    ignore_img1_bottom_ratio: f32,
+    debug: bool,
+) -> Result<(i32, i32, usize), StitchError> {
+    let img2_len = img2_hashes.len();
 
     if debug {
         println!("  🔍 搜索重叠区域:");
@@ -245,36 +296,20 @@ fn smart_stitch_core(
         println!("     img2总长度: {}行", img2_len);
         println!(
             "     搜索范围: img1[{}:{}] (共{}行, 忽略顶部比例{:.2} 底部比例{:.2})",
-            search_start, search_end, img1_search_region.len(),
+            search_start, search_start + img1_region.len(), img1_region.len(),
             ignore_img1_top_ratio, ignore_img1_bottom_ratio
         );
     }
 
     // 找多个候选子串
-    let candidates = find_top_common_substrings(
-        &img1_search_region,
-        &img2_hashes,
-        min_overlap_ratio,
-        5,
-    );
+    let candidates = find_top_common_substrings(img1_region, img2_hashes, min_overlap_ratio, 5);
 
     // 智能选择
-    let (start_i, start_j, overlap_length) = select_best_candidate(
-        &candidates,
-        search_start,
-        img1_len,
-        img2_len,
-        debug,
-    )?;
+    let (start_i, start_j, overlap_length) =
+        select_best_candidate(&candidates, search_start, img1_len, img2_len, debug)?;
 
     // start_j 基于跳过顶部后的 img2 哈希序列，像素拼接时要映射回原图坐标。
-    let start_j_abs = start_j + img2_hash_start as i32;
-
-    // 执行像素拼接
-    Ok(do_pixel_stitch(
-        img1_rgba, img2_rgba, final_width, height2,
-        start_i, start_j_abs, overlap_length, debug,
-    ))
+    Ok((start_i, start_j + img2_hash_start as i32, overlap_length))
 }
 
 // ========== 公开 API ==========

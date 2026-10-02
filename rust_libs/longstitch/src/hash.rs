@@ -56,36 +56,7 @@ pub fn compute_row_hashes_from_rgba_range(
     let raw = rgba_img.as_raw();
     let stride = (width * 4) as usize;
 
-    let row_hashes: Vec<u64> = (y_start..y_end)
-        .into_par_iter()
-        .map(|y| {
-            let mut r_sum: u64 = 0;
-            let mut g_sum: u64 = 0;
-            let mut b_sum: u64 = 0;
-            let pixel_count = effective_width as u64;
-
-            let row_start = y as usize * stride;
-            let row_data = &raw[row_start..row_start + (effective_width as usize) * 4];
-            for chunk in row_data.chunks_exact(4) {
-                r_sum += chunk[0] as u64;
-                g_sum += chunk[1] as u64;
-                b_sum += chunk[2] as u64;
-            }
-
-            if pixel_count > 0 {
-                let r_mean = ((r_sum / pixel_count) / 8) * 8;
-                let g_mean = ((g_sum / pixel_count) / 8) * 8;
-                let b_mean = ((b_sum / pixel_count) / 8) * 8;
-
-                r_mean
-                    .wrapping_mul(73856093)
-                    .wrapping_add(g_mean.wrapping_mul(19349663))
-                    .wrapping_add(b_mean.wrapping_mul(83492791))
-            } else {
-                0
-            }
-        })
-        .collect();
+    let row_hashes = compute_row_hashes_raw(raw, width, y_start, y_end, ignore_right_pixels);
 
     if debug {
         println!("  📊 样本哈希值（每100行）:");
@@ -118,6 +89,57 @@ pub fn compute_row_hashes_from_rgba_range(
     }
 
     row_hashes
+}
+
+/// 直接在 RGBA 像素缓冲区上逐行计算哈希，`raw` 的行宽为 `width` 像素。
+pub fn compute_row_hashes_raw(
+    raw: &[u8],
+    width: u32,
+    y_start: u32,
+    y_end: u32,
+    ignore_right_pixels: u32,
+) -> Vec<u64> {
+    let stride = (width * 4) as usize;
+    let height = if stride == 0 { 0 } else { (raw.len() / stride) as u32 };
+    let y_start = y_start.min(height);
+    let y_end = y_end.min(height).max(y_start);
+
+    let effective_width = if ignore_right_pixels > 0 && width > ignore_right_pixels {
+        width - ignore_right_pixels
+    } else {
+        width
+    };
+
+    (y_start..y_end)
+        .into_par_iter()
+        .map(|y| {
+            let mut r_sum: u64 = 0;
+            let mut g_sum: u64 = 0;
+            let mut b_sum: u64 = 0;
+            let pixel_count = effective_width as u64;
+
+            let row_start = y as usize * stride;
+            let row_data = &raw[row_start..row_start + (effective_width as usize) * 4];
+            for chunk in row_data.chunks_exact(4) {
+                r_sum += chunk[0] as u64;
+                g_sum += chunk[1] as u64;
+                b_sum += chunk[2] as u64;
+            }
+
+            if pixel_count > 0 {
+                let r_mean = ((r_sum / pixel_count) / 8) * 8;
+                let g_mean = ((g_sum / pixel_count) / 8) * 8;
+                let b_mean = ((b_sum / pixel_count) / 8) * 8;
+
+                r_mean
+                    .wrapping_mul(73856093)
+                    .wrapping_add(g_mean.wrapping_mul(19349663))
+                    .wrapping_add(b_mean.wrapping_mul(83492791))
+            } else {
+                0
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]

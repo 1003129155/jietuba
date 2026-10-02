@@ -94,7 +94,7 @@ OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_det
 | pip 包名 | import 名 | 版本 | 功能 |
 |------|------|------|------|
 | [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.0 | GIF/视频合成编码器 |
-| [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | 长截图拼接算法 |
+| [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.5.0 | 长截图拼接算法 |
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.4 | 剪贴板底层操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | 支持 HDR 的桌面截图（DXGI Desktop Duplication + GPU 色调映射） |
@@ -540,6 +540,7 @@ settings/
 
 stitch/
 ├── __init__.py
+├── incremental.py                   # IncrementalStitcher — 后台增量拼接与预览缩略图
 ├── jietuba_long_stitch_unified.py   # 长截图拼接接口（调用 Rust longstitch）
 ├── scroll_window.py                 # ScrollCaptureWindow — 滚动截图窗口
 └── scroll_toolbar.py                # 滚动截图工具栏

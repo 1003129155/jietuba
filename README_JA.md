@@ -93,7 +93,7 @@ OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は、�
 | pip パッケージ名 | import 名 | バージョン | 機能 |
 |------|------|------|------|
 | [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.0 | GIF/動画合成エンコーダー |
-| [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | 長いスクリーンショット結合アルゴリズム |
+| [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.5.0 | 長いスクリーンショット結合アルゴリズム |
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.4 | クリップボード操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | HDR 対応のデスクトップキャプチャ（DXGI Desktop Duplication + GPU トーンマッピング） |
@@ -482,6 +482,7 @@ settings/
 
 ```text
 stitch/
+├── incremental.py                   # IncrementalStitcher — バックグラウンド結合とプレビュー縮小画像
 ├── jietuba_long_stitch_unified.py   # 結合インターフェース（Rust の longstitch を呼び出す）
 ├── scroll_window.py                 # ScrollCaptureWindow — スクロールキャプチャウィンドウ
 └── scroll_toolbar.py                # スクロールキャプチャツールバー

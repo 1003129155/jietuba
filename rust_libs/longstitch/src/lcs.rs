@@ -173,7 +173,9 @@ pub fn find_top_common_substrings(
         return Vec::new();
     }
 
-    substrings.sort_by(|a, b| b.2.cmp(&a.2));
+    // 候选来自 HashMap 遍历，顺序每次运行都不同；长度相同时按位置定序，
+    // 同样的输入才总得到同样的结果。优先靠近 seq1 末尾的位置，正常滚动时重叠就在那里。
+    substrings.sort_by(|a, b| b.2.cmp(&a.2).then(b.0.cmp(&a.0)).then(a.1.cmp(&b.1)));
     substrings.dedup();
 
     // 选择不重叠的前 top_k 个

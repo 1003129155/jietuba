@@ -19,6 +19,8 @@ pub enum StitchError {
     Encode(String),
     /// 请求了未实现的哈希算法。
     UnknownHashMethod(String),
+    /// 推入会话的帧与会话的尺寸不符。
+    InvalidFrame(String),
 }
 
 impl StitchError {
@@ -38,6 +40,7 @@ impl fmt::Display for StitchError {
             Self::Decode(c) => write!(f, "failed to decode image: {c}"),
             Self::Encode(c) => write!(f, "failed to encode result: {c}"),
             Self::UnknownHashMethod(m) => write!(f, "unknown hash method: {m}"),
+            Self::InvalidFrame(c) => write!(f, "invalid frame: {c}"),
         }
     }
 }
