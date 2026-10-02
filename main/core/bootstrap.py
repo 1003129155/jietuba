@@ -461,10 +461,11 @@ class PreloadManager:
         try:
             # 首次运行：显示欢迎向导
             if self.config.is_first_run():
+                from ui.dialogs import exec_dialog
                 from ui.welcome import WelcomeWizard
                 self.app.hotkey_system.unregister_all()
                 wizard = WelcomeWizard(self.config)
-                wizard.exec()
+                exec_dialog(wizard)
                 self.app.update_hotkey()
                 self.app.setup_tray()
                 self.app._setup_pin_tray_updates()

@@ -12,6 +12,7 @@ from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QBrush, QFont
 from PySide6.QtCore import QObject, Qt, Signal, Slot
 from ui.dialogs import show_warning_dialog, show_error_dialog
 
+from core.qt_utils import blocking_modal
 from core.shortcut_manager import HotkeySystem
 from settings import get_tool_settings_manager
 from ui.tray_menu import create_tray_menu
@@ -260,9 +261,10 @@ class MainApp(QObject):
         # 3. 显示向导
         self.quick_capture.suspend()
         try:
+            from ui.dialogs import exec_dialog
             from ui.welcome import WelcomeWizard
             wizard = WelcomeWizard(self.config_manager)
-            wizard.exec()
+            exec_dialog(wizard)
         except Exception as e:
             log_exception(e, T("向导启动失败"))
 
@@ -471,9 +473,9 @@ class MainApp(QObject):
             self.start_screenshot()
 
     def _activate_blocking_modal(self) -> bool:
-        """模态窗口存在时阻止创建无法交互的截图层。"""
-        modal = QApplication.activeModalWidget()
-        if modal is None or not modal.isVisible():
+        """应用模态窗口存在时阻止创建无法交互的截图层。"""
+        modal = blocking_modal()
+        if modal is None:
             return False
 
         log_debug(
@@ -494,13 +496,12 @@ class MainApp(QObject):
             log_debug(T("截图窗口已存在，忽略重复触发"), "MainApp")
             self.screenshot_window.activateWindow()
             self.screenshot_window.raise_()
-            # 如果有颜色选择器正在显示，重新提到截图窗口上方，防止被全屏窗口遮挡
-            from PySide6.QtWidgets import QApplication, QColorDialog
-            for w in QApplication.topLevelWidgets():
-                if isinstance(w, QColorDialog) and w.isVisible():
-                    w.raise_()
-                    w.activateWindow()
-                    return
+            # 截图中打开的对话框（取色、保存、调整）锁着截图窗口，重新提到全屏截图层上方
+            modal = blocking_modal(self.screenshot_window)
+            if modal is not None:
+                modal.raise_()
+                modal.activateWindow()
+                return
             self.screenshot_window.setFocus()
             return
 
@@ -514,11 +515,11 @@ class MainApp(QObject):
             log_debug(T("截图进行中，忽略重复触发"), "MainApp")
             return
 
-        # 关闭所有已打开的颜色选择器（避免其遮挡截图界面或触发焦点冲突）
-        from PySide6.QtWidgets import QApplication, QColorDialog
-        for w in QApplication.topLevelWidgets():
-            if isinstance(w, QColorDialog) and w.isVisible():
-                w.reject()
+        # 上次截图遗留的对话框还挂在截图窗口上，会遮挡新的截图层；其他窗口的对话框不动
+        if self.screenshot_window is not None:
+            leftover = blocking_modal(self.screenshot_window)
+            if leftover is not None:
+                leftover.close()
 
         # 剪贴板窗口可能被设为粘贴后常驻，会连同它一起被截进图里。用 close
         # 而不是 hide：hide 不会关掉它已弹出的右键菜单，那个菜单是置顶的，

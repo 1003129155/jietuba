@@ -407,14 +407,14 @@ def test_cannot_start_during_other_capture_or_modal(capture, monkeypatch):
     capture._on_input("start", 1, 10, 10)
     assert not capture.busy
     capture.main_app.screenshot_window = None
-    monkeypatch.setattr(module.QApplication, "activeModalWidget", lambda: object())
+    monkeypatch.setattr(module, "blocking_modal", lambda widget=None: object())
     capture._on_input("start", 2, 10, 10)
     assert not capture.busy
 
 
 def test_modal_appearing_during_drag_cancels(capture, qtbot, monkeypatch):
     start(capture, qtbot)
-    monkeypatch.setattr(module.QApplication, "activeModalWidget", lambda: object())
+    monkeypatch.setattr(module, "blocking_modal", lambda widget=None: object())
     move(capture)
     assert not capture.busy
     assert not capture.overlay.isVisible()

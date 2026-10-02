@@ -18,7 +18,6 @@ from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QCursor, QIcon, QImage
 from PySide6.QtWidgets import (
     QApplication,
-    QFileDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -51,7 +50,14 @@ from ui.settings_ui.components import (
 from core import safe_event
 from core.ui_scale import configure_dialog_control, configure_dialog_controls, dialog_scaled
 from core.ui_theme import get_ui_theme, set_own_style
-from ui.dialogs import show_confirm_dialog, show_info_dialog, show_warning_dialog
+from ui.dialogs import (
+    get_existing_directory,
+    get_open_file_name,
+    get_save_file_name,
+    show_confirm_dialog,
+    show_info_dialog,
+    show_warning_dialog,
+)
 
 from ...core import ClipboardManager, Group, GroupType
 from ...services.file_payload_service import extract_first_file_path_from_content
@@ -1285,7 +1291,7 @@ class ManageDialog(FrostedFramelessDialog):
         self._set_pending_image(image)
 
     def _browse_image_file(self):
-        path, _ = QFileDialog.getOpenFileName(
+        path, _ = get_open_file_name(
             self, self.tr("Choose Image File"), "",
             self.tr("Images (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff *.ico)"),
         )
@@ -1310,13 +1316,13 @@ class ManageDialog(FrostedFramelessDialog):
 
     def _on_browse_file(self):
         """弹出文件选择对话框"""
-        path, _ = QFileDialog.getOpenFileName(self, self.tr("Select File"), "", self.tr("All Files (*.*)"))
+        path, _ = get_open_file_name(self, self.tr("Select File"), "", self.tr("All Files (*.*)"))
         if path:
             self._set_selected_file_path(path)
 
     def _on_browse_folder(self):
         """弹出文件夹选择对话框"""
-        path = QFileDialog.getExistingDirectory(self, self.tr("Select Folder"), "")
+        path = get_existing_directory(self, self.tr("Select Folder"), "")
         if path:
             self._set_selected_file_path(path)
 
@@ -1700,7 +1706,7 @@ class ManageDialog(FrostedFramelessDialog):
 
     def _export_to_csv(self):
         """导出收藏内容到 CSV 文件（仅导出纯文本内容）"""
-        file_path, _ = QFileDialog.getSaveFileName(
+        file_path, _ = get_save_file_name(
             self,
             self.tr("Export to CSV"),
             "clipboard_export.csv",
@@ -1729,7 +1735,7 @@ class ManageDialog(FrostedFramelessDialog):
 
     def _import_from_csv(self):
         """从 CSV 文件导入内容"""
-        file_path, _ = QFileDialog.getOpenFileName(
+        file_path, _ = get_open_file_name(
             self,
             self.tr("Import from CSV"),
             "",

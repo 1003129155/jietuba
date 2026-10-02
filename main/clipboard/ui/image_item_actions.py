@@ -8,9 +8,9 @@ from typing import Optional
 
 from PySide6.QtCore import QCoreApplication
 from PySide6.QtGui import QImage
-from PySide6.QtWidgets import QFileDialog, QWidget
+from PySide6.QtWidgets import QWidget
 
-from ui.dialogs import show_warning_dialog
+from ui.dialogs import get_save_file_name, show_warning_dialog
 
 
 def _tr(text: str) -> str:
@@ -42,7 +42,7 @@ def save_image_item_as(parent: QWidget, manager, item) -> None:
     else:
         default_name = f"clipboard_image_{item.id}.png"
 
-    file_path, selected_filter = QFileDialog.getSaveFileName(
+    file_path, selected_filter = get_save_file_name(
         parent,
         _tr("Save as"),
         default_name,

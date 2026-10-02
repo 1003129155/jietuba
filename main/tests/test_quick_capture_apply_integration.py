@@ -197,6 +197,19 @@ def test_modal_show_passes_ctrl_click_and_hide_restores_quick_capture(integratio
     drag(f, [0xA2], accepted=True)
 
 
+def test_window_modal_dialog_of_another_window_leaves_quick_capture_on(integration):
+    f = integration
+    configure_ctrl(f)
+    owner = QWidget()
+    f.qtbot.addWidget(owner)
+    modal = QDialog(owner)
+    modal.setWindowModality(Qt.WindowModality.WindowModal)
+    owner.show()
+    modal.show()
+    drag(f, [0xA2], accepted=True)
+    modal.hide()
+
+
 @pytest.mark.parametrize("reuse", [False, True])
 def test_normal_capture_build_blocks_input_before_first_show_or_reuse(integration, monkeypatch, reuse):
     f = integration

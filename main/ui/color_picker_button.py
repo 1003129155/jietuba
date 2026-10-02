@@ -1,7 +1,10 @@
 """可复用的颜色选择按钮组件"""
+import shiboken6
 from PySide6.QtWidgets import QPushButton, QColorDialog, QApplication
 from PySide6.QtCore import Qt, Signal, QPoint, QRectF
 from PySide6.QtGui import QColor, QPainter, QPen, QBrush, QConicalGradient
+
+from ui.dialogs import exec_dialog
 
 
 class ColorPickerButton(QPushButton):
@@ -80,7 +83,9 @@ class ColorPickerButton(QPushButton):
         y = max(sg.top(), y)
         dlg.move(x, y)
 
-        if dlg.exec():
+        accepted = exec_dialog(dlg, owner=self)
+        # 钉图、GIF 的设置面板是独立窗口，只锁面板时宿主仍可被关掉，按钮会随之删除
+        if accepted and shiboken6.isValid(self):
             self._color = dlg.selectedColor()
             self._refresh()
             self.color_changed.emit(QColor(self._color))

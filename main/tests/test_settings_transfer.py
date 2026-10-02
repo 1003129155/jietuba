@@ -388,7 +388,7 @@ def dialogs(monkeypatch):
 
 
 def _choose_file(monkeypatch, path, method):
-    monkeypatch.setattr(f"ui.settings_ui.page_misc.QFileDialog.{method}",
+    monkeypatch.setattr(f"ui.settings_ui.page_misc.{method}",
                         lambda *_a, **_kw: (str(path), ""))
 
 
@@ -397,7 +397,7 @@ def test_export_button_applies_pending_edits_and_writes_page_options(settings, c
     config.set_setting("pen", "color", "#123456")
     settings._behavior_controls["capture_include_cursor"].setChecked(True)
     file = tmp_path / "out.json"
-    _choose_file(monkeypatch, file, "getSaveFileName")
+    _choose_file(monkeypatch, file, "get_save_file_name")
 
     settings.export_settings_button.click()
 
@@ -415,7 +415,7 @@ def test_import_button_loads_the_file_into_the_page(settings, config, tmp_path, 
     source.set_app_setting("hotkey", "ctrl+alt+q")
     file = tmp_path / "picked.json"
     export_settings(source, source.qsettings.allKeys(), str(file))
-    _choose_file(monkeypatch, file, "getOpenFileName")
+    _choose_file(monkeypatch, file, "get_open_file_name")
 
     settings.import_settings_button.click()
 
@@ -427,7 +427,7 @@ def test_import_button_loads_the_file_into_the_page(settings, config, tmp_path, 
 def test_importing_a_bad_file_reports_it_and_changes_nothing(settings, tmp_path, monkeypatch, dialogs):
     file = tmp_path / "in.json"
     file.write_text("{}", encoding="utf-8")
-    _choose_file(monkeypatch, file, "getOpenFileName")
+    _choose_file(monkeypatch, file, "get_open_file_name")
 
     settings.import_settings_button.click()
 

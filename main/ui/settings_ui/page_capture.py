@@ -276,8 +276,9 @@ def create_capture_page(dialog) -> QWidget:
 
 def _manage_color_formats(dialog):
     """打开颜色格式管理窗口，确定后把结果留在 dialog 上等「应用」。"""
+    from ui.dialogs import exec_dialog
     from .color_format_dialog import ColorFormatDialog
 
     editor = ColorFormatDialog(dialog.magnifier_color_formats, dialog)
-    if editor.exec():
+    if exec_dialog(editor):
         dialog.magnifier_color_formats = editor.entries()

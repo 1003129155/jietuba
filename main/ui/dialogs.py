@@ -6,8 +6,9 @@
 
 from html import escape
 
+import shiboken6
 from PySide6.QtWidgets import QApplication, QDialog, QVBoxLayout, QLabel, QDialogButtonBox, QCheckBox
-from PySide6.QtWidgets import QScrollArea, QWidget
+from PySide6.QtWidgets import QFileDialog, QScrollArea, QWidget
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices
 from core.i18n import make_tr
@@ -15,6 +16,54 @@ from core.ui_theme import set_own_style
 
 
 _translate_dialog_text = make_tr("StandardDialog")
+
+
+def exec_dialog(dialog, owner=None) -> int:
+    """模态运行对话框，只锁住它所属的窗口，截图层等其他顶层窗口照常可用。
+
+    exec() 遇到没设过模态的对话框会用应用模态，挡住整个程序。owner 给没有父控件的对话框
+    指定所属窗口，用在不想继承父控件样式表的场合。
+    """
+    if dialog.windowModality() == Qt.WindowModality.NonModal:
+        dialog.setWindowModality(Qt.WindowModality.WindowModal)
+    if owner is not None and dialog.parentWidget() is None:
+        owner_handle = owner.window().windowHandle()
+        if owner_handle is not None:
+            dialog.winId()
+            dialog.windowHandle().setTransientParent(owner_handle)
+    return dialog.exec()
+
+
+def _run_file_dialog(dialog) -> tuple:
+    # exec() 后对话框归 Python 所有，函数返回即释放；父窗口在对话框打开期间被关掉时，
+    # 对话框已随它删除
+    if not exec_dialog(dialog) or not shiboken6.isValid(dialog):
+        return "", ""
+    files = dialog.selectedFiles()
+    return (files[0] if files else ""), dialog.selectedNameFilter()
+
+
+def get_open_file_name(parent, caption="", directory="", name_filter="") -> tuple:
+    """选择一个已有文件，返回 (路径, 选中的过滤器)；取消时路径为空。"""
+    dialog = QFileDialog(parent, caption, directory, name_filter)
+    dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+    return _run_file_dialog(dialog)
+
+
+def get_save_file_name(parent, caption="", directory="", name_filter="") -> tuple:
+    """选择保存位置，返回 (路径, 选中的过滤器)；取消时路径为空。"""
+    dialog = QFileDialog(parent, caption, directory, name_filter)
+    dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+    return _run_file_dialog(dialog)
+
+
+def get_existing_directory(parent, caption="", directory="") -> str:
+    """选择一个文件夹，取消时返回空字符串。"""
+    dialog = QFileDialog(parent, caption, directory)
+    dialog.setFileMode(QFileDialog.FileMode.Directory)
+    dialog.setOption(QFileDialog.Option.ShowDirsOnly)
+    return _run_file_dialog(dialog)[0]
+
 
 class StandardDialog(QDialog):
     """
@@ -140,7 +189,7 @@ def show_custom_confirm_dialog(parent, title, message, buttons_config) -> object
             # For destructive/action roles, we also just accept/close
             btn.clicked.connect(dialog.accept)
 
-    dialog.exec()
+    exec_dialog(dialog)
     return dialog.result_action
 
 def show_confirm_dialog(parent, title, message) -> bool:
@@ -171,7 +220,7 @@ def show_confirm_checkbox_dialog(parent, title, message, checkbox_text, checkbox
     yes_button.clicked.connect(dialog.accept)
     no_button.clicked.connect(dialog.reject)
 
-    confirmed = dialog.exec() == QDialog.DialogCode.Accepted
+    confirmed = exec_dialog(dialog) == QDialog.DialogCode.Accepted
     return confirmed, checkbox.isChecked()
 
 def show_info_dialog(parent, title, message):
@@ -223,7 +272,7 @@ def show_text_dialog(parent, title, content):
     ok_button.setDefault(True)
     ok_button.clicked.connect(dialog.accept)
 
-    dialog.exec()
+    exec_dialog(dialog)
 
 
 def show_update_dialog(
@@ -295,7 +344,7 @@ def show_update_dialog(
         ok_text, QDialogButtonBox.ButtonRole.RejectRole
     )
     ok_button.clicked.connect(dialog.accept)
-    dialog.exec()
+    exec_dialog(dialog)
 
 
 def show_modeless_warning_dialog(parent, title, message):

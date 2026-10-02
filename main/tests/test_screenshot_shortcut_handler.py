@@ -20,8 +20,8 @@ from unittest.mock import MagicMock
 
 import pytest
 from PySide6.QtCore import Qt, QRect, QRectF
-from PySide6.QtWidgets import QApplication
 
+import ui.screenshot_window as screenshot_window_module
 from core import last_capture_region as region_module
 from core.last_capture_region import set_last_region
 from ui.screenshot_window import ScreenshotShortcutHandler
@@ -131,6 +131,12 @@ def _make_handler(window, move_keys=None, mouse_bindings=None):
     return handler
 
 
+@pytest.fixture(autouse=True)
+def _no_modal(monkeypatch):
+    """假窗口没有原生窗口句柄，模态判断用真窗口在 test_dialog_modality 里测。"""
+    monkeypatch.setattr(screenshot_window_module, "blocking_modal", lambda widget=None: None)
+
+
 class TestHandlerIdentity:
 
     def test_priority_and_name_are_stable(self):
@@ -163,9 +169,11 @@ class TestIsActive:
         assert _make_handler(window).is_active() is False
 
     def test_modal_dialog_opened_over_the_screenshot_takes_the_keyboard(self, monkeypatch):
-        """截图里打开的模态对话框（工具栏「调整」）要让出按键，否则在对话框里按 ESC 会结束截图"""
-        monkeypatch.setattr(QApplication, "activeModalWidget", staticmethod(lambda: object()))
-        assert _make_handler(_make_window()).is_active() is False
+        """锁着截图窗口的对话框（工具栏「调整」）要让出按键，否则在对话框里按 ESC 会结束截图"""
+        window = _make_window()
+        monkeypatch.setattr(screenshot_window_module, "blocking_modal",
+                            lambda widget=None: object() if widget is window else None)
+        assert _make_handler(window).is_active() is False
 
 
 class TestEscape:

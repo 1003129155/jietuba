@@ -259,6 +259,8 @@ class WelcomeWizard(FrostedFramelessDialog):
         # MSWindowsFixedSizeDialogHint 在 Windows 上额外锁定窗口不可调整大小。
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.MSWindowsFixedSizeDialogHint)
         self.setFixedSize(dialog_scaled(self.WINDOW_W), dialog_scaled(self.WINDOW_H))
+        # 向导期间热键已注销、全局鼠标快捷键已挂起，整个程序都在配置流程里，所以挡住其他窗口
+        self.setWindowModality(Qt.WindowModality.ApplicationModal)
         set_own_style(self, "background: transparent; border: none;")
 
         self._build_ui()
