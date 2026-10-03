@@ -629,6 +629,30 @@ Replace it?</source>
         <translation>超低配电脑上，钉图后的 OCR 可能导致瞬时卡顿，可以关闭自动文字识别。</translation>
     </message>
     <message>
+        <source>OCR Engine</source>
+        <translation>OCR 引擎</translation>
+    </message>
+    <message>
+        <source>The Snipping Tool engine is faster and reads more languages, but needs the Snipping Tool from Windows 11. PP-OCR works on any Windows.</source>
+        <translation>截图工具引擎更快、支持的语言更多，但需要 Windows 11 的截图工具。PP-OCR 在任何 Windows 上都能用。</translation>
+    </message>
+    <message>
+        <source>Windows Snipping Tool</source>
+        <translation>Windows 截图工具</translation>
+    </message>
+    <message>
+        <source>Windows Snipping Tool (not found)</source>
+        <translation>Windows 截图工具（未找到）</translation>
+    </message>
+    <message>
+        <source>PP-OCR (download the full version)</source>
+        <translation>PP-OCR（需下载完整版）</translation>
+    </message>
+    <message>
+        <source>OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version</source>
+        <translation>OCR 不可用：请从 Microsoft Store 安装截图工具，或下载完整版</translation>
+    </message>
+    <message>
         <source>Auto language detection: Supports Chinese, Japanese, English mixed recognition</source>
         <translation>自动语言检测: 支持中日英混合识别</translation>
     </message>

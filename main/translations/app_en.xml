@@ -625,6 +625,30 @@ Replace it?</translation>
         <translation>On very low-end computers, OCR after pinning may cause a brief stutter. Turn off automatic recognition if needed.</translation>
     </message>
     <message>
+        <source>OCR Engine</source>
+        <translation>OCR Engine</translation>
+    </message>
+    <message>
+        <source>The Snipping Tool engine is faster and reads more languages, but needs the Snipping Tool from Windows 11. PP-OCR works on any Windows.</source>
+        <translation>The Snipping Tool engine is faster and reads more languages, but needs the Snipping Tool from Windows 11. PP-OCR works on any Windows.</translation>
+    </message>
+    <message>
+        <source>Windows Snipping Tool</source>
+        <translation>Windows Snipping Tool</translation>
+    </message>
+    <message>
+        <source>Windows Snipping Tool (not found)</source>
+        <translation>Windows Snipping Tool (not found)</translation>
+    </message>
+    <message>
+        <source>PP-OCR (download the full version)</source>
+        <translation>PP-OCR (download the full version)</translation>
+    </message>
+    <message>
+        <source>OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version</source>
+        <translation>OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version</translation>
+    </message>
+    <message>
         <source>Auto language detection: Supports Chinese, Japanese, English mixed recognition</source>
         <translation>Auto language detection: Supports Chinese, Japanese, English mixed recognition</translation>
     </message>

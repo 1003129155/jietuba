@@ -13,7 +13,7 @@
 
 jietuba is a free, open-source screenshot tool for Windows: region and window capture, scrolling (long) screenshots, annotation, OCR text recognition, translation, image pinning, GIF recording, QR code and barcode scanning, PDF export, and a full clipboard history manager. Everything runs locally.
 
-The interface is built with PySide6; image processing, clipboard access, and OCR are implemented in Rust. Runs on Windows x86_64 and ARM64.
+The interface is built with PySide6; image processing, clipboard access, and the PP-OCR engine are implemented in Rust. Runs on Windows x86_64 and ARM64.
 
 Download a ready-to-run Windows release or run the application from source.
 
@@ -42,8 +42,10 @@ A smooth, three-way "screenshot ⇄ clipboard ⇄ pin" workflow.
 The Windows x86_64 and ARM64 releases are ready to run. You do not need to install Python, Rust, or a development environment.
 
 1. Open the [Releases page](https://github.com/1003129155/jietuba/releases/latest) and download the archive ending in `-x64.zip` or `-arm64.zip` for your device.
-2. Extract the entire archive, keeping `jietuba_pp.exe` and the `models/` folder together.
-3. Double-click `jietuba_pp.exe` to start. The OCR models are included in the archive.
+2. There are two packages. Extract the entire archive and double-click the exe inside:
+   - **Full** `jietuba_pp-…zip`: includes the PP-OCR engine and models, so OCR works on any Windows. Keep `jietuba_pp.exe` and the `models/` folder together.
+   - **Lite** `jietuba_lite-…zip`: smaller, and uses only the OCR built into the Windows 11 Snipping Tool; OCR is unavailable on PCs without it.
+3. Both packages prefer the Snipping Tool OCR by default (faster, more languages). Switch engines under **OCR Settings** in Settings.
 4. The application is not digitally signed, so Windows may display a warning after you download it through a browser. If prompted, click **More info**, then **Run anyway** to start the application.
 
 ---
@@ -84,7 +86,7 @@ cd main
 python main_app.py
 ```
 
-The repository includes `PP-OCRv6_det_small.onnx` and `PP-OCRv6_rec_small.onnx` in [models/](models/). Keep that directory in place for OCR.
+The repository includes the PP-OCR models `PP-OCRv6_det_small.onnx` and `PP-OCRv6_rec_small.onnx` in [models/](models/). Keep that directory in place for PP-OCR. The Snipping Tool OCR is called through the [`oneocr`](https://pypi.org/project/oneocr/) package on PyPI; its files come from the local Windows 11 Snipping Tool and are copied to `%LOCALAPPDATA%\Jietuba\oneocr` on first use, so nothing extra needs downloading.
 
 ### Rust Extension Packages
 
@@ -118,7 +120,7 @@ The [test directory](main/tests/) contains unit and integration tests for captur
 
 Tests that drive the real mouse and keyboard, such as `test_quick_capture_real_hooks.py`, are skipped by default. Set `RUN_REAL_INPUT_TESTS=1` to run them, and leave the mouse and keyboard alone while they run.
 
-To build a Windows release, run `python build_with_ocr_onefile.py`. It produces `dist/jietuba_pp.exe` and `dist/models/`. The automated [release workflow](.github/workflows/build.yml) creates separate x64 and ARM64 archives.
+To build the full Windows release, run `python build_with_ocr_onefile.py`. It produces `dist/jietuba_pp.exe` and `dist/models/`; add `--lite` for the lite build, which produces `dist_lite/jietuba_lite.exe`. The automated [release workflow](.github/workflows/build.yml) creates full and lite archives for x64 and ARM64.
 
 ### Code Comments
 
@@ -141,7 +143,8 @@ Comments explain only the constraints and design reasons that the code cannot ex
 ├── pyproject.toml                                      # Python project metadata and dependency declarations
 ├── requirements.txt                                   # Runtime dependencies
 ├── requirements-dev.txt                               # Test and build dependencies
-├── build_with_ocr_onefile.py                           # PyInstaller one-file build script
+├── build_with_ocr_onefile.py                           # PyInstaller one-file build script (--lite for the lite build)
+├── licenses/                                          # Third-party licenses shipped with releases
 │
 ├── main/                    # Python main program
 │   ├── main_app.py          # App entry point: system tray, global hotkeys, lifecycle management
@@ -154,7 +157,7 @@ Comments explain only the constraints and design reasons that the code cannot ex
 │   ├── clipboard/           # Clipboard module — history, groups/quick launch, import/export, search
 │   ├── core/                # Core module — bootstrap, logging, resources, theme, i18n, hotkeys
 │   ├── gif/                 # GIF module — screen recording, editing, playback, export
-│   ├── ocr/                 # OCR module — PP-OCR text recognition
+│   ├── ocr/                 # OCR module — Snipping Tool OCR and PP-OCR text recognition
 │   ├── pin/                 # Pin module — pinned screenshots, editing, OCR, translation
 │   ├── settings/            # Settings module — unified configuration management
 │   ├── stitch/              # Stitch module — scroll capture, auto-stitching
@@ -170,7 +173,7 @@ Comments explain only the constraints and design reasons that the code cannot ex
 │   ├── pyclipboard/         # Low-level clipboard operations source
 │   └── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX recognition engine source
 │
-├── models/                  # PP-OCR ONNX models (required for OCR)
+├── models/                  # PP-OCR ONNX models (required for PP-OCR)
 │   ├── PP-OCRv6_det_small.onnx   # text detection model (DBNet)
 │   └── PP-OCRv6_rec_small.onnx   # text recognition model (CRNN/CTC)
 │
@@ -407,7 +410,7 @@ gif/
 
 ### ocr/ — OCR Module
 
-Text recognition management powered by PP-OCR.
+Text recognition management with two engines: the OCR built into the Windows Snipping Tool, and PP-OCR.
 
 <img width="580" height="505" alt="image" src="https://github.com/user-attachments/assets/60a16100-5edc-4543-9a35-daf05b1e244e" />
 
@@ -416,13 +419,16 @@ Text recognition management powered by PP-OCR.
 
 ```text
 ocr/
-└── ocr_manager.py           # OCRManager — text recognition via ppocr_rust (PP-OCR)
+├── ocr_manager.py           # OCRManager — engine choice, loading, release, unified recognition interface
+└── snipping_tool_ocr.py     # SnippingToolOcr — locate the Snipping Tool, copy its OCR files, pad and recognize
 ```
 
 </details>
 
-- Powered by the ppocr_rust engine (pure Rust + ONNX Runtime, PP-OCR det + rec); inference runs on native threads without blocking the UI
-- Chinese/English/Japanese recognition
+- Settings offer Auto / Windows Snipping Tool / PP-OCR; Auto uses the Snipping Tool when it is installed, otherwise PP-OCR
+- Snipping Tool OCR: called through the oneocr package on PyPI; faster and reads more languages (including Korean, Russian, and Thai); needs the Windows 11 Snipping Tool
+- PP-OCR: the ppocr_rust engine (pure Rust + ONNX Runtime, PP-OCR det + rec); works on any Windows; full build only
+- Recognition and release are mutually exclusive; switching engines releases the old one, and the new one loads on the next recognition
 - Singleton pattern, unified recognition interface
 
 ---

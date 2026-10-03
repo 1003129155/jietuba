@@ -48,7 +48,7 @@ APP_DEFAULT_SETTINGS = {
     "autostart_enabled": True,
     "show_main_window": True,
     "ocr_enabled": True,
-    "ocr_engine": "windos_ocr",
+    "ocr_engine": "auto",
     "ocr_grayscale_enabled": False,
     "ocr_upscale_enabled": False,
     "ocr_upscale_factor": 2.0,
@@ -197,7 +197,7 @@ class MockConfig:
     def set_show_main_window(self, v): pass
     def get_ocr_enabled(self): return True
     def set_ocr_enabled(self, v): pass
-    def get_ocr_engine(self): return "windos_ocr"
+    def get_ocr_engine(self): return "auto"
     def set_ocr_engine(self, v): pass
     def get_ocr_grayscale_enabled(self): return False
     def set_ocr_grayscale_enabled(self, v): pass

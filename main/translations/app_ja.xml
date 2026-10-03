@@ -631,6 +631,30 @@ Replace it?</source>
         <translation>低スペックのパソコンでは、ピン留め後の OCR により一時的に動作が重くなる場合があります。必要に応じて自動認識をオフにしてください。</translation>
     </message>
     <message>
+        <source>OCR Engine</source>
+        <translation>OCR エンジン</translation>
+    </message>
+    <message>
+        <source>The Snipping Tool engine is faster and reads more languages, but needs the Snipping Tool from Windows 11. PP-OCR works on any Windows.</source>
+        <translation>Snipping Tool エンジンは高速で対応言語も多いですが、Windows 11 の Snipping Tool が必要です。PP-OCR はどの Windows でも使えます。</translation>
+    </message>
+    <message>
+        <source>Windows Snipping Tool</source>
+        <translation>Windows Snipping Tool</translation>
+    </message>
+    <message>
+        <source>Windows Snipping Tool (not found)</source>
+        <translation>Windows Snipping Tool（見つかりません）</translation>
+    </message>
+    <message>
+        <source>PP-OCR (download the full version)</source>
+        <translation>PP-OCR（完全版をダウンロードしてください）</translation>
+    </message>
+    <message>
+        <source>OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version</source>
+        <translation>OCR を利用できません：Microsoft Store から Snipping Tool をインストールするか、完全版をダウンロードしてください</translation>
+    </message>
+    <message>
         <source>Auto language detection: Supports Chinese, Japanese, English mixed recognition</source>
         <translation>自動言語認識: 中国語・日本語・英語など混合認識に対応</translation>
     </message>

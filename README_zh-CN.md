@@ -13,7 +13,7 @@
 
 截图吧是一款免费开源的 Windows 截图工具：区域与窗口截图、滚动长截图拼接、标注、OCR 文字识别、翻译、钉图、GIF 录制、二维码/条形码识别、PDF 导出，以及完整的剪贴板历史管理。所有功能本地运行。
 
-界面使用 PySide6 构建，图像处理、剪贴板操作和 OCR 由 Rust 实现，支持 Windows x86_64 与 ARM64。
+界面使用 PySide6 构建，图像处理、剪贴板操作和 PP-OCR 引擎由 Rust 实现，支持 Windows x86_64 与 ARM64。
 
 提供可直接运行的 Windows 发行包，也支持从源码运行。
 
@@ -43,8 +43,10 @@
 普通用户可以直接使用对应架构的 Windows x86_64 或 ARM64 发行包，无需安装 Python、Rust 或配置开发环境。
 
 1. 打开 [Releases 下载页](https://github.com/1003129155/jietuba/releases/latest)，根据设备下载以 `-x64.zip` 或 `-arm64.zip` 结尾的程序包。
-2. 完整解压压缩包，保留 `jietuba_pp.exe` 和同级的 `models/` 目录。
-3. 双击 `jietuba_pp.exe` 启动程序。OCR 所需模型已随程序包提供。
+2. 程序包分两种，完整解压后双击其中的 exe 启动：
+   - **完整版** `jietuba_pp-…zip`：带 PP-OCR 引擎和模型，任何 Windows 都能使用 OCR。保留 `jietuba_pp.exe` 和同级的 `models/` 目录。
+   - **轻量版** `jietuba_lite-…zip`：体积更小，只使用 Windows 11 截图工具自带的 OCR；没有截图工具的电脑上 OCR 不可用。
+3. 两个版本默认都优先使用截图工具的 OCR（更快、支持的语言更多），可在设置的「OCR 设置」中切换引擎。
 4. 程序尚未进行数字签名，通过浏览器下载后，Windows 可能显示运行警告。出现提示时，点击“更多信息”，再选择“仍要运行”即可启动。
 
 ---
@@ -85,7 +87,7 @@ cd main
 python main_app.py
 ```
 
-OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_det_small.onnx` 和 `PP-OCRv6_rec_small.onnx`，保留该目录即可使用。
+PP-OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_det_small.onnx` 和 `PP-OCRv6_rec_small.onnx`，保留该目录即可使用。截图工具 OCR 通过 PyPI 的 [`oneocr`](https://pypi.org/project/oneocr/) 包调用，所需文件取自本机的 Windows 11 截图工具，首次使用时自动复制到 `%LOCALAPPDATA%\Jietuba\oneocr`，不需要另外下载。
 
 ### Rust 扩展包
 
@@ -119,7 +121,7 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 会真实移动鼠标、点击和按键的测试（如 `test_quick_capture_real_hooks.py`）默认跳过；设置环境变量 `RUN_REAL_INPUT_TESTS=1` 后才运行，运行期间请不要操作鼠标和键盘。
 
-构建 Windows 发行包可运行 `python build_with_ocr_onefile.py`，产物为 `dist/jietuba_pp.exe` 和 `dist/models/`。自动发行流程见 [build.yml](.github/workflows/build.yml)，会分别生成 x64 与 ARM64 压缩包。
+构建 Windows 完整版可运行 `python build_with_ocr_onefile.py`，产物为 `dist/jietuba_pp.exe` 和 `dist/models/`；加 `--lite` 构建轻量版，产物为 `dist_lite/jietuba_lite.exe`。自动发行流程见 [build.yml](.github/workflows/build.yml)，会分别生成 x64 与 ARM64 的完整版和轻量版压缩包。
 
 ### 代码注释
 
@@ -142,7 +144,8 @@ python -m pytest main/tests -c main/tests/pytest.ini
 ├── pyproject.toml                                      # Python 项目元数据与依赖声明
 ├── requirements.txt                                   # 运行依赖
 ├── requirements-dev.txt                               # 测试与构建依赖
-├── build_with_ocr_onefile.py                           # PyInstaller 单文件构建脚本
+├── build_with_ocr_onefile.py                           # PyInstaller 单文件构建脚本（--lite 构建轻量版）
+├── licenses/                                          # 随发布包附带的第三方许可
 │
 ├── main/                    # Python 主程序
 │   ├── main_app.py          # 应用入口，系统托盘、全局快捷键、生命周期管理
@@ -155,7 +158,7 @@ python -m pytest main/tests -c main/tests/pytest.ini
 │   ├── clipboard/           # 剪贴板管理模块 — 历史记录、分组/快速启动、导入导出、搜索
 │   ├── core/                # 核心基础模块 — 启动引导、日志、资源、主题、国际化、快捷键
 │   ├── gif/                 # GIF录制模块 — 屏幕录制、编辑、回放、导出
-│   ├── ocr/                 # OCR模块 — PP-OCR 文字识别
+│   ├── ocr/                 # OCR模块 — 截图工具 OCR 与 PP-OCR 文字识别
 │   ├── pin/                 # 钉图模块 — 截图置顶、编辑、OCR、翻译
 │   ├── settings/            # 设置模块 — 统一配置管理
 │   ├── stitch/              # 长截图拼接模块 — 滚动截图、自动拼接
@@ -171,7 +174,7 @@ python -m pytest main/tests -c main/tests/pytest.ini
 │   ├── pyclipboard/         # 剪贴板底层操作源码
 │   └── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX 识别引擎源码
 │
-├── models/                  # PP-OCR ONNX 模型文件（OCR 必需）
+├── models/                  # PP-OCR ONNX 模型文件（PP-OCR 必需）
 │   ├── PP-OCRv6_det_small.onnx   # 文本检测模型 (DBNet)
 │   └── PP-OCRv6_rec_small.onnx   # 文本识别模型 (CRNN/CTC)
 │
@@ -444,7 +447,7 @@ gif/
 
 ### ocr/ — OCR 文字识别模块
 
-支持 PP-OCR 引擎的文字识别管理。
+文字识别管理，支持 Windows 截图工具自带的 OCR 和 PP-OCR 两个引擎。
 <img width="580" height="505" alt="image" src="https://github.com/user-attachments/assets/60a16100-5edc-4543-9a35-daf05b1e244e" />
 
 <details>
@@ -453,15 +456,18 @@ gif/
 ```text
 ocr/
 ├── __init__.py
-└── ocr_manager.py           # OCRManager — 基于 ppocr_rust (PP-OCR) 的文字识别
+├── ocr_manager.py           # OCRManager — 引擎选择、加载、释放与统一识别接口
+└── snipping_tool_ocr.py     # SnippingToolOcr — 查找截图工具、复制 OCR 文件、补边识别
 ```
 
 </details>
 
 **核心功能：**
 - 自动检测引擎与模型可用性
-- 基于 ppocr_rust 引擎（纯 Rust + ONNX Runtime，PP-OCR det + rec），推理在原生线程运行不阻塞 UI
-- 支持中/英/日文识别
+- 设置里可选「自动 / Windows 截图工具 / PP-OCR」；自动时有截图工具就用它，否则用 PP-OCR
+- 截图工具 OCR：经 PyPI 的 oneocr 包调用，更快、支持的语言更多（含韩文、俄文、泰文等），需要 Windows 11 截图工具
+- PP-OCR：ppocr_rust 引擎（纯 Rust + ONNX Runtime，PP-OCR det + rec），任何 Windows 都能用，只在完整版里
+- 识别与释放互斥；切换引擎时释放旧引擎，新引擎在下次识别时加载
 - 单例模式管理，统一的识别接口，返回文字和位置信息
 
 ---

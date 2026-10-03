@@ -13,7 +13,7 @@
 
 jietuba は Windows 向けの無料・オープンソースのスクリーンショットツールです。領域/ウィンドウキャプチャ、スクロール（長い）スクリーンショット、注釈、OCR 文字認識、翻訳、画像のピン留め、GIF 録画、QR コード/バーコード読み取り、PDF エクスポート、そして完全なクリップボード履歴管理を備えています。すべてローカルで動作します。
 
-UI は PySide6、画像処理・クリップボード操作・OCR は Rust で実装しています。Windows x86_64 および ARM64 に対応。
+UI は PySide6、画像処理・クリップボード操作・PP-OCR エンジンは Rust で実装しています。Windows x86_64 および ARM64 に対応。
 
 すぐに使える Windows 版の配布パッケージと、ソースからの実行方法を用意しています。
 
@@ -42,8 +42,10 @@ UI は PySide6、画像処理・クリップボード操作・OCR は Rust で�
 Windows x86_64 版および ARM64 版の配布パッケージは、そのまま実行できます。Python、Rust、開発環境のインストールは不要です。
 
 1. [Releases ページ](https://github.com/1003129155/jietuba/releases/latest)を開き、端末に合わせて `-x64.zip` または `-arm64.zip` で終わるファイルをダウンロードします。
-2. ZIP 全体を展開し、`jietuba_pp.exe` と `models/` フォルダを同じ階層に置きます。
-3. `jietuba_pp.exe` をダブルクリックして起動します。OCR モデルは配布パッケージに同梱されています。
+2. パッケージは 2 種類あります。ZIP 全体を展開し、中の exe をダブルクリックして起動します。
+   - **完全版** `jietuba_pp-…zip`：PP-OCR エンジンとモデルを同梱し、どの Windows でも OCR が使えます。`jietuba_pp.exe` と `models/` フォルダを同じ階層に置いてください。
+   - **軽量版** `jietuba_lite-…zip`：サイズが小さく、Windows 11 の Snipping Tool に内蔵された OCR だけを使います。Snipping Tool がない PC では OCR を使えません。
+3. どちらも既定では Snipping Tool の OCR（高速で対応言語が多い）を優先します。エンジンは設定の「OCR設定」で切り替えられます。
 4. アプリにはデジタル署名がないため、ブラウザーからダウンロードすると Windows の警告が表示される場合があります。表示された場合は「詳細情報」をクリックし、「実行」を選択すると起動できます。
 
 ---
@@ -84,7 +86,7 @@ cd main
 python main_app.py
 ```
 
-OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は、リポジトリの [models/](models/) に同梱されています。OCR を使う際は、このディレクトリをそのまま保持してください。
+PP-OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は、リポジトリの [models/](models/) に同梱されています。PP-OCR を使う際は、このディレクトリをそのまま保持してください。Snipping Tool の OCR は PyPI の [`oneocr`](https://pypi.org/project/oneocr/) パッケージ経由で呼び出します。必要なファイルはローカルの Windows 11 Snipping Tool から取得し、初回使用時に `%LOCALAPPDATA%\Jietuba\oneocr` へ自動でコピーするため、追加のダウンロードは不要です。
 
 ### Rust 拡張パッケージ
 
@@ -118,7 +120,7 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 実際にマウスとキーボードを操作するテスト（`test_quick_capture_real_hooks.py` など）は既定でスキップされます。環境変数 `RUN_REAL_INPUT_TESTS=1` を設定すると実行され、実行中はマウスとキーボードに触れないでください。
 
-Windows 版のビルドは `python build_with_ocr_onefile.py` で実行できます。生成物は `dist/jietuba_pp.exe` と `dist/models/` です。[自動リリースワークフロー](.github/workflows/build.yml)では、x64 と ARM64 のアーカイブを個別に生成します。
+Windows 完全版のビルドは `python build_with_ocr_onefile.py` で実行できます。生成物は `dist/jietuba_pp.exe` と `dist/models/` です。`--lite` を付けると軽量版をビルドし、生成物は `dist_lite/jietuba_lite.exe` です。[自動リリースワークフロー](.github/workflows/build.yml)では、x64 と ARM64 それぞれの完全版と軽量版のアーカイブを生成します。
 
 ### コードコメント
 
@@ -141,7 +143,8 @@ Windows 版のビルドは `python build_with_ocr_onefile.py` で実行できま
 ├── pyproject.toml                                      # Pythonプロジェクトのメタデータと依存関係
 ├── requirements.txt                                   # 実行時依存パッケージ
 ├── requirements-dev.txt                               # テスト・ビルド用依存パッケージ
-├── build_with_ocr_onefile.py                           # PyInstaller単一ファイルビルドスクリプト
+├── build_with_ocr_onefile.py                           # PyInstaller単一ファイルビルドスクリプト（--lite で軽量版）
+├── licenses/                                          # 配布パッケージに同梱するサードパーティライセンス
 │
 ├── main/                    # Python メインプログラム
 │   ├── main_app.py          # アプリエントリポイント：システムトレイ、グローバルホットキー、ライフサイクル管理
@@ -154,7 +157,7 @@ Windows 版のビルドは `python build_with_ocr_onefile.py` で実行できま
 │   ├── clipboard/           # クリップボードモジュール — 履歴、グループ/クイック起動、入出力、検索
 │   ├── core/                # コアモジュール — ブートストラップ、ログ、リソース、テーマ、i18n、ホットキー
 │   ├── gif/                 # GIFモジュール — 画面録画、編集、再生、エクスポート
-│   ├── ocr/                 # OCRモジュール — PP-OCR 文字認識
+│   ├── ocr/                 # OCRモジュール — Snipping Tool OCR と PP-OCR による文字認識
 │   ├── pin/                 # ピンモジュール — スクリーンショットピン留め、編集、OCR、翻訳
 │   ├── settings/            # 設定モジュール — 統一設定管理
 │   ├── stitch/              # 結合モジュール — スクロールキャプチャ、自動結合
@@ -170,7 +173,7 @@ Windows 版のビルドは `python build_with_ocr_onefile.py` で実行できま
 │   ├── pyclipboard/         # クリップボード低レベル操作ソース
 │   └── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX 認識エンジンソース
 │
-├── models/                  # PP-OCR ONNX モデル（OCR に必須）
+├── models/                  # PP-OCR ONNX モデル（PP-OCR に必須）
 │   ├── PP-OCRv6_det_small.onnx   # テキスト検出モデル (DBNet)
 │   └── PP-OCRv6_rec_small.onnx   # テキスト認識モデル (CRNN/CTC)
 │
@@ -406,7 +409,7 @@ gif/
 
 ### ocr/ — OCRモジュール
 
-PP-OCR による文字認識管理。
+文字認識管理。Windows の Snipping Tool に内蔵された OCR と PP-OCR の 2 つのエンジンに対応。
 
 <img width="580" height="505" alt="image" src="https://github.com/user-attachments/assets/60a16100-5edc-4543-9a35-daf05b1e244e" />
 
@@ -415,13 +418,16 @@ PP-OCR による文字認識管理。
 
 ```text
 ocr/
-└── ocr_manager.py           # OCRManager — ppocr_rust (PP-OCR) による文字認識
+├── ocr_manager.py           # OCRManager — エンジン選択・読み込み・解放、統一認識インターフェース
+└── snipping_tool_ocr.py     # SnippingToolOcr — Snipping Tool の検出、OCR ファイルのコピー、余白追加と認識
 ```
 
 </details>
 
-- ppocr_rust エンジン（純 Rust + ONNX Runtime、PP-OCR det + rec）を使用。推論はネイティブスレッドで実行され UI をブロックしない
-- 中国語/英語/日本語認識
+- 設定で「自動 / Windows Snipping Tool / PP-OCR」を選択。自動では Snipping Tool があればそれを、なければ PP-OCR を使う
+- Snipping Tool OCR：PyPI の oneocr パッケージ経由。高速で対応言語が多い（韓国語、ロシア語、タイ語など）。Windows 11 の Snipping Tool が必要
+- PP-OCR：ppocr_rust エンジン（純 Rust + ONNX Runtime、PP-OCR det + rec）。どの Windows でも動作。完全版のみ
+- 認識と解放は排他。エンジン切り替え時に旧エンジンを解放し、新エンジンは次回の認識時に読み込む
 - シングルトンパターン、統一認識インターフェース
 
 ---

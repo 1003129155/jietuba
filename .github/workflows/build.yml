@@ -75,26 +75,39 @@ jobs:
           python -m pip install -r requirements-dev.txt
 
       - name: Build onefile exe with PyInstaller
-        run: python build_with_ocr_onefile.py
+        run: |
+          python build_with_ocr_onefile.py
+          if ($LASTEXITCODE -ne 0) { throw "full build failed" }
+          python build_with_ocr_onefile.py --lite
+          if ($LASTEXITCODE -ne 0) { throw "lite build failed" }
 
       - name: Add license notices
-        # 发布包里静态编入了第三方 Rust 代码（含 windows-capture 的 MIT 代码），随包附上版权声明与许可
+        # 发布包里静态编入了第三方 Rust 代码（含 windows-capture 的 MIT 代码），随包附上版权声明与许可；
+        # 轻量版不带 ppocr_rust
         run: |
-          New-Item -ItemType Directory -Force dist\licenses | Out-Null
-          Copy-Item LICENSE dist\licenses\LICENSE.txt
-          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust", "hdrcapture", "inputhub") {
-            Copy-Item rust_libs\$crate\THIRD-PARTY-NOTICES.txt dist\licenses\$crate-THIRD-PARTY-NOTICES.txt
+          foreach ($out in "dist", "dist_lite") {
+            New-Item -ItemType Directory -Force $out\licenses | Out-Null
+            Copy-Item LICENSE $out\licenses\LICENSE.txt
+            foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust", "hdrcapture", "inputhub") {
+              if ($out -eq "dist_lite" -and $crate -eq "ppocr_rust") { continue }
+              Copy-Item rust_libs\$crate\THIRD-PARTY-NOTICES.txt $out\licenses\$crate-THIRD-PARTY-NOTICES.txt
+            }
+            Copy-Item rust_libs\hdrcapture\LICENSE-UPSTREAM $out\licenses\windows-capture-LICENSE.txt
+            Copy-Item licenses\oneocr-LICENSE.txt $out\licenses\oneocr-LICENSE.txt
           }
-          Copy-Item rust_libs\hdrcapture\LICENSE-UPSTREAM dist\licenses\windows-capture-LICENSE.txt
 
       - name: Package dist as zip
-        run: Compress-Archive -Path dist\* -DestinationPath jietuba_pp-${{ github.ref_name }}-${{ matrix.arch }}.zip
+        run: |
+          Compress-Archive -Path dist\* -DestinationPath jietuba_pp-${{ github.ref_name }}-${{ matrix.arch }}.zip
+          Compress-Archive -Path dist_lite\* -DestinationPath jietuba_lite-${{ github.ref_name }}-${{ matrix.arch }}.zip
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: jietuba_pp-${{ github.ref_name }}-${{ matrix.arch }}
-          path: jietuba_pp-${{ github.ref_name }}-${{ matrix.arch }}.zip
+          name: jietuba-${{ github.ref_name }}-${{ matrix.arch }}
+          path: |
+            jietuba_pp-${{ github.ref_name }}-${{ matrix.arch }}.zip
+            jietuba_lite-${{ github.ref_name }}-${{ matrix.arch }}.zip
 
   release:
     needs: build
@@ -103,7 +116,7 @@ jobs:
       - name: Download release artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: jietuba_pp-${{ github.ref_name }}-*
+          pattern: jietuba-${{ github.ref_name }}-*
           path: release-assets
           merge-multiple: true
 

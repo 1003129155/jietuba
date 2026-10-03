@@ -1062,7 +1062,13 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'ocr_enable_toggle'):
             self.config_manager.set_ocr_enabled(self.ocr_enable_toggle.isChecked())
         if hasattr(self, 'ocr_engine_combo'):
-            self.config_manager.set_ocr_engine(self.ocr_engine_combo.currentData())
+            engine = self.ocr_engine_combo.currentData()
+            if engine != self.config_manager.get_ocr_engine():
+                self.config_manager.set_ocr_engine(engine)
+                from ocr import set_ocr_engine
+                from core.platform_utils import request_trim_working_set
+                set_ocr_engine(engine)
+                request_trim_working_set()
         if hasattr(self, 'ocr_grayscale_toggle'):
             self.config_manager.set_ocr_grayscale_enabled(self.ocr_grayscale_toggle.isChecked())
         if hasattr(self, 'ocr_upscale_toggle'):

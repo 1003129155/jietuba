@@ -120,6 +120,10 @@ def get_capture_mouse_binding(config, action):
 # 指定 mss / hdr 时只用那一个，失败不回落。
 CAPTURE_ENGINES = ("auto", "mss", "hdr")
 
+# OCR 引擎，顺序就是设置页下拉框的顺序。auto 有截图工具 OCR 就用它、否则用 PP-OCR；
+# 指定某一个时只用那一个，不可用就报错，不回落。
+OCR_ENGINES = ("auto", "oneocr", "ppocr_rust")
+
 
 ANNOTATION_TOOL_SHORTCUTS = (
     ("inapp_tool_cursor", "cursor", "Select / Cursor", "s"),
@@ -366,7 +370,7 @@ class ToolSettingsManager(QObject):
 
         # OCR
         "ocr_enabled": True,                   # 钉图后自动 OCR（保留旧键名以兼容已有配置）
-        "ocr_engine": "ppocr_rust",            # OCR引擎类型 (ppocr_rust 推荐, windows_media_ocr 备用)
+        "ocr_engine": "auto",                  # OCR 引擎，见 OCR_ENGINES
         "ocr_grayscale": False,                # OCR灰度转换（Windows OCR 不需要）
         "ocr_upscale": True,                   # OCR图像放大（提升小字识别率）
         "ocr_upscale_factor": 2.0,             # OCR放大倍数（1.0-3.0）
@@ -1143,12 +1147,17 @@ class ToolSettingsManager(QObject):
         self.qsettings.setValue("app/ocr_enabled", value)
     
     def get_ocr_engine(self) -> str:
-        """获取 OCR 引擎类型"""
-        return self.qsettings.value("app/ocr_engine", self.APP_DEFAULT_SETTINGS["ocr_engine"], type=str)
+        """获取 OCR 引擎：auto / oneocr / ppocr_rust。"""
+        default = self.APP_DEFAULT_SETTINGS["ocr_engine"]
+        engine = str(self.qsettings.value("app/ocr_engine", default, type=str)).lower()
+        return engine if engine in OCR_ENGINES else default
     
     def set_ocr_engine(self, value: str):
-        """设置 OCR 引擎类型"""
-        self.qsettings.setValue("app/ocr_engine", value)
+        """设置 OCR 引擎。"""
+        engine = str(value or "").lower()
+        if engine not in OCR_ENGINES:
+            engine = self.APP_DEFAULT_SETTINGS["ocr_engine"]
+        self.qsettings.setValue("app/ocr_engine", engine)
     
     def get_ocr_grayscale_enabled(self) -> bool:
         """获取 OCR 灰度化"""
