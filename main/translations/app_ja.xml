@@ -1595,6 +1595,38 @@ Replace it?</source>
         <translation>手動でスクリーンショット</translation>
     </message>
     <message>
+        <source>Auto scroll (move the mouse to stop)</source>
+        <translation>自動スクロール（マウスを動かすと停止）</translation>
+    </message>
+    <message>
+        <source>Crop</source>
+        <translation>切り取り</translation>
+    </message>
+    <message>
+        <source>Crop top: remove everything above the current view</source>
+        <translation>上を切り取り：現在の画面より上を削除</translation>
+    </message>
+    <message>
+        <source>Crop bottom: remove everything below the current view</source>
+        <translation>下を切り取り：現在の画面より下を削除</translation>
+    </message>
+    <message>
+        <source>Crop left: remove everything left of the current view</source>
+        <translation>左を切り取り：現在の画面より左を削除</translation>
+    </message>
+    <message>
+        <source>Crop right: remove everything right of the current view</source>
+        <translation>右を切り取り：現在の画面より右を削除</translation>
+    </message>
+    <message>
+        <source>Size of the long screenshot</source>
+        <translation>長いスクリーンショットのサイズ</translation>
+    </message>
+    <message>
+        <source>Switch scroll direction</source>
+        <translation>スクロール方向を切り替え</translation>
+    </message>
+    <message>
         <source>Finish and save</source>
         <translation>完了して保存</translation>
     </message>
@@ -4480,6 +4512,18 @@ SOFTWARE.</translation></message>
     <message>
         <source>Formatting will be removed</source>
         <translation>保存するとプレーンテキストになります</translation>
+    </message>
+</context>
+
+<context>
+    <name>ScrollCaptureWindow</name>
+    <message>
+        <source>Couldn't join. Scroll back</source>
+        <translation>つながりません。戻してください</translation>
+    </message>
+    <message>
+        <source>Stitching failed</source>
+        <translation>結合に失敗しました</translation>
     </message>
 </context>
 </TS>

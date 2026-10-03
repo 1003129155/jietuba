@@ -1578,6 +1578,38 @@ Replace it?</source>
         <translation>수동으로 스크린샷 찍기</translation>
     </message>
     <message>
+        <source>Auto scroll (move the mouse to stop)</source>
+        <translation>자동 스크롤 (마우스를 움직이면 정지)</translation>
+    </message>
+    <message>
+        <source>Crop</source>
+        <translation>자르기</translation>
+    </message>
+    <message>
+        <source>Crop top: remove everything above the current view</source>
+        <translation>위쪽 자르기: 현재 화면 위의 내용 삭제</translation>
+    </message>
+    <message>
+        <source>Crop bottom: remove everything below the current view</source>
+        <translation>아래쪽 자르기: 현재 화면 아래의 내용 삭제</translation>
+    </message>
+    <message>
+        <source>Crop left: remove everything left of the current view</source>
+        <translation>왼쪽 자르기: 현재 화면 왼쪽의 내용 삭제</translation>
+    </message>
+    <message>
+        <source>Crop right: remove everything right of the current view</source>
+        <translation>오른쪽 자르기: 현재 화면 오른쪽의 내용 삭제</translation>
+    </message>
+    <message>
+        <source>Size of the long screenshot</source>
+        <translation>긴 스크린샷 크기</translation>
+    </message>
+    <message>
+        <source>Switch scroll direction</source>
+        <translation>스크롤 방향 전환</translation>
+    </message>
+    <message>
         <source>Pin to desktop</source>
         <translation>바탕 화면에 고정</translation>
     </message>
@@ -4439,6 +4471,18 @@ SOFTWARE.</translation></message>
     <message>
         <source>Formatting will be removed</source>
         <translation>저장하면 일반 텍스트로 바뀝니다</translation>
+    </message>
+</context>
+
+<context>
+    <name>ScrollCaptureWindow</name>
+    <message>
+        <source>Couldn't join. Scroll back</source>
+        <translation>이어지지 않습니다. 되돌려 주세요</translation>
+    </message>
+    <message>
+        <source>Stitching failed</source>
+        <translation>이어 붙이기 실패</translation>
     </message>
 </context>
 </TS>

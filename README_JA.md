@@ -482,6 +482,7 @@ settings/
 
 ```text
 stitch/
+├── auto_scroll.py                   # AutoScroller — 自動スクロール：結合結果から歩幅を決め、末尾かマウス移動で停止
 ├── incremental.py                   # IncrementalStitcher — バックグラウンド結合とプレビュー縮小画像
 ├── jietuba_long_stitch_unified.py   # 結合インターフェース（Rust の longstitch を呼び出す）
 ├── scroll_window.py                 # ScrollCaptureWindow — スクロールキャプチャウィンドウ
@@ -688,7 +689,6 @@ tests/
 ├── test_pin_window_zoom.py  # ピンウィンドウズームテスト
 ├── test_smart_translation.py # スマート翻訳テスト
 ├── test_translation_architecture.py # 翻訳プロバイダーアーキテクチャテスト
-├── test_stitch_dedup.py     # 長いスクリーンショット結合重複除去テスト
 ├── test_settings_dialog_state.py # 設定ダイアログ状態テスト
 ├── test_welcome_translation.py # ウェルカムウィザード翻訳ページテスト
 └── …（その他 70 以上のユニット/統合テストファイル）

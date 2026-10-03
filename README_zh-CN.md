@@ -540,6 +540,7 @@ settings/
 
 stitch/
 ├── __init__.py
+├── auto_scroll.py                   # AutoScroller — 自动滚动：按拼接结果定步长，到底或动鼠标即停
 ├── incremental.py                   # IncrementalStitcher — 后台增量拼接与预览缩略图
 ├── jietuba_long_stitch_unified.py   # 长截图拼接接口（调用 Rust longstitch）
 ├── scroll_window.py                 # ScrollCaptureWindow — 滚动截图窗口
@@ -550,6 +551,10 @@ stitch/
 
 **核心功能：**
 - 滚动页面并截图，支持横向和竖向
+- 往回滚时只定位不截短，越过起点就在另一头接上，从页面中间开始截也能两头长
+- 自动滚动：光标停到截图区域中间自动滚动截图，到底或鼠标一动就停
+- 裁剪：往回滚到想截断的地方，一键去掉当前画面以上或以下的内容
+- 文件列表、表格这类只差几个字的行也能对准位置；一下滚过头接不上时提示往回滚，不硬拼
 - 基于图像匹配的智能拼接算法（查找重叠区域）
 - 统一的长截图接口（调用 Rust 库 longstitch 加速）
 
@@ -779,7 +784,6 @@ tests/
 ├── test_pin_window_zoom.py  # 钉图缩放测试
 ├── test_smart_translation.py # 智能翻译测试
 ├── test_translation_architecture.py # 翻译提供商架构测试
-├── test_stitch_dedup.py     # 长截图拼接去重测试
 ├── test_settings_dialog_state.py # 设置对话框状态测试
 ├── test_welcome_translation.py # 欢迎向导翻译页测试
 └── …（其余模块单元测试与集成测试，共 70 多个文件）

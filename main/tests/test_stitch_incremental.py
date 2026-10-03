@@ -1,7 +1,7 @@
-"""长截图增量拼接：IncrementalStitcher 与原先逐对整图拼接的结果逐像素一致。
+"""长截图增量拼接：IncrementalStitcher 拼出的长图与页面真值一致，往下滚时也与原先逐对整图拼接一致。
 
-参照实现 _pairwise_flow 照搬改造前 ScrollCaptureWindow._do_capture 的帧处理：
-每帧把已拼长图和新帧整张交给 stitch_images / stitch_images_auto。
+参照实现 _pairwise_flow 照搬改造前 ScrollCaptureWindow._do_capture 的向下滚动：
+每帧把已拼长图和新帧整张交给 stitch_images。
 """
 
 import ctypes
@@ -17,7 +17,7 @@ from PySide6.QtCore import QObject, Qt, Slot
 longstitch = pytest.importorskip("longstitch", reason="需要安装自制的 longstitch Rust 扩展包")
 
 from stitch.incremental import Frame, IncrementalStitcher  # noqa: E402
-from stitch.jietuba_long_stitch_unified import stitch_images, stitch_images_auto  # noqa: E402
+from stitch.jietuba_long_stitch_unified import stitch_images  # noqa: E402
 
 W, H = 320, 240
 THUMB = 190
@@ -43,26 +43,31 @@ def _page(height, width=W, seed=1):
     return image
 
 
-def _vertical_frames(page, start, step, count):
-    frames, y = [], start
-    for _ in range(count):
-        y = max(0, min(y, page.height - H))
-        frames.append(page.crop((0, y, W, y + H)))
-        if (step > 0 and y >= page.height - H) or (step < 0 and y <= 0):
-            break
-        y += step
-    return frames
+def _sweep(start, stop, step):
+    """从 start 每次挪 step 到 stop，最后一步停在 stop 上。"""
+    tops = list(range(start, stop, step))
+    return tops + [stop]
 
 
-def _horizontal_frames(page, step, count):
-    frames, x = [], 0
-    for _ in range(count):
-        x = min(x, page.width - W)
-        frames.append(page.crop((x, 0, x + W, H)))
-        if x >= page.width - W:
-            break
-        x += step
-    return frames
+def _headings(tops):
+    """相邻两帧的先后就是这一帧之前的滚动方向，第一帧没有方向。"""
+    headings = [None]
+    for prev, top in zip(tops, tops[1:]):
+        headings.append("down" if top > prev else ("up" if top < prev else None))
+    return headings
+
+
+def _frames(page, tops, direction):
+    if direction == "vertical":
+        return [page.crop((0, t, W, t + H)) for t in tops]
+    return [page.crop((t, 0, t + W, H)) for t in tops]
+
+
+def _truth(page, tops, direction):
+    lo, hi = min(tops), max(tops)
+    if direction == "vertical":
+        return page.crop((0, lo, W, hi + H))
+    return page.crop((lo, 0, hi + W, H))
 
 
 def _with_footer(frames):
@@ -84,47 +89,14 @@ def _noise():
     return image
 
 
-def _pairwise_flow(frames, direction, lock):
-    """改造前的逐对拼接：lock 是第二帧到来前由滚轮锁定的方向，None 表示首对自动判向。"""
-    stitched, count, locked = None, 0, None
-    for i, frame in enumerate(frames):
-        if i == 1:
-            locked = lock
-        count += 1
-        image = frame.convert("RGB")
-        if direction == "horizontal" and count > 1:
-            image = image.rotate(-90, expand=True)
-        if locked == "up":
-            image = image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
-        if stitched is None:
-            stitched = image
-            continue
-        if direction == "horizontal" and count == 2:
-            stitched = stitched.rotate(-90, expand=True)
-        if locked == "up" and count == 2:
-            stitched = stitched.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
-        if locked is None and count == 2:
-            result, found = stitch_images_auto(stitched, image)
-            if result is not None:
-                locked = "up" if found == "reverse" else "down"
-        else:
-            top = bottom = 0.0
-            if direction != "horizontal":
-                if locked == "up":
-                    bottom = 0.05
-                else:
-                    top = 0.15
-            result = stitch_images([stitched, image], ignore_img1_top_ratio=top, ignore_img1_bottom_ratio=bottom)
-        if result is None:
-            count -= 1
-        else:
+def _pairwise_flow(frames):
+    """改造前的向下滚动：每帧把已拼长图和新帧整张交给 stitch_images。"""
+    stitched = frames[0].convert("RGB")
+    for frame in frames[1:]:
+        result = stitch_images([stitched, frame.convert("RGB")], ignore_img1_top_ratio=0.15)
+        if result is not None:
             stitched = result
-    if count >= 2:
-        if locked == "up":
-            stitched = stitched.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
-        if direction == "horizontal":
-            stitched = stitched.rotate(90, expand=True)
-    return stitched
+    return stitched.convert("RGB")
 
 
 class _Collector(QObject):
@@ -145,13 +117,10 @@ def _stitcher(collector):
     return stitcher
 
 
-def _submit_all(stitcher, frames, direction, lock):
-    locked = None
-    for i, frame in enumerate(frames):
-        if i == 1:
-            locked = lock
+def _submit(stitcher, frames, direction, headings):
+    for i, (frame, heading) in enumerate(zip(frames, headings)):
         bgra = frame.convert("RGBA").tobytes("raw", "BGRA")
-        stitcher.submit(Frame(bgra, frame.width, frame.height, i + 1, direction, locked, 0))
+        stitcher.submit(Frame(bgra, frame.width, frame.height, i + 1, direction, heading, 0))
 
 
 def _wait_for(qapp, collector, count, timeout=20.0):
@@ -162,147 +131,230 @@ def _wait_for(qapp, collector, count, timeout=20.0):
     assert len(collector.results) == count
 
 
+def _run(qapp, frames, direction, headings):
+    """推入全部帧，返回 (逐帧结论, 导出的长图)。"""
+    collector = _Collector()
+    stitcher = _stitcher(collector)
+    try:
+        _submit(stitcher, frames, direction, headings)
+        _wait_for(qapp, collector, len(frames))
+        exported = stitcher.export()
+    finally:
+        stitcher.close()
+    return collector.results, exported
+
+
 TALL = _page(2400)
 WIDE = _page(2400, width=H, seed=5).rotate(90, expand=True)
 
+# (页面, 每帧在页面上的位置, 横竖)
 CASES = {
-    "down_locked": (_vertical_frames(TALL, 0, 90, 40), "vertical", "down"),
-    "down_auto": (_vertical_frames(TALL, 0, 90, 40), "vertical", None),
-    "up_locked": (_vertical_frames(TALL, 2160, -90, 40), "vertical", "up"),
-    "up_auto": (_vertical_frames(TALL, 2160, -90, 40), "vertical", None),
-    "right_locked": (_horizontal_frames(WIDE, 90, 40), "horizontal", "down"),
-    "left_locked": (list(reversed(_horizontal_frames(WIDE, 90, 40))), "horizontal", "up"),
-    "down_footer": (_with_footer(_vertical_frames(TALL, 0, 90, 40)), "vertical", "down"),
-    # 滚到 990 后往回滚两步再继续：回滚那两帧会让结果截短
-    "down_rollback": ([TALL.crop((0, y, W, y + H)) for y in [*range(0, 991, 90), 900, 810, *range(900, 2161, 90)]],
-                      "vertical", "down"),
+    "down": (TALL, _sweep(0, 2160, 90), "vertical"),
+    "up": (TALL, _sweep(2160, 0, -90), "vertical"),
+    "right": (WIDE, _sweep(0, 2080, 90), "horizontal"),
+    "left": (WIDE, _sweep(2080, 0, -90), "horizontal"),
+    "rollback": (TALL, [*range(0, 991, 90), 900, 810, *range(900, 2161, 90)], "vertical"),
+    # 从页面中间开始，越过起点后往另一头长
+    "past_start_up": (TALL, [1200, 1290, 1380, 1290, 1200, 1110, 1020, 930, 840], "vertical"),
+    "past_start_down": (TALL, [1200, 1110, 1020, 1110, 1200, 1290, 1380, 1470, 1560], "vertical"),
 }
 
 
 @pytest.mark.parametrize("case", sorted(CASES))
-def test_export_matches_pairwise_stitching(qapp, case):
-    frames, direction, lock = CASES[case]
-    collector = _Collector()
-    stitcher = _stitcher(collector)
-    try:
-        _submit_all(stitcher, frames, direction, lock)
-        exported = stitcher.export()
-    finally:
-        stitcher.close()
-
-    expected = _pairwise_flow(frames, direction, lock)
+def test_export_matches_the_page(qapp, case):
+    page, tops, direction = CASES[case]
+    _, exported = _run(qapp, _frames(page, tops, direction), direction, _headings(tops))
+    expected = _truth(page, tops, direction)
     assert exported.size == expected.size
-    assert exported.convert("RGB").tobytes() == expected.convert("RGB").tobytes()
+    assert exported.convert("RGB").tobytes() == expected.tobytes()
 
 
-@pytest.mark.parametrize("lock", ["down", "up"])
-def test_long_capture_keeps_every_row(qapp, lock):
-    """与原页面逐像素比对。重叠 150 行，长图超过 3000 行后底部忽略若随长度增长就会盖住它。"""
+@pytest.mark.parametrize("with_heading", [True, False])
+def test_scrolling_down_matches_pairwise_stitching(qapp, with_heading):
+    """往下滚的结果与改造前一致；没有方向（手动截图）时也一样。"""
+    page, tops, direction = CASES["down"]
+    frames = _frames(page, tops, direction)
+    headings = _headings(tops) if with_heading else [None] * len(tops)
+    _, exported = _run(qapp, frames, direction, headings)
+    assert exported.convert("RGB").tobytes() == _pairwise_flow(frames).tobytes()
+
+
+def test_fixed_footer_matches_pairwise_stitching(qapp):
+    tops = _sweep(0, 2160, 90)
+    frames = _with_footer(_frames(TALL, tops, "vertical"))
+    _, exported = _run(qapp, frames, "vertical", _headings(tops))
+    expected = _pairwise_flow(frames)
+    assert exported.height > H * 5
+    assert exported.convert("RGB").tobytes() == expected.tobytes()
+
+
+@pytest.mark.parametrize("lo, hi", [(0, 2160), (1200, 1560)])
+def test_long_capture_keeps_every_row(qapp, lo, hi):
+    """先往上再往下扫过整段：两头都接得上，与页面逐像素一致。"""
     page = _page(6000, seed=8)
-    start, step = (0, 90) if lock == "down" else (6000 - H, -90)
-    frames = _vertical_frames(page, start, step, 80)
-    stitcher = _stitcher(_Collector())
-    try:
-        _submit_all(stitcher, frames, "vertical", lock)
-        exported = stitcher.export()
-    finally:
-        stitcher.close()
-    assert exported.convert("RGB").tobytes() == page.tobytes()
+    start = (lo + hi) // 2 // 90 * 90
+    tops = [*range(start, lo - 1, -90), *range(lo, hi + 1, 90)]
+    _, exported = _run(qapp, _frames(page, tops, "vertical"), "vertical", _headings(tops))
+    assert exported.convert("RGB").tobytes() == page.crop((0, lo, W, hi + H)).tobytes()
+
+
+def test_manual_capture_after_paging_up(qapp):
+    """滚轮往上之后改用键盘翻页、手动截图，没有滚动方向；每次翻近九成屏，重叠只剩一成多也接得上。"""
+    tops = [1800, 1710, 1620, 1410, 1200, 990]
+    headings = [None, "up", "up", None, None, None]
+    results, exported = _run(qapp, _frames(TALL, tops, "vertical"), "vertical", headings)
+    assert all(r.ok for r in results)
+    assert exported.convert("RGB").tobytes() == _truth(TALL, tops, "vertical").tobytes()
 
 
 def test_single_frame_exports_unchanged(qapp):
     frame = TALL.crop((0, 0, W, H))
-    stitcher = _stitcher(_Collector())
-    try:
-        _submit_all(stitcher, [frame], "horizontal", None)
-        exported = stitcher.export()
-    finally:
-        stitcher.close()
+    _, exported = _run(qapp, [frame], "horizontal", [None])
     assert exported.mode == "RGB"
     assert exported.tobytes() == frame.tobytes()
 
 
 def test_unmatched_frame_is_reported_and_skipped(qapp):
-    frames = _vertical_frames(TALL, 0, 90, 12)
+    tops = _sweep(0, 990, 90)
+    frames = _frames(TALL, tops, "vertical")
     frames.insert(6, _noise())
-    collector = _Collector()
-    stitcher = _stitcher(collector)
-    try:
-        _submit_all(stitcher, frames, "vertical", "down")
-        _wait_for(qapp, collector, len(frames))
-        exported = stitcher.export()
-    finally:
-        stitcher.close()
+    headings = ["down"] * len(frames)
+    headings[0] = None
+    results, exported = _run(qapp, frames, "vertical", headings)
 
-    oks = [r.ok for r in collector.results]
+    oks = [r.ok for r in results]
     assert oks == [True] * 6 + [False] + [True] * (len(frames) - 7)
-    assert collector.results[6].error is None
-    assert exported.tobytes() == _pairwise_flow(frames, "vertical", "down").tobytes()
+    assert results[6].error is None
+    assert exported.convert("RGB").tobytes() == _pairwise_flow(frames).tobytes()
 
 
 def test_results_arrive_in_order_on_the_ui_thread(qapp):
-    frames = _vertical_frames(TALL, 0, 90, 20)
+    tops = _sweep(0, 1710, 90)
     collector = _Collector()
     stitcher = _stitcher(collector)
     try:
-        _submit_all(stitcher, frames, "vertical", "down")
-        _wait_for(qapp, collector, len(frames))
+        _submit(stitcher, _frames(TALL, tops, "vertical"), "vertical", _headings(tops))
+        _wait_for(qapp, collector, len(tops))
     finally:
         stitcher.close()
-    assert [r.index for r in collector.results] == list(range(1, len(frames) + 1))
+    assert [r.index for r in collector.results] == list(range(1, len(tops) + 1))
     assert set(collector.threads) == {threading.get_ident()}
     assert collector.results[0].first and not any(r.first for r in collector.results[1:])
 
 
-def test_auto_detected_direction_is_reported(qapp):
-    frames = _vertical_frames(TALL, 2160, -90, 6)
-    collector = _Collector()
-    stitcher = _stitcher(collector)
-    try:
-        _submit_all(stitcher, frames, "vertical", None)
-        _wait_for(qapp, collector, len(frames))
-    finally:
-        stitcher.close()
-    assert collector.results[0].locked is None
-    assert all(r.locked == "up" for r in collector.results[1:])
-
-
-@pytest.mark.parametrize("case", ["down_locked", "up_locked", "right_locked", "down_footer", "down_rollback"])
+@pytest.mark.parametrize("case", ["down", "up", "right", "rollback", "past_start_up", "footer"])
 def test_preview_follows_the_result(qapp, case):
-    """每一帧的缩略图长边都等于结果高度按比例换算，截短（固定底栏、回滚）时同步截短。"""
-    frames, direction, lock = CASES[case]
-    collector = _Collector()
-    stitcher = _stitcher(collector)
-    try:
-        _submit_all(stitcher, frames, direction, lock)
-        _wait_for(qapp, collector, len(frames))
-    finally:
-        stitcher.close()
+    """每一帧的缩略图长边都等于结果高度按比例换算：固定底栏截短时同步截短，回滚时不变。"""
+    if case == "footer":
+        tops, direction = _sweep(0, 1350, 90), "vertical"
+        frames = _with_footer(_frames(TALL, tops, direction))
+    else:
+        page, tops, direction = CASES[case]
+        tops = tops[:15]
+        frames = _frames(page, tops, direction)
+    results, _ = _run(qapp, frames, direction, _headings(tops))
 
-    for result in collector.results:
+    for result in results:
         preview = result.preview
-        short_side, long_side = (preview.width(), preview.height()) if direction == "vertical"             else (preview.height(), preview.width())
+        if direction == "vertical":
+            short_side, long_side = preview.width(), preview.height()
+        else:
+            short_side, long_side = preview.height(), preview.width()
         assert short_side == THUMB
         if result.first:
             # 第一帧尚未转到拼接坐标，尺寸是原图的，由 Qt 缩放取整
-            frame_long, frame_short = (result.height, result.width) if direction == "vertical"                 else (result.width, result.height)
+            if direction == "vertical":
+                frame_long, frame_short = result.height, result.width
+            else:
+                frame_long, frame_short = result.width, result.height
             assert abs(long_side - frame_long * THUMB / frame_short) <= 0.5
         else:
             assert long_side == round(result.height * THUMB / result.width)
-    heights = [r.height for r in collector.results]
-    if case == "down_rollback":
-        assert any(b < a for a, b in zip(heights, heights[1:]))
+    heights = [r.height for r in results]
+    assert heights == sorted(heights)  # 回滚不截短
+
+
+TRACKING_TOPS = {
+    # 往前滚、回滚三步、超出原末尾、一下跳回开头（超过四屏）、再往前
+    "down": [*range(0, 991, 90), 810, 630, 450, 540, 720, 900, 1080, 0, 90, 1170],
+    "up": [*range(2160, 1259, -90), 1440, 1620, 1170, 1080, 2160, 2070, 990],
+    "past_start": [1200, 1290, 1380, 1290, 1200, 1110, 1020, 1110, 1200, 1470, 1560, 930],
+}
+
+
+@pytest.mark.parametrize("case", sorted(TRACKING_TOPS))
+def test_box_shows_where_the_frame_is(qapp, case):
+    """框在预览里的位置对应这一帧在页面上的真实位置；长图往哪头长，框都跟得上。"""
+    tops = TRACKING_TOPS[case]
+    results, exported = _run(qapp, _frames(TALL, tops, "vertical"), "vertical", _headings(tops))
+
+    scale = THUMB / W
+    for i, (y, result) in enumerate(zip(tops, results)):
+        assert result.ok, f"frame {i} at {y}"
+        lo = min(tops[:i + 1])
+        start, end = result.box
+        assert abs(start - (y - lo) * scale) <= 1, f"frame {i} at {y}: {result.box}"
+        assert abs(end - (y - lo + H) * scale) <= 1, f"frame {i} at {y}: {result.box}"
+    assert exported.convert("RGB").tobytes() == _truth(TALL, tops, "vertical").tobytes()
+
+
+@pytest.mark.parametrize("side", ["top", "bottom"])
+def test_crop_cuts_at_the_latest_frame(qapp, side):
+    """往下滚过之后回滚到 540 再裁：长图裁到这一帧为止，缩略图和框跟着变；裁完照常往两头长。"""
+    tops = [*range(0, 991, 90), 540]
+    after = [630, 720] if side == "bottom" else [450, 360]
+    collector, crops = _Collector(), _Collector()
+    stitcher = _stitcher(collector)
+    stitcher.crop_done.connect(crops.collect, Qt.ConnectionType.QueuedConnection)
+    try:
+        _submit(stitcher, _frames(TALL, tops, "vertical"), "vertical", _headings(tops))
+        stitcher.crop(side)
+        headings = _headings([540, *after])[1:]
+        for i, (frame, heading) in enumerate(zip(_frames(TALL, after, "vertical"), headings)):
+            bgra = frame.convert("RGBA").tobytes("raw", "BGRA")
+            stitcher.submit(Frame(bgra, W, H, len(tops) + i + 1, "vertical", heading, 0))
+        _wait_for(qapp, collector, len(tops) + len(after))
+        _wait_for(qapp, crops, 1)
+        exported = stitcher.export()
+    finally:
+        stitcher.close()
+
+    crop = crops.results[0]
+    lo, hi = (0, 540) if side == "bottom" else (540, 990)
+    scale = THUMB / W
+    assert crop.ok and crop.height == hi + H - lo
+    assert crop.preview.height() == round(crop.height * scale)
+    assert abs(crop.box[0] - (540 - lo) * scale) <= 1
+    assert crop.shift == -lo  # 裁掉顶部时已有内容整体上移
+    final = (0, 720) if side == "bottom" else (360, 990)
+    assert exported.convert("RGB").tobytes() == TALL.crop((0, final[0], W, final[1] + H)).tobytes()
+
+
+def test_crop_before_the_second_frame_does_nothing(qapp):
+    crops = _Collector()
+    stitcher = _stitcher(_Collector())
+    stitcher.crop_done.connect(crops.collect, Qt.ConnectionType.QueuedConnection)
+    try:
+        _submit(stitcher, _frames(TALL, [0], "vertical"), "vertical", [None])
+        stitcher.crop("top")
+        exported = stitcher.export()
+    finally:
+        stitcher.close()
+    qapp.processEvents()
+    assert crops.results == []
+    assert exported.tobytes() == TALL.crop((0, 0, W, H)).tobytes()
 
 
 def test_export_waits_for_frames_still_queued(qapp):
-    frames = _vertical_frames(TALL, 0, 90, 30)
+    tops = _sweep(0, 2160, 90)
+    frames = _frames(TALL, tops, "vertical")
     stitcher = _stitcher(_Collector())
     try:
-        _submit_all(stitcher, frames, "vertical", "down")
+        _submit(stitcher, frames, "vertical", _headings(tops))
         exported = stitcher.export()  # 不处理事件，直接导出
     finally:
         stitcher.close()
-    assert exported.tobytes() == _pairwise_flow(frames, "vertical", "down").tobytes()
+    assert exported.convert("RGB").tobytes() == _truth(TALL, tops, "vertical").tobytes()
 
 
 def _private_bytes():
@@ -334,7 +386,7 @@ def test_close_releases_worker_and_result(qapp):
     for round_ in range(4):
         stitcher = IncrementalStitcher(thumb_side=THUMB, ignore_right_pixels=20, ignore_top_pixels=0)
         for i, bgra in enumerate(frames):
-            stitcher.submit(Frame(bgra, big_w, big_h, i + 1, "vertical", "down", 0))
+            stitcher.submit(Frame(bgra, big_w, big_h, i + 1, "vertical", "down" if i else None, 0))
         assert stitcher.export().height > big_h * 4
         stitcher.close()
         kept.append(stitcher)

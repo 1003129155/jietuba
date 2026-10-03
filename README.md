@@ -483,6 +483,7 @@ settings/
 
 ```text
 stitch/
+├── auto_scroll.py                   # AutoScroller — auto scroll: step size from stitch results, stops at the end or on mouse move
 ├── incremental.py                   # IncrementalStitcher — background stitching, preview thumbnails
 ├── jietuba_long_stitch_unified.py   # Stitching interface (calls the Rust longstitch)
 ├── scroll_window.py                 # ScrollCaptureWindow — scroll capture window
@@ -689,7 +690,6 @@ tests/
 ├── test_pin_window_zoom.py  # pin window zoom tests
 ├── test_smart_translation.py # smart translation tests
 ├── test_translation_architecture.py # translation provider architecture tests
-├── test_stitch_dedup.py     # long-stitch dedup tests
 ├── test_settings_dialog_state.py # settings dialog state tests
 ├── test_welcome_translation.py # welcome wizard translation page tests
 └── … (70+ additional unit & integration test files)

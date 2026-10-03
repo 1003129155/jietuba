@@ -54,7 +54,7 @@ impl PyStitchResult {
 ///   ignore_right_pixels      匹配时忽略右侧多少像素（躲开滚动条）
 ///   ignore_top_pixels        匹配时忽略顶部多少像素（躲开固定表头）
 ///   min_overlap_ratio        判定重叠成立所需的最小重叠占比
-///   ignore_img1_top_ratio    匹配时忽略 img1 顶部的比例
+///   ignore_img1_top_ratio    匹配时忽略 img1 顶部的行数，按 img2 高度的比例计
 ///   ignore_img1_bottom_ratio 匹配时忽略 img1 底部的行数，按 img2 高度的比例计
 ///   debug                    向标准输出打印匹配过程
 ///
@@ -136,44 +136,49 @@ fn stitch_images(
     }
 }
 
-/// 会话推入一帧后的结论：长图先截到 keep 行，再接上新帧从 skip 行开始的部分。
+/// 会话推入一帧后的结论。
+///
+/// 伸出开头：结果先去掉顶部 head_cut 行，再把新帧前 head_rows 行接在最前面；
+/// 伸出末尾：结果截到 keep 行，再接上新帧从 skip 行开始的部分；
+/// 落在已拼内容之内（回滚、没滚动）：结果不变，keep 为原高度、skip 为帧高。
 #[pyclass(frozen, name = "PushResult")]
 pub struct PyPushResult {
-    /// 拼接结果保留的行数（第一帧为 0）。
+    #[pyo3(get)]
+    head_cut: usize,
+    #[pyo3(get)]
+    head_rows: usize,
     #[pyo3(get)]
     keep: usize,
-    /// 新帧跳过的行数（第一帧为 0，即整帧追加）。
     #[pyo3(get)]
     skip: usize,
     /// 推入后拼接结果的总行数。
     #[pyo3(get)]
     height: usize,
-    /// "forward" 或 "reverse"。
-    ///
-    /// 只有 detect_direction=True 时才可能是 "reverse"：会话里的长图已整体翻转，
-    /// 调用方此后要先翻转帧再推入，最终输出时再翻转还原。
+    /// 这一帧第 0 行在推入后的结果里的行号。
     #[pyo3(get)]
-    direction: String,
+    top: usize,
 }
 
 #[pymethods]
 impl PyPushResult {
     fn __repr__(&self) -> String {
         format!(
-            "PushResult(keep={}, skip={}, height={}, direction='{}')",
-            self.keep, self.skip, self.height, self.direction
+            "PushResult(head_cut={}, head_rows={}, keep={}, skip={}, height={}, top={})",
+            self.head_cut, self.head_rows, self.keep, self.skip, self.height, self.top
         )
     }
 }
 
 /// 增量拼接会话。
 ///
-/// 逐帧推入 BGRA 截图，会话只回传拼接参数；已拼好的长图留在会话里，
-/// 需要时用 export() 一次取出。匹配规则与 stitch() 相同。
+/// 逐帧推入 BGRA 截图，会话只回传拼接参数和这一帧所在的位置；已拼好的长图留在会话里，
+/// 需要时用 export() 一次取出。匹配思路同 stitch()，但下一帧在上一帧附近找：
+/// 回滚到哪都能定位，帧落在已拼内容之内时结果不变，伸出开头或末尾就在那一头接上。
+/// 行先按逐像素比对，只差几个字的列表条目也分得开；这一帧和已拼内容只零星对上一小段时视为不重叠。
 ///
 /// 参数：
 ///   width, height        每一帧的宽高
-///   ignore_right_pixels  匹配时忽略右侧多少像素（躲开滚动条）
+///   ignore_right_pixels  匹配时忽略右侧多少像素（躲开滚动条）；逐像素比对时至少忽略帧宽的十分之一
 ///   ignore_top_pixels    匹配时忽略新帧顶部多少像素（躲开固定表头）
 ///   min_overlap_ratio    判定重叠成立所需的最小重叠占比
 #[pyclass(name = "StitchSession")]
@@ -209,37 +214,70 @@ impl PyStitchSession {
         self.inner.height()
     }
 
+    /// 最近一次位置变化的方向，"down" 或 "up"；还没移动过时为 None。
+    #[getter]
+    fn last_move(&self) -> Option<&'static str> {
+        self.inner.last_move().map(|heading| match heading {
+            session::Heading::Down => "down",
+            session::Heading::Up => "up",
+        })
+    }
+
     /// 推入一帧 BGRA 截图（bytes，长度须为 width*height*4）。
     ///
-    /// 第一帧只作为起点。接不上时返回 None，会话保持不变；
-    /// 帧尺寸不符抛 StitchError。
-    ///   detect_direction         自动判断新帧在上方还是下方，参数含义同 stitch()
-    ///   ignore_img1_top_ratio    匹配时忽略拼接结果顶部的比例
+    /// 第一帧只作为起点。接不上（和已拼内容不重叠，比如一下滚过了一整屏）时返回 None，会话保持不变，
+    /// 往回滚到与已拼内容重叠的地方就能接着拼；
+    /// 帧尺寸不符抛 StitchError，heading 取值不对抛 ValueError。
+    ///   heading                  这一帧之前的滚动方向，"down"（结果行号增大的一边）或 "up"，
+    ///                            几个位置都对得上时据此取舍；不知道传 None，沿用 last_move
+    ///   ignore_img1_top_ratio    匹配时忽略拼接结果顶部的行数，按帧高的比例计
     ///   ignore_img1_bottom_ratio 匹配时忽略拼接结果底部的行数，按帧高的比例计
-    #[pyo3(signature = (bgra, *, detect_direction = false, ignore_img1_top_ratio = 0.0, ignore_img1_bottom_ratio = 0.0, debug = false))]
+    #[pyo3(signature = (bgra, *, heading = None, ignore_img1_top_ratio = 0.0, ignore_img1_bottom_ratio = 0.0, debug = false))]
     fn push(
         &mut self,
         py: Python<'_>,
         bgra: &[u8],
-        detect_direction: bool,
+        heading: Option<&str>,
         ignore_img1_top_ratio: f32,
         ignore_img1_bottom_ratio: f32,
         debug: bool,
     ) -> PyResult<Option<PyPushResult>> {
+        let heading = match heading {
+            None => None,
+            Some("down") => Some(session::Heading::Down),
+            Some("up") => Some(session::Heading::Up),
+            Some(other) => {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "heading must be 'down', 'up' or None, got {other:?}"
+                )))
+            }
+        };
         let inner = &mut self.inner;
         let outcome = py.allow_threads(|| {
-            inner.push_bgra(bgra, detect_direction, ignore_img1_top_ratio, ignore_img1_bottom_ratio, debug)
+            inner.push_bgra(bgra, heading, ignore_img1_top_ratio, ignore_img1_bottom_ratio, debug)
         });
         match outcome {
             Ok(o) => Ok(Some(PyPushResult {
+                head_cut: o.head_cut,
+                head_rows: o.head_rows,
                 keep: o.keep,
                 skip: o.skip,
                 height: self.inner.height(),
-                direction: if o.reversed { "reverse" } else { "forward" }.to_string(),
+                top: o.top,
             })),
             Err(CoreError::NoOverlap) => Ok(None),
             Err(e) => Err(StitchError::new_err(e.to_string())),
         }
+    }
+
+    /// 去掉最新一帧顶边以上的内容，结果从这一帧开始；返回去掉的行数。之后照常往两头长。
+    fn crop_top(&mut self) -> usize {
+        self.inner.crop_top()
+    }
+
+    /// 去掉最新一帧底边以下的内容，结果到这一帧为止；返回去掉的行数。之后照常往两头长。
+    fn crop_bottom(&mut self) -> usize {
+        self.inner.crop_bottom()
     }
 
     /// 当前拼接结果，BGRA 字节，尺寸为 width x height。

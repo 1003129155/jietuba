@@ -142,6 +142,44 @@ pub fn compute_row_hashes_raw(
         .collect()
 }
 
+/// 逐像素的行指纹：只有像素完全相同的两行才相等，只差几个字的两行也分得开。
+pub fn compute_row_fingerprints_raw(
+    raw: &[u8],
+    width: u32,
+    y_start: u32,
+    y_end: u32,
+    ignore_right_pixels: u32,
+) -> Vec<u64> {
+    const K: u64 = 0x517c_c1b7_2722_0a95;
+    let stride = (width * 4) as usize;
+    let height = if stride == 0 { 0 } else { (raw.len() / stride) as u32 };
+    let y_start = y_start.min(height);
+    let y_end = y_end.min(height).max(y_start);
+    let effective_width = if ignore_right_pixels > 0 && width > ignore_right_pixels {
+        width - ignore_right_pixels
+    } else {
+        width
+    };
+
+    (y_start..y_end)
+        .into_par_iter()
+        .map(|y| {
+            let row_start = y as usize * stride;
+            let row = &raw[row_start..row_start + effective_width as usize * 4];
+            // 每步都是可逆变换，只差一个字的两行不会撞上
+            let mut words = row.chunks_exact(8);
+            let mut h = 0u64;
+            for word in &mut words {
+                h = (h.rotate_left(5) ^ u64::from_le_bytes(word.try_into().unwrap())).wrapping_mul(K);
+            }
+            for &byte in words.remainder() {
+                h = (h.rotate_left(5) ^ byte as u64).wrapping_mul(K);
+            }
+            h
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -179,5 +217,23 @@ mod tests {
         let range = compute_row_hashes_from_rgba_range(&img, 20, 65, 0, false);
 
         assert_eq!(range, full[20..65]);
+    }
+
+    #[test]
+    fn fingerprints_tell_rows_with_the_same_average_apart() {
+        // 两行墨点一样多、只是位置不同：平均色哈希相同，指纹不同；右侧忽略区里的差别不算
+        let img = RgbaImage::from_fn(64, 3, |x, y| {
+            let ink = match y {
+                0 => (10..14).contains(&x),
+                1 => (30..34).contains(&x),
+                _ => (10..14).contains(&x) || x == 60,
+            };
+            if ink { Rgba([0, 0, 0, 255]) } else { Rgba([255, 255, 255, 255]) }
+        });
+        let coarse = compute_row_hashes_raw(img.as_raw(), 64, 0, 3, 8);
+        let exact = compute_row_fingerprints_raw(img.as_raw(), 64, 0, 3, 8);
+        assert_eq!(coarse[0], coarse[1]);
+        assert_ne!(exact[0], exact[1]);
+        assert_eq!(exact[0], exact[2]);
     }
 }
