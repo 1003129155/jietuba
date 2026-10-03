@@ -51,4 +51,8 @@ TRANSLATIONS: dict[str, str] = {
 
     # cursor_manager.py
     "同步更新覆盖光标": "Syncing override cursor",
+    "清理马赛克临时图元": "Cleaning up temporary mosaic items",
+    "预热马赛克缩小图": "Prewarming the mosaic downscaled image",
+    "创建马赛克笔画": "Creating a mosaic stroke",
+    "完成马赛克笔画": "Finishing a mosaic stroke",
 }

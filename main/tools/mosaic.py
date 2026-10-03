@@ -6,7 +6,7 @@ from PySide6.QtGui import QPainterPath
 from canvas.items import MosaicItem
 from canvas.undo import AddItemCommand
 from core.i18n import make_tr
-from core.logger import log_exception
+from core.logger import T, log_exception
 from .base import Tool, ToolContext
 
 _undo_tr = make_tr("UndoCommands")
@@ -166,7 +166,7 @@ class MosaicTool(Tool):
                 item.setEnabled(False)
             except Exception:
                 pass
-            log_exception(exc, "清理马赛克临时图元")
+            log_exception(exc, T("清理马赛克临时图元"))
 
     def on_activate(self, ctx: ToolContext):
         super().on_activate(ctx)
@@ -175,7 +175,7 @@ class MosaicTool(Tool):
         try:
             ctx.scene.background.reduced_image(self.get_block_size(ctx))
         except Exception as exc:
-            log_exception(exc, "预热马赛克缩小图")
+            log_exception(exc, T("预热马赛克缩小图"))
 
     def on_press(self, pos: QPointF, button, ctx: ToolContext):
         if button != Qt.MouseButton.LeftButton:
@@ -216,7 +216,7 @@ class MosaicTool(Tool):
         except Exception as exc:
             self._remove_live_item(ctx)
             self._reset()
-            log_exception(exc, "创建马赛克笔画")
+            log_exception(exc, T("创建马赛克笔画"))
             return False
 
     def on_move(self, pos: QPointF, ctx: ToolContext):
@@ -273,7 +273,7 @@ class MosaicTool(Tool):
             )
             if not committed:
                 self._remove_live_item(ctx)
-            log_exception(exc, "完成马赛克笔画")
+            log_exception(exc, T("完成马赛克笔画"))
         finally:
             self._reset()
 

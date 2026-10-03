@@ -281,4 +281,4 @@ class TranslationThread(QThread):
             
         except Exception as e:
             log_error(T("翻译线程异常: {e}", e=e), "DeepL")
-            self.finished_signal.emit(False, "", f"翻译失败: {str(e)}", "")
+            self.finished_signal.emit(False, "", str(e), "")

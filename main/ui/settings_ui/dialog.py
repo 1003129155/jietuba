@@ -1209,7 +1209,7 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, '_selection_handle_size_combo'):
             theme.set_selection_handle_size(self._selection_handle_size_combo.currentData())
 
-        log_info("すべての設定を保存しました", "Settings")
+        log_info(T("所有设置已保存"), "Settings")
         self._import_unsaved = False
         self._settings_snapshot = self._snapshot_settings()
         self._update_action_buttons()

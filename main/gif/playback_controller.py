@@ -16,7 +16,10 @@ from .playback_toolbar import PlaybackToolbar
 from .composer import ComposerProgressDialog
 from .cursor_overlay import CursorOverlay
 from core.ui_theme import set_own_style
+from core.i18n import make_tr
 from ui.dialogs import get_save_file_name
+
+_tr = make_tr("GifRecorder")
 
 try:
     from core.logger import log_debug, log_info, log_warning, log_error, log_exception, T
@@ -371,7 +374,7 @@ class PlaybackController(QObject):
     def _on_save(self):
         # 回放阶段只有回放工具栏能操作，锁住它就挡住了重复保存和关闭
         path, _ = get_save_file_name(
-            self._playback_toolbar, "保存 GIF", "", "GIF 动图 (*.gif)"
+            self._playback_toolbar, _tr("Save GIF"), "", _tr("GIF animation (*.gif)")
         )
         if not path:
             log_debug(T("保存取消"), "GIF")

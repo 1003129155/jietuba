@@ -454,7 +454,7 @@ class MainApp(QObject):
             return
 
         if not QSystemTrayIcon.isSystemTrayAvailable():
-            show_error_dialog(None, "Error", "System tray not available")
+            show_error_dialog(None, self.tr("Error"), self.tr("System tray not available"))
         self.tray_icon = QSystemTrayIcon(self)
 
         # Use custom icon

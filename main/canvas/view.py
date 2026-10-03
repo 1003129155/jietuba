@@ -1058,7 +1058,7 @@ class CanvasView(QGraphicsView):
                     event.modifiers(),
                 )
                 if edit_handled:
-                    log_debug("文字宽度控制点拖拽被处理", "CanvasView")
+                    log_debug(T("文字宽度控制点拖拽被处理"), "CanvasView")
                     return
                 if isinstance(focus_item, QGraphicsTextItem) and \
                         self.text_drag.is_point_on_edge(focus_item, scene_pos):

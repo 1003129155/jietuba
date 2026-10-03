@@ -1227,6 +1227,14 @@ Replace it?</source>
         <source>Open Context Menu</source>
         <translation>打开菜单</translation>
     </message>
+    <message>
+        <source>Settings</source>
+        <translation>设置</translation>
+    </message>
+    <message>
+        <source>jietuba</source>
+        <translation>jietuba</translation>
+    </message>
 </context>
 
 <context>
@@ -1436,6 +1444,10 @@ Replace it?</source>
     <message>
         <source>Record</source>
         <translation>录屏</translation>
+    </message>
+    <message>
+        <source>Drag to move</source>
+        <translation>拖动以移动</translation>
     </message>
 </context>
 
@@ -1751,6 +1763,14 @@ Replace it?</source>
         <source>The hotkey may be occupied by other programs. Please try a different combination.</source>
         <translation>该热键可能已被其他程序占用。请尝试其他组合。</translation>
     </message>
+    <message>
+        <source>Error</source>
+        <translation>错误</translation>
+    </message>
+    <message>
+        <source>System tray not available</source>
+        <translation>系统托盘不可用</translation>
+    </message>
 </context>
 
 <!-- ========== Translation Dialog ========== -->
@@ -1956,6 +1976,30 @@ Replace it?</source>
     <message>
         <source>Target</source>
         <translation>目标语言</translation>
+    </message>
+    <message>
+        <source>Translation failed</source>
+        <translation>翻译失败</translation>
+    </message>
+    <message>
+        <source>Please enter text to translate</source>
+        <translation>请输入要翻译的文本</translation>
+    </message>
+    <message>
+        <source>OCR is not available</source>
+        <translation>OCR 功能不可用</translation>
+    </message>
+    <message>
+        <source>No text recognized</source>
+        <translation>未识别到文字</translation>
+    </message>
+    <message>
+        <source>OCR failed:</source>
+        <translation>OCR 识别失败:</translation>
+    </message>
+    <message>
+        <source>Recognition failed</source>
+        <translation>识别失败</translation>
     </message>
 </context>
 
@@ -2216,8 +2260,10 @@ Replace it?</source>
         <translation>分组内的内容也会被删除。</translation>
     </message>
     <message>
-        <source>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</source>
-        <translation>确定要删除这个分组吗？\n分组内的内容也会被删除。</translation>
+        <source>Are you sure you want to delete this group?
+All items in the group will also be deleted.</source>
+        <translation>确定要删除这个分组吗？
+分组内的内容也会被删除。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
@@ -2300,8 +2346,10 @@ Replace it?</source>
         <translation>确认清空</translation>
     </message>
     <message>
-        <source>Are you sure you want to clear all clipboard history?\nThis action cannot be undone.</source>
-        <translation>确定要清空所有剪贴板历史吗？\n此操作不可恢复。</translation>
+        <source>Are you sure you want to clear all clipboard history?
+This action cannot be undone.</source>
+        <translation>确定要清空所有剪贴板历史吗？
+此操作不可恢复。</translation>
     </message>
     <message>
         <source>Paste</source>
@@ -2362,6 +2410,10 @@ Replace it?</source>
     <message>
         <source>Paste in Order</source>
         <translation>保持顺序粘贴</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>确定</translation>
     </message>
 </context>
 
@@ -2661,8 +2713,10 @@ Replace it?</source>
         <translation>分组内的内容也会被删除。</translation>
     </message>
     <message>
-        <source>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</source>
-        <translation>确定要删除这个分组吗？\n分组内的内容也会被删除。</translation>
+        <source>Are you sure you want to delete this group?
+All items in the group will also be deleted.</source>
+        <translation>确定要删除这个分组吗？
+分组内的内容也会被删除。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
@@ -3067,8 +3121,10 @@ Replace it?</source>
         <translation>确认清空</translation>
     </message>
     <message>
-        <source>Are you sure you want to clear all clipboard history?\nThis action cannot be undone.</source>
-        <translation>确定要清空所有剪贴板历史吗？\n此操作不可恢复。</translation>
+        <source>Are you sure you want to clear all clipboard history?
+This action cannot be undone.</source>
+        <translation>确定要清空所有剪贴板历史吗？
+此操作不可恢复。</translation>
     </message>
     <message>
         <source>Also delete saved content in groups</source>
@@ -3813,6 +3869,22 @@ Replace it?</source>
         <source>Optional for local models</source>
         <translation>本地模型可不填</translation>
     </message>
+    <message>
+        <source>截图保存位置</source>
+        <translation>截图保存位置</translation>
+    </message>
+    <message>
+        <source>浏览</source>
+        <translation>浏览</translation>
+    </message>
+    <message>
+        <source>确认截图后自动保存到该文件夹。</source>
+        <translation>确认截图后自动保存到该文件夹。</translation>
+    </message>
+    <message>
+        <source>选择保存文件夹</source>
+        <translation>选择保存文件夹</translation>
+    </message>
 </context>
 
 <!-- ========== GIF Record Toolbar ========== -->
@@ -3830,6 +3902,14 @@ Replace it?</source>
     <message><source>箭头</source><translation>箭头</translation></message>
     <message><source>文字</source><translation>文字</translation></message>
     <message><source>橡皮擦</source><translation>橡皮擦</translation></message>
+    <message>
+        <source>撤销</source>
+        <translation>撤销</translation>
+    </message>
+    <message>
+        <source>重做</source>
+        <translation>重做</translation>
+    </message>
 </context>
 
 <!-- ========== GIF Playback Toolbar ========== -->
@@ -4027,8 +4107,10 @@ SOFTWARE.</translation></message>
         <translation>分组内的内容也会被删除。</translation>
     </message>
     <message>
-        <source>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</source>
-        <translation>确定要删除这个分组吗？\n分组内的内容也会被删除。</translation>
+        <source>Are you sure you want to delete this group?
+All items in the group will also be deleted.</source>
+        <translation>确定要删除这个分组吗？
+分组内的内容也会被删除。</translation>
     </message>
 </context>
 
@@ -4059,6 +4141,10 @@ SOFTWARE.</translation></message>
         <source>富文本预览</source>
         <translation>富文本预览</translation>
     </message>
+    <message>
+        <source>无文件信息</source>
+        <translation>无文件信息</translation>
+    </message>
 </context>
 
 <context>
@@ -4076,7 +4162,9 @@ SOFTWARE.</translation></message>
     <message><source>Finalizing migration...</source><translation>正在完成迁移...</translation></message>
     <message><source>Migration complete.</source><translation>迁移完成。</translation></message>
     <message><source>Clipboard data location changed successfully.</source><translation>剪贴板数据位置已更改。</translation></message>
-    <message><source>Clipboard data location changed successfully, but the old files are still in use and could not be deleted. You can remove them after restarting the app.\n{error}</source><translation>剪贴板数据位置已更改，但旧文件仍被占用，暂时无法删除。重启应用后可以手动删除。\n{error}</translation></message>
+    <message><source>Clipboard data location changed successfully, but the old files are still in use and could not be deleted. You can remove them after restarting the app.
+{error}</source><translation>剪贴板数据位置已更改，但旧文件仍被占用，暂时无法删除。重启应用后可以手动删除。
+{error}</translation></message>
     <message><source>Clipboard data moved, but reopening the database failed. Please restart the app.</source><translation>剪贴板数据已移动，但重新打开数据库失败。请重启应用。</translation></message>
     <message><source>No clipboard data files were found to move.</source><translation>没有找到可移动的剪贴板数据文件。</translation></message>
     <message><source>Moving clipboard data... {done} / {total}</source><translation>正在移动剪贴板数据... {done} / {total}</translation></message>
@@ -4553,6 +4641,94 @@ SOFTWARE.</translation></message>
     <message>
         <source>Stitching failed</source>
         <translation>拼接出错</translation>
+    </message>
+    <message>
+        <source>Long Screenshot</source>
+        <translation>长截图</translation>
+    </message>
+    <message>
+        <source>Vertical</source>
+        <translation>竖向</translation>
+    </message>
+    <message>
+        <source>Horizontal</source>
+        <translation>横向</translation>
+    </message>
+    <message>
+        <source>Long screenshot - window position corrected</source>
+        <translation>长截图 - 窗口位置已校正</translation>
+    </message>
+</context>
+<context>
+    <name>ScreenshotWindow</name>
+    <message>
+        <source>Warning</source>
+        <translation>警告</translation>
+    </message>
+    <message>
+        <source>Please select a valid capture area first.</source>
+        <translation>请先选择一个有效的截图区域！</translation>
+    </message>
+</context>
+<context>
+    <name>GifRecorder</name>
+    <message>
+        <source>gifrecorder unavailable</source>
+        <translation>gifrecorder 不可用</translation>
+    </message>
+    <message>
+        <source>The gifrecorder module was not found, so the GIF cannot be exported.
+
+Make sure gifrecorder is installed correctly.</source>
+        <translation>未找到 gifrecorder 模块，无法导出 GIF。
+
+请确认 gifrecorder 已正确安装。</translation>
+    </message>
+    <message>
+        <source>Recording error</source>
+        <translation>录制异常</translation>
+    </message>
+    <message>
+        <source>The recording is empty. Please record again.</source>
+        <translation>录制数据为空，请重新录制。</translation>
+    </message>
+    <message>
+        <source>Save GIF</source>
+        <translation>保存 GIF</translation>
+    </message>
+    <message>
+        <source>GIF animation (*.gif)</source>
+        <translation>GIF 动图 (*.gif)</translation>
+    </message>
+</context>
+<context>
+    <name>ColorPickerDialog</name>
+    <message>
+        <source>Pick color from screen</source>
+        <translation>从屏幕取色</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>确认</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+</context>
+<context>
+    <name>GifDrawingToolbar</name>
+    <message>
+        <source>撤销</source>
+        <translation>撤销</translation>
+    </message>
+    <message>
+        <source>重做</source>
+        <translation>重做</translation>
+    </message>
+    <message>
+        <source>退出绘制</source>
+        <translation>退出绘制</translation>
     </message>
 </context>
 </TS>

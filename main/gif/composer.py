@@ -21,6 +21,9 @@ from ui.dialogs import show_warning_dialog
 
 from ._widgets import PROGRESS_BAR_STYLE
 from core.logger import log_info, log_error, log_exception, T
+from core.i18n import make_tr
+
+_tr = make_tr("GifRecorder")
 
 try:
     import gifrecorder
@@ -265,9 +268,9 @@ class ComposerProgressDialog(QFrame):
         if not ok and result == "gifrecorder_not_found":
             show_warning_dialog(
                 None,
-                "gifrecorder 不可用",
-                "未找到 gifrecorder 模块，无法导出 GIF。\n\n"
-                "请确认 gifrecorder 已正确安装。",
+                _tr("gifrecorder unavailable"),
+                _tr("The gifrecorder module was not found, so the GIF cannot be exported.\n\n"
+                    "Make sure gifrecorder is installed correctly."),
             )
 
     @staticmethod

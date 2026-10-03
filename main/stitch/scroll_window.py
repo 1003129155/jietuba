@@ -1350,14 +1350,14 @@ class ScrollCaptureWindow(QWidget):
             _log_stitch(T("[WARN] 没有拼接结果，跳过保存"))
             return
 
-        direction_suffix = "横" if self.scroll_direction == "horizontal" else "縦"
+        direction_suffix = self.tr("Horizontal") if self.scroll_direction == "horizontal" else self.tr("Vertical")
         target_dir = self.save_directory
 
         try:
             task_path = self.save_service.save_pil_async(
                 self.stitched_result,
                 directory=target_dir,
-                prefix="長スクショ",
+                prefix=self.tr("Long Screenshot"),
                 suffix=direction_suffix,
                 image_format="PNG"
             )

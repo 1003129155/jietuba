@@ -438,13 +438,13 @@ class ColorPickerDialog(QDialog):
         # 4. 按钮
         btn_row = QHBoxLayout()
         btn_row.addStretch()
-        self._ok_btn = QPushButton("确认")
+        self._ok_btn = QPushButton(self.tr("OK"))
         self._ok_btn.setFixedSize(60, 28)
         self._ok_btn.setStyleSheet(f"""
             QPushButton {{ background-color: #c81623; color: white; border: none; border-radius: 4px; font-family: {CSS_FONT_FAMILY}; font-size: 12px; }}
             QPushButton:hover {{ background-color: #e31b28; }}
         """)
-        self._cancel_btn = QPushButton("取消")
+        self._cancel_btn = QPushButton(self.tr("Cancel"))
         self._cancel_btn.setFixedSize(60, 28)
         self._cancel_btn.setStyleSheet(f"""
             QPushButton {{ background-color: #fff; color: #333; border: 1px solid #d0d0d0; border-radius: 4px; font-family: {CSS_FONT_FAMILY}; font-size: 12px; }}

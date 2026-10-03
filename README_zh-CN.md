@@ -655,12 +655,12 @@ translation/
 translations/
 ├── app_zh.xml / app_en.xml  # 中文/英文翻译源文件
 ├── app_ja.xml / app_ko.xml  # 日文/韩文翻译源文件
-└── app_*.xml.qm             # 编译后的 Qt 二进制文件（app_zh.xml.qm 等）
+└── app_*.qm                 # 编译后的 Qt 二进制文件（app_zh.qm 等）
 ```
 
 </details>
 
-**说明：** `.xml` 为可编辑的翻译源文件，`*.xml.qm` 为 Qt 运行时加载的编译文件。修改翻译后需运行 `compile_translations.py` 重新编译。
+**说明：** `.xml` 为可编辑的翻译源文件，`.qm` 为 Qt 运行时加载的编译文件。新增或修改界面文字时，四个 `.xml` 都要补上同一上下文的条目（多行文案写真换行），再运行 `compile_translations.py` 重新编译；`tests/test_translation_coverage.py` 会检查缺漏。
 
 ---
 

@@ -480,7 +480,7 @@ class PinCanvas(QObject):
         # 唯一的判据是"这个场景注册了这个工具没有"。原来还额外写死排除 mosaic，
         # 而钉图场景现在注册了它——两条规则并存只会让"钉图支持什么"有两个答案。
         if self.tool_controller.get_tool(tool_name) is None:
-            log_warning(f"钉图不支持工具: {tool_name}", "PinCanvas")
+            log_warning(T("钉图不支持工具: {tool_name}", tool_name=tool_name), "PinCanvas")
             return False
 
         try:

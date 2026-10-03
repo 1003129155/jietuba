@@ -139,4 +139,6 @@ TRANSLATIONS: dict[str, str] = {
     "按键被 {handler_name} 消费 (key=0x{key_hex:X})": "Key consumed by {handler_name} (key=0x{key_hex:X})",
     "系统热键被 {handler_name} 拦截 (id={hotkey_id})": "System hotkey intercepted by {handler_name} (id={hotkey_id})",
     "检查快捷键可用性": "Checking hotkey availability",
+    "鼠标侧键监听设置失败: {e}": "Failed to set up the mouse side-button listener: {e}",
+    "系统组合键接管设置失败: {e}": "Failed to set up system key-combination takeover: {e}",
 }

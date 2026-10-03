@@ -20,6 +20,9 @@ from .foreground_tracker import ForegroundWindowTracker
 from .paste_keystroke import paste_to_target
 from core.logger import T, log_debug, log_info, log_error, log_exception
 from core.ui_scale import scaled
+from core.i18n import make_tr
+
+_tr = make_tr("ClipboardWindow")
 
 
 # ============================================================
@@ -822,8 +825,8 @@ class ClipboardController(QObject):
         if parent_widget:
             reply = show_confirm_dialog(
                 parent_widget,
-                "Confirm Clear",
-                "Are you sure you want to clear all clipboard history?\nThis action cannot be undone."
+                _tr("Confirm Clear"),
+                _tr("Are you sure you want to clear all clipboard history?\nThis action cannot be undone.")
             )
             if not reply:
                 return False

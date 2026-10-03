@@ -716,7 +716,7 @@ class ShortcutManager(QObject):
                 self._mouse_capture_refs > 0,
             )
         except Exception as e:
-            log_error(f"鼠标侧键监听设置失败: {e}", module="Hotkey")
+            log_error(T("鼠标侧键监听设置失败: {e}", e=e), module="Hotkey")
 
     # ──────────────────────────────────────────────────────────────
     # 系统占用的组合键
@@ -751,7 +751,7 @@ class ShortcutManager(QObject):
                 if hub.native.bind_hotkey(name, modifiers, vk)
             }
         except Exception as e:
-            log_error(f"系统组合键接管设置失败: {e}", module="Hotkey")
+            log_error(T("系统组合键接管设置失败: {e}", e=e), module="Hotkey")
 
     def _on_hook_hotkey(self, name: str):
         # 禁用前已排队的事件照样会送到

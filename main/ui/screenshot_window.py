@@ -1236,7 +1236,7 @@ class ScreenshotWindow(QWidget):
             # 关闭截图窗口
             self.cleanup_and_close()
         else:
-            show_modeless_warning_dialog(self, "警告", "请先选择一个有效的截图区域！")
+            show_modeless_warning_dialog(self, self.tr("Warning"), self.tr("Please select a valid capture area first."))
 
     def start_long_screenshot_mode(self):
         """启动长截图模式"""
@@ -1303,7 +1303,7 @@ class ScreenshotWindow(QWidget):
             self.cleanup_and_close()
         else:
             # 如果没有确认选区，显示提示
-            show_modeless_warning_dialog(self, "警告", "请先选择一个有效的截图区域！")
+            show_modeless_warning_dialog(self, self.tr("Warning"), self.tr("Please select a valid capture area first."))
 
     @safe_event
     def closeEvent(self, event):

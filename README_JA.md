@@ -575,12 +575,12 @@ translation/
 translations/
 ├── app_zh.xml / app_en.xml  # 中国語 / 英語ソースファイル
 ├── app_ja.xml / app_ko.xml  # 日本語 / 韓国語ソースファイル
-└── app_*.xml.qm             # コンパイル済み Qt バイナリ（app_zh.xml.qm 等）
+└── app_*.qm                 # コンパイル済み Qt バイナリ（app_zh.qm 等）
 ```
 
 </details>
 
-`.xml` = 編集可能なソースファイル、`*.xml.qm` = Qtランタイムで読み込むコンパイル済みファイル。変更後は `compile_translations.py` を実行して再コンパイルしてください。
+`.xml` = 編集可能なソースファイル、`.qm` = Qtランタイムで読み込むコンパイル済みファイル。UI テキストを追加・変更したら、4 つの `.xml` すべてに同じコンテキストのエントリを追加し（複数行の文言は実際の改行で書く）、`compile_translations.py` を実行して再コンパイルしてください。`tests/test_translation_coverage.py` が漏れをチェックします。
 
 ---
 

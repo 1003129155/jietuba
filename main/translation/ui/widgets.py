@@ -5,7 +5,7 @@ from PySide6.QtCore import QObject, Qt, QTimer
 
 from core.i18n import make_tr
 
-_tr = make_tr("TranslationPopup")
+_tr = make_tr("TranslationDialog")
 
 
 class EllipsisAnimator(QObject):

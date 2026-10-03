@@ -576,12 +576,12 @@ translation/
 translations/
 ├── app_zh.xml / app_en.xml  # Chinese / English source files
 ├── app_ja.xml / app_ko.xml  # Japanese / Korean source files
-└── app_*.xml.qm             # compiled Qt binaries (e.g. app_zh.xml.qm)
+└── app_*.qm                 # compiled Qt binaries (e.g. app_zh.qm)
 ```
 
 </details>
 
-`.xml` = editable source files, `*.xml.qm` = compiled Qt runtime files. Run `compile_translations.py` after modification.
+`.xml` = editable source files, `.qm` = compiled Qt runtime files. When adding or changing UI text, add an entry with the same context to all four `.xml` files (use real line breaks in multi-line text), then run `compile_translations.py`; `tests/test_translation_coverage.py` checks for gaps.
 
 ---
 

@@ -569,7 +569,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self._apply_date_filter_locale()
 
         self.apply_time_filter_btn = QToolButton()
-        self.apply_time_filter_btn.setText("OK")
+        self.apply_time_filter_btn.setText(self.tr("OK"))
         self.apply_time_filter_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.apply_time_filter_btn.setToolTip(self.tr("Apply time filter"))
         self.apply_time_filter_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
