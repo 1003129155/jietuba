@@ -228,8 +228,10 @@ impl Database {
         
         if let Some(ref s) = search {
             if !s.trim().is_empty() {
-                where_clauses.push("content LIKE ?".to_string());
-                params_vec.push(Value::from(format!("%{}%", s)));
+                // 关键词按字面匹配：% 和 _ 在 LIKE 里是通配符，要转义
+                let escaped = s.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_");
+                where_clauses.push("content LIKE ? ESCAPE '\\'".to_string());
+                params_vec.push(Value::from(format!("%{}%", escaped)));
             }
         }
         
@@ -407,12 +409,10 @@ impl Database {
         self.conn.execute(&sql_delete, [])
             .map_err(|e| format!("清空失败: {}", e))?;
 
-        // WAL checkpoint：把 WAL 文件的内容合并回主库并截断 WAL 文件
-        let _ = self.conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
-
-        // VACUUM：整理主库文件，将空闲页回收给操作系统，文件大小真正缩小
+        // VACUUM 整理出的新内容先写进 WAL，要等 checkpoint 合并回主库，库文件才变小
         self.conn.execute_batch("VACUUM;")
             .map_err(|e| format!("VACUUM 失败: {}", e))?;
+        let _ = self.conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
 
         Ok(())
     }
@@ -649,12 +649,15 @@ impl Database {
         // before_id 是界面上方的项，order 更小
         // after_id 是界面下方的项，order 更大
         
-        // 获取该项的 group_id（用于查询范围）
-        let group_id: Option<i64> = self.conn.query_row(
+        // 获取该项的 group_id（用于查询范围）；只有分组内的内容按这套顺序排
+        let group_id: i64 = match self.conn.query_row(
             "SELECT group_id FROM clipboard WHERE id = ?",
             params![id],
-            |row| row.get(0)
-        ).unwrap_or(None);
+            |row| row.get::<_, Option<i64>>(0)
+        ) {
+            Ok(Some(group_id)) => group_id,
+            _ => return Err("只能在分组内移动内容".to_string()),
+        };
         
         // 获取上方项的 item_order（应该更小）
         let upper_order = if let Some(bid) = before_id {
@@ -691,7 +694,7 @@ impl Database {
         // 检查空间是否足够（lower 应该 > upper）
         if lower_order <= upper_order || lower_order - upper_order < 10 {
             // 重新索引该分组的内容
-            self.reindex_group_items(group_id.unwrap())?;
+            self.reindex_group_items(group_id)?;
             return self.move_item_between_impl(id, before_id, after_id, depth + 1);
         }
         
@@ -931,23 +934,31 @@ impl Database {
         Ok(())
     }
 
-    /// 保存一批已预压缩的格式数据（监听线程专用）
-    /// 调用方已在外部完成压缩，此处直接写库，不再重复压缩
+    /// 用监听线程抓到的格式整组替换这条记录原有的格式（数据已按需压缩）
+    ///
+    /// 去重会把同样内容的复制并到旧记录上，而同样的文字在不同来源里可能带着
+    /// 不同的富文本或公式，粘贴应还原最近这次复制，所以旧格式不能留。
     /// formats: (format_id, format_name, data, is_compressed)
-    pub fn insert_precompressed_formats(
+    pub fn replace_formats(
         &self,
         event_id: i64,
         formats: &[(u32, String, Vec<u8>, bool)],
     ) -> Result<(), String> {
+        let tx = self.conn.unchecked_transaction()
+            .map_err(|e| format!("替换 formats 失败: {}", e))?;
+        tx.execute(
+            "DELETE FROM clipboard_formats WHERE event_id = ?",
+            params![event_id],
+        ).map_err(|e| format!("删除 formats 失败: {}", e))?;
         for (format_id, format_name, data, is_compressed) in formats {
             let compressed_flag: i64 = if *is_compressed { 1 } else { 0 };
-            self.conn.execute(
+            tx.execute(
                 "INSERT OR IGNORE INTO clipboard_formats (event_id, format_id, format_name, data, compressed)
                  VALUES (?1, ?2, ?3, ?4, ?5)",
                 params![event_id, *format_id as i64, format_name, data, compressed_flag],
             ).map_err(|e| format!("插入 format 失败: {}", e))?;
         }
-        Ok(())
+        tx.commit().map_err(|e| format!("替换 formats 失败: {}", e))
     }
 
     /// 读取某个 event 的所有原始格式数据（自动解压 zstd 数据）
@@ -1101,5 +1112,74 @@ mod update_item_tests {
     fn updating_missing_item_is_a_no_op() {
         let db = Database::new(":memory:").unwrap();
         assert!(db.update_item(42, None, "x").is_ok());
+    }
+
+    #[test]
+    fn a_repeated_copy_replaces_the_stored_formats() {
+        let (db, id) = db_with_captured_text("20");
+        let formula = b"<Cell ss:Formula=\"=A1*2\"/>".to_vec();
+        db.replace_formats(id, &[(50042, "XML Spreadsheet".to_string(), formula, false)]).unwrap();
+        assert_eq!(db.get_formats(id).unwrap().len(), 1);
+
+        // 同样的文字再复制一次（去重落到同一条记录），这次没有公式
+        let text: Vec<u8> = "20\0".encode_utf16().flat_map(u16::to_le_bytes).collect();
+        db.replace_formats(id, &[(13, "CF_UNICODETEXT".to_string(), text, false)]).unwrap();
+        let names: Vec<String> = db.get_formats(id).unwrap().into_iter().map(|(_, n, _)| n).collect();
+        assert_eq!(names, vec!["CF_UNICODETEXT".to_string()]);
+    }
+}
+
+#[cfg(test)]
+mod maintenance_tests {
+    use super::Database;
+    use crate::types::PyClipboardItem;
+
+    fn add(db: &Database, text: &str) -> i64 {
+        db.insert_item(&PyClipboardItem::new(0, text.to_string(), "text".to_string())).unwrap()
+    }
+
+    fn search(db: &Database, keyword: &str) -> Vec<String> {
+        let mut found: Vec<String> = db.query_items(0, 50, Some(keyword.to_string()), None, None, None)
+            .unwrap().items.into_iter().map(|item| item.content).collect();
+        found.sort();
+        found
+    }
+
+    #[test]
+    fn search_matches_percent_and_underscore_literally() {
+        let db = Database::new(":memory:").unwrap();
+        for text in ["50%", "5000", "a_b", "axb", r"C:\temp"] {
+            add(&db, text);
+        }
+        assert_eq!(search(&db, "50%"), vec!["50%"]);
+        assert_eq!(search(&db, "a_b"), vec!["a_b"]);
+        assert_eq!(search(&db, r"\t"), vec![r"C:\temp"]);
+    }
+
+    #[test]
+    fn moving_an_ungrouped_item_is_an_error_not_a_panic() {
+        let db = Database::new(":memory:").unwrap();
+        let first = add(&db, "一");
+        let second = add(&db, "二");
+        assert!(db.move_item_between(second, None, Some(first)).is_err());
+    }
+
+    #[test]
+    fn clearing_history_gives_the_space_back_right_away() {
+        let dir = std::env::temp_dir().join(format!("pyclipboard_clear_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("clipboard.db");
+        {
+            let db = Database::new(path.to_str().unwrap()).unwrap();
+            let blob: Vec<u8> = (0..4_000_000u32).map(|i| (i.wrapping_mul(2_654_435_761) >> 24) as u8).collect();
+            let id = add(&db, "大图");
+            db.replace_formats(id, &[(8, "CF_DIB".to_string(), blob, false)]).unwrap();
+            let _ = db.conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
+            assert!(std::fs::metadata(&path).unwrap().len() > 3_000_000);
+
+            db.clear_all(false).unwrap();
+            assert!(std::fs::metadata(&path).unwrap().len() < 1_000_000);
+        }
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

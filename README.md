@@ -96,7 +96,7 @@ These six packages are included in `requirements.txt` and install with the runti
 |------|------|------|------|
 | [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.0 | GIF/video composition encoder |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.5.0 | Long screenshot stitching algorithm |
-| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.4 | Low-level clipboard operations |
+| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.5 | Low-level clipboard operations |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | HDR-correct desktop capture (DXGI Desktop Duplication + GPU tone mapping) |
 | [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.0 | Global mouse and keyboard hooks off the GUI thread (gestures, side buttons, hotkeys, wheel, foreground window) |
@@ -118,7 +118,7 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 The [test directory](main/tests/) contains unit and integration tests for capture, clipboard operations, mosaic editing, pin zoom, GIF playback, OCR text layers, and other modules. The [CI workflow](.github/workflows/ci.yml) runs tests and coverage checks on Windows x86_64 and ARM64 with Python 3.11, plus static analysis on x86_64. Results are available in [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml).
 
-Tests that drive the real mouse and keyboard, such as `test_quick_capture_real_hooks.py`, are skipped by default. Set `RUN_REAL_INPUT_TESTS=1` to run them, and leave the mouse and keyboard alone while they run.
+Tests that drive the real mouse and keyboard, such as `test_quick_capture_real_hooks.py`, are skipped by default. Set `RUN_REAL_INPUT_TESTS=1` to run them, and leave the mouse and keyboard alone while they run. Tests that rewrite the real system clipboard (`test_clipboard_monitor_real.py`) are skipped too; set `RUN_REAL_CLIPBOARD_TESTS=1` to run them, and don't copy anything while they run.
 
 To build the full Windows release, run `python build_with_ocr_onefile.py`. It produces `dist/jietuba_pp.exe` and `dist/models/`; add `--lite` for the lite build, which produces `dist_lite/jietuba_lite.exe`. The automated [release workflow](.github/workflows/build.yml) creates full and lite archives for x64 and ARM64.
 

@@ -4,6 +4,8 @@ use pyo3::types::PyBytes;
 
 mod database;
 mod types;
+#[cfg(target_os = "windows")]
+mod win_clipboard;
 
 use database::Database;
 use types::{PyClipboardItem, PyQueryParams, PyPaginatedResult, PyGroup};
@@ -24,10 +26,120 @@ static WATCHER_THREAD_ID: AtomicU32 = AtomicU32::new(0);
 static WATCHER_SHUTDOWN: Lazy<Mutex<Option<clipboard_rs::WatcherShutdown>>> = Lazy::new(|| Mutex::new(None));
 static WATCHER_THREAD: Lazy<Mutex<Option<thread::JoinHandle<()>>>> = Lazy::new(|| Mutex::new(None));
 static CALLBACK: Lazy<Arc<Mutex<Option<PyObject>>>> = Lazy::new(|| Arc::new(Mutex::new(None)));
-// 跳过下一次剪贴板变化（用于防止 paste_item 自己触发监听）
-static SKIP_NEXT_CHANGE: AtomicBool = AtomicBool::new(false);
+// paste_item 写完剪贴板后的序号：监听看到的还是这个序号，就是自己写回去的内容，不记录
+static OWN_WRITE_SEQ: AtomicU32 = AtomicU32::new(0);
+// 监听已处理到的剪贴板序号：同一份内容的多条通知只处理一次
+static HANDLED_SEQ: AtomicU32 = AtomicU32::new(0);
 static LAST_CALLBACK_EVENT: Lazy<Mutex<Option<(i64, Instant)>>> = Lazy::new(|| Mutex::new(None));
 const DUPLICATE_CALLBACK_WINDOW: Duration = Duration::from_millis(350);
+/// 剪贴板停止变化这么久才去读
+const SETTLE_DELAY: Duration = Duration::from_millis(100);
+/// 剪贴板一直在变时最多等这么久
+const SETTLE_LIMIT: Duration = Duration::from_secs(2);
+
+/// 等剪贴板静止后返回它的序号；这份内容已经处理过、或等待期间监听被停掉时返回 None。
+///
+/// 写入方常把一次复制拆成几次打开剪贴板（先清空，再写各个格式）。通知一到就去读，
+/// 会挤进这几次之间，对方后面那次打开就可能失败、内容写不进系统剪贴板。
+#[cfg(target_os = "windows")]
+fn wait_until_clipboard_settles() -> Option<u32> {
+    let mut seq = win_clipboard::sequence_number();
+    if seq == HANDLED_SEQ.load(Ordering::SeqCst) {
+        return None;
+    }
+    let started = Instant::now();
+    loop {
+        thread::sleep(SETTLE_DELAY);
+        if !IS_RUNNING.load(Ordering::Relaxed) {
+            return None;
+        }
+        let now = win_clipboard::sequence_number();
+        let settled = now == seq;
+        seq = now;
+        if settled || started.elapsed() >= SETTLE_LIMIT {
+            break;
+        }
+    }
+    HANDLED_SEQ.store(seq, Ordering::SeqCst);
+    Some(seq)
+}
+
+/// 写入方要求剪贴板历史不要记录这份内容（密码一类）
+///
+/// 格式含义见 https://learn.microsoft.com/windows/win32/dataxchg/clipboard-formats
+#[cfg(target_os = "windows")]
+fn is_marked_private(clipboard: &win_clipboard::OpenClipboardGuard) -> bool {
+    let present = |name: &str| {
+        let format = win_clipboard::register_format(name);
+        format != 0 && clipboard.is_available(format)
+    };
+    if present("ExcludeClipboardContentFromMonitorProcessing") || present("Clipboard Viewer Ignore") {
+        return true;
+    }
+    // CanIncludeInClipboardHistory 是一个 DWORD，0 表示不要进历史
+    let format = win_clipboard::register_format("CanIncludeInClipboardHistory");
+    format != 0
+        && clipboard.is_available(format)
+        && clipboard.read(format)
+            .is_some_and(|data| data.len() >= 4 && u32::from_le_bytes([data[0], data[1], data[2], data[3]]) == 0)
+}
+
+/// 一次打开剪贴板读下来的内容
+#[cfg(target_os = "windows")]
+struct CapturedClipboard {
+    /// 要存的格式：(编号, 名字, 原始数据)
+    formats: Vec<(u32, String, Vec<u8>)>,
+    /// 剪贴板上所有格式的 (编号, 名字)
+    names: Vec<(u32, String)>,
+    /// 内容是表格单元格；这时不读位图
+    spreadsheet: bool,
+}
+
+#[cfg(target_os = "windows")]
+impl CapturedClipboard {
+    fn data(&self, format: u32) -> Option<&[u8]> {
+        self.formats.iter().find(|(f, _, _)| *f == format).map(|(_, _, data)| data.as_slice())
+    }
+}
+
+/// 读出要存进历史的格式；剪贴板为空、打不开或标了不让记录时返回 None
+#[cfg(target_os = "windows")]
+fn capture_clipboard(window: &win_clipboard::ClipboardWindow) -> Option<CapturedClipboard> {
+    use win_clipboard::*;
+
+    if format_count() == 0 {
+        return None;
+    }
+    // 监听在后台线程，别的程序占着剪贴板时多等一会儿，等不到才放弃这次记录
+    let clipboard = window.open(Duration::from_secs(1))?;
+    if is_marked_private(&clipboard) {
+        return None;
+    }
+    let names = clipboard.formats();
+    // 表格单元格的位图和 RTF 都要对方现场生成：两万行的区域位图近 200 MB、RTF 要将近
+    // 一秒，期间对方界面卡住；粘贴回去有 XML Spreadsheet 和 HTML 就够了
+    let spreadsheet = names.iter().any(|(_, name)| name == "XML Spreadsheet" || name.starts_with("Biff"));
+    let mut wanted = vec![
+        CF_TEXT, CF_UNICODETEXT, CF_HDROP, CF_LOCALE,
+        register_format("HTML Format"),
+        // 电子表格的公式只在这个格式里，HTML/RTF 里只有计算结果
+        register_format("XML Spreadsheet"),
+    ];
+    if !spreadsheet {
+        wanted.extend([CF_DIB, CF_DIBV5, register_format("PNG"), register_format("Rich Text Format")]);
+    }
+    let formats = wanted.into_iter()
+        .filter(|format| *format != 0 && clipboard.is_available(*format))
+        .filter_map(|format| clipboard.read(format).map(|data| (format, format_name(format), data)))
+        .collect();
+    Some(CapturedClipboard { formats, names, spreadsheet })
+}
+
+/// 记下自己刚写进剪贴板的内容，监听收到它的通知时不记录
+fn mark_own_clipboard_write() {
+    #[cfg(target_os = "windows")]
+    OWN_WRITE_SEQ.store(win_clipboard::sequence_number(), Ordering::SeqCst);
+}
 
 fn should_skip_callback(id: i64) -> bool {
     let now = Instant::now();
@@ -253,13 +365,25 @@ fn get_clipboard_text() -> PyResult<Option<String>> {
 /// 设置剪贴板文本
 #[pyfunction]
 fn set_clipboard_text(text: String) -> PyResult<()> {
-    use clipboard_rs::{Clipboard, ClipboardContext};
-    
-    let ctx = ClipboardContext::new()
-        .map_err(|e| PyRuntimeError::new_err(format!("创建剪贴板上下文失败: {}", e)))?;
-    
-    ctx.set_text(text)
-        .map_err(|e| PyRuntimeError::new_err(format!("设置剪贴板失败: {}", e)))
+    #[cfg(target_os = "windows")]
+    {
+        let data = win_clipboard::encode_unicode(&text);
+        if win_clipboard::write(&[(win_clipboard::CF_UNICODETEXT, data)]) {
+            Ok(())
+        } else {
+            Err(PyRuntimeError::new_err("设置剪贴板失败: 剪贴板被占用"))
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        use clipboard_rs::{Clipboard, ClipboardContext};
+
+        let ctx = ClipboardContext::new()
+            .map_err(|e| PyRuntimeError::new_err(format!("创建剪贴板上下文失败: {}", e)))?;
+        ctx.set_text(text)
+            .map_err(|e| PyRuntimeError::new_err(format!("设置剪贴板失败: {}", e)))
+    }
 }
 
 /// 获取剪贴板图片（返回 PNG 字节）
@@ -603,7 +727,6 @@ impl PyClipboardManager {
                 CoInitializeEx(std::ptr::null_mut(), 0x2)
             };
 
-            use clipboard_rs::common::RustImage;
             use image::codecs::png::PngEncoder;
             use image::ImageEncoder;
             use sha2::{Sha256, Digest};
@@ -612,6 +735,8 @@ impl PyClipboardManager {
             struct Handler {
                 db: Arc<Mutex<Database>>,
                 images_dir: PathBuf,
+                #[cfg(target_os = "windows")]
+                window: Option<win_clipboard::ClipboardWindow>,
             }
             
             // 生成缩略图 Base64
@@ -642,196 +767,70 @@ impl PyClipboardManager {
                 }
             }
 
-            // ── Ditto 风格：按白名单逐个取，不枚举全部格式 ─────────────────
-            // 策略：先用 IsClipboardFormatAvailable 轻量探测（不分配内存），
-            //       命中后才调用 GetClipboardData + GlobalLock 真正读取。
-            // 优势：Word/WPS 等程序会往剪贴板塞几十种私有格式（总计可达数十 MB），
-            //       先全枚举再筛选会把这些全读进内存再丢掉；按白名单取则完全跳过它们。
-            //
-            // 同时做一次轻量的"全格式探测"（只拿名称+ID，不读数据），
-            // 用于兜底判断剪贴板是否含有图片类数据（raw_image_fallback 逻辑）。
-            #[cfg(target_os = "windows")]
-            fn read_whitelisted_formats() -> (Vec<(u32, String, Vec<u8>)>, Vec<(u32, String)>) {
-                // 返回值：
-                //   .0  whitelisted_data  — 白名单格式的完整数据（存入 DB）
-                //   .1  all_format_names  — 剪贴板上所有格式的 (id, name)（仅用于兜底探测）
-                use std::ffi::OsString;
-                use std::os::windows::ffi::OsStringExt;
-
-                #[link(name = "user32")]
-                extern "system" {
-                    fn OpenClipboard(hwnd: *mut std::ffi::c_void) -> i32;
-                    fn CloseClipboard() -> i32;
-                    fn IsClipboardFormatAvailable(format: u32) -> i32;
-                    fn EnumClipboardFormats(format: u32) -> u32;
-                    fn GetClipboardData(format: u32) -> *mut std::ffi::c_void;
-                    fn GetClipboardFormatNameW(fmt: u32, buf: *mut u16, max: i32) -> i32;
-                    fn RegisterClipboardFormatW(lpszFormat: *const u16) -> u32;
-                }
-                #[link(name = "kernel32")]
-                extern "system" {
-                    fn GlobalLock(hmem: *mut std::ffi::c_void) -> *mut std::ffi::c_void;
-                    fn GlobalUnlock(hmem: *mut std::ffi::c_void) -> i32;
-                    fn GlobalSize(hmem: *mut std::ffi::c_void) -> usize;
-                }
-
-                // 把格式名称字符串转为 wide 用于 RegisterClipboardFormatW
-                fn to_wide(s: &str) -> Vec<u16> {
-                    s.encode_utf16().chain(std::iter::once(0)).collect()
-                }
-
-                // 标准格式名称
-                fn standard_name(id: u32) -> Option<&'static str> {
-                    match id {
-                        1  => Some("CF_TEXT"),
-                        7  => Some("CF_OEMTEXT"),
-                        8  => Some("CF_DIB"),
-                        13 => Some("CF_UNICODETEXT"),
-                        15 => Some("CF_HDROP"),
-                        16 => Some("CF_LOCALE"),
-                        17 => Some("CF_DIBV5"),
-                        _  => None,
-                    }
-                }
-
-                // 白名单定义：(format_id_or_0, name)
-                // format_id=0 表示需要用 RegisterClipboardFormatW 动态查询 ID
-                // format_id 已知的标准格式直接填写
-                struct WlEntry { id: u32, name: &'static str }
-                let whitelist: &[WlEntry] = &[
-                    WlEntry { id: 1,  name: "CF_TEXT" },
-                    WlEntry { id: 8,  name: "CF_DIB" },
-                    WlEntry { id: 13, name: "CF_UNICODETEXT" },
-                    WlEntry { id: 15, name: "CF_HDROP" },
-                    WlEntry { id: 16, name: "CF_LOCALE" },
-                    WlEntry { id: 17, name: "CF_DIBV5" },
-                    WlEntry { id: 0,  name: "PNG" },
-                    WlEntry { id: 0,  name: "HTML Format" },
-                    WlEntry { id: 0,  name: "Rich Text Format" },
-                ];
-
-                let mut data_result: Vec<(u32, String, Vec<u8>)> = Vec::new();
-                let mut all_names: Vec<(u32, String)> = Vec::new();
-
-                unsafe {
-                    // ── 阶段1：轻量探测 + 全格式枚举（仅取名称，不读数据）────
-                    // 目的：为 raw_image_fallback 收集全部格式名称列表
-                    if OpenClipboard(std::ptr::null_mut()) == 0 {
-                        return (data_result, all_names);
-                    }
-                    let mut fmt: u32 = 0;
-                    loop {
-                        fmt = EnumClipboardFormats(fmt);
-                        if fmt == 0 { break; }
-                        let name = if let Some(s) = standard_name(fmt) {
-                            s.to_string()
-                        } else {
-                            let mut buf = [0u16; 256];
-                            let len = GetClipboardFormatNameW(fmt, buf.as_mut_ptr(), 256);
-                            if len > 0 {
-                                OsString::from_wide(&buf[..len as usize]).to_string_lossy().into_owned()
-                            } else {
-                                format!("UNKNOWN_{}", fmt)
-                            }
-                        };
-                        all_names.push((fmt, name));
-                    }
-                    CloseClipboard();
-
-                    // ── 阶段2：按白名单逐个取数据（Ditto 风格）──────────────
-                    // IsClipboardFormatAvailable 不需要打开剪贴板，直接探测
-                    // 先收集命中的 (id, name) 列表，再一次性打开剪贴板读取
-                    let mut to_read: Vec<(u32, &'static str)> = Vec::new();
-                    for entry in whitelist {
-                        let fmt_id = if entry.id != 0 {
-                            entry.id
-                        } else {
-                            // 动态格式：用 RegisterClipboardFormatW 获取 ID（若未注册则返回 0）
-                            let wide = to_wide(entry.name);
-                            RegisterClipboardFormatW(wide.as_ptr())
-                        };
-                        if fmt_id == 0 { continue; }
-                        if IsClipboardFormatAvailable(fmt_id) != 0 {
-                            to_read.push((fmt_id, entry.name));
-                        }
-                    }
-
-                    if to_read.is_empty() {
-                        return (data_result, all_names);
-                    }
-
-                    // 一次打开剪贴板，读取所有命中的白名单格式
-                    if OpenClipboard(std::ptr::null_mut()) == 0 {
-                        return (data_result, all_names);
-                    }
-                    for (fmt_id, name) in &to_read {
-                        let hmem = GetClipboardData(*fmt_id);
-                        if hmem.is_null() { continue; }
-                        let ptr = GlobalLock(hmem);
-                        if ptr.is_null() { continue; }
-                        let size = GlobalSize(hmem);
-                        let data = if size > 0 && size <= 64 * 1024 * 1024 {
-                            std::slice::from_raw_parts(ptr as *const u8, size).to_vec()
-                        } else {
-                            GlobalUnlock(hmem);
-                            continue;
-                        };
-                        GlobalUnlock(hmem);
-                        data_result.push((*fmt_id, name.to_string(), data));
-                    }
-                    CloseClipboard();
-                }
-
-                (data_result, all_names)
-            }
-
-            #[cfg(not(target_os = "windows"))]
-            fn read_whitelisted_formats() -> (Vec<(u32, String, Vec<u8>)>, Vec<(u32, String)>) {
-                (Vec::new(), Vec::new())
-            }
-
             impl ClipboardHandler for Handler {
                 fn on_clipboard_change(&mut self) {
+                    #[cfg(target_os = "windows")]
+                    self.record_change();
+                }
+            }
+
+            #[cfg(target_os = "windows")]
+            impl Handler {
+                fn record_change(&mut self) {
+                    use win_clipboard::{CF_DIB, CF_DIBV5, CF_HDROP, CF_UNICODETEXT};
+
                     if !IS_RUNNING.load(Ordering::Relaxed) {
                         return;
                     }
-                    
-                    // 检查是否需要跳过（paste_item 触发的变化）
-                    if SKIP_NEXT_CHANGE.compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
+                    let Some(seq) = wait_until_clipboard_settles() else {
+                        return;
+                    };
+                    // paste_item 自己写回去的内容
+                    if seq == OWN_WRITE_SEQ.load(Ordering::SeqCst) {
                         return;
                     }
 
-                    // ── 第一步：Ditto 风格按白名单读取格式数据 ────────────────
-                    // raw_formats  = 白名单格式的完整数据（直接存 DB，已经过滤好）
-                    // all_names    = 剪贴板上所有格式的 (id, name)（仅用于 fallback 探测）
-                    let (raw_formats, all_names) = read_whitelisted_formats();
-
-                    // ── 第二步：高层 API 解析主记录（用于 UI 展示）────────────
-                    use clipboard_rs::{Clipboard, ClipboardContext};
-                    let ctx = match ClipboardContext::new() {
-                        Ok(c) => c,
-                        Err(_) => return,
+                    // ── 第一步：一次打开剪贴板，按白名单读出原始数据 ──────────
+                    let Some(window) = self.window.as_ref() else {
+                        return;
+                    };
+                    let Some(captured) = capture_clipboard(window) else {
+                        return;
                     };
 
+                    // ── 第二步：从原始数据解析主记录（用于 UI 展示）──────────
+                    let png_format = win_clipboard::register_format("PNG");
                     let source_app = get_clipboard_owner().ok().flatten();
-                    let html_content = ctx
-                        .get_buffer(CF_HTML_FORMAT)
-                        .ok()
-                        .and_then(|raw| extract_html_from_cf_html(&raw));
+                    let html_content = captured
+                        .data(win_clipboard::register_format(CF_HTML_FORMAT))
+                        .and_then(extract_html_from_cf_html);
+                    let text_val = captured.data(CF_UNICODETEXT)
+                        .map(win_clipboard::decode_unicode)
+                        .filter(|t| !t.trim().is_empty());
+                    let files_val = captured.data(CF_HDROP)
+                        .map(win_clipboard::parse_hdrop)
+                        .filter(|f| !f.is_empty());
+                    // 有文字时按文字记录，图片用不到，不必解码
+                    let image_val = if text_val.is_none() {
+                        win_clipboard::decode_image(
+                            captured.data(png_format), captured.data(CF_DIBV5), captured.data(CF_DIB))
+                    } else {
+                        None
+                    };
+                    let spreadsheet = captured.spreadsheet;
+                    let raw_formats = captured.formats;
+                    let all_names = captured.names;
 
-                    let text_val  = ctx.get_text().ok().filter(|t| !t.trim().is_empty());
-                    let files_val = ctx.get_files().ok().filter(|f| !f.is_empty());
-                    let image_val = ctx.get_image().ok();
-
-                    // 高层 API 全部失败时，检查白名单数据或全格式名称列表是否含图片类格式
-                    // 场景：Word 复制多张图片时 get_image() 返回 None，但 raw_formats 里有 PNG/DIB
-                    let raw_image_fallback = if text_val.is_none() && files_val.is_none() && image_val.is_none() {
+                    // 解码都失败时，检查白名单数据或全格式名称列表是否含图片类格式
+                    // 场景：Word 复制多张图片时解不出单张图，但 raw_formats 里有 PNG/DIB；
+                    // 表格单元格的位图没有读，不按图片记录
+                    let raw_image_fallback = if !spreadsheet && text_val.is_none() && files_val.is_none() && image_val.is_none() {
                         let has_image_data = raw_formats.iter().any(|(fid, fname, data)| {
-                            !data.is_empty() && (*fid == 8 || *fid == 17 || fname.eq_ignore_ascii_case("PNG"))
+                            !data.is_empty() && (*fid == CF_DIB || *fid == CF_DIBV5 || fname.eq_ignore_ascii_case("PNG"))
                         });
                         // 也检查 all_names，防止白名单中没有 PNG/DIB 但剪贴板里有其他图片格式
                         let has_image_name = all_names.iter().any(|(fid, fname)| {
-                            *fid == 8 || *fid == 17 || fname.eq_ignore_ascii_case("PNG")
+                            *fid == CF_DIB || *fid == CF_DIBV5 || fname.eq_ignore_ascii_case("PNG")
                         });
                         has_image_data || has_image_name
                     } else {
@@ -853,13 +852,8 @@ impl PyClipboardManager {
                         main_item = PyClipboardItem::new(0, text, "text".to_string());
                         main_item.html_content = html_content;
                         main_item.source_app = source_app;
-                    } else if image_val.is_some() {
+                    } else if let Some(rgba) = image_val {
                         // 单张图片：落盘 PNG，生成缩略图
-                        let rust_image = image_val.unwrap();
-                        let rgba = match rust_image.to_rgba8() {
-                            Ok(r) => r,
-                            Err(_) => return,
-                        };
                         let mut png_data = Vec::new();
                         let encoder = PngEncoder::new(&mut png_data);
                         if encoder.write_image(
@@ -896,22 +890,22 @@ impl PyClipboardManager {
                         main_item = PyClipboardItem::new(0, content, "file".to_string());
                         main_item.source_app = source_app;
                     } else {
-                        // raw_image_fallback：多图/EMF 等高层 API 无法解析的图片内容
+                        // raw_image_fallback：多图/EMF 等解不出单张图的图片内容
                         // content 写入格式列表和总字节数，供前端直接显示
                         // 例：[PNG+CF_DIB 7.9 MB] 或 [PNG 1.2 MB]
                         let img_fmt_names: Vec<&str> = {
                             let mut names = Vec::new();
                             for (fid, fname, data) in &raw_formats {
                                 if data.is_empty() { continue; }
-                                if *fid == 17 { names.push("CF_DIBV5"); }
-                                else if *fid == 8 { names.push("CF_DIB"); }
+                                if *fid == CF_DIBV5 { names.push("CF_DIBV5"); }
+                                else if *fid == CF_DIB { names.push("CF_DIB"); }
                                 else if fname.eq_ignore_ascii_case("PNG") { names.push("PNG"); }
                             }
                             names.dedup();
                             names
                         };
                         let total_bytes: usize = raw_formats.iter()
-                            .filter(|(fid, fname, _)| *fid == 8 || *fid == 17 || fname.eq_ignore_ascii_case("PNG"))
+                            .filter(|(fid, fname, _)| *fid == CF_DIB || *fid == CF_DIBV5 || fname.eq_ignore_ascii_case("PNG"))
                             .map(|(_, _, d)| d.len())
                             .sum();
                         let size_str = if total_bytes >= 1024 * 1024 {
@@ -931,74 +925,84 @@ impl PyClipboardManager {
                         main_item.source_app = source_app;
                     }
 
-                    // ── 第四步：写入数据库 ────────────────────────────────────
-                    let db = self.db.lock();
-                    if let Ok(id) = db.insert_item(&main_item) {
-                        main_item.id = id;
+                    // ── 第四步：压缩，再写入数据库 ────────────────────────────
+                    // 图片优化：
+                    // CF_DIBV5(17) 是 CF_DIB(8) 的超集（含 alpha 通道），
+                    // 有 CF_DIBV5 时跳过 CF_DIB 以避免粘贴时丢失透明通道。
+                    let has_dibv5 = raw_formats.iter().any(|(fid, _, data)| {
+                        *fid == 17 && !data.is_empty()
+                    });
+                    let filtered_formats: Vec<(u32, String, Vec<u8>)> = raw_formats
+                        .into_iter()
+                        .filter(|(fid, _, _)| !(*fid == 8 && has_dibv5))
+                        .collect();
 
-                        // 图片优化：
-                        // CF_DIBV5(17) 是 CF_DIB(8) 的超集（含 alpha 通道），
-                        // 有 CF_DIBV5 时跳过 CF_DIB 以避免粘贴时丢失透明通道。
-                        let has_dibv5 = raw_formats.iter().any(|(fid, _, data)| {
-                            *fid == 17 && !data.is_empty()
-                        });
-                        let filtered_formats: Vec<(u32, String, Vec<u8>)> = raw_formats
-                            .into_iter()
-                            .filter(|(fid, _, _)| !(*fid == 8 && has_dibv5))
-                            .collect();
-
-                        // 统计字节数，同时对 >100KB 的数据做一次压缩，
-                        // 压缩结果直接复用（存库时不再重复压缩）
-                        // 格式：(format_id, format_name, data, is_compressed)
-                        const THRESHOLD: usize = 100 * 1024;
-                        let mut raw_total: usize = 0;
-                        let mut compressed_total: usize = 0;
-                        let formats_to_store: Vec<(u32, String, Vec<u8>, bool)> = filtered_formats
-                            .into_iter()
-                            .map(|(fid, fname, data)| {
-                                raw_total += data.len();
-                                if data.len() > THRESHOLD {
-                                    match zstd::encode_all(data.as_slice(), 3) {
-                                        Ok(cdata) => {
-                                            compressed_total += cdata.len();
-                                            (fid, fname, cdata, true)   // 已压缩
-                                        }
-                                        Err(_) => {
-                                            compressed_total += data.len();
-                                            (fid, fname, data, false)   // 压缩失败，存原始
-                                        }
+                    // 统计字节数，同时对 >100KB 的数据做一次压缩，
+                    // 压缩结果直接复用（存库时不再重复压缩）；压缩放在拿数据库锁之前
+                    // 格式：(format_id, format_name, data, is_compressed)
+                    const THRESHOLD: usize = 100 * 1024;
+                    let mut raw_total: usize = 0;
+                    let mut compressed_total: usize = 0;
+                    let formats_to_store: Vec<(u32, String, Vec<u8>, bool)> = filtered_formats
+                        .into_iter()
+                        .map(|(fid, fname, data)| {
+                            raw_total += data.len();
+                            if data.len() > THRESHOLD {
+                                match zstd::encode_all(data.as_slice(), 3) {
+                                    Ok(cdata) => {
+                                        compressed_total += cdata.len();
+                                        (fid, fname, cdata, true)   // 已压缩
                                     }
-                                } else {
-                                    compressed_total += data.len();
-                                    (fid, fname, data, false)           // 不需压缩
+                                    Err(_) => {
+                                        compressed_total += data.len();
+                                        (fid, fname, data, false)   // 压缩失败，存原始
+                                    }
                                 }
-                            })
-                            .collect();
-                        main_item.char_count = Some((raw_total as i64) * 10_000_000 + compressed_total as i64);
+                            } else {
+                                compressed_total += data.len();
+                                (fid, fname, data, false)           // 不需压缩
+                            }
+                        })
+                        .collect();
 
-                        if !formats_to_store.is_empty() {
-                            let _ = db.insert_precompressed_formats(id, &formats_to_store);
-                        }
-
+                    let id = {
+                        let db = self.db.lock();
+                        let Ok(id) = db.insert_item(&main_item) else {
+                            return;
+                        };
+                        let _ = db.replace_formats(id, &formats_to_store);
                         let limit = HISTORY_LIMIT.load(Ordering::Relaxed);
                         if limit > 0 {
                             let _ = db.cleanup_old_items(limit);
                         }
+                        id
+                    };
+                    // 回调要拿 GIL，而持有 GIL 的线程可能正等着数据库锁，所以先放锁再回调
+                    main_item.id = id;
+                    main_item.char_count = Some((raw_total as i64) * 10_000_000 + compressed_total as i64);
 
-                        if should_skip_callback(main_item.id) {
-                            return;
-                        }
+                    if should_skip_callback(id) {
+                        return;
+                    }
 
-                        if let Some(callback) = CALLBACK.lock().as_ref() {
-                            Python::with_gil(|py| {
+                    // 同理不能拿着回调锁等 GIL：stop_monitor 是持 GIL 来改回调的
+                    if CALLBACK.lock().is_some() {
+                        Python::with_gil(|py| {
+                            let callback = CALLBACK.lock().as_ref().map(|cb| cb.clone_ref(py));
+                            if let Some(callback) = callback {
                                 let _ = callback.call1(py, (main_item.clone(),));
-                            });
-                        }
+                            }
+                        });
                     }
                 }
             }
-            
-            let handler = Handler { db, images_dir };
+
+            let handler = Handler {
+                db,
+                images_dir,
+                #[cfg(target_os = "windows")]
+                window: win_clipboard::ClipboardWindow::new(),
+            };
             if let Ok(mut watcher) = ClipboardWatcherContext::new() {
                 watcher.add_handler(handler);
                 *WATCHER_SHUTDOWN.lock() = Some(watcher.get_shutdown_channel());
@@ -1380,171 +1384,196 @@ impl PyClipboardManager {
     }
     
     /// 将项目内容设置到剪贴板（用于粘贴）
-    /// 
+    ///
     /// Args:
     ///     id: 剪贴板项 ID
     ///     with_html: 是否包含 HTML 格式（默认 true）
-    /// 
+    ///
     /// Returns:
     ///     bool: 是否成功
     #[pyo3(signature = (id, with_html=true, move_to_top=true))]
     fn paste_item(&self, id: i64, with_html: bool, move_to_top: bool) -> PyResult<bool> {
-        use clipboard_rs::{Clipboard, ClipboardContext, ClipboardContent, common::RustImage};
-        
-        // 设置跳过标志，防止自己触发监听
-        SKIP_NEXT_CHANGE.store(true, Ordering::SeqCst);
-        
-        let db = self.db.lock();
-        let item = db.get_item_by_id(id)
-            .map_err(|e| PyRuntimeError::new_err(e))?;
-        
-        if let Some(item) = item {
-
-            // ── 优先路径：用原始格式数据完整还原（Ditto 风格）────────────────
+        // 读完数据库就放锁，写剪贴板时可能要等别的程序让出剪贴板
+        let (item, raw_formats, images_dir) = {
+            let db = self.db.lock();
+            let Some(item) = db.get_item_by_id(id).map_err(PyRuntimeError::new_err)? else {
+                return Ok(false);
+            };
             let raw_formats = db.get_formats(id).unwrap_or_default();
-            if !raw_formats.is_empty() {
-                // write_all_raw_formats 在监听线程里定义为模块级 fn，
-                // 这里重新内联一份（paste_item 在主线程/pymethods 里调用）
-                #[cfg(target_os = "windows")]
-                {
-                    #[link(name = "user32")]
-                    extern "system" {
-                        fn OpenClipboard(hwnd: *mut std::ffi::c_void) -> i32;
-                        fn CloseClipboard() -> i32;
-                        fn EmptyClipboard() -> i32;
-                        fn SetClipboardData(format: u32, hmem: *mut std::ffi::c_void) -> *mut std::ffi::c_void;
-                    }
-                    #[link(name = "kernel32")]
-                    extern "system" {
-                        fn GlobalAlloc(uflags: u32, dwbytes: usize) -> *mut std::ffi::c_void;
-                        fn GlobalLock(hmem: *mut std::ffi::c_void) -> *mut std::ffi::c_void;
-                        fn GlobalUnlock(hmem: *mut std::ffi::c_void) -> i32;
-                    }
-                    const GMEM_MOVEABLE: u32 = 0x0002;
-                    unsafe {
-                        if OpenClipboard(std::ptr::null_mut()) != 0 {
-                            EmptyClipboard();
+            (item, raw_formats, db.get_images_dir())
+        };
 
-                            // 有 CF_DIBV5(17) 时跳过 CF_DIB(8)：
-                            // CF_DIBV5 保留 alpha 通道，CF_DIB 不保留。
-                            // 若同时写入两者，部分应用会优先读 CF_DIB 导致透明丢失。
-                            // 只写 CF_DIBV5，Windows 会自动合成 CF_DIB 供不支持 V5 的应用使用。
-                            let has_dibv5 = raw_formats.iter().any(|(fid, _, data)| {
-                                *fid == 17 && !data.is_empty()
-                            });
+        #[cfg(not(target_os = "windows"))]
+        {
+            let _ = (item, raw_formats, images_dir, with_html, move_to_top);
+            return Err(PyRuntimeError::new_err("paste_item 只支持 Windows"));
+        }
 
-                            for (fmt_id, name, data) in &raw_formats {
-                                if data.is_empty() {
-                                    // size=0 的格式（ObjectLink/Native 等延迟渲染占位符）
-                                    // SetClipboardData(fmt, null) 可触发目标程序重新提供数据，
-                                    // 但仅当同一进程仍作为剪贴板所有者时才有意义；
-                                    // 跨进程/跨会话恢复时直接跳过，避免写入无效句柄。
-                                    continue;
-                                }
-                                // 有 CF_DIBV5 时跳过 CF_DIB：避免目标应用优先读取无 alpha 的 CF_DIB
-                                // Windows 会从 CF_DIBV5 自动合成 CF_DIB 供不支持 V5 的应用使用
-                                if *fmt_id == 8 && has_dibv5 {
-                                    continue;
-                                }
-                                // 关闭"带格式粘贴"时，仅对文本类型条目过滤掉富文本格式，
-                                // 图片/文件类型条目不受影响，完整还原所有格式
-                                if !with_html && item.content_type == "text" {
-                                    // 纯文本白名单：与监听白名单保持一致
-                                    // CF_OEMTEXT(7) 不在监听白名单内，粘贴时也不还原
-                                    let is_plain_text = matches!(
-                                        name.as_str(),
-                                        "CF_TEXT"          // 1  — ANSI 文本
-                                        | "CF_UNICODETEXT" // 13 — Unicode 文本
-                                        | "CF_LOCALE"      // 16 — 文本语言区域
-                                    );
-                                    if !is_plain_text {
-                                        continue;
-                                    }
-                                }
-                                let hmem = GlobalAlloc(GMEM_MOVEABLE, data.len());
-                                if hmem.is_null() { continue; }
-                                let ptr = GlobalLock(hmem);
-                                if ptr.is_null() { continue; }  // GlobalLock 失败极罕见，跳过即可
-                                std::ptr::copy_nonoverlapping(data.as_ptr(), ptr as *mut u8, data.len());
-                                GlobalUnlock(hmem);
-                                SetClipboardData(*fmt_id, hmem);
-                            }
-                            CloseClipboard();
-
-                            // 增加粘贴次数 + 可选移到最前
-                            drop(db);
-                            let db = self.db.lock();
-                            let _ = db.increment_paste_count(id);
-                            if move_to_top { let _ = db.move_item_to_top(id); }
-                            return Ok(true);
-                        }
-                    }
-                }
+        #[cfg(target_os = "windows")]
+        {
+            let formats = if raw_formats.is_empty() {
+                formats_from_item(&item, with_html, &images_dir)?
+            } else {
+                formats_to_restore(&item, raw_formats, with_html)
+            };
+            if formats.is_empty() || !win_clipboard::write(&formats) {
+                return Ok(false);
             }
+            mark_own_clipboard_write();
 
-            // ── 降级路径：原始格式不存在时，用解析后的内容还原（兼容旧数据）──
-            let ctx = ClipboardContext::new()
-                .map_err(|e| PyRuntimeError::new_err(format!("创建剪贴板上下文失败: {}", e)))?;
-            
-            match item.content_type.as_str() {
-                "text" => {
-                    if with_html {
-                        if let Some(ref html) = item.html_content {
-                            if !html.is_empty() {
-                                let cf_html = generate_cf_html(html);
-                                ctx.set(vec![
-                                    ClipboardContent::Text(item.content),
-                                    ClipboardContent::Html(cf_html),
-                                ])
-                                .map_err(|e| PyRuntimeError::new_err(format!("设置剪贴板失败: {}", e)))?;
-                            } else {
-                                ctx.set_text(item.content)
-                                    .map_err(|e| PyRuntimeError::new_err(format!("设置剪贴板失败: {}", e)))?;
-                            }
-                        } else {
-                            ctx.set_text(item.content)
-                                .map_err(|e| PyRuntimeError::new_err(format!("设置剪贴板失败: {}", e)))?;
-                        }
-                    } else {
-                        ctx.set_text(item.content)
-                            .map_err(|e| PyRuntimeError::new_err(format!("设置剪贴板失败: {}", e)))?;
-                    }
-                }
-                "image" => {
-                    if let Some(image_id) = item.image_id {
-                        let image_path = db.get_images_dir().join(format!("{}.png", image_id));
-                        if image_path.exists() {
-                            let image_bytes = std::fs::read(&image_path)
-                                .map_err(|e| PyRuntimeError::new_err(format!("读取图片失败: {}", e)))?;
-                            let rust_image = RustImage::from_bytes(&image_bytes)
-                                .map_err(|e| PyRuntimeError::new_err(format!("解析图片失败: {}", e)))?;
-                            ctx.set_image(rust_image)
-                                .map_err(|e| PyRuntimeError::new_err(format!("设置剪贴板图片失败: {}", e)))?;
-                        }
-                    }
-                }
-                "file" => {
-                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&item.content) {
-                        if let Some(files) = json.get("files").and_then(|f| f.as_array()) {
-                            let file_paths: Vec<String> = files.iter()
-                                .filter_map(|f| f.as_str().map(|s| s.to_string()))
-                                .collect();
-                            ctx.set_files(file_paths)
-                                .map_err(|e| PyRuntimeError::new_err(format!("设置剪贴板文件失败: {}", e)))?;
-                        }
-                    }
-                }
-                _ => {}
-            }
-            
-            drop(db);
             let db = self.db.lock();
             let _ = db.increment_paste_count(id);
-            if move_to_top { let _ = db.move_item_to_top(id); }
-            
+            if move_to_top {
+                let _ = db.move_item_to_top(id);
+            }
             Ok(true)
-        } else {
-            Ok(false)
         }
+    }
+}
+
+/// 存下的原始格式整理成要写回剪贴板的 (当前格式编号, 数据)
+#[cfg(target_os = "windows")]
+fn formats_to_restore(
+    item: &PyClipboardItem,
+    raw_formats: Vec<(u32, String, Vec<u8>)>,
+    with_html: bool,
+) -> Vec<(u32, Vec<u8>)> {
+    use win_clipboard::{CF_DIB, CF_DIBV5, FIRST_REGISTERED_FORMAT};
+
+    // 有 CF_DIBV5 时不写 CF_DIB：CF_DIBV5 带 alpha 通道，同时写入时部分程序会先读
+    // 不带 alpha 的 CF_DIB；只写 CF_DIBV5，系统会给只认 CF_DIB 的程序自动转换
+    let has_dibv5 = raw_formats.iter().any(|(fid, _, data)| *fid == CF_DIBV5 && !data.is_empty());
+    raw_formats.into_iter()
+        .filter_map(|(fmt_id, name, data)| {
+            // 大小为 0 的是延迟渲染占位，只对当时的来源程序有意义
+            if data.is_empty() || (fmt_id == CF_DIB && has_dibv5) {
+                return None;
+            }
+            // 关闭「带格式粘贴」时，文本条目只写纯文本；图片、文件条目照常完整还原
+            if !with_html && item.content_type == "text"
+                && !matches!(name.as_str(), "CF_TEXT" | "CF_UNICODETEXT" | "CF_LOCALE")
+            {
+                return None;
+            }
+            let format = if fmt_id >= FIRST_REGISTERED_FORMAT {
+                win_clipboard::register_format(&name)
+            } else {
+                fmt_id
+            };
+            (format != 0).then_some((format, data))
+        })
+        .collect()
+}
+
+/// 没有原始格式的条目（手动添加的、旧版本记录的）按解析后的内容生成剪贴板格式
+#[cfg(target_os = "windows")]
+fn formats_from_item(
+    item: &PyClipboardItem,
+    with_html: bool,
+    images_dir: &std::path::Path,
+) -> PyResult<Vec<(u32, Vec<u8>)>> {
+    use win_clipboard::{CF_DIBV5, CF_HDROP, CF_UNICODETEXT};
+
+    match item.content_type.as_str() {
+        "text" => {
+            let mut formats = vec![(CF_UNICODETEXT, win_clipboard::encode_unicode(&item.content))];
+            if let Some(html) = item.html_content.as_deref().filter(|html| with_html && !html.is_empty()) {
+                let mut cf_html = generate_cf_html(html).into_bytes();
+                cf_html.push(0);
+                formats.push((win_clipboard::register_format(CF_HTML_FORMAT), cf_html));
+            }
+            Ok(formats)
+        }
+        "image" => {
+            let Some(image_id) = item.image_id.as_deref() else {
+                return Ok(Vec::new());
+            };
+            let Ok(png) = std::fs::read(images_dir.join(format!("{}.png", image_id))) else {
+                return Ok(Vec::new());
+            };
+            let rgba = image::load_from_memory_with_format(&png, image::ImageFormat::Png)
+                .map_err(|e| PyRuntimeError::new_err(format!("解析图片失败: {}", e)))?
+                .to_rgba8();
+            // PNG 加带 alpha 的 CF_DIBV5：只认位图的程序也能粘贴
+            let dibv5 = win_clipboard::rgba_to_dibv5(&rgba);
+            Ok(vec![(win_clipboard::register_format("PNG"), png), (CF_DIBV5, dibv5)])
+        }
+        "file" => {
+            let files: Vec<String> = serde_json::from_str::<serde_json::Value>(&item.content)
+                .ok()
+                .and_then(|json| json.get("files").and_then(|f| f.as_array()).cloned())
+                .unwrap_or_default()
+                .iter()
+                .filter_map(|f| f.as_str().map(str::to_string))
+                .collect();
+            Ok(if files.is_empty() { Vec::new() } else { vec![(CF_HDROP, win_clipboard::build_hdrop(&files))] })
+        }
+        _ => Ok(Vec::new()),
+    }
+}
+
+#[cfg(all(test, target_os = "windows"))]
+mod paste_format_tests {
+    use super::*;
+    use win_clipboard::*;
+
+    fn item(content: &str, content_type: &str) -> PyClipboardItem {
+        PyClipboardItem::new(1, content.to_string(), content_type.to_string())
+    }
+
+    #[test]
+    fn stored_registered_formats_are_written_under_their_current_id() {
+        let html = register_format("HTML Format");
+        let raw = vec![
+            (CF_UNICODETEXT, "CF_UNICODETEXT".to_string(), encode_unicode("表")),
+            (html + 7, "HTML Format".to_string(), b"<b>x</b>".to_vec()),
+        ];
+        let formats = formats_to_restore(&item("表", "text"), raw, true);
+        assert_eq!(formats.iter().map(|(f, _)| *f).collect::<Vec<_>>(), vec![CF_UNICODETEXT, html]);
+    }
+
+    #[test]
+    fn plain_paste_keeps_only_text_formats_and_dibv5_replaces_dib() {
+        let raw = vec![
+            (CF_UNICODETEXT, "CF_UNICODETEXT".to_string(), encode_unicode("x")),
+            (register_format("Rich Text Format"), "Rich Text Format".to_string(), br"{\rtf1}".to_vec()),
+        ];
+        let formats = formats_to_restore(&item("x", "text"), raw, false);
+        assert_eq!(formats.len(), 1);
+
+        let raw = vec![
+            (CF_DIB, "CF_DIB".to_string(), vec![1]),
+            (CF_DIBV5, "CF_DIBV5".to_string(), vec![2]),
+        ];
+        let formats = formats_to_restore(&item("[1x1]", "image"), raw, false);
+        assert_eq!(formats, vec![(CF_DIBV5, vec![2])]);
+    }
+
+    #[test]
+    fn items_without_stored_formats_are_rebuilt_from_their_content() {
+        let mut text = item("文字", "text");
+        text.html_content = Some("<i>文字</i>".to_string());
+        let formats = formats_from_item(&text, true, std::path::Path::new(".")).unwrap();
+        assert_eq!(decode_unicode(&formats[0].1), "文字");
+        assert_eq!(formats[1].0, register_format("HTML Format"));
+        assert!(extract_html_from_cf_html(&formats[1].1).unwrap().contains("<i>文字</i>"));
+        assert_eq!(formats_from_item(&text, false, std::path::Path::new(".")).unwrap().len(), 1);
+
+        let files = item(&serde_json::json!({ "files": [r"C:\a.txt", r"D:\图.png"] }).to_string(), "file");
+        let formats = formats_from_item(&files, true, std::path::Path::new(".")).unwrap();
+        assert_eq!(parse_hdrop(&formats[0].1), vec![r"C:\a.txt".to_string(), r"D:\图.png".to_string()]);
+
+        let dir = std::env::temp_dir().join(format!("pyclipboard_paste_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let picture = image::RgbaImage::from_pixel(2, 3, image::Rgba([5, 6, 7, 8]));
+        picture.save(dir.join("abc.png")).unwrap();
+        let mut image_item = item("[2x3]", "image");
+        image_item.image_id = Some("abc".to_string());
+        let formats = formats_from_item(&image_item, true, &dir).unwrap();
+        assert_eq!(formats[0].0, register_format("PNG"));
+        assert_eq!(decode_image(None, Some(&formats[1].1), None), Some(picture));
+        image_item.image_id = Some("missing".to_string());
+        assert!(formats_from_item(&image_item, true, &dir).unwrap().is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
