@@ -49,6 +49,8 @@
 3. 两个版本默认都优先使用截图工具的 OCR（更快、支持的语言更多），可在设置的「OCR 设置」中切换引擎。
 4. 程序尚未进行数字签名，通过浏览器下载后，Windows 可能显示运行警告。出现提示时，点击“更多信息”，再选择“仍要运行”即可启动。
 
+首次安装包含更新器的版本后，可在**关于 → 检查更新 → 一键更新并重启**中升级。更新器下载匹配架构的 GitHub Release ZIP，仅替换主 EXE 后重启；保留设置、剪贴板历史、模型和其他文件。录制、导出或后台保存未结束时保留下载结果，结束任务后重试。最近一次主程序备份保存在 `.jietuba-update/` 中，详见[更新器恢复说明](rust_libs/updater/README.md)。
+
 ---
 
 <a id="source-setup"></a>
@@ -172,7 +174,8 @@ python -m pytest main/tests -c main/tests/pytest.ini
 │   ├── gifrecorder/         # GIF/视频合成编码器源码
 │   ├── longstitch/          # 长截图拼接算法源码
 │   ├── pyclipboard/         # 剪贴板底层操作源码
-│   └── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX 识别引擎源码
+│   ├── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX 识别引擎源码
+│   └── updater/             # 只替换主 EXE 的独立 Rust 更新器
 │
 ├── models/                  # PP-OCR ONNX 模型文件（PP-OCR 必需）
 │   ├── PP-OCRv6_det_small.onnx   # 文本检测模型 (DBNet)
@@ -392,6 +395,9 @@ core/
 ├── qt_utils.py              # safe_disconnect() — Qt 信号安全断开工具
 ├── log_translations/        # 各模块日志文本翻译辅助
 ├── constants.py             # 全局常量定义（字体、路径等）
+├── background_tasks.py      # 后台保存任务登记
+├── updater_process.py       # Rust 更新器 JSONL 异步进程接口
+├── update_controller.py     # 更新下载与安全重启协调
 ├── update_checker.py        # GitHub 最新版本异步查询与版本比较
 └── ui_theme.py              # UIThemeManager — 应用窗口与原生 Qt 控件的明暗外观（截图配色仍在 theme.py）
 ```
@@ -687,6 +693,7 @@ ui/
 ├── tray_menu.py             # TrayMenu — 系统托盘菜单
 ├── screenshot_window.py     # ScreenshotWindow — 截图主窗口（全屏覆盖、选区绘制）
 ├── quick_capture_overlay.py # 快速截图透明浮层，复用普通截图的选框、坐标和放大镜
+├── update_dialog.py         # 更新说明与下载进度
 ├── dialogs.py               # StandardDialog / 对话框函数集 — 确认、警告、信息、错误对话框
 ├── toast.py                 # Toast — 光标旁不抢焦点的一行轻提示
 ├── magnifier.py             # MagnifierOverlay — 放大镜覆盖层（像素级取色）

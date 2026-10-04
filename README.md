@@ -48,6 +48,8 @@ The Windows x86_64 and ARM64 releases are ready to run. You do not need to insta
 3. Both packages prefer the Snipping Tool OCR by default (faster, more languages). Switch engines under **OCR Settings** in Settings.
 4. The application is not digitally signed, so Windows may display a warning after you download it through a browser. If prompted, click **More info**, then **Run anyway** to start the application.
 
+After installing the first release containing the updater, use **About → Check for Updates → Update and Restart**. It downloads the matching GitHub Release ZIP, replaces only the application EXE, and restarts. Settings, clipboard history, models and other files remain intact. Finish recording, exporting and saving before installation. The last application backup is kept under `.jietuba-update/`; see [updater recovery](rust_libs/updater/README.md).
+
 ---
 
 <a id="source-setup"></a>
@@ -171,7 +173,8 @@ Comments explain only the constraints and design reasons that the code cannot ex
 │   ├── gifrecorder/         # GIF/video composition encoder source
 │   ├── longstitch/          # Long screenshot stitching algorithm source
 │   ├── pyclipboard/         # Low-level clipboard operations source
-│   └── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX recognition engine source
+│   ├── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX recognition engine source
+│   └── updater/             # Standalone EXE-only Rust updater
 │
 ├── models/                  # PP-OCR ONNX models (required for PP-OCR)
 │   ├── PP-OCRv6_det_small.onnx   # text detection model (DBNet)
@@ -373,6 +376,9 @@ core/
 ├── qt_utils.py              # safe_disconnect() — Qt signal safe disconnect
 ├── log_translations/        # per-module log text translation helpers
 ├── constants.py             # Global constants (fonts, paths, etc.)
+├── background_tasks.py      # Background save tracking
+├── updater_process.py       # Rust updater JSONL process adapter
+├── update_controller.py     # Update download and safe restart coordination
 ├── update_checker.py        # Asynchronous GitHub release lookup and version comparison
 └── ui_theme.py              # UIThemeManager — light/dark appearance for app windows and native Qt widgets
 ```
@@ -607,6 +613,7 @@ ui/
 ├── tray_menu.py             # TrayMenu — system tray menu
 ├── screenshot_window.py     # ScreenshotWindow — full-screen capture window (region drawing)
 ├── quick_capture_overlay.py # Transparent quick capture layer reusing the normal selection, coordinates and magnifier
+├── update_dialog.py         # Update notes and download progress
 ├── dialogs.py               # StandardDialog — confirm, warning, info, error dialogs
 ├── toast.py                 # Toast — one-line hint by the cursor that never takes focus
 ├── magnifier.py             # MagnifierOverlay — pixel-level magnifier

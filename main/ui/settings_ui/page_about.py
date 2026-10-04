@@ -58,13 +58,19 @@ def create_about_page(dialog) -> QScrollArea:
 
     def show_release(release: ReleaseInfo):
         finish_check()
-        if not is_newer_version(release.tag_name, APP_VERSION):
+        available = release.available if release.available is not None else is_newer_version(release.tag_name, APP_VERSION)
+        if not available:
             message = dialog.tr("You're using the latest version (%1).").replace(
                 "%1", APP_VERSION
             )
             show_info_dialog(dialog, dialog.tr("Update Check"), message)
             return
 
+        from PySide6.QtWidgets import QApplication
+        controller = getattr(QApplication.instance(), "_update_controller", None)
+        if controller and release.asset_name:
+            controller.present(release)
+            return
         notes = release.notes or dialog.tr("No release notes provided.")
         content = "\n".join(
             (
