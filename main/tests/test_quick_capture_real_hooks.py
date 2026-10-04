@@ -102,6 +102,31 @@ def test_ctrl_drag_is_reported_and_never_reaches_the_window(desktop):
     assert d.seen()[before:] == ["key Control_L", "keyup Control_L"]
 
 
+def test_remote_drag_and_escape_work_without_test_marker(desktop):
+    """Ordinary injected events, as sent by remote-control tools, need no bypass."""
+    d = desktop
+    d.hub.native.set_test_marker(0)
+    d.source.configure([(frozenset({"ctrl"}), "left")], True)
+    d.qtbot.waitUntil(lambda: d.hub.native.stats()["hooks_installed"], timeout=2000)
+    x, y = d.center
+    send(key(VK_LCONTROL))
+    send(mouse(x, y, LEFT_DOWN))
+    d.qtbot.waitUntil(lambda: len(d.events) == 1, timeout=2000)
+    send(mouse(x + 40, y + 30))
+    d.qtbot.waitUntil(lambda: d.moves == [1], timeout=2000)
+    assert d.source.take_position(1) == (x + 40, y + 30)
+    send(mouse(x + 40, y + 30, LEFT_UP), key(VK_LCONTROL, up=True))
+    d.qtbot.waitUntil(lambda: len(d.events) == 2, timeout=2000)
+    assert d.events == [("start", 1, x, y), ("finish", 1, x + 40, y + 30)]
+    send(key(VK_LCONTROL), mouse(x, y, LEFT_DOWN))
+    send(key(VK_ESCAPE), key(VK_ESCAPE, up=True))
+    send(mouse(x, y, LEFT_UP), key(VK_LCONTROL, up=True))
+    d.qtbot.waitUntil(lambda: len(d.events) == 4, timeout=2000)
+    assert [event[0] for event in d.events] == ["start", "finish", "start", "cancel"]
+    assert not d.source.dragging
+    assert not d.source.accepts(2)
+
+
 def test_escape_cancels_and_both_pairs_are_swallowed(desktop):
     d = desktop
     d.source.configure([(frozenset({"ctrl"}), "left")], True)
@@ -118,8 +143,10 @@ def test_escape_cancels_and_both_pairs_are_swallowed(desktop):
     assert d.seen()[before:] == ["key Control_L", "keyup Control_L"]
 
 
-def test_win_drag_release_does_not_open_the_start_menu(desktop):
+@pytest.mark.parametrize("marker", [MARKER, 0])
+def test_win_drag_release_does_not_open_the_start_menu(desktop, marker):
     d = desktop
+    d.hub.native.set_test_marker(marker)
     # The middle button: Win + left drag is a common binding in other capture tools.
     d.source.configure([(frozenset({"win"}), "middle")], True)
     x, y = d.center

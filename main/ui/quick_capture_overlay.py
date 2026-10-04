@@ -9,7 +9,6 @@ from PySide6.QtWidgets import QWidget
 
 from canvas.items.selection_item import SelectionItem
 from canvas.selection_model import SelectionModel
-from core.platform_utils import set_window_exclude_from_capture
 from settings import get_tool_settings_manager
 from ui.selection_info.panel import SelectionInfoPanel
 from ui.selection_overlay import SelectionOverlayWidget
@@ -79,8 +78,7 @@ class QuickCaptureOverlay(QWidget):
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setAutoFillBackground(False)
         self._selection_rect = QRect()
-        self._capture_exclusion_requested = False
-        self.capture_excluded = False
+        self._native_frame_configured = False
         self._session_active = False
 
         self.model = SelectionModel()
@@ -138,11 +136,11 @@ class QuickCaptureOverlay(QWidget):
 
         if not self.isVisible():
             self.show()
-        if not self._capture_exclusion_requested:
+        if not self._native_frame_configured:
             _disable_native_frame(int(self.winId()))
-            # 截图控制器仍必须先隐藏浮层再抓屏，兼容不支持此标志的系统。
-            self.capture_excluded = set_window_exclude_from_capture(int(self.winId()), True)
-            self._capture_exclusion_requested = True
+            # 不设置捕获排除：远程控制软件也需要采集选框。控制器抓屏前会
+            # 隐藏浮层，工作线程等待 DwmFlush，避免把选框截进结果。
+            self._native_frame_configured = True
 
     def dismiss(self):
         """结束这次拖动并隐藏。分层窗口隐藏后仍保留最后一帧，下次显示时会先闪出上次的选框，

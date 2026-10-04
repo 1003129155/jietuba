@@ -61,7 +61,6 @@ def integration(qapp, qtbot, tmp_settings, tmp_path, monkeypatch):
     monkeypatch.setattr(capture_module.CaptureService, "capture_all_screens", lambda _self, _cursor=None: (
         synthetic_image(QRect(0, 0, 800, 600)), QRectF(0, 0, 800, 600),
     ))
-    monkeypatch.setattr("ui.quick_capture_overlay.set_window_exclude_from_capture", Mock())
     copied, pinned = Mock(), Mock()
     monkeypatch.setattr(capture_module, "deliver_screenshot", copied)
     monkeypatch.setattr(capture_module, "set_last_region", Mock())
