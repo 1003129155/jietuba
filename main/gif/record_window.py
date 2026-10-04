@@ -31,6 +31,9 @@ except ImportError:
 
 from core.ui_scale import get_ui_scale, scaled
 from core.platform_utils import request_trim_working_set as _request_trim
+from core.i18n import make_tr
+
+_tr = make_tr("GifRecorder")
 
 
 class AppState(Enum):
@@ -287,7 +290,7 @@ class GifRecordWindow(QObject):
         if store is not None and store.frame_count == 0:
             log_warning(T("FrameStore 为空"), "GIF")
             from ui.dialogs import show_warning_dialog
-            show_warning_dialog(None, "录制异常", "录制数据为空，请重新录制。")
+            show_warning_dialog(None, _tr("Recording error"), _tr("The recording is empty. Please record again."))
             # 恢复 overlay + toolbar 到可操作状态（避免卡在红色穿透模式）
             self._overlay.set_recording(False)
             self._overlay.set_mode(OverlayMode.RESIZE)

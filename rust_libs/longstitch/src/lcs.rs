@@ -118,6 +118,29 @@ pub fn find_top_common_substrings(
     min_ratio: f32,
     top_k: usize,
 ) -> Vec<(i32, i32, usize)> {
+    top_common_substrings(seq1, seq2, min_ratio, top_k, false)
+}
+
+/// 同 `find_top_common_substrings`，但只从连续匹配段的开头扩展。
+///
+/// 段中间的起点只是更长段的后缀，空白行的哈希大量重复时逐对扩展的代价会成倍放大。
+/// 少了这些后缀，个别情况下入选的候选会与逐对扩展不同。
+pub fn find_top_common_runs(
+    seq1: &[u64],
+    seq2: &[u64],
+    min_ratio: f32,
+    top_k: usize,
+) -> Vec<(i32, i32, usize)> {
+    top_common_substrings(seq1, seq2, min_ratio, top_k, true)
+}
+
+fn top_common_substrings(
+    seq1: &[u64],
+    seq2: &[u64],
+    min_ratio: f32,
+    top_k: usize,
+    maximal_only: bool,
+) -> Vec<(i32, i32, usize)> {
     let m = seq1.len();
     let n = seq2.len();
     let min_length = ((m.min(n) as f32 * min_ratio) as usize).max(1);
@@ -154,6 +177,9 @@ pub fn find_top_common_substrings(
     for (pos_i_list, pos_j_list) in hash_positions.values() {
         for &start_i in pos_i_list {
             for &start_j in pos_j_list {
+                if maximal_only && start_i > 0 && start_j > 0 && seq1[start_i - 1] == seq2[start_j - 1] {
+                    continue;
+                }
                 let mut length = 0;
                 while start_i + length < m
                     && start_j + length < n
@@ -173,7 +199,9 @@ pub fn find_top_common_substrings(
         return Vec::new();
     }
 
-    substrings.sort_by(|a, b| b.2.cmp(&a.2));
+    // 候选来自 HashMap 遍历，顺序每次运行都不同；长度相同时按位置定序，
+    // 同样的输入才总得到同样的结果。优先靠近 seq1 末尾的位置，正常滚动时重叠就在那里。
+    substrings.sort_by(|a, b| b.2.cmp(&a.2).then(b.0.cmp(&a.0)).then(a.1.cmp(&b.1)));
     substrings.dedup();
 
     // 选择不重叠的前 top_k 个
@@ -206,4 +234,31 @@ pub fn find_top_common_substrings(
     }
 
     selected
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sequence(seed: u64, len: usize, symbols: u64) -> Vec<u64> {
+        let mut state = seed;
+        (0..len)
+            .map(|_| {
+                state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                (state >> 33) % symbols
+            })
+            .collect()
+    }
+
+    #[test]
+    fn runs_only_keeps_the_best_candidate() {
+        // 符号很少时重复极多，逐对扩展与只从段开头扩展的首选候选必须一致
+        for seed in 0..200 {
+            let seq1 = sequence(seed, 400, 3);
+            let seq2 = sequence(seed + 1000, 120, 3);
+            let exhaustive = find_top_common_substrings(&seq1, &seq2, 0.01, 5);
+            let runs = find_top_common_runs(&seq1, &seq2, 0.01, 5);
+            assert_eq!(exhaustive.first(), runs.first(), "seed {seed}");
+        }
+    }
 }

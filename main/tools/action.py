@@ -6,13 +6,13 @@ import os
 import re
 from datetime import datetime
 
-from PySide6.QtWidgets import QFileDialog
 from PySide6.QtCore import QPoint
 from core.i18n import make_tr
 from core.export import ExportService
 from core.save import SaveService
 from pin.pin_manager import PinManager
 from core.logger import log_debug, log_info, T
+from ui.dialogs import get_save_file_name
 
 
 _tr = make_tr("ActionTools")
@@ -66,7 +66,7 @@ class ActionTools:
 
         fmt = (self.config_manager.get_screenshot_format() if self.config_manager else "PNG").lower()
         default_name = f"screenshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{fmt}"
-        file_path, selected_filter = QFileDialog.getSaveFileName(
+        file_path, selected_filter = get_save_file_name(
             self.parent_window,
             _tr("Save Screenshot"),
             default_name,

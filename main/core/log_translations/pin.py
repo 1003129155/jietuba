@@ -126,4 +126,5 @@ TRANSLATIONS: dict[str, str] = {
     "OCR文字层清理时出错: {e}": "Error while cleaning up OCR text layer: {e}",
     "OCR文字层closeEvent时出错: {e}": "Error in OCR text layer closeEvent: {e}",
     "OCR文字层super closeEvent": "OCR text layer super closeEvent",
+    "钉图不支持工具: {tool_name}": "Pin window does not support tool: {tool_name}",
 }

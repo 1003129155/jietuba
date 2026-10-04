@@ -2,7 +2,6 @@
 """管理窗口里的可复用控件：可排序列表的拖放与绘制、图片表单控件、图片条目操作。"""
 
 from datetime import datetime
-from types import SimpleNamespace
 
 import pytest
 from PySide6.QtCore import QEvent, QMimeData, QPoint, QPointF, Qt, QUrl
@@ -493,7 +492,7 @@ class TestImageItemActions:
             state["default_name"] = default_name
             return state["answer"]
 
-        monkeypatch.setattr(image_item_actions, "QFileDialog", SimpleNamespace(getSaveFileName=get_save_file_name))
+        monkeypatch.setattr(image_item_actions, "get_save_file_name", get_save_file_name)
         return state
 
     @pytest.fixture

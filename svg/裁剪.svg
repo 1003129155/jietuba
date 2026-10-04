@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 48 48" fill="none">
+  <!-- Blades -->
+  <path d="M15.5 16.5 L43 37 M15.5 31.5 L43 11" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+  <!-- Finger rings -->
+  <circle cx="11" cy="13" r="6" fill="white" stroke="currentColor" stroke-width="3"/>
+  <circle cx="11" cy="35" r="6" fill="white" stroke="currentColor" stroke-width="3"/>
+</svg>

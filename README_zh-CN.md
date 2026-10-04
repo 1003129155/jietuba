@@ -13,7 +13,7 @@
 
 截图吧是一款免费开源的 Windows 截图工具：区域与窗口截图、滚动长截图拼接、标注、OCR 文字识别、翻译、钉图、GIF 录制、二维码/条形码识别、PDF 导出，以及完整的剪贴板历史管理。所有功能本地运行。
 
-界面使用 PySide6 构建，图像处理、剪贴板操作和 OCR 由 Rust 实现，支持 Windows x86_64 与 ARM64。
+界面使用 PySide6 构建，图像处理、剪贴板操作和 PP-OCR 引擎由 Rust 实现，支持 Windows x86_64 与 ARM64。
 
 提供可直接运行的 Windows 发行包，也支持从源码运行。
 
@@ -43,9 +43,13 @@
 普通用户可以直接使用对应架构的 Windows x86_64 或 ARM64 发行包，无需安装 Python、Rust 或配置开发环境。
 
 1. 打开 [Releases 下载页](https://github.com/1003129155/jietuba/releases/latest)，根据设备下载以 `-x64.zip` 或 `-arm64.zip` 结尾的程序包。
-2. 完整解压压缩包，保留 `jietuba_pp.exe` 和同级的 `models/` 目录。
-3. 双击 `jietuba_pp.exe` 启动程序。OCR 所需模型已随程序包提供。
+2. 程序包分两种，完整解压后双击其中的 exe 启动：
+   - **完整版** `jietuba_pp-…zip`：带 PP-OCR 引擎和模型，任何 Windows 都能使用 OCR。保留 `jietuba_pp.exe` 和同级的 `models/` 目录。
+   - **轻量版** `jietuba_lite-…zip`：体积更小，只使用 Windows 11 截图工具自带的 OCR；没有截图工具的电脑上 OCR 不可用。
+3. 两个版本默认都优先使用截图工具的 OCR（更快、支持的语言更多），可在设置的「OCR 设置」中切换引擎。
 4. 程序尚未进行数字签名，通过浏览器下载后，Windows 可能显示运行警告。出现提示时，点击“更多信息”，再选择“仍要运行”即可启动。
+
+首次安装包含更新器的版本后，可在**关于 → 检查更新 → 一键更新并重启**中升级。更新器下载匹配架构的 GitHub Release ZIP，仅替换主 EXE 后重启；保留设置、剪贴板历史、模型和其他文件。录制、导出或后台保存未结束时保留下载结果，结束任务后重试。最近一次主程序备份保存在 `.jietuba-update/` 中，详见[更新器恢复说明](rust_libs/updater/README.md)。
 
 ---
 
@@ -85,7 +89,7 @@ cd main
 python main_app.py
 ```
 
-OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_det_small.onnx` 和 `PP-OCRv6_rec_small.onnx`，保留该目录即可使用。
+PP-OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_det_small.onnx` 和 `PP-OCRv6_rec_small.onnx`，保留该目录即可使用。截图工具 OCR 通过 PyPI 的 [`oneocr`](https://pypi.org/project/oneocr/) 包调用，所需文件取自本机的 Windows 11 截图工具，首次使用时自动复制到 `%LOCALAPPDATA%\Jietuba\oneocr`，不需要另外下载。
 
 ### Rust 扩展包
 
@@ -94,11 +98,11 @@ OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_det
 | pip 包名 | import 名 | 版本 | 功能 |
 |------|------|------|------|
 | [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.0 | GIF/视频合成编码器 |
-| [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | 长截图拼接算法 |
-| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.4 | 剪贴板底层操作 |
+| [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.5.0 | 长截图拼接算法 |
+| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.5 | 剪贴板底层操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | 支持 HDR 的桌面截图（DXGI Desktop Duplication + GPU 色调映射） |
-| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.0 | 不占界面线程的全局鼠标键盘钩子（拖动手势、侧键、热键、滚轮、前台窗口） |
+| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.1 | 不占界面线程的全局鼠标键盘钩子（拖动手势、侧键、热键、滚轮、前台窗口） |
 
 预编译包面向 Windows x86_64 和 ARM64；各包的 Python 版本声明均为 `>=3.11`，Rust 绑定均启用了 `abi3-py311`，详见各包的 `pyproject.toml` 和 `Cargo.toml`。
 
@@ -117,9 +121,9 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 [测试目录](main/tests/)包含截图、剪贴板、马赛克、钉图缩放、GIF 回放、OCR 文字层等模块的单元测试与集成测试。[CI 配置](.github/workflows/ci.yml)在 Windows x86_64 与 ARM64 的 Python 3.11 环境中执行测试及覆盖率检查，并在 x86_64 上执行静态检查；运行结果可在 [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml) 查看。
 
-会真实移动鼠标、点击和按键的测试（如 `test_quick_capture_real_hooks.py`）默认跳过；设置环境变量 `RUN_REAL_INPUT_TESTS=1` 后才运行，运行期间请不要操作鼠标和键盘。
+会真实移动鼠标、点击和按键的测试（如 `test_quick_capture_real_hooks.py`）默认跳过；设置环境变量 `RUN_REAL_INPUT_TESTS=1` 后才运行，运行期间请不要操作鼠标和键盘。会改写真实系统剪贴板的测试（`test_clipboard_monitor_real.py`）同样默认跳过；设置环境变量 `RUN_REAL_CLIPBOARD_TESTS=1` 后才运行，运行期间请不要复制任何内容。
 
-构建 Windows 发行包可运行 `python build_with_ocr_onefile.py`，产物为 `dist/jietuba_pp.exe` 和 `dist/models/`。自动发行流程见 [build.yml](.github/workflows/build.yml)，会分别生成 x64 与 ARM64 压缩包。
+构建 Windows 完整版可运行 `python build_with_ocr_onefile.py`，产物为 `dist/jietuba_pp.exe` 和 `dist/models/`；加 `--lite` 构建轻量版，产物为 `dist_lite/jietuba_lite.exe`。自动发行流程见 [build.yml](.github/workflows/build.yml)，会分别生成 x64 与 ARM64 的完整版和轻量版压缩包。
 
 ### 代码注释
 
@@ -142,7 +146,8 @@ python -m pytest main/tests -c main/tests/pytest.ini
 ├── pyproject.toml                                      # Python 项目元数据与依赖声明
 ├── requirements.txt                                   # 运行依赖
 ├── requirements-dev.txt                               # 测试与构建依赖
-├── build_with_ocr_onefile.py                           # PyInstaller 单文件构建脚本
+├── build_with_ocr_onefile.py                           # PyInstaller 单文件构建脚本（--lite 构建轻量版）
+├── licenses/                                          # 随发布包附带的第三方许可
 │
 ├── main/                    # Python 主程序
 │   ├── main_app.py          # 应用入口，系统托盘、全局快捷键、生命周期管理
@@ -155,7 +160,7 @@ python -m pytest main/tests -c main/tests/pytest.ini
 │   ├── clipboard/           # 剪贴板管理模块 — 历史记录、分组/快速启动、导入导出、搜索
 │   ├── core/                # 核心基础模块 — 启动引导、日志、资源、主题、国际化、快捷键
 │   ├── gif/                 # GIF录制模块 — 屏幕录制、编辑、回放、导出
-│   ├── ocr/                 # OCR模块 — PP-OCR 文字识别
+│   ├── ocr/                 # OCR模块 — 截图工具 OCR 与 PP-OCR 文字识别
 │   ├── pin/                 # 钉图模块 — 截图置顶、编辑、OCR、翻译
 │   ├── settings/            # 设置模块 — 统一配置管理
 │   ├── stitch/              # 长截图拼接模块 — 滚动截图、自动拼接
@@ -169,9 +174,10 @@ python -m pytest main/tests -c main/tests/pytest.ini
 │   ├── gifrecorder/         # GIF/视频合成编码器源码
 │   ├── longstitch/          # 长截图拼接算法源码
 │   ├── pyclipboard/         # 剪贴板底层操作源码
-│   └── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX 识别引擎源码
+│   ├── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX 识别引擎源码
+│   └── updater/             # 只替换主 EXE 的独立 Rust 更新器
 │
-├── models/                  # PP-OCR ONNX 模型文件（OCR 必需）
+├── models/                  # PP-OCR ONNX 模型文件（PP-OCR 必需）
 │   ├── PP-OCRv6_det_small.onnx   # 文本检测模型 (DBNet)
 │   └── PP-OCRv6_rec_small.onnx   # 文本识别模型 (CRNN/CTC)
 │
@@ -323,7 +329,8 @@ clipboard/
 │   ├── menus/
 │   │   ├── action_menu.py
 │   │   ├── group_context_menu.py
-│   │   └── item_context_menu.py
+│   │   ├── item_context_menu.py
+│   │   └── submenu_position.py
 │   ├── mixins/
 │   │   └── frameless_mixin.py
 │   ├── panels/
@@ -389,6 +396,10 @@ core/
 ├── qt_utils.py              # safe_disconnect() — Qt 信号安全断开工具
 ├── log_translations/        # 各模块日志文本翻译辅助
 ├── constants.py             # 全局常量定义（字体、路径等）
+├── background_tasks.py      # 后台保存任务登记
+├── update_cache.py          # 更新器临时文件与缓存清理
+├── updater_process.py       # Rust 更新器 JSONL 异步进程接口
+├── update_controller.py     # 更新下载与安全重启协调
 ├── update_checker.py        # GitHub 最新版本异步查询与版本比较
 └── ui_theme.py              # UIThemeManager — 应用窗口与原生 Qt 控件的明暗外观（截图配色仍在 theme.py）
 ```
@@ -444,7 +455,7 @@ gif/
 
 ### ocr/ — OCR 文字识别模块
 
-支持 PP-OCR 引擎的文字识别管理。
+文字识别管理，支持 Windows 截图工具自带的 OCR 和 PP-OCR 两个引擎。
 <img width="580" height="505" alt="image" src="https://github.com/user-attachments/assets/60a16100-5edc-4543-9a35-daf05b1e244e" />
 
 <details>
@@ -453,15 +464,18 @@ gif/
 ```text
 ocr/
 ├── __init__.py
-└── ocr_manager.py           # OCRManager — 基于 ppocr_rust (PP-OCR) 的文字识别
+├── ocr_manager.py           # OCRManager — 引擎选择、加载、释放与统一识别接口
+└── snipping_tool_ocr.py     # SnippingToolOcr — 查找截图工具、复制 OCR 文件、补边识别
 ```
 
 </details>
 
 **核心功能：**
 - 自动检测引擎与模型可用性
-- 基于 ppocr_rust 引擎（纯 Rust + ONNX Runtime，PP-OCR det + rec），推理在原生线程运行不阻塞 UI
-- 支持中/英/日文识别
+- 设置里可选「自动 / Windows 截图工具 / PP-OCR」；自动时有截图工具就用它，否则用 PP-OCR
+- 截图工具 OCR：经 PyPI 的 oneocr 包调用，更快、支持的语言更多（含韩文、俄文、泰文等），需要 Windows 11 截图工具
+- PP-OCR：ppocr_rust 引擎（纯 Rust + ONNX Runtime，PP-OCR det + rec），任何 Windows 都能用，只在完整版里
+- 识别与释放互斥；切换引擎时释放旧引擎，新引擎在下次识别时加载
 - 单例模式管理，统一的识别接口，返回文字和位置信息
 
 ---
@@ -540,6 +554,8 @@ settings/
 
 stitch/
 ├── __init__.py
+├── auto_scroll.py                   # AutoScroller — 自动滚动：按拼接结果定步长，到底或动鼠标即停
+├── incremental.py                   # IncrementalStitcher — 后台增量拼接与预览缩略图
 ├── jietuba_long_stitch_unified.py   # 长截图拼接接口（调用 Rust longstitch）
 ├── scroll_window.py                 # ScrollCaptureWindow — 滚动截图窗口
 └── scroll_toolbar.py                # 滚动截图工具栏
@@ -549,6 +565,10 @@ stitch/
 
 **核心功能：**
 - 滚动页面并截图，支持横向和竖向
+- 往回滚时只定位不截短，越过起点就在另一头接上，从页面中间开始截也能两头长
+- 自动滚动：光标停到截图区域中间自动滚动截图，到底或鼠标一动就停
+- 裁剪：往回滚到想截断的地方，一键去掉当前画面以上或以下的内容
+- 文件列表、表格这类只差几个字的行也能对准位置；一下滚过头接不上时提示往回滚，不硬拼
 - 基于图像匹配的智能拼接算法（查找重叠区域）
 - 统一的长截图接口（调用 Rust 库 longstitch 加速）
 
@@ -649,12 +669,12 @@ translation/
 translations/
 ├── app_zh.xml / app_en.xml  # 中文/英文翻译源文件
 ├── app_ja.xml / app_ko.xml  # 日文/韩文翻译源文件
-└── app_*.xml.qm             # 编译后的 Qt 二进制文件（app_zh.xml.qm 等）
+└── app_*.qm                 # 编译后的 Qt 二进制文件（app_zh.qm 等）
 ```
 
 </details>
 
-**说明：** `.xml` 为可编辑的翻译源文件，`*.xml.qm` 为 Qt 运行时加载的编译文件。修改翻译后需运行 `compile_translations.py` 重新编译。
+**说明：** `.xml` 为可编辑的翻译源文件，`.qm` 为 Qt 运行时加载的编译文件。新增或修改界面文字时，四个 `.xml` 都要补上同一上下文的条目（多行文案写真换行），再运行 `compile_translations.py` 重新编译；`tests/test_translation_coverage.py` 会检查缺漏。
 
 ---
 
@@ -675,6 +695,7 @@ ui/
 ├── tray_menu.py             # TrayMenu — 系统托盘菜单
 ├── screenshot_window.py     # ScreenshotWindow — 截图主窗口（全屏覆盖、选区绘制）
 ├── quick_capture_overlay.py # 快速截图透明浮层，复用普通截图的选框、坐标和放大镜
+├── update_dialog.py         # 更新说明与下载进度
 ├── dialogs.py               # StandardDialog / 对话框函数集 — 确认、警告、信息、错误对话框
 ├── toast.py                 # Toast — 光标旁不抢焦点的一行轻提示
 ├── magnifier.py             # MagnifierOverlay — 放大镜覆盖层（像素级取色）
@@ -778,7 +799,6 @@ tests/
 ├── test_pin_window_zoom.py  # 钉图缩放测试
 ├── test_smart_translation.py # 智能翻译测试
 ├── test_translation_architecture.py # 翻译提供商架构测试
-├── test_stitch_dedup.py     # 长截图拼接去重测试
 ├── test_settings_dialog_state.py # 设置对话框状态测试
 ├── test_welcome_translation.py # 欢迎向导翻译页测试
 └── …（其余模块单元测试与集成测试，共 70 多个文件）

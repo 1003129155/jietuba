@@ -133,8 +133,8 @@ def deliver_image_async(
         finally:
             image = None
 
-    thread = threading.Thread(target=worker, daemon=True, name="ClipboardDeliver")
-    thread.start()
+    from core.background_tasks import start_thread
+    thread = start_thread(worker, name="ClipboardDeliver")
     return thread
 
 

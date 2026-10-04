@@ -4,9 +4,9 @@ import os
 from datetime import date
 
 from PySide6.QtCore import QStandardPaths
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QFileDialog
+from PySide6.QtWidgets import QWidget, QVBoxLayout
 from core.ui_scale import dialog_scaled
-from ui.dialogs import show_error_dialog, show_info_dialog
+from ui.dialogs import get_open_file_name, get_save_file_name, show_error_dialog, show_info_dialog
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
     FluentIcon, ComboBox, CaptionLabel, PushButton,
@@ -134,7 +134,7 @@ def export_settings_to_file(dialog):
 
     title = dialog.tr("Export Settings")
     suggested = os.path.join(_documents_dir(), f"jietuba-settings-{date.today():%Y%m%d}.json")
-    path, _ = QFileDialog.getSaveFileName(dialog, title, suggested, dialog.tr("Settings File (*.json)"))
+    path, _ = get_save_file_name(dialog, title, suggested, dialog.tr("Settings File (*.json)"))
     if not path:
         return
     try:
@@ -149,7 +149,7 @@ def import_settings_from_file(dialog):
     from settings.settings_transfer import SettingsFileError, read_settings_file
 
     title = dialog.tr("Import Settings")
-    path, _ = QFileDialog.getOpenFileName(dialog, title, _documents_dir(), dialog.tr("Settings File (*.json)"))
+    path, _ = get_open_file_name(dialog, title, _documents_dir(), dialog.tr("Settings File (*.json)"))
     if not path:
         return
     try:

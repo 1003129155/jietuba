@@ -90,6 +90,7 @@ class ClipboardItemDelegate(QStyledItemDelegate):
         self._shortcut_labels = self._labels_for("123456789abcdefghijklmnopqrstuvwxyz")
         self._hide_file_icon = False
         self._highlighted_id: Optional[int] = None
+        self._marked_ids: frozenset = frozenset()
         self._image_row_span = IMAGE_ROW_SPANS.get(image_size, 1)
 
         # 预计算颜色缓存（主题变化时重建）
@@ -147,6 +148,9 @@ class ClipboardItemDelegate(QStyledItemDelegate):
 
     def set_highlighted_id(self, item_id: Optional[int]):
         self._highlighted_id = item_id
+
+    def set_marked_ids(self, item_ids):
+        self._marked_ids = frozenset(item_ids)
 
     def _rebuild_color_cache(self):
         """根据当前主题 + 透明度预计算所有需要的 QColor"""
@@ -213,10 +217,11 @@ class ClipboardItemDelegate(QStyledItemDelegate):
             return
 
         is_selected = (item_id == self._highlighted_id) if self._highlighted_id is not None else False
+        is_marked = item_id in self._marked_ids
         cc = self._colors_cache
 
         # ---- 背景 ----
-        if is_selected:
+        if is_selected or is_marked:
             painter.fillRect(rect, cc["bg_selected"])
         elif row % 2 == 0:
             painter.fillRect(rect, cc["bg_even"])
@@ -224,7 +229,8 @@ class ClipboardItemDelegate(QStyledItemDelegate):
             painter.fillRect(rect, cc["bg_odd"])
 
         # ---- 左边框（选中指示条） ----
-        if is_selected:
+        # 有多选时指示条只标多选的行，悬停、键盘停着的行只变底色，一眼分得清哪些已选
+        if is_marked or (is_selected and not self._marked_ids):
             painter.fillRect(QRect(rect.left(), rect.top(), _px(3), rect.height()), cc["border_selected"])
 
         # ---- 底部分隔线 ----
@@ -295,16 +301,25 @@ class ClipboardItemDelegate(QStyledItemDelegate):
         pin_width = 0
         if item_data.is_pinned:
             pin_width = _px(24)
+        mark_width = _px(20) if is_marked else 0
 
         display_text = item_data.display_text
         fm = self._fm_cache["content"]
-        elided_text = fm.elidedText(display_text, Qt.TextElideMode.ElideRight, text_rect.width() - pin_width)
+        elided_text = fm.elidedText(
+            display_text, Qt.TextElideMode.ElideRight, text_rect.width() - pin_width - mark_width
+        )
         painter.drawText(text_rect, Qt.AlignmentFlag.AlignVCenter, elided_text)
 
         # ---- 置顶标记 ----
         if item_data.is_pinned:
             pin_rect = QRect(content_right - pin_width, content_top, pin_width, int(font_size * 1.4))
             painter.drawText(pin_rect, Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight, "📌")
+
+        # ---- 多选勾 ----
+        if is_marked:
+            mark_rect = QRect(content_right - pin_width - mark_width, content_top, mark_width, int(font_size * 1.4))
+            painter.setPen(cc["border_selected"])
+            painter.drawText(mark_rect, Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight, "✓")
 
         # ---- 第二行：元数据 ----
         if self._show_metadata:

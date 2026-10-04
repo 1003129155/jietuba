@@ -367,7 +367,7 @@ class TestManageDialog:
 
         infos = []
         warnings = []
-        monkeypatch.setattr(manage_dialog_mod.QFileDialog, "getOpenFileName", lambda *args, **kwargs: (str(csv_path), "CSV Files (*.csv)"))
+        monkeypatch.setattr(manage_dialog_mod, "get_open_file_name", lambda *args, **kwargs: (str(csv_path), "CSV Files (*.csv)"))
         monkeypatch.setattr(manage_dialog_mod, "show_info_dialog", lambda *args: infos.append((args[1], args[2])))
         monkeypatch.setattr(manage_dialog_mod, "show_warning_dialog", lambda *args: warnings.append((args[1], args[2])))
 
@@ -387,7 +387,7 @@ class TestManageDialog:
             encoding="utf-8",
         )
 
-        monkeypatch.setattr(manage_dialog_mod.QFileDialog, "getOpenFileName", lambda *args, **kwargs: (str(csv_path), "CSV Files (*.csv)"))
+        monkeypatch.setattr(manage_dialog_mod, "get_open_file_name", lambda *args, **kwargs: (str(csv_path), "CSV Files (*.csv)"))
         monkeypatch.setattr(manage_dialog_mod, "show_info_dialog", lambda *args: None)
         monkeypatch.setattr(manage_dialog_mod, "show_warning_dialog", lambda *args: pytest.fail("不应触发警告"))
 

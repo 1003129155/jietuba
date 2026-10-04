@@ -625,6 +625,38 @@ Replace it?</translation>
         <translation>On very low-end computers, OCR after pinning may cause a brief stutter. Turn off automatic recognition if needed.</translation>
     </message>
     <message>
+        <source>OCR Engine</source>
+        <translation>OCR Engine</translation>
+    </message>
+    <message>
+        <source>Switch OCR engines here.</source>
+        <translation>Switch OCR engines here.</translation>
+    </message>
+    <message>
+        <source>The Snipping Tool engine is faster and reads more languages, but needs the Snipping Tool from Windows 11. PP-OCR works on any Windows.</source>
+        <translation>The Snipping Tool engine is faster and reads more languages, but needs the Snipping Tool from Windows 11. PP-OCR works on any Windows.</translation>
+    </message>
+    <message>
+        <source>Windows Snipping Tool</source>
+        <translation>Windows Snipping Tool</translation>
+    </message>
+    <message>
+        <source>Windows Snipping Tool (not found)</source>
+        <translation>Windows Snipping Tool (not found)</translation>
+    </message>
+    <message>
+        <source>PP-OCR (missing engine)</source>
+        <translation>PP-OCR (missing engine)</translation>
+    </message>
+    <message>
+        <source>PP-OCR (missing models)</source>
+        <translation>PP-OCR (missing models)</translation>
+    </message>
+    <message>
+        <source>OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version</source>
+        <translation>OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version</translation>
+    </message>
+    <message>
         <source>Auto language detection: Supports Chinese, Japanese, English mixed recognition</source>
         <translation>Auto language detection: Supports Chinese, Japanese, English mixed recognition</translation>
     </message>
@@ -1103,6 +1135,14 @@ Replace it?</translation>
         <source>Open Context Menu</source>
         <translation>Open Context Menu</translation>
     </message>
+    <message>
+        <source>Settings</source>
+        <translation>Settings</translation>
+    </message>
+    <message>
+        <source>jietuba</source>
+        <translation>jietuba</translation>
+    </message>
 </context>
 
 <context>
@@ -1308,6 +1348,10 @@ Replace it?</translation>
         <source>Record</source>
         <translation>Record</translation>
     </message>
+    <message>
+        <source>Drag to move</source>
+        <translation>Drag to move</translation>
+    </message>
 </context>
 
 <!-- ========== Pin Window ========== -->
@@ -1463,6 +1507,38 @@ Replace it?</translation>
         <translation>Take screenshot manually</translation>
     </message>
     <message>
+        <source>Auto scroll (move the mouse to stop)</source>
+        <translation>Auto scroll (move the mouse to stop)</translation>
+    </message>
+    <message>
+        <source>Crop</source>
+        <translation>Crop</translation>
+    </message>
+    <message>
+        <source>Crop top: remove everything above the current view</source>
+        <translation>Crop top: remove everything above the current view</translation>
+    </message>
+    <message>
+        <source>Crop bottom: remove everything below the current view</source>
+        <translation>Crop bottom: remove everything below the current view</translation>
+    </message>
+    <message>
+        <source>Crop left: remove everything left of the current view</source>
+        <translation>Crop left: remove everything left of the current view</translation>
+    </message>
+    <message>
+        <source>Crop right: remove everything right of the current view</source>
+        <translation>Crop right: remove everything right of the current view</translation>
+    </message>
+    <message>
+        <source>Size of the long screenshot</source>
+        <translation>Size of the long screenshot</translation>
+    </message>
+    <message>
+        <source>Switch scroll direction</source>
+        <translation>Switch scroll direction</translation>
+    </message>
+    <message>
         <source>Pin to desktop</source>
         <translation>Pin to desktop</translation>
     </message>
@@ -1558,6 +1634,42 @@ Replace it?</translation>
     <message><source>Choose folder to save pinned images</source><translation>Choose folder to save pinned images</translation></message>
     <message><source>Save Failed</source><translation>Save Failed</translation></message>
     <message><source>Saved {saved} pinned images, failed {failed}.</source><translation>Saved {saved} pinned images, failed {failed}.</translation></message>
+    <message>
+        <source>Error</source>
+        <translation>Error</translation>
+    </message>
+    <message>
+        <source>System tray not available</source>
+        <translation>System tray not available</translation>
+    </message>
+<message>
+        <source>Finish capturing or saving before updating. The download has been kept.</source>
+        <translation>Finish capturing or saving before updating. The download has been kept.</translation>
+    </message>
+<message>
+        <source>Finish recording or scrolling and close that window before updating. The download has been kept.</source>
+        <translation>Finish recording or scrolling and close that window before updating. The download has been kept.</translation>
+    </message>
+<message>
+        <source>Finish exporting before updating. The download has been kept.</source>
+        <translation>Finish exporting before updating. The download has been kept.</translation>
+    </message>
+<message>
+        <source>Wait for application initialization to finish before updating.</source>
+        <translation>Wait for application initialization to finish before updating.</translation>
+    </message>
+<message>
+        <source>Finish saving before updating.</source>
+        <translation>Finish saving before updating.</translation>
+    </message>
+<message>
+        <source>Update cancelled because the settings window was not closed.</source>
+        <translation>Update cancelled because the settings window was not closed.</translation>
+    </message>
+<message>
+        <source>Settings could not be saved. Update cancelled.</source>
+        <translation>Settings could not be saved. Update cancelled.</translation>
+    </message>
 </context>
 
 <!-- ========== Translation Dialog ========== -->
@@ -1693,6 +1805,30 @@ Replace it?</translation>
     <message>
         <source>Target</source>
         <translation>Target</translation>
+    </message>
+    <message>
+        <source>Translation failed</source>
+        <translation>Translation failed</translation>
+    </message>
+    <message>
+        <source>Please enter text to translate</source>
+        <translation>Please enter text to translate</translation>
+    </message>
+    <message>
+        <source>OCR is not available</source>
+        <translation>OCR is not available</translation>
+    </message>
+    <message>
+        <source>No text recognized</source>
+        <translation>No text recognized</translation>
+    </message>
+    <message>
+        <source>OCR failed:</source>
+        <translation>OCR failed:</translation>
+    </message>
+    <message>
+        <source>Recognition failed</source>
+        <translation>Recognition failed</translation>
     </message>
 </context>
 
@@ -1870,6 +2006,58 @@ Replace it?</translation>
         <translation>Preserve Search on Reopen</translation>
     </message>
     <message>
+        <source>Multi-Select Paste</source>
+        <translation>Multi-Select Paste</translation>
+    </message>
+    <message>
+        <source>Separator</source>
+        <translation>Separator</translation>
+    </message>
+    <message>
+        <source>New Line</source>
+        <translation>New Line</translation>
+    </message>
+    <message>
+        <source>Blank Line</source>
+        <translation>Blank Line</translation>
+    </message>
+    <message>
+        <source>Space</source>
+        <translation>Space</translation>
+    </message>
+    <message>
+        <source>Tab</source>
+        <translation>Tab</translation>
+    </message>
+    <message>
+        <source>Comma</source>
+        <translation>Comma</translation>
+    </message>
+    <message>
+        <source>No Separator</source>
+        <translation>No Separator</translation>
+    </message>
+    <message>
+        <source>Custom, \n for a new line</source>
+        <translation>Custom, \n for a new line</translation>
+    </message>
+    <message>
+        <source>Order</source>
+        <translation>Order</translation>
+    </message>
+    <message>
+        <source>First Selected First</source>
+        <translation>First Selected First</translation>
+    </message>
+    <message>
+        <source>Last Selected First</source>
+        <translation>Last Selected First</translation>
+    </message>
+    <message>
+        <source>Record Content</source>
+        <translation>Record Content</translation>
+    </message>
+    <message>
         <source>Window Opacity</source>
         <translation>Window Opacity</translation>
     </message>
@@ -1945,8 +2133,10 @@ Replace it?</translation>
         <translation>All items in the group will also be deleted.</translation>
     </message>
     <message>
-        <source>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</source>
-        <translation>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</translation>
+        <source>Are you sure you want to delete this group?
+All items in the group will also be deleted.</source>
+        <translation>Are you sure you want to delete this group?
+All items in the group will also be deleted.</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
@@ -2029,8 +2219,10 @@ Replace it?</translation>
         <translation>Confirm Clear</translation>
     </message>
     <message>
-        <source>Are you sure you want to clear all clipboard history?\nThis action cannot be undone.</source>
-        <translation>Are you sure you want to clear all clipboard history?\nThis action cannot be undone.</translation>
+        <source>Are you sure you want to clear all clipboard history?
+This action cannot be undone.</source>
+        <translation>Are you sure you want to clear all clipboard history?
+This action cannot be undone.</translation>
     </message>
     <message>
         <source>Paste</source>
@@ -2091,6 +2283,30 @@ Replace it?</translation>
     <message>
         <source>Paste in Order</source>
         <translation>Paste in Order</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>{count} selected</source>
+        <translation>{count} selected</translation>
+    </message>
+    <message>
+        <source>Enter pastes them together, Esc clears the selection</source>
+        <translation>Enter pastes them together, Esc clears the selection</translation>
+    </message>
+    <message>
+        <source>Images Too Large</source>
+        <translation>Images Too Large</translation>
+    </message>
+    <message>
+        <source>The stitched image would be too large. Select fewer images.</source>
+        <translation>The stitched image would be too large. Select fewer images.</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete the {count} selected items?</source>
+        <translation>Are you sure you want to delete the {count} selected items?</translation>
     </message>
 </context>
 
@@ -2386,8 +2602,10 @@ Replace it?</translation>
         <translation>All items in the group will also be deleted.</translation>
     </message>
     <message>
-        <source>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</source>
-        <translation>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</translation>
+        <source>Are you sure you want to delete this group?
+All items in the group will also be deleted.</source>
+        <translation>Are you sure you want to delete this group?
+All items in the group will also be deleted.</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
@@ -2796,8 +3014,10 @@ Replace it?</translation>
         <translation>Confirm Clear</translation>
     </message>
     <message>
-        <source>Are you sure you want to clear all clipboard history?\nThis action cannot be undone.</source>
-        <translation>Are you sure you want to clear all clipboard history?\nThis action cannot be undone.</translation>
+        <source>Are you sure you want to clear all clipboard history?
+This action cannot be undone.</source>
+        <translation>Are you sure you want to clear all clipboard history?
+This action cannot be undone.</translation>
     </message>
     <message>
         <source>Also delete saved content in groups</source>
@@ -3535,6 +3755,14 @@ You can tweak more options in Settings anytime.</translation>
     <message><source>箭头</source><translation>Arrow</translation></message>
     <message><source>文字</source><translation>Text</translation></message>
     <message><source>橡皮擦</source><translation>Eraser</translation></message>
+    <message>
+        <source>撤销</source>
+        <translation>Undo</translation>
+    </message>
+    <message>
+        <source>重做</source>
+        <translation>Redo</translation>
+    </message>
 </context>
 
 <!-- ========== GIF Playback Toolbar ========== -->
@@ -3722,8 +3950,10 @@ SOFTWARE.</translation></message>
         <translation>All items in the group will also be deleted.</translation>
     </message>
     <message>
-        <source>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</source>
-        <translation>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</translation>
+        <source>Are you sure you want to delete this group?
+All items in the group will also be deleted.</source>
+        <translation>Are you sure you want to delete this group?
+All items in the group will also be deleted.</translation>
     </message>
 </context>
 
@@ -3754,6 +3984,10 @@ SOFTWARE.</translation></message>
         <source>富文本预览</source>
         <translation>Rich Text Preview</translation>
     </message>
+    <message>
+        <source>无文件信息</source>
+        <translation>No file information</translation>
+    </message>
 </context>
 
 <context>
@@ -3771,7 +4005,9 @@ SOFTWARE.</translation></message>
     <message><source>Finalizing migration...</source><translation>Finalizing migration...</translation></message>
     <message><source>Migration complete.</source><translation>Migration complete.</translation></message>
     <message><source>Clipboard data location changed successfully.</source><translation>Clipboard data location changed successfully.</translation></message>
-    <message><source>Clipboard data location changed successfully, but the old files are still in use and could not be deleted. You can remove them after restarting the app.\n{error}</source><translation>Clipboard data location changed successfully, but the old files are still in use and could not be deleted. You can remove them after restarting the app.\n{error}</translation></message>
+    <message><source>Clipboard data location changed successfully, but the old files are still in use and could not be deleted. You can remove them after restarting the app.
+{error}</source><translation>Clipboard data location changed successfully, but the old files are still in use and could not be deleted. You can remove them after restarting the app.
+{error}</translation></message>
     <message><source>Clipboard data moved, but reopening the database failed. Please restart the app.</source><translation>Clipboard data moved, but reopening the database failed. Please restart the app.</translation></message>
     <message><source>No clipboard data files were found to move.</source><translation>No clipboard data files were found to move.</translation></message>
     <message><source>Moving clipboard data... {done} / {total}</source><translation>Moving clipboard data... {done} / {total}</translation></message>
@@ -4229,6 +4465,214 @@ SOFTWARE.</translation></message>
     <message>
         <source>Formatting will be removed</source>
         <translation>Formatting will be removed</translation>
+    </message>
+</context>
+
+<context>
+    <name>ScrollCaptureWindow</name>
+    <message>
+        <source>Couldn't join. Scroll back</source>
+        <translation>Couldn't join. Scroll back</translation>
+    </message>
+    <message>
+        <source>Stitching failed</source>
+        <translation>Stitching failed</translation>
+    </message>
+    <message>
+        <source>Long Screenshot</source>
+        <translation>Long Screenshot</translation>
+    </message>
+    <message>
+        <source>Vertical</source>
+        <translation>Vertical</translation>
+    </message>
+    <message>
+        <source>Horizontal</source>
+        <translation>Horizontal</translation>
+    </message>
+    <message>
+        <source>Long screenshot - window position corrected</source>
+        <translation>Long screenshot - window position corrected</translation>
+    </message>
+</context>
+<context>
+    <name>ScreenshotWindow</name>
+    <message>
+        <source>Warning</source>
+        <translation>Warning</translation>
+    </message>
+    <message>
+        <source>Please select a valid capture area first.</source>
+        <translation>Please select a valid capture area first.</translation>
+    </message>
+</context>
+<context>
+    <name>GifRecorder</name>
+    <message>
+        <source>gifrecorder unavailable</source>
+        <translation>gifrecorder unavailable</translation>
+    </message>
+    <message>
+        <source>The gifrecorder module was not found, so the GIF cannot be exported.
+
+Make sure gifrecorder is installed correctly.</source>
+        <translation>The gifrecorder module was not found, so the GIF cannot be exported.
+
+Make sure gifrecorder is installed correctly.</translation>
+    </message>
+    <message>
+        <source>Recording error</source>
+        <translation>Recording error</translation>
+    </message>
+    <message>
+        <source>The recording is empty. Please record again.</source>
+        <translation>The recording is empty. Please record again.</translation>
+    </message>
+    <message>
+        <source>Save GIF</source>
+        <translation>Save GIF</translation>
+    </message>
+    <message>
+        <source>GIF animation (*.gif)</source>
+        <translation>GIF animation (*.gif)</translation>
+    </message>
+</context>
+<context>
+    <name>ColorPickerDialog</name>
+    <message>
+        <source>Pick color from screen</source>
+        <translation>Pick color from screen</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+</context>
+<context>
+    <name>GifDrawingToolbar</name>
+    <message>
+        <source>撤销</source>
+        <translation>Undo</translation>
+    </message>
+    <message>
+        <source>重做</source>
+        <translation>Redo</translation>
+    </message>
+    <message>
+        <source>退出绘制</source>
+        <translation>Exit drawing</translation>
+    </message>
+</context>
+<context>
+    <name>InAppShortcut</name>
+    <message>
+        <source>Middle</source>
+        <translation>Middle</translation>
+    </message>
+</context>
+<context>
+    <name>UpdateDialog</name>
+<message>
+        <source>Update Available</source>
+        <translation>Update Available</translation>
+    </message>
+<message>
+        <source>No release notes provided.</source>
+        <translation>No release notes provided.</translation>
+    </message>
+<message>
+        <source>The application will restart after the download finishes.</source>
+        <translation>The application will restart after the download finishes.</translation>
+    </message>
+<message>
+        <source>Update and Restart</source>
+        <translation>Update and Restart</translation>
+    </message>
+<message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+</context>
+<context>
+    <name>UpdateController</name>
+<message>
+        <source>One-click updates are available in the packaged application.</source>
+        <translation>One-click updates are available in the packaged application.</translation>
+    </message>
+<message>
+        <source>Downloading update...</source>
+        <translation>Downloading update...</translation>
+    </message>
+<message>
+        <source>Preparing to restart...</source>
+        <translation>Preparing to restart...</translation>
+    </message>
+<message>
+        <source>Update handoff failed.</source>
+        <translation>Update handoff failed.</translation>
+    </message>
+<message>
+        <source>Update failed: %1</source>
+        <translation>Update failed: %1</translation>
+    </message>
+<message>
+        <source>The update was not completed. The previous version and its recovery record were kept.</source>
+        <translation>The update was not completed. The previous version and its recovery record were kept.</translation>
+    </message>
+</context>
+<context>
+    <name>UpdaterProcess</name>
+<message>
+        <source>Could not download the update. Check your network connection and try again.</source>
+        <translation>Could not download the update. Check your network connection and try again.</translation>
+    </message>
+<message>
+        <source>The latest release has no package for this edition and architecture.</source>
+        <translation>The latest release has no package for this edition and architecture.</translation>
+    </message>
+<message>
+        <source>The downloaded package is invalid.</source>
+        <translation>The downloaded package is invalid.</translation>
+    </message>
+<message>
+        <source>The downloaded update does not match this installation.</source>
+        <translation>The downloaded update does not match this installation.</translation>
+    </message>
+<message>
+        <source>Another update or recovery is already running.</source>
+        <translation>Another update or recovery is already running.</translation>
+    </message>
+<message>
+        <source>An earlier update was not finished. Recover it from the .jietuba-update folder first.</source>
+        <translation>An earlier update was not finished. Recover it from the .jietuba-update folder first.</translation>
+    </message>
+<message>
+        <source>The application did not close or its file is in use. Close it and try again.</source>
+        <translation>The application did not close or its file is in use. Close it and try again.</translation>
+    </message>
+<message>
+        <source>No permission to write to the installation folder.</source>
+        <translation>No permission to write to the installation folder.</translation>
+    </message>
+<message>
+        <source>The application file was changed by another program. The update was stopped.</source>
+        <translation>The application file was changed by another program. The update was stopped.</translation>
+    </message>
+<message>
+        <source>The previous version could not be restored automatically. Its backup was kept in the .jietuba-update folder.</source>
+        <translation>The previous version could not be restored automatically. Its backup was kept in the .jietuba-update folder.</translation>
+    </message>
+<message>
+        <source>The update was cancelled.</source>
+        <translation>The update was cancelled.</translation>
+    </message>
+<message>
+        <source>The updater stopped with an error (%1).</source>
+        <translation>The updater stopped with an error (%1).</translation>
     </message>
 </context>
 </TS>

@@ -6,13 +6,13 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QFileDialog, QMenu
+from PySide6.QtWidgets import QMenu
 
 from core import safe_event
 from core.constants import CSS_FONT_FAMILY_UI
 from core.i18n import make_tr
 from core.logger import log_exception
-from ui.dialogs import show_warning_dialog
+from ui.dialogs import get_existing_directory, show_warning_dialog
 
 _tr = make_tr("SystemTray")
 
@@ -155,7 +155,7 @@ def _add_pin_actions(menu: QMenu, app):
 
 
 def _save_all_pins_as(app, pin_manager):
-    directory = QFileDialog.getExistingDirectory(
+    directory = get_existing_directory(
         None,
         _tr("Choose folder to save pinned images"),
         str(Path.home()),

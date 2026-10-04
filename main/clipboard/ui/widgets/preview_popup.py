@@ -271,7 +271,7 @@ class PreviewPopup(QWidget):
             files = data.get("files", [])
             
             if not files:
-                self.content_widget.setPlainText("无文件信息")
+                self.content_widget.setPlainText(_tr("无文件信息"))
                 self.content_widget.show()
                 return
             

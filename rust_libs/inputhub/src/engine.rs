@@ -286,7 +286,9 @@ impl Engine {
         if self.closed {
             return false;
         }
-        if !input.injected && self.gesture_mouse(input, platform, emit) {
+        // Remote-control software can deliver mouse input with LLMHF_INJECTED.
+        // Gestures depend on the configured modifiers/button, not input origin.
+        if self.gesture_mouse(input, platform, emit) {
             return true;
         }
         if self.side_mouse(input, emit) {
@@ -305,8 +307,9 @@ impl Engine {
         if self.closed {
             return false;
         }
-        let suppress = (!input.injected && self.gesture_key(input, platform, emit))
-            || self.hotkey_key(input, platform, emit);
+        // Remote Esc and modifier releases must cancel/drain the same gesture.
+        let suppress =
+            self.gesture_key(input, platform, emit) || self.hotkey_key(input, platform, emit);
         for (watcher, keys) in &self.key_watchers {
             if keys.contains(&input.vk) {
                 emit(Event::Key {
@@ -426,9 +429,8 @@ impl Engine {
         platform: &mut dyn Platform,
         emit: &mut dyn FnMut(Event),
     ) -> bool {
-        if input.injected {
-            return false;
-        }
+        // Remote-control tools inject keyboard input too; match the binding
+        // regardless of origin, just as for mouse gestures.
         if !input.pressed {
             if self.hotkey_claimed.remove(input.vk) {
                 self.sync_requested = true;

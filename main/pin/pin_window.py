@@ -35,6 +35,7 @@ from core.theme import get_theme
 from core.logger import log_exception, T
 from core.clipboard_utils import deliver_image_async
 from core.platform_utils import set_window_rounded_corners
+from core.qt_utils import blocking_modal
 from settings.tool_settings import PIN_MOUSE_ACTIONS, get_pin_mouse_binding
 from .pin_shortcut import mouse_binding_matches
 
@@ -535,13 +536,17 @@ class PinWindow(QWidget):
             self._scale_timer.start()
             self._show_zoom_percent()
 
+    def _blocked_by_modal(self) -> bool:
+        # 鼠标移动也会走到这里，先用 activeModalWidget() 排除没有模态窗口的常见情况
+        return QApplication.activeModalWidget() is not None and blocking_modal(self) is not None
+
     def handle_mouse_alternative_key(self, event):
         from core.shortcut_manager import event_key, _split_modifiers
 
         key = event_key(event)
         if key not in (Qt.Key.Key_Plus, Qt.Key.Key_Equal, Qt.Key.Key_Minus):
             return False
-        if QApplication.activeModalWidget() is not None or self._thumbnail_mode:
+        if self._blocked_by_modal() or self._thumbnail_mode:
             return False
         modifier_options = [event.modifiers()]
         # Prefer an explicit Shift binding, then allow Shift used to type '+'.
@@ -594,7 +599,7 @@ class PinWindow(QWidget):
     def _handle_mouse_gesture(self, event):
         if self._is_closed or (self.canvas and self.canvas.is_editing):
             return False
-        if QApplication.activeModalWidget() is not None:
+        if self._blocked_by_modal():
             return False
         kind = event.type()
         if kind not in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseButtonDblClick,
@@ -926,14 +931,14 @@ class PinWindow(QWidget):
 
     def save_image(self):
         from datetime import datetime
-        from PySide6.QtWidgets import QFileDialog
         from core.save import SaveService
+        from ui.dialogs import get_save_file_name
         import os
         import re
 
         fmt = (self.config_manager.get_screenshot_format() if self.config_manager else "PNG").lower()
         default_name = f"pinned_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{fmt}"
-        file_path, selected_filter = QFileDialog.getSaveFileName(
+        file_path, selected_filter = get_save_file_name(
             self,
             self.tr("Save Pin Image"),
             default_name,

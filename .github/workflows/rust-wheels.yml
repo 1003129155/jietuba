@@ -86,7 +86,7 @@ jobs:
         # 「哪个 crate 的哪个版本用哪个许可证」这份清单一致，就等价于声明未过期。
         run: |
           $stale = $false
-          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust", "hdrcapture", "inputhub") {
+          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust", "hdrcapture", "inputhub", "updater") {
             $fresh = Join-Path $env:RUNNER_TEMP "$crate-notices.txt"
             cargo about generate --manifest-path rust_libs/$crate/Cargo.toml -o $fresh rust_libs/notices.hbs
             if ($LASTEXITCODE -ne 0) { throw "$crate 的许可声明生成失败" }
@@ -107,6 +107,9 @@ jobs:
             exit 1
           }
           Write-Host "全部包的第三方许可声明均为最新"
+
+      - name: Build independent updater
+        run: cargo rustc --locked --release --target ${{ matrix.rust-target }} --manifest-path rust_libs/Cargo.toml -p jietuba-updater --bin jietuba_updater -- -C target-feature=+crt-static
 
       - name: Install maturin
         # 版本与 requirements-dev.txt 保持一致

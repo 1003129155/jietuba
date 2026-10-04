@@ -2,6 +2,8 @@
 
 import time
 
+import pytest
+
 from clipboard.controllers.foreground_tracker import ForegroundWindowTracker
 from core.input_hub import input_hub
 from core.shortcut_manager import MOUSE_BUTTON_BACK, ShortcutManager
@@ -38,10 +40,11 @@ def test_bound_side_button_is_swallowed_and_dispatched_while_the_other_passes(qa
         qtbot.waitUntil(lambda: not input_hub().native.stats()["hooks_installed"], timeout=2000)
 
 
-def test_taken_over_win_v_reaches_neither_the_window_nor_the_system(qapp, qtbot, tmp_path):
+@pytest.mark.parametrize("marker", [MARKER, 0])
+def test_taken_over_win_v_reaches_neither_the_window_nor_the_system(qapp, qtbot, tmp_path, marker):
     with real_desktop(qtbot, tmp_path) as (target,):
         hub = input_hub()
-        hub.native.set_test_marker(MARKER)
+        hub.native.set_test_marker(marker)
         manager = ShortcutManager()
         calls = []
         manager.register_hook_hotkey("clipboard", ["win"], ord("V"), lambda: calls.append("clipboard"))
@@ -61,9 +64,13 @@ def test_taken_over_win_v_reaches_neither_the_window_nor_the_system(qapp, qtbot,
             assert (foreground, name) == (target.frame, "TkTopLevel")
             # 窗口只收到 Win 和松开前补发的一对未分配键（Tk 记作 ??）
             assert target.seen()[before:] == ["key Win_L", "key ??", "keyup ??", "keyup Win_L"]
-            # 松开 Win 之后的 V 照常送达；输入法开着时按下会记成 ??，只看抬起
+            # 松开 Win 之后的 V 照常送达；输入法可能把按下和抬起都记成 ??。
+            after_hotkey = len(target.seen())
             send(key(ord("V")), key(ord("V"), up=True))
-            qtbot.waitUntil(lambda: "keyup v" in target.seen()[before:], timeout=2000)
+            qtbot.waitUntil(lambda: len(target.seen()) >= after_hotkey + 2, timeout=2000)
+            passed = target.seen()[after_hotkey:]
+            assert len(passed) == 2
+            assert passed[0].startswith("key ") and passed[1].startswith("keyup ")
             assert calls == ["clipboard"]
         finally:
             manager.unregister_all_hotkeys()

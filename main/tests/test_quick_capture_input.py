@@ -179,13 +179,13 @@ def test_finish_discards_queued_motion_and_uses_exact_release_coordinates(captur
     assert f.events == [("start", 1, 10, 20), ("finish", 1, 170, 180)]
 
 
-def test_injected_motion_does_not_change_position_or_notify(capture_input):
+def test_remote_motion_updates_position_and_notifies(capture_input):
     f = capture_input
     start(f)
     assert not move(f, 900, 1000, injected=True)
     f.flush()
-    assert not f.moves
-    assert f.source.take_position(1) is None
+    assert f.moves == [1]
+    assert f.source.take_position(1) == (900, 1000)
     assert release(f, "left", 30, 40)
     f.flush()
     assert f.events[-1] == ("finish", 1, 30, 40)
@@ -404,7 +404,7 @@ def test_wheels_are_swallowed_only_during_a_drag(capture_input, action):
     assert not f.native.mouse(action, delta=120)
     start(f)
     assert f.native.mouse(action, delta=120)
-    assert not f.native.mouse(action, delta=120, injected=True)
+    assert f.native.mouse(action, delta=120, injected=True)
     f.source.cancel()
     assert not f.native.mouse(action, delta=120)
 
@@ -464,24 +464,32 @@ def test_alt_release_cancels_normally(capture_input):
     assert release(f)
 
 
-@pytest.mark.parametrize("button", ["left", "x1"])
-def test_injected_mouse_never_starts_or_finishes_a_physical_drag(capture_input, button):
+@pytest.mark.parametrize("button", BUTTONS)
+def test_remote_mouse_starts_and_finishes_drag(capture_input, button):
     f = capture_input
     f.source.configure([binding("win", button=button)], True)
     f.native.hold(0x5B)
-    assert not press(f, button, injected=True)
-    assert press(f, button)
-    assert not release(f, button, injected=True)
+    assert press(f, button, injected=True)
     assert f.source.dragging
-    assert release(f, button)
+    assert release(f, button, 70, 80, injected=True)
+    assert not f.source.dragging
+    f.flush()
+    assert f.events == [("start", 1, 10, 20), ("finish", 1, 70, 80)]
 
 
-def test_injected_keyboard_does_not_cancel(capture_input):
+@pytest.mark.parametrize("vk", [VK_ESCAPE, 0x5B])
+def test_remote_escape_or_modifier_release_cancels(capture_input, vk):
     f = capture_input
     start(f)
-    assert not key_down(f, VK_ESCAPE, injected=True)
-    assert not key_up(f, 0x5B, injected=True)
-    assert f.source.dragging
+    if vk == VK_ESCAPE:
+        assert key_down(f, vk, injected=True)
+        assert key_up(f, vk, injected=True)
+    else:
+        assert not key_up(f, vk, injected=True)
+    assert not f.source.dragging
+    assert release(f, injected=True)
+    f.flush()
+    assert kinds(f) == ["start", "cancel"]
 
 
 def test_disable_waits_for_claimed_buttons_and_escape_releases(capture_input):
@@ -704,12 +712,12 @@ def test_plain_win_key_before_and_after_capture_keeps_native_behavior(capture_in
     assert f.native.mask_calls == 1
 
 
-def test_injected_win_release_does_not_consume_physical_release_protection(capture_input):
+def test_remote_win_release_masks_menu_once(capture_input):
     f = capture_input
     start(f)
     assert release(f)
     assert not key_up(f, 0x5B, injected=True)
-    assert f.native.mask_calls == 0
+    assert f.native.mask_calls == 1
     assert not key_down(f, 0x5B)
     assert not key_up(f, 0x5B)
     assert f.native.mask_calls == 1

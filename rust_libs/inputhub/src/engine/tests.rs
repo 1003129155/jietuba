@@ -414,7 +414,7 @@ fn the_binding_of_only_the_current_gesture_is_reported() {
 // ---------------------------------------------------------------- 模拟输入
 
 #[test]
-fn injected_input_never_drives_gestures() {
+fn injected_input_drives_gestures_and_escape_cancels() {
     let mut rig = Rig::new(&[(ctrl(), Button::Left)]);
     rig.hold(VK_LCONTROL);
     let press = MouseInput {
@@ -423,15 +423,18 @@ fn injected_input_never_drives_gestures() {
         y: 0,
         injected: true,
     };
-    assert_eq!(rig.mouse_input(press), (false, vec![]));
-    let id = rig.start_ctrl_left();
+    let (swallowed, events) = rig.mouse_input(press);
+    assert!(swallowed);
+    assert_eq!(events.len(), 1);
+    let id = rig.engine.gesture_id;
+    assert!(rig.engine.accepts(id) && rig.engine.dragging());
     let esc = KeyInput {
         vk: VK_ESCAPE,
         pressed: true,
         injected: true,
     };
-    assert!(!rig.engine.on_key(esc, &mut rig.platform, &mut |_| {}));
-    assert!(rig.engine.accepts(id) && rig.engine.dragging());
+    assert!(rig.engine.on_key(esc, &mut rig.platform, &mut |_| {}));
+    assert!(!rig.engine.accepts(id) && !rig.engine.dragging());
 }
 
 // ---------------------------------------------------------------- 侧键热键
@@ -606,7 +609,7 @@ fn a_key_held_before_the_modifiers_is_left_alone() {
 }
 
 #[test]
-fn injected_keys_never_trigger_hotkeys() {
+fn injected_keys_trigger_hotkeys_once_and_swallow_release() {
     let mut rig = hotkey_rig();
     rig.key(VK_LWIN, true);
     let mut events = Vec::new();
@@ -615,10 +618,27 @@ fn injected_keys_never_trigger_hotkeys() {
         pressed: true,
         injected: true,
     };
-    assert!(!rig
+    assert!(rig
         .engine
         .on_key(input, &mut rig.platform, &mut |e| events.push(e)));
-    assert!(events.is_empty());
+    assert_eq!(
+        events,
+        vec![Event::Hotkey {
+            name: "clipboard".into()
+        }]
+    );
+    assert!(rig
+        .engine
+        .on_key(input, &mut rig.platform, &mut |e| events.push(e)));
+    assert_eq!(events.len(), 1);
+    let release = KeyInput {
+        pressed: false,
+        ..input
+    };
+    assert!(rig
+        .engine
+        .on_key(release, &mut rig.platform, &mut |e| events.push(e)));
+    assert_eq!(events.len(), 1);
 }
 
 #[test]

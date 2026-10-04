@@ -5,7 +5,11 @@ ClipboardItem / Group 数据模型单元测试
 测试 display_text / icon 等纯逻辑属性（不依赖 Rust 后端）。
 """
 import json
+
+from PySide6.QtCore import QTranslator
+
 from clipboard.core import ClipboardItem, Group
+from core.i18n import I18nManager
 
 
 # ==================== ClipboardItem 测试 ====================
@@ -68,11 +72,17 @@ class TestClipboardItem:
         assert "a.txt" in item.display_text
         assert "b.txt" in item.display_text
 
-    def test_display_text_empty_files(self):
-        """空文件列表"""
+    def test_display_text_empty_files(self, qapp):
+        """空文件列表显示界面语言的「文件」"""
         files_data = json.dumps({"files": []})
         item = ClipboardItem(id=1, content=files_data, content_type="file")
-        assert item.display_text == "文件"
+        translator = QTranslator()
+        assert translator.load(str(I18nManager.get_translations_dir() / "app_ja.qm"))
+        qapp.installTranslator(translator)
+        try:
+            assert item.display_text == "ファイル"
+        finally:
+            qapp.removeTranslator(translator)
 
     def test_icon_text(self):
         """文本类型无图标"""

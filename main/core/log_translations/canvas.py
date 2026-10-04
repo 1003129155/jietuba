@@ -126,4 +126,5 @@ TRANSLATIONS: dict[str, str] = {
     # -- canvas/items/drawing_items.py --
     "DrawingItem paint 异常: {e}": "DrawingItem paint exception: {e}",
     "内容为空，自动删除": "Content is empty, deleting automatically",
+    "文字宽度控制点拖拽被处理": "Text width handle drag handled",
 }

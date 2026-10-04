@@ -3,16 +3,18 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 import re
-import urllib.error
-import urllib.request
+import subprocess
+import sys
+
+from core.updater_process import app_variant, helper_path
+from core.update_cache import remove_helper
 
 from PySide6.QtCore import QObject, QThread, Signal
 
 from core.constants import (
-    PROJECT_LATEST_RELEASE_API_URL,
     PROJECT_RELEASES_LATEST_URL,
 )
 from core.logger import log_exception
@@ -32,6 +34,10 @@ class ReleaseInfo:
     title: str
     notes: str
     url: str
+    available: bool | None = None
+    asset_name: str = ""
+    arch: str = ""
+    artifact: dict = field(default_factory=dict)
 
 
 def comparable_version(value: str) -> tuple[int, int, int, int]:
@@ -74,25 +80,34 @@ def parse_release_payload(payload: bytes) -> ReleaseInfo:
 
 
 def fetch_latest_release(timeout_ms: int) -> ReleaseInfo:
-    """Fetch and parse GitHub's latest-release response with the stdlib."""
-    request = urllib.request.Request(
-        PROJECT_LATEST_RELEASE_API_URL,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "jietuba-update-checker",
-        },
-    )
+    """Fetch the release matching the installed executable through the Rust helper."""
+    from main_app import APP_VERSION
+    executable = None
     try:
-        with urllib.request.urlopen(request, timeout=timeout_ms / 1000) as response:
-            return parse_release_payload(response.read())
-    except UpdateCheckError:
-        raise
-    except urllib.error.HTTPError as exc:
-        raise UpdateCheckError(f"HTTP {exc.code}: {exc.reason}") from exc
-    except urllib.error.URLError as exc:
-        raise UpdateCheckError(str(exc.reason)) from exc
-    except (OSError, TimeoutError) as exc:
+        executable = helper_path()
+        result = subprocess.run(
+            [str(executable), "check", "--install-exe", sys.executable,
+             "--current-version", APP_VERSION, "--variant", app_variant()],
+            capture_output=True, timeout=timeout_ms / 1000,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        events = [json.loads(line) for line in result.stdout.splitlines() if line]
+        for event in events:
+            if event.get("protocol") != 1:
+                raise UpdateCheckError("Invalid updater protocol")
+            if event.get("event") == "error":
+                raise UpdateCheckError(event["data"].get("message", "Update check failed"))
+            if event.get("event") in ("available", "up_to_date") and result.returncode == 0:
+                data = event["data"]
+                return ReleaseInfo(
+                    data["tag_name"], data["title"], data["notes"], data["url"],
+                    event["event"] == "available", data["asset_name"], data["arch"], data["artifact"],
+                )
+        raise UpdateCheckError("Updater returned no release")
+    except (OSError, subprocess.TimeoutExpired, ValueError, KeyError, TypeError) as exc:
         raise UpdateCheckError(str(exc)) from exc
+    finally:
+        remove_helper(executable)
 
 
 class _ReleaseCheckThread(QThread):

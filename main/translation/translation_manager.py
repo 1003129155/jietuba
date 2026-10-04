@@ -611,7 +611,7 @@ class TranslationManager(QObject):
             if success:
                 self._popup.show_result(translated_text, detected_lang)
             else:
-                self._popup.show_error(error or self.tr("Translation failed"))
+                self._popup.show_error(error or _tr("Translation failed"))
         elif result_target == "dialog" and self._is_dialog_valid():
             self._dialog.on_translation_finished(success, translated_text, error, detected_lang)
         
@@ -628,7 +628,7 @@ class TranslationManager(QObject):
         
         if not text or not text.strip():
             if self._is_dialog_valid():
-                self._dialog.set_translation_error(self.tr("Please enter text to translate"))
+                self._dialog.set_translation_error(_tr("Please enter text to translate"))
             return
         
         log_debug(T("翻译请求: -> {target_lang}", target_lang=target_lang), "Translation")
@@ -851,7 +851,7 @@ class TranslationManager(QObject):
                         return
 
                     if not is_ocr_available():
-                        self.finished_signal.emit(False, "OCR功能不可用")
+                        self.finished_signal.emit(False, _tr("OCR is not available"))
                         return
                     
                     # 执行OCR识别，使用dict格式获取完整信息（含坐标）
@@ -866,12 +866,12 @@ class TranslationManager(QObject):
                         if text and text.strip():
                             self.finished_signal.emit(True, text)
                         else:
-                            self.finished_signal.emit(False, "未识别到文字")
+                            self.finished_signal.emit(False, _tr("No text recognized"))
                     else:
-                        self.finished_signal.emit(False, "未识别到文字")
+                        self.finished_signal.emit(False, _tr("No text recognized"))
                         
                 except Exception as e:
-                    self.finished_signal.emit(False, f"OCR识别失败: {str(e)}")
+                    self.finished_signal.emit(False, f'{_tr("OCR failed:")} {e}')
                 finally:
                     self._image = None  # 释放图像数据
         
@@ -929,5 +929,5 @@ class TranslationManager(QObject):
         else:
             # 显示错误信息
             self._dialog.source_edit.setPlainText("")
-            self._dialog.source_edit.setPlaceholderText(result or "识别失败")
+            self._dialog.source_edit.setPlaceholderText(result or _tr("Recognition failed"))
             log_error(T("OCR识别失败: {result}", result=result), "Translation")

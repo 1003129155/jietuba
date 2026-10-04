@@ -261,6 +261,17 @@ class ClipboardManager:
         if self.is_available:
             return self._manager.is_monitoring()
         return False
+
+    def pause_for_update(self) -> bool:
+        """Return busy immediately while native image encoding or storage writes are active."""
+        return not self.is_available or self._manager.pause_for_update()
+
+    def resume_after_update(self):
+        if self.is_available:
+            self._manager.resume_after_update()
+
+    def pending_writes(self) -> int:
+        return self._manager.pending_writes() if self.is_available else 0
     
     def get_history(self, offset: int = 0, limit: int = 50,
                     search: Optional[str] = None,
@@ -421,7 +432,32 @@ class ClipboardManager:
         except Exception as e:
             log_error(T("粘贴失败: {e}", e=e), "Clipboard")
             return False
-    
+
+    def paste_items(self, item_ids: List[int], with_html: bool = True, move_to_top: bool = False,
+                    separator: str = "\n", plain_text: bool = False, layout: str = "vertical",
+                    keep_in_history: bool = False) -> List[int]:
+        """把几条合成一份内容写进剪贴板（多选粘贴）。
+
+        Args:
+            item_ids: 按粘贴顺序排好的 ID
+            plain_text: 只写纯文本，文件按路径写
+            layout: 全是图片时的拼接方向，"vertical" 或 "horizontal"
+            keep_in_history: 合并结果存为一条新记录
+
+        Returns:
+            实际用上的 ID；什么都没写进剪贴板时为空
+        """
+        if not self.is_available:
+            return []
+
+        try:
+            return list(self._manager.paste_items(
+                list(item_ids), with_html, move_to_top, separator, plain_text, layout, keep_in_history
+            ))
+        except Exception as e:
+            log_error(T("合并粘贴失败: {e}", e=e), "Clipboard")
+            return []
+
     def get_image_data(self, image_id: str) -> Optional[bytes]:
         """获取图片数据"""
         if not self.is_available:

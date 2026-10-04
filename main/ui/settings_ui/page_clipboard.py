@@ -8,11 +8,11 @@ from core.logger import log_exception, T
 from core.ui_scale import dialog_scaled
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QSizePolicy,
-    QFileDialog, QProgressDialog,
+    QProgressDialog,
 )
 from PySide6.QtCore import Qt, QThread, Signal
 from ui.dialogs import (
-    show_info_dialog, show_warning_dialog, show_confirm_dialog,
+    get_existing_directory, show_info_dialog, show_warning_dialog, show_confirm_dialog,
     show_confirm_checkbox_dialog,
 )
 from ui.fluent_lite import (
@@ -232,7 +232,7 @@ def _change_clipboard_data_location(dialog):
             return
 
         current_dir = os.path.dirname(current_db_path)
-        target_dir = QFileDialog.getExistingDirectory(
+        target_dir = get_existing_directory(
             dialog,
             dialog.tr("Choose Clipboard Data Folder"),
             current_dir,

@@ -1,18 +1,21 @@
 """
-截图吧 - PP-OCR 版本打包脚本
+截图吧打包脚本
 使用 onefile 模式（单文件）
 
 使用方式：
-  直接运行此脚本，打包生成 jietuba_pp.exe，携带 ppocr_rust，外置 models/ 模型目录
+  python build_with_ocr_onefile.py          完整版：截图工具 OCR + PP-OCR，外置 models/ 模型目录
+  python build_with_ocr_onefile.py --lite   轻量版：只有截图工具 OCR，不带 PP-OCR 引擎和模型
 
 输出：
-  dist/jietuba_pp.exe
-  dist/models/PP-OCRv6_det_small.onnx
-  dist/models/PP-OCRv6_rec_small.onnx
+  完整版  dist/jietuba_pp.exe、dist/models/PP-OCRv6_det_small.onnx、dist/models/PP-OCRv6_rec_small.onnx
+  轻量版  dist_lite/jietuba_lite.exe
 """
 import PyInstaller.__main__
 from pathlib import Path
 import os
+import sys
+
+LITE = "--lite" in sys.argv[1:]
 
 # 路径配置
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -20,8 +23,8 @@ REPO_DIR = SCRIPT_DIR
 MAIN_APP = "main/main_app.py"
 SVG_DIR = "svg"
 BUILD_DIR = "build"
-DIST_DIR = "dist"
-EXE_NAME = "jietuba_pp"
+DIST_DIR = "dist_lite" if LITE else "dist"
+EXE_NAME = "jietuba_lite" if LITE else "jietuba_pp"
 
 # 翻译文件
 TRANSLATIONS_DIR = "main/translations"
@@ -43,7 +46,7 @@ hidden_imports = [
     'pyclipboard',
     'longstitch',
     'gifrecorder',
-    'ppocr_rust',
+    'oneocr',
     'hdrcapture',
     'inputhub',
     'zxingcpp',
@@ -86,6 +89,10 @@ excludes = [
     'keyboard',
     'av',
     'windows_media_ocr',
+    # oneocr 的 OpenCV 输入和 HTTP 服务用不到
+    'cv2',
+    'fastapi',
+    'uvicorn',
     'pythoncom',
     'win32com',
     'win32com.client',
@@ -143,8 +150,33 @@ excludes = [
     'PySide6.QtWebSockets',
 ]
 
+if LITE:
+    excludes.append('ppocr_rust')
+else:
+    hidden_imports.append('ppocr_rust')
+
+def build_updater():
+    import platform
+    import subprocess
+    machine = platform.machine().lower()
+    targets = {"amd64": "x86_64-pc-windows-msvc", "x86_64": "x86_64-pc-windows-msvc",
+               "arm64": "aarch64-pc-windows-msvc", "aarch64": "aarch64-pc-windows-msvc"}
+    if machine not in targets:
+        raise RuntimeError(f"Unsupported Windows package architecture: {machine}")
+    target = targets[machine]
+    # Build the standalone helper separately with a static CRT so it can outlive the application.
+    command = ["cargo", "rustc", "--locked", "--release", "--target", target,
+               "--manifest-path", str(REPO_DIR / "rust_libs" / "Cargo.toml"),
+               "-p", "jietuba-updater", "--bin", "jietuba_updater", "--",
+               "-C", "target-feature=+crt-static"]
+    subprocess.run(command, check=True, cwd=REPO_DIR)
+    return REPO_DIR / "rust_libs" / "target" / target / "release" / "jietuba_updater.exe"
+
+
 if __name__ == '__main__':
     os.chdir(REPO_DIR)
+
+    updater_binary = build_updater()
 
     # Generate the UIA typelib wrapper before Analysis so the onefile build
     # includes its dynamic imports without requiring a writable runtime cache.
@@ -152,13 +184,20 @@ if __name__ == '__main__':
     comtypes.client.GetModule("UIAutomationCore.dll")
 
     print("=" * 60)
-    print(f"开始打包 {EXE_NAME} (onefile 模式，PP-OCR 版本)")
+    print(f"开始打包 {EXE_NAME} (onefile 模式，{'轻量版' if LITE else '完整版'})")
     print("=" * 60)
     print(f"源文件: {MAIN_APP}")
     print(f"输出目录: {DIST_DIR}")
     print(f"构建目录: {BUILD_DIR}")
     print("=" * 60)
 
+    datas.append("rust_libs/updater/THIRD-PARTY-NOTICES.txt;updater")
+    # 更新器按程序自报的版本类型选下载包，exe 改了名也能更新
+    variant_file = REPO_DIR / BUILD_DIR / f"variant_{EXE_NAME}" / "app_variant.txt"
+    variant_file.parent.mkdir(parents=True, exist_ok=True)
+    variant_file.write_text("lite" if LITE else "full", encoding="utf-8")
+    datas.append(f"{variant_file.relative_to(REPO_DIR).as_posix()};updater")
+    binaries_repr = repr([(str(updater_binary), "updater")])
     datas_repr  = repr([(d.split(';')[0], d.split(';')[1]) for d in datas])
     hidden_repr = repr(hidden_imports)
     excl_repr   = repr(excludes)
@@ -171,7 +210,7 @@ import os as _os
 a = Analysis(
     ['{MAIN_APP}'],
     pathex=['main'],
-    binaries=[],
+    binaries={binaries_repr},
     datas={datas_repr},
     hiddenimports={hidden_repr},
     hookspath=[],
@@ -289,12 +328,12 @@ exe = EXE(
         f'--workpath={BUILD_DIR}',
     ])
 
-    # ── 把 PP-OCR 模型外置到 exe 同级 models/ 目录 ──
+    # ── 完整版把 PP-OCR 模型外置到 exe 同级 models/ 目录 ──
     import shutil
     src_models = REPO_DIR / "models"
     dst_models = REPO_DIR / DIST_DIR / "models"
     model_files = ["PP-OCRv6_det_small.onnx", "PP-OCRv6_rec_small.onnx"]
-    if src_models.exists():
+    if not LITE and src_models.exists():
         dst_models.mkdir(parents=True, exist_ok=True)
         for fn in model_files:
             sp = src_models / fn
@@ -303,11 +342,15 @@ exe = EXE(
                 print(f"已外置模型: {fn}")
             else:
                 print(f"警告: 缺少模型 {fn}")
-    else:
+    elif not LITE:
         print(f"警告: 未找到 models 目录 {src_models}")
+
+    from build_notices import write_notices
+    print(f"许可声明: {write_notices(REPO_DIR / DIST_DIR, lite=LITE)}")
 
     print("=" * 60)
     print("打包完成！")
     print(f"可执行文件位置: {DIST_DIR}/{EXE_NAME}.exe")
-    print(f"模型目录(需与 exe 同级): {DIST_DIR}/models/")
+    if not LITE:
+        print(f"模型目录(需与 exe 同级): {DIST_DIR}/models/")
     print("=" * 60)

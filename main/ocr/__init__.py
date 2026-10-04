@@ -2,8 +2,8 @@
 OCR 模块 - 文字识别功能
 
 支持 OCR 引擎：
-- windows_media_ocr: Windows 系统自带 OCR API (轻量级)
-- win_advanced: 高精度引擎 (通过 Rust FFI 调用系统组件)
+- oneocr: Windows 截图工具自带的 OCR（需要 Windows 11 截图工具）
+- ppocr_rust: PP-OCR，只在完整版里
 
 主要功能：
 - OCRManager: OCR 管理器（单例模式）
@@ -23,7 +23,7 @@ OCR 模块 - 文字识别功能
         engines = get_available_engines()
         print(f"可用引擎: {engines}")
         
-        set_ocr_engine("windows_media_ocr")  # 切换到 Windows OCR
+        set_ocr_engine("auto")  # auto / oneocr / ppocr_rust
         initialize_ocr()
         result = recognize_text(pixmap, return_format="text")
         print(result)
@@ -33,6 +33,7 @@ from .ocr_manager import (
     OCRManager,
     is_ocr_available,
     get_available_engines,
+    get_ppocr_status,
     set_ocr_engine,
     get_current_engine,
     initialize_ocr,
@@ -46,6 +47,7 @@ __all__ = [
     'OCRManager',
     'is_ocr_available',
     'get_available_engines',
+    'get_ppocr_status',
     'set_ocr_engine',
     'get_current_engine',
     'initialize_ocr',
@@ -54,4 +56,3 @@ __all__ = [
     'get_ocr_memory_status',
     'format_ocr_result_text'
 ]
- 

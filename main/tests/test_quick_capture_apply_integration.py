@@ -61,7 +61,6 @@ def integration(qapp, qtbot, tmp_settings, tmp_path, monkeypatch):
     monkeypatch.setattr(capture_module.CaptureService, "capture_all_screens", lambda _self, _cursor=None: (
         synthetic_image(QRect(0, 0, 800, 600)), QRectF(0, 0, 800, 600),
     ))
-    monkeypatch.setattr("ui.quick_capture_overlay.set_window_exclude_from_capture", Mock())
     copied, pinned = Mock(), Mock()
     monkeypatch.setattr(capture_module, "deliver_screenshot", copied)
     monkeypatch.setattr(capture_module, "set_last_region", Mock())
@@ -165,36 +164,17 @@ def configure_ctrl(fixture):
     fixture.app.quick_capture.refresh()
 
 
-def test_normal_capture_show_passes_ctrl_click_and_hide_restores_quick_capture(integration):
+def test_window_modal_dialog_of_another_window_leaves_quick_capture_on(integration):
     f = integration
     configure_ctrl(f)
-    window = QWidget()
-    f.qtbot.addWidget(window)
-    window._session_active = True
-    f.app.screenshot_window = window
-    window.show()
-    # No event-loop wait: the Show filter must update native admission first.
-    assert matching_ctrl_click(f) == (False, False)
-    f.qapp.processEvents()
-    assert not f.app.quick_capture.busy
-    assert not f.copied.called
-    window._session_active = False
-    window.hide()
-    drag(f, [0xA2], accepted=True)
-
-
-def test_modal_show_passes_ctrl_click_and_hide_restores_quick_capture(integration):
-    f = integration
-    configure_ctrl(f)
-    modal = QDialog()
-    f.qtbot.addWidget(modal)
-    modal.setWindowModality(Qt.WindowModality.ApplicationModal)
+    owner = QWidget()
+    f.qtbot.addWidget(owner)
+    modal = QDialog(owner)
+    modal.setWindowModality(Qt.WindowModality.WindowModal)
+    owner.show()
     modal.show()
-    assert matching_ctrl_click(f) == (False, False)
-    f.qapp.processEvents()
-    assert not f.app.quick_capture.busy
-    modal.hide()
     drag(f, [0xA2], accepted=True)
+    modal.hide()
 
 
 @pytest.mark.parametrize("reuse", [False, True])
@@ -217,6 +197,8 @@ def test_normal_capture_build_blocks_input_before_first_show_or_reuse(integratio
         return window
 
     if reuse:
+        # 复用的窗口在第一次建出来时就连好了 session_ended
+        window.session_ended.connect(f.app.quick_capture.sync_input_availability)
         window.prepare_new_session = prepare
         f.app.screenshot_window = window
     else:
@@ -224,8 +206,10 @@ def test_normal_capture_build_blocks_input_before_first_show_or_reuse(integratio
     MainApp._on_capture_ready(f.app, synthetic_image(QRect(0, 0, 800, 600)), QRectF(0, 0, 800, 600))
     assert observed == [(False, False)]
     assert matching_ctrl_click(f) == (False, False)
+    # 与 ScreenshotWindow._teardown_session 的顺序一致
     window._session_active = False
     window.hide()
+    window.session_ended.emit()
     drag(f, [0xA2], accepted=True)
 
 

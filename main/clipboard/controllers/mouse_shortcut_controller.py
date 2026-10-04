@@ -50,6 +50,16 @@ class ClipboardMouseController(QObject):
                 return action
         return None
 
+    def _marking(self, event, gesture, item_id):
+        """没绑动作的 Ctrl+左键 / Shift+左键 用来多选，返回窗口上对应的处理函数。"""
+        if gesture != "left" or self._match(event, gesture, item_id) or self._match(event, "doubleleft", item_id):
+            return None
+        name = {
+            Qt.KeyboardModifier.ControlModifier: "_toggle_item_mark",
+            Qt.KeyboardModifier.ShiftModifier: "_mark_items_to",
+        }.get(event.modifiers())
+        return getattr(self.window, name, None) if name else None
+
     def _run(self, action, item_id, position):
         if action is None or not self.window.isVisible() or not self._available(action, item_id):
             return
@@ -100,7 +110,9 @@ class ClipboardMouseController(QObject):
             self.cancel()
             if item_id is None:
                 return True
-            self.window.list_widget.setCurrentItem(row)
+            # 连选的起点要用按下之前的当前行，多选手势按下时先不动它
+            if self._marking(event, gesture, item_id) is None:
+                self.window.list_widget.setCurrentItem(row)
             self.window.list_widget.setFocus()
             if (kind == QEvent.Type.MouseButtonDblClick and pending is not None
                     and pending[1] == item_id and pending[3:] == (button, modifiers)):
@@ -114,6 +126,10 @@ class ClipboardMouseController(QObject):
             self._pressed = None
             if (pressed[:3] == (item_id, button, modifiers)
                     and (event.globalPosition().toPoint() - pressed[3]).manhattanLength() < QApplication.startDragDistance()):
+                mark = self._marking(event, gesture, item_id)
+                if mark is not None:
+                    mark(item_id)
+                    return True
                 action = self._match(event, gesture, item_id)
                 if self._match(event, "double" + gesture, item_id) is not None:
                     self._pending = (action, item_id, position, button, modifiers)

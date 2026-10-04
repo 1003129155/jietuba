@@ -3,15 +3,16 @@
 import ctypes
 import sys
 
-from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QRectF, QThread, Qt, Signal, Slot
+from PySide6.QtCore import QObject, QPoint, QRect, QRectF, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QWidget
+from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
 from capture.capture_service import CaptureService
 from core.clipboard_utils import deliver_screenshot
 from core.last_capture_region import set_last_region
 from core.logger import log_debug, log_error
 from core.platform_utils import request_trim_working_set
+from core.qt_utils import blocking_modal
 from core.quick_capture_input import QuickCaptureInput
 from settings.tool_settings import get_quick_capture_bindings
 from ui.quick_capture_overlay import QuickCaptureOverlay, selection_rect
@@ -90,7 +91,6 @@ class QuickCaptureController(QObject):
         self._start = QPoint()
         self._bounds = QRect()
         self._capture_pending = False
-        QApplication.instance().installEventFilter(self)
 
     @property
     def busy(self):
@@ -119,7 +119,8 @@ class QuickCaptureController(QObject):
     def _blocked(self):
         screenshot = self.main_app.screenshot_window
         return bool(
-            QApplication.activeModalWidget() is not None
+            getattr(self.main_app, "_update_preparing", False)
+            or blocking_modal() is not None
             or (screenshot and getattr(screenshot, "_session_active", False))
         )
 
@@ -129,19 +130,10 @@ class QuickCaptureController(QObject):
         self.sync_input_availability()
 
     def sync_input_availability(self):
+        """截图排队、会话开始结束时由调用方触发。应用模态只有欢迎向导，向导期间本控制器已暂停。"""
         if self._closed:
             return
-        # 模态窗口的 Show 事件早于 activeModalWidget() 登记，所以直接看可见的模态窗口；
-        # Hide 时同样立即恢复
-        modal_visible = any(window.isVisible() and window.isModal()
-                            for window in QApplication.topLevelWidgets())
-        self.input.set_blocked(self._capture_pending or self._blocked() or modal_visible)
-
-    def eventFilter(self, watched, event):
-        if (not self._closed and event.type() in (QEvent.Type.Show, QEvent.Type.Hide)
-                and isinstance(watched, QWidget) and watched.isWindow()):
-            self.sync_input_availability()
-        return False
+        self.input.set_blocked(self._capture_pending or self._blocked())
 
     @Slot(str, int, int, int)
     def _on_input(self, kind, token, x, y):
@@ -284,7 +276,6 @@ class QuickCaptureController(QObject):
         if self._closed:
             return
         self._closed = True
-        QApplication.instance().removeEventFilter(self)
         self.cancel()
         self.input.close()
         if self._worker is not None:

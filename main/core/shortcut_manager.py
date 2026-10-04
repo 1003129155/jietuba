@@ -38,6 +38,7 @@
 from __future__ import annotations
 
 import ctypes
+import weakref
 from abc import ABC, abstractmethod
 from ctypes import wintypes
 from typing import Callable, Dict, List, Optional, Set, Tuple
@@ -289,7 +290,9 @@ class _HotkeyEventFilter(QAbstractNativeEventFilter):
     def __init__(self, manager: 'ShortcutManager',
                  id_to_callback: Dict[int, Callable]):
         super().__init__()
-        self._manager = manager
+        # 管理器持有过滤器；这里不能反向强引用，否则 QObject 会拖到循环
+        # GC 中销毁，和 Qt 排队事件、应用级事件过滤器的处理交错。
+        self._manager_ref = weakref.ref(manager)
         self._id_to_callback = id_to_callback
 
     def nativeEventFilter(self, eventType, message):
@@ -300,15 +303,18 @@ class _HotkeyEventFilter(QAbstractNativeEventFilter):
                     hotkey_id = msg.wParam
                     cb = self._id_to_callback.get(hotkey_id)
                     if cb:
+                        manager = self._manager_ref()
+                        if manager is None:
+                            return False, 0
                         # 全局热键被临时禁用时，handler 链也不应有机会拦截
-                        if self._manager.global_hotkeys_suppressed:
+                        if manager.global_hotkeys_suppressed:
                             log_debug(
                                 T("系统热键已临时禁用，忽略回调 (id={hotkey_id})", hotkey_id=hotkey_id),
                                 "Shortcut",
                             )
                             return True, 0
                         # 再过 handler 链，看有没有人要拦截
-                        if self._manager._dispatch_hotkey(hotkey_id, cb):
+                        if manager._dispatch_hotkey(hotkey_id, cb):
                             return True, 0
                         # 没人拦截，执行原始回调
                         try:
@@ -716,7 +722,7 @@ class ShortcutManager(QObject):
                 self._mouse_capture_refs > 0,
             )
         except Exception as e:
-            log_error(f"鼠标侧键监听设置失败: {e}", module="Hotkey")
+            log_error(T("鼠标侧键监听设置失败: {e}", e=e), module="Hotkey")
 
     # ──────────────────────────────────────────────────────────────
     # 系统占用的组合键
@@ -751,7 +757,7 @@ class ShortcutManager(QObject):
                 if hub.native.bind_hotkey(name, modifiers, vk)
             }
         except Exception as e:
-            log_error(f"系统组合键接管设置失败: {e}", module="Hotkey")
+            log_error(T("系统组合键接管设置失败: {e}", e=e), module="Hotkey")
 
     def _on_hook_hotkey(self, name: str):
         # 禁用前已排队的事件照样会送到

@@ -13,7 +13,7 @@
 
 jietuba は Windows 向けの無料・オープンソースのスクリーンショットツールです。領域/ウィンドウキャプチャ、スクロール（長い）スクリーンショット、注釈、OCR 文字認識、翻訳、画像のピン留め、GIF 録画、QR コード/バーコード読み取り、PDF エクスポート、そして完全なクリップボード履歴管理を備えています。すべてローカルで動作します。
 
-UI は PySide6、画像処理・クリップボード操作・OCR は Rust で実装しています。Windows x86_64 および ARM64 に対応。
+UI は PySide6、画像処理・クリップボード操作・PP-OCR エンジンは Rust で実装しています。Windows x86_64 および ARM64 に対応。
 
 すぐに使える Windows 版の配布パッケージと、ソースからの実行方法を用意しています。
 
@@ -42,9 +42,13 @@ UI は PySide6、画像処理・クリップボード操作・OCR は Rust で�
 Windows x86_64 版および ARM64 版の配布パッケージは、そのまま実行できます。Python、Rust、開発環境のインストールは不要です。
 
 1. [Releases ページ](https://github.com/1003129155/jietuba/releases/latest)を開き、端末に合わせて `-x64.zip` または `-arm64.zip` で終わるファイルをダウンロードします。
-2. ZIP 全体を展開し、`jietuba_pp.exe` と `models/` フォルダを同じ階層に置きます。
-3. `jietuba_pp.exe` をダブルクリックして起動します。OCR モデルは配布パッケージに同梱されています。
+2. パッケージは 2 種類あります。ZIP 全体を展開し、中の exe をダブルクリックして起動します。
+   - **完全版** `jietuba_pp-…zip`：PP-OCR エンジンとモデルを同梱し、どの Windows でも OCR が使えます。`jietuba_pp.exe` と `models/` フォルダを同じ階層に置いてください。
+   - **軽量版** `jietuba_lite-…zip`：サイズが小さく、Windows 11 の Snipping Tool に内蔵された OCR だけを使います。Snipping Tool がない PC では OCR を使えません。
+3. どちらも既定では Snipping Tool の OCR（高速で対応言語が多い）を優先します。エンジンは設定の「OCR設定」で切り替えられます。
 4. アプリにはデジタル署名がないため、ブラウザーからダウンロードすると Windows の警告が表示される場合があります。表示された場合は「詳細情報」をクリックし、「実行」を選択すると起動できます。
+
+更新機能を含む最初のリリースをインストールした後、**バージョン情報 → 更新を確認 → 更新して再起動**で更新できます。対応する GitHub Release ZIP をダウンロードし、メイン EXE のみを置換して再起動します。設定、クリップボード履歴、モデルなどのファイルは保持されます。録画、書き出し、保存を終了してからインストールしてください。直前の EXE は `.jietuba-update/` に保存されます。[復元手順](rust_libs/updater/README.md)を参照してください。
 
 ---
 
@@ -84,7 +88,7 @@ cd main
 python main_app.py
 ```
 
-OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は、リポジトリの [models/](models/) に同梱されています。OCR を使う際は、このディレクトリをそのまま保持してください。
+PP-OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は、リポジトリの [models/](models/) に同梱されています。PP-OCR を使う際は、このディレクトリをそのまま保持してください。Snipping Tool の OCR は PyPI の [`oneocr`](https://pypi.org/project/oneocr/) パッケージ経由で呼び出します。必要なファイルはローカルの Windows 11 Snipping Tool から取得し、初回使用時に `%LOCALAPPDATA%\Jietuba\oneocr` へ自動でコピーするため、追加のダウンロードは不要です。
 
 ### Rust 拡張パッケージ
 
@@ -93,11 +97,11 @@ OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は、�
 | pip パッケージ名 | import 名 | バージョン | 機能 |
 |------|------|------|------|
 | [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.0 | GIF/動画合成エンコーダー |
-| [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | 長いスクリーンショット結合アルゴリズム |
-| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.4 | クリップボード操作 |
+| [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.5.0 | 長いスクリーンショット結合アルゴリズム |
+| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.5 | クリップボード操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | HDR 対応のデスクトップキャプチャ（DXGI Desktop Duplication + GPU トーンマッピング） |
-| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.0 | GUI スレッドを止めないグローバルなマウス・キーボードフック（ドラッグジェスチャ、サイドボタン、ホットキー、ホイール、前面ウィンドウ） |
+| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.1 | GUI スレッドを止めないグローバルなマウス・キーボードフック（ドラッグジェスチャ、サイドボタン、ホットキー、ホイール、前面ウィンドウ） |
 
 ビルド済み wheel は Windows x86_64 および ARM64 向けです。各パッケージの Python バージョン指定は `>=3.11` で、Rust バインディングでは `abi3-py311` を有効にしています。詳細は各パッケージの `pyproject.toml` と `Cargo.toml` を参照してください。
 
@@ -116,9 +120,9 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 [テストディレクトリ](main/tests/)には、キャプチャ、クリップボード、モザイク編集、ピン留め画像のズーム、GIF 再生、OCR テキストレイヤーなどのユニットテスト・統合テストがあります。[CI 設定](.github/workflows/ci.yml)では Windows x86_64 と ARM64 の Python 3.11 環境でテストとカバレッジ検査を実行し、x86_64 では静的解析も行います。実行結果は [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml) で確認できます。
 
-実際にマウスとキーボードを操作するテスト（`test_quick_capture_real_hooks.py` など）は既定でスキップされます。環境変数 `RUN_REAL_INPUT_TESTS=1` を設定すると実行され、実行中はマウスとキーボードに触れないでください。
+実際にマウスとキーボードを操作するテスト（`test_quick_capture_real_hooks.py` など）は既定でスキップされます。環境変数 `RUN_REAL_INPUT_TESTS=1` を設定すると実行され、実行中はマウスとキーボードに触れないでください。実際のシステムクリップボードを書き換えるテスト（`test_clipboard_monitor_real.py`）も既定でスキップされます。環境変数 `RUN_REAL_CLIPBOARD_TESTS=1` を設定すると実行され、実行中は何もコピーしないでください。
 
-Windows 版のビルドは `python build_with_ocr_onefile.py` で実行できます。生成物は `dist/jietuba_pp.exe` と `dist/models/` です。[自動リリースワークフロー](.github/workflows/build.yml)では、x64 と ARM64 のアーカイブを個別に生成します。
+Windows 完全版のビルドは `python build_with_ocr_onefile.py` で実行できます。生成物は `dist/jietuba_pp.exe` と `dist/models/` です。`--lite` を付けると軽量版をビルドし、生成物は `dist_lite/jietuba_lite.exe` です。[自動リリースワークフロー](.github/workflows/build.yml)では、x64 と ARM64 それぞれの完全版と軽量版のアーカイブを生成します。
 
 ### コードコメント
 
@@ -141,7 +145,8 @@ Windows 版のビルドは `python build_with_ocr_onefile.py` で実行できま
 ├── pyproject.toml                                      # Pythonプロジェクトのメタデータと依存関係
 ├── requirements.txt                                   # 実行時依存パッケージ
 ├── requirements-dev.txt                               # テスト・ビルド用依存パッケージ
-├── build_with_ocr_onefile.py                           # PyInstaller単一ファイルビルドスクリプト
+├── build_with_ocr_onefile.py                           # PyInstaller単一ファイルビルドスクリプト（--lite で軽量版）
+├── licenses/                                          # 配布パッケージに同梱するサードパーティライセンス
 │
 ├── main/                    # Python メインプログラム
 │   ├── main_app.py          # アプリエントリポイント：システムトレイ、グローバルホットキー、ライフサイクル管理
@@ -154,7 +159,7 @@ Windows 版のビルドは `python build_with_ocr_onefile.py` で実行できま
 │   ├── clipboard/           # クリップボードモジュール — 履歴、グループ/クイック起動、入出力、検索
 │   ├── core/                # コアモジュール — ブートストラップ、ログ、リソース、テーマ、i18n、ホットキー
 │   ├── gif/                 # GIFモジュール — 画面録画、編集、再生、エクスポート
-│   ├── ocr/                 # OCRモジュール — PP-OCR 文字認識
+│   ├── ocr/                 # OCRモジュール — Snipping Tool OCR と PP-OCR による文字認識
 │   ├── pin/                 # ピンモジュール — スクリーンショットピン留め、編集、OCR、翻訳
 │   ├── settings/            # 設定モジュール — 統一設定管理
 │   ├── stitch/              # 結合モジュール — スクロールキャプチャ、自動結合
@@ -168,9 +173,10 @@ Windows 版のビルドは `python build_with_ocr_onefile.py` で実行できま
 │   ├── gifrecorder/         # GIF/動画合成エンコーダーソース
 │   ├── longstitch/          # 長いスクリーンショット結合アルゴリズムソース
 │   ├── pyclipboard/         # クリップボード低レベル操作ソース
-│   └── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX 認識エンジンソース
+│   ├── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX 認識エンジンソース
+│   └── updater/             # メイン EXE のみを置換する独立 Rust 更新プログラム
 │
-├── models/                  # PP-OCR ONNX モデル（OCR に必須）
+├── models/                  # PP-OCR ONNX モデル（PP-OCR に必須）
 │   ├── PP-OCRv6_det_small.onnx   # テキスト検出モデル (DBNet)
 │   └── PP-OCRv6_rec_small.onnx   # テキスト認識モデル (CRNN/CTC)
 │
@@ -306,7 +312,8 @@ clipboard/
 │   ├── menus/
 │   │   ├── action_menu.py
 │   │   ├── group_context_menu.py
-│   │   └── item_context_menu.py
+│   │   ├── item_context_menu.py
+│   │   └── submenu_position.py
 │   ├── mixins/
 │   │   └── frameless_mixin.py
 │   ├── panels/
@@ -369,6 +376,10 @@ core/
 ├── qt_utils.py              # safe_disconnect() — Qtシグナル安全切断
 ├── log_translations/        # 各モジュールのログ翻訳ヘルパー
 ├── constants.py             # グローバル定数（フォント、パス等）
+├── background_tasks.py      # バックグラウンド保存の追跡
+├── update_cache.py          # 更新プログラムの一時ファイルとキャッシュのクリーンアップ
+├── updater_process.py       # Rust 更新プログラムとの非同期 JSONL 通信
+├── update_controller.py     # 更新ダウンロードと安全な再起動の調整
 ├── update_checker.py        # GitHub 最新リリースの非同期取得とバージョン比較
 └── ui_theme.py              # UIThemeManager — アプリ窓と Qt ネイティブ部品のライト/ダーク外観
 ```
@@ -406,7 +417,7 @@ gif/
 
 ### ocr/ — OCRモジュール
 
-PP-OCR による文字認識管理。
+文字認識管理。Windows の Snipping Tool に内蔵された OCR と PP-OCR の 2 つのエンジンに対応。
 
 <img width="580" height="505" alt="image" src="https://github.com/user-attachments/assets/60a16100-5edc-4543-9a35-daf05b1e244e" />
 
@@ -415,13 +426,16 @@ PP-OCR による文字認識管理。
 
 ```text
 ocr/
-└── ocr_manager.py           # OCRManager — ppocr_rust (PP-OCR) による文字認識
+├── ocr_manager.py           # OCRManager — エンジン選択・読み込み・解放、統一認識インターフェース
+└── snipping_tool_ocr.py     # SnippingToolOcr — Snipping Tool の検出、OCR ファイルのコピー、余白追加と認識
 ```
 
 </details>
 
-- ppocr_rust エンジン（純 Rust + ONNX Runtime、PP-OCR det + rec）を使用。推論はネイティブスレッドで実行され UI をブロックしない
-- 中国語/英語/日本語認識
+- 設定で「自動 / Windows Snipping Tool / PP-OCR」を選択。自動では Snipping Tool があればそれを、なければ PP-OCR を使う
+- Snipping Tool OCR：PyPI の oneocr パッケージ経由。高速で対応言語が多い（韓国語、ロシア語、タイ語など）。Windows 11 の Snipping Tool が必要
+- PP-OCR：ppocr_rust エンジン（純 Rust + ONNX Runtime、PP-OCR det + rec）。どの Windows でも動作。完全版のみ
+- 認識と解放は排他。エンジン切り替え時に旧エンジンを解放し、新エンジンは次回の認識時に読み込む
 - シングルトンパターン、統一認識インターフェース
 
 ---
@@ -482,6 +496,8 @@ settings/
 
 ```text
 stitch/
+├── auto_scroll.py                   # AutoScroller — 自動スクロール：結合結果から歩幅を決め、末尾かマウス移動で停止
+├── incremental.py                   # IncrementalStitcher — バックグラウンド結合とプレビュー縮小画像
 ├── jietuba_long_stitch_unified.py   # 結合インターフェース（Rust の longstitch を呼び出す）
 ├── scroll_window.py                 # ScrollCaptureWindow — スクロールキャプチャウィンドウ
 └── scroll_toolbar.py                # スクロールキャプチャツールバー
@@ -573,12 +589,12 @@ translation/
 translations/
 ├── app_zh.xml / app_en.xml  # 中国語 / 英語ソースファイル
 ├── app_ja.xml / app_ko.xml  # 日本語 / 韓国語ソースファイル
-└── app_*.xml.qm             # コンパイル済み Qt バイナリ（app_zh.xml.qm 等）
+└── app_*.qm                 # コンパイル済み Qt バイナリ（app_zh.qm 等）
 ```
 
 </details>
 
-`.xml` = 編集可能なソースファイル、`*.xml.qm` = Qtランタイムで読み込むコンパイル済みファイル。変更後は `compile_translations.py` を実行して再コンパイルしてください。
+`.xml` = 編集可能なソースファイル、`.qm` = Qtランタイムで読み込むコンパイル済みファイル。UI テキストを追加・変更したら、4 つの `.xml` すべてに同じコンテキストのエントリを追加し（複数行の文言は実際の改行で書く）、`compile_translations.py` を実行して再コンパイルしてください。`tests/test_translation_coverage.py` が漏れをチェックします。
 
 ---
 
@@ -598,6 +614,7 @@ ui/
 ├── tray_menu.py             # TrayMenu — システムトレイメニュー
 ├── screenshot_window.py     # ScreenshotWindow — フルスクリーンキャプチャウィンドウ
 ├── quick_capture_overlay.py # 通常キャプチャの選択枠・座標・拡大鏡を再利用する透明レイヤー
+├── update_dialog.py         # 更新内容とダウンロード進捗
 ├── dialogs.py               # StandardDialog — 確認、警告、情報、エラーダイアログ
 ├── toast.py                 # Toast — カーソル横に出る、フォーカスを奪わない一行通知
 ├── magnifier.py             # MagnifierOverlay — ピクセルレベル拡大鏡
@@ -687,7 +704,6 @@ tests/
 ├── test_pin_window_zoom.py  # ピンウィンドウズームテスト
 ├── test_smart_translation.py # スマート翻訳テスト
 ├── test_translation_architecture.py # 翻訳プロバイダーアーキテクチャテスト
-├── test_stitch_dedup.py     # 長いスクリーンショット結合重複除去テスト
 ├── test_settings_dialog_state.py # 設定ダイアログ状態テスト
 ├── test_welcome_translation.py # ウェルカムウィザード翻訳ページテスト
 └── …（その他 70 以上のユニット/統合テストファイル）

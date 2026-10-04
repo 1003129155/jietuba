@@ -89,6 +89,35 @@ def test_wizard_suspends_quick_capture_then_refreshes_even_if_wizard_fails(app, 
     app.settings_window.hide.assert_called_once()
 
 
+def test_screenshot_teardown_failure_still_releases_quick_capture():
+    """快速截图靠 session_ended 解除屏蔽，清理中途出错也得发出去。"""
+    from ui.screenshot_window import ScreenshotWindow
+
+    window = SimpleNamespace(
+        _session_active=True, _is_closing=False, hide=Mock(), session_ended=Mock(),
+        _release_session_resources=Mock(side_effect=RuntimeError("Synthetic cleanup failure")),
+    )
+    with pytest.raises(RuntimeError, match="Synthetic cleanup failure"):
+        ScreenshotWindow._teardown_session(window)
+    assert window._session_active is False
+    window.session_ended.emit.assert_called_once()
+
+
+def test_first_run_wizard_finishes_before_quick_capture_is_enabled(monkeypatch):
+    """向导是应用模态，期间快速截图建出的浮层收不到输入，所以要等向导结束再启用。"""
+    from core.bootstrap import PreloadManager
+
+    events = []
+    wizard = Mock()
+    wizard.exec.side_effect = lambda: events.append("wizard")
+    monkeypatch.setattr("ui.welcome.WelcomeWizard", Mock(return_value=wizard))
+    app = SimpleNamespace(hotkey_system=Mock(), update_hotkey=lambda: events.append("enable quick capture"),
+                          setup_tray=Mock(), _setup_pin_tray_updates=Mock())
+    PreloadManager._show_main_window_on_start(SimpleNamespace(config=SimpleNamespace(is_first_run=lambda: True),
+                                                              app=app))
+    assert events == ["wizard", "enable quick capture"]
+
+
 def test_quit_closes_quick_capture_before_application_quits(app):
     events = []
     app.quick_capture.close.side_effect = lambda: events.append("close")

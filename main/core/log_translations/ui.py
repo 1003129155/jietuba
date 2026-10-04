@@ -99,4 +99,5 @@ TRANSLATIONS: dict[str, str] = {
     "获取剪贴板数据库路径": "Getting clipboard database path",
     "计算图片目录大小": "Calculating image directory size",
     "计算剪贴板存储大小": "Calculating clipboard storage size",
+    "所有设置已保存": "All settings saved",
 }

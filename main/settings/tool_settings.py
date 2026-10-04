@@ -120,6 +120,10 @@ def get_capture_mouse_binding(config, action):
 # 指定 mss / hdr 时只用那一个，失败不回落。
 CAPTURE_ENGINES = ("auto", "mss", "hdr")
 
+# OCR 引擎，顺序就是设置页下拉框的顺序。auto 有截图工具 OCR 就用它、否则用 PP-OCR；
+# 指定某一个时只用那一个，不可用就报错，不回落。
+OCR_ENGINES = ("auto", "oneocr", "ppocr_rust")
+
 
 ANNOTATION_TOOL_SHORTCUTS = (
     ("inapp_tool_cursor", "cursor", "Select / Cursor", "s"),
@@ -366,7 +370,7 @@ class ToolSettingsManager(QObject):
 
         # OCR
         "ocr_enabled": True,                   # 钉图后自动 OCR（保留旧键名以兼容已有配置）
-        "ocr_engine": "ppocr_rust",            # OCR引擎类型 (ppocr_rust 推荐, windows_media_ocr 备用)
+        "ocr_engine": "auto",                  # OCR 引擎，见 OCR_ENGINES
         "ocr_grayscale": False,                # OCR灰度转换（Windows OCR 不需要）
         "ocr_upscale": True,                   # OCR图像放大（提升小字识别率）
         "ocr_upscale_factor": 2.0,             # OCR放大倍数（1.0-3.0）
@@ -392,6 +396,9 @@ class ToolSettingsManager(QObject):
         "clipboard_group_bar_position": "top", # 分组栏位置（right/left/top）
         "clipboard_preserve_search": False,    # 关闭时保留搜索栏内容
         "clipboard_db_path": "",               # 剪贴板数据库自定义路径（空=默认位置）
+        "clipboard_multi_paste_separator": "\n",            # 多选粘贴时文本之间的分隔符
+        "clipboard_multi_paste_order": "oldest_first",      # 多选粘贴的先后：oldest_first / newest_first
+        "clipboard_multi_paste_keep_merged": False,         # 多选粘贴的合并结果存为一条新记录
 
         # ==================== 4. 外观 ====================
         "ui_theme_mode": "system",             # 界面主题（system/light/dark）
@@ -1143,12 +1150,17 @@ class ToolSettingsManager(QObject):
         self.qsettings.setValue("app/ocr_enabled", value)
     
     def get_ocr_engine(self) -> str:
-        """获取 OCR 引擎类型"""
-        return self.qsettings.value("app/ocr_engine", self.APP_DEFAULT_SETTINGS["ocr_engine"], type=str)
+        """获取 OCR 引擎：auto / oneocr / ppocr_rust。"""
+        default = self.APP_DEFAULT_SETTINGS["ocr_engine"]
+        engine = str(self.qsettings.value("app/ocr_engine", default, type=str)).lower()
+        return engine if engine in OCR_ENGINES else default
     
     def set_ocr_engine(self, value: str):
-        """设置 OCR 引擎类型"""
-        self.qsettings.setValue("app/ocr_engine", value)
+        """设置 OCR 引擎。"""
+        engine = str(value or "").lower()
+        if engine not in OCR_ENGINES:
+            engine = self.APP_DEFAULT_SETTINGS["ocr_engine"]
+        self.qsettings.setValue("app/ocr_engine", engine)
     
     def get_ocr_grayscale_enabled(self) -> bool:
         """获取 OCR 灰度化"""
@@ -1709,7 +1721,47 @@ class ToolSettingsManager(QObject):
     def set_clipboard_move_to_top_on_paste(self, value: bool):
         """设置粘贴后是否将内容移到最前"""
         self.qsettings.setValue("clipboard/move_to_top_on_paste", value)
-    
+
+    CLIPBOARD_MULTI_PASTE_ORDERS = ("oldest_first", "newest_first")
+
+    def get_clipboard_multi_paste_separator(self) -> str:
+        """多选粘贴时文本之间的分隔符"""
+        value = self.qsettings.value(
+            "clipboard/multi_paste_separator",
+            self.APP_DEFAULT_SETTINGS["clipboard_multi_paste_separator"],
+            type=str,
+        )
+        return value if isinstance(value, str) else self.APP_DEFAULT_SETTINGS["clipboard_multi_paste_separator"]
+
+    def set_clipboard_multi_paste_separator(self, value: str):
+        self.qsettings.setValue("clipboard/multi_paste_separator", value or "")
+
+    def get_clipboard_multi_paste_order(self) -> str:
+        """多选粘贴的先后：oldest_first 先选在前，newest_first 后选在前（兼容旧键值）"""
+        value = self.qsettings.value(
+            "clipboard/multi_paste_order",
+            self.APP_DEFAULT_SETTINGS["clipboard_multi_paste_order"],
+            type=str,
+        )
+        if value not in self.CLIPBOARD_MULTI_PASTE_ORDERS:
+            return self.APP_DEFAULT_SETTINGS["clipboard_multi_paste_order"]
+        return value
+
+    def set_clipboard_multi_paste_order(self, value: str):
+        if value in self.CLIPBOARD_MULTI_PASTE_ORDERS:
+            self.qsettings.setValue("clipboard/multi_paste_order", value)
+
+    def get_clipboard_multi_paste_keep_merged(self) -> bool:
+        """多选粘贴的合并结果是否存为一条新记录"""
+        return self.qsettings.value(
+            "clipboard/multi_paste_keep_merged",
+            self.APP_DEFAULT_SETTINGS["clipboard_multi_paste_keep_merged"],
+            type=bool,
+        )
+
+    def set_clipboard_multi_paste_keep_merged(self, value: bool):
+        self.qsettings.setValue("clipboard/multi_paste_keep_merged", bool(value))
+
     def get_clipboard_theme(self) -> str:
         """获取剪贴板窗口主题"""
         return self.qsettings.value("clipboard/theme", self.APP_DEFAULT_SETTINGS["clipboard_theme"], type=str)

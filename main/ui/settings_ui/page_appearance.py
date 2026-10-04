@@ -13,6 +13,7 @@ from ui.fluent_lite import (
 )
 from .components import SettingCardGroup, theme_menu_style, page_scroll_area
 from core.ui_theme import set_own_style
+from ui.dialogs import exec_dialog
 
 
 def _update_color_btn(btn, color: QColor):
@@ -169,7 +170,7 @@ def _build_screenshot_section(dialog, grp: SettingCardGroup):
         _dlg = QColorDialog(dialog._appearance_theme_color, None)
         _dlg.setWindowTitle(dialog.tr("Select Theme Color"))
         _dlg.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
-        if _dlg.exec():
+        if exec_dialog(_dlg, owner=dialog):
             color = _dlg.selectedColor()
             dialog._appearance_theme_color = color
             _update_color_btn(dialog._theme_color_btn, color)
@@ -193,7 +194,7 @@ def _build_screenshot_section(dialog, grp: SettingCardGroup):
         _dlg = QColorDialog(dialog._appearance_mask_color, None)
         _dlg.setWindowTitle(dialog.tr("Select Mask Color"))
         _dlg.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
-        if _dlg.exec():
+        if exec_dialog(_dlg, owner=dialog):
             color = _dlg.selectedColor()
             dialog._appearance_mask_color = color
             _update_color_btn(dialog._mask_color_btn, color)

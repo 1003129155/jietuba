@@ -80,7 +80,6 @@ def test_selection_clips_against_negative_virtual_desktop_bounds():
 
 @pytest.fixture
 def overlay(qapp, monkeypatch, tmp_path):
-    monkeypatch.setattr("ui.quick_capture_overlay.set_window_exclude_from_capture", Mock(return_value=True))
     config = ToolSettingsManager(QSettings(str(tmp_path / "quick.ini"), QSettings.Format.IniFormat))
     widget = QuickCaptureOverlay(config)
     yield widget
@@ -204,16 +203,16 @@ def test_empty_selection_clears_frame_and_info_panel(overlay):
     assert not overlay.info_panel.isVisible()
 
 
-def test_capture_exclusion_failure_does_not_stop_overlay(overlay, monkeypatch):
-    exclude = Mock(return_value=False)
-    monkeypatch.setattr("ui.quick_capture_overlay.set_window_exclude_from_capture", exclude)
+def test_overlay_remains_capturable_for_remote_viewers_across_sessions(overlay, monkeypatch):
+    affinity = Mock(return_value=True)
+    monkeypatch.setattr(ctypes.windll.user32, "SetWindowDisplayAffinity", affinity)
     bounds = QRect(0, 0, 400, 300)
     overlay.show_selection(QPoint(70, 90), QPoint(230, 190), bounds)
     assert overlay.isVisible()
     overlay.hide()
     overlay.show_selection(QPoint(70, 90), QPoint(240, 200), bounds)
     assert overlay.isVisible()
-    exclude.assert_called_once_with(int(overlay.winId()), True)
+    affinity.assert_not_called()
 
 
 def test_dismiss_repaints_an_empty_window_before_hiding(overlay, monkeypatch):

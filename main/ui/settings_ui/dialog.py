@@ -11,10 +11,9 @@ import sys
 
 from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QWidget, QDialogButtonBox,
-    QFileDialog,
 )
 from PySide6.QtCore import Qt, Signal
-from ui.dialogs import show_info_dialog, show_warning_dialog
+from ui.dialogs import get_existing_directory, show_info_dialog, show_warning_dialog
 from PySide6.QtGui import QColor, QFont, QIcon
 
 from ui.fluent_lite import (
@@ -501,7 +500,7 @@ class SettingsDialog(FrostedFramelessDialog):
     # ================================================================
 
     def _change_save_dir(self):
-        new_dir = QFileDialog.getExistingDirectory(self, self.tr("Select Screenshot Save Folder"), self.config_manager.get_screenshot_save_path())
+        new_dir = get_existing_directory(self, self.tr("Select Screenshot Save Folder"), self.config_manager.get_screenshot_save_path())
         if new_dir:
             self.save_path_lbl.setText(new_dir)
 
@@ -517,7 +516,7 @@ class SettingsDialog(FrostedFramelessDialog):
             subprocess.run(["xdg-open", path], check=False)
 
     def _change_log_dir(self):
-        new_dir = QFileDialog.getExistingDirectory(self, self.tr("Select Log Save Folder"), self.config_manager.get_log_dir())
+        new_dir = get_existing_directory(self, self.tr("Select Log Save Folder"), self.config_manager.get_log_dir())
         if new_dir:
             self.path_lbl.setText(new_dir)
 
@@ -1063,7 +1062,13 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'ocr_enable_toggle'):
             self.config_manager.set_ocr_enabled(self.ocr_enable_toggle.isChecked())
         if hasattr(self, 'ocr_engine_combo'):
-            self.config_manager.set_ocr_engine(self.ocr_engine_combo.currentData())
+            engine = self.ocr_engine_combo.currentData()
+            if engine != self.config_manager.get_ocr_engine():
+                self.config_manager.set_ocr_engine(engine)
+                from ocr import set_ocr_engine
+                from core.platform_utils import request_trim_working_set
+                set_ocr_engine(engine)
+                request_trim_working_set()
         if hasattr(self, 'ocr_grayscale_toggle'):
             self.config_manager.set_ocr_grayscale_enabled(self.ocr_grayscale_toggle.isChecked())
         if hasattr(self, 'ocr_upscale_toggle'):
@@ -1210,7 +1215,7 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, '_selection_handle_size_combo'):
             theme.set_selection_handle_size(self._selection_handle_size_combo.currentData())
 
-        log_info("すべての設定を保存しました", "Settings")
+        log_info(T("所有设置已保存"), "Settings")
         self._import_unsaved = False
         self._settings_snapshot = self._snapshot_settings()
         self._update_action_buttons()
@@ -1435,6 +1440,7 @@ class SettingsDialog(FrostedFramelessDialog):
     @safe_event
     def closeEvent(self, event):
         """关闭窗口前检查未保存变更"""
+        event.ignore()
         if self._skip_unsaved_close_prompt:
             event.accept()
             return

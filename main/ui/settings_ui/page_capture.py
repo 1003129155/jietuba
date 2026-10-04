@@ -1,7 +1,5 @@
 ﻿# -*- coding: utf-8 -*-
 """截图设置页 — Fluent Design"""
-import importlib.util
-
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 from core.ui_scale import dialog_scaled
 from ui.fluent_lite import (
@@ -9,7 +7,7 @@ from ui.fluent_lite import (
     FluentIcon, ComboBox, CaptionLabel, PushButton,
 )
 from settings import color_formats
-from settings.tool_settings import CAPTURE_ENGINES, SMART_SELECTION_MODES
+from settings.tool_settings import CAPTURE_ENGINES, OCR_ENGINES, SMART_SELECTION_MODES
 from .components import SettingCardGroup, page_scroll_area
 from core.ui_theme import set_own_style
 
@@ -205,6 +203,52 @@ def create_capture_page(dialog) -> QWidget:
 
     layout.addWidget(grp_magnifier)
 
+    # ── OCR ───────────────────────────────────────────
+    try:
+        from ocr import get_available_engines, get_ppocr_status
+        available_engines = get_available_engines()
+        ppocr_status = get_ppocr_status()
+    except Exception:
+        available_engines = []
+        ppocr_status = "missing_engine"
+    ocr_available = bool(available_engines)
+
+    grp_ocr = SettingCardGroup(dialog.tr("OCR Settings"), view)
+    ocr_engine_card = FSettingCard(
+        FluentIcon.FONT,
+        dialog.tr("OCR Engine"),
+        dialog.tr("Switch OCR engines here."),
+        parent=grp_ocr,
+    )
+    dialog.ocr_engine_combo = ComboBox(ocr_engine_card)
+    engine_items = (
+        (dialog.tr("Auto (Recommended)"), "auto", ocr_available),
+        ("oneocr" if "oneocr" in available_engines
+         else dialog.tr("oneocr (not found)"),
+         "oneocr", "oneocr" in available_engines),
+        ("PP-OCR" if "ppocr_rust" in available_engines
+         else (dialog.tr("PP-OCR (missing models)") if ppocr_status == "missing_models"
+               else dialog.tr("PP-OCR (missing engine)")),
+         "ppocr_rust", "ppocr_rust" in available_engines),
+    )
+    for label, engine, enabled in engine_items:
+        dialog.ocr_engine_combo.addItem(label, userData=engine)
+        dialog.ocr_engine_combo.model().item(
+            dialog.ocr_engine_combo.count() - 1).setEnabled(enabled)
+    dialog.ocr_engine_combo.setCurrentIndex(
+        OCR_ENGINES.index(dialog.config_manager.get_ocr_engine())
+    )
+    ocr_engine_card.addControl(dialog.ocr_engine_combo)
+    grp_ocr.addSettingCard(ocr_engine_card)
+    if not ocr_available:
+        grp_ocr.addSettingCard(FSettingCard(
+            FluentIcon.INFO,
+            dialog.tr("OCR unavailable: install the Snipping Tool from the Microsoft Store, "
+                      "or download the full version"),
+            parent=grp_ocr,
+        ))
+    layout.addWidget(grp_ocr)
+
     # ── 钉图 ──────────────────────────────────────────
     # 自动开工具栏和自动 OCR 都是「钉完图之后自动做什么」，归在一处。
     grp_pin = SettingCardGroup(dialog.tr("Pin Settings"), view)
@@ -221,17 +265,6 @@ def create_capture_page(dialog) -> QWidget:
     dialog.pin_auto_toolbar_toggle = pin_toolbar_card
     grp_pin.addSettingCard(pin_toolbar_card)
 
-    # OCR 可用性检测：走 ocr 模块的官方多引擎检测（含 ppocr_rust / windows_media_ocr），
-    # 而不是只看 windows_media_ocr —— 否则装了 ppocr_rust 也会误报“无 OCR 版本”。
-    try:
-        from ocr import is_ocr_available
-        ocr_available = bool(is_ocr_available())
-    except Exception:
-        # 兜底：ocr 模块不可导入时，退回到最基础的探测
-        ocr_available = (
-            importlib.util.find_spec("ppocr_rust") is not None
-            or importlib.util.find_spec("windows_media_ocr") is not None
-        )
     ocr_card = SwitchSettingCard(
         FluentIcon.FONT,
         dialog.tr("Automatically recognize text after pinning"),
@@ -249,14 +282,6 @@ def create_capture_page(dialog) -> QWidget:
         ocr_card.setChecked(False)
     dialog.ocr_enable_toggle = ocr_card
     grp_pin.addSettingCard(ocr_card)
-
-    if not ocr_available:
-        no_ocr_card = FSettingCard(
-            FluentIcon.INFO,
-            dialog.tr("No OCR Version / OCR module not found"),
-            parent=grp_pin,
-        )
-        grp_pin.addSettingCard(no_ocr_card)
 
     layout.addWidget(grp_pin)
 
@@ -276,8 +301,9 @@ def create_capture_page(dialog) -> QWidget:
 
 def _manage_color_formats(dialog):
     """打开颜色格式管理窗口，确定后把结果留在 dialog 上等「应用」。"""
+    from ui.dialogs import exec_dialog
     from .color_format_dialog import ColorFormatDialog
 
     editor = ColorFormatDialog(dialog.magnifier_color_formats, dialog)
-    if editor.exec():
+    if exec_dialog(editor):
         dialog.magnifier_color_formats = editor.entries()

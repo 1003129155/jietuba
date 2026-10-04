@@ -13,7 +13,7 @@
 
 jietuba is a free, open-source screenshot tool for Windows: region and window capture, scrolling (long) screenshots, annotation, OCR text recognition, translation, image pinning, GIF recording, QR code and barcode scanning, PDF export, and a full clipboard history manager. Everything runs locally.
 
-The interface is built with PySide6; image processing, clipboard access, and OCR are implemented in Rust. Runs on Windows x86_64 and ARM64.
+The interface is built with PySide6; image processing, clipboard access, and the PP-OCR engine are implemented in Rust. Runs on Windows x86_64 and ARM64.
 
 Download a ready-to-run Windows release or run the application from source.
 
@@ -42,9 +42,13 @@ A smooth, three-way "screenshot ⇄ clipboard ⇄ pin" workflow.
 The Windows x86_64 and ARM64 releases are ready to run. You do not need to install Python, Rust, or a development environment.
 
 1. Open the [Releases page](https://github.com/1003129155/jietuba/releases/latest) and download the archive ending in `-x64.zip` or `-arm64.zip` for your device.
-2. Extract the entire archive, keeping `jietuba_pp.exe` and the `models/` folder together.
-3. Double-click `jietuba_pp.exe` to start. The OCR models are included in the archive.
+2. There are two packages. Extract the entire archive and double-click the exe inside:
+   - **Full** `jietuba_pp-…zip`: includes the PP-OCR engine and models, so OCR works on any Windows. Keep `jietuba_pp.exe` and the `models/` folder together.
+   - **Lite** `jietuba_lite-…zip`: smaller, and uses only the OCR built into the Windows 11 Snipping Tool; OCR is unavailable on PCs without it.
+3. Both packages prefer the Snipping Tool OCR by default (faster, more languages). Switch engines under **OCR Settings** in Settings.
 4. The application is not digitally signed, so Windows may display a warning after you download it through a browser. If prompted, click **More info**, then **Run anyway** to start the application.
+
+After installing the first release containing the updater, use **About → Check for Updates → Update and Restart**. It downloads the matching GitHub Release ZIP, replaces only the application EXE, and restarts. Settings, clipboard history, models and other files remain intact. Finish recording, exporting and saving before installation. The last application backup is kept under `.jietuba-update/`; see [updater recovery](rust_libs/updater/README.md).
 
 ---
 
@@ -84,7 +88,7 @@ cd main
 python main_app.py
 ```
 
-The repository includes `PP-OCRv6_det_small.onnx` and `PP-OCRv6_rec_small.onnx` in [models/](models/). Keep that directory in place for OCR.
+The repository includes the PP-OCR models `PP-OCRv6_det_small.onnx` and `PP-OCRv6_rec_small.onnx` in [models/](models/). Keep that directory in place for PP-OCR. The Snipping Tool OCR is called through the [`oneocr`](https://pypi.org/project/oneocr/) package on PyPI; its files come from the local Windows 11 Snipping Tool and are copied to `%LOCALAPPDATA%\Jietuba\oneocr` on first use, so nothing extra needs downloading.
 
 ### Rust Extension Packages
 
@@ -93,11 +97,11 @@ These six packages are included in `requirements.txt` and install with the runti
 | pip name | import name | Version | Description |
 |------|------|------|------|
 | [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.0 | GIF/video composition encoder |
-| [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.4.0 | Long screenshot stitching algorithm |
-| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.4 | Low-level clipboard operations |
+| [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.5.0 | Long screenshot stitching algorithm |
+| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.5 | Low-level clipboard operations |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | HDR-correct desktop capture (DXGI Desktop Duplication + GPU tone mapping) |
-| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.0 | Global mouse and keyboard hooks off the GUI thread (gestures, side buttons, hotkeys, wheel, foreground window) |
+| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.1 | Global mouse and keyboard hooks off the GUI thread (gestures, side buttons, hotkeys, wheel, foreground window) |
 
 The available prebuilt wheels target Windows x86_64 and ARM64. Each package declares `>=3.11` and enables `abi3-py311` in its Rust bindings; see each package's `pyproject.toml` and `Cargo.toml`.
 
@@ -116,9 +120,9 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 The [test directory](main/tests/) contains unit and integration tests for capture, clipboard operations, mosaic editing, pin zoom, GIF playback, OCR text layers, and other modules. The [CI workflow](.github/workflows/ci.yml) runs tests and coverage checks on Windows x86_64 and ARM64 with Python 3.11, plus static analysis on x86_64. Results are available in [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml).
 
-Tests that drive the real mouse and keyboard, such as `test_quick_capture_real_hooks.py`, are skipped by default. Set `RUN_REAL_INPUT_TESTS=1` to run them, and leave the mouse and keyboard alone while they run.
+Tests that drive the real mouse and keyboard, such as `test_quick_capture_real_hooks.py`, are skipped by default. Set `RUN_REAL_INPUT_TESTS=1` to run them, and leave the mouse and keyboard alone while they run. Tests that rewrite the real system clipboard (`test_clipboard_monitor_real.py`) are skipped too; set `RUN_REAL_CLIPBOARD_TESTS=1` to run them, and don't copy anything while they run.
 
-To build a Windows release, run `python build_with_ocr_onefile.py`. It produces `dist/jietuba_pp.exe` and `dist/models/`. The automated [release workflow](.github/workflows/build.yml) creates separate x64 and ARM64 archives.
+To build the full Windows release, run `python build_with_ocr_onefile.py`. It produces `dist/jietuba_pp.exe` and `dist/models/`; add `--lite` for the lite build, which produces `dist_lite/jietuba_lite.exe`. The automated [release workflow](.github/workflows/build.yml) creates full and lite archives for x64 and ARM64.
 
 ### Code Comments
 
@@ -141,7 +145,8 @@ Comments explain only the constraints and design reasons that the code cannot ex
 ├── pyproject.toml                                      # Python project metadata and dependency declarations
 ├── requirements.txt                                   # Runtime dependencies
 ├── requirements-dev.txt                               # Test and build dependencies
-├── build_with_ocr_onefile.py                           # PyInstaller one-file build script
+├── build_with_ocr_onefile.py                           # PyInstaller one-file build script (--lite for the lite build)
+├── licenses/                                          # Third-party licenses shipped with releases
 │
 ├── main/                    # Python main program
 │   ├── main_app.py          # App entry point: system tray, global hotkeys, lifecycle management
@@ -154,7 +159,7 @@ Comments explain only the constraints and design reasons that the code cannot ex
 │   ├── clipboard/           # Clipboard module — history, groups/quick launch, import/export, search
 │   ├── core/                # Core module — bootstrap, logging, resources, theme, i18n, hotkeys
 │   ├── gif/                 # GIF module — screen recording, editing, playback, export
-│   ├── ocr/                 # OCR module — PP-OCR text recognition
+│   ├── ocr/                 # OCR module — Snipping Tool OCR and PP-OCR text recognition
 │   ├── pin/                 # Pin module — pinned screenshots, editing, OCR, translation
 │   ├── settings/            # Settings module — unified configuration management
 │   ├── stitch/              # Stitch module — scroll capture, auto-stitching
@@ -168,9 +173,10 @@ Comments explain only the constraints and design reasons that the code cannot ex
 │   ├── gifrecorder/         # GIF/video composition encoder source
 │   ├── longstitch/          # Long screenshot stitching algorithm source
 │   ├── pyclipboard/         # Low-level clipboard operations source
-│   └── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX recognition engine source
+│   ├── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX recognition engine source
+│   └── updater/             # Standalone EXE-only Rust updater
 │
-├── models/                  # PP-OCR ONNX models (required for OCR)
+├── models/                  # PP-OCR ONNX models (required for PP-OCR)
 │   ├── PP-OCRv6_det_small.onnx   # text detection model (DBNet)
 │   └── PP-OCRv6_rec_small.onnx   # text recognition model (CRNN/CTC)
 │
@@ -307,7 +313,8 @@ clipboard/
 │   ├── menus/
 │   │   ├── action_menu.py
 │   │   ├── group_context_menu.py
-│   │   └── item_context_menu.py
+│   │   ├── item_context_menu.py
+│   │   └── submenu_position.py
 │   ├── mixins/
 │   │   └── frameless_mixin.py
 │   ├── panels/
@@ -370,6 +377,10 @@ core/
 ├── qt_utils.py              # safe_disconnect() — Qt signal safe disconnect
 ├── log_translations/        # per-module log text translation helpers
 ├── constants.py             # Global constants (fonts, paths, etc.)
+├── background_tasks.py      # Background save tracking
+├── update_cache.py          # Updater cache cleanup
+├── updater_process.py       # Rust updater JSONL process adapter
+├── update_controller.py     # Update download and safe restart coordination
 ├── update_checker.py        # Asynchronous GitHub release lookup and version comparison
 └── ui_theme.py              # UIThemeManager — light/dark appearance for app windows and native Qt widgets
 ```
@@ -407,7 +418,7 @@ gif/
 
 ### ocr/ — OCR Module
 
-Text recognition management powered by PP-OCR.
+Text recognition management with two engines: the OCR built into the Windows Snipping Tool, and PP-OCR.
 
 <img width="580" height="505" alt="image" src="https://github.com/user-attachments/assets/60a16100-5edc-4543-9a35-daf05b1e244e" />
 
@@ -416,13 +427,16 @@ Text recognition management powered by PP-OCR.
 
 ```text
 ocr/
-└── ocr_manager.py           # OCRManager — text recognition via ppocr_rust (PP-OCR)
+├── ocr_manager.py           # OCRManager — engine choice, loading, release, unified recognition interface
+└── snipping_tool_ocr.py     # SnippingToolOcr — locate the Snipping Tool, copy its OCR files, pad and recognize
 ```
 
 </details>
 
-- Powered by the ppocr_rust engine (pure Rust + ONNX Runtime, PP-OCR det + rec); inference runs on native threads without blocking the UI
-- Chinese/English/Japanese recognition
+- Settings offer Auto / Windows Snipping Tool / PP-OCR; Auto uses the Snipping Tool when it is installed, otherwise PP-OCR
+- Snipping Tool OCR: called through the oneocr package on PyPI; faster and reads more languages (including Korean, Russian, and Thai); needs the Windows 11 Snipping Tool
+- PP-OCR: the ppocr_rust engine (pure Rust + ONNX Runtime, PP-OCR det + rec); works on any Windows; full build only
+- Recognition and release are mutually exclusive; switching engines releases the old one, and the new one loads on the next recognition
 - Singleton pattern, unified recognition interface
 
 ---
@@ -483,6 +497,8 @@ settings/
 
 ```text
 stitch/
+├── auto_scroll.py                   # AutoScroller — auto scroll: step size from stitch results, stops at the end or on mouse move
+├── incremental.py                   # IncrementalStitcher — background stitching, preview thumbnails
 ├── jietuba_long_stitch_unified.py   # Stitching interface (calls the Rust longstitch)
 ├── scroll_window.py                 # ScrollCaptureWindow — scroll capture window
 └── scroll_toolbar.py                # Scroll capture toolbar
@@ -574,12 +590,12 @@ translation/
 translations/
 ├── app_zh.xml / app_en.xml  # Chinese / English source files
 ├── app_ja.xml / app_ko.xml  # Japanese / Korean source files
-└── app_*.xml.qm             # compiled Qt binaries (e.g. app_zh.xml.qm)
+└── app_*.qm                 # compiled Qt binaries (e.g. app_zh.qm)
 ```
 
 </details>
 
-`.xml` = editable source files, `*.xml.qm` = compiled Qt runtime files. Run `compile_translations.py` after modification.
+`.xml` = editable source files, `.qm` = compiled Qt runtime files. When adding or changing UI text, add an entry with the same context to all four `.xml` files (use real line breaks in multi-line text), then run `compile_translations.py`; `tests/test_translation_coverage.py` checks for gaps.
 
 ---
 
@@ -599,6 +615,7 @@ ui/
 ├── tray_menu.py             # TrayMenu — system tray menu
 ├── screenshot_window.py     # ScreenshotWindow — full-screen capture window (region drawing)
 ├── quick_capture_overlay.py # Transparent quick capture layer reusing the normal selection, coordinates and magnifier
+├── update_dialog.py         # Update notes and download progress
 ├── dialogs.py               # StandardDialog — confirm, warning, info, error dialogs
 ├── toast.py                 # Toast — one-line hint by the cursor that never takes focus
 ├── magnifier.py             # MagnifierOverlay — pixel-level magnifier
@@ -688,7 +705,6 @@ tests/
 ├── test_pin_window_zoom.py  # pin window zoom tests
 ├── test_smart_translation.py # smart translation tests
 ├── test_translation_architecture.py # translation provider architecture tests
-├── test_stitch_dedup.py     # long-stitch dedup tests
 ├── test_settings_dialog_state.py # settings dialog state tests
 ├── test_welcome_translation.py # welcome wizard translation page tests
 └── … (70+ additional unit & integration test files)

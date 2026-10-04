@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 from PySide6.QtCore import QEvent, QPoint, QPointF, QRectF, QSettings, Qt
 from PySide6.QtGui import QCloseEvent, QContextMenuEvent, QImage, QKeyEvent, QMouseEvent, QWheelEvent
-from PySide6.QtWidgets import QApplication, QStackedWidget, QWidget
+from PySide6.QtWidgets import QApplication, QDialog, QStackedWidget, QWidget
 
 from settings.tool_settings import (
     CAPTURE_MOUSE_ACTIONS,
@@ -162,10 +162,10 @@ def test_quick_save_writes_file_even_when_auto_save_disabled(actions, config):
 
 
 def test_save_cancel_or_failure_preserves_capture(actions, config, monkeypatch, tmp_path):
-    monkeypatch.setattr('tools.action.QFileDialog.getSaveFileName', lambda *_a: ('', ''))
+    monkeypatch.setattr('tools.action.get_save_file_name', lambda *_a: ('', ''))
     actions.handle_capture_action('save')
     actions.parent_window.cleanup_and_close.assert_not_called()
-    monkeypatch.setattr('tools.action.QFileDialog.getSaveFileName', lambda *_a: (str(tmp_path / 'out.png'), 'PNG (*.png)'))
+    monkeypatch.setattr('tools.action.get_save_file_name', lambda *_a: (str(tmp_path / 'out.png'), 'PNG (*.png)'))
     monkeypatch.setattr('ui.dialogs.show_warning_dialog', lambda *_a: None)
     actions.save_service.save_qimage_to_path = MagicMock(return_value=False)
     actions.handle_capture_action('save')
@@ -297,6 +297,34 @@ def test_keyboard_zoom_stays_enabled_with_legacy_disabled_setting(pin, config):
     assert pin.handle_mouse_alternative_key(key)
     assert pin._win_opacity == 1.0
     assert pin.scale_factor == pytest.approx(1 / 1.05)
+
+
+def test_pin_only_pauses_for_dialogs_locking_it(pin, config, qapp):
+    """别的窗口的对话框只锁那个窗口，钉图的按键和鼠标手势照常响应"""
+    config.set_app_setting('mouse_pin_reset', 'ctrl+middle')
+    key = QKeyEvent(QEvent.KeyPress, Qt.Key_Minus, Qt.ControlModifier)
+    press = mouse_event(pin, QEvent.MouseButtonPress, Qt.MiddleButton, modifiers=Qt.ControlModifier)
+    owner = QWidget()
+    others = QDialog(owner)
+    others.setWindowModality(Qt.WindowModality.WindowModal)
+    own = QDialog(pin)
+    own.setWindowModality(Qt.WindowModality.WindowModal)
+    try:
+        owner.show()
+        others.show()
+        qapp.processEvents()
+        assert pin.handle_mouse_alternative_key(key)
+        assert pin._handle_mouse_gesture(press)
+        pin._mouse_gesture = None
+
+        own.show()
+        qapp.processEvents()
+        assert not pin.handle_mouse_alternative_key(key)
+        assert not pin._handle_mouse_gesture(press)
+    finally:
+        for widget in (own, others, owner):
+            widget.hide()
+            widget.deleteLater()
 
 
 def test_plus_preserves_explicit_shift_binding(pin, config):

@@ -8,7 +8,7 @@
 
 from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QWidget, QGraphicsOpacityEffect,
-    QFileDialog, QSizePolicy,
+    QSizePolicy,
 )
 from PySide6.QtCore import Qt, QSize, QTimer, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QPixmap, QPainter, QColor, QPen
@@ -17,6 +17,7 @@ from ui.fluent_lite import PushButton, FluentIcon, LineEdit, ComboBox
 from ui.fluent_lite.theme import to_qicon
 from core.i18n import make_tr
 from core.ui_theme import set_own_style
+from ui.dialogs import get_existing_directory
 
 if __package__:
     from .base_page import (
@@ -371,7 +372,7 @@ class ScreenshotHotkeyPage(BasePage):
 
     def _browse_path(self):
         current = self._path_edit.text().strip()
-        folder = QFileDialog.getExistingDirectory(
+        folder = get_existing_directory(
             self, _tr("选择保存文件夹"), current or ""
         )
         if folder:

@@ -9,7 +9,7 @@ use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba};
 use std::io::Cursor;
 
 use crate::hash::compute_row_hashes_from_rgba_range;
-use crate::lcs::find_top_common_substrings;
+use crate::lcs::{find_top_common_runs, find_top_common_substrings};
 
 // ========== 内部工具函数 ==========
 
@@ -203,33 +203,14 @@ fn smart_stitch_core(
         debug,
     );
 
-    // 搜索区域设置（2倍窗口，容忍回滚）
     let img1_len = img1_rgba.height() as usize;
-    let img2_len = img2_hashes.len();
-    let search_window = img2_len * 2;
-    let mut search_start = if img1_len > search_window {
-        img1_len - search_window
-    } else {
-        0
-    };
-    let mut search_end = img1_len;
-
-    // 忽略 img1 顶部一定比例（下滑正常态：固定标题栏在顶部）
-    // 与 2 倍窗口取 max：img1 拼高后底部窗口本就在忽略线以下，此忽略自动失效，
-    // 仅对前几张短图生效，正是标题栏最易误匹配的场景。
-    if ignore_img1_top_ratio > 0.0 {
-        let top_ignore = (img1_len as f32 * ignore_img1_top_ratio) as usize;
-        search_start = search_start.max(top_ignore);
-    }
-    // 忽略 img1 底部一定比例（上滑翻转态：标题栏被 flip 到底部）
-    if ignore_img1_bottom_ratio > 0.0 {
-        let bottom_ignore = (img1_len as f32 * ignore_img1_bottom_ratio) as usize;
-        search_end = search_end.saturating_sub(bottom_ignore);
-    }
-    // 防御：忽略过度导致区间反转时，回退到至少保留 1 行
-    if search_start >= search_end {
-        search_start = search_end.saturating_sub(1);
-    }
+    let (search_start, search_end) = search_range(
+        tail_window(img1_len, img2_hashes.len()),
+        img1_len,
+        height2 as usize,
+        ignore_img1_top_ratio,
+        ignore_img1_bottom_ratio,
+    );
 
     let img1_search_region = compute_row_hashes_from_rgba_range(
         img1_rgba,
@@ -239,42 +220,115 @@ fn smart_stitch_core(
         debug,
     );
 
-    if debug {
-        println!("  🔍 搜索重叠区域:");
-        println!("     img1总长度: {}行", img1_len);
-        println!("     img2总长度: {}行", img2_len);
-        println!(
-            "     搜索范围: img1[{}:{}] (共{}行, 忽略顶部比例{:.2} 底部比例{:.2})",
-            search_start, search_end, img1_search_region.len(),
-            ignore_img1_top_ratio, ignore_img1_bottom_ratio
-        );
-    }
-
-    // 找多个候选子串
-    let candidates = find_top_common_substrings(
+    let (start_i, start_j_abs, overlap_length) = match_overlap(
         &img1_search_region,
-        &img2_hashes,
-        min_overlap_ratio,
-        5,
-    );
-
-    // 智能选择
-    let (start_i, start_j, overlap_length) = select_best_candidate(
-        &candidates,
         search_start,
         img1_len,
-        img2_len,
+        &img2_hashes,
+        img2_hash_start,
+        min_overlap_ratio,
+        ignore_img1_top_ratio,
+        ignore_img1_bottom_ratio,
         debug,
     )?;
-
-    // start_j 基于跳过顶部后的 img2 哈希序列，像素拼接时要映射回原图坐标。
-    let start_j_abs = start_j + img2_hash_start as i32;
 
     // 执行像素拼接
     Ok(do_pixel_stitch(
         img1_rgba, img2_rgba, final_width, height2,
         start_i, start_j_abs, overlap_length, debug,
     ))
+}
+
+/// img1 末尾的搜索窗口：最后两个 img2 高度（容忍回滚）。
+pub(crate) fn tail_window(img1_len: usize, img2_len: usize) -> (usize, usize) {
+    (img1_len.saturating_sub(img2_len * 2), img1_len)
+}
+
+/// img1 中参与匹配的行区间 [start, end)：取 `window`，再避开固定标题栏。`frame_height` 是 img2 原图高度。
+pub(crate) fn search_range(
+    window: (usize, usize),
+    img1_len: usize,
+    frame_height: usize,
+    ignore_img1_top_ratio: f32,
+    ignore_img1_bottom_ratio: f32,
+) -> (usize, usize) {
+    let mut search_start = window.0;
+    let mut search_end = window.1.min(img1_len);
+
+    // 固定标题栏只在 img1 最顶部（第一帧，下滑正常态）或最底部（最后一帧，上滑翻转态），
+    // 所以两头都按帧高的比例避开。按 img1 总长算的话，拼得越长忽略越多，
+    // 底部会切掉紧贴末尾的重叠区，顶部会让回滚到开头时找不到位置。
+    let bar = frame_height.min(img1_len) as f32;
+    if ignore_img1_top_ratio > 0.0 {
+        search_start = search_start.max((bar * ignore_img1_top_ratio) as usize);
+    }
+    if ignore_img1_bottom_ratio > 0.0 {
+        let bottom_ignore = (bar * ignore_img1_bottom_ratio) as usize;
+        search_end = search_end.min(img1_len.saturating_sub(bottom_ignore));
+    }
+    // 防御：忽略过度导致区间反转时，回退到至少保留 1 行
+    if search_start >= search_end {
+        search_start = search_end.saturating_sub(1);
+    }
+    (search_start, search_end)
+}
+
+/// 用行哈希找重叠，按长度从长到短列出候选。
+///
+/// `img1_region` 是 img1[search_start..] 的哈希，`img2_hashes` 已跳过顶部 `img2_hash_start` 行。
+/// 只从连续匹配段的开头找候选，最多列出 `top_k` 个。
+/// 每项为 (img1 中重叠起点, img2 原图坐标下的重叠起点, 重叠行数)。
+pub(crate) fn overlap_candidates(
+    img1_region: &[u64],
+    search_start: usize,
+    img2_hashes: &[u64],
+    img2_hash_start: usize,
+    min_overlap_ratio: f32,
+    top_k: usize,
+) -> Vec<(usize, usize, usize)> {
+    find_top_common_runs(img1_region, img2_hashes, min_overlap_ratio, top_k)
+        .into_iter()
+        .map(|(i, j, len)| (i as usize + search_start, j as usize + img2_hash_start, len))
+        .collect()
+}
+
+/// 用行哈希找重叠并选定候选。
+///
+/// `img1_region` 是 img1[search_start..] 的哈希，`img2_hashes` 已跳过顶部 `img2_hash_start` 行。
+/// 返回 (img1 中重叠起点, img2 原图坐标下的重叠起点, 重叠行数)。
+pub(crate) fn match_overlap(
+    img1_region: &[u64],
+    search_start: usize,
+    img1_len: usize,
+    img2_hashes: &[u64],
+    img2_hash_start: usize,
+    min_overlap_ratio: f32,
+    ignore_img1_top_ratio: f32,
+    ignore_img1_bottom_ratio: f32,
+    debug: bool,
+) -> Result<(i32, i32, usize), StitchError> {
+    let img2_len = img2_hashes.len();
+
+    if debug {
+        println!("  🔍 搜索重叠区域:");
+        println!("     img1总长度: {}行", img1_len);
+        println!("     img2总长度: {}行", img2_len);
+        println!(
+            "     搜索范围: img1[{}:{}] (共{}行, 忽略顶部比例{:.2} 底部比例{:.2})",
+            search_start, search_start + img1_region.len(), img1_region.len(),
+            ignore_img1_top_ratio, ignore_img1_bottom_ratio
+        );
+    }
+
+    // 找多个候选子串
+    let candidates = find_top_common_substrings(img1_region, img2_hashes, min_overlap_ratio, 5);
+
+    // 智能选择
+    let (start_i, start_j, overlap_length) =
+        select_best_candidate(&candidates, search_start, img1_len, img2_len, debug)?;
+
+    // start_j 基于跳过顶部后的 img2 哈希序列，像素拼接时要映射回原图坐标。
+    Ok((start_i, start_j + img2_hash_start as i32, overlap_length))
 }
 
 // ========== 公开 API ==========
@@ -568,5 +622,24 @@ fn stitch_two_images_smart_auto_internal(
             // 两个方向都失败
             return Err(if matches!(e1, StitchError::NoOverlap) { e2.clone() } else { e1.clone() });
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{search_range, tail_window};
+
+    #[test]
+    fn bottom_ignore_follows_the_frame_height() {
+        assert_eq!(search_range(tail_window(640, 640), 640, 640, 0.0, 0.05), (0, 608));
+        assert_eq!(search_range(tail_window(20_000, 640), 20_000, 640, 0.0, 0.05), (20_000 - 1280, 20_000 - 32));
+    }
+
+    #[test]
+    fn top_ignore_follows_the_frame_height() {
+        assert_eq!(search_range(tail_window(640, 640), 640, 640, 0.15, 0.0), (96, 640));
+        assert_eq!(search_range(tail_window(20_000, 640), 20_000, 640, 0.15, 0.0), (20_000 - 1280, 20_000));
+        // 回滚到长图开头时的窗口：顶部只避开一帧高的 15%
+        assert_eq!(search_range((0, 1920), 30_000, 640, 0.15, 0.0), (96, 1920));
     }
 }

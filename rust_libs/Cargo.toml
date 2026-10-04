@@ -6,6 +6,7 @@ members = [
     "ppocr_rust",
     "hdrcapture",
     "inputhub",
+    "updater",
 ]
 resolver = "2"
 

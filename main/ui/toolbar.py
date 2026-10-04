@@ -543,6 +543,7 @@ class Toolbar(QWidget):
 
     def _open_layout_dialog(self):
         """「调整」：编辑排布，确认后保存并立即重排"""
+        from .dialogs import exec_dialog
         from .toolbar_layout_dialog import ToolbarLayoutDialog
 
         self._hide_more_popup()
@@ -553,7 +554,7 @@ class Toolbar(QWidget):
         # 正在操作的那块屏幕上；改为放到工具栏所在屏幕的中央
         screen = QApplication.screenAt(self.mapToGlobal(QPoint(0, 0))) or QApplication.primaryScreen()
         dialog.move(screen.availableGeometry().center() - dialog.rect().center())
-        if not dialog.exec():
+        if not exec_dialog(dialog):
             return
         save_layout(dialog.entries())
         self.reload_layout()

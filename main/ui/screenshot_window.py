@@ -8,6 +8,7 @@ import gc
 from PySide6.QtWidgets import QApplication, QWidget, QGraphicsTextItem
 from PySide6.QtCore import Qt, QTimer, QRect, QRectF, Signal
 from PySide6.QtGui import QPixmap
+from core.qt_utils import blocking_modal
 from ui.dialogs import show_modeless_warning_dialog
 
 from canvas import CanvasScene, CanvasView
@@ -63,14 +64,13 @@ class ScreenshotShortcutHandler(ShortcutHandler):
 
     def is_active(self) -> bool:
         w = self._window
-        # ShortcutManager 是应用级事件过滤器，按键先经过这里才到对话框。截图中打开的
-        # 模态对话框（工具栏「调整」）必须让出键盘，否则在对话框里按 ESC 会直接结束截图、
-        # 按 Enter 会确认截图。截图开始前就存在的模态窗口会被
-        # MainApp._activate_blocking_modal 挡掉，所以这里遇到的模态窗口只会属于本次截图。
+        # ShortcutManager 是应用级事件过滤器，按键先经过这里才到对话框。锁着截图窗口的
+        # 对话框（取色、保存、工具栏「调整」）必须让出键盘，否则在对话框里按 ESC 会直接
+        # 结束截图、按 Enter 会确认截图。其他窗口的对话框不锁截图窗口，快捷键照常生效。
         return (w is not None
                 and not getattr(w, '_is_closing', True)
                 and w.isVisible()
-                and QApplication.activeModalWidget() is None)
+                and blocking_modal(w) is None)
 
     def _match(self, event, cfg_key: str) -> bool:
         """检查事件是否匹配某个绑定（键盘组合或鼠标键）"""
@@ -597,7 +597,13 @@ class ScreenshotWindow(QWidget):
         
         # 立即隐藏窗口
         self.hide()
-        
+        try:
+            self._release_session_resources()
+        finally:
+            # 复制可能已提前隐藏窗口；清理中途出错也要通知输入中心，否则快速截图一直被挡住
+            self.session_ended.emit()
+
+    def _release_session_resources(self):
         log_debug(T("开始释放截图会话资源（保留 UI 壳）"), "ScreenshotWindow")
         
         # 恢复窗口对截图 API 的可见性
@@ -686,8 +692,6 @@ class ScreenshotWindow(QWidget):
         
         gc.collect()
         log_info(T("截图会话资源释放完成"), "ScreenshotWindow")
-        # 复制可能已提前隐藏窗口，会话清理结束时仍需通知输入中心。
-        self.session_ended.emit()
 
     def _disconnect_session_signals(self):
         """断开本次会话连接到持久 toolbar 上的信号。
@@ -1232,7 +1236,7 @@ class ScreenshotWindow(QWidget):
             # 关闭截图窗口
             self.cleanup_and_close()
         else:
-            show_modeless_warning_dialog(self, "警告", "请先选择一个有效的截图区域！")
+            show_modeless_warning_dialog(self, self.tr("Warning"), self.tr("Please select a valid capture area first."))
 
     def start_long_screenshot_mode(self):
         """启动长截图模式"""
@@ -1299,7 +1303,7 @@ class ScreenshotWindow(QWidget):
             self.cleanup_and_close()
         else:
             # 如果没有确认选区，显示提示
-            show_modeless_warning_dialog(self, "警告", "请先选择一个有效的截图区域！")
+            show_modeless_warning_dialog(self, self.tr("Warning"), self.tr("Please select a valid capture area first."))
 
     @safe_event
     def closeEvent(self, event):

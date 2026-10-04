@@ -13,11 +13,12 @@ emoji==2.15.0
 av==17.0.0
 colorama==0.4.6
 zxing-cpp==3.1.1
+oneocr==1.0.12
 
 # ===== 自制 Rust 库（PyPI 发行名，import 名不同——见各包 README）=====
 j-gif==0.4.0
-j-stitch==0.4.0
-j-clipboard==0.4.4
+j-stitch==0.5.0
+j-clipboard==0.4.5
 j-ppocr==0.2.1
 j-hdrcapture==0.1.0
-j-input==0.1.0
+j-input==0.1.1

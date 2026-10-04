@@ -15,13 +15,13 @@ from settings.tool_settings import ToolSettingsManager
 VK_LWIN, VK_LSHIFT, VK_V = 0x5B, 0xA0, ord("V")
 
 
-def _win_v() -> bool:
+def _win_v(injected=False) -> bool:
     """按下 Win+V 再全部松开，返回 V 的按下是否被吞掉。"""
     native = input_hub().native
-    native.key(VK_LWIN, True)
-    swallowed = native.key(VK_V, True)
-    native.key(VK_V, False)
-    native.key(VK_LWIN, False)
+    native.key(VK_LWIN, True, injected=injected)
+    swallowed = native.key(VK_V, True, injected=injected)
+    assert native.key(VK_V, False, injected=injected) == swallowed
+    native.key(VK_LWIN, False, injected=injected)
     return swallowed
 
 
@@ -31,13 +31,14 @@ def _hooks_needed() -> bool:
 
 
 class TestHookHotkey:
-    def test_win_v_is_swallowed_and_dispatched_on_the_gui_thread(self, qapp):
+    @pytest.mark.parametrize("injected", [False, True])
+    def test_win_v_is_swallowed_and_dispatched_on_the_gui_thread(self, qapp, injected):
         mgr = ShortcutManager()
         calls = []
         assert mgr.register_hook_hotkey("clipboard", ["win"], VK_V, lambda: calls.append("clipboard"))
         assert mgr.has_registered_hotkeys()
 
-        assert _win_v() is True
+        assert _win_v(injected) is True
         assert calls == []  # 经排队回到主线程
         qapp.processEvents()
         assert calls == ["clipboard"]
@@ -53,18 +54,19 @@ class TestHookHotkey:
         native.key(VK_LSHIFT, True)
         assert native.key(VK_V, True) is False
 
-    def test_suppression_gives_win_v_back_to_the_system(self, qapp):
+    @pytest.mark.parametrize("injected", [False, True])
+    def test_suppression_gives_win_v_back_to_the_system(self, qapp, injected):
         mgr = ShortcutManager()
         callback = Mock()
         mgr.register_hook_hotkey("clipboard", ["win"], VK_V, callback)
 
         mgr.set_global_hotkeys_suppressed(True)
         assert not _hooks_needed()
-        assert _win_v() is False
+        assert _win_v(injected) is False
         assert mgr.has_registered_hotkeys(), "resuming must not need a re-register"
 
         mgr.set_global_hotkeys_suppressed(False)
-        assert _win_v() is True
+        assert _win_v(injected) is True
         qapp.processEvents()
         callback.assert_called_once()
 
@@ -85,17 +87,28 @@ class TestHookHotkey:
         mgr.set_global_hotkeys_suppressed(False)
         assert _win_v() is True
 
-    def test_unregister_all_gives_win_v_back(self, qapp):
+    @pytest.mark.parametrize("injected", [False, True])
+    def test_unregister_all_gives_win_v_back(self, qapp, injected):
         mgr = ShortcutManager()
         mgr.register_hook_hotkey("clipboard", ["win"], VK_V, Mock())
         mgr.unregister_all_hotkeys()
         assert not mgr.has_registered_hotkeys()
         assert not _hooks_needed()
-        assert _win_v() is False
+        assert _win_v(injected) is False
 
     def test_an_invalid_binding_is_reported(self, qapp):
         mgr = ShortcutManager()
         assert mgr.register_hook_hotkey("bare", [], VK_V, Mock()) is False
+
+    def test_simulated_ctrl_v_paste_does_not_trigger_win_v(self, qapp):
+        mgr = ShortcutManager()
+        callback = Mock()
+        mgr.register_hook_hotkey("clipboard", ["win"], VK_V, callback)
+        native = input_hub().native
+        for vk, pressed in [(0xA2, True), (VK_V, True), (VK_V, False), (0xA2, False)]:
+            assert native.key(vk, pressed, injected=True) is False
+        qapp.processEvents()
+        callback.assert_not_called()
 
 
 def _app(tmp_settings, *, take_over=None, clipboard_enabled=True):

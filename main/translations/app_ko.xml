@@ -624,6 +624,38 @@ Replace it?</source>
         <translation>사양이 매우 낮은 컴퓨터에서는 고정 후 OCR로 인해 잠시 끊김이 발생할 수 있습니다. 필요한 경우 자동 인식을 끄세요.</translation>
     </message>
     <message>
+        <source>OCR Engine</source>
+        <translation>OCR 엔진</translation>
+    </message>
+    <message>
+        <source>Switch OCR engines here.</source>
+        <translation>여기에서 OCR 엔진을 전환합니다.</translation>
+    </message>
+    <message>
+        <source>The Snipping Tool engine is faster and reads more languages, but needs the Snipping Tool from Windows 11. PP-OCR works on any Windows.</source>
+        <translation>캡처 도구 엔진은 더 빠르고 더 많은 언어를 인식하지만 Windows 11의 캡처 도구가 필요합니다. PP-OCR은 모든 Windows에서 사용할 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>Windows Snipping Tool</source>
+        <translation>Windows 캡처 도구</translation>
+    </message>
+    <message>
+        <source>Windows Snipping Tool (not found)</source>
+        <translation>Windows 캡처 도구(찾을 수 없음)</translation>
+    </message>
+    <message>
+        <source>PP-OCR (missing engine)</source>
+        <translation>PP-OCR (엔진 없음)</translation>
+    </message>
+    <message>
+        <source>PP-OCR (missing models)</source>
+        <translation>PP-OCR (모델 없음)</translation>
+    </message>
+    <message>
+        <source>OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version</source>
+        <translation>OCR을 사용할 수 없음: Microsoft Store에서 캡처 도구를 설치하거나 전체 버전을 다운로드하세요</translation>
+    </message>
+    <message>
         <source>Auto language detection: Supports Chinese, Japanese, English mixed recognition</source>
         <translation>자동 언어 감지: 중국어, 일본어, 영어 혼합 인식을 지원합니다</translation>
     </message>
@@ -1218,6 +1250,14 @@ Replace it?</source>
         <source>Open Context Menu</source>
         <translation>메뉴 열기</translation>
     </message>
+    <message>
+        <source>Settings</source>
+        <translation>설정</translation>
+    </message>
+    <message>
+        <source>jietuba</source>
+        <translation>jietuba</translation>
+    </message>
 </context>
 
 <context>
@@ -1423,6 +1463,10 @@ Replace it?</source>
         <source>Record</source>
         <translation>녹화</translation>
     </message>
+    <message>
+        <source>Drag to move</source>
+        <translation>드래그하여 이동</translation>
+    </message>
 </context>
 
 <!-- ========== Pin Window ========== -->
@@ -1578,6 +1622,38 @@ Replace it?</source>
         <translation>수동으로 스크린샷 찍기</translation>
     </message>
     <message>
+        <source>Auto scroll (move the mouse to stop)</source>
+        <translation>자동 스크롤 (마우스를 움직이면 정지)</translation>
+    </message>
+    <message>
+        <source>Crop</source>
+        <translation>자르기</translation>
+    </message>
+    <message>
+        <source>Crop top: remove everything above the current view</source>
+        <translation>위쪽 자르기: 현재 화면 위의 내용 삭제</translation>
+    </message>
+    <message>
+        <source>Crop bottom: remove everything below the current view</source>
+        <translation>아래쪽 자르기: 현재 화면 아래의 내용 삭제</translation>
+    </message>
+    <message>
+        <source>Crop left: remove everything left of the current view</source>
+        <translation>왼쪽 자르기: 현재 화면 왼쪽의 내용 삭제</translation>
+    </message>
+    <message>
+        <source>Crop right: remove everything right of the current view</source>
+        <translation>오른쪽 자르기: 현재 화면 오른쪽의 내용 삭제</translation>
+    </message>
+    <message>
+        <source>Size of the long screenshot</source>
+        <translation>긴 스크린샷 크기</translation>
+    </message>
+    <message>
+        <source>Switch scroll direction</source>
+        <translation>스크롤 방향 전환</translation>
+    </message>
+    <message>
         <source>Pin to desktop</source>
         <translation>바탕 화면에 고정</translation>
     </message>
@@ -1704,6 +1780,42 @@ Replace it?</source>
     <message>
         <source>The hotkey may be occupied by other programs. Please try a different combination.</source>
         <translation>다른 프로그램에서 해당 단축키를 사용 중일 수 있습니다. 다른 조합을 사용해 보세요.</translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation>오류</translation>
+    </message>
+    <message>
+        <source>System tray not available</source>
+        <translation>시스템 트레이를 사용할 수 없습니다</translation>
+    </message>
+<message>
+        <source>Finish capturing or saving before updating. The download has been kept.</source>
+        <translation>캡처 또는 저장을 마친 후 다시 시도하세요. 다운로드는 보관되었습니다.</translation>
+    </message>
+<message>
+        <source>Finish recording or scrolling and close that window before updating. The download has been kept.</source>
+        <translation>녹화 또는 스크롤 캡처를 마치고 해당 창을 닫은 후 다시 시도하세요. 다운로드는 보관되었습니다.</translation>
+    </message>
+<message>
+        <source>Finish exporting before updating. The download has been kept.</source>
+        <translation>내보내기를 마친 후 다시 시도하세요. 다운로드는 보관되었습니다.</translation>
+    </message>
+<message>
+        <source>Wait for application initialization to finish before updating.</source>
+        <translation>앱 초기화가 완료된 후 다시 시도하세요.</translation>
+    </message>
+<message>
+        <source>Finish saving before updating.</source>
+        <translation>저장을 마친 후 다시 시도하세요.</translation>
+    </message>
+<message>
+        <source>Update cancelled because the settings window was not closed.</source>
+        <translation>설정 창이 닫히지 않아 업데이트를 취소했습니다.</translation>
+    </message>
+<message>
+        <source>Settings could not be saved. Update cancelled.</source>
+        <translation>설정을 저장할 수 없어 업데이트를 취소했습니다.</translation>
     </message>
 </context>
 
@@ -1852,6 +1964,30 @@ Replace it?</source>
     <message>
         <source>Target</source>
         <translation>대상</translation>
+    </message>
+    <message>
+        <source>Translation failed</source>
+        <translation>번역 실패</translation>
+    </message>
+    <message>
+        <source>Please enter text to translate</source>
+        <translation>번역할 텍스트를 입력하세요</translation>
+    </message>
+    <message>
+        <source>OCR is not available</source>
+        <translation>OCR을 사용할 수 없습니다</translation>
+    </message>
+    <message>
+        <source>No text recognized</source>
+        <translation>인식된 텍스트가 없습니다</translation>
+    </message>
+    <message>
+        <source>OCR failed:</source>
+        <translation>OCR 실패:</translation>
+    </message>
+    <message>
+        <source>Recognition failed</source>
+        <translation>인식 실패</translation>
     </message>
 </context>
 
@@ -2029,6 +2165,58 @@ Replace it?</source>
         <translation>다시 열 때 검색 유지</translation>
     </message>
     <message>
+        <source>Multi-Select Paste</source>
+        <translation>다중 선택 붙여넣기</translation>
+    </message>
+    <message>
+        <source>Separator</source>
+        <translation>구분자</translation>
+    </message>
+    <message>
+        <source>New Line</source>
+        <translation>줄바꿈</translation>
+    </message>
+    <message>
+        <source>Blank Line</source>
+        <translation>빈 줄</translation>
+    </message>
+    <message>
+        <source>Space</source>
+        <translation>공백</translation>
+    </message>
+    <message>
+        <source>Tab</source>
+        <translation>탭</translation>
+    </message>
+    <message>
+        <source>Comma</source>
+        <translation>쉼표</translation>
+    </message>
+    <message>
+        <source>No Separator</source>
+        <translation>구분자 없음</translation>
+    </message>
+    <message>
+        <source>Custom, \n for a new line</source>
+        <translation>사용자 지정, \n은 줄바꿈</translation>
+    </message>
+    <message>
+        <source>Order</source>
+        <translation>순서</translation>
+    </message>
+    <message>
+        <source>First Selected First</source>
+        <translation>선택 순서</translation>
+    </message>
+    <message>
+        <source>Last Selected First</source>
+        <translation>선택 역순</translation>
+    </message>
+    <message>
+        <source>Record Content</source>
+        <translation>내용 기록</translation>
+    </message>
+    <message>
         <source>Window Opacity</source>
         <translation>창 투명도</translation>
     </message>
@@ -2104,8 +2292,10 @@ Replace it?</source>
         <translation>그룹의 모든 항목도 함께 삭제됩니다.</translation>
     </message>
     <message>
-        <source>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</source>
-        <translation>이 그룹을 삭제하시겠습니까?\n그룹의 모든 항목도 함께 삭제됩니다.</translation>
+        <source>Are you sure you want to delete this group?
+All items in the group will also be deleted.</source>
+        <translation>이 그룹을 삭제하시겠습니까?
+그룹의 모든 항목도 함께 삭제됩니다.</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
@@ -2188,8 +2378,10 @@ Replace it?</source>
         <translation>비우기 확인</translation>
     </message>
     <message>
-        <source>Are you sure you want to clear all clipboard history?\nThis action cannot be undone.</source>
-        <translation>모든 클립보드 기록을 비우시겠습니까?\n이 작업은 되돌릴 수 없습니다.</translation>
+        <source>Are you sure you want to clear all clipboard history?
+This action cannot be undone.</source>
+        <translation>모든 클립보드 기록을 비우시겠습니까?
+이 작업은 되돌릴 수 없습니다.</translation>
     </message>
     <message>
         <source>Paste</source>
@@ -2250,6 +2442,30 @@ Replace it?</source>
     <message>
         <source>Paste in Order</source>
         <translation>순서 유지 붙여넣기</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>확인</translation>
+    </message>
+    <message>
+        <source>{count} selected</source>
+        <translation>{count}개 선택됨</translation>
+    </message>
+    <message>
+        <source>Enter pastes them together, Esc clears the selection</source>
+        <translation>Enter로 합쳐서 붙여넣기, Esc로 선택 해제</translation>
+    </message>
+    <message>
+        <source>Images Too Large</source>
+        <translation>이미지가 너무 큽니다</translation>
+    </message>
+    <message>
+        <source>The stitched image would be too large. Select fewer images.</source>
+        <translation>합친 이미지가 너무 큽니다. 선택한 이미지 수를 줄여 주세요.</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete the {count} selected items?</source>
+        <translation>선택한 {count}개 항목을 삭제하시겠습니까?</translation>
     </message>
 </context>
 
@@ -2545,8 +2761,10 @@ Replace it?</source>
         <translation>그룹의 모든 항목도 함께 삭제됩니다.</translation>
     </message>
     <message>
-        <source>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</source>
-        <translation>이 그룹을 삭제하시겠습니까?\n그룹의 모든 항목도 함께 삭제됩니다.</translation>
+        <source>Are you sure you want to delete this group?
+All items in the group will also be deleted.</source>
+        <translation>이 그룹을 삭제하시겠습니까?
+그룹의 모든 항목도 함께 삭제됩니다.</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
@@ -2955,8 +3173,10 @@ Replace it?</source>
         <translation>비우기 확인</translation>
     </message>
     <message>
-        <source>Are you sure you want to clear all clipboard history?\nThis action cannot be undone.</source>
-        <translation>모든 클립보드 기록을 비우시겠습니까?\n이 작업은 되돌릴 수 없습니다.</translation>
+        <source>Are you sure you want to clear all clipboard history?
+This action cannot be undone.</source>
+        <translation>모든 클립보드 기록을 비우시겠습니까?
+이 작업은 되돌릴 수 없습니다.</translation>
     </message>
     <message>
         <source>Also delete saved content in groups</source>
@@ -3738,6 +3958,14 @@ Replace it?</source>
     <message><source>箭头</source><translation>화살표</translation></message>
     <message><source>文字</source><translation>텍스트</translation></message>
     <message><source>橡皮擦</source><translation>지우개</translation></message>
+    <message>
+        <source>撤销</source>
+        <translation>실행 취소</translation>
+    </message>
+    <message>
+        <source>重做</source>
+        <translation>다시 실행</translation>
+    </message>
 </context>
 
 <!-- ========== GIF Playback Toolbar ========== -->
@@ -3925,8 +4153,10 @@ SOFTWARE.</translation></message>
         <translation>그룹의 모든 항목도 함께 삭제됩니다.</translation>
     </message>
     <message>
-        <source>Are you sure you want to delete this group?\nAll items in the group will also be deleted.</source>
-        <translation>이 그룹을 삭제하시겠습니까?\n그룹의 모든 항목도 함께 삭제됩니다.</translation>
+        <source>Are you sure you want to delete this group?
+All items in the group will also be deleted.</source>
+        <translation>이 그룹을 삭제하시겠습니까?
+그룹의 모든 항목도 함께 삭제됩니다.</translation>
     </message>
 </context>
 
@@ -3957,6 +4187,10 @@ SOFTWARE.</translation></message>
         <source>富文本预览</source>
         <translation>서식 있는 텍스트 미리보기</translation>
     </message>
+    <message>
+        <source>无文件信息</source>
+        <translation>파일 정보 없음</translation>
+    </message>
 </context>
 
 <context>
@@ -3974,7 +4208,9 @@ SOFTWARE.</translation></message>
     <message><source>Finalizing migration...</source><translation>이동을 마무리하는 중...</translation></message>
     <message><source>Migration complete.</source><translation>이동이 완료되었습니다.</translation></message>
     <message><source>Clipboard data location changed successfully.</source><translation>클립보드 데이터 위치가 변경되었습니다.</translation></message>
-    <message><source>Clipboard data location changed successfully, but the old files are still in use and could not be deleted. You can remove them after restarting the app.\n{error}</source><translation>클립보드 데이터 위치가 변경되었지만, 이전 파일이 아직 사용 중이라 삭제하지 못했습니다. 앱을 다시 시작한 뒤 삭제할 수 있습니다.\n{error}</translation></message>
+    <message><source>Clipboard data location changed successfully, but the old files are still in use and could not be deleted. You can remove them after restarting the app.
+{error}</source><translation>클립보드 데이터 위치가 변경되었지만, 이전 파일이 아직 사용 중이라 삭제하지 못했습니다. 앱을 다시 시작한 뒤 삭제할 수 있습니다.
+{error}</translation></message>
     <message><source>Clipboard data moved, but reopening the database failed. Please restart the app.</source><translation>클립보드 데이터는 이동했지만 데이터베이스를 다시 열지 못했습니다. 앱을 다시 시작하세요.</translation></message>
     <message><source>No clipboard data files were found to move.</source><translation>이동할 클립보드 데이터 파일을 찾지 못했습니다.</translation></message>
     <message><source>Moving clipboard data... {done} / {total}</source><translation>클립보드 데이터 이동 중... {done} / {total}</translation></message>
@@ -4439,6 +4675,207 @@ SOFTWARE.</translation></message>
     <message>
         <source>Formatting will be removed</source>
         <translation>저장하면 일반 텍스트로 바뀝니다</translation>
+    </message>
+</context>
+
+<context>
+    <name>ScrollCaptureWindow</name>
+    <message>
+        <source>Couldn't join. Scroll back</source>
+        <translation>이어지지 않습니다. 되돌려 주세요</translation>
+    </message>
+    <message>
+        <source>Stitching failed</source>
+        <translation>이어 붙이기 실패</translation>
+    </message>
+    <message>
+        <source>Long Screenshot</source>
+        <translation>긴 스크린샷</translation>
+    </message>
+    <message>
+        <source>Vertical</source>
+        <translation>세로</translation>
+    </message>
+    <message>
+        <source>Horizontal</source>
+        <translation>가로</translation>
+    </message>
+    <message>
+        <source>Long screenshot - window position corrected</source>
+        <translation>긴 스크린샷 - 창 위치를 보정했습니다</translation>
+    </message>
+</context>
+<context>
+    <name>ScreenshotWindow</name>
+    <message>
+        <source>Warning</source>
+        <translation>경고</translation>
+    </message>
+    <message>
+        <source>Please select a valid capture area first.</source>
+        <translation>먼저 유효한 캡처 영역을 선택하세요.</translation>
+    </message>
+</context>
+<context>
+    <name>GifRecorder</name>
+    <message>
+        <source>gifrecorder unavailable</source>
+        <translation>gifrecorder를 사용할 수 없습니다</translation>
+    </message>
+    <message>
+        <source>The gifrecorder module was not found, so the GIF cannot be exported.
+
+Make sure gifrecorder is installed correctly.</source>
+        <translation>gifrecorder 모듈을 찾을 수 없어 GIF를 내보낼 수 없습니다.
+
+gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
+    </message>
+    <message>
+        <source>Recording error</source>
+        <translation>녹화 오류</translation>
+    </message>
+    <message>
+        <source>The recording is empty. Please record again.</source>
+        <translation>녹화된 내용이 없습니다. 다시 녹화하세요.</translation>
+    </message>
+    <message>
+        <source>Save GIF</source>
+        <translation>GIF 저장</translation>
+    </message>
+    <message>
+        <source>GIF animation (*.gif)</source>
+        <translation>GIF 애니메이션 (*.gif)</translation>
+    </message>
+</context>
+<context>
+    <name>ColorPickerDialog</name>
+    <message>
+        <source>Pick color from screen</source>
+        <translation>화면에서 색 가져오기</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>확인</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>취소</translation>
+    </message>
+</context>
+<context>
+    <name>GifDrawingToolbar</name>
+    <message>
+        <source>撤销</source>
+        <translation>실행 취소</translation>
+    </message>
+    <message>
+        <source>重做</source>
+        <translation>다시 실행</translation>
+    </message>
+    <message>
+        <source>退出绘制</source>
+        <translation>그리기 종료</translation>
+    </message>
+</context>
+<context>
+    <name>UpdateDialog</name>
+<message>
+        <source>Update Available</source>
+        <translation>업데이트 가능</translation>
+    </message>
+<message>
+        <source>No release notes provided.</source>
+        <translation>릴리스 노트가 없습니다.</translation>
+    </message>
+<message>
+        <source>The application will restart after the download finishes.</source>
+        <translation>다운로드가 완료되면 업데이트를 설치하고 앱을 다시 시작합니다.</translation>
+    </message>
+<message>
+        <source>Update and Restart</source>
+        <translation>업데이트 및 재시작</translation>
+    </message>
+<message>
+        <source>Cancel</source>
+        <translation>취소</translation>
+    </message>
+</context>
+<context>
+    <name>UpdateController</name>
+<message>
+        <source>One-click updates are available in the packaged application.</source>
+        <translation>원클릭 업데이트는 패키지 앱에서 사용할 수 있습니다.</translation>
+    </message>
+<message>
+        <source>Downloading update...</source>
+        <translation>업데이트 다운로드 중…</translation>
+    </message>
+<message>
+        <source>Preparing to restart...</source>
+        <translation>설치 및 재시작 준비 중…</translation>
+    </message>
+<message>
+        <source>Update handoff failed.</source>
+        <translation>업데이트 인계에 실패했습니다.</translation>
+    </message>
+<message>
+        <source>Update failed: %1</source>
+        <translation>업데이트 실패: %1</translation>
+    </message>
+<message>
+        <source>The update was not completed. The previous version and its recovery record were kept.</source>
+        <translation>업데이트를 완료하지 못했습니다. 이전 버전과 복구 기록은 보존되었습니다.</translation>
+    </message>
+</context>
+<context>
+    <name>UpdaterProcess</name>
+<message>
+        <source>Could not download the update. Check your network connection and try again.</source>
+        <translation>업데이트를 다운로드할 수 없습니다. 네트워크 연결을 확인한 후 다시 시도하세요.</translation>
+    </message>
+<message>
+        <source>The latest release has no package for this edition and architecture.</source>
+        <translation>최신 릴리스에 현재 에디션과 아키텍처용 패키지가 없습니다.</translation>
+    </message>
+<message>
+        <source>The downloaded package is invalid.</source>
+        <translation>다운로드한 업데이트 패키지가 올바르지 않습니다.</translation>
+    </message>
+<message>
+        <source>The downloaded update does not match this installation.</source>
+        <translation>다운로드한 업데이트가 현재 설치와 일치하지 않습니다.</translation>
+    </message>
+<message>
+        <source>Another update or recovery is already running.</source>
+        <translation>다른 업데이트 또는 복구가 이미 진행 중입니다.</translation>
+    </message>
+<message>
+        <source>An earlier update was not finished. Recover it from the .jietuba-update folder first.</source>
+        <translation>이전 업데이트가 완료되지 않았습니다. 먼저 .jietuba-update 폴더에서 복구하세요.</translation>
+    </message>
+<message>
+        <source>The application did not close or its file is in use. Close it and try again.</source>
+        <translation>앱이 종료되지 않았거나 파일이 사용 중입니다. 닫은 후 다시 시도하세요.</translation>
+    </message>
+<message>
+        <source>No permission to write to the installation folder.</source>
+        <translation>설치 폴더에 쓸 권한이 없습니다.</translation>
+    </message>
+<message>
+        <source>The application file was changed by another program. The update was stopped.</source>
+        <translation>다른 프로그램이 앱 파일을 변경하여 업데이트를 중단했습니다.</translation>
+    </message>
+<message>
+        <source>The previous version could not be restored automatically. Its backup was kept in the .jietuba-update folder.</source>
+        <translation>이전 버전을 자동으로 복원하지 못했습니다. 백업은 .jietuba-update 폴더에 보존되었습니다.</translation>
+    </message>
+<message>
+        <source>The update was cancelled.</source>
+        <translation>업데이트가 취소되었습니다.</translation>
+    </message>
+<message>
+        <source>The updater stopped with an error (%1).</source>
+        <translation>업데이트 프로그램이 오류로 중지되었습니다(%1).</translation>
     </message>
 </context>
 </TS>

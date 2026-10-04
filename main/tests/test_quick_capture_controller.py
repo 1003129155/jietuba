@@ -66,7 +66,6 @@ def capture(qapp, tmp_settings, monkeypatch):
     monkeypatch.setattr(module, "QuickCaptureInput", FakeInput)
     monkeypatch.setattr(module, "QuickCaptureWorker", FakeWorker)
     monkeypatch.setattr(module, "desktop_bounds", lambda: QRect(-100, -100, 500, 500))
-    monkeypatch.setattr("ui.quick_capture_overlay.set_window_exclude_from_capture", Mock())
     monkeypatch.setattr(module, "deliver_screenshot", Mock())
     monkeypatch.setattr(module, "set_last_region", Mock())
     monkeypatch.setattr(module, "request_trim_working_set", Mock())
@@ -357,8 +356,7 @@ def test_click_without_drag_never_captures(capture, qtbot):
     assert not capture.overlay.isVisible()
 
 
-def test_overlay_that_cannot_be_excluded_still_hides_before_capture(capture, qtbot, monkeypatch):
-    monkeypatch.setattr("ui.quick_capture_overlay.set_window_exclude_from_capture", lambda *_args: False)
+def test_capturable_overlay_hides_before_capture(capture, qtbot):
     start(capture, qtbot)
     assert capture.overlay.isVisible()
     worker = finish(capture, qtbot)
@@ -407,14 +405,14 @@ def test_cannot_start_during_other_capture_or_modal(capture, monkeypatch):
     capture._on_input("start", 1, 10, 10)
     assert not capture.busy
     capture.main_app.screenshot_window = None
-    monkeypatch.setattr(module.QApplication, "activeModalWidget", lambda: object())
+    monkeypatch.setattr(module, "blocking_modal", lambda widget=None: object())
     capture._on_input("start", 2, 10, 10)
     assert not capture.busy
 
 
 def test_modal_appearing_during_drag_cancels(capture, qtbot, monkeypatch):
     start(capture, qtbot)
-    monkeypatch.setattr(module.QApplication, "activeModalWidget", lambda: object())
+    monkeypatch.setattr(module, "blocking_modal", lambda widget=None: object())
     move(capture)
     assert not capture.busy
     assert not capture.overlay.isVisible()

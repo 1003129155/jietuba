@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional, TYPE_CHECKING
 
+from core.i18n import make_tr
 from core.logger import T, log_exception
 
 from .enums import GroupType
@@ -77,10 +78,10 @@ class ClipboardItem:
                     return os.path.basename(files[0])
                 if len(files) > 1:
                     return ", ".join(os.path.basename(file_path) for file_path in files)
-                return "文件"
+                return make_tr("ClipboardWindow")("File")
             except Exception as e:
                 log_exception(e, T("解析文件类型显示文本"))
-                return "文件"
+                return make_tr("ClipboardWindow")("File")
         return self.content[:50]
 
     @property

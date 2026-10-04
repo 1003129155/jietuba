@@ -40,8 +40,9 @@ reconfiguration.
 
 A matching gesture takes precedence over a side-button hotkey on the same button.
 
-Injected input is ignored by gestures. `set_test_marker(value)` makes injected input whose
-`dwExtraInfo` equals `value` count as real, so tests can drive the real hooks.
+Gestures accept injected mouse input and keyboard cancellation/release events, allowing
+remote-control software to drag, cancel with Esc, and release Win/Alt without opening menus.
+The configured modifier/button combination must still match exactly.
 
 ## Hotkeys
 
@@ -49,7 +50,7 @@ A hotkey binds modifiers to a non-modifier key, and fires when that key is press
 modifiers are held. Unlike `RegisterHotKey`, it can take combinations the system already owns, such as
 Win+V. The key's press, auto-repeats and release are swallowed together, and only the press is reported.
 A key already held before the modifiers is left alone. Releasing Win or Alt afterwards is masked the same
-way as after a gesture. Injected input is ignored unless it carries the test marker. `unbind_hotkey(name)`
+way as after a gesture. Injected input is accepted so remote-control shortcuts also work. `unbind_hotkey(name)`
 gives the combination back; a release still owed for a swallowed press is swallowed as well.
 
 ## Hook lifetime
