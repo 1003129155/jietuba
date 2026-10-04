@@ -1,0 +1,30 @@
+[build-system]
+requires = ["maturin>=1.12.6,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "j-video-recorder"
+version = "0.1.0"
+description = "Windows Media Foundation MP4 recording extension for Python"
+readme = "README.md"
+license = "MIT"
+# 扩展静态链接了 Rust 依赖，wheel 同时携带其许可声明。
+license-files = ["LICENSE", "THIRD-PARTY-NOTICES.txt"]
+authors = [{ name = "JYAARU" }]
+requires-python = ">=3.11"
+keywords = ["screen-recording", "mp4", "windows", "rust"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Rust",
+]
+
+[tool.maturin]
+# 发行名与 import 名分别沿用 j-video-recorder 和 video_recorder。
+module-name = "video_recorder"
+features = ["pyo3/extension-module"]
+locked = true

@@ -313,7 +313,7 @@ class Toolbar(QWidget):
         self.scan_code_btn = self._add_button(
             "scan_code", "svg/扫码.svg", "Scan QR code / barcode", wide, self.scan_code_clicked.emit)
         self.gif_btn = self._add_button(
-            "gif", "svg/gif.svg", "GIF recording", wide, self.gif_record_clicked.emit)
+            "gif", "svg/gif.svg", "GIF / Video recording", wide, self.gif_record_clicked.emit)
         # 复制按钮只在钉图里摆出来，截图的排布里没有它
         self.copy_btn = self._add_button(
             "copy", "svg/copy.svg", "Copy image", wide, self.copy_clicked.emit)

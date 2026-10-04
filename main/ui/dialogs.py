@@ -82,6 +82,9 @@ class StandardDialog(QDialog):
             | Qt.WindowType.WindowCloseButtonHint
         )
         self.setWindowModality(Qt.WindowModality.WindowModal)
+        if self.windowIcon().isNull():
+            from core.resource_manager import ResourceManager
+            self.setWindowIcon(ResourceManager.get_icon_by_name("托盘.svg"))
         self.setStyleSheet("""
             QDialog#standardDialog {
                 background: #FFFFFF;
@@ -347,7 +350,7 @@ def show_update_dialog(
     exec_dialog(dialog)
 
 
-def show_modeless_warning_dialog(parent, title, message):
+def show_modeless_warning_dialog(parent, title, message, *, single_line=False):
     """显示非模态警告提示框，适用于截图等不能阻塞交互的场景。"""
     ok_text = _translate_dialog_text("OK")
 
@@ -359,6 +362,26 @@ def show_modeless_warning_dialog(parent, title, message):
     ok_button = dialog.button_box.addButton(ok_text, QDialogButtonBox.ButtonRole.AcceptRole)
     ok_button.setDefault(True)
     ok_button.clicked.connect(dialog.accept)
+
+    if single_line:
+        from ui.fluent_lite import LineEdit
+        # 路径保持单行；超出屏幕宽度时仍可横向查看和复制完整内容。
+        dialog.label.hide()
+        path_field = LineEdit(dialog, use_default_style=False)
+        path_field.setText(message)
+        path_field.setReadOnly(True)
+        path_field.setFrame(False)
+        path_field.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+        set_own_style(path_field, "background: transparent; color: #202124; font-size: 13px;")
+        path_field.setCursorPosition(0)
+        dialog.layout().insertWidget(0, path_field)
+        path_field.ensurePolished()
+        width = max(320, path_field.fontMetrics().horizontalAdvance(message) + 48)
+        screen = dialog.screen()
+        if screen is not None:
+            width = min(width, screen.availableGeometry().width() - 40)
+        dialog.resize(width, dialog.sizeHint().height())
+        ok_button.setFocus()
 
     track_modeless_dialog(dialog)
     dialog.show()

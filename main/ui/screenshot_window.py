@@ -1215,6 +1215,10 @@ class ScreenshotWindow(QWidget):
             app = QApplication.instance()
             old_win = getattr(app, "_gif_window", None)
             if old_win is not None:
+                # 正在录制或封装时保留原会话，避免同时启动两个编码进程。
+                if old_win.video_busy:
+                    self.cleanup_and_close()
+                    return
                 try:
                     old_win.close_all()
                 except Exception as e:
@@ -1230,7 +1234,9 @@ class ScreenshotWindow(QWidget):
             app._gif_window = gif_win
             
             # 窗口关闭后自动清除全局引用，释放内存
-            gif_win.destroyed.connect(lambda: setattr(app, '_gif_window', None))
+            gif_win.destroyed.connect(
+                lambda: setattr(app, '_gif_window', None)
+                if getattr(app, '_gif_window', None) is gif_win else None)
             log_info(T("GIF录制窗口已启动"), "ScreenshotWindow")
             
             # 关闭截图窗口

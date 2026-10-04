@@ -57,7 +57,9 @@
 
 ## 从源码运行
 
-所有运行依赖均通过 [requirements.txt](requirements.txt) 统一安装。
+运行依赖（包括 Rust 预编译包）统一通过 [requirements.txt](requirements.txt) 安装，普通源码用户无需安装 Rust 工具链。
+
+当前开发分支的 `j-video-recorder==0.1.0` 尚未发布到 PyPI。执行下面任一安装方式前，按手动步骤 1 创建 `venv311`，将与 Python 架构匹配的本地 wheel 安装到该环境，详见[录制包安装说明](rust_libs/video_recorder/README.md#安装预编译包)。
 
 ### 一键安装
 
@@ -93,7 +95,7 @@ PP-OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_
 
 ### Rust 扩展包
 
-以下六个包已包含在 `requirements.txt` 中，会在安装运行依赖时一并安装。它们可以独立使用，源码位于 [rust_libs/](rust_libs/)。PyPI 发行名与 Python 的 import 名对应如下：
+七个 Python 扩展包均包含在 `requirements.txt` 中，可以独立使用，源码位于 [rust_libs/](rust_libs/)。PyPI 发行名与 Python import 名对应如下：
 
 | pip 包名 | import 名 | 版本 | 功能 |
 |------|------|------|------|
@@ -103,8 +105,9 @@ PP-OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | 支持 HDR 的桌面截图（DXGI Desktop Duplication + GPU 色调映射） |
 | [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.1 | 不占界面线程的全局鼠标键盘钩子（拖动手势、侧键、热键、滚轮、前台窗口） |
+| `j-video-recorder` | `video_recorder` | 0.1.0 | Media Foundation H.264/MP4 录制与 WASAPI 系统声音采集 |
 
-预编译包面向 Windows x86_64 和 ARM64；各包的 Python 版本声明均为 `>=3.11`，Rust 绑定均启用了 `abi3-py311`，详见各包的 `pyproject.toml` 和 `Cargo.toml`。
+七个扩展面向 Windows x86_64 和 ARM64，声明 Python `>=3.11` 并启用 `abi3-py311`。录制包与其他扩展一致，使用 PyO3 接口；应用在专用 Python 子进程中加载它，录制结束后通过进程退出回收资源。配置详见各包的 `pyproject.toml` 和 `Cargo.toml`。
 
 ---
 
@@ -123,7 +126,7 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 会真实移动鼠标、点击和按键的测试（如 `test_quick_capture_real_hooks.py`）默认跳过；设置环境变量 `RUN_REAL_INPUT_TESTS=1` 后才运行，运行期间请不要操作鼠标和键盘。会改写真实系统剪贴板的测试（`test_clipboard_monitor_real.py`）同样默认跳过；设置环境变量 `RUN_REAL_CLIPBOARD_TESTS=1` 后才运行，运行期间请不要复制任何内容。
 
-构建 Windows 完整版可运行 `python build_with_ocr_onefile.py`，产物为 `dist/jietuba_pp.exe` 和 `dist/models/`；加 `--lite` 构建轻量版，产物为 `dist_lite/jietuba_lite.exe`。自动发行流程见 [build.yml](.github/workflows/build.yml)，会分别生成 x64 与 ARM64 的完整版和轻量版压缩包。
+构建 Windows 发行包前，先安装与当前 Python 架构匹配的录制 wheel，再运行 `python build_with_ocr_onefile.py`。脚本收集已安装的录制扩展与许可声明，并通过 Cargo 单独构建更新器。完整版产物为 `dist/jietuba_pp.exe` 和 `dist/models/`；加 `--lite` 构建轻量版，产物为 `dist_lite/jietuba_lite.exe`。录制 wheel 的构建步骤见[录制 README](rust_libs/video_recorder/README.md#构建与维护)。自动发行流程见 [build.yml](.github/workflows/build.yml)，会分别生成 x64 与 ARM64 的完整版和轻量版压缩包。
 
 ### 代码注释
 
@@ -151,6 +154,9 @@ python -m pytest main/tests -c main/tests/pytest.ini
 │
 ├── main/                    # Python 主程序
 │   ├── main_app.py          # 应用入口，系统托盘、全局快捷键、生命周期管理
+│   ├── video_helper.py      # 录制子进程命令与已安装许可声明定位
+│   ├── video_worker.py      # PyO3 录制子进程与有界 JSONL 协议
+│   ├── video_worker_hook.py # 在 PyInstaller Qt hooks 之前分流录制子进程
 │   ├── compile_translations.py  # 翻译文件编译工具（.xml → .qm）
 │   ├── scripts/             # 辅助脚本 — 翻译提供商对比
 │   │
@@ -159,7 +165,7 @@ python -m pytest main/tests -c main/tests/pytest.ini
 │   ├── capture/             # 截图捕获模块 — 屏幕截图与窗口识别
 │   ├── clipboard/           # 剪贴板管理模块 — 历史记录、分组/快速启动、导入导出、搜索
 │   ├── core/                # 核心基础模块 — 启动引导、日志、资源、主题、国际化、快捷键
-│   ├── gif/                 # GIF录制模块 — 屏幕录制、编辑、回放、导出
+│   ├── gif/                 # GIF/MP4 录制、GIF 编辑、回放、导出
 │   ├── ocr/                 # OCR模块 — 截图工具 OCR 与 PP-OCR 文字识别
 │   ├── pin/                 # 钉图模块 — 截图置顶、编辑、OCR、翻译
 │   ├── settings/            # 设置模块 — 统一配置管理
@@ -170,12 +176,18 @@ python -m pytest main/tests -c main/tests/pytest.ini
 │   ├── ui/                  # 用户界面模块 — 通用UI组件库
 │   └── tests/               # 测试模块 — 单元测试与集成测试
 │
-├── rust_libs/               # Rust 库源码（可自行编译）
+├── rust_libs/               # Rust 扩展源码（可自行编译）
 │   ├── gifrecorder/         # GIF/视频合成编码器源码
 │   ├── longstitch/          # 长截图拼接算法源码
 │   ├── pyclipboard/         # 剪贴板底层操作源码
 │   ├── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX 识别引擎源码
-│   └── updater/             # 只替换主 EXE 的独立 Rust 更新器
+│   ├── hdrcapture/          # HDR 桌面截图扩展源码
+│   ├── inputhub/            # 全局鼠标与键盘钩子扩展源码
+│   ├── updater/             # 只替换主 EXE 的独立 Rust 更新器
+│   └── video_recorder/      # PyO3 Media Foundation 录制扩展
+│       ├── src/             # 录制核心、PyO3 绑定与 WASAPI 采集
+│       ├── pyproject.toml   # j-video-recorder abi3 wheel 配置
+│       └── LICENSE          # wheel 内的 MIT 许可证
 │
 ├── models/                  # PP-OCR ONNX 模型文件（PP-OCR 必需）
 │   ├── PP-OCRv6_det_small.onnx   # 文本检测模型 (DBNet)
@@ -420,6 +432,10 @@ core/
 ### gif/ — GIF 录制模块
 
 屏幕录制、编辑、回放和导出为 GIF/视频。
+
+在录制工具栏选择 **MP4** 即可直接录制 H.264 视频，支持自定义 1–60 fps、0.5–50 Mbps 目标码率、系统声音和鼠标指针开关。可用时优先使用硬件编码，否则回退到 Windows 软件编码。独立进程流式写入视频，Python 不保存视频帧历史；停止后完成 MP4 封装才报告保存成功。MP4 直接保存，不进入 GIF 编辑和回放流程。目前画面采集支持 SDR；系统声音采集默认单声道/立体声播放设备，不包含麦克风。
+
+PyO3 录制扩展通过预编译的 `j-video-recorder==0.1.0` wheel 随运行依赖安装，普通源码用户无需 Rust 工具链。专用 Python 子进程调用扩展，界面只交换控制命令与状态事件。onefile 脚本收集已安装的扩展与许可声明，不重新编译。[Rust 录制说明](rust_libs/video_recorder/README.md)包含 PyPI 发布前的本地 wheel 安装、开发者构建、进程协议与验证命令。系统需要可用的 Media Foundation、H.264/AAC 组件；Windows N 版本可能需要 Media Feature Pack。发行包不附加 FFmpeg 或其他编解码器包。
 <img width="766" height="630" alt="image" src="https://github.com/user-attachments/assets/8653fffb-b419-4584-ab4b-9fe95bb9f246" />
 
 <details>
@@ -434,6 +450,8 @@ gif/
 ├── drawing_toolbar.py       # GifDrawingToolbar — 绘制工具栏
 ├── record_toolbar.py        # RecordToolbar — 录制控制工具栏（开始/暂停/停止）
 ├── frame_recorder.py        # FrameRecorder / FrameData / CursorSnapshot — 帧录制器，采样屏幕帧和光标
+├── video_recorder.py        # VideoRecorder — MP4 Python 子进程的有界 JSONL 控制
+├── video_settings.py        # RecordingOptions — 独立的视频帧率、码率及声音设置
 ├── playback_engine.py       # PlaybackEngine / PlayState — 回放引擎，帧播放和预览
 ├── playback_controller.py   # PlaybackController — 回放控制器，管理回放UI和导出
 ├── playback_toolbar.py      # PlaybackToolbar / RangeSlider — 回放工具栏，进度条、速度控制
@@ -794,6 +812,13 @@ tests/
 ├── test_clipboard_api.py    # 剪贴板公共 API 测试
 ├── test_clipboard_manage_dialog.py # 剪贴板管理窗口测试
 ├── test_frame_recorder.py   # GIF 帧录制测试
+├── test_video_helper.py     # 子进程命令与已安装许可声明定位
+├── test_video_worker.py     # PyO3 适配、协议与提前分流测试
+├── test_video_settings.py   # 视频选项校验与保存测试
+├── test_video_recorder.py   # MP4 进程控制与录制窗口测试
+├── test_video_native_process.py # 当前源码原生录制协议测试
+├── test_video_native_binding.py # PyO3 跨线程控制、回调与资源释放测试
+├── test_video_quit.py       # 录制期间应用退出协调测试
 ├── test_playback_engine.py  # GIF 回放引擎测试
 ├── test_ocr_text_layer.py   # OCR 文字层测试
 ├── test_pin_window_zoom.py  # 钉图缩放测试
