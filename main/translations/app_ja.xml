@@ -2175,6 +2175,58 @@ Replace it?</source>
         <translation>検索条件を保持</translation>
     </message>
     <message>
+        <source>Multi-Select Paste</source>
+        <translation>複数選択して貼り付け</translation>
+    </message>
+    <message>
+        <source>Separator</source>
+        <translation>区切り文字</translation>
+    </message>
+    <message>
+        <source>New Line</source>
+        <translation>改行</translation>
+    </message>
+    <message>
+        <source>Blank Line</source>
+        <translation>空行</translation>
+    </message>
+    <message>
+        <source>Space</source>
+        <translation>スペース</translation>
+    </message>
+    <message>
+        <source>Tab</source>
+        <translation>タブ</translation>
+    </message>
+    <message>
+        <source>Comma</source>
+        <translation>カンマ</translation>
+    </message>
+    <message>
+        <source>No Separator</source>
+        <translation>区切りなし</translation>
+    </message>
+    <message>
+        <source>Custom, \n for a new line</source>
+        <translation>カスタム（\n で改行）</translation>
+    </message>
+    <message>
+        <source>Order</source>
+        <translation>順序</translation>
+    </message>
+    <message>
+        <source>First Selected First</source>
+        <translation>選択順</translation>
+    </message>
+    <message>
+        <source>Last Selected First</source>
+        <translation>選択の逆順</translation>
+    </message>
+    <message>
+        <source>Record Content</source>
+        <translation>内容記録</translation>
+    </message>
+    <message>
         <source>Window Opacity</source>
         <translation>透明度</translation>
     </message>

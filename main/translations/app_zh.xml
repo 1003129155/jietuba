@@ -2210,6 +2210,58 @@ Replace it?</source>
         <translation>保留搜索条件</translation>
     </message>
     <message>
+        <source>Multi-Select Paste</source>
+        <translation>多选粘贴</translation>
+    </message>
+    <message>
+        <source>Separator</source>
+        <translation>分隔符</translation>
+    </message>
+    <message>
+        <source>New Line</source>
+        <translation>换行</translation>
+    </message>
+    <message>
+        <source>Blank Line</source>
+        <translation>空行</translation>
+    </message>
+    <message>
+        <source>Space</source>
+        <translation>空格</translation>
+    </message>
+    <message>
+        <source>Tab</source>
+        <translation>制表符</translation>
+    </message>
+    <message>
+        <source>Comma</source>
+        <translation>逗号</translation>
+    </message>
+    <message>
+        <source>No Separator</source>
+        <translation>无分隔符</translation>
+    </message>
+    <message>
+        <source>Custom, \n for a new line</source>
+        <translation>自定义，\n 表示换行</translation>
+    </message>
+    <message>
+        <source>Order</source>
+        <translation>顺序</translation>
+    </message>
+    <message>
+        <source>First Selected First</source>
+        <translation>先选在前</translation>
+    </message>
+    <message>
+        <source>Last Selected First</source>
+        <translation>后选在前</translation>
+    </message>
+    <message>
+        <source>Record Content</source>
+        <translation>记录内容</translation>
+    </message>
+    <message>
         <source>Window Opacity</source>
         <translation>窗口透明度</translation>
     </message>

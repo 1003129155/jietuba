@@ -615,6 +615,32 @@ impl Database {
         Ok(())
     }
     
+    /// 把几条记录一起移到最前，彼此的先后不变
+    pub fn move_items_to_top(&self, ids: &[i64]) -> Result<(), String> {
+        let tx = self.conn.unchecked_transaction()
+            .map_err(|e| format!("移动到最前失败: {}", e))?;
+        let mut ordered: Vec<(i64, i64)> = Vec::with_capacity(ids.len());
+        for id in ids {
+            match tx.query_row("SELECT item_order FROM clipboard WHERE id = ?", params![id], |row| row.get::<_, i64>(0)) {
+                Ok(order) => ordered.push((order, *id)),
+                Err(rusqlite::Error::QueryReturnedNoRows) => {}
+                Err(e) => return Err(format!("移动到最前失败: {}", e)),
+            }
+        }
+        // 原来靠下的先挪，最后挪的排在最上面
+        ordered.sort();
+        let top: i64 = tx.query_row("SELECT COALESCE(MAX(item_order), 0) FROM clipboard", [], |row| row.get(0))
+            .map_err(|e| format!("移动到最前失败: {}", e))?;
+        let now = chrono::Local::now().timestamp();
+        for (index, (_, id)) in ordered.iter().enumerate() {
+            tx.execute(
+                "UPDATE clipboard SET item_order = ?, updated_at = ? WHERE id = ?",
+                params![top + 1000 * (index as i64 + 1), now, id],
+            ).map_err(|e| format!("移动到最前失败: {}", e))?;
+        }
+        tx.commit().map_err(|e| format!("移动到最前失败: {}", e))
+    }
+
     /// 移动剪贴板内容到指定位置（拖拽排序核心接口）
     /// 
     /// 使用稀疏整数算法，在 before 和 after 之间插入
@@ -1154,6 +1180,17 @@ mod maintenance_tests {
         assert_eq!(search(&db, "50%"), vec!["50%"]);
         assert_eq!(search(&db, "a_b"), vec!["a_b"]);
         assert_eq!(search(&db, r"\t"), vec![r"C:\temp"]);
+    }
+
+    #[test]
+    fn items_moved_to_the_top_together_keep_their_order() {
+        let db = Database::new(":memory:").unwrap();
+        let ids: Vec<i64> = ["一", "二", "三", "四"].iter().map(|text| add(&db, text)).collect();
+        // 列表从新到旧：四 三 二 一；把「一」和「三」挪上去，传入顺序不影响结果
+        db.move_items_to_top(&[ids[0], ids[2], 999]).unwrap();
+        let order: Vec<String> = db.query_items(0, 10, None, None, None, None)
+            .unwrap().items.into_iter().map(|item| item.content).collect();
+        assert_eq!(order, vec!["三", "一", "四", "二"]);
     }
 
     #[test]

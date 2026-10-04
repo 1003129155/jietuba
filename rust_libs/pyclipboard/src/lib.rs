@@ -3,6 +3,7 @@ use pyo3::exceptions::PyRuntimeError;
 use pyo3::types::PyBytes;
 
 mod database;
+mod multi_paste;
 mod types;
 #[cfg(target_os = "windows")]
 mod win_clipboard;
@@ -162,6 +163,7 @@ fn should_skip_callback(id: i64) -> bool {
 fn pyclipboard(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // 注册类
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
+    m.add("MAX_STITCHED_PIXELS", multi_paste::MAX_STITCHED_PIXELS)?;
     m.add_class::<PyClipboardManager>()?;
     m.add_class::<PyClipboardItem>()?;
     m.add_class::<PyQueryParams>()?;
@@ -1429,6 +1431,279 @@ impl PyClipboardManager {
             Ok(true)
         }
     }
+
+    /// 把几条记录合成一份内容写进剪贴板（多选粘贴）
+    ///
+    /// 文本按分隔符拼接，HTML、RTF 各合成一份，文件取并集；选中的全是图片时拼成
+    /// 一张，否则图片不参与。
+    ///
+    /// Args:
+    ///     ids: 按粘贴顺序排好的记录 ID
+    ///     with_html: 带上合并后的 HTML、RTF
+    ///     move_to_top: 用到的记录移到最前，彼此的先后不变
+    ///     separator: 文本之间的分隔符，默认换行
+    ///     plain_text: 只写纯文本，文件记录按路径写成文本
+    ///     layout: 全是图片时的拼接方向，"vertical"（默认）或 "horizontal"
+    ///     keep_in_history: 合并结果作为一条新记录进历史
+    ///
+    /// Returns:
+    ///     list[int]: 实际用上的记录 ID；什么都没写进剪贴板时为空
+    #[pyo3(signature = (ids, with_html=true, move_to_top=false, separator=None, plain_text=false, layout=None, keep_in_history=false))]
+    #[allow(clippy::too_many_arguments)]
+    fn paste_items(
+        &self,
+        py: Python<'_>,
+        ids: Vec<i64>,
+        with_html: bool,
+        move_to_top: bool,
+        separator: Option<String>,
+        plain_text: bool,
+        layout: Option<String>,
+        keep_in_history: bool,
+    ) -> PyResult<Vec<i64>> {
+        let vertical = match layout.as_deref() {
+            None | Some("vertical") => true,
+            Some("horizontal") => false,
+            Some(other) => {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!("未知的拼接方向: {other}")));
+            }
+        };
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            let _ = (py, ids, with_html, move_to_top, separator, plain_text, vertical, keep_in_history);
+            Err(PyRuntimeError::new_err("paste_items 只支持 Windows"))
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            let options = MultiPasteOptions {
+                with_html,
+                move_to_top,
+                separator: separator.unwrap_or_else(|| "\n".to_string()),
+                plain_text,
+                vertical,
+                keep_in_history,
+            };
+            let db = self.db.clone();
+            // 拼图、编码可能要几百毫秒，期间放开 GIL
+            py.allow_threads(move || paste_items_impl(&db, &ids, &options))
+                .map_err(PyRuntimeError::new_err)
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+struct MultiPasteOptions {
+    with_html: bool,
+    move_to_top: bool,
+    separator: String,
+    plain_text: bool,
+    vertical: bool,
+    keep_in_history: bool,
+}
+
+#[cfg(target_os = "windows")]
+fn paste_items_impl(db: &Mutex<Database>, ids: &[i64], options: &MultiPasteOptions) -> Result<Vec<i64>, String> {
+    let (items, images_dir) = {
+        let db = db.lock();
+        let items: Vec<PyClipboardItem> = ids.iter()
+            .filter_map(|id| db.get_item_by_id(*id).ok().flatten())
+            .collect();
+        (items, db.get_images_dir())
+    };
+    let all_images = !options.plain_text
+        && !items.is_empty()
+        && items.iter().all(|item| item.content_type == "image");
+    let (formats, used) = if all_images {
+        stitched_image_formats(db, &items, &images_dir, options.vertical)?
+    } else {
+        merged_formats(db, &items, options)
+    };
+    if formats.is_empty() || !win_clipboard::write(&formats) {
+        return Ok(Vec::new());
+    }
+    if !options.keep_in_history {
+        mark_own_clipboard_write();
+    }
+
+    let db = db.lock();
+    for id in &used {
+        let _ = db.increment_paste_count(*id);
+    }
+    if options.move_to_top {
+        let _ = db.move_items_to_top(&used);
+    }
+    Ok(used)
+}
+
+/// 按名字找一个存下的格式；注册格式的编号开机后会变，名字不会
+#[cfg(target_os = "windows")]
+fn stored_format<'a>(formats: &'a [(u32, String, Vec<u8>)], name: &str) -> Option<&'a [u8]> {
+    formats.iter()
+        .find(|(_, format_name, data)| format_name == name && !data.is_empty())
+        .map(|(_, _, data)| data.as_slice())
+}
+
+/// 文本、文件记录合并成的格式，以及用上的记录 ID
+#[cfg(target_os = "windows")]
+fn merged_formats(
+    db: &Mutex<Database>,
+    items: &[PyClipboardItem],
+    options: &MultiPasteOptions,
+) -> (Vec<(u32, Vec<u8>)>, Vec<i64>) {
+    use multi_paste::{HtmlPart, RtfSource};
+    use win_clipboard::{CF_HDROP, CF_UNICODETEXT};
+
+    struct TextPiece {
+        text: String,
+        html: Option<HtmlPart>,
+        rtf: Option<Vec<u8>>,
+    }
+
+    let rich = options.with_html && !options.plain_text;
+    let mut texts = Vec::new();
+    let mut file_lists = Vec::new();
+    let mut used = Vec::new();
+    for item in items {
+        if !matches!(item.content_type.as_str(), "text" | "file") {
+            continue;
+        }
+        let formats = db.lock().get_formats(item.id).unwrap_or_default();
+        if item.content_type == "text" {
+            let text = stored_format(&formats, "CF_UNICODETEXT")
+                .map(win_clipboard::decode_unicode)
+                .filter(|text| !text.is_empty())
+                .unwrap_or_else(|| item.content.clone());
+            let html = rich.then(|| {
+                stored_format(&formats, CF_HTML_FORMAT)
+                    .and_then(HtmlPart::from_cf_html)
+                    .or_else(|| item.html_content.as_deref()
+                        .filter(|html| !html.is_empty())
+                        .map(|html| HtmlPart::from_document(html, None)))
+            }).flatten();
+            let rtf = rich.then(|| stored_format(&formats, "Rich Text Format").map(<[u8]>::to_vec)).flatten();
+            texts.push(TextPiece { text, html, rtf });
+        } else {
+            let files = stored_format(&formats, "CF_HDROP")
+                .map(win_clipboard::parse_hdrop)
+                .filter(|files| !files.is_empty())
+                .unwrap_or_else(|| item_files(item));
+            if files.is_empty() {
+                continue;
+            }
+            if options.plain_text {
+                texts.push(TextPiece { text: files.join("\r\n"), html: None, rtf: None });
+            } else {
+                file_lists.push(files);
+            }
+        }
+        used.push(item.id);
+    }
+
+    let mut formats = Vec::new();
+    if !texts.is_empty() {
+        let plain: Vec<String> = texts.iter().map(|piece| piece.text.clone()).collect();
+        let text = multi_paste::join_text(&plain, &options.separator);
+        formats.push((CF_UNICODETEXT, win_clipboard::encode_unicode(&text)));
+        // 有一条带富文本就生成整份，其余条目按纯文本转进去，免得贴进 Word 时只剩带格式的那几条
+        if texts.iter().any(|piece| piece.html.is_some()) {
+            let parts: Vec<HtmlPart> = texts.iter()
+                .map(|piece| piece.html.clone().unwrap_or_else(|| HtmlPart::from_text(&piece.text)))
+                .collect();
+            let mut cf_html = generate_cf_html(&multi_paste::merge_html(&parts, &options.separator)).into_bytes();
+            cf_html.push(0);
+            formats.push((win_clipboard::register_format(CF_HTML_FORMAT), cf_html));
+        }
+        if texts.iter().any(|piece| piece.rtf.is_some()) {
+            let sources: Vec<RtfSource> = texts.iter()
+                .map(|piece| match &piece.rtf {
+                    Some(rtf) => RtfSource::Rtf(rtf, &piece.text),
+                    None => RtfSource::Text(&piece.text),
+                })
+                .collect();
+            if let Some(rtf) = multi_paste::merge_rtf(&sources, &options.separator) {
+                formats.push((win_clipboard::register_format("Rich Text Format"), rtf));
+            }
+        }
+    }
+    if !file_lists.is_empty() {
+        formats.push((CF_HDROP, win_clipboard::build_hdrop(&multi_paste::union_files(&file_lists))));
+    }
+    (formats, used)
+}
+
+/// 全是图片时拼成一张，写 PNG 和 CF_DIBV5
+#[cfg(target_os = "windows")]
+fn stitched_image_formats(
+    db: &Mutex<Database>,
+    items: &[PyClipboardItem],
+    images_dir: &std::path::Path,
+    vertical: bool,
+) -> Result<(Vec<(u32, Vec<u8>)>, Vec<i64>), String> {
+    use multi_paste::ImageSource;
+
+    // 先只读头部取尺寸，画布一次分配好，再逐张解码贴上，不必同时留着所有解码后的图
+    let mut sources = Vec::new();
+    for item in items {
+        let formats = db.lock().get_formats(item.id).unwrap_or_default();
+        let source = stored_format(&formats, "PNG")
+            .map(|png| ImageSource::Png(png.to_vec()))
+            .or_else(|| stored_format(&formats, "CF_DIBV5")
+                .or_else(|| stored_format(&formats, "CF_DIB"))
+                .map(|dib| ImageSource::Dib(dib.to_vec())))
+            .or_else(|| item.image_id.as_deref()
+                .and_then(|id| std::fs::read(images_dir.join(format!("{id}.png"))).ok())
+                .map(ImageSource::Png));
+        if let Some((source, size)) = source.and_then(|source| source.dimensions().map(|size| (source, size))) {
+            sources.push((item.id, source, size));
+        }
+    }
+    if sources.is_empty() {
+        return Ok((Vec::new(), Vec::new()));
+    }
+    let sizes: Vec<(u32, u32)> = sources.iter().map(|(_, _, size)| *size).collect();
+    let (width, height) = multi_paste::stitched_size(&sizes, vertical).ok_or("拼接后的图片太大")?;
+
+    let mut canvas = image::RgbaImage::from_pixel(width, height, multi_paste::STITCH_BACKGROUND);
+    let mut offset = 0;
+    let mut used = Vec::new();
+    for (id, source, (source_width, source_height)) in sources {
+        let decoded = match &source {
+            ImageSource::Png(png) => win_clipboard::decode_image(Some(png), None, None),
+            ImageSource::Dib(dib) => win_clipboard::decode_image(None, Some(dib), None),
+        };
+        if let Some(image) = decoded {
+            let (x, y) = if vertical { (0, offset) } else { (offset, 0) };
+            multi_paste::paste_image(&mut canvas, &image, x, y);
+            used.push(id);
+        }
+        offset += if vertical { source_height } else { source_width };
+    }
+
+    // 快速压缩：图可能很大，用户在等这一步
+    let mut png = Vec::new();
+    {
+        use image::codecs::png::{CompressionType, FilterType, PngEncoder};
+        use image::ImageEncoder;
+        PngEncoder::new_with_quality(&mut png, CompressionType::Fast, FilterType::Adaptive)
+            .write_image(canvas.as_raw(), width, height, image::ExtendedColorType::Rgba8)
+            .map_err(|e| format!("编码拼接图片失败: {e}"))?;
+    }
+    let dibv5 = win_clipboard::rgba_to_dibv5(&canvas);
+    drop(canvas);
+    Ok((vec![(win_clipboard::register_format("PNG"), png), (win_clipboard::CF_DIBV5, dibv5)], used))
+}
+
+/// 文件记录里的路径列表
+fn item_files(item: &PyClipboardItem) -> Vec<String> {
+    serde_json::from_str::<serde_json::Value>(&item.content)
+        .ok()
+        .and_then(|json| json.get("files").and_then(|files| files.as_array()).cloned())
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|file| file.as_str().map(str::to_string))
+        .collect()
 }
 
 /// 存下的原始格式整理成要写回剪贴板的 (当前格式编号, 数据)
@@ -1499,13 +1774,7 @@ fn formats_from_item(
             Ok(vec![(win_clipboard::register_format("PNG"), png), (CF_DIBV5, dibv5)])
         }
         "file" => {
-            let files: Vec<String> = serde_json::from_str::<serde_json::Value>(&item.content)
-                .ok()
-                .and_then(|json| json.get("files").and_then(|f| f.as_array()).cloned())
-                .unwrap_or_default()
-                .iter()
-                .filter_map(|f| f.as_str().map(str::to_string))
-                .collect();
+            let files = item_files(item);
             Ok(if files.is_empty() { Vec::new() } else { vec![(CF_HDROP, win_clipboard::build_hdrop(&files))] })
         }
         _ => Ok(Vec::new()),

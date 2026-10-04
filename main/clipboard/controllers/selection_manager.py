@@ -9,7 +9,7 @@
 - 预览弹窗管理
 """
 
-from typing import Optional, Callable
+from typing import Callable, List, Optional
 from PySide6.QtCore import QObject, Qt, QEvent, Signal
 from PySide6.QtWidgets import QListWidget, QListWidgetItem
 from PySide6.QtGui import QKeyEvent
@@ -35,6 +35,7 @@ class SelectionManager(QObject):
     item_activated = Signal(int)  # 项目被激活（Enter或双击），参数为 item_id
     request_sidebar_focus = Signal()  # 请求切换到侧边分组栏（left/right 模式）
     request_group_switch = Signal(int)  # 顶部模式左右键切换分组，delta=-1/+1
+    marks_changed = Signal(int)  # 多选的条数变了
     
     def __init__(self, list_widget: QListWidget, get_item_data: Callable[[int], Optional[ClipboardItem]]):
         """
@@ -59,7 +60,13 @@ class SelectionManager(QObject):
         
         # 是否已经开始键盘导航（呼出后首次按方向键才开始）
         self._keyboard_navigation_started: bool = False
-        
+
+        # 多选的条目 ID。单击仍是直接粘贴，多选靠 Ctrl/Shift+单击、Shift+方向键和空格，
+        # 和键盘导航的当前行分开记
+        self._marked: List[int] = []
+        # Shift 连选的起点
+        self._mark_anchor: Optional[int] = None
+
         # 安装事件过滤器来捕获键盘事件
         self.list_widget.installEventFilter(self)
 
@@ -77,12 +84,111 @@ class SelectionManager(QObject):
         self._selected_index = -1
         self._hovered_index = -1
         self._keyboard_navigation_started = False
+        self.clear_marks()
         # 清除列表的选中状态
         self.list_widget.clearSelection()
         self.list_widget.setCurrentItem(None)
         # 隐藏预览
         PreviewPopup.instance().hide_preview()
         log_debug(T("🔄 SelectionManager 已重置"), "Clipboard")
+
+    # ── 多选 ──────────────────────────────────────────────
+
+    def marked_ids(self, selection_order: bool = False) -> List[int]:
+        """多选的条目 ID；粘贴时取选择顺序，界面更新时取列表顺序。"""
+        rows = {}
+        for row in range(self.list_widget.count()):
+            rows[self.list_widget.item(row).data(Qt.ItemDataRole.UserRole)] = row
+        marked = [item_id for item_id in self._marked if item_id in rows]
+        return marked if selection_order else sorted(marked, key=rows.__getitem__)
+
+    def has_marks(self) -> bool:
+        return bool(self._marked)
+
+    def toggle_mark(self, item_id: int):
+        """加进或移出多选，这一条同时成为连选的起点。"""
+        if item_id in self._marked:
+            self._marked.remove(item_id)
+        else:
+            self._marked.append(item_id)
+        self._mark_anchor = item_id
+        self._set_current_id(item_id)
+        self.marks_changed.emit(len(self._marked))
+
+    def mark_range_to(self, item_id: int):
+        """从连选起点选到这一条，替换原来的多选。
+
+        没有起点时从键盘导航停着的那一行起；那一行也没有就只选这一条。
+        """
+        anchor = self._range_anchor() or item_id
+        self._marked = self._ids_between(anchor, item_id)
+        self._mark_anchor = anchor
+        self._set_current_id(item_id)
+        self.marks_changed.emit(len(self._marked))
+
+    def unmark(self, item_id: int):
+        if item_id in self._marked:
+            self._marked.remove(item_id)
+            self.marks_changed.emit(len(self._marked))
+        if self._mark_anchor == item_id:
+            self._mark_anchor = None
+
+    def clear_marks(self) -> bool:
+        """清空多选，返回之前是否有选中的。"""
+        had_marks = bool(self._marked)
+        self._marked = []
+        self._mark_anchor = None
+        if had_marks:
+            self.marks_changed.emit(0)
+        return had_marks
+
+    def _row_of(self, item_id) -> int:
+        for row in range(self.list_widget.count()):
+            if self.list_widget.item(row).data(Qt.ItemDataRole.UserRole) == item_id:
+                return row
+        return -1
+
+    def _range_anchor(self) -> Optional[int]:
+        if self._mark_anchor is not None and self._row_of(self._mark_anchor) >= 0:
+            return self._mark_anchor
+        return self.get_current_item_id()
+
+    def _ids_between(self, first_id, last_id) -> List[int]:
+        first, last = self._row_of(first_id), self._row_of(last_id)
+        if first < 0 or last < 0:
+            return [last_id] if last >= 0 else []
+        step = 1 if last >= first else -1
+        return [self.list_widget.item(row).data(Qt.ItemDataRole.UserRole)
+                for row in range(first, last + step, step)]
+
+    def _set_current_id(self, item_id):
+        """把键盘导航的当前行移到这一条，之后的方向键从这里接着走。"""
+        row = self._row_of(item_id)
+        if row >= 0:
+            self._keyboard_navigation_started = True
+            self.list_widget.setCurrentRow(row)
+
+    def _extend_marks(self, delta: int):
+        """Shift+方向键：当前行移一格，多选改为从起点到当前行。"""
+        if self.list_widget.count() == 0:
+            return
+        if self._selected_index < 0:
+            self._move_selection(delta)
+            current = self.get_current_item_id()
+            self._mark_anchor = current
+            self._marked = [current] if current is not None else []
+        else:
+            anchor = self._range_anchor()
+            row = max(0, min(self.list_widget.count() - 1, self._selected_index + delta))
+            self._select_index(row)
+            self._mark_anchor = anchor
+            self._marked = self._ids_between(anchor, self.get_current_item_id())
+        self.marks_changed.emit(len(self._marked))
+
+    def _toggle_current_mark(self):
+        item_id = self.get_current_item_id()
+        if item_id is not None:
+            self.toggle_mark(item_id)
 
     def shift_selection_after_insert(self, row: int):
         """列表在 row 处插入一行后同步下移选中下标。
@@ -149,6 +255,11 @@ class SelectionManager(QObject):
             key = key_event.key()
             pos = self.group_bar_position
 
+            if key in (Qt.Key.Key_Up, Qt.Key.Key_Down) \
+                    and key_event.modifiers() == Qt.KeyboardModifier.ShiftModifier:
+                self._extend_marks(-1 if key == Qt.Key.Key_Up else 1)
+                self.list_widget.setFocus()
+                return True
             if key == Qt.Key.Key_Up:
                 self._move_selection(-1)
                 self.list_widget.setFocus()
@@ -172,8 +283,15 @@ class SelectionManager(QObject):
         if obj == self.list_widget and event.type() == QEvent.Type.KeyPress:
             key_event: QKeyEvent = event
             key = key_event.key()
+            modifiers = key_event.modifiers()
             pos = self.group_bar_position
 
+            if key in (Qt.Key.Key_Up, Qt.Key.Key_Down) and modifiers == Qt.KeyboardModifier.ShiftModifier:
+                self._extend_marks(-1 if key == Qt.Key.Key_Up else 1)
+                return True
+            if key == Qt.Key.Key_Space and modifiers == Qt.KeyboardModifier.NoModifier:
+                self._toggle_current_mark()
+                return True
             if key == Qt.Key.Key_Up:
                 self._move_selection(-1)
                 return True
@@ -219,7 +337,9 @@ class SelectionManager(QObject):
         count = self.list_widget.count()
         if count == 0:
             return
-        
+        # 当前行动了，Shift 连选改从新位置起
+        self._mark_anchor = None
+
         # 首次按方向键，从当前项或悬停项开始
         if not self._keyboard_navigation_started:
             self._keyboard_navigation_started = True
@@ -371,4 +491,3 @@ class SelectionManager(QObject):
         if count > 0:
             self._keyboard_navigation_started = True
             self._select_index(count - 1)
- 

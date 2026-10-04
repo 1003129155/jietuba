@@ -1970,6 +1970,58 @@ Replace it?</translation>
         <translation>Preserve Search on Reopen</translation>
     </message>
     <message>
+        <source>Multi-Select Paste</source>
+        <translation>Multi-Select Paste</translation>
+    </message>
+    <message>
+        <source>Separator</source>
+        <translation>Separator</translation>
+    </message>
+    <message>
+        <source>New Line</source>
+        <translation>New Line</translation>
+    </message>
+    <message>
+        <source>Blank Line</source>
+        <translation>Blank Line</translation>
+    </message>
+    <message>
+        <source>Space</source>
+        <translation>Space</translation>
+    </message>
+    <message>
+        <source>Tab</source>
+        <translation>Tab</translation>
+    </message>
+    <message>
+        <source>Comma</source>
+        <translation>Comma</translation>
+    </message>
+    <message>
+        <source>No Separator</source>
+        <translation>No Separator</translation>
+    </message>
+    <message>
+        <source>Custom, \n for a new line</source>
+        <translation>Custom, \n for a new line</translation>
+    </message>
+    <message>
+        <source>Order</source>
+        <translation>Order</translation>
+    </message>
+    <message>
+        <source>First Selected First</source>
+        <translation>First Selected First</translation>
+    </message>
+    <message>
+        <source>Last Selected First</source>
+        <translation>Last Selected First</translation>
+    </message>
+    <message>
+        <source>Record Content</source>
+        <translation>Record Content</translation>
+    </message>
+    <message>
         <source>Window Opacity</source>
         <translation>Window Opacity</translation>
     </message>

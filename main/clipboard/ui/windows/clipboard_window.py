@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
 from core import safe_event
 from core.logger import T, log_debug, log_exception
 from core.shortcut_manager import ShortcutHandler, ShortcutManager, load_inapp_bindings, match_inapp_binding
-from ui.dialogs import show_confirm_dialog
+from ui.dialogs import show_confirm_dialog, show_warning_dialog
 from ui.fluent_lite import LineEdit
 
 from ...controllers import ClipboardController, SelectionManager
@@ -113,6 +113,8 @@ class ClipboardShortcutHandler(ShortcutHandler):
             return True
 
         if key == Qt.Key.Key_Escape:
+            if hasattr(w, "selection_manager") and w.selection_manager.clear_marks():
+                return True
             if hasattr(w, "selection_manager") and w.selection_manager._selected_index >= 0:
                 w.selection_manager.reset()
                 return True
@@ -120,7 +122,7 @@ class ClipboardShortcutHandler(ShortcutHandler):
             return True
 
         if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-            w._paste_selected()
+            w._paste_selected(plain_text=bool(modifiers & Qt.KeyboardModifier.ShiftModifier))
             return True
 
         if key == Qt.Key.Key_Delete:
@@ -243,12 +245,16 @@ class ClipboardWindow(QWidget, FramelessMixin):
     # 这里屏蔽列表信号，选中下标由 shift_selection_* 统一调整。
     def _on_item_removed(self, row: int):
         """单条内容移出当前列表：只摘这一行，保持滚动位置。"""
+        list_item = self.list_widget.item(row)
+        removed_id = list_item.data(ROLE_ITEM_ID) if list_item is not None else None
         self.list_widget.blockSignals(True)
         try:
             self.list_widget.takeItem(row)
         finally:
             self.list_widget.blockSignals(False)
         self.selection_manager.shift_selection_after_remove(row)
+        if removed_id is not None:
+            self.selection_manager.unmark(removed_id)
         # 摘掉一行后可能不够填满窗口，需要时补下一页
         QTimer.singleShot(0, self._check_and_load_more_if_needed)
 
@@ -325,6 +331,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
             self._apply_clear_search_btn_style()
             self._apply_menu_btn_style()
             self._apply_time_filter_styles()
+            self._apply_mark_count_style()
         self._refresh_list()
         log_debug(T("主题已切换到: {theme_name}", theme_name=self.current_theme.display_name), "Clipboard")
 
@@ -375,6 +382,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self.clear_time_filter_btn.setToolTip(self.tr("Close filters"))
         self.search_input.setPlaceholderText("🔍 " + self.tr("Search"))
         self.clear_search_btn.setToolTip(self.tr("Clear search"))
+        self._update_mark_count()
 
         self.type_filter_labels = [self.tr("All"), self.tr("Text"), self.tr("Image"), self.tr("File")]
         for index, action in enumerate(self.type_filter_actions):
@@ -531,6 +539,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self.selection_manager = SelectionManager(self.list_widget, self._get_item_data)
         self.selection_manager.group_bar_position = self.group_bar_position
         self.selection_manager.item_activated.connect(self._on_paste_item)
+        self.selection_manager.marks_changed.connect(self._on_marks_changed)
         self.selection_manager.request_sidebar_focus.connect(self._enter_sidebar_mode)
         self.selection_manager.request_group_switch.connect(self._on_top_group_switch)
         self._mouse_controller = ClipboardMouseController(self)
@@ -642,6 +651,11 @@ class ClipboardWindow(QWidget, FramelessMixin):
         self.clear_search_btn.hide()
         bottom_layout.addWidget(self.clear_search_btn)
 
+        self.mark_count_label = QLabel()
+        self.mark_count_label.hide()
+        self._apply_mark_count_style()
+        bottom_layout.addWidget(self.mark_count_label)
+
         self.menu_btn = QPushButton("⚙")
         self.menu_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.menu_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -715,6 +729,12 @@ class ClipboardWindow(QWidget, FramelessMixin):
             on_set_theme=self._set_theme,
             on_add_item=self._on_add_item_clicked,
             on_set_group_bar_position=self._set_group_bar_position,
+            multi_paste_separator=self.config.get_clipboard_multi_paste_separator(),
+            multi_paste_order=self.config.get_clipboard_multi_paste_order(),
+            multi_paste_keep_merged=self.config.get_clipboard_multi_paste_keep_merged(),
+            on_set_multi_paste_separator=self.config.set_clipboard_multi_paste_separator,
+            on_set_multi_paste_order=self.config.set_clipboard_multi_paste_order,
+            on_toggle_multi_paste_keep_merged=self.config.set_clipboard_multi_paste_keep_merged,
             anchor_pos=self.menu_btn.mapToGlobal(QPoint(0, 0)),
         )
 
@@ -947,6 +967,31 @@ class ClipboardWindow(QWidget, FramelessMixin):
         style = ThemeStyleGenerator(self.current_theme).generate_menu_btn_style()
         self.menu_btn.setStyleSheet(style)
 
+    def _apply_mark_count_style(self):
+        set_own_style(self.mark_count_label,
+            f"background: transparent; border: none; color: {self.current_theme.colors.text_accent};"
+            f" font-size: {scaled(12)}px;"
+        )
+
+    def _update_mark_count(self):
+        count = len(self.selection_manager.marked_ids())
+        self.mark_count_label.setText(self.tr("{count} selected").format(count=count))
+        self.mark_count_label.setToolTip(self.tr("Enter pastes them together, Esc clears the selection"))
+        self.mark_count_label.setVisible(count > 0)
+
+    def _on_marks_changed(self, _count: int):
+        self._item_delegate.set_marked_ids(self.selection_manager.marked_ids())
+        self.list_widget.viewport().update()
+        self._update_mark_count()
+
+    def _toggle_item_mark(self, item_id: int):
+        """Ctrl+单击：加进或移出多选。"""
+        self.selection_manager.toggle_mark(item_id)
+
+    def _mark_items_to(self, item_id: int):
+        """Shift+单击：连选到这一条。"""
+        self.selection_manager.mark_range_to(item_id)
+
     def _apply_time_filter_styles(self):
         generator = ThemeStyleGenerator(self.current_theme)
         if hasattr(self, "time_filter_toggle_btn"):
@@ -1064,23 +1109,81 @@ class ClipboardWindow(QWidget, FramelessMixin):
                 return item
         return None
 
+    def _in_file_group(self) -> bool:
+        group_id = self.controller.current_group_id
+        if group_id is None:
+            return False
+        group = next((g for g in self.controller.manager.get_groups() if g.id == group_id), None)
+        return group is not None and group.group_type == GroupType.FILE
+
     def _on_paste_item(self, item_id: int):
         mouse = getattr(self, "_mouse_controller", None)
         if mouse is not None:
             mouse.cancel()
-        if self.controller.current_group_id is not None:
-            groups = self.controller.manager.get_groups()
-            current_group = next((group for group in groups if group.id == self.controller.current_group_id), None)
-            if current_group is not None and current_group.group_type == GroupType.FILE:
-                self._open_file_item(item_id)
-                return
+        # 点到多选里的一条就整组一起粘贴；点到别的条目只粘那一条
+        marked = self.selection_manager.marked_ids(selection_order=True)
+        if len(marked) > 1 and item_id in marked:
+            self._paste_marked(marked)
+            return
+        self.selection_manager.clear_marks()
+        if self._in_file_group():
+            self._open_file_item(item_id)
+            return
         if self.controller.paste_item(item_id, on_close_callback=self._paste_close_callback()):
             self.item_pasted.emit(item_id)
 
-    def _paste_selected(self):
-        item_id = self.selection_manager.get_current_item_id()
-        if item_id:
+    def _paste_selected(self, plain_text: bool = False):
+        marked = self.selection_manager.marked_ids(selection_order=True)
+        if len(marked) > 1:
+            self._paste_marked(marked, plain_text=plain_text)
+            return
+        item_id = marked[0] if marked else self.selection_manager.get_current_item_id()
+        if not item_id:
+            return
+        if plain_text:
+            self._paste_plain_text(item_id)
+        else:
             self._on_paste_item(item_id)
+
+    def _paste_plain_text(self, item_id: int):
+        """Shift+回车：文本去掉格式，文件粘贴路径，图片照常粘贴。"""
+        item = self._get_item_data(item_id)
+        if item is None:
+            return
+        self.selection_manager.clear_marks()
+        close = self._paste_close_callback()
+        if item.content_type == "text":
+            self.controller.paste_transformed_text(item_id, "special_paste_plain_text", on_close_callback=close)
+        elif item.content_type == "file":
+            self.controller.paste_file_text(item_id, "file_paste_links", on_close_callback=close)
+        else:
+            self._on_paste_item(item_id)
+
+    def _paste_marked(self, item_ids: List[int], plain_text: bool = False,
+                      layout: str = "vertical", explicit: bool = False):
+        """多选的几条合成一份粘贴；文件分组里单击是打开文件，多选时逐个打开。"""
+        mouse = getattr(self, "_mouse_controller", None)
+        if mouse is not None:
+            mouse.cancel()
+        if not explicit and self._in_file_group():
+            self.selection_manager.clear_marks()
+            for item_id in item_ids:
+                self._open_file_item(item_id)
+            return
+        items = [self._get_item_data(item_id) for item_id in item_ids]
+        stitching = not plain_text and all(item is not None and item.content_type == "image" for item in items)
+        if stitching and not self.controller.stitched_image_fits(item_ids, layout):
+            show_warning_dialog(
+                self,
+                self.tr("Images Too Large"),
+                self.tr("The stitched image would be too large. Select fewer images."),
+            )
+            return
+        if self.controller.paste_items(
+            item_ids, on_close_callback=self._paste_close_callback(), explicit=explicit,
+            plain_text=plain_text, layout=layout,
+        ):
+            self.selection_manager.clear_marks()
 
     def _show_context_menu(self, pos):
         item = self.list_widget.itemAt(pos)
@@ -1096,6 +1199,11 @@ class ClipboardWindow(QWidget, FramelessMixin):
         mouse = getattr(self, "_mouse_controller", None)
         if mouse is not None:
             mouse.cancel()
+        marked = self.selection_manager.marked_ids(selection_order=True)
+        if len(marked) > 1 and item_id in marked:
+            self._show_marked_context_menu(marked, pos)
+            return
+        self.selection_manager.clear_marks()
         ctx = self.controller.build_context_menu_data(item_id)
         if ctx is None:
             return
@@ -1107,6 +1215,51 @@ class ClipboardWindow(QWidget, FramelessMixin):
             action_handlers=self._get_item_context_menu_handlers(item_id),
             dynamic_handler_resolvers=(lambda action_key: self._resolve_item_context_menu_handler(item_id, action_key),),
         ).show(self.list_widget, pos, ctx)
+
+    def _show_marked_context_menu(self, item_ids: List[int], pos):
+        ctx = self.controller.build_marked_context_menu_data(item_ids)
+        if ctx is None:
+            return
+        handlers = {
+            "paste_marked": lambda: self._paste_marked(item_ids, explicit=True),
+            "paste_marked_plain": lambda: self._paste_marked(item_ids, plain_text=True, explicit=True),
+            "paste_marked_vertical": lambda: self._paste_marked(item_ids, layout="vertical", explicit=True),
+            "paste_marked_horizontal": lambda: self._paste_marked(item_ids, layout="horizontal", explicit=True),
+            "remove_from_group": lambda: self._move_marked_to_group(item_ids, None),
+            "clear_marks": lambda: self.selection_manager.clear_marks(),
+            "delete_marked": lambda: self._delete_marked(item_ids),
+        }
+        ClipboardItemContextMenu(
+            parent=self,
+            menu_style=self._get_menu_style(),
+            translate=self.tr,
+            action_handlers=handlers,
+            dynamic_handler_resolvers=(lambda action_key: self._resolve_marked_group_handler(item_ids, action_key),),
+        ).show(self.list_widget, pos, ctx)
+
+    def _resolve_marked_group_handler(self, item_ids: List[int], action_key: str):
+        prefix = "move_to_group_"
+        if not action_key.startswith(prefix):
+            return None
+        try:
+            group_id = int(action_key[len(prefix):])
+        except ValueError:
+            return None
+        return lambda: self._move_marked_to_group(item_ids, group_id)
+
+    def _move_marked_to_group(self, item_ids: List[int], group_id: Optional[int]):
+        self.selection_manager.clear_marks()
+        self.controller.move_items_to_group(item_ids, group_id)
+
+    def _delete_marked(self, item_ids: List[int]):
+        confirmed = show_confirm_dialog(
+            self,
+            self.tr("Confirm Delete"),
+            self.tr("Are you sure you want to delete the {count} selected items?").format(count=len(item_ids)),
+        )
+        if confirmed:
+            self.selection_manager.clear_marks()
+            self.controller.delete_items(item_ids)
 
     def _get_item_context_menu_handlers(self, item_id: int):
         return {

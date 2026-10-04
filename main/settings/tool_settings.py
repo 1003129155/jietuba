@@ -396,6 +396,9 @@ class ToolSettingsManager(QObject):
         "clipboard_group_bar_position": "top", # 分组栏位置（right/left/top）
         "clipboard_preserve_search": False,    # 关闭时保留搜索栏内容
         "clipboard_db_path": "",               # 剪贴板数据库自定义路径（空=默认位置）
+        "clipboard_multi_paste_separator": "\n",            # 多选粘贴时文本之间的分隔符
+        "clipboard_multi_paste_order": "oldest_first",      # 多选粘贴的先后：oldest_first / newest_first
+        "clipboard_multi_paste_keep_merged": False,         # 多选粘贴的合并结果存为一条新记录
 
         # ==================== 4. 外观 ====================
         "ui_theme_mode": "system",             # 界面主题（system/light/dark）
@@ -1718,7 +1721,47 @@ class ToolSettingsManager(QObject):
     def set_clipboard_move_to_top_on_paste(self, value: bool):
         """设置粘贴后是否将内容移到最前"""
         self.qsettings.setValue("clipboard/move_to_top_on_paste", value)
-    
+
+    CLIPBOARD_MULTI_PASTE_ORDERS = ("oldest_first", "newest_first")
+
+    def get_clipboard_multi_paste_separator(self) -> str:
+        """多选粘贴时文本之间的分隔符"""
+        value = self.qsettings.value(
+            "clipboard/multi_paste_separator",
+            self.APP_DEFAULT_SETTINGS["clipboard_multi_paste_separator"],
+            type=str,
+        )
+        return value if isinstance(value, str) else self.APP_DEFAULT_SETTINGS["clipboard_multi_paste_separator"]
+
+    def set_clipboard_multi_paste_separator(self, value: str):
+        self.qsettings.setValue("clipboard/multi_paste_separator", value or "")
+
+    def get_clipboard_multi_paste_order(self) -> str:
+        """多选粘贴的先后：oldest_first 先选在前，newest_first 后选在前（兼容旧键值）"""
+        value = self.qsettings.value(
+            "clipboard/multi_paste_order",
+            self.APP_DEFAULT_SETTINGS["clipboard_multi_paste_order"],
+            type=str,
+        )
+        if value not in self.CLIPBOARD_MULTI_PASTE_ORDERS:
+            return self.APP_DEFAULT_SETTINGS["clipboard_multi_paste_order"]
+        return value
+
+    def set_clipboard_multi_paste_order(self, value: str):
+        if value in self.CLIPBOARD_MULTI_PASTE_ORDERS:
+            self.qsettings.setValue("clipboard/multi_paste_order", value)
+
+    def get_clipboard_multi_paste_keep_merged(self) -> bool:
+        """多选粘贴的合并结果是否存为一条新记录"""
+        return self.qsettings.value(
+            "clipboard/multi_paste_keep_merged",
+            self.APP_DEFAULT_SETTINGS["clipboard_multi_paste_keep_merged"],
+            type=bool,
+        )
+
+    def set_clipboard_multi_paste_keep_merged(self, value: bool):
+        self.qsettings.setValue("clipboard/multi_paste_keep_merged", bool(value))
+
     def get_clipboard_theme(self) -> str:
         """获取剪贴板窗口主题"""
         return self.qsettings.value("clipboard/theme", self.APP_DEFAULT_SETTINGS["clipboard_theme"], type=str)

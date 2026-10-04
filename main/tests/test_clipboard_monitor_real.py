@@ -281,6 +281,86 @@ def test_set_clipboard_text_handles_digits_only_text():
     assert _read(CF_UNICODETEXT) == "2026"
 
 
+def _cf_html(fragment):
+    doc = f"<html><body><!--StartFragment-->{fragment}<!--EndFragment--></body></html>".encode()
+    head = "Version:0.9\r\nStartHTML:{:010}\r\nEndHTML:{:010}\r\nStartFragment:{:010}\r\nEndFragment:{:010}\r\n"
+    size = len(head.format(0, 0, 0, 0))
+    start = size + doc.index(b"<!--StartFragment-->") + len(b"<!--StartFragment-->")
+    end = size + doc.index(b"<!--EndFragment-->")
+    return head.format(size, size + len(doc), start, end).encode() + doc + b"\0"
+
+
+def _fragment(cf_html):
+    data = cf_html.decode("utf-8")
+    fields = dict(line.split(":", 1) for line in data.splitlines()[:5])
+    raw = cf_html
+    return raw[int(fields["StartFragment"]):int(fields["EndFragment"])].decode("utf-8")
+
+
+def test_merged_paste_keeps_every_item_in_every_format(monitor, tmp_path):
+    """有一条带 HTML、RTF，其余条目也要转进去，贴到只认富文本的地方不能少"""
+    manager, records = monitor
+    html, rtf = _register("HTML Format"), _register("Rich Text Format")
+    rich = manager.add_item("加粗的一条")
+    manager.insert_formats(rich, [
+        (CF_UNICODETEXT, "CF_UNICODETEXT", _utf16("加粗的一条")),
+        (html, "HTML Format", _cf_html("<b>加粗的一条</b>")),
+        (rtf, "Rich Text Format", rb"{\rtf1\ansi{\fonttbl{\f0 Arial;}}\f0\b bold\par}" + b"\0"),
+    ])
+    plain = manager.add_item("纯文本 <x>")
+    files = manager.add_item('{"files": ["C:\\\\Windows\\\\win.ini"]}', "file")
+
+    assert manager.paste_items([rich, plain, files], separator="\n") == [rich, plain, files]
+    assert _read(CF_UNICODETEXT) == "加粗的一条\r\n纯文本 <x>"
+    assert _fragment(_read(html)) == "<b>加粗的一条</b><br>纯文本 &lt;x&gt;"
+    assert b"bold" in _read(rtf) and "\\u32431?".encode() in _read(rtf)  # 「纯」
+    assert _read(15) == ("C:\\Windows\\win.ini",)
+    time.sleep(0.6)
+    assert records == []
+
+
+def test_merged_paste_goes_into_history_only_when_asked(monitor):
+    manager, records = monitor
+    first, second = manager.add_item("甲"), manager.add_item("乙")
+    assert manager.paste_items([first, second], separator="、", keep_in_history=True)
+    assert _wait_until(lambda: len(records) == 1)
+    assert records[0].content == "甲、乙"
+
+
+def test_selected_images_are_stitched_into_one(monitor):
+    import io
+    from PIL import Image
+    manager, records = monitor
+    png = _register("PNG")
+    ids = []
+    for size, color in (((40, 10), (255, 0, 0, 255)), ((20, 30), (0, 0, 255, 255))):
+        item_id = manager.add_item(f"[{size[0]}x{size[1]}]", "image")
+        manager.insert_formats(item_id, [(png, "PNG", _png(*size, color))])
+        ids.append(item_id)
+
+    assert manager.paste_items(ids) == ids
+    image = Image.open(io.BytesIO(_read(png)))
+    assert image.size == (40, 40)
+    assert image.getpixel((0, 0)) == (255, 0, 0, 255)
+    assert image.getpixel((0, 39)) == (0, 0, 255, 255)
+    assert image.getpixel((39, 39))[3] == 0  # 留白透明
+
+    assert manager.paste_items(ids, layout="horizontal") == ids
+    assert Image.open(io.BytesIO(_read(png))).size == (60, 30)
+    # 只认位图的程序拿到的是同一张图
+    dib = _read(8)
+    assert struct.unpack("<ii", dib[4:12]) == (60, 30)
+    time.sleep(0.6)
+    assert records == []
+
+
+def test_merged_items_move_to_the_top_in_their_own_order(monitor):
+    manager, _ = monitor
+    ids = [manager.add_item(text) for text in ("一", "二", "三", "四")]
+    assert manager.paste_items([ids[2], ids[0]], move_to_top=True)
+    assert [item.content for item in manager.get_history(0, 10).items] == ["三", "一", "四", "二"]
+
+
 def test_history_queries_do_not_deadlock_with_the_monitor(tmp_path):
     """监听线程不能拿着数据库锁去等 GIL：主线程正持 GIL 查历史时，两边会互相等死。"""
     script = tmp_path / "deadlock_check.py"

@@ -2129,6 +2129,58 @@ Replace it?</source>
         <translation>다시 열 때 검색 유지</translation>
     </message>
     <message>
+        <source>Multi-Select Paste</source>
+        <translation>다중 선택 붙여넣기</translation>
+    </message>
+    <message>
+        <source>Separator</source>
+        <translation>구분자</translation>
+    </message>
+    <message>
+        <source>New Line</source>
+        <translation>줄바꿈</translation>
+    </message>
+    <message>
+        <source>Blank Line</source>
+        <translation>빈 줄</translation>
+    </message>
+    <message>
+        <source>Space</source>
+        <translation>공백</translation>
+    </message>
+    <message>
+        <source>Tab</source>
+        <translation>탭</translation>
+    </message>
+    <message>
+        <source>Comma</source>
+        <translation>쉼표</translation>
+    </message>
+    <message>
+        <source>No Separator</source>
+        <translation>구분자 없음</translation>
+    </message>
+    <message>
+        <source>Custom, \n for a new line</source>
+        <translation>사용자 지정, \n은 줄바꿈</translation>
+    </message>
+    <message>
+        <source>Order</source>
+        <translation>순서</translation>
+    </message>
+    <message>
+        <source>First Selected First</source>
+        <translation>선택 순서</translation>
+    </message>
+    <message>
+        <source>Last Selected First</source>
+        <translation>선택 역순</translation>
+    </message>
+    <message>
+        <source>Record Content</source>
+        <translation>내용 기록</translation>
+    </message>
+    <message>
         <source>Window Opacity</source>
         <translation>창 투명도</translation>
     </message>

@@ -265,6 +265,43 @@ class ClipboardContextMenuController:
         state = self._build_group_context_menu_state(group_id)
         return self._build_group_context_menu_actions(state)
 
+    def build_marked_context_menu_data(self, item_ids: List[int]) -> Optional[ContextMenuData]:
+        """多选时的右键菜单：合并粘贴、批量移动和删除。"""
+        items = [item for item in map(self._controller._loaded_item, item_ids) if item is not None]
+        if not items:
+            return None
+        kinds = {item.content_type for item in items}
+        if kinds == {"image"}:
+            actions = [
+                MenuAction(label="Stitch Vertically and Paste", key="paste_marked_vertical"),
+                MenuAction(label="Stitch Horizontally and Paste", key="paste_marked_horizontal"),
+            ]
+        else:
+            actions = [MenuAction(label="Paste Selected", key="paste_marked")]
+            if kinds & {"text", "file"}:
+                actions.append(MenuAction(label="Paste Selected as Plain Text", key="paste_marked_plain"))
+
+        groups = [
+            group
+            for group in self._controller.get_groups()
+            if group.group_type != GroupType.HIDDEN and (group.group_type == GroupType.NORMAL or kinds == {"file"})
+        ]
+        state = _ItemContextMenuState(
+            clipboard_item=items[0],
+            current_group_id=self._controller.current_group_id,
+            visible_groups=groups,
+        )
+        move_children = _build_move_group_menu_children(state)
+        actions.append(MenuAction(label="", key="sep_before_groups", is_separator=True))
+        if move_children:
+            actions.append(MenuAction(label="Move to Group", key="move_group_menu", children=move_children))
+        actions.extend([
+            MenuAction(label="", key="sep_before_delete", is_separator=True),
+            MenuAction(label="Clear Selection", key="clear_marks"),
+            MenuAction(label="Delete Selected", key="delete_marked"),
+        ])
+        return ContextMenuData(item_id=items[0].id, actions=_normalize_menu_actions(actions))
+
     def _get_item_context_menu_groups(self, clipboard_item: ClipboardItem) -> List[Group]:
         is_file_item = clipboard_item.content_type == "file"
         return [

@@ -8,6 +8,7 @@
 import json
 import os
 import re
+import threading
 from datetime import datetime, time, timedelta
 from typing import Optional, List, Callable, Tuple
 from PySide6.QtCore import QObject, Signal, QTimer, Qt
@@ -79,11 +80,14 @@ class ClipboardController(QObject):
     item_removed = Signal(int)  # (row) 条目已移出当前列表
     item_row_moved = Signal(int, int)  # (from_row, to_row) 条目在当前列表里换了位置
     item_updated = Signal(int, object)  # (row, item) 条目内容已改，原地刷新这一行
-    
+    # 后台合并粘贴完成：(用上的 ID, 是否移到最前, 是否显式粘贴)
+    _multi_paste_finished = Signal(object, bool, bool)
+
     def __init__(self, manager: ClipboardManager):
         super().__init__()
         self.manager = manager
-        
+        self._multi_paste_finished.connect(self._on_multi_paste_finished)
+
         # 当前数据状态
         self.current_items: List[ClipboardItem] = []
         self.current_group_id: Optional[int] = None  # None 表示显示剪切板历史
@@ -530,6 +534,109 @@ class ClipboardController(QObject):
             return True
         return False
 
+    def multi_paste_order(self, item_ids: List[int]) -> List[int]:
+        """按选择先后排列；沿用旧配置值以兼容已保存的设置。"""
+        from settings import get_tool_settings_manager
+
+        first_selected_first = get_tool_settings_manager().get_clipboard_multi_paste_order() == "oldest_first"
+        return list(item_ids) if first_selected_first else list(reversed(item_ids))
+
+    def stitched_image_fits(self, item_ids: List[int], layout: str = "vertical") -> bool:
+        """拼接后的图片是否在大小上限内；尺寸读不出时交给后端判断。"""
+        try:
+            import pyclipboard
+            limit = pyclipboard.MAX_STITCHED_PIXELS
+        except (ImportError, AttributeError):
+            return True
+        sizes = []
+        for item_id in item_ids:
+            item = self._loaded_item(item_id)
+            match = re.fullmatch(r"\[(\d+)x(\d+)\]", item.content) if item is not None else None
+            if match is None:
+                return True
+            sizes.append((int(match.group(1)), int(match.group(2))))
+        if not sizes:
+            return True
+        if layout == "horizontal":
+            width, height = sum(w for w, _ in sizes), max(h for _, h in sizes)
+        else:
+            width, height = max(w for w, _ in sizes), sum(h for _, h in sizes)
+        return width * height <= limit
+
+    def paste_items(
+        self, item_ids: List[int], on_close_callback: Optional[Callable] = None,
+        explicit: bool = False, plain_text: bool = False, layout: str = "vertical",
+    ) -> bool:
+        """多选的几条合成一份粘贴。
+
+        Args:
+            item_ids: 选中的 ID，按选择先后排列
+            plain_text: 只粘贴纯文本，文件按路径粘贴
+            layout: 选中的全是图片时的拼接方向
+
+        Returns:
+            是否已经开始粘贴（拼图在后台进行，结果稍后才知道）
+        """
+        from settings import get_tool_settings_manager
+
+        config = get_tool_settings_manager()
+        ordered = self.multi_paste_order(item_ids)
+        move_to_top = config.get_clipboard_move_to_top_on_paste() and self.current_group_id is None
+        options = dict(
+            with_html=self.paste_with_html,
+            move_to_top=move_to_top,
+            separator=config.get_clipboard_multi_paste_separator(),
+            plain_text=plain_text,
+            layout=layout,
+            keep_in_history=config.get_clipboard_multi_paste_keep_merged(),
+        )
+        items = [self._loaded_item(item_id) for item_id in ordered]
+        stitching = not plain_text and bool(items) and all(
+            item is not None and item.content_type == "image" for item in items
+        )
+        if stitching:
+            # 拼图要解码、重新编码整张大图，放到后台做，窗口先收起来
+            if on_close_callback:
+                on_close_callback()
+            threading.Thread(
+                target=self._paste_items_in_background,
+                args=(ordered, options, explicit),
+                name="clipboard-multi-paste",
+                daemon=True,
+            ).start()
+            return True
+
+        used = self.manager.paste_items(ordered, **options)
+        if not used:
+            return False
+        log_info(T("已合并粘贴 {count} 项", count=len(used)), "Clipboard")
+        if move_to_top:
+            self._move_items_to_top(used)
+        if on_close_callback:
+            on_close_callback()
+        self._send_paste_keystroke(explicit)
+        return True
+
+    def _paste_items_in_background(self, item_ids: List[int], options: dict, explicit: bool):
+        used = self.manager.paste_items(item_ids, **options)
+        self._multi_paste_finished.emit(used, options["move_to_top"], explicit)
+
+    def _on_multi_paste_finished(self, used: List[int], move_to_top: bool, explicit: bool):
+        if not used:
+            log_error(T("合并粘贴没有写入任何内容"), "Clipboard")
+            return
+        log_info(T("已合并粘贴 {count} 项", count=len(used)), "Clipboard")
+        # 后台拼图期间可能已切到分组；历史排序不能改动分组的显示顺序。
+        if move_to_top and self.current_group_id is None:
+            self._move_items_to_top(used)
+        self._send_paste_keystroke(explicit)
+
+    def _move_items_to_top(self, item_ids: List[int]):
+        """几条一起移到最前，彼此先后不变：从原来最靠下的那条挪起。"""
+        loaded = [item_id for item_id in item_ids if self._loaded_index(item_id) is not None]
+        for item_id in sorted(loaded, key=self._loaded_index, reverse=True):
+            self.move_item_to_top(item_id)
+
     def move_item_to_top(self, item_id: int):
         """把条目在当前列表里移到置顶块之后，与后端刚改过的 item_order 对齐。
 
@@ -723,8 +830,20 @@ class ClipboardController(QObject):
             self.item_updated.emit(index, updated)
         return True
 
+    def delete_items(self, item_ids: List[int]) -> int:
+        """删除多条，返回删掉的条数。"""
+        return sum(1 for item_id in item_ids if self.delete_item(item_id))
+
+    def move_items_to_group(self, item_ids: List[int], group_id: Optional[int]) -> int:
+        """多条移进分组（None 为移出分组），返回移动成功的条数。"""
+        return sum(1 for item_id in item_ids if self.move_to_group(item_id, group_id))
+
     def _loaded_index(self, item_id: int) -> Optional[int]:
         return next((i for i, existing in enumerate(self.current_items) if existing.id == item_id), None)
+
+    def _loaded_item(self, item_id: int) -> Optional[ClipboardItem]:
+        index = self._loaded_index(item_id)
+        return None if index is None else self.current_items[index]
 
     def _remove_loaded_item(self, item_id: int):
         """从已加载的列表里摘掉一条，不重载、不滚动。"""
@@ -955,4 +1074,8 @@ class ClipboardController(QObject):
     def build_group_context_menu_data(self, group_id: int) -> List[MenuAction]:
         """组装分组右键菜单数据"""
         return self._context_menu_controller.build_group_context_menu_data(group_id)
+
+    def build_marked_context_menu_data(self, item_ids: List[int]) -> Optional[ContextMenuData]:
+        """组装多选时的右键菜单数据。返回 None 表示选中的都不在当前列表里。"""
+        return self._context_menu_controller.build_marked_context_menu_data(item_ids)
  
