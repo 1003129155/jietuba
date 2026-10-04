@@ -274,10 +274,11 @@ def test_real_engine_releases_what_it_holds(real_cache, qapp):
 
     kept = []
     leak_baseline = _handle_count()
-    leaked = [cycle(kept) for _ in range(3)]
+    leaked = [cycle(kept) for _ in range(4)]
     try:
         assert all(ref() is not None for ref in leaked)
-        assert _handle_count() - leak_baseline > 30
+        # 每个未释放的引擎多占的句柄 ARM64 约 7 个、x64 约 21 个，都超过上面放行的 5 个
+        assert _handle_count() - leak_baseline > 4 * 5
     finally:
         for ocr in kept:
             ocr.close()
