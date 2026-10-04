@@ -45,8 +45,8 @@ def test_crop_top_starts_the_capture_at_the_current_view(qtbot, monkeypatch, win
 
 def test_preview_and_box_follow_the_crop(qtbot, monkeypatch, window):
     _scroll_down_then_back(monkeypatch, window)
-    qtbot.waitUntil(lambda: window._latest_box is not None and window._latest_box[0] > 0)
-    assert window.toolbar.size_label.text() == f"{PAGE_W} × {1200 + VIEW_H}"
+    # 后台逐帧回传，慢机器上要等最深的一帧拼完才是最终尺寸；裁剪本身排在已提交的帧之后
+    qtbot.waitUntil(lambda: window.toolbar.size_label.text() == f"{PAGE_W} × {1200 + VIEW_H}")
     window._crop("top")
     qtbot.waitUntil(lambda: window._latest_box[0] == 0)
     preview = window._latest_preview
