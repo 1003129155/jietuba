@@ -1,6 +1,34 @@
 use crate::{fail, Result};
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AppVariant {
+    Full,
+    Lite,
+}
+impl AppVariant {
+    /// The application reports its own build type, so a renamed EXE still updates in place.
+    pub fn parse(value: &str) -> Result<Self> {
+        match value {
+            "full" => Ok(Self::Full),
+            "lite" => Ok(Self::Lite),
+            _ => fail("variant", "版本类型无效，应为 full 或 lite"),
+        }
+    }
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Full => "jietuba_pp",
+            Self::Lite => "jietuba_lite",
+        }
+    }
+    pub fn executable_name(self) -> String {
+        format!("{}.exe", self.name())
+    }
+    pub fn asset_name(self, tag: &str, arch: Arch) -> String {
+        format!("{}-{tag}-{}.zip", self.name(), arch.name())
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Arch {
@@ -84,4 +112,16 @@ pub fn validate_url(url: &str) -> Result<()> {
         return fail("source", "下载源必须使用 HTTPS");
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn variant_comes_from_the_reported_build_type() {
+        assert_eq!(AppVariant::parse("lite").unwrap(), AppVariant::Lite);
+        assert_eq!(AppVariant::parse("full").unwrap(), AppVariant::Full);
+        assert_eq!(AppVariant::parse("pp").unwrap_err().code, "variant");
+    }
 }

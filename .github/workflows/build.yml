@@ -81,21 +81,6 @@ jobs:
           python build_with_ocr_onefile.py --lite
           if ($LASTEXITCODE -ne 0) { throw "lite build failed" }
 
-      - name: Add license notices
-        # 发布包里静态编入了第三方 Rust 代码（含 windows-capture 的 MIT 代码），随包附上版权声明与许可；
-        # 轻量版不带 ppocr_rust
-        run: |
-          foreach ($out in "dist", "dist_lite") {
-            New-Item -ItemType Directory -Force $out\licenses | Out-Null
-            Copy-Item LICENSE $out\licenses\LICENSE.txt
-            foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust", "hdrcapture", "inputhub") {
-              if ($out -eq "dist_lite" -and $crate -eq "ppocr_rust") { continue }
-              Copy-Item rust_libs\$crate\THIRD-PARTY-NOTICES.txt $out\licenses\$crate-THIRD-PARTY-NOTICES.txt
-            }
-            Copy-Item rust_libs\hdrcapture\LICENSE-UPSTREAM $out\licenses\windows-capture-LICENSE.txt
-            Copy-Item licenses\oneocr-LICENSE.txt $out\licenses\oneocr-LICENSE.txt
-          }
-
       - name: Package dist as zip
         run: |
           Compress-Archive -Path dist\* -DestinationPath jietuba_pp-${{ github.ref_name }}-${{ matrix.arch }}.zip

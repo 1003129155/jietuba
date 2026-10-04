@@ -15,6 +15,17 @@ from ocr import ocr_manager as om
 from ocr import snipping_tool_ocr
 
 
+@pytest.mark.parametrize("engine, models, status", [
+    (False, False, "missing_engine"),
+    (True, False, "missing_models"),
+    (True, True, "available"),
+])
+def test_ppocr_status_distinguishes_engine_and_models(monkeypatch, engine, models, status):
+    monkeypatch.setattr(om, "PP_RUST_ENGINE_AVAILABLE", engine)
+    monkeypatch.setattr(om, "PP_RUST_AVAILABLE", models)
+    assert om.get_ppocr_status() == status
+
+
 class _FakeTextLine:
     def __init__(self, text):
         self.points = [(0.0, 0.0), (9.0, 0.0), (9.0, 5.0), (0.0, 5.0)]
@@ -107,14 +118,15 @@ class TestResolve:
         assert manager.set_engine("auto") is True
         assert manager.get_current_engine() == "ppocr_rust"
 
-    def test_lite_build_choosing_ppocr_is_told_to_get_the_full_version(
+    def test_lite_build_choosing_ppocr_reports_missing_engine(
             self, manager, engines, monkeypatch, qapp):
         monkeypatch.setattr(om, "PP_RUST_AVAILABLE", False)
+        monkeypatch.setattr(om, "PP_RUST_ENGINE_AVAILABLE", False)
         assert manager.set_engine("ppocr_rust") is False
         assert manager.get_current_engine() is None
         result = manager.recognize_pixmap(_image())
         assert result["code"] == -1
-        assert "完整版" in result["msg"]
+        assert "缺少引擎" in result["msg"]
 
     def test_explicit_choice_does_not_fall_back(self, manager, engines, monkeypatch, qapp):
         monkeypatch.setattr(om, "ONEOCR_AVAILABLE", False)

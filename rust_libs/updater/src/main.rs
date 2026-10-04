@@ -1,5 +1,6 @@
 use jietuba_updater::{
-    self as core, archive, contract, download, platform, protocol, transaction, Result,
+    self as core, archive, cache as cache_files, contract, download, platform, protocol,
+    transaction, Result,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -29,6 +30,7 @@ struct WorkerRequest {
     staged_hash: String,
     processes: Vec<platform::ProcessIdentity>,
     launcher: platform::ProcessIdentity,
+    failure_message: Option<String>,
 }
 
 fn options() -> Result<(String, HashMap<String, String>)> {
@@ -56,6 +58,9 @@ fn arg<'a>(args: &'a HashMap<String, String>, key: &str) -> Result<&'a str> {
             code: "arguments",
             message: format!("缺少 {key}"),
         })
+}
+fn variant(args: &HashMap<String, String>) -> Result<contract::AppVariant> {
+    contract::AppVariant::parse(arg(args, "--variant")?)
 }
 fn cache(args: &HashMap<String, String>) -> Result<PathBuf> {
     let root = if let Some(path) = args.get("--cache-dir") {
@@ -125,6 +130,8 @@ fn apply(args: &HashMap<String, String>, executable: &Path, id: &str) -> Result<
         serde_json::from_slice(&fs::read(core::safe_join(&stage_dir, "prepared.json")?)?)?;
     if prepared.executable != executable
         || prepared.current_version != arg(args, "--current-version")?
+        || prepared.release.asset_name
+            != variant(args)?.asset_name(&prepared.release.tag_name, platform::pe_arch(executable)?)
         || contract::version(&prepared.release.tag_name)?
             <= contract::version(&prepared.current_version)?
     {
@@ -157,6 +164,7 @@ fn apply(args: &HashMap<String, String>, executable: &Path, id: &str) -> Result<
                     code: "process",
                     message: "无法确认交接进程身份".into(),
                 })?,
+            failure_message: args.get("--failure-message").cloned(),
         },
     )?;
     let worker_exe = core::safe_join(&dir, "jietuba_updater.exe")?;
@@ -268,12 +276,26 @@ fn worker(dir: &Path) -> Result<()> {
         return Err(error);
     }
     // Once the OS starts the new process, journal failures must not roll back its executable.
-    transaction::complete(&mut journal)
+    transaction::complete(&mut journal)?;
+    // The installation journal owns its recovery copy; the download is now redundant.
+    if let (Some(root), Some(stage_dir)) = (dir.parent(), request.staged.parent()) {
+        if stage_dir.parent() == Some(root) {
+            if let Some(id) = stage_dir.file_name().and_then(|name| name.to_str()) {
+                cache_files::remove(root, id);
+            }
+        }
+    }
+    Ok(())
 }
-fn alert(message: &str) {
+fn alert(error: &core::Error, localized: Option<&str>) {
+    // The application supplies the text in its UI language; the code stays for diagnosis.
+    let message = match localized {
+        Some(text) => format!("{text}\n\n({})", error.code),
+        None => format!("截图吧更新未完成：{error}\n已保留备份和恢复记录。"),
+    };
     #[cfg(windows)]
     {
-        let message: Vec<u16> = format!("截图吧更新未完成：{message}\n已保留备份和恢复记录。")
+        let message: Vec<u16> = message
             .encode_utf16()
             .chain(Some(0))
             .collect();
@@ -304,6 +326,10 @@ fn run(command: &str, args: &HashMap<String, String>, id: &str) -> Result<()> {
     }
     if command == "worker" {
         let dir = PathBuf::from(arg(args, "--worker-dir")?);
+        let localized = fs::read(dir.join("request.json"))
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<WorkerRequest>(&bytes).ok())
+            .and_then(|request| request.failure_message);
         let result = worker(&dir);
         let data = match &result {
             Ok(()) => json!({"event":"complete"}),
@@ -312,7 +338,7 @@ fn run(command: &str, args: &HashMap<String, String>, id: &str) -> Result<()> {
         let _ = core::write_json(&core::safe_join(&dir, "result.json")?, &data);
         if let Err(error) = &result {
             if dir.join("accepted.json").exists() {
-                alert(&error.to_string());
+                alert(error, localized.as_deref());
             }
         }
         return result;
@@ -322,8 +348,11 @@ fn run(command: &str, args: &HashMap<String, String>, id: &str) -> Result<()> {
         "check" => {
             protocol::emit("started", id, json!({}))?;
             let arch = platform::pe_arch(&executable)?;
-            let release =
-                runtime()?.block_on(download::fetch_latest(arch, &AtomicBool::new(false)))?;
+            let release = runtime()?.block_on(download::fetch_latest(
+                arch,
+                variant(args)?,
+                &AtomicBool::new(false),
+            ))?;
             let available = contract::version(&release.tag_name)?
                 > contract::version(arg(args, "--current-version")?)?;
             protocol::emit(
@@ -336,10 +365,12 @@ fn run(command: &str, args: &HashMap<String, String>, id: &str) -> Result<()> {
             protocol::emit("started", id, json!({}))?;
             let flag = cancellable(id);
             let arch = platform::pe_arch(&executable)?;
+            let variant = variant(args)?;
             let release: contract::Release =
                 serde_json::from_slice(&fs::read(arg(args, "--release-file")?)?)?;
             let current = arg(args, "--current-version")?;
             if release.arch != arch
+                || release.asset_name != variant.asset_name(&release.tag_name, arch)
                 || contract::version(&release.tag_name)? <= contract::version(current)?
             {
                 return core::fail("version", "下载版本或架构不匹配");
@@ -347,6 +378,11 @@ fn run(command: &str, args: &HashMap<String, String>, id: &str) -> Result<()> {
             let root = cache(args)?;
             let dir = core::safe_join(&root, id)?;
             fs::create_dir(&dir)?;
+            let mut temporary = cache_files::DownloadDirectory {
+                root: &root,
+                id,
+                keep: false,
+            };
             let zip = core::safe_join(&dir, "package.zip")?;
             runtime()?.block_on(download::download_file(
                 &release.artifact,
@@ -364,7 +400,7 @@ fn run(command: &str, args: &HashMap<String, String>, id: &str) -> Result<()> {
                 return core::fail("cancelled", "下载已取消");
             }
             let staged = core::safe_join(&dir, "app.exe")?;
-            archive::extract_exe(&zip, &staged, arch)?;
+            archive::extract_exe(&zip, &staged, arch, variant)?;
             core::write_json(
                 &core::safe_join(&dir, "prepared.json")?,
                 &Prepared {
@@ -375,7 +411,9 @@ fn run(command: &str, args: &HashMap<String, String>, id: &str) -> Result<()> {
                 },
             )?;
             let _ = fs::remove_file(zip);
-            protocol::emit("downloaded", id, json!({}))
+            protocol::emit("downloaded", id, json!({}))?;
+            temporary.keep = true;
+            Ok(())
         }
         "apply" => apply(args, &executable, id),
         "recover" => {

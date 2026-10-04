@@ -33,6 +33,7 @@ from .ocr_manager import (
     OCRManager,
     is_ocr_available,
     get_available_engines,
+    get_ppocr_status,
     set_ocr_engine,
     get_current_engine,
     initialize_ocr,
@@ -46,6 +47,7 @@ __all__ = [
     'OCRManager',
     'is_ocr_available',
     'get_available_engines',
+    'get_ppocr_status',
     'set_ocr_engine',
     'get_current_engine',
     'initialize_ocr',
@@ -54,4 +56,3 @@ __all__ = [
     'get_ocr_memory_status',
     'format_ocr_result_text'
 ]
- 

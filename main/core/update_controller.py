@@ -1,13 +1,13 @@
 from dataclasses import asdict
 import json
 import os
-from pathlib import Path
 import sys
 import uuid
 
 from PySide6.QtCore import QObject
 
-from core.updater_process import UpdaterProcess
+from core.updater_process import UpdaterProcess, app_variant
+from core.update_cache import cache_subdirectory, cache_root, remove_directory, remove_request
 from ui.update_dialog import UpdateDialog
 
 
@@ -26,6 +26,7 @@ class UpdateController(QObject):
         self._cancelled = False
         self._failed = False
         self._committed = False
+        self._request = None
 
     def present(self, release):
         if self.runner.busy:
@@ -39,6 +40,7 @@ class UpdateController(QObject):
             return
         if self.dialog:
             self.dialog.deleteLater()
+        self._discard_download()
         self.release = release
         self.downloaded = ""
         self.dialog = UpdateDialog(release)
@@ -48,7 +50,7 @@ class UpdateController(QObject):
 
     def _arguments(self):
         from main_app import APP_VERSION
-        return ["--install-exe", sys.executable, "--current-version", APP_VERSION]
+        return ["--install-exe", sys.executable, "--current-version", APP_VERSION, "--variant", app_variant()]
 
     def start(self):
         if self.runner.busy or not self.dialog or self._committed:
@@ -62,17 +64,19 @@ class UpdateController(QObject):
             self._install()
             return
         try:
-            root = Path(os.environ["LOCALAPPDATA"]) / "jietuba" / "updater" / "requests"
-            root.mkdir(parents=True, exist_ok=True)
+            root = cache_subdirectory("requests")
             path = root / (uuid.uuid4().hex + ".json")
+            self._request = path
             data = asdict(self.release)
             data.pop("available", None)
             path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
             self.mode = "download"
             self.dialog.status.setText(self.tr("Downloading update..."))
             if not self.runner.start("download", [*self._arguments(), "--release-file", str(path)]):
+                self._remove_request()
                 self.dialog.set_working(False)
         except (OSError, KeyError) as exc:
+            self._remove_request()
             self._error(str(exc))
             self.dialog.set_working(False)
 
@@ -85,8 +89,17 @@ class UpdateController(QObject):
         self.mode = "apply"
         self.dialog.progress.setRange(0, 0)
         self.dialog.status.setText(self.tr("Preparing to restart..."))
+        # The worker shows this after the application has exited, so it is translated here.
+        failure = self.tr("The update was not completed. The previous version and its recovery record were kept.")
         # Reuse the Rust download transaction to install the same staged release.
-        if not self.runner.start("apply", [*self._arguments(), "--transaction", self.downloaded, "--parent-pid", str(os.getpid())], timeout_ms=105_000):
+        try:
+            arguments = [*self._arguments(), "--transaction", self.downloaded, "--parent-pid", str(os.getpid()),
+                         "--failure-message", failure]
+        except OSError as exc:
+            self._error(str(exc))
+            self.dialog.set_working(False)
+            return
+        if not self.runner.start("apply", arguments, timeout_ms=105_000):
             self.dialog.set_working(False)
 
     def _event(self, event, transaction, data):
@@ -116,6 +129,7 @@ class UpdateController(QObject):
             self.dialog.status.setText(self.tr("Update failed: %1").replace("%1", reason))
 
     def _finished(self):
+        self._remove_request()
         if self._committed:
             if self.dialog:
                 self.dialog.finish_handoff()
@@ -123,6 +137,8 @@ class UpdateController(QObject):
             return
         if self.dialog:
             self.dialog.set_working(False)
+        if self.mode == "download" and (self._failed or self._cancelled):
+            self._discard_download()
         if self.mode == "download" and self.downloaded and not self._failed and not self._cancelled:
             self._install()
 
@@ -132,3 +148,18 @@ class UpdateController(QObject):
         self._cancelled = True
         self.runner.cancel()
         self.main_app.cancel_update_preparation()
+        if not self.runner.busy:
+            self._discard_download()
+
+    def _remove_request(self):
+        if self._request is not None:
+            remove_request(self._request)
+            self._request = None
+
+    def _discard_download(self):
+        if self.downloaded:
+            try:
+                remove_directory(cache_root() / self.downloaded)
+            except (OSError, KeyError):
+                pass
+            self.downloaded = ""

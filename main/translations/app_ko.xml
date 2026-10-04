@@ -628,6 +628,10 @@ Replace it?</source>
         <translation>OCR 엔진</translation>
     </message>
     <message>
+        <source>Switch OCR engines here.</source>
+        <translation>여기에서 OCR 엔진을 전환합니다.</translation>
+    </message>
+    <message>
         <source>The Snipping Tool engine is faster and reads more languages, but needs the Snipping Tool from Windows 11. PP-OCR works on any Windows.</source>
         <translation>캡처 도구 엔진은 더 빠르고 더 많은 언어를 인식하지만 Windows 11의 캡처 도구가 필요합니다. PP-OCR은 모든 Windows에서 사용할 수 있습니다.</translation>
     </message>
@@ -640,8 +644,12 @@ Replace it?</source>
         <translation>Windows 캡처 도구(찾을 수 없음)</translation>
     </message>
     <message>
-        <source>PP-OCR (download the full version)</source>
-        <translation>PP-OCR(전체 버전을 다운로드하세요)</translation>
+        <source>PP-OCR (missing engine)</source>
+        <translation>PP-OCR (엔진 없음)</translation>
+    </message>
+    <message>
+        <source>PP-OCR (missing models)</source>
+        <translation>PP-OCR (모델 없음)</translation>
     </message>
     <message>
         <source>OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version</source>
@@ -2438,6 +2446,26 @@ This action cannot be undone.</source>
     <message>
         <source>OK</source>
         <translation>확인</translation>
+    </message>
+    <message>
+        <source>{count} selected</source>
+        <translation>{count}개 선택됨</translation>
+    </message>
+    <message>
+        <source>Enter pastes them together, Esc clears the selection</source>
+        <translation>Enter로 합쳐서 붙여넣기, Esc로 선택 해제</translation>
+    </message>
+    <message>
+        <source>Images Too Large</source>
+        <translation>이미지가 너무 큽니다</translation>
+    </message>
+    <message>
+        <source>The stitched image would be too large. Select fewer images.</source>
+        <translation>합친 이미지가 너무 큽니다. 선택한 이미지 수를 줄여 주세요.</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete the {count} selected items?</source>
+        <translation>선택한 {count}개 항목을 삭제하시겠습니까?</translation>
     </message>
 </context>
 
@@ -4793,6 +4821,61 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
 <message>
         <source>Update failed: %1</source>
         <translation>업데이트 실패: %1</translation>
+    </message>
+<message>
+        <source>The update was not completed. The previous version and its recovery record were kept.</source>
+        <translation>업데이트를 완료하지 못했습니다. 이전 버전과 복구 기록은 보존되었습니다.</translation>
+    </message>
+</context>
+<context>
+    <name>UpdaterProcess</name>
+<message>
+        <source>Could not download the update. Check your network connection and try again.</source>
+        <translation>업데이트를 다운로드할 수 없습니다. 네트워크 연결을 확인한 후 다시 시도하세요.</translation>
+    </message>
+<message>
+        <source>The latest release has no package for this edition and architecture.</source>
+        <translation>최신 릴리스에 현재 에디션과 아키텍처용 패키지가 없습니다.</translation>
+    </message>
+<message>
+        <source>The downloaded package is invalid.</source>
+        <translation>다운로드한 업데이트 패키지가 올바르지 않습니다.</translation>
+    </message>
+<message>
+        <source>The downloaded update does not match this installation.</source>
+        <translation>다운로드한 업데이트가 현재 설치와 일치하지 않습니다.</translation>
+    </message>
+<message>
+        <source>Another update or recovery is already running.</source>
+        <translation>다른 업데이트 또는 복구가 이미 진행 중입니다.</translation>
+    </message>
+<message>
+        <source>An earlier update was not finished. Recover it from the .jietuba-update folder first.</source>
+        <translation>이전 업데이트가 완료되지 않았습니다. 먼저 .jietuba-update 폴더에서 복구하세요.</translation>
+    </message>
+<message>
+        <source>The application did not close or its file is in use. Close it and try again.</source>
+        <translation>앱이 종료되지 않았거나 파일이 사용 중입니다. 닫은 후 다시 시도하세요.</translation>
+    </message>
+<message>
+        <source>No permission to write to the installation folder.</source>
+        <translation>설치 폴더에 쓸 권한이 없습니다.</translation>
+    </message>
+<message>
+        <source>The application file was changed by another program. The update was stopped.</source>
+        <translation>다른 프로그램이 앱 파일을 변경하여 업데이트를 중단했습니다.</translation>
+    </message>
+<message>
+        <source>The previous version could not be restored automatically. Its backup was kept in the .jietuba-update folder.</source>
+        <translation>이전 버전을 자동으로 복원하지 못했습니다. 백업은 .jietuba-update 폴더에 보존되었습니다.</translation>
+    </message>
+<message>
+        <source>The update was cancelled.</source>
+        <translation>업데이트가 취소되었습니다.</translation>
+    </message>
+<message>
+        <source>The updater stopped with an error (%1).</source>
+        <translation>업데이트 프로그램이 오류로 중지되었습니다(%1).</translation>
     </message>
 </context>
 </TS>

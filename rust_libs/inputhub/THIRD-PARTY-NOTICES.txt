@@ -417,7 +417,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 ================================================================================
 MIT License
 
-Applies to: inputhub 0.1.0
+Applies to: inputhub 0.1.1
 
 MIT License
 

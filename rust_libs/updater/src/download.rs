@@ -1,5 +1,5 @@
 use crate::{
-    contract::{self, Arch, DownloadArtifact, Release},
+    contract::{self, AppVariant, Arch, DownloadArtifact, Release},
     fail, Result,
 };
 use serde_json::Value;
@@ -12,7 +12,7 @@ use std::{
 };
 
 pub const LATEST: &str = "https://api.github.com/repos/1003129155/jietuba/releases/latest";
-pub fn parse_release(data: &Value, arch: Arch) -> Result<Release> {
+pub fn parse_release(data: &Value, arch: Arch, variant: AppVariant) -> Result<Release> {
     if data.get("draft").and_then(Value::as_bool) == Some(true)
         || data.get("prerelease").and_then(Value::as_bool) == Some(true)
     {
@@ -26,7 +26,7 @@ pub fn parse_release(data: &Value, arch: Arch) -> Result<Release> {
             message: "Release 缺少版本号".into(),
         })?;
     contract::version(tag)?;
-    let filename = format!("jietuba_pp-{tag}-{}.zip", arch.name());
+    let filename = variant.asset_name(tag, arch);
     let assets = data
         .get("assets")
         .and_then(Value::as_array)
@@ -82,6 +82,45 @@ pub fn client() -> Result<reqwest::Client> {
         .build()
         .map_err(network)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn selects_the_installed_variant_and_architecture() {
+        let tag = "release-2.2.0";
+        let assets: Vec<_> = [AppVariant::Full, AppVariant::Lite].into_iter()
+            .flat_map(|variant| [Arch::X64, Arch::Arm64].into_iter().map(move |arch| json!({
+                "name": variant.asset_name(tag, arch),
+                "browser_download_url": format!("https://example.com/{}", variant.asset_name(tag, arch)),
+                "size": 123,
+            }))).collect();
+        let payload = json!({"tag_name": tag, "assets": assets});
+        for variant in [AppVariant::Full, AppVariant::Lite] {
+            for arch in [Arch::X64, Arch::Arm64] {
+                let release = parse_release(&payload, arch, variant).unwrap();
+                assert_eq!(release.asset_name, variant.asset_name(tag, arch));
+                assert_eq!(release.arch, arch);
+            }
+        }
+    }
+
+    #[test]
+    fn missing_lite_package_does_not_fall_back_to_full() {
+        let payload = json!({"tag_name": "release-2.2.0", "assets": [{
+            "name": "jietuba_pp-release-2.2.0-x64.zip",
+            "browser_download_url": "https://example.com/full.zip",
+        }]});
+        assert_eq!(
+            parse_release(&payload, Arch::X64, AppVariant::Lite)
+                .unwrap_err()
+                .code,
+            "asset"
+        );
+    }
+}
 fn network(e: reqwest::Error) -> crate::Error {
     crate::Error {
         code: "network",
@@ -96,7 +135,7 @@ pub async fn cancelled(flag: &AtomicBool) {
         tokio::time::sleep(Duration::from_millis(25)).await;
     }
 }
-pub async fn fetch_latest(arch: Arch, flag: &AtomicBool) -> Result<Release> {
+pub async fn fetch_latest(arch: Arch, variant: AppVariant, flag: &AtomicBool) -> Result<Release> {
     let client = client()?;
     let response = tokio::select! {
         r = client.get(LATEST).header("Accept", "application/vnd.github+json").send() => r.map_err(network)?.error_for_status().map_err(network)?,
@@ -106,7 +145,7 @@ pub async fn fetch_latest(arch: Arch, flag: &AtomicBool) -> Result<Release> {
     if bytes.len() > 1024 * 1024 {
         return fail("release", "Release 响应过大");
     }
-    parse_release(&serde_json::from_slice(&bytes)?, arch)
+    parse_release(&serde_json::from_slice(&bytes)?, arch, variant)
 }
 pub async fn download_file(
     artifact: &DownloadArtifact,

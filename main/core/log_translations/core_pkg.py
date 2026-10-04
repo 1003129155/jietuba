@@ -141,4 +141,5 @@ TRANSLATIONS: dict[str, str] = {
     "检查快捷键可用性": "Checking hotkey availability",
     "鼠标侧键监听设置失败: {e}": "Failed to set up the mouse side-button listener: {e}",
     "系统组合键接管设置失败: {e}": "Failed to set up system key-combination takeover: {e}",
+    "更新器报错 {code}: {message}": "Updater error {code}: {message}",
 }

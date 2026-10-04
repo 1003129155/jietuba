@@ -635,6 +635,10 @@ Replace it?</source>
         <translation>OCR エンジン</translation>
     </message>
     <message>
+        <source>Switch OCR engines here.</source>
+        <translation>ここで OCR エンジンを切り替えます。</translation>
+    </message>
+    <message>
         <source>The Snipping Tool engine is faster and reads more languages, but needs the Snipping Tool from Windows 11. PP-OCR works on any Windows.</source>
         <translation>Snipping Tool エンジンは高速で対応言語も多いですが、Windows 11 の Snipping Tool が必要です。PP-OCR はどの Windows でも使えます。</translation>
     </message>
@@ -647,8 +651,12 @@ Replace it?</source>
         <translation>Windows Snipping Tool（見つかりません）</translation>
     </message>
     <message>
-        <source>PP-OCR (download the full version)</source>
-        <translation>PP-OCR（完全版をダウンロードしてください）</translation>
+        <source>PP-OCR (missing engine)</source>
+        <translation>PP-OCR（エンジンがありません）</translation>
+    </message>
+    <message>
+        <source>PP-OCR (missing models)</source>
+        <translation>PP-OCR（モデルがありません）</translation>
     </message>
     <message>
         <source>OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version</source>
@@ -2483,6 +2491,26 @@ This action cannot be undone.</source>
     <message>
         <source>OK</source>
         <translation>OK</translation>
+    </message>
+    <message>
+        <source>{count} selected</source>
+        <translation>{count} 件選択中</translation>
+    </message>
+    <message>
+        <source>Enter pastes them together, Esc clears the selection</source>
+        <translation>Enter でまとめて貼り付け、Esc で選択を解除</translation>
+    </message>
+    <message>
+        <source>Images Too Large</source>
+        <translation>画像が大きすぎます</translation>
+    </message>
+    <message>
+        <source>The stitched image would be too large. Select fewer images.</source>
+        <translation>結合後の画像が大きすぎます。選択する画像を減らしてください。</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete the {count} selected items?</source>
+        <translation>選択した {count} 件を削除しますか？</translation>
     </message>
 </context>
 
@@ -4834,6 +4862,61 @@ gifrecorder が正しくインストールされているか確認してくだ�
 <message>
         <source>Update failed: %1</source>
         <translation>更新できませんでした：%1</translation>
+    </message>
+<message>
+        <source>The update was not completed. The previous version and its recovery record were kept.</source>
+        <translation>更新を完了できませんでした。以前のバージョンと復元記録は保持されています。</translation>
+    </message>
+</context>
+<context>
+    <name>UpdaterProcess</name>
+<message>
+        <source>Could not download the update. Check your network connection and try again.</source>
+        <translation>更新をダウンロードできませんでした。ネットワーク接続を確認して再試行してください。</translation>
+    </message>
+<message>
+        <source>The latest release has no package for this edition and architecture.</source>
+        <translation>最新リリースには、このエディションとアーキテクチャ用のパッケージがありません。</translation>
+    </message>
+<message>
+        <source>The downloaded package is invalid.</source>
+        <translation>ダウンロードした更新パッケージが無効です。</translation>
+    </message>
+<message>
+        <source>The downloaded update does not match this installation.</source>
+        <translation>ダウンロードした更新は現在のインストールと一致しません。</translation>
+    </message>
+<message>
+        <source>Another update or recovery is already running.</source>
+        <translation>別の更新または復元が実行中です。</translation>
+    </message>
+<message>
+        <source>An earlier update was not finished. Recover it from the .jietuba-update folder first.</source>
+        <translation>前回の更新が完了していません。先に .jietuba-update フォルダーから復元してください。</translation>
+    </message>
+<message>
+        <source>The application did not close or its file is in use. Close it and try again.</source>
+        <translation>アプリが終了しないか、ファイルが使用中です。閉じてから再試行してください。</translation>
+    </message>
+<message>
+        <source>No permission to write to the installation folder.</source>
+        <translation>インストールフォルダーへの書き込み権限がありません。</translation>
+    </message>
+<message>
+        <source>The application file was changed by another program. The update was stopped.</source>
+        <translation>アプリのファイルが別のプログラムによって変更されたため、更新を中止しました。</translation>
+    </message>
+<message>
+        <source>The previous version could not be restored automatically. Its backup was kept in the .jietuba-update folder.</source>
+        <translation>以前のバージョンを自動で復元できませんでした。バックアップは .jietuba-update フォルダーに保持されています。</translation>
+    </message>
+<message>
+        <source>The update was cancelled.</source>
+        <translation>更新はキャンセルされました。</translation>
+    </message>
+<message>
+        <source>The updater stopped with an error (%1).</source>
+        <translation>更新プログラムがエラーで停止しました（%1）。</translation>
     </message>
 </context>
 </TS>

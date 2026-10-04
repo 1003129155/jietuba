@@ -101,7 +101,7 @@ These six packages are included in `requirements.txt` and install with the runti
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.5 | Low-level clipboard operations |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | HDR-correct desktop capture (DXGI Desktop Duplication + GPU tone mapping) |
-| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.0 | Global mouse and keyboard hooks off the GUI thread (gestures, side buttons, hotkeys, wheel, foreground window) |
+| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.1 | Global mouse and keyboard hooks off the GUI thread (gestures, side buttons, hotkeys, wheel, foreground window) |
 
 The available prebuilt wheels target Windows x86_64 and ARM64. Each package declares `>=3.11` and enables `abi3-py311` in its Rust bindings; see each package's `pyproject.toml` and `Cargo.toml`.
 
@@ -313,7 +313,8 @@ clipboard/
 │   ├── menus/
 │   │   ├── action_menu.py
 │   │   ├── group_context_menu.py
-│   │   └── item_context_menu.py
+│   │   ├── item_context_menu.py
+│   │   └── submenu_position.py
 │   ├── mixins/
 │   │   └── frameless_mixin.py
 │   ├── panels/
@@ -377,6 +378,7 @@ core/
 ├── log_translations/        # per-module log text translation helpers
 ├── constants.py             # Global constants (fonts, paths, etc.)
 ├── background_tasks.py      # Background save tracking
+├── update_cache.py          # Updater cache cleanup
 ├── updater_process.py       # Rust updater JSONL process adapter
 ├── update_controller.py     # Update download and safe restart coordination
 ├── update_checker.py        # Asynchronous GitHub release lookup and version comparison

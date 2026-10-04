@@ -192,6 +192,11 @@ if __name__ == '__main__':
     print("=" * 60)
 
     datas.append("rust_libs/updater/THIRD-PARTY-NOTICES.txt;updater")
+    # 更新器按程序自报的版本类型选下载包，exe 改了名也能更新
+    variant_file = REPO_DIR / BUILD_DIR / f"variant_{EXE_NAME}" / "app_variant.txt"
+    variant_file.parent.mkdir(parents=True, exist_ok=True)
+    variant_file.write_text("lite" if LITE else "full", encoding="utf-8")
+    datas.append(f"{variant_file.relative_to(REPO_DIR).as_posix()};updater")
     binaries_repr = repr([(str(updater_binary), "updater")])
     datas_repr  = repr([(d.split(';')[0], d.split(';')[1]) for d in datas])
     hidden_repr = repr(hidden_imports)
@@ -339,6 +344,9 @@ exe = EXE(
                 print(f"警告: 缺少模型 {fn}")
     elif not LITE:
         print(f"警告: 未找到 models 目录 {src_models}")
+
+    from build_notices import write_notices
+    print(f"许可声明: {write_notices(REPO_DIR / DIST_DIR, lite=LITE)}")
 
     print("=" * 60)
     print("打包完成！")

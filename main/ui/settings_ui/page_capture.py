@@ -205,30 +205,30 @@ def create_capture_page(dialog) -> QWidget:
 
     # ── OCR ───────────────────────────────────────────
     try:
-        from ocr import get_available_engines
+        from ocr import get_available_engines, get_ppocr_status
         available_engines = get_available_engines()
+        ppocr_status = get_ppocr_status()
     except Exception:
         available_engines = []
+        ppocr_status = "missing_engine"
     ocr_available = bool(available_engines)
 
     grp_ocr = SettingCardGroup(dialog.tr("OCR Settings"), view)
     ocr_engine_card = FSettingCard(
         FluentIcon.FONT,
         dialog.tr("OCR Engine"),
-        dialog.tr(
-            "The Snipping Tool engine is faster and reads more languages, but needs the "
-            "Snipping Tool from Windows 11. PP-OCR works on any Windows."
-        ),
+        dialog.tr("Switch OCR engines here."),
         parent=grp_ocr,
     )
     dialog.ocr_engine_combo = ComboBox(ocr_engine_card)
     engine_items = (
         (dialog.tr("Auto (Recommended)"), "auto", ocr_available),
-        (dialog.tr("Windows Snipping Tool") if "oneocr" in available_engines
-         else dialog.tr("Windows Snipping Tool (not found)"),
+        ("oneocr" if "oneocr" in available_engines
+         else dialog.tr("oneocr (not found)"),
          "oneocr", "oneocr" in available_engines),
         ("PP-OCR" if "ppocr_rust" in available_engines
-         else dialog.tr("PP-OCR (download the full version)"),
+         else (dialog.tr("PP-OCR (missing models)") if ppocr_status == "missing_models"
+               else dialog.tr("PP-OCR (missing engine)")),
          "ppocr_rust", "ppocr_rust" in available_engines),
     )
     for label, engine, enabled in engine_items:

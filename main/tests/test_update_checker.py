@@ -5,11 +5,12 @@ from pathlib import Path
 import shutil
 import sys
 import threading
+import time
 import subprocess
 from types import MethodType, SimpleNamespace
 
 import pytest
-from PySide6.QtCore import QObject, QProcess, QSettings, Signal
+from PySide6.QtCore import QObject, QProcess, QSettings, Signal, Qt
 
 from core import background_tasks
 from core.update_controller import UpdateController
@@ -101,6 +102,7 @@ def test_fetch_latest_release_builds_rust_request(monkeypatch, rust_reply):
     assert command[0:2] == ["updater.exe", "check"]
     assert "--install-exe" in command
     assert "--current-version" in command
+    assert command[command.index("--variant") + 1] in ("full", "lite")
     assert kwargs["timeout"] == 4.321
     assert release.available is True
     assert release.asset_name == "package.zip"
@@ -196,6 +198,7 @@ class FakeApp(QObject):
 def controller(monkeypatch, qapp, tmp_path):
     monkeypatch.setattr("core.update_controller.UpdaterProcess", FakeRunner)
     monkeypatch.setattr("core.update_controller.sys.frozen", True, raising=False)
+    monkeypatch.setattr("core.update_controller.app_variant", lambda: "lite")
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
     app = FakeApp()
     ctl = UpdateController(app)
@@ -214,17 +217,24 @@ def downloaded(ctl):
 
 def test_download_progress_duplicate_click_and_handoff(controller):
     ctl = controller
+    assert ctl.dialog.windowModality() == Qt.WindowModality.NonModal
     ctl.start()
     ctl.start()
     assert len(ctl.runner.calls) == 1
     ctl.runner.event_received.emit("progress", "1" * 32, {"received": 50, "total": 100})
     assert ctl.dialog.progress.value() == 50
     downloaded(ctl)
-    assert ctl.runner.calls[-1][0] == "apply"
-    assert ctl.runner.calls[-1][1][-3:] == ["1" * 32, "--parent-pid", str(__import__("os").getpid())]
+    command, arguments = ctl.runner.calls[-1]
+    options = dict(zip(arguments[::2], arguments[1::2]))
+    assert command == "apply"
+    assert options["--transaction"] == "1" * 32
+    assert options["--parent-pid"] == str(os.getpid())
+    assert options["--variant"] == "lite"
+    assert options["--failure-message"].startswith("The update was not completed")
     ctl.runner.event_received.emit("ready", "1" * 32, {})
     assert ctl.runner.sent == ["go"]
     assert ctl.dialog.committed
+    assert ctl.dialog.windowModality() == Qt.WindowModality.ApplicationModal
     ctl.cancel()
     assert ctl.runner.sent == ["go"]
     ctl.runner.event_received.emit("handed_off", "1" * 32, {})
@@ -380,6 +390,24 @@ def test_packaged_helper_is_copied_out_of_unpack_directory(monkeypatch, tmp_path
     assert copied.is_relative_to(tmp_path / "cache")
 
 
+def test_packaged_build_reports_its_variant_from_the_bundled_marker(monkeypatch, tmp_path):
+    from core.updater_process import app_variant
+    marker = tmp_path / "updater" / "app_variant.txt"
+    marker.parent.mkdir()
+    marker.write_text("lite\n", encoding="utf-8")
+    monkeypatch.setattr("core.updater_process.sys.frozen", True, raising=False)
+    monkeypatch.setattr("core.updater_process.sys._MEIPASS", str(tmp_path), raising=False)
+    assert app_variant() == "lite"
+
+
+def test_updater_error_codes_are_shown_in_the_ui_language(qapp):
+    runner = UpdaterProcess()
+    assert runner.error_text({"code": "network", "message": "下载失败"}).startswith("Could not download the update")
+    assert runner.error_text({"code": "recovery_failed", "message": "备份损坏"}).startswith("The previous version")
+    assert runner.error_text({"code": "mystery", "message": "未知"}) == "The updater stopped with an error (mystery)."
+    runner.deleteLater()
+
+
 def test_background_thread_start_failure_unregisters(monkeypatch):
     monkeypatch.setattr("core.background_tasks.threading.Thread.start", lambda _thread: (_ for _ in ()).throw(OSError("cannot create thread")))
     with pytest.raises(OSError):
@@ -458,7 +486,7 @@ emit("progress", {"received": 50, "total": 100})
 control = json.loads(sys.stdin.readline())
 assert control["transaction"] == id and control["protocol"] == 1
 if control["command"] == "cancel":
-    emit("error", {"message": "cancelled"})
+    emit("error", {"code": "cancelled", "message": "下载已取消"})
     sys.exit(1)
 else:
     emit("downloaded", {})
@@ -478,7 +506,7 @@ else:
         else:
             assert runner.send("go")
         qtbot.waitUntil(lambda: not runner.busy, timeout=10_000)
-        assert errors == (["cancelled"] if cancel else [])
+        assert errors == (["The update was cancelled."] if cancel else [])
         assert runner._terminal is (not cancel)
         assert not runner.send("go")
     finally:
@@ -588,9 +616,96 @@ def test_production_updater_rejects_wrong_architecture_before_network(production
     description = tmp_path / "release.json"
     description.write_text(json.dumps(release), encoding="utf-8")
     result = subprocess.run([str(production_updater), "download", "--install-exe", str(executable),
-                             "--current-version", "1.0.0", "--release-file", str(description),
+                             "--current-version", "1.0.0", "--release-file", str(description), "--variant", "full",
                              "--cache-dir", str(tmp_path / "cache")], input=b"", capture_output=True, timeout=15)
     events = [json.loads(line) for line in result.stdout.splitlines()]
     assert result.returncode == 1
     assert events[-1]["data"]["code"] == "version"
+    assert executable.read_bytes() == pe
+
+
+def test_production_updater_removes_failed_download_directory(production_updater, tmp_path):
+    executable = tmp_path / "jietuba_pp.exe"
+    shutil.copy2(production_updater, executable)
+    pe = executable.read_bytes()
+    offset = int.from_bytes(pe[60:64], "little")
+    arch = "x64" if int.from_bytes(pe[offset + 4:offset + 6], "little") == 0x8664 else "arm64"
+    release = {"tag_name": "99.0.0", "title": "new", "notes": "", "url": "https://example.invalid",
+               "asset_name": f"jietuba_pp-99.0.0-{arch}.zip", "arch": arch,
+               "artifact": {"urls": [], "size": None}}
+    description = tmp_path / "release.json"
+    description.write_text(json.dumps(release), encoding="utf-8")
+    transaction = "d" * 32
+    cache = tmp_path / "cache"
+    result = subprocess.run([str(production_updater), "download", "--install-exe", str(executable),
+                             "--current-version", "1.0.0", "--release-file", str(description), "--variant", "full",
+                             "--cache-dir", str(cache), "--transaction", transaction],
+                            input=b"", capture_output=True, timeout=15)
+    assert result.returncode == 1
+    assert json.loads(result.stdout.splitlines()[-1])["data"]["code"] == "source"
+    assert not (cache / transaction).exists()
+    assert executable.read_bytes() == pe
+
+
+@pytest.mark.parametrize(("variant", "code"), [(None, "arguments"), ("pp", "variant")])
+def test_production_updater_requires_the_reported_variant(production_updater, tmp_path, variant, code):
+    executable = tmp_path / "jietuba_pp.exe"
+    shutil.copy2(production_updater, executable)
+    command = [str(production_updater), "check", "--install-exe", str(executable), "--current-version", "1.0.0"]
+    if variant:
+        command += ["--variant", variant]
+    result = subprocess.run(command, input=b"", capture_output=True, timeout=15)
+    assert result.returncode == 1
+    assert json.loads(result.stdout.splitlines()[-1])["data"]["code"] == code
+
+
+def test_download_request_is_removed_when_process_finishes(controller):
+    controller.start()
+    request = controller._request
+    assert request.is_file()
+    controller.runner.busy = False
+    controller._error("download failed")
+    controller._finished()
+    assert not request.exists()
+    assert controller.main_app.quit_count == 0
+
+
+# A renamed EXE is still updated in place: the build type comes from --variant, not the file name.
+@pytest.mark.parametrize("name", ["jietuba_pp.exe", "截图吧.exe"])
+def test_production_updater_removes_stage_after_success_and_keeps_backup(production_updater, tmp_path, name):
+    executable = tmp_path / name
+    shutil.copy2(production_updater, executable)
+    pe = executable.read_bytes()
+    offset = int.from_bytes(pe[60:64], "little")
+    arch = "x64" if int.from_bytes(pe[offset + 4:offset + 6], "little") == 0x8664 else "arm64"
+    transaction = "e" * 32
+    cache = tmp_path / "cache"
+    stage = cache / transaction
+    stage.mkdir(parents=True)
+    shutil.copy2(production_updater, stage / "app.exe")
+    release = {"tag_name": "99.0.0", "title": "new", "notes": "", "url": "https://example.invalid",
+               "asset_name": f"jietuba_pp-99.0.0-{arch}.zip", "arch": arch,
+               "artifact": {"urls": [], "size": None}}
+    (stage / "prepared.json").write_text(json.dumps({
+        "executable": "\\\\?\\" + str(executable), "current_version": "1.0.0", "release": release,
+        "staged_hash": hashlib.sha256(pe).hexdigest(),
+    }), encoding="utf-8")
+    control = json.dumps({"protocol": 1, "transaction": transaction, "command": "go"}).encode() + b"\n"
+    result = subprocess.run([str(production_updater), "apply", "--install-exe", str(executable),
+                             "--current-version", "1.0.0", "--cache-dir", str(cache), "--variant", "full",
+                             "--failure-message", "localized failure", "--transaction", transaction],
+                            input=control, capture_output=True, timeout=15)
+    assert result.returncode == 0, result.stdout
+    events = [json.loads(line) for line in result.stdout.splitlines()]
+    handoff = next(event for event in events if event["event"] == "handed_off")
+    record = Path(handoff["data"]["result"])
+    deadline = time.monotonic() + 10
+    while not record.exists() and time.monotonic() < deadline:
+        time.sleep(0.02)
+    assert record.exists()
+    assert json.loads(record.read_bytes())["event"] == "complete"
+    assert json.loads((record.parent / "request.json").read_bytes())["failure_message"] == "localized failure"
+    assert not stage.exists()
+    backup = tmp_path / ".jietuba-update" / handoff["data"]["worker"] / "backup.exe"
+    assert backup.read_bytes() == pe
     assert executable.read_bytes() == pe

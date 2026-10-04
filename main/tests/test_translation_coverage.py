@@ -85,6 +85,9 @@ def test_translation_files_use_real_line_breaks():
         f"{language} [{context}] {source[:50]!r}"
         for language in LANGUAGES
         for (context, source), translation in _entries(language).items()
-        if literal in source or literal in translation
+        if (literal in source or literal in translation)
+        # 分隔符输入提示中的 \\n 必须按字面显示，译文也须保留一次。
+        and not (context == "ClipboardWindow" and source == "Custom, \\n for a new line"
+                 and translation.count(literal) == 1)
     ]
     assert not bad, "\n".join(bad)

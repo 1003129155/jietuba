@@ -1,6 +1,6 @@
 [package]
 name = "inputhub"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "MIT"
 description = "Windows 全局输入：低层鼠标键盘钩子与前台窗口跟踪，决定在原生线程里做完，不经过 Python"

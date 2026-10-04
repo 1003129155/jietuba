@@ -9,7 +9,8 @@ import re
 import subprocess
 import sys
 
-from core.updater_process import helper_path
+from core.updater_process import app_variant, helper_path
+from core.update_cache import remove_helper
 
 from PySide6.QtCore import QObject, QThread, Signal
 
@@ -79,12 +80,14 @@ def parse_release_payload(payload: bytes) -> ReleaseInfo:
 
 
 def fetch_latest_release(timeout_ms: int) -> ReleaseInfo:
-    """Fetch and parse GitHub's latest-release response with the stdlib."""
+    """Fetch the release matching the installed executable through the Rust helper."""
     from main_app import APP_VERSION
+    executable = None
     try:
+        executable = helper_path()
         result = subprocess.run(
-            [str(helper_path()), "check", "--install-exe", sys.executable,
-             "--current-version", APP_VERSION],
+            [str(executable), "check", "--install-exe", sys.executable,
+             "--current-version", APP_VERSION, "--variant", app_variant()],
             capture_output=True, timeout=timeout_ms / 1000,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
@@ -103,6 +106,8 @@ def fetch_latest_release(timeout_ms: int) -> ReleaseInfo:
         raise UpdateCheckError("Updater returned no release")
     except (OSError, subprocess.TimeoutExpired, ValueError, KeyError, TypeError) as exc:
         raise UpdateCheckError(str(exc)) from exc
+    finally:
+        remove_helper(executable)
 
 
 class _ReleaseCheckThread(QThread):

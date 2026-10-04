@@ -104,8 +104,10 @@ def _ppocr_rust_model_paths():
             return det, rec
     return None, None
 
+PP_RUST_ENGINE_AVAILABLE = False
 try:
     _pp_spec = importlib.util.find_spec("ppocr_rust") is not None
+    PP_RUST_ENGINE_AVAILABLE = _pp_spec
     _pp_det, _pp_rec = _ppocr_rust_model_paths() if _pp_spec else (None, None)
     PP_RUST_AVAILABLE = bool(_pp_spec and _pp_det and _pp_rec)
     if PP_RUST_AVAILABLE:
@@ -118,6 +120,13 @@ except Exception as e:
     PP_RUST_AVAILABLE = False
     _pp_det = _pp_rec = None
     _ocr_log(T("ppocr_rust 引擎检测失败: {e}", e=e), "DEBUG")
+
+
+def get_ppocr_status() -> str:
+    """Distinguish an omitted engine from missing external model files."""
+    if PP_RUST_AVAILABLE:
+        return "available"
+    return "missing_models" if PP_RUST_ENGINE_AVAILABLE else "missing_engine"
 
 
 def _configured_preference() -> str:
@@ -208,7 +217,7 @@ class OCRManager:
 
         if target is None:
             if engine_type == self.ENGINE_PP_RUST:
-                self._last_error = "此版本不含 PP-OCR，请下载完整版"
+                self._last_error = "PP-OCR 缺少模型" if get_ppocr_status() == "missing_models" else "PP-OCR 缺少引擎"
             elif engine_type == self.ENGINE_ONEOCR:
                 self._last_error = "未找到带 OCR 的 Windows 截图工具"
             else:

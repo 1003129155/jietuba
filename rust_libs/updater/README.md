@@ -1,6 +1,7 @@
 # 独立 Rust 更新器
 
-支持 Windows x64 / ARM64，从 GitHub Release 下载 ZIP，只替换主程序 `jietuba_pp.exe`，不修改配置、剪贴板历史、模型或其他文件。
+支持 Windows x64 / ARM64，按主程序通过 `--variant` 报告的版本类型选择 GitHub Release ZIP：`full` 取完整版包里的 `jietuba_pp.exe`，`lite` 取轻量版包里的 `jietuba_lite.exe`。只提取对应 EXE 并原地替换当前主程序，主程序改过文件名也照常更新；不修改配置、剪贴板历史、模型或其他文件。
+版本类型由打包脚本写入程序内的 `updater/app_variant.txt`。缺少对应下载包时停止更新，不切换版本类型。
 校验 ZIP 可读、根目录 EXE 唯一、PE 格式有效且匹配已安装应用的架构；不要求上游提供清单、签名或哈希附件。
 
 ## 构建
@@ -17,12 +18,14 @@ cargo rustc --locked --release --target x86_64-pc-windows-msvc --manifest-path r
 
 ## 命令与协议
 
-- `check --install-exe PATH --current-version VERSION`：检查新版本。
-- `download --install-exe PATH --current-version VERSION --release-file PATH`：下载检查结果中固定的 Release 和资产。
-- `apply --install-exe PATH --current-version VERSION --transaction ID --parent-pid PID`：准备安装并等待应用授权退出。
+- `check --install-exe PATH --current-version VERSION --variant full|lite`：检查新版本。
+- `download --install-exe PATH --current-version VERSION --variant full|lite --release-file PATH`：下载检查结果中固定的 Release 和资产。
+- `apply --install-exe PATH --current-version VERSION --variant full|lite --transaction ID --parent-pid PID [--failure-message TEXT]`：准备安装并等待应用授权退出。`--failure-message` 是交接后失败时原生提示的正文，由应用按界面语言传入。
 - `recover --install-exe PATH --transaction ID`：关闭应用后恢复指定事务。
 
 `--transaction ID` 为 32 位小写十六进制。缓存默认位于 `%LOCALAPPDATA%/jietuba/updater`，可通过 `--cache-dir PATH` 指定绝对路径。
+
+出错时 `error` 事件的 `code` 是稳定的错误类别，应用据此显示界面语言的提示；`message` 为中文诊断信息，只写日志。
 
 标准输出使用 JSONL：`{"protocol":1,"event":"progress","transaction":"...","data":{"received":0,"total":123,"source":"..."}}`。
 标准输入接受 `{"protocol":1,"transaction":"...","command":"cancel"}` 或 `go`。

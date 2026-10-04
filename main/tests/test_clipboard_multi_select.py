@@ -560,7 +560,7 @@ class TestSettingsMenu:
         sub = {a.text(): a for a in submenus["Multi-Select Paste"].actions()}
         separators = submenus["Separator"]
         assert not any(a.isChecked() for a in separators.actions() if a.isCheckable())
-        custom_edit = separators.findChild(setting_panel.QLineEdit)
+        custom_edit = separators.findChild(setting_panel.LineEdit)
         assert custom_edit.text() == " | "
         order = {a.text(): a for a in submenus["Order"].actions()}
         assert order["Last Selected First"].isChecked() and not order["First Selected First"].isChecked()

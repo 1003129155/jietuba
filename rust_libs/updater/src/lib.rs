@@ -1,4 +1,5 @@
 pub mod archive;
+pub mod cache;
 pub mod contract;
 pub mod download;
 pub mod platform;

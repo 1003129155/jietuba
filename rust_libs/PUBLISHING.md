@@ -59,6 +59,8 @@ cd rust_libs
 for c in gifrecorder longstitch ppocr_rust pyclipboard hdrcapture inputhub; do
   cargo about generate --manifest-path $c/Cargo.toml -o $c/THIRD-PARTY-NOTICES.txt notices.hbs
 done
+# 更新器是独立 EXE，不发 PyPI，用自己的模板
+cargo about generate --manifest-path updater/Cargo.toml -o updater/THIRD-PARTY-NOTICES.txt updater/notices.hbs
 ```
 
 依赖树里出现新的许可证时 `cargo about` 会报错，需先在 `about.toml` 的

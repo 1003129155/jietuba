@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "j-input"
-version = "0.1.0"
+version = "0.1.1"
 description = "Windows global input for Python: low-level mouse and keyboard hooks decided on a native thread, never waiting for the GIL"
 readme = "README.md"
 license = "MIT"

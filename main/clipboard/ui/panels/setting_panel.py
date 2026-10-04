@@ -5,13 +5,14 @@
 """
 
 from PySide6.QtWidgets import (
-    QHBoxLayout, QLineEdit, QPushButton, QMenu, QWidget, QWidgetAction
+    QHBoxLayout, QPushButton, QMenu, QWidget, QWidgetAction
 )
 from PySide6.QtCore import Qt
 
 from typing import Optional, Callable
 
 from core.ui_scale import scaled
+from ui.fluent_lite import LineEdit
 
 from ..theme.themes import PRESET_THEME_SWATCHES
 from ..menus.submenu_position import avoid_submenu_overlap
@@ -65,7 +66,7 @@ def _add_multi_paste_menu(menu: QMenu, menu_style: str, tr: Callable, separator:
     custom = QWidget(separator_menu)
     layout = QHBoxLayout(custom)
     layout.setContentsMargins(scaled(8), scaled(4), scaled(8), scaled(4))
-    custom_edit = QLineEdit(custom)
+    custom_edit = LineEdit(custom)
     custom_edit.setPlaceholderText(tr("Custom, \\n for a new line"))
     custom_edit.setMinimumWidth(scaled(150))
     if separator not in {value for _label, value in MULTI_PASTE_SEPARATORS}:

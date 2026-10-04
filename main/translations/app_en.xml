@@ -629,6 +629,10 @@ Replace it?</translation>
         <translation>OCR Engine</translation>
     </message>
     <message>
+        <source>Switch OCR engines here.</source>
+        <translation>Switch OCR engines here.</translation>
+    </message>
+    <message>
         <source>The Snipping Tool engine is faster and reads more languages, but needs the Snipping Tool from Windows 11. PP-OCR works on any Windows.</source>
         <translation>The Snipping Tool engine is faster and reads more languages, but needs the Snipping Tool from Windows 11. PP-OCR works on any Windows.</translation>
     </message>
@@ -641,8 +645,12 @@ Replace it?</translation>
         <translation>Windows Snipping Tool (not found)</translation>
     </message>
     <message>
-        <source>PP-OCR (download the full version)</source>
-        <translation>PP-OCR (download the full version)</translation>
+        <source>PP-OCR (missing engine)</source>
+        <translation>PP-OCR (missing engine)</translation>
+    </message>
+    <message>
+        <source>PP-OCR (missing models)</source>
+        <translation>PP-OCR (missing models)</translation>
     </message>
     <message>
         <source>OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version</source>
@@ -2279,6 +2287,26 @@ This action cannot be undone.</translation>
     <message>
         <source>OK</source>
         <translation>OK</translation>
+    </message>
+    <message>
+        <source>{count} selected</source>
+        <translation>{count} selected</translation>
+    </message>
+    <message>
+        <source>Enter pastes them together, Esc clears the selection</source>
+        <translation>Enter pastes them together, Esc clears the selection</translation>
+    </message>
+    <message>
+        <source>Images Too Large</source>
+        <translation>Images Too Large</translation>
+    </message>
+    <message>
+        <source>The stitched image would be too large. Select fewer images.</source>
+        <translation>The stitched image would be too large. Select fewer images.</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete the {count} selected items?</source>
+        <translation>Are you sure you want to delete the {count} selected items?</translation>
     </message>
 </context>
 
@@ -4590,6 +4618,61 @@ Make sure gifrecorder is installed correctly.</translation>
 <message>
         <source>Update failed: %1</source>
         <translation>Update failed: %1</translation>
+    </message>
+<message>
+        <source>The update was not completed. The previous version and its recovery record were kept.</source>
+        <translation>The update was not completed. The previous version and its recovery record were kept.</translation>
+    </message>
+</context>
+<context>
+    <name>UpdaterProcess</name>
+<message>
+        <source>Could not download the update. Check your network connection and try again.</source>
+        <translation>Could not download the update. Check your network connection and try again.</translation>
+    </message>
+<message>
+        <source>The latest release has no package for this edition and architecture.</source>
+        <translation>The latest release has no package for this edition and architecture.</translation>
+    </message>
+<message>
+        <source>The downloaded package is invalid.</source>
+        <translation>The downloaded package is invalid.</translation>
+    </message>
+<message>
+        <source>The downloaded update does not match this installation.</source>
+        <translation>The downloaded update does not match this installation.</translation>
+    </message>
+<message>
+        <source>Another update or recovery is already running.</source>
+        <translation>Another update or recovery is already running.</translation>
+    </message>
+<message>
+        <source>An earlier update was not finished. Recover it from the .jietuba-update folder first.</source>
+        <translation>An earlier update was not finished. Recover it from the .jietuba-update folder first.</translation>
+    </message>
+<message>
+        <source>The application did not close or its file is in use. Close it and try again.</source>
+        <translation>The application did not close or its file is in use. Close it and try again.</translation>
+    </message>
+<message>
+        <source>No permission to write to the installation folder.</source>
+        <translation>No permission to write to the installation folder.</translation>
+    </message>
+<message>
+        <source>The application file was changed by another program. The update was stopped.</source>
+        <translation>The application file was changed by another program. The update was stopped.</translation>
+    </message>
+<message>
+        <source>The previous version could not be restored automatically. Its backup was kept in the .jietuba-update folder.</source>
+        <translation>The previous version could not be restored automatically. Its backup was kept in the .jietuba-update folder.</translation>
+    </message>
+<message>
+        <source>The update was cancelled.</source>
+        <translation>The update was cancelled.</translation>
+    </message>
+<message>
+        <source>The updater stopped with an error (%1).</source>
+        <translation>The updater stopped with an error (%1).</translation>
     </message>
 </context>
 </TS>

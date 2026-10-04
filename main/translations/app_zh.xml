@@ -633,6 +633,10 @@ Replace it?</source>
         <translation>OCR 引擎</translation>
     </message>
     <message>
+        <source>Switch OCR engines here.</source>
+        <translation>在这里切换 OCR 引擎。</translation>
+    </message>
+    <message>
         <source>The Snipping Tool engine is faster and reads more languages, but needs the Snipping Tool from Windows 11. PP-OCR works on any Windows.</source>
         <translation>截图工具引擎更快、支持的语言更多，但需要 Windows 11 的截图工具。PP-OCR 在任何 Windows 上都能用。</translation>
     </message>
@@ -645,8 +649,12 @@ Replace it?</source>
         <translation>Windows 截图工具（未找到）</translation>
     </message>
     <message>
-        <source>PP-OCR (download the full version)</source>
-        <translation>PP-OCR（需下载完整版）</translation>
+        <source>PP-OCR (missing engine)</source>
+        <translation>PP-OCR（缺少引擎）</translation>
+    </message>
+    <message>
+        <source>PP-OCR (missing models)</source>
+        <translation>PP-OCR（缺少模型）</translation>
     </message>
     <message>
         <source>OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version</source>
@@ -2518,6 +2526,26 @@ This action cannot be undone.</source>
     <message>
         <source>OK</source>
         <translation>确定</translation>
+    </message>
+    <message>
+        <source>{count} selected</source>
+        <translation>已选择 {count} 项</translation>
+    </message>
+    <message>
+        <source>Enter pastes them together, Esc clears the selection</source>
+        <translation>按 Enter 合并粘贴，按 Esc 清除选择</translation>
+    </message>
+    <message>
+        <source>Images Too Large</source>
+        <translation>图片过大</translation>
+    </message>
+    <message>
+        <source>The stitched image would be too large. Select fewer images.</source>
+        <translation>拼接后的图片过大，请减少选择的图片数量。</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete the {count} selected items?</source>
+        <translation>确定要删除选中的 {count} 项吗？</translation>
     </message>
 </context>
 
@@ -4879,6 +4907,61 @@ Make sure gifrecorder is installed correctly.</source>
 <message>
         <source>Update failed: %1</source>
         <translation>更新未完成：%1</translation>
+    </message>
+<message>
+        <source>The update was not completed. The previous version and its recovery record were kept.</source>
+        <translation>更新未完成，已保留旧版本和恢复记录。</translation>
+    </message>
+</context>
+<context>
+    <name>UpdaterProcess</name>
+<message>
+        <source>Could not download the update. Check your network connection and try again.</source>
+        <translation>无法下载更新，请检查网络连接后重试。</translation>
+    </message>
+<message>
+        <source>The latest release has no package for this edition and architecture.</source>
+        <translation>最新版本没有适用于当前版本类型和架构的下载包。</translation>
+    </message>
+<message>
+        <source>The downloaded package is invalid.</source>
+        <translation>下载的更新包无效。</translation>
+    </message>
+<message>
+        <source>The downloaded update does not match this installation.</source>
+        <translation>下载的更新与当前安装不匹配。</translation>
+    </message>
+<message>
+        <source>Another update or recovery is already running.</source>
+        <translation>已有更新或恢复正在进行。</translation>
+    </message>
+<message>
+        <source>An earlier update was not finished. Recover it from the .jietuba-update folder first.</source>
+        <translation>上次更新未完成，请先从 .jietuba-update 文件夹恢复。</translation>
+    </message>
+<message>
+        <source>The application did not close or its file is in use. Close it and try again.</source>
+        <translation>程序未能退出或文件被占用，请关闭后重试。</translation>
+    </message>
+<message>
+        <source>No permission to write to the installation folder.</source>
+        <translation>没有写入安装文件夹的权限。</translation>
+    </message>
+<message>
+        <source>The application file was changed by another program. The update was stopped.</source>
+        <translation>程序文件已被其他程序修改，更新已停止。</translation>
+    </message>
+<message>
+        <source>The previous version could not be restored automatically. Its backup was kept in the .jietuba-update folder.</source>
+        <translation>无法自动恢复旧版本，备份已保留在 .jietuba-update 文件夹中。</translation>
+    </message>
+<message>
+        <source>The update was cancelled.</source>
+        <translation>更新已取消。</translation>
+    </message>
+<message>
+        <source>The updater stopped with an error (%1).</source>
+        <translation>更新程序出错停止（%1）。</translation>
     </message>
 </context>
 </TS>

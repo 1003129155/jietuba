@@ -96,9 +96,10 @@ def test_scan_catches_application_modality():
     assert [line for line, _call in _application_modal_calls(ast.parse(source))] == [1, 2]
 
 
-def test_only_the_welcome_wizard_is_application_modal():
-    """快速截图不再监视窗口显示：它靠向导前后的暂停与恢复避开应用模态。"""
-    found = [f"{rel}:{line} {call}" for rel, tree in _source_trees() if rel != Path("ui/welcome/wizard.py")
+def test_only_welcome_and_update_handoff_are_application_modal():
+    """向导和已暂停任务的更新交接可用应用模态；普通对话框只锁父窗口。"""
+    allowed = {Path("ui/welcome/wizard.py"), Path("ui/update_dialog.py")}
+    found = [f"{rel}:{line} {call}" for rel, tree in _source_trees() if rel not in allowed
              for line, call in _application_modal_calls(tree)]
     assert found == [], "应用模态会挡住截图层；确实需要时，像欢迎向导那样在前后暂停、恢复快速截图"
 

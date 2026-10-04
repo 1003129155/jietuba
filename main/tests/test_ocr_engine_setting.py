@@ -63,11 +63,16 @@ def test_full_build_on_windows_11_offers_every_engine(monkeypatch, qapp, tmp_pat
         qapp.processEvents()
 
 
-def test_lite_build_says_ppocr_needs_the_full_version(monkeypatch, qapp, tmp_path):
+@pytest.mark.parametrize("status, label", [
+    ("missing_engine", "PP-OCR (missing engine)"),
+    ("missing_models", "PP-OCR (missing models)"),
+])
+def test_unavailable_ppocr_explains_missing_files(monkeypatch, qapp, tmp_path, status, label):
+    monkeypatch.setattr("ocr.get_ppocr_status", lambda: status)
     dialog, page = _page(monkeypatch, tmp_path, ["oneocr"], "auto")
     try:
         items = _items(dialog.ocr_engine_combo)
-        assert items[2] == ("ppocr_rust", "PP-OCR (download the full version)", False)
+        assert items[2] == ("ppocr_rust", label, False)
         assert items[1][2] is True
     finally:
         page.deleteLater()
