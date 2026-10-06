@@ -4018,6 +4018,46 @@ This action cannot be undone.</source>
         <source>视频设置</source>
         <translation>동영상 설정</translation>
     </message>
+    <message>
+        <source>录制延迟</source>
+        <translation>녹화 시작 지연</translation>
+    </message>
+    <message>
+        <source>无延迟</source>
+        <translation>지연 없음</translation>
+    </message>
+    <message>
+        <source>{seconds} 秒</source>
+        <translation>{seconds}초</translation>
+    </message>
+    <message>
+        <source>系统声音不包含麦克风</source>
+        <translation>시스템 오디오에는 마이크가 포함되지 않습니다</translation>
+    </message>
+    <message>
+        <source>视频已保存</source>
+        <translation>동영상 저장 완료</translation>
+    </message>
+    <message>
+        <source>播放视频</source>
+        <translation>동영상 재생</translation>
+    </message>
+    <message>
+        <source>打开文件夹</source>
+        <translation>폴더 열기</translation>
+    </message>
+    <message>
+        <source>复制文件</source>
+        <translation>파일 복사</translation>
+    </message>
+    <message>
+        <source>重新录制</source>
+        <translation>다시 녹화</translation>
+    </message>
+    <message>
+        <source>已复制</source>
+        <translation>복사 완료</translation>
+    </message>
 </context>
 
 <!-- ========== GIF Playback Toolbar ========== -->
@@ -4976,6 +5016,18 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
         <source>视频录制失败</source>
         <translation>동영상 녹화 실패</translation>
     </message>
+    <message>
+        <source>倒计时 {seconds}</source>
+        <translation>시작까지 {seconds}</translation>
+    </message>
+    <message>
+        <source>视频文件不存在，可能已被移动或删除。</source>
+        <translation>동영상 파일이 없습니다. 이동하거나 삭제되었을 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>无法打开，请检查默认播放器或文件管理器。</source>
+        <translation>열 수 없습니다. 기본 플레이어나 파일 관리자를 확인해 주세요.</translation>
+    </message>
 </context>
 <context>
     <name>VideoRecorder</name>
@@ -5034,6 +5086,50 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
     <message>
         <source>退出时录制未能完成。</source>
         <translation>종료 전에 녹화를 완료할 수 없습니다.</translation>
+    </message>
+    <message>
+        <source>找不到可用的播放设备，请连接音箱或耳机，或在视频设置中关闭系统声音后重试。</source>
+        <translation>재생 장치를 찾을 수 없습니다. 스피커나 헤드폰을 연결하거나 동영상 설정에서 시스템 소리를 끄고 다시 시도하세요.</translation>
+    </message>
+    <message>
+        <source>当前播放设备的音频格式不受支持，请在 Windows 声音设置中选择立体声格式，或关闭系统声音后重试。</source>
+        <translation>재생 장치의 오디오 형식이 지원되지 않습니다. Windows 소리 설정에서 스테레오를 선택하거나 시스템 소리를 끄고 다시 시도하세요.</translation>
+    </message>
+    <message>
+        <source>系统声音录制失败，请检查播放设备，或在视频设置中关闭系统声音后重试。</source>
+        <translation>시스템 소리 녹음에 실패했습니다. 재생 장치를 확인하거나 동영상 설정에서 시스템 소리를 끄고 다시 시도하세요.</translation>
+    </message>
+    <message>
+        <source>播放设备的声音时间戳异常，录制已停止。请重新连接设备，或关闭系统声音后重试。</source>
+        <translation>재생 장치의 오디오 타임스탬프가 잘못되어 녹화를 중지했습니다. 장치를 다시 연결하거나 시스템 소리를 끄고 다시 시도하세요.</translation>
+    </message>
+    <message>
+        <source>视频编码失败，请尝试降低分辨率或帧率，或在视频设置中关闭硬件编码后重试。</source>
+        <translation>동영상 인코딩에 실패했습니다. 해상도나 프레임 속도를 낮추거나 동영상 설정에서 하드웨어 인코딩을 끄고 다시 시도하세요.</translation>
+    </message>
+    <message>
+        <source>无法采集录制区域，请检查屏幕连接和选区后重试。</source>
+        <translation>녹화 영역을 캡처할 수 없습니다. 화면 연결과 선택 영역을 확인하고 다시 시도하세요.</translation>
+    </message>
+    <message>
+        <source>无法创建视频文件，请检查保存位置的写入权限和剩余空间。</source>
+        <translation>동영상 파일을 만들 수 없습니다. 저장 위치의 쓰기 권한과 여유 공간을 확인하세요.</translation>
+    </message>
+    <message>
+        <source>保存位置空间不足，请释放空间或选择其他磁盘后重试。</source>
+        <translation>저장 위치의 공간이 부족합니다. 공간을 확보하거나 다른 드라이브를 선택하고 다시 시도하세요.</translation>
+    </message>
+    <message>
+        <source>录制参数或区域无效，请重新调整选区和视频设置。</source>
+        <translation>녹화 설정이나 영역이 잘못되었습니다. 선택 영역과 동영상 설정을 조정하세요.</translation>
+    </message>
+    <message>
+        <source>视频录制失败，请重试。若问题持续，请查看日志中的详细错误。</source>
+        <translation>동영상 녹화에 실패했습니다. 다시 시도하세요. 문제가 지속되면 로그에서 자세한 오류를 확인하세요.</translation>
+    </message>
+    <message>
+        <source>暂停或恢复录制超时，录制已停止，视频未确认保存成功。</source>
+        <translation>일시 정지 또는 재개 시간이 초과되어 녹화를 중지했습니다. 동영상 저장 성공을 확인하지 못했습니다.</translation>
     </message>
 </context>
 </TS>

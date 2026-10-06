@@ -1,7 +1,7 @@
 # Windows 视频录制扩展
 
 通过 PyO3 提供 Python 接口，使用 Windows Media Foundation 编码
-H.264 / MP4，通过 WASAPI loopback 捕获系统播放声音并编码为 AAC。GDI 区域采集、
+H.264 / MP4，通过 WASAPI loopback 捕获系统播放声音并编码为 AAC。区域采集（DXGI 优先、GDI 兜底）、
 NV12 转换、编码和音频缓冲均由 Rust 完成，不向 Python 传输原始视频帧或音频块。
 不捆绑 FFmpeg、Qt Multimedia 或额外编解码 DLL。
 
@@ -96,7 +96,7 @@ import video_recorder
 recorder = video_recorder.Recorder(
     output, left, top, width, height,
     fps=30, bitrate=4_000_000,
-    system_audio=True, hardware=True, cursor=True,
+    system_audio=True, hardware=True, cursor=True, prefer_dxgi=True,
 )
 recorder.run(on_event)  # on_event(name: str, data: dict)
 ```
@@ -169,13 +169,18 @@ stdin EOF 按 `stop` 处理。命令读取与录制分别执行；停止或取�
   Sink Writer 使用背压，过期采集机会丢弃；系统和驱动有另外的编码缓冲。
 - 系统声音使用固定长度的 48 kHz、双声道 PCM16 环形缓冲与时间标签，按 20 ms
   块提交；静音模式不分配音频采集缓冲。低帧率仍持续处理声音与控制命令。
-- 默认播放设备支持 mono/stereo float32 或 PCM16/24/32，通过插值转为 48 kHz。
-  多声道明确拒绝。缺失声音补零并计数；无设备、格式异常或无效时间戳返回错误。
+- 默认播放设备支持 1–8 声道 float32 或 PCM16/24/32，通过插值转为 48 kHz。
+  多声道按 Windows speaker mask 降混为立体声，保留中置、环绕与低频并预留混音余量。
+  缺少有效声道布局时返回可操作的格式提示；无设备、格式异常或无效时间戳不会静默丢弃声音。
+  缺失声音补零并计数。
 - 暂停停止并重置 WASAPI，恢复时清除未提交的时间标签，暂停声音不进入录像。
   麦克风、混音与录制期间切换播放设备尚未提供。
 - 光标使用 `GetCursorInfo` / `CopyIcon` / `DrawIconEx` 按热点合成并释放原生资源。
   受保护窗口、桌面切换或安全桌面不保证可录。
-- 采用 SDR GDI 与 BT.601 limited-range NV12；不提供 HDR、10-bit 视频或色调映射。
+- 画面输出为 SDR sRGB，再转 BT.601 limited-range NV12；不提供 10-bit 或 HDR 视频。
+  开启 HDR 的显示器上 GDI 会截断超出桌面白的内容，因此默认经 `hdrcapture` 用 DXGI 截取并在
+  GPU 上按固定映射转成 sRGB，只读回录制区域；新会话尚无帧、DXGI 不可用或 `prefer_dxgi=False`
+  时用 GDI。SDR 内容两条路径逐像素一致。DXGI 会话绑定在录制线程上，随录制结束释放。
 
 ## 自动化诊断构建
 
@@ -186,6 +191,15 @@ python -m pip install --force-reinstall --no-deps (Get-ChildItem wheelhouse-test
 $env:JIETUBA_VIDEO_TEST_NATIVE = "1"
 python -m pytest main/tests/test_video_native_process.py -c main/tests/pytest.ini
 ```
+
+本机系统声音验收（会短暂播放测试音，需要可用的播放设备）：
+
+```powershell
+$env:JIETUBA_VIDEO_TEST_AUDIO = "1"
+python -m pytest main/tests/test_video_native_process.py -k real_loopback -c main/tests/pytest.ini
+```
+
+验收检查暂停前后都有可解码的 AAC 声音，音视频结束点一致，并从时间轴扣除暂停。
 
 `test-support` 默认关闭，workspace 单元测试不打开该 feature。测试扩展提供
 `Recorder._configure_test(*, synthetic=True, medium=False, duration=None, fail_hardware=False)`，

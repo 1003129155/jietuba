@@ -16,6 +16,9 @@ test-support = []
 
 [dependencies]
 pyo3 = { version = "0.22", features = ["extension-module", "abi3-py311"] }
+
+# HDR 屏上 GDI 会截断超出桌面白的内容；DXGI 路径经它在 GPU 上转成 sRGB。不带它的 pyo3 绑定
+hdrcapture = { path = "../hdrcapture", default-features = false }
 windows = { version = "0.62.2", features = [
     "Win32_Foundation",
     "Win32_Graphics_Direct3D",

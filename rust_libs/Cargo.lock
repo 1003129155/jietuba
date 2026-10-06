@@ -1243,6 +1243,7 @@ dependencies = [
 name = "jietuba-video-recorder"
 version = "0.1.0"
 dependencies = [
+ "hdrcapture",
  "pyo3",
  "windows 0.62.2",
 ]

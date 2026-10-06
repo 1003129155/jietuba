@@ -9,7 +9,7 @@ import pytest
 from PySide6.QtCore import QObject, QProcess, QRect, Signal
 from PySide6.QtWidgets import QCheckBox, QDialogButtonBox, QDoubleSpinBox, QSpinBox, QFileDialog
 
-from gif.video_recorder import MAX_MESSAGE, MAX_STDERR, VideoRecorder
+from gif.video_recorder import MAX_MESSAGE, MAX_STDERR, VideoRecorder, failure_message
 from gif.video_settings import RecordingOptions
 
 
@@ -70,6 +70,12 @@ class FakeProcess(QObject):
         return self.wait_result
 
 
+@pytest.fixture(autouse=True)
+def _gdi_capture(monkeypatch):
+    """启动录制会查询截图引擎设置与显示器 HDR 状态，测试里固定为 GDI。"""
+    monkeypatch.setattr("gif.video_recorder.uses_hdr_engine", lambda: False)
+
+
 @pytest.fixture
 def recorder(qapp, tmp_path):
     helper = tmp_path / "helper.exe"
@@ -104,6 +110,14 @@ def test_new_path_and_even_region_are_passed_without_shell(recorder, tmp_path, m
     assert process.environment.value("_PYI_APPLICATION_HOME_DIR") == "old extraction"
     assert recorder.state == "starting"
     assert not recorder.start(QRect(0, 0, 20, 20), str(tmp_path / "other.mp4"), RecordingOptions())
+
+
+@pytest.mark.parametrize("hdr, capture", [(True, "dxgi"), (False, "gdi")])
+def test_capture_backend_follows_the_capture_engine(recorder, tmp_path, monkeypatch, hdr, capture):
+    monkeypatch.setattr("gif.video_recorder.uses_hdr_engine", lambda: hdr)
+    process, _ = start(recorder, tmp_path)
+    args = dict(zip(process.arguments[::2], process.arguments[1::2]))
+    assert args["--capture"] == capture
 
 
 @pytest.mark.parametrize("problem", ["missing_package", "missing_file", "invalid_record"])
@@ -237,6 +251,57 @@ def test_error_waits_for_child_exit_then_reports_backend_failure(recorder, tmp_p
     assert recorder.active and recorder._test_results[1] == []
     process.exit(1)
     assert recorder._test_results[1] == [("disk_full", "disk full")]
+
+
+@pytest.mark.parametrize("code,hint", [
+    ("audio_device", "关闭系统声音"), ("audio_format", "立体声"),
+    ("audio", "播放设备"), ("audio_timestamp", "重新连接"),
+    ("encoding", "降低分辨率"), ("capture", "屏幕连接"),
+    ("output", "写入权限"), ("disk_full", "空间不足"),
+    ("arguments", "重新调整"), ("unrecognized_backend", "查看日志"),
+])
+def test_backend_errors_offer_translated_recovery_steps(monkeypatch, code, hint):
+    translate = Mock(side_effect=lambda text: "translated: " + text)
+    monkeypatch.setattr("gif.video_recorder._tr", translate)
+    result = failure_message(code, "raw native error 0x80004005")
+    assert result.startswith("translated: ") and hint in result
+    assert "raw native error" not in result
+
+
+@pytest.mark.parametrize("paused,event", [(True, "paused"), (False, "resumed")])
+def test_pause_ack_restores_elapsed_display(recorder, tmp_path, paused, event):
+    process, _ = start(recorder, tmp_path)
+    process.emit_event("ready")
+    if not paused:
+        recorder.pause(True)
+        process.emit_event("paused", elapsed_ms=1250)
+    elapsed = []
+    recorder.progress.connect(elapsed.append)
+    assert recorder.pause(paused)
+    process.emit_event(event, elapsed_ms=1250)
+    assert elapsed == [1.25]
+
+
+@pytest.mark.parametrize("elapsed", [None, True, -1, float("nan"), "100"])
+def test_invalid_pause_ack_does_not_confirm_pause(recorder, tmp_path, elapsed):
+    process, _ = start(recorder, tmp_path)
+    process.emit_event("ready")
+    recorder.pause(True)
+    acknowledgements = []
+    recorder.paused_changed.connect(acknowledgements.append)
+    process.emit_event("paused", elapsed_ms=elapsed)
+    assert acknowledgements == [] and recorder.state == "stopping"
+    process.exit(1)
+    assert recorder._test_results[1][0][0] == "protocol"
+
+
+def test_pause_timeout_is_reported_as_command_failure(recorder, tmp_path):
+    process, _ = start(recorder, tmp_path)
+    process.emit_event("ready")
+    recorder.pause(True)
+    recorder._on_timeout()
+    process.exit(1)
+    assert recorder._test_results[1][0][0] == "command_timeout"
 
 
 def test_start_failure_and_finalize_timeout_cleanup(recorder, tmp_path):
@@ -444,14 +509,21 @@ def test_real_toolbar_controls_mp4_record_pause_resume_and_finalize(record_windo
     assert not toolbar._record_btn.isEnabled()
     process.emit_event("ready")
     assert toolbar._record_btn.isEnabled() and toolbar._pause_btn.isEnabled()
+    assert window._overlay._color.name() == "#f44336"
     toolbar._pause_btn.click()
     assert window._video.state == "pausing"
+    assert not toolbar._paused and window._overlay._color.name() == "#f44336"
     assert toolbar._record_btn.isEnabled() and not toolbar._pause_btn.isEnabled()
     process.emit_event("paused", elapsed_ms=1250)
     assert toolbar._paused and toolbar._pause_btn.isEnabled()
+    assert window._overlay._color.name() == "#e5ad32"
+    assert toolbar._time_label.text() == "00:01"
     toolbar._pause_btn.click()
+    assert toolbar._paused and window._overlay._color.name() == "#e5ad32"
     process.emit_event("resumed", elapsed_ms=1250)
     assert not toolbar._paused
+    assert window._overlay._color.name() == "#f44336"
+    assert toolbar._time_label.text() == "00:01"
     process.emit_event("progress", elapsed_ms=2500)
     assert toolbar._time_label.text() == "00:02"
     toolbar._record_btn.click()
@@ -465,6 +537,161 @@ def test_real_toolbar_controls_mp4_record_pause_resume_and_finalize(record_windo
     process.exit()
     assert not window.video_busy and toolbar._mode_btn.isEnabled()
     assert toolbar._record_btn.isEnabled() and not toolbar._pause_btn.isEnabled()
+    assert toolbar._result_container.isVisible() and not toolbar._container.isVisible()
+
+
+def test_quick_sound_and_cursor_controls_preserve_custom_encoding_options(record_window):
+    from settings import get_tool_settings_manager
+    toolbar = record_window._record_toolbar
+    toolbar._mode_btn._on_select(1)
+    original = RecordingOptions(fps=17, bitrate=1_500_000, system_audio=True, cursor=True)
+    toolbar._video_options = original
+    toolbar._refresh_recording_options()
+    toolbar._show_audio_menu()
+    toolbar._option_menu.actions()[0].trigger()
+    toolbar._close_option_menu()
+    toolbar._cursor_btn.click()
+    expected = RecordingOptions(fps=17, bitrate=1_500_000, system_audio=False, cursor=False)
+    assert toolbar.get_video_options() == expected
+    assert RecordingOptions.from_config(get_tool_settings_manager()) == expected
+    toolbar.set_busy("starting")
+    toolbar._cursor_btn.click()
+    toolbar._show_audio_menu()
+    assert toolbar._option_menu is None and toolbar.get_video_options() == expected
+    assert not toolbar._time_label.isEnabled()
+    toolbar.reset_state()
+    assert toolbar._time_label.isEnabled()
+
+
+@pytest.mark.parametrize("mode", ["gif", "mp4"])
+@pytest.mark.parametrize("cancel", ["stop", "close"])
+def test_countdown_cancel_never_starts_capture_or_leaves_delayed_callback(record_window, monkeypatch, tmp_path, mode, cancel):
+    window = record_window
+    toolbar = window._record_toolbar
+    monkeypatch.setattr(toolbar, "get_start_delay", lambda: 2)
+    gif_start = Mock()
+    monkeypatch.setattr(window._recorder, "start", gif_start)
+    if mode == "mp4":
+        toolbar._mode_btn._on_select(1)
+    toolbar._record_btn.click()
+    output = tmp_path / "countdown.mp4"
+    if mode == "mp4":
+        window._save_dialog.selectFile(str(output))
+        window._save_dialog.accept()
+        assert window.video_busy
+    assert window._countdown_timer.isActive() and window._video._process is None
+    assert not toolbar._pause_btn.isEnabled() and toolbar._record_btn.isEnabled()
+    before = QRect(window._rect)
+    window._on_rect_changed(QRect(10, 10, 100, 100))
+    assert window._rect == before
+    window.close_all() if cancel == "close" else toolbar._record_btn.click()
+    window._advance_countdown()  # 已排队的 timer 也不能继续启动
+    gif_start.assert_not_called()
+    assert window._video._process is None and not output.exists()
+    assert not window._countdown_timer.isActive() and window._countdown_action is None
+    if cancel == "stop":
+        assert not window.video_busy and toolbar._mode_btn.isEnabled()
+
+
+def test_mp4_countdown_runs_after_path_selection_and_starts_once(record_window, monkeypatch, tmp_path):
+    window = record_window
+    toolbar = window._record_toolbar
+    monkeypatch.setattr(toolbar, "get_start_delay", lambda: 2)
+    toolbar._mode_btn._on_select(1)
+    toolbar._record_btn.click()
+    assert window._save_dialog is not None and not window._countdown_timer.isActive()
+    window._save_dialog.selectFile(str(tmp_path / "countdown.mp4"))
+    window._save_dialog.accept()
+    assert window._video._process is None
+    window._advance_countdown()
+    assert window._video._process is None and window._countdown_remaining == 1
+    window._advance_countdown()
+    process = window._video._process
+    assert process is not None and window._video.state == "starting"
+    window._advance_countdown()
+    assert window._video._process is process and not window._countdown_timer.isActive()
+
+
+def test_video_result_waits_for_helper_exit_and_can_open_copy_and_rerecord(record_window, tmp_path, monkeypatch, qapp):
+    from PySide6.QtCore import QUrl
+    from gif import record_window as module
+    window = record_window
+    toolbar = window._record_toolbar
+    output = tmp_path / "成品.mp4"
+    toolbar._mode_btn._on_select(1)
+    toolbar._record_btn.click()
+    window._save_dialog.selectFile(str(output))
+    window._save_dialog.accept()
+    process = window._video._process
+    process.emit_event("ready")
+    toolbar._record_btn.click()
+    output.write_bytes(b"mp4")
+    process.emit_event("complete", output=str(output), finalized=True)
+    assert not toolbar._result_container.isVisible()
+    process.exit()
+    assert toolbar._result_container.isVisible() and not window.video_busy
+    opened = []
+    monkeypatch.setattr(module.QDesktopServices, "openUrl", lambda url: opened.append(url) or True)
+    toolbar._result_buttons[0].click()
+    toolbar._result_buttons[1].click()
+    assert opened == [QUrl.fromLocalFile(str(output)), QUrl.fromLocalFile(str(tmp_path))]
+    toolbar._result_buttons[2].click()
+    assert qapp.clipboard().mimeData().urls() == [QUrl.fromLocalFile(str(output))]
+    qapp.clipboard().clear()
+    toolbar._result_buttons[3].click()
+    assert window._completed_video_path is None and toolbar._container.isVisible()
+    assert not toolbar._result_container.isVisible() and output.read_bytes() == b"mp4"
+
+
+def test_missing_video_result_keeps_actions_available_and_reports_error(record_window, tmp_path, monkeypatch):
+    window = record_window
+    window._completed_video_path = tmp_path / "moved.mp4"
+    opened, warnings = Mock(), Mock()
+    monkeypatch.setattr("gif.record_window.QDesktopServices.openUrl", opened)
+    monkeypatch.setattr("ui.dialogs.show_modeless_warning_dialog", warnings)
+    window._use_video_result("open")
+    opened.assert_not_called()
+    warnings.assert_called_once()
+
+
+@pytest.mark.parametrize("mode", ["gif", "mp4"])
+@pytest.mark.parametrize("paused", [False, True])
+def test_leaving_annotation_keeps_recording_border_and_region_locked(record_window, mode, paused):
+    from gif.record_window import AppState
+    from gif.frame_recorder import RecordState
+    from gif.overlay import OverlayMode
+    window = record_window
+    if mode == "mp4":
+        window._video._state = "paused" if paused else "recording"
+    else:
+        window._recorder._state = RecordState.PAUSED if paused else RecordState.RECORDING
+    try:
+        window._enter_state(AppState.DRAWING)
+        window._enter_state(AppState.IDLE)
+        assert window._overlay._color.name() == ("#e5ad32" if paused else "#f44336")
+        assert window._overlay._mode is OverlayMode.PASSTHROUGH
+        before = QRect(window._rect)
+        window._on_rect_changed(QRect(0, 0, 100, 100))
+        assert window._rect == before
+        window._enter_state(AppState.PLAYBACK)
+        assert window._overlay._color.name() == "#2196f3"
+    finally:
+        window._video._state = "idle"
+        window._recorder._state = RecordState.IDLE
+
+
+@pytest.mark.parametrize("state,color", [("starting", "#2196f3"), ("pausing", "#f44336"), ("resuming", "#e5ad32")])
+def test_leaving_annotation_during_native_transition_keeps_last_confirmed_border(record_window, state, color):
+    from gif.record_window import AppState
+    from gif.overlay import OverlayMode
+    window = record_window
+    window._video._state = state
+    try:
+        window._enter_state(AppState.IDLE)
+        assert window._overlay._color.name() == color
+        assert window._overlay._mode is OverlayMode.PASSTHROUGH
+    finally:
+        window._video._state = "idle"
 
 
 @pytest.mark.parametrize("choice", ["cancel", "existing", "new_without_extension"])

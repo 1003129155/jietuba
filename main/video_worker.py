@@ -164,6 +164,7 @@ def _arguments(argv, test_support):
     parser.add_argument("--audio", choices=("system", "none"), default="system")
     parser.add_argument("--encoder", choices=("auto", "software"), default="auto")
     parser.add_argument("--cursor", choices=("on", "off"), default="on")
+    parser.add_argument("--capture", choices=("dxgi", "gdi"), default="dxgi")
     if test_support:
         parser.add_argument("--synthetic", action="store_true")
         parser.add_argument("--synthetic-medium", action="store_true")
@@ -198,6 +199,7 @@ def run(argv, input_fd, output_fd):
             args.output, args.left, args.top, args.width, args.height,
             fps=args.fps, bitrate=args.bitrate, system_audio=args.audio == "system",
             hardware=args.encoder == "auto", cursor=args.cursor == "on",
+            prefer_dxgi=args.capture == "dxgi",
         )
         if test_support:
             recorder._configure_test(synthetic=args.synthetic or args.synthetic_medium,

@@ -84,9 +84,16 @@ def test_command_finishes_worker_without_parent_closing_stdin(native, tmp_path, 
     recorder = Recorder.instances[-1]
     assert recorder.commands == [command]
     assert recorder.kwargs == {"fps": 30, "bitrate": 4000000, "system_audio": False,
-                               "hardware": True, "cursor": True}
+                               "hardware": True, "cursor": True, "prefer_dxgi": True}
     # 父写端依然有效，退出不依赖 EOF。
     os.fstat(pipes[1])
+
+
+@pytest.mark.parametrize("capture, prefer_dxgi", [("dxgi", True), ("gdi", False)])
+def test_capture_argument_selects_the_native_capture_backend(native, tmp_path, pipes, capture, prefer_dxgi):
+    os.write(pipes[1], json.dumps({"protocol": 1, "command": "stop"}).encode() + b"\n")
+    assert video_worker.run([*arguments(tmp_path), "--capture", capture], pipes[0], pipes[3]) == 0
+    assert Recorder.instances[-1].kwargs["prefer_dxgi"] is prefer_dxgi
 
 
 @pytest.mark.parametrize("payload", [

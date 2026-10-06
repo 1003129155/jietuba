@@ -1,5 +1,7 @@
 use std::{ffi::c_void, mem::size_of, ptr, slice};
 
+use hdrcapture::hdr_capture::display::Rect;
+use hdrcapture::hdr_capture::{Capture as DxgiSession, Error as HdrError, ToneMapping};
 use windows::Win32::{
     Graphics::Gdi::{
         BitBlt, CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject, GdiFlush, GetDC,
@@ -12,9 +14,13 @@ use windows::Win32::{
     },
 };
 
-use crate::{error::{Failure, Result}, options::Options};
+use crate::{diagnostic::diagnostic, error::{Failure, Result}, options::Options};
 
 /// 一张可复用的顶向下 BGRA DIB，采集过程中不保存帧历史。
+///
+/// 开启 HDR 的显示器上 GDI 会把超出桌面白的内容逐通道截断，彩色高光偏色；DXGI 路径经
+/// hdrcapture 在 GPU 上按固定映射转成 sRGB，只读回录制区域，再写入同一张 DIB 叠加光标。
+/// SDR 内容两条路径逐像素一致，同一段录制里混用两者看不出接缝。
 pub struct Capture {
     screen: HDC,
     memory: HDC,
@@ -23,6 +29,9 @@ pub struct Capture {
     pixels: *mut c_void,
     width: u32,
     height: u32,
+    /// DXGI 会话绑定在创建它的线程上，只能在录制线程里建、用、释放。
+    dxgi: Option<DxgiSession>,
+    region: Rect,
 }
 
 impl Capture {
@@ -31,6 +40,8 @@ impl Capture {
             screen: HDC::default(), memory: HDC::default(), bitmap: HBITMAP::default(),
             previous: HGDIOBJ::default(), pixels: ptr::null_mut(),
             width: options.width, height: options.height,
+            dxgi: if options.prefer_dxgi && !options.synthetic { open_dxgi() } else { None },
+            region: Rect::new(options.x, options.y, options.width, options.height),
         };
         unsafe {
             capture.screen = GetDC(None);
@@ -75,15 +86,42 @@ impl Capture {
                 let pixels = slice::from_raw_parts_mut(self.pixels.cast::<u8>(), length);
                 fill_synthetic(pixels, self.width, self.height, frame, options.synthetic_medium);
             } else {
-                BitBlt(self.memory, 0, 0, self.width as i32, self.height as i32,
-                    Some(self.screen), options.x, options.y, SRCCOPY | CAPTUREBLT)
-                    .map_err(|error| Failure::new("capture", format!("BitBlt: {error}")))?;
+                if !self.grab_dxgi(length) {
+                    BitBlt(self.memory, 0, 0, self.width as i32, self.height as i32,
+                        Some(self.screen), options.x, options.y, SRCCOPY | CAPTUREBLT)
+                        .map_err(|error| Failure::new("capture", format!("BitBlt: {error}")))?;
+                }
                 if options.cursor { self.draw_cursor(options); }
                 if !GdiFlush().as_bool() {
                     return Err(Failure::new("capture", "GdiFlush failed"));
                 }
             }
             Ok(slice::from_raw_parts(self.pixels.cast::<u8>(), length))
+        }
+    }
+
+    /// 用 DXGI 截一帧写入 DIB；本帧没取到时返回 false，由调用方用 GDI 顶上。
+    unsafe fn grab_dxgi(&mut self, length: usize) -> bool {
+        let Some(dxgi) = self.dxgi.as_mut() else { return false };
+        // 等待预算为 0：桌面没有新的 present 就说明画面没变，缓存帧正是当前画面；
+        // 录制节拍由调用方控制，不能在这里等。
+        match dxgi.grab_region(self.region, 0, ToneMapping::Static) {
+            Ok(frame) if frame.bgra().len() == length => {
+                ptr::copy_nonoverlapping(frame.bgra().as_ptr(), self.pixels.cast::<u8>(), length);
+                true
+            }
+            // 新会话在第一次真实桌面 present 之前没有帧；这一帧用 GDI，之后继续试 DXGI。
+            Err(HdrError::InitialFrameTimeout { .. }) => false,
+            // 显示器配置变了等原因使 DXGI 不可用，本次录制剩下的帧都用 GDI。
+            other => {
+                let reason = match other {
+                    Ok(frame) => format!("frame is {} bytes, expected {length}", frame.bgra().len()),
+                    Err(error) => error.to_string(),
+                };
+                diagnostic("dxgi_failed", &reason);
+                self.dxgi = None;
+                false
+            }
         }
     }
 
@@ -103,6 +141,12 @@ impl Capture {
         }
         let _ = DestroyIcon(copy);
     }
+}
+
+fn open_dxgi() -> Option<DxgiSession> {
+    DxgiSession::with_timeout(0)
+        .map_err(|error| diagnostic("dxgi_unavailable", &error.to_string()))
+        .ok()
 }
 
 impl Drop for Capture {
@@ -185,6 +229,33 @@ pub fn bgra_to_nv12(source: &[u8], destination: &mut [u8], width: u32, height: u
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn desktop_options(prefer_dxgi: bool) -> Options {
+        Options { width: 64, height: 48, prefer_dxgi, ..Options::default() }
+    }
+
+    #[test]
+    fn gdi_only_capture_returns_the_requested_size() {
+        let options = desktop_options(false);
+        let mut capture = Capture::new(&options).unwrap();
+        assert!(capture.dxgi.is_none());
+        assert_eq!(capture.grab(&options, 0).unwrap().len(), 64 * 48 * 4);
+    }
+
+    #[test]
+    fn dxgi_capture_returns_the_requested_size_whichever_path_serves_the_frame() {
+        let options = desktop_options(true);
+        let mut capture = Capture::new(&options).unwrap();
+        for frame in 0..3 {
+            assert_eq!(capture.grab(&options, frame).unwrap().len(), 64 * 48 * 4);
+        }
+    }
+
+    #[test]
+    fn synthetic_capture_never_opens_a_dxgi_session() {
+        let options = Options { synthetic: true, ..desktop_options(true) };
+        assert!(Capture::new(&options).unwrap().dxgi.is_none());
+    }
 
     #[test]
     fn nv12_uses_limited_range_and_averaged_chroma() {

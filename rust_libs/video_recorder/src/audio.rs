@@ -73,15 +73,16 @@ struct SampleFormat {
     block_align: usize,
     bits: u16,
     kind: SampleKind,
+    stereo_weights: [[f64; 2]; 8],
 }
 
 impl SampleFormat {
-    fn new(format: WAVEFORMATEX, subtype: GUID) -> Result<Self> {
+    fn new(format: WAVEFORMATEX, subtype: GUID, channel_mask: u32) -> Result<Self> {
         let channels = format.nChannels;
-        if !(1..=2).contains(&channels) || format.nSamplesPerSec == 0 {
+        if !(1..=8).contains(&channels) || format.nSamplesPerSec == 0 {
             return Err(Failure::new(
                 "audio_format",
-                "Only mono/stereo valid playback formats are supported",
+                "Playback formats must have 1..8 channels and a valid sample rate",
             ));
         }
         let floating = u32::from(format.wFormatTag) == WAVE_FORMAT_IEEE_FLOAT
@@ -112,11 +113,12 @@ impl SampleFormat {
             block_align: usize::from(format.nBlockAlign),
             bits: format.wBitsPerSample,
             kind,
+            stereo_weights: stereo_weights(usize::from(channels), channel_mask)?,
         })
     }
 
     fn read_value(self, data: &[u8], frame: usize, channel: usize) -> f64 {
-        // 单声道复制到左右声道；所有整数都按 Windows PCM 的小端有符号格式读取。
+        // 所有整数都按 Windows PCM 的小端有符号格式读取。
         let channel = channel.min(self.channels - 1);
         let offset = frame * self.block_align + channel * usize::from(self.bits / 8);
         let bytes = &data[offset..];
@@ -141,6 +143,53 @@ impl SampleFormat {
             }
         }
     }
+
+    fn read_stereo(self, data: &[u8], frame: usize) -> [f64; 2] {
+        if self.channels == 1 { return [self.read_value(data, frame, 0); 2]; }
+        if self.channels == 2 && self.stereo_weights[0] == [1.0, 0.0]
+            && self.stereo_weights[1] == [0.0, 1.0] {
+            return [self.read_value(data, frame, 0), self.read_value(data, frame, 1)];
+        }
+        let mut output = [0.0; 2];
+        for channel in 0..self.channels {
+            let sample = self.read_value(data, frame, channel);
+            output[0] += sample * self.stereo_weights[channel][0];
+            output[1] += sample * self.stereo_weights[channel][1];
+        }
+        output
+    }
+}
+
+fn stereo_weights(channels: usize, mask: u32) -> Result<[[f64; 2]; 8]> {
+    // WAVEFORMATEXTENSIBLE 按 mask 从低位到高位排列，不能假定前两路就是左右声道。
+    // https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/channel-mask
+    let mask = if mask == 0 {
+        match channels { 1 => 0x4, 2 => 0x3, _ => 0 }
+    } else { mask };
+    if mask.count_ones() as usize != channels || mask & !0x3ffff != 0 {
+        return Err(Failure::new("audio_format", "Missing or invalid playback speaker layout"));
+    }
+    let mut weights = [[0.0; 2]; 8];
+    let mut channel = 0;
+    for bit in 0..18 {
+        if mask & (1 << bit) == 0 { continue; }
+        weights[channel] = match bit {
+            0 => [1.0, 0.0], // front left
+            1 => [0.0, 1.0], // front right
+            3 => [0.5, 0.5], // LFE 保留低频，降低权重
+            4 | 6 | 9 | 12 | 15 => [std::f64::consts::FRAC_1_SQRT_2, 0.0],
+            5 | 7 | 10 | 14 | 17 => [0.0, std::f64::consts::FRAC_1_SQRT_2],
+            _ => [std::f64::consts::FRAC_1_SQRT_2; 2], // center / back center / top center
+        };
+        channel += 1;
+    }
+    // 固定增益预留叠加空间，避免多声道同时响时削波；单声道与立体声保持原音量。
+    for side in 0..2 {
+        let gain = weights[..channels].iter().map(|weight| weight[side]).sum::<f64>().max(1.0);
+        for weight in &mut weights[..channels] { weight[side] /= gain; }
+    }
+    if channels == 1 { weights[0] = [1.0, 1.0]; }
+    Ok(weights)
 }
 
 fn pcm16(value: f64) -> i16 {
@@ -248,12 +297,10 @@ impl PcmRing {
                 let at = (source as usize).min(count as usize - 1);
                 let next = (at + 1).min(count as usize - 1);
                 let fraction = source - at as f64;
-                let interpolate = |channel| {
-                    let a = format.read_value(data, at, channel);
-                    let b = format.read_value(data, next, channel);
-                    pcm16(a + (b - a) * fraction)
-                };
-                (interpolate(0), interpolate(1))
+                let a = format.read_stereo(data, at);
+                let b = format.read_stereo(data, next);
+                (pcm16(a[0] + (b[0] - a[0]) * fraction),
+                 pcm16(a[1] + (b[1] - a[1]) * fraction))
             };
             if let Ok(frame) = u64::try_from(frame) {
                 self.put(frame, left, right);
@@ -392,10 +439,8 @@ impl AudioCapture {
                 CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL),
                 "Audio device enumerator",
             )?;
-            let endpoint = checked(
-                enumerator.GetDefaultAudioEndpoint(eRender, eConsole),
-                "Default playback endpoint",
-            )?;
+            let endpoint = enumerator.GetDefaultAudioEndpoint(eRender, eConsole)
+                .map_err(|error| Failure::new("audio_device", format!("Default playback endpoint: {error}")))?;
             let client: IAudioClient =
                 checked(endpoint.Activate(CLSCTX_ALL, None), "Activate WASAPI")?;
             let raw = checked(client.GetMixFormat(), "WASAPI mix format")?;
@@ -404,18 +449,19 @@ impl AudioCapture {
                     Failure::new("audio_format", "WASAPI returned no mix format")
                 })?);
             let base = ptr::read_unaligned(mix.0.as_ptr());
-            let subtype = if u32::from(base.wFormatTag) == WAVE_FORMAT_EXTENSIBLE {
+            let (subtype, channel_mask) = if u32::from(base.wFormatTag) == WAVE_FORMAT_EXTENSIBLE {
                 if base.cbSize < 22 {
                     return Err(Failure::new(
                         "audio_format",
                         "Invalid extensible playback format",
                     ));
                 }
-                ptr::read_unaligned(mix.0.as_ptr().cast::<WAVEFORMATEXTENSIBLE>()).SubFormat
+                let extended = ptr::read_unaligned(mix.0.as_ptr().cast::<WAVEFORMATEXTENSIBLE>());
+                (extended.SubFormat, extended.dwChannelMask)
             } else {
-                GUID::zeroed()
+                (GUID::zeroed(), 0)
             };
-            let format = SampleFormat::new(base, subtype)?;
+            let format = SampleFormat::new(base, subtype, channel_mask)?;
             checked(
                 client.Initialize(
                     AUDCLNT_SHAREMODE_SHARED,
@@ -621,6 +667,7 @@ mod tests {
                 cbSize: 0,
             },
             GUID::zeroed(),
+            0,
         )
         .unwrap()
     }
@@ -750,7 +797,7 @@ mod tests {
                 ..base
             },
         ] {
-            assert!(SampleFormat::new(bad, GUID::zeroed()).is_err());
+            assert!(SampleFormat::new(bad, GUID::zeroed(), 0).is_err());
         }
         let extensible = WAVEFORMATEX {
             wFormatTag: WAVE_FORMAT_EXTENSIBLE as u16,
@@ -759,11 +806,57 @@ mod tests {
             ..base
         };
         assert_eq!(
-            SampleFormat::new(extensible, KSDATAFORMAT_SUBTYPE_IEEE_FLOAT)
+            SampleFormat::new(extensible, KSDATAFORMAT_SUBTYPE_IEEE_FLOAT, 3)
                 .unwrap()
                 .kind,
             SampleKind::Float32
         );
+    }
+
+    #[test]
+    fn surround_center_lfe_and_rear_channels_are_kept_in_stereo() {
+        for mask in [0x3f_u32, 0x60f, 0x63f, 0xff] {
+            let channels = mask.count_ones() as u16;
+            let format = SampleFormat::new(WAVEFORMATEX {
+                wFormatTag: WAVE_FORMAT_EXTENSIBLE as u16,
+                nChannels: channels, nSamplesPerSec: AUDIO_RATE,
+                wBitsPerSample: 32, nBlockAlign: channels * 4,
+                cbSize: 22, ..Default::default()
+            }, KSDATAFORMAT_SUBTYPE_IEEE_FLOAT, mask).unwrap();
+            // 每一路单独发声：中置/LFE 两边都有，左右环绕不得串到另一边。
+            for channel in 0..channels as usize {
+                let mut samples = vec![0.0_f32; channels as usize];
+                samples[channel] = 0.5;
+                let data: Vec<u8> = samples.iter().flat_map(|value| value.to_le_bytes()).collect();
+                let stereo = format.read_stereo(&data, 0);
+                assert!(stereo[0] > 0.0 || stereo[1] > 0.0);
+                match channel {
+                    0 | 4 | 6 => assert_eq!(stereo[1], 0.0),
+                    1 | 5 | 7 => assert_eq!(stereo[0], 0.0),
+                    _ => assert_eq!(stereo[0], stereo[1]),
+                }
+                let mut ring = PcmRing::new(true);
+                ring.resample(format, &data, 1, 0, false);
+                ring.make_chunk(1);
+                assert_eq!(ring.chunk[0], pcm16(stereo[0]));
+                assert_eq!(ring.chunk[1], pcm16(stereo[1]));
+            }
+            let data: Vec<u8> = vec![1.0_f32; channels as usize].iter()
+                .flat_map(|value| value.to_le_bytes()).collect();
+            for sample in format.read_stereo(&data, 0) { assert!((sample - 1.0).abs() < 1e-12); }
+        }
+    }
+
+    #[test]
+    fn speaker_mask_controls_channel_order_and_rejects_ambiguous_layouts() {
+        let weights = stereo_weights(2, 0x5).unwrap(); // FL + FC，第二路不是右前方
+        assert_eq!(weights[0][1], 0.0);
+        assert!(weights[1][0] > 0.0 && weights[1][1] > 0.0);
+        assert!(stereo_weights(6, 0).is_err());
+        assert!(stereo_weights(6, 3).is_err());
+        assert!(stereo_weights(2, 0x80000001).is_err());
+        assert_eq!(stereo_weights(1, 0).unwrap()[0], [1.0, 1.0]);
+        assert_eq!(&stereo_weights(2, 0).unwrap()[..2], &[[1.0, 0.0], [0.0, 1.0]]);
     }
 
     #[test]

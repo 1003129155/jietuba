@@ -11,7 +11,9 @@
 
 ## Overview
 
-jietuba is a free, open-source screenshot tool for Windows: region and window capture, scrolling (long) screenshots, annotation, OCR text recognition, translation, image pinning, GIF recording, QR code and barcode scanning, PDF export, and a full clipboard history manager. Everything runs locally.
+jietuba is a free, open-source screenshot tool for Windows: region and window capture, scrolling (long) screenshots, annotation, OCR text recognition, translation, image pinning, GIF/MP4 recording, QR code and barcode scanning, PDF export, and a full clipboard history manager. Everything runs locally.
+
+MP4 region recording supports custom frame rates and bitrates, pause/resume, the mouse pointer, and system audio. Audio from common 5.1/7.1 playback devices is converted to stereo; microphone recording is not included.
 
 The interface is built with PySide6; image processing, clipboard access, and the PP-OCR engine are implemented in Rust. Runs on Windows x86_64 and ARM64.
 
@@ -44,7 +46,7 @@ The Windows x86_64 and ARM64 releases are ready to run. You do not need to insta
 1. Open the [Releases page](https://github.com/1003129155/jietuba/releases/latest) and download the archive ending in `-x64.zip` or `-arm64.zip` for your device.
 2. There are two packages. Extract the entire archive and double-click the exe inside:
    - **Full** `jietuba_pp-…zip`: includes the PP-OCR engine and models, so OCR works on any Windows. Keep `jietuba_pp.exe` and the `models/` folder together.
-   - **Lite** `jietuba_lite-…zip`: smaller, and uses only the OCR built into the Windows 11 Snipping Tool; OCR is unavailable on PCs without it.
+   - **Lite** `jietuba_lite-…zip`: smaller, and uses only the OCR built into the Windows 11 Snipping Tool; OCR is unavailable on PCs without it, or where it is older than 11.2308 (no "Text actions"). Update the Snipping Tool or use the Full package.
 3. Both packages prefer the Snipping Tool OCR by default (faster, more languages). Switch engines under **OCR Settings** in Settings.
 4. The application is not digitally signed, so Windows may display a warning after you download it through a browser. If prompted, click **More info**, then **Run anyway** to start the application.
 

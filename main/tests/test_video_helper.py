@@ -117,6 +117,7 @@ def test_release_notices_include_installed_video_wheel_and_keep_user_files(
     repository = tmp_path / "repository"
     monkeypatch.setattr(build_notices, "REPO_DIR", repository)
     sources = [repository / "LICENSE", repository / "licenses" / "oneocr-LICENSE.txt",
+               repository / "licenses" / "lucide-LICENSE.txt",
                repository / "rust_libs" / "hdrcapture" / "LICENSE-UPSTREAM"]
     sources.extend(repository / "rust_libs" / crate / "THIRD-PARTY-NOTICES.txt"
                    for crate in build_notices.CRATES)
@@ -139,5 +140,6 @@ def test_release_notices_include_installed_video_wheel_and_keep_user_files(
         assert not (old_licenses / f"video_recorder-{name}").exists()
     assert "rust_libs/updater/THIRD-PARTY-NOTICES.txt" in text
     assert "licenses/oneocr-LICENSE.txt" in text
+    assert "licenses/lucide-LICENSE.txt" in text
     assert ("rust_libs/ppocr_rust/THIRD-PARTY-NOTICES.txt" in text) is not lite
     assert user_file.read_text(encoding="utf-8") == "keep"

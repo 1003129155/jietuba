@@ -18,6 +18,8 @@ pub struct Options {
     pub audio: bool,
     pub hardware: bool,
     pub cursor: bool,
+    /// 优先用 DXGI 截取并映射 HDR；为 false 或 DXGI 不可用时用 GDI
+    pub prefer_dxgi: bool,
     pub synthetic: bool,
     pub synthetic_medium: bool,
     pub fail_hardware: bool,
@@ -28,7 +30,7 @@ impl Default for Options {
     fn default() -> Self {
         Self {
             output: PathBuf::new(), x: 0, y: 0, width: 0, height: 0, fps: 30,
-            bitrate: 4_000_000, audio: true, hardware: true, cursor: true,
+            bitrate: 4_000_000, audio: true, hardware: true, cursor: true, prefer_dxgi: true,
             synthetic: false, synthetic_medium: false, fail_hardware: false, duration: None,
         }
     }

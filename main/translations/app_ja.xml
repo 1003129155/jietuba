@@ -4063,6 +4063,46 @@ This action cannot be undone.</source>
         <source>视频设置</source>
         <translation>動画設定</translation>
     </message>
+    <message>
+        <source>录制延迟</source>
+        <translation>録画開始までの時間</translation>
+    </message>
+    <message>
+        <source>无延迟</source>
+        <translation>遅延なし</translation>
+    </message>
+    <message>
+        <source>{seconds} 秒</source>
+        <translation>{seconds} 秒</translation>
+    </message>
+    <message>
+        <source>系统声音不包含麦克风</source>
+        <translation>システム音声にマイクは含まれません</translation>
+    </message>
+    <message>
+        <source>视频已保存</source>
+        <translation>動画を保存しました</translation>
+    </message>
+    <message>
+        <source>播放视频</source>
+        <translation>動画を再生</translation>
+    </message>
+    <message>
+        <source>打开文件夹</source>
+        <translation>フォルダーを開く</translation>
+    </message>
+    <message>
+        <source>复制文件</source>
+        <translation>ファイルをコピー</translation>
+    </message>
+    <message>
+        <source>重新录制</source>
+        <translation>再録画</translation>
+    </message>
+    <message>
+        <source>已复制</source>
+        <translation>コピーしました</translation>
+    </message>
 </context>
 
 <!-- ========== GIF Playback Toolbar ========== -->
@@ -5017,6 +5057,18 @@ gifrecorder が正しくインストールされているか確認してくだ�
         <source>视频录制失败</source>
         <translation>動画録画に失敗しました</translation>
     </message>
+    <message>
+        <source>倒计时 {seconds}</source>
+        <translation>開始まで {seconds}</translation>
+    </message>
+    <message>
+        <source>视频文件不存在，可能已被移动或删除。</source>
+        <translation>動画ファイルが見つかりません。移動または削除された可能性があります。</translation>
+    </message>
+    <message>
+        <source>无法打开，请检查默认播放器或文件管理器。</source>
+        <translation>開けませんでした。既定のプレーヤーまたはファイルマネージャーを確認してください。</translation>
+    </message>
 </context>
 <context>
     <name>VideoRecorder</name>
@@ -5075,6 +5127,50 @@ gifrecorder が正しくインストールされているか確認してくだ�
     <message>
         <source>退出时录制未能完成。</source>
         <translation>終了までに録画を完了できませんでした。</translation>
+    </message>
+    <message>
+        <source>找不到可用的播放设备，请连接音箱或耳机，或在视频设置中关闭系统声音后重试。</source>
+        <translation>再生デバイスが見つかりません。スピーカーやヘッドホンを接続するか、動画設定でシステム音声をオフにして再試行してください。</translation>
+    </message>
+    <message>
+        <source>当前播放设备的音频格式不受支持，请在 Windows 声音设置中选择立体声格式，或关闭系统声音后重试。</source>
+        <translation>再生デバイスの音声形式に対応していません。Windows のサウンド設定でステレオを選択するか、システム音声をオフにして再試行してください。</translation>
+    </message>
+    <message>
+        <source>系统声音录制失败，请检查播放设备，或在视频设置中关闭系统声音后重试。</source>
+        <translation>システム音声の録音に失敗しました。再生デバイスを確認するか、動画設定でシステム音声をオフにして再試行してください。</translation>
+    </message>
+    <message>
+        <source>播放设备的声音时间戳异常，录制已停止。请重新连接设备，或关闭系统声音后重试。</source>
+        <translation>再生デバイスの音声タイムスタンプが異常なため録画を停止しました。デバイスを再接続するか、システム音声をオフにして再試行してください。</translation>
+    </message>
+    <message>
+        <source>视频编码失败，请尝试降低分辨率或帧率，或在视频设置中关闭硬件编码后重试。</source>
+        <translation>動画のエンコードに失敗しました。解像度やフレームレートを下げるか、動画設定でハードウェアエンコードをオフにして再試行してください。</translation>
+    </message>
+    <message>
+        <source>无法采集录制区域，请检查屏幕连接和选区后重试。</source>
+        <translation>録画領域をキャプチャできません。画面の接続と選択領域を確認して再試行してください。</translation>
+    </message>
+    <message>
+        <source>无法创建视频文件，请检查保存位置的写入权限和剩余空间。</source>
+        <translation>動画ファイルを作成できません。保存先の書き込み権限と空き容量を確認してください。</translation>
+    </message>
+    <message>
+        <source>保存位置空间不足，请释放空间或选择其他磁盘后重试。</source>
+        <translation>保存先の空き容量が不足しています。空き容量を増やすか、別のドライブを選択して再試行してください。</translation>
+    </message>
+    <message>
+        <source>录制参数或区域无效，请重新调整选区和视频设置。</source>
+        <translation>録画設定または領域が無効です。選択領域と動画設定を調整してください。</translation>
+    </message>
+    <message>
+        <source>视频录制失败，请重试。若问题持续，请查看日志中的详细错误。</source>
+        <translation>動画の録画に失敗しました。再試行してください。問題が続く場合はログで詳しいエラーを確認してください。</translation>
+    </message>
+    <message>
+        <source>暂停或恢复录制超时，录制已停止，视频未确认保存成功。</source>
+        <translation>一時停止または再開がタイムアウトしました。録画を停止し、動画の保存成功を確認できませんでした。</translation>
     </message>
 </context>
 </TS>

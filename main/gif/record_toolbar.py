@@ -9,12 +9,15 @@ from __future__ import annotations
 from PySide6.QtWidgets import (
     QWidget, QPushButton, QLabel, QHBoxLayout, QVBoxLayout, QDialog,
     QFormLayout, QComboBox, QSpinBox, QDoubleSpinBox, QCheckBox,
-    QDialogButtonBox, QInputDialog,
+    QDialogButtonBox, QInputDialog, QMenu, QLayout,
 )
 from PySide6.QtCore import Qt, QPoint, Signal, QSize
 from PySide6.QtGui import QCursor, QColor
 
-from ._widgets import svg_icon as _svg_icon, ClickMenuButton as _ClickMenuButton
+from ._widgets import (
+    svg_icon as _svg_icon, ClickMenuButton as _ClickMenuButton, toolbar_style, popup_menu,
+)
+from ui.base_settings_panel import paint_rounded_panel
 from core.i18n import make_tr
 from core.ui_scale import get_ui_scale, scaled
 from core.ui_theme import set_own_style
@@ -49,6 +52,10 @@ class RecordToolbar(QWidget):
     move_requested  = Signal(QPoint)
     drag_ended      = Signal()
     close_requested = Signal()
+    video_open_requested = Signal()
+    video_folder_requested = Signal()
+    video_copy_requested = Signal()
+    video_rerecord_requested = Signal()
 
     # 绘制工具信号
     tool_selected   = Signal(str)            # 工具 ID
@@ -68,7 +75,7 @@ class RecordToolbar(QWidget):
     shadow_changed  = Signal(bool, QColor)          # enabled, color（alpha 即不透明度）
 
     # 基准尺寸（100% 下的实际像素）
-    BASE_HEIGHT = 44
+    BASE_HEIGHT = 48
     BASE_BTN = 32
     BASE_ICON = 20
     BASE_SEP_HEIGHT = 24
@@ -98,6 +105,9 @@ class RecordToolbar(QWidget):
         self._video_options = RecordingOptions.from_config(self._config)
         self._video_dialog = None
         self._fps_dialog = None
+        self._option_menu = None
+        delay = self._config.get_app_setting("recording_delay", 0)
+        self._start_delay = delay if type(delay) is int and delay in (0, 1, 2, 3, 5, 10) else 0
 
         self._build_ui()
         self._init_settings_panels()
@@ -107,26 +117,16 @@ class RecordToolbar(QWidget):
     # ── UI 构建 ──────────────────────────────────────────────
 
     def _container_qss(self) -> str:
-        return f"""
-            QWidget {{
-                background-color: white;
-                border: 2px solid #333;
-                border-radius: {scaled(6)}px;
-            }}
-            QPushButton {{
-                background: transparent;
-                border: none;
-                border-radius: {scaled(4)}px;
-            }}
-            QPushButton:hover {{ background: rgba(0,0,0,0.06); }}
-            QPushButton:pressed {{ background: rgba(0,0,0,0.12); }}
-            QPushButton:disabled {{ opacity: 0.4; }}
-            QPushButton:checked {{ background: rgba(0,120,215,0.15); border: 1px solid #0078D7; }}
-        """
+        return toolbar_style()
 
     def _time_label_qss(self) -> str:
-        return (f"color: #666; font-size: {scaled(12)}px; border: none;"
-                f" min-width: {scaled(38)}px;")
+        return (f"QPushButton {{ color: #596579; font-size: {scaled(12)}px; border: none;"
+                f" min-width: {scaled(52)}px; padding: {scaled(4)}px; }}"
+                "QPushButton:hover { background: rgba(15,23,42,0.07); }")
+
+    @safe_event
+    def paintEvent(self, event):
+        paint_rounded_panel(self)
 
     def apply_scale(self):
         """按当前比例重算工具栏和二级面板的尺寸。录制状态、工具选择都不动。"""
@@ -151,6 +151,7 @@ class RecordToolbar(QWidget):
         """把基准尺寸按当前比例落到工具栏自己的控件上"""
         self.setFixedHeight(scaled(self.BASE_HEIGHT))
         self._container.setStyleSheet(self._container_qss())
+        self._result_container.setStyleSheet(self._container_qss())
         self._row_layout.setContentsMargins(scaled(8), scaled(4), scaled(8), scaled(4))
         self._row_layout.setSpacing(scaled(4))
 
@@ -163,6 +164,12 @@ class RecordToolbar(QWidget):
         self._time_label.setStyleSheet(self._time_label_qss())
         self._fps_btn.apply_scale()
         self._mode_btn.apply_scale()
+        for button in self._result_buttons:
+            button.setMinimumHeight(btn_sz)
+            button.setStyleSheet(f"padding: 0 {scaled(9)}px;")
+        self._result_layout.setContentsMargins(scaled(12), scaled(6), scaled(12), scaled(6))
+        self._result_layout.setSpacing(scaled(8))
+        self._result_label.setStyleSheet(f"color: #3e7960; font-size: {scaled(12)}px;")
         for sep in self._separators:
             sep.setFixedSize(1, scaled(self.BASE_SEP_HEIGHT))
         handle_icon = scaled(self.BASE_HANDLE_ICON)
@@ -176,6 +183,9 @@ class RecordToolbar(QWidget):
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+        # 两个状态行交替显示，隐藏的结果行不应把主栏撑到另一种语言的宽度。
+        outer.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
         outer.addWidget(container)
 
         layout = QHBoxLayout(container)
@@ -183,6 +193,12 @@ class RecordToolbar(QWidget):
         # 建按钮时先不定尺寸，统一由 _apply_scale_sizes 按当前比例算
         self._button_svgs = {}   # 按钮 → 它当前用的 svg，改比例时按新尺寸重画
         self._separators = []
+
+        # 时间与主操作前置。配置按钮在录制中保留位置，防止误点。
+        self._time_label = QPushButton("00:00")
+        self._time_label.setToolTip(_tr("录制延迟"))
+        self._time_label.clicked.connect(self._show_delay_menu)
+        layout.addWidget(self._time_label)
 
         # ── 左侧：录制控制 ──
 
@@ -217,10 +233,10 @@ class RecordToolbar(QWidget):
         self._fps_btn.option_selected.connect(self._on_fps_selected)
         layout.addWidget(self._fps_btn)
 
-        self._video_settings_btn = QPushButton(_tr("视频设置"))
+        self._video_settings_btn = QPushButton()
+        self._set_button_icon(self._video_settings_btn, "录制设置.svg")
+        self._video_settings_btn.setToolTip(_tr("视频设置"))
         self._video_settings_btn.clicked.connect(self._show_video_settings)
-        layout.addWidget(self._video_settings_btn)
-        self._refresh_recording_options()
 
         # 1. 录制 / 停止
         self._record_btn = QPushButton()
@@ -237,13 +253,21 @@ class RecordToolbar(QWidget):
         self._pause_btn.clicked.connect(self._on_pause_clicked)
         layout.addWidget(self._pause_btn)
 
-        # 录制时间
-        self._time_label = QLabel("00:00")
-        layout.addWidget(self._time_label)
+        self._audio_btn = QPushButton()
+        self._audio_btn.setToolTip(_tr("录制系统声音"))
+        self._audio_btn.clicked.connect(self._show_audio_menu)
+        layout.addWidget(self._audio_btn)
+        self._cursor_btn = QPushButton()
+        self._cursor_btn.setCheckable(True)
+        self._set_button_icon(self._cursor_btn, "鼠标.svg")
+        self._cursor_btn.setToolTip(_tr("录制鼠标指针"))
+        self._cursor_btn.clicked.connect(self._on_cursor_clicked)
+        layout.addWidget(self._cursor_btn)
+        layout.addWidget(self._video_settings_btn)
 
         # ── 分隔线 ──
         sep = QWidget()
-        set_own_style(sep, "background: #ccc; border: none;")
+        set_own_style(sep, "background: rgba(15,23,42,0.12); border: none;")
         self._separators.append(sep)
         layout.addWidget(sep)
 
@@ -259,7 +283,7 @@ class RecordToolbar(QWidget):
 
         # ── 分隔线 ──
         sep2 = QWidget()
-        set_own_style(sep2, "background: #ccc; border: none;")
+        set_own_style(sep2, "background: rgba(15,23,42,0.12); border: none;")
         self._separators.append(sep2)
         layout.addWidget(sep2)
 
@@ -289,12 +313,42 @@ class RecordToolbar(QWidget):
         layout.addWidget(self._move_handle)
 
         self._close_btn = QPushButton()
-        self._set_button_icon(self._close_btn, "关闭.svg")
+        self._set_button_icon(self._close_btn, "fluent_icons/Close.svg")
         self._close_btn.setToolTip(_tr("关闭"))
         self._close_btn.clicked.connect(self.close_requested.emit)
         layout.addWidget(self._close_btn)
 
+        self._result_container = QWidget(self)
+        result = QHBoxLayout(self._result_container)
+        self._result_layout = result
+        result.setContentsMargins(scaled(12), scaled(6), scaled(12), scaled(6))
+        result.setSpacing(scaled(8))
+        self._result_label = QLabel(_tr("视频已保存"))
+        result.addWidget(self._result_label)
+        self._result_buttons = []
+        for text, signal in (
+            ("播放视频", self.video_open_requested),
+            ("打开文件夹", self.video_folder_requested),
+            ("复制文件", self.video_copy_requested),
+            ("重新录制", self.video_rerecord_requested),
+        ):
+            button = QPushButton(_tr(text))
+            button.setStyleSheet(f"padding: 0 {scaled(9)}px;")
+            button.clicked.connect(signal.emit)
+            self._result_buttons.append(button)
+            result.addWidget(button)
+        result_close = QPushButton()
+        self._set_button_icon(result_close, "fluent_icons/Close.svg")
+        result_close.setToolTip(_tr("关闭"))
+        result_close.clicked.connect(self.close_requested.emit)
+        result.addWidget(result_close)
+        outer.addWidget(self._result_container)
+        self._result_container.hide()
+
+        self._refresh_recording_options()
+
         self._apply_scale_sizes()
+        self.adjustSize()
 
     # ── 二级设置面板 ──────────────────────────────────────────
 
@@ -448,6 +502,8 @@ class RecordToolbar(QWidget):
     def set_toolbar_side(self, below: bool):
         """记录工具栏位于录制区域上方/下方，供二级面板复用同一判断逻辑"""
         self._toolbar_below_record_rect = below
+        self._fps_btn.popup_below = below
+        self._mode_btn.popup_below = below
 
     def _position_panel(self, panel: QWidget):
         """将面板定位到不遮挡绘制区域的位置。
@@ -517,6 +573,7 @@ class RecordToolbar(QWidget):
         self._position_panel(panel)
 
     def _hide_all_panels(self):
+        self._close_option_menu()
         seen = set()
         for p in self._panel_map.values():
             pid = id(p)
@@ -605,6 +662,9 @@ class RecordToolbar(QWidget):
         self._current_tool = None
         self._update_tool_checked()
         self._hide_all_panels()
+        self._result_container.hide()
+        self._container.show()
+        self._time_label.setEnabled(True)
         self._set_button_icon(self._record_btn, "开始录制.svg")
         self._record_btn.setToolTip(_tr("开始录制"))
         self._pause_btn.setEnabled(False)
@@ -613,12 +673,15 @@ class RecordToolbar(QWidget):
         self._fps_btn.set_enabled(True)
         self._mode_btn.set_enabled(True)
         self._video_settings_btn.setEnabled(True)
+        self._audio_btn.setEnabled(True)
+        self._cursor_btn.setEnabled(True)
         self._record_btn.setEnabled(True)
         self._move_handle.setEnabled(True)
         self._move_handle.setCursor(QCursor(Qt.CursorShape.SizeAllCursor))
         self._move_handle.setToolTip("")
         self._time_label.setText("00:00")
         self._time_label.setStyleSheet(self._time_label_qss())
+        self.adjustSize()
 
     def get_current_fps(self) -> int:
         return self._video_options.fps if self._mode == "mp4" else self._gif_fps
@@ -629,13 +692,81 @@ class RecordToolbar(QWidget):
     def get_video_options(self):
         return self._video_options
 
+    def get_start_delay(self):
+        return self._start_delay
+
+    def _close_option_menu(self):
+        if self._option_menu is not None:
+            self._option_menu.close()
+
+    def _popup_options(self, menu, anchor):
+        self._hide_all_panels()
+        self._option_menu = menu
+        menu.aboutToHide.connect(lambda: setattr(self, "_option_menu", None))
+        popup_menu(menu, anchor, self._toolbar_below_record_rect)
+
+    def _show_delay_menu(self):
+        if not self._time_label.isEnabled():
+            return
+        menu = QMenu(self)
+        menu.addSection(_tr("录制延迟"))
+        for seconds in (0, 1, 2, 3, 5, 10):
+            action = menu.addAction(_tr("无延迟") if not seconds else _tr("{seconds} 秒").format(seconds=seconds))
+            action.setCheckable(True)
+            action.setChecked(self._start_delay == seconds)
+            action.triggered.connect(lambda checked, delay=seconds: self._set_start_delay(delay))
+        self._popup_options(menu, self._time_label)
+
+    def _set_start_delay(self, seconds):
+        self._start_delay = seconds
+        self._config.set_app_setting("recording_delay", seconds)
+        self._time_label.setToolTip(_tr("录制延迟") + ": " + (
+            _tr("无延迟") if not seconds else _tr("{seconds} 秒").format(seconds=seconds)))
+
+    def _show_audio_menu(self):
+        if not self._audio_btn.isEnabled() or self._mode != "mp4":
+            return
+        menu = QMenu(self)
+        action = menu.addAction(_tr("录制系统声音"))
+        action.setCheckable(True)
+        action.setChecked(self._video_options.system_audio)
+        action.triggered.connect(lambda checked: self._save_quick_option(system_audio=checked))
+        menu.addSeparator()
+        menu.addAction(_tr("系统声音不包含麦克风")).setEnabled(False)
+        self._popup_options(menu, self._audio_btn)
+
+    def _on_cursor_clicked(self, checked):
+        self._save_quick_option(cursor=checked)
+
+    def _save_quick_option(self, **values):
+        from dataclasses import replace
+        self._video_options = replace(self._video_options, **values)
+        self._video_options.save_to_config(self._config)
+        self._refresh_recording_options()
+
+    def show_video_result(self, path):
+        self._hide_all_panels()
+        self._result_label.setText(_tr("视频已保存"))
+        self._result_label.setToolTip(str(path))
+        self._result_buttons[2].setText(_tr("复制文件"))
+        self._container.hide()
+        self._result_container.show()
+        self.adjustSize()
+
+    def show_video_copied(self):
+        self._result_buttons[2].setText(_tr("已复制"))
+
     def set_busy(self, text, *, allow_stop=False):
         """启动、暂停交接和封装阶段不允许重复点击或修改编码参数。"""
+        self._close_option_menu()
+        self._time_label.setEnabled(False)
         self._record_btn.setEnabled(allow_stop)
         self._pause_btn.setEnabled(False)
         self._fps_btn.set_enabled(False)
         self._mode_btn.set_enabled(False)
         self._video_settings_btn.setEnabled(False)
+        self._audio_btn.setEnabled(False)
+        self._cursor_btn.setEnabled(False)
         self._move_handle.setEnabled(False)
         self._time_label.setText(text)
 
@@ -643,6 +774,7 @@ class RecordToolbar(QWidget):
         self._recording = True
         self._record_btn.setEnabled(True)
         self._pause_btn.setEnabled(True)
+        self._set_button_icon(self._pause_btn, "暂停录制.svg")
         self._set_button_icon(self._record_btn, "结束录制.svg")
         self._record_btn.setToolTip(_tr("停止录制"))
         self._time_label.setText("00:00")
@@ -674,6 +806,10 @@ class RecordToolbar(QWidget):
         self._fps_btn._current_index = next(i for i, (_, value) in enumerate(pairs) if value == current)
         self._fps_btn._update_text()
         self._video_settings_btn.setVisible(self._mode == "mp4")
+        self._audio_btn.setVisible(self._mode == "mp4")
+        self._cursor_btn.setVisible(self._mode == "mp4")
+        self._cursor_btn.setChecked(self._video_options.cursor)
+        self._set_button_icon(self._audio_btn, "录制声音.svg" if self._video_options.system_audio else "录制静音.svg")
         self.adjustSize()
 
     def _show_video_settings(self):
@@ -746,6 +882,7 @@ class RecordToolbar(QWidget):
 
     def _on_record_clicked(self):
         if not self._recording:
+            self._hide_all_panels()
             self._recording = True
             self._set_button_icon(self._record_btn, "结束录制.svg")
             self._record_btn.setToolTip(_tr("停止录制"))
@@ -755,6 +892,9 @@ class RecordToolbar(QWidget):
             self._fps_btn.set_enabled(False)
             self._mode_btn.set_enabled(False)
             self._video_settings_btn.setEnabled(False)
+            self._audio_btn.setEnabled(False)
+            self._cursor_btn.setEnabled(False)
+            self._time_label.setEnabled(False)
             self._move_handle.setEnabled(False)
             self._move_handle.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
             self._move_handle.setToolTip(_tr("录制中无法移动"))
@@ -770,6 +910,9 @@ class RecordToolbar(QWidget):
             self._fps_btn.set_enabled(True)
             self._mode_btn.set_enabled(True)
             self._video_settings_btn.setEnabled(True)
+            self._audio_btn.setEnabled(True)
+            self._cursor_btn.setEnabled(True)
+            self._time_label.setEnabled(True)
             self._move_handle.setEnabled(True)
             self._move_handle.setCursor(QCursor(Qt.CursorShape.SizeAllCursor))
             self._move_handle.setToolTip("")
@@ -777,6 +920,10 @@ class RecordToolbar(QWidget):
 
     # 暂停功能
     def _on_pause_clicked(self):
+        # MP4 的按钮状态由子进程确认信号更新；请求期间不预先显示暂停。
+        if self._mode == "mp4":
+            self.pause_toggled.emit(not self._paused)
+            return
         self._paused = not self._paused
         if self._paused:
             self._set_button_icon(self._pause_btn, "重开录制.svg")
@@ -854,4 +1001,4 @@ class RecordToolbar(QWidget):
 
     @safe_event
     def mouseReleaseEvent(self, ev):
-        super().mouseReleaseEvent(ev) 
+        super().mouseReleaseEvent(ev)

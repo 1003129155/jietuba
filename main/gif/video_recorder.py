@@ -8,6 +8,7 @@ import math
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QProcess, QProcessEnvironment, QRect, QTimer, Signal
+from capture.capture_service import uses_hdr_engine
 from core.i18n import make_tr
 from video_helper import worker_command as default_worker_command
 
@@ -17,6 +18,33 @@ _tr = make_tr("VideoRecorder")
 PROTOCOL = 1
 MAX_MESSAGE = 16 * 1024
 MAX_STDERR = 16 * 1024
+
+
+def failure_message(code, detail):
+    """面向用户的处理建议；原始错误仍通过 failed 信号写入日志。"""
+    messages = {
+        "helper_missing": "录制组件不存在，请重新安装或从当前源码构建。",
+        "output_exists": "目标文件已存在，请选择新的文件名。",
+        "protocol": "录制进程返回了无效的状态消息。",
+        "audio_device": "找不到可用的播放设备，请连接音箱或耳机，或在视频设置中关闭系统声音后重试。",
+        "audio_format": "当前播放设备的音频格式不受支持，请在 Windows 声音设置中选择立体声格式，或关闭系统声音后重试。",
+        "audio": "系统声音录制失败，请检查播放设备，或在视频设置中关闭系统声音后重试。",
+        "audio_timestamp": "播放设备的声音时间戳异常，录制已停止。请重新连接设备，或关闭系统声音后重试。",
+        "encoding": "视频编码失败，请尝试降低分辨率或帧率，或在视频设置中关闭硬件编码后重试。",
+        "capture": "无法采集录制区域，请检查屏幕连接和选区后重试。",
+        "output": "无法创建视频文件，请检查保存位置的写入权限和剩余空间。",
+        "disk_full": "保存位置空间不足，请释放空间或选择其他磁盘后重试。",
+        "arguments": "录制参数或区域无效，请重新调整选区和视频设置。",
+    }
+    if code in messages:
+        return _tr(messages[code])
+    if code in {
+        "invalid_region", "process_io", "cancelled",
+        "start_failed", "process_crashed", "start_timeout", "finalize_timeout", "command_timeout",
+        "incomplete", "release_failed", "release_timeout",
+    }:
+        return detail
+    return _tr("视频录制失败，请重试。若问题持续，请查看日志中的详细错误。")
 
 
 class VideoRecorder(QObject):
@@ -104,7 +132,9 @@ class VideoRecorder(QObject):
                 "--bitrate", str(options.bitrate),
                 "--audio", "system" if options.system_audio else "none",
                 "--encoder", "auto" if options.hardware else "software",
-                "--cursor", "on" if options.cursor else "off"]
+                "--cursor", "on" if options.cursor else "off",
+                # 与截图、GIF 同一个引擎设置；子进程不加载 hdrcapture，由这里决定。
+                "--capture", "dxgi" if uses_hdr_engine() else "gdi"]
         self._timer.start(self.START_TIMEOUT)
         process.start(command[0], [*command[1:], *args])
         return True
@@ -189,9 +219,14 @@ class VideoRecorder(QObject):
             paused = event == "paused"
             expected = "pausing" if paused else "resuming"
             if self._state == expected:
+                elapsed = data.get("elapsed_ms")
+                if (isinstance(elapsed, bool) or not isinstance(elapsed, (int, float))
+                        or not math.isfinite(elapsed) or elapsed < 0):
+                    raise ValueError("elapsed")
                 self._timer.stop()
                 self._state = "paused" if paused else "recording"
                 self.paused_changed.emit(paused)
+                self.progress.emit(elapsed / 1000)
             elif self._state != "stopping":
                 raise ValueError("unexpected ack")
         elif event == "complete":
@@ -226,8 +261,11 @@ class VideoRecorder(QObject):
             self._fail("process_crashed", _tr("录制进程意外退出，视频可能未完成。"))
 
     def _on_timeout(self):
-        code = "start_timeout" if self._state == "starting" else "finalize_timeout"
-        self._fail(code, _tr("录制进程响应超时，视频未确认保存成功。"))
+        if self._state in ("pausing", "resuming"):
+            self._fail("command_timeout", _tr("暂停或恢复录制超时，录制已停止，视频未确认保存成功。"))
+        else:
+            code = "start_timeout" if self._state == "starting" else "finalize_timeout"
+            self._fail(code, _tr("录制进程响应超时，视频未确认保存成功。"))
 
     def _kill_unresponsive(self):
         if self._process is not None:

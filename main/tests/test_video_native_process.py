@@ -286,3 +286,67 @@ def test_rejections_do_not_report_a_successful_video(helper, tmp_path, case):
             assert output.read_bytes() == b"user file"
     finally:
         session.close()
+
+
+@pytest.mark.skipif(os.environ.get("JIETUBA_VIDEO_TEST_AUDIO") != "1",
+                    reason="本机系统声音验收，需要播放测试音和可用的播放设备")
+def test_real_loopback_audio_survives_pause_and_matches_video_duration(helper, tmp_path):
+    from array import array
+    import math
+    import wave
+    import winsound
+
+    tone = tmp_path / "loopback-tone.wav"
+    samples = bytearray()
+    for index in range(48_000):
+        samples.extend(struct.pack("<hh", int(3000 * math.sin(2 * math.pi * 440 * index / 48_000)),
+                                   int(3000 * math.sin(2 * math.pi * 880 * index / 48_000))))
+    with wave.open(str(tone), "wb") as output:
+        output.setnchannels(2)
+        output.setsampwidth(2)
+        output.setframerate(48_000)
+        output.writeframes(samples)
+    session = None
+    try:
+        winsound.PlaySound(str(tone), winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_LOOP)
+        session = Session(helper, tmp_path / "system-audio.mp4", "--audio", "system")
+        ready = session.wait_event("ready")
+        assert ready["audio"] == "system"
+        session.wait_event("progress")
+        session.wait_event("progress")
+        session.send("pause")
+        paused = session.wait_event("paused")
+        time.sleep(0.35)
+        session.send("resume")
+        resumed = session.wait_event("resumed")
+        assert abs(paused["elapsed_ms"] - resumed["elapsed_ms"]) < 50
+        session.wait_event("progress")
+        session.send("stop")
+        complete = session.wait_event("complete")
+        assert session.exit() == 0
+        path = tmp_path / "system-audio.mp4"
+        with av.open(str(path)) as recording:
+            video = recording.streams.video[0]
+            audio = recording.streams.audio[0]
+            assert audio.codec_context.name == "aac" and audio.codec_context.sample_rate == 48_000
+            assert len(audio.codec_context.layout.channels) == 2
+            assert abs(float(video.duration * video.time_base) - complete["elapsed_ms"] / 1000) < 0.1
+            assert abs(float(audio.duration * audio.time_base) - float(video.duration * video.time_base)) < 0.1
+            before, after = [], []
+            for frame in recording.decode(audio):
+                assert frame.format.name == "fltp"
+                samples = array("f")
+                for plane in frame.planes:
+                    samples.frombytes(bytes(plane)[:frame.samples * 4])
+                rms = math.sqrt(sum(value * value for value in samples) / len(samples))
+                seconds = float(frame.pts * frame.time_base)
+                if 0.2 < seconds < paused["elapsed_ms"] / 1000 - 0.1:
+                    before.append(rms)
+                if paused["elapsed_ms"] / 1000 + 0.2 < seconds < complete["elapsed_ms"] / 1000 - 0.1:
+                    after.append(rms)
+            assert before and after and max(before) > 0.001 and max(after) > 0.001
+        assert b"audio_stopped" in session.stderr
+    finally:
+        winsound.PlaySound(None, 0)
+        if session is not None:
+            session.close()

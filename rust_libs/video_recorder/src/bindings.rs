@@ -29,13 +29,15 @@ struct Recorder {
 impl Recorder {
     #[new]
     #[pyo3(signature = (output, left, top, width, height, *, fps=30, bitrate=4_000_000,
-        system_audio=true, hardware=true, cursor=true))]
+        system_audio=true, hardware=true, cursor=true, prefer_dxgi=true))]
     fn new(output: PathBuf, left: i32, top: i32, width: u32, height: u32,
-        fps: u32, bitrate: u32, system_audio: bool, hardware: bool, cursor: bool) -> Self
+        fps: u32, bitrate: u32, system_audio: bool, hardware: bool, cursor: bool,
+        prefer_dxgi: bool) -> Self
     {
         Self {
             options: Mutex::new(Some(Options { output, x: left, y: top, width, height, fps,
-                bitrate, audio: system_audio, hardware, cursor, ..Options::default() })),
+                bitrate, audio: system_audio, hardware, cursor, prefer_dxgi,
+                ..Options::default() })),
             controls: ControlState::default(),
         }
     }
