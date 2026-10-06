@@ -91,7 +91,8 @@ class ClipboardShortcutHandler(ShortcutHandler):
             # 可见不等于有焦点：窗口设成粘贴后常驻时会一直挂在画面上。分发器按
             # 优先级问一遍谁 active，这里只看可见的话，钉图、画布等真正获焦的界面
             # 会被抢走按键（例如 Esc）。
-            return w.isActiveWindow()
+            # 弹出菜单不抢激活，打开时本窗口仍是活动窗口；按键要留给菜单。
+            return w.isActiveWindow() and QApplication.activePopupWidget() is None
         except RuntimeError:
             return False
 
