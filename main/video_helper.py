@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 
 
-PACKAGE_NAME = "j-video-recorder"
+PACKAGE_NAME = "j-video"
 LICENSE_NAMES = ("LICENSE", "THIRD-PARTY-NOTICES.txt")
 
 

@@ -510,7 +510,7 @@ SOFTWARE.
 ================================================================================
 MIT License
 
-Applies to: hdrcapture 0.1.0, jietuba-video-recorder 0.1.0
+Applies to: hdrcapture 0.1.0, video_recorder 0.1.0
 
 MIT License
 

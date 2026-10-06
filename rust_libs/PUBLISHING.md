@@ -3,7 +3,7 @@
 七个 Python 扩展使用 **PyPI API token** 发布。
 发布由 `.github/workflows/publish-pypi.yml` 手动触发，默认指向 TestPyPI。
 
-`j-video-recorder==0.1.0` 与其他扩展一致，使用 PyO3 和 Maturin 构建 Windows
+`j-video==0.1.0` 与其他扩展一致，使用 PyO3 和 Maturin 构建 Windows
 x64 / ARM64 的 `abi3-py311` wheel，Python 导入名为 `video_recorder`。
 所有扩展共用 workspace、构建循环和发布流程。应用在专用 Python 子进程中调用
 录制扩展，录制结束后退出以释放资源。正式 wheel 不启用 `test-support`。
@@ -17,7 +17,7 @@ x64 / ARM64 的 `abi3-py311` wheel，Python 导入名为 `video_recorder`。
 ```powershell
 python -m pip install maturin==1.12.6
 maturin build --locked --release --target x86_64-pc-windows-msvc -i python -m rust_libs/video_recorder/Cargo.toml --out wheelhouse
-python -m pip install --force-reinstall --no-deps (Get-ChildItem wheelhouse/j_video_recorder-0.1.0-*.whl).FullName
+python -m pip install --force-reinstall --no-deps (Get-ChildItem wheelhouse/j_video-0.1.0-*.whl).FullName
 python -m pip install -r requirements.txt
 ```
 
@@ -67,7 +67,7 @@ secret 覆盖那套机制，因为仓库级 secret 不参与那层覆盖。
 3. Actions → Publish to PyPI → Run workflow，先选 `testpypi`
 4. 从 TestPyPI 装一遍验证：
    `pip install --index-url https://test.pypi.org/simple/ j-stitch`；视频包使用
-   `pip install --index-url https://test.pypi.org/simple/ j-video-recorder==0.1.0`。
+   `pip install --index-url https://test.pypi.org/simple/ j-video==0.1.0`。
    验证 `import video_recorder`、`Recorder` 接口及 worker 进程协议，再另做真实桌面录制与 onefile 验证。
 5. 无误后再跑一次，选 `pypi`
 

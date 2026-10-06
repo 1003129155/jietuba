@@ -60,7 +60,7 @@ After installing the first release containing the updater, use **About → Check
 
 All runtime dependencies, including the prebuilt Rust packages, install through [requirements.txt](requirements.txt). Source users do not need a Rust toolchain.
 
-On this development branch, `j-video-recorder==0.1.0` has not yet been published to PyPI. Install a matching local wheel into `venv311` (create it as in manual step 1) before using either setup method below; see [recording package installation](rust_libs/video_recorder/README.md#安装预编译包).
+On this development branch, `j-video==0.1.0` has not yet been published to PyPI. Install a matching local wheel into `venv311` (create it as in manual step 1) before using either setup method below; see [recording package installation](rust_libs/video_recorder/README.md#安装预编译包).
 
 ### One-Click Setup
 
@@ -106,7 +106,7 @@ The seven Python extension packages are included in `requirements.txt`. They can
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | HDR-correct desktop capture (DXGI Desktop Duplication + GPU tone mapping) |
 | [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.1 | Global mouse and keyboard hooks off the GUI thread (gestures, side buttons, hotkeys, wheel, foreground window) |
-| `j-video-recorder` | `video_recorder` | 0.1.0 | Media Foundation H.264/MP4 recording with WASAPI system audio |
+| `j-video` | `video_recorder` | 0.1.0 | Media Foundation H.264/MP4 recording with WASAPI system audio |
 
 The seven extensions target Windows x86_64 and ARM64, declare Python `>=3.11`, and enable `abi3-py311`. The recorder uses PyO3 like the other extensions. The application loads it in a dedicated Python worker so that recording resources are released when that worker exits. See each package's `pyproject.toml` and `Cargo.toml` for its configuration.
 
@@ -187,7 +187,7 @@ Comments explain only the constraints and design reasons that the code cannot ex
 │   ├── updater/             # Standalone EXE-only Rust updater
 │   └── video_recorder/      # PyO3 Media Foundation recording extension
 │       ├── src/             # Recording core, PyO3 bindings and WASAPI capture
-│       ├── pyproject.toml   # j-video-recorder abi3 wheel metadata
+│       ├── pyproject.toml   # j-video abi3 wheel metadata
 │       └── LICENSE          # MIT license included in the wheel
 │
 ├── models/                  # PP-OCR ONNX models (required for PP-OCR)
@@ -409,7 +409,7 @@ Screen recording, editing, playback, and export to GIF/video.
 
 Choose **MP4** on the recording toolbar for direct H.264 recording, with custom 1–60 fps, 0.5–50 Mbps target bitrate, optional system audio and mouse pointer. Hardware encoding is preferred when available, with Windows software encoding as fallback. Frames are streamed in an independent process instead of stored in Python; stopping waits for MP4 finalization before reporting success. MP4 recordings are saved directly and do not enter the GIF editing/playback workflow. The screen capture path currently supports SDR; system audio records the default mono/stereo playback device and excludes the microphone.
 
-The PyO3 recorder is installed from the prebuilt `j-video-recorder==0.1.0` wheel with the runtime dependencies; source users need no Rust toolchain. A dedicated Python worker calls the extension, while the GUI exchanges only commands and status events. The onefile script includes the installed extension and its license notices without rebuilding it. The [Rust recording instructions](rust_libs/video_recorder/README.md) cover local wheel installation before PyPI publication, developer builds, the process protocol, and validation commands. Windows Media Foundation/H.264/AAC components must be available; Windows N editions may need the Media Feature Pack. No FFmpeg or additional codec bundle is included.
+The PyO3 recorder is installed from the prebuilt `j-video==0.1.0` wheel with the runtime dependencies; source users need no Rust toolchain. A dedicated Python worker calls the extension, while the GUI exchanges only commands and status events. The onefile script includes the installed extension and its license notices without rebuilding it. The [Rust recording instructions](rust_libs/video_recorder/README.md) cover local wheel installation before PyPI publication, developer builds, the process protocol, and validation commands. Windows Media Foundation/H.264/AAC components must be available; Windows N editions may need the Media Feature Pack. No FFmpeg or additional codec bundle is included.
 <img width="766" height="630" alt="image" src="https://github.com/user-attachments/assets/8653fffb-b419-4584-ab4b-9fe95bb9f246" />
 <details>
 <summary>Expand directory structure</summary>

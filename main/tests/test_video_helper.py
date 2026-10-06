@@ -31,7 +31,7 @@ def test_missing_native_extension_fails_without_searching_path(monkeypatch, tmp_
     (tmp_path / "jietuba_video_recorder.exe").write_bytes(b"obsolete helper")
     monkeypatch.setenv("PATH", str(tmp_path))
     monkeypatch.setattr(video_helper.util, "find_spec", lambda name: None)
-    with pytest.raises(FileNotFoundError, match="j-video-recorder"):
+    with pytest.raises(FileNotFoundError, match="j-video"):
         video_helper.worker_command()
 
 
@@ -47,7 +47,7 @@ def test_missing_source_worker_reports_missing_file(monkeypatch, tmp_path):
 def installed_wheel(monkeypatch, tmp_path):
     entries = []
     for name in video_helper.LICENSE_NAMES:
-        entry = metadata.PackagePath("j_video_recorder-0.1.0.dist-info/licenses/" + name)
+        entry = metadata.PackagePath("j_video-0.1.0.dist-info/licenses/" + name)
         path = tmp_path / entry
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("installed wheel " + name, encoding="utf-8")

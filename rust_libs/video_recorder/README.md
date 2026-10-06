@@ -5,8 +5,8 @@ H.264 / MP4，通过 WASAPI loopback 捕获系统播放声音并编码为 AAC。
 NV12 转换、编码和音频缓冲均由 Rust 完成，不向 Python 传输原始视频帧或音频块。
 不捆绑 FFmpeg、Qt Multimedia 或额外编解码 DLL。
 
-该 crate 属于 `rust_libs` workspace，包名为 `jietuba-video-recorder`，Python
-发行名为 `j-video-recorder==0.1.0`，导入名为 `video_recorder`。与 `gifrecorder`
+该 crate 属于 `rust_libs` workspace，包名为 `video_recorder`，Python
+发行名为 `j-video==0.1.0`，导入名为 `video_recorder`。与 `gifrecorder`
 等扩展一致，使用 PyO3 0.22、`cdylib` 和 Maturin 构建 `abi3-py311` wheel，支持
 Windows x64 / ARM64。
 代码使用随 wheel 分发的 [MIT 许可证](LICENSE)，静态链接的第三方 Rust 依赖另见
@@ -23,7 +23,7 @@ PyInstaller 的 Qt hook、配置、数据库和单实例初始化前分流，复
 
 普通源码用户只需要与应用架构匹配的 Python 3.11，无需安装 Rust、Visual Studio 或
 Windows SDK。发布到 PyPI 后，`setup.bat` 或以下命令会安装 `requirements.txt` 中
-锁定的 `j-video-recorder==0.1.0`，pip 自动选择匹配当前 Python 的 x64/ARM64 wheel：
+锁定的 `j-video==0.1.0`，pip 自动选择匹配当前 Python 的 x64/ARM64 wheel：
 
 ```powershell
 python -m pip install -r requirements.txt
@@ -35,7 +35,7 @@ wheel，或由 Rust 开发者按下面的步骤生成 wheel。以下示例使用
 
 ```powershell
 py -3.11 -m venv venv311
-.\venv311\Scripts\python.exe -m pip install --force-reinstall --no-deps (Get-ChildItem -Path wheelhouse/j_video_recorder-*.whl).FullName
+.\venv311\Scripts\python.exe -m pip install --force-reinstall --no-deps (Get-ChildItem -Path wheelhouse/j_video-*.whl).FullName
 .\venv311\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
@@ -59,7 +59,7 @@ Visual Studio 的 C++ desktop tools 工作负载提供链接器与 SDK，此组�
 python -m pip install maturin==1.12.6
 # x64 Python；ARM64 Python 将目标改为 aarch64-pc-windows-msvc。
 maturin build --locked --release --target x86_64-pc-windows-msvc -i python -m rust_libs/video_recorder/Cargo.toml --out wheelhouse
-python -m pip install --force-reinstall --no-deps (Get-ChildItem wheelhouse/j_video_recorder-*.whl).FullName
+python -m pip install --force-reinstall --no-deps (Get-ChildItem wheelhouse/j_video-*.whl).FullName
 ```
 
 正式 wheel 不启用 `test-support`。仅此 package 使用 `opt-level = "s"` 和符号剥离，
@@ -74,7 +74,7 @@ Windows N/KN 或缺少系统媒体组件的系统需要对应 Media Feature Pack
 从当前源码运行 Rust 单元测试：
 
 ```powershell
-cargo test --locked --release --package jietuba-video-recorder --manifest-path rust_libs/Cargo.toml
+cargo test --locked --release --package video_recorder --manifest-path rust_libs/Cargo.toml
 ```
 
 依赖变化时从仓库根目录重新生成许可声明，并保留 `rust_libs/about.toml` 中的许可闸门：
@@ -187,7 +187,7 @@ stdin EOF 按 `stop` 处理。命令读取与录制分别执行；停止或取�
 ```powershell
 # 单独存放测试 wheel，不与正式发行包混用。
 maturin build --locked --release --target x86_64-pc-windows-msvc -i python -m rust_libs/video_recorder/Cargo.toml --features test-support --out wheelhouse-test
-python -m pip install --force-reinstall --no-deps (Get-ChildItem wheelhouse-test/j_video_recorder-*.whl).FullName
+python -m pip install --force-reinstall --no-deps (Get-ChildItem wheelhouse-test/j_video-*.whl).FullName
 $env:JIETUBA_VIDEO_TEST_NATIVE = "1"
 python -m pytest main/tests/test_video_native_process.py -c main/tests/pytest.ini
 ```

@@ -61,7 +61,7 @@ MP4 区域录制支持自定义帧率和码率、暂停/继续、鼠标指针及
 
 运行依赖（包括 Rust 预编译包）统一通过 [requirements.txt](requirements.txt) 安装，普通源码用户无需安装 Rust 工具链。
 
-当前开发分支的 `j-video-recorder==0.1.0` 尚未发布到 PyPI。执行下面任一安装方式前，按手动步骤 1 创建 `venv311`，将与 Python 架构匹配的本地 wheel 安装到该环境，详见[录制包安装说明](rust_libs/video_recorder/README.md#安装预编译包)。
+当前开发分支的 `j-video==0.1.0` 尚未发布到 PyPI。执行下面任一安装方式前，按手动步骤 1 创建 `venv311`，将与 Python 架构匹配的本地 wheel 安装到该环境，详见[录制包安装说明](rust_libs/video_recorder/README.md#安装预编译包)。
 
 ### 一键安装
 
@@ -107,7 +107,7 @@ PP-OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | 支持 HDR 的桌面截图（DXGI Desktop Duplication + GPU 色调映射） |
 | [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.1 | 不占界面线程的全局鼠标键盘钩子（拖动手势、侧键、热键、滚轮、前台窗口） |
-| `j-video-recorder` | `video_recorder` | 0.1.0 | Media Foundation H.264/MP4 录制与 WASAPI 系统声音采集 |
+| `j-video` | `video_recorder` | 0.1.0 | Media Foundation H.264/MP4 录制与 WASAPI 系统声音采集 |
 
 七个扩展面向 Windows x86_64 和 ARM64，声明 Python `>=3.11` 并启用 `abi3-py311`。录制包与其他扩展一致，使用 PyO3 接口；应用在专用 Python 子进程中加载它，录制结束后通过进程退出回收资源。配置详见各包的 `pyproject.toml` 和 `Cargo.toml`。
 
@@ -188,7 +188,7 @@ python -m pytest main/tests -c main/tests/pytest.ini
 │   ├── updater/             # 只替换主 EXE 的独立 Rust 更新器
 │   └── video_recorder/      # PyO3 Media Foundation 录制扩展
 │       ├── src/             # 录制核心、PyO3 绑定与 WASAPI 采集
-│       ├── pyproject.toml   # j-video-recorder abi3 wheel 配置
+│       ├── pyproject.toml   # j-video abi3 wheel 配置
 │       └── LICENSE          # wheel 内的 MIT 许可证
 │
 ├── models/                  # PP-OCR ONNX 模型文件（PP-OCR 必需）
@@ -437,7 +437,7 @@ core/
 
 在录制工具栏选择 **MP4** 即可直接录制 H.264 视频，支持自定义 1–60 fps、0.5–50 Mbps 目标码率、系统声音和鼠标指针开关。可用时优先使用硬件编码，否则回退到 Windows 软件编码。独立进程流式写入视频，Python 不保存视频帧历史；停止后完成 MP4 封装才报告保存成功。MP4 直接保存，不进入 GIF 编辑和回放流程。目前画面采集支持 SDR；系统声音采集默认单声道/立体声播放设备，不包含麦克风。
 
-PyO3 录制扩展通过预编译的 `j-video-recorder==0.1.0` wheel 随运行依赖安装，普通源码用户无需 Rust 工具链。专用 Python 子进程调用扩展，界面只交换控制命令与状态事件。onefile 脚本收集已安装的扩展与许可声明，不重新编译。[Rust 录制说明](rust_libs/video_recorder/README.md)包含 PyPI 发布前的本地 wheel 安装、开发者构建、进程协议与验证命令。系统需要可用的 Media Foundation、H.264/AAC 组件；Windows N 版本可能需要 Media Feature Pack。发行包不附加 FFmpeg 或其他编解码器包。
+PyO3 录制扩展通过预编译的 `j-video==0.1.0` wheel 随运行依赖安装，普通源码用户无需 Rust 工具链。专用 Python 子进程调用扩展，界面只交换控制命令与状态事件。onefile 脚本收集已安装的扩展与许可声明，不重新编译。[Rust 录制说明](rust_libs/video_recorder/README.md)包含 PyPI 发布前的本地 wheel 安装、开发者构建、进程协议与验证命令。系统需要可用的 Media Foundation、H.264/AAC 组件；Windows N 版本可能需要 Media Feature Pack。发行包不附加 FFmpeg 或其他编解码器包。
 <img width="766" height="630" alt="image" src="https://github.com/user-attachments/assets/8653fffb-b419-4584-ab4b-9fe95bb9f246" />
 
 <details>

@@ -1,5 +1,5 @@
 [package]
-name = "jietuba-video-recorder"
+name = "video_recorder"
 version = "0.1.0"
 edition = "2021"
 description = "Windows Media Foundation MP4 recording extension for Python"

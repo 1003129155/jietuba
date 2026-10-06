@@ -22,4 +22,4 @@ j-clipboard==0.4.5
 j-ppocr==0.2.1
 j-hdrcapture==0.1.0
 j-input==0.1.1
-j-video-recorder==0.1.0
+j-video==0.1.0
