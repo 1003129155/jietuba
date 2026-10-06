@@ -146,8 +146,9 @@ def _build_special_paste_menu_children(state: _ItemContextMenuState) -> List[Men
             # 7. SQL IN 句
             MenuAction(label="SQL IN Clause", key="transform_sql_in"),
             MenuAction(label="", key="sep_sp_3", is_separator=True),
-            # 8. 移除换行符
+            # 8. 移除换行符 / 移除全部空白
             MenuAction(label="Remove Line Breaks", key="transform_remove_linebreaks"),
+            MenuAction(label="Remove All Whitespace", key="transform_remove_whitespace"),
             # 9. 粘贴并添加当前时间
             MenuAction(label="Paste with Current Time", key="transform_append_time"),
             MenuAction(label="", key="sep_sp_4", is_separator=True),

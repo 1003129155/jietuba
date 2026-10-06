@@ -2,7 +2,7 @@
 
 import pytest
 
-from clipboard.core.text_transform import to_sql_in_clause
+from clipboard.core.text_transform import remove_all_whitespace, to_sql_in_clause
 
 
 def test_to_sql_in_clause_splits_common_delimiters():
@@ -40,3 +40,15 @@ def test_to_sql_in_clause_allows_a_single_long_value_to_exceed_limit():
 def test_to_sql_in_clause_rejects_non_positive_line_length():
     with pytest.raises(ValueError, match="max_line_length 必须大于 0"):
         to_sql_in_clause("a", max_line_length=0)
+
+
+def test_remove_all_whitespace_joins_ocr_lines_into_one_run():
+    assert remove_all_whitespace("新建 文件夹\nTXT") == "新建文件夹TXT"
+
+
+def test_remove_all_whitespace_strips_every_kind_of_blank():
+    assert remove_all_whitespace(" a\tb\r\nc　d e \n") == "abcde"
+
+
+def test_remove_all_whitespace_keeps_visible_characters():
+    assert remove_all_whitespace("1,2 ; 3 - A_b") == "1,2;3-A_b"

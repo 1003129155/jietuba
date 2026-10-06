@@ -2424,6 +2424,10 @@ This action cannot be undone.</source>
         <translation>줄바꿈 제거</translation>
     </message>
     <message>
+        <source>Remove All Whitespace</source>
+        <translation>모든 공백 제거</translation>
+    </message>
+    <message>
         <source>Quick Edit</source>
         <translation>빠른 편집</translation>
     </message>

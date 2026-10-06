@@ -2504,6 +2504,10 @@ This action cannot be undone.</source>
         <translation>移除换行符</translation>
     </message>
     <message>
+        <source>Remove All Whitespace</source>
+        <translation>移除全部空白</translation>
+    </message>
+    <message>
         <source>Quick Edit</source>
         <translation>快速编辑</translation>
     </message>

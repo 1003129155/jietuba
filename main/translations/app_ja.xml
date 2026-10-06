@@ -2469,6 +2469,10 @@ This action cannot be undone.</source>
         <translation>改行を削除</translation>
     </message>
     <message>
+        <source>Remove All Whitespace</source>
+        <translation>すべての空白を削除</translation>
+    </message>
+    <message>
         <source>Quick Edit</source>
         <translation>クイック編集</translation>
     </message>

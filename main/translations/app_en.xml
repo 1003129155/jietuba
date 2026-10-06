@@ -2265,6 +2265,10 @@ This action cannot be undone.</translation>
         <translation>Remove Line Breaks</translation>
     </message>
     <message>
+        <source>Remove All Whitespace</source>
+        <translation>Remove All Whitespace</translation>
+    </message>
+    <message>
         <source>Quick Edit</source>
         <translation>Quick Edit</translation>
     </message>
