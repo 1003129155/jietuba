@@ -18,6 +18,7 @@ class ColorPickerButton(QPushButton):
         show_alpha:    是否在对话框中显示透明度通道（默认 True）
         size:          按钮边长（像素，正方形）
         rainbow_ring:  是否在按钮外圈绘制彩虹色描边，标识"自定义颜色"入口（默认 True）
+        round_style:   画成圆形，和一排圆形预设色放在一起（设置面板用）
         parent:        父控件
     """
 
@@ -36,12 +37,16 @@ class ColorPickerButton(QPushButton):
         show_alpha: bool = True,
         size: int = 28,
         rainbow_ring: bool = True,
+        round_style: bool = False,
         parent=None,
     ):
         super().__init__(parent)
         self._color = QColor(initial_color)
         self._show_alpha = show_alpha
-        self._rainbow_ring = rainbow_ring
+        self._rainbow_ring = rainbow_ring or round_style
+        self._round_style = round_style
+        self._swatches = []
+        self._custom_active = False
         self.setFixedSize(size, size)
         if self._rainbow_ring:
             self.setFlat(True)
@@ -61,6 +66,25 @@ class ColorPickerButton(QPushButton):
         """静默更新颜色（不发射 color_changed 信号）"""
         self._color = QColor(color)
         self._refresh()
+
+    def link_swatches(self, swatches) -> None:
+        """登记同一排的预设色块。颜色每变一次就比对一次：命中的色块显示选中，
+        都不命中说明是自定义色，选中环落到本按钮上。比对忽略透明度，它由面板单独管。"""
+        self._swatches = list(swatches)
+        self._sync_swatches()
+
+    def _sync_swatches(self) -> None:
+        if not self._swatches:
+            return
+        rgb = self._color.rgb() & 0xFFFFFF
+        matched = False
+        for swatch in self._swatches:
+            hit = not matched and (QColor(swatch.color_hex).rgb() & 0xFFFFFF) == rgb
+            swatch.set_selected(hit)
+            matched = matched or hit
+        if self._custom_active == matched:
+            self._custom_active = not matched
+            self.update()
 
     def _pick_color(self) -> None:
         dlg = QColorDialog(self._color, None)
@@ -91,6 +115,7 @@ class ColorPickerButton(QPushButton):
             self.color_changed.emit(QColor(self._color))
 
     def _refresh(self) -> None:
+        self._sync_swatches()
         if self._rainbow_ring:
             self.update()
         else:
@@ -111,6 +136,9 @@ class ColorPickerButton(QPushButton):
 
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        if self._round_style:
+            self._paint_round(painter)
+            return
 
         size = min(self.width(), self.height())
         ring_width = max(1.8, size * 0.11)
@@ -145,6 +173,43 @@ class ColorPickerButton(QPushButton):
             painter.setPen(QPen(QColor(0, 0, 0, 70), 1.2))
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawRoundedRect(inner_rect, inner_radius, inner_radius)
+
+    def _paint_round(self, painter: QPainter) -> None:
+        """圆形版：彩虹描边圈住当前色，尺寸比例与圆形预设色块一致（28 的点击区里画半径 10 的圆）。
+
+        当前色不在预设里时，外面再套一圈选中环。
+        """
+        from core.theme import get_theme
+
+        side = min(self.width(), self.height())
+        center = QRectF(self.rect()).center()
+        radius = side * 10 / 28
+        if self._custom_active:
+            painter.setPen(QPen(QColor(get_theme().theme_color), side * 2 / 28))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            ring = radius + side * 3.5 / 28
+            painter.drawEllipse(center, ring, ring)
+        elif self.underMouse():
+            painter.setPen(QPen(QColor(15, 23, 42, 50), 1.0))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            ring = radius + side * 2.5 / 28
+            painter.drawEllipse(center, ring, ring)
+        if self.isDown():
+            radius *= 0.9
+
+        ring_width = side * 2.4 / 28
+        gradient = QConicalGradient(center, 90)
+        for stop, hue in self._RING_STOPS:
+            gradient.setColorAt(stop, QColor.fromHsv(hue % 360, 255, 255))
+        painter.setPen(QPen(QBrush(gradient), ring_width))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        outer = radius - ring_width / 2
+        painter.drawEllipse(center, outer, outer)
+
+        inner = radius - ring_width - side * 1.5 / 28
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(self._color))
+        painter.drawEllipse(center, inner, inner)
 
     def _update_style(self) -> None:
         """旧版方形样式（rainbow_ring=False 时使用）"""

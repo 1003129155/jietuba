@@ -16,6 +16,7 @@ def write_notices(output_dir: Path, *, lite: bool = False) -> Path:
     sources.extend([
         ("windows-capture", REPO_DIR / "rust_libs" / "hdrcapture" / "LICENSE-UPSTREAM"),
         ("oneocr", REPO_DIR / "licenses" / "oneocr-LICENSE.txt"),
+        ("lucide icons", REPO_DIR / "licenses" / "lucide-LICENSE.txt"),
     ])
     sections = ["JIETUBA LICENSE AND THIRD-PARTY NOTICES\n"]
     for name, source in sources:

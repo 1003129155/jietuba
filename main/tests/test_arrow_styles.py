@@ -20,7 +20,6 @@ from settings.tool_settings import ToolSettingsManager
 from ui.arrow_settings_panel import (
     ARROW_STYLE_NAMES,
     PREVIEW_INK,
-    PREVIEW_INK_SELECTED,
     preview_row_size,
     preview_size,
     ArrowSettingsPanel,
@@ -242,18 +241,20 @@ def test_every_row_in_the_panel_has_its_own_picture(qapp):
         panel.deleteLater()
 
 
-def test_the_selected_row_gets_its_own_legible_icon(qapp):
-    """下拉选中行是蓝底：深墨色图标糊在上面，那一行等于没有图。"""
-    for style in ArrowItem.STYLES:
-        assert _preview_bytes(style) != _preview_bytes(style, PREVIEW_INK_SELECTED)
+def test_the_selected_row_icon_stays_legible(qapp):
+    """下拉选中行是浅色的主题色底，图标沿用深墨色才看得清。
 
+    选中底要是换回深色，深墨色图标就会糊在上面，那时得另备一张浅色图标。
+    """
     panel = ArrowSettingsPanel()
     try:
+        sheet = panel.styleSheet()
+        assert "selection-background-color: rgba(" in sheet and ", 0.3)" in sheet
         icon = panel.arrow_style_combo.itemIcon(0)
         normal = icon.pixmap(preview_size(), QIcon.Mode.Normal).toImage()
         selected = icon.pixmap(preview_size(), QIcon.Mode.Selected).toImage()
         assert not normal.isNull() and not selected.isNull()
-        assert _image_bytes(normal) != _image_bytes(selected)
+        assert _image_bytes(normal) == _image_bytes(selected)
     finally:
         panel.deleteLater()
 

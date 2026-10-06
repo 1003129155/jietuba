@@ -5,8 +5,7 @@ scroll_toolbar.py - 滚动截图浮动工具栏模块
 
 主要类:
 - _DragHandle     : 工具栏左端拖动手柄（竖排灰点，手动模式加深 + 双击复位信号）
-- _Separator      : 按钮分组之间的细竖线
-- FloatingToolbar : 可拖动的浮动工具栏：长图尺寸 | 方向、自动滚动、手动截图、裁剪 | 钉图、完成、取消
+- FloatingToolbar : 可拖动的浮动工具栏：长图尺寸、方向、自动滚动、手动截图、裁剪、取消、钉图、完成
 """
 
 from PySide6.QtWidgets import QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QMenu, QLabel
@@ -18,6 +17,7 @@ from core import safe_event
 from core.platform_utils import set_window_rounded_corners
 from core.resource_manager import ResourceManager
 from core.ui_theme import set_own_style
+from ui.base_settings_panel import CONTROL_FILL, CONTROL_FILL_HOVER, CONTROL_INK, paint_rounded_panel, _rgba
 
 
 class _DragHandle(QWidget):
@@ -73,22 +73,6 @@ class _DragHandle(QWidget):
         painter.end()
 
 
-class _Separator(QWidget):
-    """按钮分组之间的细竖线。"""
-
-    _COLOR = QColor(0xE3, 0xE5, 0xE8)
-    BASE_HEIGHT = 20
-
-    def apply_scale(self):
-        self.setFixedSize(max(1, scaled(1)), scaled(self.BASE_HEIGHT))
-
-    @safe_event
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.fillRect(self.rect(), self._COLOR)
-        painter.end()
-
-
 def _icon(name: str):
     return ResourceManager.get_icon(ResourceManager.get_resource_path(f"svg/{name}"))
 
@@ -105,10 +89,10 @@ class FloatingToolbar(QWidget):
     finish_clicked = Signal()
     cancel_clicked = Signal()
 
-    # 基准尺寸（100% 下的实际像素）
+    # 基准尺寸（100% 下的实际像素），按钮格子与截图工具栏的功能按钮一致
     BASE_HEIGHT = 40
     BASE_MIN_WIDTH = 200
-    BASE_BTN = 32
+    BASE_BTN_WIDTH = 42
     BASE_ICON = 24
 
     def __init__(self, parent=None):
@@ -129,6 +113,10 @@ class FloatingToolbar(QWidget):
     # ------------------------------------------------------------------
     # 窗口与 UI 初始化
     # ------------------------------------------------------------------
+
+    @safe_event
+    def paintEvent(self, event):
+        paint_rounded_panel(self)
 
     def _setup_toolbar_window(self):
         """设置工具栏窗口属性"""
@@ -153,22 +141,18 @@ class FloatingToolbar(QWidget):
         """按当前比例重算浮动工具栏的尺寸，方向、按钮状态都不动。"""
         self.setFixedHeight(scaled(self.BASE_HEIGHT))
         self.setMinimumWidth(scaled(self.BASE_MIN_WIDTH))
-        self._container.setStyleSheet(self._container_qss())
-        self._row_layout.setContentsMargins(0, 0, scaled(10), 0)
-        self._row_layout.setSpacing(scaled(6))
+        self._row_layout.setContentsMargins(0, 0, scaled(6), 0)
         self.left_handle.apply_scale()
-        for separator in self._separators:
-            separator.apply_scale()
-        set_own_style(self.size_label, f"color: #5F6368; font-size: {scaled(9)}pt;")
+        set_own_style(self.size_label, f"color: {CONTROL_INK.name()}; font-size: {scaled(9)}pt;")
         self.size_label.ensurePolished()
         # 按最长的尺寸定宽，数字变长时工具栏不跟着变宽、挪位置
         self.size_label.setFixedWidth(self.size_label.fontMetrics().horizontalAdvance("88888 × 88888") + scaled(8))
         self.direction_btn.setStyleSheet(self._direction_btn_style())
         self.direction_btn.setIconSize(QSize(scaled(14), scaled(14)))
-        btn_sz = scaled(self.BASE_BTN)
+        btn_w, btn_h = scaled(self.BASE_BTN_WIDTH), scaled(self.BASE_HEIGHT)
         icon_sz = scaled(self.BASE_ICON)
         for button in self._icon_buttons:
-            button.setFixedSize(btn_sz, btn_sz)
+            button.setFixedSize(btn_w, btn_h)
             button.setIconSize(QSize(icon_sz, icon_sz))
             button.setStyleSheet(self._icon_btn_style())
         self.adjustSize()
@@ -177,27 +161,19 @@ class FloatingToolbar(QWidget):
                 and hasattr(self.parent_window, '_position_floating_toolbar')):
             self.parent_window._position_floating_toolbar()
 
-    def _container_qss(self) -> str:
-        theme_hex = get_theme().theme_color_hex
-        return f"""
-            QWidget#toolbar_container {{
-                background-color: white;
-                border: 2px solid {theme_hex};
-                border-radius: {scaled(5)}px;
-            }}
-        """
-
     def _setup_toolbar_ui(self):
         """设置工具栏 UI"""
         container = QWidget()
         container.setObjectName("toolbar_container")
-        self._container = container
+        container.setStyleSheet("QWidget#toolbar_container { background: transparent; }")
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(container)
 
         toolbar_layout = QHBoxLayout(container)
+        # 按钮自带 margin 内缩成圆角块，相邻按钮之间不再另加间距
+        toolbar_layout.setSpacing(0)
         self._row_layout = toolbar_layout
         self._icon_buttons = []
 
@@ -209,14 +185,11 @@ class FloatingToolbar(QWidget):
         toolbar_layout.addWidget(left_handle)
         self.left_handle = left_handle
 
-        self._separators = []
-
         # 长图尺寸：每拼一帧、每次裁剪都会更新
         self.size_label = QLabel()
         self.size_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.size_label.setToolTip(self.tr("Size of the long screenshot"))
         toolbar_layout.addWidget(self.size_label, 0, Qt.AlignmentFlag.AlignVCenter)
-        self._add_separator(toolbar_layout)
 
         # 方向切换按钮
         self.direction_btn = QPushButton()
@@ -233,13 +206,13 @@ class FloatingToolbar(QWidget):
             toolbar_layout, "托盘.svg", self.tr("Take screenshot manually"), self.manual_capture.emit)
         # 裁剪按钮：把长图裁到当前画面（预览里的绿框）
         self.crop_btn = self._add_icon_button(toolbar_layout, "裁剪.svg", self.tr("Crop"), self._show_crop_menu)
-        self._add_separator(toolbar_layout)
 
+        # 末尾三个按钮的顺序和图标与截图工具栏一致
+        self.cancel_btn = self._add_icon_button(
+            toolbar_layout, "结束截图.svg", self.tr("Cancel long screenshot"), self.cancel_clicked.emit)
         self.pin_btn = self._add_icon_button(toolbar_layout, "钉图.svg", self.tr("Pin to desktop"), self.pin_clicked.emit)
         self.finish_btn = self._add_icon_button(
             toolbar_layout, "确定.svg", self.tr("Finish and save"), self.finish_clicked.emit)
-        self.cancel_btn = self._add_icon_button(
-            toolbar_layout, "关闭.svg", self.tr("Cancel long screenshot"), self.cancel_clicked.emit)
 
         self.apply_scale()
 
@@ -252,11 +225,6 @@ class FloatingToolbar(QWidget):
         self._icon_buttons.append(button)
         return button
 
-    def _add_separator(self, layout):
-        separator = _Separator()
-        layout.addWidget(separator, 0, Qt.AlignmentFlag.AlignVCenter)
-        self._separators.append(separator)
-
     @staticmethod
     def _direction_btn_style() -> str:
         """方向切换按钮样式。
@@ -266,36 +234,39 @@ class FloatingToolbar(QWidget):
         """
         return f"""
             QPushButton {{
-                background-color: #F1F3F4;
-                color: #202124;
+                background-color: {_rgba(CONTROL_FILL)};
+                color: {CONTROL_INK.name()};
                 border: none;
                 padding: {scaled(4)}px {scaled(10)}px;
+                margin: 0 {scaled(6)}px;
                 font-size: {scaled(9)}pt;
                 border-radius: {scaled(13)}px;
                 min-width: {scaled(50)}px;
             }}
             QPushButton:hover {{
-                background-color: #E3E5E8;
+                background-color: {_rgba(CONTROL_FILL_HOVER)};
             }}
         """
 
     @staticmethod
     def _icon_btn_style() -> str:
-        """通用图标按钮样式"""
+        """通用图标按钮样式，与主工具栏的按钮块一致"""
+        tc = get_theme().theme_color
         return f"""
             QPushButton {{
                 background-color: transparent;
                 border: none;
-                border-radius: {scaled(3)}px;
+                border-radius: {scaled(9)}px;
+                margin: {scaled(3)}px;
             }}
             QPushButton:hover {{
-                background-color: rgba(0, 0, 0, 0.05);
+                background-color: rgba(0, 0, 0, 0.06);
             }}
             QPushButton:pressed {{
-                background-color: rgba(0, 0, 0, 0.1);
+                background-color: rgba(0, 0, 0, 0.12);
             }}
             QPushButton:checked {{
-                background-color: rgba(33, 150, 243, 0.18);
+                background-color: rgba({tc.red()}, {tc.green()}, {tc.blue()}, 0.3);
             }}
         """
 

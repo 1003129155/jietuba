@@ -3,14 +3,14 @@
 字体、字号、粗体/斜体/下划线，背景/描边/阴影三种效果，文字颜色
 """
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QComboBox, QFrame, QSlider, QLabel,
+    QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QFrame, QSlider, QLabel,
     QStyle, QStyleOptionGraphicsItem, QStyleOptionSlider,
 )
 from PySide6.QtCore import Qt, Signal, QEvent, QPointF, QSize
 from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPixmap
 from .base_settings_panel import (
-    HoverPopup, StepperWidget, build_settings_panel_stylesheet,
-    paint_rounded_panel,
+    CONTROL_INK, DIVIDER_COLOR, PRESET_COLORS, ColorRow, HoverPopup, PillComboBox, StepperWidget,
+    accent_color, build_settings_panel_stylesheet, make_separator, paint_rounded_panel,
 )
 from .color_picker_button import ColorPickerButton
 from canvas.items import TextItem
@@ -88,29 +88,6 @@ def render_text_effect_icon(side: int, ratio: float = 1.0, *, outline_width: flo
 _WIDGET_SIZE_MAX = 16777215
 
 
-def _style_preset_color_button(button: QPushButton, color_hex: str, side: int):
-    """按当前比例给预设色块定尺寸和样式（建按钮和改比例共用）"""
-    button.setFixedSize(side, side)
-    border_color = "#888888" if color_hex == "#FFFFFF" else "#333333"
-    button.setStyleSheet(f"""
-        QPushButton {{
-            background-color: {color_hex};
-            border: 1px solid {border_color};
-            border-radius: {scaled(6)}px;
-        }}
-        QPushButton:hover {{
-            border: 2px solid #000;
-        }}
-    """)
-
-
-def _preset_color_button(color_hex: str, side: int, tooltip: str) -> QPushButton:
-    button = QPushButton()
-    button.setToolTip(tooltip)
-    _style_preset_color_button(button, color_hex, side)
-    return button
-
-
 class _FourStepSlider(QSlider):
     """在标准滑条轨道上补四个明确的档位点，避免离散选项看起来像连续值。"""
 
@@ -167,15 +144,13 @@ class TextSettingsPanel(QWidget):
     shadow_changed = Signal(bool, QColor)          # 颜色的 alpha 即阴影不透明度
 
     # 基准尺寸（100% 下的实际像素）
-    BASE_MARGIN_H = 9
-    BASE_MARGIN_V = 7
-    BASE_SPACING = 9
+    BASE_MARGIN_H = 12
+    BASE_MARGIN_V = 6
+    BASE_SPACING = 10
     BASE_SIZE_SPIN_WIDTH = 54
-    BASE_BTN = 25
+    BASE_BTN = 28
     BASE_EFFECT_ICON = 18
-    BASE_PRESET_BTN = 22
     BASE_FONT_VIEW_WIDTH = 200
-    BASE_POPUP_COLOR_BTN = 24
     BASE_OPACITY_LABEL_WIDTH = 36
     BASE_OUTLINE_SLIDER_WIDTH = 108
 
@@ -186,60 +161,50 @@ class TextSettingsPanel(QWidget):
         描边粗细虽只有四档，但用带刻度的离散滑条呈现：比四个零散的小方块更紧凑，
         也不会伪装成可取任意数值的连续滑条。尺寸按当前比例算，改比例后要重新挂。
         """
+        accent = accent_color().name()
+        groove = "rgba(15, 23, 42, 0.12)"
         return f"""
-        QPushButton {{
-            background-color: white;
-            border: 1px solid #ddd;
-            border-radius: {scaled(3)}px;
-            padding: 0px;
-        }}
-        QPushButton:hover {{
-            border-color: #bbb;
-        }}
-        QPushButton:checked {{
-            border: 2px solid #0078d7;
-        }}
         QSlider {{
             background-color: transparent;
         }}
         QSlider#outlineWidthSlider {{
             min-height: {scaled(24)}px;
         }}
-        QSlider#outlineWidthSlider::groove:horizontal {{
+        QSlider::groove:horizontal {{
             height: {scaled(4)}px;
             margin: 0 {scaled(6)}px;
-            background: #d7d7d7;
+            background: {groove};
             border-radius: {scaled(2)}px;
         }}
-        QSlider#outlineWidthSlider::sub-page:horizontal {{
+        QSlider::sub-page:horizontal {{
             margin: 0 {scaled(6)}px;
-            background: #0078d7;
+            background: {accent};
             border-radius: {scaled(2)}px;
         }}
-        QSlider#outlineWidthSlider::add-page:horizontal {{
+        QSlider::add-page:horizontal {{
             margin: 0 {scaled(6)}px;
-            background: #d7d7d7;
+            background: {groove};
             border-radius: {scaled(2)}px;
         }}
-        QSlider#outlineWidthSlider::handle:horizontal {{
+        QSlider::handle:horizontal {{
             width: {scaled(12)}px;
             height: {scaled(12)}px;
             margin: {-scaled(5)}px {-scaled(6)}px;
-            background: #0078d7;
-            border: 2px solid white;
+            background: white;
+            border: 1px solid rgba(0, 0, 0, 0.25);
             border-radius: {scaled(7)}px;
         }}
-        QSlider#outlineWidthSlider::handle:horizontal:hover {{
-            background: #0067b8;
+        QSlider::handle:horizontal:hover {{
+            border-color: {accent};
         }}
         QFrame#popupDivider {{
-            background: #e8e8e8;
+            background: rgba({DIVIDER_COLOR.red()}, {DIVIDER_COLOR.green()}, {DIVIDER_COLOR.blue()}, {DIVIDER_COLOR.alpha()});
             border: none;
             min-height: 1px;
             max-height: 1px;
         }}
         QLabel {{
-            color: #333;
+            color: {CONTROL_INK.name()};
             font-family: {CSS_FONT_FAMILY};
             font-size: {scaled(11)}px;
         }}
@@ -275,8 +240,8 @@ class TextSettingsPanel(QWidget):
         return build_settings_panel_stylesheet(
             combo_enabled=True,
             combo_padding="2px 8px 2px 4px",
-            combo_min_width=40,
-            combo_max_width=120
+            combo_min_width=112,
+            combo_max_width=140
         ) + f"""
             QCheckBox {{
                 spacing: {scaled(5)}px;
@@ -320,10 +285,7 @@ class TextSettingsPanel(QWidget):
             button.setIconSize(QSize(icon_sz, icon_sz))
         self._update_background_btn_style()
 
-        self.color_btn.setFixedSize(btn_sz, btn_sz)
-        preset_sz = scaled(self.BASE_PRESET_BTN)
-        for button, color_str in self._preset_buttons:
-            _style_preset_color_button(button, color_str, preset_sz)
+        self._color_row.apply_scale()
 
         self._apply_popup_scale()
         self.adjustSize()
@@ -332,16 +294,11 @@ class TextSettingsPanel(QWidget):
     def _apply_popup_scale(self):
         """三个效果弹出层的尺寸，和面板一起按比例重算"""
         qss = self._popup_controls_qss()
-        color_side = scaled(self.BASE_POPUP_COLOR_BTN)
-        for popup_layout, colors_layout in self._popup_layouts:
-            popup_layout.setContentsMargins(scaled(8), scaled(6), scaled(8), scaled(6))
+        for popup_layout in self._popup_layouts:
+            popup_layout.setContentsMargins(scaled(10), scaled(8), scaled(10), scaled(8))
             popup_layout.setSpacing(scaled(6))
-            colors_layout.setSpacing(scaled(6))
-        for button, color_hex in self._popup_color_buttons:
-            if color_hex is None:
-                button.setFixedSize(color_side, color_side)
-            else:
-                _style_preset_color_button(button, color_hex, color_side)
+        for row in self._popup_color_rows:
+            row.apply_scale()
         for label in self._opacity_labels:
             label.setFixedWidth(scaled(self.BASE_OPACITY_LABEL_WIDTH))
 
@@ -369,7 +326,7 @@ class TextSettingsPanel(QWidget):
         # === 1. 基础样式区 ===
 
         # 字体选择 - 使用轻量白名单，避免扫描系统字体库
-        self.font_combo = QComboBox()
+        self.font_combo = PillComboBox()
         sorted_fonts = list(self._cached_fonts)
         self.font_combo.addItems(sorted_fonts)
         # 设置当前语言对应的默认字体
@@ -428,44 +385,20 @@ class TextSettingsPanel(QWidget):
             button.setToolTip(tip)
             layout.addWidget(button)
 
-        # 分隔线
-        line1 = QFrame()
-        line1.setObjectName("separator")
-        line1.setFrameShape(QFrame.Shape.VLine)
-        line1.setFixedWidth(1)
-        layout.addWidget(line1)
+        layout.addWidget(make_separator())
 
         # === 2. 颜色预设区 ===
-
-        # 颜色选择按钮
-        self.color_btn = ColorPickerButton(
-            self.current_color, size=scaled(self.BASE_BTN), show_alpha=True
-        )
+        self.color_btn = ColorPickerButton(self.current_color, show_alpha=True, round_style=True)
         self.color_btn.setToolTip(self.tr("Custom Color"))
-        layout.addWidget(self.color_btn)
-
-        # 预设颜色按钮
-        preset_colors = [
-            "#FF0000", # 红色
-            "#FFFF00", # 黄色
-            "#00FF00", # 绿色
-            "#0000FF", # 蓝色
-            "#000000", # 黑色
-            "#FFFFFF", # 白色
-        ]
-
-        self._preset_buttons = []
-        for color_str in preset_colors:
-            btn = _preset_color_button(color_str, scaled(self.BASE_PRESET_BTN), color_str)
-            btn.clicked.connect(lambda checked, c=color_str: self._on_preset_color_clicked(c))
-            layout.addWidget(btn)
-            self._preset_buttons.append((btn, color_str))
+        self._color_row = ColorRow(self.color_btn, PRESET_COLORS, self._on_preset_color_clicked)
+        self._preset_buttons = self._color_row.swatches
+        layout.addWidget(self._color_row)
 
         layout.addStretch()
 
         # 弹出层里按比例算尺寸的控件，改比例时按这些清单重算
         self._popup_layouts = []
-        self._popup_color_buttons = []
+        self._popup_color_rows = []
         self._opacity_labels = []
         self._init_effect_popups()
         self.apply_scale()
@@ -513,21 +446,19 @@ class TextSettingsPanel(QWidget):
         popup.set_extra_stylesheet(self._popup_controls_qss())
         popup_layout = QVBoxLayout(popup)
 
-        colors_layout = QHBoxLayout()
-        colors_layout.addStretch()
-        self._popup_layouts.append((popup_layout, colors_layout))
-        color_side = scaled(self.BASE_POPUP_COLOR_BTN)
         # 颜色和不透明度分开调（不透明度有自己的滑块），自定义色不带 alpha 通道
-        custom = ColorPickerButton(QColor("white"), show_alpha=False, size=color_side)
+        custom = ColorPickerButton(QColor("white"), show_alpha=False, round_style=True)
         custom.setToolTip(custom_tip)
         custom.color_changed.connect(on_color)
-        colors_layout.addWidget(custom)
-        self._popup_color_buttons.append((custom, None))
-        for color_hex, name in EFFECT_PRESET_COLORS:
-            preset = _preset_color_button(color_hex, color_side, self.tr(name))
-            preset.clicked.connect(lambda _checked=False, c=color_hex: on_color(QColor(c)))
-            colors_layout.addWidget(preset)
-            self._popup_color_buttons.append((preset, color_hex))
+        row = ColorRow(custom, [color_hex for color_hex, _ in EFFECT_PRESET_COLORS],
+                       lambda color_hex: on_color(QColor(color_hex)))
+        for (swatch, _), (_, name) in zip(row.swatches, EFFECT_PRESET_COLORS):
+            swatch.setToolTip(self.tr(name))
+        self._popup_color_rows.append(row)
+        self._popup_layouts.append(popup_layout)
+        colors_layout = QHBoxLayout()
+        colors_layout.addStretch()
+        colors_layout.addWidget(row)
         colors_layout.addStretch()
         popup_layout.addLayout(colors_layout)
 
@@ -650,7 +581,8 @@ class TextSettingsPanel(QWidget):
     # ------------------------------------------------------------------
 
     def _update_background_btn_style(self):
-        """更新背景按钮样式"""
+        """背景开关打开时，按钮底色就是背景色本身"""
+        radius = scaled(8)
         if self.background_btn.isChecked():
             color = QColor(self.background_color)
             alpha = max(0, min(255, int(self.background_opacity)))
@@ -660,21 +592,22 @@ class TextSettingsPanel(QWidget):
                 QPushButton {{
                     background-color: rgba({color.red()}, {color.green()}, {color.blue()}, {alpha});
                     color: {text_color};
-                    border: 1px solid #999;
+                    border: 1px solid rgba(15, 23, 42, 0.2);
+                    border-radius: {radius}px;
                     font-size: {scaled(12)}px;
                 }}
             """)
         else:
-            self.background_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: white;
-                    border: 1px solid #ddd;
-                    font-size: 12px;
-                }
-                QPushButton:hover {
-                    background-color: #f0f0f0;
-                    border: 1px solid #bbb;
-                }
+            self.background_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: transparent;
+                    border: none;
+                    border-radius: {radius}px;
+                    font-size: {scaled(12)}px;
+                }}
+                QPushButton:hover {{
+                    background-color: rgba(15, 23, 42, 0.06);
+                }}
             """)
 
     def _on_background_toggled(self, checked: bool):

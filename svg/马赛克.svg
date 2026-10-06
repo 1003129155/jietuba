@@ -1,9 +1,11 @@
-<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-  <g fill="black">
-    <rect x="4.5" y="4.5" width="5" height="5" rx="1"/>
-    <rect x="14.5" y="4.5" width="5" height="5" rx="1"/>
-    <rect x="9.5" y="9.5" width="5" height="5" rx="1"/>
-    <rect x="4.5" y="14.5" width="5" height="5" rx="1"/>
-    <rect x="14.5" y="14.5" width="5" height="5" rx="1"/>
-  </g>
+<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="#000000">
+  <rect x="3.0" y="3.0" width="5.6" height="5.6" rx="1.2" opacity="1"/>
+  <rect x="9.2" y="3.0" width="5.6" height="5.6" rx="1.2" opacity="0.3"/>
+  <rect x="15.4" y="3.0" width="5.6" height="5.6" rx="1.2" opacity="0.65"/>
+  <rect x="3.0" y="9.2" width="5.6" height="5.6" rx="1.2" opacity="0.3"/>
+  <rect x="9.2" y="9.2" width="5.6" height="5.6" rx="1.2" opacity="1"/>
+  <rect x="15.4" y="9.2" width="5.6" height="5.6" rx="1.2" opacity="0.3"/>
+  <rect x="3.0" y="15.4" width="5.6" height="5.6" rx="1.2" opacity="0.65"/>
+  <rect x="9.2" y="15.4" width="5.6" height="5.6" rx="1.2" opacity="0.3"/>
+  <rect x="15.4" y="15.4" width="5.6" height="5.6" rx="1.2" opacity="1"/>
 </svg>

@@ -19,7 +19,7 @@ from tools.number import NumberTool
 from core.i18n import make_tr
 from core.ui_scale import scaled
 from core.ui_theme import set_own_style
-from .base_settings_panel import BaseSettingsPanel, HoverPopup, set_step_button_icon
+from .base_settings_panel import BaseSettingsPanel, HoverPopup, PillFrame, accent_color, style_step_button
 
 # 样式弹出条与序号面板共用同一翻译上下文
 _style_tr = make_tr("ArrowSettingsPanel")
@@ -59,16 +59,18 @@ class NumberStylePopup(HoverPopup):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        # 选中态必须一眼盖过悬停态：弹出条以 ① 预览为中心对齐，鼠标移进来
+        # 时几乎总会先擦过中间那两个按钮，两者长得像就会被误读成"它自己跳
+        # 到空心圆了"。所以悬停只给极淡的底，选中给明显的主题色框——图标是深灰
+        # 的，选中态不能用实心主题色去填，否则图样自己就看不见了。
+        accent = accent_color()
         self.set_extra_stylesheet(
-            # 选中态必须一眼盖过悬停态：弹出条以 ① 预览为中心对齐，鼠标移进来
-            # 时几乎总会先擦过中间那两个按钮，两者长得像就会被误读成"它自己跳
-            # 到空心圆了"。所以悬停只给极淡的底，选中给明显的蓝框——图标是深灰
-            # 的，选中态不能用实心主题色去填，否则图样自己就看不见了。
-            "QToolButton { border: 1px solid transparent; border-radius: 3px;"
+            f"QToolButton {{ border: 1px solid transparent; border-radius: {scaled(6)}px;"
             " background: transparent; }"
-            "QToolButton:hover { background-color: #f2f8fd; border-color: #d8e8f5; }"
+            "QToolButton:hover { background-color: rgba(15, 23, 42, 0.06); }"
             "QToolButton:checked, QToolButton:checked:hover {"
-            " background-color: #cce4f7; border: 2px solid #0078d7; }"
+            f" background-color: rgba({accent.red()}, {accent.green()}, {accent.blue()}, 0.15);"
+            f" border: 2px solid {accent.name()}; }}"
         )
 
         layout = QHBoxLayout(self)
@@ -128,11 +130,11 @@ class NumberSettingsPanel(BaseSettingsPanel):
     SIZE_RANGE = (NumberTool.MIN_WIDTH, NumberTool.MAX_WIDTH)
     SIZE_DEFAULT = 16
     SIZE_TOOLTIP = "Font Size"
+    SIZE_GLYPH = ""   # 调的是序号大小，不是线宽，不配粗细图标
 
     # 基准尺寸（100% 下的实际像素）
-    BASE_NEXT_PREVIEW = 23
-    BASE_NEXT_BTN_WIDTH = 16
-    BASE_NEXT_BTN_HEIGHT = 13
+    BASE_NEXT_PREVIEW = 22
+    BASE_NEXT_BTN_WIDTH = 13
 
     def _build_extra_controls(self, layout):
         self.next_preview = QLabel()
@@ -140,7 +142,13 @@ class NumberSettingsPanel(BaseSettingsPanel):
         # 这里要显示的是下一个序号会长成什么样，所以连样式一起画，
         # 而不是用 CSS 画一个永远是空心圆的假框。
         set_own_style(self.next_preview, "background: transparent;")
-        layout.insertWidget(0, self.next_preview)
+        # 预览和上下箭头垫同一块胶囊底，和其它数值控件长一个样
+        self._next_pill = PillFrame()
+        pill_layout = QHBoxLayout(self._next_pill)
+        pill_layout.setSpacing(0)
+        self._next_pill_layout = pill_layout
+        pill_layout.addWidget(self.next_preview)
+        layout.insertWidget(0, self._next_pill)
 
         self._next_value = 1
         self._current_style = NumberItem.DEFAULT_STYLE
@@ -153,6 +161,7 @@ class NumberSettingsPanel(BaseSettingsPanel):
         btn_wrap = QWidget()
         self._next_btn_layout = QVBoxLayout(btn_wrap)
         self._next_btn_layout.setContentsMargins(0, 0, 0, 0)
+        self._next_btn_layout.setSpacing(0)
 
         self.next_up_btn = QToolButton()
         self.next_up_btn.setToolTip(self._tr("Next Number"))
@@ -162,7 +171,7 @@ class NumberSettingsPanel(BaseSettingsPanel):
         self.next_down_btn.setToolTip(self._tr("Next Number"))
         self._next_btn_layout.addWidget(self.next_down_btn)
 
-        layout.insertWidget(1, btn_wrap)
+        pill_layout.addWidget(btn_wrap)
 
         self.next_up_btn.clicked.connect(lambda: self._change_next_number(1))
         self.next_down_btn.clicked.connect(lambda: self._change_next_number(-1))
@@ -171,11 +180,12 @@ class NumberSettingsPanel(BaseSettingsPanel):
         super()._apply_scale_sizes()
         preview = scaled(self.BASE_NEXT_PREVIEW)
         self.next_preview.setFixedSize(preview, preview)
+        self._next_pill.apply_scale()
+        self._next_pill_layout.setContentsMargins(scaled(4), 0, scaled(3), 0)
+        half = scaled(PillFrame.BASE_HEIGHT) // 2
         for direction, button in (("up", self.next_up_btn), ("down", self.next_down_btn)):
-            set_step_button_icon(button, direction)
-            button.setFixedSize(scaled(self.BASE_NEXT_BTN_WIDTH),
-                                scaled(self.BASE_NEXT_BTN_HEIGHT))
-        self._next_btn_layout.setSpacing(scaled(2))
+            style_step_button(button, direction)
+            button.setFixedSize(scaled(self.BASE_NEXT_BTN_WIDTH), half)
         popup = getattr(self, "_style_popup", None)
         if popup is not None:
             popup.apply_scale()
