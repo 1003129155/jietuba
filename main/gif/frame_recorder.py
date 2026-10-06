@@ -214,9 +214,11 @@ class FrameRecorder(QObject):
 
         if self._hdr_lent:
             self._hdr_lent = False
-            return_hdr_session(after=stop_threads)
+            # MP4 切换可等待此 Future，避免独立进程与预备 GIF 会话同时采集。
+            return return_hdr_session(after=stop_threads)
         else:
             stop_threads()
+            return _completed(None)
 
     def start(self):
         """开始录制。Rust 线程截屏（DXGI 优先，GDI 兜底）→ FrameStore。"""

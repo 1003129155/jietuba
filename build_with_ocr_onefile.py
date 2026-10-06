@@ -17,6 +17,8 @@ import sys
 
 LITE = "--lite" in sys.argv[1:]
 
+from main.video_helper import installed_recorder_licenses
+
 # 路径配置
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_DIR = SCRIPT_DIR
@@ -47,6 +49,8 @@ hidden_imports = [
     'longstitch',
     'gifrecorder',
     'oneocr',
+    'video_recorder',
+    'video_worker',
     'hdrcapture',
     'inputhub',
     'zxingcpp',
@@ -172,8 +176,18 @@ def build_updater():
     subprocess.run(command, check=True, cwd=REPO_DIR)
     return REPO_DIR / "rust_libs" / "target" / target / "release" / "jietuba_updater.exe"
 
+def video_recorder_assets():
+    """验证正式扩展并收集同一安装包的许可声明，不在打包时编译 Rust。"""
+    import video_recorder
+
+    if hasattr(video_recorder.Recorder, "_configure_test"):
+        raise RuntimeError("发行包不得包含启用 test-support 的录制扩展，请先安装正式 wheel。")
+    return installed_recorder_licenses()
+
 
 if __name__ == '__main__':
+    video_licenses = video_recorder_assets()
+    datas.extend(f"{path};licenses/video_recorder" for path in video_licenses.values())
     os.chdir(REPO_DIR)
 
     updater_binary = build_updater()
@@ -215,7 +229,7 @@ a = Analysis(
     hiddenimports={hidden_repr},
     hookspath=[],
     hooksconfig={{}},
-    runtime_hooks=[],
+    runtime_hooks=['main/video_worker_hook.py'],
     excludes={excl_repr},
     noarchive=False,
     optimize=0,

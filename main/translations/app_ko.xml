@@ -1467,6 +1467,10 @@ Replace it?</source>
         <source>Drag to move</source>
         <translation>드래그하여 이동</translation>
     </message>
+    <message>
+        <source>GIF / Video recording</source>
+        <translation>GIF / 동영상 녹화</translation>
+    </message>
 </context>
 
 <!-- ========== Pin Window ========== -->
@@ -3966,6 +3970,54 @@ This action cannot be undone.</source>
         <source>重做</source>
         <translation>다시 실행</translation>
     </message>
+    <message>
+        <source>优先使用硬件编码（不可用时使用系统软件编码）</source>
+        <translation>하드웨어 인코딩 우선 (사용할 수 없으면 시스템 소프트웨어 인코더 사용)</translation>
+    </message>
+    <message>
+        <source>帧率</source>
+        <translation>프레임률</translation>
+    </message>
+    <message>
+        <source>帧率（1–60）</source>
+        <translation>프레임률 (1–60)</translation>
+    </message>
+    <message>
+        <source>录制格式</source>
+        <translation>녹화 형식</translation>
+    </message>
+    <message>
+        <source>录制系统声音</source>
+        <translation>시스템 소리 녹음</translation>
+    </message>
+    <message>
+        <source>录制鼠标指针</source>
+        <translation>마우스 포인터 녹화</translation>
+    </message>
+    <message>
+        <source>码率是目标值，实际大小随画面变化。较低码率减少文件大小和细节。系统声音不包含麦克风。</source>
+        <translation>비트레이트는 목표값이며 실제 크기는 화면 내용에 따라 달라집니다. 낮은 값은 파일 크기와 세부 품질을 줄입니다. 시스템 소리에 마이크는 포함되지 않습니다.</translation>
+    </message>
+    <message>
+        <source>自定义</source>
+        <translation>사용자 지정</translation>
+    </message>
+    <message>
+        <source>自定义帧率</source>
+        <translation>사용자 지정 프레임률</translation>
+    </message>
+    <message>
+        <source>自定义帧率…</source>
+        <translation>사용자 지정 프레임률…</translation>
+    </message>
+    <message>
+        <source>视频码率</source>
+        <translation>동영상 비트레이트</translation>
+    </message>
+    <message>
+        <source>视频设置</source>
+        <translation>동영상 설정</translation>
+    </message>
 </context>
 
 <!-- ========== GIF Playback Toolbar ========== -->
@@ -4876,6 +4928,112 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
 <message>
         <source>The updater stopped with an error (%1).</source>
         <translation>업데이트 프로그램이 오류로 중지되었습니다(%1).</translation>
+    </message>
+</context>
+<context>
+    <name>GifRecordWindow</name>
+    <message>
+        <source>MP4 视频 (*.mp4)</source>
+        <translation>MP4 동영상 (*.mp4)</translation>
+    </message>
+    <message>
+        <source>保存 MP4 视频</source>
+        <translation>MP4 동영상 저장</translation>
+    </message>
+    <message>
+        <source>无法释放之前的录制会话，请稍后重试。</source>
+        <translation>이전 녹화 세션을 해제할 수 없습니다. 나중에 다시 시도하세요.</translation>
+    </message>
+    <message>
+        <source>正在保存…</source>
+        <translation>저장 중…</translation>
+    </message>
+    <message>
+        <source>正在准备…</source>
+        <translation>준비 중…</translation>
+    </message>
+    <message>
+        <source>正在恢复…</source>
+        <translation>재개 중…</translation>
+    </message>
+    <message>
+        <source>正在暂停…</source>
+        <translation>일시 정지 중…</translation>
+    </message>
+    <message>
+        <source>目标文件已存在，请选择新的文件名。</source>
+        <translation>대상 파일이 이미 있습니다. 새 파일 이름을 선택하세요.</translation>
+    </message>
+    <message>
+        <source>视频已保存</source>
+        <translation>동영상 저장 완료</translation>
+    </message>
+    <message>
+        <source>视频录制</source>
+        <translation>동영상 녹화</translation>
+    </message>
+    <message>
+        <source>视频录制失败</source>
+        <translation>동영상 녹화 실패</translation>
+    </message>
+</context>
+<context>
+    <name>VideoRecorder</name>
+    <message>
+        <source>录制区域太小，请重新调整。</source>
+        <translation>녹화 영역이 너무 작습니다. 다시 조정하세요.</translation>
+    </message>
+    <message>
+        <source>录制失败。</source>
+        <translation>녹화에 실패했습니다.</translation>
+    </message>
+    <message>
+        <source>录制已取消，未保存视频。</source>
+        <translation>녹화가 취소되었습니다. 동영상은 저장되지 않았습니다.</translation>
+    </message>
+    <message>
+        <source>录制未正常完成，未确认视频保存成功。</source>
+        <translation>녹화가 정상적으로 완료되지 않았습니다. 저장 성공을 확인할 수 없습니다.</translation>
+    </message>
+    <message>
+        <source>录制组件不存在，请重新安装或从当前源码构建。</source>
+        <translation>녹화 구성 요소가 없습니다. 다시 설치하거나 현재 소스에서 빌드하세요.</translation>
+    </message>
+    <message>
+        <source>录制进程响应超时，视频未确认保存成功。</source>
+        <translation>녹화 프로세스의 응답 시간이 초과되었습니다. 저장 성공을 확인할 수 없습니다.</translation>
+    </message>
+    <message>
+        <source>录制进程意外退出，视频可能未完成。</source>
+        <translation>녹화 프로세스가 예기치 않게 종료되었습니다. 동영상이 완성되지 않았을 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>录制进程返回了无效的状态消息。</source>
+        <translation>녹화 프로세스가 잘못된 상태 메시지를 반환했습니다.</translation>
+    </message>
+    <message>
+        <source>录制进程返回了过大的状态消息。</source>
+        <translation>녹화 프로세스의 상태 메시지가 너무 큽니다.</translation>
+    </message>
+    <message>
+        <source>无法发送停止命令。</source>
+        <translation>중지 명령을 보낼 수 없습니다.</translation>
+    </message>
+    <message>
+        <source>无法发送录制命令。</source>
+        <translation>녹화 명령을 보낼 수 없습니다.</translation>
+    </message>
+    <message>
+        <source>无法启动录制进程。</source>
+        <translation>녹화 프로세스를 시작할 수 없습니다.</translation>
+    </message>
+    <message>
+        <source>目标文件已存在，请选择新的文件名。</source>
+        <translation>대상 파일이 이미 있습니다. 새 파일 이름을 선택하세요.</translation>
+    </message>
+    <message>
+        <source>退出时录制未能完成。</source>
+        <translation>종료 전에 녹화를 완료할 수 없습니다.</translation>
     </message>
 </context>
 </TS>

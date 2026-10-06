@@ -7,7 +7,9 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
-    QWidget, QPushButton, QLabel, QHBoxLayout, QVBoxLayout,
+    QWidget, QPushButton, QLabel, QHBoxLayout, QVBoxLayout, QDialog,
+    QFormLayout, QComboBox, QSpinBox, QDoubleSpinBox, QCheckBox,
+    QDialogButtonBox, QInputDialog,
 )
 from PySide6.QtCore import Qt, QPoint, Signal, QSize
 from PySide6.QtGui import QCursor, QColor
@@ -18,6 +20,7 @@ from core.ui_scale import get_ui_scale, scaled
 from core.ui_theme import set_own_style
 from core import safe_event
 from core.logger import log_exception, T
+from .video_settings import RecordingOptions, get_recording_mode, set_recording_mode
 
 
 _tr = make_tr("GifRecordToolbar")
@@ -39,6 +42,7 @@ class RecordToolbar(QWidget):
     """录制阶段悬浮工具栏 — 录制控制 + 绘制工具一体化"""
 
     fps_changed     = Signal(int)
+    mode_changed    = Signal(str)
     record_start    = Signal()
     record_stop     = Signal()
     pause_toggled   = Signal(bool)
@@ -88,6 +92,12 @@ class RecordToolbar(QWidget):
         self._tool_buttons: dict[str, QPushButton] = {}
         self._record_rect = None  # 录制区域矩形，用于面板定位
         self._toolbar_below_record_rect = True
+        from settings import get_tool_settings_manager
+        self._config = get_tool_settings_manager()
+        self._mode = get_recording_mode(self._config)
+        self._video_options = RecordingOptions.from_config(self._config)
+        self._video_dialog = None
+        self._fps_dialog = None
 
         self._build_ui()
         self._init_settings_panels()
@@ -152,6 +162,7 @@ class RecordToolbar(QWidget):
             button.setIcon(_svg_icon(svg, icon_sz))
         self._time_label.setStyleSheet(self._time_label_qss())
         self._fps_btn.apply_scale()
+        self._mode_btn.apply_scale()
         for sep in self._separators:
             sep.setFixedSize(1, scaled(self.BASE_SEP_HEIGHT))
         handle_icon = scaled(self.BASE_HANDLE_ICON)
@@ -175,6 +186,12 @@ class RecordToolbar(QWidget):
 
         # ── 左侧：录制控制 ──
 
+        self._mode_btn = _ClickMenuButton(
+            [("GIF", "gif"), ("MP4", "mp4")], default_index=int(self._mode == "mp4"))
+        self._mode_btn.setToolTip(_tr("录制格式"))
+        self._mode_btn.option_selected.connect(self._on_mode_selected)
+        layout.addWidget(self._mode_btn)
+
         # 0. 帧率选择
         try:
             from settings.tool_settings import get_tool_settings_manager
@@ -194,9 +211,16 @@ class RecordToolbar(QWidget):
             options=_fps_pairs,
             default_index=_default_index,
         )
-        self._fps_btn.option_selected.connect(self.fps_changed.emit)
+        self._gif_fps_pairs = _fps_pairs
+        # 旧配置可能保留已移除的帧率，沿用原菜单回退到首项的行为。
+        self._gif_fps = _fps_pairs[_default_index][1]
         self._fps_btn.option_selected.connect(self._on_fps_selected)
         layout.addWidget(self._fps_btn)
+
+        self._video_settings_btn = QPushButton(_tr("视频设置"))
+        self._video_settings_btn.clicked.connect(self._show_video_settings)
+        layout.addWidget(self._video_settings_btn)
+        self._refresh_recording_options()
 
         # 1. 录制 / 停止
         self._record_btn = QPushButton()
@@ -587,6 +611,9 @@ class RecordToolbar(QWidget):
         self._set_button_icon(self._pause_btn, "暂停不可.svg")
         self._pause_btn.setToolTip(_tr("暂停录制"))
         self._fps_btn.set_enabled(True)
+        self._mode_btn.set_enabled(True)
+        self._video_settings_btn.setEnabled(True)
+        self._record_btn.setEnabled(True)
         self._move_handle.setEnabled(True)
         self._move_handle.setCursor(QCursor(Qt.CursorShape.SizeAllCursor))
         self._move_handle.setToolTip("")
@@ -594,7 +621,126 @@ class RecordToolbar(QWidget):
         self._time_label.setStyleSheet(self._time_label_qss())
 
     def get_current_fps(self) -> int:
-        return self._fps_btn.current_value()
+        return self._video_options.fps if self._mode == "mp4" else self._gif_fps
+
+    def get_recording_mode(self):
+        return self._mode
+
+    def get_video_options(self):
+        return self._video_options
+
+    def set_busy(self, text, *, allow_stop=False):
+        """启动、暂停交接和封装阶段不允许重复点击或修改编码参数。"""
+        self._record_btn.setEnabled(allow_stop)
+        self._pause_btn.setEnabled(False)
+        self._fps_btn.set_enabled(False)
+        self._mode_btn.set_enabled(False)
+        self._video_settings_btn.setEnabled(False)
+        self._move_handle.setEnabled(False)
+        self._time_label.setText(text)
+
+    def set_video_ready(self):
+        self._recording = True
+        self._record_btn.setEnabled(True)
+        self._pause_btn.setEnabled(True)
+        self._set_button_icon(self._record_btn, "结束录制.svg")
+        self._record_btn.setToolTip(_tr("停止录制"))
+        self._time_label.setText("00:00")
+
+    def set_video_paused(self, paused):
+        self._paused = paused
+        self._record_btn.setEnabled(True)
+        self._pause_btn.setEnabled(True)
+        self._set_button_icon(self._pause_btn, "重开录制.svg" if paused else "暂停录制.svg")
+        self._pause_btn.setToolTip(_tr("恢复录制") if paused else _tr("暂停录制"))
+
+    def _on_mode_selected(self, mode):
+        # 重复选择当前格式不重新释放 GIF 会话，保留仍在等待的归还任务。
+        if mode == self._mode:
+            return
+        self._mode = mode
+        set_recording_mode(self._config, mode)
+        self._refresh_recording_options()
+        self.mode_changed.emit(mode)
+
+    def _refresh_recording_options(self):
+        if self._mode == "mp4":
+            values = sorted({15, 24, 30, 48, 60, self._video_options.fps})
+            pairs = [(f"{v} fps", v) for v in values] + [(_tr("自定义帧率…"), None)]
+            current = self._video_options.fps
+        else:
+            pairs, current = self._gif_fps_pairs, self._gif_fps
+        self._fps_btn._options = pairs
+        self._fps_btn._current_index = next(i for i, (_, value) in enumerate(pairs) if value == current)
+        self._fps_btn._update_text()
+        self._video_settings_btn.setVisible(self._mode == "mp4")
+        self.adjustSize()
+
+    def _show_video_settings(self):
+        """只保存编码参数；录制器不预览、不缓存 MP4 帧。"""
+        if self._video_dialog is not None:
+            self._video_dialog.raise_()
+            return
+        dialog = QDialog(self)
+        self._video_dialog = dialog
+        dialog.setWindowTitle(_tr("视频设置"))
+        form = QFormLayout(dialog)
+        fps = QSpinBox(dialog)
+        fps.setRange(1, 60)
+        fps.setValue(self._video_options.fps)
+        fps.setSuffix(" fps")
+        form.addRow(_tr("帧率"), fps)
+        bitrate = QDoubleSpinBox(dialog)
+        bitrate.setRange(0.5, 50)
+        bitrate.setSingleStep(0.5)
+        bitrate.setDecimals(1)
+        bitrate.setValue(self._video_options.bitrate / 1_000_000)
+        bitrate.setSuffix(" Mbps")
+        presets = QComboBox(dialog)
+        for value in (1, 2, 4, 8):
+            presets.addItem(f"{value} Mbps", value)
+        presets.addItem(_tr("自定义"), None)
+        index = presets.findData(self._video_options.bitrate / 1_000_000)
+        presets.setCurrentIndex(index if index >= 0 else 4)
+        presets.currentIndexChanged.connect(
+            lambda i: bitrate.setValue(presets.itemData(i)) if presets.itemData(i) is not None else None)
+        bitrate.valueChanged.connect(
+            lambda value: presets.setCurrentIndex(presets.findData(value) if presets.findData(value) >= 0 else 4))
+        row = QHBoxLayout()
+        row.addWidget(presets)
+        row.addWidget(bitrate)
+        form.addRow(_tr("视频码率"), row)
+        audio = QCheckBox(_tr("录制系统声音"), dialog)
+        audio.setChecked(self._video_options.system_audio)
+        hardware = QCheckBox(_tr("优先使用硬件编码（不可用时使用系统软件编码）"), dialog)
+        hardware.setChecked(self._video_options.hardware)
+        cursor = QCheckBox(_tr("录制鼠标指针"), dialog)
+        cursor.setChecked(self._video_options.cursor)
+        for widget in (audio, hardware, cursor):
+            form.addRow(widget)
+        hint = QLabel(_tr("码率是目标值，实际大小随画面变化。较低码率减少文件大小和细节。系统声音不包含麦克风。"), dialog)
+        hint.setWordWrap(True)
+        form.addRow(hint)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel, parent=dialog)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        form.addRow(buttons)
+        def save_options():
+            self._video_options = RecordingOptions(
+                fps=fps.value(), bitrate=round(bitrate.value() * 1_000_000),
+                system_audio=audio.isChecked(), hardware=hardware.isChecked(), cursor=cursor.isChecked())
+            self._video_options.save_to_config(self._config)
+            self._refresh_recording_options()
+            self.fps_changed.emit(self._video_options.fps)
+        dialog.accepted.connect(save_options)
+        dialog.finished.connect(lambda result: self._finish_option_dialog("_video_dialog", dialog))
+        dialog.open()
+
+    def _finish_option_dialog(self, attribute, dialog):
+        if getattr(self, attribute) is dialog:
+            setattr(self, attribute, None)
+        dialog.deleteLater()
 
     # ── 录制回调 ─────────────────────────────────────────────
 
@@ -607,6 +753,8 @@ class RecordToolbar(QWidget):
             self._set_button_icon(self._pause_btn, "暂停录制.svg")
             self._pause_btn.setToolTip(_tr("暂停录制"))
             self._fps_btn.set_enabled(False)
+            self._mode_btn.set_enabled(False)
+            self._video_settings_btn.setEnabled(False)
             self._move_handle.setEnabled(False)
             self._move_handle.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
             self._move_handle.setToolTip(_tr("录制中无法移动"))
@@ -620,6 +768,8 @@ class RecordToolbar(QWidget):
             self._set_button_icon(self._pause_btn, "暂停不可.svg")
             self._pause_btn.setToolTip(_tr("暂停录制"))
             self._fps_btn.set_enabled(True)
+            self._mode_btn.set_enabled(True)
+            self._video_settings_btn.setEnabled(True)
             self._move_handle.setEnabled(True)
             self._move_handle.setCursor(QCursor(Qt.CursorShape.SizeAllCursor))
             self._move_handle.setToolTip("")
@@ -654,6 +804,32 @@ class RecordToolbar(QWidget):
         self.drag_ended.emit()
 
     def _on_fps_selected(self, fps: int):
+        if self._mode == "mp4":
+            if fps is None:
+                if self._fps_dialog is not None:
+                    self._fps_dialog.raise_()
+                    return
+                dialog = QInputDialog(self)
+                self._fps_dialog = dialog
+                dialog.setWindowTitle(_tr("自定义帧率"))
+                dialog.setLabelText(_tr("帧率（1–60）"))
+                dialog.setInputMode(QInputDialog.InputMode.IntInput)
+                dialog.setIntRange(1, 60)
+                dialog.setIntValue(self._video_options.fps)
+                dialog.accepted.connect(lambda: self._on_fps_selected(dialog.intValue()))
+                dialog.finished.connect(lambda result: self._finish_option_dialog("_fps_dialog", dialog))
+                # 菜单的“自定义”占位不是实际 FPS，取消时也保留当前有效值。
+                self._refresh_recording_options()
+                dialog.open()
+                return
+            from dataclasses import replace
+            self._video_options = replace(self._video_options, fps=fps)
+            self._video_options.save_to_config(self._config)
+            self._refresh_recording_options()
+            self.fps_changed.emit(fps)
+            return
+        self._gif_fps = fps
+        self.fps_changed.emit(fps)
         try:
             from settings.tool_settings import get_tool_settings_manager
             get_tool_settings_manager().set_gif_fps(fps)
@@ -662,6 +838,9 @@ class RecordToolbar(QWidget):
 
     def hide(self):
         """隐藏工具栏 + 所有面板"""
+        for dialog in (self._video_dialog, self._fps_dialog):
+            if dialog is not None:
+                dialog.reject()
         self._hide_all_panels()
         super().hide()
 

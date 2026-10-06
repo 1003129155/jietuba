@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+from main.video_helper import installed_recorder_licenses
+
 
 REPO_DIR = Path(__file__).resolve().parent
 CRATES = ("gifrecorder", "longstitch", "pyclipboard", "ppocr_rust", "hdrcapture", "inputhub", "updater")
@@ -18,6 +20,8 @@ def write_notices(output_dir: Path, *, lite: bool = False) -> Path:
         ("oneocr", REPO_DIR / "licenses" / "oneocr-LICENSE.txt"),
         ("lucide icons", REPO_DIR / "licenses" / "lucide-LICENSE.txt"),
     ])
+    # 录制扩展的声明来自已安装 wheel，与打包的原生模块保持一致。
+    sources.extend((f"video_recorder/{name}", path) for name, path in installed_recorder_licenses().items())
     sections = ["JIETUBA LICENSE AND THIRD-PARTY NOTICES\n"]
     for name, source in sources:
         sections.append(f"{'=' * 80}\n{name}\n{'=' * 80}\n\n{source.read_text(encoding='utf-8').strip()}\n")
@@ -30,6 +34,7 @@ def write_notices(output_dir: Path, *, lite: bool = False) -> Path:
     if old_dir.is_dir():
         names = ["LICENSE.txt", "windows-capture-LICENSE.txt", "oneocr-LICENSE.txt"]
         names.extend(f"{crate}-THIRD-PARTY-NOTICES.txt" for crate in CRATES)
+        names.extend(("video_recorder-LICENSE", "video_recorder-THIRD-PARTY-NOTICES.txt"))
         for name in names:
             (old_dir / name).unlink(missing_ok=True)
         if not any(old_dir.iterdir()):

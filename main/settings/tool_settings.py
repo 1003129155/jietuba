@@ -366,6 +366,12 @@ class ToolSettingsManager(QObject):
         "screenshot_border_persist": False,          # 每次截图都保持开启
         # GIF 录制
         "gif_fps": 10,                         # GIF默认帧率
+        "recording_format": "gif",
+        "video_record_fps": 30,
+        "video_record_bitrate": 4_000_000,
+        "video_record_system_audio": True,
+        "video_record_hardware": True,
+        "video_record_cursor": True,
         "gif_fps_options": [5, 10, 16, 24],  # 帧率可选项（可在此调整选项）
 
         # OCR
