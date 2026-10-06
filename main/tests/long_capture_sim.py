@@ -50,10 +50,12 @@ class SimulatedPage:
     mode 是程序对不到一格的滚轮的处理："smooth" 按比例滚，"accumulate" 攒够一格再滚，"whole" 直接丢掉。
     unsettled 模拟动画中途没重绘完：每次滚动后的头几次截图上半截是新位置、下半截还是旧位置，且每次错开处都不同。
     hover 模拟光标停在截图区中间：开始注入滚轮后，每次截图中间那一行都带着悬停高亮。
+    lazy 模拟内容慢加载：视口第一次露出的行是白的，调用 load() 后才画出来。
     """
 
-    def __init__(self, window, page, top, mode="smooth", unsettled=0, hover=False):
+    def __init__(self, window, page, top, mode="smooth", unsettled=0, hover=False, lazy=False):
         self.window, self.page, self.mode, self.unsettled, self.hover = window, page, mode, unsettled, hover
+        self._loaded = [not lazy] * page.height
         self._hovering = False
         self._exact = float(top)
         self._pending = 0
@@ -61,6 +63,7 @@ class SimulatedPage:
         self._torn_left = 0
         self.injected = []
         self.torn = set()  # 截到过的错开画面（字节的哈希）
+        self.load()
 
     @property
     def top(self):
@@ -82,6 +85,11 @@ class SimulatedPage:
         if self.top != self._previous_top:
             self._torn_left = self.unsettled
 
+    def load(self):
+        """视口里的行都加载出来。"""
+        for row in range(self.top, self.top + VIEW_H):
+            self._loaded[row] = True
+
     def scroll_and_capture(self, notches):
         """滚几格再立刻截图。"""
         self.inject(notches * 120)
@@ -95,6 +103,9 @@ class SimulatedPage:
             crop.paste(stale.crop((0, split, PAGE_W, VIEW_H)), (0, split))
             self._torn_left -= 1
             self.torn.add(hash(crop.convert("RGBA").tobytes("raw", "BGRA")))
+        for row in range(VIEW_H):
+            if not self._loaded[self.top + row]:
+                crop.paste((255, 255, 255), (0, row, PAGE_W, row + 1))
         if self._hovering:
             crop.paste((200, 225, 250), (0, VIEW_H // 2 - 6, PAGE_W, VIEW_H // 2 + 6))
         crop = crop.convert("RGBA")
@@ -116,9 +127,9 @@ def open_window(monkeypatch):
     return window
 
 
-def simulate(monkeypatch, window, page, top, mode="smooth", unsettled=0, hover=False):
+def simulate(monkeypatch, window, page, top, mode="smooth", unsettled=0, hover=False, lazy=False):
     """让窗口截的是模拟页面，自动滚动的注入和光标也换成模拟的。"""
-    sim = SimulatedPage(window, page, top, mode, unsettled, hover)
+    sim = SimulatedPage(window, page, top, mode, unsettled, hover, lazy)
     monkeypatch.setattr(window, "_grab_capture_rect", sim.grab)
     monkeypatch.setattr(window._auto_scroller, "_inject", sim.inject)
     monkeypatch.setattr(window._auto_scroller, "_cursor", FakeCursor())

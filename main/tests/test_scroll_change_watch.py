@@ -166,6 +166,22 @@ def test_finishing_takes_the_view_the_watch_has_not_noticed_yet(qtbot, monkeypat
     assert window.captured["image"].convert("RGB").tobytes() == sim.page.crop((0, 0, PAGE_W, 120 + VIEW_H)).tobytes()
 
 
+@pytest.mark.parametrize("notches", [2, 5])
+def test_content_loaded_after_stopping_replaces_the_blank(qtbot, monkeypatch, window, notches):
+    """停下时新露出的部分还白着，加载出来后画面一变又截一次，长图里换成加载好的；白的超过半屏也一样。"""
+    sim = simulate(monkeypatch, window, synthetic_page(1600, seed=31), 0, lazy=True)
+    window._do_capture()
+    for _ in range(4):
+        sim.inject(-notches * 120)
+        window._do_capture()
+        sim.load()
+        window._on_screen_changed()
+        qtbot.waitUntil(lambda: not window._still_timer.isActive())
+    window._on_finish()
+    expected = sim.page.crop((0, 0, PAGE_W, sim.top + VIEW_H))
+    assert window.captured["image"].convert("RGB").tobytes() == expected.tobytes()
+
+
 def test_the_watch_runs_from_the_first_frame_until_cleanup(qtbot, monkeypatch, window):
     simulate(monkeypatch, window, synthetic_page(1600), 0)
     region = FakeRegion()
