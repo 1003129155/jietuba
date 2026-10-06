@@ -4,6 +4,7 @@
 
 提供 QApplication 实例等公共 fixture。
 """
+import gc
 import pytest
 import sys
 import os
@@ -49,6 +50,10 @@ def flush_qt_deferred_deletes():
 
     if QCoreApplication.instance() is not None:
         QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    # 留在循环引用里的 Qt 对象要在主线程回收：否则会被之后某条测试的后台线程触发的 GC 析构，进程随机崩溃。
+    # 回收后冻结仍存活的对象，下次只扫新对象，不然每条都全量扫一遍
+    gc.collect()
+    gc.freeze()
 
 
 @pytest.fixture(scope="session", autouse=True)
