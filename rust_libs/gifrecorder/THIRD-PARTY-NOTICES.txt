@@ -987,7 +987,7 @@ SOFTWARE.
 ================================================================================
 MIT License
 
-Applies to: gifrecorder 0.4.0, hdrcapture 0.1.0
+Applies to: gifrecorder 0.4.1, hdrcapture 0.1.0
 
 MIT License
 
