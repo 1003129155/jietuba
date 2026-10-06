@@ -517,6 +517,7 @@ settings/
 ```text
 stitch/
 ├── auto_scroll.py                   # AutoScroller — 自動スクロール：結合結果から歩幅を決め、末尾かマウス移動で停止
+├── change_watch.py                  # ChangeWatch — キャプチャ範囲をバックグラウンドで監視し、画面が変わるたびにキャプチャ
 ├── incremental.py                   # IncrementalStitcher — バックグラウンド結合とプレビュー縮小画像
 ├── jietuba_long_stitch_unified.py   # 結合インターフェース（Rust の longstitch を呼び出す）
 ├── scroll_window.py                 # ScrollCaptureWindow — スクロールキャプチャウィンドウ

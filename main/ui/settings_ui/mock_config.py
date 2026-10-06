@@ -32,7 +32,6 @@ APP_DEFAULT_SETTINGS = {
     "log_dir": os.path.expanduser("~"),
     "capture_engine": "auto",
     "long_stitch_engine": "hash_rust",
-    "scroll_cooldown": 0.15,
     "long_stitch_ignore_top_pixels": 0,
     "preload_screenshot": True,
     "preload_toolbar": True,
@@ -179,8 +178,6 @@ class MockConfig:
     def set_long_stitch_engine(self, v): pass
     def get_long_stitch_debug(self): return False
     def set_long_stitch_debug(self, v): pass
-    def get_scroll_cooldown(self): return 0.15
-    def set_scroll_cooldown(self, v): pass
     def get_long_stitch_ignore_top_pixels(self): return 0
     def set_long_stitch_ignore_top_pixels(self, v): pass
     def get_screenshot_save_enabled(self): return True

@@ -76,6 +76,7 @@ class AutoScroller(QObject):
         self._injected_at = 0.0
         self._waiting: Optional[int] = None
         self._last_top: Optional[int] = None
+        self._forward = True  # 最近一次挪动是往下或往右
         self._parked = QPoint()
         self._settle_timer = QTimer(self)
         self._settle_timer.setSingleShot(True)
@@ -91,10 +92,13 @@ class AutoScroller(QObject):
     def running(self) -> bool:
         return self._running
 
-    def start(self, center: QPoint, horizontal: bool, forward: bool) -> None:
-        """把光标停到 center 开始滚：forward 为往下或往右，否则往上或往左。"""
+    def start(self, center: QPoint, horizontal: bool, forward: Optional[bool] = None) -> None:
+        """把光标停到 center 开始滚：forward 为往下或往右，否则往上或往左；
+        不指定就沿最近一次挪动的方向，还没挪过往下或往右。"""
         if self._running:
             return
+        if forward is None:
+            forward = self._forward
         self._running = True
         self._horizontal = horizontal
         # 滚轮的正负：竖向正值往上，横向正值往右
@@ -128,11 +132,14 @@ class AutoScroller(QObject):
         self.stop()
 
     def on_frame(self, result) -> None:
-        """一帧的拼接结论。不是自动滚动截的帧也要交进来，用来跟踪最新一帧的位置。"""
+        """一帧的拼接结论。不是自动滚动截的帧也要交进来，用来跟踪最新一帧的位置和挪动方向。"""
         moved = None
         if result.ok:
             if self._last_top is not None:
-                moved = abs(result.top - result.shift - self._last_top)
+                delta = result.top - result.shift - self._last_top
+                moved = abs(delta)
+                if delta:
+                    self._forward = delta > 0
             self._last_top = result.top
         if not self._running or result.index != self._waiting:
             return

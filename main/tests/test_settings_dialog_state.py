@@ -198,13 +198,13 @@ class TestSnapshotSettings:
             hotkey_input=_TextWidget("k"),
             save_toggle=_Toggle(True),
             log_level_combo=_Combo(index=3),
-            cooldown_spinbox=_Spin(0.25),
+            ignore_top_pixels_spinbox=_Spin(30),
         )
         snap = SettingsDialog._snapshot_settings(fake)
         assert snap["hotkey_input"] == "k"
         assert snap["save_toggle"] is True
         assert snap["log_level_combo"] == 3
-        assert snap["cooldown_spinbox"] == 0.25
+        assert snap["ignore_top_pixels_spinbox"] == 30
 
     def test_inapp_shortcuts_are_namespaced_to_avoid_collisions(self):
         fake = SimpleNamespace(_inapp_edits={"inapp_undo": _TextWidget("ctrl+z")})

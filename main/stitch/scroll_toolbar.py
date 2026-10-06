@@ -5,7 +5,7 @@ scroll_toolbar.py - 滚动截图浮动工具栏模块
 
 主要类:
 - _DragHandle     : 工具栏左端拖动手柄（竖排灰点，手动模式加深 + 双击复位信号）
-- FloatingToolbar : 可拖动的浮动工具栏：长图尺寸、方向、自动滚动、手动截图、裁剪、取消、钉图、完成
+- FloatingToolbar : 可拖动的浮动工具栏：长图尺寸、方向、自动滚动、裁剪、取消、钉图、完成
 """
 
 from PySide6.QtWidgets import QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QMenu, QLabel
@@ -83,7 +83,6 @@ class FloatingToolbar(QWidget):
     # 信号定义
     direction_changed = Signal()
     auto_scroll_clicked = Signal()
-    manual_capture = Signal()
     crop_requested = Signal(str)  # "top" 去掉当前画面之前的内容，"bottom" 去掉之后的内容
     pin_clicked = Signal()   # 钉图信号
     finish_clicked = Signal()
@@ -202,8 +201,6 @@ class FloatingToolbar(QWidget):
         self.auto_scroll_btn = self._add_icon_button(
             toolbar_layout, "自动滚动.svg", self.tr("Auto scroll (move the mouse to stop)"), self.auto_scroll_clicked.emit)
         self.auto_scroll_btn.setCheckable(True)
-        self.manual_capture_btn = self._add_icon_button(
-            toolbar_layout, "托盘.svg", self.tr("Take screenshot manually"), self.manual_capture.emit)
         # 裁剪按钮：把长图裁到当前画面（预览里的绿框）
         self.crop_btn = self._add_icon_button(toolbar_layout, "裁剪.svg", self.tr("Crop"), self._show_crop_menu)
 

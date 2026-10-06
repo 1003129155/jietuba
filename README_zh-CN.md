@@ -575,6 +575,7 @@ settings/
 stitch/
 ├── __init__.py
 ├── auto_scroll.py                   # AutoScroller — 自动滚动：按拼接结果定步长，到底或动鼠标即停
+├── change_watch.py                  # ChangeWatch — 后台盯着截图区，画面一变就截
 ├── incremental.py                   # IncrementalStitcher — 后台增量拼接与预览缩略图
 ├── jietuba_long_stitch_unified.py   # 长截图拼接接口（调用 Rust longstitch）
 ├── scroll_window.py                 # ScrollCaptureWindow — 滚动截图窗口

@@ -453,14 +453,6 @@ Replace it?</translation>
         <translation>Python Hash (Debug)</translation>
     </message>
     <message>
-        <source>Wait Time</source>
-        <translation>Wait Time</translation>
-    </message>
-    <message>
-        <source>Capture wait time after scroll (seconds)</source>
-        <translation>Capture wait time after scroll (seconds)</translation>
-    </message>
-    <message>
         <source>Ignore Top Pixels</source>
         <translation>Ignore Top Pixels</translation>
     </message>
@@ -1505,10 +1497,6 @@ Replace it?</translation>
     <message>
         <source>Click to take screenshot manually</source>
         <translation>Click to take screenshot manually</translation>
-    </message>
-    <message>
-        <source>Take screenshot manually</source>
-        <translation>Take screenshot manually</translation>
     </message>
     <message>
         <source>Auto scroll (move the mouse to stop)</source>

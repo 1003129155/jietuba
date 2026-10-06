@@ -518,6 +518,7 @@ settings/
 ```text
 stitch/
 ├── auto_scroll.py                   # AutoScroller — auto scroll: step size from stitch results, stops at the end or on mouse move
+├── change_watch.py                  # ChangeWatch — watches the capture area in the background and captures whenever the view changes
 ├── incremental.py                   # IncrementalStitcher — background stitching, preview thumbnails
 ├── jietuba_long_stitch_unified.py   # Stitching interface (calls the Rust longstitch)
 ├── scroll_window.py                 # ScrollCaptureWindow — scroll capture window

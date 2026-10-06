@@ -205,7 +205,7 @@ def test_settings_keys_are_the_options_on_the_settings_pages(settings, config):
     assert {
         "app/hotkey", "app/capture_include_cursor", "pin/hover_buttons",
         "translation/providers/deepseek/api_key", "clipboard/theme", "clipboard/font_size",
-        "app/ui_scale_percent", "app/theme_color", "screenshot/scroll_cooldown",
+        "app/ui_scale_percent", "app/theme_color", "screenshot/long_stitch_ignore_top_pixels",
     } <= keys
     assert not any(key.startswith("tools/") for key in keys)
     assert config.qsettings is store
@@ -250,7 +250,7 @@ def test_exported_page_options_survive_a_roundtrip(qapp, config, clip_theme, tmp
     source = _source(tmp_path)
     source.set_app_setting("hotkey", "ctrl+alt+q")
     source.set_app_setting("capture_include_cursor", True)
-    source.set_scroll_cooldown(0.4)
+    source.set_long_stitch_ignore_top_pixels(40)
     source.qsettings.setValue("translation/providers/deepseek/api_key", "sk-source")
     exporter = _dialog(source, monkeypatch)
     importer = _dialog(config, monkeypatch)
@@ -263,7 +263,7 @@ def test_exported_page_options_survive_a_roundtrip(qapp, config, clip_theme, tmp
 
         assert config.get_app_setting("hotkey") == "ctrl+alt+q"
         assert config.get_app_setting("capture_include_cursor") is True
-        assert config.get_scroll_cooldown() == pytest.approx(0.4)
+        assert config.get_long_stitch_ignore_top_pixels() == 40
         assert config.qsettings.value("translation/providers/deepseek/api_key") == "sk-source"
     finally:
         _close(exporter)

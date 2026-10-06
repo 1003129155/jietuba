@@ -30,15 +30,14 @@ class Frame:
     """一次截屏。bgra 为 width x height 的 BGRA 像素。
 
     heading 是截这一帧之前的滚动方向（拼接坐标下："down" 往下或往右，"up" 往上或往左），
-    不知道时为 None，比如点了手动截图。
+    不知道时为 None：长截图窗口按画面变化截图，不知道是怎么滚的。
     """
     bgra: bytes
     width: int
     height: int
     index: int
     scroll_direction: str
-    heading: Optional[str]
-    distance: int
+    heading: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -51,7 +50,6 @@ class FrameResult:
     index: int
     width: int
     height: int
-    distance: int
     preview: Optional[QImage]
     error: Optional[str] = None
     top: int = 0
@@ -67,7 +65,7 @@ def _match_ratios(direction: str, heading: Optional[str]) -> dict:
 
 
 def _push_frame(session, data: bytes, direction: str, heading: Optional[str]):
-    """推入一帧。不知道滚动方向时（手动截图）按会话最近一次移动的方向，忽略比例也跟着它选。"""
+    """推入一帧。不知道滚动方向时按会话最近一次移动的方向，忽略比例也跟着它选。"""
     heading = heading or session.last_move
     return session.push(data, heading=heading, **_match_ratios(direction, heading))
 
@@ -146,7 +144,7 @@ class IncrementalStitcher(QObject):
         try:
             result = self._apply_crop(side)
         except Exception as e:
-            result = FrameResult(False, False, 0, 0, 0, 0, None, str(e) or type(e).__name__)
+            result = FrameResult(False, False, 0, 0, 0, None, str(e) or type(e).__name__)
         self.crop_done.emit(result)
 
     def _apply_crop(self, side: str) -> FrameResult:
@@ -165,7 +163,7 @@ class IncrementalStitcher(QObject):
             del self._thumb[:max(0, rows - target) * row_bytes]
         else:
             del self._thumb[target * row_bytes:]
-        return FrameResult(True, False, 0, session.width, session.height, 0, self._render(self._thumb),
+        return FrameResult(True, False, 0, session.width, session.height, self._render(self._thumb),
                            top=self._top, box=self._box(self._top), shift=shift, size=self._size())
 
     def _push(self, frame: Frame) -> FrameResult:
@@ -174,7 +172,7 @@ class IncrementalStitcher(QObject):
             preview = self._first_preview(frame)
             long_side = preview.width() if frame.scroll_direction == "horizontal" else preview.height()
             return FrameResult(True, True, frame.index, frame.width, frame.height,
-                               frame.distance, preview, box=(0, long_side), size=(frame.width, frame.height))
+                               preview, box=(0, long_side), size=(frame.width, frame.height))
         if self._session is None:
             return self._start(frame)
         return self._append(frame)
@@ -281,7 +279,7 @@ class IncrementalStitcher(QObject):
     def _success(self, frame: Frame, step) -> FrameResult:
         self._top = step.top
         return FrameResult(True, False, frame.index, self._session.width, self._session.height,
-                           frame.distance, self._render(self._thumb), top=step.top, box=self._box(step.top),
+                           self._render(self._thumb), top=step.top, box=self._box(step.top),
                            shift=step.head_rows - step.head_cut, size=self._size())
 
     def _size(self) -> tuple[int, int]:
@@ -289,4 +287,4 @@ class IncrementalStitcher(QObject):
         return (height, width) if self._direction == "horizontal" else (width, height)
 
     def _failure(self, frame: Frame, error: Optional[str] = None) -> FrameResult:
-        return FrameResult(False, False, frame.index, 0, 0, frame.distance, None, error)
+        return FrameResult(False, False, frame.index, 0, 0, None, error)

@@ -452,14 +452,6 @@ Replace it?</source>
         <translation>Python 해시 (디버그)</translation>
     </message>
     <message>
-        <source>Wait Time</source>
-        <translation>대기 시간</translation>
-    </message>
-    <message>
-        <source>Capture wait time after scroll (seconds)</source>
-        <translation>스크롤 후 캡처 대기 시간(초)</translation>
-    </message>
-    <message>
         <source>Ignore Top Pixels</source>
         <translation>상단 픽셀 무시</translation>
     </message>
@@ -1620,10 +1612,6 @@ Replace it?</source>
     <message>
         <source>Click to take screenshot manually</source>
         <translation>클릭하여 수동으로 스크린샷 찍기</translation>
-    </message>
-    <message>
-        <source>Take screenshot manually</source>
-        <translation>수동으로 스크린샷 찍기</translation>
     </message>
     <message>
         <source>Auto scroll (move the mouse to stop)</source>

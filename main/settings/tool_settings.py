@@ -489,7 +489,6 @@ class ToolSettingsManager(QObject):
         # 长截图
         "long_stitch_engine": "hash_rust",     # 长截图引擎（hash_rust）
         "long_stitch_debug": False,            # 长截图调试模式
-        "scroll_cooldown": 0.15,               # 滚动后等待时间（秒，0.05-1.0）
         "long_stitch_ignore_top_pixels": 0,    # 后续截图顶部忽略像素（0-300）
 
         # 启动预加载（重启生效）
@@ -1067,14 +1066,6 @@ class ToolSettingsManager(QObject):
             engine = self.APP_DEFAULT_SETTINGS["capture_engine"]
         self.qsettings.setValue("app/capture_engine", engine)
     
-    def get_scroll_cooldown(self) -> float:
-        """获取滚动后等待时间（秒）"""
-        return self.qsettings.value("screenshot/scroll_cooldown", self.APP_DEFAULT_SETTINGS["scroll_cooldown"], type=float)
-    
-    def set_scroll_cooldown(self, value: float):
-        """设置滚动后等待时间（秒，0.05-1.0）"""
-        self.qsettings.setValue("screenshot/scroll_cooldown", value)
-
     def get_long_stitch_ignore_top_pixels(self) -> int:
         """获取后续截图顶部忽略像素数"""
         return self.qsettings.value(

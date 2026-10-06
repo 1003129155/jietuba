@@ -5,24 +5,24 @@ jietuba_scroll.py - 滚动截图窗口模块
 
 主要功能:
 - 显示半透明边框窗口标识截图区域
-- 监听鼠标滚轮事件自动触发截图
+- 截图区画面一变就截图：滚轮、拖滚动条、拖内容、键盘翻页都一样
 - 实时显示已捕获的截图数量
-- 支持手动/自动截图控制
+- 支持自动滚动
 
 主要类:
 - ScrollCaptureWindow: 滚动截图窗口类
 
 特点:
 - 窗口透明,不拦截鼠标事件
-- 使用 Windows API 监听鼠标滚轮
-- 延迟截图机制避免滚动动画干扰
+- 后台线程盯着截图区的变化（change_watch）
+- 等画面停住再截，避开滚动动画中途的画面
 - 支持取消和完成截图操作
 
 依赖模块:
 - PySide6: GUI框架
 - PIL: 图像处理
 - ctypes: Windows API调用
-- core.input_hub: 全局滚轮与按键监听
+- core.input_hub: 横向模式下的 Shift 监听
 
 使用方法:
     window = ScrollCaptureWindow(capture_rect, parent)
@@ -52,6 +52,7 @@ from core.logger import log_exception, T, LogMsg
 from .scroll_toolbar import FloatingToolbar  # 浮动工具栏（独立模块）
 from .incremental import Frame, IncrementalStitcher
 from .auto_scroll import AutoScroller, activate_window_at, wheel_follows_focus
+from .change_watch import ChangeWatch
 from core.ui_theme import set_own_style
 from core.ui_scale import scaled
 
@@ -113,16 +114,28 @@ long_stitch_configure(
 
 # Windows API 常量
 _INPUT_WATCHER = "stitch"
-WHEEL_DELTA = 120
-_PIXELS_PER_STEP = 25  # 滚轮一格按 25 像素估算，只用于记录
 STILL_CHECK_MS = 40  # 隔这么久再截一次，两次一样才算画面停住了
 STILL_CHECK_TRIES = 6
+# 接不上的提示晚这么久才出现：闪白、动画中途这类孤立的一张怪帧之后马上有好帧接上，提示不该一闪而过
+WARNING_DELAY_MS = 600
 _SHIFT_KEYS = (0xA0, 0xA1)  # 左右 Shift
 _PREVIEW_SIDE = 190  # 预览面板的固定边长，缩略图按它生成
 
 GWL_EXSTYLE = -20
 WS_EX_TRANSPARENT = 0x00000020
 WS_EX_LAYERED = 0x00080000
+
+
+def _blank(frame, horizontal: bool) -> bool:
+    """沿拼接方向没有任何变化，比如整屏刷白、正在重绘：没有能拼的内容，两次截到一样也不算停住。
+    竖向看是否每一行都一样；横向拼的是列，看是否每一列都一样，即每一行内部只有一种颜色。"""
+    bgra, width, height = frame
+    stride = width * 4
+    if horizontal:
+        return all(bgra[row * stride:(row + 1) * stride] == bgra[row * stride:row * stride + 4] * width
+                   for row in range(height))
+    first = bgra[:stride]
+    return all(bgra[row * stride:(row + 1) * stride] == first for row in range(1, height))
 
 
 class PreviewPanel(QWidget):
@@ -340,7 +353,6 @@ class ScrollCaptureWindow(QWidget):
     
     finished = Signal()  # 完成信号
     cancelled = Signal()  # 取消信号
-    scroll_detected = Signal(int)  # 滚轮检测信号（用于线程安全通信），传递滚动距离
     
     def __init__(self, capture_rect, parent=None, config_manager=None):
         """初始化滚动截图窗口
@@ -355,8 +367,6 @@ class ScrollCaptureWindow(QWidget):
         self.capture_rect = capture_rect
         self.config_manager = config_manager  # 保存配置管理器
         self.screenshots = []  # 存储截图的列表
-        self.scroll_distances = []  # 存储每次滚动的距离（像素）
-        self.current_scroll_distance = 0  # 当前累积的滚动距离
         
         # 保存目录（由外部设置）
         self.save_directory = None
@@ -364,9 +374,6 @@ class ScrollCaptureWindow(QWidget):
         
         # 🆕 截图方向: "vertical"(竖向) 或 "horizontal"(横向)
         self.scroll_direction = "vertical"
-        
-        # 上次截图以来的净滚动量（滚轮格数），正值往下或往右，决定下一帧的滚动方向
-        self._pending_steps = 0.0
         
         # 横向模式按 Shift 触发横向滚动；按住时的自动重复只算一次
         self.horizontal_scroll_key_pressed = False
@@ -377,6 +384,11 @@ class ScrollCaptureWindow(QWidget):
         self._latest_preview = None  # 后台送回的最新缩略图
         self._latest_box = None  # 最新一帧在缩略图长边上的范围
         self.preview_warning_active = False
+        self._pending_warning = None
+        self._warning_timer = QTimer(self)
+        self._warning_timer.setSingleShot(True)
+        self._warning_timer.timeout.connect(self._show_pending_warning)
+        self._stitch_failing = False  # 一段连续接不上只记一条日志
         from .jietuba_long_stitch_unified import config as stitch_config
         self._stitcher = IncrementalStitcher(
             thumb_side=scaled(_PREVIEW_SIDE),
@@ -387,22 +399,15 @@ class ScrollCaptureWindow(QWidget):
         )
         self._stitcher.frame_done.connect(self._on_frame_stitched, Qt.ConnectionType.QueuedConnection)
         self._stitcher.crop_done.connect(self._on_cropped, Qt.ConnectionType.QueuedConnection)
-        self._last_heading = None  # 最近一次有方向的滚动，自动滚动沿它继续
         self._auto_scroller = AutoScroller(self._capture_when_still, parent=self)
         self._auto_scroller.stopped.connect(self._on_auto_scroll_stopped)
-        
-        # 滚动检测相关
-        self.scroll_cooldown = get_tool_settings_manager().get_scroll_cooldown()
+        self._change_watch = ChangeWatch(capture_rect, parent=self)
+        self._change_watch.changed.connect(self._on_screen_changed, Qt.ConnectionType.QueuedConnection)
         
         # 开始时按截图引擎设置定下来，整段长截图不再切换；HDR 失败后剩下的帧走 grabWindow，
         # 见 _grab_capture_rect
         self._use_hdr = uses_hdr_engine()
 
-        # 定时器
-        self.capture_timer = QTimer(self)  # 截图定时器
-        self.capture_timer.setSingleShot(True)
-        self.capture_timer.timeout.connect(self._capture_when_still)
-        
         self._still_timer = QTimer(self)  # 等画面停住
         self._still_timer.setSingleShot(True)
         self._still_timer.timeout.connect(self._check_still)
@@ -410,12 +415,9 @@ class ScrollCaptureWindow(QWidget):
         self._still_tries = 0
         self._still_callbacks = []
         
-        
-        self.scroll_detected.connect(self._handle_scroll_in_main_thread)
-        
         self._setup_window()
         self._setup_ui()
-        self._setup_mouse_hook()
+        self._setup_input()
         
         # 创建独立的浮动工具栏
         self._setup_floating_toolbar()
@@ -493,7 +495,6 @@ class ScrollCaptureWindow(QWidget):
         # 连接工具栏信号
         self.toolbar.direction_changed.connect(self._toggle_direction)
         self.toolbar.auto_scroll_clicked.connect(self._toggle_auto_scroll)
-        self.toolbar.manual_capture.connect(self._on_manual_capture)
         self.toolbar.crop_requested.connect(self._crop)
         self.toolbar.pin_clicked.connect(self._on_pin)
         self.toolbar.finish_clicked.connect(self._on_finish)
@@ -706,28 +707,42 @@ class ScrollCaptureWindow(QWidget):
         self._position_preview_panel()
 
     def _show_preview_warning(self, message: str):
+        self._warning_timer.stop()
+        self._pending_warning = None
         self.preview_warning_active = True
         if hasattr(self, 'preview_panel') and self.preview_panel is not None:
             self.preview_panel.show_warning(message)
 
+    def _show_pending_warning(self):
+        if self._pending_warning is not None:
+            self._show_preview_warning(self._pending_warning)
+
     def _clear_preview_warning(self):
+        self._warning_timer.stop()
+        self._pending_warning = None
         if not self.preview_warning_active:
             return
         self.preview_warning_active = False
         if hasattr(self, 'preview_panel') and self.preview_panel is not None:
             self.preview_panel.clear_warning()
 
-    def _handle_stitch_failure(self, screenshot_index: int, hint: str):
-        _log_stitch(T("🗑️ 忽略第 {screenshot_index} 张截图，等待下一次滚动", screenshot_index=screenshot_index))
+    def _handle_stitch_failure(self, hint: str, immediate: bool = False):
+        """丢掉接不上的这一帧；提示等 WARNING_DELAY_MS，期间有帧接上就不出现。"""
+        self._stitch_failing = True
         if self.screenshots:
             try:
                 self.screenshots.pop()
             except Exception as e:
                 log_exception(e, T("移除失败截图"))
-        self._show_preview_warning(hint)
+        if immediate or self.preview_warning_active:
+            self._show_preview_warning(hint)
+        else:
+            self._pending_warning = hint
+            if not self._warning_timer.isActive():
+                self._warning_timer.start(WARNING_DELAY_MS)
         
-    def _setup_mouse_hook(self):
-        """窗口鼠标穿透，并订阅截图区域内的全局滚轮。"""
+    def _setup_input(self):
+        """窗口鼠标穿透，并接上全局按键（横向模式的 Shift）。"""
         try:
             # 使用Windows API设置窗口透明鼠标事件（需在主线程执行）
             hwnd = int(self.transparent_area.winId())
@@ -740,36 +755,19 @@ class ScrollCaptureWindow(QWidget):
 
         try:
             hub = input_hub()
-            hub.wheel.connect(self._on_wheel, Qt.ConnectionType.QueuedConnection)
             hub.key.connect(self._on_key, Qt.ConnectionType.QueuedConnection)
             self._input_hub = hub
-            rect = self.capture_rect
-            hub.native.watch_wheel(
-                _INPUT_WATCHER, (rect.x(), rect.y(), rect.x() + rect.width(), rect.y() + rect.height()))
-            _log_stitch(T("[OK] 全局滚轮监听器已启动（竖向响应滚轮，横向响应横向滚轮和Shift+滚轮）"))
         except Exception as e:
-            _log_stitch(T("[ERROR] 设置鼠标钩子失败: {e}", e=e), force=True)
+            _log_stitch(T("[ERROR] 接入全局按键失败: {e}", e=e), force=True)
 
-    def _on_wheel(self, watcher, _x, _y, delta, horizontal):
-        """截图区域内的一次滚轮，已在主线程。delta 为 WHEEL_DELTA(120) 的倍数，正值向上或向右。
-
-        两个方向都截图：往回滚由拼接定位到已拼内容里，越过起点就在那一头接上。
-        """
-        if watcher != _INPUT_WATCHER or not delta:
+    def _on_screen_changed(self):
+        """截图区的画面变了：等它停住再截，自动滚动时由它决定什么时候截。"""
+        if self._auto_scroller.running:
             return
-        steps = delta / WHEEL_DELTA
-        if self.scroll_direction == "horizontal":
-            # 横向滚轮向右为正；竖向滚轮（含 Shift+滚轮）向下算向右
-            forward = steps if horizontal else -steps
-        elif not horizontal:
-            forward = -steps
-        else:
-            return
-        self._pending_steps += forward
-        self.scroll_detected.emit(max(1, int(abs(forward) * _PIXELS_PER_STEP)))
+        self._capture_when_still()
 
     def _toggle_auto_scroll(self):
-        """开始或停止自动滚动：沿最近一次滚动的方向继续，还没滚过就往下或往右。"""
+        """开始或停止自动滚动：沿最近一次挪动的方向继续，还没挪过就往下或往右。"""
         scroller = self._auto_scroller
         if scroller.running:
             scroller.stop()
@@ -778,22 +776,24 @@ class ScrollCaptureWindow(QWidget):
         # 滚轮发给有焦点的窗口时，点完工具栏焦点在本程序这边，先把被截的窗口设为前台
         if wheel_follows_focus():
             activate_window_at(center.x(), center.y())
-        scroller.start(center, self.scroll_direction == "horizontal", self._last_heading != "up")
+        scroller.start(center, self.scroll_direction == "horizontal")
         self.toolbar.set_auto_scrolling(True)
         self.update()
         _log_stitch(T("▶️ 开始自动滚动"))
 
     def _capture_pending_now(self):
-        """停下自动滚动，已经滚出去还没截下的画面立刻截下：自动滚动刚注入的一步、滚轮停下后还在等冷却的、
-        还在等画面停住的。导出、裁剪前调用，它们才排在这一帧之后，对准的是屏幕上停住的画面。"""
+        """停下自动滚动，把屏幕上现在的画面截下：自动滚动刚注入还没截的一步、还在等画面停住的，
+        以及画面监视还没来得及发现的最后一次滚动。导出、裁剪前调用，它们才对准屏幕上停住的画面。"""
         self._auto_scroller.stop()
         self._auto_scroller.flush()
-        if self.capture_timer.isActive():
-            self.capture_timer.stop()
-            self._capture_when_still()
-        self._flush_still()
+        if self._still_timer.isActive():
+            self._flush_still()
+        else:
+            self._do_capture()
 
     def _on_auto_scroll_stopped(self, reason):
+        if reason == "failed":
+            self._show_pending_warning()  # 自动滚动因此停下，原因要马上让用户看到
         if getattr(self, 'toolbar', None) is not None:
             self.toolbar.set_auto_scrolling(False)
         self.update()
@@ -845,7 +845,7 @@ class ScrollCaptureWindow(QWidget):
             traceback.print_exc()
     
     def _start_keyboard_listener(self):
-        """横向模式：监听 Shift，按下时横向滚动并截图。"""
+        """横向模式：监听 Shift，按下时往右滚一格，截图交给画面监视。"""
         if self._input_hub is None:
             return
         self.horizontal_scroll_key_pressed = False
@@ -867,11 +867,8 @@ class ScrollCaptureWindow(QWidget):
         if self.horizontal_scroll_key_pressed:
             return
         self.horizontal_scroll_key_pressed = True
-        _log_stitch(T("⌨️ 检测到Shift按下，触发横向滚动+截图"))
-        self._pending_steps += 1  # 往右滚一格
+        _log_stitch(T("⌨️ 检测到Shift按下，往右滚一格"))
         self._send_horizontal_scroll()
-        # 延迟后截图（给页面时间滚动）
-        self.capture_timer.start(int(self.scroll_cooldown * 1000))
 
     def _reconfigure_stitch_engine(self):
         """重新配置拼接引擎（哈希匹配算法只支持竖向拼接，横向截图会先旋转90度再拼接后旋转回来）"""
@@ -913,10 +910,14 @@ class ScrollCaptureWindow(QWidget):
         QTimer.singleShot(100, self._capture_initial_screenshot)
 
     def _drop_system_corners(self):
-        """系统给窗口加的圆角会画进截图区的四个角，每一帧的角上都多一个灰点，拼出来两侧一串。
+        """系统给窗口加的圆角会画进截图区的四个角，每一帧的角上都多一个灰点，拼出来两侧一串；
+        预览面板离截图区只有十几像素，系统给它加的阴影伸出四十多像素，会落进截图区。
         原生窗口显示出来之后设才生效。"""
         from core.platform_utils import set_window_rounded_corners
         set_window_rounded_corners(int(self.winId()), False)
+        panel = getattr(self, 'preview_panel', None)
+        if panel is not None:
+            set_window_rounded_corners(int(panel.winId()), False)
 
     def _raise_all_topmost(self):
         """将主窗口及所有浮动子窗口推到 TOPMOST z-order 顶部。"""
@@ -1053,38 +1054,13 @@ class ScrollCaptureWindow(QWidget):
             _log_stitch(T("[ERROR] 强制修复窗口位置时出错: {e}", e=e), force=True)
     
     def _capture_initial_screenshot(self):
-        """截取初始截图（窗口显示时的区域内容）"""
+        """截取初始截图（窗口显示时的区域内容），之后画面一变就截。"""
         _log_stitch(T("🎬 截取初始截图（第1张）..."))
         self._do_capture()
         
         _log_stitch(T("   初始截图完成，当前共 {count} 张", count=len(self.screenshots)))
-    
-    def _is_mouse_in_capture_area(self, x, y):
-        """检查鼠标是否在截图区域内"""
-        return (self.capture_rect.x() <= x <= self.capture_rect.x() + self.capture_rect.width() and
-                self.capture_rect.y() <= y <= self.capture_rect.y() + self.capture_rect.height())
-    
-    def _handle_scroll_in_main_thread(self, scroll_distance):
-        """在主线程中处理滚轮事件（立即截图模式）
-        
-        Args:
-            scroll_distance: 滚动距离（像素）
-        """
-        
-        # 累积滚动距离
-        self.current_scroll_distance += scroll_distance
-        
-        if self._auto_scroller.running:
-            return  # 自动滚动时由它决定什么时候截图
-        
-        # 延迟很短时间后截图（让滚动动画完成），横向模式多等 0.15 秒
-        delay = self.scroll_cooldown
-        if self.scroll_direction == "horizontal":
-            delay += 0.15
-        if self.capture_timer.isActive():
-            self.capture_timer.stop()
-        self.capture_timer.start(int(delay * 1000))
-        _log_stitch(T("⚡ 检测到滚动，累积距离: {distance}px，{delay}秒后截图...", distance=self.current_scroll_distance, delay=delay))
+        if self._stitcher is not None:  # 显示后 100ms 内就取消了的不再开
+            self._change_watch.start()
 
     def _exclude_overlapping_ui(self, exclude: bool):
         """检测 UI 窗口是否与截图区域重叠，按需排除/恢复截图捕获"""
@@ -1167,19 +1143,13 @@ class ScrollCaptureWindow(QWidget):
         bgra, width, height = frame
         # screenshots 列表只保留计数，不存储实际图像
         self.screenshots.append(None)
-        distance, self.current_scroll_distance = self.current_scroll_distance, 0
-        steps, self._pending_steps = self._pending_steps, 0.0
-        heading = "down" if steps > 0 else ("up" if steps < 0 else None)
-        if heading is not None:
-            self._last_heading = heading
+        # 不知道这一帧之前往哪边滚，拼接按最近一次挪动的方向取舍
         stitcher.submit(Frame(
             bgra=bgra,
             width=width,
             height=height,
             index=len(self.screenshots),
             scroll_direction=self.scroll_direction,
-            heading=heading,
-            distance=distance,
         ))
         return len(self.screenshots)
 
@@ -1213,7 +1183,8 @@ class ScrollCaptureWindow(QWidget):
             self._finish_still(None)
             return
         self._still_tries += 1
-        if frame[0] == self._still_frame[0] or self._still_tries >= STILL_CHECK_TRIES:
+        still = frame[0] == self._still_frame[0] and not _blank(frame, self.scroll_direction == "horizontal")
+        if still or self._still_tries >= STILL_CHECK_TRIES:
             self._still_frame = None
             self._finish_still(self._submit_frame(frame))
         else:
@@ -1238,19 +1209,20 @@ class ScrollCaptureWindow(QWidget):
             return
 
         if result.ok:
-            self.scroll_distances.append(0 if result.first else result.distance)
             self.toolbar.set_result_size(*result.size)
             _log_stitch(T("📸 第 {screenshot_count} 张 → 拼接结果: {w}x{h}",
                           screenshot_count=result.index, w=result.width, h=result.height))
+            self._stitch_failing = False
             self._clear_preview_warning()
         elif result.error:
             _log_stitch(T("[WARN] 第 {screenshot_count} 张拼接出错: {e}",
                           screenshot_count=result.index, e=result.error), force=True)
-            self._handle_stitch_failure(result.index, self.tr("Stitching failed"))
+            self._handle_stitch_failure(self.tr("Stitching failed"), immediate=True)
         else:
-            _log_stitch(T("[WARN] 第 {screenshot_count} 张拼接失败，未找到重叠区域",
-                          screenshot_count=result.index), force=True)
-            self._handle_stitch_failure(result.index, self.tr("Couldn't join. Scroll back"))
+            if not self._stitch_failing:
+                _log_stitch(T("[WARN] 第 {screenshot_count} 张拼接失败，未找到重叠区域",
+                              screenshot_count=result.index))
+            self._handle_stitch_failure(self.tr("Couldn't join. Scroll back"))
 
         if result.preview is not None:
             self._latest_preview = result.preview
@@ -1393,17 +1365,6 @@ class ScrollCaptureWindow(QWidget):
             import traceback
             traceback.print_exc()
     
-    def _on_manual_capture(self):
-        """手动截图（从工具栏触发）"""
-        try:
-            _log_stitch(T("🖱️ 用户手动触发截图..."))
-            # 立即执行截图
-            self._do_capture()
-        except Exception as e:
-            _log_stitch(T("[ERROR] 手动截图失败: {e}", e=e), force=True)
-            import traceback
-            traceback.print_exc()
-    
     def _on_pin(self):
         """钉图按钮点击 - 将当前拼接结果钉到桌面，然后结束长截图"""
         _log_stitch(T("钉图长截图结果..."))
@@ -1476,6 +1437,9 @@ class ScrollCaptureWindow(QWidget):
     def _cleanup(self):
         """清理资源"""
         try:
+            watch = getattr(self, '_change_watch', None)
+            if watch is not None:
+                watch.stop()
             scroller = getattr(self, '_auto_scroller', None)
             if scroller is not None:
                 scroller.cancel()
@@ -1515,11 +1479,11 @@ class ScrollCaptureWindow(QWidget):
                     self.preview_panel = None
 
             # 停止所有定时器
-            if hasattr(self, 'capture_timer'):
-                self.capture_timer.stop()
             if hasattr(self, '_still_timer'):
                 self._still_timer.stop()
                 self._still_callbacks = []
+            if hasattr(self, '_warning_timer'):
+                self._warning_timer.stop()
             
             
             if hasattr(self, '_position_fix_timer'):
@@ -1527,11 +1491,8 @@ class ScrollCaptureWindow(QWidget):
             
             hub, self._input_hub = self._input_hub, None
             if hub is not None:
-                hub.wheel.disconnect(self._on_wheel)
                 hub.key.disconnect(self._on_key)
-                hub.native.unwatch_wheel(_INPUT_WATCHER)
                 hub.native.unwatch_keys(_INPUT_WATCHER)
-                _log_stitch(T("[OK] 全局滚轮监听器已停止"))
 
         except Exception as e:
             _log_stitch(T("[WARN] 清理资源时出错: {e}", e=e))

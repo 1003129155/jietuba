@@ -94,7 +94,7 @@ def test_any_page_can_be_built_first_without_counting_as_a_change(open_dialog, i
 def test_pages_built_later_show_what_a_refresh_from_config_shows(open_dialog, manager):
     manager.set_capture_engine("mss")
     manager.set_clipboard_history_limit(500)
-    manager.set_scroll_cooldown(0.3)
+    manager.set_long_stitch_ignore_top_pixels(30)
     manager.set_ocr_copy_directly_enabled(True)
     manager.set_app_setting("pin_hover_buttons", True)
     manager.set_app_setting("mouse_capture_close", "middle")
@@ -126,7 +126,7 @@ def test_export_includes_pages_never_opened(open_dialog):
     reference = open_dialog()
     reference.build_all_pages()
     assert keys == reference.settings_keys()
-    assert {"app/capture_engine", "pin/hover_buttons", "screenshot/scroll_cooldown"} <= keys
+    assert {"app/capture_engine", "pin/hover_buttons", "screenshot/long_stitch_ignore_top_pixels"} <= keys
 
 
 def test_import_fills_pages_never_opened(open_dialog, tmp_path):

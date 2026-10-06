@@ -457,14 +457,6 @@ Replace it?</source>
         <translation>调试用</translation>
     </message>
     <message>
-        <source>Wait Time</source>
-        <translation>等待时间</translation>
-    </message>
-    <message>
-        <source>Capture wait time after scroll (seconds)</source>
-        <translation>滚动后的截图等待时间 (秒)</translation>
-    </message>
-    <message>
         <source>Ignore Top Pixels</source>
         <translation>忽略顶部像素</translation>
     </message>
@@ -1634,10 +1626,6 @@ Replace it?</source>
     <message>
         <source>Click to take screenshot manually</source>
         <translation>点击手动截图</translation>
-    </message>
-    <message>
-        <source>Take screenshot manually</source>
-        <translation>手动截图</translation>
     </message>
     <message>
         <source>Auto scroll (move the mouse to stop)</source>

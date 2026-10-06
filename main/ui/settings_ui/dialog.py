@@ -726,8 +726,6 @@ class SettingsDialog(FrostedFramelessDialog):
             index = self.engine_combo.findData(defaults["long_stitch_engine"])
             if index >= 0:
                 self.engine_combo.setCurrentIndex(index)
-        if hasattr(self, 'cooldown_spinbox'):
-            self.cooldown_spinbox.setValue(defaults["scroll_cooldown"])
         if hasattr(self, 'ignore_top_pixels_spinbox'):
             self.ignore_top_pixels_spinbox.setValue(defaults["long_stitch_ignore_top_pixels"])
         for key in (
@@ -1160,8 +1158,6 @@ class SettingsDialog(FrostedFramelessDialog):
             self.config_manager.set_capture_engine(self.capture_engine_combo.currentData())
         if hasattr(self, 'engine_combo'):
             self.config_manager.set_long_stitch_engine(self.engine_combo.currentData())
-        if hasattr(self, 'cooldown_spinbox'):
-            self.config_manager.set_scroll_cooldown(self.cooldown_spinbox.value())
         if hasattr(self, 'ignore_top_pixels_spinbox'):
             self.config_manager.set_long_stitch_ignore_top_pixels(self.ignore_top_pixels_spinbox.value())
 
@@ -1386,7 +1382,7 @@ class SettingsDialog(FrostedFramelessDialog):
                 snap[attr] = w.currentIndex()
         # 数值类
         for attr in ('clipboard_history_limit_spin',
-                      'cooldown_spinbox', 'ignore_top_pixels_spinbox',
+                      'ignore_top_pixels_spinbox',
                       'ocr_scale_spinbox'):
             w = getattr(self, attr, None)
             if w is not None:
@@ -1573,8 +1569,6 @@ class SettingsDialog(FrostedFramelessDialog):
             index = self.engine_combo.findData(engine)
             if index >= 0:
                 self.engine_combo.setCurrentIndex(index)
-        if hasattr(self, 'cooldown_spinbox'):
-            self.cooldown_spinbox.setValue(self.config_manager.get_scroll_cooldown())
         if hasattr(self, 'ignore_top_pixels_spinbox'):
             self.ignore_top_pixels_spinbox.setValue(self.config_manager.get_long_stitch_ignore_top_pixels())
 

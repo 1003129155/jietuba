@@ -120,7 +120,7 @@ def _stitcher(collector):
 def _submit(stitcher, frames, direction, headings):
     for i, (frame, heading) in enumerate(zip(frames, headings)):
         bgra = frame.convert("RGBA").tobytes("raw", "BGRA")
-        stitcher.submit(Frame(bgra, frame.width, frame.height, i + 1, direction, heading, 0))
+        stitcher.submit(Frame(bgra, frame.width, frame.height, i + 1, direction, heading))
 
 
 def _wait_for(qapp, collector, count, timeout=20.0):
@@ -312,7 +312,7 @@ def test_crop_cuts_at_the_latest_frame(qapp, side):
         headings = _headings([540, *after])[1:]
         for i, (frame, heading) in enumerate(zip(_frames(TALL, after, "vertical"), headings)):
             bgra = frame.convert("RGBA").tobytes("raw", "BGRA")
-            stitcher.submit(Frame(bgra, W, H, len(tops) + i + 1, "vertical", heading, 0))
+            stitcher.submit(Frame(bgra, W, H, len(tops) + i + 1, "vertical", heading))
         _wait_for(qapp, collector, len(tops) + len(after))
         _wait_for(qapp, crops, 1)
         exported = stitcher.export()
@@ -386,7 +386,7 @@ def test_close_releases_worker_and_result(qapp):
     for round_ in range(4):
         stitcher = IncrementalStitcher(thumb_side=THUMB, ignore_right_pixels=20, ignore_top_pixels=0)
         for i, bgra in enumerate(frames):
-            stitcher.submit(Frame(bgra, big_w, big_h, i + 1, "vertical", "down" if i else None, 0))
+            stitcher.submit(Frame(bgra, big_w, big_h, i + 1, "vertical", "down" if i else None))
         assert stitcher.export().height > big_h * 4
         stitcher.close()
         kept.append(stitcher)

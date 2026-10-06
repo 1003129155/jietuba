@@ -459,14 +459,6 @@ Replace it?</source>
         <translation>デバッグ用</translation>
     </message>
     <message>
-        <source>Wait Time</source>
-        <translation>待機時間</translation>
-    </message>
-    <message>
-        <source>Capture wait time after scroll (seconds)</source>
-        <translation>スクロール後のキャプチャ待機時間 (秒)</translation>
-    </message>
-    <message>
         <source>Ignore Top Pixels</source>
         <translation>上部ピクセルを無視</translation>
     </message>
@@ -1637,10 +1629,6 @@ Replace it?</source>
     <message>
         <source>Pin to desktop</source>
         <translation>ピン留め</translation>
-    </message>
-    <message>
-        <source>Take screenshot manually</source>
-        <translation>手動でスクリーンショット</translation>
     </message>
     <message>
         <source>Auto scroll (move the mouse to stop)</source>

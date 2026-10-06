@@ -1,7 +1,7 @@
 """长截图窗口的模拟环境：合成页面、按格挪动的视口、假光标。
 
-窗口截图时取视口里的那一段，注入的滚轮按每格固定像素挪动视口，并像钩子那样把滚轮交给窗口，
-不碰真实的屏幕和鼠标。
+窗口截图时取视口里的那一段，注入的滚轮按每格固定像素挪动视口，不碰真实的屏幕和鼠标。
+窗口不监听滚轮，画面变化也不会自己触发截图：要截图时测试自己调。
 """
 
 import random
@@ -67,7 +67,6 @@ class SimulatedPage:
         return int(self._exact)
 
     def inject(self, delta, horizontal=False):
-        from stitch.scroll_window import _INPUT_WATCHER
         self.injected.append(delta)
         if self.mode == "smooth":
             notches = delta / 120
@@ -82,10 +81,9 @@ class SimulatedPage:
         self._exact = max(0.0, min(self.page.height - VIEW_H, self._exact - notches * PX_PER_NOTCH))
         if self.top != self._previous_top:
             self._torn_left = self.unsettled
-        self.window._on_wheel(_INPUT_WATCHER, 0, 0, delta, horizontal)
 
     def scroll_and_capture(self, notches):
-        """手动滚几格再截图（不等冷却）。"""
+        """滚几格再立刻截图。"""
         self.inject(notches * 120)
         self.window._do_capture()
 
