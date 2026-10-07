@@ -3414,8 +3414,8 @@ This action cannot be undone.</translation>
         <translation>Long Screenshot</translation>
     </message>
     <message>
-        <source>工具_GIF录制</source>
-        <translation>GIF Record</translation>
+        <source>工具_录屏</source>
+        <translation>Screen Record</translation>
     </message>
     <message>
         <source>工具_截图翻译</source>
@@ -3470,8 +3470,8 @@ This action cannot be undone.</translation>
         <translation>Auto-scroll and stitch long pages</translation>
     </message>
     <message>
-        <source>工具描述_GIF录制</source>
-        <translation>Record the screen area as an animated GIF</translation>
+        <source>工具描述_录屏</source>
+        <translation>Record the screen area as an animated GIF or an MP4 video</translation>
     </message>
     <message>
         <source>工具描述_截图翻译</source>
@@ -4308,8 +4308,8 @@ All items in the group will also be deleted.</translation>
         <translation>Recognize text</translation>
     </message>
     <message>
-        <source>GIF recording</source>
-        <translation>GIF recording</translation>
+        <source>Screen recording</source>
+        <translation>Screen recording</translation>
     </message>
     <message>
         <source>Pen</source>
