@@ -123,6 +123,11 @@ def remove_line_breaks(text: str) -> str:
     return re.sub(r'[\r\n]+', ' ', text)
 
 
+def remove_all_whitespace(text: str) -> str:
+    """移除所有空白字符（空格、制表符、换行、全角空格等），输出连续的单行文本。"""
+    return re.sub(r'\s+', '', text)
+
+
 def append_current_time(text: str) -> str:
     """在文本末尾追加当前日期时间。
 
@@ -143,6 +148,7 @@ TRANSFORM_REGISTRY: dict[str, Callable[[str], str]] = {
     "transform_toggle_case": toggle_case,
     "transform_sql_in": to_sql_in_clause,
     "transform_remove_linebreaks": remove_line_breaks,
+    "transform_remove_whitespace": remove_all_whitespace,
     "transform_append_time": append_current_time,
 }
 
@@ -152,6 +158,7 @@ __all__ = [
     "append_current_time",
     "capitalize_sentences",
     "capitalize_words",
+    "remove_all_whitespace",
     "remove_line_breaks",
     "to_lowercase",
     "to_sql_in_clause",

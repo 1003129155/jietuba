@@ -8,7 +8,7 @@ authors = ["JYAARU"]
 
 [lib]
 name = "hdrcapture"
-# rlib 供 gifrecorder 以 default-features = false 依赖，录制线程直接调 Rust API
+# rlib 供 gifrecorder、video_recorder 以 default-features = false 依赖，录制线程直接调 Rust API
 crate-type = ["cdylib", "rlib"]
 
 [features]

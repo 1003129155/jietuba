@@ -225,12 +225,23 @@ def test_changing_the_style_of_a_selected_number_is_undoable(qapp):
 
 
 def test_the_popup_uses_the_panel_palette_not_its_own_dark_theme(qapp):
-    """自造一套深色会和应用主体脱节。"""
+    """自造一套深色会和应用主体脱节：弹出层的底就是设置面板那块浅色雾面。"""
+    from PySide6.QtGui import QImage
     from ui.number_settings_panel import NumberStylePopup
 
-    sheet = NumberStylePopup().styleSheet()
-    assert "background: white" in sheet
-    assert "#2b2b2b" not in sheet and "#3a3a3a" not in sheet
+    popup = NumberStylePopup()
+    try:
+        sheet = popup.styleSheet()
+        assert "#2b2b2b" not in sheet and "#3a3a3a" not in sheet
+        popup.adjustSize()
+        image = QImage(popup.size(), QImage.Format.Format_ARGB32_Premultiplied)
+        image.fill(0)
+        popup.render(image)
+        # 左侧内边距里没有按钮，露出来的就是底色
+        background = image.pixelColor(3, popup.height() // 2)
+        assert background.alpha() == 255 and background.lightness() > 230
+    finally:
+        popup.deleteLater()
 
 
 def test_the_popup_icons_stay_small(qapp):

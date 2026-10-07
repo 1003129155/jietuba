@@ -4,6 +4,7 @@
 
 pub mod capture;
 pub mod decoder;
+pub mod frame_diff;
 mod frame_source;
 pub mod frame_store;
 pub mod gif_export;

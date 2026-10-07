@@ -32,7 +32,6 @@ APP_DEFAULT_SETTINGS = {
     "log_dir": os.path.expanduser("~"),
     "capture_engine": "auto",
     "long_stitch_engine": "hash_rust",
-    "scroll_cooldown": 0.15,
     "long_stitch_ignore_top_pixels": 0,
     "preload_screenshot": True,
     "preload_toolbar": True,
@@ -49,6 +48,7 @@ APP_DEFAULT_SETTINGS = {
     "show_main_window": True,
     "ocr_enabled": True,
     "ocr_engine": "auto",
+    "ocr_result_position": "region_screen",
     "ocr_grayscale_enabled": False,
     "ocr_upscale_enabled": False,
     "ocr_upscale_factor": 2.0,
@@ -179,8 +179,6 @@ class MockConfig:
     def set_long_stitch_engine(self, v): pass
     def get_long_stitch_debug(self): return False
     def set_long_stitch_debug(self, v): pass
-    def get_scroll_cooldown(self): return 0.15
-    def set_scroll_cooldown(self, v): pass
     def get_long_stitch_ignore_top_pixels(self): return 0
     def set_long_stitch_ignore_top_pixels(self, v): pass
     def get_screenshot_save_enabled(self): return True
@@ -199,6 +197,8 @@ class MockConfig:
     def set_ocr_enabled(self, v): pass
     def get_ocr_engine(self): return "auto"
     def set_ocr_engine(self, v): pass
+    def get_ocr_result_position(self): return "region_screen"
+    def set_ocr_result_position(self, v): pass
     def get_ocr_grayscale_enabled(self): return False
     def set_ocr_grayscale_enabled(self, v): pass
     def get_ocr_upscale_enabled(self): return False

@@ -9,8 +9,8 @@ V 落在 A~Z 区间里，带 Ctrl 也照单全收的话，本应用自己模拟�
 from types import SimpleNamespace
 
 import pytest
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QPoint, Qt
+from PySide6.QtWidgets import QApplication, QMenu
 
 from clipboard.ui.windows.clipboard_window import ClipboardShortcutHandler
 
@@ -129,6 +129,23 @@ def test_handler_is_active_only_while_the_window_holds_focus():
     assert ClipboardShortcutHandler(_Surface(visible=True, active=True)).is_active() is True
     assert ClipboardShortcutHandler(_Surface(visible=True, active=False)).is_active() is False
     assert ClipboardShortcutHandler(_Surface(visible=False, active=False)).is_active() is False
+
+
+def test_handler_yields_keys_to_an_open_popup_menu(qapp):
+    """弹出菜单不抢激活：齿轮菜单开着时 Enter 要触发菜单项，Esc 只关一层菜单。"""
+    handler = ClipboardShortcutHandler(_Surface(visible=True, active=True))
+    menu = QMenu()
+    menu.addAction("item")
+    try:
+        menu.popup(QPoint(0, 0))
+        assert QApplication.activePopupWidget() is menu
+        assert handler.is_active() is False
+
+        menu.close()
+        assert handler.is_active() is True
+    finally:
+        menu.close()
+        menu.deleteLater()
 
 
 def test_handler_is_inactive_after_its_window_is_destroyed():

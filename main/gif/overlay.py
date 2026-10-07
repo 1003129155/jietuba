@@ -1,5 +1,5 @@
 ﻿# -*- coding: utf-8 -*-
-"""蓝色/红色选区边框覆盖层 — 动态穿透切换 + RESIZE 模式下 4 边拖拽"""
+"""准备蓝色、录制红色、暂停黄色的选区边框与动态穿透。"""
 
 import ctypes
 from enum import Enum, auto
@@ -26,10 +26,11 @@ class OverlayMode(Enum):
 # 颜色常量
 _COLOR_IDLE    = QColor("#2196F3")   # 蓝色（未录制）
 _COLOR_RECORD  = QColor("#F44336")   # 红色（录制中）
+_COLOR_PAUSED  = QColor("#E5AD32")   # 黄色（暂停）
 
 
 class CaptureOverlay(QWidget):
-    """选区边框，支持穿透 / RESIZE 两种模式，颜色可切换（蓝/红）"""
+    """选区边框，支持穿透 / RESIZE 两种模式和录制状态反馈。"""
 
     rect_changed = Signal(QRect)
 
@@ -66,9 +67,9 @@ class CaptureOverlay(QWidget):
         self._set_passthrough(mode == OverlayMode.PASSTHROUGH)
         self.update()
 
-    def set_recording(self, recording: bool):
-        """录制中切红色，未录制切蓝色"""
-        self._color = _COLOR_RECORD if recording else _COLOR_IDLE
+    def set_recording(self, recording: bool, paused: bool = False):
+        """录制红色、暂停黄色、未录制蓝色。"""
+        self._color = (_COLOR_PAUSED if paused else _COLOR_RECORD) if recording else _COLOR_IDLE
         self.update()
 
     def update_rect(self, rect: QRect):
@@ -205,4 +206,3 @@ class CaptureOverlay(QWidget):
             self._rect.width()  + m * 2,
             self._rect.height() + m * 2,
         )
- 

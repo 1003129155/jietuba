@@ -453,14 +453,6 @@ Replace it?</translation>
         <translation>Python Hash (Debug)</translation>
     </message>
     <message>
-        <source>Wait Time</source>
-        <translation>Wait Time</translation>
-    </message>
-    <message>
-        <source>Capture wait time after scroll (seconds)</source>
-        <translation>Capture wait time after scroll (seconds)</translation>
-    </message>
-    <message>
         <source>Ignore Top Pixels</source>
         <translation>Ignore Top Pixels</translation>
     </message>
@@ -631,6 +623,34 @@ Replace it?</translation>
     <message>
         <source>Switch OCR engines here.</source>
         <translation>Switch OCR engines here.</translation>
+    </message>
+    <message>
+        <source>OCR Result Window Position</source>
+        <translation>OCR Result Window Position</translation>
+    </message>
+    <message>
+        <source>Where the text recognition result window appears.</source>
+        <translation>Where the text recognition result window appears.</translation>
+    </message>
+    <message>
+        <source>Capture display center</source>
+        <translation>Capture display center</translation>
+    </message>
+    <message>
+        <source>Primary display center</source>
+        <translation>Primary display center</translation>
+    </message>
+    <message>
+        <source>Beside capture area</source>
+        <translation>Beside capture area</translation>
+    </message>
+    <message>
+        <source>Near cursor</source>
+        <translation>Near cursor</translation>
+    </message>
+    <message>
+        <source>Last position</source>
+        <translation>Last position</translation>
     </message>
     <message>
         <source>The Snipping Tool engine is faster and reads more languages, but needs the Snipping Tool from Windows 11. PP-OCR works on any Windows.</source>
@@ -1352,6 +1372,10 @@ Replace it?</translation>
         <source>Drag to move</source>
         <translation>Drag to move</translation>
     </message>
+    <message>
+        <source>GIF / Video recording</source>
+        <translation>GIF / Video recording</translation>
+    </message>
 </context>
 
 <!-- ========== Pin Window ========== -->
@@ -1501,10 +1525,6 @@ Replace it?</translation>
     <message>
         <source>Click to take screenshot manually</source>
         <translation>Click to take screenshot manually</translation>
-    </message>
-    <message>
-        <source>Take screenshot manually</source>
-        <translation>Take screenshot manually</translation>
     </message>
     <message>
         <source>Auto scroll (move the mouse to stop)</source>
@@ -2271,6 +2291,10 @@ This action cannot be undone.</translation>
     <message>
         <source>Remove Line Breaks</source>
         <translation>Remove Line Breaks</translation>
+    </message>
+    <message>
+        <source>Remove All Whitespace</source>
+        <translation>Remove All Whitespace</translation>
     </message>
     <message>
         <source>Quick Edit</source>
@@ -3763,6 +3787,94 @@ You can tweak more options in Settings anytime.</translation>
         <source>重做</source>
         <translation>Redo</translation>
     </message>
+    <message>
+        <source>优先使用硬件编码（不可用时使用系统软件编码）</source>
+        <translation>Prefer hardware encoding (fall back to the system software encoder)</translation>
+    </message>
+    <message>
+        <source>帧率</source>
+        <translation>Frame rate</translation>
+    </message>
+    <message>
+        <source>帧率（1–60）</source>
+        <translation>Frame rate (1–60)</translation>
+    </message>
+    <message>
+        <source>录制格式</source>
+        <translation>Recording format</translation>
+    </message>
+    <message>
+        <source>录制系统声音</source>
+        <translation>Record system audio</translation>
+    </message>
+    <message>
+        <source>录制鼠标指针</source>
+        <translation>Record mouse pointer</translation>
+    </message>
+    <message>
+        <source>码率是目标值，实际大小随画面变化。较低码率减少文件大小和细节。系统声音不包含麦克风。</source>
+        <translation>Bitrate is a target; actual size depends on the content. Lower bitrate reduces file size and detail. System audio does not include the microphone.</translation>
+    </message>
+    <message>
+        <source>自定义</source>
+        <translation>Custom</translation>
+    </message>
+    <message>
+        <source>自定义帧率</source>
+        <translation>Custom frame rate</translation>
+    </message>
+    <message>
+        <source>自定义帧率…</source>
+        <translation>Custom frame rate…</translation>
+    </message>
+    <message>
+        <source>视频码率</source>
+        <translation>Video bitrate</translation>
+    </message>
+    <message>
+        <source>视频设置</source>
+        <translation>Video settings</translation>
+    </message>
+    <message>
+        <source>录制延迟</source>
+        <translation>Start delay</translation>
+    </message>
+    <message>
+        <source>无延迟</source>
+        <translation>No delay</translation>
+    </message>
+    <message>
+        <source>{seconds} 秒</source>
+        <translation>{seconds} seconds</translation>
+    </message>
+    <message>
+        <source>系统声音不包含麦克风</source>
+        <translation>System audio excludes the microphone</translation>
+    </message>
+    <message>
+        <source>视频已保存</source>
+        <translation>Video saved</translation>
+    </message>
+    <message>
+        <source>播放视频</source>
+        <translation>Play video</translation>
+    </message>
+    <message>
+        <source>打开文件夹</source>
+        <translation>Open folder</translation>
+    </message>
+    <message>
+        <source>复制文件</source>
+        <translation>Copy file</translation>
+    </message>
+    <message>
+        <source>重新录制</source>
+        <translation>Re-record</translation>
+    </message>
+    <message>
+        <source>已复制</source>
+        <translation>Copied</translation>
+    </message>
 </context>
 
 <!-- ========== GIF Playback Toolbar ========== -->
@@ -4673,6 +4785,168 @@ Make sure gifrecorder is installed correctly.</translation>
 <message>
         <source>The updater stopped with an error (%1).</source>
         <translation>The updater stopped with an error (%1).</translation>
+    </message>
+</context>
+<context>
+    <name>GifRecordWindow</name>
+    <message>
+        <source>MP4 视频 (*.mp4)</source>
+        <translation>MP4 video (*.mp4)</translation>
+    </message>
+    <message>
+        <source>保存 MP4 视频</source>
+        <translation>Save MP4 video</translation>
+    </message>
+    <message>
+        <source>无法释放之前的录制会话，请稍后重试。</source>
+        <translation>The previous recording session could not be released. Try again later.</translation>
+    </message>
+    <message>
+        <source>正在保存…</source>
+        <translation>Saving…</translation>
+    </message>
+    <message>
+        <source>正在准备…</source>
+        <translation>Preparing…</translation>
+    </message>
+    <message>
+        <source>正在恢复…</source>
+        <translation>Resuming…</translation>
+    </message>
+    <message>
+        <source>正在暂停…</source>
+        <translation>Pausing…</translation>
+    </message>
+    <message>
+        <source>目标文件已存在，请选择新的文件名。</source>
+        <translation>The destination file already exists. Choose a new filename.</translation>
+    </message>
+    <message>
+        <source>视频已保存</source>
+        <translation>Video saved</translation>
+    </message>
+    <message>
+        <source>视频录制</source>
+        <translation>Video recording</translation>
+    </message>
+    <message>
+        <source>视频录制失败</source>
+        <translation>Video recording failed</translation>
+    </message>
+    <message>
+        <source>倒计时 {seconds}</source>
+        <translation>Starting in {seconds}</translation>
+    </message>
+    <message>
+        <source>视频文件不存在，可能已被移动或删除。</source>
+        <translation>The video file is missing. It may have been moved or deleted.</translation>
+    </message>
+    <message>
+        <source>无法打开，请检查默认播放器或文件管理器。</source>
+        <translation>Could not open the file or folder. Check your default player or file manager.</translation>
+    </message>
+</context>
+<context>
+    <name>VideoRecorder</name>
+    <message>
+        <source>录制区域太小，请重新调整。</source>
+        <translation>The recording region is too small. Adjust it again.</translation>
+    </message>
+    <message>
+        <source>录制失败。</source>
+        <translation>Recording failed.</translation>
+    </message>
+    <message>
+        <source>录制已取消，未保存视频。</source>
+        <translation>Recording was cancelled. No video was saved.</translation>
+    </message>
+    <message>
+        <source>录制未正常完成，未确认视频保存成功。</source>
+        <translation>Recording did not finish normally. Successful saving could not be confirmed.</translation>
+    </message>
+    <message>
+        <source>录制组件不存在，请重新安装或从当前源码构建。</source>
+        <translation>The recording component is missing. Reinstall or build it from the current source.</translation>
+    </message>
+    <message>
+        <source>录制进程响应超时，视频未确认保存成功。</source>
+        <translation>The recording process timed out. Successful saving could not be confirmed.</translation>
+    </message>
+    <message>
+        <source>录制进程意外退出，视频可能未完成。</source>
+        <translation>The recording process exited unexpectedly. The video may be incomplete.</translation>
+    </message>
+    <message>
+        <source>录制进程返回了无效的状态消息。</source>
+        <translation>The recording process returned an invalid status message.</translation>
+    </message>
+    <message>
+        <source>录制进程返回了过大的状态消息。</source>
+        <translation>The recording process returned an oversized status message.</translation>
+    </message>
+    <message>
+        <source>无法发送停止命令。</source>
+        <translation>Could not send the stop command.</translation>
+    </message>
+    <message>
+        <source>无法发送录制命令。</source>
+        <translation>Could not send the recording command.</translation>
+    </message>
+    <message>
+        <source>无法启动录制进程。</source>
+        <translation>Could not start the recording process.</translation>
+    </message>
+    <message>
+        <source>目标文件已存在，请选择新的文件名。</source>
+        <translation>The destination file already exists. Choose a new filename.</translation>
+    </message>
+    <message>
+        <source>退出时录制未能完成。</source>
+        <translation>Recording could not finish before exit.</translation>
+    </message>
+    <message>
+        <source>找不到可用的播放设备，请连接音箱或耳机，或在视频设置中关闭系统声音后重试。</source>
+        <translation>No playback device is available. Connect speakers or headphones, or turn off system audio in Video Settings and try again.</translation>
+    </message>
+    <message>
+        <source>当前播放设备的音频格式不受支持，请在 Windows 声音设置中选择立体声格式，或关闭系统声音后重试。</source>
+        <translation>The playback device's audio format is unsupported. Select stereo in Windows sound settings, or turn off system audio and try again.</translation>
+    </message>
+    <message>
+        <source>系统声音录制失败，请检查播放设备，或在视频设置中关闭系统声音后重试。</source>
+        <translation>System audio recording failed. Check the playback device, or turn off system audio in Video Settings and try again.</translation>
+    </message>
+    <message>
+        <source>播放设备的声音时间戳异常，录制已停止。请重新连接设备，或关闭系统声音后重试。</source>
+        <translation>Recording stopped because the playback device reported invalid audio timestamps. Reconnect the device, or turn off system audio and try again.</translation>
+    </message>
+    <message>
+        <source>视频编码失败，请尝试降低分辨率或帧率，或在视频设置中关闭硬件编码后重试。</source>
+        <translation>Video encoding failed. Lower the resolution or frame rate, or turn off hardware encoding in Video Settings and try again.</translation>
+    </message>
+    <message>
+        <source>无法采集录制区域，请检查屏幕连接和选区后重试。</source>
+        <translation>Could not capture the recording region. Check the display connection and selected region, then try again.</translation>
+    </message>
+    <message>
+        <source>无法创建视频文件，请检查保存位置的写入权限和剩余空间。</source>
+        <translation>Could not create the video file. Check write permissions and free space at the save location.</translation>
+    </message>
+    <message>
+        <source>保存位置空间不足，请释放空间或选择其他磁盘后重试。</source>
+        <translation>The save location is out of space. Free up space or choose another drive and try again.</translation>
+    </message>
+    <message>
+        <source>录制参数或区域无效，请重新调整选区和视频设置。</source>
+        <translation>The recording settings or region are invalid. Adjust the selected region and Video Settings.</translation>
+    </message>
+    <message>
+        <source>视频录制失败，请重试。若问题持续，请查看日志中的详细错误。</source>
+        <translation>Video recording failed. Try again. If the problem persists, check the log for error details.</translation>
+    </message>
+    <message>
+        <source>暂停或恢复录制超时，录制已停止，视频未确认保存成功。</source>
+        <translation>Pausing or resuming timed out. Recording stopped, and successful saving could not be confirmed.</translation>
     </message>
 </context>
 </TS>

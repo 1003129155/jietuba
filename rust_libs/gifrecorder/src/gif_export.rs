@@ -5,8 +5,7 @@
 //! 避免一次性解码全部帧导致内存尖峰。
 //! 支持鼠标光标 sprite 叠加、进度回调 & 取消。
 //!
-//! 帧差分：对比当前帧与上一帧的 RGBA 像素，只编码变化区域，
-//! 未变化像素标记为透明，大幅减少量化 + LZW 的工作量。
+//! 帧差分见 [`crate::frame_diff`]：只编码变化区域，未变化像素标记为透明。
 //! 所有帧共享一个全局 palette，用于消除逐帧独立调色板造成的颜色抖动。
 
 use std::fs::File;
@@ -17,6 +16,7 @@ use color_quant::NeuQuant;
 use gif::{DisposalMethod, Encoder as GifLowEncoder, Frame as GifFrame, Repeat as GifRepeat};
 use rayon::prelude::*;
 
+use crate::frame_diff::{Canvas, DiffParams, TRANSPARENT_INDEX};
 use crate::frame_store::FrameStore;
 use crate::jpeg;
 use crate::resize::resize_rgb;
@@ -28,7 +28,14 @@ const GLOBAL_PALETTE_MAX_SAMPLES: usize = 12;
 const GLOBAL_PALETTE_PIXEL_STEP: usize = 4;
 const GLOBAL_PALETTE_SPEED: i32 = 10;
 const GLOBAL_PALETTE_COLORS: usize = 255;
-const TRANSPARENT_INDEX: u8 = 0;
+
+/// `tolerance` 需覆盖 JPEG 在边缘处的量化噪点，又不能大到让缓慢渐变出现肉眼可见的色阶；
+/// `coherent_tolerance` 只需覆盖平坦区域的 DC 取整误差（±1~2）。
+const DIFF_PARAMS: DiffParams = DiffParams {
+    tolerance: 10,
+    coherent_tolerance: 2,
+    dense_ratio: 0.9,
+};
 
 struct GlobalPalette {
     palette_rgb: Vec<u8>,
@@ -162,6 +169,7 @@ pub fn export_gif(
     encoder.set_repeat(repeat).map_err(|e| format!("set repeat: {e}"))?;
 
     // ── 分批处理（仅处理 start..=end 范围内的帧） ──
+    let mut canvas = Canvas::new(dst_w as usize, dst_h as usize);
     let mut prev_rgba: Option<Vec<u8>> = None;
     let mut encoded = 0usize;
 
@@ -221,15 +229,22 @@ pub fn export_gif(
 
             if let Some(ref prev) = prev_rgba {
                 // ── 帧差分编码 ──
-                if let Some((dx, dy, dw, dh)) = find_dirty_rect(prev, &rgba, dst_w, dst_h) {
-                    // 提取脏区域，未变化像素标记为透明
-                    let dirty = extract_dirty_rgba(prev, &rgba, dst_w, dx, dy, dw, dh);
-                    let indexed = rgba_to_palette_indices(&dirty, &global_palette.quantizer);
+                let region = canvas.advance(
+                    prev,
+                    &rgba,
+                    &global_palette.palette_rgb,
+                    &global_palette.quantizer,
+                    DIFF_PARAMS,
+                );
+                if let Some(region) = region {
                     let mut frame = GifFrame::from_indexed_pixels(
-                        dw as u16, dh as u16, indexed, Some(TRANSPARENT_INDEX),
+                        region.width as u16,
+                        region.height as u16,
+                        region.indices,
+                        Some(TRANSPARENT_INDEX),
                     );
-                    frame.left = dx as u16;
-                    frame.top = dy as u16;
+                    frame.left = region.left as u16;
+                    frame.top = region.top as u16;
                     frame.delay = delay_cs;
                     frame.dispose = DisposalMethod::Keep;
 
@@ -251,7 +266,7 @@ pub fn export_gif(
                 }
             } else {
                 // ── 首帧: 全帧编码 ──
-                let indexed = rgba_to_palette_indices(&rgba, &global_palette.quantizer);
+                let indexed = canvas.start(&rgba, &global_palette.quantizer);
                 let mut frame = GifFrame::from_indexed_pixels(
                     dst_w as u16, dst_h as u16, indexed, Some(TRANSPARENT_INDEX),
                 );
@@ -410,110 +425,6 @@ fn append_sampled_pixels(dst: &mut Vec<u8>, rgba: &[u8], pixel_step: usize) {
     }
 }
 
-fn rgba_to_palette_indices(rgba: &[u8], quantizer: &NeuQuant) -> Vec<u8> {
-    let mut indexed = Vec::with_capacity(rgba.len() / 4);
-    for pixel in rgba.chunks_exact(4) {
-        if pixel[3] == 0 {
-            indexed.push(TRANSPARENT_INDEX);
-        } else {
-            indexed.push((quantizer.index_of(pixel) + 1) as u8);
-        }
-    }
-    indexed
-}
-
-// ═══════════════════════════════════════════════
-//  帧差分辅助函数
-// ═══════════════════════════════════════════════
-
-/// 找出两帧之间变化像素的最小包围矩形。
-///
-/// 返回 `(x, y, w, h)`；如果两帧完全相同返回 `None`。
-/// 优化：先按行比较整行字节切片，快速跳过不变行。
-fn find_dirty_rect(prev: &[u8], curr: &[u8], w: u32, h: u32) -> Option<(u32, u32, u32, u32)> {
-    let mut min_x = w;
-    let mut min_y = h;
-    let mut max_x = 0u32;
-    let mut max_y = 0u32;
-    let stride = (w * 4) as usize;
-
-    for y in 0..h {
-        let row_start = (y as usize) * stride;
-        let row_end = row_start + stride;
-        // 快速跳过完全相同的行
-        if prev[row_start..row_end] == curr[row_start..row_end] {
-            continue;
-        }
-        min_y = min_y.min(y);
-        max_y = y;
-        let mut left = 0u32;
-        while left < w {
-            let off = row_start + (left as usize) * 4;
-            if prev[off] != curr[off]
-                || prev[off + 1] != curr[off + 1]
-                || prev[off + 2] != curr[off + 2]
-            {
-                break;
-            }
-            left += 1;
-        }
-
-        let mut right = w - 1;
-        while right > left {
-            let off = row_start + (right as usize) * 4;
-            if prev[off] != curr[off]
-                || prev[off + 1] != curr[off + 1]
-                || prev[off + 2] != curr[off + 2]
-            {
-                break;
-            }
-            right -= 1;
-        }
-
-        min_x = min_x.min(left);
-        max_x = max_x.max(right);
-    }
-
-    if max_x < min_x {
-        return None;
-    }
-    Some((min_x, min_y, max_x - min_x + 1, max_y - min_y + 1))
-}
-
-/// 提取脏区域的 RGBA 像素。
-///
-/// 未变化像素设 alpha=0（透明），`GifFrame::from_rgba_speed` 会自动
-/// 将其映射到 transparent index，使 LZW 压缩更高效。
-fn extract_dirty_rgba(
-    prev: &[u8],
-    curr: &[u8],
-    full_w: u32,
-    rx: u32, ry: u32, rw: u32, rh: u32,
-) -> Vec<u8> {
-    let mut result = vec![0u8; (rw * rh * 4) as usize];
-    let stride = (full_w * 4) as usize;
-
-    for dy in 0..rh {
-        let y = ry + dy;
-        let row_base = (y as usize) * stride;
-        for dx in 0..rw {
-            let x = rx + dx;
-            let off = row_base + (x as usize) * 4;
-            if prev[off] != curr[off]
-                || prev[off + 1] != curr[off + 1]
-                || prev[off + 2] != curr[off + 2]
-            {
-                let out_off = ((dy * rw + dx) * 4) as usize;
-                result[out_off] = curr[off];
-                result[out_off + 1] = curr[off + 1];
-                result[out_off + 2] = curr[off + 2];
-                result[out_off + 3] = curr[off + 3];
-            }
-        }
-    }
-    result
-}
-
 // ═══════════════════════════════════════════════
 //  像素格式转换 & 混合
 // ═══════════════════════════════════════════════
@@ -635,5 +546,96 @@ mod tests {
         // sprite[0] 在 dst(-1,0) 被裁掉，sprite[1] 在 dst(0,0)
         assert_eq!(&dst[0..4], &[0,255,0,255]);
         assert_eq!(&dst[4..8], &[0,0,0,255]);
+    }
+
+    /// 导出 → 回读 GIF 逐帧合成画布，与存储的帧比较
+    #[test]
+    fn export_reproduces_the_stored_frames() {
+        use crate::frame_store::{FrameStore, RecordConfig};
+
+        const W: usize = 96;
+        const H: usize = 64;
+        const FRAMES: usize = 12;
+
+        let store = Arc::new(FrameStore::new(
+            W as u32,
+            H as u32,
+            10,
+            RecordConfig { jpeg_quality: 90, ..Default::default() },
+        ));
+        for f in 0..FRAMES {
+            let mut rgb = vec![240u8; W * H * 3];
+            let mut paint = |x: usize, y: usize, c: [u8; 3]| {
+                rgb[(y * W + x) * 3..(y * W + x) * 3 + 3].copy_from_slice(&c);
+            };
+            for y in (8..H).step_by(12) {
+                for x in 4..W - 4 {
+                    paint(x, y, [30, 90, 200]);
+                }
+            }
+            for y in 20..36 {
+                for x in 5 + f * 6..21 + f * 6 {
+                    paint(x.min(W - 1), y, [200, 60, 40]);
+                }
+            }
+            store.push_rgb(&rgb, (f * 100) as u32).unwrap();
+        }
+
+        let path = std::env::temp_dir().join(format!("jietuba_export_test_{}.gif", std::process::id()));
+        let opts = GifExportOptions {
+            path: path.to_string_lossy().into_owned(),
+            width: 0,
+            height: 0,
+            repeat: 0,
+            frame_start: 0,
+            frame_end: 0,
+            cursor_sprites: None,
+            cursor_infos: None,
+            speed_multiplier: 1.0,
+        };
+        let exported = export_gif(&store, &opts, None);
+
+        let mut decode = gif::DecodeOptions::new();
+        decode.set_color_output(gif::ColorOutput::RGBA);
+        let decoded = exported
+            .and_then(|()| File::open(&path).map_err(|e| e.to_string()))
+            .and_then(|file| decode.read_info(file).map_err(|e| e.to_string()));
+        let mut decoder = match decoded {
+            Ok(d) => d,
+            Err(e) => {
+                let _ = std::fs::remove_file(&path);
+                panic!("export or open failed: {e}");
+            }
+        };
+
+        let mut canvas = vec![0u8; W * H * 4];
+        let mut count = 0;
+        let mut total_err = 0u64;
+        while let Some(frame) = decoder.read_next_frame().unwrap() {
+            let (fl, ft, fw, fh) = (frame.left as usize, frame.top as usize, frame.width as usize, frame.height as usize);
+            for y in 0..fh {
+                for x in 0..fw {
+                    let s = (y * fw + x) * 4;
+                    if frame.buffer[s + 3] != 0 {
+                        let d = ((ft + y) * W + fl + x) * 4;
+                        canvas[d..d + 4].copy_from_slice(&frame.buffer[s..s + 4]);
+                    }
+                }
+            }
+            let stored = store.get_frame_rgb(count, 0, 0).unwrap();
+            for i in 0..W * H {
+                for c in 0..3 {
+                    let err = (canvas[i * 4 + c] as i32 - stored[i * 3 + c] as i32).unsigned_abs();
+                    assert!(err <= 40, "frame {count} pixel {i} channel {c}: error {err}");
+                    total_err += err as u64;
+                }
+            }
+            count += 1;
+        }
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(count, FRAMES);
+        let mean = total_err as f64 / (FRAMES * W * H * 3) as f64;
+        assert!(mean < 2.0, "mean abs error {mean}");
     }
 }

@@ -115,7 +115,7 @@ def _button_qss():
         QPushButton {{
             background-color: transparent;
             border: none;
-            border-radius: {scaled(5)}px;
+            border-radius: {scaled(9)}px;
             margin: {scaled(3)}px;
             padding: 0px;
         }}
@@ -208,11 +208,11 @@ class Toolbar(QWidget):
     # ── 基准尺寸（100% 比例下的实际像素）──────────────────
     # 原先是 45/50/36/32/28 再统一乘 0.90 的 SCALE，现已把 0.90 折进基准值，
     # 「100%」就等于当前的实际显示大小；整体比例改由 core/ui_scale 控制。
-    BASE_BTN_WIDTH = 40      # 工具按钮宽
+    BASE_BTN_WIDTH = 38      # 工具按钮宽
     BASE_BTN_HEIGHT = 40     # 所有按钮高（也是工具栏高度）
-    BASE_WIDE_WIDTH = 45     # 功能按钮宽（长截图、保存、结束截图、确定等）
-    BASE_ICON_WIDE = 32      # 功能按钮图标
-    BASE_ICON_TOOL = 29      # 工具按钮图标
+    BASE_WIDE_WIDTH = 42     # 功能按钮宽（长截图、保存、结束截图、确定等）
+    BASE_ICON_WIDE = 24      # 功能按钮图标
+    BASE_ICON_TOOL = 22      # 工具按钮图标：比按钮小一圈，四周留出空隙
     HANDLE_WIDTH_RATIO = 0.32   # 拖动手柄宽 / 工具栏高
     BASE_RIGHT_NUDGE = 4     # 自动定位时整体右移，目视微调，不是算出来的
 
@@ -313,7 +313,7 @@ class Toolbar(QWidget):
         self.scan_code_btn = self._add_button(
             "scan_code", "svg/扫码.svg", "Scan QR code / barcode", wide, self.scan_code_clicked.emit)
         self.gif_btn = self._add_button(
-            "gif", "svg/gif.svg", "GIF recording", wide, self.gif_record_clicked.emit)
+            "gif", "svg/gif.svg", "GIF / Video recording", wide, self.gif_record_clicked.emit)
         # 复制按钮只在钉图里摆出来，截图的排布里没有它
         self.copy_btn = self._add_button(
             "copy", "svg/copy.svg", "Copy image", wide, self.copy_clicked.emit)

@@ -9,15 +9,21 @@
 from __future__ import annotations
 
 from enum import Enum, auto
+from datetime import datetime
+from pathlib import Path
+import time
 
-from PySide6.QtCore import QObject, QRect, QPoint, Qt, QThread
-from PySide6.QtWidgets import QApplication, QWidget
+from PySide6.QtCore import QObject, QRect, QPoint, Qt, QThread, QTimer, Signal, QUrl, QMimeData
+from PySide6.QtGui import QDesktopServices
+from PySide6.QtWidgets import QApplication, QWidget, QFileDialog
 
 from .overlay import CaptureOverlay, OverlayMode
 from .drawing_view import GifDrawingView
 from .frame_recorder import FrameRecorder, RecordState
 from .record_toolbar import RecordToolbar
 from .playback_controller import PlaybackController
+from .video_recorder import VideoRecorder, failure_message
+from core.i18n import make_tr
 
 try:
     from core.logger import log_debug, log_info, log_warning, log_error, log_exception, T
@@ -31,9 +37,8 @@ except ImportError:
 
 from core.ui_scale import get_ui_scale, scaled
 from core.platform_utils import request_trim_working_set as _request_trim
-from core.i18n import make_tr
-
-_tr = make_tr("GifRecorder")
+_gif_tr = make_tr("GifRecorder")
+_tr = make_tr("GifRecordWindow")
 
 
 class AppState(Enum):
@@ -49,6 +54,13 @@ class GifRecordWindow(QObject):
     回放/导出逻辑委托给 PlaybackController。
     """
 
+    closed = Signal()
+
+    @property
+    def video_busy(self):
+        return (self._save_dialog is not None or self._pending_video is not None or self._video.active
+                or (self._countdown_action is not None and self._record_toolbar.get_recording_mode() == "mp4"))
+
     def __init__(self, capture_rect: QRect, parent=None):
         super().__init__(parent)
         self._rect = QRect(capture_rect)
@@ -57,6 +69,27 @@ class GifRecordWindow(QObject):
 
         # ── 录制器 ──
         self._recorder = FrameRecorder()
+        self._video = VideoRecorder(self)
+        self._video.ready.connect(self._on_video_ready)
+        self._video.progress.connect(self._on_video_progress)
+        self._video.paused_changed.connect(self._on_video_paused)
+        self._video.completed.connect(self._on_video_completed)
+        self._video.failed.connect(self._on_video_failed)
+        self._video.finished.connect(self._on_video_finished)
+        self._close_after_video = False
+        self._save_dialog = None
+        self._gif_release = None
+        self._pending_video = None
+        self._completed_video_path = None
+        self._countdown_action = None
+        self._countdown_remaining = 0
+        self._countdown_timer = QTimer(self)
+        self._countdown_timer.setInterval(1000)
+        self._countdown_timer.timeout.connect(self._advance_countdown)
+        self._release_timer = QTimer(self)
+        self._release_timer.setInterval(25)
+        self._release_timer.timeout.connect(self._start_pending_video)
+        QApplication.instance().aboutToQuit.connect(self._video.shutdown)
 
         # ── 三层窗口 ──
         self._overlay = CaptureOverlay(self._rect)
@@ -92,7 +125,8 @@ class GifRecordWindow(QObject):
         # 初始穿透
         self._enter_state(AppState.IDLE)
         # 趁用户调整选区时在后台建好录制线程，点录制时画面即刻开始
-        self._recorder.prepare()
+        if self._record_toolbar.get_recording_mode() == "gif":
+            self._recorder.prepare()
         log_debug(T("GifRecordWindow 初始化完成"), "GIF")
 
     def _reposition_current_toolbar(self):
@@ -107,12 +141,17 @@ class GifRecordWindow(QObject):
     def _connect_record_toolbar(self):
         tb = self._record_toolbar
         tb.fps_changed.connect(self._on_fps_changed)
+        tb.mode_changed.connect(self._on_mode_changed)
         tb.record_start.connect(self._on_record_start)
         tb.record_stop.connect(self._on_record_stop)
         tb.pause_toggled.connect(self._on_pause_toggled)
         tb.move_requested.connect(self._on_move_requested)
         tb.drag_ended.connect(self._on_drag_ended)
         tb.close_requested.connect(self.close_all)
+        tb.video_open_requested.connect(lambda: self._use_video_result("open"))
+        tb.video_folder_requested.connect(lambda: self._use_video_result("folder"))
+        tb.video_copy_requested.connect(lambda: self._use_video_result("copy"))
+        tb.video_rerecord_requested.connect(self._rerecord_video)
         # 绘制工具信号
         tb.tool_selected.connect(self._on_drawing_tool_selected)
         tb.deactivate_requested.connect(self._on_drawing_deactivate)
@@ -142,8 +181,14 @@ class GifRecordWindow(QObject):
         self._state = state
 
         if state == AppState.IDLE:
-            self._overlay.set_recording(False)            # 边框恢复蓝色
-            self._overlay.set_mode(OverlayMode.RESIZE)    # IDLE 时允许拖拽调整录制区域
+            # 退出标注只改变鼠标交互，不改变真实录制/暂停状态。
+            gif_active = self._recorder.state in (RecordState.RECORDING, RecordState.PAUSED)
+            video_recording = self._video.state in ("recording", "pausing", "paused", "resuming", "stopping")
+            recording = video_recording or gif_active
+            paused = self._video.state in ("paused", "resuming") or self._recorder.state == RecordState.PAUSED
+            self._overlay.set_recording(recording, paused=paused)
+            locked = self._video.active or gif_active or self._countdown_action is not None
+            self._overlay.set_mode(OverlayMode.PASSTHROUGH if locked else OverlayMode.RESIZE)
             self._drawing_view.activate_tool("cursor")    # 穿透
             self._record_toolbar.highlight_tool(None)
 
@@ -157,6 +202,7 @@ class GifRecordWindow(QObject):
             # drawing_view 工具由录制工具栏控制
 
         elif state == AppState.PLAYBACK:
+            self._overlay.set_recording(False)
             self._overlay.set_mode(OverlayMode.PASSTHROUGH)
             self._drawing_view.activate_tool("cursor")
             self._drawing_view.hide()
@@ -231,12 +277,18 @@ class GifRecordWindow(QObject):
         toolbar.move(x, y)
 
     def _on_rect_changed(self, rect: QRect):
+        if (self._video.active or self._pending_video is not None or self._countdown_action is not None
+                or self._recorder.state in (RecordState.RECORDING, RecordState.PAUSED)):
+            return
         self._sync_geometry(rect)
         # resize 完成后切回 IDLE
         self._enter_state(AppState.IDLE)
 
     def _on_move_requested(self, delta: QPoint):
         """拖动手柄移动整个选区 + 工具栏"""
+        if (self._video.active or self._pending_video is not None or self._countdown_action is not None
+                or self._recorder.state in (RecordState.RECORDING, RecordState.PAUSED)):
+            return
         new_rect = self._rect.translated(delta)
         # 拖动期间跳过智能重定位，工具栏跟随平移；松手后由 _on_drag_ended 对齐
         self._sync_geometry(new_rect, reposition=False)
@@ -255,7 +307,21 @@ class GifRecordWindow(QObject):
 
     def _on_fps_changed(self, fps: int):
         log_debug(T("FPS 切换: {fps}", fps=fps), "GIF")
-        self._recorder.set_fps(fps)
+        if self._record_toolbar.get_recording_mode() == "gif":
+            self._recorder.set_fps(fps)
+
+    def _on_mode_changed(self, mode):
+        if mode == "mp4":
+            # 只切格式就释放 GIF 的预备线程，MP4 期间不会持有 FrameStore。
+            self._gif_release = self._recorder.release()
+            self._recorder.reset_data()
+        elif self._gif_release is not None:
+            # 上一次交还 HDR 会话后才能再次借用，避免旧任务清除新会话的借用标志。
+            self._record_toolbar.set_busy(_tr("正在准备…"))
+            self._start_pending_video()
+        else:
+            self._recorder.prepare()
+        self._reposition_current_toolbar()
 
     def _on_record_frame_count(self, count: int):
         """帧捕获回调 → 将帧数转为已录制时长显示"""
@@ -264,6 +330,17 @@ class GifRecordWindow(QObject):
         self._record_toolbar.set_elapsed(elapsed_s)
 
     def _on_record_start(self):
+        self._completed_video_path = None
+        if self._record_toolbar.get_recording_mode() == "mp4":
+            self._start_video()
+            return
+        if self._gif_release is not None:
+            self._record_toolbar.set_busy(_tr("正在准备…"))
+            self._start_pending_video()
+            return
+        self._begin_countdown(self._start_gif_recording)
+
+    def _start_gif_recording(self):
         fps = self._record_toolbar.get_current_fps()
         log_info(T("开始录制, fps={fps}, 区域={rect}", fps=fps, rect=self._rect), "GIF")
         self._recorder.set_fps(fps)
@@ -275,6 +352,14 @@ class GifRecordWindow(QObject):
 
     def _on_record_stop(self):
         """停止录制：调用 recorder.stop_async()，后台等待 gdigrab 退出，完成后切回放"""
+        if getattr(self, "_countdown_action", None) is not None:
+            self._cancel_countdown()
+            self._reset_video_controls()
+            return
+        if self._video.active:
+            self._record_toolbar.set_busy(_tr("正在保存…"))
+            self._video.stop()
+            return
         if self._recorder.state not in (RecordState.RECORDING, RecordState.PAUSED):
             return
 
@@ -290,7 +375,7 @@ class GifRecordWindow(QObject):
         if store is not None and store.frame_count == 0:
             log_warning(T("FrameStore 为空"), "GIF")
             from ui.dialogs import show_warning_dialog
-            show_warning_dialog(None, _tr("Recording error"), _tr("The recording is empty. Please record again."))
+            show_warning_dialog(None, _gif_tr("Recording error"), _gif_tr("The recording is empty. Please record again."))
             # 恢复 overlay + toolbar 到可操作状态（避免卡在红色穿透模式）
             self._overlay.set_recording(False)
             self._overlay.set_mode(OverlayMode.RESIZE)
@@ -361,12 +446,220 @@ class GifRecordWindow(QObject):
         dlg.deleteLater()
 
     def _on_pause_toggled(self, paused: bool):
+        if self._video.active:
+            if self._video.pause(paused):
+                self._record_toolbar.set_busy(
+                    _tr("正在暂停…") if paused else _tr("正在恢复…"), allow_stop=True)
+            return
         if paused:
             log_debug(T("录制暂停"), "GIF")
             self._recorder.pause()
         else:
             log_debug(T("录制恢复"), "GIF")
             self._recorder.resume()
+        self._overlay.set_recording(True, paused=self._recorder.state == RecordState.PAUSED)
+
+    def _begin_countdown(self, action):
+        seconds = self._record_toolbar.get_start_delay()
+        if not seconds:
+            action()
+            return
+        self._countdown_remaining = seconds
+        self._countdown_action = action
+        self._overlay.set_mode(OverlayMode.PASSTHROUGH)
+        self._record_toolbar.set_busy(_tr("倒计时 {seconds}").format(seconds=seconds), allow_stop=True)
+        self._countdown_timer.start()
+
+    def _advance_countdown(self):
+        if self._countdown_action is None:
+            return
+        self._countdown_remaining -= 1
+        if self._countdown_remaining:
+            self._record_toolbar.set_busy(
+                _tr("倒计时 {seconds}").format(seconds=self._countdown_remaining), allow_stop=True)
+            return
+        action = self._countdown_action
+        self._cancel_countdown()
+        if self._record_toolbar.get_recording_mode() == "mp4":
+            self._record_toolbar.set_busy(_tr("正在准备…"))
+        else:
+            self._record_toolbar.set_video_ready()
+        action()
+
+    def _cancel_countdown(self):
+        self._countdown_timer.stop()
+        self._countdown_action = None
+
+    def _start_video(self):
+        if self.video_busy:
+            return
+        from settings import get_tool_settings_manager
+        folder = get_tool_settings_manager().get_screenshot_save_path()
+        filename = "recording_" + datetime.now().strftime("%Y%m%d_%H%M%S_%f") + ".mp4"
+        # 异步系统文件选择不进入嵌套事件循环；此阶段也属于本录制会话。
+        dialog = QFileDialog(self._record_toolbar, _tr("保存 MP4 视频"))
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+        dialog.setNameFilter(_tr("MP4 视频 (*.mp4)"))
+        dialog.setOption(QFileDialog.Option.DontConfirmOverwrite, True)
+        dialog.setDirectory(str(Path(folder or Path.home())))
+        dialog.selectFile(filename)
+        dialog.setDefaultSuffix("mp4")
+        dialog.accepted.connect(self._on_video_path_selected)
+        dialog.rejected.connect(self._on_video_path_cancelled)
+        self._save_dialog = dialog
+        self._record_toolbar.set_busy(_tr("正在准备…"))
+        dialog.open()
+
+    def _take_save_dialog(self):
+        dialog, self._save_dialog = self._save_dialog, None
+        return dialog
+
+    def _on_video_path_cancelled(self):
+        dialog = self._take_save_dialog()
+        if dialog is not None:
+            dialog.deleteLater()
+        if not self._close_after_video and self._record_toolbar is not None:
+            self._record_toolbar.reset_state()
+
+    def _on_video_path_selected(self):
+        dialog = self._take_save_dialog()
+        if dialog is None:
+            return
+        paths = dialog.selectedFiles()
+        dialog.deleteLater()
+        if not paths or self._close_after_video:
+            return
+        path = paths[0]
+        if not path.lower().endswith(".mp4"):
+            path += ".mp4"
+        if Path(path).exists():
+            from ui.dialogs import show_modeless_warning_dialog
+            show_modeless_warning_dialog(
+                self._record_toolbar, _tr("视频录制"), _tr("目标文件已存在，请选择新的文件名。"))
+            self._record_toolbar.reset_state()
+            return
+        if self._gif_release is None:
+            self._gif_release = self._recorder.release()
+        self._recorder.reset_data()
+        self._pending_video = (path, self._record_toolbar.get_video_options(), time.monotonic())
+        self._record_toolbar.set_busy(_tr("正在准备…"))
+        self._overlay.set_mode(OverlayMode.PASSTHROUGH)
+        self._start_pending_video()
+
+    def _start_pending_video(self):
+        if self._recorder is None:
+            self._release_timer.stop()
+            return
+        if self._pending_video is None:
+            if self._gif_release is not None and self._record_toolbar.get_recording_mode() == "gif":
+                if not self._gif_release.done():
+                    self._release_timer.start()
+                    return
+                release, self._gif_release = self._gif_release, None
+                try:
+                    release.result()
+                except Exception as error:
+                    log_exception(error, T("释放 GIF 会话"))
+                    self._release_timer.stop()
+                    self._on_video_failed("release_failed", _tr("无法释放之前的录制会话，请稍后重试。"))
+                    return
+                self._recorder.prepare()
+                self._record_toolbar.reset_state()
+            self._release_timer.stop()
+            return
+        path, options, started = self._pending_video
+        if self._gif_release is not None and not self._gif_release.done():
+            if time.monotonic() - started > 30:
+                self._pending_video = None
+                self._release_timer.stop()
+                self._on_video_failed("release_timeout", _tr("无法释放之前的录制会话，请稍后重试。"))
+                return
+            self._release_timer.start()
+            return
+        try:
+            if self._gif_release is not None:
+                self._gif_release.result()
+        except Exception as error:
+            log_exception(error, T("释放 GIF 会话"))
+            self._pending_video = None
+            self._release_timer.stop()
+            self._on_video_failed("release_failed", _tr("无法释放之前的录制会话，请稍后重试。"))
+            return
+        self._release_timer.stop()
+        self._pending_video = None
+        self._gif_release = None
+        self._begin_countdown(lambda: self._video.start(self._rect, path, options))
+
+    def _on_video_ready(self):
+        self._record_toolbar.set_video_ready()
+        self._overlay.set_recording(True)
+        self._overlay.set_mode(OverlayMode.PASSTHROUGH)
+
+    def _on_video_progress(self, elapsed):
+        if self._record_toolbar is not None:
+            self._record_toolbar.set_elapsed(elapsed)
+
+    def _on_video_paused(self, paused):
+        self._record_toolbar.set_video_paused(paused)
+        self._overlay.set_recording(True, paused=paused)
+
+    def _on_video_completed(self, path):
+        # 封装完成后仍等待 helper 退出，再开放重录，避免借用同一个采集会话。
+        self._completed_video_path = Path(path)
+
+    def _on_video_failed(self, code, message):
+        self._completed_video_path = None
+        log_error(T("视频录制失败: {code}: {message}", code=code, message=message), "Video")
+        if not self._close_after_video:
+            from ui.dialogs import show_modeless_warning_dialog
+            show_modeless_warning_dialog(self._record_toolbar, _tr("视频录制失败"), failure_message(code, message))
+        if not self._video.active:
+            self._reset_video_controls()
+
+    def _reset_video_controls(self):
+        if self._record_toolbar is not None:
+            self._record_toolbar.reset_state()
+            self._enter_state(AppState.IDLE)
+            self._reposition_current_toolbar()
+            _request_trim(1000)
+
+    def _on_video_finished(self):
+        if self._close_after_video:
+            self.close_all()
+        else:
+            self._reset_video_controls()
+            if self._completed_video_path is not None:
+                self._record_toolbar.show_video_result(self._completed_video_path)
+                self._reposition_current_toolbar()
+
+    def _use_video_result(self, action):
+        path = self._completed_video_path
+        if path is None:
+            return
+        from ui.dialogs import show_modeless_warning_dialog
+        if not path.is_file():
+            show_modeless_warning_dialog(self._record_toolbar, _tr("视频录制"), _tr("视频文件不存在，可能已被移动或删除。"))
+            return
+        if action == "copy":
+            mime = QMimeData()
+            mime.setUrls([QUrl.fromLocalFile(str(path))])
+            QApplication.clipboard().setMimeData(mime)
+            self._record_toolbar.show_video_copied()
+            return
+        target = path.parent if action == "folder" else path
+        if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(target))):
+            show_modeless_warning_dialog(self._record_toolbar, _tr("视频录制"), _tr("无法打开，请检查默认播放器或文件管理器。"))
+
+    def _rerecord_video(self):
+        if self.video_busy:
+            return
+        self._completed_video_path = None
+        self._drawing_view.clear_all()
+        self._drawing_view.update_rect(self._rect)
+        self._drawing_view.show()
+        self._reset_video_controls()
+        self._reposition_current_toolbar()
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # 绘制工具回调
@@ -498,6 +791,22 @@ class GifRecordWindow(QObject):
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     def close_all(self):
+        self._cancel_countdown()
+        self._release_timer.stop()
+        if self._recorder is None:
+            return
+        if self._save_dialog is not None:
+            self._close_after_video = True
+            self._save_dialog.reject()
+        if self._pending_video is not None:
+            self._pending_video = None
+            self._release_timer.stop()
+        if self._video.active:
+            # 保留 QObject/QProcess 到 MP4 封装和进程退出完成；不能先 deleteLater。
+            self._close_after_video = True
+            self._record_toolbar.set_busy(_tr("正在保存…"))
+            self._video.stop()
+            return
         log_info(T("关闭 GIF 窗口"), "GIF")
 
         # 断开 recorder 信号，防止 queued signal 访问已销毁的工具栏
@@ -549,4 +858,5 @@ class GifRecordWindow(QObject):
             w.deleteLater()
 
         _request_trim(1000)
+        self.closed.emit()
         self.deleteLater()

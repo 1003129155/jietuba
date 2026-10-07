@@ -7,7 +7,7 @@
 窗口关掉只是把结果丢掉，线程照常跑完（识别打不断），见 recognizer 模块。
 """
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QPoint, Qt, QTimer
 from PySide6.QtGui import QCursor
 from PySide6.QtWidgets import QApplication, QHBoxLayout, QVBoxLayout
 
@@ -24,14 +24,18 @@ from ui.fluent_lite import (
 )
 from ui.toast import Toast
 
+from .placement import pick_screen, window_position
 from .recognizer import NO_TEXT, UNAVAILABLE, recognize_async
 
 _tr = make_tr("TextRecognitionWindow")
 
 
-def show_text_recognition(image):
-    """识别 image 里的文字并弹出结果窗口。截图工具栏的「文字识别」按钮走这里"""
-    window = TextRecognitionWindow(image)
+def show_text_recognition(image, anchor=None):
+    """识别 image 里的文字并弹出结果窗口。截图工具栏的「文字识别」按钮走这里
+
+    anchor 是识别区域在屏幕上的位置（全局坐标的 QRect），窗口摆放位置的设置要参照它。
+    """
+    window = TextRecognitionWindow(image, anchor=anchor)
     track_modeless_dialog(window)
     window.show()
     window.raise_()
@@ -58,8 +62,9 @@ class TextRecognitionWindow(FrostedFramelessDialog):
     WIDTH = 520
     HEIGHT = 420
 
-    def __init__(self, image, parent=None):
+    def __init__(self, image, parent=None, anchor=None):
         super().__init__(parent)
+        self._anchor = anchor
         scale_dialog_font(self)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         title_bar = FluentTitleBar(self)
@@ -123,14 +128,22 @@ class TextRecognitionWindow(FrostedFramelessDialog):
         )
 
     def _place(self):
-        """摆在鼠标所在屏幕的正中；屏幕小就跟着缩"""
-        screen = QApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()
+        """按设置里的位置摆放；屏幕小就跟着缩"""
+        manager = get_tool_settings_manager()
+        position = manager.get_ocr_result_position()
+        last = manager.get_ocr_result_last_center()
+        last_center = QPoint(*last) if last is not None else None
+        cursor = QCursor.pos()
+        screen = pick_screen(
+            position, self._anchor, cursor, last_center,
+            QApplication.screens(), QApplication.primaryScreen(),
+        )
         available = screen.availableGeometry()
         self.resize(
             min(dialog_scaled(self.WIDTH), available.width()),
             min(dialog_scaled(self.HEIGHT), available.height()),
         )
-        self.move(available.center() - self.rect().center())
+        self.move(window_position(position, self.size(), screen, self._anchor, cursor, last_center))
 
     def _forget_thread(self):
         self._thread = None
@@ -157,6 +170,10 @@ class TextRecognitionWindow(FrostedFramelessDialog):
         if self._thread is not None:
             self._thread.cancel()   # 结果不要了；线程自己跑完、自己回收
             self._thread = None
+        manager = get_tool_settings_manager()
+        if manager.get_ocr_result_position() == "last_position":
+            center = self.geometry().center()
+            manager.set_ocr_result_last_center(center.x(), center.y())
         super().closeEvent(event)
 
 

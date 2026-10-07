@@ -4,6 +4,7 @@
 //! 已拼好的长图不再编解码，行哈希也只算新帧。
 //! 会话记着最新一帧在结果里的位置，下一帧先在它附近找，回滚到哪都能定位。
 //! 帧落在已拼内容之内只更新位置；伸出结果开头或末尾，就在那一头接上，两个方向都能长。
+//! 帧正好停在结果一头时，那一头对不上的行换成这一帧的（停下后才加载出来的内容）。
 //! 每行算两种哈希，先按逐像素指纹找位置，找不到再按平均色哈希找（见 `RowHashes`）；
 //! 位置要有能单独定位的行支撑，只零星对上一小段时视为不重叠，不硬接。
 //! 输入输出用 BGRA（Windows 截屏的原生布局），内部按 RGBA 存放以复用行哈希。
@@ -27,7 +28,7 @@ pub enum Heading {
 ///
 /// 伸出开头：结果先去掉顶部 `head_cut` 行，再把新帧前 `head_rows` 行接在最前面；
 /// 伸出末尾：结果截到 `keep` 行，再接上新帧从 `skip` 行开始的部分；
-/// 落在已拼内容之内：结果不变，`keep` 为原高度、`skip` 为帧高。
+/// 落在已拼内容之内：结果不变，`keep` 为原高度、`skip` 为帧高；贴着结果一头且那一头变了时同上替换。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PushOutcome {
     pub head_cut: usize,
@@ -166,6 +167,8 @@ pub struct StitchSession {
     last_move: Option<Heading>,
     /// 上一次推入的帧的逐像素指纹（不论接没接上），用来认出固定栏。
     last_frame: Vec<u64>,
+    /// 最近一次真正挪了位置的帧所用的固定栏行数；还没挪过时为 `None`。
+    settled_bars: Option<(usize, usize)>,
 }
 
 impl StitchSession {
@@ -192,6 +195,7 @@ impl StitchSession {
             position: 0,
             last_move: None,
             last_frame: Vec::new(),
+            settled_bars: None,
         })
     }
 
@@ -236,16 +240,28 @@ impl StitchSession {
             return Ok(PushOutcome { head_cut: 0, head_rows: 0, keep: 0, skip: 0, top: 0 });
         }
 
-        let located = self.locate(&Query {
+        let query = Query {
             frame_rows: &frame_rows,
             bars: self.fixed_bars(&frame_rows.exact),
             heading: heading.or(self.last_move),
             ignore_img1_top_ratio,
             ignore_img1_bottom_ratio,
             debug,
-        });
+        };
+        let mut located = self.locate(&query).map(|found| (found, query.bars));
+        if let (Err(_), Some(settled)) = (&located, self.settled_bars) {
+            // 没滚动、只是一部分原地变了（停下后才加载出来）时，没变的那截也像固定栏；
+            // 比之前滚动时认出的高，就按之前的再找一次
+            let bars = (query.bars.0.min(settled.0), query.bars.1.min(settled.1));
+            if bars != query.bars {
+                located = self.locate(&Query { bars, ..query }).map(|found| (found, bars));
+            }
+        }
         self.last_frame = frame_rows.exact.clone();
-        let (placement, kind) = located?;
+        let ((placement, kind), bars) = located?;
+        if placement.top() != self.position as isize {
+            self.settled_bars = Some(bars);
+        }
         Ok(self.commit(placement, kind, &frame, &frame_rows))
     }
 
@@ -318,6 +334,7 @@ impl StitchSession {
         self.position = 0;
         self.last_move = None;
         self.last_frame = Vec::new();
+        self.settled_bars = None;
     }
 
     fn row_hashes(&self, frame: &[u8]) -> RowHashes {
@@ -446,7 +463,8 @@ impl StitchSession {
     }
 
     /// 帧伸出结果开头或末尾，就在那一头接上，顺带替换掉新帧也覆盖到的旧标题栏、旧底栏。
-    /// 落在已拼内容之内（回滚、没滚动）只记位置，结果不动。`kind` 是找到这个位置所用的行哈希。
+    /// 落在已拼内容之内（回滚、没滚动）只记位置；正好贴着结果一头且那一头对不上时，按同样的规则换成新帧的，
+    /// 停下后才加载出来的内容只能这样补上。`kind` 是找到这个位置所用的行哈希。
     fn commit(&mut self, placement: Placement, kind: HashKind, frame: &[u8], frame_rows: &RowHashes) -> PushOutcome {
         let len = self.height();
         let frame_height = self.frame_height as usize;
@@ -481,6 +499,22 @@ impl StitchSession {
             PushOutcome { head_cut: 0, head_rows: 0, keep, skip, top: self.position }
         } else {
             self.position = top as usize;
+            let at_end = top as usize + frame_height == len;
+            let at_start = top == 0;
+            // 两头都贴着（结果只有一屏）时看最近往哪边滚，那边才是刚露出、可能还没加载完的
+            let end = at_end && !(at_start && self.last_move == Some(Heading::Up));
+            if end && !self.edge_holds(kind, frame_rows, top, true) {
+                if let Some(to) = self.agreement_from_edge(kind, frame_rows, top, true) {
+                    let skip = to - top as usize;
+                    self.apply(to, skip, frame, frame_rows);
+                    return PushOutcome { head_cut: 0, head_rows: 0, keep: to, skip, top: self.position };
+                }
+            } else if at_start && !end && !self.edge_holds(kind, frame_rows, 0, false) {
+                if let Some(from) = self.agreement_from_edge(kind, frame_rows, 0, false) {
+                    self.prepend(from, from, frame, frame_rows);
+                    return PushOutcome { head_cut: from, head_rows: from, keep: len, skip: frame_height, top: 0 };
+                }
+            }
             PushOutcome { head_cut: 0, head_rows: 0, keep: len, skip: frame_height, top: self.position }
         }
     }
@@ -1062,6 +1096,72 @@ mod tests {
             let mut expected = region(&p, lo, hi + H);
             bar(&mut expected);
             assert_eq!(exported(&s), expected);
+        }
+    }
+
+    /// `blank` 那几行还没加载出来，是白的。
+    fn loading(p: &RgbaImage, top: u32, blank: std::ops::Range<u32>, bar: fn(&mut RgbaImage)) -> RgbaImage {
+        let mut f = frame(p, top);
+        for y in blank {
+            for x in 0..W {
+                f.put_pixel(x, y, Rgba([255, 255, 255, 255]));
+            }
+        }
+        bar(&mut f);
+        f
+    }
+
+    #[test]
+    fn content_loading_in_place_at_either_end_replaces_the_blank() {
+        // 停在一头时新露出的部分还白着，加载完在同一位置又截一次，长图那一头换成加载好的。
+        // 白的超过半屏时，没变的那半截和内容滚过固定栏一模一样，不能因此接不上
+        let p = distinct_rows_page(900);
+        let no_bar: fn(&mut RgbaImage) = |_| {};
+        let cases: [(&[u32], u32, std::ops::Range<u32>); 4] = [
+            (&[0, 30, 60, 90], 150, 30..H),
+            (&[0, 30, 60, 90], 110, 70..H),
+            (&[600, 570, 540, 510], 450, 0..60),
+            (&[600, 570, 540, 510], 490, 0..20),
+        ];
+        for (tops, stop, blank) in cases {
+            for bar in [no_bar, header, footer] {
+                let mut s = push_and_track_with(&p, tops, bar);
+                let blank_frame = loading(&p, stop, blank.clone(), bar);
+                assert!(s.push_bgra(&to_bgra(&blank_frame), None, 0.15, 0.0, false).is_ok(), "blank at {stop}");
+                let mut loaded = frame(&p, stop);
+                bar(&mut loaded);
+                let outcome = s.push_bgra(&to_bgra(&loaded), None, 0.15, 0.0, false);
+                let top = if stop > tops[0] { (stop - tops[0]) as usize } else { 0 };
+                assert_eq!(outcome.map(|o| o.top), Ok(top), "loaded at {stop}, blank {blank:?}");
+                let (lo, hi) = (stop.min(tops[0]), stop.max(tops[0]));
+                let mut expected = region(&p, lo, hi + H);
+                bar(&mut expected);
+                assert_eq!(exported(&s), expected, "loaded at {stop}, blank {blank:?}");
+            }
+        }
+    }
+
+    /// 每行都不一样、高过匹配时忽略的结果顶部（帧高的 15%）的标题栏：参与定位时会把帧钉在结果开头。
+    fn titled(img: &mut RgbaImage) {
+        for y in 0..20 {
+            for x in 0..W {
+                let v = (mix(y, x / 8 + 101) & 0xFF) as u8;
+                img.put_pixel(x, y, Rgba([v, 255 - v, 90, 255]));
+            }
+        }
+    }
+
+    #[test]
+    fn a_far_jump_under_a_title_bar_is_still_reported() {
+        // 除了标题栏整屏都变了，看着也像原地加载；但这是滚过了一整屏，不能靠标题栏把它接在开头
+        let p = distinct_rows_page(900);
+        for before in [&[0u32][..], &[0, 40, 80]] {
+            let mut s = push_and_track_with(&p, before, titled);
+            let snapshot = exported(&s);
+            let mut far = frame(&p, 500);
+            titled(&mut far);
+            assert_eq!(s.push_bgra(&to_bgra(&far), None, 0.15, 0.0, false), Err(StitchError::NoOverlap), "after {before:?}");
+            assert_eq!(exported(&s), snapshot);
         }
     }
 

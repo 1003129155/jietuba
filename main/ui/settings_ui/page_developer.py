@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 from core.ui_scale import dialog_scaled
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
-    FluentIcon, ComboBox, DoubleSpinBox, SpinBox,
+    FluentIcon, ComboBox, SpinBox,
     CaptionLabel, PrimaryPushButton,
 )
 from .components import SettingCardGroup, page_scroll_area
@@ -40,23 +40,6 @@ def create_developer_page(dialog) -> QWidget:
     dialog.engine_combo.setCurrentIndex(0)
     engine_card.addControl(dialog.engine_combo)
     grp_stitch.addSettingCard(engine_card)
-
-    # 滚动冷却
-    cooldown_card = FSettingCard(
-        FluentIcon.STOP_WATCH,
-        dialog.tr("Wait Time"),
-        dialog.tr("Capture wait time after scroll (seconds)"),
-        parent=grp_stitch,
-    )
-    dialog.cooldown_spinbox = DoubleSpinBox(cooldown_card)
-    dialog.cooldown_spinbox.setRange(0.05, 1.0)
-    dialog.cooldown_spinbox.setSingleStep(0.01)
-    dialog.cooldown_spinbox.setDecimals(2)
-    dialog.cooldown_spinbox.setValue(
-        dialog.config_manager.get_scroll_cooldown()
-    )
-    cooldown_card.addControl(dialog.cooldown_spinbox)
-    grp_stitch.addSettingCard(cooldown_card)
 
     # 后续截图顶部忽略像素
     ignore_top_card = FSettingCard(

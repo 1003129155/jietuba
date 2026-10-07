@@ -70,10 +70,10 @@ def test_crop_during_auto_scroll_cuts_at_the_view_on_screen(qtbot, monkeypatch, 
 
 
 def test_crop_right_after_scrolling_takes_the_pending_frame_first(qtbot, monkeypatch, window):
-    """刚滚完、截图还在等冷却时就裁剪：先截下当前画面，裁剪才对准它。"""
+    """刚滚完、画面监视还没发现就裁剪：先截下当前画面，裁剪才对准它。"""
     sim = _scroll_down_then_back(monkeypatch, window)
     sim.inject(3 * 120)  # 往上滚 3 格，不截图
-    assert sim.top == 720 and window.capture_timer.isActive()
+    assert sim.top == 720
     window._crop("top")
     window._on_finish()
     assert window.captured["image"].convert("RGB").tobytes() == sim.page.crop((0, 720, PAGE_W, 1200 + VIEW_H)).tobytes()

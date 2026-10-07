@@ -15,10 +15,11 @@ colorama==0.4.6
 zxing-cpp==3.1.1
 oneocr==1.0.12
 
-# ===== 自制 Rust 库（PyPI 发行名，import 名不同——见各包 README）=====
-j-gif==0.4.0
-j-stitch==0.5.0
+# ===== 自制 Rust 包（七个 Python 扩展，均由 PyPI wheel 安装）=====
+j-gif==0.4.1
+j-stitch==0.5.1
 j-clipboard==0.4.5
 j-ppocr==0.2.1
 j-hdrcapture==0.1.0
 j-input==0.1.1
+j-video==0.1.0

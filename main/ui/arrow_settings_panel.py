@@ -3,7 +3,7 @@
 基于文字面板布局，仅用于箭头工具
 """
 from PySide6.QtWidgets import (
-    QApplication, QWidget, QHBoxLayout, QPushButton, QComboBox, QFrame, QStyle,
+    QApplication, QWidget, QHBoxLayout, QStyle,
     QStyledItemDelegate, QStyleOptionGraphicsItem, QStyleOptionViewItem
 )
 from PySide6.QtCore import Qt, Signal, QPoint, QRect, QSize, QPointF
@@ -12,7 +12,10 @@ from canvas.items import ArrowItem
 from core.i18n import make_tr
 from core.ui_scale import scaled, scaled_f
 from tools.base import Tool
-from .base_settings_panel import StepperWidget, build_settings_panel_stylesheet, paint_rounded_panel
+from .base_settings_panel import (
+    PRESET_COLORS, ColorRow, PillComboBox, StepperWidget, build_settings_panel_stylesheet,
+    make_separator, paint_rounded_panel,
+)
 from .color_picker_button import ColorPickerButton
 from core import safe_event
 
@@ -41,9 +44,9 @@ BASE_PREVIEW_ROW_SIZE = QSize(96, 26)
 BASE_PREVIEW_STROKE_WIDTH = 3
 # 图标固定用中性墨色：这是样式选择器不是颜色选择器，跟着当前颜色走的话，
 # 选浅色标注时白底上的图标自己就看不见了（和序号样式条同一个理由）。
-# 下拉选中行是蓝底，深墨色会糊在上面，所以另备一张白的挂到 Selected 模式。
+# 下拉选中行是浅色的主题色底，选中态沿用同一种墨色。
 PREVIEW_INK = QColor("#444444")
-PREVIEW_INK_SELECTED = QColor("#FFFFFF")
+PREVIEW_INK_SELECTED = PREVIEW_INK
 
 _icon_cache = {}
 
@@ -153,15 +156,12 @@ class ArrowSettingsPanel(QWidget):
     opacity_changed = Signal(int)  # 兼容旧接口（无控件）
 
     # 基准尺寸（100% 下的实际像素）
-    BASE_MARGIN_H = 9
-    BASE_MARGIN_V = 7
-    BASE_SPACING = 9
-    BASE_SIZE_SPIN_WIDTH = 54
-    BASE_OPACITY_SPIN_WIDTH = 65
-    BASE_COLOR_BTN = 25
-    BASE_PRESET_BTN = 22
-    BASE_PRESET_RADIUS = 6
-    BASE_COMBO_WIDTH = 88
+    BASE_MARGIN_H = 12
+    BASE_MARGIN_V = 6
+    BASE_SPACING = 10
+    BASE_SIZE_SPIN_WIDTH = 68
+    BASE_OPACITY_SPIN_WIDTH = 80
+    BASE_COMBO_WIDTH = 104   # 收起时要放下一张箭头预览，比线型下拉宽一些
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -204,23 +204,7 @@ class ArrowSettingsPanel(QWidget):
 
         self.size_spin.setFixedWidth(scaled(self.BASE_SIZE_SPIN_WIDTH))
         self.opacity_spin.setFixedWidth(scaled(self.BASE_OPACITY_SPIN_WIDTH))
-        color_btn = scaled(self.BASE_COLOR_BTN)
-        self.color_btn.setFixedSize(color_btn, color_btn)
-        preset = scaled(self.BASE_PRESET_BTN)
-        radius = scaled(self.BASE_PRESET_RADIUS)
-        for btn, color_str in self._preset_buttons:
-            btn.setFixedSize(preset, preset)
-            border_color = "#888888" if color_str == "#FFFFFF" else "#333333"
-            btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {color_str};
-                    border: 1px solid {border_color};
-                    border-radius: {radius}px;
-                }}
-                QPushButton:hover {{
-                    border: 2px solid #000;
-                }}
-            """)
+        self._color_row.apply_scale()
         self.adjustSize()
         self.update()
 
@@ -229,7 +213,7 @@ class ArrowSettingsPanel(QWidget):
         layout = QHBoxLayout(self)
 
         # === 1. 基础样式区 ===
-        self.arrow_style_combo = QComboBox()
+        self.arrow_style_combo = PillComboBox()
         for style in ArrowItem.STYLES:
             self.arrow_style_combo.addItem(arrow_style_icon(style), "", style)
             name = ARROW_STYLE_NAMES.get(style)
@@ -249,45 +233,24 @@ class ArrowSettingsPanel(QWidget):
 
         # 线宽选择：范围跟 ArrowTool（未覆写 MIN/MAX_WIDTH）实际允许的宽度一致，
         # 否则滚轮等入口能把宽度调到面板显示范围之外，图元继续变大但面板数字卡住不动
-        self.size_spin = StepperWidget(self.current_size, Tool.MIN_WIDTH, Tool.MAX_WIDTH)
+        self.size_spin = StepperWidget(self.current_size, Tool.MIN_WIDTH, Tool.MAX_WIDTH, glyph="width")
         self.size_spin.setToolTip(self.tr("Line Width"))
         layout.addWidget(self.size_spin)
 
         # 透明度选择（百分比）
-        self.opacity_spin = StepperWidget(self._opacity_to_percent(self._cached_opacity), 0, 100, "%")
+        self.opacity_spin = StepperWidget(self._opacity_to_percent(self._cached_opacity), 0, 100, "%",
+                                          glyph="opacity")
         self.opacity_spin.setToolTip(self.tr("Opacity (%)"))
         layout.addWidget(self.opacity_spin)
 
-        # 分隔线
-        line1 = QFrame()
-        line1.setObjectName("separator")
-        line1.setFrameShape(QFrame.Shape.VLine)
-        line1.setFixedWidth(1)
-        layout.addWidget(line1)
+        layout.addWidget(make_separator())
 
         # === 2. 颜色预设区 ===
-        self.color_btn = ColorPickerButton(
-            self.current_color, size=scaled(self.BASE_COLOR_BTN), show_alpha=True
-        )
+        self.color_btn = ColorPickerButton(self.current_color, show_alpha=True, round_style=True)
         self.color_btn.setToolTip(self.tr("Custom Color"))
-        layout.addWidget(self.color_btn)
-
-        preset_colors = [
-            "#FF0000",
-            "#FFFF00",
-            "#00FF00",
-            "#0000FF",
-            "#000000",
-            "#FFFFFF",
-        ]
-
-        self._preset_buttons = []
-        for color_str in preset_colors:
-            btn = QPushButton()
-            btn.setToolTip(color_str)
-            btn.clicked.connect(lambda checked, c=color_str: self._on_preset_color_clicked(c))
-            layout.addWidget(btn)
-            self._preset_buttons.append((btn, color_str))
+        self._color_row = ColorRow(self.color_btn, PRESET_COLORS, self._on_preset_color_clicked)
+        self._preset_buttons = self._color_row.swatches
+        layout.addWidget(self._color_row)
 
         layout.addStretch()
         self.apply_scale()

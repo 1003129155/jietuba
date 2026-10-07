@@ -41,6 +41,7 @@ def app(monkeypatch):
         app=Mock(),
         tr=lambda text: text,
     )
+    instance.app._gif_window = None
     instance.quick_capture.busy = False
     instance.hotkey_system.has_registered_hotkeys.return_value = True
     instance.update_hotkey = MethodType(MainApp.update_hotkey, instance)

@@ -4,10 +4,7 @@
 左侧：框选/画笔模式切换 + 笔刷大小；右侧：粒度滑动条 + 马赛克种类（马赛克/模糊）。
 马赛克没有"颜色"这个概念（涂抹的是背景像素），所以不带颜色和透明度控件。
 """
-from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QPushButton, QComboBox, QFrame, QButtonGroup,
-    QStyle, QStyleOptionComboBox, QStylePainter,
-)
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QButtonGroup
 from PySide6.QtCore import Qt, Signal, QSize, QPointF
 from PySide6.QtGui import QColor, QIcon, QImage, QPainter, QPixmap, QPolygonF
 from core.resource_manager import ResourceManager
@@ -15,31 +12,13 @@ from core.i18n import make_tr
 from core.ui_scale import scaled
 from tools.mosaic import MosaicTool
 from .base_settings_panel import (
-    StepperWidget, build_settings_panel_stylesheet, paint_rounded_panel,
+    PillComboBox, StepperWidget, accent_color, build_settings_panel_stylesheet, make_separator,
+    paint_rounded_panel,
 )
 from core import safe_event
 
 # 与其它工具设置面板共用同一翻译上下文
 _tr = make_tr("ArrowSettingsPanel")
-
-
-class CenteredComboBox(QComboBox):
-    """闭合态文本居中的下拉框。
-
-    QSS 的 text-align 只支持 QPushButton / QProgressBar，QComboBox 的
-    当前项文本由原生样式左对齐绘制；这里重写 paintEvent，框架交给样式画，
-    文本自己按 SC_ComboBoxEditField 区域居中绘制。
-    """
-
-    def paintEvent(self, event):
-        option = QStyleOptionComboBox()
-        self.initStyleOption(option)
-        option.currentText = ""  # 空文本交给样式画，避免与居中文本重叠
-        painter = QStylePainter(self)
-        painter.drawComplexControl(QStyle.ComplexControl.CC_ComboBox, option)
-        # 下拉箭头宽度为 0，整个内容矩形都可用，直接按它居中
-        painter.setPen(option.palette.text().color())
-        painter.drawText(option.rect, Qt.AlignmentFlag.AlignCenter, self.currentText())
 
 
 SWATCH_DARK = QColor("#7a7a7a")
@@ -140,13 +119,13 @@ class MosaicSettingsPanel(QWidget):
     block_size_changed = Signal(int)  # 马赛克/模糊粒度
 
     # 基准尺寸（100% 下的实际像素）
-    BASE_MARGIN_H = 9
-    BASE_MARGIN_V = 7
-    BASE_SPACING = 9
-    BASE_SIZE_SPIN_WIDTH = 54
-    BASE_BTN = 27
+    BASE_MARGIN_H = 12
+    BASE_MARGIN_V = 6
+    BASE_SPACING = 10
+    BASE_SIZE_SPIN_WIDTH = 68
+    BASE_BTN = 28
     BASE_ICON = 22
-    BASE_COMBO_WIDTH = 72
+    BASE_COMBO_WIDTH = 96
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -188,9 +167,16 @@ class MosaicSettingsPanel(QWidget):
             btn.setIconSize(QSize(icon_sz, icon_sz))
         self.mode_widget.layout().setSpacing(scaled(2))
         self.size_spin.setFixedWidth(scaled(self.BASE_SIZE_SPIN_WIDTH))
+        # 档位按钮被图样铺满，底色基本露不出来，所以选中态用一圈主题色描边
+        level_button_qss = (
+            f"QPushButton {{ padding: 0px; border: 1px solid transparent; border-radius: {scaled(6)}px; }}"
+            "QPushButton:hover { border-color: rgba(15, 23, 42, 0.25); }"
+            f"QPushButton:checked {{ border: 2px solid {accent_color().name()}; }}"
+        )
         for button in self.block_size_buttons.values():
             button.setFixedSize(btn_sz, btn_sz)
             button.setIconSize(QSize(icon_sz, icon_sz))
+            button.setStyleSheet(level_button_qss)
         self._block_size_layout.setSpacing(scaled(2))
         # 档位图样是按 _swatch_side 的像素画的，改比例后要重画
         self._swatch_side = icon_sz
@@ -230,15 +216,11 @@ class MosaicSettingsPanel(QWidget):
         layout.addWidget(self.mode_widget)
 
         # === 笔刷大小 ===
-        self.size_spin = StepperWidget(self.current_size, Tool.MIN_WIDTH, Tool.MAX_WIDTH)
+        self.size_spin = StepperWidget(self.current_size, Tool.MIN_WIDTH, Tool.MAX_WIDTH, glyph="width")
         self.size_spin.setToolTip(_tr("Brush Size"))
         layout.addWidget(self.size_spin)
 
-        line1 = QFrame()
-        line1.setObjectName("separator")
-        line1.setFrameShape(QFrame.Shape.VLine)
-        line1.setFixedWidth(1)
-        layout.addWidget(line1)
+        layout.addWidget(make_separator())
 
         layout.addStretch()
 
@@ -260,20 +242,11 @@ class MosaicSettingsPanel(QWidget):
         block_size_layout.setContentsMargins(0, 0, 0, 0)
         self._block_size_layout = block_size_layout
 
-        # 面板通用的选中态是浅灰底（#e0e0e0），和悬停的 #f0f0f0 只差一点点；
-        # 这四个按钮又被图样铺满，底色基本露不出来。所以选中态改用一圈主题色
-        # 描边——否则"现在是哪一档"要凑近了才看得出来。
-        level_button_qss = (
-            "QPushButton { padding: 0px; border: 1px solid #ddd; }"
-            "QPushButton:hover { border-color: #bbb; }"
-            "QPushButton:checked { border: 2px solid #0078d7; }"
-        )
         self._swatch_side = scaled(self.BASE_ICON)
         for index, level in enumerate(MosaicTool.BLOCK_SIZE_LEVELS):
             button = QPushButton()
             button.setCheckable(True)
             button.setToolTip(_tr(BLOCK_SIZE_TIPS[index]))
-            button.setStyleSheet(level_button_qss)
             self.block_size_group.addButton(button)
             self.block_size_buttons[level] = button
             block_size_layout.addWidget(button)
@@ -281,7 +254,7 @@ class MosaicSettingsPanel(QWidget):
         layout.addWidget(block_size_widget)
 
         # === 右侧：马赛克种类 ===
-        self.style_combo = CenteredComboBox()
+        self.style_combo = PillComboBox(text_alignment=Qt.AlignmentFlag.AlignHCenter)
         self.style_combo.addItem(_tr("Mosaic"), self.STYLE_PIXELATE_VALUE)
         self.style_combo.addItem(_tr("Blur"), self.STYLE_BLUR_VALUE)
         self.style_combo.setToolTip(_tr("Mosaic Style"))

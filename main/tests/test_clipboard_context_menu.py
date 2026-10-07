@@ -2,6 +2,7 @@
 
 from clipboard.controllers.clipboard_controller import ClipboardController
 from clipboard.core import ClipboardItem, Group, GroupType
+from clipboard.core.text_transform import TRANSFORM_REGISTRY
 
 
 class DummyClipboardManager:
@@ -91,7 +92,12 @@ def test_build_context_menu_for_grouped_text_item_uses_rule_table(monkeypatch):
         child.key for child in special_paste_menu.children if not child.is_separator
     ]
     assert "transform_sql_in" in special_paste_keys
+    assert "transform_remove_whitespace" in special_paste_keys
     assert "transform_wrap_text" not in special_paste_keys
+    # 菜单里每个 transform_ 项都要能在注册表里找到处理函数，否则点了没反应
+    assert all(
+        key in TRANSFORM_REGISTRY for key in special_paste_keys if key.startswith("transform_")
+    )
 
 
 def test_build_context_menu_for_file_item_includes_file_groups(monkeypatch):
@@ -169,3 +175,16 @@ def test_build_group_context_menu_uses_rule_table(monkeypatch):
     move_down_action = next(action for action in actions if action.key == "move_group_down")
     assert move_up_action.enabled is False
     assert move_down_action.enabled is True
+
+
+def test_remove_whitespace_special_paste_writes_single_run_to_clipboard(monkeypatch):
+    import pyclipboard
+
+    item = ClipboardItem(id=1, content="新建 文件夹\nTXT", content_type="text")
+    controller = _make_controller(monkeypatch, DummyClipboardManager(items={1: item}))
+    written = []
+    monkeypatch.setattr(pyclipboard, "set_clipboard_text", written.append)
+    monkeypatch.setattr(controller, "_send_paste_keystroke", lambda explicit: None)
+
+    assert controller.paste_transformed_text(1, "transform_remove_whitespace", explicit=True)
+    assert written == ["新建文件夹TXT"]

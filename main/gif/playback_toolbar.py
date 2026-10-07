@@ -12,7 +12,8 @@ from PySide6.QtGui import (
     QPainter, QColor, QPen, QCursor, QBrush,
 )
 
-from ._widgets import svg_icon as _svg_icon, ClickMenuButton as _ClickMenuButton
+from ._widgets import svg_icon as _svg_icon, ClickMenuButton as _ClickMenuButton, toolbar_style
+from ui.base_settings_panel import paint_rounded_panel
 from core import safe_event
 from core.i18n import make_tr
 from core.ui_scale import get_ui_scale, scaled
@@ -231,23 +232,14 @@ class PlaybackToolbar(QWidget):
         get_ui_scale().scale_changed.connect(self.apply_scale)
 
     def _container_qss(self) -> str:
-        return f"""
-            QWidget {{
-                background-color: white;
-                border: 2px solid #333;
-                border-radius: {scaled(6)}px;
-            }}
-            QPushButton {{
-                background: transparent;
-                border: none;
-                border-radius: {scaled(4)}px;
-                font-size: {scaled(13)}px;
-            }}
-            QPushButton:hover {{ background: rgba(0,0,0,0.06); }}
-            QPushButton:pressed {{ background: rgba(0,0,0,0.12); }}
-            QPushButton:checked {{ background: rgba(64,224,208,0.22); border: 1px solid rgba(64,224,208,0.6); }}
-            QLabel {{ border: none; }}
-        """
+        return toolbar_style()
+
+    @safe_event
+    def paintEvent(self, event):
+        paint_rounded_panel(self)
+
+    def set_toolbar_side(self, below):
+        self._speed_label.popup_below = below
 
     def _set_button_icon(self, button, svg: str):
         """设图标并记下用的是哪张 svg —— svg 按像素光栅化，改比例要按新尺寸重画"""
@@ -357,7 +349,7 @@ class PlaybackToolbar(QWidget):
 
         # 关闭
         self._close_btn = QPushButton()
-        self._set_button_icon(self._close_btn, "关闭.svg")
+        self._set_button_icon(self._close_btn, "fluent_icons/Close.svg")
         self._close_btn.setToolTip(_tr("关闭"))
         self._close_btn.clicked.connect(self.close_requested.emit)
         row.addWidget(self._close_btn)
@@ -440,5 +432,3 @@ class PlaybackToolbar(QWidget):
     def get_trim_range(self) -> tuple:
         """获取裁剪范围（代理到内部 RangeSlider）"""
         return self._slider.get_trim_range()
-
- 

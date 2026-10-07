@@ -38,7 +38,7 @@ class Rig:
 
     def result(self, top, ok=True, shift=0, index=None):
         index = self.captured if index is None else index
-        self.scroller.on_frame(FrameResult(ok, False, index, 100, 1000, 0, None, top=top, shift=shift))
+        self.scroller.on_frame(FrameResult(ok, False, index, 100, 1000, None, top=top, shift=shift))
 
     def feed(self, qtbot, tops):
         """按帧序号依次等每一帧截下来，再交回它的拼接结论。"""
@@ -59,7 +59,7 @@ def fast_timers(monkeypatch):
 @pytest.fixture
 def rig(qapp):
     rig = Rig()
-    rig.scroller.on_frame(FrameResult(True, True, 0, 100, 600, 0, None))  # 进长截图时的第一帧
+    rig.scroller.on_frame(FrameResult(True, True, 0, 100, 600, None))  # 进长截图时的第一帧
     yield rig
     rig.scroller.stop()
 
@@ -182,6 +182,18 @@ def test_results_of_other_frames_only_track_the_position(qtbot, rig):
     qtbot.waitUntil(lambda: len(rig.injected) == 2)
 
 
+def test_without_a_direction_it_goes_down_until_something_moved(qapp, rig):
+    rig.scroller.start(QPoint(300, 400), False)
+    assert rig.injected == [(-WHEEL_DELTA, False)]
+
+
+def test_without_a_direction_it_follows_the_last_movement(qapp, rig):
+    """往上越过起点：这一帧的 top 是 0，已有内容整体下移，按往上算。"""
+    rig.result(top=0, shift=60)
+    rig.scroller.start(QPoint(300, 400), False)
+    assert rig.injected == [(WHEEL_DELTA, False)]
+
+
 @pytest.mark.parametrize("horizontal, forward, sign", [
     (False, True, -1), (False, False, 1), (True, True, 1), (True, False, -1),
 ])
@@ -204,12 +216,15 @@ def window(qapp, monkeypatch):
         win._cleanup()
 
 
-def _drive(qtbot, monkeypatch, win, page, top, last_heading=None, mode="smooth", unsettled=0, hover=False):
+def _drive(qtbot, monkeypatch, win, page, top, up_first=False, mode="smooth", unsettled=0, hover=False):
+    """up_first 时先往上滚 3 格截一帧，自动滚动沿这次挪动的方向继续。"""
     sim = simulate(monkeypatch, win, page, top, mode, unsettled, hover)
     reasons = []
     win._auto_scroller.stopped.connect(reasons.append)
     win._do_capture()  # 进长截图时的第一帧
-    win._last_heading = last_heading
+    if up_first:
+        sim.scroll_and_capture(3)
+        qtbot.waitUntil(lambda: win.toolbar.size_label.text() == f"{PAGE_W} × {VIEW_H + 120}")
     win._toggle_auto_scroll()
     assert win.toolbar.auto_scroll_btn.isChecked()
     qtbot.waitUntil(lambda: bool(reasons), timeout=30000)
@@ -230,7 +245,7 @@ def test_auto_scroll_runs_to_the_end_of_the_page(qtbot, monkeypatch, window, mod
 
 def test_auto_scroll_keeps_going_up_after_scrolling_up(qtbot, monkeypatch, window):
     page = synthetic_page(1600, seed=6)
-    reasons, sim, image = _drive(qtbot, monkeypatch, window, page, 900, last_heading="up")
+    reasons, sim, image = _drive(qtbot, monkeypatch, window, page, 900, up_first=True)
     assert reasons == ["end"]
     assert sim.top == 0
     assert image.convert("RGB").tobytes() == page.crop((0, 0, PAGE_W, 900 + VIEW_H)).tobytes()
@@ -249,13 +264,13 @@ def test_frames_are_taken_once_the_page_stops_changing(qtbot, monkeypatch, windo
     assert image.convert("RGB").tobytes() == page.tobytes()
 
 
-@pytest.mark.parametrize("top, heading", [(0, None), (900, "up")])
-def test_hover_highlight_under_the_parked_cursor_stays_out(qtbot, monkeypatch, window, top, heading):
+@pytest.mark.parametrize("top, up_first", [(0, False), (900, True)])
+def test_hover_highlight_under_the_parked_cursor_stays_out(qtbot, monkeypatch, window, top, up_first):
     """光标停在截图区中间，每帧中间那一行都被悬停高亮；高亮落在重叠区里，不能被拼进长图。"""
     page = synthetic_page(1600, seed=14)
-    reasons, sim, image = _drive(qtbot, monkeypatch, window, page, top, last_heading=heading, hover=True)
+    reasons, sim, image = _drive(qtbot, monkeypatch, window, page, top, up_first=up_first, hover=True)
     assert reasons == ["end"]
-    expected = page if heading is None else page.crop((0, 0, PAGE_W, top + VIEW_H))
+    expected = page.crop((0, 0, PAGE_W, top + VIEW_H)) if up_first else page
     assert image.convert("RGB").tobytes() == expected.tobytes()
 
 

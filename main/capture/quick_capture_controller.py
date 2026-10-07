@@ -232,7 +232,7 @@ class QuickCaptureController(QObject):
                 if config.get_ocr_copy_directly_enabled():
                     copy_text_recognition(image)
                 else:
-                    show_text_recognition(image)
+                    show_text_recognition(image, anchor=region)
             else:
                 copy, pin = _CAPTURE_ACTIONS[action]
                 # 开着「自动保存截图」时这些动作都存文件

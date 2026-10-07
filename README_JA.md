@@ -11,7 +11,9 @@
 
 ## 概要
 
-jietuba は Windows 向けの無料・オープンソースのスクリーンショットツールです。領域/ウィンドウキャプチャ、スクロール（長い）スクリーンショット、注釈、OCR 文字認識、翻訳、画像のピン留め、GIF 録画、QR コード/バーコード読み取り、PDF エクスポート、そして完全なクリップボード履歴管理を備えています。すべてローカルで動作します。
+jietuba は Windows 向けの無料・オープンソースのスクリーンショットツールです。領域/ウィンドウキャプチャ、スクロール（長い）スクリーンショット、注釈、OCR 文字認識、翻訳、画像のピン留め、GIF/MP4 録画、QR コード/バーコード読み取り、PDF エクスポート、そして完全なクリップボード履歴管理を備えています。すべてローカルで動作します。
+
+MP4 領域録画はフレームレートとビットレートの指定、一時停止/再開、マウスポインター、システム音声に対応しています。一般的な 5.1/7.1 再生デバイスの音声はステレオに変換します。マイク録音は含まれません。
 
 UI は PySide6、画像処理・クリップボード操作・PP-OCR エンジンは Rust で実装しています。Windows x86_64 および ARM64 に対応。
 
@@ -44,7 +46,7 @@ Windows x86_64 版および ARM64 版の配布パッケージは、そのまま�
 1. [Releases ページ](https://github.com/1003129155/jietuba/releases/latest)を開き、端末に合わせて `-x64.zip` または `-arm64.zip` で終わるファイルをダウンロードします。
 2. パッケージは 2 種類あります。ZIP 全体を展開し、中の exe をダブルクリックして起動します。
    - **完全版** `jietuba_pp-…zip`：PP-OCR エンジンとモデルを同梱し、どの Windows でも OCR が使えます。`jietuba_pp.exe` と `models/` フォルダを同じ階層に置いてください。
-   - **軽量版** `jietuba_lite-…zip`：サイズが小さく、Windows 11 の Snipping Tool に内蔵された OCR だけを使います。Snipping Tool がない PC では OCR を使えません。
+   - **軽量版** `jietuba_lite-…zip`：サイズが小さく、Windows 11 の Snipping Tool に内蔵された OCR だけを使います。Snipping Tool がない PC や、11.2308 より古く「テキスト アクション」がない PC では OCR を使えません。Snipping Tool を更新するか、フル版をお使いください。
 3. どちらも既定では Snipping Tool の OCR（高速で対応言語が多い）を優先します。エンジンは設定の「OCR設定」で切り替えられます。
 4. アプリにはデジタル署名がないため、ブラウザーからダウンロードすると Windows の警告が表示される場合があります。表示された場合は「詳細情報」をクリックし、「実行」を選択すると起動できます。
 
@@ -56,7 +58,7 @@ Windows x86_64 版および ARM64 版の配布パッケージは、そのまま�
 
 ## ソースから実行
 
-実行に必要な依存パッケージは、すべて [requirements.txt](requirements.txt) で一括インストールできます。
+ビルド済み Rust パッケージを含む実行時依存パッケージは、[requirements.txt](requirements.txt) で一括インストールできます。ソースから実行するだけなら Rust ツールチェーンは不要です。
 
 ### ワンクリックセットアップ
 
@@ -92,18 +94,19 @@ PP-OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は�
 
 ### Rust 拡張パッケージ
 
-以下の 6 パッケージは `requirements.txt` に含まれ、実行時依存パッケージと一緒にインストールされます。個別のライブラリとしても利用でき、ソースコードは [rust_libs/](rust_libs/) にあります。PyPI の配布名と Python の import 名の対応は次のとおりです。
+7 つの Python 拡張パッケージを `requirements.txt` に含めています。個別にも利用でき、ソースコードは [rust_libs/](rust_libs/) にあります。PyPI 配布名と Python の import 名は次のとおりです。
 
 | pip パッケージ名 | import 名 | バージョン | 機能 |
 |------|------|------|------|
-| [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.0 | GIF/動画合成エンコーダー |
-| [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.5.0 | 長いスクリーンショット結合アルゴリズム |
+| [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.1 | GIF/動画合成エンコーダー |
+| [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.5.1 | 長いスクリーンショット結合アルゴリズム |
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.5 | クリップボード操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | HDR 対応のデスクトップキャプチャ（DXGI Desktop Duplication + GPU トーンマッピング） |
 | [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.1 | GUI スレッドを止めないグローバルなマウス・キーボードフック（ドラッグジェスチャ、サイドボタン、ホットキー、ホイール、前面ウィンドウ） |
+| [`j-video`](https://pypi.org/project/j-video/) | `video_recorder` | 0.1.0 | Media Foundation H.264/MP4 録画と WASAPI システム音声 |
 
-ビルド済み wheel は Windows x86_64 および ARM64 向けです。各パッケージの Python バージョン指定は `>=3.11` で、Rust バインディングでは `abi3-py311` を有効にしています。詳細は各パッケージの `pyproject.toml` と `Cargo.toml` を参照してください。
+7 つの拡張は Windows x86_64 と ARM64 を対象に、Python `>=3.11` と `abi3-py311` を指定しています。録画も他の拡張と同じ PyO3 インターフェースを使用します。アプリは専用 Python 子プロセスで拡張を読み込み、終了時に録画リソースを解放します。設定は各パッケージの `pyproject.toml` と `Cargo.toml` を参照してください。
 
 ---
 
@@ -122,7 +125,7 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 実際にマウスとキーボードを操作するテスト（`test_quick_capture_real_hooks.py` など）は既定でスキップされます。環境変数 `RUN_REAL_INPUT_TESTS=1` を設定すると実行され、実行中はマウスとキーボードに触れないでください。実際のシステムクリップボードを書き換えるテスト（`test_clipboard_monitor_real.py`）も既定でスキップされます。環境変数 `RUN_REAL_CLIPBOARD_TESTS=1` を設定すると実行され、実行中は何もコピーしないでください。
 
-Windows 完全版のビルドは `python build_with_ocr_onefile.py` で実行できます。生成物は `dist/jietuba_pp.exe` と `dist/models/` です。`--lite` を付けると軽量版をビルドし、生成物は `dist_lite/jietuba_lite.exe` です。[自動リリースワークフロー](.github/workflows/build.yml)では、x64 と ARM64 それぞれの完全版と軽量版のアーカイブを生成します。
+Windows 版をビルドするには、現在の Python アーキテクチャに合う録画 wheel をインストールしてから `python build_with_ocr_onefile.py` を実行します。インストール済みの録画拡張とライセンス通知を収集し、独立した更新プログラムは Cargo でビルドします。完全版の生成物は `dist/jietuba_pp.exe` と `dist/models/` です。`--lite` を付けると軽量版の `dist_lite/jietuba_lite.exe` を生成します。録画 wheel のビルド手順は[録画の開発メモ](rust_libs/video_recorder/DEVELOPMENT.md#构建与维护)（中国語）を参照してください。[自動リリースワークフロー](.github/workflows/build.yml)では、x64 と ARM64 それぞれの完全版と軽量版のアーカイブを生成します。
 
 ### コードコメント
 
@@ -150,6 +153,9 @@ Windows 完全版のビルドは `python build_with_ocr_onefile.py` で実行で
 │
 ├── main/                    # Python メインプログラム
 │   ├── main_app.py          # アプリエントリポイント：システムトレイ、グローバルホットキー、ライフサイクル管理
+│   ├── video_helper.py      # 録画子プロセスの起動コマンドとライセンス取得
+│   ├── video_worker.py      # PyO3 録画ワーカーと有界 JSONL プロトコル
+│   ├── video_worker_hook.py # PyInstaller Qt hooks より前に録画ワーカーへ分岐
 │   ├── compile_translations.py  # 翻訳コンパイラ（.xml → .qm）
 │   ├── scripts/             # 補助スクリプト — 翻訳プロバイダー比較
 │   │
@@ -158,7 +164,7 @@ Windows 完全版のビルドは `python build_with_ocr_onefile.py` で実行で
 │   ├── capture/             # キャプチャモジュール — スクリーンキャプチャ＆ウィンドウ検出
 │   ├── clipboard/           # クリップボードモジュール — 履歴、グループ/クイック起動、入出力、検索
 │   ├── core/                # コアモジュール — ブートストラップ、ログ、リソース、テーマ、i18n、ホットキー
-│   ├── gif/                 # GIFモジュール — 画面録画、編集、再生、エクスポート
+│   ├── gif/                 # GIF/MP4 録画、GIF 編集、再生、エクスポート
 │   ├── ocr/                 # OCRモジュール — Snipping Tool OCR と PP-OCR による文字認識
 │   ├── pin/                 # ピンモジュール — スクリーンショットピン留め、編集、OCR、翻訳
 │   ├── settings/            # 設定モジュール — 統一設定管理
@@ -169,12 +175,20 @@ Windows 完全版のビルドは `python build_with_ocr_onefile.py` で実行で
 │   ├── ui/                  # UIモジュール — 共通UIコンポーネントライブラリ
 │   └── tests/               # テストモジュール — ユニットテスト＆統合テスト
 │
-├── rust_libs/               # Rustライブラリソースコード（ソースからビルド可能）
+├── rust_libs/               # Rust 拡張のソースコード
 │   ├── gifrecorder/         # GIF/動画合成エンコーダーソース
 │   ├── longstitch/          # 長いスクリーンショット結合アルゴリズムソース
 │   ├── pyclipboard/         # クリップボード低レベル操作ソース
 │   ├── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX 認識エンジンソース
-│   └── updater/             # メイン EXE のみを置換する独立 Rust 更新プログラム
+│   ├── hdrcapture/          # HDR 対応デスクトップキャプチャ拡張ソース
+│   ├── inputhub/            # グローバルマウス・キーボードフック拡張ソース
+│   ├── updater/             # メイン EXE のみを置換する独立 Rust 更新プログラム
+│   └── video_recorder/      # PyO3 Media Foundation 録画拡張
+│       ├── src/             # 録画コア、PyO3 バインディングと WASAPI キャプチャ
+│       ├── README.md        # PyPI ページ（英語）
+│       ├── DEVELOPMENT.md   # プロセスプロトコル、ビルド・検証メモ（中国語）
+│       ├── pyproject.toml   # j-video abi3 wheel 設定
+│       └── LICENSE          # wheel に同梱する MIT ライセンス
 │
 ├── models/                  # PP-OCR ONNX モデル（PP-OCR に必須）
 │   ├── PP-OCRv6_det_small.onnx   # テキスト検出モデル (DBNet)
@@ -391,6 +405,10 @@ core/
 ### gif/ — GIF録画モジュール
 
 画面録画、編集、再生、GIF/動画エクスポート。
+
+録画ツールバーで **MP4** を選択すると、H.264 動画を直接保存できます。1–60 fps、0.5–50 Mbps の目標ビットレート、システム音声とマウスポインターを設定できます。利用可能ならハードウェアを優先し、Windows のソフトウェアエンコーダーにフォールバックします。独立プロセスから逐次保存し、Python に動画フレームを蓄積しません。停止後は MP4 の処理完了を待ちます。MP4 は GIF の編集・再生に進まず直接保存されます。映像は SDR で出力され（HDR ディスプレイでは DXGI で取得して SDR に変換するため、HDR 動画にはなりません）、システム音声は既定の再生デバイス（最大 8 チャンネル、ステレオにダウンミックス）から取得し、マイクは含みません。
+
+PyO3 録画拡張は、実行時依存パッケージと一緒にビルド済み `j-video==0.1.0` wheel からインストールします。ソースから実行するだけなら Rust ツールチェーンは不要です。専用 Python 子プロセスが拡張を呼び出し、GUI は制御コマンドと状態イベントだけを交換します。onefile スクリプトはインストール済み拡張とライセンス通知を収集し、再ビルドしません。[録画の開発メモ](rust_libs/video_recorder/DEVELOPMENT.md)（中国語）には、開発者向けビルド、プロセスプロトコルと検証コマンドがあります。Media Foundation と H.264/AAC が必要で、Windows N では Media Feature Pack が必要な場合があります。FFmpeg や追加コーデックは同梱しません。
 <img width="766" height="630" alt="image" src="https://github.com/user-attachments/assets/8653fffb-b419-4584-ab4b-9fe95bb9f246" />
 <details>
 <summary>ディレクトリ構造を表示</summary>
@@ -403,6 +421,8 @@ gif/
 ├── drawing_toolbar.py       # GifDrawingToolbar — 描画ツールバー
 ├── record_toolbar.py        # RecordToolbar — 開始/一時停止/停止コントロール
 ├── frame_recorder.py        # FrameRecorder / FrameData / CursorSnapshot — フレームサンプリング
+├── video_recorder.py        # VideoRecorder — MP4 Python ワーカーの有界 JSONL 制御
+├── video_settings.py        # RecordingOptions — 動画のフレームレート・ビットレート・音声設定
 ├── playback_engine.py       # PlaybackEngine / PlayState — フレーム再生＆プレビュー
 ├── playback_controller.py   # PlaybackController — 再生UI＆エクスポート管理
 ├── playback_toolbar.py      # PlaybackToolbar / RangeSlider — プログレスバー、速度調整
@@ -480,7 +500,7 @@ pin/
 ```text
 settings/
 ├── color_formats.py         # 拡大鏡のカラー形式テンプレート：描画・読み込み・保存
-├── settings_transfer.py     # 設定画面の項目を JSON ファイルへエクスポート／インポート
+├── settings_transfer.py     # 設定画面の項目（ツールバーの並びを含む）を JSON ファイルへエクスポート／インポート
 └── tool_settings.py         # ToolSettingsManager / ToolSettings — ツールの色、サイズ、ホットキー設定
 ```
 
@@ -497,6 +517,7 @@ settings/
 ```text
 stitch/
 ├── auto_scroll.py                   # AutoScroller — 自動スクロール：結合結果から歩幅を決め、末尾かマウス移動で停止
+├── change_watch.py                  # ChangeWatch — キャプチャ範囲をバックグラウンドで監視し、画面が変わるたびにキャプチャ
 ├── incremental.py                   # IncrementalStitcher — バックグラウンド結合とプレビュー縮小画像
 ├── jietuba_long_stitch_unified.py   # 結合インターフェース（Rust の longstitch を呼び出す）
 ├── scroll_window.py                 # ScrollCaptureWindow — スクロールキャプチャウィンドウ
@@ -699,6 +720,13 @@ tests/
 ├── test_clipboard_api.py    # クリップボード公開 API テスト
 ├── test_clipboard_manage_dialog.py # クリップボード管理ウィンドウテスト
 ├── test_frame_recorder.py   # GIFフレーム録画テスト
+├── test_video_helper.py     # ワーカー起動コマンドとライセンス取得
+├── test_video_worker.py     # PyO3 アダプター・プロトコル・起動時分岐テスト
+├── test_video_settings.py   # 動画設定の検証・保存テスト
+├── test_video_recorder.py   # MP4 プロセス制御・録画ウィンドウテスト
+├── test_video_native_process.py # 現在のソースから生成した録画プロトコルテスト
+├── test_video_native_binding.py # PyO3 スレッド制御・コールバック・リソース解放テスト
+├── test_video_quit.py       # 録画中のアプリ終了調整テスト
 ├── test_playback_engine.py  # GIF再生エンジンテスト
 ├── test_ocr_text_layer.py   # OCRテキストレイヤーテスト
 ├── test_pin_window_zoom.py  # ピンウィンドウズームテスト

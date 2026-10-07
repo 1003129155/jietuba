@@ -7,6 +7,7 @@ members = [
     "hdrcapture",
     "inputhub",
     "updater",
+    "video_recorder",
 ]
 resolver = "2"
 
@@ -24,3 +25,8 @@ image = "0.25"
 opt-level = 3
 lto = true
 codegen-units = 1
+
+# 录制扩展侧重分发体积，不改变其余扩展的优化配置。
+[profile.release.package.video_recorder]
+opt-level = "s"
+strip = "symbols"

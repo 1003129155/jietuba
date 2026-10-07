@@ -70,21 +70,33 @@ jobs:
           $helper = (Resolve-Path "rust_libs/target/${{ matrix.rust-target }}/release/jietuba_updater.exe").Path
           "JIETUBA_UPDATER_EXE=$helper" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-      - name: Build and install Rust wheels from this commit
+      - name: Build Rust extension wheels from this commit
         run: |
           python -m pip install --upgrade pip
           python -m pip install maturin==1.12.6
-          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust", "hdrcapture", "inputhub") {
+          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust", "hdrcapture", "inputhub", "video_recorder") {
             maturin build --locked --release --target ${{ matrix.rust-target }} -i python -m rust_libs/$crate/Cargo.toml --out wheelhouse
             if ($LASTEXITCODE -ne 0) { throw "$crate wheel build failed" }
           }
+
+      - name: Install and smoke-test native wheels
+        run: |
           python -m pip install (Get-ChildItem wheelhouse\*.whl).FullName
-          python -c "import gifrecorder, longstitch, pyclipboard, ppocr_rust, hdrcapture, inputhub; print('Native extension imports OK')"
+          python -c "import gifrecorder, longstitch, pyclipboard, ppocr_rust, hdrcapture, inputhub, video_recorder; assert not hasattr(video_recorder.Recorder, '_configure_test'), 'Production wheel has test support'; print('Native extension imports OK')"
 
       - name: Install Python dependencies
         run: |
           python -m pip install -r requirements.txt
           python -m pip install -r requirements-dev.txt
+
+      - name: Install test-only video recorder extension
+        # 合成画面与故障注入仅用于 CI；正式 wheel 已在上一阶段验证且保持独立。
+        run: |
+          maturin build --locked --release --target ${{ matrix.rust-target }} -i python -m rust_libs/video_recorder/Cargo.toml --features test-support --out wheelhouse-test
+          if ($LASTEXITCODE -ne 0) { throw "Video recorder test wheel build failed" }
+          python -m pip install --force-reinstall --no-deps (Get-ChildItem wheelhouse-test\*.whl).FullName
+          python -c "import video_recorder; assert hasattr(video_recorder.Recorder, '_configure_test')"
+          "JIETUBA_VIDEO_TEST_NATIVE=1" | Add-Content -Path $env:GITHUB_ENV
 
       - name: Lint with ruff
         if: matrix.arch == 'x64'

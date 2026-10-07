@@ -7,6 +7,11 @@
 import sys
 import os
 
+# 录制子进程必须在 Qt、配置、数据库和单实例逻辑初始化前分流。
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "--video-recorder-worker":
+    from video_worker import main as run_video_worker
+    raise SystemExit(run_video_worker(sys.argv[2:]))
+
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QBrush, QFont
 from PySide6.QtCore import QObject, Qt, Signal, Slot
@@ -22,7 +27,7 @@ from core.logger import (
 )
 
 # ── 全局版本号 ────────────────────────────────────────────
-APP_VERSION = "2.1.4"
+APP_VERSION = "2.1.5"
 
 
 def create_fallback_app_icon():
@@ -887,6 +892,15 @@ class MainApp(QObject):
                 log_exception(exc, T("关闭设置窗口"))
                 return False
             self.settings_window = None
+        # MP4 需要先完成封装并退出 helper，才能清理 onefile 资源目录。
+        recording = getattr(self.app, '_gif_window', None)
+        if recording is not None and recording.video_busy:
+            if getattr(self, '_recording_quit_pending', None) is not recording:
+                self._recording_quit_pending = recording
+                recording.closed.connect(self.quit_app)
+            recording.close_all()
+            return
+        self._recording_quit_pending = None
         self.quick_capture.close()
         # 完全销毁缓存的截图窗口
         if self.screenshot_window:

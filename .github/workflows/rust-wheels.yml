@@ -2,9 +2,8 @@ name: Build Rust Wheels
 
 # 保证全部 Rust 包随时能从 rust_libs/ 的源码重新构建出来，并跑 Rust 侧的单元测试
 # 与第三方许可声明复查。正式发布走 publish-pypi.yml；这个 workflow 只做验证，
-# 不产出任何对外分发的东西。
-# 主 CI 不跑这个（ONNX Runtime、rusqlite bundled、zstd 都要编 C，太慢），
-# 只在 Rust 源码真的改动时触发。
+# 只上传供检查的 wheel artifact，不发布到包索引。主 CI 同样构建源码 wheel；
+# 本 workflow 还在 Rust 源码改动时复查许可声明。
 on:
   push:
     branches: [master2, master]
@@ -40,7 +39,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python 3.11
-        # 这些包都是 abi3 wheel，用 3.11 作为最低版本构建
+        # 七个扩展用 Python 3.11 构建 abi3 wheel
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -66,8 +65,7 @@ jobs:
           cache-on-failure: true
 
       - name: Run Rust unit tests
-        # 主 CI 只跑 Python 测试，Rust 侧的单元测试没有别的地方会执行。
-        # 放在构建 wheel 之前：逻辑错了就不必再花时间打包。
+        # 与主 CI 一样先验证 Rust 单元测试，再构建 wheel。
         run: cargo test --locked --workspace --release --target ${{ matrix.rust-target }} --manifest-path rust_libs/Cargo.toml
 
       - name: Install cargo-about
@@ -77,7 +75,7 @@ jobs:
 
       - name: Check third-party notices are current
         if: matrix.arch == 'x64'
-        # 这些 wheel 把 Rust 依赖静态链接进 .pyd，MIT/BSD/ISC 等都要求随分发
+        # 扩展 wheel 静态链接 Rust 依赖，MIT/BSD/ISC 等都要求随分发
         # 附上版权声明与许可全文。声明文件提交在仓库里，依赖一变就会过期，
         # 而本 workflow 恰好只在 rust_libs/** 改动时触发，正是该复查的时机。
         #
@@ -86,9 +84,10 @@ jobs:
         # 「哪个 crate 的哪个版本用哪个许可证」这份清单一致，就等价于声明未过期。
         run: |
           $stale = $false
-          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust", "hdrcapture", "inputhub", "updater") {
+          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust", "hdrcapture", "inputhub", "updater", "video_recorder") {
             $fresh = Join-Path $env:RUNNER_TEMP "$crate-notices.txt"
-            cargo about generate --manifest-path rust_libs/$crate/Cargo.toml -o $fresh rust_libs/notices.hbs
+            $template = if ($crate -in "updater", "video_recorder") { "rust_libs/$crate/notices.hbs" } else { "rust_libs/notices.hbs" }
+            cargo about generate --manifest-path rust_libs/$crate/Cargo.toml -o $fresh $template
             if ($LASTEXITCODE -ne 0) { throw "$crate 的许可声明生成失败" }
             $committed = (Select-String -Path "rust_libs/$crate/THIRD-PARTY-NOTICES.txt" -Pattern '^Applies to: ').Line | Sort-Object
             $current = (Select-String -Path $fresh -Pattern '^Applies to: ').Line | Sort-Object
@@ -115,11 +114,11 @@ jobs:
         # 版本与 requirements-dev.txt 保持一致
         run: pip install maturin==1.12.6
 
-      - name: Build wheels
+      - name: Build Rust extension wheels
         # 这些 crate 同属一个 workspace，共用一个 target/ 目录，
         # pyo3/image/rayon 这些共享依赖只编译一次。
         run: |
-          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust", "hdrcapture", "inputhub") {
+          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust", "hdrcapture", "inputhub", "video_recorder") {
             Write-Host "::group::build $crate"
             maturin build --locked --release --target ${{ matrix.rust-target }} -i python -m rust_libs/$crate/Cargo.toml --out wheelhouse
             if ($LASTEXITCODE -ne 0) { throw "$crate 构建失败" }
@@ -130,7 +129,7 @@ jobs:
       - name: Smoke-test native wheels
         run: |
           python -m pip install (Get-ChildItem wheelhouse\*.whl).FullName
-          python -c "import gifrecorder, longstitch, pyclipboard, ppocr_rust, hdrcapture, inputhub; print('Native extension imports OK')"
+          python -c "import gifrecorder, longstitch, pyclipboard, ppocr_rust, hdrcapture, inputhub, video_recorder; assert not hasattr(video_recorder.Recorder, '_configure_test'), 'Production wheel has test support'; print('Native extension imports OK')"
 
       - name: Upload wheels
         # 供人工下载核查用；正式发布走 publish-pypi.yml，不依赖这份 artifact
