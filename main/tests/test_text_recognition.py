@@ -7,10 +7,11 @@
 线程这块是重点：识别跑在后台，窗口可能先关、进程可能先退，这两条路径都单独测。
 """
 import time
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from PySide6.QtCore import QEvent, QObject, Qt, Slot
+from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QRectF, Qt, Slot
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QImage, QPainter
 from PySide6.QtWidgets import QApplication
 
@@ -18,6 +19,7 @@ import text_recognition
 from text_recognition import TextRecognitionWindow, recognize_async, shutdown_recognition
 from text_recognition import result_window
 from settings import get_tool_settings_manager
+from text_recognition.placement import CURSOR_OFFSET, GAP
 from text_recognition.recognizer import FAILED, NO_TEXT, UNAVAILABLE, _running
 from tools.action import ActionTools
 from ui.toolbar import Toolbar
@@ -279,6 +281,112 @@ class TestResultWindow:
         assert window not in qapp._modeless_dialogs
 
 
+@pytest.fixture
+def result_position():
+    """改文字识别结果窗口的位置设置，用完恢复默认"""
+    manager = get_tool_settings_manager()
+    yield manager.set_ocr_result_position
+    manager.set_ocr_result_position("region_screen")
+    manager.qsettings.remove("app/ocr_result_last_center")
+
+
+class TestResultWindowPlacement:
+    """结果窗口按设置里的位置摆放。offscreen 平台只有一块屏幕，多屏选屏在 placement 的测试里"""
+
+    def _open(self, qapp, monkeypatch, anchor):
+        _fake_ocr(monkeypatch, result=_ocr_dict("x"))
+        window = TextRecognitionWindow(_blank_image(), anchor=anchor)
+        window.show()
+        qapp.processEvents()
+        return window, QApplication.primaryScreen().availableGeometry()
+
+    def _assert_centered(self, window, available):
+        center = window.geometry().center()
+        assert abs(center.x() - available.center().x()) <= 1
+        assert abs(center.y() - available.center().y()) <= 1
+
+    @pytest.mark.parametrize("position", ["region_screen", "primary_screen"])
+    def test_center_positions_center_the_window_whatever_the_region_is(
+            self, qapp, monkeypatch, result_position, position):
+        result_position(position)
+        window, available = self._open(qapp, monkeypatch, QRect(20, 40, 120, 80))
+        try:
+            self._assert_centered(window, available)
+        finally:
+            window.close()
+
+    def test_without_a_region_it_centers_like_before(self, qapp, monkeypatch, result_position):
+        result_position("beside_region")
+        window, available = self._open(qapp, monkeypatch, None)
+        try:
+            self._assert_centered(window, available)
+        finally:
+            window.close()
+
+    def test_beside_region_sits_next_to_the_region_without_covering_it(
+            self, qapp, monkeypatch, result_position):
+        result_position("beside_region")
+        region = QRect(20, 40, 120, 80)
+        window, available = self._open(qapp, monkeypatch, region)
+        try:
+            assert window.geometry().left() == region.right() + 1 + GAP
+            assert window.geometry().top() == region.top()
+            assert not window.geometry().intersects(region)
+            assert available.contains(window.geometry())
+        finally:
+            window.close()
+
+    def test_beside_region_falls_back_to_center_when_there_is_no_room(
+            self, qapp, monkeypatch, result_position):
+        result_position("beside_region")
+        available = QApplication.primaryScreen().availableGeometry()
+        window, available = self._open(qapp, monkeypatch, available.adjusted(4, 4, -4, -4))
+        try:
+            self._assert_centered(window, available)
+        finally:
+            window.close()
+
+    def test_near_cursor_puts_the_window_by_the_cursor(self, qapp, monkeypatch, result_position):
+        result_position("near_cursor")
+        monkeypatch.setattr(result_window, "QCursor", SimpleNamespace(pos=lambda: QPoint(100, 60)))
+        window, _available = self._open(qapp, monkeypatch, QRect(20, 40, 120, 80))
+        try:
+            assert window.geometry().topLeft() == QPoint(100 + CURSOR_OFFSET, 60 + CURSOR_OFFSET)
+        finally:
+            window.close()
+
+    def test_last_position_comes_back_where_the_window_was_closed(self, qapp, monkeypatch, result_position):
+        result_position("last_position")
+        window, available = self._open(qapp, monkeypatch, None)
+        try:
+            self._assert_centered(window, available)    # 还没有记录时和默认一样居中
+            window.move(30, 40)
+        finally:
+            window.close()
+
+        window, _available = self._open(qapp, monkeypatch, None)
+        try:
+            assert window.geometry().topLeft() == QPoint(30, 40)
+        finally:
+            window.close()
+
+    def test_only_last_position_records_where_the_window_was_closed(self, qapp, monkeypatch, result_position):
+        result_position("region_screen")
+        window, _available = self._open(qapp, monkeypatch, None)
+        window.move(30, 40)
+        window.close()
+        assert get_tool_settings_manager().get_ocr_result_last_center() is None
+
+    def test_show_hands_the_region_to_the_window(self, qapp, monkeypatch):
+        _fake_ocr(monkeypatch, result=_ocr_dict("x"))
+        region = QRect(20, 40, 120, 80)
+        window = text_recognition.show_text_recognition(_blank_image(), anchor=region)
+        try:
+            assert window._anchor == region
+        finally:
+            window.close()
+
+
 class TestCopyDirectly:
     """快捷行为「文字识别直接复制」：不开窗口，结果进剪贴板，光标旁提示"""
 
@@ -367,11 +475,26 @@ class TestTextRecognizeAction:
         tools = self._tools(image)
         tools.parent_window.cleanup_and_close.side_effect = lambda: steps.append("close capture")
         monkeypatch.setattr("text_recognition.show_text_recognition",
-                            lambda shown: steps.append(("show", shown)))
+                            lambda shown, anchor=None: steps.append(("show", shown)))
 
         tools.handle_text_recognize()
 
         assert steps == ["close capture", ("show", image)]
+
+    def test_result_window_is_placed_by_the_selection_taken_before_closing(self, monkeypatch):
+        """结果窗口按选区的屏幕位置摆放；截图界面一关选区就没了，所以得先取"""
+        closed, anchors = [], []
+        monkeypatch.setattr("core.last_capture_region.set_last_region", lambda _region: None)
+        tools = self._tools(_blank_image())
+        tools.scene.selection_model.rect.side_effect = lambda: (
+            QRectF() if closed else QRectF(10.4, 20.6, 300.2, 200.2))
+        tools.parent_window.cleanup_and_close.side_effect = lambda: closed.append(True)
+        monkeypatch.setattr("text_recognition.show_text_recognition",
+                            lambda shown, anchor=None: anchors.append(anchor))
+
+        tools.handle_text_recognize()
+
+        assert anchors == [QRect(10, 20, 301, 201)]
 
     def test_copy_directly_setting_skips_the_window(self, monkeypatch):
         steps = []

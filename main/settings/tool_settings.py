@@ -124,6 +124,13 @@ CAPTURE_ENGINES = ("auto", "mss", "hdr")
 # 指定某一个时只用那一个，不可用就报错，不回落。
 OCR_ENGINES = ("auto", "oneocr", "ppocr_rust")
 
+# 文字识别结果窗口摆在哪，顺序就是设置页下拉框的顺序。region_screen 是识别区域所在显示器的
+# 正中；beside_region 贴在识别区域旁边，四周都放不下时退回 region_screen；near_cursor 在光标
+# 旁边；last_position 回到上次关闭时的位置，没有记录或记录不在任何显示器上时退回 region_screen。
+OCR_RESULT_POSITIONS = (
+    "region_screen", "primary_screen", "beside_region", "near_cursor", "last_position",
+)
+
 
 ANNOTATION_TOOL_SHORTCUTS = (
     ("inapp_tool_cursor", "cursor", "Select / Cursor", "s"),
@@ -377,6 +384,7 @@ class ToolSettingsManager(QObject):
         # OCR
         "ocr_enabled": True,                   # 钉图后自动 OCR（保留旧键名以兼容已有配置）
         "ocr_engine": "auto",                  # OCR 引擎，见 OCR_ENGINES
+        "ocr_result_position": "region_screen",  # 文字识别结果窗口的位置，见 OCR_RESULT_POSITIONS
         "ocr_grayscale": False,                # OCR灰度转换（Windows OCR 不需要）
         "ocr_upscale": True,                   # OCR图像放大（提升小字识别率）
         "ocr_upscale_factor": 2.0,             # OCR放大倍数（1.0-3.0）
@@ -1158,6 +1166,32 @@ class ToolSettingsManager(QObject):
         if engine not in OCR_ENGINES:
             engine = self.APP_DEFAULT_SETTINGS["ocr_engine"]
         self.qsettings.setValue("app/ocr_engine", engine)
+
+    def get_ocr_result_position(self) -> str:
+        """获取文字识别结果窗口的位置，取值见 OCR_RESULT_POSITIONS。"""
+        default = self.APP_DEFAULT_SETTINGS["ocr_result_position"]
+        position = str(self.qsettings.value("app/ocr_result_position", default, type=str)).lower()
+        return position if position in OCR_RESULT_POSITIONS else default
+
+    def set_ocr_result_position(self, value: str):
+        """设置文字识别结果窗口的位置。"""
+        position = str(value or "").lower()
+        if position not in OCR_RESULT_POSITIONS:
+            position = self.APP_DEFAULT_SETTINGS["ocr_result_position"]
+        self.qsettings.setValue("app/ocr_result_position", position)
+
+    def get_ocr_result_last_center(self):
+        """上次关闭文字识别结果窗口时窗口中心的屏幕坐标 (x, y)；没有记录或记录坏了返回 None。"""
+        raw = str(self.qsettings.value("app/ocr_result_last_center", "", type=str))
+        try:
+            x, y = (int(part) for part in raw.split(","))
+        except ValueError:
+            return None
+        return x, y
+
+    def set_ocr_result_last_center(self, x: int, y: int):
+        """记下文字识别结果窗口关闭时的中心位置，供「上次位置」使用。"""
+        self.qsettings.setValue("app/ocr_result_last_center", f"{int(x)},{int(y)}")
     
     def get_ocr_grayscale_enabled(self) -> bool:
         """获取 OCR 灰度化"""

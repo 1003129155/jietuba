@@ -631,6 +631,34 @@ Replace it?</source>
         <translation>ここで OCR エンジンを切り替えます。</translation>
     </message>
     <message>
+        <source>OCR Result Window Position</source>
+        <translation>OCR 結果ウィンドウの位置</translation>
+    </message>
+    <message>
+        <source>Where the text recognition result window appears.</source>
+        <translation>文字認識の結果ウィンドウを表示する位置です。</translation>
+    </message>
+    <message>
+        <source>Capture display center</source>
+        <translation>所在ディスプレイの中央</translation>
+    </message>
+    <message>
+        <source>Primary display center</source>
+        <translation>メインディスプレイの中央</translation>
+    </message>
+    <message>
+        <source>Beside capture area</source>
+        <translation>認識範囲の横</translation>
+    </message>
+    <message>
+        <source>Near cursor</source>
+        <translation>カーソルの近く</translation>
+    </message>
+    <message>
+        <source>Last position</source>
+        <translation>前回の位置</translation>
+    </message>
+    <message>
         <source>The Snipping Tool engine is faster and reads more languages, but needs the Snipping Tool from Windows 11. PP-OCR works on any Windows.</source>
         <translation>Snipping Tool エンジンは高速で対応言語も多いですが、Windows 11 の Snipping Tool が必要です。PP-OCR はどの Windows でも使えます。</translation>
     </message>

@@ -233,11 +233,13 @@ class ActionTools:
         image = self._selection_base_image()
         if image is None:
             return
+        # 结果窗口按选区的屏幕位置摆放，选区要在关掉截图界面之前取
+        anchor = self.scene.selection_model.rect().toAlignedRect()
         self._cleanup_and_close()
         if self.config_manager and self.config_manager.get_ocr_copy_directly_enabled():
             copy_text_recognition(image)
         else:
-            show_text_recognition(image)
+            show_text_recognition(image, anchor=anchor)
 
     def handle_scan_code(self):
         """扫码：识别选区里的二维码 / 条形码，关掉截图界面后在结果窗口里列出"""

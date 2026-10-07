@@ -7,7 +7,9 @@ from ui.fluent_lite import (
     FluentIcon, ComboBox, CaptionLabel, PushButton,
 )
 from settings import color_formats
-from settings.tool_settings import CAPTURE_ENGINES, OCR_ENGINES, SMART_SELECTION_MODES
+from settings.tool_settings import (
+    CAPTURE_ENGINES, OCR_ENGINES, OCR_RESULT_POSITIONS, SMART_SELECTION_MODES,
+)
 from .components import SettingCardGroup, page_scroll_area
 from core.ui_theme import set_own_style
 
@@ -240,6 +242,29 @@ def create_capture_page(dialog) -> QWidget:
     )
     ocr_engine_card.addControl(dialog.ocr_engine_combo)
     grp_ocr.addSettingCard(ocr_engine_card)
+
+    ocr_position_card = FSettingCard(
+        FluentIcon.LAYOUT,
+        dialog.tr("OCR Result Window Position"),
+        dialog.tr("Where the text recognition result window appears."),
+        parent=grp_ocr,
+    )
+    dialog.ocr_result_position_combo = ComboBox(ocr_position_card)
+    # 文案顺序要和 OCR_RESULT_POSITIONS 一致
+    position_labels = (
+        dialog.tr("Capture display center"),
+        dialog.tr("Primary display center"),
+        dialog.tr("Beside capture area"),
+        dialog.tr("Near cursor"),
+        dialog.tr("Last position"),
+    )
+    for label, position in zip(position_labels, OCR_RESULT_POSITIONS):
+        dialog.ocr_result_position_combo.addItem(label, userData=position)
+    dialog.ocr_result_position_combo.setCurrentIndex(
+        OCR_RESULT_POSITIONS.index(dialog.config_manager.get_ocr_result_position())
+    )
+    ocr_position_card.addControl(dialog.ocr_result_position_combo)
+    grp_ocr.addSettingCard(ocr_position_card)
     if not ocr_available:
         grp_ocr.addSettingCard(FSettingCard(
             FluentIcon.INFO,

@@ -48,6 +48,7 @@ APP_DEFAULT_SETTINGS = {
     "show_main_window": True,
     "ocr_enabled": True,
     "ocr_engine": "auto",
+    "ocr_result_position": "region_screen",
     "ocr_grayscale_enabled": False,
     "ocr_upscale_enabled": False,
     "ocr_upscale_factor": 2.0,
@@ -196,6 +197,8 @@ class MockConfig:
     def set_ocr_enabled(self, v): pass
     def get_ocr_engine(self): return "auto"
     def set_ocr_engine(self, v): pass
+    def get_ocr_result_position(self): return "region_screen"
+    def set_ocr_result_position(self, v): pass
     def get_ocr_grayscale_enabled(self): return False
     def set_ocr_grayscale_enabled(self, v): pass
     def get_ocr_upscale_enabled(self): return False

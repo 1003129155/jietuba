@@ -624,6 +624,34 @@ Replace it?</source>
         <translation>여기에서 OCR 엔진을 전환합니다.</translation>
     </message>
     <message>
+        <source>OCR Result Window Position</source>
+        <translation>OCR 결과 창 위치</translation>
+    </message>
+    <message>
+        <source>Where the text recognition result window appears.</source>
+        <translation>텍스트 인식 결과 창이 표시되는 위치입니다.</translation>
+    </message>
+    <message>
+        <source>Capture display center</source>
+        <translation>해당 디스플레이 중앙</translation>
+    </message>
+    <message>
+        <source>Primary display center</source>
+        <translation>주 디스플레이 중앙</translation>
+    </message>
+    <message>
+        <source>Beside capture area</source>
+        <translation>인식 영역 옆</translation>
+    </message>
+    <message>
+        <source>Near cursor</source>
+        <translation>커서 근처</translation>
+    </message>
+    <message>
+        <source>Last position</source>
+        <translation>마지막 위치</translation>
+    </message>
+    <message>
         <source>The Snipping Tool engine is faster and reads more languages, but needs the Snipping Tool from Windows 11. PP-OCR works on any Windows.</source>
         <translation>캡처 도구 엔진은 더 빠르고 더 많은 언어를 인식하지만 Windows 11의 캡처 도구가 필요합니다. PP-OCR은 모든 Windows에서 사용할 수 있습니다.</translation>
     </message>

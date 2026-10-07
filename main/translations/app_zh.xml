@@ -629,6 +629,34 @@ Replace it?</source>
         <translation>在这里切换 OCR 引擎。</translation>
     </message>
     <message>
+        <source>OCR Result Window Position</source>
+        <translation>OCR 结果窗口位置</translation>
+    </message>
+    <message>
+        <source>Where the text recognition result window appears.</source>
+        <translation>文字识别结果窗口出现的位置。</translation>
+    </message>
+    <message>
+        <source>Capture display center</source>
+        <translation>所在显示器中间</translation>
+    </message>
+    <message>
+        <source>Primary display center</source>
+        <translation>主显示器中间</translation>
+    </message>
+    <message>
+        <source>Beside capture area</source>
+        <translation>识别区域旁边</translation>
+    </message>
+    <message>
+        <source>Near cursor</source>
+        <translation>鼠标旁边</translation>
+    </message>
+    <message>
+        <source>Last position</source>
+        <translation>上次位置</translation>
+    </message>
+    <message>
         <source>The Snipping Tool engine is faster and reads more languages, but needs the Snipping Tool from Windows 11. PP-OCR works on any Windows.</source>
         <translation>截图工具引擎更快、支持的语言更多，但需要 Windows 11 的截图工具。PP-OCR 在任何 Windows 上都能用。</translation>
     </message>

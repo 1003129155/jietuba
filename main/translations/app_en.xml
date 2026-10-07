@@ -625,6 +625,34 @@ Replace it?</translation>
         <translation>Switch OCR engines here.</translation>
     </message>
     <message>
+        <source>OCR Result Window Position</source>
+        <translation>OCR Result Window Position</translation>
+    </message>
+    <message>
+        <source>Where the text recognition result window appears.</source>
+        <translation>Where the text recognition result window appears.</translation>
+    </message>
+    <message>
+        <source>Capture display center</source>
+        <translation>Capture display center</translation>
+    </message>
+    <message>
+        <source>Primary display center</source>
+        <translation>Primary display center</translation>
+    </message>
+    <message>
+        <source>Beside capture area</source>
+        <translation>Beside capture area</translation>
+    </message>
+    <message>
+        <source>Near cursor</source>
+        <translation>Near cursor</translation>
+    </message>
+    <message>
+        <source>Last position</source>
+        <translation>Last position</translation>
+    </message>
+    <message>
         <source>The Snipping Tool engine is faster and reads more languages, but needs the Snipping Tool from Windows 11. PP-OCR works on any Windows.</source>
         <translation>The Snipping Tool engine is faster and reads more languages, but needs the Snipping Tool from Windows 11. PP-OCR works on any Windows.</translation>
     </message>

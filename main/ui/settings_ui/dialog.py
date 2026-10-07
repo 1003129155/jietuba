@@ -844,6 +844,10 @@ class SettingsDialog(FrostedFramelessDialog):
             index = self.ocr_engine_combo.findData(defaults["ocr_engine"])
             if index >= 0:
                 self.ocr_engine_combo.setCurrentIndex(index)
+        if hasattr(self, 'ocr_result_position_combo'):
+            index = self.ocr_result_position_combo.findData(defaults["ocr_result_position"])
+            if index >= 0:
+                self.ocr_result_position_combo.setCurrentIndex(index)
 
     def _reset_log_page(self):
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
@@ -1067,6 +1071,8 @@ class SettingsDialog(FrostedFramelessDialog):
                 from core.platform_utils import request_trim_working_set
                 set_ocr_engine(engine)
                 request_trim_working_set()
+        if hasattr(self, 'ocr_result_position_combo'):
+            self.config_manager.set_ocr_result_position(self.ocr_result_position_combo.currentData())
         if hasattr(self, 'ocr_grayscale_toggle'):
             self.config_manager.set_ocr_grayscale_enabled(self.ocr_grayscale_toggle.isChecked())
         if hasattr(self, 'ocr_upscale_toggle'):
@@ -1368,7 +1374,7 @@ class SettingsDialog(FrostedFramelessDialog):
             if w is not None:
                 snap[attr] = w.isChecked()
         # 下拉框类
-        for attr in ('screenshot_format_combo', 'ocr_engine_combo',
+        for attr in ('screenshot_format_combo', 'ocr_engine_combo', 'ocr_result_position_combo',
                       'translation_provider_combo', 'translation_target_combo',
                       'log_level_combo',
                       'language_combo', 'engine_combo', 'cursor_move_combo', 'clipboard_pick_combo',
@@ -1628,6 +1634,10 @@ class SettingsDialog(FrostedFramelessDialog):
             index = self.ocr_engine_combo.findData(self.config_manager.get_ocr_engine())
             if index >= 0:
                 self.ocr_engine_combo.setCurrentIndex(index)
+        if hasattr(self, 'ocr_result_position_combo'):
+            index = self.ocr_result_position_combo.findData(self.config_manager.get_ocr_result_position())
+            if index >= 0:
+                self.ocr_result_position_combo.setCurrentIndex(index)
         if hasattr(self, 'ocr_grayscale_toggle'):
             self.ocr_grayscale_toggle.setChecked(self.config_manager.get_ocr_grayscale_enabled())
         if hasattr(self, 'ocr_upscale_toggle'):

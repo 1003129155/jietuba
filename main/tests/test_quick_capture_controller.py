@@ -217,8 +217,13 @@ def test_recognize_text_follows_the_copy_directly_setting(capture, qtbot, monkey
     result = image()
     finish(capture, qtbot).captured.emit(result, QRectF(-50, -20, 80, 60))
     qtbot.waitUntil(lambda: module.set_last_region.called)
-    (copy if copy_directly else show).assert_called_once_with(result)
-    (show if copy_directly else copy).assert_not_called()
+    if copy_directly:
+        copy.assert_called_once_with(result)
+        show.assert_not_called()
+    else:
+        # 结果窗口按识别区域摆放：区域就是快捷键拖出来的那块屏幕
+        show.assert_called_once_with(result, anchor=QRect(-50, -20, 80, 60))
+        copy.assert_not_called()
     module.deliver_screenshot.assert_not_called()
 
 
