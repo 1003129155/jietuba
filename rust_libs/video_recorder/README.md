@@ -107,5 +107,10 @@ downloaded.
 
 The distribution is `j-video`; the module imports as `video_recorder`.
 
+## Credits
+
+Originally contributed to jietuba by [LowValueTarget777](https://github.com/LowValueTarget777) in
+[pull request #70](https://github.com/1003129155/jietuba/pull/70).
+
 Windows x86_64 or ARM64, CPython 3.11+ (abi3). Part of
 [jietuba](https://github.com/1003129155/jietuba). MIT licensed.
