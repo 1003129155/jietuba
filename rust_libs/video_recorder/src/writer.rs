@@ -104,6 +104,7 @@ impl Drop for OwnedOutput {
 #[derive(Default)]
 pub struct EncoderMetadata {
     pub encoder: String,
+    pub module: String,
     pub hardware: bool,
     pub encoder_identified: bool,
 }
@@ -181,6 +182,10 @@ impl Writer {
             };
             writer.verify_rate_control(options, hardware)?;
             writer.identify_encoder();
+            if hardware && is_unusable_hardware_encoder(&writer.metadata.encoder, &writer.metadata.module) {
+                diagnostic("unusable_hardware_encoder", &writer.metadata.encoder);
+                return Err(Failure::new("encoding", format!("Hardware encoder cannot be used: {}", writer.metadata.encoder)));
+            }
             writer.identify_audio_encoder();
             Ok(writer)
         }
@@ -316,7 +321,7 @@ impl Writer {
             }
             if is_software_module(&module) { hardware = false; identified = true; }
             diagnostic("actual_encoder", &format!("{name}, module={module}, hardware={hardware}"));
-            self.metadata = EncoderMetadata { encoder: name,
+            self.metadata = EncoderMetadata { encoder: name, module,
                 hardware, encoder_identified: identified };
         }
     }
@@ -422,6 +427,12 @@ fn is_software_module(module: &str) -> bool {
     module.eq_ignore_ascii_case("mfh264enc.dll") || module.eq_ignore_ascii_case("msmpeg2venc.dll")
 }
 
+/// Microsoft DX12 硬件编码器能完成初始化，写入第一批样本时却返回 MF_E_UNEXPECTED；
+/// 厂商编码器拒绝当前画面尺寸时系统会改选它。按初始化失败处理，改用软件编码。
+fn is_unusable_hardware_encoder(name: &str, module: &str) -> bool {
+    module.to_ascii_lowercase().starts_with("msh264enchmft") || name.to_ascii_lowercase().contains("dx12 encoder")
+}
+
 fn variant_uint(value: &VARIANT) -> Option<u32> {
     if value.vt() == VT_UI4 { u32::try_from(value).ok() } else { None }
 }
@@ -477,6 +488,15 @@ mod tests {
         assert_eq!(variant_uint(&VARIANT::from(true)), None);
         assert!(is_software_module("MFH264ENC.DLL"));
         assert!(!is_software_module("nvEncodeAPI64.dll"));
+    }
+
+    #[test]
+    fn dx12_hardware_encoder_is_never_used() {
+        assert!(is_unusable_hardware_encoder("Microsoft AVC DX12 Encoder HMFT", "msh264enchmft_store.dll"));
+        assert!(is_unusable_hardware_encoder("", "MSH264ENCHMFT_STORE.DLL"));
+        assert!(is_unusable_hardware_encoder("Microsoft AVC DX12 Encoder HMFT", ""));
+        assert!(!is_unusable_hardware_encoder("Vendor H.264 Encoder MFT", "vendorenc64.dll"));
+        assert!(!is_unusable_hardware_encoder("H264 Encoder MFT", "mfh264enc.dll"));
     }
 
     #[test]

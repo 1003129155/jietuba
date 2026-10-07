@@ -44,8 +44,10 @@ COM apartment, such as a Qt GUI thread, it fails right away with a `RecorderErro
 - `output` must be an absolute path ending in `.mp4`. The file is created atomically and an existing
   file is never overwritten (`RecorderError` with code `output_exists`).
 - `hardware=True` asks for a hardware H.264 encoder and falls back to the system software encoder if
-  the writer cannot be initialized. A failure after recording has started is reported, never silently
-  downgraded and never turned into silence.
+  the writer cannot be initialized. Windows can pick the Microsoft DX12 encoder for small frames; it
+  fails while writing samples, so it counts as unusable and the software encoder is used instead. A
+  failure after recording has started is reported, never silently downgraded and never turned into
+  silence.
 - `bitrate` is a constant-bitrate target, not a file size cap; busy content can exceed it. A lower
   `fps` reduces capture and encoding work but does not shrink the file in proportion.
 - `cursor=True` draws the mouse pointer by its hotspot. `prefer_dxgi=False` forces GDI capture.

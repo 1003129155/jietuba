@@ -106,7 +106,10 @@ recorder.run(on_event)  # on_event(name: str, data: dict)
 输出必须是新文件，使用 `MF_OPENMODE_FAIL_IF_EXIST` 原子创建，不覆盖已有录像。
 
 默认 30 fps、4 Mbps、系统声音、自动编码与光标显示。自动模式请求硬件 H.264，
-writer 初始化失败时重新初始化系统软件编码；运行中失败不会静默续录或改为静音。
+writer 初始化失败时重新初始化系统软件编码；系统选中 Microsoft DX12 硬件编码器时同样改用
+软件编码：它能完成初始化，写入第一批样本时却返回 `MF_E_UNEXPECTED`。本机实测：NVIDIA 编码器
+拒绝宽度低于 145 的画面时，系统会改选它（128×128 等小区域）。
+运行中失败不会静默续录或改为静音。
 实际编码器通过 transform 的 CLSID、硬件属性和实现模块识别；`hardware` 报告识别
 结果，未能确认硬件时为 `false`，另以 `encoder_identified` 标明识别情况。
 
