@@ -550,7 +550,7 @@ pin/
 settings/
 ├── __init__.py
 ├── color_formats.py         # 放大镜颜色格式模板：渲染、读取、保存
-├── settings_transfer.py     # 设置界面选项导出/导入为 JSON 文件
+├── settings_transfer.py     # 设置界面选项（含工具栏排布）导出/导入为 JSON 文件
 └── tool_settings.py         # ToolSettingsManager / ToolSettings — 管理工具颜色、大小、热键等配置
 ```
 

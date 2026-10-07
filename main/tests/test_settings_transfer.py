@@ -15,6 +15,14 @@ from settings.settings_transfer import (
     recording_reads,
 )
 from settings.tool_settings import ToolSettingsManager
+from ui.toolbar_layout import DEFAULT_ORDER, HIDE, MORE, SETTING_KEY, SHOW, normalize_layout
+
+TOOLBAR_KEY = f"app/{SETTING_KEY}"
+# 「钉图」挪到最前、「文字」隐藏、「马赛克」收进「…」，其余始终显示：和默认排布处处不同
+CUSTOM_LAYOUT = [("pin", SHOW)] + [
+    (key, HIDE if key == "text" else MORE if key == "mosaic" else SHOW)
+    for key in DEFAULT_ORDER if key != "pin"
+]
 
 
 def _manager(path):
@@ -374,6 +382,68 @@ def test_language_change_from_an_import_is_detected(qapp, config, clip_theme, tm
         assert config.get_app_setting("language") == "en"
     finally:
         _close(dialog)
+
+
+# ---------------------------------------------------------------- 工具栏排布
+
+def _saved_layout(config):
+    return normalize_layout(json.loads(config.get_app_setting(SETTING_KEY)))
+
+
+def test_settings_keys_include_the_toolbar_layout_that_no_page_reads(settings):
+    assert TOOLBAR_KEY in settings.settings_keys()
+
+
+def test_toolbar_layout_survives_a_roundtrip_and_waits_for_apply(qapp, config, clip_theme, tmp_path,
+                                                                 monkeypatch):
+    source = _source(tmp_path)
+    source.set_app_setting(SETTING_KEY, json.dumps(CUSTOM_LAYOUT))
+    exporter = _dialog(source, monkeypatch)
+    importer = _dialog(config, monkeypatch)
+    try:
+        file = tmp_path / "roundtrip.json"
+        export_settings(source, exporter.settings_keys(), str(file))
+        assert TOOLBAR_KEY in json.loads(file.read_text(encoding="utf-8"))["settings"]
+
+        importer.load_imported_settings(read_settings_file(str(file)))
+        assert importer._has_unsaved_changes()
+        assert config.get_app_setting(SETTING_KEY) == ""
+
+        assert importer.apply_settings()
+        assert _saved_layout(config) == CUSTOM_LAYOUT
+    finally:
+        _close(exporter)
+        _close(importer)
+
+
+def test_a_file_without_a_toolbar_layout_leaves_the_current_one(settings, config, tmp_path):
+    config.set_app_setting(SETTING_KEY, json.dumps(CUSTOM_LAYOUT))
+    source = _source(tmp_path)
+    source.set_app_setting("hotkey", "ctrl+alt+q")
+
+    settings.load_imported_settings(_file_values(source, tmp_path))
+    assert settings.apply_settings()
+
+    assert config.get_app_setting("hotkey") == "ctrl+alt+q"
+    assert _saved_layout(config) == CUSTOM_LAYOUT
+
+
+@pytest.mark.parametrize("value", [["pin", "show"], 7, True])
+def test_a_toolbar_layout_of_the_wrong_type_is_ignored(settings, config, value):
+    config.set_app_setting(SETTING_KEY, json.dumps(CUSTOM_LAYOUT))
+
+    settings.load_imported_settings({TOOLBAR_KEY: value})
+    assert settings.apply_settings()
+
+    assert _saved_layout(config) == CUSTOM_LAYOUT
+
+
+def test_reopening_without_saving_drops_the_imported_toolbar_layout(settings, config):
+    settings.load_imported_settings({TOOLBAR_KEY: json.dumps(CUSTOM_LAYOUT)})
+    settings.refresh_settings()
+    assert settings.apply_settings()
+
+    assert config.get_app_setting(SETTING_KEY) == ""
 
 
 # ---------------------------------------------------------------- 按钮

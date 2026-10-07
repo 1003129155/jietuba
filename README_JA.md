@@ -500,7 +500,7 @@ pin/
 ```text
 settings/
 ├── color_formats.py         # 拡大鏡のカラー形式テンプレート：描画・読み込み・保存
-├── settings_transfer.py     # 設定画面の項目を JSON ファイルへエクスポート／インポート
+├── settings_transfer.py     # 設定画面の項目（ツールバーの並びを含む）を JSON ファイルへエクスポート／インポート
 └── tool_settings.py         # ToolSettingsManager / ToolSettings — ツールの色、サイズ、ホットキー設定
 ```
 
