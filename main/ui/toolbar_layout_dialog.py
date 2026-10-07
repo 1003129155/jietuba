@@ -31,7 +31,7 @@ BUTTON_NAMES = {
     "screenshot_translate": "Screenshot translate",
     "text_recognize": "Recognize text",
     "scan_code": "Scan code",
-    "gif": "GIF recording",
+    "gif": "Screen recording",
     "pen": "Pen",
     "highlighter": "Highlighter",
     "mosaic": "Mosaic",

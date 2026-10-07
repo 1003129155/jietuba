@@ -3618,8 +3618,8 @@ This action cannot be undone.</source>
         <translation>長いスクショ</translation>
     </message>
     <message>
-        <source>工具_GIF录制</source>
-        <translation>GIF録画</translation>
+        <source>工具_录屏</source>
+        <translation>画面録画</translation>
     </message>
     <message>
         <source>工具_截图翻译</source>
@@ -3674,8 +3674,8 @@ This action cannot be undone.</source>
         <translation>自動スクロールで長いページを結合</translation>
     </message>
     <message>
-        <source>工具描述_GIF录制</source>
-        <translation>画面をGIFアニメとして録画</translation>
+        <source>工具描述_录屏</source>
+        <translation>画面をGIFアニメまたはMP4動画として録画</translation>
     </message>
     <message>
         <source>工具描述_截图翻译</source>
@@ -4552,8 +4552,8 @@ All items in the group will also be deleted.</source>
         <translation>文字認識</translation>
     </message>
     <message>
-        <source>GIF recording</source>
-        <translation>GIF録画</translation>
+        <source>Screen recording</source>
+        <translation>画面録画</translation>
     </message>
     <message>
         <source>Pen</source>

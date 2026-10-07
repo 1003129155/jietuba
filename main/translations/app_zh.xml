@@ -3653,8 +3653,8 @@ This action cannot be undone.</source>
         <translation>长截图</translation>
     </message>
     <message>
-        <source>工具_GIF录制</source>
-        <translation>GIF 录制</translation>
+        <source>工具_录屏</source>
+        <translation>录屏</translation>
     </message>
     <message>
         <source>工具_截图翻译</source>
@@ -3709,8 +3709,8 @@ This action cannot be undone.</source>
         <translation>自动滚动拼接超长页面</translation>
     </message>
     <message>
-        <source>工具描述_GIF录制</source>
-        <translation>录制屏幕区域为 GIF 动图</translation>
+        <source>工具描述_录屏</source>
+        <translation>录制屏幕区域为 GIF 动图或 MP4 视频</translation>
     </message>
     <message>
         <source>工具描述_截图翻译</source>
@@ -4597,8 +4597,8 @@ All items in the group will also be deleted.</source>
         <translation>文字识别</translation>
     </message>
     <message>
-        <source>GIF recording</source>
-        <translation>GIF 录制</translation>
+        <source>Screen recording</source>
+        <translation>录屏</translation>
     </message>
     <message>
         <source>Pen</source>

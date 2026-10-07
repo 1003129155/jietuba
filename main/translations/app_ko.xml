@@ -3573,8 +3573,8 @@ This action cannot be undone.</source>
         <translation>긴 스크린샷</translation>
     </message>
     <message>
-        <source>工具_GIF录制</source>
-        <translation>GIF 녹화</translation>
+        <source>工具_录屏</source>
+        <translation>화면 녹화</translation>
     </message>
     <message>
         <source>工具_截图翻译</source>
@@ -3629,8 +3629,8 @@ This action cannot be undone.</source>
         <translation>긴 페이지를 자동 스크롤하고 이어 붙이기</translation>
     </message>
     <message>
-        <source>工具描述_GIF录制</source>
-        <translation>화면 영역을 애니메이션 GIF로 녹화</translation>
+        <source>工具描述_录屏</source>
+        <translation>화면 영역을 애니메이션 GIF 또는 MP4 동영상으로 녹화</translation>
     </message>
     <message>
         <source>工具描述_截图翻译</source>
@@ -4511,8 +4511,8 @@ All items in the group will also be deleted.</source>
         <translation>텍스트 인식</translation>
     </message>
     <message>
-        <source>GIF recording</source>
-        <translation>GIF 녹화</translation>
+        <source>Screen recording</source>
+        <translation>화면 녹화</translation>
     </message>
     <message>
         <source>Pen</source>
