@@ -50,6 +50,7 @@ class CursorManager:
         - cursor: 箭头
         - pen/highlighter: 实心圆 + 准星
         - number: 圆圈 + 数字预览
+        - text: I 形光标
         - 其他: 十字光标
         
         同时管理 SelectionItem 的交互状态
@@ -351,6 +352,10 @@ class CursorManager:
         if tool_id == "number":
             scaled_size = max(4, int(brush_size * self._view_scale))
             return self._create_number_cursor(scaled_size)
+
+        # 文字工具用 I 形光标，提示点击后是文本输入而非绘图
+        if tool_id == "text":
+            return QCursor(Qt.CursorShape.IBeamCursor)
 
         # 其他工具统一使用十字光标（简化版）
         return QCursor(Qt.CursorShape.CrossCursor)
