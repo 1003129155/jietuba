@@ -19,6 +19,7 @@ def write_notices(output_dir: Path, *, lite: bool = False) -> Path:
         ("windows-capture", REPO_DIR / "rust_libs" / "hdrcapture" / "LICENSE-UPSTREAM"),
         ("oneocr", REPO_DIR / "licenses" / "oneocr-LICENSE.txt"),
         ("lucide icons", REPO_DIR / "licenses" / "lucide-LICENSE.txt"),
+        ("tabler icons", REPO_DIR / "licenses" / "tabler-icons-LICENSE.txt"),
     ])
     # 录制扩展的声明来自已安装 wheel，与打包的原生模块保持一致。
     sources.extend((f"video_recorder/{name}", path) for name, path in installed_recorder_licenses().items())
