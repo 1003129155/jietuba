@@ -170,19 +170,21 @@ class _MorePopup(QWidget):
     def set_buttons(self, buttons, cell):
         """把 buttons 按每行 COLUMNS 个排成网格，每格 cell 大小；「调整」放在网格下方靠右"""
         pad = scaled(self.BASE_PADDING)
-        for index, button in enumerate(buttons):
-            if button.parent() is not self:
-                button.setParent(self)
-            row, column = divmod(index, self.COLUMNS)
-            button.setGeometry(pad + column * cell.width(), pad + row * cell.height(),
-                               cell.width(), cell.height())
-            button.show()
-
         rows = -(-len(buttons) // self.COLUMNS)   # 向上取整
         grid_width = min(len(buttons), self.COLUMNS) * cell.width()
         adjust_width = self.adjust_btn.sizeHint().width()
         adjust_height = round(cell.height() * 0.7)
-        width = max(grid_width, adjust_width) + 2 * pad
+        inner = max(grid_width, adjust_width)
+        left = pad + (inner - grid_width) // 2   # 网格比「调整」窄时居中，右侧不留空位
+        for index, button in enumerate(buttons):
+            if button.parent() is not self:
+                button.setParent(self)
+            row, column = divmod(index, self.COLUMNS)
+            button.setGeometry(left + column * cell.width(), pad + row * cell.height(),
+                               cell.width(), cell.height())
+            button.show()
+
+        width = inner + 2 * pad
         top = pad + rows * cell.height()
         self.adjust_btn.setGeometry(width - pad - adjust_width, top, adjust_width, adjust_height)
         self.resize(width, top + adjust_height + pad)
