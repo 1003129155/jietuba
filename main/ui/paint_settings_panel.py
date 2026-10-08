@@ -227,24 +227,32 @@ class PaintSettingsPanel(BaseSettingsPanel):
 
         self.blockSignals(False)
 
+    def _set_control_visible(self, widget, visible: bool):
+        """显示或隐藏控件，面板宽度随可见内容重算，右侧不留被隐藏控件的空位"""
+        visible = bool(visible)
+        if (not widget.isHidden()) == visible:
+            return
+        widget.setVisible(visible)
+        self.adjustSize()
+
     def set_line_style_visible(self, visible: bool):
         """控制线条样式控件显示（高亮笔不显示）"""
         if hasattr(self, "line_style_combo"):
-            self.line_style_combo.setVisible(bool(visible))
+            self._set_control_visible(self.line_style_combo, visible)
 
     def set_size_visible(self, visible: bool):
         """控制线宽控件显示（聚光灯借用本面板，它的孔没有线宽）"""
         if hasattr(self, "size_spin"):
-            self.size_spin.setVisible(bool(visible))
+            self._set_control_visible(self.size_spin, visible)
 
     def set_color_visible(self, visible: bool):
         """控制颜色控件显示（聚光灯借用本面板，它的幕布固定为黑色）"""
         if hasattr(self, "color_widget"):
-            self.color_widget.setVisible(bool(visible))
+            self._set_control_visible(self.color_widget, visible)
 
     def set_highlighter_mode_visible(self, visible: bool):
         if hasattr(self, "mode_widget"):
-            self.mode_widget.setVisible(bool(visible))
+            self._set_control_visible(self.mode_widget, visible)
 
     def set_highlighter_mode(self, mode: str):
         if mode not in ("freehand", "rect"):

@@ -1,6 +1,5 @@
-<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="30" cy="30" r="20" fill="white" stroke="black" stroke-width="5"></circle>
-  <text x="30" y="41" font-size="36" font-weight="bold" text-anchor="middle" dominant-baseline="middle" fill="black">
-    1
-  </text>
+<svg viewBox="-1.33 -1.33 26.67 26.67" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 24 栅格四周各外扩 1.33：22px 图标下圆圈外径约 16.5px，与同排图标视觉大小接近 -->
+  <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/>
+  <path d="M10 10l2 -2v8"/>
 </svg>
