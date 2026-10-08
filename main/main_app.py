@@ -17,7 +17,7 @@ from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QBrush, QFont
 from PySide6.QtCore import QObject, Qt, Signal, Slot
 from ui.dialogs import show_warning_dialog, show_error_dialog
 
-from core.qt_utils import blocking_modal
+from core.qt_utils import blocking_modal, close_active_popups
 from core.shortcut_manager import HotkeySystem
 from settings import get_tool_settings_manager
 from ui.tray_menu import create_tray_menu
@@ -572,6 +572,10 @@ class MainApp(QObject):
         # 从排队到截完这段时间里也可能弹出模态窗口，避免创建一个被锁死的界面。
         if self._activate_blocking_modal():
             return
+
+        # 托盘菜单、钉图右键菜单等弹出层还开着的话，截图窗口收不到鼠标移动，智能选区不跟手。
+        # 画面已经截下，此时关掉不影响截图内容。
+        close_active_popups()
         
         self.quick_capture.set_capture_pending(True)
         try:

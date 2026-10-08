@@ -72,4 +72,18 @@ def blocking_modal(widget=None):
         if any(window in target for window in _window_chain(handle)):
             return candidate
     return None
+
+
+def close_active_popups():
+    """关闭本进程开着的菜单、下拉列表等弹出层，子菜单一并关闭。
+
+    弹出层开着时 Qt 把本进程的鼠标事件都交给它，其他窗口收不到移动，直到点一下把它关掉。
+    """
+    popup = QApplication.activePopupWidget()
+    while popup is not None:
+        popup.close()
+        remaining = QApplication.activePopupWidget()
+        if remaining is popup:  # 拒绝关闭的不再重试，避免死循环
+            return
+        popup = remaining
  
