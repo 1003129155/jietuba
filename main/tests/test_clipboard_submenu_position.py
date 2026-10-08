@@ -1,10 +1,21 @@
 """验证三级菜单不会在有空位时折回覆盖第一级。"""
 
+import pytest
 from PySide6.QtCore import QPoint, QRect, QSize, Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QMenu
+from PySide6.QtWidgets import QMenu, QProxyStyle, QStyle, QWidget
 
 from clipboard.ui.menus.submenu_position import avoid_submenu_overlap, submenu_position
+
+
+class _ZeroMenuDelayStyle(QProxyStyle):
+    """系统菜单延迟设成 0 时，Qt 子菜单的弹出和收起计时都是 0。"""
+
+    def styleHint(self, hint, option=None, widget=None, return_data=None):
+        if hint in (QStyle.StyleHint.SH_Menu_SubMenuPopupDelay,
+                    QStyle.StyleHint.SH_Menu_SubMenuSloppyCloseTimeout):
+            return 0
+        return super().styleHint(hint, option, widget, return_data)
 
 
 def test_third_level_continues_left_instead_of_covering_root():
@@ -35,6 +46,48 @@ def test_negative_screen_coordinates_and_bottom_edge():
     assert pos == QPoint(-430, 600)
 
 
+def test_submenu_attaches_to_action_edge():
+    screen = QRect(0, 0, 1000, 800)
+    parent = QRect(300, 200, 200, 120)
+    action = QRect(305, 230, 190, 30)
+    assert submenu_position(QSize(180, 160), 230, [parent], screen, action) == QPoint(495, 230)
+
+    root = QRect(500, 100, 200, 400)
+    assert submenu_position(QSize(180, 160), 230, [parent, root], screen, action) == QPoint(125, 230)
+
+
+@pytest.mark.parametrize("opens_left", [False, True])
+def test_submenu_stays_open_over_parent_padding_with_zero_menu_delay(qapp, opens_left):
+    style = _ZeroMenuDelayStyle()
+    host = QWidget()
+    host.setStyle(style)
+    host.setStyleSheet("QMenu { border: 1px solid #888888; padding: 4px; }")
+    root = QMenu(host)
+    sub = root.addMenu('Theme')
+    sub.addAction('Light')
+    avoid_submenu_overlap(root)
+    screen = qapp.primaryScreen().availableGeometry()
+    x = screen.right() - root.sizeHint().width() if opens_left else screen.left() + 40
+    try:
+        root.popup(QPoint(x, screen.top() + 40))
+        rect = root.actionGeometry(sub.menuAction())
+        window = root.windowHandle()
+        for dx in range(8):
+            QTest.mouseMove(window, QPoint(rect.center().x() + dx, rect.center().y()))
+        assert sub.isVisible()
+        assert (sub.geometry().center().x() < root.geometry().center().x()) == opens_left
+
+        # 菜单项和父菜单外沿之间的边框与内边距
+        padding_x = rect.left() - 2 if opens_left else rect.right() + 2
+        QTest.mouseMove(window, QPoint(padding_x, rect.center().y()))
+        QTest.qWait(20)
+        assert sub.isVisible()
+    finally:
+        sub.close()
+        root.close()
+        host.deleteLater()
+
+
 def test_real_submenu_show_uses_free_side(qapp):
     screen = qapp.primaryScreen().availableGeometry()
     root = QMenu()
@@ -50,7 +103,7 @@ def test_real_submenu_show_uses_free_side(qapp):
         QTest.keyClick(child, Qt.Key.Key_Right)
         qapp.processEvents()
         assert child.isVisible() and grandchild.isVisible()
-        assert grandchild.geometry().right() < child.geometry().left()
+        assert grandchild.geometry().left() < child.geometry().left()
         assert not grandchild.geometry().intersects(root.geometry())
     finally:
         grandchild.close()

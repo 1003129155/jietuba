@@ -6,14 +6,20 @@ from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QSize
 from PySide6.QtWidgets import QApplication, QMenu
 
 
-def submenu_position(size: QSize, y: int, ancestors: list[QRect], screen: QRect) -> QPoint:
-    """ancestors 从直接父菜单到根菜单排列；同等遮挡时延续展开方向。"""
+def submenu_position(size: QSize, y: int, ancestors: list[QRect], screen: QRect,
+                     anchor: QRect | None = None) -> QPoint:
+    """ancestors 从直接父菜单到根菜单排列；同等遮挡时延续展开方向。
+
+    anchor 是父菜单里展开它的那一项（全局坐标）。子菜单贴着这一项、盖住父菜单的边框和内边距：
+    光标落在那条边上时，Qt 按系统菜单延迟收起子菜单，而这个延迟可以被设成 0。
+    """
     parent = ancestors[0]
+    edge = anchor if anchor is not None else parent
     prefer_left = len(ancestors) > 1 and parent.center().x() < ancestors[1].center().x()
     directions = (-1, 1) if prefer_left else (1, -1)
     candidates = []
     for direction in directions:
-        x = parent.left() - size.width() if direction < 0 else parent.right() + 1
+        x = edge.left() - size.width() if direction < 0 else edge.right() + 1
         x = max(screen.left(), min(x, screen.right() + 1 - size.width()))
         top = max(screen.top(), min(y, screen.bottom() + 1 - size.height()))
         rect = QRect(QPoint(x, top), size)
@@ -33,7 +39,7 @@ class _SubmenuPositioner(QObject):
     def eventFilter(self, watched, event):
         if event.type() == QEvent.Type.Show:
             ancestors = []
-            menu = self._parent_menu()
+            parent_menu = menu = self._parent_menu()
             while isinstance(menu, QMenu) and menu.isVisible():
                 ancestors.append(menu.geometry())
                 menu = menu.parentWidget()
@@ -41,8 +47,16 @@ class _SubmenuPositioner(QObject):
             if screen is not None:
                 watched.move(submenu_position(
                     watched.size(), watched.y(), ancestors, screen.availableGeometry(),
+                    _action_rect(parent_menu, watched.menuAction()),
                 ))
         return super().eventFilter(watched, event)
+
+
+def _action_rect(menu: QMenu, action) -> QRect | None:
+    rect = menu.actionGeometry(action)
+    if not rect.isValid():
+        return None
+    return QRect(menu.mapToGlobal(rect.topLeft()), rect.size())
 
 
 def avoid_submenu_overlap(menu: QMenu):
