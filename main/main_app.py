@@ -9,7 +9,7 @@ import os
 
 # 录制子进程必须在 Qt、配置、数据库和单实例逻辑初始化前分流。
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "--video-recorder-worker":
-    from video_worker import main as run_video_worker
+    from video.worker import main as run_video_worker
     raise SystemExit(run_video_worker(sys.argv[2:]))
 
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon

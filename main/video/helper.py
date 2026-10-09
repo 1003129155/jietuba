@@ -17,7 +17,7 @@ def worker_command() -> list[str]:
         raise FileNotFoundError(f"{PACKAGE_NAME} is not installed")
     if getattr(sys, "frozen", False):
         return [sys.executable, "--video-recorder-worker"]
-    worker = Path(__file__).with_name("video_worker.py")
+    worker = Path(__file__).with_name("worker.py")
     if not worker.is_file():
         raise FileNotFoundError(worker)
     return [sys.executable, "-u", str(worker)]

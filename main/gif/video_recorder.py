@@ -10,7 +10,7 @@ from pathlib import Path
 from PySide6.QtCore import QObject, QProcess, QProcessEnvironment, QRect, QTimer, Signal
 from capture.capture_service import uses_hdr_engine
 from core.i18n import make_tr
-from video_helper import worker_command as default_worker_command
+from video.helper import worker_command as default_worker_command
 
 _tr = make_tr("VideoRecorder")
 

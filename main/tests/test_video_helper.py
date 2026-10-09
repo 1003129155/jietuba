@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from main import video_helper
+from main.video import helper as video_helper
 
 
 def test_source_worker_uses_current_python_without_importing_native(monkeypatch):
@@ -17,7 +17,7 @@ def test_source_worker_uses_current_python_without_importing_native(monkeypatch)
     monkeypatch.setattr(video_helper.util, "find_spec", lambda name: requested.append(name) or object())
     command = video_helper.worker_command()
     assert command[:2] == [video_helper.sys.executable, "-u"]
-    assert Path(command[2]) == Path(video_helper.__file__).with_name("video_worker.py")
+    assert Path(command[2]) == Path(video_helper.__file__).with_name("worker.py")
     assert requested == ["video_recorder"]
 
 
@@ -37,9 +37,9 @@ def test_missing_native_extension_fails_without_searching_path(monkeypatch, tmp_
 
 def test_missing_source_worker_reports_missing_file(monkeypatch, tmp_path):
     monkeypatch.setattr(video_helper.sys, "frozen", False, raising=False)
-    monkeypatch.setattr(video_helper, "__file__", str(tmp_path / "video_helper.py"))
+    monkeypatch.setattr(video_helper, "__file__", str(tmp_path / "helper.py"))
     monkeypatch.setattr(video_helper.util, "find_spec", lambda name: object())
-    with pytest.raises(FileNotFoundError, match="video_worker"):
+    with pytest.raises(FileNotFoundError, match=r"worker\.py$"):
         video_helper.worker_command()
 
 

@@ -142,7 +142,7 @@ The [test directory](main/tests/) contains unit and integration tests for captur
 
 Tests that drive the real mouse and keyboard, such as `test_quick_capture_real_hooks.py`, are skipped by default. Set `RUN_REAL_INPUT_TESTS=1` to run them, and leave the mouse and keyboard alone while they run. Tests that rewrite the real system clipboard (`test_clipboard_monitor_real.py`) are skipped too; set `RUN_REAL_CLIPBOARD_TESTS=1` to run them, and don't copy anything while they run.
 
-To build a Windows release, install the recorder wheel matching the active Python architecture, then run `python build_with_ocr_onefile.py`. It collects the installed recording extension and its license notices, while building the standalone updater with Cargo. The full build produces `dist/jietuba_pp.exe` and `dist/models/`; add `--lite` for `dist_lite/jietuba_lite.exe`. Recorder wheel build instructions are in the [recording development notes](rust_libs/video_recorder/DEVELOPMENT.md#构建与维护) (in Chinese). The automated [release workflow](.github/workflows/build.yml) creates full and lite archives for x64 and ARM64.
+To build a Windows release, install the recorder wheel matching the active Python architecture, then run `python build_with_ocr_onefile.py`. It collects the installed recording extension and its license notices, while building the standalone updater with Cargo. The full build produces `dist/jietuba_pp.exe` and `dist/models/`; add `--lite` for `dist_lite/jietuba_lite.exe`. Recorder wheel build instructions are in the [publishing notes](rust_libs/PUBLISHING.md) (in Chinese). The automated [release workflow](.github/workflows/build.yml) creates full and lite archives for x64 and ARM64.
 
 ### Code Comments
 
@@ -170,9 +170,6 @@ Comments explain only the constraints and design reasons that the code cannot ex
 │
 ├── main/                    # Python main program
 │   ├── main_app.py          # App entry point: system tray, global hotkeys, lifecycle management
-│   ├── video_helper.py      # Recording worker command and installed license lookup
-│   ├── video_worker.py      # PyO3 recording worker and bounded JSONL protocol
-│   ├── video_worker_hook.py # Frozen worker dispatch before PyInstaller Qt hooks
 │   ├── compile_translations.py  # Translation compiler (.xml → .qm)
 │   ├── scripts/             # Helper scripts — translation provider comparison
 │   │
@@ -190,6 +187,7 @@ Comments explain only the constraints and design reasons that the code cannot ex
 │   ├── translation/         # Translation module — multi-provider translation service
 │   ├── translations/        # Language resources — Chinese/English/Japanese/Korean
 │   ├── ui/                  # UI module — common UI component library
+│   ├── video/               # Recording worker — PyO3 recording, bounded JSONL protocol, early dispatch in frozen builds
 │   └── tests/               # Tests module — unit tests & integration tests
 │
 ├── rust_libs/               # Rust extension source code
@@ -203,7 +201,7 @@ Comments explain only the constraints and design reasons that the code cannot ex
 │   └── video_recorder/      # PyO3 Media Foundation recording extension
 │       ├── src/             # Recording core, PyO3 bindings and WASAPI capture
 │       ├── README.md        # PyPI page
-│       ├── DEVELOPMENT.md   # Process protocol, build and validation notes (Chinese)
+│       ├── DEVELOPMENT.md   # Worker process protocol and native validation notes (Chinese)
 │       ├── pyproject.toml   # j-video abi3 wheel metadata
 │       └── LICENSE          # MIT license included in the wheel
 │
@@ -425,7 +423,7 @@ Screen recording, editing, playback, and export to GIF/video.
 
 Choose **MP4** on the recording toolbar for direct H.264 recording, with custom 1–60 fps, 0.5–50 Mbps target bitrate, optional system audio and mouse pointer. Hardware encoding is preferred when available, with Windows software encoding as fallback. Frames are streamed in an independent process instead of stored in Python; stopping waits for MP4 finalization before reporting success. MP4 recordings are saved directly and do not enter the GIF editing/playback workflow. Video is output as SDR (on HDR displays frames are captured through DXGI and mapped to SDR, so there is no HDR video), and system audio comes from the default playback device (up to 8 channels, down-mixed to stereo) and excludes the microphone.
 
-The PyO3 recorder is installed from the prebuilt `j-video==0.1.0` wheel with the runtime dependencies; source users need no Rust toolchain. A dedicated Python worker calls the extension, while the GUI exchanges only commands and status events. The onefile script includes the installed extension and its license notices without rebuilding it. The [recording development notes](rust_libs/video_recorder/DEVELOPMENT.md) (in Chinese) cover developer builds, the process protocol, and validation commands. Windows Media Foundation/H.264/AAC components must be available; Windows N editions may need the Media Feature Pack. No FFmpeg or additional codec bundle is included.
+The PyO3 recorder is installed from the prebuilt `j-video==0.1.0` wheel with the runtime dependencies; source users need no Rust toolchain. A dedicated Python worker calls the extension, while the GUI exchanges only commands and status events. The onefile script includes the installed extension and its license notices without rebuilding it. The [recording development notes](rust_libs/video_recorder/DEVELOPMENT.md) (in Chinese) cover the worker process protocol and native validation commands. Windows Media Foundation/H.264/AAC components must be available; Windows N editions may need the Media Feature Pack. No FFmpeg or additional codec bundle is included.
 <img width="766" height="630" alt="image" src="https://github.com/user-attachments/assets/8653fffb-b419-4584-ab4b-9fe95bb9f246" />
 <details>
 <summary>Expand directory structure</summary>

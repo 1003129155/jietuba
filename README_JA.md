@@ -142,7 +142,7 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 実際にマウスとキーボードを操作するテスト（`test_quick_capture_real_hooks.py` など）は既定でスキップされます。環境変数 `RUN_REAL_INPUT_TESTS=1` を設定すると実行され、実行中はマウスとキーボードに触れないでください。実際のシステムクリップボードを書き換えるテスト（`test_clipboard_monitor_real.py`）も既定でスキップされます。環境変数 `RUN_REAL_CLIPBOARD_TESTS=1` を設定すると実行され、実行中は何もコピーしないでください。
 
-Windows 版をビルドするには、現在の Python アーキテクチャに合う録画 wheel をインストールしてから `python build_with_ocr_onefile.py` を実行します。インストール済みの録画拡張とライセンス通知を収集し、独立した更新プログラムは Cargo でビルドします。完全版の生成物は `dist/jietuba_pp.exe` と `dist/models/` です。`--lite` を付けると軽量版の `dist_lite/jietuba_lite.exe` を生成します。録画 wheel のビルド手順は[録画の開発メモ](rust_libs/video_recorder/DEVELOPMENT.md#构建与维护)（中国語）を参照してください。[自動リリースワークフロー](.github/workflows/build.yml)では、x64 と ARM64 それぞれの完全版と軽量版のアーカイブを生成します。
+Windows 版をビルドするには、現在の Python アーキテクチャに合う録画 wheel をインストールしてから `python build_with_ocr_onefile.py` を実行します。インストール済みの録画拡張とライセンス通知を収集し、独立した更新プログラムは Cargo でビルドします。完全版の生成物は `dist/jietuba_pp.exe` と `dist/models/` です。`--lite` を付けると軽量版の `dist_lite/jietuba_lite.exe` を生成します。録画 wheel のビルド手順は[公開手順メモ](rust_libs/PUBLISHING.md)（中国語）を参照してください。[自動リリースワークフロー](.github/workflows/build.yml)では、x64 と ARM64 それぞれの完全版と軽量版のアーカイブを生成します。
 
 ### コードコメント
 
@@ -170,9 +170,6 @@ Windows 版をビルドするには、現在の Python アーキテクチャに�
 │
 ├── main/                    # Python メインプログラム
 │   ├── main_app.py          # アプリエントリポイント：システムトレイ、グローバルホットキー、ライフサイクル管理
-│   ├── video_helper.py      # 録画子プロセスの起動コマンドとライセンス取得
-│   ├── video_worker.py      # PyO3 録画ワーカーと有界 JSONL プロトコル
-│   ├── video_worker_hook.py # PyInstaller Qt hooks より前に録画ワーカーへ分岐
 │   ├── compile_translations.py  # 翻訳コンパイラ（.xml → .qm）
 │   ├── scripts/             # 補助スクリプト — 翻訳プロバイダー比較
 │   │
@@ -190,6 +187,7 @@ Windows 版をビルドするには、現在の Python アーキテクチャに�
 │   ├── translation/         # 翻訳モジュール — マルチプロバイダー翻訳サービス
 │   ├── translations/        # 言語リソース — 中国語/英語/日本語/韓国語
 │   ├── ui/                  # UIモジュール — 共通UIコンポーネントライブラリ
+│   ├── video/               # 録画ワーカー — PyO3 録画、有界 JSONL プロトコル、パッケージ版の早期分岐
 │   └── tests/               # テストモジュール — ユニットテスト＆統合テスト
 │
 ├── rust_libs/               # Rust 拡張のソースコード
@@ -203,7 +201,7 @@ Windows 版をビルドするには、現在の Python アーキテクチャに�
 │   └── video_recorder/      # PyO3 Media Foundation 録画拡張
 │       ├── src/             # 録画コア、PyO3 バインディングと WASAPI キャプチャ
 │       ├── README.md        # PyPI ページ（英語）
-│       ├── DEVELOPMENT.md   # プロセスプロトコル、ビルド・検証メモ（中国語）
+│       ├── DEVELOPMENT.md   # 録画ワーカーのプロセスプロトコルとネイティブ検証メモ（中国語）
 │       ├── pyproject.toml   # j-video abi3 wheel 設定
 │       └── LICENSE          # wheel に同梱する MIT ライセンス
 │
@@ -424,7 +422,7 @@ core/
 
 録画ツールバーで **MP4** を選択すると、H.264 動画を直接保存できます。1–60 fps、0.5–50 Mbps の目標ビットレート、システム音声とマウスポインターを設定できます。利用可能ならハードウェアを優先し、Windows のソフトウェアエンコーダーにフォールバックします。独立プロセスから逐次保存し、Python に動画フレームを蓄積しません。停止後は MP4 の処理完了を待ちます。MP4 は GIF の編集・再生に進まず直接保存されます。映像は SDR で出力され（HDR ディスプレイでは DXGI で取得して SDR に変換するため、HDR 動画にはなりません）、システム音声は既定の再生デバイス（最大 8 チャンネル、ステレオにダウンミックス）から取得し、マイクは含みません。
 
-PyO3 録画拡張は、実行時依存パッケージと一緒にビルド済み `j-video==0.1.0` wheel からインストールします。ソースから実行するだけなら Rust ツールチェーンは不要です。専用 Python 子プロセスが拡張を呼び出し、GUI は制御コマンドと状態イベントだけを交換します。onefile スクリプトはインストール済み拡張とライセンス通知を収集し、再ビルドしません。[録画の開発メモ](rust_libs/video_recorder/DEVELOPMENT.md)（中国語）には、開発者向けビルド、プロセスプロトコルと検証コマンドがあります。Media Foundation と H.264/AAC が必要で、Windows N では Media Feature Pack が必要な場合があります。FFmpeg や追加コーデックは同梱しません。
+PyO3 録画拡張は、実行時依存パッケージと一緒にビルド済み `j-video==0.1.0` wheel からインストールします。ソースから実行するだけなら Rust ツールチェーンは不要です。専用 Python 子プロセスが拡張を呼び出し、GUI は制御コマンドと状態イベントだけを交換します。onefile スクリプトはインストール済み拡張とライセンス通知を収集し、再ビルドしません。[録画の開発メモ](rust_libs/video_recorder/DEVELOPMENT.md)（中国語）には、録画ワーカーのプロセスプロトコルとネイティブ検証コマンドがあります。Media Foundation と H.264/AAC が必要で、Windows N では Media Feature Pack が必要な場合があります。FFmpeg や追加コーデックは同梱しません。
 <img width="766" height="630" alt="image" src="https://github.com/user-attachments/assets/8653fffb-b419-4584-ab4b-9fe95bb9f246" />
 <details>
 <summary>ディレクトリ構造を表示</summary>

@@ -4,5 +4,5 @@ import sys
 
 
 if len(sys.argv) > 1 and sys.argv[1] == "--video-recorder-worker":
-    from video_worker import main
+    from video.worker import main
     raise SystemExit(main(sys.argv[2:]))
