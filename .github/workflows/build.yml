@@ -8,10 +8,12 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
+    # 签名 token 存在 signing 环境中，该环境只允许 master2 分支和 release-* 标签使用
+    environment: signing
     strategy:
       fail-fast: false
       matrix:
@@ -34,10 +36,19 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Check tag matches APP_VERSION
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          $match = Select-String -Path main\main_app.py -Pattern '^APP_VERSION = "([^"]+)"'
+          $expected = "release-" + $match.Matches[0].Groups[1].Value
+          if ("${{ github.ref_name }}" -ne $expected) {
+            throw "Tag ${{ github.ref_name }} does not match APP_VERSION (expected $expected)"
+          }
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.11"
           architecture: ${{ matrix.python-architecture }}
@@ -55,7 +66,7 @@ jobs:
           }
 
       - name: Cache cargo registry and target
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: rust_libs
           cache-on-failure: true
@@ -86,11 +97,13 @@ jobs:
           python build_with_ocr_onefile.py --lite
           if ($LASTEXITCODE -ne 0) { throw "lite build failed" }
 
+      # 签名策略由仓库变量 SIGNPATH_SIGNING_POLICY 决定：留空时跳过签名，
+      # test-signing 用测试证书，release-signing 用正式证书（需在 SignPath 中人工批准）。
       # 签名范围由 SignPath 项目的 Artifact Configuration「windows-exes」定义：zip 根目录下的两个 exe，
       # 并要求 exe 的产品版本等于 version 参数。
-      # 换正式证书时把 signing-policy-slug 改为 release-signing。
       - name: Stage unsigned executables
         id: stage
+        if: vars.SIGNPATH_SIGNING_POLICY != ''
         run: |
           New-Item -ItemType Directory -Force unsigned | Out-Null
           Copy-Item dist\jietuba_pp.exe unsigned\
@@ -99,18 +112,20 @@ jobs:
 
       - name: Upload unsigned executables
         id: upload-unsigned
-        uses: actions/upload-artifact@v4
+        if: vars.SIGNPATH_SIGNING_POLICY != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: unsigned-${{ matrix.arch }}
           path: unsigned/*.exe
 
       - name: Sign with SignPath
-        uses: signpath/github-action-submit-signing-request@v3
+        if: vars.SIGNPATH_SIGNING_POLICY != ''
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
           project-slug: jietuba
-          signing-policy-slug: test-signing
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY }}
           artifact-configuration-slug: windows-exes
           github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
           wait-for-completion: true
@@ -119,6 +134,7 @@ jobs:
             version: ${{ toJSON(steps.stage.outputs.version) }}
 
       - name: Replace executables with signed ones
+        if: vars.SIGNPATH_SIGNING_POLICY != ''
         run: |
           Copy-Item signed\jietuba_pp.exe dist\ -Force
           Copy-Item signed\jietuba_lite.exe dist_lite\ -Force
@@ -134,7 +150,7 @@ jobs:
           Compress-Archive -Path dist_lite\* -DestinationPath jietuba_lite-${{ github.ref_name }}-${{ matrix.arch }}.zip
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: jietuba-${{ github.ref_name }}-${{ matrix.arch }}
           path: |
@@ -145,18 +161,26 @@ jobs:
     needs: build
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Download release artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: jietuba-${{ github.ref_name }}-*
           path: release-assets
           merge-multiple: true
 
+      - name: Generate checksums
+        working-directory: release-assets
+        run: sha256sum *.zip > SHA256SUMS.txt
+
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
-          files: release-assets/*.zip
+          files: |
+            release-assets/*.zip
+            release-assets/SHA256SUMS.txt
           generate_release_notes: true
           # 先建草稿：发布说明审过、发布包验过之后再公开
           draft: true
