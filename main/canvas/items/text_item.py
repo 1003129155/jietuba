@@ -510,11 +510,11 @@ class TextItem(DrawingItemMixin, QGraphicsTextItem):
             self.setFocus()
         super().mouseDoubleClickEvent(event)
 
-    def _is_on_text_edge(self, local_pos: QPointF) -> bool:
-        """
-        判断局部坐标是否在边框边缘（内边距及描边/阴影占的那一圈）
-        在边缘 → True（应显示拖拽光标）
-        在文字内容区域 → False（应显示文字编辑光标）
+    def is_on_edge(self, local_pos: QPointF) -> bool:
+        """局部坐标落在命中区内、字的排版区域之外（边距、两侧空当、描边阴影那一圈）。
+
+        悬停换光标和 View 按下时是否开始拖动都按这一份判断，两处不一致就会出现
+        "显示可拖，按下去却在选字"。
         """
         if not self.boundingRect().contains(local_pos):
             return False
@@ -526,7 +526,7 @@ class TextItem(DrawingItemMixin, QGraphicsTextItem):
 
     def _apply_edit_cursor(self, local_pos: QPointF):
         """编辑态的光标：边缘那一圈是拖拽，文字区域是输入。"""
-        if self._is_on_text_edge(local_pos):
+        if self.is_on_edge(local_pos):
             self.setCursor(Qt.CursorShape.SizeAllCursor)
         else:
             self.setCursor(Qt.CursorShape.IBeamCursor)

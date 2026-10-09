@@ -123,20 +123,16 @@ class TextEdgeDrag:
         self._cursor_active = False
 
     @staticmethod
-    def is_point_on_edge(item: QGraphicsTextItem, scene_pos: QPointF, margin: float = None) -> bool:
-        """这个点落在文字框的边缘一圈上吗——那里才是拖动区，里面归输入光标管。"""
-        if not item:
+    def is_point_on_edge(item: QGraphicsTextItem, scene_pos: QPointF) -> bool:
+        """这个点落在文字框的边缘一圈上吗——那里才是拖动区，里面归输入光标管。
+
+        边缘怎么算由图元自己定（TextItem.is_on_edge），悬停光标也问它；在局部
+        坐标里判断，旋转过的文字才不会按场景里的外包矩形算。
+        """
+        is_on_edge = getattr(item, "is_on_edge", None)
+        if is_on_edge is None:
             return False
-        # 使用 TextItem 的 document margin 作为边缘判定区域
-        if margin is None:
-            margin = getattr(item, 'TEXT_PADDING', 12)
-        rect = item.mapToScene(item.boundingRect()).boundingRect()
-        if not rect.contains(scene_pos):
-            return False
-        inner = rect.adjusted(margin, margin, -margin, -margin)
-        if inner.width() <= 0 or inner.height() <= 0:
-            return True
-        return not inner.contains(scene_pos)
+        return is_on_edge(item.mapFromScene(scene_pos))
 
     def set_cursor(self, active: bool):
         view = self._view
