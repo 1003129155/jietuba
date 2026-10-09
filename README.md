@@ -52,6 +52,23 @@ The Windows x86_64 and ARM64 releases are ready to run. You do not need to insta
 
 After installing the first release containing the updater, use **About → Check for Updates → Update and Restart**. It downloads the matching GitHub Release ZIP, replaces only the application EXE, and restarts. Settings, clipboard history, models and other files remain intact. Finish recording, exporting and saving before installation. The last application backup is kept under `.jietuba-update/`; see [updater recovery](rust_libs/updater/README.md).
 
+## Code Signing Policy
+
+The `jietuba_pp.exe` and `jietuba_lite.exe` files in the Windows releases are built from this repository by GitHub Actions and signed through SignPath.
+
+Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
+
+- Committer, reviewer and approver: [@1003129155](https://github.com/1003129155)
+- External contributions are submitted as pull requests and merged only after review by the maintainer.
+
+### Privacy
+
+This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it.
+
+- Screenshots, OCR and clipboard history are processed and stored on your computer.
+- When you translate, the text is sent to the translation service selected in Settings (DeepL, Google, Azure, Amazon, Baidu, DeepSeek, or an OpenAI-compatible endpoint you configure) using your own API key; that service's privacy policy applies.
+- When you check for or install updates under **About → Check for Updates**, the program contacts GitHub to read release information and download the release package.
+
 ---
 
 <a id="source-setup"></a>

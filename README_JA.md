@@ -52,6 +52,23 @@ Windows x86_64 版および ARM64 版の配布パッケージは、そのまま�
 
 更新機能を含む最初のリリースをインストールした後、**バージョン情報 → 更新を確認 → 更新して再起動**で更新できます。対応する GitHub Release ZIP をダウンロードし、メイン EXE のみを置換して再起動します。設定、クリップボード履歴、モデルなどのファイルは保持されます。録画、書き出し、保存を終了してからインストールしてください。直前の EXE は `.jietuba-update/` に保存されます。[復元手順](rust_libs/updater/README.md)を参照してください。
 
+## コード署名ポリシー
+
+Windows 版リリースに含まれる `jietuba_pp.exe` と `jietuba_lite.exe` は、GitHub Actions がこのリポジトリのソースから自動ビルドし、SignPath で署名します。
+
+Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
+
+- コミッター・レビュアー・承認者：[@1003129155](https://github.com/1003129155)
+- 外部からの貢献は Pull Request で受け付け、メンテナーのレビュー後にのみマージします。
+
+### プライバシー
+
+ユーザーが明示的に要求しない限り、本プログラムはネットワーク上の他のシステムに情報を送信しません。
+
+- スクリーンショット、OCR、クリップボード履歴はすべてこの PC 上で処理・保存されます。
+- 翻訳を使うと、翻訳対象のテキストが設定で選んだ翻訳サービス（DeepL、Google、Azure、Amazon、Baidu、DeepSeek、または自分で設定した OpenAI 互換エンドポイント）に、ご自身の API キーで送信されます。そのサービスのプライバシーポリシーが適用されます。
+- **バージョン情報 → 更新を確認**で更新を確認・インストールすると、リリース情報の取得とパッケージのダウンロードのために GitHub に接続します。
+
 ---
 
 <a id="source-setup"></a>
