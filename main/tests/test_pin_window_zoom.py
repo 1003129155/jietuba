@@ -59,7 +59,7 @@ class _Recorder:
         return bool(self.calls)
 
 
-def _zoom_self(scale_factor=1.0, transform_size=None, thumbnail=False):
+def _zoom_self(scale_factor=1.0, transform_size=None, thumbnail=False, locked=False):
     """
     组装一个只够 wheelEvent 缩放分支使用的假窗口。
 
@@ -69,6 +69,7 @@ def _zoom_self(scale_factor=1.0, transform_size=None, thumbnail=False):
     """
     fake = SimpleNamespace(
         _thumbnail_mode=thumbnail,
+        _locked=locked,
         _is_scaling=False,
         _orig_size=QSize(BASE_W, BASE_H),
         scale_factor=scale_factor,
@@ -79,6 +80,7 @@ def _zoom_self(scale_factor=1.0, transform_size=None, thumbnail=False):
         update=_Recorder(),
         _scale_timer=SimpleNamespace(start=_Recorder()),
         _show_zoom_percent=_Recorder(),
+        show_locked_hint=_Recorder(),
     )
     if transform_size is not None:
         fake._image_transform = SimpleNamespace(
@@ -297,15 +299,17 @@ class TestThumbnailModeIgnoresWheel:
 # ============================================================================
 
 def _drag_self(dragging=False, start_pos=QPoint(100, 100),
-               window_pos=QPoint(500, 400)):
+               window_pos=QPoint(500, 400), locked=False):
     return SimpleNamespace(
         _is_dragging=dragging,
+        _locked=locked,
         _drag_start_pos=start_pos,
         _drag_start_window_pos=window_pos,
         toolbar=None,
         move=_Recorder(),
         setCursor=_Recorder(),
         pos=lambda: window_pos,
+        show_locked_hint=_Recorder(),
     )
 
 
@@ -365,6 +369,42 @@ class TestWindowDrag:
             isVisible=lambda: False, sync_with_pin_window=sync)
         PinWindow.update_window_drag(fake, QPoint(110, 110))
         assert not sync.called
+
+
+class TestLockedPin:
+    """锁定的钉图拖不动、滚轮缩放不了，但透明度照调"""
+
+    def test_a_locked_pin_keeps_the_open_hand_cursor(self):
+        fake = _drag_self(locked=True)
+        PinWindow.start_window_drag(fake, QPoint(150, 160))
+        assert fake.setCursor.calls == []
+
+    def test_a_click_on_a_locked_pin_stays_quiet(self, qapp):
+        """单击（移动没超过拖动阈值）不弹提示，免得点一下就闪一行字"""
+        fake = _drag_self(dragging=True, locked=True)
+        PinWindow.update_window_drag(fake, QPoint(101, 100))
+        assert fake.move.calls == []
+        assert not fake.show_locked_hint.called
+
+    def test_dragging_a_locked_pin_hints_once_and_never_moves(self, qapp):
+        fake = _drag_self(dragging=True, locked=True)
+        for point in (QPoint(150, 150), QPoint(200, 200), QPoint(250, 250)):
+            PinWindow.update_window_drag(fake, point)
+        assert fake.move.calls == []
+        assert len(fake.show_locked_hint.calls) == 1
+
+    def test_wheel_does_not_zoom_a_locked_pin(self):
+        fake = _zoom_self(locked=True)
+        _scroll(fake, 3)
+        assert fake.scale_factor == 1.0
+        assert fake.setGeometry.calls == []
+        assert fake.show_locked_hint.called
+
+    def test_ctrl_wheel_still_changes_the_opacity(self):
+        fake = _opacity_self(1.0)
+        fake._locked = True
+        _scroll(fake, 1, delta=-120, modifiers=CTRL)
+        assert fake._win_opacity == pytest.approx(0.95)
 
 
 # ============================================================================

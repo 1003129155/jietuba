@@ -15,6 +15,7 @@ TRANSLATIONS: dict[str, str] = {
     "注销快捷键控制器": "Unregistering shortcut controller",
     "停止缩放定时器": "Stopping scale timer",
     "停止缩放百分比定时器": "Stopping zoom percentage timer",
+    "清理鼠标穿透工具条": "Cleaning up click-through bar",
     "关闭工具栏面板": "Closing toolbar panel",
     "清理工具栏": "Cleaning up toolbar",
     "移除视图事件过滤器": "Removing view event filter",

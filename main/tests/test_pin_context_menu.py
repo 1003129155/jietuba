@@ -36,6 +36,8 @@ CALLBACKS = (
     "reset_image_transform",
     "toggle_toolbar",
     "toggle_stay_on_top",
+    "toggle_click_through",
+    "toggle_lock",
     "toggle_border_effect",
     "toggle_text_selection",
     "toggle_thumbnail_mode",
@@ -126,8 +128,8 @@ class TestNormalModeStructure:
         assert labels[0] == "Copy"
         assert labels[1] == "Save as"
         for prefix in ("Translate", "Reset size", "Image transform", "Toolbar",
-                       "Always on top", "Border", "Text selection",
-                       "Thumbnail mode", "Close"):
+                       "Always on top", "Mouse click-through", "Lock", "Border",
+                       "Text selection", "Thumbnail mode", "Close"):
             assert _has(menu, prefix), prefix
 
     def test_close_is_the_last_entry(self, parent, stub_shortcuts):
@@ -157,6 +159,8 @@ class TestThumbnailModeStructure:
         assert labels[1] == "Save as"
         assert labels[-1] == "Close"
         assert _has(menu, "Always on top")
+        assert _has(menu, "Mouse click-through")
+        assert _has(menu, "Lock")
         assert _has(menu, "Thumbnail mode")
 
     def test_entries_that_make_no_sense_on_a_thumbnail_are_hidden(
@@ -166,9 +170,9 @@ class TestThumbnailModeStructure:
                        "Toolbar", "Border", "Text selection"):
             assert not _has(menu, prefix), prefix
 
-    def test_thumbnail_mode_offers_exactly_five_actions(self, parent, stub_shortcuts):
+    def test_thumbnail_mode_offers_exactly_seven_actions(self, parent, stub_shortcuts):
         menu = _build(parent, thumbnail_mode=True)
-        assert len(_labels(menu)) == 5
+        assert len(_labels(menu)) == 7
 
 
 class TestTranslateAvailability:
@@ -194,6 +198,8 @@ class TestToggleMarkers:
         cases = {
             "Toolbar": "toolbar_visible",
             "Always on top": "stay_on_top",
+            "Mouse click-through": "click_through",
+            "Lock": "locked",
             "Border": "border_enabled",
             "Text selection": "text_selection_enabled",
         }
@@ -213,6 +219,11 @@ class TestToggleMarkers:
         assert _find(menu, "Toolbar").text().endswith("○")
         assert _find(menu, "Always on top").text().endswith("○")
 
+    def test_click_through_and_lock_default_to_disabled(self, parent, stub_shortcuts):
+        menu = _build(parent, thumbnail_mode=False)
+        assert _find(menu, "Mouse click-through").text().endswith("○")
+        assert _find(menu, "Lock").text().endswith("○")
+
     def test_thumbnail_marker_reflects_the_current_mode(self, parent, stub_shortcuts):
         for active in (True, False):
             menu = _build(parent, thumbnail_mode=active)
@@ -225,9 +236,11 @@ class TestShortcutHints:
     def test_configured_shortcuts_are_appended_in_upper_case(self, parent, stub_shortcuts):
         stub_shortcuts["inapp_toggle_toolbar"] = "space"
         stub_shortcuts["inapp_thumbnail"] = "r"
+        stub_shortcuts["inapp_pin_lock"] = "l"
         menu = _build(parent, thumbnail_mode=False)
         assert _find(menu, "Toolbar").text().startswith("Toolbar (SPACE)")
         assert _find(menu, "Thumbnail mode").text().startswith("Thumbnail mode (R)")
+        assert _find(menu, "Lock").text().startswith("Lock (L)")
 
     def test_no_parenthesis_is_added_when_nothing_is_bound(self, parent, stub_shortcuts):
         menu = _build(parent, thumbnail_mode=False)
@@ -267,6 +280,8 @@ class TestActionDispatch:
             "Reset size": "reset_to_original_size",
             "Toolbar": "toggle_toolbar",
             "Always on top": "toggle_stay_on_top",
+            "Mouse click-through": "toggle_click_through",
+            "Lock": "toggle_lock",
             "Border": "toggle_border_effect",
             "Text selection": "toggle_text_selection",
             "Thumbnail mode": "toggle_thumbnail_mode",
@@ -303,6 +318,8 @@ class TestActionDispatch:
         menu = _build(parent, thumbnail_mode=True)
         for prefix, callback in (("Copy", "copy_to_clipboard"),
                                  ("Always on top", "toggle_stay_on_top"),
+                                 ("Mouse click-through", "toggle_click_through"),
+                                 ("Lock", "toggle_lock"),
                                  ("Thumbnail mode", "toggle_thumbnail_mode"),
                                  ("Close", "close_window")):
             _find(menu, prefix).trigger()

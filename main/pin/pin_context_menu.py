@@ -47,6 +47,8 @@ class PinContextMenu:
             state: 当前状态字典，包含：
                 - toolbar_visible: 工具栏是否可见
                 - stay_on_top: 是否置顶
+                - click_through: 是否鼠标穿透
+                - locked: 是否锁定
                 - border_enabled: 描边是否启用
                 - text_selection_enabled: 文字选择是否启用
         """
@@ -188,7 +190,23 @@ class PinContextMenu:
         toggle_top_action = QAction(_toggle_text(self.parent.tr("Always on top"), stay_on_top), self.parent)
         toggle_top_action.triggered.connect(self.parent.toggle_stay_on_top)
         menu.addAction(toggle_top_action)
-        
+
+        # 鼠标穿透、锁定（任何模式都可用）
+        click_through_action = QAction(
+            _toggle_text(self.parent.tr("Mouse click-through"), state.get('click_through', False)),
+            self.parent,
+        )
+        click_through_action.triggered.connect(self.parent.toggle_click_through)
+        menu.addAction(click_through_action)
+
+        lock_label = self.parent.tr("Lock")
+        lock_key = _get_shortcut_display("inapp_pin_lock")
+        if lock_key:
+            lock_label += f" ({lock_key})"
+        lock_action = QAction(_toggle_text(lock_label, state.get('locked', False)), self.parent)
+        lock_action.triggered.connect(self.parent.toggle_lock)
+        menu.addAction(lock_action)
+
         if not is_thumbnail:
             # 切换描边
             border_enabled = state.get('border_enabled', True)

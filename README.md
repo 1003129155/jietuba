@@ -495,6 +495,7 @@ pin/
 ├── pin_hover.py             # PinHoverControls — decides when hover buttons and toolbar show
 ├── pin_context_menu.py      # PinContextMenu — right-click menu
 ├── pin_border_overlay.py    # PinBorderOverlay — border effect overlay
+├── pin_click_through_bar.py # PinClickThroughBar — move / opacity / exit bar while clicks pass through
 ├── pin_ocr_manager.py       # PinOCRManager / _OCRThread — async OCR recognition
 ├── pin_shortcut.py          # PinShortcutController — normal/edit mode shortcuts
 ├── pin_thumbnail.py         # PinThumbnailMode — thumbnail mode

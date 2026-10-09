@@ -494,6 +494,7 @@ pin/
 ├── pin_hover.py             # PinHoverControls — ホバーボタンとツールバーの表示判定
 ├── pin_context_menu.py      # PinContextMenu — 右クリックメニュー
 ├── pin_border_overlay.py    # PinBorderOverlay — ボーダーエフェクトオーバーレイ
+├── pin_click_through_bar.py # PinClickThroughBar — マウス透過中の移動・不透明度・終了バー
 ├── pin_ocr_manager.py       # PinOCRManager / _OCRThread — 非同期OCR認識
 ├── pin_shortcut.py          # PinShortcutController — 通常/編集モードショートカット
 ├── pin_thumbnail.py         # PinThumbnailMode — サムネイルモード

@@ -41,6 +41,7 @@ PIN_KEYS = [
     ("inapp_pin_reset_size",  "Reset Size",             ""),
     ("inapp_thumbnail",       "Toggle Thumbnail",       "r"),
     ("inapp_toggle_toolbar",  "Toggle Toolbar",         "space"),
+    ("inapp_pin_lock",        "Lock / Unlock Pin",      "l"),
 ]
 
 TOOL_KEYS = [
@@ -88,6 +89,7 @@ INAPP_ICONS = {
     "inapp_pin_reset_size": "长截图.svg",
     "inapp_thumbnail": FluentIcon.HIDE,
     "inapp_toggle_toolbar": "开发.svg",
+    "inapp_pin_lock": FluentIcon.PIN,
     "inapp_clipboard_quick_edit": FluentIcon.EDIT,
     "inapp_clipboard_edit_save": FluentIcon.SAVE,
     "inapp_clipboard_edit_save_paste": FluentIcon.SEND,

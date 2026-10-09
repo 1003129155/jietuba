@@ -322,6 +322,40 @@ def set_window_topmost(hwnd: int, topmost: bool) -> bool:
 
 
 # ──────────────────────────────────────────────
+# 鼠标穿透
+# ──────────────────────────────────────────────
+
+GWL_EXSTYLE       = -20
+WS_EX_TRANSPARENT = 0x00000020
+
+
+def set_window_click_through(hwnd: int, enabled: bool) -> bool:
+    """让鼠标点击、滚轮穿过窗口落到下层窗口。只对分层窗口（WA_TranslucentBackground）生效。
+
+    不走 Qt 的 WindowTransparentForInput：改 QWidget 标志会先隐藏窗口，只改 QWindow
+    标志又关不回来。Qt 改窗口标志时会重算扩展样式把这里的设置冲掉，之后要重新调用。
+    返回调用是否成功。
+    """
+    try:
+        from ctypes import wintypes
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        user32.GetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int]
+        user32.GetWindowLongPtrW.restype = ctypes.c_ssize_t
+        user32.SetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_ssize_t]
+        user32.SetWindowLongPtrW.restype = ctypes.c_ssize_t
+        style = user32.GetWindowLongPtrW(hwnd, GWL_EXSTYLE)
+        new_style = style | WS_EX_TRANSPARENT if enabled else style & ~WS_EX_TRANSPARENT
+        if new_style == style:
+            return True
+        ctypes.set_last_error(0)
+        # 返回旧值，旧值本身可能是 0，要靠 LastError 区分失败
+        return bool(user32.SetWindowLongPtrW(hwnd, GWL_EXSTYLE, new_style)) or ctypes.get_last_error() == 0
+    except Exception as e:
+        log_exception(e, "SetWindowLongPtrW")
+        return False
+
+
+# ──────────────────────────────────────────────
 # 窗口圆角（Windows 11）
 # ──────────────────────────────────────────────
 

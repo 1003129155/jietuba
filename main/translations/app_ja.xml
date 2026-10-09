@@ -1285,6 +1285,10 @@ Replace it?</source>
         <source>jietuba</source>
         <translation>jietuba</translation>
     </message>
+    <message>
+        <source>Lock / Unlock Pin</source>
+        <translation>ピン画像のロック/解除</translation>
+    </message>
 </context>
 
 <context>
@@ -1616,6 +1620,47 @@ Replace it?</source>
     <message>
         <source>Save Pin Image</source>
         <translation>ピン画像を保存</translation>
+    </message>
+    <message>
+        <source>Mouse click-through</source>
+        <translation>マウス透過</translation>
+    </message>
+    <message>
+        <source>Lock</source>
+        <translation>ロック</translation>
+    </message>
+    <message>
+        <source>Locked, right-click to unlock</source>
+        <translation>ロック中（右クリックで解除）</translation>
+    </message>
+    <message>
+        <source>Unlocked</source>
+        <translation>ロックを解除しました</translation>
+    </message>
+    <message>
+        <source>Click-through on</source>
+        <translation>マウス透過オン</translation>
+    </message>
+    <message>
+        <source>Click-through off</source>
+        <translation>マウス透過オフ</translation>
+    </message>
+</context>
+
+<!-- ========== Pin Click-Through Bar ========== -->
+<context>
+    <name>PinClickThroughBar</name>
+    <message>
+        <source>Drag to move</source>
+        <translation>ドラッグで移動</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>不透明度</translation>
+    </message>
+    <message>
+        <source>Exit click-through</source>
+        <translation>マウス透過を終了</translation>
     </message>
 </context>
 

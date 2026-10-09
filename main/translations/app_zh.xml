@@ -1287,6 +1287,10 @@ Replace it?</source>
         <source>jietuba</source>
         <translation>jietuba</translation>
     </message>
+    <message>
+        <source>Lock / Unlock Pin</source>
+        <translation>锁定/解锁钉图</translation>
+    </message>
 </context>
 
 <context>
@@ -1617,6 +1621,47 @@ Replace it?</source>
     <message>
         <source>Save Pin Image</source>
         <translation>保存钉图</translation>
+    </message>
+    <message>
+        <source>Mouse click-through</source>
+        <translation>鼠标穿透</translation>
+    </message>
+    <message>
+        <source>Lock</source>
+        <translation>锁定</translation>
+    </message>
+    <message>
+        <source>Locked, right-click to unlock</source>
+        <translation>已锁定，右键解锁</translation>
+    </message>
+    <message>
+        <source>Unlocked</source>
+        <translation>已解锁</translation>
+    </message>
+    <message>
+        <source>Click-through on</source>
+        <translation>鼠标穿透已开启</translation>
+    </message>
+    <message>
+        <source>Click-through off</source>
+        <translation>鼠标穿透已关闭</translation>
+    </message>
+</context>
+
+<!-- ========== Pin Click-Through Bar ========== -->
+<context>
+    <name>PinClickThroughBar</name>
+    <message>
+        <source>Drag to move</source>
+        <translation>按住拖动</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>不透明度</translation>
+    </message>
+    <message>
+        <source>Exit click-through</source>
+        <translation>退出鼠标穿透</translation>
     </message>
 </context>
 

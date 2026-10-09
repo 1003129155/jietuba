@@ -1278,6 +1278,10 @@ Replace it?</source>
         <source>jietuba</source>
         <translation>jietuba</translation>
     </message>
+    <message>
+        <source>Lock / Unlock Pin</source>
+        <translation>고정 이미지 잠금/해제</translation>
+    </message>
 </context>
 
 <context>
@@ -1603,6 +1607,47 @@ Replace it?</source>
     <message>
         <source>Save Pin Image</source>
         <translation>고정 이미지 저장</translation>
+    </message>
+    <message>
+        <source>Mouse click-through</source>
+        <translation>마우스 클릭 통과</translation>
+    </message>
+    <message>
+        <source>Lock</source>
+        <translation>잠금</translation>
+    </message>
+    <message>
+        <source>Locked, right-click to unlock</source>
+        <translation>잠김, 우클릭으로 해제</translation>
+    </message>
+    <message>
+        <source>Unlocked</source>
+        <translation>잠금 해제됨</translation>
+    </message>
+    <message>
+        <source>Click-through on</source>
+        <translation>클릭 통과 켜짐</translation>
+    </message>
+    <message>
+        <source>Click-through off</source>
+        <translation>클릭 통과 꺼짐</translation>
+    </message>
+</context>
+
+<!-- ========== Pin Click-Through Bar ========== -->
+<context>
+    <name>PinClickThroughBar</name>
+    <message>
+        <source>Drag to move</source>
+        <translation>드래그하여 이동</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>불투명도</translation>
+    </message>
+    <message>
+        <source>Exit click-through</source>
+        <translation>클릭 통과 종료</translation>
     </message>
 </context>
 

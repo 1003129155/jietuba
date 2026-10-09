@@ -1040,7 +1040,7 @@ _DEFAULT_INAPP_KEYS = (
     "inapp_confirm", "inapp_pin", "inapp_undo", "inapp_redo",
     "inapp_delete", "inapp_restore_last_region",
     "inapp_copy_pin", "inapp_copy_pin_text", "inapp_pin_reset_size",
-    "inapp_thumbnail", "inapp_toggle_toolbar",
+    "inapp_thumbnail", "inapp_toggle_toolbar", "inapp_pin_lock",
     "inapp_zoom_in", "inapp_zoom_out", "inapp_translate",
     "inapp_text_recognize",
 )

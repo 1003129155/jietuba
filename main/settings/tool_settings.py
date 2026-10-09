@@ -326,6 +326,7 @@ class ToolSettingsManager(QObject):
         "inapp_pin_reset_size": "",          # 钉图恢复 100% 大小（鼠标绑定另设）
         "inapp_thumbnail": "r",                # 切换缩略图模式
         "inapp_toggle_toolbar": "space",       # 切换工具栏
+        "inapp_pin_lock": "l",                 # 锁定/解锁钉图
         "inapp_zoom_in": "pageup",             # 放大镜放大
         "inapp_zoom_out": "pagedown",          # 放大镜缩小
         "inapp_translate": "shift+c",          # 截图翻译

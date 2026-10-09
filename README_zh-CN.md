@@ -534,6 +534,7 @@ pin/
 ├── pin_hover.py             # PinHoverControls — 悬停按钮和工具栏的显隐决策
 ├── pin_context_menu.py      # PinContextMenu — 右键菜单
 ├── pin_border_overlay.py    # PinBorderOverlay — 边框效果覆盖层
+├── pin_click_through_bar.py # PinClickThroughBar — 鼠标穿透时的移动 / 不透明度 / 退出工具条
 ├── pin_ocr_manager.py       # PinOCRManager / _OCRThread — 钉图OCR管理（异步识别）
 ├── pin_shortcut.py          # PinShortcutController — 快捷键控制（普通模式/编辑模式）
 ├── pin_thumbnail.py         # PinThumbnailMode — 缩略图模式

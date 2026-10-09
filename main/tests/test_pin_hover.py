@@ -56,6 +56,7 @@ class FakePin(QObject):
         self._is_closed = False
         self._is_editing = False
         self._thumbnail_mode = False
+        self._click_through = False
         self.toolbar = None
         self._control_buttons = FakeButtons()
 
@@ -281,6 +282,25 @@ class TestOtherInputs:
         assert not pin.toolbar_shown
 
         pin._thumbnail_mode = False
+        ctrl.sync()
+        assert pin.toolbar_shown
+
+    def test_click_through_hides_toolbar_and_buttons_even_while_editing(self, make):
+        """穿透时钉图收不到鼠标，工具栏和悬停按钮点不到，也不该挡在下层窗口上"""
+        pin, ctrl = make(auto=False)
+        ctrl.set_pin_hovered(True)
+        pin._is_editing = True
+        ctrl.toggle_toolbar()
+        assert pin.toolbar_shown and pin._control_buttons.close
+
+        pin._click_through = True
+        ctrl.sync()
+        assert not pin.toolbar_shown
+        assert not pin._control_buttons.close and not pin._control_buttons.toolbar
+        ctrl.toggle_toolbar()
+        assert not pin.toolbar_shown
+
+        pin._click_through = False
         ctrl.sync()
         assert pin.toolbar_shown
 

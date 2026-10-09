@@ -92,6 +92,7 @@ APP_DEFAULT_SETTINGS = {
     "inapp_pin_reset_size": "mousemiddle",
     "inapp_thumbnail": "r",
     "inapp_toggle_toolbar": "space",
+    "inapp_pin_lock": "l",
     "inapp_zoom_in": "pageup",
     "inapp_zoom_out": "pagedown",
     "inapp_translate": "shift+c",

@@ -31,7 +31,7 @@ class _PinHandlerBase(ShortcutHandler):
     # 需要从配置读取的钉图快捷键列表
     _PIN_KEYS = [
         "inapp_copy_pin", "inapp_copy_pin_text", "inapp_pin_reset_size",
-        "inapp_thumbnail", "inapp_toggle_toolbar", "inapp_delete",
+        "inapp_thumbnail", "inapp_toggle_toolbar", "inapp_delete", "inapp_pin_lock",
     ]
 
     def __init__(self, controller: 'PinShortcutController'):
@@ -81,7 +81,10 @@ class _PinHandlerBase(ShortcutHandler):
             # 缩略图模式下窗口尺寸由缩略图逻辑决定，与右键菜单一样不提供此项
             if getattr(pin, '_thumbnail_mode', False):
                 return False
-            pin.reset_to_original_size()
+            if pin._locked:
+                pin.show_locked_hint()
+            else:
+                pin.reset_to_original_size()
             return True
 
         return False
@@ -244,14 +247,22 @@ class PinNormalShortcutHandler(_PinHandlerBase):
         if hasattr(pin, 'handle_mouse_alternative_key') and pin.handle_mouse_alternative_key(event):
             return True
 
+        # 编辑中 L 可能是在输文字，只在普通模式下响应
+        if self._match(event, "inapp_pin_lock"):
+            pin.toggle_lock()
+            return True
+
         # 切换缩略图模式
         if self._match(event, "inapp_thumbnail"):
-            pin.toggle_thumbnail_mode()
+            if pin._locked:
+                pin.show_locked_hint()
+            else:
+                pin.toggle_thumbnail_mode()
             return True
 
         # ESC：关闭钉图
         if key == Qt.Key.Key_Escape:
-            pin.close_window()
+            pin.close_unless_locked()
             return True
 
         return False
@@ -324,10 +335,11 @@ class PinShortcutController(QObject):
             if self._is_alive(w)
         ]
 
-        # 倒序遍历（后创建的在上层）
+        # 倒序遍历（后创建的在上层）。鼠标穿透的钉图不接快捷键：用户在操作下层窗口，
+        # 按 Esc、Ctrl+C 不该作用到它身上
         for pin in reversed(self._pin_windows):
             try:
-                if pin.geometry().contains(cursor_pos):
+                if pin.geometry().contains(cursor_pos) and not pin._click_through:
                     return pin
             except RuntimeError:
                 continue

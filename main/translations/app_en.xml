@@ -1163,6 +1163,10 @@ Replace it?</translation>
         <source>jietuba</source>
         <translation>jietuba</translation>
     </message>
+    <message>
+        <source>Lock / Unlock Pin</source>
+        <translation>Lock / Unlock Pin</translation>
+    </message>
 </context>
 
 <context>
@@ -1488,6 +1492,47 @@ Replace it?</translation>
     <message>
         <source>Save Pin Image</source>
         <translation>Save Pin Image</translation>
+    </message>
+    <message>
+        <source>Mouse click-through</source>
+        <translation>Mouse click-through</translation>
+    </message>
+    <message>
+        <source>Lock</source>
+        <translation>Lock</translation>
+    </message>
+    <message>
+        <source>Locked, right-click to unlock</source>
+        <translation>Locked, right-click to unlock</translation>
+    </message>
+    <message>
+        <source>Unlocked</source>
+        <translation>Unlocked</translation>
+    </message>
+    <message>
+        <source>Click-through on</source>
+        <translation>Click-through on</translation>
+    </message>
+    <message>
+        <source>Click-through off</source>
+        <translation>Click-through off</translation>
+    </message>
+</context>
+
+<!-- ========== Pin Click-Through Bar ========== -->
+<context>
+    <name>PinClickThroughBar</name>
+    <message>
+        <source>Drag to move</source>
+        <translation>Drag to move</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>Opacity</translation>
+    </message>
+    <message>
+        <source>Exit click-through</source>
+        <translation>Exit click-through</translation>
     </message>
 </context>
 

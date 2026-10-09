@@ -34,10 +34,16 @@ from core import log_debug, log_info, log_warning, log_error, safe_event
 from core.theme import get_theme
 from core.logger import log_exception, T
 from core.clipboard_utils import deliver_image_async
-from core.platform_utils import set_window_rounded_corners
+from core.platform_utils import set_window_click_through, set_window_rounded_corners
 from core.qt_utils import blocking_modal
 from settings.tool_settings import PIN_MOUSE_ACTIONS, get_pin_mouse_binding
 from .pin_shortcut import mouse_binding_matches
+
+
+# 进入鼠标穿透时的默认不透明度：看得清下层窗口，又不至于找不到钉图
+CLICK_THROUGH_OPACITY = 0.5
+# 锁定后这些鼠标手势会挪动、缩放或关掉钉图，一律拦下；右键菜单里的同名项是明确操作，照常执行
+LOCKED_MOUSE_ACTIONS = ("close", "reset", "thumbnail")
 
 
 class PinWindow(QWidget):
@@ -96,6 +102,13 @@ class PinWindow(QWidget):
         self._mouse_click_timer.timeout.connect(self._finish_mouse_click)
         self._pending_mouse_action = None
         self._pending_mouse_position = None
+
+        # ====== 锁定 / 鼠标穿透 ======
+        self._locked = False
+        self._click_through = False
+        self._click_through_opacity = CLICK_THROUGH_OPACITY
+        self._opacity_before_click_through = None
+        self._click_through_bar = None
 
         # ====== 设置窗口属性 ======
         self.setWindowFlags(
@@ -252,7 +265,7 @@ class PinWindow(QWidget):
         self.close_button = self._control_buttons.close_button
         self.toolbar_toggle_button = self._control_buttons.toolbar_toggle_button
         self._control_buttons.connect_signals(
-            close_handler=self.close_window,
+            close_handler=self.close_unless_locked,
             toggle_toolbar_handler=self.toggle_toolbar,
         )
         self._context_menu = PinContextMenu(self)
@@ -292,6 +305,17 @@ class PinWindow(QWidget):
         super().showEvent(event)
         # 每次显示系统都会把圆角恢复成默认（隐藏再显示、切换置顶都会），要重新设置
         self._apply_window_corners()
+        if self._click_through:
+            # 切换置顶时 Qt 重设窗口标志，会把穿透样式一并清掉
+            set_window_click_through(int(self.winId()), True)
+            self._click_through_bar.show()
+
+    @safe_event
+    def hideEvent(self, event):
+        super().hideEvent(event)
+        # 工具条是独立窗口，不会随钉图一起隐藏
+        if self._click_through_bar is not None:
+            self._click_through_bar.hide()
 
     # ==================================================================
     # 窗口拖动
@@ -301,12 +325,19 @@ class PinWindow(QWidget):
         self._is_dragging = True
         self._drag_start_pos = global_pos
         self._drag_start_window_pos = self.pos()
-        self.setCursor(Qt.CursorShape.ClosedHandCursor)
+        if not self._locked:
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
 
     def update_window_drag(self, global_pos: QPoint):
         if not self._is_dragging:
             return
         delta = global_pos - self._drag_start_pos
+        if self._locked:
+            # 单击不提示，真拖起来才提示，一次拖动只提示一次
+            if delta.manhattanLength() >= QApplication.startDragDistance():
+                self._is_dragging = False
+                self.show_locked_hint()
+            return
         self.move(self._drag_start_window_pos + delta)
         if self.toolbar and self.toolbar.isVisible():
             self.toolbar.sync_with_pin_window()
@@ -431,11 +462,18 @@ class PinWindow(QWidget):
             self.border_overlay.setGeometry(0, 0, self.width(), self.height())
             self.border_overlay.raise_()
 
+        self._sync_click_through_bar()
         super().resizeEvent(event)
 
     @safe_event
     def moveEvent(self, event):
         super().moveEvent(event)
+        self._sync_click_through_bar()
+
+    def _sync_click_through_bar(self):
+        bar = self._click_through_bar
+        if bar is not None and bar.isVisible():
+            bar.follow_pin()
 
     @safe_event
     def paintEvent(self, event):
@@ -506,6 +544,9 @@ class PinWindow(QWidget):
             self.setWindowOpacity(self._win_opacity)
             self._show_hint_label(f"α {int(self._win_opacity * 100)}%")
         elif action == "zoom":
+            if self._locked:
+                self.show_locked_hint()
+                return
             # 普通滚轮：调整窗口大小
             self._is_scaling = True
             # 缩小必须使用放大倍率的倒数，否则放大后再缩小会产生累计误差。
@@ -577,6 +618,9 @@ class PinWindow(QWidget):
 
     def _run_mouse_action(self, action, position=None):
         if self._is_closed:
+            return
+        if self._locked and action in LOCKED_MOUSE_ACTIONS:
+            self.show_locked_hint()
             return
         if action == "close":
             self.close_window()
@@ -656,7 +700,10 @@ class PinWindow(QWidget):
                              self.view.viewport().mapFromGlobal(current)).normalized()
                 rect = rect.intersected(self.view.viewport().rect())
                 if rect.width() > 2 and rect.height() > 2:
-                    self._thumbnail.enter_region(self.view.mapToScene(rect).boundingRect())
+                    if self._locked:
+                        self.show_locked_hint()
+                    else:
+                        self._thumbnail.enter_region(self.view.mapToScene(rect).boundingRect())
             elif not dragged:
                 if action is None and button == Qt.MouseButton.RightButton:
                     action = "context_menu"
@@ -807,6 +854,8 @@ class PinWindow(QWidget):
         state = {
             'toolbar_visible': self.toolbar and self.toolbar.isVisible(),
             'stay_on_top': bool(self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint),
+            'click_through': self._click_through,
+            'locked': self._locked,
             'border_enabled': self.border_enabled,
             'text_selection_enabled': self._text_selection_enabled,
             'thumbnail_mode': self._thumbnail_mode,
@@ -828,6 +877,73 @@ class PinWindow(QWidget):
         self.setWindowFlags(new_flags)
         self.setGeometry(geo)
         self.show()
+
+    # ==================================================================
+    # 锁定
+    # ==================================================================
+
+    def toggle_lock(self):
+        self.set_locked(not self._locked)
+
+    def set_locked(self, locked: bool):
+        """锁定后拖动、滚轮缩放、按键和鼠标手势关闭都不生效；右键菜单照常可用，也从那里解锁。"""
+        if self._is_closed or locked == self._locked:
+            return
+        self._locked = locked
+        self.end_window_drag()
+        self._image_transform._refresh_border(self)
+        self._show_hint_label(self.tr("Locked, right-click to unlock") if locked else self.tr("Unlocked"))
+
+    def show_locked_hint(self):
+        self._show_hint_label(self.tr("Locked, right-click to unlock"))
+
+    def close_unless_locked(self):
+        """快捷键、鼠标手势和悬停关闭按钮走这里；右键菜单的「关闭」是明确操作，锁定也照关。"""
+        if self._locked:
+            self.show_locked_hint()
+            return
+        self.close_window()
+
+    # ==================================================================
+    # 鼠标穿透
+    # ==================================================================
+
+    def toggle_click_through(self):
+        self.set_click_through(not self._click_through)
+
+    def set_click_through(self, enabled: bool):
+        """穿透时点击和滚轮都落到下层窗口，移动、调不透明度、退出改由上方的工具条完成。"""
+        if self._is_closed or enabled == self._click_through:
+            return
+        self._click_through = enabled
+        self.end_window_drag()
+        if enabled:
+            self._opacity_before_click_through = self._win_opacity
+            self._set_window_opacity(min(self._win_opacity, self._click_through_opacity))
+            if self._click_through_bar is None:
+                from .pin_click_through_bar import PinClickThroughBar
+                self._click_through_bar = PinClickThroughBar(self)
+            self._click_through_bar.set_opacity(self._win_opacity)
+            self._click_through_bar.show()
+        else:
+            self._click_through_bar.hide()
+            self._set_window_opacity(self._opacity_before_click_through)
+            self._opacity_before_click_through = None
+        set_window_click_through(int(self.winId()), enabled)
+        # 编辑中进入穿透会在这里收起工具栏，绘制工具随之退出
+        self.hover_controls.sync()
+        self._show_hint_label(self.tr("Click-through on") if enabled else self.tr("Click-through off"))
+
+    def set_click_through_opacity(self, opacity: float):
+        """穿透工具条的滑块。记在这张钉图上，下次进入穿透沿用。"""
+        if not self._click_through:
+            return
+        self._click_through_opacity = opacity
+        self._set_window_opacity(opacity)
+
+    def _set_window_opacity(self, opacity: float):
+        self._win_opacity = opacity
+        self.setWindowOpacity(opacity)
 
     def toggle_border_effect(self):
         self.border_enabled = not self.border_enabled
@@ -1032,6 +1148,15 @@ class PinWindow(QWidget):
                     self._zoom_hide_timer = None
                 except Exception as e:
                     log_exception(e, T("停止缩放百分比定时器"))
+
+            # 鼠标穿透工具条
+            if self._click_through_bar is not None:
+                try:
+                    self._click_through_bar.close()
+                    self._click_through_bar.deleteLater()
+                    self._click_through_bar = None
+                except Exception as e:
+                    log_exception(e, T("清理鼠标穿透工具条"))
 
             # 工具栏
             if hasattr(self, 'toolbar') and self.toolbar:
