@@ -343,8 +343,7 @@ clipboard/
 │   ├── menus/
 │   │   ├── action_menu.py
 │   │   ├── group_context_menu.py
-│   │   ├── item_context_menu.py
-│   │   └── submenu_position.py
+│   │   └── item_context_menu.py
 │   ├── mixins/
 │   │   └── frameless_mixin.py
 │   ├── panels/
@@ -655,6 +654,7 @@ ui/
 ├── update_dialog.py         # 更新内容とダウンロード進捗
 ├── dialogs.py               # StandardDialog — 確認、警告、情報、エラーダイアログ
 ├── toast.py                 # Toast — カーソル横に出る、フォーカスを奪わない一行通知
+├── submenu_position.py      # カスケードサブメニューの展開方向と親項目への吸着
 ├── magnifier.py             # MagnifierOverlay — ピクセルレベル拡大鏡
 ├── color_picker_dialog.py   # ColorPickerDialog — カスタムHSVカラーピッカー
 ├── color_picker_button.py   # ColorPickerButton — カラー選択ボタン

@@ -344,8 +344,7 @@ clipboard/
 │   ├── menus/
 │   │   ├── action_menu.py
 │   │   ├── group_context_menu.py
-│   │   ├── item_context_menu.py
-│   │   └── submenu_position.py
+│   │   └── item_context_menu.py
 │   ├── mixins/
 │   │   └── frameless_mixin.py
 │   ├── panels/
@@ -656,6 +655,7 @@ ui/
 ├── update_dialog.py         # Update notes and download progress
 ├── dialogs.py               # StandardDialog — confirm, warning, info, error dialogs
 ├── toast.py                 # Toast — one-line hint by the cursor that never takes focus
+├── submenu_position.py      # Cascading submenus: which way they open and how they hug the parent item
 ├── magnifier.py             # MagnifierOverlay — pixel-level magnifier
 ├── color_picker_dialog.py   # ColorPickerDialog — custom HSV color picker
 ├── color_picker_button.py   # ColorPickerButton — color selection button

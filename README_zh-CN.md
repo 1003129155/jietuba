@@ -360,8 +360,7 @@ clipboard/
 │   ├── menus/
 │   │   ├── action_menu.py
 │   │   ├── group_context_menu.py
-│   │   ├── item_context_menu.py
-│   │   └── submenu_position.py
+│   │   └── item_context_menu.py
 │   ├── mixins/
 │   │   └── frameless_mixin.py
 │   ├── panels/
@@ -736,6 +735,7 @@ ui/
 ├── update_dialog.py         # 更新说明与下载进度
 ├── dialogs.py               # StandardDialog / 对话框函数集 — 确认、警告、信息、错误对话框
 ├── toast.py                 # Toast — 光标旁不抢焦点的一行轻提示
+├── submenu_position.py      # 级联子菜单的展开方向与贴边定位
 ├── magnifier.py             # MagnifierOverlay — 放大镜覆盖层（像素级取色）
 ├── color_picker_dialog.py   # ColorPickerDialog — 自定义HSV颜色选择器
 ├── color_picker_button.py   # ColorPickerButton — 颜色选择按钮

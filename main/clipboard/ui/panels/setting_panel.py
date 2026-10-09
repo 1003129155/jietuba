@@ -13,9 +13,9 @@ from typing import Optional, Callable
 
 from core.ui_scale import scaled
 from ui.fluent_lite import LineEdit
+from ui.submenu_position import avoid_submenu_overlap
 
 from ..theme.themes import PRESET_THEME_SWATCHES
-from ..menus.submenu_position import avoid_submenu_overlap
 
 
 # 多选粘贴的分隔符预设：(菜单文字, 分隔符)
