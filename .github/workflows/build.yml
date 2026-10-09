@@ -86,13 +86,16 @@ jobs:
           python build_with_ocr_onefile.py --lite
           if ($LASTEXITCODE -ne 0) { throw "lite build failed" }
 
-      # 签名范围由 SignPath 项目的 Artifact Configuration「windows-exes」定义：zip 根目录下的两个 exe。
+      # 签名范围由 SignPath 项目的 Artifact Configuration「windows-exes」定义：zip 根目录下的两个 exe，
+      # 并要求 exe 的产品版本等于 version 参数。
       # 换正式证书时把 signing-policy-slug 改为 release-signing。
       - name: Stage unsigned executables
+        id: stage
         run: |
           New-Item -ItemType Directory -Force unsigned | Out-Null
           Copy-Item dist\jietuba_pp.exe unsigned\
           Copy-Item dist_lite\jietuba_lite.exe unsigned\
+          "version=$(Get-Content build\app_version.txt)" >> $env:GITHUB_OUTPUT
 
       - name: Upload unsigned executables
         id: upload-unsigned
@@ -112,6 +115,8 @@ jobs:
           github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
           wait-for-completion: true
           output-artifact-directory: signed
+          parameters: |
+            version: ${{ toJSON(steps.stage.outputs.version) }}
 
       - name: Replace executables with signed ones
         run: |
