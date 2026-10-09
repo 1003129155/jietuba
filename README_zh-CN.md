@@ -53,6 +53,23 @@ MP4 区域录制支持自定义帧率和码率、暂停/继续、鼠标指针及
 
 首次安装包含更新器的版本后，可在**关于 → 检查更新 → 一键更新并重启**中升级。更新器下载匹配架构的 GitHub Release ZIP，仅替换主 EXE 后重启；保留设置、剪贴板历史、模型和其他文件。录制、导出或后台保存未结束时保留下载结果，结束任务后重试。最近一次主程序备份保存在 `.jietuba-update/` 中，详见[更新器恢复说明](rust_libs/updater/README.md)。
 
+## 代码签名政策
+
+Windows 发布包中的 `jietuba_pp.exe` 和 `jietuba_lite.exe` 由 GitHub Actions 从本仓库源码自动构建，并通过 SignPath 签名。
+
+Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
+
+- 提交者、评审者、批准人：[@1003129155](https://github.com/1003129155)
+- 外部贡献通过 Pull Request 提交，经维护者审核后才会合并。
+
+### 隐私说明
+
+除非用户明确要求，本程序不会向其他联网系统传输任何信息。
+
+- 截图、OCR 和剪贴板历史都在本机处理和保存。
+- 使用翻译时，待翻译的文字会发送到你在设置中选择的翻译服务（DeepL、Google、Azure、Amazon、百度、DeepSeek 或自行配置的 OpenAI 兼容接口），使用你自己的 API 密钥，并适用该服务的隐私政策。
+- 在**关于 → 检查更新**中检查或安装更新时，程序会访问 GitHub 获取版本信息并下载发布包。
+
 ---
 
 <a id="source-setup"></a>
