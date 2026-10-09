@@ -4437,6 +4437,54 @@ All items in the group will also be deleted.</translation>
         <source>Copied</source>
         <translation>Copied</translation>
     </message>
+    <message>
+        <source>Layout</source>
+        <translation>Layout</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Auto</translation>
+    </message>
+    <message>
+        <source>Remove line breaks</source>
+        <translation>Remove line breaks</translation>
+    </message>
+    <message>
+        <source>Keep every line</source>
+        <translation>Keep every line</translation>
+    </message>
+    <message>
+        <source>Remove spaces</source>
+        <translation>Remove spaces</translation>
+    </message>
+    <message>
+        <source>Copy text when closing</source>
+        <translation>Copy text when closing</translation>
+    </message>
+    <message>
+        <source>Punctuation</source>
+        <translation>Punctuation</translation>
+    </message>
+    <message>
+        <source>As recognized</source>
+        <translation>As recognized</translation>
+    </message>
+    <message>
+        <source>Half-width</source>
+        <translation>Half-width</translation>
+    </message>
+    <message>
+        <source>Full-width</source>
+        <translation>Full-width</translation>
+    </message>
+    <message>
+        <source>Always on top: ON</source>
+        <translation>Always on top: ON</translation>
+    </message>
+    <message>
+        <source>Always on top: OFF</source>
+        <translation>Always on top: OFF</translation>
+    </message>
 </context>
 <context>
     <name>ColorFormatDialog</name>

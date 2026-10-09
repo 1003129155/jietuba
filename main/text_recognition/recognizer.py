@@ -1,4 +1,4 @@
-"""把一张图交给 OCR 引擎在后台线程里跑，结果报成 (文字, 失败原因键)
+"""把一张图交给 OCR 引擎在后台线程里跑，结果报成 (识别出的行, 失败原因键)
 
 识别是一次不可中断的同步 FFI 调用：cancel 只能让结果不再报出去，打不断正在跑的那一次。
 而解释器终止时若还有线程停在 FFI 里，进程会直接 abort（实测退出码 0xC0000409），不是
@@ -29,7 +29,8 @@ class RecognizeThread(QThread):
     这边永远不会碰到悬空的 QWidget。
     """
 
-    recognized = Signal(str, str)   # (识别出的文字, 失败原因键)；成功时原因为空串
+    # 报行不报整段文字：排版要按行的位置判断折行，拼成文本就看不出来了
+    recognized = Signal(object, str)   # (行列表, 失败原因键)；成功时原因为空串
 
     def __init__(self, image: QImage):
         super().__init__()
@@ -41,27 +42,27 @@ class RecognizeThread(QThread):
         self._cancelled = True
 
     def run(self):
-        text, reason = "", FAILED
+        lines, reason = [], FAILED
         try:
-            from ocr import format_ocr_result_text, is_ocr_available, recognize_text
+            from ocr import group_ocr_lines, is_ocr_available, recognize_text
 
             if not is_ocr_available():
                 reason = UNAVAILABLE
             else:
                 result = recognize_text(self._image, return_format="dict")
-                text = format_ocr_result_text(result).strip() if isinstance(result, dict) else ""
-                reason = "" if text else NO_TEXT
+                lines = group_ocr_lines(result) if isinstance(result, dict) else []
+                reason = "" if any(line["text"].strip() for line in lines) else NO_TEXT
         except Exception as e:
             log_error(T("文字识别失败: {e}", e=e), "OCR")
         finally:
             self._image = None   # 识别完就放掉，线程对象还要等主线程来收
 
         if not self._cancelled:
-            self.recognized.emit(text, reason)
+            self.recognized.emit(lines, reason)
 
 
 def recognize_async(image: QImage, on_recognized) -> RecognizeThread:
-    """后台识别 image，结果发给 on_recognized(文字, 失败原因键)。
+    """后台识别 image，结果发给 on_recognized(行列表, 失败原因键)。
 
     on_recognized 要是某个 QObject 的方法：Qt 在那个对象销毁时会自己断开连接，窗口先关、
     识别后完成也打不到已经销毁的对象上。

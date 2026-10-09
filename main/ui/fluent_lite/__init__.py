@@ -28,7 +28,7 @@ from .switch import SwitchButton
 from .theme import (
     ACCENT, FONT_FAMILY, INPUT_HEIGHT, INPUT_RADIUS, scrollbar_qss, ui_tokens,
 )
-from .titlebar import FluentTitleBar
+from .titlebar import FluentTitleBar, TitleBarPinButton
 
 
 class RadioButton(_QRadioButton):
@@ -175,7 +175,8 @@ __all__ = [
     "DoubleSpinBox", "RadioButton", "CheckBox", "SwitchButton", "SegmentedWidget", "FluentIcon",
     "SettingCard", "SwitchSettingCard", "SettingCardGroup", "SimpleCardWidget",
     "card_right_margin",
-    "NavigationInterface", "NavigationItemPosition", "FluentTitleBar", "FramelessDialog",
+    "NavigationInterface", "NavigationItemPosition", "FluentTitleBar", "TitleBarPinButton",
+    "FramelessDialog",
     "FrostedFramelessDialog", "scrollbar_qss",
     "INPUT_HEIGHT", "INPUT_RADIUS",
 ]

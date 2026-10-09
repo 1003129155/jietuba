@@ -131,6 +131,13 @@ OCR_RESULT_POSITIONS = (
     "region_screen", "primary_screen", "beside_region", "near_cursor", "last_position",
 )
 
+# 识别结果怎么排版。auto 按行的位置判断哪些换行是折行、接回去；single_line 全部接成一行；
+# multiline 保留识别出的每一行。取值与 text_recognition.layout 对应。
+OCR_LAYOUT_MODES = ("auto", "single_line", "multiline")
+
+# 识别结果里的标点转成半角或全角，keep 是不动。取值与 text_recognition.layout 对应。
+OCR_PUNCTUATION_MODES = ("keep", "halfwidth", "fullwidth")
+
 
 ANNOTATION_TOOL_SHORTCUTS = (
     ("inapp_tool_cursor", "cursor", "Select / Cursor", "s"),
@@ -385,6 +392,11 @@ class ToolSettingsManager(QObject):
         "ocr_enabled": True,                   # 钉图后自动 OCR（保留旧键名以兼容已有配置）
         "ocr_engine": "auto",                  # OCR 引擎，见 OCR_ENGINES
         "ocr_result_position": "region_screen",  # 文字识别结果窗口的位置，见 OCR_RESULT_POSITIONS
+        "ocr_result_on_top": True,             # 文字识别结果窗口置顶
+        "ocr_layout_mode": "auto",             # 识别结果的排版，见 OCR_LAYOUT_MODES
+        "ocr_remove_spaces": False,            # 去掉识别结果行内的空格
+        "ocr_punctuation": "keep",             # 识别结果的标点，见 OCR_PUNCTUATION_MODES
+        "ocr_copy_on_close": False,            # 关闭识别结果窗口时复制文本
         "ocr_grayscale": False,                # OCR灰度转换（Windows OCR 不需要）
         "ocr_upscale": True,                   # OCR图像放大（提升小字识别率）
         "ocr_upscale_factor": 2.0,             # OCR放大倍数（1.0-3.0）
@@ -463,6 +475,7 @@ class ToolSettingsManager(QObject):
         "translation_target_lang": "",         # 翻译目标语言（空为跟随系统语言）
         "translation_split_sentences": True,   # 自动分句
         "translation_preserve_formatting": True,  # 保留格式
+        "translation_on_top": True,            # 翻译窗口置顶
 
         # ==================== 6. 日志 ====================
         "log_enabled": True,                   # 日志启用
@@ -1193,6 +1206,74 @@ class ToolSettingsManager(QObject):
         """记下文字识别结果窗口关闭时的中心位置，供「上次位置」使用。"""
         self.qsettings.setValue("app/ocr_result_last_center", f"{int(x)},{int(y)}")
     
+    def get_translation_on_top(self) -> bool:
+        """翻译窗口是否置顶。"""
+        return self.qsettings.value(
+            "app/translation_on_top",
+            self.APP_DEFAULT_SETTINGS["translation_on_top"],
+            type=bool,
+        )
+
+    def set_translation_on_top(self, value: bool):
+        self.qsettings.setValue("app/translation_on_top", bool(value))
+
+    def get_ocr_result_on_top(self) -> bool:
+        """文字识别结果窗口是否置顶。"""
+        return self.qsettings.value(
+            "app/ocr_result_on_top",
+            self.APP_DEFAULT_SETTINGS["ocr_result_on_top"],
+            type=bool,
+        )
+
+    def set_ocr_result_on_top(self, value: bool):
+        self.qsettings.setValue("app/ocr_result_on_top", bool(value))
+
+    def get_ocr_layout_mode(self) -> str:
+        """识别结果的排版方式，取值见 OCR_LAYOUT_MODES。"""
+        default = self.APP_DEFAULT_SETTINGS["ocr_layout_mode"]
+        mode = str(self.qsettings.value("app/ocr_layout_mode", default, type=str)).lower()
+        return mode if mode in OCR_LAYOUT_MODES else default
+
+    def set_ocr_layout_mode(self, value: str):
+        mode = str(value or "").lower()
+        if mode not in OCR_LAYOUT_MODES:
+            mode = self.APP_DEFAULT_SETTINGS["ocr_layout_mode"]
+        self.qsettings.setValue("app/ocr_layout_mode", mode)
+
+    def get_ocr_remove_spaces(self) -> bool:
+        """是否去掉识别结果行内的空格。"""
+        return self.qsettings.value(
+            "app/ocr_remove_spaces",
+            self.APP_DEFAULT_SETTINGS["ocr_remove_spaces"],
+            type=bool,
+        )
+
+    def set_ocr_remove_spaces(self, value: bool):
+        self.qsettings.setValue("app/ocr_remove_spaces", bool(value))
+
+    def get_ocr_punctuation(self) -> str:
+        """识别结果里标点的处理方式，取值见 OCR_PUNCTUATION_MODES。"""
+        default = self.APP_DEFAULT_SETTINGS["ocr_punctuation"]
+        mode = str(self.qsettings.value("app/ocr_punctuation", default, type=str)).lower()
+        return mode if mode in OCR_PUNCTUATION_MODES else default
+
+    def set_ocr_punctuation(self, value: str):
+        mode = str(value or "").lower()
+        if mode not in OCR_PUNCTUATION_MODES:
+            mode = self.APP_DEFAULT_SETTINGS["ocr_punctuation"]
+        self.qsettings.setValue("app/ocr_punctuation", mode)
+
+    def get_ocr_copy_on_close(self) -> bool:
+        """关闭识别结果窗口时是否把文本复制走。"""
+        return self.qsettings.value(
+            "app/ocr_copy_on_close",
+            self.APP_DEFAULT_SETTINGS["ocr_copy_on_close"],
+            type=bool,
+        )
+
+    def set_ocr_copy_on_close(self, value: bool):
+        self.qsettings.setValue("app/ocr_copy_on_close", bool(value))
+
     def get_ocr_grayscale_enabled(self) -> bool:
         """获取 OCR 灰度化"""
         return self.qsettings.value("app/ocr_grayscale", self.APP_DEFAULT_SETTINGS["ocr_grayscale"], type=bool)

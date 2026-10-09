@@ -40,7 +40,8 @@ from .ocr_manager import (
     recognize_text,
     release_ocr_engine,
     get_ocr_memory_status,
-    format_ocr_result_text
+    format_ocr_result_text,
+    group_ocr_lines
 )
 
 __all__ = [
@@ -54,5 +55,6 @@ __all__ = [
     'recognize_text',
     'release_ocr_engine',
     'get_ocr_memory_status',
-    'format_ocr_result_text'
+    'format_ocr_result_text',
+    'group_ocr_lines'
 ]

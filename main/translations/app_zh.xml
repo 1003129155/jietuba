@@ -4726,6 +4726,54 @@ All items in the group will also be deleted.</source>
         <source>Copied</source>
         <translation>已复制</translation>
     </message>
+    <message>
+        <source>Layout</source>
+        <translation>排版</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>自动</translation>
+    </message>
+    <message>
+        <source>Remove line breaks</source>
+        <translation>移除换行符</translation>
+    </message>
+    <message>
+        <source>Keep every line</source>
+        <translation>保留每一行</translation>
+    </message>
+    <message>
+        <source>Remove spaces</source>
+        <translation>去掉空格</translation>
+    </message>
+    <message>
+        <source>Copy text when closing</source>
+        <translation>关闭时复制文本</translation>
+    </message>
+    <message>
+        <source>Punctuation</source>
+        <translation>标点</translation>
+    </message>
+    <message>
+        <source>As recognized</source>
+        <translation>保持原样</translation>
+    </message>
+    <message>
+        <source>Half-width</source>
+        <translation>半角</translation>
+    </message>
+    <message>
+        <source>Full-width</source>
+        <translation>全角</translation>
+    </message>
+    <message>
+        <source>Always on top: ON</source>
+        <translation>置顶: 开启</translation>
+    </message>
+    <message>
+        <source>Always on top: OFF</source>
+        <translation>置顶: 关闭</translation>
+    </message>
 </context>
 <context>
     <name>InAppShortcut</name>

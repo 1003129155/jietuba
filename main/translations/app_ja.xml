@@ -4681,6 +4681,54 @@ All items in the group will also be deleted.</source>
         <source>Copied</source>
         <translation>コピーしました</translation>
     </message>
+    <message>
+        <source>Layout</source>
+        <translation>書式</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>自動</translation>
+    </message>
+    <message>
+        <source>Remove line breaks</source>
+        <translation>改行を削除</translation>
+    </message>
+    <message>
+        <source>Keep every line</source>
+        <translation>行をそのまま</translation>
+    </message>
+    <message>
+        <source>Remove spaces</source>
+        <translation>空白を削除</translation>
+    </message>
+    <message>
+        <source>Copy text when closing</source>
+        <translation>閉じるときにコピー</translation>
+    </message>
+    <message>
+        <source>Punctuation</source>
+        <translation>句読点</translation>
+    </message>
+    <message>
+        <source>As recognized</source>
+        <translation>認識したまま</translation>
+    </message>
+    <message>
+        <source>Half-width</source>
+        <translation>半角</translation>
+    </message>
+    <message>
+        <source>Full-width</source>
+        <translation>全角</translation>
+    </message>
+    <message>
+        <source>Always on top: ON</source>
+        <translation>最前面表示: オン</translation>
+    </message>
+    <message>
+        <source>Always on top: OFF</source>
+        <translation>最前面表示: オフ</translation>
+    </message>
 </context>
 <context>
     <name>InAppShortcut</name>

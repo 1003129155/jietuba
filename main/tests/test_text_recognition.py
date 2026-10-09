@@ -2,7 +2,8 @@
 """文字识别测试
 
 文字图现场画，不依赖图片素材。覆盖四层：识别线程的四种结局与线程登记表的进出、结果
-窗口的三种状态、截图工具栏「文字识别」从按钮到弹窗的路径、以及排布升级后新按钮的位置。
+窗口的三种状态与排版、置顶、截图工具栏「文字识别」从按钮到弹窗的路径、以及排布升级后
+新按钮的位置。
 
 线程这块是重点：识别跑在后台，窗口可能先关、进程可能先退，这两条路径都单独测。
 """
@@ -64,9 +65,9 @@ class _Collector(QObject):
         super().__init__()
         self.results = []
 
-    @Slot(str, str)
-    def collect(self, text, reason):
-        self.results.append((text, reason))
+    @Slot(object, str)
+    def collect(self, lines, reason):
+        self.results.append((lines, reason))
 
 
 def _run_to_completion(qapp, thread, timeout_ms=30000):
@@ -86,6 +87,11 @@ def _fake_ocr(monkeypatch, *, available=True, result=None, delay=0.0, boom=None)
 
     monkeypatch.setattr("ocr.is_ocr_available", lambda: available)
     monkeypatch.setattr("ocr.recognize_text", recognize_text)
+
+
+def _result_text(lines):
+    """识别线程报的是带位置的行，断言里只关心文字"""
+    return "\n".join(line["text"] for line in lines)
 
 
 def _ocr_dict(*lines):
@@ -109,9 +115,9 @@ class TestRecognizeThread:
         _run_to_completion(qapp, thread)
 
         assert len(collector.results) == 1
-        text, reason = collector.results[0]
+        lines, reason = collector.results[0]
         assert reason == ""
-        assert "HELLO" in text.upper()
+        assert "HELLO" in _result_text(lines).upper()
 
     def test_blank_image_reports_no_text(self, qapp, monkeypatch):
         _fake_ocr(monkeypatch, result={"code": 100, "data": []})
@@ -119,7 +125,7 @@ class TestRecognizeThread:
         thread = recognize_async(_blank_image(), collector.collect)
         _run_to_completion(qapp, thread)
 
-        assert collector.results == [("", NO_TEXT)]
+        assert collector.results == [([], NO_TEXT)]
 
     def test_build_without_engine_reports_unavailable(self, qapp, monkeypatch):
         _fake_ocr(monkeypatch, available=False)
@@ -127,7 +133,7 @@ class TestRecognizeThread:
         thread = recognize_async(_blank_image(), collector.collect)
         _run_to_completion(qapp, thread)
 
-        assert collector.results == [("", UNAVAILABLE)]
+        assert collector.results == [([], UNAVAILABLE)]
 
     def test_engine_exception_is_reported_not_raised(self, qapp, monkeypatch):
         """识别在后台线程里炸了，不能把异常带出线程——只报一个失败"""
@@ -136,7 +142,7 @@ class TestRecognizeThread:
         thread = recognize_async(_blank_image(), collector.collect)
         _run_to_completion(qapp, thread)
 
-        assert collector.results == [("", FAILED)]
+        assert collector.results == [([], FAILED)]
 
     def test_cancelled_thread_reports_nothing(self, qapp, monkeypatch):
         """取消只是丢结果：识别照样跑完，但不再报出去"""
@@ -154,7 +160,9 @@ class TestRecognizeThread:
         thread = recognize_async(_blank_image(), collector.collect)
         _run_to_completion(qapp, thread)
 
-        assert collector.results == [("first\nsecond", "")]
+        lines, reason = collector.results[0]
+        assert reason == ""
+        assert _result_text(lines) == "first\nsecond"
 
     def test_thread_is_registered_while_running_and_dropped_after(self, qapp, monkeypatch):
         """登记表是退出时能把线程等回来的前提，跑完也必须自己退出登记表，否则越攒越多"""
@@ -279,6 +287,195 @@ class TestResultWindow:
         window.close()
         QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
         assert window not in qapp._modeless_dialogs
+
+
+@pytest.fixture
+def layout_settings():
+    """改排版设置，用完恢复默认——这些键是全局的，留着会影响后面的用例"""
+    manager = get_tool_settings_manager()
+    yield manager
+    for key in ("ocr_layout_mode", "ocr_remove_spaces", "ocr_punctuation",
+                "ocr_copy_on_close", "ocr_result_on_top"):
+        manager.qsettings.remove(f"app/{key}")
+
+
+def _wrapped_lines():
+    """两行折开的中文：上一行排到右边界，自动排版会把它们接回一行"""
+    return {"code": 100, "data": [
+        {"text": "这一行排到了右边界", "box": [[0, 0], [180, 0], [180, 20], [0, 20]]},
+        {"text": "接着往下排", "box": [[0, 28], [100, 28], [100, 48], [0, 48]]},
+    ]}
+
+
+JOINED = "这一行排到了右边界接着往下排"
+KEPT = "这一行排到了右边界\n接着往下排"
+
+
+class TestLayoutMenu:
+    """排版菜单：勾选状态来自设置，换一项就按原始的行重排一遍"""
+
+    def _window(self, qapp, monkeypatch, result=None):
+        _fake_ocr(monkeypatch, result=result if result is not None else _wrapped_lines())
+        window = TextRecognitionWindow(_blank_image())
+        thread = window._thread
+        window.show()
+        _run_to_completion(qapp, thread)
+        return window
+
+    def test_auto_joins_a_wrapped_line_and_keep_every_line_does_not(
+            self, qapp, monkeypatch, layout_settings):
+        layout_settings.set_ocr_layout_mode("auto")
+        window = self._window(qapp, monkeypatch)
+        try:
+            assert window.text_edit.toPlainText() == JOINED
+
+            window._set_layout_mode("multiline")
+            assert window.text_edit.toPlainText() == KEPT
+        finally:
+            window.close()
+
+    def test_every_relayout_starts_from_the_recognized_lines(
+            self, qapp, monkeypatch, layout_settings):
+        """来回切不会越切越歪：重排的输入永远是识别出的行，不是上一次排出来的文本"""
+        window = self._window(qapp, monkeypatch)
+        try:
+            window._set_layout_mode("multiline")
+            window._set_remove_spaces(True)
+            window._set_remove_spaces(False)
+            window._set_layout_mode("auto")
+            assert window.text_edit.toPlainText() == JOINED
+        finally:
+            window.close()
+
+    def test_the_menu_ticks_what_the_settings_say(self, qapp, monkeypatch, layout_settings):
+        layout_settings.set_ocr_layout_mode("single_line")
+        layout_settings.set_ocr_remove_spaces(True)
+        layout_settings.set_ocr_punctuation("halfwidth")
+        window = self._window(qapp, monkeypatch)
+        try:
+            menu = window._build_layout_menu()
+            ticked = {action.text() for action in menu.actions() if action.isChecked()}
+            assert result_window._tr("Remove line breaks") in ticked
+            assert result_window._tr("Remove spaces") in ticked
+            assert result_window._tr("Auto") not in ticked
+
+            submenu = [action.menu() for action in menu.actions() if action.menu()][0]
+            assert {action.text() for action in submenu.actions() if action.isChecked()} == {
+                result_window._tr("Half-width")}
+            menu.deleteLater()
+        finally:
+            window.close()
+
+    def test_an_edit_survives_a_relayout_through_undo(self, qapp, monkeypatch, layout_settings):
+        """改过错字再换排版，改动不能就这么没了：一次撤销要能拿回来"""
+        window = self._window(qapp, monkeypatch)
+        try:
+            window.text_edit.insertPlainText("（改过）")
+            edited = window.text_edit.toPlainText()
+            window._set_layout_mode("multiline")
+            assert window.text_edit.toPlainText() == KEPT
+
+            window.text_edit.undo()
+            assert window.text_edit.toPlainText() == edited
+        finally:
+            window.close()
+
+    def test_the_first_result_cannot_be_undone_away(self, qapp, monkeypatch, layout_settings):
+        """识别结果不算一次编辑：否则刚出结果按一下撤销就清空了"""
+        window = self._window(qapp, monkeypatch)
+        try:
+            window.text_edit.undo()
+            assert window.text_edit.toPlainText() == JOINED
+        finally:
+            window.close()
+
+    def test_the_layout_entry_waits_for_a_result(self, qapp, monkeypatch, layout_settings):
+        _fake_ocr(monkeypatch, result=_wrapped_lines(), delay=0.2)
+        window = TextRecognitionWindow(_blank_image())
+        thread = window._thread
+        window.show()
+        qapp.processEvents()
+        try:
+            assert not window.layout_button.isEnabled()
+            _run_to_completion(qapp, thread)
+            assert window.layout_button.isEnabled()
+        finally:
+            window.close()
+
+
+def test_the_direct_copy_toast_follows_the_layout_settings(qapp, monkeypatch, layout_settings):
+    """「文字识别直接复制」不开窗口，排版设置照样要管用"""
+    layout_settings.set_ocr_layout_mode("multiline")
+    QApplication.clipboard().setText("before")
+    _fake_ocr(monkeypatch, result=_wrapped_lines(), delay=0.1)
+    before = set(_running)
+    toast = text_recognition.copy_text_recognition(_blank_image())
+    (thread,) = set(_running) - before
+    _run_to_completion(qapp, thread)
+
+    assert QApplication.clipboard().text() == KEPT
+    toast.close()
+
+
+class TestCopyOnClose:
+
+    def _window(self, qapp, monkeypatch):
+        _fake_ocr(monkeypatch, result=_ocr_dict("要复制的文字"))
+        window = TextRecognitionWindow(_blank_image())
+        thread = window._thread
+        window.show()
+        _run_to_completion(qapp, thread)
+        return window
+
+    def test_off_by_default_the_clipboard_is_left_alone(self, qapp, monkeypatch, layout_settings):
+        QApplication.clipboard().setText("原来的剪贴板")
+        self._window(qapp, monkeypatch).close()
+        assert QApplication.clipboard().text() == "原来的剪贴板"
+
+    def test_on_it_copies_what_the_box_shows_when_closing(self, qapp, monkeypatch, layout_settings):
+        layout_settings.set_ocr_copy_on_close(True)
+        QApplication.clipboard().setText("原来的剪贴板")
+        window = self._window(qapp, monkeypatch)
+        window.text_edit.setPlainText("改过之后的文字")
+        window.close()
+        assert QApplication.clipboard().text() == "改过之后的文字"
+
+
+class TestAlwaysOnTop:
+    """置顶只改窗口层级、不设 WindowStaysOnTopHint，同翻译窗口（见 set_window_topmost）"""
+
+    def test_the_pin_state_is_applied_on_show_and_remembered(
+            self, qapp, monkeypatch, layout_settings):
+        applied = []
+        monkeypatch.setattr(result_window, "set_window_topmost",
+                            lambda _hwnd, topmost: applied.append(topmost))
+        layout_settings.set_ocr_result_on_top(True)
+        _fake_ocr(monkeypatch, result=_ocr_dict("x"))
+
+        window = TextRecognitionWindow(_blank_image())
+        flags = window.windowFlags()
+        window.show()
+        qapp.processEvents()
+        try:
+            assert applied == [True]
+            assert not flags & Qt.WindowType.WindowStaysOnTopHint
+
+            window.pin_button.click()
+            assert applied == [True, False]
+            assert window.windowFlags() == flags
+            assert layout_settings.get_ocr_result_on_top() is False
+        finally:
+            window.close()
+
+    def test_the_next_window_opens_with_the_remembered_state(
+            self, qapp, monkeypatch, layout_settings):
+        layout_settings.set_ocr_result_on_top(False)
+        _fake_ocr(monkeypatch, result=_ocr_dict("x"))
+        window = TextRecognitionWindow(_blank_image())
+        try:
+            assert not window.pin_button.isChecked()
+        finally:
+            window.close()
 
 
 @pytest.fixture
