@@ -185,6 +185,37 @@ def video_recorder_assets():
     return installed_recorder_licenses()
 
 
+def write_version_info():
+    """生成 exe 版本资源。SignPath 按产品名和产品版本校验待签名文件，版本号取自 APP_VERSION。"""
+    import re
+    source = (REPO_DIR / MAIN_APP).read_text(encoding="utf-8")
+    version = re.search(r'^APP_VERSION = "([^"]+)"', source, re.M).group(1)
+    numbers = [int(n) for n in re.match(r"\d+(?:\.\d+)*", version).group().split(".")[:4]]
+    numbers = tuple(numbers + [0] * (4 - len(numbers)))
+    build_dir = REPO_DIR / BUILD_DIR
+    build_dir.mkdir(parents=True, exist_ok=True)
+    (build_dir / "app_version.txt").write_text(version, encoding="utf-8")
+    path = build_dir / f"version_{EXE_NAME}.txt"
+    path.write_text(f"""VSVersionInfo(
+  ffi=FixedFileInfo(filevers={numbers}, prodvers={numbers}, mask=0x3f, flags=0x0,
+                    OS=0x40004, fileType=0x1, subtype=0x0, date=(0, 0)),
+  kids=[
+    StringFileInfo([StringTable('040904B0', [
+      StringStruct('ProductName', 'jietuba'),
+      StringStruct('ProductVersion', {version!r}),
+      StringStruct('FileVersion', {version!r}),
+      StringStruct('FileDescription', 'jietuba'),
+      StringStruct('InternalName', {EXE_NAME!r}),
+      StringStruct('OriginalFilename', '{EXE_NAME}.exe'),
+      StringStruct('LegalCopyright', 'Copyright (c) 2025 JYAARU'),
+    ])]),
+    VarFileInfo([VarStruct('Translation', [1033, 1200])]),
+  ]
+)
+""", encoding="utf-8")
+    return path
+
+
 if __name__ == '__main__':
     video_licenses = video_recorder_assets()
     datas.extend(f"{path};licenses/video_recorder" for path in video_licenses.values())
@@ -211,6 +242,7 @@ if __name__ == '__main__':
     variant_file.parent.mkdir(parents=True, exist_ok=True)
     variant_file.write_text("lite" if LITE else "full", encoding="utf-8")
     datas.append(f"{variant_file.relative_to(REPO_DIR).as_posix()};updater")
+    version_repr = repr(write_version_info().relative_to(REPO_DIR).as_posix())
     binaries_repr = repr([(str(updater_binary), "updater")])
     datas_repr  = repr([(d.split(';')[0], d.split(';')[1]) for d in datas])
     hidden_repr = repr(hidden_imports)
@@ -316,6 +348,7 @@ exe = EXE(
     [],
     name='{EXE_NAME}',
     icon='托盘.ico',
+    version={version_repr},
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
