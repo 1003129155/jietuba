@@ -56,12 +56,16 @@ class _GlobalHotkeyWidget(_TextWidget):
 
 
 class _Toggle:
-    def __init__(self, checked=False):
+    def __init__(self, checked=False, enabled=True):
         self._checked = checked
+        self._enabled = enabled
         self.set_checked = []
 
     def isChecked(self):
         return self._checked
+
+    def isEnabled(self):
+        return self._enabled
 
     def setChecked(self, value):
         self._checked = value
@@ -387,6 +391,7 @@ RESET_METHODS = (
     "_reset_long_screenshot_page",
     "_reset_quick_actions_page",
     "_reset_mouse_page",
+    "_reset_pin_page",
 )
 
 # stack 下标 → 应被调用的方法名
@@ -401,6 +406,7 @@ INDEX_TO_METHOD = {
     7: "_reset_long_screenshot_page",
     9: "_reset_quick_actions_page",
     10: "_reset_mouse_page",
+    11: "_reset_pin_page",
 }
 
 
@@ -426,7 +432,7 @@ class TestResetCurrentPageDispatch:
         assert not any(getattr(fake, name).called for name in RESET_METHODS)
 
     def test_unknown_index_resets_nothing(self):
-        for index in (-1, 11, 99):
+        for index in (-1, 12, 99):
             fake = _dispatch_fake(index)
             SettingsDialog._reset_current_page(fake)
             assert not any(getattr(fake, name).called for name in RESET_METHODS), index
@@ -518,14 +524,34 @@ class TestResetScreenshotSettingsPage:
             config_manager=_config(),
             save_toggle=_Toggle(False),
             save_path_lbl=_TextWidget(),
-            pin_auto_toolbar_toggle=_Toggle(True),
-            ocr_enable_toggle=_Toggle(False),
         )
         SettingsDialog._reset_screenshot_settings_page(fake)
         assert fake.save_toggle.set_checked == [True]
         assert fake.save_path_lbl.set_texts == [r"D:\shots"]
+
+    def test_pin_toggles_belong_to_the_pin_page(self):
+        """自动工具栏和钉图后识别文字搬到了钉图页，重置截图页不再动它们"""
+        fake = SimpleNamespace(
+            config_manager=_config(),
+            pin_auto_toolbar_toggle=_Toggle(True),
+            ocr_enable_toggle=_Toggle(False),
+        )
+        SettingsDialog._reset_screenshot_settings_page(fake)
+        assert fake.pin_auto_toolbar_toggle.set_checked == []
+        assert fake.ocr_enable_toggle.set_checked == []
+
+        SettingsDialog._reset_pin_page(fake)
         assert fake.pin_auto_toolbar_toggle.set_checked == [False]
         assert fake.ocr_enable_toggle.set_checked == [True]
+
+    def test_pin_page_reset_leaves_an_unavailable_ocr_toggle_off(self):
+        """没有可用的 OCR 引擎时开关是禁用的，重置不能把它勾上"""
+        fake = SimpleNamespace(
+            config_manager=_config(),
+            ocr_enable_toggle=_Toggle(False, enabled=False),
+        )
+        SettingsDialog._reset_pin_page(fake)
+        assert fake.ocr_enable_toggle.set_checked == []
 
     def test_detection_mode_combo_follows_the_defaults(self):
         """默认里总开关和粒度是两项，下拉框要把它们合成一个档位。"""
@@ -655,6 +681,7 @@ NAV_TITLES = {
     8: "Software Information",
     9: "Quick Actions",
     10: "Mouse Shortcuts",
+    11: "Pin Settings",
 }
 
 
@@ -700,7 +727,7 @@ class TestOnNavChanged:
         assert not fake._refresh_after_page_change.called
 
     def test_unknown_index_changes_nothing(self):
-        for index in (-1, 11, 99):
+        for index in (-1, 12, 99):
             fake = _nav_fake()
             SettingsDialog._on_nav_changed(fake, index)
             assert fake.content_stack.set_indexes == [], index

@@ -687,6 +687,7 @@ ui/
 │   ├── page_clipboard.py    # クリップボード設定
 │   ├── page_hotkey.py       # ホットキー設定
 │   ├── page_mouse.py        # マウスショートカット設定
+│   ├── page_pin.py          # ピン画像設定（動作、外観、マウス透過）
 │   ├── page_translation.py  # 翻訳設定
 │   ├── provider_fields.py   # 服务商字段的读写（按声明）
 │   ├── page_log.py          # ログ設定

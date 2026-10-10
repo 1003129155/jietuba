@@ -15,7 +15,7 @@ from core.ui_theme import set_own_style
 
 
 def create_capture_page(dialog) -> QWidget:
-    """截图設定 ─ 截图引擎 + 智能选区 + 保存设置 + 放大镜 + 钉图"""
+    """截图設定 ─ 截图引擎 + 智能选区 + 保存设置 + 放大镜 + OCR"""
     scroll = page_scroll_area(dialog)
     scroll.setWidgetResizable(True)
     scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
@@ -273,42 +273,6 @@ def create_capture_page(dialog) -> QWidget:
             parent=grp_ocr,
         ))
     layout.addWidget(grp_ocr)
-
-    # ── 钉图 ──────────────────────────────────────────
-    # 自动开工具栏和自动 OCR 都是「钉完图之后自动做什么」，归在一处。
-    grp_pin = SettingCardGroup(dialog.tr("Pin Settings"), view)
-
-    pin_toolbar_card = SwitchSettingCard(
-        FluentIcon.PIN,
-        dialog.tr("Auto-show Drawing Tools on Pin"),
-        dialog.tr("On: Shows toolbar when mouse enters pinned window.")
-        + "\n"
-        + dialog.tr("Off: Show via right-click toolbar button."),
-        parent=grp_pin,
-    )
-    pin_toolbar_card.setChecked(dialog.config_manager.get_pin_auto_toolbar())
-    dialog.pin_auto_toolbar_toggle = pin_toolbar_card
-    grp_pin.addSettingCard(pin_toolbar_card)
-
-    ocr_card = SwitchSettingCard(
-        FluentIcon.FONT,
-        dialog.tr("Automatically recognize text after pinning"),
-        dialog.tr(
-            "On very low-end computers, OCR after pinning may cause a brief stutter. "
-            "Turn off automatic recognition if needed."
-        ),
-        parent=grp_pin,
-    )
-    ocr_card.setChecked(
-        dialog.config_manager.get_ocr_enabled() if ocr_available else False
-    )
-    if not ocr_available:
-        ocr_card.setEnabled(False)
-        ocr_card.setChecked(False)
-    dialog.ocr_enable_toggle = ocr_card
-    grp_pin.addSettingCard(ocr_card)
-
-    layout.addWidget(grp_pin)
 
     # 提示
     hint = CaptionLabel(

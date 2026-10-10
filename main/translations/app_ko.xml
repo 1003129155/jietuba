@@ -1282,6 +1282,162 @@ Replace it?</source>
         <source>Lock / Unlock Pin</source>
         <translation>고정 이미지 잠금/해제</translation>
     </message>
+    <message>
+        <source>Behavior</source>
+        <translation>동작</translation>
+    </message>
+    <message>
+        <source>Mouse Click-Through</source>
+        <translation>마우스 클릭 통과</translation>
+    </message>
+    <message>
+        <source>Default Opacity</source>
+        <translation>기본 불투명도</translation>
+    </message>
+    <message>
+        <source>Opacity of newly pinned images. Each image can still be adjusted with the mouse.</source>
+        <translation>새 고정 이미지의 불투명도. 각 이미지는 마우스로 따로 조절할 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>Click-Through Opacity</source>
+        <translation>클릭 통과 시 불투명도</translation>
+    </message>
+    <message>
+        <source>Opacity of a pinned image when click-through starts from its right-click menu. The slider on the bar above it still adjusts each image.</source>
+        <translation>우클릭 메뉴에서 클릭 통과를 켤 때 고정 이미지의 불투명도. 위쪽 막대의 슬라이더로 이미지마다 조절할 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>Keyboard Shortcuts</source>
+        <translation>키보드 단축키</translation>
+    </message>
+    <message>
+        <source>Copy, lock, thumbnail, toolbar and other keys for pinned images.</source>
+        <translation>고정 이미지의 복사, 잠금, 축소판, 도구 모음 등의 키.</translation>
+    </message>
+    <message>
+        <source>Zoom, opacity, close and other mouse actions for pinned images.</source>
+        <translation>고정 이미지의 확대/축소, 불투명도, 닫기 등의 마우스 동작.</translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation>편집</translation>
+    </message>
+    <message>
+        <source>Fine Zoom Pinned Image</source>
+        <translation>고정 이미지 미세 확대/축소</translation>
+    </message>
+    <message>
+        <source>Zoom and Size</source>
+        <translation>확대/축소와 크기</translation>
+    </message>
+    <message>
+        <source>Zoom Step</source>
+        <translation>확대/축소 단계</translation>
+    </message>
+    <message>
+        <source>How much one wheel notch zooms, relative to the original size.</source>
+        <translation>휠 한 칸당 확대/축소 정도(원본 크기 기준).</translation>
+    </message>
+    <message>
+        <source>Fine Zoom Step</source>
+        <translation>미세 확대/축소 단계</translation>
+    </message>
+    <message>
+        <source>Zoom step for the fine zoom mouse shortcut (Alt + wheel by default).</source>
+        <translation>미세 확대/축소 마우스 단축키(기본 Alt + 휠)의 단계.</translation>
+    </message>
+    <message>
+        <source>Opacity Step</source>
+        <translation>불투명도 단계</translation>
+    </message>
+    <message>
+        <source>Opacity change per notch of the opacity mouse shortcut (Ctrl + wheel by default).</source>
+        <translation>불투명도 마우스 단축키(기본 Ctrl + 휠) 한 칸당 변화량.</translation>
+    </message>
+    <message>
+        <source>Zoom Anchor</source>
+        <translation>확대/축소 기준점</translation>
+    </message>
+    <message>
+        <source>The point of the image that stays in place while zooming with the wheel.</source>
+        <translation>휠로 확대/축소할 때 고정되는 위치.</translation>
+    </message>
+    <message>
+        <source>Top-left</source>
+        <translation>왼쪽 위</translation>
+    </message>
+    <message>
+        <source>Top-right</source>
+        <translation>오른쪽 위</translation>
+    </message>
+    <message>
+        <source>Bottom-left</source>
+        <translation>왼쪽 아래</translation>
+    </message>
+    <message>
+        <source>Bottom-right</source>
+        <translation>오른쪽 아래</translation>
+    </message>
+    <message>
+        <source>Center</source>
+        <translation>가운데</translation>
+    </message>
+    <message>
+        <source>Mouse Position</source>
+        <translation>마우스 위치</translation>
+    </message>
+    <message>
+        <source>Resize by Dragging Edges</source>
+        <translation>가장자리를 끌어 크기 조절</translation>
+    </message>
+    <message>
+        <source>Drag near the edge or corner of a pinned image to resize it. The aspect ratio is kept.</source>
+        <translation>고정 이미지의 가장자리나 모서리를 끌어 크기를 조절합니다. 가로세로 비율은 유지됩니다.</translation>
+    </message>
+    <message>
+        <source>Shrink Oversized Images</source>
+        <translation>너무 큰 이미지 축소</translation>
+    </message>
+    <message>
+        <source>Images larger than the screen are scaled down to fit and centered when pinned.</source>
+        <translation>화면보다 큰 이미지는 고정할 때 화면에 맞게 줄여 가운데에 표시합니다.</translation>
+    </message>
+    <message>
+        <source>Lock</source>
+        <translation>잠금</translation>
+    </message>
+    <message>
+        <source>Block Moving and Resizing</source>
+        <translation>이동 및 크기 조절 금지</translation>
+    </message>
+    <message>
+        <source>Locked images cannot be dragged, zoomed or resized.</source>
+        <translation>잠긴 이미지는 끌기, 확대/축소, 크기 조절을 할 수 없습니다.</translation>
+    </message>
+    <message>
+        <source>Block Closing by Mouse</source>
+        <translation>마우스로 닫기 금지</translation>
+    </message>
+    <message>
+        <source>The close button and the close mouse shortcut do nothing on locked images.</source>
+        <translation>잠긴 이미지에서는 닫기 버튼과 닫기 마우스 단축키가 작동하지 않습니다.</translation>
+    </message>
+    <message>
+        <source>Block Closing by Keyboard</source>
+        <translation>키보드로 닫기 금지</translation>
+    </message>
+    <message>
+        <source>Esc does nothing on locked images.</source>
+        <translation>잠긴 이미지는 Esc로 닫히지 않습니다.</translation>
+    </message>
+    <message>
+        <source>Show Lock Hints</source>
+        <translation>잠금 안내 표시</translation>
+    </message>
+    <message>
+        <source>Show a short hint when locking, unlocking or trying a blocked action. The right-click menu always works on locked images.</source>
+        <translation>잠금, 해제 또는 금지된 동작을 시도할 때 짧은 안내를 표시합니다. 잠긴 이미지에서도 우클릭 메뉴는 항상 사용할 수 있습니다.</translation>
+    </message>
 </context>
 
 <context>

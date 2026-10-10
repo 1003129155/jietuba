@@ -1291,6 +1291,162 @@ Replace it?</source>
         <source>Lock / Unlock Pin</source>
         <translation>锁定/解锁钉图</translation>
     </message>
+    <message>
+        <source>Behavior</source>
+        <translation>行为</translation>
+    </message>
+    <message>
+        <source>Mouse Click-Through</source>
+        <translation>鼠标穿透</translation>
+    </message>
+    <message>
+        <source>Default Opacity</source>
+        <translation>默认不透明度</translation>
+    </message>
+    <message>
+        <source>Opacity of newly pinned images. Each image can still be adjusted with the mouse.</source>
+        <translation>新钉图的不透明度。每张钉图仍可用鼠标单独调整。</translation>
+    </message>
+    <message>
+        <source>Click-Through Opacity</source>
+        <translation>穿透时不透明度</translation>
+    </message>
+    <message>
+        <source>Opacity of a pinned image when click-through starts from its right-click menu. The slider on the bar above it still adjusts each image.</source>
+        <translation>从右键菜单开启鼠标穿透时钉图的不透明度。穿透时钉图上方工具条的滑块仍可单独调整。</translation>
+    </message>
+    <message>
+        <source>Keyboard Shortcuts</source>
+        <translation>键盘快捷键</translation>
+    </message>
+    <message>
+        <source>Copy, lock, thumbnail, toolbar and other keys for pinned images.</source>
+        <translation>钉图的复制、锁定、缩略图、工具栏等按键。</translation>
+    </message>
+    <message>
+        <source>Zoom, opacity, close and other mouse actions for pinned images.</source>
+        <translation>钉图的缩放、透明度、关闭等鼠标操作。</translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation>编辑</translation>
+    </message>
+    <message>
+        <source>Fine Zoom Pinned Image</source>
+        <translation>精细缩放钉图</translation>
+    </message>
+    <message>
+        <source>Zoom and Size</source>
+        <translation>缩放与大小</translation>
+    </message>
+    <message>
+        <source>Zoom Step</source>
+        <translation>缩放步长</translation>
+    </message>
+    <message>
+        <source>How much one wheel notch zooms, relative to the original size.</source>
+        <translation>滚轮每格缩放的幅度，按原图大小计算。</translation>
+    </message>
+    <message>
+        <source>Fine Zoom Step</source>
+        <translation>精细缩放步长</translation>
+    </message>
+    <message>
+        <source>Zoom step for the fine zoom mouse shortcut (Alt + wheel by default).</source>
+        <translation>精细缩放鼠标快捷键（默认 Alt + 滚轮）每格的缩放幅度。</translation>
+    </message>
+    <message>
+        <source>Opacity Step</source>
+        <translation>不透明度步长</translation>
+    </message>
+    <message>
+        <source>Opacity change per notch of the opacity mouse shortcut (Ctrl + wheel by default).</source>
+        <translation>调整不透明度的鼠标快捷键（默认 Ctrl + 滚轮）每格的变化量。</translation>
+    </message>
+    <message>
+        <source>Zoom Anchor</source>
+        <translation>缩放基准点</translation>
+    </message>
+    <message>
+        <source>The point of the image that stays in place while zooming with the wheel.</source>
+        <translation>用滚轮缩放时保持不动的位置。</translation>
+    </message>
+    <message>
+        <source>Top-left</source>
+        <translation>左上角</translation>
+    </message>
+    <message>
+        <source>Top-right</source>
+        <translation>右上角</translation>
+    </message>
+    <message>
+        <source>Bottom-left</source>
+        <translation>左下角</translation>
+    </message>
+    <message>
+        <source>Bottom-right</source>
+        <translation>右下角</translation>
+    </message>
+    <message>
+        <source>Center</source>
+        <translation>中心</translation>
+    </message>
+    <message>
+        <source>Mouse Position</source>
+        <translation>鼠标位置</translation>
+    </message>
+    <message>
+        <source>Resize by Dragging Edges</source>
+        <translation>拖动边缘调整大小</translation>
+    </message>
+    <message>
+        <source>Drag near the edge or corner of a pinned image to resize it. The aspect ratio is kept.</source>
+        <translation>在钉图的边缘或角上拖动即可调整大小，宽高比保持不变。</translation>
+    </message>
+    <message>
+        <source>Shrink Oversized Images</source>
+        <translation>过大时自动缩小</translation>
+    </message>
+    <message>
+        <source>Images larger than the screen are scaled down to fit and centered when pinned.</source>
+        <translation>比屏幕还大的图钉出来时按比例缩小到屏幕内，并放在屏幕中间。</translation>
+    </message>
+    <message>
+        <source>Lock</source>
+        <translation>锁定</translation>
+    </message>
+    <message>
+        <source>Block Moving and Resizing</source>
+        <translation>禁止移动和缩放</translation>
+    </message>
+    <message>
+        <source>Locked images cannot be dragged, zoomed or resized.</source>
+        <translation>锁定的钉图不能拖动、缩放或调整大小。</translation>
+    </message>
+    <message>
+        <source>Block Closing by Mouse</source>
+        <translation>禁止鼠标关闭</translation>
+    </message>
+    <message>
+        <source>The close button and the close mouse shortcut do nothing on locked images.</source>
+        <translation>锁定的钉图上，关闭按钮和关闭用的鼠标快捷键不起作用。</translation>
+    </message>
+    <message>
+        <source>Block Closing by Keyboard</source>
+        <translation>禁止按键关闭</translation>
+    </message>
+    <message>
+        <source>Esc does nothing on locked images.</source>
+        <translation>锁定的钉图上按 Esc 不会关闭。</translation>
+    </message>
+    <message>
+        <source>Show Lock Hints</source>
+        <translation>显示锁定提示</translation>
+    </message>
+    <message>
+        <source>Show a short hint when locking, unlocking or trying a blocked action. The right-click menu always works on locked images.</source>
+        <translation>锁定、解锁或尝试被禁止的操作时显示简短提示。锁定的钉图始终可以用右键菜单。</translation>
+    </message>
 </context>
 
 <context>

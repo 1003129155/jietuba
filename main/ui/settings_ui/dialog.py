@@ -12,7 +12,7 @@ import sys
 from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QWidget, QDialogButtonBox,
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QPoint, Qt, QTimer, Signal
 from ui.dialogs import get_existing_directory, show_info_dialog, show_warning_dialog
 from PySide6.QtGui import QColor, QFont, QIcon
 
@@ -45,6 +45,7 @@ from . import provider_fields
 from .page_log import create_log_page, refresh_latest_log_label
 from .page_misc import create_misc_page
 from .page_appearance import create_appearance_page
+from .page_pin import PIN_BEHAVIOR_KEYS, create_pin_page
 from .page_developer import create_developer_page
 from .page_about import create_about_page
 from .components import (
@@ -68,6 +69,7 @@ _PAGE_BUILDERS = (
     create_about_page,           # 8
     create_quick_actions_page,   # 9
     create_mouse_page,           # 10
+    create_pin_page,             # 11
 )
 
 
@@ -288,11 +290,12 @@ class SettingsDialog(FrostedFramelessDialog):
             ("shortcuts", FluentIcon.COMMAND_PROMPT, self.tr("Shortcuts"), 0, NavigationItemPosition.TOP),
             ("mouse", ResourceManager.get_icon_path("鼠标.svg"), self.tr("Mouse Shortcuts"), 10,
              NavigationItemPosition.TOP),
-            ("capture", FluentIcon.CAMERA, self.tr("Capture Settings"), 1, NavigationItemPosition.TOP),
             ("quick_actions", FluentIcon.STOP_WATCH, self.tr("Quick Actions"), 9, NavigationItemPosition.TOP),
+            ("capture", FluentIcon.CAMERA, self.tr("Capture Settings"), 1, NavigationItemPosition.TOP),
+            ("pin", FluentIcon.PIN, self.tr("Pin"), 11, NavigationItemPosition.TOP),
             ("clipboard", FluentIcon.PASTE, self.tr("Clipboard"), 2, NavigationItemPosition.TOP),
-            ("appearance", FluentIcon.BRUSH, self.tr("Appearance"), 3, NavigationItemPosition.TOP),
             ("translation", FluentIcon.LANGUAGE, self.tr("Translation"), 4, NavigationItemPosition.TOP),
+            ("appearance", FluentIcon.BRUSH, self.tr("Appearance"), 3, NavigationItemPosition.TOP),
             ("log", FluentIcon.HISTORY, self.tr("Log Settings"), 5, NavigationItemPosition.TOP),
             ("other", FluentIcon.APPLICATION, self.tr("Other"), 6, NavigationItemPosition.TOP),
             ("about", FluentIcon.INFO, self.tr("About"), 8, NavigationItemPosition.BOTTOM),
@@ -450,6 +453,7 @@ class SettingsDialog(FrostedFramelessDialog):
             8: self.tr("Software Information"),
             9: self.tr("Quick Actions"),
             10: self.tr("Mouse Shortcuts"),
+            11: self.tr("Pin Settings"),
         }
 
         if stack_index in title_map:
@@ -687,6 +691,31 @@ class SettingsDialog(FrostedFramelessDialog):
             self._reset_quick_actions_page()
         elif current_index == 10:
             self._reset_mouse_page()
+        elif current_index == 11:
+            self._reset_pin_page()
+
+    def _reset_pin_page(self):
+        defaults = self.config_manager.APP_DEFAULT_SETTINGS
+        SettingsDialog._refresh_behavior_controls(self, defaults=True, keys=PIN_BEHAVIOR_KEYS)
+        if hasattr(self, 'pin_auto_toolbar_toggle'):
+            self.pin_auto_toolbar_toggle.setChecked(defaults["pin_auto_toolbar"])
+        if hasattr(self, 'ocr_enable_toggle') and self.ocr_enable_toggle.isEnabled():
+            self.ocr_enable_toggle.setChecked(defaults["ocr_enabled"])
+
+    def _show_pin_shortcuts(self, mouse=False):
+        """钉图页的快捷键入口：切到快捷键页或鼠标快捷键页，并选中钉图那一栏。"""
+        index, route = (10, "mouse") if mouse else (0, "shortcuts")
+        self._on_nav_changed(index, route)
+        tabs = getattr(self, "_mouse_inapp_tabs" if mouse else "_inapp_shortcut_tabs", None)
+        if tabs is None:
+            return
+        tabs.setCurrentItem("pin")
+        scroll = self.content_stack.currentWidget()
+        if hasattr(scroll, "verticalScrollBar"):
+            # 页面可能刚建出来，等布局算完再滚；把标签行连同分组标题滚到顶部
+            QTimer.singleShot(0, lambda: scroll.verticalScrollBar().setValue(
+                tabs.mapTo(scroll.widget(), QPoint(0, 0)).y() - dialog_scaled(60)
+            ))
 
     def _reset_mouse_page(self):
         SettingsDialog._refresh_behavior_controls(self, defaults=True, prefix="mouse_")
@@ -784,9 +813,6 @@ class SettingsDialog(FrostedFramelessDialog):
             )
             if index >= 0:
                 self._selection_handle_size_combo.setCurrentIndex(index)
-        SettingsDialog._refresh_behavior_controls(
-            self, defaults=True, keys={"pin_rounded_corners", "pin_auto_border", "pin_hover_buttons"}
-        )
 
     def _reset_quick_actions_page(self):
         SettingsDialog._refresh_behavior_controls(
@@ -839,10 +865,6 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'magnifier_color_formats'):
             from settings import color_formats
             self.magnifier_color_formats = color_formats.default_formats()
-        if hasattr(self, 'pin_auto_toolbar_toggle'):
-            self.pin_auto_toolbar_toggle.setChecked(defaults["pin_auto_toolbar"])
-        if hasattr(self, 'ocr_enable_toggle'):
-            self.ocr_enable_toggle.setChecked(defaults["ocr_enabled"])
         if hasattr(self, 'ocr_engine_combo'):
             index = self.ocr_engine_combo.findData(defaults["ocr_engine"])
             if index >= 0:

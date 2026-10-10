@@ -1167,6 +1167,162 @@ Replace it?</translation>
         <source>Lock / Unlock Pin</source>
         <translation>Lock / Unlock Pin</translation>
     </message>
+    <message>
+        <source>Behavior</source>
+        <translation>Behavior</translation>
+    </message>
+    <message>
+        <source>Mouse Click-Through</source>
+        <translation>Mouse Click-Through</translation>
+    </message>
+    <message>
+        <source>Default Opacity</source>
+        <translation>Default Opacity</translation>
+    </message>
+    <message>
+        <source>Opacity of newly pinned images. Each image can still be adjusted with the mouse.</source>
+        <translation>Opacity of newly pinned images. Each image can still be adjusted with the mouse.</translation>
+    </message>
+    <message>
+        <source>Click-Through Opacity</source>
+        <translation>Click-Through Opacity</translation>
+    </message>
+    <message>
+        <source>Opacity of a pinned image when click-through starts from its right-click menu. The slider on the bar above it still adjusts each image.</source>
+        <translation>Opacity of a pinned image when click-through starts from its right-click menu. The slider on the bar above it still adjusts each image.</translation>
+    </message>
+    <message>
+        <source>Keyboard Shortcuts</source>
+        <translation>Keyboard Shortcuts</translation>
+    </message>
+    <message>
+        <source>Copy, lock, thumbnail, toolbar and other keys for pinned images.</source>
+        <translation>Copy, lock, thumbnail, toolbar and other keys for pinned images.</translation>
+    </message>
+    <message>
+        <source>Zoom, opacity, close and other mouse actions for pinned images.</source>
+        <translation>Zoom, opacity, close and other mouse actions for pinned images.</translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation>Edit</translation>
+    </message>
+    <message>
+        <source>Fine Zoom Pinned Image</source>
+        <translation>Fine Zoom Pinned Image</translation>
+    </message>
+    <message>
+        <source>Zoom and Size</source>
+        <translation>Zoom and Size</translation>
+    </message>
+    <message>
+        <source>Zoom Step</source>
+        <translation>Zoom Step</translation>
+    </message>
+    <message>
+        <source>How much one wheel notch zooms, relative to the original size.</source>
+        <translation>How much one wheel notch zooms, relative to the original size.</translation>
+    </message>
+    <message>
+        <source>Fine Zoom Step</source>
+        <translation>Fine Zoom Step</translation>
+    </message>
+    <message>
+        <source>Zoom step for the fine zoom mouse shortcut (Alt + wheel by default).</source>
+        <translation>Zoom step for the fine zoom mouse shortcut (Alt + wheel by default).</translation>
+    </message>
+    <message>
+        <source>Opacity Step</source>
+        <translation>Opacity Step</translation>
+    </message>
+    <message>
+        <source>Opacity change per notch of the opacity mouse shortcut (Ctrl + wheel by default).</source>
+        <translation>Opacity change per notch of the opacity mouse shortcut (Ctrl + wheel by default).</translation>
+    </message>
+    <message>
+        <source>Zoom Anchor</source>
+        <translation>Zoom Anchor</translation>
+    </message>
+    <message>
+        <source>The point of the image that stays in place while zooming with the wheel.</source>
+        <translation>The point of the image that stays in place while zooming with the wheel.</translation>
+    </message>
+    <message>
+        <source>Top-left</source>
+        <translation>Top-left</translation>
+    </message>
+    <message>
+        <source>Top-right</source>
+        <translation>Top-right</translation>
+    </message>
+    <message>
+        <source>Bottom-left</source>
+        <translation>Bottom-left</translation>
+    </message>
+    <message>
+        <source>Bottom-right</source>
+        <translation>Bottom-right</translation>
+    </message>
+    <message>
+        <source>Center</source>
+        <translation>Center</translation>
+    </message>
+    <message>
+        <source>Mouse Position</source>
+        <translation>Mouse Position</translation>
+    </message>
+    <message>
+        <source>Resize by Dragging Edges</source>
+        <translation>Resize by Dragging Edges</translation>
+    </message>
+    <message>
+        <source>Drag near the edge or corner of a pinned image to resize it. The aspect ratio is kept.</source>
+        <translation>Drag near the edge or corner of a pinned image to resize it. The aspect ratio is kept.</translation>
+    </message>
+    <message>
+        <source>Shrink Oversized Images</source>
+        <translation>Shrink Oversized Images</translation>
+    </message>
+    <message>
+        <source>Images larger than the screen are scaled down to fit and centered when pinned.</source>
+        <translation>Images larger than the screen are scaled down to fit and centered when pinned.</translation>
+    </message>
+    <message>
+        <source>Lock</source>
+        <translation>Lock</translation>
+    </message>
+    <message>
+        <source>Block Moving and Resizing</source>
+        <translation>Block Moving and Resizing</translation>
+    </message>
+    <message>
+        <source>Locked images cannot be dragged, zoomed or resized.</source>
+        <translation>Locked images cannot be dragged, zoomed or resized.</translation>
+    </message>
+    <message>
+        <source>Block Closing by Mouse</source>
+        <translation>Block Closing by Mouse</translation>
+    </message>
+    <message>
+        <source>The close button and the close mouse shortcut do nothing on locked images.</source>
+        <translation>The close button and the close mouse shortcut do nothing on locked images.</translation>
+    </message>
+    <message>
+        <source>Block Closing by Keyboard</source>
+        <translation>Block Closing by Keyboard</translation>
+    </message>
+    <message>
+        <source>Esc does nothing on locked images.</source>
+        <translation>Esc does nothing on locked images.</translation>
+    </message>
+    <message>
+        <source>Show Lock Hints</source>
+        <translation>Show Lock Hints</translation>
+    </message>
+    <message>
+        <source>Show a short hint when locking, unlocking or trying a blocked action. The right-click menu always works on locked images.</source>
+        <translation>Show a short hint when locking, unlocking or trying a blocked action. The right-click menu always works on locked images.</translation>
+    </message>
 </context>
 
 <context>
