@@ -892,6 +892,14 @@ Replace it?</source>
         <translation>번역 엔진</translation>
     </message>
     <message>
+        <source>Translation Service</source>
+        <translation>번역 서비스</translation>
+    </message>
+    <message>
+        <source>Click the button on the right to test the translation API</source>
+        <translation>오른쪽 버튼을 클릭하여 번역 API를 테스트하세요</translation>
+    </message>
+    <message>
         <source>DeepL API</source>
         <translation>DeepL API</translation>
     </message>

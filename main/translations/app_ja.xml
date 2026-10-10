@@ -899,6 +899,14 @@ Replace it?</source>
         <translation>翻訳エンジン</translation>
     </message>
     <message>
+        <source>Translation Service</source>
+        <translation>翻訳サービス</translation>
+    </message>
+    <message>
+        <source>Click the button on the right to test the translation API</source>
+        <translation>右側のボタンをクリックして翻訳APIをテスト</translation>
+    </message>
+    <message>
         <source>DeepL API</source>
         <translation>DeepL API</translation>
     </message>

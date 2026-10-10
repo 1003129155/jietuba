@@ -50,7 +50,6 @@ class ToggleField(Field):
     """一个开关。用于某一家引擎独有的布尔选项，例如 DeepL 的 Pro。"""
 
     description: str = ""
-    icon_name: str = ""
 
 
 @dataclass(frozen=True)

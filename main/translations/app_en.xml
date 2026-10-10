@@ -893,6 +893,14 @@ Replace it?</translation>
         <translation>Translation Engine</translation>
     </message>
     <message>
+        <source>Translation Service</source>
+        <translation>Translation Service</translation>
+    </message>
+    <message>
+        <source>Click the button on the right to test the translation API</source>
+        <translation>Click the button on the right to test the translation API</translation>
+    </message>
+    <message>
         <source>DeepL API</source>
         <translation>DeepL API</translation>
     </message>

@@ -9,6 +9,8 @@ translation/provider.py 的 Field / ProviderMetadata），界面只负责按声�
 补漏了不会报错：azure 漏在表单那侧（选得到、下面空白），baidu 漏在保存那侧
 （填了、存不上、一直说未配置）。现在这两种漏法在结构上都不成立了。
 """
+import re
+
 from PySide6.QtCore import QPoint, QRect, Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
@@ -21,7 +23,7 @@ from ui.fluent_lite.theme import ACCENT, ui_tokens
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
     FluentIcon, ComboBox, LineEdit,
-    PushButton, card_right_margin,
+    PushButton, SwitchButton, card_right_margin,
 )
 from core.ui_theme import get_ui_theme, set_own_style
 from .components import (
@@ -39,30 +41,34 @@ from translation.worker import TranslationWorker
 
 # 标签列宽。各家字段数和标签长度不同，固定宽度是为了切换服务商时输入框不左右跳。
 _LABEL_WIDTH = 135
+# 提示语里的网址整段不折行：字符间插零宽连接符（U+2060），说明行窄时才不会断成
+# 「http://」和后半截。<nobr> 只管空格，挡不住网址里 / 后面的断行。
+_URL = re.compile(r"https?://[\w.:/%?#=&-]+", re.ASCII)
 
 
 class _ProviderSection(QWidget):
-    """一家翻译服务的设置行容器。
+    """一组随引擎显隐的设置行容器。
 
     行为对齐 SettingCardGroup.addSettingCard——行与行之间插 1px 分隔线。区别是
     没有标题、没有外框：外框由包着它的那一个 SettingCardGroup 提供，所以整页
     只剩一个白块。
 
+    lead_each 为真时每张卡前面都带一条自己的分隔线（记在卡片的
+    _leading_separator 上），单张卡被藏起来时用 _set_card_visible 一并藏掉，
+    不会在组里留下孤线；这种 section 加进组时也不要再让组插分隔线。
+
     分隔线颜色跟随主题，所以要接 theme_changed 自己重刷；SettingCardGroup 也是
     这么做的。
     """
 
-    def __init__(self, parent=None, leading_separator: bool = False):
+    def __init__(self, parent=None, lead_each: bool = False):
         super().__init__(parent)
         self._v = QVBoxLayout(self)
         self._v.setContentsMargins(0, 0, 0, 0)
         self._v.setSpacing(0)
+        self._lead_each = lead_each
         self._cards = []
         self._separators = []
-        if leading_separator:
-            # 分隔线做成自己的子控件，而不是让外层组去加：这样 section 一隐藏，
-            # 线跟着没。交给外层加的话，卡片藏了线还在，会在组底部留一道孤线。
-            self._add_separator()
         get_ui_theme().theme_changed.connect(self._apply_separator_theme)
 
     def _add_separator(self):
@@ -70,13 +76,15 @@ class _ProviderSection(QWidget):
         separator.setFixedHeight(dialog_scaled(1))
         self._separators.append(separator)
         self._v.addWidget(separator)
+        return separator
 
     def addSettingCard(self, card):
-        if self._cards:
-            self._add_separator()
+        separator = self._add_separator() if self._lead_each or self._cards else None
         card.setParent(self)
         self._v.addWidget(card)
         self._cards.append(card)
+        if self._lead_each:
+            card._leading_separator = separator
         self._apply_separator_theme()
 
     def _apply_separator_theme(self, _tokens=None):
@@ -101,20 +109,26 @@ def create_translation_page(dialog) -> QWidget:
 
     service = create_default_translation_service(dialog.config_manager)
     dialog.translation_registry = service.registry
+    providers = service.registry.available_providers()
+    dialog.provider_field_widgets = {}
 
-    # ════ 翻译引擎 ════
-    # 引擎下拉和它的凭据是同一件事——选了哪家就配哪家，所以同属一组、一个白块。
-    grp_engine = SettingCardGroup(dialog.tr("Translation Engine"), page, tone="translate")
+    # ════ 翻译服务 ════
+    # 引擎的凭据和独有开关都跟着它放在这一组。引擎还决定「翻译选项」里显示哪几项，
+    # 所以这组排在最前：切换引擎时变化的都在引擎这一行下面，不会把下拉框顶走。
+    grp_engine = SettingCardGroup(dialog.tr("Translation Service"), page, tone="translate")
 
     engine_card = FSettingCard(
-        FluentIcon.LANGUAGE,
+        FluentIcon.APPLICATION,
         dialog.tr("Translation Engine"),
         parent=grp_engine,
     )
+    # 说明行显示当前引擎声明的提示和申请链接，见 _update_provider_groups
+    engine_card.contentLabel.setOpenExternalLinks(True)
+    dialog.translation_notice_label = engine_card.contentLabel
     dialog.translation_provider_combo = ComboBox(engine_card)
     current_provider = dialog.config_manager.get_translation_provider()
     current_provider_index = 0
-    for index, metadata in enumerate(service.registry.available_providers()):
+    for index, metadata in enumerate(providers):
         # 品牌名没有翻译条目，原样返回；只有「自定义」这类名字会变
         dialog.translation_provider_combo.addItem(
             dialog.tr(metadata.display_name), userData=metadata.provider_id
@@ -134,9 +148,8 @@ def create_translation_page(dialog) -> QWidget:
     # 只加这一张：若每个 section 各自 addSettingCard，组会在每个前面插一条分隔线，
     # 而同一时刻只有一家可见，另外几条线会孤零零留着。
     dialog.provider_sections = {}
-    dialog.provider_field_widgets = {}
     dialog.provider_status_labels = {}
-    for metadata in service.registry.available_providers():
+    for metadata in providers:
         section = _ProviderSection(providers_host)
         for field in tuple(metadata.credentials) + tuple(metadata.options):
             widget = _build_field(dialog, section, field, metadata.provider_id)
@@ -174,55 +187,44 @@ def create_translation_page(dialog) -> QWidget:
     lang_card.addControl(dialog.translation_target_combo)
     grp_opts.addSettingCard(lang_card)
 
-    # 不是每家都吃这些参数，所以整体包进一个 section：单独隐藏两张卡的话，
-    # 它们前面的分隔线还留在组里，组底部会多出一道孤线。
-    # 显不显示由 provider 的 SUPPORTED_REQUEST_OPTIONS 决定，见 _update_provider_groups。
-    request_opts_section = _ProviderSection(grp_opts, leading_separator=True)
-    dialog.request_options_section = request_opts_section
+    # 这两项只有部分引擎支持，逐张按 provider 的 SUPPORTED_REQUEST_OPTIONS 显隐，
+    # 见 _update_provider_groups。每张卡带自己的分隔线，整个 section 不再让组插线。
+    switches = _ProviderSection(grp_opts, lead_each=True)
+    dialog.switch_options_section = switches
 
     split_card = SwitchSettingCard(
         FluentIcon.ALIGNMENT,
         dialog.tr("Ignore Line Breaks"),
         dialog.tr("Merge multi-line text for better translation"),
-        parent=request_opts_section,
+        parent=switches,
         tone="translate",
     )
     split_card.setChecked(dialog.config_manager.get_translation_split_sentences())
     dialog.split_sentences_toggle = split_card
-    request_opts_section.addSettingCard(split_card)
+    switches.addSettingCard(split_card)
 
     preserve_card = SwitchSettingCard(
         FluentIcon.DOCUMENT,
         dialog.tr("Preserve Formatting"),
         dialog.tr("Keep original text formatting"),
-        parent=request_opts_section,
+        parent=switches,
         tone="translate",
     )
     preserve_card.setChecked(
         dialog.config_manager.get_translation_preserve_formatting()
     )
     dialog.preserve_formatting_toggle = preserve_card
-    request_opts_section.addSettingCard(preserve_card)
-    grp_opts.addSettingCard(request_opts_section)
+    switches.addSettingCard(preserve_card)
 
     # 键名要和 provider 声明的 SUPPORTED_REQUEST_OPTIONS 对得上
     dialog.request_option_cards = {
         "split_sentences": split_card,
         "preserve_formatting": preserve_card,
     }
+    grp_opts.addSettingCard(switches, with_separator=False)
 
     dialog.translation_options_group = grp_opts
     layout.addWidget(grp_opts)
-
-    # 引擎提示行：内容来自当前引擎自己声明的 notice / help_url
-    info_label = QLabel(page)
-    info_label.setOpenExternalLinks(True)
-    info_label.setWordWrap(True)
-    info_label.setStyleSheet(
-        f"padding: {dialog_scaled(5)}px; font-size: {dialog_scaled(13)}px; color: #999;"
-    )
-    layout.addWidget(info_label)
-    dialog.translation_notice_label = info_label
 
     dialog.translation_provider_combo.currentIndexChanged.connect(
         lambda _index: _update_provider_groups(dialog)
@@ -237,18 +239,7 @@ def create_translation_page(dialog) -> QWidget:
 def _build_field(dialog, section, field, provider_id):
     """按 Field 的类型造一行控件，并塞进 section。"""
     if isinstance(field, ToggleField):
-        card = SwitchSettingCard(
-            _icon_for(field),
-            dialog.tr(field.label),
-            dialog.tr(field.description) if field.description else "",
-            parent=section,
-            tone="translate",
-        )
-        card.setChecked(
-            provider_fields.read_config(dialog.config_manager, field)
-        )
-        section.addSettingCard(card)
-        return card
+        return _build_toggle_row(dialog, section, field)
 
     card = WhiteCard(section)
     row = QHBoxLayout(card)
@@ -296,6 +287,36 @@ def _build_field(dialog, section, field, provider_id):
     return edit
 
 
+def _build_toggle_row(dialog, section, field):
+    """引擎独有的开关。和凭据行一样不带图标、文字对齐标题列，看得出它从属于上面的引擎。"""
+    card = WhiteCard(section)
+    row = QHBoxLayout(card)
+    row.setContentsMargins(
+        card_text_left(), dialog_scaled(10), card_right_margin(), dialog_scaled(10)
+    )
+    row.setSpacing(dialog_scaled(10))
+
+    text = QVBoxLayout()
+    text.setSpacing(dialog_scaled(2))
+    title = QLabel(dialog.tr(field.label), card)
+    apply_theme_text_style(title, 13)
+    text.addWidget(title)
+    if field.description:
+        description = QLabel(dialog.tr(field.description), card)
+        description.setWordWrap(True)
+        apply_theme_text_style(description, 12, caption=True)
+        text.addWidget(description)
+    row.addLayout(text, 1)
+
+    switch = SwitchButton(card)
+    switch.setChecked(provider_fields.read_config(dialog.config_manager, field))
+    row.addWidget(switch, 0, Qt.AlignmentFlag.AlignVCenter)
+
+    card.setMinimumHeight(dialog_scaled(58))
+    section.addSettingCard(card)
+    return switch
+
+
 def _build_test_row(dialog, section, provider_id):
     """每家最后一行：用表单里的当前值（含未保存的）发一句测试翻译。"""
     card = WhiteCard(section)
@@ -311,6 +332,7 @@ def _build_test_row(dialog, section, provider_id):
     apply_theme_text_style(status, 13, caption=True)
     row.addWidget(status, 1)
     dialog.provider_status_labels[provider_id] = status
+    _show_status(dialog, provider_id, "")
 
     button = PushButton(dialog.tr("Test Connection"), card)
     button.setFixedHeight(dialog_scaled(32))
@@ -363,9 +385,10 @@ def _pending_service(dialog, provider_id):
 
 
 def _show_status(dialog, provider_id, text):
+    """text 为空时显示这一行的用途，不留一块空白。"""
     label = dialog.provider_status_labels.get(provider_id)
     if label is not None and isValid(label):
-        label.setText(text)
+        label.setText(text or dialog.tr("Click the button on the right to test the translation API"))
 
 
 def _test_connection(dialog, provider_id, button):
@@ -439,11 +462,6 @@ def _show_near(button, text):
     )
 
 
-def _icon_for(field):
-    """ToggleField 声明的图标名解析成 FluentIcon，认不出就用一个中性的。"""
-    return getattr(FluentIcon, field.icon_name, None) or FluentIcon.SETTING
-
-
 def _toggle_secret(dialog, edit, button):
     if edit.echoMode() == QLineEdit.EchoMode.Password:
         edit.setEchoMode(QLineEdit.EchoMode.Normal)
@@ -452,6 +470,14 @@ def _toggle_secret(dialog, edit, button):
         edit.setEchoMode(QLineEdit.EchoMode.Password)
         button.setText(dialog.tr("Show"))
     adjust_button_width(button, min_width=60)
+
+
+def _set_card_visible(card, visible: bool) -> None:
+    """显隐一张卡，带着它前面的分隔线（lead_each 的 section 里才有）。"""
+    card.setVisible(visible)
+    separator = getattr(card, "_leading_separator", None)
+    if separator is not None:
+        separator.setVisible(visible)
 
 
 def _update_provider_groups(dialog) -> None:
@@ -475,8 +501,8 @@ def _update_provider_groups(dialog) -> None:
 
     supported = metadata.supported_request_options if metadata else frozenset()
     for key, card in getattr(dialog, "request_option_cards", {}).items():
-        card.setVisible(key in supported)
-    section = getattr(dialog, "request_options_section", None)
+        _set_card_visible(card, key in supported)
+    section = getattr(dialog, "switch_options_section", None)
     if section is not None:
         section.setVisible(bool(supported))
 
@@ -496,11 +522,11 @@ def _notice_html(dialog, metadata) -> str:
         return ""
     parts = []
     if metadata.notice:
-        parts.append(dialog.tr(metadata.notice))
+        parts.append(_URL.sub(lambda m: "\u2060".join(m.group(0)), dialog.tr(metadata.notice)))
     if metadata.help_url:
         label = dialog.tr(metadata.help_label) if metadata.help_label else ""
         parts.append(
             f'<a href="{metadata.help_url}" style="color:{ACCENT};">'
             f'{label or metadata.help_url}</a>'
         )
-    return ("💡 " + " ".join(parts)) if parts else ""
+    return " ".join(parts)

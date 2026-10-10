@@ -564,7 +564,7 @@ def _translation_dialog(provider, registry, with_optional=True):
             "split_sentences": _Visibility(),
             "preserve_formatting": _Visibility(),
         }
-        dialog.request_options_section = _Visibility()
+        dialog.switch_options_section = _Visibility()
         dialog.translation_notice_label = _NoticeLabel()
     return dialog
 
@@ -610,7 +610,7 @@ class TestProviderGroupVisibility:
             for key, card in dialog.request_option_cards.items():
                 expected = key in meta.supported_request_options
                 assert card.visible is expected, (meta.provider_id, key)
-            assert dialog.request_options_section.visible is bool(
+            assert dialog.switch_options_section.visible is bool(
                 meta.supported_request_options
             ), meta.provider_id
 
@@ -627,11 +627,12 @@ class TestProviderGroupVisibility:
         for meta in registry.available_providers():
             dialog = _translation_dialog(meta.provider_id, registry)
             page_translation._update_provider_groups(dialog)
-            text = dialog.translation_notice_label.text()
+            html = dialog.translation_notice_label.text()
             if meta.help_url:
-                assert meta.help_url in text, meta.provider_id
+                assert meta.help_url in html, meta.provider_id
             if meta.notice:
-                assert meta.notice in text, meta.provider_id
+                # 网址字符间插着防折行的零宽连接符
+                assert meta.notice in html.replace("\u2060", ""), meta.provider_id
 
     def test_optional_widgets_absent_before_the_page_is_built(self):
         """页面还没建好就被调到时不能炸——构造顺序变动过好几次。"""

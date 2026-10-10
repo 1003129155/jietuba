@@ -897,6 +897,14 @@ Replace it?</source>
         <translation>翻译引擎</translation>
     </message>
     <message>
+        <source>Translation Service</source>
+        <translation>翻译服务</translation>
+    </message>
+    <message>
+        <source>Click the button on the right to test the translation API</source>
+        <translation>点击右侧按钮测试翻译接口</translation>
+    </message>
+    <message>
         <source>DeepL API</source>
         <translation>DeepL API</translation>
     </message>
@@ -2379,7 +2387,7 @@ Replace it?</source>
     </message>
     <message>
         <source>DeepL free tier: 500,000 chars/month. Get API key at</source>
-        <translation>DeepL免费版：每月50万字符。获取API密钥：</translation>
+        <translation>DeepL 免费版：每月 50 万字符。获取 API 密钥：</translation>
     </message>
     <message>
         <source>DeepL offers a free API tier with 500,000 characters/month.</source>

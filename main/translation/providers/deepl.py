@@ -54,8 +54,7 @@ class DeepLProvider(TranslationProvider):
     )
     OPTION_FIELDS = (
         ToggleField("deepl_use_pro", "Use DeepL Pro API",
-                    "Enable if you have a paid DeepL subscription",
-                    icon_name="CERTIFICATE"),
+                    "Enable if you have a paid DeepL subscription"),
     )
     # 只有 DeepL 的接口收这两个参数。声明在这里而不是在界面里判断引擎名，
     # 界面才能「按声明渲染」而不是「按名字特判」。
