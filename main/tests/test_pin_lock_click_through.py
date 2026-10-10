@@ -20,8 +20,10 @@ from PySide6.QtTest import QTest
 import pin.pin_window as pin_window_module
 from pin.pin_border_overlay import LOCKED_BORDER_COLOR
 from pin.pin_ocr_manager import PinOCRManager
-from pin.pin_window import CLICK_THROUGH_OPACITY, PinWindow
+from pin.pin_window import PinWindow
 from settings.tool_settings import ToolSettingsManager
+
+CLICK_THROUGH_OPACITY = ToolSettingsManager.APP_DEFAULT_SETTINGS["pin_click_through_opacity"]
 
 
 @pytest.fixture
@@ -40,8 +42,10 @@ def make_pin(qapp, tmp_settings, monkeypatch, click_through_calls):
     config = ToolSettingsManager(tmp_settings)
     created = []
 
-    def _make(pos=QPoint(200, 200), border=True):
+    def _make(pos=QPoint(200, 200), border=True, **settings):
         config.set_app_setting("pin_auto_border", border)
+        for key, value in settings.items():
+            config.set_app_setting(key, value)
         image = QImage(200, 120, QImage.Format.Format_RGB32)
         image.fill(0xFF336699)
         pin = PinWindow(image, pos, config)
@@ -55,6 +59,22 @@ def make_pin(qapp, tmp_settings, monkeypatch, click_through_calls):
 
 def _hint(pin):
     return pin._zoom_label.text() if pin._zoom_label.isVisible() else ""
+
+
+# ============================================================================
+# 默认不透明度
+# ============================================================================
+
+class TestDefaultOpacity:
+
+    def test_new_pins_start_at_the_configured_opacity(self, make_pin):
+        pin = make_pin(pin_default_opacity=0.6)
+        assert pin.windowOpacity() == pytest.approx(0.6, abs=0.01)
+
+    def test_a_too_low_setting_is_raised_to_the_floor(self, make_pin):
+        """配置文件里写个 0.05 也不能让钉图几乎看不见"""
+        pin = make_pin(pin_default_opacity=0.05)
+        assert pin.windowOpacity() == pytest.approx(pin_window_module.MIN_OPACITY, abs=0.01)
 
 
 # ============================================================================
@@ -131,6 +151,47 @@ class TestLock:
         pin.toggle_lock()
         pin.show_context_menu(QPoint(0, 0))
         assert seen["locked"] is True and seen["click_through"] is False
+
+
+class TestLockSettings:
+    """锁定时禁止哪几类操作由设置决定，和 PixPin 一样缩放、调大小归在「移动」里"""
+
+    def test_allowing_moves_lets_a_locked_pin_drag_and_zoom(self, make_pin, qapp):
+        pin = make_pin(pin_lock_block_move=False)
+        pin.set_locked(True)
+        start = pin.pos()
+        pin.start_window_drag(QPoint(250, 250))
+        pin.update_window_drag(QPoint(300, 270))
+        pin.end_window_drag()
+        assert pin.pos() == start + QPoint(50, 20)
+
+        pin._adjust_mouse_value("zoom", 120)
+        assert pin.scale_factor == pytest.approx(1.1)
+
+    def test_allowing_mouse_close_lets_the_close_button_work(self, make_pin):
+        pin = make_pin(pin_lock_block_click_close=False)
+        pin.set_locked(True)
+        pin.close_unless_locked("key_close")
+        assert not pin._is_closed
+        pin.close_button.click()
+        assert pin._is_closed
+
+    def test_allowing_key_close_lets_esc_work(self, make_pin):
+        pin = make_pin(pin_lock_block_key_close=False)
+        pin.set_locked(True)
+        pin.close_button.click()
+        assert not pin._is_closed
+        pin.close_unless_locked("key_close")
+        assert pin._is_closed
+
+    def test_hints_can_be_turned_off(self, make_pin, qapp):
+        pin = make_pin(pin_lock_hint=False)
+        pin.set_locked(True)
+        assert _hint(pin) == ""
+        pin.start_window_drag(QPoint(250, 250))
+        pin.update_window_drag(QPoint(400, 400))
+        assert _hint(pin) == ""
+        assert pin.border_overlay.border_color == LOCKED_BORDER_COLOR
 
 
 # ============================================================================
@@ -231,6 +292,23 @@ class TestClickThrough:
         pin.toggle_stay_on_top()
         assert click_through_calls == [True]
         assert pin._click_through_bar.isVisible()
+
+    def test_click_through_starts_at_the_configured_opacity(self, make_pin):
+        pin = make_pin(pin_click_through_opacity=0.3)
+        pin.set_click_through(True)
+        assert pin.windowOpacity() == pytest.approx(0.3, abs=0.01)
+        assert pin._click_through_bar._slider.value() == 30
+
+    def test_saved_settings_reach_open_pins_on_their_next_click_through(self, make_pin):
+        pin = make_pin()
+        pin.set_click_through(True)
+        pin._click_through_bar._slider.setValue(70)
+        pin.set_click_through(False)
+
+        pin.config_manager.set_app_setting("pin_click_through_opacity", 0.4)
+        pin.refresh_appearance()
+        pin.set_click_through(True)
+        assert pin.windowOpacity() == pytest.approx(0.4, abs=0.01)
 
     def test_closing_a_pin_in_click_through_removes_the_bar(self, make_pin):
         pin = make_pin()

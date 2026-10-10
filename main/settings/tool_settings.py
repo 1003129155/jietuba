@@ -36,6 +36,7 @@ CAPTURE_MOUSE_ACTIONS = (
 
 PIN_MOUSE_ACTIONS = (
     ("zoom", "Zoom Pinned Image", "wheel", "wheel"),
+    ("fine_zoom", "Fine Zoom Pinned Image", "alt+wheel", "wheel"),
     ("opacity", "Adjust Opacity", "ctrl+wheel", "wheel"),
     ("close", "Close Pinned Image", "", "click"),
     ("reset", "Reset Pinned Image Size", "", "click"),
@@ -501,6 +502,17 @@ class ToolSettingsManager(QObject):
         "magnifier_zoom_max": 10.0,            # 放大镜最大倍率
         "pin_auto_toolbar": False,             # 钉图自动显示工具栏
         "pin_default_opacity": 1.0,            # 钉图默认透明度（0.1-1.0）
+        "pin_click_through_opacity": 0.5,      # 开启鼠标穿透时钉图的不透明度
+        "pin_zoom_step": 10,                   # 滚轮每格缩放的百分点（按原图尺寸）
+        "pin_fine_zoom_step": 1,               # 精细缩放每格的百分点
+        "pin_opacity_step": 5,                 # 滚轮每格调整的不透明度百分点
+        "pin_zoom_anchor": "top_left",         # 滚轮缩放时不动的点，取值见 pin_window.ZOOM_ANCHORS
+        "pin_auto_shrink": True,               # 比屏幕大的图钉出来时缩小到屏幕内
+        "pin_border_resize": True,             # 拖动钉图边缘调整大小
+        "pin_lock_block_move": True,           # 锁定后禁止移动和改变大小
+        "pin_lock_block_click_close": True,    # 锁定后禁止鼠标关闭
+        "pin_lock_block_key_close": True,      # 锁定后禁止按键关闭
+        "pin_lock_hint": True,                 # 锁定相关的提示
         "pin_rounded_corners": False,          # Windows 11 系统圆角和阴影
         "pin_auto_border": True,               # 新钉图默认显示主题色描边
         "pin_hover_buttons": False,            # 悬停时显示右上角按钮

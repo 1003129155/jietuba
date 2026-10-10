@@ -218,14 +218,14 @@ def test_wheel_modifiers_and_keyboard_alternatives(pin, config):
                             Qt.NoButton, modifiers, Qt.NoScrollPhase, False)
         pin.wheelEvent(event)
     wheel(Qt.NoModifier)
-    assert pin.scale_factor == pytest.approx(1.05)
+    assert pin.scale_factor == pytest.approx(1.1)
     wheel(Qt.ControlModifier, -120)
     assert pin._win_opacity == pytest.approx(.95)
     config.set_app_setting('mouse_pin_zoom', 'alt+wheel')
     wheel(Qt.NoModifier)
-    assert pin.scale_factor == pytest.approx(1.05)
+    assert pin.scale_factor == pytest.approx(1.1)
     wheel(Qt.AltModifier)
-    assert pin.scale_factor > 1.05
+    assert pin.scale_factor > 1.1
     key = QKeyEvent(QEvent.KeyPress, Qt.Key_Minus, Qt.ControlModifier)
     assert pin.handle_mouse_alternative_key(key)
     assert pin._win_opacity == pytest.approx(.90)
@@ -296,7 +296,7 @@ def test_keyboard_zoom_stays_enabled_with_legacy_disabled_setting(pin, config):
     key = QKeyEvent(QEvent.KeyPress, Qt.Key_Minus, Qt.ControlModifier)
     assert pin.handle_mouse_alternative_key(key)
     assert pin._win_opacity == 1.0
-    assert pin.scale_factor == pytest.approx(1 / 1.05)
+    assert pin.scale_factor == pytest.approx(0.9)
 
 
 def test_pin_only_pauses_for_dialogs_locking_it(pin, config, qapp):
@@ -331,7 +331,7 @@ def test_plus_preserves_explicit_shift_binding(pin, config):
     config.set_app_setting('mouse_pin_zoom', 'shift+wheel')
     key = QKeyEvent(QEvent.KeyPress, Qt.Key_Plus, Qt.ShiftModifier)
     assert pin.handle_mouse_alternative_key(key)
-    assert pin.scale_factor == pytest.approx(1.05)
+    assert pin.scale_factor == pytest.approx(1.1)
 
 
 def test_screenshot_reuse_rebinds_crosshair_and_capture_actions(config, qapp, monkeypatch):

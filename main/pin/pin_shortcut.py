@@ -81,7 +81,7 @@ class _PinHandlerBase(ShortcutHandler):
             # 缩略图模式下窗口尺寸由缩略图逻辑决定，与右键菜单一样不提供此项
             if getattr(pin, '_thumbnail_mode', False):
                 return False
-            if pin._locked:
+            if pin._lock_blocks("move"):
                 pin.show_locked_hint()
             else:
                 pin.reset_to_original_size()
@@ -254,7 +254,7 @@ class PinNormalShortcutHandler(_PinHandlerBase):
 
         # 切换缩略图模式
         if self._match(event, "inapp_thumbnail"):
-            if pin._locked:
+            if pin._lock_blocks("move"):
                 pin.show_locked_hint()
             else:
                 pin.toggle_thumbnail_mode()

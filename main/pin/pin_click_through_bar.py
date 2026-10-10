@@ -48,7 +48,6 @@ class PinClickThroughBar(QWidget):
     BASE_HEIGHT = 34
     BASE_ICON = 16
     BASE_SLIDER_WIDTH = 96
-    MIN_OPACITY = 15   # 和滚轮调透明度的下限一致
 
     def __init__(self, pin_window):
         super().__init__(
@@ -69,7 +68,8 @@ class PinClickThroughBar(QWidget):
         self._title = QLabel(self.tr("Opacity"), self)
 
         self._slider = QSlider(Qt.Orientation.Horizontal, self)
-        self._slider.setRange(self.MIN_OPACITY, 100)
+        from .pin_window import MIN_OPACITY
+        self._slider.setRange(round(MIN_OPACITY * 100), 100)
         self._slider.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._slider.valueChanged.connect(self._on_slider_changed)
 

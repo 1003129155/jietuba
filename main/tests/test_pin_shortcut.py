@@ -105,11 +105,14 @@ class FakePin:
     def close_window(self):
         self.closed += 1
 
-    def close_unless_locked(self):
-        if self._locked:
+    def close_unless_locked(self, kind="key_close"):
+        if self._lock_blocks(kind):
             self.show_locked_hint()
         else:
             self.close_window()
+
+    def _lock_blocks(self, kind):
+        return self._locked
 
     def toggle_lock(self):
         self.lock_toggles += 1

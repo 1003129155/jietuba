@@ -6,25 +6,28 @@ pin_window.py 有 580 条语句、覆盖率 16%，是 pin 包最大的窟窿。�
 会建画布、建 CanvasView、建 OCR 管理器、注册到快捷键单例、并且无条件 show()，
 真实构造要打十几个桩，性价比很低。
 
-但它最核心的交互算术全部内联在 wheelEvent 里——缩放倍率的上下限钳制、100%
-吸附、透明度步长与边界——这些是用户每天都在碰的路径，算错的表现是窗口缩到
-看不见、或者放大到超出屏幕。拖拽位移换算同理。这些逻辑只读 self 上的几个数值，
-不需要窗口真的存在。
+但它最核心的交互算术都在 wheelEvent 这条路径上——按原图尺寸线性加减的缩放步长、
+上下限钳制、100% 吸附、缩放基准点、透明度步长与边界——这些是用户每天都在碰的
+路径，算错的表现是窗口缩到看不见、或者放大到超出屏幕。拖拽位移换算同理。这些
+逻辑只读 self 上的几个数值，不需要窗口真的存在。
 
 隔离方式：以未绑定方式调用真实实现，用 SimpleNamespace 充当 self。
 这里必须用 SimpleNamespace 而不是 MagicMock，有两个原因：源码用
-hasattr(self, '_image_transform') 决定基准尺寸从哪来，MagicMock 会让它恒为真；
+getattr(self, '_image_transform', None) 决定基准尺寸从哪来，MagicMock 会让它恒有值；
 而且 _thumbnail_mode 等是类上的 property，假 self 用普通属性才能绕开它们。
+设置项从 config_manager 读，假 self 不给它时取出厂默认值（缩放每格 10%）。
 """
 from types import SimpleNamespace
 
 import pytest
-from PySide6.QtCore import QPoint, QSize, Qt
+from PySide6.QtCore import QPoint, QRect, QSize, Qt
 
 from pin.pin_window import PinWindow
+from settings.tool_settings import ToolSettingsManager
 
 NO_MOD = Qt.KeyboardModifier.NoModifier
 CTRL = Qt.KeyboardModifier.ControlModifier
+ALT = Qt.KeyboardModifier.AltModifier
 
 BASE_W, BASE_H = 400, 300
 # 源码用 max(50/宽, 50/高) 保证窗口任一边不小于 50 像素
@@ -32,13 +35,14 @@ MIN_SCALE = max(50.0 / BASE_W, 50.0 / BASE_H)
 
 
 class _FakeWheelEvent:
-    def __init__(self, delta, modifiers=NO_MOD):
+    def __init__(self, delta, modifiers=NO_MOD, horizontal=False):
         self._delta = delta
         self._mods = modifiers
+        self._horizontal = horizontal
         self.ignored = 0
 
     def angleDelta(self):
-        return QPoint(0, self._delta)
+        return QPoint(self._delta, 0) if self._horizontal else QPoint(0, self._delta)
 
     def modifiers(self):
         return self._mods
@@ -59,7 +63,19 @@ class _Recorder:
         return bool(self.calls)
 
 
-def _zoom_self(scale_factor=1.0, transform_size=None, thumbnail=False, locked=False):
+class _FakeConfig:
+    """只回答 get_app_setting，没覆盖的项取出厂默认值"""
+
+    def __init__(self, **overrides):
+        self._values = overrides
+
+    def get_app_setting(self, key, default=None):
+        if key in self._values:
+            return self._values[key]
+        return ToolSettingsManager.APP_DEFAULT_SETTINGS.get(key, default)
+
+
+def _zoom_self(scale_factor=1.0, transform_size=None, thumbnail=False, locked=False, **settings):
     """
     组装一个只够 wheelEvent 缩放分支使用的假窗口。
 
@@ -74,8 +90,8 @@ def _zoom_self(scale_factor=1.0, transform_size=None, thumbnail=False, locked=Fa
         _orig_size=QSize(BASE_W, BASE_H),
         scale_factor=scale_factor,
         canvas=None,
-        x=lambda: 10,
-        y=lambda: 20,
+        config_manager=_FakeConfig(**settings),
+        geometry=lambda: QRect(10, 20, round(BASE_W * scale_factor), round(BASE_H * scale_factor)),
         setGeometry=_Recorder(),
         update=_Recorder(),
         _scale_timer=SimpleNamespace(start=_Recorder()),
@@ -97,9 +113,9 @@ def _opacity_self(opacity=1.0, thumbnail=False):
     )
 
 
-def _scroll(fake, times, delta=120, modifiers=NO_MOD):
+def _scroll(fake, times, delta=120, modifiers=NO_MOD, horizontal=False):
     for _ in range(times):
-        PinWindow.wheelEvent(fake, _FakeWheelEvent(delta, modifiers))
+        PinWindow.wheelEvent(fake, _FakeWheelEvent(delta, modifiers, horizontal))
 
 
 # ============================================================================
@@ -131,23 +147,32 @@ class TestZoomClamping:
         _, _, width, height = fake.setGeometry.calls[-1]
         assert min(width, height) >= 50
 
-    def test_a_single_step_scales_by_five_percent(self):
+    def test_a_single_step_adds_ten_points_of_the_original_size(self):
         fake = _zoom_self()
         _scroll(fake, 1)
-        assert fake.scale_factor == pytest.approx(1.05)
+        assert fake.scale_factor == pytest.approx(1.10)
 
-    def test_zooming_out_uses_the_reciprocal_so_a_round_trip_is_lossless(self):
-        """
-        缩小必须用放大倍率的倒数而不是 0.95，否则放大再缩小会累积误差，
-        窗口回不到原始尺寸。
-        """
+    def test_steps_are_linear_not_compounding(self):
+        """100% → 110% → 120% → 110%，每格加减的都是原图的 10%，不是当前大小的 10%"""
+        fake = _zoom_self()
+        _scroll(fake, 2)
+        assert fake.scale_factor == pytest.approx(1.20)
+        _scroll(fake, 3, delta=-120)
+        assert fake.scale_factor == pytest.approx(0.90)
+
+    def test_a_round_trip_is_lossless(self):
         fake = _zoom_self()
         _scroll(fake, 1)
         _scroll(fake, 1, delta=-120)
         assert fake.scale_factor == 1.0
 
+    def test_the_step_follows_the_setting(self):
+        fake = _zoom_self(pin_zoom_step=25)
+        _scroll(fake, 2)
+        assert fake.scale_factor == pytest.approx(1.50)
+
     def test_passing_through_one_hundred_percent_snaps_exactly(self):
-        """互逆浮点运算会在 1.0 附近留下极小误差，源码用 1e-6 阈值吸附"""
+        """反复加减 0.1 会在 1.0 附近留下浮点误差，源码按 4 位小数取整并吸附到 1.0"""
         fake = _zoom_self()
         for _ in range(5):
             _scroll(fake, 1)
@@ -165,20 +190,39 @@ class TestZoomGeometry:
         fake = _zoom_self()
         _scroll(fake, 1)
         x, y, width, height = fake.setGeometry.calls[-1]
-        assert (width, height) == (round(BASE_W * 1.05), round(BASE_H * 1.05))
+        assert (width, height) == (round(BASE_W * 1.1), round(BASE_H * 1.1))
 
-    def test_window_position_is_preserved_while_scaling(self):
+    def test_the_top_left_corner_stays_put_by_default(self):
         fake = _zoom_self()
         _scroll(fake, 3)
         for x, y, _, _ in fake.setGeometry.calls:
             assert (x, y) == (10, 20)
+
+    @pytest.mark.parametrize("anchor, fixed", [
+        ("top_right", lambda x, y, w, h: (x + w, y)),
+        ("bottom_left", lambda x, y, w, h: (x, y + h)),
+        ("bottom_right", lambda x, y, w, h: (x + w, y + h)),
+        ("center", lambda x, y, w, h: (x + w / 2, y + h / 2)),
+    ])
+    def test_the_configured_anchor_stays_put(self, anchor, fixed):
+        fake = _zoom_self(pin_zoom_anchor=anchor)
+        before = fixed(10, 20, BASE_W, BASE_H)
+        _scroll(fake, 1)
+        after = fixed(*fake.setGeometry.calls[-1])
+        assert after == pytest.approx(before, abs=1)
+
+    def test_an_unknown_anchor_falls_back_to_the_top_left(self):
+        fake = _zoom_self(pin_zoom_anchor="nonsense")
+        _scroll(fake, 1)
+        x, y, _, _ = fake.setGeometry.calls[-1]
+        assert (x, y) == (10, 20)
 
     def test_rotated_images_scale_from_the_transformed_size(self):
         """旋转 90 度后宽高互换，缩放必须以变换后的尺寸为基准"""
         fake = _zoom_self(transform_size=QSize(BASE_H, BASE_W))
         _scroll(fake, 1)
         _, _, width, height = fake.setGeometry.calls[-1]
-        assert (width, height) == (round(BASE_H * 1.05), round(BASE_W * 1.05))
+        assert (width, height) == (round(BASE_H * 1.1), round(BASE_W * 1.1))
 
     def test_size_never_degenerates_to_zero(self):
         tiny = _zoom_self(transform_size=QSize(1, 1))
@@ -201,6 +245,26 @@ class TestZoomGeometry:
         fake.canvas = SimpleNamespace(invalidate_cache=invalidate)
         _scroll(fake, 1)
         assert invalidate.called
+
+
+class TestFineZoom:
+
+    def test_alt_wheel_arrives_horizontal_and_steps_one_point(self):
+        """Qt 在 Windows 上把 Alt+滚轮当横向滚动送来：angleDelta 的 y 为 0、x 有值"""
+        fake = _zoom_self()
+        _scroll(fake, 3, modifiers=ALT, horizontal=True)
+        assert fake.scale_factor == pytest.approx(1.03)
+
+    def test_the_fine_step_follows_the_setting(self):
+        fake = _zoom_self(pin_fine_zoom_step=5)
+        _scroll(fake, 1, delta=-120, modifiers=ALT, horizontal=True)
+        assert fake.scale_factor == pytest.approx(0.95)
+
+    def test_a_locked_pin_ignores_fine_zoom_too(self):
+        fake = _zoom_self(locked=True)
+        _scroll(fake, 1, modifiers=ALT, horizontal=True)
+        assert fake.scale_factor == 1.0
+        assert fake.show_locked_hint.called
 
 
 class TestZoomPercentLabel:
@@ -253,17 +317,18 @@ class TestOpacity:
         assert fake.scale_factor == 1.0
         assert fake.setGeometry.calls == []
 
-    def test_opacity_label_truncates_instead_of_rounding(self):
-        """
-        已知缺陷，不是回归：透明度标签用 int(_win_opacity * 100) 截断，
-        而累积浮点误差让 0.9 变成 0.8999999999999999，标签因此显示 89%。
-        同文件的 _show_zoom_percent 用的是 int(round(...))，两处不一致。
-        修成 round 之后这条用例会失败，届时应把预期改成 90%。
-        """
+    def test_opacity_label_rounds_instead_of_truncating(self):
+        """累积浮点误差曾让 0.9 显示成 89%，现在按 4 位小数取整、标签四舍五入"""
         fake = _opacity_self(1.0)
         _scroll(fake, 2, delta=-120, modifiers=CTRL)
-        assert fake._win_opacity == pytest.approx(0.90)
-        assert fake._show_hint_label.calls[-1] == ("α 89%",)
+        assert fake._win_opacity == 0.90
+        assert fake._show_hint_label.calls[-1] == ("α 90%",)
+
+    def test_the_opacity_step_follows_the_setting(self):
+        fake = _opacity_self(1.0)
+        fake.config_manager = _FakeConfig(pin_opacity_step=10)
+        _scroll(fake, 2, delta=-120, modifiers=CTRL)
+        assert fake._win_opacity == pytest.approx(0.80)
 
     def test_the_first_step_down_happens_to_label_correctly(self):
         fake = _opacity_self(1.0)
