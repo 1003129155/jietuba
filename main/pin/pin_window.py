@@ -1000,6 +1000,11 @@ class PinWindow(QWidget):
             'border_enabled': self.border_enabled,
             'text_selection_enabled': self._text_selection_enabled,
             'thumbnail_mode': self._thumbnail_mode,
+            'close_shortcut_enabled': (
+                not (self.canvas and self.canvas.is_editing)
+                and not self._lock_blocks("key_close")
+                and not self._click_through
+            ),
         }
         # 菜单开着算悬停，工具栏不会在背后被收起，菜单上的开关状态就一直准确
         self.hover_controls.set_menu_open(True)

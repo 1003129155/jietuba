@@ -132,9 +132,10 @@ class TestNormalModeStructure:
                        "Text selection", "Thumbnail mode", "Close"):
             assert _has(menu, prefix), prefix
 
-    def test_close_is_the_last_entry(self, parent, stub_shortcuts):
-        menu = _build(parent, thumbnail_mode=False)
-        assert _labels(menu)[-1] == "Close"
+    @pytest.mark.parametrize("close_shortcut_enabled", [True, False])
+    def test_close_is_the_last_entry(self, parent, stub_shortcuts, close_shortcut_enabled):
+        menu = _build(parent, thumbnail_mode=False, close_shortcut_enabled=close_shortcut_enabled)
+        assert _labels(menu)[-1] == ("Close (ESC)" if close_shortcut_enabled else "Close")
 
     def test_the_menu_is_grouped_by_separators(self, parent, stub_shortcuts):
         menu = _build(parent, thumbnail_mode=False)
@@ -157,7 +158,7 @@ class TestThumbnailModeStructure:
         labels = _labels(menu)
         assert labels[0] == "Copy"
         assert labels[1] == "Save as"
-        assert labels[-1] == "Close"
+        assert labels[-1] == "Close (ESC)"
         assert _has(menu, "Always on top")
         assert _has(menu, "Mouse click-through")
         assert _has(menu, "Lock")
@@ -234,29 +235,46 @@ class TestToggleMarkers:
 class TestShortcutHints:
 
     def test_configured_shortcuts_are_appended_in_upper_case(self, parent, stub_shortcuts):
+        stub_shortcuts["inapp_copy_pin"] = "ctrl+c"
+        stub_shortcuts["inapp_pin_reset_size"] = "f2"
         stub_shortcuts["inapp_toggle_toolbar"] = "space"
         stub_shortcuts["inapp_thumbnail"] = "r"
         stub_shortcuts["inapp_pin_lock"] = "l"
         menu = _build(parent, thumbnail_mode=False)
+        assert _find(menu, "Copy").text() == "Copy (CTRL+C)"
+        assert _find(menu, "Reset size").text() == "Reset size (F2)"
         assert _find(menu, "Toolbar").text().startswith("Toolbar (SPACE)")
         assert _find(menu, "Thumbnail mode").text().startswith("Thumbnail mode (R)")
         assert _find(menu, "Lock").text().startswith("Lock (L)")
 
-    def test_no_parenthesis_is_added_when_nothing_is_bound(self, parent, stub_shortcuts):
+    @pytest.mark.parametrize("binding", ["", "mousemiddle", "ctrl+mousemiddle", "escape", "ctrl+"])
+    def test_no_parenthesis_is_added_for_inactive_or_mouse_bindings(self, parent, stub_shortcuts, binding):
+        for key in ("inapp_copy_pin", "inapp_pin_reset_size", "inapp_toggle_toolbar",
+                    "inapp_thumbnail", "inapp_pin_lock"):
+            stub_shortcuts[key] = binding
         menu = _build(parent, thumbnail_mode=False)
-        assert "(" not in _find(menu, "Toolbar").text()
-        assert "(" not in _find(menu, "Thumbnail mode").text()
+        for label in ("Copy", "Reset size", "Toolbar", "Thumbnail mode", "Lock"):
+            assert "(" not in _find(menu, label).text()
 
-    def test_display_falls_back_to_the_factory_default(self, monkeypatch):
-        """用户没自定义时显示出厂默认键位，而不是空白"""
-        class _Cfg:
-            APP_DEFAULT_SETTINGS = {"inapp_thumbnail": "r"}
+    def test_display_tracks_settings_changes_and_unbinding(self, parent, tmp_settings, monkeypatch):
+        """未设置过时读取默认键，改键和清空后重新打开菜单立即跟随配置。"""
+        from settings.tool_settings import ToolSettingsManager
 
-            def get_inapp_shortcut(self, key):
-                return ""
-
-        monkeypatch.setattr("settings.get_tool_settings_manager", lambda: _Cfg())
-        assert _get_shortcut_display("inapp_thumbnail") == "R"
+        cfg = ToolSettingsManager(tmp_settings)
+        monkeypatch.setattr("settings.get_tool_settings_manager", lambda: cfg)
+        for key, label, default in (
+            ("inapp_copy_pin", "Copy", "CTRL+C"),
+            ("inapp_pin_reset_size", "Reset size", ""),
+            ("inapp_toggle_toolbar", "Toolbar", "SPACE"),
+            ("inapp_thumbnail", "Thumbnail mode", "R"),
+            ("inapp_pin_lock", "Lock", "L"),
+        ):
+            text = _find(_build(parent), label).text().split("\t")[0]
+            assert text == (f"{label} ({default})" if default else label)
+            cfg.set_inapp_shortcut(key, "ctrl+f2")
+            assert _find(_build(parent), label).text().split("\t")[0] == f"{label} (CTRL+F2)"
+            cfg.set_inapp_shortcut(key, "")
+            assert _find(_build(parent), label).text().split("\t")[0] == label
 
     def test_an_unknown_key_yields_an_empty_string(self, monkeypatch):
         class _Cfg:

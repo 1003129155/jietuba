@@ -11,14 +11,16 @@ from core.constants import CSS_FONT_FAMILY_UI
 
 
 def _get_shortcut_display(cfg_key: str) -> str:
-    """从配置读取快捷键并返回大写显示文本（如 "CTRL+C"、"R"、"SPACE"）"""
+    """只显示当前有效的键盘绑定；留空解绑和鼠标绑定不显示。"""
     from settings import get_tool_settings_manager
     cfg = get_tool_settings_manager()
-    from core.shortcut_manager import inapp_shortcut_display_text
+    from core.shortcut_manager import (
+        inapp_shortcut_display_text, is_reserved_inapp_shortcut, parse_shortcut_to_qt,
+    )
     text = cfg.get_inapp_shortcut(cfg_key)
-    if not text:
-        text = cfg.APP_DEFAULT_SETTINGS.get(cfg_key, "")
-    # 绑成鼠标中键时显示「中键」，而不是配置里那个 MOUSEMIDDLE
+    # 默认值由配置读取器处理；这里不能把用户主动清空的绑定恢复成默认键。
+    if not parse_shortcut_to_qt(text) or is_reserved_inapp_shortcut(text):
+        return ""
     return inapp_shortcut_display_text(text)
 
 
@@ -51,6 +53,7 @@ class PinContextMenu:
                 - locked: 是否锁定
                 - border_enabled: 描边是否启用
                 - text_selection_enabled: 文字选择是否启用
+                - close_shortcut_enabled: 当前是否可以用 Esc 关闭钉图
         """
         menu = QMenu(self.parent)
         
@@ -112,10 +115,16 @@ class PinContextMenu:
         def _toggle_text(label: str, enabled: bool) -> str:
             return f"{label}\t{'●' if enabled else '○'}"
 
+        def _shortcut_text(label: str, cfg_key: str) -> str:
+            key = _get_shortcut_display(cfg_key)
+            return f"{label} ({key})" if key else label
+
         is_thumbnail = state.get('thumbnail_mode', False)
 
         # 复制内容
-        copy_action = QAction(self.parent.tr("Copy"), self.parent)
+        copy_action = QAction(
+            _shortcut_text(self.parent.tr("Copy"), "inapp_copy_pin"), self.parent
+        )
         copy_action.triggered.connect(self.parent.copy_to_clipboard)
         menu.addAction(copy_action)
         
@@ -134,10 +143,7 @@ class PinContextMenu:
             menu.addAction(translate_action)
             
             # 恢复原始大小
-            reset_key = _get_shortcut_display("inapp_pin_reset_size")
-            reset_label = self.parent.tr("Reset size")
-            if reset_key:
-                reset_label += f" ({reset_key})"
+            reset_label = _shortcut_text(self.parent.tr("Reset size"), "inapp_pin_reset_size")
             reset_size_action = QAction(reset_label, self.parent)
             reset_size_action.triggered.connect(self.parent.reset_to_original_size)
             menu.addAction(reset_size_action)
@@ -177,10 +183,7 @@ class PinContextMenu:
         if not is_thumbnail:
             # 显示/隐藏工具栏
             toolbar_visible = state.get('toolbar_visible', False)
-            toolbar_key = _get_shortcut_display("inapp_toggle_toolbar")
-            toolbar_label = self.parent.tr("Toolbar")
-            if toolbar_key:
-                toolbar_label += f" ({toolbar_key})"
+            toolbar_label = _shortcut_text(self.parent.tr("Toolbar"), "inapp_toggle_toolbar")
             toolbar_action = QAction(_toggle_text(toolbar_label, toolbar_visible), self.parent)
             toolbar_action.triggered.connect(self.parent.toggle_toolbar)
             menu.addAction(toolbar_action)
@@ -199,10 +202,7 @@ class PinContextMenu:
         click_through_action.triggered.connect(self.parent.toggle_click_through)
         menu.addAction(click_through_action)
 
-        lock_label = self.parent.tr("Lock")
-        lock_key = _get_shortcut_display("inapp_pin_lock")
-        if lock_key:
-            lock_label += f" ({lock_key})"
+        lock_label = _shortcut_text(self.parent.tr("Lock"), "inapp_pin_lock")
         lock_action = QAction(_toggle_text(lock_label, state.get('locked', False)), self.parent)
         lock_action.triggered.connect(self.parent.toggle_lock)
         menu.addAction(lock_action)
@@ -225,10 +225,7 @@ class PinContextMenu:
         
         # 缩略图模式（任何模式都可用）
         thumbnail_mode = state.get('thumbnail_mode', False)
-        thumbnail_key = _get_shortcut_display("inapp_thumbnail")
-        thumbnail_label = self.parent.tr("Thumbnail mode")
-        if thumbnail_key:
-            thumbnail_label += f" ({thumbnail_key})"
+        thumbnail_label = _shortcut_text(self.parent.tr("Thumbnail mode"), "inapp_thumbnail")
         thumbnail_action = QAction(
             _toggle_text(thumbnail_label, thumbnail_mode),
             self.parent
@@ -239,7 +236,10 @@ class PinContextMenu:
         menu.addSeparator()
         
         # 关闭钉图（任何模式都可用）
-        close_action = QAction(self.parent.tr("Close"), self.parent)
+        close_label = self.parent.tr("Close")
+        if state.get('close_shortcut_enabled', True):
+            close_label += " (ESC)"
+        close_action = QAction(close_label, self.parent)
         close_action.triggered.connect(self.parent.close_window)
         menu.addAction(close_action)
  
