@@ -611,6 +611,12 @@ class SettingsDialog(FrostedFramelessDialog):
         from settings import color_formats
         color_formats.save(self.config_manager, formats)
 
+    def _save_special_paste_entries(self):
+        entries = getattr(self, 'clipboard_special_paste_entries', None)
+        if entries is not None:
+            from settings import special_paste
+            special_paste.save(self.config_manager, entries)
+
     def _reset_current_page(self):
         current_index = self.content_stack.currentIndex()
         if current_index == 0:
@@ -879,6 +885,9 @@ class SettingsDialog(FrostedFramelessDialog):
             self.clipboard_auto_paste_toggle.setChecked(defaults["clipboard_auto_paste"])
         if hasattr(self, 'clipboard_history_limit_spin'):
             self.clipboard_history_limit_spin.setValue(defaults["clipboard_history_limit"])
+        if hasattr(self, 'clipboard_special_paste_entries'):
+            from settings import special_paste
+            self.clipboard_special_paste_entries = special_paste.default_entries()
 
     # ================================================================
     # 保存（accept）
@@ -1094,6 +1103,7 @@ class SettingsDialog(FrostedFramelessDialog):
                 I18nManager.load_language(new_lang)
 
         # 7. 剪贴板
+        self._save_special_paste_entries()
         if hasattr(self, 'clipboard_enabled_toggle'):
             self.config_manager.set_clipboard_enabled(self.clipboard_enabled_toggle.isChecked())
         if hasattr(self, 'clipboard_history_limit_spin'):
@@ -1374,6 +1384,8 @@ class SettingsDialog(FrostedFramelessDialog):
         # 颜色格式在单独的管理窗口里编辑，没有对应的控件可读
         if hasattr(self, 'magnifier_color_formats'):
             snap['magnifier_color_formats'] = tuple(self.magnifier_color_formats)
+        if hasattr(self, 'clipboard_special_paste_entries'):
+            snap['clipboard_special_paste_entries'] = tuple(self.clipboard_special_paste_entries)
         for attr in ('_clip_font_combo', '_clip_opacity_combo'):
             combo = getattr(self, attr, None)
             if combo is not None:
@@ -1658,6 +1670,9 @@ class SettingsDialog(FrostedFramelessDialog):
             self.clipboard_auto_paste_toggle.setChecked(self.config_manager.get_clipboard_auto_paste())
         if hasattr(self, 'clipboard_history_limit_spin'):
             self.clipboard_history_limit_spin.setValue(self.config_manager.get_clipboard_history_limit())
+        if hasattr(self, 'clipboard_special_paste_entries'):
+            from settings import special_paste
+            self.clipboard_special_paste_entries = special_paste.load(self.config_manager)
 
         if hasattr(self, 'autostart_toggle'):
             self.autostart_toggle.setChecked(self.config_manager.get_app_setting("autostart_enabled"))

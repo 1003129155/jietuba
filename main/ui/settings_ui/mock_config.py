@@ -86,6 +86,7 @@ APP_DEFAULT_SETTINGS = {
     "clipboard_close_after_paste": True,
     "clipboard_history_limit": 100,
     "clipboard_auto_cleanup": False,
+    "clipboard_special_paste": "",
     "magnifier_enabled": True,
     "magnifier_grid": False,
     "magnifier_hint": True,

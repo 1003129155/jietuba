@@ -1323,6 +1323,22 @@ Replace it?</translation>
         <source>Show a short hint when locking, unlocking or trying a blocked action. The right-click menu always works on locked images.</source>
         <translation>Show a short hint when locking, unlocking or trying a blocked action. The right-click menu always works on locked images.</translation>
     </message>
+    <message>
+        <source>Special Paste</source>
+        <translation>Special Paste</translation>
+    </message>
+    <message>
+        <source>Special Paste Menu</source>
+        <translation>Special Paste Menu</translation>
+    </message>
+    <message>
+        <source>Choose which paste options appear and arrange their order.</source>
+        <translation>Choose which paste options appear and arrange their order.</translation>
+    </message>
+    <message>
+        <source>Manage</source>
+        <translation>Manage</translation>
+    </message>
 </context>
 
 <context>
@@ -2532,6 +2548,14 @@ This action cannot be undone.</translation>
     <message>
         <source>Are you sure you want to delete the {count} selected items?</source>
         <translation>Are you sure you want to delete the {count} selected items?</translation>
+    </message>
+    <message>
+        <source>Extract Digits</source>
+        <translation>Extract Digits</translation>
+    </message>
+    <message>
+        <source>Extract Letters</source>
+        <translation>Extract Letters</translation>
     </message>
 </context>
 
@@ -5196,6 +5220,97 @@ Make sure gifrecorder is installed correctly.</translation>
     <message>
         <source>暂停或恢复录制超时，录制已停止，视频未确认保存成功。</source>
         <translation>Pausing or resuming timed out. Recording stopped, and successful saving could not be confirmed.</translation>
+    </message>
+</context>
+<context>
+    <name>SpecialPasteDialog</name>
+    <message>
+        <source>Manage Special Paste</source>
+        <translation>Manage Special Paste</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>Text</translation>
+    </message>
+    <message>
+        <source>Files</source>
+        <translation>Files</translation>
+    </message>
+    <message>
+        <source>Check the items to show in the menu. Drag the handle to reorder them. Uncheck all items to hide Special Paste for that type.</source>
+        <translation>Check the items to show in the menu. Drag the handle to reorder them. Uncheck all items to hide Special Paste for that type.</translation>
+    </message>
+    <message>
+        <source>Restore defaults</source>
+        <translation>Restore defaults</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Paste without text formatting.</source>
+        <translation>Paste without text formatting.</translation>
+    </message>
+    <message>
+        <source>Convert letters to uppercase.</source>
+        <translation>Convert letters to uppercase.</translation>
+    </message>
+    <message>
+        <source>Convert letters to lowercase.</source>
+        <translation>Convert letters to lowercase.</translation>
+    </message>
+    <message>
+        <source>Capitalize the first letter of each word.</source>
+        <translation>Capitalize the first letter of each word.</translation>
+    </message>
+    <message>
+        <source>Capitalize the first letter of each sentence.</source>
+        <translation>Capitalize the first letter of each sentence.</translation>
+    </message>
+    <message>
+        <source>Swap uppercase and lowercase letters.</source>
+        <translation>Swap uppercase and lowercase letters.</translation>
+    </message>
+    <message>
+        <source>Format values as a quoted SQL list.</source>
+        <translation>Format values as a quoted SQL list.</translation>
+    </message>
+    <message>
+        <source>Replace line breaks with spaces.</source>
+        <translation>Replace line breaks with spaces.</translation>
+    </message>
+    <message>
+        <source>Remove spaces, tabs and line breaks.</source>
+        <translation>Remove spaces, tabs and line breaks.</translation>
+    </message>
+    <message>
+        <source>Keep only digits 0–9.</source>
+        <translation>Keep only digits 0–9.</translation>
+    </message>
+    <message>
+        <source>Keep only English letters A–Z and a–z.</source>
+        <translation>Keep only English letters A–Z and a–z.</translation>
+    </message>
+    <message>
+        <source>Append the current date and time.</source>
+        <translation>Append the current date and time.</translation>
+    </message>
+    <message>
+        <source>Paste without moving the item to the top.</source>
+        <translation>Paste without moving the item to the top.</translation>
+    </message>
+    <message>
+        <source>Paste file names without their folder paths.</source>
+        <translation>Paste file names without their folder paths.</translation>
+    </message>
+    <message>
+        <source>Paste full file paths.</source>
+        <translation>Paste full file paths.</translation>
     </message>
 </context>
 </TS>

@@ -1438,6 +1438,22 @@ Replace it?</source>
         <source>Show a short hint when locking, unlocking or trying a blocked action. The right-click menu always works on locked images.</source>
         <translation>잠금, 해제 또는 금지된 동작을 시도할 때 짧은 안내를 표시합니다. 잠긴 이미지에서도 우클릭 메뉴는 항상 사용할 수 있습니다.</translation>
     </message>
+    <message>
+        <source>Special Paste</source>
+        <translation>특수 붙여넣기</translation>
+    </message>
+    <message>
+        <source>Special Paste Menu</source>
+        <translation>특수 붙여넣기 메뉴</translation>
+    </message>
+    <message>
+        <source>Choose which paste options appear and arrange their order.</source>
+        <translation>표시할 붙여넣기 항목과 순서를 설정합니다.</translation>
+    </message>
+    <message>
+        <source>Manage</source>
+        <translation>관리</translation>
+    </message>
 </context>
 
 <context>
@@ -2691,6 +2707,14 @@ This action cannot be undone.</source>
     <message>
         <source>Are you sure you want to delete the {count} selected items?</source>
         <translation>선택한 {count}개 항목을 삭제하시겠습니까?</translation>
+    </message>
+    <message>
+        <source>Extract Digits</source>
+        <translation>숫자만 추출</translation>
+    </message>
+    <message>
+        <source>Extract Letters</source>
+        <translation>영문자만 추출</translation>
     </message>
 </context>
 
@@ -5399,6 +5423,97 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
     <message>
         <source>暂停或恢复录制超时，录制已停止，视频未确认保存成功。</source>
         <translation>일시 정지 또는 재개 시간이 초과되어 녹화를 중지했습니다. 동영상 저장 성공을 확인하지 못했습니다.</translation>
+    </message>
+</context>
+<context>
+    <name>SpecialPasteDialog</name>
+    <message>
+        <source>Manage Special Paste</source>
+        <translation>특수 붙여넣기 관리</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>텍스트</translation>
+    </message>
+    <message>
+        <source>Files</source>
+        <translation>파일</translation>
+    </message>
+    <message>
+        <source>Check the items to show in the menu. Drag the handle to reorder them. Uncheck all items to hide Special Paste for that type.</source>
+        <translation>표시할 항목을 선택하고 왼쪽 핸들을 끌어 순서를 바꾸세요. 모두 해제하면 해당 유형의 특수 붙여넣기 메뉴가 숨겨집니다.</translation>
+    </message>
+    <message>
+        <source>Restore defaults</source>
+        <translation>기본값 복원</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>확인</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>취소</translation>
+    </message>
+    <message>
+        <source>Paste without text formatting.</source>
+        <translation>서식 없이 일반 텍스트로 붙여넣습니다.</translation>
+    </message>
+    <message>
+        <source>Convert letters to uppercase.</source>
+        <translation>문자를 대문자로 변환합니다.</translation>
+    </message>
+    <message>
+        <source>Convert letters to lowercase.</source>
+        <translation>문자를 소문자로 변환합니다.</translation>
+    </message>
+    <message>
+        <source>Capitalize the first letter of each word.</source>
+        <translation>각 단어의 첫 글자를 대문자로 바꿉니다.</translation>
+    </message>
+    <message>
+        <source>Capitalize the first letter of each sentence.</source>
+        <translation>각 문장의 첫 글자를 대문자로 바꿉니다.</translation>
+    </message>
+    <message>
+        <source>Swap uppercase and lowercase letters.</source>
+        <translation>대문자와 소문자를 서로 바꿉니다.</translation>
+    </message>
+    <message>
+        <source>Format values as a quoted SQL list.</source>
+        <translation>내용을 따옴표로 묶인 SQL 값 목록으로 변환합니다.</translation>
+    </message>
+    <message>
+        <source>Replace line breaks with spaces.</source>
+        <translation>줄 바꿈을 공백으로 바꿉니다.</translation>
+    </message>
+    <message>
+        <source>Remove spaces, tabs and line breaks.</source>
+        <translation>공백, 탭, 줄 바꿈을 제거합니다.</translation>
+    </message>
+    <message>
+        <source>Keep only digits 0–9.</source>
+        <translation>숫자 0–9만 남깁니다.</translation>
+    </message>
+    <message>
+        <source>Keep only English letters A–Z and a–z.</source>
+        <translation>영문자 A–Z와 a–z만 남깁니다.</translation>
+    </message>
+    <message>
+        <source>Append the current date and time.</source>
+        <translation>텍스트 끝에 현재 날짜와 시간을 추가합니다.</translation>
+    </message>
+    <message>
+        <source>Paste without moving the item to the top.</source>
+        <translation>붙여넣은 뒤에도 항목의 위치를 유지합니다.</translation>
+    </message>
+    <message>
+        <source>Paste file names without their folder paths.</source>
+        <translation>폴더 경로 없이 파일 이름만 붙여넣습니다.</translation>
+    </message>
+    <message>
+        <source>Paste full file paths.</source>
+        <translation>전체 파일 경로를 붙여넣습니다.</translation>
     </message>
 </context>
 </TS>

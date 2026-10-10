@@ -517,6 +517,7 @@ pin/
 settings/
 ├── color_formats.py         # magnifier color format templates: render, load, save
 ├── settings_transfer.py     # export/import settings-page options (and the toolbar layout) as a JSON file
+├── special_paste.py         # special paste menu: built-in options, order and on/off state
 └── tool_settings.py         # ToolSettingsManager / ToolSettings — tool color, size, hotkey config
 ```
 
@@ -686,6 +687,7 @@ ui/
 │   ├── page_quick_actions.py # Quick actions settings (skip confirm or result windows, take over Win+V)
 │   ├── color_format_dialog.py # ColorFormatDialog — magnifier color format editor
 │   ├── page_clipboard.py    # Clipboard settings
+│   ├── special_paste_dialog.py # SpecialPasteDialog — reorder and toggle special paste menu items
 │   ├── page_hotkey.py       # Hotkey settings
 │   ├── page_mouse.py        # Mouse shortcut settings
 │   ├── page_pin.py          # Pin settings (behavior, appearance, click-through)

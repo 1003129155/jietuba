@@ -516,6 +516,7 @@ pin/
 settings/
 ├── color_formats.py         # 拡大鏡のカラー形式テンプレート：描画・読み込み・保存
 ├── settings_transfer.py     # 設定画面の項目（ツールバーの並びを含む）を JSON ファイルへエクスポート／インポート
+├── special_paste.py         # 特殊貼り付けメニューの既定項目・順序・有効状態
 └── tool_settings.py         # ToolSettingsManager / ToolSettings — ツールの色、サイズ、ホットキー設定
 ```
 
@@ -685,6 +686,7 @@ ui/
 │   ├── page_quick_actions.py # クイック動作設定（確認・結果ウィンドウの省略、Win+V の引き継ぎ）
 │   ├── color_format_dialog.py # ColorFormatDialog — 拡大鏡のカラー形式を管理するダイアログ
 │   ├── page_clipboard.py    # クリップボード設定
+│   ├── special_paste_dialog.py # SpecialPasteDialog — 特殊貼り付けメニューの並び替えとオン／オフ
 │   ├── page_hotkey.py       # ホットキー設定
 │   ├── page_mouse.py        # マウスショートカット設定
 │   ├── page_pin.py          # ピン画像設定（動作、外観、マウス透過）

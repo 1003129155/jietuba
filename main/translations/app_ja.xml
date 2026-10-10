@@ -1445,6 +1445,22 @@ Replace it?</source>
         <source>Show a short hint when locking, unlocking or trying a blocked action. The right-click menu always works on locked images.</source>
         <translation>ロック・解除時や禁止された操作を試したときに短いヒントを表示します。ロック中でも右クリックメニューは使えます。</translation>
     </message>
+    <message>
+        <source>Special Paste</source>
+        <translation>特殊貼り付け</translation>
+    </message>
+    <message>
+        <source>Special Paste Menu</source>
+        <translation>特殊貼り付けメニュー</translation>
+    </message>
+    <message>
+        <source>Choose which paste options appear and arrange their order.</source>
+        <translation>表示する貼り付け項目とその順序を設定します。</translation>
+    </message>
+    <message>
+        <source>Manage</source>
+        <translation>管理</translation>
+    </message>
 </context>
 
 <context>
@@ -2736,6 +2752,14 @@ This action cannot be undone.</source>
     <message>
         <source>Are you sure you want to delete the {count} selected items?</source>
         <translation>選択した {count} 件を削除しますか？</translation>
+    </message>
+    <message>
+        <source>Extract Digits</source>
+        <translation>数字のみ抽出</translation>
+    </message>
+    <message>
+        <source>Extract Letters</source>
+        <translation>英字のみ抽出</translation>
     </message>
 </context>
 
@@ -5440,6 +5464,97 @@ gifrecorder が正しくインストールされているか確認してくだ�
     <message>
         <source>暂停或恢复录制超时，录制已停止，视频未确认保存成功。</source>
         <translation>一時停止または再開がタイムアウトしました。録画を停止し、動画の保存成功を確認できませんでした。</translation>
+    </message>
+</context>
+<context>
+    <name>SpecialPasteDialog</name>
+    <message>
+        <source>Manage Special Paste</source>
+        <translation>特殊貼り付けの管理</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>テキスト</translation>
+    </message>
+    <message>
+        <source>Files</source>
+        <translation>ファイル</translation>
+    </message>
+    <message>
+        <source>Check the items to show in the menu. Drag the handle to reorder them. Uncheck all items to hide Special Paste for that type.</source>
+        <translation>表示する項目にチェックを入れ、左のハンドルをドラッグして並べ替えます。すべてのチェックを外すと、その種類の特殊貼り付けメニューを非表示にできます。</translation>
+    </message>
+    <message>
+        <source>Restore defaults</source>
+        <translation>既定値に戻す</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Paste without text formatting.</source>
+        <translation>書式を除いてテキストを貼り付けます。</translation>
+    </message>
+    <message>
+        <source>Convert letters to uppercase.</source>
+        <translation>文字を大文字に変換します。</translation>
+    </message>
+    <message>
+        <source>Convert letters to lowercase.</source>
+        <translation>文字を小文字に変換します。</translation>
+    </message>
+    <message>
+        <source>Capitalize the first letter of each word.</source>
+        <translation>各単語の先頭文字を大文字にします。</translation>
+    </message>
+    <message>
+        <source>Capitalize the first letter of each sentence.</source>
+        <translation>各文の先頭文字を大文字にします。</translation>
+    </message>
+    <message>
+        <source>Swap uppercase and lowercase letters.</source>
+        <translation>大文字と小文字を入れ替えます。</translation>
+    </message>
+    <message>
+        <source>Format values as a quoted SQL list.</source>
+        <translation>値を引用符付きの SQL リストに変換します。</translation>
+    </message>
+    <message>
+        <source>Replace line breaks with spaces.</source>
+        <translation>改行をスペースに置き換えます。</translation>
+    </message>
+    <message>
+        <source>Remove spaces, tabs and line breaks.</source>
+        <translation>スペース、タブ、改行を削除します。</translation>
+    </message>
+    <message>
+        <source>Keep only digits 0–9.</source>
+        <translation>数字 0–9 のみを残します。</translation>
+    </message>
+    <message>
+        <source>Keep only English letters A–Z and a–z.</source>
+        <translation>英字 A–Z と a–z のみを残します。</translation>
+    </message>
+    <message>
+        <source>Append the current date and time.</source>
+        <translation>テキストの末尾に現在の日時を追加します。</translation>
+    </message>
+    <message>
+        <source>Paste without moving the item to the top.</source>
+        <translation>貼り付け後も項目の位置を維持します。</translation>
+    </message>
+    <message>
+        <source>Paste file names without their folder paths.</source>
+        <translation>フォルダーパスを除いてファイル名を貼り付けます。</translation>
+    </message>
+    <message>
+        <source>Paste full file paths.</source>
+        <translation>ファイルのフルパスを貼り付けます。</translation>
     </message>
 </context>
 </TS>

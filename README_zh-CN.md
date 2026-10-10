@@ -566,6 +566,7 @@ settings/
 ├── __init__.py
 ├── color_formats.py         # 放大镜颜色格式模板：渲染、读取、保存
 ├── settings_transfer.py     # 设置界面选项（含工具栏排布）导出/导入为 JSON 文件
+├── special_paste.py         # 特殊粘贴菜单的预置选项、顺序与启用状态
 └── tool_settings.py         # ToolSettingsManager / ToolSettings — 管理工具颜色、大小、热键等配置
 ```
 
@@ -767,6 +768,7 @@ ui/
 │   ├── page_quick_actions.py # 快捷行为设置页（跳过确认或结果窗口、接管 Win+V）
 │   ├── color_format_dialog.py # ColorFormatDialog — 放大镜颜色格式管理窗口
 │   ├── page_clipboard.py    # 剪贴板设置页
+│   ├── special_paste_dialog.py # SpecialPasteDialog — 调整特殊粘贴菜单的顺序与开关
 │   ├── page_hotkey.py       # 快捷键设置页
 │   ├── page_mouse.py        # 鼠标快捷键设置页
 │   ├── page_pin.py          # 钉图设置页（行为、外观、鼠标穿透）

@@ -1447,6 +1447,22 @@ Replace it?</source>
         <source>Show a short hint when locking, unlocking or trying a blocked action. The right-click menu always works on locked images.</source>
         <translation>锁定、解锁或尝试被禁止的操作时显示简短提示。锁定的钉图始终可以用右键菜单。</translation>
     </message>
+    <message>
+        <source>Special Paste</source>
+        <translation>特殊粘贴</translation>
+    </message>
+    <message>
+        <source>Special Paste Menu</source>
+        <translation>特殊粘贴菜单</translation>
+    </message>
+    <message>
+        <source>Choose which paste options appear and arrange their order.</source>
+        <translation>选择显示的粘贴选项，并调整它们的顺序。</translation>
+    </message>
+    <message>
+        <source>Manage</source>
+        <translation>管理</translation>
+    </message>
 </context>
 
 <context>
@@ -2771,6 +2787,14 @@ This action cannot be undone.</source>
     <message>
         <source>Are you sure you want to delete the {count} selected items?</source>
         <translation>确定要删除选中的 {count} 项吗？</translation>
+    </message>
+    <message>
+        <source>Extract Digits</source>
+        <translation>仅提取数字</translation>
+    </message>
+    <message>
+        <source>Extract Letters</source>
+        <translation>仅提取字母</translation>
     </message>
 </context>
 
@@ -5485,6 +5509,97 @@ Make sure gifrecorder is installed correctly.</source>
     <message>
         <source>暂停或恢复录制超时，录制已停止，视频未确认保存成功。</source>
         <translation>暂停或恢复录制超时，录制已停止，视频未确认保存成功。</translation>
+    </message>
+</context>
+<context>
+    <name>SpecialPasteDialog</name>
+    <message>
+        <source>Manage Special Paste</source>
+        <translation>管理特殊粘贴</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>文本</translation>
+    </message>
+    <message>
+        <source>Files</source>
+        <translation>文件</translation>
+    </message>
+    <message>
+        <source>Check the items to show in the menu. Drag the handle to reorder them. Uncheck all items to hide Special Paste for that type.</source>
+        <translation>勾选要显示的菜单项，拖动左侧手柄调整顺序。取消全部勾选可隐藏该类型的特殊粘贴菜单。</translation>
+    </message>
+    <message>
+        <source>Restore defaults</source>
+        <translation>恢复默认</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>确定</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Paste without text formatting.</source>
+        <translation>以纯文本粘贴，去除文字格式。</translation>
+    </message>
+    <message>
+        <source>Convert letters to uppercase.</source>
+        <translation>将字母转换为大写。</translation>
+    </message>
+    <message>
+        <source>Convert letters to lowercase.</source>
+        <translation>将字母转换为小写。</translation>
+    </message>
+    <message>
+        <source>Capitalize the first letter of each word.</source>
+        <translation>将每个单词的首字母大写。</translation>
+    </message>
+    <message>
+        <source>Capitalize the first letter of each sentence.</source>
+        <translation>将每个句子的首字母大写。</translation>
+    </message>
+    <message>
+        <source>Swap uppercase and lowercase letters.</source>
+        <translation>交换字母的大小写。</translation>
+    </message>
+    <message>
+        <source>Format values as a quoted SQL list.</source>
+        <translation>将内容转换为带引号的 SQL 值列表。</translation>
+    </message>
+    <message>
+        <source>Replace line breaks with spaces.</source>
+        <translation>将换行符替换为空格。</translation>
+    </message>
+    <message>
+        <source>Remove spaces, tabs and line breaks.</source>
+        <translation>移除空格、制表符和换行符。</translation>
+    </message>
+    <message>
+        <source>Keep only digits 0–9.</source>
+        <translation>仅保留数字 0–9。</translation>
+    </message>
+    <message>
+        <source>Keep only English letters A–Z and a–z.</source>
+        <translation>仅保留英文字母 A–Z 和 a–z。</translation>
+    </message>
+    <message>
+        <source>Append the current date and time.</source>
+        <translation>在文本末尾追加当前日期和时间。</translation>
+    </message>
+    <message>
+        <source>Paste without moving the item to the top.</source>
+        <translation>粘贴后保留条目原来的位置。</translation>
+    </message>
+    <message>
+        <source>Paste file names without their folder paths.</source>
+        <translation>仅粘贴文件名，去除文件夹路径。</translation>
+    </message>
+    <message>
+        <source>Paste full file paths.</source>
+        <translation>粘贴完整的文件路径。</translation>
     </message>
 </context>
 </TS>

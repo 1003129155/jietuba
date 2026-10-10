@@ -409,6 +409,7 @@ class ToolSettingsManager(QObject):
         "clipboard_close_after_paste": True,   # 粘贴后关闭窗口（关掉则窗口常驻，可连续粘贴）
         "clipboard_history_limit": 1000,        # 历史记录数量限制（0 为不限制）
         "clipboard_auto_cleanup": True,        # 自动清理超出限制的记录
+        "clipboard_special_paste": "",         # 特殊粘贴菜单顺序和开关
         "clipboard_window_width": 450,         # 剪贴板窗口默认宽度
         "clipboard_window_height": 750,        # 剪贴板窗口默认高度
         "clipboard_window_opacity": 20,         # 剪贴板窗口透明度（0=不透明）
