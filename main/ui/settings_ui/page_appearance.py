@@ -55,12 +55,12 @@ def create_appearance_page(dialog) -> QWidget:
     layout.addWidget(grp_app)
 
     # ── 截图外观 ──────────────────────────────────────
-    grp_ss = SettingCardGroup(dialog.tr("Screenshot"), view)
+    grp_ss = SettingCardGroup(dialog.tr("Screenshot"), view, tone="capture")
     _build_screenshot_section(dialog, grp_ss)
     layout.addWidget(grp_ss)
 
     # ── 剪贴板外观 ────────────────────────────────────
-    grp_clip = SettingCardGroup(dialog.tr("Clipboard"), view)
+    grp_clip = SettingCardGroup(dialog.tr("Clipboard"), view, tone="clipboard")
     _build_clipboard_section(dialog, grp_clip)
     layout.addWidget(grp_clip)
 

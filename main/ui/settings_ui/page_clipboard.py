@@ -37,7 +37,7 @@ def create_clipboard_page(dialog) -> QWidget:
     layout.setSpacing(dialog_scaled(20))
 
     # ════ 基本设置 ════
-    grp_basic = SettingCardGroup(dialog.tr("Basic Settings"), view)
+    grp_basic = SettingCardGroup(dialog.tr("Basic Settings"), view, tone="clipboard")
 
     enabled_card = SwitchSettingCard(
         FluentIcon.PASTE,
@@ -52,7 +52,7 @@ def create_clipboard_page(dialog) -> QWidget:
     layout.addWidget(grp_basic)
 
     # ════ 历史管理 ════
-    grp_history = SettingCardGroup(dialog.tr("History"), view)
+    grp_history = SettingCardGroup(dialog.tr("History"), view, tone="clipboard")
 
     limit_card = FSettingCard(
         FluentIcon.HISTORY,
@@ -71,7 +71,7 @@ def create_clipboard_page(dialog) -> QWidget:
     layout.addWidget(grp_history)
 
     # ════ 数据管理 ════
-    grp_data = SettingCardGroup(dialog.tr("Data"), view)
+    grp_data = SettingCardGroup(dialog.tr("Data"), view, tone="clipboard")
 
     # 存储位置
     db_path = _get_clipboard_db_path(dialog)

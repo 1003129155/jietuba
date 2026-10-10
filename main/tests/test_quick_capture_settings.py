@@ -65,7 +65,7 @@ def test_modifier_choices_need_one_or_two_keys_and_start_with_win(settings):
     modifiers = editor(settings, "copy").modifiers
     values = [modifiers.itemData(i) for i in range(modifiers.count())]
     assert values[:2] == ["", "win"]
-    assert modifiers.itemText(0) == ""
+    assert modifiers.itemText(0) == "—"
     assert all(1 <= len(value.split("+")) <= 2 for value in values[1:])
 
 

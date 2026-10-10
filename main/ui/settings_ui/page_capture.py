@@ -27,7 +27,7 @@ def create_capture_page(dialog) -> QWidget:
     layout.setSpacing(dialog_scaled(20))
 
     # ── 截图引擎 ──────────────────────────────────────
-    grp_engine = SettingCardGroup(dialog.tr("Screenshot"), view)
+    grp_engine = SettingCardGroup(dialog.tr("Screenshot"), view, tone="capture")
     engine_card = FSettingCard(
         FluentIcon.CAMERA,
         dialog.tr("Capture Engine"),
@@ -47,7 +47,7 @@ def create_capture_page(dialog) -> QWidget:
     layout.addWidget(grp_engine)
 
     # ── 智能选区 ──────────────────────────────────────
-    grp_smart = SettingCardGroup(dialog.tr("Smart Selection"), view)
+    grp_smart = SettingCardGroup(dialog.tr("Smart Selection"), view, tone="capture")
 
     # 三档做成一个下拉框而不是"总开关 + 下钻子开关"：配置本来就只有
     # off/window/element 三个值，拆成两个开关会多出"总开关关着、下钻开着"
@@ -86,7 +86,7 @@ def create_capture_page(dialog) -> QWidget:
     layout.addWidget(grp_smart)
 
     # ── 截图保存 ──────────────────────────────────────
-    grp_save = SettingCardGroup(dialog.tr("Save Settings"), view)
+    grp_save = SettingCardGroup(dialog.tr("Save Settings"), view, tone="capture")
 
     save_card = SwitchSettingCard(
         FluentIcon.SAVE,
@@ -155,7 +155,7 @@ def create_capture_page(dialog) -> QWidget:
     layout.addWidget(grp_save)
 
     # ── 放大镜 ────────────────────────────────────────
-    grp_magnifier = SettingCardGroup(dialog.tr("Magnifier"), view)
+    grp_magnifier = SettingCardGroup(dialog.tr("Magnifier"), view, tone="capture")
 
     magnifier_card = SwitchSettingCard(
         FluentIcon.SEARCH,
@@ -215,7 +215,7 @@ def create_capture_page(dialog) -> QWidget:
         ppocr_status = "missing_engine"
     ocr_available = bool(available_engines)
 
-    grp_ocr = SettingCardGroup(dialog.tr("OCR Settings"), view)
+    grp_ocr = SettingCardGroup(dialog.tr("OCR Settings"), view, tone="capture")
     ocr_engine_card = FSettingCard(
         FluentIcon.FONT,
         dialog.tr("OCR Engine"),

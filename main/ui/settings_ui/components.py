@@ -6,8 +6,8 @@ from PySide6.QtWidgets import (
     QWidget, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QSizePolicy,
     QAbstractScrollArea, QAbstractSpinBox, QApplication, QComboBox, QScrollArea,
 )
-from PySide6.QtCore import QEvent, QObject, QRect, QRectF, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QPainter
+from PySide6.QtCore import QEvent, QObject, QRectF, QSize, Qt, Signal
+from PySide6.QtGui import QPainter
 from core import safe_event
 from core.resource_manager import ResourceManager
 from core.ui_scale import dialog_scaled
@@ -16,18 +16,8 @@ from core.ui_theme import apply_style_sheet, get_ui_theme, set_own_style
 from ui.fluent_lite import (
     SwitchButton, SimpleCardWidget, SwitchSettingCard as _SwitchSettingCard, SettingCardGroup as _SettingCardGroupBase,
 )
-from ui.fluent_lite.theme import css_color, tinted_icon
-
-
-# 四个全局功能各有固定色相，饱和度压低，和蓝灰强调色放在一起不跳；
-# 其余设置行统一用 neutral。每项是 ((浅色底, 浅色图标), (深色底, 深色图标))。
-FEATURE_TONES = {
-    "capture": (("#F3E3E3", "#B0575A"), ("rgba(227, 154, 156, 0.16)", "#E39A9C")),
-    "clipboard": (("#E1EEE6", "#4E8A67"), ("rgba(140, 201, 165, 0.15)", "#8CC9A5")),
-    "pin": (("#F5EAD9", "#9E6B28"), ("rgba(224, 176, 112, 0.15)", "#E0B070")),
-    "translate": (("#E9E4F3", "#7A63A8"), ("rgba(183, 163, 227, 0.16)", "#B7A3E3")),
-    "neutral": (("#E3EAF0", "#526D85"), ("rgba(111, 143, 171, 0.20)", "#AFC3D4")),
-}
+from ui.fluent_lite.cards import FEATURE_TONES, IconBadge, card_text_left  # noqa: F401  页面从这里导入
+from ui.fluent_lite.theme import css_color
 
 
 class _WheelPassThrough(QObject):
@@ -53,8 +43,13 @@ def page_scroll_area(dialog) -> QScrollArea:
     """设置页最外层的滚动区，一建就挂到页面堆栈下。
 
     内容先放进游离的滚动区、再整体挂进窗口，整页的样式要算两遍。
+
+    竖直滚动条常驻：有无滚动条会让卡片宽度差一个滚动条宽，切页时右边缘跳动。
+    内容放得下时滑块由对话框样式表隐藏。
     """
-    return QScrollArea(getattr(dialog, "content_stack", None))
+    area = QScrollArea(getattr(dialog, "content_stack", None))
+    area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+    return area
 
 
 def disable_wheel_on_value_controls(root: QWidget) -> None:
@@ -152,11 +147,11 @@ def theme_menu_style() -> str:
 class SettingCardGroup(_SettingCardGroupBase):
     """调整 SettingCardGroup 的最小高度计算。"""
 
-    def addSettingCard(self, card: QWidget):
-        super().addSettingCard(card)
+    def addSettingCard(self, card: QWidget, with_separator: bool = True):
+        super().addSettingCard(card, with_separator)
 
-    def __init__(self, title, parent=None):
-        super().__init__(title, parent)
+    def __init__(self, title, parent=None, tone="neutral"):
+        super().__init__(title, parent, tone)
         # 竖直方向不吃富余空间：页面末尾有 addStretch()，本该由它吸收多出来的高度。
         # 默认策略下组会把富余摊进卡片之间，表现为组顶部凭空多一段空白，
         # 同时把后面的卡片顶出可视区。
@@ -280,10 +275,9 @@ class TransparentCard(QFrame):
 
 
 class WhiteCard(QFrame):
-    """自定义可变高度卡片。
+    """分组里自定义布局的一行，高度跟着内容走。
 
-    使用轻量绘制逻辑避免样式表导致的局部背景异常，
-    同时不受旧组件固定高度限制。
+    不画底和边框：底由所在的 SettingCardGroup 提供，再画一层会在深色下嵌出一个框。
     """
 
     def __init__(self, parent=None):
@@ -293,57 +287,6 @@ class WhiteCard(QFrame):
 
     def minimumSizeHint(self):
         return QSize(0, max(self.minimumHeight(), self.layout().minimumSize().height() if self.layout() else 0))
-
-    @safe_event
-    def paintEvent(self, e):
-        t = get_ui_theme().tokens
-        painter = QPainter(self)
-        painter.setRenderHints(QPainter.RenderHint.Antialiasing)
-        rect = self.rect().adjusted(1, 1, -1, -1)
-        if t.is_dark:
-            painter.setBrush(QColor(43, 47, 52, 245))
-            painter.setPen(QColor(255, 255, 255, 31))
-        else:
-            painter.setBrush(QColor(255, 255, 255, 46))
-            painter.setPen(QColor(255, 255, 255, 76))
-        painter.drawRoundedRect(rect, dialog_scaled(11), dialog_scaled(11))
-
-
-class IconBadge(QWidget):
-    """设置行左侧的图标块。
-
-    tone 取 FEATURE_TONES 的键时画带底色的方块；为 None 时只画图标，
-    muted 决定图标用次要文字色还是正文色。
-    """
-
-    def __init__(self, icon, tone="neutral", parent=None, *, size=36, icon_size=20, muted=True):
-        super().__init__(parent)
-        self._icon = icon
-        self._tone = tone
-        self._icon_size = icon_size
-        self._muted = muted
-        self.setFixedSize(dialog_scaled(size), dialog_scaled(size))
-        get_ui_theme().theme_changed.connect(self.update)
-
-    @safe_event
-    def paintEvent(self, e):
-        t = get_ui_theme().tokens
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        if self._tone is None:
-            fg = t.text_muted if self._muted else t.text
-        else:
-            bg, fg = FEATURE_TONES[self._tone][1 if t.is_dark else 0]
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(css_color(bg))
-            radius = dialog_scaled(10)
-            painter.drawRoundedRect(QRectF(self.rect()), radius, radius)
-        if self._icon is None:
-            return
-        side = dialog_scaled(self._icon_size)
-        target = QRect(0, 0, side, side)
-        target.moveCenter(self.rect().center())
-        tinted_icon(self._icon, fg).paint(painter, target)
 
 
 class _Separator(QWidget):

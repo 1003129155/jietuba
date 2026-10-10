@@ -23,7 +23,7 @@ def create_quick_actions_page(dialog) -> QWidget:
     layout.setSpacing(dialog_scaled(20))
 
     # ── 截图 ──────────────────────────────────────────
-    grp_capture = SettingCardGroup(dialog.tr("Screenshot"), view)
+    grp_capture = SettingCardGroup(dialog.tr("Screenshot"), view, tone="capture")
 
     if not hasattr(dialog, '_behavior_controls'):
         dialog._behavior_controls = {}
@@ -111,7 +111,7 @@ def create_quick_actions_page(dialog) -> QWidget:
     layout.addWidget(grp_capture)
 
     # ── 剪贴板 ────────────────────────────────────────
-    grp_clipboard = SettingCardGroup(dialog.tr("Clipboard"), view)
+    grp_clipboard = SettingCardGroup(dialog.tr("Clipboard"), view, tone="clipboard")
 
     win_v_card = SwitchSettingCard(
         FluentIcon.PASTE,

@@ -94,7 +94,7 @@ class MouseBindingEditor(QWidget):
         layout.setSpacing(dialog_scaled(8))
         self.modifiers = ComboBox(self)
         for value in _GLOBAL_MODIFIERS if kind == "global" else _INAPP_MODIFIERS:
-            label = value.title() if value else ("" if kind == "global" else dialog.tr("No Modifier"))
+            label = value.title() if value else ("—" if kind == "global" else dialog.tr("No Modifier"))
             self.modifiers.addItem(label, userData=value)
         self.gesture = ComboBox(self)
         for value, label in (("", "No Action"),) + _MOUSE_GESTURES[kind]:
@@ -166,7 +166,7 @@ def _build_mouse_rows(dialog, *, actions, key_prefix, action_icons, binding_gett
 
 def _create_global_section(dialog, parent):
     group = SectionCard(
-        ResourceManager.get_icon_path("鼠标.svg"),
+        ResourceManager.get_icon_path("鼠标线框.svg"),
         dialog.tr("Global Mouse Shortcuts"),
         dialog.tr("Hold modifier keys and drag the mouse"),
         parent=parent,

@@ -24,11 +24,10 @@ from ui.fluent_lite import (
     FrostedFramelessDialog,
 )
 from ui.fluent_lite import FluentTitleBar, scrollbar_qss
-from ui.fluent_lite.theme import ACCENT
+from ui.fluent_lite.theme import FONT_FAMILIES, tinted_icon
 
 from core import log_info, safe_event
 from core.logger import log_exception, T
-from core.constants import CSS_FONT_FAMILY, DEFAULT_FONT_FAMILY
 from core.resource_manager import ResourceManager
 from core.ui_scale import configure_dialog_control, configure_dialog_controls, dialog_scaled
 from settings.tool_settings import CAPTURE_ENGINES, SMART_SELECTION_MODES
@@ -50,8 +49,7 @@ from .page_developer import create_developer_page
 from .page_about import create_about_page
 from .components import (
     theme_surface_color,
-    theme_input_background, theme_popup_background,
-    theme_popup_hover_background, theme_text_style, theme_menu_style, theme_color, refresh_theme_widget_styles,
+    theme_text_style, theme_menu_style, refresh_theme_widget_styles,
     apply_theme_text_style, disable_wheel_on_value_controls,
 )
 
@@ -142,7 +140,11 @@ class SettingsDialog(FrostedFramelessDialog):
 
         self.setWindowTitle("jietuba")
         self.resize(dialog_scaled(1050), dialog_scaled(750))
-        self.setFont(QFont(DEFAULT_FONT_FAMILY, dialog_scaled(11)))
+        # 和卡片、导航用同一份字体栈，不带 font-family 的文字样式才会随之统一
+        window_font = QFont()
+        window_font.setFamilies(FONT_FAMILIES)
+        window_font.setPointSize(dialog_scaled(11))
+        self.setFont(window_font)
         self.setObjectName("SettingsDialog")
 
         self._setup_ui()
@@ -287,8 +289,9 @@ class SettingsDialog(FrostedFramelessDialog):
         nav.setMaximumWidth(dialog_scaled(206))
 
         self._nav_items = [
-            ("shortcuts", FluentIcon.COMMAND_PROMPT, self.tr("Shortcuts"), 0, NavigationItemPosition.TOP),
-            ("mouse", ResourceManager.get_icon_path("鼠标.svg"), self.tr("Mouse Shortcuts"), 10,
+            ("shortcuts", ResourceManager.get_icon_path("热键.svg"), self.tr("Shortcuts"), 0,
+             NavigationItemPosition.TOP),
+            ("mouse", ResourceManager.get_icon_path("鼠标线框.svg"), self.tr("Mouse Shortcuts"), 10,
              NavigationItemPosition.TOP),
             ("quick_actions", FluentIcon.STOP_WATCH, self.tr("Quick Actions"), 9, NavigationItemPosition.TOP),
             ("capture", FluentIcon.CAMERA, self.tr("Capture Settings"), 1, NavigationItemPosition.TOP),
@@ -301,13 +304,21 @@ class SettingsDialog(FrostedFramelessDialog):
             ("about", FluentIcon.INFO, self.tr("About"), 8, NavigationItemPosition.BOTTOM),
         ]
 
+        # 输入方式 / 各项功能 / 应用本身，三组之间画一条细线
+        group_starts = {"capture", "appearance"}
+        feature_tones = {
+            "capture": "capture", "pin": "pin", "clipboard": "clipboard", "translation": "translate",
+        }
         for route_key, icon, text, stack_index, position in self._nav_items:
+            if route_key in group_starts:
+                nav.addSeparator()
             nav.addItem(
                 routeKey=route_key,
                 icon=icon,
                 text=text,
                 onClick=lambda checked=False, idx=stack_index, rk=route_key: self._on_nav_changed(idx, rk),
                 position=position,
+                tone=feature_tones.get(route_key),
             )
 
         return nav
@@ -363,79 +374,6 @@ class SettingsDialog(FrostedFramelessDialog):
         toggle_obj.setChecked(checked_state)
         row.addWidget(toggle_obj)
         return row
-
-    def _get_input_style(self):
-        input_bg = theme_input_background()
-        popup_bg = theme_popup_background()
-        popup_hover = theme_popup_hover_background()
-        text_color = theme_color("#202020", "#F3F3F3")
-        border_color = theme_color("#D9DDE3", "#3A3D43")
-        focus_bg = theme_color("#FFFFFF", "#25272B")
-        arrow_color = theme_color("#666666", "#D0D0D0")
-        s = dialog_scaled
-        return f"""
-            QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {{
-                border: 1px solid {border_color}; border-radius: {s(4)}px;
-                padding: {s(4)}px {s(8)}px; background-color: {input_bg};
-                color: {text_color}; font-family: {CSS_FONT_FAMILY};
-                font-size: {s(13)}px;
-            }}
-            QLineEdit:focus, QSpinBox:focus {{
-                border: 1px solid {ACCENT}; background-color: {focus_bg};
-            }}
-            QSpinBox, QDoubleSpinBox {{ padding-right: {s(24)}px; }}
-            QSpinBox::up-button, QDoubleSpinBox::up-button {{
-                subcontrol-origin: border; subcontrol-position: top right;
-                width: {s(20)}px; border-left: 1px solid {border_color};
-                border-bottom: 1px solid {border_color}; border-top-right-radius: {s(4)}px;
-                background: {input_bg};
-            }}
-            QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover {{ background: {popup_hover}; }}
-            QSpinBox::up-button:pressed, QDoubleSpinBox::up-button:pressed {{ background: #DCE8F4; }}
-            QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{
-                image: none; border-left: {s(4)}px solid transparent;
-                border-right: {s(4)}px solid transparent; border-bottom: {s(6)}px solid {arrow_color};
-                width: 0; height: 0;
-            }}
-            QSpinBox::down-button, QDoubleSpinBox::down-button {{
-                subcontrol-origin: border; subcontrol-position: bottom right;
-                width: {s(20)}px; border-left: 1px solid {border_color};
-                border-bottom-right-radius: {s(4)}px; background: {input_bg};
-            }}
-            QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{ background: {popup_hover}; }}
-            QSpinBox::down-button:pressed, QDoubleSpinBox::down-button:pressed {{ background: #DCE8F4; }}
-            QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
-                image: none; border-left: {s(4)}px solid transparent;
-                border-right: {s(4)}px solid transparent; border-top: {s(6)}px solid {arrow_color};
-                width: 0; height: 0;
-            }}
-            QComboBox::drop-down {{
-                subcontrol-origin: padding; subcontrol-position: top right;
-                width: {s(20)}px; border-left: 1px solid {border_color};
-                border-top-right-radius: {s(4)}px; border-bottom-right-radius: {s(4)}px;
-                background: {input_bg};
-            }}
-            QComboBox::down-arrow {{
-                image: none; border-left: {s(4)}px solid transparent;
-                border-right: {s(4)}px solid transparent; border-top: {s(6)}px solid {arrow_color};
-                width: 0; height: 0; margin-right: {s(6)}px;
-            }}
-            QComboBox QAbstractItemView {{
-                border: 1px solid {border_color}; background: {popup_bg};
-                selection-background-color: {ACCENT}; selection-color: white;
-                font-family: {CSS_FONT_FAMILY};
-                font-size: {s(13)}px; color: {text_color}; outline: none;
-            }}
-            QComboBox QAbstractItemView::item {{
-                padding: {s(6)}px {s(8)}px; min-height: {s(24)}px; color: {text_color}; background: {popup_bg};
-            }}
-            QComboBox QAbstractItemView::item:hover {{
-                background-color: {popup_hover}; color: {text_color};
-            }}
-            QComboBox QAbstractItemView::item:selected {{
-                background-color: {ACCENT}; color: white;
-            }}
-        """
 
     # ================================================================
     # 导航 & 开发者入口
@@ -572,7 +510,6 @@ class SettingsDialog(FrostedFramelessDialog):
         ok_btn.setFixedHeight(s(42))
         ok_btn.setMinimumWidth(s(120))
         ok_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        ok_btn.setIcon(FluentIcon.CHECK)
         ok_btn.setBaseIconSize(16)
         ok_btn.clicked.connect(self.apply_settings)
         self._apply_footer_styles()
@@ -610,6 +547,13 @@ class SettingsDialog(FrostedFramelessDialog):
             """)
         ok_btn = getattr(self, "_footer_ok_btn", None)
         if ok_btn is not None:
+            # 对勾素材是白色的，禁用态的浅底上要换成和文字同色的一张
+            check = QIcon()
+            check.addPixmap(FluentIcon.CHECK.icon().pixmap(64, 64), QIcon.Mode.Normal)
+            check.addPixmap(
+                tinted_icon(FluentIcon.CHECK, t.text_disabled).pixmap(64, 64), QIcon.Mode.Disabled
+            )
+            ok_btn.setIcon(check)
             ok_btn.setStyleSheet(f"""
                 QPushButton {{
                     min-height: {s(40)}px;
@@ -1302,7 +1246,9 @@ class SettingsDialog(FrostedFramelessDialog):
             QStackedWidget {{
                 background: transparent;
             }}
-        """ + scrollbar_qss(self)
+        """ + scrollbar_qss(self) + """
+            QScrollBar::handle:vertical:disabled { background: transparent; }
+        """
         # 每次显示都会调到这里；内容没变不重设，重设会让整窗控件重新计算样式
         if sheet != self.styleSheet():
             self.setStyleSheet(sheet)
@@ -1312,12 +1258,6 @@ class SettingsDialog(FrostedFramelessDialog):
         self._apply_dialog_stylesheet()
         refresh_theme_widget_styles(self)
         self._apply_footer_styles()
-        input_style = self._get_input_style()
-        # 翻译凭据的输入框是按声明动态建的，从 provider_field_widgets 取。
-        # 上面那张手写清单里 azure/baidu 一直缺席，切主题时它们不跟着变。
-        for widget in getattr(self, "provider_field_widgets", {}).values():
-            if hasattr(widget, "setEchoMode"):
-                widget.setStyleSheet(input_style)
         self.content_title.setStyleSheet(
             theme_text_style(
                 21, bold=True,

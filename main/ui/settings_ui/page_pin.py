@@ -55,7 +55,7 @@ def create_pin_page(dialog) -> QWidget:
         ("Lock", _build_lock_section),
         ("Shortcuts", _build_shortcuts_section),
     ):
-        group = SettingCardGroup(dialog.tr(title), view)
+        group = SettingCardGroup(dialog.tr(title), view, tone="pin")
         build(dialog, group)
         layout.addWidget(group)
 
@@ -278,7 +278,7 @@ def _build_shortcuts_section(dialog, grp: SettingCardGroup):
     for icon, title, desc, mouse in (
         (FluentIcon.COMMAND_PROMPT, "Keyboard Shortcuts",
          "Copy, lock, thumbnail, toolbar and other keys for pinned images.", False),
-        (ResourceManager.get_icon_path("鼠标.svg"), "Mouse Shortcuts",
+        (ResourceManager.get_icon_path("鼠标线框.svg"), "Mouse Shortcuts",
          "Zoom, opacity, close and other mouse actions for pinned images.", True),
     ):
         card = FSettingCard(icon, dialog.tr(title), dialog.tr(desc), parent=grp)

@@ -26,7 +26,7 @@ from ui.fluent_lite import (
 from core.ui_theme import get_ui_theme, set_own_style
 from .components import (
     page_scroll_area,
-    SettingCardGroup, WhiteCard, adjust_button_width, apply_theme_text_style,
+    SettingCardGroup, WhiteCard, adjust_button_width, apply_theme_text_style, card_text_left,
 )
 from . import provider_fields
 
@@ -39,8 +39,6 @@ from translation.worker import TranslationWorker
 
 # 标签列宽。各家字段数和标签长度不同，固定宽度是为了切换服务商时输入框不左右跳。
 _LABEL_WIDTH = 135
-# 左边距对齐 FSettingCard 的标题位置（图标 + 间距），也对齐分隔线的 margin-left 52
-_ROW_LEFT_MARGIN = 56
 
 
 class _ProviderSection(QWidget):
@@ -85,7 +83,7 @@ class _ProviderSection(QWidget):
         color = ui_tokens(self).separator
         for separator in self._separators:
             set_own_style(separator,
-                f"background: {color}; border: none; margin-left: {dialog_scaled(52)}px;"
+                f"background: {color}; border: none; margin-left: {card_text_left()}px;"
             )
 
 
@@ -106,7 +104,7 @@ def create_translation_page(dialog) -> QWidget:
 
     # ════ 翻译引擎 ════
     # 引擎下拉和它的凭据是同一件事——选了哪家就配哪家，所以同属一组、一个白块。
-    grp_engine = SettingCardGroup(dialog.tr("Translation Engine"), page)
+    grp_engine = SettingCardGroup(dialog.tr("Translation Engine"), page, tone="translate")
 
     engine_card = FSettingCard(
         FluentIcon.LANGUAGE,
@@ -152,7 +150,7 @@ def create_translation_page(dialog) -> QWidget:
     dialog.translation_engine_group = grp_engine
 
     # ════ 翻译选项 ════
-    grp_opts = SettingCardGroup(dialog.tr("Translation Options"), page)
+    grp_opts = SettingCardGroup(dialog.tr("Translation Options"), page, tone="translate")
 
     lang_card = FSettingCard(
         FluentIcon.LANGUAGE,
@@ -187,6 +185,7 @@ def create_translation_page(dialog) -> QWidget:
         dialog.tr("Ignore Line Breaks"),
         dialog.tr("Merge multi-line text for better translation"),
         parent=request_opts_section,
+        tone="translate",
     )
     split_card.setChecked(dialog.config_manager.get_translation_split_sentences())
     dialog.split_sentences_toggle = split_card
@@ -197,6 +196,7 @@ def create_translation_page(dialog) -> QWidget:
         dialog.tr("Preserve Formatting"),
         dialog.tr("Keep original text formatting"),
         parent=request_opts_section,
+        tone="translate",
     )
     preserve_card.setChecked(
         dialog.config_manager.get_translation_preserve_formatting()
@@ -242,6 +242,7 @@ def _build_field(dialog, section, field, provider_id):
             dialog.tr(field.label),
             dialog.tr(field.description) if field.description else "",
             parent=section,
+            tone="translate",
         )
         card.setChecked(
             provider_fields.read_config(dialog.config_manager, field)
@@ -252,20 +253,19 @@ def _build_field(dialog, section, field, provider_id):
     card = WhiteCard(section)
     row = QHBoxLayout(card)
     row.setContentsMargins(
-        dialog_scaled(_ROW_LEFT_MARGIN), dialog_scaled(12), card_right_margin(), dialog_scaled(12)
+        card_text_left(), dialog_scaled(12), card_right_margin(), dialog_scaled(12)
     )
     row.setSpacing(dialog_scaled(10))
 
     title = QLabel(dialog.tr(field.label), card)
-    apply_theme_text_style(title, 13, bold=True)
+    apply_theme_text_style(title, 13)
     title.setFixedWidth(dialog_scaled(_LABEL_WIDTH))
     row.addWidget(title)
 
-    edit = LineEdit(card, use_default_style=False)
+    edit = LineEdit(card)
     edit.setText(provider_fields.read_config(dialog.config_manager, field))
     if field.placeholder:
         edit.setPlaceholderText(dialog.tr(field.placeholder))
-    edit.setStyleSheet(dialog._get_input_style())
     if field.secret:
         edit.setEchoMode(QLineEdit.EchoMode.Password)
     row.addWidget(edit, 1)
@@ -301,7 +301,7 @@ def _build_test_row(dialog, section, provider_id):
     card = WhiteCard(section)
     row = QHBoxLayout(card)
     row.setContentsMargins(
-        dialog_scaled(_ROW_LEFT_MARGIN), dialog_scaled(12), card_right_margin(), dialog_scaled(12)
+        card_text_left(), dialog_scaled(12), card_right_margin(), dialog_scaled(12)
     )
     row.setSpacing(dialog_scaled(10))
 
