@@ -692,7 +692,7 @@ ui/
 │   ├── page_mouse.py        # Mouse shortcut settings
 │   ├── page_pin.py          # Pin settings (behavior, appearance, click-through)
 │   ├── page_translation.py  # Translation settings
-│   ├── provider_fields.py   # 服务商字段的读写（按声明）
+│   ├── provider_fields.py   # Translation provider fields: read/write config and widget values from declarations
 │   ├── page_log.py          # Log settings
 │   ├── page_developer.py    # Developer settings
 │   ├── page_misc.py         # Miscellaneous settings
