@@ -5527,8 +5527,8 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
 <context>
     <name>Toolbar</name>
     <message>
-        <source>Watermark (click again to remove)</source>
-        <translation>워터마크 (다시 클릭하면 제거)</translation>
+        <source>Watermark</source>
+        <translation>워터마크</translation>
     </message>
 </context>
 <context>
@@ -5545,16 +5545,12 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
         <translation>워터마크</translation>
     </message>
     <message>
-        <source>Watermark Text</source>
-        <translation>워터마크 문구</translation>
+        <source>Add the Last Watermark Automatically</source>
+        <translation>지난번 워터마크 자동 추가</translation>
     </message>
     <message>
-        <source>Add Watermark Automatically</source>
-        <translation>워터마크 자동 추가</translation>
-    </message>
-    <message>
-        <source>Every screenshot starts with the watermark, including screenshots taken with mouse shortcuts.</source>
-        <translation>마우스 단축키로 찍은 스크린샷을 포함해 모든 스크린샷에 워터마크가 들어갑니다.</translation>
+        <source>If the last screenshot ended with a watermark, the next one gets the same watermark with the time updated; otherwise none is added. Screenshots taken with mouse shortcuts follow the same rule.</source>
+        <translation>지난번 스크린샷이 워터마크가 있는 채로 끝났다면 이번에도 같은 워터마크를 넣고 시간은 이번 촬영 시각으로 바꿉니다. 없었다면 넣지 않습니다. 마우스 단축키로 찍은 스크린샷도 마찬가지입니다.</translation>
     </message>
 </context>
 <context>
@@ -5709,17 +5705,6 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
     <message>
         <source>Compact, for file names</source>
         <translation>간결한 형식, 파일 이름용</translation>
-    </message>
-</context>
-<context>
-    <name>SettingsDialog</name>
-    <message>
-        <source>$yyyy-MM-dd HH:mm:ss$ becomes the time the watermark is added. More time formats, size, color and position are in the watermark panel on the screenshot toolbar.</source>
-        <translation>$yyyy-MM-dd HH:mm:ss$는 워터마크를 넣은 시각으로 바뀝니다. 다른 시간 형식과 크기, 색상, 위치는 스크린샷 도구 모음의 워터마크 패널에서 설정합니다.</translation>
-    </message>
-    <message>
-        <source>Input watermark</source>
-        <translation>워터마크 입력</translation>
     </message>
 </context>
 </TS>

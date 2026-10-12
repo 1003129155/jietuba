@@ -3,9 +3,10 @@
 水印测试
 
 水印是场景里唯一的一层文字，范围始终是选区。守着几件容易被顺手破坏的事：只画与重绘区
-相交的格子时不能漏画；八种位置各就各位、多行都画出来；铺上、去掉都能撤销且场景里最多一层；
-选区动了水印跟上；时间按加水印那一刻展开、改文字也不变；导出带水印、给 OCR 的纯底图不带；
-点选和橡皮擦穿过水印；钉图克隆后对上钉图的整张图；工具栏、样式弹层、输入框各自接对了线。
+相交的格子时不能漏画；八种位置各就各位、多行都画出来；铺上能撤销且场景里最多一层；
+选区动了水印跟上；时间按加水印、应用文字的那一刻展开，面板上显示的和图上一致；导出带水印、给 OCR 的纯底图不带；
+点选和橡皮擦穿过水印；钉图克隆后对上钉图的整张图；工具栏、样式弹层、输入框各自接对了线；
+截图结束时记下有没有水印，开着「自动加上上次的水印」时下次截图照此加或不加。
 """
 from datetime import datetime
 
@@ -37,7 +38,8 @@ def watermark_settings():
     manager = get_tool_settings_manager()
     style = manager.get_tool_settings("watermark").to_dict()
     saved = {key: manager.qsettings.value(f"app/{key}") for key in (
-        "screenshot_watermark_text", "screenshot_watermark_auto", "screenshot_watermark_time_format")}
+        "screenshot_watermark_text", "screenshot_watermark_auto", "screenshot_watermark_last_on",
+        "screenshot_watermark_time_format")}
     manager.update_settings("watermark", **vars(INK))
     manager.set_screenshot_watermark_text("WATERMARK")
     yield manager
@@ -213,7 +215,7 @@ def test_watermark_follows_the_selection_and_exports_with_it(qapp):
     assert _inked(exporter.export_base_image_only(selection)) == 0
 
 
-def test_adding_and_removing_are_undoable_and_there_is_only_one(qapp):
+def test_adding_is_undoable_and_there_is_only_one(qapp):
     scene = _scene()
     item = WatermarkTool.add(scene)
     assert WatermarkTool.add(scene) is item
@@ -222,12 +224,6 @@ def test_adding_and_removing_are_undoable_and_there_is_only_one(qapp):
     scene.undo_stack.undo()
     assert WatermarkItem.find(scene) is None
     scene.undo_stack.redo()
-    assert WatermarkItem.find(scene) is item
-
-    assert WatermarkTool.remove(scene)
-    assert WatermarkItem.find(scene) is None
-    assert not WatermarkTool.remove(scene)
-    scene.undo_stack.undo()
     assert WatermarkItem.find(scene) is item
 
 
@@ -260,13 +256,17 @@ def test_style_changes_apply_to_the_watermark_and_become_the_default(qapp, water
     assert WatermarkItem.find(scene) is None
 
 
-def test_editing_the_text_keeps_the_time_the_watermark_was_added(qapp, watermark_settings):
+def test_applying_the_text_restamps_the_time(qapp, watermark_settings):
     scene = _scene()
-    item = WatermarkTool.add(scene)
-    WatermarkTool.change_text(scene, "ACME $yyyy-MM-dd HH:mm:ss.zzz$")
-    assert item.template() == "ACME $yyyy-MM-dd HH:mm:ss.zzz$"
+    item = WatermarkItem("ACME $yyyy-MM-dd HH:mm:ss$", INK, NOW)
+    scene.addItem(item)
+    assert item.text() == "ACME 2026-10-11 09:05:07"
+
+    # 同样的文字再应用一次，时间也换成这一刻
+    assert WatermarkTool.change_text(scene, "ACME $yyyy-MM-dd HH:mm:ss$") is item
+    assert item.created_at() > NOW
     assert item.text() == expand_text(item.template(), item.created_at())
-    assert watermark_settings.get_screenshot_watermark_text() == "ACME $yyyy-MM-dd HH:mm:ss.zzz$"
+    assert watermark_settings.get_screenshot_watermark_text() == "ACME $yyyy-MM-dd HH:mm:ss$"
 
 
 def test_clicks_and_the_eraser_pass_through_the_watermark(qapp):
@@ -338,8 +338,9 @@ def test_watermark_clones_into_pin_and_covers_the_whole_pin(qapp, watermark_sett
     assert rendered == expected
 
 
-def test_quick_capture_gets_the_watermark_only_when_auto_is_on(qapp, watermark_settings):
+def test_quick_capture_gets_the_last_watermark_only_when_auto_is_on(qapp, watermark_settings):
     image = _blank(200, 120)
+    watermark_settings.set_screenshot_watermark_last_on(True)
     watermark_settings.set_screenshot_watermark_auto(False)
     assert WatermarkTool.apply_to_image(image, watermark_settings) is image
 
@@ -348,6 +349,11 @@ def test_quick_capture_gets_the_watermark_only_when_auto_is_on(qapp, watermark_s
     assert _inked(marked) > 0
     assert _inked(image) == 0   # 原图不动
 
+    # 上次截图结束时没有水印，这次也不加
+    watermark_settings.set_screenshot_watermark_last_on(False)
+    assert WatermarkTool.apply_to_image(image, watermark_settings) is image
+
+    watermark_settings.set_screenshot_watermark_last_on(True)
     watermark_settings.set_screenshot_watermark_text("")
     assert WatermarkTool.apply_to_image(image, watermark_settings) is image
 
@@ -366,18 +372,18 @@ def test_apply_watermark_matches_the_canvas_export(qapp):
 # 工具栏、面板、样式弹层、输入框
 # ---------------------------------------------------------------------------
 
-def test_toolbar_button_adds_then_removes(qapp):
+def test_toolbar_button_adds_and_a_second_click_only_closes_the_panel(qapp):
     from ui.toolbar import Toolbar
 
     toolbar = Toolbar()
-    toggles, styles = [], []
-    toolbar.watermark_toggled.connect(toggles.append)
+    requests, styles = [], []
+    toolbar.watermark_requested.connect(lambda: requests.append(True))
     toolbar.watermark_style_changed.connect(lambda key, value: styles.append((key, value)))
     assert toolbar.watermark_panel is None   # 用到才建
 
     toolbar.watermark_btn.click()
     panel = toolbar.watermark_panel
-    assert toolbar.current_tool == "watermark" and toggles == [True]
+    assert toolbar.current_tool == "watermark" and requests == [True]
     assert panel.isVisible()
     assert panel.text_field.template() == "WATERMARK"
 
@@ -389,10 +395,11 @@ def test_toolbar_button_adds_then_removes(qapp):
     toolbar.pen_btn.click()
     assert not panel.isVisible()
     toolbar.watermark_btn.click()
-    assert toolbar.current_tool == "watermark" and toggles == [True, True]
+    assert toolbar.current_tool == "watermark" and requests == [True, True]
 
+    # 再点和其他工具一样只是收起面板，不发去掉水印的请求
     toolbar.watermark_btn.click()
-    assert toolbar.current_tool is None and toggles == [True, True, False]
+    assert toolbar.current_tool is None and requests == [True, True]
     assert not toolbar.watermark_btn.isChecked()
     assert not panel.isVisible()
 
@@ -422,6 +429,26 @@ def test_style_popup_sliders_and_colors_report_their_fields(qapp):
     panel.layout_combo.setCurrentIndex(panel.layout_combo.findData(LAYOUT_TILE))
     assert popup._sliders["angle"].isEnabled()
     popup.hide()
+
+
+def test_text_field_shows_the_time_it_was_given_not_the_clock(qapp, monkeypatch):
+    import ui.watermark_settings_panel as panel_module
+    from ui.watermark_settings_panel import WatermarkTextField
+
+    field = WatermarkTextField()
+    field.set_template("ACME $HH:mm:ss$", NOW)
+    assert field.text() == "ACME 09:05:07"
+
+    class Later(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 10, 11, 18, 0, 0)
+
+    # 悬停、换语言都会重绘，显示的时间不能跟着钟走
+    monkeypatch.setattr(panel_module, "datetime", Later)
+    field.retranslate()
+    field.grab()
+    assert field.text() == "ACME 09:05:07"
 
 
 def test_text_field_opens_the_editor_and_clears(qapp, monkeypatch):
@@ -525,7 +552,7 @@ def test_edit_watermark_text_returns_the_text_and_remembers_the_time_format(qapp
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-def window(qapp, tmp_settings, monkeypatch):
+def window(qapp, tmp_settings, monkeypatch, watermark_settings):
     from pin.pin_manager import PinManager
     from settings.tool_settings import ToolSettingsManager
     from ui.screenshot_window import ScreenshotWindow
@@ -533,9 +560,11 @@ def window(qapp, tmp_settings, monkeypatch):
     monkeypatch.setattr(PinManager, "suppress_topmost", lambda self: None)
     monkeypatch.setattr(PinManager, "restore_topmost", lambda self: None)
 
-    def make(auto=False):
+    def make(auto=False, last_on=True):
+        # 水印的文字和状态都从场景的设置管理器读
+        watermark_settings.set_screenshot_watermark_auto(auto)
+        watermark_settings.set_screenshot_watermark_last_on(last_on)
         config = ToolSettingsManager(tmp_settings)
-        config.set_screenshot_watermark_auto(auto)
         shot = ScreenshotWindow(config, prefetched_image=_blank(400, 300),
                                 prefetched_rect=QRectF(0, 0, 400, 300))
         made.append(shot)
@@ -548,7 +577,7 @@ def window(qapp, tmp_settings, monkeypatch):
         shot.deleteLater()
 
 
-def test_toolbar_button_adds_and_removes_the_watermark_in_a_screenshot(window):
+def test_toolbar_button_adds_the_watermark_and_a_second_click_keeps_it(window):
     shot = window()
     shot.scene.preset_selection(QRectF(20, 20, 200, 150))
     assert WatermarkItem.find(shot.scene) is None
@@ -556,17 +585,26 @@ def test_toolbar_button_adds_and_removes_the_watermark_in_a_screenshot(window):
     shot.toolbar.watermark_btn.click()
     item = WatermarkItem.find(shot.scene)
     assert item is not None and item.rect() == QRectF(20, 20, 200, 150)
+    field = shot.toolbar.watermark_panel.text_field
+    assert field.text() == item.text()
 
     shot.toolbar.watermark_panel.layout_combo.setCurrentIndex(
         shot.toolbar.watermark_panel.layout_combo.findData("top"))
     assert item.style().layout == "top"
-    shot.toolbar.watermark_text_changed.emit("NEW $yyyy$")
-    assert item.template() == "NEW $yyyy$"
+    shot.toolbar.watermark_text_changed.emit("NEW $HH:mm:ss.zzz$")
+    assert item.template() == "NEW $HH:mm:ss.zzz$"
+    assert field.text() == item.text()
+
+    # 切走再回来，面板显示的仍是图上那一刻
+    shot.toolbar.pen_btn.click()
+    shot.toolbar.watermark_btn.click()
+    assert field.text() == item.text()
 
     shot.toolbar.watermark_btn.click()
-    assert WatermarkItem.find(shot.scene) is None
-    shot.scene.undo_stack.undo()
+    assert shot.toolbar.current_tool is None
     assert WatermarkItem.find(shot.scene) is item
+    shot.scene.undo_stack.undo()
+    assert WatermarkItem.find(shot.scene) is None
 
 
 def test_auto_watermark_is_added_once_per_screenshot(window):
@@ -575,12 +613,12 @@ def test_auto_watermark_is_added_once_per_screenshot(window):
     assert WatermarkItem.find(shot.scene) is not None
     assert not shot.scene.undo_stack.canUndo()
 
-    # 切到水印工具再点一下就去掉；重新框选不会再自己冒出来
+    # 用面板上的 × 清掉；重新框选不会再自己冒出来
     shot.toolbar.watermark_btn.click()
-    shot.toolbar.watermark_btn.click()
-    assert WatermarkItem.find(shot.scene) is None
+    shot.toolbar.watermark_panel.text_field.cleared.emit()
+    assert WatermarkItem.find(shot.scene).text() == ""
     shot.scene.preset_selection(QRectF(30, 30, 100, 100))
-    assert WatermarkItem.find(shot.scene) is None
+    assert WatermarkItem.find(shot.scene).text() == ""
 
 
 def test_auto_watermark_needs_some_text(window, watermark_settings):
@@ -594,6 +632,41 @@ def test_no_watermark_unless_asked(window):
     shot = window(auto=False)
     shot.scene.preset_selection(QRectF(20, 20, 200, 150))
     assert WatermarkItem.find(shot.scene) is None
+
+
+def test_no_auto_watermark_when_the_last_screenshot_had_none(window):
+    shot = window(auto=True, last_on=False)
+    shot.scene.preset_selection(QRectF(20, 20, 200, 150))
+    assert WatermarkItem.find(shot.scene) is None
+
+
+def test_the_end_of_a_screenshot_remembers_whether_it_had_a_watermark(window, watermark_settings):
+    def finish(shot):
+        shot.cleanup_and_close()
+        return watermark_settings.get_screenshot_watermark_last_on()
+
+    shot = window(last_on=False)
+    shot.scene.preset_selection(QRectF(20, 20, 200, 150))
+    shot.toolbar.watermark_btn.click()
+    assert finish(shot) is True
+
+    # 撤销掉的不算
+    shot = window(last_on=True)
+    shot.scene.preset_selection(QRectF(20, 20, 200, 150))
+    shot.toolbar.watermark_btn.click()
+    shot.scene.undo_stack.undo()
+    assert finish(shot) is False
+
+    # 文字清空了也算没有
+    shot = window(auto=True, last_on=True)
+    shot.scene.preset_selection(QRectF(20, 20, 200, 150))
+    shot.toolbar.watermark_btn.click()
+    shot.toolbar.watermark_panel.text_field.cleared.emit()
+    assert finish(shot) is False
+
+    # 没框选就退出不算一次截图，记下的状态不动
+    watermark_settings.set_screenshot_watermark_text("WATERMARK")
+    assert finish(window(auto=True, last_on=True)) is True
 
 
 def test_screenshot_shortcuts_yield_to_the_watermark_input_dialog(window):

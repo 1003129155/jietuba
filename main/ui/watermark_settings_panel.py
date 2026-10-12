@@ -52,6 +52,7 @@ class WatermarkTextField(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._template = ""
+        self._text = ""
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setMouseTracking(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -62,14 +63,18 @@ class WatermarkTextField(QWidget):
         self.setFixedSize(scaled(self.BASE_WIDTH), scaled(self.BASE_HEIGHT))
         self.update()
 
-    def set_template(self, template: str):
+    def set_template(self, template: str, when: datetime = None):
+        """when 是图上那层水印的时间；只在这里展开一次，重绘时不再取当前时间，显示的和图上的一致。"""
         self._template = template or ""
-        text = expand_text(self._template, datetime.now())
-        self.setToolTip(text or _tr("Input watermark"))
+        self._text = expand_text(self._template, when or datetime.now())
+        self.setToolTip(self._text or _tr("Input watermark"))
         self.update()
 
     def template(self) -> str:
         return self._template
+
+    def text(self) -> str:
+        return self._text
 
     def _clear_rect(self) -> QRectF:
         side = scaled_f(self.BASE_CLEAR)
@@ -89,7 +94,7 @@ class WatermarkTextField(QWidget):
         content = QRectF(rect.left() + scaled_f(self.BASE_PADDING), rect.top(), 0, rect.height())
         content.setRight(right)
         # 多行水印在一行里用空格隔开显示，完整内容看悬停提示
-        text = expand_text(self._template, datetime.now()).replace("\n", "  ")
+        text = self._text.replace("\n", "  ")
         painter.setFont(self.font())
         painter.setPen(CONTROL_INK if text else CONTROL_SUB)
         shown = self.fontMetrics().elidedText(text or _tr("Input watermark"), Qt.TextElideMode.ElideRight,
@@ -107,6 +112,10 @@ class WatermarkTextField(QWidget):
             painter.drawLine(QPointF(c.x() - d, c.y() - d), QPointF(c.x() + d, c.y() + d))
             painter.drawLine(QPointF(c.x() - d, c.y() + d), QPointF(c.x() + d, c.y() - d))
         painter.end()
+
+    def retranslate(self):
+        self.setToolTip(self._text or _tr("Input watermark"))
+        self.update()
 
     def mouseMoveEvent(self, event):
         self.update()
@@ -398,8 +407,8 @@ class WatermarkSettingsPanel(QWidget):
         if self._style_popup is not None:
             self._style_popup.load_style(self._style)
 
-    def set_template(self, template: str):
-        self.text_field.set_template(template)
+    def set_template(self, template: str, when=None):
+        self.text_field.set_template(template, when)
 
     def retranslate(self):
         for index, key in enumerate(LAYOUTS):
@@ -413,6 +422,6 @@ class WatermarkSettingsPanel(QWidget):
         self.font_combo.blockSignals(True)
         self.font_combo.setCurrentIndex(max(0, self.font_combo.findData(current)))
         self.font_combo.blockSignals(False)
-        self.text_field.set_template(self.text_field.template())
+        self.text_field.retranslate()
         if self._style_popup is not None:
             self._style_popup.retranslate()

@@ -565,7 +565,7 @@ tools/
 ├── highlighter.py           # HighlighterTool — highlighter
 ├── mosaic.py                # MosaicTool — pixel mosaic
 ├── spotlight.py             # SpotlightTool — spotlight (dims outside the box)
-├── watermark.py             # WatermarkTool — adds/removes the watermark and changes its text and style
+├── watermark.py             # WatermarkTool — adds the watermark, changes its text and style, remembers whether the last screenshot had one
 ├── cursor.py                # CursorTool — cursor/selection
 ├── eraser.py                # EraserTool — eraser
 └── cursor_manager.py        # CursorManager — cursor style manager

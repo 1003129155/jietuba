@@ -5324,8 +5324,8 @@ Make sure gifrecorder is installed correctly.</translation>
 <context>
     <name>Toolbar</name>
     <message>
-        <source>Watermark (click again to remove)</source>
-        <translation>Watermark (click again to remove)</translation>
+        <source>Watermark</source>
+        <translation>Watermark</translation>
     </message>
 </context>
 <context>
@@ -5342,16 +5342,12 @@ Make sure gifrecorder is installed correctly.</translation>
         <translation>Watermark</translation>
     </message>
     <message>
-        <source>Watermark Text</source>
-        <translation>Watermark Text</translation>
+        <source>Add the Last Watermark Automatically</source>
+        <translation>Add the Last Watermark Automatically</translation>
     </message>
     <message>
-        <source>Add Watermark Automatically</source>
-        <translation>Add Watermark Automatically</translation>
-    </message>
-    <message>
-        <source>Every screenshot starts with the watermark, including screenshots taken with mouse shortcuts.</source>
-        <translation>Every screenshot starts with the watermark, including screenshots taken with mouse shortcuts.</translation>
+        <source>If the last screenshot ended with a watermark, the next one gets the same watermark with the time updated; otherwise none is added. Screenshots taken with mouse shortcuts follow the same rule.</source>
+        <translation>If the last screenshot ended with a watermark, the next one gets the same watermark with the time updated; otherwise none is added. Screenshots taken with mouse shortcuts follow the same rule.</translation>
     </message>
 </context>
 <context>
@@ -5506,17 +5502,6 @@ Make sure gifrecorder is installed correctly.</translation>
     <message>
         <source>Compact, for file names</source>
         <translation>Compact, for file names</translation>
-    </message>
-</context>
-<context>
-    <name>SettingsDialog</name>
-    <message>
-        <source>$yyyy-MM-dd HH:mm:ss$ becomes the time the watermark is added. More time formats, size, color and position are in the watermark panel on the screenshot toolbar.</source>
-        <translation>$yyyy-MM-dd HH:mm:ss$ becomes the time the watermark is added. More time formats, size, color and position are in the watermark panel on the screenshot toolbar.</translation>
-    </message>
-    <message>
-        <source>Input watermark</source>
-        <translation>Input watermark</translation>
     </message>
 </context>
 </TS>

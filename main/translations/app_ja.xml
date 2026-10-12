@@ -5568,8 +5568,8 @@ gifrecorder が正しくインストールされているか確認してくだ�
 <context>
     <name>Toolbar</name>
     <message>
-        <source>Watermark (click again to remove)</source>
-        <translation>透かし（もう一度クリックで削除）</translation>
+        <source>Watermark</source>
+        <translation>透かし</translation>
     </message>
 </context>
 <context>
@@ -5586,16 +5586,12 @@ gifrecorder が正しくインストールされているか確認してくだ�
         <translation>透かし</translation>
     </message>
     <message>
-        <source>Watermark Text</source>
-        <translation>透かしの文字</translation>
+        <source>Add the Last Watermark Automatically</source>
+        <translation>前回の透かしを自動で追加</translation>
     </message>
     <message>
-        <source>Add Watermark Automatically</source>
-        <translation>透かしを自動で追加</translation>
-    </message>
-    <message>
-        <source>Every screenshot starts with the watermark, including screenshots taken with mouse shortcuts.</source>
-        <translation>マウスショートカットで撮ったものも含め、すべてのスクリーンショットに透かしが入ります。</translation>
+        <source>If the last screenshot ended with a watermark, the next one gets the same watermark with the time updated; otherwise none is added. Screenshots taken with mouse shortcuts follow the same rule.</source>
+        <translation>前回のスクリーンショットが透かし付きで終わっていれば、今回も同じ透かしを付け、時刻は今回のものに更新します。前回なければ付けません。マウスショートカットで撮ったものも同様です。</translation>
     </message>
 </context>
 <context>
@@ -5750,17 +5746,6 @@ gifrecorder が正しくインストールされているか確認してくだ�
     <message>
         <source>Compact, for file names</source>
         <translation>コンパクト形式（ファイル名向け）</translation>
-    </message>
-</context>
-<context>
-    <name>SettingsDialog</name>
-    <message>
-        <source>$yyyy-MM-dd HH:mm:ss$ becomes the time the watermark is added. More time formats, size, color and position are in the watermark panel on the screenshot toolbar.</source>
-        <translation>$yyyy-MM-dd HH:mm:ss$ は透かしを付けた時刻に置き換わります。ほかの時刻形式やサイズ・色・位置は、スクリーンショットツールバーの透かしパネルで設定します。</translation>
-    </message>
-    <message>
-        <source>Input watermark</source>
-        <translation>透かしを入力</translation>
     </message>
 </context>
 </TS>

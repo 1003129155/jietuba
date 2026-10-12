@@ -564,7 +564,7 @@ tools/
 ├── highlighter.py           # HighlighterTool — 蛍光ペン
 ├── mosaic.py                # MosaicTool — モザイク
 ├── spotlight.py             # SpotlightTool — スポットライト（枠の外を暗くする）
-├── watermark.py             # WatermarkTool — 透かし（追加・削除・文字とスタイルの変更）
+├── watermark.py             # WatermarkTool — 透かし（追加・文字とスタイルの変更・前回の有無の記録）
 ├── cursor.py                # CursorTool — カーソル/選択
 ├── eraser.py                # EraserTool — 消しゴム
 └── cursor_manager.py        # CursorManager — カーソルスタイル管理

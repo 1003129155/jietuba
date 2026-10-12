@@ -209,7 +209,7 @@ class WatermarkItem(QGraphicsItem):
     """场景里唯一的一层水印，范围始终是所在场景的选区。
 
     截图场景的选区移动、缩放时由场景通知它跟上；钉图场景的选区就是整张图。
-    文字里的时间按 created_at 展开：之后改文字、预览、导出，时间都还是加水印的那一刻。
+    文字里的时间按 created_at 展开：加上水印、重新应用文字时定下，之后预览、导出、钉图都不再变。
     水印不参与命中：点选、悬停、橡皮擦都穿过它落到下面的标注上。
     """
 
@@ -245,12 +245,16 @@ class WatermarkItem(QGraphicsItem):
     def text(self) -> str:
         return self._text
 
-    def set_template(self, template: str):
+    def set_template(self, template: str, when: datetime = None):
+        """换文字；给了 when 就把水印的时间也换成那一刻。"""
         template = str(template or "")
-        if template != self._template:
-            self._template = template
-            self._text = expand_text(template, self._created_at)
-            self.update()
+        if template == self._template and when is None:
+            return
+        self._template = template
+        if when is not None:
+            self._created_at = when
+        self._text = expand_text(template, self._created_at)
+        self.update()
 
     def style(self) -> WatermarkStyle:
         return self._style

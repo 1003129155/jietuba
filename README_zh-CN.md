@@ -634,7 +634,7 @@ tools/
 ├── highlighter.py           # HighlighterTool — 荧光笔工具
 ├── mosaic.py                # MosaicTool — 马赛克工具
 ├── spotlight.py             # SpotlightTool — 聚光灯工具（压暗框外区域）
-├── watermark.py             # WatermarkTool — 水印工具（铺上、去掉、改文字和样式）
+├── watermark.py             # WatermarkTool — 水印工具（铺上、改文字和样式、记下上次有没有水印）
 ├── cursor.py                # CursorTool — 光标/选择工具
 ├── eraser.py                # EraserTool — 橡皮擦工具
 └── cursor_manager.py        # CursorManager — 光标样式管理器

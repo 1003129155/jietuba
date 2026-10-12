@@ -255,8 +255,8 @@ class Toolbar(QWidget):
     # 画笔工具专用信号
     line_style_changed = Signal(str)  # 线条样式改变(solid/dashed)
 
-    # 水印：铺上(True)/去掉(False)；样式改动是 (WatermarkStyle 的字段名, 新值)；文字是带时间占位的模板
-    watermark_toggled = Signal(bool)
+    # 水印：按下按钮要铺上水印（已有就用那一层）；样式改动是 (WatermarkStyle 的字段名, 新值)；文字是带时间占位的模板
+    watermark_requested = Signal()
     watermark_style_changed = Signal(str, object)
     watermark_text_changed = Signal(str)
     
@@ -334,7 +334,7 @@ class Toolbar(QWidget):
         self.spotlight_btn = self._add_tool_button(
             "spotlight", "svg/聚光灯.svg", "Spotlight (dim outside the box)", tool)
         self.watermark_btn = self._add_tool_button(
-            "watermark", "svg/水印.svg", "Watermark (click again to remove)", tool)
+            "watermark", "svg/水印.svg", "Watermark", tool)
         self.arrow_btn = self._add_tool_button("arrow", "svg/箭头.svg", "Draw arrow", tool)
         self.number_btn = self._add_tool_button(
             "number", "svg/序号.svg", "Number (Shift+scroll to change number)", tool)
@@ -715,6 +715,11 @@ class Toolbar(QWidget):
             panel.set_template(template)
         self.watermark_text_changed.emit(template)
 
+    def show_watermark(self, template: str, when):
+        """面板上显示图上那层水印：文字按水印自己的时间展开。"""
+        if self.watermark_panel is not None:
+            self.watermark_panel.set_template(template, when)
+
     @safe_event
     def paintEvent(self, event):
         """手动绘制圆角白底和细描边，确保四角真正透明"""
@@ -851,16 +856,15 @@ class Toolbar(QWidget):
         self.select_tool(tool_id, toggle=True)
 
     def _on_watermark_clicked(self):
-        """水印按钮：没选中时铺上水印并打开面板；已选中时再点一下，去掉水印。
+        """水印按钮：铺上水印（已有就用那一层）并打开面板；已选中时再点只收起面板，和其他工具一样。
 
-        切到别的工具后水印还在，这时再点它只是重新打开面板。还没有水印文字时，铺上后直接弹出输入框。
+        去掉水印用面板上的 ×，免得想收起面板时把水印一起点没了。还没有水印文字时，铺上后直接弹出输入框。
         """
         if self.current_tool == "watermark":
             self.select_tool("cursor")
-            self.watermark_toggled.emit(False)
             return
         self.select_tool("watermark")
-        self.watermark_toggled.emit(True)
+        self.watermark_requested.emit()
         if not self._ensure_watermark_panel().text_field.template():
             self.edit_watermark_text()
 

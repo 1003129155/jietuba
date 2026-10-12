@@ -392,8 +392,9 @@ class ToolSettingsManager(QObject):
         "screenshot_border_persist": False,          # 每次截图都保持开启
 
         # 截图水印（样式在 tools/watermark 下，随工具栏面板改）
-        "screenshot_watermark_text": "",               # $yyyy-MM-dd HH:mm:ss$ 这样的占位换成截图时刻
-        "screenshot_watermark_auto": False,            # 每次截图自动加水印，含全局鼠标快捷键的截图
+        "screenshot_watermark_text": "",               # 上次用的水印文字，$yyyy-MM-dd HH:mm:ss$ 这样的占位换成加水印的时刻
+        "screenshot_watermark_auto": False,            # 截图时自动加上上次的水印，含全局鼠标快捷键的截图
+        "screenshot_watermark_last_on": False,         # 上次截图结束时带着水印
         "screenshot_watermark_time_format": "yyyy-MM-dd HH:mm:ss",  # 输入水印时「插入时间」用的格式
         # GIF 录制
         "gif_fps": 10,                         # GIF默认帧率
@@ -1194,7 +1195,7 @@ class ToolSettingsManager(QObject):
         self.qsettings.setValue("app/screenshot_watermark_time_format", str(value or ""))
 
     def get_screenshot_watermark_auto(self) -> bool:
-        """每次截图是否自动加水印"""
+        """截图时是否自动加上上次的水印（上次截图结束时没有水印就不加）"""
         return self.qsettings.value(
             "app/screenshot_watermark_auto",
             self.APP_DEFAULT_SETTINGS["screenshot_watermark_auto"],
@@ -1203,6 +1204,17 @@ class ToolSettingsManager(QObject):
 
     def set_screenshot_watermark_auto(self, value: bool):
         self.qsettings.setValue("app/screenshot_watermark_auto", bool(value))
+
+    def get_screenshot_watermark_last_on(self) -> bool:
+        """上次截图结束时是否带着水印"""
+        return self.qsettings.value(
+            "app/screenshot_watermark_last_on",
+            self.APP_DEFAULT_SETTINGS["screenshot_watermark_last_on"],
+            type=bool,
+        )
+
+    def set_screenshot_watermark_last_on(self, value: bool):
+        self.qsettings.setValue("app/screenshot_watermark_last_on", bool(value))
 
     def get_screenshot_quality(self) -> int:
         """获取截图保存质量 (1-100, PNG/BMP时忽略)"""

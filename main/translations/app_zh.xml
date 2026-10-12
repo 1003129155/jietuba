@@ -5613,8 +5613,8 @@ Make sure gifrecorder is installed correctly.</source>
 <context>
     <name>Toolbar</name>
     <message>
-        <source>Watermark (click again to remove)</source>
-        <translation>水印（再点一次去掉）</translation>
+        <source>Watermark</source>
+        <translation>水印</translation>
     </message>
 </context>
 <context>
@@ -5631,16 +5631,12 @@ Make sure gifrecorder is installed correctly.</source>
         <translation>水印</translation>
     </message>
     <message>
-        <source>Watermark Text</source>
-        <translation>水印文字</translation>
+        <source>Add the Last Watermark Automatically</source>
+        <translation>截图时自动加上上次的水印</translation>
     </message>
     <message>
-        <source>Add Watermark Automatically</source>
-        <translation>自动加水印</translation>
-    </message>
-    <message>
-        <source>Every screenshot starts with the watermark, including screenshots taken with mouse shortcuts.</source>
-        <translation>每次截图都自动加上水印，包括用鼠标快捷键截的图。</translation>
+        <source>If the last screenshot ended with a watermark, the next one gets the same watermark with the time updated; otherwise none is added. Screenshots taken with mouse shortcuts follow the same rule.</source>
+        <translation>上次截图结束时带着水印，这次就加上同样的水印，时间按这次刷新；上次没有就不加。鼠标快捷键截的图也一样。</translation>
     </message>
 </context>
 <context>
@@ -5795,17 +5791,6 @@ Make sure gifrecorder is installed correctly.</source>
     <message>
         <source>Compact, for file names</source>
         <translation>紧凑格式，适合文件名</translation>
-    </message>
-</context>
-<context>
-    <name>SettingsDialog</name>
-    <message>
-        <source>$yyyy-MM-dd HH:mm:ss$ becomes the time the watermark is added. More time formats, size, color and position are in the watermark panel on the screenshot toolbar.</source>
-        <translation>$yyyy-MM-dd HH:mm:ss$ 会换成加水印时的时间。更多时间格式和字号、颜色、位置在截图工具栏的水印面板里设置。</translation>
-    </message>
-    <message>
-        <source>Input watermark</source>
-        <translation>输入水印</translation>
     </message>
 </context>
 </TS>

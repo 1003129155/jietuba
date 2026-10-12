@@ -605,6 +605,7 @@ class ScreenshotWindow(QWidget):
 
     def _release_session_resources(self):
         log_debug(T("开始释放截图会话资源（保留 UI 壳）"), "ScreenshotWindow")
+        self._remember_watermark()
         
         # 恢复窗口对截图 API 的可见性
         if getattr(self, '_exclude_from_capture_set', False):
@@ -757,7 +758,7 @@ class ScreenshotWindow(QWidget):
             self.toolbar.mosaic_style_changed.connect(self.on_mosaic_style_changed)
         if hasattr(self.toolbar, "mosaic_block_size_changed"):
             self.toolbar.mosaic_block_size_changed.connect(self.on_mosaic_block_size_changed)
-        self.toolbar.watermark_toggled.connect(self.on_watermark_toggled)
+        self.toolbar.watermark_requested.connect(self.on_watermark_requested)
         self.toolbar.watermark_style_changed.connect(self.on_watermark_style_changed)
         self.toolbar.watermark_text_changed.connect(self.on_watermark_text_changed)
 
@@ -781,8 +782,9 @@ class ScreenshotWindow(QWidget):
         self.scene.selectionConfirmed.connect(self.on_selection_confirmed)
         self.scene.selection_model.rectChanged.connect(self.update_toolbar_position)
         self.scene.selection_model.draggingChanged.connect(self.on_selection_dragging_changed)
-        # 自动水印每次会话只加一次：之后用户手动去掉、再重新框选，都不再自己冒出来
-        if self.config_manager.get_screenshot_watermark_auto():
+        # 自动水印每次会话只加一次：之后用户清掉、再重新框选，都不再自己冒出来
+        from tools.watermark import WatermarkTool
+        if WatermarkTool.auto_template(self.scene.tool_settings_manager):
             self.scene.selectionConfirmed.connect(
                 self._add_auto_watermark, Qt.ConnectionType.SingleShotConnection)
         
@@ -1067,13 +1069,11 @@ class ScreenshotWindow(QWidget):
         if hasattr(self, 'magnifier_overlay') and self.magnifier_overlay:
             self.magnifier_overlay.refresh()
 
-    def on_watermark_toggled(self, enabled: bool):
+    def on_watermark_requested(self):
         from tools.watermark import WatermarkTool
 
-        if enabled:
-            WatermarkTool.add(self.scene)
-        else:
-            WatermarkTool.remove(self.scene)
+        item = WatermarkTool.add(self.scene)
+        self.toolbar.show_watermark(item.template(), item.created_at())
 
     def on_watermark_style_changed(self, key: str, value):
         from tools.watermark import WatermarkTool
@@ -1083,14 +1083,23 @@ class ScreenshotWindow(QWidget):
     def on_watermark_text_changed(self, template: str):
         from tools.watermark import WatermarkTool
 
-        WatermarkTool.change_text(self.scene, template)
+        item = WatermarkTool.change_text(self.scene, template)
+        if item is not None:
+            self.toolbar.show_watermark(item.template(), item.created_at())
 
     def _add_auto_watermark(self):
-        # 不进撤销栈：开头就有的水印不该被第一下 Ctrl+Z 撤掉，要去掉就点水印按钮
+        # 不进撤销栈：开头就有的水印不该被第一下 Ctrl+Z 撤掉，要去掉就点面板上的 ×
         from tools.watermark import WatermarkTool
 
-        if WatermarkTool.current_template(self.scene.tool_settings_manager):
-            WatermarkTool.add(self.scene, undoable=False)
+        WatermarkTool.add(self.scene, undoable=False)
+
+    def _remember_watermark(self):
+        # 没框选就退出的不算一次截图，不改记下的状态
+        from tools.watermark import WatermarkTool
+
+        scene = getattr(self, "scene", None)
+        if scene is not None and scene.selection_model.is_confirmed:
+            WatermarkTool.remember(scene)
 
     def on_number_next_changed(self, next_value: int):
         """序号工具下一数字变化 - 更新场景偏移和光标预览"""
