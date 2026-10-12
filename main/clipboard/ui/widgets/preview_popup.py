@@ -28,7 +28,7 @@ def side_position(size: QSize, pos: QPoint, avoid_rect=None, prefer_side: str = 
     """浮层左上角位置：放在 avoid_rect（通常是剪贴板窗口）左侧或右侧，并限制在屏幕内。
 
     prefer_side 为 "left" / "right" / "auto"（优先右侧）；首选侧放不下时换另一侧，
-    两侧都放不下时取空间较大的一侧。没有 avoid_rect 时放在 pos 右侧。
+    两侧都放不下时取空间较大的一侧。没有 avoid_rect 时放在 pos 右侧，放不下换到左侧。
     """
     if gap is None:
         gap = _px(10)
@@ -50,6 +50,9 @@ def side_position(size: QSize, pos: QPoint, avoid_rect=None, prefer_side: str = 
             x = left_x if left_fits else right_x if right_fits else roomier_x
         else:
             x = right_x if right_fits else left_x if left_fits else roomier_x
+    elif x + width > screen_geo.right():
+        # 浮层不能盖住光标：盖住后列表收到 Leave 会收起预览，鼠标回到列表又弹出，反复闪烁
+        x = pos.x() - _px(20) - width
 
     if x + width > screen_geo.right():
         x = screen_geo.right() - width - gap
