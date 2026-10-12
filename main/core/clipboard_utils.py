@@ -3,7 +3,7 @@
 剪切板图像写入工具
 Windows 使用 Win32 写入 CF_DIBV5 + PNG；若已知保存路径，同一次事务里
 一并写入 CF_HDROP，供只认文件路径、不解析位图格式的粘贴目标（如部分
-终端 CLI）使用。
+终端 CLI）使用。截图出口的写入放在后台线程，界面线程不等编码。
 """
 
 from __future__ import annotations
@@ -12,9 +12,10 @@ import io
 import struct
 import sys
 import threading
+from collections import deque
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QBuffer, QIODeviceBase
+from PySide6.QtCore import QBuffer, QIODeviceBase, QObject, Qt, Signal, Slot
 from PySide6.QtGui import QImage
 
 from core import log_info, log_warning, log_debug, T
@@ -50,8 +51,30 @@ def copy_image_to_clipboard(image: QImage, file_reference: str | None = None) ->
         except Exception as e:
             log_warning(T("剪切板: Win32 写入失败 ({e})", e=e), "Clipboard")
 
-    # 非 Windows 平台回退
+    # 非 Windows 平台或 Win32 失败时回退
     _copy_qt_fallback(image)
+
+
+class Delivery:
+    """一次投递在后台的进度：剪贴板和保存都做完后 join() 返回 True。"""
+
+    def __init__(self, parts: int):
+        self._pending = parts
+        self._lock = threading.Lock()
+        self._done = threading.Event()
+
+    def _part_done(self) -> None:
+        with self._lock:
+            self._pending -= 1
+            finished = self._pending <= 0
+        if finished:
+            self._done.set()
+
+    def join(self, timeout: float | None = None) -> bool:
+        return self._done.wait(timeout)
+
+    def is_alive(self) -> bool:
+        return not self._done.is_set()
 
 
 def deliver_image_async(
@@ -62,14 +85,14 @@ def deliver_image_async(
     save_kwargs: dict | None = None,
     write_file_reference: bool = True,
     original: QImage | None = None,
-) -> threading.Thread | None:
-    """复制到剪贴板并可选在后台线程中保存图像。
+) -> Delivery | None:
+    """在后台复制到剪贴板、按需保存图像，调用方不等编码。
 
-    同时请求复制与自动保存时，默认会先用 SaveService.reserve_save_path
-    （只创建空文件，不编码像素，耗时可忽略）在主线程确定保存路径，
-    这样复制时就能把 CF_HDROP 和位图格式一起写入剪切板，无需等待
-    图像真正编码落盘。write_file_reference=False 时跳过这一步，
-    剪切板上只有位图格式，不带文件路径。
+    Windows 下写剪贴板（编码位图和 PNG）排进同一条后台队列依次执行，连续截图时
+    剪贴板留下的总是最后一张；代价是剪贴板要晚几十毫秒才是新图。
+    同时请求复制与保存时，先用 SaveService.reserve_save_path 占好保存路径
+    （只创建空文件），复制时就能把 CF_HDROP 和位图格式一起写入剪贴板，不必等
+    图像编码落盘。write_file_reference=False 时跳过这一步，剪贴板上只有位图格式。
     original 不为空时，存好的文件旁边再存一张它（文件名末尾加 _original）。
     """
     if image is None or image.isNull():
@@ -82,65 +105,136 @@ def deliver_image_async(
 
     save_kwargs = dict(save_kwargs or {})
 
-    target_path = None
-    if copy_to_clipboard and save_service is not None and write_file_reference and sys.platform == "win32":
-        try:
-            target_path = save_service.reserve_save_path(**save_kwargs)
-        except Exception as exc:
-            # 保存目录不可写（外接盘拔掉、网络盘断连）时占不到路径。复制只是
-            # 调用方那条"确定"链的前半段，抛出去会连带跳过关闭窗口；降级成不带
-            # 文件引用，保存的失败仍交回后台线程。
-            log_warning(T("图像投递: 预留保存路径失败，剪贴板不写入文件路径 ({exc})", exc=exc), "Clipboard")
-
-    if copy_to_clipboard:
-        if sys.platform == "win32":
-            copy_image_to_clipboard(image, file_reference=target_path)
-        else:
+    if not copy_to_clipboard or sys.platform != "win32":
+        if copy_to_clipboard:
             log_debug(T("图像投递: 非 Windows 平台，剪贴板仍走主线程回退"), "Clipboard")
             copy_image_to_clipboard(image)
-        copy_to_clipboard = False
+        if save_service is None:
+            return None
+        delivery = Delivery(1)
+        _start_save(delivery, image, save_service, save_kwargs, None, original)
+        return delivery
 
-    if save_service is None:
-        return None
+    delivery = Delivery(2 if save_service is not None else 1)
+    reserve = save_service is not None and write_file_reference
+    _main_thread_clipboard()
 
+    def job() -> None:
+        try:
+            target_path = None
+            if reserve:
+                try:
+                    target_path = save_service.reserve_save_path(**save_kwargs)
+                except Exception as exc:
+                    # 保存目录不可写（外接盘拔掉、网络盘断连）时占不到路径，降级成不带文件引用
+                    log_warning(T("图像投递: 预留保存路径失败，剪贴板不写入文件路径 ({exc})", exc=exc), "Clipboard")
+            if save_service is not None:
+                _start_save(delivery, image, save_service, save_kwargs, target_path, original)
+            copy_image_to_clipboard(image, file_reference=target_path)
+        finally:
+            delivery._part_done()
+
+    _enqueue_clipboard_job(job)
+    return delivery
+
+
+def _start_save(delivery, image, save_service, save_kwargs, target_path, original) -> None:
     def worker() -> None:
         nonlocal image, original
         import time as _time
 
-        t0 = _time.perf_counter()
-        clipboard_ok = not copy_to_clipboard
-        save_ok = save_service is None
-
+        started = _time.perf_counter()
         try:
-            t1 = _time.perf_counter()
-
-            if save_service is not None:
-                save_ok, saved_path = save_service.save_qimage(image, target_path=target_path, **save_kwargs)
-                if save_ok and original is not None:
-                    save_service.save_beside(original, saved_path, "original")
-            t2 = _time.perf_counter()
-
-            log_debug(
-                T(
-                    "异步图像投递完成 clipboard={clipboard_ok} save={save_ok} "
-                    "clipboard={clipboard_ms:.1f}ms save={save_ms:.1f}ms total={total_ms:.1f}ms",
-                    clipboard_ok=clipboard_ok,
-                    save_ok=save_ok,
-                    clipboard_ms=(t1 - t0) * 1000,
-                    save_ms=(t2 - t1) * 1000,
-                    total_ms=(t2 - t0) * 1000,
-                ),
-                "Clipboard"
-            )
+            save_ok, saved_path = save_service.save_qimage(image, target_path=target_path, **save_kwargs)
+            if save_ok and original is not None:
+                save_service.save_beside(original, saved_path, "original")
+            log_debug(T("图像投递: 后台保存完成 save={save_ok} {ms:.1f}ms",
+                        save_ok=save_ok, ms=(_time.perf_counter() - started) * 1000), "Clipboard")
         except Exception as exc:
             log_warning(T("图像投递: 后台任务失败 ({exc})", exc=exc), "Clipboard")
         finally:
             image = None
             original = None
+            delivery._part_done()
 
     from core.background_tasks import start_thread
-    thread = start_thread(worker, name="ClipboardDeliver")
-    return thread
+    try:
+        start_thread(worker, name="ClipboardDeliverSave")
+    except RuntimeError as exc:  # 准备更新时不再起新线程
+        log_warning(T("图像投递: 后台任务失败 ({exc})", exc=exc), "Clipboard")
+        delivery._part_done()
+
+
+# ─── 后台剪贴板队列 ───────────────────────────────────────────────────
+
+_clipboard_jobs: deque = deque()
+_clipboard_jobs_lock = threading.Lock()
+_clipboard_idle = threading.Event()
+_clipboard_idle.set()
+_clipboard_worker_running = False
+
+
+def _enqueue_clipboard_job(job) -> None:
+    """排进剪贴板队列。队列空了线程就退出，不常驻，免得更新程序一直等不到空闲。"""
+    global _clipboard_worker_running
+    with _clipboard_jobs_lock:
+        _clipboard_jobs.append(job)
+        _clipboard_idle.clear()
+        if _clipboard_worker_running:
+            return
+        _clipboard_worker_running = True
+
+    from core.background_tasks import start_thread
+    try:
+        start_thread(_run_clipboard_jobs, name="ClipboardWrite")
+    except RuntimeError:
+        # 准备更新时不再起新线程，就地执行，复制照常生效
+        _run_clipboard_jobs()
+
+
+def _run_clipboard_jobs() -> None:
+    global _clipboard_worker_running
+    while True:
+        with _clipboard_jobs_lock:
+            if not _clipboard_jobs:
+                _clipboard_worker_running = False
+                _clipboard_idle.set()
+                return
+            job = _clipboard_jobs.popleft()
+        try:
+            job()
+        except Exception as exc:
+            log_warning(T("图像投递: 后台任务失败 ({exc})", exc=exc), "Clipboard")
+
+
+def wait_for_clipboard_writes(timeout: float | None = None) -> bool:
+    """等排队的剪贴板写入做完；退出程序前调用，免得最后一张截图没写进剪贴板。"""
+    return _clipboard_idle.wait(timeout)
+
+
+class _MainThreadClipboard(QObject):
+    """把后台线程要做的 Qt 剪贴板回退排回主线程执行。"""
+
+    fallback_requested = Signal(object)
+
+    def __init__(self):
+        super().__init__()
+        self.fallback_requested.connect(self._copy, Qt.ConnectionType.QueuedConnection)
+
+    @Slot(object)
+    def _copy(self, image) -> None:
+        _copy_qt_fallback(image)
+
+
+_main_thread_clipboard_instance: _MainThreadClipboard | None = None
+
+
+def _main_thread_clipboard() -> _MainThreadClipboard:
+    """第一次投递时在主线程创建，之后后台线程只发信号。"""
+    global _main_thread_clipboard_instance
+    if _main_thread_clipboard_instance is None:
+        _main_thread_clipboard_instance = _MainThreadClipboard()
+    return _main_thread_clipboard_instance
 
 
 def deliver_screenshot(
@@ -152,7 +246,7 @@ def deliver_screenshot(
     file_prefix: str = "",
     original: QImage | None = None,
     save_service: "SaveService | None" = None,
-) -> threading.Thread | None:
+) -> Delivery | None:
     """所有截图的出口：按需复制到剪贴板，这次截图的时机开着自动保存时在后台存成文件。
 
     trigger 是自动保存的时机："capture" 截图完成，"pin" 生成钉图（钉图由调用方创建）。
@@ -366,7 +460,17 @@ def _build_hdrop(path: str) -> bytes:
 # ─── Qt 回退实现 ──────────────────────────────────────────────────────
 
 def _copy_qt_fallback(image: QImage) -> None:
-    """非 Windows 平台的回退方案：用 Qt setImage。"""
+    """非 Windows 平台或 Win32 写入失败时的回退：用 Qt setImage。
+
+    QClipboard 只能在主线程用，后台线程调用时排回主线程执行。
+    """
+    if threading.current_thread() is not threading.main_thread():
+        relay = _main_thread_clipboard_instance
+        if relay is None:
+            log_warning(T("剪切板: 后台线程无法回退到 Qt 写入"), "Clipboard")
+            return
+        relay.fallback_requested.emit(image)
+        return
     from PySide6.QtWidgets import QApplication
     QApplication.clipboard().setImage(image)
     log_info(T("已复制到剪切板 (Qt)"), "Clipboard")

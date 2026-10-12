@@ -46,11 +46,8 @@ class ActionTools:
         original = None
         if self._has_annotations(self.scene.get_drawing_items_in_rect(selection_rect)):
             original = self.export_service.export_base_image_only(selection_rect)
-        saving = deliver_screenshot(image, self.config_manager, original=original, save_service=self.save_service)
-        if saving is not None:
-            log_debug(T("已完成复制到剪贴板，已提交异步保存任务"), "Action")
-        else:
-            log_debug(T("已完成复制到剪贴板"), "Action")
+        deliver_screenshot(image, self.config_manager, original=original, save_service=self.save_service)
+        log_debug(T("已交给后台复制到剪贴板"), "Action")
 
         if self.parent_window and close_after:
             self._cleanup_and_close()
@@ -148,7 +145,7 @@ class ActionTools:
         original = base_image if self._has_annotations(drawing_items) else None
         deliver_screenshot(result_image, self.config_manager, trigger="pin", original=original,
                            save_service=self.save_service)
-        log_debug(T("已完成复制到剪贴板"), "PinAction")
+        log_debug(T("已交给后台复制到剪贴板"), "PinAction")
         
         if self.parent_window and close_after:
             self._cleanup_and_close()

@@ -31,10 +31,7 @@ TRANSLATIONS: dict[str, str] = {
     "图像投递: 图像为空，跳过": "Image delivery: image is empty, skipping",
     "图像投递: 未请求复制或保存，跳过": "Image delivery: neither copy nor save was requested, skipping",
     "图像投递: 非 Windows 平台，剪贴板仍走主线程回退": "Image delivery: non-Windows platform, clipboard still falls back to the main thread",
-    "异步图像投递完成 clipboard={clipboard_ok} save={save_ok} "
-    "clipboard={clipboard_ms:.1f}ms save={save_ms:.1f}ms total={total_ms:.1f}ms":
-        "Async image delivery complete clipboard={clipboard_ok} save={save_ok} "
-        "clipboard={clipboard_ms:.1f}ms save={save_ms:.1f}ms total={total_ms:.1f}ms",
+    "图像投递: 后台保存完成 save={save_ok} {ms:.1f}ms": "Image delivery: background save finished save={save_ok} {ms:.1f}ms",
     "图像投递: 后台任务失败 ({exc})": "Image delivery: background task failed ({exc})",
     "图像投递: 预留保存路径失败，剪贴板不写入文件路径 ({exc})":
         "Image delivery: failed to reserve a save path, the clipboard carries no file path ({exc})",
@@ -46,6 +43,7 @@ TRANSLATIONS: dict[str, str] = {
         "dibv5={dibv5_ms:.1f}ms png={png_ms:.1f}ms win32={win32_ms:.1f}ms",
     "已复制到剪切板 (Win32 CF_DIBV5 + PNG)": "Copied to clipboard (Win32 CF_DIBV5 + PNG)",
     "已复制到剪切板 (Qt)": "Copied to clipboard (Qt)",
+    "剪切板: 后台线程无法回退到 Qt 写入": "Clipboard: cannot fall back to Qt writing from a background thread",
 
     # core/export.py
     "选区为空": "Selection is empty",

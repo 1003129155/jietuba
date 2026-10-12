@@ -3,6 +3,7 @@
 
 import sys
 import threading
+import time
 
 from unittest.mock import MagicMock
 
@@ -49,9 +50,9 @@ def test_deliver_image_async_reuses_same_qimage(monkeypatch, tmp_path):
     )
 
     assert thread is not None
-    assert seen["copy_thread"] == caller_thread
-    thread.join(timeout=2)
+    assert thread.join(timeout=2)
     assert not thread.is_alive()
+    assert seen["copy_thread"] != caller_thread
     assert seen["copy_id"] == id(image)
     assert seen["save_id"] == id(image)
     assert seen["save_thread"] != caller_thread
@@ -152,8 +153,56 @@ def test_deliver_image_async_skips_reservation_without_save_service(monkeypatch)
 
     result = clipboard_utils.deliver_image_async(image, save_service=None)
 
-    assert result is None
+    assert result.join(timeout=2)
     assert seen["file_reference"] is None
+
+
+def test_clipboard_writes_keep_submission_order_off_the_caller_thread(monkeypatch):
+    from core import clipboard_utils
+
+    order, threads = [], set()
+
+    def slow_copy(image, file_reference=None):
+        time.sleep(0.003 * (image.width() % 3))
+        order.append(image.width())
+        threads.add(threading.get_ident())
+
+    monkeypatch.setattr(clipboard_utils.sys, "platform", "win32")
+    monkeypatch.setattr(clipboard_utils, "copy_image_to_clipboard", slow_copy)
+
+    deliveries = [clipboard_utils.deliver_image_async(QImage(width, 4, QImage.Format.Format_RGB32))
+                  for width in range(1, 41)]
+
+    assert all(delivery.join(timeout=5) for delivery in deliveries)
+    assert order == list(range(1, 41))
+    assert threading.get_ident() not in threads
+
+
+def test_qt_fallback_from_the_background_runs_on_the_main_thread(qapp, monkeypatch):
+    from PySide6.QtWidgets import QApplication
+    from core import clipboard_utils
+
+    on_main_thread = []
+
+    class FakeClipboard:
+        def setImage(self, image):
+            on_main_thread.append(threading.current_thread() is threading.main_thread())
+
+    def busy(image, file_reference):
+        raise RuntimeError("剪贴板被占用")
+
+    monkeypatch.setattr(clipboard_utils.sys, "platform", "win32")
+    monkeypatch.setattr(clipboard_utils, "_copy_win32", busy)
+    monkeypatch.setattr(QApplication, "clipboard", staticmethod(FakeClipboard))
+
+    delivery = clipboard_utils.deliver_image_async(QImage(8, 8, QImage.Format.Format_RGB32))
+
+    assert delivery.join(timeout=2)
+    assert on_main_thread == []  # 回退排在主线程的事件队列里，还没执行
+    deadline = time.monotonic() + 2
+    while not on_main_thread and time.monotonic() < deadline:
+        qapp.processEvents()
+    assert on_main_thread == [True]
 
 
 @pytest.mark.parametrize("auto_save", [True, False])

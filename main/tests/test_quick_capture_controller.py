@@ -272,6 +272,7 @@ def test_quick_capture_saves_by_its_trigger_switch(capture, qtbot, monkeypatch, 
         qtbot.waitUntil(lambda: saved() == [(80, 60)])
     else:
         assert saved() == []
+    assert clipboard_utils.wait_for_clipboard_writes(timeout=2)
     assert clipboard_utils.copy_image_to_clipboard.called == copy
 
 

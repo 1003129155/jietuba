@@ -56,6 +56,17 @@ def flush_qt_deferred_deletes():
     gc.freeze()
 
 
+@pytest.fixture(autouse=True)
+def drain_clipboard_writes(monkeypatch):
+    """撤销 monkeypatch 之前等这条测试排进后台的剪贴板写入做完，免得替身撤掉后写进真剪贴板。
+
+    依赖 monkeypatch 是为了比它晚建立、早收尾。
+    """
+    yield
+    from core.clipboard_utils import wait_for_clipboard_writes
+    assert wait_for_clipboard_writes(timeout=5), "后台剪贴板写入 5 秒内没有做完"
+
+
 @pytest.fixture(scope="session", autouse=True)
 def isolated_tool_settings(tmp_path_factory):
     """让全局工具设置单例落在临时文件上，而不是开发机真实的配置。

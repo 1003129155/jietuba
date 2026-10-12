@@ -229,6 +229,12 @@ class MainApp(QObject):
         """应用退出前收尾"""
         from core.platform_utils import set_trim_busy_check
         set_trim_busy_check(None)
+        try:
+            from core.clipboard_utils import wait_for_clipboard_writes
+
+            wait_for_clipboard_writes(timeout=3.0)
+        except Exception as e:
+            log_exception(e, T("等待剪贴板写入"))
         self.quick_capture.close()
         from core.input_hub import close_input_hub
         close_input_hub()
