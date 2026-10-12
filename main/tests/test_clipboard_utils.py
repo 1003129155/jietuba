@@ -379,6 +379,50 @@ def test_copy_win32_writes_hdrop_in_single_clipboard_transaction(monkeypatch):
     ]
 
 
+def _patch_encoders(monkeypatch, clipboard_utils, encodes):
+    monkeypatch.setattr(clipboard_utils, "_build_dibv5", lambda image: encodes.append("dibv5") or b"dib")
+    monkeypatch.setattr(clipboard_utils, "_build_png", lambda image: encodes.append("png") or b"png")
+    monkeypatch.setattr(clipboard_utils, "_CLIPBOARD_WRITE_RETRY_DELAYS", (0.0, 0.0, 0.0))
+
+
+def test_busy_clipboard_is_retried_without_encoding_again(monkeypatch):
+    import pywintypes
+    from core import clipboard_utils
+
+    encodes, attempts = [], []
+    _patch_encoders(monkeypatch, clipboard_utils, encodes)
+
+    def write(formats):
+        attempts.append(formats)
+        if len(attempts) < 3:
+            raise pywintypes.error(5, "OpenClipboard", "拒绝访问。")
+
+    monkeypatch.setattr(clipboard_utils, "_write_clipboard", write)
+
+    clipboard_utils._copy_win32(QImage(4, 4, QImage.Format.Format_RGB32), None)
+
+    assert len(attempts) == 3
+    assert encodes == ["dibv5", "png"]
+
+
+def test_other_clipboard_errors_are_not_retried(monkeypatch):
+    import pywintypes
+    from core import clipboard_utils
+
+    attempts = []
+    _patch_encoders(monkeypatch, clipboard_utils, [])
+
+    def write(formats):
+        attempts.append(formats)
+        raise pywintypes.error(5, "SetClipboardData", "拒绝访问。")
+
+    monkeypatch.setattr(clipboard_utils, "_write_clipboard", write)
+
+    with pytest.raises(pywintypes.error):
+        clipboard_utils._copy_win32(QImage(4, 4, QImage.Format.Format_RGB32), None)
+    assert len(attempts) == 1
+
+
 def test_copy_win32_omits_hdrop_without_file_reference(monkeypatch):
     from core import clipboard_utils
 

@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 _CLIPBOARD_WRITE_LOCK = threading.Lock()
-_CLIPBOARD_BUSY_HRESULT = -2147221040  # 0x800401D0 = CLIPBRD_E_CANT_OPEN
+_ERROR_ACCESS_DENIED = 5
 _CLIPBOARD_WRITE_RETRY_DELAYS = (0.0, 0.02, 0.05, 0.1, 0.2, 0.35)
 
 
@@ -298,8 +298,48 @@ def _auto_save_enabled(config_manager, trigger: str) -> bool:
 # ─── Win32 实现 ───────────────────────────────────────────────────────
 
 def _copy_win32(image: QImage, file_reference: str | None) -> None:
-    """用 Win32 API 写入 CF_DIBV5 + PNG（可选同时写入 CF_HDROP）。"""
-    _run_clipboard_write_with_retry(lambda: _copy_win32_legacy(image, file_reference), "Win32")
+    """用 Win32 API 写入 CF_DIBV5 + PNG（可选 CF_HDROP）。只编码一次，剪贴板被占时只重试写入。"""
+    import time as _time
+
+    import win32clipboard
+
+    _t0 = _time.perf_counter()
+    dibv5_data = _build_dibv5(image)
+    _t1 = _time.perf_counter()
+    png_data = _build_png(image)
+    _t2 = _time.perf_counter()
+
+    formats = [(win32clipboard.RegisterClipboardFormat("PNG"), png_data), (17, dibv5_data)]  # 17 = CF_DIBV5
+    if file_reference:
+        formats.append((15, _build_hdrop(file_reference)))  # 15 = CF_HDROP
+    _run_clipboard_write_with_retry(lambda: _write_clipboard(formats), "Win32")
+    _t3 = _time.perf_counter()
+
+    log_debug(
+        T(
+            "已复制到剪切板 (Win32) "
+            "dibv5={dibv5_ms:.1f}ms png={png_ms:.1f}ms win32={win32_ms:.1f}ms",
+            dibv5_ms=(_t1 - _t0) * 1000,
+            png_ms=(_t2 - _t1) * 1000,
+            win32_ms=(_t3 - _t2) * 1000,
+        ),
+        "Clipboard"
+    )
+    log_info(T("已复制到剪切板 (Win32 CF_DIBV5 + PNG)"), "Clipboard")
+
+
+def _write_clipboard(formats) -> None:
+    """一次剪贴板事务写入全部格式，只触发一次内容变化通知。"""
+    import win32clipboard
+
+    with _CLIPBOARD_WRITE_LOCK:
+        win32clipboard.OpenClipboard(0)
+        try:
+            win32clipboard.EmptyClipboard()
+            for format_id, data in formats:
+                win32clipboard.SetClipboardData(format_id, data)
+        finally:
+            win32clipboard.CloseClipboard()
 
 
 def _run_clipboard_write_with_retry(operation, path_name: str) -> None:
@@ -335,61 +375,8 @@ def _run_clipboard_write_with_retry(operation, path_name: str) -> None:
 
 
 def _is_clipboard_busy_error(exc: Exception) -> bool:
-    hresult = getattr(exc, "hresult", None)
-    if hresult == _CLIPBOARD_BUSY_HRESULT:
-        return True
-
-    args = getattr(exc, "args", ())
-    if args:
-        if args[0] == _CLIPBOARD_BUSY_HRESULT:
-            return True
-        if isinstance(args[0], tuple) and args[0] and args[0][0] == _CLIPBOARD_BUSY_HRESULT:
-            return True
-
-    return False
-
-
-def _copy_win32_legacy(image: QImage, file_reference: str | None) -> None:
-    """用 Win32 API 直接写入 CF_DIBV5 + PNG（可选 CF_HDROP）到系统剪切板。"""
-    import win32clipboard
-
-    import time as _time
-    _t0 = _time.perf_counter()
-
-    # 准备数据
-    dibv5_data = _build_dibv5(image)
-    _t1 = _time.perf_counter()
-
-    png_data = _build_png(image)
-    _t2 = _time.perf_counter()
-
-    # 注册 PNG 格式
-    fmt_png = win32clipboard.RegisterClipboardFormat("PNG")
-    hdrop_data = _build_hdrop(file_reference) if file_reference else None
-
-    with _CLIPBOARD_WRITE_LOCK:
-        win32clipboard.OpenClipboard(0)
-        try:
-            win32clipboard.EmptyClipboard()
-            win32clipboard.SetClipboardData(fmt_png, png_data)     # "PNG"
-            win32clipboard.SetClipboardData(17, dibv5_data)       # CF_DIBV5 = 17
-            if hdrop_data is not None:
-                win32clipboard.SetClipboardData(15, hdrop_data)  # CF_HDROP = 15
-        finally:
-            win32clipboard.CloseClipboard()
-    _t3 = _time.perf_counter()
-
-    log_debug(
-        T(
-            "已复制到剪切板 (Win32) "
-            "dibv5={dibv5_ms:.1f}ms png={png_ms:.1f}ms win32={win32_ms:.1f}ms",
-            dibv5_ms=(_t1 - _t0) * 1000,
-            png_ms=(_t2 - _t1) * 1000,
-            win32_ms=(_t3 - _t2) * 1000,
-        ),
-        "Clipboard"
-    )
-    log_info(T("已复制到剪切板 (Win32 CF_DIBV5 + PNG)"), "Clipboard")
+    """别的程序正开着剪贴板时，OpenClipboard 报 ERROR_ACCESS_DENIED。"""
+    return getattr(exc, "funcname", None) == "OpenClipboard" and getattr(exc, "winerror", None) == _ERROR_ACCESS_DENIED
 
 
 def _build_dibv5(image: QImage) -> bytes:
