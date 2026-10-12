@@ -99,9 +99,9 @@ def resource_path(relative_path):
     """获取资源文件路径（兼容函数）"""
     return ResourceManager.get_resource_path(relative_path)
 
-def cached_icon(relative_path):
-    """获取缓存的 QIcon（首次加载 SVG，后续复用）"""
-    return ResourceManager.get_icon(ResourceManager.get_resource_path(relative_path))
+def cached_icon(relative_path, fit=0):
+    """获取缓存的 QIcon（首次加载 SVG，后续复用）；fit 见 ResourceManager.get_icon"""
+    return ResourceManager.get_icon(ResourceManager.get_resource_path(relative_path), fit=fit)
 
 def _button_qss():
     """工具栏按钮样式。
@@ -213,8 +213,7 @@ class Toolbar(QWidget):
     BASE_BTN_WIDTH = 38      # 工具按钮宽
     BASE_BTN_HEIGHT = 40     # 所有按钮高（也是工具栏高度）
     BASE_WIDE_WIDTH = 42     # 功能按钮宽（长截图、保存、结束截图、确定等）
-    BASE_ICON_WIDE = 24      # 功能按钮图标
-    BASE_ICON_TOOL = 22      # 工具按钮图标：比按钮小一圈，四周留出空隙
+    BASE_ICON = 24           # 按钮图标边长：图标都画在 24 格上，100% 时线条正好落在整像素
     HANDLE_WIDTH_RATIO = 0.32   # 拖动手柄宽 / 工具栏高
     BASE_RIGHT_NUDGE = 4     # 自动定位时整体右移，目视微调，不是算出来的
 
@@ -281,7 +280,8 @@ class Toolbar(QWidget):
         # 按钮登记表：key → 按钮 / 宽度。这里只建按钮、不定位置，位置统一由 _arrange
         # 按排布摆放——截图读用户配置，钉图用固定列表，两边共用同一段摆放逻辑。
         self._buttons = {}
-        self._button_bases = {}    # key → (基准按钮宽, 基准图标边长)，改比例时据此重算
+        self._base_widths = {}     # key → 基准按钮宽，改比例时据此重算
+        self._icon_paths = {}      # key → 图标 SVG，改比例时按新边长重新取图
         self._button_widths = {}   # key → 当前比例下的按钮宽，由 _apply_button_sizes 填
         self._folded_keys = []    # 收进「…」弹层的按钮，弹层展开时才摆进去
         self._more_popup = None   # 用到才建，见 _show_more_popup
@@ -303,8 +303,8 @@ class Toolbar(QWidget):
         # 记录所有 tooltip 源文本，供语言切换后整体刷新（按钮在 _add_button 里登记）
         self._tooltip_sources = {self.drag_handle: "Drag to move"}
 
-        wide = (self.BASE_WIDE_WIDTH, self.BASE_ICON_WIDE)
-        tool = (self.BASE_BTN_WIDTH, self.BASE_ICON_TOOL)
+        wide = self.BASE_WIDE_WIDTH
+        tool = self.BASE_BTN_WIDTH
 
         self.long_screenshot_btn = self._add_button(
             "long_screenshot", "svg/长截图.svg", "Long screenshot (scroll)", wide,
@@ -359,8 +359,8 @@ class Toolbar(QWidget):
         self.more_btn.clicked.connect(self._show_more_popup)
         self.more_btn.installEventFilter(self)
         self._buttons["more"] = self.more_btn
-        # 「…」与拖动手柄同宽，图标是自绘的三点，没有 QIcon 要缩
-        self._button_bases["more"] = (self.BASE_BTN_HEIGHT * self.HANDLE_WIDTH_RATIO, 0)
+        # 「…」与拖动手柄同宽，图标是自绘的三点
+        self._base_widths["more"] = self.BASE_BTN_HEIGHT * self.HANDLE_WIDTH_RATIO
 
         # 背景和圆角描边由 paintEvent 手动绘制，#toolbar_root 保持透明。
         # objectName 必须在挂样式表之前设好，否则 #toolbar_root 选不中自己
@@ -398,15 +398,14 @@ class Toolbar(QWidget):
     # 按钮排布与「…」弹层
     # ========================================================================
 
-    def _add_button(self, key, icon, tooltip, size, on_click, *, checkable=False):
+    def _add_button(self, key, icon, tooltip, width, on_click, *, checkable=False):
         """建一个按钮并登记到排布表。
 
-        size 为 (基准按钮宽, 基准图标边长)，实际像素由 _apply_button_sizes 按当前
-        比例算出，位置由 _arrange 决定。
+        width 为基准按钮宽；实际尺寸和图标由 _apply_button_sizes 按当前比例给出，
+        位置由 _arrange 决定。
         """
         button = QPushButton(self)
         button.setToolTip(self.tr(tooltip))
-        button.setIcon(cached_icon(icon))
         button.setCheckable(checkable)
         # 按钮不接受键盘焦点，防止 Space/Enter 等按键通过按钮意外触发逻辑
         button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -415,7 +414,8 @@ class Toolbar(QWidget):
         button.clicked.connect(self._hide_more_popup)
         button.clicked.connect(on_click)
         self._buttons[key] = button
-        self._button_bases[key] = size
+        self._base_widths[key] = width
+        self._icon_paths[key] = icon
         self._tooltip_sources[button] = tooltip
         return button
 
@@ -427,16 +427,18 @@ class Toolbar(QWidget):
         self._btn_height = scaled(self.BASE_BTN_HEIGHT)
         handle_w = scaled(self.BASE_BTN_HEIGHT * self.HANDLE_WIDTH_RATIO)
         self.drag_handle.setGeometry(0, 0, handle_w, self._btn_height)
-        for key, (base_width, base_icon) in self._button_bases.items():
+        for key, base_width in self._base_widths.items():
             self._button_widths[key] = scaled(base_width)
-            if base_icon:
-                icon_size = scaled(base_icon)
-                self._buttons[key].setIconSize(QSize(icon_size, icon_size))
+        icon_size = scaled(self.BASE_ICON)
+        for key, path in self._icon_paths.items():
+            button = self._buttons[key]
+            button.setIcon(cached_icon(path, icon_size))
+            button.setIconSize(QSize(icon_size, icon_size))
 
-    def _add_tool_button(self, tool_id, icon, tooltip, size):
+    def _add_tool_button(self, tool_id, icon, tooltip, width):
         """绘制工具按钮：可选中，点击走 select_tool 的切换逻辑"""
         return self._add_button(
-            tool_id, icon, tooltip, size, lambda: self._on_tool_clicked(tool_id), checkable=True)
+            tool_id, icon, tooltip, width, lambda: self._on_tool_clicked(tool_id), checkable=True)
 
     def _make_floating(self, widget):
         """工具栏、二级面板、「…」弹层共用的窗口属性。

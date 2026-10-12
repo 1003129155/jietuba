@@ -24,6 +24,8 @@ class ResourceManager:
     # 应用级 QIcon 缓存：SVG 路径 → QIcon 对象
     # QIcon 内部持有光栅化后的位图，跨 ScreenshotWindow 生命周期复用
     _icon_cache: dict = {}
+    # SVG 原文缓存：改界面比例后按新尺寸重新光栅化时不再读文件，理由同 _RASTER_BOX_SIZES
+    _svg_sources: dict = {}
 
     @staticmethod
     def get_resource_path(relative_path):
@@ -47,7 +49,24 @@ class ResourceManager:
         return ResourceManager.get_resource_path(os.path.join("svg", icon_name))
 
     @staticmethod
-    def _rasterize(svg_path: str, size: int = 0):
+    def _svg_renderer(svg_path: str):
+        """读出 SVG 并建好渲染器；文件读不到或内容无效返回 None。"""
+        from PySide6.QtCore import QByteArray
+        from PySide6.QtSvg import QSvgRenderer
+
+        data = ResourceManager._svg_sources.get(svg_path)
+        if data is None:
+            try:
+                with open(svg_path, "rb") as f:
+                    data = f.read()
+            except OSError:
+                return None
+            ResourceManager._svg_sources[svg_path] = data
+        renderer = QSvgRenderer(QByteArray(data))
+        return renderer if renderer.isValid() else None
+
+    @staticmethod
+    def _rasterize(svg_path: str, size: int = 0, fit: int = 0):
         """把 SVG 立即渲染成位图 QIcon，之后不再依赖源文件。
 
         Args:
@@ -55,16 +74,16 @@ class ResourceManager:
             size:     > 0 时渲染成 size×size 的正方形（铺满画布，与旧行为一致，
                       GIF 工具栏依赖这一点来保证各图标视觉大小统一）；
                       为 0 时按原始宽高比渲染多个尺寸。
+            fit:      size 为 0 时，在常用尺寸之外再按比例渲染一张 fit 框大小的位图。
 
         Returns:
             QIcon；渲染失败返回 None，由调用方决定如何回退。
         """
         from PySide6.QtCore import Qt, QSize
         from PySide6.QtGui import QIcon, QPixmap, QPainter
-        from PySide6.QtSvg import QSvgRenderer
 
-        renderer = QSvgRenderer(svg_path)
-        if not renderer.isValid():
+        renderer = ResourceManager._svg_renderer(svg_path)
+        if renderer is None:
             return None
 
         def render_to(target: QSize):
@@ -88,7 +107,7 @@ class ResourceManager:
             default = QSize(64, 64)
 
         seen = set()
-        for box in _RASTER_BOX_SIZES:
+        for box in sorted(set(_RASTER_BOX_SIZES) | ({fit} if fit > 0 else set())):
             # 保持宽高比：arrow_*.svg 是 128×32、step_*.svg 是 10×6，
             # 铺满方形画布会把它们拉变形。Qt 自带的 SVG 图标引擎也是按比例缩放的，
             # 这里与之保持一致。
@@ -104,18 +123,22 @@ class ResourceManager:
         return icon if not icon.isNull() else None
 
     @staticmethod
-    def get_icon(svg_path: str, size: int = 0):
+    def get_icon(svg_path: str, size: int = 0, fit: int = 0):
         """获取 QIcon（带缓存，内容已光栅化，不再依赖源文件）。
 
         Args:
             svg_path: SVG 文件的绝对路径
             size: 若 > 0，则渲染到 size×size 的正方形，确保不同 SVG 图标大小一致。
                   若为 0（默认），按原始宽高比渲染一组常用尺寸。
+            fit:  size 为 0 时额外按比例渲染一张 fit 框大小的位图。图标显示边长不在常用档里
+                  时传它，否则 Qt 只能拿大一档的位图缩小，细线会发虚。
 
         Returns:
             QIcon 对象
         """
-        cache_key = (svg_path, size)
+        if size > 0 or fit in _RASTER_BOX_SIZES:
+            fit = 0
+        cache_key = (svg_path, size, fit)
         icon = ResourceManager._icon_cache.get(cache_key)
         if icon is not None:
             return icon
@@ -123,7 +146,7 @@ class ResourceManager:
         from PySide6.QtGui import QIcon
 
         try:
-            icon = ResourceManager._rasterize(svg_path, size)
+            icon = ResourceManager._rasterize(svg_path, size, fit)
         except Exception as e:
             log_exception(e, T("SVG 渲染图标"))
             icon = None
