@@ -112,11 +112,13 @@ def engine_backed_input_hub(request, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def clear_undo_stacks(monkeypatch):
-    """测试结束时清空这条测试里建过、仍然存在的撤销栈。
+def clear_undo_stacks(monkeypatch, flush_qt_deferred_deletes):
+    """测试结束时、在 flush_qt_deferred_deletes 回收之前，清空这条测试里建过的撤销栈。
 
-    命令反向引用场景，场景又持有撤销栈；带马赛克命令的场景留给垃圾回收拆这个循环会写坏
-    C++ 堆，进程在之后某条测试里随机崩溃。正式代码释放场景前同样先清撤销栈。
+    垃圾回收拆「命令→场景→撤销栈」的循环时，shiboken 的 tp_clear 会把命令交还给 Python，
+    包装对象一释放就删掉 C++ 命令，撤销栈析构时再删一次，写坏 C++ 堆。先清栈，命令只由撤销栈
+    删一次。依赖 flush_qt_deferred_deletes 是为了在它之后建立、之前收尾：自动 fixture 按名字
+    顺序建立，不按定义顺序。正式代码释放场景前同样先清撤销栈。
     """
     import weakref
 
