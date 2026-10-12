@@ -2558,6 +2558,30 @@ This action cannot be undone.</translation>
         <translation>Are you sure you want to delete the {count} selected items?</translation>
     </message>
     <message>
+        <source>Paste Selected</source>
+        <translation>Paste Selected</translation>
+    </message>
+    <message>
+        <source>Paste Selected as Plain Text</source>
+        <translation>Paste Selected as Plain Text</translation>
+    </message>
+    <message>
+        <source>Stitch Vertically and Paste</source>
+        <translation>Stitch Vertically and Paste</translation>
+    </message>
+    <message>
+        <source>Stitch Horizontally and Paste</source>
+        <translation>Stitch Horizontally and Paste</translation>
+    </message>
+    <message>
+        <source>Clear Selection</source>
+        <translation>Clear Selection</translation>
+    </message>
+    <message>
+        <source>Delete Selected</source>
+        <translation>Delete Selected</translation>
+    </message>
+    <message>
         <source>Extract Digits</source>
         <translation>Extract Digits</translation>
     </message>

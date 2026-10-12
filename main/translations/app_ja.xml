@@ -2762,6 +2762,30 @@ This action cannot be undone.</source>
         <translation>選択した {count} 件を削除しますか？</translation>
     </message>
     <message>
+        <source>Paste Selected</source>
+        <translation>貼り付け</translation>
+    </message>
+    <message>
+        <source>Paste Selected as Plain Text</source>
+        <translation>書式なしで貼り付け</translation>
+    </message>
+    <message>
+        <source>Stitch Vertically and Paste</source>
+        <translation>縦に結合して貼り付け</translation>
+    </message>
+    <message>
+        <source>Stitch Horizontally and Paste</source>
+        <translation>横に結合して貼り付け</translation>
+    </message>
+    <message>
+        <source>Clear Selection</source>
+        <translation>選択を解除</translation>
+    </message>
+    <message>
+        <source>Delete Selected</source>
+        <translation>削除</translation>
+    </message>
+    <message>
         <source>Extract Digits</source>
         <translation>数字のみ抽出</translation>
     </message>

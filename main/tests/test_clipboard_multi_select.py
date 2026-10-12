@@ -2,7 +2,9 @@
 """剪贴板多选粘贴：选择手势、粘贴顺序、合并粘贴和批量操作。不碰真实剪贴板。"""
 
 import threading
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -403,6 +405,30 @@ class TestMarkedMenu:
 
     def test_rows_no_longer_loaded_give_no_menu(self, controller):
         assert controller.build_marked_context_menu_data([99]) is None
+
+    def test_every_label_is_translated_in_every_language(self, controller):
+        # 菜单文字经 MenuAction 传给 ClipboardWindow.tr，源码扫描式的覆盖测试看不到
+        def translatable(actions):
+            for action in actions:
+                if action.label and action.translate_label:
+                    yield action.label
+                yield from translatable(action.children)
+
+        controller.manager.groups = [Group(id=1, name="常用", group_type=GroupType.NORMAL)]
+        controller.current_group_id = 1
+        labels = set(translatable(controller.build_marked_context_menu_data([5, 4]).actions))
+        controller.current_items = [_item(8, "image", "[1x1]"), _item(7, "image", "[1x1]")]
+        labels |= set(translatable(controller.build_marked_context_menu_data([8, 7]).actions))
+
+        translations = Path(__file__).resolve().parents[1] / "translations"
+        for language in ("zh", "en", "ja", "ko"):
+            root = ET.parse(translations / f"app_{language}.xml").getroot()
+            sources = {
+                message.findtext("source")
+                for context in root.findall("context") if context.findtext("name") == "ClipboardWindow"
+                for message in context.findall("message")
+            }
+            assert not labels - sources, f"{language} 缺：{sorted(labels - sources)}"
 
 
 def _window(selection, **overrides):

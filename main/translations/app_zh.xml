@@ -2797,6 +2797,30 @@ This action cannot be undone.</source>
         <translation>确定要删除选中的 {count} 项吗？</translation>
     </message>
     <message>
+        <source>Paste Selected</source>
+        <translation>粘贴所选</translation>
+    </message>
+    <message>
+        <source>Paste Selected as Plain Text</source>
+        <translation>以纯文本粘贴所选</translation>
+    </message>
+    <message>
+        <source>Stitch Vertically and Paste</source>
+        <translation>竖向拼接后粘贴</translation>
+    </message>
+    <message>
+        <source>Stitch Horizontally and Paste</source>
+        <translation>横向拼接后粘贴</translation>
+    </message>
+    <message>
+        <source>Clear Selection</source>
+        <translation>清除选择</translation>
+    </message>
+    <message>
+        <source>Delete Selected</source>
+        <translation>删除所选</translation>
+    </message>
+    <message>
         <source>Extract Digits</source>
         <translation>仅提取数字</translation>
     </message>

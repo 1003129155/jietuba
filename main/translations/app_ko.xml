@@ -2717,6 +2717,30 @@ This action cannot be undone.</source>
         <translation>선택한 {count}개 항목을 삭제하시겠습니까?</translation>
     </message>
     <message>
+        <source>Paste Selected</source>
+        <translation>선택 항목 붙여넣기</translation>
+    </message>
+    <message>
+        <source>Paste Selected as Plain Text</source>
+        <translation>선택 항목을 일반 텍스트로 붙여넣기</translation>
+    </message>
+    <message>
+        <source>Stitch Vertically and Paste</source>
+        <translation>세로로 합쳐서 붙여넣기</translation>
+    </message>
+    <message>
+        <source>Stitch Horizontally and Paste</source>
+        <translation>가로로 합쳐서 붙여넣기</translation>
+    </message>
+    <message>
+        <source>Clear Selection</source>
+        <translation>선택 해제</translation>
+    </message>
+    <message>
+        <source>Delete Selected</source>
+        <translation>선택 항목 삭제</translation>
+    </message>
+    <message>
         <source>Extract Digits</source>
         <translation>숫자만 추출</translation>
     </message>
