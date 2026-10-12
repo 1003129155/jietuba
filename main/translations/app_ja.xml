@@ -553,20 +553,44 @@ Replace it?</source>
     
     <!-- Save Page -->
     <message>
-        <source>Auto-save Screenshots</source>
-        <translation>スクショを自動保存</translation>
-    </message>
-    <message>
-        <source>Automatically saves as file when capturing.</source>
-        <translation>キャプチャ時にファイルとして自動保存します。</translation>
-    </message>
-    <message>
         <source>Write File Path to Clipboard</source>
         <translation>クリップボードにファイルパスを書き込む</translation>
     </message>
     <message>
-        <source>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Requires Auto-save Screenshots to be enabled.</source>
-        <translation>ファイルパスしか認識しないツール（一部のターミナルアプリなど）でもスクリーンショットを貼り付けられるようになります。「スクリーンショットの自動保存」を有効にする必要があります。</translation>
+        <source>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Only takes effect when the screenshot is auto-saved.</source>
+        <translation>ファイルパスしか認識しないツール（一部のターミナルアプリなど）でもスクリーンショットを貼り付けられるようになります。自動保存したときだけ有効です。</translation>
+    </message>
+    <message>
+        <source>Auto-save</source>
+        <translation>自動保存</translation>
+    </message>
+    <message>
+        <source>Screenshots are saved to the save folder automatically when the actions below finish.</source>
+        <translation>以下の操作が終わったとき、スクショを保存フォルダに自動で保存します。</translation>
+    </message>
+    <message>
+        <source>When a Screenshot Is Done</source>
+        <translation>スクショ完了時</translation>
+    </message>
+    <message>
+        <source>Saves when a screenshot is finished, including confirming a screenshot, long screenshots, global mouse shortcut screenshots, and more.</source>
+        <translation>スクショを完了したときに自動保存します。スクショの確定、長スクリーンショット、グローバルマウスショートカットでのスクショなどを含みます。</translation>
+    </message>
+    <message>
+        <source>When a Pinned Image Is Created</source>
+        <translation>ピン留め時</translation>
+    </message>
+    <message>
+        <source>Saves when a selected region becomes a pinned image, including regular pins, global mouse shortcut pins, long screenshot pins, and more.</source>
+        <translation>選択した範囲をピン留めしたときに自動保存します。通常のピン留め、グローバルマウスショートカットでのピン留め、長スクリーンショットのピン留めなどを含みます。</translation>
+    </message>
+    <message>
+        <source>Also Save the Original</source>
+        <translation>元画像も保存</translation>
+    </message>
+    <message>
+        <source>When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, a copy without them is saved too, with _original at the end of its file name.</source>
+        <translation>注釈（モザイクを含む）や透かしを入れたスクショを保存フォルダに保存するとき、それらのない元画像も保存します。ファイル名の末尾に _original が付きます。</translation>
     </message>
     <message>
         <source>Save Folder</source>

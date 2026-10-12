@@ -244,6 +244,17 @@ class SwitchSettingCard(SettingCard):
         return self.switchButton.isChecked()
 
 
+class SubSwitchSettingCard(SwitchSettingCard):
+    """挂在上一张卡片下面的子开关：不画图标块，文字和上一张卡片的标题对齐。"""
+
+    def __init__(self, title, content=None, parent=None):
+        super().__init__(None, title, content, parent=parent)
+        self.iconBadge.hide()
+        margins = self.hBoxLayout.contentsMargins()
+        self.hBoxLayout.setContentsMargins(card_text_left(), margins.top(), margins.right(), margins.bottom())
+        self.setMinimumHeight(dialog_scaled(52))
+
+
 class SettingCardGroup(QWidget):
     def __init__(self, title, parent=None, tone="neutral"):
         super().__init__(parent)

@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from PySide6.QtCore import QEvent, QPoint, QPointF, QRectF, QSettings, Qt
-from PySide6.QtGui import QCloseEvent, QContextMenuEvent, QImage, QKeyEvent, QMouseEvent, QWheelEvent
+from PySide6.QtGui import QCloseEvent, QColor, QContextMenuEvent, QImage, QKeyEvent, QMouseEvent, QWheelEvent
 from PySide6.QtWidgets import QApplication, QDialog, QStackedWidget, QWidget
 
 from settings.tool_settings import (
@@ -159,6 +159,68 @@ def test_quick_save_writes_file_even_when_auto_save_disabled(actions, config):
     assert len(files) == 1
     assert not QImage(str(files[0])).isNull()
     actions.parent_window.cleanup_and_close.assert_called_once()
+
+
+@pytest.mark.parametrize('pin_save', [False, True])
+def test_editor_pin_saves_only_with_the_pin_switch(actions, config, monkeypatch, pin_save):
+    config.set_screenshot_save_enabled(not pin_save)
+    config.set_screenshot_pin_save_enabled(pin_save)
+    pins = MagicMock()
+    monkeypatch.setattr('tools.action.PinManager.instance', lambda: pins)
+    monkeypatch.setattr('tools.number.NumberTool.get_next_number', lambda _scene: 1)
+    actions.export_service.export_base_image_only = MagicMock(return_value=QImage(40, 30, QImage.Format_ARGB32))
+    actions.scene.get_drawing_items_in_rect.return_value = []
+    deliver = MagicMock()
+    monkeypatch.setattr('core.clipboard_utils.deliver_image_async', deliver)
+
+    assert actions.handle_capture_action('pin')
+
+    pins.create_pin.assert_called_once()
+    assert deliver.call_args.kwargs['copy_to_clipboard'] is True
+    assert (deliver.call_args.kwargs['save_service'] is not None) is pin_save
+
+
+def _annotation(visible=True):
+    item = MagicMock()
+    item.isVisible.return_value = visible
+    return item
+
+
+@pytest.mark.parametrize('items, has_original', [([], False), ([_annotation(False)], False), ([_annotation()], True)])
+def test_confirm_and_pin_hand_over_the_unannotated_image(actions, monkeypatch, items, has_original):
+    base = QImage(40, 30, QImage.Format_ARGB32)
+    actions.export_service.export_base_image_only = MagicMock(return_value=base)
+    actions.scene.get_drawing_items_in_rect.return_value = items
+    monkeypatch.setattr('tools.action.PinManager.instance', lambda: MagicMock())
+    monkeypatch.setattr('tools.number.NumberTool.get_next_number', lambda _scene: 1)
+    deliver = MagicMock()
+    monkeypatch.setattr('core.clipboard_utils.deliver_screenshot', deliver)
+
+    for action in ('copy', 'pin'):
+        deliver.reset_mock()
+        assert actions.handle_capture_action(action)
+        assert deliver.call_args.kwargs['original'] is (base if has_original else None)
+
+
+@pytest.mark.parametrize('save_original, annotated', [(True, True), (True, False), (False, True)])
+def test_quick_save_saves_the_original_beside_it(actions, config, qtbot, save_original, annotated):
+    config.set_screenshot_save_enabled(False)
+    config.set_screenshot_save_original_enabled(save_original)
+    base = QImage(40, 30, QImage.Format_ARGB32)
+    base.fill(Qt.blue)
+    actions.export_service.export_base_image_only = MagicMock(return_value=base)
+    actions.scene.get_drawing_items_in_rect.return_value = [_annotation()] if annotated else []
+
+    actions.handle_capture_action('quick_save')
+
+    folder = Path(config.get_screenshot_save_path())
+    if save_original and annotated:
+        qtbot.waitUntil(lambda: len(list(folder.glob('*_original.*'))) == 1)
+        saved, original = sorted(folder.iterdir())
+        assert original.name == saved.name.replace(saved.suffix, f'_original{saved.suffix}')
+        assert QImage(str(original)).pixelColor(0, 0) == QColor(Qt.blue)
+    else:
+        assert len(list(folder.iterdir())) == 1
 
 
 def test_save_cancel_or_failure_preserves_capture(actions, config, monkeypatch, tmp_path):

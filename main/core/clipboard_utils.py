@@ -61,6 +61,7 @@ def deliver_image_async(
     save_service: "SaveService | None" = None,
     save_kwargs: dict | None = None,
     write_file_reference: bool = True,
+    original: QImage | None = None,
 ) -> threading.Thread | None:
     """复制到剪贴板并可选在后台线程中保存图像。
 
@@ -69,6 +70,7 @@ def deliver_image_async(
     这样复制时就能把 CF_HDROP 和位图格式一起写入剪切板，无需等待
     图像真正编码落盘。write_file_reference=False 时跳过这一步，
     剪切板上只有位图格式，不带文件路径。
+    original 不为空时，存好的文件旁边再存一张它（文件名末尾加 _original）。
     """
     if image is None or image.isNull():
         log_warning(T("图像投递: 图像为空，跳过"), "Clipboard")
@@ -102,7 +104,7 @@ def deliver_image_async(
         return None
 
     def worker() -> None:
-        nonlocal image
+        nonlocal image, original
         import time as _time
 
         t0 = _time.perf_counter()
@@ -113,7 +115,9 @@ def deliver_image_async(
             t1 = _time.perf_counter()
 
             if save_service is not None:
-                save_ok, _ = save_service.save_qimage(image, target_path=target_path, **save_kwargs)
+                save_ok, saved_path = save_service.save_qimage(image, target_path=target_path, **save_kwargs)
+                if save_ok and original is not None:
+                    save_service.save_beside(original, saved_path, "original")
             t2 = _time.perf_counter()
 
             log_debug(
@@ -132,6 +136,7 @@ def deliver_image_async(
             log_warning(T("图像投递: 后台任务失败 ({exc})", exc=exc), "Clipboard")
         finally:
             image = None
+            original = None
 
     from core.background_tasks import start_thread
     thread = start_thread(worker, name="ClipboardDeliver")
@@ -143,27 +148,36 @@ def deliver_screenshot(
     config_manager,
     *,
     copy_to_clipboard: bool = True,
+    trigger: str = "capture",
+    file_prefix: str = "",
+    original: QImage | None = None,
     save_service: "SaveService | None" = None,
 ) -> threading.Thread | None:
-    """交出一张截图：按需复制到剪贴板，开着「自动保存截图」时在后台存成文件。
+    """所有截图的出口：按需复制到剪贴板，这次截图的时机开着自动保存时在后台存成文件。
 
+    trigger 是自动保存的时机："capture" 截图完成，"pin" 生成钉图（钉图由调用方创建）。
+    original 是加了标注或水印之前的图，没加工过就不传；开着「同时保存原图」时另存一份。
     save_service 沿用调用方已有的实例，不传就新建。
     """
     save_kwargs = None
     write_file_reference = True
-    if config_manager is not None and config_manager.get_screenshot_save_enabled():
+    if _auto_save_enabled(config_manager, trigger):
         if save_service is None:
             from core.save import SaveService
             save_service = SaveService(config_manager=config_manager)
         save_kwargs = dict(
             directory=config_manager.get_screenshot_save_path(),
-            prefix="",
-            image_format=config_manager.get_screenshot_format(),
+            prefix=file_prefix,
+            image_format=save_service.format_for_size(
+                config_manager.get_screenshot_format(), image.width(), image.height()),
         )
         # 文件路径要等自动保存落盘才有，这个开关只在自动保存开着时读
         write_file_reference = config_manager.get_clipboard_file_reference_enabled()
+        if not config_manager.get_screenshot_save_original_enabled():
+            original = None
     else:
         save_service = None
+        original = None
 
     if not copy_to_clipboard and save_service is None:
         return None
@@ -173,7 +187,18 @@ def deliver_screenshot(
         save_service=save_service,
         save_kwargs=save_kwargs,
         write_file_reference=write_file_reference,
+        original=original,
     )
+
+
+def _auto_save_enabled(config_manager, trigger: str) -> bool:
+    if config_manager is None:
+        return False
+    switches = {
+        "capture": config_manager.get_screenshot_save_enabled,
+        "pin": config_manager.get_screenshot_pin_save_enabled,
+    }
+    return switches[trigger]()
 
 
 # ─── Win32 实现 ───────────────────────────────────────────────────────

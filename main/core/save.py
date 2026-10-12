@@ -100,6 +100,19 @@ class SaveService:
         """
         return self._compose_path(directory, prefix, suffix, image_format)
 
+    def format_for_size(self, image_format: str, width: int, height: int, *, pdf_dpi: int = DEFAULT_PDF_DPI) -> str:
+        """图片超出该格式能写下的边长时改存 PNG，例如很长的长截图存 JPG 或 WebP。"""
+        fmt = self._normalize_format(image_format)
+        # JPG、WebP 是编码器的硬上限；PDF 页面边长通常不超过 200 英寸
+        limit = {"JPG": 65500, "WEBP": 16383, "PDF": 200 * pdf_dpi}.get(fmt)
+        return "PNG" if limit is not None and max(width, height) > limit else fmt
+
+    def save_beside(self, image: QImage, saved_path: str, tag: str) -> Optional[str]:
+        """把 image 存到 saved_path 旁边，文件名末尾加 _tag（a.png → a_original.png），格式相同。"""
+        stem, ext = os.path.splitext(saved_path)
+        target_path = self._claim_first_free(f"{stem}_{tag}", ext)
+        return target_path if self.save_qimage_to_path(image, target_path) else None
+
     def save_qimage_to_path(
         self,
         image: QImage,
@@ -289,12 +302,13 @@ class SaveService:
         return "JPG" if fmt == "JPEG" else fmt
 
     def _reserve_unique_path(self, target_dir: str, prefix: str, suffix: str, image_format: str) -> str:
-        base_filename = self._build_filename(prefix, suffix, image_format)
-        stem, ext = os.path.splitext(base_filename)
+        stem, ext = os.path.splitext(self._build_filename(prefix, suffix, image_format))
+        return self._claim_first_free(os.path.join(target_dir, stem), ext)
 
+    def _claim_first_free(self, stem: str, ext: str) -> str:
+        """占下 stem+ext、stem_1+ext……中第一个还不存在的路径（只创建空文件）。"""
         for index in range(10000):
-            filename = base_filename if index == 0 else f"{stem}_{index}{ext}"
-            path = os.path.join(target_dir, filename)
+            path = f"{stem}{ext}" if index == 0 else f"{stem}_{index}{ext}"
             try:
                 fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
                 os.close(fd)
@@ -302,7 +316,7 @@ class SaveService:
             except FileExistsError:
                 continue
 
-        raise RuntimeError(f"无法为保存文件分配唯一文件名: {base_filename}")
+        raise RuntimeError(f"无法为保存文件分配唯一文件名: {stem}{ext}")
 
     def _cleanup_failed_placeholder(self, path: str) -> None:
         try:

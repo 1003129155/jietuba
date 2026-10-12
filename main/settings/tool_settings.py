@@ -373,7 +373,9 @@ class ToolSettingsManager(QObject):
         "smart_selection_animation": False,   # 换窗口时补间而不是瞬间跳变
 
         # 截图保存
-        "screenshot_save_enabled": True,       # 自动保存截图
+        "screenshot_save_enabled": True,       # 截图完成时自动保存
+        "screenshot_pin_save_enabled": False,  # 生成钉图时自动保存
+        "screenshot_save_original_enabled": False,  # 加了标注或水印的截图存盘时另存一张原图
         "screenshot_save_path": os.path.join(os.path.expanduser("~"), "Pictures", "jietuba_photos"),  # 默认保存路径
         "screenshot_format": "PNG",            # 保存格式: PNG / JPG / BMP / WEBP / PDF
         "screenshot_quality": 85,              # 有损格式质量 (1-100, PNG/BMP忽略)
@@ -1130,12 +1132,36 @@ class ToolSettingsManager(QObject):
         self.qsettings.setValue("screenshot/long_stitch_ignore_top_pixels", value)
     
     def get_screenshot_save_enabled(self) -> bool:
-        """获取截图自动保存"""
+        """获取截图完成时是否自动保存"""
         return self.qsettings.value("app/screenshot_save_enabled", self.APP_DEFAULT_SETTINGS["screenshot_save_enabled"], type=bool)
     
     def set_screenshot_save_enabled(self, value: bool):
-        """设置截图自动保存"""
+        """设置截图完成时是否自动保存"""
         self.qsettings.setValue("app/screenshot_save_enabled", value)
+
+    def get_screenshot_pin_save_enabled(self) -> bool:
+        """获取生成钉图时是否自动保存"""
+        return self.qsettings.value(
+            "app/screenshot_pin_save_enabled",
+            self.APP_DEFAULT_SETTINGS["screenshot_pin_save_enabled"],
+            type=bool,
+        )
+
+    def set_screenshot_pin_save_enabled(self, value: bool):
+        """设置生成钉图时是否自动保存"""
+        self.qsettings.setValue("app/screenshot_pin_save_enabled", value)
+
+    def get_screenshot_save_original_enabled(self) -> bool:
+        """获取加了标注或水印的截图存盘时是否另存一张原图"""
+        return self.qsettings.value(
+            "app/screenshot_save_original_enabled",
+            self.APP_DEFAULT_SETTINGS["screenshot_save_original_enabled"],
+            type=bool,
+        )
+
+    def set_screenshot_save_original_enabled(self, value: bool):
+        """设置加了标注或水印的截图存盘时是否另存一张原图"""
+        self.qsettings.setValue("app/screenshot_save_original_enabled", value)
     
     def get_screenshot_save_path(self) -> str:
         """获取截图保存路径"""

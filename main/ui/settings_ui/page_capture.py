@@ -3,7 +3,7 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 from core.ui_scale import dialog_scaled
 from ui.fluent_lite import (
-    SwitchSettingCard, SettingCard as FSettingCard,
+    SwitchSettingCard, SubSwitchSettingCard, SettingCard as FSettingCard,
     FluentIcon, ComboBox, CaptionLabel, PushButton,
 )
 from settings import color_formats
@@ -88,32 +88,61 @@ def create_capture_page(dialog) -> QWidget:
     # ── 截图保存 ──────────────────────────────────────
     grp_save = SettingCardGroup(dialog.tr("Save Settings"), view, tone="capture")
 
-    save_card = SwitchSettingCard(
+    # 自动保存按时机各设一个开关，挂在这张标题卡片下面；判断在 deliver_screenshot 里
+    grp_save.addSettingCard(FSettingCard(
         FluentIcon.SAVE,
-        dialog.tr("Auto-save Screenshots"),
-        dialog.tr("Automatically saves as file when capturing."),
+        dialog.tr("Auto-save"),
+        dialog.tr("Screenshots are saved to the save folder automatically when the actions below finish."),
+        parent=grp_save,
+    ))
+
+    save_card = SubSwitchSettingCard(
+        dialog.tr("When a Screenshot Is Done"),
+        dialog.tr("Saves when a screenshot is finished, including confirming a screenshot, long screenshots, "
+                  "global mouse shortcut screenshots, and more."),
         parent=grp_save,
     )
     save_card.setChecked(dialog.config_manager.get_screenshot_save_enabled())
     dialog.save_toggle = save_card
     grp_save.addSettingCard(save_card)
 
-    # 写入文件路径到剪贴板（CF_HDROP）。是否生效取决于自动保存截图是否
-    # 开启（没有落盘就没有路径可写），这个依赖在 ActionTools 里按需读取
-    # 判断，不在 UI 上做联动禁用——开关各自独立存储，互不覆盖，重新打开
-    # 自动保存时也不需要再点一次这个开关。
+    pin_save_card = SubSwitchSettingCard(
+        dialog.tr("When a Pinned Image Is Created"),
+        dialog.tr("Saves when a selected region becomes a pinned image, including regular pins, "
+                  "global mouse shortcut pins, long screenshot pins, and more."),
+        parent=grp_save,
+    )
+    pin_save_card.setChecked(dialog.config_manager.get_screenshot_pin_save_enabled())
+    dialog.screenshot_pin_save_toggle = pin_save_card
+    grp_save.addSettingCard(pin_save_card)
+
+    # 写入文件路径到剪贴板（CF_HDROP）。这次截图自动保存了才有路径可写，判断在
+    # deliver_screenshot 里；不在界面上做联动禁用，开关各自独立存储，互不覆盖。
     file_ref_card = SwitchSettingCard(
         FluentIcon.COMMAND_PROMPT,
         dialog.tr("Write File Path to Clipboard"),
         dialog.tr(
             "Lets tools that only recognize a file path (e.g. some terminal apps) "
-            "paste the screenshot too. Requires Auto-save Screenshots to be enabled."
+            "paste the screenshot too. Only takes effect when the screenshot is auto-saved."
         ),
         parent=grp_save,
     )
     file_ref_card.setChecked(dialog.config_manager.get_clipboard_file_reference_enabled())
     dialog.clipboard_file_reference_toggle = file_ref_card
     grp_save.addSettingCard(file_ref_card)
+
+    original_card = SwitchSettingCard(
+        FluentIcon.HISTORY,
+        dialog.tr("Also Save the Original"),
+        dialog.tr(
+            "When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, "
+            "a copy without them is saved too, with _original at the end of its file name."
+        ),
+        parent=grp_save,
+    )
+    original_card.setChecked(dialog.config_manager.get_screenshot_save_original_enabled())
+    dialog.screenshot_save_original_toggle = original_card
+    grp_save.addSettingCard(original_card)
 
     # 保存路径。路径本身当作卡片描述，按钮走控件列，和同组其它卡片对齐。
     path_card = FSettingCard(

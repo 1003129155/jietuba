@@ -237,9 +237,9 @@ class QuickCaptureController(QObject):
                 copy, pin = _CAPTURE_ACTIONS[action]
                 # 不经过画布，开着「自动加上上次的水印」时直接画到图上
                 from tools.watermark import WatermarkTool
-                image = WatermarkTool.apply_to_image(image, config)
-                # 开着「自动保存截图」时这些动作都存文件
-                deliver_screenshot(image, config, copy_to_clipboard=copy)
+                captured, image = image, WatermarkTool.apply_to_image(image, config)
+                deliver_screenshot(image, config, copy_to_clipboard=copy, trigger="pin" if pin else "capture",
+                                   original=captured if image is not captured else None)
                 if pin:
                     from pin.pin_manager import PinManager
                     PinManager.instance().create_pin(image, region.topLeft(), config)

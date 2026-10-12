@@ -797,6 +797,10 @@ class SettingsDialog(FrostedFramelessDialog):
             self.smart_animation_toggle.setChecked(defaults["smart_selection_animation"])
         if hasattr(self, 'save_toggle'):
             self.save_toggle.setChecked(defaults["screenshot_save_enabled"])
+        if hasattr(self, 'screenshot_pin_save_toggle'):
+            self.screenshot_pin_save_toggle.setChecked(defaults["screenshot_pin_save_enabled"])
+        if hasattr(self, 'screenshot_save_original_toggle'):
+            self.screenshot_save_original_toggle.setChecked(defaults["screenshot_save_original_enabled"])
         if hasattr(self, 'clipboard_file_reference_toggle'):
             self.clipboard_file_reference_toggle.setChecked(
                 defaults["clipboard_file_reference_enabled"]
@@ -1023,6 +1027,11 @@ class SettingsDialog(FrostedFramelessDialog):
         # 3. 截图保存
         if hasattr(self, 'save_toggle'):
             self.config_manager.set_screenshot_save_enabled(self.save_toggle.isChecked())
+        if hasattr(self, 'screenshot_pin_save_toggle'):
+            self.config_manager.set_screenshot_pin_save_enabled(self.screenshot_pin_save_toggle.isChecked())
+        if hasattr(self, 'screenshot_save_original_toggle'):
+            self.config_manager.set_screenshot_save_original_enabled(
+                self.screenshot_save_original_toggle.isChecked())
         if hasattr(self, 'clipboard_file_reference_toggle'):
             self.config_manager.set_clipboard_file_reference_enabled(
                 self.clipboard_file_reference_toggle.isChecked()
@@ -1340,7 +1349,8 @@ class SettingsDialog(FrostedFramelessDialog):
                       'cross_tool_selection_toggle',
                       'text_always_on_top_toggle',
                       'smart_animation_toggle',
-                      'save_toggle', 'clipboard_file_reference_toggle',
+                      'save_toggle', 'screenshot_pin_save_toggle', 'clipboard_file_reference_toggle',
+                      'screenshot_save_original_toggle',
                       'watermark_auto_toggle',
                       'magnifier_enabled_toggle', 'magnifier_grid_toggle',
                       'magnifier_hint_toggle',
@@ -1596,6 +1606,11 @@ class SettingsDialog(FrostedFramelessDialog):
 
         if hasattr(self, 'save_toggle'):
             self.save_toggle.setChecked(self.config_manager.get_screenshot_save_enabled())
+        if hasattr(self, 'screenshot_pin_save_toggle'):
+            self.screenshot_pin_save_toggle.setChecked(self.config_manager.get_screenshot_pin_save_enabled())
+        if hasattr(self, 'screenshot_save_original_toggle'):
+            self.screenshot_save_original_toggle.setChecked(
+                self.config_manager.get_screenshot_save_original_enabled())
         if hasattr(self, 'clipboard_file_reference_toggle'):
             self.clipboard_file_reference_toggle.setChecked(
                 self.config_manager.get_clipboard_file_reference_enabled()

@@ -547,20 +547,44 @@ Replace it?</translation>
     
     <!-- Save Page -->
     <message>
-        <source>Auto-save Screenshots</source>
-        <translation>Auto-save Screenshots</translation>
-    </message>
-    <message>
-        <source>Automatically saves as file when capturing.</source>
-        <translation>Automatically saves as file when capturing.</translation>
-    </message>
-    <message>
         <source>Write File Path to Clipboard</source>
         <translation>Write File Path to Clipboard</translation>
     </message>
     <message>
-        <source>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Requires Auto-save Screenshots to be enabled.</source>
-        <translation>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Requires Auto-save Screenshots to be enabled.</translation>
+        <source>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Only takes effect when the screenshot is auto-saved.</source>
+        <translation>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Only takes effect when the screenshot is auto-saved.</translation>
+    </message>
+    <message>
+        <source>Auto-save</source>
+        <translation>Auto-save</translation>
+    </message>
+    <message>
+        <source>Screenshots are saved to the save folder automatically when the actions below finish.</source>
+        <translation>Screenshots are saved to the save folder automatically when the actions below finish.</translation>
+    </message>
+    <message>
+        <source>When a Screenshot Is Done</source>
+        <translation>When a Screenshot Is Done</translation>
+    </message>
+    <message>
+        <source>Saves when a screenshot is finished, including confirming a screenshot, long screenshots, global mouse shortcut screenshots, and more.</source>
+        <translation>Saves when a screenshot is finished, including confirming a screenshot, long screenshots, global mouse shortcut screenshots, and more.</translation>
+    </message>
+    <message>
+        <source>When a Pinned Image Is Created</source>
+        <translation>When a Pinned Image Is Created</translation>
+    </message>
+    <message>
+        <source>Saves when a selected region becomes a pinned image, including regular pins, global mouse shortcut pins, long screenshot pins, and more.</source>
+        <translation>Saves when a selected region becomes a pinned image, including regular pins, global mouse shortcut pins, long screenshot pins, and more.</translation>
+    </message>
+    <message>
+        <source>Also Save the Original</source>
+        <translation>Also Save the Original</translation>
+    </message>
+    <message>
+        <source>When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, a copy without them is saved too, with _original at the end of its file name.</source>
+        <translation>When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, a copy without them is saved too, with _original at the end of its file name.</translation>
     </message>
     <message>
         <source>Save Folder</source>

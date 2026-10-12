@@ -121,8 +121,14 @@ def open_window(monkeypatch):
     monkeypatch.setattr(scroll_window, "wheel_follows_focus", lambda: False)
     window = ScrollCaptureWindow(QRect(100, 100, PAGE_W, VIEW_H))
     captured = {}
-    monkeypatch.setattr(window, "_save_result", lambda: captured.__setitem__("image", window.stitched_result))
-    monkeypatch.setattr(window, "_copy_to_clipboard", lambda: None)
+    export = window._export_result
+
+    def export_and_record():
+        captured["image"] = export()
+        return captured["image"]
+
+    monkeypatch.setattr(window, "_export_result", export_and_record)
+    monkeypatch.setattr(scroll_window, "deliver_screenshot", lambda *_args, **_kwargs: None)
     window.captured = captured
     return window
 

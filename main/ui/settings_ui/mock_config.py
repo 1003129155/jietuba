@@ -40,6 +40,8 @@ APP_DEFAULT_SETTINGS = {
     "preload_clipboard": True,
     "screenshot_info_hide_on_drag": False,
     "screenshot_save_enabled": True,
+    "screenshot_pin_save_enabled": False,
+    "screenshot_save_original_enabled": False,
     "screenshot_save_path": os.path.join(os.path.expanduser("~"), "Pictures", "jietuba_photos"),
     "screenshot_format": "PNG",
     "screenshot_quality": 85,
@@ -198,6 +200,10 @@ class MockConfig:
     def set_long_stitch_ignore_top_pixels(self, v): pass
     def get_screenshot_save_enabled(self): return True
     def set_screenshot_save_enabled(self, v): pass
+    def get_screenshot_pin_save_enabled(self): return False
+    def set_screenshot_pin_save_enabled(self, v): pass
+    def get_screenshot_save_original_enabled(self): return False
+    def set_screenshot_save_original_enabled(self, v): pass
     def get_screenshot_save_path(self): return os.path.join(os.path.expanduser("~"), "Pictures", "jietuba_photos")
     def set_screenshot_save_path(self, v): pass
     def get_screenshot_format(self): return "PNG"

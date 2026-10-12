@@ -190,6 +190,7 @@ def test_actions_use_exact_absolute_selection(capture, qtbot, monkeypatch, actio
     assert module.deliver_screenshot.called == (not edit)
     if not edit:
         assert module.deliver_screenshot.call_args.kwargs["copy_to_clipboard"] == copy
+        assert module.deliver_screenshot.call_args.kwargs["trigger"] == ("pin" if pin else "capture")
     assert pin_manager.create_pin.called == pin
     assert capture.main_app._on_capture_ready.called == edit
     if pin:
@@ -244,10 +245,10 @@ def test_translate_opens_translation_with_the_selected_pixels(capture, qtbot, mo
     module.deliver_screenshot.assert_not_called()
 
 
-@pytest.mark.parametrize("auto_save", [True, False])
-@pytest.mark.parametrize("action,copy", [("copy", True), ("pin", False), ("copy_pin", True)])
-def test_auto_save_applies_to_every_quick_capture_action(capture, qtbot, monkeypatch, tmp_path,
-                                                        action, copy, auto_save):
+@pytest.mark.parametrize("auto_save, pin_save", [(True, False), (False, True)])
+@pytest.mark.parametrize("action,copy,pinned", [("copy", True, False), ("pin", False, True), ("copy_pin", True, True)])
+def test_quick_capture_saves_by_its_trigger_switch(capture, qtbot, monkeypatch, tmp_path,
+                                                   action, copy, pinned, auto_save, pin_save):
     from core import clipboard_utils
     from pin.pin_manager import PinManager
     monkeypatch.setattr(PinManager, "instance", lambda: Mock())
@@ -255,6 +256,7 @@ def test_auto_save_applies_to_every_quick_capture_action(capture, qtbot, monkeyp
     monkeypatch.setattr(module, "deliver_screenshot", clipboard_utils.deliver_screenshot)
     config = capture.main_app.config_manager
     config.set_screenshot_save_enabled(auto_save)
+    config.set_screenshot_pin_save_enabled(pin_save)
     folder = tmp_path / "captures"
     config.set_screenshot_save_path(str(folder))
     bind(config, action)
@@ -266,11 +268,32 @@ def test_auto_save_applies_to_every_quick_capture_action(capture, qtbot, monkeyp
     def saved():
         return [QImage(str(path)).size().toTuple() for path in folder.glob("*")] if folder.exists() else []
 
-    if auto_save:
+    if pin_save if pinned else auto_save:
         qtbot.waitUntil(lambda: saved() == [(80, 60)])
     else:
         assert saved() == []
     assert clipboard_utils.copy_image_to_clipboard.called == copy
+
+
+@pytest.mark.parametrize("watermarked", [False, True])
+def test_quick_capture_hands_over_the_unwatermarked_image(capture, qtbot, monkeypatch, watermarked):
+    from tools.watermark import WatermarkTool
+    stamped = QImage(80, 60, QImage.Format.Format_RGB32)
+    stamped.fill(0xffffffff)
+    monkeypatch.setattr(WatermarkTool, "apply_to_image", lambda img, _config: stamped if watermarked else img)
+    bind(capture.main_app.config_manager, "copy")
+    capture.refresh()
+    start(capture, qtbot)
+    finish(capture, qtbot).captured.emit(image(), QRectF(-100, -100, 500, 500))
+    qtbot.waitUntil(lambda: module.set_last_region.called)
+
+    (delivered, _config), kwargs = module.deliver_screenshot.call_args
+    if watermarked:
+        assert delivered == stamped
+        assert kwargs["original"] == image()
+    else:
+        assert delivered == image()
+        assert kwargs["original"] is None
 
 
 def test_hotkey_pause_disarms_the_default_binding(capture):

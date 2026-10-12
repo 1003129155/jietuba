@@ -551,20 +551,44 @@ Replace it?</source>
     
     <!-- Save Page -->
     <message>
-        <source>Auto-save Screenshots</source>
-        <translation>自动保存截图</translation>
-    </message>
-    <message>
-        <source>Automatically saves as file when capturing.</source>
-        <translation>截图时自动保存为文件。</translation>
-    </message>
-    <message>
         <source>Write File Path to Clipboard</source>
         <translation>写入文件路径到剪贴板</translation>
     </message>
     <message>
-        <source>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Requires Auto-save Screenshots to be enabled.</source>
-        <translation>让只认文件路径的工具（如部分终端程序）也能粘贴截图。需要开启"自动保存截图"。</translation>
+        <source>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Only takes effect when the screenshot is auto-saved.</source>
+        <translation>让只认文件路径的工具（如部分终端程序）也能粘贴截图。只在自动保存时生效。</translation>
+    </message>
+    <message>
+        <source>Auto-save</source>
+        <translation>自动保存</translation>
+    </message>
+    <message>
+        <source>Screenshots are saved to the save folder automatically when the actions below finish.</source>
+        <translation>下面的操作完成时，自动把截图存进保存文件夹。</translation>
+    </message>
+    <message>
+        <source>When a Screenshot Is Done</source>
+        <translation>截图完成时</translation>
+    </message>
+    <message>
+        <source>Saves when a screenshot is finished, including confirming a screenshot, long screenshots, global mouse shortcut screenshots, and more.</source>
+        <translation>完成截图时自动保存，包括确定截图、长截图、全局鼠标截图等。</translation>
+    </message>
+    <message>
+        <source>When a Pinned Image Is Created</source>
+        <translation>钉图生成时</translation>
+    </message>
+    <message>
+        <source>Saves when a selected region becomes a pinned image, including regular pins, global mouse shortcut pins, long screenshot pins, and more.</source>
+        <translation>选择区域生成钉图时自动保存，包括普通钉图、全局鼠标钉图、长截图钉图等。</translation>
+    </message>
+    <message>
+        <source>Also Save the Original</source>
+        <translation>同时保存原图</translation>
+    </message>
+    <message>
+        <source>When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, a copy without them is saved too, with _original at the end of its file name.</source>
+        <translation>截图存进保存文件夹时，如果加了标注（含马赛克）或水印，再另存一张没有它们的原图，文件名末尾带 _original。</translation>
     </message>
     <message>
         <source>Save Folder</source>

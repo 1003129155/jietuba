@@ -45,7 +45,7 @@ from .jietuba_long_stitch_unified import (
 
 from settings import get_tool_settings_manager
 from capture.capture_service import grab_region_hdr, uses_hdr_engine
-from core.save import SaveService
+from core.clipboard_utils import deliver_screenshot
 from core import log_debug, log_info, safe_event
 from core.input_hub import input_hub
 from core.logger import log_exception, T, LogMsg
@@ -367,10 +367,6 @@ class ScrollCaptureWindow(QWidget):
         self.capture_rect = capture_rect
         self.config_manager = config_manager  # 保存配置管理器
         self.screenshots = []  # 存储截图的列表
-        
-        # 保存目录（由外部设置）
-        self.save_directory = None
-        self.save_service = SaveService()
         
         # 🆕 截图方向: "vertical"(竖向) 或 "horizontal"(横向)
         self.scroll_direction = "vertical"
@@ -1300,131 +1296,70 @@ class ScrollCaptureWindow(QWidget):
         """完成按钮点击"""
         _log_stitch(T("[OK] 完成长截图，共 {count} 张图片", count=len(self.screenshots)), force=True)
         self._capture_pending_now()
-        self._export_result()
-
-        # 自动保存文件
-        self._save_result()
-        
-        # 复制到剪贴板
-        self._copy_to_clipboard()
-        
+        image = self._result_qimage()
+        # 写剪贴板时要把长图转成位图和 PNG，可能要一两秒，先关掉长截图的所有窗口
         self._cleanup()
+        self.hide()
+        if image is None:
+            _log_stitch(T("[WARN] 没有拼接结果，跳过保存"))
+        else:
+            deliver_screenshot(image, self.config_manager, file_prefix=self._file_prefix())
         self.finished.emit()
         self.close()
-    
-    def set_save_directory(self, directory):
-        """设置保存目录"""
-        self.save_directory = directory
-    
-    def _save_result(self):
-        """提交拼接结果的异步保存任务"""
-        if self.stitched_result is None:
-            _log_stitch(T("[WARN] 没有拼接结果，跳过保存"))
-            return
 
-        direction_suffix = self.tr("Horizontal") if self.scroll_direction == "horizontal" else self.tr("Vertical")
-        target_dir = self.save_directory
+    def _file_prefix(self) -> str:
+        """保存的文件名按界面语言取，如「长截图_竖向」。"""
+        prefix = self.tr("Long Screenshot")
+        direction = self.tr("Horizontal") if self.scroll_direction == "horizontal" else self.tr("Vertical")
+        return f"{prefix}_{direction}"
 
+    def _result_qimage(self) -> Optional[QImage]:
+        """导出拼接结果并转成 QImage，没有结果或转换失败时返回 None。"""
+        result = self._export_result()
+        if result is None:
+            return None
         try:
-            task_path = self.save_service.save_pil_async(
-                self.stitched_result,
-                directory=target_dir,
-                prefix=self.tr("Long Screenshot"),
-                suffix=direction_suffix,
-                image_format="PNG"
-            )
-            if task_path:
-                _log_stitch(T("[SAVE] 长截图保存任务已提交: {task_path}", task_path=task_path))
-            else:
-                _log_stitch(T("[ERROR] 无法提交长截图保存任务"))
-        except Exception as exc:
-            _log_stitch(T("[ERROR] 提交长截图保存任务失败: {exc}", exc=exc))
-            import traceback
-            traceback.print_exc()
-
-    def _copy_to_clipboard(self):
-        """将拼接结果复制到剪贴板"""
-        if self.stitched_result is None:
-            return
-            
-        try:
-            # 转换为 QImage
-            image = self.stitched_result.convert("RGBA")
-            width, height = image.size
-            data = image.tobytes("raw", "RGBA")
-            
-            # 创建 QImage (引用 data)
-            qimage = QImage(data, width, height, width * 4, QImage.Format.Format_RGBA8888)
-            
-            # 复制到剪贴板（必须使用 copy() 创建深拷贝，避免 data 被回收后崩溃）
-            clipboard = QApplication.clipboard()
-            clipboard.setImage(qimage.copy())
-            _log_stitch(T("长截图已复制到剪贴板"))
-        except Exception as e:
+            rgb = result if result.mode == "RGB" else result.convert("RGB")
+            width, height = rgb.size
+            # copy() 让 QImage 持有自己的像素，不再引用 tobytes 的临时数据
+            return QImage(rgb.tobytes("raw", "RGB"), width, height, width * 3, QImage.Format.Format_RGB888).copy()
+        except Exception as e:  # 超长的图可能内存不足，窗口仍要照常收尾
             _log_stitch(T("[ERROR] 复制到剪贴板失败: {e}", e=e))
-            import traceback
-            traceback.print_exc()
-    
+            return None
+
     def _on_pin(self):
         """钉图按钮点击 - 将当前拼接结果钉到桌面，然后结束长截图"""
         _log_stitch(T("钉图长截图结果..."))
         self._capture_pending_now()
 
-        # 检查 config_manager
         if self.config_manager is None:
             _log_stitch(T("[ERROR] config_manager 未设置，无法创建钉图"))
             return
 
-        # 获取拼接结果（导出时已还原朝向）
-        result_image = self._export_result()
-
-        if result_image is None:
+        image = self._result_qimage()
+        if image is None:
             _log_stitch(T("[WARN] 没有拼接结果，无法钉图"))
             return
 
-        # 转换 PIL Image 到 QImage（使用原图，不缩放）
+        # 以长截图区域的中心为基准定位钉图窗口
+        center = self.capture_rect.center()
+        position = QPoint(center.x() - image.width() // 2, center.y() - image.height() // 2)
         try:
-            from PySide6.QtGui import QImage
-            from PySide6.QtCore import QPoint
-            
-            image_rgba = result_image.convert("RGBA")
-            width, height = image_rgba.size
-            data = image_rgba.tobytes("raw", "RGBA")
-            
-            qimage = QImage(data, width, height, width * 4, QImage.Format.Format_RGBA8888).copy()
-            
-            # 获取当前长截图窗口所在的屏幕（支持多屏幕）
-            # 以长截图区域的中心为基准定位钉图窗口
-            capture_center = self.capture_rect.center()
-            pin_x = capture_center.x() - width // 2
-            pin_y = capture_center.y() - height // 2
-            
-            position = QPoint(pin_x, pin_y)
-            
-            # 创建钉图（使用原图）
             from pin.pin_manager import PinManager
-            pin_manager = PinManager.instance()
-            
-            # 不保留返回值：PinManager 自身会持有窗口引用，这里不需要
-            pin_manager.create_pin(
-                image=qimage,
-                position=position,
-                config_manager=self.config_manager,
-                drawing_items=None,  # 长截图不继承绘制项目
-                selection_offset=None
-            )
-            
-            log_debug(T("钉图已创建，位置: ({pin_x}, {pin_y})", pin_x=pin_x, pin_y=pin_y), module=_MODULE_TAG)
-            
-            # 钉图完成后，清理并关闭长截图窗口
-            self._cleanup()
-            self.finished.emit()
-            self.close()
-            
+            PinManager.instance().create_pin(image=image, position=position, config_manager=self.config_manager)
         except Exception as e:
             _log_stitch(T("[ERROR] 创建钉图失败: {e}", e=e))
             import traceback
             traceback.print_exc()
+            return
+        log_debug(T("钉图已创建，位置: ({pin_x}, {pin_y})", pin_x=position.x(), pin_y=position.y()), module=_MODULE_TAG)
+
+        self._cleanup()
+        self.hide()
+        deliver_screenshot(image, self.config_manager, copy_to_clipboard=False, trigger="pin",
+                           file_prefix=self._file_prefix())
+        self.finished.emit()
+        self.close()
     
     def _on_cancel(self):
         """取消按钮点击"""

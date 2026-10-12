@@ -169,7 +169,7 @@ def test_deliver_screenshot_follows_auto_save_setting(monkeypatch, auto_save, co
     config.get_clipboard_file_reference_enabled.return_value = False
     deliver = MagicMock(return_value="thread")
     monkeypatch.setattr(clipboard_utils, "deliver_image_async", deliver)
-    image = object()
+    image = QImage(4, 4, QImage.Format.Format_RGB32)
 
     result = clipboard_utils.deliver_screenshot(image, config, copy_to_clipboard=copy)
 
@@ -189,6 +189,94 @@ def test_deliver_screenshot_follows_auto_save_setting(monkeypatch, auto_save, co
         assert kwargs["save_service"] is None
         assert kwargs["write_file_reference"] is True
         config.get_clipboard_file_reference_enabled.assert_not_called()
+
+
+def _auto_save_config(image_format="PNG", capture_save=True, pin_save=False, save_original=False):
+    config = MagicMock()
+    config.get_screenshot_save_enabled.return_value = capture_save
+    config.get_screenshot_pin_save_enabled.return_value = pin_save
+    config.get_screenshot_save_original_enabled.return_value = save_original
+    config.get_screenshot_save_path.return_value = "C:/shots"
+    config.get_screenshot_format.return_value = image_format
+    config.get_clipboard_file_reference_enabled.return_value = True
+    return config
+
+
+@pytest.mark.parametrize("trigger", ["capture", "pin"])
+@pytest.mark.parametrize("capture_save, pin_save", [(True, False), (False, True)])
+def test_each_trigger_follows_only_its_own_switch(monkeypatch, trigger, capture_save, pin_save):
+    from core import clipboard_utils
+
+    deliver = MagicMock()
+    monkeypatch.setattr(clipboard_utils, "deliver_image_async", deliver)
+    image = QImage(4, 4, QImage.Format.Format_RGB32)
+    config = _auto_save_config(capture_save=capture_save, pin_save=pin_save)
+
+    clipboard_utils.deliver_screenshot(image, config, trigger=trigger)
+
+    expected = capture_save if trigger == "capture" else pin_save
+    assert deliver.call_args.kwargs["copy_to_clipboard"] is True
+    assert (deliver.call_args.kwargs["save_service"] is not None) is expected
+
+
+@pytest.mark.parametrize("image_format, height, expected", [
+    ("JPG", 65500, "JPG"), ("JPG", 65501, "PNG"),
+    ("WEBP", 16383, "WEBP"), ("WEBP", 16384, "PNG"),
+    ("BMP", 70000, "BMP"), ("PDF", 60001, "PNG"),
+])
+def test_image_too_long_for_the_format_saves_as_png(monkeypatch, image_format, height, expected):
+    from core import clipboard_utils
+
+    deliver = MagicMock()
+    monkeypatch.setattr(clipboard_utils, "deliver_image_async", deliver)
+    image = QImage(2, height, QImage.Format.Format_RGB32)
+
+    clipboard_utils.deliver_screenshot(image, _auto_save_config(image_format), file_prefix="长截图_竖向")
+
+    assert deliver.call_args.kwargs["save_kwargs"] == dict(
+        directory="C:/shots", prefix="长截图_竖向", image_format=expected)
+
+
+def _filled(color):
+    image = QImage(8, 6, QImage.Format.Format_RGB32)
+    image.fill(color)
+    return image
+
+
+@pytest.mark.parametrize("save_original, with_original, expected_files", [
+    (True, True, 2), (False, True, 1), (True, False, 1),
+])
+def test_original_is_saved_beside_the_screenshot(tmp_path, save_original, with_original, expected_files):
+    from PySide6.QtGui import QColor
+    from core import clipboard_utils
+
+    config = _auto_save_config(save_original=save_original)
+    config.get_screenshot_save_path.return_value = str(tmp_path)
+    original = _filled(QColor("blue")) if with_original else None
+
+    thread = clipboard_utils.deliver_screenshot(
+        _filled(QColor("red")), config, copy_to_clipboard=False, original=original)
+    thread.join(5)
+
+    names = sorted(path.name for path in tmp_path.iterdir())
+    assert len(names) == expected_files
+    if expected_files == 2:
+        assert names[1] == names[0].replace(".png", "_original.png")
+        assert QImage(str(tmp_path / names[1])).pixelColor(0, 0) == QColor("blue")
+        assert QImage(str(tmp_path / names[0])).pixelColor(0, 0) == QColor("red")
+
+
+def test_save_beside_keeps_the_format_and_avoids_taken_names(tmp_path):
+    from PySide6.QtGui import QColor
+    from core.save import SaveService
+
+    saved = tmp_path / "20261012_153000.jpg"
+    (tmp_path / "20261012_153000_original.jpg").write_bytes(b"taken")
+
+    path = SaveService(config_manager=MagicMock()).save_beside(_filled(QColor("blue")), str(saved), "original")
+
+    assert path == str(tmp_path / "20261012_153000_original_1.jpg")
+    assert open(path, "rb").read(3) == bytes([0xFF, 0xD8, 0xFF])  # JPEG 文件头
 
 
 def test_copy_win32_writes_hdrop_in_single_clipboard_transaction(monkeypatch):

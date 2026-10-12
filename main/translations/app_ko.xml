@@ -546,20 +546,44 @@ Replace it?</source>
     
     <!-- Save Page -->
     <message>
-        <source>Auto-save Screenshots</source>
-        <translation>스크린샷 자동 저장</translation>
-    </message>
-    <message>
-        <source>Automatically saves as file when capturing.</source>
-        <translation>캡처 시 파일로 자동 저장합니다.</translation>
-    </message>
-    <message>
         <source>Write File Path to Clipboard</source>
         <translation>클립보드에 파일 경로 쓰기</translation>
     </message>
     <message>
-        <source>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Requires Auto-save Screenshots to be enabled.</source>
-        <translation>파일 경로만 인식하는 도구(일부 터미널 앱 등)에서도 스크린샷을 붙여넣을 수 있게 합니다. "스크린샷 자동 저장"을 켜야 적용됩니다.</translation>
+        <source>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Only takes effect when the screenshot is auto-saved.</source>
+        <translation>파일 경로만 인식하는 도구(일부 터미널 앱 등)에서도 스크린샷을 붙여넣을 수 있게 합니다. 자동 저장할 때만 적용됩니다.</translation>
+    </message>
+    <message>
+        <source>Auto-save</source>
+        <translation>자동 저장</translation>
+    </message>
+    <message>
+        <source>Screenshots are saved to the save folder automatically when the actions below finish.</source>
+        <translation>아래 작업이 끝나면 스크린샷을 저장 폴더에 자동으로 저장합니다.</translation>
+    </message>
+    <message>
+        <source>When a Screenshot Is Done</source>
+        <translation>스크린샷 완료 시</translation>
+    </message>
+    <message>
+        <source>Saves when a screenshot is finished, including confirming a screenshot, long screenshots, global mouse shortcut screenshots, and more.</source>
+        <translation>스크린샷을 완료하면 자동 저장합니다. 스크린샷 확인, 긴 스크린샷, 전역 마우스 단축키 스크린샷 등이 포함됩니다.</translation>
+    </message>
+    <message>
+        <source>When a Pinned Image Is Created</source>
+        <translation>고정 이미지 생성 시</translation>
+    </message>
+    <message>
+        <source>Saves when a selected region becomes a pinned image, including regular pins, global mouse shortcut pins, long screenshot pins, and more.</source>
+        <translation>선택한 영역으로 고정 이미지를 만들면 자동 저장합니다. 일반 고정, 전역 마우스 단축키 고정, 긴 스크린샷 고정 등이 포함됩니다.</translation>
+    </message>
+    <message>
+        <source>Also Save the Original</source>
+        <translation>원본도 저장</translation>
+    </message>
+    <message>
+        <source>When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, a copy without them is saved too, with _original at the end of its file name.</source>
+        <translation>주석(모자이크 포함)이나 워터마크를 넣은 스크린샷을 저장 폴더에 저장할 때 그것들이 없는 원본도 함께 저장합니다. 파일 이름 끝에 _original이 붙습니다.</translation>
     </message>
     <message>
         <source>Save Folder</source>

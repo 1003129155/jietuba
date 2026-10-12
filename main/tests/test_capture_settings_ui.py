@@ -3,7 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from PySide6.QtCore import QSettings, QTranslator
+from PySide6.QtCore import QPoint, QSettings, QTranslator
 
 from settings.tool_settings import (
     SMART_SELECTION_MODES,
@@ -491,33 +491,23 @@ def test_double_click_setting_translations_exist_and_load(qapp):
 
 def test_clipboard_file_reference_setting_translations_exist_and_load(qapp):
     translations = Path(__file__).parents[1] / "translations"
+    source = ("Lets tools that only recognize a file path (e.g. some terminal apps) "
+              "paste the screenshot too. Only takes effect when the screenshot is auto-saved.")
     expected_by_language = {
-        "en": {
-            "Write File Path to Clipboard": "Write File Path to Clipboard",
-            "Lets tools that only recognize a file path (e.g. some terminal apps) "
-            "paste the screenshot too. Requires Auto-save Screenshots to be enabled.":
-                "Lets tools that only recognize a file path (e.g. some terminal apps) "
-                "paste the screenshot too. Requires Auto-save Screenshots to be enabled.",
-        },
+        "en": {"Write File Path to Clipboard": "Write File Path to Clipboard", source: source},
         "zh": {
             "Write File Path to Clipboard": "写入文件路径到剪贴板",
-            "Lets tools that only recognize a file path (e.g. some terminal apps) "
-            "paste the screenshot too. Requires Auto-save Screenshots to be enabled.":
-                "让只认文件路径的工具（如部分终端程序）也能粘贴截图。需要开启\"自动保存截图\"。",
+            source: "让只认文件路径的工具（如部分终端程序）也能粘贴截图。只在自动保存时生效。",
         },
         "ja": {
             "Write File Path to Clipboard": "クリップボードにファイルパスを書き込む",
-            "Lets tools that only recognize a file path (e.g. some terminal apps) "
-            "paste the screenshot too. Requires Auto-save Screenshots to be enabled.":
-                "ファイルパスしか認識しないツール（一部のターミナルアプリなど）でもスクリーンショットを"
-                "貼り付けられるようになります。「スクリーンショットの自動保存」を有効にする必要があります。",
+            source: "ファイルパスしか認識しないツール（一部のターミナルアプリなど）でもスクリーンショットを"
+                    "貼り付けられるようになります。自動保存したときだけ有効です。",
         },
         "ko": {
             "Write File Path to Clipboard": "클립보드에 파일 경로 쓰기",
-            "Lets tools that only recognize a file path (e.g. some terminal apps) "
-            "paste the screenshot too. Requires Auto-save Screenshots to be enabled.":
-                "파일 경로만 인식하는 도구(일부 터미널 앱 등)에서도 스크린샷을 붙여넣을 수 있게 합니다. "
-                "\"스크린샷 자동 저장\"을 켜야 적용됩니다.",
+            source: "파일 경로만 인식하는 도구(일부 터미널 앱 등)에서도 스크린샷을 붙여넣을 수 있게 합니다. "
+                    "자동 저장할 때만 적용됩니다.",
         },
     }
 
@@ -675,6 +665,88 @@ def test_settings_dialog_saves_clipboard_file_reference_toggle(monkeypatch, qapp
         dialog._reset_screenshot_settings_page()
         assert dialog.save_toggle.isChecked() is True
         assert dialog.clipboard_file_reference_toggle.isChecked() is True
+    finally:
+        dialog.deleteLater()
+
+
+def test_auto_save_switches_hang_under_the_auto_save_card(qapp, tmp_path):
+    dialog = SimpleNamespace(config_manager=_manager(tmp_path), tr=lambda text: text,
+                             _change_save_dir=lambda: None, _open_save_dir=lambda: None)
+    page = create_capture_page(dialog)
+    try:
+        page.resize(760, 2400)
+        page.show()
+        qapp.processEvents()
+        cards = dialog.save_toggle.parentWidget().parentWidget()._cards
+        index = cards.index(dialog.save_toggle)
+        header = cards[index - 1]
+        assert header.titleLabel.text() == "Auto-save"
+        assert cards[index + 1] is dialog.screenshot_pin_save_toggle
+
+        header_left = header.titleLabel.mapTo(page, QPoint()).x()
+        for switch in (dialog.save_toggle, dialog.screenshot_pin_save_toggle):
+            assert not switch.iconBadge.isVisibleTo(switch)
+            assert switch.titleLabel.mapTo(page, QPoint()).x() == header_left
+    finally:
+        page.deleteLater()
+
+
+def test_save_switch_translations_exist_and_load(qapp):
+    translations = Path(__file__).parents[1] / "translations"
+    sources = (
+        "Auto-save",
+        "Screenshots are saved to the save folder automatically when the actions below finish.",
+        "When a Screenshot Is Done",
+        "Saves when a screenshot is finished, including confirming a screenshot, long screenshots, "
+        "global mouse shortcut screenshots, and more.",
+        "When a Pinned Image Is Created",
+        "Saves when a selected region becomes a pinned image, including regular pins, "
+        "global mouse shortcut pins, long screenshot pins, and more.",
+        "Also Save the Original",
+        "When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, "
+        "a copy without them is saved too, with _original at the end of its file name.",
+    )
+    for language in ("en", "zh", "ja", "ko"):
+        root = ET.parse(translations / f"app_{language}.xml").getroot()
+        settings_messages = {
+            message.findtext("source"): message.findtext("translation")
+            for context in root.findall("context")
+            if context.findtext("name") == "SettingsDialog"
+            for message in context.findall("message")
+        }
+        translator = QTranslator()
+        assert translator.load(str(translations / f"app_{language}.qm"))
+        for source in sources:
+            assert settings_messages.get(source), (language, source)
+            assert translator.translate("SettingsDialog", source) == settings_messages[source]
+
+
+@pytest.mark.parametrize("toggle, getter", [
+    ("screenshot_pin_save_toggle", "get_screenshot_pin_save_enabled"),
+    ("screenshot_save_original_toggle", "get_screenshot_save_original_enabled"),
+])
+def test_settings_dialog_saves_and_resets_save_switches(monkeypatch, qapp, tmp_path, toggle, getter):
+    manager = _manager(tmp_path)
+    manager.set_log_dir(str(tmp_path))
+    monkeypatch.setattr("ui.settings_ui.dialog.log_info", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr("core.shortcut_manager.HotkeySystem.check_hotkey_availability",
+                        lambda _self, _hotkey: True)
+    dialog = SettingsDialog(manager)
+    dialog.build_all_pages()
+    try:
+        for attr in ("log_toggle", "autostart_toggle", "language_combo", "_ui_theme_combo",
+                     "_appearance_theme_color", "_appearance_mask_color", "_inapp_edits"):
+            if hasattr(dialog, attr):
+                delattr(dialog, attr)
+
+        switch = getattr(dialog, toggle)
+        assert switch.isChecked() is False
+        switch.setChecked(True)
+        dialog.accept()
+        assert getattr(manager, getter)() is True
+
+        dialog._reset_screenshot_settings_page()
+        assert switch.isChecked() is False
     finally:
         dialog.deleteLater()
 

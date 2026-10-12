@@ -1311,14 +1311,10 @@ class ScreenshotWindow(QWidget):
             log_debug(T("选中区域（屏幕坐标）: x={x}, y={y}, w={w}, h={h}",
                          x=real_x, y=real_y, w=real_width, h=real_height), "LongScreenshot")
             
-            # 保存配置，用于长截图窗口
-            save_dir = self.config_manager.get_screenshot_save_path()
-            
             # 创建独立的长截图窗口（不传递 parent，让它独立运行）。按需导入：长截图模块
             # 加载时就会读设置、配置拼接引擎，放在文件顶部会被启动预加载带进工作线程。
             from stitch import ScrollCaptureWindow
             scroll_window = ScrollCaptureWindow(capture_rect, parent=None, config_manager=self.config_manager)
-            scroll_window.set_save_directory(save_dir)  # 设置保存目录
             
             # 把引用挂到 QApplication，防止截图窗口销毁后被 GC 回收
             app = QApplication.instance()
