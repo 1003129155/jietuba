@@ -426,6 +426,7 @@ core/
 ├── log_translations/        # 各模块日志文本翻译辅助
 ├── constants.py             # 全局常量定义（字体、路径等）
 ├── background_tasks.py      # 后台保存任务登记
+├── main_thread_gc.py        # MainThreadGC — 循环垃圾只在主线程回收
 ├── update_cache.py          # 更新器临时文件与缓存清理
 ├── updater_process.py       # Rust 更新器 JSONL 异步进程接口
 ├── update_controller.py     # 更新下载与安全重启协调

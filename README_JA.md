@@ -406,6 +406,7 @@ core/
 ├── log_translations/        # 各モジュールのログ翻訳ヘルパー
 ├── constants.py             # グローバル定数（フォント、パス等）
 ├── background_tasks.py      # バックグラウンド保存の追跡
+├── main_thread_gc.py        # MainThreadGC — 循環参照のGCをメインスレッドだけで行う
 ├── update_cache.py          # 更新プログラムの一時ファイルとキャッシュのクリーンアップ
 ├── updater_process.py       # Rust 更新プログラムとの非同期 JSONL 通信
 ├── update_controller.py     # 更新ダウンロードと安全な再起動の調整

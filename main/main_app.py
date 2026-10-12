@@ -95,6 +95,8 @@ class MainApp(QObject):
         super().__init__()
         self.app = QApplication(sys.argv)
         self.app.setQuitOnLastWindowClosed(False)
+        from core.main_thread_gc import MainThreadGC
+        self._main_thread_gc = MainThreadGC(self.app)
         
         # Config - 使用统一的设置管理器
         self.config_manager = get_tool_settings_manager()

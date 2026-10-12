@@ -407,6 +407,7 @@ core/
 ├── log_translations/        # per-module log text translation helpers
 ├── constants.py             # Global constants (fonts, paths, etc.)
 ├── background_tasks.py      # Background save tracking
+├── main_thread_gc.py        # MainThreadGC — cyclic garbage is collected only on the GUI thread
 ├── update_cache.py          # Updater cache cleanup
 ├── updater_process.py       # Rust updater JSONL process adapter
 ├── update_controller.py     # Update download and safe restart coordination
