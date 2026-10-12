@@ -39,7 +39,7 @@ PANEL_GLOWS = (
     (0.58, 1.2, 260, (190, 160, 255, 34)),
     (0.96, 0.0, 200, (255, 190, 160, 36)),
 )
-PANEL_NOISE_OPACITY = 0.035
+PANEL_NOISE_OPACITY = 0.015
 PANEL_HIGHLIGHT = QColor(255, 255, 255, 235)
 PANEL_INNER_RING = QColor(255, 255, 255, 190)
 # 半透明深色外圈：白色截图上能看出边界，深色截图上几乎不可见
