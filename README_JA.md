@@ -266,7 +266,8 @@ canvas/
     ├── spotlight_item.py    # SpotlightItem / SpotlightCurtain — スポットライトの穴と共有の幕
     ├── selection_item.py    # SelectionItem — 選択境界表示
     ├── arrow_item.py        # ArrowItem — 矢印アイテム、9 種類の軸・先端・輪郭のジオメトリ
-    └── text_item.py         # TextItem — テキストアイテム、縁取り/影/背景と三状態の操作枠
+    ├── text_item.py         # TextItem — テキストアイテム、縁取り/影/背景と三状態の操作枠
+    └── watermark_item.py    # WatermarkItem / WatermarkStyle — 選択範囲に重ねる透かし：タイルまたは 7 か所の位置、複数行と時刻に対応
 ```
 
 </details>
@@ -563,6 +564,7 @@ tools/
 ├── highlighter.py           # HighlighterTool — 蛍光ペン
 ├── mosaic.py                # MosaicTool — モザイク
 ├── spotlight.py             # SpotlightTool — スポットライト（枠の外を暗くする）
+├── watermark.py             # WatermarkTool — 透かし（追加・削除・文字とスタイルの変更）
 ├── cursor.py                # CursorTool — カーソル/選択
 ├── eraser.py                # EraserTool — 消しゴム
 └── cursor_manager.py        # CursorManager — カーソルスタイル管理
@@ -670,6 +672,8 @@ ui/
 ├── arrow_settings_panel.py  # ArrowSettingsPanel — 矢印設定パネル
 ├── number_settings_panel.py # 番号ツール設定パネル
 ├── mosaic_settings_panel.py # モザイクツール設定パネル
+├── watermark_settings_panel.py # 透かしパネル：文字・位置・スタイル（不透明度/サイズ/間隔/角度/色）・フォント
+├── watermark_input_dialog.py   # WatermarkInputDialog — 複数行の透かし入力、時刻の挿入とプレビュー
 │
 ├── fluent_lite/             # Fluent スタイル軽量コンポーネントライブラリ
 │   ├── buttons.py / cards.py / icons.py / inputs.py  # ボタン、カード、アイコン、入力欄
@@ -734,6 +738,7 @@ tests/
 ├── test_drawing_tools.py    # 描画ツールテスト（ペン/矩形/矢印/テキスト/番号/蛍光ペン）
 ├── test_mosaic_tool.py      # モザイクツールテスト
 ├── test_spotlight.py        # スポットライトテスト
+├── test_watermark.py        # 透かしテスト
 ├── test_functional_handles.py # コントロールポイント編集テスト
 ├── test_capture_service.py  # キャプチャサービステスト
 ├── test_clipboard_api.py    # クリップボード公開 API テスト

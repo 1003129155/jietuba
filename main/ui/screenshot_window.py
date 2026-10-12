@@ -757,6 +757,9 @@ class ScreenshotWindow(QWidget):
             self.toolbar.mosaic_style_changed.connect(self.on_mosaic_style_changed)
         if hasattr(self.toolbar, "mosaic_block_size_changed"):
             self.toolbar.mosaic_block_size_changed.connect(self.on_mosaic_block_size_changed)
+        self.toolbar.watermark_toggled.connect(self.on_watermark_toggled)
+        self.toolbar.watermark_style_changed.connect(self.on_watermark_style_changed)
+        self.toolbar.watermark_text_changed.connect(self.on_watermark_text_changed)
 
         # 操作按钮 → wrapper 方法（间接调用 action_handler）
         self.toolbar.undo_clicked.connect(self.on_undo)
@@ -778,6 +781,10 @@ class ScreenshotWindow(QWidget):
         self.scene.selectionConfirmed.connect(self.on_selection_confirmed)
         self.scene.selection_model.rectChanged.connect(self.update_toolbar_position)
         self.scene.selection_model.draggingChanged.connect(self.on_selection_dragging_changed)
+        # 自动水印每次会话只加一次：之后用户手动去掉、再重新框选，都不再自己冒出来
+        if self.config_manager.get_screenshot_watermark_auto():
+            self.scene.selectionConfirmed.connect(
+                self._add_auto_watermark, Qt.ConnectionType.SingleShotConnection)
         
         # 文字工具信号连接（新 view 的 controller）
         if hasattr(self.view, 'smart_edit_controller'):
@@ -1059,6 +1066,31 @@ class ScreenshotWindow(QWidget):
         QTimer.singleShot(0, self.view.setFocus)
         if hasattr(self, 'magnifier_overlay') and self.magnifier_overlay:
             self.magnifier_overlay.refresh()
+
+    def on_watermark_toggled(self, enabled: bool):
+        from tools.watermark import WatermarkTool
+
+        if enabled:
+            WatermarkTool.add(self.scene)
+        else:
+            WatermarkTool.remove(self.scene)
+
+    def on_watermark_style_changed(self, key: str, value):
+        from tools.watermark import WatermarkTool
+
+        WatermarkTool.change_style(self.scene, **{key: value})
+
+    def on_watermark_text_changed(self, template: str):
+        from tools.watermark import WatermarkTool
+
+        WatermarkTool.change_text(self.scene, template)
+
+    def _add_auto_watermark(self):
+        # 不进撤销栈：开头就有的水印不该被第一下 Ctrl+Z 撤掉，要去掉就点水印按钮
+        from tools.watermark import WatermarkTool
+
+        if WatermarkTool.current_template(self.scene.tool_settings_manager):
+            WatermarkTool.add(self.scene, undoable=False)
 
     def on_number_next_changed(self, next_value: int):
         """序号工具下一数字变化 - 更新场景偏移和光标预览"""

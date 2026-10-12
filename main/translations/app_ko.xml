@@ -5524,4 +5524,202 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
         <translation>전체 파일 경로를 붙여넣습니다.</translation>
     </message>
 </context>
+<context>
+    <name>Toolbar</name>
+    <message>
+        <source>Watermark (click again to remove)</source>
+        <translation>워터마크 (다시 클릭하면 제거)</translation>
+    </message>
+</context>
+<context>
+    <name>ToolbarLayoutDialog</name>
+    <message>
+        <source>Watermark</source>
+        <translation>워터마크</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Watermark</source>
+        <translation>워터마크</translation>
+    </message>
+    <message>
+        <source>Watermark Text</source>
+        <translation>워터마크 문구</translation>
+    </message>
+    <message>
+        <source>Add Watermark Automatically</source>
+        <translation>워터마크 자동 추가</translation>
+    </message>
+    <message>
+        <source>Every screenshot starts with the watermark, including screenshots taken with mouse shortcuts.</source>
+        <translation>마우스 단축키로 찍은 스크린샷을 포함해 모든 스크린샷에 워터마크가 들어갑니다.</translation>
+    </message>
+</context>
+<context>
+    <name>WatermarkPanel</name>
+    <message>
+        <source>Tiled</source>
+        <translation>타일</translation>
+    </message>
+    <message>
+        <source>Center</source>
+        <translation>가운데</translation>
+    </message>
+    <message>
+        <source>Top Left</source>
+        <translation>왼쪽 위</translation>
+    </message>
+    <message>
+        <source>Top Center</source>
+        <translation>위쪽 가운데</translation>
+    </message>
+    <message>
+        <source>Top Right</source>
+        <translation>오른쪽 위</translation>
+    </message>
+    <message>
+        <source>Bottom Left</source>
+        <translation>왼쪽 아래</translation>
+    </message>
+    <message>
+        <source>Bottom Center</source>
+        <translation>아래쪽 가운데</translation>
+    </message>
+    <message>
+        <source>Bottom Right</source>
+        <translation>오른쪽 아래</translation>
+    </message>
+    <message>
+        <source>Position</source>
+        <translation>위치</translation>
+    </message>
+    <message>
+        <source>Watermark Style</source>
+        <translation>워터마크 스타일</translation>
+    </message>
+    <message>
+        <source>Font</source>
+        <translation>글꼴</translation>
+    </message>
+    <message>
+        <source>Default Font</source>
+        <translation>기본 글꼴</translation>
+    </message>
+    <message>
+        <source>Input watermark</source>
+        <translation>워터마크 입력</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>불투명도</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>크기</translation>
+    </message>
+    <message>
+        <source>Spacing</source>
+        <translation>간격</translation>
+    </message>
+    <message>
+        <source>Angle</source>
+        <translation>각도</translation>
+    </message>
+    <message>
+        <source>Custom Color</source>
+        <translation>사용자 지정 색상</translation>
+    </message>
+    <message>
+        <source>Angle applies to tiled watermarks</source>
+        <translation>각도는 타일 배치에서만 적용됩니다</translation>
+    </message>
+</context>
+<context>
+    <name>WatermarkInputDialog</name>
+    <message>
+        <source>Input Watermark</source>
+        <translation>워터마크 입력</translation>
+    </message>
+    <message>
+        <source>Type the watermark. Use the time button to insert the capture time.</source>
+        <translation>워터마크 문구를 입력하세요. 아래 시간 버튼으로 캡처 시각을 넣을 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>Time:</source>
+        <translation>시간:</translation>
+    </message>
+    <message>
+        <source>Apply</source>
+        <translation>적용</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>취소</translation>
+    </message>
+    <message>
+        <source>Insert the capture time</source>
+        <translation>캡처 시각 삽입</translation>
+    </message>
+    <message>
+        <source>Preview: %1</source>
+        <translation>미리 보기: %1</translation>
+    </message>
+    <message>
+        <source>Year-month-day, 24-hour (China, Japan, Korea, ISO)</source>
+        <translation>연-월-일, 24시간제 (중국·일본·한국, ISO)</translation>
+    </message>
+    <message>
+        <source>Slash-separated date, 24-hour</source>
+        <translation>슬래시로 구분한 날짜, 24시간제</translation>
+    </message>
+    <message>
+        <source>Day/month/year, 24-hour (most of Europe)</source>
+        <translation>일/월/연, 24시간제 (유럽 대부분)</translation>
+    </message>
+    <message>
+        <source>Month/day/year, 24-hour (United States)</source>
+        <translation>월/일/연, 24시간제 (미국)</translation>
+    </message>
+    <message>
+        <source>Month/day/year, 12-hour (United States and Canada)</source>
+        <translation>월/일/연, 12시간제 (미국·캐나다)</translation>
+    </message>
+    <message>
+        <source>Date only</source>
+        <translation>날짜만</translation>
+    </message>
+    <message>
+        <source>Time only, 24-hour</source>
+        <translation>시간만, 24시간제</translation>
+    </message>
+    <message>
+        <source>Time only, 12-hour</source>
+        <translation>시간만, 12시간제</translation>
+    </message>
+    <message>
+        <source>Date and time with the weekday</source>
+        <translation>요일을 포함한 날짜와 시간</translation>
+    </message>
+    <message>
+        <source>With milliseconds, for logs</source>
+        <translation>밀리초 포함, 로그용</translation>
+    </message>
+    <message>
+        <source>Compact, for file names</source>
+        <translation>간결한 형식, 파일 이름용</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>$yyyy-MM-dd HH:mm:ss$ becomes the time the watermark is added. More time formats, size, color and position are in the watermark panel on the screenshot toolbar.</source>
+        <translation>$yyyy-MM-dd HH:mm:ss$는 워터마크를 넣은 시각으로 바뀝니다. 다른 시간 형식과 크기, 색상, 위치는 스크린샷 도구 모음의 워터마크 패널에서 설정합니다.</translation>
+    </message>
+    <message>
+        <source>Input watermark</source>
+        <translation>워터마크 입력</translation>
+    </message>
+</context>
 </TS>

@@ -251,6 +251,16 @@ class ToolSettingsManager(QObject):
         "spotlight": {
             "opacity": 0.7,  # 幕布暗度（整个场景一张黑色幕布，所有聚光灯共用）
         },
+        # 与 WatermarkStyle 的默认值一致（这里不能 import canvas）
+        "watermark": {
+            "color": "#808080",
+            "font_size": 24,     # 像素
+            "opacity": 0.35,
+            "layout": "tile",    # 取值见 watermark_item.LAYOUTS
+            "spacing": 40,       # 字号的十分之几
+            "angle": -30,        # 只用于平铺
+            "font_family": "",   # 空 = 跟随界面语言的默认字体
+        },
         "rect": {
             "color": "#FF0000",  # 红色
             "stroke_width": 9,
@@ -380,6 +390,11 @@ class ToolSettingsManager(QObject):
         "screenshot_shadow_color": "#0078FF",        # 阴影颜色（独立）
         "screenshot_border_color": "#FF0000",        # 描边颜色（独立）
         "screenshot_border_persist": False,          # 每次截图都保持开启
+
+        # 截图水印（样式在 tools/watermark 下，随工具栏面板改）
+        "screenshot_watermark_text": "",               # $yyyy-MM-dd HH:mm:ss$ 这样的占位换成截图时刻
+        "screenshot_watermark_auto": False,            # 每次截图自动加水印，含全局鼠标快捷键的截图
+        "screenshot_watermark_time_format": "yyyy-MM-dd HH:mm:ss",  # 输入水印时「插入时间」用的格式
         # GIF 录制
         "gif_fps": 10,                         # GIF默认帧率
         "recording_format": "gif",
@@ -1156,6 +1171,38 @@ class ToolSettingsManager(QObject):
     def set_clipboard_file_reference_enabled(self, value: bool):
         """设置复制时是否同时写入文件路径（CF_HDROP）"""
         self.qsettings.setValue("app/clipboard_file_reference_enabled", value)
+
+    def get_screenshot_watermark_text(self) -> str:
+        """水印文字模板，$…$ 里的日期格式在加水印时换成当时的时间"""
+        return self.qsettings.value(
+            "app/screenshot_watermark_text",
+            self.APP_DEFAULT_SETTINGS["screenshot_watermark_text"],
+            type=str,
+        ) or ""
+
+    def set_screenshot_watermark_text(self, value: str):
+        self.qsettings.setValue("app/screenshot_watermark_text", str(value or "").strip())
+
+    def get_screenshot_watermark_time_format(self) -> str:
+        return self.qsettings.value(
+            "app/screenshot_watermark_time_format",
+            self.APP_DEFAULT_SETTINGS["screenshot_watermark_time_format"],
+            type=str,
+        ) or self.APP_DEFAULT_SETTINGS["screenshot_watermark_time_format"]
+
+    def set_screenshot_watermark_time_format(self, value: str):
+        self.qsettings.setValue("app/screenshot_watermark_time_format", str(value or ""))
+
+    def get_screenshot_watermark_auto(self) -> bool:
+        """每次截图是否自动加水印"""
+        return self.qsettings.value(
+            "app/screenshot_watermark_auto",
+            self.APP_DEFAULT_SETTINGS["screenshot_watermark_auto"],
+            type=bool,
+        )
+
+    def set_screenshot_watermark_auto(self, value: bool):
+        self.qsettings.setValue("app/screenshot_watermark_auto", bool(value))
 
     def get_screenshot_quality(self) -> int:
         """获取截图保存质量 (1-100, PNG/BMP时忽略)"""

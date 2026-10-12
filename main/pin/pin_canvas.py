@@ -148,10 +148,13 @@ class PinCanvas(QObject):
                 StrokeItem, RectItem, EllipseItem, ArrowItem, 
                 TextItem, NumberItem
             )
-            from canvas.items import MosaicItem, SpotlightItem
+            from canvas.items import MosaicItem, SpotlightItem, WatermarkItem
 
             # 根据类型进行克隆
-            if isinstance(item, StrokeItem):
+            if isinstance(item, WatermarkItem):
+                # 范围不用搬：水印进了钉图场景会自己对上那里的选区（整张图）
+                return WatermarkItem(item.template(), item.style(), item.created_at())
+            elif isinstance(item, StrokeItem):
                 return self._clone_stroke_item(item)
             elif isinstance(item, MosaicItem):
                 return self._clone_mosaic_item(item)

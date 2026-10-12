@@ -235,6 +235,9 @@ class QuickCaptureController(QObject):
                     show_text_recognition(image, anchor=region)
             else:
                 copy, pin = _CAPTURE_ACTIONS[action]
+                # 不经过画布，开着「自动加水印」时直接画到图上
+                from tools.watermark import WatermarkTool
+                image = WatermarkTool.apply_to_image(image, config)
                 # 开着「自动保存截图」时这些动作都存文件
                 deliver_screenshot(image, config, copy_to_clipboard=copy)
                 if pin:

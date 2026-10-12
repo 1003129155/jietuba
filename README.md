@@ -267,7 +267,8 @@ canvas/
     ├── spotlight_item.py    # SpotlightItem / SpotlightCurtain — spotlight holes and their shared curtain
     ├── selection_item.py    # SelectionItem — selection boundary display
     ├── arrow_item.py        # ArrowItem — arrow item, geometry for nine shaft and head styles
-    └── text_item.py         # TextItem — text item, outline/shadow/background and tri-state interaction frame
+    ├── text_item.py         # TextItem — text item, outline/shadow/background and tri-state interaction frame
+    └── watermark_item.py    # WatermarkItem / WatermarkStyle — watermark layer over the selection: tiled or at one of seven positions, multi-line, time stamps
 ```
 
 </details>
@@ -564,6 +565,7 @@ tools/
 ├── highlighter.py           # HighlighterTool — highlighter
 ├── mosaic.py                # MosaicTool — pixel mosaic
 ├── spotlight.py             # SpotlightTool — spotlight (dims outside the box)
+├── watermark.py             # WatermarkTool — adds/removes the watermark and changes its text and style
 ├── cursor.py                # CursorTool — cursor/selection
 ├── eraser.py                # EraserTool — eraser
 └── cursor_manager.py        # CursorManager — cursor style manager
@@ -671,6 +673,8 @@ ui/
 ├── arrow_settings_panel.py  # ArrowSettingsPanel — arrow settings panel
 ├── number_settings_panel.py # number tool settings panel
 ├── mosaic_settings_panel.py # mosaic tool settings panel
+├── watermark_settings_panel.py # watermark panel: text, position, style popup (opacity/size/spacing/angle/color), font
+├── watermark_input_dialog.py   # WatermarkInputDialog — multi-line watermark text with time insertion and preview
 │
 ├── fluent_lite/             # Fluent-style lightweight component library
 │   ├── buttons.py / cards.py / icons.py / inputs.py  # buttons, cards, icons, inputs
@@ -735,6 +739,7 @@ tests/
 ├── test_drawing_tools.py    # drawing tool tests (pen/rect/arrow/text/number/highlighter)
 ├── test_mosaic_tool.py      # mosaic tool tests
 ├── test_spotlight.py        # spotlight tests
+├── test_watermark.py        # watermark tests
 ├── test_functional_handles.py # edit handle tests
 ├── test_capture_service.py  # capture service tests
 ├── test_clipboard_api.py    # clipboard public API tests

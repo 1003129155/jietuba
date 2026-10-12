@@ -5610,4 +5610,202 @@ Make sure gifrecorder is installed correctly.</source>
         <translation>粘贴完整的文件路径。</translation>
     </message>
 </context>
+<context>
+    <name>Toolbar</name>
+    <message>
+        <source>Watermark (click again to remove)</source>
+        <translation>水印（再点一次去掉）</translation>
+    </message>
+</context>
+<context>
+    <name>ToolbarLayoutDialog</name>
+    <message>
+        <source>Watermark</source>
+        <translation>水印</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Watermark</source>
+        <translation>水印</translation>
+    </message>
+    <message>
+        <source>Watermark Text</source>
+        <translation>水印文字</translation>
+    </message>
+    <message>
+        <source>Add Watermark Automatically</source>
+        <translation>自动加水印</translation>
+    </message>
+    <message>
+        <source>Every screenshot starts with the watermark, including screenshots taken with mouse shortcuts.</source>
+        <translation>每次截图都自动加上水印，包括用鼠标快捷键截的图。</translation>
+    </message>
+</context>
+<context>
+    <name>WatermarkPanel</name>
+    <message>
+        <source>Tiled</source>
+        <translation>平铺</translation>
+    </message>
+    <message>
+        <source>Center</source>
+        <translation>居中</translation>
+    </message>
+    <message>
+        <source>Top Left</source>
+        <translation>左上角</translation>
+    </message>
+    <message>
+        <source>Top Center</source>
+        <translation>顶部居中</translation>
+    </message>
+    <message>
+        <source>Top Right</source>
+        <translation>右上角</translation>
+    </message>
+    <message>
+        <source>Bottom Left</source>
+        <translation>左下角</translation>
+    </message>
+    <message>
+        <source>Bottom Center</source>
+        <translation>底部居中</translation>
+    </message>
+    <message>
+        <source>Bottom Right</source>
+        <translation>右下角</translation>
+    </message>
+    <message>
+        <source>Position</source>
+        <translation>位置</translation>
+    </message>
+    <message>
+        <source>Watermark Style</source>
+        <translation>水印样式</translation>
+    </message>
+    <message>
+        <source>Font</source>
+        <translation>字体</translation>
+    </message>
+    <message>
+        <source>Default Font</source>
+        <translation>默认字体</translation>
+    </message>
+    <message>
+        <source>Input watermark</source>
+        <translation>输入水印</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>不透明度</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>大小</translation>
+    </message>
+    <message>
+        <source>Spacing</source>
+        <translation>间距</translation>
+    </message>
+    <message>
+        <source>Angle</source>
+        <translation>角度</translation>
+    </message>
+    <message>
+        <source>Custom Color</source>
+        <translation>自定义颜色</translation>
+    </message>
+    <message>
+        <source>Angle applies to tiled watermarks</source>
+        <translation>角度只对平铺生效</translation>
+    </message>
+</context>
+<context>
+    <name>WatermarkInputDialog</name>
+    <message>
+        <source>Input Watermark</source>
+        <translation>输入水印</translation>
+    </message>
+    <message>
+        <source>Type the watermark. Use the time button to insert the capture time.</source>
+        <translation>输入水印文字，用下方的时间按钮插入截图时间。</translation>
+    </message>
+    <message>
+        <source>Time:</source>
+        <translation>时间：</translation>
+    </message>
+    <message>
+        <source>Apply</source>
+        <translation>应用</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Insert the capture time</source>
+        <translation>插入截图时间</translation>
+    </message>
+    <message>
+        <source>Preview: %1</source>
+        <translation>预览：%1</translation>
+    </message>
+    <message>
+        <source>Year-month-day, 24-hour (China, Japan, Korea, ISO)</source>
+        <translation>年-月-日，24 小时制（中国、日本、韩国，ISO 标准）</translation>
+    </message>
+    <message>
+        <source>Slash-separated date, 24-hour</source>
+        <translation>斜杠分隔的日期，24 小时制</translation>
+    </message>
+    <message>
+        <source>Day/month/year, 24-hour (most of Europe)</source>
+        <translation>日/月/年，24 小时制（大多数欧洲国家）</translation>
+    </message>
+    <message>
+        <source>Month/day/year, 24-hour (United States)</source>
+        <translation>月/日/年，24 小时制（美国）</translation>
+    </message>
+    <message>
+        <source>Month/day/year, 12-hour (United States and Canada)</source>
+        <translation>月/日/年，12 小时制（美国和加拿大）</translation>
+    </message>
+    <message>
+        <source>Date only</source>
+        <translation>仅日期</translation>
+    </message>
+    <message>
+        <source>Time only, 24-hour</source>
+        <translation>仅时间，24 小时制</translation>
+    </message>
+    <message>
+        <source>Time only, 12-hour</source>
+        <translation>仅时间，12 小时制</translation>
+    </message>
+    <message>
+        <source>Date and time with the weekday</source>
+        <translation>带星期的日期和时间</translation>
+    </message>
+    <message>
+        <source>With milliseconds, for logs</source>
+        <translation>带毫秒，适合日志</translation>
+    </message>
+    <message>
+        <source>Compact, for file names</source>
+        <translation>紧凑格式，适合文件名</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>$yyyy-MM-dd HH:mm:ss$ becomes the time the watermark is added. More time formats, size, color and position are in the watermark panel on the screenshot toolbar.</source>
+        <translation>$yyyy-MM-dd HH:mm:ss$ 会换成加水印时的时间。更多时间格式和字号、颜色、位置在截图工具栏的水印面板里设置。</translation>
+    </message>
+    <message>
+        <source>Input watermark</source>
+        <translation>输入水印</translation>
+    </message>
+</context>
 </TS>

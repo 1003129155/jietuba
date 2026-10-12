@@ -269,7 +269,8 @@ canvas/
     ├── spotlight_item.py    # SpotlightItem / SpotlightCurtain — 聚光灯的孔与共用幕布
     ├── selection_item.py    # SelectionItem — 选中项的边界显示框
     ├── arrow_item.py        # ArrowItem — 箭头图元，九种样式的箭杆/端头/描边几何
-    └── text_item.py         # TextItem — 文字图元，描边/阴影/背景色块与三态交互框
+    ├── text_item.py         # TextItem — 文字图元，描边/阴影/背景色块与三态交互框
+    └── watermark_item.py    # WatermarkItem / WatermarkStyle — 盖在选区上的水印层：平铺或放在七个位置之一，支持多行和时间
 ```
 
 </details>
@@ -633,6 +634,7 @@ tools/
 ├── highlighter.py           # HighlighterTool — 荧光笔工具
 ├── mosaic.py                # MosaicTool — 马赛克工具
 ├── spotlight.py             # SpotlightTool — 聚光灯工具（压暗框外区域）
+├── watermark.py             # WatermarkTool — 水印工具（铺上、去掉、改文字和样式）
 ├── cursor.py                # CursorTool — 光标/选择工具
 ├── eraser.py                # EraserTool — 橡皮擦工具
 └── cursor_manager.py        # CursorManager — 光标样式管理器
@@ -642,7 +644,7 @@ tools/
 
 **核心功能：**
 - 统一的工具基类架构（Tool → 各具体工具）
-- 绘图工具：笔、矩形、椭圆、箭头、文字、数字、荧光笔、马赛克、光标、橡皮擦等
+- 绘图工具：笔、矩形、椭圆、箭头、文字、数字、荧光笔、马赛克、水印、光标、橡皮擦等
 - 工具控制器负责工具切换、鼠标事件分发
 - 工具上下文（ToolContext）提供场景、视图、设置等依赖注入
 
@@ -751,6 +753,8 @@ ui/
 ├── arrow_settings_panel.py  # ArrowSettingsPanel — 箭头设置面板
 ├── number_settings_panel.py # 数字工具设置面板
 ├── mosaic_settings_panel.py # 马赛克工具设置面板
+├── watermark_settings_panel.py # 水印面板：文字、位置、样式弹层（不透明度/大小/间距/角度/颜色）、字体
+├── watermark_input_dialog.py   # WatermarkInputDialog — 输入多行水印，可插入时间并预览
 │
 ├── fluent_lite/             # Fluent 风格轻量组件库
 │   ├── buttons.py / cards.py / icons.py / inputs.py  # 按钮、卡片、图标、输入框
@@ -829,6 +833,7 @@ tests/
 ├── test_drawing_tools.py    # 绘图工具测试（笔/矩形/箭头/文字/数字/荧光笔）
 ├── test_mosaic_tool.py      # 马赛克工具测试
 ├── test_spotlight.py        # 聚光灯测试
+├── test_watermark.py        # 水印测试
 ├── test_functional_handles.py # 控制点编辑测试
 ├── test_capture_service.py  # 截图服务测试
 ├── test_clipboard_api.py    # 剪贴板公共 API 测试

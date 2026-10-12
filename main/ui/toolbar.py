@@ -254,6 +254,11 @@ class Toolbar(QWidget):
 
     # 画笔工具专用信号
     line_style_changed = Signal(str)  # 线条样式改变(solid/dashed)
+
+    # 水印：铺上(True)/去掉(False)；样式改动是 (WatermarkStyle 的字段名, 新值)；文字是带时间占位的模板
+    watermark_toggled = Signal(bool)
+    watermark_style_changed = Signal(str, object)
+    watermark_text_changed = Signal(str)
     
     # 有二级面板的工具。pen/highlighter 与 rect/ellipse 各自共用一个面板，
     # 但设置是分工具存的，所以这里按工具而不是按面板列。
@@ -328,6 +333,8 @@ class Toolbar(QWidget):
             "mosaic", "svg/马赛克.svg", "Mosaic (mouse wheel to resize)", tool)
         self.spotlight_btn = self._add_tool_button(
             "spotlight", "svg/聚光灯.svg", "Spotlight (dim outside the box)", tool)
+        self.watermark_btn = self._add_tool_button(
+            "watermark", "svg/水印.svg", "Watermark (click again to remove)", tool)
         self.arrow_btn = self._add_tool_button("arrow", "svg/箭头.svg", "Draw arrow", tool)
         self.number_btn = self._add_tool_button(
             "number", "svg/序号.svg", "Number (Shift+scroll to change number)", tool)
@@ -366,6 +373,7 @@ class Toolbar(QWidget):
             "highlighter": self.highlighter_btn,
             "mosaic": self.mosaic_btn,
             "spotlight": self.spotlight_btn,
+            "watermark": self.watermark_btn,
             "arrow": self.arrow_btn,
             "number": self.number_btn,
             "rect": self.rect_btn,
@@ -472,7 +480,7 @@ class Toolbar(QWidget):
         self._arrange([key for key, mode in layout if mode == SHOW] + ["more"])
 
     PANEL_ATTRS = ('paint_panel', 'shape_panel', 'arrow_panel',
-                   'number_panel', 'text_panel', 'mosaic_panel')
+                   'number_panel', 'text_panel', 'mosaic_panel', 'watermark_panel')
 
     def _iter_panels(self):
         """已建出来的二级设置面板"""
@@ -662,12 +670,50 @@ class Toolbar(QWidget):
         self.mosaic_panel.block_size_changed.connect(self._on_mosaic_block_size_changed)
         self.mosaic_panel.hide()
 
+        # === 7. 水印设置面板 (watermark)：用到才建，见 _ensure_watermark_panel ===
+        self.watermark_panel = None
+
         # 加载保存的设置
         self._load_saved_settings()
         
         # 保持兼容性:paint_menu 和 text_menu 别名
         self.paint_menu = self.paint_panel
         self.text_menu = self.text_panel
+
+    def _ensure_watermark_panel(self):
+        """水印面板用到才建：钉图工具栏没有水印按钮，截图里它也是低频功能，不拖慢工具栏创建。
+
+        不走 color_changed 这些通用信号：那一路会改当前画笔的颜色和光标，水印的样式单独存。
+        """
+        if self.watermark_panel is None:
+            from .watermark_settings_panel import WatermarkSettingsPanel
+
+            panel = WatermarkSettingsPanel(self.parent())
+            # 样式弹层要背离工具栏弹，理由同序号面板
+            panel._owner_toolbar = self
+            self._make_floating(panel)
+            panel.style_changed.connect(self.watermark_style_changed)
+            panel.text_edit_requested.connect(self.edit_watermark_text)
+            panel.text_cleared.connect(lambda: self._set_watermark_text(""))
+            panel.hide()
+            self.watermark_panel = panel
+        return self.watermark_panel
+
+    def edit_watermark_text(self):
+        """弹出输入框编辑水印文字；取消就什么都不改。"""
+        from settings import get_tool_settings_manager
+        from .watermark_input_dialog import edit_watermark_text
+
+        panel = self._ensure_watermark_panel()
+        template = edit_watermark_text(panel.text_field, get_tool_settings_manager())
+        if template is not None:
+            self._set_watermark_text(template)
+
+    def _set_watermark_text(self, template: str):
+        panel = self.watermark_panel
+        if panel is not None:
+            panel.set_template(template)
+        self.watermark_text_changed.emit(template)
 
     @safe_event
     def paintEvent(self, event):
@@ -716,6 +762,11 @@ class Toolbar(QWidget):
                 self.mosaic_panel.set_draw_mode(settings.get("draw_mode"))
                 self.mosaic_panel.set_style(settings.get("style"))
                 self.mosaic_panel.set_block_size(settings.get("block_size"))
+            elif tool_id == "watermark":
+                from tools.watermark import WatermarkTool
+                panel = self._ensure_watermark_panel()
+                panel.load_style(WatermarkTool.load_style(manager))
+                panel.set_template(WatermarkTool.current_template(manager))
         except Exception as exc:
             log_debug(T("同步 {tool_id} 面板失败: {exc}", tool_id=tool_id, exc=exc), "Toolbar")
 
@@ -757,7 +808,7 @@ class Toolbar(QWidget):
             except RuntimeError:
                 continue
         # 二级面板的文本在构造时一次性设置，这里补一次刷新
-        for attr in ("mosaic_panel", "text_panel"):
+        for attr in ("mosaic_panel", "text_panel", "watermark_panel"):
             panel = getattr(self, attr, None)
             if panel is not None and hasattr(panel, "retranslate"):
                 panel.retranslate()
@@ -794,7 +845,24 @@ class Toolbar(QWidget):
     
     def _on_tool_clicked(self, tool_id: str):
         """工具按钮点击 - 支持再次点击取消"""
+        if tool_id == "watermark":
+            self._on_watermark_clicked()
+            return
         self.select_tool(tool_id, toggle=True)
+
+    def _on_watermark_clicked(self):
+        """水印按钮：没选中时铺上水印并打开面板；已选中时再点一下，去掉水印。
+
+        切到别的工具后水印还在，这时再点它只是重新打开面板。还没有水印文字时，铺上后直接弹出输入框。
+        """
+        if self.current_tool == "watermark":
+            self.select_tool("cursor")
+            self.watermark_toggled.emit(False)
+            return
+        self.select_tool("watermark")
+        self.watermark_toggled.emit(True)
+        if not self._ensure_watermark_panel().text_field.template():
+            self.edit_watermark_text()
 
     def select_tool(self, tool_id: str, *, toggle: bool = False):
         """Select a tool through the authoritative toolbar/UI signal path.
@@ -833,12 +901,8 @@ class Toolbar(QWidget):
             
     def _hide_all_panels(self):
         """隐藏所有设置面板"""
-        if hasattr(self, 'paint_panel'): self.paint_panel.hide()
-        if hasattr(self, 'shape_panel'): self.shape_panel.hide()
-        if hasattr(self, 'arrow_panel'): self.arrow_panel.hide()
-        if hasattr(self, 'number_panel'): self.number_panel.hide()
-        if hasattr(self, 'text_panel'): self.text_panel.hide()
-        if hasattr(self, 'mosaic_panel'): self.mosaic_panel.hide()
+        for panel in self._iter_panels():
+            panel.hide()
 
     def _show_panel_for_tool(self, tool_id: str):
         """显示指定工具的设置面板，内容一律回填成该工具的持久化设置。
@@ -848,6 +912,8 @@ class Toolbar(QWidget):
         什么"。所以选中图元后的差异化同步必须排在本函数之后。
         """
         self._hide_all_panels()
+        if tool_id == "watermark":
+            self._ensure_watermark_panel()
 
         # 面板的形态（哪些控件该露出来）跟着工具走，与持久化设置无关
         if tool_id in ("pen", "highlighter", "spotlight") and hasattr(self, "paint_panel"):
@@ -870,6 +936,7 @@ class Toolbar(QWidget):
             "number": self.number_panel,
             "text": self.text_panel,
             "mosaic": self.mosaic_panel,
+            "watermark": self.watermark_panel,
         }
         
         panel = panel_map.get(tool_id)
@@ -1262,18 +1329,9 @@ class Toolbar(QWidget):
     
     def _sync_all_panels_position(self):
         """同步所有可见面板的位置"""
-        if hasattr(self, 'paint_panel') and self.paint_panel.isVisible():
-            self._sync_panel_position(self.paint_panel)
-        if hasattr(self, 'shape_panel') and self.shape_panel.isVisible():
-            self._sync_panel_position(self.shape_panel)
-        if hasattr(self, 'arrow_panel') and self.arrow_panel.isVisible():
-            self._sync_panel_position(self.arrow_panel)
-        if hasattr(self, 'number_panel') and self.number_panel.isVisible():
-            self._sync_panel_position(self.number_panel)
-        if hasattr(self, 'text_panel') and self.text_panel.isVisible():
-            self._sync_panel_position(self.text_panel)
-        if hasattr(self, 'mosaic_panel') and self.mosaic_panel.isVisible():
-            self._sync_panel_position(self.mosaic_panel)
+        for panel in self._iter_panels():
+            if panel.isVisible():
+                self._sync_panel_position(panel)
         popup = getattr(self, '_more_popup', None)
         if popup is not None and popup.isVisible():
             self._sync_panel_position(popup, align_right=True)

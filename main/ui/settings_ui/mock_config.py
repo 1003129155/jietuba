@@ -44,6 +44,8 @@ APP_DEFAULT_SETTINGS = {
     "screenshot_format": "PNG",
     "screenshot_quality": 85,
     "clipboard_file_reference_enabled": True,
+    "screenshot_watermark_text": "",
+    "screenshot_watermark_auto": False,
     "autostart_enabled": True,
     "show_main_window": True,
     "ocr_enabled": True,
@@ -205,6 +207,10 @@ class MockConfig:
     def set_screenshot_quality(self, v): pass
     def get_clipboard_file_reference_enabled(self): return True
     def set_clipboard_file_reference_enabled(self, v): pass
+    def get_screenshot_watermark_text(self): return ""
+    def set_screenshot_watermark_text(self, v): pass
+    def get_screenshot_watermark_auto(self): return False
+    def set_screenshot_watermark_auto(self, v): pass
     def get_show_main_window(self): return True
     def set_show_main_window(self, v): pass
     def get_ocr_enabled(self): return True

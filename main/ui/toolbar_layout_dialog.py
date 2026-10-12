@@ -36,6 +36,7 @@ BUTTON_NAMES = {
     "highlighter": "Highlighter",
     "mosaic": "Mosaic",
     "spotlight": "Spotlight",
+    "watermark": "Watermark",
     "arrow": "Arrow",
     "number": "Number",
     "rect": "Rectangle",

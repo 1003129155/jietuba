@@ -104,9 +104,10 @@ class TestScreenshotToolbar:
     def test_default_layout_folds_low_frequency_buttons_and_ends_with_more(self, qapp):
         toolbar = Toolbar()
         assert _toolbar_row(toolbar) == [
-            key for key in DEFAULT_ORDER if key not in ("text_recognize", "scan_code", "spotlight")
+            key for key in DEFAULT_ORDER
+            if key not in ("text_recognize", "scan_code", "spotlight", "watermark")
         ] + ["more"]
-        assert toolbar._folded_keys == ["text_recognize", "scan_code", "spotlight"]
+        assert toolbar._folded_keys == ["text_recognize", "scan_code", "spotlight", "watermark"]
         assert toolbar.copy_btn.isHidden()
         geometries = [toolbar._buttons[key].geometry() for key in _toolbar_row(toolbar)]
         for left, right in zip(geometries, geometries[1:]):
@@ -120,7 +121,9 @@ class TestScreenshotToolbar:
         assert toolbar.more_btn.geometry().right() == toolbar.rect().right()
 
     def test_configured_layout_reorders_folds_and_hides(self, qapp):
-        default_width = Toolbar().width()
+        # 基准是同一份排布、只差 mosaic 和 text：宽度变化只来自这两个按钮
+        save_layout(_layout_with(first="pin", scan_code=MORE, text_recognize=MORE))
+        unfolded_width = Toolbar().width()
         save_layout(_layout_with(
             first="pin", mosaic=MORE, text=HIDE, scan_code=MORE, text_recognize=MORE))
 
@@ -130,7 +133,7 @@ class TestScreenshotToolbar:
         assert row[-1] == "more"
         assert "mosaic" not in row and "text" not in row
         assert toolbar._folded_keys == ["text_recognize", "scan_code", "mosaic"]
-        assert toolbar.width() < default_width
+        assert toolbar.width() < unfolded_width
 
     def test_hiding_a_tool_only_hides_its_button(self, qapp):
         save_layout(_layout_with(mosaic=HIDE))

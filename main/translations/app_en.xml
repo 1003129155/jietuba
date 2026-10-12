@@ -5321,4 +5321,202 @@ Make sure gifrecorder is installed correctly.</translation>
         <translation>Paste full file paths.</translation>
     </message>
 </context>
+<context>
+    <name>Toolbar</name>
+    <message>
+        <source>Watermark (click again to remove)</source>
+        <translation>Watermark (click again to remove)</translation>
+    </message>
+</context>
+<context>
+    <name>ToolbarLayoutDialog</name>
+    <message>
+        <source>Watermark</source>
+        <translation>Watermark</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Watermark</source>
+        <translation>Watermark</translation>
+    </message>
+    <message>
+        <source>Watermark Text</source>
+        <translation>Watermark Text</translation>
+    </message>
+    <message>
+        <source>Add Watermark Automatically</source>
+        <translation>Add Watermark Automatically</translation>
+    </message>
+    <message>
+        <source>Every screenshot starts with the watermark, including screenshots taken with mouse shortcuts.</source>
+        <translation>Every screenshot starts with the watermark, including screenshots taken with mouse shortcuts.</translation>
+    </message>
+</context>
+<context>
+    <name>WatermarkPanel</name>
+    <message>
+        <source>Tiled</source>
+        <translation>Tiled</translation>
+    </message>
+    <message>
+        <source>Center</source>
+        <translation>Center</translation>
+    </message>
+    <message>
+        <source>Top Left</source>
+        <translation>Top Left</translation>
+    </message>
+    <message>
+        <source>Top Center</source>
+        <translation>Top Center</translation>
+    </message>
+    <message>
+        <source>Top Right</source>
+        <translation>Top Right</translation>
+    </message>
+    <message>
+        <source>Bottom Left</source>
+        <translation>Bottom Left</translation>
+    </message>
+    <message>
+        <source>Bottom Center</source>
+        <translation>Bottom Center</translation>
+    </message>
+    <message>
+        <source>Bottom Right</source>
+        <translation>Bottom Right</translation>
+    </message>
+    <message>
+        <source>Position</source>
+        <translation>Position</translation>
+    </message>
+    <message>
+        <source>Watermark Style</source>
+        <translation>Watermark Style</translation>
+    </message>
+    <message>
+        <source>Font</source>
+        <translation>Font</translation>
+    </message>
+    <message>
+        <source>Default Font</source>
+        <translation>Default Font</translation>
+    </message>
+    <message>
+        <source>Input watermark</source>
+        <translation>Input watermark</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>Opacity</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Size</translation>
+    </message>
+    <message>
+        <source>Spacing</source>
+        <translation>Spacing</translation>
+    </message>
+    <message>
+        <source>Angle</source>
+        <translation>Angle</translation>
+    </message>
+    <message>
+        <source>Custom Color</source>
+        <translation>Custom Color</translation>
+    </message>
+    <message>
+        <source>Angle applies to tiled watermarks</source>
+        <translation>Angle applies to tiled watermarks</translation>
+    </message>
+</context>
+<context>
+    <name>WatermarkInputDialog</name>
+    <message>
+        <source>Input Watermark</source>
+        <translation>Input Watermark</translation>
+    </message>
+    <message>
+        <source>Type the watermark. Use the time button to insert the capture time.</source>
+        <translation>Type the watermark. Use the time button to insert the capture time.</translation>
+    </message>
+    <message>
+        <source>Time:</source>
+        <translation>Time:</translation>
+    </message>
+    <message>
+        <source>Apply</source>
+        <translation>Apply</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Insert the capture time</source>
+        <translation>Insert the capture time</translation>
+    </message>
+    <message>
+        <source>Preview: %1</source>
+        <translation>Preview: %1</translation>
+    </message>
+    <message>
+        <source>Year-month-day, 24-hour (China, Japan, Korea, ISO)</source>
+        <translation>Year-month-day, 24-hour (China, Japan, Korea, ISO)</translation>
+    </message>
+    <message>
+        <source>Slash-separated date, 24-hour</source>
+        <translation>Slash-separated date, 24-hour</translation>
+    </message>
+    <message>
+        <source>Day/month/year, 24-hour (most of Europe)</source>
+        <translation>Day/month/year, 24-hour (most of Europe)</translation>
+    </message>
+    <message>
+        <source>Month/day/year, 24-hour (United States)</source>
+        <translation>Month/day/year, 24-hour (United States)</translation>
+    </message>
+    <message>
+        <source>Month/day/year, 12-hour (United States and Canada)</source>
+        <translation>Month/day/year, 12-hour (United States and Canada)</translation>
+    </message>
+    <message>
+        <source>Date only</source>
+        <translation>Date only</translation>
+    </message>
+    <message>
+        <source>Time only, 24-hour</source>
+        <translation>Time only, 24-hour</translation>
+    </message>
+    <message>
+        <source>Time only, 12-hour</source>
+        <translation>Time only, 12-hour</translation>
+    </message>
+    <message>
+        <source>Date and time with the weekday</source>
+        <translation>Date and time with the weekday</translation>
+    </message>
+    <message>
+        <source>With milliseconds, for logs</source>
+        <translation>With milliseconds, for logs</translation>
+    </message>
+    <message>
+        <source>Compact, for file names</source>
+        <translation>Compact, for file names</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>$yyyy-MM-dd HH:mm:ss$ becomes the time the watermark is added. More time formats, size, color and position are in the watermark panel on the screenshot toolbar.</source>
+        <translation>$yyyy-MM-dd HH:mm:ss$ becomes the time the watermark is added. More time formats, size, color and position are in the watermark panel on the screenshot toolbar.</translation>
+    </message>
+    <message>
+        <source>Input watermark</source>
+        <translation>Input watermark</translation>
+    </message>
+</context>
 </TS>

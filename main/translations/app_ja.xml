@@ -5565,4 +5565,202 @@ gifrecorder が正しくインストールされているか確認してくだ�
         <translation>ファイルのフルパスを貼り付けます。</translation>
     </message>
 </context>
+<context>
+    <name>Toolbar</name>
+    <message>
+        <source>Watermark (click again to remove)</source>
+        <translation>透かし（もう一度クリックで削除）</translation>
+    </message>
+</context>
+<context>
+    <name>ToolbarLayoutDialog</name>
+    <message>
+        <source>Watermark</source>
+        <translation>透かし</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Watermark</source>
+        <translation>透かし</translation>
+    </message>
+    <message>
+        <source>Watermark Text</source>
+        <translation>透かしの文字</translation>
+    </message>
+    <message>
+        <source>Add Watermark Automatically</source>
+        <translation>透かしを自動で追加</translation>
+    </message>
+    <message>
+        <source>Every screenshot starts with the watermark, including screenshots taken with mouse shortcuts.</source>
+        <translation>マウスショートカットで撮ったものも含め、すべてのスクリーンショットに透かしが入ります。</translation>
+    </message>
+</context>
+<context>
+    <name>WatermarkPanel</name>
+    <message>
+        <source>Tiled</source>
+        <translation>タイル</translation>
+    </message>
+    <message>
+        <source>Center</source>
+        <translation>中央</translation>
+    </message>
+    <message>
+        <source>Top Left</source>
+        <translation>左上</translation>
+    </message>
+    <message>
+        <source>Top Center</source>
+        <translation>上中央</translation>
+    </message>
+    <message>
+        <source>Top Right</source>
+        <translation>右上</translation>
+    </message>
+    <message>
+        <source>Bottom Left</source>
+        <translation>左下</translation>
+    </message>
+    <message>
+        <source>Bottom Center</source>
+        <translation>下中央</translation>
+    </message>
+    <message>
+        <source>Bottom Right</source>
+        <translation>右下</translation>
+    </message>
+    <message>
+        <source>Position</source>
+        <translation>位置</translation>
+    </message>
+    <message>
+        <source>Watermark Style</source>
+        <translation>透かしのスタイル</translation>
+    </message>
+    <message>
+        <source>Font</source>
+        <translation>フォント</translation>
+    </message>
+    <message>
+        <source>Default Font</source>
+        <translation>既定のフォント</translation>
+    </message>
+    <message>
+        <source>Input watermark</source>
+        <translation>透かしを入力</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>不透明度</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>サイズ</translation>
+    </message>
+    <message>
+        <source>Spacing</source>
+        <translation>間隔</translation>
+    </message>
+    <message>
+        <source>Angle</source>
+        <translation>角度</translation>
+    </message>
+    <message>
+        <source>Custom Color</source>
+        <translation>カスタムカラー</translation>
+    </message>
+    <message>
+        <source>Angle applies to tiled watermarks</source>
+        <translation>角度はタイル配置のときだけ有効です</translation>
+    </message>
+</context>
+<context>
+    <name>WatermarkInputDialog</name>
+    <message>
+        <source>Input Watermark</source>
+        <translation>透かしを入力</translation>
+    </message>
+    <message>
+        <source>Type the watermark. Use the time button to insert the capture time.</source>
+        <translation>透かしの文字を入力します。下の時刻ボタンで撮影時刻を挿入できます。</translation>
+    </message>
+    <message>
+        <source>Time:</source>
+        <translation>時刻：</translation>
+    </message>
+    <message>
+        <source>Apply</source>
+        <translation>適用</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Insert the capture time</source>
+        <translation>撮影時刻を挿入</translation>
+    </message>
+    <message>
+        <source>Preview: %1</source>
+        <translation>プレビュー：%1</translation>
+    </message>
+    <message>
+        <source>Year-month-day, 24-hour (China, Japan, Korea, ISO)</source>
+        <translation>年-月-日、24 時間制（中国・日本・韓国、ISO）</translation>
+    </message>
+    <message>
+        <source>Slash-separated date, 24-hour</source>
+        <translation>スラッシュ区切りの日付、24 時間制</translation>
+    </message>
+    <message>
+        <source>Day/month/year, 24-hour (most of Europe)</source>
+        <translation>日/月/年、24 時間制（ヨーロッパの多くの国）</translation>
+    </message>
+    <message>
+        <source>Month/day/year, 24-hour (United States)</source>
+        <translation>月/日/年、24 時間制（アメリカ）</translation>
+    </message>
+    <message>
+        <source>Month/day/year, 12-hour (United States and Canada)</source>
+        <translation>月/日/年、12 時間制（アメリカ・カナダ）</translation>
+    </message>
+    <message>
+        <source>Date only</source>
+        <translation>日付のみ</translation>
+    </message>
+    <message>
+        <source>Time only, 24-hour</source>
+        <translation>時刻のみ、24 時間制</translation>
+    </message>
+    <message>
+        <source>Time only, 12-hour</source>
+        <translation>時刻のみ、12 時間制</translation>
+    </message>
+    <message>
+        <source>Date and time with the weekday</source>
+        <translation>曜日付きの日付と時刻</translation>
+    </message>
+    <message>
+        <source>With milliseconds, for logs</source>
+        <translation>ミリ秒付き（ログ向け）</translation>
+    </message>
+    <message>
+        <source>Compact, for file names</source>
+        <translation>コンパクト形式（ファイル名向け）</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>$yyyy-MM-dd HH:mm:ss$ becomes the time the watermark is added. More time formats, size, color and position are in the watermark panel on the screenshot toolbar.</source>
+        <translation>$yyyy-MM-dd HH:mm:ss$ は透かしを付けた時刻に置き換わります。ほかの時刻形式やサイズ・色・位置は、スクリーンショットツールバーの透かしパネルで設定します。</translation>
+    </message>
+    <message>
+        <source>Input watermark</source>
+        <translation>透かしを入力</translation>
+    </message>
+</context>
 </TS>

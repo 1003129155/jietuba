@@ -801,6 +801,10 @@ class SettingsDialog(FrostedFramelessDialog):
             self.clipboard_file_reference_toggle.setChecked(
                 defaults["clipboard_file_reference_enabled"]
             )
+        if hasattr(self, 'watermark_text_edit'):
+            self.watermark_text_edit.setText(defaults["screenshot_watermark_text"])
+        if hasattr(self, 'watermark_auto_toggle'):
+            self.watermark_auto_toggle.setChecked(defaults["screenshot_watermark_auto"])
         if hasattr(self, 'save_path_lbl'):
             self.save_path_lbl.setText(defaults["screenshot_save_path"])
         if hasattr(self, 'screenshot_format_combo'):
@@ -1025,6 +1029,10 @@ class SettingsDialog(FrostedFramelessDialog):
             self.config_manager.set_clipboard_file_reference_enabled(
                 self.clipboard_file_reference_toggle.isChecked()
             )
+        if hasattr(self, 'watermark_text_edit'):
+            self.config_manager.set_screenshot_watermark_text(self.watermark_text_edit.text())
+        if hasattr(self, 'watermark_auto_toggle'):
+            self.config_manager.set_screenshot_watermark_auto(self.watermark_auto_toggle.isChecked())
         if hasattr(self, 'save_path_lbl'):
             self.config_manager.set_screenshot_save_path(self.save_path_lbl.text())
         if hasattr(self, 'screenshot_format_combo'):
@@ -1320,6 +1328,7 @@ class SettingsDialog(FrostedFramelessDialog):
                       'translation_hotkey_edit', 'translation_hotkey_edit_2',
                       'clipboard_hotkey_edit_2', 'pin_clipboard_hotkey_edit',
                       'pin_clipboard_hotkey_edit_2', 'save_path_lbl', 'path_lbl',
+                      'watermark_text_edit',
                       ):
             w = getattr(self, attr, None)
             if w is not None:
@@ -1337,6 +1346,7 @@ class SettingsDialog(FrostedFramelessDialog):
                       'text_always_on_top_toggle',
                       'smart_animation_toggle',
                       'save_toggle', 'clipboard_file_reference_toggle',
+                      'watermark_auto_toggle',
                       'magnifier_enabled_toggle', 'magnifier_grid_toggle',
                       'magnifier_hint_toggle',
                       'ocr_enable_toggle',
@@ -1595,6 +1605,10 @@ class SettingsDialog(FrostedFramelessDialog):
             self.clipboard_file_reference_toggle.setChecked(
                 self.config_manager.get_clipboard_file_reference_enabled()
             )
+        if hasattr(self, 'watermark_text_edit'):
+            self.watermark_text_edit.setText(self.config_manager.get_screenshot_watermark_text())
+        if hasattr(self, 'watermark_auto_toggle'):
+            self.watermark_auto_toggle.setChecked(self.config_manager.get_screenshot_watermark_auto())
         if hasattr(self, 'save_path_lbl'):
             self.save_path_lbl.setText(self.config_manager.get_screenshot_save_path())
         if hasattr(self, 'screenshot_format_combo'):

@@ -4,7 +4,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout
 from core.ui_scale import dialog_scaled
 from ui.fluent_lite import (
     SwitchSettingCard, SettingCard as FSettingCard,
-    FluentIcon, ComboBox, CaptionLabel, PushButton,
+    FluentIcon, ComboBox, CaptionLabel, LineEdit, PushButton,
 )
 from settings import color_formats
 from settings.tool_settings import (
@@ -153,6 +153,36 @@ def create_capture_page(dialog) -> QWidget:
     grp_save.addSettingCard(fmt_card)
 
     layout.addWidget(grp_save)
+
+    # ── 水印 ──────────────────────────────────────────
+    # 字号、颜色、平铺还是右下角在截图工具栏的水印面板里调，这里只管文字和要不要自动加
+    grp_watermark = SettingCardGroup(dialog.tr("Watermark"), view, tone="capture")
+
+    watermark_text_card = FSettingCard(
+        FluentIcon.FONT,
+        dialog.tr("Watermark Text"),
+        dialog.tr("$yyyy-MM-dd HH:mm:ss$ becomes the time the watermark is added. More time formats, "
+                  "size, color and position are in the watermark panel on the screenshot toolbar."),
+        parent=grp_watermark,
+    )
+    dialog.watermark_text_edit = LineEdit(watermark_text_card)
+    dialog.watermark_text_edit.setPlaceholderText(dialog.tr("Input watermark"))
+    dialog.watermark_text_edit.setText(dialog.config_manager.get_screenshot_watermark_text())
+    watermark_text_card.addControl(dialog.watermark_text_edit)
+    grp_watermark.addSettingCard(watermark_text_card)
+
+    watermark_auto_card = SwitchSettingCard(
+        FluentIcon.SPARKLE,
+        dialog.tr("Add Watermark Automatically"),
+        dialog.tr("Every screenshot starts with the watermark, including screenshots taken "
+                  "with mouse shortcuts."),
+        parent=grp_watermark,
+    )
+    watermark_auto_card.setChecked(dialog.config_manager.get_screenshot_watermark_auto())
+    dialog.watermark_auto_toggle = watermark_auto_card
+    grp_watermark.addSettingCard(watermark_auto_card)
+
+    layout.addWidget(grp_watermark)
 
     # ── 放大镜 ────────────────────────────────────────
     grp_magnifier = SettingCardGroup(dialog.tr("Magnifier"), view, tone="capture")
