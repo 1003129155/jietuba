@@ -649,8 +649,8 @@ Common UI component library.
 ```text
 ui/
 ├── toolbar.py               # Toolbar / _DragHandle — draggable toolbar base class
-├── toolbar_layout.py        # screenshot toolbar button layout (order / visibility): normalize, load, save
-├── toolbar_layout_dialog.py # ToolbarLayoutDialog — screenshot toolbar layout editor
+├── toolbar_layout.py        # screenshot / pin toolbar button layouts (order / visibility): normalize, load, save
+├── toolbar_layout_dialog.py # ToolbarLayoutDialog — screenshot / pin toolbar layout editor
 ├── reorderable_rows.py      # DragGrip / DraggableRow / ReorderableRowList — drag-to-reorder rows
 ├── tray_menu.py             # TrayMenu — system tray menu
 ├── screenshot_window.py     # ScreenshotWindow — full-screen capture window (region drawing)

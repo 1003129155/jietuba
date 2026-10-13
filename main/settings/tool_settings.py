@@ -359,6 +359,7 @@ class ToolSettingsManager(QObject):
         "cross_tool_selection": True,         # Ctrl 临时跨工具选择标注
         "text_always_on_top": True,           # 文字标注始终高于其他绘制标注
         "screenshot_toolbar_layout": "",      # 截图工具栏按钮排布（JSON，空 = 默认排布，见 ui/toolbar_layout.py）
+        "pin_toolbar_layout": "",             # 钉图工具栏按钮排布，格式同上
 
         # 快捷行为：跳过结果窗口
         "ocr_copy_directly": False,           # 文字识别后直接复制，不弹结果窗口
@@ -746,6 +747,11 @@ class ToolSettingsManager(QObject):
         from core.logger import log_info, T
         log_info(T("应用设置已重置为默认值"), "Settings")
     
+    @staticmethod
+    def app_setting_path(key: str) -> str:
+        """应用设置在 QSettings 里的完整键：pin_ 开头的在 pin/ 分组下，其余在 app/ 下。"""
+        return f"pin/{key[4:]}" if key.startswith("pin_") else f"app/{key}"
+
     def get_app_setting(self, key: str, default=None) -> Any:
         """
         获取应用级别设置的通用方法
@@ -761,11 +767,7 @@ class ToolSettingsManager(QObject):
         if default is None:
             default = self.APP_DEFAULT_SETTINGS.get(key)
         
-        # 构建完整的设置键名
-        if key.startswith("pin_"):
-            setting_key = f"pin/{key[4:]}"
-        else:
-            setting_key = f"app/{key}"
+        setting_key = self.app_setting_path(key)
         
         # 根据默认值的类型确定返回类型
         if default is not None:
@@ -788,13 +790,7 @@ class ToolSettingsManager(QObject):
             key: 设置键名（不含 app/ 前缀）
             value: 设置值
         """
-        # 构建完整的设置键名
-        if key.startswith("pin_"):
-            setting_key = f"pin/{key[4:]}"
-        else:
-            setting_key = f"app/{key}"
-        
-        self.qsettings.setValue(setting_key, value)
+        self.qsettings.setValue(self.app_setting_path(key), value)
 
     def reset_all_settings(self):
         """重置所有设置（工具设置 + 应用设置）为默认值"""

@@ -4866,6 +4866,10 @@ All items in the group will also be deleted.</source>
         <translation>保存</translation>
     </message>
     <message>
+        <source>Copy</source>
+        <translation>复制</translation>
+    </message>
+    <message>
         <source>Screenshot translate</source>
         <translation>截图翻译</translation>
     </message>

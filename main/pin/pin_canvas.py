@@ -607,6 +607,11 @@ class PinCanvas(QObject):
             toolbar.text_background_changed.connect(controller.on_text_background_changed)
             toolbar.color_changed.connect(controller.on_text_color_changed)
 
+        # 水印：铺上、改样式、改文字，和截图窗口一致
+        toolbar.watermark_requested.connect(lambda: self._on_watermark_requested(toolbar))
+        toolbar.watermark_style_changed.connect(self._on_watermark_style_changed)
+        toolbar.watermark_text_changed.connect(lambda template: self._on_watermark_text_changed(template, toolbar))
+
         # 保存/复制（仍由 PinWindow 处理）
         toolbar.save_clicked.connect(self.parent_window.save_image)
         toolbar.copy_clicked.connect(self.parent_window.copy_to_clipboard)
@@ -728,6 +733,24 @@ class PinCanvas(QObject):
         """序号工具下一数字变化"""
         from tools.number import NumberTool
         NumberTool.set_next_number_and_refresh(self.scene, next_value)
+
+    def _on_watermark_requested(self, toolbar):
+        from tools.watermark import WatermarkTool
+
+        item = WatermarkTool.add(self.scene)
+        toolbar.show_watermark(item.template(), item.created_at())
+
+    def _on_watermark_style_changed(self, key: str, value):
+        from tools.watermark import WatermarkTool
+
+        WatermarkTool.change_style(self.scene, **{key: value})
+
+    def _on_watermark_text_changed(self, template: str, toolbar):
+        from tools.watermark import WatermarkTool
+
+        item = WatermarkTool.change_text(self.scene, template)
+        if item is not None:
+            toolbar.show_watermark(item.template(), item.created_at())
 
     @staticmethod
     def _capture_arrow_state(item) -> dict:

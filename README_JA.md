@@ -648,8 +648,8 @@ translations/
 ```text
 ui/
 ├── toolbar.py               # Toolbar / _DragHandle — ドラッグ可能なツールバー基底クラス
-├── toolbar_layout.py        # スクリーンショットツールバーのボタン配置（順序・表示方法）の正規化と読み書き
-├── toolbar_layout_dialog.py # ToolbarLayoutDialog — スクリーンショットツールバーの配置編集ダイアログ
+├── toolbar_layout.py        # スクリーンショット / ピンツールバーのボタン配置（順序・表示方法）の正規化と読み書き
+├── toolbar_layout_dialog.py # ToolbarLayoutDialog — スクリーンショット / ピンツールバーの配置編集ダイアログ
 ├── reorderable_rows.py      # DragGrip / DraggableRow / ReorderableRowList — ドラッグで並べ替えられる行リスト
 ├── tray_menu.py             # TrayMenu — システムトレイメニュー
 ├── screenshot_window.py     # ScreenshotWindow — フルスクリーンキャプチャウィンドウ

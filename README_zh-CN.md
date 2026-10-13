@@ -729,8 +729,8 @@ translations/
 ui/
 ├── __init__.py
 ├── toolbar.py               # Toolbar / _DragHandle — 可拖动工具栏基类
-├── toolbar_layout.py        # 截图工具栏按钮排布（顺序 / 显示方式）的归一化与读写
-├── toolbar_layout_dialog.py # ToolbarLayoutDialog — 截图工具栏排布对话框
+├── toolbar_layout.py        # 截图 / 钉图工具栏按钮排布（顺序 / 显示方式）的归一化与读写
+├── toolbar_layout_dialog.py # ToolbarLayoutDialog — 截图 / 钉图工具栏排布对话框
 ├── reorderable_rows.py      # DragGrip / DraggableRow / ReorderableRowList — 可拖动重排的行列表
 ├── tray_menu.py             # TrayMenu — 系统托盘菜单
 ├── screenshot_window.py     # ScreenshotWindow — 截图主窗口（全屏覆盖、选区绘制）

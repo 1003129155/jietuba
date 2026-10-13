@@ -13,7 +13,7 @@ from core.ui_scale import get_ui_scale, scaled, scaled_f
 from core import log_debug, safe_event
 from core.logger import log_exception, T
 from .base_settings_panel import paint_rounded_panel
-from .toolbar_layout import MORE, SHOW, load_layout, save_layout
+from .toolbar_layout import MORE, SCREENSHOT, SHOW, load_layout, save_layout
 
 
 class _DragHandle(QWidget):
@@ -259,6 +259,8 @@ class Toolbar(QWidget):
     watermark_style_changed = Signal(str, object)
     watermark_text_changed = Signal(str)
     
+    LAYOUT_PROFILE = SCREENSHOT
+
     # 有二级面板的工具。pen/highlighter 与 rect/ellipse 各自共用一个面板，
     # 但设置是分工具存的，所以这里按工具而不是按面板列。
     PANEL_TOOLS = ("pen", "highlighter", "rect", "ellipse", "arrow", "number", "text", "mosaic")
@@ -278,7 +280,7 @@ class Toolbar(QWidget):
     def init_ui(self):
         """初始化UI"""
         # 按钮登记表：key → 按钮 / 宽度。这里只建按钮、不定位置，位置统一由 _arrange
-        # 按排布摆放——截图读用户配置，钉图用固定列表，两边共用同一段摆放逻辑。
+        # 按排布摆放——截图和钉图各读自己的排布配置（LAYOUT_PROFILE），共用同一段摆放逻辑。
         self._buttons = {}
         self._base_widths = {}     # key → 基准按钮宽，改比例时据此重算
         self._icon_paths = {}      # key → 图标 SVG，改比例时按新边长重新取图
@@ -477,7 +479,7 @@ class Toolbar(QWidget):
 
     def reload_layout(self):
         """按用户配置重排：始终显示的上工具栏，收进更多的留给弹层，「…」固定在最右"""
-        layout = load_layout()
+        layout = load_layout(self.LAYOUT_PROFILE)
         self._folded_keys = [key for key, mode in layout if mode == MORE]
         self._arrange([key for key, mode in layout if mode == SHOW] + ["more"])
 
@@ -517,7 +519,7 @@ class Toolbar(QWidget):
     def _show_more_popup(self):
         """展开「…」弹层，把收起的按钮摆进去。
 
-        弹层用到才建：钉图工具栏的「…」永远不显示，没必要给每张钉图多建一个窗口。
+        弹层用到才建：多数截图和钉图不会展开它，没必要每次都多建一个窗口。
         """
         if self._more_popup is None:
             self._more_popup = _MorePopup(self.parent())
@@ -560,19 +562,19 @@ class Toolbar(QWidget):
 
         self._hide_more_popup()
         host = self._host_window()
+        profile = self.LAYOUT_PROFILE
         dialog = ToolbarLayoutDialog(
-            load_layout(), {key: button.icon() for key, button in self._buttons.items()}, host)
+            load_layout(profile), {key: button.icon() for key, button in self._buttons.items()}, host, profile)
         # 截图窗口横跨整个虚拟桌面，对话框默认居中到它的中点，多屏时未必落在用户
         # 正在操作的那块屏幕上；改为放到工具栏所在屏幕的中央
         screen = QApplication.screenAt(self.mapToGlobal(QPoint(0, 0))) or QApplication.primaryScreen()
         dialog.move(screen.availableGeometry().center() - dialog.rect().center())
         if not exec_dialog(dialog):
             return
-        save_layout(dialog.entries())
+        save_layout(dialog.entries(), profile)
         self.reload_layout()
-        # 宽度变了，重新贴到选区右下角（手动拖过位置的不会动）
-        if hasattr(host, "update_toolbar_position"):
-            host.update_toolbar_position()
+        # 宽度变了，重新贴位（手动拖过位置的不会动）
+        self._reposition_self()
         
     def init_settings_panels(self):
         """初始化所有工具的设置面板"""
@@ -683,7 +685,7 @@ class Toolbar(QWidget):
         self.text_menu = self.text_panel
 
     def _ensure_watermark_panel(self):
-        """水印面板用到才建：钉图工具栏没有水印按钮，截图里它也是低频功能，不拖慢工具栏创建。
+        """水印面板用到才建：水印是低频功能，不拖慢工具栏创建。
 
         不走 color_changed 这些通用信号：那一路会改当前画笔的颜色和光标，水印的样式单独存。
         """

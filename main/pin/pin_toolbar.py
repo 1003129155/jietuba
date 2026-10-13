@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
 from ui.toolbar import Toolbar
+from ui.toolbar_layout import PIN
 from core import safe_event
 from core.ui_theme import set_own_style
 
@@ -13,31 +14,24 @@ from core.ui_theme import set_own_style
 class PinToolbar(Toolbar):
     """
     钉图工具栏：
-    1. 固定排布：没有截图专属按钮和「…」，多一个复制按钮，不读截图工具栏的排布配置
+    1. 排布读钉图自己的配置（ui.toolbar_layout.PIN），和截图工具栏各调各的
     2. 作为独立顶层窗口吸附在钉图附近
     3. 支持手动拖拽；显隐由钉图的 PinHoverControls 决定
     """
 
-    # 绘制工具的顺序与截图工具栏的默认排布一致，用户在两个窗口里找同一个按钮时位置不变
-    LAYOUT = (
-        "save", "copy",
-        "pen", "highlighter", "mosaic", "arrow", "number", "rect", "ellipse", "text", "eraser",
-        "undo", "redo",
-    )
+    LAYOUT_PROFILE = PIN
 
     def __init__(self, parent_pin_window=None, config_manager=None):
         super().__init__(parent=None)
 
         self.parent_pin_window = parent_pin_window
         self.config_manager = config_manager
+        # 工具栏和「…」弹层是两个顶层窗口，鼠标在哪个上面都算停在工具栏上
+        self._hovered_parts = set()
 
     def _host_window(self):
         """钉图工具栏是独立顶层窗口，parent() 为 None，宿主从这里拿。"""
         return self.parent_pin_window
-
-    def reload_layout(self):
-        """钉图的排布是固定的，不跟随用户对截图工具栏的配置"""
-        self._arrange(self.LAYOUT)
 
     def _reposition_self(self):
         if self.isVisible() and self.parent_pin_window is not None:
@@ -89,7 +83,8 @@ class PinToolbar(Toolbar):
         self.move(toolbar_x, toolbar_y)
 
     def show(self):
-        """显示工具栏时同步吸附到钉图附近。"""
+        """显示时重读排布（可能在别的钉图里改过），并吸附到钉图附近。"""
+        self.reload_layout()
         if self.parent_pin_window:
             self.position_near_window(self.parent_pin_window)
 
@@ -98,12 +93,42 @@ class PinToolbar(Toolbar):
     @safe_event
     def enterEvent(self, event):
         super().enterEvent(event)
-        self._report_hover(True)
+        self._set_part_hovered("toolbar", True)
 
     @safe_event
     def leaveEvent(self, event):
         super().leaveEvent(event)
-        self._report_hover(False)
+        self._set_part_hovered("toolbar", False)
+
+    def _show_more_popup(self):
+        created = self._more_popup is None
+        super()._show_more_popup()
+        if created:
+            self._more_popup.hover_changed.connect(lambda hovered: self._set_part_hovered("popup", hovered))
+
+    def _hide_more_popup(self):
+        super()._hide_more_popup()
+        # 鼠标停在弹层上时点了里面的按钮，弹层收起后不一定再收到 Leave
+        self._set_part_hovered("popup", False)
+
+    def _open_layout_dialog(self):
+        # 对话框开着时鼠标不在钉图和工具栏上，按打开菜单处理，免得工具栏中途收起
+        hover_controls = getattr(self.parent_pin_window, "hover_controls", None)
+        if hover_controls is None:
+            super()._open_layout_dialog()
+            return
+        hover_controls.set_menu_open(True)
+        try:
+            super()._open_layout_dialog()
+        finally:
+            hover_controls.set_menu_open(False)
+
+    def _set_part_hovered(self, part: str, hovered: bool):
+        if hovered:
+            self._hovered_parts.add(part)
+        else:
+            self._hovered_parts.discard(part)
+        self._report_hover(bool(self._hovered_parts))
 
     def _report_hover(self, hovered: bool):
         hover_controls = getattr(self.parent_pin_window, "hover_controls", None)

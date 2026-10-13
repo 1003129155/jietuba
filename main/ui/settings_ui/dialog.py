@@ -30,8 +30,8 @@ from core import log_info, safe_event
 from core.logger import log_exception, T
 from core.resource_manager import ResourceManager
 from core.ui_scale import configure_dialog_control, configure_dialog_controls, dialog_scaled
-from settings.tool_settings import CAPTURE_ENGINES, SMART_SELECTION_MODES
-from ui.toolbar_layout import SETTING_KEY as TOOLBAR_LAYOUT_KEY
+from settings.tool_settings import CAPTURE_ENGINES, SMART_SELECTION_MODES, ToolSettingsManager
+from ui.toolbar_layout import SETTING_KEYS as TOOLBAR_LAYOUT_KEYS
 
 # 页面创建函数
 from .page_hotkey import create_hotkey_page, validate_global_hotkey_edits
@@ -130,7 +130,7 @@ class SettingsDialog(FrostedFramelessDialog):
         # 导入的设置已填进界面、还没应用；有些选项不在未保存检测的快照里
         self._import_unsaved = False
         # 导入文件里的工具栏排布（配置里存的 JSON 文本）：设置页上没有对应控件，点应用时才写入
-        self._imported_toolbar_layout = None
+        self._imported_toolbar_layouts = {}
         if self.config_manager is None:
             from .mock_config import MockConfig
             self.config_manager = MockConfig()
@@ -1209,12 +1209,12 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, '_selection_handle_size_combo'):
             theme.set_selection_handle_size(self._selection_handle_size_combo.currentData())
 
-        if self._imported_toolbar_layout is not None:
-            self.config_manager.set_app_setting(TOOLBAR_LAYOUT_KEY, self._imported_toolbar_layout)
+        for key, layout in self._imported_toolbar_layouts.items():
+            self.config_manager.set_app_setting(key, layout)
 
         log_info(T("所有设置已保存"), "Settings")
         self._import_unsaved = False
-        self._imported_toolbar_layout = None
+        self._imported_toolbar_layouts = {}
         self._settings_snapshot = self._snapshot_settings()
         self._update_action_buttons()
         self.config_manager.qsettings.sync()
@@ -1521,7 +1521,7 @@ class SettingsDialog(FrostedFramelessDialog):
     def refresh_settings(self):
         """从配置管理器重新读取所有设置并更新界面"""
         self._import_unsaved = False
-        self._imported_toolbar_layout = None
+        self._imported_toolbar_layouts = {}
         SettingsDialog._refresh_behavior_controls(self)
         if hasattr(self, 'hotkey_input'):
             self.hotkey_input.setText(self.config_manager.get_hotkey())
@@ -1822,9 +1822,11 @@ class SettingsDialog(FrostedFramelessDialog):
             finally:
                 self.config_manager = config
             del preview
-        layout = values.get(f"app/{TOOLBAR_LAYOUT_KEY}")
         # 文件里没有，或不是文本（手改过），就不动现有排布
-        self._imported_toolbar_layout = layout if isinstance(layout, str) else None
+        self._imported_toolbar_layouts = {
+            key: layout for key in TOOLBAR_LAYOUT_KEYS
+            if isinstance(layout := values.get(ToolSettingsManager.app_setting_path(key)), str)
+        }
         self._import_unsaved = True
         self._update_action_buttons()
 
@@ -1864,4 +1866,4 @@ class SettingsDialog(FrostedFramelessDialog):
                 self, SettingsDialog._configured_appearance(self.config_manager)
             )
         # 工具栏排布在工具栏自己的对话框里改，设置页读不到它，却是要带走的自定义
-        return keys | {f"app/{TOOLBAR_LAYOUT_KEY}"}
+        return keys | {ToolSettingsManager.app_setting_path(key) for key in TOOLBAR_LAYOUT_KEYS}

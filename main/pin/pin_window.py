@@ -1314,7 +1314,8 @@ class PinWindow(QWidget):
             # 工具栏
             if hasattr(self, 'toolbar') and self.toolbar:
                 try:
-                    for pn in ('paint_panel', 'shape_panel', 'arrow_panel', 'number_panel', 'text_panel'):
+                    # 面板和「…」弹层是独立顶层窗口，不随工具栏一起删除
+                    for pn in (*self.toolbar.PANEL_ATTRS, '_more_popup'):
                         panel = getattr(self.toolbar, pn, None)
                         if panel:
                             try:
