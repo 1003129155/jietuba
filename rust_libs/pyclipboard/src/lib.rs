@@ -1030,8 +1030,19 @@ impl PyClipboardManager {
             };
             if let Ok(mut watcher) = ClipboardWatcherContext::new() {
                 watcher.add_handler(handler);
-                *WATCHER_SHUTDOWN.lock() = Some(watcher.get_shutdown_channel());
-                watcher.start_watch();
+                // stop_monitor 先清 IS_RUNNING 再取关闭通道：通道登记前到来的停止取不到通道，
+                // 这里不能再进入监听循环，否则 stop_monitor 的 join 永远等不到本线程结束
+                let listening = {
+                    let mut shutdown = WATCHER_SHUTDOWN.lock();
+                    let running = IS_RUNNING.load(Ordering::SeqCst);
+                    if running {
+                        *shutdown = Some(watcher.get_shutdown_channel());
+                    }
+                    running
+                };
+                if listening {
+                    watcher.start_watch();
+                }
             }
             *WATCHER_SHUTDOWN.lock() = None;
             IS_RUNNING.store(false, Ordering::SeqCst);
