@@ -29,6 +29,19 @@ class SaveService:
         """Return default directory based on current config."""
         return self.config_manager.get_screenshot_save_path()
 
+    def suggest_path(self, filename: str) -> str:
+        """保存对话框的初始路径：保存目录下的 filename。
+
+        只给文件名时对话框落在进程工作目录，打包版即安装目录。
+        """
+        directory = self.get_default_directory()
+        try:
+            os.makedirs(directory, exist_ok=True)
+        except OSError as e:
+            log_warning(T("无法创建保存目录: {directory} ({e})", directory=directory, e=e), "Save")
+            return filename
+        return os.path.join(directory, filename)
+
     def save_qimage_async(
         self,
         image: QImage,

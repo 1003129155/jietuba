@@ -69,7 +69,7 @@ class ActionTools:
         file_path, selected_filter = get_save_file_name(
             self.parent_window,
             _tr("Save Screenshot"),
-            default_name,
+            self.save_service.suggest_path(default_name),
             "PNG (*.png);;JPG (*.jpg);;BMP (*.bmp);;WebP (*.webp);;PDF (*.pdf)",
         )
 

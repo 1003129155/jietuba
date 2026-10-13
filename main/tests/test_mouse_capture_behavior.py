@@ -248,6 +248,21 @@ def pin(qapp, config, monkeypatch):
         window.close_window()
 
 
+def test_save_dialogs_start_in_the_save_folder(actions, pin, config, monkeypatch):
+    folders = []
+
+    def answer(_parent, _caption, suggested, _filters):
+        folders.append(Path(suggested).parent)
+        return '', ''
+
+    monkeypatch.setattr('tools.action.get_save_file_name', answer)
+    monkeypatch.setattr('ui.dialogs.get_save_file_name', answer)
+    actions.handle_capture_action('save')
+    pin.save_image()
+    assert folders == [Path(config.get_screenshot_save_path())] * 2
+    assert folders[0].is_dir()
+
+
 def mouse_event(pin, kind, button, point=(30, 30), modifiers=Qt.NoModifier):
     local = QPointF(*point)
     global_pos = QPointF(pin.view.viewport().mapToGlobal(local.toPoint()))

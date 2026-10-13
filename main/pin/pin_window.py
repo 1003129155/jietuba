@@ -1207,10 +1207,11 @@ class PinWindow(QWidget):
 
         fmt = (self.config_manager.get_screenshot_format() if self.config_manager else "PNG").lower()
         default_name = f"pinned_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{fmt}"
+        save_service = SaveService(config_manager=self.config_manager)
         file_path, selected_filter = get_save_file_name(
             self,
             self.tr("Save Pin Image"),
-            default_name,
+            save_service.suggest_path(default_name),
             "PNG (*.png);;JPG (*.jpg);;BMP (*.bmp);;WebP (*.webp);;PDF (*.pdf)",
         )
         if not file_path:
@@ -1227,7 +1228,6 @@ class PinWindow(QWidget):
 
         def _do_save():
             image = self.get_current_image()
-            save_service = SaveService(config_manager=self.config_manager)
             if save_service.save_qimage_to_path(image, file_path, image_format=image_format):
                 log_info(T("保存成功: {file_path}", file_path=file_path), "PinWindow")
             else:

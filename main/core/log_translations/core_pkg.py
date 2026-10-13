@@ -124,6 +124,7 @@ TRANSLATIONS: dict[str, str] = {
     "已保存PDF: {target_path}": "PDF saved: {target_path}",
     "保存PDF失败 {target_path}: {exc}": "PDF save failed {target_path}: {exc}",
     "保存路径不是绝对路径，回退到默认: {target_dir}": "Save path is not absolute, falling back to default: {target_dir}",
+    "无法创建保存目录: {directory} ({e})": "Cannot create save directory: {directory} ({e})",
     "清理失败的占位文件": "Cleaning up failed placeholder file",
 
     # core/shortcut_manager.py
