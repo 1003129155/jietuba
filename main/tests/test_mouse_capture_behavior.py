@@ -215,7 +215,8 @@ def test_quick_save_saves_the_original_beside_it(actions, config, qtbot, save_or
 
     folder = Path(config.get_screenshot_save_path())
     if save_original and annotated:
-        qtbot.waitUntil(lambda: len(list(folder.glob('*_original.*'))) == 1)
+        # 原图在后台线程写，文件名先占好再写内容，要等内容写完才能读
+        qtbot.waitUntil(lambda: any(not QImage(str(path)).isNull() for path in folder.glob('*_original.*')))
         saved, original = sorted(folder.iterdir())
         assert original.name == saved.name.replace(saved.suffix, f'_original{saved.suffix}')
         assert QImage(str(original)).pixelColor(0, 0) == QColor(Qt.blue)
