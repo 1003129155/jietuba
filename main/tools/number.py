@@ -24,9 +24,9 @@ class NumberTool(Tool):
     _SCENE_OFFSET_ATTR = "_number_tool_offset"
     _SCENE_ORDER_ATTR = "_number_tool_order_counter"
     RADIUS_SCALE = 2
-    # 序号圈小于 8 就看不清里面的数字，所以收窄基类的范围。
+    # 序号圈小于 6 就看不清里面的数字，所以收窄基类的范围。
     # 钳制由基类在写入 ctx 时统一完成，这里只声明范围。
-    MIN_WIDTH = 8
+    MIN_WIDTH = 6
     MAX_WIDTH = 72
 
     @staticmethod
