@@ -25,7 +25,7 @@ APP_DEFAULT_SETTINGS = {
     "text_always_on_top": True,
     "smart_selection": False,
     "smart_selection_mode": "element",
-    "smart_selection_animation": False,
+    "smart_selection_animation": True,
     "log_enabled": True,
     "log_level": "INFO",
     "log_retention_days": 7,
@@ -180,7 +180,7 @@ class MockConfig:
     def set_smart_selection(self, v): pass
     def get_smart_selection_mode(self): return "window"
     def set_smart_selection_mode(self, v): pass
-    def get_smart_selection_animation(self): return False
+    def get_smart_selection_animation(self): return True
     def set_smart_selection_animation(self, v): pass
     def get_log_enabled(self): return True
     def set_log_enabled(self, v): pass

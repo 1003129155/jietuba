@@ -371,7 +371,7 @@ class ToolSettingsManager(QObject):
         # 默认只到窗口：控件检测要把整棵无障碍树扫回来，耗时和稳定性都由目标
         # 程序的提供方决定，不该是所有人默认承担的。
         "smart_selection_mode": "window",     # window / element，见 SMART_SELECTION_MODES
-        "smart_selection_animation": False,   # 换窗口时补间而不是瞬间跳变
+        "smart_selection_animation": True,    # 换窗口时补间而不是瞬间跳变
 
         # 截图保存
         "screenshot_save_enabled": True,       # 截图完成时自动保存

@@ -547,8 +547,8 @@ def test_capture_page_reads_smart_selection_animation_toggle(qapp, tmp_path, ena
         qapp.processEvents()
 
 
-def test_smart_selection_animation_defaults_off(tmp_path):
-    assert _manager(tmp_path).get_smart_selection_animation() is False
+def test_smart_selection_animation_defaults_on(tmp_path):
+    assert _manager(tmp_path).get_smart_selection_animation() is True
 
 
 def test_detection_mode_preserves_legacy_off_and_remembers_element_preference(tmp_path):
@@ -808,11 +808,11 @@ def test_settings_dialog_saves_smart_selection_animation_toggle(
             delattr(dialog, attr)
 
     dialog._settings_snapshot = dialog._snapshot_settings()
-    dialog.smart_animation_toggle.setChecked(True)
+    dialog.smart_animation_toggle.setChecked(False)
 
     assert dialog._has_unsaved_changes()
     dialog.accept()
-    assert manager.get_smart_selection_animation() is True
+    assert manager.get_smart_selection_animation() is False
 
     dialog.deleteLater()
     qapp.processEvents()
