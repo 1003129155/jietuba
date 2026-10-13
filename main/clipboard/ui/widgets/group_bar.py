@@ -523,9 +523,14 @@ class GroupBar(QWidget):
             action = QAction(label, self)
             action.setCheckable(True)
             action.setChecked(group.id == self.controller.current_group_id)
-            action.triggered.connect(lambda checked, gid=group.id: self.group_switched.emit(gid))
+            action.triggered.connect(lambda checked, gid=group.id: self._on_overflow_group_picked(gid))
             menu.addAction(action)
         menu.exec(QCursor.pos())
+
+    def _on_overflow_group_picked(self, group_id: int):
+        self.group_switched.emit(group_id)
+        # 选中的分组要换到最后一个可见位置，按钮得重排
+        self.refresh_buttons()
 
     def _clear_group_buttons_layout(self):
         while self.group_buttons_layout.count():
