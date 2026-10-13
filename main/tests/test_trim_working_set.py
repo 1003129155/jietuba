@@ -1,8 +1,10 @@
-"""共用的内存回收：连续请求只执行一次、忙时顺延、先回收再裁剪，以及哪些地方会请求它。
+"""共用的内存回收：连续请求只执行一次、忙时顺延、先回收再裁剪、裁剪不占界面线程，以及哪些地方会请求它。
 
 不碰真实的工作集：裁剪和 gc 都换成记录调用。
 """
 
+import threading
+import time
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -51,6 +53,30 @@ def test_busy_postpones_until_idle_instead_of_skipping(trims, qtbot):
     assert trims == []
     busy[0] = False
     qtbot.waitUntil(lambda: trims == ["gc", "trim"])
+
+
+def test_trim_runs_off_the_ui_thread_and_gc_stays_on_it(qapp, monkeypatch, qtbot):
+    threads = {}
+    release = threading.Event()
+    finished = threading.Event()
+
+    def slow_trim():
+        threads["trim"] = threading.current_thread()
+        release.wait(5)
+        finished.set()
+
+    monkeypatch.setattr(platform_utils, "trim_working_set", slow_trim)
+    monkeypatch.setattr(platform_utils, "gc", SimpleNamespace(
+        collect=lambda: threads.setdefault("gc", threading.current_thread())))
+    monkeypatch.setattr(platform_utils, "_trim_busy", None)
+    started = time.perf_counter()
+    platform_utils._trim_when_idle()
+    returned_after = time.perf_counter() - started
+    release.set()
+    qtbot.waitUntil(finished.is_set)
+    assert returned_after < 1
+    assert threads["gc"] is threading.main_thread()
+    assert threads["trim"] is not threading.main_thread()
 
 
 @pytest.mark.parametrize("state,busy", [
