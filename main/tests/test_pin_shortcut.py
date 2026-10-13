@@ -15,10 +15,12 @@ pin_shortcut.py 决定了鼠标悬停在钉图上时按键会发生什么，此�
 - 鼠标下方钉图的查找：上层优先，且要跳过已销毁的窗口；截图期间钉图
   被压在截图层下面，不算在鼠标下方。
 """
+from types import SimpleNamespace
+
 import pytest
 from PySide6.QtCore import Qt, QRect, QPoint, QPointF, QEvent
 from PySide6.QtGui import QKeyEvent, QMouseEvent, QCursor
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QDialog
 
 
 @pytest.fixture(scope="module")
@@ -408,6 +410,60 @@ class TestEditModeKeys:
 
         assert edit_handler.handle_key(_key_event(Qt.Key.Key_Escape)) is False
         assert pin.canvas.deactivated == 0
+
+
+# ============================================================================
+# 模态对话框
+# ============================================================================
+
+class TestModalDialogOwnsTheKeyboard:
+    """
+    钉图里弹出的模态对话框（水印输入框、调整排布）可能叠在钉图上方，鼠标停在那里时
+    按键也归对话框：否则第一下 ESC 退出编辑、第二下直接把钉图关掉。
+    """
+
+    @pytest.fixture
+    def active_window(self, monkeypatch):
+        state = {"window": None}
+        monkeypatch.setattr("pin.pin_shortcut.QApplication",
+                            SimpleNamespace(activeWindow=lambda: state["window"]))
+        return state
+
+    @staticmethod
+    def _dialog(modal):
+        dialog = QDialog()
+        if modal:
+            dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        return dialog
+
+    @pytest.mark.parametrize("editing", [True, False])
+    def test_escape_is_left_to_a_modal_dialog(self, edit_handler, normal_handler, active_window, editing):
+        pin = FakePin(editing=editing)
+        edit_handler._controller.pin = pin
+        normal_handler._controller.pin = pin
+        active_window["window"] = self._dialog(modal=True)
+
+        assert edit_handler.handle_key(_key_event(Qt.Key.Key_Escape)) is False
+        assert normal_handler.handle_key(_key_event(Qt.Key.Key_Escape)) is False
+        assert pin.closed == 0
+        assert pin.canvas.deactivated == 0
+
+    def test_a_non_modal_active_window_does_not_block_pin_keys(self, normal_handler, active_window):
+        pin = FakePin(editing=False)
+        normal_handler._controller.pin = pin
+        active_window["window"] = self._dialog(modal=False)
+
+        assert normal_handler.handle_key(_key_event(Qt.Key.Key_Escape)) is True
+        assert pin.closed == 1
+
+    def test_middle_click_still_reaches_the_pin(self, normal_handler, active_window):
+        pin = FakePin(editing=False)
+        normal_handler._controller.pin = pin
+        _bind_middle(normal_handler, "inapp_copy_pin")
+        active_window["window"] = self._dialog(modal=True)
+
+        assert normal_handler.handle_mouse(_middle_click_event()) is True
+        assert pin.copied == 1
 
 
 # ============================================================================

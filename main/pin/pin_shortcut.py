@@ -9,8 +9,9 @@
 - PinNormalShortcutHandler (priority=40): 非编辑模式下处理 复制键 / R / ESC
 """
 
-from PySide6.QtCore import QObject, Qt
+from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QCursor
+from PySide6.QtWidgets import QApplication
 from core import log_info, log_error
 from core.logger import T
 from core.shortcut_manager import (
@@ -58,6 +59,14 @@ class _PinHandlerBase(ShortcutHandler):
     def handle_mouse(self, event) -> bool:
         """中键走和键盘完全相同的那条 if 链，见 ShortcutHandler.handle_mouse。"""
         return self.handle_key(event)
+
+    @staticmethod
+    def _typing_in_dialog(event) -> bool:
+        """键盘焦点在模态对话框里（钉图的水印输入框、调整排布等）：按键归对话框，鼠标停在钉图上也不接。"""
+        if event.type() != QEvent.Type.KeyPress:
+            return False
+        window = QApplication.activeWindow()
+        return window is not None and window.isModal()
 
     def _handle_shared(self, pin, event) -> bool:
         """编辑与非编辑模式下行为一致的那几个快捷键。"""
@@ -165,6 +174,8 @@ class PinEditShortcutHandler(_PinHandlerBase):
         return bool(pin.canvas and pin.canvas.is_editing)
 
     def handle_key(self, event) -> bool:
+        if self._typing_in_dialog(event):
+            return False
         pin = self._find_pin_under_cursor()
         if pin is None:
             return False
@@ -233,6 +244,8 @@ class PinNormalShortcutHandler(_PinHandlerBase):
         return True
 
     def handle_key(self, event) -> bool:
+        if self._typing_in_dialog(event):
+            return False
         pin = self._find_pin_under_cursor()
         if pin is None:
             return False
