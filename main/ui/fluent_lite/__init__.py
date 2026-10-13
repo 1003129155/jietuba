@@ -15,7 +15,7 @@ from .buttons import (
     TransparentToolButton,
 )
 from .cards import (
-    SettingCard, SettingCardGroup, SimpleCardWidget, SwitchSettingCard,
+    SettingCard, SettingCardGroup, SimpleCardWidget, SubSwitchSettingCard, SwitchSettingCard,
     card_right_margin,
 )
 from .frameless import FramelessDialog, FrostedFramelessDialog
@@ -28,7 +28,7 @@ from .switch import SwitchButton
 from .theme import (
     ACCENT, FONT_FAMILY, INPUT_HEIGHT, INPUT_RADIUS, scrollbar_qss, ui_tokens,
 )
-from .titlebar import FluentTitleBar
+from .titlebar import FluentTitleBar, TitleBarPinButton
 
 
 class RadioButton(_QRadioButton):
@@ -173,9 +173,10 @@ __all__ = [
     "ColorSwatchButton",
     "HyperlinkButton", "BodyLabel", "CaptionLabel", "ComboBox", "LineEdit", "TextEdit", "SpinBox",
     "DoubleSpinBox", "RadioButton", "CheckBox", "SwitchButton", "SegmentedWidget", "FluentIcon",
-    "SettingCard", "SwitchSettingCard", "SettingCardGroup", "SimpleCardWidget",
+    "SettingCard", "SwitchSettingCard", "SubSwitchSettingCard", "SettingCardGroup", "SimpleCardWidget",
     "card_right_margin",
-    "NavigationInterface", "NavigationItemPosition", "FluentTitleBar", "FramelessDialog",
+    "NavigationInterface", "NavigationItemPosition", "FluentTitleBar", "TitleBarPinButton",
+    "FramelessDialog",
     "FrostedFramelessDialog", "scrollbar_qss",
     "INPUT_HEIGHT", "INPUT_RADIUS",
 ]

@@ -9,7 +9,7 @@ import os
 
 # 录制子进程必须在 Qt、配置、数据库和单实例逻辑初始化前分流。
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "--video-recorder-worker":
-    from video_worker import main as run_video_worker
+    from video.worker import main as run_video_worker
     raise SystemExit(run_video_worker(sys.argv[2:]))
 
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
@@ -27,7 +27,7 @@ from core.logger import (
 )
 
 # ── 全局版本号 ────────────────────────────────────────────
-APP_VERSION = "2.1.5"
+APP_VERSION = "2.1.6"
 
 
 def create_fallback_app_icon():
@@ -95,6 +95,8 @@ class MainApp(QObject):
         super().__init__()
         self.app = QApplication(sys.argv)
         self.app.setQuitOnLastWindowClosed(False)
+        from core.main_thread_gc import MainThreadGC
+        self._main_thread_gc = MainThreadGC(self.app)
         
         # Config - 使用统一的设置管理器
         self.config_manager = get_tool_settings_manager()
@@ -229,6 +231,12 @@ class MainApp(QObject):
         """应用退出前收尾"""
         from core.platform_utils import set_trim_busy_check
         set_trim_busy_check(None)
+        try:
+            from core.clipboard_utils import wait_for_clipboard_writes
+
+            wait_for_clipboard_writes(timeout=3.0)
+        except Exception as e:
+            log_exception(e, T("等待剪贴板写入"))
         self.quick_capture.close()
         from core.input_hub import close_input_hub
         close_input_hub()

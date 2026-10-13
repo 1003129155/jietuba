@@ -1,6 +1,6 @@
 [package]
 name = "jietuba-updater"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "MIT"
 publish = false
@@ -23,3 +23,6 @@ windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Securit
 [[bin]]
 name = "jietuba_updater"
 path = "src/main.rs"
+
+[build-dependencies]
+embed-resource = "3"

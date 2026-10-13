@@ -2,21 +2,88 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QRect, QRectF, QSize, Qt, Signal
+from PySide6.QtGui import QIcon, QPainter
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
+from core import safe_event
 from core.qt_utils import layout_widgets
 from core.ui_scale import dialog_scaled
 from core.ui_theme import apply_style_sheet, get_ui_theme, set_own_style
 
 from .labels import BodyLabel, CaptionLabel
 from .switch import SwitchButton
-from .theme import FONT_FAMILY, to_qicon, ui_tokens
+from .theme import FONT_FAMILY, css_color, tinted_icon, ui_tokens
+
+
+# 四个全局功能各有固定色相，饱和度压低，和蓝灰强调色放在一起不跳；
+# 其余设置行统一用 neutral。每项是 ((浅色底, 浅色图标), (深色底, 深色图标))。
+FEATURE_TONES = {
+    "capture": (("#F3E3E3", "#B0575A"), ("rgba(227, 154, 156, 0.16)", "#E39A9C")),
+    "clipboard": (("#E1EEE6", "#4E8A67"), ("rgba(140, 201, 165, 0.15)", "#8CC9A5")),
+    "pin": (("#F5EAD9", "#9E6B28"), ("rgba(224, 176, 112, 0.15)", "#E0B070")),
+    "translate": (("#E9E4F3", "#7A63A8"), ("rgba(183, 163, 227, 0.16)", "#B7A3E3")),
+    "neutral": (("#E3EAF0", "#526D85"), ("rgba(111, 143, 171, 0.20)", "#AFC3D4")),
+}
+
+_CARD_LEFT = 16
+_CARD_GAP = 14
+_TILE_SIZE = 34
 
 
 def card_right_margin() -> int:
     """卡片右内边距。自定义布局的卡片也用它，好让所有卡片的控件右边缘落在同一条线上。"""
     return dialog_scaled(24)
+
+
+def card_text_left() -> int:
+    """卡片标题文字的左边缘。分隔线和嵌在卡片里的自定义行都按它对齐。"""
+    return dialog_scaled(_CARD_LEFT + _TILE_SIZE + _CARD_GAP)
+
+
+class IconBadge(QWidget):
+    """设置行左侧的图标块。
+
+    tone 取 FEATURE_TONES 的键时画带底色的方块；为 None 时只画图标，
+    muted 决定图标用次要文字色还是正文色。
+    """
+
+    def __init__(self, icon, tone="neutral", parent=None, *, size=36, icon_size=20, muted=True):
+        super().__init__(parent)
+        self._icon = icon
+        self._tone = tone
+        self._icon_size = icon_size
+        self._muted = muted
+        self.setFixedSize(dialog_scaled(size), dialog_scaled(size))
+        get_ui_theme().theme_changed.connect(self.update)
+
+    def tone(self):
+        return self._tone
+
+    def setTone(self, tone):
+        self._tone = tone
+        self.update()
+
+    @safe_event
+    def paintEvent(self, e):
+        t = get_ui_theme().tokens
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        if self._tone is None:
+            fg = t.text_muted if self._muted else t.text
+        else:
+            bg, fg = FEATURE_TONES[self._tone][1 if t.is_dark else 0]
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(css_color(bg))
+            radius = dialog_scaled(10)
+            painter.drawRoundedRect(QRectF(self.rect()), radius, radius)
+        if self._icon is None:
+            return
+        side = dialog_scaled(self._icon_size)
+        target = QRect(0, 0, side, side)
+        target.moveCenter(self.rect().center())
+        icon = self._icon if isinstance(self._icon, QIcon) else tinted_icon(self._icon, fg)
+        icon.paint(painter, target)
 
 
 class ExpandLayout(QVBoxLayout):
@@ -54,23 +121,20 @@ class SettingCard(QFrame):
     # 控件列宽的上限：别让某个特别长的选项把左侧说明挤没。
     CONTROL_COLUMN_MAX = 200
 
-    def __init__(self, icon, title, content=None, parent=None):
+    def __init__(self, icon, title, content=None, parent=None, tone=None):
         super().__init__(parent)
-        self._theme_icon = icon
+        # None 表示跟随所在的 SettingCardGroup
+        self._own_tone = tone
         self.setObjectName("FluentLiteSettingCard")
         self.setMinimumHeight(dialog_scaled(62))
         self.hBoxLayout = QHBoxLayout(self)
         self.hBoxLayout.setContentsMargins(
-            dialog_scaled(15), dialog_scaled(9), card_right_margin(), dialog_scaled(9)
+            dialog_scaled(_CARD_LEFT), dialog_scaled(9), card_right_margin(), dialog_scaled(9)
         )
-        self.hBoxLayout.setSpacing(dialog_scaled(13))
+        self.hBoxLayout.setSpacing(dialog_scaled(_CARD_GAP))
 
-        self.iconLabel = QLabel(self)
-        self.iconLabel.setFixedSize(dialog_scaled(24), dialog_scaled(24))
-        self.iconLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.iconLabel.setPixmap(to_qicon(icon).pixmap(dialog_scaled(20), dialog_scaled(20)))
-        set_own_style(self.iconLabel, "background: transparent; border: none;")
-        self.hBoxLayout.addWidget(self.iconLabel)
+        self.iconBadge = IconBadge(icon, tone or "neutral", self, size=_TILE_SIZE, icon_size=19)
+        self.hBoxLayout.addWidget(self.iconBadge)
 
         self._text_layout = QVBoxLayout()
         self._text_layout.setContentsMargins(0, 0, 0, 0)
@@ -99,9 +163,6 @@ class SettingCard(QFrame):
             QFrame#FluentLiteSettingCard {{ background: transparent; border: none; border-radius: {dialog_scaled(12)}px; }}
             QFrame#FluentLiteSettingCard:hover {{ background: {t.surface_subtle}; border: none; }}
         """)
-        self.iconLabel.setPixmap(
-            to_qicon(self._theme_icon, self).pixmap(dialog_scaled(20), dialog_scaled(20))
-        )
         set_own_style(self.titleLabel,
             f"color: {t.text}; font: 600 {dialog_scaled(13)}px {FONT_FAMILY}; "
             "background: transparent; border: none;"
@@ -144,6 +205,9 @@ class SettingCard(QFrame):
         self.hBoxLayout.activate()
         self.controlLayout.activate()
 
+    def setTone(self, tone):
+        self.iconBadge.setTone(tone)
+
     def setTitle(self, title):
         self.titleLabel.setText(str(title))
 
@@ -161,8 +225,8 @@ class SettingCard(QFrame):
 class SwitchSettingCard(SettingCard):
     checkedChanged = Signal(bool)
 
-    def __init__(self, icon, title, content=None, configItem=None, parent=None):
-        super().__init__(icon, title, content, parent)
+    def __init__(self, icon, title, content=None, configItem=None, parent=None, tone=None):
+        super().__init__(icon, title, content, parent, tone)
         self.switchButton = SwitchButton(self)
         self.switchButton.checkedChanged.connect(self._on_checked_changed)
         self.addControl(self.switchButton, align=Qt.AlignmentFlag.AlignRight)
@@ -180,9 +244,22 @@ class SwitchSettingCard(SettingCard):
         return self.switchButton.isChecked()
 
 
+class SubSwitchSettingCard(SwitchSettingCard):
+    """挂在上一张卡片下面的子开关：不画图标块，文字和上一张卡片的标题对齐。"""
+
+    def __init__(self, title, content=None, parent=None):
+        super().__init__(None, title, content, parent=parent)
+        self.iconBadge.hide()
+        margins = self.hBoxLayout.contentsMargins()
+        self.hBoxLayout.setContentsMargins(card_text_left(), margins.top(), margins.right(), margins.bottom())
+        self.setMinimumHeight(dialog_scaled(52))
+
+
 class SettingCardGroup(QWidget):
-    def __init__(self, title, parent=None):
+    def __init__(self, title, parent=None, tone="neutral"):
         super().__init__(parent)
+        # 组内卡片的图标块色相；卡片自己指定过的不覆盖
+        self._tone = tone
         self.setObjectName("FluentLiteSettingCardGroup")
         self.vBoxLayout = QVBoxLayout(self)
         self.vBoxLayout.setContentsMargins(0, 0, 0, 0)
@@ -217,19 +294,22 @@ class SettingCardGroup(QWidget):
         """)
         for separator in self._separators:
             set_own_style(separator,
-                f"background: {t.separator}; border: none; margin-left: {dialog_scaled(52)}px;"
+                f"background: {t.separator}; border: none; margin-left: {card_text_left()}px;"
             )
 
-    def addSettingCard(self, card):
-        if self._cards:
+    def addSettingCard(self, card, with_separator=True):
+        """with_separator=False 用于自带分隔线的卡片容器。"""
+        if self._cards and with_separator:
             separator = QFrame(self._card_container)
             separator.setFixedHeight(dialog_scaled(1))
             set_own_style(separator,
-                f"background: {ui_tokens(self).separator}; border: none; margin-left: {dialog_scaled(52)}px;"
+                f"background: {ui_tokens(self).separator}; border: none; margin-left: {card_text_left()}px;"
             )
             self.cardLayout.addWidget(separator)
             self._separators.append(separator)
         card.setParent(self._card_container)
+        if getattr(card, "_own_tone", "") is None:
+            card.setTone(self._tone)
         self.cardLayout.addWidget(card)
         self._cards.append(card)
         self.adjustSize()

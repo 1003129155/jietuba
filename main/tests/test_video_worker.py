@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from main import video_worker
+from main.video import worker as video_worker
 
 
 def arguments(tmp_path):
@@ -211,41 +211,44 @@ def test_partial_pipe_writes_preserve_complete_json(monkeypatch):
     assert json.loads(b"".join(chunks)) == {"protocol": 1, "event": "ready", "data": {"message": "中文"}}
 
 
-@pytest.mark.parametrize("entry", ["main_app.py", "video_worker_hook.py"])
+@pytest.mark.parametrize("entry", ["main_app.py", "video/worker_hook.py"])
 def test_worker_dispatch_precedes_gui_settings_and_single_instance_initialization(tmp_path, entry):
-    main = Path(__file__).parents[1] / entry
+    root = Path(__file__).parents[1]
     script = r'''
 import builtins, runpy, sys, types
-worker = types.ModuleType("video_worker")
+sys.path.insert(0, sys.argv[2])
+worker = types.ModuleType("video.worker")
 def main(argv):
     assert argv == ["--unit-test"]
     return 89
 worker.main = main
-sys.modules["video_worker"] = worker
 original = builtins.__import__
 def restricted(name, *args, **kwargs):
     assert not name.startswith(("PySide6", "settings", "core", "ui", "pyclipboard", "inputhub")), name
     return original(name, *args, **kwargs)
 builtins.__import__ = restricted
+import video
+sys.modules["video.worker"] = worker
 sys.argv = [sys.argv[1], "--video-recorder-worker", "--unit-test"]
 runpy.run_path(sys.argv[0], run_name="__main__")
 '''
-    result = subprocess.run([sys.executable, "-c", script, str(main)], capture_output=True, timeout=15)
+    result = subprocess.run([sys.executable, "-c", script, str(root / entry), str(root)],
+                            capture_output=True, timeout=15)
     assert result.returncode == 89, result.stderr.decode(errors="replace")
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows windowed EXE standard handles")
 def test_windowed_none_stdio_uses_inherited_windows_pipe_handles():
-    worker_dir = str(Path(__file__).parents[1])
+    main_dir = str(Path(__file__).parents[1])
     script = r'''
 import sys
 sys.path.insert(0, sys.argv[1])
-from video_worker import main
+from video.worker import main
 sys.stdin = sys.stdout = sys.stderr = None
 raise SystemExit(main(["--unknown"]))
 '''
     # 参数错误不启动媒体核心；即使扩展不存在，也必须通过原生输出句柄报告错误。
-    result = subprocess.run([sys.executable, "-c", script, worker_dir], input=b"", capture_output=True, timeout=15)
+    result = subprocess.run([sys.executable, "-c", script, main_dir], input=b"", capture_output=True, timeout=15)
     assert result.returncode == 1
     message = json.loads(result.stdout)
     assert message["event"] == "error" and message["data"]["code"] in ("arguments", "helper_missing")
@@ -317,12 +320,12 @@ def test_multiple_commands_in_one_read_preserve_order(native, tmp_path, pipes):
 
 def test_normal_application_runtime_hook_does_not_import_worker_or_native(monkeypatch):
     import builtins
-    path = Path(__file__).parents[1] / "video_worker_hook.py"
+    path = Path(__file__).parents[1] / "video" / "worker_hook.py"
     source = path.read_text(encoding="utf-8-sig")
     original = builtins.__import__
     def guarded(name, *args, **kwargs):
-        assert name not in ("video_worker", "video_recorder", "PySide6"), name
+        assert name not in ("video", "video.worker", "video_recorder", "PySide6"), name
         return original(name, *args, **kwargs)
     monkeypatch.setattr(sys, "argv", ["jietuba_pp.exe"])
     monkeypatch.setattr(builtins, "__import__", guarded)
-    exec(compile(source, str(path), "exec"), {"__name__": "video_worker_hook"})
+    exec(compile(source, str(path), "exec"), {"__name__": "video.worker_hook"})

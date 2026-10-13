@@ -180,6 +180,32 @@ def test_toolbar_follows_the_scale_without_drifting(qapp):
         toolbar.deleteLater()
 
 
+@pytest.mark.parametrize("percent", [100, 125, 150])
+def test_toolbar_icons_are_rendered_at_their_display_size(qapp, percent):
+    """图标按显示边长直接渲染；拿大一档的位图缩小会让细线发虚"""
+    from PySide6.QtGui import QImage, QPainter
+    from PySide6.QtSvg import QSvgRenderer
+    from core.resource_manager import ResourceManager
+    from ui.toolbar import Toolbar
+
+    get_ui_scale().set_percent(percent)
+    toolbar = Toolbar()
+    try:
+        for key in ("pen", "save"):
+            button = toolbar._buttons[key]
+            side = button.iconSize().width()
+            expected = QImage(side, side, QImage.Format.Format_ARGB32_Premultiplied)
+            expected.fill(0)
+            painter = QPainter(expected)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            QSvgRenderer(ResourceManager.get_resource_path(toolbar._icon_paths[key])).render(painter)
+            painter.end()
+            actual = button.icon().pixmap(side, side).toImage()
+            assert actual.convertToFormat(expected.format()) == expected, key
+    finally:
+        toolbar.deleteLater()
+
+
 def test_selection_info_panel_follows_the_scale_without_drifting(qapp):
     from PySide6.QtWidgets import QWidget
     from ui.selection_info import SelectionInfoPanel

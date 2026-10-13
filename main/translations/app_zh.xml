@@ -551,20 +551,44 @@ Replace it?</source>
     
     <!-- Save Page -->
     <message>
-        <source>Auto-save Screenshots</source>
-        <translation>自动保存截图</translation>
-    </message>
-    <message>
-        <source>Automatically saves as file when capturing.</source>
-        <translation>截图时自动保存为文件。</translation>
-    </message>
-    <message>
         <source>Write File Path to Clipboard</source>
         <translation>写入文件路径到剪贴板</translation>
     </message>
     <message>
-        <source>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Requires Auto-save Screenshots to be enabled.</source>
-        <translation>让只认文件路径的工具（如部分终端程序）也能粘贴截图。需要开启"自动保存截图"。</translation>
+        <source>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Only takes effect when the screenshot is auto-saved.</source>
+        <translation>让只认文件路径的工具（如部分终端程序）也能粘贴截图。只在自动保存时生效。</translation>
+    </message>
+    <message>
+        <source>Auto-save</source>
+        <translation>自动保存</translation>
+    </message>
+    <message>
+        <source>Screenshots are saved to the save folder automatically when the actions below finish.</source>
+        <translation>下面的操作完成时，自动把截图存进保存文件夹。</translation>
+    </message>
+    <message>
+        <source>When a Screenshot Is Done</source>
+        <translation>截图完成时</translation>
+    </message>
+    <message>
+        <source>Saves when a screenshot is finished, including confirming a screenshot, long screenshots, global mouse shortcut screenshots, and more.</source>
+        <translation>完成截图时自动保存，包括确定截图、长截图、全局鼠标截图等。</translation>
+    </message>
+    <message>
+        <source>When a Pinned Image Is Created</source>
+        <translation>钉图生成时</translation>
+    </message>
+    <message>
+        <source>Saves when a selected region becomes a pinned image, including regular pins, global mouse shortcut pins, long screenshot pins, and more.</source>
+        <translation>选择区域生成钉图时自动保存，包括普通钉图、全局鼠标钉图、长截图钉图等。</translation>
+    </message>
+    <message>
+        <source>Also Save the Original</source>
+        <translation>同时保存原图</translation>
+    </message>
+    <message>
+        <source>When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, a copy without them is saved too, with _original at the end of its file name.</source>
+        <translation>截图存进保存文件夹时，如果加了标注（含马赛克）或水印，再另存一张没有它们的原图，文件名末尾带 _original。</translation>
     </message>
     <message>
         <source>Save Folder</source>
@@ -895,6 +919,14 @@ Replace it?</source>
     <message>
         <source>Translation Engine</source>
         <translation>翻译引擎</translation>
+    </message>
+    <message>
+        <source>Translation Service</source>
+        <translation>翻译服务</translation>
+    </message>
+    <message>
+        <source>Click the button on the right to test the translation API</source>
+        <translation>点击右侧按钮测试翻译接口</translation>
     </message>
     <message>
         <source>DeepL API</source>
@@ -1287,6 +1319,182 @@ Replace it?</source>
         <source>jietuba</source>
         <translation>jietuba</translation>
     </message>
+    <message>
+        <source>Lock / Unlock Pin</source>
+        <translation>锁定/解锁钉图</translation>
+    </message>
+    <message>
+        <source>Behavior</source>
+        <translation>行为</translation>
+    </message>
+    <message>
+        <source>Mouse Click-Through</source>
+        <translation>鼠标穿透</translation>
+    </message>
+    <message>
+        <source>Default Opacity</source>
+        <translation>默认不透明度</translation>
+    </message>
+    <message>
+        <source>Opacity of newly pinned images. Each image can still be adjusted with the mouse.</source>
+        <translation>新钉图的不透明度。每张钉图仍可用鼠标单独调整。</translation>
+    </message>
+    <message>
+        <source>Click-Through Opacity</source>
+        <translation>穿透时不透明度</translation>
+    </message>
+    <message>
+        <source>Opacity of a pinned image when click-through starts from its right-click menu. The slider on the bar above it still adjusts each image.</source>
+        <translation>从右键菜单开启鼠标穿透时钉图的不透明度。穿透时钉图上方工具条的滑块仍可单独调整。</translation>
+    </message>
+    <message>
+        <source>Keyboard Shortcuts</source>
+        <translation>键盘快捷键</translation>
+    </message>
+    <message>
+        <source>Copy, lock, thumbnail, toolbar and other keys for pinned images.</source>
+        <translation>钉图的复制、锁定、缩略图、工具栏等按键。</translation>
+    </message>
+    <message>
+        <source>Zoom, opacity, close and other mouse actions for pinned images.</source>
+        <translation>钉图的缩放、透明度、关闭等鼠标操作。</translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation>编辑</translation>
+    </message>
+    <message>
+        <source>Fine Zoom Pinned Image</source>
+        <translation>精细缩放钉图</translation>
+    </message>
+    <message>
+        <source>Zoom and Size</source>
+        <translation>缩放与大小</translation>
+    </message>
+    <message>
+        <source>Zoom Step</source>
+        <translation>缩放步长</translation>
+    </message>
+    <message>
+        <source>How much one wheel notch zooms, relative to the original size.</source>
+        <translation>滚轮每格缩放的幅度，按原图大小计算。</translation>
+    </message>
+    <message>
+        <source>Fine Zoom Step</source>
+        <translation>精细缩放步长</translation>
+    </message>
+    <message>
+        <source>Zoom step for the fine zoom mouse shortcut (Alt + wheel by default).</source>
+        <translation>精细缩放鼠标快捷键（默认 Alt + 滚轮）每格的缩放幅度。</translation>
+    </message>
+    <message>
+        <source>Opacity Step</source>
+        <translation>不透明度步长</translation>
+    </message>
+    <message>
+        <source>Opacity change per notch of the opacity mouse shortcut (Ctrl + wheel by default).</source>
+        <translation>调整不透明度的鼠标快捷键（默认 Ctrl + 滚轮）每格的变化量。</translation>
+    </message>
+    <message>
+        <source>Zoom Anchor</source>
+        <translation>缩放基准点</translation>
+    </message>
+    <message>
+        <source>The point of the image that stays in place while zooming with the wheel.</source>
+        <translation>用滚轮缩放时保持不动的位置。</translation>
+    </message>
+    <message>
+        <source>Top-left</source>
+        <translation>左上角</translation>
+    </message>
+    <message>
+        <source>Top-right</source>
+        <translation>右上角</translation>
+    </message>
+    <message>
+        <source>Bottom-left</source>
+        <translation>左下角</translation>
+    </message>
+    <message>
+        <source>Bottom-right</source>
+        <translation>右下角</translation>
+    </message>
+    <message>
+        <source>Center</source>
+        <translation>中心</translation>
+    </message>
+    <message>
+        <source>Mouse Position</source>
+        <translation>鼠标位置</translation>
+    </message>
+    <message>
+        <source>Resize by Dragging Edges</source>
+        <translation>拖动边缘调整大小</translation>
+    </message>
+    <message>
+        <source>Drag near the edge or corner of a pinned image to resize it. The aspect ratio is kept.</source>
+        <translation>在钉图的边缘或角上拖动即可调整大小，宽高比保持不变。</translation>
+    </message>
+    <message>
+        <source>Shrink Oversized Images</source>
+        <translation>过大时自动缩小</translation>
+    </message>
+    <message>
+        <source>Images larger than the screen are scaled down to fit and centered when pinned.</source>
+        <translation>比屏幕还大的图钉出来时按比例缩小到屏幕内，并放在屏幕中间。</translation>
+    </message>
+    <message>
+        <source>Lock</source>
+        <translation>锁定</translation>
+    </message>
+    <message>
+        <source>Block Moving and Resizing</source>
+        <translation>禁止移动和缩放</translation>
+    </message>
+    <message>
+        <source>Locked images cannot be dragged, zoomed or resized.</source>
+        <translation>锁定的钉图不能拖动、缩放或调整大小。</translation>
+    </message>
+    <message>
+        <source>Block Closing by Mouse</source>
+        <translation>禁止鼠标关闭</translation>
+    </message>
+    <message>
+        <source>The close button and the close mouse shortcut do nothing on locked images.</source>
+        <translation>锁定的钉图上，关闭按钮和关闭用的鼠标快捷键不起作用。</translation>
+    </message>
+    <message>
+        <source>Block Closing by Keyboard</source>
+        <translation>禁止按键关闭</translation>
+    </message>
+    <message>
+        <source>Esc does nothing on locked images.</source>
+        <translation>锁定的钉图上按 Esc 不会关闭。</translation>
+    </message>
+    <message>
+        <source>Show Lock Hints</source>
+        <translation>显示锁定提示</translation>
+    </message>
+    <message>
+        <source>Show a short hint when locking, unlocking or trying a blocked action. The right-click menu always works on locked images.</source>
+        <translation>锁定、解锁或尝试被禁止的操作时显示简短提示。锁定的钉图始终可以用右键菜单。</translation>
+    </message>
+    <message>
+        <source>Special Paste</source>
+        <translation>特殊粘贴</translation>
+    </message>
+    <message>
+        <source>Special Paste Menu</source>
+        <translation>特殊粘贴菜单</translation>
+    </message>
+    <message>
+        <source>Choose which paste options appear and arrange their order.</source>
+        <translation>选择显示的粘贴选项，并调整它们的顺序。</translation>
+    </message>
+    <message>
+        <source>Manage</source>
+        <translation>管理</translation>
+    </message>
 </context>
 
 <context>
@@ -1617,6 +1825,47 @@ Replace it?</source>
     <message>
         <source>Save Pin Image</source>
         <translation>保存钉图</translation>
+    </message>
+    <message>
+        <source>Mouse click-through</source>
+        <translation>鼠标穿透</translation>
+    </message>
+    <message>
+        <source>Lock</source>
+        <translation>锁定</translation>
+    </message>
+    <message>
+        <source>Locked, right-click to unlock</source>
+        <translation>已锁定，右键解锁</translation>
+    </message>
+    <message>
+        <source>Unlocked</source>
+        <translation>已解锁</translation>
+    </message>
+    <message>
+        <source>Click-through on</source>
+        <translation>鼠标穿透已开启</translation>
+    </message>
+    <message>
+        <source>Click-through off</source>
+        <translation>鼠标穿透已关闭</translation>
+    </message>
+</context>
+
+<!-- ========== Pin Click-Through Bar ========== -->
+<context>
+    <name>PinClickThroughBar</name>
+    <message>
+        <source>Drag to move</source>
+        <translation>按住拖动</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>不透明度</translation>
+    </message>
+    <message>
+        <source>Exit click-through</source>
+        <translation>退出鼠标穿透</translation>
     </message>
 </context>
 
@@ -2162,7 +2411,7 @@ Replace it?</source>
     </message>
     <message>
         <source>DeepL free tier: 500,000 chars/month. Get API key at</source>
-        <translation>DeepL免费版：每月50万字符。获取API密钥：</translation>
+        <translation>DeepL 免费版：每月 50 万字符。获取 API 密钥：</translation>
     </message>
     <message>
         <source>DeepL offers a free API tier with 500,000 characters/month.</source>
@@ -2570,6 +2819,38 @@ This action cannot be undone.</source>
     <message>
         <source>Are you sure you want to delete the {count} selected items?</source>
         <translation>确定要删除选中的 {count} 项吗？</translation>
+    </message>
+    <message>
+        <source>Paste Selected</source>
+        <translation>粘贴所选</translation>
+    </message>
+    <message>
+        <source>Paste Selected as Plain Text</source>
+        <translation>以纯文本粘贴所选</translation>
+    </message>
+    <message>
+        <source>Stitch Vertically and Paste</source>
+        <translation>竖向拼接后粘贴</translation>
+    </message>
+    <message>
+        <source>Stitch Horizontally and Paste</source>
+        <translation>横向拼接后粘贴</translation>
+    </message>
+    <message>
+        <source>Clear Selection</source>
+        <translation>清除选择</translation>
+    </message>
+    <message>
+        <source>Delete Selected</source>
+        <translation>删除所选</translation>
+    </message>
+    <message>
+        <source>Extract Digits</source>
+        <translation>仅提取数字</translation>
+    </message>
+    <message>
+        <source>Extract Letters</source>
+        <translation>仅提取字母</translation>
     </message>
 </context>
 
@@ -4585,6 +4866,10 @@ All items in the group will also be deleted.</source>
         <translation>保存</translation>
     </message>
     <message>
+        <source>Copy</source>
+        <translation>复制</translation>
+    </message>
+    <message>
         <source>Screenshot translate</source>
         <translation>截图翻译</translation>
     </message>
@@ -4725,6 +5010,54 @@ All items in the group will also be deleted.</source>
     <message>
         <source>Copied</source>
         <translation>已复制</translation>
+    </message>
+    <message>
+        <source>Layout</source>
+        <translation>排版</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>自动</translation>
+    </message>
+    <message>
+        <source>Remove line breaks</source>
+        <translation>移除换行符</translation>
+    </message>
+    <message>
+        <source>Keep every line</source>
+        <translation>保留每一行</translation>
+    </message>
+    <message>
+        <source>Remove spaces</source>
+        <translation>去掉空格</translation>
+    </message>
+    <message>
+        <source>Copy text when closing</source>
+        <translation>关闭时复制文本</translation>
+    </message>
+    <message>
+        <source>Punctuation</source>
+        <translation>标点</translation>
+    </message>
+    <message>
+        <source>As recognized</source>
+        <translation>保持原样</translation>
+    </message>
+    <message>
+        <source>Half-width</source>
+        <translation>半角</translation>
+    </message>
+    <message>
+        <source>Full-width</source>
+        <translation>全角</translation>
+    </message>
+    <message>
+        <source>Always on top: ON</source>
+        <translation>置顶: 开启</translation>
+    </message>
+    <message>
+        <source>Always on top: OFF</source>
+        <translation>置顶: 关闭</translation>
     </message>
 </context>
 <context>
@@ -5236,6 +5569,280 @@ Make sure gifrecorder is installed correctly.</source>
     <message>
         <source>暂停或恢复录制超时，录制已停止，视频未确认保存成功。</source>
         <translation>暂停或恢复录制超时，录制已停止，视频未确认保存成功。</translation>
+    </message>
+</context>
+<context>
+    <name>SpecialPasteDialog</name>
+    <message>
+        <source>Manage Special Paste</source>
+        <translation>管理特殊粘贴</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>文本</translation>
+    </message>
+    <message>
+        <source>Files</source>
+        <translation>文件</translation>
+    </message>
+    <message>
+        <source>Check the items to show in the menu. Drag the handle to reorder them. Uncheck all items to hide Special Paste for that type.</source>
+        <translation>勾选要显示的菜单项，拖动左侧手柄调整顺序。取消全部勾选可隐藏该类型的特殊粘贴菜单。</translation>
+    </message>
+    <message>
+        <source>Restore defaults</source>
+        <translation>恢复默认</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>确定</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Paste without text formatting.</source>
+        <translation>以纯文本粘贴，去除文字格式。</translation>
+    </message>
+    <message>
+        <source>Convert letters to uppercase.</source>
+        <translation>将字母转换为大写。</translation>
+    </message>
+    <message>
+        <source>Convert letters to lowercase.</source>
+        <translation>将字母转换为小写。</translation>
+    </message>
+    <message>
+        <source>Capitalize the first letter of each word.</source>
+        <translation>将每个单词的首字母大写。</translation>
+    </message>
+    <message>
+        <source>Capitalize the first letter of each sentence.</source>
+        <translation>将每个句子的首字母大写。</translation>
+    </message>
+    <message>
+        <source>Swap uppercase and lowercase letters.</source>
+        <translation>交换字母的大小写。</translation>
+    </message>
+    <message>
+        <source>Format values as a quoted SQL list.</source>
+        <translation>将内容转换为带引号的 SQL 值列表。</translation>
+    </message>
+    <message>
+        <source>Replace line breaks with spaces.</source>
+        <translation>将换行符替换为空格。</translation>
+    </message>
+    <message>
+        <source>Remove spaces, tabs and line breaks.</source>
+        <translation>移除空格、制表符和换行符。</translation>
+    </message>
+    <message>
+        <source>Keep only digits 0–9.</source>
+        <translation>仅保留数字 0–9。</translation>
+    </message>
+    <message>
+        <source>Keep only English letters A–Z and a–z.</source>
+        <translation>仅保留英文字母 A–Z 和 a–z。</translation>
+    </message>
+    <message>
+        <source>Append the current date and time.</source>
+        <translation>在文本末尾追加当前日期和时间。</translation>
+    </message>
+    <message>
+        <source>Paste without moving the item to the top.</source>
+        <translation>粘贴后保留条目原来的位置。</translation>
+    </message>
+    <message>
+        <source>Paste file names without their folder paths.</source>
+        <translation>仅粘贴文件名，去除文件夹路径。</translation>
+    </message>
+    <message>
+        <source>Paste full file paths.</source>
+        <translation>粘贴完整的文件路径。</translation>
+    </message>
+</context>
+<context>
+    <name>Toolbar</name>
+    <message>
+        <source>Watermark</source>
+        <translation>水印</translation>
+    </message>
+</context>
+<context>
+    <name>ToolbarLayoutDialog</name>
+    <message>
+        <source>Watermark</source>
+        <translation>水印</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Watermark</source>
+        <translation>水印</translation>
+    </message>
+    <message>
+        <source>Add the Last Watermark Automatically</source>
+        <translation>截图时自动加上上次的水印</translation>
+    </message>
+    <message>
+        <source>If the last screenshot ended with a watermark, the next one gets the same watermark with the time updated; otherwise none is added. Screenshots taken with mouse shortcuts follow the same rule.</source>
+        <translation>上次截图结束时带着水印，这次就加上同样的水印，时间按这次刷新；上次没有就不加。鼠标快捷键截的图也一样。</translation>
+    </message>
+</context>
+<context>
+    <name>WatermarkPanel</name>
+    <message>
+        <source>Tiled</source>
+        <translation>平铺</translation>
+    </message>
+    <message>
+        <source>Center</source>
+        <translation>居中</translation>
+    </message>
+    <message>
+        <source>Top Left</source>
+        <translation>左上角</translation>
+    </message>
+    <message>
+        <source>Top Center</source>
+        <translation>顶部居中</translation>
+    </message>
+    <message>
+        <source>Top Right</source>
+        <translation>右上角</translation>
+    </message>
+    <message>
+        <source>Bottom Left</source>
+        <translation>左下角</translation>
+    </message>
+    <message>
+        <source>Bottom Center</source>
+        <translation>底部居中</translation>
+    </message>
+    <message>
+        <source>Bottom Right</source>
+        <translation>右下角</translation>
+    </message>
+    <message>
+        <source>Position</source>
+        <translation>位置</translation>
+    </message>
+    <message>
+        <source>Watermark Style</source>
+        <translation>水印样式</translation>
+    </message>
+    <message>
+        <source>Font</source>
+        <translation>字体</translation>
+    </message>
+    <message>
+        <source>Default Font</source>
+        <translation>默认字体</translation>
+    </message>
+    <message>
+        <source>Input watermark</source>
+        <translation>输入水印</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>不透明度</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>大小</translation>
+    </message>
+    <message>
+        <source>Spacing</source>
+        <translation>间距</translation>
+    </message>
+    <message>
+        <source>Angle</source>
+        <translation>角度</translation>
+    </message>
+    <message>
+        <source>Custom Color</source>
+        <translation>自定义颜色</translation>
+    </message>
+    <message>
+        <source>Angle applies to tiled watermarks</source>
+        <translation>角度只对平铺生效</translation>
+    </message>
+</context>
+<context>
+    <name>WatermarkInputDialog</name>
+    <message>
+        <source>Input Watermark</source>
+        <translation>输入水印</translation>
+    </message>
+    <message>
+        <source>Type the watermark. Use the time button to insert the capture time.</source>
+        <translation>输入水印文字，用下方的时间按钮插入截图时间。</translation>
+    </message>
+    <message>
+        <source>Time:</source>
+        <translation>时间：</translation>
+    </message>
+    <message>
+        <source>Apply</source>
+        <translation>应用</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Insert the capture time</source>
+        <translation>插入截图时间</translation>
+    </message>
+    <message>
+        <source>Preview: %1</source>
+        <translation>预览：%1</translation>
+    </message>
+    <message>
+        <source>Year-month-day, 24-hour (China, Japan, Korea, ISO)</source>
+        <translation>年-月-日，24 小时制（中国、日本、韩国，ISO 标准）</translation>
+    </message>
+    <message>
+        <source>Slash-separated date, 24-hour</source>
+        <translation>斜杠分隔的日期，24 小时制</translation>
+    </message>
+    <message>
+        <source>Day/month/year, 24-hour (most of Europe)</source>
+        <translation>日/月/年，24 小时制（大多数欧洲国家）</translation>
+    </message>
+    <message>
+        <source>Month/day/year, 24-hour (United States)</source>
+        <translation>月/日/年，24 小时制（美国）</translation>
+    </message>
+    <message>
+        <source>Month/day/year, 12-hour (United States and Canada)</source>
+        <translation>月/日/年，12 小时制（美国和加拿大）</translation>
+    </message>
+    <message>
+        <source>Date only</source>
+        <translation>仅日期</translation>
+    </message>
+    <message>
+        <source>Time only, 24-hour</source>
+        <translation>仅时间，24 小时制</translation>
+    </message>
+    <message>
+        <source>Time only, 12-hour</source>
+        <translation>仅时间，12 小时制</translation>
+    </message>
+    <message>
+        <source>Date and time with the weekday</source>
+        <translation>带星期的日期和时间</translation>
+    </message>
+    <message>
+        <source>With milliseconds, for logs</source>
+        <translation>带毫秒，适合日志</translation>
+    </message>
+    <message>
+        <source>Compact, for file names</source>
+        <translation>紧凑格式，适合文件名</translation>
     </message>
 </context>
 </TS>

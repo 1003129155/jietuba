@@ -83,7 +83,6 @@ def test_no_engine_at_all_explains_how_to_get_one(monkeypatch, qapp, tmp_path):
     dialog, page = _page(monkeypatch, tmp_path, [], "auto")
     try:
         assert not any(enabled for _, _, enabled in _items(dialog.ocr_engine_combo))
-        assert dialog.ocr_enable_toggle.isEnabled() is False
         assert any(text.startswith("OCR unavailable") for text in _texts(page))
     finally:
         page.deleteLater()

@@ -12,7 +12,7 @@ import sys
 from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QWidget, QDialogButtonBox,
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QPoint, Qt, QTimer, Signal
 from ui.dialogs import get_existing_directory, show_info_dialog, show_warning_dialog
 from PySide6.QtGui import QColor, QFont, QIcon
 
@@ -24,15 +24,14 @@ from ui.fluent_lite import (
     FrostedFramelessDialog,
 )
 from ui.fluent_lite import FluentTitleBar, scrollbar_qss
-from ui.fluent_lite.theme import ACCENT
+from ui.fluent_lite.theme import FONT_FAMILIES, tinted_icon
 
 from core import log_info, safe_event
 from core.logger import log_exception, T
-from core.constants import CSS_FONT_FAMILY, DEFAULT_FONT_FAMILY
 from core.resource_manager import ResourceManager
 from core.ui_scale import configure_dialog_control, configure_dialog_controls, dialog_scaled
-from settings.tool_settings import CAPTURE_ENGINES, SMART_SELECTION_MODES
-from ui.toolbar_layout import SETTING_KEY as TOOLBAR_LAYOUT_KEY
+from settings.tool_settings import CAPTURE_ENGINES, SMART_SELECTION_MODES, ToolSettingsManager
+from ui.toolbar_layout import SETTING_KEYS as TOOLBAR_LAYOUT_KEYS
 
 # 页面创建函数
 from .page_hotkey import create_hotkey_page, validate_global_hotkey_edits
@@ -45,12 +44,12 @@ from . import provider_fields
 from .page_log import create_log_page, refresh_latest_log_label
 from .page_misc import create_misc_page
 from .page_appearance import create_appearance_page
+from .page_pin import PIN_BEHAVIOR_KEYS, create_pin_page
 from .page_developer import create_developer_page
 from .page_about import create_about_page
 from .components import (
     theme_surface_color,
-    theme_input_background, theme_popup_background,
-    theme_popup_hover_background, theme_text_style, theme_menu_style, theme_color, refresh_theme_widget_styles,
+    theme_text_style, theme_menu_style, refresh_theme_widget_styles,
     apply_theme_text_style, disable_wheel_on_value_controls,
 )
 
@@ -68,6 +67,7 @@ _PAGE_BUILDERS = (
     create_about_page,           # 8
     create_quick_actions_page,   # 9
     create_mouse_page,           # 10
+    create_pin_page,             # 11
 )
 
 
@@ -130,7 +130,7 @@ class SettingsDialog(FrostedFramelessDialog):
         # 导入的设置已填进界面、还没应用；有些选项不在未保存检测的快照里
         self._import_unsaved = False
         # 导入文件里的工具栏排布（配置里存的 JSON 文本）：设置页上没有对应控件，点应用时才写入
-        self._imported_toolbar_layout = None
+        self._imported_toolbar_layouts = {}
         if self.config_manager is None:
             from .mock_config import MockConfig
             self.config_manager = MockConfig()
@@ -140,7 +140,11 @@ class SettingsDialog(FrostedFramelessDialog):
 
         self.setWindowTitle("jietuba")
         self.resize(dialog_scaled(1050), dialog_scaled(750))
-        self.setFont(QFont(DEFAULT_FONT_FAMILY, dialog_scaled(11)))
+        # 和卡片、导航用同一份字体栈，不带 font-family 的文字样式才会随之统一
+        window_font = QFont()
+        window_font.setFamilies(FONT_FAMILIES)
+        window_font.setPointSize(dialog_scaled(11))
+        self.setFont(window_font)
         self.setObjectName("SettingsDialog")
 
         self._setup_ui()
@@ -285,26 +289,36 @@ class SettingsDialog(FrostedFramelessDialog):
         nav.setMaximumWidth(dialog_scaled(206))
 
         self._nav_items = [
-            ("shortcuts", FluentIcon.COMMAND_PROMPT, self.tr("Shortcuts"), 0, NavigationItemPosition.TOP),
-            ("mouse", ResourceManager.get_icon_path("鼠标.svg"), self.tr("Mouse Shortcuts"), 10,
+            ("shortcuts", ResourceManager.get_icon_path("热键.svg"), self.tr("Shortcuts"), 0,
              NavigationItemPosition.TOP),
-            ("capture", FluentIcon.CAMERA, self.tr("Capture Settings"), 1, NavigationItemPosition.TOP),
+            ("mouse", ResourceManager.get_icon_path("鼠标线框.svg"), self.tr("Mouse Shortcuts"), 10,
+             NavigationItemPosition.TOP),
             ("quick_actions", FluentIcon.STOP_WATCH, self.tr("Quick Actions"), 9, NavigationItemPosition.TOP),
+            ("capture", FluentIcon.CAMERA, self.tr("Capture Settings"), 1, NavigationItemPosition.TOP),
+            ("pin", FluentIcon.PIN, self.tr("Pin"), 11, NavigationItemPosition.TOP),
             ("clipboard", FluentIcon.PASTE, self.tr("Clipboard"), 2, NavigationItemPosition.TOP),
-            ("appearance", FluentIcon.BRUSH, self.tr("Appearance"), 3, NavigationItemPosition.TOP),
             ("translation", FluentIcon.LANGUAGE, self.tr("Translation"), 4, NavigationItemPosition.TOP),
+            ("appearance", FluentIcon.BRUSH, self.tr("Appearance"), 3, NavigationItemPosition.TOP),
             ("log", FluentIcon.HISTORY, self.tr("Log Settings"), 5, NavigationItemPosition.TOP),
             ("other", FluentIcon.APPLICATION, self.tr("Other"), 6, NavigationItemPosition.TOP),
             ("about", FluentIcon.INFO, self.tr("About"), 8, NavigationItemPosition.BOTTOM),
         ]
 
+        # 输入方式 / 各项功能 / 应用本身，三组之间画一条细线
+        group_starts = {"capture", "appearance"}
+        feature_tones = {
+            "capture": "capture", "pin": "pin", "clipboard": "clipboard", "translation": "translate",
+        }
         for route_key, icon, text, stack_index, position in self._nav_items:
+            if route_key in group_starts:
+                nav.addSeparator()
             nav.addItem(
                 routeKey=route_key,
                 icon=icon,
                 text=text,
                 onClick=lambda checked=False, idx=stack_index, rk=route_key: self._on_nav_changed(idx, rk),
                 position=position,
+                tone=feature_tones.get(route_key),
             )
 
         return nav
@@ -361,79 +375,6 @@ class SettingsDialog(FrostedFramelessDialog):
         row.addWidget(toggle_obj)
         return row
 
-    def _get_input_style(self):
-        input_bg = theme_input_background()
-        popup_bg = theme_popup_background()
-        popup_hover = theme_popup_hover_background()
-        text_color = theme_color("#202020", "#F3F3F3")
-        border_color = theme_color("#D9DDE3", "#3A3D43")
-        focus_bg = theme_color("#FFFFFF", "#25272B")
-        arrow_color = theme_color("#666666", "#D0D0D0")
-        s = dialog_scaled
-        return f"""
-            QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {{
-                border: 1px solid {border_color}; border-radius: {s(4)}px;
-                padding: {s(4)}px {s(8)}px; background-color: {input_bg};
-                color: {text_color}; font-family: {CSS_FONT_FAMILY};
-                font-size: {s(13)}px;
-            }}
-            QLineEdit:focus, QSpinBox:focus {{
-                border: 1px solid {ACCENT}; background-color: {focus_bg};
-            }}
-            QSpinBox, QDoubleSpinBox {{ padding-right: {s(24)}px; }}
-            QSpinBox::up-button, QDoubleSpinBox::up-button {{
-                subcontrol-origin: border; subcontrol-position: top right;
-                width: {s(20)}px; border-left: 1px solid {border_color};
-                border-bottom: 1px solid {border_color}; border-top-right-radius: {s(4)}px;
-                background: {input_bg};
-            }}
-            QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover {{ background: {popup_hover}; }}
-            QSpinBox::up-button:pressed, QDoubleSpinBox::up-button:pressed {{ background: #DCE8F4; }}
-            QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{
-                image: none; border-left: {s(4)}px solid transparent;
-                border-right: {s(4)}px solid transparent; border-bottom: {s(6)}px solid {arrow_color};
-                width: 0; height: 0;
-            }}
-            QSpinBox::down-button, QDoubleSpinBox::down-button {{
-                subcontrol-origin: border; subcontrol-position: bottom right;
-                width: {s(20)}px; border-left: 1px solid {border_color};
-                border-bottom-right-radius: {s(4)}px; background: {input_bg};
-            }}
-            QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{ background: {popup_hover}; }}
-            QSpinBox::down-button:pressed, QDoubleSpinBox::down-button:pressed {{ background: #DCE8F4; }}
-            QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
-                image: none; border-left: {s(4)}px solid transparent;
-                border-right: {s(4)}px solid transparent; border-top: {s(6)}px solid {arrow_color};
-                width: 0; height: 0;
-            }}
-            QComboBox::drop-down {{
-                subcontrol-origin: padding; subcontrol-position: top right;
-                width: {s(20)}px; border-left: 1px solid {border_color};
-                border-top-right-radius: {s(4)}px; border-bottom-right-radius: {s(4)}px;
-                background: {input_bg};
-            }}
-            QComboBox::down-arrow {{
-                image: none; border-left: {s(4)}px solid transparent;
-                border-right: {s(4)}px solid transparent; border-top: {s(6)}px solid {arrow_color};
-                width: 0; height: 0; margin-right: {s(6)}px;
-            }}
-            QComboBox QAbstractItemView {{
-                border: 1px solid {border_color}; background: {popup_bg};
-                selection-background-color: {ACCENT}; selection-color: white;
-                font-family: {CSS_FONT_FAMILY};
-                font-size: {s(13)}px; color: {text_color}; outline: none;
-            }}
-            QComboBox QAbstractItemView::item {{
-                padding: {s(6)}px {s(8)}px; min-height: {s(24)}px; color: {text_color}; background: {popup_bg};
-            }}
-            QComboBox QAbstractItemView::item:hover {{
-                background-color: {popup_hover}; color: {text_color};
-            }}
-            QComboBox QAbstractItemView::item:selected {{
-                background-color: {ACCENT}; color: white;
-            }}
-        """
-
     # ================================================================
     # 导航 & 开发者入口
     # ================================================================
@@ -450,6 +391,7 @@ class SettingsDialog(FrostedFramelessDialog):
             8: self.tr("Software Information"),
             9: self.tr("Quick Actions"),
             10: self.tr("Mouse Shortcuts"),
+            11: self.tr("Pin Settings"),
         }
 
         if stack_index in title_map:
@@ -568,7 +510,6 @@ class SettingsDialog(FrostedFramelessDialog):
         ok_btn.setFixedHeight(s(42))
         ok_btn.setMinimumWidth(s(120))
         ok_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        ok_btn.setIcon(FluentIcon.CHECK)
         ok_btn.setBaseIconSize(16)
         ok_btn.clicked.connect(self.apply_settings)
         self._apply_footer_styles()
@@ -606,6 +547,13 @@ class SettingsDialog(FrostedFramelessDialog):
             """)
         ok_btn = getattr(self, "_footer_ok_btn", None)
         if ok_btn is not None:
+            # 对勾素材是白色的，禁用态的浅底上要换成和文字同色的一张
+            check = QIcon()
+            check.addPixmap(FluentIcon.CHECK.icon().pixmap(64, 64), QIcon.Mode.Normal)
+            check.addPixmap(
+                tinted_icon(FluentIcon.CHECK, t.text_disabled).pixmap(64, 64), QIcon.Mode.Disabled
+            )
+            ok_btn.setIcon(check)
             ok_btn.setStyleSheet(f"""
                 QPushButton {{
                     min-height: {s(40)}px;
@@ -663,6 +611,12 @@ class SettingsDialog(FrostedFramelessDialog):
         from settings import color_formats
         color_formats.save(self.config_manager, formats)
 
+    def _save_special_paste_entries(self):
+        entries = getattr(self, 'clipboard_special_paste_entries', None)
+        if entries is not None:
+            from settings import special_paste
+            special_paste.save(self.config_manager, entries)
+
     def _reset_current_page(self):
         current_index = self.content_stack.currentIndex()
         if current_index == 0:
@@ -687,6 +641,31 @@ class SettingsDialog(FrostedFramelessDialog):
             self._reset_quick_actions_page()
         elif current_index == 10:
             self._reset_mouse_page()
+        elif current_index == 11:
+            self._reset_pin_page()
+
+    def _reset_pin_page(self):
+        defaults = self.config_manager.APP_DEFAULT_SETTINGS
+        SettingsDialog._refresh_behavior_controls(self, defaults=True, keys=PIN_BEHAVIOR_KEYS)
+        if hasattr(self, 'pin_auto_toolbar_toggle'):
+            self.pin_auto_toolbar_toggle.setChecked(defaults["pin_auto_toolbar"])
+        if hasattr(self, 'ocr_enable_toggle') and self.ocr_enable_toggle.isEnabled():
+            self.ocr_enable_toggle.setChecked(defaults["ocr_enabled"])
+
+    def _show_pin_shortcuts(self, mouse=False):
+        """钉图页的快捷键入口：切到快捷键页或鼠标快捷键页，并选中钉图那一栏。"""
+        index, route = (10, "mouse") if mouse else (0, "shortcuts")
+        self._on_nav_changed(index, route)
+        tabs = getattr(self, "_mouse_inapp_tabs" if mouse else "_inapp_shortcut_tabs", None)
+        if tabs is None:
+            return
+        tabs.setCurrentItem("pin")
+        scroll = self.content_stack.currentWidget()
+        if hasattr(scroll, "verticalScrollBar"):
+            # 页面可能刚建出来，等布局算完再滚；把标签行连同分组标题滚到顶部
+            QTimer.singleShot(0, lambda: scroll.verticalScrollBar().setValue(
+                tabs.mapTo(scroll.widget(), QPoint(0, 0)).y() - dialog_scaled(60)
+            ))
 
     def _reset_mouse_page(self):
         SettingsDialog._refresh_behavior_controls(self, defaults=True, prefix="mouse_")
@@ -784,9 +763,6 @@ class SettingsDialog(FrostedFramelessDialog):
             )
             if index >= 0:
                 self._selection_handle_size_combo.setCurrentIndex(index)
-        SettingsDialog._refresh_behavior_controls(
-            self, defaults=True, keys={"pin_rounded_corners", "pin_auto_border", "pin_hover_buttons"}
-        )
 
     def _reset_quick_actions_page(self):
         SettingsDialog._refresh_behavior_controls(
@@ -821,10 +797,16 @@ class SettingsDialog(FrostedFramelessDialog):
             self.smart_animation_toggle.setChecked(defaults["smart_selection_animation"])
         if hasattr(self, 'save_toggle'):
             self.save_toggle.setChecked(defaults["screenshot_save_enabled"])
+        if hasattr(self, 'screenshot_pin_save_toggle'):
+            self.screenshot_pin_save_toggle.setChecked(defaults["screenshot_pin_save_enabled"])
+        if hasattr(self, 'screenshot_save_original_toggle'):
+            self.screenshot_save_original_toggle.setChecked(defaults["screenshot_save_original_enabled"])
         if hasattr(self, 'clipboard_file_reference_toggle'):
             self.clipboard_file_reference_toggle.setChecked(
                 defaults["clipboard_file_reference_enabled"]
             )
+        if hasattr(self, 'watermark_auto_toggle'):
+            self.watermark_auto_toggle.setChecked(defaults["screenshot_watermark_auto"])
         if hasattr(self, 'save_path_lbl'):
             self.save_path_lbl.setText(defaults["screenshot_save_path"])
         if hasattr(self, 'screenshot_format_combo'):
@@ -839,10 +821,6 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'magnifier_color_formats'):
             from settings import color_formats
             self.magnifier_color_formats = color_formats.default_formats()
-        if hasattr(self, 'pin_auto_toolbar_toggle'):
-            self.pin_auto_toolbar_toggle.setChecked(defaults["pin_auto_toolbar"])
-        if hasattr(self, 'ocr_enable_toggle'):
-            self.ocr_enable_toggle.setChecked(defaults["ocr_enabled"])
         if hasattr(self, 'ocr_engine_combo'):
             index = self.ocr_engine_combo.findData(defaults["ocr_engine"])
             if index >= 0:
@@ -913,6 +891,9 @@ class SettingsDialog(FrostedFramelessDialog):
             self.clipboard_auto_paste_toggle.setChecked(defaults["clipboard_auto_paste"])
         if hasattr(self, 'clipboard_history_limit_spin'):
             self.clipboard_history_limit_spin.setValue(defaults["clipboard_history_limit"])
+        if hasattr(self, 'clipboard_special_paste_entries'):
+            from settings import special_paste
+            self.clipboard_special_paste_entries = special_paste.default_entries()
 
     # ================================================================
     # 保存（accept）
@@ -1046,10 +1027,17 @@ class SettingsDialog(FrostedFramelessDialog):
         # 3. 截图保存
         if hasattr(self, 'save_toggle'):
             self.config_manager.set_screenshot_save_enabled(self.save_toggle.isChecked())
+        if hasattr(self, 'screenshot_pin_save_toggle'):
+            self.config_manager.set_screenshot_pin_save_enabled(self.screenshot_pin_save_toggle.isChecked())
+        if hasattr(self, 'screenshot_save_original_toggle'):
+            self.config_manager.set_screenshot_save_original_enabled(
+                self.screenshot_save_original_toggle.isChecked())
         if hasattr(self, 'clipboard_file_reference_toggle'):
             self.config_manager.set_clipboard_file_reference_enabled(
                 self.clipboard_file_reference_toggle.isChecked()
             )
+        if hasattr(self, 'watermark_auto_toggle'):
+            self.config_manager.set_screenshot_watermark_auto(self.watermark_auto_toggle.isChecked())
         if hasattr(self, 'save_path_lbl'):
             self.config_manager.set_screenshot_save_path(self.save_path_lbl.text())
         if hasattr(self, 'screenshot_format_combo'):
@@ -1128,6 +1116,7 @@ class SettingsDialog(FrostedFramelessDialog):
                 I18nManager.load_language(new_lang)
 
         # 7. 剪贴板
+        self._save_special_paste_entries()
         if hasattr(self, 'clipboard_enabled_toggle'):
             self.config_manager.set_clipboard_enabled(self.clipboard_enabled_toggle.isChecked())
         if hasattr(self, 'clipboard_history_limit_spin'):
@@ -1220,12 +1209,12 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, '_selection_handle_size_combo'):
             theme.set_selection_handle_size(self._selection_handle_size_combo.currentData())
 
-        if self._imported_toolbar_layout is not None:
-            self.config_manager.set_app_setting(TOOLBAR_LAYOUT_KEY, self._imported_toolbar_layout)
+        for key, layout in self._imported_toolbar_layouts.items():
+            self.config_manager.set_app_setting(key, layout)
 
         log_info(T("所有设置已保存"), "Settings")
         self._import_unsaved = False
-        self._imported_toolbar_layout = None
+        self._imported_toolbar_layouts = {}
         self._settings_snapshot = self._snapshot_settings()
         self._update_action_buttons()
         self.config_manager.qsettings.sync()
@@ -1280,7 +1269,9 @@ class SettingsDialog(FrostedFramelessDialog):
             QStackedWidget {{
                 background: transparent;
             }}
-        """ + scrollbar_qss(self)
+        """ + scrollbar_qss(self) + """
+            QScrollBar::handle:vertical:disabled { background: transparent; }
+        """
         # 每次显示都会调到这里；内容没变不重设，重设会让整窗控件重新计算样式
         if sheet != self.styleSheet():
             self.setStyleSheet(sheet)
@@ -1290,12 +1281,6 @@ class SettingsDialog(FrostedFramelessDialog):
         self._apply_dialog_stylesheet()
         refresh_theme_widget_styles(self)
         self._apply_footer_styles()
-        input_style = self._get_input_style()
-        # 翻译凭据的输入框是按声明动态建的，从 provider_field_widgets 取。
-        # 上面那张手写清单里 azure/baidu 一直缺席，切主题时它们不跟着变。
-        for widget in getattr(self, "provider_field_widgets", {}).values():
-            if hasattr(widget, "setEchoMode"):
-                widget.setStyleSheet(input_style)
         self.content_title.setStyleSheet(
             theme_text_style(
                 21, bold=True,
@@ -1364,7 +1349,9 @@ class SettingsDialog(FrostedFramelessDialog):
                       'cross_tool_selection_toggle',
                       'text_always_on_top_toggle',
                       'smart_animation_toggle',
-                      'save_toggle', 'clipboard_file_reference_toggle',
+                      'save_toggle', 'screenshot_pin_save_toggle', 'clipboard_file_reference_toggle',
+                      'screenshot_save_original_toggle',
+                      'watermark_auto_toggle',
                       'magnifier_enabled_toggle', 'magnifier_grid_toggle',
                       'magnifier_hint_toggle',
                       'ocr_enable_toggle',
@@ -1412,6 +1399,8 @@ class SettingsDialog(FrostedFramelessDialog):
         # 颜色格式在单独的管理窗口里编辑，没有对应的控件可读
         if hasattr(self, 'magnifier_color_formats'):
             snap['magnifier_color_formats'] = tuple(self.magnifier_color_formats)
+        if hasattr(self, 'clipboard_special_paste_entries'):
+            snap['clipboard_special_paste_entries'] = tuple(self.clipboard_special_paste_entries)
         for attr in ('_clip_font_combo', '_clip_opacity_combo'):
             combo = getattr(self, attr, None)
             if combo is not None:
@@ -1532,7 +1521,7 @@ class SettingsDialog(FrostedFramelessDialog):
     def refresh_settings(self):
         """从配置管理器重新读取所有设置并更新界面"""
         self._import_unsaved = False
-        self._imported_toolbar_layout = None
+        self._imported_toolbar_layouts = {}
         SettingsDialog._refresh_behavior_controls(self)
         if hasattr(self, 'hotkey_input'):
             self.hotkey_input.setText(self.config_manager.get_hotkey())
@@ -1617,10 +1606,17 @@ class SettingsDialog(FrostedFramelessDialog):
 
         if hasattr(self, 'save_toggle'):
             self.save_toggle.setChecked(self.config_manager.get_screenshot_save_enabled())
+        if hasattr(self, 'screenshot_pin_save_toggle'):
+            self.screenshot_pin_save_toggle.setChecked(self.config_manager.get_screenshot_pin_save_enabled())
+        if hasattr(self, 'screenshot_save_original_toggle'):
+            self.screenshot_save_original_toggle.setChecked(
+                self.config_manager.get_screenshot_save_original_enabled())
         if hasattr(self, 'clipboard_file_reference_toggle'):
             self.clipboard_file_reference_toggle.setChecked(
                 self.config_manager.get_clipboard_file_reference_enabled()
             )
+        if hasattr(self, 'watermark_auto_toggle'):
+            self.watermark_auto_toggle.setChecked(self.config_manager.get_screenshot_watermark_auto())
         if hasattr(self, 'save_path_lbl'):
             self.save_path_lbl.setText(self.config_manager.get_screenshot_save_path())
         if hasattr(self, 'screenshot_format_combo'):
@@ -1696,6 +1692,9 @@ class SettingsDialog(FrostedFramelessDialog):
             self.clipboard_auto_paste_toggle.setChecked(self.config_manager.get_clipboard_auto_paste())
         if hasattr(self, 'clipboard_history_limit_spin'):
             self.clipboard_history_limit_spin.setValue(self.config_manager.get_clipboard_history_limit())
+        if hasattr(self, 'clipboard_special_paste_entries'):
+            from settings import special_paste
+            self.clipboard_special_paste_entries = special_paste.load(self.config_manager)
 
         if hasattr(self, 'autostart_toggle'):
             self.autostart_toggle.setChecked(self.config_manager.get_app_setting("autostart_enabled"))
@@ -1823,9 +1822,11 @@ class SettingsDialog(FrostedFramelessDialog):
             finally:
                 self.config_manager = config
             del preview
-        layout = values.get(f"app/{TOOLBAR_LAYOUT_KEY}")
         # 文件里没有，或不是文本（手改过），就不动现有排布
-        self._imported_toolbar_layout = layout if isinstance(layout, str) else None
+        self._imported_toolbar_layouts = {
+            key: layout for key in TOOLBAR_LAYOUT_KEYS
+            if isinstance(layout := values.get(ToolSettingsManager.app_setting_path(key)), str)
+        }
         self._import_unsaved = True
         self._update_action_buttons()
 
@@ -1865,4 +1866,4 @@ class SettingsDialog(FrostedFramelessDialog):
                 self, SettingsDialog._configured_appearance(self.config_manager)
             )
         # 工具栏排布在工具栏自己的对话框里改，设置页读不到它，却是要带走的自定义
-        return keys | {f"app/{TOOLBAR_LAYOUT_KEY}"}
+        return keys | {ToolSettingsManager.app_setting_path(key) for key in TOOLBAR_LAYOUT_KEYS}

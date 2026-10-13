@@ -41,6 +41,7 @@ PIN_KEYS = [
     ("inapp_pin_reset_size",  "Reset Size",             ""),
     ("inapp_thumbnail",       "Toggle Thumbnail",       "r"),
     ("inapp_toggle_toolbar",  "Toggle Toolbar",         "space"),
+    ("inapp_pin_lock",        "Lock / Unlock Pin",      "l"),
 ]
 
 TOOL_KEYS = [
@@ -88,6 +89,7 @@ INAPP_ICONS = {
     "inapp_pin_reset_size": "长截图.svg",
     "inapp_thumbnail": FluentIcon.HIDE,
     "inapp_toggle_toolbar": "开发.svg",
+    "inapp_pin_lock": FluentIcon.PIN,
     "inapp_clipboard_quick_edit": FluentIcon.EDIT,
     "inapp_clipboard_edit_save": FluentIcon.SAVE,
     "inapp_clipboard_edit_save_paste": FluentIcon.SEND,
@@ -348,11 +350,15 @@ def create_hotkey_page(dialog) -> QWidget:
     stack.addWidget(pin_tab)
     stack.addWidget(clipboard_tab)
 
-    tab_switch.addItem("screenshot", dialog.tr("Screenshot Shortcuts"), lambda: stack.setCurrentIndex(0))
-    tab_switch.addItem("tools", dialog.tr("Annotation Tools"), lambda: stack.setCurrentIndex(1))
-    tab_switch.addItem("pin", dialog.tr("Pin Shortcuts"), lambda: stack.setCurrentIndex(2))
-    tab_switch.addItem("clipboard", dialog.tr("Clipboard Shortcuts"), lambda: stack.setCurrentIndex(3))
+    routes = ("screenshot", "tools", "pin", "clipboard")
+    tab_switch.addItem("screenshot", dialog.tr("Screenshot Shortcuts"))
+    tab_switch.addItem("tools", dialog.tr("Annotation Tools"))
+    tab_switch.addItem("pin", dialog.tr("Pin Shortcuts"))
+    tab_switch.addItem("clipboard", dialog.tr("Clipboard Shortcuts"))
+    tab_switch.currentItemChanged.connect(lambda route: stack.setCurrentIndex(routes.index(route)))
     tab_switch.setCurrentItem("screenshot")
+    # 钉图设置页的「编辑」按钮从这里切到钉图一栏
+    dialog._inapp_shortcut_tabs = tab_switch
 
     tab_row = QWidget(grp_inapp)
     tab_row_layout = QHBoxLayout(tab_row)

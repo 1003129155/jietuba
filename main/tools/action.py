@@ -43,11 +43,11 @@ class ActionTools:
         if self.parent_window and close_after:
             self.parent_window.hide()
 
-        saving = deliver_screenshot(image, self.config_manager, save_service=self.save_service)
-        if saving is not None:
-            log_debug(T("已完成复制到剪贴板，已提交异步保存任务"), "Action")
-        else:
-            log_debug(T("已完成复制到剪贴板"), "Action")
+        original = None
+        if self._has_annotations(self.scene.get_drawing_items_in_rect(selection_rect)):
+            original = self.export_service.export_base_image_only(selection_rect)
+        deliver_screenshot(image, self.config_manager, original=original, save_service=self.save_service)
+        log_debug(T("已交给后台复制到剪贴板"), "Action")
 
         if self.parent_window and close_after:
             self._cleanup_and_close()
@@ -69,7 +69,7 @@ class ActionTools:
         file_path, selected_filter = get_save_file_name(
             self.parent_window,
             _tr("Save Screenshot"),
-            default_name,
+            self.save_service.suggest_path(default_name),
             "PNG (*.png);;JPG (*.jpg);;BMP (*.bmp);;WebP (*.webp);;PDF (*.pdf)",
         )
 
@@ -135,15 +135,17 @@ class ActionTools:
         log_debug(T("继承绘制项目: {count} 个", count=len(drawing_items)), "PinAction")
         
         # 复制到剪贴板
-        from core.clipboard_utils import deliver_image_async
+        from core.clipboard_utils import deliver_screenshot
         result_image = self.export_service.export(selection_rect)
 
         # 数据已拿到，提前隐藏截图窗口
         if self.parent_window and close_after:
             self.parent_window.hide()
 
-        deliver_image_async(result_image)
-        log_debug(T("已完成复制到剪贴板"), "PinAction")
+        original = base_image if self._has_annotations(drawing_items) else None
+        deliver_screenshot(result_image, self.config_manager, trigger="pin", original=original,
+                           save_service=self.save_service)
+        log_debug(T("已交给后台复制到剪贴板"), "PinAction")
         
         if self.parent_window and close_after:
             self._cleanup_and_close()
@@ -172,6 +174,7 @@ class ActionTools:
                 prefix="", image_format=self.config_manager.get_screenshot_format(),
             )
             if success:
+                self._save_original_beside(rect, path)
                 self._cleanup_and_close()
             else:
                 from ui.dialogs import show_warning_dialog
@@ -179,6 +182,20 @@ class ActionTools:
         else:
             return False
         return True
+
+    @staticmethod
+    def _has_annotations(drawing_items) -> bool:
+        return any(item.isVisible() for item in drawing_items)
+
+    def _save_original_beside(self, selection_rect, saved_path):
+        """「快速保存」不经过 deliver_screenshot，开着「同时保存原图」时在这里另存原图。"""
+        if not self.config_manager.get_screenshot_save_original_enabled():
+            return
+        if not self._has_annotations(self.scene.get_drawing_items_in_rect(selection_rect)):
+            return
+        original = self.export_service.export_base_image_only(selection_rect)
+        from core.background_tasks import start_thread
+        start_thread(lambda: self.save_service.save_beside(original, saved_path, "original"), name="SaveOriginal")
 
     def handle_screenshot_translate(self):
         """

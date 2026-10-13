@@ -128,6 +128,16 @@ def remove_all_whitespace(text: str) -> str:
     return re.sub(r'\s+', '', text)
 
 
+def extract_digits(text: str) -> str:
+    """只保留 ASCII 数字 0–9。"""
+    return re.sub(r'[^0-9]', '', text)
+
+
+def extract_letters(text: str) -> str:
+    """只保留英文字母，保留原有大小写。"""
+    return re.sub(r'[^A-Za-z]', '', text)
+
+
 def append_current_time(text: str) -> str:
     """在文本末尾追加当前日期时间。
 
@@ -149,6 +159,8 @@ TRANSFORM_REGISTRY: dict[str, Callable[[str], str]] = {
     "transform_sql_in": to_sql_in_clause,
     "transform_remove_linebreaks": remove_line_breaks,
     "transform_remove_whitespace": remove_all_whitespace,
+    "transform_extract_digits": extract_digits,
+    "transform_extract_letters": extract_letters,
     "transform_append_time": append_current_time,
 }
 
@@ -158,6 +170,8 @@ __all__ = [
     "append_current_time",
     "capitalize_sentences",
     "capitalize_words",
+    "extract_digits",
+    "extract_letters",
     "remove_all_whitespace",
     "remove_line_breaks",
     "to_lowercase",

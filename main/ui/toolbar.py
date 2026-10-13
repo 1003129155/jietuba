@@ -13,7 +13,7 @@ from core.ui_scale import get_ui_scale, scaled, scaled_f
 from core import log_debug, safe_event
 from core.logger import log_exception, T
 from .base_settings_panel import paint_rounded_panel
-from .toolbar_layout import MORE, SHOW, load_layout, save_layout
+from .toolbar_layout import MORE, SCREENSHOT, SHOW, load_layout, save_layout
 
 
 class _DragHandle(QWidget):
@@ -99,9 +99,9 @@ def resource_path(relative_path):
     """获取资源文件路径（兼容函数）"""
     return ResourceManager.get_resource_path(relative_path)
 
-def cached_icon(relative_path):
-    """获取缓存的 QIcon（首次加载 SVG，后续复用）"""
-    return ResourceManager.get_icon(ResourceManager.get_resource_path(relative_path))
+def cached_icon(relative_path, fit=0):
+    """获取缓存的 QIcon（首次加载 SVG，后续复用）；fit 见 ResourceManager.get_icon"""
+    return ResourceManager.get_icon(ResourceManager.get_resource_path(relative_path), fit=fit)
 
 def _button_qss():
     """工具栏按钮样式。
@@ -213,8 +213,7 @@ class Toolbar(QWidget):
     BASE_BTN_WIDTH = 38      # 工具按钮宽
     BASE_BTN_HEIGHT = 40     # 所有按钮高（也是工具栏高度）
     BASE_WIDE_WIDTH = 42     # 功能按钮宽（长截图、保存、结束截图、确定等）
-    BASE_ICON_WIDE = 24      # 功能按钮图标
-    BASE_ICON_TOOL = 22      # 工具按钮图标：比按钮小一圈，四周留出空隙
+    BASE_ICON = 24           # 按钮图标边长：图标都画在 24 格上，100% 时线条正好落在整像素
     HANDLE_WIDTH_RATIO = 0.32   # 拖动手柄宽 / 工具栏高
     BASE_RIGHT_NUDGE = 4     # 自动定位时整体右移，目视微调，不是算出来的
 
@@ -254,7 +253,14 @@ class Toolbar(QWidget):
 
     # 画笔工具专用信号
     line_style_changed = Signal(str)  # 线条样式改变(solid/dashed)
+
+    # 水印：按下按钮要铺上水印（已有就用那一层）；样式改动是 (WatermarkStyle 的字段名, 新值)；文字是带时间占位的模板
+    watermark_requested = Signal()
+    watermark_style_changed = Signal(str, object)
+    watermark_text_changed = Signal(str)
     
+    LAYOUT_PROFILE = SCREENSHOT
+
     # 有二级面板的工具。pen/highlighter 与 rect/ellipse 各自共用一个面板，
     # 但设置是分工具存的，所以这里按工具而不是按面板列。
     PANEL_TOOLS = ("pen", "highlighter", "rect", "ellipse", "arrow", "number", "text", "mosaic")
@@ -274,9 +280,10 @@ class Toolbar(QWidget):
     def init_ui(self):
         """初始化UI"""
         # 按钮登记表：key → 按钮 / 宽度。这里只建按钮、不定位置，位置统一由 _arrange
-        # 按排布摆放——截图读用户配置，钉图用固定列表，两边共用同一段摆放逻辑。
+        # 按排布摆放——截图和钉图各读自己的排布配置（LAYOUT_PROFILE），共用同一段摆放逻辑。
         self._buttons = {}
-        self._button_bases = {}    # key → (基准按钮宽, 基准图标边长)，改比例时据此重算
+        self._base_widths = {}     # key → 基准按钮宽，改比例时据此重算
+        self._icon_paths = {}      # key → 图标 SVG，改比例时按新边长重新取图
         self._button_widths = {}   # key → 当前比例下的按钮宽，由 _apply_button_sizes 填
         self._folded_keys = []    # 收进「…」弹层的按钮，弹层展开时才摆进去
         self._more_popup = None   # 用到才建，见 _show_more_popup
@@ -298,8 +305,8 @@ class Toolbar(QWidget):
         # 记录所有 tooltip 源文本，供语言切换后整体刷新（按钮在 _add_button 里登记）
         self._tooltip_sources = {self.drag_handle: "Drag to move"}
 
-        wide = (self.BASE_WIDE_WIDTH, self.BASE_ICON_WIDE)
-        tool = (self.BASE_BTN_WIDTH, self.BASE_ICON_TOOL)
+        wide = self.BASE_WIDE_WIDTH
+        tool = self.BASE_BTN_WIDTH
 
         self.long_screenshot_btn = self._add_button(
             "long_screenshot", "svg/长截图.svg", "Long screenshot (scroll)", wide,
@@ -328,6 +335,8 @@ class Toolbar(QWidget):
             "mosaic", "svg/马赛克.svg", "Mosaic (mouse wheel to resize)", tool)
         self.spotlight_btn = self._add_tool_button(
             "spotlight", "svg/聚光灯.svg", "Spotlight (dim outside the box)", tool)
+        self.watermark_btn = self._add_tool_button(
+            "watermark", "svg/水印.svg", "Watermark", tool)
         self.arrow_btn = self._add_tool_button("arrow", "svg/箭头.svg", "Draw arrow", tool)
         self.number_btn = self._add_tool_button(
             "number", "svg/序号.svg", "Number (Shift+scroll to change number)", tool)
@@ -352,8 +361,8 @@ class Toolbar(QWidget):
         self.more_btn.clicked.connect(self._show_more_popup)
         self.more_btn.installEventFilter(self)
         self._buttons["more"] = self.more_btn
-        # 「…」与拖动手柄同宽，图标是自绘的三点，没有 QIcon 要缩
-        self._button_bases["more"] = (self.BASE_BTN_HEIGHT * self.HANDLE_WIDTH_RATIO, 0)
+        # 「…」与拖动手柄同宽，图标是自绘的三点
+        self._base_widths["more"] = self.BASE_BTN_HEIGHT * self.HANDLE_WIDTH_RATIO
 
         # 背景和圆角描边由 paintEvent 手动绘制，#toolbar_root 保持透明。
         # objectName 必须在挂样式表之前设好，否则 #toolbar_root 选不中自己
@@ -366,6 +375,7 @@ class Toolbar(QWidget):
             "highlighter": self.highlighter_btn,
             "mosaic": self.mosaic_btn,
             "spotlight": self.spotlight_btn,
+            "watermark": self.watermark_btn,
             "arrow": self.arrow_btn,
             "number": self.number_btn,
             "rect": self.rect_btn,
@@ -390,15 +400,14 @@ class Toolbar(QWidget):
     # 按钮排布与「…」弹层
     # ========================================================================
 
-    def _add_button(self, key, icon, tooltip, size, on_click, *, checkable=False):
+    def _add_button(self, key, icon, tooltip, width, on_click, *, checkable=False):
         """建一个按钮并登记到排布表。
 
-        size 为 (基准按钮宽, 基准图标边长)，实际像素由 _apply_button_sizes 按当前
-        比例算出，位置由 _arrange 决定。
+        width 为基准按钮宽；实际尺寸和图标由 _apply_button_sizes 按当前比例给出，
+        位置由 _arrange 决定。
         """
         button = QPushButton(self)
         button.setToolTip(self.tr(tooltip))
-        button.setIcon(cached_icon(icon))
         button.setCheckable(checkable)
         # 按钮不接受键盘焦点，防止 Space/Enter 等按键通过按钮意外触发逻辑
         button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -407,7 +416,8 @@ class Toolbar(QWidget):
         button.clicked.connect(self._hide_more_popup)
         button.clicked.connect(on_click)
         self._buttons[key] = button
-        self._button_bases[key] = size
+        self._base_widths[key] = width
+        self._icon_paths[key] = icon
         self._tooltip_sources[button] = tooltip
         return button
 
@@ -419,16 +429,18 @@ class Toolbar(QWidget):
         self._btn_height = scaled(self.BASE_BTN_HEIGHT)
         handle_w = scaled(self.BASE_BTN_HEIGHT * self.HANDLE_WIDTH_RATIO)
         self.drag_handle.setGeometry(0, 0, handle_w, self._btn_height)
-        for key, (base_width, base_icon) in self._button_bases.items():
+        for key, base_width in self._base_widths.items():
             self._button_widths[key] = scaled(base_width)
-            if base_icon:
-                icon_size = scaled(base_icon)
-                self._buttons[key].setIconSize(QSize(icon_size, icon_size))
+        icon_size = scaled(self.BASE_ICON)
+        for key, path in self._icon_paths.items():
+            button = self._buttons[key]
+            button.setIcon(cached_icon(path, icon_size))
+            button.setIconSize(QSize(icon_size, icon_size))
 
-    def _add_tool_button(self, tool_id, icon, tooltip, size):
+    def _add_tool_button(self, tool_id, icon, tooltip, width):
         """绘制工具按钮：可选中，点击走 select_tool 的切换逻辑"""
         return self._add_button(
-            tool_id, icon, tooltip, size, lambda: self._on_tool_clicked(tool_id), checkable=True)
+            tool_id, icon, tooltip, width, lambda: self._on_tool_clicked(tool_id), checkable=True)
 
     def _make_floating(self, widget):
         """工具栏、二级面板、「…」弹层共用的窗口属性。
@@ -467,12 +479,12 @@ class Toolbar(QWidget):
 
     def reload_layout(self):
         """按用户配置重排：始终显示的上工具栏，收进更多的留给弹层，「…」固定在最右"""
-        layout = load_layout()
+        layout = load_layout(self.LAYOUT_PROFILE)
         self._folded_keys = [key for key, mode in layout if mode == MORE]
         self._arrange([key for key, mode in layout if mode == SHOW] + ["more"])
 
     PANEL_ATTRS = ('paint_panel', 'shape_panel', 'arrow_panel',
-                   'number_panel', 'text_panel', 'mosaic_panel')
+                   'number_panel', 'text_panel', 'mosaic_panel', 'watermark_panel')
 
     def _iter_panels(self):
         """已建出来的二级设置面板"""
@@ -507,7 +519,7 @@ class Toolbar(QWidget):
     def _show_more_popup(self):
         """展开「…」弹层，把收起的按钮摆进去。
 
-        弹层用到才建：钉图工具栏的「…」永远不显示，没必要给每张钉图多建一个窗口。
+        弹层用到才建：多数截图和钉图不会展开它，没必要每次都多建一个窗口。
         """
         if self._more_popup is None:
             self._more_popup = _MorePopup(self.parent())
@@ -550,19 +562,19 @@ class Toolbar(QWidget):
 
         self._hide_more_popup()
         host = self._host_window()
+        profile = self.LAYOUT_PROFILE
         dialog = ToolbarLayoutDialog(
-            load_layout(), {key: button.icon() for key, button in self._buttons.items()}, host)
+            load_layout(profile), {key: button.icon() for key, button in self._buttons.items()}, host, profile)
         # 截图窗口横跨整个虚拟桌面，对话框默认居中到它的中点，多屏时未必落在用户
         # 正在操作的那块屏幕上；改为放到工具栏所在屏幕的中央
         screen = QApplication.screenAt(self.mapToGlobal(QPoint(0, 0))) or QApplication.primaryScreen()
         dialog.move(screen.availableGeometry().center() - dialog.rect().center())
         if not exec_dialog(dialog):
             return
-        save_layout(dialog.entries())
+        save_layout(dialog.entries(), profile)
         self.reload_layout()
-        # 宽度变了，重新贴到选区右下角（手动拖过位置的不会动）
-        if hasattr(host, "update_toolbar_position"):
-            host.update_toolbar_position()
+        # 宽度变了，重新贴位（手动拖过位置的不会动）
+        self._reposition_self()
         
     def init_settings_panels(self):
         """初始化所有工具的设置面板"""
@@ -662,12 +674,55 @@ class Toolbar(QWidget):
         self.mosaic_panel.block_size_changed.connect(self._on_mosaic_block_size_changed)
         self.mosaic_panel.hide()
 
+        # === 7. 水印设置面板 (watermark)：用到才建，见 _ensure_watermark_panel ===
+        self.watermark_panel = None
+
         # 加载保存的设置
         self._load_saved_settings()
         
         # 保持兼容性:paint_menu 和 text_menu 别名
         self.paint_menu = self.paint_panel
         self.text_menu = self.text_panel
+
+    def _ensure_watermark_panel(self):
+        """水印面板用到才建：水印是低频功能，不拖慢工具栏创建。
+
+        不走 color_changed 这些通用信号：那一路会改当前画笔的颜色和光标，水印的样式单独存。
+        """
+        if self.watermark_panel is None:
+            from .watermark_settings_panel import WatermarkSettingsPanel
+
+            panel = WatermarkSettingsPanel(self.parent())
+            # 样式弹层要背离工具栏弹，理由同序号面板
+            panel._owner_toolbar = self
+            self._make_floating(panel)
+            panel.style_changed.connect(self.watermark_style_changed)
+            panel.text_edit_requested.connect(self.edit_watermark_text)
+            panel.text_cleared.connect(lambda: self._set_watermark_text(""))
+            panel.hide()
+            self.watermark_panel = panel
+        return self.watermark_panel
+
+    def edit_watermark_text(self):
+        """弹出输入框编辑水印文字；取消就什么都不改。"""
+        from settings import get_tool_settings_manager
+        from .watermark_input_dialog import edit_watermark_text
+
+        panel = self._ensure_watermark_panel()
+        template = edit_watermark_text(panel.text_field, get_tool_settings_manager())
+        if template is not None:
+            self._set_watermark_text(template)
+
+    def _set_watermark_text(self, template: str):
+        panel = self.watermark_panel
+        if panel is not None:
+            panel.set_template(template)
+        self.watermark_text_changed.emit(template)
+
+    def show_watermark(self, template: str, when):
+        """面板上显示图上那层水印：文字按水印自己的时间展开。"""
+        if self.watermark_panel is not None:
+            self.watermark_panel.set_template(template, when)
 
     @safe_event
     def paintEvent(self, event):
@@ -716,6 +771,11 @@ class Toolbar(QWidget):
                 self.mosaic_panel.set_draw_mode(settings.get("draw_mode"))
                 self.mosaic_panel.set_style(settings.get("style"))
                 self.mosaic_panel.set_block_size(settings.get("block_size"))
+            elif tool_id == "watermark":
+                from tools.watermark import WatermarkTool
+                panel = self._ensure_watermark_panel()
+                panel.load_style(WatermarkTool.load_style(manager))
+                panel.set_template(WatermarkTool.current_template(manager))
         except Exception as exc:
             log_debug(T("同步 {tool_id} 面板失败: {exc}", tool_id=tool_id, exc=exc), "Toolbar")
 
@@ -757,7 +817,7 @@ class Toolbar(QWidget):
             except RuntimeError:
                 continue
         # 二级面板的文本在构造时一次性设置，这里补一次刷新
-        for attr in ("mosaic_panel", "text_panel"):
+        for attr in ("mosaic_panel", "text_panel", "watermark_panel"):
             panel = getattr(self, attr, None)
             if panel is not None and hasattr(panel, "retranslate"):
                 panel.retranslate()
@@ -794,7 +854,23 @@ class Toolbar(QWidget):
     
     def _on_tool_clicked(self, tool_id: str):
         """工具按钮点击 - 支持再次点击取消"""
+        if tool_id == "watermark":
+            self._on_watermark_clicked()
+            return
         self.select_tool(tool_id, toggle=True)
+
+    def _on_watermark_clicked(self):
+        """水印按钮：铺上水印（已有就用那一层）并打开面板；已选中时再点只收起面板，和其他工具一样。
+
+        去掉水印用面板上的 ×，免得想收起面板时把水印一起点没了。还没有水印文字时，铺上后直接弹出输入框。
+        """
+        if self.current_tool == "watermark":
+            self.select_tool("cursor")
+            return
+        self.select_tool("watermark")
+        self.watermark_requested.emit()
+        if not self._ensure_watermark_panel().text_field.template():
+            self.edit_watermark_text()
 
     def select_tool(self, tool_id: str, *, toggle: bool = False):
         """Select a tool through the authoritative toolbar/UI signal path.
@@ -833,12 +909,8 @@ class Toolbar(QWidget):
             
     def _hide_all_panels(self):
         """隐藏所有设置面板"""
-        if hasattr(self, 'paint_panel'): self.paint_panel.hide()
-        if hasattr(self, 'shape_panel'): self.shape_panel.hide()
-        if hasattr(self, 'arrow_panel'): self.arrow_panel.hide()
-        if hasattr(self, 'number_panel'): self.number_panel.hide()
-        if hasattr(self, 'text_panel'): self.text_panel.hide()
-        if hasattr(self, 'mosaic_panel'): self.mosaic_panel.hide()
+        for panel in self._iter_panels():
+            panel.hide()
 
     def _show_panel_for_tool(self, tool_id: str):
         """显示指定工具的设置面板，内容一律回填成该工具的持久化设置。
@@ -848,6 +920,8 @@ class Toolbar(QWidget):
         什么"。所以选中图元后的差异化同步必须排在本函数之后。
         """
         self._hide_all_panels()
+        if tool_id == "watermark":
+            self._ensure_watermark_panel()
 
         # 面板的形态（哪些控件该露出来）跟着工具走，与持久化设置无关
         if tool_id in ("pen", "highlighter", "spotlight") and hasattr(self, "paint_panel"):
@@ -870,6 +944,7 @@ class Toolbar(QWidget):
             "number": self.number_panel,
             "text": self.text_panel,
             "mosaic": self.mosaic_panel,
+            "watermark": self.watermark_panel,
         }
         
         panel = panel_map.get(tool_id)
@@ -1262,18 +1337,9 @@ class Toolbar(QWidget):
     
     def _sync_all_panels_position(self):
         """同步所有可见面板的位置"""
-        if hasattr(self, 'paint_panel') and self.paint_panel.isVisible():
-            self._sync_panel_position(self.paint_panel)
-        if hasattr(self, 'shape_panel') and self.shape_panel.isVisible():
-            self._sync_panel_position(self.shape_panel)
-        if hasattr(self, 'arrow_panel') and self.arrow_panel.isVisible():
-            self._sync_panel_position(self.arrow_panel)
-        if hasattr(self, 'number_panel') and self.number_panel.isVisible():
-            self._sync_panel_position(self.number_panel)
-        if hasattr(self, 'text_panel') and self.text_panel.isVisible():
-            self._sync_panel_position(self.text_panel)
-        if hasattr(self, 'mosaic_panel') and self.mosaic_panel.isVisible():
-            self._sync_panel_position(self.mosaic_panel)
+        for panel in self._iter_panels():
+            if panel.isVisible():
+                self._sync_panel_position(panel)
         popup = getattr(self, '_more_popup', None)
         if popup is not None and popup.isVisible():
             self._sync_panel_position(popup, align_right=True)

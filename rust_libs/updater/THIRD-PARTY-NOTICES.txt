@@ -1867,7 +1867,7 @@ SOFTWARE.
 ================================================================================
 MIT License
 
-Applies to: jietuba-updater 0.2.0, windows-link 0.2.1, windows-sys 0.61.2
+Applies to: jietuba-updater 0.2.1, windows-link 0.2.1, windows-sys 0.61.2
 
 MIT License
 

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from main.video_helper import installed_recorder_licenses
+from main.video.helper import installed_recorder_licenses
 
 
 REPO_DIR = Path(__file__).resolve().parent

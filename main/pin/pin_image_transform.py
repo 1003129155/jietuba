@@ -247,15 +247,19 @@ class PinImageTransform:
             pass  # C++ 对象已销毁
 
     def _refresh_border(self, pin_window):
-        """创建/刺新描边 Overlay（无阴影，仅单圈主题色线）"""
-        from .pin_border_overlay import PinBorderOverlay
-        if pin_window.border_enabled:
+        """创建/刷新描边 Overlay（无阴影，仅单圈线）。锁定时不论描边开关都显示锁定色。"""
+        from .pin_border_overlay import LOCKED_BORDER_COLOR, PinBorderOverlay
+        locked = pin_window._locked
+        color = LOCKED_BORDER_COLOR if locked else pin_window.border_color
+        if pin_window.border_enabled or locked:
             if not pin_window.border_overlay:
                 pin_window.border_overlay = PinBorderOverlay(
                     pin_window,
                     corner_radius=pin_window.corner,
-                    border_color=pin_window.border_color,
+                    border_color=color,
                 )
+            else:
+                pin_window.border_overlay.set_border_color(color)
             pin_window.border_overlay.setGeometry(
                 0, 0, pin_window.width(), pin_window.height())
             pin_window.border_overlay.show()

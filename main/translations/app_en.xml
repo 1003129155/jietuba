@@ -547,20 +547,44 @@ Replace it?</translation>
     
     <!-- Save Page -->
     <message>
-        <source>Auto-save Screenshots</source>
-        <translation>Auto-save Screenshots</translation>
-    </message>
-    <message>
-        <source>Automatically saves as file when capturing.</source>
-        <translation>Automatically saves as file when capturing.</translation>
-    </message>
-    <message>
         <source>Write File Path to Clipboard</source>
         <translation>Write File Path to Clipboard</translation>
     </message>
     <message>
-        <source>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Requires Auto-save Screenshots to be enabled.</source>
-        <translation>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Requires Auto-save Screenshots to be enabled.</translation>
+        <source>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Only takes effect when the screenshot is auto-saved.</source>
+        <translation>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Only takes effect when the screenshot is auto-saved.</translation>
+    </message>
+    <message>
+        <source>Auto-save</source>
+        <translation>Auto-save</translation>
+    </message>
+    <message>
+        <source>Screenshots are saved to the save folder automatically when the actions below finish.</source>
+        <translation>Screenshots are saved to the save folder automatically when the actions below finish.</translation>
+    </message>
+    <message>
+        <source>When a Screenshot Is Done</source>
+        <translation>When a Screenshot Is Done</translation>
+    </message>
+    <message>
+        <source>Saves when a screenshot is finished, including confirming a screenshot, long screenshots, global mouse shortcut screenshots, and more.</source>
+        <translation>Saves when a screenshot is finished, including confirming a screenshot, long screenshots, global mouse shortcut screenshots, and more.</translation>
+    </message>
+    <message>
+        <source>When a Pinned Image Is Created</source>
+        <translation>When a Pinned Image Is Created</translation>
+    </message>
+    <message>
+        <source>Saves when a selected region becomes a pinned image, including regular pins, global mouse shortcut pins, long screenshot pins, and more.</source>
+        <translation>Saves when a selected region becomes a pinned image, including regular pins, global mouse shortcut pins, long screenshot pins, and more.</translation>
+    </message>
+    <message>
+        <source>Also Save the Original</source>
+        <translation>Also Save the Original</translation>
+    </message>
+    <message>
+        <source>When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, a copy without them is saved too, with _original at the end of its file name.</source>
+        <translation>When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, a copy without them is saved too, with _original at the end of its file name.</translation>
     </message>
     <message>
         <source>Save Folder</source>
@@ -893,6 +917,14 @@ Replace it?</translation>
         <translation>Translation Engine</translation>
     </message>
     <message>
+        <source>Translation Service</source>
+        <translation>Translation Service</translation>
+    </message>
+    <message>
+        <source>Click the button on the right to test the translation API</source>
+        <translation>Click the button on the right to test the translation API</translation>
+    </message>
+    <message>
         <source>DeepL API</source>
         <translation>DeepL API</translation>
     </message>
@@ -1162,6 +1194,182 @@ Replace it?</translation>
     <message>
         <source>jietuba</source>
         <translation>jietuba</translation>
+    </message>
+    <message>
+        <source>Lock / Unlock Pin</source>
+        <translation>Lock / Unlock Pin</translation>
+    </message>
+    <message>
+        <source>Behavior</source>
+        <translation>Behavior</translation>
+    </message>
+    <message>
+        <source>Mouse Click-Through</source>
+        <translation>Mouse Click-Through</translation>
+    </message>
+    <message>
+        <source>Default Opacity</source>
+        <translation>Default Opacity</translation>
+    </message>
+    <message>
+        <source>Opacity of newly pinned images. Each image can still be adjusted with the mouse.</source>
+        <translation>Opacity of newly pinned images. Each image can still be adjusted with the mouse.</translation>
+    </message>
+    <message>
+        <source>Click-Through Opacity</source>
+        <translation>Click-Through Opacity</translation>
+    </message>
+    <message>
+        <source>Opacity of a pinned image when click-through starts from its right-click menu. The slider on the bar above it still adjusts each image.</source>
+        <translation>Opacity of a pinned image when click-through starts from its right-click menu. The slider on the bar above it still adjusts each image.</translation>
+    </message>
+    <message>
+        <source>Keyboard Shortcuts</source>
+        <translation>Keyboard Shortcuts</translation>
+    </message>
+    <message>
+        <source>Copy, lock, thumbnail, toolbar and other keys for pinned images.</source>
+        <translation>Copy, lock, thumbnail, toolbar and other keys for pinned images.</translation>
+    </message>
+    <message>
+        <source>Zoom, opacity, close and other mouse actions for pinned images.</source>
+        <translation>Zoom, opacity, close and other mouse actions for pinned images.</translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation>Edit</translation>
+    </message>
+    <message>
+        <source>Fine Zoom Pinned Image</source>
+        <translation>Fine Zoom Pinned Image</translation>
+    </message>
+    <message>
+        <source>Zoom and Size</source>
+        <translation>Zoom and Size</translation>
+    </message>
+    <message>
+        <source>Zoom Step</source>
+        <translation>Zoom Step</translation>
+    </message>
+    <message>
+        <source>How much one wheel notch zooms, relative to the original size.</source>
+        <translation>How much one wheel notch zooms, relative to the original size.</translation>
+    </message>
+    <message>
+        <source>Fine Zoom Step</source>
+        <translation>Fine Zoom Step</translation>
+    </message>
+    <message>
+        <source>Zoom step for the fine zoom mouse shortcut (Alt + wheel by default).</source>
+        <translation>Zoom step for the fine zoom mouse shortcut (Alt + wheel by default).</translation>
+    </message>
+    <message>
+        <source>Opacity Step</source>
+        <translation>Opacity Step</translation>
+    </message>
+    <message>
+        <source>Opacity change per notch of the opacity mouse shortcut (Ctrl + wheel by default).</source>
+        <translation>Opacity change per notch of the opacity mouse shortcut (Ctrl + wheel by default).</translation>
+    </message>
+    <message>
+        <source>Zoom Anchor</source>
+        <translation>Zoom Anchor</translation>
+    </message>
+    <message>
+        <source>The point of the image that stays in place while zooming with the wheel.</source>
+        <translation>The point of the image that stays in place while zooming with the wheel.</translation>
+    </message>
+    <message>
+        <source>Top-left</source>
+        <translation>Top-left</translation>
+    </message>
+    <message>
+        <source>Top-right</source>
+        <translation>Top-right</translation>
+    </message>
+    <message>
+        <source>Bottom-left</source>
+        <translation>Bottom-left</translation>
+    </message>
+    <message>
+        <source>Bottom-right</source>
+        <translation>Bottom-right</translation>
+    </message>
+    <message>
+        <source>Center</source>
+        <translation>Center</translation>
+    </message>
+    <message>
+        <source>Mouse Position</source>
+        <translation>Mouse Position</translation>
+    </message>
+    <message>
+        <source>Resize by Dragging Edges</source>
+        <translation>Resize by Dragging Edges</translation>
+    </message>
+    <message>
+        <source>Drag near the edge or corner of a pinned image to resize it. The aspect ratio is kept.</source>
+        <translation>Drag near the edge or corner of a pinned image to resize it. The aspect ratio is kept.</translation>
+    </message>
+    <message>
+        <source>Shrink Oversized Images</source>
+        <translation>Shrink Oversized Images</translation>
+    </message>
+    <message>
+        <source>Images larger than the screen are scaled down to fit and centered when pinned.</source>
+        <translation>Images larger than the screen are scaled down to fit and centered when pinned.</translation>
+    </message>
+    <message>
+        <source>Lock</source>
+        <translation>Lock</translation>
+    </message>
+    <message>
+        <source>Block Moving and Resizing</source>
+        <translation>Block Moving and Resizing</translation>
+    </message>
+    <message>
+        <source>Locked images cannot be dragged, zoomed or resized.</source>
+        <translation>Locked images cannot be dragged, zoomed or resized.</translation>
+    </message>
+    <message>
+        <source>Block Closing by Mouse</source>
+        <translation>Block Closing by Mouse</translation>
+    </message>
+    <message>
+        <source>The close button and the close mouse shortcut do nothing on locked images.</source>
+        <translation>The close button and the close mouse shortcut do nothing on locked images.</translation>
+    </message>
+    <message>
+        <source>Block Closing by Keyboard</source>
+        <translation>Block Closing by Keyboard</translation>
+    </message>
+    <message>
+        <source>Esc does nothing on locked images.</source>
+        <translation>Esc does nothing on locked images.</translation>
+    </message>
+    <message>
+        <source>Show Lock Hints</source>
+        <translation>Show Lock Hints</translation>
+    </message>
+    <message>
+        <source>Show a short hint when locking, unlocking or trying a blocked action. The right-click menu always works on locked images.</source>
+        <translation>Show a short hint when locking, unlocking or trying a blocked action. The right-click menu always works on locked images.</translation>
+    </message>
+    <message>
+        <source>Special Paste</source>
+        <translation>Special Paste</translation>
+    </message>
+    <message>
+        <source>Special Paste Menu</source>
+        <translation>Special Paste Menu</translation>
+    </message>
+    <message>
+        <source>Choose which paste options appear and arrange their order.</source>
+        <translation>Choose which paste options appear and arrange their order.</translation>
+    </message>
+    <message>
+        <source>Manage</source>
+        <translation>Manage</translation>
     </message>
 </context>
 
@@ -1488,6 +1696,47 @@ Replace it?</translation>
     <message>
         <source>Save Pin Image</source>
         <translation>Save Pin Image</translation>
+    </message>
+    <message>
+        <source>Mouse click-through</source>
+        <translation>Mouse click-through</translation>
+    </message>
+    <message>
+        <source>Lock</source>
+        <translation>Lock</translation>
+    </message>
+    <message>
+        <source>Locked, right-click to unlock</source>
+        <translation>Locked, right-click to unlock</translation>
+    </message>
+    <message>
+        <source>Unlocked</source>
+        <translation>Unlocked</translation>
+    </message>
+    <message>
+        <source>Click-through on</source>
+        <translation>Click-through on</translation>
+    </message>
+    <message>
+        <source>Click-through off</source>
+        <translation>Click-through off</translation>
+    </message>
+</context>
+
+<!-- ========== Pin Click-Through Bar ========== -->
+<context>
+    <name>PinClickThroughBar</name>
+    <message>
+        <source>Drag to move</source>
+        <translation>Drag to move</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>Opacity</translation>
+    </message>
+    <message>
+        <source>Exit click-through</source>
+        <translation>Exit click-through</translation>
     </message>
 </context>
 
@@ -2331,6 +2580,38 @@ This action cannot be undone.</translation>
     <message>
         <source>Are you sure you want to delete the {count} selected items?</source>
         <translation>Are you sure you want to delete the {count} selected items?</translation>
+    </message>
+    <message>
+        <source>Paste Selected</source>
+        <translation>Paste Selected</translation>
+    </message>
+    <message>
+        <source>Paste Selected as Plain Text</source>
+        <translation>Paste Selected as Plain Text</translation>
+    </message>
+    <message>
+        <source>Stitch Vertically and Paste</source>
+        <translation>Stitch Vertically and Paste</translation>
+    </message>
+    <message>
+        <source>Stitch Horizontally and Paste</source>
+        <translation>Stitch Horizontally and Paste</translation>
+    </message>
+    <message>
+        <source>Clear Selection</source>
+        <translation>Clear Selection</translation>
+    </message>
+    <message>
+        <source>Delete Selected</source>
+        <translation>Delete Selected</translation>
+    </message>
+    <message>
+        <source>Extract Digits</source>
+        <translation>Extract Digits</translation>
+    </message>
+    <message>
+        <source>Extract Letters</source>
+        <translation>Extract Letters</translation>
     </message>
 </context>
 
@@ -4296,6 +4577,10 @@ All items in the group will also be deleted.</translation>
         <translation>Save</translation>
     </message>
     <message>
+        <source>Copy</source>
+        <translation>Copy</translation>
+    </message>
+    <message>
         <source>Screenshot translate</source>
         <translation>Screenshot translate</translation>
     </message>
@@ -4436,6 +4721,54 @@ All items in the group will also be deleted.</translation>
     <message>
         <source>Copied</source>
         <translation>Copied</translation>
+    </message>
+    <message>
+        <source>Layout</source>
+        <translation>Layout</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Auto</translation>
+    </message>
+    <message>
+        <source>Remove line breaks</source>
+        <translation>Remove line breaks</translation>
+    </message>
+    <message>
+        <source>Keep every line</source>
+        <translation>Keep every line</translation>
+    </message>
+    <message>
+        <source>Remove spaces</source>
+        <translation>Remove spaces</translation>
+    </message>
+    <message>
+        <source>Copy text when closing</source>
+        <translation>Copy text when closing</translation>
+    </message>
+    <message>
+        <source>Punctuation</source>
+        <translation>Punctuation</translation>
+    </message>
+    <message>
+        <source>As recognized</source>
+        <translation>As recognized</translation>
+    </message>
+    <message>
+        <source>Half-width</source>
+        <translation>Half-width</translation>
+    </message>
+    <message>
+        <source>Full-width</source>
+        <translation>Full-width</translation>
+    </message>
+    <message>
+        <source>Always on top: ON</source>
+        <translation>Always on top: ON</translation>
+    </message>
+    <message>
+        <source>Always on top: OFF</source>
+        <translation>Always on top: OFF</translation>
     </message>
 </context>
 <context>
@@ -4947,6 +5280,280 @@ Make sure gifrecorder is installed correctly.</translation>
     <message>
         <source>暂停或恢复录制超时，录制已停止，视频未确认保存成功。</source>
         <translation>Pausing or resuming timed out. Recording stopped, and successful saving could not be confirmed.</translation>
+    </message>
+</context>
+<context>
+    <name>SpecialPasteDialog</name>
+    <message>
+        <source>Manage Special Paste</source>
+        <translation>Manage Special Paste</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>Text</translation>
+    </message>
+    <message>
+        <source>Files</source>
+        <translation>Files</translation>
+    </message>
+    <message>
+        <source>Check the items to show in the menu. Drag the handle to reorder them. Uncheck all items to hide Special Paste for that type.</source>
+        <translation>Check the items to show in the menu. Drag the handle to reorder them. Uncheck all items to hide Special Paste for that type.</translation>
+    </message>
+    <message>
+        <source>Restore defaults</source>
+        <translation>Restore defaults</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Paste without text formatting.</source>
+        <translation>Paste without text formatting.</translation>
+    </message>
+    <message>
+        <source>Convert letters to uppercase.</source>
+        <translation>Convert letters to uppercase.</translation>
+    </message>
+    <message>
+        <source>Convert letters to lowercase.</source>
+        <translation>Convert letters to lowercase.</translation>
+    </message>
+    <message>
+        <source>Capitalize the first letter of each word.</source>
+        <translation>Capitalize the first letter of each word.</translation>
+    </message>
+    <message>
+        <source>Capitalize the first letter of each sentence.</source>
+        <translation>Capitalize the first letter of each sentence.</translation>
+    </message>
+    <message>
+        <source>Swap uppercase and lowercase letters.</source>
+        <translation>Swap uppercase and lowercase letters.</translation>
+    </message>
+    <message>
+        <source>Format values as a quoted SQL list.</source>
+        <translation>Format values as a quoted SQL list.</translation>
+    </message>
+    <message>
+        <source>Replace line breaks with spaces.</source>
+        <translation>Replace line breaks with spaces.</translation>
+    </message>
+    <message>
+        <source>Remove spaces, tabs and line breaks.</source>
+        <translation>Remove spaces, tabs and line breaks.</translation>
+    </message>
+    <message>
+        <source>Keep only digits 0–9.</source>
+        <translation>Keep only digits 0–9.</translation>
+    </message>
+    <message>
+        <source>Keep only English letters A–Z and a–z.</source>
+        <translation>Keep only English letters A–Z and a–z.</translation>
+    </message>
+    <message>
+        <source>Append the current date and time.</source>
+        <translation>Append the current date and time.</translation>
+    </message>
+    <message>
+        <source>Paste without moving the item to the top.</source>
+        <translation>Paste without moving the item to the top.</translation>
+    </message>
+    <message>
+        <source>Paste file names without their folder paths.</source>
+        <translation>Paste file names without their folder paths.</translation>
+    </message>
+    <message>
+        <source>Paste full file paths.</source>
+        <translation>Paste full file paths.</translation>
+    </message>
+</context>
+<context>
+    <name>Toolbar</name>
+    <message>
+        <source>Watermark</source>
+        <translation>Watermark</translation>
+    </message>
+</context>
+<context>
+    <name>ToolbarLayoutDialog</name>
+    <message>
+        <source>Watermark</source>
+        <translation>Watermark</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Watermark</source>
+        <translation>Watermark</translation>
+    </message>
+    <message>
+        <source>Add the Last Watermark Automatically</source>
+        <translation>Add the Last Watermark Automatically</translation>
+    </message>
+    <message>
+        <source>If the last screenshot ended with a watermark, the next one gets the same watermark with the time updated; otherwise none is added. Screenshots taken with mouse shortcuts follow the same rule.</source>
+        <translation>If the last screenshot ended with a watermark, the next one gets the same watermark with the time updated; otherwise none is added. Screenshots taken with mouse shortcuts follow the same rule.</translation>
+    </message>
+</context>
+<context>
+    <name>WatermarkPanel</name>
+    <message>
+        <source>Tiled</source>
+        <translation>Tiled</translation>
+    </message>
+    <message>
+        <source>Center</source>
+        <translation>Center</translation>
+    </message>
+    <message>
+        <source>Top Left</source>
+        <translation>Top Left</translation>
+    </message>
+    <message>
+        <source>Top Center</source>
+        <translation>Top Center</translation>
+    </message>
+    <message>
+        <source>Top Right</source>
+        <translation>Top Right</translation>
+    </message>
+    <message>
+        <source>Bottom Left</source>
+        <translation>Bottom Left</translation>
+    </message>
+    <message>
+        <source>Bottom Center</source>
+        <translation>Bottom Center</translation>
+    </message>
+    <message>
+        <source>Bottom Right</source>
+        <translation>Bottom Right</translation>
+    </message>
+    <message>
+        <source>Position</source>
+        <translation>Position</translation>
+    </message>
+    <message>
+        <source>Watermark Style</source>
+        <translation>Watermark Style</translation>
+    </message>
+    <message>
+        <source>Font</source>
+        <translation>Font</translation>
+    </message>
+    <message>
+        <source>Default Font</source>
+        <translation>Default Font</translation>
+    </message>
+    <message>
+        <source>Input watermark</source>
+        <translation>Input watermark</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>Opacity</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Size</translation>
+    </message>
+    <message>
+        <source>Spacing</source>
+        <translation>Spacing</translation>
+    </message>
+    <message>
+        <source>Angle</source>
+        <translation>Angle</translation>
+    </message>
+    <message>
+        <source>Custom Color</source>
+        <translation>Custom Color</translation>
+    </message>
+    <message>
+        <source>Angle applies to tiled watermarks</source>
+        <translation>Angle applies to tiled watermarks</translation>
+    </message>
+</context>
+<context>
+    <name>WatermarkInputDialog</name>
+    <message>
+        <source>Input Watermark</source>
+        <translation>Input Watermark</translation>
+    </message>
+    <message>
+        <source>Type the watermark. Use the time button to insert the capture time.</source>
+        <translation>Type the watermark. Use the time button to insert the capture time.</translation>
+    </message>
+    <message>
+        <source>Time:</source>
+        <translation>Time:</translation>
+    </message>
+    <message>
+        <source>Apply</source>
+        <translation>Apply</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Insert the capture time</source>
+        <translation>Insert the capture time</translation>
+    </message>
+    <message>
+        <source>Preview: %1</source>
+        <translation>Preview: %1</translation>
+    </message>
+    <message>
+        <source>Year-month-day, 24-hour (China, Japan, Korea, ISO)</source>
+        <translation>Year-month-day, 24-hour (China, Japan, Korea, ISO)</translation>
+    </message>
+    <message>
+        <source>Slash-separated date, 24-hour</source>
+        <translation>Slash-separated date, 24-hour</translation>
+    </message>
+    <message>
+        <source>Day/month/year, 24-hour (most of Europe)</source>
+        <translation>Day/month/year, 24-hour (most of Europe)</translation>
+    </message>
+    <message>
+        <source>Month/day/year, 24-hour (United States)</source>
+        <translation>Month/day/year, 24-hour (United States)</translation>
+    </message>
+    <message>
+        <source>Month/day/year, 12-hour (United States and Canada)</source>
+        <translation>Month/day/year, 12-hour (United States and Canada)</translation>
+    </message>
+    <message>
+        <source>Date only</source>
+        <translation>Date only</translation>
+    </message>
+    <message>
+        <source>Time only, 24-hour</source>
+        <translation>Time only, 24-hour</translation>
+    </message>
+    <message>
+        <source>Time only, 12-hour</source>
+        <translation>Time only, 12-hour</translation>
+    </message>
+    <message>
+        <source>Date and time with the weekday</source>
+        <translation>Date and time with the weekday</translation>
+    </message>
+    <message>
+        <source>With milliseconds, for logs</source>
+        <translation>With milliseconds, for logs</translation>
+    </message>
+    <message>
+        <source>Compact, for file names</source>
+        <translation>Compact, for file names</translation>
     </message>
 </context>
 </TS>

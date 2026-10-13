@@ -103,6 +103,7 @@ class ReorderableRowList(QScrollArea):
             dialog_scaled(6), dialog_scaled(6), dialog_scaled(6), dialog_scaled(6)
         )
         self._layout.setSpacing(0)
+        self._layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.setWidgetResizable(True)
         self.setFrameShape(QScrollArea.Shape.NoFrame)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)

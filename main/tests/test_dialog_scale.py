@@ -95,9 +95,10 @@ def test_translation_caption_buttons_stay_contiguous_and_flush_right(qapp, perce
         assert title_bar.closeBtn.geometry().left() == title_bar.maxBtn.geometry().right() + 1
         assert title_bar.closeBtn.geometry().right() == title_bar.width() - 1
 
-        for button in (title_bar.minBtn, title_bar.maxBtn, title_bar.closeBtn):
+        for button in (title_bar.pin_button, title_bar.minBtn, title_bar.maxBtn, title_bar.closeBtn):
             assert button.width() == dialog_scaled(46)
             assert button.height() == title_bar.height()
+        assert title_bar.minBtn.geometry().left() == title_bar.pin_button.geometry().right() + 1
     finally:
         dialog.deleteLater()
 
@@ -143,7 +144,7 @@ def test_translation_titlebar_keeps_coloured_child_backgrounds(qapp):
 
 
 def test_translation_pin_is_an_svg_icon_and_engine_badge_sits_bottom_left(qapp):
-    from translation.translation_dialog import PinIconButton, TranslationDialog
+    from translation.translation_dialog import _DashboardPinButton, TranslationDialog
 
     dialog = TranslationDialog()
     try:
@@ -152,7 +153,7 @@ def test_translation_pin_is_an_svg_icon_and_engine_badge_sits_bottom_left(qapp):
         qapp.processEvents()
 
         pin = dialog.dashboard_title_bar.pin_button
-        assert isinstance(pin, PinIconButton)
+        assert isinstance(pin, _DashboardPinButton)
         assert pin.text() == ""
         assert pin.icon_path.endswith("钉图.svg")
         assert not hasattr(dialog.dashboard_title_bar, "backend_badge")
@@ -242,10 +243,12 @@ def test_translation_dialog_pins_by_z_order_without_touching_window_flags(qapp, 
     无边框样式会被打乱：取消置顶后点最大化没反应、边缘拖不动（issue #34）。"""
     from PySide6.QtCore import Qt
     import translation.translation_dialog as module
+    from settings import get_tool_settings_manager
 
     applied = []
     monkeypatch.setattr(module, "set_window_topmost", lambda _hwnd, topmost: applied.append(topmost))
-    monkeypatch.setattr(module.TranslationDialog, "_stay_on_top", True)
+    settings = get_tool_settings_manager()
+    settings.set_translation_on_top(True)
     dialog = module.TranslationDialog()
     try:
         flags = dialog.windowFlags()
@@ -256,9 +259,10 @@ def test_translation_dialog_pins_by_z_order_without_touching_window_flags(qapp, 
 
         dialog.dashboard_title_bar.pin_button.click()
         assert applied == [True, False]
-        assert module.TranslationDialog._stay_on_top is False
+        assert settings.get_translation_on_top() is False
         assert dialog.windowFlags() == flags
     finally:
+        settings.set_translation_on_top(True)
         dialog.close()
         dialog.deleteLater()
 

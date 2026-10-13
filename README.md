@@ -142,7 +142,7 @@ The [test directory](main/tests/) contains unit and integration tests for captur
 
 Tests that drive the real mouse and keyboard, such as `test_quick_capture_real_hooks.py`, are skipped by default. Set `RUN_REAL_INPUT_TESTS=1` to run them, and leave the mouse and keyboard alone while they run. Tests that rewrite the real system clipboard (`test_clipboard_monitor_real.py`) are skipped too; set `RUN_REAL_CLIPBOARD_TESTS=1` to run them, and don't copy anything while they run.
 
-To build a Windows release, install the recorder wheel matching the active Python architecture, then run `python build_with_ocr_onefile.py`. It collects the installed recording extension and its license notices, while building the standalone updater with Cargo. The full build produces `dist/jietuba_pp.exe` and `dist/models/`; add `--lite` for `dist_lite/jietuba_lite.exe`. Recorder wheel build instructions are in the [recording development notes](rust_libs/video_recorder/DEVELOPMENT.md#构建与维护) (in Chinese). The automated [release workflow](.github/workflows/build.yml) creates full and lite archives for x64 and ARM64.
+To build a Windows release, install the recorder wheel matching the active Python architecture, then run `python build_with_ocr_onefile.py`. It collects the installed recording extension and its license notices, while building the standalone updater with Cargo. The full build produces `dist/jietuba_pp.exe` and `dist/models/`; add `--lite` for `dist_lite/jietuba_lite.exe`. Recorder wheel build instructions are in the [publishing notes](rust_libs/PUBLISHING.md) (in Chinese). The automated [release workflow](.github/workflows/build.yml) creates full and lite archives for x64 and ARM64.
 
 ### Code Comments
 
@@ -170,9 +170,6 @@ Comments explain only the constraints and design reasons that the code cannot ex
 │
 ├── main/                    # Python main program
 │   ├── main_app.py          # App entry point: system tray, global hotkeys, lifecycle management
-│   ├── video_helper.py      # Recording worker command and installed license lookup
-│   ├── video_worker.py      # PyO3 recording worker and bounded JSONL protocol
-│   ├── video_worker_hook.py # Frozen worker dispatch before PyInstaller Qt hooks
 │   ├── compile_translations.py  # Translation compiler (.xml → .qm)
 │   ├── scripts/             # Helper scripts — translation provider comparison
 │   │
@@ -190,6 +187,7 @@ Comments explain only the constraints and design reasons that the code cannot ex
 │   ├── translation/         # Translation module — multi-provider translation service
 │   ├── translations/        # Language resources — Chinese/English/Japanese/Korean
 │   ├── ui/                  # UI module — common UI component library
+│   ├── video/               # Recording worker — PyO3 recording, bounded JSONL protocol, early dispatch in frozen builds
 │   └── tests/               # Tests module — unit tests & integration tests
 │
 ├── rust_libs/               # Rust extension source code
@@ -203,7 +201,7 @@ Comments explain only the constraints and design reasons that the code cannot ex
 │   └── video_recorder/      # PyO3 Media Foundation recording extension
 │       ├── src/             # Recording core, PyO3 bindings and WASAPI capture
 │       ├── README.md        # PyPI page
-│       ├── DEVELOPMENT.md   # Process protocol, build and validation notes (Chinese)
+│       ├── DEVELOPMENT.md   # Worker process protocol and native validation notes (Chinese)
 │       ├── pyproject.toml   # j-video abi3 wheel metadata
 │       └── LICENSE          # MIT license included in the wheel
 │
@@ -269,7 +267,8 @@ canvas/
     ├── spotlight_item.py    # SpotlightItem / SpotlightCurtain — spotlight holes and their shared curtain
     ├── selection_item.py    # SelectionItem — selection boundary display
     ├── arrow_item.py        # ArrowItem — arrow item, geometry for nine shaft and head styles
-    └── text_item.py         # TextItem — text item, outline/shadow/background and tri-state interaction frame
+    ├── text_item.py         # TextItem — text item, outline/shadow/background and tri-state interaction frame
+    └── watermark_item.py    # WatermarkItem / WatermarkStyle — watermark layer over the selection: tiled or at one of seven positions, multi-line, time stamps
 ```
 
 </details>
@@ -344,8 +343,7 @@ clipboard/
 │   ├── menus/
 │   │   ├── action_menu.py
 │   │   ├── group_context_menu.py
-│   │   ├── item_context_menu.py
-│   │   └── submenu_position.py
+│   │   └── item_context_menu.py
 │   ├── mixins/
 │   │   └── frameless_mixin.py
 │   ├── panels/
@@ -409,6 +407,7 @@ core/
 ├── log_translations/        # per-module log text translation helpers
 ├── constants.py             # Global constants (fonts, paths, etc.)
 ├── background_tasks.py      # Background save tracking
+├── main_thread_gc.py        # MainThreadGC — cyclic garbage is collected only on the GUI thread
 ├── update_cache.py          # Updater cache cleanup
 ├── updater_process.py       # Rust updater JSONL process adapter
 ├── update_controller.py     # Update download and safe restart coordination
@@ -426,7 +425,7 @@ Screen recording, editing, playback, and export to GIF/video.
 
 Choose **MP4** on the recording toolbar for direct H.264 recording, with custom 1–60 fps, 0.5–50 Mbps target bitrate, optional system audio and mouse pointer. Hardware encoding is preferred when available, with Windows software encoding as fallback. Frames are streamed in an independent process instead of stored in Python; stopping waits for MP4 finalization before reporting success. MP4 recordings are saved directly and do not enter the GIF editing/playback workflow. Video is output as SDR (on HDR displays frames are captured through DXGI and mapped to SDR, so there is no HDR video), and system audio comes from the default playback device (up to 8 channels, down-mixed to stereo) and excludes the microphone.
 
-The PyO3 recorder is installed from the prebuilt `j-video==0.1.0` wheel with the runtime dependencies; source users need no Rust toolchain. A dedicated Python worker calls the extension, while the GUI exchanges only commands and status events. The onefile script includes the installed extension and its license notices without rebuilding it. The [recording development notes](rust_libs/video_recorder/DEVELOPMENT.md) (in Chinese) cover developer builds, the process protocol, and validation commands. Windows Media Foundation/H.264/AAC components must be available; Windows N editions may need the Media Feature Pack. No FFmpeg or additional codec bundle is included.
+The PyO3 recorder is installed from the prebuilt `j-video==0.1.0` wheel with the runtime dependencies; source users need no Rust toolchain. A dedicated Python worker calls the extension, while the GUI exchanges only commands and status events. The onefile script includes the installed extension and its license notices without rebuilding it. The [recording development notes](rust_libs/video_recorder/DEVELOPMENT.md) (in Chinese) cover the worker process protocol and native validation commands. Windows Media Foundation/H.264/AAC components must be available; Windows N editions may need the Media Feature Pack. No FFmpeg or additional codec bundle is included.
 <img width="766" height="630" alt="image" src="https://github.com/user-attachments/assets/8653fffb-b419-4584-ab4b-9fe95bb9f246" />
 <details>
 <summary>Expand directory structure</summary>
@@ -498,6 +497,7 @@ pin/
 ├── pin_hover.py             # PinHoverControls — decides when hover buttons and toolbar show
 ├── pin_context_menu.py      # PinContextMenu — right-click menu
 ├── pin_border_overlay.py    # PinBorderOverlay — border effect overlay
+├── pin_click_through_bar.py # PinClickThroughBar — move / opacity / exit bar while clicks pass through
 ├── pin_ocr_manager.py       # PinOCRManager / _OCRThread — async OCR recognition
 ├── pin_shortcut.py          # PinShortcutController — normal/edit mode shortcuts
 ├── pin_thumbnail.py         # PinThumbnailMode — thumbnail mode
@@ -519,6 +519,7 @@ pin/
 settings/
 ├── color_formats.py         # magnifier color format templates: render, load, save
 ├── settings_transfer.py     # export/import settings-page options (and the toolbar layout) as a JSON file
+├── special_paste.py         # special paste menu: built-in options, order and on/off state
 └── tool_settings.py         # ToolSettingsManager / ToolSettings — tool color, size, hotkey config
 ```
 
@@ -565,6 +566,7 @@ tools/
 ├── highlighter.py           # HighlighterTool — highlighter
 ├── mosaic.py                # MosaicTool — pixel mosaic
 ├── spotlight.py             # SpotlightTool — spotlight (dims outside the box)
+├── watermark.py             # WatermarkTool — adds the watermark, changes its text and style, remembers whether the last screenshot had one
 ├── cursor.py                # CursorTool — cursor/selection
 ├── eraser.py                # EraserTool — eraser
 └── cursor_manager.py        # CursorManager — cursor style manager
@@ -647,8 +649,8 @@ Common UI component library.
 ```text
 ui/
 ├── toolbar.py               # Toolbar / _DragHandle — draggable toolbar base class
-├── toolbar_layout.py        # screenshot toolbar button layout (order / visibility): normalize, load, save
-├── toolbar_layout_dialog.py # ToolbarLayoutDialog — screenshot toolbar layout editor
+├── toolbar_layout.py        # screenshot / pin toolbar button layouts (order / visibility): normalize, load, save
+├── toolbar_layout_dialog.py # ToolbarLayoutDialog — screenshot / pin toolbar layout editor
 ├── reorderable_rows.py      # DragGrip / DraggableRow / ReorderableRowList — drag-to-reorder rows
 ├── tray_menu.py             # TrayMenu — system tray menu
 ├── screenshot_window.py     # ScreenshotWindow — full-screen capture window (region drawing)
@@ -656,6 +658,7 @@ ui/
 ├── update_dialog.py         # Update notes and download progress
 ├── dialogs.py               # StandardDialog — confirm, warning, info, error dialogs
 ├── toast.py                 # Toast — one-line hint by the cursor that never takes focus
+├── submenu_position.py      # Cascading submenus: which way they open and how they hug the parent item
 ├── magnifier.py             # MagnifierOverlay — pixel-level magnifier
 ├── color_picker_dialog.py   # ColorPickerDialog — custom HSV color picker
 ├── color_picker_button.py   # ColorPickerButton — color selection button
@@ -671,6 +674,8 @@ ui/
 ├── arrow_settings_panel.py  # ArrowSettingsPanel — arrow settings panel
 ├── number_settings_panel.py # number tool settings panel
 ├── mosaic_settings_panel.py # mosaic tool settings panel
+├── watermark_settings_panel.py # watermark panel: text, position, style popup (opacity/size/spacing/angle/color), font
+├── watermark_input_dialog.py   # WatermarkInputDialog — multi-line watermark text with time insertion and preview
 │
 ├── fluent_lite/             # Fluent-style lightweight component library
 │   ├── buttons.py / cards.py / icons.py / inputs.py  # buttons, cards, icons, inputs
@@ -687,10 +692,12 @@ ui/
 │   ├── page_quick_actions.py # Quick actions settings (skip confirm or result windows, take over Win+V)
 │   ├── color_format_dialog.py # ColorFormatDialog — magnifier color format editor
 │   ├── page_clipboard.py    # Clipboard settings
+│   ├── special_paste_dialog.py # SpecialPasteDialog — reorder and toggle special paste menu items
 │   ├── page_hotkey.py       # Hotkey settings
 │   ├── page_mouse.py        # Mouse shortcut settings
+│   ├── page_pin.py          # Pin settings (behavior, appearance, click-through)
 │   ├── page_translation.py  # Translation settings
-│   ├── provider_fields.py   # 服务商字段的读写（按声明）
+│   ├── provider_fields.py   # Translation provider fields: read/write config and widget values from declarations
 │   ├── page_log.py          # Log settings
 │   ├── page_developer.py    # Developer settings
 │   ├── page_misc.py         # Miscellaneous settings
@@ -733,6 +740,7 @@ tests/
 ├── test_drawing_tools.py    # drawing tool tests (pen/rect/arrow/text/number/highlighter)
 ├── test_mosaic_tool.py      # mosaic tool tests
 ├── test_spotlight.py        # spotlight tests
+├── test_watermark.py        # watermark tests
 ├── test_functional_handles.py # edit handle tests
 ├── test_capture_service.py  # capture service tests
 ├── test_clipboard_api.py    # clipboard public API tests

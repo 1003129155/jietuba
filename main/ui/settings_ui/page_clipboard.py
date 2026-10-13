@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QThread, Signal
 from ui.dialogs import (
+    exec_dialog,
     get_existing_directory, show_info_dialog, show_warning_dialog, show_confirm_dialog,
     show_confirm_checkbox_dialog,
 )
@@ -37,7 +38,7 @@ def create_clipboard_page(dialog) -> QWidget:
     layout.setSpacing(dialog_scaled(20))
 
     # ════ 基本设置 ════
-    grp_basic = SettingCardGroup(dialog.tr("Basic Settings"), view)
+    grp_basic = SettingCardGroup(dialog.tr("Basic Settings"), view, tone="clipboard")
 
     enabled_card = SwitchSettingCard(
         FluentIcon.PASTE,
@@ -52,7 +53,7 @@ def create_clipboard_page(dialog) -> QWidget:
     layout.addWidget(grp_basic)
 
     # ════ 历史管理 ════
-    grp_history = SettingCardGroup(dialog.tr("History"), view)
+    grp_history = SettingCardGroup(dialog.tr("History"), view, tone="clipboard")
 
     limit_card = FSettingCard(
         FluentIcon.HISTORY,
@@ -70,8 +71,23 @@ def create_clipboard_page(dialog) -> QWidget:
 
     layout.addWidget(grp_history)
 
+    grp_special_paste = SettingCardGroup(dialog.tr("Special Paste"), view, tone="clipboard")
+    special_paste_card = FSettingCard(
+        FluentIcon.PASTE,
+        dialog.tr("Special Paste Menu"),
+        dialog.tr("Choose which paste options appear and arrange their order."),
+        parent=grp_special_paste,
+    )
+    from settings import special_paste
+    dialog.clipboard_special_paste_entries = special_paste.load(dialog.config_manager)
+    dialog.special_paste_manage_btn = PushButton(dialog.tr("Manage"), special_paste_card)
+    dialog.special_paste_manage_btn.clicked.connect(lambda: _manage_special_paste(dialog))
+    special_paste_card.addControl(dialog.special_paste_manage_btn)
+    grp_special_paste.addSettingCard(special_paste_card)
+    layout.addWidget(grp_special_paste)
+
     # ════ 数据管理 ════
-    grp_data = SettingCardGroup(dialog.tr("Data"), view)
+    grp_data = SettingCardGroup(dialog.tr("Data"), view, tone="clipboard")
 
     # 存储位置
     db_path = _get_clipboard_db_path(dialog)
@@ -140,6 +156,18 @@ def create_clipboard_page(dialog) -> QWidget:
     layout.addStretch()
     scroll.setWidget(view)
     return scroll
+
+
+def _manage_special_paste(dialog):
+    from .special_paste_dialog import SpecialPasteDialog
+
+    editor = SpecialPasteDialog(dialog.clipboard_special_paste_entries, dialog)
+    try:
+        if exec_dialog(editor) == editor.DialogCode.Accepted:
+            dialog.clipboard_special_paste_entries = editor.entries()
+            dialog._update_action_buttons()
+    finally:
+        editor.deleteLater()
 
 
 def _refresh_clipboard_size_async(dialog):

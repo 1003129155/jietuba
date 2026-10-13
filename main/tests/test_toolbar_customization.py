@@ -1,39 +1,44 @@
 # -*- coding: utf-8 -*-
 """
-截图工具栏排布（顺序 + 显示方式）测试
+截图 / 钉图工具栏排布（顺序 + 显示方式）测试
 
 分三层：排布归一化与持久化（纯逻辑）、工具栏按排布摆放按钮与「…」弹层、排布对话框
-的编辑结果。钉图工具栏是截图工具栏的子类，却不能跟着截图的排布配置变——这条最容易
-被顺手破坏，单独守着。
+的编辑结果。钉图工具栏是截图工具栏的子类，却有自己的一份排布，不能跟着截图的配置变——
+这条最容易被顺手破坏，单独守着。
 """
+from unittest.mock import MagicMock
+
 import pytest
 
-from PySide6.QtCore import QPoint
-from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
+from PySide6.QtGui import QColor, QEnterEvent, QIcon, QImage
+from PySide6.QtWidgets import QApplication, QWidget
 
 from pin.pin_toolbar import PinToolbar
 from settings import get_tool_settings_manager
 from ui.toolbar import Toolbar
 from ui.toolbar_layout import (
-    DEFAULT_ORDER, HIDE, LOCKED, MORE, SETTING_KEY, SHOW,
+    DEFAULT_ORDER, HIDE, LOCKED, MORE, PIN, SCREENSHOT, SETTING_KEYS, SHOW,
     default_layout, load_layout, normalize_layout, save_layout,
 )
-from ui.toolbar_layout_dialog import ToolbarLayoutDialog
+from ui.toolbar_layout_dialog import BUTTON_NAMES, ToolbarLayoutDialog
 
 
 @pytest.fixture(autouse=True)
 def _clean_layout_setting():
     """排布写在整个测试会话共享的临时配置里，每条用例前后清空，免得互相影响"""
     manager = get_tool_settings_manager()
-    manager.set_app_setting(SETTING_KEY, "")
+    for key in SETTING_KEYS:
+        manager.set_app_setting(key, "")
     yield
-    manager.set_app_setting(SETTING_KEY, "")
+    for key in SETTING_KEYS:
+        manager.set_app_setting(key, "")
 
 
-def _layout_with(first=None, **modes):
+def _layout_with(first=None, profile=SCREENSHOT, **modes):
     """默认顺序、全部始终显示，个别按钮换显示方式；给了 first 就把那个按钮挪到最前"""
-    order = [first] + [key for key in DEFAULT_ORDER if key != first] if first else DEFAULT_ORDER
+    order = profile.order
+    order = [first] + [key for key in order if key != first] if first else order
     return [(key, modes.get(key, SHOW)) for key in order]
 
 
@@ -95,7 +100,7 @@ class TestPersistence:
         assert load_layout() == layout
 
     def test_corrupt_config_falls_back_to_the_default_layout(self):
-        get_tool_settings_manager().set_app_setting(SETTING_KEY, "{not json")
+        get_tool_settings_manager().set_app_setting(SCREENSHOT.setting_key, "{not json")
         assert load_layout() == default_layout()
 
 
@@ -104,9 +109,10 @@ class TestScreenshotToolbar:
     def test_default_layout_folds_low_frequency_buttons_and_ends_with_more(self, qapp):
         toolbar = Toolbar()
         assert _toolbar_row(toolbar) == [
-            key for key in DEFAULT_ORDER if key not in ("text_recognize", "scan_code", "spotlight")
+            key for key in DEFAULT_ORDER
+            if key not in ("text_recognize", "scan_code", "spotlight", "watermark")
         ] + ["more"]
-        assert toolbar._folded_keys == ["text_recognize", "scan_code", "spotlight"]
+        assert toolbar._folded_keys == ["text_recognize", "scan_code", "spotlight", "watermark"]
         assert toolbar.copy_btn.isHidden()
         geometries = [toolbar._buttons[key].geometry() for key in _toolbar_row(toolbar)]
         for left, right in zip(geometries, geometries[1:]):
@@ -120,7 +126,9 @@ class TestScreenshotToolbar:
         assert toolbar.more_btn.geometry().right() == toolbar.rect().right()
 
     def test_configured_layout_reorders_folds_and_hides(self, qapp):
-        default_width = Toolbar().width()
+        # 基准是同一份排布、只差 mosaic 和 text：宽度变化只来自这两个按钮
+        save_layout(_layout_with(first="pin", scan_code=MORE, text_recognize=MORE))
+        unfolded_width = Toolbar().width()
         save_layout(_layout_with(
             first="pin", mosaic=MORE, text=HIDE, scan_code=MORE, text_recognize=MORE))
 
@@ -130,7 +138,7 @@ class TestScreenshotToolbar:
         assert row[-1] == "more"
         assert "mosaic" not in row and "text" not in row
         assert toolbar._folded_keys == ["text_recognize", "scan_code", "mosaic"]
-        assert toolbar.width() < default_width
+        assert toolbar.width() < unfolded_width
 
     def test_hiding_a_tool_only_hides_its_button(self, qapp):
         save_layout(_layout_with(mosaic=HIDE))
@@ -189,24 +197,159 @@ class TestScreenshotToolbar:
         assert "mosaic" not in _toolbar_row(toolbar)
 
 
+def _pin_host():
+    host = QWidget()
+    host.hover_controls = MagicMock()
+    return host
+
+
+@pytest.fixture
+def pin_window(qapp, tmp_settings, monkeypatch):
+    from pin.pin_ocr_manager import PinOCRManager
+    from pin.pin_window import PinWindow
+    from settings.tool_settings import ToolSettingsManager
+
+    monkeypatch.setattr(PinOCRManager, "init_now", lambda self, force=False: False)
+    image = QImage(200, 150, QImage.Format.Format_ARGB32)
+    image.fill(QColor(200, 200, 200))
+    window = PinWindow(image, QPoint(120, 120), ToolSettingsManager(tmp_settings))
+    window._show_toolbar()
+    yield window
+    if not window._is_closed:
+        window.close_window()
+
+
 class TestPinToolbar:
 
-    def test_pin_toolbar_ignores_the_screenshot_layout(self, qapp):
-        save_layout(_layout_with(pen=HIDE, save=MORE, screenshot_translate=HIDE))
+    def test_default_row_is_unchanged_and_new_tools_wait_in_more(self, qapp):
         toolbar = PinToolbar()
-        assert _toolbar_row(toolbar) == list(PinToolbar.LAYOUT)
-        assert "screenshot_translate" not in _toolbar_row(toolbar)
-        assert toolbar.spotlight_btn.isHidden()   # 聚光灯只在截图里用
-        assert toolbar.more_btn.isHidden()
+        assert _toolbar_row(toolbar) == [
+            "save", "copy", "pen", "highlighter", "mosaic", "arrow", "number", "rect", "ellipse", "text",
+            "eraser", "undo", "redo", "more",
+        ]
+        assert toolbar._folded_keys == ["spotlight", "watermark"]
+
+    def test_pin_and_screenshot_layouts_are_separate(self, qapp):
+        save_layout(_layout_with(pen=HIDE, save=MORE))
+        save_layout(_layout_with(first="text", profile=PIN, mosaic=HIDE), PIN)
+        row = _toolbar_row(PinToolbar())
+        assert row[0] == "text" and row[-1] == "more"
+        assert "mosaic" not in row
+        assert {"pen", "save", "spotlight", "watermark"} <= set(row)
+        assert not {"screenshot_translate", "long_screenshot", "confirm"} & set(row)
+
+        screenshot_row = _toolbar_row(Toolbar())
+        assert "pen" not in screenshot_row and "mosaic" in screenshot_row
+
+    def test_showing_picks_up_a_layout_changed_in_another_pin(self, qapp):
+        toolbar = PinToolbar()
+        save_layout(_layout_with(profile=PIN, pen=HIDE), PIN)
+        toolbar.show()
+        assert "pen" not in _toolbar_row(toolbar)
+        toolbar.hide()
+
+    def test_hovering_the_more_popup_counts_as_hovering_the_toolbar(self, qapp):
+        host = _pin_host()
+        toolbar = PinToolbar(parent_pin_window=host)
+        hovered = host.hover_controls.set_toolbar_hovered
+        toolbar._show_more_popup()
+        popup = toolbar._more_popup
+
+        point = QPointF(1, 1)
+        QApplication.sendEvent(toolbar, QEnterEvent(point, point, point))
+        QApplication.sendEvent(popup, QEnterEvent(point, point, point))
+        QApplication.sendEvent(toolbar, QEvent(QEvent.Type.Leave))   # 工具栏的 Leave 晚到
+        assert hovered.call_args.args == (True,)
+
+        # 点弹层里的按钮，弹层收起后不一定收到 Leave
+        toolbar.spotlight_btn.click()
+        assert not popup.isVisible()
+        assert hovered.call_args.args == (False,)
+
+    def test_adjusting_saves_the_pin_layout_and_keeps_the_toolbar_up(self, qapp, monkeypatch):
+        host = _pin_host()
+        toolbar = PinToolbar(parent_pin_window=host)
+        menu_open = host.hover_controls.set_menu_open
+
+        def accept(dialog):
+            assert menu_open.call_args.args == (True,)
+            assert set(dialog._rows) == set(PIN.order)
+            dialog._rows["pen"].set_mode(HIDE)
+            return True
+
+        monkeypatch.setattr("ui.dialogs.exec_dialog", accept)
+        toolbar._open_layout_dialog()
+        assert menu_open.call_args.args == (False,)
+        assert dict(load_layout(PIN))["pen"] == HIDE
+        assert dict(load_layout())["pen"] == SHOW
+        assert "pen" not in _toolbar_row(toolbar)
+
+    def test_folded_spotlight_and_watermark_work_on_a_pin(self, pin_window, monkeypatch):
+        from canvas.items import SpotlightItem, WatermarkItem
+        from tools.watermark import WatermarkTool
+
+        monkeypatch.setattr(WatermarkTool, "current_template", staticmethod(lambda _manager: "PIN"))
+        toolbar = pin_window.toolbar
+        scene = pin_window.canvas.scene
+
+        toolbar._show_more_popup()
+        toolbar.spotlight_btn.click()
+        controller = scene.tool_controller
+        assert controller.current_tool.id == "spotlight"
+        controller.on_press(QPointF(60, 40), Qt.MouseButton.LeftButton)
+        controller.on_move(QPointF(140, 110))
+        controller.on_release(QPointF(140, 110))
+        assert any(isinstance(item, SpotlightItem) for item in scene.items())
+        image = pin_window.get_current_image()
+        assert image.pixelColor(10, 10).lightness() < image.pixelColor(100, 75).lightness()
+
+        toolbar._show_more_popup()
+        toolbar.watermark_btn.click()
+        item = WatermarkItem.find(scene)
+        assert item is not None and item.text() == "PIN"
+        assert toolbar.watermark_panel.text_field.text() == "PIN"
+        scene.undo_stack.undo()
+        assert WatermarkItem.find(scene) is None
+
+    def test_closing_the_pin_deletes_the_toolbar_side_windows(self, pin_window, monkeypatch):
+        """面板和「…」弹层是没有父窗口的顶层窗口，不会随工具栏一起删，关钉图时要逐个删掉"""
+        import shiboken6
+        from tools.watermark import WatermarkTool
+
+        monkeypatch.setattr(WatermarkTool, "current_template", staticmethod(lambda _manager: "PIN"))
+        toolbar = pin_window.toolbar
+        toolbar._show_more_popup()
+        toolbar.watermark_btn.click()   # 水印面板用到才建
+        QApplication.processEvents()
+        windows = [getattr(toolbar, attr) for attr in (*toolbar.PANEL_ATTRS, "_more_popup")]
+        assert all(window is not None and window.parent() is None for window in windows)
+
+        pin_window.close_window()
+        QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        assert not any(shiboken6.isValid(window) for window in windows)
+        top_levels = QApplication.topLevelWidgets()
+        assert not any(window is top for window in windows for top in top_levels)
 
 
 class TestLayoutDialog:
 
-    def _dialog(self, layout):
-        dialog = ToolbarLayoutDialog(layout, {key: QIcon() for key in DEFAULT_ORDER})
+    def _dialog(self, layout, profile=SCREENSHOT):
+        dialog = ToolbarLayoutDialog(layout, {key: QIcon() for key in profile.order}, profile=profile)
         dialog.show()
         QApplication.processEvents()
         return dialog
+
+    def test_every_configurable_button_has_a_row_name(self):
+        assert set(SCREENSHOT.order) | set(PIN.order) <= set(BUTTON_NAMES)
+
+    def test_pin_dialog_edits_the_pin_buttons(self, qapp):
+        dialog = self._dialog(default_layout(PIN), PIN)
+        assert set(dialog._rows) == set(PIN.order)
+        dialog._rows["watermark"].set_mode(SHOW)
+        assert dict(dialog.entries())["watermark"] == SHOW
+        dialog._fill(default_layout(PIN))
+        assert dialog.entries() == default_layout(PIN)
+        dialog.close()
 
     def test_dragging_a_row_and_changing_a_mode_is_reflected_in_entries(self, qapp):
         dialog = self._dialog(default_layout())

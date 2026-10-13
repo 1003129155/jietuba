@@ -12,6 +12,8 @@ from core.ui_theme import get_ui_theme
 
 
 FONT_FAMILY = '"Segoe UI Variable", "Microsoft YaHei UI", "Segoe UI", sans-serif'
+# QFont.setFamilies 用的同一份字体栈
+FONT_FAMILIES = [name.strip().strip('"') for name in FONT_FAMILY.split(",")]
 # A restrained blue-grey accent.  Keeping this in one module prevents dialogs
 # from quietly drifting back to unrelated Material/Windows blues.
 ACCENT = "#6F8FAB"

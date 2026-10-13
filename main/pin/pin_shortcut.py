@@ -9,8 +9,9 @@
 - PinNormalShortcutHandler (priority=40): 非编辑模式下处理 复制键 / R / ESC
 """
 
-from PySide6.QtCore import QObject, Qt
+from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QCursor
+from PySide6.QtWidgets import QApplication
 from core import log_info, log_error
 from core.logger import T
 from core.shortcut_manager import (
@@ -31,7 +32,7 @@ class _PinHandlerBase(ShortcutHandler):
     # 需要从配置读取的钉图快捷键列表
     _PIN_KEYS = [
         "inapp_copy_pin", "inapp_copy_pin_text", "inapp_pin_reset_size",
-        "inapp_thumbnail", "inapp_toggle_toolbar", "inapp_delete",
+        "inapp_thumbnail", "inapp_toggle_toolbar", "inapp_delete", "inapp_pin_lock",
     ]
 
     def __init__(self, controller: 'PinShortcutController'):
@@ -59,6 +60,14 @@ class _PinHandlerBase(ShortcutHandler):
         """中键走和键盘完全相同的那条 if 链，见 ShortcutHandler.handle_mouse。"""
         return self.handle_key(event)
 
+    @staticmethod
+    def _typing_in_dialog(event) -> bool:
+        """键盘焦点在模态对话框里（钉图的水印输入框、调整排布等）：按键归对话框，鼠标停在钉图上也不接。"""
+        if event.type() != QEvent.Type.KeyPress:
+            return False
+        window = QApplication.activeWindow()
+        return window is not None and window.isModal()
+
     def _handle_shared(self, pin, event) -> bool:
         """编辑与非编辑模式下行为一致的那几个快捷键。"""
         if self._match(event, "inapp_copy_pin"):
@@ -81,7 +90,10 @@ class _PinHandlerBase(ShortcutHandler):
             # 缩略图模式下窗口尺寸由缩略图逻辑决定，与右键菜单一样不提供此项
             if getattr(pin, '_thumbnail_mode', False):
                 return False
-            pin.reset_to_original_size()
+            if pin._lock_blocks("move"):
+                pin.show_locked_hint()
+            else:
+                pin.reset_to_original_size()
             return True
 
         return False
@@ -162,6 +174,8 @@ class PinEditShortcutHandler(_PinHandlerBase):
         return bool(pin.canvas and pin.canvas.is_editing)
 
     def handle_key(self, event) -> bool:
+        if self._typing_in_dialog(event):
+            return False
         pin = self._find_pin_under_cursor()
         if pin is None:
             return False
@@ -230,6 +244,8 @@ class PinNormalShortcutHandler(_PinHandlerBase):
         return True
 
     def handle_key(self, event) -> bool:
+        if self._typing_in_dialog(event):
+            return False
         pin = self._find_pin_under_cursor()
         if pin is None:
             return False
@@ -244,14 +260,22 @@ class PinNormalShortcutHandler(_PinHandlerBase):
         if hasattr(pin, 'handle_mouse_alternative_key') and pin.handle_mouse_alternative_key(event):
             return True
 
+        # 编辑中 L 可能是在输文字，只在普通模式下响应
+        if self._match(event, "inapp_pin_lock"):
+            pin.toggle_lock()
+            return True
+
         # 切换缩略图模式
         if self._match(event, "inapp_thumbnail"):
-            pin.toggle_thumbnail_mode()
+            if pin._lock_blocks("move"):
+                pin.show_locked_hint()
+            else:
+                pin.toggle_thumbnail_mode()
             return True
 
         # ESC：关闭钉图
         if key == Qt.Key.Key_Escape:
-            pin.close_window()
+            pin.close_unless_locked()
             return True
 
         return False
@@ -324,10 +348,11 @@ class PinShortcutController(QObject):
             if self._is_alive(w)
         ]
 
-        # 倒序遍历（后创建的在上层）
+        # 倒序遍历（后创建的在上层）。鼠标穿透的钉图不接快捷键：用户在操作下层窗口，
+        # 按 Esc、Ctrl+C 不该作用到它身上
         for pin in reversed(self._pin_windows):
             try:
-                if pin.geometry().contains(cursor_pos):
+                if pin.geometry().contains(cursor_pos) and not pin._click_through:
                     return pin
             except RuntimeError:
                 continue

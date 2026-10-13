@@ -36,6 +36,7 @@ CAPTURE_MOUSE_ACTIONS = (
 
 PIN_MOUSE_ACTIONS = (
     ("zoom", "Zoom Pinned Image", "wheel", "wheel"),
+    ("fine_zoom", "Fine Zoom Pinned Image", "alt+wheel", "wheel"),
     ("opacity", "Adjust Opacity", "ctrl+wheel", "wheel"),
     ("close", "Close Pinned Image", "", "click"),
     ("reset", "Reset Pinned Image Size", "", "click"),
@@ -130,6 +131,13 @@ OCR_ENGINES = ("auto", "oneocr", "ppocr_rust")
 OCR_RESULT_POSITIONS = (
     "region_screen", "primary_screen", "beside_region", "near_cursor", "last_position",
 )
+
+# 识别结果怎么排版。auto 按行的位置判断哪些换行是折行、接回去；single_line 全部接成一行；
+# multiline 保留识别出的每一行。取值与 text_recognition.layout 对应。
+OCR_LAYOUT_MODES = ("auto", "single_line", "multiline")
+
+# 识别结果里的标点转成半角或全角，keep 是不动。取值与 text_recognition.layout 对应。
+OCR_PUNCTUATION_MODES = ("keep", "halfwidth", "fullwidth")
 
 
 ANNOTATION_TOOL_SHORTCUTS = (
@@ -243,6 +251,16 @@ class ToolSettingsManager(QObject):
         "spotlight": {
             "opacity": 0.7,  # 幕布暗度（整个场景一张黑色幕布，所有聚光灯共用）
         },
+        # 与 WatermarkStyle 的默认值一致（这里不能 import canvas）
+        "watermark": {
+            "color": "#808080",
+            "font_size": 24,     # 像素
+            "opacity": 0.35,
+            "layout": "tile",    # 取值见 watermark_item.LAYOUTS
+            "spacing": 40,       # 字号的十分之几
+            "angle": -30,        # 只用于平铺
+            "font_family": "",   # 空 = 跟随界面语言的默认字体
+        },
         "rect": {
             "color": "#FF0000",  # 红色
             "stroke_width": 9,
@@ -319,6 +337,7 @@ class ToolSettingsManager(QObject):
         "inapp_pin_reset_size": "",          # 钉图恢复 100% 大小（鼠标绑定另设）
         "inapp_thumbnail": "r",                # 切换缩略图模式
         "inapp_toggle_toolbar": "space",       # 切换工具栏
+        "inapp_pin_lock": "l",                 # 锁定/解锁钉图
         "inapp_zoom_in": "pageup",             # 放大镜放大
         "inapp_zoom_out": "pagedown",          # 放大镜缩小
         "inapp_translate": "shift+c",          # 截图翻译
@@ -340,6 +359,7 @@ class ToolSettingsManager(QObject):
         "cross_tool_selection": True,         # Ctrl 临时跨工具选择标注
         "text_always_on_top": True,           # 文字标注始终高于其他绘制标注
         "screenshot_toolbar_layout": "",      # 截图工具栏按钮排布（JSON，空 = 默认排布，见 ui/toolbar_layout.py）
+        "pin_toolbar_layout": "",             # 钉图工具栏按钮排布，格式同上
 
         # 快捷行为：跳过结果窗口
         "ocr_copy_directly": False,           # 文字识别后直接复制，不弹结果窗口
@@ -354,7 +374,9 @@ class ToolSettingsManager(QObject):
         "smart_selection_animation": False,   # 换窗口时补间而不是瞬间跳变
 
         # 截图保存
-        "screenshot_save_enabled": True,       # 自动保存截图
+        "screenshot_save_enabled": True,       # 截图完成时自动保存
+        "screenshot_pin_save_enabled": False,  # 生成钉图时自动保存
+        "screenshot_save_original_enabled": False,  # 加了标注或水印的截图存盘时另存一张原图
         "screenshot_save_path": os.path.join(os.path.expanduser("~"), "Pictures", "jietuba_photos"),  # 默认保存路径
         "screenshot_format": "PNG",            # 保存格式: PNG / JPG / BMP / WEBP / PDF
         "screenshot_quality": 85,              # 有损格式质量 (1-100, PNG/BMP忽略)
@@ -371,6 +393,12 @@ class ToolSettingsManager(QObject):
         "screenshot_shadow_color": "#0078FF",        # 阴影颜色（独立）
         "screenshot_border_color": "#FF0000",        # 描边颜色（独立）
         "screenshot_border_persist": False,          # 每次截图都保持开启
+
+        # 截图水印（样式在 tools/watermark 下，随工具栏面板改）
+        "screenshot_watermark_text": "",               # 上次用的水印文字，$yyyy-MM-dd HH:mm:ss$ 这样的占位换成加水印的时刻
+        "screenshot_watermark_auto": False,            # 截图时自动加上上次的水印，含全局鼠标快捷键的截图
+        "screenshot_watermark_last_on": False,         # 上次截图结束时带着水印
+        "screenshot_watermark_time_format": "yyyy-MM-dd HH:mm:ss",  # 输入水印时「插入时间」用的格式
         # GIF 录制
         "gif_fps": 10,                         # GIF默认帧率
         "recording_format": "gif",
@@ -385,6 +413,11 @@ class ToolSettingsManager(QObject):
         "ocr_enabled": True,                   # 钉图后自动 OCR（保留旧键名以兼容已有配置）
         "ocr_engine": "auto",                  # OCR 引擎，见 OCR_ENGINES
         "ocr_result_position": "region_screen",  # 文字识别结果窗口的位置，见 OCR_RESULT_POSITIONS
+        "ocr_result_on_top": True,             # 文字识别结果窗口置顶
+        "ocr_layout_mode": "auto",             # 识别结果的排版，见 OCR_LAYOUT_MODES
+        "ocr_remove_spaces": False,            # 去掉识别结果行内的空格
+        "ocr_punctuation": "keep",             # 识别结果的标点，见 OCR_PUNCTUATION_MODES
+        "ocr_copy_on_close": False,            # 关闭识别结果窗口时复制文本
         "ocr_grayscale": False,                # OCR灰度转换（Windows OCR 不需要）
         "ocr_upscale": True,                   # OCR图像放大（提升小字识别率）
         "ocr_upscale_factor": 2.0,             # OCR放大倍数（1.0-3.0）
@@ -395,6 +428,7 @@ class ToolSettingsManager(QObject):
         "clipboard_close_after_paste": True,   # 粘贴后关闭窗口（关掉则窗口常驻，可连续粘贴）
         "clipboard_history_limit": 1000,        # 历史记录数量限制（0 为不限制）
         "clipboard_auto_cleanup": True,        # 自动清理超出限制的记录
+        "clipboard_special_paste": "",         # 特殊粘贴菜单顺序和开关
         "clipboard_window_width": 450,         # 剪贴板窗口默认宽度
         "clipboard_window_height": 750,        # 剪贴板窗口默认高度
         "clipboard_window_opacity": 20,         # 剪贴板窗口透明度（0=不透明）
@@ -463,6 +497,7 @@ class ToolSettingsManager(QObject):
         "translation_target_lang": "",         # 翻译目标语言（空为跟随系统语言）
         "translation_split_sentences": True,   # 自动分句
         "translation_preserve_formatting": True,  # 保留格式
+        "translation_on_top": True,            # 翻译窗口置顶
 
         # ==================== 6. 日志 ====================
         "log_enabled": True,                   # 日志启用
@@ -487,6 +522,17 @@ class ToolSettingsManager(QObject):
         "magnifier_zoom_max": 10.0,            # 放大镜最大倍率
         "pin_auto_toolbar": False,             # 钉图自动显示工具栏
         "pin_default_opacity": 1.0,            # 钉图默认透明度（0.1-1.0）
+        "pin_click_through_opacity": 0.5,      # 开启鼠标穿透时钉图的不透明度
+        "pin_zoom_step": 10,                   # 滚轮每格缩放的百分点（按原图尺寸）
+        "pin_fine_zoom_step": 1,               # 精细缩放每格的百分点
+        "pin_opacity_step": 5,                 # 滚轮每格调整的不透明度百分点
+        "pin_zoom_anchor": "top_left",         # 滚轮缩放时不动的点，取值见 pin_window.ZOOM_ANCHORS
+        "pin_auto_shrink": True,               # 比屏幕大的图钉出来时缩小到屏幕内
+        "pin_border_resize": True,             # 拖动钉图边缘调整大小
+        "pin_lock_block_move": True,           # 锁定后禁止移动和改变大小
+        "pin_lock_block_click_close": True,    # 锁定后禁止鼠标关闭
+        "pin_lock_block_key_close": True,      # 锁定后禁止按键关闭
+        "pin_lock_hint": True,                 # 锁定相关的提示
         "pin_rounded_corners": False,          # Windows 11 系统圆角和阴影
         "pin_auto_border": True,               # 新钉图默认显示主题色描边
         "pin_hover_buttons": False,            # 悬停时显示右上角按钮
@@ -701,6 +747,11 @@ class ToolSettingsManager(QObject):
         from core.logger import log_info, T
         log_info(T("应用设置已重置为默认值"), "Settings")
     
+    @staticmethod
+    def app_setting_path(key: str) -> str:
+        """应用设置在 QSettings 里的完整键：pin_ 开头的在 pin/ 分组下，其余在 app/ 下。"""
+        return f"pin/{key[4:]}" if key.startswith("pin_") else f"app/{key}"
+
     def get_app_setting(self, key: str, default=None) -> Any:
         """
         获取应用级别设置的通用方法
@@ -716,11 +767,7 @@ class ToolSettingsManager(QObject):
         if default is None:
             default = self.APP_DEFAULT_SETTINGS.get(key)
         
-        # 构建完整的设置键名
-        if key.startswith("pin_"):
-            setting_key = f"pin/{key[4:]}"
-        else:
-            setting_key = f"app/{key}"
+        setting_key = self.app_setting_path(key)
         
         # 根据默认值的类型确定返回类型
         if default is not None:
@@ -743,13 +790,7 @@ class ToolSettingsManager(QObject):
             key: 设置键名（不含 app/ 前缀）
             value: 设置值
         """
-        # 构建完整的设置键名
-        if key.startswith("pin_"):
-            setting_key = f"pin/{key[4:]}"
-        else:
-            setting_key = f"app/{key}"
-        
-        self.qsettings.setValue(setting_key, value)
+        self.qsettings.setValue(self.app_setting_path(key), value)
 
     def reset_all_settings(self):
         """重置所有设置（工具设置 + 应用设置）为默认值"""
@@ -1087,12 +1128,36 @@ class ToolSettingsManager(QObject):
         self.qsettings.setValue("screenshot/long_stitch_ignore_top_pixels", value)
     
     def get_screenshot_save_enabled(self) -> bool:
-        """获取截图自动保存"""
+        """获取截图完成时是否自动保存"""
         return self.qsettings.value("app/screenshot_save_enabled", self.APP_DEFAULT_SETTINGS["screenshot_save_enabled"], type=bool)
     
     def set_screenshot_save_enabled(self, value: bool):
-        """设置截图自动保存"""
+        """设置截图完成时是否自动保存"""
         self.qsettings.setValue("app/screenshot_save_enabled", value)
+
+    def get_screenshot_pin_save_enabled(self) -> bool:
+        """获取生成钉图时是否自动保存"""
+        return self.qsettings.value(
+            "app/screenshot_pin_save_enabled",
+            self.APP_DEFAULT_SETTINGS["screenshot_pin_save_enabled"],
+            type=bool,
+        )
+
+    def set_screenshot_pin_save_enabled(self, value: bool):
+        """设置生成钉图时是否自动保存"""
+        self.qsettings.setValue("app/screenshot_pin_save_enabled", value)
+
+    def get_screenshot_save_original_enabled(self) -> bool:
+        """获取加了标注或水印的截图存盘时是否另存一张原图"""
+        return self.qsettings.value(
+            "app/screenshot_save_original_enabled",
+            self.APP_DEFAULT_SETTINGS["screenshot_save_original_enabled"],
+            type=bool,
+        )
+
+    def set_screenshot_save_original_enabled(self, value: bool):
+        """设置加了标注或水印的截图存盘时是否另存一张原图"""
+        self.qsettings.setValue("app/screenshot_save_original_enabled", value)
     
     def get_screenshot_save_path(self) -> str:
         """获取截图保存路径"""
@@ -1129,6 +1194,49 @@ class ToolSettingsManager(QObject):
     def set_clipboard_file_reference_enabled(self, value: bool):
         """设置复制时是否同时写入文件路径（CF_HDROP）"""
         self.qsettings.setValue("app/clipboard_file_reference_enabled", value)
+
+    def get_screenshot_watermark_text(self) -> str:
+        """水印文字模板，$…$ 里的日期格式在加水印时换成当时的时间"""
+        return self.qsettings.value(
+            "app/screenshot_watermark_text",
+            self.APP_DEFAULT_SETTINGS["screenshot_watermark_text"],
+            type=str,
+        ) or ""
+
+    def set_screenshot_watermark_text(self, value: str):
+        self.qsettings.setValue("app/screenshot_watermark_text", str(value or "").strip())
+
+    def get_screenshot_watermark_time_format(self) -> str:
+        return self.qsettings.value(
+            "app/screenshot_watermark_time_format",
+            self.APP_DEFAULT_SETTINGS["screenshot_watermark_time_format"],
+            type=str,
+        ) or self.APP_DEFAULT_SETTINGS["screenshot_watermark_time_format"]
+
+    def set_screenshot_watermark_time_format(self, value: str):
+        self.qsettings.setValue("app/screenshot_watermark_time_format", str(value or ""))
+
+    def get_screenshot_watermark_auto(self) -> bool:
+        """截图时是否自动加上上次的水印（上次截图结束时没有水印就不加）"""
+        return self.qsettings.value(
+            "app/screenshot_watermark_auto",
+            self.APP_DEFAULT_SETTINGS["screenshot_watermark_auto"],
+            type=bool,
+        )
+
+    def set_screenshot_watermark_auto(self, value: bool):
+        self.qsettings.setValue("app/screenshot_watermark_auto", bool(value))
+
+    def get_screenshot_watermark_last_on(self) -> bool:
+        """上次截图结束时是否带着水印"""
+        return self.qsettings.value(
+            "app/screenshot_watermark_last_on",
+            self.APP_DEFAULT_SETTINGS["screenshot_watermark_last_on"],
+            type=bool,
+        )
+
+    def set_screenshot_watermark_last_on(self, value: bool):
+        self.qsettings.setValue("app/screenshot_watermark_last_on", bool(value))
 
     def get_screenshot_quality(self) -> int:
         """获取截图保存质量 (1-100, PNG/BMP时忽略)"""
@@ -1193,6 +1301,74 @@ class ToolSettingsManager(QObject):
         """记下文字识别结果窗口关闭时的中心位置，供「上次位置」使用。"""
         self.qsettings.setValue("app/ocr_result_last_center", f"{int(x)},{int(y)}")
     
+    def get_translation_on_top(self) -> bool:
+        """翻译窗口是否置顶。"""
+        return self.qsettings.value(
+            "app/translation_on_top",
+            self.APP_DEFAULT_SETTINGS["translation_on_top"],
+            type=bool,
+        )
+
+    def set_translation_on_top(self, value: bool):
+        self.qsettings.setValue("app/translation_on_top", bool(value))
+
+    def get_ocr_result_on_top(self) -> bool:
+        """文字识别结果窗口是否置顶。"""
+        return self.qsettings.value(
+            "app/ocr_result_on_top",
+            self.APP_DEFAULT_SETTINGS["ocr_result_on_top"],
+            type=bool,
+        )
+
+    def set_ocr_result_on_top(self, value: bool):
+        self.qsettings.setValue("app/ocr_result_on_top", bool(value))
+
+    def get_ocr_layout_mode(self) -> str:
+        """识别结果的排版方式，取值见 OCR_LAYOUT_MODES。"""
+        default = self.APP_DEFAULT_SETTINGS["ocr_layout_mode"]
+        mode = str(self.qsettings.value("app/ocr_layout_mode", default, type=str)).lower()
+        return mode if mode in OCR_LAYOUT_MODES else default
+
+    def set_ocr_layout_mode(self, value: str):
+        mode = str(value or "").lower()
+        if mode not in OCR_LAYOUT_MODES:
+            mode = self.APP_DEFAULT_SETTINGS["ocr_layout_mode"]
+        self.qsettings.setValue("app/ocr_layout_mode", mode)
+
+    def get_ocr_remove_spaces(self) -> bool:
+        """是否去掉识别结果行内的空格。"""
+        return self.qsettings.value(
+            "app/ocr_remove_spaces",
+            self.APP_DEFAULT_SETTINGS["ocr_remove_spaces"],
+            type=bool,
+        )
+
+    def set_ocr_remove_spaces(self, value: bool):
+        self.qsettings.setValue("app/ocr_remove_spaces", bool(value))
+
+    def get_ocr_punctuation(self) -> str:
+        """识别结果里标点的处理方式，取值见 OCR_PUNCTUATION_MODES。"""
+        default = self.APP_DEFAULT_SETTINGS["ocr_punctuation"]
+        mode = str(self.qsettings.value("app/ocr_punctuation", default, type=str)).lower()
+        return mode if mode in OCR_PUNCTUATION_MODES else default
+
+    def set_ocr_punctuation(self, value: str):
+        mode = str(value or "").lower()
+        if mode not in OCR_PUNCTUATION_MODES:
+            mode = self.APP_DEFAULT_SETTINGS["ocr_punctuation"]
+        self.qsettings.setValue("app/ocr_punctuation", mode)
+
+    def get_ocr_copy_on_close(self) -> bool:
+        """关闭识别结果窗口时是否把文本复制走。"""
+        return self.qsettings.value(
+            "app/ocr_copy_on_close",
+            self.APP_DEFAULT_SETTINGS["ocr_copy_on_close"],
+            type=bool,
+        )
+
+    def set_ocr_copy_on_close(self, value: bool):
+        self.qsettings.setValue("app/ocr_copy_on_close", bool(value))
+
     def get_ocr_grayscale_enabled(self) -> bool:
         """获取 OCR 灰度化"""
         return self.qsettings.value("app/ocr_grayscale", self.APP_DEFAULT_SETTINGS["ocr_grayscale"], type=bool)

@@ -93,6 +93,7 @@ class FloatingToolbar(QWidget):
     BASE_MIN_WIDTH = 200
     BASE_BTN_WIDTH = 42
     BASE_ICON = 24
+    BASE_PILL_HEIGHT = 26
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -146,6 +147,7 @@ class FloatingToolbar(QWidget):
         self.size_label.ensurePolished()
         # 按最长的尺寸定宽，数字变长时工具栏不跟着变宽、挪位置
         self.size_label.setFixedWidth(self.size_label.fontMetrics().horizontalAdvance("88888 × 88888") + scaled(8))
+        self.direction_btn.setFixedHeight(scaled(self.BASE_PILL_HEIGHT))
         self.direction_btn.setStyleSheet(self._direction_btn_style())
         self.direction_btn.setIconSize(QSize(scaled(14), scaled(14)))
         btn_w, btn_h = scaled(self.BASE_BTN_WIDTH), scaled(self.BASE_HEIGHT)
@@ -228,16 +230,17 @@ class FloatingToolbar(QWidget):
 
         字号用 pt 而不是 px：pt 跟随系统 DPI，本项目关掉了 Qt 的高 DPI 缩放，
         换成 px 会让这个按钮在高分屏上比原来小一圈。
+        圆角取定高的一半：样式表的圆角一旦超过高度的一半，Qt 会整个忽略、画成直角。
         """
         return f"""
             QPushButton {{
                 background-color: {_rgba(CONTROL_FILL)};
                 color: {CONTROL_INK.name()};
                 border: none;
-                padding: {scaled(4)}px {scaled(10)}px;
+                padding: 0 {scaled(10)}px;
                 margin: 0 {scaled(6)}px;
                 font-size: {scaled(9)}pt;
-                border-radius: {scaled(13)}px;
+                border-radius: {scaled(FloatingToolbar.BASE_PILL_HEIGHT) // 2}px;
                 min-width: {scaled(50)}px;
             }}
             QPushButton:hover {{

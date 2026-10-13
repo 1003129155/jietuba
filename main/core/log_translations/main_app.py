@@ -6,6 +6,7 @@ TRANSLATIONS: dict[str, str] = {
     "语言设置: {lang_name}": "Language set to: {lang_name}",
     "无法获取DPI信息: {e}": "Failed to get DPI info: {e}",
     "清理翻译线程": "Cleaning up translation thread",
+    "等待剪贴板写入": "Waiting for clipboard writes",
     "关闭logger": "Closing logger",
     "向导请求：隐藏设置窗口并注销热键": "Wizard requested: hiding settings window and unregistering hotkeys",
     "向导启动失败": "Wizard failed to start",

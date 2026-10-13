@@ -11,6 +11,10 @@ from PySide6.QtGui import QPainter, QPen, QColor
 from core import safe_event
 
 
+# 锁定的钉图不论描边开关都画这圈颜色，一眼能和普通钉图区分
+LOCKED_BORDER_COLOR = QColor(255, 149, 0, 230)
+
+
 class PinBorderOverlay(QWidget):
 
     def __init__(self, parent=None, corner_radius=2, border_color: QColor = None):

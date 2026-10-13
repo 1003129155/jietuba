@@ -9,17 +9,18 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from PySide6.QtCore import QRectF
+from PySide6.QtGui import QImage
 
 from tools.action import ActionTools
 
 
 def _make_action_tools(config_manager):
     tools = ActionTools.__new__(ActionTools)
-    tools.scene = None
+    tools.scene = SimpleNamespace(get_drawing_items_in_rect=lambda rect: [])
     tools.parent_window = None
     tools.save_service = MagicMock(name="save_service")
     tools.config_manager = config_manager
-    fake_image = object()
+    fake_image = QImage(10, 10, QImage.Format.Format_RGB32)
     tools.export_service = SimpleNamespace(
         scene=SimpleNamespace(
             selection_model=SimpleNamespace(rect=lambda: QRectF(0, 0, 10, 10))

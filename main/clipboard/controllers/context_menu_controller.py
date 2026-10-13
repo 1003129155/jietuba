@@ -131,39 +131,19 @@ def _build_move_group_menu_children(state: _ItemContextMenuState) -> List[MenuAc
 
 def _build_special_paste_menu_children(state: _ItemContextMenuState) -> List[MenuAction]:
     """构建"特殊粘贴"子菜单项列表。"""
-    if _is_text_item(state):
-        children: List[MenuAction] = [
-            # 1. 粘贴纯文本（等价于当前不带格式粘贴）
-            MenuAction(label="Paste Plain Text", key="special_paste_plain_text"),
-            MenuAction(label="", key="sep_sp_1", is_separator=True),
-            # 2-6. 大小写转换
-            MenuAction(label="All Uppercase", key="transform_uppercase"),
-            MenuAction(label="All Lowercase", key="transform_lowercase"),
-            MenuAction(label="Capitalize Words", key="transform_capitalize_words"),
-            MenuAction(label="Capitalize Sentences", key="transform_capitalize_sentences"),
-            MenuAction(label="Toggle Case", key="transform_toggle_case"),
-            MenuAction(label="", key="sep_sp_2", is_separator=True),
-            # 7. SQL IN 句
-            MenuAction(label="SQL IN Clause", key="transform_sql_in"),
-            MenuAction(label="", key="sep_sp_3", is_separator=True),
-            # 8. 移除换行符 / 移除全部空白
-            MenuAction(label="Remove Line Breaks", key="transform_remove_linebreaks"),
-            MenuAction(label="Remove All Whitespace", key="transform_remove_whitespace"),
-            # 9. 粘贴并添加当前时间
-            MenuAction(label="Paste with Current Time", key="transform_append_time"),
-            MenuAction(label="", key="sep_sp_4", is_separator=True),
-            # 10. 保持顺序粘贴（不把该项移到最前）
-            MenuAction(label="Paste in Order", key="special_paste_in_order"),
-        ]
-        return _normalize_menu_actions(children)
+    from settings import get_tool_settings_manager, special_paste
 
-    if state.is_file_item:
-        return [
-            MenuAction(label="File Name", key="file_paste_names"),
-            MenuAction(label="File Link", key="file_paste_links"),
-        ]
-
-    return []
+    children: List[MenuAction] = []
+    previous_group = None
+    for key, enabled in special_paste.load(get_tool_settings_manager()):
+        option = special_paste.OPTIONS_BY_KEY[key]
+        if not enabled or option.content_type != state.clipboard_item.content_type:
+            continue
+        if children and option.group != previous_group:
+            children.append(MenuAction(label="", key=f"sep_sp_{key}", is_separator=True))
+        children.append(MenuAction(label=option.label, key=key))
+        previous_group = option.group
+    return children
 
 
 def _is_text_item(state: _ItemContextMenuState) -> bool:

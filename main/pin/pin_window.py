@@ -16,9 +16,9 @@
 import math
 
 from PySide6.QtWidgets import QWidget, QLabel, QApplication, QRubberBand
-from PySide6.QtCore import Qt, QPoint, QTimer, Signal, QRect, QRectF, QEvent
+from PySide6.QtCore import Qt, QPoint, QPointF, QTimer, Signal, QRect, QRectF, QEvent
 from PySide6.QtGui import (
-    QPixmap, QImage, QPainter, QMouseEvent, QWheelEvent, QKeyEvent,
+    QCursor, QPixmap, QImage, QPainter, QMouseEvent, QWheelEvent, QKeyEvent,
     QTransform,
 )
 from .pin_canvas_view import PinCanvasView
@@ -34,10 +34,35 @@ from core import log_debug, log_info, log_warning, log_error, safe_event
 from core.theme import get_theme
 from core.logger import log_exception, T
 from core.clipboard_utils import deliver_image_async
-from core.platform_utils import set_window_rounded_corners
+from core.platform_utils import set_window_click_through, set_window_rounded_corners
 from core.qt_utils import blocking_modal
 from settings.tool_settings import PIN_MOUSE_ACTIONS, get_pin_mouse_binding
 from .pin_shortcut import mouse_binding_matches
+
+
+# 滚轮和设置给出的不透明度都不低于这个值，免得钉图被调到看不见
+MIN_OPACITY = 0.15
+MAX_SCALE = 4.0
+# 缩放后窗口较短的一边不小于这么多像素，免得缩成看不见的一点
+MIN_SIDE = 50
+# 比屏幕还大的图钉出来时缩到屏幕的这个比例，四周留出一圈好抓住拖动
+AUTO_SHRINK_RATIO = 0.95
+# 滚轮缩放时窗口上保持不动的点，按窗口宽高的比例；mouse 取鼠标所在位置
+ZOOM_ANCHORS = {
+    "top_left": (0.0, 0.0), "top_right": (1.0, 0.0),
+    "bottom_left": (0.0, 1.0), "bottom_right": (1.0, 1.0),
+    "center": (0.5, 0.5), "mouse": None,
+}
+# 边缘这么宽（按 96 DPI 计）的一圈按下拖动是调大小，不是移动
+RESIZE_MARGIN = 6
+_RESIZE_CURSORS = {
+    (-1, 0): Qt.CursorShape.SizeHorCursor, (1, 0): Qt.CursorShape.SizeHorCursor,
+    (0, -1): Qt.CursorShape.SizeVerCursor, (0, 1): Qt.CursorShape.SizeVerCursor,
+    (-1, -1): Qt.CursorShape.SizeFDiagCursor, (1, 1): Qt.CursorShape.SizeFDiagCursor,
+    (1, -1): Qt.CursorShape.SizeBDiagCursor, (-1, 1): Qt.CursorShape.SizeBDiagCursor,
+}
+# 锁定后这些鼠标手势归哪一类禁止项；右键菜单里的同名项是明确操作，照常执行
+LOCKED_MOUSE_ACTIONS = {"close": "click_close", "reset": "move", "thumbnail": "move"}
 
 
 class PinWindow(QWidget):
@@ -97,6 +122,19 @@ class PinWindow(QWidget):
         self._pending_mouse_action = None
         self._pending_mouse_position = None
 
+        # ====== 锁定 / 鼠标穿透 ======
+        self._locked = False
+        self._click_through = False
+        self._click_through_opacity = self._opacity_setting("pin_click_through_opacity")
+        self._opacity_before_click_through = None
+        self._click_through_bar = None
+
+        # ====== 拖边缘调大小 ======
+        self._resize_edge = None          # 正在拖的边，(sx, sy) 各取 -1/0/1
+        self._resize_start_pos = QPoint()
+        self._resize_start_geometry = QRect()
+        self._resize_cursor_owner = None  # 当前显示调整指针的控件
+
         # ====== 设置窗口属性 ======
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint |
@@ -126,7 +164,9 @@ class PinWindow(QWidget):
         self._is_scaling = False
 
         # ====== 窗口透明度 ======
-        self._win_opacity = 1.0   # 范围 [0.15, 1.0]
+        self._win_opacity = self._opacity_setting("pin_default_opacity")
+        if self._win_opacity < 1.0:
+            self.setWindowOpacity(self._win_opacity)
 
         # ====== 缩放百分比提示 ======
         self._zoom_label = QLabel(self)
@@ -150,7 +190,7 @@ class PinWindow(QWidget):
         self.view = None
 
         # ====== 初始几何 ======
-        self.setGeometry(position.x(), position.y(), image.width(), image.height())
+        self.setGeometry(self._initial_geometry(position, image.size()))
 
         # ====== UI 组件 ======
         self.setup_ui()
@@ -174,6 +214,8 @@ class PinWindow(QWidget):
         self.view.set_corner_radius(self.corner)
         self._update_view_transform()
         self.view.viewport().installEventFilter(self)
+        if self.scale_factor != 1.0:
+            self._scale_timer.start()
 
         # ====== 工具栏（按需创建） ======
         self.toolbar = None
@@ -252,7 +294,7 @@ class PinWindow(QWidget):
         self.close_button = self._control_buttons.close_button
         self.toolbar_toggle_button = self._control_buttons.toolbar_toggle_button
         self._control_buttons.connect_signals(
-            close_handler=self.close_window,
+            close_handler=lambda: self.close_unless_locked("click_close"),
             toggle_toolbar_handler=self.toggle_toolbar,
         )
         self._context_menu = PinContextMenu(self)
@@ -276,8 +318,31 @@ class PinWindow(QWidget):
         """设置页保存后让已打开的钉图跟上外观设置"""
         if self._is_closed:
             return
+        # 正在穿透的钉图保持当前不透明度，下次进入穿透才用新值
+        self._click_through_opacity = self._opacity_setting("pin_click_through_opacity")
         self._apply_window_corners()
         self.hover_controls.sync()
+
+    def _pin_setting(self, key):
+        from settings.tool_settings import ToolSettingsManager
+        cfg = getattr(self, 'config_manager', None)
+        return cfg.get_app_setting(key) if cfg else ToolSettingsManager.APP_DEFAULT_SETTINGS[key]
+
+    def _opacity_setting(self, key) -> float:
+        return max(MIN_OPACITY, min(1.0, float(self._pin_setting(key))))
+
+    def _initial_geometry(self, position: QPoint, size) -> QRect:
+        """比所在屏幕还大的图按比例缩到屏幕的 95% 并居中，其余按原尺寸放在 position。"""
+        if self._pin_setting("pin_auto_shrink"):
+            screen = QApplication.screenAt(position) or QApplication.primaryScreen()
+            area = screen.geometry() if screen is not None else QRect()
+            if not area.isEmpty() and (size.width() > area.width() or size.height() > area.height()):
+                self.scale_factor = min(AUTO_SHRINK_RATIO * area.width() / size.width(),
+                                        AUTO_SHRINK_RATIO * area.height() / size.height())
+                w = max(1, round(size.width() * self.scale_factor))
+                h = max(1, round(size.height() * self.scale_factor))
+                return QRect(area.x() + (area.width() - w) // 2, area.y() + (area.height() - h) // 2, w, h)
+        return QRect(position, size)
 
     def _apply_window_corners(self):
         rounded = bool(self.config_manager and self.config_manager.get_app_setting("pin_rounded_corners"))
@@ -292,6 +357,17 @@ class PinWindow(QWidget):
         super().showEvent(event)
         # 每次显示系统都会把圆角恢复成默认（隐藏再显示、切换置顶都会），要重新设置
         self._apply_window_corners()
+        if self._click_through:
+            # 切换置顶时 Qt 重设窗口标志，会把穿透样式一并清掉
+            set_window_click_through(int(self.winId()), True)
+            self._click_through_bar.show()
+
+    @safe_event
+    def hideEvent(self, event):
+        super().hideEvent(event)
+        # 工具条是独立窗口，不会随钉图一起隐藏
+        if self._click_through_bar is not None:
+            self._click_through_bar.hide()
 
     # ==================================================================
     # 窗口拖动
@@ -301,12 +377,19 @@ class PinWindow(QWidget):
         self._is_dragging = True
         self._drag_start_pos = global_pos
         self._drag_start_window_pos = self.pos()
-        self.setCursor(Qt.CursorShape.ClosedHandCursor)
+        if not PinWindow._lock_blocks(self, "move"):
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
 
     def update_window_drag(self, global_pos: QPoint):
         if not self._is_dragging:
             return
         delta = global_pos - self._drag_start_pos
+        if PinWindow._lock_blocks(self, "move"):
+            # 单击不提示，真拖起来才提示，一次拖动只提示一次
+            if delta.manhattanLength() >= QApplication.startDragDistance():
+                self._is_dragging = False
+                self.show_locked_hint()
+            return
         self.move(self._drag_start_window_pos + delta)
         if self.toolbar and self.toolbar.isVisible():
             self.toolbar.sync_with_pin_window()
@@ -315,6 +398,84 @@ class PinWindow(QWidget):
         if self._is_dragging:
             self._is_dragging = False
             self.setCursor(Qt.CursorShape.ArrowCursor)
+
+    # ==================================================================
+    # 拖边缘调大小
+    # ==================================================================
+
+    def _resize_edge_at(self, pos: QPoint):
+        """窗口坐标 pos 落在哪条边或哪个角的热区，返回 (sx, sy)；此时不能调大小也返回 None。"""
+        if (self._is_closed or self._thumbnail_mode or self._is_dragging
+                or (self.canvas and self.canvas.is_editing)
+                or not self._pin_setting("pin_border_resize") or self._lock_blocks("move")):
+            return None
+        screen = self.screen()
+        margin = round(RESIZE_MARGIN * (screen.logicalDotsPerInch() if screen else 96) / 96)
+        # 小钉图中间至少留一半给拖动
+        margin = min(margin, self.width() // 4, self.height() // 4)
+        sx = -1 if pos.x() < margin else (1 if pos.x() >= self.width() - margin else 0)
+        sy = -1 if pos.y() < margin else (1 if pos.y() >= self.height() - margin else 0)
+        return (sx, sy) if sx or sy else None
+
+    def _handle_border_resize(self, obj, event) -> bool:
+        """边缘热区里的悬停换指针、按下拖动调大小；返回 True 表示事件已处理。"""
+        kind = event.type()
+        if self._resize_edge is not None:
+            if kind == QEvent.Type.MouseMove:
+                self._update_border_resize(event.globalPosition().toPoint())
+            elif kind == QEvent.Type.MouseButtonRelease and event.button() == Qt.MouseButton.LeftButton:
+                self._end_border_resize()
+            return kind in (QEvent.Type.MouseMove, QEvent.Type.MouseButtonPress,
+                            QEvent.Type.MouseButtonRelease, QEvent.Type.MouseButtonDblClick)
+        if kind == QEvent.Type.MouseMove:
+            # 拖着别的东西（移动窗口、选文字）经过边缘时不换指针
+            if event.buttons() != Qt.MouseButton.NoButton:
+                return False
+            edge = self._resize_edge_at(obj.mapTo(self, event.position().toPoint()))
+            self._show_resize_cursor(obj, edge)
+            return edge is not None
+        if (kind != QEvent.Type.MouseButtonPress or event.button() != Qt.MouseButton.LeftButton
+                or event.modifiers() != Qt.KeyboardModifier.NoModifier):
+            return False
+        edge = self._resize_edge_at(obj.mapTo(self, event.position().toPoint()))
+        if edge is None:
+            return False
+        self._resize_edge = edge
+        self._resize_start_pos = event.globalPosition().toPoint()
+        self._resize_start_geometry = self.geometry()
+        return True
+
+    def _show_resize_cursor(self, obj, edge):
+        if edge is not None:
+            obj.setCursor(_RESIZE_CURSORS[edge])
+            self._resize_cursor_owner = obj
+        elif self._resize_cursor_owner is not None:
+            # 编辑中指针归绘制工具管，不去覆盖它
+            if not (self.canvas and self.canvas.is_editing):
+                self._resize_cursor_owner.setCursor(Qt.CursorShape.ArrowCursor)
+            self._resize_cursor_owner = None
+
+    def _update_border_resize(self, global_pos: QPoint):
+        """保持宽高比缩放，拖动那条边（角）的对边（对角）不动。"""
+        sx, sy = self._resize_edge
+        delta = global_pos - self._resize_start_pos
+        start = self._resize_start_geometry
+        base = PinWindow._display_base_size(self)
+        start_scale = start.width() / base.width()
+        candidates = []
+        if sx:
+            candidates.append((start.width() + sx * delta.x()) / base.width())
+        if sy:
+            candidates.append((start.height() + sy * delta.y()) / base.height())
+        # 拖角时跟着变化大的那个方向走
+        scale = max(candidates, key=lambda value: abs(value - start_scale))
+        fx = 1.0 if sx < 0 else 0.0
+        fy = 1.0 if sy < 0 else 0.0
+        anchor = QPointF(start.x() + fx * start.width(), start.y() + fy * start.height())
+        PinWindow._scale_around(self, scale, fx, fy, anchor)
+
+    def _end_border_resize(self):
+        self._resize_edge = None
 
     # ==================================================================
     # 视图 / 缩放
@@ -431,11 +592,18 @@ class PinWindow(QWidget):
             self.border_overlay.setGeometry(0, 0, self.width(), self.height())
             self.border_overlay.raise_()
 
+        self._sync_click_through_bar()
         super().resizeEvent(event)
 
     @safe_event
     def moveEvent(self, event):
         super().moveEvent(event)
+        self._sync_click_through_bar()
+
+    def _sync_click_through_bar(self):
+        bar = self._click_through_bar
+        if bar is not None and bar.isVisible():
+            bar.follow_pin()
 
     @safe_event
     def paintEvent(self, event):
@@ -486,55 +654,66 @@ class PinWindow(QWidget):
         if self._thumbnail_mode:
             event.ignore()
             return
-        delta = event.angleDelta().y()
+        # Alt+滚轮在 Windows 上会被当成横向滚动送来
+        delta = event.angleDelta().y() or event.angleDelta().x()
         if delta == 0:
             event.ignore()
             return
         config = getattr(self, 'config_manager', None)
-        zoom = mouse_binding_matches(get_pin_mouse_binding(config, "zoom"), event, "wheel")
-        opacity = mouse_binding_matches(get_pin_mouse_binding(config, "opacity"), event, "wheel")
-        if zoom or opacity:
-            PinWindow._adjust_mouse_value(self, "zoom" if zoom else "opacity", delta)
-        else:
-            event.ignore()
+        for action in ("zoom", "fine_zoom", "opacity"):
+            if mouse_binding_matches(get_pin_mouse_binding(config, action), event, "wheel"):
+                PinWindow._adjust_mouse_value(self, action, delta)
+                return
+        event.ignore()
 
     def _adjust_mouse_value(self, action, delta):
         if action == "opacity":
-            # 调整窗口透明度，每格 ±5%
-            step = 0.05 if delta > 0 else -0.05
-            self._win_opacity = max(0.15, min(1.0, self._win_opacity + step))
+            step = PinWindow._pin_setting(self, "pin_opacity_step") / 100
+            if delta < 0:
+                step = -step
+            self._win_opacity = max(MIN_OPACITY, min(1.0, round(self._win_opacity + step, 4)))
             self.setWindowOpacity(self._win_opacity)
-            self._show_hint_label(f"α {int(self._win_opacity * 100)}%")
-        elif action == "zoom":
-            # 普通滚轮：调整窗口大小
-            self._is_scaling = True
-            # 缩小必须使用放大倍率的倒数，否则放大后再缩小会产生累计误差。
-            step = 1.05
-            sf = step if delta > 0 else 1.0 / step
+            self._show_hint_label(f"α {round(self._win_opacity * 100)}%")
+        elif action in ("zoom", "fine_zoom"):
+            if PinWindow._lock_blocks(self, "move"):
+                self.show_locked_hint()
+                return
+            step = PinWindow._pin_setting(self, "pin_zoom_step" if action == "zoom" else "pin_fine_zoom_step") / 100
+            # 每格按原图尺寸加减固定的百分点，来回滚动总能回到原来的大小
+            scale = round(self.scale_factor + (step if delta > 0 else -step), 4)
+            fraction = ZOOM_ANCHORS.get(PinWindow._pin_setting(self, "pin_zoom_anchor"), (0.0, 0.0))
+            if fraction is None:
+                pos = self.mapFromGlobal(QCursor.pos())
+                fraction = (min(max(pos.x() / max(1, self.width()), 0.0), 1.0),
+                            min(max(pos.y() / max(1, self.height()), 0.0), 1.0))
+            PinWindow._scale_around(self, scale, *fraction)
 
-            if hasattr(self, '_image_transform'):
-                base_size = self._image_transform.display_size(self._orig_size)
-            else:
-                base_size = self._orig_size
+    def _display_base_size(self):
+        """100% 时的窗口尺寸，旋转 90°/270° 后宽高互换。"""
+        transform = getattr(self, '_image_transform', None)
+        return transform.display_size(self._orig_size) if transform else self._orig_size
 
-            min_scale = max(50.0 / base_size.width(),
-                            50.0 / base_size.height())
-            new_scale = max(min_scale, min(self.scale_factor * sf, 4.0))
-            # 消除互逆浮点运算在 100% 附近可能留下的极小误差。
-            if abs(new_scale - 1.0) < 1e-6:
-                new_scale = 1.0
-            self.scale_factor = new_scale
-
-            # 始终从原图逻辑尺寸计算，避免按当前整数窗口尺寸反复取整。
-            nw = max(1, int(round(base_size.width() * new_scale)))
-            nh = max(1, int(round(base_size.height() * new_scale)))
-
-            self.setGeometry(self.x(), self.y(), nw, nh)
-            if self.canvas:
-                self.canvas.invalidate_cache()
-            self.update()
-            self._scale_timer.start()
-            self._show_zoom_percent()
+    def _scale_around(self, scale, fx, fy, anchor=None):
+        """缩放到 scale，窗口上 (fx, fy) 比例处的点停在 anchor，默认就是它现在的位置。"""
+        base = PinWindow._display_base_size(self)
+        min_scale = max(MIN_SIDE / base.width(), MIN_SIDE / base.height())
+        scale = max(min_scale, min(scale, MAX_SCALE))
+        if abs(scale - 1.0) < 1e-6:
+            scale = 1.0
+        # 始终从原图尺寸计算，避免按当前整数窗口尺寸反复取整
+        nw = max(1, round(base.width() * scale))
+        nh = max(1, round(base.height() * scale))
+        if anchor is None:
+            geo = self.geometry()
+            anchor = QPointF(geo.x() + fx * geo.width(), geo.y() + fy * geo.height())
+        self.scale_factor = scale
+        self._is_scaling = True
+        self.setGeometry(round(anchor.x() - fx * nw), round(anchor.y() - fy * nh), nw, nh)
+        if self.canvas:
+            self.canvas.invalidate_cache()
+        self.update()
+        self._scale_timer.start()
+        self._show_zoom_percent()
 
     def _blocked_by_modal(self) -> bool:
         # 鼠标移动也会走到这里，先用 activeModalWidget() 排除没有模态窗口的常见情况
@@ -553,7 +732,7 @@ class PinWindow(QWidget):
         if key == Qt.Key.Key_Plus:
             modifier_options.append(event.modifiers() & ~Qt.KeyboardModifier.ShiftModifier)
         for modifiers in modifier_options:
-            for action in ("zoom", "opacity"):
+            for action in ("zoom", "fine_zoom", "opacity"):
                 binding = get_pin_mouse_binding(self.config_manager, action)
                 if not binding:
                     continue
@@ -577,6 +756,10 @@ class PinWindow(QWidget):
 
     def _run_mouse_action(self, action, position=None):
         if self._is_closed:
+            return
+        blocked_by = LOCKED_MOUSE_ACTIONS.get(action)
+        if blocked_by and self._lock_blocks(blocked_by):
+            self.show_locked_hint()
             return
         if action == "close":
             self.close_window()
@@ -656,7 +839,10 @@ class PinWindow(QWidget):
                              self.view.viewport().mapFromGlobal(current)).normalized()
                 rect = rect.intersected(self.view.viewport().rect())
                 if rect.width() > 2 and rect.height() > 2:
-                    self._thumbnail.enter_region(self.view.mapToScene(rect).boundingRect())
+                    if self._lock_blocks("move"):
+                        self.show_locked_hint()
+                    else:
+                        self._thumbnail.enter_region(self.view.mapToScene(rect).boundingRect())
             elif not dragged:
                 if action is None and button == Qt.MouseButton.RightButton:
                     action = "context_menu"
@@ -718,6 +904,8 @@ class PinWindow(QWidget):
     @safe_event
     def eventFilter(self, obj, event):
         if self.view and obj in (self.view.viewport(), self.ocr_text_layer):
+            if self._handle_border_resize(obj, event):
+                return True
             if self._handle_mouse_gesture(event):
                 return True
         if self.view and obj == self.view.viewport():
@@ -807,9 +995,16 @@ class PinWindow(QWidget):
         state = {
             'toolbar_visible': self.toolbar and self.toolbar.isVisible(),
             'stay_on_top': bool(self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint),
+            'click_through': self._click_through,
+            'locked': self._locked,
             'border_enabled': self.border_enabled,
             'text_selection_enabled': self._text_selection_enabled,
             'thumbnail_mode': self._thumbnail_mode,
+            'close_shortcut_enabled': (
+                not (self.canvas and self.canvas.is_editing)
+                and not self._lock_blocks("key_close")
+                and not self._click_through
+            ),
         }
         # 菜单开着算悬停，工具栏不会在背后被收起，菜单上的开关状态就一直准确
         self.hover_controls.set_menu_open(True)
@@ -828,6 +1023,80 @@ class PinWindow(QWidget):
         self.setWindowFlags(new_flags)
         self.setGeometry(geo)
         self.show()
+
+    # ==================================================================
+    # 锁定
+    # ==================================================================
+
+    def toggle_lock(self):
+        self.set_locked(not self._locked)
+
+    def set_locked(self, locked: bool):
+        """锁定后按设置禁止移动缩放、鼠标关闭、按键关闭；右键菜单照常可用，也从那里解锁。"""
+        if self._is_closed or locked == self._locked:
+            return
+        self._locked = locked
+        self.end_window_drag()
+        self._end_border_resize()
+        self._image_transform._refresh_border(self)
+        if self._pin_setting("pin_lock_hint"):
+            self._show_hint_label(self.tr("Locked, right-click to unlock") if locked else self.tr("Unlocked"))
+
+    def _lock_blocks(self, kind) -> bool:
+        """锁定时这类操作是否被禁止：move（含缩放、调大小）、click_close、key_close。"""
+        return self._locked and bool(PinWindow._pin_setting(self, f"pin_lock_block_{kind}"))
+
+    def show_locked_hint(self):
+        if PinWindow._pin_setting(self, "pin_lock_hint"):
+            self._show_hint_label(self.tr("Locked, right-click to unlock"))
+
+    def close_unless_locked(self, kind="key_close"):
+        """快捷键、鼠标手势和悬停关闭按钮走这里；右键菜单的「关闭」是明确操作，锁定也照关。"""
+        if self._lock_blocks(kind):
+            self.show_locked_hint()
+            return
+        self.close_window()
+
+    # ==================================================================
+    # 鼠标穿透
+    # ==================================================================
+
+    def toggle_click_through(self):
+        self.set_click_through(not self._click_through)
+
+    def set_click_through(self, enabled: bool):
+        """穿透时点击和滚轮都落到下层窗口，移动、调不透明度、退出改由上方的工具条完成。"""
+        if self._is_closed or enabled == self._click_through:
+            return
+        self._click_through = enabled
+        self.end_window_drag()
+        if enabled:
+            self._opacity_before_click_through = self._win_opacity
+            self._set_window_opacity(min(self._win_opacity, self._click_through_opacity))
+            if self._click_through_bar is None:
+                from .pin_click_through_bar import PinClickThroughBar
+                self._click_through_bar = PinClickThroughBar(self)
+            self._click_through_bar.set_opacity(self._win_opacity)
+            self._click_through_bar.show()
+        else:
+            self._click_through_bar.hide()
+            self._set_window_opacity(self._opacity_before_click_through)
+            self._opacity_before_click_through = None
+        set_window_click_through(int(self.winId()), enabled)
+        # 编辑中进入穿透会在这里收起工具栏，绘制工具随之退出
+        self.hover_controls.sync()
+        self._show_hint_label(self.tr("Click-through on") if enabled else self.tr("Click-through off"))
+
+    def set_click_through_opacity(self, opacity: float):
+        """穿透工具条的滑块。记在这张钉图上，下次进入穿透沿用。"""
+        if not self._click_through:
+            return
+        self._click_through_opacity = opacity
+        self._set_window_opacity(opacity)
+
+    def _set_window_opacity(self, opacity: float):
+        self._win_opacity = opacity
+        self.setWindowOpacity(opacity)
 
     def toggle_border_effect(self):
         self.border_enabled = not self.border_enabled
@@ -938,10 +1207,11 @@ class PinWindow(QWidget):
 
         fmt = (self.config_manager.get_screenshot_format() if self.config_manager else "PNG").lower()
         default_name = f"pinned_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{fmt}"
+        save_service = SaveService(config_manager=self.config_manager)
         file_path, selected_filter = get_save_file_name(
             self,
             self.tr("Save Pin Image"),
-            default_name,
+            save_service.suggest_path(default_name),
             "PNG (*.png);;JPG (*.jpg);;BMP (*.bmp);;WebP (*.webp);;PDF (*.pdf)",
         )
         if not file_path:
@@ -958,7 +1228,6 @@ class PinWindow(QWidget):
 
         def _do_save():
             image = self.get_current_image()
-            save_service = SaveService(config_manager=self.config_manager)
             if save_service.save_qimage_to_path(image, file_path, image_format=image_format):
                 log_info(T("保存成功: {file_path}", file_path=file_path), "PinWindow")
             else:
@@ -1033,10 +1302,20 @@ class PinWindow(QWidget):
                 except Exception as e:
                     log_exception(e, T("停止缩放百分比定时器"))
 
+            # 鼠标穿透工具条
+            if self._click_through_bar is not None:
+                try:
+                    self._click_through_bar.close()
+                    self._click_through_bar.deleteLater()
+                    self._click_through_bar = None
+                except Exception as e:
+                    log_exception(e, T("清理鼠标穿透工具条"))
+
             # 工具栏
             if hasattr(self, 'toolbar') and self.toolbar:
                 try:
-                    for pn in ('paint_panel', 'shape_panel', 'arrow_panel', 'number_panel', 'text_panel'):
+                    # 面板和「…」弹层是独立顶层窗口，不随工具栏一起删除
+                    for pn in (*self.toolbar.PANEL_ATTRS, '_more_popup'):
                         panel = getattr(self.toolbar, pn, None)
                         if panel:
                             try:

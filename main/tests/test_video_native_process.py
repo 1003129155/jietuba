@@ -20,7 +20,7 @@ def helper():
         pytest.skip("需要从当前源码安装 test-support 扩展；CI 两种架构必跑")
     import video_recorder
     assert hasattr(video_recorder.Recorder, "_configure_test"), "必须安装本次源码的测试扩展"
-    worker = Path(__file__).resolve().parents[1] / "video_worker.py"
+    worker = Path(__file__).resolve().parents[1] / "video" / "worker.py"
     return [sys.executable, "-u", str(worker)]
 
 

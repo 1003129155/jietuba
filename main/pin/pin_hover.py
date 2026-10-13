@@ -5,7 +5,7 @@
 输入再调 sync()，其他地方不直接 show/hide 这些控件。
 
 工具栏规则，先匹配的生效：
-1. 缩略图模式 → 隐藏
+1. 缩略图模式或鼠标穿透 → 隐藏
 2. 用户手动开/关过 → 按用户的
 3. 正在用绘图工具 → 显示
 4. 开了「自动显示工具栏」且在悬停会话中 → 显示
@@ -79,7 +79,7 @@ class PinHoverControls:
         self._on_hover_changed()
 
     def toggle_toolbar(self):
-        if self._win._thumbnail_mode:
+        if self._win._thumbnail_mode or self._win._click_through:
             return
         self._toolbar_choice = not self._toolbar_visible()
         self._in_session = True
@@ -107,7 +107,7 @@ class PinHoverControls:
             else:
                 win._hide_toolbar()
 
-        show_buttons = self._hover_buttons_enabled() and (
+        show_buttons = self._hover_buttons_enabled() and not win._click_through and (
             self._pin_hovered or self._menu_open or self._buttons_timer.isActive()
         )
         win._control_buttons.set_visible(
@@ -117,7 +117,7 @@ class PinHoverControls:
 
     def _toolbar_wanted(self) -> bool:
         win = self._win
-        if win._thumbnail_mode:
+        if win._thumbnail_mode or win._click_through:
             return False
         if self._toolbar_choice is not None:
             return self._toolbar_choice

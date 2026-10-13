@@ -143,7 +143,7 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 会真实移动鼠标、点击和按键的测试（如 `test_quick_capture_real_hooks.py`）默认跳过；设置环境变量 `RUN_REAL_INPUT_TESTS=1` 后才运行，运行期间请不要操作鼠标和键盘。会改写真实系统剪贴板的测试（`test_clipboard_monitor_real.py`）同样默认跳过；设置环境变量 `RUN_REAL_CLIPBOARD_TESTS=1` 后才运行，运行期间请不要复制任何内容。
 
-构建 Windows 发行包前，先安装与当前 Python 架构匹配的录制 wheel，再运行 `python build_with_ocr_onefile.py`。脚本收集已安装的录制扩展与许可声明，并通过 Cargo 单独构建更新器。完整版产物为 `dist/jietuba_pp.exe` 和 `dist/models/`；加 `--lite` 构建轻量版，产物为 `dist_lite/jietuba_lite.exe`。录制 wheel 的构建步骤见[录制开发说明](rust_libs/video_recorder/DEVELOPMENT.md#构建与维护)。自动发行流程见 [build.yml](.github/workflows/build.yml)，会分别生成 x64 与 ARM64 的完整版和轻量版压缩包。
+构建 Windows 发行包前，先安装与当前 Python 架构匹配的录制 wheel，再运行 `python build_with_ocr_onefile.py`。脚本收集已安装的录制扩展与许可声明，并通过 Cargo 单独构建更新器。完整版产物为 `dist/jietuba_pp.exe` 和 `dist/models/`；加 `--lite` 构建轻量版，产物为 `dist_lite/jietuba_lite.exe`。录制 wheel 的构建步骤见[发布说明](rust_libs/PUBLISHING.md)。自动发行流程见 [build.yml](.github/workflows/build.yml)，会分别生成 x64 与 ARM64 的完整版和轻量版压缩包。
 
 ### 代码注释
 
@@ -171,9 +171,6 @@ python -m pytest main/tests -c main/tests/pytest.ini
 │
 ├── main/                    # Python 主程序
 │   ├── main_app.py          # 应用入口，系统托盘、全局快捷键、生命周期管理
-│   ├── video_helper.py      # 录制子进程命令与已安装许可声明定位
-│   ├── video_worker.py      # PyO3 录制子进程与有界 JSONL 协议
-│   ├── video_worker_hook.py # 在 PyInstaller Qt hooks 之前分流录制子进程
 │   ├── compile_translations.py  # 翻译文件编译工具（.xml → .qm）
 │   ├── scripts/             # 辅助脚本 — 翻译提供商对比
 │   │
@@ -191,6 +188,7 @@ python -m pytest main/tests -c main/tests/pytest.ini
 │   ├── translation/         # 翻译模块 — 多提供商翻译服务
 │   ├── translations/        # 语言资源 — 中文/英文/日文/韩文
 │   ├── ui/                  # 用户界面模块 — 通用UI组件库
+│   ├── video/               # 录制子进程 — PyO3 录制、有界 JSONL 协议、打包后早分流
 │   └── tests/               # 测试模块 — 单元测试与集成测试
 │
 ├── rust_libs/               # Rust 扩展源码（可自行编译）
@@ -204,7 +202,7 @@ python -m pytest main/tests -c main/tests/pytest.ini
 │   └── video_recorder/      # PyO3 Media Foundation 录制扩展
 │       ├── src/             # 录制核心、PyO3 绑定与 WASAPI 采集
 │       ├── README.md        # PyPI 页面（英文）
-│       ├── DEVELOPMENT.md   # 进程协议、构建与验证说明
+│       ├── DEVELOPMENT.md   # 录制子进程协议与原生验证说明
 │       ├── pyproject.toml   # j-video abi3 wheel 配置
 │       └── LICENSE          # wheel 内的 MIT 许可证
 │
@@ -271,7 +269,8 @@ canvas/
     ├── spotlight_item.py    # SpotlightItem / SpotlightCurtain — 聚光灯的孔与共用幕布
     ├── selection_item.py    # SelectionItem — 选中项的边界显示框
     ├── arrow_item.py        # ArrowItem — 箭头图元，九种样式的箭杆/端头/描边几何
-    └── text_item.py         # TextItem — 文字图元，描边/阴影/背景色块与三态交互框
+    ├── text_item.py         # TextItem — 文字图元，描边/阴影/背景色块与三态交互框
+    └── watermark_item.py    # WatermarkItem / WatermarkStyle — 盖在选区上的水印层：平铺或放在七个位置之一，支持多行和时间
 ```
 
 </details>
@@ -360,8 +359,7 @@ clipboard/
 │   ├── menus/
 │   │   ├── action_menu.py
 │   │   ├── group_context_menu.py
-│   │   ├── item_context_menu.py
-│   │   └── submenu_position.py
+│   │   └── item_context_menu.py
 │   ├── mixins/
 │   │   └── frameless_mixin.py
 │   ├── panels/
@@ -428,6 +426,7 @@ core/
 ├── log_translations/        # 各模块日志文本翻译辅助
 ├── constants.py             # 全局常量定义（字体、路径等）
 ├── background_tasks.py      # 后台保存任务登记
+├── main_thread_gc.py        # MainThreadGC — 循环垃圾只在主线程回收
 ├── update_cache.py          # 更新器临时文件与缓存清理
 ├── updater_process.py       # Rust 更新器 JSONL 异步进程接口
 ├── update_controller.py     # 更新下载与安全重启协调
@@ -454,7 +453,7 @@ core/
 
 在录制工具栏选择 **MP4** 即可直接录制 H.264 视频，支持自定义 1–60 fps、0.5–50 Mbps 目标码率、系统声音和鼠标指针开关。可用时优先使用硬件编码，否则回退到 Windows 软件编码。独立进程流式写入视频，Python 不保存视频帧历史；停止后完成 MP4 封装才报告保存成功。MP4 直接保存，不进入 GIF 编辑和回放流程。画面输出为 SDR，HDR 显示器上经 DXGI 抓取后映射为 SDR，不提供 HDR 视频；系统声音取默认播放设备（最多 8 声道，多声道降混为立体声），不包含麦克风。
 
-PyO3 录制扩展通过预编译的 `j-video==0.1.0` wheel 随运行依赖安装，普通源码用户无需 Rust 工具链。专用 Python 子进程调用扩展，界面只交换控制命令与状态事件。onefile 脚本收集已安装的扩展与许可声明，不重新编译。[录制开发说明](rust_libs/video_recorder/DEVELOPMENT.md)包含开发者构建、进程协议与验证命令。系统需要可用的 Media Foundation、H.264/AAC 组件；Windows N 版本可能需要 Media Feature Pack。发行包不附加 FFmpeg 或其他编解码器包。
+PyO3 录制扩展通过预编译的 `j-video==0.1.0` wheel 随运行依赖安装，普通源码用户无需 Rust 工具链。专用 Python 子进程调用扩展，界面只交换控制命令与状态事件。onefile 脚本收集已安装的扩展与许可声明，不重新编译。[录制开发说明](rust_libs/video_recorder/DEVELOPMENT.md)包含录制子进程协议与原生验证命令。系统需要可用的 Media Foundation、H.264/AAC 组件；Windows N 版本可能需要 Media Feature Pack。发行包不附加 FFmpeg 或其他编解码器包。
 <img width="766" height="630" alt="image" src="https://github.com/user-attachments/assets/8653fffb-b419-4584-ab4b-9fe95bb9f246" />
 
 <details>
@@ -537,6 +536,7 @@ pin/
 ├── pin_hover.py             # PinHoverControls — 悬停按钮和工具栏的显隐决策
 ├── pin_context_menu.py      # PinContextMenu — 右键菜单
 ├── pin_border_overlay.py    # PinBorderOverlay — 边框效果覆盖层
+├── pin_click_through_bar.py # PinClickThroughBar — 鼠标穿透时的移动 / 不透明度 / 退出工具条
 ├── pin_ocr_manager.py       # PinOCRManager / _OCRThread — 钉图OCR管理（异步识别）
 ├── pin_shortcut.py          # PinShortcutController — 快捷键控制（普通模式/编辑模式）
 ├── pin_thumbnail.py         # PinThumbnailMode — 缩略图模式
@@ -568,6 +568,7 @@ settings/
 ├── __init__.py
 ├── color_formats.py         # 放大镜颜色格式模板：渲染、读取、保存
 ├── settings_transfer.py     # 设置界面选项（含工具栏排布）导出/导入为 JSON 文件
+├── special_paste.py         # 特殊粘贴菜单的预置选项、顺序与启用状态
 └── tool_settings.py         # ToolSettingsManager / ToolSettings — 管理工具颜色、大小、热键等配置
 ```
 
@@ -634,6 +635,7 @@ tools/
 ├── highlighter.py           # HighlighterTool — 荧光笔工具
 ├── mosaic.py                # MosaicTool — 马赛克工具
 ├── spotlight.py             # SpotlightTool — 聚光灯工具（压暗框外区域）
+├── watermark.py             # WatermarkTool — 水印工具（铺上、改文字和样式、记下上次有没有水印）
 ├── cursor.py                # CursorTool — 光标/选择工具
 ├── eraser.py                # EraserTool — 橡皮擦工具
 └── cursor_manager.py        # CursorManager — 光标样式管理器
@@ -643,7 +645,7 @@ tools/
 
 **核心功能：**
 - 统一的工具基类架构（Tool → 各具体工具）
-- 绘图工具：笔、矩形、椭圆、箭头、文字、数字、荧光笔、马赛克、光标、橡皮擦等
+- 绘图工具：笔、矩形、椭圆、箭头、文字、数字、荧光笔、马赛克、水印、光标、橡皮擦等
 - 工具控制器负责工具切换、鼠标事件分发
 - 工具上下文（ToolContext）提供场景、视图、设置等依赖注入
 
@@ -727,8 +729,8 @@ translations/
 ui/
 ├── __init__.py
 ├── toolbar.py               # Toolbar / _DragHandle — 可拖动工具栏基类
-├── toolbar_layout.py        # 截图工具栏按钮排布（顺序 / 显示方式）的归一化与读写
-├── toolbar_layout_dialog.py # ToolbarLayoutDialog — 截图工具栏排布对话框
+├── toolbar_layout.py        # 截图 / 钉图工具栏按钮排布（顺序 / 显示方式）的归一化与读写
+├── toolbar_layout_dialog.py # ToolbarLayoutDialog — 截图 / 钉图工具栏排布对话框
 ├── reorderable_rows.py      # DragGrip / DraggableRow / ReorderableRowList — 可拖动重排的行列表
 ├── tray_menu.py             # TrayMenu — 系统托盘菜单
 ├── screenshot_window.py     # ScreenshotWindow — 截图主窗口（全屏覆盖、选区绘制）
@@ -736,6 +738,7 @@ ui/
 ├── update_dialog.py         # 更新说明与下载进度
 ├── dialogs.py               # StandardDialog / 对话框函数集 — 确认、警告、信息、错误对话框
 ├── toast.py                 # Toast — 光标旁不抢焦点的一行轻提示
+├── submenu_position.py      # 级联子菜单的展开方向与贴边定位
 ├── magnifier.py             # MagnifierOverlay — 放大镜覆盖层（像素级取色）
 ├── color_picker_dialog.py   # ColorPickerDialog — 自定义HSV颜色选择器
 ├── color_picker_button.py   # ColorPickerButton — 颜色选择按钮
@@ -751,6 +754,8 @@ ui/
 ├── arrow_settings_panel.py  # ArrowSettingsPanel — 箭头设置面板
 ├── number_settings_panel.py # 数字工具设置面板
 ├── mosaic_settings_panel.py # 马赛克工具设置面板
+├── watermark_settings_panel.py # 水印面板：文字、位置、样式弹层（不透明度/大小/间距/角度/颜色）、字体
+├── watermark_input_dialog.py   # WatermarkInputDialog — 输入多行水印，可插入时间并预览
 │
 ├── fluent_lite/             # Fluent 风格轻量组件库
 │   ├── buttons.py / cards.py / icons.py / inputs.py  # 按钮、卡片、图标、输入框
@@ -768,8 +773,10 @@ ui/
 │   ├── page_quick_actions.py # 快捷行为设置页（跳过确认或结果窗口、接管 Win+V）
 │   ├── color_format_dialog.py # ColorFormatDialog — 放大镜颜色格式管理窗口
 │   ├── page_clipboard.py    # 剪贴板设置页
+│   ├── special_paste_dialog.py # SpecialPasteDialog — 调整特殊粘贴菜单的顺序与开关
 │   ├── page_hotkey.py       # 快捷键设置页
 │   ├── page_mouse.py        # 鼠标快捷键设置页
+│   ├── page_pin.py          # 钉图设置页（行为、外观、鼠标穿透）
 │   ├── page_translation.py  # 翻译设置页
 │   ├── provider_fields.py   # 服务商字段的读写（按声明）
 │   ├── page_log.py          # 日志设置页
@@ -827,6 +834,7 @@ tests/
 ├── test_drawing_tools.py    # 绘图工具测试（笔/矩形/箭头/文字/数字/荧光笔）
 ├── test_mosaic_tool.py      # 马赛克工具测试
 ├── test_spotlight.py        # 聚光灯测试
+├── test_watermark.py        # 水印测试
 ├── test_functional_handles.py # 控制点编辑测试
 ├── test_capture_service.py  # 截图服务测试
 ├── test_clipboard_api.py    # 剪贴板公共 API 测试

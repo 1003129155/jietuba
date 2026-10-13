@@ -2,8 +2,7 @@
 
 TRANSLATIONS: dict[str, str] = {
     # action.py
-    "已完成复制到剪贴板，已提交异步保存任务": "Copied to clipboard; async save task submitted",
-    "已完成复制到剪贴板": "Copied to clipboard",
+    "已交给后台复制到剪贴板": "Handed the clipboard copy to the background",
     "已保存到: {file_path}": "Saved to: {file_path}",
     "已创建钉图窗口": "Pin window created",
     "位置: ({pos_x}, {pos_y})": "Position: ({pos_x}, {pos_y})",

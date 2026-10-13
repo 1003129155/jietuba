@@ -142,7 +142,7 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 実際にマウスとキーボードを操作するテスト（`test_quick_capture_real_hooks.py` など）は既定でスキップされます。環境変数 `RUN_REAL_INPUT_TESTS=1` を設定すると実行され、実行中はマウスとキーボードに触れないでください。実際のシステムクリップボードを書き換えるテスト（`test_clipboard_monitor_real.py`）も既定でスキップされます。環境変数 `RUN_REAL_CLIPBOARD_TESTS=1` を設定すると実行され、実行中は何もコピーしないでください。
 
-Windows 版をビルドするには、現在の Python アーキテクチャに合う録画 wheel をインストールしてから `python build_with_ocr_onefile.py` を実行します。インストール済みの録画拡張とライセンス通知を収集し、独立した更新プログラムは Cargo でビルドします。完全版の生成物は `dist/jietuba_pp.exe` と `dist/models/` です。`--lite` を付けると軽量版の `dist_lite/jietuba_lite.exe` を生成します。録画 wheel のビルド手順は[録画の開発メモ](rust_libs/video_recorder/DEVELOPMENT.md#构建与维护)（中国語）を参照してください。[自動リリースワークフロー](.github/workflows/build.yml)では、x64 と ARM64 それぞれの完全版と軽量版のアーカイブを生成します。
+Windows 版をビルドするには、現在の Python アーキテクチャに合う録画 wheel をインストールしてから `python build_with_ocr_onefile.py` を実行します。インストール済みの録画拡張とライセンス通知を収集し、独立した更新プログラムは Cargo でビルドします。完全版の生成物は `dist/jietuba_pp.exe` と `dist/models/` です。`--lite` を付けると軽量版の `dist_lite/jietuba_lite.exe` を生成します。録画 wheel のビルド手順は[公開手順メモ](rust_libs/PUBLISHING.md)（中国語）を参照してください。[自動リリースワークフロー](.github/workflows/build.yml)では、x64 と ARM64 それぞれの完全版と軽量版のアーカイブを生成します。
 
 ### コードコメント
 
@@ -170,9 +170,6 @@ Windows 版をビルドするには、現在の Python アーキテクチャに�
 │
 ├── main/                    # Python メインプログラム
 │   ├── main_app.py          # アプリエントリポイント：システムトレイ、グローバルホットキー、ライフサイクル管理
-│   ├── video_helper.py      # 録画子プロセスの起動コマンドとライセンス取得
-│   ├── video_worker.py      # PyO3 録画ワーカーと有界 JSONL プロトコル
-│   ├── video_worker_hook.py # PyInstaller Qt hooks より前に録画ワーカーへ分岐
 │   ├── compile_translations.py  # 翻訳コンパイラ（.xml → .qm）
 │   ├── scripts/             # 補助スクリプト — 翻訳プロバイダー比較
 │   │
@@ -190,6 +187,7 @@ Windows 版をビルドするには、現在の Python アーキテクチャに�
 │   ├── translation/         # 翻訳モジュール — マルチプロバイダー翻訳サービス
 │   ├── translations/        # 言語リソース — 中国語/英語/日本語/韓国語
 │   ├── ui/                  # UIモジュール — 共通UIコンポーネントライブラリ
+│   ├── video/               # 録画ワーカー — PyO3 録画、有界 JSONL プロトコル、パッケージ版の早期分岐
 │   └── tests/               # テストモジュール — ユニットテスト＆統合テスト
 │
 ├── rust_libs/               # Rust 拡張のソースコード
@@ -203,7 +201,7 @@ Windows 版をビルドするには、現在の Python アーキテクチャに�
 │   └── video_recorder/      # PyO3 Media Foundation 録画拡張
 │       ├── src/             # 録画コア、PyO3 バインディングと WASAPI キャプチャ
 │       ├── README.md        # PyPI ページ（英語）
-│       ├── DEVELOPMENT.md   # プロセスプロトコル、ビルド・検証メモ（中国語）
+│       ├── DEVELOPMENT.md   # 録画ワーカーのプロセスプロトコルとネイティブ検証メモ（中国語）
 │       ├── pyproject.toml   # j-video abi3 wheel 設定
 │       └── LICENSE          # wheel に同梱する MIT ライセンス
 │
@@ -268,7 +266,8 @@ canvas/
     ├── spotlight_item.py    # SpotlightItem / SpotlightCurtain — スポットライトの穴と共有の幕
     ├── selection_item.py    # SelectionItem — 選択境界表示
     ├── arrow_item.py        # ArrowItem — 矢印アイテム、9 種類の軸・先端・輪郭のジオメトリ
-    └── text_item.py         # TextItem — テキストアイテム、縁取り/影/背景と三状態の操作枠
+    ├── text_item.py         # TextItem — テキストアイテム、縁取り/影/背景と三状態の操作枠
+    └── watermark_item.py    # WatermarkItem / WatermarkStyle — 選択範囲に重ねる透かし：タイルまたは 7 か所の位置、複数行と時刻に対応
 ```
 
 </details>
@@ -343,8 +342,7 @@ clipboard/
 │   ├── menus/
 │   │   ├── action_menu.py
 │   │   ├── group_context_menu.py
-│   │   ├── item_context_menu.py
-│   │   └── submenu_position.py
+│   │   └── item_context_menu.py
 │   ├── mixins/
 │   │   └── frameless_mixin.py
 │   ├── panels/
@@ -408,6 +406,7 @@ core/
 ├── log_translations/        # 各モジュールのログ翻訳ヘルパー
 ├── constants.py             # グローバル定数（フォント、パス等）
 ├── background_tasks.py      # バックグラウンド保存の追跡
+├── main_thread_gc.py        # MainThreadGC — 循環参照のGCをメインスレッドだけで行う
 ├── update_cache.py          # 更新プログラムの一時ファイルとキャッシュのクリーンアップ
 ├── updater_process.py       # Rust 更新プログラムとの非同期 JSONL 通信
 ├── update_controller.py     # 更新ダウンロードと安全な再起動の調整
@@ -425,7 +424,7 @@ core/
 
 録画ツールバーで **MP4** を選択すると、H.264 動画を直接保存できます。1–60 fps、0.5–50 Mbps の目標ビットレート、システム音声とマウスポインターを設定できます。利用可能ならハードウェアを優先し、Windows のソフトウェアエンコーダーにフォールバックします。独立プロセスから逐次保存し、Python に動画フレームを蓄積しません。停止後は MP4 の処理完了を待ちます。MP4 は GIF の編集・再生に進まず直接保存されます。映像は SDR で出力され（HDR ディスプレイでは DXGI で取得して SDR に変換するため、HDR 動画にはなりません）、システム音声は既定の再生デバイス（最大 8 チャンネル、ステレオにダウンミックス）から取得し、マイクは含みません。
 
-PyO3 録画拡張は、実行時依存パッケージと一緒にビルド済み `j-video==0.1.0` wheel からインストールします。ソースから実行するだけなら Rust ツールチェーンは不要です。専用 Python 子プロセスが拡張を呼び出し、GUI は制御コマンドと状態イベントだけを交換します。onefile スクリプトはインストール済み拡張とライセンス通知を収集し、再ビルドしません。[録画の開発メモ](rust_libs/video_recorder/DEVELOPMENT.md)（中国語）には、開発者向けビルド、プロセスプロトコルと検証コマンドがあります。Media Foundation と H.264/AAC が必要で、Windows N では Media Feature Pack が必要な場合があります。FFmpeg や追加コーデックは同梱しません。
+PyO3 録画拡張は、実行時依存パッケージと一緒にビルド済み `j-video==0.1.0` wheel からインストールします。ソースから実行するだけなら Rust ツールチェーンは不要です。専用 Python 子プロセスが拡張を呼び出し、GUI は制御コマンドと状態イベントだけを交換します。onefile スクリプトはインストール済み拡張とライセンス通知を収集し、再ビルドしません。[録画の開発メモ](rust_libs/video_recorder/DEVELOPMENT.md)（中国語）には、録画ワーカーのプロセスプロトコルとネイティブ検証コマンドがあります。Media Foundation と H.264/AAC が必要で、Windows N では Media Feature Pack が必要な場合があります。FFmpeg や追加コーデックは同梱しません。
 <img width="766" height="630" alt="image" src="https://github.com/user-attachments/assets/8653fffb-b419-4584-ab4b-9fe95bb9f246" />
 <details>
 <summary>ディレクトリ構造を表示</summary>
@@ -497,6 +496,7 @@ pin/
 ├── pin_hover.py             # PinHoverControls — ホバーボタンとツールバーの表示判定
 ├── pin_context_menu.py      # PinContextMenu — 右クリックメニュー
 ├── pin_border_overlay.py    # PinBorderOverlay — ボーダーエフェクトオーバーレイ
+├── pin_click_through_bar.py # PinClickThroughBar — マウス透過中の移動・不透明度・終了バー
 ├── pin_ocr_manager.py       # PinOCRManager / _OCRThread — 非同期OCR認識
 ├── pin_shortcut.py          # PinShortcutController — 通常/編集モードショートカット
 ├── pin_thumbnail.py         # PinThumbnailMode — サムネイルモード
@@ -518,6 +518,7 @@ pin/
 settings/
 ├── color_formats.py         # 拡大鏡のカラー形式テンプレート：描画・読み込み・保存
 ├── settings_transfer.py     # 設定画面の項目（ツールバーの並びを含む）を JSON ファイルへエクスポート／インポート
+├── special_paste.py         # 特殊貼り付けメニューの既定項目・順序・有効状態
 └── tool_settings.py         # ToolSettingsManager / ToolSettings — ツールの色、サイズ、ホットキー設定
 ```
 
@@ -564,6 +565,7 @@ tools/
 ├── highlighter.py           # HighlighterTool — 蛍光ペン
 ├── mosaic.py                # MosaicTool — モザイク
 ├── spotlight.py             # SpotlightTool — スポットライト（枠の外を暗くする）
+├── watermark.py             # WatermarkTool — 透かし（追加・文字とスタイルの変更・前回の有無の記録）
 ├── cursor.py                # CursorTool — カーソル/選択
 ├── eraser.py                # EraserTool — 消しゴム
 └── cursor_manager.py        # CursorManager — カーソルスタイル管理
@@ -646,8 +648,8 @@ translations/
 ```text
 ui/
 ├── toolbar.py               # Toolbar / _DragHandle — ドラッグ可能なツールバー基底クラス
-├── toolbar_layout.py        # スクリーンショットツールバーのボタン配置（順序・表示方法）の正規化と読み書き
-├── toolbar_layout_dialog.py # ToolbarLayoutDialog — スクリーンショットツールバーの配置編集ダイアログ
+├── toolbar_layout.py        # スクリーンショット / ピンツールバーのボタン配置（順序・表示方法）の正規化と読み書き
+├── toolbar_layout_dialog.py # ToolbarLayoutDialog — スクリーンショット / ピンツールバーの配置編集ダイアログ
 ├── reorderable_rows.py      # DragGrip / DraggableRow / ReorderableRowList — ドラッグで並べ替えられる行リスト
 ├── tray_menu.py             # TrayMenu — システムトレイメニュー
 ├── screenshot_window.py     # ScreenshotWindow — フルスクリーンキャプチャウィンドウ
@@ -655,6 +657,7 @@ ui/
 ├── update_dialog.py         # 更新内容とダウンロード進捗
 ├── dialogs.py               # StandardDialog — 確認、警告、情報、エラーダイアログ
 ├── toast.py                 # Toast — カーソル横に出る、フォーカスを奪わない一行通知
+├── submenu_position.py      # カスケードサブメニューの展開方向と親項目への吸着
 ├── magnifier.py             # MagnifierOverlay — ピクセルレベル拡大鏡
 ├── color_picker_dialog.py   # ColorPickerDialog — カスタムHSVカラーピッカー
 ├── color_picker_button.py   # ColorPickerButton — カラー選択ボタン
@@ -670,6 +673,8 @@ ui/
 ├── arrow_settings_panel.py  # ArrowSettingsPanel — 矢印設定パネル
 ├── number_settings_panel.py # 番号ツール設定パネル
 ├── mosaic_settings_panel.py # モザイクツール設定パネル
+├── watermark_settings_panel.py # 透かしパネル：文字・位置・スタイル（不透明度/サイズ/間隔/角度/色）・フォント
+├── watermark_input_dialog.py   # WatermarkInputDialog — 複数行の透かし入力、時刻の挿入とプレビュー
 │
 ├── fluent_lite/             # Fluent スタイル軽量コンポーネントライブラリ
 │   ├── buttons.py / cards.py / icons.py / inputs.py  # ボタン、カード、アイコン、入力欄
@@ -686,10 +691,12 @@ ui/
 │   ├── page_quick_actions.py # クイック動作設定（確認・結果ウィンドウの省略、Win+V の引き継ぎ）
 │   ├── color_format_dialog.py # ColorFormatDialog — 拡大鏡のカラー形式を管理するダイアログ
 │   ├── page_clipboard.py    # クリップボード設定
+│   ├── special_paste_dialog.py # SpecialPasteDialog — 特殊貼り付けメニューの並び替えとオン／オフ
 │   ├── page_hotkey.py       # ホットキー設定
 │   ├── page_mouse.py        # マウスショートカット設定
+│   ├── page_pin.py          # ピン画像設定（動作、外観、マウス透過）
 │   ├── page_translation.py  # 翻訳設定
-│   ├── provider_fields.py   # 服务商字段的读写（按声明）
+│   ├── provider_fields.py   # 翻訳サービスの設定項目の読み書き（宣言ベース）
 │   ├── page_log.py          # ログ設定
 │   ├── page_developer.py    # 開発者設定
 │   ├── page_misc.py         # その他設定
@@ -732,6 +739,7 @@ tests/
 ├── test_drawing_tools.py    # 描画ツールテスト（ペン/矩形/矢印/テキスト/番号/蛍光ペン）
 ├── test_mosaic_tool.py      # モザイクツールテスト
 ├── test_spotlight.py        # スポットライトテスト
+├── test_watermark.py        # 透かしテスト
 ├── test_functional_handles.py # コントロールポイント編集テスト
 ├── test_capture_service.py  # キャプチャサービステスト
 ├── test_clipboard_api.py    # クリップボード公開 API テスト

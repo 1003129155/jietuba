@@ -5,7 +5,7 @@
 from PySide6.QtWidgets import QGraphicsScene
 from PySide6.QtCore import QRectF, Signal, Qt
 
-from .items import BackgroundItem, SelectionItem, SpotlightCurtain
+from .items import BackgroundItem, SelectionItem, SpotlightCurtain, WatermarkItem
 from .selection_model import SelectionModel
 from .undo import CommandUndoStack
 # 注意：tools 的导入放在 __init__ 内部（延迟导入）。
@@ -55,6 +55,7 @@ class CanvasScene(QGraphicsScene):
         # 10: Highlighter Items (由工具创建)
         # 20: Normal Drawing Items (由工具创建)
         # 30: Text Items（始终位于普通绘制标注之上）
+        # 50: Watermark（整个场景至多一层，盖住所有标注）
         # 101: Selection Item
         # (遮罩层已移至 ScreenshotWindow 的 QWidget 叠层 MaskOverlayWidget)
         
@@ -75,6 +76,9 @@ class CanvasScene(QGraphicsScene):
         
         # 连接撤销栈信号，用于在撤销/重做后更新序号光标
         self.undo_stack.indexChanged.connect(self._on_undo_stack_changed)
+
+        # 水印的范围就是选区：选区移动、缩放时跟上
+        self.selection_model.rectChanged.connect(self._sync_watermark_rect)
         
         # 获取工具设置管理器
         self.tool_settings_manager = get_tool_settings_manager()
@@ -88,7 +92,8 @@ class CanvasScene(QGraphicsScene):
         from tools import ToolController, ToolContext
         from tools import (
             PenTool, RectTool, EllipseTool, ArrowTool,
-            TextTool, NumberTool, HighlighterTool, CursorTool, EraserTool, MosaicTool, SpotlightTool
+            TextTool, NumberTool, HighlighterTool, CursorTool, EraserTool, MosaicTool, SpotlightTool,
+            WatermarkTool,
         )
 
         ctx = ToolContext(
@@ -115,6 +120,7 @@ class CanvasScene(QGraphicsScene):
         if enable_mosaic:
             self.tool_controller.register(MosaicTool())
         self.tool_controller.register(SpotlightTool())
+        self.tool_controller.register(WatermarkTool())
         self.tool_controller.register(EraserTool())  # 橡皮擦工具
         
         # 默认激活光标工具（表示无绘制工具激活，SmartEditController负责选择/编辑交互）
@@ -166,6 +172,11 @@ class CanvasScene(QGraphicsScene):
         """
         self.cursor_tool_update_requested.emit(tool_id, False)
     
+    def _sync_watermark_rect(self, rect):
+        watermark = WatermarkItem.find(self)
+        if watermark is not None:
+            watermark.set_scene_rect(rect)
+
     def _on_undo_stack_changed(self):
         """
         撤销栈变化时的回调（用于更新序号工具光标）

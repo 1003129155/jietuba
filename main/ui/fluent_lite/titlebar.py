@@ -2,10 +2,11 @@
 
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPen
-from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import QAbstractButton, QLabel
 from qframelesswindow import TitleBar, TitleBarButton
 from qframelesswindow.utils import toggleMaxState
 
+from core.resource_manager import ResourceManager
 from core.ui_scale import widget_scaled as _px
 from core.ui_theme import apply_style_sheet, get_ui_theme, set_own_style
 
@@ -73,6 +74,73 @@ class _FluentCaptionButton(TitleBarButton):
             restore_side = icon_side - offset
             painter.drawRect(QRectF(left, top + offset, restore_side, restore_side))
             painter.drawRect(QRectF(left + offset, top, restore_side, restore_side))
+
+
+class TitleBarPinButton(QAbstractButton):
+    """Always-on-top toggle sized to sit in the caption-button row.
+
+    Colours follow the app theme; windows with a palette of their own override
+    ``_colors``.
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setCheckable(True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.icon_path = ResourceManager.get_icon_path("钉图.svg")
+        self._icon = ResourceManager.get_icon(self.icon_path)
+        self._apply_theme()
+        get_ui_theme().theme_changed.connect(self._apply_theme)
+
+    def _apply_theme(self, _tokens=None):
+        self.setFixedSize(_px(self, 46), _px(self, 32))
+        self.update()
+
+    def _colors(self):
+        """(图标色, 底色)。选中时用强调色的底，和窗口控制按钮按下时同一种底色"""
+        tokens = ui_tokens(self)
+        if self.isChecked():
+            return QColor(tokens.accent), QColor(tokens.accent_soft)
+        if self.isDown():
+            return QColor(tokens.text), QColor(tokens.accent_soft)
+        if self.underMouse():
+            return QColor(tokens.text), QColor(tokens.surface_hover)
+        return QColor(tokens.text_muted), QColor(0, 0, 0, 0)
+
+    def enterEvent(self, event):
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.update()
+        super().leaveEvent(event)
+
+    def paintEvent(self, event):
+        del event
+        color, background = self._colors()
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(background)
+        painter.drawRect(self.rect())
+
+        # 按两倍渲染再缩回去：未置顶时图标是转过的，不这样转出来会发毛
+        side = _px(self, 18)
+        pixmap = self._icon.pixmap(side * 2, side * 2)
+        if pixmap.isNull():
+            return
+        tint = QPainter(pixmap)
+        tint.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
+        tint.fillRect(pixmap.rect(), color)
+        tint.end()
+        pixmap.setDevicePixelRatio(2.0)
+
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        painter.translate(self.width() / 2.0, self.height() / 2.0)
+        if not self.isChecked():
+            # 没置顶时钉子斜躺着。这套配色的强调色很淡，光靠颜色区分不出开和关
+            painter.rotate(-45.0)
+        painter.drawPixmap(QPointF(-side / 2.0, -side / 2.0), pixmap)
 
 
 class FluentTitleBar(TitleBar):

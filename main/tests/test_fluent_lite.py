@@ -4,8 +4,11 @@ import ast
 from pathlib import Path
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import QStyle, QStyleOptionButton
 
+from ui.fluent_lite.cards import card_text_left
+from ui.fluent_lite.theme import FONT_FAMILIES
 from ui.fluent_lite import (
     FluentIcon,
     NavigationInterface,
@@ -54,6 +57,25 @@ def test_setting_card_group_height_tracks_available_text_width(qapp):
 
     assert wide_height < narrow_height
     assert wide_height >= card.minimumHeight()
+
+
+def test_cards_take_the_group_tone_unless_they_choose_their_own(qapp):
+    group = SettingCardGroup("Group", tone="pin")
+    inherits = SettingCard(FluentIcon.INFO, "Inherits")
+    chooses = SettingCard(FluentIcon.INFO, "Chooses", tone="capture")
+    group.addSettingCard(inherits)
+    group.addSettingCard(chooses)
+
+    assert inherits.iconBadge.tone() == "pin"
+    assert chooses.iconBadge.tone() == "capture"
+
+
+def test_card_separators_start_at_the_title_text(qapp):
+    group = SettingCardGroup("Group")
+    group.addSettingCard(SettingCard(FluentIcon.INFO, "One"))
+    group.addSettingCard(SettingCard(FluentIcon.INFO, "Two"))
+
+    assert f"margin-left: {card_text_left()}px" in group._separators[0].styleSheet()
 
 
 def test_navigation_selects_routes_without_firing_actions(qapp):
@@ -147,3 +169,16 @@ def test_frontend_uses_shared_text_editor_controls():
                 offenders.append(f"{path.relative_to(source_root)}:{node.lineno}")
 
     assert offenders == []
+
+
+def test_segment_reserves_room_for_its_bold_selected_text(qapp):
+    segmented = SegmentedWidget()
+    segmented.addItem("one", "Screenshot Shortcuts")
+    button = segmented._items["one"]
+
+    bold = QFont()
+    bold.setFamilies(FONT_FAMILIES)
+    bold.setPixelSize(12)
+    bold.setWeight(QFont.Weight.DemiBold)
+    # 左右内边距各 14
+    assert button.minimumWidth() >= QFontMetrics(bold).horizontalAdvance(button.text()) + 2 * 14

@@ -4,30 +4,53 @@
 等不如先把窗口摆出来。文本框出结果后可编辑——识别难免有错字，就地改完再复制，比复制
 出去再改顺手。
 
+排版（见 layout 模块）是对识别出的行重排，每次都从原始的行重算，所以换来换去不会越改
+越歪。重排走撤销栈：用户改过字之后再换排版，一次 Ctrl+Z 就能把改动拿回来。
+
 窗口关掉只是把结果丢掉，线程照常跑完（识别打不断），见 recognizer 模块。
 """
 
-from PySide6.QtCore import QPoint, Qt, QTimer
-from PySide6.QtGui import QCursor
-from PySide6.QtWidgets import QApplication, QHBoxLayout, QVBoxLayout
+from PySide6.QtCore import QPoint, QPointF, Qt, QTimer
+from PySide6.QtGui import QColor, QCursor, QPainter, QPen, QTextCursor
+from PySide6.QtWidgets import QApplication, QHBoxLayout, QMenu, QVBoxLayout
 
 from core import safe_event
 from core.i18n import make_tr
 from core.logger import log_info, T
-from core.ui_scale import configure_dialog_control, dialog_scaled, scale_dialog_font
+from core.platform_utils import set_window_topmost
+from core.ui_scale import (
+    configure_dialog_control, dialog_scaled, scale_dialog_font, widget_scaled,
+)
 from core.ui_theme import get_ui_theme
 from settings import get_tool_settings_manager
 from ui.dialogs import track_modeless_dialog
 from ui.fluent_lite import (
     FONT_FAMILY, CaptionLabel, CheckBox, FluentTitleBar, FrostedFramelessDialog,
-    PrimaryPushButton, TextEdit, scrollbar_qss, ui_tokens,
+    PrimaryPushButton, TextEdit, TitleBarPinButton, TransparentPushButton,
+    scrollbar_qss, ui_tokens,
 )
+from ui.fluent_lite.text_context_menu import style_popup_menu
+from ui.submenu_position import avoid_submenu_overlap
 from ui.toast import Toast
 
+from . import layout as text_layout
 from .placement import pick_screen, window_position
 from .recognizer import NO_TEXT, UNAVAILABLE, recognize_async
 
 _tr = make_tr("TextRecognitionWindow")
+
+# 排版菜单里的单选项，顺序就是菜单里的顺序。文案延后到打开菜单时才取：
+# 这张表在导入时就建好了，直接存译文的话切换语言后菜单还是旧的
+_LAYOUT_LABELS = (
+    (text_layout.MODE_AUTO, lambda: _tr("Auto")),
+    (text_layout.MODE_SINGLE_LINE, lambda: _tr("Remove line breaks")),
+    (text_layout.MODE_MULTILINE, lambda: _tr("Keep every line")),
+)
+_PUNCTUATION_LABELS = (
+    (text_layout.PUNCT_KEEP, lambda: _tr("As recognized")),
+    (text_layout.PUNCT_HALFWIDTH, lambda: _tr("Half-width")),
+    (text_layout.PUNCT_FULLWIDTH, lambda: _tr("Full-width")),
+)
 
 
 def show_text_recognition(image, anchor=None):
@@ -56,6 +79,44 @@ def _reason_text(reason):
     }.get(reason, _tr("Text recognition failed."))
 
 
+def _render(lines):
+    """按当前排版设置把识别出的行排成文本"""
+    manager = get_tool_settings_manager()
+    return text_layout.render(
+        lines,
+        mode=manager.get_ocr_layout_mode(),
+        remove_spaces=manager.get_ocr_remove_spaces(),
+        punctuation=manager.get_ocr_punctuation(),
+    ).strip()
+
+
+class _LayoutMenuButton(TransparentPushButton):
+    """底栏的「排版」入口。右边画一个下拉箭头，表示点开是菜单而不是开关"""
+
+    def _style_sheet(self):
+        # 文字和箭头各占一边，右内边距要留得下箭头
+        return super()._style_sheet() + (
+            f"QPushButton {{ padding-right: {widget_scaled(self, 22)}px; }}"
+        )
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        arm = widget_scaled(self, 4)
+        x = self.width() - widget_scaled(self, 13)
+        y = self.height() / 2.0
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        pen = QPen(QColor(ui_tokens(self).text_muted), max(1.2, widget_scaled(self, 1) * 1.2))
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+        painter.drawPolyline([
+            QPointF(x - arm, y - arm / 2.0),
+            QPointF(x, y + arm / 2.0),
+            QPointF(x + arm, y - arm / 2.0),
+        ])
+
+
 class TextRecognitionWindow(FrostedFramelessDialog):
     """image 是选区底图；识别在构造时就开始，结果回来再填进文本框"""
 
@@ -65,6 +126,7 @@ class TextRecognitionWindow(FrostedFramelessDialog):
     def __init__(self, image, parent=None, anchor=None):
         super().__init__(parent)
         self._anchor = anchor
+        self._lines = []
         scale_dialog_font(self)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         title_bar = FluentTitleBar(self)
@@ -75,11 +137,23 @@ class TextRecognitionWindow(FrostedFramelessDialog):
         title_bar.hBoxLayout.setContentsMargins(dialog_scaled(12), 0, 0, 0)
         self.setWindowTitle(_tr("Text recognition"))
 
+        self.pin_button = TitleBarPinButton(title_bar)
+        configure_dialog_control(self.pin_button)
+        self.pin_button.setChecked(get_tool_settings_manager().get_ocr_result_on_top())
+        self.pin_button.clicked.connect(self._on_toggle_pin)
+        title_bar.hBoxLayout.insertWidget(
+            title_bar.hBoxLayout.indexOf(title_bar.minBtn), self.pin_button)
+
         self.status_label = CaptionLabel(_tr("Recognizing..."), self)
         configure_dialog_control(self.status_label)
         self.text_edit = TextEdit(self)
         self.text_edit.setAcceptRichText(False)
         self.text_edit.setReadOnly(True)    # 识别中不给改，出结果再放开
+
+        self.layout_button = _LayoutMenuButton(_tr("Layout"), self)
+        configure_dialog_control(self.layout_button)
+        self.layout_button.setEnabled(False)
+        self.layout_button.clicked.connect(self._show_layout_menu)
 
         self.copy_button = PrimaryPushButton(_tr("Copy"), self)
         configure_dialog_control(self.copy_button)
@@ -95,6 +169,7 @@ class TextRecognitionWindow(FrostedFramelessDialog):
 
         footer = QHBoxLayout()
         footer.setSpacing(dialog_scaled(8))
+        footer.addWidget(self.layout_button)
         footer.addWidget(self.status_label, 1)
         footer.addWidget(self.copy_directly_check)
         footer.addWidget(self.copy_button)
@@ -109,6 +184,7 @@ class TextRecognitionWindow(FrostedFramelessDialog):
         root.addLayout(footer)
 
         self._apply_theme()
+        self._update_pin_tooltip()
         get_ui_theme().theme_changed.connect(self._apply_theme)
         self._place()
 
@@ -145,19 +221,116 @@ class TextRecognitionWindow(FrostedFramelessDialog):
         )
         self.move(window_position(position, self.size(), screen, self._anchor, cursor, last_center))
 
+    # ------------------------------------------------------------------
+    # 置顶
+    # ------------------------------------------------------------------
+    def showEvent(self, event):
+        super().showEvent(event)
+        # 只改窗口层级、不设 WindowStaysOnTopHint（原因见 set_window_topmost）。
+        # 代价是 Qt 不会替我们维持，显示时按当前状态设一次
+        set_window_topmost(int(self.winId()), self.pin_button.isChecked())
+
+    def _on_toggle_pin(self, checked):
+        get_tool_settings_manager().set_ocr_result_on_top(checked)
+        self._update_pin_tooltip()
+        set_window_topmost(int(self.winId()), checked)
+
+    def _update_pin_tooltip(self):
+        self.pin_button.setToolTip(
+            _tr("Always on top: ON") if self.pin_button.isChecked()
+            else _tr("Always on top: OFF"))
+
+    # ------------------------------------------------------------------
+    # 排版
+    # ------------------------------------------------------------------
+    def _show_layout_menu(self):
+        menu = self._build_layout_menu()
+        # 按钮贴着窗口底边，菜单只能往上展开
+        menu.exec(self.layout_button.mapToGlobal(QPoint(0, -menu.sizeHint().height())))
+        menu.deleteLater()
+
+    def _build_layout_menu(self):
+        """每次点开都按当前设置重建，勾选状态不用额外同步"""
+        manager = get_tool_settings_manager()
+        menu = QMenu(self)
+
+        mode = manager.get_ocr_layout_mode()
+        for value, label in _LAYOUT_LABELS:
+            action = menu.addAction(label())
+            action.setCheckable(True)
+            action.setChecked(value == mode)
+            action.triggered.connect(lambda _checked, chosen=value: self._set_layout_mode(chosen))
+
+        menu.addSeparator()
+        remove_spaces = menu.addAction(_tr("Remove spaces"))
+        remove_spaces.setCheckable(True)
+        remove_spaces.setChecked(manager.get_ocr_remove_spaces())
+        remove_spaces.triggered.connect(self._set_remove_spaces)
+
+        copy_on_close = menu.addAction(_tr("Copy text when closing"))
+        copy_on_close.setCheckable(True)
+        copy_on_close.setChecked(manager.get_ocr_copy_on_close())
+        copy_on_close.triggered.connect(manager.set_ocr_copy_on_close)
+
+        menu.addSeparator()
+        punctuation_menu = menu.addMenu(_tr("Punctuation"))
+        current = manager.get_ocr_punctuation()
+        for value, label in _PUNCTUATION_LABELS:
+            action = punctuation_menu.addAction(label())
+            action.setCheckable(True)
+            action.setChecked(value == current)
+            action.triggered.connect(lambda _checked, chosen=value: self._set_punctuation(chosen))
+
+        tokens = ui_tokens(self)
+        style_popup_menu(menu, tokens)
+        style_popup_menu(punctuation_menu, tokens)
+        avoid_submenu_overlap(menu)
+        return menu
+
+    def _set_layout_mode(self, mode):
+        get_tool_settings_manager().set_ocr_layout_mode(mode)
+        self._relayout()
+
+    def _set_remove_spaces(self, enabled):
+        get_tool_settings_manager().set_ocr_remove_spaces(enabled)
+        self._relayout()
+
+    def _set_punctuation(self, punctuation):
+        get_tool_settings_manager().set_ocr_punctuation(punctuation)
+        self._relayout()
+
+    def _relayout(self):
+        self._show_result(_render(self._lines))
+
+    def _show_result(self, text):
+        """换掉文本框的内容并更新字数。
+
+        走光标而不是 setPlainText：重排进得了撤销栈，用户改过的字一次 Ctrl+Z 就回来。
+        """
+        cursor = self.text_edit.textCursor()
+        cursor.beginEditBlock()
+        cursor.select(QTextCursor.SelectionType.Document)
+        cursor.insertText(text)
+        cursor.endEditBlock()
+        self.status_label.setText(_tr("Recognized %1 characters").replace("%1", str(len(text))))
+
+    # ------------------------------------------------------------------
     def _forget_thread(self):
         self._thread = None
 
-    def _on_recognized(self, text, reason):
+    def _on_recognized(self, lines, reason):
         if reason:
             self.status_label.setText(_reason_text(reason))
             return
 
-        log_info(T("文字识别完成: {count} 个字符", count=len(text)), "OCR")
+        self._lines = lines
         self.text_edit.setReadOnly(False)
-        self.text_edit.setPlainText(text)
-        self.status_label.setText(_tr("Recognized %1 characters").replace("%1", str(len(text))))
+        self._show_result(_render(lines))
+        # 第一次填进去的不算改动，否则一次 Ctrl+Z 会把结果清空
+        self.text_edit.document().clearUndoRedoStacks()
+        log_info(T("文字识别完成: {count} 个字符", count=len(self.text_edit.toPlainText())), "OCR")
         self.copy_button.setEnabled(True)
+        self.layout_button.setEnabled(True)
         self.text_edit.setFocus()
 
     def _copy(self):
@@ -171,6 +344,9 @@ class TextRecognitionWindow(FrostedFramelessDialog):
             self._thread.cancel()   # 结果不要了；线程自己跑完、自己回收
             self._thread = None
         manager = get_tool_settings_manager()
+        text = self.text_edit.toPlainText()
+        if manager.get_ocr_copy_on_close() and text:
+            QApplication.clipboard().setText(text)
         if manager.get_ocr_result_position() == "last_position":
             center = self.geometry().center()
             manager.set_ocr_result_last_center(center.x(), center.y())
@@ -184,10 +360,11 @@ class _RecognitionToast(Toast):
         super().__init__(_tr("Recognizing..."))
         recognize_async(image, self._on_recognized)
 
-    def _on_recognized(self, text, reason):
+    def _on_recognized(self, lines, reason):
         if reason:
             self.finish(_reason_text(reason))
             return
+        text = _render(lines)
         QApplication.clipboard().setText(text)
         log_info(T("文字识别完成并直接复制: {count} 个字符", count=len(text)), "OCR")
         self.finish(_tr("Copied %1 characters").replace("%1", str(len(text))))

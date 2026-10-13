@@ -392,14 +392,15 @@ mod tests {
 
         assert!(session.is_recording());
 
-        // 录制约 300ms
+        // 截取在 DXGI 会话建好或放弃之后才开始，没有显卡的 CI 上要一秒多，从第一帧起计时
+        wait_for_frames(&store, 1, Duration::from_secs(10));
         thread::sleep(Duration::from_millis(300));
 
         session.stop();
         assert!(session.is_stopped());
 
         let count = store.frame_count();
-        // 10fps × 0.3s ≈ 3 帧（允许 1~5）
+        // 第一帧加 10fps × 0.3s ≈ 4 帧
         assert!(count >= 1, "frame_count = {count}");
         assert!(count <= 6, "frame_count = {count}");
     }
@@ -415,7 +416,8 @@ mod tests {
             store.clone(), 0, 0, 64, 48, 10, true,
         ).unwrap();
 
-        // 录制 200ms
+        // 从第一帧起录制 200ms，理由同 record_session_basic
+        wait_for_frames(&store, 1, Duration::from_secs(10));
         thread::sleep(Duration::from_millis(200));
         let count1 = store.frame_count();
 

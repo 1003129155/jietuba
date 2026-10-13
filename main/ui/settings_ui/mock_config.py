@@ -40,10 +40,13 @@ APP_DEFAULT_SETTINGS = {
     "preload_clipboard": True,
     "screenshot_info_hide_on_drag": False,
     "screenshot_save_enabled": True,
+    "screenshot_pin_save_enabled": False,
+    "screenshot_save_original_enabled": False,
     "screenshot_save_path": os.path.join(os.path.expanduser("~"), "Pictures", "jietuba_photos"),
     "screenshot_format": "PNG",
     "screenshot_quality": 85,
     "clipboard_file_reference_enabled": True,
+    "screenshot_watermark_auto": False,
     "autostart_enabled": True,
     "show_main_window": True,
     "ocr_enabled": True,
@@ -53,6 +56,18 @@ APP_DEFAULT_SETTINGS = {
     "ocr_upscale_enabled": False,
     "ocr_upscale_factor": 2.0,
     "pin_auto_toolbar": True,
+    "pin_default_opacity": 1.0,
+    "pin_click_through_opacity": 0.5,
+    "pin_zoom_step": 10,
+    "pin_fine_zoom_step": 1,
+    "pin_opacity_step": 5,
+    "pin_zoom_anchor": "top_left",
+    "pin_auto_shrink": True,
+    "pin_border_resize": True,
+    "pin_lock_block_move": True,
+    "pin_lock_block_click_close": True,
+    "pin_lock_block_key_close": True,
+    "pin_lock_hint": True,
     "translation_provider": "google",
     "deepl_api_key": "",
     "deepl_use_pro": False,
@@ -74,6 +89,7 @@ APP_DEFAULT_SETTINGS = {
     "clipboard_close_after_paste": True,
     "clipboard_history_limit": 100,
     "clipboard_auto_cleanup": False,
+    "clipboard_special_paste": "",
     "magnifier_enabled": True,
     "magnifier_grid": False,
     "magnifier_hint": True,
@@ -92,6 +108,7 @@ APP_DEFAULT_SETTINGS = {
     "inapp_pin_reset_size": "mousemiddle",
     "inapp_thumbnail": "r",
     "inapp_toggle_toolbar": "space",
+    "inapp_pin_lock": "l",
     "inapp_zoom_in": "pageup",
     "inapp_zoom_out": "pagedown",
     "inapp_translate": "shift+c",
@@ -183,6 +200,10 @@ class MockConfig:
     def set_long_stitch_ignore_top_pixels(self, v): pass
     def get_screenshot_save_enabled(self): return True
     def set_screenshot_save_enabled(self, v): pass
+    def get_screenshot_pin_save_enabled(self): return False
+    def set_screenshot_pin_save_enabled(self, v): pass
+    def get_screenshot_save_original_enabled(self): return False
+    def set_screenshot_save_original_enabled(self, v): pass
     def get_screenshot_save_path(self): return os.path.join(os.path.expanduser("~"), "Pictures", "jietuba_photos")
     def set_screenshot_save_path(self, v): pass
     def get_screenshot_format(self): return "PNG"
@@ -191,6 +212,8 @@ class MockConfig:
     def set_screenshot_quality(self, v): pass
     def get_clipboard_file_reference_enabled(self): return True
     def set_clipboard_file_reference_enabled(self, v): pass
+    def get_screenshot_watermark_auto(self): return False
+    def set_screenshot_watermark_auto(self, v): pass
     def get_show_main_window(self): return True
     def set_show_main_window(self, v): pass
     def get_ocr_enabled(self): return True

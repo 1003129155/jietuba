@@ -1,12 +1,21 @@
 """Compact segmented selector with route-key compatibility."""
 
 from PySide6.QtCore import Signal
+from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QWidget
 
 from core.ui_scale import dialog_scaled
 from core.ui_theme import apply_style_sheet, get_ui_theme, set_own_style
 
-from .theme import ACCENT, FONT_FAMILY, ui_tokens
+from .theme import ACCENT, FONT_FAMILIES, FONT_FAMILY, ui_tokens
+
+
+def _bold_text_width(text: str) -> int:
+    font = QFont()
+    font.setFamilies(FONT_FAMILIES)
+    font.setPixelSize(dialog_scaled(12))
+    font.setWeight(QFont.Weight.DemiBold)
+    return QFontMetrics(font).horizontalAdvance(text)
 
 
 class SegmentedWidget(QWidget):
@@ -52,6 +61,8 @@ class SegmentedWidget(QWidget):
         button = QPushButton(str(text), self)
         button.setCheckable(True)
         apply_style_sheet(button, self._style())
+        # 选中项字重变粗；宽度按粗体量好，否则文字被裁
+        button.setMinimumWidth(_bold_text_width(str(text)) + 2 * dialog_scaled(14) + 2)
         button.clicked.connect(lambda checked=False, key=routeKey: self._on_clicked(key))
         if onClick:
             button.clicked.connect(onClick)

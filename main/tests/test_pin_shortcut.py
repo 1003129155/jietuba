@@ -15,10 +15,12 @@ pin_shortcut.py 决定了鼠标悬停在钉图上时按键会发生什么，此�
 - 鼠标下方钉图的查找：上层优先，且要跳过已销毁的窗口；截图期间钉图
   被压在截图层下面，不算在鼠标下方。
 """
+from types import SimpleNamespace
+
 import pytest
 from PySide6.QtCore import Qt, QRect, QPoint, QPointF, QEvent
 from PySide6.QtGui import QKeyEvent, QMouseEvent, QCursor
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QDialog
 
 
 @pytest.fixture(scope="module")
@@ -71,7 +73,8 @@ class FakeCanvas:
 class FakePin:
     """只实现 Handler 会用到的那部分钉图接口"""
 
-    def __init__(self, rect=QRect(0, 0, 100, 100), editing=False, ocr_layer=None):
+    def __init__(self, rect=QRect(0, 0, 100, 100), editing=False, ocr_layer=None,
+                 locked=False, click_through=False):
         self._rect = rect
         self.canvas = FakeCanvas(editing)
         self.ocr_text_layer = ocr_layer
@@ -80,6 +83,8 @@ class FakePin:
         self._is_closed = False
 
         self._thumbnail_mode = False
+        self._locked = locked
+        self._click_through = click_through
 
         self.copied = 0
         self.text_copied = 0
@@ -87,6 +92,8 @@ class FakePin:
         self.thumbnail_toggled = 0
         self.toolbar_toggled = 0
         self.size_resets = 0
+        self.lock_toggles = 0
+        self.locked_hints = 0
 
     def geometry(self):
         return self._rect
@@ -99,6 +106,21 @@ class FakePin:
 
     def close_window(self):
         self.closed += 1
+
+    def close_unless_locked(self, kind="key_close"):
+        if self._lock_blocks(kind):
+            self.show_locked_hint()
+        else:
+            self.close_window()
+
+    def _lock_blocks(self, kind):
+        return self._locked
+
+    def toggle_lock(self):
+        self.lock_toggles += 1
+
+    def show_locked_hint(self):
+        self.locked_hints += 1
 
     def toggle_thumbnail_mode(self):
         self.thumbnail_toggled += 1
@@ -264,6 +286,30 @@ class TestNormalModeKeys:
         assert normal_handler.handle_key(_key_event(Qt.Key.Key_R)) is True
         assert pin.thumbnail_toggled == 1
 
+    def test_lock_key_toggles_the_lock(self, normal_handler):
+        pin = FakePin(editing=False)
+        normal_handler._controller.pin = pin
+        _bind(normal_handler, "inapp_pin_lock", Qt.Key.Key_L)
+
+        assert normal_handler.handle_key(_key_event(Qt.Key.Key_L)) is True
+        assert pin.lock_toggles == 1
+
+    def test_escape_does_not_close_a_locked_pin(self, normal_handler):
+        """锁定就是为了防误关：Esc 只提示，按键照样吞掉，不往下传"""
+        pin = FakePin(editing=False, locked=True)
+        normal_handler._controller.pin = pin
+
+        assert normal_handler.handle_key(_key_event(Qt.Key.Key_Escape)) is True
+        assert (pin.closed, pin.locked_hints) == (0, 1)
+
+    def test_thumbnail_key_does_not_shrink_a_locked_pin(self, normal_handler):
+        pin = FakePin(editing=False, locked=True)
+        normal_handler._controller.pin = pin
+        _bind(normal_handler, "inapp_thumbnail", Qt.Key.Key_R)
+
+        assert normal_handler.handle_key(_key_event(Qt.Key.Key_R)) is True
+        assert (pin.thumbnail_toggled, pin.locked_hints) == (0, 1)
+
     def test_unknown_key_is_passed_through(self, normal_handler):
         """不认识的按键必须放行，否则会吞掉其它模块的快捷键"""
         normal_handler._controller.pin = FakePin(editing=False)
@@ -349,12 +395,75 @@ class TestEditModeKeys:
         edit_handler._controller.pin = FakePin(editing=True)
         assert edit_handler.handle_key(_key_event(Qt.Key.Key_A)) is False
 
+    def test_lock_key_is_left_to_text_input(self, edit_handler):
+        """编辑时 L 可能是在文字框里打字，不能被锁定吞掉"""
+        pin = FakePin(editing=True)
+        edit_handler._controller.pin = pin
+        _bind(edit_handler, "inapp_pin_lock", Qt.Key.Key_L)
+
+        assert edit_handler.handle_key(_key_event(Qt.Key.Key_L)) is False
+        assert pin.lock_toggles == 0
+
     def test_keys_are_ignored_when_not_editing(self, edit_handler):
         pin = FakePin(editing=False)
         edit_handler._controller.pin = pin
 
         assert edit_handler.handle_key(_key_event(Qt.Key.Key_Escape)) is False
         assert pin.canvas.deactivated == 0
+
+
+# ============================================================================
+# 模态对话框
+# ============================================================================
+
+class TestModalDialogOwnsTheKeyboard:
+    """
+    钉图里弹出的模态对话框（水印输入框、调整排布）可能叠在钉图上方，鼠标停在那里时
+    按键也归对话框：否则第一下 ESC 退出编辑、第二下直接把钉图关掉。
+    """
+
+    @pytest.fixture
+    def active_window(self, monkeypatch):
+        state = {"window": None}
+        monkeypatch.setattr("pin.pin_shortcut.QApplication",
+                            SimpleNamespace(activeWindow=lambda: state["window"]))
+        return state
+
+    @staticmethod
+    def _dialog(modal):
+        dialog = QDialog()
+        if modal:
+            dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        return dialog
+
+    @pytest.mark.parametrize("editing", [True, False])
+    def test_escape_is_left_to_a_modal_dialog(self, edit_handler, normal_handler, active_window, editing):
+        pin = FakePin(editing=editing)
+        edit_handler._controller.pin = pin
+        normal_handler._controller.pin = pin
+        active_window["window"] = self._dialog(modal=True)
+
+        assert edit_handler.handle_key(_key_event(Qt.Key.Key_Escape)) is False
+        assert normal_handler.handle_key(_key_event(Qt.Key.Key_Escape)) is False
+        assert pin.closed == 0
+        assert pin.canvas.deactivated == 0
+
+    def test_a_non_modal_active_window_does_not_block_pin_keys(self, normal_handler, active_window):
+        pin = FakePin(editing=False)
+        normal_handler._controller.pin = pin
+        active_window["window"] = self._dialog(modal=False)
+
+        assert normal_handler.handle_key(_key_event(Qt.Key.Key_Escape)) is True
+        assert pin.closed == 1
+
+    def test_middle_click_still_reaches_the_pin(self, normal_handler, active_window):
+        pin = FakePin(editing=False)
+        normal_handler._controller.pin = pin
+        _bind_middle(normal_handler, "inapp_copy_pin")
+        active_window["window"] = self._dialog(modal=True)
+
+        assert normal_handler.handle_mouse(_middle_click_event()) is True
+        assert pin.copied == 1
 
 
 # ============================================================================
@@ -392,6 +501,14 @@ class TestSharedKeys:
 
         assert handler.handle_mouse(_middle_click_event()) is True
         assert pin.size_resets == 1
+
+    def test_reset_size_does_not_resize_a_locked_pin(self, handler_and_pin):
+        handler, pin = handler_and_pin
+        pin._locked = True
+        _bind_middle(handler, "inapp_pin_reset_size")
+
+        assert handler.handle_mouse(_middle_click_event()) is True
+        assert (pin.size_resets, pin.locked_hints) == (0, 1)
 
     def test_reset_size_is_unavailable_in_thumbnail_mode(self, handler_and_pin):
         """缩略图的窗口尺寸由缩略图逻辑决定，与右键菜单一样不提供此项"""
@@ -451,6 +568,19 @@ class TestFindPinUnderCursor:
         controller.register(above)
 
         assert controller._find_pin_under_cursor() is above
+
+    def test_click_through_pins_do_not_take_keys(self, controller, monkeypatch):
+        """穿透的钉图下面是用户正在操作的窗口，按键要落到下一张普通钉图或谁也不给"""
+        monkeypatch.setattr(QCursor, "pos", staticmethod(lambda: QPoint(50, 50)))
+        below = FakePin(rect=QRect(0, 0, 100, 100))
+        above = FakePin(rect=QRect(0, 0, 100, 100), click_through=True)
+        controller.register(below)
+        controller.register(above)
+
+        assert controller._find_pin_under_cursor() is below
+
+        below._click_through = True
+        assert controller._find_pin_under_cursor() is None
 
     def test_closed_pins_are_skipped_and_pruned(self, controller, monkeypatch):
         """已关闭的窗口不能再接收按键，也应从列表里清掉"""

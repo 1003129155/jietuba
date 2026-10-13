@@ -1,6 +1,6 @@
 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
   <g transform="rotate(-45 12 12)" fill="none" stroke="black" stroke-width="1.8" stroke-linejoin="round">
-    <rect x="4.5" y="7.5" width="15" height="9" rx="2"/>
-    <path d="M9.5 7.5V16.5"/>
+    <rect x="5" y="8" width="14" height="8" rx="2"/>
+    <path d="M9.5 8V16"/>
   </g>
 </svg>

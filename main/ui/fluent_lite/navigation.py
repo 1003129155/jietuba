@@ -3,13 +3,15 @@
 from enum import Enum
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QIcon, QPainter
 from PySide6.QtWidgets import QButtonGroup, QPushButton, QVBoxLayout, QWidget
 
+from core import safe_event
 from core.ui_scale import dialog_scaled
 from core.ui_theme import apply_style_sheet, get_ui_theme, set_own_style
 
-from .theme import ACCENT, FONT_FAMILY, tinted_icon, to_qicon, ui_tokens
+from .cards import FEATURE_TONES
+from .theme import ACCENT, FONT_FAMILY, css_color, tinted_icon, ui_tokens
 
 
 class NavigationItemPosition(Enum):
@@ -17,11 +19,27 @@ class NavigationItemPosition(Enum):
     BOTTOM = 1
 
 
+class _NavSeparator(QWidget):
+    """导航分组之间的细线，两端留出和选中胶囊对齐的内缩。"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedHeight(dialog_scaled(11))
+
+    @safe_event
+    def paintEvent(self, e):
+        inset = dialog_scaled(13)
+        y = self.height() // 2
+        painter = QPainter(self)
+        painter.fillRect(inset, y, self.width() - 2 * inset, 1, css_color(ui_tokens(self).separator))
+
+
 class NavigationInterface(QWidget):
     def __init__(self, parent=None, showMenuButton=False, showReturnButton=False, collapsible=False):
         super().__init__(parent)
         self._items = {}
         self._icons = {}
+        self._tones = {}
         self._current = None
         self._group = QButtonGroup(self)
         self._group.setExclusive(True)
@@ -38,7 +56,12 @@ class NavigationInterface(QWidget):
         set_own_style(self, "background: transparent;")
         get_ui_theme().theme_changed.connect(self._apply_theme)
 
-    def addItem(self, routeKey, icon, text, onClick, position=NavigationItemPosition.TOP, tooltip=None):
+    def addSeparator(self):
+        """在顶部列表当前末尾加一条分组线。"""
+        self._top.addWidget(_NavSeparator(self))
+
+    def addItem(self, routeKey, icon, text, onClick, position=NavigationItemPosition.TOP, tooltip=None,
+                tone=None):
         button = QPushButton(str(text), self)
         button.setObjectName("FluentLiteNavItem")
         button.setCheckable(True)
@@ -55,6 +78,7 @@ class NavigationInterface(QWidget):
         self._group.addButton(button)
         self._items[routeKey] = button
         self._icons[routeKey] = icon
+        self._tones[routeKey] = tone
         button.toggled.connect(lambda _checked, key=routeKey: self._apply_icon(key))
         self._style_button(button)
         self._apply_icon(routeKey)
@@ -75,13 +99,19 @@ class NavigationInterface(QWidget):
         """)
 
     def _apply_icon(self, route_key):
-        """选中项的图标跟文字一起换成强调色，其余跟正文色。"""
+        """选中项的图标跟文字一起换成强调色，其余按所属功能的色相（无功能的用中性蓝灰）。"""
         button = self._items[route_key]
         icon = self._icons[route_key]
-        if button.isChecked() and not isinstance(icon, QIcon):
-            button.setIcon(tinted_icon(icon, ui_tokens(button).accent_text))
+        if isinstance(icon, QIcon):
+            button.setIcon(icon)
+            return
+        tokens = ui_tokens(button)
+        if button.isChecked():
+            color = tokens.accent_text
         else:
-            button.setIcon(to_qicon(icon, button))
+            tone = self._tones.get(route_key) or "neutral"
+            color = FEATURE_TONES[tone][1 if tokens.is_dark else 0][1]
+        button.setIcon(tinted_icon(icon, color))
 
     def _apply_theme(self, _tokens=None):
         for route_key, button in self._items.items():

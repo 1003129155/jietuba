@@ -43,7 +43,6 @@ def _option_fields(prefix: str) -> tuple:
             f"{prefix}_json_mode", "JSON Mode",
             "Ask for JSON replies. If the service rejects it, the request is "
             "retried without; turn it off to skip that retry",
-            icon_name="DOCUMENT",
         ),
     )
 

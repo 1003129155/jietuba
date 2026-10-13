@@ -9,7 +9,7 @@ from PySide6.QtGui import QColor
 from core.ui_scale import configure_dialog_controls, dialog_scaled
 from ui.fluent_lite import (
     SettingCard as FSettingCard, FluentIcon,
-    ComboBox, CaptionLabel, ColorSwatchButton, SwitchSettingCard,
+    ComboBox, CaptionLabel, ColorSwatchButton,
 )
 from .components import SettingCardGroup, theme_menu_style, page_scroll_area
 from core.ui_theme import set_own_style
@@ -55,17 +55,12 @@ def create_appearance_page(dialog) -> QWidget:
     layout.addWidget(grp_app)
 
     # ── 截图外观 ──────────────────────────────────────
-    grp_ss = SettingCardGroup(dialog.tr("Screenshot"), view)
+    grp_ss = SettingCardGroup(dialog.tr("Screenshot"), view, tone="capture")
     _build_screenshot_section(dialog, grp_ss)
     layout.addWidget(grp_ss)
 
-    # ── 钉图外观 ──────────────────────────────────────
-    grp_pin = SettingCardGroup(dialog.tr("Pin"), view)
-    _build_pin_section(dialog, grp_pin)
-    layout.addWidget(grp_pin)
-
     # ── 剪贴板外观 ────────────────────────────────────
-    grp_clip = SettingCardGroup(dialog.tr("Clipboard"), view)
+    grp_clip = SettingCardGroup(dialog.tr("Clipboard"), view, tone="clipboard")
     _build_clipboard_section(dialog, grp_clip)
     layout.addWidget(grp_clip)
 
@@ -272,60 +267,6 @@ def _build_selection_handle_size_card(dialog, grp: SettingCardGroup):
     dialog._selection_handle_size_combo.setCurrentIndex(max(0, index))
     card.addControl(dialog._selection_handle_size_combo)
     grp.addSettingCard(card)
-
-
-# ================================================================
-# 钉图外观
-# ================================================================
-
-def _build_pin_section(dialog, grp: SettingCardGroup):
-    """钉图外观：系统圆角阴影、新钉图描边、悬停按钮。
-
-    圆角和按钮保存后已打开的钉图立即跟上；描边只决定之后新建的钉图，已有钉图在右键菜单里单独开关。
-    """
-    from core.platform_utils import supports_window_corner_preference
-    from settings import get_tool_settings_manager
-    config = get_tool_settings_manager()
-    if not hasattr(dialog, '_behavior_controls'):
-        dialog._behavior_controls = {}
-
-    # 圆角和阴影是 Windows 11 加的，更早的系统上没有，也就不给这个开关
-    if supports_window_corner_preference():
-        corners_card = SwitchSettingCard(
-            FluentIcon.LAYOUT,
-            dialog.tr("Rounded Corners and Shadow"),
-            dialog.tr(
-                "Windows 11 rounds the corners of pinned images and adds a shadow. "
-                "Turn off to show the whole image with square corners and no shadow."
-            ),
-            parent=grp,
-        )
-        corners_card.setChecked(config.get_app_setting("pin_rounded_corners"))
-        dialog._behavior_controls["pin_rounded_corners"] = corners_card
-        grp.addSettingCard(corners_card)
-
-    border_card = SwitchSettingCard(
-        FluentIcon.PALETTE,
-        dialog.tr("Auto Border"),
-        dialog.tr("New pinned images get a theme-colored border. Each image can still toggle it from the right-click menu."),
-        parent=grp,
-    )
-    border_card.setChecked(config.get_app_setting("pin_auto_border"))
-    dialog._behavior_controls["pin_auto_border"] = border_card
-    grp.addSettingCard(border_card)
-
-    buttons_card = SwitchSettingCard(
-        FluentIcon.CLOSE,
-        dialog.tr("Hover Buttons"),
-        dialog.tr(
-            "Show the close and toolbar buttons in the top-right corner when the mouse "
-            "is over a pinned image. When off, use the right-click menu or shortcuts."
-        ),
-        parent=grp,
-    )
-    buttons_card.setChecked(config.get_app_setting("pin_hover_buttons"))
-    dialog._behavior_controls["pin_hover_buttons"] = buttons_card
-    grp.addSettingCard(buttons_card)
 
 
 # ================================================================

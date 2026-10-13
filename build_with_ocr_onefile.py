@@ -17,7 +17,7 @@ import sys
 
 LITE = "--lite" in sys.argv[1:]
 
-from main.video_helper import installed_recorder_licenses
+from main.video.helper import installed_recorder_licenses
 
 # 路径配置
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -50,7 +50,7 @@ hidden_imports = [
     'gifrecorder',
     'oneocr',
     'video_recorder',
-    'video_worker',
+    'video.worker',
     'hdrcapture',
     'inputhub',
     'zxingcpp',
@@ -261,7 +261,7 @@ a = Analysis(
     hiddenimports={hidden_repr},
     hookspath=[],
     hooksconfig={{}},
-    runtime_hooks=['main/video_worker_hook.py'],
+    runtime_hooks=['main/video/worker_hook.py'],
     excludes={excl_repr},
     noarchive=False,
     optimize=0,

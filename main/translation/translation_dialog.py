@@ -36,7 +36,7 @@ from core.ui_scale import configure_dialog_control, dialog_scaled, get_dialog_sc
 from .ui.widgets import EllipsisAnimator
 from core.resource_manager import ResourceManager
 from settings import get_tool_settings_manager
-from ui.fluent_lite import FluentTitleBar, TextEdit
+from ui.fluent_lite import FluentTitleBar, TextEdit, TitleBarPinButton
 from .languages import TRANSLATION_LANGUAGES
 
 
@@ -243,56 +243,26 @@ class TranslateButton(QAbstractButton):
         painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, self.text())
 
 
-class PinIconButton(QAbstractButton):
-    """Background-free always-on-top toggle using the pin SVG asset."""
+class _DashboardPinButton(TitleBarPinButton):
+    """Pin toggle wearing the dashboard palette instead of the app theme."""
 
-    def __init__(self, parent: QWidget | None = None):
-        super().__init__(parent)
-        self._palette = DARK
-        self.icon_path = ResourceManager.get_icon_path("钉图.svg")
-        self._icon = ResourceManager.get_icon(self.icon_path)
-        self.setAccessibleName(_tr("Toggle always on top"))
-        self.setCheckable(True)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedSize(dialog_scaled(32), dialog_scaled(32))
+    _palette = DARK
 
     def apply_palette(self, palette: Palette) -> None:
         self._palette = palette
         self.update()
 
-    def enterEvent(self, event) -> None:
-        self.update()
-        super().enterEvent(event)
-
-    def leaveEvent(self, event) -> None:
-        self.update()
-        super().leaveEvent(event)
-
-    def paintEvent(self, event) -> None:
-        del event
-        side = dialog_scaled(20)
-        pixmap = self._icon.pixmap(side, side)
-        if pixmap.isNull():
-            return
-
+    def _colors(self):
+        palette = self._palette
         if self.isChecked():
-            color = self._palette.accent
-        elif self.underMouse():
-            color = self._palette.text
-        else:
-            color = self._palette.text_2
-
-        icon_painter = QPainter(pixmap)
-        icon_painter.setCompositionMode(
-            QPainter.CompositionMode.CompositionMode_SourceIn
-        )
-        icon_painter.fillRect(pixmap.rect(), QColor(color))
-        icon_painter.end()
-
-        painter = QPainter(self)
-        x = (self.width() - pixmap.width()) // 2
-        y = (self.height() - pixmap.height()) // 2
-        painter.drawPixmap(x, y, pixmap)
+            tint = QColor(palette.accent)
+            tint.setAlpha(41)       # 与 accent_tint 的透明度一致
+            return QColor(palette.accent), tint
+        if self.isDown():
+            return QColor(palette.text), palette.fill_hover_color
+        if self.underMouse():
+            return QColor(palette.text), palette.fill_color
+        return QColor(palette.text_2), QColor(0, 0, 0, 0)
 
 
 class DashboardTitleBar(FluentTitleBar):
@@ -329,13 +299,13 @@ class DashboardTitleBar(FluentTitleBar):
         self.app_name.setText("jietuba")
         self.app_name.setObjectName("appName")
 
-        self.pin_button = PinIconButton(self)
+        self.pin_button = _DashboardPinButton(self)
+        configure_dialog_control(self.pin_button)
         self.pin_button.setObjectName("pinButton")
+        self.pin_button.setAccessibleName(_tr("Toggle always on top"))
         self.update_translations()
 
-        controls_index = self.hBoxLayout.indexOf(self.minBtn)
-        self.hBoxLayout.insertWidget(controls_index, self.pin_button)
-        self.hBoxLayout.insertSpacing(controls_index + 1, dialog_scaled(8))
+        self.hBoxLayout.insertWidget(self.hBoxLayout.indexOf(self.minBtn), self.pin_button)
 
     def update_translations(self) -> None:
         self.pin_button.setAccessibleName(_tr("Toggle always on top"))
@@ -397,7 +367,6 @@ class TranslationDialog(FramelessWindow):
     """Translation window retaining the existing manager-facing API."""
 
     translate_requested = Signal(str, str, str)
-    _stay_on_top = True
     MINIMUM_WIDTH = 860
     MINIMUM_HEIGHT = 560
     DEFAULT_WIDTH = 1000
@@ -424,7 +393,7 @@ class TranslationDialog(FramelessWindow):
         config = get_tool_settings_manager()
         saved_target_lang = config.get_app_setting("translation_target_lang", "")
         self.target_lang = saved_target_lang or target_lang or "ZH"
-        self._is_on_top = TranslationDialog._stay_on_top
+        self._is_on_top = get_tool_settings_manager().get_translation_on_top()
 
         self.setObjectName("dashboardWindow")
         self.setWindowTitle("jietuba")
@@ -714,7 +683,7 @@ class TranslationDialog(FramelessWindow):
 
     def _on_toggle_pin(self, checked: bool) -> None:
         self._is_on_top = checked
-        TranslationDialog._stay_on_top = checked
+        get_tool_settings_manager().set_translation_on_top(checked)
         self._update_pin_tooltip()
         set_window_topmost(int(self.winId()), checked)
         log_debug(f"Always on top: {checked}", "Translation")

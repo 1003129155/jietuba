@@ -1,5 +1,5 @@
 """
-截图工具栏排布对话框：拖左侧手柄调整顺序，下拉框选择每个按钮的显示方式
+截图 / 钉图工具栏排布对话框：拖左侧手柄调整顺序，下拉框选择每个按钮的显示方式
 
 对话框只负责编辑；读写配置、重排工具栏由调用方 Toolbar._open_layout_dialog 完成。
 拖动换位那套在 ui.reorderable_rows 里，和放大镜的颜色格式对话框共用。
@@ -18,7 +18,7 @@ from ui.fluent_lite import (
 )
 from ui.reorderable_rows import DraggableRow, ReorderableRowList
 from ui.toolbar_layout import (
-    DEFAULT_ORDER, HIDE, LOCKED, MORE, SHOW, default_layout, normalize_layout,
+    HIDE, MORE, SCREENSHOT, SHOW, default_layout, normalize_layout,
 )
 from core.ui_theme import set_own_style
 
@@ -28,6 +28,7 @@ _tr = make_tr("ToolbarLayoutDialog")
 BUTTON_NAMES = {
     "long_screenshot": "Long screenshot",
     "save": "Save",
+    "copy": "Copy",
     "screenshot_translate": "Screenshot translate",
     "text_recognize": "Recognize text",
     "scan_code": "Scan code",
@@ -36,6 +37,7 @@ BUTTON_NAMES = {
     "highlighter": "Highlighter",
     "mosaic": "Mosaic",
     "spotlight": "Spotlight",
+    "watermark": "Watermark",
     "arrow": "Arrow",
     "number": "Number",
     "rect": "Rectangle",
@@ -98,10 +100,11 @@ class _Row(DraggableRow):
 
 
 class ToolbarLayoutDialog(QDialog):
-    """编辑截图工具栏排布。layout 为 [(按钮, 显示方式)]，icons 为 按钮 → QIcon。"""
+    """编辑一个工具栏的排布。layout 为 [(按钮, 显示方式)]，icons 为 按钮 → QIcon，profile 为这个工具栏的排布规则。"""
 
-    def __init__(self, layout, icons, parent=None):
+    def __init__(self, layout, icons, parent=None, profile=SCREENSHOT):
         super().__init__(parent)
+        self._profile = profile
         scale_dialog_font(self)
         self.setWindowTitle(_tr("Customize Toolbar"))
         # 从全屏置顶的截图窗口里打开，和截图里的取色对话框一样置顶，免得被截图窗口盖住
@@ -116,7 +119,7 @@ class ToolbarLayoutDialog(QDialog):
         self._list = ReorderableRowList(self)
 
         # 固定按钮不显示灰色禁用行；这里只为真正可调整的按钮创建界面。
-        self._rows = {key: _Row(key, icons[key]) for key in DEFAULT_ORDER if key not in LOCKED}
+        self._rows = {key: _Row(key, icons[key]) for key in profile.order if key not in profile.locked}
 
         hint = CaptionLabel(
             _tr("Drag the handle to reorder. Use the drop-down to change visibility."), self)
@@ -124,7 +127,7 @@ class ToolbarLayoutDialog(QDialog):
 
         reset_btn = TransparentPushButton(_tr("Restore defaults"), self)
         configure_dialog_control(reset_btn)
-        reset_btn.clicked.connect(lambda: self._fill(default_layout()))
+        reset_btn.clicked.connect(lambda: self._fill(default_layout(profile)))
         ok_btn = PrimaryPushButton(_tr("OK"), self)
         configure_dialog_control(ok_btn)
         ok_btn.clicked.connect(self.accept)
@@ -156,15 +159,16 @@ class ToolbarLayoutDialog(QDialog):
         entries = [(row.key, row.mode()) for row in self._list.rows()]
         for index, key in self._locked_slots:
             entries.insert(min(index, len(entries)), (key, SHOW))
-        return normalize_layout(entries)
+        return normalize_layout(entries, self._profile)
 
     def _fill(self, layout):
         """按排布摆放各行、设置下拉框"""
-        normalized = normalize_layout(layout)
+        locked = self._profile.locked
+        normalized = normalize_layout(layout, self._profile)
         self._locked_slots = [
-            (index, key) for index, (key, _mode) in enumerate(normalized) if key in LOCKED
+            (index, key) for index, (key, _mode) in enumerate(normalized) if key in locked
         ]
-        editable = [(key, mode) for key, mode in normalized if key not in LOCKED]
+        editable = [(key, mode) for key, mode in normalized if key not in locked]
         for index, (key, mode) in enumerate(editable):
             row = self._rows[key]
             self._list.add_row(row, index)

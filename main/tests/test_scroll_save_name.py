@@ -1,10 +1,14 @@
-"""长截图保存的文件名按界面语言取，横竖方向也一样。"""
+"""长截图的保存：完成和钉图都走截图的统一出口，文件名按界面语言取，横竖方向也一样。"""
+
+from unittest.mock import MagicMock
 
 import pytest
 from PIL import Image
 from PySide6.QtCore import QRect, QTranslator
 
 from core.i18n import I18nManager
+from pin.pin_manager import PinManager
+from stitch import scroll_window
 from stitch.scroll_window import ScrollCaptureWindow
 
 
@@ -24,17 +28,34 @@ def window(qapp, monkeypatch):
     ("ja", "horizontal", "長スクショ", "横"),
     ("ko", "vertical", "긴 스크린샷", "세로"),
 ])
-def test_file_name_follows_the_interface_language(qapp, window, monkeypatch, language, direction, prefix, suffix):
-    calls = []
-    monkeypatch.setattr(window.save_service, "save_pil_async", lambda image, **kwargs: calls.append(kwargs) or "saved")
-    window.stitched_result = Image.new("RGB", (8, 8))
+def test_file_name_follows_the_interface_language(qapp, window, language, direction, prefix, suffix):
     window.scroll_direction = direction
     # 只临时叠一层这个语言的翻译，不动全局语言设置，免得影响别的测试
     translator = QTranslator()
     assert translator.load(str(I18nManager.get_translations_dir() / f"app_{language}.qm"))
     qapp.installTranslator(translator)
     try:
-        window._save_result()
+        file_prefix = window._file_prefix()
     finally:
         qapp.removeTranslator(translator)
-    assert (calls[0]["prefix"], calls[0]["suffix"]) == (prefix, suffix)
+    assert file_prefix == f"{prefix}_{suffix}"
+
+
+@pytest.mark.parametrize("pin", [False, True])
+def test_finish_and_pin_go_through_the_screenshot_exit(qapp, window, monkeypatch, pin):
+    delivered = []
+    monkeypatch.setattr(scroll_window, "deliver_screenshot",
+                        lambda image, config, **kwargs: delivered.append((image.size().toTuple(), config, kwargs)))
+    pins = MagicMock()
+    monkeypatch.setattr(PinManager, "instance", lambda: pins)
+    monkeypatch.setattr(window, "_capture_pending_now", lambda: None)
+    monkeypatch.setattr(window, "_export_result", lambda: Image.new("RGB", (30, 500), "white"))
+    window.config_manager = MagicMock()
+    file_prefix = window._file_prefix()
+
+    window._on_pin() if pin else window._on_finish()
+
+    expected = dict(copy_to_clipboard=False, trigger="pin") if pin else {}
+    assert delivered == [((30, 500), window.config_manager, dict(expected, file_prefix=file_prefix))]
+    assert pins.create_pin.called is pin
+    assert not window.isVisible()

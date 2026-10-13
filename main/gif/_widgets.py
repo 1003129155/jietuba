@@ -25,11 +25,13 @@ def toolbar_style() -> str:
 
 def popup_menu(menu: QMenu, anchor, below=True):
     """异步显示按钮旁的浮层，靠屏幕边缘时自动翻转。"""
+    # 浮层固定浅色，文字色必须写在 ::item 上：全局样式表按界面主题给
+    # QMenu::item 设了文字色，只写在 QMenu 上压不住，深色模式下会变成白字。
     menu.setStyleSheet(f"""
         QMenu {{ background: #fcfdff; color: #2a3243; border: 1px solid #dce2eb;
                  border-radius: {scaled(8)}px; padding: {scaled(6)}px; }}
         QMenu::item {{ padding: {scaled(7)}px {scaled(22)}px; font-size: {scaled(12)}px;
-                      border-radius: {scaled(4)}px; }}
+                      border-radius: {scaled(4)}px; color: #2a3243; }}
         QMenu::item:selected {{ background: #e6edf6; }}
         QMenu::item:disabled {{ color: #929baa; }}
         QMenu::separator {{ height: 1px; background: #e1e6ee; margin: {scaled(4)}px; }}

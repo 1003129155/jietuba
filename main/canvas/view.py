@@ -214,13 +214,21 @@ class CanvasView(QGraphicsView):
             viewport.setCursor(cursor)
 
     def set_fullscreen_crosshair(self, enabled, overlay=None):
-        """Replace the ordinary cross cursor using the existing screenshot mask."""
+        """框选阶段用遮罩上画的全屏准星替换十字光标；选区确认后绘制工具用回普通十字光标。"""
         old_overlay = getattr(self, '_crosshair_surface', None)
         if old_overlay is not None:
             old_overlay.set_crosshair_position(None)
         was_active = getattr(self, '_crosshair_active', False)
+        was_enabled = getattr(self, '_fullscreen_crosshair', False)
         self._crosshair_surface = overlay
         self._fullscreen_crosshair = bool(enabled and overlay is not None)
+        if self._fullscreen_crosshair != was_enabled:
+            # 确认选区那一刻就换回十字光标，不等下一次鼠标移动
+            confirmed = self.canvas_scene.selectionConfirmed
+            if self._fullscreen_crosshair:
+                confirmed.connect(self._sync_fullscreen_crosshair)
+            else:
+                confirmed.disconnect(self._sync_fullscreen_crosshair)
         self._crosshair_active = False
         self._crosshair_inside = self.viewport().underMouse()
         self._crosshair_global_pos = QCursor.pos()
@@ -237,11 +245,16 @@ class CanvasView(QGraphicsView):
         try:
             viewport = self.viewport()
             shape = viewport.cursor().shape()
-            if shape == Qt.CursorShape.CrossCursor:
+            selecting = not self.canvas_scene.selection_model.is_confirmed
+            if shape == Qt.CursorShape.CrossCursor and selecting:
                 self._crosshair_active = True
                 viewport.setCursor(Qt.CursorShape.BlankCursor)
             elif shape != Qt.CursorShape.BlankCursor:
                 self._crosshair_active = False
+            elif self._crosshair_active and not selecting:
+                # 空白光标是框选时换上的，确认选区后换回十字光标
+                self._crosshair_active = False
+                viewport.setCursor(Qt.CursorShape.CrossCursor)
             position = None
             if self._crosshair_active and self._crosshair_inside:
                 position = self._crosshair_surface.mapFromGlobal(self._crosshair_global_pos)

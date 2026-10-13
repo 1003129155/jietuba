@@ -45,6 +45,7 @@ _CAPTURE_MOUSE_ICONS = {
 
 _PIN_MOUSE_ICONS = {
     "zoom": FluentIcon.SEARCH,
+    "fine_zoom": FluentIcon.SEARCH,
     "opacity": FluentIcon.TRANSPARENT,
     # 工具栏的“关闭.svg”自带红色圆形底；作为可着色的行图标时，
     # 底和白色叉号会合并成一整块蒙版，因此这里使用纯叉号图标。
@@ -93,7 +94,7 @@ class MouseBindingEditor(QWidget):
         layout.setSpacing(dialog_scaled(8))
         self.modifiers = ComboBox(self)
         for value in _GLOBAL_MODIFIERS if kind == "global" else _INAPP_MODIFIERS:
-            label = value.title() if value else ("" if kind == "global" else dialog.tr("No Modifier"))
+            label = value.title() if value else ("—" if kind == "global" else dialog.tr("No Modifier"))
             self.modifiers.addItem(label, userData=value)
         self.gesture = ComboBox(self)
         for value, label in (("", "No Action"),) + _MOUSE_GESTURES[kind]:
@@ -165,7 +166,7 @@ def _build_mouse_rows(dialog, *, actions, key_prefix, action_icons, binding_gett
 
 def _create_global_section(dialog, parent):
     group = SectionCard(
-        ResourceManager.get_icon_path("鼠标.svg"),
+        ResourceManager.get_icon_path("鼠标线框.svg"),
         dialog.tr("Global Mouse Shortcuts"),
         dialog.tr("Hold modifier keys and drag the mouse"),
         parent=parent,
@@ -208,6 +209,8 @@ def _create_inapp_section(dialog, parent):
         tab_switch.addItem(route, dialog.tr(title))
     tab_switch.currentItemChanged.connect(lambda route: stack.setCurrentIndex(routes.index(route)))
     tab_switch.setCurrentItem("screenshot")
+    # 钉图设置页的「编辑」按钮从这里切到钉图一栏
+    dialog._mouse_inapp_tabs = tab_switch
 
     tab_row = QWidget(group)
     tab_row_layout = QHBoxLayout(tab_row)

@@ -5,7 +5,7 @@ from PySide6.QtCore import QPoint, QRect, QSize, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QMenu, QProxyStyle, QStyle, QWidget
 
-from clipboard.ui.menus.submenu_position import avoid_submenu_overlap, submenu_position
+from ui.submenu_position import avoid_submenu_overlap, submenu_position
 
 
 class _ZeroMenuDelayStyle(QProxyStyle):
