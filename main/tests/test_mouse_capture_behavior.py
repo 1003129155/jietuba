@@ -503,10 +503,10 @@ def test_capture_view_suppresses_context_menu(capture):
     assert event.isAccepted()
 
 
-def test_crosshair_replaces_cursor_and_keeps_export_clean(qapp):
+@pytest.fixture
+def crosshair(qapp):
     from ui.mask_overlay import MaskOverlayWidget
     from canvas import CanvasScene, CanvasView
-    from core.export import ExportService
     parent = QWidget()
     parent.setGeometry(-200, 50, 320, 240)
     image = QImage(320, 240, QImage.Format_ARGB32)
@@ -522,17 +522,32 @@ def test_crosshair_replaces_cursor_and_keeps_export_clean(qapp):
     view.setCursor(Qt.CrossCursor)
     viewport = view.viewport()
     position = QPoint(140, 100)
-    move = QMouseEvent(QEvent.MouseMove, QPointF(position),
-                       QPointF(viewport.mapToGlobal(position)), Qt.NoButton, Qt.NoButton, Qt.NoModifier)
-    QApplication.sendEvent(viewport, move)
+
+    def move():
+        QApplication.sendEvent(viewport, QMouseEvent(
+            QEvent.MouseMove, QPointF(position), QPointF(viewport.mapToGlobal(position)),
+            Qt.NoButton, Qt.NoButton, Qt.NoModifier))
+
+    yield SimpleNamespace(image=image, scene=scene, view=view, mask=mask, viewport=viewport,
+                          position=position, move=move)
+    view.cleanup()
+    parent.close()
+    parent.deleteLater()
+    scene.deleteLater()
+
+
+def test_crosshair_replaces_cursor_and_keeps_export_clean(crosshair):
+    from core.export import ExportService
+    view, mask, viewport, position = crosshair.view, crosshair.mask, crosshair.viewport, crosshair.position
+    crosshair.move()
     # There is no native cross left to run ahead of the fullscreen cursor.
     assert viewport.cursor().shape() == Qt.BlankCursor
     assert mask._crosshair_position == mask.mapFromGlobal(viewport.mapToGlobal(position))
     rendered = mask.grab().toImage()
     assert rendered.pixelColor(10, position.y()).lightness() > 100
     assert rendered.pixelColor(position.x(), 10).lightness() > 100
-    exported = ExportService(scene).export(QRectF(-200, 50, 320, 240))
-    assert exported.pixelColor(140, 100) == image.pixelColor(140, 100)
+    exported = ExportService(crosshair.scene).export(QRectF(-200, 50, 320, 240))
+    assert exported.pixelColor(140, 100) == crosshair.image.pixelColor(140, 100)
     # Item-driven cursor changes must also hide the fullscreen cursor.
     for shape in (Qt.IBeamCursor, Qt.SizeAllCursor, Qt.SizeHorCursor):
         viewport.setCursor(shape)
@@ -544,10 +559,22 @@ def test_crosshair_replaces_cursor_and_keeps_export_clean(qapp):
     assert mask._crosshair_position is None
     view.set_fullscreen_crosshair(False)
     assert viewport.cursor().shape() == Qt.CrossCursor
-    view.cleanup()
-    parent.close()
-    parent.deleteLater()
-    scene.deleteLater()
+
+
+def test_crosshair_only_while_selecting(crosshair):
+    scene, view, mask, viewport = crosshair.scene, crosshair.view, crosshair.mask, crosshair.viewport
+    crosshair.move()
+    assert viewport.cursor().shape() == Qt.BlankCursor
+    scene.selection_model.activate()
+    scene.selection_model.set_rect(QRectF(-180, 60, 100, 80))
+    scene.confirm_selection()
+    assert viewport.cursor().shape() == Qt.CrossCursor
+    assert mask._crosshair_position is None
+    # 绘制工具的十字光标保持系统光标
+    view.setCursor(Qt.CrossCursor)
+    crosshair.move()
+    assert viewport.cursor().shape() == Qt.CrossCursor
+    assert mask._crosshair_position is None
 
 
 def test_capture_mouse_actions_live_with_shortcuts(settings, qapp):
