@@ -7,8 +7,10 @@
 """
 
 import csv
+import ctypes
 import io
-from typing import Iterable
+import sys
+from typing import Iterable, Optional
 
 
 DEFAULT_IMPORT_ENCODINGS = (
@@ -22,6 +24,64 @@ DEFAULT_IMPORT_ENCODINGS = (
     "cp1252",
     "latin-1",
 )
+
+
+# shift_jis、gbk 等按 Excel 读写的 Windows 代码页转换。Python 自带的严格 JIS/GBK 表会把 ～ ① 髙 €
+# 写成 ?、把 ～ − 读成 〜 −，也解不了 Excel 写的单字节 €（0x80）
+_CODE_PAGES = {"shift_jis": 932, "cp932": 932, "gbk": 936, "gb2312": 936, "gb18030": 54936, "cp1252": 1252}
+_WC_NO_BEST_FIT_CHARS = 0x400
+_MB_ERR_INVALID_CHARS = 0x8
+# Python 的 cp1252 没有定义这几个字节，Windows 会直接映射过去
+_CP1252_UNDEFINED = b"\x81\x8d\x8f\x90\x9d"
+
+
+def _windows_encode(text: str, page: int) -> bytes:
+    kernel32 = ctypes.windll.kernel32
+    if page != 54936:
+        # 这些代码页没有 BMP 以外的字符，每个字符换成一个 ?，而不是每个 UTF-16 单元一个
+        text = "".join("?" if ord(char) > 0xFFFF else char for char in text)
+    flags, default = (0, None) if page == 54936 else (_WC_NO_BEST_FIT_CHARS, b"?")
+    size = len(text.encode("utf-16-le", errors="surrogatepass")) // 2
+    needed = kernel32.WideCharToMultiByte(page, flags, text, size, None, 0, default, None)
+    buffer = ctypes.create_string_buffer(needed)
+    kernel32.WideCharToMultiByte(page, flags, text, size, buffer, needed, default, None)
+    return buffer.raw[:needed]
+
+
+def _windows_decode(data: bytes, page: int) -> Optional[str]:
+    kernel32 = ctypes.windll.kernel32
+    needed = kernel32.MultiByteToWideChar(page, _MB_ERR_INVALID_CHARS, data, len(data), None, 0)
+    if needed <= 0:
+        return None
+    buffer = ctypes.create_unicode_buffer(needed)
+    kernel32.MultiByteToWideChar(page, _MB_ERR_INVALID_CHARS, data, len(data), buffer, needed)
+    return buffer[:needed]
+
+
+def _encode(text: str, encoding: str) -> bytes:
+    page = _CODE_PAGES.get(encoding)
+    if page is None or sys.platform != "win32":
+        return text.encode(encoding, errors="replace")
+    return _windows_encode(text, page) if text else b""
+
+
+def _decode(data: bytes, encoding: str) -> Optional[str]:
+    """严格解码，字节不属于该编码时返回 None。"""
+    page = _CODE_PAGES.get(encoding)
+    if page is None or sys.platform != "win32":
+        try:
+            return data.decode(encoding)
+        except (UnicodeDecodeError, LookupError):
+            return None
+    if page == 1252 and any(byte in _CP1252_UNDEFINED for byte in data):
+        return None
+    if not data:
+        return ""
+    if page == 936:
+        # GB18030 把 cp936 读成私用区的字读成正字（A2E3 的 € 等），单字节 €（0x80）只有 cp936 认
+        text = _windows_decode(data, 54936)
+        return text if text is not None else _windows_decode(data, 936)
+    return _windows_decode(data, page)
 
 
 def collect_text_export_rows(manager, page_size: int = 500) -> list[list[str]]:
@@ -47,26 +107,26 @@ def collect_text_export_rows(manager, page_size: int = 500) -> list[list[str]]:
 
 def write_csv_rows(file_path: str, header: Iterable[str], rows: Iterable[Iterable[str]], encoding: str) -> None:
     """将表头和数据行写入 CSV 文件。"""
-    with open(file_path, "w", newline="", encoding=encoding, errors="replace") as f:
-        writer = csv.writer(f)
-        writer.writerow(list(header))
-        writer.writerows(rows)
+    buffer = io.StringIO(newline="")
+    writer = csv.writer(buffer)
+    writer.writerow(list(header))
+    writer.writerows(rows)
+    with open(file_path, "wb") as f:
+        f.write(_encode(buffer.getvalue(), encoding))
 
 
 def read_import_rows(file_path: str) -> list[tuple[str, str, str]]:
     """从 CSV 文件读取可导入数据。"""
+    with open(file_path, "rb") as f:
+        data = f.read()
     content = None
     for encoding in DEFAULT_IMPORT_ENCODINGS:
-        try:
-            with open(file_path, "r", newline="", encoding=encoding) as f:
-                content = f.read()
+        content = _decode(data, encoding)
+        if content is not None:
             break
-        except (UnicodeDecodeError, LookupError):
-            continue
 
     if content is None:
-        with open(file_path, "r", newline="", encoding="utf-8", errors="replace") as f:
-            content = f.read()
+        content = data.decode("utf-8", errors="replace")
 
     rows: list[tuple[str, str, str]] = []
     reader = csv.reader(io.StringIO(content))
