@@ -2557,14 +2557,14 @@ Replace it?</source>
         <translation>이 그룹을 삭제하시겠습니까?</translation>
     </message>
     <message>
-        <source>All items in the group will also be deleted.</source>
-        <translation>그룹의 모든 항목도 함께 삭제됩니다.</translation>
+        <source>Items in the group will be moved back to clipboard history.</source>
+        <translation>그룹의 항목은 클립보드 기록으로 돌아갑니다.</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this group?
-All items in the group will also be deleted.</source>
+Items in the group will be moved back to clipboard history.</source>
         <translation>이 그룹을 삭제하시겠습니까?
-그룹의 모든 항목도 함께 삭제됩니다.</translation>
+그룹의 항목은 클립보드 기록으로 돌아갑니다.</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
@@ -3062,14 +3062,14 @@ This action cannot be undone.</source>
         <translation>이 그룹을 삭제하시겠습니까?</translation>
     </message>
     <message>
-        <source>All items in the group will also be deleted.</source>
-        <translation>그룹의 모든 항목도 함께 삭제됩니다.</translation>
+        <source>Items in the group will be moved back to clipboard history.</source>
+        <translation>그룹의 항목은 클립보드 기록으로 돌아갑니다.</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this group?
-All items in the group will also be deleted.</source>
+Items in the group will be moved back to clipboard history.</source>
         <translation>이 그룹을 삭제하시겠습니까?
-그룹의 모든 항목도 함께 삭제됩니다.</translation>
+그룹의 항목은 클립보드 기록으로 돌아갑니다.</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
@@ -4542,14 +4542,14 @@ SOFTWARE.</translation></message>
         <translation>이 그룹을 삭제하시겠습니까?</translation>
     </message>
     <message>
-        <source>All items in the group will also be deleted.</source>
-        <translation>그룹의 모든 항목도 함께 삭제됩니다.</translation>
+        <source>Items in the group will be moved back to clipboard history.</source>
+        <translation>그룹의 항목은 클립보드 기록으로 돌아갑니다.</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this group?
-All items in the group will also be deleted.</source>
+Items in the group will be moved back to clipboard history.</source>
         <translation>이 그룹을 삭제하시겠습니까?
-그룹의 모든 항목도 함께 삭제됩니다.</translation>
+그룹의 항목은 클립보드 기록으로 돌아갑니다.</translation>
     </message>
 </context>
 

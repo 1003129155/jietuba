@@ -2637,14 +2637,14 @@ Replace it?</source>
         <translation>确定要删除这个分组吗？</translation>
     </message>
     <message>
-        <source>All items in the group will also be deleted.</source>
-        <translation>分组内的内容也会被删除。</translation>
+        <source>Items in the group will be moved back to clipboard history.</source>
+        <translation>分组内的内容会移回剪贴板历史。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this group?
-All items in the group will also be deleted.</source>
+Items in the group will be moved back to clipboard history.</source>
         <translation>确定要删除这个分组吗？
-分组内的内容也会被删除。</translation>
+分组内的内容会移回剪贴板历史。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
@@ -3146,14 +3146,14 @@ This action cannot be undone.</source>
         <translation>确定要删除这个分组吗？</translation>
     </message>
     <message>
-        <source>All items in the group will also be deleted.</source>
-        <translation>分组内的内容也会被删除。</translation>
+        <source>Items in the group will be moved back to clipboard history.</source>
+        <translation>分组内的内容会移回剪贴板历史。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this group?
-All items in the group will also be deleted.</source>
+Items in the group will be moved back to clipboard history.</source>
         <translation>确定要删除这个分组吗？
-分组内的内容也会被删除。</translation>
+分组内的内容会移回剪贴板历史。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
@@ -4628,14 +4628,14 @@ SOFTWARE.</translation></message>
         <translation>确定要删除这个分组吗？</translation>
     </message>
     <message>
-        <source>All items in the group will also be deleted.</source>
-        <translation>分组内的内容也会被删除。</translation>
+        <source>Items in the group will be moved back to clipboard history.</source>
+        <translation>分组内的内容会移回剪贴板历史。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this group?
-All items in the group will also be deleted.</source>
+Items in the group will be moved back to clipboard history.</source>
         <translation>确定要删除这个分组吗？
-分组内的内容也会被删除。</translation>
+分组内的内容会移回剪贴板历史。</translation>
     </message>
 </context>
 

@@ -2602,14 +2602,14 @@ Replace it?</source>
         <translation>このグループを削除してもよろしいですか？</translation>
     </message>
     <message>
-        <source>All items in the group will also be deleted.</source>
-        <translation>グループ内のすべてのアイテムも削除されます。</translation>
+        <source>Items in the group will be moved back to clipboard history.</source>
+        <translation>グループ内のアイテムはクリップボード履歴に戻ります。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this group?
-All items in the group will also be deleted.</source>
+Items in the group will be moved back to clipboard history.</source>
         <translation>このグループを削除してもよろしいですか？
-グループ内のすべてのアイテムも削除されます。</translation>
+グループ内のアイテムはクリップボード履歴に戻ります。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
@@ -3107,14 +3107,14 @@ This action cannot be undone.</source>
         <translation>このグループを削除してもよろしいですか？</translation>
     </message>
     <message>
-        <source>All items in the group will also be deleted.</source>
-        <translation>グループ内のすべてのアイテムも削除されます。</translation>
+        <source>Items in the group will be moved back to clipboard history.</source>
+        <translation>グループ内のアイテムはクリップボード履歴に戻ります。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this group?
-All items in the group will also be deleted.</source>
+Items in the group will be moved back to clipboard history.</source>
         <translation>このグループを削除してもよろしいですか？
-グループ内のすべてのアイテムも削除されます。</translation>
+グループ内のアイテムはクリップボード履歴に戻ります。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
@@ -4583,14 +4583,14 @@ SOFTWARE.</translation></message>
         <translation>このグループを削除してもよろしいですか？</translation>
     </message>
     <message>
-        <source>All items in the group will also be deleted.</source>
-        <translation>グループ内のすべてのアイテムも削除されます。</translation>
+        <source>Items in the group will be moved back to clipboard history.</source>
+        <translation>グループ内のアイテムはクリップボード履歴に戻ります。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this group?
-All items in the group will also be deleted.</source>
+Items in the group will be moved back to clipboard history.</source>
         <translation>このグループを削除してもよろしいですか？
-グループ内のすべてのアイテムも削除されます。</translation>
+グループ内のアイテムはクリップボード履歴に戻ります。</translation>
     </message>
 </context>
 

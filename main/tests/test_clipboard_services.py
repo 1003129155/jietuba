@@ -171,7 +171,7 @@ def test_build_delete_group_confirm_message_uses_translator():
 
     assert message == (
         "T:Are you sure you want to delete this group?\n"
-        "T:All items in the group will also be deleted."
+        "T:Items in the group will be moved back to clipboard history."
     )
 
 

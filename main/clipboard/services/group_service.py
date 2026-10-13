@@ -70,5 +70,5 @@ def build_delete_group_confirm_message(translate: Callable[[str], str]) -> str:
     """构建删除分组确认文案。"""
     return "\n".join([
         translate("Are you sure you want to delete this group?"),
-        translate("All items in the group will also be deleted."),
+        translate("Items in the group will be moved back to clipboard history."),
     ])
