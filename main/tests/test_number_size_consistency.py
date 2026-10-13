@@ -1,8 +1,8 @@
 """笔触宽度只在一个地方被钳制：写进 ToolContext 的时候。
 
 工具栏的 set_stroke_width 会把同一个宽度广播给所有工具和面板，但各工具能接受
-的范围不同——画笔可以细到 1，序号圈小于 8 就看不清里面的数字。以前面板把显示
-钳到 8、绘制却仍按原始的小值算半径，于是"面板写着 8、画出来只有 1 那么大"。
+的范围不同——画笔可以细到 1，序号圈小于 6 就看不清里面的数字。以前面板把显示
+钳到 6、绘制却仍按原始的小值算半径，于是"面板写着 6、画出来只有 1 那么大"。
 
 现在范围由工具声明，钳制发生在写入 ctx 的入口，下游（绘制、光标、面板）直接
 取用 ctx 的值即可。这里锁住这个不变量。
@@ -39,7 +39,7 @@ def test_the_range_is_declared_once_per_tool(qapp):
 
 @pytest.mark.parametrize(
     ("broadcast", "expected"),
-    [(1, 8), (3, 8), (7, 8), (8, 8), (20, 20), (72, 72), (200, 72)],
+    [(1, 6), (3, 6), (5, 6), (6, 6), (20, 20), (72, 72), (200, 72)],
 )
 def test_ctx_only_ever_holds_a_width_the_active_tool_accepts(scene, broadcast, expected):
     scene.activate_tool("number")
@@ -48,7 +48,7 @@ def test_ctx_only_ever_holds_a_width_the_active_tool_accepts(scene, broadcast, e
     assert scene.tool_controller.ctx.stroke_width == expected
 
 
-@pytest.mark.parametrize("broadcast", [1, 3, 8, 20, 200])
+@pytest.mark.parametrize("broadcast", [1, 3, 6, 20, 200])
 def test_drawn_radius_is_a_plain_multiple_of_the_ctx_width(scene, broadcast):
     """下游不再各自钳制，半径就是 ctx 值乘以固定比例。"""
     scene.activate_tool("number")
@@ -61,9 +61,9 @@ def test_drawn_radius_is_a_plain_multiple_of_the_ctx_width(scene, broadcast):
     assert item.radius == ctx.stroke_width * NumberTool.RADIUS_SCALE
 
 
-@pytest.mark.parametrize("broadcast", [1, 3, 7])
+@pytest.mark.parametrize("broadcast", [1, 3, 5])
 def test_the_panel_shows_what_will_actually_be_drawn(scene, qapp, broadcast):
-    """这是原始 bug：面板显示 8，画出来却是 1 的大小。"""
+    """这是原始 bug：面板显示 6，画出来却是 1 的大小。"""
     scene.activate_tool("number")
     scene.update_style(width=broadcast)
 
