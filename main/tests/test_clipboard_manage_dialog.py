@@ -281,6 +281,20 @@ class TestManageDialog:
         )
         assert dlg.icon_input.text() == "📁"
 
+    def test_group_icon_keeps_whole_multi_codepoint_emoji(self, dialog):
+        dlg, _manager = dialog
+        dlg._show_new_group_form()
+
+        for icon in ("❤️", "🧔‍♂️", "👩‍❤️‍💋‍👨", "🇯🇵", "👍🏽"):
+            dlg.icon_input.setText(f"  {icon} extra")
+            assert dlg.icon_input.text() == icon
+            assert dlg.icon_preview.text() == icon
+            assert dlg._get_selected_icon() == icon
+
+        manage_dialog_mod.on_preset_icon_clicked(dlg, "👩‍❤️‍💋‍👨")
+        assert dlg.icon_input.text() == "👩‍❤️‍💋‍👨"
+        assert dlg._get_selected_icon() == "👩‍❤️‍💋‍👨"
+
     def test_refresh_group_list_uses_quick_launch_default_icon(self, dialog):
         dlg, manager = dialog
         manager.groups.append(Group(id=3, name="快速启动", icon=None, group_type=GroupType.FILE))
