@@ -6,6 +6,7 @@ from clipboard.core import Group
 from clipboard.services.file_payload_service import build_file_payload, extract_first_file_path_from_content
 from clipboard.services.group_service import (
     GENERAL_GROUP_ICON,
+    HIDDEN_GROUP_ICON,
     QUICK_LAUNCH_GROUP_ICON,
     build_delete_group_confirm_message,
     get_default_group_icon,
@@ -155,6 +156,14 @@ def test_get_toggled_default_group_icon_only_switches_defaults():
     assert get_toggled_default_group_icon(GENERAL_GROUP_ICON, True) == QUICK_LAUNCH_GROUP_ICON
     assert get_toggled_default_group_icon(QUICK_LAUNCH_GROUP_ICON, False) == GENERAL_GROUP_ICON
     assert get_toggled_default_group_icon("🚀", True) == "🚀"
+
+
+def test_get_toggled_default_group_icon_keeps_custom_icon_for_hidden_group():
+    assert get_toggled_default_group_icon("⭐", False, is_hidden=True) == "⭐"
+    assert get_toggled_default_group_icon("⭐", True, is_hidden=True) == "⭐"
+    assert get_toggled_default_group_icon(GENERAL_GROUP_ICON, False, is_hidden=True) == HIDDEN_GROUP_ICON
+    assert get_toggled_default_group_icon("", False, is_hidden=True) == HIDDEN_GROUP_ICON
+    assert get_toggled_default_group_icon(HIDDEN_GROUP_ICON, False) == GENERAL_GROUP_ICON
 
 
 def test_build_delete_group_confirm_message_uses_translator():
