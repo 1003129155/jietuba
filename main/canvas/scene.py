@@ -7,7 +7,7 @@ from PySide6.QtCore import QRectF, Signal, Qt
 
 from .items import BackgroundItem, SelectionItem, SpotlightCurtain, WatermarkItem
 from .selection_model import SelectionModel
-from .undo import CommandUndoStack
+from .undo import AddItemCommand, CommandUndoStack
 # 注意：tools 的导入放在 __init__ 内部（延迟导入）。
 # tools 包在导入时会经由各工具模块反向导入 canvas.items，这里若在模块顶层
 # 导入 tools 就形成 canvas ↔ tools 的循环依赖：先 import tools 会因
@@ -221,9 +221,16 @@ class CanvasScene(QGraphicsScene):
             
             drawing_items.append(item)
         
-        # 反转列表，使其按绘制顺序（先绘制的在前）
-        # scene.items() 返回的是Z-order排序（上层在前），但我们需要绘制顺序
+        # scene.items() 按叠放层级排（上层在前），层级不等于添加先后（文字默认总在最上层）。
+        # 钉图按返回顺序重建撤销栈，所以以撤销栈里已生效的添加命令为准，不在栈里的排最后。
+        stack = self.undo_stack
+        added_at = {}
+        for index in range(stack.index()):
+            command = stack.command(index)
+            if isinstance(command, AddItemCommand):
+                added_at.setdefault(id(command.item), index)
         drawing_items.reverse()
+        drawing_items.sort(key=lambda item: added_at.get(id(item), stack.index()))
         
         log_debug(T("选区内绘制项目: {item_count} 个（已按绘制顺序排列）", item_count=len(drawing_items)), "Scene")
         return drawing_items
