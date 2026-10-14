@@ -564,9 +564,9 @@ def _quota_usage_html(dialog, provider_id) -> str:
         return ""
     limit = custom if custom > 0 else default_limit
     state = "on" if enabled else "off"
+    text = dialog.tr("Used %1 of %2 free chars this month (guard: %3)")
     return (
-        dialog.tr("Used %1 of %2 free chars this month (guard: %3)")
-        .arg(used)
-        .arg(limit)
-        .arg(state)
+        text.replace("%1", str(used))
+        .replace("%2", str(limit))
+        .replace("%3", state)
     )

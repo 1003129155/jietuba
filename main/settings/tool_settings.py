@@ -1710,16 +1710,13 @@ class ToolSettingsManager(QObject):
             "translation/providers/volcengine/quota_enabled", bool(value)
         )
 
-    def get_volcengine_translate_quota_limit(self) -> int:
+    def get_volcengine_translate_quota_limit(self) -> str:
         raw = self.qsettings.value(
             "translation/providers/volcengine/quota_limit",
             self.APP_DEFAULT_SETTINGS["volcengine_translate_quota_limit"],
             type=str,
         )
-        try:
-            return int(str(raw).strip() or 0)
-        except (TypeError, ValueError):
-            return 0
+        return str(raw).strip() or ""
 
     def set_volcengine_translate_quota_limit(self, value):
         self.qsettings.setValue(
@@ -1739,16 +1736,13 @@ class ToolSettingsManager(QObject):
             "translation/providers/tencent/quota_enabled", bool(value)
         )
 
-    def get_tencent_translate_quota_limit(self) -> int:
+    def get_tencent_translate_quota_limit(self) -> str:
         raw = self.qsettings.value(
             "translation/providers/tencent/quota_limit",
             self.APP_DEFAULT_SETTINGS["tencent_translate_quota_limit"],
             type=str,
         )
-        try:
-            return int(str(raw).strip() or 0)
-        except (TypeError, ValueError):
-            return 0
+        return str(raw).strip() or ""
 
     def set_tencent_translate_quota_limit(self, value):
         self.qsettings.setValue(
