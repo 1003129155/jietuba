@@ -483,6 +483,14 @@ class ToolSettingsManager(QObject):
         "azure_translate_endpoint": "",
         "baidu_translate_appid": "",
         "baidu_translate_secret_key": "",
+        "volcengine_translate_access_key": "",
+        "volcengine_translate_secret_key": "",
+        "volcengine_translate_quota_enabled": True,
+        "volcengine_translate_quota_limit": "1990000",
+        "tencent_translate_secret_id": "",
+        "tencent_translate_secret_key": "",
+        "tencent_translate_quota_enabled": True,
+        "tencent_translate_quota_limit": "4990000",
         "deepseek_api_key": "",
         "deepseek_model": "",          # 空=用 provider 里的默认模型
         "deepseek_base_url": "",       # 空=用官方地址
@@ -1458,6 +1466,16 @@ class ToolSettingsManager(QObject):
                 "appid": self.get_baidu_translate_appid(),
                 "secret_key": self.get_baidu_translate_secret_key(),
             }
+        if provider_id == "volcengine":
+            return {
+                "access_key_id": self.get_volcengine_translate_access_key(),
+                "secret_access_key": self.get_volcengine_translate_secret_key(),
+            }
+        if provider_id == "tencent":
+            return {
+                "secret_id": self.get_tencent_translate_secret_id(),
+                "secret_key": self.get_tencent_translate_secret_key(),
+            }
         if provider_id == "deepseek":
             # model/base_url 留空时由 provider 用自己的默认值，
             # 所以这里原样传空串而不是在这边兜底
@@ -1624,6 +1642,154 @@ class ToolSettingsManager(QObject):
             "translation/providers/baidu/secret_key",
             (value or "").strip(),
         )
+
+    def get_volcengine_translate_access_key(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/volcengine/access_key_id",
+            self.APP_DEFAULT_SETTINGS["volcengine_translate_access_key"],
+            type=str,
+        )
+
+    def set_volcengine_translate_access_key(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/volcengine/access_key_id",
+            (value or "").strip(),
+        )
+
+    def get_volcengine_translate_secret_key(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/volcengine/secret_access_key",
+            self.APP_DEFAULT_SETTINGS["volcengine_translate_secret_key"],
+            type=str,
+        )
+
+    def set_volcengine_translate_secret_key(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/volcengine/secret_access_key",
+            (value or "").strip(),
+        )
+
+    def get_tencent_translate_secret_id(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/tencent/secret_id",
+            self.APP_DEFAULT_SETTINGS["tencent_translate_secret_id"],
+            type=str,
+        )
+
+    def set_tencent_translate_secret_id(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/tencent/secret_id",
+            (value or "").strip(),
+        )
+
+    def get_tencent_translate_secret_key(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/tencent/secret_key",
+            self.APP_DEFAULT_SETTINGS["tencent_translate_secret_key"],
+            type=str,
+        )
+
+    def set_tencent_translate_secret_key(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/tencent/secret_key",
+            (value or "").strip(),
+        )
+
+    # ------------------------------------------------------------ 月度额度锁
+    # 火山 / 腾讯声明了免费额度上限（QUOTA_LIMIT_CHARS），软件侧把锁做成设置
+    # 里可见的选项：可关闭、可调上限。其余引擎没有这一组 get/set。
+    def get_volcengine_translate_quota_enabled(self) -> bool:
+        return self.qsettings.value(
+            "translation/providers/volcengine/quota_enabled",
+            self.APP_DEFAULT_SETTINGS["volcengine_translate_quota_enabled"],
+            type=bool,
+        )
+
+    def set_volcengine_translate_quota_enabled(self, value: bool):
+        self.qsettings.setValue(
+            "translation/providers/volcengine/quota_enabled", bool(value)
+        )
+
+    def get_volcengine_translate_quota_limit(self) -> str:
+        raw = self.qsettings.value(
+            "translation/providers/volcengine/quota_limit",
+            self.APP_DEFAULT_SETTINGS["volcengine_translate_quota_limit"],
+            type=str,
+        )
+        return str(raw).strip() or ""
+
+    def set_volcengine_translate_quota_limit(self, value):
+        self.qsettings.setValue(
+            "translation/providers/volcengine/quota_limit",
+            (str(value or "")).strip(),
+        )
+
+    def get_tencent_translate_quota_enabled(self) -> bool:
+        return self.qsettings.value(
+            "translation/providers/tencent/quota_enabled",
+            self.APP_DEFAULT_SETTINGS["tencent_translate_quota_enabled"],
+            type=bool,
+        )
+
+    def set_tencent_translate_quota_enabled(self, value: bool):
+        self.qsettings.setValue(
+            "translation/providers/tencent/quota_enabled", bool(value)
+        )
+
+    def get_tencent_translate_quota_limit(self) -> str:
+        raw = self.qsettings.value(
+            "translation/providers/tencent/quota_limit",
+            self.APP_DEFAULT_SETTINGS["tencent_translate_quota_limit"],
+            type=str,
+        )
+        return str(raw).strip() or ""
+
+    def set_tencent_translate_quota_limit(self, value):
+        self.qsettings.setValue(
+            "translation/providers/tencent/quota_limit",
+            (str(value or "")).strip(),
+        )
+
+    def get_translation_quota_enabled(self, provider_id: str) -> bool:
+        """该 provider 的额度锁是否开启。未声明的引擎默认返回 True（无害，
+        因为 service 只在 provider 有 QUOTA_LIMIT_CHARS 时才去读开关）。"""
+        provider_id = (provider_id or "").strip().lower()
+        getter = getattr(self, f"get_{provider_id}_translate_quota_enabled", None)
+        if getter is None:
+            return True
+        try:
+            return bool(getter())
+        except Exception:
+            return True
+
+    def get_translation_quota_limit(self, provider_id: str) -> int:
+        """该 provider 的自定义月度上限；0/未设置表示用 provider 默认上限。"""
+        provider_id = (provider_id or "").strip().lower()
+        getter = getattr(self, f"get_{provider_id}_translate_quota_limit", None)
+        if getter is None:
+            return 0
+        try:
+            return int(getter() or 0)
+        except Exception:
+            return 0
+
+    def get_translation_usage_chars(self, provider_id: str) -> int:
+        """当前自然月该 provider 已用字符数；跨月自动清零（读新月份 key 为 0）。"""
+        month = _current_month()
+        return int(
+            self.qsettings.value(
+                f"translation/usage/{month}/{provider_id}", 0, type=int
+            )
+        )
+
+    def add_translation_usage_chars(self, provider_id: str, chars: int):
+        """把 chars 累加到当前自然月该 provider 的已用字符数上。"""
+        if not chars or chars < 0:
+            return
+        month = _current_month()
+        key = f"translation/usage/{month}/{provider_id}"
+        current = int(self.qsettings.value(key, 0, type=int))
+        self.qsettings.setValue(key, current + int(chars))
 
     def get_deepseek_api_key(self) -> str:
         return self.qsettings.value(
@@ -2043,6 +2209,13 @@ class ToolSettingsManager(QObject):
         else:
             log_debug(T("根据用户设置：不自动打开设置窗口"), "Startup")
         return show
+
+
+def _current_month() -> str:
+    """当前自然月的 YYYYMM 字符串，用作翻译免费额度记账的按月分桶 key。"""
+    from datetime import datetime
+
+    return datetime.now().strftime("%Y%m")
 
 
 def _install_custom_llm_accessors():

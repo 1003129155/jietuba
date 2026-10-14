@@ -7,6 +7,8 @@ from .custom_llm import CUSTOM_LLM_PROVIDERS, CustomLLMProvider
 from .deepseek import DeepSeekProvider
 from .deepl import DeepLProvider
 from .google import GoogleTranslateProvider
+from .tencent import TencentTranslateProvider
+from .volcengine import VolcengineTranslateProvider
 
 __all__ = [
     "AmazonTranslateProvider",
@@ -17,4 +19,6 @@ __all__ = [
     "DeepSeekProvider",
     "DeepLProvider",
     "GoogleTranslateProvider",
+    "TencentTranslateProvider",
+    "VolcengineTranslateProvider",
 ]
