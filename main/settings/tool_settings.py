@@ -483,6 +483,10 @@ class ToolSettingsManager(QObject):
         "azure_translate_endpoint": "",
         "baidu_translate_appid": "",
         "baidu_translate_secret_key": "",
+        "volcengine_translate_access_key": "",
+        "volcengine_translate_secret_key": "",
+        "tencent_translate_secret_id": "",
+        "tencent_translate_secret_key": "",
         "deepseek_api_key": "",
         "deepseek_model": "",          # 空=用 provider 里的默认模型
         "deepseek_base_url": "",       # 空=用官方地址
@@ -1458,6 +1462,16 @@ class ToolSettingsManager(QObject):
                 "appid": self.get_baidu_translate_appid(),
                 "secret_key": self.get_baidu_translate_secret_key(),
             }
+        if provider_id == "volcengine":
+            return {
+                "access_key_id": self.get_volcengine_translate_access_key(),
+                "secret_access_key": self.get_volcengine_translate_secret_key(),
+            }
+        if provider_id == "tencent":
+            return {
+                "secret_id": self.get_tencent_translate_secret_id(),
+                "secret_key": self.get_tencent_translate_secret_key(),
+            }
         if provider_id == "deepseek":
             # model/base_url 留空时由 provider 用自己的默认值，
             # 所以这里原样传空串而不是在这边兜底
@@ -1624,6 +1638,76 @@ class ToolSettingsManager(QObject):
             "translation/providers/baidu/secret_key",
             (value or "").strip(),
         )
+
+    def get_volcengine_translate_access_key(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/volcengine/access_key_id",
+            self.APP_DEFAULT_SETTINGS["volcengine_translate_access_key"],
+            type=str,
+        )
+
+    def set_volcengine_translate_access_key(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/volcengine/access_key_id",
+            (value or "").strip(),
+        )
+
+    def get_volcengine_translate_secret_key(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/volcengine/secret_access_key",
+            self.APP_DEFAULT_SETTINGS["volcengine_translate_secret_key"],
+            type=str,
+        )
+
+    def set_volcengine_translate_secret_key(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/volcengine/secret_access_key",
+            (value or "").strip(),
+        )
+
+    def get_tencent_translate_secret_id(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/tencent/secret_id",
+            self.APP_DEFAULT_SETTINGS["tencent_translate_secret_id"],
+            type=str,
+        )
+
+    def set_tencent_translate_secret_id(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/tencent/secret_id",
+            (value or "").strip(),
+        )
+
+    def get_tencent_translate_secret_key(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/tencent/secret_key",
+            self.APP_DEFAULT_SETTINGS["tencent_translate_secret_key"],
+            type=str,
+        )
+
+    def set_tencent_translate_secret_key(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/tencent/secret_key",
+            (value or "").strip(),
+        )
+
+    def get_translation_usage_chars(self, provider_id: str) -> int:
+        """当前自然月该 provider 已用字符数；跨月自动清零（读新月份 key 为 0）。"""
+        month = _current_month()
+        return int(
+            self.qsettings.value(
+                f"translation/usage/{month}/{provider_id}", 0, type=int
+            )
+        )
+
+    def add_translation_usage_chars(self, provider_id: str, chars: int):
+        """把 chars 累加到当前自然月该 provider 的已用字符数上。"""
+        if not chars or chars < 0:
+            return
+        month = _current_month()
+        key = f"translation/usage/{month}/{provider_id}"
+        current = int(self.qsettings.value(key, 0, type=int))
+        self.qsettings.setValue(key, current + int(chars))
 
     def get_deepseek_api_key(self) -> str:
         return self.qsettings.value(
@@ -2043,6 +2127,13 @@ class ToolSettingsManager(QObject):
         else:
             log_debug(T("根据用户设置：不自动打开设置窗口"), "Startup")
         return show
+
+
+def _current_month() -> str:
+    """当前自然月的 YYYYMM 字符串，用作翻译免费额度记账的按月分桶 key。"""
+    from datetime import datetime
+
+    return datetime.now().strftime("%Y%m")
 
 
 def _install_custom_llm_accessors():
