@@ -23,6 +23,7 @@ class PinThumbnailMode:
         self._active = False
         self._size = 100               # 缩略图尺寸（像素）
         self._prev_geometry = None      # 进入前的窗口几何
+        self._entry_pos = None          # 进入后缩略图的左上角
         self._scene_center = None       # 缩略图显示的场景中心点
         self._region_rect = None
 
@@ -93,6 +94,7 @@ class PinThumbnailMode:
             win.setGeometry(origin.x(), origin.y(), max(3, local_rect.width()), max(3, local_rect.height()))
         else:
             win.setGeometry(new_x, new_y, size, size)
+        self._entry_pos = win.geometry().topLeft()
 
         # 更新视图
         self.update_view()
@@ -125,18 +127,17 @@ class PinThumbnailMode:
 
         win = self._win
         prev_size = self._prev_geometry.size()
-        current_center = win.geometry().center()
-
-        rel_x = self._scene_center.x() / win._orig_size.width()
-        rel_y = self._scene_center.y() / win._orig_size.height()
-
-        new_x = int(current_center.x() - rel_x * prev_size.width())
-        new_y = int(current_center.y() - rel_y * prev_size.height())
+        # 回到进入前的位置，再加上缩略图期间被拖动的距离。按缩略图中心反推会带偏：
+        # QRect.center() 偶数边长向左上取整，贴边时中心点又被收进图内。
+        moved = win.geometry().topLeft() - self._entry_pos
+        new_x = self._prev_geometry.x() + moved.x()
+        new_y = self._prev_geometry.y() + moved.y()
 
         # 先重置标志，让 resizeEvent 正常处理
         self._active = False
         self._scene_center = None
         self._prev_geometry = None
+        self._entry_pos = None
         self._region_rect = None
 
         win.setGeometry(new_x, new_y, prev_size.width(), prev_size.height())
