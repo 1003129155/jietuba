@@ -15,6 +15,8 @@ from .service import TranslationService
 
 class TranslationWorker(QThread):
     finished_signal = Signal(object)
+    # 从 run() 发出，排队到 GUI 线程记账，工作线程不碰 QSettings。
+    _usage_signal = Signal(int)
 
     def __init__(
         self,
@@ -26,9 +28,11 @@ class TranslationWorker(QThread):
         parent=None,
     ) -> None:
         super().__init__(parent)
+        self._service = service
         self._request = request
         self._provider: TranslationProvider | None = None
         self._configuration_error = ""
+        self._quota_error: TranslationResult | None = None
         # Resolve configuration on the GUI thread. The worker thread only owns
         # the provider's synchronous network call and never touches QSettings.
         try:
@@ -37,6 +41,9 @@ class TranslationWorker(QThread):
             )
         except ValueError as exc:
             self._configuration_error = str(exc)
+        else:
+            self._quota_error = service.check_quota(self._provider)
+        self._usage_signal.connect(self._record_usage)
 
     def effective_timeout_ms(self) -> int:
         if self._provider is None:
@@ -59,8 +66,12 @@ class TranslationWorker(QThread):
                         f"{self._provider.display_name} is not configured"
                     ),
                 )
+            elif self._quota_error is not None:
+                result = self._quota_error
             else:
                 result = self._provider.translate(self._request)
+                if result.success:
+                    self._usage_signal.emit(len(self._request.text or ""))
         except Exception as exc:
             log_error(T("翻译线程异常: {exc}", exc=exc), "Translation")
             result = TranslationResult(
@@ -70,3 +81,6 @@ class TranslationWorker(QThread):
             )
         if not self.isInterruptionRequested():
             self.finished_signal.emit(result)
+
+    def _record_usage(self, chars: int) -> None:
+        self._service.record_usage(self._provider, chars)

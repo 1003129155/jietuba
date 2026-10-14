@@ -279,6 +279,10 @@ class MockConfig:
     def get_translation_preserve_formatting(self): return True
     def set_translation_preserve_formatting(self, v): pass
     def set_translation_target_lang(self, v): pass
+    def get_translation_usage_chars(self, provider_id): return 0
+    def add_translation_usage_chars(self, provider_id, chars): pass
+    def get_translation_quota_enabled(self, provider_id): return True
+    def get_translation_quota_limit(self, provider_id): return 0
     def get_hotkey(self): return "ctrl+shift+a"
     def set_hotkey(self, v): pass
     def get_hotkey_2(self): return "ctrl+shift+a"

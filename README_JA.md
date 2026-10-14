@@ -66,7 +66,7 @@ Free code signing provided by [SignPath.io](https://about.signpath.io/), certifi
 ユーザーが明示的に要求しない限り、本プログラムはネットワーク上の他のシステムに情報を送信しません。
 
 - スクリーンショット、OCR、クリップボード履歴はすべてこの PC 上で処理・保存されます。
-- 翻訳を使うと、翻訳対象のテキストが設定で選んだ翻訳サービス（DeepL、Google、Azure、Amazon、Baidu、DeepSeek、または自分で設定した OpenAI 互換エンドポイント）に、ご自身の API キーで送信されます。そのサービスのプライバシーポリシーが適用されます。
+- 翻訳を使うと、翻訳対象のテキストが設定で選んだ翻訳サービス（DeepL、Google、Azure、Amazon、Baidu、Volcengine、Tencent Cloud、DeepSeek、または自分で設定した OpenAI 互換エンドポイント）に、ご自身の API キーで送信されます。そのサービスのプライバシーポリシーが適用されます。
 - **バージョン情報 → 更新を確認**で更新を確認・インストールすると、リリース情報の取得とパッケージのダウンロードのために GitHub に接続します。
 
 ---
@@ -605,6 +605,8 @@ translation/
 │   ├── azure.py             # Azure
 │   ├── amazon.py            # Amazon
 │   ├── baidu.py             # Baidu
+│   ├── tencent.py           # Tencent Cloud
+│   ├── volcengine.py        # Volcengine（火山引擎）
 │   ├── custom_llm.py        # カスタム OpenAI 互換サービス（Ollama、LM Studio など）
 │   ├── deepseek.py          # DeepSeek (LLM)
 │   └── openai_compatible.py # OpenAI 兼容接口基类

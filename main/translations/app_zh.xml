@@ -2405,6 +2405,50 @@ Replace it?</source>
         <source>Visit https://www.deepl.com/pro-api to get your API key.</source>
         <translation>访问 https://www.deepl.com/pro-api 获取您的API密钥。</translation>    
     </message>
+    <message>
+        <source>SecretId</source>
+        <translation>SecretId</translation>
+    </message>
+    <message>
+        <source>SecretKey</source>
+        <translation>SecretKey</translation>
+    </message>
+    <message>
+        <source>Enable monthly quota guard</source>
+        <translation>启用每月额度保护</translation>
+    </message>
+    <message>
+        <source>Monthly quota (characters)</source>
+        <translation>每月额度（字符）</translation>
+    </message>
+    <message>
+        <source>Stop translation once the monthly free quota is reached</source>
+        <translation>当月度免费额度用尽时停止翻译</translation>
+    </message>
+    <message>
+        <source>Volcengine machine translation: about 2M free characters/month. Overuse is billed at pay-as-you-go rates, so a local quota guard (default on) prevents surprise charges.</source>
+        <translation>火山机器翻译：每月约 200 万免费字符。超出后按量计费，本地额度保护（默认开启）可防止意外扣费。</translation>
+    </message>
+    <message>
+        <source>Tencent Cloud TMT: about 5M free characters/month. The API rejects overuse itself; the local quota guard (default on) is extra protection.</source>
+        <translation>腾讯云机器翻译：每月约 500 万免费字符。接口自身会拒绝超额请求，本地额度保护（默认开启）作为额外保险。</translation>
+    </message>
+    <message>
+        <source>Volcengine Console</source>
+        <translation>火山引擎控制台</translation>
+    </message>
+    <message>
+        <source>Tencent Cloud Console</source>
+        <translation>腾讯云控制台</translation>
+    </message>
+    <message>
+        <source>Used this month: %1 / %2 characters (quota guard on)</source>
+        <translation>本月已用 %1 / %2 字符（额度保护已开启）</translation>
+    </message>
+    <message>
+        <source>Used this month: %1 / %2 characters (quota guard off)</source>
+        <translation>本月已用 %1 / %2 字符（额度保护已关闭）</translation>
+    </message>
 </context>
 
 <!-- ========== Clipboard Window ========== -->
@@ -3823,6 +3867,14 @@ This action cannot be undone.</source>
 <context>
     <name>WelcomeWizard</name>
     <!-- window / nav -->
+    <message>
+        <source>SecretId</source>
+        <translation>SecretId</translation>
+    </message>
+    <message>
+        <source>SecretKey</source>
+        <translation>SecretKey</translation>
+    </message>
     <message>
         <source>欢迎使用截图吧</source>
         <translation>欢迎使用截图吧</translation>

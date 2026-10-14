@@ -66,7 +66,7 @@ Free code signing provided by [SignPath.io](https://about.signpath.io/), certifi
 This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it.
 
 - Screenshots, OCR and clipboard history are processed and stored on your computer.
-- When you translate, the text is sent to the translation service selected in Settings (DeepL, Google, Azure, Amazon, Baidu, DeepSeek, or an OpenAI-compatible endpoint you configure) using your own API key; that service's privacy policy applies.
+- When you translate, the text is sent to the translation service selected in Settings (DeepL, Google, Azure, Amazon, Baidu, Volcengine, Tencent Cloud, DeepSeek, or an OpenAI-compatible endpoint you configure) using your own API key; that service's privacy policy applies.
 - When you check for or install updates under **About → Check for Updates**, the program contacts GitHub to read release information and download the release package.
 
 ---
@@ -606,6 +606,8 @@ translation/
 │   ├── azure.py             # Azure
 │   ├── amazon.py            # Amazon
 │   ├── baidu.py             # Baidu
+│   ├── tencent.py           # Tencent Cloud
+│   ├── volcengine.py        # Volcengine
 │   ├── custom_llm.py        # Custom OpenAI-compatible service (Ollama, LM Studio…)
 │   ├── deepseek.py          # DeepSeek (LLM)
 │   └── openai_compatible.py # OpenAI 兼容接口基类
