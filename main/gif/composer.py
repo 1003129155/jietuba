@@ -303,7 +303,9 @@ class ComposerProgressDialog(QFrame):
                   speed_multiplier=speed_multiplier)
         dlg.show()
         QApplication.processEvents()
-        dlg._loop.exec()
+        # 合成在 processEvents 里就结束时 quit() 已经调过，exec() 看不到它，会一直等下去
+        if dlg._thread is not None:
+            dlg._loop.exec()
         dlg.deleteLater()
 
         return dlg._result if dlg._ok else None

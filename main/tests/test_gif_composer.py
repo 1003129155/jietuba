@@ -15,11 +15,13 @@ _ComposeWorker (GIF 合成) 单元测试
 progress_callback 的调用约定）。
 """
 import os
+import threading
 import pytest
 from unittest.mock import MagicMock, patch
+from PySide6.QtCore import QTimer
 
 import gif.composer as composer_module
-from gif.composer import _ComposeWorker
+from gif.composer import ComposerProgressDialog, _ComposeWorker
 
 
 @pytest.fixture
@@ -286,3 +288,45 @@ class TestSpeedMultiplierClamp:
     def test_speed_multiplier_passed_through_when_valid(self, qapp, fake_store):
         worker = _ComposeWorker(path="x.gif", store=fake_store, speed_multiplier=2.5)
         assert worker._speed_multiplier == 2.5
+
+
+class TestRunCompose:
+    def test_returns_when_compose_finishes_before_the_wait_loop(self, qapp, fake_store, tmp_path, monkeypatch):
+        """很短的导出在显示进度条后那次 processEvents 里就结束，run_compose 仍要返回。"""
+        out_path = str(tmp_path / "short.gif")
+
+        def _fake_export(**kwargs):
+            with open(kwargs["path"], "wb") as f:
+                f.write(b"GIF89a")
+        fake_store.export_gif.side_effect = _fake_export
+
+        emitted = threading.Event()
+
+        # 写在类体里：PySide 才会在工作线程上调用它，事后赋值的函数会被排到主线程
+        class SignallingWorker(_ComposeWorker):
+            def run(self):
+                super().run()
+                emitted.set()
+
+        dialogs = []
+        show = ComposerProgressDialog.show
+
+        def show_once_finished(dialog):
+            show(dialog)
+            dialogs.append(dialog)
+            assert emitted.wait(5)
+
+        monkeypatch.setattr(composer_module, "_ComposeWorker", SignallingWorker)
+        monkeypatch.setattr(ComposerProgressDialog, "show", show_once_finished)
+        hung = []
+        watchdog = QTimer()
+        watchdog.setSingleShot(True)
+        watchdog.timeout.connect(lambda: (hung.append(True), dialogs[0]._loop.quit()))
+        watchdog.start(3000)
+        try:
+            result = ComposerProgressDialog.run_compose(out_path, store=fake_store)
+        finally:
+            watchdog.stop()
+
+        assert not hung
+        assert result == out_path
