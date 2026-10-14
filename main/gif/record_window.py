@@ -769,9 +769,6 @@ class GifRecordWindow(QObject):
         # 完全重置录制器（清空所有帧 + 释放 Rust 堆内存）
         self._recorder.reset()
 
-        # 立即处理 deleteLater，让 Qt 真正销毁已排队的对象
-        QApplication.processEvents()
-
         # 重置录制工具栏 UI 状态（按钮 / 时间清零）
         self._record_toolbar.reset_state()
 

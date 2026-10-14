@@ -266,7 +266,6 @@ class PlaybackController(QObject):
         """重新录制 — 由 GifRecordWindow 处理具体重置逻辑"""
         log_info(T("重新录制（回放控制器）"), "GIF")
         self.teardown()
-        QApplication.processEvents()
         self.rerecord_requested.emit()
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
