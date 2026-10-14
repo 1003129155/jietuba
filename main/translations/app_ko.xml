@@ -2341,6 +2341,46 @@ Replace it?</source>
         <source>Visit https://www.deepl.com/pro-api to get your API key.</source>
         <translation>API 키를 받으려면 https://www.deepl.com/pro-api 를 방문하세요.</translation>
     </message>
+    <message>
+        <source>SecretId</source>
+        <translation>SecretId</translation>
+    </message>
+    <message>
+        <source>SecretKey</source>
+        <translation>SecretKey</translation>
+    </message>
+    <message>
+        <source>Enable monthly quota guard</source>
+        <translation>월간 할당량 보호 사용</translation>
+    </message>
+    <message>
+        <source>Monthly quota (characters)</source>
+        <translation>월간 할당량(문자)</translation>
+    </message>
+    <message>
+        <source>Stop translation once the monthly free quota is reached</source>
+        <translation>월간 무료 할당량에 도달하면 번역 중지</translation>
+    </message>
+    <message>
+        <source>Volcengine machine translation: about 2M free characters/month. Overuse is billed at pay-as-you-go rates, so a local quota guard (default on) prevents surprise charges.</source>
+        <translation>볼켄진 기계 번역: 월 약 200만 자 무료. 초과 시 종량제 과금이 발생하므로 로컬 할당량 보호(기본 켜짐)로 예상치 못한 비용을 방지합니다.</translation>
+    </message>
+    <message>
+        <source>Tencent Cloud TMT: about 5M free characters/month. The API rejects overuse itself; the local quota guard (default on) is extra protection.</source>
+        <translation>Tencent Cloud TMT: 월 약 500만 자 무료. API가 초과 요청을 거부하므로 로컬 할당량 보호(기본 켜짐)는 추가 보험입니다.</translation>
+    </message>
+    <message>
+        <source>Volcengine Console</source>
+        <translation>볼켄진 콘솔</translation>
+    </message>
+    <message>
+        <source>Tencent Cloud Console</source>
+        <translation>Tencent Cloud 콘솔</translation>
+    </message>
+    <message>
+        <source>Used %1 of %2 free chars this month (guard: %3)</source>
+        <translation>이번 달 무료 문자 %1 / %2 사용됨(보호: %3)</translation>
+    </message>
 </context>
 <!-- ========== Clipboard Window ========== -->
 <context>
@@ -3758,6 +3798,14 @@ This action cannot be undone.</source>
 <!-- ========== Welcome Wizard ========== -->
 <context>
     <name>WelcomeWizard</name>
+    <message>
+        <source>SecretId</source>
+        <translation>SecretId</translation>
+    </message>
+    <message>
+        <source>SecretKey</source>
+        <translation>SecretKey</translation>
+    </message>
     <!-- window / nav -->
     <message>
         <source>欢迎使用截图吧</source>

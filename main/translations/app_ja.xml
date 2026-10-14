@@ -2386,6 +2386,46 @@ Replace it?</source>
         <source>Visit https://www.deepl.com/pro-api to get your API key.</source>
         <translation>https://www.deepl.com/pro-api でAPIキーを取得してください。</translation>
     </message>
+    <message>
+        <source>SecretId</source>
+        <translation>SecretId</translation>
+    </message>
+    <message>
+        <source>SecretKey</source>
+        <translation>SecretKey</translation>
+    </message>
+    <message>
+        <source>Enable monthly quota guard</source>
+        <translation>月間クォータ保護を有効にする</translation>
+    </message>
+    <message>
+        <source>Monthly quota (characters)</source>
+        <translation>月間クォータ（文字数）</translation>
+    </message>
+    <message>
+        <source>Stop translation once the monthly free quota is reached</source>
+        <translation>月間無料クォータに達したら翻訳を停止する</translation>
+    </message>
+    <message>
+        <source>Volcengine machine translation: about 2M free characters/month. Overuse is billed at pay-as-you-go rates, so a local quota guard (default on) prevents surprise charges.</source>
+        <translation>火山の機械翻訳：月間約200万文字が無料。超過分は従量課金となるため、ローカルクォータ保護（デフォルトON）が想定外の課金を防ぎます。</translation>
+    </message>
+    <message>
+        <source>Tencent Cloud TMT: about 5M free characters/month. The API rejects overuse itself; the local quota guard (default on) is extra protection.</source>
+        <translation>Tencent Cloud TMT：月間約500万文字が無料。API自体が超過を拒否するため、ローカルクォータ保護（デフォルトON）は追加の保険です。</translation>
+    </message>
+    <message>
+        <source>Volcengine Console</source>
+        <translation>火山エンジンコンソール</translation>
+    </message>
+    <message>
+        <source>Tencent Cloud Console</source>
+        <translation>Tencent Cloud コンソール</translation>
+    </message>
+    <message>
+        <source>Used %1 of %2 free chars this month (guard: %3)</source>
+        <translation>今月の無料文字数 %1 / %2 を使用（保護：%3）</translation>
+    </message>
 </context>
 
 <!-- ========== Clipboard Window ========== -->
@@ -3803,6 +3843,14 @@ This action cannot be undone.</source>
 <!-- ========== Welcome Wizard ========== -->
 <context>
     <name>WelcomeWizard</name>
+    <message>
+        <source>SecretId</source>
+        <translation>SecretId</translation>
+    </message>
+    <message>
+        <source>SecretKey</source>
+        <translation>SecretKey</translation>
+    </message>
     <!-- window / nav -->
     <message>
         <source>欢迎使用截图吧</source>

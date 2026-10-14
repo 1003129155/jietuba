@@ -2182,6 +2182,46 @@ Replace it?</translation>
         <source>Visit https://www.deepl.com/pro-api to get your API key.</source>
         <translation>Visit https://www.deepl.com/pro-api to get your API key.</translation>
     </message>
+    <message>
+        <source>SecretId</source>
+        <translation>SecretId</translation>
+    </message>
+    <message>
+        <source>SecretKey</source>
+        <translation>SecretKey</translation>
+    </message>
+    <message>
+        <source>Enable monthly quota guard</source>
+        <translation>Enable monthly quota guard</translation>
+    </message>
+    <message>
+        <source>Monthly quota (characters)</source>
+        <translation>Monthly quota (characters)</translation>
+    </message>
+    <message>
+        <source>Stop translation once the monthly free quota is reached</source>
+        <translation>Stop translation once the monthly free quota is reached</translation>
+    </message>
+    <message>
+        <source>Volcengine machine translation: about 2M free characters/month. Overuse is billed at pay-as-you-go rates, so a local quota guard (default on) prevents surprise charges.</source>
+        <translation>Volcengine machine translation: about 2M free characters/month. Overuse is billed at pay-as-you-go rates, so a local quota guard (default on) prevents surprise charges.</translation>
+    </message>
+    <message>
+        <source>Tencent Cloud TMT: about 5M free characters/month. The API rejects overuse itself; the local quota guard (default on) is extra protection.</source>
+        <translation>Tencent Cloud TMT: about 5M free characters/month. The API rejects overuse itself; the local quota guard (default on) is extra protection.</translation>
+    </message>
+    <message>
+        <source>Volcengine Console</source>
+        <translation>Volcengine Console</translation>
+    </message>
+    <message>
+        <source>Tencent Cloud Console</source>
+        <translation>Tencent Cloud Console</translation>
+    </message>
+    <message>
+        <source>Used %1 of %2 free chars this month (guard: %3)</source>
+        <translation>Used %1 of %2 free chars this month (guard: %3)</translation>
+    </message>
 </context>
 <!-- ========== Clipboard Window ========== -->
 <context>
@@ -3599,6 +3639,14 @@ This action cannot be undone.</translation>
 <!-- ========== Welcome Wizard ========== -->
 <context>
     <name>WelcomeWizard</name>
+    <message>
+        <source>SecretId</source>
+        <translation>SecretId</translation>
+    </message>
+    <message>
+        <source>SecretKey</source>
+        <translation>SecretKey</translation>
+    </message>
     <!-- window / nav -->
     <message>
         <source>欢迎使用截图吧</source>

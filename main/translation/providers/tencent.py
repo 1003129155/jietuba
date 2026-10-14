@@ -23,7 +23,7 @@ from ..models import (
     TranslationRequest,
     TranslationResult,
 )
-from ..provider import TextField, TranslationProvider
+from ..provider import TextField, ToggleField, TranslationProvider
 
 
 class TencentTranslateProvider(TranslationProvider):
@@ -69,17 +69,37 @@ class TencentTranslateProvider(TranslationProvider):
         TextField(
             "tencent_translate_secret_id",
             "SecretId",
-            "腾讯云 API 密钥 SecretId（控制台-访问管理-API密钥管理）",
+            "Tencent Cloud API SecretId (Console > Access Management > API Keys)",
         ),
         TextField(
             "tencent_translate_secret_key",
             "SecretKey",
-            "腾讯云 API 密钥 SecretKey，与 SecretId 配对",
+            "Tencent Cloud API SecretKey, paired with the SecretId",
             secret=True,
         ),
     )
-    NOTICE = "每月免费约 500 万字符；软件默认锁到 499 万，跨月重置"
-    HELP_LABEL = "腾讯云-机器翻译-文本翻译"
+    # 额度锁选项：开关 + 自定义上限（字符）。OPTION_FIELDS 自动渲染进设置页，
+    # config_key 驱动读写，不需要改界面代码。
+    OPTION_FIELDS = (
+        ToggleField(
+            "tencent_translate_quota_enabled",
+            "Enable monthly quota guard",
+            "Stop translation once the monthly free quota is reached",
+        ),
+        TextField(
+            "tencent_translate_quota_limit",
+            "Monthly quota (characters)",
+            placeholder="4990000",
+        ),
+    )
+    # 腾讯云 TMT 免费额度约每月 500 万字符；免费额度用尽后服务端本身返回
+    # FailedOperation.NoFreeAmount 拒绝请求（除非控制台升级为付费）。软件侧
+    # 默认再开一道本地锁作为额外保险，可在设置里关掉或调上限。
+    NOTICE = (
+        "Tencent Cloud TMT: about 5M free characters/month. The API rejects "
+        "overuse itself; the local quota guard (default on) is extra protection."
+    )
+    HELP_LABEL = "Tencent Cloud Console"
     HELP_URL = "https://console.cloud.tencent.com/cam/capi"
     MIN_TIMEOUT = 5
 

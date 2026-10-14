@@ -485,8 +485,12 @@ class ToolSettingsManager(QObject):
         "baidu_translate_secret_key": "",
         "volcengine_translate_access_key": "",
         "volcengine_translate_secret_key": "",
+        "volcengine_translate_quota_enabled": True,
+        "volcengine_translate_quota_limit": "1990000",
         "tencent_translate_secret_id": "",
         "tencent_translate_secret_key": "",
+        "tencent_translate_quota_enabled": True,
+        "tencent_translate_quota_limit": "4990000",
         "deepseek_api_key": "",
         "deepseek_model": "",          # 空=用 provider 里的默认模型
         "deepseek_base_url": "",       # 空=用官方地址
@@ -1690,6 +1694,90 @@ class ToolSettingsManager(QObject):
             "translation/providers/tencent/secret_key",
             (value or "").strip(),
         )
+
+    # ------------------------------------------------------------ 月度额度锁
+    # 火山 / 腾讯声明了免费额度上限（QUOTA_LIMIT_CHARS），软件侧把锁做成设置
+    # 里可见的选项：可关闭、可调上限。其余引擎没有这一组 get/set。
+    def get_volcengine_translate_quota_enabled(self) -> bool:
+        return self.qsettings.value(
+            "translation/providers/volcengine/quota_enabled",
+            self.APP_DEFAULT_SETTINGS["volcengine_translate_quota_enabled"],
+            type=bool,
+        )
+
+    def set_volcengine_translate_quota_enabled(self, value: bool):
+        self.qsettings.setValue(
+            "translation/providers/volcengine/quota_enabled", bool(value)
+        )
+
+    def get_volcengine_translate_quota_limit(self) -> int:
+        raw = self.qsettings.value(
+            "translation/providers/volcengine/quota_limit",
+            self.APP_DEFAULT_SETTINGS["volcengine_translate_quota_limit"],
+            type=str,
+        )
+        try:
+            return int(str(raw).strip() or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    def set_volcengine_translate_quota_limit(self, value):
+        self.qsettings.setValue(
+            "translation/providers/volcengine/quota_limit",
+            (str(value or "")).strip(),
+        )
+
+    def get_tencent_translate_quota_enabled(self) -> bool:
+        return self.qsettings.value(
+            "translation/providers/tencent/quota_enabled",
+            self.APP_DEFAULT_SETTINGS["tencent_translate_quota_enabled"],
+            type=bool,
+        )
+
+    def set_tencent_translate_quota_enabled(self, value: bool):
+        self.qsettings.setValue(
+            "translation/providers/tencent/quota_enabled", bool(value)
+        )
+
+    def get_tencent_translate_quota_limit(self) -> int:
+        raw = self.qsettings.value(
+            "translation/providers/tencent/quota_limit",
+            self.APP_DEFAULT_SETTINGS["tencent_translate_quota_limit"],
+            type=str,
+        )
+        try:
+            return int(str(raw).strip() or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    def set_tencent_translate_quota_limit(self, value):
+        self.qsettings.setValue(
+            "translation/providers/tencent/quota_limit",
+            (str(value or "")).strip(),
+        )
+
+    def get_translation_quota_enabled(self, provider_id: str) -> bool:
+        """该 provider 的额度锁是否开启。未声明的引擎默认返回 True（无害，
+        因为 service 只在 provider 有 QUOTA_LIMIT_CHARS 时才去读开关）。"""
+        provider_id = (provider_id or "").strip().lower()
+        getter = getattr(self, f"get_{provider_id}_translate_quota_enabled", None)
+        if getter is None:
+            return True
+        try:
+            return bool(getter())
+        except Exception:
+            return True
+
+    def get_translation_quota_limit(self, provider_id: str) -> int:
+        """该 provider 的自定义月度上限；0/未设置表示用 provider 默认上限。"""
+        provider_id = (provider_id or "").strip().lower()
+        getter = getattr(self, f"get_{provider_id}_translate_quota_limit", None)
+        if getter is None:
+            return 0
+        try:
+            return int(getter() or 0)
+        except Exception:
+            return 0
 
     def get_translation_usage_chars(self, provider_id: str) -> int:
         """当前自然月该 provider 已用字符数；跨月自动清零（读新月份 key 为 0）。"""

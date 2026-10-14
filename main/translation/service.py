@@ -22,6 +22,10 @@ class TranslationConfig(Protocol):
 
     def add_translation_usage_chars(self, provider_id: str, chars: int) -> None: ...
 
+    def get_translation_quota_enabled(self, provider_id: str) -> bool: ...
+
+    def get_translation_quota_limit(self, provider_id: str) -> int: ...
+
 
 class TranslationService:
     def __init__(
@@ -108,7 +112,7 @@ class TranslationService:
 
     def _check_quota(self, provider) -> TranslationResult | None:
         """当前月已用字符数达到上限时返回锁定错误，否则返回 None。"""
-        limit = getattr(provider, "QUOTA_LIMIT_CHARS", None)
+        limit = self._effective_quota_limit(provider)
         if limit is None or limit <= 0:
             return None
         used = self.config.get_translation_usage_chars(provider.provider_id)
@@ -126,6 +130,32 @@ class TranslationService:
                 ),
             )
         return None
+
+    def check_quota(self, provider) -> TranslationResult | None:
+        """供 worker 在主线程做额度闸门：返回超限结果或 None。
+
+        截图翻译/设置页测试走 TranslationWorker，不经过 translate()，
+        所以这个公开入口让 worker 在创建时（GUI 线程）检查额度，既满足
+        「工作线程不碰 QSettings」，又能让额度锁在每一条翻译路径上生效。
+        """
+        return self._check_quota(provider)
+
+    def _effective_quota_limit(self, provider) -> int | None:
+        """provider 声明上限时，用配置里的开关/自定义上限覆盖默认值。
+
+        额度锁做成设置里可见的选项：开关关掉就不拦截，上限可改。
+        未声明 QUOTA_LIMIT_CHARS 的引擎（DeepL 等）不受本机制约束。
+        """
+        default_limit = getattr(provider, "QUOTA_LIMIT_CHARS", None)
+        if default_limit is None or default_limit <= 0:
+            return None
+        provider_id = provider.provider_id
+        if not self.config.get_translation_quota_enabled(provider_id):
+            return None
+        custom = self.config.get_translation_quota_limit(provider_id)
+        if custom and custom > 0:
+            return custom
+        return default_limit
 
     def _record_usage(self, provider, text: str) -> None:
         """翻译成功后累加本月的已用字符数（按请求文本长度估算）。"""

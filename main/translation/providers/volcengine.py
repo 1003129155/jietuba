@@ -26,7 +26,7 @@ from ..models import (
     TranslationRequest,
     TranslationResult,
 )
-from ..provider import TextField, TranslationProvider
+from ..provider import TextField, ToggleField, TranslationProvider
 
 try:
     import zoneinfo
@@ -76,17 +76,38 @@ class VolcengineTranslateProvider(TranslationProvider):
         TextField(
             "volcengine_translate_access_key",
             "Access Key ID",
-            "火山引擎访问密钥 AK（控制台-访问控制-密钥管理）",
+            "Volcengine AccessKey AK (Console > Access Control > Key Management)",
         ),
         TextField(
             "volcengine_translate_secret_key",
             "Secret Access Key",
-            "火山引擎访问密钥 SK，与 AK 配对",
+            "Volcengine AccessKey SK, paired with the AK",
             secret=True,
         ),
     )
-    NOTICE = "每月免费约 200 万字符；软件默认锁到 199 万，跨月重置"
-    HELP_LABEL = "火山引擎-机器翻译-文本翻译"
+    # 额度锁选项：开关 + 自定义上限（字符）。OPTION_FIELDS 自动渲染进设置页，
+    # config_key 驱动读写，不需要改界面代码。
+    OPTION_FIELDS = (
+        ToggleField(
+            "volcengine_translate_quota_enabled",
+            "Enable monthly quota guard",
+            "Stop translation once the monthly free quota is reached",
+        ),
+        TextField(
+            "volcengine_translate_quota_limit",
+            "Monthly quota (characters)",
+            placeholder="1990000",
+        ),
+    )
+    # 火山文本翻译免费额度约每月 200 万字符，超出后直接进入付费段、按量扣费
+    # （服务端不会拒绝）。所以本地额度锁对火山是真防线，默认开启、可在设置里
+    # 关掉或调上限，跨月自动重置。
+    NOTICE = (
+        "Volcengine machine translation: about 2M free characters/month. "
+        "Overuse is billed at pay-as-you-go rates, so a local quota guard "
+        "(default on) prevents surprise charges."
+    )
+    HELP_LABEL = "Volcengine Console"
     HELP_URL = "https://console.volcengine.com/iam/keymanage/"
     MIN_TIMEOUT = 5
 
