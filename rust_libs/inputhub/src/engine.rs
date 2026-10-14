@@ -1,11 +1,16 @@
 //! 输入状态机：钩子线程和测试共用，自身不调任何系统 API。
 //!
-//! 三层按固定顺序处理同一个事件：全局手势 → 侧键热键或键盘热键 → 旁听订阅。前一层吞掉的事件
-//! 不再交给后面的热键层，所以修饰键完全匹配的手势优先于侧键热键。
+//! 按固定顺序处理同一个事件：全局手势 → 侧键热键，或键盘的录入快捷键与键盘热键 → 旁听订阅。
+//! 前一层吞掉的事件不再交给后面的热键层，所以修饰键完全匹配的手势优先于侧键热键，录入优先于
+//! 已绑定的键盘热键。
 
 use std::sync::Arc;
 
 pub const VK_ESCAPE: u32 = 0x1B;
+/// PrintScreen：不用来打字，可以不带修饰键接管或录入。
+pub const VK_SNAPSHOT: u32 = 0x2C;
+/// 未分配的键：屏蔽 Win/Alt 菜单时注入的就是它。
+pub const VK_MENU_MASK: u32 = 0xE8;
 
 const VK_LWIN: u32 = 0x5B;
 const VK_RWIN: u32 = 0x5C;
@@ -174,6 +179,11 @@ pub enum Event {
     Hotkey {
         name: Arc<str>,
     },
+    /// 录入快捷键时截下的组合（见 configure_key_capture）；自动重复不再发
+    Captured {
+        modifiers: Modifiers,
+        vk: u32,
+    },
     Wheel {
         watcher: Arc<str>,
         x: i32,
@@ -262,6 +272,10 @@ pub struct Engine {
     hotkeys: Vec<(Arc<str>, Modifiers, u32)>,
     /// 按下被热键吞掉的键，自动重复和抬起也必须吞掉
     hotkey_claimed: KeySet,
+    // 录入快捷键
+    key_capture: bool,
+    /// 按下被录入吞掉的键，自动重复和抬起也必须吞掉
+    capture_claimed: KeySet,
     // 旁听订阅
     wheel_watchers: Vec<(Arc<str>, Option<Rect>)>,
     key_watchers: Vec<(Arc<str>, Vec<u32>)>,
@@ -308,8 +322,11 @@ impl Engine {
             return false;
         }
         // Remote Esc and modifier releases must cancel/drain the same gesture.
-        let suppress =
-            self.gesture_key(input, platform, emit) || self.hotkey_key(input, platform, emit);
+        // Recording comes before the bound hotkeys, so an already bound combination is recorded
+        // instead of triggering.
+        let suppress = self.gesture_key(input, platform, emit)
+            || self.capture_key(input, platform, emit)
+            || self.hotkey_key(input, platform, emit);
         for (watcher, keys) in &self.key_watchers {
             if keys.contains(&input.vk) {
                 emit(Event::Key {
@@ -458,6 +475,54 @@ impl Engine {
         self.hotkey_claimed.insert(input.vk);
         self.mask_menu_on_release(held, platform);
         emit(Event::Hotkey { name });
+        true
+    }
+
+    /// 录入时截下系统自己要处理的组合：按住 Win 时按下的键，以及 PrtSc。别的键照常交给录入框。
+    fn capture_key(
+        &mut self,
+        input: KeyInput,
+        platform: &mut dyn Platform,
+        emit: &mut dyn FnMut(Event),
+    ) -> bool {
+        // 屏蔽菜单注入的键同样在按住 Win 时到达，吞掉它开始菜单就屏蔽不住了
+        if input.vk == VK_MENU_MASK {
+            return false;
+        }
+        if !input.pressed {
+            if self.capture_claimed.remove(input.vk) {
+                self.sync_requested = true;
+                return true;
+            }
+            return false;
+        }
+        if self.capture_claimed.0.contains(&input.vk) {
+            return true;
+        }
+        if !self.key_capture {
+            return false;
+        }
+        if let Some(modifier) = Modifiers::of_key(input.vk) {
+            // 单按一下 Win 也不能弹开始菜单，菜单会抢走录入框的焦点
+            if modifier == Modifiers::WIN {
+                self.pending_menu_keys.insert(input.vk);
+            }
+            return false;
+        }
+        // 同 hotkey_key：修饰键之前就按下的键在自动重复，它的按下已经交给了别的程序
+        if platform.key_held(input.vk) {
+            return false;
+        }
+        let held = held_modifiers(platform, None);
+        if !held.contains(Modifiers::WIN) && input.vk != VK_SNAPSHOT {
+            return false;
+        }
+        self.capture_claimed.insert(input.vk);
+        self.mask_menu_on_release(held, platform);
+        emit(Event::Captured {
+            modifiers: held,
+            vk: input.vk,
+        });
         true
     }
 
@@ -641,10 +706,15 @@ impl Engine {
     }
 
     /// 按住的修饰键与 modifiers 完全一致时按下 vk，吞掉这个键的按下、自动重复和抬起并发一次事件。
-    /// 同名绑定会被替换。modifiers 至少一个、vk 不能是修饰键，否则不绑定并返回 false。
+    /// 同名绑定会被替换。modifiers 至少一个（PrtSc 例外，单独接管它不会吞掉打字）、vk 不能是
+    /// 修饰键，否则不绑定并返回 false。
     pub fn bind_hotkey(&mut self, name: &str, modifiers: Modifiers, vk: u32) -> bool {
         self.unbind_hotkey(name);
-        if modifiers.count() == 0 || Modifiers::of_key(vk).is_some() || self.closed {
+        let bare_allowed = vk == VK_SNAPSHOT;
+        if (modifiers.count() == 0 && !bare_allowed)
+            || Modifiers::of_key(vk).is_some()
+            || self.closed
+        {
             return false;
         }
         self.hotkeys.push((Arc::from(name), modifiers, vk));
@@ -654,6 +724,13 @@ impl Engine {
     /// 已被吞掉按下的键，抬起照样吞掉。
     pub fn unbind_hotkey(&mut self, name: &str) {
         self.hotkeys.retain(|(n, _, _)| &**n != name);
+        self.sync_requested = true;
+    }
+
+    /// 录入快捷键期间开启：按住 Win 时按下的键和 PrtSc 整对吞掉并报告 Captured，优先于已绑定的
+    /// 热键；单按 Win 松开时不弹开始菜单。关闭后已吞掉按下的键，抬起照样吞掉。
+    pub fn configure_key_capture(&mut self, enabled: bool) {
+        self.key_capture = enabled && !self.closed;
         self.sync_requested = true;
     }
 
@@ -711,6 +788,8 @@ impl Engine {
                 || self.side_claimed != 0
                 || !self.hotkeys.is_empty()
                 || !self.hotkey_claimed.0.is_empty()
+                || self.key_capture
+                || !self.capture_claimed.0.is_empty()
                 || !self.wheel_watchers.is_empty()
                 || !self.key_watchers.is_empty())
     }
@@ -730,6 +809,7 @@ impl Engine {
         self.enabled = false;
         self.side_enabled = false;
         self.hotkeys.clear();
+        self.key_capture = false;
         self.cancel(emit);
         self.clear_claims();
         self.sync_requested = true;
@@ -742,6 +822,7 @@ impl Engine {
         self.closed = true;
         self.side_enabled = false;
         self.hotkeys.clear();
+        self.key_capture = false;
         self.clear_claims();
         self.wheel_watchers.clear();
         self.key_watchers.clear();
@@ -755,6 +836,7 @@ impl Engine {
         self.pending_menu_keys.0.clear();
         self.side_claimed = 0;
         self.hotkey_claimed.0.clear();
+        self.capture_claimed.0.clear();
     }
 }
 

@@ -672,6 +672,151 @@ fn hotkeys_need_a_modifier_and_a_non_modifier_key() {
 }
 
 #[test]
+fn print_screen_is_the_one_key_that_binds_without_modifiers() {
+    let mut rig = Rig {
+        engine: Engine::new(),
+        platform: FakePlatform::default(),
+    };
+    assert!(rig
+        .engine
+        .bind_hotkey("capture", Modifiers::default(), VK_SNAPSHOT));
+    let capture = Event::Hotkey {
+        name: Arc::from("capture"),
+    };
+    assert_eq!(rig.key(VK_SNAPSHOT, true), (true, vec![capture.clone()]));
+    assert_eq!(rig.key(VK_SNAPSHOT, false), (true, vec![]));
+    rig.key(VK_LSHIFT, true);
+    assert_eq!(
+        rig.key(VK_SNAPSHOT, true),
+        (false, vec![]),
+        "Shift+PrtSc is another combination"
+    );
+    rig.key(VK_SNAPSHOT, false);
+    rig.key(VK_LSHIFT, false);
+    assert!(!rig.engine.bind_hotkey("bare", Modifiers::default(), VK_V));
+}
+
+fn capture_rig() -> Rig {
+    let mut rig = hotkey_rig();
+    rig.engine.configure_key_capture(true);
+    rig
+}
+
+fn captured(modifiers: Modifiers, vk: u32) -> Event {
+    Event::Captured { modifiers, vk }
+}
+
+#[test]
+fn recording_swallows_win_combinations_and_reports_them_once() {
+    let mut rig = capture_rig();
+    let win_shift = Modifiers::parse(["win", "shift"]).unwrap();
+    assert_eq!(
+        rig.key(VK_LWIN, true),
+        (false, vec![]),
+        "Win itself reaches the edit"
+    );
+    rig.key(VK_LSHIFT, true);
+    assert_eq!(rig.key(0x53, true), (true, vec![captured(win_shift, 0x53)]));
+    assert_eq!(rig.key(0x53, true), (true, vec![]), "auto-repeat");
+    assert_eq!(rig.key(0x53, false), (true, vec![]));
+    rig.key(VK_LSHIFT, false);
+    assert!(!rig.key(VK_LWIN, false).0);
+    assert_eq!(rig.platform.masks, 1, "the Start menu stays closed");
+}
+
+#[test]
+fn recording_lets_the_menu_mask_through() {
+    let mut rig = capture_rig();
+    rig.key(VK_LWIN, true);
+    rig.key(0x53, true);
+    rig.key(0x53, false);
+    // 钩子在放行 Win 的抬起之前注入的那一对
+    assert_eq!(rig.key(VK_MENU_MASK, true), (false, vec![]));
+    assert_eq!(rig.key(VK_MENU_MASK, false), (false, vec![]));
+    assert!(!rig.key(VK_LWIN, false).0);
+}
+
+#[test]
+fn recording_takes_precedence_over_a_bound_hotkey() {
+    let mut rig = capture_rig();
+    rig.key(VK_LWIN, true);
+    assert_eq!(
+        rig.key(VK_V, true),
+        (true, vec![captured(Modifiers::WIN, VK_V)])
+    );
+    rig.key(VK_V, false);
+    rig.key(VK_LWIN, false);
+    rig.engine.configure_key_capture(false);
+    rig.key(VK_LWIN, true);
+    assert_eq!(rig.key(VK_V, true), (true, vec![clipboard_hotkey()]));
+}
+
+#[test]
+fn recording_takes_print_screen_with_or_without_modifiers() {
+    let mut rig = capture_rig();
+    assert_eq!(
+        rig.key(VK_SNAPSHOT, true),
+        (true, vec![captured(Modifiers::default(), VK_SNAPSHOT)])
+    );
+    rig.key(VK_SNAPSHOT, false);
+    rig.key(VK_LCONTROL, true);
+    assert_eq!(
+        rig.key(VK_SNAPSHOT, true),
+        (true, vec![captured(ctrl(), VK_SNAPSHOT)])
+    );
+    rig.key(VK_SNAPSHOT, false);
+    assert_eq!(rig.platform.masks, 0, "no Win, no menu to mask");
+}
+
+#[test]
+fn recording_leaves_keys_the_edit_receives_itself() {
+    let mut rig = capture_rig();
+    assert_eq!(rig.key(VK_V, true), (false, vec![]));
+    rig.key(VK_V, false);
+    rig.key(VK_LCONTROL, true);
+    rig.key(VK_LSHIFT, true);
+    assert_eq!(
+        rig.key(VK_V, true),
+        (false, vec![]),
+        "Ctrl+Shift+V comes through Qt"
+    );
+    rig.key(VK_V, false);
+}
+
+#[test]
+fn recording_skips_a_key_held_before_win() {
+    let mut rig = capture_rig();
+    rig.key(VK_V, true);
+    rig.key(VK_LWIN, true);
+    assert_eq!(rig.key(VK_V, true), (false, vec![]), "auto-repeat");
+    assert!(!rig.key(VK_V, false).0);
+}
+
+#[test]
+fn ending_recording_keeps_swallowing_the_pending_release() {
+    let mut rig = capture_rig();
+    assert!(rig.engine.hooks_needed());
+    rig.key(VK_LWIN, true);
+    rig.key(0x4A, true);
+    rig.engine.configure_key_capture(false);
+    rig.engine.unbind_hotkey("clipboard");
+    rig.key(VK_LWIN, false);
+    assert!(rig.engine.hooks_needed(), "the release of J is still owed");
+    assert!(rig.key(0x4A, false).0);
+    assert!(!rig.engine.hooks_needed());
+}
+
+#[test]
+fn a_failure_ends_recording() {
+    let mut rig = capture_rig();
+    rig.key(VK_LWIN, true);
+    rig.key(0x4A, true);
+    rig.with(|e, emit| e.fail("hook lost".into(), emit));
+    assert!(!rig.engine.hooks_needed());
+    assert!(!rig.key(0x4A, false).0);
+}
+
+#[test]
 fn a_gesture_swallowing_escape_takes_precedence_over_a_hotkey() {
     let mut rig = Rig::new(&[(ctrl(), Button::Left)]);
     assert!(rig.engine.bind_hotkey("esc", ctrl(), VK_ESCAPE));

@@ -28,7 +28,9 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     WM_XBUTTONDOWN, WM_XBUTTONUP,
 };
 
-use crate::engine::{Button, Engine, Event, KeyInput, MouseAction, MouseInput, Platform};
+use crate::engine::{
+    Button, Engine, Event, KeyInput, MouseAction, MouseInput, Platform, VK_MENU_MASK,
+};
 
 const WM_APP_SYNC: u32 = WM_APP + 1;
 
@@ -216,12 +218,12 @@ impl Platform for Win32Platform {
 }
 
 fn send_menu_mask() -> Result<(), String> {
-    // 0xE8 未分配：成对的按下、抬起让随后松开的 Win/Alt 不弹出菜单，又不吞掉真实的松开
+    // 未分配的键：成对的按下、抬起让随后松开的 Win/Alt 不弹出菜单，又不吞掉真实的松开
     let key = |flags| INPUT {
         r#type: INPUT_KEYBOARD,
         Anonymous: INPUT_0 {
             ki: KEYBDINPUT {
-                wVk: 0xE8,
+                wVk: VK_MENU_MASK as u16,
                 wScan: 0,
                 dwFlags: flags,
                 time: 0,
