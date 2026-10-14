@@ -689,8 +689,8 @@ Replace it?</source>
         <translation>Windows 截图工具</translation>
     </message>
     <message>
-        <source>Windows Snipping Tool (not found)</source>
-        <translation>Windows 截图工具（未找到）</translation>
+        <source>oneocr (not found)</source>
+        <translation>oneocr（未找到）</translation>
     </message>
     <message>
         <source>PP-OCR (missing engine)</source>
@@ -2671,8 +2671,8 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>保存图片失败。</translation>
     </message>
     <message>
-        <source>PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp)</source>
-        <translation>PNG 图片 (*.png);;JPEG 图片 (*.jpg *.jpeg);;BMP 图片 (*.bmp)</translation>
+        <source>PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp);;WebP Image (*.webp);;PDF (*.pdf)</source>
+        <translation>PNG 图片 (*.png);;JPEG 图片 (*.jpg *.jpeg);;BMP 图片 (*.bmp);;WebP 图片 (*.webp);;PDF (*.pdf)</translation>
     </message>
     <message>
         <source>Open File Location</source>
@@ -5831,6 +5831,13 @@ Make sure gifrecorder is installed correctly.</source>
     <message>
         <source>Compact, for file names</source>
         <translation>紧凑格式，适合文件名</translation>
+    </message>
+</context>
+<context>
+    <name>TranslationLoadingDialog</name>
+    <message>
+        <source>Recognizing...</source>
+        <translation>识别中...</translation>
     </message>
 </context>
 </TS>

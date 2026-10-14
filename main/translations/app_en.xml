@@ -685,8 +685,8 @@ Replace it?</translation>
         <translation>Windows Snipping Tool</translation>
     </message>
     <message>
-        <source>Windows Snipping Tool (not found)</source>
-        <translation>Windows Snipping Tool (not found)</translation>
+        <source>oneocr (not found)</source>
+        <translation>oneocr (not found)</translation>
     </message>
     <message>
         <source>PP-OCR (missing engine)</source>
@@ -2444,8 +2444,8 @@ Items in the group will be moved back to clipboard history.</translation>
         <translation>Failed to save image.</translation>
     </message>
     <message>
-        <source>PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp)</source>
-        <translation>PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp)</translation>
+        <source>PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp);;WebP Image (*.webp);;PDF (*.pdf)</source>
+        <translation>PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp);;WebP Image (*.webp);;PDF (*.pdf)</translation>
     </message>
     <message>
         <source>Open File Location</source>
@@ -5401,6 +5401,26 @@ Make sure gifrecorder is installed correctly.</translation>
         <source>If the last screenshot ended with a watermark, the next one gets the same watermark with the time updated; otherwise none is added. Screenshots taken with mouse shortcuts follow the same rule.</source>
         <translation>If the last screenshot ended with a watermark, the next one gets the same watermark with the time updated; otherwise none is added. Screenshots taken with mouse shortcuts follow the same rule.</translation>
     </message>
+    <message>
+        <source>Fetch Models</source>
+        <translation>Fetch Models</translation>
+    </message>
+    <message>
+        <source>Test Connection</source>
+        <translation>Test Connection</translation>
+    </message>
+    <message>
+        <source>Testing...</source>
+        <translation>Testing...</translation>
+    </message>
+    <message>
+        <source>Fetching models...</source>
+        <translation>Fetching models...</translation>
+    </message>
+    <message>
+        <source>No models returned</source>
+        <translation>No models returned</translation>
+    </message>
 </context>
 <context>
     <name>WatermarkPanel</name>
@@ -5554,6 +5574,13 @@ Make sure gifrecorder is installed correctly.</translation>
     <message>
         <source>Compact, for file names</source>
         <translation>Compact, for file names</translation>
+    </message>
+</context>
+<context>
+    <name>TranslationLoadingDialog</name>
+    <message>
+        <source>Recognizing...</source>
+        <translation>Recognizing...</translation>
     </message>
 </context>
 </TS>

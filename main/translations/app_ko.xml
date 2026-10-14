@@ -684,8 +684,8 @@ Replace it?</source>
         <translation>Windows 캡처 도구</translation>
     </message>
     <message>
-        <source>Windows Snipping Tool (not found)</source>
-        <translation>Windows 캡처 도구(찾을 수 없음)</translation>
+        <source>oneocr (not found)</source>
+        <translation>oneocr(찾을 수 없음)</translation>
     </message>
     <message>
         <source>PP-OCR (missing engine)</source>
@@ -2591,8 +2591,8 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>이미지 저장에 실패했습니다.</translation>
     </message>
     <message>
-        <source>PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp)</source>
-        <translation>PNG 이미지 (*.png);;JPEG 이미지 (*.jpg *.jpeg);;BMP 이미지 (*.bmp)</translation>
+        <source>PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp);;WebP Image (*.webp);;PDF (*.pdf)</source>
+        <translation>PNG 이미지 (*.png);;JPEG 이미지 (*.jpg *.jpeg);;BMP 이미지 (*.bmp);;WebP 이미지 (*.webp);;PDF (*.pdf)</translation>
     </message>
     <message>
         <source>Open File Location</source>
@@ -5745,6 +5745,13 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
     <message>
         <source>Compact, for file names</source>
         <translation>간결한 형식, 파일 이름용</translation>
+    </message>
+</context>
+<context>
+    <name>TranslationLoadingDialog</name>
+    <message>
+        <source>Recognizing...</source>
+        <translation>인식 중...</translation>
     </message>
 </context>
 </TS>
