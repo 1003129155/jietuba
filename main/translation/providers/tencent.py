@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 """Tencent machine translation provider (TMT / TextTranslate).
 
-腾讯云机器翻译 TMT，走 API 3.0 的 TC3-HMAC-SHA256 签名。免费额度每月约
-500 万字符，软件侧默认锁到 499 万（QUOTA_LIMIT_CHARS），跨月重置。
+腾讯云机器翻译，API 3.0 的 TC3-HMAC-SHA256 签名。
 """
 
 from __future__ import annotations
@@ -27,12 +26,6 @@ from ..provider import TextField, ToggleField, TranslationProvider
 
 
 class TencentTranslateProvider(TranslationProvider):
-    """腾讯云机器翻译（文本翻译 TextTranslate）。
-
-    免费额度每月约 500 万字符，这里锁到 499 万防误超；到点由 service 层拦截，
-    跨月重置。
-    """
-
     provider_id = "tencent"
     display_name = "Tencent"
     API_URL = "https://tmt.tencentcloudapi.com"
@@ -42,11 +35,10 @@ class TencentTranslateProvider(TranslationProvider):
     REGION = "ap-guangzhou"
     PROJECT_ID = 0
 
-    # 本地额度锁：499 万字符/月，到点自动停用，跨月重置。
+    # 免费额度约 500 万字符/月，留 1 万余量；到量由 service 拦截，跨月重置。
     QUOTA_LIMIT_CHARS: int | None = 4_990_000
 
-    # 应用内部语种 -> 腾讯代码。腾讯不支持 nl/pl/uk，所以这三个不映射，
-    # 并通过 supported_target_languages() 明确告知界面不可选。
+    # 应用内部语种 -> 腾讯代码。nl/pl/uk 腾讯不支持，见 _UNSUPPORTED_TARGET。
     _LANGUAGE_CODES: dict[str, str] = {
         "zh-Hans": "zh",
         "zh-Hant": "zh-TW",
@@ -78,8 +70,6 @@ class TencentTranslateProvider(TranslationProvider):
             secret=True,
         ),
     )
-    # 额度锁选项：开关 + 自定义上限（字符）。OPTION_FIELDS 自动渲染进设置页，
-    # config_key 驱动读写，不需要改界面代码。
     OPTION_FIELDS = (
         ToggleField(
             "tencent_translate_quota_enabled",
@@ -92,9 +82,8 @@ class TencentTranslateProvider(TranslationProvider):
             placeholder="4990000",
         ),
     )
-    # 腾讯云 TMT 免费额度约每月 500 万字符；免费额度用尽后服务端本身返回
-    # FailedOperation.NoFreeAmount 拒绝请求（除非控制台升级为付费）。软件侧
-    # 默认再开一道本地锁作为额外保险，可在设置里关掉或调上限。
+    # 免费额度用尽后服务端返回 FailedOperation.NoFreeAmount，控制台升级为
+    # 付费后才继续扣费；本地额度锁是额外一道保险。
     NOTICE = (
         "Tencent Cloud TMT: about 5M free characters/month. The API rejects "
         "overuse itself; the local quota guard (default on) is extra protection."
@@ -105,19 +94,6 @@ class TencentTranslateProvider(TranslationProvider):
 
     def is_configured(self) -> bool:
         return bool(self._secret_id and self._secret_key)
-
-    def supported_target_languages(self) -> set[str] | None:
-        # 腾讯只支持表内语言；把应用里它不支持的语种挡掉，避免提交后被服务端
-        # 以 UnsupportedOperation.* 打回。基于 _LEGACY_LANGUAGE_CODES 的取值
-        # （应用内部 BCP-47 风格代码）构造，再去掉 nl/pl/uk。
-        from ..models import _LEGACY_LANGUAGE_CODES  # 避免循环导入风险
-
-        supported = {
-            code for code in _LEGACY_LANGUAGE_CODES.values() if code
-        }
-        for unsupported in ("nl", "pl", "uk"):
-            supported.discard(unsupported)
-        return supported
 
     def translate(self, request: TranslationRequest) -> TranslationResult:
         if not request.text or not request.text.strip():
@@ -316,10 +292,9 @@ class TencentTranslateProvider(TranslationProvider):
             data = json.loads(body.decode("utf-8")) if body else {}
         except (ValueError, UnicodeDecodeError):
             data = {}
-        if isinstance(data, dict):
-            parsed = self._parse_response(data)
-            if not parsed.success:
-                return parsed
+        response = data.get("Response") if isinstance(data, dict) else None
+        if isinstance(response, dict) and isinstance(response.get("Error"), dict):
+            return self._parse_response(data)
         message = str(error.reason or f"HTTP {error.code}")
         code = (
             TranslationErrorCode.AUTH_FAILED

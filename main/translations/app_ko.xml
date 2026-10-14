@@ -2378,8 +2378,12 @@ Replace it?</source>
         <translation>Tencent Cloud 콘솔</translation>
     </message>
     <message>
-        <source>Used %1 of %2 free chars this month (guard: %3)</source>
-        <translation>이번 달 무료 문자 %1 / %2 사용됨(보호: %3)</translation>
+        <source>Used this month: %1 / %2 characters (quota guard on)</source>
+        <translation>이번 달 사용량: %1 / %2자(할당량 보호 켜짐)</translation>
+    </message>
+    <message>
+        <source>Used this month: %1 / %2 characters (quota guard off)</source>
+        <translation>이번 달 사용량: %1 / %2자(할당량 보호 꺼짐)</translation>
     </message>
 </context>
 <!-- ========== Clipboard Window ========== -->

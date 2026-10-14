@@ -2219,8 +2219,12 @@ Replace it?</translation>
         <translation>Tencent Cloud Console</translation>
     </message>
     <message>
-        <source>Used %1 of %2 free chars this month (guard: %3)</source>
-        <translation>Used %1 of %2 free chars this month (guard: %3)</translation>
+        <source>Used this month: %1 / %2 characters (quota guard on)</source>
+        <translation>Used this month: %1 / %2 characters (quota guard on)</translation>
+    </message>
+    <message>
+        <source>Used this month: %1 / %2 characters (quota guard off)</source>
+        <translation>Used this month: %1 / %2 characters (quota guard off)</translation>
     </message>
 </context>
 <!-- ========== Clipboard Window ========== -->

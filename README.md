@@ -596,6 +596,8 @@ translation/
 │   ├── azure.py             # Azure
 │   ├── amazon.py            # Amazon
 │   ├── baidu.py             # Baidu
+│   ├── tencent.py           # Tencent Cloud
+│   ├── volcengine.py        # Volcengine
 │   ├── custom_llm.py        # Custom OpenAI-compatible service (Ollama, LM Studio…)
 │   ├── deepseek.py          # DeepSeek (LLM)
 │   └── openai_compatible.py # OpenAI 兼容接口基类

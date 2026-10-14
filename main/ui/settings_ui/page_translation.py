@@ -509,7 +509,7 @@ def _update_provider_groups(dialog) -> None:
     label = getattr(dialog, "translation_notice_label", None)
     if label is not None:
         html = _notice_html(dialog, metadata)
-        usage = _quota_usage_html(dialog, provider_id)
+        usage = _quota_usage_text(dialog, provider_id)
         if usage:
             html = f"{html}<br/>{usage}" if html else usage
         label.setText(html)
@@ -536,37 +536,25 @@ def _notice_html(dialog, metadata) -> str:
     return " ".join(parts)
 
 
-def _quota_usage_html(dialog, provider_id) -> str:
-    """额度 provider 的引擎页底部补一行本月用量 + 锁状态。
-
-    只在 provider 声明 QUOTA_LIMIT_CHARS 时显示。检测的是能力而不是服务商
-    名字（和 SUPPORTED_REQUEST_OPTIONS 的显隐同一个思路），这样额度锁做成
-    设置项后用户能直接看到已用字符数和当前开关状态。
-    """
-    if not provider_id:
-        return ""
+def _quota_usage_text(dialog, provider_id) -> str:
+    """声明了 QUOTA_LIMIT_CHARS 的引擎，在提示下面显示本月用量和额度锁状态。"""
     registry = getattr(dialog, "translation_registry", None)
     config = getattr(dialog, "config_manager", None)
-    if registry is None or config is None:
+    if not provider_id or registry is None or config is None:
         return ""
     try:
         provider = registry.create(provider_id, {})
-    except Exception:
+    except ValueError:
         return ""
     default_limit = getattr(provider, "QUOTA_LIMIT_CHARS", None)
     if not default_limit or default_limit <= 0:
         return ""
-    try:
-        used = int(config.get_translation_usage_chars(provider_id) or 0)
-        enabled = bool(config.get_translation_quota_enabled(provider_id))
-        custom = int(config.get_translation_quota_limit(provider_id) or 0)
-    except Exception:
-        return ""
+    custom = config.get_translation_quota_limit(provider_id)
     limit = custom if custom > 0 else default_limit
-    state = "on" if enabled else "off"
-    text = dialog.tr("Used %1 of %2 free chars this month (guard: %3)")
-    return (
-        text.replace("%1", str(used))
-        .replace("%2", str(limit))
-        .replace("%3", state)
-    )
+    used = config.get_translation_usage_chars(provider_id)
+    if config.get_translation_quota_enabled(provider_id):
+        text = dialog.tr("Used this month: %1 / %2 characters (quota guard on)")
+    else:
+        text = dialog.tr("Used this month: %1 / %2 characters (quota guard off)")
+    # PySide 的 tr() 返回 str，没有 QString.arg()。
+    return text.replace("%1", f"{used:,}").replace("%2", f"{limit:,}")

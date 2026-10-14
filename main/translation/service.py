@@ -100,88 +100,55 @@ class TranslationService:
                 error_code=TranslationErrorCode.NOT_CONFIGURED,
                 error_message=f"{provider.display_name} is not configured",
             )
-        # 额度保护：provider 声明了 QUOTA_LIMIT_CHARS 就按月记账、超限即拦，
-        # 防止误超免费额度产生费用。只有火山/腾讯等声明了上限的引擎受约束。
-        quota_error = self._check_quota(provider)
+        quota_error = self.check_quota(provider)
         if quota_error is not None:
             return quota_error
         result = provider.translate(request)
         if result.success:
-            self._record_usage(provider, request.text)
+            self.record_usage(provider, len(request.text or ""))
         return result
 
-    def _check_quota(self, provider) -> TranslationResult | None:
-        """当前月已用字符数达到上限时返回锁定错误，否则返回 None。"""
+    def check_quota(self, provider) -> TranslationResult | None:
+        """本月用量到达上限时返回 QUOTA_EXCEEDED，否则返回 None。
+
+        要读 QSettings，只能在 GUI 线程调用。
+        """
         limit = self._effective_quota_limit(provider)
-        if limit is None or limit <= 0:
+        if limit is None:
             return None
         used = self.config.get_translation_usage_chars(provider.provider_id)
-        if used >= limit:
-            log_info(
-                f"{provider.display_name} hit monthly quota {used}/{limit}",
-                "TranslationService",
-            )
-            return TranslationResult(
-                success=False,
-                error_code=TranslationErrorCode.QUOTA_EXCEEDED,
-                error_message=(
-                    f"{provider.display_name} 本月免费额度已用尽（{used}/"
-                    f"{limit} 字符），已自动停用，下月 1 号自动恢复。"
-                ),
-            )
-        return None
-
-    def check_quota(self, provider) -> TranslationResult | None:
-        """供 worker 在主线程做额度闸门：返回超限结果或 None。
-
-        截图翻译/设置页测试走 TranslationWorker，不经过 translate()，
-        所以这个公开入口让 worker 在创建时（GUI 线程）检查额度，既满足
-        「工作线程不碰 QSettings」，又能让额度锁在每一条翻译路径上生效。
-        """
-        return self._check_quota(provider)
+        if used < limit:
+            return None
+        log_info(
+            f"{provider.display_name} hit monthly quota {used}/{limit}",
+            "TranslationService",
+        )
+        return TranslationResult(
+            success=False,
+            error_code=TranslationErrorCode.QUOTA_EXCEEDED,
+            error_message=(
+                f"{provider.display_name} monthly quota reached "
+                f"({used}/{limit} characters), resets next month"
+            ),
+        )
 
     def _effective_quota_limit(self, provider) -> int | None:
-        """provider 声明上限时，用配置里的开关/自定义上限覆盖默认值。
-
-        额度锁做成设置里可见的选项：开关关掉就不拦截，上限可改。
-        未声明 QUOTA_LIMIT_CHARS 的引擎（DeepL 等）不受本机制约束。
-        """
+        """未声明 QUOTA_LIMIT_CHARS 或额度锁关闭时返回 None。"""
         default_limit = getattr(provider, "QUOTA_LIMIT_CHARS", None)
-        if default_limit is None or default_limit <= 0:
+        if not default_limit or default_limit <= 0:
             return None
         provider_id = provider.provider_id
         if not self.config.get_translation_quota_enabled(provider_id):
             return None
         custom = self.config.get_translation_quota_limit(provider_id)
-        if custom and custom > 0:
-            return custom
-        return default_limit
+        return custom if custom > 0 else default_limit
 
-    def _record_usage(self, provider, text: str) -> None:
-        """翻译成功后累加本月的已用字符数（按请求文本长度估算）。"""
+    def record_usage(self, provider, chars: int) -> None:
+        """计入本月用量。额度锁关闭时也记，重新打开后用量仍然准确。"""
         limit = getattr(provider, "QUOTA_LIMIT_CHARS", None)
-        if limit is None or limit <= 0:
+        if not limit or limit <= 0:
             return
-        self.config.add_translation_usage_chars(
-            provider.provider_id, len(text or "")
-        )
-
-    @property
-    def monthly_usage(self) -> dict[str, int]:
-        """当前月各受额度约束 provider 的已用字符数（供设置页展示）。"""
-        usage = {}
-        for meta in self.registry.available_providers():
-            provider_id = meta.provider_id
-            try:
-                provider = self.registry.create(provider_id, {})
-            except Exception:
-                continue
-            limit = getattr(provider, "QUOTA_LIMIT_CHARS", None)
-            if limit is not None and limit > 0:
-                usage[provider_id] = self.config.get_translation_usage_chars(
-                    provider_id
-                )
-        return usage
+        self.config.add_translation_usage_chars(provider.provider_id, chars)
 
 
 def create_default_translation_service(config=None) -> TranslationService:

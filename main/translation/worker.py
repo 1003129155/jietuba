@@ -15,8 +15,8 @@ from .service import TranslationService
 
 class TranslationWorker(QThread):
     finished_signal = Signal(object)
-    # 翻译成功后由工作线程发、在主线程记账（工作线程不碰 QSettings）。
-    _record_signal = Signal(str, int)
+    # 从 run() 发出，排队到 GUI 线程记账，工作线程不碰 QSettings。
+    _usage_signal = Signal(int)
 
     def __init__(
         self,
@@ -39,16 +39,11 @@ class TranslationWorker(QThread):
             self._provider = service.provider(
                 provider_id, provider_overrides
             )
-            # 额度闸门也在 GUI 线程做：截图翻译/设置页测试都不经过
-            # TranslationService.translate()，这里补上「创建 worker 前检查」。
-            self._quota_error = service.check_quota(self._provider)
         except ValueError as exc:
             self._configuration_error = str(exc)
-        except Exception:
-            # 配置对象不实现额度协议时静默放行，不因额度机制挡住翻译。
-            self._quota_error = None
-        # 记账信号从工作线程发、槽在构造线程（GUI 线程）排队执行。
-        self._record_signal.connect(self._record_usage_on_main_thread)
+        else:
+            self._quota_error = service.check_quota(self._provider)
+        self._usage_signal.connect(self._record_usage)
 
     def effective_timeout_ms(self) -> int:
         if self._provider is None:
@@ -72,15 +67,11 @@ class TranslationWorker(QThread):
                     ),
                 )
             elif self._quota_error is not None:
-                # 额度已满：不发请求，直接把锁定结果交给界面。
                 result = self._quota_error
             else:
                 result = self._provider.translate(self._request)
                 if result.success:
-                    self._record_signal.emit(
-                        self._provider.provider_id,
-                        len(self._request.text or ""),
-                    )
+                    self._usage_signal.emit(len(self._request.text or ""))
         except Exception as exc:
             log_error(T("翻译线程异常: {exc}", exc=exc), "Translation")
             result = TranslationResult(
@@ -91,19 +82,5 @@ class TranslationWorker(QThread):
         if not self.isInterruptionRequested():
             self.finished_signal.emit(result)
 
-    def _record_usage_on_main_thread(self, provider_id: str, chars: int) -> None:
-        """翻译成功后累计本月用量。在工作线程（GUI 线程）执行。
-
-        与 service._record_usage 一致：只在 provider 声明了额度上限时记账，
-        这样额度锁关掉时用量仍能显示，但不影响未声明额度的引擎。
-        """
-        try:
-            provider = self._provider
-            if provider is None:
-                return
-            limit = getattr(provider, "QUOTA_LIMIT_CHARS", None)
-            if limit is None or limit <= 0:
-                return
-            self._service.config.add_translation_usage_chars(provider_id, chars)
-        except Exception:
-            pass
+    def _record_usage(self, chars: int) -> None:
+        self._service.record_usage(self._provider, chars)

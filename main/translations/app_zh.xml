@@ -2458,8 +2458,12 @@ Replace it?</source>
         <translation>腾讯云控制台</translation>
     </message>
     <message>
-        <source>Used %1 of %2 free chars this month (guard: %3)</source>
-        <translation>本月已用 %1 / %2 免费字符（额度保护：%3）</translation>
+        <source>Used this month: %1 / %2 characters (quota guard on)</source>
+        <translation>本月已用 %1 / %2 字符（额度保护已开启）</translation>
+    </message>
+    <message>
+        <source>Used this month: %1 / %2 characters (quota guard off)</source>
+        <translation>本月已用 %1 / %2 字符（额度保护已关闭）</translation>
     </message>
 </context>
 

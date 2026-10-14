@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Volcengine machine translation provider (matx_translate / TranslateText).
+"""Volcengine machine translation provider (TranslateText).
 
-火山引擎文本机器翻译，走 OpenAPI 的 V4 签名（HMAC-SHA256）。这是独立的
-机器翻译产品，不是火山方舟的豆包大模型——免费额度不同、鉴权方式也不同：
-方舟是 ARK API Key（Bearer），这里要的是火山「访问控制-密钥管理」里的
-AccessKey ID + Secret Access Key，两种不要混填。
+火山引擎文本机器翻译，OpenAPI V4 签名（HMAC-SHA256）。凭据是「访问控制 -
+密钥管理」里的 AccessKey ID + Secret Access Key，不是大模型服务的 API Key。
 """
 
 from __future__ import annotations
@@ -27,20 +25,8 @@ from ..models import (
 )
 from ..provider import TextField, ToggleField, TranslationProvider
 
-try:
-    import zoneinfo
-except ImportError:  # pragma: no cover - 3.9 以前没有 zoneinfo，用自带时区兜底
-    zoneinfo = None
-
 
 class VolcengineTranslateProvider(TranslationProvider):
-    """火山引擎文本机器翻译（文本翻译 API，Action=TranslateText）。
-
-    每月免费额度约 200 万字符。软件侧默认把额度锁在 199 万（QUOTA_LIMIT_CHARS），
-    到点后由 service 层拦截、不再发起请求，避免误超免费额度产生费用；跨月自动
-    重置。这一保护只对这个 provider 生效，不碰其他引擎。
-    """
-
     provider_id = "volcengine"
     display_name = "Volcengine"
     API_URL = "https://translate.volcengineapi.com"
@@ -49,7 +35,7 @@ class VolcengineTranslateProvider(TranslationProvider):
     ACTION = "TranslateText"
     VERSION = "2020-06-01"
 
-    # 本地额度锁：199 万字符/月，到点自动停用，跨月重置。
+    # 免费额度约 200 万字符/月，留 1 万余量；到量由 service 拦截，跨月重置。
     QUOTA_LIMIT_CHARS: int | None = 1_990_000
 
     # 应用内部语种（BCP-47 风格）到火山代码的映射。火山基本用 ISO 码，绝大多数
@@ -84,8 +70,6 @@ class VolcengineTranslateProvider(TranslationProvider):
             secret=True,
         ),
     )
-    # 额度锁选项：开关 + 自定义上限（字符）。OPTION_FIELDS 自动渲染进设置页，
-    # config_key 驱动读写，不需要改界面代码。
     OPTION_FIELDS = (
         ToggleField(
             "volcengine_translate_quota_enabled",
@@ -98,9 +82,7 @@ class VolcengineTranslateProvider(TranslationProvider):
             placeholder="1990000",
         ),
     )
-    # 火山文本翻译免费额度约每月 200 万字符，超出后直接进入付费段、按量扣费
-    # （服务端不会拒绝）。所以本地额度锁对火山是真防线，默认开启、可在设置里
-    # 关掉或调上限，跨月自动重置。
+    # 超出免费额度后服务端不拒绝、直接按量计费，所以额度锁默认开启。
     NOTICE = (
         "Volcengine machine translation: about 2M free characters/month. "
         "Overuse is billed at pay-as-you-go rates, so a local quota guard "
@@ -136,7 +118,7 @@ class VolcengineTranslateProvider(TranslationProvider):
         payload = json.dumps(
             body, ensure_ascii=False, separators=(",", ":")
         ).encode("utf-8")
-        x_date = _utcnow("%Y%m%dT%H%M%SZ")
+        x_date = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         headers = self._signed_headers(payload, x_date)
 
         http_request = urllib.request.Request(
@@ -198,12 +180,8 @@ class VolcengineTranslateProvider(TranslationProvider):
     def _signed_headers(
         self, payload: bytes, x_date: str
     ) -> dict[str, str]:
-        """构造 V4 签名后的请求头。
-
-        与 AWS Signature V4 同构：canonical request -> string_to_sign ->
-        派生签名密钥 -> signature。participating headers 固定为
-        content-type / host / x-content-sha256 / x-date 四个。
-        """
+        """V4 签名后的请求头。参与签名的固定为 content-type、host、
+        x-content-sha256、x-date 四个。"""
         hashed_payload = hashlib.sha256(payload).hexdigest()
         query = (
             f"Action={self.ACTION}&Version={urllib.parse.quote(self.VERSION)}"
@@ -332,10 +310,9 @@ class VolcengineTranslateProvider(TranslationProvider):
             data = json.loads(body.decode("utf-8")) if body else {}
         except (ValueError, UnicodeDecodeError):
             data = {}
-        if isinstance(data, dict):
-            parsed = self._parse_response(data)
-            if not parsed.success:
-                return parsed
+        meta = data.get("ResponseMetadata") if isinstance(data, dict) else None
+        if isinstance(meta, dict) and meta.get("Error"):
+            return self._parse_response(data)
         message = str(error.reason or f"HTTP {error.code}")
         code = (
             TranslationErrorCode.AUTH_FAILED
@@ -380,12 +357,3 @@ def _hmac(key: bytes | str, msg: str) -> bytes:
     if isinstance(key, str):
         key = key.encode("utf-8")
     return hmac.new(key, msg.encode("utf-8"), hashlib.sha256).digest()
-
-
-def _utcnow(fmt: str) -> str:
-    """UTC 当前时间，按给定格式输出。3.9 起可带时区；低版本退化为 naive utc。"""
-    if zoneinfo is not None:
-        now = datetime.now(timezone.utc)
-    else:  # pragma: no cover
-        now = datetime.utcnow()
-    return now.strftime(fmt)

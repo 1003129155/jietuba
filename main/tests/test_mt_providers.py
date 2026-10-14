@@ -8,8 +8,12 @@
 - 接口级错误码映射（火山 -415/-500，腾讯 NoFreeAmount / AuthFailure / 不支持语向）
 """
 
+import io
 import json
 import re
+import urllib.error
+
+import pytest
 
 from translation.models import TranslationErrorCode, TranslationRequest
 from translation.providers.tencent import TencentTranslateProvider
@@ -330,3 +334,151 @@ def test_tencent_rejects_when_not_configured():
     )
     assert not result.success
     assert result.error_code is TranslationErrorCode.NOT_CONFIGURED
+
+
+# ============================================================================
+# 两家共有的失败路径
+# ============================================================================
+
+_PROVIDERS = {
+    "volcengine": (_volcengine, "translation.providers.volcengine.urllib.request.urlopen"),
+    "tencent": (_tencent, "translation.providers.tencent.urllib.request.urlopen"),
+}
+
+
+def _raise(exc):
+    def _urlopen(request, timeout):
+        raise exc
+    return _urlopen
+
+
+def _http_error(code, body=b""):
+    return urllib.error.HTTPError(
+        "https://example.invalid", code, "reason", {}, io.BytesIO(body)
+    )
+
+
+@pytest.mark.parametrize("provider_id", list(_PROVIDERS))
+@pytest.mark.parametrize(
+    "urlopen, expected",
+    [
+        (_raise(TimeoutError()), TranslationErrorCode.NETWORK_ERROR),
+        (_raise(urllib.error.URLError("offline")), TranslationErrorCode.NETWORK_ERROR),
+        (_raise(RuntimeError("boom")), TranslationErrorCode.UNKNOWN),
+        (lambda request, timeout: _Response(b"not json"), TranslationErrorCode.UNKNOWN),
+        (lambda request, timeout: _Response(b"[]"), TranslationErrorCode.UNKNOWN),
+        (lambda request, timeout: _Response(b"{}"), TranslationErrorCode.UNKNOWN),
+        (_raise(_http_error(403)), TranslationErrorCode.AUTH_FAILED),
+        (_raise(_http_error(503)), TranslationErrorCode.NETWORK_ERROR),
+        (_raise(_http_error(400, b"not json")), TranslationErrorCode.UNKNOWN),
+    ],
+)
+def test_failures_map_to_error_codes(monkeypatch, provider_id, urlopen, expected):
+    factory, target = _PROVIDERS[provider_id]
+    monkeypatch.setattr(target, urlopen)
+
+    result = factory().translate(TranslationRequest("Hello", "ja"))
+
+    assert not result.success
+    assert result.error_code is expected
+
+
+@pytest.mark.parametrize("provider_id", list(_PROVIDERS))
+def test_empty_text_is_rejected_without_network(monkeypatch, provider_id):
+    factory, target = _PROVIDERS[provider_id]
+    monkeypatch.setattr(target, _raise(AssertionError("不该发请求")))
+
+    result = factory().translate(TranslationRequest("  ", "ja"))
+
+    assert result.error_code is TranslationErrorCode.INVALID_REQUEST
+
+
+def test_volcengine_http_error_body_is_parsed(monkeypatch):
+    body = json.dumps(
+        {"ResponseMetadata": {"Error": {"Code": "-429", "Message": "slow down"}}}
+    ).encode("utf-8")
+    monkeypatch.setattr(
+        _PROVIDERS["volcengine"][1], _raise(_http_error(429, body))
+    )
+
+    result = _volcengine().translate(TranslationRequest("Hello", "ja"))
+
+    assert result.error_code is TranslationErrorCode.RATE_LIMITED
+    assert result.error_message == "slow down"
+
+
+def test_tencent_http_error_body_is_parsed(monkeypatch):
+    body = json.dumps(
+        {"Response": {"Error": {"Code": "AuthFailure.SignatureFailure", "Message": "bad sig"}}}
+    ).encode("utf-8")
+    monkeypatch.setattr(_PROVIDERS["tencent"][1], _raise(_http_error(400, body)))
+
+    result = _tencent().translate(TranslationRequest("Hello", "ja"))
+
+    assert result.error_code is TranslationErrorCode.AUTH_FAILED
+
+
+def test_volcengine_empty_translation_is_invalid(monkeypatch):
+    body = json.dumps({"TranslationList": [{"Translation": ""}]}).encode("utf-8")
+    monkeypatch.setattr(
+        _PROVIDERS["volcengine"][1], lambda request, timeout: _Response(body)
+    )
+
+    result = _volcengine().translate(TranslationRequest("Hello", "ja"))
+
+    assert result.error_code is TranslationErrorCode.UNKNOWN
+
+
+def test_tencent_maps_traditional_chinese_both_ways(monkeypatch):
+    captured = {}
+
+    def _urlopen(request, timeout):
+        captured["body"] = json.loads(request.data.decode("utf-8"))
+        return _Response(json.dumps(
+            {"Response": {"TargetText": "你好", "Source": "zh-TW"}}
+        ).encode("utf-8"))
+
+    monkeypatch.setattr(_PROVIDERS["tencent"][1], _urlopen)
+
+    result = _tencent().translate(
+        TranslationRequest("你好", "zh-Hans", source_lang="zh-Hant")
+    )
+
+    assert captured["body"]["Source"] == "zh-TW"
+    assert captured["body"]["Target"] == "zh"
+    assert result.detected_source_lang == "zh-Hant"
+
+
+@pytest.mark.parametrize(
+    "code, expected",
+    [
+        ("-400", TranslationErrorCode.INVALID_REQUEST),
+        ("-415", TranslationErrorCode.UNSUPPORTED_LANGUAGE),
+        ("-429", TranslationErrorCode.RATE_LIMITED),
+        ("-500", TranslationErrorCode.NETWORK_ERROR),
+        ("100010", TranslationErrorCode.UNKNOWN),
+    ],
+)
+def test_volcengine_api_error_codes(code, expected):
+    assert VolcengineTranslateProvider._map_api_error_code(code) is expected
+
+
+@pytest.mark.parametrize(
+    "code, expected",
+    [
+        ("AuthFailure.SecretIdNotFound", TranslationErrorCode.AUTH_FAILED),
+        ("UnauthorizedOperation", TranslationErrorCode.AUTH_FAILED),
+        ("FailedOperation.UserNotRegistered", TranslationErrorCode.AUTH_FAILED),
+        ("FailedOperation.NoFreeAmount", TranslationErrorCode.QUOTA_EXCEEDED),
+        ("FailedOperation.ServiceIsolate", TranslationErrorCode.QUOTA_EXCEEDED),
+        ("FailedOperation.StopUsing", TranslationErrorCode.QUOTA_EXCEEDED),
+        ("UnsupportedOperation.UnSupportedTargetLanguage", TranslationErrorCode.UNSUPPORTED_LANGUAGE),
+        ("UnsupportedOperation.TextTooLong", TranslationErrorCode.INVALID_REQUEST),
+        ("RequestLimitExceeded", TranslationErrorCode.RATE_LIMITED),
+        ("InvalidParameter", TranslationErrorCode.INVALID_REQUEST),
+        ("InternalError", TranslationErrorCode.NETWORK_ERROR),
+        ("Something.Else", TranslationErrorCode.UNKNOWN),
+    ],
+)
+def test_tencent_api_error_codes(code, expected):
+    assert TencentTranslateProvider._map_api_error_code(code) is expected
