@@ -426,7 +426,7 @@ class TestModalDialogOwnsTheKeyboard:
     def active_window(self, monkeypatch):
         state = {"window": None}
         monkeypatch.setattr("pin.pin_shortcut.QApplication",
-                            SimpleNamespace(activeWindow=lambda: state["window"]))
+                            SimpleNamespace(activeWindow=lambda: state["window"], activePopupWidget=lambda: None))
         return state
 
     @staticmethod
@@ -464,6 +464,60 @@ class TestModalDialogOwnsTheKeyboard:
 
         assert normal_handler.handle_mouse(_middle_click_event()) is True
         assert pin.copied == 1
+
+
+# ============================================================================
+# 弹出菜单
+# ============================================================================
+
+class TestPopupMenuOwnsTheKeyboard:
+    """
+    钉图的右键菜单弹在光标处，不抢激活，鼠标仍停在钉图上。菜单开着时按键归菜单：
+    否则一下 Esc 连菜单带钉图一起关掉，R、L 也会越过菜单去切缩略图、锁定。
+    """
+
+    @pytest.fixture
+    def menu(self, qapp):
+        from PySide6.QtWidgets import QMenu
+        menu = QMenu()
+        menu.addAction("x")
+        menu.popup(QPoint(0, 0))
+        qapp.processEvents()
+        assert QApplication.activePopupWidget() is menu
+        yield menu
+        menu.close()
+        menu.deleteLater()
+        qapp.processEvents()
+
+    @pytest.mark.parametrize("editing", [True, False])
+    def test_escape_is_left_to_the_menu(self, edit_handler, normal_handler, menu, editing):
+        pin = FakePin(editing=editing)
+        edit_handler._controller.pin = pin
+        normal_handler._controller.pin = pin
+
+        assert edit_handler.handle_key(_key_event(Qt.Key.Key_Escape)) is False
+        assert normal_handler.handle_key(_key_event(Qt.Key.Key_Escape)) is False
+        assert pin.closed == 0
+        assert pin.canvas.deactivated == 0
+
+    def test_pin_keys_are_left_to_the_menu(self, normal_handler, menu):
+        pin = FakePin(editing=False)
+        normal_handler._controller.pin = pin
+        _bind(normal_handler, "inapp_thumbnail", Qt.Key.Key_R)
+        _bind(normal_handler, "inapp_pin_lock", Qt.Key.Key_L)
+
+        assert normal_handler.handle_key(_key_event(Qt.Key.Key_R)) is False
+        assert normal_handler.handle_key(_key_event(Qt.Key.Key_L)) is False
+        assert (pin.thumbnail_toggled, pin.lock_toggles) == (0, 0)
+
+    def test_escape_closes_the_pin_once_the_menu_is_gone(self, qapp, normal_handler, menu):
+        pin = FakePin(editing=False)
+        normal_handler._controller.pin = pin
+        menu.close()
+        qapp.processEvents()
+
+        assert normal_handler.handle_key(_key_event(Qt.Key.Key_Escape)) is True
+        assert pin.closed == 1
 
 
 # ============================================================================
