@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """快捷键设置页 — Fluent Design"""
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget,
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QStackedWidget,
 )
 from PySide6.QtCore import Qt
 
@@ -17,6 +17,7 @@ from ..hotkey_edit import HotkeyEdit, validate_hotkey_group
 from ..inapp_key_edit import InAppKeyEdit
 from ..key_chip import CHIP_WIDTH, STATUS_GAP, STATUS_SIZE, format_shortcut_text
 from settings import ANNOTATION_TOOL_SHORTCUTS, clipboard_pick_keys
+from settings.tool_settings import GLOBAL_HOTKEY_SLOTS, global_hotkey_slot_suffix
 from core.shortcut_manager import is_reserved_inapp_shortcut, is_inapp_mouse_shortcut
 from core.ui_theme import set_own_style
 
@@ -96,32 +97,34 @@ INAPP_ICONS = {
 }
 _CURSOR_MOVE_ICON = "移动窗口.svg"
 
-# 全局快捷键同属一个冲突域；任意两个业务不能占用同一个实际按键。
-GLOBAL_HOTKEY_EDIT_ATTRS = (
-    "hotkey_input",
-    "hotkey_input_2",
-    "clipboard_hotkey_edit",
-    "clipboard_hotkey_edit_2",
-    "translation_hotkey_edit",
-    "translation_hotkey_edit_2",
-    "pin_clipboard_hotkey_edit",
-    "pin_clipboard_hotkey_edit_2",
+# (功能, 第 1 槽录入框的属性名, 标题, 色调, 图标)；第 n 槽的属性名加 _n，同设置项的键名
+GLOBAL_HOTKEY_ROWS = (
+    ("screenshot", "hotkey_input", "Screenshot Hotkey", "capture", FluentIcon.CAMERA),
+    ("clipboard", "clipboard_hotkey_edit", "Clipboard Hotkey", "clipboard", FluentIcon.PASTE),
+    ("pin_clipboard", "pin_clipboard_hotkey_edit", "Pin Clipboard Image", "pin", FluentIcon.PIN),
+    ("translation", "translation_hotkey_edit", "Translation Hotkey", "translate", FluentIcon.LANGUAGE),
 )
 
-# (主键属性, 备用键属性, 标题, 色调, 图标, 读主键, 读备用键)
-_GLOBAL_ROWS = (
-    ("hotkey_input", "hotkey_input_2", "Screenshot Hotkey", "capture", FluentIcon.CAMERA,
-     lambda d: d.current_hotkey, lambda d: d.config_manager.get_hotkey_2()),
-    ("clipboard_hotkey_edit", "clipboard_hotkey_edit_2", "Clipboard Hotkey", "clipboard", FluentIcon.PASTE,
-     lambda d: d.config_manager.get_clipboard_hotkey(),
-     lambda d: d.config_manager.get_clipboard_hotkey_2()),
-    ("pin_clipboard_hotkey_edit", "pin_clipboard_hotkey_edit_2", "Pin Clipboard Image", "pin", FluentIcon.PIN,
-     lambda d: d.config_manager.get_pin_clipboard_hotkey(),
-     lambda d: d.config_manager.get_pin_clipboard_hotkey_2()),
-    ("translation_hotkey_edit", "translation_hotkey_edit_2", "Translation Hotkey", "translate", FluentIcon.LANGUAGE,
-     lambda d: d.config_manager.get_translation_hotkey(),
-     lambda d: d.config_manager.get_translation_hotkey_2()),
+
+def global_hotkey_edit_attrs(first_attr: str):
+    """一个功能各槽录入框的属性名，按槽位顺序。"""
+    return [first_attr + global_hotkey_slot_suffix(slot) for slot in range(GLOBAL_HOTKEY_SLOTS)]
+
+
+# 全局快捷键同属一个冲突域；任意两个业务不能占用同一个实际按键。
+GLOBAL_HOTKEY_EDIT_ATTRS = tuple(
+    attr for _function, first_attr, *_rest in GLOBAL_HOTKEY_ROWS
+    for attr in global_hotkey_edit_attrs(first_attr)
 )
+
+
+def global_hotkey_edit_rows(dialog):
+    """[(功能, 各槽录入框)]；快捷键页还没建时录入框为 None。"""
+    return [
+        (function, [getattr(dialog, attr, None) for attr in global_hotkey_edit_attrs(first_attr)])
+        for function, first_attr, *_rest in GLOBAL_HOTKEY_ROWS
+    ]
+
 
 _INAPP_ROW_HEIGHT = 44
 # 应用内的按键块和全局的按键块右边缘对齐：后者右侧还有一个状态图标。
@@ -185,12 +188,14 @@ def _global_row(parent, title, tone, icon, editors) -> QWidget:
     layout.addWidget(IconBadge(icon, tone, row))
     layout.addWidget(row_label(row, title), 1)
 
-    column = QVBoxLayout()
-    column.setSpacing(dialog_scaled(5))
-    for edit in editors:
+    # 按列排：前两槽留在原来那一列，后加的槽在右边一列
+    grid = QGridLayout()
+    grid.setHorizontalSpacing(dialog_scaled(10))
+    grid.setVerticalSpacing(dialog_scaled(5))
+    for slot, edit in enumerate(editors):
         edit.setFixedWidth(dialog_scaled(CHIP_WIDTH + _STATUS_COLUMN))
-        column.addWidget(edit)
-    layout.addLayout(column)
+        grid.addWidget(edit, slot % 2, slot // 2)
+    layout.addLayout(grid)
     return row
 
 
@@ -235,11 +240,14 @@ def create_hotkey_page(dialog) -> QWidget:
         dialog.tr("Works anytime"),
         view,
     )
-    for attr, attr_2, title, tone, icon, read, read_2 in _GLOBAL_ROWS:
+    for function, first_attr, title, tone, icon in GLOBAL_HOTKEY_ROWS:
+        values = dialog.config_manager.get_global_hotkeys(function)
+        if function == "screenshot":
+            values[0] = dialog.current_hotkey
         editors = []
-        for name, reader in ((attr, read), (attr_2, read_2)):
+        for name, value in zip(global_hotkey_edit_attrs(first_attr), values):
             edit = HotkeyEdit()
-            edit.setText(reader(dialog))
+            edit.setText(value)
             setattr(dialog, name, edit)
             editors.append(edit)
         grp_global.addRow(_global_row(grp_global, dialog.tr(title), tone, icon, editors))

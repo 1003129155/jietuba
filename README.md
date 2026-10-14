@@ -120,7 +120,7 @@ The seven Python extension packages are included in `requirements.txt`. They can
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.5 | Low-level clipboard operations |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | HDR-correct desktop capture (DXGI Desktop Duplication + GPU tone mapping) |
-| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.1 | Global mouse and keyboard hooks off the GUI thread (gestures, side buttons, hotkeys, wheel, foreground window) |
+| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.2 | Global mouse and keyboard hooks off the GUI thread (gestures, side buttons, hotkeys, wheel, foreground window) |
 | [`j-video`](https://pypi.org/project/j-video/) | `video_recorder` | 0.1.0 | Media Foundation H.264/MP4 recording with WASAPI system audio |
 
 The seven extensions target Windows x86_64 and ARM64, declare Python `>=3.11`, and enable `abi3-py311`. The recorder uses PyO3 like the other extensions. The application loads it in a dedicated Python worker so that recording resources are released when that worker exits. See each package's `pyproject.toml` and `Cargo.toml` for its configuration.
@@ -375,7 +375,7 @@ clipboard/
 - Dedicated three-pane management window for editing groups, text items, and file items
 - CSV import/export for text items
 - Themeable UI, quick paste shortcuts, and large image/long text preview popups
-- Opens with Win+V in place of the Windows clipboard history by default; turn it off in Quick Actions settings to give Win+V back to Windows
+- Opens with Win+V in place of the Windows clipboard history by default (the third clipboard hotkey slot); clear that slot to give Win+V back to Windows
 
 ---
 
@@ -396,6 +396,7 @@ core/
 ├── ui_scale.py              # UIScaleManager — one scale factor for toolbars, panels and popups
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — internationalization
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — global & in-app hotkeys
+├── global_hotkey.py         # Global hotkey key names and routing: system registration, hook takeover, or rejected
 ├── input_hub.py             # Shared global input: native hooks (j-input) off the GUI thread, events as Qt signals
 ├── quick_capture_input.py    # Global mouse shortcut drag input on the shared input hub
 ├── last_capture_region.py   # In-memory "last capture region" for the restore-region hotkey
@@ -689,7 +690,7 @@ ui/
 │   ├── components.py        # SettingCardGroup / ToggleSwitch — setting components
 │   ├── page_appearance.py   # Appearance settings (theme, language)
 │   ├── page_capture.py      # Capture settings
-│   ├── page_quick_actions.py # Quick actions settings (skip confirm or result windows, take over Win+V)
+│   ├── page_quick_actions.py # Quick actions settings (skip confirm or result windows)
 │   ├── color_format_dialog.py # ColorFormatDialog — magnifier color format editor
 │   ├── page_clipboard.py    # Clipboard settings
 │   ├── special_paste_dialog.py # SpecialPasteDialog — reorder and toggle special paste menu items

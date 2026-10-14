@@ -3,7 +3,9 @@
 import os
 import sys
 
-from settings.tool_settings import ANNOTATION_TOOL_SHORTCUTS
+from settings.tool_settings import (
+    ANNOTATION_TOOL_SHORTCUTS, GLOBAL_HOTKEY_FUNCTIONS, GLOBAL_HOTKEY_SLOTS, global_hotkey_slot_suffix,
+)
 
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QApplication
@@ -293,6 +295,13 @@ class MockConfig:
     def set_translation_hotkey(self, v): pass
     def get_translation_hotkey_2(self): return ""
     def set_translation_hotkey_2(self, v): pass
+    def get_global_hotkeys(self, function):
+        name, _path = GLOBAL_HOTKEY_FUNCTIONS[function]
+        return [
+            APP_DEFAULT_SETTINGS.get(name + global_hotkey_slot_suffix(slot), "")
+            for slot in range(GLOBAL_HOTKEY_SLOTS)
+        ]
+    def set_global_hotkeys(self, function, values): pass
     def get_clipboard_enabled(self): return True
     def set_clipboard_enabled(self, v): pass
     def get_clipboard_auto_paste(self): return False

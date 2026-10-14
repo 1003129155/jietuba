@@ -30,11 +30,17 @@ from core import log_info, safe_event
 from core.logger import log_exception, T
 from core.resource_manager import ResourceManager
 from core.ui_scale import configure_dialog_control, configure_dialog_controls, dialog_scaled
-from settings.tool_settings import CAPTURE_ENGINES, SMART_SELECTION_MODES, ToolSettingsManager
+from settings.tool_settings import (
+    CAPTURE_ENGINES, GLOBAL_HOTKEY_FUNCTIONS, SMART_SELECTION_MODES, ToolSettingsManager,
+    global_hotkey_slot_suffix,
+)
 from ui.toolbar_layout import SETTING_KEYS as TOOLBAR_LAYOUT_KEYS
 
 # 页面创建函数
-from .page_hotkey import create_hotkey_page, validate_global_hotkey_edits
+from .page_hotkey import (
+    GLOBAL_HOTKEY_EDIT_ATTRS, create_hotkey_page, global_hotkey_edit_rows,
+    validate_global_hotkey_edits,
+)
 from .page_mouse import create_mouse_page, mouse_binding_conflicts, mouse_binding_conflict_message
 from .page_capture import create_capture_page
 from .page_quick_actions import create_quick_actions_page
@@ -673,21 +679,11 @@ class SettingsDialog(FrostedFramelessDialog):
 
     def _reset_hotkey_page(self):
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
-        self.hotkey_input.setText(defaults["hotkey"])
-        if hasattr(self, 'hotkey_input_2'):
-            self.hotkey_input_2.setText(defaults["hotkey_2"])
-        if hasattr(self, 'clipboard_hotkey_edit'):
-            self.clipboard_hotkey_edit.setText(defaults["clipboard_hotkey"])
-        if hasattr(self, 'clipboard_hotkey_edit_2'):
-            self.clipboard_hotkey_edit_2.setText(defaults["clipboard_hotkey_2"])
-        if hasattr(self, 'pin_clipboard_hotkey_edit'):
-            self.pin_clipboard_hotkey_edit.setText(defaults["pin_clipboard_hotkey"])
-        if hasattr(self, 'pin_clipboard_hotkey_edit_2'):
-            self.pin_clipboard_hotkey_edit_2.setText(defaults["pin_clipboard_hotkey_2"])
-        if hasattr(self, 'translation_hotkey_edit'):
-            self.translation_hotkey_edit.setText(defaults["translation_hotkey"])
-        if hasattr(self, 'translation_hotkey_edit_2'):
-            self.translation_hotkey_edit_2.setText(defaults["translation_hotkey_2"])
+        for function, edits in global_hotkey_edit_rows(self):
+            default_name, _path = GLOBAL_HOTKEY_FUNCTIONS[function]
+            for slot, edit in enumerate(edits):
+                if edit is not None:
+                    edit.setText(defaults[default_name + global_hotkey_slot_suffix(slot)])
         # 应用内快捷键
         if hasattr(self, '_inapp_edits'):
             for cfg_key, edit in self._inapp_edits.items():
@@ -767,7 +763,7 @@ class SettingsDialog(FrostedFramelessDialog):
     def _reset_quick_actions_page(self):
         SettingsDialog._refresh_behavior_controls(
             self, defaults=True,
-            keys={"capture_fullscreen_crosshair", "capture_include_cursor", "clipboard_take_over_win_v"},
+            keys={"capture_fullscreen_crosshair", "capture_include_cursor"},
         )
         defaults = self.config_manager.APP_DEFAULT_SETTINGS
         if hasattr(self, 'ocr_copy_directly_toggle'):
@@ -905,7 +901,7 @@ class SettingsDialog(FrostedFramelessDialog):
         self._language_changed_on_apply = False
         self._close_after_apply = close_after
 
-        # 六个全局快捷键必须先整体通过校验。这里发生在任何 set_* 之前，
+        # 全局快捷键必须先整体通过校验。这里发生在任何 set_* 之前，
         # 因而冲突值不会写入配置，窗口也不会关闭。
         if not validate_global_hotkey_edits(self, check_system=True):
             self.content_stack.setCurrentIndex(0)
@@ -934,17 +930,9 @@ class SettingsDialog(FrostedFramelessDialog):
         self._skip_unsaved_close_prompt = True
 
         # 0. 快捷键
-        self.config_manager.set_hotkey(self.hotkey_input.text().strip())
-        if hasattr(self, 'hotkey_input_2'):
-            self.config_manager.set_hotkey_2(self.hotkey_input_2.text().strip())
-        if hasattr(self, 'translation_hotkey_edit'):
-            self.config_manager.set_translation_hotkey(
-                self.translation_hotkey_edit.text().strip()
-            )
-        if hasattr(self, 'translation_hotkey_edit_2'):
-            self.config_manager.set_translation_hotkey_2(
-                self.translation_hotkey_edit_2.text().strip()
-            )
+        for function, edits in global_hotkey_edit_rows(self):
+            if None not in edits:
+                self.config_manager.set_global_hotkeys(function, [edit.text().strip() for edit in edits])
 
         # 1. 快捷行为 + 截图交互（智能选区）
         for key, control in getattr(self, '_behavior_controls', {}).items():
@@ -1121,14 +1109,6 @@ class SettingsDialog(FrostedFramelessDialog):
             self.config_manager.set_clipboard_enabled(self.clipboard_enabled_toggle.isChecked())
         if hasattr(self, 'clipboard_history_limit_spin'):
             self.config_manager.set_clipboard_history_limit(self.clipboard_history_limit_spin.value())
-        if hasattr(self, 'clipboard_hotkey_edit'):
-            self.config_manager.set_clipboard_hotkey(self.clipboard_hotkey_edit.text().strip())
-        if hasattr(self, 'clipboard_hotkey_edit_2'):
-            self.config_manager.set_clipboard_hotkey_2(self.clipboard_hotkey_edit_2.text().strip())
-        if hasattr(self, 'pin_clipboard_hotkey_edit'):
-            self.config_manager.set_pin_clipboard_hotkey(self.pin_clipboard_hotkey_edit.text().strip())
-        if hasattr(self, 'pin_clipboard_hotkey_edit_2'):
-            self.config_manager.set_pin_clipboard_hotkey_2(self.pin_clipboard_hotkey_edit_2.text().strip())
 
         # 7.5 应用内快捷键
         if hasattr(self, '_inapp_edits'):
@@ -1329,11 +1309,7 @@ class SettingsDialog(FrostedFramelessDialog):
         for key, control in getattr(self, '_behavior_controls', {}).items():
             snap[key] = control.currentData() if hasattr(control, 'currentData') else control.isChecked()
         # 文本类
-        for attr in ('hotkey_input', 'hotkey_input_2', 'clipboard_hotkey_edit',
-                      'translation_hotkey_edit', 'translation_hotkey_edit_2',
-                      'clipboard_hotkey_edit_2', 'pin_clipboard_hotkey_edit',
-                      'pin_clipboard_hotkey_edit_2', 'save_path_lbl', 'path_lbl',
-                      ):
+        for attr in (*GLOBAL_HOTKEY_EDIT_ATTRS, 'save_path_lbl', 'path_lbl'):
             w = getattr(self, attr, None)
             if w is not None:
                 snap[attr] = w.text()
@@ -1523,26 +1499,11 @@ class SettingsDialog(FrostedFramelessDialog):
         self._import_unsaved = False
         self._imported_toolbar_layouts = {}
         SettingsDialog._refresh_behavior_controls(self)
-        if hasattr(self, 'hotkey_input'):
-            self.hotkey_input.setText(self.config_manager.get_hotkey())
-        if hasattr(self, 'hotkey_input_2'):
-            self.hotkey_input_2.setText(self.config_manager.get_hotkey_2())
-        if hasattr(self, 'clipboard_hotkey_edit'):
-            self.clipboard_hotkey_edit.setText(self.config_manager.get_clipboard_hotkey())
-        if hasattr(self, 'clipboard_hotkey_edit_2'):
-            self.clipboard_hotkey_edit_2.setText(self.config_manager.get_clipboard_hotkey_2())
-        if hasattr(self, 'pin_clipboard_hotkey_edit'):
-            self.pin_clipboard_hotkey_edit.setText(self.config_manager.get_pin_clipboard_hotkey())
-        if hasattr(self, 'pin_clipboard_hotkey_edit_2'):
-            self.pin_clipboard_hotkey_edit_2.setText(self.config_manager.get_pin_clipboard_hotkey_2())
-        if hasattr(self, 'translation_hotkey_edit'):
-            self.translation_hotkey_edit.setText(
-                self.config_manager.get_translation_hotkey()
-            )
-        if hasattr(self, 'translation_hotkey_edit_2'):
-            self.translation_hotkey_edit_2.setText(
-                self.config_manager.get_translation_hotkey_2()
-            )
+        for function, edits in global_hotkey_edit_rows(self):
+            if any(edits):
+                for edit, value in zip(edits, self.config_manager.get_global_hotkeys(function)):
+                    if edit is not None:
+                        edit.setText(value)
 
         # 应用内快捷键
         if hasattr(self, '_inapp_edits'):

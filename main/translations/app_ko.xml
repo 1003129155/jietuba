@@ -2019,24 +2019,8 @@ Replace it?</source>
         <translation>종료</translation>
     </message>
     <message>
-        <source>Screenshot (2)</source>
-        <translation>스크린샷 (2)</translation>
-    </message>
-    <message>
-        <source>Translation (2)</source>
-        <translation>번역 (2)</translation>
-    </message>
-    <message>
-        <source>Clipboard (2)</source>
-        <translation>클립보드 (2)</translation>
-    </message>
-    <message>
         <source>Pin Clipboard Image</source>
         <translation>고정 이미지 생성</translation>
-    </message>
-    <message>
-        <source>Pin Clipboard Image (2)</source>
-        <translation>고정 이미지 생성 (2)</translation>
     </message>
     <message>
         <source>Hotkey Registration Failed</source>
@@ -5022,6 +5006,18 @@ Items in the group will be moved back to clipboard history.</source>
         <source>Already in use by another app.</source>
         <translation>다른 앱에서 사용 중입니다.</translation>
     </message>
+    <message>
+        <source>Windows uses this shortcut too. This app takes it over while running; clear it to give it back.</source>
+        <translation>Windows도 이 단축키를 사용합니다. 이 앱이 실행되는 동안 가져와 사용하며, 지우면 Windows에 돌려줍니다.</translation>
+    </message>
+    <message>
+        <source>Reserved by Windows. No app can use it.</source>
+        <translation>Windows에서 예약된 키라 어떤 앱도 사용할 수 없습니다.</translation>
+    </message>
+    <message>
+        <source>This key can't be used as a global hotkey.</source>
+        <translation>이 키는 전역 단축키로 사용할 수 없습니다.</translation>
+    </message>
 </context>
 <context>
     <name>SettingsDialog</name>
@@ -5055,14 +5051,6 @@ Items in the group will be moved back to clipboard history.</source>
     <message>
         <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
         <translation>QR 코드나 바코드가 하나만 인식되면 결과 창을 열지 않고 내용을 복사합니다. 여러 개가 인식되면 결과 창이 열립니다.</translation>
-    </message>
-    <message>
-        <source>Open Clipboard with Win+V</source>
-        <translation>Win+V로 클립보드 열기</translation>
-    </message>
-    <message>
-        <source>Win+V opens this app's clipboard instead of the Windows clipboard history. Turn it off to give Win+V back to Windows.</source>
-        <translation>Win+V를 누르면 Windows 클립보드 기록 대신 이 앱의 클립보드가 열립니다. 끄면 Win+V를 다시 Windows가 사용합니다.</translation>
     </message>
     <message>
         <source>Global Mouse Shortcuts</source>

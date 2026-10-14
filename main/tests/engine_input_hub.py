@@ -58,6 +58,9 @@ class EngineHub:
     def unbind_hotkey(self, name):
         self.engine.unbind_hotkey(name)
 
+    def configure_key_capture(self, enabled):
+        self.engine.configure_key_capture(enabled)
+
     def watch_wheel(self, watcher, rect=None):
         self.engine.watch_wheel(watcher, rect)
 

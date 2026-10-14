@@ -18,12 +18,7 @@ def app(monkeypatch):
     config = SimpleNamespace(
         get_app_setting=lambda key, default=None: saved.get(key, default),
         set_app_setting=lambda key, value: saved.__setitem__(key, value),
-        get_hotkey=lambda: "",
-        get_hotkey_2=lambda: "",
-        get_translation_hotkey=lambda: "",
-        get_translation_hotkey_2=lambda: "",
-        get_pin_clipboard_hotkey=lambda: "",
-        get_pin_clipboard_hotkey_2=lambda: "",
+        get_global_hotkeys=lambda _function: ["", "", "", ""],
         get_clipboard_enabled=lambda: False,
     )
     instance = SimpleNamespace(
@@ -40,6 +35,9 @@ def app(monkeypatch):
         _logger=Mock(),
         app=Mock(),
         tr=lambda text: text,
+        start_screenshot=Mock(),
+        smart_translation_controller=Mock(),
+        pin_clipboard_image=Mock(),
     )
     instance.app._gif_window = None
     instance.quick_capture.busy = False

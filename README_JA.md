@@ -120,7 +120,7 @@ PP-OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は�
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.5 | クリップボード操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | HDR 対応のデスクトップキャプチャ（DXGI Desktop Duplication + GPU トーンマッピング） |
-| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.1 | GUI スレッドを止めないグローバルなマウス・キーボードフック（ドラッグジェスチャ、サイドボタン、ホットキー、ホイール、前面ウィンドウ） |
+| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.2 | GUI スレッドを止めないグローバルなマウス・キーボードフック（ドラッグジェスチャ、サイドボタン、ホットキー、ホイール、前面ウィンドウ） |
 | [`j-video`](https://pypi.org/project/j-video/) | `video_recorder` | 0.1.0 | Media Foundation H.264/MP4 録画と WASAPI システム音声 |
 
 7 つの拡張は Windows x86_64 と ARM64 を対象に、Python `>=3.11` と `abi3-py311` を指定しています。録画も他の拡張と同じ PyO3 インターフェースを使用します。アプリは専用 Python 子プロセスで拡張を読み込み、終了時に録画リソースを解放します。設定は各パッケージの `pyproject.toml` と `Cargo.toml` を参照してください。
@@ -374,7 +374,7 @@ clipboard/
 - 独立した3ペイン管理ウィンドウでグループ・テキスト内容・ファイル内容を編集可能
 - テキスト項目の CSV インポート/エクスポートに対応
 - テーマ切替、ショートカットによる高速貼り付け、大画像/長文プレビューに対応
-- 既定で Win+V が Windows のクリップボード履歴の代わりにこのクリップボードを開く（「クイック動作」設定でオフにすると Windows に戻る）
+- 既定で Win+V が Windows のクリップボード履歴の代わりにこのクリップボードを開く（クリップボードのホットキー 3 枠目。空にすると Windows に戻る）
 
 ---
 
@@ -395,6 +395,7 @@ core/
 ├── ui_scale.py              # UIScaleManager — ツールバー/パネル/ポップアップ共通の拡大率
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — 国際化
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — グローバル＆アプリ内ホットキー
+├── global_hotkey.py         # グローバルホットキーのキー名表と登録方法の判定：システム登録・フック引き継ぎ・不可
 ├── input_hub.py             # プロセス共通のグローバル入力：ネイティブフック（j-input）は GUI スレッド外で動き、イベントを Qt シグナルで通知
 ├── quick_capture_input.py    # グローバルマウスショートカットのドラッグ入力（共通入力ハブを利用）
 ├── last_capture_region.py   # 「前回の選択範囲を復元」用のプロセス内メモリ
@@ -688,7 +689,7 @@ ui/
 │   ├── components.py        # SettingCardGroup / ToggleSwitch — 設定コンポーネント
 │   ├── page_appearance.py   # 外観設定（テーマ、言語）
 │   ├── page_capture.py      # キャプチャ設定
-│   ├── page_quick_actions.py # クイック動作設定（確認・結果ウィンドウの省略、Win+V の引き継ぎ）
+│   ├── page_quick_actions.py # クイック動作設定（確認・結果ウィンドウの省略）
 │   ├── color_format_dialog.py # ColorFormatDialog — 拡大鏡のカラー形式を管理するダイアログ
 │   ├── page_clipboard.py    # クリップボード設定
 │   ├── special_paste_dialog.py # SpecialPasteDialog — 特殊貼り付けメニューの並び替えとオン／オフ

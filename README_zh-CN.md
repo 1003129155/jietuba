@@ -121,7 +121,7 @@ PP-OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.5 | 剪贴板底层操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | 支持 HDR 的桌面截图（DXGI Desktop Duplication + GPU 色调映射） |
-| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.1 | 不占界面线程的全局鼠标键盘钩子（拖动手势、侧键、热键、滚轮、前台窗口） |
+| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.2 | 不占界面线程的全局鼠标键盘钩子（拖动手势、侧键、热键、滚轮、前台窗口） |
 | [`j-video`](https://pypi.org/project/j-video/) | `video_recorder` | 0.1.0 | Media Foundation H.264/MP4 录制与 WASAPI 系统声音采集 |
 
 七个扩展面向 Windows x86_64 和 ARM64，声明 Python `>=3.11` 并启用 `abi3-py311`。录制包与其他扩展一致，使用 PyO3 接口；应用在专用 Python 子进程中加载它，录制结束后通过进程退出回收资源。配置详见各包的 `pyproject.toml` 和 `Cargo.toml`。
@@ -392,7 +392,7 @@ clipboard/
 - 文本条目支持 CSV 导入/导出
 - 多主题 UI（亮色/暗色等）
 - 快捷键快速粘贴历史内容
-- 默认用 Win+V 打开本软件的剪贴板，代替系统剪贴板历史；在「快捷行为」里关掉即交还给系统
+- 默认用 Win+V 打开本软件的剪贴板，代替系统剪贴板历史（剪贴板热键的第 3 个槽）；清空这一槽即交还给系统
 - 预览弹窗支持大图/长文查看
 
 ---
@@ -415,6 +415,7 @@ core/
 ├── ui_scale.py              # UIScaleManager — 工具栏/面板/弹层共用的缩放比例
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — 国际化管理，多语言支持
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — 全局热键和应用内快捷键管理
+├── global_hotkey.py         # 全局热键的键名表与注册方式判定：系统注册、钩子接管或不允许
 ├── input_hub.py             # 进程共用的全局输入：原生钩子（j-input）不占界面线程，事件转成 Qt 信号
 ├── quick_capture_input.py    # 全局鼠标快捷键的拖动输入，接在共用输入中心上
 ├── last_capture_region.py   # 进程内存的"上次截图区域"，供恢复选区快捷键使用
@@ -770,7 +771,7 @@ ui/
 │   ├── components.py        # SettingCardGroup / ToggleSwitch — 设置组件库
 │   ├── page_appearance.py   # 外观设置页（主题、语言等）
 │   ├── page_capture.py      # 截图设置页
-│   ├── page_quick_actions.py # 快捷行为设置页（跳过确认或结果窗口、接管 Win+V）
+│   ├── page_quick_actions.py # 快捷行为设置页（跳过确认或结果窗口）
 │   ├── color_format_dialog.py # ColorFormatDialog — 放大镜颜色格式管理窗口
 │   ├── page_clipboard.py    # 剪贴板设置页
 │   ├── special_paste_dialog.py # SpecialPasteDialog — 调整特殊粘贴菜单的顺序与开关

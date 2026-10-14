@@ -1885,11 +1885,7 @@ Replace it?</translation>
     <message><source>Clipboard</source><translation>Clipboard</translation></message>
     <message><source>Settings</source><translation>Settings</translation></message>
     <message><source>Exit</source><translation>Exit</translation></message>
-    <message><source>Screenshot (2)</source><translation>Screenshot (2)</translation></message>
-    <message><source>Translation (2)</source><translation>Translation (2)</translation></message>
-    <message><source>Clipboard (2)</source><translation>Clipboard (2)</translation></message>
     <message><source>Pin Clipboard Image</source><translation>Create Pin Image</translation></message>
-    <message><source>Pin Clipboard Image (2)</source><translation>Create Pin Image (2)</translation></message>
     <message><source>Hotkey Registration Failed</source><translation>Hotkey Registration Failed</translation></message>
     <message><source>The following hotkeys failed to register:</source><translation>The following hotkeys failed to register:</translation></message>
     <message><source>The hotkey may be occupied by other programs. Please try a different combination.</source><translation>The hotkey may be occupied by other programs. Please try a different combination.</translation></message>
@@ -4812,6 +4808,18 @@ Items in the group will be moved back to clipboard history.</translation>
         <source>Already in use by another app.</source>
         <translation>Already in use by another app.</translation>
     </message>
+    <message>
+        <source>Windows uses this shortcut too. This app takes it over while running; clear it to give it back.</source>
+        <translation>Windows uses this shortcut too. This app takes it over while running; clear it to give it back.</translation>
+    </message>
+    <message>
+        <source>Reserved by Windows. No app can use it.</source>
+        <translation>Reserved by Windows. No app can use it.</translation>
+    </message>
+    <message>
+        <source>This key can't be used as a global hotkey.</source>
+        <translation>This key can't be used as a global hotkey.</translation>
+    </message>
 </context>
 <context>
     <name>SettingsDialog</name>
@@ -4845,14 +4853,6 @@ Items in the group will be moved back to clipboard history.</translation>
     <message>
         <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
         <translation>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</translation>
-    </message>
-    <message>
-        <source>Open Clipboard with Win+V</source>
-        <translation>Open Clipboard with Win+V</translation>
-    </message>
-    <message>
-        <source>Win+V opens this app's clipboard instead of the Windows clipboard history. Turn it off to give Win+V back to Windows.</source>
-        <translation>Win+V opens this app's clipboard instead of the Windows clipboard history. Turn it off to give Win+V back to Windows.</translation>
     </message>
     <message>
         <source>Global Mouse Shortcuts</source>

@@ -339,96 +339,38 @@ class MainApp(QObject):
 
     def update_hotkey(self, show_error: bool = False):
         """
-        更新所有全局热键（截图、剪贴板和智能翻译）
+        更新所有全局热键（截图、智能翻译、剪贴板和钉住剪贴板图片）
         
         Args:
             show_error: 是否显示错误提示（设置保存时为 True，启动时为 False）
         """
-        
-        # 注销所有已注册的热键
         self.hotkey_system.unregister_all()
         self.hotkey_system.set_suppressed(
             self.config_manager.get_app_setting("global_hotkeys_disabled", False)
         )
         
-        failed_hotkeys = []  # 收集注册失败的热键
-        
-        # 注册截图热键
-        hotkey = self.config_manager.get_hotkey()
-        if hotkey:
-            if self.hotkey_system.register_hotkey(hotkey, self.start_screenshot):
-                log_info(T("截图热键已注册: {hotkey}", hotkey=hotkey), "Hotkey")
-            else:
-                log_warning(T("截图热键注册失败: {hotkey}", hotkey=hotkey), "Hotkey")
-                failed_hotkeys.append((self.tr("Screenshot"), hotkey))
-
-        # 注册截图备用热键
-        hotkey_2 = self.config_manager.get_hotkey_2()
-        if hotkey_2:
-            if self.hotkey_system.register_hotkey(hotkey_2, self.start_screenshot):
-                log_info(T("截图备用热键已注册: {hotkey_2}", hotkey_2=hotkey_2), "Hotkey")
-            else:
-                log_warning(T("截图备用热键注册失败: {hotkey_2}", hotkey_2=hotkey_2), "Hotkey")
-                failed_hotkeys.append((self.tr("Screenshot (2)"), hotkey_2))
-
-        # 注册统一翻译热键：有选中文本时显示小窗，否则打开完整输入窗口。
-        translation_hotkeys = (
-            (self.config_manager.get_translation_hotkey(), self.tr("Translation")),
-            (self.config_manager.get_translation_hotkey_2(), self.tr("Translation (2)")),
-        )
-        for translation_hotkey, label in translation_hotkeys:
-            if not translation_hotkey:
-                continue
-            if self.hotkey_system.register_hotkey(
-                translation_hotkey, self.smart_translation_controller.trigger
-            ):
-                log_info(T("智能翻译热键已注册: {translation_hotkey}", translation_hotkey=translation_hotkey), "Hotkey")
-            else:
-                log_warning(T("智能翻译热键注册失败: {translation_hotkey}", translation_hotkey=translation_hotkey), "Hotkey")
-                failed_hotkeys.append((label, translation_hotkey))
-        
-        # 注册剪切板热键（如果剪切板功能启用）
+        functions = [
+            ("screenshot", self.tr("Screenshot"), self.start_screenshot),
+            # 有选中文本时显示小窗，否则打开完整输入窗口
+            ("translation", self.tr("Translation"), self.smart_translation_controller.trigger),
+        ]
         if self.config_manager.get_clipboard_enabled():
-            clipboard_hotkey = self.config_manager.get_clipboard_hotkey()
-            if clipboard_hotkey:
-                if self.hotkey_system.register_hotkey(clipboard_hotkey, self.open_clipboard_window):
-                    log_info(T("剪贴板热键已注册: {clipboard_hotkey}", clipboard_hotkey=clipboard_hotkey), "Hotkey")
+            functions.append(("clipboard", self.tr("Clipboard"), self.open_clipboard_window))
+        # 钉住剪贴板图片优先钉系统剪贴板里的图，剪贴板历史关掉时照样有用
+        functions.append(("pin_clipboard", self.tr("Pin Clipboard Image"), self.pin_clipboard_image))
+
+        failed_hotkeys = []  # 收集注册失败的热键
+        for function, label, callback in functions:
+            for slot, hotkey in enumerate(self.config_manager.get_global_hotkeys(function)):
+                if not hotkey:
+                    continue
+                if self.hotkey_system.register_hotkey(hotkey, callback):
+                    log_info(T("全局热键已注册: {function} 第 {slot} 个 = {hotkey}",
+                               function=function, slot=slot + 1, hotkey=hotkey), "Hotkey")
                 else:
-                    log_warning(T("剪贴板热键注册失败: {clipboard_hotkey}", clipboard_hotkey=clipboard_hotkey), "Hotkey")
-                    failed_hotkeys.append((self.tr("Clipboard"), clipboard_hotkey))
-
-            # 注册剪贴板备用热键
-            clipboard_hotkey_2 = self.config_manager.get_clipboard_hotkey_2()
-            if clipboard_hotkey_2:
-                if self.hotkey_system.register_hotkey(clipboard_hotkey_2, self.open_clipboard_window):
-                    log_info(T("剪贴板备用热键已注册: {clipboard_hotkey_2}", clipboard_hotkey_2=clipboard_hotkey_2), "Hotkey")
-                else:
-                    log_warning(T("剪贴板备用热键注册失败: {clipboard_hotkey_2}", clipboard_hotkey_2=clipboard_hotkey_2), "Hotkey")
-                    failed_hotkeys.append((self.tr("Clipboard (2)"), clipboard_hotkey_2))
-
-            # Win+V 被系统占着，RegisterHotKey 注册不上，只能由输入钩子接管
-            if self.config_manager.get_app_setting("clipboard_take_over_win_v"):
-                if not self.hotkey_system.register_hook_hotkey(
-                    "clipboard", ["win"], ord("V"), self.open_clipboard_window
-                ):
-                    log_warning(T("接管 Win+V 失败"), "Hotkey")
-                    failed_hotkeys.append((self.tr("Clipboard"), "win+v"))
-
-        # 注册「钉住剪贴板图片」热键（主 + 备用）。刻意放在 clipboard_enabled
-        # 判断之外：这条路径优先钉系统剪贴板里的图，历史功能关掉时照样有用。
-        # 默认两个都留空——不自作主张占用用户的按键，想用就自己设一个。
-        pin_clipboard_hotkeys = (
-            (self.config_manager.get_pin_clipboard_hotkey(), self.tr("Pin Clipboard Image")),
-            (self.config_manager.get_pin_clipboard_hotkey_2(), self.tr("Pin Clipboard Image (2)")),
-        )
-        for pin_clipboard_hotkey, label in pin_clipboard_hotkeys:
-            if not pin_clipboard_hotkey:
-                continue
-            if self.hotkey_system.register_hotkey(pin_clipboard_hotkey, self.pin_clipboard_image):
-                log_info(T("钉图热键已注册: {pin_clipboard_hotkey}", pin_clipboard_hotkey=pin_clipboard_hotkey), "Hotkey")
-            else:
-                log_warning(T("钉图热键注册失败: {pin_clipboard_hotkey}", pin_clipboard_hotkey=pin_clipboard_hotkey), "Hotkey")
-                failed_hotkeys.append((label, pin_clipboard_hotkey))
+                    log_warning(T("全局热键注册失败: {function} 第 {slot} 个 = {hotkey}",
+                                  function=function, slot=slot + 1, hotkey=hotkey), "Hotkey")
+                    failed_hotkeys.append((f"{label} ({slot + 1})" if slot else label, hotkey))
         
         self.quick_capture.refresh()
 

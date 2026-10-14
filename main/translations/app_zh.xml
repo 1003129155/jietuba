@@ -2033,24 +2033,8 @@ Replace it?</source>
         <translation>退出</translation>
     </message>
     <message>
-        <source>Screenshot (2)</source>
-        <translation>截图 (2)</translation>
-    </message>
-    <message>
-        <source>Translation (2)</source>
-        <translation>翻译 (2)</translation>
-    </message>
-    <message>
-        <source>Clipboard (2)</source>
-        <translation>剪贴板 (2)</translation>
-    </message>
-    <message>
         <source>Pin Clipboard Image</source>
         <translation>生成钉图</translation>
-    </message>
-    <message>
-        <source>Pin Clipboard Image (2)</source>
-        <translation>生成钉图 (2)</translation>
     </message>
     <message>
         <source>Hotkey Registration Failed</source>
@@ -5108,6 +5092,18 @@ Items in the group will be moved back to clipboard history.</source>
         <source>Already in use by another app.</source>
         <translation>已被其他程序占用。</translation>
     </message>
+    <message>
+        <source>Windows uses this shortcut too. This app takes it over while running; clear it to give it back.</source>
+        <translation>Windows 也在用这个快捷键。本软件运行期间由它接管，清空即交还给 Windows。</translation>
+    </message>
+    <message>
+        <source>Reserved by Windows. No app can use it.</source>
+        <translation>被 Windows 保留，任何软件都无法使用。</translation>
+    </message>
+    <message>
+        <source>This key can't be used as a global hotkey.</source>
+        <translation>这个键不能用作全局快捷键。</translation>
+    </message>
 </context>
 <context>
     <name>SettingsDialog</name>
@@ -5141,14 +5137,6 @@ Items in the group will be moved back to clipboard history.</source>
     <message>
         <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
         <translation>只识别到一个二维码或条形码时直接复制内容，不弹出结果窗口；识别到多个码时仍会弹出。</translation>
-    </message>
-    <message>
-        <source>Open Clipboard with Win+V</source>
-        <translation>Win+V 打开剪贴板</translation>
-    </message>
-    <message>
-        <source>Win+V opens this app's clipboard instead of the Windows clipboard history. Turn it off to give Win+V back to Windows.</source>
-        <translation>按 Win+V 打开本软件的剪贴板，不再弹出系统剪贴板历史。关闭后 Win+V 交还给系统。</translation>
     </message>
     <message>
         <source>Global Mouse Shortcuts</source>
