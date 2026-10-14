@@ -8,10 +8,15 @@ description = "PP-OCR (PaddleOCR) ONNX inference for Python via Rust + ort (det+
 
 [lib]
 name = "ppocr_rust"
+# rlib 供 C++ 版以 default-features = false 静态链接
 crate-type = ["rlib", "cdylib"]
 
+[features]
+default = ["python"]
+python = ["dep:pyo3"]
+
 [dependencies]
-pyo3 = { version = "0.22", features = ["extension-module", "abi3-py311"] }
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py311"], optional = true }
 ort = { version = "=2.0.0-rc.12", features = ["ndarray"] }
 ndarray = "0.16"
 image = { version = "0.25", default-features = false }

@@ -11,11 +11,12 @@ name = "video_recorder"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = []
+default = ["python"]
+python = ["dep:pyo3"]
 test-support = []
 
 [dependencies]
-pyo3 = { version = "0.22", features = ["extension-module", "abi3-py311"] }
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py311"], optional = true }
 
 # HDR 屏上 GDI 会截断超出桌面白的内容；DXGI 路径经它在 GPU 上转成 sRGB。不带它的 pyo3 绑定
 hdrcapture = { path = "../hdrcapture", default-features = false }
