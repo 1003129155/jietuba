@@ -145,6 +145,15 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 构建 Windows 发行包前，先安装与当前 Python 架构匹配的录制 wheel，再运行 `python build_with_ocr_onefile.py`。脚本收集已安装的录制扩展与许可声明，并通过 Cargo 单独构建更新器。完整版产物为 `dist/jietuba_pp.exe` 和 `dist/models/`；加 `--lite` 构建轻量版，产物为 `dist_lite/jietuba_lite.exe`。录制 wheel 的构建步骤见[发布说明](rust_libs/PUBLISHING.md)。自动发行流程见 [build.yml](.github/workflows/build.yml)，会分别生成 x64 与 ARM64 的完整版和轻量版压缩包。
 
+### Rust 库分层
+
+`rust_libs/` 下的逻辑只写一份，Python 版和 C++ 版共用：
+
+- 每个库分两层：核心是纯 Rust；pyo3 绑定只放在 `python.rs`（录制库是 `bindings.rs`），由默认开启的 `python` 特性控制。C++ 版以 `default-features = false` 依赖，在自己的 C 接口层调用同一份核心。
+- 绑定层只做类型转换、GIL 的拿放、错误映射和对象生命周期；判断、默认值、重试、线程这类逻辑写进核心，否则两个版本会各写一份、慢慢分叉。
+- 核心里可恢复的错误返回 `Result`，不要 `panic`。
+- 两个版本都要用、行为必须一致的非界面逻辑，优先写进 Rust 核心；用到 Qt 类型的界面代码留在各自的语言里。
+
 ### 代码注释
 
 注释只说明代码本身表达不了的约束和设计原因，要短、要准：

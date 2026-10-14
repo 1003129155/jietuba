@@ -144,6 +144,15 @@ Tests that drive the real mouse and keyboard, such as `test_quick_capture_real_h
 
 To build a Windows release, install the recorder wheel matching the active Python architecture, then run `python build_with_ocr_onefile.py`. It collects the installed recording extension and its license notices, while building the standalone updater with Cargo. The full build produces `dist/jietuba_pp.exe` and `dist/models/`; add `--lite` for `dist_lite/jietuba_lite.exe`. Recorder wheel build instructions are in the [publishing notes](rust_libs/PUBLISHING.md) (in Chinese). The automated [release workflow](.github/workflows/build.yml) creates full and lite archives for x64 and ARM64.
 
+### Rust Library Layering
+
+The logic in `rust_libs/` is written once and shared by the Python and C++ versions:
+
+- Each library has two layers: a pure Rust core, and PyO3 bindings kept in `python.rs` (`bindings.rs` for the recorder) behind the default `python` feature. The C++ version depends on the crate with `default-features = false` and calls the same core from its own C interface layer.
+- Bindings only convert types, take or release the GIL, map errors and manage object lifetimes. Decisions, defaults, retries and threads belong in the core; otherwise each version grows its own copy and the two drift apart.
+- Recoverable errors in the core return `Result` instead of panicking.
+- Non-UI logic that both versions need with identical behavior goes into the Rust core first; UI code that uses Qt types stays in each language.
+
 ### Code Comments
 
 Comments explain only the constraints and design reasons that the code cannot express. Keep them short and precise:

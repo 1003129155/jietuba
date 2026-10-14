@@ -144,6 +144,15 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 Windows 版をビルドするには、現在の Python アーキテクチャに合う録画 wheel をインストールしてから `python build_with_ocr_onefile.py` を実行します。インストール済みの録画拡張とライセンス通知を収集し、独立した更新プログラムは Cargo でビルドします。完全版の生成物は `dist/jietuba_pp.exe` と `dist/models/` です。`--lite` を付けると軽量版の `dist_lite/jietuba_lite.exe` を生成します。録画 wheel のビルド手順は[公開手順メモ](rust_libs/PUBLISHING.md)（中国語）を参照してください。[自動リリースワークフロー](.github/workflows/build.yml)では、x64 と ARM64 それぞれの完全版と軽量版のアーカイブを生成します。
 
+### Rust ライブラリの階層
+
+`rust_libs/` のロジックは一度だけ書き、Python 版と C++ 版で共有します。
+
+- 各ライブラリは 2 層です。コアは純粋な Rust で、PyO3 バインディングは `python.rs`（録画ライブラリは `bindings.rs`）だけに置き、既定で有効な `python` フィーチャーで切り替えます。C++ 版は `default-features = false` で依存し、自身の C インターフェース層から同じコアを呼び出します。
+- バインディング層は型変換、GIL の取得と解放、エラーの対応付け、オブジェクトの寿命管理だけを行います。判定、既定値、再試行、スレッドといったロジックはコアに書きます。そうしないと両版がそれぞれ同じ処理を持ち、少しずつずれていきます。
+- コアで回復可能なエラーは `panic` ではなく `Result` で返します。
+- 両版で必要かつ動作をそろえるべき UI 以外のロジックは、まず Rust コアに書きます。Qt の型を使う UI コードはそれぞれの言語に残します。
+
 ### コードコメント
 
 コメントには、コード自体では表せない制約と設計上の理由だけを、短く正確に書きます。
