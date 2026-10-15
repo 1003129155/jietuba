@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 from unittest.mock import Mock
 
+import pytest
 from PySide6.QtCore import QRectF
 
 from pin.pin_ocr_manager import PinOCRManager
@@ -119,6 +120,17 @@ def test_forced_recognition_makes_text_selection_available(monkeypatch):
     assert manager.init_now(force=True) is True
     assert manager.text_selection_enabled is True
     assert manager.ocr_text_layer.enabled is True
+
+
+@pytest.mark.parametrize("auto_ocr", [True, False])
+def test_automatic_recognition_skips_a_pin_already_recognized_on_demand(monkeypatch, auto_ocr):
+    """钉图后 300ms 内就翻译或复制文字、且识别已经跑完时，自动识别不能再识别一遍。"""
+    manager = _manager(auto_ocr=auto_ocr)
+    _stub_ocr(monkeypatch, manager)
+    assert manager.init_now(force=True) is True
+
+    assert manager.init_now() is True
+    manager._start_recognition.assert_called_once_with()
 
 
 def test_forced_recognition_re_enables_a_layer_the_user_turned_off(monkeypatch):
