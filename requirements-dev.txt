@@ -8,3 +8,5 @@ diff-cover==10.5.1
 ruff==0.16.6
 pyinstaller==6.17.0
 maturin==1.12.6
+# 录制测试用它解码 MP4 校验画面，程序本身不依赖
+av==17.0.0
