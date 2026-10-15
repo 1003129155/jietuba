@@ -14,6 +14,8 @@ crate-type = ["rlib", "cdylib"]
 [features]
 default = ["python"]
 python = ["dep:pyo3"]
+# ONNX Runtime 不静态链接，运行时由 engine::init_runtime 从给定路径加载（C++ 版用）
+load-dynamic = ["ort/load-dynamic"]
 
 [dependencies]
 pyo3 = { version = "0.22", features = ["extension-module", "abi3-py311"], optional = true }

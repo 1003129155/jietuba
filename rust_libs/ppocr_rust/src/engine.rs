@@ -6,6 +6,46 @@ use ort::value::Tensor;
 
 use crate::geometry::{self, Pt};
 
+// ====================== 运行库 ======================
+
+#[cfg(feature = "load-dynamic")]
+static RUNTIME_LOADED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// 从绝对路径加载 ONNX Runtime 动态库，须在 [`Engine::open`] 之前调用。
+///
+/// 进程内只加载一份：成功后再调用直接返回成功；失败不留状态，可以重试。
+/// 只收绝对路径：未加载时 ort 会按文件名走 DLL 搜索顺序，可能碰上系统自带的旧版。
+#[cfg(feature = "load-dynamic")]
+pub fn init_runtime(dll_path: &std::path::Path) -> Result<(), String> {
+    use std::sync::atomic::Ordering;
+    if RUNTIME_LOADED.load(Ordering::Acquire) {
+        return Ok(());
+    }
+    if !dll_path.is_absolute() {
+        return Err(format!("ONNX Runtime 路径不是绝对路径: {}", dll_path.display()));
+    }
+    if !dll_path.is_file() {
+        return Err(format!("找不到 ONNX Runtime: {}", dll_path.display()));
+    }
+    ort::init_from(dll_path)
+        .map_err(|e| format!("加载 ONNX Runtime 失败: {e}"))?
+        .commit();
+    RUNTIME_LOADED.store(true, Ordering::Release);
+    Ok(())
+}
+
+/// ONNX Runtime 是否已可用（静态链接时恒为真）。
+pub fn runtime_loaded() -> bool {
+    #[cfg(feature = "load-dynamic")]
+    {
+        RUNTIME_LOADED.load(std::sync::atomic::Ordering::Acquire)
+    }
+    #[cfg(not(feature = "load-dynamic"))]
+    {
+        true
+    }
+}
+
 // ====================== 打包的 RGB 图像 ======================
 
 struct Img {
@@ -245,6 +285,9 @@ impl Engine {
     /// 每个实例自带模型、互不干扰，生命周期由调用方持有；原先的进程级全局
     /// 单例无法同时跑两套模型，也无法在 release 与 recognize 并发时自保。
     pub fn open(det_path: &str, rec_path: &str) -> Result<Self, String> {
+    if !runtime_loaded() {
+        return Err("ONNX Runtime 尚未加载".to_string());
+    }
     let det = Session::builder()
         .map_err(|e| e.to_string())?
         .commit_from_file(det_path)
