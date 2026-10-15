@@ -65,6 +65,23 @@ def get_window_rect_no_shadow(hwnd):
         return win32gui.GetWindowRect(hwnd)
 
 
+def is_window_cloaked(hwnd) -> bool:
+    """窗口是否被 DWM 藏起来了（cloaked）。
+
+    别的虚拟桌面上的窗口、关掉后被系统挂起的 UWP 应用都是这样：IsWindowVisible 照样报可见，
+    屏幕上却看不到。
+    """
+    cloaked = ctypes.wintypes.DWORD(0)
+    # DWMWA_CLOAKED = 14
+    result = ctypes.windll.dwmapi.DwmGetWindowAttribute(
+        ctypes.wintypes.HWND(hwnd),
+        ctypes.c_int(14),
+        ctypes.byref(cloaked),
+        ctypes.sizeof(cloaked),
+    )
+    return result == 0 and cloaked.value != 0
+
+
 
 class WindowFinder:
     """
@@ -108,7 +125,7 @@ class WindowFinder:
         枚举所有可见窗口
         
         遍历所有窗口并过滤出有效的应用窗口：
-        - 必须可见
+        - 必须可见，且没有被 DWM 藏起来
         - 必须有标题栏
         - 不能是工具窗口
         - 不能是透明窗口
@@ -119,21 +136,12 @@ class WindowFinder:
             return
         
         self.windows = []
-        
-        # 获取桌面区域用于 ApplicationFrameWindow 特判
-        try:
-            user32 = ctypes.windll.user32
-            desktop_width = user32.GetSystemMetrics(78)  # SM_CXVIRTUALSCREEN
-            desktop_height = user32.GetSystemMetrics(79)  # SM_CYVIRTUALSCREEN
-            desktop_area = desktop_width * desktop_height
-        except Exception:
-            desktop_area = 1920 * 1080  # 降级默认值
-        
+
         def enum_windows_callback(hwnd, _):
             """枚举窗口回调函数"""
             try:
-                # 1. 只处理可见窗口
-                if not win32gui.IsWindowVisible(hwnd):
+                # 1. 只处理看得见的窗口
+                if not win32gui.IsWindowVisible(hwnd) or is_window_cloaked(hwnd):
                     return True
                 
                 # 2. 检查窗口样式（排除工具窗口、消息窗口等）
@@ -170,13 +178,7 @@ class WindowFinder:
                 # 8. 检查窗口类名，排除一些特殊的系统窗口
                 try:
                     class_name = win32gui.GetClassName(hwnd)
-                    
-                    # ApplicationFrameWindow 特判：过滤掉占满屏幕的空壳
-                    if class_name == "ApplicationFrameWindow":
-                        # 如果窗口占据超过 80% 的桌面区域，认为是空壳，跳过
-                        if width * height > 0.8 * desktop_area:
-                            return True
-                    
+
                     # 排除一些已知的不需要选择的窗口类
                     excluded_classes = [
                         'Windows.UI.Core.CoreWindow',  # UWP内容窗口（会和ApplicationFrameWindow重复）

@@ -9,10 +9,12 @@ WindowFinder 单元测试
 - _get_virtual_desktop_rect 的降级链（ctypes 失败 -> Qt primaryScreen -> 硬编码默认值）
 - is_smart_selection_available 的可用性开关
 
-find_windows()（EnumWindows 真实枚举）和 get_window_rect_no_shadow()（DWM API）
-依赖真实 win32 会话，在无桌面的 CI runner 上不可测，不在本文件覆盖范围内。
+find_windows() 的过滤规则用替身窗口驱动（不做真实枚举）；is_window_cloaked() 用测试自己
+建的一个不显示的窗口验证。get_window_rect_no_shadow()（DWM API）依赖真实桌面上的窗口，
+不在本文件覆盖范围内。
 """
 import ctypes
+import ctypes.wintypes
 
 import pytest
 from unittest.mock import patch, MagicMock
@@ -163,3 +165,79 @@ class TestMonitorHandleWidth:
         info.cbSize = ctypes.sizeof(window_finder_module._MonitorInfo)
         # 假句柄，调用必然返回 0；这里只要求它别在转换实参时就抛异常
         window_finder_module._user32.GetMonitorInfoW(0x1F4A2B30000, ctypes.byref(info))
+
+
+class TestFindWindowsFiltering:
+    """find_windows 的过滤规则，用替身窗口驱动；cloaked 的判断本身见 TestIsWindowCloaked。"""
+
+    @staticmethod
+    def _find(windows):
+        """windows: [(hwnd, class_name, rect, cloaked)]，按 Z 序从上到下。"""
+        by_hwnd = {w[0]: w for w in windows}
+        gui = window_finder_module.win32gui
+        with (
+            patch.object(gui, "EnumWindows", lambda cb, extra: [cb(w[0], extra) for w in windows]),
+            patch.object(gui, "IsWindowVisible", lambda _hwnd: True),
+            patch.object(gui, "GetWindowLong", lambda _hwnd, _index: 0),
+            patch.object(gui, "GetWindowText", lambda _hwnd: "title"),
+            patch.object(gui, "GetClassName", lambda hwnd: by_hwnd[hwnd][1]),
+            patch.object(window_finder_module, "get_window_rect_no_shadow", lambda hwnd: by_hwnd[hwnd][2]),
+            patch.object(window_finder_module, "is_window_cloaked", lambda hwnd: by_hwnd[hwnd][3]),
+        ):
+            finder = WindowFinder()
+            finder.find_windows()
+        return finder
+
+    def test_cloaked_window_is_skipped(self):
+        """关掉后被挂起的设置窗口还报可见；不排除的话，鼠标停在空桌面上会框出它。"""
+        finder = self._find([
+            (1, "ApplicationFrameWindow", [67, 60, 1053, 953], True),
+            (2, "CabinetWClass", [0, 0, 1200, 900], False),
+        ])
+        assert [w[0] for w in finder.windows] == [2]
+        assert finder.find_window_at_point_info(500, 500)[0] == 2
+
+    def test_maximized_uwp_app_is_kept(self):
+        """最大化的 UWP 应用几乎占满整屏，它本身就是用户看到的窗口，不能当空壳跳过。"""
+        finder = self._find([
+            (1, "ApplicationFrameWindow", [0, 0, 2560, 1392], False),
+            (2, "Chrome_WidgetWin_1", [100, 100, 1300, 1000], False),
+        ])
+        assert finder.find_window_at_point_info(500, 500)[0] == 1
+
+
+class TestIsWindowCloaked:
+    """用一个自己建的真窗口：程序可以用 DWMWA_CLOAK 藏起自己的窗口，窗口不必显示出来。"""
+
+    @pytest.fixture
+    def hwnd(self):
+        import win32api
+        gui = window_finder_module.win32gui
+        wc = gui.WNDCLASS()
+        wc.lpszClassName = "JietubaCloakTest"
+        wc.lpfnWndProc = {}
+        wc.hInstance = win32api.GetModuleHandle(None)
+        atom = gui.RegisterClass(wc)
+        hwnd = gui.CreateWindowEx(0, atom, "cloak test", 0, 0, 0, 100, 100, 0, 0, wc.hInstance, None)
+        try:
+            yield hwnd
+        finally:
+            gui.DestroyWindow(hwnd)
+            gui.UnregisterClass(atom, wc.hInstance)
+
+    @staticmethod
+    def _cloak(hwnd, on):
+        value = ctypes.wintypes.BOOL(on)
+        # DWMWA_CLOAK = 13
+        assert ctypes.windll.dwmapi.DwmSetWindowAttribute(
+            ctypes.wintypes.HWND(hwnd), 13, ctypes.byref(value), ctypes.sizeof(value)) == 0
+
+    def test_follows_the_cloak_state(self, hwnd):
+        assert window_finder_module.is_window_cloaked(hwnd) is False
+        self._cloak(hwnd, True)
+        assert window_finder_module.is_window_cloaked(hwnd) is True
+        self._cloak(hwnd, False)
+        assert window_finder_module.is_window_cloaked(hwnd) is False
+
+    def test_invalid_handle_is_not_cloaked(self):
+        assert window_finder_module.is_window_cloaked(0) is False
