@@ -774,6 +774,10 @@ class SettingsDialog(FrostedFramelessDialog):
             self.cross_tool_selection_toggle.setChecked(
                 defaults["cross_tool_selection"]
             )
+        if hasattr(self, 'shift_line_angle_combo'):
+            index = self.shift_line_angle_combo.findData(defaults["shift_line_angle"])
+            if index >= 0:
+                self.shift_line_angle_combo.setCurrentIndex(index)
         if hasattr(self, 'text_always_on_top_toggle'):
             self.text_always_on_top_toggle.setChecked(
                 defaults["text_always_on_top"]
@@ -957,6 +961,8 @@ class SettingsDialog(FrostedFramelessDialog):
             self.config_manager.set_cross_tool_selection_enabled(
                 self.cross_tool_selection_toggle.isChecked()
             )
+        if hasattr(self, 'shift_line_angle_combo'):
+            self.config_manager.set_shift_line_angle(self.shift_line_angle_combo.currentData())
         if hasattr(self, 'text_always_on_top_toggle'):
             self.config_manager.set_text_always_on_top_enabled(
                 self.text_always_on_top_toggle.isChecked()
@@ -1344,7 +1350,8 @@ class SettingsDialog(FrostedFramelessDialog):
             if w is not None:
                 snap[attr] = w.isChecked()
         # 下拉框类
-        for attr in ('screenshot_format_combo', 'ocr_engine_combo', 'ocr_result_position_combo',
+        for attr in ('screenshot_format_combo', 'shift_line_angle_combo',
+                      'ocr_engine_combo', 'ocr_result_position_combo',
                       'translation_provider_combo', 'translation_target_combo',
                       'log_level_combo',
                       'language_combo', 'engine_combo', 'cursor_move_combo', 'clipboard_pick_combo',
@@ -1559,6 +1566,11 @@ class SettingsDialog(FrostedFramelessDialog):
             self.cross_tool_selection_toggle.setChecked(
                 self.config_manager.get_cross_tool_selection_enabled()
             )
+
+        if hasattr(self, 'shift_line_angle_combo'):
+            index = self.shift_line_angle_combo.findData(self.config_manager.get_shift_line_angle())
+            if index >= 0:
+                self.shift_line_angle_combo.setCurrentIndex(index)
 
         if hasattr(self, 'text_always_on_top_toggle'):
             self.text_always_on_top_toggle.setChecked(

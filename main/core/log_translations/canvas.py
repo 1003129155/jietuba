@@ -123,8 +123,10 @@ TRANSLATIONS: dict[str, str] = {
     # -- canvas/items/selection_item.py --
     "选区框创建": "Selection box created",
 
-    # -- canvas/items/drawing_items.py --
+    # -- canvas/items/stroke_item.py --
     "DrawingItem paint 异常: {e}": "DrawingItem paint exception: {e}",
+
+    # -- canvas/items/drawing_items.py --
     "内容为空，自动删除": "Content is empty, deleting automatically",
     "文字宽度控制点拖拽被处理": "Text width handle drag handled",
 }

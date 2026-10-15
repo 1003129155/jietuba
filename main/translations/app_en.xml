@@ -5454,6 +5454,34 @@ Make sure gifrecorder is installed correctly.</translation>
         <translation>If the last screenshot ended with a watermark, the next one gets the same watermark with the time updated; otherwise none is added. Screenshots taken with mouse shortcuts follow the same rule.</translation>
     </message>
     <message>
+        <source>Straight Lines with Shift</source>
+        <translation>Straight Lines with Shift</translation>
+    </message>
+    <message>
+        <source>Hold Shift while drawing with the pen or highlighter to draw a straight line from that point. Release Shift to keep drawing freely.</source>
+        <translation>Hold Shift while drawing with the pen or highlighter to draw a straight line from that point. Release Shift to keep drawing freely.</translation>
+    </message>
+    <message>
+        <source>Horizontal or Vertical</source>
+        <translation>Horizontal or Vertical</translation>
+    </message>
+    <message>
+        <source>Every 45°</source>
+        <translation>Every 45°</translation>
+    </message>
+    <message>
+        <source>Every 30°</source>
+        <translation>Every 30°</translation>
+    </message>
+    <message>
+        <source>Every 15°</source>
+        <translation>Every 15°</translation>
+    </message>
+    <message>
+        <source>Any Angle</source>
+        <translation>Any Angle</translation>
+    </message>
+    <message>
         <source>Fetch Models</source>
         <translation>Fetch Models</translation>
     </message>

@@ -6,9 +6,11 @@ import math
 from dataclasses import dataclass
 from typing import Optional
 
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QPainterPath
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtWidgets import QApplication
+
+from settings.tool_settings import ToolSettingsManager
 
 
 @dataclass
@@ -188,5 +190,169 @@ def drag_rect(start: QPointF, end: QPointF, square: bool = False) -> QRectF:
 def shift_held() -> bool:
     """正在处理的这次输入事件是否按着 Shift。"""
     return bool(QApplication.keyboardModifiers() & Qt.KeyboardModifier.ShiftModifier)
+
+
+def shift_line_angle(ctx: ToolContext) -> int:
+    """按住 Shift 拉直线时吸附的角度间隔（度），0 是任意角度。"""
+    getter = getattr(ctx.settings_manager, "get_shift_line_angle", None)
+    if getter is None:
+        return ToolSettingsManager.APP_DEFAULT_SETTINGS["shift_line_angle"]
+    return getter()
+
+
+def snap_line_end(anchor: QPointF, pos: QPointF, step_degrees: int) -> QPointF:
+    """从 anchor 朝 pos 拉直线的终点：方向取最接近的 step_degrees 整数倍，终点是 pos 在
+    这个方向上的投影。step_degrees 为 0 时不吸附，终点就是 pos。"""
+    dx, dy = pos.x() - anchor.x(), pos.y() - anchor.y()
+    if not step_degrees or (dx == 0 and dy == 0):
+        return QPointF(pos)
+    step = math.radians(step_degrees)
+    angle = round(math.atan2(dy, dx) / step) * step
+    # 横竖方向上 cos/sin 会剩 1e-17 级的尾数，不抹掉的话横线终点的 y 不严格等于起点
+    ux, uy = round(math.cos(angle), 12), round(math.sin(angle), 12)
+    length = dx * ux + dy * uy
+    return QPointF(anchor.x() + ux * length, anchor.y() + uy * length)
+
+
+# 平滑只作用于密集的采样点：相邻间距不超过 FULL 的点完全参与平均，达到 NONE 的点不动。
+# 慢画时采样点挤在一起，整数坐标的台阶就是它们之间的抖动；快画时点稀疏，平均会把弯折拉缩，
+# 这时点本身就是形状，只用曲线穿过去。
+SMOOTH_FULL_GAP = 3.0
+SMOOTH_NONE_GAP = 8.0
+
+# 没移动过的一笔补的线段长度。连到当前点的 lineTo 会被 Qt 丢掉，这么短的一段仍会画出两端的圆头。
+DOT_SEGMENT = 0.01
+
+
+def _relax(prev, cur, nxt):
+    """按间距加权，把 cur 往 (prev + 2·cur + nxt) / 4 拉。"""
+    gap = max(math.hypot(cur[0] - prev[0], cur[1] - prev[1]),
+              math.hypot(nxt[0] - cur[0], nxt[1] - cur[1]))
+    weight = (SMOOTH_NONE_GAP - gap) / (SMOOTH_NONE_GAP - SMOOTH_FULL_GAP)
+    if weight <= 0:
+        return cur
+    weight = min(weight, 1.0) * 0.25
+    return (cur[0] + (prev[0] - 2 * cur[0] + nxt[0]) * weight,
+            cur[1] + (prev[1] - 2 * cur[1] + nxt[1]) * weight)
+
+
+def _catmull_rom(p0, p1, p2, p3):
+    """向心 Catmull-Rom 中 p1→p2 这一段的三次贝塞尔控制点。"""
+    d1 = max(math.hypot(p1[0] - p0[0], p1[1] - p0[1]), 1e-6) ** 0.5
+    d2 = max(math.hypot(p2[0] - p1[0], p2[1] - p1[1]), 1e-6) ** 0.5
+    d3 = max(math.hypot(p3[0] - p2[0], p3[1] - p2[1]), 1e-6) ** 0.5
+    c1, c2 = [], []
+    for k in (0, 1):
+        m1 = ((p1[k] - p0[k]) / d1 - (p2[k] - p0[k]) / (d1 + d2) + (p2[k] - p1[k]) / d2) * d2
+        m2 = ((p2[k] - p1[k]) / d2 - (p3[k] - p1[k]) / (d2 + d3) + (p3[k] - p2[k]) / d3) * d2
+        c1.append(p1[k] + m1 / 3)
+        c2.append(p2[k] - m2 / 3)
+    return tuple(c1), tuple(c2)
+
+
+class FreehandStroke:
+    """自由笔迹，按住 Shift 的那一段画成直线。
+
+    smooth 时采样点先按间距平滑两遍，再用穿过各点的 Catmull-Rom 曲线连起来。来一个新点只有
+    末尾四段会变，这几段就地改写，前面的部分不再计算。起点、终点和直线的两端始终不动。
+
+    直线从按下 Shift 时笔迹的最后一点拉出，始终是路径的最后一个元素，鼠标移动时就地改它的
+    终点，所以拖着直线来回晃不会增加点数；松开 Shift 后这一段就此定下，接着自由画。
+    """
+
+    def __init__(self, start: QPointF, angle_step: int, smooth: bool = False):
+        self.path = QPainterPath(start)
+        self.angle_step = angle_step
+        self.smooth = smooth
+        self.last_point = QPointF(start)
+        self._line_anchor: Optional[QPointF] = None
+        self._line_open = False
+        self._dirty_from: Optional[int] = None
+        self._begin_run()
+
+    def take_dirty_from(self) -> int:
+        """上次取过之后，路径从第几个元素起有改动；没有改动时是元素总数。"""
+        count = self.path.elementCount()
+        dirty, self._dirty_from = self._dirty_from, None
+        return count if dirty is None else dirty
+
+    def _mark_dirty(self, index: int):
+        if self._dirty_from is None or index < self._dirty_from:
+            self._dirty_from = index
+
+    def finish(self) -> bool:
+        """松手时调用：没移动过的一笔画成按下处的一个点。返回路径是否有变化。"""
+        if self.path.elementCount() > 1:
+            return False
+        start = self.path.elementAt(0)
+        self._mark_dirty(1)
+        self.path.lineTo(start.x + DOT_SEGMENT, start.y)
+        return True
+
+    def extend(self, pos: QPointF, straight: bool) -> bool:
+        """把笔迹延伸到 pos，straight 时画成直线。返回路径是否有变化。"""
+        if not straight:
+            if self._line_anchor is not None:
+                self._line_anchor = None
+                self._line_open = False
+                self._begin_run()
+            if not Tool.should_append_point(self.last_point, pos):
+                return False
+            self.last_point = QPointF(pos)
+            if self.smooth:
+                self._append_smooth((pos.x(), pos.y()))
+            else:
+                self._mark_dirty(self.path.elementCount())
+                self.path.lineTo(pos)
+            return True
+
+        if self._line_anchor is None:
+            self._line_anchor = QPointF(self.last_point)
+        end = snap_line_end(self._line_anchor, pos, self.angle_step)
+        if end == self.last_point:
+            return False
+        if self._line_open:
+            self._mark_dirty(self.path.elementCount() - 1)
+            self.path.setElementPositionAt(self.path.elementCount() - 1, end.x(), end.y())
+        else:
+            self._mark_dirty(self.path.elementCount())
+            self.path.lineTo(end)
+            self._line_open = True
+        self.last_point = end
+        return True
+
+    def _begin_run(self):
+        """从路径当前的最后一点开始一段新的自由笔迹，这一点之后不再移动。"""
+        last = self.path.elementCount() - 1
+        element = self.path.elementAt(last)
+        self._run_base = last
+        self._raw = [(element.x, element.y)]
+        self._once = [self._raw[0]]
+        self._twice = [self._raw[0]]
+
+    def _append_smooth(self, point):
+        raw, once, twice = self._raw, self._once, self._twice
+        raw.append(point)
+        n = len(raw) - 1
+        # 末点平滑不了（没有下一个点），先原样放着；来了新点它才有邻居，往前牵动两层
+        if n >= 2:
+            once[n - 1] = _relax(raw[n - 2], raw[n - 1], raw[n])
+        once.append(point)
+        for i in range(max(1, n - 2), n):
+            twice[i] = _relax(once[i - 1], once[i], once[i + 1])
+        twice.append(point)
+
+        # 第 i 段连 twice[i] 和 twice[i + 1]，要用到 twice[i - 1..i + 2]
+        self._mark_dirty(self._run_base + 1 + 3 * max(0, n - 4))
+        for i in range(max(0, n - 4), n):
+            c1, c2 = _catmull_rom(twice[max(i - 1, 0)], twice[i], twice[i + 1], twice[min(i + 2, n)])
+            end = twice[i + 1]
+            if i == n - 1:
+                self.path.cubicTo(c1[0], c1[1], c2[0], c2[1], end[0], end[1])
+            else:
+                index = self._run_base + 1 + 3 * i
+                self.path.setElementPositionAt(index, c1[0], c1[1])
+                self.path.setElementPositionAt(index + 1, c2[0], c2[1])
+                self.path.setElementPositionAt(index + 2, end[0], end[1])
 
  

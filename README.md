@@ -270,7 +270,8 @@ canvas/
 ├── gestures.py              # Mouse gesture state machines — text edge drag, rubber-band select, pending click-to-edit
 ├── handle_overlay.py        # HandleOverlay — separate compositing layer for edit handles, avoids full-scene repaint
 └── items/
-    ├── drawing_items.py     # StrokeItem / RectItem / EllipseItem / NumberItem — items sharing DrawingItemMixin
+    ├── drawing_items.py     # RectItem / EllipseItem / NumberItem, and the DrawingItemMixin all drawn items share
+    ├── stroke_item.py       # StrokeItem — pen/highlighter stroke; repaints only the chunks that changed or are exposed
     ├── background_item.py   # BackgroundItem — selection area background
     ├── mosaic_item.py       # MosaicItem — pixel mosaic item
     ├── spotlight_item.py    # SpotlightItem / SpotlightCurtain — spotlight holes and their shared curtain

@@ -269,7 +269,8 @@ canvas/
 ├── gestures.py              # マウスジェスチャの状態機械 — 文字の端ドラッグ、ラバーバンド選択、保留中のクリック編集
 ├── handle_overlay.py        # HandleOverlay — 編集ハンドル専用の合成レイヤー、シーン全体の再描画を回避
 └── items/
-    ├── drawing_items.py     # StrokeItem / RectItem / EllipseItem / NumberItem — DrawingItemMixin を共有する描画アイテム
+    ├── drawing_items.py     # RectItem / EllipseItem / NumberItem と、描画アイテム共通の DrawingItemMixin
+    ├── stroke_item.py       # StrokeItem — ペン/蛍光ペンのストローク、変わった部分・露出した部分のブロックだけ再描画
     ├── background_item.py   # BackgroundItem — 選択領域の背景
     ├── mosaic_item.py       # MosaicItem — モザイクアイテム
     ├── spotlight_item.py    # SpotlightItem / SpotlightCurtain — スポットライトの穴と共有の幕

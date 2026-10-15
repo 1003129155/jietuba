@@ -1,12 +1,13 @@
 ﻿# -*- coding: utf-8 -*-
-"""快捷行为页 — 跳过确认或结果窗口的开关
+"""快捷行为页 — 截图与标注时的操作方式，以及跳过确认或结果窗口的开关
 
 识别结果窗口里的勾选框和这里写的是同一个配置键：窗口里勾上后就不会再弹窗，
 想关回来只能到这一页，所以每一项的说明都要写清楚开着时会发生什么。
 """
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 from core.ui_scale import dialog_scaled
-from ui.fluent_lite import FluentIcon, SwitchSettingCard
+from ui.fluent_lite import ComboBox, FluentIcon, SettingCard as FSettingCard, SwitchSettingCard
+from settings.tool_settings import SHIFT_LINE_ANGLES
 from .components import SettingCardGroup, page_scroll_area
 from core.ui_theme import set_own_style
 
@@ -68,6 +69,30 @@ def create_quick_actions_page(dialog) -> QWidget:
     )
     dialog.cross_tool_selection_toggle = cross_tool_card
     grp_capture.addSettingCard(cross_tool_card)
+
+    shift_line_card = FSettingCard(
+        FluentIcon.EDIT,
+        dialog.tr("Straight Lines with Shift"),
+        dialog.tr("Hold Shift while drawing with the pen or highlighter to draw a straight line from that point. "
+                  "Release Shift to keep drawing freely."),
+        parent=grp_capture,
+    )
+    dialog.shift_line_angle_combo = ComboBox(shift_line_card)
+    # 文案顺序要和 SHIFT_LINE_ANGLES 一致
+    angle_labels = (
+        dialog.tr("Horizontal or Vertical"),
+        dialog.tr("Every 45°"),
+        dialog.tr("Every 30°"),
+        dialog.tr("Every 15°"),
+        dialog.tr("Any Angle"),
+    )
+    for label, angle in zip(angle_labels, SHIFT_LINE_ANGLES):
+        dialog.shift_line_angle_combo.addItem(label, userData=angle)
+    dialog.shift_line_angle_combo.setCurrentIndex(
+        SHIFT_LINE_ANGLES.index(dialog.config_manager.get_shift_line_angle())
+    )
+    shift_line_card.addControl(dialog.shift_line_angle_combo)
+    grp_capture.addSettingCard(shift_line_card)
 
     text_top_card = SwitchSettingCard(
         FluentIcon.FONT,

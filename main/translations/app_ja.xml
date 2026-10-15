@@ -5685,6 +5685,34 @@ gifrecorder が正しくインストールされているか確認してくだ�
         <source>If the last screenshot ended with a watermark, the next one gets the same watermark with the time updated; otherwise none is added. Screenshots taken with mouse shortcuts follow the same rule.</source>
         <translation>前回のスクリーンショットが透かし付きで終わっていれば、今回も同じ透かしを付け、時刻は今回のものに更新します。前回なければ付けません。マウスショートカットで撮ったものも同様です。</translation>
     </message>
+    <message>
+        <source>Straight Lines with Shift</source>
+        <translation>Shift で直線を引く</translation>
+    </message>
+    <message>
+        <source>Hold Shift while drawing with the pen or highlighter to draw a straight line from that point. Release Shift to keep drawing freely.</source>
+        <translation>ペンや蛍光ペンで描いている途中に Shift を押すと、その位置から直線を引けます。Shift を離すと自由に描く状態に戻ります。</translation>
+    </message>
+    <message>
+        <source>Horizontal or Vertical</source>
+        <translation>水平・垂直のみ</translation>
+    </message>
+    <message>
+        <source>Every 45°</source>
+        <translation>45° ごと</translation>
+    </message>
+    <message>
+        <source>Every 30°</source>
+        <translation>30° ごと</translation>
+    </message>
+    <message>
+        <source>Every 15°</source>
+        <translation>15° ごと</translation>
+    </message>
+    <message>
+        <source>Any Angle</source>
+        <translation>任意の角度</translation>
+    </message>
 </context>
 <context>
     <name>WatermarkPanel</name>

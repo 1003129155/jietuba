@@ -272,7 +272,8 @@ canvas/
 ├── handle_overlay.py        # HandleOverlay — 编辑控制点的独立合成层，避免整场景重绘
 └── items/                   # 绘制图形项
     ├── __init__.py
-    ├── drawing_items.py     # StrokeItem / RectItem / EllipseItem / NumberItem — 共用 DrawingItemMixin 的绘制项
+    ├── drawing_items.py     # RectItem / EllipseItem / NumberItem，以及各绘制项共用的 DrawingItemMixin
+    ├── stroke_item.py       # StrokeItem — 画笔/荧光笔笔迹，只重绘变了的、露出来的那几块
     ├── background_item.py   # BackgroundItem — 选区背景底图
     ├── mosaic_item.py       # MosaicItem — 马赛克图形项
     ├── spotlight_item.py    # SpotlightItem / SpotlightCurtain — 聚光灯的孔与共用幕布

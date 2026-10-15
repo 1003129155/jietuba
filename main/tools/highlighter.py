@@ -3,16 +3,17 @@
 """
 
 from PySide6.QtCore import QPointF, Qt, QRectF
-from PySide6.QtGui import QPainterPath, QPen, QBrush
-from .base import Tool, ToolContext, color_with_opacity
-from canvas.items import StrokeItem, RectItem
+from PySide6.QtGui import QPen, QBrush
+from .base import FreehandStroke, Tool, ToolContext, color_with_opacity, shift_held, shift_line_angle
+from canvas.items import RectItem, StrokeItem
 from canvas.undo import AddItemCommand
+from .pen import commit_stroke
 
 
 class HighlighterTool(Tool):
     """
     高亮笔工具 - 类似画笔但半透明
-    支持按住 Shift 键绘制水平或垂直直线
+    画的过程中按住 Shift 从当前位置拉直线，角度吸附见 shift_line_angle
     """
     
     id = "highlighter"
@@ -25,12 +26,9 @@ class HighlighterTool(Tool):
         self.drawing = False
         self.current_item = None
         self.rect_item = None
-        self.path = None
-        self.start_pos = None  # 起始点
-        self.line_lock_mode = None  # 直线锁定模式: 'horizontal' 或 'vertical' 或 None
-        self.locked_coordinate = None  # 被锁定的坐标值
+        self.start_pos = None  # 矩形模式的起点
+        self.stroke = None  # 自由模式的 FreehandStroke
         self.draw_mode = self.MODE_FREEHAND
-        self.last_point = None  # 上一个被采纳的点（见 Tool.should_append_point）
 
     def _load_draw_mode(self, ctx: ToolContext) -> str:
         if ctx.settings_manager:
@@ -58,30 +56,15 @@ class HighlighterTool(Tool):
     
     def on_press(self, pos: QPointF, button, ctx: ToolContext):
         if button == Qt.MouseButton.LeftButton:
+            # 上一笔没收到松手（按着鼠标时焦点被抢走等），先照松手收下
+            self._finish_freehand(ctx)
             self.draw_mode = self._load_draw_mode(ctx)
             if self.draw_mode == self.MODE_RECT:
                 self._start_rect_draw(pos, ctx)
                 return
 
             self.drawing = True
-            self.start_pos = pos
-            
-            # 检测 Shift 键状态
-            from PySide6.QtWidgets import QApplication
-            modifiers = QApplication.keyboardModifiers()
-            shift_pressed = bool(modifiers & Qt.KeyboardModifier.ShiftModifier)
-            
-            if shift_pressed:
-                # Shift 按下：进入直线检测模式
-                self.line_lock_mode = 'detecting'
-                self.locked_coordinate = None
-            else:
-                # 正常自由绘制模式
-                self.line_lock_mode = None
-                self.locked_coordinate = None
-            
-            self.path = QPainterPath(pos)
-            self.last_point = pos
+            self.stroke = FreehandStroke(pos, shift_line_angle(ctx), smooth=True)
             
             # 高亮笔颜色处理（使用当前透明度）
             base_opacity = ctx.opacity if ctx.opacity is not None else 0.5
@@ -92,8 +75,8 @@ class HighlighterTool(Tool):
             pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
             
-            # 创建高亮图元
-            self.current_item = StrokeItem(self.path, pen, is_highlighter=True)
+            # 创建图元并添加到场景
+            self.current_item = StrokeItem(self.stroke.path, pen, is_highlighter=True)
             ctx.scene.addItem(self.current_item)
     
     def on_move(self, pos: QPointF, ctx: ToolContext):
@@ -103,43 +86,9 @@ class HighlighterTool(Tool):
                 self.rect_item.setRect(rect)
             return
 
-        if self.drawing and self.current_item and self.start_pos:
-            paint_pos = QPointF(pos)
-            
-            # 处理直线绘制逻辑
-            if self.line_lock_mode == 'detecting':
-                # 首次移动时决定方向
-                dx = abs(paint_pos.x() - self.start_pos.x())
-                dy = abs(paint_pos.y() - self.start_pos.y())
-                
-                # 需要移动一定距离才能判断方向
-                if dx + dy > 5:
-                    if dx > dy:
-                        # 水平移动更多，锁定 Y 坐标（水平线）
-                        self.line_lock_mode = 'horizontal'
-                        self.locked_coordinate = self.start_pos.y()
-                        paint_pos.setY(self.locked_coordinate)
-                    else:
-                        # 垂直移动更多，锁定 X 坐标（垂直线）
-                        self.line_lock_mode = 'vertical'
-                        self.locked_coordinate = self.start_pos.x()
-                        paint_pos.setX(self.locked_coordinate)
-            elif self.line_lock_mode == 'horizontal':
-                # 水平线模式，锁定 Y 坐标
-                paint_pos.setY(self.locked_coordinate)
-            elif self.line_lock_mode == 'vertical':
-                # 垂直线模式，锁定 X 坐标
-                paint_pos.setX(self.locked_coordinate)
-            
-            # 间距过滤放在锁定吸附之后，比的是吸附后的坐标：水平锁定时纯竖直的
-            # 移动经吸附后落在同一个位置，若按吸附前的坐标筛就会全部放行，画面
-            # 没有任何变化，点数却照涨。
-            if not self.should_append_point(self.last_point, paint_pos):
-                return
-
-            self.path.lineTo(paint_pos)
-            self.last_point = paint_pos
-            self.current_item.setPath(self.path)
+        if self.drawing and self.current_item and self.stroke:
+            if self.stroke.extend(pos, straight=shift_held()):
+                self.current_item.extend_path(self.stroke.path, self.stroke.take_dirty_from())
     
     def on_release(self, pos: QPointF, ctx: ToolContext):
         if self.draw_mode == self.MODE_RECT:
@@ -165,20 +114,19 @@ class HighlighterTool(Tool):
                 ctx.scene.item_auto_select_requested.emit(item_to_select)
             return
 
-        if self.drawing:
-            self.drawing = False
-            
-            # 重置直线模式状态
-            self.line_lock_mode = None
-            self.locked_coordinate = None
-            self.start_pos = None
-            self.last_point = None
-            
-            if self.current_item:
-                ctx.scene.removeItem(self.current_item)
-                command = AddItemCommand(ctx.scene, self.current_item)
-                ctx.undo_stack.push(command)
-                
-                self.current_item = None
-                self.path = None
+        self._finish_freehand(ctx)
+
+    def on_deactivate(self, ctx: ToolContext):
+        # 画到一半切走工具，这一笔照常收下
+        self._finish_freehand(ctx)
+        super().on_deactivate(ctx)
+
+    def _finish_freehand(self, ctx: ToolContext):
+        item, stroke = self.current_item, self.stroke
+        if item is None or stroke is None:
+            return
+        self.drawing = False
+        self.current_item = None
+        self.stroke = None
+        commit_stroke(ctx, item, stroke)
  

@@ -49,6 +49,7 @@ APP_DEFAULT_SETTINGS = {
     "screenshot_quality": 85,
     "clipboard_file_reference_enabled": True,
     "screenshot_watermark_auto": False,
+    "shift_line_angle": 45,
     "autostart_enabled": True,
     "show_main_window": True,
     "ocr_enabled": True,
@@ -216,6 +217,8 @@ class MockConfig:
     def set_clipboard_file_reference_enabled(self, v): pass
     def get_screenshot_watermark_auto(self): return False
     def set_screenshot_watermark_auto(self, v): pass
+    def get_shift_line_angle(self): return 45
+    def set_shift_line_angle(self, v): pass
     def get_show_main_window(self): return True
     def set_show_main_window(self, v): pass
     def get_ocr_enabled(self): return True

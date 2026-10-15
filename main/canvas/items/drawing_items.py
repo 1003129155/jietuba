@@ -1,16 +1,14 @@
 """
 矢量绘图图元
-定义画笔、形状、荧光笔等基于 QGraphicsItem 的图元
+定义矩形、椭圆、序号等基于 QGraphicsItem 的图元，以及各图元共用的 DrawingItemMixin
 """
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
-    QGraphicsPathItem, QGraphicsRectItem, QGraphicsEllipseItem, QGraphicsItem,
+    QGraphicsRectItem, QGraphicsEllipseItem, QGraphicsItem,
 )
 from PySide6.QtGui import QPen, QPainter, QPainterPath, QColor, QFont, QPainterPathStroker, QBrush
 from PySide6.QtCore import Qt, QRectF, QPointF
-from core import log_warning
-from core.logger import T
 
 class DrawingItemMixin:
     """绘图图元通用属性
@@ -178,123 +176,6 @@ class DrawingItemMixin:
             return controller.can_show_hover_cursor(self)
         except Exception:
             return False
-
-class StrokeItem(DrawingItemMixin, QGraphicsPathItem):
-    """画笔/荧光笔图元"""
-    
-    def __init__(self, path: QPainterPath, pen: QPen, is_highlighter: bool = False):
-        super().__init__(path)
-        self._init_drawing_mixin()
-        
-        # 缓存 shape，避免移动时重复计算昂贵的 createStroke
-        self._shape_cache = None
-        
-        self.setPen(pen)
-        self.is_highlighter = is_highlighter
-        
-        if is_highlighter:
-            # 荧光笔层级较低，但在背景之上
-            self.setZValue(10)
-        else:
-            # 普通画笔层级较高
-            self.setZValue(20)
-            
-    def shows_selection_frame(self) -> bool:
-        """画笔和荧光笔的自由笔画不画框，理由见基类。
-
-        以前这件事是靠"paint() 里干脆没写画框那几行"表达的——看不出是有意还是漏了。
-        """
-        return False
-
-    def setPen(self, pen: QPen):
-        """重写 setPen 以清除 shape 缓存"""
-        super().setPen(pen)
-        self._shape_cache = None
-
-    def setPath(self, path: QPainterPath):
-        """重写 setPath 以清除 shape 缓存"""
-        super().setPath(path)
-        self._shape_cache = None
-            
-    def shape(self):
-        """
-        重写 shape 以增加点击容错范围
-        使用 QPainterPathStroker 生成比视觉路径更宽的点击区域
-        """
-        # 如果有缓存，直接返回
-        if self._shape_cache is not None:
-            return self._shape_cache
-            
-        path = self.path()
-        if path.isEmpty():
-            return path
-            
-        # 创建路径描边器
-        stroker = QPainterPathStroker()
-        # 设置宽度：当前笔触宽度 + 额外旷量(20px)
-        # 这样即使是细线，也有至少 20px 的点击范围
-        # 同时也方便移动，因为点击范围变大了
-        stroker.setWidth(self.pen().widthF() + 20)
-        stroker.setCapStyle(Qt.PenCapStyle.RoundCap)
-        stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        
-        # 生成扩大的形状路径并缓存
-        self._shape_cache = stroker.createStroke(path)
-        return self._shape_cache
-
-    def paint(self, painter, option, widget=None):
-        try:
-            if self.is_highlighter:
-                # 荧光笔使用正片叠底
-                painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Multiply)
-            
-            # 优化渲染质量
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            super().paint(painter, option, widget)
-        except KeyboardInterrupt:
-            # 传递键盘中断，允许用户终止程序
-            raise
-        except Exception as e:
-            # 绘制错误记录日志，避免崩溃
-            log_warning(T("DrawingItem paint 异常: {e}", e=e), "Canvas")
-
-    # -- 统一属性接口 --
-
-    def set_stroke_width(self, width: float):
-        pen = self.pen()
-        pen.setWidthF(max(1.0, float(width)))
-        self.setPen(pen)
-        self.update()
-
-    def scale_stroke_width(self, scale: float) -> bool:
-        pen = self.pen()
-        pen.setWidthF(max(1.0, pen.widthF() * scale))
-        self.setPen(pen)
-        self.update()
-        return True
-
-    def set_visual_opacity(self, opacity: float) -> bool:
-        opacity = max(0.0, min(1.0, float(opacity)))
-        pen = QPen(self.pen())
-        color = QColor(pen.color())
-        color.setAlphaF(opacity)
-        pen.setColor(color)
-        self.setPen(pen)
-        self.setOpacity(1.0)
-        self.update()
-        return True
-
-    def get_stroke_width(self) -> float | None:
-        width = float(self.pen().widthF())
-        if getattr(self, 'is_highlighter', False):
-            width = width / 3.0
-        return width
-
-    def get_visual_opacity(self) -> float | None:
-        direct = max(0.0, min(1.0, float(self.opacity())))
-        if direct < 0.999:
-            return direct
-        return self.pen().color().alphaF()
 
 class RectItem(DrawingItemMixin, QGraphicsRectItem):
     """矩形图元"""

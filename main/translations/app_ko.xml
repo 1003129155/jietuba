@@ -5644,6 +5644,34 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
         <source>If the last screenshot ended with a watermark, the next one gets the same watermark with the time updated; otherwise none is added. Screenshots taken with mouse shortcuts follow the same rule.</source>
         <translation>지난번 스크린샷이 워터마크가 있는 채로 끝났다면 이번에도 같은 워터마크를 넣고 시간은 이번 촬영 시각으로 바꿉니다. 없었다면 넣지 않습니다. 마우스 단축키로 찍은 스크린샷도 마찬가지입니다.</translation>
     </message>
+    <message>
+        <source>Straight Lines with Shift</source>
+        <translation>Shift로 직선 그리기</translation>
+    </message>
+    <message>
+        <source>Hold Shift while drawing with the pen or highlighter to draw a straight line from that point. Release Shift to keep drawing freely.</source>
+        <translation>펜이나 형광펜으로 그리는 중에 Shift를 누르면 그 위치에서 직선을 그립니다. Shift를 놓으면 다시 자유롭게 그립니다.</translation>
+    </message>
+    <message>
+        <source>Horizontal or Vertical</source>
+        <translation>수평·수직만</translation>
+    </message>
+    <message>
+        <source>Every 45°</source>
+        <translation>45°마다</translation>
+    </message>
+    <message>
+        <source>Every 30°</source>
+        <translation>30°마다</translation>
+    </message>
+    <message>
+        <source>Every 15°</source>
+        <translation>15°마다</translation>
+    </message>
+    <message>
+        <source>Any Angle</source>
+        <translation>자유 각도</translation>
+    </message>
 </context>
 <context>
     <name>WatermarkPanel</name>

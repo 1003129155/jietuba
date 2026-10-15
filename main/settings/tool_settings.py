@@ -166,6 +166,10 @@ OCR_LAYOUT_MODES = ("auto", "single_line", "multiline")
 # 识别结果里的标点转成半角或全角，keep 是不动。取值与 text_recognition.layout 对应。
 OCR_PUNCTUATION_MODES = ("keep", "halfwidth", "fullwidth")
 
+# 画笔、荧光笔按住 Shift 拉直线时吸附的角度间隔（度），顺序就是设置页下拉框的顺序；
+# 0 表示不吸附，任意角度。
+SHIFT_LINE_ANGLES = (90, 45, 30, 15, 0)
+
 
 ANNOTATION_TOOL_SHORTCUTS = (
     ("inapp_tool_cursor", "cursor", "Select / Cursor", "s"),
@@ -435,6 +439,7 @@ class ToolSettingsManager(QObject):
         "screenshot_watermark_auto": False,            # 截图时自动加上上次的水印，含全局鼠标快捷键的截图
         "screenshot_watermark_last_on": False,         # 上次截图结束时带着水印
         "screenshot_watermark_time_format": "yyyy-MM-dd HH:mm:ss",  # 输入水印时「插入时间」用的格式
+        "shift_line_angle": 45,                      # 按住 Shift 拉直线吸附的角度间隔，见 SHIFT_LINE_ANGLES
         # GIF 录制
         "gif_fps": 10,                         # GIF默认帧率
         "recording_format": "gif",
@@ -1314,6 +1319,24 @@ class ToolSettingsManager(QObject):
 
     def set_screenshot_watermark_auto(self, value: bool):
         self.qsettings.setValue("app/screenshot_watermark_auto", bool(value))
+
+    def get_shift_line_angle(self) -> int:
+        """按住 Shift 拉直线时吸附的角度间隔（度），取值见 SHIFT_LINE_ANGLES，0 是任意角度。"""
+        default = self.APP_DEFAULT_SETTINGS["shift_line_angle"]
+        try:
+            angle = int(self.qsettings.value("app/shift_line_angle", default))
+        except (TypeError, ValueError):
+            return default
+        return angle if angle in SHIFT_LINE_ANGLES else default
+
+    def set_shift_line_angle(self, value: int):
+        try:
+            angle = int(value)
+        except (TypeError, ValueError):
+            angle = self.APP_DEFAULT_SETTINGS["shift_line_angle"]
+        if angle not in SHIFT_LINE_ANGLES:
+            angle = self.APP_DEFAULT_SETTINGS["shift_line_angle"]
+        self.qsettings.setValue("app/shift_line_angle", angle)
 
     def get_screenshot_watermark_last_on(self) -> bool:
         """上次截图结束时是否带着水印"""

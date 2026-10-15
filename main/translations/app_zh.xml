@@ -5730,6 +5730,34 @@ Make sure gifrecorder is installed correctly.</source>
         <source>If the last screenshot ended with a watermark, the next one gets the same watermark with the time updated; otherwise none is added. Screenshots taken with mouse shortcuts follow the same rule.</source>
         <translation>上次截图结束时带着水印，这次就加上同样的水印，时间按这次刷新；上次没有就不加。鼠标快捷键截的图也一样。</translation>
     </message>
+    <message>
+        <source>Straight Lines with Shift</source>
+        <translation>按住 Shift 画直线</translation>
+    </message>
+    <message>
+        <source>Hold Shift while drawing with the pen or highlighter to draw a straight line from that point. Release Shift to keep drawing freely.</source>
+        <translation>用画笔或荧光笔画的过程中按住 Shift，从当前位置拉出直线；松开 Shift 后接着自由画。</translation>
+    </message>
+    <message>
+        <source>Horizontal or Vertical</source>
+        <translation>仅水平或垂直</translation>
+    </message>
+    <message>
+        <source>Every 45°</source>
+        <translation>每隔 45°</translation>
+    </message>
+    <message>
+        <source>Every 30°</source>
+        <translation>每隔 30°</translation>
+    </message>
+    <message>
+        <source>Every 15°</source>
+        <translation>每隔 15°</translation>
+    </message>
+    <message>
+        <source>Any Angle</source>
+        <translation>任意角度</translation>
+    </message>
 </context>
 <context>
     <name>WatermarkPanel</name>
