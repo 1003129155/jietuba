@@ -88,7 +88,7 @@
 
 1. 第 1 节做完，冻结本仓库。（已做）
 2. ~~主仓库从发版分支开 `cpp-import` 分支~~ 10-15 改为直接在 `release/2.1.7` 上做：一个导入提交，包含第 2～4 节的改动。（已做）
-3. 本地编默认构建跑测试、编静态单文件版实测；推送后手动跑 build.yml 拿两种架构的测试包（`package` 作业会因签名环境只许 master2 和标签而失败，`build`、`lite` 的产物照常可下载）。
+3. 本地编默认构建跑测试、编静态单文件版实测；推送后手动跑 build.yml 拿两种架构的测试包（`package` 作业会因签名环境只许 master2 和标签而失败，`build`、`lite` 的产物照常可下载）。（已做：run 38748285508，产物全面测试和本机测试源上的一键更新见 `docs/validation/acceptance-r6.md`）
 4. 产物测过后开 2.1.7 的发版 PR（release/2.1.7 → master2）。必需检查 test (x64)/(arm64) 通过。diff-cover 只统计 coverage.xml 里有的文件，预计 `cpp/scripts` 下的 Python 不计入，第一次跑时确认一下。
 5. 合入后在 master2 手动跑一次 build.yml：热缓存，顺便验签名和打包。
 6. 打标签，自动生成草稿 Release。逐项验：旧 Python 轻量版从 GitHub 一键更新到 C++（10.1）、两个 exe 的签名状态、zip 里的内容。
