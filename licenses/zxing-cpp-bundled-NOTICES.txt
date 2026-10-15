@@ -1,0 +1,114 @@
+zxing-cpp 3.1.1: code compiled into the Python module besides zxing-cpp itself
+
+The zxing-cpp wheel ships only zxing-cpp's own Apache-2.0 license. Its module also contains
+libzint (barcode writing, from zint/backend) and libzueci (ECI conversion); their notices,
+taken from the zxing-cpp 3.1.1 sources, follow. Update this file together with zxing-cpp.
+
+--------------------------------------------------------------------------------
+libzint and libzueci (BSD-3-Clause)
+--------------------------------------------------------------------------------
+
+Copyright (C) 2007-2025 Robin Stuart <rstuart114@gmail.com>
+Copyright (C) 2006 Kentaro Fukuchi <fukuchi@megaui.net>
+Copyright (C) 2024-2025 Antoine Merino <antoine.merino.dev@gmail.com>
+Copyright (C) 2022 gitlost (libzueci)
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+1. Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+3. Neither the name of the project nor the names of its contributors
+may be used to endorse or promote products derived from this software
+without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+SUCH DAMAGE.
+
+--------------------------------------------------------------------------------
+QR Code mode optimization in libzint, adapted from Project Nayuki (MIT)
+--------------------------------------------------------------------------------
+
+Copyright (c) Project Nayuki. (MIT License)
+https://www.nayuki.io/page/qr-code-generator-library
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+- The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+--------------------------------------------------------------------------------
+UTF-8 decoder in libzint and libzueci (MIT)
+--------------------------------------------------------------------------------
+
+Copyright (c) 2008-2009 Bjoern Hoehrmann <bjoern@hoehrmann.de>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the Software without restriction, including without
+limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+Software, and to permit persons to whom the Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions
+of the Software.
+
+See https://bjoern.hoehrmann.de/utf-8/decoder/dfa/ for details.
+
+--------------------------------------------------------------------------------
+Arimo font subset embedded in libzint SVG output (Apache-2.0)
+--------------------------------------------------------------------------------
+
+Copyright 2013 Steve Matteson
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+--------------------------------------------------------------------------------
+OCR-B font subset embedded in libzint SVG output
+--------------------------------------------------------------------------------
+
+Adapted from OCR-B font version 0.2 Matthew Skala
+https://tsukurimashou.osdn.jp/ocr.php.en
+
+Copyright Matthew Skala (2011); based on code by Norbert Schwarz (1986, 2011)
+
+"The version in this package descends from a set of Metafont
+definitions by Norbert Schwarz of Ruhr-Universitaet Bochum,
+bearing dates ranging from 1986 to 2010. He originally
+distributed it under a "non-commercial use only"
+restriction but has since released it for unrestricted use
+and distribution. See the README file for more details."
+
+The README states (http://mirrors.ctan.org/fonts/ocr-b.zip)
+
+"As far as the digitization in METAFONT input which I have
+developed, you may freely use, modify, and/or distribute any of
+these files or the resulting fonts, without limitation.  A previous
+release of ocr-b only granted rights for non-commercial use; that
+restriction is now lifted."

@@ -12,10 +12,6 @@ dependencies = [
     "mss==10.1.0",
     "pywin32==311",
     "comtypes==1.4.16",
-    "darkdetect==0.8.0",
-    "emoji==2.15.0",
-    "av==17.0.0",
-    "colorama==0.4.6",
     "zxing-cpp==3.1.1",
     "j-video==0.1.0",
 ]

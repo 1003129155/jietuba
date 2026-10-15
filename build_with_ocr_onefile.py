@@ -17,6 +17,7 @@ import sys
 
 LITE = "--lite" in sys.argv[1:]
 
+from build_notices import bundled_list_path, write_notices
 from main.video.helper import installed_recorder_licenses
 
 # 路径配置
@@ -69,7 +70,6 @@ hidden_imports = [
     'win32gui',
     'comtypes.client',
     'comtypes.gen.UIAutomationClient',
-    'darkdetect',
 ]
 
 # 排除的模块
@@ -296,8 +296,11 @@ _EXTRA_STRIP = {{
     # FFmpeg（Qt Multimedia 拉入，截图不需要）
     'avcodec-61.dll', 'avformat-61.dll', 'avutil-59.dll',
     'swscale-8.dll', 'swresample-5.dll',
+    # 依赖的 Qt6Network、Qt6Pdf、Qt6VirtualKeyboard 不在白名单里，这几个插件加载不了
+    'qtuiotouchplugin.dll', 'qpdf.dll', 'qtvirtualkeyboardplugin.dll',
 }}
-_EXTRA_STRIP_PATTERNS = ('libscipy_openblas', 'libopenblas', 'icudt')
+# 通用 C 运行库是 Windows 10 起的系统组件；PyInstaller 会从 PATH 上别的软件目录捡来副本
+_EXTRA_STRIP_PATTERNS = ('libscipy_openblas', 'libopenblas', 'icudt', 'api-ms-win-', 'ucrtbase')
 _STRIP_BINARY_PATTERNS = ('_avif.',)  # Pillow AVIF
 
 def _keep_binary(entry):
@@ -337,6 +340,13 @@ def _keep_qm(entry):
     locale = stem.split('_', 1)[1] if '_' in stem else stem
     return locale in _KEEP_QM_LOCALES or locale.startswith('zh')
 a.datas = TOC([e for e in a.datas if _keep_qm(e)])
+
+# build_notices.py 按这份清单找出打进包的第三方代码
+import json as _json
+_os.makedirs({str(bundled_list_path(EXE_NAME).parent)!r}, exist_ok=True)
+with open({str(bundled_list_path(EXE_NAME))!r}, 'w', encoding='utf-8') as _f:
+    _json.dump(sorted({{_e[1] for _e in a.pure + a.scripts + a.binaries + a.datas
+                        if _e[1] and _os.path.isfile(_e[1])}}), _f, indent=0)
 
 pyz = PYZ(a.pure)
 
@@ -392,8 +402,9 @@ exe = EXE(
     elif not LITE:
         print(f"警告: 未找到 models 目录 {src_models}")
 
-    from build_notices import write_notices
-    print(f"许可声明: {write_notices(REPO_DIR / DIST_DIR, lite=LITE)}")
+    import json
+    bundled = json.loads(bundled_list_path(EXE_NAME).read_text(encoding="utf-8"))
+    print(f"许可声明: {write_notices(REPO_DIR / DIST_DIR, lite=LITE, bundled=bundled)}")
 
     print("=" * 60)
     print("打包完成！")

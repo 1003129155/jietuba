@@ -92,3 +92,8 @@ cargo about generate --locked --manifest-path video_recorder/Cargo.toml -o video
 
 依赖树里出现新的许可证时 `cargo about` 会报错，需先在 `about.toml` 的
 `accepted` 列表里确认并加入——这是有意的闸门，不要盲目加。
+
+`ppocr_rust` 静态链接的 ONNX Runtime 本体不在 crate 依赖树里，`cargo about` 不覆盖。
+它的声明在 `ppocr_rust/ONNXRUNTIME-NOTICES.txt`：升级 `ort` 时按 ort-sys 的
+`build/download/dist.txt` 查出 ONNX Runtime 版本，从 microsoft/onnxruntime 对应标签
+取 `LICENSE` 和 `ThirdPartyNotices.txt` 更新。
