@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 48 48" fill="none">
+  <!-- Mouse body -->
+  <rect x="5" y="6" width="22" height="34" rx="11" fill="white" stroke="currentColor" stroke-width="3"/>
+  <!-- Wheel -->
+  <line x1="16" y1="13" x2="16" y2="20" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+  <!-- Down arrow -->
+  <path d="M38 10 V38 M31.5 31.5 L38 38 L44.5 31.5" stroke="currentColor" stroke-width="3"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

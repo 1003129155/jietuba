@@ -1,0 +1,19 @@
+********* Start testing of ParityTests *********
+Config: Using QtTest library 6.10.3, Qt 6.10.3 (x86_64-little_endian-llp64 shared (dynamic) release build; by MSVC 2022), windows 11
+PASS   : ParityTests::initTestCase()
+PASS   : ParityTests::selectionStateAndSignalTrace()
+PASS   : ParityTests::lastRegionCopiesAndLifetime()
+PASS   : ParityTests::toolbarNormalization()
+PASS   : ParityTests::scaleRoundingAndDpi()
+PASS   : ParityTests::defaultsAndToolCoercion()
+PASS   : ParityTests::configurationKeysPersistenceAndSignals()
+PASS   : ParityTests::exactGeneratedAccessors()
+PASS   : ParityTests::firstRunAndIndependentScales()
+PASS   : ParityTests::exportPixelsAndVisibility()
+PASS   : ParityTests::colorFormatsAndLegacyPersistence()
+PASS   : ParityTests::saveFormatLimitsAndPdfPixels()
+PASS   : ParityTests::saveReservationAsyncAndFailureCleanup()
+PASS   : ParityTests::toolbarSerializationAndResetSignalOrder()
+PASS   : ParityTests::cleanupTestCase()
+Totals: 15 passed, 0 failed, 0 skipped, 0 blacklisted, 385ms
+********* Finished testing of ParityTests *********

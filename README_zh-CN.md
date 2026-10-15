@@ -47,15 +47,17 @@ MP4 区域录制支持自定义帧率和码率、暂停/继续、鼠标指针及
 1. 打开 [Releases 下载页](https://github.com/1003129155/jietuba/releases/latest)，根据设备下载以 `-x64.zip` 或 `-arm64.zip` 结尾的程序包。
 2. 程序包分两种，完整解压后双击其中的 exe 启动：
    - **完整版** `jietuba_pp-…zip`：带 PP-OCR 引擎和模型，任何 Windows 都能使用 OCR。保留 `jietuba_pp.exe` 和同级的 `models/` 目录。
-   - **轻量版** `jietuba_lite-…zip`：体积更小，只使用 Windows 11 截图工具自带的 OCR；没有截图工具、或截图工具低于 11.2308（没有「文本操作」）的电脑上 OCR 不可用，请更新截图工具或改用完整版。
+   - **轻量版** `jietuba_lite-…zip`：C++ 原生实现的单个 exe，体积更小、启动更快（同一台电脑上实测启动 2.16→1.14 秒，内存 199→158 MB）。默认只使用 Windows 11 截图工具自带的 OCR；没有截图工具、或截图工具低于 11.2308（没有「文本操作」）的电脑上 OCR 不可用，请更新截图工具或改用完整版。在 exe 旁放上 PP-OCR 组件包也能使用 PP-OCR，见 [cpp/README.md](cpp/README.md#pp-ocr-组件包)。
 3. 两个版本默认都优先使用截图工具的 OCR（更快、支持的语言更多），可在设置的「OCR 设置」中切换引擎。
 4. 程序尚未进行数字签名，通过浏览器下载后，Windows 可能显示运行警告。出现提示时，点击“更多信息”，再选择“仍要运行”即可启动。
 
-首次安装包含更新器的版本后，可在**关于 → 检查更新 → 一键更新并重启**中升级。更新器下载匹配架构的 GitHub Release ZIP，仅替换主 EXE 后重启；保留设置、剪贴板历史、模型和其他文件。录制、导出或后台保存未结束时保留下载结果，结束任务后重试。最近一次主程序备份保存在 `.jietuba-update/` 中，详见[更新器恢复说明](rust_libs/updater/README.md)。
+两个版本共用设置和剪贴板历史，可以互相换用，但不要同时运行（默认快捷键会冲突）。
+
+首次安装包含更新器的版本后，可在**关于 → 检查更新 → 一键更新并重启**中升级。更新器下载匹配架构的 GitHub Release ZIP，仅替换主 EXE 后重启；保留设置、剪贴板历史、模型和其他文件。录制、导出或后台保存未结束时保留下载结果，结束任务后重试。最近一次主程序备份保存在 `.jietuba-update/` 中，详见[更新器恢复说明](rust_libs/updater/README.md)。旧的 Python 轻量版一键更新后会换成 C++ 实现，设置和剪贴板历史照常保留。
 
 ## 代码签名政策
 
-Windows 发布包中的 `jietuba_pp.exe` 和 `jietuba_lite.exe` 由 GitHub Actions 从本仓库源码自动构建，并通过 SignPath 签名。
+Windows 发布包中的 `jietuba_pp.exe`（Python 源码打包）和 `jietuba_lite.exe`（由 [cpp/](cpp/) 的 C++ 源码构建）由 GitHub Actions 从本仓库源码自动构建，并通过 SignPath 签名。
 
 Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
 
@@ -143,13 +145,17 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 会真实移动鼠标、点击和按键的测试（如 `test_quick_capture_real_hooks.py`）默认跳过；设置环境变量 `RUN_REAL_INPUT_TESTS=1` 后才运行，运行期间请不要操作鼠标和键盘。会改写真实系统剪贴板的测试（`test_clipboard_monitor_real.py`）同样默认跳过；设置环境变量 `RUN_REAL_CLIPBOARD_TESTS=1` 后才运行，运行期间请不要复制任何内容。
 
-构建 Windows 发行包前，先安装与当前 Python 架构匹配的录制 wheel，再运行 `python build_with_ocr_onefile.py`。脚本收集已安装的录制扩展与许可声明，并通过 Cargo 单独构建更新器。完整版产物为 `dist/jietuba_pp.exe` 和 `dist/models/`；加 `--lite` 构建轻量版，产物为 `dist_lite/jietuba_lite.exe`。录制 wheel 的构建步骤见[发布说明](rust_libs/PUBLISHING.md)。自动发行流程见 [build.yml](.github/workflows/build.yml)，会分别生成 x64 与 ARM64 的完整版和轻量版压缩包。
+构建 Windows 发行包前，先安装与当前 Python 架构匹配的录制 wheel，再运行 `python build_with_ocr_onefile.py`。脚本收集已安装的录制扩展与许可声明，并通过 Cargo 单独构建更新器。完整版产物为 `dist/jietuba_pp.exe` 和 `dist/models/`。加 `--lite` 仍可构建 Python 轻量版 `dist_lite/jietuba_lite.exe`，发版已不再使用。录制 wheel 的构建步骤见[发布说明](rust_libs/PUBLISHING.md)。自动发行流程见 [build.yml](.github/workflows/build.yml)：完整版和轻量版（[lite.yml](.github/workflows/lite.yml)）并行构建，签名后分别生成 x64 与 ARM64 的压缩包。
+
+### C++ 轻量版
+
+轻量版的源码在 [cpp/](cpp/)，`src/` 与 `main/` 按模块对应；构建、测试和开发约定见 [cpp/README.md](cpp/README.md) 和 [cpp/AGENTS.md](cpp/AGENTS.md)。两个版本的行为必须一致：改 Python 版行为的 PR 同时改 C++ 版，C++ 的对照测试用 Python 版生成预期结果。改到 `cpp/` 或 `rust_libs/` 时，[C++ CI](.github/workflows/cpp.yml) 会编译并运行不需要桌面的测试。
 
 ### Rust 库分层
 
 `rust_libs/` 下的逻辑只写一份，Python 版和 C++ 版共用：
 
-- 每个库分两层：核心是纯 Rust；pyo3 绑定只放在 `python.rs`（录制库是 `bindings.rs`），由默认开启的 `python` 特性控制。C++ 版以 `default-features = false` 依赖，在自己的 C 接口层调用同一份核心。
+- 每个库分两层：核心是纯 Rust；pyo3 绑定只放在 `python.rs`（录制库是 `bindings.rs`），由默认开启的 `python` 特性控制。C++ 版以 `default-features = false` 依赖，在自己的 C 接口层（`cpp/native/`）调用同一份核心。
 - 绑定层只做类型转换、GIL 的拿放、错误映射和对象生命周期；判断、默认值、重试、线程这类逻辑写进核心，否则两个版本会各写一份、慢慢分叉。
 - 核心里可恢复的错误返回 `Result`，不要 `panic`。
 - 两个版本都要用、行为必须一致的非界面逻辑，优先写进 Rust 核心；用到 Qt 类型的界面代码留在各自的语言里。
@@ -175,8 +181,13 @@ python -m pytest main/tests -c main/tests/pytest.ini
 ├── pyproject.toml                                      # Python 项目元数据与依赖声明
 ├── requirements.txt                                   # 运行依赖
 ├── requirements-dev.txt                               # 测试与构建依赖
-├── build_with_ocr_onefile.py                           # PyInstaller 单文件构建脚本（--lite 构建轻量版）
+├── build_with_ocr_onefile.py                           # PyInstaller 单文件构建脚本（--lite 构建 Python 轻量版，发版不再使用）
 ├── licenses/                                          # 随发布包附带的第三方许可
+│
+├── cpp/                     # 轻量版的 C++ Qt6 源码
+│   ├── src/                 # 与 main/ 按模块对应
+│   ├── native/              # rust_libs 的 C 接口，静态链接
+│   └── tests/               # QtTest 与对照数据
 │
 ├── main/                    # Python 主程序
 │   ├── main_app.py          # 应用入口，系统托盘、全局快捷键、生命周期管理

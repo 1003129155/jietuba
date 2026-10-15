@@ -1,0 +1,16 @@
+# 重点查空指针、悬空引用和移动后使用；风格类检查不开，避免淹没真问题。
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-implicit-widening-of-multiplication-result,
+  -bugprone-narrowing-conversions,
+  clang-analyzer-core.*,
+  clang-analyzer-cplusplus.*,
+  clang-analyzer-deadcode.*,
+  clang-analyzer-unix.Malloc,
+  cppcoreguidelines-pro-type-member-init,
+  misc-uniqueptr-reset-release,
+  performance-move-const-arg
+WarningsAsErrors: ''
+HeaderFilterRegex: '[/\\]src[/\\]'

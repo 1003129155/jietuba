@@ -59,6 +59,8 @@ jobs:
         with:
           workspaces: rust_libs
           cache-on-failure: true
+          # PR 从 master2 的缓存恢复；PR 自己存的缓存只会把 10 GB 上限挤满
+          save-if: ${{ github.ref == 'refs/heads/master2' }}
 
       - name: Run Rust unit tests
         run: cargo test --locked --workspace --release --target ${{ matrix.rust-target }} --manifest-path rust_libs/Cargo.toml

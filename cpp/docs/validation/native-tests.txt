@@ -1,0 +1,13 @@
+********* Start testing of CaptureTest *********
+Config: Using QtTest library 6.10.3, Qt 6.10.3 (x86_64-little_endian-llp64 shared (dynamic) release build; by MSVC 2022), windows 11
+PASS   : CaptureTest::initTestCase()
+PASS   : CaptureTest::clipboardPersistsAndDeduplicates()
+PASS   : CaptureTest::clipboardRetentionLimits()
+PASS   : CaptureTest::cropAtMixedDpi()
+PASS   : CaptureTest::exportUndoRedo()
+PASS   : CaptureTest::realMouseWorkflow()
+PASS   : CaptureTest::tinySelectionDoesNotExport()
+PASS   : CaptureTest::nativeScreenSession()
+PASS   : CaptureTest::cleanupTestCase()
+Totals: 9 passed, 0 failed, 0 skipped, 0 blacklisted, 1200ms
+********* Finished testing of CaptureTest *********

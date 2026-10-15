@@ -1,0 +1,13 @@
+<!--?xml version="1.0" encoding="UTF-8"?-->
+<svg width="23" height="23" viewBox="4.5 4.5 23 23" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- 环形箭头：顺时针旋转 -->
+  <path d="M16 6
+           A10 10 0 1 1 8.5 10" fill="none" stroke="#00C853" stroke-width="2.2" stroke-linecap="round"></path>
+
+  <!-- 箭头头部 -->
+  <path d="M8.2 6.8 L8.8 11.2 L12.9 10.0" fill="none" stroke="#00C853" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+
+  <!-- 中心小点 -->
+  <circle cx="16" cy="16" r="1.6" fill="#00C853"></circle>
+</svg>

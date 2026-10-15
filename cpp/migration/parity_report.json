@@ -1,0 +1,3165 @@
+{
+  "overall_lossless_migration_complete": false,
+  "source_modules": 295,
+  "production_symbols": 5338,
+  "mapped_symbols_with_test_evidence": 395,
+  "unique_symbol_mappings": 393,
+  "pending_production_symbols": 4943,
+  "oracle_qt": "6.11.0",
+  "native_qt": "6.10.3",
+  "mappings": [
+    {
+      "source": "main/canvas/selection_model.py",
+      "symbol": "SelectionModel.__init__",
+      "target": "src/canvas/selection_model.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "selectionStateAndSignalTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/selection_model.py",
+      "symbol": "SelectionModel.rect",
+      "target": "src/canvas/selection_model.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "selectionStateAndSignalTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/selection_model.py",
+      "symbol": "SelectionModel.set_rect",
+      "target": "src/canvas/selection_model.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "selectionStateAndSignalTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/selection_model.py",
+      "symbol": "SelectionModel.start_dragging",
+      "target": "src/canvas/selection_model.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "selectionStateAndSignalTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/selection_model.py",
+      "symbol": "SelectionModel.stop_dragging",
+      "target": "src/canvas/selection_model.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "selectionStateAndSignalTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/selection_model.py",
+      "symbol": "SelectionModel.is_dragging",
+      "target": "src/canvas/selection_model.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "selectionStateAndSignalTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/selection_model.py",
+      "symbol": "SelectionModel.is_active",
+      "target": "src/canvas/selection_model.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "selectionStateAndSignalTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/selection_model.py",
+      "symbol": "SelectionModel.activate",
+      "target": "src/canvas/selection_model.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "selectionStateAndSignalTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/selection_model.py",
+      "symbol": "SelectionModel.deactivate",
+      "target": "src/canvas/selection_model.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "selectionStateAndSignalTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/selection_model.py",
+      "symbol": "SelectionModel.confirm",
+      "target": "src/canvas/selection_model.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "selectionStateAndSignalTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/selection_model.py",
+      "symbol": "SelectionModel.is_confirmed",
+      "target": "src/canvas/selection_model.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "selectionStateAndSignalTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/selection_model.py",
+      "symbol": "SelectionModel.initialize_confirmed_rect",
+      "target": "src/canvas/selection_model.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "selectionStateAndSignalTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/selection_model.py",
+      "symbol": "SelectionModel.is_empty",
+      "target": "src/canvas/selection_model.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "selectionStateAndSignalTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/selection_model.py",
+      "symbol": "SelectionModel.normalize",
+      "target": "src/canvas/selection_model.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "selectionStateAndSignalTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/global_hotkey.py",
+      "symbol": "_build_tables",
+      "target": "src/core/global_hotkey.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "globalHotkeyRoutesAndParsing; globalHotkeyFormatting",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/core/global_hotkey.py",
+      "symbol": "parse_hotkey",
+      "target": "src/core/global_hotkey.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "globalHotkeyRoutesAndParsing; globalHotkeyFormatting",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/core/global_hotkey.py",
+      "symbol": "format_hotkey",
+      "target": "src/core/global_hotkey.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "globalHotkeyRoutesAndParsing; globalHotkeyFormatting",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/core/global_hotkey.py",
+      "symbol": "modifier_mask",
+      "target": "src/core/global_hotkey.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "globalHotkeyRoutesAndParsing; globalHotkeyFormatting",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/core/global_hotkey.py",
+      "symbol": "modifier_names",
+      "target": "src/core/global_hotkey.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "globalHotkeyRoutesAndParsing; globalHotkeyFormatting",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/core/global_hotkey.py",
+      "symbol": "route",
+      "target": "src/core/global_hotkey.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "globalHotkeyRoutesAndParsing; globalHotkeyFormatting",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/core/global_hotkey.py",
+      "symbol": "route_of",
+      "target": "src/core/global_hotkey.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "globalHotkeyRoutesAndParsing; globalHotkeyFormatting",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/core/last_capture_region.py",
+      "symbol": "set_last_region",
+      "target": "src/core/last_capture_region.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "lastRegionCopiesAndLifetime",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/last_capture_region.py",
+      "symbol": "get_last_region",
+      "target": "src/core/last_capture_region.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "lastRegionCopiesAndLifetime",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/ui/toolbar_layout.py",
+      "symbol": "LayoutProfile",
+      "target": "src/ui/toolbar_layout.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "toolbarNormalization; pinToolbarNormalization; configuration persistence",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/ui/toolbar_layout.py",
+      "symbol": "LayoutProfile.default_mode",
+      "target": "src/ui/toolbar_layout.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "toolbarNormalization; pinToolbarNormalization; configuration persistence",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/ui/toolbar_layout.py",
+      "symbol": "default_layout",
+      "target": "src/ui/toolbar_layout.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "toolbarNormalization; pinToolbarNormalization; configuration persistence",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/ui/toolbar_layout.py",
+      "symbol": "normalize_layout",
+      "target": "src/ui/toolbar_layout.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "toolbarNormalization; pinToolbarNormalization; configuration persistence",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/ui/toolbar_layout.py",
+      "symbol": "load_layout",
+      "target": "src/ui/toolbar_layout.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "toolbarNormalization; pinToolbarNormalization; configuration persistence",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/ui/toolbar_layout.py",
+      "symbol": "save_layout",
+      "target": "src/ui/toolbar_layout.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "toolbarNormalization; pinToolbarNormalization; configuration persistence",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/export.py",
+      "symbol": "ExportService.__init__",
+      "target": "src/core/export.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "exportPixelsAndVisibility",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/export.py",
+      "symbol": "ExportService.get_result_pixmap",
+      "target": "src/core/export.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "exportPixelsAndVisibility",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/export.py",
+      "symbol": "ExportService.export",
+      "target": "src/core/export.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "exportPixelsAndVisibility",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/export.py",
+      "symbol": "ExportService.export_base_image_only",
+      "target": "src/core/export.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "exportPixelsAndVisibility",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "UIScaleManager.__init__",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "UIScaleManager.instance",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "UIScaleManager.init",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "UIScaleManager.scale_changed",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "UIScaleManager.percent",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "UIScaleManager.factor",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "UIScaleManager.px",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "UIScaleManager.pxf",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "UIScaleManager.set_percent",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "DialogScaleManager.__init__",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "DialogScaleManager.instance",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "DialogScaleManager.init",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "DialogScaleManager.scale_changed",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "DialogScaleManager.percent",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "DialogScaleManager.factor",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "DialogScaleManager.px",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "DialogScaleManager.pxf",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "DialogScaleManager.set_percent",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "UIScaleManager.normalize_percent",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "UIScaleManager.reset_to_default",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "recommended_scale_percent",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "apply_first_run_scale_defaults",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "get_ui_scale",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "scaled",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "scaled_f",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "scale_factor",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "get_dialog_scale",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "dialog_scaled",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "dialog_scaled_f",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/ui_scale.py",
+      "symbol": "widget_scaled",
+      "target": "src/core/ui_scale.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "scaleRoundingAndDpi; firstRunAndIndependentScales",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettings.__init__",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "configurationKeysPersistenceAndSignals; defaultsAndToolCoercion",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettings.get",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "configurationKeysPersistenceAndSignals; defaultsAndToolCoercion",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettings.set",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "configurationKeysPersistenceAndSignals; defaultsAndToolCoercion",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettings.update",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "configurationKeysPersistenceAndSignals; defaultsAndToolCoercion",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettings.reset_to_defaults",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "configurationKeysPersistenceAndSignals; defaultsAndToolCoercion",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettings.to_dict",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "configurationKeysPersistenceAndSignals; defaultsAndToolCoercion",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettings.from_dict",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "configurationKeysPersistenceAndSignals; defaultsAndToolCoercion",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.__init__",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager._initialize_tools",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager._load_tool_settings",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager._save_tool_settings",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_tool_settings",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_setting",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_setting",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.update_settings",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.save_all",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.reset_tool",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.reset_all",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.reset_app_settings",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.app_setting_path",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_app_setting",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_app_setting",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.reset_all_settings",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_color",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_color",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_stroke_width",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_stroke_width",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_opacity",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_opacity",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_font_size",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_font_size",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.export_settings",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.import_settings",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_hotkey",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_hotkey",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_clipboard_hotkey",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_inapp_shortcut",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_inapp_shortcut",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.is_first_run",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.mark_as_run",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_screenshot_save_path",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_screenshot_save_path",
+      "target": "src/settings/tool_settings.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "defaultsAndToolCoercion; configurationKeysPersistenceAndSignals",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_hotkey_2",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_hotkey_2",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_clipboard_hotkey",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_clipboard_hotkey_2",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_clipboard_hotkey_2",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_pin_clipboard_hotkey",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_pin_clipboard_hotkey",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_pin_clipboard_hotkey_2",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_pin_clipboard_hotkey_2",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_translation_hotkey",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_translation_hotkey",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_translation_hotkey_2",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_translation_hotkey_2",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_inapp_cursor_move_mode",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_inapp_cursor_move_mode",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_inapp_clipboard_pick_mode",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_inapp_clipboard_pick_mode",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_smart_selection",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_smart_selection_animation",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_smart_selection_animation",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_double_click_copy_close_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_double_click_copy_close_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_cross_tool_selection_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_cross_tool_selection_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_text_always_on_top_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_text_always_on_top_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_ocr_copy_directly_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_ocr_copy_directly_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_barcode_copy_single_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_barcode_copy_single_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_log_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_log_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_log_dir",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_log_dir",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_log_level",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_log_level",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_log_retention_days",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_log_retention_days",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_long_stitch_engine",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_long_stitch_engine",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_long_stitch_ignore_top_pixels",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_long_stitch_ignore_top_pixels",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_screenshot_save_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_screenshot_save_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_screenshot_pin_save_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_screenshot_pin_save_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_screenshot_save_original_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_screenshot_save_original_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_screenshot_format",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_clipboard_file_reference_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_clipboard_file_reference_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_screenshot_watermark_auto",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_screenshot_watermark_last_on",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_screenshot_quality",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_show_main_window",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_show_main_window",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_ocr_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_ocr_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_translation_on_top",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_ocr_result_on_top",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_ocr_remove_spaces",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_ocr_copy_on_close",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_ocr_grayscale_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_pin_auto_toolbar",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_pin_auto_toolbar",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_pin_default_opacity",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_ocr_grayscale_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_ocr_upscale_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_ocr_upscale_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_ocr_upscale_factor",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_ocr_upscale_factor",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_translation_provider",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_deepl_api_key",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_deepl_api_key",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_deepl_use_pro",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_deepl_use_pro",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_amazon_translate_region",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_amazon_translate_access_key_id",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_amazon_translate_secret_access_key",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_amazon_translate_session_token",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_google_translate_api_key",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_azure_translate_api_key",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_azure_translate_region",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_azure_translate_endpoint",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_baidu_translate_appid",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_baidu_translate_secret_key",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_volcengine_translate_access_key",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_volcengine_translate_secret_key",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_tencent_translate_secret_id",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_tencent_translate_secret_key",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_volcengine_translate_quota_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_tencent_translate_quota_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_deepseek_api_key",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_deepseek_model",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_deepseek_base_url",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_translation_target_lang",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_translation_split_sentences",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_translation_split_sentences",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_translation_preserve_formatting",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_translation_preserve_formatting",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_clipboard_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_clipboard_enabled",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_clipboard_auto_paste",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_clipboard_auto_paste",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_clipboard_close_after_paste",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_clipboard_close_after_paste",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_clipboard_history_limit",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_clipboard_db_path",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_clipboard_auto_cleanup",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_clipboard_auto_cleanup",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_clipboard_window_opacity",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_clipboard_window_opacity",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_clipboard_font_size",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_clipboard_font_size",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_clipboard_font_size_options",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_clipboard_show_metadata",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_clipboard_show_metadata",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_clipboard_preserve_search",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_clipboard_preserve_search",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_clipboard_window_opacity_options",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_clipboard_line_height_padding",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_clipboard_move_to_top_on_paste",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_clipboard_move_to_top_on_paste",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_clipboard_multi_paste_keep_merged",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_clipboard_theme",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_clipboard_theme",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_gif_fps",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.set_gif_fps",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/tool_settings.py",
+      "symbol": "ToolSettingsManager.get_gif_fps_options",
+      "target": "src/settings/settings_accessors.inc",
+      "status": "translated-with-test-evidence",
+      "evidence": "exactGeneratedAccessors",
+      "application_integration": "partial dependency integration"
+    },
+    {
+      "source": "main/settings/color_formats.py",
+      "symbol": "ColorFormat.render",
+      "target": "src/settings/color_formats.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "colorFormatsAndLegacyPersistence",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/settings/color_formats.py",
+      "symbol": "default_formats",
+      "target": "src/settings/color_formats.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "colorFormatsAndLegacyPersistence",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/settings/color_formats.py",
+      "symbol": "normalize",
+      "target": "src/settings/color_formats.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "colorFormatsAndLegacyPersistence",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/settings/color_formats.py",
+      "symbol": "enabled_formats",
+      "target": "src/settings/color_formats.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "colorFormatsAndLegacyPersistence",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/settings/color_formats.py",
+      "symbol": "load",
+      "target": "src/settings/color_formats.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "colorFormatsAndLegacyPersistence",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/settings/color_formats.py",
+      "symbol": "_migrate_from_legacy",
+      "target": "src/settings/color_formats.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "colorFormatsAndLegacyPersistence",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/settings/color_formats.py",
+      "symbol": "save",
+      "target": "src/settings/color_formats.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "colorFormatsAndLegacyPersistence",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/save.py",
+      "symbol": "SaveService.__init__",
+      "target": "src/core/save.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "saveFormatLimitsAndPdfPixels; saveReservationAsyncAndFailureCleanup",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/save.py",
+      "symbol": "SaveService.get_default_directory",
+      "target": "src/core/save.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "saveFormatLimitsAndPdfPixels; saveReservationAsyncAndFailureCleanup",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/save.py",
+      "symbol": "SaveService.save_qimage",
+      "target": "src/core/save.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "saveFormatLimitsAndPdfPixels; saveReservationAsyncAndFailureCleanup",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/save.py",
+      "symbol": "SaveService.save_qimage_async",
+      "target": "src/core/save.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "saveFormatLimitsAndPdfPixels; saveReservationAsyncAndFailureCleanup",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/save.py",
+      "symbol": "SaveService.reserve_save_path",
+      "target": "src/core/save.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "saveFormatLimitsAndPdfPixels; saveReservationAsyncAndFailureCleanup",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/save.py",
+      "symbol": "SaveService.format_for_size",
+      "target": "src/core/save.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "saveFormatLimitsAndPdfPixels; saveReservationAsyncAndFailureCleanup",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/save.py",
+      "symbol": "SaveService.save_beside",
+      "target": "src/core/save.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "saveFormatLimitsAndPdfPixels; saveReservationAsyncAndFailureCleanup",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/save.py",
+      "symbol": "SaveService.save_qimage_to_path",
+      "target": "src/core/save.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "saveFormatLimitsAndPdfPixels; saveReservationAsyncAndFailureCleanup",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/save.py",
+      "symbol": "SaveService._save_qimage_async",
+      "target": "src/core/save.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "saveFormatLimitsAndPdfPixels; saveReservationAsyncAndFailureCleanup",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/save.py",
+      "symbol": "SaveService._save_qimage_to_path",
+      "target": "src/core/save.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "saveFormatLimitsAndPdfPixels; saveReservationAsyncAndFailureCleanup",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/save.py",
+      "symbol": "SaveService._save_qimage_to_pdf_path",
+      "target": "src/core/save.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "saveFormatLimitsAndPdfPixels; saveReservationAsyncAndFailureCleanup",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/save.py",
+      "symbol": "SaveService._flatten_for_pdf",
+      "target": "src/core/save.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "saveFormatLimitsAndPdfPixels; saveReservationAsyncAndFailureCleanup",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/save.py",
+      "symbol": "SaveService._compose_path",
+      "target": "src/core/save.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "saveFormatLimitsAndPdfPixels; saveReservationAsyncAndFailureCleanup",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/save.py",
+      "symbol": "SaveService._build_filename",
+      "target": "src/core/save.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "saveFormatLimitsAndPdfPixels; saveReservationAsyncAndFailureCleanup",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/save.py",
+      "symbol": "SaveService._normalize_format",
+      "target": "src/core/save.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "saveFormatLimitsAndPdfPixels; saveReservationAsyncAndFailureCleanup",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/save.py",
+      "symbol": "SaveService._reserve_unique_path",
+      "target": "src/core/save.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "saveFormatLimitsAndPdfPixels; saveReservationAsyncAndFailureCleanup",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/save.py",
+      "symbol": "SaveService._claim_first_free",
+      "target": "src/core/save.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "saveFormatLimitsAndPdfPixels; saveReservationAsyncAndFailureCleanup",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/core/save.py",
+      "symbol": "SaveService._cleanup_failed_placeholder",
+      "target": "src/core/save.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "saveFormatLimitsAndPdfPixels; saveReservationAsyncAndFailureCleanup",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "DrawingItemMixin._init_drawing_mixin",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; first-view DrawingEditContext dependency adapter",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "DrawingItemMixin._set_hovered",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; first-view DrawingEditContext dependency adapter",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "DrawingItemMixin._update_hover_cursor",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; first-view DrawingEditContext dependency adapter",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "DrawingItemMixin.hoverEnterEvent",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; first-view DrawingEditContext dependency adapter",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "DrawingItemMixin.hoverMoveEvent",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; first-view DrawingEditContext dependency adapter",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "DrawingItemMixin.hoverLeaveEvent",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; first-view DrawingEditContext dependency adapter",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "DrawingItemMixin.shows_selection_frame",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; first-view DrawingEditContext dependency adapter",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "DrawingItemMixin.is_edit_target",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; first-view DrawingEditContext dependency adapter",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "DrawingItemMixin.selection_frame_style",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; first-view DrawingEditContext dependency adapter",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "DrawingItemMixin.selection_frame_pen",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; first-view DrawingEditContext dependency adapter",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "DrawingItemMixin._edit_controller",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; first-view DrawingEditContext dependency adapter",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "DrawingItemMixin._can_show_hover",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; first-view DrawingEditContext dependency adapter",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "StrokeItem.__init__",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "StrokeItem.setPen",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "StrokeItem.shape",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "StrokeItem.paint",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "StrokeItem.set_stroke_width",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "StrokeItem.scale_stroke_width",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "StrokeItem.set_visual_opacity",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "StrokeItem.get_stroke_width",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "StrokeItem.get_visual_opacity",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "StrokeItem.shows_selection_frame",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "StrokeItem.setPath",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "RectItem.__init__",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "RectItem.setPen",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "RectItem.shape",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "RectItem.paint",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "RectItem.set_stroke_width",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "RectItem.scale_stroke_width",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "RectItem.set_visual_opacity",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "RectItem.get_stroke_width",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "RectItem.get_visual_opacity",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "RectItem.setRect",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "RectItem.get_corner_radius",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "RectItem.set_corner_radius",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "RectItem.boundingRect",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "EllipseItem.__init__",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "EllipseItem.setPen",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "EllipseItem.shape",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "EllipseItem.paint",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "EllipseItem.set_stroke_width",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "EllipseItem.scale_stroke_width",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "EllipseItem.set_visual_opacity",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "EllipseItem.get_stroke_width",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "EllipseItem.get_visual_opacity",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "EllipseItem.setRect",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "EllipseItem.boundingRect",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (typed native inputs)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "NumberItem.__init__",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; numberUndoStateAndMergeTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "NumberItem.visualRect",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; numberUndoStateAndMergeTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "NumberItem.boundingRect",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; numberUndoStateAndMergeTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "NumberItem.shape",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; numberUndoStateAndMergeTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "NumberItem.sceneVisualRect",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; numberUndoStateAndMergeTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "NumberItem.normalize_style",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; numberUndoStateAndMergeTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "NumberItem.set_style",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; numberUndoStateAndMergeTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "NumberItem.is_hollow",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; numberUndoStateAndMergeTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "NumberItem.has_ring",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; numberUndoStateAndMergeTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "NumberItem._ring_width",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; numberUndoStateAndMergeTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "NumberItem._number_font",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; numberUndoStateAndMergeTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "NumberItem._solid_text_color",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; numberUndoStateAndMergeTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "NumberItem.paint",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; numberUndoStateAndMergeTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "NumberItem._paint_circle",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; numberUndoStateAndMergeTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "NumberItem._paint_number",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; numberUndoStateAndMergeTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "NumberItem._paint_selection_frame",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; numberUndoStateAndMergeTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "NumberItem.set_stroke_width",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; numberUndoStateAndMergeTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "NumberItem.scale_stroke_width",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; numberUndoStateAndMergeTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "NumberItem.set_visual_opacity",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; numberUndoStateAndMergeTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "NumberItem.get_stroke_width",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; numberUndoStateAndMergeTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/drawing_items.py",
+      "symbol": "NumberItem.get_visual_opacity",
+      "target": "src/canvas/items/drawing_items.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; numberUndoStateAndMergeTrace",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "CommandUndoStack.__init__",
+      "target": "src/canvas/undo.h",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; debug logging remains pending",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "CommandUndoStack.push_command",
+      "target": "src/canvas/undo.h",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; debug logging remains pending",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "AddItemCommand.__init__",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; commandAndSceneOwnership",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "AddItemCommand.undo",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; commandAndSceneOwnership",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "AddItemCommand.redo",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; commandAndSceneOwnership",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "RemoveItemCommand.__init__",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; commandAndSceneOwnership",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "RemoveItemCommand.undo",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; commandAndSceneOwnership",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "RemoveItemCommand.redo",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; commandAndSceneOwnership",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "AddNumberCommand.__init__",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; commandAndSceneOwnership",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "AddNumberCommand.undo",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; commandAndSceneOwnership",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "AddNumberCommand.redo",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; commandAndSceneOwnership",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "RemoveNumberCommand.__init__",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; commandAndSceneOwnership",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "RemoveNumberCommand.undo",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; commandAndSceneOwnership",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "RemoveNumberCommand.redo",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; commandAndSceneOwnership",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "RemoveNumberAndRenumberCommand.__init__",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; commandAndSceneOwnership",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "RemoveNumberAndRenumberCommand.undo",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; commandAndSceneOwnership",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "RemoveNumberAndRenumberCommand.redo",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; commandAndSceneOwnership",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "BatchRemoveCommand.__init__",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; commandAndSceneOwnership",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "BatchRemoveCommand.undo",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; commandAndSceneOwnership",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "BatchRemoveCommand.redo",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; commandAndSceneOwnership",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "NumberStyleCommand.__init__",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; commandAndSceneOwnership",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "NumberStyleCommand.undo",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; commandAndSceneOwnership",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "NumberStyleCommand.redo",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace; commandAndSceneOwnership",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "RemoveNumberAndRenumberCommand._build_new_numbers",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace (stable sorting including duplicate numbers and draw order)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "NumberEditCommand.__init__",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace (number state and 0.7-second merge window)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "NumberEditCommand.undo",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace (number state and 0.7-second merge window)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "NumberEditCommand.redo",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace (number state and 0.7-second merge window)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "NumberEditCommand.id",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace (number state and 0.7-second merge window)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/undo.py",
+      "symbol": "NumberEditCommand.mergeWith",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace (number state and 0.7-second merge window)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem.normalize_style",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem.__init__",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem.setPath",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem.boundingRect",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem.shape",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem.arrow_style",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem.control_pos",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem.set_positions",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem.set_control_point",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem.reset_control_point",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem.get_control_point",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem.is_curved",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem._unit",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem._perp",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem._frame",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem._metrics",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem._head_trim",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem._head_path",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem._solid_head_path",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem._swept_head_path",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem._open_head_path",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem._bar_path",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem._shaft_path",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem.update_geometry",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem.paint",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem.set_stroke_width",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem.scale_stroke_width",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem.set_visual_opacity",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem.get_stroke_width",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/canvas/items/arrow_item.py",
+      "symbol": "ArrowItem.get_visual_opacity",
+      "target": "src/canvas/items/arrow_item.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "drawingGeometryPixelsAndHover; editGeometryAndValueCopies (nine styles, control state, degenerate geometry, both Qt platforms)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/tools/number.py",
+      "symbol": "NumberTool._count_numbers",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace (native integer domain)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/tools/number.py",
+      "symbol": "NumberTool.get_max_number",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace (native integer domain)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/tools/number.py",
+      "symbol": "NumberTool.get_next_number",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace (native integer domain)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/tools/number.py",
+      "symbol": "NumberTool.adjust_next_number",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace (native integer domain)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/tools/number.py",
+      "symbol": "NumberTool.set_next_number",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace (native integer domain)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/tools/number.py",
+      "symbol": "NumberTool.get_next_after_number_edit",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace (native integer domain)",
+      "application_integration": "pending"
+    },
+    {
+      "source": "main/tools/number.py",
+      "symbol": "NumberTool.assign_number_order",
+      "target": "src/canvas/undo.cpp",
+      "status": "translated-with-test-evidence",
+      "evidence": "numberUndoStateAndMergeTrace (native integer domain)",
+      "application_integration": "pending"
+    }
+  ],
+  "limitations": [
+    "Finite oracle corpus is not a proof of all possible input states.",
+    "Prototype UI, full canvas, capture lifecycle, editable pins and clipboard are not parity-certified.",
+    "Rust/Pillow adapters, complete input hub, complete settings validation and integration are pending.",
+    "Drawing/edit controller and number refresh use explicit dependency adapters; full canvas integration is pending.",
+    "EditItemCommand replay is partial: font/text/custom-item branches and complex-object reference semantics are pending.",
+    "CommandUndoStack debug logging and complete native/Python dynamic input-domain compatibility are pending.",
+    "Qt version differences and physical multi-monitor/HDR coverage remain unresolved."
+  ]
+}

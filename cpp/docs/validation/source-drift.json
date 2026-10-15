@@ -1,0 +1,15 @@
+﻿{
+  "baseline_errors": [],
+  "live_source_drift": [
+    "main/tests/test_capture_settings_ui.py",
+    "main/tests/test_quick_capture_controller.py",
+    "main/tests/test_scroll_save_name.py",
+    "main/translations/app_en.xml",
+    "main/translations/app_ja.xml",
+    "main/translations/app_ko.xml",
+    "main/translations/app_zh.xml",
+    "main/ui/settings_ui/dialog.py",
+    "main/ui/settings_ui/mock_config.py",
+    "main/ui/settings_ui/page_capture.py"
+  ]
+}

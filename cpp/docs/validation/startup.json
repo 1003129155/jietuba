@@ -1,0 +1,7 @@
+{
+    "first_event_loop_ms": 127,
+    "launcher_constructed_ms": 127,
+    "qt_version": "6.10.3",
+    "runtime": "C++17 / Qt Widgets (no Python runtime)",
+    "version": "0.1.0"
+}

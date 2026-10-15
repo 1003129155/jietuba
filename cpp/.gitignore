@@ -1,0 +1,6 @@
+/build/
+/dist/
+/.tools/
+/.sdk/
+/CMakeUserPresets.json
+*.log

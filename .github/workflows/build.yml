@@ -11,9 +11,12 @@ permissions:
   contents: read
 
 jobs:
+  # 轻量版：cpp/ 的 C++ 静态单 exe，和完整版并行构建
+  lite:
+    uses: ./.github/workflows/lite.yml
+
+  # 完整版：Python + PyInstaller
   build:
-    # 签名 token 存在 signing 环境中，该环境只允许 master2 分支和 release-* 标签使用
-    environment: signing
     strategy:
       fail-fast: false
       matrix:
@@ -70,6 +73,8 @@ jobs:
         with:
           workspaces: rust_libs
           cache-on-failure: true
+          # 标签和其他分支从 master2 的缓存恢复；它们自己存的缓存只会把 10 GB 上限挤满
+          save-if: ${{ github.ref == 'refs/heads/master2' }}
 
       - name: Build Rust extension wheels from this release
         run: |
@@ -94,13 +99,46 @@ jobs:
         run: |
           python build_with_ocr_onefile.py
           if ($LASTEXITCODE -ne 0) { throw "full build failed" }
-          python build_with_ocr_onefile.py --lite
-          if ($LASTEXITCODE -ne 0) { throw "lite build failed" }
+
+      - name: Upload full build
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: full-${{ matrix.arch }}
+          path: dist/
+          if-no-files-found: error
+
+  package:
+    needs: [build, lite]
+    # 签名 token 存在 signing 环境中，该环境只允许 master2 分支和 release-* 标签使用
+    environment: signing
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, arm64]
+    # 只打包和签名，不运行 exe，两种架构都在 x64 机器上做
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Download full build
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: full-${{ matrix.arch }}
+          path: dist
+
+      # 旧版更新器按包名 jietuba_lite-<tag>-<arch>.zip 精确匹配，只替换 zip 根目录的 jietuba_lite.exe
+      - name: Download lite build
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: jietuba_lite-cpp-${{ matrix.arch }}
+          path: dist_lite
 
       # 签名策略由仓库变量 SIGNPATH_SIGNING_POLICY 决定：留空时跳过签名，
       # test-signing 用测试证书，release-signing 用正式证书（需在 SignPath 中人工批准）。
       # 签名范围由 SignPath 项目的 Artifact Configuration「windows-exes」定义：zip 根目录下的两个 exe，
-      # 并要求 exe 的产品版本等于 version 参数。
+      # 并要求 exe 的产品版本等于 version 参数；两个版本的产品版本都取自 main_app.py 的 APP_VERSION。
       - name: Stage unsigned executables
         id: stage
         if: vars.SIGNPATH_SIGNING_POLICY != ''
@@ -108,7 +146,8 @@ jobs:
           New-Item -ItemType Directory -Force unsigned | Out-Null
           Copy-Item dist\jietuba_pp.exe unsigned\
           Copy-Item dist_lite\jietuba_lite.exe unsigned\
-          "version=$(Get-Content build\app_version.txt)" >> $env:GITHUB_OUTPUT
+          $match = Select-String -Path main\main_app.py -Pattern '^APP_VERSION = "([^"]+)"'
+          "version=$($match.Matches[0].Groups[1].Value)" >> $env:GITHUB_OUTPUT
 
       - name: Upload unsigned executables
         id: upload-unsigned
@@ -158,7 +197,7 @@ jobs:
             jietuba_lite-${{ github.ref_name }}-${{ matrix.arch }}.zip
 
   release:
-    needs: build
+    needs: package
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:

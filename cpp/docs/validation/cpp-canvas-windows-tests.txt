@@ -1,0 +1,28 @@
+********* Start testing of CanvasParityTests *********
+Config: Using QtTest library 6.10.3, Qt 6.10.3 (x86_64-little_endian-llp64 shared (dynamic) release build; by MSVC 2022), windows 11
+PASS   : CanvasParityTests::initTestCase()
+PASS   : CanvasParityTests::drawingGeometryPixelsAndHover()
+PASS   : CanvasParityTests::numberUndoStateAndMergeTrace()
+QWARN  : CanvasParityTests::editGeometryAndValueCopies() update_geometry: Unknown arrow style
+QWARN  : CanvasParityTests::editGeometryAndValueCopies() update_geometry: Unknown arrow style
+QWARN  : CanvasParityTests::editGeometryAndValueCopies() update_geometry: Unknown arrow style
+QWARN  : CanvasParityTests::editGeometryAndValueCopies() update_geometry: Unknown arrow style
+QWARN  : CanvasParityTests::editGeometryAndValueCopies() update_geometry: Unknown arrow style
+QWARN  : CanvasParityTests::editGeometryAndValueCopies() update_geometry: Unknown arrow style
+QWARN  : CanvasParityTests::editGeometryAndValueCopies() update_geometry: Unknown arrow style
+QWARN  : CanvasParityTests::editGeometryAndValueCopies() update_geometry: Unknown arrow style
+QWARN  : CanvasParityTests::editGeometryAndValueCopies() update_geometry: Unknown arrow style
+QWARN  : CanvasParityTests::editGeometryAndValueCopies() update_geometry: Unknown arrow style
+QWARN  : CanvasParityTests::editGeometryAndValueCopies() update_geometry: Unknown arrow style
+QWARN  : CanvasParityTests::editGeometryAndValueCopies() update_geometry: Unknown arrow style
+QWARN  : CanvasParityTests::editGeometryAndValueCopies() update_geometry: Unknown arrow style
+QWARN  : CanvasParityTests::editGeometryAndValueCopies() update_geometry: Unknown arrow style
+QWARN  : CanvasParityTests::editGeometryAndValueCopies() update_geometry: Unknown arrow style
+QWARN  : CanvasParityTests::editGeometryAndValueCopies() update_geometry: Unknown arrow style
+QWARN  : CanvasParityTests::editGeometryAndValueCopies() update_geometry: Unknown arrow style
+QWARN  : CanvasParityTests::editGeometryAndValueCopies() update_geometry: Unknown arrow style
+PASS   : CanvasParityTests::editGeometryAndValueCopies()
+PASS   : CanvasParityTests::commandAndSceneOwnership()
+PASS   : CanvasParityTests::cleanupTestCase()
+Totals: 6 passed, 0 failed, 0 skipped, 0 blacklisted, 6139ms
+********* Finished testing of CanvasParityTests *********
