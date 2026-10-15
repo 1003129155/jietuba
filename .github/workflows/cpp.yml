@@ -55,3 +55,22 @@ jobs:
           $env:PATH = "$PWD\.sdk\6.11.0\msvc2022_64\bin;$env:PATH"
           ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_windows_parity$"
           if ($LASTEXITCODE -ne 0) { throw "Tests failed" }
+
+      # ctest does not show QtTest's own report; run each failed test again with it written to a file.
+      - if: failure()
+        run: |
+          $env:PATH = "$PWD\.sdk\6.11.0\msvc2022_64\bin;$env:PATH"
+          $tests = (ctest --test-dir build\msvc -C Release --show-only=json-v1 | ConvertFrom-Json).tests
+          foreach ($line in Get-Content build\msvc\Testing\Temporary\LastTestsFailed.log -ErrorAction SilentlyContinue) {
+            $name = ($line -split ':', 2)[1]
+            $test = $tests | Where-Object { $_.name -eq $name }
+            if (-not $test) { continue }
+            foreach ($property in $test.properties | Where-Object { $_.name -eq 'ENVIRONMENT' }) {
+              foreach ($pair in $property.value) { $key, $value = $pair -split '=', 2; Set-Item "env:$key" $value }
+            }
+            $report = Join-Path $env:RUNNER_TEMP "$name.txt"
+            $testArgs = @($test.command | Select-Object -Skip 1) + @('-o', "$report,txt")
+            & $test.command[0] @testArgs | Out-Null
+            Write-Host "===== $name (exit $LASTEXITCODE)"
+            Get-Content $report -ErrorAction SilentlyContinue
+          }
