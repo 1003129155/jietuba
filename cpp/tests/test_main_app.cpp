@@ -102,6 +102,18 @@ private slots:
         QApplication::processEvents();
     }
 
+    // Windows that set no icon of their own carry the application icon, which the title bar and
+    // the taskbar show.
+    void windowsWithoutTheirOwnIconUseTheAppIcon() {
+        QVERIFY(!QApplication::windowIcon().isNull());
+        QWidget window;
+        window.setAttribute(Qt::WA_DontShowOnScreen);
+        window.show();
+        const auto hwnd = reinterpret_cast<HWND>(window.winId());
+        QVERIFY(SendMessageW(hwnd, WM_GETICON, ICON_BIG, 0));
+        QVERIFY(SendMessageW(hwnd, WM_GETICON, ICON_SMALL, 0));
+    }
+
     void theTrayOffersTheMainEntriesAndFollowsPins() {
         main_app_->setup_tray();
         main_app_->setup_pin_tray_updates();

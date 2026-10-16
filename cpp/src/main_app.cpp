@@ -99,6 +99,11 @@ MainApp::MainApp(int &argc, char **argv) : app(std::make_unique<QApplication>(ar
     setup_logger(config_manager);
     connect(app.get(), &QCoreApplication::aboutToQuit, this, &MainApp::on_about_to_quit);
 
+    // Windows without an icon of their own use it in the title bar and on the taskbar. Without it
+    // Qt looks for an icon named IDI_ICON1 in the exe, which only has icon 1, and shows the
+    // generic Windows one.
+    app->setWindowIcon(create_app_icon());
+
     // Qt's automatic high-DPI scaling is off. Before the welcome wizard first runs, both
     // UI scales get a start value from Windows' display scaling; existing values stay.
     if (const auto recommended_scale = apply_first_run_scale_defaults(*config_manager))

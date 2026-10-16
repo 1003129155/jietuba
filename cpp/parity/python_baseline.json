@@ -1,5 +1,5 @@
 {
-  "git_head": "27da93e16900fedc5042394ed766035f51a95f57",
+  "git_head": "ee9ca6be806591099c44568b0bc743aef8a9cc06",
   "files": [
     {
       "path": "licenses/lucide-LICENSE.txt",
@@ -688,8 +688,8 @@
     },
     {
       "path": "main/main_app.py",
-      "sha256": "9e5364b4a036c890bceb58d87faea1148b4280582344bf605f8f7ba9ab89fe69",
-      "bytes": 38509
+      "sha256": "895af6fddbf900b60ec8bdf48bfb016fe041798ffde6bb7c4aec8dada3933715",
+      "bytes": 38784
     },
     {
       "path": "main/ocr/__init__.py",
