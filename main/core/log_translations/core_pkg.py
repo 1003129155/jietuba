@@ -143,4 +143,5 @@ TRANSLATIONS: dict[str, str] = {
     "录入按键截获设置失败: {e}": "Failed to set up key capture for hotkey recording: {e}",
     "注册系统热键出错: {e}": "Error registering system hotkey: {e}",
     "更新器报错 {code}: {message}": "Updater error {code}: {message}",
+    "清理未完成的模型下载": "Cleaning up unfinished model downloads",
 }

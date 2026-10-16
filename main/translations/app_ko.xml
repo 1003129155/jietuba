@@ -4946,6 +4946,14 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>선택 영역에서 텍스트를 찾지 못했습니다.</translation>
     </message>
     <message>
+        <source>No PP-OCR model is installed. Download one in the OCR settings.</source>
+        <translation>PP-OCR 모델이 설치되어 있지 않습니다. 설정의 'OCR 설정'에서 다운로드할 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>The PP-OCR model could not be loaded. Download it again or choose another one in the OCR settings.</source>
+        <translation>PP-OCR 모델을 불러오지 못했습니다. 설정의 'OCR 설정'에서 다시 다운로드하거나 다른 모델을 선택하세요.</translation>
+    </message>
+    <message>
         <source>This build does not include the text recognition engine.</source>
         <translation>이 빌드에는 텍스트 인식 엔진이 포함되어 있지 않습니다.</translation>
     </message>
@@ -5856,6 +5864,259 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
     <message>
         <source>Recognizing...</source>
         <translation>인식 중...</translation>
+    </message>
+</context>
+<context>
+    <name>PpocrModelDialog</name>
+    <message>
+        <source>%1 MB</source>
+        <translation>%1 MB</translation>
+    </message>
+    <message>
+        <source>%1 is ready.</source>
+        <translation>%1 준비가 완료되었습니다.</translation>
+    </message>
+    <message>
+        <source>, </source>
+        <translation>, </translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>추가</translation>
+    </message>
+    <message>
+        <source>Add Local Model</source>
+        <translation>로컬 모델 추가</translation>
+    </message>
+    <message>
+        <source>Add Local Model...</source>
+        <translation>로컬 모델 추가...</translation>
+    </message>
+    <message>
+        <source>Added manually</source>
+        <translation>직접 추가함</translation>
+    </message>
+    <message>
+        <source>Browse...</source>
+        <translation>찾아보기...</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>취소</translation>
+    </message>
+    <message>
+        <source>Checking %1...</source>
+        <translation>%1 확인 중...</translation>
+    </message>
+    <message>
+        <source>Chinese</source>
+        <translation>중국어</translation>
+    </message>
+    <message>
+        <source>Choose File</source>
+        <translation>파일 선택</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>닫기</translation>
+    </message>
+    <message>
+        <source>Could not add the model</source>
+        <translation>모델을 추가할 수 없습니다</translation>
+    </message>
+    <message>
+        <source>Could not delete the model</source>
+        <translation>모델을 삭제할 수 없습니다</translation>
+    </message>
+    <message>
+        <source>Could not start the download.</source>
+        <translation>다운로드를 시작할 수 없습니다.</translation>
+    </message>
+    <message>
+        <source>Cyrillic</source>
+        <translation>키릴 문자</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>삭제</translation>
+    </message>
+    <message>
+        <source>Delete %1 and its files?</source>
+        <translation>%1 및 해당 파일을 삭제할까요?</translation>
+    </message>
+    <message>
+        <source>Delete Model</source>
+        <translation>모델 삭제</translation>
+    </message>
+    <message>
+        <source>Detection model</source>
+        <translation>검출 모델</translation>
+    </message>
+    <message>
+        <source>Dictionary</source>
+        <translation>사전</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>다운로드</translation>
+    </message>
+    <message>
+        <source>Downloaded</source>
+        <translation>다운로드됨</translation>
+    </message>
+    <message>
+        <source>English</source>
+        <translation>영어</translation>
+    </message>
+    <message>
+        <source>Greek</source>
+        <translation>그리스어</translation>
+    </message>
+    <message>
+        <source>Included</source>
+        <translation>기본 포함</translation>
+    </message>
+    <message>
+        <source>Japanese</source>
+        <translation>일본어</translation>
+    </message>
+    <message>
+        <source>Korean</source>
+        <translation>한국어</translation>
+    </message>
+    <message>
+        <source>Latin-script languages</source>
+        <translation>라틴 문자 언어</translation>
+    </message>
+    <message>
+        <source>Manage PP-OCR Models</source>
+        <translation>PP-OCR 모델 관리</translation>
+    </message>
+    <message>
+        <source>Models are stored in the models folder next to the program. Recognition uses the model selected on the settings page.</source>
+        <translation>모델은 프로그램 옆의 models 폴더에 저장되며, 인식에는 설정 화면에서 선택한 모델을 사용합니다.</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>이름</translation>
+    </message>
+    <message>
+        <source>Not downloaded</source>
+        <translation>다운로드 안 됨</translation>
+    </message>
+    <message>
+        <source>ONNX models (*.onnx)</source>
+        <translation>ONNX 모델 (*.onnx)</translation>
+    </message>
+    <message>
+        <source>Open Models Folder</source>
+        <translation>모델 폴더 열기</translation>
+    </message>
+    <message>
+        <source>Optional: only if the recognition model has no built-in dictionary</source>
+        <translation>선택 사항: 인식 모델에 사전이 내장되어 있지 않을 때만 필요</translation>
+    </message>
+    <message>
+        <source>Recognition model</source>
+        <translation>인식 모델</translation>
+    </message>
+    <message>
+        <source>Text files (*.txt)</source>
+        <translation>텍스트 파일 (*.txt)</translation>
+    </message>
+    <message>
+        <source>Thai</source>
+        <translation>태국어</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>%1 (not installed)</source>
+        <translation>%1 (설치되지 않음)</translation>
+    </message>
+    <message>
+        <source>Download models for other languages or speeds, or add your own.</source>
+        <translation>다른 언어나 속도에 맞는 모델을 다운로드하거나 직접 모델을 추가합니다.</translation>
+    </message>
+    <message>
+        <source>Manage Models</source>
+        <translation>모델 관리</translation>
+    </message>
+    <message>
+        <source>PP-OCR Model</source>
+        <translation>PP-OCR 모델</translation>
+    </message>
+</context>
+<context>
+    <name>ModelUpdaterProcess</name>
+    <message>
+        <source>Could not download the model. Check your network connection and try again.</source>
+        <translation>모델을 다운로드할 수 없습니다. 네트워크 연결을 확인한 후 다시 시도하세요.</translation>
+    </message>
+    <message>
+        <source>No permission to write to the models folder.</source>
+        <translation>모델 폴더에 쓸 권한이 없습니다.</translation>
+    </message>
+    <message>
+        <source>The download was cancelled.</source>
+        <translation>다운로드가 취소되었습니다.</translation>
+    </message>
+    <message>
+        <source>The downloaded model file is damaged. Try again.</source>
+        <translation>다운로드한 모델 파일이 손상되었습니다. 다시 시도하세요.</translation>
+    </message>
+    <message>
+        <source>The model download stopped with an error (%1).</source>
+        <translation>오류로 모델 다운로드가 중단되었습니다(%1).</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>The model PP-OCR uses to recognize text.</source>
+        <translation>PP-OCR가 텍스트 인식에 사용하는 모델입니다.</translation>
+    </message>
+    <message>
+        <source>Manage PP-OCR Models</source>
+        <translation>PP-OCR 모델 관리</translation>
+    </message>
+</context>
+<context>
+    <name>PpocrModelDialog</name>
+    <message>
+        <source>Needed by PP-OCR</source>
+        <translation>PP-OCR에 필요</translation>
+    </message>
+    <message>
+        <source>Missing: put onnxruntime.dll (version 1.24 or later) in the models folder.</source>
+        <translation>없음: onnxruntime.dll(버전 1.24 이상)을 models 폴더에 넣으세요.</translation>
+    </message>
+</context>
+<context>
+    <name>PpocrModelDialog</name>
+    <message>
+        <source>%1 MB/s</source>
+        <translation>%1 MB/s</translation>
+    </message>
+    <message>
+        <source>Downloading...</source>
+        <translation>다운로드 중...</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Snipping Tool OCR</source>
+        <translation>캡처 도구 OCR</translation>
+    </message>
+    <message>
+        <source>Download more models...</source>
+        <translation>다른 모델 다운로드…</translation>
+    </message>
+    <message>
+        <source>The deleted model was selected for OCR, so OCR now uses Auto.</source>
+        <translation>삭제한 모델을 OCR에서 사용 중이었으므로 '자동'으로 바꿨습니다.</translation>
     </message>
 </context>
 </TS>

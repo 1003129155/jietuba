@@ -586,11 +586,18 @@ class TestResetScreenshotSettingsPage:
         assert fake.magnifier_color_formats[0].name == "RGB"
         assert [f.name for f in fake.magnifier_color_formats if f.enabled] == ["RGB", "HEX"]
 
-    def test_unknown_ocr_engine_leaves_the_combo_alone(self):
-        combo = _Combo(data_map={})
-        fake = SimpleNamespace(config_manager=_config(), ocr_engine_combo=combo)
+    def test_ocr_engine_goes_back_to_auto(self, qapp):
+        from ui.fluent_lite import ComboBox
+        from ui.settings_ui.page_capture import fill_ocr_engines
+
+        fake = SimpleNamespace(
+            config_manager=_config({**DEFAULTS, "ocr_engine": "auto", "ppocr_model": ""}),
+            ocr_engine_combo=ComboBox(), ocr_has_oneocr=True, ocr_has_ppocr_engine=False, tr=lambda text: text,
+        )
+        fill_ocr_engines(fake, "oneocr", "")
         SettingsDialog._reset_screenshot_settings_page(fake)
-        assert combo.set_indexes == []
+        assert fake.ocr_engine_combo.currentData() == "auto"
+        assert fake.ocr_engine_selected == "auto"
 
 
 class TestResetLogPage:

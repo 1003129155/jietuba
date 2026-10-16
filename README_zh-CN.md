@@ -121,7 +121,7 @@ PP-OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_
 | [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.1 | GIF/视频合成编码器 |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.5.1 | 长截图拼接算法 |
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.5 | 剪贴板底层操作 |
-| [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
+| [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.3.0 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | 支持 HDR 的桌面截图（DXGI Desktop Duplication + GPU 色调映射） |
 | [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.2 | 不占界面线程的全局鼠标键盘钩子（拖动手势、侧键、热键、滚轮、前台窗口） |
 | [`j-video`](https://pypi.org/project/j-video/) | `video_recorder` | 0.1.0 | Media Foundation H.264/MP4 录制与 WASAPI 系统声音采集 |
@@ -523,6 +523,7 @@ gif/
 ocr/
 ├── __init__.py
 ├── ocr_manager.py           # OCRManager — 引擎选择、加载、释放与统一识别接口
+├── ppocr_models.py          # PP-OCR 模型：models/ 目录、内置清单、添加、删除，经更新器下载
 └── snipping_tool_ocr.py     # SnippingToolOcr — 查找截图工具、复制 OCR 文件、补边识别
 ```
 
@@ -533,6 +534,7 @@ ocr/
 - 设置里可选「自动 / Windows 截图工具 / PP-OCR」；自动时有截图工具就用它，否则用 PP-OCR
 - 截图工具 OCR：经 PyPI 的 oneocr 包调用，更快、支持的语言更多（含韩文、俄文、泰文等），需要 Windows 11 截图工具
 - PP-OCR：ppocr_rust 引擎（纯 Rust + ONNX Runtime，PP-OCR det + rec），任何 Windows 都能用，只在完整版里
+- PP-OCR 模型：自带 PP-OCRv6 small；设置里的「管理 PP-OCR 模型」可从内置清单下载其他模型（PP-OCRv6 tiny/medium、PP-OCRv5，以及韩文、拉丁字母、西里尔字母、泰文、希腊文识别），文件哈希固定；也可以添加本地 ONNX 模型，试识别通过才列入。模型放在程序旁的 `models/`；选中的模型不在时直接报缺少模型，不换用别的
 - 识别与释放互斥；切换引擎时释放旧引擎，新引擎在下次识别时加载
 - 单例模式管理，统一的识别接口，返回文字和位置信息
 
@@ -796,6 +798,7 @@ ui/
 │   ├── page_capture.py      # 截图设置页
 │   ├── page_quick_actions.py # 快捷行为设置页（跳过确认或结果窗口）
 │   ├── color_format_dialog.py # ColorFormatDialog — 放大镜颜色格式管理窗口
+│   ├── ppocr_model_dialog.py # PpocrModelDialog — 下载、添加、删除 PP-OCR 模型
 │   ├── page_clipboard.py    # 剪贴板设置页
 │   ├── special_paste_dialog.py # SpecialPasteDialog — 调整特殊粘贴菜单的顺序与开关
 │   ├── page_hotkey.py       # 快捷键设置页

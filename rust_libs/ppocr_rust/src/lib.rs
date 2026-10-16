@@ -6,6 +6,7 @@
 
 pub mod engine;
 pub mod geometry;
+pub mod models;
 
 #[cfg(feature = "python")]
 mod python;

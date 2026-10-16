@@ -2,6 +2,7 @@ pub mod archive;
 pub mod cache;
 pub mod contract;
 pub mod download;
+pub mod models;
 pub mod platform;
 pub mod protocol;
 pub mod transaction;

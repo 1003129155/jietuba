@@ -24,4 +24,5 @@ TRANSLATIONS: dict[str, str] = {
     "截图工具 OCR 初始化失败: {e}\n{tb}": "Snipping Tool OCR initialization failed: {e}\n{tb}",
     "ppocr_rust 识别失败: {e}\n{tb}": "ppocr_rust recognition failed: {e}\n{tb}",
     "截图工具 OCR 识别失败: {e}\n{tb}": "Snipping Tool OCR recognition failed: {e}\n{tb}",
+    "模型下载报错 {code}: {message}": "Model download error {code}: {message}",
 }

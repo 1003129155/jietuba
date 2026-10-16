@@ -225,6 +225,8 @@ class MockConfig:
     def set_ocr_enabled(self, v): pass
     def get_ocr_engine(self): return "auto"
     def set_ocr_engine(self, v): pass
+    def get_ppocr_model(self): return ""
+    def set_ppocr_model(self, v): pass
     def get_ocr_result_position(self): return "region_screen"
     def set_ocr_result_position(self, v): pass
     def get_ocr_grayscale_enabled(self): return False

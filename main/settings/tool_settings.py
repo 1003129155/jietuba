@@ -455,6 +455,7 @@ class ToolSettingsManager(QObject):
         # OCR
         "ocr_enabled": True,                   # 钉图后自动 OCR（保留旧键名以兼容已有配置）
         "ocr_engine": "auto",                  # OCR 引擎，见 OCR_ENGINES
+        "ppocr_model": "",                     # PP-OCR 模型：models/ 下的子目录名，空串是根目录的默认模型
         "ocr_result_position": "region_screen",  # 文字识别结果窗口的位置，见 OCR_RESULT_POSITIONS
         "ocr_result_on_top": True,             # 文字识别结果窗口置顶
         "ocr_layout_mode": "auto",             # 识别结果的排版，见 OCR_LAYOUT_MODES
@@ -1387,6 +1388,14 @@ class ToolSettingsManager(QObject):
         if engine not in OCR_ENGINES:
             engine = self.APP_DEFAULT_SETTINGS["ocr_engine"]
         self.qsettings.setValue("app/ocr_engine", engine)
+
+    def get_ppocr_model(self) -> str:
+        """获取 PP-OCR 模型的 id：models/ 下的子目录名，空串是根目录的默认模型。"""
+        return str(self.qsettings.value("app/ppocr_model", self.APP_DEFAULT_SETTINGS["ppocr_model"], type=str))
+
+    def set_ppocr_model(self, value: str):
+        """设置 PP-OCR 模型的 id。"""
+        self.qsettings.setValue("app/ppocr_model", str(value or ""))
 
     def get_ocr_result_position(self) -> str:
         """获取文字识别结果窗口的位置，取值见 OCR_RESULT_POSITIONS。"""

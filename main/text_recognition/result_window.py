@@ -35,7 +35,7 @@ from ui.toast import Toast
 
 from . import layout as text_layout
 from .placement import pick_screen, window_position
-from .recognizer import NO_TEXT, UNAVAILABLE, recognize_async
+from .recognizer import MODEL_BROKEN, NO_MODEL, NO_TEXT, UNAVAILABLE, recognize_async
 
 _tr = make_tr("TextRecognitionWindow")
 
@@ -76,6 +76,8 @@ def _reason_text(reason):
     return {
         UNAVAILABLE: _tr("This build does not include the text recognition engine."),
         NO_TEXT: _tr("No text found in the selection."),
+        NO_MODEL: _tr("No PP-OCR model is installed. Download one in the OCR settings."),
+        MODEL_BROKEN: _tr("The PP-OCR model could not be loaded. Download it again or choose another one in the OCR settings."),
     }.get(reason, _tr("Text recognition failed."))
 
 

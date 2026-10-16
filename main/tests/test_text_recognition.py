@@ -21,7 +21,7 @@ from text_recognition import TextRecognitionWindow, recognize_async, shutdown_re
 from text_recognition import result_window
 from settings import get_tool_settings_manager
 from text_recognition.placement import CURSOR_OFFSET, GAP
-from text_recognition.recognizer import FAILED, NO_TEXT, UNAVAILABLE, _running
+from text_recognition.recognizer import FAILED, MODEL_BROKEN, NO_MODEL, NO_TEXT, UNAVAILABLE, _running
 from tools.action import ActionTools
 from ui.toolbar import Toolbar
 from ui.toolbar_layout import MORE, SHOW, normalize_layout
@@ -76,7 +76,7 @@ def _run_to_completion(qapp, thread, timeout_ms=30000):
     qapp.processEvents()
 
 
-def _fake_ocr(monkeypatch, *, available=True, result=None, delay=0.0, boom=None):
+def _fake_ocr(monkeypatch, *, available=True, result=None, delay=0.0, boom=None, ppocr_status="missing_engine"):
     """替掉 ocr 模块的三个入口。线程里是 from ocr import ...，取的是调用时的模块属性"""
     def recognize_text(image, **kwargs):
         if delay:
@@ -87,6 +87,7 @@ def _fake_ocr(monkeypatch, *, available=True, result=None, delay=0.0, boom=None)
 
     monkeypatch.setattr("ocr.is_ocr_available", lambda: available)
     monkeypatch.setattr("ocr.recognize_text", recognize_text)
+    monkeypatch.setattr("ocr.get_ppocr_status", lambda: ppocr_status)
 
 
 def _result_text(lines):
@@ -229,6 +230,9 @@ class TestResultWindow:
     @pytest.mark.parametrize("kwargs, reason", [
         ({"result": {"code": 100, "data": []}}, NO_TEXT),
         ({"available": False}, UNAVAILABLE),
+        ({"available": False, "ppocr_status": "missing_models"}, NO_MODEL),
+        ({"result": {"code": -1, "msg": "x", "reason": "model_broken", "data": []}}, MODEL_BROKEN),
+        ({"result": {"code": -1, "msg": "x", "data": []}}, FAILED),
         ({"boom": RuntimeError("engine died")}, FAILED),
     ])
     def test_every_failure_says_why_and_leaves_copy_disabled(self, qapp, monkeypatch, kwargs, reason):

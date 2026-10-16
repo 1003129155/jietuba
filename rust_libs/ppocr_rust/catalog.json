@@ -1,0 +1,341 @@
+{
+  "schema": 1,
+  "models": [
+    {
+      "id": "ppocr-v6-tiny",
+      "name": "PP-OCRv6 tiny",
+      "languages": [
+        "zh",
+        "en"
+      ],
+      "priority": 50,
+      "det": "PP-OCRv6_det_tiny.onnx",
+      "rec": "PP-OCRv6_rec_tiny.onnx",
+      "files": [
+        {
+          "name": "PP-OCRv6_det_tiny.onnx",
+          "size": 1829618,
+          "sha256": "f42c0fbd294d95eac1a550e131b277dac97462c8025fa4b6c3cec1b7894bd3d5",
+          "urls": [
+            "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv6/det/PP-OCRv6_det_tiny.onnx"
+          ]
+        },
+        {
+          "name": "PP-OCRv6_rec_tiny.onnx",
+          "size": 4489813,
+          "sha256": "e16e242de5937ad92609223f19bc2aff3727ee40b095f996907c24749bad251b",
+          "urls": [
+            "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv6/rec/PP-OCRv6_rec_tiny.onnx"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ppocr-v6-small",
+      "name": "PP-OCRv6 small",
+      "languages": [
+        "zh",
+        "ja",
+        "en"
+      ],
+      "priority": 10,
+      "default": true,
+      "det": "PP-OCRv6_det_small.onnx",
+      "rec": "PP-OCRv6_rec_small.onnx",
+      "files": [
+        {
+          "name": "PP-OCRv6_det_small.onnx",
+          "size": 9929594,
+          "sha256": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f",
+          "urls": [
+            "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv6/det/PP-OCRv6_det_small.onnx"
+          ]
+        },
+        {
+          "name": "PP-OCRv6_rec_small.onnx",
+          "size": 21234383,
+          "sha256": "6f327246b50388f3c176ae304bd95767ea6dc0c9ae92153ef8cbe210b3c14884",
+          "urls": [
+            "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv6/rec/PP-OCRv6_rec_small.onnx"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ppocr-v6-medium",
+      "name": "PP-OCRv6 medium",
+      "languages": [
+        "zh",
+        "ja",
+        "en"
+      ],
+      "priority": 20,
+      "det": "PP-OCRv6_det_medium.onnx",
+      "rec": "PP-OCRv6_rec_medium.onnx",
+      "files": [
+        {
+          "name": "PP-OCRv6_det_medium.onnx",
+          "size": 62119454,
+          "sha256": "92078b7355007ccfffcd4c8cd441a3afd4538904d06881b29a155e1e679907c2",
+          "urls": [
+            "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv6/det/PP-OCRv6_det_medium.onnx"
+          ]
+        },
+        {
+          "name": "PP-OCRv6_rec_medium.onnx",
+          "size": 76629984,
+          "sha256": "eef444829dbbe18d7fea59a3f6eb75647518d2b3a9568d27c92e42940204894b",
+          "urls": [
+            "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv6/rec/PP-OCRv6_rec_medium.onnx"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ppocr-v5-mobile",
+      "name": "PP-OCRv5 mobile",
+      "languages": [
+        "zh",
+        "ja",
+        "en"
+      ],
+      "priority": 40,
+      "det": "ch_PP-OCRv5_det_mobile.onnx",
+      "rec": "ch_PP-OCRv5_rec_mobile.onnx",
+      "files": [
+        {
+          "name": "ch_PP-OCRv5_det_mobile.onnx",
+          "size": 4819576,
+          "sha256": "4d97c44a20d30a81aad087d6a396b08f786c4635742afc391f6621f5c6ae78ae",
+          "urls": [
+            "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/det/ch_PP-OCRv5_det_mobile.onnx"
+          ]
+        },
+        {
+          "name": "ch_PP-OCRv5_rec_mobile.onnx",
+          "size": 16631306,
+          "sha256": "5825fc7ebf84ae7a412be049820b4d86d77620f204a041697b0494669b1742c5",
+          "urls": [
+            "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/ch_PP-OCRv5_rec_mobile.onnx"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ppocr-v5-server",
+      "name": "PP-OCRv5 server",
+      "languages": [
+        "zh",
+        "ja",
+        "en"
+      ],
+      "priority": 30,
+      "det": "ch_PP-OCRv5_det_server.onnx",
+      "rec": "ch_PP-OCRv5_rec_server.onnx",
+      "files": [
+        {
+          "name": "ch_PP-OCRv5_det_server.onnx",
+          "size": 88118768,
+          "sha256": "0f8846b1d4bba223a2a2f9d9b44022fbc22cc019051a602b41a7fda9667e4cad",
+          "urls": [
+            "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/det/ch_PP-OCRv5_det_server.onnx"
+          ]
+        },
+        {
+          "name": "ch_PP-OCRv5_rec_server.onnx",
+          "size": 84577022,
+          "sha256": "e09385400eaaaef34ceff54aeb7c4f0f1fe014c27fa8b9905d4709b65746562a",
+          "urls": [
+            "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/ch_PP-OCRv5_rec_server.onnx"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ppocr-v5-korean",
+      "name": "PP-OCRv5 Korean",
+      "languages": [
+        "ko",
+        "en"
+      ],
+      "priority": 60,
+      "det": "ch_PP-OCRv5_det_mobile.onnx",
+      "rec": "korean_PP-OCRv5_rec_mobile.onnx",
+      "files": [
+        {
+          "name": "ch_PP-OCRv5_det_mobile.onnx",
+          "size": 4819576,
+          "sha256": "4d97c44a20d30a81aad087d6a396b08f786c4635742afc391f6621f5c6ae78ae",
+          "urls": [
+            "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/det/ch_PP-OCRv5_det_mobile.onnx"
+          ]
+        },
+        {
+          "name": "korean_PP-OCRv5_rec_mobile.onnx",
+          "size": 13488748,
+          "sha256": "cd6e2ea50f6943ca7271eb8c56a877a5a90720b7047fe9c41a2e541a25773c9b",
+          "urls": [
+            "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/korean_PP-OCRv5_rec_mobile.onnx"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ppocr-v5-latin",
+      "name": "PP-OCRv5 Latin",
+      "languages": [
+        "latin"
+      ],
+      "priority": 61,
+      "det": "ch_PP-OCRv5_det_mobile.onnx",
+      "rec": "latin_PP-OCRv5_rec_mobile.onnx",
+      "files": [
+        {
+          "name": "ch_PP-OCRv5_det_mobile.onnx",
+          "size": 4819576,
+          "sha256": "4d97c44a20d30a81aad087d6a396b08f786c4635742afc391f6621f5c6ae78ae",
+          "urls": [
+            "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/det/ch_PP-OCRv5_det_mobile.onnx"
+          ]
+        },
+        {
+          "name": "latin_PP-OCRv5_rec_mobile.onnx",
+          "size": 7904513,
+          "sha256": "b20bd37c168a570f583afbc8cd7925603890efbcdc000a59e22c269d160b5f5a",
+          "urls": [
+            "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/latin_PP-OCRv5_rec_mobile.onnx"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ppocr-v5-eslav",
+      "name": "PP-OCRv5 Cyrillic",
+      "languages": [
+        "cyrillic",
+        "en"
+      ],
+      "priority": 62,
+      "det": "ch_PP-OCRv5_det_mobile.onnx",
+      "rec": "eslav_PP-OCRv5_rec_mobile.onnx",
+      "files": [
+        {
+          "name": "ch_PP-OCRv5_det_mobile.onnx",
+          "size": 4819576,
+          "sha256": "4d97c44a20d30a81aad087d6a396b08f786c4635742afc391f6621f5c6ae78ae",
+          "urls": [
+            "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/det/ch_PP-OCRv5_det_mobile.onnx"
+          ]
+        },
+        {
+          "name": "eslav_PP-OCRv5_rec_mobile.onnx",
+          "size": 7911802,
+          "sha256": "08705d6721849b1347d26187f15a5e362c431963a2a62bfff4feac578c489aab",
+          "urls": [
+            "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/eslav_PP-OCRv5_rec_mobile.onnx"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ppocr-v5-thai",
+      "name": "PP-OCRv5 Thai",
+      "languages": [
+        "th",
+        "en"
+      ],
+      "priority": 63,
+      "det": "ch_PP-OCRv5_det_mobile.onnx",
+      "rec": "th_PP-OCRv5_rec_mobile.onnx",
+      "files": [
+        {
+          "name": "ch_PP-OCRv5_det_mobile.onnx",
+          "size": 4819576,
+          "sha256": "4d97c44a20d30a81aad087d6a396b08f786c4635742afc391f6621f5c6ae78ae",
+          "urls": [
+            "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/det/ch_PP-OCRv5_det_mobile.onnx"
+          ]
+        },
+        {
+          "name": "th_PP-OCRv5_rec_mobile.onnx",
+          "size": 7915294,
+          "sha256": "de541dd83161c241ff426f7ecfd602a0ba77d686cf3ab9a6c255ea82fd08006e",
+          "urls": [
+            "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/th_PP-OCRv5_rec_mobile.onnx"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ppocr-v5-greek",
+      "name": "PP-OCRv5 Greek",
+      "languages": [
+        "el",
+        "en"
+      ],
+      "priority": 64,
+      "det": "ch_PP-OCRv5_det_mobile.onnx",
+      "rec": "el_PP-OCRv5_rec_mobile.onnx",
+      "files": [
+        {
+          "name": "ch_PP-OCRv5_det_mobile.onnx",
+          "size": 4819576,
+          "sha256": "4d97c44a20d30a81aad087d6a396b08f786c4635742afc391f6621f5c6ae78ae",
+          "urls": [
+            "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/det/ch_PP-OCRv5_det_mobile.onnx"
+          ]
+        },
+        {
+          "name": "el_PP-OCRv5_rec_mobile.onnx",
+          "size": 7832350,
+          "sha256": "b4368bccd557123c702b7549fee6cd1e94b581337d1c9b65310f109131542b7f",
+          "urls": [
+            "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/el_PP-OCRv5_rec_mobile.onnx"
+          ]
+        }
+      ]
+    }
+  ],
+  "runtimes": [
+    {
+      "arch": "x64",
+      "version": "1.24.4",
+      "file": {
+        "name": "onnxruntime.dll",
+        "size": 16119840,
+        "sha256": "ef720fc44a4ea48626bfe1ebd29642de20222d7f104a509ea305d9f3cb3b7850",
+        "urls": [
+          "https://mirrors.aliyun.com/pypi/packages/dd/59/8febe015f391aa1757fa5ba82c759ea4b6c14ef970132efb5e316665ba61/onnxruntime-1.24.4-cp311-cp311-win_amd64.whl",
+          "https://pypi.tuna.tsinghua.edu.cn/packages/dd/59/8febe015f391aa1757fa5ba82c759ea4b6c14ef970132efb5e316665ba61/onnxruntime-1.24.4-cp311-cp311-win_amd64.whl",
+          "https://mirrors.cloud.tencent.com/pypi/packages/dd/59/8febe015f391aa1757fa5ba82c759ea4b6c14ef970132efb5e316665ba61/onnxruntime-1.24.4-cp311-cp311-win_amd64.whl",
+          "https://files.pythonhosted.org/packages/dd/59/8febe015f391aa1757fa5ba82c759ea4b6c14ef970132efb5e316665ba61/onnxruntime-1.24.4-cp311-cp311-win_amd64.whl"
+        ],
+        "archive": {
+          "size": 12594863,
+          "sha256": "b43b63eb24a2bc8fc77a09be67587a570967a412cccb837b6245ccb546691153",
+          "member": "onnxruntime/capi/onnxruntime.dll"
+        }
+      }
+    },
+    {
+      "arch": "arm64",
+      "version": "1.24.4",
+      "file": {
+        "name": "onnxruntime.dll",
+        "size": 15476760,
+        "sha256": "a5842307bc58e562997053a59a8764ff0936b6738b5502a6103d084b1ee834fa",
+        "urls": [
+          "https://mirrors.aliyun.com/pypi/packages/32/84/4155fcd362e8873eb6ce305acfeeadacd9e0e59415adac474bea3d9281bb/onnxruntime-1.24.4-cp311-cp311-win_arm64.whl",
+          "https://pypi.tuna.tsinghua.edu.cn/packages/32/84/4155fcd362e8873eb6ce305acfeeadacd9e0e59415adac474bea3d9281bb/onnxruntime-1.24.4-cp311-cp311-win_arm64.whl",
+          "https://mirrors.cloud.tencent.com/pypi/packages/32/84/4155fcd362e8873eb6ce305acfeeadacd9e0e59415adac474bea3d9281bb/onnxruntime-1.24.4-cp311-cp311-win_arm64.whl",
+          "https://files.pythonhosted.org/packages/32/84/4155fcd362e8873eb6ce305acfeeadacd9e0e59415adac474bea3d9281bb/onnxruntime-1.24.4-cp311-cp311-win_arm64.whl"
+        ],
+        "archive": {
+          "size": 12259895,
+          "sha256": "e26478356dba25631fb3f20112e345f8e8bf62c499bb497e8a559f7d69cf7e7b",
+          "member": "onnxruntime/capi/onnxruntime.dll"
+        }
+      }
+    }
+  ]
+}

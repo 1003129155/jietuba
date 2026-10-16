@@ -822,9 +822,8 @@ class SettingsDialog(FrostedFramelessDialog):
             from settings import color_formats
             self.magnifier_color_formats = color_formats.default_formats()
         if hasattr(self, 'ocr_engine_combo'):
-            index = self.ocr_engine_combo.findData(defaults["ocr_engine"])
-            if index >= 0:
-                self.ocr_engine_combo.setCurrentIndex(index)
+            from .page_capture import fill_ocr_engines
+            fill_ocr_engines(self, defaults["ocr_engine"], defaults["ppocr_model"])
         if hasattr(self, 'ocr_result_position_combo'):
             index = self.ocr_result_position_combo.findData(defaults["ocr_result_position"])
             if index >= 0:
@@ -1049,7 +1048,12 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'ocr_enable_toggle'):
             self.config_manager.set_ocr_enabled(self.ocr_enable_toggle.isChecked())
         if hasattr(self, 'ocr_engine_combo'):
-            engine = self.ocr_engine_combo.currentData()
+            from .page_capture import ocr_choice
+            engine, model = ocr_choice(self.ocr_engine_combo.currentData())
+            if model is not None and model != self.config_manager.get_ppocr_model():
+                self.config_manager.set_ppocr_model(model)
+                from ocr import set_ppocr_model
+                set_ppocr_model(model)
             if engine != self.config_manager.get_ocr_engine():
                 self.config_manager.set_ocr_engine(engine)
                 from ocr import set_ocr_engine
@@ -1351,7 +1355,7 @@ class SettingsDialog(FrostedFramelessDialog):
                 snap[attr] = w.isChecked()
         # 下拉框类
         for attr in ('screenshot_format_combo', 'shift_line_angle_combo',
-                      'ocr_engine_combo', 'ocr_result_position_combo',
+                      'ocr_result_position_combo',
                       'translation_provider_combo', 'translation_target_combo',
                       'log_level_combo',
                       'language_combo', 'engine_combo', 'cursor_move_combo', 'clipboard_pick_combo',
@@ -1363,6 +1367,9 @@ class SettingsDialog(FrostedFramelessDialog):
             w = getattr(self, attr, None)
             if w is not None:
                 snap[attr] = w.currentIndex()
+        # OCR 列表会随模型下载、删除重排，按选项的值比较
+        if hasattr(self, 'ocr_engine_combo'):
+            snap['ocr_engine_combo'] = self.ocr_engine_combo.currentData()
         # 数值类
         for attr in ('clipboard_history_limit_spin',
                       'ignore_top_pixels_spinbox',
@@ -1608,9 +1615,8 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'ocr_enable_toggle'):
             self.ocr_enable_toggle.setChecked(self.config_manager.get_ocr_enabled())
         if hasattr(self, 'ocr_engine_combo'):
-            index = self.ocr_engine_combo.findData(self.config_manager.get_ocr_engine())
-            if index >= 0:
-                self.ocr_engine_combo.setCurrentIndex(index)
+            from .page_capture import fill_ocr_engines
+            fill_ocr_engines(self, self.config_manager.get_ocr_engine(), self.config_manager.get_ppocr_model())
         if hasattr(self, 'ocr_result_position_combo'):
             index = self.ocr_result_position_combo.findData(self.config_manager.get_ocr_result_position())
             if index >= 0:

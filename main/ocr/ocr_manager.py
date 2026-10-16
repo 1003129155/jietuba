@@ -73,60 +73,21 @@ if ONEOCR_AVAILABLE:
 else:
     _ocr_log(T("截图工具 OCR 不可用（未安装截图工具或缺少 OCR 文件）"), "DEBUG")
 
-# 尝试检测 ppocr_rust（Rust + ort 的 PP-OCR 引擎，原生线程无 GIL，体积小，开源合规）
-# 需要 ppocr_rust 扩展可导入 + det/rec onnx 模型文件存在
-def _ppocr_rust_model_paths():
-    """返回 (det_path, rec_path)；找不到则返回 (None, None)。
-
-    查找顺序：
-      1) 打包后：exe 同级目录的 models/（外置，启动快、可替换）
-      2) 打包后回退：_MEIPASS/models/（若模型被打进包内）
-      3) 开发环境：仓库根 models/
-    """
-    candidates = []
-    try:
-        if getattr(sys, "frozen", False):
-            exe_dir = os.path.dirname(sys.executable)
-            candidates.append(os.path.join(exe_dir, "models"))
-            meipass = getattr(sys, "_MEIPASS", None)
-            if meipass:
-                candidates.append(os.path.join(meipass, "models"))
-        else:
-            from core.resource_manager import ResourceManager
-            candidates.append(ResourceManager.get_resource_path("models"))
-    except Exception as e:
-        _ocr_log(T("解析 ppocr_rust 模型路径失败: {e}", e=e), "DEBUG")
-
-    for base in candidates:
-        det = os.path.join(base, "PP-OCRv6_det_small.onnx")
-        rec = os.path.join(base, "PP-OCRv6_rec_small.onnx")
-        if os.path.exists(det) and os.path.exists(rec):
-            return det, rec
-    return None, None
-
-PP_RUST_ENGINE_AVAILABLE = False
+# ppocr_rust（Rust + ort 的 PP-OCR 引擎，原生线程无 GIL）。扩展能导入就算引擎可用；
+# 模型按设置从 models/ 里解析（见 ocr.ppocr_models），下载、添加或切换模型后不用重启。
 try:
-    _pp_spec = importlib.util.find_spec("ppocr_rust") is not None
-    PP_RUST_ENGINE_AVAILABLE = _pp_spec
-    _pp_det, _pp_rec = _ppocr_rust_model_paths() if _pp_spec else (None, None)
-    PP_RUST_AVAILABLE = bool(_pp_spec and _pp_det and _pp_rec)
-    if PP_RUST_AVAILABLE:
-        _ocr_log(T("ppocr_rust 引擎可用 (Rust + ort PP-OCR)"), "DEBUG")
-    elif _pp_spec:
-        _ocr_log(T("ppocr_rust 已安装但缺少模型文件"), "DEBUG")
-    else:
-        _ocr_log(T("ppocr_rust 未安装"), "DEBUG")
+    PP_RUST_ENGINE_AVAILABLE = importlib.util.find_spec("ppocr_rust") is not None
 except Exception as e:
-    PP_RUST_AVAILABLE = False
-    _pp_det = _pp_rec = None
+    PP_RUST_ENGINE_AVAILABLE = False
     _ocr_log(T("ppocr_rust 引擎检测失败: {e}", e=e), "DEBUG")
+_ocr_log(T("ppocr_rust 引擎可用 (Rust + ort PP-OCR)") if PP_RUST_ENGINE_AVAILABLE else T("ppocr_rust 未安装"), "DEBUG")
 
 
 def get_ppocr_status() -> str:
-    """Distinguish an omitted engine from missing external model files."""
-    if PP_RUST_AVAILABLE:
-        return "available"
-    return "missing_models" if PP_RUST_ENGINE_AVAILABLE else "missing_engine"
+    """available：引擎和所选模型都在；missing_models：有引擎、所选模型没装；missing_engine：没有引擎。"""
+    if not PP_RUST_ENGINE_AVAILABLE:
+        return "missing_engine"
+    return "available" if OCRManager().selected_ppocr_model() is not None else "missing_models"
 
 
 def _configured_preference() -> str:
@@ -164,30 +125,117 @@ class OCRManager:
         if not self._initialized:
             self._initialized = True
             self._last_error = None
+            self._last_reason = None  # 最近一次失败的原因键：no_model / model_broken / unavailable
             self._preference = None  # 设置里选的引擎；None 表示还没读过设置
             self._current_engine = None  # 按设置和可用性解析出的引擎
             self._pp_engine = None  # ppocr_rust.Engine 实例，None 即未初始化
+            self._pp_loaded = None  # _pp_engine 加载的 (det, rec, dict)，换了模型就重新加载
+            self._pp_model_id = None  # 设置里选的 PP-OCR 模型；None 表示还没读过设置
+            self._broken = set()  # 这次运行里加载失败过的模型（_signature）
+            self._fallback_logged = set()  # 已记过「改用自动」的模型 id，每个只记一次
             self._one_engine = None  # SnippingToolOcr 实例，None 即未初始化
             self._engine_lock = threading.RLock()
 
     @property
     def is_available(self) -> bool:
         """检查 OCR 功能是否可用"""
-        return ONEOCR_AVAILABLE or PP_RUST_AVAILABLE
+        return ONEOCR_AVAILABLE or self.selected_ppocr_model() is not None
 
     def get_available_engines(self) -> list:
         """获取可用的 OCR 引擎列表"""
         engines = []
         if ONEOCR_AVAILABLE:
             engines.append(self.ENGINE_ONEOCR)
-        if PP_RUST_AVAILABLE:
+        if self.selected_ppocr_model() is not None:
             engines.append(self.ENGINE_PP_RUST)
         return engines
+
+    def selected_ppocr_model(self):
+        """PP-OCR 要用的模型；没有引擎或没有模型时为 None。
+
+        「自动」按清单优先级从已装模型里挑（ocr.ppocr_models.auto_choice）。明确选的模型没装或加载失败过时
+        也改用自动挑的那个，设置不动，模型装回来就又用它；自动也挑不出能用的才把坏模型交出去，让加载报错。
+        """
+        if not PP_RUST_ENGINE_AVAILABLE:
+            return None
+        if self._configured() == self.ENGINE_AUTO:
+            return self._auto_model()
+        model = self._chosen_model()
+        if model is not None and not self._is_broken(model):
+            return model
+        fallback = self._auto_model()
+        if fallback is not None and not self._is_broken(fallback):
+            if self._pp_model_id not in self._fallback_logged:
+                self._fallback_logged.add(self._pp_model_id)
+                _ocr_log(T("所选 PP-OCR 模型不可用，改用自动选择: {model}", model=self._pp_model_id or "default"), "WARN")
+            return fallback
+        return model
+
+    def _configured(self) -> str:
+        return self._preference if self._preference is not None else _configured_preference()
+
+    def _chosen_model(self):
+        """设置里明确选的模型；没装时为 None。"""
+        if self._pp_model_id is None:
+            try:
+                from settings.tool_settings import get_tool_settings_manager
+                self._pp_model_id = get_tool_settings_manager().get_ppocr_model()
+            except Exception as e:
+                _ocr_log(T("读取 OCR 引擎设置失败: {e}", e=e), "WARN")
+                self._pp_model_id = ""
+        try:
+            from ocr import ppocr_models
+            return ppocr_models.resolve(self._pp_model_id)
+        except Exception as e:
+            _ocr_log(T("解析 ppocr_rust 模型路径失败: {e}", e=e), "WARN")
+            return None
+
+    def _auto_model(self):
+        try:
+            from ocr import ppocr_models
+            return ppocr_models.auto_choice()
+        except Exception as e:
+            _ocr_log(T("解析 ppocr_rust 模型路径失败: {e}", e=e), "WARN")
+            return None
+
+    @staticmethod
+    def _model_files(model):
+        return (model["det"], model["rec"], model["dict"])
+
+    @staticmethod
+    def _signature(model):
+        """模型文件的路径、大小和修改时间。坏模型按它记，文件换掉了就重新试。"""
+        signature = []
+        for path in filter(None, OCRManager._model_files(model)):
+            try:
+                stat = os.stat(path)
+                signature.append((path, stat.st_size, stat.st_mtime_ns))
+            except OSError:
+                signature.append((path, None, None))
+        return tuple(signature)
+
+    def _is_broken(self, model) -> bool:
+        return self._signature(model) in self._broken
+
+    def _falls_back(self, preference: str) -> bool:
+        """明确选的引擎本机没有了，或选的模型没装、加载失败过：按「自动」挑引擎。"""
+        if preference == self.ENGINE_ONEOCR:
+            return not ONEOCR_AVAILABLE
+        if preference != self.ENGINE_PP_RUST or not PP_RUST_ENGINE_AVAILABLE:
+            return False
+        model = self._chosen_model()
+        return model is None or self._is_broken(model)
+
+    def set_ppocr_model(self, model_id: str):
+        """切换 PP-OCR 模型。已加载的引擎在下次识别时按新模型重新加载。"""
+        self._pp_model_id = model_id or ""
+        if self._preference is not None:
+            self.set_engine(self._preference)
 
     def resolve_engine(self, preference: str) -> Optional[str]:
         """把设置值解析成实际使用的引擎；选中的引擎在本机不可用时返回 None。"""
         available = self.get_available_engines()
-        if preference == self.ENGINE_AUTO:
+        if preference == self.ENGINE_AUTO or self._falls_back(preference):
             return available[0] if available else None
         return preference if preference in available else None
 
@@ -216,6 +264,7 @@ class OCRManager:
                     self._engine_lock.release()
 
         if target is None:
+            self._last_reason = "no_model" if PP_RUST_ENGINE_AVAILABLE else "unavailable"
             if engine_type == self.ENGINE_PP_RUST:
                 self._last_error = "PP-OCR 缺少模型" if get_ppocr_status() == "missing_models" else "PP-OCR 缺少引擎"
             elif engine_type == self.ENGINE_ONEOCR:
@@ -259,23 +308,34 @@ class OCRManager:
         return False
 
     def _initialize_ppocr_rust(self) -> bool:
-        """初始化 ppocr_rust 引擎 (Rust + ort，加载 det/rec onnx 模型)"""
-        if not PP_RUST_AVAILABLE:
-            self._last_error = "ppocr_rust 引擎不可用"
+        """初始化 ppocr_rust 引擎 (Rust + ort，加载所选模型的 det/rec onnx)"""
+        model = self.selected_ppocr_model()
+        if model is None:
+            self._last_error = "PP-OCR 缺少模型" if PP_RUST_ENGINE_AVAILABLE else "ppocr_rust 引擎不可用"
+            self._last_reason = "no_model" if PP_RUST_ENGINE_AVAILABLE else "unavailable"
+            if PP_RUST_ENGINE_AVAILABLE:
+                _ocr_log(T("ppocr_rust 已安装但缺少模型文件"), "DEBUG")
             return False
-        if self._pp_engine is not None:
+        files = self._model_files(model)
+        if self._pp_engine is not None and self._pp_loaded == files:
             return True
         with self._engine_lock:
             if self._pp_engine is not None:
-                return True
+                if self._pp_loaded == files:
+                    return True
+                self._pp_engine.close()
+                self._pp_engine = None
             try:
                 _ocr_log(T("正在初始化 ppocr_rust 引擎 (Rust + ort)..."), "DEBUG")
                 import ppocr_rust
-                self._pp_engine = ppocr_rust.Engine(_pp_det, _pp_rec)
+                self._pp_engine = ppocr_rust.Engine(*files)
+                self._pp_loaded = files
                 _ocr_log(T("ppocr_rust 引擎初始化成功"), "DEBUG")
                 return True
             except Exception as e:
                 self._last_error = f"ppocr_rust 初始化失败: {str(e)}"
+                self._last_reason = "model_broken"
+                self._broken.add(self._signature(model))
                 tb_str = _tb.format_exc()
                 _ocr_log(T("ppocr_rust 初始化失败: {e}\n{tb}", e=str(e), tb=tb_str), "ERROR")
                 self._pp_engine = None
@@ -332,12 +392,21 @@ class OCRManager:
         self._ensure_preference()
         with self._engine_lock:
             try:
-                engine = self._current_engine
-                if engine == self.ENGINE_PP_RUST:
-                    return self._recognize_with_ppocr_rust(pixmap, return_format)
-                if engine == self.ENGINE_ONEOCR:
-                    return self._recognize_with_oneocr(pixmap, return_format)
-                return self._format_error(return_format)
+                self._last_reason = None
+                # 模型文件可能在两次识别之间被删、被换，每次都按现在的文件重新挑；
+                # 刚加载失败的模型已记为坏的，再挑一次就换成自动选的那个
+                for _ in range(2):
+                    self.set_engine(self._preference)
+                    engine = self._current_engine
+                    if engine == self.ENGINE_ONEOCR:
+                        return self._recognize_with_oneocr(pixmap, return_format)
+                    if engine != self.ENGINE_PP_RUST:
+                        return self._format_error(return_format)
+                    broken = len(self._broken)
+                    result = self._recognize_with_ppocr_rust(pixmap, return_format)
+                    if len(self._broken) == broken:
+                        return result
+                return result
             finally:
                 self._close_stale_engines()
 
@@ -368,11 +437,8 @@ class OCRManager:
 
         Rust 内部用 allow_threads 释放 GIL，推理跑在原生线程，不会拖慢主线程 UI。
         """
-        if not PP_RUST_AVAILABLE:
-            return self._format_error(return_format, "ppocr_rust 不可用")
-        if self._pp_engine is None:
-            if not self._initialize_ppocr_rust():
-                return self._format_error(return_format)
+        if not self._initialize_ppocr_rust():
+            return self._format_error(return_format)
         try:
             start_time = time.time()
             conv = self._qimage_to_rgb_bytes(pixmap)
@@ -500,8 +566,9 @@ class OCRManager:
             return None
     
     def _format_error(self, return_format: str, error_msg: str = None) -> Any:
-        """格式化错误结果"""
+        """格式化错误结果。dict 格式带上原因键（reason），给界面挑提示文案。"""
         msg = error_msg or self._last_error or "OCR 不可用"
+        reason = (None if error_msg else self._last_reason) or "failed"
         
         if return_format == "text":
             return f"[错误] {msg}"
@@ -511,6 +578,7 @@ class OCRManager:
             return {
                 "code": -1,
                 "msg": msg,
+                "reason": reason,
                 "data": [],
                 "elapse": 0.0
             }
@@ -575,6 +643,11 @@ def get_available_engines() -> list:
 def set_ocr_engine(engine_type: str) -> bool:
     """设置当前使用的 OCR 引擎"""
     return _ocr_manager.set_engine(engine_type)
+
+
+def set_ppocr_model(model_id: str):
+    """切换 PP-OCR 模型（models/ 下的子目录名，空串是默认模型）"""
+    _ocr_manager.set_ppocr_model(model_id)
 
 
 def get_current_engine() -> Optional[str]:

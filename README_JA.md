@@ -120,7 +120,7 @@ PP-OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は�
 | [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.1 | GIF/動画合成エンコーダー |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.5.1 | 長いスクリーンショット結合アルゴリズム |
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.5 | クリップボード操作 |
-| [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
+| [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.3.0 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | HDR 対応のデスクトップキャプチャ（DXGI Desktop Duplication + GPU トーンマッピング） |
 | [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.2 | GUI スレッドを止めないグローバルなマウス・キーボードフック（ドラッグジェスチャ、サイドボタン、ホットキー、ホイール、前面ウィンドウ） |
 | [`j-video`](https://pypi.org/project/j-video/) | `video_recorder` | 0.1.0 | Media Foundation H.264/MP4 録画と WASAPI システム音声 |
@@ -485,6 +485,7 @@ gif/
 ```text
 ocr/
 ├── ocr_manager.py           # OCRManager — エンジン選択・読み込み・解放、統一認識インターフェース
+├── ppocr_models.py          # PP-OCR モデル：models/ フォルダー、内蔵カタログ、追加、削除、アップデーター経由のダウンロード
 └── snipping_tool_ocr.py     # SnippingToolOcr — Snipping Tool の検出、OCR ファイルのコピー、余白追加と認識
 ```
 
@@ -493,6 +494,7 @@ ocr/
 - 設定で「自動 / Windows Snipping Tool / PP-OCR」を選択。自動では Snipping Tool があればそれを、なければ PP-OCR を使う
 - Snipping Tool OCR：PyPI の oneocr パッケージ経由。高速で対応言語が多い（韓国語、ロシア語、タイ語など）。Windows 11 の Snipping Tool が必要
 - PP-OCR：ppocr_rust エンジン（純 Rust + ONNX Runtime、PP-OCR det + rec）。どの Windows でも動作。完全版のみ
+- PP-OCR モデル：PP-OCRv6 small を同梱。設定の「PP-OCR モデルの管理」から内蔵カタログの他のモデル（PP-OCRv6 tiny/medium、PP-OCRv5、韓国語・ラテン文字・キリル文字・タイ語・ギリシャ語の認識）をダウンロードでき、ファイルのハッシュは固定。ローカルの ONNX モデルも試験認識に通れば追加できる。モデルはプログラム横の `models/` に置く。選んだモデルがないときは別のモデルに切り替えず、モデル不足として報告する
 - 認識と解放は排他。エンジン切り替え時に旧エンジンを解放し、新エンジンは次回の認識時に読み込む
 - シングルトンパターン、統一認識インターフェース
 
@@ -714,6 +716,7 @@ ui/
 │   ├── page_capture.py      # キャプチャ設定
 │   ├── page_quick_actions.py # クイック動作設定（確認・結果ウィンドウの省略）
 │   ├── color_format_dialog.py # ColorFormatDialog — 拡大鏡のカラー形式を管理するダイアログ
+│   ├── ppocr_model_dialog.py # PpocrModelDialog — PP-OCR モデルのダウンロード・追加・削除
 │   ├── page_clipboard.py    # クリップボード設定
 │   ├── special_paste_dialog.py # SpecialPasteDialog — 特殊貼り付けメニューの並び替えとオン／オフ
 │   ├── page_hotkey.py       # ホットキー設定
