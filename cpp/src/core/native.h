@@ -272,6 +272,7 @@ bool jb_clipboard_get_count(const JbClipboard *clipboard, int64_t *out, char *er
 bool jb_clipboard_get_item(const JbClipboard *clipboard, int64_t id, char **out_json, char *error, size_t error_len);
 bool jb_clipboard_delete_item(const JbClipboard *clipboard, int64_t id, char *error, size_t error_len);
 bool jb_clipboard_clear_history(const JbClipboard *clipboard, bool keep_grouped, char *error, size_t error_len);
+bool jb_clipboard_clear_unpinned_ungrouped(const JbClipboard *clipboard, bool vacuum, char *error, size_t error_len);
 bool jb_clipboard_toggle_pin(const JbClipboard *clipboard, int64_t id, bool *out_pinned, char *error, size_t error_len);
 bool jb_clipboard_add_item(const JbClipboard *clipboard, const char *content, const char *content_type, const char *title, int64_t *out_id, char *error,
                            size_t error_len);

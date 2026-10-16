@@ -225,6 +225,10 @@ QMenu *show_setting_menu(QWidget *parent, const SettingMenuOptions &o) {
     menu->addSeparator();
     QAction *add_act = menu->addAction(tr("Add Content"));
     QObject::connect(add_act, &QAction::triggered, menu, o.on_add_item);
+    if (o.on_clear_history) {
+        QAction *clear_act = menu->addAction(tr("Clear History"));
+        QObject::connect(clear_act, &QAction::triggered, menu, o.on_clear_history);
+    }
 
     // Pops up above the anchor (non-blocking; clicking again closes it).
     const QPoint popup_pos(o.anchor_pos.x(), o.anchor_pos.y() - menu->sizeHint().height());

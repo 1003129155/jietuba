@@ -643,9 +643,10 @@ ManageDialog *ClipboardController::open_manage_dialog_for_item(qint64 item_id, s
 
 bool ClipboardController::clear_history(QWidget *parent_widget) {
     if (parent_widget && !show_confirm_dialog(parent_widget, tr_window("Confirm Clear"),
-                                              tr_window("Are you sure you want to clear all clipboard history?\nThis action cannot be undone.")))
+                                              tr_window("Are you sure you want to clear the clipboard history?\nPinned items and items in groups will be kept.\nThis action cannot be undone.")))
         return false;
-    if (!manager.clear_history()) return false;
+    // Clearing from the window only hides the items; reclaiming disk space is left to the settings page.
+    if (!manager.clear_unpinned_ungrouped(false)) return false;
     load_history();
     return true;
 }

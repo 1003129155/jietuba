@@ -288,6 +288,7 @@ private slots:
         options.on_set_image_size = [&calls](const QString &value) { calls << "image " + value; };
         options.on_set_theme = [&calls](const QString &value) { calls << "theme " + value; };
         options.on_add_item = [&calls] { calls << "add"; };
+        options.on_clear_history = [&calls] { calls << "clear"; };
         options.on_set_group_bar_position = [&calls](const QString &value) { calls << "bar " + value; };
         options.multi_paste_separator = " | ";
         options.multi_paste_order = "newest_first";
@@ -314,7 +315,8 @@ private slots:
         QCOMPARE(custom->text(), QString(" | "));
         for (const char *label : {"New Line", "Comma", "No Separator"}) QVERIFY(!actions[label]->isChecked());
         for (const char *label : {"Paste with Format", "Auto Paste After Selection", "Close After Paste", "Move to Top After Paste", "Show Time and Source",
-                                  "Preserve Search on Reopen", "Opaque", "17px", "Large", "First Selected First", "Record Content", "Comma", "Add Content"})
+                                  "Preserve Search on Reopen", "Opaque", "17px", "Large", "First Selected First", "Record Content", "Comma", "Add Content",
+                                  "Clear History"})
             actions[label]->trigger();
         actions[QString::fromUtf8("▲ Top")]->trigger();
         QVERIFY(calls.contains("html 0"));
@@ -326,6 +328,7 @@ private slots:
         QVERIFY(calls.contains("keep 0"));
         QVERIFY(calls.contains("separator , "));
         QVERIFY(calls.contains("add"));
+        QVERIFY(calls.contains("clear"));
         QVERIFY(calls.contains("bar top"));
         // Theme swatches are buttons inside the menu.
         QPushButton *swatch = nullptr;
@@ -400,8 +403,9 @@ private slots:
 
     void theSettingsPageMovesClearsAndOpensTheData() {
         const auto group = ClipboardManager::instance().create_group("Keep");
-        const auto ids = add_texts({"loose", "grouped"});
+        const auto ids = add_texts({"loose", "grouped", "pinned"});
         QVERIFY(ClipboardManager::instance().move_to_group(ids[1], *group));
+        QVERIFY(ClipboardManager::instance().toggle_pin(ids[2]));
         SettingsDialog dialog(env_.config, "");
         dialog.show();
         dialog.on_nav_changed(2, "clipboard");
@@ -458,7 +462,7 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(env_.config->get_clipboard_db_path(), new_db, 10000);
         QTRY_COMPARE(ClipboardManager::instance().get_db_path().value_or(QString()), new_db);
         QVERIFY(!QFileInfo::exists(old_db));
-        QCOMPARE(contents_of(ClipboardManager::instance().get_history()).size(), 2);
+        QCOMPARE(contents_of(ClipboardManager::instance().get_history()).size(), 3);
         QCOMPARE(dialog.attr<SettingCard>("_clipboard_storage_card")->contentLabel->text(), new_db);
 
         // A folder holding clipboard data asks before replacing it; No keeps everything.
@@ -475,13 +479,13 @@ private slots:
         }
         QCOMPARE(ClipboardManager::instance().get_db_path().value_or(QString()), new_db);
 
-        // Clearing asks, and may keep the grouped items.
+        // Clearing asks and keeps pinned and grouped items unless the box is ticked.
         {
             ModalAnswerer yes(true);
             button("Clear History")->click();
             QTRY_COMPARE(yes.answered(), 2);
         }
-        QCOMPARE(contents_of(ClipboardManager::instance().get_history()), QStringList{"grouped"});
+        QCOMPARE(contents_of(ClipboardManager::instance().get_history()), (QStringList{"pinned", "grouped"}));
         {
             ModalAnswerer yes(true, true);
             button("Clear History")->click();

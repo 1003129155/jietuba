@@ -401,12 +401,13 @@ void open_clipboard_data_folder(SettingsDialog *dialog, const QString &path) {
 }
 
 void clear_clipboard_history(SettingsDialog *dialog) {
-    const auto [confirmed, delete_grouped] = show_confirm_checkbox_dialog(
+    const auto [confirmed, delete_all] = show_confirm_checkbox_dialog(
         dialog, dialog->tr_text("Confirm Clear"), dialog->tr_text("Are you sure you want to clear all clipboard history?\nThis action cannot be undone."),
-        dialog->tr_text("Also delete saved content in groups"));
+        dialog->tr_text("Also delete pinned and grouped content"));
     if (!confirmed) return;
     auto &cm = ClipboardManager::instance();
-    if (cm.is_available() && cm.clear_history(!delete_grouped)) {
+    const bool cleared = cm.is_available() && (delete_all ? cm.clear_history() : cm.clear_unpinned_ungrouped());
+    if (cleared) {
         show_info_dialog(dialog, dialog->tr_text("Success"), dialog->tr_text("Clipboard history cleared successfully"));
         dialog->refresh_clipboard_size(800);
     } else {

@@ -1,5 +1,5 @@
 {
-  "git_head": "d3aecaaad8ac1c72ee00971165b036cfa7d972e8",
+  "git_head": "be2dcb81cead9d29f96f707ee5895fc4e040a484",
   "files": [
     {
       "path": "licenses/lucide-LICENSE.txt",
@@ -188,8 +188,8 @@
     },
     {
       "path": "main/clipboard/controllers/clipboard_controller.py",
-      "sha256": "0279dd875c83ffc9d1cbc22ffc10c8df67420e04a26d246f01460b9d391ad51b",
-      "bytes": 44486
+      "sha256": "82a26f896d1f5744effc85eac1efa4a872b90db6513fb81a46f701ad0c819ee9",
+      "bytes": 44666
     },
     {
       "path": "main/clipboard/controllers/context_menu_controller.py",
@@ -228,8 +228,8 @@
     },
     {
       "path": "main/clipboard/core/manager.py",
-      "sha256": "0d8f1b4d58337e772a246666b4e35576fbbdcd447b7a616caffec9bc19701294",
-      "bytes": 22216
+      "sha256": "8cb13be23a9cacd4c1c28784b6d331171fdfbc5730fda28a65a81f5c08f93a65",
+      "bytes": 22941
     },
     {
       "path": "main/clipboard/core/models.py",
@@ -338,8 +338,8 @@
     },
     {
       "path": "main/clipboard/ui/panels/setting_panel.py",
-      "sha256": "506998fa4024f2a3433f26ad9584fcf0d6ae359f82e8efc5d842591658b0e942",
-      "bytes": 10306
+      "sha256": "98ccddd7fe7116fd42644242afb84f46069c5ac5d718c32edf9aab1887d6461b",
+      "bytes": 10503
     },
     {
       "path": "main/clipboard/ui/resources/emoji_data.py",
@@ -393,8 +393,8 @@
     },
     {
       "path": "main/clipboard/ui/windows/clipboard_window.py",
-      "sha256": "b759a34bc1b38c732c52723ba82483a0489a3c98336a95922118a52d17f01daa",
-      "bytes": 73575
+      "sha256": "f5375fc9df552644f81e052a26f025a9cfca200239f73b818ec8f91256068e83",
+      "bytes": 73628
     },
     {
       "path": "main/clipboard/ui/windows/pin_window.py",
@@ -483,8 +483,8 @@
     },
     {
       "path": "main/core/log_translations/clipboard.py",
-      "sha256": "5f76fb65a3dd651080042742b30fc7ec0b46f3911b26e660e6fe7da321c6048a",
-      "bytes": 10246
+      "sha256": "1827148f1b5108ddddb3d4abab6d5fd47cc4774841e9162aa057f6bc3f7c79b4",
+      "bytes": 10363
     },
     {
       "path": "main/core/log_translations/core_pkg.py",
@@ -1113,23 +1113,23 @@
     },
     {
       "path": "main/translations/app_en.xml",
-      "sha256": "10f23a6b467537ae23e23305ad15f30c6dc2a1a21272f2212c1e84f9422fdd19",
-      "bytes": 220643
+      "sha256": "e0f15c1d0af891a4dd589c310f076f67b53df6e127d5e39e3ca2b5ed149902ff",
+      "bytes": 220173
     },
     {
       "path": "main/translations/app_ja.xml",
-      "sha256": "6c0e39e8f0245f6dedbf3621a3a0571acd5a1b3b2be053e39439e8f7de155077",
-      "bytes": 243488
+      "sha256": "e6eb05f24897e712965c2a42848fba727c436710a36ae2f31d79129dfa17e814",
+      "bytes": 242983
     },
     {
       "path": "main/translations/app_ko.xml",
-      "sha256": "d16630b79af2ca67ffe2acf2962343caba233fd88f1dfa476539f103b9c5c301",
-      "bytes": 235535
+      "sha256": "eb6bfbb261364684b22d530d94dd1730aece754be2349d61e3290ecb38a72a7a",
+      "bytes": 235045
     },
     {
       "path": "main/translations/app_zh.xml",
-      "sha256": "ae408d7794bfcaee1c99ae8b4f59c2db8f1e1be2bea46ca32fb8e5f5d3eac68d",
-      "bytes": 224097
+      "sha256": "d1e2f695bcde574ce12e36f5e3c9ca639a2f3c17732267fad6866640d493557c",
+      "bytes": 223607
     },
     {
       "path": "main/ui/__init__.py",
@@ -1363,8 +1363,8 @@
     },
     {
       "path": "main/ui/settings_ui/page_clipboard.py",
-      "sha256": "14637ce366c3da8da2891c7029f7e8d0eba44ccef9de086910a010305731c77e",
-      "bytes": 25081
+      "sha256": "e9ef5b1ecf6fcf0e25ccc8759b66449454467b568493cb688887884611744968",
+      "bytes": 25155
     },
     {
       "path": "main/ui/settings_ui/page_developer.py",
@@ -1867,29 +1867,34 @@
       "bytes": 1069
     },
     {
+      "path": "rust_libs/pyclipboard/src/cf_html.rs",
+      "sha256": "cdfd21df0e7a8fce5c63468c18d7b75b78f422bfa7f48cb5090f4e59f2f47fb9",
+      "bytes": 7720
+    },
+    {
       "path": "rust_libs/pyclipboard/src/database.rs",
-      "sha256": "4ba19568783f0cabc50f2c4a36e1b2aebb57c54bcff50c459797bdbfd110cafa",
-      "bytes": 49636
+      "sha256": "4758fdb7a7470f3092eaacc5ba7c0c762f827026eac1de08aba0346c123cb7c0",
+      "bytes": 50728
     },
     {
       "path": "rust_libs/pyclipboard/src/lib.rs",
-      "sha256": "00b3503714824e7011e95b79e26cec910400b3b961ab5fb3d73d40464cb42236",
-      "bytes": 305
+      "sha256": "ea0cf591cdf3cadf0ad613598075eb99a4dc8ddd1ad339ba66ef65584562a5c8",
+      "bytes": 322
     },
     {
       "path": "rust_libs/pyclipboard/src/manager.rs",
-      "sha256": "b669830fb14a0c46f56e4e1d2f9ed6eb872fac5b0bf972004c15f8c1caa28f70",
-      "bytes": 70751
+      "sha256": "e8ff6f8112005a4d7c3b97ae3f8104778ff2d7e8fd9b9afb39b3fc92ddb3bf6a",
+      "bytes": 63946
     },
     {
       "path": "rust_libs/pyclipboard/src/multi_paste.rs",
-      "sha256": "0578225242d9cd8c55a69999310e6bdfa975c85062ade523f464125b530175f3",
-      "bytes": 55432
+      "sha256": "0dcfd94eeff90ec00f4bcdd2d3cd76313babaf0b0de2fa3129ac6a0acab247a4",
+      "bytes": 53675
     },
     {
       "path": "rust_libs/pyclipboard/src/python.rs",
-      "sha256": "e513f8adc6bc525932d84cad7ae573f071033d72dd57810c417dc26665018447",
-      "bytes": 23101
+      "sha256": "cc635f616da60af70d05b705fff964e5ff6b7f701993452d4d68da906b444eb5",
+      "bytes": 23631
     },
     {
       "path": "rust_libs/pyclipboard/src/types.rs",
