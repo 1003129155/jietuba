@@ -5766,6 +5766,10 @@ Make sure gifrecorder is installed correctly.</source>
         <translation>平铺</translation>
     </message>
     <message>
+        <source>Diamond</source>
+        <translation>菱形</translation>
+    </message>
+    <message>
         <source>Center</source>
         <translation>居中</translation>
     </message>
@@ -5834,8 +5838,28 @@ Make sure gifrecorder is installed correctly.</source>
         <translation>自定义颜色</translation>
     </message>
     <message>
-        <source>Angle applies to tiled watermarks</source>
-        <translation>角度只对平铺生效</translation>
+        <source>Angle applies to tiled and diamond watermarks</source>
+        <translation>角度只对平铺和菱形生效</translation>
+    </message>
+    <message>
+        <source>Grid Lines</source>
+        <translation>网格线</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>无</translation>
+    </message>
+    <message>
+        <source>Solid</source>
+        <translation>实线</translation>
+    </message>
+    <message>
+        <source>Dashed</source>
+        <translation>虚线</translation>
+    </message>
+    <message>
+        <source>Grid lines apply to diamond watermarks</source>
+        <translation>网格线只对菱形生效</translation>
     </message>
 </context>
 <context>

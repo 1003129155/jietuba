@@ -291,7 +291,7 @@ canvas/
     ├── selection_item.py    # SelectionItem — 选中项的边界显示框
     ├── arrow_item.py        # ArrowItem — 箭头图元，九种样式的箭杆/端头/描边几何
     ├── text_item.py         # TextItem — 文字图元，描边/阴影/背景色块与三态交互框
-    └── watermark_item.py    # WatermarkItem / WatermarkStyle — 盖在选区上的水印层：平铺或放在七个位置之一，支持多行和时间
+    └── watermark_item.py    # WatermarkItem / WatermarkStyle — 盖在选区上的水印层：平铺、菱形网格或放在七个位置之一，支持多行和时间
 ```
 
 </details>
@@ -778,7 +778,7 @@ ui/
 ├── arrow_settings_panel.py  # ArrowSettingsPanel — 箭头设置面板
 ├── number_settings_panel.py # 数字工具设置面板
 ├── mosaic_settings_panel.py # 马赛克工具设置面板
-├── watermark_settings_panel.py # 水印面板：文字、位置、样式弹层（不透明度/大小/间距/角度/颜色）、字体
+├── watermark_settings_panel.py # 水印面板：文字、位置、样式弹层（不透明度/大小/间距/角度/网格线/颜色）、字体
 ├── watermark_input_dialog.py   # WatermarkInputDialog — 输入多行水印，可插入时间并预览
 │
 ├── fluent_lite/             # Fluent 风格轻量组件库

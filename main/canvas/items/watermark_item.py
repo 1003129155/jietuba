@@ -1,6 +1,6 @@
-"""水印：盖在选区上的一层文字，平铺满选区，或放在中间、四角、上下边的中间。
+"""水印：盖在选区上的一层文字，平铺或排成菱形网格铺满选区，或放在中间、四角、上下边的中间。
 
-只存参数、不存位图：每次重绘只画与重绘区相交的那几条文字。实测 2560×1440 整屏重画约 3 ms、
+只存参数、不存位图：每次重绘只画与重绘区相交的那几条文字（和网格线）。实测 2560×1440 整屏重画约 3 ms、
 4K 约 8 ms，画笔拖动的局部重绘不到 0.2 ms。
 """
 
@@ -9,11 +9,12 @@ import re
 from dataclasses import dataclass, replace
 from datetime import datetime
 
-from PySide6.QtCore import QDateTime, QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QFont, QFontMetricsF, QImage, QPainter, QPainterPath, QTransform
+from PySide6.QtCore import QDateTime, QLineF, QPointF, QRectF, Qt
+from PySide6.QtGui import QColor, QFont, QFontMetricsF, QImage, QPainter, QPainterPath, QPen, QTransform
 from PySide6.QtWidgets import QGraphicsItem
 
 LAYOUT_TILE = "tile"
+LAYOUT_DIAMOND = "diamond"
 LAYOUT_CENTER = "center"
 # 位置 → 文字块中心在选区里的相对位置（0 左/上，0.5 中，1 右/下）
 ANCHORS = {
@@ -25,7 +26,10 @@ ANCHORS = {
     "bottom": (0.5, 1.0),
     "bottom_right": (1.0, 1.0),
 }
-LAYOUTS = (LAYOUT_TILE,) + tuple(ANCHORS)
+LAYOUTS = (LAYOUT_TILE, LAYOUT_DIAMOND) + tuple(ANCHORS)
+
+LINE_NONE, LINE_SOLID, LINE_DASH = "none", "solid", "dash"
+LINE_STYLES = (LINE_NONE, LINE_SOLID, LINE_DASH)
 
 MIN_FONT_SIZE, MAX_FONT_SIZE = 8, 96
 MIN_SPACING, MAX_SPACING = 0, 100
@@ -36,6 +40,13 @@ SPACING_UNIT = 0.1
 VERTICAL_GAP_RATIO = 0.75
 EDGE_MARGIN = 0.6
 GLYPH_OVERHANG = 0.25
+
+# 菱形网格：格子是正方形转 45°，行距是格距的一半；线在文字外接框外多留 LINE_TEXT_GAP 个字号；
+# 线宽随字号放大但不细于 1 像素，虚线的段长、空长以线宽为单位
+DIAMOND_ROW_RATIO = 0.5
+LINE_TEXT_GAP = 0.3
+LINE_WIDTH_DIVISOR = 24
+LINE_DASH_PATTERN = [4.0, 3.0]
 
 # $…$ 里是日期格式，按水印创建的那一刻展开；没配对的 $ 原样保留
 TIME_TOKEN = re.compile(r"\$([^$\n]*)\$")
@@ -48,8 +59,11 @@ class WatermarkStyle:
     opacity: float = 0.35
     layout: str = LAYOUT_TILE
     spacing: int = 40
-    angle: int = -30        # 只用于平铺
+    angle: int = -30        # 只用于平铺：转的是文字，格子不转
     font_family: str = ""   # 空 = 跟随界面语言的默认字体
+    # 菱形整张网格（文字和线）一起转，所以单独存：它的 0° 是菱形正立，和平铺默认的 -30° 不是一回事
+    diamond_angle: int = 0
+    line_style: str = LINE_SOLID  # 只用于菱形
 
     def normalized(self) -> "WatermarkStyle":
         def number(value, default, low, high, cast=int):
@@ -68,6 +82,8 @@ class WatermarkStyle:
             spacing=number(self.spacing, WatermarkStyle.spacing, MIN_SPACING, MAX_SPACING),
             angle=number(self.angle, WatermarkStyle.angle, MIN_ANGLE, MAX_ANGLE),
             font_family=str(self.font_family or ""),
+            diamond_angle=number(self.diamond_angle, WatermarkStyle.diamond_angle, MIN_ANGLE, MAX_ANGLE),
+            line_style=self.line_style if self.line_style in LINE_STYLES else WatermarkStyle.line_style,
         )
 
     def with_changes(self, **changes) -> "WatermarkStyle":
@@ -127,12 +143,71 @@ def _tile_centers(rect: QRectF, area: QRectF, half_w: float, half_h: float, cell
             yield QPointF(rect.left() + shift + (col + 0.5) * cell_w, y)
 
 
+def diamond_cell(block: _TextBlock, style: WatermarkStyle) -> float:
+    """菱形的水平对角线长，也是同一行相邻两块文字的中心距。
+
+    最紧时同一行的、隔一行的、斜对角的相邻文字都刚好不重叠，再加上间距。只看文字自己的外接框、
+    不看角度：网格是整张转的，转动时格子大小不变。
+    """
+    tight = max(block.width, block.height, 2 * min(block.width, block.height), 1.0)
+    return tight + style.font_size * style.spacing * SPACING_UNIT
+
+
+def diamond_layout(rect: QRectF, block: _TextBlock, style: WatermarkStyle, exposed: QRectF = None,
+                   with_lines: bool = True):
+    """菱形网格里画哪几块文字、哪几段线：([文字中心], [线段])，都在选区坐标里。
+
+    网格锚在选区左上角、绕它转 diamond_angle；奇数行错开半格，文字落在菱形的左右顶点上。
+    线连相邻两块文字，到文字外接框就停，不从字上穿过。每条线归它上端的文字画，局部重绘时
+    每个方向取到重绘区外最近的一圈文字，重绘区边缘的线才不会漏画。
+    """
+    area = rect if exposed is None else rect.intersected(exposed)
+    if rect.isEmpty() or area.isEmpty():
+        return [], []
+    to_rect = QTransform()
+    to_rect.translate(rect.left(), rect.top())
+    to_rect.rotate(style.diamond_angle)
+    inverse, _invertible = to_rect.inverted()
+    wanted = inverse.mapRect(QRectF(area))
+
+    cell = diamond_cell(block, style)
+    row_height = cell * DIAMOND_ROW_RATIO
+    half_cell = cell / 2
+    gap = style.font_size * LINE_TEXT_GAP
+    margin = gap
+    # 线沿对角方向离开文字外接框：横竖两个方向取先出框的那个，用占整条边的比例表示；
+    # 两头各让出这一段还有剩，才画线
+    exit_at = min((block.width / 2 + gap) / half_cell, (block.height / 2 + gap) / row_height)
+    draw_lines = with_lines and exit_at < 0.5
+
+    centers, segments = [], []
+    top = math.floor((wanted.top() - margin) / row_height - 0.5)
+    bottom = math.ceil((wanted.bottom() + margin) / row_height - 0.5)
+    for row in range(top, bottom + 1):
+        y = (row + 0.5) * row_height
+        shift = half_cell if row % 2 else 0.0
+        left = math.floor((wanted.left() - margin - shift) / cell - 0.5)
+        right = math.ceil((wanted.right() + margin - shift) / cell - 0.5)
+        for col in range(left, right + 1):
+            x = shift + (col + 0.5) * cell
+            centers.append(to_rect.map(QPointF(x, y)))
+            if draw_lines:
+                for side in (-1, 1):
+                    start = QPointF(x + side * half_cell * exit_at, y + row_height * exit_at)
+                    end = QPointF(x + side * half_cell * (1 - exit_at), y + row_height * (1 - exit_at))
+                    segments.append(QLineF(to_rect.map(start), to_rect.map(end)))
+    return centers, segments
+
+
 def watermark_placements(rect: QRectF, text: str, style: WatermarkStyle, exposed: QRectF = None,
                          font: QFont = None, block: _TextBlock = None):
     """[(文字块中心, 旋转角度)]：画哪几块、画在哪。exposed 为空表示整个选区都要画。"""
     if not text or rect.isEmpty():
         return []
     block = block or _TextBlock(text, font or watermark_font(style))
+    if style.layout == LAYOUT_DIAMOND:
+        centers, _segments = diamond_layout(rect, block, style, exposed, with_lines=False)
+        return [(center, float(style.diamond_angle)) for center in centers]
     anchor = ANCHORS.get(style.layout)
     if anchor is not None:
         margin = style.font_size * EDGE_MARGIN
@@ -165,7 +240,12 @@ def paint_watermark(painter: QPainter, rect: QRectF, text: str, style: Watermark
         return
     font = font or watermark_font(style)
     block = _TextBlock(text, font)
-    placements = watermark_placements(rect, text, style, exposed, font, block)
+    segments = []
+    if style.layout == LAYOUT_DIAMOND:
+        centers, segments = diamond_layout(rect, block, style, exposed, style.line_style != LINE_NONE)
+        placements = [(center, float(style.diamond_angle)) for center in centers]
+    else:
+        placements = watermark_placements(rect, text, style, exposed, font, block)
     if not placements:
         return
 
@@ -177,6 +257,14 @@ def paint_watermark(painter: QPainter, rect: QRectF, text: str, style: Watermark
         # 不透明度放进画笔颜色，不用 painter.setOpacity：带整体不透明度的文字走慢路径，整屏要慢 5 倍
         color = QColor(style.color)
         color.setAlphaF(style.opacity)
+        if segments:
+            pen = QPen(color, max(1.0, style.font_size / LINE_WIDTH_DIVISOR))
+            pen.setCapStyle(Qt.PenCapStyle.FlatCap)
+            if style.line_style == LINE_DASH:
+                pen.setDashPattern(LINE_DASH_PATTERN)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            painter.setPen(pen)
+            painter.drawLines(segments)
         painter.setPen(color)
         base = painter.transform()
         lines = list(block.baselines())

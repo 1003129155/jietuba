@@ -1,5 +1,5 @@
 """
-水印设置面板：水印文字、位置、样式（不透明度/大小/间距/角度/颜色）、字体。
+水印设置面板：水印文字、位置、样式（不透明度/大小/间距/角度/网格线/颜色）、字体。
 
 文字框点一下弹出输入框：工具栏面板不接收键盘焦点，截图窗口要独占键盘，不能就地打字。
 """
@@ -7,11 +7,11 @@ from datetime import datetime
 
 from PySide6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPen
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSlider, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QButtonGroup, QHBoxLayout, QLabel, QPushButton, QSlider, QVBoxLayout, QWidget
 
 from canvas.items.watermark_item import (
-    LAYOUT_TILE, LAYOUTS, MAX_ANGLE, MAX_FONT_SIZE, MAX_SPACING, MIN_ANGLE, MIN_FONT_SIZE, MIN_SPACING,
-    WatermarkStyle, expand_text,
+    LAYOUT_DIAMOND, LAYOUT_TILE, LAYOUTS, LINE_STYLES, MAX_ANGLE, MAX_FONT_SIZE, MAX_SPACING, MIN_ANGLE,
+    MIN_FONT_SIZE, MIN_SPACING, WatermarkStyle, expand_text,
 )
 from core import safe_event
 from core.constants import get_available_text_fonts, get_default_text_font_for_language
@@ -28,6 +28,7 @@ _tr = make_tr("WatermarkPanel")
 
 LAYOUT_NAMES = {
     "tile": "Tiled",
+    "diamond": "Diamond",
     "center": "Center",
     "top_left": "Top Left",
     "top": "Top Center",
@@ -35,6 +36,12 @@ LAYOUT_NAMES = {
     "bottom_left": "Bottom Left",
     "bottom": "Bottom Center",
     "bottom_right": "Bottom Right",
+}
+
+LINE_STYLE_NAMES = {
+    "none": "None",
+    "solid": "Solid",
+    "dash": "Dashed",
 }
 
 
@@ -139,7 +146,11 @@ class WatermarkTextField(QWidget):
 
 
 class WatermarkStylePopup(HoverPopup):
-    """悬停在样式按钮上弹出：不透明度、大小、间距、角度四条滑块，下面一排颜色。"""
+    """悬停在样式按钮上弹出：不透明度、大小、间距、角度四条滑块，菱形的网格线线型，下面一排颜色。
+
+    「角度」这一条在平铺里转文字、在菱形里转整张网格，两种各存各的（见 WatermarkStyle），
+    滑块跟着当前位置读写对应的那个字段。
+    """
 
     changed = Signal(str, object)   # (WatermarkStyle 的字段名, 新值)
 
@@ -151,7 +162,7 @@ class WatermarkStylePopup(HoverPopup):
         ("angle", "Angle", (MIN_ANGLE, MAX_ANGLE), int, lambda s: s.angle),
     )
     SUFFIXES = {"opacity": "%", "angle": "°"}
-    BASE_LABEL_WIDTH = 56
+    BASE_LABEL_WIDTH = 64   # 放得下英文的 Grid Lines
     BASE_VALUE_WIDTH = 36
     BASE_SLIDER_WIDTH = 150
 
@@ -160,6 +171,7 @@ class WatermarkStylePopup(HoverPopup):
         self._sliders = {}
         self._values = {}
         self._labels = {}
+        self._layout = LAYOUT_TILE
         layout = QVBoxLayout(self)
         for key, text, (low, high), _to_style, _from_style in self.ROWS:
             label = QLabel(_tr(text))
@@ -175,6 +187,22 @@ class WatermarkStylePopup(HoverPopup):
             row.addWidget(value)
             layout.addLayout(row)
             self._sliders[key], self._values[key], self._labels[key] = slider, value, label
+
+        self._line_label = QLabel(_tr("Grid Lines"))
+        self._line_buttons = {}
+        self._line_group = QButtonGroup(self)
+        line_row = QHBoxLayout()
+        line_row.addWidget(self._line_label)
+        for key in LINE_STYLES:
+            button = QPushButton(_tr(LINE_STYLE_NAMES[key]))
+            button.setObjectName("GridLineButton")
+            button.setCheckable(True)
+            button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            button.clicked.connect(lambda _checked=False, k=key: self.changed.emit("line_style", k))
+            self._line_group.addButton(button)
+            line_row.addWidget(button, 1)
+            self._line_buttons[key] = button
+        layout.addLayout(line_row)
 
         self.color_button = ColorPickerButton(QColor(WatermarkStyle.color), show_alpha=False, round_style=True)
         self.color_button.setToolTip(_tr("Custom Color"))
@@ -200,6 +228,7 @@ class WatermarkStylePopup(HoverPopup):
             self._labels[key].setFixedWidth(scaled(self.BASE_LABEL_WIDTH))
             self._values[key].setFixedWidth(scaled(self.BASE_VALUE_WIDTH))
             self._sliders[key].setFixedWidth(scaled(self.BASE_SLIDER_WIDTH))
+        self._line_label.setFixedWidth(scaled(self.BASE_LABEL_WIDTH))
         self.color_row.apply_scale()
         self.adjustSize()
 
@@ -221,37 +250,60 @@ class WatermarkStylePopup(HoverPopup):
         QSlider::handle:horizontal:hover {{ border-color: {accent}; }}
         QSlider::groove:horizontal:disabled, QSlider::sub-page:horizontal:disabled {{ background: {groove}; }}
         QLabel:disabled {{ color: rgba(42, 50, 67, 0.4); }}
+        QPushButton#GridLineButton {{
+            background: {CONTROL_FILL.name(QColor.NameFormat.HexArgb)}; color: {ink}; border: none;
+            border-radius: {scaled(6)}px; padding: {scaled(3)}px {scaled(6)}px; font-size: {scaled(12)}px;
+        }}
+        QPushButton#GridLineButton:hover {{ background: {CONTROL_FILL_HOVER.name(QColor.NameFormat.HexArgb)}; }}
+        QPushButton#GridLineButton:checked {{ background: {accent}; color: white; }}
+        QPushButton#GridLineButton:disabled {{ color: rgba(42, 50, 67, 0.4); }}
+        QPushButton#GridLineButton:checked:disabled {{ background: {groove}; color: rgba(42, 50, 67, 0.4); }}
         """
 
     def _show_value(self, key, value):
         self._values[key].setText(f"{value}{self.SUFFIXES.get(key, '')}")
 
+    @staticmethod
+    def _angle_field(layout: str) -> str:
+        return "diamond_angle" if layout == LAYOUT_DIAMOND else "angle"
+
     def _on_slider(self, key, value):
         self._show_value(key, value)
         to_style = next(row[3] for row in self.ROWS if row[0] == key)
-        self.changed.emit(key, to_style(value))
+        field = self._angle_field(self._layout) if key == "angle" else key
+        self.changed.emit(field, to_style(value))
 
     def _on_preset(self, color_hex: str):
         self.color_button.set_color(QColor(color_hex))
         self.changed.emit("color", QColor(color_hex).name())
 
     def load_style(self, style: WatermarkStyle):
+        self._layout = style.layout
         for key, _text, _range, _to_style, from_style in self.ROWS:
             slider = self._sliders[key]
             slider.blockSignals(True)
-            slider.setValue(from_style(style))
+            slider.setValue(getattr(style, self._angle_field(style.layout)) if key == "angle" else from_style(style))
             slider.blockSignals(False)
             self._show_value(key, slider.value())
-        # 角度只对平铺起作用
-        tiled = style.layout == LAYOUT_TILE
+        # 角度只对平铺和菱形起作用，网格线只对菱形起作用
+        rotates = style.layout in (LAYOUT_TILE, LAYOUT_DIAMOND)
         for widget in (self._sliders["angle"], self._labels["angle"], self._values["angle"]):
-            widget.setEnabled(tiled)
-        self._sliders["angle"].setToolTip("" if tiled else _tr("Angle applies to tiled watermarks"))
+            widget.setEnabled(rotates)
+        self._sliders["angle"].setToolTip("" if rotates else _tr("Angle applies to tiled and diamond watermarks"))
+        diamond = style.layout == LAYOUT_DIAMOND
+        for widget in (self._line_label, *self._line_buttons.values()):
+            widget.setEnabled(diamond)
+            widget.setToolTip("" if diamond else _tr("Grid lines apply to diamond watermarks"))
+        for key, button in self._line_buttons.items():
+            button.setChecked(key == style.line_style)
         self.color_button.set_color(QColor(style.color))
 
     def retranslate(self):
         for key, text, *_rest in self.ROWS:
             self._labels[key].setText(_tr(text))
+        self._line_label.setText(_tr("Grid Lines"))
+        for key, button in self._line_buttons.items():
+            button.setText(_tr(LINE_STYLE_NAMES[key]))
         self.color_button.setToolTip(_tr("Custom Color"))
 
 

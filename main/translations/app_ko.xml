@@ -5680,6 +5680,10 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
         <translation>타일</translation>
     </message>
     <message>
+        <source>Diamond</source>
+        <translation>마름모</translation>
+    </message>
+    <message>
         <source>Center</source>
         <translation>가운데</translation>
     </message>
@@ -5748,8 +5752,28 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
         <translation>사용자 지정 색상</translation>
     </message>
     <message>
-        <source>Angle applies to tiled watermarks</source>
-        <translation>각도는 타일 배치에서만 적용됩니다</translation>
+        <source>Angle applies to tiled and diamond watermarks</source>
+        <translation>각도는 타일 배치와 마름모에서만 적용됩니다</translation>
+    </message>
+    <message>
+        <source>Grid Lines</source>
+        <translation>격자선</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>없음</translation>
+    </message>
+    <message>
+        <source>Solid</source>
+        <translation>실선</translation>
+    </message>
+    <message>
+        <source>Dashed</source>
+        <translation>파선</translation>
+    </message>
+    <message>
+        <source>Grid lines apply to diamond watermarks</source>
+        <translation>격자선은 마름모에서만 적용됩니다</translation>
     </message>
 </context>
 <context>

@@ -291,6 +291,8 @@ class ToolSettingsManager(QObject):
             "spacing": 40,       # 字号的十分之几
             "angle": -30,        # 只用于平铺
             "font_family": "",   # 空 = 跟随界面语言的默认字体
+            "diamond_angle": 0,  # 菱形整张网格的角度
+            "line_style": "solid",  # 菱形的网格线：none / solid / dash
         },
         "rect": {
             "color": "#FF0000",  # 红色

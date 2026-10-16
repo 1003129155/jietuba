@@ -8,6 +8,7 @@
 点选和橡皮擦穿过水印；钉图克隆后对上钉图的整张图；工具栏、样式弹层、输入框各自接对了线；
 截图结束时记下有没有水印，开着「自动加上上次的水印」时下次截图照此加或不加。
 """
+import math
 from datetime import datetime
 
 import pytest
@@ -18,7 +19,8 @@ from PySide6.QtWidgets import QWidget
 
 from canvas.items import RectItem, WatermarkItem, WatermarkStyle
 from canvas.items.watermark_item import (
-    ANCHORS, LAYOUT_TILE, apply_watermark, expand_text, paint_watermark, watermark_font, watermark_placements,
+    ANCHORS, LAYOUT_TILE, _TextBlock, apply_watermark, diamond_cell, expand_text, paint_watermark, watermark_font,
+    watermark_placements,
 )
 from canvas.scene import CanvasScene
 from core.export import ExportService
@@ -29,6 +31,7 @@ W, H = 320, 200
 WHITE = QColor(255, 255, 255)
 # 不透明的黑色：像素一比就知道画没画上
 INK = WatermarkStyle(color="#000000", font_size=16, opacity=1.0)
+DIAMOND = INK.with_changes(layout="diamond")
 NOW = datetime(2026, 10, 11, 9, 5, 7)
 
 
@@ -115,9 +118,9 @@ def test_every_time_format_in_the_menu_expands():
 
 def test_style_is_clamped_to_valid_values():
     style = WatermarkStyle(color="nope", font_size=1000, opacity=3, layout="spiral",
-                           spacing=-5, angle=400, font_family=None).normalized()
+                           spacing=-5, angle=400, font_family=None, diamond_angle=-400, line_style="wavy").normalized()
     assert style == WatermarkStyle(color=WatermarkStyle.color, font_size=96, opacity=1.0,
-                                   spacing=0, angle=90, font_family="")
+                                   spacing=0, angle=90, font_family="", diamond_angle=-90, line_style="solid")
 
 
 def test_font_family_follows_the_style():
@@ -196,6 +199,92 @@ def test_a_selection_narrower_than_the_text_keeps_the_text_centered(qapp):
 
 
 # ---------------------------------------------------------------------------
+# 菱形网格
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("line_style", ["solid", "dash", "none"])
+@pytest.mark.parametrize("angle", [0, -30])
+def test_drawing_only_the_exposed_part_of_a_diamond_grid_matches_drawing_everything(qapp, line_style, angle):
+    """菱形的文字和线都按重绘区取；切成小块各画一遍，拼起来必须和整块画一次一样，边缘的线不能漏"""
+    rect = QRectF(13, 7, 290, 181)
+    style = DIAMOND.with_changes(line_style=line_style, diamond_angle=angle)
+    whole = _paint(rect, style=style)
+    pieces = _blank()
+    step = 23
+    for x in range(0, W, step):
+        for y in range(0, H, step):
+            piece = QRectF(x, y, step, step)
+            _paint(rect, style=style, exposed=piece, clip=piece, image=pieces)
+    assert pieces == whole
+    assert _inked(whole) > 0
+
+
+def test_diamond_size_follows_spacing_and_font_size_but_not_the_angle(qapp):
+    block = _TextBlock("MARK", watermark_font(DIAMOND))
+    cells = [diamond_cell(block, DIAMOND.with_changes(spacing=s)) for s in (0, 40, 100)]
+    assert cells[0] < cells[1] < cells[2]
+    # 整张网格一起转，转的时候格子大小不变
+    assert diamond_cell(block, DIAMOND.with_changes(diamond_angle=33)) == cells[1]
+    # 大小是整体缩放：字号翻倍，格子也大约翻倍，疏密不变
+    big = DIAMOND.with_changes(font_size=2 * DIAMOND.font_size)
+    assert diamond_cell(_TextBlock("MARK", watermark_font(big)), big) == pytest.approx(2 * cells[1], rel=0.15)
+
+
+@pytest.mark.parametrize("text", ["WATERMARK", "LINE ONE\nTWO", "I"])
+def test_diamond_texts_never_overlap_even_at_zero_spacing(qapp, text):
+    style = DIAMOND.with_changes(spacing=0)
+    block = _TextBlock(text, watermark_font(style))
+    centers = [center for center, _angle in watermark_placements(QRectF(0, 0, 600, 400), text, style)]
+    assert len(centers) > 4
+    for index, first in enumerate(centers):
+        for second in centers[index + 1:]:
+            apart_x = abs(first.x() - second.x()) >= block.width - 1e-6
+            apart_y = abs(first.y() - second.y()) >= block.height - 1e-6
+            assert apart_x or apart_y
+
+
+def test_diamond_lines_stop_at_the_text_and_dashes_are_lighter_than_solid(qapp):
+    rect = QRectF(0, 0, W, H)
+    solid = _paint(rect, style=DIAMOND.with_changes(line_style="solid"))
+    dash = _paint(rect, style=DIAMOND.with_changes(line_style="dash"))
+    bare = _paint(rect, style=DIAMOND.with_changes(line_style="none"))
+    assert _inked(bare) < _inked(dash) < _inked(solid)
+
+    block = _TextBlock("WATERMARK", watermark_font(DIAMOND))
+    for center, _angle in watermark_placements(rect, "WATERMARK", DIAMOND):
+        box = QRectF(center.x() - block.width / 2, center.y() - block.height / 2, block.width, block.height)
+        region = box.intersected(rect).toAlignedRect()
+        if not region.isEmpty():
+            assert solid.copy(region) == bare.copy(region)
+
+
+def test_diamond_has_its_own_angle_and_tiles_ignore_it(qapp):
+    rect = QRectF(0, 0, 400, 300)
+    angles = {angle for _c, angle in watermark_placements(rect, "MARK", DIAMOND.with_changes(diamond_angle=20, angle=-60))}
+    assert angles == {20}
+    angles = {angle for _c, angle in watermark_placements(rect, "MARK", INK.with_changes(angle=15, diamond_angle=20))}
+    assert angles == {15}
+
+
+def test_rotating_the_diamond_turns_the_whole_grid_rigidly(qapp):
+    rect = QRectF(0, 0, 500, 400)
+
+    def nearest_gap(angle):
+        centers = [c for c, _a in watermark_placements(rect, "MARK", DIAMOND.with_changes(diamond_angle=angle))]
+        first = centers[len(centers) // 2]
+        return min(math.hypot(first.x() - c.x(), first.y() - c.y()) for c in centers if c != first)
+
+    assert nearest_gap(33) == pytest.approx(nearest_gap(0), rel=1e-6)
+
+
+def test_diamond_stays_inside_the_rect(qapp):
+    rect = QRectF(60, 40, 120, 80)
+    image = _paint(rect, style=DIAMOND.with_changes(diamond_angle=-30))
+    assert _inked(image, rect) > 0
+    assert _inked(image) == _inked(image, rect)
+
+
+# ---------------------------------------------------------------------------
 # 场景里的水印
 # ---------------------------------------------------------------------------
 
@@ -254,6 +343,14 @@ def test_style_changes_apply_to_the_watermark_and_become_the_default(qapp, water
     # 样式不进撤销栈：撤销只撤掉铺上水印这一步
     scene.undo_stack.undo()
     assert WatermarkItem.find(scene) is None
+
+
+def test_diamond_fields_are_saved_as_the_default(qapp, watermark_settings):
+    scene = _scene()
+    item = WatermarkTool.add(scene)
+    WatermarkTool.change_style(scene, layout="diamond", diamond_angle=15, line_style="dash")
+    assert (item.style().layout, item.style().diamond_angle, item.style().line_style) == ("diamond", 15, "dash")
+    assert WatermarkTool.load_style(watermark_settings) == item.style()
 
 
 def test_applying_the_text_restamps_the_time(qapp, watermark_settings):
@@ -423,11 +520,43 @@ def test_style_popup_sliders_and_colors_report_their_fields(qapp):
     popup._on_preset("#FF0000")
     assert changes == [("opacity", 0.3), ("spacing", 55), ("angle", -45), ("color", "#ff0000")]
 
-    # 角度只对平铺起作用，换成单个位置后那一行变灰
+    # 角度只对平铺和菱形起作用，换成单个位置后那一行变灰
     panel.layout_combo.setCurrentIndex(panel.layout_combo.findData("center"))
     assert not popup._sliders["angle"].isEnabled()
     panel.layout_combo.setCurrentIndex(panel.layout_combo.findData(LAYOUT_TILE))
     assert popup._sliders["angle"].isEnabled()
+    popup.hide()
+
+
+def test_style_popup_angle_and_grid_lines_follow_the_layout(qapp):
+    from ui.watermark_settings_panel import WatermarkSettingsPanel
+
+    panel = WatermarkSettingsPanel()
+    changes = []
+    panel.style_changed.connect(lambda key, value: changes.append((key, value)))
+    panel.load_style(INK.with_changes(layout="diamond", angle=-30, diamond_angle=10, line_style="dash"))
+    panel.show_style_popup()
+    popup = panel._style_popup
+
+    # 菱形：角度滑块读写菱形自己的角度，网格线可选
+    assert popup._sliders["angle"].value() == 10 and popup._sliders["angle"].isEnabled()
+    assert popup._line_buttons["dash"].isChecked() and popup._line_buttons["solid"].isEnabled()
+    popup._sliders["angle"].setValue(25)
+    popup._line_buttons["none"].click()
+    assert changes == [("diamond_angle", 25), ("line_style", "none")]
+
+    # 换成平铺：滑块改读平铺的角度，网格线变灰
+    changes.clear()
+    panel.layout_combo.setCurrentIndex(panel.layout_combo.findData(LAYOUT_TILE))
+    assert popup._sliders["angle"].value() == -30
+    assert not popup._line_buttons["solid"].isEnabled()
+    popup._sliders["angle"].setValue(-40)
+    assert changes == [("layout", "tile"), ("angle", -40)]
+
+    # 单个位置：两样都不起作用
+    panel.layout_combo.setCurrentIndex(panel.layout_combo.findData("center"))
+    assert not popup._sliders["angle"].isEnabled()
+    assert not popup._line_buttons["none"].isEnabled()
     popup.hide()
 
 

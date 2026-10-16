@@ -5721,6 +5721,10 @@ gifrecorder が正しくインストールされているか確認してくだ�
         <translation>タイル</translation>
     </message>
     <message>
+        <source>Diamond</source>
+        <translation>ひし形</translation>
+    </message>
+    <message>
         <source>Center</source>
         <translation>中央</translation>
     </message>
@@ -5789,8 +5793,28 @@ gifrecorder が正しくインストールされているか確認してくだ�
         <translation>カスタムカラー</translation>
     </message>
     <message>
-        <source>Angle applies to tiled watermarks</source>
-        <translation>角度はタイル配置のときだけ有効です</translation>
+        <source>Angle applies to tiled and diamond watermarks</source>
+        <translation>角度はタイル配置とひし形のときだけ有効です</translation>
+    </message>
+    <message>
+        <source>Grid Lines</source>
+        <translation>グリッド線</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>なし</translation>
+    </message>
+    <message>
+        <source>Solid</source>
+        <translation>実線</translation>
+    </message>
+    <message>
+        <source>Dashed</source>
+        <translation>破線</translation>
+    </message>
+    <message>
+        <source>Grid lines apply to diamond watermarks</source>
+        <translation>グリッド線はひし形のときだけ有効です</translation>
     </message>
 </context>
 <context>

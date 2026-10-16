@@ -5509,6 +5509,10 @@ Make sure gifrecorder is installed correctly.</translation>
         <translation>Tiled</translation>
     </message>
     <message>
+        <source>Diamond</source>
+        <translation>Diamond</translation>
+    </message>
+    <message>
         <source>Center</source>
         <translation>Center</translation>
     </message>
@@ -5577,8 +5581,28 @@ Make sure gifrecorder is installed correctly.</translation>
         <translation>Custom Color</translation>
     </message>
     <message>
-        <source>Angle applies to tiled watermarks</source>
-        <translation>Angle applies to tiled watermarks</translation>
+        <source>Angle applies to tiled and diamond watermarks</source>
+        <translation>Angle applies to tiled and diamond watermarks</translation>
+    </message>
+    <message>
+        <source>Grid Lines</source>
+        <translation>Grid Lines</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>None</translation>
+    </message>
+    <message>
+        <source>Solid</source>
+        <translation>Solid</translation>
+    </message>
+    <message>
+        <source>Dashed</source>
+        <translation>Dashed</translation>
+    </message>
+    <message>
+        <source>Grid lines apply to diamond watermarks</source>
+        <translation>Grid lines apply to diamond watermarks</translation>
     </message>
 </context>
 <context>

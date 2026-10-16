@@ -288,7 +288,7 @@ canvas/
     ├── selection_item.py    # SelectionItem — 選択境界表示
     ├── arrow_item.py        # ArrowItem — 矢印アイテム、9 種類の軸・先端・輪郭のジオメトリ
     ├── text_item.py         # TextItem — テキストアイテム、縁取り/影/背景と三状態の操作枠
-    └── watermark_item.py    # WatermarkItem / WatermarkStyle — 選択範囲に重ねる透かし：タイルまたは 7 か所の位置、複数行と時刻に対応
+    └── watermark_item.py    # WatermarkItem / WatermarkStyle — 選択範囲に重ねる透かし：タイル、ひし形グリッド、または 7 か所の位置、複数行と時刻に対応
 ```
 
 </details>
@@ -697,7 +697,7 @@ ui/
 ├── arrow_settings_panel.py  # ArrowSettingsPanel — 矢印設定パネル
 ├── number_settings_panel.py # 番号ツール設定パネル
 ├── mosaic_settings_panel.py # モザイクツール設定パネル
-├── watermark_settings_panel.py # 透かしパネル：文字・位置・スタイル（不透明度/サイズ/間隔/角度/色）・フォント
+├── watermark_settings_panel.py # 透かしパネル：文字・位置・スタイル（不透明度/サイズ/間隔/角度/グリッド線/色）・フォント
 ├── watermark_input_dialog.py   # WatermarkInputDialog — 複数行の透かし入力、時刻の挿入とプレビュー
 │
 ├── fluent_lite/             # Fluent スタイル軽量コンポーネントライブラリ
