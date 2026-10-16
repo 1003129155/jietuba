@@ -361,19 +361,22 @@ def test_destroy_manage_dialog_clears_the_cached_singleton(monkeypatch):
     assert calls == ["hide", "deleteLater"]
 
 
-def test_settings_dialog_scales_its_own_window_and_shared_cards(qapp):
+def test_settings_dialog_scales_its_own_window_and_shared_cards(qapp, monkeypatch):
     """设置窗口本身以前不受任何缩放设置影响（resize/setFont 写死），
     现在应跟其它独立窗口一样读取 dialog_scale_percent；卡片尺寸走
     fluent_lite 的 SettingCard，同一个改动应该顺带影响它。"""
+    from PySide6.QtCore import QRect
     from ui.fluent_lite.cards import SettingCard
     from ui.fluent_lite.icons import FluentIcon
-    from ui.settings_ui.dialog import SettingsDialog
+    from ui.settings_ui.dialog import SettingsDialog, settings_window_size
+
+    screen = type("Screen", (), {"availableGeometry": lambda self: QRect(0, 0, 1920, 1032)})()
+    monkeypatch.setattr(SettingsDialog, "_target_screen", lambda self: screen)
 
     get_dialog_scale().set_percent(80)
     small = SettingsDialog()
     try:
-        assert small.width() == dialog_scaled(1050)
-        assert small.height() == dialog_scaled(750)
+        assert (small.width(), small.height()) == settings_window_size(1920, 1032, 0.8)
         small_card = SettingCard(FluentIcon.INFO, "t")
         try:
             assert small_card.minimumHeight() == dialog_scaled(62)
@@ -386,7 +389,7 @@ def test_settings_dialog_scales_its_own_window_and_shared_cards(qapp):
     get_dialog_scale().set_percent(150)
     large = SettingsDialog()
     try:
-        assert large.width() == dialog_scaled(1050)
+        assert (large.width(), large.height()) == settings_window_size(1920, 1032, 1.5)
         assert large.width() > small.width()
         large_card = SettingCard(FluentIcon.INFO, "t")
         try:

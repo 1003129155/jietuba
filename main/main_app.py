@@ -561,28 +561,12 @@ class MainApp(QObject):
             # Fallback: 如果还没预加载，立即创建
             self._preloader.preload_settings()
         
-        # 确保窗口在可见屏幕内
-        self._ensure_window_on_screen(self.settings_window)
+        self.settings_window.fit_to_screen()
         
         self.settings_window.setWindowState(self.settings_window.windowState() & ~Qt.WindowState.WindowMinimized | Qt.WindowState.WindowActive)
         self.settings_window.show()
         self.settings_window.raise_()
         self.settings_window.activateWindow()
-
-    def _ensure_window_on_screen(self, win):
-        """检查窗口位置，若在所有屏幕外则居中显示"""
-        from PySide6.QtWidgets import QApplication
-        pos = win.pos()
-        for screen in QApplication.screens():
-            if screen.availableGeometry().contains(pos):
-                return
-        # 窗口不在任何屏幕内，重置到主屏幕中央
-        screen = QApplication.primaryScreen()
-        if screen:
-            screen_rect = screen.availableGeometry()
-            x = screen_rect.x() + (screen_rect.width() - win.width()) // 2
-            y = screen_rect.y() + (screen_rect.height() - win.height()) // 2
-            win.move(x, y)
 
     def on_settings_accepted(self):
         """设置保存后更新热键和剪贴板设置"""
