@@ -116,6 +116,10 @@ class MainApp(QObject):
         self._logger = get_logger()
         self.app.aboutToQuit.connect(self._on_about_to_quit)
 
+        # 没设图标的窗口用它作标题栏和任务栏图标；不设时 Qt 去 exe 里找名为 IDI_ICON1 的图标，
+        # 打包出的 exe 图标只有数字编号，找不到就显示 Windows 默认图标。
+        self.app.setWindowIcon(create_app_icon())
+
         # Qt 的自动高 DPI 缩放已关闭。首次进入欢迎向导前，按 Windows 的
         # 显示缩放为两套界面比例选一个初始档位；已有值（包括用户选择）不覆盖。
         from core.ui_scale import apply_first_run_scale_defaults
