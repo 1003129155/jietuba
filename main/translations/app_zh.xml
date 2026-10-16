@@ -689,18 +689,6 @@ Replace it?</source>
         <translation>Windows 截图工具</translation>
     </message>
     <message>
-        <source>oneocr (not found)</source>
-        <translation>oneocr（未找到）</translation>
-    </message>
-    <message>
-        <source>PP-OCR (missing engine)</source>
-        <translation>PP-OCR（缺少引擎）</translation>
-    </message>
-    <message>
-        <source>PP-OCR (missing models)</source>
-        <translation>PP-OCR（缺少模型）</translation>
-    </message>
-    <message>
         <source>OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version</source>
         <translation>OCR 不可用：请从 Microsoft Store 安装截图工具，或下载完整版</translation>
     </message>
@@ -2779,9 +2767,11 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>确认清空</translation>
     </message>
     <message>
-        <source>Are you sure you want to clear all clipboard history?
+        <source>Are you sure you want to clear the clipboard history?
+Pinned items and items in groups will be kept.
 This action cannot be undone.</source>
-        <translation>确定要清空所有剪贴板历史吗？
+        <translation>确定要清空剪贴板历史吗？
+置顶和分组中的内容会保留。
 此操作不可恢复。</translation>
     </message>
     <message>
@@ -2903,6 +2893,10 @@ This action cannot be undone.</source>
     <message>
         <source>Extract Letters</source>
         <translation>仅提取字母</translation>
+    </message>
+    <message>
+        <source>Clear History</source>
+        <translation>清空历史</translation>
     </message>
 </context>
 
@@ -3616,8 +3610,8 @@ This action cannot be undone.</source>
 此操作不可恢复。</translation>
     </message>
     <message>
-        <source>Also delete saved content in groups</source>
-        <translation>同时删除分组中保存的内容</translation>
+        <source>Also delete pinned and grouped content</source>
+        <translation>同时删除置顶和分组中的内容</translation>
     </message>
     <message>
         <source>Clipboard history cleared successfully</source>
@@ -6173,10 +6167,6 @@ Make sure gifrecorder is installed correctly.</source>
         <source>Manage Models</source>
         <translation>管理模型</translation>
     </message>
-    <message>
-        <source>PP-OCR Model</source>
-        <translation>PP-OCR 模型</translation>
-    </message>
 </context>
 <context>
     <name>ModelUpdaterProcess</name>
@@ -6203,10 +6193,6 @@ Make sure gifrecorder is installed correctly.</source>
 </context>
 <context>
     <name>SettingsDialog</name>
-    <message>
-        <source>The model PP-OCR uses to recognize text.</source>
-        <translation>PP-OCR 识别文字时使用的模型。</translation>
-    </message>
     <message>
         <source>Manage PP-OCR Models</source>
         <translation>管理 PP-OCR 模型</translation>

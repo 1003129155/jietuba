@@ -691,18 +691,6 @@ Replace it?</source>
         <translation>Windows Snipping Tool</translation>
     </message>
     <message>
-        <source>oneocr (not found)</source>
-        <translation>oneocr（見つかりません）</translation>
-    </message>
-    <message>
-        <source>PP-OCR (missing engine)</source>
-        <translation>PP-OCR（エンジンがありません）</translation>
-    </message>
-    <message>
-        <source>PP-OCR (missing models)</source>
-        <translation>PP-OCR（モデルがありません）</translation>
-    </message>
-    <message>
         <source>OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version</source>
         <translation>OCR を利用できません：Microsoft Store から Snipping Tool をインストールするか、完全版をダウンロードしてください</translation>
     </message>
@@ -2744,9 +2732,11 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>クリアの確認</translation>
     </message>
     <message>
-        <source>Are you sure you want to clear all clipboard history?
+        <source>Are you sure you want to clear the clipboard history?
+Pinned items and items in groups will be kept.
 This action cannot be undone.</source>
-        <translation>すべてのクリップボード履歴をクリアしてもよろしいですか？
+        <translation>クリップボード履歴をクリアしてもよろしいですか？
+ピン留めした項目とグループ内の項目は残ります。
 この操作は元に戻せません。</translation>
     </message>
     <message>
@@ -2868,6 +2858,10 @@ This action cannot be undone.</source>
     <message>
         <source>Extract Letters</source>
         <translation>英字のみ抽出</translation>
+    </message>
+    <message>
+        <source>Clear History</source>
+        <translation>履歴をクリア</translation>
     </message>
 </context>
 
@@ -3581,8 +3575,8 @@ This action cannot be undone.</source>
 この操作は元に戻せません。</translation>
     </message>
     <message>
-        <source>Also delete saved content in groups</source>
-        <translation>保存された定型文も削除する</translation>
+        <source>Also delete pinned and grouped content</source>
+        <translation>ピン留めとグループ内の内容も削除する</translation>
     </message>
     <message>
         <source>Clipboard history cleared successfully</source>
@@ -6128,10 +6122,6 @@ gifrecorder が正しくインストールされているか確認してくだ�
         <source>Manage Models</source>
         <translation>モデルの管理</translation>
     </message>
-    <message>
-        <source>PP-OCR Model</source>
-        <translation>PP-OCR モデル</translation>
-    </message>
 </context>
 <context>
     <name>ModelUpdaterProcess</name>
@@ -6158,10 +6148,6 @@ gifrecorder が正しくインストールされているか確認してくだ�
 </context>
 <context>
     <name>SettingsDialog</name>
-    <message>
-        <source>The model PP-OCR uses to recognize text.</source>
-        <translation>PP-OCR が文字認識に使うモデルです。</translation>
-    </message>
     <message>
         <source>Manage PP-OCR Models</source>
         <translation>PP-OCR モデルの管理</translation>

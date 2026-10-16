@@ -1,7 +1,8 @@
 //! 剪贴板历史的核心：监听线程、历史查询、把记录写回剪贴板。错误以 `Err(String)` 返回，
 //! 回调是 Rust 闭包；pyo3 绑定在 python.rs。
 
-use crate::database::Database;
+use crate::cf_html;
+use crate::database::{compress_format, image_file, Database};
 use crate::multi_paste;
 use crate::types::{PyClipboardItem, PyPaginatedResult, PyGroup};
 #[cfg(target_os = "windows")]
@@ -14,7 +15,6 @@ use once_cell::sync::Lazy;
 use std::thread;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
-use zstd;
 
 /// 监听线程每记下一条就调用一次
 pub type ItemCallback = Arc<dyn Fn(&PyClipboardItem) + Send + Sync>;
@@ -179,171 +179,6 @@ fn should_skip_callback(id: i64) -> bool {
     false
 }
 
-// ============== 简单函数 ==============
-
-/// 生成 CF_HTML 格式（Windows 剪贴板 HTML 格式）
-fn generate_cf_html(html: &str) -> String {
-    // 如果 HTML 不完整，包装成完整的 HTML 文档
-    let html_content = if !html.contains("<html") {
-        format!(
-            "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n</head>\n<body>\n<!--StartFragment-->{}<!--EndFragment-->\n</body>\n</html>",
-            html
-        )
-    } else if !html.contains("<!--StartFragment-->") {
-        html.replace("<body>", "<body>\n<!--StartFragment-->")
-            .replace("</body>", "<!--EndFragment-->\n</body>")
-    } else {
-        html.to_string()
-    };
-
-    // CF_HTML 需要特定的头部格式
-    let header = "Version:0.9\r\nStartHTML:0000000000\r\nEndHTML:0000000000\r\nStartFragment:0000000000\r\nEndFragment:0000000000\r\n";
-    let start_html = header.len();
-    let end_html = start_html + html_content.len();
-    
-    let start_fragment = start_html + html_content.find("<!--StartFragment-->").unwrap_or(0) + "<!--StartFragment-->".len();
-    let end_fragment = start_html + html_content.find("<!--EndFragment-->").unwrap_or(html_content.len());
-
-    format!(
-        "Version:0.9\r\nStartHTML:{:010}\r\nEndHTML:{:010}\r\nStartFragment:{:010}\r\nEndFragment:{:010}\r\n{}",
-        start_html,
-        end_html,
-        start_fragment,
-        end_fragment,
-        html_content
-    )
-}
-
-
-/// CF_HTML 在 Windows 剪贴板里的格式名，与 generate_cf_html 写出的头部对应。
-const CF_HTML_FORMAT: &str = "HTML Format";
-
-/// 从 CF_HTML 原始字节里取出 HTML 正文。
-///
-/// 不走 clipboard-rs 的 `get_html()`：它最后一步是 `data[start..end]`，而 Rust 的
-/// &str 切片只要落在非字符边界就 panic。写剪贴板的程序把偏移量算在多字节字符
-/// 中间并不罕见，中文内容尤其容易撞上；而本文件里有一个调用点在剪贴板监听线程
-/// 内，线程里 panic 比返回错误难查得多。
-///
-/// 所以这里把头部里的偏移量当作**提示**而非事实：越界就钳制，落在字符中间就
-/// 退回按 `<html>` 标签定位。写入侧本来就是本文件自己实现的（generate_cf_html），
-/// 读取侧一并拿过来也更对称。
-fn extract_html_from_cf_html(raw: &[u8]) -> Option<String> {
-    // lossy 而非 from_utf8：个别非法字节不该让整块内容作废
-    let data = String::from_utf8_lossy(raw);
-    let len = data.len();
-
-    let mut start = 0usize;
-    let mut end = len;
-    for line in data.lines() {
-        // 头部是 "Key:Value" 若干行，遇到标签就说明已经进入正文
-        if line.starts_with('<') {
-            break;
-        }
-        let Some((key, value)) = line.split_once(':') else {
-            continue;
-        };
-        let slot = match key.trim() {
-            "StartHTML" => &mut start,
-            "EndHTML" => &mut end,
-            _ => continue,
-        };
-        // 偏移量按 CF_HTML 惯例补足前导零，全零即 0
-        let digits = value.trim().trim_start_matches('0');
-        match if digits.is_empty() { Ok(0) } else { digits.parse::<usize>() } {
-            Ok(v) => *slot = v,
-            // 头部都写坏了就别再信它，交给下面的兜底
-            Err(_) => break,
-        }
-    }
-
-    let start = start.min(len);
-    let end = end.min(len);
-    if start < end {
-        if let Some(html) = data.get(start..end) {
-            return Some(html.to_string());
-        }
-    }
-
-    // 偏移量不可用（落在字符中间、或首尾颠倒），退回按标签定位。
-    // 标签全是 ASCII，找到的下标必然是合法字符边界。
-    let open = data.find("<html").or_else(|| data.find("<HTML"))?;
-    let close = data
-        .rfind("</html>")
-        .or_else(|| data.rfind("</HTML>"))
-        .map(|i| i + "</html>".len())
-        .unwrap_or(len)
-        .min(len);
-    data.get(open..close).map(|s| s.to_string())
-}
-
-#[cfg(test)]
-mod cf_html_tests {
-    use super::extract_html_from_cf_html;
-
-    const BODY: &str = "<html><body>中文内容测试</body></html>";
-
-    /// 按 CF_HTML 规范拼一份缓冲，start_delta 用来把偏移量推进多字节字符内部
-    fn build(start_delta: usize) -> Vec<u8> {
-        let head_probe = "Version:0.9\r\nStartHTML:0000000000\r\nEndHTML:0000000000\r\n";
-        let head_len = head_probe.len();
-        let total = head_len + BODY.len();
-        format!(
-            "Version:0.9\r\nStartHTML:{:010}\r\nEndHTML:{:010}\r\n{}",
-            head_len + start_delta,
-            total,
-            BODY
-        )
-        .into_bytes()
-    }
-
-    #[test]
-    fn offsets_pointing_at_the_body_are_used_as_is() {
-        assert_eq!(extract_html_from_cf_html(&build(0)).as_deref(), Some(BODY));
-    }
-
-    #[test]
-    fn offset_inside_a_multibyte_char_falls_back_instead_of_panicking() {
-        // "<html><body>" 之后第一个字是「中」，+13 正好落在它的字节中间。
-        // clipboard-rs 的 get_html() 在这里会 panic。
-        assert_eq!(extract_html_from_cf_html(&build(13)).as_deref(), Some(BODY));
-    }
-
-    #[test]
-    fn out_of_range_offsets_are_clamped() {
-        let raw = format!(
-            "Version:0.9\r\nStartHTML:0000000000\r\nEndHTML:0000999999\r\n{}",
-            BODY
-        )
-        .into_bytes();
-        let got = extract_html_from_cf_html(&raw).expect("应当钳制后返回内容");
-        assert!(got.ends_with("</html>"));
-    }
-
-    #[test]
-    fn reversed_offsets_fall_back_to_tag_search() {
-        let raw = format!(
-            "Version:0.9\r\nStartHTML:0000000200\r\nEndHTML:0000000010\r\n{}",
-            BODY
-        )
-        .into_bytes();
-        assert_eq!(extract_html_from_cf_html(&raw).as_deref(), Some(BODY));
-    }
-
-    #[test]
-    fn uppercase_tags_are_recognised_by_the_fallback() {
-        let body = "<HTML><BODY>中文</BODY></HTML>";
-        let raw = format!("Version:0.9\r\nStartHTML:0000000200\r\nEndHTML:0000000010\r\n{}", body)
-            .into_bytes();
-        assert_eq!(extract_html_from_cf_html(&raw).as_deref(), Some(body));
-    }
-
-    #[test]
-    fn garbage_without_any_html_yields_none() {
-        assert_eq!(extract_html_from_cf_html(b"Version:0.9\r\nStartHTML:0000000200\r\n"), None);
-    }
-}
-
 /// 获取剪贴板文本
 pub fn get_clipboard_text() -> Result<Option<String>, String> {
     use clipboard_rs::{Clipboard, ClipboardContext};
@@ -431,11 +266,11 @@ pub fn get_clipboard_html() -> Result<Option<String>, String> {
     let ctx = ClipboardContext::new()
         .map_err(|e| format!("创建剪贴板上下文失败: {}", e))?;
     
-    // 自行解析 CF_HTML，不用 ctx.get_html()（原因见 extract_html_from_cf_html）
+    // 自行解析：头部偏移量算错的内容不能导致 panic
     Ok(ctx
-        .get_buffer(CF_HTML_FORMAT)
+        .get_buffer(cf_html::FORMAT_NAME)
         .ok()
-        .and_then(|raw| extract_html_from_cf_html(&raw)))
+        .and_then(|raw| cf_html::document(&raw)))
 }
 
 /// 获取剪贴板 RTF 富文本内容
@@ -767,8 +602,8 @@ impl ClipboardManager {
                     let png_format = win_clipboard::register_format("PNG");
                     let source_app = get_clipboard_owner();
                     let html_content = captured
-                        .data(win_clipboard::register_format(CF_HTML_FORMAT))
-                        .and_then(extract_html_from_cf_html);
+                        .data(win_clipboard::register_format(cf_html::FORMAT_NAME))
+                        .and_then(cf_html::document);
                     let text_val = captured.data(CF_UNICODETEXT)
                         .map(win_clipboard::decode_unicode)
                         .filter(|t| !t.trim().is_empty());
@@ -835,7 +670,7 @@ impl ClipboardManager {
                         let hash = format!("{:x}", hasher.finalize());
                         let image_id = hash[..16].to_string();
 
-                        let image_path = self.images_dir.join(format!("{}.png", &image_id));
+                        let image_path = image_file(&self.images_dir, &image_id);
                         if !image_path.exists() {
                             let _ = std::fs::write(&image_path, &png_data);
                         }
@@ -902,31 +737,17 @@ impl ClipboardManager {
                         .filter(|(fid, _, _)| !(*fid == 8 && has_dibv5))
                         .collect();
 
-                    // 统计字节数，同时对 >100KB 的数据做一次压缩，
-                    // 压缩结果直接复用（存库时不再重复压缩）；压缩放在拿数据库锁之前
+                    // 统计字节数并在拿数据库锁之前压缩好，存库时直接用
                     // 格式：(format_id, format_name, data, is_compressed)
-                    const THRESHOLD: usize = 100 * 1024;
                     let mut raw_total: usize = 0;
                     let mut compressed_total: usize = 0;
                     let formats_to_store: Vec<(u32, String, Vec<u8>, bool)> = filtered_formats
                         .into_iter()
                         .map(|(fid, fname, data)| {
                             raw_total += data.len();
-                            if data.len() > THRESHOLD {
-                                match zstd::encode_all(data.as_slice(), 3) {
-                                    Ok(cdata) => {
-                                        compressed_total += cdata.len();
-                                        (fid, fname, cdata, true)   // 已压缩
-                                    }
-                                    Err(_) => {
-                                        compressed_total += data.len();
-                                        (fid, fname, data, false)   // 压缩失败，存原始
-                                    }
-                                }
-                            } else {
-                                compressed_total += data.len();
-                                (fid, fname, data, false)           // 不需压缩
-                            }
+                            let (stored, compressed) = compress_format(data);
+                            compressed_total += stored.len();
+                            (fid, fname, stored, compressed)
                         })
                         .collect();
 
@@ -1006,7 +827,7 @@ impl ClipboardManager {
         // 避免大图读取期间阻塞剪贴板监听线程。
         let image_path = {
             let db = self.db.lock();
-            db.get_images_dir().join(format!("{}.png", image_id))
+            image_file(&db.get_images_dir(), image_id)
         };
         
         if image_path.exists() {
@@ -1151,6 +972,16 @@ impl ClipboardManager {
     pub fn clear_history(&self, keep_grouped: bool) -> Result<(), String> {
         let db = self.db.lock();
         db.clear_all(keep_grouped)
+    }
+
+    /// 清理没有置顶、也没有加入分组的条目；置顶和分组里的内容都保留
+    ///
+    /// Args:
+    ///     vacuum: True = 删完整理数据库文件、立即回收磁盘空间；
+    ///             False = 只删行，空间留在库里复用，适合只想让条目不再显示的场合
+    pub fn clear_unpinned_ungrouped(&self, vacuum: bool) -> Result<(), String> {
+        let db = self.db.lock();
+        db.clear_unpinned_ungrouped(vacuum)
     }
 
     /// 切换置顶状态
@@ -1510,7 +1341,7 @@ fn merged_formats(
                 .filter(|text| !text.is_empty())
                 .unwrap_or_else(|| item.content.clone());
             let html = rich.then(|| {
-                stored_format(&formats, CF_HTML_FORMAT)
+                stored_format(&formats, cf_html::FORMAT_NAME)
                     .and_then(HtmlPart::from_cf_html)
                     .or_else(|| item.html_content.as_deref()
                         .filter(|html| !html.is_empty())
@@ -1545,9 +1376,8 @@ fn merged_formats(
             let parts: Vec<HtmlPart> = texts.iter()
                 .map(|piece| piece.html.clone().unwrap_or_else(|| HtmlPart::from_text(&piece.text)))
                 .collect();
-            let mut cf_html = generate_cf_html(&multi_paste::merge_html(&parts, &options.separator)).into_bytes();
-            cf_html.push(0);
-            formats.push((win_clipboard::register_format(CF_HTML_FORMAT), cf_html));
+            let html = cf_html::encode(&multi_paste::merge_html(&parts, &options.separator));
+            formats.push((win_clipboard::register_format(cf_html::FORMAT_NAME), html));
         }
         if texts.iter().any(|piece| piece.rtf.is_some()) {
             let sources: Vec<RtfSource> = texts.iter()
@@ -1587,7 +1417,7 @@ fn stitched_image_formats(
                 .or_else(|| stored_format(&formats, "CF_DIB"))
                 .map(|dib| ImageSource::Dib(dib.to_vec())))
             .or_else(|| item.image_id.as_deref()
-                .and_then(|id| std::fs::read(images_dir.join(format!("{id}.png"))).ok())
+                .and_then(|id| std::fs::read(image_file(images_dir, id)).ok())
                 .map(ImageSource::Png));
         if let Some((source, size)) = source.and_then(|source| source.dimensions().map(|size| (source, size))) {
             sources.push((item.id, source, size));
@@ -1687,9 +1517,7 @@ fn formats_from_item(
         "text" => {
             let mut formats = vec![(CF_UNICODETEXT, win_clipboard::encode_unicode(&item.content))];
             if let Some(html) = item.html_content.as_deref().filter(|html| with_html && !html.is_empty()) {
-                let mut cf_html = generate_cf_html(html).into_bytes();
-                cf_html.push(0);
-                formats.push((win_clipboard::register_format(CF_HTML_FORMAT), cf_html));
+                formats.push((win_clipboard::register_format(cf_html::FORMAT_NAME), cf_html::encode(html)));
             }
             Ok(formats)
         }
@@ -1697,7 +1525,7 @@ fn formats_from_item(
             let Some(image_id) = item.image_id.as_deref() else {
                 return Ok(Vec::new());
             };
-            let Ok(png) = std::fs::read(images_dir.join(format!("{}.png", image_id))) else {
+            let Ok(png) = std::fs::read(image_file(images_dir, image_id)) else {
                 return Ok(Vec::new());
             };
             let rgba = image::load_from_memory_with_format(&png, image::ImageFormat::Png)
@@ -1759,7 +1587,7 @@ mod paste_format_tests {
         let formats = formats_from_item(&text, true, std::path::Path::new(".")).unwrap();
         assert_eq!(decode_unicode(&formats[0].1), "文字");
         assert_eq!(formats[1].0, register_format("HTML Format"));
-        assert!(extract_html_from_cf_html(&formats[1].1).unwrap().contains("<i>文字</i>"));
+        assert!(cf_html::document(&formats[1].1).unwrap().contains("<i>文字</i>"));
         assert_eq!(formats_from_item(&text, false, std::path::Path::new(".")).unwrap().len(), 1);
 
         let files = item(&serde_json::json!({ "files": [r"C:\a.txt", r"D:\图.png"] }).to_string(), "file");

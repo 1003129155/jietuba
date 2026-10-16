@@ -830,6 +830,7 @@
 "🔇 [Logger] 日志已禁用": "🔇 [Logger] Logging disabled",
 "🗑️ [日志清理] 已删除 {deleted_count} 个过期日志文件（保留 {retention_days} 天）": "🗑️ [Log cleanup] Deleted {deleted_count} expired log file(s) (retention: {retention_days} days)",
 "🗑️ 历史已清空 (keep_grouped={keep_grouped})": "🗑️ History cleared (keep_grouped={keep_grouped})",
+"🗑️ 已清理未置顶且未分组的历史": "🗑️ Cleared history that is neither pinned nor grouped",
 "🚨 检测到窗口在所有显示器外，执行强制修复...": "🚨 Window detected outside all screens, performing forced fix...",
 "🛑 [Logger] 日志系统关闭": "🛑 [Logger] Logging system shut down",
 "🛑 停止监听": "🛑 Stopped monitoring"

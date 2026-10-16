@@ -85,6 +85,7 @@ TRANSLATIONS: dict[str, str] = {
     "获取项失败: {e}": "Failed to get item: {e}",
     "删除失败: {e}": "Delete failed: {e}",
     "🗑️ 历史已清空 (keep_grouped={keep_grouped})": "🗑️ History cleared (keep_grouped={keep_grouped})",
+    "🗑️ 已清理未置顶且未分组的历史": "🗑️ Cleared history that is neither pinned nor grouped",
     "清空失败: {e}": "Clear failed: {e}",
     "添加内容成功: ID={item_id}": "Content added successfully: ID={item_id}",
     "添加内容失败: {e}": "Failed to add content: {e}",

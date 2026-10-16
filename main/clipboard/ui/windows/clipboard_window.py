@@ -729,6 +729,7 @@ class ClipboardWindow(QWidget, FramelessMixin):
             on_set_image_size=self._set_image_size,
             on_set_theme=self._set_theme,
             on_add_item=self._on_add_item_clicked,
+            on_clear_history=self._on_clear_clicked,
             on_set_group_bar_position=self._set_group_bar_position,
             multi_paste_separator=self.config.get_clipboard_multi_paste_separator(),
             multi_paste_order=self.config.get_clipboard_multi_paste_order(),

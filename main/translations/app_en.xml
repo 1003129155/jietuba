@@ -685,18 +685,6 @@ Replace it?</translation>
         <translation>Windows Snipping Tool</translation>
     </message>
     <message>
-        <source>oneocr (not found)</source>
-        <translation>oneocr (not found)</translation>
-    </message>
-    <message>
-        <source>PP-OCR (missing engine)</source>
-        <translation>PP-OCR (missing engine)</translation>
-    </message>
-    <message>
-        <source>PP-OCR (missing models)</source>
-        <translation>PP-OCR (missing models)</translation>
-    </message>
-    <message>
         <source>OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version</source>
         <translation>OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version</translation>
     </message>
@@ -2552,9 +2540,11 @@ Items in the group will be moved back to clipboard history.</translation>
         <translation>Confirm Clear</translation>
     </message>
     <message>
-        <source>Are you sure you want to clear all clipboard history?
+        <source>Are you sure you want to clear the clipboard history?
+Pinned items and items in groups will be kept.
 This action cannot be undone.</source>
-        <translation>Are you sure you want to clear all clipboard history?
+        <translation>Are you sure you want to clear the clipboard history?
+Pinned items and items in groups will be kept.
 This action cannot be undone.</translation>
     </message>
     <message>
@@ -2676,6 +2666,10 @@ This action cannot be undone.</translation>
     <message>
         <source>Extract Letters</source>
         <translation>Extract Letters</translation>
+    </message>
+    <message>
+        <source>Clear History</source>
+        <translation>Clear History</translation>
     </message>
 </context>
 
@@ -3389,8 +3383,8 @@ This action cannot be undone.</source>
 This action cannot be undone.</translation>
     </message>
     <message>
-        <source>Also delete saved content in groups</source>
-        <translation>Also delete saved content in groups</translation>
+        <source>Also delete pinned and grouped content</source>
+        <translation>Also delete pinned and grouped content</translation>
     </message>
     <message>
         <source>Clipboard history cleared successfully</source>
@@ -5916,10 +5910,6 @@ Make sure gifrecorder is installed correctly.</translation>
         <source>Manage Models</source>
         <translation>Manage Models</translation>
     </message>
-    <message>
-        <source>PP-OCR Model</source>
-        <translation>PP-OCR Model</translation>
-    </message>
 </context>
 <context>
     <name>ModelUpdaterProcess</name>
@@ -5946,10 +5936,6 @@ Make sure gifrecorder is installed correctly.</translation>
 </context>
 <context>
     <name>SettingsDialog</name>
-    <message>
-        <source>The model PP-OCR uses to recognize text.</source>
-        <translation>The model PP-OCR uses to recognize text.</translation>
-    </message>
     <message>
         <source>Manage PP-OCR Models</source>
         <translation>Manage PP-OCR Models</translation>

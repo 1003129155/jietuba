@@ -684,18 +684,6 @@ Replace it?</source>
         <translation>Windows 캡처 도구</translation>
     </message>
     <message>
-        <source>oneocr (not found)</source>
-        <translation>oneocr(찾을 수 없음)</translation>
-    </message>
-    <message>
-        <source>PP-OCR (missing engine)</source>
-        <translation>PP-OCR (엔진 없음)</translation>
-    </message>
-    <message>
-        <source>PP-OCR (missing models)</source>
-        <translation>PP-OCR (모델 없음)</translation>
-    </message>
-    <message>
         <source>OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version</source>
         <translation>OCR을 사용할 수 없음: Microsoft Store에서 캡처 도구를 설치하거나 전체 버전을 다운로드하세요</translation>
     </message>
@@ -2699,9 +2687,11 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>비우기 확인</translation>
     </message>
     <message>
-        <source>Are you sure you want to clear all clipboard history?
+        <source>Are you sure you want to clear the clipboard history?
+Pinned items and items in groups will be kept.
 This action cannot be undone.</source>
-        <translation>모든 클립보드 기록을 비우시겠습니까?
+        <translation>클립보드 기록을 비우시겠습니까?
+고정한 항목과 그룹 안의 항목은 유지됩니다.
 이 작업은 되돌릴 수 없습니다.</translation>
     </message>
     <message>
@@ -2823,6 +2813,10 @@ This action cannot be undone.</source>
     <message>
         <source>Extract Letters</source>
         <translation>영문자만 추출</translation>
+    </message>
+    <message>
+        <source>Clear History</source>
+        <translation>기록 비우기</translation>
     </message>
 </context>
 
@@ -3536,8 +3530,8 @@ This action cannot be undone.</source>
 이 작업은 되돌릴 수 없습니다.</translation>
     </message>
     <message>
-        <source>Also delete saved content in groups</source>
-        <translation>그룹에 저장된 내용도 함께 삭제</translation>
+        <source>Also delete pinned and grouped content</source>
+        <translation>고정 및 그룹 내용도 함께 삭제</translation>
     </message>
     <message>
         <source>Clipboard history cleared successfully</source>
@@ -6087,10 +6081,6 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
         <source>Manage Models</source>
         <translation>모델 관리</translation>
     </message>
-    <message>
-        <source>PP-OCR Model</source>
-        <translation>PP-OCR 모델</translation>
-    </message>
 </context>
 <context>
     <name>ModelUpdaterProcess</name>
@@ -6117,10 +6107,6 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
 </context>
 <context>
     <name>SettingsDialog</name>
-    <message>
-        <source>The model PP-OCR uses to recognize text.</source>
-        <translation>PP-OCR가 텍스트 인식에 사용하는 모델입니다.</translation>
-    </message>
     <message>
         <source>Manage PP-OCR Models</source>
         <translation>PP-OCR 모델 관리</translation>

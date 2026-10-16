@@ -932,26 +932,26 @@ class ClipboardController(QObject):
         return dialog
     
     def clear_history(self, parent_widget=None) -> bool:
-        """清空历史
+        """清理未置顶且未分组的历史
         
         Args:
             parent_widget: 父窗口（用于显示确认对话框）
         
         Returns:
-            是否清空成功
+            是否清理成功
         """
         # 显示确认对话框
         if parent_widget:
             reply = show_confirm_dialog(
                 parent_widget,
                 _tr("Confirm Clear"),
-                _tr("Are you sure you want to clear all clipboard history?\nThis action cannot be undone.")
+                _tr("Are you sure you want to clear the clipboard history?\nPinned items and items in groups will be kept.\nThis action cannot be undone.")
             )
             if not reply:
                 return False
 
-        # 清空历史
-        if self.manager.clear_history():
+        # 在窗口里清理只是让条目不再显示，不做 VACUUM；回收磁盘空间留给设置页
+        if self.manager.clear_unpinned_ungrouped(vacuum=False):
             self.load_history()
             return True
         return False
