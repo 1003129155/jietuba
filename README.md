@@ -15,7 +15,7 @@ jietuba is a free, open-source screenshot tool for Windows: region and window ca
 
 MP4 region recording supports custom frame rates and bitrates, pause/resume, the mouse pointer, and system audio. Audio from common 5.1/7.1 playback devices is converted to stereo; microphone recording is not included.
 
-The interface is built with PySide6; image processing, clipboard access, and the PP-OCR engine are implemented in Rust. Runs on Windows x86_64 and ARM64.
+There are two implementations, Python (PySide6) and C++ (Qt6), with the same features, interface and settings; image processing, clipboard access, the PP-OCR engine and other core parts are implemented in Rust and shared by both. Runs on Windows x86_64 and ARM64.
 
 Download a ready-to-run Windows release or run the application from source.
 
@@ -46,15 +46,17 @@ The Windows x86_64 and ARM64 releases are ready to run. You do not need to insta
 1. Open the [Releases page](https://github.com/1003129155/jietuba/releases/latest) and download the archive ending in `-x64.zip` or `-arm64.zip` for your device.
 2. There are two packages. Extract the entire archive and double-click the exe inside:
    - **Full** `jietuba_pp-…zip`: includes the PP-OCR engine and models, so OCR works on any Windows. Keep `jietuba_pp.exe` and the `models/` folder together.
-   - **Lite** `jietuba_lite-…zip`: smaller, and uses only the OCR built into the Windows 11 Snipping Tool; OCR is unavailable on PCs without it, or where it is older than 11.2308 (no "Text actions"). Update the Snipping Tool or use the Full package.
+   - **Lite** `jietuba_lite-…zip`: a single native C++ exe, smaller and faster to start (measured on the same PC: startup 2.16 → 1.14 s, memory 199 → 158 MB). By default it uses only the OCR built into the Windows 11 Snipping Tool; OCR is unavailable on PCs without it, or where it is older than 11.2308 (no "Text actions"). Update the Snipping Tool or use the Full package. Placing the PP-OCR pack beside the exe also enables PP-OCR; see [cpp/README.md](cpp/README.md#pp-ocr-组件包) (in Chinese).
 3. Both packages prefer the Snipping Tool OCR by default (faster, more languages). Switch engines under **OCR Settings** in Settings.
 4. The application is not digitally signed, so Windows may display a warning after you download it through a browser. If prompted, click **More info**, then **Run anyway** to start the application.
 
-After installing the first release containing the updater, use **About → Check for Updates → Update and Restart**. It downloads the matching GitHub Release ZIP, replaces only the application EXE, and restarts. Settings, clipboard history, models and other files remain intact. Finish recording, exporting and saving before installation. The last application backup is kept under `.jietuba-update/`; see [updater recovery](rust_libs/updater/README.md).
+Both packages share settings and clipboard history, so you can switch between them, but do not run both at once (the default hotkeys conflict).
+
+After installing the first release containing the updater, use **About → Check for Updates → Update and Restart**. It downloads the matching GitHub Release ZIP, replaces only the application EXE, and restarts. Settings, clipboard history, models and other files remain intact. Finish recording, exporting and saving before installation. The last application backup is kept under `.jietuba-update/`; see [updater recovery](rust_libs/updater/README.md). Older Python lite builds switch to the C++ build through the one-click update, keeping settings and clipboard history.
 
 ## Code Signing Policy
 
-The `jietuba_pp.exe` and `jietuba_lite.exe` files in the Windows releases are built from this repository by GitHub Actions and signed through SignPath.
+The `jietuba_pp.exe` (packaged from the Python source) and `jietuba_lite.exe` (built from the C++ source in [cpp/](cpp/)) files in the Windows releases are built from this repository by GitHub Actions and signed through SignPath.
 
 Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
 
@@ -142,13 +144,17 @@ The [test directory](main/tests/) contains unit and integration tests for captur
 
 Tests that drive the real mouse and keyboard, such as `test_quick_capture_real_hooks.py`, are skipped by default. Set `RUN_REAL_INPUT_TESTS=1` to run them, and leave the mouse and keyboard alone while they run. Tests that rewrite the real system clipboard (`test_clipboard_monitor_real.py`) are skipped too; set `RUN_REAL_CLIPBOARD_TESTS=1` to run them, and don't copy anything while they run.
 
-To build a Windows release, install the recorder wheel matching the active Python architecture, then run `python build_with_ocr_onefile.py`. It collects the installed recording extension and its license notices, while building the standalone updater with Cargo. The full build produces `dist/jietuba_pp.exe` and `dist/models/`; add `--lite` for `dist_lite/jietuba_lite.exe`. Recorder wheel build instructions are in the [publishing notes](rust_libs/PUBLISHING.md) (in Chinese). The automated [release workflow](.github/workflows/build.yml) creates full and lite archives for x64 and ARM64.
+To build a Windows release, install the recorder wheel matching the active Python architecture, then run `python build_with_ocr_onefile.py`. It collects the installed recording extension and its license notices, while building the standalone updater with Cargo. The full build produces `dist/jietuba_pp.exe` and `dist/models/`. `--lite` still builds the Python lite package `dist_lite/jietuba_lite.exe`, which releases no longer use. Recorder wheel build instructions are in the [publishing notes](rust_libs/PUBLISHING.md) (in Chinese). The automated [release workflow](.github/workflows/build.yml) builds the full and lite ([lite.yml](.github/workflows/lite.yml)) packages in parallel, signs them, and creates archives for x64 and ARM64.
+
+### C++ Implementation
+
+The C++ implementation lives in [cpp/](cpp/), whose `src/` mirrors `main/` module by module; the released lite package is currently built from it. Building, testing and conventions are described in [cpp/README.md](cpp/README.md) (in Chinese). Both implementations must behave the same: a pull request that changes the behavior of one changes the other too, and the C++ parity tests take their expected results from the Python version. Changes to `cpp/` or `rust_libs/` run the [C++ CI](.github/workflows/cpp.yml), which builds the C++ version and runs the tests that need no desktop.
 
 ### Rust Library Layering
 
 The logic in `rust_libs/` is written once and shared by the Python and C++ versions:
 
-- Each library has two layers: a pure Rust core, and PyO3 bindings kept in `python.rs` (`bindings.rs` for the recorder) behind the default `python` feature. The C++ version depends on the crate with `default-features = false` and calls the same core from its own C interface layer.
+- Each library has two layers: a pure Rust core, and PyO3 bindings kept in `python.rs` (`bindings.rs` for the recorder) behind the default `python` feature. The C++ version depends on the crate with `default-features = false` and calls the same core from its own C interface layer (`cpp/native/`).
 - Bindings only convert types, take or release the GIL, map errors and manage object lifetimes. Decisions, defaults, retries and threads belong in the core; otherwise each version grows its own copy and the two drift apart.
 - Recoverable errors in the core return `Result` instead of panicking.
 - Non-UI logic that both versions need with identical behavior goes into the Rust core first; UI code that uses Qt types stays in each language.
@@ -174,8 +180,13 @@ Comments explain only the constraints and design reasons that the code cannot ex
 ├── pyproject.toml                                      # Python project metadata and dependency declarations
 ├── requirements.txt                                   # Runtime dependencies
 ├── requirements-dev.txt                               # Test and build dependencies
-├── build_with_ocr_onefile.py                           # PyInstaller one-file build script (--lite for the lite build)
-├── licenses/                                          # Third-party licenses shipped with releases
+├── build_with_ocr_onefile.py                           # PyInstaller one-file build script (--lite builds the Python lite package, no longer released)
+├── licenses/                                          # Third-party licenses shipped with releases (the C++ build adds cpp/licenses/)
+│
+├── cpp/                     # C++ (Qt6) implementation
+│   ├── src/                 # Mirrors main/ module by module
+│   ├── native/              # C interface over rust_libs, linked statically
+│   └── tests/               # QtTest suites and parity data
 │
 ├── main/                    # Python main program
 │   ├── main_app.py          # App entry point: system tray, global hotkeys, lifecycle management
@@ -199,7 +210,7 @@ Comments explain only the constraints and design reasons that the code cannot ex
 │   ├── video/               # Recording worker — PyO3 recording, bounded JSONL protocol, early dispatch in frozen builds
 │   └── tests/               # Tests module — unit tests & integration tests
 │
-├── rust_libs/               # Rust extension source code
+├── rust_libs/               # Rust libraries shared by the Python extensions and the C++ implementation
 │   ├── gifrecorder/         # GIF/video composition encoder source
 │   ├── longstitch/          # Long screenshot stitching algorithm source
 │   ├── pyclipboard/         # Low-level clipboard operations source
@@ -218,7 +229,7 @@ Comments explain only the constraints and design reasons that the code cannot ex
 │   ├── PP-OCRv6_det_small.onnx   # text detection model (DBNet)
 │   └── PP-OCRv6_rec_small.onnx   # text recognition model (CRNN/CTC)
 │
-└── svg/                     # SVG icon assets
+└── svg/                     # SVG icon assets shared by both implementations
 ```
 
 </details>

@@ -62,8 +62,12 @@ secret 覆盖那套机制，因为仓库级 secret 不参与那层覆盖。
 ## 发布流程
 
 1. 改版本号：`rust_libs/<crate>/Cargo.toml` 与 `pyproject.toml` 两处要一致
+   - C++ 实现以 `default-features = false` 直接依赖这些 crate，`cpp/native/Cargo.lock`
+     也记着它们的版本号，要一起更新：
+     `cargo update -p <crate> --manifest-path cpp/native/Cargo.toml`（只改这一项）。
+     漏了的话 C++ 的 `--locked` 构建直接失败，PR 上的 C++ CI 会判红；给 crate 加依赖时同样要更新
 2. 本地跑一遍 `cargo about generate`，把更新后的 `THIRD-PARTY-NOTICES.txt` 提交
-   （CI 会比对，过期即判红）
+   （CI 会比对，过期即判红；C++ 的发布包也拷这份声明）
 3. Actions → Publish to PyPI → Run workflow，先选 `testpypi`
 4. 从 TestPyPI 装一遍验证：
    `pip install --index-url https://test.pypi.org/simple/ j-stitch`；视频包使用

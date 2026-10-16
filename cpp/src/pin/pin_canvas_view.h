@@ -1,0 +1,34 @@
+#pragma once
+#include "canvas/view.h"
+
+namespace jietuba {
+class PinCanvas;
+class PinWindow;
+
+// The pin window's only content renderer: shows the CanvasScene through the view's
+// own (GPU-accelerated, incremental) painting, rounded by a viewport mask, on a
+// transparent background. Outside editing, dragging moves the window.
+class PinCanvasView : public CanvasView {
+    Q_OBJECT
+public:
+    PinCanvasView(CanvasScene *scene, PinWindow *pin_window, PinCanvas *pin_canvas, bool cross_tool_select = false);
+    void set_corner_radius(double radius);
+    void update_viewport_mask();
+    PinWindow *pin_window;
+    PinCanvas *pin_canvas;
+    bool window_dragging = false;
+protected:
+    void resizeEvent(QResizeEvent *event) override;
+    // Arrow outside editing; the tool cursor while editing.
+    void enterEvent(QEnterEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
+    // Outside editing the window zooms instead.
+    void wheelEvent(QWheelEvent *event) override;
+    // Pin shortcuts go through the ShortcutManager; this is the fallback when it does not take the key.
+    void keyPressEvent(QKeyEvent *event) override;
+private:
+    double corner_radius_ = 8;
+};
+}

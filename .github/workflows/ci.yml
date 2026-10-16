@@ -36,6 +36,20 @@ jobs:
           # diff-cover 需要和目标分支做 diff，浅克隆里没有 base 分支的历史
           fetch-depth: 0
 
+      - name: List Python changes the C++ implementation has not been checked against
+        # 只提醒、不判红：两套实现的行为要一致，这里列出 C++ 上次核对之后改过的 Python 文件
+        if: matrix.arch == 'x64'
+        run: |
+          $report = python cpp/scripts/python_baseline.py verify | ConvertFrom-Json
+          $files = @($report.changed) + @($report.added) + @($report.removed)
+          $summary = if ($files.Count -eq 0) {
+            "C++ 实现已核对到 $($report.checked_against)，之后 Python 版没有改动。"
+          } else {
+            "C++ 实现上次核对到 $($report.checked_against)，之后改过的 Python 文件（C++ 版若需要跟进，改完用 ``cpp/scripts/python_baseline.py sync`` 记下）：`n`n" + (($files | ForEach-Object { "- ``$_``" }) -join "`n")
+          }
+          $summary | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+          Write-Host $summary
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
@@ -59,6 +73,8 @@ jobs:
         with:
           workspaces: rust_libs
           cache-on-failure: true
+          # PR 从 master2 的缓存恢复；PR 自己存的缓存只会把 10 GB 上限挤满
+          save-if: ${{ github.ref == 'refs/heads/master2' }}
 
       - name: Run Rust unit tests
         run: cargo test --locked --workspace --release --target ${{ matrix.rust-target }} --manifest-path rust_libs/Cargo.toml

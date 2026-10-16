@@ -19,6 +19,19 @@ body:
       required: true
 
   - type: dropdown
+    id: variant
+    attributes:
+      label: 版本类型
+      description: 下载的文件名以 jietuba_pp 开头的是完整版，以 jietuba_lite 开头的是轻量版。
+      options:
+        - 完整版（jietuba_pp）
+        - 轻量版（jietuba_lite）
+        - 源码运行
+        - 不确定
+    validations:
+      required: true
+
+  - type: dropdown
     id: installation
     attributes:
       label: 使用方式

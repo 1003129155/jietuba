@@ -9,6 +9,8 @@
 输出：
   完整版  dist/jietuba_pp.exe、dist/models/PP-OCRv6_det_small.onnx、dist/models/PP-OCRv6_rec_small.onnx
   轻量版  dist_lite/jietuba_lite.exe
+
+发布的轻量版由 cpp/ 构建（见 .github/workflows/lite.yml），--lite 保留给本地对照和退路。
 """
 import PyInstaller.__main__
 from pathlib import Path
