@@ -307,7 +307,9 @@
       "layout": "tile",
       "spacing": 40,
       "angle": -30,
-      "font_family": ""
+      "font_family": "",
+      "diamond_angle": 0,
+      "line_style": "solid"
     },
     "rect": {
       "color": "#FF0000",
@@ -655,7 +657,9 @@
       "layout": "str",
       "spacing": "int",
       "angle": "int",
-      "font_family": "str"
+      "font_family": "str",
+      "diamond_angle": "int",
+      "line_style": "str"
     },
     "rect": {
       "color": "str",

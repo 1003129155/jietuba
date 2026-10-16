@@ -1,5 +1,5 @@
 {
-  "git_head": "ee9ca6be806591099c44568b0bc743aef8a9cc06",
+  "git_head": "66080c74935f3bf8f1f33cc86e34a071be559487",
   "files": [
     {
       "path": "licenses/lucide-LICENSE.txt",
@@ -108,8 +108,8 @@
     },
     {
       "path": "main/canvas/items/watermark_item.py",
-      "sha256": "4f31576c3608ce4303485269f47e8d5f86783d1f855fefa636149ec8a867dc18",
-      "bytes": 12400
+      "sha256": "00af6ab5df1045304a01df7d663f55a3cd08287d974e50a25e1623588bf755c8",
+      "bytes": 17165
     },
     {
       "path": "main/canvas/scene.py",
@@ -828,8 +828,8 @@
     },
     {
       "path": "main/settings/tool_settings.py",
-      "sha256": "0ada441e5dea1cc973c6d1cd86aa1f3e16017d24b6322064725ee34bccf02072",
-      "bytes": 104890
+      "sha256": "2ffb53ba0de6fdbe479288f4f3ff35e1de4e05c616e975f419e69c5f8ebc9b7f",
+      "bytes": 105032
     },
     {
       "path": "main/stitch/__init__.py",
@@ -1103,23 +1103,23 @@
     },
     {
       "path": "main/translations/app_en.xml",
-      "sha256": "df6f07bb890d0e9117392ba4e6f372c454ed4c7a0d642c344cb7b4c5c13c4ebf",
-      "bytes": 209342
+      "sha256": "038b72a3f5e66a3b987cbfdb77b82a284722e9caeb4fca216bb18ba9c4002d37",
+      "bytes": 210052
     },
     {
       "path": "main/translations/app_ja.xml",
-      "sha256": "bf5a61a892d188e042d099c05692d1305bd6fa755338e57c46a45531c00ab09e",
-      "bytes": 231118
+      "sha256": "c988644e5cfe6ef73f6bb81139c19104bac65a9740bd5cfc15fd37f429ed56aa",
+      "bytes": 231854
     },
     {
       "path": "main/translations/app_ko.xml",
-      "sha256": "0814c5b60857021ac832b6f402306713e93487a84b9c2027ccad879e64d9fc25",
-      "bytes": 223717
+      "sha256": "ac77da8f02ee51f1a2e0f600852d34c25cb949b3088903cb6ee4a23b4e9fd1d1",
+      "bytes": 224441
     },
     {
       "path": "main/translations/app_zh.xml",
-      "sha256": "71ed580d388b64d9b5692689bad038975d10cd29e68c8c5efbffaf9d9292859e",
-      "bytes": 212945
+      "sha256": "84d8752ab551b45efc40bdc03e1169d62fcf4e435de7da84c7e2550da6839af7",
+      "bytes": 213639
     },
     {
       "path": "main/ui/__init__.py",
@@ -1458,8 +1458,8 @@
     },
     {
       "path": "main/ui/watermark_settings_panel.py",
-      "sha256": "1fef78c9ffe94cf941984a86c676e2193a5f97466a667581bfcb2518f3ce4347",
-      "bytes": 18548
+      "sha256": "db950d04a3328014c2e00b2aba047918b59d1570fc524aa205eebf5d79939647",
+      "bytes": 21358
     },
     {
       "path": "main/ui/welcome/__init__.py",

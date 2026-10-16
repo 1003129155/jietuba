@@ -1,7 +1,9 @@
 #pragma once
 #include "canvas/items/watermark_item.h"
 #include "ui/base_settings_panel.h"
+#include <QButtonGroup>
 #include <QMap>
+#include <QPushButton>
 #include <QSlider>
 
 namespace jietuba {
@@ -37,11 +39,13 @@ private:
     QString template_, text_;
 };
 
-// Opens over the style button: opacity, size, spacing and angle sliders, then a colour row.
+// Opens over the style button: opacity, size, spacing and angle sliders, the diamond grid's line style,
+// then a colour row. The angle slider turns the text in the tile layout and the whole grid in the diamond
+// layout, each stored on its own (see WatermarkStyle), so it reads and writes the field of the current layout.
 class WatermarkStylePopup : public HoverPopup {
     Q_OBJECT
 public:
-    static constexpr int BASE_LABEL_WIDTH = 56;
+    static constexpr int BASE_LABEL_WIDTH = 64;  // Fits the English Grid Lines.
     static constexpr int BASE_VALUE_WIDTH = 36;
     static constexpr int BASE_SLIDER_WIDTH = 150;
     explicit WatermarkStylePopup(QWidget *parent = nullptr);
@@ -55,12 +59,17 @@ signals:
     void changed(const QString &key, const QVariant &value);
 private:
     static QString controls_qss();
+    static QString angle_field(const QString &layout);
     void show_value(const QString &key, int value);
     void on_slider(const QString &key, int value);
     void on_preset(const QString &color_hex);
     QMap<QString, QSlider *> sliders_;
     QMap<QString, QLabel *> values_;
     QMap<QString, QLabel *> labels_;
+    QString layout_ = LAYOUT_TILE;
+    QLabel *line_label_ = nullptr;
+    QButtonGroup *line_group_ = nullptr;
+    QMap<QString, QPushButton *> line_buttons_;
 };
 
 class WatermarkSettingsPanel : public QWidget {

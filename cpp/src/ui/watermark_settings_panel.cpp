@@ -16,9 +16,14 @@ QString wm_tr(const char *text) { return i18n_tr(text, "WatermarkPanel"); }
 
 const char *layout_name(const QString &key) {
     static const QMap<QString, const char *> names = {
-        {"tile", "Tiled"}, {"center", "Center"}, {"top_left", "Top Left"}, {"top", "Top Center"},
+        {"tile", "Tiled"}, {"diamond", "Diamond"}, {"center", "Center"}, {"top_left", "Top Left"}, {"top", "Top Center"},
         {"top_right", "Top Right"}, {"bottom_left", "Bottom Left"}, {"bottom", "Bottom Center"}, {"bottom_right", "Bottom Right"},
     };
+    return names.value(key, "");
+}
+
+const char *line_style_name(const QString &key) {
+    static const QMap<QString, const char *> names = {{"none", "None"}, {"solid", "Solid"}, {"dash", "Dashed"}};
     return names.value(key, "");
 }
 
@@ -149,6 +154,21 @@ WatermarkStylePopup::WatermarkStylePopup(QWidget *parent) : HoverPopup(parent) {
         values_[key] = value;
         labels_[key] = label;
     }
+    line_label_ = new QLabel(wm_tr("Grid Lines"));
+    line_group_ = new QButtonGroup(this);
+    auto *line_row = new QHBoxLayout;
+    line_row->addWidget(line_label_);
+    for (const auto &key : watermark_line_styles()) {
+        auto *button = new QPushButton(wm_tr(line_style_name(key)));
+        button->setObjectName("GridLineButton");
+        button->setCheckable(true);
+        button->setFocusPolicy(Qt::NoFocus);
+        connect(button, &QPushButton::clicked, this, [this, key] { emit changed("line_style", key); });
+        line_group_->addButton(button);
+        line_row->addWidget(button, 1);
+        line_buttons_[key] = button;
+    }
+    layout->addLayout(line_row);
     color_button = new ColorPickerButton(QColor(WatermarkStyle().color), false, 28, true, true);
     color_button->setToolTip(wm_tr("Custom Color"));
     connect(color_button, &ColorPickerButton::color_changed, this, [this](const QColor &color) { emit changed("color", color.name()); });
@@ -173,6 +193,7 @@ void WatermarkStylePopup::apply_scale() {
         values_[it.key()]->setFixedWidth(scaled(BASE_VALUE_WIDTH));
         it.value()->setFixedWidth(scaled(BASE_SLIDER_WIDTH));
     }
+    if (line_label_) line_label_->setFixedWidth(scaled(BASE_LABEL_WIDTH));
     color_row->apply_scale();
     adjustSize();
 }
@@ -181,6 +202,15 @@ QString WatermarkStylePopup::controls_qss() {
     const auto accent = accent_color().name();
     const QString groove = "rgba(15, 23, 42, 0.12)";
     const auto ink = CONTROL_INK.name();
+    const QString buttons = QString(R"(
+        QPushButton#GridLineButton { background: %1; color: %2; border: none; border-radius: %3px; padding: %4px %5px; font-size: %6px; }
+        QPushButton#GridLineButton:hover { background: %7; }
+        QPushButton#GridLineButton:checked { background: %8; color: white; }
+        QPushButton#GridLineButton:disabled { color: rgba(42, 50, 67, 0.4); }
+        QPushButton#GridLineButton:checked:disabled { background: %9; color: rgba(42, 50, 67, 0.4); }
+        )")
+        .arg(CONTROL_FILL.name(QColor::HexArgb)).arg(ink).arg(scaled(6)).arg(scaled(3)).arg(scaled(6)).arg(scaled(12))
+        .arg(CONTROL_FILL_HOVER.name(QColor::HexArgb)).arg(accent).arg(groove);
     return QString(R"(
         QLabel { color: %1; background: transparent; font-size: %2px; }
         QSlider { background: transparent; min-height: %3px; }
@@ -195,15 +225,18 @@ QString WatermarkStylePopup::controls_qss() {
         QSlider::groove:horizontal:disabled, QSlider::sub-page:horizontal:disabled { background: %5; }
         QLabel:disabled { color: rgba(42, 50, 67, 0.4); }
         )")
-        .arg(ink).arg(scaled(12)).arg(scaled(20)).arg(scaled(4)).arg(groove).arg(scaled(2)).arg(accent).arg(scaled(12)).arg(-scaled(4)).arg(scaled(6));
+        .arg(ink).arg(scaled(12)).arg(scaled(20)).arg(scaled(4)).arg(groove).arg(scaled(2)).arg(accent).arg(scaled(12)).arg(-scaled(4)).arg(scaled(6))
+        + buttons;
 }
+
+QString WatermarkStylePopup::angle_field(const QString &layout) { return layout == LAYOUT_DIAMOND ? "diamond_angle" : "angle"; }
 
 void WatermarkStylePopup::show_value(const QString &key, int value) { values_[key]->setText(QString::number(value) + value_suffix(key)); }
 
 void WatermarkStylePopup::on_slider(const QString &key, int value) {
     show_value(key, value);
     for (const auto &row : ROWS)
-        if (key == row.key) emit changed(key, row.to_style(value));
+        if (key == row.key) emit changed(key == "angle" ? angle_field(layout_) : key, row.to_style(value));
 }
 
 void WatermarkStylePopup::on_preset(const QString &color_hex) {
@@ -212,23 +245,34 @@ void WatermarkStylePopup::on_preset(const QString &color_hex) {
 }
 
 void WatermarkStylePopup::load_style(const WatermarkStyle &style) {
+    layout_ = style.layout;
     for (const auto &row : ROWS) {
         auto *slider = sliders_[row.key];
         slider->blockSignals(true);
-        slider->setValue(row.from_style(style));
+        slider->setValue(QString(row.key) == "angle" ? (layout_ == LAYOUT_DIAMOND ? style.diamond_angle : style.angle) : row.from_style(style));
         slider->blockSignals(false);
         show_value(row.key, slider->value());
     }
-    // Angle only affects tiled watermarks.
-    const bool tiled = style.layout == LAYOUT_TILE;
+    // The angle applies to the tile and diamond layouts, the grid lines to the diamond layout only.
+    const bool rotates = style.layout == LAYOUT_TILE || style.layout == LAYOUT_DIAMOND;
     for (QWidget *widget : {static_cast<QWidget *>(sliders_["angle"]), static_cast<QWidget *>(labels_["angle"]), static_cast<QWidget *>(values_["angle"])})
-        widget->setEnabled(tiled);
-    sliders_["angle"]->setToolTip(tiled ? QString() : wm_tr("Angle applies to tiled watermarks"));
+        widget->setEnabled(rotates);
+    sliders_["angle"]->setToolTip(rotates ? QString() : wm_tr("Angle applies to tiled and diamond watermarks"));
+    const bool diamond = style.layout == LAYOUT_DIAMOND;
+    QList<QWidget *> line_widgets{line_label_};
+    for (auto *button : line_buttons_) line_widgets.append(button);
+    for (auto *widget : line_widgets) {
+        widget->setEnabled(diamond);
+        widget->setToolTip(diamond ? QString() : wm_tr("Grid lines apply to diamond watermarks"));
+    }
+    for (auto it = line_buttons_.begin(); it != line_buttons_.end(); ++it) it.value()->setChecked(it.key() == style.line_style);
     color_button->set_color(QColor(style.color));
 }
 
 void WatermarkStylePopup::retranslate() {
     for (const auto &row : ROWS) labels_[row.key]->setText(wm_tr(row.text));
+    line_label_->setText(wm_tr("Grid Lines"));
+    for (auto it = line_buttons_.begin(); it != line_buttons_.end(); ++it) it.value()->setText(wm_tr(line_style_name(it.key())));
     color_button->setToolTip(wm_tr("Custom Color"));
 }
 

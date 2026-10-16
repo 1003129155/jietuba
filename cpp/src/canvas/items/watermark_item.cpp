@@ -4,7 +4,9 @@
 #include "core/constants.h"
 #include <QFontMetricsF>
 #include <QGraphicsScene>
+#include <QLineF>
 #include <QPainter>
+#include <QPen>
 #include <QRegularExpression>
 #include <QStyleOptionGraphicsItem>
 #include <QtMath>
@@ -22,11 +24,16 @@ const std::vector<std::pair<QString, QPointF>> &watermark_anchors() {
 
 const QStringList &watermark_layouts() {
     static const QStringList layouts = [] {
-        QStringList result{LAYOUT_TILE};
+        QStringList result{LAYOUT_TILE, LAYOUT_DIAMOND};
         for (const auto &anchor : watermark_anchors()) result.append(anchor.first);
         return result;
     }();
     return layouts;
+}
+
+const QStringList &watermark_line_styles() {
+    static const QStringList styles = {LINE_NONE, LINE_SOLID, LINE_DASH};
+    return styles;
 }
 
 namespace {
@@ -109,9 +116,74 @@ std::vector<QPointF> tile_centers(const QRectF &rect, const QRectF &area, double
     return centers;
 }
 
+// Horizontal diagonal of a diamond, also the centre distance of neighbouring copies in a row. At the
+// tightest, neighbours in the same row, two rows apart and diagonally apart all just avoid overlapping;
+// the spacing comes on top. It looks only at the text box, not the angle: the grid turns as a whole.
+double diamond_cell(const TextBlock &block, const WatermarkStyle &style) {
+    const double tight = std::max({block.width, block.height, 2 * std::min(block.width, block.height), 1.0});
+    return tight + style.font_size * style.spacing * SPACING_UNIT;
+}
+
+struct DiamondLayout {
+    std::vector<QPointF> centers;
+    std::vector<QLineF> segments;
+};
+
+// Copies and line segments of the diamond grid, in selection coordinates. The grid is anchored at the
+// selection's top-left and turns around it by diamond_angle; odd rows are shifted half a cell and the text
+// sits on the left and right vertices. Lines join neighbouring copies and stop at the text box instead of
+// crossing it. Each line belongs to the copy at its upper end; a partial repaint takes, in each direction,
+// the nearest ring of copies outside the exposed area so lines at its edge are not missed.
+DiamondLayout diamond_layout(const QRectF &rect, const TextBlock &block, const WatermarkStyle &style, const QRectF &exposed, bool with_lines) {
+    const auto area = exposed.isNull() ? rect : rect.intersected(exposed);
+    if (rect.isEmpty() || area.isEmpty()) return {};
+    QTransform to_rect;
+    to_rect.translate(rect.left(), rect.top());
+    to_rect.rotate(style.diamond_angle);
+    const auto wanted = to_rect.inverted().mapRect(area);
+
+    const double cell = diamond_cell(block, style);
+    const double row_height = cell * DIAMOND_ROW_RATIO;
+    const double half_cell = cell / 2;
+    const double gap = style.font_size * LINE_TEXT_GAP;
+    const double margin = gap;
+    // A line leaves the text box diagonally through whichever side it reaches first, as a fraction of
+    // the whole edge; lines are drawn only if each end leaves more than that much of the edge.
+    const double exit_at = std::min((block.width / 2 + gap) / half_cell, (block.height / 2 + gap) / row_height);
+    const bool draw_lines = with_lines && exit_at < .5;
+
+    DiamondLayout result;
+    const auto top = static_cast<long long>(std::floor((wanted.top() - margin) / row_height - .5));
+    const auto bottom = static_cast<long long>(std::ceil((wanted.bottom() + margin) / row_height - .5));
+    for (auto row = top; row <= bottom; ++row) {
+        const double y = (row + .5) * row_height;
+        // Rows above the selection are negative, and their % is negative too.
+        const double shift = ((row % 2) + 2) % 2 ? half_cell : 0.0;
+        const auto left = static_cast<long long>(std::floor((wanted.left() - margin - shift) / cell - .5));
+        const auto right = static_cast<long long>(std::ceil((wanted.right() + margin - shift) / cell - .5));
+        for (auto col = left; col <= right; ++col) {
+            const double x = shift + (col + .5) * cell;
+            result.centers.push_back(to_rect.map(QPointF(x, y)));
+            if (!draw_lines) continue;
+            for (const int side : {-1, 1}) {
+                const QPointF start(x + side * half_cell * exit_at, y + row_height * exit_at);
+                const QPointF end(x + side * half_cell * (1 - exit_at), y + row_height * (1 - exit_at));
+                result.segments.emplace_back(to_rect.map(start), to_rect.map(end));
+            }
+        }
+    }
+    return result;
+}
+
 std::vector<std::pair<QPointF, double>> placements_for(const QRectF &rect, const QString &text, const WatermarkStyle &style,
                                                        const QRectF &exposed, const TextBlock &block) {
     if (text.isEmpty() || rect.isEmpty()) return {};
+    if (style.layout == LAYOUT_DIAMOND) {
+        std::vector<std::pair<QPointF, double>> result;
+        for (const auto &center : diamond_layout(rect, block, style, exposed, false).centers)
+            result.emplace_back(center, static_cast<double>(style.diamond_angle));
+        return result;
+    }
     if (const auto anchor = anchor_of(style.layout)) {
         const double margin = style.font_size * EDGE_MARGIN;
         const auto inner = rect.adjusted(margin + block.width / 2, margin + block.height / 2,
@@ -150,12 +222,16 @@ WatermarkStyle WatermarkStyle::from_values(const QVariantMap &values) {
     style.spacing = clamp_int(values.value("spacing", defaults.spacing), defaults.spacing, MIN_SPACING, MAX_SPACING);
     style.angle = clamp_int(values.value("angle", defaults.angle), defaults.angle, MIN_ANGLE, MAX_ANGLE);
     style.font_family = values.value("font_family").toString();
+    style.diamond_angle = clamp_int(values.value("diamond_angle", defaults.diamond_angle), defaults.diamond_angle, MIN_ANGLE, MAX_ANGLE);
+    const auto line_style = values.value("line_style", defaults.line_style).toString();
+    style.line_style = watermark_line_styles().contains(line_style) ? line_style : defaults.line_style;
     return style;
 }
 
 QVariantMap WatermarkStyle::to_values() const {
     return {{"color", color}, {"font_size", font_size}, {"opacity", opacity}, {"layout", layout},
-            {"spacing", spacing}, {"angle", angle}, {"font_family", font_family}};
+            {"spacing", spacing}, {"angle", angle}, {"font_family", font_family},
+            {"diamond_angle", diamond_angle}, {"line_style", line_style}};
 }
 
 WatermarkStyle WatermarkStyle::with_changes(const QVariantMap &changes) const {
@@ -166,7 +242,8 @@ WatermarkStyle WatermarkStyle::with_changes(const QVariantMap &changes) const {
 
 bool WatermarkStyle::operator==(const WatermarkStyle &o) const {
     return color == o.color && font_size == o.font_size && opacity == o.opacity && layout == o.layout
-        && spacing == o.spacing && angle == o.angle && font_family == o.font_family;
+        && spacing == o.spacing && angle == o.angle && font_family == o.font_family
+        && diamond_angle == o.diamond_angle && line_style == o.line_style;
 }
 
 QString expand_text(const QString &template_text, const QDateTime &when) {
@@ -192,6 +269,16 @@ QFont watermark_font(const WatermarkStyle &style) {
     return font;
 }
 
+QSizeF watermark_text_size(const QString &text, const WatermarkStyle &style) {
+    const TextBlock block(text, watermark_font(style));
+    return {block.width, block.height};
+}
+
+double watermark_diamond_cell(const QString &text, const WatermarkStyle &style) {
+    const TextBlock block(text, watermark_font(style));
+    return diamond_cell(block, style);
+}
+
 std::vector<std::pair<QPointF, double>> watermark_placements(const QRectF &rect, const QString &text, const WatermarkStyle &style,
                                                              const QRectF &exposed, const std::optional<QFont> &font) {
     if (text.isEmpty() || rect.isEmpty()) return {};
@@ -204,7 +291,15 @@ void paint_watermark(QPainter *painter, const QRectF &rect, const QString &text,
     if (text.isEmpty()) return;
     const auto used_font = font ? *font : watermark_font(style);
     const TextBlock block(text, used_font);
-    const auto placements = placements_for(rect, text, style, exposed, block);
+    std::vector<QLineF> segments;
+    std::vector<std::pair<QPointF, double>> placements;
+    if (style.layout == LAYOUT_DIAMOND) {
+        auto diamond = diamond_layout(rect, block, style, exposed, style.line_style != LINE_NONE);
+        for (const auto &center : diamond.centers) placements.emplace_back(center, static_cast<double>(style.diamond_angle));
+        segments = std::move(diamond.segments);
+    } else {
+        placements = placements_for(rect, text, style, exposed, block);
+    }
     if (placements.empty()) return;
     painter->save();
     painter->setClipRect(rect, Qt::IntersectClip);
@@ -213,6 +308,14 @@ void paint_watermark(QPainter *painter, const QRectF &rect, const QString &text,
     // Opacity goes into the pen colour: painter opacity sends text down a path about five times slower.
     QColor color(style.color);
     color.setAlphaF(style.opacity);
+    if (!segments.empty()) {
+        QPen pen(color, std::max(1.0, style.font_size / LINE_WIDTH_DIVISOR));
+        pen.setCapStyle(Qt::FlatCap);
+        if (style.line_style == LINE_DASH) pen.setDashPattern({4.0, 3.0});
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        painter->setPen(pen);
+        painter->drawLines(segments.data(), static_cast<int>(segments.size()));
+    }
     painter->setPen(color);
     const auto base = painter->transform();
     const auto lines = block.baselines();

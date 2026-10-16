@@ -546,7 +546,7 @@ private slots:
         sliders[3]->setValue(-45);
         popup->color_row->swatches.first().first->click();
         QCOMPARE(changes, (QStringList{"opacity=0.3", "spacing=55", "angle=-45", "color=#ff0000"}));
-        // The angle only applies to tiling.
+        // The angle applies to tiling and the diamond grid, not to a single position.
         panel.layout_combo->setCurrentIndex(panel.layout_combo->findData("center"));
         QVERIFY(!sliders[3]->isEnabled());
         QCOMPARE(changes.last(), QString("layout=center"));
@@ -559,6 +559,51 @@ private slots:
         panel.retranslate();
         panel.apply_scale();
         QVERIFY(!panel.grab().isNull());
+    }
+
+    void theStylePopupAngleAndGridLinesFollowTheLayout() {
+        WatermarkSettingsPanel panel;
+        panel.show();
+        QStringList changes;
+        connect(&panel, &WatermarkSettingsPanel::style_changed, this, [&](const QString &key, const QVariant &value) { changes << key + "=" + value.toString(); });
+        WatermarkStyle style;
+        style.color = "#000000";
+        style.font_size = 16;
+        style.opacity = 1.0;
+        style.layout = LAYOUT_DIAMOND;
+        style.angle = -30;
+        style.diamond_angle = 10;
+        style.line_style = LINE_DASH;
+        panel.load_style(style);
+        panel.show_style_popup();
+        WatermarkStylePopup *popup = nullptr;
+        for (auto *widget : QApplication::topLevelWidgets())
+            if (auto *found = qobject_cast<WatermarkStylePopup *>(widget)) popup = found;
+        QVERIFY(popup && popup->isVisible());
+        const auto sliders = popup->findChildren<QSlider *>();
+        const auto buttons = popup->findChildren<QPushButton *>("GridLineButton");
+        QCOMPARE(buttons.size(), 3);
+
+        // Diamond: the angle slider reads and writes the diamond's own angle; the grid lines can be chosen.
+        QCOMPARE(sliders[3]->value(), 10);
+        QVERIFY(sliders[3]->isEnabled());
+        QVERIFY(buttons[2]->isChecked() && buttons[1]->isEnabled());
+        sliders[3]->setValue(25);
+        buttons[0]->click();
+        QCOMPARE(changes, (QStringList{"diamond_angle=25", "line_style=none"}));
+
+        // Tile: the slider reads the tile's angle and the grid lines grey out.
+        changes.clear();
+        panel.layout_combo->setCurrentIndex(panel.layout_combo->findData(LAYOUT_TILE));
+        QCOMPARE(sliders[3]->value(), -30);
+        QVERIFY(!buttons[1]->isEnabled());
+        sliders[3]->setValue(-40);
+        QCOMPARE(changes, (QStringList{"layout=tile", "angle=-40"}));
+
+        // A single position uses neither.
+        panel.layout_combo->setCurrentIndex(panel.layout_combo->findData("center"));
+        QVERIFY(!sliders[3]->isEnabled());
+        QVERIFY(!buttons[0]->isEnabled());
     }
 
     void theTextFieldShowsItsOwnTimeAndClears() {

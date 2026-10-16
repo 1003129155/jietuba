@@ -45,6 +45,8 @@ WatermarkStyle ink_style() {
     return style;
 }
 
+WatermarkStyle diamond_style() { return ink_style().with_changes({{"layout", "diamond"}}); }
+
 QImage blank(int w = 320, int h = 200, const QColor &color = WHITE) {
     QImage image(w, h, QImage::Format_ARGB32);
     image.fill(color);
@@ -412,7 +414,8 @@ private slots:
 
     void watermarkStyleIsClamped() {
         const auto style = WatermarkStyle::from_values({{"color", "nope"}, {"font_size", 1000}, {"opacity", 3}, {"layout", "spiral"},
-                                                        {"spacing", -5}, {"angle", 400}, {"font_family", QVariant()}});
+                                                        {"spacing", -5}, {"angle", 400}, {"font_family", QVariant()},
+                                                        {"diamond_angle", -400}, {"line_style", "wavy"}});
         QCOMPARE(style.color, WatermarkStyle().color);
         QCOMPARE(style.font_size, MAX_FONT_SIZE);
         QCOMPARE(style.opacity, 1.0);
@@ -420,6 +423,8 @@ private slots:
         QCOMPARE(style.spacing, MIN_SPACING);
         QCOMPARE(style.angle, MAX_ANGLE);
         QCOMPARE(style.font_family, QString());
+        QCOMPARE(style.diamond_angle, MIN_ANGLE);
+        QCOMPARE(style.line_style, LINE_SOLID);
         QVERIFY(style == style.normalized());
         QCOMPARE(watermark_font(ink_style()).pixelSize(), 16);
         auto arial = ink_style();
@@ -500,6 +505,103 @@ private slots:
         QCOMPARE(placements.front().first, narrow.center());
     }
 
+    // ---- Diamond grid ----
+
+    void drawingOnlyExposedPartOfDiamondMatchesDrawingEverything_data() {
+        QTest::addColumn<QString>("line_style");
+        QTest::addColumn<int>("angle");
+        for (const QString &line : {QString("solid"), QString("dash"), QString("none")})
+            for (const int angle : {0, -30}) QTest::newRow(qPrintable(QString("%1 %2").arg(line).arg(angle))) << line << angle;
+    }
+
+    void drawingOnlyExposedPartOfDiamondMatchesDrawingEverything() {
+        QFETCH(QString, line_style);
+        QFETCH(int, angle);
+        const QRectF rect(13, 7, 290, 181);
+        const auto style = diamond_style().with_changes({{"line_style", line_style}, {"diamond_angle", angle}});
+        const auto whole = paint(rect, style);
+        QImage pieces = blank();
+        const int step = 23;
+        for (int x = 0; x < 320; x += step)
+            for (int y = 0; y < 200; y += step) {
+                const QRectF piece(x, y, step, step);
+                pieces = paint(rect, style, "WATERMARK", piece, piece, pieces);
+            }
+        QCOMPARE(pieces, whole);
+        QVERIFY(inked(whole) > 0);
+    }
+
+    void diamondSizeFollowsSpacingAndFontSizeButNotTheAngle() {
+        const auto cell = [](const WatermarkStyle &style) { return watermark_diamond_cell("MARK", style); };
+        const double tight = cell(diamond_style().with_changes({{"spacing", 0}}));
+        const double normal = cell(diamond_style());
+        const double loose = cell(diamond_style().with_changes({{"spacing", 100}}));
+        QVERIFY(tight < normal && normal < loose);
+        QCOMPARE(cell(diamond_style().with_changes({{"diamond_angle", 33}})), normal);
+        QVERIFY(std::abs(cell(diamond_style().with_changes({{"font_size", 2 * diamond_style().font_size}})) - 2 * normal) < 0.15 * 2 * normal);
+    }
+
+    void diamondTextsNeverOverlapEvenAtZeroSpacing_data() {
+        QTest::addColumn<QString>("text");
+        QTest::newRow("one line") << "WATERMARK";
+        QTest::newRow("two lines") << "LINE ONE\nTWO";
+        QTest::newRow("one letter") << "I";
+    }
+
+    void diamondTextsNeverOverlapEvenAtZeroSpacing() {
+        QFETCH(QString, text);
+        const auto style = diamond_style().with_changes({{"spacing", 0}});
+        const auto size = watermark_text_size(text, style);
+        const auto placements = watermark_placements(QRectF(0, 0, 600, 400), text, style);
+        QVERIFY(placements.size() > 4);
+        for (size_t i = 0; i < placements.size(); ++i)
+            for (size_t j = i + 1; j < placements.size(); ++j) {
+                const auto first = placements[i].first, second = placements[j].first;
+                QVERIFY(std::abs(first.x() - second.x()) >= size.width() - 1e-6 || std::abs(first.y() - second.y()) >= size.height() - 1e-6);
+            }
+    }
+
+    void diamondLinesStopAtTheTextAndDashesAreLighterThanSolid() {
+        const QRectF rect(0, 0, 320, 200);
+        const auto solid = paint(rect, diamond_style().with_changes({{"line_style", "solid"}}));
+        const auto dash = paint(rect, diamond_style().with_changes({{"line_style", "dash"}}));
+        const auto bare = paint(rect, diamond_style().with_changes({{"line_style", "none"}}));
+        QVERIFY(inked(bare) < inked(dash) && inked(dash) < inked(solid));
+        const auto size = watermark_text_size("WATERMARK", diamond_style());
+        for (const auto &[centre, angle] : watermark_placements(rect, "WATERMARK", diamond_style())) {
+            const QRectF box(centre.x() - size.width() / 2, centre.y() - size.height() / 2, size.width(), size.height());
+            const auto region = box.intersected(rect).toAlignedRect();
+            if (!region.isEmpty()) QCOMPARE(solid.copy(region), bare.copy(region));
+        }
+    }
+
+    void diamondHasItsOwnAngleAndTilesIgnoreIt() {
+        const QRectF rect(0, 0, 400, 300);
+        for (const auto &[centre, angle] : watermark_placements(rect, "MARK", diamond_style().with_changes({{"diamond_angle", 20}, {"angle", -60}}))) QCOMPARE(angle, 20.0);
+        for (const auto &[centre, angle] : watermark_placements(rect, "MARK", ink_style().with_changes({{"angle", 15}, {"diamond_angle", 20}}))) QCOMPARE(angle, 15.0);
+    }
+
+    void rotatingTheDiamondTurnsTheWholeGridRigidly() {
+        const QRectF rect(0, 0, 500, 400);
+        const auto nearest_gap = [&](int angle) {
+            const auto placements = watermark_placements(rect, "MARK", diamond_style().with_changes({{"diamond_angle", angle}}));
+            const size_t middle = placements.size() / 2;
+            const auto first = placements[middle].first;
+            double best = 1e18;
+            for (size_t i = 0; i < placements.size(); ++i)
+                if (i != middle) best = std::min(best, std::hypot(first.x() - placements[i].first.x(), first.y() - placements[i].first.y()));
+            return best;
+        };
+        QVERIFY(std::abs(nearest_gap(33) - nearest_gap(0)) < 1e-6 * nearest_gap(0));
+    }
+
+    void diamondStaysInsideTheRect() {
+        const QRectF small(60, 40, 120, 80);
+        const auto image = paint(small, diamond_style().with_changes({{"diamond_angle", -30}}));
+        QVERIFY(inked(image, small.toRect()) > 0);
+        QCOMPARE(inked(image), inked(image, small.toRect()));
+    }
+
     // ---- The watermark in a scene ----
 
     void theWatermarkFollowsTheSelectionAndExports() {
@@ -551,6 +653,16 @@ private slots:
         QVERIFY(WatermarkTool::load_style(config_) == item->style());
         canvas->undo_stack->undo();
         QCOMPARE(WatermarkItem::find(canvas), nullptr);
+    }
+
+    void diamondFieldsBecomeTheDefaultToo() {
+        auto *canvas = scene();
+        auto *item = WatermarkTool::add(canvas);
+        WatermarkTool::change_style(canvas, {{"layout", "diamond"}, {"diamond_angle", 15}, {"line_style", "dash"}});
+        QCOMPARE(item->style().layout, QString("diamond"));
+        QCOMPARE(item->style().diamond_angle, 15);
+        QCOMPARE(item->style().line_style, QString("dash"));
+        QVERIFY(WatermarkTool::load_style(config_) == item->style());
     }
 
     void applyingTheTextRestampsTheTime() {
