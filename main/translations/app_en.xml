@@ -2222,6 +2222,30 @@ Replace it?</translation>
         <source>Used this month: %1 / %2 characters (quota guard off)</source>
         <translation>Used this month: %1 / %2 characters (quota guard off)</translation>
     </message>
+    <message>
+        <source>Youdao App ID</source>
+        <translation>Youdao App ID</translation>
+    </message>
+    <message>
+        <source>ID of an application bound to Text Translation (Application Management)</source>
+        <translation>ID of an application bound to Text Translation (Application Management)</translation>
+    </message>
+    <message>
+        <source>Youdao App Secret</source>
+        <translation>Youdao App Secret</translation>
+    </message>
+    <message>
+        <source>Application secret, paired with the application ID</source>
+        <translation>Application secret, paired with the application ID</translation>
+    </message>
+    <message>
+        <source>Youdao AI Cloud: new accounts get a trial credit, after that translation is billed by character count.</source>
+        <translation>Youdao AI Cloud: new accounts get a trial credit, after that translation is billed by character count.</translation>
+    </message>
+    <message>
+        <source>Youdao AI Cloud Console</source>
+        <translation>Youdao AI Cloud Console</translation>
+    </message>
 </context>
 <!-- ========== Clipboard Window ========== -->
 <context>
@@ -3646,6 +3670,26 @@ This action cannot be undone.</translation>
     <message>
         <source>SecretKey</source>
         <translation>SecretKey</translation>
+    </message>
+    <message>
+        <source>Youdao App ID</source>
+        <translation>Youdao App ID</translation>
+    </message>
+    <message>
+        <source>ID of an application bound to Text Translation (Application Management)</source>
+        <translation>ID of an application bound to Text Translation (Application Management)</translation>
+    </message>
+    <message>
+        <source>Youdao App Secret</source>
+        <translation>Youdao App Secret</translation>
+    </message>
+    <message>
+        <source>Application secret, paired with the application ID</source>
+        <translation>Application secret, paired with the application ID</translation>
+    </message>
+    <message>
+        <source>Youdao AI Cloud Console</source>
+        <translation>Youdao AI Cloud Console</translation>
     </message>
     <!-- window / nav -->
     <message>

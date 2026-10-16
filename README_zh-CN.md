@@ -69,7 +69,7 @@ Free code signing provided by [SignPath.io](https://about.signpath.io/), certifi
 除非用户明确要求，本程序不会向其他联网系统传输任何信息。
 
 - 截图、OCR 和剪贴板历史都在本机处理和保存。
-- 使用翻译时，待翻译的文字会发送到你在设置中选择的翻译服务（DeepL、Google、Azure、Amazon、百度、火山引擎、腾讯云、DeepSeek 或自行配置的 OpenAI 兼容接口），使用你自己的 API 密钥，并适用该服务的隐私政策。
+- 使用翻译时，待翻译的文字会发送到你在设置中选择的翻译服务（DeepL、Google、Azure、Amazon、百度、火山引擎、腾讯云、有道、DeepSeek 或自行配置的 OpenAI 兼容接口），使用你自己的 API 密钥，并适用该服务的隐私政策。
 - 在**关于 → 检查更新**中检查或安装更新时，程序会访问 GitHub 获取版本信息并下载发布包。
 
 ---
@@ -698,6 +698,7 @@ translation/
 │   ├── baidu.py             # Baidu
 │   ├── tencent.py           # 腾讯云
 │   ├── volcengine.py        # 火山引擎
+│   ├── youdao.py            # 有道
 │   ├── custom_llm.py        # 自定义 OpenAI 兼容服务（Ollama、LM Studio 等）
 │   ├── deepseek.py          # DeepSeek (LLM)
 │   └── openai_compatible.py # OpenAI 兼容接口基类

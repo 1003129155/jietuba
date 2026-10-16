@@ -2369,6 +2369,30 @@ Replace it?</source>
         <source>Used this month: %1 / %2 characters (quota guard off)</source>
         <translation>이번 달 사용량: %1 / %2자(할당량 보호 꺼짐)</translation>
     </message>
+    <message>
+        <source>Youdao App ID</source>
+        <translation>Youdao 앱 ID</translation>
+    </message>
+    <message>
+        <source>ID of an application bound to Text Translation (Application Management)</source>
+        <translation>텍스트 번역 서비스에 연결한 앱의 ID(콘솔의 '애플리케이션 관리')</translation>
+    </message>
+    <message>
+        <source>Youdao App Secret</source>
+        <translation>Youdao 앱 시크릿</translation>
+    </message>
+    <message>
+        <source>Application secret, paired with the application ID</source>
+        <translation>앱 ID와 짝을 이루는 앱 시크릿</translation>
+    </message>
+    <message>
+        <source>Youdao AI Cloud: new accounts get a trial credit, after that translation is billed by character count.</source>
+        <translation>Youdao AI Cloud: 신규 계정에는 체험용 크레딧이 제공되며, 모두 소진하면 글자 수에 따라 종량 과금됩니다.</translation>
+    </message>
+    <message>
+        <source>Youdao AI Cloud Console</source>
+        <translation>Youdao AI Cloud 콘솔</translation>
+    </message>
 </context>
 <!-- ========== Clipboard Window ========== -->
 <context>
@@ -3793,6 +3817,26 @@ This action cannot be undone.</source>
     <message>
         <source>SecretKey</source>
         <translation>SecretKey</translation>
+    </message>
+    <message>
+        <source>Youdao App ID</source>
+        <translation>Youdao 앱 ID</translation>
+    </message>
+    <message>
+        <source>ID of an application bound to Text Translation (Application Management)</source>
+        <translation>텍스트 번역 서비스에 연결한 앱의 ID(콘솔의 '애플리케이션 관리')</translation>
+    </message>
+    <message>
+        <source>Youdao App Secret</source>
+        <translation>Youdao 앱 시크릿</translation>
+    </message>
+    <message>
+        <source>Application secret, paired with the application ID</source>
+        <translation>앱 ID와 짝을 이루는 앱 시크릿</translation>
+    </message>
+    <message>
+        <source>Youdao AI Cloud Console</source>
+        <translation>Youdao AI Cloud 콘솔</translation>
     </message>
     <!-- window / nav -->
     <message>

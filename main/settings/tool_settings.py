@@ -535,6 +535,8 @@ class ToolSettingsManager(QObject):
         "tencent_translate_secret_key": "",
         "tencent_translate_quota_enabled": True,
         "tencent_translate_quota_limit": "4990000",
+        "youdao_translate_app_key": "",
+        "youdao_translate_app_secret": "",
         "deepseek_api_key": "",
         "deepseek_model": "",          # 空=用 provider 里的默认模型
         "deepseek_base_url": "",       # 空=用官方地址
@@ -1590,6 +1592,11 @@ class ToolSettingsManager(QObject):
                 "secret_id": self.get_tencent_translate_secret_id(),
                 "secret_key": self.get_tencent_translate_secret_key(),
             }
+        if provider_id == "youdao":
+            return {
+                "app_key": self.get_youdao_translate_app_key(),
+                "app_secret": self.get_youdao_translate_app_secret(),
+            }
         if provider_id == "deepseek":
             # model/base_url 留空时由 provider 用自己的默认值，
             # 所以这里原样传空串而不是在这边兜底
@@ -1806,6 +1813,32 @@ class ToolSettingsManager(QObject):
     def set_tencent_translate_secret_key(self, value: str):
         self.qsettings.setValue(
             "translation/providers/tencent/secret_key",
+            (value or "").strip(),
+        )
+
+    def get_youdao_translate_app_key(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/youdao/app_key",
+            self.APP_DEFAULT_SETTINGS["youdao_translate_app_key"],
+            type=str,
+        )
+
+    def set_youdao_translate_app_key(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/youdao/app_key",
+            (value or "").strip(),
+        )
+
+    def get_youdao_translate_app_secret(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/youdao/app_secret",
+            self.APP_DEFAULT_SETTINGS["youdao_translate_app_secret"],
+            type=str,
+        )
+
+    def set_youdao_translate_app_secret(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/youdao/app_secret",
             (value or "").strip(),
         )
 
