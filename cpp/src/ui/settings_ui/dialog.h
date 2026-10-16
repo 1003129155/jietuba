@@ -32,11 +32,22 @@ QString settings_tr(const char *text);
 // Saves in-app editors, keeping empty as unbound.
 void save_inapp_shortcut_edits(ToolSettingsManager *config_manager, const std::vector<std::pair<QString, InAppKeyEdit *>> &edits);
 
+// Default size for a screen's available area (logical pixels) at a window scale: at 100% linear through
+// 1920×1032→1050×750 and 2560×1392→1150×900, capped at the latter, at least 1050 wide (narrower, the
+// shortcut page scrolls sideways), and never larger than the area; pages and navigation scroll the rest.
+QSize settings_window_size(int available_width, int available_height, double factor);
+
 class SettingsDialog : public FrostedFramelessDialog {
     Q_OBJECT
 public:
     explicit SettingsDialog(ToolSettingsManager *config_manager, const QString &current_hotkey = "ctrl+shift+a", QWidget *parent = nullptr);
     QString tr_text(const char *text) const { return settings_tr(text); }
+
+    // Sizes the dialog for the screen it is about to open on; a size the user dragged is kept and only
+    // shrunk to fit. Position is Qt's: a never-moved dialog is centred within that screen on each show.
+    void fit_to_screen();
+    // fit_to_screen for a given available area.
+    void fit_to_available(const QSize &available);
 
     // Saves and notifies the application without closing this window.
     bool apply_settings(bool close_after = false);
@@ -160,6 +171,8 @@ private:
 
     QMap<QString, QPointer<QWidget>> attrs_;
     std::set<int> built_pages_;
+    // The size last set for a screen; a different current size means the user resized the dialog.
+    std::optional<QSize> fitted_size_;
     std::optional<QVariantMap> settings_snapshot_;
     // Whether the dialog scale changed on apply; the main app rebuilds the cached window then.
     bool dialog_scale_changed_on_accept_ = false;

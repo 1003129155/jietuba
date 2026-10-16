@@ -94919,6 +94919,888 @@
       "expected": 100
     }
   ],
+  "settings_window_size": [
+    {
+      "available": [
+        3840,
+        2112
+      ],
+      "percent": 80,
+      "expected": [
+        920,
+        720
+      ]
+    },
+    {
+      "available": [
+        3840,
+        2112
+      ],
+      "percent": 90,
+      "expected": [
+        1035,
+        810
+      ]
+    },
+    {
+      "available": [
+        3840,
+        2112
+      ],
+      "percent": 100,
+      "expected": [
+        1150,
+        900
+      ]
+    },
+    {
+      "available": [
+        3840,
+        2112
+      ],
+      "percent": 110,
+      "expected": [
+        1265,
+        990
+      ]
+    },
+    {
+      "available": [
+        3840,
+        2112
+      ],
+      "percent": 125,
+      "expected": [
+        1438,
+        1125
+      ]
+    },
+    {
+      "available": [
+        3840,
+        2112
+      ],
+      "percent": 150,
+      "expected": [
+        1725,
+        1350
+      ]
+    },
+    {
+      "available": [
+        3840,
+        2112
+      ],
+      "percent": 175,
+      "expected": [
+        1911,
+        1438
+      ]
+    },
+    {
+      "available": [
+        3840,
+        2112
+      ],
+      "percent": 200,
+      "expected": [
+        2100,
+        1520
+      ]
+    },
+    {
+      "available": [
+        2560,
+        1392
+      ],
+      "percent": 80,
+      "expected": [
+        920,
+        720
+      ]
+    },
+    {
+      "available": [
+        2560,
+        1392
+      ],
+      "percent": 90,
+      "expected": [
+        1035,
+        810
+      ]
+    },
+    {
+      "available": [
+        2560,
+        1392
+      ],
+      "percent": 100,
+      "expected": [
+        1150,
+        900
+      ]
+    },
+    {
+      "available": [
+        2560,
+        1392
+      ],
+      "percent": 110,
+      "expected": [
+        1224,
+        932
+      ]
+    },
+    {
+      "available": [
+        2560,
+        1392
+      ],
+      "percent": 125,
+      "expected": [
+        1338,
+        980
+      ]
+    },
+    {
+      "available": [
+        2560,
+        1392
+      ],
+      "percent": 150,
+      "expected": [
+        1575,
+        1059
+      ]
+    },
+    {
+      "available": [
+        2560,
+        1392
+      ],
+      "percent": 175,
+      "expected": [
+        1838,
+        1139
+      ]
+    },
+    {
+      "available": [
+        2560,
+        1392
+      ],
+      "percent": 200,
+      "expected": [
+        2100,
+        1220
+      ]
+    },
+    {
+      "available": [
+        2048,
+        1104
+      ],
+      "percent": 80,
+      "expected": [
+        920,
+        716
+      ]
+    },
+    {
+      "available": [
+        2048,
+        1104
+      ],
+      "percent": 90,
+      "expected": [
+        994,
+        748
+      ]
+    },
+    {
+      "available": [
+        2048,
+        1104
+      ],
+      "percent": 100,
+      "expected": [
+        1070,
+        780
+      ]
+    },
+    {
+      "available": [
+        2048,
+        1104
+      ],
+      "percent": 110,
+      "expected": [
+        1155,
+        812
+      ]
+    },
+    {
+      "available": [
+        2048,
+        1104
+      ],
+      "percent": 125,
+      "expected": [
+        1312,
+        860
+      ]
+    },
+    {
+      "available": [
+        2048,
+        1104
+      ],
+      "percent": 150,
+      "expected": [
+        1575,
+        939
+      ]
+    },
+    {
+      "available": [
+        2048,
+        1104
+      ],
+      "percent": 175,
+      "expected": [
+        1838,
+        1018
+      ]
+    },
+    {
+      "available": [
+        2048,
+        1104
+      ],
+      "percent": 200,
+      "expected": [
+        2048,
+        1100
+      ]
+    },
+    {
+      "available": [
+        1920,
+        1032
+      ],
+      "percent": 80,
+      "expected": [
+        900,
+        686
+      ]
+    },
+    {
+      "available": [
+        1920,
+        1032
+      ],
+      "percent": 90,
+      "expected": [
+        975,
+        717
+      ]
+    },
+    {
+      "available": [
+        1920,
+        1032
+      ],
+      "percent": 100,
+      "expected": [
+        1050,
+        750
+      ]
+    },
+    {
+      "available": [
+        1920,
+        1032
+      ],
+      "percent": 110,
+      "expected": [
+        1155,
+        781
+      ]
+    },
+    {
+      "available": [
+        1920,
+        1032
+      ],
+      "percent": 125,
+      "expected": [
+        1312,
+        830
+      ]
+    },
+    {
+      "available": [
+        1920,
+        1032
+      ],
+      "percent": 150,
+      "expected": [
+        1575,
+        909
+      ]
+    },
+    {
+      "available": [
+        1920,
+        1032
+      ],
+      "percent": 175,
+      "expected": [
+        1838,
+        989
+      ]
+    },
+    {
+      "available": [
+        1920,
+        1032
+      ],
+      "percent": 200,
+      "expected": [
+        1920,
+        1032
+      ]
+    },
+    {
+      "available": [
+        1707,
+        912
+      ],
+      "percent": 80,
+      "expected": [
+        866,
+        636
+      ]
+    },
+    {
+      "available": [
+        1707,
+        912
+      ],
+      "percent": 90,
+      "expected": [
+        945,
+        668
+      ]
+    },
+    {
+      "available": [
+        1707,
+        912
+      ],
+      "percent": 100,
+      "expected": [
+        1050,
+        700
+      ]
+    },
+    {
+      "available": [
+        1707,
+        912
+      ],
+      "percent": 110,
+      "expected": [
+        1155,
+        732
+      ]
+    },
+    {
+      "available": [
+        1707,
+        912
+      ],
+      "percent": 125,
+      "expected": [
+        1312,
+        780
+      ]
+    },
+    {
+      "available": [
+        1707,
+        912
+      ],
+      "percent": 150,
+      "expected": [
+        1575,
+        860
+      ]
+    },
+    {
+      "available": [
+        1707,
+        912
+      ],
+      "percent": 175,
+      "expected": [
+        1707,
+        912
+      ]
+    },
+    {
+      "available": [
+        1707,
+        912
+      ],
+      "percent": 200,
+      "expected": [
+        1707,
+        912
+      ]
+    },
+    {
+      "available": [
+        1536,
+        816
+      ],
+      "percent": 80,
+      "expected": [
+        840,
+        596
+      ]
+    },
+    {
+      "available": [
+        1536,
+        816
+      ],
+      "percent": 90,
+      "expected": [
+        945,
+        627
+      ]
+    },
+    {
+      "available": [
+        1536,
+        816
+      ],
+      "percent": 100,
+      "expected": [
+        1050,
+        660
+      ]
+    },
+    {
+      "available": [
+        1536,
+        816
+      ],
+      "percent": 110,
+      "expected": [
+        1155,
+        692
+      ]
+    },
+    {
+      "available": [
+        1536,
+        816
+      ],
+      "percent": 125,
+      "expected": [
+        1312,
+        740
+      ]
+    },
+    {
+      "available": [
+        1536,
+        816
+      ],
+      "percent": 150,
+      "expected": [
+        1536,
+        816
+      ]
+    },
+    {
+      "available": [
+        1536,
+        816
+      ],
+      "percent": 175,
+      "expected": [
+        1536,
+        816
+      ]
+    },
+    {
+      "available": [
+        1536,
+        816
+      ],
+      "percent": 200,
+      "expected": [
+        1536,
+        816
+      ]
+    },
+    {
+      "available": [
+        1366,
+        720
+      ],
+      "percent": 80,
+      "expected": [
+        840,
+        556
+      ]
+    },
+    {
+      "available": [
+        1366,
+        720
+      ],
+      "percent": 90,
+      "expected": [
+        945,
+        588
+      ]
+    },
+    {
+      "available": [
+        1366,
+        720
+      ],
+      "percent": 100,
+      "expected": [
+        1050,
+        620
+      ]
+    },
+    {
+      "available": [
+        1366,
+        720
+      ],
+      "percent": 110,
+      "expected": [
+        1155,
+        651
+      ]
+    },
+    {
+      "available": [
+        1366,
+        720
+      ],
+      "percent": 125,
+      "expected": [
+        1312,
+        700
+      ]
+    },
+    {
+      "available": [
+        1366,
+        720
+      ],
+      "percent": 150,
+      "expected": [
+        1366,
+        720
+      ]
+    },
+    {
+      "available": [
+        1366,
+        720
+      ],
+      "percent": 175,
+      "expected": [
+        1366,
+        720
+      ]
+    },
+    {
+      "available": [
+        1366,
+        720
+      ],
+      "percent": 200,
+      "expected": [
+        1366,
+        720
+      ]
+    },
+    {
+      "available": [
+        1280,
+        672
+      ],
+      "percent": 80,
+      "expected": [
+        840,
+        536
+      ]
+    },
+    {
+      "available": [
+        1280,
+        672
+      ],
+      "percent": 90,
+      "expected": [
+        945,
+        568
+      ]
+    },
+    {
+      "available": [
+        1280,
+        672
+      ],
+      "percent": 100,
+      "expected": [
+        1050,
+        600
+      ]
+    },
+    {
+      "available": [
+        1280,
+        672
+      ],
+      "percent": 110,
+      "expected": [
+        1155,
+        631
+      ]
+    },
+    {
+      "available": [
+        1280,
+        672
+      ],
+      "percent": 125,
+      "expected": [
+        1280,
+        672
+      ]
+    },
+    {
+      "available": [
+        1280,
+        672
+      ],
+      "percent": 150,
+      "expected": [
+        1280,
+        672
+      ]
+    },
+    {
+      "available": [
+        1280,
+        672
+      ],
+      "percent": 175,
+      "expected": [
+        1280,
+        672
+      ]
+    },
+    {
+      "available": [
+        1280,
+        672
+      ],
+      "percent": 200,
+      "expected": [
+        1280,
+        672
+      ]
+    },
+    {
+      "available": [
+        1000,
+        600
+      ],
+      "percent": 80,
+      "expected": [
+        840,
+        506
+      ]
+    },
+    {
+      "available": [
+        1000,
+        600
+      ],
+      "percent": 90,
+      "expected": [
+        945,
+        537
+      ]
+    },
+    {
+      "available": [
+        1000,
+        600
+      ],
+      "percent": 100,
+      "expected": [
+        1000,
+        570
+      ]
+    },
+    {
+      "available": [
+        1000,
+        600
+      ],
+      "percent": 110,
+      "expected": [
+        1000,
+        600
+      ]
+    },
+    {
+      "available": [
+        1000,
+        600
+      ],
+      "percent": 125,
+      "expected": [
+        1000,
+        600
+      ]
+    },
+    {
+      "available": [
+        1000,
+        600
+      ],
+      "percent": 150,
+      "expected": [
+        1000,
+        600
+      ]
+    },
+    {
+      "available": [
+        1000,
+        600
+      ],
+      "percent": 175,
+      "expected": [
+        1000,
+        600
+      ]
+    },
+    {
+      "available": [
+        1000,
+        600
+      ],
+      "percent": 200,
+      "expected": [
+        1000,
+        600
+      ]
+    },
+    {
+      "available": [
+        800,
+        552
+      ],
+      "percent": 80,
+      "expected": [
+        800,
+        486
+      ]
+    },
+    {
+      "available": [
+        800,
+        552
+      ],
+      "percent": 90,
+      "expected": [
+        800,
+        518
+      ]
+    },
+    {
+      "available": [
+        800,
+        552
+      ],
+      "percent": 100,
+      "expected": [
+        800,
+        550
+      ]
+    },
+    {
+      "available": [
+        800,
+        552
+      ],
+      "percent": 110,
+      "expected": [
+        800,
+        552
+      ]
+    },
+    {
+      "available": [
+        800,
+        552
+      ],
+      "percent": 125,
+      "expected": [
+        800,
+        552
+      ]
+    },
+    {
+      "available": [
+        800,
+        552
+      ],
+      "percent": 150,
+      "expected": [
+        800,
+        552
+      ]
+    },
+    {
+      "available": [
+        800,
+        552
+      ],
+      "percent": 175,
+      "expected": [
+        800,
+        552
+      ]
+    },
+    {
+      "available": [
+        800,
+        552
+      ],
+      "percent": 200,
+      "expected": [
+        800,
+        552
+      ]
+    }
+  ],
   "tool_coercion": [
     {
       "tool": "pen",

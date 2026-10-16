@@ -28,13 +28,16 @@
 #include "ui/toolbar_layout.h"
 #include <QCloseEvent>
 #include <QComboBox>
+#include <QCursor>
 #include <QDesktopServices>
 #include <QDir>
 #include <QDoubleSpinBox>
+#include <QGuiApplication>
 #include <QLabel>
 #include <QMenu>
 #include <QMetaMethod>
 #include <QPainter>
+#include <QScreen>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSpinBox>
@@ -139,12 +142,19 @@ void save_inapp_shortcut_edits(ToolSettingsManager *config_manager, const std::v
     }
 }
 
+QSize settings_window_size(int available_width, int available_height, double factor) {
+    const int width = std::min(1150, std::max(1050, static_cast<int>(1050 + (available_width / factor - 1920) * 100 / 640)));
+    const int height = std::min(900, static_cast<int>(750 + (available_height / factor - 1032) * 150 / 360));
+    return {std::min(static_cast<int>(python_round(width * factor)), available_width),
+            std::min(static_cast<int>(python_round(height * factor)), available_height)};
+}
+
 SettingsDialog::SettingsDialog(ToolSettingsManager *manager, const QString &hotkey, QWidget *parent)
     : FrostedFramelessDialog(parent), config_manager(manager), current_hotkey(hotkey) {
     // The custom title bar comes before setWindowTitle so it receives the change.
     setup_titlebar();
     setWindowTitle("jietuba");
-    resize(dialog_scaled(1050), dialog_scaled(750));
+    fit_to_screen();
     // The same font stack as cards and navigation, so text styles without a family match.
     QFont window_font;
     window_font.setFamilies(FONT_FAMILIES());
@@ -153,6 +163,21 @@ SettingsDialog::SettingsDialog(ToolSettingsManager *manager, const QString &hotk
     setObjectName("SettingsDialog");
     setup_ui();
     connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { on_ui_theme_changed(); });
+}
+
+void SettingsDialog::fit_to_screen() {
+    if (isVisible()) return;
+    auto *screen = QGuiApplication::screenAt(QCursor::pos());
+    if (!screen) screen = QGuiApplication::primaryScreen();
+    if (screen) fit_to_available(screen->availableGeometry().size());
+}
+
+void SettingsDialog::fit_to_available(const QSize &available) {
+    const bool user_sized = fitted_size_ && size() != *fitted_size_;
+    const QSize target = user_sized ? size().boundedTo(available)
+                                    : settings_window_size(available.width(), available.height(), get_dialog_scale().factor());
+    if (target != size()) resize(target);
+    if (!user_sized) fitted_size_ = size();
 }
 
 QWidget *SettingsDialog::behavior_control(const QString &key) const {

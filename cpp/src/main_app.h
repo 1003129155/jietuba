@@ -113,7 +113,6 @@ private:
     // not take input; the modal window comes to the front instead.
     bool activate_blocking_modal();
     void capture_and_prepare_window();
-    void ensure_window_on_screen(QWidget *window);
     // The settings window asks for the wizard: hide it and unregister hotkeys while the wizard runs.
     void on_wizard_requested();
     // Rebuilds the cached settings UI after a process-wide UI setting changes. reopen unset

@@ -107,7 +107,6 @@ ManageDialog::ManageDialog(ClipboardManager *manager, QWidget *parent) : Frosted
     setWindowFlags(windowFlags() | Qt::Window | Qt::WindowCloseButtonHint | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint);
     // setWindowFlags recreates the native window, dropping the frameless WS_THICKFRAME and shadow, so the edges no longer resize; add them back.
     helper_.install();
-    setResizeEnabled(true);
     const QString icon_path = ResourceManager::get_resource_path(QString::fromUtf8("svg/托盘.svg"));
     if (QFileInfo::exists(icon_path)) setWindowIcon(QIcon(icon_path));
     setAttribute(Qt::WA_DeleteOnClose, false);

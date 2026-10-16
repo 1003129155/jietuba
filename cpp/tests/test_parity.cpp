@@ -7,6 +7,7 @@
 #include "core/export.h"
 #include "settings/color_formats.h"
 #include "core/save.h"
+#include "ui/settings_ui/dialog.h"
 #include <QThreadPool>
 #include <QSemaphore>
 #include <QCryptographicHash>
@@ -121,6 +122,17 @@ private slots:
         for (const auto &v : fixtures_["dpi"].toArray()) {
             const auto row = v.toObject();
             QCOMPARE(recommended_scale_percent(row["input"].toVariant()), row["expected"].toInt());
+        }
+    }
+    void settingsWindowSize() {
+        const auto cases = fixtures_["settings_window_size"].toArray();
+        QVERIFY(!cases.isEmpty());
+        for (const auto &v : cases) {
+            const auto row = v.toObject();
+            const auto available = row["available"].toArray();
+            const auto expected = row["expected"].toArray();
+            QCOMPARE(settings_window_size(available[0].toInt(), available[1].toInt(), row["percent"].toInt() / 100.0),
+                     QSize(expected[0].toInt(), expected[1].toInt()));
         }
     }
     void defaultsAndToolCoercion() {

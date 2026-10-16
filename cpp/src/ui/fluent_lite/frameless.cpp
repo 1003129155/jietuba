@@ -98,7 +98,6 @@ void FramelessWindow::resizeEvent(QResizeEvent *event) {
 
 FramelessDialog::FramelessDialog(QWidget *parent) : QDialog(parent), helper_(this) {
     helper_.install();
-    helper_.resize_enabled = false;
     title_bar_ = new TitleBar(this);
     title_bar_->minBtn->hide();
     title_bar_->maxBtn->hide();

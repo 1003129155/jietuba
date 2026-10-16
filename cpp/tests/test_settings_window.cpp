@@ -3,7 +3,9 @@
 #include "ocr/ppocr_models.h"
 #include "settings/settings_transfer.h"
 #include "settings/tool_settings.h"
+#include "core/ui_scale.h"
 #include "ui/fluent_lite/cards.h"
+#include "ui/fluent_lite/navigation.h"
 #include "ui/hotkey_edit.h"
 #include "ui/inapp_key_edit.h"
 #include "ui/settings_ui/dialog.h"
@@ -32,6 +34,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QScrollBar>
 #include <QSet>
 #include <QSettings>
 #include <QStackedWidget>
@@ -97,6 +100,58 @@ private slots:
                                  "clipboard_history_limit_spin", "special_paste_manage_btn", "_clip_theme_btn", "_clip_font_combo", "_clip_opacity_combo",
                                  "preload_clipboard_toggle"})
             QVERIFY2(dialog.has_attr(name), name);
+    }
+
+    void sizeFollowsTheScreenAndKeepsAUserSize() {
+        auto &scale = get_dialog_scale();
+        const int before = scale.percent();
+        scale.set_percent(100);
+        const auto restore = qScopeGuard([&] { scale.set_percent(before); });
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.fit_to_available({1920, 1032});
+        QCOMPARE(dialog.size(), QSize(1050, 750));
+        dialog.fit_to_available({2560, 1392});
+        QCOMPARE(dialog.size(), QSize(1150, 900));
+        dialog.fit_to_available({1280, 672});
+        QCOMPARE(dialog.size(), QSize(1050, 600));
+
+        // A size the user dragged is kept and only shrunk to fit.
+        dialog.resize(1100, 800);
+        dialog.fit_to_available({2560, 1392});
+        QCOMPARE(dialog.size(), QSize(1100, 800));
+        dialog.fit_to_available({1280, 672});
+        QCOMPARE(dialog.size(), QSize(1100, 672));
+
+        // A visible dialog is left alone, even on a screen it does not fit.
+        dialog.show();
+        const QSize shown = dialog.size();
+        dialog.fit_to_screen();
+        QCOMPARE(dialog.size(), shown);
+    }
+
+    void navigationScrollsInsteadOfHoldingTheWindowTall() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        QCoreApplication::processEvents();
+        // The whole navigation is over 600 px tall; scrolling, it no longer holds the window up.
+        QVERIFY(dialog.minimumSizeHint().height() < 400);
+
+        dialog.resize(1050, 420);
+        QCoreApplication::processEvents();
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        QVERIFY(nav);
+        auto *bar = nav->scrollArea()->verticalScrollBar();
+        QVERIFY(bar->maximum() > 0);
+        QCOMPARE(bar->value(), 0);
+
+        // Selecting an item scrolled out of view brings it in; About sits outside the scroll area.
+        nav->setCurrentItem("other");
+        QCoreApplication::processEvents();
+        QVERIFY(bar->value() > 0);
+        auto *about = nav->widget("about");
+        QVERIFY(about);
+        QVERIFY(!nav->scrollArea()->isAncestorOf(about));
+        QVERIFY(about->isVisible());
     }
 
     void applyFollowsChangesAndWritesConfig() {
