@@ -537,6 +537,7 @@ QVariantMap ToolSettingsManager::get_translation_provider_config(const QString &
     if (provider_id == "volcengine")
         return {{"access_key_id", get_volcengine_translate_access_key()}, {"secret_access_key", get_volcengine_translate_secret_key()}};
     if (provider_id == "tencent") return {{"secret_id", get_tencent_translate_secret_id()}, {"secret_key", get_tencent_translate_secret_key()}};
+    if (provider_id == "youdao") return {{"app_key", get_youdao_translate_app_key()}, {"app_secret", get_youdao_translate_app_secret()}};
     if (provider_id == "deepseek") return {{"api_key", get_deepseek_api_key()}, {"model", get_deepseek_model()}, {"base_url", get_deepseek_base_url()}};
     if (CUSTOM_LLM_PROVIDER_IDS.contains(provider_id)) {
         QVariantMap config;
@@ -641,6 +642,8 @@ bool ToolSettingsManager::set_provider_field(const QString &config_key, const QV
         {"tencent_translate_secret_id", &ToolSettingsManager::set_tencent_translate_secret_id},
         {"tencent_translate_secret_key", &ToolSettingsManager::set_tencent_translate_secret_key},
         {"tencent_translate_quota_limit", &ToolSettingsManager::set_tencent_translate_quota_limit},
+        {"youdao_translate_app_key", &ToolSettingsManager::set_youdao_translate_app_key},
+        {"youdao_translate_app_secret", &ToolSettingsManager::set_youdao_translate_app_secret},
         {"deepseek_api_key", &ToolSettingsManager::set_deepseek_api_key},
         {"deepseek_model", &ToolSettingsManager::set_deepseek_model},
         {"deepseek_base_url", &ToolSettingsManager::set_deepseek_base_url},

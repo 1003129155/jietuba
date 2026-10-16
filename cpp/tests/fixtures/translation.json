@@ -4601,5 +4601,1550 @@
    "input": true,
    "enabled": true
   }
+ ],
+ "youdao_metadata": {
+  "provider_id": "youdao",
+  "display_name": "Youdao",
+  "credentials": [
+   {
+    "kind": "text",
+    "config_key": "youdao_translate_app_key",
+    "label": "Youdao App ID",
+    "placeholder": "ID of an application bound to Text Translation (Application Management)",
+    "secret": false,
+    "description": ""
+   },
+   {
+    "kind": "text",
+    "config_key": "youdao_translate_app_secret",
+    "label": "Youdao App Secret",
+    "placeholder": "Application secret, paired with the application ID",
+    "secret": true,
+    "description": ""
+   }
+  ],
+  "options": [],
+  "supported_request_options": [],
+  "notice": "Youdao AI Cloud: new accounts get a trial credit, after that translation is billed by character count.",
+  "help_label": "Youdao AI Cloud Console",
+  "help_url": "https://ai.youdao.com/console/",
+  "min_timeout": 5
+ },
+ "youdao_sign": [
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "Hello",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "c5c276622ee482670cf6dcd14ec1d35aed691e89555c7d164e61071a056f5520"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "Hello",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "c5c276622ee482670cf6dcd14ec1d35aed691e89555c7d164e61071a056f5520"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "aaaaaaaaaaaaaaaaaaaa",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "43ebc5d6fa1dd262451a5206a4a127ab7a44a915d5535b55a6e7c89435b4e88d"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "aaaaaaaaaaaaaaaaaaaa",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "43ebc5d6fa1dd262451a5206a4a127ab7a44a915d5535b55a6e7c89435b4e88d"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "bbbbbbbbbbbbbbbbbbbbb",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "80be1597772b85a10e24d5817cc36efb8cee66e30e59c4565b187eabb1098d3f"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "bbbbbbbbbbbbbbbbbbbbb",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "80be1597772b85a10e24d5817cc36efb8cee66e30e59c4565b187eabb1098d3f"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "The quick brown fox jumps over the lazy dog",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "5d1d2318b04b524f55599096a32432bef8119614fcbca987d74b3cfb8e4609e5"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "The quick brown fox jumps over the lazy dog",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "5d1d2318b04b524f55599096a32432bef8119614fcbca987d74b3cfb8e4609e5"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "中文翻译测试中文翻译测试中文翻译测试中文翻译测试中文翻译测试",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "51104f7bcce0b505be6d5778ad28f063db066c77f039bdb0557e414fc7c24e4c"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "中文翻译测试中文翻译测试中文翻译测试中文翻译测试中文翻译测试",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "51104f7bcce0b505be6d5778ad28f063db066c77f039bdb0557e414fc7c24e4c"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "xxxxxxxxx😀yyyyyyyyyyyyyyyyyyyy",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "644e0c5b07860ea4d8d60c0186e6e108f8a0580ebd5561ef2f68d9f58d4e7292"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "xxxxxxxxx😀yyyyyyyyyyyyyyyyyyyy",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "0515f3c7a362cd530153abc850b93a661be2113313d7e3062c2ea5d7dff6863e"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "yyyyyyyyyyyyyyyyyyyy😀zzzzzzzzz",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "4dfa62c3631505cedfadd88193a39b871dd3a7f312994c9a7021178701c669c4"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "yyyyyyyyyyyyyyyyyyyy😀zzzzzzzzz",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "a66703a08b97de27727d9ebb748fba9dce5f21b7ada8e2aec6bde48d22795ed4"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "😀😀😀😀😀😀😀😀😀😀😀",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "1bff5ec8a1b76e1f4f88820c6146c32b0f87c772abb2be1fb41d6f55a901f6ac"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "😀😀😀😀😀😀😀😀😀😀😀",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "44b4306e2b04b147f37be8d16e98a2aec7c0c7086d4b3664f81b4fe2b8b6c722"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "😀😀😀😀😀😀😀😀😀😀",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "380eb80a2a8b984e83814a4b26ac006aae099149b2fc98fa64e5c871fe7d3601"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "😀😀😀😀😀😀😀😀😀😀",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "380eb80a2a8b984e83814a4b26ac006aae099149b2fc98fa64e5c871fe7d3601"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "😀a😀",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "8ebc581673cc70344428480db2ca2048332fe6dd1a360b931b87d21043dabc06"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "😀a😀",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "8ebc581673cc70344428480db2ca2048332fe6dd1a360b931b87d21043dabc06"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "5b18ab8c6e81f1f320d325560ed86f766186ed96c145d2ee6f476d2a3b2a4390"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "5b18ab8c6e81f1f320d325560ed86f766186ed96c145d2ee6f476d2a3b2a4390"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": " 两端空格 ",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "cca1b03efc7d6f68cee77f967b6740e0e8fc732bd42efcf38061ed16199f15f9"
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": " 两端空格 ",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "cca1b03efc7d6f68cee77f967b6740e0e8fc732bd42efcf38061ed16199f15f9"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": "Hello",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "c30fcefe8e5488984cf156ffc37a005602cd895a3a76b52b854d3ae397f491e3"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": "Hello",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "c30fcefe8e5488984cf156ffc37a005602cd895a3a76b52b854d3ae397f491e3"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": "aaaaaaaaaaaaaaaaaaaa",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "d9dd5aa71a774793c711a052bb1d565ef1dd9ddf2d20ad79a462363d3e6f571c"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": "aaaaaaaaaaaaaaaaaaaa",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "d9dd5aa71a774793c711a052bb1d565ef1dd9ddf2d20ad79a462363d3e6f571c"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": "bbbbbbbbbbbbbbbbbbbbb",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "4bdb7a5205d58bd7756633cc018a16a1dd44f8b187cd50a8fecb264148a5a69d"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": "bbbbbbbbbbbbbbbbbbbbb",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "4bdb7a5205d58bd7756633cc018a16a1dd44f8b187cd50a8fecb264148a5a69d"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": "The quick brown fox jumps over the lazy dog",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "b1075f00b4e0425d62882d98523052abb6cf0b9124169d7e3d4cb06667faa24c"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": "The quick brown fox jumps over the lazy dog",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "b1075f00b4e0425d62882d98523052abb6cf0b9124169d7e3d4cb06667faa24c"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": "中文翻译测试中文翻译测试中文翻译测试中文翻译测试中文翻译测试",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "6edb217033e9ea8b8c9c1edee3ce0c3c01850b0bdbaf9e5ebffebfbcc5c54bb6"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": "中文翻译测试中文翻译测试中文翻译测试中文翻译测试中文翻译测试",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "6edb217033e9ea8b8c9c1edee3ce0c3c01850b0bdbaf9e5ebffebfbcc5c54bb6"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": "xxxxxxxxx😀yyyyyyyyyyyyyyyyyyyy",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "57fab53f7c03863bcd66d108e21911b5a8c9d1cf204ccaacf85f7a2e4191aa40"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": "xxxxxxxxx😀yyyyyyyyyyyyyyyyyyyy",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "16b0ece04b040859e26b14e1e31bd87b241ebecf480828a843ce58a3f1ae60bc"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": "yyyyyyyyyyyyyyyyyyyy😀zzzzzzzzz",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "5b67638536f7c20ef48c09632aa497d259b2a9bd8567f1045249314fdaff1149"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": "yyyyyyyyyyyyyyyyyyyy😀zzzzzzzzz",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "9fe19be7a4f98dbb808135539efcca4e0541d28e70fa1d522aeef15784f43c59"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": "😀😀😀😀😀😀😀😀😀😀😀",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "de56120d4af1f0fec40b97b3982cfed995c5757cc11efb524c1ac7375ca4218f"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": "😀😀😀😀😀😀😀😀😀😀😀",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "0354bdb7fbb7d138c3fe86de95283e333547c6b3e6a4cef632564d669f89ed38"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": "😀😀😀😀😀😀😀😀😀😀",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "fd2902fb5d76f3aa6716d982d129cdba7b896e319a93c2bebadfeb242d261d69"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": "😀😀😀😀😀😀😀😀😀😀",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "fd2902fb5d76f3aa6716d982d129cdba7b896e319a93c2bebadfeb242d261d69"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": "😀a😀",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "b6806cb53730b540c70ceefbe29121bb096fcea3943acaf4ce6d6109075824fe"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": "😀a😀",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "b6806cb53730b540c70ceefbe29121bb096fcea3943acaf4ce6d6109075824fe"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": "",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "b3683bdb2650e1f53915f7d11864710f2f9d6bca8974ee7105eac582b821ff28"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": "",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "b3683bdb2650e1f53915f7d11864710f2f9d6bca8974ee7105eac582b821ff28"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": " 两端空格 ",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": true,
+   "expected": "d138d7cf132d4583f0710ba2d970108299b0f5b3b7f55dcefcbd165c8347fb29"
+  },
+  {
+   "config": {
+    "app_key": " 应用 ",
+    "app_secret": " 密钥 "
+   },
+   "text": " 两端空格 ",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "utf16": false,
+   "expected": "d138d7cf132d4583f0710ba2d970108299b0f5b3b7f55dcefcbd165c8347fb29"
+  }
+ ],
+ "youdao_requests": [
+  {
+   "text": "Hello",
+   "target": "zh-Hans",
+   "source": "en",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "url": "https://openapi.youdao.com/api",
+   "body": "q=Hello&from=en&to=zh-CHS&appKey=test-app-key&salt=0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a&sign=c5c276622ee482670cf6dcd14ec1d35aed691e89555c7d164e61071a056f5520&signType=v3&curtime=1700000000",
+   "content_type": "application/x-www-form-urlencoded; charset=UTF-8",
+   "timeout": 7,
+   "result": {
+    "success": true,
+    "translated_text": "ok",
+    "detected_source_lang": "en",
+    "error_code": null,
+    "error_message": ""
+   }
+  },
+  {
+   "text": "你好",
+   "target": "zh-Hans",
+   "source": null,
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "url": "https://openapi.youdao.com/api",
+   "body": "q=%E4%BD%A0%E5%A5%BD&from=auto&to=zh-CHS&appKey=test-app-key&salt=0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a&sign=15dc0d8420883579ef26df082992c9c9ba2222f82a4822f581545ffbe17db013&signType=v3&curtime=1700000000",
+   "content_type": "application/x-www-form-urlencoded; charset=UTF-8",
+   "timeout": 7,
+   "result": {
+    "success": true,
+    "translated_text": "ok",
+    "detected_source_lang": "en",
+    "error_code": null,
+    "error_message": ""
+   }
+  },
+  {
+   "text": "你好\n世界",
+   "target": "EN",
+   "source": "auto",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "url": "https://openapi.youdao.com/api",
+   "body": "q=%E4%BD%A0%E5%A5%BD%0A%E4%B8%96%E7%95%8C&from=auto&to=en&appKey=test-app-key&salt=0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a&sign=75dcc0748531231466cf0653e461a54ba94797d83aae0efc35e3ad68b7213845&signType=v3&curtime=1700000000",
+   "content_type": "application/x-www-form-urlencoded; charset=UTF-8",
+   "timeout": 7,
+   "result": {
+    "success": true,
+    "translated_text": "ok",
+    "detected_source_lang": "en",
+    "error_code": null,
+    "error_message": ""
+   }
+  },
+  {
+   "text": "x",
+   "target": "zh-Hant",
+   "source": "zh-Hant",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "url": "https://openapi.youdao.com/api",
+   "body": "q=x&from=zh-CHT&to=zh-CHT&appKey=test-app-key&salt=0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a&sign=d66bcb4d88daf40621e755c9c0bb64b1a0c3fbbf527b4599007ae2aeea2b0f25&signType=v3&curtime=1700000000",
+   "content_type": "application/x-www-form-urlencoded; charset=UTF-8",
+   "timeout": 7,
+   "result": {
+    "success": true,
+    "translated_text": "ok",
+    "detected_source_lang": "en",
+    "error_code": null,
+    "error_message": ""
+   }
+  },
+  {
+   "text": "x",
+   "target": "pt-BR",
+   "source": "en-GB",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "url": "https://openapi.youdao.com/api",
+   "body": "q=x&from=en&to=pt&appKey=test-app-key&salt=0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a&sign=d66bcb4d88daf40621e755c9c0bb64b1a0c3fbbf527b4599007ae2aeea2b0f25&signType=v3&curtime=1700000000",
+   "content_type": "application/x-www-form-urlencoded; charset=UTF-8",
+   "timeout": 7,
+   "result": {
+    "success": true,
+    "translated_text": "ok",
+    "detected_source_lang": "en",
+    "error_code": null,
+    "error_message": ""
+   }
+  },
+  {
+   "text": "a b&c=d+e/%",
+   "target": "fr",
+   "source": "de",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "url": "https://openapi.youdao.com/api",
+   "body": "q=a+b%26c%3Dd%2Be%2F%25&from=de&to=fr&appKey=test-app-key&salt=0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a&sign=21d7c04943c6d0033da1811be00086ac79503b2ef3a698fe41e56ac9e4f82f0f&signType=v3&curtime=1700000000",
+   "content_type": "application/x-www-form-urlencoded; charset=UTF-8",
+   "timeout": 7,
+   "result": {
+    "success": true,
+    "translated_text": "ok",
+    "detected_source_lang": "en",
+    "error_code": null,
+    "error_message": ""
+   }
+  },
+  {
+   "text": "xxxxxxxxx😀yyyyyyyyyyyyyyyyyyyy",
+   "target": "ja",
+   "source": "ko",
+   "salt": "0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a",
+   "curtime": "1700000000",
+   "url": "https://openapi.youdao.com/api",
+   "body": "q=xxxxxxxxx%F0%9F%98%80yyyyyyyyyyyyyyyyyyyy&from=ko&to=ja&appKey=test-app-key&salt=0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a&sign=644e0c5b07860ea4d8d60c0186e6e108f8a0580ebd5561ef2f68d9f58d4e7292&signType=v3&curtime=1700000000",
+   "content_type": "application/x-www-form-urlencoded; charset=UTF-8",
+   "timeout": 7,
+   "result": {
+    "success": true,
+    "translated_text": "ok",
+    "detected_source_lang": "en",
+    "error_code": null,
+    "error_message": ""
+   }
+  }
+ ],
+ "youdao_responses": [
+  {
+   "scenario": {
+    "kind": "ok",
+    "body_hex": "6e6f74206a736f6e"
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "unknown",
+    "error_message": "Failed to parse Youdao Translate response"
+   },
+   "api_code": ""
+  },
+  {
+   "scenario": {
+    "kind": "ok",
+    "body_hex": ""
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "unknown",
+    "error_message": "Failed to parse Youdao Translate response"
+   },
+   "api_code": ""
+  },
+  {
+   "scenario": {
+    "kind": "ok",
+    "body_hex": "fffe"
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "unknown",
+    "error_message": "Failed to parse Youdao Translate response"
+   },
+   "api_code": ""
+  },
+  {
+   "scenario": {
+    "kind": "ok",
+    "body_hex": "5b5d"
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "unknown",
+    "error_message": "Invalid Youdao Translate response"
+   },
+   "api_code": ""
+  },
+  {
+   "scenario": {
+    "kind": "ok",
+    "body_hex": "7b7d"
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "unknown",
+    "error_message": "Youdao error unknown"
+   },
+   "api_code": ""
+  },
+  {
+   "scenario": {
+    "kind": "http_error",
+    "status": 403,
+    "reason": "reason",
+    "body_hex": ""
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "auth_failed",
+    "error_message": "reason"
+   },
+   "api_code": ""
+  },
+  {
+   "scenario": {
+    "kind": "http_error",
+    "status": 401,
+    "reason": "reason",
+    "body_hex": ""
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "auth_failed",
+    "error_message": "reason"
+   },
+   "api_code": ""
+  },
+  {
+   "scenario": {
+    "kind": "http_error",
+    "status": 503,
+    "reason": "reason",
+    "body_hex": ""
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "network_error",
+    "error_message": "reason"
+   },
+   "api_code": ""
+  },
+  {
+   "scenario": {
+    "kind": "http_error",
+    "status": 400,
+    "reason": "reason",
+    "body_hex": "6e6f74206a736f6e"
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "unknown",
+    "error_message": "reason"
+   },
+   "api_code": ""
+  },
+  {
+   "scenario": {
+    "kind": "http_error",
+    "status": 404,
+    "reason": "",
+    "body_hex": ""
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "unknown",
+    "error_message": "HTTP 404"
+   },
+   "api_code": ""
+  },
+  {
+   "scenario": {
+    "kind": "timeout"
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "network_error",
+    "error_message": "Request timed out after 7s"
+   },
+   "api_code": ""
+  },
+  {
+   "scenario": {
+    "kind": "network_error",
+    "reason": "offline"
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "network_error",
+    "error_message": "Network error: offline"
+   },
+   "api_code": ""
+  },
+  {
+   "scenario": {
+    "kind": "ok",
+    "body_hex": "7b226572726f72436f6465223a202230222c20227472616e736c6174696f6e223a205b22e4bda0e5a5bd225d2c20226c223a2022454e327a682d434853227d"
+   },
+   "result": {
+    "success": true,
+    "translated_text": "你好",
+    "detected_source_lang": "en",
+    "error_code": null,
+    "error_message": ""
+   },
+   "api_code": "0"
+  },
+  {
+   "scenario": {
+    "kind": "ok",
+    "body_hex": "7b226572726f72436f6465223a202230222c20227472616e736c6174696f6e223a205b2248656c6c6f222c2022576f726c64225d2c20226c223a20227a682d43485432656e227d"
+   },
+   "result": {
+    "success": true,
+    "translated_text": "Hello\nWorld",
+    "detected_source_lang": "zh-Hant",
+    "error_code": null,
+    "error_message": ""
+   },
+   "api_code": "0"
+  },
+  {
+   "scenario": {
+    "kind": "ok",
+    "body_hex": "7b226572726f72436f6465223a202230222c20227472616e736c6174696f6e223a205b224869225d2c20226c223a20226175746f32656e227d"
+   },
+   "result": {
+    "success": true,
+    "translated_text": "Hi",
+    "detected_source_lang": "",
+    "error_code": null,
+    "error_message": ""
+   },
+   "api_code": "0"
+  },
+  {
+   "scenario": {
+    "kind": "ok",
+    "body_hex": "7b226572726f72436f6465223a202230222c20227472616e736c6174696f6e223a205b224869225d7d"
+   },
+   "result": {
+    "success": true,
+    "translated_text": "Hi",
+    "detected_source_lang": "",
+    "error_code": null,
+    "error_message": ""
+   },
+   "api_code": "0"
+  },
+  {
+   "scenario": {
+    "kind": "ok",
+    "body_hex": "7b226572726f72436f6465223a202230222c20227472616e736c6174696f6e223a205b224869225d2c20226c223a20224a41326b6f227d"
+   },
+   "result": {
+    "success": true,
+    "translated_text": "Hi",
+    "detected_source_lang": "ja",
+    "error_code": null,
+    "error_message": ""
+   },
+   "api_code": "0"
+  },
+  {
+   "scenario": {
+    "kind": "ok",
+    "body_hex": "7b226572726f72436f6465223a202230222c20227472616e736c6174696f6e223a205b22222c202220225d7d"
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "unknown",
+    "error_message": "Invalid Youdao Translate response"
+   },
+   "api_code": "0"
+  },
+  {
+   "scenario": {
+    "kind": "ok",
+    "body_hex": "7b226572726f72436f6465223a202230222c20227472616e736c6174696f6e223a205b5d7d"
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "unknown",
+    "error_message": "Invalid Youdao Translate response"
+   },
+   "api_code": "0"
+  },
+  {
+   "scenario": {
+    "kind": "ok",
+    "body_hex": "7b226572726f72436f6465223a202230222c20227472616e736c6174696f6e223a20226e6f742061206c697374227d"
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "unknown",
+    "error_message": "Invalid Youdao Translate response"
+   },
+   "api_code": "0"
+  },
+  {
+   "scenario": {
+    "kind": "ok",
+    "body_hex": "7b226572726f72436f6465223a202230222c20227472616e736c6174696f6e223a205b34322c206e756c6c2c202278225d7d"
+   },
+   "result": {
+    "success": true,
+    "translated_text": "42\n\nx",
+    "detected_source_lang": "",
+    "error_code": null,
+    "error_message": ""
+   },
+   "api_code": "0"
+  },
+  {
+   "scenario": {
+    "kind": "ok",
+    "body_hex": "7b226572726f72436f6465223a20302c20227472616e736c6174696f6e223a205b227a65726f2061732061206e756d626572225d7d"
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "unknown",
+    "error_message": "Youdao error unknown"
+   },
+   "api_code": ""
+  },
+  {
+   "scenario": {
+    "kind": "ok",
+    "body_hex": "7b227472616e736c6174696f6e223a205b226e6f20636f6465225d7d"
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "unknown",
+    "error_message": "Youdao error unknown"
+   },
+   "api_code": ""
+  },
+  {
+   "scenario": {
+    "kind": "ok",
+    "body_hex": "7b226572726f72436f6465223a2022313038227d"
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "auth_failed",
+    "error_message": "Invalid application ID"
+   },
+   "api_code": "108"
+  },
+  {
+   "scenario": {
+    "kind": "ok",
+    "body_hex": "7b226572726f72436f6465223a2022323032222c20227472616e736c6174696f6e223a205b2269676e6f726564225d7d"
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "auth_failed",
+    "error_message": "Signature verification failed, check the application ID and secret"
+   },
+   "api_code": "202"
+  },
+  {
+   "scenario": {
+    "kind": "ok",
+    "body_hex": "7b226572726f72436f6465223a2022343031227d"
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "quota_exceeded",
+    "error_message": "Youdao account is in arrears, please top up"
+   },
+   "api_code": "401"
+  },
+  {
+   "scenario": {
+    "kind": "ok",
+    "body_hex": "7b226572726f72436f6465223a202239393939227d"
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "unknown",
+    "error_message": "Youdao error 9999"
+   },
+   "api_code": "9999"
+  },
+  {
+   "scenario": {
+    "kind": "ok",
+    "body_hex": "7b226572726f72436f6465223a2022227d"
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "unknown",
+    "error_message": "Youdao error unknown"
+   },
+   "api_code": ""
+  },
+  {
+   "scenario": {
+    "kind": "http_error",
+    "status": 429,
+    "reason": "reason",
+    "body_hex": "7b226572726f72436f6465223a2022343131227d"
+   },
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "unknown",
+    "error_message": "reason"
+   },
+   "api_code": ""
+  }
+ ],
+ "youdao_retries": [
+  {
+   "text": "Hello",
+   "first": {
+    "errorCode": "202"
+   },
+   "modes": [
+    [
+     "utf16",
+     "codepoint"
+    ]
+   ],
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "auth_failed",
+    "error_message": "Signature verification failed, check the application ID and secret"
+   }
+  },
+  {
+   "text": "Hello",
+   "first": {
+    "errorCode": "108"
+   },
+   "modes": [
+    [
+     "utf16",
+     "codepoint"
+    ]
+   ],
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "auth_failed",
+    "error_message": "Invalid application ID"
+   }
+  },
+  {
+   "text": "Hello",
+   "first": {
+    "errorCode": "0",
+    "translation": [
+     "ok"
+    ],
+    "l": "en2zh-CHS"
+   },
+   "modes": [
+    [
+     "utf16",
+     "codepoint"
+    ]
+   ],
+   "result": {
+    "success": true,
+    "translated_text": "ok",
+    "detected_source_lang": "en",
+    "error_code": null,
+    "error_message": ""
+   }
+  },
+  {
+   "text": "xxxxxxxxx😀yyyyyyyyyyyyyyyyyyyy",
+   "first": {
+    "errorCode": "202"
+   },
+   "modes": [
+    [
+     "utf16"
+    ],
+    [
+     "codepoint"
+    ]
+   ],
+   "result": {
+    "success": true,
+    "translated_text": "second",
+    "detected_source_lang": "en",
+    "error_code": null,
+    "error_message": ""
+   }
+  },
+  {
+   "text": "xxxxxxxxx😀yyyyyyyyyyyyyyyyyyyy",
+   "first": {
+    "errorCode": "108"
+   },
+   "modes": [
+    [
+     "utf16"
+    ]
+   ],
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "auth_failed",
+    "error_message": "Invalid application ID"
+   }
+  },
+  {
+   "text": "xxxxxxxxx😀yyyyyyyyyyyyyyyyyyyy",
+   "first": {
+    "errorCode": "0",
+    "translation": [
+     "ok"
+    ],
+    "l": "en2zh-CHS"
+   },
+   "modes": [
+    [
+     "utf16"
+    ]
+   ],
+   "result": {
+    "success": true,
+    "translated_text": "ok",
+    "detected_source_lang": "en",
+    "error_code": null,
+    "error_message": ""
+   }
+  },
+  {
+   "text": "😀",
+   "first": {
+    "errorCode": "202"
+   },
+   "modes": [
+    [
+     "utf16",
+     "codepoint"
+    ],
+    [
+     "utf16",
+     "codepoint"
+    ]
+   ],
+   "result": {
+    "success": true,
+    "translated_text": "second",
+    "detected_source_lang": "en",
+    "error_code": null,
+    "error_message": ""
+   }
+  },
+  {
+   "text": "😀",
+   "first": {
+    "errorCode": "108"
+   },
+   "modes": [
+    [
+     "utf16",
+     "codepoint"
+    ]
+   ],
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "auth_failed",
+    "error_message": "Invalid application ID"
+   }
+  },
+  {
+   "text": "😀",
+   "first": {
+    "errorCode": "0",
+    "translation": [
+     "ok"
+    ],
+    "l": "en2zh-CHS"
+   },
+   "modes": [
+    [
+     "utf16",
+     "codepoint"
+    ]
+   ],
+   "result": {
+    "success": true,
+    "translated_text": "ok",
+    "detected_source_lang": "en",
+    "error_code": null,
+    "error_message": ""
+   }
+  }
+ ],
+ "youdao_prechecks": [
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "  ",
+   "is_configured": true,
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "invalid_request",
+    "error_message": "Text is empty"
+   }
+  },
+  {
+   "config": {
+    "app_key": "test-app-key",
+    "app_secret": "test-app-secret"
+   },
+   "text": "\n\t",
+   "is_configured": true,
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "invalid_request",
+    "error_message": "Text is empty"
+   }
+  },
+  {
+   "config": {},
+   "text": "Hello",
+   "is_configured": false,
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "not_configured",
+    "error_message": "Youdao App ID/App Secret is not configured"
+   }
+  },
+  {
+   "config": {
+    "app_key": " ",
+    "app_secret": " "
+   },
+   "text": "Hello",
+   "is_configured": false,
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "not_configured",
+    "error_message": "Youdao App ID/App Secret is not configured"
+   }
+  },
+  {
+   "config": {
+    "app_key": "k"
+   },
+   "text": "Hello",
+   "is_configured": false,
+   "result": {
+    "success": false,
+    "translated_text": "",
+    "detected_source_lang": "",
+    "error_code": "not_configured",
+    "error_message": "Youdao App ID/App Secret is not configured"
+   }
+  }
+ ],
+ "youdao_error_codes": [
+  {
+   "code": "101",
+   "expected": "invalid_request"
+  },
+  {
+   "code": "102",
+   "expected": "unsupported_language"
+  },
+  {
+   "code": "103",
+   "expected": "invalid_request"
+  },
+  {
+   "code": "108",
+   "expected": "auth_failed"
+  },
+  {
+   "code": "110",
+   "expected": "auth_failed"
+  },
+  {
+   "code": "111",
+   "expected": "auth_failed"
+  },
+  {
+   "code": "112",
+   "expected": "auth_failed"
+  },
+  {
+   "code": "113",
+   "expected": "invalid_request"
+  },
+  {
+   "code": "202",
+   "expected": "auth_failed"
+  },
+  {
+   "code": "203",
+   "expected": "auth_failed"
+  },
+  {
+   "code": "206",
+   "expected": "invalid_request"
+  },
+  {
+   "code": "302",
+   "expected": "network_error"
+  },
+  {
+   "code": "303",
+   "expected": "network_error"
+  },
+  {
+   "code": "304",
+   "expected": "network_error"
+  },
+  {
+   "code": "401",
+   "expected": "quota_exceeded"
+  },
+  {
+   "code": "411",
+   "expected": "rate_limited"
+  },
+  {
+   "code": "412",
+   "expected": "rate_limited"
+  },
+  {
+   "code": "0",
+   "expected": "unknown"
+  },
+  {
+   "code": "",
+   "expected": "unknown"
+  },
+  {
+   "code": "9999",
+   "expected": "unknown"
+  },
+  {
+   "code": "1080",
+   "expected": "unknown"
+  }
+ ],
+ "youdao_language_codes": [
+  {
+   "code": "zh-Hans",
+   "to": "zh-CHS",
+   "from": "zh-hans"
+  },
+  {
+   "code": "zh-Hant",
+   "to": "zh-CHT",
+   "from": "zh-hant"
+  },
+  {
+   "code": "en-US",
+   "to": "en",
+   "from": "en-us"
+  },
+  {
+   "code": "en-GB",
+   "to": "en",
+   "from": "en-gb"
+  },
+  {
+   "code": "pt-BR",
+   "to": "pt",
+   "from": "pt-br"
+  },
+  {
+   "code": "pt-PT",
+   "to": "pt",
+   "from": "pt-pt"
+  },
+  {
+   "code": "ja",
+   "to": "ja",
+   "from": "ja"
+  },
+  {
+   "code": "ko",
+   "to": "ko",
+   "from": "ko"
+  },
+  {
+   "code": "fr",
+   "to": "fr",
+   "from": "fr"
+  },
+  {
+   "code": "",
+   "to": "",
+   "from": ""
+  },
+  {
+   "code": "auto",
+   "to": "auto",
+   "from": ""
+  },
+  {
+   "code": "AUTO",
+   "to": "AUTO",
+   "from": ""
+  },
+  {
+   "code": "zh-CHS",
+   "to": "zh-CHS",
+   "from": "zh-Hans"
+  },
+  {
+   "code": "ZH-CHS",
+   "to": "ZH-CHS",
+   "from": "zh-Hans"
+  },
+  {
+   "code": "zh-cht",
+   "to": "zh-cht",
+   "from": "zh-Hant"
+  },
+  {
+   "code": "EN",
+   "to": "EN",
+   "from": "en"
+  },
+  {
+   "code": "en",
+   "to": "en",
+   "from": "en"
+  },
+  {
+   "code": "ja",
+   "to": "ja",
+   "from": "ja"
+  }
  ]
 }

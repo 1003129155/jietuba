@@ -509,6 +509,15 @@ private slots:
         config_->settings().remove("translation/providers/tencent");
     }
 
+    void youdaoCredentialsReachTheProvider() {
+        QVERIFY(config_->set_provider_field("youdao_translate_app_key", " app "));
+        QVERIFY(config_->set_provider_field("youdao_translate_app_secret", " secret "));
+        QCOMPARE(config_->get_provider_field("youdao_translate_app_key")->toString(), QString("app"));
+        QCOMPARE(config_->get_translation_provider_config("youdao"), (QVariantMap{{"app_key", "app"}, {"app_secret", "secret"}}));
+        config_->settings().remove("translation/providers/youdao");
+        QCOMPARE(config_->get_translation_provider_config("youdao"), (QVariantMap{{"app_key", ""}, {"app_secret", ""}}));
+    }
+
     void quotaProvidersShowTheirUsageUnderTheNotice() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.on_nav_changed(4, "translation");

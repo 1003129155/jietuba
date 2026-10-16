@@ -31,6 +31,8 @@ from translation.providers.deepseek import DeepSeekProvider  # noqa: E402
 from translation.providers.openai_compatible import OpenAICompatibleProvider  # noqa: E402
 from translation.providers.tencent import TencentTranslateProvider  # noqa: E402
 from translation.providers.volcengine import VolcengineTranslateProvider  # noqa: E402
+from translation.providers.youdao import YoudaoTranslateProvider  # noqa: E402
+import translation.providers.youdao as youdao_module  # noqa: E402
 from translation.provider import ModelField, ToggleField  # noqa: E402
 from settings.tool_settings import ToolSettingsManager  # noqa: E402
 from PySide6.QtCore import QSettings  # noqa: E402
@@ -355,11 +357,134 @@ with tempfile.TemporaryDirectory() as temp:
                                    'enabled': quota.get_translation_quota_enabled(provider_id)})
     del quota, qsettings
 
+# ---- Youdao: form-encoded and signed per request with a random salt and the current time ----
+YOUDAO_CONFIG = {'app_key': 'test-app-key', 'app_secret': 'test-app-secret'}
+YOUDAO_SALT, YOUDAO_CURTIME = '0b1f1b43-5d1e-4f43-9b52-3a7d0e2c1f6a', 1700000000
+meta = YoudaoTranslateProvider.metadata()
+youdao_metadata = {'provider_id': meta.provider_id, 'display_name': meta.display_name,
+                   'credentials': [field_info(f) for f in meta.credentials], 'options': [field_info(f) for f in meta.options],
+                   'supported_request_options': sorted(meta.supported_request_options), 'notice': meta.notice,
+                   'help_label': meta.help_label, 'help_url': meta.help_url, 'min_timeout': YoudaoTranslateProvider.MIN_TIMEOUT}
+
+# Texts around the 20-character cut, with astral characters where a UTF-16 cut splits a pair.
+youdao_texts = ['Hello', 'a' * 20, 'b' * 21, 'The quick brown fox jumps over the lazy dog', '中文翻译测试' * 5,
+                'x' * 9 + '😀' + 'y' * 20, 'y' * 20 + '😀' + 'z' * 9, '😀' * 11, '😀' * 10, '😀a😀', '', ' 两端空格 ']
+youdao_sign = []
+for config in [YOUDAO_CONFIG, {'app_key': ' 应用 ', 'app_secret': ' 密钥 '}]:
+    provider = YoudaoTranslateProvider(config)
+    for text in youdao_texts:
+        for utf16 in (True, False):
+            youdao_sign.append({'config': config, 'text': text, 'salt': YOUDAO_SALT, 'curtime': str(YOUDAO_CURTIME), 'utf16': utf16,
+                                'expected': provider._sign(text, YOUDAO_SALT, str(YOUDAO_CURTIME), utf16_input=utf16)})
+
+
+class _FixedUuid:
+    def __str__(self):
+        return YOUDAO_SALT
+
+
+def youdao_run(provider, request, urlopen):
+    with mock.patch.object(youdao_module.uuid, 'uuid4', _FixedUuid), \
+            mock.patch.object(youdao_module.time, 'time', lambda: YOUDAO_CURTIME + 0.75):
+        return run_translate(provider, request, urlopen)
+
+
+youdao_ok = {'errorCode': '0', 'translation': ['ok'], 'l': 'en2zh-CHS'}
+youdao_requests = []
+for text, target, source in [('Hello', 'zh-Hans', 'en'), ('你好', 'zh-Hans', None), ('你好\n世界', 'EN', 'auto'),
+                             ('x', 'zh-Hant', 'zh-Hant'), ('x', 'pt-BR', 'en-GB'), ('a b&c=d+e/%', 'fr', 'de'),
+                             ('x' * 9 + '😀' + 'y' * 20, 'ja', 'ko')]:
+    captured = {}
+
+    def capture(request, timeout, captured=captured):
+        captured.update(url=request.full_url, body=request.data.decode('utf-8'), timeout=timeout,
+                        content_type=request.get_header('Content-type'))
+        return _Response(json.dumps(youdao_ok).encode('utf-8'))
+
+    result = youdao_run(YoudaoTranslateProvider(YOUDAO_CONFIG), TranslationRequest(text, target, source, timeout=7), capture)
+    youdao_requests.append({'text': text, 'target': target, 'source': source, 'salt': YOUDAO_SALT, 'curtime': str(YOUDAO_CURTIME),
+                            'url': captured['url'], 'body': captured['body'], 'content_type': captured['content_type'],
+                            'timeout': captured['timeout'], 'result': result_info(result)})
+
+youdao_scenarios = common_scenarios + [
+    answer({'errorCode': '0', 'translation': ['你好'], 'l': 'EN2zh-CHS'}),
+    answer({'errorCode': '0', 'translation': ['Hello', 'World'], 'l': 'zh-CHT2en'}),
+    answer({'errorCode': '0', 'translation': ['Hi'], 'l': 'auto2en'}),
+    answer({'errorCode': '0', 'translation': ['Hi']}),
+    answer({'errorCode': '0', 'translation': ['Hi'], 'l': 'JA2ko'}),
+    answer({'errorCode': '0', 'translation': ['', ' ']}),
+    answer({'errorCode': '0', 'translation': []}),
+    answer({'errorCode': '0', 'translation': 'not a list'}),
+    answer({'errorCode': '0', 'translation': [42, None, 'x']}),
+    answer({'errorCode': 0, 'translation': ['zero as a number']}),
+    answer({'translation': ['no code']}),
+    answer({'errorCode': '108'}),
+    answer({'errorCode': '202', 'translation': ['ignored']}),
+    answer({'errorCode': '401'}),
+    answer({'errorCode': '9999'}),
+    answer({'errorCode': ''}),
+    http_error(429, {'errorCode': '411'}),
+]
+youdao_responses = []
+for scenario in youdao_scenarios:
+    def urlopen(request, timeout, scenario=scenario):
+        if scenario['kind'] == 'timeout':
+            raise TimeoutError()
+        if scenario['kind'] == 'network_error':
+            raise urllib.error.URLError(scenario['reason'])
+        if scenario['kind'] == 'http_error':
+            raise urllib.error.HTTPError('https://example.invalid', scenario['status'], scenario['reason'], {},
+                                         io.BytesIO(scenario['body']))
+        return _Response(scenario['body'])
+
+    provider = YoudaoTranslateProvider(YOUDAO_CONFIG)
+    with mock.patch.object(youdao_module, 'log_error', lambda *a, **k: None), \
+            mock.patch.object(youdao_module.urllib.request, 'urlopen', urlopen):
+        result, api_code = provider._post(TranslationRequest('Hello', 'ja', timeout=7), utf16_input=True)
+    stored = dict(scenario)
+    if 'body' in stored:
+        stored['body_hex'] = stored.pop('body').hex()
+    youdao_responses.append({'scenario': stored, 'result': result_info(result), 'api_code': api_code})
+
+# A rejected signature is retried with the other input rule, only for text outside the BMP.
+youdao_retries = []
+for text in ['Hello', 'x' * 9 + '😀' + 'y' * 20, '😀']:
+    for first in [{'errorCode': '202'}, {'errorCode': '108'}, youdao_ok]:
+        sent = []
+
+        def urlopen(request, timeout, sent=sent, first=first):
+            form = dict(urllib.parse.parse_qsl(request.data.decode('utf-8')))
+            sent.append([mode for mode in ('utf16', 'codepoint')
+                         if form['sign'] == YoudaoTranslateProvider(YOUDAO_CONFIG)._sign(form['q'], form['salt'], form['curtime'],
+                                                                                          utf16_input=mode == 'utf16')])
+            body = first if len(sent) == 1 else {'errorCode': '0', 'translation': ['second'], 'l': 'en2ja'}
+            return _Response(json.dumps(body).encode('utf-8'))
+
+        result = youdao_run(YoudaoTranslateProvider(YOUDAO_CONFIG), TranslationRequest(text, 'ja', timeout=7), urlopen)
+        youdao_retries.append({'text': text, 'first': first, 'modes': sent, 'result': result_info(result)})
+
+youdao_prechecks = []
+for case_config, text in [(YOUDAO_CONFIG, '  '), (YOUDAO_CONFIG, '\n\t'), ({}, 'Hello'), ({'app_key': ' ', 'app_secret': ' '}, 'Hello'),
+                          ({'app_key': 'k'}, 'Hello')]:
+    result = run_translate(YoudaoTranslateProvider(case_config), TranslationRequest(text, 'ja'), no_network)
+    youdao_prechecks.append({'config': case_config, 'text': text, 'is_configured': YoudaoTranslateProvider(case_config).is_configured(),
+                             'result': result_info(result)})
+
+youdao_error_codes = [{'code': code, 'expected': YoudaoTranslateProvider._map_api_error_code(code).value}
+                      for code in ['101', '102', '103', '108', '110', '111', '112', '113', '202', '203', '206', '302', '303',
+                                   '304', '401', '411', '412', '0', '', '9999', '1080']]
+youdao_language_codes = [{'code': code, 'to': YoudaoTranslateProvider._to_code(code), 'from': YoudaoTranslateProvider._from_code(code)}
+                         for code in ['zh-Hans', 'zh-Hant', 'en-US', 'en-GB', 'pt-BR', 'pt-PT', 'ja', 'ko', 'fr', '', 'auto',
+                                      'AUTO', 'zh-CHS', 'ZH-CHS', 'zh-cht', 'EN', 'en', 'ja']]
+
 fixture = {'html_unescape': unescape, 'extract': extract, 'normalize_base_url': normalize, 'parse_response': parse,
            'custom_llm': custom, 'amazon_signature': amazon, 'baidu_sign': baidu, 'urlencode': urlencode,
            'mt_metadata': mt_metadata, 'volcengine_signature': volcengine_signature, 'tencent_signature': tencent_signature,
            'mt_requests': mt_requests, 'mt_responses': mt_responses, 'mt_prechecks': mt_prechecks,
-           'mt_error_codes': mt_error_codes, 'mt_language_codes': mt_language_codes, 'quota_settings': quota_settings}
+           'mt_error_codes': mt_error_codes, 'mt_language_codes': mt_language_codes, 'quota_settings': quota_settings,
+           'youdao_metadata': youdao_metadata, 'youdao_sign': youdao_sign, 'youdao_requests': youdao_requests,
+           'youdao_responses': youdao_responses, 'youdao_retries': youdao_retries, 'youdao_prechecks': youdao_prechecks,
+           'youdao_error_codes': youdao_error_codes, 'youdao_language_codes': youdao_language_codes}
 target = ROOT / 'tests' / 'fixtures' / 'translation.json'
 target.write_text(json.dumps(fixture, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
 print(f"{len(unescape)} unescape, {len(parse)} parse, {len(custom)} custom, {len(mt_responses)} mt responses, "

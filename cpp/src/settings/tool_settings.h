@@ -154,6 +154,8 @@ public:
     void set_volcengine_translate_secret_key(const QString &value) { set_trimmed("translation/providers/volcengine/secret_access_key", value); }
     void set_tencent_translate_secret_id(const QString &value) { set_trimmed("translation/providers/tencent/secret_id", value); }
     void set_tencent_translate_secret_key(const QString &value) { set_trimmed("translation/providers/tencent/secret_key", value); }
+    void set_youdao_translate_app_key(const QString &value) { set_trimmed("translation/providers/youdao/app_key", value); }
+    void set_youdao_translate_app_secret(const QString &value) { set_trimmed("translation/providers/youdao/app_secret", value); }
     // The monthly quota guard, offered by the providers that declare a free quota.
     void set_volcengine_translate_quota_enabled(bool value) { qsettings.setValue("translation/providers/volcengine/quota_enabled", value); }
     QString get_volcengine_translate_quota_limit() const;

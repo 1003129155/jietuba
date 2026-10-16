@@ -1,5 +1,5 @@
 {
-  "git_head": "a42731e30c2eaf5d4b53591c18f767c49526d355",
+  "git_head": "d3aecaaad8ac1c72ee00971165b036cfa7d972e8",
   "files": [
     {
       "path": "licenses/lucide-LICENSE.txt",
@@ -688,8 +688,8 @@
     },
     {
       "path": "main/main_app.py",
-      "sha256": "895af6fddbf900b60ec8bdf48bfb016fe041798ffde6bb7c4aec8dada3933715",
-      "bytes": 38784
+      "sha256": "4d4e57543482bd364dbc1b6895762d31d68394cb8b342addb923369c392bd246",
+      "bytes": 38047
     },
     {
       "path": "main/ocr/__init__.py",
@@ -833,8 +833,8 @@
     },
     {
       "path": "main/settings/tool_settings.py",
-      "sha256": "26a75a7952bfca4a4b16f0b899bf3b1768030d7524d6c53058db8172308b0afa",
-      "bytes": 105577
+      "sha256": "a84b3cf3be3d6eaf4dcabdcd6513585bbcd3bfcda3562552c64bd23961b5a1dc",
+      "bytes": 106734
     },
     {
       "path": "main/stitch/__init__.py",
@@ -1008,8 +1008,8 @@
     },
     {
       "path": "main/translation/providers/__init__.py",
-      "sha256": "5657c12407abe7095a58d46a7a524feb7fbacad68f67f2775ec21405d69055a5",
-      "bytes": 747
+      "sha256": "f084534861eaacb5ed1b3ebb69fa12fef631ec8f0506577b9c401c5f1229c841",
+      "bytes": 822
     },
     {
       "path": "main/translation/providers/amazon.py",
@@ -1062,14 +1062,19 @@
       "bytes": 12457
     },
     {
+      "path": "main/translation/providers/youdao.py",
+      "sha256": "425b865fb16b7a0fa66b2c6c6fddd055dc2ba94c7d875c4730e5616c45e1011c",
+      "bytes": 12125
+    },
+    {
       "path": "main/translation/registry.py",
       "sha256": "98ed1217f669b1af1715731a497b9961beb828638cc0bf81e64886ead9b4fdad",
       "bytes": 2553
     },
     {
       "path": "main/translation/service.py",
-      "sha256": "b1975bcb3a0d760867d895fdb9879d2d924400b82b42a9d474fb7eeb75254f7c",
-      "bytes": 7623
+      "sha256": "47decd5ed3c8af19c88e3ac05df0294a5d452919745874bd3d63fca500581502",
+      "bytes": 7822
     },
     {
       "path": "main/translation/smart_translation_controller.py",
@@ -1108,23 +1113,23 @@
     },
     {
       "path": "main/translations/app_en.xml",
-      "sha256": "a15185fbee4aa0f59484d64d8a134aa8aac21c1b91c17fcf30724c398df849ba",
-      "bytes": 218742
+      "sha256": "10f23a6b467537ae23e23305ad15f30c6dc2a1a21272f2212c1e84f9422fdd19",
+      "bytes": 220643
     },
     {
       "path": "main/translations/app_ja.xml",
-      "sha256": "a468da1407d6a843a4159ef71a23b36864d41d7eddb0e28065982e85bbaa2ba3",
-      "bytes": 241354
+      "sha256": "6c0e39e8f0245f6dedbf3621a3a0571acd5a1b3b2be053e39439e8f7de155077",
+      "bytes": 243488
     },
     {
       "path": "main/translations/app_ko.xml",
-      "sha256": "8fe9b51615c451ff3e51582b90064cdfb00a98d062693a35c671d8aa9fedbbb4",
-      "bytes": 233580
+      "sha256": "d16630b79af2ca67ffe2acf2962343caba233fd88f1dfa476539f103b9c5c301",
+      "bytes": 235535
     },
     {
       "path": "main/translations/app_zh.xml",
-      "sha256": "72085b4e37848aa70790ad78ba2ccd4b10301a4296d64256fc97133ee6234e35",
-      "bytes": 222254
+      "sha256": "ae408d7794bfcaee1c99ae8b4f59c2db8f1e1be2bea46ca32fb8e5f5d3eac68d",
+      "bytes": 224097
     },
     {
       "path": "main/ui/__init__.py",
@@ -1193,8 +1198,8 @@
     },
     {
       "path": "main/ui/fluent_lite/navigation.py",
-      "sha256": "e61ba1766da40e52879830db1965dc5ec095f5e94a3156978767cc0bfc0ef825",
-      "bytes": 5760
+      "sha256": "932338865a222860e109ce466e2dc55096066b7d84917974b3ed5437ae924013",
+      "bytes": 6898
     },
     {
       "path": "main/ui/fluent_lite/segmented.py",
@@ -1333,8 +1338,8 @@
     },
     {
       "path": "main/ui/settings_ui/dialog.py",
-      "sha256": "0b95c84e31bba144f105ecb13329411495e427f4153b9e28dd81f786345fe8d7",
-      "bytes": 87833
+      "sha256": "4a3d1ab734f7223a231bbd5a5c93c68f6ad782d419d9d2593e53681d024fac11",
+      "bytes": 89854
     },
     {
       "path": "main/ui/settings_ui/mock_config.py",
