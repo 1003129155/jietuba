@@ -18,7 +18,8 @@ hdrcapture = { path = "../../rust_libs/hdrcapture", default-features = false }
 # ONNX Runtime is not linked: jb_ppocr_init_runtime loads the onnxruntime.dll of the PP-OCR pack.
 ppocr_rust = { path = "../../rust_libs/ppocr_rust", default-features = false, features = ["load-dynamic"] }
 pyclipboard = { path = "../../rust_libs/pyclipboard", default-features = false }
-# Clipboard items and groups cross the C boundary as JSON.
+# Clipboard items, groups and PP-OCR model lists cross the C boundary as JSON.
+serde = "1.0"
 serde_json = "1.0"
 
 [profile.release]

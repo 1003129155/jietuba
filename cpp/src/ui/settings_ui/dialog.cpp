@@ -635,7 +635,7 @@ void SettingsDialog::reset_screenshot_settings_page() {
     if (auto *combo = attr<QComboBox>("screenshot_format_combo"))
         combo->setCurrentIndex(std::max<int>(0, QStringList{"PNG", "JPG", "BMP", "WEBP", "PDF"}.indexOf(defaults.value("screenshot_format").toString().toUpper())));
     if (magnifier_color_formats) magnifier_color_formats = color_formats::default_formats();
-    select_data(attr<QComboBox>("ocr_engine_combo"), defaults.value("ocr_engine"));
+    fill_ocr_engines(this, defaults.value("ocr_engine").toString(), defaults.value("ppocr_model").toString());
     select_data(attr<QComboBox>("ocr_result_position_combo"), defaults.value("ocr_result_position"));
 }
 
@@ -770,7 +770,11 @@ bool SettingsDialog::apply_settings(bool close_after) {
     // 4. OCR.
     if (auto *toggle = attr_widget("ocr_enable_toggle")) config_manager->set_ocr_enabled(checked_of(toggle));
     if (auto *combo = attr<QComboBox>("ocr_engine_combo")) {
-        const QString engine = combo->currentData().toString();
+        const auto [engine, model] = ocr_choice(combo->currentData().toString());
+        if (model && *model != config_manager->get_ppocr_model()) {
+            config_manager->set_ppocr_model(*model);
+            set_ppocr_model(*model);
+        }
         if (engine != config_manager->get_ocr_engine()) {
             config_manager->set_ocr_engine(engine);
             set_ocr_engine(engine);
@@ -947,6 +951,10 @@ void SettingsDialog::hideEvent(QHideEvent *event) {
 
 // ── Unsaved changes ──
 
+void SettingsDialog::update_snapshot(const QString &name, const QVariant &value) {
+    if (settings_snapshot_ && settings_snapshot_->contains(name)) (*settings_snapshot_)[name] = value;
+}
+
 QVariantMap SettingsDialog::snapshot_settings() const {
     QVariantMap snap;
     for (const auto &[key, control] : behavior_controls)
@@ -967,11 +975,13 @@ QVariantMap SettingsDialog::snapshot_settings() const {
                              "preload_screenshot_toggle", "preload_toolbar_toggle", "preload_ocr_toggle", "preload_settings_toggle", "preload_clipboard_toggle"})
         if (auto *widget = attr_widget(name)) snap[name] = checked_of(widget);
     // Combos.
-    for (const char *name : {"screenshot_format_combo", "shift_line_angle_combo", "ocr_engine_combo", "ocr_result_position_combo", "translation_provider_combo", "translation_target_combo",
+    for (const char *name : {"screenshot_format_combo", "shift_line_angle_combo", "ocr_result_position_combo", "translation_provider_combo", "translation_target_combo",
                              "log_level_combo", "language_combo", "engine_combo", "cursor_move_combo", "clipboard_pick_combo", "log_retention_combo", "_ui_theme_combo",
                              "_ui_scale_combo", "_dialog_scale_combo", "_selection_border_combo", "_selection_handle_combo", "_selection_handle_size_combo",
                              "smart_mode_combo", "capture_engine_combo"})
         if (auto *combo = attr<QComboBox>(name)) snap[name] = combo->currentIndex();
+    // The OCR list reorders as models are downloaded or deleted, so it compares by the item's value.
+    if (auto *combo = attr<QComboBox>("ocr_engine_combo")) snap["ocr_engine_combo"] = combo->currentData();
     // Numbers.
     for (const char *name : {"clipboard_history_limit_spin", "ignore_top_pixels_spinbox", "ocr_scale_spinbox"}) {
         if (auto *spin = attr<QSpinBox>(name)) snap[name] = spin->value();
@@ -1122,7 +1132,7 @@ void SettingsDialog::refresh_settings() {
         if (auto *toggle = attr_widget(attr_name)) set_checked(toggle, config_manager->get_app_setting(key).toBool());
     if (magnifier_color_formats) magnifier_color_formats = color_formats::load(config_manager);
     if (auto *toggle = attr_widget("ocr_enable_toggle")) set_checked(toggle, config_manager->get_ocr_enabled());
-    select_data(attr<QComboBox>("ocr_engine_combo"), config_manager->get_ocr_engine());
+    fill_ocr_engines(this, config_manager->get_ocr_engine(), config_manager->get_ppocr_model());
     select_data(attr<QComboBox>("ocr_result_position_combo"), config_manager->get_ocr_result_position());
 
     select_data(attr<QComboBox>("translation_provider_combo"), config_manager->get_translation_provider());

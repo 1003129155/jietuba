@@ -65,6 +65,8 @@ public:
     QWidget *attr_widget(const QString &name) const { return attrs_.value(name).data(); }
 
     ToolSettingsManager *config_manager;
+    // Changes one entry of the snapshot unsaved changes are measured against, when it has one.
+    void update_snapshot(const QString &name, const QVariant &value);
     QString current_hotkey;
     QStackedWidget *content_stack = nullptr;
     // Combos, switches and mouse binding editors saved under their configuration key, in creation order.

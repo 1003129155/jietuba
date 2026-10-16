@@ -1,4 +1,5 @@
 #include "ocr/ocr_manager.h"
+#include "ocr/ppocr_models.h"
 #include "settings/tool_settings.h"
 #include <QApplication>
 #include <QDir>
@@ -6,6 +7,7 @@
 #include <QFileInfo>
 #include <QFontDatabase>
 #include <QPainter>
+#include <QScopeGuard>
 #include <QSettings>
 #include <QTemporaryDir>
 #include <QTest>
@@ -62,7 +64,6 @@ private slots:
         settings_ = new QSettings(dir_.filePath("settings.ini"), QSettings::IniFormat, this);
         get_tool_settings_manager(settings_);
         QVERIFY(QFontDatabase::addApplicationFont(QDir(qEnvironmentVariable("WINDIR")).filePath("Fonts/arial.ttf")) >= 0);
-        // Model availability is read once per process, so the files go in before any OCR call.
         const QString source = qEnvironmentVariable("JIETUBA_PPOCR_MODELS");
         const QDir target(QDir(QCoreApplication::applicationDirPath()).filePath("models"));
         if (!source.isEmpty()) {
@@ -82,17 +83,22 @@ private slots:
         QCOMPARE(ocr.resolve_engine(OCRManager::ENGINE_AUTO), engines.isEmpty() ? std::nullopt : std::optional<QString>(engines.front()));
         QCOMPARE(ocr.resolve_engine("tesseract"), std::nullopt);
         QVERIFY(!set_ocr_engine("tesseract"));
-        // An engine that is missing reports why.
-        if (!ppocr_) {
-            QVERIFY(!set_ocr_engine(OCRManager::ENGINE_PP_RUST));
-            QVERIFY(ocr.get_last_error().contains("PP-OCR"));
-            QVERIFY(!initialize_ocr(OCRManager::ENGINE_PP_RUST));
-            QCOMPARE(recognize_text(text_image("x")).code, -1);
-        }
-        if (!engines.contains(OCRManager::ENGINE_ONEOCR)) {
-            QVERIFY(!set_ocr_engine(OCRManager::ENGINE_ONEOCR));
-            QVERIFY(!ocr.get_last_error().isEmpty());
-        }
+        // With no engine at all, a missing choice has nothing to fall back to and reports why.
+        set_oneocr_available_for_test(false);
+        QTemporaryDir models;
+        QVERIFY(models.isValid());
+        ppocr_models::set_models_root_for_test(models.path());
+        const auto restore = qScopeGuard([] {
+            ppocr_models::set_models_root_for_test({});
+            set_oneocr_available_for_test(std::nullopt);
+            set_ocr_engine(OCRManager::ENGINE_AUTO);
+        });
+        QVERIFY(!set_ocr_engine(OCRManager::ENGINE_PP_RUST));
+        QVERIFY(ocr.get_last_error().contains("PP-OCR"));
+        QVERIFY(!initialize_ocr(OCRManager::ENGINE_PP_RUST));
+        QCOMPARE(recognize_text(text_image("x")).code, -1);
+        QVERIFY(!set_ocr_engine(OCRManager::ENGINE_ONEOCR));
+        QVERIFY(!ocr.get_last_error().isEmpty());
         QCOMPARE(get_ocr_memory_status(), QString::fromUtf8("未初始化"));
     }
 
@@ -142,6 +148,102 @@ private slots:
         QVERIFY(!ocr.is_engine_loaded());
         QVERIFY(recognized_text(recognize_text(text_image("Again"))).contains("Again"));
         QVERIFY(ocr.is_engine_loaded());
+    }
+
+    // The engine follows the chosen model and reloads when it changes; Auto takes the catalog's
+    // choice, not the saved model. A deleted model gives way to the automatic choice while the
+    // setting stays as it was.
+    void switchingModelsReloadsAndAMissingOneFallsBackToAuto() {
+        if (!ppocr_) QSKIP("PP-OCR pack is not installed; set JIETUBA_PPOCR_MODELS.");
+        set_oneocr_available_for_test(false);
+        const auto restore = qScopeGuard([] {
+            set_oneocr_available_for_test(std::nullopt);
+            set_ppocr_model({});
+            set_ocr_engine(OCRManager::ENGINE_AUTO);
+        });
+        // A chosen Snipping Tool OCR that is not there gives way to PP-OCR.
+        QVERIFY(set_ocr_engine(OCRManager::ENGINE_ONEOCR));
+        QCOMPARE(get_current_engine(), std::optional<QString>(OCRManager::ENGINE_PP_RUST));
+        const QDir root(ppocr_models::models_root());
+        QVERIFY(initialize_ocr(OCRManager::ENGINE_PP_RUST));
+        ppocr_models::import_model("copy", root.filePath("PP-OCRv6_det_small.onnx"), root.filePath("PP-OCRv6_rec_small.onnx"));
+        set_ppocr_model("copy");
+        QCOMPARE(OCRManager::instance().selected_ppocr_model()->value("id").toString(), QString("copy"));
+        QVERIFY(recognized_text(recognize_text(text_image("Switched"))).contains("Switched"));
+        QVERIFY(set_ocr_engine(OCRManager::ENGINE_AUTO));
+        QCOMPARE(OCRManager::instance().selected_ppocr_model()->value("id").toString(), QString());
+        QVERIFY(set_ocr_engine(OCRManager::ENGINE_PP_RUST));
+        release_ocr_engine();
+        ppocr_models::remove("copy");
+        QCOMPARE(get_ppocr_status(), QString("available"));
+        QCOMPARE(OCRManager::instance().selected_ppocr_model()->value("id").toString(), QString());
+        QVERIFY(set_ocr_engine(OCRManager::ENGINE_PP_RUST));
+        QVERIFY(recognized_text(recognize_text(text_image("Fallback"))).contains("Fallback"));
+    }
+
+    // A model that fails to load is passed over for the automatic one, and tried again once its
+    // files are replaced.
+    void aBrokenModelFallsBackAndIsRetriedOnceReplaced() {
+        if (!ppocr_) QSKIP("PP-OCR pack is not installed; set JIETUBA_PPOCR_MODELS.");
+        set_oneocr_available_for_test(false);
+        const QDir pack(ppocr_models::models_root());
+        const auto model = ppocr_models::import_model("damaged", pack.filePath("PP-OCRv6_det_small.onnx"), pack.filePath("PP-OCRv6_rec_small.onnx"));
+        const auto restore = qScopeGuard([] {
+            release_ocr_engine();
+            ppocr_models::remove("damaged");
+            set_oneocr_available_for_test(std::nullopt);
+            set_ppocr_model({});
+            set_ocr_engine(OCRManager::ENGINE_AUTO);
+        });
+        const QString det = model.value("det").toString();
+        QVERIFY(QFile::remove(det));
+        QFile junk(det);
+        QVERIFY(junk.open(QIODevice::WriteOnly));
+        junk.write("not a model");
+        junk.close();
+        set_ppocr_model("damaged");
+        QVERIFY(set_ocr_engine(OCRManager::ENGINE_PP_RUST));
+        QVERIFY(recognized_text(recognize_text(text_image("Fallback"))).contains("Fallback"));
+        QVERIFY(OCRManager::instance().get_last_error().contains(QString::fromUtf8("初始化失败")));
+        QCOMPARE(OCRManager::instance().selected_ppocr_model()->value("id").toString(), QString());
+        release_ocr_engine();
+        QVERIFY(QFile::remove(det));
+        QVERIFY(QFile::copy(pack.filePath("PP-OCRv6_det_small.onnx"), det));
+        QCOMPARE(OCRManager::instance().selected_ppocr_model()->value("id").toString(), QString("damaged"));
+        QVERIFY(recognized_text(recognize_text(text_image("Repaired"))).contains("Repaired"));
+    }
+
+    // Failures carry the reason the result window explains: no model at all, or a model that
+    // does not load with nothing else to use.
+    void failuresReportTheirReason() {
+        set_oneocr_available_for_test(false);
+        QTemporaryDir models;
+        QVERIFY(models.isValid());
+        ppocr_models::set_models_root_for_test(models.path());
+        const auto restore = qScopeGuard([] {
+            release_ocr_engine();
+            ppocr_models::set_models_root_for_test({});
+            set_oneocr_available_for_test(std::nullopt);
+            set_ppocr_model({});
+            set_ocr_engine(OCRManager::ENGINE_AUTO);
+        });
+        QVERIFY(!set_ocr_engine(OCRManager::ENGINE_PP_RUST));
+        auto result = recognize_text(text_image("x"));
+        QCOMPARE(result.code, -1);
+        QCOMPARE(result.reason, QString("no_model"));
+        if (!ppocr_) return;
+        const QDir pack(QDir(QCoreApplication::applicationDirPath()).filePath("models"));
+        QVERIFY(QFile::copy(pack.filePath("onnxruntime.dll"), QDir(models.path()).filePath("onnxruntime.dll")));
+        const auto model = ppocr_models::import_model("only", pack.filePath("PP-OCRv6_det_small.onnx"), pack.filePath("PP-OCRv6_rec_small.onnx"));
+        QFile det(model.value("det").toString());
+        QVERIFY(det.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        det.write("not a model");
+        det.close();
+        set_ppocr_model("only");
+        QVERIFY(set_ocr_engine(OCRManager::ENGINE_PP_RUST));
+        result = recognize_text(text_image("x"));
+        QCOMPARE(result.code, -1);
+        QCOMPARE(result.reason, QString("model_broken"));
     }
 
     // Switching engines closes the one no longer chosen.

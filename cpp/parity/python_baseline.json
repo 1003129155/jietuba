@@ -1,5 +1,5 @@
 {
-  "git_head": "66080c74935f3bf8f1f33cc86e34a071be559487",
+  "git_head": "a42731e30c2eaf5d4b53591c18f767c49526d355",
   "files": [
     {
       "path": "licenses/lucide-LICENSE.txt",
@@ -418,8 +418,8 @@
     },
     {
       "path": "main/core/bootstrap.py",
-      "sha256": "c41d90d341096342c3f43c0360cc50aeff3eafa0d1e1a102bd11efbeb370f34d",
-      "bytes": 24644
+      "sha256": "1669a67a0d77b060d8823af8278550a080b4533fd9d139ed4801ad883af0705e",
+      "bytes": 25079
     },
     {
       "path": "main/core/clipboard_utils.py",
@@ -488,8 +488,8 @@
     },
     {
       "path": "main/core/log_translations/core_pkg.py",
-      "sha256": "59fb4a545290764314913747e9c351962504b2c2a75d72f417812f25eb085a84",
-      "bytes": 11091
+      "sha256": "e9da8ed6e94e3291557164eb6c18105a1d7c257c7d5fd44e2d990ec7216cf9bd",
+      "bytes": 11171
     },
     {
       "path": "main/core/log_translations/gif.py",
@@ -503,8 +503,8 @@
     },
     {
       "path": "main/core/log_translations/ocr.py",
-      "sha256": "79dfe86b2df247b0603bf354283f801628ee0f1187262991f72cdd8ca1153dac",
-      "bytes": 2159
+      "sha256": "785f31fd5cd3c24cfd60aed5b2324738ead6836494d93ca8f33118b895893789",
+      "bytes": 2245
     },
     {
       "path": "main/core/log_translations/pin.py",
@@ -693,13 +693,18 @@
     },
     {
       "path": "main/ocr/__init__.py",
-      "sha256": "3558a990356434d59b1552c20141dcc241ed2a217a8a3344c8f3fc223f1fda6f",
-      "bytes": 1636
+      "sha256": "93af2c0b8eacd40780e200a51da91e00ea79cd34071a9e147d8679657428826b",
+      "bytes": 1680
     },
     {
       "path": "main/ocr/ocr_manager.py",
-      "sha256": "67f6ba1d14ab3480a475e1fec54462e7f2c61b02f11b50b9e64ca64522b18e21",
-      "bytes": 26501
+      "sha256": "8bcc1dbd1faca43c0a69e694bb59552dda8971b376276d35045f28a6b17d616d",
+      "bytes": 30816
+    },
+    {
+      "path": "main/ocr/ppocr_models.py",
+      "sha256": "3e53fa8cdc5b1205a7a3d8f37663758fabf3559c6324edeec6ca827a61bd0417",
+      "bytes": 6169
     },
     {
       "path": "main/ocr/snipping_tool_ocr.py",
@@ -828,8 +833,8 @@
     },
     {
       "path": "main/settings/tool_settings.py",
-      "sha256": "2ffb53ba0de6fdbe479288f4f3ff35e1de4e05c616e975f419e69c5f8ebc9b7f",
-      "bytes": 105032
+      "sha256": "26a75a7952bfca4a4b16f0b899bf3b1768030d7524d6c53058db8172308b0afa",
+      "bytes": 105577
     },
     {
       "path": "main/stitch/__init__.py",
@@ -883,13 +888,13 @@
     },
     {
       "path": "main/text_recognition/recognizer.py",
-      "sha256": "cfdf3ed0a949f8eab845cb0dcb0694cfcb76ef932adaf3e738c518975aec6b91",
-      "bytes": 4305
+      "sha256": "6427257119b2ab726ccae0c64ba7bc1bad9106145dbfabcd0b4f655c20826284",
+      "bytes": 4732
     },
     {
       "path": "main/text_recognition/result_window.py",
-      "sha256": "3fb7e21889f87e16523a1e6c4e135bc1a9ec66c05535644f745a7c6acf6b1421",
-      "bytes": 15889
+      "sha256": "efa259d8c248fef5ecda53e9249f94839333285ab244cafbac1ae0d535eecb96",
+      "bytes": 16132
     },
     {
       "path": "main/tools/__init__.py",
@@ -1103,23 +1108,23 @@
     },
     {
       "path": "main/translations/app_en.xml",
-      "sha256": "038b72a3f5e66a3b987cbfdb77b82a284722e9caeb4fca216bb18ba9c4002d37",
-      "bytes": 210052
+      "sha256": "a15185fbee4aa0f59484d64d8a134aa8aac21c1b91c17fcf30724c398df849ba",
+      "bytes": 218742
     },
     {
       "path": "main/translations/app_ja.xml",
-      "sha256": "c988644e5cfe6ef73f6bb81139c19104bac65a9740bd5cfc15fd37f429ed56aa",
-      "bytes": 231854
+      "sha256": "a468da1407d6a843a4159ef71a23b36864d41d7eddb0e28065982e85bbaa2ba3",
+      "bytes": 241354
     },
     {
       "path": "main/translations/app_ko.xml",
-      "sha256": "ac77da8f02ee51f1a2e0f600852d34c25cb949b3088903cb6ee4a23b4e9fd1d1",
-      "bytes": 224441
+      "sha256": "8fe9b51615c451ff3e51582b90064cdfb00a98d062693a35c671d8aa9fedbbb4",
+      "bytes": 233580
     },
     {
       "path": "main/translations/app_zh.xml",
-      "sha256": "84d8752ab551b45efc40bdc03e1169d62fcf4e435de7da84c7e2550da6839af7",
-      "bytes": 213639
+      "sha256": "72085b4e37848aa70790ad78ba2ccd4b10301a4296d64256fc97133ee6234e35",
+      "bytes": 222254
     },
     {
       "path": "main/ui/__init__.py",
@@ -1328,13 +1333,13 @@
     },
     {
       "path": "main/ui/settings_ui/dialog.py",
-      "sha256": "9bd1150808069d11083cac3e20fe4621d989b3f67d2f73cff843a89cd14318a3",
-      "bytes": 87389
+      "sha256": "0b95c84e31bba144f105ecb13329411495e427f4153b9e28dd81f786345fe8d7",
+      "bytes": 87833
     },
     {
       "path": "main/ui/settings_ui/mock_config.py",
-      "sha256": "dfcfc233eb9d1b1318a2cc80981b7568bb0ab1675b3bb64d2026a68fb73b61d3",
-      "bytes": 14575
+      "sha256": "8608fbc8e38bd39a489b5bda30ae317c781bcf7b353a269226274b8a8f9d3c6e",
+      "bytes": 14655
     },
     {
       "path": "main/ui/settings_ui/page_about.py",
@@ -1348,8 +1353,8 @@
     },
     {
       "path": "main/ui/settings_ui/page_capture.py",
-      "sha256": "6bb233f666c4de6e212f1793b90f3c0669adb698e43540683a92af581f3cb0e8",
-      "bytes": 15290
+      "sha256": "363616f20c22451285ddfd8166a59abe7ca46738c0fe1248b6d3e37619a58dc8",
+      "bytes": 19540
     },
     {
       "path": "main/ui/settings_ui/page_clipboard.py",
@@ -1395,6 +1400,11 @@
       "path": "main/ui/settings_ui/page_translation.py",
       "sha256": "e16bb0e705178f53f46ebbb1763338e00027b07508ed65440926bb3db8fde6ed",
       "bytes": 21905
+    },
+    {
+      "path": "main/ui/settings_ui/ppocr_model_dialog.py",
+      "sha256": "6fbe65fb81569e5d2f505e62ae662954b4a8041c415e418032277ed35ad8a04f",
+      "bytes": 17749
     },
     {
       "path": "main/ui/settings_ui/provider_fields.py",
@@ -1528,13 +1538,13 @@
     },
     {
       "path": "requirements.txt",
-      "sha256": "803391e167053a8a9918a10c22e9094300d730c13c07ba50fddcf6f35193748e",
+      "sha256": "141c2cb09bf6502a2883bb3a2ee22857040ccc7890114392cd7eff5067181857",
       "bytes": 443
     },
     {
       "path": "rust_libs/Cargo.lock",
-      "sha256": "3de0a8cb81e5b17453c78a0ce7eceefc7803f5af850ca20678cad7d3ca35de47",
-      "bytes": 94773
+      "sha256": "2e36833e6d20ce63e0dc5aa83deecd9af226a105f4f3255372fc36e390156f6c",
+      "bytes": 94798
     },
     {
       "path": "rust_libs/Cargo.toml",
@@ -1778,8 +1788,8 @@
     },
     {
       "path": "rust_libs/ppocr_rust/Cargo.toml",
-      "sha256": "6e1670999df358f22d829c008e7838650270e49a9e0f8333538a5a44b420f903",
-      "bytes": 785
+      "sha256": "b2a048c68a86775920af75d3108757f4fb07163b0c28d15e753856575b0d866c",
+      "bytes": 848
     },
     {
       "path": "rust_libs/ppocr_rust/ONNXRUNTIME-NOTICES.txt",
@@ -1788,8 +1798,8 @@
     },
     {
       "path": "rust_libs/ppocr_rust/THIRD-PARTY-NOTICES.txt",
-      "sha256": "e50edd21cf7e0da9b4d71e12cbb8533b741094e27a842b74efac357c22e0e7fc",
-      "bytes": 172392
+      "sha256": "9d74589d0661397d05a47bbc3e25396629d6eb3a4300d989d96f54e2523ce89c",
+      "bytes": 172494
     },
     {
       "path": "rust_libs/ppocr_rust/build.rs",
@@ -1797,14 +1807,19 @@
       "bytes": 688
     },
     {
+      "path": "rust_libs/ppocr_rust/catalog.json",
+      "sha256": "fe70ad5b6e8560f8d627310db5dc8a13270b94375e6e5e50fe52a5c4c9faa8ab",
+      "bytes": 11892
+    },
+    {
       "path": "rust_libs/ppocr_rust/pyproject.toml",
-      "sha256": "d4e455e3ab44c7b3b5cf323d47719aa38aa6c164be96f9c08e186539ab6199fa",
+      "sha256": "a756143581beb8c7527d74b3da80d0e1ee3a79e5fcdf6392925143aa3e024975",
       "bytes": 852
     },
     {
       "path": "rust_libs/ppocr_rust/src/engine.rs",
-      "sha256": "c65761e3b1e1f9205663438fcb8fccd1715d6d56b814c1509ed21cffb4bf0952",
-      "bytes": 16255
+      "sha256": "3d59c360bcf1c77173dc26eea77f14b1c33be8296eea0eb8c90c5c7b2d215751",
+      "bytes": 19548
     },
     {
       "path": "rust_libs/ppocr_rust/src/geometry.rs",
@@ -1813,13 +1828,18 @@
     },
     {
       "path": "rust_libs/ppocr_rust/src/lib.rs",
-      "sha256": "ee303a65f68211c3e745f616c794f0c18c142c5d8b3e7ef2296c848e0f7a86f7",
-      "bytes": 396
+      "sha256": "bd3fb0b86a5d2d2f91223bb1afa19c5c0153ca16480d608d557be0d3819c611a",
+      "bytes": 412
+    },
+    {
+      "path": "rust_libs/ppocr_rust/src/models.rs",
+      "sha256": "9576fc7bc5b00ae41c17db43f1ff7424e3c2e80a56959e54f94045615325f404",
+      "bytes": 25597
     },
     {
       "path": "rust_libs/ppocr_rust/src/python.rs",
-      "sha256": "1719389c63e48b63aec93e94130250ea8365f6d50f5d4685eb8d2a8de1011717",
-      "bytes": 4069
+      "sha256": "0c7afce3ff9a63d365f53a4e80c870c8dfe1f5c3a5e843a96ba4261b79a465e5",
+      "bytes": 6730
     },
     {
       "path": "rust_libs/pyclipboard/Cargo.lock",
@@ -1878,12 +1898,12 @@
     },
     {
       "path": "rust_libs/updater/Cargo.toml",
-      "sha256": "53812e96bc9583eb8400cecd6f40aac1053a9c051dbb5ecf323603761ad1af12",
+      "sha256": "0190fbd2439e416b435a0ea989c8920ce0732b2603f99739a82b15c21f87f085",
       "bytes": 854
     },
     {
       "path": "rust_libs/updater/THIRD-PARTY-NOTICES.txt",
-      "sha256": "6ae4fc1aae6698c7fa0df971381865c5686a2c6a318904b5bc5aca4be1b84c25",
+      "sha256": "f5393760345407020ceeeb6fd69e6890dbb447190cf3d95700f1295fb225262c",
       "bytes": 106660
     },
     {
@@ -1913,13 +1933,18 @@
     },
     {
       "path": "rust_libs/updater/src/lib.rs",
-      "sha256": "1116ef9ba7327b9afb2eea3a770b8f152b25b82ac5abd6c2d94327cf6ab4502a",
-      "bytes": 3041
+      "sha256": "e3867399b3f87e4ecab99a793a935fd7c9dc3eddeb4e94c0ded6371c300c307c",
+      "bytes": 3057
     },
     {
       "path": "rust_libs/updater/src/main.rs",
-      "sha256": "b55d9297802db218b8d291a41489bd792ea87da9ae767fdf9d906e8ecafc3445",
-      "bytes": 16764
+      "sha256": "5dfa4c0fd6d55a3153f270a9f103fee350244c2e3091fe255861c6c8aa40c4ed",
+      "bytes": 17720
+    },
+    {
+      "path": "rust_libs/updater/src/models.rs",
+      "sha256": "66c827e14f0e107b648f14283071fb0497935b56c98d04fbf23e3b0eb7016386",
+      "bytes": 10600
     },
     {
       "path": "rust_libs/updater/src/platform.rs",

@@ -95152,6 +95152,7 @@
     "gif_fps_options": "",
     "ocr_enabled": true,
     "ocr_engine": "auto",
+    "ppocr_model": "",
     "ocr_result_position": "region_screen",
     "ocr_result_on_top": true,
     "ocr_layout_mode": "auto",

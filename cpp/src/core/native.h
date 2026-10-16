@@ -64,12 +64,26 @@ struct JbOcrLine {
     double score;
 };
 bool jb_ppocr_init_runtime(const char *dll_path, char *error, size_t error_len);
-JbPpocr *jb_ppocr_open(const char *det_path, const char *rec_path, char *error, size_t error_len);
+// dict_path may be null: the dictionary then comes from the rec model's metadata.
+JbPpocr *jb_ppocr_open(const char *det_path, const char *rec_path, const char *dict_path, char *error, size_t error_len);
 void jb_ppocr_free(JbPpocr *engine);
 void jb_ppocr_close(const JbPpocr *engine);
 bool jb_ppocr_recognize(const JbPpocr *engine, const uint8_t *data, size_t len, size_t w, size_t h, size_t stride, JbOcrLine **lines, size_t *count,
                         char *error, size_t error_len);
 void jb_ppocr_lines_free(JbOcrLine *lines, size_t count);
+// PP-OCR models in a models/ folder (ppocr_rust::models). Lists and models are JSON strings
+// freed with jb_ppocr_text_free; a null return means none, or failure with error set.
+void jb_ppocr_text_free(char *text);
+char *jb_ppocr_models_catalog();
+char *jb_ppocr_models_discover(const char *root);
+char *jb_ppocr_models_resolve(const char *root, const char *id);
+char *jb_ppocr_models_auto_choice(const char *root);
+char *jb_ppocr_models_import(const char *root, const char *name, const char *det_path, const char *rec_path, const char *dict_path, char *error,
+                             size_t error_len);
+char *jb_ppocr_models_finish_download(const char *root, const char *catalog_id, char *error, size_t error_len);
+bool jb_ppocr_models_finish_runtime_download(const char *root, char *error, size_t error_len);
+bool jb_ppocr_models_remove(const char *root, const char *id, char *error, size_t error_len);
+void jb_ppocr_models_clean_staging(const char *root);
 
 // longstitch's incremental StitchSession.
 struct JbStitchSession;

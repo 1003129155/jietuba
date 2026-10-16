@@ -1,7 +1,8 @@
 #include "ocr/ocr_manager.h"
 #include "core/logger.h"
-#include "core/resource_manager.h"
+#include "ocr/ppocr_models.h"
 #include "settings/tool_settings.h"
+#include <QDateTime>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFileInfo>
@@ -30,12 +31,12 @@ const std::optional<std::pair<QString, QString>> &snipping_tool() {
     return package;
 }
 
-bool oneocr_available() { return snipping_tool().has_value(); }
+std::optional<bool> &oneocr_override() {
+    static std::optional<bool> available;
+    return available;
+}
 
-// The PP-OCR pack in models/ next to the executable: both models and the ONNX Runtime they run on.
-struct PpocrPack {
-    QString det, rec, runtime;
-};
+bool oneocr_available() { return oneocr_override().value_or(snipping_tool().has_value()); }
 
 // The ort used by the reference's ppocr_rust needs ONNX Runtime 1.24 or later (API version 24).
 constexpr int ORT_MIN_MINOR = 24;
@@ -55,37 +56,26 @@ bool runtime_supported(const QString &path) {
     return HIWORD(info->dwFileVersionMS) == 1 && LOWORD(info->dwFileVersionMS) >= ORT_MIN_MINOR;
 }
 
-// The pack's status ("available", "missing_models" or "missing_engine"), read once per process.
-const std::pair<QString, std::optional<PpocrPack>> &pp_pack() {
-    static const auto pack = [] {
-        const QDir base(ResourceManager::get_resource_path("models"));
-        const PpocrPack found{base.filePath("PP-OCRv6_det_small.onnx"), base.filePath("PP-OCRv6_rec_small.onnx"), base.filePath("onnxruntime.dll")};
-        if (!QFileInfo::exists(found.det) || !QFileInfo::exists(found.rec)) {
-            ocr_log(T("ppocr_rust 已安装但缺少模型文件"), "DEBUG");
-            return std::make_pair(QString("missing_models"), std::optional<PpocrPack>());
-        }
-        if (!QFileInfo::exists(found.runtime) || !runtime_supported(found.runtime)) {
-            ocr_log(T("PP-OCR 缺少可用的 ONNX Runtime（需要 1.{minor} 或更新）: {path}", {{"minor", ORT_MIN_MINOR}, {"path", QDir::toNativeSeparators(found.runtime)}}), "DEBUG");
-            return std::make_pair(QString("missing_engine"), std::optional<PpocrPack>());
-        }
-        ocr_log(T("ppocr_rust 引擎可用 (Rust + ort PP-OCR)"), "DEBUG");
-        return std::make_pair(QString("available"), std::optional<PpocrPack>(found));
-    }();
-    return pack;
+// models/onnxruntime.dll is usable. Checked on each call: a download can add it while running.
+bool runtime_ready() {
+    const QString path = ppocr_models::runtime_path();
+    return QFileInfo::exists(path) && runtime_supported(path);
 }
 
-bool pp_rust_available() { return pp_pack().second.has_value(); }
+PpocrFiles files_of(const QJsonObject &model) { return {model.value("det").toString(), model.value("rec").toString(), model.value("dict").toString()}; }
 
 QString configured_preference() { return get_tool_settings_manager()->get_ocr_engine(); }
 }
 
-// One PP-OCR engine holding det and rec models; the first one loads the pack's ONNX Runtime.
+// One PP-OCR engine holding det and rec models; the first one loads models/onnxruntime.dll.
 class PpocrEngine {
 public:
-    explicit PpocrEngine(const PpocrPack &pack) {
+    explicit PpocrEngine(const PpocrFiles &files) {
         char error[512] = {};
-        if (!jb_ppocr_init_runtime(QDir::toNativeSeparators(pack.runtime).toUtf8().constData(), error, sizeof error)) throw std::runtime_error(error);
-        engine_ = jb_ppocr_open(QDir::toNativeSeparators(pack.det).toUtf8().constData(), QDir::toNativeSeparators(pack.rec).toUtf8().constData(), error, sizeof error);
+        if (!jb_ppocr_init_runtime(QDir::toNativeSeparators(ppocr_models::runtime_path()).toUtf8().constData(), error, sizeof error)) throw std::runtime_error(error);
+        const QByteArray dict = QDir::toNativeSeparators(files.dict).toUtf8();
+        engine_ = jb_ppocr_open(QDir::toNativeSeparators(files.det).toUtf8().constData(), QDir::toNativeSeparators(files.rec).toUtf8().constData(),
+                                files.dict.isEmpty() ? nullptr : dict.constData(), error, sizeof error);
         if (!engine_) throw std::runtime_error(error);
     }
     ~PpocrEngine() { jb_ppocr_free(engine_); }
@@ -112,9 +102,14 @@ private:
     JbPpocr *engine_ = nullptr;
 };
 
-QString get_ppocr_status() { return pp_pack().first; }
+QString get_ppocr_status() {
+    if (!OCRManager::instance().selected_ppocr_model()) return "missing_models";
+    return runtime_ready() ? "available" : "missing_engine";
+}
 
 bool ppocr_runtime_supported(const QString &dll) { return runtime_supported(dll); }
+
+void set_oneocr_available_for_test(std::optional<bool> available) { oneocr_override() = available; }
 
 OCRManager::OCRManager() = default;
 
@@ -123,18 +118,104 @@ OCRManager &OCRManager::instance() {
     return manager;
 }
 
-bool OCRManager::is_available() const { return oneocr_available() || pp_rust_available(); }
+bool OCRManager::is_available() const { return oneocr_available() || ppocr_ready(); }
 
 QStringList OCRManager::get_available_engines() const {
     QStringList engines;
     if (oneocr_available()) engines.append(ENGINE_ONEOCR);
-    if (pp_rust_available()) engines.append(ENGINE_PP_RUST);
+    if (ppocr_ready()) engines.append(ENGINE_PP_RUST);
     return engines;
 }
 
+std::optional<QJsonObject> OCRManager::selected_ppocr_model() const {
+    if (configured() == ENGINE_AUTO) return ppocr_models::auto_choice();
+    const auto model = chosen_model();
+    if (model && !is_broken(*model)) return model;
+    const auto fallback = ppocr_models::auto_choice();
+    if (fallback && !is_broken(*fallback)) {
+        QString model_id;
+        bool first = false;
+        {
+            std::lock_guard lock(state_lock_);
+            model_id = pp_model_id_.value_or(QString());
+            first = !fallback_logged_.contains(model_id);
+            fallback_logged_.insert(model_id);
+        }
+        if (first) ocr_log(T("所选 PP-OCR 模型不可用，改用自动选择: {model}", {{"model", model_id.isEmpty() ? QString("default") : model_id}}), "WARN");
+        return fallback;
+    }
+    return model;
+}
+
+QString OCRManager::configured() const {
+    {
+        std::lock_guard lock(state_lock_);
+        if (preference_) return *preference_;
+    }
+    return configured_preference();
+}
+
+std::optional<QJsonObject> OCRManager::chosen_model() const {
+    QString model_id;
+    {
+        std::lock_guard lock(state_lock_);
+        if (!pp_model_id_) pp_model_id_ = get_tool_settings_manager()->get_ppocr_model();
+        model_id = *pp_model_id_;
+    }
+    return ppocr_models::resolve(model_id);
+}
+
+QString OCRManager::signature(const QJsonObject &model) {
+    QStringList parts;
+    const auto files = files_of(model);
+    for (const auto &path : {files.det, files.rec, files.dict}) {
+        if (path.isEmpty()) continue;
+        const QFileInfo info(path);
+        parts << (info.exists() ? QString("%1|%2|%3").arg(path).arg(info.size()).arg(info.lastModified().toMSecsSinceEpoch()) : path + "|-|-");
+    }
+    return parts.join('\n');
+}
+
+bool OCRManager::is_broken(const QJsonObject &model) const {
+    const auto key = signature(model);
+    std::lock_guard lock(state_lock_);
+    return broken_.contains(key);
+}
+
+qsizetype OCRManager::broken_count() const {
+    std::lock_guard lock(state_lock_);
+    return broken_.size();
+}
+
+bool OCRManager::falls_back(const QString &preference) const {
+    if (preference == ENGINE_ONEOCR) return !oneocr_available();
+    if (preference != ENGINE_PP_RUST) return false;
+    const auto model = chosen_model();
+    return !model || is_broken(*model);
+}
+
+QString OCRManager::missing_reason() { return get_ppocr_status() == "missing_engine" ? QString("unavailable") : QString("no_model"); }
+
+void OCRManager::set_last_reason(const QString &reason) {
+    std::lock_guard lock(state_lock_);
+    last_reason_ = reason;
+}
+
+void OCRManager::set_ppocr_model(const QString &model_id) {
+    std::optional<QString> preference;
+    {
+        std::lock_guard lock(state_lock_);
+        pp_model_id_ = model_id;
+        preference = preference_;
+    }
+    if (preference) set_engine(*preference);
+}
+
+bool OCRManager::ppocr_ready() const { return selected_ppocr_model() && runtime_ready(); }
+
 std::optional<QString> OCRManager::resolve_engine(const QString &preference) const {
     const auto available = get_available_engines();
-    if (preference == ENGINE_AUTO) return available.isEmpty() ? std::nullopt : std::optional<QString>(available.front());
+    if (preference == ENGINE_AUTO || falls_back(preference)) return available.isEmpty() ? std::nullopt : std::optional<QString>(available.front());
     return available.contains(preference) ? std::optional<QString>(preference) : std::nullopt;
 }
 
@@ -174,6 +255,7 @@ bool OCRManager::set_engine(const QString &engine_type) {
         }
     }
     if (!target) {
+        set_last_reason(missing_reason());
         if (engine_type == ENGINE_PP_RUST) set_last_error(get_ppocr_status() == "missing_models" ? QString::fromUtf8("PP-OCR 缺少模型") : QString::fromUtf8("PP-OCR 缺少引擎"));
         else if (engine_type == ENGINE_ONEOCR) set_last_error(QString::fromUtf8("未找到带 OCR 的 Windows 截图工具"));
         else set_last_error(QString::fromUtf8("没有可用的 OCR 引擎"));
@@ -203,21 +285,52 @@ bool OCRManager::initialize(const QString &engine_type) {
 }
 
 bool OCRManager::initialize_ppocr_rust() {
-    if (!pp_rust_available()) {
-        set_last_error(QString::fromUtf8("ppocr_rust 引擎不可用"));
+    const auto model = selected_ppocr_model();
+    if (!model) {
+        set_last_error(QString::fromUtf8("PP-OCR 缺少模型"));
+        set_last_reason("no_model");
+        ocr_log(T("ppocr_rust 已安装但缺少模型文件"), "DEBUG");
         return false;
     }
-    if (pp_loaded_) return true;
+    if (!runtime_ready()) {
+        set_last_error(QString::fromUtf8("ppocr_rust 引擎不可用"));
+        set_last_reason("unavailable");
+        ocr_log(T("PP-OCR 缺少可用的 ONNX Runtime（需要 1.{minor} 或更新）: {path}", {{"minor", ORT_MIN_MINOR}, {"path", QDir::toNativeSeparators(ppocr_models::runtime_path())}}),
+                "DEBUG");
+        return false;
+    }
+    const PpocrFiles files = files_of(*model);
+    {
+        std::lock_guard lock(state_lock_);
+        if (pp_loaded_ && pp_files_ == files) return true;
+    }
     std::lock_guard lock(engine_lock_);
-    if (pp_engine_) return true;
+    if (pp_engine_) {
+        {
+            std::lock_guard state(state_lock_);
+            if (pp_files_ == files) return true;
+        }
+        pp_loaded_ = false;
+        pp_engine_->close();
+        pp_engine_.reset();
+    }
     try {
         ocr_log(T("正在初始化 ppocr_rust 引擎 (Rust + ort)..."), "DEBUG");
-        pp_engine_ = std::make_unique<PpocrEngine>(*pp_pack().second);
+        pp_engine_ = std::make_unique<PpocrEngine>(files);
+        {
+            std::lock_guard state(state_lock_);
+            pp_files_ = files;
+        }
         pp_loaded_ = true;
         ocr_log(T("ppocr_rust 引擎初始化成功"), "DEBUG");
         return true;
     } catch (const std::exception &e) {
         set_last_error(QString::fromUtf8("ppocr_rust 初始化失败: ") + QString::fromUtf8(e.what()));
+        {
+            std::lock_guard state(state_lock_);
+            last_reason_ = "model_broken";
+            broken_.insert(signature(*model));
+        }
         ocr_log(T("ppocr_rust 初始化失败: {e}\n{tb}", {{"e", QString::fromUtf8(e.what())}, {"tb", QString()}}), "ERROR");
         pp_engine_.reset();
         return false;
@@ -266,19 +379,33 @@ void OCRManager::close_stale_engines() {
 OcrResult OCRManager::recognize(const QImage &image) {
     ensure_preference();
     std::lock_guard lock(engine_lock_);
+    set_last_reason({});
     OcrResult result;
-    const auto engine = get_current_engine();
-    if (engine == ENGINE_PP_RUST) result = recognize_with_ppocr_rust(image);
-    else if (engine == ENGINE_ONEOCR) result = recognize_with_oneocr(image);
-    else result = format_error();
+    // Model files can be deleted or replaced between recognitions, so the choice is made again
+    // each time; a model that has just failed to load is marked broken, and the next choice
+    // takes the automatic one instead.
+    for (int attempt = 0; attempt < 2; ++attempt) {
+        set_engine(configured());
+        const auto engine = get_current_engine();
+        if (engine == ENGINE_ONEOCR) {
+            result = recognize_with_oneocr(image);
+            break;
+        }
+        if (engine != ENGINE_PP_RUST) {
+            result = format_error();
+            break;
+        }
+        const auto broken = broken_count();
+        result = recognize_with_ppocr_rust(image);
+        if (broken_count() == broken) break;
+    }
     close_stale_engines();
     return result;
 }
 
 OcrResult OCRManager::recognize_with_ppocr_rust(const QImage &source) {
     // Inference runs on the native side, off the UI thread's work.
-    if (!pp_rust_available()) return format_error(QString::fromUtf8("ppocr_rust 不可用"));
-    if (!pp_engine_ && !initialize_ppocr_rust()) return format_error();
+    if (!initialize_ppocr_rust()) return format_error();
     try {
         QElapsedTimer clock;
         clock.start();
@@ -322,12 +449,16 @@ OcrResult OCRManager::format_empty_result() { return OcrResult{100, QString::fro
 
 OcrResult OCRManager::format_error(const QString &error_msg) const {
     QString msg = error_msg;
-    if (msg.isEmpty()) {
+    QString reason;
+    {
         std::lock_guard lock(state_lock_);
-        msg = last_error_;
+        if (msg.isEmpty()) {
+            msg = last_error_;
+            reason = last_reason_;
+        }
     }
     if (msg.isEmpty()) msg = QString::fromUtf8("OCR 不可用");
-    return OcrResult{-1, msg, {}, 0.0};
+    return OcrResult{-1, msg, {}, 0.0, reason.isEmpty() ? QString("failed") : reason};
 }
 
 void OCRManager::release_engine() {
@@ -361,6 +492,7 @@ QString OCRManager::get_memory_status() const {
 bool is_ocr_available() { return OCRManager::instance().is_available(); }
 QStringList get_available_engines() { return OCRManager::instance().get_available_engines(); }
 bool set_ocr_engine(const QString &engine_type) { return OCRManager::instance().set_engine(engine_type); }
+void set_ppocr_model(const QString &model_id) { OCRManager::instance().set_ppocr_model(model_id); }
 std::optional<QString> get_current_engine() { return OCRManager::instance().get_current_engine(); }
 bool initialize_ocr(const QString &engine_type) { return OCRManager::instance().initialize(engine_type); }
 OcrResult recognize_text(const QImage &image) { return OCRManager::instance().recognize(image); }

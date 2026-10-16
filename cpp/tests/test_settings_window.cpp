@@ -1,4 +1,6 @@
 #include "core/i18n.h"
+#include "ocr/ocr_manager.h"
+#include "ocr/ppocr_models.h"
 #include "settings/settings_transfer.h"
 #include "settings/tool_settings.h"
 #include "ui/fluent_lite/cards.h"
@@ -18,6 +20,10 @@
 #include <QSignalSpy>
 #include <QTimer>
 #include <QDir>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QScopeGuard>
+#include <QStandardItemModel>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QGridLayout>
@@ -110,6 +116,77 @@ private slots:
         QVERIFY(config_->get_screenshot_save_enabled());
         QVERIFY(!apply->isEnabled());
         dialog.hide();
+    }
+
+    // The OCR list holds what can be chosen: Auto, the installed models in catalog order with ones
+    // added by hand last, then the download entry. A chosen model that is gone stays listed,
+    // disabled; Apply saves engine and model together.
+    void ocrListOffersInstalledModelsAndKeepsAMissingChoice() {
+        QTemporaryDir models;
+        QVERIFY(models.isValid());
+        const QDir root(models.path());
+        const auto write = [&root](const QString &name, const QByteArray &data = "x") {
+            QDir().mkpath(QFileInfo(root.filePath(name)).path());
+            QFile file(root.filePath(name));
+            return file.open(QIODevice::WriteOnly) && file.write(data) == data.size();
+        };
+        const auto manifest = [](const QString &name, const QString &catalog_id) {
+            QJsonObject object{{"name", name}, {"det", "det.onnx"}, {"rec", "rec.onnx"}};
+            if (!catalog_id.isEmpty()) object["catalog_id"] = catalog_id;
+            return QJsonDocument(object).toJson();
+        };
+        QVERIFY(write("PP-OCRv6_det_small.onnx") && write("PP-OCRv6_rec_small.onnx"));
+        for (const auto &[id, name, catalog_id] : {std::tuple<QString, QString, QString>{"local", "local", ""}, {"ppocr-v5-korean", "PP-OCRv5 Korean", "ppocr-v5-korean"}})
+            QVERIFY(write(id + "/det.onnx") && write(id + "/rec.onnx") && write(id + "/model.json", manifest(name, catalog_id)));
+        const QString runtime = QDir(QCoreApplication::applicationDirPath()).filePath("models/onnxruntime.dll");
+        const bool runtime_ready = QFile::copy(runtime, root.filePath("onnxruntime.dll")) && ppocr_runtime_supported(root.filePath("onnxruntime.dll"));
+        ppocr_models::set_models_root_for_test(root.path());
+        set_oneocr_available_for_test(false);
+        config_->set_ocr_engine("ppocr_rust");
+        config_->set_ppocr_model("ppocr-v5-korean");
+        const auto restore = qScopeGuard([this] {
+            ppocr_models::set_models_root_for_test({});
+            set_oneocr_available_for_test(std::nullopt);
+            config_->set_ocr_engine("auto");
+            config_->set_ppocr_model("");
+            set_ppocr_model("");
+            set_ocr_engine("auto");
+        });
+
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.on_nav_changed(1, "capture");
+        auto *combo = dialog.attr<QComboBox>("ocr_engine_combo");
+        QVERIFY(combo);
+        auto *items = qobject_cast<QStandardItemModel *>(combo->model());
+        QStringList catalog_order;
+        for (const auto &value : ppocr_models::catalog().value("models").toArray()) catalog_order << value.toObject().value("id").toString();
+        QStringList expected_models{"ppocr_rust:", "ppocr_rust:ppocr-v5-korean"};
+        if (catalog_order.indexOf("ppocr-v5-korean") < catalog_order.indexOf("ppocr-v6-small")) expected_models.swapItemsAt(0, 1);
+        QStringList data;
+        for (int i = 0; i < combo->count(); ++i) data << combo->itemData(i).toString();
+        QCOMPARE(data, (QStringList{"auto"} + expected_models + QStringList{"ppocr_rust:local", "", "manage_models"}));
+        QCOMPARE(combo->itemText(combo->findData("ppocr_rust:")), QString("PP-OCRv6 small"));
+        QCOMPARE(combo->itemText(combo->count() - 1), settings_tr("Download more models..."));
+        for (const auto &model : expected_models) QCOMPARE(items->item(combo->findData(model))->isEnabled(), runtime_ready);
+        QCOMPARE(items->item(0)->isEnabled(), runtime_ready);
+        QCOMPARE(combo->currentData().toString(), QString("ppocr_rust:ppocr-v5-korean"));
+
+        combo->setCurrentIndex(combo->findData("ppocr_rust:local"));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_ocr_engine(), QString("ppocr_rust"));
+        QCOMPARE(config_->get_ppocr_model(), QString("local"));
+
+        QVERIFY(QDir(root.filePath("local")).removeRecursively());
+        fill_ocr_engines(&dialog, "ppocr_rust", "local");
+        QCOMPARE(combo->currentData().toString(), QString("ppocr_rust:local"));
+        QCOMPARE(combo->currentText(), settings_tr("%1 (not installed)").replace("%1", "local"));
+        QVERIFY(!items->item(combo->currentIndex())->isEnabled());
+        QCOMPARE(ocr_choice("ppocr_rust:local"), (std::pair<QString, std::optional<QString>>{"ppocr_rust", QString("local")}));
+        QCOMPARE(ocr_choice("oneocr"), (std::pair<QString, std::optional<QString>>{"oneocr", std::nullopt}));
+
+        for (auto *button : dialog.findChildren<QPushButton *>())
+            if (button->text() == settings_tr("Reset This Page")) button->click();
+        QCOMPARE(combo->currentData().toString(), QString("auto"));
     }
 
     void resetRestoresTheCurrentPageDefaults() {
