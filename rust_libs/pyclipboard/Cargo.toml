@@ -1,6 +1,6 @@
 [package]
 name = "pyclipboard"
-version = "0.4.5"
+version = "0.4.6"
 edition = "2021"
 license = "MIT"
 description = "Python 剪贴板管理库（Rust 实现）"
@@ -8,11 +8,18 @@ authors = ["JYAARU"]
 
 [lib]
 name = "pyclipboard"
-crate-type = ["cdylib"]
+# rlib 供 C++ 版以 default-features = false 静态链接
+crate-type = ["cdylib", "rlib"]
+# 文档注释是 Python docstring，里面的示例不是 Rust 代码
+doctest = false
+
+[features]
+default = ["python"]
+python = ["dep:pyo3"]
 
 [dependencies]
 # PyO3 - Python 绑定
-pyo3 = { version = "0.22", features = ["extension-module", "abi3-py311"] }
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py311"], optional = true }
 
 # 剪贴板操作
 clipboard-rs = "0.3.5"

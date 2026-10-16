@@ -8,10 +8,10 @@ from PySide6.QtWidgets import QWidget, QHBoxLayout
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QKeyEvent, QKeySequence
 
+from core import global_hotkey, safe_event
 from core.shortcut_manager import (
     ShortcutManager, ShortcutHandler, get_key_display_map, hotkey_identity,
 )
-from core import safe_event
 from core.i18n import make_tr
 from core.ui_scale import dialog_scaled
 
@@ -25,8 +25,9 @@ class _HotkeyEditHandler(ShortcutHandler):
     热键录入框专用 handler（优先级 200，最高）。
 
     聚焦时注册，失焦时注销。
-    - handle_key:    拦截 Qt KeyPress，阻止截图/钉图等 handler 抢走按键
-    - handle_hotkey: 拦截 WM_HOTKEY 系统热键，阻止触发截图/剪贴板回调
+    - handle_key:          拦截 Qt KeyPress，阻止截图/钉图等 handler 抢走按键
+    - handle_hotkey:       拦截已注册的全局热键，阻止触发截图/剪贴板回调
+    - handle_captured_key: 收下钩子截获的 Win 组合键和 PrtSc
     """
 
     def __init__(self, line_edit: '_HotkeyLineEdit'):
@@ -50,50 +51,15 @@ class _HotkeyEditHandler(ShortcutHandler):
         return True
 
     def handle_hotkey(self, hotkey_id: int, callback) -> bool:
-        # 拦截系统热键，并合成 Qt KeyPress 事件投递给输入框
-        from PySide6.QtCore import QEvent
-        from PySide6.QtGui import QKeyEvent
-        from core.shortcut_manager import (
-            ShortcutManager,
-            MOD_CONTROL, MOD_ALT, MOD_SHIFT, MOD_WIN,
-        )
-        mgr = ShortcutManager.instance()
-        meta = mgr._id_to_metadata.get(hotkey_id)
-        if meta is None:
-            return True  # 不知道是什么键，直接拦截不触发
+        # 已注册的键到不了 Qt，按注册时的键码写进录入框；不认识的只拦截不触发
+        meta = ShortcutManager.instance()._id_to_metadata.get(hotkey_id)
+        text = global_hotkey.format_hotkey(*meta) if meta is not None else None
+        if text is not None:
+            self._line_edit.setText(text)
+        return True
 
-        mods_bits, vk = meta
-
-        # 把 Windows modifier bits 转成 Qt modifier flags
-        qt_mods = Qt.KeyboardModifier.NoModifier
-        if mods_bits & MOD_CONTROL:
-            qt_mods |= Qt.KeyboardModifier.ControlModifier
-        if mods_bits & MOD_ALT:
-            qt_mods |= Qt.KeyboardModifier.AltModifier
-        if mods_bits & MOD_SHIFT:
-            qt_mods |= Qt.KeyboardModifier.ShiftModifier
-        if mods_bits & MOD_WIN:
-            qt_mods |= Qt.KeyboardModifier.MetaModifier
-
-        # vk → Qt.Key（字母 A-Z / 数字 0-9 / F1-F24）
-        qt_key = Qt.Key.Key_unknown
-        if 0x41 <= vk <= 0x5A:           # A-Z
-            qt_key = Qt.Key(vk)
-        elif 0x30 <= vk <= 0x39:         # 0-9
-            qt_key = Qt.Key(vk)
-        elif 0x70 <= vk <= 0x87:         # F1-F24
-            qt_key = Qt.Key(Qt.Key.Key_F1.value + (vk - 0x70))
-
-        if qt_key == Qt.Key.Key_unknown:
-            return True  # 无法映射，只拦截
-
-        fake_event = QKeyEvent(
-            QEvent.Type.KeyPress,
-            qt_key,
-            qt_mods,
-            "",
-        )
-        self._line_edit.keyPressEvent(fake_event)
+    def handle_captured_key(self, text: str) -> bool:
+        self._line_edit.setText(text)
         return True
 
     def handle_mouse_hotkey(self, token: str, callback) -> bool:
@@ -114,6 +80,8 @@ class HotkeyEdit(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._system_available = None
+        self._route = global_hotkey.UNSET
+        self._taken_over = False
         self._validation_error = ""
         self.layout = QHBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
@@ -155,6 +123,7 @@ class HotkeyEdit(QWidget):
         # 文本一变，旧值的系统检测结果就失效。设置页级冲突状态由外部
         # textChanged 监听器随后更新，因此这里先清掉旧的可用性显示。
         self._system_available = None
+        self._taken_over = False
         self._render_status()
         # If hotkey is complete (not ending with +), verify it
         if text and not text.endswith("+"):
@@ -173,8 +142,20 @@ class HotkeyEdit(QWidget):
             self._render_status()
             return False
 
-        # Check availability using our HotkeySystem
-        self._system_available = self.hotkey_system.check_hotkey_availability(hotkey)
+        self._route = global_hotkey.route(hotkey)
+        self._taken_over = False
+        if self._route in (global_hotkey.INVALID, global_hotkey.RESERVED):
+            self._system_available = False
+        elif self._route == global_hotkey.HOOK:
+            # 钩子接管的键系统注册不上也照样能用；PrtSc 注册上了也可能仍归系统截图
+            registrable = self.hotkey_system.check_hotkey_availability(hotkey)
+            self._taken_over = (
+                not registrable
+                or global_hotkey.parse_hotkey(hotkey)[1] == global_hotkey.VK_SNAPSHOT
+            )
+            self._system_available = True
+        else:
+            self._system_available = self.hotkey_system.check_hotkey_availability(hotkey)
         self._render_status()
         return self._system_available
 
@@ -187,13 +168,25 @@ class HotkeyEdit(QWidget):
             state, tip = "idle", _tr("Not set")
         elif hotkey.endswith("+") or self._system_available is None:
             state, tip = "", ""
+        elif self._system_available and self._taken_over:
+            state, tip = "ok", _tr("Windows uses this shortcut too. This app takes it over "
+                                   "while running; clear it to give it back.")
         elif self._system_available:
             state, tip = "ok", _tr("Available")
+        elif self._route == global_hotkey.RESERVED:
+            state, tip = "error", _tr("Reserved by Windows. No app can use it.")
+        elif self._route == global_hotkey.INVALID:
+            state, tip = "error", _tr("This key can't be used as a global hotkey.")
         else:
             state, tip = "error", _tr("Already in use by another app.")
         self.status_icon.setState(state, tip)
         self.edit.setErrorState(state == "error")
-        self.edit.setToolTip(tip if state == "error" else "")
+        self.edit.setToolTip(tip if state == "error" or self._taken_over else "")
+
+    @property
+    def taken_over(self) -> bool:
+        """当前值是否是从 Windows 手里接管来的（系统也在用这个键）。"""
+        return bool(self._system_available) and self._taken_over
 
     def set_validation_error(self, message: str = ""):
         """设置由容器统一校验得出的错误（例如多个业务重复绑定）。"""
@@ -266,9 +259,9 @@ class _HotkeyLineEdit(KeyChipLineEdit):
 
         # 创建 handler，聚焦时注册，失焦时注销
         self._shortcut_handler = _HotkeyEditHandler(self)
-        # 侧键独占是引用计数式的，这里记录本控件是否已经占了一份，
+        # 侧键独占和按键截获都是引用计数式的，这里记录本控件是否已经占了一份，
         # 保证 focusIn / focusOut 成对增减，不会漏放或重复放。
-        self._mouse_capture_held = False
+        self._capture_held = False
 
     @safe_event
     def keyPressEvent(self, event: QKeyEvent):
@@ -320,10 +313,9 @@ class _HotkeyLineEdit(KeyChipLineEdit):
         
         # 4. Update Display
         
-        # If basically nothing valid/known pressed (and no modifiers), ignore or clear?
-        if not is_modifier_present and not key_text:
-             # e.g. some unknown key
-             return
+        # 认不出的键不改内容：钩子屏蔽开始菜单时注入的未分配键也会在按着 Win 时送到这里
+        if not is_current_key_modifier and not key_text:
+            return
 
         # Special Case: clearing with Backspace/Delete (without modifiers)
         if not is_modifier_present and key_text in ("Backspace", "Delete"):
@@ -338,32 +330,11 @@ class _HotkeyLineEdit(KeyChipLineEdit):
              self.setText(hotkey_str)
              return
 
-        # If we have a main key
-        # Rule: Valid = (Modifiers + Key) OR (Function Key) OR (Special Key)
-        
-        is_function_key = (Qt.Key.Key_F1 <= key <= Qt.Key.Key_F35)
-        special_keys = [
-            Qt.Key.Key_Home, Qt.Key.Key_End, Qt.Key.Key_PageUp, Qt.Key.Key_PageDown,
-            Qt.Key.Key_Left, Qt.Key.Key_Right, Qt.Key.Key_Up, Qt.Key.Key_Down,
-            Qt.Key.Key_Insert, Qt.Key.Key_Print, Qt.Key.Key_Pause, 
-        ]
-        is_special_key = (key in special_keys)
-        
-        is_valid = False
-        if is_modifier_present:
-            is_valid = True
-        elif is_function_key or is_special_key:
-            is_valid = True
-        
-        if is_valid:
-            parts.append(key_text)
-            hotkey_str = "+".join(parts).lower()
+        # 带修饰键的照录，判不了的由状态图标提示；单键只收能单独绑定的那些
+        parts.append(key_text)
+        hotkey_str = "+".join(parts).lower()
+        if is_modifier_present or global_hotkey.route(hotkey_str) != global_hotkey.INVALID:
             self.setText(hotkey_str)
-        else:
-             # Just a letter 'A' without modifiers -> Invalid
-             # But maybe we want to show it temporarily? 
-             # Implementation choice: User said "check valid then show".
-             pass
 
     @safe_event
     def keyReleaseEvent(self, event: QKeyEvent):
@@ -406,20 +377,23 @@ class _HotkeyLineEdit(KeyChipLineEdit):
         self._shortcut_handler._active = True
         manager = ShortcutManager.instance()
         manager.register(self._shortcut_handler)
-        if not self._mouse_capture_held:
-            # 让低级钩子在录入期间独占侧键，这样尚未绑定的侧键也录得到。
-            self._mouse_capture_held = True
+        if not self._capture_held:
+            # 让低级钩子在录入期间独占侧键、截获系统占着的按键，这样尚未绑定的
+            # 侧键和 Win+V 这类组合也录得到。
+            self._capture_held = True
             manager.begin_mouse_capture()
+            manager.begin_key_capture()
 
     @safe_event
     def focusOutEvent(self, event):
         self._shortcut_handler._active = False
         manager = ShortcutManager.instance()
         manager.unregister(self._shortcut_handler)
-        if self._mouse_capture_held:
-            # 必须成对释放，否则钩子一直挂着，其它程序永远拿不回侧键。
-            self._mouse_capture_held = False
+        if self._capture_held:
+            # 必须成对释放，否则钩子一直挂着，其它程序永远拿不回侧键和这些组合键。
+            self._capture_held = False
             manager.end_mouse_capture()
+            manager.end_key_capture()
         super().focusOutEvent(event)
 
     def contextMenuEvent(self, event):

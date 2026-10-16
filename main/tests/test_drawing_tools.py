@@ -55,6 +55,18 @@ def ctx(scene, undo_stack):
     )
 
 
+def _vertices(path):
+    """路径经过的点：直线段的端点和曲线段的终点，不含曲线的控制点。"""
+    points, i = [], 0
+    while i < path.elementCount():
+        if path.elementAt(i).isCurveTo():
+            i += 2
+        element = path.elementAt(i)
+        points.append(QPointF(element.x, element.y))
+        i += 1
+    return points
+
+
 def _drawn_items(scene):
     """场景中由工具绘制出来的图元（排除场景自带的背景层与选区层）"""
     from canvas.items import BackgroundItem, SelectionItem
@@ -129,7 +141,7 @@ class TestPenTool:
         _drag(tool, ctx, (10, 10), (100, 80))
         assert tool.drawing is False
         assert tool.current_item is None
-        assert tool.start_pos is None
+        assert tool.stroke is None
 
     def test_two_strokes_are_independent_items(self, tool, ctx, scene):
         _drag(tool, ctx, (10, 10), (50, 50))
@@ -357,8 +369,7 @@ class TestPointSpacingFilter:
     贡献，却让每次 on_move 重描的路径线性变长——整笔的重绘成本因此是 O(N²)。
     Tool.should_append_point 在追加点的入口把它们筛掉。
 
-    这里锁住三件容易写错的事：慢速描边不能被整笔丢弃、形状不能变、
-    锁定吸附之后才过滤。
+    这里锁住容易写错的事：慢速描边不能被整笔丢弃、形状不能变、点确实被抽稀。
     """
 
     @pytest.fixture
@@ -404,27 +415,108 @@ class TestPointSpacingFilter:
         """1px 步长的 100 个事件不应变成 100 个路径点。"""
         self._slow_drag(tool, ctx, (10, 10), (110, 10), step_px=1.0)
 
-        count = _drawn_items(scene)[0].path().elementCount()
+        count = len(_vertices(_drawn_items(scene)[0].path()))
         assert count < 100, f"没有抽稀，路径仍有 {count} 个点"
 
-    def test_locked_axis_movement_adds_no_points(self, tool, ctx, scene, monkeypatch):
-        """水平锁定后，纯竖直的移动经吸附落在同一处，不应产生新点。
 
-        过滤若比的是吸附前的坐标，这些移动会全部放行：画面毫无变化，点数照涨。
-        """
-        monkeypatch.setattr(
-            QApplication, "keyboardModifiers",
-            staticmethod(lambda: Qt.KeyboardModifier.ShiftModifier),
-        )
+
+# ============================================================================
+# 按住 Shift 拉直线（画笔、荧光笔）
+# ============================================================================
+
+@pytest.mark.parametrize("step,end,expected", [
+    (90, (100, 30), (100, 0)),
+    (90, (30, -100), (0, -100)),
+    (45, (100, 90), (95, 95)),
+    (45, (-100, 10), (-100, 0)),
+    (15, (100, 20), (100 * 0.9659 ** 2 + 20 * 0.9659 * 0.2588, 100 * 0.9659 * 0.2588 + 20 * 0.2588 ** 2)),
+    (0, (37, 81), (37, 81)),
+])
+def test_snap_line_end_projects_onto_the_nearest_allowed_direction(step, end, expected):
+    from tools.base import snap_line_end
+    point = snap_line_end(QPointF(0, 0), QPointF(*end), step)
+    assert point.x() == pytest.approx(expected[0], abs=0.05)
+    assert point.y() == pytest.approx(expected[1], abs=0.05)
+
+
+def test_horizontal_and_vertical_snaps_are_exact():
+    """横竖线的另一个坐标必须和起点完全相等，差一点点渲染时就是斜的一像素台阶。"""
+    from tools.base import snap_line_end
+    anchor = QPointF(10.5, 20.25)
+    for step in (90, 45, 30, 15):
+        assert snap_line_end(anchor, QPointF(300, 23), step).y() == anchor.y()
+        assert snap_line_end(anchor, QPointF(12, -300), step).x() == anchor.x()
+
+
+class TestShiftStraightLine:
+    """画的过程中任何时候按住 Shift，都从笔迹当前的最后一点拉直线；松开后接着自由画。"""
+
+    @pytest.fixture(params=["pen", "highlighter"])
+    def tool(self, request, qapp):
+        if request.param == "pen":
+            from tools.pen import PenTool
+            return PenTool()
+        from tools.highlighter import HighlighterTool
+        return HighlighterTool()
+
+    @staticmethod
+    def _with_angle(ctx, angle):
+        ctx.settings_manager = type("Settings", (), {
+            "get_shift_line_angle": staticmethod(lambda: angle),
+            "get_tool_settings": staticmethod(lambda _tool_id: {}),
+        })()
+        return ctx
+
+    @staticmethod
+    def _points(scene):
+        return [(round(p.x(), 3), round(p.y(), 3)) for p in _vertices(_drawn_items(scene)[0].path())]
+
+    def test_default_snaps_to_every_45_degrees(self, tool, ctx, scene, monkeypatch):
+        _hold_shift(monkeypatch)
+        _drag(tool, ctx, (10, 10), (110, 95))
+        assert self._points(scene) == [(10, 10), (102.5, 102.5)]
+
+    @pytest.mark.parametrize("angle,expected_end", [(90, (110, 10)), (0, (110, 95))])
+    def test_the_setting_decides_the_snap_step(self, tool, ctx, scene, monkeypatch, angle, expected_end):
+        _hold_shift(monkeypatch)
+        _drag(tool, self._with_angle(ctx, angle), (10, 10), (110, 95))
+        assert self._points(scene) == [(10, 10), expected_end]
+
+    def test_shift_pressed_mid_stroke_draws_a_line_and_releasing_it_resumes_freehand(
+            self, tool, ctx, scene, monkeypatch):
+        held = _hold_shift(monkeypatch)
+        held[0] = Qt.KeyboardModifier.NoModifier
+        tool.on_press(QPointF(10, 10), Qt.MouseButton.LeftButton, ctx)
+        tool.on_move(QPointF(20, 30), ctx)
+        tool.on_move(QPointF(30, 40), ctx)
+
+        held[0] = Qt.KeyboardModifier.ShiftModifier
+        tool.on_move(QPointF(80, 44), ctx)
+        tool.on_move(QPointF(150, 47), ctx)
+
+        held[0] = Qt.KeyboardModifier.NoModifier
+        tool.on_move(QPointF(160, 60), ctx)
+        tool.on_release(QPointF(160, 60), ctx)
+
+        assert self._points(scene) == [(10, 10), (20, 30), (30, 40), (150, 40), (160, 60)]
+
+    def test_wiggling_the_line_adds_no_points(self, tool, ctx, scene, monkeypatch):
+        """直线的终点是就地改的：按着 Shift 来回晃多久，路径都只有起点和终点。"""
+        _hold_shift(monkeypatch)
         tool.on_press(QPointF(10, 50), Qt.MouseButton.LeftButton, ctx)
-        tool.on_move(QPointF(60, 50), ctx)          # 先把方向锁成水平
-        assert tool.line_lock_mode == 'horizontal'
+        for i in range(200):
+            tool.on_move(QPointF(60 + (i % 7) * 13, 50 + (i % 11) * 9), ctx)
+        tool.on_move(QPointF(200, 52), ctx)
+        tool.on_release(QPointF(200, 52), ctx)
+        assert self._points(scene) == [(10, 50), (200, 50)]
 
-        before = tool.path.elementCount()
-        for y in range(51, 91):                      # x 不动，只在竖直方向来回
-            tool.on_move(QPointF(60, y), ctx)
-        assert tool.path.elementCount() == before
-
-        tool.on_release(QPointF(60, 90), ctx)
-        rect = _drawn_items(scene)[0].path().boundingRect()
-        assert rect.height() == pytest.approx(0, abs=1e-6)
+    def test_lines_in_one_stroke_each_start_where_shift_was_pressed(self, tool, ctx, scene, monkeypatch):
+        held = _hold_shift(monkeypatch)
+        tool.on_press(QPointF(0, 0), Qt.MouseButton.LeftButton, ctx)
+        tool.on_move(QPointF(100, 3), ctx)
+        held[0] = Qt.KeyboardModifier.NoModifier
+        tool.on_move(QPointF(103, 20), ctx)
+        held[0] = Qt.KeyboardModifier.ShiftModifier
+        tool.on_move(QPointF(105, 120), ctx)
+        tool.on_release(QPointF(105, 120), ctx)
+        assert self._points(scene) == [(0, 0), (100, 0), (103, 20), (103, 120)]

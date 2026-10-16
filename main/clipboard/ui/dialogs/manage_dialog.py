@@ -82,6 +82,7 @@ from ..forms.group_icon_picker import (
     create_group_icon_picker,
     emoji_btn_style,
     emoji_tab_style,
+    first_icon_cluster,
     on_icon_input_changed,
     on_preset_icon_clicked,
     switch_emoji_group,
@@ -1388,10 +1389,9 @@ class ManageDialog(FrostedFramelessDialog):
     def _get_selected_icon(self) -> str:
         """获取选中的图标（优先从输入框获取，确保只有一个字符）"""
         if _qt_object_is_valid(getattr(self, "icon_input", None)):
-            text = self.icon_input.text().strip()
-            for char in text:
-                if not char.isspace():
-                    return char
+            icon = first_icon_cluster(self.icon_input.text())
+            if icon:
+                return icon
         for btn in self.icon_buttons:
             if btn.isChecked():
                 return btn.text()

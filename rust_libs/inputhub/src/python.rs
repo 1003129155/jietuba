@@ -5,6 +5,7 @@
 //!   ("moved", id)
 //!   ("side", "x1" | "x2")
 //!   ("hotkey", name)
+//!   ("captured", [修饰键名…], vk)
 //!   ("wheel", watcher, x, y, delta, horizontal)
 //!   ("key", watcher, vk, pressed)
 //!   ("foreground", hwnd)
@@ -36,6 +37,7 @@ fn event_to_py(py: Python<'_>, event: Event) -> PyObject {
         Event::GestureMoved { id } => ("moved", id).into_py(py),
         Event::SideButton { button } => ("side", button.name()).into_py(py),
         Event::Hotkey { name } => ("hotkey", &*name).into_py(py),
+        Event::Captured { modifiers, vk } => ("captured", modifiers.names(), vk).into_py(py),
         Event::Wheel {
             watcher,
             x,
@@ -194,7 +196,8 @@ impl Hub {
     }
 
     /// 按住的修饰键与 modifiers 完全一致时按下 vk：吞掉这个键的按下、自动重复和抬起，报告一次
-    /// ("hotkey", name)。同名绑定会被替换；返回是否绑定成功（至少一个修饰键、vk 不是修饰键）。
+    /// ("hotkey", name)。同名绑定会被替换；返回是否绑定成功（至少一个修饰键，PrtSc 可以不带；
+    /// vk 不是修饰键）。
     fn bind_hotkey(&self, name: &str, modifiers: Vec<String>, vk: u32) -> PyResult<bool> {
         let modifiers = parse_modifiers(&modifiers)?;
         Ok(self.with_engine(|engine, _| engine.bind_hotkey(name, modifiers, vk)))
@@ -202,6 +205,11 @@ impl Hub {
 
     fn unbind_hotkey(&self, name: &str) {
         self.with_engine(|engine, _| engine.unbind_hotkey(name));
+    }
+
+    /// 录入快捷键期间开启：按住 Win 时按下的键和 PrtSc 被吞掉，报告 ("captured", 修饰键名, vk)。
+    fn configure_key_capture(&self, enabled: bool) {
+        self.with_engine(|engine, _| engine.configure_key_capture(enabled));
     }
 
     /// rect 为 (left, top, right, bottom) 物理像素；None 表示整个桌面。
@@ -504,6 +512,10 @@ impl Engine {
 
     fn unbind_hotkey(&mut self, name: &str) {
         self.engine.unbind_hotkey(name);
+    }
+
+    fn configure_key_capture(&mut self, enabled: bool) {
+        self.engine.configure_key_capture(enabled);
     }
 
     #[pyo3(signature = (watcher, rect=None))]

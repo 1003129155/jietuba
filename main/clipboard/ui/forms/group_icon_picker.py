@@ -6,7 +6,7 @@
 供分组表单复用，不直接参与分组保存逻辑。
 """
 
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import QTextBoundaryFinder, QTimer, Qt
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QWidget
 
 from ui.fluent_lite import LineEdit
@@ -32,8 +32,8 @@ def create_group_icon_picker(dialog, current_icon: str = "📁"):
 
     dialog.icon_input = LineEdit()
     dialog.icon_input.setPlaceholderText(dialog.tr("Enter or paste emoji..."))
+    # 不限长度：输入处理只留一个字符，而 👩‍❤️‍💋‍👨 一个就占 11 个 UTF-16 单元
     dialog.icon_input.setText(current_icon)
-    dialog.icon_input.setMaxLength(4)
     dialog.icon_input.setFixedWidth(scale_ui(180))
     dialog.icon_input.textChanged.connect(lambda text, token=form_token: dialog._on_icon_input_changed(text, token))
     input_row.addWidget(dialog.icon_input)
@@ -174,18 +174,26 @@ def switch_emoji_group(dialog, group_idx: int):
     dialog._emoji_scroll.setWidget(container)
 
 
+def first_icon_cluster(text: str) -> str:
+    """跳过开头空白后的第一个字符，按完整字素取：❤️、🧔‍♂️、肤色和国旗都由多个码点组成。"""
+    rest = text.lstrip()
+    if not rest:
+        return ""
+    finder = QTextBoundaryFinder(QTextBoundaryFinder.BoundaryType.Grapheme, rest)
+    end = finder.toNextBoundary()
+    if end <= 0:
+        return rest
+    # 边界位置按 UTF-16 单元计
+    return rest.encode("utf-16-le")[: end * 2].decode("utf-16-le")
+
+
 def on_icon_input_changed(dialog, text: str):
     """输入框内容变化时更新预览。"""
     if not text.strip():
         dialog.icon_preview.setText("📁")
         return
 
-    first_char = ""
-    for char in text:
-        if char.isspace():
-            continue
-        first_char = char
-        break
+    first_char = first_icon_cluster(text)
 
     if first_char:
         if len(text.strip()) > len(first_char):

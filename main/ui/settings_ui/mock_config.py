@@ -3,7 +3,9 @@
 import os
 import sys
 
-from settings.tool_settings import ANNOTATION_TOOL_SHORTCUTS
+from settings.tool_settings import (
+    ANNOTATION_TOOL_SHORTCUTS, GLOBAL_HOTKEY_FUNCTIONS, GLOBAL_HOTKEY_SLOTS, global_hotkey_slot_suffix,
+)
 
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QApplication
@@ -25,7 +27,7 @@ APP_DEFAULT_SETTINGS = {
     "text_always_on_top": True,
     "smart_selection": False,
     "smart_selection_mode": "element",
-    "smart_selection_animation": False,
+    "smart_selection_animation": True,
     "log_enabled": True,
     "log_level": "INFO",
     "log_retention_days": 7,
@@ -47,6 +49,7 @@ APP_DEFAULT_SETTINGS = {
     "screenshot_quality": 85,
     "clipboard_file_reference_enabled": True,
     "screenshot_watermark_auto": False,
+    "shift_line_angle": 45,
     "autostart_enabled": True,
     "show_main_window": True,
     "ocr_enabled": True,
@@ -180,7 +183,7 @@ class MockConfig:
     def set_smart_selection(self, v): pass
     def get_smart_selection_mode(self): return "window"
     def set_smart_selection_mode(self, v): pass
-    def get_smart_selection_animation(self): return False
+    def get_smart_selection_animation(self): return True
     def set_smart_selection_animation(self, v): pass
     def get_log_enabled(self): return True
     def set_log_enabled(self, v): pass
@@ -214,6 +217,8 @@ class MockConfig:
     def set_clipboard_file_reference_enabled(self, v): pass
     def get_screenshot_watermark_auto(self): return False
     def set_screenshot_watermark_auto(self, v): pass
+    def get_shift_line_angle(self): return 45
+    def set_shift_line_angle(self, v): pass
     def get_show_main_window(self): return True
     def set_show_main_window(self, v): pass
     def get_ocr_enabled(self): return True
@@ -297,6 +302,13 @@ class MockConfig:
     def set_translation_hotkey(self, v): pass
     def get_translation_hotkey_2(self): return ""
     def set_translation_hotkey_2(self, v): pass
+    def get_global_hotkeys(self, function):
+        name, _path = GLOBAL_HOTKEY_FUNCTIONS[function]
+        return [
+            APP_DEFAULT_SETTINGS.get(name + global_hotkey_slot_suffix(slot), "")
+            for slot in range(GLOBAL_HOTKEY_SLOTS)
+        ]
+    def set_global_hotkeys(self, function, values): pass
     def get_clipboard_enabled(self): return True
     def set_clipboard_enabled(self, v): pass
     def get_clipboard_auto_paste(self): return False

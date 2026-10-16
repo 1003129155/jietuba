@@ -6,6 +6,7 @@ import sys
 import ctypes
 import gc
 import math
+import threading
 
 from core.logger import log_exception, T
 
@@ -56,9 +57,11 @@ def _trim_when_idle():
     if _trim_busy is not None and _trim_busy():
         _trim_timer.start()
         return
-    # 关掉的钉图、截图会话常在循环引用里，不回收要等 Python 自己做完整回收才释放
+    # 关掉的钉图、截图会话常在循环引用里，不回收要等 Python 自己做完整回收才释放。
+    # 回收会析构 Qt 对象，必须留在界面线程。
     gc.collect()
-    trim_working_set()
+    # 清空工作集的耗时随工作集增长（几百 MB 时几十毫秒），放到后台线程，界面线程不等它。
+    threading.Thread(target=trim_working_set, name="TrimWorkingSet").start()
 
 
 # ──────────────────────────────────────────────

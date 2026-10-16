@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 
 import json
+import sys
+
+import pytest
 
 from clipboard.core import Group
 from clipboard.services.file_payload_service import build_file_payload, extract_first_file_path_from_content
 from clipboard.services.group_service import (
     GENERAL_GROUP_ICON,
+    HIDDEN_GROUP_ICON,
     QUICK_LAUNCH_GROUP_ICON,
     build_delete_group_confirm_message,
     get_default_group_icon,
@@ -157,12 +161,20 @@ def test_get_toggled_default_group_icon_only_switches_defaults():
     assert get_toggled_default_group_icon("🚀", True) == "🚀"
 
 
+def test_get_toggled_default_group_icon_keeps_custom_icon_for_hidden_group():
+    assert get_toggled_default_group_icon("⭐", False, is_hidden=True) == "⭐"
+    assert get_toggled_default_group_icon("⭐", True, is_hidden=True) == "⭐"
+    assert get_toggled_default_group_icon(GENERAL_GROUP_ICON, False, is_hidden=True) == HIDDEN_GROUP_ICON
+    assert get_toggled_default_group_icon("", False, is_hidden=True) == HIDDEN_GROUP_ICON
+    assert get_toggled_default_group_icon(HIDDEN_GROUP_ICON, False) == GENERAL_GROUP_ICON
+
+
 def test_build_delete_group_confirm_message_uses_translator():
     message = build_delete_group_confirm_message(lambda text: f"T:{text}")
 
     assert message == (
         "T:Are you sure you want to delete this group?\n"
-        "T:All items in the group will also be deleted."
+        "T:Items in the group will be moved back to clipboard history."
     )
 
 
@@ -192,6 +204,41 @@ def test_write_csv_rows_and_read_import_rows_round_trip(tmp_path):
         ("工作", "第一条内容", "标题A"),
         ("学习", "第二条内容", ""),
     ]
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="按 Windows 代码页转换")
+def test_shift_jis_and_gbk_exports_keep_what_excel_can_show(tmp_path):
+    rows = [["メモ", "10時～12時 ① 髙 －", ""], ["报价", "单价 €5", ""]]
+    jis = tmp_path / "jis.csv"
+    write_csv_rows(str(jis), ["Group", "Content", "Title"], rows[:1], "shift_jis")
+    data = jis.read_bytes()
+    # ～ ① － 按 Excel 用的 cp932 写出
+    assert b"\x81\x60" in data and b"\x87\x40" in data and b"\x81\x7c" in data
+    assert b"?" not in data
+    assert read_import_rows(str(jis)) == [("メモ", "10時～12時 ① 髙 －", "")]
+
+    gbk = tmp_path / "gbk.csv"
+    write_csv_rows(str(gbk), ["Group", "Content", "Title"], rows[1:] + [["表情", "😀", ""]], "gbk")
+    data = gbk.read_bytes()
+    assert b"\x805" in data
+    assert read_import_rows(str(gbk)) == [("报价", "单价 €5", ""), ("表情", "?", "")]
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="按 Windows 代码页转换")
+def test_import_reads_excel_ansi_files_and_gb18030(tmp_path):
+    excel_zh = tmp_path / "excel_zh.csv"
+    excel_zh.write_bytes(
+        b"group,content,title\r\n" + "报价,单价 ".encode("gbk") + b"\x80" + "5，含税,标题\r\n".encode("gbk")
+    )
+    assert read_import_rows(str(excel_zh)) == [("报价", "单价 €5，含税", "标题")]
+
+    gb18030 = tmp_path / "gb18030.csv"
+    gb18030.write_bytes("group,content\r\n笔记,中文 € 测试\r\n".encode("gb18030"))
+    assert read_import_rows(str(gb18030)) == [("笔记", "中文 € 测试", "")]
+
+    excel_ja = tmp_path / "excel_ja.csv"
+    excel_ja.write_bytes("group,content\r\nメモ,10時～12時 ２－８\r\n".encode("cp932"))
+    assert read_import_rows(str(excel_ja)) == [("メモ", "10時～12時 ２－８", "")]
 
 
 def test_import_text_rows_reuses_existing_group_and_creates_missing_group():

@@ -16,7 +16,7 @@
 """
 
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 from PySide6.QtCore import QSettings, Signal, QObject
 from PySide6.QtGui import QColor
 
@@ -51,6 +51,33 @@ CLIPBOARD_MOUSE_ACTIONS = (
     ("quick_edit", "Quick Edit Text", "middle", "click"),
     ("menu", "Open Context Menu", "right", "click"),
 )
+
+# 全局热键：功能 → (默认值表里第 1 槽的名字, QSettings 里第 1 槽的键)。每个功能
+# GLOBAL_HOTKEY_SLOTS 个槽，第 n 槽（n≥2）在两个名字后面加 _n，第 1 槽沿用旧版不带序号。
+GLOBAL_HOTKEY_SLOTS = 4
+GLOBAL_HOTKEY_FUNCTIONS = {
+    "screenshot": ("hotkey", "app/hotkey"),
+    "clipboard": ("clipboard_hotkey", "clipboard/hotkey"),
+    "pin_clipboard": ("pin_clipboard_hotkey", "clipboard/pin_hotkey"),
+    "translation": ("translation_hotkey", "app/translation_hotkey"),
+}
+
+# 旧版的「Win+V 打开剪贴板」开关迁成剪贴板的第 3 槽
+WIN_V_CLIPBOARD_SLOT = 2
+
+
+def global_hotkey_slot_suffix(slot: int) -> str:
+    return f"_{slot + 1}" if slot else ""
+
+
+def _is_win_v(text: str) -> bool:
+    from core.global_hotkey import MOD_WIN, parse_hotkey
+
+    try:
+        return parse_hotkey(text) == (MOD_WIN, ord("V"))
+    except ValueError:
+        return False
+
 
 # 全局鼠标快捷键：按住修饰键拖动鼠标，写法同应用内鼠标快捷键，如 "win+dragleft"
 QUICK_CAPTURE_ACTIONS = (
@@ -138,6 +165,10 @@ OCR_LAYOUT_MODES = ("auto", "single_line", "multiline")
 
 # 识别结果里的标点转成半角或全角，keep 是不动。取值与 text_recognition.layout 对应。
 OCR_PUNCTUATION_MODES = ("keep", "halfwidth", "fullwidth")
+
+# 画笔、荧光笔按住 Shift 拉直线时吸附的角度间隔（度），顺序就是设置页下拉框的顺序；
+# 0 表示不吸附，任意角度。
+SHIFT_LINE_ANGLES = (90, 45, 30, 15, 0)
 
 
 ANNOTATION_TOOL_SHORTCUTS = (
@@ -320,6 +351,14 @@ class ToolSettingsManager(QObject):
         "pin_clipboard_hotkey_2": "",              # 钉住剪贴板图片的备用快捷键
         "translation_hotkey": "",                  # 翻译主热键
         "translation_hotkey_2": "",                # 翻译备用热键
+        "hotkey_3": "",
+        "hotkey_4": "",
+        "clipboard_hotkey_3": "win+v",             # 接管系统剪贴板历史；旧版的 clipboard_take_over_win_v
+        "clipboard_hotkey_4": "",
+        "pin_clipboard_hotkey_3": "",
+        "pin_clipboard_hotkey_4": "",
+        "translation_hotkey_3": "",
+        "translation_hotkey_4": "",
         "global_hotkeys_disabled": False,           # 是否禁用全局热键
 
         # 全局鼠标快捷键，用户清空后存空串，不会被默认值补回来
@@ -364,14 +403,15 @@ class ToolSettingsManager(QObject):
         # 快捷行为：跳过结果窗口
         "ocr_copy_directly": False,           # 文字识别后直接复制，不弹结果窗口
         "barcode_copy_single": False,         # 只扫到一个码时直接复制，不弹结果窗口
-        "clipboard_take_over_win_v": True,    # Win+V 打开本软件的剪贴板，不再弹出系统剪贴板历史
+        # 已迁成剪贴板第 3 槽，见 get_global_hotkeys。保存时仍按槽位同步，只认前 2 槽的旧版本靠它接管 Win+V
+        "clipboard_take_over_win_v": True,
 
         # 智能选择
         "smart_selection": True,              # 智能选区总开关
         # 默认只到窗口：控件检测要把整棵无障碍树扫回来，耗时和稳定性都由目标
         # 程序的提供方决定，不该是所有人默认承担的。
         "smart_selection_mode": "window",     # window / element，见 SMART_SELECTION_MODES
-        "smart_selection_animation": False,   # 换窗口时补间而不是瞬间跳变
+        "smart_selection_animation": True,    # 换窗口时补间而不是瞬间跳变
 
         # 截图保存
         "screenshot_save_enabled": True,       # 截图完成时自动保存
@@ -399,6 +439,7 @@ class ToolSettingsManager(QObject):
         "screenshot_watermark_auto": False,            # 截图时自动加上上次的水印，含全局鼠标快捷键的截图
         "screenshot_watermark_last_on": False,         # 上次截图结束时带着水印
         "screenshot_watermark_time_format": "yyyy-MM-dd HH:mm:ss",  # 输入水印时「插入时间」用的格式
+        "shift_line_angle": 45,                      # 按住 Shift 拉直线吸附的角度间隔，见 SHIFT_LINE_ANGLES
         # GIF 录制
         "gif_fps": 10,                         # GIF默认帧率
         "recording_format": "gif",
@@ -940,6 +981,50 @@ class ToolSettingsManager(QObject):
         """保存智能翻译备用全局快捷键。"""
         self.qsettings.setValue("app/translation_hotkey_2", value)
 
+    def get_global_hotkeys(self, function: str) -> List[str]:
+        """某个全局热键功能各槽的值（GLOBAL_HOTKEY_FUNCTIONS 的键），空串表示这一槽没设。"""
+        default_name, path = GLOBAL_HOTKEY_FUNCTIONS[function]
+        values = [
+            self.qsettings.value(
+                path + global_hotkey_slot_suffix(slot),
+                self.APP_DEFAULT_SETTINGS[default_name + global_hotkey_slot_suffix(slot)],
+                type=str,
+            )
+            for slot in range(GLOBAL_HOTKEY_SLOTS)
+        ]
+        if function == "clipboard":
+            self._migrate_win_v_slot(values)
+        return values
+
+    def _migrate_win_v_slot(self, values: List[str]):
+        """第 3 槽还没存过时按旧开关取值；不落盘，下次保存设置时才写入。"""
+        _default_name, path = GLOBAL_HOTKEY_FUNCTIONS["clipboard"]
+        if self.qsettings.contains(path + global_hotkey_slot_suffix(WIN_V_CLIPBOARD_SLOT)):
+            return
+        values[WIN_V_CLIPBOARD_SLOT] = ""
+        if not self.get_app_setting("clipboard_take_over_win_v"):
+            return
+        # 别的槽已经有 Win+V（旧版注册不上的那种）就不再重复填
+        for function, (default_name, other_path) in GLOBAL_HOTKEY_FUNCTIONS.items():
+            for slot in range(GLOBAL_HOTKEY_SLOTS):
+                if function == "clipboard" and slot == WIN_V_CLIPBOARD_SLOT:
+                    continue
+                key = other_path + global_hotkey_slot_suffix(slot)
+                default = self.APP_DEFAULT_SETTINGS[default_name + global_hotkey_slot_suffix(slot)]
+                if _is_win_v(self.qsettings.value(key, default, type=str)):
+                    return
+        values[WIN_V_CLIPBOARD_SLOT] = "win+v"
+
+    def set_global_hotkeys(self, function: str, values: List[str]):
+        """保存某个功能各槽的值，个数须为 GLOBAL_HOTKEY_SLOTS。"""
+        if len(values) != GLOBAL_HOTKEY_SLOTS:
+            raise ValueError(f"expected {GLOBAL_HOTKEY_SLOTS} hotkeys, got {len(values)}")
+        _default_name, path = GLOBAL_HOTKEY_FUNCTIONS[function]
+        for slot, value in enumerate(values):
+            self.qsettings.setValue(path + global_hotkey_slot_suffix(slot), value)
+        if function == "clipboard":
+            self.set_app_setting("clipboard_take_over_win_v", any(_is_win_v(v) for v in values))
+
     # ---------- 应用内快捷键 ----------
     def get_inapp_shortcut(self, key: str) -> str:
         """获取应用内快捷键 (key 示例: 'inapp_confirm')"""
@@ -1234,6 +1319,24 @@ class ToolSettingsManager(QObject):
 
     def set_screenshot_watermark_auto(self, value: bool):
         self.qsettings.setValue("app/screenshot_watermark_auto", bool(value))
+
+    def get_shift_line_angle(self) -> int:
+        """按住 Shift 拉直线时吸附的角度间隔（度），取值见 SHIFT_LINE_ANGLES，0 是任意角度。"""
+        default = self.APP_DEFAULT_SETTINGS["shift_line_angle"]
+        try:
+            angle = int(self.qsettings.value("app/shift_line_angle", default))
+        except (TypeError, ValueError):
+            return default
+        return angle if angle in SHIFT_LINE_ANGLES else default
+
+    def set_shift_line_angle(self, value: int):
+        try:
+            angle = int(value)
+        except (TypeError, ValueError):
+            angle = self.APP_DEFAULT_SETTINGS["shift_line_angle"]
+        if angle not in SHIFT_LINE_ANGLES:
+            angle = self.APP_DEFAULT_SETTINGS["shift_line_angle"]
+        self.qsettings.setValue("app/shift_line_angle", angle)
 
     def get_screenshot_watermark_last_on(self) -> bool:
         """上次截图结束时是否带着水印"""

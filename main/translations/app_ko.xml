@@ -684,8 +684,8 @@ Replace it?</source>
         <translation>Windows 캡처 도구</translation>
     </message>
     <message>
-        <source>Windows Snipping Tool (not found)</source>
-        <translation>Windows 캡처 도구(찾을 수 없음)</translation>
+        <source>oneocr (not found)</source>
+        <translation>oneocr(찾을 수 없음)</translation>
     </message>
     <message>
         <source>PP-OCR (missing engine)</source>
@@ -2019,24 +2019,8 @@ Replace it?</source>
         <translation>종료</translation>
     </message>
     <message>
-        <source>Screenshot (2)</source>
-        <translation>스크린샷 (2)</translation>
-    </message>
-    <message>
-        <source>Translation (2)</source>
-        <translation>번역 (2)</translation>
-    </message>
-    <message>
-        <source>Clipboard (2)</source>
-        <translation>클립보드 (2)</translation>
-    </message>
-    <message>
         <source>Pin Clipboard Image</source>
         <translation>고정 이미지 생성</translation>
-    </message>
-    <message>
-        <source>Pin Clipboard Image (2)</source>
-        <translation>고정 이미지 생성 (2)</translation>
     </message>
     <message>
         <source>Hotkey Registration Failed</source>
@@ -2601,14 +2585,14 @@ Replace it?</source>
         <translation>이 그룹을 삭제하시겠습니까?</translation>
     </message>
     <message>
-        <source>All items in the group will also be deleted.</source>
-        <translation>그룹의 모든 항목도 함께 삭제됩니다.</translation>
+        <source>Items in the group will be moved back to clipboard history.</source>
+        <translation>그룹의 항목은 클립보드 기록으로 돌아갑니다.</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this group?
-All items in the group will also be deleted.</source>
+Items in the group will be moved back to clipboard history.</source>
         <translation>이 그룹을 삭제하시겠습니까?
-그룹의 모든 항목도 함께 삭제됩니다.</translation>
+그룹의 항목은 클립보드 기록으로 돌아갑니다.</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
@@ -2651,8 +2635,8 @@ All items in the group will also be deleted.</source>
         <translation>이미지 저장에 실패했습니다.</translation>
     </message>
     <message>
-        <source>PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp)</source>
-        <translation>PNG 이미지 (*.png);;JPEG 이미지 (*.jpg *.jpeg);;BMP 이미지 (*.bmp)</translation>
+        <source>PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp);;WebP Image (*.webp);;PDF (*.pdf)</source>
+        <translation>PNG 이미지 (*.png);;JPEG 이미지 (*.jpg *.jpeg);;BMP 이미지 (*.bmp);;WebP 이미지 (*.webp);;PDF (*.pdf)</translation>
     </message>
     <message>
         <source>Open File Location</source>
@@ -3106,14 +3090,14 @@ This action cannot be undone.</source>
         <translation>이 그룹을 삭제하시겠습니까?</translation>
     </message>
     <message>
-        <source>All items in the group will also be deleted.</source>
-        <translation>그룹의 모든 항목도 함께 삭제됩니다.</translation>
+        <source>Items in the group will be moved back to clipboard history.</source>
+        <translation>그룹의 항목은 클립보드 기록으로 돌아갑니다.</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this group?
-All items in the group will also be deleted.</source>
+Items in the group will be moved back to clipboard history.</source>
         <translation>이 그룹을 삭제하시겠습니까?
-그룹의 모든 항목도 함께 삭제됩니다.</translation>
+그룹의 항목은 클립보드 기록으로 돌아갑니다.</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
@@ -4594,14 +4578,14 @@ SOFTWARE.</translation></message>
         <translation>이 그룹을 삭제하시겠습니까?</translation>
     </message>
     <message>
-        <source>All items in the group will also be deleted.</source>
-        <translation>그룹의 모든 항목도 함께 삭제됩니다.</translation>
+        <source>Items in the group will be moved back to clipboard history.</source>
+        <translation>그룹의 항목은 클립보드 기록으로 돌아갑니다.</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this group?
-All items in the group will also be deleted.</source>
+Items in the group will be moved back to clipboard history.</source>
         <translation>이 그룹을 삭제하시겠습니까?
-그룹의 모든 항목도 함께 삭제됩니다.</translation>
+그룹의 항목은 클립보드 기록으로 돌아갑니다.</translation>
     </message>
 </context>
 
@@ -5074,6 +5058,18 @@ All items in the group will also be deleted.</source>
         <source>Already in use by another app.</source>
         <translation>다른 앱에서 사용 중입니다.</translation>
     </message>
+    <message>
+        <source>Windows uses this shortcut too. This app takes it over while running; clear it to give it back.</source>
+        <translation>Windows도 이 단축키를 사용합니다. 이 앱이 실행되는 동안 가져와 사용하며, 지우면 Windows에 돌려줍니다.</translation>
+    </message>
+    <message>
+        <source>Reserved by Windows. No app can use it.</source>
+        <translation>Windows에서 예약된 키라 어떤 앱도 사용할 수 없습니다.</translation>
+    </message>
+    <message>
+        <source>This key can't be used as a global hotkey.</source>
+        <translation>이 키는 전역 단축키로 사용할 수 없습니다.</translation>
+    </message>
 </context>
 <context>
     <name>SettingsDialog</name>
@@ -5107,14 +5103,6 @@ All items in the group will also be deleted.</source>
     <message>
         <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
         <translation>QR 코드나 바코드가 하나만 인식되면 결과 창을 열지 않고 내용을 복사합니다. 여러 개가 인식되면 결과 창이 열립니다.</translation>
-    </message>
-    <message>
-        <source>Open Clipboard with Win+V</source>
-        <translation>Win+V로 클립보드 열기</translation>
-    </message>
-    <message>
-        <source>Win+V opens this app's clipboard instead of the Windows clipboard history. Turn it off to give Win+V back to Windows.</source>
-        <translation>Win+V를 누르면 Windows 클립보드 기록 대신 이 앱의 클립보드가 열립니다. 끄면 Win+V를 다시 Windows가 사용합니다.</translation>
     </message>
     <message>
         <source>Global Mouse Shortcuts</source>
@@ -5656,6 +5644,34 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
         <source>If the last screenshot ended with a watermark, the next one gets the same watermark with the time updated; otherwise none is added. Screenshots taken with mouse shortcuts follow the same rule.</source>
         <translation>지난번 스크린샷이 워터마크가 있는 채로 끝났다면 이번에도 같은 워터마크를 넣고 시간은 이번 촬영 시각으로 바꿉니다. 없었다면 넣지 않습니다. 마우스 단축키로 찍은 스크린샷도 마찬가지입니다.</translation>
     </message>
+    <message>
+        <source>Straight Lines with Shift</source>
+        <translation>Shift로 직선 그리기</translation>
+    </message>
+    <message>
+        <source>Hold Shift while drawing with the pen or highlighter to draw a straight line from that point. Release Shift to keep drawing freely.</source>
+        <translation>펜이나 형광펜으로 그리는 중에 Shift를 누르면 그 위치에서 직선을 그립니다. Shift를 놓으면 다시 자유롭게 그립니다.</translation>
+    </message>
+    <message>
+        <source>Horizontal or Vertical</source>
+        <translation>수평·수직만</translation>
+    </message>
+    <message>
+        <source>Every 45°</source>
+        <translation>45°마다</translation>
+    </message>
+    <message>
+        <source>Every 30°</source>
+        <translation>30°마다</translation>
+    </message>
+    <message>
+        <source>Every 15°</source>
+        <translation>15°마다</translation>
+    </message>
+    <message>
+        <source>Any Angle</source>
+        <translation>자유 각도</translation>
+    </message>
 </context>
 <context>
     <name>WatermarkPanel</name>
@@ -5809,6 +5825,13 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
     <message>
         <source>Compact, for file names</source>
         <translation>간결한 형식, 파일 이름용</translation>
+    </message>
+</context>
+<context>
+    <name>TranslationLoadingDialog</name>
+    <message>
+        <source>Recognizing...</source>
+        <translation>인식 중...</translation>
     </message>
 </context>
 </TS>

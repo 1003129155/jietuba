@@ -7,10 +7,15 @@ description = "GIF screen recording: capture → JPEG compress → store → dec
 
 [lib]
 name = "gifrecorder"
-crate-type = ["cdylib"]
+# rlib 供 C++ 版以 default-features = false 静态链接
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["python"]
+python = ["dep:pyo3"]
 
 [dependencies]
-pyo3 = { version = "0.22", features = ["extension-module", "abi3-py311"] }
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py311"], optional = true }
 
 # DXGI 录制区域采集，HDR 屏上按固定映射转 sRGB；不带它的 pyo3 绑定
 hdrcapture = { path = "../hdrcapture", default-features = false }

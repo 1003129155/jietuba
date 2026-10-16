@@ -68,6 +68,11 @@ class _PinHandlerBase(ShortcutHandler):
         window = QApplication.activeWindow()
         return window is not None and window.isModal()
 
+    @staticmethod
+    def _menu_open(event) -> bool:
+        """弹出菜单不抢激活，打开时鼠标仍停在钉图上；按键归菜单，否则 Esc 会连钉图一起关掉。"""
+        return event.type() == QEvent.Type.KeyPress and QApplication.activePopupWidget() is not None
+
     def _handle_shared(self, pin, event) -> bool:
         """编辑与非编辑模式下行为一致的那几个快捷键。"""
         if self._match(event, "inapp_copy_pin"):
@@ -174,7 +179,7 @@ class PinEditShortcutHandler(_PinHandlerBase):
         return bool(pin.canvas and pin.canvas.is_editing)
 
     def handle_key(self, event) -> bool:
-        if self._typing_in_dialog(event):
+        if self._typing_in_dialog(event) or self._menu_open(event):
             return False
         pin = self._find_pin_under_cursor()
         if pin is None:
@@ -244,7 +249,7 @@ class PinNormalShortcutHandler(_PinHandlerBase):
         return True
 
     def handle_key(self, event) -> bool:
-        if self._typing_in_dialog(event):
+        if self._typing_in_dialog(event) or self._menu_open(event):
             return False
         pin = self._find_pin_under_cursor()
         if pin is None:

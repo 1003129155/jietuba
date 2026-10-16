@@ -1,0 +1,295 @@
+#include "core/bootstrap.h"
+#include "clipboard/ui/windows/clipboard_window.h"
+#include "core/shortcut_manager.h"
+#include "ui/dialogs.h"
+#include "ui/welcome/wizard.h"
+#include "capture/capture_service.h"
+#include "core/crash_handler.h"
+#include "core/logger.h"
+#include "core/platform_utils.h"
+#include "main_app.h"
+#include "ocr/ocr_manager.h"
+#include "settings/tool_settings.h"
+#include "ui/toolbar.h"
+#include <QCoreApplication>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QTimer>
+#include <QWidget>
+#include <iterator>
+#include <optional>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+
+namespace jietuba {
+namespace {
+// (pid, create_time); create_time is absent in records from older versions that wrote only the PID.
+std::optional<std::pair<qint64, std::optional<quint64>>> read_instance_record(const QString &pid_file) {
+    QFile file(pid_file);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return std::nullopt;
+    QStringList lines;
+    for (const auto &line : QString::fromUtf8(file.readAll()).split('\n'))
+        if (!line.trimmed().isEmpty()) lines << line.trimmed();
+    if (lines.isEmpty()) return std::nullopt;
+    bool ok = false;
+    const qint64 pid = lines[0].toLongLong(&ok);
+    // A damaged or unknown file counts as no record and is rewritten.
+    if (!ok) return std::nullopt;
+    std::optional<quint64> create_time;
+    if (lines.size() > 1) {
+        const quint64 value = lines[1].toULongLong(&ok);
+        if (!ok) return std::nullopt;
+        create_time = value;
+    }
+    return std::make_pair(pid, create_time);
+}
+
+// Whether the record really is an older instance of this program. The PID file easily
+// goes stale (killed or crashed processes never clean it up) and Windows reuses PIDs
+// eagerly, so a PID alone could kill an unrelated process.
+bool is_our_old_instance(const std::pair<qint64, std::optional<quint64>> &record, qint64 my_pid, const QString &my_image_name) {
+    const auto [pid, create_time] = record;
+    if (pid == my_pid) return false;
+    const auto live = get_process_identity(pid);
+    // Gone or inaccessible: a stale record.
+    if (!live) return false;
+    const auto [live_create_time, live_image_name] = *live;
+    // (PID, creation time) identifies one process; the most reliable test.
+    if (create_time) return live_create_time == *create_time;
+    // Older records lack the creation time: the image name must match this executable.
+    if (my_image_name.isEmpty()) return false;
+    return live_image_name.toLower() == my_image_name.toLower();
+}
+
+// This executable's file name; QCoreApplication does not exist yet.
+QString exe_file_name() {
+    wchar_t path[MAX_PATH * 4] = {};
+    const DWORD length = GetModuleFileNameW(nullptr, path, static_cast<DWORD>(std::size(path)));
+    return QFileInfo(QString::fromWCharArray(path, static_cast<int>(length))).fileName();
+}
+
+QString pid_file_path() {
+    // Named after the executable, as the reference's packaged build does.
+    return QDir(QDir::tempPath()).filePath(exe_file_name() + ".pid");
+}
+}
+
+void setup_environment() {
+    install_crash_hooks();
+    // Qt's automatic high-DPI scaling is off: at desktop scales other than 100% it makes
+    // the capture look wrong. Must be set before Qt starts.
+    qputenv("QT_ENABLE_HIGHDPI_SCALING", "0");
+    qputenv("QT_SCALE_FACTOR", "1");
+    // DPI is handled manually, so Qt's DPI warnings are noise.
+    qputenv("QT_LOGGING_RULES", "qt.qpa.window=false");
+    set_dpi_awareness();
+}
+
+void ensure_single_instance() {
+    const auto pid_file = pid_file_path();
+    const qint64 my_pid = static_cast<qint64>(GetCurrentProcessId());
+    const auto my_identity = get_process_identity(my_pid);
+    const std::optional<quint64> my_create_time = my_identity ? std::optional<quint64>(my_identity->first) : std::nullopt;
+    const auto my_image_name = my_identity ? my_identity->second : exe_file_name();
+
+    if (const auto record = QFile::exists(pid_file) ? read_instance_record(pid_file) : std::nullopt) {
+        if (is_our_old_instance(*record, my_pid, my_image_name)) {
+            if (terminate_process_by_pid(record->first)) log_info(T("已终止旧实例 (PID {old_pid})", {{"old_pid", record->first}}), "SingleInstance");
+            else log_warning(T("旧实例 (PID {old_pid}) 终止失败", {{"old_pid", record->first}}), "SingleInstance");
+        } else {
+            log_debug(T("实例记录 (PID {old_pid}) 未通过身份校验，不终止", {{"old_pid", record->first}}), "SingleInstance");
+        }
+    }
+    // Records this instance: PID and creation time.
+    QFile file(pid_file);
+    if (file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+        QByteArray content = QByteArray::number(my_pid) + "\n";
+        if (my_create_time) content += QByteArray::number(*my_create_time) + "\n";
+        file.write(content);
+    } else {
+        log_exception("OSError", file.errorString(), T("写入实例记录"));
+    }
+    // Removed on normal exit; a killed or crashed process leaves it to the check above.
+    std::atexit([] {
+        const auto path = pid_file_path();
+        const auto current = read_instance_record(path);
+        if (current && current->first == static_cast<qint64>(GetCurrentProcessId())) QFile::remove(path);
+    });
+}
+
+PreloadManager::PreloadManager(MainApp *app) : app_(app), config_(app->config_manager) {}
+
+void PreloadManager::build_and_start() {
+    auto *cfg = config_;
+    // Entry points come first and preloading follows: a capture during preloading costs
+    // nothing extra here. The reference registers hotkeys last, because there preloading
+    // and a capture compete for the interpreter. Its module-import warm-ups (the GDI grab
+    // and the PNG encoder) have nothing to warm in a native build and are left out.
+    // The engine preference is read here and handed to OCR, so recognition threads never read settings.
+    steps_.push_back([this] { return apply_ocr_engine_setting(); });
+    if (cfg->get_app_setting("preload_clipboard", true).toBool()) steps_.push_back([this] {
+        init_clipboard_manager();
+        return false;
+    });
+    steps_.push_back([this] { return register_entry_points(); });
+    if (cfg->get_app_setting("preload_screenshot", true).toBool() && cfg->get_capture_engine() != "mss")
+        steps_.push_back([this] { return preload_hdr_session(); });
+    if (cfg->get_app_setting("preload_toolbar", true).toBool()) steps_.push_back([this] { return preload_toolbar_assets(); });
+    if (cfg->get_app_setting("preload_ocr", true).toBool()) steps_.push_back([this] { return preload_ocr_engine(); });
+    if (cfg->get_app_setting("preload_settings", true).toBool()) steps_.push_back([this] {
+        preload_settings();
+        return false;
+    });
+    // Last: the main UI and a working-set trim, always.
+    steps_.push_back([this] { return show_main_window_on_start(); });
+    steps_.push_back([] {
+        request_trim_working_set(1000);
+        return false;
+    });
+    // Starts after 50 ms so the event loop settles first.
+    QTimer::singleShot(50, app_, [this] { run_next(); });
+}
+
+void PreloadManager::run_next() {
+    if (steps_.empty()) return;
+    auto step = std::move(steps_.front());
+    steps_.pop_front();
+    bool is_async = false;
+    try {
+        is_async = step();
+    } catch (const std::exception &e) {
+        log_exception(e, T("预加载步骤执行失败"));
+        is_async = false;
+    }
+    // Synchronous (or failed) steps continue one event loop turn later, so the main
+    // thread is never held for long.
+    if (!is_async) QTimer::singleShot(0, app_, [this] { run_next(); });
+}
+
+bool PreloadManager::preload_toolbar_assets() {
+    // Warms the capture toolbar on the main thread so the first capture does not stall building it.
+    try {
+        auto *dummy_parent = new QWidget();
+        dummy_parent->hide();
+        auto *toolbar = new Toolbar(dummy_parent);
+        toolbar->hide();
+        toolbar->deleteLater();
+        dummy_parent->deleteLater();
+        log_debug(T("工具栏预加载完成"), "Preload");
+    } catch (const std::exception &e) {
+        log_warning(T("工具栏预加载失败: {e}", {{"e", QString::fromUtf8(e.what())}}), "Preload");
+    }
+    return false;
+}
+
+bool PreloadManager::preload_hdr_session() {
+    // Builds the HDR session in the background without blocking the UI; under auto only
+    // when a display has HDR on.
+    warm_up_hdr_session(config_->get_capture_engine());
+    return false;
+}
+
+bool PreloadManager::apply_ocr_engine_setting() {
+    set_ocr_engine(config_->get_ocr_engine());
+    return false;
+}
+
+bool PreloadManager::preload_ocr_engine() {
+    // Loads the OCR engine on a worker thread so the main thread is never blocked.
+    log_info(T("开始在后台线程预加载 OCR 模块和引擎..."), "OCR");
+    auto *thread = QThread::create([] {
+        try {
+            if (!is_ocr_available()) {
+                log_debug(T("OCR 模块不可用（无OCR版本）"), "OCR");
+                return;
+            }
+            if (initialize_ocr()) log_info(T("OCR 预加载成功"), "OCR");
+            else log_warning(T("OCR 引擎预加载失败"), "OCR");
+        } catch (const std::exception &e) {
+            log_warning(T("OCR 预加载失败: {e}", {{"e", QString::fromUtf8(e.what())}}), "OCR");
+        }
+    });
+    thread->setParent(app_);
+    ocr_preload_thread_ = thread;
+    QObject::connect(thread, &QThread::finished, app_, [this] { run_next(); });
+    thread->start();
+    return true;
+}
+
+void PreloadManager::preload_settings() { app_->preload_settings(); }
+
+bool PreloadManager::register_entry_points() {
+    // The first run registers them after the welcome wizard, which chooses the hotkeys.
+    if (config_->is_first_run()) return false;
+    try {
+        app_->update_hotkey();
+        app_->setup_tray();
+        app_->setup_pin_tray_updates();
+    } catch (const std::exception &e) {
+        log_exception(e, T("启动时显示主界面"));
+    }
+    return false;
+}
+
+bool PreloadManager::show_main_window_on_start() {
+    try {
+        // The first run shows the welcome wizard.
+        if (config_->is_first_run()) {
+            app_->hotkey_system->unregister_all();
+            WelcomeWizard wizard(config_);
+            exec_dialog(&wizard);
+            app_->update_hotkey();
+            app_->setup_tray();
+            app_->setup_pin_tray_updates();
+            return false;
+        }
+        if (config_->should_show_main_window_on_start())
+            app_->open_settings();
+        else
+            preload_clipboard_window();
+    } catch (const std::exception &e) {
+        log_exception(e, T("启动时显示主界面"));
+    }
+    config_->mark_as_run();
+    return false;
+}
+
+void PreloadManager::init_clipboard_manager() { app_->set_clipboard_monitoring_enabled(config_->get_clipboard_enabled()); }
+
+void PreloadManager::preload_clipboard_window() {
+    if (!config_->get_clipboard_enabled()) {
+        log_debug(T("剪贴板功能已禁用，跳过剪贴板窗口预创建"), "Clipboard");
+        return;
+    }
+    try {
+        if (app_->clipboard_window) return;
+        app_->clipboard_window = new clipboard::ClipboardWindow;
+        app_->clipboard_window->hide();
+        log_debug(T("剪贴板窗口预创建完成（未显示）"), "Clipboard");
+    } catch (const std::exception &e) {
+        log_warning(T("剪贴板窗口预创建失败: {e}", {{"e", QString::fromUtf8(e.what())}}), "Clipboard");
+    }
+}
+
+void PreloadManager::wait_for_threads(unsigned long timeout_ms) {
+    if (ocr_preload_thread_ && ocr_preload_thread_->isRunning()) ocr_preload_thread_->wait(timeout_ms);
+}
+
+bool PreloadManager::threads_running() const { return ocr_preload_thread_ && ocr_preload_thread_->isRunning(); }
+
+int run(int argc, char **argv) {
+    // 1. Environment, before Qt.
+    setup_environment();
+    // 2./3. Module paths and pinning onefile resources do not apply to a native build.
+    // 4. The taskbar identity, before QApplication exists.
+    set_app_user_model_id("jietuba.app");
+    // 5. Single instance.
+    ensure_single_instance();
+    // 6. The application.
+    MainApp main(argc, argv);
+    return main.run();
+}
+}

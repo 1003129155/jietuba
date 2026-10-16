@@ -1,0 +1,87 @@
+name: Lite single exe
+
+# The lite package is the C++ version (cpp/) as one static exe. build.yml calls this for releases;
+# run it by hand for test builds of a branch.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    # The build scripts target Windows PowerShell 5.1, as on developer machines.
+    shell: powershell
+    working-directory: cpp
+
+jobs:
+  qt-x64:
+    # The x64 static Qt also supplies the host tools for the ARM64 cross build.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - id: cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: cpp/.sdk/6.11.0/msvc2022_64_static
+          key: static-qt-6.11.0-x64-${{ hashFiles('cpp/scripts/build_static_qt.ps1') }}
+      - if: steps.cache.outputs.cache-hit != 'true'
+        run: .\scripts\build_static_qt.ps1 -Arch x64
+
+  build:
+    needs: qt-x64
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, arm64]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: cpp/.sdk/6.11.0/msvc2022_64_static
+          key: static-qt-6.11.0-x64-${{ hashFiles('cpp/scripts/build_static_qt.ps1') }}
+          fail-on-cache-miss: true
+      - if: matrix.arch == 'arm64'
+        id: arm64-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: cpp/.sdk/6.11.0/msvc2022_arm64_static
+          key: static-qt-6.11.0-arm64-${{ hashFiles('cpp/scripts/build_static_qt.ps1') }}
+      - if: matrix.arch == 'arm64' && steps.arm64-cache.outputs.cache-hit != 'true'
+        run: .\scripts\build_static_qt.ps1 -Arch arm64
+      - if: matrix.arch == 'arm64'
+        run: rustup target add aarch64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: cpp/native -> ../build/static${{ matrix.arch == 'arm64' && '-arm64' || '' }}/native
+          key: ${{ matrix.arch }}
+          # Tags and other branches restore from master2; saving theirs would only crowd the cache.
+          save-if: ${{ github.ref == 'refs/heads/master2' }}
+      - run: .\build.cmd -Static -Arch ${{ matrix.arch }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: jietuba_lite-cpp-${{ matrix.arch }}
+          path: cpp/dist/Release-static${{ matrix.arch == 'arm64' && '-arm64' || '' }}/
+          if-no-files-found: error
+
+  smoke:
+    # Each exe starts on its own architecture; ARM64 cannot run on the x64 build machine.
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-latest
+          - arch: arm64
+            runner: windows-11-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: jietuba_lite-cpp-${{ matrix.arch }}
+          path: lite
+      - run: .\scripts\smoke_static.ps1 -Exe ..\lite\jietuba_lite.exe

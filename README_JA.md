@@ -15,7 +15,7 @@ jietuba は Windows 向けの無料・オープンソースのスクリーンシ
 
 MP4 領域録画はフレームレートとビットレートの指定、一時停止/再開、マウスポインター、システム音声に対応しています。一般的な 5.1/7.1 再生デバイスの音声はステレオに変換します。マイク録音は含まれません。
 
-UI は PySide6、画像処理・クリップボード操作・PP-OCR エンジンは Rust で実装しています。Windows x86_64 および ARM64 に対応。
+Python（PySide6）と C++（Qt6）の 2 つの実装があり、機能・UI・設定は共通です。画像処理・クリップボード操作・PP-OCR エンジンなどのコアは Rust で実装し、両方で共有しています。Windows x86_64 および ARM64 に対応。
 
 すぐに使える Windows 版の配布パッケージと、ソースからの実行方法を用意しています。
 
@@ -46,15 +46,17 @@ Windows x86_64 版および ARM64 版の配布パッケージは、そのまま�
 1. [Releases ページ](https://github.com/1003129155/jietuba/releases/latest)を開き、端末に合わせて `-x64.zip` または `-arm64.zip` で終わるファイルをダウンロードします。
 2. パッケージは 2 種類あります。ZIP 全体を展開し、中の exe をダブルクリックして起動します。
    - **完全版** `jietuba_pp-…zip`：PP-OCR エンジンとモデルを同梱し、どの Windows でも OCR が使えます。`jietuba_pp.exe` と `models/` フォルダを同じ階層に置いてください。
-   - **軽量版** `jietuba_lite-…zip`：サイズが小さく、Windows 11 の Snipping Tool に内蔵された OCR だけを使います。Snipping Tool がない PC や、11.2308 より古く「テキスト アクション」がない PC では OCR を使えません。Snipping Tool を更新するか、フル版をお使いください。
+   - **軽量版** `jietuba_lite-…zip`：C++ ネイティブ実装の単一 exe で、サイズが小さく起動も速くなります（同じ PC での実測で起動 2.16→1.14 秒、メモリ 199→158 MB）。既定では Windows 11 の Snipping Tool に内蔵された OCR だけを使います。Snipping Tool がない PC や、11.2308 より古く「テキスト アクション」がない PC では OCR を使えません。Snipping Tool を更新するか、フル版をお使いください。exe の横に PP-OCR コンポーネントを置くと PP-OCR も使えます。[cpp/README.md](cpp/README.md#pp-ocr-组件包)（中国語）を参照してください。
 3. どちらも既定では Snipping Tool の OCR（高速で対応言語が多い）を優先します。エンジンは設定の「OCR設定」で切り替えられます。
 4. アプリにはデジタル署名がないため、ブラウザーからダウンロードすると Windows の警告が表示される場合があります。表示された場合は「詳細情報」をクリックし、「実行」を選択すると起動できます。
 
-更新機能を含む最初のリリースをインストールした後、**バージョン情報 → 更新を確認 → 更新して再起動**で更新できます。対応する GitHub Release ZIP をダウンロードし、メイン EXE のみを置換して再起動します。設定、クリップボード履歴、モデルなどのファイルは保持されます。録画、書き出し、保存を終了してからインストールしてください。直前の EXE は `.jietuba-update/` に保存されます。[復元手順](rust_libs/updater/README.md)を参照してください。
+2 つの版は設定とクリップボード履歴を共有するので切り替えて使えますが、同時に起動しないでください（既定のホットキーが競合します）。
+
+更新機能を含む最初のリリースをインストールした後、**バージョン情報 → 更新を確認 → 更新して再起動**で更新できます。対応する GitHub Release ZIP をダウンロードし、メイン EXE のみを置換して再起動します。設定、クリップボード履歴、モデルなどのファイルは保持されます。録画、書き出し、保存を終了してからインストールしてください。直前の EXE は `.jietuba-update/` に保存されます。[復元手順](rust_libs/updater/README.md)を参照してください。旧 Python 軽量版はワンクリック更新で C++ 版に置き換わり、設定とクリップボード履歴はそのまま保持されます。
 
 ## コード署名ポリシー
 
-Windows 版リリースに含まれる `jietuba_pp.exe` と `jietuba_lite.exe` は、GitHub Actions がこのリポジトリのソースから自動ビルドし、SignPath で署名します。
+Windows 版リリースに含まれる `jietuba_pp.exe`（Python ソースからパッケージ化）と `jietuba_lite.exe`（[cpp/](cpp/) の C++ ソースからビルド）は、GitHub Actions がこのリポジトリのソースから自動ビルドし、SignPath で署名します。
 
 Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
 
@@ -120,7 +122,7 @@ PP-OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は�
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.5 | クリップボード操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | HDR 対応のデスクトップキャプチャ（DXGI Desktop Duplication + GPU トーンマッピング） |
-| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.1 | GUI スレッドを止めないグローバルなマウス・キーボードフック（ドラッグジェスチャ、サイドボタン、ホットキー、ホイール、前面ウィンドウ） |
+| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.2 | GUI スレッドを止めないグローバルなマウス・キーボードフック（ドラッグジェスチャ、サイドボタン、ホットキー、ホイール、前面ウィンドウ） |
 | [`j-video`](https://pypi.org/project/j-video/) | `video_recorder` | 0.1.0 | Media Foundation H.264/MP4 録画と WASAPI システム音声 |
 
 7 つの拡張は Windows x86_64 と ARM64 を対象に、Python `>=3.11` と `abi3-py311` を指定しています。録画も他の拡張と同じ PyO3 インターフェースを使用します。アプリは専用 Python 子プロセスで拡張を読み込み、終了時に録画リソースを解放します。設定は各パッケージの `pyproject.toml` と `Cargo.toml` を参照してください。
@@ -142,7 +144,20 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 実際にマウスとキーボードを操作するテスト（`test_quick_capture_real_hooks.py` など）は既定でスキップされます。環境変数 `RUN_REAL_INPUT_TESTS=1` を設定すると実行され、実行中はマウスとキーボードに触れないでください。実際のシステムクリップボードを書き換えるテスト（`test_clipboard_monitor_real.py`）も既定でスキップされます。環境変数 `RUN_REAL_CLIPBOARD_TESTS=1` を設定すると実行され、実行中は何もコピーしないでください。
 
-Windows 版をビルドするには、現在の Python アーキテクチャに合う録画 wheel をインストールしてから `python build_with_ocr_onefile.py` を実行します。インストール済みの録画拡張とライセンス通知を収集し、独立した更新プログラムは Cargo でビルドします。完全版の生成物は `dist/jietuba_pp.exe` と `dist/models/` です。`--lite` を付けると軽量版の `dist_lite/jietuba_lite.exe` を生成します。録画 wheel のビルド手順は[公開手順メモ](rust_libs/PUBLISHING.md)（中国語）を参照してください。[自動リリースワークフロー](.github/workflows/build.yml)では、x64 と ARM64 それぞれの完全版と軽量版のアーカイブを生成します。
+Windows 版をビルドするには、現在の Python アーキテクチャに合う録画 wheel をインストールしてから `python build_with_ocr_onefile.py` を実行します。インストール済みの録画拡張とライセンス通知を収集し、独立した更新プログラムは Cargo でビルドします。完全版の生成物は `dist/jietuba_pp.exe` と `dist/models/` です。`--lite` を付けると Python 版の軽量版 `dist_lite/jietuba_lite.exe` も生成できますが、リリースには使っていません。録画 wheel のビルド手順は[公開手順メモ](rust_libs/PUBLISHING.md)（中国語）を参照してください。[自動リリースワークフロー](.github/workflows/build.yml)では、完全版と軽量版（[lite.yml](.github/workflows/lite.yml)）を並行してビルドし、署名後に x64 と ARM64 のアーカイブを生成します。
+
+### C++ 実装
+
+C++ 実装は [cpp/](cpp/) にあり、`src/` は `main/` とモジュール単位で対応しています。現在リリースしている軽量版はこちらからビルドしています。ビルド、テスト、開発上の約束は [cpp/README.md](cpp/README.md)（中国語）を参照してください。2 つの実装の動作は一致させます。片方の動作を変える PR ではもう片方も同時に変更し、C++ の対照テストは Python 版で生成した期待値を使います。`cpp/` または `rust_libs/` を変更すると、[C++ CI](.github/workflows/cpp.yml) がビルドし、デスクトップを必要としないテストを実行します。
+
+### Rust ライブラリの階層
+
+`rust_libs/` のロジックは一度だけ書き、Python 版と C++ 版で共有します。
+
+- 各ライブラリは 2 層です。コアは純粋な Rust で、PyO3 バインディングは `python.rs`（録画ライブラリは `bindings.rs`）だけに置き、既定で有効な `python` フィーチャーで切り替えます。C++ 版は `default-features = false` で依存し、自身の C インターフェース層（`cpp/native/`）から同じコアを呼び出します。
+- バインディング層は型変換、GIL の取得と解放、エラーの対応付け、オブジェクトの寿命管理だけを行います。判定、既定値、再試行、スレッドといったロジックはコアに書きます。そうしないと両版がそれぞれ同じ処理を持ち、少しずつずれていきます。
+- コアで回復可能なエラーは `panic` ではなく `Result` で返します。
+- 両版で必要かつ動作をそろえるべき UI 以外のロジックは、まず Rust コアに書きます。Qt の型を使う UI コードはそれぞれの言語に残します。
 
 ### コードコメント
 
@@ -165,8 +180,13 @@ Windows 版をビルドするには、現在の Python アーキテクチャに�
 ├── pyproject.toml                                      # Pythonプロジェクトのメタデータと依存関係
 ├── requirements.txt                                   # 実行時依存パッケージ
 ├── requirements-dev.txt                               # テスト・ビルド用依存パッケージ
-├── build_with_ocr_onefile.py                           # PyInstaller単一ファイルビルドスクリプト（--lite で軽量版）
-├── licenses/                                          # 配布パッケージに同梱するサードパーティライセンス
+├── build_with_ocr_onefile.py                           # PyInstaller単一ファイルビルドスクリプト（--lite で Python 版の軽量版。リリースには未使用）
+├── licenses/                                          # 配布パッケージに同梱するサードパーティライセンス（C++ 版は cpp/licenses/ も同梱）
+│
+├── cpp/                     # C++（Qt6）実装
+│   ├── src/                 # main/ とモジュール単位で対応
+│   ├── native/              # rust_libs の C インターフェース（静的リンク）
+│   └── tests/               # QtTest と対照データ
 │
 ├── main/                    # Python メインプログラム
 │   ├── main_app.py          # アプリエントリポイント：システムトレイ、グローバルホットキー、ライフサイクル管理
@@ -190,7 +210,7 @@ Windows 版をビルドするには、現在の Python アーキテクチャに�
 │   ├── video/               # 録画ワーカー — PyO3 録画、有界 JSONL プロトコル、パッケージ版の早期分岐
 │   └── tests/               # テストモジュール — ユニットテスト＆統合テスト
 │
-├── rust_libs/               # Rust 拡張のソースコード
+├── rust_libs/               # Rust ライブラリ（Python 拡張と C++ 実装で共有）
 │   ├── gifrecorder/         # GIF/動画合成エンコーダーソース
 │   ├── longstitch/          # 長いスクリーンショット結合アルゴリズムソース
 │   ├── pyclipboard/         # クリップボード低レベル操作ソース
@@ -209,7 +229,7 @@ Windows 版をビルドするには、現在の Python アーキテクチャに�
 │   ├── PP-OCRv6_det_small.onnx   # テキスト検出モデル (DBNet)
 │   └── PP-OCRv6_rec_small.onnx   # テキスト認識モデル (CRNN/CTC)
 │
-└── svg/                     # SVGアイコンリソース
+└── svg/                     # SVGアイコンリソース（両方の実装で共有）
 ```
 
 </details>
@@ -260,7 +280,8 @@ canvas/
 ├── gestures.py              # マウスジェスチャの状態機械 — 文字の端ドラッグ、ラバーバンド選択、保留中のクリック編集
 ├── handle_overlay.py        # HandleOverlay — 編集ハンドル専用の合成レイヤー、シーン全体の再描画を回避
 └── items/
-    ├── drawing_items.py     # StrokeItem / RectItem / EllipseItem / NumberItem — DrawingItemMixin を共有する描画アイテム
+    ├── drawing_items.py     # RectItem / EllipseItem / NumberItem と、描画アイテム共通の DrawingItemMixin
+    ├── stroke_item.py       # StrokeItem — ペン/蛍光ペンのストローク、変わった部分・露出した部分のブロックだけ再描画
     ├── background_item.py   # BackgroundItem — 選択領域の背景
     ├── mosaic_item.py       # MosaicItem — モザイクアイテム
     ├── spotlight_item.py    # SpotlightItem / SpotlightCurtain — スポットライトの穴と共有の幕
@@ -374,7 +395,7 @@ clipboard/
 - 独立した3ペイン管理ウィンドウでグループ・テキスト内容・ファイル内容を編集可能
 - テキスト項目の CSV インポート/エクスポートに対応
 - テーマ切替、ショートカットによる高速貼り付け、大画像/長文プレビューに対応
-- 既定で Win+V が Windows のクリップボード履歴の代わりにこのクリップボードを開く（「クイック動作」設定でオフにすると Windows に戻る）
+- 既定で Win+V が Windows のクリップボード履歴の代わりにこのクリップボードを開く（クリップボードのホットキー 3 枠目。空にすると Windows に戻る）
 
 ---
 
@@ -395,6 +416,7 @@ core/
 ├── ui_scale.py              # UIScaleManager — ツールバー/パネル/ポップアップ共通の拡大率
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — 国際化
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — グローバル＆アプリ内ホットキー
+├── global_hotkey.py         # グローバルホットキーのキー名表と登録方法の判定：システム登録・フック引き継ぎ・不可
 ├── input_hub.py             # プロセス共通のグローバル入力：ネイティブフック（j-input）は GUI スレッド外で動き、イベントを Qt シグナルで通知
 ├── quick_capture_input.py    # グローバルマウスショートカットのドラッグ入力（共通入力ハブを利用）
 ├── last_capture_region.py   # 「前回の選択範囲を復元」用のプロセス内メモリ
@@ -690,7 +712,7 @@ ui/
 │   ├── components.py        # SettingCardGroup / ToggleSwitch — 設定コンポーネント
 │   ├── page_appearance.py   # 外観設定（テーマ、言語）
 │   ├── page_capture.py      # キャプチャ設定
-│   ├── page_quick_actions.py # クイック動作設定（確認・結果ウィンドウの省略、Win+V の引き継ぎ）
+│   ├── page_quick_actions.py # クイック動作設定（確認・結果ウィンドウの省略）
 │   ├── color_format_dialog.py # ColorFormatDialog — 拡大鏡のカラー形式を管理するダイアログ
 │   ├── page_clipboard.py    # クリップボード設定
 │   ├── special_paste_dialog.py # SpecialPasteDialog — 特殊貼り付けメニューの並び替えとオン／オフ

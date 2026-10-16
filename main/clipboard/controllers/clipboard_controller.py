@@ -425,10 +425,10 @@ class ClipboardController(QObject):
             if hasattr(parent_widget, "tr"):
                 message = "\n".join([
                     parent_widget.tr("Are you sure you want to delete this group?"),
-                    parent_widget.tr("All items in the group will also be deleted."),
+                    parent_widget.tr("Items in the group will be moved back to clipboard history."),
                 ])
             else:
-                message = "Are you sure you want to delete this group?\nAll items in the group will also be deleted."
+                message = "Are you sure you want to delete this group?\nItems in the group will be moved back to clipboard history."
             reply = show_confirm_dialog(
                 parent_widget,
                 title,

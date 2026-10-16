@@ -220,7 +220,9 @@ class PreviewPopup(QWidget):
         
         # 根据内容类型显示不同预览
         if item.content_type == "image":
-            self._show_image_preview(item)
+            # 多张图（如从 Word 一次复制）或 EMF 入库时没有像素，显示记录文字（如 [PNG+CF_DIB 7.9 MB]）
+            if not self._show_image_preview(item):
+                self._show_text_preview(item)
         elif item.content_type == "file":
             self._show_file_preview(item)
         elif item.content_type == "text":
@@ -413,47 +415,40 @@ class PreviewPopup(QWidget):
         self.content_widget.show()
         self.image_label.hide()
     
-    def _show_image_preview(self, item: 'ClipboardItem'):
-        """显示图片预览"""
+    def _show_image_preview(self, item: 'ClipboardItem') -> bool:
+        """显示图片预览；原图和缩略图都拿不到时返回 False"""
         self.title_label.hide()  # 图片预览不显示标题
         self.content_widget.hide()
+        # 不先隐藏的话，会露出上一条记录的图
+        self.image_label.hide()
         
-        # 尝试加载完整图片
+        pixmap = QPixmap()
+        # 先试完整图片
         if self._manager and item.image_id:
             image_data = self._manager.get_image_data(item.image_id)
             if image_data:
-                pixmap = QPixmap()
                 pixmap.loadFromData(image_data)
-                # 缩放到合适大小
-                scaled = pixmap.scaled(
-                    _px(400), _px(300),
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation
-                )
-                self.image_label.setPixmap(scaled)
-                self.image_label.setFixedSize(scaled.size())
-                self.image_label.show()
-                return
         
-        # Fallback: 使用缩略图
-        if item.thumbnail:
+        # 再试缩略图
+        if pixmap.isNull() and item.thumbnail and item.thumbnail.startswith("data:image"):
             import base64
             try:
-                if item.thumbnail.startswith("data:image"):
-                    _, data = item.thumbnail.split(",", 1)
-                    image_data = base64.b64decode(data)
-                    pixmap = QPixmap()
-                    pixmap.loadFromData(image_data)
-                    scaled = pixmap.scaled(
-                        _px(400), _px(300),
-                        Qt.AspectRatioMode.KeepAspectRatio,
-                        Qt.TransformationMode.SmoothTransformation
-                    )
-                    self.image_label.setPixmap(scaled)
-                    self.image_label.setFixedSize(scaled.size())
-                    self.image_label.show()
+                _, data = item.thumbnail.split(",", 1)
+                pixmap.loadFromData(base64.b64decode(data))
             except Exception as e:
                 log_exception(e, T("加载图片预览"))
+        
+        if pixmap.isNull():
+            return False
+        scaled = pixmap.scaled(
+            _px(400), _px(300),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation
+        )
+        self.image_label.setPixmap(scaled)
+        self.image_label.setFixedSize(scaled.size())
+        self.image_label.show()
+        return True
     
     def hide_preview(self):
         """隐藏预览"""

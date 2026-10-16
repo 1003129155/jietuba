@@ -177,31 +177,42 @@ def test_pin_position_centers_on_the_given_point(qapp):
     assert position == QPoint(center.x() - 100, center.y() - 50)
 
 
-def test_system_clipboard_with_text_is_not_treated_as_image(monkeypatch):
-    """带文本的剪贴板不算图片——和 Rust 监听端写历史的优先级保持一致。"""
-    from clipboard.ui.windows import pin_window as module
-
-    class FakeMime:
-        def hasUrls(self):
-            return False
-
-        def hasText(self):
-            return True
-
-        def text(self):
-            return "A1\tB1"
-
+def _fake_system_clipboard(monkeypatch, module, mime):
     class FakeImage:
         def isNull(self):
             return False
 
-    fake_clipboard = SimpleNamespace(
-        mimeData=lambda: FakeMime(),
-        image=lambda: FakeImage(),
-    )
+    image = FakeImage()
+    fake_clipboard = SimpleNamespace(mimeData=lambda: mime, image=lambda: image)
     monkeypatch.setattr(
         module, "QGuiApplication",
         SimpleNamespace(clipboard=lambda: fake_clipboard),
     )
+    return image
+
+
+def test_system_clipboard_with_text_is_not_treated_as_image(qapp, monkeypatch):
+    """带文本的剪贴板不算图片——和 Rust 监听端写历史的优先级保持一致。"""
+    from PySide6.QtCore import QMimeData
+
+    from clipboard.ui.windows import pin_window as module
+
+    mime = QMimeData()
+    mime.setText("A1\tB1")
+    _fake_system_clipboard(monkeypatch, module, mime)
 
     assert module._read_system_clipboard_image() is None
+
+
+def test_system_clipboard_image_with_file_paths_is_still_an_image(qapp, monkeypatch):
+    """截图写入文件路径时剪贴板是图片加文件列表，按图片钉；QMimeData 会把文件列表也报成文本。"""
+    from PySide6.QtCore import QMimeData, QUrl
+
+    from clipboard.ui.windows import pin_window as module
+
+    mime = QMimeData()
+    mime.setUrls([QUrl.fromLocalFile("C:/shots/capture.png")])
+    assert mime.hasText()
+    image = _fake_system_clipboard(monkeypatch, module, mime)
+
+    assert module._read_system_clipboard_image() is image

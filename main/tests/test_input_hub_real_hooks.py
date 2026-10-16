@@ -47,7 +47,7 @@ def test_taken_over_win_v_reaches_neither_the_window_nor_the_system(qapp, qtbot,
         hub.native.set_test_marker(marker)
         manager = ShortcutManager()
         calls = []
-        manager.register_hook_hotkey("clipboard", ["win"], ord("V"), lambda: calls.append("clipboard"))
+        manager.register_hotkey("win+v", lambda: calls.append("clipboard"))
         try:
             qtbot.waitUntil(lambda: hub.native.stats()["hooks_installed"], timeout=2000)
             click(*target.center)
@@ -94,3 +94,32 @@ def test_paste_target_catches_a_quick_switch_and_skips_the_picker(qapp, qtbot, t
         finally:
             tracker.stop()
         qtbot.waitUntil(lambda: not input_hub().native.stats()["foreground_hook_installed"], timeout=2000)
+
+
+def test_recording_takes_win_combinations_without_opening_start(qapp, qtbot, tmp_path):
+    from ui.hotkey_edit import HotkeyEdit
+
+    vk_f10 = 0x79
+    with real_desktop(qtbot, tmp_path) as (target,):
+        edit = HotkeyEdit()
+        qtbot.addWidget(edit)
+        edit.show()
+        edit.activateWindow()
+        edit.edit.setFocus()
+        qtbot.waitUntil(edit.edit.hasFocus, timeout=2000)
+        hub = input_hub()
+        qtbot.waitUntil(lambda: hub.native.stats()["hooks_installed"], timeout=2000)
+        click(*target.center)
+        qtbot.waitUntil(lambda: user32.GetForegroundWindow() == target.frame
+                        and target.seen()[-1:] == ["release"], timeout=2000)
+        before = len(target.seen())
+        send(key(VK_LWIN), key(vk_f10), key(vk_f10, up=True), key(VK_LWIN, up=True))
+        time.sleep(0.5)
+        foreground, name = user32.GetForegroundWindow(), foreground_class()
+        if name == "Windows.UI.Core.CoreWindow":
+            send(key(VK_ESCAPE), key(VK_ESCAPE, up=True))  # 开始菜单弹出了，只关掉它
+        qtbot.waitUntil(lambda: edit.text() == "win+f10", timeout=2000)
+        assert (foreground, name) == (target.frame, "TkTopLevel")
+        # 窗口只收到 Win 和松开前补发的一对屏蔽键
+        assert target.seen()[before:] == ["key Win_L", "key ??", "keyup ??", "keyup Win_L"]
+        edit.edit.clearFocus()

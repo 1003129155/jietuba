@@ -1,0 +1,32 @@
+[package]
+name = "jietuba_native"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "C ABI over the repository's Rust libraries, linked statically into the C++ build"
+
+[lib]
+crate-type = ["staticlib"]
+
+# The rust_libs crates without their Python bindings (default-features = false).
+[dependencies]
+inputhub = { path = "../../rust_libs/inputhub", default-features = false }
+longstitch = { path = "../../rust_libs/longstitch", default-features = false }
+gifrecorder = { path = "../../rust_libs/gifrecorder", default-features = false }
+video_recorder = { path = "../../rust_libs/video_recorder", default-features = false }
+hdrcapture = { path = "../../rust_libs/hdrcapture", default-features = false }
+# ONNX Runtime is not linked: jb_ppocr_init_runtime loads the onnxruntime.dll of the PP-OCR pack.
+ppocr_rust = { path = "../../rust_libs/ppocr_rust", default-features = false, features = ["load-dynamic"] }
+pyclipboard = { path = "../../rust_libs/pyclipboard", default-features = false }
+# Clipboard items and groups cross the C boundary as JSON.
+serde_json = "1.0"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+# Unwinding lets each export catch a panic and return its failure value (src/panic.rs).
+panic = "unwind"
+
+[profile.dev]
+panic = "unwind"

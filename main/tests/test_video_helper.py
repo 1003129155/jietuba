@@ -119,7 +119,8 @@ def test_release_notices_include_installed_video_wheel_and_keep_user_files(
     sources = [repository / "LICENSE", repository / "licenses" / "oneocr-LICENSE.txt",
                repository / "licenses" / "lucide-LICENSE.txt",
                repository / "licenses" / "tabler-icons-LICENSE.txt",
-               repository / "rust_libs" / "hdrcapture" / "LICENSE-UPSTREAM"]
+               repository / "rust_libs" / "hdrcapture" / "LICENSE-UPSTREAM",
+               repository / "rust_libs" / "ppocr_rust" / "ONNXRUNTIME-NOTICES.txt"]
     sources.extend(repository / "rust_libs" / crate / "THIRD-PARTY-NOTICES.txt"
                    for crate in build_notices.CRATES)
     for source in sources:
@@ -144,4 +145,5 @@ def test_release_notices_include_installed_video_wheel_and_keep_user_files(
     assert "licenses/lucide-LICENSE.txt" in text
     assert "licenses/tabler-icons-LICENSE.txt" in text
     assert ("rust_libs/ppocr_rust/THIRD-PARTY-NOTICES.txt" in text) is not lite
+    assert ("rust_libs/ppocr_rust/ONNXRUNTIME-NOTICES.txt" in text) is not lite
     assert user_file.read_text(encoding="utf-8") == "keep"

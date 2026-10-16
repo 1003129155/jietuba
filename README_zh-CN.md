@@ -15,7 +15,7 @@
 
 MP4 区域录制支持自定义帧率和码率、暂停/继续、鼠标指针及系统声音；常见 5.1/7.1 播放设备的声音自动转成立体声，不包含麦克风。
 
-界面使用 PySide6 构建，图像处理、剪贴板操作和 PP-OCR 引擎由 Rust 实现，支持 Windows x86_64 与 ARM64。
+截图吧有 Python（PySide6）和 C++（Qt6）两套实现，功能、界面和设置一致；图像处理、剪贴板操作、PP-OCR 引擎等核心由 Rust 实现，两套共用。支持 Windows x86_64 与 ARM64。
 
 提供可直接运行的 Windows 发行包，也支持从源码运行。
 
@@ -47,15 +47,17 @@ MP4 区域录制支持自定义帧率和码率、暂停/继续、鼠标指针及
 1. 打开 [Releases 下载页](https://github.com/1003129155/jietuba/releases/latest)，根据设备下载以 `-x64.zip` 或 `-arm64.zip` 结尾的程序包。
 2. 程序包分两种，完整解压后双击其中的 exe 启动：
    - **完整版** `jietuba_pp-…zip`：带 PP-OCR 引擎和模型，任何 Windows 都能使用 OCR。保留 `jietuba_pp.exe` 和同级的 `models/` 目录。
-   - **轻量版** `jietuba_lite-…zip`：体积更小，只使用 Windows 11 截图工具自带的 OCR；没有截图工具、或截图工具低于 11.2308（没有「文本操作」）的电脑上 OCR 不可用，请更新截图工具或改用完整版。
+   - **轻量版** `jietuba_lite-…zip`：C++ 原生实现的单个 exe，体积更小、启动更快（同一台电脑上实测启动 2.16→1.14 秒，内存 199→158 MB）。默认只使用 Windows 11 截图工具自带的 OCR；没有截图工具、或截图工具低于 11.2308（没有「文本操作」）的电脑上 OCR 不可用，请更新截图工具或改用完整版。在 exe 旁放上 PP-OCR 组件包也能使用 PP-OCR，见 [cpp/README.md](cpp/README.md#pp-ocr-组件包)。
 3. 两个版本默认都优先使用截图工具的 OCR（更快、支持的语言更多），可在设置的「OCR 设置」中切换引擎。
 4. 程序尚未进行数字签名，通过浏览器下载后，Windows 可能显示运行警告。出现提示时，点击“更多信息”，再选择“仍要运行”即可启动。
 
-首次安装包含更新器的版本后，可在**关于 → 检查更新 → 一键更新并重启**中升级。更新器下载匹配架构的 GitHub Release ZIP，仅替换主 EXE 后重启；保留设置、剪贴板历史、模型和其他文件。录制、导出或后台保存未结束时保留下载结果，结束任务后重试。最近一次主程序备份保存在 `.jietuba-update/` 中，详见[更新器恢复说明](rust_libs/updater/README.md)。
+两个版本共用设置和剪贴板历史，可以互相换用，但不要同时运行（默认快捷键会冲突）。
+
+首次安装包含更新器的版本后，可在**关于 → 检查更新 → 一键更新并重启**中升级。更新器下载匹配架构的 GitHub Release ZIP，仅替换主 EXE 后重启；保留设置、剪贴板历史、模型和其他文件。录制、导出或后台保存未结束时保留下载结果，结束任务后重试。最近一次主程序备份保存在 `.jietuba-update/` 中，详见[更新器恢复说明](rust_libs/updater/README.md)。旧的 Python 轻量版一键更新后会换成 C++ 实现，设置和剪贴板历史照常保留。
 
 ## 代码签名政策
 
-Windows 发布包中的 `jietuba_pp.exe` 和 `jietuba_lite.exe` 由 GitHub Actions 从本仓库源码自动构建，并通过 SignPath 签名。
+Windows 发布包中的 `jietuba_pp.exe`（Python 源码打包）和 `jietuba_lite.exe`（由 [cpp/](cpp/) 的 C++ 源码构建）由 GitHub Actions 从本仓库源码自动构建，并通过 SignPath 签名。
 
 Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
 
@@ -121,7 +123,7 @@ PP-OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.5 | 剪贴板底层操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | 支持 HDR 的桌面截图（DXGI Desktop Duplication + GPU 色调映射） |
-| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.1 | 不占界面线程的全局鼠标键盘钩子（拖动手势、侧键、热键、滚轮、前台窗口） |
+| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.2 | 不占界面线程的全局鼠标键盘钩子（拖动手势、侧键、热键、滚轮、前台窗口） |
 | [`j-video`](https://pypi.org/project/j-video/) | `video_recorder` | 0.1.0 | Media Foundation H.264/MP4 录制与 WASAPI 系统声音采集 |
 
 七个扩展面向 Windows x86_64 和 ARM64，声明 Python `>=3.11` 并启用 `abi3-py311`。录制包与其他扩展一致，使用 PyO3 接口；应用在专用 Python 子进程中加载它，录制结束后通过进程退出回收资源。配置详见各包的 `pyproject.toml` 和 `Cargo.toml`。
@@ -143,7 +145,20 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 会真实移动鼠标、点击和按键的测试（如 `test_quick_capture_real_hooks.py`）默认跳过；设置环境变量 `RUN_REAL_INPUT_TESTS=1` 后才运行，运行期间请不要操作鼠标和键盘。会改写真实系统剪贴板的测试（`test_clipboard_monitor_real.py`）同样默认跳过；设置环境变量 `RUN_REAL_CLIPBOARD_TESTS=1` 后才运行，运行期间请不要复制任何内容。
 
-构建 Windows 发行包前，先安装与当前 Python 架构匹配的录制 wheel，再运行 `python build_with_ocr_onefile.py`。脚本收集已安装的录制扩展与许可声明，并通过 Cargo 单独构建更新器。完整版产物为 `dist/jietuba_pp.exe` 和 `dist/models/`；加 `--lite` 构建轻量版，产物为 `dist_lite/jietuba_lite.exe`。录制 wheel 的构建步骤见[发布说明](rust_libs/PUBLISHING.md)。自动发行流程见 [build.yml](.github/workflows/build.yml)，会分别生成 x64 与 ARM64 的完整版和轻量版压缩包。
+构建 Windows 发行包前，先安装与当前 Python 架构匹配的录制 wheel，再运行 `python build_with_ocr_onefile.py`。脚本收集已安装的录制扩展与许可声明，并通过 Cargo 单独构建更新器。完整版产物为 `dist/jietuba_pp.exe` 和 `dist/models/`。加 `--lite` 仍可构建 Python 轻量版 `dist_lite/jietuba_lite.exe`，发版已不再使用。录制 wheel 的构建步骤见[发布说明](rust_libs/PUBLISHING.md)。自动发行流程见 [build.yml](.github/workflows/build.yml)：完整版和轻量版（[lite.yml](.github/workflows/lite.yml)）并行构建，签名后分别生成 x64 与 ARM64 的压缩包。
+
+### C++ 实现
+
+C++ 实现在 [cpp/](cpp/)，`src/` 与 `main/` 按模块对应，目前发布的轻量版由它构建；构建、测试和开发约定见 [cpp/README.md](cpp/README.md)。两套实现的行为必须一致：改了其中一套的行为，同一个 PR 里另一套也要改；C++ 的对照测试用 Python 版生成预期结果。改到 `cpp/` 或 `rust_libs/` 时，[C++ CI](.github/workflows/cpp.yml) 会编译并运行不需要桌面的测试。
+
+### Rust 库分层
+
+`rust_libs/` 下的逻辑只写一份，Python 版和 C++ 版共用：
+
+- 每个库分两层：核心是纯 Rust；pyo3 绑定只放在 `python.rs`（录制库是 `bindings.rs`），由默认开启的 `python` 特性控制。C++ 版以 `default-features = false` 依赖，在自己的 C 接口层（`cpp/native/`）调用同一份核心。
+- 绑定层只做类型转换、GIL 的拿放、错误映射和对象生命周期；判断、默认值、重试、线程这类逻辑写进核心，否则两个版本会各写一份、慢慢分叉。
+- 核心里可恢复的错误返回 `Result`，不要 `panic`。
+- 两个版本都要用、行为必须一致的非界面逻辑，优先写进 Rust 核心；用到 Qt 类型的界面代码留在各自的语言里。
 
 ### 代码注释
 
@@ -166,8 +181,13 @@ python -m pytest main/tests -c main/tests/pytest.ini
 ├── pyproject.toml                                      # Python 项目元数据与依赖声明
 ├── requirements.txt                                   # 运行依赖
 ├── requirements-dev.txt                               # 测试与构建依赖
-├── build_with_ocr_onefile.py                           # PyInstaller 单文件构建脚本（--lite 构建轻量版）
-├── licenses/                                          # 随发布包附带的第三方许可
+├── build_with_ocr_onefile.py                           # PyInstaller 单文件构建脚本（--lite 构建 Python 轻量版，发版不再使用）
+├── licenses/                                          # 发布包附带的第三方许可（C++ 版另有 cpp/licenses/）
+│
+├── cpp/                     # C++（Qt6）实现
+│   ├── src/                 # 与 main/ 按模块对应
+│   ├── native/              # rust_libs 的 C 接口，静态链接
+│   └── tests/               # QtTest 与对照数据
 │
 ├── main/                    # Python 主程序
 │   ├── main_app.py          # 应用入口，系统托盘、全局快捷键、生命周期管理
@@ -191,7 +211,7 @@ python -m pytest main/tests -c main/tests/pytest.ini
 │   ├── video/               # 录制子进程 — PyO3 录制、有界 JSONL 协议、打包后早分流
 │   └── tests/               # 测试模块 — 单元测试与集成测试
 │
-├── rust_libs/               # Rust 扩展源码（可自行编译）
+├── rust_libs/               # Rust 库源码，Python 扩展与 C++ 实现共用
 │   ├── gifrecorder/         # GIF/视频合成编码器源码
 │   ├── longstitch/          # 长截图拼接算法源码
 │   ├── pyclipboard/         # 剪贴板底层操作源码
@@ -210,7 +230,7 @@ python -m pytest main/tests -c main/tests/pytest.ini
 │   ├── PP-OCRv6_det_small.onnx   # 文本检测模型 (DBNet)
 │   └── PP-OCRv6_rec_small.onnx   # 文本识别模型 (CRNN/CTC)
 │
-└── svg/                     # SVG 图标资源
+└── svg/                     # SVG 图标资源，两套实现共用
 ```
 
 </details>
@@ -263,7 +283,8 @@ canvas/
 ├── handle_overlay.py        # HandleOverlay — 编辑控制点的独立合成层，避免整场景重绘
 └── items/                   # 绘制图形项
     ├── __init__.py
-    ├── drawing_items.py     # StrokeItem / RectItem / EllipseItem / NumberItem — 共用 DrawingItemMixin 的绘制项
+    ├── drawing_items.py     # RectItem / EllipseItem / NumberItem，以及各绘制项共用的 DrawingItemMixin
+    ├── stroke_item.py       # StrokeItem — 画笔/荧光笔笔迹，只重绘变了的、露出来的那几块
     ├── background_item.py   # BackgroundItem — 选区背景底图
     ├── mosaic_item.py       # MosaicItem — 马赛克图形项
     ├── spotlight_item.py    # SpotlightItem / SpotlightCurtain — 聚光灯的孔与共用幕布
@@ -392,7 +413,7 @@ clipboard/
 - 文本条目支持 CSV 导入/导出
 - 多主题 UI（亮色/暗色等）
 - 快捷键快速粘贴历史内容
-- 默认用 Win+V 打开本软件的剪贴板，代替系统剪贴板历史；在「快捷行为」里关掉即交还给系统
+- 默认用 Win+V 打开本软件的剪贴板，代替系统剪贴板历史（剪贴板热键的第 3 个槽）；清空这一槽即交还给系统
 - 预览弹窗支持大图/长文查看
 
 ---
@@ -415,6 +436,7 @@ core/
 ├── ui_scale.py              # UIScaleManager — 工具栏/面板/弹层共用的缩放比例
 ├── i18n.py                  # I18nManager / XmlTranslator / tr() — 国际化管理，多语言支持
 ├── shortcut_manager.py      # HotkeySystem / ShortcutManager — 全局热键和应用内快捷键管理
+├── global_hotkey.py         # 全局热键的键名表与注册方式判定：系统注册、钩子接管或不允许
 ├── input_hub.py             # 进程共用的全局输入：原生钩子（j-input）不占界面线程，事件转成 Qt 信号
 ├── quick_capture_input.py    # 全局鼠标快捷键的拖动输入，接在共用输入中心上
 ├── last_capture_region.py   # 进程内存的"上次截图区域"，供恢复选区快捷键使用
@@ -772,7 +794,7 @@ ui/
 │   ├── components.py        # SettingCardGroup / ToggleSwitch — 设置组件库
 │   ├── page_appearance.py   # 外观设置页（主题、语言等）
 │   ├── page_capture.py      # 截图设置页
-│   ├── page_quick_actions.py # 快捷行为设置页（跳过确认或结果窗口、接管 Win+V）
+│   ├── page_quick_actions.py # 快捷行为设置页（跳过确认或结果窗口）
 │   ├── color_format_dialog.py # ColorFormatDialog — 放大镜颜色格式管理窗口
 │   ├── page_clipboard.py    # 剪贴板设置页
 │   ├── special_paste_dialog.py # SpecialPasteDialog — 调整特殊粘贴菜单的顺序与开关

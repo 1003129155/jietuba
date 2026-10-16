@@ -3,16 +3,24 @@
 """
 
 from PySide6.QtCore import QPointF, Qt
-from PySide6.QtGui import QPainterPath, QPen
-from .base import Tool, ToolContext, color_with_opacity
+from PySide6.QtGui import QPen
+from .base import FreehandStroke, Tool, ToolContext, color_with_opacity, shift_held, shift_line_angle
 from canvas.items import StrokeItem
 from canvas.undo import AddItemCommand
+
+
+def commit_stroke(ctx: ToolContext, item: StrokeItem, stroke: FreehandStroke):
+    """画完的笔迹交给撤销栈。它已经在场景里，推进撤销栈时 AddItemCommand 不会再加一次。"""
+    if stroke.finish():
+        item.extend_path(stroke.path, stroke.take_dirty_from())
+    item.finish_path()
+    ctx.undo_stack.push(AddItemCommand(ctx.scene, item))
 
 
 class PenTool(Tool):
     """
     画笔工具 - 自由绘制
-    支持按住 Shift 键绘制水平或垂直直线
+    画的过程中按住 Shift 从当前位置拉直线，角度吸附见 shift_line_angle
     """
     
     id = "pen"
@@ -20,40 +28,21 @@ class PenTool(Tool):
     def __init__(self):
         self.drawing = False
         self.current_item = None
-        self.path = None
-        self.start_pos = None  # 起始点
-        self.line_lock_mode = None  # 直线锁定模式: 'horizontal' 或 'vertical' 或 None
-        self.locked_coordinate = None  # 被锁定的坐标值
+        self.stroke = None  # FreehandStroke
         self.line_style = "solid"  # 线条样式：solid（实线）或 dashed（虚线）
-        self.last_point = None  # 上一个被采纳的点（见 Tool.should_append_point）
     
     def on_press(self, pos: QPointF, button, ctx: ToolContext):
         if button == Qt.MouseButton.LeftButton:
+            # 上一笔没收到松手（按着鼠标时焦点被抢走等），先照松手收下
+            self._finish(ctx)
             self.drawing = True
-            self.start_pos = pos
             
             # 从设置管理器获取线条样式
             if ctx.settings_manager:
                 settings = ctx.settings_manager.get_tool_settings("pen")
                 self.line_style = settings.get("line_style", "solid")
             
-            # 检测 Shift 键状态
-            from PySide6.QtWidgets import QApplication
-            modifiers = QApplication.keyboardModifiers()
-            shift_pressed = bool(modifiers & Qt.KeyboardModifier.ShiftModifier)
-            
-            if shift_pressed:
-                # Shift 按下：进入直线检测模式
-                self.line_lock_mode = 'detecting'
-                self.locked_coordinate = None
-            else:
-                # 正常自由绘制模式
-                self.line_lock_mode = None
-                self.locked_coordinate = None
-            
-            # 创建路径
-            self.path = QPainterPath(pos)
-            self.last_point = pos
+            self.stroke = FreehandStroke(pos, shift_line_angle(ctx), smooth=True)
             
             # 创建画笔
             pen_color = color_with_opacity(ctx.color, ctx.opacity)
@@ -75,71 +64,27 @@ class PenTool(Tool):
                 pen.setDashPattern([])
             
             # 创建图元并添加到场景
-            self.current_item = StrokeItem(self.path, pen, is_highlighter=False)
+            self.current_item = StrokeItem(self.stroke.path, pen, is_highlighter=False)
             ctx.scene.addItem(self.current_item)
     
     def on_move(self, pos: QPointF, ctx: ToolContext):
-        if self.drawing and self.current_item and self.start_pos:
-            paint_pos = QPointF(pos)
-            
-            # 处理直线绘制逻辑
-            if self.line_lock_mode == 'detecting':
-                # 首次移动时决定方向
-                dx = abs(paint_pos.x() - self.start_pos.x())
-                dy = abs(paint_pos.y() - self.start_pos.y())
-                
-                # 需要移动一定距离才能判断方向
-                if dx + dy > 5:
-                    if dx > dy:
-                        # 水平移动更多，锁定 Y 坐标（水平线）
-                        self.line_lock_mode = 'horizontal'
-                        self.locked_coordinate = self.start_pos.y()
-                        paint_pos.setY(self.locked_coordinate)
-                    else:
-                        # 垂直移动更多，锁定 X 坐标（垂直线）
-                        self.line_lock_mode = 'vertical'
-                        self.locked_coordinate = self.start_pos.x()
-                        paint_pos.setX(self.locked_coordinate)
-            elif self.line_lock_mode == 'horizontal':
-                # 水平线模式，锁定 Y 坐标
-                paint_pos.setY(self.locked_coordinate)
-            elif self.line_lock_mode == 'vertical':
-                # 垂直线模式，锁定 X 坐标
-                paint_pos.setX(self.locked_coordinate)
-            
-            # 间距过滤放在锁定吸附之后，比的是吸附后的坐标：水平锁定时纯竖直的
-            # 移动经吸附后落在同一个位置，若按吸附前的坐标筛就会全部放行，画面
-            # 没有任何变化，点数却照涨。
-            if not self.should_append_point(self.last_point, paint_pos):
-                return
-
-            self.path.lineTo(paint_pos)
-            self.last_point = paint_pos
-            self.current_item.setPath(self.path)
+        if self.drawing and self.current_item and self.stroke:
+            if self.stroke.extend(pos, straight=shift_held()):
+                self.current_item.extend_path(self.stroke.path, self.stroke.take_dirty_from())
     
     def on_release(self, pos: QPointF, ctx: ToolContext):
-        if self.drawing:
-            self.drawing = False
-            
-            # 重置直线模式状态
-            self.line_lock_mode = None
-            self.locked_coordinate = None
-            self.start_pos = None
-            self.last_point = None
-            
-            if self.current_item:
-                # 提交到撤销栈
-                # 注意：图元已经添加到场景了，AddItemCommand 需要处理这种情况
-                # 通常 Command 的 redo 会执行 addItem。
-                # 为了避免重复添加，我们可以先从场景移除，然后让 Command 去添加
-                # 或者 Command 构造时知道 item 已经在场景中
-                
-                # 这里采用标准做法：先移除，交给 Command 管理
-                ctx.scene.removeItem(self.current_item)
-                
-                command = AddItemCommand(ctx.scene, self.current_item)
-                ctx.undo_stack.push(command)
-                
-                self.current_item = None
-                self.path = None
+        self._finish(ctx)
+
+    def on_deactivate(self, ctx: ToolContext):
+        # 画到一半切走工具，这一笔照常收下
+        self._finish(ctx)
+        super().on_deactivate(ctx)
+
+    def _finish(self, ctx: ToolContext):
+        item, stroke = self.current_item, self.stroke
+        self.drawing = False
+        self.current_item = None
+        self.stroke = None
+        if item is not None and stroke is not None:
+            commit_stroke(ctx, item, stroke)
  

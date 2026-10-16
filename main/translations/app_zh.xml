@@ -689,8 +689,8 @@ Replace it?</source>
         <translation>Windows 截图工具</translation>
     </message>
     <message>
-        <source>Windows Snipping Tool (not found)</source>
-        <translation>Windows 截图工具（未找到）</translation>
+        <source>oneocr (not found)</source>
+        <translation>oneocr（未找到）</translation>
     </message>
     <message>
         <source>PP-OCR (missing engine)</source>
@@ -2033,24 +2033,8 @@ Replace it?</source>
         <translation>退出</translation>
     </message>
     <message>
-        <source>Screenshot (2)</source>
-        <translation>截图 (2)</translation>
-    </message>
-    <message>
-        <source>Translation (2)</source>
-        <translation>翻译 (2)</translation>
-    </message>
-    <message>
-        <source>Clipboard (2)</source>
-        <translation>剪贴板 (2)</translation>
-    </message>
-    <message>
         <source>Pin Clipboard Image</source>
         <translation>生成钉图</translation>
-    </message>
-    <message>
-        <source>Pin Clipboard Image (2)</source>
-        <translation>生成钉图 (2)</translation>
     </message>
     <message>
         <source>Hotkey Registration Failed</source>
@@ -2681,14 +2665,14 @@ Replace it?</source>
         <translation>确定要删除这个分组吗？</translation>
     </message>
     <message>
-        <source>All items in the group will also be deleted.</source>
-        <translation>分组内的内容也会被删除。</translation>
+        <source>Items in the group will be moved back to clipboard history.</source>
+        <translation>分组内的内容会移回剪贴板历史。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this group?
-All items in the group will also be deleted.</source>
+Items in the group will be moved back to clipboard history.</source>
         <translation>确定要删除这个分组吗？
-分组内的内容也会被删除。</translation>
+分组内的内容会移回剪贴板历史。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
@@ -2731,8 +2715,8 @@ All items in the group will also be deleted.</source>
         <translation>保存图片失败。</translation>
     </message>
     <message>
-        <source>PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp)</source>
-        <translation>PNG 图片 (*.png);;JPEG 图片 (*.jpg *.jpeg);;BMP 图片 (*.bmp)</translation>
+        <source>PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp);;WebP Image (*.webp);;PDF (*.pdf)</source>
+        <translation>PNG 图片 (*.png);;JPEG 图片 (*.jpg *.jpeg);;BMP 图片 (*.bmp);;WebP 图片 (*.webp);;PDF (*.pdf)</translation>
     </message>
     <message>
         <source>Open File Location</source>
@@ -3190,14 +3174,14 @@ This action cannot be undone.</source>
         <translation>确定要删除这个分组吗？</translation>
     </message>
     <message>
-        <source>All items in the group will also be deleted.</source>
-        <translation>分组内的内容也会被删除。</translation>
+        <source>Items in the group will be moved back to clipboard history.</source>
+        <translation>分组内的内容会移回剪贴板历史。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this group?
-All items in the group will also be deleted.</source>
+Items in the group will be moved back to clipboard history.</source>
         <translation>确定要删除这个分组吗？
-分组内的内容也会被删除。</translation>
+分组内的内容会移回剪贴板历史。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
@@ -4680,14 +4664,14 @@ SOFTWARE.</translation></message>
         <translation>确定要删除这个分组吗？</translation>
     </message>
     <message>
-        <source>All items in the group will also be deleted.</source>
-        <translation>分组内的内容也会被删除。</translation>
+        <source>Items in the group will be moved back to clipboard history.</source>
+        <translation>分组内的内容会移回剪贴板历史。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this group?
-All items in the group will also be deleted.</source>
+Items in the group will be moved back to clipboard history.</source>
         <translation>确定要删除这个分组吗？
-分组内的内容也会被删除。</translation>
+分组内的内容会移回剪贴板历史。</translation>
     </message>
 </context>
 
@@ -5160,6 +5144,18 @@ All items in the group will also be deleted.</source>
         <source>Already in use by another app.</source>
         <translation>已被其他程序占用。</translation>
     </message>
+    <message>
+        <source>Windows uses this shortcut too. This app takes it over while running; clear it to give it back.</source>
+        <translation>Windows 也在用这个快捷键。本软件运行期间由它接管，清空即交还给 Windows。</translation>
+    </message>
+    <message>
+        <source>Reserved by Windows. No app can use it.</source>
+        <translation>被 Windows 保留，任何软件都无法使用。</translation>
+    </message>
+    <message>
+        <source>This key can't be used as a global hotkey.</source>
+        <translation>这个键不能用作全局快捷键。</translation>
+    </message>
 </context>
 <context>
     <name>SettingsDialog</name>
@@ -5193,14 +5189,6 @@ All items in the group will also be deleted.</source>
     <message>
         <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
         <translation>只识别到一个二维码或条形码时直接复制内容，不弹出结果窗口；识别到多个码时仍会弹出。</translation>
-    </message>
-    <message>
-        <source>Open Clipboard with Win+V</source>
-        <translation>Win+V 打开剪贴板</translation>
-    </message>
-    <message>
-        <source>Win+V opens this app's clipboard instead of the Windows clipboard history. Turn it off to give Win+V back to Windows.</source>
-        <translation>按 Win+V 打开本软件的剪贴板，不再弹出系统剪贴板历史。关闭后 Win+V 交还给系统。</translation>
     </message>
     <message>
         <source>Global Mouse Shortcuts</source>
@@ -5742,6 +5730,34 @@ Make sure gifrecorder is installed correctly.</source>
         <source>If the last screenshot ended with a watermark, the next one gets the same watermark with the time updated; otherwise none is added. Screenshots taken with mouse shortcuts follow the same rule.</source>
         <translation>上次截图结束时带着水印，这次就加上同样的水印，时间按这次刷新；上次没有就不加。鼠标快捷键截的图也一样。</translation>
     </message>
+    <message>
+        <source>Straight Lines with Shift</source>
+        <translation>按住 Shift 画直线</translation>
+    </message>
+    <message>
+        <source>Hold Shift while drawing with the pen or highlighter to draw a straight line from that point. Release Shift to keep drawing freely.</source>
+        <translation>用画笔或荧光笔画的过程中按住 Shift，从当前位置拉出直线；松开 Shift 后接着自由画。</translation>
+    </message>
+    <message>
+        <source>Horizontal or Vertical</source>
+        <translation>仅水平或垂直</translation>
+    </message>
+    <message>
+        <source>Every 45°</source>
+        <translation>每隔 45°</translation>
+    </message>
+    <message>
+        <source>Every 30°</source>
+        <translation>每隔 30°</translation>
+    </message>
+    <message>
+        <source>Every 15°</source>
+        <translation>每隔 15°</translation>
+    </message>
+    <message>
+        <source>Any Angle</source>
+        <translation>任意角度</translation>
+    </message>
 </context>
 <context>
     <name>WatermarkPanel</name>
@@ -5895,6 +5911,13 @@ Make sure gifrecorder is installed correctly.</source>
     <message>
         <source>Compact, for file names</source>
         <translation>紧凑格式，适合文件名</translation>
+    </message>
+</context>
+<context>
+    <name>TranslationLoadingDialog</name>
+    <message>
+        <source>Recognizing...</source>
+        <translation>识别中...</translation>
     </message>
 </context>
 </TS>

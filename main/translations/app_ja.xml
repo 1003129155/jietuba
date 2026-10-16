@@ -691,8 +691,8 @@ Replace it?</source>
         <translation>Windows Snipping Tool</translation>
     </message>
     <message>
-        <source>Windows Snipping Tool (not found)</source>
-        <translation>Windows Snipping Tool（見つかりません）</translation>
+        <source>oneocr (not found)</source>
+        <translation>oneocr（見つかりません）</translation>
     </message>
     <message>
         <source>PP-OCR (missing engine)</source>
@@ -2032,24 +2032,8 @@ Replace it?</source>
         <translation>終了</translation>
     </message>
     <message>
-        <source>Screenshot (2)</source>
-        <translation>スクリーンショット (2)</translation>
-    </message>
-    <message>
-        <source>Translation (2)</source>
-        <translation>翻訳 (2)</translation>
-    </message>
-    <message>
-        <source>Clipboard (2)</source>
-        <translation>クリップボード (2)</translation>
-    </message>
-    <message>
         <source>Pin Clipboard Image</source>
         <translation>ピン画像を作成</translation>
-    </message>
-    <message>
-        <source>Pin Clipboard Image (2)</source>
-        <translation>ピン画像を作成 (2)</translation>
     </message>
     <message>
         <source>Hotkey Registration Failed</source>
@@ -2646,14 +2630,14 @@ Replace it?</source>
         <translation>このグループを削除してもよろしいですか？</translation>
     </message>
     <message>
-        <source>All items in the group will also be deleted.</source>
-        <translation>グループ内のすべてのアイテムも削除されます。</translation>
+        <source>Items in the group will be moved back to clipboard history.</source>
+        <translation>グループ内のアイテムはクリップボード履歴に戻ります。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this group?
-All items in the group will also be deleted.</source>
+Items in the group will be moved back to clipboard history.</source>
         <translation>このグループを削除してもよろしいですか？
-グループ内のすべてのアイテムも削除されます。</translation>
+グループ内のアイテムはクリップボード履歴に戻ります。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
@@ -2696,8 +2680,8 @@ All items in the group will also be deleted.</source>
         <translation>画像の保存に失敗しました。</translation>
     </message>
     <message>
-        <source>PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp)</source>
-        <translation>PNG 画像 (*.png);;JPEG 画像 (*.jpg *.jpeg);;BMP 画像 (*.bmp)</translation>
+        <source>PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp);;WebP Image (*.webp);;PDF (*.pdf)</source>
+        <translation>PNG 画像 (*.png);;JPEG 画像 (*.jpg *.jpeg);;BMP 画像 (*.bmp);;WebP 画像 (*.webp);;PDF (*.pdf)</translation>
     </message>
     <message>
         <source>Open File Location</source>
@@ -3151,14 +3135,14 @@ This action cannot be undone.</source>
         <translation>このグループを削除してもよろしいですか？</translation>
     </message>
     <message>
-        <source>All items in the group will also be deleted.</source>
-        <translation>グループ内のすべてのアイテムも削除されます。</translation>
+        <source>Items in the group will be moved back to clipboard history.</source>
+        <translation>グループ内のアイテムはクリップボード履歴に戻ります。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this group?
-All items in the group will also be deleted.</source>
+Items in the group will be moved back to clipboard history.</source>
         <translation>このグループを削除してもよろしいですか？
-グループ内のすべてのアイテムも削除されます。</translation>
+グループ内のアイテムはクリップボード履歴に戻ります。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
@@ -4635,14 +4619,14 @@ SOFTWARE.</translation></message>
         <translation>このグループを削除してもよろしいですか？</translation>
     </message>
     <message>
-        <source>All items in the group will also be deleted.</source>
-        <translation>グループ内のすべてのアイテムも削除されます。</translation>
+        <source>Items in the group will be moved back to clipboard history.</source>
+        <translation>グループ内のアイテムはクリップボード履歴に戻ります。</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this group?
-All items in the group will also be deleted.</source>
+Items in the group will be moved back to clipboard history.</source>
         <translation>このグループを削除してもよろしいですか？
-グループ内のすべてのアイテムも削除されます。</translation>
+グループ内のアイテムはクリップボード履歴に戻ります。</translation>
     </message>
 </context>
 
@@ -5115,6 +5099,18 @@ All items in the group will also be deleted.</source>
         <source>Already in use by another app.</source>
         <translation>他のアプリで使用中です。</translation>
     </message>
+    <message>
+        <source>Windows uses this shortcut too. This app takes it over while running; clear it to give it back.</source>
+        <translation>Windows もこのショートカットを使っています。このアプリの実行中はこちらが引き継ぎ、消去すると Windows に戻ります。</translation>
+    </message>
+    <message>
+        <source>Reserved by Windows. No app can use it.</source>
+        <translation>Windows で予約されているため、どのアプリでも使えません。</translation>
+    </message>
+    <message>
+        <source>This key can't be used as a global hotkey.</source>
+        <translation>このキーはグローバルホットキーに使えません。</translation>
+    </message>
 </context>
 <context>
     <name>SettingsDialog</name>
@@ -5148,14 +5144,6 @@ All items in the group will also be deleted.</source>
     <message>
         <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
         <translation>QR コードやバーコードが 1 つだけ見つかった場合は、結果ウィンドウを開かずに内容をコピーします。複数見つかった場合はこれまでどおり開きます。</translation>
-    </message>
-    <message>
-        <source>Open Clipboard with Win+V</source>
-        <translation>Win+V でクリップボードを開く</translation>
-    </message>
-    <message>
-        <source>Win+V opens this app's clipboard instead of the Windows clipboard history. Turn it off to give Win+V back to Windows.</source>
-        <translation>Win+V で Windows のクリップボード履歴ではなく、このアプリのクリップボードを開きます。オフにすると Win+V は Windows に戻ります。</translation>
     </message>
     <message>
         <source>Global Mouse Shortcuts</source>
@@ -5697,6 +5685,34 @@ gifrecorder が正しくインストールされているか確認してくだ�
         <source>If the last screenshot ended with a watermark, the next one gets the same watermark with the time updated; otherwise none is added. Screenshots taken with mouse shortcuts follow the same rule.</source>
         <translation>前回のスクリーンショットが透かし付きで終わっていれば、今回も同じ透かしを付け、時刻は今回のものに更新します。前回なければ付けません。マウスショートカットで撮ったものも同様です。</translation>
     </message>
+    <message>
+        <source>Straight Lines with Shift</source>
+        <translation>Shift で直線を引く</translation>
+    </message>
+    <message>
+        <source>Hold Shift while drawing with the pen or highlighter to draw a straight line from that point. Release Shift to keep drawing freely.</source>
+        <translation>ペンや蛍光ペンで描いている途中に Shift を押すと、その位置から直線を引けます。Shift を離すと自由に描く状態に戻ります。</translation>
+    </message>
+    <message>
+        <source>Horizontal or Vertical</source>
+        <translation>水平・垂直のみ</translation>
+    </message>
+    <message>
+        <source>Every 45°</source>
+        <translation>45° ごと</translation>
+    </message>
+    <message>
+        <source>Every 30°</source>
+        <translation>30° ごと</translation>
+    </message>
+    <message>
+        <source>Every 15°</source>
+        <translation>15° ごと</translation>
+    </message>
+    <message>
+        <source>Any Angle</source>
+        <translation>任意の角度</translation>
+    </message>
 </context>
 <context>
     <name>WatermarkPanel</name>
@@ -5850,6 +5866,13 @@ gifrecorder が正しくインストールされているか確認してくだ�
     <message>
         <source>Compact, for file names</source>
         <translation>コンパクト形式（ファイル名向け）</translation>
+    </message>
+</context>
+<context>
+    <name>TranslationLoadingDialog</name>
+    <message>
+        <source>Recognizing...</source>
+        <translation>認識中...</translation>
     </message>
 </context>
 </TS>

@@ -27,8 +27,8 @@ def get_group_display_icon(custom_icon: str | None, is_file_group: bool, is_hidd
 
 
 def get_toggled_default_group_icon(current_icon: str, is_file_group: bool, is_hidden: bool = False) -> str:
-    """根据分组类型切换默认图标，但不覆盖用户自定义图标。"""
-    if is_hidden and current_icon not in (HIDDEN_GROUP_ICON, GENERAL_GROUP_ICON, QUICK_LAUNCH_GROUP_ICON):
+    """根据分组类型切换默认图标，但不覆盖用户自定义图标；图标为空时按新类型给默认图标。"""
+    if is_hidden and not current_icon.strip():
         return HIDDEN_GROUP_ICON
     if is_hidden and current_icon == QUICK_LAUNCH_GROUP_ICON:
         return HIDDEN_GROUP_ICON
@@ -70,5 +70,5 @@ def build_delete_group_confirm_message(translate: Callable[[str], str]) -> str:
     """构建删除分组确认文案。"""
     return "\n".join([
         translate("Are you sure you want to delete this group?"),
-        translate("All items in the group will also be deleted."),
+        translate("Items in the group will be moved back to clipboard history."),
     ])

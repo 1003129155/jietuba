@@ -186,14 +186,15 @@ def test_clipboard_delete_confirmation_is_compiled_in_its_calling_context(
     ["en", "ja", "ko", "zh"],
 )
 def test_hotkey_registration_error_is_compiled_in_main_app_context(language):
-    """热键注册失败弹窗及备用热键名称必须随界面语言显示。"""
+    """热键注册失败弹窗及各功能名称必须随界面语言显示。"""
     from core.i18n import I18nManager
 
     translations_dir = I18nManager.get_translations_dir()
     sources = (
-        "Screenshot (2)",
-        "Translation (2)",
-        "Clipboard (2)",
+        "Screenshot",
+        "Translation",
+        "Clipboard",
+        "Pin Clipboard Image",
         "Hotkey Registration Failed",
         "The following hotkeys failed to register:",
         "The hotkey may be occupied by other programs. Please try a different combination.",

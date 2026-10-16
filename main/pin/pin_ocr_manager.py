@@ -109,8 +109,13 @@ class PinOCRManager:
             if self.ocr_thread is not None:
                 return True
 
-            # 自动识别这一路只在钉图创建后跑一次，那时开关还是初值，也就是自动
-            # OCR 设置本身，所以两个条件合成一个就够。
+            # 自动识别只在钉图创建后跑一次。在那之前翻译、复制文字或打开文字选择
+            # 可能已经识别过（文字层已建，开关也被打开），不再识别第二遍。
+            if not force and self.ocr_text_layer is not None:
+                return True
+
+            # 文字层还没建时开关仍是初值，也就是自动 OCR 设置本身，所以两个条件
+            # 合成一个就够。
             if not force and not self._text_selection_enabled:
                 log_info(T("钉图自动 OCR 已关闭，跳过自动识别"), "OCR")
                 return False
