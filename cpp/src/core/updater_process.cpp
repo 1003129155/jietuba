@@ -93,6 +93,14 @@ void UpdaterProcess::cancel() {
     }
 }
 
+void UpdaterProcess::shutdown() {
+    cancel();
+    if (process_.state() != QProcess::NotRunning && !process_.waitForFinished(3000)) {
+        process_.kill();
+        process_.waitForFinished(1000);
+    }
+}
+
 void UpdaterProcess::fail(const QString &reason) {
     if (!error_) {
         error_ = true;

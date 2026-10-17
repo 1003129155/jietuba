@@ -226,6 +226,11 @@ private slots:
         QCOMPARE(items->item(0)->isEnabled(), runtime_ready);
         QCOMPARE(combo->currentData().toString(), QString("ppocr_rust:ppocr-v5-korean"));
 
+        QVERIFY(write("new/det.onnx") && write("new/rec.onnx") && write("new/model.json", manifest("new", "")));
+        emit model_downloads()->models_changed();
+        QVERIFY(combo->findData("ppocr_rust:new") >= 0);
+        QCOMPARE(combo->currentData().toString(), QString("ppocr_rust:ppocr-v5-korean"));
+
         combo->setCurrentIndex(combo->findData("ppocr_rust:local"));
         QVERIFY(dialog.apply_settings());
         QCOMPARE(config_->get_ocr_engine(), QString("ppocr_rust"));

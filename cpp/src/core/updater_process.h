@@ -29,6 +29,7 @@ public:
     virtual bool start(const QString &command, const QStringList &arguments, int timeout_ms = 900000);
     virtual bool send(const QString &command);
     virtual void cancel();
+    virtual void shutdown();
     // The helper reports a stable code; its own message is Chinese and only goes to the log.
     virtual QString error_text(const QJsonObject &payload) const;
     QString transaction;

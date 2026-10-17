@@ -2,10 +2,13 @@
 #include "core/i18n.h"
 #include "core/logger.h"
 #include "core/native.h"
+#include "ocr/ocr_manager.h"
 #include <QCoreApplication>
 #include <QDir>
 #include <QJsonDocument>
 #include <QTemporaryFile>
+#include <QElapsedTimer>
+#include <QPointer>
 #include <memory>
 #include <stdexcept>
 
@@ -133,9 +136,10 @@ bool ModelDownload::start(const QString &catalog_id) {
         files = entry->value("files").toArray();
     }
     QTemporaryFile request(QDir(QDir::tempPath()).filePath("jietuba-model-XXXXXX.json"));
-    request.setAutoRemove(false);
     if (!request.open()) return false;
-    request.write(QJsonDocument(QJsonObject{{"staging", catalog_id}, {"files", files}}).toJson(QJsonDocument::Compact));
+    const QByteArray data = QJsonDocument(QJsonObject{{"staging", catalog_id}, {"files", files}}).toJson(QJsonDocument::Compact);
+    if (request.write(data) != data.size() || !request.flush()) return false;
+    request.setAutoRemove(false);
     request.close();
     request_ = request.fileName();
     catalog_id_ = catalog_id;
@@ -150,6 +154,12 @@ bool ModelDownload::start(const QString &catalog_id) {
 }
 
 void ModelDownload::cancel() { runner_->cancel(); }
+
+void ModelDownload::shutdown() {
+    runner_->shutdown();
+    remove_request();
+    if (!catalog_id_.isEmpty()) QDir(QDir(ppocr_models::models_root()).filePath(".download-" + catalog_id_)).removeRecursively();
+}
 
 void ModelDownload::on_event(const QString &event, const QString &, const QJsonObject &data) {
     if (event == "progress") {
@@ -183,5 +193,85 @@ void ModelDownload::remove_request() {
     if (request_.isEmpty()) return;
     QFile::remove(request_);
     request_.clear();
+}
+
+ModelDownloads::ModelDownloads(QObject *parent) : QObject(parent), download_(new ModelDownload(this)) {
+    auto timer = std::make_shared<QElapsedTimer>();
+    timer->start();
+    clock_ = [timer] { return timer->nsecsElapsed() / 1e9; };
+    connect(download_, &ModelDownload::progress, this, &ModelDownloads::on_progress);
+    connect(download_, &ModelDownload::finished, this, &ModelDownloads::on_downloaded);
+    connect(download_, &ModelDownload::failed, this, &ModelDownloads::on_failed);
+    connect(download_, &ModelDownload::stopped, this, &ModelDownloads::on_stopped);
+}
+
+bool ModelDownloads::start(const QString &catalog_id) {
+    if (busy() || shutting_down_) return false;
+    const auto entry = catalog_id == ModelDownload::RUNTIME ? ppocr_models::runtime_entry() : ppocr_models::catalog_entry(catalog_id);
+    if (!entry) return false;
+    name_ = catalog_id == ModelDownload::RUNTIME ? "ONNX Runtime" : entry->value("name").toString();
+    error_.clear();
+    ready_ = runtime_next_ = cancelled_ = false;
+    start_failed_ = false;
+    last_progress_.reset();
+    samples_.clear();
+    const bool started = download_->start(catalog_id);
+    start_failed_ = !started;
+    emit changed();
+    return started;
+}
+
+void ModelDownloads::cancel() {
+    cancelled_ = true;
+    runtime_next_ = false;
+    download_->cancel();
+}
+
+void ModelDownloads::shutdown() {
+    shutting_down_ = true;
+    runtime_next_ = false;
+    download_->shutdown();
+}
+
+void ModelDownloads::on_progress(qint64 received, qint64 total) {
+    if (total <= 0) return;
+    const double now = clock_();
+    if (!samples_.empty() && received < samples_.back().second) samples_.clear();
+    samples_.emplace_back(now, received);
+    while (samples_.size() > 2 && now - samples_.front().first > 3.0) samples_.pop_front();
+    const auto [start, start_received] = samples_.front();
+    std::optional<double> speed;
+    if (now - start >= 0.5) speed = (received - start_received) / (now - start);
+    last_progress_ = Progress{received, total, speed};
+    emit progress();
+}
+
+void ModelDownloads::on_downloaded(const QJsonObject &) {
+    ready_ = true;
+    runtime_next_ = !cancelled_ && error_.isEmpty() && download_->catalog_id() != ModelDownload::RUNTIME && ppocr_models::runtime_entry() && !ppocr_runtime_supported(ppocr_models::runtime_path());
+    emit changed();
+    emit models_changed();
+}
+
+void ModelDownloads::on_failed(const QString &reason) {
+    error_ = reason;
+    runtime_next_ = false;
+    emit changed();
+}
+
+void ModelDownloads::on_stopped() {
+    last_progress_.reset();
+    const bool runtime_next = std::exchange(runtime_next_, false);
+    if (runtime_next && !shutting_down_) start(ModelDownload::RUNTIME);
+    else emit changed();
+}
+
+ModelDownloads *model_downloads() {
+    static QPointer<ModelDownloads> downloads;
+    if (!downloads) {
+        downloads = new ModelDownloads(QCoreApplication::instance());
+        QObject::connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit, downloads, &ModelDownloads::shutdown);
+    }
+    return downloads;
 }
 }
