@@ -13,6 +13,7 @@
 namespace jietuba {
 class CanvasScene;
 class CanvasView;
+class InitialSelectionGate;
 class MagnifierOverlay;
 class MaskOverlayWidget;
 class SelectionInfoPanel;
@@ -124,6 +125,7 @@ private:
     // Old configuration objects without the mode setting fall back to window level, the default.
     QString configured_smart_selection_mode() const;
     void begin_session_ui();
+    void show_prepared_session(CanvasView *prepared_view);
     void teardown_session();
     void release_session_resources();
     // Toolbar -> this window. Action buttons go through wrappers, since the action
@@ -158,6 +160,7 @@ private:
     void on_redo();
 
     bool session_active_ = false;
+    InitialSelectionGate *initial_selection_gate_ = nullptr;
     std::shared_ptr<SystemCursor> capture_cursor_;
     std::unique_ptr<ScreenshotShortcutHandler> shortcut_handler_;
 };

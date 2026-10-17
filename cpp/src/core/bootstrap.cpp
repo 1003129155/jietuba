@@ -4,6 +4,7 @@
 #include "ui/dialogs.h"
 #include "ui/welcome/wizard.h"
 #include "capture/capture_service.h"
+#include "capture/msaa_element_finder.h"
 #include "core/crash_handler.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
@@ -125,6 +126,8 @@ PreloadManager::PreloadManager(MainApp *app) : app_(app), config_(app->config_ma
 
 void PreloadManager::build_and_start() {
     auto *cfg = config_;
+    if (cfg->get_app_setting("preload_screenshot", true).toBool() && cfg->get_smart_selection_mode() == "element")
+        prepare_point_detection();
     // Entry points come first and preloading follows: a capture during preloading costs
     // nothing extra here. The reference registers hotkeys last, because there preloading
     // and a capture compete for the interpreter. Its module-import warm-ups (the GDI grab

@@ -109,20 +109,20 @@ private slots:
         QCOMPARE(selection(), probe_->geometry());
     }
 
-    // Element mode snaps to controls once they are scanned; the wheel walks outward and back.
+    // Element mode snaps to the control under the pointer once its query returns; the wheel walks outward and back.
     void elementModeWalksFromControlToWindowToScreen() {
         auto *window = open("element");
-        // The probe lives in this process, so its scan waits for this thread. A Debug overlay
-        // takes longer to build than the UIA timeout and the empty result would stand for the
-        // whole capture; restart detection once the overlay is up.
+        // The probe lives in this process, so the finder's responsiveness check waits for this
+        // thread. A Debug overlay takes longer to build than that check allows and the window
+        // would count as unresponsive for the whole capture; restart detection once the overlay is up.
         window->view->enable_smart_selection("element");
         QVERIFY(window->view->smart_selection_drills_to_elements);
         const auto button = global_rect(first_);
         hover(button.center());
-        // The window stands in until the control scan arrives.
+        // The window stands in until the point query returns.
         QTRY_COMPARE_WITH_TIMEOUT(selection(), button, 10000);
         wheel(button.center(), 120);
-        QCOMPARE(selection(), probe_->geometry());
+        QTRY_COMPARE_WITH_TIMEOUT(selection(), probe_->geometry(), 5000);
         wheel(button.center(), 120);
         QVERIFY(selection().contains(probe_->geometry()));
         // Beyond the outermost level it stays there.

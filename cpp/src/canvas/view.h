@@ -24,7 +24,7 @@ class SmartSelectionAnimator;
 class TextItem;
 class Toolbar;
 class ToolController;
-class UIAElementFinder;
+class MSAAElementFinder;
 class WindowFinder;
 
 // The screenshot mask, which draws the full-screen crosshair (see set_fullscreen_crosshair).
@@ -71,8 +71,9 @@ public:
     // Tool preview cursors apply only while the edit state machine does not own the cursor.
     bool can_apply_tool_cursor() const;
 
-    // "off", "window" or "element" (element adds UI Automation controls below windows).
+    // "off", "window" or "element" (element adds the control under the pointer, found through MSAA, below windows).
     void enable_smart_selection(const QString &mode);
+    bool prepare_initial_selection();
     QRectF get_smart_selection_rect(const QPointF &scene_pos);
     void apply_smart_selection_rect(const QRectF &rect, bool animate);
 
@@ -104,7 +105,7 @@ public:
     bool smart_selection_drills_to_elements = false;
     bool smart_selection_animated = false;
     std::unique_ptr<WindowFinder> window_finder;
-    std::unique_ptr<UIAElementFinder> element_finder;
+    std::unique_ptr<MSAAElementFinder> element_finder;
     std::unique_ptr<CursorManager> cursor_manager;
     std::unique_ptr<SmartEditController> smart_edit_controller;
     std::unique_ptr<DrawingStroke> drawing;
@@ -141,7 +142,7 @@ private:
     std::vector<SmartRect> element_rects(quintptr hwnd, const SmartRect &window_rect, int x, int y, const SmartRect &capture_rect);
     std::optional<SmartRect> pick_smart_selection_level(const std::vector<SmartRect> &chain);
     bool adjust_smart_selection_level(int delta, const QPointF &scene_pos);
-    void on_uia_cache_updated(quintptr hwnd);
+    void on_element_cache_updated(quintptr hwnd);
     void set_selection_rect_now(const QRectF &rect);
     void on_cursor_tool_update_requested(const QString &tool_id, bool force);
     void on_item_auto_select_requested(QGraphicsItem *item);
@@ -181,6 +182,7 @@ private:
     std::optional<DoubleClickCandidate> double_click_candidate_;
     int smart_selection_level_ = 0;
     std::optional<SmartRect> smart_selection_level_anchor_;
+    std::optional<QPoint> initial_selection_point_;
     std::unique_ptr<SmartSelectionAnimator> smart_selection_anim_;
     QPointer<HandleOverlayWidget> handle_overlay_;
     QPointer<CrosshairSurface> crosshair_surface_;

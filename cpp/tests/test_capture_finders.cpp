@@ -1,12 +1,8 @@
 #include "capture/system_cursor.h"
-#include "capture/uia_element_finder.h"
 #include "capture/window_finder.h"
 #include <QApplication>
 #include <QCursor>
-#include <QHBoxLayout>
-#include <QPushButton>
 #include <QScreen>
-#include <QSignalSpy>
 #include <QTest>
 #include <algorithm>
 #ifndef NOMINMAX
@@ -143,80 +139,6 @@ private slots:
         QCursor::setPos(restore);
         QVERIFY(rect);
         QCOMPARE(*rect, to_window_rect(window->geometry()));
-    }
-
-    // The index answers the finest rectangle first and skips ones below the minimum size.
-    void elementIndexAnswersFinestFirst() {
-        ElementIndex index({{{0, 0, 400, 300}, 0}, {{10, 10, 200, 150}, 1}, {{20, 20, 60, 40}, 2}, {{300, 200, 400, 300}, 3}, {{22, 22, 24, 24}, 4}});
-        QCOMPARE(index.size(), size_t(5));
-        auto hits = index.at(30, 30);
-        QCOMPARE(hits.size(), size_t(3));
-        QCOMPARE(hits[0].order, 2);
-        QCOMPARE(hits[1].order, 1);
-        QCOMPARE(hits[2].order, 0);
-        QCOMPARE(index.at(23, 23).front().order, 4);
-        QCOMPARE(index.at(23, 23, QSize(5, 5)).front().order, 2);
-        // Right and bottom edges are outside.
-        QCOMPARE(index.at(400, 10).size(), size_t(0));
-        QCOMPARE(index.at(350, 250).front().order, 3);
-        // Rectangles taller than a bucket are still found in every band.
-        QCOMPARE(index.at(5, 290).size(), size_t(1));
-        QCOMPARE(ElementIndex().at(1, 1).size(), size_t(0));
-        UIAElementSnapshot snapshot{{2, 3, 12, 8}, 0};
-        QCOMPARE(snapshot.area(), 50LL);
-        QVERIFY(snapshot.contains(2, 3));
-        QVERIFY(!snapshot.contains(12, 3));
-    }
-
-    // Controls of a real window come from UI Automation, scanned in the background.
-    void controlsAreScannedThroughUiAutomation() {
-        if (!is_uia_available()) QSKIP("UI Automation is not available.");
-        auto window = probe_window("jietuba uia probe", area(-200, -100, 400, 200));
-        auto *layout = new QHBoxLayout(window.get());
-        auto *first = new QPushButton("First", window.get());
-        auto *second = new QPushButton("Second", window.get());
-        layout->addWidget(first);
-        layout->addWidget(second);
-        window->show();
-        QVERIFY(QTest::qWaitForWindowExposed(window.get()));
-        QApplication::processEvents();
-        const auto hwnd = static_cast<quintptr>(window->winId());
-        QVERIFY(!is_hung_window(hwnd));
-        UIAElementFinder finder;
-        QSignalSpy updated(&finder, &UIAElementFinder::cache_updated);
-        // Windows are prewarmed in order, skipping gaps; repeated requests are ignored.
-        finder.prewarm({0, hwnd});
-        finder.request_refresh_if_needed(hwnd);
-        finder.request_refresh_if_needed(0);
-        QTRY_COMPARE_WITH_TIMEOUT(updated.size(), 1, 10000);
-        QCOMPARE(updated.at(0).at(0).value<quintptr>(), hwnd);
-        const QRect button(first->mapToGlobal(QPoint(0, 0)), first->size());
-        const auto hits = finder.elements_at(hwnd, button.center().x(), button.center().y());
-        QVERIFY(!hits.empty());
-        QCOMPARE(QRect(QPoint(hits.front().rect[0], hits.front().rect[1]), QPoint(hits.front().rect[2] - 1, hits.front().rect[3] - 1)), button);
-        // The first result serves the whole capture: no second scan.
-        finder.request_refresh_if_needed(hwnd);
-        QTest::qWait(200);
-        QCOMPARE(updated.size(), 1);
-        QVERIFY(finder.elements_at(0, 1, 1).empty());
-        finder.close();
-        QVERIFY(finder.elements_at(hwnd, button.center().x(), button.center().y()).empty());
-        finder.request_refresh_if_needed(hwnd);
-        QTest::qWait(200);
-        QCOMPARE(updated.size(), 1);
-    }
-
-    // Closing mid-scan discards the result.
-    void closingDropsAScanInFlight() {
-        if (!is_uia_available()) QSKIP("UI Automation is not available.");
-        auto window = probe_window("jietuba uia close probe", area(-200, -100, 300, 150));
-        QVERIFY(QTest::qWaitForWindowExposed(window.get()));
-        UIAElementFinder finder;
-        QSignalSpy updated(&finder, &UIAElementFinder::cache_updated);
-        finder.request_refresh_if_needed(static_cast<quintptr>(window->winId()));
-        finder.close();
-        QTest::qWait(500);
-        QCOMPARE(updated.size(), 0);
     }
 
     // The pointer is recorded and drawn into a capture where it was on screen.

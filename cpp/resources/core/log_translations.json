@@ -132,7 +132,6 @@
 "cleanup过程中发生错误: {e}": "Error occurred during cleanup: {e}",
 "clipboard 模块不存在": "clipboard module not found",
 "closeEvent发生严重错误: {e}": "Serious error in closeEvent: {e}",
-"comtypes 未安装，已回退为窗口检测": "comtypes is not installed, falling back to window detection",
 "cursor工具，传递给Scene": "Cursor tool, passing to Scene",
 "export_gif 失败: {e}": "export_gif failed: {e}",
 "get_frame_image 失败 idx={index}: {e}": "get_frame_image failed idx={index}: {e}",
