@@ -5033,6 +5033,10 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>PP-OCR モデルを読み込めませんでした。設定の「OCR設定」から再ダウンロードするか、別のモデルを選んでください。</translation>
     </message>
     <message>
+        <source>ONNX Runtime, which PP-OCR needs, is not installed. Download it in the OCR settings.</source>
+        <translation>PP-OCR に必要な ONNX Runtime がインストールされていません。設定の「OCR設定」からダウンロードできます。</translation>
+    </message>
+    <message>
         <source>This build does not include the text recognition engine.</source>
         <translation>このビルドには文字認識エンジンが含まれていません。</translation>
     </message>
@@ -6130,6 +6134,10 @@ gifrecorder が正しくインストールされているか確認してくだ�
         <translation>モデルをダウンロードできませんでした。ネットワーク接続を確認して、もう一度お試しください。</translation>
     </message>
     <message>
+        <source>Could not download ONNX Runtime. Check your network connection and try again.</source>
+        <translation>ONNX Runtime をダウンロードできませんでした。ネットワーク接続を確認して、もう一度お試しください。</translation>
+    </message>
+    <message>
         <source>No permission to write to the models folder.</source>
         <translation>モデルフォルダーへの書き込み権限がありません。</translation>
     </message>
@@ -6142,8 +6150,16 @@ gifrecorder が正しくインストールされているか確認してくだ�
         <translation>ダウンロードしたモデルファイルが壊れています。もう一度お試しください。</translation>
     </message>
     <message>
+        <source>The downloaded ONNX Runtime file is damaged. Try again.</source>
+        <translation>ダウンロードした ONNX Runtime ファイルが壊れています。もう一度お試しください。</translation>
+    </message>
+    <message>
         <source>The model download stopped with an error (%1).</source>
         <translation>モデルのダウンロードがエラーで停止しました（%1）。</translation>
+    </message>
+    <message>
+        <source>The ONNX Runtime download stopped with an error (%1).</source>
+        <translation>ONNX Runtime のダウンロードがエラーで停止しました（%1）。</translation>
     </message>
 </context>
 <context>

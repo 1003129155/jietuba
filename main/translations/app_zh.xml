@@ -5078,6 +5078,10 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>PP-OCR 模型加载失败，可在设置的「OCR设置」里重新下载或换用其他模型。</translation>
     </message>
     <message>
+        <source>ONNX Runtime, which PP-OCR needs, is not installed. Download it in the OCR settings.</source>
+        <translation>没有安装 PP-OCR 所需的 ONNX Runtime，可在设置的「OCR设置」里下载。</translation>
+    </message>
+    <message>
         <source>This build does not include the text recognition engine.</source>
         <translation>当前版本不包含文字识别引擎。</translation>
     </message>
@@ -6175,6 +6179,10 @@ Make sure gifrecorder is installed correctly.</source>
         <translation>无法下载模型，请检查网络连接后重试。</translation>
     </message>
     <message>
+        <source>Could not download ONNX Runtime. Check your network connection and try again.</source>
+        <translation>无法下载 ONNX Runtime，请检查网络连接后重试。</translation>
+    </message>
+    <message>
         <source>No permission to write to the models folder.</source>
         <translation>没有写入模型文件夹的权限。</translation>
     </message>
@@ -6187,8 +6195,16 @@ Make sure gifrecorder is installed correctly.</source>
         <translation>下载的模型文件已损坏，请重试。</translation>
     </message>
     <message>
+        <source>The downloaded ONNX Runtime file is damaged. Try again.</source>
+        <translation>下载的 ONNX Runtime 文件已损坏，请重试。</translation>
+    </message>
+    <message>
         <source>The model download stopped with an error (%1).</source>
         <translation>模型下载因错误中止（%1）。</translation>
+    </message>
+    <message>
+        <source>The ONNX Runtime download stopped with an error (%1).</source>
+        <translation>ONNX Runtime 下载因错误中止（%1）。</translation>
     </message>
 </context>
 <context>

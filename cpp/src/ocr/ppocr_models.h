@@ -38,6 +38,8 @@ class ModelUpdaterProcess : public UpdaterProcess {
     Q_OBJECT
 public:
     using UpdaterProcess::UpdaterProcess;
+    // True while the run downloads the ONNX Runtime instead of a model, so errors name it.
+    bool runtime = false;
     QString error_text(const QJsonObject &payload) const override;
 };
 

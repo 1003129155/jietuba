@@ -4801,6 +4801,10 @@ Items in the group will be moved back to clipboard history.</translation>
         <translation>The PP-OCR model could not be loaded. Download it again or choose another one in the OCR settings.</translation>
     </message>
     <message>
+        <source>ONNX Runtime, which PP-OCR needs, is not installed. Download it in the OCR settings.</source>
+        <translation>ONNX Runtime, which PP-OCR needs, is not installed. Download it in the OCR settings.</translation>
+    </message>
+    <message>
         <source>This build does not include the text recognition engine.</source>
         <translation>This build does not include the text recognition engine.</translation>
     </message>
@@ -5918,6 +5922,10 @@ Make sure gifrecorder is installed correctly.</translation>
         <translation>Could not download the model. Check your network connection and try again.</translation>
     </message>
     <message>
+        <source>Could not download ONNX Runtime. Check your network connection and try again.</source>
+        <translation>Could not download ONNX Runtime. Check your network connection and try again.</translation>
+    </message>
+    <message>
         <source>No permission to write to the models folder.</source>
         <translation>No permission to write to the models folder.</translation>
     </message>
@@ -5930,8 +5938,16 @@ Make sure gifrecorder is installed correctly.</translation>
         <translation>The downloaded model file is damaged. Try again.</translation>
     </message>
     <message>
+        <source>The downloaded ONNX Runtime file is damaged. Try again.</source>
+        <translation>The downloaded ONNX Runtime file is damaged. Try again.</translation>
+    </message>
+    <message>
         <source>The model download stopped with an error (%1).</source>
         <translation>The model download stopped with an error (%1).</translation>
+    </message>
+    <message>
+        <source>The ONNX Runtime download stopped with an error (%1).</source>
+        <translation>The ONNX Runtime download stopped with an error (%1).</translation>
     </message>
 </context>
 <context>

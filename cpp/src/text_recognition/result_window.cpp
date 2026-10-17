@@ -50,6 +50,7 @@ QString reason_text(const QString &reason) {
     if (reason == recognition_reason::UNAVAILABLE) return tr_text("This build does not include the text recognition engine.");
     if (reason == recognition_reason::NO_TEXT) return tr_text("No text found in the selection.");
     if (reason == recognition_reason::NO_MODEL) return tr_text("No PP-OCR model is installed. Download one in the OCR settings.");
+    if (reason == recognition_reason::NO_RUNTIME) return tr_text("ONNX Runtime, which PP-OCR needs, is not installed. Download it in the OCR settings.");
     if (reason == recognition_reason::MODEL_BROKEN)
         return tr_text("The PP-OCR model could not be loaded. Download it again or choose another one in the OCR settings.");
     return tr_text("Text recognition failed.");

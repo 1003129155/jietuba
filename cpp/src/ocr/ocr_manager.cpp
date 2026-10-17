@@ -194,7 +194,7 @@ bool OCRManager::falls_back(const QString &preference) const {
     return !model || is_broken(*model);
 }
 
-QString OCRManager::missing_reason() { return get_ppocr_status() == "missing_engine" ? QString("unavailable") : QString("no_model"); }
+QString OCRManager::missing_reason() { return get_ppocr_status() == "missing_engine" ? QString("no_runtime") : QString("no_model"); }
 
 void OCRManager::set_last_reason(const QString &reason) {
     std::lock_guard lock(state_lock_);
@@ -294,7 +294,7 @@ bool OCRManager::initialize_ppocr_rust() {
     }
     if (!runtime_ready()) {
         set_last_error(QString::fromUtf8("ppocr_rust 引擎不可用"));
-        set_last_reason("unavailable");
+        set_last_reason("no_runtime");
         ocr_log(T("PP-OCR 缺少可用的 ONNX Runtime（需要 1.{minor} 或更新）: {path}", {{"minor", ORT_MIN_MINOR}, {"path", QDir::toNativeSeparators(ppocr_models::runtime_path())}}),
                 "DEBUG");
         return false;

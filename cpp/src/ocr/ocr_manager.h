@@ -16,7 +16,7 @@ struct OcrResult {
     QString msg;
     QVector<OcrLine> data;
     double elapse = 0;
-    // On error, which message the UI shows: no_model, model_broken, unavailable or failed.
+    // On error, which message the UI shows: no_model, no_runtime, model_broken, unavailable or failed.
     QString reason;
 };
 
@@ -85,7 +85,7 @@ private:
     qsizetype broken_count() const;
     // The chosen engine is missing here, or the chosen model is not installed or broke: Auto decides.
     bool falls_back(const QString &preference) const;
-    // Why no engine is usable: no_model, or unavailable when the PP-OCR runtime is missing.
+    // Why no engine is usable: no_model, or no_runtime when the PP-OCR runtime is missing.
     static QString missing_reason();
     void set_last_reason(const QString &reason);
     bool initialize_ppocr_rust();

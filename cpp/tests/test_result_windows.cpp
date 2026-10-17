@@ -12,6 +12,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QDir>
+#include <QFile>
 #include <QFontDatabase>
 #include <QMenu>
 #include <QMouseEvent>
@@ -22,6 +23,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QTranslator>
 
 using namespace jietuba;
 
@@ -43,6 +45,20 @@ QImage blank_image() {
     QImage image(200, 80, QImage::Format_RGB32);
     image.fill(Qt::white);
     return image;
+}
+
+// Listing a model only checks that its files exist; without a runtime they are never opened.
+void write_placeholder_model(const QString &root) {
+    const QDir folder(QDir(root).filePath("placeholder"));
+    QVERIFY(QDir().mkpath(folder.path()));
+    for (const char *name : {"det.onnx", "rec.onnx"}) {
+        QFile file(folder.filePath(name));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("x");
+    }
+    QFile manifest(folder.filePath("model.json"));
+    QVERIFY(manifest.open(QIODevice::WriteOnly));
+    manifest.write(R"({"name": "placeholder", "det": "det.onnx", "rec": "rec.onnx"})");
 }
 
 // Picks the menu entry whose text starts with label from the next popup menu.
@@ -133,6 +149,35 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(window->status_label->text().contains("No PP-OCR model is installed"), 30000);
         QVERIFY(!window->copy_button->isEnabled());
         window->close();
+    }
+
+    // A model is installed but the runtime is not: the window names the runtime, in every language.
+    void missingRuntimeSaysWhereToGetIt() {
+        QTemporaryDir models;
+        QVERIFY(models.isValid());
+        write_placeholder_model(models.path());
+        ppocr_models::set_models_root_for_test(models.path());
+        set_oneocr_available_for_test(false);
+        const auto restore = qScopeGuard([] {
+            ppocr_models::set_models_root_for_test({});
+            set_oneocr_available_for_test(std::nullopt);
+        });
+        const std::vector<std::pair<QString, QString>> languages = {
+            {"en", "ONNX Runtime, which PP-OCR needs, is not installed"},
+            {"zh", QString::fromUtf8("没有安装 PP-OCR 所需的 ONNX Runtime")},
+            {"ja", QString::fromUtf8("PP-OCR に必要な ONNX Runtime がインストールされていません")},
+            {"ko", QString::fromUtf8("PP-OCR에 필요한 ONNX Runtime이 설치되어 있지 않습니다")}};
+        for (const auto &[language, expected] : languages) {
+            QTranslator translator;
+            QVERIFY(translator.load(QString(":/translations/app_%1.qm").arg(language)));
+            QCoreApplication::installTranslator(&translator);
+            const auto uninstall = qScopeGuard([&translator] { QCoreApplication::removeTranslator(&translator); });
+            auto *window = show_text_recognition(blank_image());
+            QTRY_VERIFY2_WITH_TIMEOUT(window->status_label->text().contains(expected), qPrintable(language), 30000);
+            QVERIFY(!window->copy_button->isEnabled());
+            window->close();
+            shutdown_recognition(10000);
+        }
     }
 
     void closingWhileRecognizingDoesNotBlockOrReport() {
