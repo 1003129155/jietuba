@@ -119,7 +119,7 @@ PP-OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は�
 |------|------|------|------|
 | [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.1 | GIF/動画合成エンコーダー |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.5.1 | 長いスクリーンショット結合アルゴリズム |
-| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.5 | クリップボード操作 |
+| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.7 | クリップボード操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.3.0 | PP-OCR (PaddleOCR) ONNX 文字認識エンジン（純 Rust + ONNX Runtime、det/rec モデルが必要） |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | HDR 対応のデスクトップキャプチャ（DXGI Desktop Duplication + GPU トーンマッピング） |
 | [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.2 | GUI スレッドを止めないグローバルなマウス・キーボードフック（ドラッグジェスチャ、サイドボタン、ホットキー、ホイール、前面ウィンドウ） |
@@ -391,7 +391,7 @@ clipboard/
 **主な機能:**
 - システムクリップボードの変更を監視し、自動で履歴を保存
 - テキスト、画像、HTML、ファイル等に対応
-- 通常グループ、クイック起動グループ、お気に入り、検索に対応
+- 通常グループ、クイック起動グループ、フィルターグループ（特定の種類の履歴を常に表示）、お気に入り、検索に対応
 - 独立した3ペイン管理ウィンドウでグループ・テキスト内容・ファイル内容を編集可能
 - テキスト項目の CSV インポート/エクスポートに対応
 - テーマ切替、ショートカットによる高速貼り付け、大画像/長文プレビューに対応

@@ -1,5 +1,6 @@
 use rusqlite::{Connection, OptionalExtension, params, params_from_iter};
 use rusqlite::types::Value;
+use crate::group_kind;
 use crate::types::{PyClipboardItem, PyPaginatedResult, PyGroup};
 use std::path::{Path, PathBuf};
 
@@ -410,6 +411,7 @@ impl Database {
 
     /// 创建分组，排在最后
     pub fn create_group(&self, name: &str, color: Option<&str>, icon: Option<&str>, group_type: i64) -> Result<i64, String> {
+        Self::check_group_type(group_type)?;
         self.conn.execute(
             "INSERT INTO groups (name, color, icon, item_order, created_at, group_type)
              VALUES (?1, ?2, ?3, (SELECT COALESCE(MAX(item_order), 0) + 1000 FROM groups), ?4, ?5)",
@@ -462,8 +464,28 @@ impl Database {
         Ok(())
     }
 
+    fn check_group_type(group_type: i64) -> Result<(), String> {
+        if group_kind::is_known(group_type) {
+            Ok(())
+        } else {
+            Err(format!("未知的分组类型: {group_type}"))
+        }
+    }
+
     /// 更新分组（名称、颜色、图标、类型）
+    ///
+    /// 筛选分组不存内容，所以里面还有内容的分组不能改成筛选分组；
+    /// 内容自动移出的话会失去分组的清理保护，只能让用户先处理
     pub fn update_group(&self, id: i64, name: &str, color: Option<&str>, icon: Option<&str>, group_type: i64) -> Result<(), String> {
+        Self::check_group_type(group_type)?;
+        if group_kind::filter_content_type(group_type).is_some() {
+            let members: i64 = self.conn
+                .query_row("SELECT COUNT(*) FROM clipboard WHERE group_id = ?", params![id], |row| row.get(0))
+                .map_err(|e| format!("更新分组失败: {}", e))?;
+            if members > 0 {
+                return Err("分组里还有内容，不能改成筛选分组".to_string());
+            }
+        }
         self.conn.execute(
             "UPDATE groups SET name = ?, color = ?, icon = ?, group_type = ? WHERE id = ?",
             params![name, color, icon, group_type, id],
@@ -471,8 +493,24 @@ impl Database {
         Ok(())
     }
 
-    /// 将项目移动到分组
+    /// 将项目移动到分组；目标分组不接受这类内容时报错
     pub fn move_to_group(&self, item_id: i64, group_id: Option<i64>) -> Result<(), String> {
+        if let Some(group_id) = group_id {
+            let group_type: Option<i64> = self.conn
+                .query_row("SELECT group_type FROM groups WHERE id = ?", params![group_id], |row| row.get(0))
+                .optional()
+                .map_err(|e| format!("移动到分组失败: {}", e))?;
+            let Some(group_type) = group_type else {
+                return Err("分组不存在".to_string());
+            };
+            let content_type: Option<String> = self.conn
+                .query_row("SELECT content_type FROM clipboard WHERE id = ?", params![item_id], |row| row.get(0))
+                .optional()
+                .map_err(|e| format!("移动到分组失败: {}", e))?;
+            if content_type.is_some_and(|content_type| !group_kind::accepts(group_type, &content_type)) {
+                return Err("该分组不接受这类内容".to_string());
+            }
+        }
         self.conn.execute(
             "UPDATE clipboard SET group_id = ?, updated_at = ? WHERE id = ?",
             params![group_id, now(), item_id],
@@ -851,6 +889,7 @@ mod update_item_tests {
 #[cfg(test)]
 mod maintenance_tests {
     use super::{Database, OrderScope};
+    use crate::group_kind;
     use crate::types::PyClipboardItem;
 
     fn add(db: &Database, text: &str) -> i64 {
@@ -996,6 +1035,76 @@ mod maintenance_tests {
         assert_eq!(group_contents(&db, Some(group)), vec!["分组里的"]);
         assert_eq!(group_contents(&db, None), vec!["没分组的"]);
         assert_eq!(db.query_by_group(None, 0, 50).unwrap().total_count, 1);
+    }
+
+    fn add_file(db: &Database, path: &str) -> i64 {
+        db.insert_item(&PyClipboardItem::new(0, path.to_string(), "file".to_string())).unwrap()
+    }
+
+    #[test]
+    fn a_quick_launch_group_only_takes_files() {
+        let db = Database::new(":memory:").unwrap();
+        let group = db.create_group("启动", None, None, group_kind::FILE).unwrap();
+        let text = add(&db, "文本");
+        let file = add_file(&db, "C:/a.txt");
+        assert!(db.move_to_group(text, Some(group)).is_err());
+        db.move_to_group(file, Some(group)).unwrap();
+        assert_eq!(group_contents(&db, Some(group)), vec!["C:/a.txt"]);
+        // 被拒绝的条目原样留着
+        assert_eq!(group_contents(&db, None), vec!["文本"]);
+    }
+
+    #[test]
+    fn a_filter_group_takes_nothing() {
+        let db = Database::new(":memory:").unwrap();
+        let group = db.create_group("只看图片", None, None, group_kind::FILTER_IMAGE).unwrap();
+        assert!(db.move_to_group(add(&db, "文本"), Some(group)).is_err());
+        assert!(db.move_to_group(add_file(&db, "C:/a.txt"), Some(group)).is_err());
+        assert!(group_contents(&db, Some(group)).is_empty());
+    }
+
+    #[test]
+    fn moving_into_a_missing_group_is_an_error_but_leaving_a_group_is_not() {
+        let db = Database::new(":memory:").unwrap();
+        let item = add(&db, "x");
+        assert!(db.move_to_group(item, Some(999)).is_err());
+        let group = db.create_group("收藏", None, None, group_kind::NORMAL).unwrap();
+        db.move_to_group(item, Some(group)).unwrap();
+        db.move_to_group(item, None).unwrap();
+        assert_eq!(group_contents(&db, None), vec!["x"]);
+    }
+
+    #[test]
+    fn a_group_with_content_cannot_become_a_filter_group() {
+        let db = Database::new(":memory:").unwrap();
+        let group = db.create_group("收藏", None, None, group_kind::NORMAL).unwrap();
+        let item = add(&db, "x");
+        db.move_to_group(item, Some(group)).unwrap();
+        assert!(db.update_group(group, "收藏", None, None, group_kind::FILTER_TEXT).is_err());
+        let kept = db.get_groups().unwrap().into_iter().find(|g| g.id == group).unwrap();
+        assert_eq!(kept.group_type, group_kind::NORMAL);
+
+        // 腾空后可以改；筛选分组改回别的类型不受限制
+        db.move_to_group(item, None).unwrap();
+        db.update_group(group, "只看文本", None, None, group_kind::FILTER_TEXT).unwrap();
+        db.update_group(group, "只看图片", None, None, group_kind::FILTER_IMAGE).unwrap();
+        db.update_group(group, "收藏", None, None, group_kind::FILE).unwrap();
+    }
+
+    #[test]
+    fn a_group_with_text_can_still_become_quick_launch() {
+        let db = Database::new(":memory:").unwrap();
+        let group = db.create_group("收藏", None, None, group_kind::NORMAL).unwrap();
+        db.move_to_group(add(&db, "x"), Some(group)).unwrap();
+        db.update_group(group, "收藏", None, None, group_kind::FILE).unwrap();
+    }
+
+    #[test]
+    fn unknown_group_types_are_refused() {
+        let db = Database::new(":memory:").unwrap();
+        assert!(db.create_group("坏", None, None, 99).is_err());
+        let group = db.create_group("好", None, None, group_kind::NORMAL).unwrap();
+        assert!(db.update_group(group, "好", None, None, -1).is_err());
     }
 
     #[test]

@@ -119,7 +119,7 @@ The seven Python extension packages are included in `requirements.txt`. They can
 |------|------|------|------|
 | [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.1 | GIF/video composition encoder |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.5.1 | Long screenshot stitching algorithm |
-| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.5 | Low-level clipboard operations |
+| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.7 | Low-level clipboard operations |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.3.0 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | HDR-correct desktop capture (DXGI Desktop Duplication + GPU tone mapping) |
 | [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.2 | Global mouse and keyboard hooks off the GUI thread (gestures, side buttons, hotkeys, wheel, foreground window) |
@@ -392,7 +392,7 @@ clipboard/
 **Core Features:**
 - Monitor clipboard changes and store history automatically
 - Support text, images, HTML, and files
-- Support general groups, quick-launch groups, favorites, and search
+- Support general groups, quick-launch groups, filter groups (always show one type of history), favorites, and search
 - Dedicated three-pane management window for editing groups, text items, and file items
 - CSV import/export for text items
 - Themeable UI, quick paste shortcuts, and large image/long text preview popups

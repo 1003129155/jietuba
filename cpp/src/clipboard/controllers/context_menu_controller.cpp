@@ -165,10 +165,9 @@ QList<MenuAction> normalize_menu_actions(QList<MenuAction> actions) {
 }
 
 QList<Group> ClipboardContextMenuController::item_context_menu_groups(const ClipboardItem &clipboard_item) {
-    const bool is_file_item = clipboard_item.content_type == "file";
     QList<Group> groups;
     for (const auto &group : controller_->get_groups())
-        if (group.group_type != GroupType::HIDDEN && (group.group_type == GroupType::NORMAL || is_file_item)) groups.append(group);
+        if (group.group_type != GroupType::HIDDEN && group.accepts(clipboard_item.content_type)) groups.append(group);
     return groups;
 }
 
@@ -178,7 +177,8 @@ std::optional<ContextMenuData> ClipboardContextMenuController::build_context_men
 
     ItemMenuState state;
     state.clipboard_item = *clipboard_item;
-    state.current_group_id = controller_->current_group_id;
+    // "In a group" means a real group; items in a filter group get the history menu.
+    state.current_group_id = controller_->shows_history() ? std::nullopt : controller_->current_group_id;
     if (state.current_group_id) std::tie(state.can_move_up, state.can_move_down) = controller_->get_item_move_state(clipboard_item->id, state.current_group_id);
     state.visible_groups = item_context_menu_groups(*clipboard_item);
 
@@ -234,9 +234,12 @@ std::optional<ContextMenuData> ClipboardContextMenuController::build_marked_cont
 
     ItemMenuState state;
     state.clipboard_item = items.front();
-    state.current_group_id = controller_->current_group_id;
-    for (const auto &group : controller_->get_groups())
-        if (group.group_type != GroupType::HIDDEN && (group.group_type == GroupType::NORMAL || kinds == QSet<QString>{"file"})) state.visible_groups.append(group);
+    state.current_group_id = controller_->shows_history() ? std::nullopt : controller_->current_group_id;
+    for (const auto &group : controller_->get_groups()) {
+        bool takes_all = true;
+        for (const auto &kind : kinds) takes_all = takes_all && group.accepts(kind);
+        if (group.group_type != GroupType::HIDDEN && takes_all) state.visible_groups.append(group);
+    }
     const auto move_children = move_group_menu_children(state);
     actions.append(separator("sep_before_groups"));
     if (!move_children.isEmpty()) {

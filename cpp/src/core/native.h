@@ -255,6 +255,8 @@ void jb_clipboard_text_free(char *text);
 void jb_clipboard_bytes_free(uint8_t *data, size_t len);
 void jb_clipboard_ids_free(int64_t *ids, size_t len);
 uint64_t jb_clipboard_max_stitched_pixels();
+bool jb_clipboard_filter_content_type(int64_t group_type, char *out, size_t out_len);
+bool jb_clipboard_group_accepts(int64_t group_type, const char *content_type);
 bool jb_clipboard_set_text(const char *text, char *error, size_t error_len);
 char *jb_clipboard_db_path(const JbClipboard *clipboard);
 char *jb_clipboard_images_dir(const JbClipboard *clipboard);

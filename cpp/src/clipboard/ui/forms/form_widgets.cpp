@@ -3,6 +3,7 @@
 #include "core/ui_theme.h"
 #include "ui/fluent_lite/theme.h"
 #include "ui/settings_ui/components.h"
+#include <QEvent>
 #include <QPainter>
 
 namespace jietuba::clipboard {
@@ -41,13 +42,15 @@ void OptionCard::paintEvent(QPaintEvent *) {
     const QRectF rect = QRectF(this->rect()).adjusted(0.5, 0.5, -0.5, -0.5);
     const double radius = dialog_scaled_f(10);
 
+    const bool enabled = isEnabled();
     const bool checked = isChecked();
+    const bool hovered = enabled && underMouse();
     if (checked) {
         painter.setBrush(css_color(tokens.accent_soft));
         painter.setPen(QPen(css_color(tokens.accent), dialog_scaled_f(1.5)));
     } else {
-        painter.setBrush(css_color(underMouse() ? tokens.surface_hover : tokens.input_background));
-        painter.setPen(QPen(css_color(underMouse() ? tokens.border_hover : tokens.border), 1));
+        painter.setBrush(css_color(hovered ? tokens.surface_hover : tokens.input_background));
+        painter.setPen(QPen(css_color(hovered ? tokens.border_hover : tokens.border), 1));
     }
     painter.drawRoundedRect(rect, radius, radius);
 
@@ -61,13 +64,22 @@ void OptionCard::paintEvent(QPaintEvent *) {
     const int text_w = static_cast<int>(inner.width());
     const double half = inner.height() / 2;
     painter.setFont(title_font);
-    painter.setPen(css_color(checked ? tokens.accent_text : tokens.text));
+    painter.setPen(css_color(checked ? tokens.accent_text : enabled ? tokens.text : tokens.text_disabled));
     painter.drawText(QRectF(inner.left(), inner.top(), text_w, half), Qt::AlignLeft | Qt::AlignVCenter,
                      QFontMetrics(title_font).elidedText(title_, Qt::ElideRight, text_w));
     painter.setFont(description_font);
-    painter.setPen(css_color(tokens.text_muted));
+    painter.setPen(css_color(enabled ? tokens.text_muted : tokens.text_disabled));
     painter.drawText(QRectF(inner.left(), inner.top() + half, inner.width(), half), Qt::AlignLeft | Qt::AlignVCenter,
                      QFontMetrics(description_font).elidedText(description_, Qt::ElideRight, static_cast<int>(inner.width())));
+}
+
+void OptionCard::changeEvent(QEvent *event) {
+    // Greying out and restoring need a repaint and the matching cursor.
+    if (event->type() == QEvent::EnabledChange) {
+        setCursor(isEnabled() ? Qt::PointingHandCursor : Qt::ArrowCursor);
+        update();
+    }
+    QAbstractButton::changeEvent(event);
 }
 
 void OptionCard::enterEvent(QEnterEvent *event) {

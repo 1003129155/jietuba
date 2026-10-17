@@ -120,7 +120,7 @@ PP-OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_
 |------|------|------|------|
 | [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.1 | GIF/视频合成编码器 |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.5.1 | 长截图拼接算法 |
-| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.5 | 剪贴板底层操作 |
+| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.7 | 剪贴板底层操作 |
 | [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.3.0 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | 支持 HDR 的桌面截图（DXGI Desktop Duplication + GPU 色调映射） |
 | [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.2 | 不占界面线程的全局鼠标键盘钩子（拖动手势、侧键、热键、滚轮、前台窗口） |
@@ -408,7 +408,7 @@ clipboard/
 **核心功能：**
 - 监听系统剪贴板变化，自动保存历史记录
 - 支持文本、图片、HTML、文件等多种格式
-- 支持通用分组、快速启动分组、收藏与搜索
+- 支持通用分组、快速启动分组、筛选分组（固定显示某一类历史）、收藏与搜索
 - 独立三栏管理窗口，可编辑分组、文本内容和文件内容
 - 文本条目支持 CSV 导入/导出
 - 多主题 UI（亮色/暗色等）

@@ -12,6 +12,7 @@
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/segmented.h"
 #include <QDragEnterEvent>
+#include <QEvent>
 #include <QFile>
 #include <QMimeData>
 #include <QKeyEvent>
@@ -20,6 +21,17 @@
 #include <QTest>
 
 using namespace clipboard_test;
+
+// Records the windows that get shown, to catch widgets made visible before they have a parent.
+class WindowShowSpy : public QObject {
+public:
+    QStringList shown;
+    bool eventFilter(QObject *object, QEvent *event) override {
+        if (event->type() != QEvent::Show) return false;
+        if (auto *widget = qobject_cast<QWidget *>(object); widget && widget->isWindow()) shown << widget->metaObject()->className();
+        return false;
+    }
+};
 
 // The clipboard manage window on a real database, offscreen: groups and items created,
 // edited, reordered, moved and deleted through its controls, and CSV import/export.
@@ -192,6 +204,70 @@ private slots:
         QCOMPARE(manager().get_groups().size(), 1);
         QCOMPARE(dialog->group_list->count(), 1);
         QVERIFY(!dialog->grab().isNull());
+    }
+
+    void filterGroupsAreCreatedAndTakeNoContent() {
+        auto *dialog = open_dialog();
+        dialog->new_group_btn->click();
+        dialog->group_name_input->setText("Images");
+        QVERIFY(dialog->radio_filter->isEnabled());
+        QVERIFY(dialog->filter_kind_box->isHidden());
+        dialog->radio_filter->click();
+        QVERIFY(!dialog->filter_kind_box->isHidden());
+        QVERIFY(dialog->detail_title->text().contains("Filter"));
+        QCOMPARE(dialog->icon_input->text(), get_default_group_icon(static_cast<int>(GroupType::FILTER_TEXT)));
+        // The filtered type picks the default icon; a custom icon stays.
+        dialog->filter_kind_switch->setCurrentItem("image");
+        QCOMPARE(dialog->icon_input->text(), get_default_group_icon(static_cast<int>(GroupType::FILTER_IMAGE)));
+        dialog->icon_input->setText(QString::fromUtf8("⭐"));
+        dialog->filter_kind_switch->setCurrentItem("file");
+        QCOMPARE(dialog->icon_input->text(), QString::fromUtf8("⭐"));
+        dialog->filter_kind_switch->setCurrentItem("image");
+        dialog->save_btn->click();
+        QCOMPARE(manager().get_groups().size(), 1);
+        QCOMPARE(manager().get_groups().first().group_type, static_cast<int>(GroupType::FILTER_IMAGE));
+        // Nothing can be added to it.
+        QVERIFY(!dialog->add_item_btn->isEnabled());
+        QVERIFY(!dialog->search_input->isEnabled());
+        QVERIFY(dialog->save_btn->isHidden());
+        QCOMPARE(dialog->item_list->count(), 0);
+
+        // A group with content cannot become a filter group; a filter group can be edited into any other.
+        const auto full = manager().create_group("Full");
+        QVERIFY(full);
+        QVERIFY(manager().move_to_group(add_texts({"x"}).first(), *full));
+        // A reopened window lists both groups.
+        dialog->hide();
+        destroy_manage_dialog();
+        dialog = open_dialog();
+        dialog->group_list->setCurrentRow(1);
+        dialog->edit_group_btn->click();
+        QCOMPARE(dialog->editing_group_id, full);
+        QVERIFY(!dialog->radio_filter->isEnabled());
+        dialog->group_list->setCurrentRow(0);
+        dialog->edit_group_btn->click();
+        QVERIFY(dialog->radio_filter->isChecked());
+        QCOMPARE(dialog->filter_kind_switch->currentItem(), QString("image"));
+        dialog->radio_normal->click();
+        dialog->save_btn->click();
+        QCOMPARE(manager().get_groups().first().group_type, static_cast<int>(GroupType::NORMAL));
+        QVERIFY(!dialog->grab().isNull());
+    }
+
+    void buildingTheGroupFormNeverFlashesAStrayWindow() {
+        QVERIFY(manager().create_group("Images", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER_IMAGE)));
+        auto *dialog = open_dialog();
+        WindowShowSpy spy;
+        qApp->installEventFilter(&spy);
+        // Selecting and editing a filter group, then a new group's type cards.
+        dialog->group_list->setCurrentRow(0);
+        dialog->edit_group_btn->click();
+        dialog->new_group_btn->click();
+        dialog->radio_filter->click();
+        dialog->radio_file->click();
+        QApplication::processEvents();
+        qApp->removeEventFilter(&spy);
+        QVERIFY2(spy.shown.isEmpty(), qPrintable(spy.shown.join(", ")));
     }
 
     void textItemsAreAddedEditedSearchedAndDeleted() {

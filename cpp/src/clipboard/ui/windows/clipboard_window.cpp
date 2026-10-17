@@ -3,6 +3,7 @@
 #include "clipboard/ui/image_item_actions.h"
 #include "clipboard/ui/menus/action_menu.h"
 #include "clipboard/ui/panels/setting_panel.h"
+#include "clipboard/ui/theme/chevron.h"
 #include "clipboard/ui/theme/theme_styles.h"
 #include "clipboard/ui/widgets/group_bar.h"
 #include "clipboard/ui/widgets/item_delegate.h"
@@ -21,6 +22,7 @@
 #include <QCloseEvent>
 #include <QContextMenuEvent>
 #include <QCursor>
+#include <QIcon>
 #include <QDesktopServices>
 #include <QDir>
 #include <QFileInfo>
@@ -268,10 +270,10 @@ void ClipboardWindow::apply_scale_metrics() {
         bar->setFixedHeight(scaled(36));
         layout->setContentsMargins(scaled(8), scaled(4), scaled(8), scaled(4));
     }
-    time_filter_layout_->setSpacing(scaled(5));
+    time_filter_layout_->setSpacing(scaled(4));
     bottom_layout_->setSpacing(scaled(8));
     const std::tuple<QWidget *, int, int> sizes[] = {
-        {start_date_edit, 114, 26}, {end_date_edit, 114, 26},         {apply_time_filter_btn, 34, 26}, {type_filter_btn, 66, 26},
+        {start_date_edit, 108, 26}, {end_date_edit, 108, 26},         {apply_time_filter_btn, 36, 26}, {type_filter_btn, 64, 26},
         {clear_time_filter_btn, 26, 26}, {time_filter_toggle_btn, 28, 28}, {clear_search_btn, 24, 24},  {menu_btn, 28, 28},
     };
     for (const auto &[widget, width, height] : sizes) widget->setFixedSize(scaled(width), scaled(height));
@@ -476,7 +478,7 @@ void ClipboardWindow::setup_ui() {
     start_date_edit->setFocusPolicy(Qt::ClickFocus);
     time_filter_layout_->addWidget(start_date_edit);
 
-    time_filter_separator = new QLabel("-");
+    time_filter_separator = new QLabel(QString::fromUtf8("–"));
     time_filter_separator->setAlignment(Qt::AlignCenter);
     time_filter_layout_->addWidget(time_filter_separator);
 
@@ -503,6 +505,8 @@ void ClipboardWindow::setup_ui() {
     type_filter_btn->setCursor(Qt::PointingHandCursor);
     type_filter_btn->setToolTip(tr_text("Filter Type"));
     type_filter_btn->setFocusPolicy(Qt::NoFocus);
+    type_filter_btn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    type_filter_btn->setLayoutDirection(Qt::RightToLeft);
     connect(type_filter_btn, &QToolButton::clicked, this, [this] { show_type_filter_menu(); });
     type_filter_menu = new QMenu(type_filter_btn);
     for (int idx = 0; idx < type_filter_labels.size(); ++idx) {
@@ -516,7 +520,7 @@ void ClipboardWindow::setup_ui() {
     time_filter_layout_->addWidget(type_filter_btn);
 
     clear_time_filter_btn = new QToolButton;
-    clear_time_filter_btn->setText("X");
+    clear_time_filter_btn->setText(QString::fromUtf8("×"));
     clear_time_filter_btn->setCursor(Qt::PointingHandCursor);
     clear_time_filter_btn->setToolTip(tr_text("Close filters"));
     clear_time_filter_btn->setFocusPolicy(Qt::NoFocus);
@@ -735,6 +739,8 @@ void ClipboardWindow::refresh_list() {
 }
 
 void ClipboardWindow::on_load_completed() {
+    // Editing the current group's type in the manage window reloads; the button follows.
+    refresh_type_filter_button();
     QTimer::singleShot(0, this, [this] { check_and_load_more_if_needed(); });
 }
 
@@ -847,8 +853,12 @@ void ClipboardWindow::apply_time_filter_styles() {
     if (type_filter_btn) {
         type_filter_btn->setStyleSheet(generator.generate_time_filter_type_btn_style());
         type_filter_menu->setStyleSheet(generator.generate_menu_style());
+        // The arrow is the same image as the date edits' drop-down; text on the left, arrow on the right.
+        type_filter_arrow_ = QIcon(chevron_image(current_theme.colors.text_secondary, scaled(9), scaled(6)));
+        type_filter_btn->setIconSize(QSize(scaled(9), scaled(6)));
+        refresh_type_filter_button();
     }
-    if (clear_time_filter_btn) clear_time_filter_btn->setStyleSheet(generator.generate_time_filter_action_btn_style(true));
+    if (clear_time_filter_btn) clear_time_filter_btn->setStyleSheet(generator.generate_time_filter_close_btn_style());
 }
 
 void ClipboardWindow::clear_search() {
@@ -858,8 +868,22 @@ void ClipboardWindow::clear_search() {
 
 void ClipboardWindow::update_type_filter_button(int index) {
     type_filter_index = index;
-    type_filter_btn->setText(type_filter_labels[index] + QString::fromUtf8(" ▾"));
     for (int action_index = 0; action_index < type_filter_actions.size(); ++action_index) type_filter_actions[action_index]->setChecked(action_index == index);
+    refresh_type_filter_button();
+}
+
+void ClipboardWindow::refresh_type_filter_button() {
+    // A filter group's type is fixed: the button shows it greyed out; other views show the user's choice.
+    if (!type_filter_btn) return;
+    const auto fixed = controller->current_filter_type();
+    int index = type_filter_index;
+    if (fixed == "text") index = 1;
+    else if (fixed == "image") index = 2;
+    else if (fixed == "file") index = 3;
+    type_filter_btn->setText(type_filter_labels[index]);
+    type_filter_btn->setIcon(fixed ? QIcon() : type_filter_arrow_);
+    type_filter_btn->setEnabled(!fixed);
+    type_filter_btn->setToolTip(fixed ? tr_text("Fixed by this filter group") : tr_text("Filter Type"));
 }
 
 void ClipboardWindow::show_type_filter_menu() { type_filter_menu->exec(type_filter_btn->mapToGlobal(QPoint(0, type_filter_btn->height()))); }
@@ -877,6 +901,7 @@ void ClipboardWindow::on_group_switched(std::optional<qint64> group_id) {
             if (group.id == *group_id) is_quick_launch = group.group_type == GroupType::FILE;
     }
     item_delegate->set_hide_file_icon(is_quick_launch);
+    refresh_type_filter_button();
     list_widget->viewport()->update();
 }
 
@@ -939,6 +964,11 @@ ClipboardController::CloseCallback ClipboardWindow::paste_close_callback() {
 
 std::optional<ClipboardItem> ClipboardWindow::get_item_data(qint64 item_id) const { return controller->loaded_item(item_id); }
 
+bool ClipboardWindow::is_file_item(qint64 item_id) const {
+    const auto item = get_item_data(item_id);
+    return item && item->content_type == "file";
+}
+
 bool ClipboardWindow::in_file_group() {
     if (!controller->current_group_id) return false;
     for (const auto &group : controller->manager.get_groups())
@@ -955,7 +985,8 @@ void ClipboardWindow::on_paste_item(qint64 item_id) {
         return;
     }
     selection_manager->clear_marks();
-    if (in_file_group()) {
+    // A quick launch group only changes how files are clicked; other items (moved in by changing the type) paste as usual.
+    if (in_file_group() && is_file_item(item_id)) {
         open_file_item(item_id);
         return;
     }
@@ -986,9 +1017,9 @@ void ClipboardWindow::paste_plain_text(qint64 item_id) {
 }
 
 void ClipboardWindow::paste_marked(const QList<qint64> &item_ids, bool plain_text, const QString &layout, bool explicit_paste) {
-    // In a file group a click opens the file; a multiple selection opens each.
+    // In a file group a click opens the file; a multiple selection of only files opens each.
     if (mouse_controller) mouse_controller->cancel();
-    if (!explicit_paste && in_file_group()) {
+    if (!explicit_paste && in_file_group() && std::all_of(item_ids.begin(), item_ids.end(), [this](qint64 item_id) { return is_file_item(item_id); })) {
         selection_manager->clear_marks();
         for (qint64 item_id : item_ids) open_file_item(item_id);
         return;
@@ -1118,7 +1149,7 @@ bool ClipboardWindow::edit_selected() {
         quick_edit_item(*item_id);
         return true;
     }
-    if (controller->current_group_id) {
+    if (!controller->shows_history()) {
         edit_item(*item_id);
         return true;
     }

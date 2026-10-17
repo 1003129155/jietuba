@@ -2,6 +2,7 @@
 
 pub mod cf_html;
 pub mod database;
+pub mod group_kind;
 pub mod manager;
 pub mod multi_paste;
 pub mod types;

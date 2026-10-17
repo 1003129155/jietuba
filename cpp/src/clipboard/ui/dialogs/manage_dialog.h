@@ -96,6 +96,9 @@ public:
     QPointer<OptionCard> radio_normal;
     QPointer<OptionCard> radio_file;
     QPointer<OptionCard> radio_hidden;
+    QPointer<OptionCard> radio_filter;
+    QPointer<QWidget> filter_kind_box;
+    QPointer<SegmentedWidget> filter_kind_switch;
     QPointer<QButtonGroup> group_type_btn_group;
     QPointer<QScrollArea> emoji_scroll;
     QPointer<ImagePreview> image_preview;
@@ -117,6 +120,7 @@ public:
 
     // ── Callbacks of the form builders ──
     void on_group_type_toggled(bool checked, std::optional<int> form_token = std::nullopt);
+    void on_filter_kind_changed(const QString &kind, std::optional<int> form_token = std::nullopt);
     void create_emoji_picker(const QString &current_icon = QString::fromUtf8("📁"));
     void switch_emoji_group_checked(int group_idx, std::optional<int> form_token = std::nullopt);
     void on_icon_input_changed_checked(const QString &text, std::optional<int> form_token = std::nullopt);
@@ -191,6 +195,8 @@ private:
     void show_new_group_form();
     void show_edit_group_form(qint64 group_id);
     void update_group_form_header();
+    // The group type chosen in the form; a filter group's type also depends on the content type switch.
+    int selected_group_type() const;
     bool is_file_content_mode();
     void show_new_content_form();
     void add_content_kind_switch();

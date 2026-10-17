@@ -6,6 +6,7 @@
 use std::ffi::{c_char, c_void, CString};
 use std::sync::Arc;
 
+use pyclipboard::group_kind;
 use pyclipboard::manager::{self, ClipboardManager, MultiPasteOptions};
 use pyclipboard::multi_paste;
 use pyclipboard::types::{PyClipboardItem, PyGroup};
@@ -160,6 +161,28 @@ pub unsafe extern "C" fn jb_clipboard_ids_free(ptr: *mut i64, len: usize) {
 pub extern "C" fn jb_clipboard_max_stitched_pixels() -> u64 {
     guard(0, || {
         multi_paste::MAX_STITCHED_PIXELS
+    })
+}
+
+/// Writes the content type ("text", "image" or "file") a filter group of `group_type` shows;
+/// false for group types that are not filter groups.
+#[no_mangle]
+pub unsafe extern "C" fn jb_clipboard_filter_content_type(group_type: i64, out: *mut c_char, out_len: usize) -> bool {
+    guard(false, || match group_kind::filter_content_type(group_type) {
+        Some(content_type) => {
+            write_text(content_type, out, out_len);
+            true
+        }
+        None => false,
+    })
+}
+
+/// Whether a group of `group_type` stores items of `content_type`.
+#[no_mangle]
+pub unsafe extern "C" fn jb_clipboard_group_accepts(group_type: i64, content_type: *const c_char) -> bool {
+    guard(false, || match str_arg(content_type) {
+        Some(content_type) => group_kind::accepts(group_type, content_type),
+        None => false,
     })
 }
 

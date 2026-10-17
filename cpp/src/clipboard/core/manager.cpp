@@ -485,25 +485,6 @@ bool ClipboardManager::move_to_group(qint64 item_id, std::optional<qint64> group
         log_error(T("移动到分组失败: {e}", {{"e", QString::fromUtf8(error)}}), "Clipboard");
         return false;
     };
-    // A file group takes only file items.
-    if (group_id) {
-        char *groups_json = nullptr;
-        if (!jb_clipboard_get_groups(backend.get(), &groups_json, error, ERROR_LEN)) return failed();
-        for (const auto &value : take_json(groups_json).array()) {
-            const auto group = Group::from_json(value.toObject());
-            if (group.id != *group_id) continue;
-            if (group.group_type == GroupType::FILE) {
-                char *item_json = nullptr;
-                if (!jb_clipboard_get_item(backend.get(), item_id, &item_json, error, ERROR_LEN)) return failed();
-                const auto document = take_json(item_json);
-                if (!document.isObject() || ClipboardItem::from_json(document.object()).content_type != "file") {
-                    log_error(T("文件分组只允许文件类型条目，item_id={item_id} 被拒绝", {{"item_id", item_id}}), "Clipboard");
-                    return false;
-                }
-            }
-            break;
-        }
-    }
     if (!jb_clipboard_move_to_group(backend.get(), item_id, optional_id(group_id), error, ERROR_LEN)) return failed();
     return true;
 }

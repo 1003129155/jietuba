@@ -61,9 +61,7 @@ QString short_time(const QDateTime &moment) {
     return moment.toString("yyyy-MM-dd");
 }
 
-QString display_icon(const Group &group) {
-    return get_group_display_icon(group.icon, group.group_type == GroupType::FILE, group.group_type == GroupType::HIDDEN);
-}
+QString display_icon(const Group &group) { return get_group_display_icon(group.icon, group.group_type); }
 
 QAction *add_menu_action(QMenu *menu, const QString &text, const std::function<void()> &handler) {
     QAction *action = menu->addAction(text);
@@ -539,6 +537,7 @@ void ManageDialog::apply_dynamic_form_theme() {
 QString ManageDialog::group_tag(const Group &group) const {
     if (group.group_type == GroupType::FILE) return tr_text("Launch");
     if (group.group_type == GroupType::HIDDEN) return tr_text("Hidden");
+    if (group.is_filter()) return tr_text("Filter");
     return {};
 }
 
@@ -633,9 +632,10 @@ QListWidgetItem *ManageDialog::item_row(const ClipboardItem &item) const {
 void ManageDialog::refresh_content_list() {
     needs_reload_ = false;
     const auto group = get_selected_group();
+    const bool stores_content = group.has_value() && !group->is_filter();
     edit_group_btn->setVisible(group.has_value());
-    add_item_btn->setEnabled(group.has_value());
-    search_input->setEnabled(group.has_value());
+    add_item_btn->setEnabled(stores_content);
+    search_input->setEnabled(stores_content);
 
     item_list->blockSignals(true);
     item_list->clear();
@@ -647,6 +647,13 @@ void ManageDialog::refresh_content_list() {
         return;
     }
     list_title->setText(display_icon(*group) + "  " + group->name);
+    if (group->is_filter()) {
+        list_count->setText("");
+        item_types_.clear();
+        show_list_empty(tr_text("Filter groups store no content; they show one type of your clipboard history"));
+        item_list->blockSignals(false);
+        return;
+    }
     const auto items = manager->get_by_group(group->id, 0, ITEMS_PER_GROUP);
     list_count->setText(tr_text("{count} items").replace("{count}", QString::number(items.size())));
     item_types_.clear();
@@ -734,9 +741,8 @@ void ManageDialog::on_content_drag(bool dragging) { group_list->set_awaiting_for
 
 bool ManageDialog::can_move_item_to_group(qint64 item_id, std::optional<qint64> group_id) const {
     if (!group_id || group_id == selected_group_id) return false;
-    // Quick launch groups take only files (ClipboardManager::move_to_group refuses the rest too).
-    if (group_types_.value(*group_id, -1) == static_cast<int>(GroupType::FILE)) return item_types_.value(item_id) == "file";
-    return true;
+    // What each group type takes is decided by the Rust core (move_to_group refuses the rest too); this only greys the target out.
+    return group_accepts(group_types_.value(*group_id, static_cast<int>(GroupType::NORMAL)), item_types_.value(item_id, "text"));
 }
 
 void ManageDialog::move_item_to_group(qint64 item_id, qint64 group_id) {
@@ -826,8 +832,8 @@ void ManageDialog::open_item_editor(qint64 item_id, std::optional<qint64> group_
 
 void ManageDialog::clear_detail_layout() {
     detail_form_token += 1;
-    const QList<QWidget *> stale{group_name_input, icon_input, icon_preview, radio_normal, radio_file, radio_hidden, emoji_scroll, image_preview,
-                                 content_kind_switch, image_drop_zone, paste_image_btn};
+    const QList<QWidget *> stale{group_name_input, icon_input, icon_preview, radio_normal, radio_file, radio_hidden, radio_filter, filter_kind_box,
+                                 filter_kind_switch, emoji_scroll, image_preview, content_kind_switch, image_drop_zone, paste_image_btn};
     for (QWidget *widget : stale)
         if (widget) widget->blockSignals(true);
     if (group_type_btn_group) group_type_btn_group->blockSignals(true);
@@ -837,6 +843,9 @@ void ManageDialog::clear_detail_layout() {
     radio_normal = nullptr;
     radio_file = nullptr;
     radio_hidden = nullptr;
+    radio_filter = nullptr;
+    filter_kind_box = nullptr;
+    filter_kind_switch = nullptr;
     group_type_btn_group = nullptr;
     emoji_scroll = nullptr;
     image_preview = nullptr;
@@ -923,17 +932,33 @@ void ManageDialog::on_group_type_toggled(bool checked, std::optional<int> form_t
     if (!is_current_detail_form_token(form_token)) return;
     if (!icon_input) return;
     if (!checked) return;
-    const bool is_file_group = radio_file && radio_file->isChecked();
-    const bool is_hidden = radio_hidden && radio_hidden->isChecked();
-    icon_input->setText(get_toggled_default_group_icon(icon_input->text(), is_file_group, is_hidden));
+    icon_input->setText(get_toggled_default_group_icon(icon_input->text(), selected_group_type()));
+    if (filter_kind_box && radio_filter) filter_kind_box->setVisible(radio_filter->isChecked());
     update_group_form_header();
+}
+
+void ManageDialog::on_filter_kind_changed(const QString &, std::optional<int> form_token) {
+    // The default icon follows the filtered type; a custom icon stays.
+    on_group_type_toggled(true, form_token);
+}
+
+int ManageDialog::selected_group_type() const {
+    if (radio_hidden && radio_hidden->isChecked()) return static_cast<int>(GroupType::HIDDEN);
+    if (radio_file && radio_file->isChecked()) return static_cast<int>(GroupType::FILE);
+    if (radio_filter && radio_filter->isChecked() && filter_kind_switch) {
+        if (const auto type = filter_group_type(filter_kind_switch->currentItem())) return static_cast<int>(*type);
+    }
+    return static_cast<int>(GroupType::NORMAL);
 }
 
 void ManageDialog::update_group_form_header() {
     if (!radio_file) return;
     const bool is_new = !editing_group_id;
     QString title, subtitle;
-    if (radio_hidden && radio_hidden->isChecked()) {
+    if (radio_filter && radio_filter->isChecked()) {
+        title = is_new ? tr_text("New Filter Group") : tr_text("Edit Filter Group");
+        subtitle = tr_text("Filter groups store no content; they show one type of your clipboard history");
+    } else if (radio_hidden && radio_hidden->isChecked()) {
         title = is_new ? tr_text("New Hidden Group") : tr_text("Edit Hidden Group");
         subtitle = tr_text("Hidden groups are not displayed on the clipboard panel; changing to normal group restores visibility");
     } else if (radio_file->isChecked()) {
@@ -990,6 +1015,13 @@ void ManageDialog::show_new_content_form() {
         auto *hint = new QLabel(tr_text("Please create a group first"));
         apply_theme_text_style(hint, 12, false, {}, true);
         detail_layout->addWidget(hint);
+        detail_layout->addStretch();
+        finish_detail_form_setup();
+        return;
+    }
+    if (group->is_filter()) {
+        set_detail_header(tr_text("Filter Group"), tr_text("Filter groups store no content; they show one type of your clipboard history"));
+        set_footer(std::nullopt, false);
         detail_layout->addStretch();
         finish_detail_form_setup();
         return;
@@ -1151,11 +1183,9 @@ void ManageDialog::save_group() {
         return;
     }
     const QString icon = get_selected_icon();
-    GroupType group_type = GroupType::NORMAL;
-    if (radio_hidden && radio_hidden->isChecked()) group_type = GroupType::HIDDEN;
-    else if (radio_file && radio_file->isChecked()) group_type = GroupType::FILE;
+    const int group_type = selected_group_type();
 
-    const auto result = clipboard::save_group(*manager, editing_group_id, name, icon, static_cast<int>(group_type));
+    const auto result = clipboard::save_group(*manager, editing_group_id, name, icon, group_type);
     if (!result.success) {
         show_warning_dialog(this, tr_text("Failed"), result.error == "create_group_failed" ? tr_text("Failed to create group") : tr_text("Failed to update group"));
         return;

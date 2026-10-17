@@ -137,11 +137,21 @@ private slots:
         QCOMPARE(GENERAL_GROUP_ICON(), g["icons"].toObject()["general"].toString());
         QCOMPARE(QUICK_LAUNCH_GROUP_ICON(), g["icons"].toObject()["quick_launch"].toString());
         QCOMPARE(HIDDEN_GROUP_ICON(), g["icons"].toObject()["hidden"].toString());
-        for (const auto &value : g["default"].toArray()) QCOMPARE(get_default_group_icon(value.toObject()["file"].toBool(), value.toObject()["hidden"].toBool()), value.toObject()["expected"].toString());
+        for (const auto &value : g["default"].toArray()) QCOMPARE(get_default_group_icon(value.toObject()["type"].toInt()), value.toObject()["expected"].toString());
         for (const auto &value : g["display"].toArray())
-            QCOMPARE(get_group_display_icon(optional_string(value.toObject()["icon"]), value.toObject()["file"].toBool(), value.toObject()["hidden"].toBool()), value.toObject()["expected"].toString());
+            QCOMPARE(get_group_display_icon(optional_string(value.toObject()["icon"]), value.toObject()["type"].toInt()), value.toObject()["expected"].toString());
         for (const auto &value : g["toggled"].toArray())
-            QCOMPARE(get_toggled_default_group_icon(value.toObject()["icon"].toString(), value.toObject()["file"].toBool(), value.toObject()["hidden"].toBool()), value.toObject()["expected"].toString());
+            QCOMPARE(get_toggled_default_group_icon(value.toObject()["icon"].toString(), value.toObject()["type"].toInt()), value.toObject()["expected"].toString());
+        for (const auto &value : g["filter_content_type"].toArray())
+            QCOMPARE(filter_content_type(value.toObject()["type"].toInt()), optional_string(value.toObject()["expected"]));
+        for (const auto &value : g["filter_group_type"].toArray()) {
+            const auto type = filter_group_type(value.toObject()["content_type"].toString());
+            QVERIFY(type.has_value());
+            QCOMPARE(static_cast<int>(*type), value.toObject()["expected"].toInt());
+        }
+        QVERIFY(!filter_group_type("audio").has_value());
+        for (const auto &value : g["accepts"].toArray())
+            QCOMPARE(group_accepts(value.toObject()["type"].toInt(), value.toObject()["content_type"].toString()), value.toObject()["expected"].toBool());
         QList<Group> existing;
         for (const auto &value : g["existing"].toArray()) {
             Group group;

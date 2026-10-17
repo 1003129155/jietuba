@@ -513,7 +513,6 @@
 "撤销命令: {undo_text}": "Undo command: {undo_text}",
 "撤销栈状态": "Undo stack status",
 "放大镜初始化: 位置({x}, {y})": "Magnifier initialized: position ({x}, {y})",
-"文件分组只允许文件类型条目，item_id={item_id} 被拒绝": "File groups only allow file-type entries; item_id={item_id} was rejected",
 "文件特殊粘贴项 {item_id} ({transform_key})": "File special-pasted item {item_id} ({transform_key})",
 "文件项 {item_id} 没有可粘贴的文件路径": "File item {item_id} has no pastable file path",
 "文字宽度控制点拖拽被处理": "Text width handle drag handled",

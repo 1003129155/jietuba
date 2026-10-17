@@ -132,14 +132,25 @@ void ClipboardController::load_more_if_needed() {
     load_more_items();
 }
 
+std::optional<QString> ClipboardController::current_filter_type() const {
+    if (!current_group_id) return std::nullopt;
+    for (const auto &group : manager.get_groups())
+        if (group.id == *current_group_id) return group.filter_content_type();
+    return std::nullopt;
+}
+
+bool ClipboardController::shows_history() const { return !current_group_id || current_filter_type().has_value(); }
+
 std::pair<QList<ClipboardItem>, int> ClipboardController::fetch_items_page(int limit, qint64 offset) {
-    if (!current_group_id) {
+    const auto filter_type = current_filter_type();
+    if (!current_group_id || filter_type) {
         std::optional<qint64> start_ts, end_ts;
         if (time_range_) {
             start_ts = time_range_->first.toSecsSinceEpoch();
             end_ts = time_range_->second.toSecsSinceEpoch();
         }
-        const auto items = manager.get_history(offset, limit, search_text_, content_type_, start_ts, end_ts);
+        // A filter group's type is fixed; the type button does not apply there.
+        const auto items = manager.get_history(offset, limit, search_text_, filter_type ? filter_type : content_type_, start_ts, end_ts);
         return {items, static_cast<int>(items.size())};
     }
     auto items = manager.get_by_group(current_group_id, offset, limit);
@@ -299,7 +310,7 @@ void ClipboardController::send_paste_keystroke(bool explicit_paste) {
 bool ClipboardController::paste_item(qint64 item_id, const CloseCallback &on_close_callback, bool explicit_paste) {
     bool move_to_top = get_tool_settings_manager()->get_clipboard_move_to_top_on_paste();
     // Only the history view moves it to the top; pasting in a group keeps the order.
-    if (current_group_id) move_to_top = false;
+    if (!shows_history()) move_to_top = false;
     if (!manager.paste_item(item_id, paste_with_html, move_to_top)) return false;
     log_info(T("已粘贴项 {item_id} (带格式: {with_html}, 移到最前: {move_to_top})", {{"item_id", item_id}, {"with_html", paste_with_html}, {"move_to_top", move_to_top}}),
              "Clipboard");
@@ -346,7 +357,7 @@ bool ClipboardController::paste_items(const QList<qint64> &item_ids, const Close
                                       const QString &layout) {
     auto *config = get_tool_settings_manager();
     const auto ordered = multi_paste_order(item_ids);
-    const bool move_to_top = config->get_clipboard_move_to_top_on_paste() && !current_group_id;
+    const bool move_to_top = config->get_clipboard_move_to_top_on_paste() && shows_history();
     const QString separator = config->get_clipboard_multi_paste_separator();
     const bool keep_in_history = config->get_clipboard_multi_paste_keep_merged();
     bool stitching = !plain_text && !ordered.isEmpty();
@@ -388,7 +399,7 @@ void ClipboardController::on_multi_paste_finished(const QList<qint64> &used, boo
     }
     log_info(T("已合并粘贴 {count} 项", {{"count", static_cast<int>(used.size())}}), "Clipboard");
     // A group may be on show by the time stitching ends; the history order must not reorder a group.
-    if (move_to_top && !current_group_id) move_items_to_top(used);
+    if (move_to_top && shows_history()) move_items_to_top(used);
     send_paste_keystroke(explicit_paste);
 }
 
@@ -532,8 +543,8 @@ void ClipboardController::toggle_pin(qint64 item_id) {
 bool ClipboardController::move_to_group(qint64 item_id, std::optional<qint64> group_id) {
     if (!manager.move_to_group(item_id, group_id)) return false;
     log_info(T("已移动到分组 {group_id}", {{"group_id", group_id ? QVariant(*group_id) : QVariant()}}), "Clipboard");
-    // The history view does not filter by group, so the row stays; a group view has lost it.
-    if (current_group_id && group_id != current_group_id) remove_loaded_item(item_id);
+    // History and filter groups do not filter by group, so the row stays; a group view has lost it.
+    if (!shows_history() && group_id != current_group_id) remove_loaded_item(item_id);
     return true;
 }
 

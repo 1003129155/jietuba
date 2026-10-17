@@ -136,8 +136,12 @@ def file_payload():
 
 
 def groups():
-    icons = [group_service.GENERAL_GROUP_ICON, group_service.QUICK_LAUNCH_GROUP_ICON, group_service.HIDDEN_GROUP_ICON, '⭐', '']
-    flags = [(False, False), (True, False), (False, True), (True, True)]
+    from clipboard.core import GroupType, filter_content_type, filter_group_type, group_accepts
+
+    types = [int(t) for t in GroupType]
+    filter_icons = [group_service.get_default_group_icon(t) for t in types[3:]]
+    icons = [group_service.GENERAL_GROUP_ICON, group_service.QUICK_LAUNCH_GROUP_ICON, group_service.HIDDEN_GROUP_ICON, '⭐', ''] + filter_icons
+    content_types = ['text', 'image', 'file']
 
     class G:
         def __init__(self, gid, name):
@@ -150,15 +154,18 @@ def groups():
             'quick_launch': group_service.QUICK_LAUNCH_GROUP_ICON,
             'hidden': group_service.HIDDEN_GROUP_ICON,
         },
-        'default': [{'file': f, 'hidden': h, 'expected': group_service.get_default_group_icon(f, is_hidden=h)} for f, h in flags],
+        'default': [{'type': t, 'expected': group_service.get_default_group_icon(t)} for t in types],
         'display': [
-            {'icon': icon or None, 'file': f, 'hidden': h, 'expected': group_service.get_group_display_icon(icon or None, f, is_hidden=h)}
-            for icon in icons for f, h in flags
+            {'icon': icon or None, 'type': t, 'expected': group_service.get_group_display_icon(icon or None, t)}
+            for icon in icons for t in types
         ],
         'toggled': [
-            {'icon': icon, 'file': f, 'hidden': h, 'expected': group_service.get_toggled_default_group_icon(icon, f, is_hidden=h)}
-            for icon in icons for f, h in flags
+            {'icon': icon, 'type': t, 'expected': group_service.get_toggled_default_group_icon(icon, t)}
+            for icon in icons for t in types
         ],
+        'filter_content_type': [{'type': t, 'expected': filter_content_type(t)} for t in types + [-1, 6, 99]],
+        'filter_group_type': [{'content_type': c, 'expected': int(filter_group_type(c))} for c in content_types],
+        'accepts': [{'type': t, 'content_type': c, 'expected': group_accepts(t, c)} for t in types + [99] for c in content_types],
         'name_exists': [
             {'name': name, 'exclude': exclude, 'expected': group_service.group_name_exists(existing, name, exclude)}
             for name in ('Work', 'work', 'Apps', 'Other', '') for exclude in (None, 1, 2, 3)
@@ -351,7 +358,10 @@ def menus():
 
     manager = ClipboardManager(str(TMP / 'clipboard' / 'clipboard.db'))
     assert manager.is_available
-    group_specs = [('工作', '📁', int(GroupType.NORMAL)), ('Apps', '⚡', int(GroupType.FILE)), ('私密', '🙈', int(GroupType.HIDDEN)), ('Notes', None, int(GroupType.NORMAL))]
+    group_specs = [
+        ('工作', '📁', int(GroupType.NORMAL)), ('Apps', '⚡', int(GroupType.FILE)), ('私密', '🙈', int(GroupType.HIDDEN)), ('Notes', None, int(GroupType.NORMAL)),
+        ('只看文本', None, int(GroupType.FILTER_TEXT)), ('只看图片', '🖼️', int(GroupType.FILTER_IMAGE)),
+    ]
     group_ids = [manager.create_group(name, None, icon, group_type) for name, icon, group_type in group_specs]
     file_payload_text = file_payload_service.build_file_payload('C:\\data\\report.pdf')
     item_specs = [
@@ -395,7 +405,7 @@ def menus():
     for config_name, entries in configs.items():
         special_paste.save(config, entries)
         controller = ClipboardController(manager)
-        for group_index in (None, 0, 1, 3):
+        for group_index in (None, 0, 1, 3, 4, 5):
             controller.switch_to_group(None if group_index is None else group_ids[group_index])
             controller.current_group_id = None if group_index is None else group_ids[group_index]
             controller.load_history()

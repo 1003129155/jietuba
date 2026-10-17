@@ -2,5 +2,6 @@
 /dist/
 /.tools/
 /.sdk/
+/native/target/
 /CMakeUserPresets.json
 *.log

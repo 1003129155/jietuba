@@ -184,6 +184,36 @@ private slots:
         QVERIFY(!manager().get_image_data("no-such-image"));
     }
 
+    void groupTypesDecideWhatAGroupTakesAndBecomes() {
+        // A filter group stores nothing; its view is the history of its type.
+        const auto images = manager().create_group("Images", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER_IMAGE));
+        QVERIFY(images);
+        const auto filter = manager().get_groups().first();
+        QVERIFY(filter.is_filter());
+        QCOMPARE(filter.filter_content_type(), std::optional<QString>("image"));
+        const auto text = add_texts({"text"}).first();
+        const auto file = manager().add_item(file_payload({"C:\\a.txt"}), "file");
+        QVERIFY(file);
+        QVERIFY(!manager().move_to_group(text, *images));
+        QVERIFY(!manager().move_to_group(*file, *images));
+        QVERIFY(manager().get_by_group(*images).isEmpty());
+        QCOMPARE(ids_of(manager().get_history(0, 50, std::nullopt, filter.filter_content_type())), QList<qint64>{});
+        QCOMPARE(ids_of(manager().get_history(0, 50, std::nullopt, QString("text"))), QList<qint64>{text});
+
+        // A group with content cannot become a filter group; emptied, it can; a filter group changes type freely.
+        const auto plain = manager().create_group("Plain");
+        QVERIFY(plain);
+        QVERIFY(manager().move_to_group(text, *plain));
+        QVERIFY(!manager().update_group(*plain, "Plain", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER_TEXT)));
+        QCOMPARE(manager().get_groups().last().group_type, static_cast<int>(GroupType::NORMAL));
+        // Quick launch with text inside is allowed: its clicks paste what they cannot open.
+        QVERIFY(manager().update_group(*plain, "Plain", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILE)));
+        QVERIFY(manager().move_to_group(text, std::nullopt));
+        for (const auto type : {GroupType::FILTER_TEXT, GroupType::FILTER_FILE, GroupType::NORMAL, GroupType::FILTER_IMAGE, GroupType::HIDDEN, GroupType::FILE})
+            QVERIFY(manager().update_group(*plain, "Plain", std::nullopt, std::nullopt, static_cast<int>(type)));
+        QVERIFY(!manager().create_group("Bad", std::nullopt, std::nullopt, 99));
+    }
+
     void theHistoryLimitTrimsOldItems() {
         add_texts({"1", "2", "3", "4", "5"});
         env_.config->set_clipboard_history_limit(2);

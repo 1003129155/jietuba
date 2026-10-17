@@ -92,6 +92,7 @@ public:
     QStringList type_filter_labels;
     int type_filter_index = 0;
     QToolButton *type_filter_btn = nullptr;
+    QIcon type_filter_arrow_;
     QMenu *type_filter_menu = nullptr;
     QList<QAction *> type_filter_actions;
     QToolButton *clear_time_filter_btn = nullptr;
@@ -192,6 +193,7 @@ private:
     void apply_time_filter_styles();
     void clear_search();
     void update_type_filter_button(int index);
+    void refresh_type_filter_button();
     void show_type_filter_menu();
     void set_type_filter(int index);
     void on_group_switched(std::optional<qint64> group_id);
@@ -206,6 +208,7 @@ private:
     bool is_paste_picker_surface(Hwnd hwnd) const;
     ClipboardController::CloseCallback paste_close_callback();
     bool in_file_group();
+    bool is_file_item(qint64 item_id) const;
     void paste_plain_text(qint64 item_id);
     void paste_marked(const QList<qint64> &item_ids, bool plain_text = false, const QString &layout = "vertical", bool explicit_paste = false);
     void show_context_menu(const QPoint &pos);
