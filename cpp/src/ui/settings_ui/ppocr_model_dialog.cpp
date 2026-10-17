@@ -116,7 +116,11 @@ PpocrModelDialog::PpocrModelDialog(QWidget *parent) : QDialog(parent) {
     download_ = new ModelDownload(this);
     connect(download_, &ModelDownload::progress, this, &PpocrModelDialog::on_progress);
     connect(download_, &ModelDownload::finished, this, &PpocrModelDialog::on_downloaded);
-    connect(download_, &ModelDownload::failed, this, [this](const QString &reason) { status_->setText(reason); });
+    // An error after the model arrived must stay on screen, so it also cancels the runtime that was to follow.
+    connect(download_, &ModelDownload::failed, this, [this](const QString &reason) {
+        runtime_next_ = false;
+        status_->setText(reason);
+    });
     connect(download_, &ModelDownload::stopped, this, &PpocrModelDialog::on_download_stopped);
     connect(this, &PpocrModelDialog::import_done, this, &PpocrModelDialog::on_imported, Qt::QueuedConnection);
 
@@ -307,13 +311,21 @@ void PpocrModelDialog::on_progress(qint64 received, qint64 total) {
 void PpocrModelDialog::on_downloaded(const QJsonObject &) {
     status_->setText(tr_text("%1 is ready.").replace("%1", download_name_));
     emit models_changed();
+    // A model cannot run without the runtime, so a missing one follows; it starts once the helper exits.
+    runtime_next_ = downloading_id_ != ModelDownload::RUNTIME && ppocr_models::runtime_entry() && !ppocr_runtime_supported(ppocr_models::runtime_path());
 }
 
 void PpocrModelDialog::on_download_stopped() {
+    const bool runtime_next = std::exchange(runtime_next_, false);
     downloading_id_.clear();
     last_progress_.reset();
-    fill();
-    if (close_after_download_) QDialog::reject();
+    if (close_after_download_) {
+        fill();
+        QDialog::reject();
+        return;
+    }
+    if (runtime_next) start_download(ModelDownload::RUNTIME, "ONNX Runtime");
+    if (downloading_id_.isEmpty()) fill();
 }
 
 void PpocrModelDialog::add_local() {

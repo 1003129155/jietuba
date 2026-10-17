@@ -48,6 +48,20 @@ QString recognized_text(const OcrResult &result) {
     for (const auto &line : result.data) texts << line.text;
     return texts.join(' ');
 }
+
+// Listing a model only checks that its files exist; without a runtime they are never opened.
+void write_placeholder_model(const QString &root) {
+    const QDir folder(QDir(root).filePath("placeholder"));
+    QVERIFY(QDir().mkpath(folder.path()));
+    for (const char *name : {"det.onnx", "rec.onnx"}) {
+        QFile file(folder.filePath(name));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("x");
+    }
+    QFile manifest(folder.filePath("model.json"));
+    QVERIFY(manifest.open(QIODevice::WriteOnly));
+    manifest.write(R"({"name": "placeholder", "det": "det.onnx", "rec": "rec.onnx"})");
+}
 }
 
 // Engine choice, loading, recognition and release. PP-OCR needs its pack (models and
@@ -231,6 +245,13 @@ private slots:
         auto result = recognize_text(text_image("x"));
         QCOMPARE(result.code, -1);
         QCOMPARE(result.reason, QString("no_model"));
+        // A model without the runtime points at the runtime, not at another model.
+        write_placeholder_model(models.path());
+        QVERIFY(!set_ocr_engine(OCRManager::ENGINE_PP_RUST));
+        result = recognize_text(text_image("x"));
+        QCOMPARE(result.code, -1);
+        QCOMPARE(result.reason, QString("no_runtime"));
+        QVERIFY(QDir(QDir(models.path()).filePath("placeholder")).removeRecursively());
         if (!ppocr_) return;
         const QDir pack(QDir(QCoreApplication::applicationDirPath()).filePath("models"));
         QVERIFY(QFile::copy(pack.filePath("onnxruntime.dll"), QDir(models.path()).filePath("onnxruntime.dll")));

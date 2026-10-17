@@ -4992,6 +4992,10 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>PP-OCR 모델을 불러오지 못했습니다. 설정의 'OCR 설정'에서 다시 다운로드하거나 다른 모델을 선택하세요.</translation>
     </message>
     <message>
+        <source>ONNX Runtime, which PP-OCR needs, is not installed. Download it in the OCR settings.</source>
+        <translation>PP-OCR에 필요한 ONNX Runtime이 설치되어 있지 않습니다. 설정의 'OCR 설정'에서 다운로드할 수 있습니다.</translation>
+    </message>
+    <message>
         <source>This build does not include the text recognition engine.</source>
         <translation>이 빌드에는 텍스트 인식 엔진이 포함되어 있지 않습니다.</translation>
     </message>
@@ -6089,6 +6093,10 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
         <translation>모델을 다운로드할 수 없습니다. 네트워크 연결을 확인한 후 다시 시도하세요.</translation>
     </message>
     <message>
+        <source>Could not download ONNX Runtime. Check your network connection and try again.</source>
+        <translation>ONNX Runtime을 다운로드할 수 없습니다. 네트워크 연결을 확인한 후 다시 시도하세요.</translation>
+    </message>
+    <message>
         <source>No permission to write to the models folder.</source>
         <translation>모델 폴더에 쓸 권한이 없습니다.</translation>
     </message>
@@ -6101,8 +6109,16 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
         <translation>다운로드한 모델 파일이 손상되었습니다. 다시 시도하세요.</translation>
     </message>
     <message>
+        <source>The downloaded ONNX Runtime file is damaged. Try again.</source>
+        <translation>다운로드한 ONNX Runtime 파일이 손상되었습니다. 다시 시도하세요.</translation>
+    </message>
+    <message>
         <source>The model download stopped with an error (%1).</source>
         <translation>오류로 모델 다운로드가 중단되었습니다(%1).</translation>
+    </message>
+    <message>
+        <source>The ONNX Runtime download stopped with an error (%1).</source>
+        <translation>오류로 ONNX Runtime 다운로드가 중단되었습니다(%1).</translation>
     </message>
 </context>
 <context>

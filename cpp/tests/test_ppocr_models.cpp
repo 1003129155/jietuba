@@ -39,6 +39,26 @@ public:
     }
 };
 
+// Keeps the model runner's own error wording but never launches the helper; the test plays its events.
+class RecordingRunner : public ModelUpdaterProcess {
+public:
+    bool fake_busy = false;
+    bool runtime_at_start = false;
+    bool busy() const override { return fake_busy; }
+    bool start(const QString &, const QStringList &, int) override {
+        runtime_at_start = runtime;
+        fake_busy = true;
+        return true;
+    }
+    void cancel() override {}
+    void downloaded() { emit event_received("downloaded", transaction, {}); }
+    void fail_with(const QString &code) { emit failed(error_text({{"code", code}})); }
+    void finish() {
+        fake_busy = false;
+        emit finished();
+    }
+};
+
 void write_file(const QString &path, qint64 size) {
     QDir().mkpath(QFileInfo(path).path());
     QFile file(path);
@@ -53,6 +73,19 @@ void write_model(const QString &root, const QString &id, const QString &name) {
     QFile manifest(QDir(root).filePath(id + "/model.json"));
     QVERIFY(manifest.open(QIODevice::WriteOnly));
     manifest.write(QJsonDocument(QJsonObject{{"name", name}, {"det", "det.onnx"}, {"rec", "rec.onnx"}}).toJson());
+}
+
+// Leaves a catalog model's files where the helper stages them.
+void stage_download(const QString &root, const QString &catalog_id) {
+    for (const auto &file : ppocr_models::catalog_entry(catalog_id)->value("files").toArray())
+        write_file(QDir(root).filePath(".download-" + catalog_id + "/" + file.toObject().value("name").toString()), file.toObject().value("size").toVariant().toLongLong());
+}
+
+// The "staging" field of the request the helper was last started with; empty once the request is gone.
+QString requested_staging(const FakeRunner &runner) {
+    QFile request(runner.started.second.at(runner.started.second.indexOf("--model-file") + 1));
+    if (!request.open(QIODevice::ReadOnly)) return {};
+    return QJsonDocument::fromJson(request.readAll()).object().value("staging").toString();
 }
 
 // Clicks Yes on the next modal confirmation.
@@ -216,6 +249,33 @@ private slots:
         QVERIFY(runner.error_text({{"code", "cancelled"}}).contains("cancelled"));
     }
 
+    // The runtime's failures name the runtime, so they never read as the model's.
+    void runtimeErrorsNameTheRuntime() {
+        ModelUpdaterProcess runner;
+        runner.runtime = true;
+        for (const char *code : {"network", "source", "hash", "size", "other"}) {
+            const QString text = runner.error_text({{"code", code}});
+            QVERIFY2(text.contains("ONNX Runtime"), qPrintable(text));
+            QVERIFY2(!text.contains("model"), qPrintable(text));
+        }
+        // What does not depend on the download keeps its shared wording.
+        for (const char *code : {"cancelled", "permission"})
+            QCOMPARE(runner.error_text({{"code", code}}), ModelUpdaterProcess().error_text({{"code", code}}));
+    }
+
+    void downloadTellsTheRunnerWhetherItFetchesTheRuntime() {
+        ModelDownload download;
+        auto *runner = new RecordingRunner;
+        runner->setParent(&download);
+        download.set_runner(runner);
+        QVERIFY(download.start(ModelDownload::RUNTIME));
+        QVERIFY(runner->runtime_at_start);
+        runner->finish();
+        QVERIFY(download.start("ppocr-v6-tiny"));
+        QVERIFY(!runner->runtime_at_start);
+        runner->finish();
+    }
+
     void dialogRowsFollowCatalogAndInstalledState() {
         install_default();
         write_model(root_, "local", "local");
@@ -272,6 +332,81 @@ private slots:
         QCOMPARE(closed.size(), 0);
         runner->finish();
         QCOMPARE(closed.size(), 1);
+    }
+
+    void dialogDownloadsMissingRuntimeAfterAModel() {
+        install_default();
+        PpocrModelDialog dialog;
+        auto *runner = new FakeRunner;
+        runner->setParent(&dialog);
+        dialog.download()->set_runner(runner);
+        const auto korean_row = [&dialog] {
+            const auto all = dialog.rows();
+            return *std::find_if(all.begin(), all.end(), [](const auto &r) { return r.title == "PP-OCRv5 Korean"; });
+        };
+        korean_row().button->click();
+        QCOMPARE(requested_staging(*runner), QString("ppocr-v5-korean"));
+        stage_download(root_, "ppocr-v5-korean");
+        runner->event("downloaded");
+        runner->finish();
+        QCOMPARE(requested_staging(*runner), QString("runtime"));
+        QVERIFY(runner->fake_busy);
+        QCOMPARE(dialog.rows().first().action, QString("Cancel"));
+    }
+
+    void dialogSkipsRuntimeWhenTheModelDownloadDidNotFinish() {
+        install_default();
+        PpocrModelDialog dialog;
+        auto *runner = new FakeRunner;
+        runner->setParent(&dialog);
+        dialog.download()->set_runner(runner);
+        const auto rows = dialog.rows();
+        std::find_if(rows.begin(), rows.end(), [](const auto &r) { return r.title == "PP-OCRv5 Korean"; })->button->click();
+        runner->finish();
+        QVERIFY(!runner->fake_busy);
+        QCOMPARE(requested_staging(*runner), QString());
+    }
+
+    void dialogNamesTheRuntimeWhenOnlyItsDownloadFails() {
+        install_default();
+        PpocrModelDialog dialog;
+        auto *runner = new RecordingRunner;
+        runner->setParent(&dialog);
+        dialog.download()->set_runner(runner);
+        const auto row = [&dialog](const QString &title) {
+            const auto all = dialog.rows();
+            return *std::find_if(all.begin(), all.end(), [&title](const auto &r) { return r.title == title; });
+        };
+        row("PP-OCRv5 Korean").button->click();
+        QVERIFY(!runner->runtime_at_start);
+        stage_download(root_, "ppocr-v5-korean");
+        runner->downloaded();
+        runner->finish();
+        QVERIFY(runner->fake_busy && runner->runtime_at_start);
+        runner->fail_with("network");
+        runner->finish();
+        QVERIFY2(dialog.status_text().contains("ONNX Runtime"), qPrintable(dialog.status_text()));
+        QVERIFY2(!dialog.status_text().contains("model"), qPrintable(dialog.status_text()));
+        // The model that arrived stays installed, and the runtime can be tried again.
+        QVERIFY(row("PP-OCRv5 Korean").detail.endsWith("Downloaded"));
+        QCOMPARE(row("ONNX Runtime").action, QString("Download"));
+    }
+
+    void dialogKeepsAnErrorThatFollowsADownloadedModel() {
+        install_default();
+        PpocrModelDialog dialog;
+        auto *runner = new RecordingRunner;
+        runner->setParent(&dialog);
+        dialog.download()->set_runner(runner);
+        const auto rows = dialog.rows();
+        std::find_if(rows.begin(), rows.end(), [](const auto &r) { return r.title == "PP-OCRv5 Korean"; })->button->click();
+        stage_download(root_, "ppocr-v5-korean");
+        runner->downloaded();
+        // The helper still fails after handing the model over: the error stays and no runtime download starts over it.
+        runner->fail_with("network");
+        runner->finish();
+        QVERIFY(!runner->fake_busy);
+        QVERIFY2(dialog.status_text().contains("Could not download the model"), qPrintable(dialog.status_text()));
     }
 
     void dialogDeletesLocalModels() {

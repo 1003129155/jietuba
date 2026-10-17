@@ -54,7 +54,7 @@ ARM64 版在 x64 上交叉编译：先编好 x64 静态 Qt（ARM64 构建要用�
 - ONNX Runtime：取自 PyPI 上微软发布的 `onnxruntime` wheel（当前 1.24.4，x64 和 ARM64 各一份），下载后校验整个 wheel 的 SHA-256，再从中取出带微软签名的 `onnxruntime.dll` 并校验它；地址依次是阿里云、清华、腾讯云的 PyPI 镜像和 pypi.org，给的是同一个文件。
 - 模型：内置清单列出 PP-OCRv6 tiny/small/medium、PP-OCRv5 mobile/server 和几种语种识别模型，地址和 SHA-256 固定在 `rust_libs/ppocr_rust/catalog.json`；也可以从本地 ONNX 文件添加，添加前会试识别一遍。
 
-下载由更新器的 `download-model` 命令完成，模型的发现、校验和就位都在 `ppocr_rust::models`，和 Python 版共用；下载、添加、切换都不用重启。也可以手动放：`PP-OCRv6_det_small.onnx`、`PP-OCRv6_rec_small.onnx`（仓库根目录 `models/` 里就有）和 ONNX Runtime 1.24 及以上的纯 CPU 版 `onnxruntime.dll`。
+下载由更新器的 `download-model` 命令完成，模型的发现、校验和就位都在 `ppocr_rust::models`，和 Python 版共用；下载、添加、切换都不用重启。模型下载成功后，如果 `models/` 里还没有可用的 ONNX Runtime，管理窗口会接着把它下载下来；取消或失败时不下载。也可以手动放：`PP-OCRv6_det_small.onnx`、`PP-OCRv6_rec_small.onnx`（仓库根目录 `models/` 里就有）和 ONNX Runtime 1.24 及以上的纯 CPU 版 `onnxruntime.dll`。
 
 跑 OCR 测试时，把 CMake 的 `JIETUBA_PPOCR_MODELS` 指向放着默认模型和 `onnxruntime.dll` 的目录；不设时，需要真实模型的用例跳过。
 

@@ -95,11 +95,15 @@ void clean_staging() {
 QString ModelUpdaterProcess::error_text(const QJsonObject &payload) const {
     const QString code = payload.value("code").toString();
     log_warning(T("模型下载报错 {code}: {message}", {{"code", payload.value("code").toVariant().toString()}, {"message", payload.value("message").toVariant().toString()}}), "OCR");
-    if (code == "network" || code == "source") return tr_models("Could not download the model. Check your network connection and try again.");
-    if (code == "hash" || code == "size") return tr_models("The downloaded model file is damaged. Try again.");
+    if (code == "network" || code == "source")
+        return runtime ? tr_models("Could not download ONNX Runtime. Check your network connection and try again.")
+                       : tr_models("Could not download the model. Check your network connection and try again.");
+    if (code == "hash" || code == "size")
+        return runtime ? tr_models("The downloaded ONNX Runtime file is damaged. Try again.") : tr_models("The downloaded model file is damaged. Try again.");
     if (code == "permission") return tr_models("No permission to write to the models folder.");
     if (code == "cancelled" || code == "timeout") return tr_models("The download was cancelled.");
-    return tr_models("The model download stopped with an error (%1).").replace("%1", code.isEmpty() ? QStringLiteral("unknown") : code);
+    QString text = runtime ? tr_models("The ONNX Runtime download stopped with an error (%1).") : tr_models("The model download stopped with an error (%1).");
+    return text.replace("%1", code.isEmpty() ? QStringLiteral("unknown") : code);
 }
 
 ModelDownload::ModelDownload(QObject *parent) : QObject(parent) { set_runner(new ModelUpdaterProcess(this)); }
@@ -136,6 +140,7 @@ bool ModelDownload::start(const QString &catalog_id) {
     request_ = request.fileName();
     catalog_id_ = catalog_id;
     error_.clear();
+    if (auto *process = qobject_cast<ModelUpdaterProcess *>(runner_)) process->runtime = catalog_id == RUNTIME;
     const QString install_exe = QDir::toNativeSeparators(QCoreApplication::applicationFilePath());
     if (!runner_->start("download-model", {"--install-exe", install_exe, "--model-file", QDir::toNativeSeparators(request_)}, 3600000)) {
         remove_request();

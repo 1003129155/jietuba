@@ -74,6 +74,7 @@ private:
     std::deque<std::pair<double, qint64>> samples_;
     std::function<double()> clock_;
     bool close_after_download_ = false;
+    bool runtime_next_ = false;
     bool importing_ = false;
 };
 

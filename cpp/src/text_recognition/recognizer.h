@@ -24,6 +24,8 @@ inline const QString NO_TEXT = "no_text";
 inline const QString FAILED = "failed";
 // PP-OCR is there but no model is installed, and there is no Snipping Tool OCR.
 inline const QString NO_MODEL = "no_model";
+// A model is installed but models/onnxruntime.dll is missing or too old.
+inline const QString NO_RUNTIME = "no_runtime";
 // The model files do not load, and the automatic choice has nothing else.
 inline const QString MODEL_BROKEN = "model_broken";
 }
