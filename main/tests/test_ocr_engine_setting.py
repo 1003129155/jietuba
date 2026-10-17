@@ -4,7 +4,7 @@ import pytest
 from PySide6.QtCore import QObject, QSettings, Signal
 from types import SimpleNamespace
 
-from settings.tool_settings import OCR_ENGINES, ToolSettingsManager
+from settings.tool_settings import ToolSettingsManager
 from ui.settings_ui.dialog import SettingsDialog
 from ui.settings_ui.page_capture import create_capture_page
 
