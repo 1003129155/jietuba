@@ -12,6 +12,7 @@ import pytest
 from PySide6.QtGui import QImage
 
 from ocr import ocr_manager as om
+from ocr import ppocr_models
 from ocr import snipping_tool_ocr
 
 
@@ -20,9 +21,10 @@ from ocr import snipping_tool_ocr
     (True, False, "missing_models"),
     (True, True, "available"),
 ])
-def test_ppocr_status_distinguishes_engine_and_models(monkeypatch, engine, models, status):
+def test_ppocr_status_distinguishes_engine_and_models(monkeypatch, manager, engine, models, status):
     monkeypatch.setattr(om, "PP_RUST_ENGINE_AVAILABLE", engine)
-    monkeypatch.setattr(om, "PP_RUST_AVAILABLE", models)
+    monkeypatch.setattr(ppocr_models, "resolve", lambda model_id: _MODELS.get(model_id) if models else None)
+    monkeypatch.setattr(ppocr_models, "auto_choice", lambda: _MODELS[""] if models else None)
     assert om.get_ppocr_status() == status
 
 
@@ -33,8 +35,16 @@ class _FakeTextLine:
         self.score = 0.8
 
 
+# 假装 models/ 里装着的模型：默认模型和一个韩文模型
+_MODELS = {
+    "": {"id": "", "det": "det.onnx", "rec": "rec.onnx", "dict": None},
+    "korean": {"id": "korean", "det": "korean/det.onnx", "rec": "korean/rec.onnx", "dict": None},
+}
+
+
 class _FakePpEngine:
-    def __init__(self, det_path, rec_path):
+    def __init__(self, det_path, rec_path, dict_path=None):
+        self.files = (det_path, rec_path, dict_path)
         self.closed = False
 
     def recognize(self, data, w, h, stride):
@@ -47,9 +57,14 @@ class _FakePpEngine:
 class _FakePpModule:
     def __init__(self):
         self.instances = []
+        self.attempts = []
+        self.broken = set()   # 这些 det 文件加载时报错，冒充损坏的模型
 
-    def Engine(self, det_path, rec_path):  # noqa: N802 —— 冒充扩展里的类名
-        engine = _FakePpEngine(det_path, rec_path)
+    def Engine(self, det_path, rec_path, dict_path=None):  # noqa: N802 —— 冒充扩展里的类名
+        self.attempts.append(det_path)
+        if det_path in self.broken:
+            raise RuntimeError("Load model failed")
+        engine = _FakePpEngine(det_path, rec_path, dict_path)
         self.instances.append(engine)
         return engine
 
@@ -78,9 +93,9 @@ class _FakeSnippingToolOcr:
 def engines(monkeypatch):
     pp = _FakePpModule()
     monkeypatch.setitem(sys.modules, "ppocr_rust", pp)
-    monkeypatch.setattr(om, "PP_RUST_AVAILABLE", True)
-    monkeypatch.setattr(om, "_pp_det", "det.onnx")
-    monkeypatch.setattr(om, "_pp_rec", "rec.onnx")
+    monkeypatch.setattr(om, "PP_RUST_ENGINE_AVAILABLE", True)
+    monkeypatch.setattr(ppocr_models, "resolve", _MODELS.get)
+    monkeypatch.setattr(ppocr_models, "auto_choice", lambda: _MODELS[""])
     monkeypatch.setattr(om, "ONEOCR_AVAILABLE", True)
     monkeypatch.setattr(om, "_snipping_tool", ("Microsoft.ScreenSketch_1.0.0.0_x64__x", "src"))
     monkeypatch.setattr(snipping_tool_ocr, "SnippingToolOcr", _FakeSnippingToolOcr)
@@ -94,7 +109,9 @@ def manager(monkeypatch):
     monkeypatch.setattr(om.OCRManager, "_instance", None)
     monkeypatch.setattr(om.OCRManager, "_initialized", False)
     monkeypatch.setattr(om, "_configured_preference", lambda: "auto")
-    yield om.OCRManager()
+    manager = om.OCRManager()
+    manager._pp_model_id = ""
+    yield manager
 
 
 def _image():
@@ -120,7 +137,6 @@ class TestResolve:
 
     def test_lite_build_choosing_ppocr_reports_missing_engine(
             self, manager, engines, monkeypatch, qapp):
-        monkeypatch.setattr(om, "PP_RUST_AVAILABLE", False)
         monkeypatch.setattr(om, "PP_RUST_ENGINE_AVAILABLE", False)
         assert manager.set_engine("ppocr_rust") is False
         assert manager.get_current_engine() is None
@@ -128,11 +144,11 @@ class TestResolve:
         assert result["code"] == -1
         assert "缺少引擎" in result["msg"]
 
-    def test_explicit_choice_does_not_fall_back(self, manager, engines, monkeypatch, qapp):
+    def test_missing_snipping_tool_falls_back_to_auto(self, manager, engines, monkeypatch, qapp):
         monkeypatch.setattr(om, "ONEOCR_AVAILABLE", False)
-        assert manager.set_engine("oneocr") is False
-        assert manager.recognize_pixmap(_image())["code"] == -1
-        assert engines.instances == []
+        assert manager.set_engine("oneocr") is True
+        assert manager.get_current_engine() == "ppocr_rust"
+        assert _text(manager.recognize_pixmap(_image())) == ["pp"]
 
     def test_unknown_preference_is_rejected(self, manager, engines):
         assert manager.set_engine("windows_media_ocr") is False
@@ -232,3 +248,94 @@ class TestSwitch:
         manager.release_engine()
         assert _text(manager.recognize_pixmap(_image())) == ["oneocr"]
         assert len(_FakeSnippingToolOcr.instances) == 2
+
+
+class TestModelSwitch:
+
+    def test_auto_uses_the_priority_choice_not_the_saved_model(self, manager, engines, monkeypatch, qapp):
+        monkeypatch.setattr(om, "ONEOCR_AVAILABLE", False)
+        monkeypatch.setattr(ppocr_models, "auto_choice", lambda: _MODELS["korean"])
+        manager.set_ppocr_model("")
+        assert manager.set_engine("auto") is True
+        manager.recognize_pixmap(_image())
+        assert engines.instances[0].files == ("korean/det.onnx", "korean/rec.onnx", None)
+
+    def test_switching_model_reloads_on_next_use(self, manager, engines, monkeypatch, qapp):
+        monkeypatch.setattr(om, "ONEOCR_AVAILABLE", False)
+        manager.set_engine("ppocr_rust")
+        assert _text(manager.recognize_pixmap(_image())) == ["pp"]
+        first = engines.instances[0]
+        manager.set_ppocr_model("korean")
+        assert first.closed is False      # 切换时不动已加载的引擎，下次识别才换
+        assert _text(manager.recognize_pixmap(_image())) == ["pp"]
+        assert first.closed is True
+        assert engines.instances[1].files == ("korean/det.onnx", "korean/rec.onnx", None)
+
+    def test_missing_model_falls_back_to_auto(self, manager, engines, qapp):
+        """选的模型被删了：按「自动」挑，有截图工具 OCR 就用它，设置不动。"""
+        manager.set_ppocr_model("deleted")
+        assert manager.set_engine("ppocr_rust") is True
+        assert _text(manager.recognize_pixmap(_image())) == ["oneocr"]
+        assert manager._pp_model_id == "deleted"
+
+    def test_missing_model_without_snipping_tool_uses_the_auto_model(self, manager, engines, monkeypatch, qapp):
+        monkeypatch.setattr(om, "ONEOCR_AVAILABLE", False)
+        manager.set_ppocr_model("deleted")
+        assert manager.set_engine("ppocr_rust") is True
+        assert _text(manager.recognize_pixmap(_image())) == ["pp"]
+        assert engines.instances[0].files == ("det.onnx", "rec.onnx", None)
+
+    def test_model_deleted_after_choosing_it_falls_back_on_next_use(self, manager, engines, monkeypatch, qapp):
+        monkeypatch.setattr(om, "ONEOCR_AVAILABLE", False)
+        installed = dict(_MODELS)
+        monkeypatch.setattr(ppocr_models, "resolve", installed.get)
+        manager.set_ppocr_model("korean")
+        manager.set_engine("ppocr_rust")
+        manager.recognize_pixmap(_image())
+        del installed["korean"]
+        assert _text(manager.recognize_pixmap(_image())) == ["pp"]
+        assert engines.instances[-1].files == ("det.onnx", "rec.onnx", None)
+
+    def test_no_model_at_all_reports_no_model(self, manager, engines, monkeypatch, qapp):
+        monkeypatch.setattr(om, "ONEOCR_AVAILABLE", False)
+        monkeypatch.setattr(ppocr_models, "resolve", lambda model_id: None)
+        monkeypatch.setattr(ppocr_models, "auto_choice", lambda: None)
+        assert manager.set_engine("ppocr_rust") is False
+        result = manager.recognize_pixmap(_image())
+        assert (result["code"], result["reason"]) == (-1, "no_model")
+        assert engines.attempts == []
+
+    def test_broken_model_falls_back_and_is_not_loaded_again(self, manager, engines, monkeypatch, qapp):
+        monkeypatch.setattr(om, "ONEOCR_AVAILABLE", False)
+        engines.broken.add("korean/det.onnx")
+        manager.set_ppocr_model("korean")
+        manager.set_engine("ppocr_rust")
+        assert _text(manager.recognize_pixmap(_image())) == ["pp"]
+        assert _text(manager.recognize_pixmap(_image())) == ["pp"]
+        assert engines.attempts == ["korean/det.onnx", "det.onnx"]
+
+    def test_broken_model_with_nothing_else_reports_why(self, manager, engines, monkeypatch, qapp):
+        monkeypatch.setattr(om, "ONEOCR_AVAILABLE", False)
+        monkeypatch.setattr(ppocr_models, "auto_choice", lambda: _MODELS["korean"])
+        engines.broken.add("korean/det.onnx")
+        manager.set_ppocr_model("korean")
+        manager.set_engine("ppocr_rust")
+        result = manager.recognize_pixmap(_image())
+        assert (result["code"], result["reason"]) == (-1, "model_broken")
+
+    def test_replaced_model_files_are_tried_again(self, manager, engines, monkeypatch, qapp, tmp_path):
+        """坏模型按文件大小和修改时间记：重新下载换掉文件后照常加载。"""
+        monkeypatch.setattr(om, "ONEOCR_AVAILABLE", False)
+        det, rec = tmp_path / "det.onnx", tmp_path / "rec.onnx"
+        det.write_bytes(b"x")
+        rec.write_bytes(b"x")
+        model = {"id": "mine", "det": str(det), "rec": str(rec), "dict": None}
+        monkeypatch.setattr(ppocr_models, "resolve", lambda model_id: model)
+        monkeypatch.setattr(ppocr_models, "auto_choice", lambda: model)
+        engines.broken.add(str(det))
+        manager.set_ppocr_model("mine")
+        manager.set_engine("ppocr_rust")
+        assert manager.recognize_pixmap(_image())["reason"] == "model_broken"
+        engines.broken.clear()
+        det.write_bytes(b"fixed")
+        assert _text(manager.recognize_pixmap(_image())) == ["pp"]

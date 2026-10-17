@@ -9,6 +9,7 @@ from .deepl import DeepLProvider
 from .google import GoogleTranslateProvider
 from .tencent import TencentTranslateProvider
 from .volcengine import VolcengineTranslateProvider
+from .youdao import YoudaoTranslateProvider
 
 __all__ = [
     "AmazonTranslateProvider",
@@ -21,4 +22,5 @@ __all__ = [
     "GoogleTranslateProvider",
     "TencentTranslateProvider",
     "VolcengineTranslateProvider",
+    "YoudaoTranslateProvider",
 ]

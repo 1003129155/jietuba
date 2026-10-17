@@ -685,18 +685,6 @@ Replace it?</translation>
         <translation>Windows Snipping Tool</translation>
     </message>
     <message>
-        <source>oneocr (not found)</source>
-        <translation>oneocr (not found)</translation>
-    </message>
-    <message>
-        <source>PP-OCR (missing engine)</source>
-        <translation>PP-OCR (missing engine)</translation>
-    </message>
-    <message>
-        <source>PP-OCR (missing models)</source>
-        <translation>PP-OCR (missing models)</translation>
-    </message>
-    <message>
         <source>OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version</source>
         <translation>OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version</translation>
     </message>
@@ -2222,6 +2210,30 @@ Replace it?</translation>
         <source>Used this month: %1 / %2 characters (quota guard off)</source>
         <translation>Used this month: %1 / %2 characters (quota guard off)</translation>
     </message>
+    <message>
+        <source>Youdao App ID</source>
+        <translation>Youdao App ID</translation>
+    </message>
+    <message>
+        <source>ID of an application bound to Text Translation (Application Management)</source>
+        <translation>ID of an application bound to Text Translation (Application Management)</translation>
+    </message>
+    <message>
+        <source>Youdao App Secret</source>
+        <translation>Youdao App Secret</translation>
+    </message>
+    <message>
+        <source>Application secret, paired with the application ID</source>
+        <translation>Application secret, paired with the application ID</translation>
+    </message>
+    <message>
+        <source>Youdao AI Cloud: new accounts get a trial credit, after that translation is billed by character count.</source>
+        <translation>Youdao AI Cloud: new accounts get a trial credit, after that translation is billed by character count.</translation>
+    </message>
+    <message>
+        <source>Youdao AI Cloud Console</source>
+        <translation>Youdao AI Cloud Console</translation>
+    </message>
 </context>
 <!-- ========== Clipboard Window ========== -->
 <context>
@@ -2528,9 +2540,11 @@ Items in the group will be moved back to clipboard history.</translation>
         <translation>Confirm Clear</translation>
     </message>
     <message>
-        <source>Are you sure you want to clear all clipboard history?
+        <source>Are you sure you want to clear the clipboard history?
+Pinned items and items in groups will be kept.
 This action cannot be undone.</source>
-        <translation>Are you sure you want to clear all clipboard history?
+        <translation>Are you sure you want to clear the clipboard history?
+Pinned items and items in groups will be kept.
 This action cannot be undone.</translation>
     </message>
     <message>
@@ -2652,6 +2666,10 @@ This action cannot be undone.</translation>
     <message>
         <source>Extract Letters</source>
         <translation>Extract Letters</translation>
+    </message>
+    <message>
+        <source>Clear History</source>
+        <translation>Clear History</translation>
     </message>
 </context>
 
@@ -3365,8 +3383,8 @@ This action cannot be undone.</source>
 This action cannot be undone.</translation>
     </message>
     <message>
-        <source>Also delete saved content in groups</source>
-        <translation>Also delete saved content in groups</translation>
+        <source>Also delete pinned and grouped content</source>
+        <translation>Also delete pinned and grouped content</translation>
     </message>
     <message>
         <source>Clipboard history cleared successfully</source>
@@ -3646,6 +3664,26 @@ This action cannot be undone.</translation>
     <message>
         <source>SecretKey</source>
         <translation>SecretKey</translation>
+    </message>
+    <message>
+        <source>Youdao App ID</source>
+        <translation>Youdao App ID</translation>
+    </message>
+    <message>
+        <source>ID of an application bound to Text Translation (Application Management)</source>
+        <translation>ID of an application bound to Text Translation (Application Management)</translation>
+    </message>
+    <message>
+        <source>Youdao App Secret</source>
+        <translation>Youdao App Secret</translation>
+    </message>
+    <message>
+        <source>Application secret, paired with the application ID</source>
+        <translation>Application secret, paired with the application ID</translation>
+    </message>
+    <message>
+        <source>Youdao AI Cloud Console</source>
+        <translation>Youdao AI Cloud Console</translation>
     </message>
     <!-- window / nav -->
     <message>
@@ -4755,6 +4793,14 @@ Items in the group will be moved back to clipboard history.</translation>
         <translation>No text found in the selection.</translation>
     </message>
     <message>
+        <source>No PP-OCR model is installed. Download one in the OCR settings.</source>
+        <translation>No PP-OCR model is installed. Download one in the OCR settings.</translation>
+    </message>
+    <message>
+        <source>The PP-OCR model could not be loaded. Download it again or choose another one in the OCR settings.</source>
+        <translation>The PP-OCR model could not be loaded. Download it again or choose another one in the OCR settings.</translation>
+    </message>
+    <message>
         <source>This build does not include the text recognition engine.</source>
         <translation>This build does not include the text recognition engine.</translation>
     </message>
@@ -5509,6 +5555,10 @@ Make sure gifrecorder is installed correctly.</translation>
         <translation>Tiled</translation>
     </message>
     <message>
+        <source>Diamond</source>
+        <translation>Diamond</translation>
+    </message>
+    <message>
         <source>Center</source>
         <translation>Center</translation>
     </message>
@@ -5577,8 +5627,28 @@ Make sure gifrecorder is installed correctly.</translation>
         <translation>Custom Color</translation>
     </message>
     <message>
-        <source>Angle applies to tiled watermarks</source>
-        <translation>Angle applies to tiled watermarks</translation>
+        <source>Angle applies to tiled and diamond watermarks</source>
+        <translation>Angle applies to tiled and diamond watermarks</translation>
+    </message>
+    <message>
+        <source>Grid Lines</source>
+        <translation>Grid Lines</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>None</translation>
+    </message>
+    <message>
+        <source>Solid</source>
+        <translation>Solid</translation>
+    </message>
+    <message>
+        <source>Dashed</source>
+        <translation>Dashed</translation>
+    </message>
+    <message>
+        <source>Grid lines apply to diamond watermarks</source>
+        <translation>Grid lines apply to diamond watermarks</translation>
     </message>
 </context>
 <context>
@@ -5661,6 +5731,251 @@ Make sure gifrecorder is installed correctly.</translation>
     <message>
         <source>Recognizing...</source>
         <translation>Recognizing...</translation>
+    </message>
+</context>
+<context>
+    <name>PpocrModelDialog</name>
+    <message>
+        <source>%1 MB</source>
+        <translation>%1 MB</translation>
+    </message>
+    <message>
+        <source>%1 is ready.</source>
+        <translation>%1 is ready.</translation>
+    </message>
+    <message>
+        <source>, </source>
+        <translation>, </translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>Add</translation>
+    </message>
+    <message>
+        <source>Add Local Model</source>
+        <translation>Add Local Model</translation>
+    </message>
+    <message>
+        <source>Add Local Model...</source>
+        <translation>Add Local Model...</translation>
+    </message>
+    <message>
+        <source>Added manually</source>
+        <translation>Added manually</translation>
+    </message>
+    <message>
+        <source>Browse...</source>
+        <translation>Browse...</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Checking %1...</source>
+        <translation>Checking %1...</translation>
+    </message>
+    <message>
+        <source>Chinese</source>
+        <translation>Chinese</translation>
+    </message>
+    <message>
+        <source>Choose File</source>
+        <translation>Choose File</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>Could not add the model</source>
+        <translation>Could not add the model</translation>
+    </message>
+    <message>
+        <source>Could not delete the model</source>
+        <translation>Could not delete the model</translation>
+    </message>
+    <message>
+        <source>Could not start the download.</source>
+        <translation>Could not start the download.</translation>
+    </message>
+    <message>
+        <source>Cyrillic</source>
+        <translation>Cyrillic</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>Delete</translation>
+    </message>
+    <message>
+        <source>Delete %1 and its files?</source>
+        <translation>Delete %1 and its files?</translation>
+    </message>
+    <message>
+        <source>Delete Model</source>
+        <translation>Delete Model</translation>
+    </message>
+    <message>
+        <source>Detection model</source>
+        <translation>Detection model</translation>
+    </message>
+    <message>
+        <source>Dictionary</source>
+        <translation>Dictionary</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>Download</translation>
+    </message>
+    <message>
+        <source>Downloaded</source>
+        <translation>Downloaded</translation>
+    </message>
+    <message>
+        <source>English</source>
+        <translation>English</translation>
+    </message>
+    <message>
+        <source>Greek</source>
+        <translation>Greek</translation>
+    </message>
+    <message>
+        <source>Included</source>
+        <translation>Included</translation>
+    </message>
+    <message>
+        <source>Japanese</source>
+        <translation>Japanese</translation>
+    </message>
+    <message>
+        <source>Korean</source>
+        <translation>Korean</translation>
+    </message>
+    <message>
+        <source>Latin-script languages</source>
+        <translation>Latin-script languages</translation>
+    </message>
+    <message>
+        <source>Manage PP-OCR Models</source>
+        <translation>Manage PP-OCR Models</translation>
+    </message>
+    <message>
+        <source>Models are stored in the models folder next to the program. Recognition uses the model selected on the settings page.</source>
+        <translation>Models are stored in the models folder next to the program. Recognition uses the model selected on the settings page.</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>Name</translation>
+    </message>
+    <message>
+        <source>Not downloaded</source>
+        <translation>Not downloaded</translation>
+    </message>
+    <message>
+        <source>ONNX models (*.onnx)</source>
+        <translation>ONNX models (*.onnx)</translation>
+    </message>
+    <message>
+        <source>Open Models Folder</source>
+        <translation>Open Models Folder</translation>
+    </message>
+    <message>
+        <source>Optional: only if the recognition model has no built-in dictionary</source>
+        <translation>Optional: only if the recognition model has no built-in dictionary</translation>
+    </message>
+    <message>
+        <source>Recognition model</source>
+        <translation>Recognition model</translation>
+    </message>
+    <message>
+        <source>Text files (*.txt)</source>
+        <translation>Text files (*.txt)</translation>
+    </message>
+    <message>
+        <source>Thai</source>
+        <translation>Thai</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>%1 (not installed)</source>
+        <translation>%1 (not installed)</translation>
+    </message>
+    <message>
+        <source>Download models for other languages or speeds, or add your own.</source>
+        <translation>Download models for other languages or speeds, or add your own.</translation>
+    </message>
+    <message>
+        <source>Manage Models</source>
+        <translation>Manage Models</translation>
+    </message>
+</context>
+<context>
+    <name>ModelUpdaterProcess</name>
+    <message>
+        <source>Could not download the model. Check your network connection and try again.</source>
+        <translation>Could not download the model. Check your network connection and try again.</translation>
+    </message>
+    <message>
+        <source>No permission to write to the models folder.</source>
+        <translation>No permission to write to the models folder.</translation>
+    </message>
+    <message>
+        <source>The download was cancelled.</source>
+        <translation>The download was cancelled.</translation>
+    </message>
+    <message>
+        <source>The downloaded model file is damaged. Try again.</source>
+        <translation>The downloaded model file is damaged. Try again.</translation>
+    </message>
+    <message>
+        <source>The model download stopped with an error (%1).</source>
+        <translation>The model download stopped with an error (%1).</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Manage PP-OCR Models</source>
+        <translation>Manage PP-OCR Models</translation>
+    </message>
+</context>
+<context>
+    <name>PpocrModelDialog</name>
+    <message>
+        <source>Needed by PP-OCR</source>
+        <translation>Needed by PP-OCR</translation>
+    </message>
+    <message>
+        <source>Missing: put onnxruntime.dll (version 1.24 or later) in the models folder.</source>
+        <translation>Missing: put onnxruntime.dll (version 1.24 or later) in the models folder.</translation>
+    </message>
+</context>
+<context>
+    <name>PpocrModelDialog</name>
+    <message>
+        <source>%1 MB/s</source>
+        <translation>%1 MB/s</translation>
+    </message>
+    <message>
+        <source>Downloading...</source>
+        <translation>Downloading...</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Snipping Tool OCR</source>
+        <translation>Snipping Tool OCR</translation>
+    </message>
+    <message>
+        <source>Download more models...</source>
+        <translation>Download more models...</translation>
+    </message>
+    <message>
+        <source>The deleted model was selected for OCR, so OCR now uses Auto.</source>
+        <translation>The deleted model was selected for OCR, so OCR now uses Auto.</translation>
     </message>
 </context>
 </TS>

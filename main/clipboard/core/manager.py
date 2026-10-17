@@ -355,6 +355,24 @@ class ClipboardManager:
             log_error(T("清空失败: {e}", e=e), "Clipboard")
             return False
     
+    def clear_unpinned_ungrouped(self, vacuum: bool = True) -> bool:
+        """清理既没置顶、也没放进分组的历史；置顶和分组里的内容保留
+
+        Args:
+            vacuum: True=删完整理数据库文件、立即回收磁盘空间；
+                    False=只删行，适合只想让条目不再显示的场合
+        """
+        if not self.is_available:
+            return False
+
+        try:
+            self._manager.clear_unpinned_ungrouped(vacuum)
+            log_info(T("🗑️ 已清理未置顶且未分组的历史"), "Clipboard")
+            return True
+        except Exception as e:
+            log_error(T("清空失败: {e}", e=e), "Clipboard")
+            return False
+    
     def add_item(self, content: str, content_type: str = "text", 
                  title: Optional[str] = None) -> Optional[int]:
         """

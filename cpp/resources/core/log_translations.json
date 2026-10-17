@@ -576,6 +576,7 @@
 "检测到模态窗口 {modal_type}，忽略截图触发": "Detected modal window {modal_type}, ignoring screenshot trigger",
 "检测到的窗口列表（前5个）:": "Detected window list (first 5):",
 "检测到首次运行，将自动打开设置窗口": "First run detected, settings window will open automatically",
+"模型下载报错 {code}: {message}": "Model download error {code}: {message}",
 "模式切换: {mode}": "Mode switched: {mode}",
 "欢迎向导品牌图标": "Welcome wizard brand icon",
 "正在初始化 ppocr_rust 引擎 (Rust + ort)...": "Initializing ppocr_rust engine (Rust + ort)...",
@@ -593,6 +594,7 @@
 "清理失败的占位文件": "Cleaning up failed placeholder file",
 "清理实例记录": "Cleaning up instance record",
 "清理工具栏": "Cleaning up toolbar",
+"清理未完成的模型下载": "Cleaning up unfinished model downloads",
 "清理画笔指示器失败: {exc}": "Failed to clean up brush indicator: {exc}",
 "清理管理器...": "Cleaning up manager...",
 "清理翻译线程": "Cleaning up translation thread",
@@ -828,6 +830,7 @@
 "🔇 [Logger] 日志已禁用": "🔇 [Logger] Logging disabled",
 "🗑️ [日志清理] 已删除 {deleted_count} 个过期日志文件（保留 {retention_days} 天）": "🗑️ [Log cleanup] Deleted {deleted_count} expired log file(s) (retention: {retention_days} days)",
 "🗑️ 历史已清空 (keep_grouped={keep_grouped})": "🗑️ History cleared (keep_grouped={keep_grouped})",
+"🗑️ 已清理未置顶且未分组的历史": "🗑️ Cleared history that is neither pinned nor grouped",
 "🚨 检测到窗口在所有显示器外，执行强制修复...": "🚨 Window detected outside all screens, performing forced fix...",
 "🛑 [Logger] 日志系统关闭": "🛑 [Logger] Logging system shut down",
 "🛑 停止监听": "🛑 Stopped monitoring"

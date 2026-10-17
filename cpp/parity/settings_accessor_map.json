@@ -1,7 +1,7 @@
 [
   {
     "symbol": "ToolSettingsManager.get_hotkey_2",
-    "line": 907,
+    "line": 917,
     "kind": "get",
     "name": "get_hotkey_2",
     "path": "app/hotkey_2",
@@ -9,21 +9,21 @@
   },
   {
     "symbol": "ToolSettingsManager.set_hotkey_2",
-    "line": 911,
+    "line": 921,
     "kind": "set",
     "name": "set_hotkey_2",
     "path": "app/hotkey_2"
   },
   {
     "symbol": "ToolSettingsManager.set_clipboard_hotkey",
-    "line": 919,
+    "line": 929,
     "kind": "set",
     "name": "set_clipboard_hotkey",
     "path": "clipboard/hotkey"
   },
   {
     "symbol": "ToolSettingsManager.get_clipboard_hotkey_2",
-    "line": 923,
+    "line": 933,
     "kind": "get",
     "name": "get_clipboard_hotkey_2",
     "path": "clipboard/hotkey_2",
@@ -31,14 +31,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_clipboard_hotkey_2",
-    "line": 927,
+    "line": 937,
     "kind": "set",
     "name": "set_clipboard_hotkey_2",
     "path": "clipboard/hotkey_2"
   },
   {
     "symbol": "ToolSettingsManager.get_pin_clipboard_hotkey",
-    "line": 931,
+    "line": 941,
     "kind": "get",
     "name": "get_pin_clipboard_hotkey",
     "path": "clipboard/pin_hotkey",
@@ -46,14 +46,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_pin_clipboard_hotkey",
-    "line": 939,
+    "line": 949,
     "kind": "set",
     "name": "set_pin_clipboard_hotkey",
     "path": "clipboard/pin_hotkey"
   },
   {
     "symbol": "ToolSettingsManager.get_pin_clipboard_hotkey_2",
-    "line": 943,
+    "line": 953,
     "kind": "get",
     "name": "get_pin_clipboard_hotkey_2",
     "path": "clipboard/pin_hotkey_2",
@@ -61,14 +61,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_pin_clipboard_hotkey_2",
-    "line": 951,
+    "line": 961,
     "kind": "set",
     "name": "set_pin_clipboard_hotkey_2",
     "path": "clipboard/pin_hotkey_2"
   },
   {
     "symbol": "ToolSettingsManager.get_translation_hotkey",
-    "line": 955,
+    "line": 965,
     "kind": "get",
     "name": "get_translation_hotkey",
     "path": "app/translation_hotkey",
@@ -76,14 +76,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_translation_hotkey",
-    "line": 963,
+    "line": 973,
     "kind": "set",
     "name": "set_translation_hotkey",
     "path": "app/translation_hotkey"
   },
   {
     "symbol": "ToolSettingsManager.get_translation_hotkey_2",
-    "line": 967,
+    "line": 977,
     "kind": "get",
     "name": "get_translation_hotkey_2",
     "path": "app/translation_hotkey_2",
@@ -91,14 +91,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_translation_hotkey_2",
-    "line": 975,
+    "line": 985,
     "kind": "set",
     "name": "set_translation_hotkey_2",
     "path": "app/translation_hotkey_2"
   },
   {
     "symbol": "ToolSettingsManager.get_inapp_cursor_move_mode",
-    "line": 1034,
+    "line": 1044,
     "kind": "get",
     "name": "get_inapp_cursor_move_mode",
     "path": "inapp/inapp_cursor_move_mode",
@@ -106,14 +106,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_inapp_cursor_move_mode",
-    "line": 1041,
+    "line": 1051,
     "kind": "set",
     "name": "set_inapp_cursor_move_mode",
     "path": "inapp/inapp_cursor_move_mode"
   },
   {
     "symbol": "ToolSettingsManager.get_inapp_clipboard_pick_mode",
-    "line": 1045,
+    "line": 1055,
     "kind": "get",
     "name": "get_inapp_clipboard_pick_mode",
     "path": "inapp/inapp_clipboard_pick_mode",
@@ -121,14 +121,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_inapp_clipboard_pick_mode",
-    "line": 1052,
+    "line": 1062,
     "kind": "set",
     "name": "set_inapp_clipboard_pick_mode",
     "path": "inapp/inapp_clipboard_pick_mode"
   },
   {
     "symbol": "ToolSettingsManager.get_smart_selection",
-    "line": 1074,
+    "line": 1084,
     "kind": "get",
     "name": "get_smart_selection",
     "path": "app/smart_selection",
@@ -136,7 +136,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_smart_selection_animation",
-    "line": 1082,
+    "line": 1092,
     "kind": "get",
     "name": "get_smart_selection_animation",
     "path": "app/smart_selection_animation",
@@ -144,14 +144,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_smart_selection_animation",
-    "line": 1090,
+    "line": 1100,
     "kind": "set",
     "name": "set_smart_selection_animation",
     "path": "app/smart_selection_animation"
   },
   {
     "symbol": "ToolSettingsManager.get_double_click_copy_close_enabled",
-    "line": 1094,
+    "line": 1104,
     "kind": "get",
     "name": "get_double_click_copy_close_enabled",
     "path": "app/double_click_copy_close",
@@ -159,14 +159,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_double_click_copy_close_enabled",
-    "line": 1102,
+    "line": 1112,
     "kind": "set",
     "name": "set_double_click_copy_close_enabled",
     "path": "app/double_click_copy_close"
   },
   {
     "symbol": "ToolSettingsManager.get_cross_tool_selection_enabled",
-    "line": 1106,
+    "line": 1116,
     "kind": "get",
     "name": "get_cross_tool_selection_enabled",
     "path": "app/cross_tool_selection",
@@ -174,14 +174,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_cross_tool_selection_enabled",
-    "line": 1114,
+    "line": 1124,
     "kind": "set",
     "name": "set_cross_tool_selection_enabled",
     "path": "app/cross_tool_selection"
   },
   {
     "symbol": "ToolSettingsManager.get_text_always_on_top_enabled",
-    "line": 1118,
+    "line": 1128,
     "kind": "get",
     "name": "get_text_always_on_top_enabled",
     "path": "app/text_always_on_top",
@@ -189,14 +189,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_text_always_on_top_enabled",
-    "line": 1126,
+    "line": 1136,
     "kind": "set",
     "name": "set_text_always_on_top_enabled",
     "path": "app/text_always_on_top"
   },
   {
     "symbol": "ToolSettingsManager.get_ocr_copy_directly_enabled",
-    "line": 1130,
+    "line": 1140,
     "kind": "get",
     "name": "get_ocr_copy_directly_enabled",
     "path": "app/ocr_copy_directly",
@@ -204,14 +204,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_ocr_copy_directly_enabled",
-    "line": 1138,
+    "line": 1148,
     "kind": "set",
     "name": "set_ocr_copy_directly_enabled",
     "path": "app/ocr_copy_directly"
   },
   {
     "symbol": "ToolSettingsManager.get_barcode_copy_single_enabled",
-    "line": 1141,
+    "line": 1151,
     "kind": "get",
     "name": "get_barcode_copy_single_enabled",
     "path": "app/barcode_copy_single",
@@ -219,14 +219,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_barcode_copy_single_enabled",
-    "line": 1149,
+    "line": 1159,
     "kind": "set",
     "name": "set_barcode_copy_single_enabled",
     "path": "app/barcode_copy_single"
   },
   {
     "symbol": "ToolSettingsManager.get_log_enabled",
-    "line": 1153,
+    "line": 1163,
     "kind": "get",
     "name": "get_log_enabled",
     "path": "app/log_enabled",
@@ -234,14 +234,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_log_enabled",
-    "line": 1157,
+    "line": 1167,
     "kind": "set",
     "name": "set_log_enabled",
     "path": "app/log_enabled"
   },
   {
     "symbol": "ToolSettingsManager.get_log_dir",
-    "line": 1161,
+    "line": 1171,
     "kind": "get",
     "name": "get_log_dir",
     "path": "app/log_dir",
@@ -249,14 +249,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_log_dir",
-    "line": 1165,
+    "line": 1175,
     "kind": "set",
     "name": "set_log_dir",
     "path": "app/log_dir"
   },
   {
     "symbol": "ToolSettingsManager.get_log_level",
-    "line": 1169,
+    "line": 1179,
     "kind": "get",
     "name": "get_log_level",
     "path": "app/log_level",
@@ -264,14 +264,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_log_level",
-    "line": 1173,
+    "line": 1183,
     "kind": "set",
     "name": "set_log_level",
     "path": "app/log_level"
   },
   {
     "symbol": "ToolSettingsManager.get_log_retention_days",
-    "line": 1177,
+    "line": 1187,
     "kind": "get",
     "name": "get_log_retention_days",
     "path": "app/log_retention_days",
@@ -279,14 +279,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_log_retention_days",
-    "line": 1181,
+    "line": 1191,
     "kind": "set",
     "name": "set_log_retention_days",
     "path": "app/log_retention_days"
   },
   {
     "symbol": "ToolSettingsManager.get_long_stitch_engine",
-    "line": 1185,
+    "line": 1195,
     "kind": "get",
     "name": "get_long_stitch_engine",
     "path": "app/long_stitch_engine",
@@ -294,14 +294,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_long_stitch_engine",
-    "line": 1189,
+    "line": 1199,
     "kind": "set",
     "name": "set_long_stitch_engine",
     "path": "app/long_stitch_engine"
   },
   {
     "symbol": "ToolSettingsManager.get_long_stitch_ignore_top_pixels",
-    "line": 1206,
+    "line": 1216,
     "kind": "get",
     "name": "get_long_stitch_ignore_top_pixels",
     "path": "screenshot/long_stitch_ignore_top_pixels",
@@ -309,14 +309,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_long_stitch_ignore_top_pixels",
-    "line": 1214,
+    "line": 1224,
     "kind": "set",
     "name": "set_long_stitch_ignore_top_pixels",
     "path": "screenshot/long_stitch_ignore_top_pixels"
   },
   {
     "symbol": "ToolSettingsManager.get_screenshot_save_enabled",
-    "line": 1218,
+    "line": 1228,
     "kind": "get",
     "name": "get_screenshot_save_enabled",
     "path": "app/screenshot_save_enabled",
@@ -324,14 +324,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_screenshot_save_enabled",
-    "line": 1222,
+    "line": 1232,
     "kind": "set",
     "name": "set_screenshot_save_enabled",
     "path": "app/screenshot_save_enabled"
   },
   {
     "symbol": "ToolSettingsManager.get_screenshot_pin_save_enabled",
-    "line": 1226,
+    "line": 1236,
     "kind": "get",
     "name": "get_screenshot_pin_save_enabled",
     "path": "app/screenshot_pin_save_enabled",
@@ -339,14 +339,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_screenshot_pin_save_enabled",
-    "line": 1234,
+    "line": 1244,
     "kind": "set",
     "name": "set_screenshot_pin_save_enabled",
     "path": "app/screenshot_pin_save_enabled"
   },
   {
     "symbol": "ToolSettingsManager.get_screenshot_save_original_enabled",
-    "line": 1238,
+    "line": 1248,
     "kind": "get",
     "name": "get_screenshot_save_original_enabled",
     "path": "app/screenshot_save_original_enabled",
@@ -354,14 +354,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_screenshot_save_original_enabled",
-    "line": 1246,
+    "line": 1256,
     "kind": "set",
     "name": "set_screenshot_save_original_enabled",
     "path": "app/screenshot_save_original_enabled"
   },
   {
     "symbol": "ToolSettingsManager.get_screenshot_format",
-    "line": 1266,
+    "line": 1276,
     "kind": "get",
     "name": "get_screenshot_format",
     "path": "app/screenshot_format",
@@ -369,7 +369,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_clipboard_file_reference_enabled",
-    "line": 1274,
+    "line": 1284,
     "kind": "get",
     "name": "get_clipboard_file_reference_enabled",
     "path": "app/clipboard_file_reference_enabled",
@@ -377,14 +377,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_clipboard_file_reference_enabled",
-    "line": 1282,
+    "line": 1292,
     "kind": "set",
     "name": "set_clipboard_file_reference_enabled",
     "path": "app/clipboard_file_reference_enabled"
   },
   {
     "symbol": "ToolSettingsManager.get_screenshot_watermark_auto",
-    "line": 1307,
+    "line": 1317,
     "kind": "get",
     "name": "get_screenshot_watermark_auto",
     "path": "app/screenshot_watermark_auto",
@@ -392,7 +392,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_screenshot_watermark_last_on",
-    "line": 1318,
+    "line": 1346,
     "kind": "get",
     "name": "get_screenshot_watermark_last_on",
     "path": "app/screenshot_watermark_last_on",
@@ -400,7 +400,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_screenshot_quality",
-    "line": 1329,
+    "line": 1357,
     "kind": "get",
     "name": "get_screenshot_quality",
     "path": "app/screenshot_quality",
@@ -408,7 +408,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_show_main_window",
-    "line": 1337,
+    "line": 1365,
     "kind": "get",
     "name": "get_show_main_window",
     "path": "app/show_main_window",
@@ -416,14 +416,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_show_main_window",
-    "line": 1341,
+    "line": 1369,
     "kind": "set",
     "name": "set_show_main_window",
     "path": "app/show_main_window"
   },
   {
     "symbol": "ToolSettingsManager.get_ocr_enabled",
-    "line": 1345,
+    "line": 1373,
     "kind": "get",
     "name": "get_ocr_enabled",
     "path": "app/ocr_enabled",
@@ -431,14 +431,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_ocr_enabled",
-    "line": 1349,
+    "line": 1377,
     "kind": "set",
     "name": "set_ocr_enabled",
     "path": "app/ocr_enabled"
   },
   {
     "symbol": "ToolSettingsManager.get_translation_on_top",
-    "line": 1392,
+    "line": 1428,
     "kind": "get",
     "name": "get_translation_on_top",
     "path": "app/translation_on_top",
@@ -446,7 +446,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_ocr_result_on_top",
-    "line": 1403,
+    "line": 1439,
     "kind": "get",
     "name": "get_ocr_result_on_top",
     "path": "app/ocr_result_on_top",
@@ -454,7 +454,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_ocr_remove_spaces",
-    "line": 1426,
+    "line": 1462,
     "kind": "get",
     "name": "get_ocr_remove_spaces",
     "path": "app/ocr_remove_spaces",
@@ -462,7 +462,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_ocr_copy_on_close",
-    "line": 1449,
+    "line": 1485,
     "kind": "get",
     "name": "get_ocr_copy_on_close",
     "path": "app/ocr_copy_on_close",
@@ -470,7 +470,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_ocr_grayscale_enabled",
-    "line": 1460,
+    "line": 1496,
     "kind": "get",
     "name": "get_ocr_grayscale_enabled",
     "path": "app/ocr_grayscale",
@@ -478,7 +478,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_pin_auto_toolbar",
-    "line": 1466,
+    "line": 1502,
     "kind": "get",
     "name": "get_pin_auto_toolbar",
     "path": "pin/auto_toolbar",
@@ -486,14 +486,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_pin_auto_toolbar",
-    "line": 1470,
+    "line": 1506,
     "kind": "set",
     "name": "set_pin_auto_toolbar",
     "path": "pin/auto_toolbar"
   },
   {
     "symbol": "ToolSettingsManager.get_pin_default_opacity",
-    "line": 1474,
+    "line": 1510,
     "kind": "get",
     "name": "get_pin_default_opacity",
     "path": "pin/default_opacity",
@@ -501,14 +501,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_ocr_grayscale_enabled",
-    "line": 1482,
+    "line": 1518,
     "kind": "set",
     "name": "set_ocr_grayscale_enabled",
     "path": "app/ocr_grayscale"
   },
   {
     "symbol": "ToolSettingsManager.get_ocr_upscale_enabled",
-    "line": 1486,
+    "line": 1522,
     "kind": "get",
     "name": "get_ocr_upscale_enabled",
     "path": "app/ocr_upscale",
@@ -516,14 +516,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_ocr_upscale_enabled",
-    "line": 1490,
+    "line": 1526,
     "kind": "set",
     "name": "set_ocr_upscale_enabled",
     "path": "app/ocr_upscale"
   },
   {
     "symbol": "ToolSettingsManager.get_ocr_upscale_factor",
-    "line": 1494,
+    "line": 1530,
     "kind": "get",
     "name": "get_ocr_upscale_factor",
     "path": "app/ocr_upscale_factor",
@@ -531,14 +531,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_ocr_upscale_factor",
-    "line": 1498,
+    "line": 1534,
     "kind": "set",
     "name": "set_ocr_upscale_factor",
     "path": "app/ocr_upscale_factor"
   },
   {
     "symbol": "ToolSettingsManager.get_translation_provider",
-    "line": 1504,
+    "line": 1540,
     "kind": "get",
     "name": "get_translation_provider",
     "path": "translation/active_provider",
@@ -546,7 +546,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_deepl_api_key",
-    "line": 1578,
+    "line": 1619,
     "kind": "get",
     "name": "get_deepl_api_key",
     "path": "app/deepl_api_key",
@@ -554,14 +554,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_deepl_api_key",
-    "line": 1582,
+    "line": 1623,
     "kind": "set",
     "name": "set_deepl_api_key",
     "path": "app/deepl_api_key"
   },
   {
     "symbol": "ToolSettingsManager.get_deepl_use_pro",
-    "line": 1586,
+    "line": 1627,
     "kind": "get",
     "name": "get_deepl_use_pro",
     "path": "app/deepl_use_pro",
@@ -569,14 +569,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_deepl_use_pro",
-    "line": 1590,
+    "line": 1631,
     "kind": "set",
     "name": "set_deepl_use_pro",
     "path": "app/deepl_use_pro"
   },
   {
     "symbol": "ToolSettingsManager.get_amazon_translate_region",
-    "line": 1594,
+    "line": 1635,
     "kind": "get",
     "name": "get_amazon_translate_region",
     "path": "translation/providers/amazon/region",
@@ -584,7 +584,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_amazon_translate_access_key_id",
-    "line": 1607,
+    "line": 1648,
     "kind": "get",
     "name": "get_amazon_translate_access_key_id",
     "path": "translation/providers/amazon/access_key_id",
@@ -592,7 +592,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_amazon_translate_secret_access_key",
-    "line": 1620,
+    "line": 1661,
     "kind": "get",
     "name": "get_amazon_translate_secret_access_key",
     "path": "translation/providers/amazon/secret_access_key",
@@ -600,7 +600,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_amazon_translate_session_token",
-    "line": 1635,
+    "line": 1676,
     "kind": "get",
     "name": "get_amazon_translate_session_token",
     "path": "translation/providers/amazon/session_token",
@@ -608,7 +608,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_google_translate_api_key",
-    "line": 1648,
+    "line": 1689,
     "kind": "get",
     "name": "get_google_translate_api_key",
     "path": "translation/providers/google/api_key",
@@ -616,7 +616,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_azure_translate_api_key",
-    "line": 1661,
+    "line": 1702,
     "kind": "get",
     "name": "get_azure_translate_api_key",
     "path": "translation/providers/azure/api_key",
@@ -624,7 +624,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_azure_translate_region",
-    "line": 1674,
+    "line": 1715,
     "kind": "get",
     "name": "get_azure_translate_region",
     "path": "translation/providers/azure/region",
@@ -632,7 +632,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_azure_translate_endpoint",
-    "line": 1687,
+    "line": 1728,
     "kind": "get",
     "name": "get_azure_translate_endpoint",
     "path": "translation/providers/azure/endpoint",
@@ -640,7 +640,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_baidu_translate_appid",
-    "line": 1700,
+    "line": 1741,
     "kind": "get",
     "name": "get_baidu_translate_appid",
     "path": "translation/providers/baidu/appid",
@@ -648,7 +648,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_baidu_translate_secret_key",
-    "line": 1713,
+    "line": 1754,
     "kind": "get",
     "name": "get_baidu_translate_secret_key",
     "path": "translation/providers/baidu/secret_key",
@@ -656,7 +656,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_volcengine_translate_access_key",
-    "line": 1726,
+    "line": 1767,
     "kind": "get",
     "name": "get_volcengine_translate_access_key",
     "path": "translation/providers/volcengine/access_key_id",
@@ -664,7 +664,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_volcengine_translate_secret_key",
-    "line": 1739,
+    "line": 1780,
     "kind": "get",
     "name": "get_volcengine_translate_secret_key",
     "path": "translation/providers/volcengine/secret_access_key",
@@ -672,7 +672,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_tencent_translate_secret_id",
-    "line": 1752,
+    "line": 1793,
     "kind": "get",
     "name": "get_tencent_translate_secret_id",
     "path": "translation/providers/tencent/secret_id",
@@ -680,15 +680,31 @@
   },
   {
     "symbol": "ToolSettingsManager.get_tencent_translate_secret_key",
-    "line": 1765,
+    "line": 1806,
     "kind": "get",
     "name": "get_tencent_translate_secret_key",
     "path": "translation/providers/tencent/secret_key",
     "type": "str"
   },
   {
+    "symbol": "ToolSettingsManager.get_youdao_translate_app_key",
+    "line": 1819,
+    "kind": "get",
+    "name": "get_youdao_translate_app_key",
+    "path": "translation/providers/youdao/app_key",
+    "type": "str"
+  },
+  {
+    "symbol": "ToolSettingsManager.get_youdao_translate_app_secret",
+    "line": 1832,
+    "kind": "get",
+    "name": "get_youdao_translate_app_secret",
+    "path": "translation/providers/youdao/app_secret",
+    "type": "str"
+  },
+  {
     "symbol": "ToolSettingsManager.get_volcengine_translate_quota_enabled",
-    "line": 1781,
+    "line": 1848,
     "kind": "get",
     "name": "get_volcengine_translate_quota_enabled",
     "path": "translation/providers/volcengine/quota_enabled",
@@ -696,7 +712,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_tencent_translate_quota_enabled",
-    "line": 1807,
+    "line": 1874,
     "kind": "get",
     "name": "get_tencent_translate_quota_enabled",
     "path": "translation/providers/tencent/quota_enabled",
@@ -704,7 +720,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_deepseek_api_key",
-    "line": 1874,
+    "line": 1941,
     "kind": "get",
     "name": "get_deepseek_api_key",
     "path": "translation/providers/deepseek/api_key",
@@ -712,7 +728,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_deepseek_model",
-    "line": 1887,
+    "line": 1954,
     "kind": "get",
     "name": "get_deepseek_model",
     "path": "translation/providers/deepseek/model",
@@ -720,7 +736,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_deepseek_base_url",
-    "line": 1900,
+    "line": 1967,
     "kind": "get",
     "name": "get_deepseek_base_url",
     "path": "translation/providers/deepseek/base_url",
@@ -728,14 +744,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_translation_target_lang",
-    "line": 1957,
+    "line": 2024,
     "kind": "set",
     "name": "set_translation_target_lang",
     "path": "app/translation_target_lang"
   },
   {
     "symbol": "ToolSettingsManager.get_translation_split_sentences",
-    "line": 1961,
+    "line": 2028,
     "kind": "get",
     "name": "get_translation_split_sentences",
     "path": "app/translation_split_sentences",
@@ -743,14 +759,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_translation_split_sentences",
-    "line": 1965,
+    "line": 2032,
     "kind": "set",
     "name": "set_translation_split_sentences",
     "path": "app/translation_split_sentences"
   },
   {
     "symbol": "ToolSettingsManager.get_translation_preserve_formatting",
-    "line": 1969,
+    "line": 2036,
     "kind": "get",
     "name": "get_translation_preserve_formatting",
     "path": "app/translation_preserve_formatting",
@@ -758,14 +774,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_translation_preserve_formatting",
-    "line": 1973,
+    "line": 2040,
     "kind": "set",
     "name": "set_translation_preserve_formatting",
     "path": "app/translation_preserve_formatting"
   },
   {
     "symbol": "ToolSettingsManager.get_clipboard_enabled",
-    "line": 2031,
+    "line": 2098,
     "kind": "get",
     "name": "get_clipboard_enabled",
     "path": "clipboard/enabled",
@@ -773,14 +789,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_clipboard_enabled",
-    "line": 2035,
+    "line": 2102,
     "kind": "set",
     "name": "set_clipboard_enabled",
     "path": "clipboard/enabled"
   },
   {
     "symbol": "ToolSettingsManager.get_clipboard_auto_paste",
-    "line": 2039,
+    "line": 2106,
     "kind": "get",
     "name": "get_clipboard_auto_paste",
     "path": "clipboard/auto_paste",
@@ -788,14 +804,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_clipboard_auto_paste",
-    "line": 2043,
+    "line": 2110,
     "kind": "set",
     "name": "set_clipboard_auto_paste",
     "path": "clipboard/auto_paste"
   },
   {
     "symbol": "ToolSettingsManager.get_clipboard_close_after_paste",
-    "line": 2047,
+    "line": 2114,
     "kind": "get",
     "name": "get_clipboard_close_after_paste",
     "path": "clipboard/close_after_paste",
@@ -803,14 +819,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_clipboard_close_after_paste",
-    "line": 2055,
+    "line": 2122,
     "kind": "set",
     "name": "set_clipboard_close_after_paste",
     "path": "clipboard/close_after_paste"
   },
   {
     "symbol": "ToolSettingsManager.get_clipboard_history_limit",
-    "line": 2059,
+    "line": 2126,
     "kind": "get",
     "name": "get_clipboard_history_limit",
     "path": "clipboard/history_limit",
@@ -818,7 +834,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_clipboard_db_path",
-    "line": 2067,
+    "line": 2134,
     "kind": "get",
     "name": "get_clipboard_db_path",
     "path": "clipboard/db_path",
@@ -826,7 +842,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_clipboard_auto_cleanup",
-    "line": 2075,
+    "line": 2142,
     "kind": "get",
     "name": "get_clipboard_auto_cleanup",
     "path": "clipboard/auto_cleanup",
@@ -834,14 +850,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_clipboard_auto_cleanup",
-    "line": 2079,
+    "line": 2146,
     "kind": "set",
     "name": "set_clipboard_auto_cleanup",
     "path": "clipboard/auto_cleanup"
   },
   {
     "symbol": "ToolSettingsManager.get_clipboard_window_opacity",
-    "line": 2101,
+    "line": 2168,
     "kind": "get",
     "name": "get_clipboard_window_opacity",
     "path": "clipboard/window_opacity",
@@ -849,14 +865,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_clipboard_window_opacity",
-    "line": 2105,
+    "line": 2172,
     "kind": "set",
     "name": "set_clipboard_window_opacity",
     "path": "clipboard/window_opacity"
   },
   {
     "symbol": "ToolSettingsManager.get_clipboard_font_size",
-    "line": 2109,
+    "line": 2176,
     "kind": "get",
     "name": "get_clipboard_font_size",
     "path": "clipboard/font_size",
@@ -864,14 +880,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_clipboard_font_size",
-    "line": 2113,
+    "line": 2180,
     "kind": "set",
     "name": "set_clipboard_font_size",
     "path": "clipboard/font_size"
   },
   {
     "symbol": "ToolSettingsManager.get_clipboard_font_size_options",
-    "line": 2117,
+    "line": 2184,
     "kind": "get",
     "name": "get_clipboard_font_size_options",
     "path": null,
@@ -879,7 +895,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_clipboard_show_metadata",
-    "line": 2136,
+    "line": 2203,
     "kind": "get",
     "name": "get_clipboard_show_metadata",
     "path": "clipboard/show_metadata",
@@ -887,14 +903,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_clipboard_show_metadata",
-    "line": 2142,
+    "line": 2209,
     "kind": "set",
     "name": "set_clipboard_show_metadata",
     "path": "clipboard/show_metadata"
   },
   {
     "symbol": "ToolSettingsManager.get_clipboard_preserve_search",
-    "line": 2146,
+    "line": 2213,
     "kind": "get",
     "name": "get_clipboard_preserve_search",
     "path": "clipboard/preserve_search",
@@ -902,14 +918,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_clipboard_preserve_search",
-    "line": 2152,
+    "line": 2219,
     "kind": "set",
     "name": "set_clipboard_preserve_search",
     "path": "clipboard/preserve_search"
   },
   {
     "symbol": "ToolSettingsManager.get_clipboard_window_opacity_options",
-    "line": 2156,
+    "line": 2223,
     "kind": "get",
     "name": "get_clipboard_window_opacity_options",
     "path": null,
@@ -917,7 +933,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_clipboard_line_height_padding",
-    "line": 2160,
+    "line": 2227,
     "kind": "get",
     "name": "get_clipboard_line_height_padding",
     "path": "clipboard/line_height_padding",
@@ -925,7 +941,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_clipboard_move_to_top_on_paste",
-    "line": 2170,
+    "line": 2237,
     "kind": "get",
     "name": "get_clipboard_move_to_top_on_paste",
     "path": "clipboard/move_to_top_on_paste",
@@ -933,14 +949,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_clipboard_move_to_top_on_paste",
-    "line": 2174,
+    "line": 2241,
     "kind": "set",
     "name": "set_clipboard_move_to_top_on_paste",
     "path": "clipboard/move_to_top_on_paste"
   },
   {
     "symbol": "ToolSettingsManager.get_clipboard_multi_paste_keep_merged",
-    "line": 2207,
+    "line": 2274,
     "kind": "get",
     "name": "get_clipboard_multi_paste_keep_merged",
     "path": "clipboard/multi_paste_keep_merged",
@@ -948,7 +964,7 @@
   },
   {
     "symbol": "ToolSettingsManager.get_clipboard_theme",
-    "line": 2218,
+    "line": 2285,
     "kind": "get",
     "name": "get_clipboard_theme",
     "path": "clipboard/theme",
@@ -956,14 +972,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_clipboard_theme",
-    "line": 2222,
+    "line": 2289,
     "kind": "set",
     "name": "set_clipboard_theme",
     "path": "clipboard/theme"
   },
   {
     "symbol": "ToolSettingsManager.get_gif_fps",
-    "line": 2239,
+    "line": 2306,
     "kind": "get",
     "name": "get_gif_fps",
     "path": "gif/fps",
@@ -971,14 +987,14 @@
   },
   {
     "symbol": "ToolSettingsManager.set_gif_fps",
-    "line": 2243,
+    "line": 2310,
     "kind": "set",
     "name": "set_gif_fps",
     "path": "gif/fps"
   },
   {
     "symbol": "ToolSettingsManager.get_gif_fps_options",
-    "line": 2247,
+    "line": 2314,
     "kind": "get",
     "name": "get_gif_fps_options",
     "path": null,

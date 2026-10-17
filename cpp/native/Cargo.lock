@@ -927,6 +927,7 @@ dependencies = [
  "longstitch",
  "ppocr_rust",
  "pyclipboard",
+ "serde",
  "serde_json",
  "video_recorder",
 ]
@@ -1697,12 +1698,14 @@ dependencies = [
 
 [[package]]
 name = "ppocr_rust"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "image 0.25.10",
  "imageproc",
  "ndarray 0.16.1",
  "ort",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

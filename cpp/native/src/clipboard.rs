@@ -334,6 +334,14 @@ pub unsafe extern "C" fn jb_clipboard_clear_history(ptr: *const JbClipboard, kee
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn jb_clipboard_clear_unpinned_ungrouped(ptr: *const JbClipboard, vacuum: bool, error: *mut c_char, error_len: usize) -> bool {
+    guard_error(false, error, error_len, || {
+        let manager = manager_or_fail!(ptr, error, error_len);
+        finish(manager.clear_unpinned_ungrouped(vacuum), error, error_len, |_| {})
+    })
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn jb_clipboard_toggle_pin(ptr: *const JbClipboard, id: i64, out_pinned: *mut bool, error: *mut c_char, error_len: usize) -> bool {
     guard_error(false, error, error_len, || {
         let manager = manager_or_fail!(ptr, error, error_len);

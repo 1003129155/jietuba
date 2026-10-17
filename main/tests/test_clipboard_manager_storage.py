@@ -262,6 +262,23 @@ class TestGroups:
         assert manager.get_item(kept) is not None
         assert [i.id for i in manager.get_by_group(group_id)] == [kept]
 
+    @pytest.mark.parametrize("vacuum", [True, False])
+    def test_clear_unpinned_ungrouped_keeps_pinned_and_grouped_items(self, manager, vacuum):
+        """一键清理只动既没置顶、也没放进分组的历史，整不整理库文件都一样"""
+        group_id = manager.create_group("收藏")
+        grouped = manager.add_item("分组里的")
+        manager.move_to_group(grouped, group_id)
+        pinned = manager.add_item("置顶的")
+        manager.toggle_pin(pinned)
+        loose = [manager.add_item("普通一"), manager.add_item("普通二")]
+
+        assert manager.clear_unpinned_ungrouped(vacuum=vacuum) is True
+
+        assert all(manager.get_item(item_id) is None for item_id in loose)
+        assert manager.get_item(grouped) is not None
+        assert manager.get_item(pinned).is_pinned is True
+        assert manager.get_total_count() == 2
+
 
 # ============================================================================
 # 存储路径

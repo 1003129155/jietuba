@@ -415,6 +415,27 @@ fn run(command: &str, args: &HashMap<String, String>, id: &str) -> Result<()> {
             temporary.keep = true;
             Ok(())
         }
+        "download-model" => {
+            protocol::emit("started", id, json!({}))?;
+            let flag = cancellable(id);
+            let request: core::models::ModelRequest =
+                serde_json::from_slice(&fs::read(arg(args, "--model-file")?)?)?;
+            // 模型只放在主程序旁的 models/，不接受调用方给的目录。
+            let models_root = core::safe_join(executable.parent().unwrap(), "models")?;
+            let staging = runtime()?.block_on(core::models::download(
+                &request,
+                &models_root,
+                &flag,
+                |received, total, source| {
+                    protocol::emit(
+                        "progress",
+                        id,
+                        json!({"received":received,"total":total,"source":source}),
+                    )
+                },
+            ))?;
+            protocol::emit("downloaded", id, json!({"staging":staging}))
+        }
         "apply" => apply(args, &executable, id),
         "recover" => {
             if !platform::app_processes(&executable)?.is_empty() {

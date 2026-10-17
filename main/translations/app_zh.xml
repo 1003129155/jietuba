@@ -689,18 +689,6 @@ Replace it?</source>
         <translation>Windows 截图工具</translation>
     </message>
     <message>
-        <source>oneocr (not found)</source>
-        <translation>oneocr（未找到）</translation>
-    </message>
-    <message>
-        <source>PP-OCR (missing engine)</source>
-        <translation>PP-OCR（缺少引擎）</translation>
-    </message>
-    <message>
-        <source>PP-OCR (missing models)</source>
-        <translation>PP-OCR（缺少模型）</translation>
-    </message>
-    <message>
         <source>OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version</source>
         <translation>OCR 不可用：请从 Microsoft Store 安装截图工具，或下载完整版</translation>
     </message>
@@ -2449,6 +2437,30 @@ Replace it?</source>
         <source>Used this month: %1 / %2 characters (quota guard off)</source>
         <translation>本月已用 %1 / %2 字符（额度保护已关闭）</translation>
     </message>
+    <message>
+        <source>Youdao App ID</source>
+        <translation>有道应用 ID</translation>
+    </message>
+    <message>
+        <source>ID of an application bound to Text Translation (Application Management)</source>
+        <translation>已绑定文本翻译服务的应用 ID（控制台「应用管理」）</translation>
+    </message>
+    <message>
+        <source>Youdao App Secret</source>
+        <translation>有道应用密钥</translation>
+    </message>
+    <message>
+        <source>Application secret, paired with the application ID</source>
+        <translation>与应用 ID 成对的应用密钥</translation>
+    </message>
+    <message>
+        <source>Youdao AI Cloud: new accounts get a trial credit, after that translation is billed by character count.</source>
+        <translation>有道智云：新账号赠送体验金，用完后按字符数计费。</translation>
+    </message>
+    <message>
+        <source>Youdao AI Cloud Console</source>
+        <translation>有道智云控制台</translation>
+    </message>
 </context>
 
 <!-- ========== Clipboard Window ========== -->
@@ -2755,9 +2767,11 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>确认清空</translation>
     </message>
     <message>
-        <source>Are you sure you want to clear all clipboard history?
+        <source>Are you sure you want to clear the clipboard history?
+Pinned items and items in groups will be kept.
 This action cannot be undone.</source>
-        <translation>确定要清空所有剪贴板历史吗？
+        <translation>确定要清空剪贴板历史吗？
+置顶和分组中的内容会保留。
 此操作不可恢复。</translation>
     </message>
     <message>
@@ -2879,6 +2893,10 @@ This action cannot be undone.</source>
     <message>
         <source>Extract Letters</source>
         <translation>仅提取字母</translation>
+    </message>
+    <message>
+        <source>Clear History</source>
+        <translation>清空历史</translation>
     </message>
 </context>
 
@@ -3592,8 +3610,8 @@ This action cannot be undone.</source>
 此操作不可恢复。</translation>
     </message>
     <message>
-        <source>Also delete saved content in groups</source>
-        <translation>同时删除分组中保存的内容</translation>
+        <source>Also delete pinned and grouped content</source>
+        <translation>同时删除置顶和分组中的内容</translation>
     </message>
     <message>
         <source>Clipboard history cleared successfully</source>
@@ -3874,6 +3892,26 @@ This action cannot be undone.</source>
     <message>
         <source>SecretKey</source>
         <translation>SecretKey</translation>
+    </message>
+    <message>
+        <source>Youdao App ID</source>
+        <translation>有道应用 ID</translation>
+    </message>
+    <message>
+        <source>ID of an application bound to Text Translation (Application Management)</source>
+        <translation>已绑定文本翻译服务的应用 ID（控制台「应用管理」）</translation>
+    </message>
+    <message>
+        <source>Youdao App Secret</source>
+        <translation>有道应用密钥</translation>
+    </message>
+    <message>
+        <source>Application secret, paired with the application ID</source>
+        <translation>与应用 ID 成对的应用密钥</translation>
+    </message>
+    <message>
+        <source>Youdao AI Cloud Console</source>
+        <translation>有道智云控制台</translation>
     </message>
     <message>
         <source>欢迎使用截图吧</source>
@@ -5032,6 +5070,14 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>选区内没有识别到文字。</translation>
     </message>
     <message>
+        <source>No PP-OCR model is installed. Download one in the OCR settings.</source>
+        <translation>没有安装 PP-OCR 模型，可在设置的「OCR设置」里下载。</translation>
+    </message>
+    <message>
+        <source>The PP-OCR model could not be loaded. Download it again or choose another one in the OCR settings.</source>
+        <translation>PP-OCR 模型加载失败，可在设置的「OCR设置」里重新下载或换用其他模型。</translation>
+    </message>
+    <message>
         <source>This build does not include the text recognition engine.</source>
         <translation>当前版本不包含文字识别引擎。</translation>
     </message>
@@ -5766,6 +5812,10 @@ Make sure gifrecorder is installed correctly.</source>
         <translation>平铺</translation>
     </message>
     <message>
+        <source>Diamond</source>
+        <translation>菱形</translation>
+    </message>
+    <message>
         <source>Center</source>
         <translation>居中</translation>
     </message>
@@ -5834,8 +5884,28 @@ Make sure gifrecorder is installed correctly.</source>
         <translation>自定义颜色</translation>
     </message>
     <message>
-        <source>Angle applies to tiled watermarks</source>
-        <translation>角度只对平铺生效</translation>
+        <source>Angle applies to tiled and diamond watermarks</source>
+        <translation>角度只对平铺和菱形生效</translation>
+    </message>
+    <message>
+        <source>Grid Lines</source>
+        <translation>网格线</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>无</translation>
+    </message>
+    <message>
+        <source>Solid</source>
+        <translation>实线</translation>
+    </message>
+    <message>
+        <source>Dashed</source>
+        <translation>虚线</translation>
+    </message>
+    <message>
+        <source>Grid lines apply to diamond watermarks</source>
+        <translation>网格线只对菱形生效</translation>
     </message>
 </context>
 <context>
@@ -5918,6 +5988,251 @@ Make sure gifrecorder is installed correctly.</source>
     <message>
         <source>Recognizing...</source>
         <translation>识别中...</translation>
+    </message>
+</context>
+<context>
+    <name>PpocrModelDialog</name>
+    <message>
+        <source>%1 MB</source>
+        <translation>%1 MB</translation>
+    </message>
+    <message>
+        <source>%1 is ready.</source>
+        <translation>%1 已就绪。</translation>
+    </message>
+    <message>
+        <source>, </source>
+        <translation>、</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>添加</translation>
+    </message>
+    <message>
+        <source>Add Local Model</source>
+        <translation>添加本地模型</translation>
+    </message>
+    <message>
+        <source>Add Local Model...</source>
+        <translation>添加本地模型...</translation>
+    </message>
+    <message>
+        <source>Added manually</source>
+        <translation>手动添加</translation>
+    </message>
+    <message>
+        <source>Browse...</source>
+        <translation>浏览...</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Checking %1...</source>
+        <translation>正在检查 %1...</translation>
+    </message>
+    <message>
+        <source>Chinese</source>
+        <translation>中文</translation>
+    </message>
+    <message>
+        <source>Choose File</source>
+        <translation>选择文件</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <source>Could not add the model</source>
+        <translation>无法添加模型</translation>
+    </message>
+    <message>
+        <source>Could not delete the model</source>
+        <translation>无法删除模型</translation>
+    </message>
+    <message>
+        <source>Could not start the download.</source>
+        <translation>无法开始下载。</translation>
+    </message>
+    <message>
+        <source>Cyrillic</source>
+        <translation>西里尔字母</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>删除</translation>
+    </message>
+    <message>
+        <source>Delete %1 and its files?</source>
+        <translation>删除 %1 及其文件？</translation>
+    </message>
+    <message>
+        <source>Delete Model</source>
+        <translation>删除模型</translation>
+    </message>
+    <message>
+        <source>Detection model</source>
+        <translation>检测模型</translation>
+    </message>
+    <message>
+        <source>Dictionary</source>
+        <translation>字典</translation>
+    </message>
+    <message>
+        <source>Download</source>
+        <translation>下载</translation>
+    </message>
+    <message>
+        <source>Downloaded</source>
+        <translation>已下载</translation>
+    </message>
+    <message>
+        <source>English</source>
+        <translation>英文</translation>
+    </message>
+    <message>
+        <source>Greek</source>
+        <translation>希腊文</translation>
+    </message>
+    <message>
+        <source>Included</source>
+        <translation>自带</translation>
+    </message>
+    <message>
+        <source>Japanese</source>
+        <translation>日文</translation>
+    </message>
+    <message>
+        <source>Korean</source>
+        <translation>韩文</translation>
+    </message>
+    <message>
+        <source>Latin-script languages</source>
+        <translation>拉丁字母语言</translation>
+    </message>
+    <message>
+        <source>Manage PP-OCR Models</source>
+        <translation>管理 PP-OCR 模型</translation>
+    </message>
+    <message>
+        <source>Models are stored in the models folder next to the program. Recognition uses the model selected on the settings page.</source>
+        <translation>模型存放在程序旁边的 models 文件夹里，识别时使用设置页里选中的模型。</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>名称</translation>
+    </message>
+    <message>
+        <source>Not downloaded</source>
+        <translation>未下载</translation>
+    </message>
+    <message>
+        <source>ONNX models (*.onnx)</source>
+        <translation>ONNX 模型 (*.onnx)</translation>
+    </message>
+    <message>
+        <source>Open Models Folder</source>
+        <translation>打开模型文件夹</translation>
+    </message>
+    <message>
+        <source>Optional: only if the recognition model has no built-in dictionary</source>
+        <translation>可选：识别模型没有自带字典时才需要</translation>
+    </message>
+    <message>
+        <source>Recognition model</source>
+        <translation>识别模型</translation>
+    </message>
+    <message>
+        <source>Text files (*.txt)</source>
+        <translation>文本文件 (*.txt)</translation>
+    </message>
+    <message>
+        <source>Thai</source>
+        <translation>泰文</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>%1 (not installed)</source>
+        <translation>%1（未安装）</translation>
+    </message>
+    <message>
+        <source>Download models for other languages or speeds, or add your own.</source>
+        <translation>下载适合其他语言或速度的模型，或添加自己的模型。</translation>
+    </message>
+    <message>
+        <source>Manage Models</source>
+        <translation>管理模型</translation>
+    </message>
+</context>
+<context>
+    <name>ModelUpdaterProcess</name>
+    <message>
+        <source>Could not download the model. Check your network connection and try again.</source>
+        <translation>无法下载模型，请检查网络连接后重试。</translation>
+    </message>
+    <message>
+        <source>No permission to write to the models folder.</source>
+        <translation>没有写入模型文件夹的权限。</translation>
+    </message>
+    <message>
+        <source>The download was cancelled.</source>
+        <translation>下载已取消。</translation>
+    </message>
+    <message>
+        <source>The downloaded model file is damaged. Try again.</source>
+        <translation>下载的模型文件已损坏，请重试。</translation>
+    </message>
+    <message>
+        <source>The model download stopped with an error (%1).</source>
+        <translation>模型下载因错误中止（%1）。</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Manage PP-OCR Models</source>
+        <translation>管理 PP-OCR 模型</translation>
+    </message>
+</context>
+<context>
+    <name>PpocrModelDialog</name>
+    <message>
+        <source>Needed by PP-OCR</source>
+        <translation>PP-OCR 需要</translation>
+    </message>
+    <message>
+        <source>Missing: put onnxruntime.dll (version 1.24 or later) in the models folder.</source>
+        <translation>缺少：请把 onnxruntime.dll（1.24 或更新版本）放进 models 文件夹。</translation>
+    </message>
+</context>
+<context>
+    <name>PpocrModelDialog</name>
+    <message>
+        <source>%1 MB/s</source>
+        <translation>%1 MB/s</translation>
+    </message>
+    <message>
+        <source>Downloading...</source>
+        <translation>下载中...</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Snipping Tool OCR</source>
+        <translation>截图工具 OCR</translation>
+    </message>
+    <message>
+        <source>Download more models...</source>
+        <translation>下载更多模型…</translation>
+    </message>
+    <message>
+        <source>The deleted model was selected for OCR, so OCR now uses Auto.</source>
+        <translation>删掉的是 OCR 正在用的模型，已改为「自动」。</translation>
     </message>
 </context>
 </TS>

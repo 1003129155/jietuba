@@ -51,6 +51,9 @@ public:
     bool delete_item(qint64 item_id);
     // keep_grouped keeps items that belong to a group.
     bool clear_history(bool keep_grouped = false);
+    // Keeps pinned and grouped items. vacuum also shrinks the database file, which takes
+    // time in proportion to what is kept; false only removes the rows.
+    bool clear_unpinned_ungrouped(bool vacuum = true);
     std::optional<qint64> add_item(const QString &content, const QString &content_type = "text", const std::optional<QString> &title = std::nullopt);
     bool update_item(qint64 item_id, const QString &content, const std::optional<QString> &title = std::nullopt);
     // The new pinned state.

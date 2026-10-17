@@ -28,13 +28,16 @@
 #include "ui/toolbar_layout.h"
 #include <QCloseEvent>
 #include <QComboBox>
+#include <QCursor>
 #include <QDesktopServices>
 #include <QDir>
 #include <QDoubleSpinBox>
+#include <QGuiApplication>
 #include <QLabel>
 #include <QMenu>
 #include <QMetaMethod>
 #include <QPainter>
+#include <QScreen>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSpinBox>
@@ -139,12 +142,19 @@ void save_inapp_shortcut_edits(ToolSettingsManager *config_manager, const std::v
     }
 }
 
+QSize settings_window_size(int available_width, int available_height, double factor) {
+    const int width = std::min(1150, std::max(1050, static_cast<int>(1050 + (available_width / factor - 1920) * 100 / 640)));
+    const int height = std::min(900, static_cast<int>(750 + (available_height / factor - 1032) * 150 / 360));
+    return {std::min(static_cast<int>(python_round(width * factor)), available_width),
+            std::min(static_cast<int>(python_round(height * factor)), available_height)};
+}
+
 SettingsDialog::SettingsDialog(ToolSettingsManager *manager, const QString &hotkey, QWidget *parent)
     : FrostedFramelessDialog(parent), config_manager(manager), current_hotkey(hotkey) {
     // The custom title bar comes before setWindowTitle so it receives the change.
     setup_titlebar();
     setWindowTitle("jietuba");
-    resize(dialog_scaled(1050), dialog_scaled(750));
+    fit_to_screen();
     // The same font stack as cards and navigation, so text styles without a family match.
     QFont window_font;
     window_font.setFamilies(FONT_FAMILIES());
@@ -153,6 +163,21 @@ SettingsDialog::SettingsDialog(ToolSettingsManager *manager, const QString &hotk
     setObjectName("SettingsDialog");
     setup_ui();
     connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { on_ui_theme_changed(); });
+}
+
+void SettingsDialog::fit_to_screen() {
+    if (isVisible()) return;
+    auto *screen = QGuiApplication::screenAt(QCursor::pos());
+    if (!screen) screen = QGuiApplication::primaryScreen();
+    if (screen) fit_to_available(screen->availableGeometry().size());
+}
+
+void SettingsDialog::fit_to_available(const QSize &available) {
+    const bool user_sized = fitted_size_ && size() != *fitted_size_;
+    const QSize target = user_sized ? size().boundedTo(available)
+                                    : settings_window_size(available.width(), available.height(), get_dialog_scale().factor());
+    if (target != size()) resize(target);
+    if (!user_sized) fitted_size_ = size();
 }
 
 QWidget *SettingsDialog::behavior_control(const QString &key) const {
@@ -635,7 +660,7 @@ void SettingsDialog::reset_screenshot_settings_page() {
     if (auto *combo = attr<QComboBox>("screenshot_format_combo"))
         combo->setCurrentIndex(std::max<int>(0, QStringList{"PNG", "JPG", "BMP", "WEBP", "PDF"}.indexOf(defaults.value("screenshot_format").toString().toUpper())));
     if (magnifier_color_formats) magnifier_color_formats = color_formats::default_formats();
-    select_data(attr<QComboBox>("ocr_engine_combo"), defaults.value("ocr_engine"));
+    fill_ocr_engines(this, defaults.value("ocr_engine").toString(), defaults.value("ppocr_model").toString());
     select_data(attr<QComboBox>("ocr_result_position_combo"), defaults.value("ocr_result_position"));
 }
 
@@ -770,7 +795,11 @@ bool SettingsDialog::apply_settings(bool close_after) {
     // 4. OCR.
     if (auto *toggle = attr_widget("ocr_enable_toggle")) config_manager->set_ocr_enabled(checked_of(toggle));
     if (auto *combo = attr<QComboBox>("ocr_engine_combo")) {
-        const QString engine = combo->currentData().toString();
+        const auto [engine, model] = ocr_choice(combo->currentData().toString());
+        if (model && *model != config_manager->get_ppocr_model()) {
+            config_manager->set_ppocr_model(*model);
+            set_ppocr_model(*model);
+        }
         if (engine != config_manager->get_ocr_engine()) {
             config_manager->set_ocr_engine(engine);
             set_ocr_engine(engine);
@@ -947,6 +976,10 @@ void SettingsDialog::hideEvent(QHideEvent *event) {
 
 // ── Unsaved changes ──
 
+void SettingsDialog::update_snapshot(const QString &name, const QVariant &value) {
+    if (settings_snapshot_ && settings_snapshot_->contains(name)) (*settings_snapshot_)[name] = value;
+}
+
 QVariantMap SettingsDialog::snapshot_settings() const {
     QVariantMap snap;
     for (const auto &[key, control] : behavior_controls)
@@ -967,11 +1000,13 @@ QVariantMap SettingsDialog::snapshot_settings() const {
                              "preload_screenshot_toggle", "preload_toolbar_toggle", "preload_ocr_toggle", "preload_settings_toggle", "preload_clipboard_toggle"})
         if (auto *widget = attr_widget(name)) snap[name] = checked_of(widget);
     // Combos.
-    for (const char *name : {"screenshot_format_combo", "shift_line_angle_combo", "ocr_engine_combo", "ocr_result_position_combo", "translation_provider_combo", "translation_target_combo",
+    for (const char *name : {"screenshot_format_combo", "shift_line_angle_combo", "ocr_result_position_combo", "translation_provider_combo", "translation_target_combo",
                              "log_level_combo", "language_combo", "engine_combo", "cursor_move_combo", "clipboard_pick_combo", "log_retention_combo", "_ui_theme_combo",
                              "_ui_scale_combo", "_dialog_scale_combo", "_selection_border_combo", "_selection_handle_combo", "_selection_handle_size_combo",
                              "smart_mode_combo", "capture_engine_combo"})
         if (auto *combo = attr<QComboBox>(name)) snap[name] = combo->currentIndex();
+    // The OCR list reorders as models are downloaded or deleted, so it compares by the item's value.
+    if (auto *combo = attr<QComboBox>("ocr_engine_combo")) snap["ocr_engine_combo"] = combo->currentData();
     // Numbers.
     for (const char *name : {"clipboard_history_limit_spin", "ignore_top_pixels_spinbox", "ocr_scale_spinbox"}) {
         if (auto *spin = attr<QSpinBox>(name)) snap[name] = spin->value();
@@ -1122,7 +1157,7 @@ void SettingsDialog::refresh_settings() {
         if (auto *toggle = attr_widget(attr_name)) set_checked(toggle, config_manager->get_app_setting(key).toBool());
     if (magnifier_color_formats) magnifier_color_formats = color_formats::load(config_manager);
     if (auto *toggle = attr_widget("ocr_enable_toggle")) set_checked(toggle, config_manager->get_ocr_enabled());
-    select_data(attr<QComboBox>("ocr_engine_combo"), config_manager->get_ocr_engine());
+    fill_ocr_engines(this, config_manager->get_ocr_engine(), config_manager->get_ppocr_model());
     select_data(attr<QComboBox>("ocr_result_position_combo"), config_manager->get_ocr_result_position());
 
     select_data(attr<QComboBox>("translation_provider_combo"), config_manager->get_translation_provider());

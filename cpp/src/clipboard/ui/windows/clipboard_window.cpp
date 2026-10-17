@@ -629,6 +629,7 @@ void ClipboardWindow::show_main_menu() {
     options.on_set_image_size = [this](const QString &size) { set_image_size(size); };
     options.on_set_theme = [](const QString &name) { get_theme_manager()->set_theme(name); };
     options.on_add_item = [this] { on_add_item_clicked(); };
+    options.on_clear_history = [this] { on_clear_clicked(); };
     options.on_set_group_bar_position = [this](const QString &position) { set_group_bar_position(position); };
     options.multi_paste_separator = config->get_clipboard_multi_paste_separator();
     options.multi_paste_order = config->get_clipboard_multi_paste_order();
@@ -908,6 +909,8 @@ void ClipboardWindow::on_add_item_clicked() {
     dialog->switch_page(1);
     dialog->show_and_activate();
 }
+
+void ClipboardWindow::on_clear_clicked() { controller->clear_history(this); }
 
 void ClipboardWindow::connect_manage_dialog(ManageDialog *dialog) {
     connect(dialog, &ManageDialog::group_added, group_bar, &GroupBar::refresh_buttons, Qt::UniqueConnection);

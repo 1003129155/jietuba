@@ -1,6 +1,7 @@
 #include "barcode/reader.h"
 #include "barcode/result_window.h"
 #include "ocr/ocr_manager.h"
+#include "ocr/ppocr_models.h"
 #include "settings/tool_settings.h"
 #include "text_recognition/recognizer.h"
 #include "text_recognition/result_window.h"
@@ -16,6 +17,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QSettings>
 #include <QTemporaryDir>
 #include <QTest>
@@ -116,6 +118,21 @@ private slots:
         auto *window = show_text_recognition(blank_image());
         QTRY_VERIFY_WITH_TIMEOUT(window->status_label->text().contains("No text found"), 30000);
         QVERIFY(!window->copy_button->isEnabled());
+    }
+
+    void missingModelsSayWhereToGetThem() {
+        QTemporaryDir models;
+        QVERIFY(models.isValid());
+        ppocr_models::set_models_root_for_test(models.path());
+        set_oneocr_available_for_test(false);
+        const auto restore = qScopeGuard([] {
+            ppocr_models::set_models_root_for_test({});
+            set_oneocr_available_for_test(std::nullopt);
+        });
+        auto *window = show_text_recognition(blank_image());
+        QTRY_VERIFY_WITH_TIMEOUT(window->status_label->text().contains("No PP-OCR model is installed"), 30000);
+        QVERIFY(!window->copy_button->isEnabled());
+        window->close();
     }
 
     void closingWhileRecognizingDoesNotBlockOrReport() {

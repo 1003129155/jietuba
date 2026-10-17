@@ -116,6 +116,10 @@ class MainApp(QObject):
         self._logger = get_logger()
         self.app.aboutToQuit.connect(self._on_about_to_quit)
 
+        # 没设图标的窗口用它作标题栏和任务栏图标；不设时 Qt 去 exe 里找名为 IDI_ICON1 的图标，
+        # 打包出的 exe 图标只有数字编号，找不到就显示 Windows 默认图标。
+        self.app.setWindowIcon(create_app_icon())
+
         # Qt 的自动高 DPI 缩放已关闭。首次进入欢迎向导前，按 Windows 的
         # 显示缩放为两套界面比例选一个初始档位；已有值（包括用户选择）不覆盖。
         from core.ui_scale import apply_first_run_scale_defaults
@@ -557,28 +561,12 @@ class MainApp(QObject):
             # Fallback: 如果还没预加载，立即创建
             self._preloader.preload_settings()
         
-        # 确保窗口在可见屏幕内
-        self._ensure_window_on_screen(self.settings_window)
+        self.settings_window.fit_to_screen()
         
         self.settings_window.setWindowState(self.settings_window.windowState() & ~Qt.WindowState.WindowMinimized | Qt.WindowState.WindowActive)
         self.settings_window.show()
         self.settings_window.raise_()
         self.settings_window.activateWindow()
-
-    def _ensure_window_on_screen(self, win):
-        """检查窗口位置，若在所有屏幕外则居中显示"""
-        from PySide6.QtWidgets import QApplication
-        pos = win.pos()
-        for screen in QApplication.screens():
-            if screen.availableGeometry().contains(pos):
-                return
-        # 窗口不在任何屏幕内，重置到主屏幕中央
-        screen = QApplication.primaryScreen()
-        if screen:
-            screen_rect = screen.availableGeometry()
-            x = screen_rect.x() + (screen_rect.width() - win.width()) // 2
-            y = screen_rect.y() + (screen_rect.height() - win.height()) // 2
-            win.move(x, y)
 
     def on_settings_accepted(self):
         """设置保存后更新热键和剪贴板设置"""

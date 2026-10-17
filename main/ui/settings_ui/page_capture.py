@@ -8,7 +8,7 @@ from ui.fluent_lite import (
 )
 from settings import color_formats
 from settings.tool_settings import (
-    CAPTURE_ENGINES, OCR_ENGINES, OCR_RESULT_POSITIONS, SMART_SELECTION_MODES,
+    CAPTURE_ENGINES, OCR_RESULT_POSITIONS, SMART_SELECTION_MODES,
 )
 from .components import SettingCardGroup, page_scroll_area
 from core.ui_theme import set_own_style
@@ -261,6 +261,8 @@ def create_capture_page(dialog) -> QWidget:
         available_engines = []
         ppocr_status = "missing_engine"
     ocr_available = bool(available_engines)
+    dialog.ocr_has_oneocr = "oneocr" in available_engines
+    dialog.ocr_has_ppocr_engine = ppocr_status != "missing_engine"
 
     grp_ocr = SettingCardGroup(dialog.tr("OCR Settings"), view, tone="capture")
     ocr_engine_card = FSettingCard(
@@ -270,25 +272,23 @@ def create_capture_page(dialog) -> QWidget:
         parent=grp_ocr,
     )
     dialog.ocr_engine_combo = ComboBox(ocr_engine_card)
-    engine_items = (
-        (dialog.tr("Auto (Recommended)"), "auto", ocr_available),
-        ("oneocr" if "oneocr" in available_engines
-         else dialog.tr("oneocr (not found)"),
-         "oneocr", "oneocr" in available_engines),
-        ("PP-OCR" if "ppocr_rust" in available_engines
-         else (dialog.tr("PP-OCR (missing models)") if ppocr_status == "missing_models"
-               else dialog.tr("PP-OCR (missing engine)")),
-         "ppocr_rust", "ppocr_rust" in available_engines),
-    )
-    for label, engine, enabled in engine_items:
-        dialog.ocr_engine_combo.addItem(label, userData=engine)
-        dialog.ocr_engine_combo.model().item(
-            dialog.ocr_engine_combo.count() - 1).setEnabled(enabled)
-    dialog.ocr_engine_combo.setCurrentIndex(
-        OCR_ENGINES.index(dialog.config_manager.get_ocr_engine())
-    )
+    fill_ocr_engines(dialog, dialog.config_manager.get_ocr_engine(), dialog.config_manager.get_ppocr_model())
+    dialog.ocr_engine_combo.activated.connect(lambda _: _on_ocr_engine_activated(dialog))
     ocr_engine_card.addControl(dialog.ocr_engine_combo)
     grp_ocr.addSettingCard(ocr_engine_card)
+
+    # 管理模型只在带 ppocr_rust 的构建里出现；下拉框最后一项「下载更多模型…」打开的是同一个窗口
+    if dialog.ocr_has_ppocr_engine:
+        manage_card = FSettingCard(
+            FluentIcon.DOWNLOAD,
+            dialog.tr("Manage PP-OCR Models"),
+            dialog.tr("Download models for other languages or speeds, or add your own."),
+            parent=grp_ocr,
+        )
+        manage_models_btn = PushButton(dialog.tr("Manage Models"), manage_card)
+        manage_models_btn.clicked.connect(lambda: _open_model_manager(dialog))
+        manage_card.addControl(manage_models_btn)
+        grp_ocr.addSettingCard(manage_card)
 
     ocr_position_card = FSettingCard(
         FluentIcon.LAYOUT,
@@ -333,6 +333,94 @@ def create_capture_page(dialog) -> QWidget:
     scroll.setWidget(view)
     return scroll
  
+
+
+PPOCR_PREFIX = "ppocr_rust:"
+
+
+def ocr_choice(data):
+    """下拉框的一项 → (引擎, PP-OCR 模型 id)；不是某个 PP-OCR 模型时模型为 None。"""
+    if data and data.startswith(PPOCR_PREFIX):
+        return "ppocr_rust", data[len(PPOCR_PREFIX):]
+    return data, None
+
+
+MANAGE_MODELS = "manage_models"
+
+
+def fill_ocr_engines(dialog, engine: str, model_id: str):
+    """OCR 下拉框只列现在能选的：自动、截图工具 OCR（本机有时）、已装的 PP-OCR 模型（清单里的按清单顺序，
+    手动添加的在后），最后是「下载更多模型…」，选它打开模型管理窗口。
+
+    选中的模型被删了时仍列出它并标明未安装，不悄悄换成别的；只有这一项会是灰的。
+    """
+    combo = dialog.ocr_engine_combo
+    items = []  # (显示名, 值, 能否选)
+    if dialog.ocr_has_oneocr:
+        items.append((dialog.tr("Snipping Tool OCR"), "oneocr", True))
+    if dialog.ocr_has_ppocr_engine:
+        from ocr import ppocr_models
+        try:
+            installed, catalog = ppocr_models.installed(), ppocr_models.catalog()["models"]
+        except Exception:
+            installed, catalog = [], []
+        order = {entry["id"]: index for index, entry in enumerate(catalog)}
+        installed.sort(key=lambda m: order.get(m.get("catalog_id"), len(order)))
+        items += [(m["name"], PPOCR_PREFIX + m["id"], True) for m in installed]
+    items.insert(0, (dialog.tr("Auto (Recommended)"), "auto", bool(items)))
+    selected = PPOCR_PREFIX + model_id if engine == "ppocr_rust" else engine
+    if selected not in [data for _, data, _ in items]:
+        name = (model_id or "PP-OCRv6 small") if engine == "ppocr_rust" else dialog.tr("Snipping Tool OCR")
+        items.append((dialog.tr("%1 (not installed)").replace("%1", name), selected, False))
+    combo.blockSignals(True)
+    combo.clear()
+    for label, data, enabled in items:
+        combo.addItem(label, userData=data)
+        combo.model().item(combo.count() - 1).setEnabled(enabled)
+    if dialog.ocr_has_ppocr_engine:
+        combo.insertSeparator(combo.count())
+        combo.addItem(dialog.tr("Download more models..."), userData=MANAGE_MODELS)
+    combo.setCurrentIndex(combo.findData(selected))
+    combo.blockSignals(False)
+    dialog.ocr_engine_selected = selected
+
+
+def _on_ocr_engine_activated(dialog):
+    """选了「下载更多模型…」就打开管理窗口。"""
+    data = dialog.ocr_engine_combo.currentData()
+    if data == MANAGE_MODELS:
+        _open_model_manager(dialog)
+    else:
+        dialog.ocr_engine_selected = data
+
+
+def _open_model_manager(dialog):
+    """打开模型管理窗口；模型增删立即生效，关窗后重填 OCR 列表，选中项回到原来那一项。"""
+    from ui.dialogs import exec_dialog
+    from .ppocr_model_dialog import PpocrModelDialog
+
+    window = PpocrModelDialog(dialog)
+    window.model_removed.connect(lambda model_id: _on_model_removed(dialog, window, model_id))
+    exec_dialog(window)
+    engine, model_id = ocr_choice(dialog.ocr_engine_selected)
+    fill_ocr_engines(dialog, engine, model_id if model_id is not None else dialog.config_manager.get_ppocr_model())
+
+
+def _on_model_removed(dialog, window, model_id):
+    """删掉的正是在用的模型：设置当场改成「自动」，不等「应用」，免得留着一个指向已删模型的设置。
+    只是下拉框里选了还没应用的，就把下拉框改回「自动」。"""
+    config = dialog.config_manager
+    in_use = config.get_ocr_engine() == "ppocr_rust" and config.get_ppocr_model() == model_id
+    if in_use:
+        config.set_ocr_engine("auto")
+        from ocr import set_ocr_engine
+        set_ocr_engine("auto")
+        snapshot = getattr(dialog, "_settings_snapshot", None)
+        if snapshot is not None and "ocr_engine_combo" in snapshot:
+            snapshot["ocr_engine_combo"] = "auto"
+    if in_use or dialog.ocr_engine_selected == PPOCR_PREFIX + model_id:
+        dialog.ocr_engine_selected = "auto"
+        window.show_status(dialog.tr("The deleted model was selected for OCR, so OCR now uses Auto."))
 
 
 def _manage_color_formats(dialog):

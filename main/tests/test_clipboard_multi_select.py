@@ -564,6 +564,32 @@ class TestSettingsMenu:
             assert setting_panel.unescape_separator(setting_panel.escape_separator(value)) == value
         assert setting_panel.unescape_separator(r"x\n\ty") == "x\n\ty"
 
+    def test_clear_history_entry_needs_a_handler(self, qapp):
+        parent = QWidget()
+
+        def entries(**handlers):
+            menu = setting_panel.show_setting_menu(
+                parent, menu_style="", tr=lambda text: text,
+                paste_with_html=True, auto_paste=True, close_after_paste=True, move_to_top=True,
+                show_metadata=True, preserve_search=False, window_opacity=0, current_font_size=17,
+                current_theme_name="light", opacity_options=[0], font_size_options=[17],
+                on_toggle_paste_html=Mock(), on_toggle_auto_paste=Mock(), on_toggle_close_after_paste=Mock(),
+                on_toggle_move_to_top=Mock(), on_toggle_show_metadata=Mock(), on_toggle_preserve_search=Mock(),
+                on_set_opacity=Mock(), on_set_font_size=Mock(), on_set_theme=Mock(), on_add_item=Mock(),
+                anchor_pos=QPoint(0, 0), **handlers,
+            )
+            return menu, {a.text(): a for a in menu.actions()}
+
+        menu, actions = entries()
+        assert "Clear History" not in actions
+        menu.close()
+
+        clear = Mock()
+        menu, actions = entries(on_clear_history=clear)
+        actions["Clear History"].trigger()
+        clear.assert_called_once()
+        menu.close()
+
     def test_menu_shows_and_saves_the_multi_paste_settings(self, qapp):
         saved = {}
         parent = QWidget()

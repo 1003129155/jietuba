@@ -1,5 +1,5 @@
 {
-  "git_head": "27da93e16900fedc5042394ed766035f51a95f57",
+  "git_head": "be2dcb81cead9d29f96f707ee5895fc4e040a484",
   "files": [
     {
       "path": "licenses/lucide-LICENSE.txt",
@@ -108,8 +108,8 @@
     },
     {
       "path": "main/canvas/items/watermark_item.py",
-      "sha256": "4f31576c3608ce4303485269f47e8d5f86783d1f855fefa636149ec8a867dc18",
-      "bytes": 12400
+      "sha256": "00af6ab5df1045304a01df7d663f55a3cd08287d974e50a25e1623588bf755c8",
+      "bytes": 17165
     },
     {
       "path": "main/canvas/scene.py",
@@ -188,8 +188,8 @@
     },
     {
       "path": "main/clipboard/controllers/clipboard_controller.py",
-      "sha256": "0279dd875c83ffc9d1cbc22ffc10c8df67420e04a26d246f01460b9d391ad51b",
-      "bytes": 44486
+      "sha256": "82a26f896d1f5744effc85eac1efa4a872b90db6513fb81a46f701ad0c819ee9",
+      "bytes": 44666
     },
     {
       "path": "main/clipboard/controllers/context_menu_controller.py",
@@ -228,8 +228,8 @@
     },
     {
       "path": "main/clipboard/core/manager.py",
-      "sha256": "0d8f1b4d58337e772a246666b4e35576fbbdcd447b7a616caffec9bc19701294",
-      "bytes": 22216
+      "sha256": "8cb13be23a9cacd4c1c28784b6d331171fdfbc5730fda28a65a81f5c08f93a65",
+      "bytes": 22941
     },
     {
       "path": "main/clipboard/core/models.py",
@@ -338,8 +338,8 @@
     },
     {
       "path": "main/clipboard/ui/panels/setting_panel.py",
-      "sha256": "506998fa4024f2a3433f26ad9584fcf0d6ae359f82e8efc5d842591658b0e942",
-      "bytes": 10306
+      "sha256": "98ccddd7fe7116fd42644242afb84f46069c5ac5d718c32edf9aab1887d6461b",
+      "bytes": 10503
     },
     {
       "path": "main/clipboard/ui/resources/emoji_data.py",
@@ -393,8 +393,8 @@
     },
     {
       "path": "main/clipboard/ui/windows/clipboard_window.py",
-      "sha256": "b759a34bc1b38c732c52723ba82483a0489a3c98336a95922118a52d17f01daa",
-      "bytes": 73575
+      "sha256": "f5375fc9df552644f81e052a26f025a9cfca200239f73b818ec8f91256068e83",
+      "bytes": 73628
     },
     {
       "path": "main/clipboard/ui/windows/pin_window.py",
@@ -418,8 +418,8 @@
     },
     {
       "path": "main/core/bootstrap.py",
-      "sha256": "c41d90d341096342c3f43c0360cc50aeff3eafa0d1e1a102bd11efbeb370f34d",
-      "bytes": 24644
+      "sha256": "1669a67a0d77b060d8823af8278550a080b4533fd9d139ed4801ad883af0705e",
+      "bytes": 25079
     },
     {
       "path": "main/core/clipboard_utils.py",
@@ -483,13 +483,13 @@
     },
     {
       "path": "main/core/log_translations/clipboard.py",
-      "sha256": "5f76fb65a3dd651080042742b30fc7ec0b46f3911b26e660e6fe7da321c6048a",
-      "bytes": 10246
+      "sha256": "1827148f1b5108ddddb3d4abab6d5fd47cc4774841e9162aa057f6bc3f7c79b4",
+      "bytes": 10363
     },
     {
       "path": "main/core/log_translations/core_pkg.py",
-      "sha256": "59fb4a545290764314913747e9c351962504b2c2a75d72f417812f25eb085a84",
-      "bytes": 11091
+      "sha256": "e9da8ed6e94e3291557164eb6c18105a1d7c257c7d5fd44e2d990ec7216cf9bd",
+      "bytes": 11171
     },
     {
       "path": "main/core/log_translations/gif.py",
@@ -503,8 +503,8 @@
     },
     {
       "path": "main/core/log_translations/ocr.py",
-      "sha256": "79dfe86b2df247b0603bf354283f801628ee0f1187262991f72cdd8ca1153dac",
-      "bytes": 2159
+      "sha256": "785f31fd5cd3c24cfd60aed5b2324738ead6836494d93ca8f33118b895893789",
+      "bytes": 2245
     },
     {
       "path": "main/core/log_translations/pin.py",
@@ -688,18 +688,23 @@
     },
     {
       "path": "main/main_app.py",
-      "sha256": "9e5364b4a036c890bceb58d87faea1148b4280582344bf605f8f7ba9ab89fe69",
-      "bytes": 38509
+      "sha256": "4d4e57543482bd364dbc1b6895762d31d68394cb8b342addb923369c392bd246",
+      "bytes": 38047
     },
     {
       "path": "main/ocr/__init__.py",
-      "sha256": "3558a990356434d59b1552c20141dcc241ed2a217a8a3344c8f3fc223f1fda6f",
-      "bytes": 1636
+      "sha256": "93af2c0b8eacd40780e200a51da91e00ea79cd34071a9e147d8679657428826b",
+      "bytes": 1680
     },
     {
       "path": "main/ocr/ocr_manager.py",
-      "sha256": "67f6ba1d14ab3480a475e1fec54462e7f2c61b02f11b50b9e64ca64522b18e21",
-      "bytes": 26501
+      "sha256": "8bcc1dbd1faca43c0a69e694bb59552dda8971b376276d35045f28a6b17d616d",
+      "bytes": 30816
+    },
+    {
+      "path": "main/ocr/ppocr_models.py",
+      "sha256": "3e53fa8cdc5b1205a7a3d8f37663758fabf3559c6324edeec6ca827a61bd0417",
+      "bytes": 6169
     },
     {
       "path": "main/ocr/snipping_tool_ocr.py",
@@ -828,8 +833,8 @@
     },
     {
       "path": "main/settings/tool_settings.py",
-      "sha256": "0ada441e5dea1cc973c6d1cd86aa1f3e16017d24b6322064725ee34bccf02072",
-      "bytes": 104890
+      "sha256": "a84b3cf3be3d6eaf4dcabdcd6513585bbcd3bfcda3562552c64bd23961b5a1dc",
+      "bytes": 106734
     },
     {
       "path": "main/stitch/__init__.py",
@@ -883,13 +888,13 @@
     },
     {
       "path": "main/text_recognition/recognizer.py",
-      "sha256": "cfdf3ed0a949f8eab845cb0dcb0694cfcb76ef932adaf3e738c518975aec6b91",
-      "bytes": 4305
+      "sha256": "6427257119b2ab726ccae0c64ba7bc1bad9106145dbfabcd0b4f655c20826284",
+      "bytes": 4732
     },
     {
       "path": "main/text_recognition/result_window.py",
-      "sha256": "3fb7e21889f87e16523a1e6c4e135bc1a9ec66c05535644f745a7c6acf6b1421",
-      "bytes": 15889
+      "sha256": "efa259d8c248fef5ecda53e9249f94839333285ab244cafbac1ae0d535eecb96",
+      "bytes": 16132
     },
     {
       "path": "main/tools/__init__.py",
@@ -1003,8 +1008,8 @@
     },
     {
       "path": "main/translation/providers/__init__.py",
-      "sha256": "5657c12407abe7095a58d46a7a524feb7fbacad68f67f2775ec21405d69055a5",
-      "bytes": 747
+      "sha256": "f084534861eaacb5ed1b3ebb69fa12fef631ec8f0506577b9c401c5f1229c841",
+      "bytes": 822
     },
     {
       "path": "main/translation/providers/amazon.py",
@@ -1057,14 +1062,19 @@
       "bytes": 12457
     },
     {
+      "path": "main/translation/providers/youdao.py",
+      "sha256": "425b865fb16b7a0fa66b2c6c6fddd055dc2ba94c7d875c4730e5616c45e1011c",
+      "bytes": 12125
+    },
+    {
       "path": "main/translation/registry.py",
       "sha256": "98ed1217f669b1af1715731a497b9961beb828638cc0bf81e64886ead9b4fdad",
       "bytes": 2553
     },
     {
       "path": "main/translation/service.py",
-      "sha256": "b1975bcb3a0d760867d895fdb9879d2d924400b82b42a9d474fb7eeb75254f7c",
-      "bytes": 7623
+      "sha256": "47decd5ed3c8af19c88e3ac05df0294a5d452919745874bd3d63fca500581502",
+      "bytes": 7822
     },
     {
       "path": "main/translation/smart_translation_controller.py",
@@ -1103,23 +1113,23 @@
     },
     {
       "path": "main/translations/app_en.xml",
-      "sha256": "df6f07bb890d0e9117392ba4e6f372c454ed4c7a0d642c344cb7b4c5c13c4ebf",
-      "bytes": 209342
+      "sha256": "e0f15c1d0af891a4dd589c310f076f67b53df6e127d5e39e3ca2b5ed149902ff",
+      "bytes": 220173
     },
     {
       "path": "main/translations/app_ja.xml",
-      "sha256": "bf5a61a892d188e042d099c05692d1305bd6fa755338e57c46a45531c00ab09e",
-      "bytes": 231118
+      "sha256": "e6eb05f24897e712965c2a42848fba727c436710a36ae2f31d79129dfa17e814",
+      "bytes": 242983
     },
     {
       "path": "main/translations/app_ko.xml",
-      "sha256": "0814c5b60857021ac832b6f402306713e93487a84b9c2027ccad879e64d9fc25",
-      "bytes": 223717
+      "sha256": "eb6bfbb261364684b22d530d94dd1730aece754be2349d61e3290ecb38a72a7a",
+      "bytes": 235045
     },
     {
       "path": "main/translations/app_zh.xml",
-      "sha256": "71ed580d388b64d9b5692689bad038975d10cd29e68c8c5efbffaf9d9292859e",
-      "bytes": 212945
+      "sha256": "d1e2f695bcde574ce12e36f5e3c9ca639a2f3c17732267fad6866640d493557c",
+      "bytes": 223607
     },
     {
       "path": "main/ui/__init__.py",
@@ -1188,8 +1198,8 @@
     },
     {
       "path": "main/ui/fluent_lite/navigation.py",
-      "sha256": "e61ba1766da40e52879830db1965dc5ec095f5e94a3156978767cc0bfc0ef825",
-      "bytes": 5760
+      "sha256": "932338865a222860e109ce466e2dc55096066b7d84917974b3ed5437ae924013",
+      "bytes": 6898
     },
     {
       "path": "main/ui/fluent_lite/segmented.py",
@@ -1328,13 +1338,13 @@
     },
     {
       "path": "main/ui/settings_ui/dialog.py",
-      "sha256": "9bd1150808069d11083cac3e20fe4621d989b3f67d2f73cff843a89cd14318a3",
-      "bytes": 87389
+      "sha256": "4a3d1ab734f7223a231bbd5a5c93c68f6ad782d419d9d2593e53681d024fac11",
+      "bytes": 89854
     },
     {
       "path": "main/ui/settings_ui/mock_config.py",
-      "sha256": "dfcfc233eb9d1b1318a2cc80981b7568bb0ab1675b3bb64d2026a68fb73b61d3",
-      "bytes": 14575
+      "sha256": "8608fbc8e38bd39a489b5bda30ae317c781bcf7b353a269226274b8a8f9d3c6e",
+      "bytes": 14655
     },
     {
       "path": "main/ui/settings_ui/page_about.py",
@@ -1348,13 +1358,13 @@
     },
     {
       "path": "main/ui/settings_ui/page_capture.py",
-      "sha256": "6bb233f666c4de6e212f1793b90f3c0669adb698e43540683a92af581f3cb0e8",
-      "bytes": 15290
+      "sha256": "363616f20c22451285ddfd8166a59abe7ca46738c0fe1248b6d3e37619a58dc8",
+      "bytes": 19540
     },
     {
       "path": "main/ui/settings_ui/page_clipboard.py",
-      "sha256": "14637ce366c3da8da2891c7029f7e8d0eba44ccef9de086910a010305731c77e",
-      "bytes": 25081
+      "sha256": "e9ef5b1ecf6fcf0e25ccc8759b66449454467b568493cb688887884611744968",
+      "bytes": 25155
     },
     {
       "path": "main/ui/settings_ui/page_developer.py",
@@ -1395,6 +1405,11 @@
       "path": "main/ui/settings_ui/page_translation.py",
       "sha256": "e16bb0e705178f53f46ebbb1763338e00027b07508ed65440926bb3db8fde6ed",
       "bytes": 21905
+    },
+    {
+      "path": "main/ui/settings_ui/ppocr_model_dialog.py",
+      "sha256": "6fbe65fb81569e5d2f505e62ae662954b4a8041c415e418032277ed35ad8a04f",
+      "bytes": 17749
     },
     {
       "path": "main/ui/settings_ui/provider_fields.py",
@@ -1458,8 +1473,8 @@
     },
     {
       "path": "main/ui/watermark_settings_panel.py",
-      "sha256": "1fef78c9ffe94cf941984a86c676e2193a5f97466a667581bfcb2518f3ce4347",
-      "bytes": 18548
+      "sha256": "db950d04a3328014c2e00b2aba047918b59d1570fc524aa205eebf5d79939647",
+      "bytes": 21358
     },
     {
       "path": "main/ui/welcome/__init__.py",
@@ -1528,13 +1543,13 @@
     },
     {
       "path": "requirements.txt",
-      "sha256": "803391e167053a8a9918a10c22e9094300d730c13c07ba50fddcf6f35193748e",
+      "sha256": "141c2cb09bf6502a2883bb3a2ee22857040ccc7890114392cd7eff5067181857",
       "bytes": 443
     },
     {
       "path": "rust_libs/Cargo.lock",
-      "sha256": "3de0a8cb81e5b17453c78a0ce7eceefc7803f5af850ca20678cad7d3ca35de47",
-      "bytes": 94773
+      "sha256": "2e36833e6d20ce63e0dc5aa83deecd9af226a105f4f3255372fc36e390156f6c",
+      "bytes": 94798
     },
     {
       "path": "rust_libs/Cargo.toml",
@@ -1778,8 +1793,8 @@
     },
     {
       "path": "rust_libs/ppocr_rust/Cargo.toml",
-      "sha256": "6e1670999df358f22d829c008e7838650270e49a9e0f8333538a5a44b420f903",
-      "bytes": 785
+      "sha256": "b2a048c68a86775920af75d3108757f4fb07163b0c28d15e753856575b0d866c",
+      "bytes": 848
     },
     {
       "path": "rust_libs/ppocr_rust/ONNXRUNTIME-NOTICES.txt",
@@ -1788,8 +1803,8 @@
     },
     {
       "path": "rust_libs/ppocr_rust/THIRD-PARTY-NOTICES.txt",
-      "sha256": "e50edd21cf7e0da9b4d71e12cbb8533b741094e27a842b74efac357c22e0e7fc",
-      "bytes": 172392
+      "sha256": "9d74589d0661397d05a47bbc3e25396629d6eb3a4300d989d96f54e2523ce89c",
+      "bytes": 172494
     },
     {
       "path": "rust_libs/ppocr_rust/build.rs",
@@ -1797,14 +1812,19 @@
       "bytes": 688
     },
     {
+      "path": "rust_libs/ppocr_rust/catalog.json",
+      "sha256": "fe70ad5b6e8560f8d627310db5dc8a13270b94375e6e5e50fe52a5c4c9faa8ab",
+      "bytes": 11892
+    },
+    {
       "path": "rust_libs/ppocr_rust/pyproject.toml",
-      "sha256": "d4e455e3ab44c7b3b5cf323d47719aa38aa6c164be96f9c08e186539ab6199fa",
+      "sha256": "a756143581beb8c7527d74b3da80d0e1ee3a79e5fcdf6392925143aa3e024975",
       "bytes": 852
     },
     {
       "path": "rust_libs/ppocr_rust/src/engine.rs",
-      "sha256": "c65761e3b1e1f9205663438fcb8fccd1715d6d56b814c1509ed21cffb4bf0952",
-      "bytes": 16255
+      "sha256": "3d59c360bcf1c77173dc26eea77f14b1c33be8296eea0eb8c90c5c7b2d215751",
+      "bytes": 19548
     },
     {
       "path": "rust_libs/ppocr_rust/src/geometry.rs",
@@ -1813,13 +1833,18 @@
     },
     {
       "path": "rust_libs/ppocr_rust/src/lib.rs",
-      "sha256": "ee303a65f68211c3e745f616c794f0c18c142c5d8b3e7ef2296c848e0f7a86f7",
-      "bytes": 396
+      "sha256": "bd3fb0b86a5d2d2f91223bb1afa19c5c0153ca16480d608d557be0d3819c611a",
+      "bytes": 412
+    },
+    {
+      "path": "rust_libs/ppocr_rust/src/models.rs",
+      "sha256": "9576fc7bc5b00ae41c17db43f1ff7424e3c2e80a56959e54f94045615325f404",
+      "bytes": 25597
     },
     {
       "path": "rust_libs/ppocr_rust/src/python.rs",
-      "sha256": "1719389c63e48b63aec93e94130250ea8365f6d50f5d4685eb8d2a8de1011717",
-      "bytes": 4069
+      "sha256": "0c7afce3ff9a63d365f53a4e80c870c8dfe1f5c3a5e843a96ba4261b79a465e5",
+      "bytes": 6730
     },
     {
       "path": "rust_libs/pyclipboard/Cargo.lock",
@@ -1842,29 +1867,34 @@
       "bytes": 1069
     },
     {
+      "path": "rust_libs/pyclipboard/src/cf_html.rs",
+      "sha256": "cdfd21df0e7a8fce5c63468c18d7b75b78f422bfa7f48cb5090f4e59f2f47fb9",
+      "bytes": 7720
+    },
+    {
       "path": "rust_libs/pyclipboard/src/database.rs",
-      "sha256": "4ba19568783f0cabc50f2c4a36e1b2aebb57c54bcff50c459797bdbfd110cafa",
-      "bytes": 49636
+      "sha256": "4758fdb7a7470f3092eaacc5ba7c0c762f827026eac1de08aba0346c123cb7c0",
+      "bytes": 50728
     },
     {
       "path": "rust_libs/pyclipboard/src/lib.rs",
-      "sha256": "00b3503714824e7011e95b79e26cec910400b3b961ab5fb3d73d40464cb42236",
-      "bytes": 305
+      "sha256": "ea0cf591cdf3cadf0ad613598075eb99a4dc8ddd1ad339ba66ef65584562a5c8",
+      "bytes": 322
     },
     {
       "path": "rust_libs/pyclipboard/src/manager.rs",
-      "sha256": "b669830fb14a0c46f56e4e1d2f9ed6eb872fac5b0bf972004c15f8c1caa28f70",
-      "bytes": 70751
+      "sha256": "e8ff6f8112005a4d7c3b97ae3f8104778ff2d7e8fd9b9afb39b3fc92ddb3bf6a",
+      "bytes": 63946
     },
     {
       "path": "rust_libs/pyclipboard/src/multi_paste.rs",
-      "sha256": "0578225242d9cd8c55a69999310e6bdfa975c85062ade523f464125b530175f3",
-      "bytes": 55432
+      "sha256": "0dcfd94eeff90ec00f4bcdd2d3cd76313babaf0b0de2fa3129ac6a0acab247a4",
+      "bytes": 53675
     },
     {
       "path": "rust_libs/pyclipboard/src/python.rs",
-      "sha256": "e513f8adc6bc525932d84cad7ae573f071033d72dd57810c417dc26665018447",
-      "bytes": 23101
+      "sha256": "cc635f616da60af70d05b705fff964e5ff6b7f701993452d4d68da906b444eb5",
+      "bytes": 23631
     },
     {
       "path": "rust_libs/pyclipboard/src/types.rs",
@@ -1878,12 +1908,12 @@
     },
     {
       "path": "rust_libs/updater/Cargo.toml",
-      "sha256": "53812e96bc9583eb8400cecd6f40aac1053a9c051dbb5ecf323603761ad1af12",
+      "sha256": "0190fbd2439e416b435a0ea989c8920ce0732b2603f99739a82b15c21f87f085",
       "bytes": 854
     },
     {
       "path": "rust_libs/updater/THIRD-PARTY-NOTICES.txt",
-      "sha256": "6ae4fc1aae6698c7fa0df971381865c5686a2c6a318904b5bc5aca4be1b84c25",
+      "sha256": "f5393760345407020ceeeb6fd69e6890dbb447190cf3d95700f1295fb225262c",
       "bytes": 106660
     },
     {
@@ -1913,13 +1943,18 @@
     },
     {
       "path": "rust_libs/updater/src/lib.rs",
-      "sha256": "1116ef9ba7327b9afb2eea3a770b8f152b25b82ac5abd6c2d94327cf6ab4502a",
-      "bytes": 3041
+      "sha256": "e3867399b3f87e4ecab99a793a935fd7c9dc3eddeb4e94c0ded6371c300c307c",
+      "bytes": 3057
     },
     {
       "path": "rust_libs/updater/src/main.rs",
-      "sha256": "b55d9297802db218b8d291a41489bd792ea87da9ae767fdf9d906e8ecafc3445",
-      "bytes": 16764
+      "sha256": "5dfa4c0fd6d55a3153f270a9f103fee350244c2e3091fe255861c6c8aa40c4ed",
+      "bytes": 17720
+    },
+    {
+      "path": "rust_libs/updater/src/models.rs",
+      "sha256": "66c827e14f0e107b648f14283071fb0497935b56c98d04fbf23e3b0eb7016386",
+      "bytes": 10600
     },
     {
       "path": "rust_libs/updater/src/platform.rs",

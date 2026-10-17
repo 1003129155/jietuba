@@ -1,6 +1,8 @@
 #pragma once
 #include "ocr/snipping_tool_ocr.h"
 #include <QImage>
+#include <QJsonObject>
+#include <QSet>
 #include <QStringList>
 #include <atomic>
 #include <memory>
@@ -14,6 +16,8 @@ struct OcrResult {
     QString msg;
     QVector<OcrLine> data;
     double elapse = 0;
+    // On error, which message the UI shows: no_model, model_broken, unavailable or failed.
+    QString reason;
 };
 
 // One reading-order line with its bounding box.
@@ -23,6 +27,12 @@ struct OcrTextLine {
 };
 
 class PpocrEngine;
+
+// The model files a PP-OCR engine was loaded from; dict is empty when the rec model carries it.
+struct PpocrFiles {
+    QString det, rec, dict;
+    bool operator==(const PpocrFiles &other) const { return det == other.det && rec == other.rec && dict == other.dict; }
+};
 
 // Text recognition with two engines: the Windows Snipping Tool's own OCR (oneocr)
 // and PP-OCR, shipped with the full build. A singleton choosing the engine by setting.
@@ -52,9 +62,32 @@ public:
     void release_engine();
     bool is_engine_loaded() const;
     QString get_memory_status() const;
+    // The PP-OCR model to use; nullopt when there is none. Auto picks from the installed models
+    // by catalog priority (ppocr_models::auto_choice). A chosen model that is not installed or
+    // failed to load is replaced by the automatic choice without changing the setting, so it is
+    // used again once it is back; only when that fails too is the broken model returned, for
+    // loading to report the error.
+    std::optional<QJsonObject> selected_ppocr_model() const;
+    // Switches the PP-OCR model; a loaded engine reloads with it on the next recognition.
+    void set_ppocr_model(const QString &model_id);
 private:
     OCRManager();
     void ensure_preference();
+    bool ppocr_ready() const;
+    // The engine setting in force: the applied preference, else the stored setting.
+    QString configured() const;
+    // The model chosen in the settings; nullopt when it is not installed.
+    std::optional<QJsonObject> chosen_model() const;
+    // Files of a model that failed to load during this run, by path, size and modification time;
+    // replacing the files makes it worth trying again.
+    static QString signature(const QJsonObject &model);
+    bool is_broken(const QJsonObject &model) const;
+    qsizetype broken_count() const;
+    // The chosen engine is missing here, or the chosen model is not installed or broke: Auto decides.
+    bool falls_back(const QString &preference) const;
+    // Why no engine is usable: no_model, or unavailable when the PP-OCR runtime is missing.
+    static QString missing_reason();
+    void set_last_reason(const QString &reason);
     bool initialize_ppocr_rust();
     bool initialize_oneocr();
     // Releases whichever engine is not current; the caller holds the lock.
@@ -69,8 +102,14 @@ private:
     // for whole recognitions, so they have their own lock.
     mutable std::mutex state_lock_;
     QString last_error_;
+    QString last_reason_;
+    QSet<QString> broken_;
+    // Model ids whose switch to the automatic choice was logged; each is logged once.
+    mutable QSet<QString> fallback_logged_;
     std::optional<QString> preference_;  // nullopt until the setting is read
     std::optional<QString> current_engine_;
+    mutable std::optional<QString> pp_model_id_;  // nullopt until the setting is read
+    PpocrFiles pp_files_;                         // what pp_engine_ was loaded from
     std::unique_ptr<PpocrEngine> pp_engine_;
     std::unique_ptr<SnippingToolOcr> one_engine_;
     // Whether each engine is loaded, readable without engine_lock_.
@@ -79,13 +118,17 @@ private:
     std::recursive_mutex engine_lock_;
 };
 
-// "available", "missing_models" (model files absent) or "missing_engine" (no usable onnxruntime.dll).
+// "available", "missing_models" (the chosen model is not installed) or "missing_engine" (no usable onnxruntime.dll).
 QString get_ppocr_status();
 // Whether a file's version resource names an ONNX Runtime the PP-OCR engine can load.
 bool ppocr_runtime_supported(const QString &dll);
+// Tests hide or show the Snipping Tool OCR; nullopt goes back to detecting it.
+void set_oneocr_available_for_test(std::optional<bool> available);
 bool is_ocr_available();
 QStringList get_available_engines();
 bool set_ocr_engine(const QString &engine_type);
+// A subfolder name under models/, empty for the default model.
+void set_ppocr_model(const QString &model_id);
 std::optional<QString> get_current_engine();
 bool initialize_ocr(const QString &engine_type = {});
 OcrResult recognize_text(const QImage &image);

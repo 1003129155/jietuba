@@ -291,6 +291,8 @@ class ToolSettingsManager(QObject):
             "spacing": 40,       # 字号的十分之几
             "angle": -30,        # 只用于平铺
             "font_family": "",   # 空 = 跟随界面语言的默认字体
+            "diamond_angle": 0,  # 菱形整张网格的角度
+            "line_style": "solid",  # 菱形的网格线：none / solid / dash
         },
         "rect": {
             "color": "#FF0000",  # 红色
@@ -453,6 +455,7 @@ class ToolSettingsManager(QObject):
         # OCR
         "ocr_enabled": True,                   # 钉图后自动 OCR（保留旧键名以兼容已有配置）
         "ocr_engine": "auto",                  # OCR 引擎，见 OCR_ENGINES
+        "ppocr_model": "",                     # PP-OCR 模型：models/ 下的子目录名，空串是根目录的默认模型
         "ocr_result_position": "region_screen",  # 文字识别结果窗口的位置，见 OCR_RESULT_POSITIONS
         "ocr_result_on_top": True,             # 文字识别结果窗口置顶
         "ocr_layout_mode": "auto",             # 识别结果的排版，见 OCR_LAYOUT_MODES
@@ -532,6 +535,8 @@ class ToolSettingsManager(QObject):
         "tencent_translate_secret_key": "",
         "tencent_translate_quota_enabled": True,
         "tencent_translate_quota_limit": "4990000",
+        "youdao_translate_app_key": "",
+        "youdao_translate_app_secret": "",
         "deepseek_api_key": "",
         "deepseek_model": "",          # 空=用 provider 里的默认模型
         "deepseek_base_url": "",       # 空=用官方地址
@@ -1386,6 +1391,14 @@ class ToolSettingsManager(QObject):
             engine = self.APP_DEFAULT_SETTINGS["ocr_engine"]
         self.qsettings.setValue("app/ocr_engine", engine)
 
+    def get_ppocr_model(self) -> str:
+        """获取 PP-OCR 模型的 id：models/ 下的子目录名，空串是根目录的默认模型。"""
+        return str(self.qsettings.value("app/ppocr_model", self.APP_DEFAULT_SETTINGS["ppocr_model"], type=str))
+
+    def set_ppocr_model(self, value: str):
+        """设置 PP-OCR 模型的 id。"""
+        self.qsettings.setValue("app/ppocr_model", str(value or ""))
+
     def get_ocr_result_position(self) -> str:
         """获取文字识别结果窗口的位置，取值见 OCR_RESULT_POSITIONS。"""
         default = self.APP_DEFAULT_SETTINGS["ocr_result_position"]
@@ -1578,6 +1591,11 @@ class ToolSettingsManager(QObject):
             return {
                 "secret_id": self.get_tencent_translate_secret_id(),
                 "secret_key": self.get_tencent_translate_secret_key(),
+            }
+        if provider_id == "youdao":
+            return {
+                "app_key": self.get_youdao_translate_app_key(),
+                "app_secret": self.get_youdao_translate_app_secret(),
             }
         if provider_id == "deepseek":
             # model/base_url 留空时由 provider 用自己的默认值，
@@ -1795,6 +1813,32 @@ class ToolSettingsManager(QObject):
     def set_tencent_translate_secret_key(self, value: str):
         self.qsettings.setValue(
             "translation/providers/tencent/secret_key",
+            (value or "").strip(),
+        )
+
+    def get_youdao_translate_app_key(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/youdao/app_key",
+            self.APP_DEFAULT_SETTINGS["youdao_translate_app_key"],
+            type=str,
+        )
+
+    def set_youdao_translate_app_key(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/youdao/app_key",
+            (value or "").strip(),
+        )
+
+    def get_youdao_translate_app_secret(self) -> str:
+        return self.qsettings.value(
+            "translation/providers/youdao/app_secret",
+            self.APP_DEFAULT_SETTINGS["youdao_translate_app_secret"],
+            type=str,
+        )
+
+    def set_youdao_translate_app_secret(self, value: str):
+        self.qsettings.setValue(
+            "translation/providers/youdao/app_secret",
             (value or "").strip(),
         )
 

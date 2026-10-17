@@ -10,11 +10,11 @@ import subprocess
 import sys
 
 from PySide6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QWidget, QDialogButtonBox,
+    QApplication, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QWidget, QDialogButtonBox,
 )
-from PySide6.QtCore import QPoint, Qt, QTimer, Signal
+from PySide6.QtCore import QPoint, QSize, Qt, QTimer, Signal
 from ui.dialogs import get_existing_directory, show_info_dialog, show_warning_dialog
-from PySide6.QtGui import QColor, QFont, QIcon
+from PySide6.QtGui import QColor, QCursor, QFont, QIcon
 
 from ui.fluent_lite import (
     NavigationInterface, NavigationItemPosition,
@@ -29,7 +29,7 @@ from ui.fluent_lite.theme import FONT_FAMILIES, tinted_icon
 from core import log_info, safe_event
 from core.logger import log_exception, T
 from core.resource_manager import ResourceManager
-from core.ui_scale import configure_dialog_control, configure_dialog_controls, dialog_scaled
+from core.ui_scale import configure_dialog_control, configure_dialog_controls, dialog_scaled, get_dialog_scale
 from settings.tool_settings import (
     CAPTURE_ENGINES, GLOBAL_HOTKEY_FUNCTIONS, SMART_SELECTION_MODES, ToolSettingsManager,
     global_hotkey_slot_suffix,
@@ -100,6 +100,18 @@ def _tracked_signals(widget_class) -> tuple:
     return names
 
 
+def settings_window_size(available_width: int, available_height: int, factor: float) -> tuple:
+    """设置窗口在一块屏幕上的默认尺寸；参数是屏幕可用区域（逻辑像素）和窗口缩放比例。
+
+    可用区域先换算回 100% 比例，在 1920×1032→1050×750、2560×1392→1150×900 两点间线性取值，
+    更大的屏幕不再放大。宽度不低于 1050：快捷键页窄于它就要横向滚动。
+    乘回比例后不超过可用区域，放不下的部分由页面和导航的滚动区承担。
+    """
+    width = min(1150, max(1050, int(1050 + (available_width / factor - 1920) * 100 / 640)))
+    height = min(900, int(750 + (available_height / factor - 1032) * 150 / 360))
+    return min(round(width * factor), available_width), min(round(height * factor), available_height)
+
+
 def save_inapp_shortcut_edits(config_manager, edits):
     """Persist in-app editors while preserving empty-as-unbound semantics."""
     from core.shortcut_manager import is_reserved_inapp_shortcut
@@ -145,7 +157,9 @@ class SettingsDialog(FrostedFramelessDialog):
         self._setup_titlebar()
 
         self.setWindowTitle("jietuba")
-        self.resize(dialog_scaled(1050), dialog_scaled(750))
+        # 上次按屏幕定下的尺寸；当前尺寸和它不同说明用户拖动过
+        self._fitted_size = None
+        self.fit_to_screen()
         # 和卡片、导航用同一份字体栈，不带 font-family 的文字样式才会随之统一
         window_font = QFont()
         window_font.setFamilies(FONT_FAMILIES)
@@ -156,6 +170,31 @@ class SettingsDialog(FrostedFramelessDialog):
         self._setup_ui()
         from core.ui_theme import get_ui_theme
         get_ui_theme().theme_changed.connect(self._on_ui_theme_changed)
+
+    def fit_to_screen(self):
+        """按将要显示的屏幕定尺寸：没拖动过就用该屏幕的默认尺寸，拖动过的只在放不下时缩小。
+
+        位置交给 Qt：没被 move() 过的对话框每次显示都居中到鼠标所在屏幕，并限制在可用区域内。
+        已显示的窗口不动。
+        """
+        if self.isVisible():
+            return
+        screen = self._target_screen()
+        if screen is None:
+            return
+        area = screen.availableGeometry()
+        user_sized = self._fitted_size is not None and self.size() != self._fitted_size
+        if user_sized:
+            target = self.size().boundedTo(area.size())
+        else:
+            target = QSize(*settings_window_size(area.width(), area.height(), get_dialog_scale().factor))
+        if target != self.size():
+            self.resize(target)
+        if not user_sized:
+            self._fitted_size = self.size()
+
+    def _target_screen(self):
+        return QApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()
 
     def _setup_titlebar(self):
         """用 FluentTitleBar 替换默认标题栏"""
@@ -822,9 +861,8 @@ class SettingsDialog(FrostedFramelessDialog):
             from settings import color_formats
             self.magnifier_color_formats = color_formats.default_formats()
         if hasattr(self, 'ocr_engine_combo'):
-            index = self.ocr_engine_combo.findData(defaults["ocr_engine"])
-            if index >= 0:
-                self.ocr_engine_combo.setCurrentIndex(index)
+            from .page_capture import fill_ocr_engines
+            fill_ocr_engines(self, defaults["ocr_engine"], defaults["ppocr_model"])
         if hasattr(self, 'ocr_result_position_combo'):
             index = self.ocr_result_position_combo.findData(defaults["ocr_result_position"])
             if index >= 0:
@@ -1049,7 +1087,12 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'ocr_enable_toggle'):
             self.config_manager.set_ocr_enabled(self.ocr_enable_toggle.isChecked())
         if hasattr(self, 'ocr_engine_combo'):
-            engine = self.ocr_engine_combo.currentData()
+            from .page_capture import ocr_choice
+            engine, model = ocr_choice(self.ocr_engine_combo.currentData())
+            if model is not None and model != self.config_manager.get_ppocr_model():
+                self.config_manager.set_ppocr_model(model)
+                from ocr import set_ppocr_model
+                set_ppocr_model(model)
             if engine != self.config_manager.get_ocr_engine():
                 self.config_manager.set_ocr_engine(engine)
                 from ocr import set_ocr_engine
@@ -1351,7 +1394,7 @@ class SettingsDialog(FrostedFramelessDialog):
                 snap[attr] = w.isChecked()
         # 下拉框类
         for attr in ('screenshot_format_combo', 'shift_line_angle_combo',
-                      'ocr_engine_combo', 'ocr_result_position_combo',
+                      'ocr_result_position_combo',
                       'translation_provider_combo', 'translation_target_combo',
                       'log_level_combo',
                       'language_combo', 'engine_combo', 'cursor_move_combo', 'clipboard_pick_combo',
@@ -1363,6 +1406,9 @@ class SettingsDialog(FrostedFramelessDialog):
             w = getattr(self, attr, None)
             if w is not None:
                 snap[attr] = w.currentIndex()
+        # OCR 列表会随模型下载、删除重排，按选项的值比较
+        if hasattr(self, 'ocr_engine_combo'):
+            snap['ocr_engine_combo'] = self.ocr_engine_combo.currentData()
         # 数值类
         for attr in ('clipboard_history_limit_spin',
                       'ignore_top_pixels_spinbox',
@@ -1608,9 +1654,8 @@ class SettingsDialog(FrostedFramelessDialog):
         if hasattr(self, 'ocr_enable_toggle'):
             self.ocr_enable_toggle.setChecked(self.config_manager.get_ocr_enabled())
         if hasattr(self, 'ocr_engine_combo'):
-            index = self.ocr_engine_combo.findData(self.config_manager.get_ocr_engine())
-            if index >= 0:
-                self.ocr_engine_combo.setCurrentIndex(index)
+            from .page_capture import fill_ocr_engines
+            fill_ocr_engines(self, self.config_manager.get_ocr_engine(), self.config_manager.get_ppocr_model())
         if hasattr(self, 'ocr_result_position_combo'):
             index = self.ocr_result_position_combo.findData(self.config_manager.get_ocr_result_position())
             if index >= 0:

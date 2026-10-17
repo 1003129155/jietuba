@@ -34,6 +34,16 @@ QWidget *create_quick_actions_page(SettingsDialog *dialog);
 QWidget *create_mouse_page(SettingsDialog *dialog);
 QWidget *create_pin_page(SettingsDialog *dialog);
 
+// page_capture: refills the PP-OCR model combo from models/ and selects `selected`; a selected
+// model that is not installed stays listed and marked instead of being swapped for another.
+// An OCR combo item as (engine, PP-OCR model id); the model is nullopt unless the item is a PP-OCR model.
+std::pair<QString, std::optional<QString>> ocr_choice(const QString &data);
+// Fills the OCR combo with what can be chosen: Auto, the Snipping Tool OCR when present, the installed
+// PP-OCR models (catalog order, models added by hand last), then "Download more models..." opening the
+// model manager. A chosen engine or model that is gone stays listed, marked as not installed and
+// disabled, instead of quietly becoming another one.
+void fill_ocr_engines(SettingsDialog *dialog, const QString &engine, const QString &model_id);
+
 // page_hotkey: the global hotkey editors form one conflict domain.
 extern const QStringList GLOBAL_HOTKEY_EDIT_ATTRS;
 // The editor attribute names of a function's slots in slot order; slot n adds _n, like the setting.

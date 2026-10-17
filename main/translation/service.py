@@ -167,6 +167,7 @@ def create_default_translation_service(config=None) -> TranslationService:
         GoogleTranslateProvider,
         TencentTranslateProvider,
         VolcengineTranslateProvider,
+        YoudaoTranslateProvider,
     )
 
     registry = ProviderRegistry()
@@ -204,6 +205,11 @@ def create_default_translation_service(config=None) -> TranslationService:
         VolcengineTranslateProvider.provider_id,
         VolcengineTranslateProvider,
         display_name=VolcengineTranslateProvider.display_name,
+    )
+    registry.register(
+        YoudaoTranslateProvider.provider_id,
+        YoudaoTranslateProvider,
+        display_name=YoudaoTranslateProvider.display_name,
     )
     registry.register(
         DeepSeekProvider.provider_id,

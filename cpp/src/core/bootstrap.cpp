@@ -9,6 +9,7 @@
 #include "core/platform_utils.h"
 #include "main_app.h"
 #include "ocr/ocr_manager.h"
+#include "ocr/ppocr_models.h"
 #include "settings/tool_settings.h"
 #include "ui/toolbar.h"
 #include <QCoreApplication>
@@ -193,6 +194,9 @@ bool PreloadManager::preload_hdr_session() {
 }
 
 bool PreloadManager::apply_ocr_engine_setting() {
+    // No download runs yet at startup, so leftovers of unfinished ones can go.
+    ppocr_models::clean_staging();
+    set_ppocr_model(config_->get_ppocr_model());
     set_ocr_engine(config_->get_ocr_engine());
     return false;
 }

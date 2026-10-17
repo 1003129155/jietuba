@@ -18,6 +18,7 @@ import pytest
 from PySide6.QtGui import QImage
 
 from ocr import ocr_manager as om
+from ocr import ppocr_models
 
 
 class _FakeTextLine:
@@ -30,9 +31,10 @@ class _FakeTextLine:
 
 
 class _FakeEngine:
-    def __init__(self, det_path, rec_path):
+    def __init__(self, det_path, rec_path, dict_path=None):
         self.det_path = det_path
         self.rec_path = rec_path
+        self.dict_path = dict_path
         self.closed = False
         self.recognize_calls = []
         self.lines = [
@@ -54,22 +56,24 @@ class _FakeModule:
         self.instances = []
         self.raise_on_new = None
 
-    def Engine(self, det_path, rec_path):  # noqa: N802 —— 冒充扩展里的类名
+    def Engine(self, det_path, rec_path, dict_path=None):  # noqa: N802 —— 冒充扩展里的类名
         if self.raise_on_new is not None:
             raise self.raise_on_new
-        eng = _FakeEngine(det_path, rec_path)
+        eng = _FakeEngine(det_path, rec_path, dict_path)
         self.instances.append(eng)
         return eng
 
 
 @pytest.fixture
 def fake_ppocr(monkeypatch):
-    """把假扩展塞进 sys.modules，并让模块级的可用性探测结果为「可用」。"""
+    """把假扩展塞进 sys.modules，引擎可用，所选模型解析到 det.onnx + rec.onnx。"""
     module = _FakeModule()
     monkeypatch.setitem(sys.modules, "ppocr_rust", module)
-    monkeypatch.setattr(om, "PP_RUST_AVAILABLE", True, raising=False)
-    monkeypatch.setattr(om, "_pp_det", "det.onnx", raising=False)
-    monkeypatch.setattr(om, "_pp_rec", "rec.onnx", raising=False)
+    monkeypatch.setattr(om, "PP_RUST_ENGINE_AVAILABLE", True)
+    monkeypatch.setattr(ppocr_models, "resolve",
+                        lambda model_id: {"id": model_id, "det": "det.onnx", "rec": "rec.onnx", "dict": None})
+    monkeypatch.setattr(ppocr_models, "auto_choice",
+                        lambda: {"id": "", "det": "det.onnx", "rec": "rec.onnx", "dict": None})
     return module
 
 
@@ -79,6 +83,7 @@ def manager(monkeypatch):
     monkeypatch.setattr(om.OCRManager, "_instance", None, raising=False)
     monkeypatch.setattr(om.OCRManager, "_initialized", False, raising=False)
     mgr = om.OCRManager()
+    mgr._pp_model_id = ""
     yield mgr
     om.OCRManager._instance = None
     om.OCRManager._initialized = False
@@ -111,7 +116,7 @@ class TestInitialize:
         assert "模型加载失败" in manager._last_error
 
     def test_unavailable_extension_short_circuits(self, manager, monkeypatch):
-        monkeypatch.setattr(om, "PP_RUST_AVAILABLE", False, raising=False)
+        monkeypatch.setattr(om, "PP_RUST_ENGINE_AVAILABLE", False)
         assert manager._initialize_ppocr_rust() is False
 
 
@@ -166,7 +171,7 @@ class TestRecognize:
         assert "推理失败" in manager._recognize_with_ppocr_rust(_image(), "text")
 
     def test_unavailable_extension_reports_error(self, manager, monkeypatch, qapp):
-        monkeypatch.setattr(om, "PP_RUST_AVAILABLE", False, raising=False)
+        monkeypatch.setattr(om, "PP_RUST_ENGINE_AVAILABLE", False)
         assert "不可用" in manager._recognize_with_ppocr_rust(_image(), "text")
 
 

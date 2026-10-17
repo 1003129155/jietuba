@@ -26,9 +26,11 @@ void RecognizeThread::run() {
     QString reason = recognition_reason::FAILED;
     try {
         if (!is_ocr_available()) {
-            reason = recognition_reason::UNAVAILABLE;
+            reason = get_ppocr_status() == "missing_models" ? recognition_reason::NO_MODEL : recognition_reason::UNAVAILABLE;
+        } else if (const auto result = recognize_text(image_); result.code == -1) {
+            reason = result.reason.isEmpty() ? recognition_reason::FAILED : result.reason;
         } else {
-            lines = group_ocr_lines(recognize_text(image_));
+            lines = group_ocr_lines(result);
             const bool has_text = std::any_of(lines.begin(), lines.end(), [](const OcrTextLine &line) { return !line.text.trimmed().isEmpty(); });
             reason = has_text ? QString() : recognition_reason::NO_TEXT;
         }

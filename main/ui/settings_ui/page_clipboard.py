@@ -623,22 +623,24 @@ def _open_clipboard_data_folder(dialog, path: str):
 
 def _clear_clipboard_history(dialog):
     """清空剪贴板历史"""
-    confirmed, delete_grouped = show_confirm_checkbox_dialog(
+    confirmed, delete_all = show_confirm_checkbox_dialog(
         dialog,
         dialog.tr("Confirm Clear"),
         dialog.tr("Are you sure you want to clear all clipboard history?\nThis action cannot be undone."),
-        dialog.tr("Also delete saved content in groups"),
+        dialog.tr("Also delete pinned and grouped content"),
     )
 
     if not confirmed:
         return
 
-    keep_grouped = not delete_grouped
-
     try:
         from clipboard import ClipboardManager
         cm = ClipboardManager()
-        if cm.is_available and cm.clear_history(keep_grouped=keep_grouped):
+        if delete_all:
+            cleared = cm.is_available and cm.clear_history()
+        else:
+            cleared = cm.is_available and cm.clear_unpinned_ungrouped()
+        if cleared:
             show_info_dialog(dialog, dialog.tr("Success"), dialog.tr("Clipboard history cleared successfully"))
             dialog._refresh_clipboard_size(delay_ms=800)
         else:

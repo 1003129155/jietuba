@@ -384,6 +384,20 @@ private slots:
         QVERIFY(controller.current_items.isEmpty());
     }
 
+    void clearingKeepsPinnedAndGroupedItems() {
+        const auto group = manager().create_group("Kept");
+        const auto ids = add_texts({"loose", "grouped", "pinned"});
+        QVERIFY(manager().move_to_group(ids[1], *group));
+        QVERIFY(manager().toggle_pin(ids[2]));
+        ClipboardController controller(manager());
+        controller.load_history();
+        QCOMPARE(controller.current_items.size(), 3);
+
+        QVERIFY(controller.clear_history());
+        QCOMPARE(ids_of(controller.current_items), (QList<qint64>{ids[2], ids[1]}));
+        QVERIFY(!manager().get_item(ids[0]));
+    }
+
     void reorderingInsideAGroupSwapsLoadedRows() {
         const auto group = manager().create_group("G");
         const auto ids = add_texts({"a", "b", "c"});

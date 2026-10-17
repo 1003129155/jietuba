@@ -30,7 +30,7 @@ public:
     virtual bool send(const QString &command);
     virtual void cancel();
     // The helper reports a stable code; its own message is Chinese and only goes to the log.
-    QString error_text(const QJsonObject &payload) const;
+    virtual QString error_text(const QJsonObject &payload) const;
     QString transaction;
     QProcess *process() { return &process_; }
 signals:

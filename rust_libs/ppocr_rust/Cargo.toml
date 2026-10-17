@@ -1,6 +1,6 @@
 [package]
 name = "ppocr_rust"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["JYAARU"]
@@ -23,3 +23,5 @@ ort = { version = "=2.0.0-rc.12", features = ["ndarray"] }
 ndarray = "0.16"
 image = { version = "0.25", default-features = false }
 imageproc = "0.25"
+serde = { workspace = true }
+serde_json = { workspace = true }

@@ -319,6 +319,18 @@ bool ClipboardManager::clear_history(bool keep_grouped) {
     return true;
 }
 
+bool ClipboardManager::clear_unpinned_ungrouped(bool vacuum) {
+    const auto backend = this->backend();
+    if (!backend) return false;
+    char error[ERROR_LEN] = {};
+    if (!jb_clipboard_clear_unpinned_ungrouped(backend.get(), vacuum, error, ERROR_LEN)) {
+        log_error(T("清空失败: {e}", {{"e", QString::fromUtf8(error)}}), "Clipboard");
+        return false;
+    }
+    log_info(T("🗑️ 已清理未置顶且未分组的历史"), "Clipboard");
+    return true;
+}
+
 std::optional<qint64> ClipboardManager::add_item(const QString &content, const QString &content_type, const std::optional<QString> &title) {
     const auto backend = this->backend();
     if (!backend) return std::nullopt;

@@ -6,6 +6,7 @@
 #include "translation/providers/deepseek.h"
 #include "translation/providers/tencent.h"
 #include "translation/providers/volcengine.h"
+#include "translation/providers/youdao.h"
 #include "settings/tool_settings.h"
 #include <QFile>
 #include <QJsonArray>
@@ -13,6 +14,7 @@
 #include <QJsonObject>
 #include <QSettings>
 #include <QTemporaryDir>
+#include <QUrl>
 #include <QTest>
 #include <memory>
 
@@ -21,6 +23,7 @@ using namespace jietuba;
 namespace {
 const QVariantMap VOLCENGINE_CONFIG{{"access_key_id", "AKIDvolc"}, {"secret_access_key", "volc-secret"}};
 const QVariantMap TENCENT_CONFIG{{"secret_id", "AKIDtencent"}, {"secret_key", "tencent-secret"}};
+const QVariantMap YOUDAO_CONFIG{{"app_key", "test-app-key"}, {"app_secret", "test-app-secret"}};
 
 QString error_value(const TranslationResult &result) { return result.error_code ? translation_error_code_value(*result.error_code) : QString(); }
 
@@ -50,6 +53,50 @@ QJsonArray fields_json(const std::vector<ProviderField> &fields) {
                                   {"placeholder", field.placeholder}, {"secret", field.secret}, {"description", field.description}});
     return result;
 }
+
+// A reference urlopen outcome as the HTTP stack reports it.
+HttpResponse http_response(const QJsonObject &scenario) {
+    const auto kind = scenario["kind"].toString();
+    HttpResponse response;
+    response.body = QByteArray::fromHex(scenario["body_hex"].toString().toLatin1());
+    if (kind == "ok") {
+        response.kind = HttpResponse::Ok;
+        response.status = 200;
+        response.reason = "OK";
+    } else if (kind == "http_error") {
+        response.kind = HttpResponse::HttpError;
+        response.status = scenario["status"].toInt();
+        response.reason = scenario["reason"].toString();
+    } else if (kind == "timeout") {
+        response.kind = HttpResponse::Timeout;
+    } else {
+        response.kind = HttpResponse::NetworkError;
+        response.reason = scenario["reason"].toString();
+    }
+    return response;
+}
+
+HttpResponse json_answer(const QJsonObject &body) {
+    HttpResponse response;
+    response.kind = HttpResponse::Ok;
+    response.status = 200;
+    response.reason = "OK";
+    response.body = QJsonDocument(body).toJson(QJsonDocument::Compact);
+    return response;
+}
+
+// A form body parsed back into its fields.
+QHash<QString, QString> form_fields(const QByteArray &form) {
+    QHash<QString, QString> fields;
+    for (const auto &pair : form.split('&')) {
+        const auto at = pair.indexOf('=');
+        const auto decode = [](QByteArray part) { return QUrl::fromPercentEncoding(part.replace('+', ' ')); };
+        fields.insert(decode(pair.left(at)), decode(pair.mid(at + 1)));
+    }
+    return fields;
+}
+
+std::optional<QString> optional_text(const QJsonValue &value) { return value.isNull() ? std::nullopt : std::optional<QString>(value.toString()); }
 
 std::unique_ptr<TranslationProvider> machine_translation(const QString &provider_id, const QVariantMap &config) {
     if (provider_id == "volcengine") return std::make_unique<VolcengineTranslateProvider>(config);
@@ -215,23 +262,7 @@ private slots:
         for (const auto &value : cases("mt_responses")) {
             const auto item = value.toObject();
             const auto scenario = item["scenario"].toObject();
-            const auto kind = scenario["kind"].toString();
-            HttpResponse response;
-            response.body = QByteArray::fromHex(scenario["body_hex"].toString().toLatin1());
-            if (kind == "ok") {
-                response.kind = HttpResponse::Ok;
-                response.status = 200;
-                response.reason = "OK";
-            } else if (kind == "http_error") {
-                response.kind = HttpResponse::HttpError;
-                response.status = scenario["status"].toInt();
-                response.reason = scenario["reason"].toString();
-            } else if (kind == "timeout") {
-                response.kind = HttpResponse::Timeout;
-            } else {
-                response.kind = HttpResponse::NetworkError;
-                response.reason = scenario["reason"].toString();
-            }
+            const auto response = http_response(scenario);
             const auto provider_id = item["provider"].toString();
             const auto result = provider_id == "volcengine" ? VolcengineTranslateProvider(VOLCENGINE_CONFIG).handle_response(response, 7)
                                                             : TencentTranslateProvider(TENCENT_CONFIG).handle_response(response, 7);
@@ -296,6 +327,102 @@ private slots:
                 QCOMPARE(manager.get_translation_quota_enabled(provider_id), item["enabled"].toBool());
                 QCOMPARE(manager.get_translation_quota_limit(provider_id), item["limit"].toInteger());
             }
+        }
+    }
+    void youdaoMetadata() {
+        const auto item = fixtures_["youdao_metadata"].toObject();
+        const auto metadata = YoudaoTranslateProvider::class_metadata();
+        QCOMPARE(metadata.provider_id, item["provider_id"].toString());
+        QCOMPARE(metadata.display_name, item["display_name"].toString());
+        QCOMPARE(fields_json(metadata.credentials), item["credentials"].toArray());
+        QCOMPARE(fields_json(metadata.options), item["options"].toArray());
+        QVERIFY(metadata.supported_request_options.isEmpty() && item["supported_request_options"].toArray().isEmpty());
+        QCOMPARE(metadata.notice, item["notice"].toString());
+        QCOMPARE(metadata.help_label, item["help_label"].toString());
+        QCOMPARE(metadata.help_url, item["help_url"].toString());
+        const YoudaoTranslateProvider provider({});
+        QCOMPARE(provider.provider_id(), item["provider_id"].toString());
+        QCOMPARE(provider.display_name(), item["display_name"].toString());
+        QCOMPARE(provider.min_timeout, item["min_timeout"].toInt());
+        QCOMPARE(provider.quota_limit_chars, qint64(0));
+    }
+    void youdaoSign() {
+        for (const auto &value : cases("youdao_sign")) {
+            const auto item = value.toObject();
+            const YoudaoTranslateProvider provider(item["config"].toObject().toVariantMap());
+            const auto sign = provider.sign(item["text"].toString(), item["salt"].toString(), item["curtime"].toString(), item["utf16"].toBool());
+            QVERIFY2(sign == item["expected"].toString(), qPrintable(item["text"].toString() + (item["utf16"].toBool() ? " utf16" : " codepoint")));
+        }
+    }
+    void youdaoRequests() {
+        for (const auto &value : cases("youdao_requests")) {
+            const auto item = value.toObject();
+            const TranslationRequest request(item["text"].toString(), item["target"].toString(), optional_text(item["source"]), true, 7);
+            const YoudaoTranslateProvider provider(YOUDAO_CONFIG);
+            QCOMPARE(QString::fromUtf8(provider.request_form(request, item["salt"].toString(), item["curtime"].toString(), true)), item["body"].toString());
+            QCOMPARE(YoudaoTranslateProvider::API_URL, item["url"].toString());
+            QCOMPARE(YoudaoTranslateProvider::CONTENT_TYPE, item["content_type"].toString());
+            const auto result = provider.translate_with(request, [](const QByteArray &) {
+                return json_answer(QJsonObject{{"errorCode", "0"}, {"translation", QJsonArray{"ok"}}, {"l", "en2zh-CHS"}});
+            });
+            const auto mismatch = result_mismatch(result, item["result"].toObject());
+            QVERIFY2(mismatch.isEmpty(), qPrintable(item["text"].toString() + ": " + mismatch));
+        }
+    }
+    void youdaoResponses() {
+        for (const auto &value : cases("youdao_responses")) {
+            const auto item = value.toObject();
+            const auto scenario = item["scenario"].toObject();
+            const auto [result, api_code] = YoudaoTranslateProvider(YOUDAO_CONFIG).handle_response(http_response(scenario), 7);
+            const auto mismatch = result_mismatch(result, item["result"].toObject());
+            QVERIFY2(mismatch.isEmpty(), qPrintable(QJsonDocument(scenario).toJson(QJsonDocument::Compact) + ": " + mismatch));
+            QCOMPARE(api_code, item["api_code"].toString());
+        }
+    }
+    void youdaoRetriesARejectedSignatureOutsideTheBmp() {
+        for (const auto &value : cases("youdao_retries")) {
+            const auto item = value.toObject();
+            const YoudaoTranslateProvider provider(YOUDAO_CONFIG);
+            QJsonArray modes;
+            const auto result = provider.translate_with(TranslationRequest(item["text"].toString(), "ja", std::nullopt, true, 7), [&](const QByteArray &form) {
+                const auto fields = form_fields(form);
+                QJsonArray matching;
+                for (const bool utf16 : {true, false})
+                    if (fields["sign"] == provider.sign(fields["q"], fields["salt"], fields["curtime"], utf16)) matching.append(utf16 ? "utf16" : "codepoint");
+                modes.append(matching);
+                return json_answer(modes.size() == 1 ? item["first"].toObject()
+                                                     : QJsonObject{{"errorCode", "0"}, {"translation", QJsonArray{"second"}}, {"l", "en2ja"}});
+            });
+            QCOMPARE(modes, item["modes"].toArray());
+            const auto mismatch = result_mismatch(result, item["result"].toObject());
+            QVERIFY2(mismatch.isEmpty(), qPrintable(item["text"].toString() + ": " + mismatch));
+        }
+    }
+    void youdaoChecksBeforeAnyRequest() {
+        for (const auto &value : cases("youdao_prechecks")) {
+            const auto item = value.toObject();
+            const YoudaoTranslateProvider provider(item["config"].toObject().toVariantMap());
+            QCOMPARE(provider.is_configured(), item["is_configured"].toBool());
+            bool sent = false;
+            const auto result = provider.translate_with(TranslationRequest(item["text"].toString(), "ja"), [&sent](const QByteArray &) {
+                sent = true;
+                return HttpResponse{};
+            });
+            QVERIFY(!sent);
+            const auto mismatch = result_mismatch(result, item["result"].toObject());
+            QVERIFY2(mismatch.isEmpty(), qPrintable(item["text"].toString() + ": " + mismatch));
+        }
+    }
+    void youdaoErrorCodesAndLanguages() {
+        for (const auto &value : cases("youdao_error_codes")) {
+            const auto item = value.toObject();
+            QVERIFY2(translation_error_code_value(YoudaoTranslateProvider::map_api_error_code(item["code"].toString())) == item["expected"].toString(),
+                     qPrintable(item["code"].toString()));
+        }
+        for (const auto &value : cases("youdao_language_codes")) {
+            const auto item = value.toObject();
+            QCOMPARE(YoudaoTranslateProvider::to_code(item["code"].toString()), item["to"].toString());
+            QCOMPARE(YoudaoTranslateProvider::from_code(item["code"].toString()), item["from"].toString());
         }
     }
     void baiduSign() {

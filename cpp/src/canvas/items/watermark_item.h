@@ -6,6 +6,7 @@
 #include <QImage>
 #include <QPointF>
 #include <QRectF>
+#include <QSizeF>
 #include <QString>
 #include <QStringList>
 #include <QVariant>
@@ -17,14 +18,20 @@
 class QPainter;
 
 namespace jietuba {
-// A text layer over the selection: tiled, centred, in a corner or at an edge
-// midpoint. Only parameters are stored; paint draws just the copies that meet
-// the exposed area (about 3 ms for a full 2560x1440 repaint).
+// A text layer over the selection: tiled, laid out as a diamond grid, centred, in
+// a corner or at an edge midpoint. Only parameters are stored; paint draws just the
+// copies (and grid lines) that meet the exposed area (about 3 ms for a full
+// 2560x1440 repaint).
 inline const QString LAYOUT_TILE = "tile";
+inline const QString LAYOUT_DIAMOND = "diamond";
 inline const QString LAYOUT_CENTER = "center";
 // Layout -> relative position of the text block centre within the selection.
 const std::vector<std::pair<QString, QPointF>> &watermark_anchors();
 const QStringList &watermark_layouts();
+inline const QString LINE_NONE = "none";
+inline const QString LINE_SOLID = "solid";
+inline const QString LINE_DASH = "dash";
+const QStringList &watermark_line_styles();
 
 constexpr int MIN_FONT_SIZE = 8, MAX_FONT_SIZE = 96;
 constexpr int MIN_SPACING = 0, MAX_SPACING = 100;
@@ -34,6 +41,12 @@ constexpr double SPACING_UNIT = .1;
 constexpr double VERTICAL_GAP_RATIO = .75;
 constexpr double EDGE_MARGIN = .6;
 constexpr double GLYPH_OVERHANG = .25;
+// Diamond grid: squares turned 45 degrees, so the row pitch is half the cell pitch. Lines stop
+// LINE_TEXT_GAP font sizes outside the text box; the line width is font size / LINE_WIDTH_DIVISOR
+// (at least 1 px) and dashes are in units of the line width.
+constexpr double DIAMOND_ROW_RATIO = .5;
+constexpr double LINE_TEXT_GAP = .3;
+constexpr double LINE_WIDTH_DIVISOR = 24;
 
 struct WatermarkStyle {
     QString color = "#808080";
@@ -41,8 +54,12 @@ struct WatermarkStyle {
     double opacity = .35;
     QString layout = LAYOUT_TILE;
     int spacing = 40;
-    int angle = -30;      // tile layout only
+    int angle = -30;      // tile layout only: turns the text, the grid stays put
     QString font_family;  // empty: the UI language's default font
+    // The diamond grid (text and lines) turns as a whole, so it keeps its own angle: its 0 is
+    // the upright diamond, not the tile layout's default -30.
+    int diamond_angle = 0;
+    QString line_style = LINE_SOLID;  // diamond layout only
     WatermarkStyle normalized() const { return from_values(to_values()); }
     // Builds a style from raw (possibly hand-edited) values, clamping every field.
     static WatermarkStyle from_values(const QVariantMap &values);
@@ -55,6 +72,11 @@ struct WatermarkStyle {
 // Expands $...$ (a Qt date format) to the moment when; unpaired $ is kept.
 QString expand_text(const QString &template_text, const QDateTime &when = QDateTime());
 QFont watermark_font(const WatermarkStyle &style);
+// Size of the laid-out text block (all lines).
+QSizeF watermark_text_size(const QString &text, const WatermarkStyle &style);
+// Horizontal diagonal of a diamond, also the pitch between neighbouring copies in a row: the tightest
+// size at which no neighbours overlap, plus the spacing. Ignores the angle, so turning the grid keeps its size.
+double watermark_diamond_cell(const QString &text, const WatermarkStyle &style);
 // (block centre, rotation) of every copy to draw; an empty exposed rect means the whole selection.
 std::vector<std::pair<QPointF, double>> watermark_placements(const QRectF &rect, const QString &text, const WatermarkStyle &style,
                                                              const QRectF &exposed = QRectF(), const std::optional<QFont> &font = std::nullopt);

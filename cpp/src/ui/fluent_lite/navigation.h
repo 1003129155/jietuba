@@ -3,6 +3,7 @@
 #include <QButtonGroup>
 #include <QMap>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QVBoxLayout>
 #include <QWidget>
 #include <functional>
@@ -25,6 +26,8 @@ public:
     void setMinimumExpandWidth(int width) { minimum_expand_width_ = width; }
     void expand() { if (expand_width_) setMinimumWidth(expand_width_); }
     QPushButton *widget(const QString &route_key) const { return items_.value(route_key); }
+    // The scroll area holding the top list.
+    QScrollArea *scrollArea() const { return scroll_; }
     Q_INVOKABLE void _apply_theme();
 private:
     void style_button(QPushButton *button);
@@ -35,6 +38,7 @@ private:
     QMap<QString, QString> tones_;
     QString current_;
     QButtonGroup *group_;
+    QScrollArea *scroll_;
     QVBoxLayout *layout_, *top_, *bottom_;
     int expand_width_ = 0, minimum_expand_width_ = 0;
 };

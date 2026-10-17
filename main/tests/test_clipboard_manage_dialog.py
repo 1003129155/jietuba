@@ -13,7 +13,7 @@ import json
 import os
 
 import pytest
-from PySide6.QtCore import QObject, Signal, QUrl
+from PySide6.QtCore import QObject, QTranslator, Signal, QUrl
 # 直接从 PySide6 取 QTextEdit：早先是通过 manage_dialog 模块的命名空间拿的，
 # 那样会把测试绑在被测模块的导入清单上（该模块自身并不直接使用 QTextEdit）。
 from PySide6.QtWidgets import QTextEdit
@@ -190,7 +190,6 @@ class TestManageDialog:
                 editor.deleteLater()
 
     def test_text_editor_context_menu_uses_application_translations(self, qapp):
-        original_language = I18nManager.get_current_language()
         editor = TextEdit()
         expected_labels = {
             "en": ("Undo", "Redo", "Cut", "Copy", "Paste", "Delete", "Select All"),
@@ -200,8 +199,17 @@ class TestManageDialog:
         }
         try:
             for language, expected in expected_labels.items():
-                assert I18nManager.load_language(language) is True
-                menu = editor.createThemedContextMenu()
+                # 只临时叠一层翻译，不经 I18nManager：没加载过语言时它报告的是默认值，
+                # 按它切回会留下一个原本没有的翻译器
+                translator = QTranslator()
+                assert translator.load(
+                    str(I18nManager.get_translations_dir() / f"app_{language}.qm")
+                )
+                qapp.installTranslator(translator)
+                try:
+                    menu = editor.createThemedContextMenu()
+                finally:
+                    qapp.removeTranslator(translator)
                 labels = tuple(
                     action.text().partition("\t")[0]
                     for action in menu.actions()
@@ -210,7 +218,6 @@ class TestManageDialog:
                 assert labels == expected
                 menu.deleteLater()
         finally:
-            I18nManager.load_language(original_language)
             editor.deleteLater()
 
     def test_management_surface_uses_application_theme(self, dialog):

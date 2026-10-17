@@ -405,7 +405,16 @@ class PreloadManager:
         return True  # 异步任务
     
     def _apply_ocr_engine_setting(self):
-        from ocr import set_ocr_engine
+        from ocr import set_ocr_engine, set_ppocr_model
+        from ocr.ocr_manager import PP_RUST_ENGINE_AVAILABLE
+        if PP_RUST_ENGINE_AVAILABLE:
+            from ocr import ppocr_models
+            try:
+                ppocr_models.clean_staging()
+            except Exception as e:
+                from core.logger import log_exception, T
+                log_exception(e, T("清理未完成的模型下载"))
+        set_ppocr_model(self.config.get_ppocr_model())
         set_ocr_engine(self.config.get_ocr_engine())
 
     def _preload_ocr_engine(self):

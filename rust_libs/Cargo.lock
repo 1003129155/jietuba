@@ -1238,7 +1238,7 @@ checksum = "92ecc6618181def0457392ccd0ee51198e065e016d1d527a7ac1b6dc7c1f09d2"
 
 [[package]]
 name = "jietuba-updater"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "embed-resource",
  "fs2",
@@ -2036,13 +2036,15 @@ dependencies = [
 
 [[package]]
 name = "ppocr_rust"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "image 0.25.9",
  "imageproc",
  "ndarray 0.16.1",
  "ort",
  "pyo3",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -132,6 +132,7 @@ def show_setting_menu(
     on_set_image_size: Optional[Callable] = None,
     on_set_theme: Callable,
     on_add_item: Callable,
+    on_clear_history: Optional[Callable] = None,
     on_set_group_bar_position: Optional[Callable] = None,
     # 多选粘贴
     multi_paste_separator: str = "\n",
@@ -259,6 +260,10 @@ def show_setting_menu(
     # ── 添加内容 ──
     add_act = menu.addAction(tr("Add Content"))
     add_act.triggered.connect(on_add_item)
+
+    if on_clear_history is not None:
+        clear_act = menu.addAction(tr("Clear History"))
+        clear_act.triggered.connect(on_clear_history)
 
     # 在锚点上方弹出（非阻塞，支持 toggle）
     from PySide6.QtCore import QPoint as _QPoint

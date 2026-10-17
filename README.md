@@ -68,7 +68,7 @@ Free code signing provided by [SignPath.io](https://about.signpath.io/), certifi
 This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it.
 
 - Screenshots, OCR and clipboard history are processed and stored on your computer.
-- When you translate, the text is sent to the translation service selected in Settings (DeepL, Google, Azure, Amazon, Baidu, Volcengine, Tencent Cloud, DeepSeek, or an OpenAI-compatible endpoint you configure) using your own API key; that service's privacy policy applies.
+- When you translate, the text is sent to the translation service selected in Settings (DeepL, Google, Azure, Amazon, Baidu, Volcengine, Tencent Cloud, Youdao, DeepSeek, or an OpenAI-compatible endpoint you configure) using your own API key; that service's privacy policy applies.
 - When you check for or install updates under **About → Check for Updates**, the program contacts GitHub to read release information and download the release package.
 
 ---
@@ -120,7 +120,7 @@ The seven Python extension packages are included in `requirements.txt`. They can
 | [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.1 | GIF/video composition encoder |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.5.1 | Long screenshot stitching algorithm |
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.5 | Low-level clipboard operations |
-| [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
+| [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.3.0 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | HDR-correct desktop capture (DXGI Desktop Duplication + GPU tone mapping) |
 | [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.2 | Global mouse and keyboard hooks off the GUI thread (gestures, side buttons, hotkeys, wheel, foreground window) |
 | [`j-video`](https://pypi.org/project/j-video/) | `video_recorder` | 0.1.0 | Media Foundation H.264/MP4 recording with WASAPI system audio |
@@ -289,7 +289,7 @@ canvas/
     ├── selection_item.py    # SelectionItem — selection boundary display
     ├── arrow_item.py        # ArrowItem — arrow item, geometry for nine shaft and head styles
     ├── text_item.py         # TextItem — text item, outline/shadow/background and tri-state interaction frame
-    └── watermark_item.py    # WatermarkItem / WatermarkStyle — watermark layer over the selection: tiled or at one of seven positions, multi-line, time stamps
+    └── watermark_item.py    # WatermarkItem / WatermarkStyle — watermark layer over the selection: tiled, a diamond grid, or at one of seven positions, multi-line, time stamps
 ```
 
 </details>
@@ -486,6 +486,7 @@ Text recognition management with two engines: the OCR built into the Windows Sni
 ```text
 ocr/
 ├── ocr_manager.py           # OCRManager — engine choice, loading, release, unified recognition interface
+├── ppocr_models.py          # PP-OCR models: models/ folder, built-in catalog, import, removal, download via the updater
 └── snipping_tool_ocr.py     # SnippingToolOcr — locate the Snipping Tool, copy its OCR files, pad and recognize
 ```
 
@@ -494,6 +495,7 @@ ocr/
 - Settings offer Auto / Windows Snipping Tool / PP-OCR; Auto uses the Snipping Tool when it is installed, otherwise PP-OCR
 - Snipping Tool OCR: called through the oneocr package on PyPI; faster and reads more languages (including Korean, Russian, and Thai); needs the Windows 11 Snipping Tool
 - PP-OCR: the ppocr_rust engine (pure Rust + ONNX Runtime, PP-OCR det + rec); works on any Windows; full build only
+- PP-OCR models: PP-OCRv6 small is included; Manage PP-OCR Models in the settings downloads others from a built-in catalog (PP-OCRv6 tiny/medium, PP-OCRv5, and Korean, Latin, Cyrillic, Thai, and Greek recognition) with fixed SHA-256 hashes, or adds local ONNX models after a test recognition. Models live in `models/` next to the program; a selected model that is missing is reported, not replaced by another
 - Recognition and release are mutually exclusive; switching engines releases the old one, and the new one loads on the next recognition
 - Singleton pattern, unified recognition interface
 
@@ -620,6 +622,7 @@ translation/
 │   ├── baidu.py             # Baidu
 │   ├── tencent.py           # Tencent Cloud
 │   ├── volcengine.py        # Volcengine
+│   ├── youdao.py            # Youdao
 │   ├── custom_llm.py        # Custom OpenAI-compatible service (Ollama, LM Studio…)
 │   ├── deepseek.py          # DeepSeek (LLM)
 │   └── openai_compatible.py # OpenAI 兼容接口基类
@@ -698,7 +701,7 @@ ui/
 ├── arrow_settings_panel.py  # ArrowSettingsPanel — arrow settings panel
 ├── number_settings_panel.py # number tool settings panel
 ├── mosaic_settings_panel.py # mosaic tool settings panel
-├── watermark_settings_panel.py # watermark panel: text, position, style popup (opacity/size/spacing/angle/color), font
+├── watermark_settings_panel.py # watermark panel: text, position, style popup (opacity/size/spacing/angle/grid lines/color), font
 ├── watermark_input_dialog.py   # WatermarkInputDialog — multi-line watermark text with time insertion and preview
 │
 ├── fluent_lite/             # Fluent-style lightweight component library
@@ -715,6 +718,7 @@ ui/
 │   ├── page_capture.py      # Capture settings
 │   ├── page_quick_actions.py # Quick actions settings (skip confirm or result windows)
 │   ├── color_format_dialog.py # ColorFormatDialog — magnifier color format editor
+│   ├── ppocr_model_dialog.py # PpocrModelDialog — download, add, and delete PP-OCR models
 │   ├── page_clipboard.py    # Clipboard settings
 │   ├── special_paste_dialog.py # SpecialPasteDialog — reorder and toggle special paste menu items
 │   ├── page_hotkey.py       # Hotkey settings

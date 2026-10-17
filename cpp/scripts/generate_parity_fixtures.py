@@ -119,6 +119,11 @@ for percent in scale.UIScaleManager.PERCENT_OPTIONS:
         pixel_cases.append({'percent': percent, 'base': base, 'px': manager.px(base), 'pxf': manager.pxf(base)})
 dpis = [72, 96, 97, 120, 144, 145, 168, 0, -1, 'invalid', 'nan', 'inf', False, True, [], {}]
 dpi_cases = [{'input': v, 'expected': scale.recommended_scale_percent(v)} for v in dpis]
+from ui.settings_ui.dialog import settings_window_size  # noqa: E402
+settings_window_cases = [{'available': [w, h], 'percent': percent, 'expected': list(settings_window_size(w, h, percent / 100))}
+                         for w, h in [(3840, 2112), (2560, 1392), (2048, 1104), (1920, 1032), (1707, 912), (1536, 816),
+                                      (1366, 720), (1280, 672), (1000, 600), (800, 552)]
+                         for percent in scale.DialogScaleManager.PERCENT_OPTIONS]
 
 default_registry = {'app': settings.ToolSettingsManager.APP_DEFAULT_SETTINGS,
                     'tools': settings.ToolSettingsManager.DEFAULT_SETTINGS}
@@ -230,7 +235,7 @@ for alpha in [0, 1, 64, 128, 254, 255]:
     flatten_cases.append({'alpha': alpha, 'sha256': hashlib.sha256(bytes(flattened.constBits())).hexdigest()})
 
 output = {'oracle_qt': qVersion(), 'selection': selection_cases, 'layout': layout_cases, 'pin_layout': pin_layout_cases,
-          'scale': scale_cases, 'pixels': pixel_cases, 'dpi': dpi_cases,
+          'scale': scale_cases, 'pixels': pixel_cases, 'dpi': dpi_cases, 'settings_window_size': settings_window_cases,
           'tool_coercion': settings_cases, 'app_reads': app_reads, 'exports': export_cases,
           'accessor_reads': accessor_reads, 'accessor_setters': accessor_setters,
           'color_render': color_render, 'color_loading': color_loading,

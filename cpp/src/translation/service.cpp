@@ -11,6 +11,7 @@
 #include "translation/providers/google.h"
 #include "translation/providers/tencent.h"
 #include "translation/providers/volcengine.h"
+#include "translation/providers/youdao.h"
 #include <stdexcept>
 
 namespace jietuba {
@@ -110,6 +111,7 @@ std::shared_ptr<TranslationService> create_default_translation_service(std::shar
     register_builtin<BaiduTranslateProvider>(*registry);
     register_builtin<TencentTranslateProvider>(*registry);
     register_builtin<VolcengineTranslateProvider>(*registry);
+    register_builtin<YoudaoTranslateProvider>(*registry);
     register_builtin<DeepSeekProvider>(*registry);
     register_builtin<CustomLLMProvider>(*registry);
     register_builtin<CustomLLM2Provider>(*registry);

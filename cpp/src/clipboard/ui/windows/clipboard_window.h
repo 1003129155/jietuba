@@ -201,6 +201,7 @@ private:
     void on_top_group_switch(int delta);
     void on_add_group_clicked();
     void on_add_item_clicked();
+    void on_clear_clicked();
     void set_group_bar_position(const QString &position);
     bool is_paste_picker_surface(Hwnd hwnd) const;
     ClipboardController::CloseCallback paste_close_callback();

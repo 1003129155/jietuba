@@ -4,7 +4,9 @@
 use std::ffi::{c_char, CString};
 use std::sync::Mutex;
 
-use ppocr_rust::engine;
+use std::path::Path;
+
+use ppocr_rust::{engine, models};
 use crate::panic::{guard, guard_error};
 use crate::text::{str_arg, write_text};
 
@@ -41,15 +43,21 @@ pub unsafe extern "C" fn jb_ppocr_init_runtime(dll_path: *const c_char, error: *
     })
 }
 
-/// Loads both models; the dictionary comes from the rec model's metadata. Null on failure.
+/// Loads both models; with a null `dict_path` the dictionary comes from the rec model's
+/// metadata. Null on failure.
 #[no_mangle]
-pub unsafe extern "C" fn jb_ppocr_open(det_path: *const c_char, rec_path: *const c_char, error: *mut c_char, error_len: usize) -> *mut JbPpocr {
+pub unsafe extern "C" fn jb_ppocr_open(det_path: *const c_char, rec_path: *const c_char, dict_path: *const c_char, error: *mut c_char, error_len: usize) -> *mut JbPpocr {
     guard_error(std::ptr::null_mut(), error, error_len, || {
         let (Some(det), Some(rec)) = (str_arg(det_path), str_arg(rec_path)) else {
             write_text("invalid model path", error, error_len);
             return std::ptr::null_mut();
         };
-        match engine::Engine::open(det, rec) {
+        let dict = str_arg(dict_path);
+        if !dict_path.is_null() && dict.is_none() {
+            write_text("invalid dictionary path", error, error_len);
+            return std::ptr::null_mut();
+        }
+        match engine::Engine::open_with_dict(det, rec, dict) {
             Ok(inner) => Box::into_raw(Box::new(JbPpocr { inner: Mutex::new(Some(inner)) })),
             Err(message) => {
                 write_text(&message, error, error_len);
@@ -144,6 +152,153 @@ pub unsafe extern "C" fn jb_ppocr_lines_free(lines: *mut JbOcrLine, count: usize
             if !line.text.is_null() {
                 drop(CString::from_raw(line.text));
             }
+        }
+    })
+}
+
+fn owned_text(text: &str) -> *mut c_char {
+    CString::new(text.replace('\0', "")).map(CString::into_raw).unwrap_or(std::ptr::null_mut())
+}
+
+fn owned_json(value: &impl serde::Serialize) -> *mut c_char {
+    serde_json::to_string(value).map(|text| owned_text(&text)).unwrap_or(std::ptr::null_mut())
+}
+
+/// Frees a string returned by the jb_ppocr_models_* functions.
+#[no_mangle]
+pub unsafe extern "C" fn jb_ppocr_text_free(text: *mut c_char) {
+    guard((), || {
+        if !text.is_null() {
+            drop(CString::from_raw(text));
+        }
+    })
+}
+
+/// The built-in download catalog as JSON.
+#[no_mangle]
+pub unsafe extern "C" fn jb_ppocr_models_catalog() -> *mut c_char {
+    guard(std::ptr::null_mut(), || owned_json(models::catalog()))
+}
+
+/// Installed models under `root` as a JSON array; the default model has an empty id.
+#[no_mangle]
+pub unsafe extern "C" fn jb_ppocr_models_discover(root: *const c_char) -> *mut c_char {
+    guard(std::ptr::null_mut(), || match str_arg(root) {
+        Some(root) => owned_json(&models::discover(Path::new(root))),
+        None => std::ptr::null_mut(),
+    })
+}
+
+/// One installed model as JSON, or null when it is not installed.
+#[no_mangle]
+pub unsafe extern "C" fn jb_ppocr_models_resolve(root: *const c_char, id: *const c_char) -> *mut c_char {
+    guard(std::ptr::null_mut(), || match (str_arg(root), str_arg(id)) {
+        (Some(root), Some(id)) => models::resolve(Path::new(root), id).map_or(std::ptr::null_mut(), |m| owned_json(&m)),
+        _ => std::ptr::null_mut(),
+    })
+}
+
+/// The installed model the automatic choice uses, as JSON; null when none is installed.
+#[no_mangle]
+pub unsafe extern "C" fn jb_ppocr_models_auto_choice(root: *const c_char) -> *mut c_char {
+    guard(std::ptr::null_mut(), || match str_arg(root) {
+        Some(root) => models::auto_choice(Path::new(root)).map_or(std::ptr::null_mut(), |m| owned_json(&m)),
+        None => std::ptr::null_mut(),
+    })
+}
+
+/// Copies and validates user-chosen model files (`dict_path` may be null); the new model as
+/// JSON, or null with `error` set.
+#[no_mangle]
+pub unsafe extern "C" fn jb_ppocr_models_import(
+    root: *const c_char,
+    name: *const c_char,
+    det_path: *const c_char,
+    rec_path: *const c_char,
+    dict_path: *const c_char,
+    error: *mut c_char,
+    error_len: usize,
+) -> *mut c_char {
+    guard_error(std::ptr::null_mut(), error, error_len, || {
+        let (Some(root), Some(name), Some(det), Some(rec)) = (str_arg(root), str_arg(name), str_arg(det_path), str_arg(rec_path)) else {
+            write_text("invalid argument", error, error_len);
+            return std::ptr::null_mut();
+        };
+        let dict = str_arg(dict_path);
+        if !dict_path.is_null() && dict.is_none() {
+            write_text("invalid dictionary path", error, error_len);
+            return std::ptr::null_mut();
+        }
+        match models::import(Path::new(root), name, Path::new(det), Path::new(rec), dict.map(Path::new)) {
+            Ok(model) => owned_json(&model),
+            Err(message) => {
+                write_text(&message, error, error_len);
+                std::ptr::null_mut()
+            }
+        }
+    })
+}
+
+/// Places a catalog model the updater downloaded; the model as JSON, or null with `error` set.
+#[no_mangle]
+pub unsafe extern "C" fn jb_ppocr_models_finish_download(root: *const c_char, catalog_id: *const c_char, error: *mut c_char, error_len: usize) -> *mut c_char {
+    guard_error(std::ptr::null_mut(), error, error_len, || {
+        let (Some(root), Some(id)) = (str_arg(root), str_arg(catalog_id)) else {
+            write_text("invalid argument", error, error_len);
+            return std::ptr::null_mut();
+        };
+        match models::finish_download(Path::new(root), id) {
+            Ok(model) => owned_json(&model),
+            Err(message) => {
+                write_text(&message, error, error_len);
+                std::ptr::null_mut()
+            }
+        }
+    })
+}
+
+/// Moves the downloaded ONNX Runtime into `root`; call only before the runtime is loaded.
+#[no_mangle]
+pub unsafe extern "C" fn jb_ppocr_models_finish_runtime_download(root: *const c_char, error: *mut c_char, error_len: usize) -> bool {
+    guard_error(false, error, error_len, || {
+        let Some(root) = str_arg(root) else {
+            write_text("invalid argument", error, error_len);
+            return false;
+        };
+        match models::finish_runtime_download(Path::new(root)) {
+            Ok(_) => true,
+            Err(message) => {
+                write_text(&message, error, error_len);
+                false
+            }
+        }
+    })
+}
+
+/// Deletes a model subdirectory; the default model cannot be removed.
+#[no_mangle]
+pub unsafe extern "C" fn jb_ppocr_models_remove(root: *const c_char, id: *const c_char, error: *mut c_char, error_len: usize) -> bool {
+    guard_error(false, error, error_len, || {
+        let (Some(root), Some(id)) = (str_arg(root), str_arg(id)) else {
+            write_text("invalid argument", error, error_len);
+            return false;
+        };
+        match models::remove(Path::new(root), id) {
+            Ok(()) => true,
+            Err(message) => {
+                write_text(&message, error, error_len);
+                false
+            }
+        }
+    })
+}
+
+/// Removes staging directories left by unfinished downloads or imports.
+#[no_mangle]
+pub unsafe extern "C" fn jb_ppocr_models_clean_staging(root: *const c_char) {
+    guard((), || {
+        if let Some(root) = str_arg(root) {
+            models::clean_staging(Path::new(root));
         }
     })
 }

@@ -4,7 +4,7 @@ from enum import Enum
 
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QIcon, QPainter
-from PySide6.QtWidgets import QButtonGroup, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QButtonGroup, QFrame, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
 
 from core import safe_event
 from core.ui_scale import dialog_scaled
@@ -46,12 +46,26 @@ class NavigationInterface(QWidget):
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(5)
+        # 顶部列表放在滚动区里：窗口矮于整列导航时只滚这一段，底部项始终可见。
+        # 宽度随视口：出现滚动条时列表项让出它的宽度，而不是被裁掉右侧。
+        self._scroll = QScrollArea(self)
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        set_own_style(self._scroll, "background: transparent;")
+        top_view = QWidget()
+        top_view.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        set_own_style(top_view, "background: transparent;")
+        top_view_layout = QVBoxLayout(top_view)
+        top_view_layout.setContentsMargins(0, 0, 0, 0)
         self._top = QVBoxLayout()
         self._top.setSpacing(5)
+        top_view_layout.addLayout(self._top)
+        top_view_layout.addStretch(1)
+        self._scroll.setWidget(top_view)
         self._bottom = QVBoxLayout()
         self._bottom.setSpacing(5)
-        self._layout.addLayout(self._top)
-        self._layout.addStretch(1)
+        self._layout.addWidget(self._scroll, 1)
         self._layout.addLayout(self._bottom)
         set_own_style(self, "background: transparent;")
         get_ui_theme().theme_changed.connect(self._apply_theme)
@@ -124,6 +138,9 @@ class NavigationInterface(QWidget):
             return
         self._current = routeKey
         button.setChecked(True)
+        # 第一次显示前视口还没有实际尺寸，这时滚动会滚错
+        if self._scroll.isVisible() and self._scroll.isAncestorOf(button):
+            self._scroll.ensureWidgetVisible(button, 0, 0)
 
     def clearCurrentItem(self):
         self._group.setExclusive(False)

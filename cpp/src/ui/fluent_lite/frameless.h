@@ -36,7 +36,7 @@ protected:
     FramelessHelper helper_;
 };
 
-// Frameless dialog: like FramelessWindow but not resizable and with only a close button.
+// Frameless dialog: like FramelessWindow but with only a close button.
 class FramelessDialog : public QDialog {
     Q_OBJECT
 public:

@@ -69,7 +69,7 @@ Free code signing provided by [SignPath.io](https://about.signpath.io/), certifi
 除非用户明确要求，本程序不会向其他联网系统传输任何信息。
 
 - 截图、OCR 和剪贴板历史都在本机处理和保存。
-- 使用翻译时，待翻译的文字会发送到你在设置中选择的翻译服务（DeepL、Google、Azure、Amazon、百度、火山引擎、腾讯云、DeepSeek 或自行配置的 OpenAI 兼容接口），使用你自己的 API 密钥，并适用该服务的隐私政策。
+- 使用翻译时，待翻译的文字会发送到你在设置中选择的翻译服务（DeepL、Google、Azure、Amazon、百度、火山引擎、腾讯云、有道、DeepSeek 或自行配置的 OpenAI 兼容接口），使用你自己的 API 密钥，并适用该服务的隐私政策。
 - 在**关于 → 检查更新**中检查或安装更新时，程序会访问 GitHub 获取版本信息并下载发布包。
 
 ---
@@ -121,7 +121,7 @@ PP-OCR 模型已放在仓库的 [models/](models/) 目录中，包括 `PP-OCRv6_
 | [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.1 | GIF/视频合成编码器 |
 | [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.5.1 | 长截图拼接算法 |
 | [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.5 | 剪贴板底层操作 |
-| [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.2.1 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
+| [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.3.0 | PP-OCR (PaddleOCR) ONNX 文字识别引擎（纯 Rust + ONNX Runtime，需 det/rec 模型） |
 | [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | 支持 HDR 的桌面截图（DXGI Desktop Duplication + GPU 色调映射） |
 | [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.2 | 不占界面线程的全局鼠标键盘钩子（拖动手势、侧键、热键、滚轮、前台窗口） |
 | [`j-video`](https://pypi.org/project/j-video/) | `video_recorder` | 0.1.0 | Media Foundation H.264/MP4 录制与 WASAPI 系统声音采集 |
@@ -291,7 +291,7 @@ canvas/
     ├── selection_item.py    # SelectionItem — 选中项的边界显示框
     ├── arrow_item.py        # ArrowItem — 箭头图元，九种样式的箭杆/端头/描边几何
     ├── text_item.py         # TextItem — 文字图元，描边/阴影/背景色块与三态交互框
-    └── watermark_item.py    # WatermarkItem / WatermarkStyle — 盖在选区上的水印层：平铺或放在七个位置之一，支持多行和时间
+    └── watermark_item.py    # WatermarkItem / WatermarkStyle — 盖在选区上的水印层：平铺、菱形网格或放在七个位置之一，支持多行和时间
 ```
 
 </details>
@@ -523,6 +523,7 @@ gif/
 ocr/
 ├── __init__.py
 ├── ocr_manager.py           # OCRManager — 引擎选择、加载、释放与统一识别接口
+├── ppocr_models.py          # PP-OCR 模型：models/ 目录、内置清单、添加、删除，经更新器下载
 └── snipping_tool_ocr.py     # SnippingToolOcr — 查找截图工具、复制 OCR 文件、补边识别
 ```
 
@@ -533,6 +534,7 @@ ocr/
 - 设置里可选「自动 / Windows 截图工具 / PP-OCR」；自动时有截图工具就用它，否则用 PP-OCR
 - 截图工具 OCR：经 PyPI 的 oneocr 包调用，更快、支持的语言更多（含韩文、俄文、泰文等），需要 Windows 11 截图工具
 - PP-OCR：ppocr_rust 引擎（纯 Rust + ONNX Runtime，PP-OCR det + rec），任何 Windows 都能用，只在完整版里
+- PP-OCR 模型：自带 PP-OCRv6 small；设置里的「管理 PP-OCR 模型」可从内置清单下载其他模型（PP-OCRv6 tiny/medium、PP-OCRv5，以及韩文、拉丁字母、西里尔字母、泰文、希腊文识别），文件哈希固定；也可以添加本地 ONNX 模型，试识别通过才列入。模型放在程序旁的 `models/`；选中的模型不在时直接报缺少模型，不换用别的
 - 识别与释放互斥；切换引擎时释放旧引擎，新引擎在下次识别时加载
 - 单例模式管理，统一的识别接口，返回文字和位置信息
 
@@ -696,6 +698,7 @@ translation/
 │   ├── baidu.py             # Baidu
 │   ├── tencent.py           # 腾讯云
 │   ├── volcengine.py        # 火山引擎
+│   ├── youdao.py            # 有道
 │   ├── custom_llm.py        # 自定义 OpenAI 兼容服务（Ollama、LM Studio 等）
 │   ├── deepseek.py          # DeepSeek (LLM)
 │   └── openai_compatible.py # OpenAI 兼容接口基类
@@ -778,7 +781,7 @@ ui/
 ├── arrow_settings_panel.py  # ArrowSettingsPanel — 箭头设置面板
 ├── number_settings_panel.py # 数字工具设置面板
 ├── mosaic_settings_panel.py # 马赛克工具设置面板
-├── watermark_settings_panel.py # 水印面板：文字、位置、样式弹层（不透明度/大小/间距/角度/颜色）、字体
+├── watermark_settings_panel.py # 水印面板：文字、位置、样式弹层（不透明度/大小/间距/角度/网格线/颜色）、字体
 ├── watermark_input_dialog.py   # WatermarkInputDialog — 输入多行水印，可插入时间并预览
 │
 ├── fluent_lite/             # Fluent 风格轻量组件库
@@ -796,6 +799,7 @@ ui/
 │   ├── page_capture.py      # 截图设置页
 │   ├── page_quick_actions.py # 快捷行为设置页（跳过确认或结果窗口）
 │   ├── color_format_dialog.py # ColorFormatDialog — 放大镜颜色格式管理窗口
+│   ├── ppocr_model_dialog.py # PpocrModelDialog — 下载、添加、删除 PP-OCR 模型
 │   ├── page_clipboard.py    # 剪贴板设置页
 │   ├── special_paste_dialog.py # SpecialPasteDialog — 调整特殊粘贴菜单的顺序与开关
 │   ├── page_hotkey.py       # 快捷键设置页

@@ -8,6 +8,8 @@ use std::io::Cursor;
 
 use image::{Rgba, RgbaImage};
 
+use crate::cf_html;
+
 // ── 文本、文件 ────────────────────────────────────────────
 
 /// 剪贴板文本按 Windows 惯例用 CRLF
@@ -51,23 +53,10 @@ impl HtmlPart {
         Self { fragment: text_to_html(text), ..Self::default() }
     }
 
-    /// CF_HTML 原始数据；头部偏移量不可用时按注释标记和标签找
+    /// CF_HTML 原始数据；头部给的片段范围不可用时按注释标记和 <body> 找
     pub fn from_cf_html(raw: &[u8]) -> Option<Self> {
-        let data = String::from_utf8_lossy(raw);
-        let data = data.trim_end_matches('\0');
-        let offset = |key: &str| header_offset(data, key);
-        let range = |start: Option<usize>, end: Option<usize>| match (start, end) {
-            (Some(start), Some(end))
-                if start <= end && end <= data.len()
-                    && data.is_char_boundary(start) && data.is_char_boundary(end) => Some((start, end)),
-            _ => None,
-        };
-        let (doc_start, doc_end) = range(offset("StartHTML"), offset("EndHTML"))
-            .or_else(|| find_ci(data, "<html", 0).map(|start| (start, data.len())))?;
-        let fragment = range(offset("StartFragment"), offset("EndFragment"))
-            .filter(|(start, end)| *start >= doc_start && *end <= doc_end)
-            .map(|(start, end)| (start - doc_start, end - doc_start));
-        Some(Self::from_document(&data[doc_start..doc_end], fragment))
+        let decoded = cf_html::decode(raw)?;
+        Some(Self::from_document(&decoded.document, decoded.fragment))
     }
 
     /// 完整的 HTML 文档；fragment 为片段在文档里的范围，缺省时按注释标记或 <body> 找
@@ -193,15 +182,6 @@ pub fn text_to_html(text: &str) -> String {
         }
     }
     html
-}
-
-/// CF_HTML 头部的一个偏移量
-fn header_offset(data: &str, key: &str) -> Option<usize> {
-    data.lines()
-        .take_while(|line| !line.starts_with('<'))
-        .filter_map(|line| line.split_once(':'))
-        .find(|(name, _)| name.trim() == key)
-        .and_then(|(_, value)| value.trim().parse().ok())
 }
 
 /// 不区分 ASCII 大小写查找；needle 以 ASCII 开头，找到的位置必是字符边界
@@ -1078,26 +1058,11 @@ pub fn paste_image(canvas: &mut RgbaImage, image: &RgbaImage, x: u32, y: u32) {
 mod tests {
     use super::*;
 
-    fn cf_html(doc: &str) -> Vec<u8> {
-        let header_len = "Version:0.9\r\nStartHTML:0000000000\r\nEndHTML:0000000000\r\nStartFragment:0000000000\r\nEndFragment:0000000000\r\n".len();
-        let start = doc.find("<!--StartFragment-->").unwrap() + "<!--StartFragment-->".len();
-        let end = doc.find("<!--EndFragment-->").unwrap();
-        format!(
-            "Version:0.9\r\nStartHTML:{:010}\r\nEndHTML:{:010}\r\nStartFragment:{:010}\r\nEndFragment:{:010}\r\n{}",
-            header_len,
-            header_len + doc.len(),
-            header_len + start,
-            header_len + end,
-            doc
-        )
-        .into_bytes()
-    }
-
     fn excel(class_color: &str, cell: &str) -> HtmlPart {
         let doc = format!(
             "<html xmlns:o=\"urn:schemas-microsoft-com:office:office\" xmlns:x=\"urn:schemas-microsoft-com:office:excel\">\r\n<head>\r\n<meta name=ProgId content=Excel.Sheet>\r\n<style>\r\n<!--\r\ntd\r\n\t{{mso-number-format:General;}}\r\n.xl65\r\n\t{{color:{class_color};}}\r\n-->\r\n</style>\r\n</head>\r\n<body link=\"#0563C1\">\r\n\r\n<table border=0 width=72>\r\n<!--StartFragment-->\r\n <tr height=19>\r\n  <td class=xl65 x:num>{cell}</td>\r\n </tr>\r\n<!--EndFragment-->\r\n</table>\r\n\r\n</body>\r\n</html>\r\n"
         );
-        HtmlPart::from_cf_html(&cf_html(&doc)).unwrap()
+        HtmlPart::from_cf_html(&cf_html::encode(&doc)).unwrap()
     }
 
     #[test]
@@ -1190,13 +1155,12 @@ mod tests {
     #[test]
     fn offsets_inside_a_character_fall_back_to_the_markers() {
         let doc = "<html><body><!--StartFragment-->中文<!--EndFragment--></body></html>";
-        let mut raw = cf_html(doc);
+        let encoded = String::from_utf8(cf_html::encode(doc)).unwrap();
         // StartFragment 往后挪一个字节，落进「中」的中间
-        let header = String::from_utf8(raw.clone()).unwrap();
-        let start = header_offset(&header, "StartFragment").unwrap();
-        let patched = header.replacen(&format!("StartFragment:{start:010}"), &format!("StartFragment:{:010}", start + 1), 1);
-        raw = patched.into_bytes();
-        assert_eq!(HtmlPart::from_cf_html(&raw).unwrap().fragment, "中文");
+        let at = encoded.find("StartFragment:").unwrap() + "StartFragment:".len();
+        let start: usize = encoded[at..at + 10].parse().unwrap();
+        let raw = format!("{}{:010}{}", &encoded[..at], start + 1, &encoded[at + 10..]);
+        assert_eq!(HtmlPart::from_cf_html(raw.as_bytes()).unwrap().fragment, "中文");
     }
 
     #[test]

@@ -99,6 +99,11 @@ MainApp::MainApp(int &argc, char **argv) : app(std::make_unique<QApplication>(ar
     setup_logger(config_manager);
     connect(app.get(), &QCoreApplication::aboutToQuit, this, &MainApp::on_about_to_quit);
 
+    // Windows without an icon of their own use it in the title bar and on the taskbar. Without it
+    // Qt looks for an icon named IDI_ICON1 in the exe, which only has icon 1, and shows the
+    // generic Windows one.
+    app->setWindowIcon(create_app_icon());
+
     // Qt's automatic high-DPI scaling is off. Before the welcome wizard first runs, both
     // UI scales get a start value from Windows' display scaling; existing values stay.
     if (const auto recommended_scale = apply_first_run_scale_defaults(*config_manager))
@@ -468,23 +473,11 @@ void MainApp::open_settings() {
     if (update_preparing) return;
     // Not preloaded yet: built now.
     if (!settings_window) preload_settings();
-    ensure_window_on_screen(settings_window);
+    settings_window->fit_to_screen();
     settings_window->setWindowState((settings_window->windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
     settings_window->show();
     settings_window->raise();
     settings_window->activateWindow();
-}
-
-void MainApp::ensure_window_on_screen(QWidget *window) {
-    const auto pos = window->pos();
-    for (auto *screen : QApplication::screens())
-        if (screen->availableGeometry().contains(pos)) return;
-    // Outside every screen: centre it on the primary screen.
-    if (auto *screen = QApplication::primaryScreen()) {
-        const auto screen_rect = screen->availableGeometry();
-        window->move(screen_rect.x() + python_floordiv(screen_rect.width() - window->width(), 2),
-                     screen_rect.y() + python_floordiv(screen_rect.height() - window->height(), 2));
-    }
 }
 
 void MainApp::open_translator() {

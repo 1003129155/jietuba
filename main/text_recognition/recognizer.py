@@ -18,6 +18,8 @@ from core.logger import log_debug, log_error, log_warning, T
 UNAVAILABLE = "unavailable"   # 本版本不带 OCR 引擎
 NO_TEXT = "no_text"           # 引擎跑完了，选区里没有文字
 FAILED = "failed"             # 识别本身出错
+NO_MODEL = "no_model"         # 带 PP-OCR 引擎，但一个模型也没装，也没有截图工具 OCR
+MODEL_BROKEN = "model_broken" # 模型文件加载不了，自动也挑不出别的
 
 _running = set()
 
@@ -44,14 +46,17 @@ class RecognizeThread(QThread):
     def run(self):
         lines, reason = [], FAILED
         try:
-            from ocr import group_ocr_lines, is_ocr_available, recognize_text
+            from ocr import get_ppocr_status, group_ocr_lines, is_ocr_available, recognize_text
 
             if not is_ocr_available():
-                reason = UNAVAILABLE
+                reason = NO_MODEL if get_ppocr_status() == "missing_models" else UNAVAILABLE
             else:
                 result = recognize_text(self._image, return_format="dict")
-                lines = group_ocr_lines(result) if isinstance(result, dict) else []
-                reason = "" if any(line["text"].strip() for line in lines) else NO_TEXT
+                if isinstance(result, dict) and result.get("code") == -1:
+                    reason = result.get("reason") or FAILED
+                else:
+                    lines = group_ocr_lines(result) if isinstance(result, dict) else []
+                    reason = "" if any(line["text"].strip() for line in lines) else NO_TEXT
         except Exception as e:
             log_error(T("文字识别失败: {e}", e=e), "OCR")
         finally:

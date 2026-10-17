@@ -242,9 +242,8 @@ fn rotate90(img: &Img) -> Img {
 
 // ====================== rec 预处理 ======================
 
-/// 把一行文本图缩放到高 48，归一化为 CHW(BGR)。返回 (chw_data, dst_w)。
-fn preprocess_rec(img: &Img) -> (Vec<f32>, usize) {
-    let target_h = 48usize;
+/// 把一行文本图缩放到识别模型的输入高度，归一化为 CHW(BGR)。返回 (chw_data, dst_w)。
+fn preprocess_rec(img: &Img, target_h: usize) -> (Vec<f32>, usize) {
     let ratio = img.w as f32 / img.h as f32;
     let mut dst_w = (target_h as f32 * ratio).ceil() as usize;
     dst_w = dst_w.max(16).min(2000);
@@ -277,39 +276,83 @@ pub struct Engine {
     det: Session,
     rec: Session,
     vocab: Vec<String>, // index 0 = blank
+    rec_height: usize,
 }
 
+/// 输入高度不固定的识别模型按 48 送入：PP-OCR v3 起的识别模型都按这个高度训练。
+const DEFAULT_REC_HEIGHT: usize = 48;
+
 impl Engine {
-    /// 加载 det/rec 模型，构造一个独立的引擎实例。
+    /// 加载 det/rec 模型，构造一个独立的引擎实例；字典取自 rec 模型的 `character` 元数据。
     ///
     /// 每个实例自带模型、互不干扰，生命周期由调用方持有；原先的进程级全局
     /// 单例无法同时跑两套模型，也无法在 release 与 recognize 并发时自保。
     pub fn open(det_path: &str, rec_path: &str) -> Result<Self, String> {
-    if !runtime_loaded() {
-        return Err("ONNX Runtime 尚未加载".to_string());
+        Self::open_with_dict(det_path, rec_path, None)
     }
-    let det = Session::builder()
-        .map_err(|e| e.to_string())?
-        .commit_from_file(det_path)
-        .map_err(|e| format!("加载 det 模型失败: {e}"))?;
-    let rec = Session::builder()
-        .map_err(|e| e.to_string())?
-        .commit_from_file(rec_path)
-        .map_err(|e| format!("加载 rec 模型失败: {e}"))?;
 
-    // 从 rec 模型 metadata 读取字典，构造 CTC vocab（用块作用域确保 meta 借用结束后再移动 rec）
-    let charset = {
-        let meta = rec.metadata().map_err(|e| e.to_string())?;
-        meta.custom("character").unwrap_or_default()
-    };
-    let mut vocab: Vec<String> = Vec::with_capacity(charset.lines().count() + 2);
-    vocab.push(String::new()); // index 0 = blank
-    for line in charset.lines() {
-        vocab.push(line.to_string());
+    /// 同 [`Engine::open`]，给了 `dict_path` 时字典以该文件为准（每行一个字符）。
+    ///
+    /// 字典行数必须和识别模型的输出类别数对得上（类别 = 空白 + 字典 + 可选的末尾空格），
+    /// 对不上就报错：错一位的字典不会失败，只会把每个字都识别成别的字。
+    pub fn open_with_dict(det_path: &str, rec_path: &str, dict_path: Option<&str>) -> Result<Self, String> {
+        if !runtime_loaded() {
+            return Err("ONNX Runtime 尚未加载".to_string());
+        }
+        let det = Session::builder()
+            .map_err(|e| e.to_string())?
+            .commit_from_file(det_path)
+            .map_err(|e| format!("加载 det 模型失败: {e}"))?;
+        let mut rec = Session::builder()
+            .map_err(|e| e.to_string())?
+            .commit_from_file(rec_path)
+            .map_err(|e| format!("加载 rec 模型失败: {e}"))?;
+
+        let charset = match dict_path {
+            Some(path) => std::fs::read_to_string(path).map_err(|e| format!("读取字典失败: {e}"))?,
+            None => rec
+                .metadata()
+                .map_err(|e| e.to_string())?
+                .custom("character")
+                .unwrap_or_default(),
+        };
+        let chars: Vec<&str> = charset.trim_start_matches('\u{feff}').lines().collect();
+        if chars.is_empty() {
+            return Err(if dict_path.is_some() {
+                "字典文件是空的".to_string()
+            } else {
+                "识别模型没有字典：模型元数据里没有 character，也没有提供字典文件".to_string()
+            });
+        }
+        let rec_height = rec.inputs()[0]
+            .dtype()
+            .tensor_shape()
+            .and_then(|shape| shape.get(2).copied())
+            .filter(|&h| h > 0)
+            .map_or(DEFAULT_REC_HEIGHT, |h| h as usize);
+        let classes = rec_classes(&mut rec, rec_height)?;
+        let mut vocab: Vec<String> = Vec::with_capacity(chars.len() + 2);
+        vocab.push(String::new()); // index 0 = blank
+        vocab.extend(chars.iter().map(|c| c.to_string()));
+        if classes == vocab.len() + 1 {
+            vocab.push(" ".to_string());
+        } else if classes != vocab.len() {
+            return Err(format!(
+                "字典有 {} 个字符，识别模型输出 {classes} 类，二者对不上",
+                chars.len()
+            ));
+        }
+        Ok(Engine { det, rec, vocab, rec_height })
     }
-    vocab.push(" ".to_string()); // 末尾 space
 
-        Ok(Engine { det, rec, vocab })
+    /// 用空白图各跑一次检测和识别。部分算子缺失或形状不兼容要到推理时才报错，
+    /// 添加模型时先跑一遍，免得等到用户识别时才失败。
+    pub fn self_test(&mut self) -> Result<(), String> {
+        let det = Tensor::from_array(([1_i64, 3, 64, 64], vec![0f32; 3 * 64 * 64])).map_err(|e| e.to_string())?;
+        self.det
+            .run(ort::inputs![det])
+            .map_err(|e| format!("det 推理失败: {e}"))?;
+        rec_classes(&mut self.rec, self.rec_height).map(|_| ())
     }
 
     /// 识别整张图，返回所有文本行（原图坐标）。
@@ -331,7 +374,7 @@ impl Engine {
     .map_err(|e| e.to_string())?;
     let det_out = self
         .det
-        .run(ort::inputs!["x" => det_tensor])
+        .run(ort::inputs![det_tensor])
         .map_err(|e| format!("det 推理失败: {e}"))?;
     let prob = det_out[0]
         .try_extract_tensor::<f32>()
@@ -393,15 +436,15 @@ impl Engine {
         if crop.w < 3 || crop.h < 3 {
             continue;
         }
-        let (rec_data, dw) = preprocess_rec(&crop);
+        let (rec_data, dw) = preprocess_rec(&crop, self.rec_height);
         let rec_tensor = Tensor::from_array((
-            [1_i64, 3, 48_i64, dw as i64],
+            [1_i64, 3, self.rec_height as i64, dw as i64],
             rec_data,
         ))
         .map_err(|e| e.to_string())?;
         let rec_out = self
             .rec
-            .run(ort::inputs!["x" => rec_tensor])
+            .run(ort::inputs![rec_tensor])
             .map_err(|e| format!("rec 推理失败: {e}"))?;
         let (shape, data) = rec_out[0]
             .try_extract_tensor::<f32>()
@@ -417,6 +460,25 @@ impl Engine {
 
     Ok(results)
     }
+}
+
+/// 识别模型的输出类别数：输出形状固定时直接读，否则拿一张空白行图跑一次看输出。
+fn rec_classes(rec: &mut Session, height: usize) -> Result<usize, String> {
+    let declared = rec.outputs()[0]
+        .dtype()
+        .tensor_shape()
+        .and_then(|shape| shape.last().copied())
+        .filter(|&c| c > 0);
+    let width = 160usize;
+    let input = Tensor::from_array(([1_i64, 3, height as i64, width as i64], vec![0f32; 3 * height * width]))
+        .map_err(|e| e.to_string())?;
+    let out = rec.run(ort::inputs![input]).map_err(|e| format!("rec 推理失败: {e}"))?;
+    let (shape, _) = out[0].try_extract_tensor::<f32>().map_err(|e| e.to_string())?;
+    let actual = *shape.last().ok_or("rec 输出形状无效")?;
+    if shape.len() != 3 || actual <= 0 || declared.is_some_and(|c| c != actual) {
+        return Err(format!("rec 输出形状无效: {shape:?}"));
+    }
+    Ok(actual as usize)
 }
 
 fn dist(a: Pt, b: Pt) -> f32 {

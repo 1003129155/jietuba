@@ -23,12 +23,27 @@ NavigationInterface::NavigationInterface(QWidget *parent) : QWidget(parent), gro
     layout_ = new QVBoxLayout(this);
     layout_->setContentsMargins(0, 0, 0, 0);
     layout_->setSpacing(5);
+    // The top list scrolls when the window is shorter than the whole navigation, so the
+    // bottom items stay visible. It follows the viewport width: a shown scroll bar takes
+    // its width from the items instead of clipping their right edge.
+    scroll_ = new QScrollArea(this);
+    scroll_->setWidgetResizable(true);
+    scroll_->setFrameShape(QFrame::NoFrame);
+    scroll_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    set_own_style(scroll_, "background: transparent;");
+    auto *top_view = new QWidget;
+    top_view->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    set_own_style(top_view, "background: transparent;");
+    auto *top_view_layout = new QVBoxLayout(top_view);
+    top_view_layout->setContentsMargins(0, 0, 0, 0);
     top_ = new QVBoxLayout;
     top_->setSpacing(5);
+    top_view_layout->addLayout(top_);
+    top_view_layout->addStretch(1);
+    scroll_->setWidget(top_view);
     bottom_ = new QVBoxLayout;
     bottom_->setSpacing(5);
-    layout_->addLayout(top_);
-    layout_->addStretch(1);
+    layout_->addWidget(scroll_, 1);
     layout_->addLayout(bottom_);
     set_own_style(this, "background: transparent;");
     connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { _apply_theme(); });
@@ -102,6 +117,8 @@ void NavigationInterface::setCurrentItem(const QString &route_key) {
     if (!button) return;
     current_ = route_key;
     button->setChecked(true);
+    // Before the first show the viewport has no real size yet, so scrolling then would be wrong.
+    if (scroll_->isVisible() && scroll_->isAncestorOf(button)) scroll_->ensureWidgetVisible(button, 0, 0);
 }
 
 void NavigationInterface::clearCurrentItem() {

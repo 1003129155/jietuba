@@ -3,7 +3,9 @@ use std::sync::Mutex;
 use pyo3::create_exception;
 use pyo3::prelude::*;
 
-use crate::engine;
+use std::path::Path;
+
+use crate::{engine, models};
 
 create_exception!(
     ppocr_rust,
@@ -54,13 +56,14 @@ pub struct PyEngine {
 
 #[pymethods]
 impl PyEngine {
-    /// 加载 det 与 rec 两个 ONNX 模型。识别用的字典从 rec 模型的
-    /// `character` metadata 读取，无需额外的字典文件。
+    /// 加载 det 与 rec 两个 ONNX 模型。不给 dict_path 时，识别用的字典从 rec 模型的
+    /// `character` metadata 读取。
     #[new]
-    fn new(py: Python<'_>, det_path: &str, rec_path: &str) -> PyResult<Self> {
+    #[pyo3(signature = (det_path, rec_path, dict_path=None))]
+    fn new(py: Python<'_>, det_path: &str, rec_path: &str, dict_path: Option<&str>) -> PyResult<Self> {
         // 加载模型是纯 IO + 计算，几百毫秒起步，放开 GIL
         let inner = py
-            .allow_threads(|| engine::Engine::open(det_path, rec_path))
+            .allow_threads(|| engine::Engine::open_with_dict(det_path, rec_path, dict_path))
             .map_err(to_py)?;
         Ok(Self {
             inner: Mutex::new(Some(inner)),
@@ -130,11 +133,80 @@ impl PyEngine {
     }
 }
 
+fn json(value: &impl serde::Serialize) -> PyResult<String> {
+    serde_json::to_string(value).map_err(to_py)
+}
+
+/// 内置的可下载模型清单（JSON）。
+#[pyfunction]
+fn models_catalog() -> PyResult<String> {
+    json(models::catalog())
+}
+
+/// `root` 下已安装的模型列表（JSON），默认模型的 id 为空串。
+#[pyfunction]
+fn models_discover(root: &str) -> PyResult<String> {
+    json(&models::discover(Path::new(root)))
+}
+
+/// 按 id 找已安装的模型（JSON），没有时返回 None。
+#[pyfunction]
+fn models_resolve(root: &str, model_id: &str) -> PyResult<Option<String>> {
+    models::resolve(Path::new(root), model_id).map(|m| json(&m)).transpose()
+}
+
+/// 「自动」用的已装模型（JSON），一个都没有时返回 None。
+#[pyfunction]
+fn models_auto_choice(root: &str) -> PyResult<Option<String>> {
+    models::auto_choice(Path::new(root)).map(|m| json(&m)).transpose()
+}
+
+/// 复制并校验用户选的模型文件，成功后返回新模型（JSON）。
+#[pyfunction]
+#[pyo3(signature = (root, name, det_path, rec_path, dict_path=None))]
+fn models_import(py: Python<'_>, root: &str, name: &str, det_path: &str, rec_path: &str, dict_path: Option<&str>) -> PyResult<String> {
+    let model = py
+        .allow_threads(|| {
+            models::import(Path::new(root), name, Path::new(det_path), Path::new(rec_path), dict_path.map(Path::new))
+        })
+        .map_err(to_py)?;
+    json(&model)
+}
+
+/// 更新器下载完清单模型后调用，返回就位的模型（JSON）。
+#[pyfunction]
+fn models_finish_download(py: Python<'_>, root: &str, catalog_id: &str) -> PyResult<String> {
+    let model = py.allow_threads(|| models::finish_download(Path::new(root), catalog_id)).map_err(to_py)?;
+    json(&model)
+}
+
+#[pyfunction]
+fn models_remove(py: Python<'_>, root: &str, model_id: &str) -> PyResult<()> {
+    py.allow_threads(|| models::remove(Path::new(root), model_id)).map_err(to_py)
+}
+
+#[pyfunction]
+fn models_clean_staging(py: Python<'_>, root: &str) {
+    py.allow_threads(|| models::clean_staging(Path::new(root)));
+}
+
 #[pymodule]
 fn ppocr_rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add("OcrError", m.py().get_type_bound::<OcrError>())?;
     m.add_class::<PyEngine>()?;
     m.add_class::<TextLine>()?;
+    for function in [
+        wrap_pyfunction!(models_catalog, m)?,
+        wrap_pyfunction!(models_discover, m)?,
+        wrap_pyfunction!(models_resolve, m)?,
+        wrap_pyfunction!(models_auto_choice, m)?,
+        wrap_pyfunction!(models_import, m)?,
+        wrap_pyfunction!(models_finish_download, m)?,
+        wrap_pyfunction!(models_remove, m)?,
+        wrap_pyfunction!(models_clean_staging, m)?,
+    ] {
+        m.add_function(function)?;
+    }
     Ok(())
 }

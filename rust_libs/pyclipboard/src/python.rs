@@ -299,6 +299,16 @@ impl PyClipboardManager {
         self.inner.clear_history(keep_grouped).map_err(PyRuntimeError::new_err)
     }
 
+    /// 清理没有置顶、也没有加入分组的条目；置顶和分组里的内容都保留
+    ///
+    /// Args:
+    ///     vacuum: True = 删完整理数据库文件、立即回收磁盘空间（默认）；
+    ///             False = 只删行，空间留在库里复用，适合只想让条目不再显示的场合
+    #[pyo3(signature = (vacuum=true))]
+    fn clear_unpinned_ungrouped(&self, vacuum: bool) -> PyResult<()> {
+        self.inner.clear_unpinned_ungrouped(vacuum).map_err(PyRuntimeError::new_err)
+    }
+
     /// 切换置顶状态
     /// 
     /// Args:

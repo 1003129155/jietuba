@@ -117,6 +117,9 @@ public:
     void set_screenshot_quality(int value) { qsettings.setValue("app/screenshot_quality", std::max(1, std::min(100, value))); }
     QString get_ocr_engine() const;
     void set_ocr_engine(const QString &value);
+    // The PP-OCR model: a subfolder name under models/, empty for the default model in models/ itself.
+    QString get_ppocr_model() const { return qsettings.value("app/ppocr_model", app_defaults_.value("ppocr_model")).toString(); }
+    void set_ppocr_model(const QString &value) { qsettings.setValue("app/ppocr_model", value); }
     // One of SHIFT_LINE_ANGLES; anything else reads as the default.
     int get_shift_line_angle() const;
     void set_shift_line_angle(int value);
@@ -151,6 +154,8 @@ public:
     void set_volcengine_translate_secret_key(const QString &value) { set_trimmed("translation/providers/volcengine/secret_access_key", value); }
     void set_tencent_translate_secret_id(const QString &value) { set_trimmed("translation/providers/tencent/secret_id", value); }
     void set_tencent_translate_secret_key(const QString &value) { set_trimmed("translation/providers/tencent/secret_key", value); }
+    void set_youdao_translate_app_key(const QString &value) { set_trimmed("translation/providers/youdao/app_key", value); }
+    void set_youdao_translate_app_secret(const QString &value) { set_trimmed("translation/providers/youdao/app_secret", value); }
     // The monthly quota guard, offered by the providers that declare a free quota.
     void set_volcengine_translate_quota_enabled(bool value) { qsettings.setValue("translation/providers/volcengine/quota_enabled", value); }
     QString get_volcengine_translate_quota_limit() const;

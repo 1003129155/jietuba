@@ -502,6 +502,28 @@ private slots:
         QTRY_VERIFY(!QApplication::activePopupWidget());
     }
 
+    void theGearMenuClearsLooseItemsAfterAsking() {
+        const auto group = manager().create_group("Work");
+        const auto ids = add_texts({"loose", "grouped", "pinned"});
+        QVERIFY(manager().move_to_group(ids[1], *group));
+        QVERIFY(manager().toggle_pin(ids[2]));
+        open_window();
+        QCOMPARE(row_ids().size(), 3);
+        {
+            ModalAnswerer no(false);
+            QVERIFY(gear_pick("Clear History"));
+            QCOMPARE(no.answered(), 1);
+        }
+        QVERIFY(manager().get_item(ids[0]));
+        {
+            ModalAnswerer yes(true);
+            QVERIFY(gear_pick("Clear History"));
+            QCOMPARE(yes.answered(), 1);
+        }
+        QVERIFY(!manager().get_item(ids[0]));
+        QCOMPARE(row_ids(), (QList<qint64>{ids[2], ids[1]}));
+    }
+
     void theGroupBarSwitchesGroupsByMouseAndKeyboard() {
         const auto work = manager().create_group("Work", std::nullopt, QString::fromUtf8("💼"));
         const auto apps = manager().create_group("Apps", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILE));
