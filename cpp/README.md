@@ -45,6 +45,8 @@ python -m venv .tools
 
 产物在 `dist/Release-static`：`jietuba_lite.exe` 和许可文件。exe 带图标和版本资源，版本号取自 `../main/main_app.py` 的 `APP_VERSION`，与 Python 版同一个版本号。单文件版默认内置 `rust_libs/updater` 并启用一键更新，`-NoUpdates` 去掉；默认构建加 `-Updates` 才内置。
 
+完整版加 `-Full`（`.\build.cmd -Static -Full`）：产物在 `dist/Release-static-full`，exe 叫 `jietuba_pp.exe`（更新器按这个名字替换），内嵌 ONNX Runtime，包里带默认的 PP-OCR 模型（`models/`）。ONNX Runtime 按 `rust_libs/ppocr_rust/catalog.json` 里的地址和哈希由 `scripts/fetch_ort_runtime.ps1` 取，随许可文件一起放进 `licenses/`；`-OrtDll <路径>` 改用已有的 `onnxruntime.dll`，同目录要有 `onnxruntime-LICENSE.txt` 和 `onnxruntime-ThirdPartyNotices.txt`。启动时 exe 若发现 `models/onnxruntime.dll` 缺失或不可用，就把内嵌的写进去；更新只换 exe，旧完整包留下的 `models/` 因此也能用。
+
 ARM64 版在 x64 上交叉编译：先编好 x64 静态 Qt（ARM64 构建要用它的工具），再运行 `.\scripts\build_static_qt.ps1 -Arch arm64` 和 `.\build.cmd -Static -Arch arm64`；需要 Visual Studio 的 MSVC ARM64 生成工具和 `rustup target add aarch64-pc-windows-msvc`。
 
 ### PP-OCR 组件包

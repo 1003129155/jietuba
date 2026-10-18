@@ -10,6 +10,7 @@
 #include "core/logger.h"
 #include "core/platform_utils.h"
 #include "main_app.h"
+#include "ocr/bundled_runtime.h"
 #include "ocr/ocr_manager.h"
 #include "ocr/ppocr_models.h"
 #include "settings/tool_settings.h"
@@ -175,6 +176,8 @@ void PreloadManager::build_and_start() {
         std::thread([] { run_thread_guarded("AdminTask", [] { elevation::repair_task(); }); }).detach();
         return false;
     });
+    // Before the engine setting, which resolves the engine by what is installed.
+    if (!bundled_runtime::data().isEmpty()) steps_.push_back([this] { return seed_bundled_runtime(); });
     // The engine preference is read here and handed to OCR, so recognition threads never read settings.
     steps_.push_back([this] { return apply_ocr_engine_setting(); });
     if (cfg->get_app_setting("preload_clipboard", true).toBool()) steps_.push_back([this] {
@@ -237,6 +240,24 @@ bool PreloadManager::preload_hdr_session() {
     // when a display has HDR on.
     warm_up_hdr_session(config_->get_capture_engine());
     return false;
+}
+
+bool PreloadManager::seed_bundled_runtime() {
+    // A write of some 16 MB, only when models/ has no usable DLL (first start, or after an update
+    // from a package that linked ONNX Runtime in); off the main thread.
+    auto *thread = QThread::create([] {
+        QString error;
+        switch (bundled_runtime::seed_embedded(&error)) {
+        case bundled_runtime::SeedResult::Written: log_info(T("已把内置的 ONNX Runtime 放到 models/"), "OCR"); break;
+        case bundled_runtime::SeedResult::Failed: log_warning(T("无法放置内置的 ONNX Runtime: {error}", {{"error", error}}), "OCR"); break;
+        case bundled_runtime::SeedResult::Unneeded: break;
+        }
+    });
+    thread->setParent(app_);
+    ocr_preload_thread_ = thread;
+    QObject::connect(thread, &QThread::finished, app_, [this] { run_next(); });
+    thread->start();
+    return true;
 }
 
 bool PreloadManager::apply_ocr_engine_setting() {

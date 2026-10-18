@@ -43,6 +43,7 @@ private:
     void run_next();
     bool preload_toolbar_assets();
     bool preload_hdr_session();
+    bool seed_bundled_runtime();
     bool apply_ocr_engine_setting();
     bool preload_ocr_engine();
     // Hotkeys and the tray; after the welcome wizard on the first run.

@@ -41,7 +41,13 @@ QString helper_path() {
     return target;
 }
 
-QString app_variant() { return "lite"; }
+QString app_variant() {
+#ifdef JIETUBA_FULL_VARIANT
+    return "full";
+#else
+    return "lite";
+#endif
+}
 
 UpdaterProcess::UpdaterProcess(QObject *parent) : QObject(parent), process_(this), timer_(this) {
     connect(&process_, &QProcess::readyReadStandardOutput, this, &UpdaterProcess::read);

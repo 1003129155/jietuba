@@ -23,4 +23,9 @@ if ($crash) { Get-Content -LiteralPath $crash.FullName | ForEach-Object { Write-
 if (-not $alive) { throw "The app exited within $Seconds s (exit code $($process.ExitCode))." }
 if (-not $log) { throw 'The app wrote no runtime log.' }
 if ($crash) { throw 'The app wrote a crash log.' }
+# The full exe puts its embedded ONNX Runtime into models\ when none is there; the package has none.
+if ((Split-Path $Exe -Leaf) -eq 'jietuba_pp.exe') {
+    $runtime = Join-Path (Split-Path $Exe -Parent) 'models\onnxruntime.dll'
+    if (-not (Test-Path -LiteralPath $runtime) -or (Get-Item -LiteralPath $runtime).Length -lt 10MB) { throw "The full exe did not put onnxruntime.dll into $runtime." }
+}
 Write-Host "Smoke test passed: $Exe ran $Seconds s and logged $((Get-Content -LiteralPath $log.FullName).Count) lines."

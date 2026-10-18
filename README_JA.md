@@ -144,17 +144,17 @@ python -m pytest main/tests -c main/tests/pytest.ini
 
 実際にマウスとキーボードを操作するテスト（`test_quick_capture_real_hooks.py` など）は既定でスキップされます。環境変数 `RUN_REAL_INPUT_TESTS=1` を設定すると実行され、実行中はマウスとキーボードに触れないでください。実際のシステムクリップボードを書き換えるテスト（`test_clipboard_monitor_real.py`）も既定でスキップされます。環境変数 `RUN_REAL_CLIPBOARD_TESTS=1` を設定すると実行され、実行中は何もコピーしないでください。
 
-Windows 版をビルドするには、現在の Python アーキテクチャに合う録画 wheel をインストールしてから `python build_with_ocr_onefile.py` を実行します。インストール済みの録画拡張とライセンス通知を収集し、独立した更新プログラムは Cargo でビルドします。完全版の生成物は `dist/jietuba_pp.exe` と `dist/models/` です。`--lite` を付けると Python 版の軽量版 `dist_lite/jietuba_lite.exe` も生成できますが、リリースには使っていません。録画 wheel のビルド手順は[公開手順メモ](rust_libs/PUBLISHING.md)（中国語）を参照してください。[自動リリースワークフロー](.github/workflows/build.yml)では、完全版と軽量版（[lite.yml](.github/workflows/lite.yml)）を並行してビルドし、署名後に x64 と ARM64 のアーカイブを生成します。
+Python 版の配布パッケージ（2.1.8 以降のリリースでは使いません）をビルドするには、現在の Python アーキテクチャに合う録画 wheel をインストールしてから `python build_with_ocr_onefile.py` を実行します。インストール済みの録画拡張とライセンス通知を収集し、独立した更新プログラムは Cargo でビルドします。完全版の生成物は `dist/jietuba_pp.exe` と `dist/models/` です。`--lite` を付けると Python 版の軽量版 `dist_lite/jietuba_lite.exe` も生成できます。録画 wheel のビルド手順は[公開手順メモ](rust_libs/PUBLISHING.md)（中国語）を参照してください。[自動リリースワークフロー](.github/workflows/build.yml)では、[lite.yml](.github/workflows/lite.yml) が C++ 版の軽量版と完全版を x64 と ARM64 向けにビルドし、署名後に `jietuba_lite-<tag>-<arch>.zip` と `jietuba_pp-<tag>-<arch>.zip` を生成します。
 
 ### C++ 実装
 
-C++ 実装は [cpp/](cpp/) にあり、`src/` は `main/` とモジュール単位で対応しています。現在リリースしている軽量版はこちらからビルドしています。ビルド、テスト、開発上の約束は [cpp/README.md](cpp/README.md)（中国語）を参照してください。2 つの実装の動作は一致させます。片方の動作を変える PR ではもう片方も同時に変更し、C++ の対照テストは Python 版で生成した期待値を使います。`cpp/` または `rust_libs/` を変更すると、[C++ CI](.github/workflows/cpp.yml) がビルドし、デスクトップを必要としないテストを実行します。
+C++ 実装は [cpp/](cpp/) にあり、`src/` は `main/` とモジュール単位で対応しています。2.1.8 以降、リリースする軽量版と完全版はどちらもこちらからビルドし、Python 版はアーカイブして更新しません。ビルド、テスト、開発上の約束は [cpp/README.md](cpp/README.md)（中国語）を参照してください。どちらのパッケージも静的リンクの単一 exe です。軽量版は `jietuba_lite.exe`（`build.ps1 -Static`）、完全版は `jietuba_pp.exe`（`-Static -Full`）で、ONNX Runtime を埋め込み、既定の PP-OCR モデルを `models/` に同梱します。旧バージョンの更新プログラムはパッケージ名を完全一致で照合し、zip ルートの同名 exe だけを置き換えて `models/` はそのまま残すため、どちらの名前も変更できません。完全版の `onnxruntime.dll` は、exe が起動時に `models/` へ書き出します。Python 版は C++ の対照テストの期待値を生成する元としてだけリポジトリに残します。コミット済みの対照データはその実行を必要とせず、再生成が必要なときに使います。新機能は C++ で実装して C++ のテストを書き、Python 版には反映しません。`cpp/` または `rust_libs/` を変更すると、[C++ CI](.github/workflows/cpp.yml) がビルドし、デスクトップを必要としないテストを実行します。
 
 ### Rust ライブラリの階層
 
 `rust_libs/` のロジックは一度だけ書き、Python 版と C++ 版で共有します。
 
-- 各ライブラリは 2 層です。コアは純粋な Rust で、PyO3 バインディングは `python.rs`（録画ライブラリは `bindings.rs`）だけに置き、既定で有効な `python` フィーチャーで切り替えます。C++ 版は `default-features = false` で依存し、自身の C インターフェース層（`cpp/native/`）から同じコアを呼び出します。
+- 各ライブラリは 2 層です。コアは純粋な Rust で、PyO3 バインディングは `python.rs`（録画ライブラリは `bindings.rs`）だけに置き、既定で有効な `python` フィーチャーで切り替えます。C++ 版は `default-features = false` で依存し、自身の C インターフェース層（`cpp/native/`）から同じコアを呼び出します。Python 版のアーカイブ後は、新しい機能を `cpp/native/` につなぐだけでよく、PyO3 バインディングを書く必要はありません。
 - バインディング層は型変換、GIL の取得と解放、エラーの対応付け、オブジェクトの寿命管理だけを行います。判定、既定値、再試行、スレッドといったロジックはコアに書きます。そうしないと両版がそれぞれ同じ処理を持ち、少しずつずれていきます。
 - コアで回復可能なエラーは `panic` ではなく `Result` で返します。
 - 両版で必要かつ動作をそろえるべき UI 以外のロジックは、まず Rust コアに書きます。Qt の型を使う UI コードはそれぞれの言語に残します。

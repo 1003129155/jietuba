@@ -15,8 +15,9 @@ QString helper_path();
 bool updater_bundled();
 // Tests copy a fake helper instead of the bundled one.
 void set_helper_source_for_test(const QString &path);
-// Release package that updates fetch: always "lite". PP-OCR is a pack beside the exe, which
-// updates leave in place; the reference's "full" package is its Python build.
+// Release package that updates fetch: "full" for jietuba_pp.exe (JIETUBA_FULL_EXE), else "lite".
+// Both keep PP-OCR's models beside the exe, which updates leave in place; the full exe also carries
+// onnxruntime.dll (ocr/bundled_runtime).
 QString app_variant();
 
 // One updater helper process speaking the JSON-lines protocol (one transaction per run).
