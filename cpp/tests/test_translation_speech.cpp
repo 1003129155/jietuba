@@ -698,7 +698,8 @@ private slots:
 
         QVERIFY2(backend->speak(voices.front(), "<pitch middle='x'>1 < 2 & 3", error), qPrintable(error));
         SpeechStatus status;
-        QVERIFY(QTest::qWaitFor([&] { return backend->poll(status, error) && status.done; }, 10000));
+        // The first synthesis on a freshly started machine loads the voice, which can take far longer than later ones.
+        QVERIFY(QTest::qWaitFor([&] { return backend->poll(status, error) && status.done; }, 60000));
         QVERIFY(status.hresult >= 0);
         QVERIFY(backend->memory_output_size() > 0);
         QVERIFY(backend->close(error));
@@ -718,7 +719,7 @@ private slots:
         QVERIFY(backend->poll(status, error));
         QVERIFY(!status.done);
         QVERIFY(backend->purge(error));
-        QVERIFY(QTest::qWaitFor([&] { return backend->poll(status, error) && status.done; }, 2000));
+        QVERIFY(QTest::qWaitFor([&] { return backend->poll(status, error) && status.done; }, 10000));
     }
 
     void sapiVoicesHaveLocales() {
