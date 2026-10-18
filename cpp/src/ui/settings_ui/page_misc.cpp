@@ -1,3 +1,4 @@
+#include "core/elevation.h"
 #include "core/i18n.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
@@ -18,6 +19,23 @@
 namespace jietuba {
 namespace {
 QString documents_dir() { return QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation); }
+
+// Run as administrator, a child of autostart; hidden for accounts that cannot elevate. It can be
+// changed without elevation too: applying goes through UAC (SettingsDialog::apply_startup).
+void add_run_as_admin_card(SettingsDialog *dialog, SettingsCardGroup *group, SwitchSettingCard *autostart_card) {
+    const QString state = elevation::elevation_state();
+    if (state == elevation::STANDARD) return;
+    QString description = dialog->tr_text("Lets screenshots capture administrator windows such as Task Manager. "
+                                          "Launching it by hand also runs as administrator, without a UAC prompt.");
+    if (state == elevation::CAN_ELEVATE)
+        description += "\n" + dialog->tr_text("Changing it asks for administrator permission. Turning it on restarts the program as administrator.");
+    auto *card = new SubSwitchSettingCard(dialog->tr_text("Run as Administrator"), description, group);
+    card->setChecked(dialog->config_manager->get_app_setting("run_as_admin").toBool());
+    dialog->set_attr("run_as_admin_toggle", card);
+    group->addSettingCard(card);
+    QObject::connect(autostart_card, &SwitchSettingCard::checkedChanged, group, [group, card](bool checked) { group->setCardVisible(card, checked); });
+    group->setCardVisible(card, autostart_card->isChecked());
+}
 
 void export_settings_to_file(SettingsDialog *dialog) {
     // Export writes the saved settings, so unapplied edits are saved first.
@@ -69,6 +87,7 @@ QWidget *create_misc_page(SettingsDialog *dialog) {
     autostart_card->setChecked(config->get_app_setting("autostart_enabled").toBool());
     dialog->set_attr("autostart_toggle", autostart_card);
     grp_startup->addSettingCard(autostart_card);
+    add_run_as_admin_card(dialog, grp_startup, autostart_card);
     auto *show_card = new SwitchSettingCard(FluentIcon::Application, dialog->tr_text("Show Main Window on Startup"), dialog->tr_text("If off, starts in background."), grp_startup);
     show_card->setChecked(config->get_show_main_window());
     dialog->set_attr("show_main_window_toggle", show_card);

@@ -429,6 +429,7 @@ clipboard/
 core/
 ├── __init__.py
 ├── bootstrap.py             # PreloadManager — 启动引导，环境初始化、DPI感知、单实例控制、链式预加载
+├── elevation.py             # 以管理员身份运行 — 提权状态判断、开机自启用的计划任务
 ├── logger.py                # Logger — 文件+控制台日志系统，支持多级别 (debug/info/warning/error/exception)
 ├── crash_handler.py         # install_crash_hooks() — 全局异常和线程异常捕获
 ├── resource_manager.py      # ResourceManager — SVG/图片等资源加载管理

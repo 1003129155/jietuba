@@ -210,6 +210,7 @@ void SettingCardGroup::addSettingCard(QWidget *card, bool with_separator) {
         set_own_style(separator, QString("background: %1; border: none; margin-left: %2px;").arg(ui_tokens(this).separator).arg(card_text_left()));
         cardLayout->addWidget(separator);
         separators_.append(separator);
+        leading_separators_.insert(card, separator);
     }
     card->setParent(card_container_);
     if (auto *setting = qobject_cast<SettingCard *>(card); setting && !setting->has_own_tone()) setting->setTone(tone_);
@@ -220,6 +221,11 @@ void SettingCardGroup::addSettingCard(QWidget *card, bool with_separator) {
 
 void SettingCardGroup::addSettingCards(const QList<QWidget *> &cards) {
     for (auto *card : cards) addSettingCard(card);
+}
+
+void SettingCardGroup::setCardVisible(QWidget *card, bool visible) {
+    card->setVisible(visible);
+    if (auto *separator = leading_separators_.value(card)) separator->setVisible(visible);
 }
 
 void SettingCardGroup::sync_control_column() {

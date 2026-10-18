@@ -41,8 +41,9 @@ const QSet<QString> &LOCAL_KEYS() {
     static const QSet<QString> keys{
         "app/has_run_before",
         "app/welcome_wizard_done",
-        // Autostart is decided by the system Run entry; this value alone would disagree with it.
+        // Autostart is decided by the system Run entry and scheduled task; these values alone would disagree with them.
         "app/autostart_enabled",
+        "app/run_as_admin",
         // Absolute paths seldom exist on another computer.
         "app/screenshot_save_path",
         "app/log_dir",

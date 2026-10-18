@@ -2,6 +2,7 @@
 #include "clipboard/ui/theme/themes.h"
 #include "core/i18n.h"
 #include "core/logger.h"
+#include "core/elevation.h"
 #include "core/platform_utils.h"
 #include "core/resource_manager.h"
 #include "core/shortcut_manager.h"
@@ -538,6 +539,36 @@ void SettingsDialog::update_action_buttons() {
 
 // ── Reset ──
 
+void SettingsDialog::apply_startup() {
+    auto *autostart_toggle = attr_widget("autostart_toggle");
+    const bool autostart = checked_of(autostart_toggle);
+    const bool was_admin = config_manager->get_app_setting("run_as_admin").toBool();
+    auto *admin_toggle = attr_widget("run_as_admin_toggle");
+    config_manager->set_app_setting("autostart_enabled", autostart);
+    if (!admin_toggle) {
+        // Without the card (an account that cannot elevate) admin mode is left as it is.
+        elevation::apply_startup(autostart, was_admin, was_admin);
+        return;
+    }
+    const bool wanted = autostart && checked_of(admin_toggle);
+    const bool admin = elevation::apply_startup(autostart, wanted, was_admin, true);
+    if (admin != wanted) {
+        set_checked(admin_toggle, admin);
+        if (admin) {
+            // The task stayed, so it still starts at sign-in.
+            set_checked(autostart_toggle, true);
+            config_manager->set_app_setting("autostart_enabled", true);
+        }
+        show_warning_dialog(this, tr_text("Run as Administrator"),
+                            admin ? tr_text("Run as administrator could not be turned off. It still starts as administrator at sign-in.")
+                                  : tr_text("Run as administrator was not turned on."));
+    }
+    config_manager->set_app_setting("run_as_admin", admin);
+    // After this apply finishes.
+    if (admin && !was_admin && elevation::elevation_state() != elevation::ELEVATED)
+        QTimer::singleShot(0, this, &SettingsDialog::admin_mode_enabled);
+}
+
 void SettingsDialog::save_magnifier_color_formats() {
     // Edited in the manager window and kept on the instance; Apply saves them.
     if (magnifier_color_formats) color_formats::save(config_manager, *magnifier_color_formats);
@@ -679,6 +710,7 @@ void SettingsDialog::reset_log_page() {
 void SettingsDialog::reset_misc_page() {
     const auto &defaults = config_manager->app_defaults();
     if (auto *toggle = attr_widget("autostart_toggle")) set_checked(toggle, defaults.value("autostart_enabled").toBool());
+    if (auto *toggle = attr_widget("run_as_admin_toggle")) set_checked(toggle, defaults.value("run_as_admin").toBool());
     if (auto *toggle = attr_widget("show_main_window_toggle")) set_checked(toggle, defaults.value("show_main_window").toBool());
 }
 
@@ -816,11 +848,7 @@ bool SettingsDialog::apply_settings(bool close_after) {
     if (auto *toggle = attr_widget("preserve_formatting_toggle")) config_manager->set_translation_preserve_formatting(checked_of(toggle));
 
     // 6. Miscellaneous.
-    if (auto *toggle = attr_widget("autostart_toggle")) {
-        // The switch is stored, so it shows the same next time (on when never set).
-        config_manager->set_app_setting("autostart_enabled", checked_of(toggle));
-        set_autostart(checked_of(toggle));
-    }
+    if (attr_widget("autostart_toggle")) apply_startup();
     if (auto *toggle = attr_widget("show_main_window_toggle")) config_manager->set_show_main_window(checked_of(toggle));
     if (auto *toggle = attr_widget("pin_auto_toolbar_toggle")) config_manager->set_pin_auto_toolbar(checked_of(toggle));
     save_magnifier_color_formats();
@@ -996,7 +1024,7 @@ QVariantMap SettingsDialog::snapshot_settings() const {
                              "save_toggle", "screenshot_pin_save_toggle", "clipboard_file_reference_toggle", "screenshot_save_original_toggle", "watermark_auto_toggle",
                              "magnifier_enabled_toggle", "magnifier_grid_toggle", "magnifier_hint_toggle", "ocr_enable_toggle", "ocr_grayscale_toggle",
                              "ocr_upscale_toggle", "split_sentences_toggle", "preserve_formatting_toggle", "log_toggle", "clipboard_enabled_toggle",
-                             "clipboard_auto_paste_toggle", "autostart_toggle", "show_main_window_toggle", "pin_auto_toolbar_toggle", "info_hide_on_drag_toggle",
+                             "clipboard_auto_paste_toggle", "autostart_toggle", "run_as_admin_toggle", "show_main_window_toggle", "pin_auto_toolbar_toggle", "info_hide_on_drag_toggle",
                              "preload_screenshot_toggle", "preload_toolbar_toggle", "preload_ocr_toggle", "preload_settings_toggle", "preload_clipboard_toggle"})
         if (auto *widget = attr_widget(name)) snap[name] = checked_of(widget);
     // Combos.
@@ -1182,6 +1210,7 @@ void SettingsDialog::refresh_settings() {
     if (clipboard_special_paste_entries) clipboard_special_paste_entries = special_paste::load(config_manager);
 
     if (auto *toggle = attr_widget("autostart_toggle")) set_checked(toggle, config_manager->get_app_setting("autostart_enabled").toBool());
+    if (auto *toggle = attr_widget("run_as_admin_toggle")) set_checked(toggle, config_manager->get_app_setting("run_as_admin").toBool());
     if (auto *toggle = attr_widget("show_main_window_toggle")) set_checked(toggle, config_manager->get_show_main_window());
     if (auto *toggle = attr_widget("pin_auto_toolbar_toggle")) set_checked(toggle, config_manager->get_pin_auto_toolbar());
     select_data(attr<QComboBox>("language_combo"), config_manager->get_app_setting("language", "ja"));

@@ -409,6 +409,7 @@ clipboard/
 ```text
 core/
 ├── bootstrap.py             # PreloadManager — 起動ブートストラップ、環境初期化、DPI、シングルインスタンス
+├── elevation.py             # 管理者として実行 — 権限昇格の状態判定、スタートアップ用タスク
 ├── logger.py                # Logger — ファイル＋コンソールログ（debug/info/warning/error/exception）
 ├── crash_handler.py         # install_crash_hooks() — グローバル例外キャッチ
 ├── resource_manager.py      # ResourceManager — SVG/画像リソースローディング

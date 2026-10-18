@@ -410,6 +410,7 @@ Logging, resource loading, theme management, i18n, hotkeys, and other infrastruc
 ```text
 core/
 ├── bootstrap.py             # PreloadManager — startup bootstrap, env init, DPI, single instance
+├── elevation.py             # Run as administrator — elevation state, scheduled task for sign-in
 ├── logger.py                # Logger — file + console logging (debug/info/warning/error/exception)
 ├── crash_handler.py         # install_crash_hooks() — global exception catching
 ├── resource_manager.py      # ResourceManager — SVG/image resource loading

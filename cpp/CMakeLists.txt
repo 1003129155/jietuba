@@ -31,7 +31,7 @@ target_include_directories(jietuba_lib PUBLIC src)
 target_compile_definitions(jietuba_lib PUBLIC NOMINMAX)
 target_link_libraries(jietuba_lib PUBLIC Qt6::Widgets Qt6::Svg)
 if(WIN32)
-    target_link_libraries(jietuba_lib PUBLIC user32 gdi32 shell32 shcore dwmapi ole32 oleaut32 oleacc winhttp version)
+    target_link_libraries(jietuba_lib PUBLIC user32 gdi32 shell32 shcore dwmapi ole32 oleaut32 oleacc winhttp version secur32)
 endif()
 # Barcode decoding: the same zxing-cpp release the reference's Python wheel is built from.
 include(FetchContent)

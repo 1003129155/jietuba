@@ -6,6 +6,7 @@
 #include "gif/composer.h"
 #include "gif/record_window.h"
 #include "pin/pin_manager.h"
+#include "core/elevation.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/welcome/wizard.h"
 #include "capture/capture_service.h"
@@ -413,6 +414,7 @@ void MainApp::preload_settings() {
     settings_window = window;
     connect(window, &SettingsDialog::settings_applied, this, [this, window] { on_settings_accepted(window); });
     connect(window, &SettingsDialog::wizard_requested, this, &MainApp::on_wizard_requested);
+    connect(window, &SettingsDialog::admin_mode_enabled, this, &MainApp::hand_off_to_admin);
     log_debug(T("设置窗口预加载完成"), "Preload");
 }
 
@@ -618,6 +620,12 @@ void MainApp::cancel_update_preparation() {
         update_preparing = false;
         quick_capture->refresh();
     }
+}
+
+void MainApp::hand_off_to_admin() {
+    if (!hand_off_to_admin_task()) return;
+    if (settings_window) settings_window->set_skip_unsaved_close_prompt(true);
+    quit_app();
 }
 
 bool MainApp::quit_app() {

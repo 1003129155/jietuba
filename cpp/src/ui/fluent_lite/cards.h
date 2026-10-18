@@ -2,6 +2,7 @@
 #include "ui/fluent_lite/theme.h"
 #include <QFrame>
 #include <QHBoxLayout>
+#include <QHash>
 #include <QLabel>
 #include <QVBoxLayout>
 #include <optional>
@@ -99,6 +100,8 @@ public:
     // with_separator=false for card containers that draw their own separators.
     void addSettingCard(QWidget *card, bool with_separator = true);
     void addSettingCards(const QList<QWidget *> &cards);
+    // Shows or hides a card together with the separator before it.
+    void setCardVisible(QWidget *card, bool visible);
     void adjustSize();
     QSize minimumSizeHint() const override;
     Q_INVOKABLE void _apply_theme();
@@ -114,6 +117,7 @@ private:
     QFrame *card_container_;
     QList<QWidget *> cards_;
     QList<QFrame *> separators_;
+    QHash<QWidget *, QFrame *> leading_separators_;
 };
 
 class SimpleCardWidget : public QFrame {

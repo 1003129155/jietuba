@@ -1,4 +1,4 @@
-"""Developer-only oracle for core/logger, core/constants, core/i18n and core/global_hotkey.
+"""Developer-only oracle for core/logger, core/constants, core/i18n, core/global_hotkey and core/elevation.
 
 Run with the reference interpreter:
     ..\\venv311\\Scripts\\python.exe scripts\\generate_core_fixtures.py
@@ -19,6 +19,7 @@ from core.logger import T, LogLevel  # noqa: E402
 from core.i18n import I18nManager  # noqa: E402
 from core.log_translations import TRANSLATIONS  # noqa: E402
 from core import global_hotkey  # noqa: E402
+from core import elevation  # noqa: E402
 
 random.seed(20261013)
 # -0.0 is omitted: QJsonValue reads it back as integer 0.
@@ -76,6 +77,12 @@ fixture = {
         'route_of': hotkey_route_of,
         'modifier_names': {str(mods): global_hotkey.modifier_names(mods) for mods in range(16)},
     },
+    'elevation_task_xml': [
+        {'command': command, 'user': user, 'expected': elevation.build_task_xml(command, user)}
+        for command, user in ((r'C:\Apps\Jietuba\jietuba.exe', r'PC\user'),
+                              (r'D:\A & B <x>\jietuba_lite.exe', r'DOMAIN\Zoë'),
+                              (r'C:\jietuba.exe', r'PC\user'))
+    ],
     'level_names': {str(level): LogLevel.name(level) for level in (10, 20, 30, 40, 50, 0, 99)},
     'render': render_cases,
 }

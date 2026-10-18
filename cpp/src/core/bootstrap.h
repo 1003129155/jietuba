@@ -16,6 +16,12 @@ void setup_environment();
 // Terminates a confirmed older instance of this program, then records this one. The
 // record holds the PID and creation time, since Windows reuses PIDs.
 void ensure_single_instance();
+// With admin mode on and this process not elevated: runs the scheduled task so an elevated
+// instance takes over, or, when the task's program is gone, starts this program elevated through
+// UAC (that instance points the task at itself). True once that instance has rewritten the
+// instance record, and this process should exit; a task that cannot run shows as a timeout and
+// start-up goes on normally. pid_file defaults to this executable's instance record.
+bool hand_off_to_admin_task(int poll_ms = 100, int timeout_ms = 5000, const QString &pid_file = {});
 
 // The chained preloading after start-up. Main-thread steps continue with
 // singleShot(0) (one event loop turn in between); worker steps continue on finished.

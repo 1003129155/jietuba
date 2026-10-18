@@ -96140,6 +96140,7 @@
     "log_level": "INFO",
     "log_retention_days": 7,
     "autostart_enabled": true,
+    "run_as_admin": false,
     "show_main_window": false,
     "language": "en",
     "magnifier_enabled": true,

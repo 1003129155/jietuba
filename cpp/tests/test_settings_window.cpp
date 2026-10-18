@@ -1,3 +1,4 @@
+#include "core/elevation.h"
 #include "core/i18n.h"
 #include "ocr/ocr_manager.h"
 #include "ocr/ppocr_models.h"
@@ -5,6 +6,7 @@
 #include "settings/tool_settings.h"
 #include "core/ui_scale.h"
 #include "ui/fluent_lite/cards.h"
+#include "ui/fluent_lite/labels.h"
 #include "ui/fluent_lite/navigation.h"
 #include "ui/hotkey_edit.h"
 #include "ui/inapp_key_edit.h"
@@ -171,6 +173,70 @@ private slots:
         QVERIFY(config_->get_screenshot_save_enabled());
         QVERIFY(!apply->isEnabled());
         dialog.hide();
+    }
+
+    // Run as administrator sits under autostart and hides with it. Without elevation it is the same
+    // plain switch: applying goes through UAC, and turning it on hands off to the elevated instance.
+    void runAsAdminCardFollowsElevation() {
+        const auto restore = qScopeGuard([this] {
+            elevation::set_environment_for_test(std::nullopt, std::nullopt, std::nullopt);
+            elevation::set_schtasks_runner_for_test({});
+            config_->set_app_setting("run_as_admin", false);
+            config_->set_app_setting("autostart_enabled", true);
+        });
+        elevation::set_environment_for_test(std::nullopt, elevation::STANDARD, std::nullopt);
+        {
+            SettingsDialog dialog(config_, config_->get_hotkey());
+            dialog.build_all_pages();
+            QVERIFY(!dialog.has_attr("run_as_admin_toggle"));
+        }
+        QStringList calls;
+        elevation::set_schtasks_runner_for_test([&calls](const QStringList &args) {
+            calls << args.value(0);
+            return std::pair<int, QByteArray>{0, {}};
+        });
+        elevation::set_environment_for_test(std::nullopt, elevation::ELEVATED, std::nullopt);
+        config_->set_app_setting("autostart_enabled", false);
+        {
+            SettingsDialog dialog(config_, config_->get_hotkey());
+            dialog.build_all_pages();
+            auto *card = dialog.attr<SwitchSettingCard>("run_as_admin_toggle");
+            QVERIFY(card);
+            QVERIFY(card->isHidden());
+            dialog.attr<SwitchSettingCard>("autostart_toggle")->setChecked(true);
+            QVERIFY(!card->isHidden());
+            QVERIFY(card->switchButton->isVisibleTo(card));
+            card->setChecked(true);
+            QVERIFY(dialog.apply_settings());
+            QCOMPARE(calls, QStringList{"/Create"});
+            QVERIFY(config_->get_app_setting("run_as_admin").toBool());
+        }
+        elevation::set_environment_for_test(std::nullopt, elevation::CAN_ELEVATE, std::nullopt);
+        config_->set_app_setting("run_as_admin", false);
+        calls.clear();
+        QStringList elevated_calls;
+        elevation::set_elevated_schtasks_runner_for_test([&elevated_calls](const QStringList &args) {
+            elevated_calls << args.value(0);
+            return std::pair<int, QByteArray>{0, {}};
+        });
+        const auto restore_elevated = qScopeGuard([] { elevation::set_elevated_schtasks_runner_for_test({}); });
+        {
+            SettingsDialog dialog(config_, config_->get_hotkey());
+            dialog.build_all_pages();
+            auto *card = dialog.attr<SwitchSettingCard>("run_as_admin_toggle");
+            QVERIFY(card);
+            QVERIFY(card->switchButton->isEnabled());
+            QVERIFY(dialog.attr_widget("autostart_toggle")->isEnabled());
+            QVERIFY(card->contentLabel->text().contains("administrator permission"));
+            QSignalSpy handed_off(&dialog, &SettingsDialog::admin_mode_enabled);
+            card->setChecked(true);
+            QVERIFY(dialog.apply_settings());
+            QCOMPARE(elevated_calls, QStringList{"/Create"});
+            QVERIFY(config_->get_app_setting("run_as_admin").toBool());
+            // Emitted after the apply has finished.
+            QCOMPARE(handed_off.count(), 0);
+            QTRY_COMPARE(handed_off.count(), 1);
+        }
     }
 
     // The OCR list holds what can be chosen: Auto, the installed models in catalog order with ones

@@ -1,5 +1,5 @@
 {
-  "git_head": "8052f5ba88ec0c56bde6389a0a864e4cba318805",
+  "git_head": "6f54502a26244d372eb92ec8fe1fadc969673cf6",
   "files": [
     {
       "path": "licenses/lucide-LICENSE.txt",
@@ -433,8 +433,8 @@
     },
     {
       "path": "main/core/bootstrap.py",
-      "sha256": "ecbb10ab7ad1fe4cfb5fc5c20a53fc4b64fd5e10026db0cd97de5aa46021f256",
-      "bytes": 25396
+      "sha256": "8f9cace0fda13ab5364dd10dc2ea6a6bc2f8a05fdf23d6f4d5a08880388d538b",
+      "bytes": 27651
     },
     {
       "path": "main/core/clipboard_utils.py",
@@ -450,6 +450,11 @@
       "path": "main/core/crash_handler.py",
       "sha256": "b35f82bdb8e6f17ccc0b52a13810975dbbacdb72c8e611b05c2ca1e44db5f741",
       "bytes": 6707
+    },
+    {
+      "path": "main/core/elevation.py",
+      "sha256": "2166aa9f168d08449ccd1638eef80217e696c8a5aaf2d196f4b2221d88cd4b8c",
+      "bytes": 9463
     },
     {
       "path": "main/core/export.py",
@@ -503,8 +508,8 @@
     },
     {
       "path": "main/core/log_translations/core_pkg.py",
-      "sha256": "e9da8ed6e94e3291557164eb6c18105a1d7c257c7d5fd44e2d990ec7216cf9bd",
-      "bytes": 11171
+      "sha256": "68b46de4ed303da4d4426d9ee5a8480615681a607fae6d0ff19355ff273b13af",
+      "bytes": 12579
     },
     {
       "path": "main/core/log_translations/gif.py",
@@ -513,8 +518,8 @@
     },
     {
       "path": "main/core/log_translations/main_app.py",
-      "sha256": "48d007f737575ec16354411e5f892be0bd83975aacf13532571b5bb2e620c9c1",
-      "bytes": 3565
+      "sha256": "5b4e2aa65f5209c5dcd4fc49d5608eedf3f5057280c5403e4992e1ba6f14563e",
+      "bytes": 3654
     },
     {
       "path": "main/core/log_translations/ocr.py",
@@ -548,8 +553,8 @@
     },
     {
       "path": "main/core/log_translations/ui.py",
-      "sha256": "6ff450056becfc819c526bf850c0d10f6a51eb8d7521dfbe73b15fd2091c70f2",
-      "bytes": 6118
+      "sha256": "b95ee4bf77c34323a97721a4738ec1a20507537b9c753215034515a2b7dcb440",
+      "bytes": 5893
     },
     {
       "path": "main/core/logger.py",
@@ -563,8 +568,8 @@
     },
     {
       "path": "main/core/platform_utils.py",
-      "sha256": "a86d3fe3ca38193fabc3af6155b8d6ab2791899b5c584f885c40943f5e2b1003",
-      "bytes": 15751
+      "sha256": "b1db900efab8a3767f14511b080d27e98e14748cb689dc8eb14255e8c1ca73db",
+      "bytes": 17621
     },
     {
       "path": "main/core/qt_utils.py",
@@ -703,8 +708,8 @@
     },
     {
       "path": "main/main_app.py",
-      "sha256": "813d4826d95747ead073166c9239e06c17a1d360e9936a7ad3685ec6215c0a81",
-      "bytes": 38047
+      "sha256": "24b92f170be15062a88ed50d576b56d1c4ea3a9b1709c5828840d2111e039662",
+      "bytes": 38538
     },
     {
       "path": "main/ocr/__init__.py",
@@ -843,8 +848,8 @@
     },
     {
       "path": "main/settings/settings_transfer.py",
-      "sha256": "1eb794bdcf5e17a8548208e7b0a167083ef20ad0d945af941f8a86cc6d46be0c",
-      "bytes": 4308
+      "sha256": "de82589f970f9db8034055492494aa78df65d206d4e556927ea541951972d9f7",
+      "bytes": 4353
     },
     {
       "path": "main/settings/special_paste.py",
@@ -853,8 +858,8 @@
     },
     {
       "path": "main/settings/tool_settings.py",
-      "sha256": "a84b3cf3be3d6eaf4dcabdcd6513585bbcd3bfcda3562552c64bd23961b5a1dc",
-      "bytes": 106734
+      "sha256": "ee70fde9d3262783aaad218b245c596fb9f29060f6d1f6b7f91701ec4c170dc3",
+      "bytes": 106838
     },
     {
       "path": "main/stitch/__init__.py",
@@ -1133,23 +1138,23 @@
     },
     {
       "path": "main/translations/app_en.xml",
-      "sha256": "3918e2220d53e6ab6c242de85c1de05e1373e23d77d0b8a6d79731924bb103b8",
-      "bytes": 222334
+      "sha256": "77049c60d5f8934cdac0ad0e20ac28ca66f5db933549b8da61d031a7a44b4ba1",
+      "bytes": 223433
     },
     {
       "path": "main/translations/app_ja.xml",
-      "sha256": "ba4ba6d06e13b2770a9d2e044f8c7ff827b9d64ae07fd9761eaf8930fa2edeec",
-      "bytes": 245496
+      "sha256": "42b54e6b1c8bc314061bc1e10727d8e6f990a5813648655354cdda64fbd0de64",
+      "bytes": 246731
     },
     {
       "path": "main/translations/app_ko.xml",
-      "sha256": "9c6c1a439643d2a6bcfbfd33779f0f1473a8224f467a638f1dda62f421219133",
-      "bytes": 237386
+      "sha256": "53cdb707922a5410c9b134070b307ba5e28688478e33b0b96b4329436bb4954a",
+      "bytes": 238570
     },
     {
       "path": "main/translations/app_zh.xml",
-      "sha256": "c0b9de02845bd332230aa4c64367b64326ddb132b82e555e9db32e3a9614f8d1",
-      "bytes": 225732
+      "sha256": "9569aeb6d28413d2803d7ced05e68b218a5a617e349be782338ba8d1fe5752de",
+      "bytes": 226796
     },
     {
       "path": "main/ui/__init__.py",
@@ -1193,8 +1198,8 @@
     },
     {
       "path": "main/ui/fluent_lite/cards.py",
-      "sha256": "b44b44661ec178b773428351c5c2abf08d4ed8798c792ece805c8787429b3c5d",
-      "bytes": 14901
+      "sha256": "04626d652abf71ebe9fb136d9b9a4bbf963ca791c7224fd98c6aae0c079d9d7f",
+      "bytes": 15523
     },
     {
       "path": "main/ui/fluent_lite/frameless.py",
@@ -1363,13 +1368,13 @@
     },
     {
       "path": "main/ui/settings_ui/dialog.py",
-      "sha256": "b611ba87e71ace819b3350f2478c8b82df1941e88001a58145ddfd90a24d0895",
-      "bytes": 90157
+      "sha256": "b3c9d411e9f4bfc3d7832668484acdb29287ff814f642d2e4f5163325412c25d",
+      "bytes": 91262
     },
     {
       "path": "main/ui/settings_ui/mock_config.py",
-      "sha256": "8608fbc8e38bd39a489b5bda30ae317c781bcf7b353a269226274b8a8f9d3c6e",
-      "bytes": 14655
+      "sha256": "ae26a6bb8294869e10f338aaa1154638cbce8532027362263da60d34f82f64b5",
+      "bytes": 14682
     },
     {
       "path": "main/ui/settings_ui/page_about.py",
@@ -1408,8 +1413,8 @@
     },
     {
       "path": "main/ui/settings_ui/page_misc.py",
-      "sha256": "b26c0dfd8e8316fc5631b09970635f6d7879d5b80e613e3b9bf089a3e39a801f",
-      "bytes": 5984
+      "sha256": "9171d4f722379c7eef85d47870723e2ed1dbaba4e609ae4ea8fa53e68f9fa76e",
+      "bytes": 7732
     },
     {
       "path": "main/ui/settings_ui/page_mouse.py",
@@ -1533,8 +1538,8 @@
     },
     {
       "path": "main/ui/welcome/page6_finish.py",
-      "sha256": "5b7b6adc0eae6c5159101df53415c624aa3c983528f3321dd3030a849f74b9d2",
-      "bytes": 17915
+      "sha256": "d6530d6da1624205006eebbcd3d3b0375bc7dbcb215db79b6f3af92a2b168a10",
+      "bytes": 15576
     },
     {
       "path": "main/ui/welcome/page_hotkeys.py",
