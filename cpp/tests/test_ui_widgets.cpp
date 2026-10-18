@@ -13,6 +13,7 @@
 #include "ui/hotkey_edit.h"
 #include "ui/mosaic_settings_panel.h"
 #include "ui/arrow_settings_panel.h"
+#include "ui/paint_settings_panel.h"
 #include "ui/color_picker_button.h"
 #include "ui/number_settings_panel.h"
 #include "ui/text_settings_panel.h"
@@ -417,6 +418,43 @@ private slots:
         toolbar.show();
         QVERIFY(!toolbar_row(toolbar).contains("pen"));
         toolbar.hide();
+    }
+
+    void uncommonToolbarPanelsStayAbsentUntilUsed() {
+        Toolbar toolbar;
+        auto absent = [&] {
+            return toolbar.paint_panel && toolbar.shape_panel && toolbar.number_panel && !toolbar.arrow_panel &&
+                   !toolbar.text_panel && !toolbar.mosaic_panel && !toolbar.watermark_panel;
+        };
+        QVERIFY(absent());
+        toolbar.apply_scale();
+        toolbar.hide_all_panels();
+        toolbar.set_current_color(QColor("blue"));
+        toolbar.set_stroke_width(7);
+        toolbar.set_opacity(180);
+        toolbar.set_number_next_value(4);
+        QVERIFY(absent());
+        config_->get_tool_settings("number")->set("style", "hollow_bg");
+        toolbar.select_tool("number");
+        QVERIFY(toolbar.number_panel);
+        QCOMPARE(toolbar.number_panel->current_style(), QString("hollow_bg"));
+        QVERIFY(toolbar.paint_panel && toolbar.shape_panel && !toolbar.text_panel && !toolbar.mosaic_panel);
+        auto *number = toolbar.number_panel;
+        toolbar.select_tool("pen");
+        auto *paint = toolbar.paint_panel;
+        QVERIFY(paint);
+        toolbar.select_tool("highlighter");
+        QCOMPARE(toolbar.paint_panel, paint);
+        QSignalSpy mode(&toolbar, &Toolbar::highlighter_mode_changed);
+        emit paint->highlighter_mode_changed("rect");
+        QCOMPARE(mode.count(), 1);
+        toolbar.select_tool("number");
+        QCOMPARE(toolbar.number_panel, number);
+        toolbar.set_temporary_edit_active(true);
+        toolbar.ensure_panel_for_tool("arrow");
+        QVERIFY(toolbar.arrow_panel);
+        QVERIFY(!paint->mode_widget->isEnabled());
+        QVERIFY(!number->next_up_btn->isEnabled());
     }
 
     void toolbarPlacementFollowsTheSelectionAndScreen() {

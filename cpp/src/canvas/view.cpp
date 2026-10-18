@@ -539,6 +539,8 @@ void CanvasView::sync_selection_style_to_toolbar(QGraphicsItem *item) {
     auto *controller = smart_edit_controller.get();
     const bool is_cross_tool = controller && controller->is_cross_tool_selection();
     toolbar->set_temporary_edit_active(is_cross_tool);
+    const auto owner_tool_id = controller ? controller->get_item_tool_id(item) : std::nullopt;
+    if (owner_tool_id) toolbar->ensure_panel_for_tool(*owner_tool_id);
     const bool is_text_item = dynamic_cast<QGraphicsTextItem *>(item) != nullptr;
     const auto width_value = is_text_item ? std::nullopt : extract_selection_width(item);
     const auto opacity_value = extract_selection_opacity(item);
@@ -553,7 +555,6 @@ void CanvasView::sync_selection_style_to_toolbar(QGraphicsItem *item) {
     if (opacity_value) toolbar->set_opacity(static_cast<int>(std::nearbyint(*opacity_value * 255)));
     // Line style follows the owning tool, not the class: highlighter rects and
     // spotlight holes are RectItems too.
-    const auto owner_tool_id = controller ? controller->get_item_tool_id(item) : std::nullopt;
     LineStylePanel *line_style_panel = nullptr;
     if (owner_tool_id == "pen" || owner_tool_id == "highlighter") line_style_panel = toolbar->paint_panel;
     else if (owner_tool_id == "rect" || owner_tool_id == "ellipse") line_style_panel = toolbar->shape_panel;

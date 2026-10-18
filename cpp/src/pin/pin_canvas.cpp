@@ -252,10 +252,9 @@ void PinCanvas::connect_toolbar(PinToolbar *toolbar, CanvasView *view) {
         if (view) view->apply_line_style_change_to_selection(style);
     });
     // A highlighter mode switch refreshes the cursor at once.
-    if (toolbar->paint_panel)
-        connect(toolbar->paint_panel, &PaintSettingsPanel::highlighter_mode_changed, this, [view](const QString &) {
-            if (view && view->cursor_manager) view->cursor_manager->set_tool_cursor("highlighter", true);
-        });
+    connect(toolbar, &Toolbar::highlighter_mode_changed, this, [view](const QString &) {
+        if (view && view->cursor_manager) view->cursor_manager->set_tool_cursor("highlighter", true);
+    });
     connect(toolbar, &Toolbar::number_next_changed, this, [this](int value) { NumberTool::set_next_number_and_refresh(scene, value); });
     connect(toolbar, &Toolbar::number_style_changed, this, [this, view](const QString &style) { NumberTool::apply_style_change(style, view, undo_stack); });
     // Text styles go to the smart edit controller.
