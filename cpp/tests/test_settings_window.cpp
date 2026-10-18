@@ -131,6 +131,21 @@ private slots:
         QCOMPARE(dialog.size(), shown);
     }
 
+    // Only a dialog with no part on any screen is moved back; its corner alone does not decide.
+    void aDialogOffEveryScreenIsCentredAgain() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.fit_to_screen();
+        const QPoint partly(-200, -100);
+        dialog.move(partly);
+        dialog.fit_to_screen();
+        QCOMPARE(dialog.pos(), partly);
+        dialog.move(-20000, -20000);
+        dialog.fit_to_screen();
+        const auto *screen = QGuiApplication::screenAt(QCursor::pos());
+        if (!screen) screen = QGuiApplication::primaryScreen();
+        QVERIFY(screen->availableGeometry().contains(dialog.frameGeometry().center()));
+    }
+
     void navigationScrollsInsteadOfHoldingTheWindowTall() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.show();

@@ -170,7 +170,16 @@ void SettingsDialog::fit_to_screen() {
     if (isVisible()) return;
     auto *screen = QGuiApplication::screenAt(QCursor::pos());
     if (!screen) screen = QGuiApplication::primaryScreen();
-    if (screen) fit_to_available(screen->availableGeometry().size());
+    if (!screen) return;
+    const QRect available = screen->availableGeometry();
+    fit_to_available(available.size());
+    // An explicit move() sets WA_Moved, after which show() no longer centres the dialog, so it is moved
+    // only when no part of it is on a screen. Overlap, not the corner: a never-moved dialog sits at
+    // 0,0, which is outside the available area when the taskbar is at the top or left.
+    for (auto *candidate : QGuiApplication::screens())
+        if (candidate->availableGeometry().intersects(frameGeometry())) return;
+    move(available.x() + python_floordiv(available.width() - width(), 2),
+         available.y() + python_floordiv(available.height() - height(), 2));
 }
 
 void SettingsDialog::fit_to_available(const QSize &available) {

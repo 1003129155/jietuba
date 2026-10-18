@@ -44,7 +44,8 @@ public:
     QString tr_text(const char *text) const { return settings_tr(text); }
 
     // Sizes the dialog for the screen it is about to open on; a size the user dragged is kept and only
-    // shrunk to fit. Position is Qt's: a never-moved dialog is centred within that screen on each show.
+    // shrunk to fit. Position is Qt's: a never-moved dialog is centred within that screen on each show;
+    // one with no part on any screen is centred on that screen here.
     void fit_to_screen();
     // fit_to_screen for a given available area.
     void fit_to_available(const QSize &available);
