@@ -137,6 +137,7 @@ def file_payload():
 
 def groups():
     from clipboard.core import GroupType, filter_content_type, filter_group_type, group_accepts
+    from clipboard.ui.group_kind_style import group_kind
 
     types = [int(t) for t in GroupType]
     filter_icons = [group_service.get_default_group_icon(t) for t in types[3:]]
@@ -155,6 +156,8 @@ def groups():
             'hidden': group_service.HIDDEN_GROUP_ICON,
         },
         'default': [{'type': t, 'expected': group_service.get_default_group_icon(t)} for t in types],
+        'recommended': [{'type': t, 'expected': list(group_service.get_recommended_group_icons(t))} for t in types + [99]],
+        'kinds': [{'type': t, 'expected': group_kind(t)} for t in types + [99]],
         'display': [
             {'icon': icon or None, 'type': t, 'expected': group_service.get_group_display_icon(icon or None, t)}
             for icon in icons for t in types
@@ -256,6 +259,9 @@ def capacities():
     return result
 
 
+AVAILABLE_AREAS = [(1920, 1040), (1920, 1032), (1366, 728), (800, 600), (2560, 1400), (2560, 1392), (3840, 2112), (1000, 700), (1093, 574), (1280, 680), (1280, 672)]
+
+
 def dialog_sizes():
     result = []
     for percent in (100, 125, 80, 200):
@@ -266,7 +272,9 @@ def dialog_sizes():
             'height': layout_scale.manage_dialog_height(),
             'min_width': layout_scale.manage_dialog_min_width(),
             'min_height': layout_scale.manage_dialog_min_height(),
-            'fit': [[w, h, *layout_scale.fit_manage_dialog_size(w, h)] for w, h in [(1920, 1040), (1366, 728), (800, 600), (2560, 1400), (1000, 700)]],
+            'fit': [[w, h, *layout_scale.fit_manage_dialog_size(w, h)] for w, h in AVAILABLE_AREAS],
+            'min_fit': [[w, h, *layout_scale.fit_manage_dialog_min_size(w, h)] for w, h in AVAILABLE_AREAS],
+            'size': [[w, h, *layout_scale.manage_dialog_size(w, h, percent / 100)] for w, h in AVAILABLE_AREAS],
         })
     get_dialog_scale().set_percent(100)
     return result

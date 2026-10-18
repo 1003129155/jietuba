@@ -13,6 +13,7 @@
 #include <QPointer>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QSize>
 #include <QStackedWidget>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -53,6 +54,11 @@ public:
     std::optional<qint64> editing_group_id;
     std::optional<qint64> editing_item_id;
 
+    // Sizes the window for the screen it is about to open on; a size the user dragged is kept and only
+    // shrunk to fit. Position is Qt's: a never-moved dialog is centred within that screen on each show.
+    void fit_to_screen();
+    // fit_to_screen for a given available area.
+    void fit_to_available(const QSize &available);
     void show_and_activate();
     // The clipboard window's entries: 0 new group, 1 new item in the current group.
     void switch_page(int index);
@@ -101,6 +107,7 @@ public:
     QPointer<SegmentedWidget> filter_kind_switch;
     QPointer<QButtonGroup> group_type_btn_group;
     QPointer<QScrollArea> emoji_scroll;
+    QPointer<QWidget> recommended_row;
     QPointer<ImagePreview> image_preview;
     QPointer<SegmentedWidget> content_kind_switch;
     QPointer<ImageDropZone> image_drop_zone;
@@ -119,6 +126,8 @@ public:
     int detail_form_token = 0;
 
     // ── Callbacks of the form builders ──
+    // The group type chosen in the form; a filter group's type also depends on the content type switch.
+    int selected_group_type() const;
     void on_group_type_toggled(bool checked, std::optional<int> form_token = std::nullopt);
     void on_filter_kind_changed(const QString &kind, std::optional<int> form_token = std::nullopt);
     void create_emoji_picker(const QString &current_icon = QString::fromUtf8("📁"));
@@ -157,7 +166,6 @@ private:
     };
 
     void setup_titlebar();
-    void center_on_screen();
     void release_memory();
     void reload_if_released();
     void setup_ui();
@@ -169,6 +177,12 @@ private:
     void apply_dynamic_form_theme();
     QString group_tag(const Group &group) const;
     void refresh_group_list();
+    // The new group form: no group row highlighted, the "New Group" button shown as checked, and a placeholder
+    // for the unsaved group in the middle column.
+    void enter_creating_group();
+    // Restores the current group's highlight; with refresh false the caller refreshes the middle column itself.
+    void leave_creating_group(bool refresh = true);
+    void show_new_group_placeholder();
     void on_group_row_changed(QListWidgetItem *current);
     void on_group_selected(std::optional<qint64> group_id);
     std::optional<Group> get_selected_group();
@@ -195,8 +209,6 @@ private:
     void show_new_group_form();
     void show_edit_group_form(qint64 group_id);
     void update_group_form_header();
-    // The group type chosen in the form; a filter group's type also depends on the content type switch.
-    int selected_group_type() const;
     bool is_file_content_mode();
     void show_new_content_form();
     void add_content_kind_switch();
@@ -232,6 +244,10 @@ private:
     // The list and form were released on close and reload on the next show.
     bool needs_reload_ = false;
     QTimer image_wait_timer_;
+    // The size last set for a screen; a different current size means the user dragged it.
+    std::optional<QSize> fitted_size_;
+    // The right column shows the new group form.
+    bool creating_group_ = false;
 };
 
 ManageDialog *get_manage_dialog(ClipboardManager *manager = nullptr);

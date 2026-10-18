@@ -3,6 +3,7 @@
 #include <QList>
 #include <QSet>
 #include <QString>
+#include <QStringList>
 #include <functional>
 #include <optional>
 
@@ -14,6 +15,8 @@ const QString &HIDDEN_GROUP_ICON();
 
 // group_type is a GroupType value.
 QString get_default_group_icon(int group_type);
+// The icons suggested at the top of the icon picker for a group type; the first is the type's default.
+QStringList get_recommended_group_icons(int group_type);
 // The custom icon when set, otherwise the type's default.
 QString get_group_display_icon(const std::optional<QString> &custom_icon, int group_type);
 // An empty icon or another type's default icon becomes the new type's default; a custom icon stays.

@@ -1,5 +1,6 @@
 #include "clipboard/services/group_service.h"
 #include "core/py_text.h"
+#include <QHash>
 
 namespace jietuba::clipboard {
 const QString &GENERAL_GROUP_ICON() {
@@ -35,6 +36,19 @@ QString get_default_group_icon(int group_type) {
     if (group_type == GroupType::FILTER_TEXT || group_type == GroupType::FILTER_IMAGE || group_type == GroupType::FILTER_FILE)
         return filter_group_icon(static_cast<GroupType>(group_type));
     return GENERAL_GROUP_ICON();
+}
+
+QStringList get_recommended_group_icons(int group_type) {
+    // Keyed by GroupType value.
+    static const QHash<int, QStringList> icons = {
+        {0, {QString::fromUtf8("📁"), QString::fromUtf8("📌"), QString::fromUtf8("⭐"), QString::fromUtf8("📝"), QString::fromUtf8("💼"), QString::fromUtf8("🏠"), QString::fromUtf8("🎯"), QString::fromUtf8("🔖")}},
+        {1, {QString::fromUtf8("⚡"), QString::fromUtf8("🚀"), QString::fromUtf8("🎮"), QString::fromUtf8("💻"), QString::fromUtf8("🎧"), QString::fromUtf8("🧰"), QString::fromUtf8("🌐"), QString::fromUtf8("📂")}},
+        {2, {QString::fromUtf8("🙈"), QString::fromUtf8("🔒"), QString::fromUtf8("🕶️"), QString::fromUtf8("🤫"), QString::fromUtf8("🗝️"), QString::fromUtf8("🛡️"), QString::fromUtf8("👻"), QString::fromUtf8("🌙")}},
+        {3, {QString::fromUtf8("📝"), QString::fromUtf8("📄"), QString::fromUtf8("🔗"), QString::fromUtf8("🧾"), QString::fromUtf8("🔖"), QString::fromUtf8("💬"), QString::fromUtf8("✏️"), QString::fromUtf8("📋")}},
+        {4, {QString::fromUtf8("🖼️"), QString::fromUtf8("📷"), QString::fromUtf8("🎨"), QString::fromUtf8("📸"), QString::fromUtf8("🌄"), QString::fromUtf8("🖌️"), QString::fromUtf8("🧩"), QString::fromUtf8("🎞️")}},
+        {5, {QString::fromUtf8("📄"), QString::fromUtf8("📎"), QString::fromUtf8("🗂️"), QString::fromUtf8("📦"), QString::fromUtf8("📑"), QString::fromUtf8("🗃️"), QString::fromUtf8("💾"), QString::fromUtf8("📂")}},
+    };
+    return icons.value(group_type, icons.value(0));
 }
 
 QString get_group_display_icon(const std::optional<QString> &custom_icon, int group_type) {

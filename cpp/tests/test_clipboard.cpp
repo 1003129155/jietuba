@@ -5,6 +5,7 @@
 #include "clipboard/services/group_service.h"
 #include "clipboard/services/import_export_service.h"
 #include "clipboard/services/manage_dialog_service.h"
+#include "clipboard/ui/group_kind_style.h"
 #include "clipboard/ui/image_item_actions.h"
 #include "clipboard/ui/layout_scale.h"
 #include "clipboard/ui/panels/setting_panel.h"
@@ -138,6 +139,12 @@ private slots:
         QCOMPARE(QUICK_LAUNCH_GROUP_ICON(), g["icons"].toObject()["quick_launch"].toString());
         QCOMPARE(HIDDEN_GROUP_ICON(), g["icons"].toObject()["hidden"].toString());
         for (const auto &value : g["default"].toArray()) QCOMPARE(get_default_group_icon(value.toObject()["type"].toInt()), value.toObject()["expected"].toString());
+        for (const auto &value : g["recommended"].toArray()) {
+            QStringList expected;
+            for (const auto &icon : value.toObject()["expected"].toArray()) expected << icon.toString();
+            QCOMPARE(get_recommended_group_icons(value.toObject()["type"].toInt()), expected);
+        }
+        for (const auto &value : g["kinds"].toArray()) QCOMPARE(group_kind(value.toObject()["type"].toInt()), value.toObject()["expected"].toString());
         for (const auto &value : g["display"].toArray())
             QCOMPARE(get_group_display_icon(optional_string(value.toObject()["icon"]), value.toObject()["type"].toInt()), value.toObject()["expected"].toString());
         for (const auto &value : g["toggled"].toArray())
@@ -226,6 +233,9 @@ private slots:
             QCOMPARE(manage_dialog_min_width(), value.toObject()["min_width"].toInt());
             QCOMPARE(manage_dialog_min_height(), value.toObject()["min_height"].toInt());
             for (const auto &fit : value.toObject()["fit"].toArray()) QVERIFY(fit_manage_dialog_size(fit[0].toInt(), fit[1].toInt()) == std::make_pair(fit[2].toInt(), fit[3].toInt()));
+            for (const auto &fit : value.toObject()["min_fit"].toArray()) QVERIFY(fit_manage_dialog_min_size(fit[0].toInt(), fit[1].toInt()) == std::make_pair(fit[2].toInt(), fit[3].toInt()));
+            const double factor = value.toObject()["percent"].toInt() / 100.0;
+            for (const auto &size : value.toObject()["size"].toArray()) QVERIFY(manage_dialog_size(size[0].toInt(), size[1].toInt(), factor) == std::make_pair(size[2].toInt(), size[3].toInt()));
         }
         get_dialog_scale().set_percent(100);
     }

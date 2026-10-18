@@ -5,9 +5,13 @@
 #include "clipboard/ui/dialogs/manage_dialog.h"
 #include "clipboard/ui/forms/file_content_form.h"
 #include "clipboard/ui/forms/form_widgets.h"
+#include "clipboard/ui/forms/group_icon_picker.h"
 #include "clipboard/ui/forms/image_content_form.h"
+#include "clipboard/ui/group_kind_style.h"
+#include "clipboard/ui/widgets/manage_rows.h"
 #include "clipboard/ui/widgets/reorder_list.h"
 #include "core/i18n.h"
+#include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/segmented.h"
@@ -17,6 +21,7 @@
 #include <QMimeData>
 #include <QKeyEvent>
 #include <QScrollArea>
+#include <QScrollBar>
 #include <QSignalSpy>
 #include <QTest>
 
@@ -87,6 +92,88 @@ private slots:
         QVERIFY(!dialog->save_btn->isVisible());
     }
 
+    void groupIconsReflowWhenWindowResizes() {
+        auto *dialog = open_dialog();
+        dialog->new_group_btn->click();
+        dialog->resize(1000, 760);
+        QTRY_VERIFY(dialog->emoji_scroll->widget());
+        QApplication::processEvents();
+        auto *scroll = dialog->emoji_scroll.data();
+        auto *container = scroll->widget();
+        QTRY_COMPARE(container->findChildren<QPushButton *>().size(), dialog->emoji_groups.value(dialog->emoji_group_order[0]).size());
+        const auto buttons = container->findChildren<QPushButton *>();
+        QVERIFY(!buttons.isEmpty());
+        const auto columns = [&buttons] {
+            int result = 0;
+            for (auto *button : buttons)
+                if (button->y() == buttons.first()->y()) ++result;
+            return result;
+        };
+        const int narrow_columns = columns();
+        const int narrow_height = container->height();
+        dialog->resize(1500, 760);
+        QTRY_VERIFY(columns() > narrow_columns);
+        QCOMPARE(scroll->widget(), container);
+        QCOMPARE(container->findChildren<QPushButton *>(), buttons);
+        QVERIFY(container->height() < narrow_height);
+        QCOMPARE(container->width(), scroll->viewport()->width());
+
+        dialog->resize(1500, 1400);
+        QTRY_COMPARE(scroll->verticalScrollBar()->maximum(), 0);
+        QTRY_COMPARE(container->width(), scroll->viewport()->width());
+
+        dialog->resize(1000, 760);
+        QTRY_COMPARE(columns(), narrow_columns);
+        for (auto *button : buttons) QVERIFY(container->rect().contains(button->geometry()));
+        QCOMPARE(scroll->horizontalScrollBar()->maximum(), 0);
+        scroll->ensureWidgetVisible(buttons.last());
+        QTRY_VERIFY(scroll->verticalScrollBar()->value() > 0);
+        buttons.last()->click();
+        QCOMPARE(dialog->icon_input->text(), buttons.last()->text());
+        QCOMPARE(dialog->icon_preview->text(), buttons.last()->text());
+    }
+
+    void groupIconsLoadInBatchesAndCancelOldGroups() {
+        auto *dialog = open_dialog();
+        dialog->new_group_btn->click();
+        dialog->emoji_tab_buttons[1]->click();
+        auto *scroll = dialog->emoji_scroll.data();
+        auto *container = scroll->widget();
+        auto expected = dialog->emoji_groups.value(dialog->emoji_group_order[1]);
+        QVERIFY(dialog->emoji_tab_buttons[1]->isChecked());
+        QVERIFY(container->findChildren<QPushButton *>().isEmpty());
+        QTRY_VERIFY_WITH_TIMEOUT(!container->findChildren<QPushButton *>().isEmpty(), 1000);
+        const auto buttons = container->findChildren<QPushButton *>();
+        QVERIFY(buttons.size() < expected.size());
+        for (int i = 0; i < buttons.size(); ++i) {
+            QCOMPARE(buttons[i]->text(), expected[i]);
+            QVERIFY(!buttons[i]->autoDefault());
+        }
+        const int reserved_height = container->layout()->heightForWidth(container->width());
+        buttons.first()->click();
+        QCOMPARE(dialog->icon_input->text(), expected.first());
+        QTRY_VERIFY(container->findChildren<QPushButton *>().size() > buttons.size());
+        QCOMPARE(container->layout()->heightForWidth(container->width()), reserved_height);
+
+        dialog->emoji_tab_buttons[2]->click();
+        container = scroll->widget();
+        expected = dialog->emoji_groups.value(dialog->emoji_group_order[2]);
+        QVERIFY(container->findChildren<QPushButton *>().isEmpty());
+        QTRY_COMPARE(container->findChildren<QPushButton *>().size(), expected.size());
+        const auto replacement_buttons = container->findChildren<QPushButton *>();
+        for (int i = 0; i < expected.size(); ++i) QCOMPARE(replacement_buttons[i]->text(), expected[i]);
+        QVERIFY(dialog->icon_input->text() != expected.first());
+
+        dialog->emoji_tab_buttons[1]->click();
+        dialog->new_group_btn->click();
+        container = dialog->emoji_scroll->widget();
+        expected = dialog->emoji_groups.value(dialog->emoji_group_order[0]);
+        QTRY_COMPARE(container->findChildren<QPushButton *>().size(), expected.size());
+        const auto rebuilt_buttons = container->findChildren<QPushButton *>();
+        for (int i = 0; i < expected.size(); ++i) QCOMPARE(rebuilt_buttons[i]->text(), expected[i]);
+        QCOMPARE(dialog->icon_input->text(), GENERAL_GROUP_ICON());
+    }
+
     void groupsAreCreatedEditedAndDeleted() {
         auto *dialog = open_dialog();
         QSignalSpy added(dialog, &ManageDialog::group_added);
@@ -119,6 +206,7 @@ private slots:
         QVERIFY(dialog->emoji_tab_buttons.size() > 1);
         dialog->emoji_tab_buttons[1]->click();
         QVERIFY(dialog->emoji_tab_buttons[1]->isChecked());
+        QTRY_VERIFY(!dialog->emoji_scroll->widget()->findChildren<QPushButton *>().isEmpty());
         QPushButton *preset = nullptr;
         for (auto *button : dialog->emoji_scroll->widget()->findChildren<QPushButton *>())
             if (!button->text().isEmpty()) preset = button;
@@ -129,6 +217,7 @@ private slots:
         QPushButton *joined = nullptr;
         for (int tab = 0; tab < dialog->emoji_tab_buttons.size() && !joined; ++tab) {
             dialog->emoji_tab_buttons[tab]->click();
+            QTRY_COMPARE(dialog->emoji_scroll->widget()->findChildren<QPushButton *>().size(), dialog->emoji_groups.value(dialog->emoji_group_order[tab]).size());
             for (auto *button : dialog->emoji_scroll->widget()->findChildren<QPushButton *>())
                 if (!joined && button->text().size() > 4) joined = button;
         }
@@ -243,7 +332,10 @@ private slots:
         dialog->group_list->setCurrentRow(1);
         dialog->edit_group_btn->click();
         QCOMPARE(dialog->editing_group_id, full);
+        // Not offered at all: the filter card is not shown, with no extra hint line.
         QVERIFY(!dialog->radio_filter->isEnabled());
+        QVERIFY(dialog->radio_filter->isHidden());
+        QVERIFY(!dialog->radio_normal->isHidden());
         dialog->group_list->setCurrentRow(0);
         dialog->edit_group_btn->click();
         QVERIFY(dialog->radio_filter->isChecked());
@@ -646,6 +738,240 @@ private slots:
         dialog->switch_mode("content");
         QVERIFY(!dialog->grab().isNull());
     }
+
+    void typeCardsShareOneRowOnlyWhenEveryDescriptionFits() {
+        QList<OptionCard *> cards = {new OptionCard(QString::fromUtf8("通用"), QString::fromUtf8("粘贴文字或文件"), KIND_NORMAL()),
+                                     new OptionCard(QString::fromUtf8("快速启动"), QString::fromUtf8("打开文件或文件夹"), KIND_FILE()),
+                                     new OptionCard(QString::fromUtf8("隐藏"), QString::fromUtf8("不在面板上显示"), KIND_HIDDEN()),
+                                     new OptionCard(QString::fromUtf8("筛选"), QString::fromUtf8("只显示一类"), KIND_FILTER())};
+        CardGrid grid(cards);
+        // A widget that is not shown gets no resize events.
+        grid.show();
+        const int spacing = dialog_scaled(10);
+        int need = 0;
+        for (auto *card : cards) need = std::max(need, card->required_width());
+        const int wide = 4 * need + 3 * spacing;
+        const int card_height = cards[0]->sizeHint().height();
+
+        grid.resize(wide, 10);
+        QCOMPARE(grid.columns(grid.width()), 4);
+        for (auto *card : cards) QCOMPARE(card->y(), 0);
+        QCOMPARE(grid.height(), card_height);
+
+        grid.resize(wide - 1, 10);
+        QCOMPARE(grid.columns(grid.width()), 2);
+        QSet<int> rows;
+        for (auto *card : cards) {
+            rows.insert(card->y());
+            QVERIFY(card->x() + card->width() <= grid.width());
+        }
+        QCOMPARE(rows, (QSet<int>{0, card_height + spacing}));
+        QCOMPARE(grid.height(), 2 * card_height + spacing);
+
+        grid.resize(wide, 10);
+        QCOMPARE(grid.height(), card_height);
+
+        for (auto *card : cards) {
+            QVERIFY(!card->grab().isNull());
+            card->setChecked(true);
+            QVERIFY(!card->grab().isNull());
+            card->setEnabled(false);
+            QVERIFY(!card->grab().isNull());
+        }
+    }
+
+    void recommendedIconsAndPreviewFollowTheGroupType() {
+        auto *dialog = open_dialog();
+        dialog->new_group_btn->click();
+        const auto recommended = [dialog] {
+            QStringList icons;
+            for (auto *button : dialog->recommended_row->findChildren<QPushButton *>()) icons << button->text();
+            return icons;
+        };
+        auto *preview = qobject_cast<IconPreview *>(dialog->icon_preview.data());
+        QVERIFY(preview);
+        QCOMPARE(recommended(), get_recommended_group_icons(static_cast<int>(GroupType::NORMAL)));
+        QCOMPARE(preview->kind(), KIND_NORMAL());
+
+        dialog->radio_file->setChecked(true);
+        QCOMPARE(recommended(), get_recommended_group_icons(static_cast<int>(GroupType::FILE)));
+        QCOMPARE(preview->kind(), KIND_FILE());
+
+        dialog->radio_filter->setChecked(true);
+        dialog->filter_kind_switch->setCurrentItem("file");
+        QCOMPARE(recommended(), get_recommended_group_icons(static_cast<int>(GroupType::FILTER_FILE)));
+        QCOMPARE(preview->kind(), KIND_FILTER());
+
+        dialog->recommended_row->findChildren<QPushButton *>()[1]->click();
+        QCOMPARE(dialog->icon_input->text(), get_recommended_group_icons(static_cast<int>(GroupType::FILTER_FILE))[1]);
+        QCOMPARE(dialog->icon_preview->text(), dialog->icon_input->text());
+    }
+
+    void recommendedIconsHideInsteadOfOverflowing() {
+        auto *dialog = open_dialog();
+        dialog->new_group_btn->click();
+        auto *row = dialog->recommended_row.data();
+        const auto buttons = row->findChildren<QPushButton *>();
+        QVERIFY(!buttons.isEmpty());
+
+        row->setFixedWidth(10000);
+        QApplication::processEvents();
+        for (auto *button : buttons) QVERIFY(button->isVisibleTo(row));
+        row->setFixedWidth(buttons.first()->width() * 3);
+        QApplication::processEvents();
+        int visible = 0;
+        for (auto *button : buttons) {
+            if (!button->isVisibleTo(row)) continue;
+            ++visible;
+            QVERIFY(button->geometry().right() <= row->width());
+        }
+        QVERIFY(visible > 0 && visible < buttons.size());
+    }
+
+    void groupRowsCarryTheGroupKindAndTheNewGroupButtonIsAnAddRow() {
+        QVERIFY(manager().create_group("Plain"));
+        QVERIFY(manager().create_group("Launch", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILE)));
+        QVERIFY(manager().create_group("Secret", std::nullopt, std::nullopt, static_cast<int>(GroupType::HIDDEN)));
+        QVERIFY(manager().create_group("Pictures", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER_IMAGE)));
+        auto *dialog = open_dialog();
+        QStringList kinds;
+        for (int row = 0; row < dialog->group_list->count(); ++row) kinds << dialog->group_list->item(row)->data(KIND_ROLE).toString();
+        QCOMPARE(kinds, (QStringList{"normal", "file", "hidden", "filter"}));
+        QVERIFY(!dialog->group_list->viewport()->grab().isNull());
+
+        QCOMPARE(dialog->new_group_btn->objectName(), QString("ManageAddButton"));
+        QCOMPARE(dialog->new_group_btn->objectName(), dialog->add_item_btn->objectName());
+        QCOMPARE(dialog->new_group_btn->text(), "+  " + ManageDialog::tr_text("New Group"));
+        QVERIFY(dialog->new_group_btn->width() > dialog->sidebar->width() / 2);
+    }
+
+    void newGroupFormHighlightsNoGroupUntilOneIsChosen() {
+        const auto notes = manager().create_group("Notes");
+        const auto other = manager().create_group("Other");
+        QVERIFY(notes && other);
+        auto *dialog = open_dialog();
+        dialog->new_group_btn->click();
+        QCOMPARE(dialog->group_list->currentRow(), -1);
+        QVERIFY(dialog->group_list->selectedItems().isEmpty());
+        QVERIFY(dialog->new_group_btn->isChecked());
+        QCOMPARE(dialog->list_title->text(), ManageDialog::tr_text("New Group"));
+        QCOMPARE(dialog->empty_label->text(), ManageDialog::tr_text("Save the new group first, then add content to it"));
+        QVERIFY(!dialog->add_item_btn->isEnabled());
+        QVERIFY(!dialog->search_input->isEnabled());
+        QVERIFY(!dialog->edit_group_btn->isVisible());
+        // A checkable button toggles itself on click first; clicking it again keeps it checked.
+        dialog->new_group_btn->click();
+        QVERIFY(dialog->new_group_btn->isChecked());
+
+        dialog->group_list->setCurrentRow(1);
+        QCOMPARE(dialog->selected_group_id, other);
+        QCOMPARE(dialog->current_mode, QString("content"));
+        QVERIFY(!dialog->new_group_btn->isChecked());
+        QVERIFY(dialog->list_title->text().endsWith("Other"));
+
+        // Switching forms from outside brings the previous group back.
+        dialog->new_group_btn->click();
+        dialog->switch_mode("content");
+        QCOMPARE(dialog->group_list->currentRow(), 1);
+        QVERIFY(dialog->list_title->text().endsWith("Other"));
+
+        // Saving selects the new group.
+        dialog->new_group_btn->click();
+        dialog->group_name_input->setText("Fresh");
+        dialog->save_btn->click();
+        QVERIFY(dialog->selected_group_id);
+        QCOMPARE(dialog->group_list->currentItem()->text(), QString("Fresh"));
+        QVERIFY(!dialog->new_group_btn->isChecked());
+        QVERIFY(dialog->list_title->text().endsWith("Fresh"));
+    }
+
+    void editFormOfAGroupWithContentIsAsWideAsTheNewForm() {
+        // Wrapped text in the form must not make the scroll area lay it out at preferred heights and squeeze it.
+        const auto full = manager().create_group("Full");
+        QVERIFY(full);
+        QVERIFY(manager().move_to_group(add_texts({"x"}).first(), *full));
+        auto *dialog = open_dialog();
+        dialog->resize(1208, 799);
+        QApplication::processEvents();
+        auto *scroll = qobject_cast<QScrollArea *>(dialog->detail_content->parentWidget()->parentWidget());
+        QVERIFY(scroll);
+        dialog->new_group_btn->click();
+        QApplication::processEvents();
+        const int new_width = dialog->detail_content->width();
+        dialog->open_group_editor(*full);
+        QApplication::processEvents();
+        QCOMPARE(dialog->detail_content->width(), new_width);
+        QVERIFY(!scroll->verticalScrollBar()->isVisible());
+    }
+
+    void hintLabelsDoNotReportHeightForWidth() {
+        QWidget parent;
+        auto *layout = new QVBoxLayout(&parent);
+        QLabel *label = field_hint(QString::fromUtf8("一段会换行的说明文字").repeated(8));
+        layout->addWidget(label);
+        layout->addStretch();
+        QVERIFY(!label->hasHeightForWidth());
+        parent.resize(160, 600);
+        parent.show();
+        QTRY_COMPARE(label->height(), label->heightForWidth(label->width()));
+        const int narrow = label->height();
+        parent.resize(1200, 600);
+        QTRY_VERIFY(label->width() > 1000 && label->height() == label->heightForWidth(label->width()));
+        QVERIFY(label->height() < narrow);
+        parent.resize(160, 600);
+        QTRY_COMPARE(label->height(), narrow);
+    }
+
+    void aHiddenCardTakesNoCell() {
+        QList<OptionCard *> cards = {new OptionCard(QString::fromUtf8("通用"), QString::fromUtf8("粘贴文字或文件"), KIND_NORMAL()),
+                                     new OptionCard(QString::fromUtf8("快速启动"), QString::fromUtf8("打开文件或文件夹"), KIND_FILE()),
+                                     new OptionCard(QString::fromUtf8("隐藏"), QString::fromUtf8("不在面板上显示"), KIND_HIDDEN()),
+                                     new OptionCard(QString::fromUtf8("筛选"), QString::fromUtf8("只显示一类"), KIND_FILTER())};
+        cards[3]->hide();
+        CardGrid grid(cards);
+        grid.show();
+        const int spacing = dialog_scaled(10);
+        int need = 0;
+        for (int index = 0; index < 3; ++index) need = std::max(need, cards[index]->required_width());
+        const int wide = 3 * need + 2 * spacing;
+        grid.resize(wide, 10);
+        QCOMPARE(grid.columns(grid.width()), 3);
+        for (int index = 0; index < 3; ++index) QCOMPARE(cards[index]->y(), 0);
+        QCOMPARE(cards[2]->x() + cards[2]->width(), grid.width());
+        grid.resize(wide - 1, 10);
+        QCOMPARE(grid.columns(grid.width()), 2);
+        QCOMPARE(grid.height(), 2 * cards[0]->sizeHint().height() + spacing);
+    }
+
+    void defaultSizeFollowsTheScreenAndTheUsersSizeIsKept() {
+        get_dialog_scale().set_percent(100);
+        auto *dialog = get_manage_dialog(&manager());
+        // Opened first on a screen too small for the minimum: raising the minimum on a larger screen is not a drag.
+        dialog->fit_to_available(QSize(800, 500));
+        QCOMPARE(dialog->size(), QSize(800, 500));
+        dialog->fit_to_available(QSize(1920, 1032));
+        QCOMPARE(dialog->size(), QSize(1200, 760));
+        dialog->fit_to_available(QSize(2560, 1392));
+        QCOMPARE(dialog->size(), QSize(1280, 900));
+        dialog->fit_to_available(QSize(1366, 728));
+        QCOMPARE(dialog->size(), QSize(1200, 641));
+
+        // Neither the window nor its minimum may exceed a small screen; the columns scroll the rest.
+        dialog->fit_to_available(QSize(1093, 574));
+        QCOMPARE(dialog->size(), QSize(1093, 574));
+        QCOMPARE(dialog->minimumSize(), QSize(1000, 420));
+        dialog->fit_to_available(QSize(800, 500));
+        QCOMPARE(dialog->size(), QSize(800, 500));
+        QCOMPARE(dialog->minimumSize(), QSize(800, 420));
+
+        dialog->fit_to_available(QSize(1920, 1032));
+        dialog->resize(1300, 800);
+        dialog->fit_to_available(QSize(2560, 1392));
+        QCOMPARE(dialog->size(), QSize(1300, 800));
+        dialog->fit_to_available(QSize(1280, 672));
+        QCOMPARE(dialog->size(), QSize(1280, 672));
+    }
+
 
 private:
     // The item menu lists groups as their icon, two spaces and the name.

@@ -1,4 +1,5 @@
 #include "clipboard/ui/widgets/manage_rows.h"
+#include "clipboard/ui/group_kind_style.h"
 #include "clipboard/ui/widgets/reorder_list.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
@@ -72,32 +73,36 @@ void GroupRowDelegate::paint(QPainter *painter, const QStyleOptionViewItem &opti
     const QRect rect = option.rect.adjusted(dialog_scaled(4), dialog_scaled(2), -dialog_scaled(4), -dialog_scaled(2));
     paint_row_background(painter, option, rect);
 
-    int x = rect.left() + dialog_scaled(12);
+    const QString kind = index.data(KIND_ROLE).toString().isEmpty() ? KIND_NORMAL() : index.data(KIND_ROLE).toString();
+    const bool selected = option.state & QStyle::State_Selected;
+    const int tile_size = dialog_scaled(26);
+    const QRectF tile(rect.left() + dialog_scaled(8), rect.center().y() - tile_size / 2.0, tile_size, tile_size);
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(kind_tint(kind, selected ? 0.20 : 0.15, tokens));
+    painter->drawRoundedRect(tile, dialog_scaled(8), dialog_scaled(8));
     painter->setFont(font_of(option.font, 15));
     painter->setPen(css_color(tokens.text));
-    const QRect icon_rect(x, rect.top(), dialog_scaled(22), rect.height());
-    painter->drawText(icon_rect, Qt::AlignCenter, index.data(ICON_ROLE).toString());
-    x = icon_rect.right() + dialog_scaled(10);
+    painter->drawText(tile, Qt::AlignCenter, index.data(ICON_ROLE).toString());
+    int x = static_cast<int>(tile.right()) + dialog_scaled(10);
 
     int right = rect.right() - dialog_scaled(10);
     const QString tag = index.data(TAG_ROLE).toString();
     if (!tag.isEmpty()) {
-        const QFont tag_font = font_of(option.font, 10);
+        const QFont tag_font = font_of(option.font, 11);
         const QFontMetrics metrics(tag_font);
         const int pad = dialog_scaled(6);
         const int tag_w = metrics.horizontalAdvance(tag) + pad * 2;
         const int tag_h = metrics.height() + dialog_scaled(2);
         const QRectF tag_rect(right - tag_w, rect.center().y() - tag_h / 2.0, tag_w, tag_h);
         painter->setPen(Qt::NoPen);
-        painter->setBrush(css_color(tokens.accent_soft));
+        painter->setBrush(kind_tint(kind, 0.16, tokens));
         painter->drawRoundedRect(tag_rect, tag_h / 2.0, tag_h / 2.0);
         painter->setFont(tag_font);
-        painter->setPen(css_color(tokens.accent_text));
+        painter->setPen(kind_text_color(kind, tokens));
         painter->drawText(tag_rect, Qt::AlignCenter, tag);
         right = static_cast<int>(tag_rect.left()) - dialog_scaled(6);
     }
 
-    const bool selected = option.state & QStyle::State_Selected;
     const QFont name_font = font_of(option.font, 13, selected ? QFont::DemiBold : QFont::Normal);
     painter->setFont(name_font);
     painter->setPen(css_color(tokens.text));
@@ -146,7 +151,7 @@ void ContentRowDelegate::paint(QPainter *painter, const QStyleOptionViewItem &op
     int right = inner.right();
     const QString meta = index.data(META_ROLE).toString();
     if (!meta.isEmpty()) {
-        const QFont meta_font = font_of(option.font, 10);
+        const QFont meta_font = font_of(option.font, 12);
         const int meta_w = QFontMetrics(meta_font).horizontalAdvance(meta);
         painter->setFont(meta_font);
         painter->setPen(css_color(tokens.text_muted));

@@ -1,5 +1,5 @@
 {
-  "git_head": "be2dcb81cead9d29f96f707ee5895fc4e040a484",
+  "git_head": "8052f5ba88ec0c56bde6389a0a864e4cba318805",
   "files": [
     {
       "path": "licenses/lucide-LICENSE.txt",
@@ -138,8 +138,8 @@
     },
     {
       "path": "main/canvas/view.py",
-      "sha256": "f6c4646f42c3f1426411144a7d49e43dcde5a6fc08986b20e5aa8094bbb97995",
-      "bytes": 94071
+      "sha256": "1c8c89e4f43d89e3b16a192ac4b3938b873352f315abb7afdc3ddc45b2a66734",
+      "bytes": 95018
     },
     {
       "path": "main/capture/__init__.py",
@@ -155,6 +155,11 @@
       "path": "main/capture/display_watcher.py",
       "sha256": "671863cd1b45017eb9891733df1c2ad38965d3f663f4a78d99598dbfd92f882b",
       "bytes": 1681
+    },
+    {
+      "path": "main/capture/msaa_element_finder.py",
+      "sha256": "4581563af4d53e33f4842297bc0d756b69774ea4317b2dbeade48394a413036f",
+      "bytes": 18512
     },
     {
       "path": "main/capture/quick_capture_controller.py",
@@ -188,13 +193,13 @@
     },
     {
       "path": "main/clipboard/controllers/clipboard_controller.py",
-      "sha256": "82a26f896d1f5744effc85eac1efa4a872b90db6513fb81a46f701ad0c819ee9",
-      "bytes": 44666
+      "sha256": "8d3bce66f3c4686ac3d6e7801db5218697a9c788cad5853ec5b03572af327936",
+      "bytes": 45577
     },
     {
       "path": "main/clipboard/controllers/context_menu_controller.py",
-      "sha256": "3a28f7a3612aaff320ebc9667b5018859ece4c312137172b3f8c171f19d633e1",
-      "bytes": 13938
+      "sha256": "93c2e8da6bc49f6a19bf03bdd5c82eac6d90b3f228ef307fa8ec0663db03aef2",
+      "bytes": 14084
     },
     {
       "path": "main/clipboard/controllers/foreground_tracker.py",
@@ -218,23 +223,23 @@
     },
     {
       "path": "main/clipboard/core/__init__.py",
-      "sha256": "ccd6b5471a210e4f487dfc05601af926bf8f753c155ef9853632c3ed65b7f62b",
-      "bytes": 210
+      "sha256": "950178d9d0e76cbe6b80121421b831e2f55358ac4d43eb706da2981e034d24c8",
+      "bytes": 357
     },
     {
       "path": "main/clipboard/core/enums.py",
-      "sha256": "ef442270cd6656f9b06182b01bae6b76f44822c271a91510418514c404b8fc40",
-      "bytes": 186
+      "sha256": "3791da53283959dcfb35848819606b8148b7c8eaaf907c8511726f488e60cc05",
+      "bytes": 341
     },
     {
       "path": "main/clipboard/core/manager.py",
-      "sha256": "8cb13be23a9cacd4c1c28784b6d331171fdfbc5730fda28a65a81f5c08f93a65",
-      "bytes": 22941
+      "sha256": "8cbabd6bc64996339c256cffb9fa98518ebbd17927d3bf9d6750304b7b2265ef",
+      "bytes": 22246
     },
     {
       "path": "main/clipboard/core/models.py",
-      "sha256": "3ed4aaa3bbdd4bc4c69eb4663d121516385353091adabf68b04813ee4f8fd924",
-      "bytes": 3663
+      "sha256": "fcb8bcba12918bc4a328d36f331a0a8ae83e726d95098865c44ba7c54328199b",
+      "bytes": 4949
     },
     {
       "path": "main/clipboard/core/text_transform.py",
@@ -248,8 +253,8 @@
     },
     {
       "path": "main/clipboard/services/group_service.py",
-      "sha256": "f0817fddd0edf732b04acd8dffd3de254c521ad33683ef14ec73f3564f22ed64",
-      "bytes": 2713
+      "sha256": "6c69af83da6be3a51a58720208957fcf8ce32e54344ff0dd35c2275ed386818c",
+      "bytes": 3149
     },
     {
       "path": "main/clipboard/services/import_export_service.py",
@@ -263,8 +268,8 @@
     },
     {
       "path": "main/clipboard/ui/dialogs/manage_dialog.py",
-      "sha256": "ac07a1a38750c9703b05db4b83c24f7a4ae70239483a25a520501575fce4bbe9",
-      "bytes": 73864
+      "sha256": "954aa3a9edd5c3082bba63fac37b24b7ee18bb872219c1414deae9d001fb77da",
+      "bytes": 78818
     },
     {
       "path": "main/clipboard/ui/forms/file_content_form.py",
@@ -273,18 +278,18 @@
     },
     {
       "path": "main/clipboard/ui/forms/form_widgets.py",
-      "sha256": "d17e1d763bada80ee334441da7d7f65d702635446aaad858a82bf5820e0e9c17",
-      "bytes": 4157
+      "sha256": "00b3c5c83ab5551d903f81456c698852acf5ad68904d0a48eca21129ebf83264",
+      "bytes": 10998
     },
     {
       "path": "main/clipboard/ui/forms/group_form.py",
-      "sha256": "4805f2099aef46e3b4617c916d1a1da3e2019f674cec884d54f7ad7c078bed20",
-      "bytes": 2923
+      "sha256": "495a13ee45511db473bdbe5cd3112b951b1a09bc1a243b1d2d9fc21634f77c83",
+      "bytes": 5413
     },
     {
       "path": "main/clipboard/ui/forms/group_icon_picker.py",
-      "sha256": "371e18d7b7de119fc2630260d7901495303b6fe13cd1dc5a753abcc6d0e66f78",
-      "bytes": 7853
+      "sha256": "8f0c8fa849cf6156be5124a264eaff1baf6109727bcad742aa7decc0dd494730",
+      "bytes": 14124
     },
     {
       "path": "main/clipboard/ui/forms/image_content_form.py",
@@ -302,14 +307,19 @@
       "bytes": 1490
     },
     {
+      "path": "main/clipboard/ui/group_kind_style.py",
+      "sha256": "bad2a9974beec26a99916273987212bf97bd32131fda3ca1e80184d8e1ff7703",
+      "bytes": 2728
+    },
+    {
       "path": "main/clipboard/ui/image_item_actions.py",
       "sha256": "35e16bd854d8e4074718661bdc46aa67025401dcee46463131c8f2c798b0882d",
       "bytes": 2447
     },
     {
       "path": "main/clipboard/ui/layout_scale.py",
-      "sha256": "dbf459325e9ccb7eb635b1fcef7e568750a8a1b3b9b281df1ea98323eb9d49c7",
-      "bytes": 2582
+      "sha256": "87836f9d4509f2e17c2fae598d52ac9f43b824d05bfec08826dd8f5fcab194cf",
+      "bytes": 4256
     },
     {
       "path": "main/clipboard/ui/menus/action_menu.py",
@@ -347,9 +357,14 @@
       "bytes": 1611
     },
     {
+      "path": "main/clipboard/ui/theme/chevron.py",
+      "sha256": "666a935761a416f147c3a0ac8681732c9c646029ac90faf459ffd7c22ad916be",
+      "bytes": 1806
+    },
+    {
       "path": "main/clipboard/ui/theme/theme_styles.py",
-      "sha256": "ed846184a092a98ea8060fb58bd79091e4f861a2c0fb19e7d89bcd4f6dc84f43",
-      "bytes": 22556
+      "sha256": "f25c2a5fc367d9cfc48f21056d435afa13dd4cf1d26d66a5e34e9ba8d1b9ed67",
+      "bytes": 23412
     },
     {
       "path": "main/clipboard/ui/theme/themes.py",
@@ -373,8 +388,8 @@
     },
     {
       "path": "main/clipboard/ui/widgets/manage_rows.py",
-      "sha256": "901830f3506cb6f3df41b6150c1090d509f4e81f6495bcf3a23878d486c579b9",
-      "bytes": 8260
+      "sha256": "b15198284a651ba569c5aa8e647d9bdfd5d104dbeb2209274e39356aab10e368",
+      "bytes": 8701
     },
     {
       "path": "main/clipboard/ui/widgets/preview_popup.py",
@@ -393,8 +408,8 @@
     },
     {
       "path": "main/clipboard/ui/windows/clipboard_window.py",
-      "sha256": "f5375fc9df552644f81e052a26f025a9cfca200239f73b818ec8f91256068e83",
-      "bytes": 73628
+      "sha256": "7086909aed711d31cf37fbcbd102b320ed4f98cfb04aaf578793905cca68ac14",
+      "bytes": 75402
     },
     {
       "path": "main/clipboard/ui/windows/pin_window.py",
@@ -418,8 +433,8 @@
     },
     {
       "path": "main/core/bootstrap.py",
-      "sha256": "1669a67a0d77b060d8823af8278550a080b4533fd9d139ed4801ad883af0705e",
-      "bytes": 25079
+      "sha256": "ecbb10ab7ad1fe4cfb5fc5c20a53fc4b64fd5e10026db0cd97de5aa46021f256",
+      "bytes": 25396
     },
     {
       "path": "main/core/clipboard_utils.py",
@@ -483,8 +498,8 @@
     },
     {
       "path": "main/core/log_translations/clipboard.py",
-      "sha256": "1827148f1b5108ddddb3d4abab6d5fd47cc4774841e9162aa057f6bc3f7c79b4",
-      "bytes": 10363
+      "sha256": "ef1ff474b74f5c4301098a91bcedcddb1ee48cd83e850a89fb78794a2db2b6f9",
+      "bytes": 10210
     },
     {
       "path": "main/core/log_translations/core_pkg.py",
@@ -608,8 +623,8 @@
     },
     {
       "path": "main/core/updater_process.py",
-      "sha256": "83eab72eca905d5a96e16072242a35a300f5d4bdc12e1baa5b3865fc1169ca93",
-      "bytes": 8757
+      "sha256": "28b5e2401aa9798a46684c8c79ea8ece35c0b3f719275831253a1380e9c0e3f2",
+      "bytes": 9015
     },
     {
       "path": "main/gif/__init__.py",
@@ -688,7 +703,7 @@
     },
     {
       "path": "main/main_app.py",
-      "sha256": "4d4e57543482bd364dbc1b6895762d31d68394cb8b342addb923369c392bd246",
+      "sha256": "813d4826d95747ead073166c9239e06c17a1d360e9936a7ad3685ec6215c0a81",
       "bytes": 38047
     },
     {
@@ -703,8 +718,8 @@
     },
     {
       "path": "main/ocr/ppocr_models.py",
-      "sha256": "3e53fa8cdc5b1205a7a3d8f37663758fabf3559c6324edeec6ca827a61bd0417",
-      "bytes": 6169
+      "sha256": "498c879a3a83381b043e473beb2d3d9654802745c16267173dda4ab7df13fc92",
+      "bytes": 9463
     },
     {
       "path": "main/ocr/snipping_tool_ocr.py",
@@ -728,8 +743,8 @@
     },
     {
       "path": "main/pin/pin_canvas.py",
-      "sha256": "bff3456730d885f505530681f1c4f2bf4c447a00f825834bc412e34b7f8547c1",
-      "bytes": 35845
+      "sha256": "4631e58fa0ab56cfd6b71c4a21ff9041d6ea9dc97998ce2a1f4e97cc9676e8ce",
+      "bytes": 35716
     },
     {
       "path": "main/pin/pin_canvas_view.py",
@@ -800,6 +815,11 @@
       "path": "main/scripts/compare_translation_providers.py",
       "sha256": "d0c9724669566b0c5902e18318481d37538795b5a833dc7d7e94fd7040eaafa8",
       "bytes": 7387
+    },
+    {
+      "path": "main/scripts/preview_msaa.py",
+      "sha256": "51c8413a85084f7681260dba1b7295ba4693a42a038f8cab3d1602d99826cb1c",
+      "bytes": 2547
     },
     {
       "path": "main/scripts/score_translation_quality.py",
@@ -1113,23 +1133,23 @@
     },
     {
       "path": "main/translations/app_en.xml",
-      "sha256": "e0f15c1d0af891a4dd589c310f076f67b53df6e127d5e39e3ca2b5ed149902ff",
-      "bytes": 220173
+      "sha256": "3918e2220d53e6ab6c242de85c1de05e1373e23d77d0b8a6d79731924bb103b8",
+      "bytes": 222334
     },
     {
       "path": "main/translations/app_ja.xml",
-      "sha256": "e6eb05f24897e712965c2a42848fba727c436710a36ae2f31d79129dfa17e814",
-      "bytes": 242983
+      "sha256": "ba4ba6d06e13b2770a9d2e044f8c7ff827b9d64ae07fd9761eaf8930fa2edeec",
+      "bytes": 245496
     },
     {
       "path": "main/translations/app_ko.xml",
-      "sha256": "eb6bfbb261364684b22d530d94dd1730aece754be2349d61e3290ecb38a72a7a",
-      "bytes": 235045
+      "sha256": "9c6c1a439643d2a6bcfbfd33779f0f1473a8224f467a638f1dda62f421219133",
+      "bytes": 237386
     },
     {
       "path": "main/translations/app_zh.xml",
-      "sha256": "d1e2f695bcde574ce12e36f5e3c9ca639a2f3c17732267fad6866640d493557c",
-      "bytes": 223607
+      "sha256": "c0b9de02845bd332230aa4c64367b64326ddb132b82e555e9db32e3a9614f8d1",
+      "bytes": 225732
     },
     {
       "path": "main/ui/__init__.py",
@@ -1237,6 +1257,11 @@
       "bytes": 6763
     },
     {
+      "path": "main/ui/initial_selection.py",
+      "sha256": "ebee3ed4d8253d4ea2eee508e0ec35e31c3158c2d39df2aa5f222c607c6f3217",
+      "bytes": 2045
+    },
+    {
       "path": "main/ui/key_chip.py",
       "sha256": "1d3a37f22f3f078b484e87223572d90b507efd4712f521e799134dcfdb9b8537",
       "bytes": 10817
@@ -1278,8 +1303,8 @@
     },
     {
       "path": "main/ui/screenshot_window.py",
-      "sha256": "c26b1ea843af6f3d31b87b05f5ae84cfe060c33182b8265bea08e248cc635171",
-      "bytes": 61202
+      "sha256": "9479b98c10dcbc652b38cfc921045ef913b9282122005548438bd88146ed6278",
+      "bytes": 61559
     },
     {
       "path": "main/ui/selection_info/__init__.py",
@@ -1338,8 +1363,8 @@
     },
     {
       "path": "main/ui/settings_ui/dialog.py",
-      "sha256": "4a3d1ab734f7223a231bbd5a5c93c68f6ad782d419d9d2593e53681d024fac11",
-      "bytes": 89854
+      "sha256": "b611ba87e71ace819b3350f2478c8b82df1941e88001a58145ddfd90a24d0895",
+      "bytes": 90157
     },
     {
       "path": "main/ui/settings_ui/mock_config.py",
@@ -1358,8 +1383,8 @@
     },
     {
       "path": "main/ui/settings_ui/page_capture.py",
-      "sha256": "363616f20c22451285ddfd8166a59abe7ca46738c0fe1248b6d3e37619a58dc8",
-      "bytes": 19540
+      "sha256": "1b833aa56bb88b12d6f3d3911dab39f8c7bbe9e32de6f91704f08486ba1c9115",
+      "bytes": 19698
     },
     {
       "path": "main/ui/settings_ui/page_clipboard.py",
@@ -1408,8 +1433,8 @@
     },
     {
       "path": "main/ui/settings_ui/ppocr_model_dialog.py",
-      "sha256": "6fbe65fb81569e5d2f505e62ae662954b4a8041c415e418032277ed35ad8a04f",
-      "bytes": 17749
+      "sha256": "b2e1c14cdece5ac2586ebbeb9ae6f1d986c0ddaf62f00f66a9a29943f44814be",
+      "bytes": 17250
     },
     {
       "path": "main/ui/settings_ui/provider_fields.py",
@@ -1443,8 +1468,8 @@
     },
     {
       "path": "main/ui/toolbar.py",
-      "sha256": "e5d8877d06e61c89e9126b73ea278d939111fd16a3afc28ac198f8b497c49ca8",
-      "bytes": 63699
+      "sha256": "1e68bd3627cdc1a4ef07ff2dd31ee2965bd20e9eb569605af389fd8bbaf952c3",
+      "bytes": 64502
     },
     {
       "path": "main/ui/toolbar_layout.py",
@@ -1543,12 +1568,12 @@
     },
     {
       "path": "requirements.txt",
-      "sha256": "141c2cb09bf6502a2883bb3a2ee22857040ccc7890114392cd7eff5067181857",
+      "sha256": "4eb3c43ab1101a45509cec6f24d8524099794dbda7f4926dbaa74b58182f6bad",
       "bytes": 443
     },
     {
       "path": "rust_libs/Cargo.lock",
-      "sha256": "2e36833e6d20ce63e0dc5aa83deecd9af226a105f4f3255372fc36e390156f6c",
+      "sha256": "76d4cfda54a0c9f16e28ac81c257837cc5fa6f36be68df3484d4ea4fe956fcd7",
       "bytes": 94798
     },
     {
@@ -1813,7 +1838,7 @@
     },
     {
       "path": "rust_libs/ppocr_rust/catalog.json",
-      "sha256": "fe70ad5b6e8560f8d627310db5dc8a13270b94375e6e5e50fe52a5c4c9faa8ab",
+      "sha256": "67761b0c24cf93ba60174366763cdc178d3a2386d62a926889879f063be59bed",
       "bytes": 11892
     },
     {
@@ -1853,17 +1878,17 @@
     },
     {
       "path": "rust_libs/pyclipboard/Cargo.toml",
-      "sha256": "55f0bedffd02fe455feaaf43cfd9a2e77c566409ee7c8176756916cadb335b9b",
+      "sha256": "ec34b7b45924426b34cb20a92035954d1541240f8746c65f1dcb22dab7c118ac",
       "bytes": 991
     },
     {
       "path": "rust_libs/pyclipboard/THIRD-PARTY-NOTICES.txt",
-      "sha256": "81211ae94789338b99a15ef964bfa544d23daa0c4ee775cd36b2b914ed7da21a",
+      "sha256": "32f9cb3e665a4f43294bd48a3322b704a90fad96879b64c1c721764f77f4bb8b",
       "bytes": 155946
     },
     {
       "path": "rust_libs/pyclipboard/pyproject.toml",
-      "sha256": "437b9466f90dc0a9d0ccb2004c47ebfe449c649aee720168073e75e479b6562a",
+      "sha256": "c942bc7a6406a9f6764aae47a864e0db7429b3ea346fa031c3d8c8d457aebc7e",
       "bytes": 1069
     },
     {
@@ -1873,18 +1898,23 @@
     },
     {
       "path": "rust_libs/pyclipboard/src/database.rs",
-      "sha256": "4758fdb7a7470f3092eaacc5ba7c0c762f827026eac1de08aba0346c123cb7c0",
-      "bytes": 50728
+      "sha256": "a1d15a5e2daab74ce7551862745baf773c836c46f727cae591824ace7d539e5c",
+      "bytes": 55991
+    },
+    {
+      "path": "rust_libs/pyclipboard/src/group_kind.rs",
+      "sha256": "b9576029935ca954785d772e8d34c439110c46226127ccea97e09ff563c02c71",
+      "bytes": 2323
     },
     {
       "path": "rust_libs/pyclipboard/src/lib.rs",
-      "sha256": "ea0cf591cdf3cadf0ad613598075eb99a4dc8ddd1ad339ba66ef65584562a5c8",
-      "bytes": 322
+      "sha256": "303d2cabc6feb822b4e2dbd447f9068c8436cb64d7bf6b21ed4c337f9b665698",
+      "bytes": 342
     },
     {
       "path": "rust_libs/pyclipboard/src/manager.rs",
-      "sha256": "e8ff6f8112005a4d7c3b97ae3f8104778ff2d7e8fd9b9afb39b3fc92ddb3bf6a",
-      "bytes": 63946
+      "sha256": "d6307eff8835556234d94ce9e3dd905fe11d3f37a37b7095ab8a96431ccca0d7",
+      "bytes": 64034
     },
     {
       "path": "rust_libs/pyclipboard/src/multi_paste.rs",
@@ -1893,13 +1923,13 @@
     },
     {
       "path": "rust_libs/pyclipboard/src/python.rs",
-      "sha256": "cc635f616da60af70d05b705fff964e5ff6b7f701993452d4d68da906b444eb5",
-      "bytes": 23631
+      "sha256": "f4d69fc28938209b9b961f5af6f97f07e40a67cdc5a35be3eff5e35551217a9c",
+      "bytes": 24319
     },
     {
       "path": "rust_libs/pyclipboard/src/types.rs",
-      "sha256": "58306df401041669ee65e7f389e486f864ea8d4ed41df079c98695b1ad5bd05d",
-      "bytes": 3355
+      "sha256": "bb7f87d5705170dc2725f8173cf37d3c3e5b0025fba2f0174beadda186014962",
+      "bytes": 3399
     },
     {
       "path": "rust_libs/pyclipboard/src/win_clipboard.rs",
