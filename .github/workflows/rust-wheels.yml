@@ -2,8 +2,7 @@ name: Build Rust Wheels
 
 # 保证全部 Rust 包随时能从 rust_libs/ 的源码重新构建出来，并跑 Rust 侧的单元测试
 # 与第三方许可声明复查。正式发布走 publish-pypi.yml；这个 workflow 只做验证，
-# 只上传供检查的 wheel artifact，不发布到包索引。主 CI 同样构建源码 wheel；
-# 本 workflow 还在 Rust 源码改动时复查许可声明。
+# 只上传供检查的 wheel artifact，不发布到包索引。
 on:
   push:
     branches: [master2, master]
@@ -111,7 +110,7 @@ jobs:
         run: cargo rustc --locked --release --target ${{ matrix.rust-target }} --manifest-path rust_libs/Cargo.toml -p jietuba-updater --bin jietuba_updater -- -C target-feature=+crt-static
 
       - name: Install maturin
-        # 版本与 requirements-dev.txt 保持一致
+        # 版本与 publish-pypi.yml 保持一致
         run: pip install maturin==1.12.6
 
       - name: Build Rust extension wheels

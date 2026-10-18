@@ -23,6 +23,7 @@
 #include "tools/number.h"
 #include "tools/watermark.h"
 #include "ui/dialogs.h"
+#include "ui/initial_selection.h"
 #include "ui/magnifier.h"
 #include "ui/mask_overlay.h"
 #include "ui/arrow_settings_panel.h"
@@ -324,6 +325,13 @@ void ScreenshotWindow::begin_session_ui() {
     shortcut_handler_ = std::make_unique<ScreenshotShortcutHandler>(this);
     ShortcutManager::instance()->register_handler(shortcut_handler_.get());
     session_active_ = true;
+    initial_selection_gate_ = new InitialSelectionGate(this);
+    connect(initial_selection_gate_, &InitialSelectionGate::ready, this, &ScreenshotWindow::show_prepared_session);
+    initial_selection_gate_->start(view);
+}
+
+void ScreenshotWindow::show_prepared_session(CanvasView *prepared_view) {
+    if (is_closing || !session_active_ || view != prepared_view) return;
     show();
     activateWindow();
     raise();
@@ -368,6 +376,7 @@ void ScreenshotWindow::teardown_session() {
     if (!session_active_) return;
     session_active_ = false;
     is_closing = true;
+    if (initial_selection_gate_) initial_selection_gate_->cancel();
     hide();
     try {
         release_session_resources();
@@ -558,6 +567,7 @@ void ScreenshotWindow::showEvent(QShowEvent *event) {
 }
 
 void ScreenshotWindow::init_smart_selection_at_cursor() {
+    if (scene->selection_model->is_confirmed()) return;
     const auto cursor_pos = QCursor::pos();
     const QPointF scene_pos(cursor_pos.x(), cursor_pos.y());
     const auto smart_rect = view->get_smart_selection_rect(scene_pos);

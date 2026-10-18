@@ -10,9 +10,16 @@ param(
     # The updater helper (JIETUBA_UPDATES) is bundled in -Static builds, the released lite package;
     # -Updates adds it to the default build too, -NoUpdates leaves it out of either.
     [switch]$Updates,
-    [switch]$NoUpdates
+    [switch]$NoUpdates,
+    # The full package, jietuba_pp.exe, instead of the lite one: the single file also carries the
+    # ONNX Runtime and the package gets the default PP-OCR models in models\. The DLL comes from
+    # the model catalog (scripts\fetch_ort_runtime.ps1); -OrtDll uses a folder's onnxruntime.dll and
+    # its onnxruntime-LICENSE.txt / onnxruntime-ThirdPartyNotices.txt instead.
+    [switch]$Full,
+    [string]$OrtDll = ''
 )
 if ($Arch -eq 'arm64' -and -not $Static) { throw 'ARM64 is built only as the single file: add -Static.' }
+if ($Full -and -not $Static) { throw 'The full package is the single file: add -Static.' }
 $Updates = ($Updates -or $Static) -and -not $NoUpdates
 $ErrorActionPreference = 'Stop'
 $env:VSLANG = '1033'
@@ -38,7 +45,8 @@ $vsVersion = (& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.
 $generator = if ($vsVersion -eq '18') { 'Visual Studio 18 2026' } else { 'Visual Studio 17 2022' }
 # MSBuild tracks headers independently of localized /showIncludes output. The
 # local Chinese-only compiler made Ninja's detected prefix unusable.
-$buildDir = Join-Path $projectRoot $(if ($Arch -eq 'arm64') { 'build\static-arm64' } elseif ($Static) { 'build\static' } else { 'build\msvc' })
+$suffix = if ($Full) { '-full' } else { '' }
+$buildDir = Join-Path $projectRoot $(if ($Arch -eq 'arm64') { "build\static-arm64$suffix" } elseif ($Static) { "build\static$suffix" } else { 'build\msvc' })
 $configureArgs = @('-DBUILD_TESTING=ON')
 if ($Static) {
     # The static Qt links the static MSVC runtime; every C/C++ and Rust object must match it.
@@ -46,10 +54,19 @@ if ($Static) {
     $env:RUSTFLAGS = '-C target-feature=+crt-static'
 }
 if ($Arch -eq 'arm64') { $configureArgs += "-DQT_HOST_PATH=$hostQt" }
+$ortPath = ''
+if ($Full) {
+    $ortPath = if ($OrtDll) { (Resolve-Path -LiteralPath $OrtDll).Path } else { & (Join-Path $PSScriptRoot 'fetch_ort_runtime.ps1') -Arch $Arch -OutDir (Join-Path $projectRoot "build\ort\$Arch") }
+    foreach ($name in 'onnxruntime-LICENSE.txt', 'onnxruntime-ThirdPartyNotices.txt') {
+        if (-not (Test-Path -LiteralPath (Join-Path (Split-Path $ortPath -Parent) $name))) { throw "$name must be beside $ortPath; the full package ships ONNX Runtime." }
+    }
+}
 # Passed every time so an earlier configuration cannot leave them on. The single file is the
-# released lite package and takes its exe name.
+# released lite package, or with -Full the full one, and takes that package's exe name.
 $configureArgs += "-DJIETUBA_UPDATES=$(if ($Updates) { 'ON' } else { 'OFF' })"
-$configureArgs += "-DJIETUBA_LITE_EXE=$(if ($Static) { 'ON' } else { 'OFF' })"
+$configureArgs += "-DJIETUBA_LITE_EXE=$(if ($Static -and -not $Full) { 'ON' } else { 'OFF' })"
+$configureArgs += "-DJIETUBA_FULL_EXE=$(if ($Full) { 'ON' } else { 'OFF' })"
+$configureArgs += "-DJIETUBA_ORT_DLL=$ortPath"
 $env:PATH = "$QtRoot\bin;$env:PATH"
 # A cache made with another Qt SDK keeps finding that SDK; configure from scratch then.
 $cache = Join-Path $buildDir 'CMakeCache.txt'
@@ -65,7 +82,7 @@ if (-not $SkipTests -and -not $Static) {
     if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
 }
 $exeName = (Select-String -LiteralPath $cache -Pattern '^JIETUBA_EXE_NAME:INTERNAL=(.+)$').Matches[0].Groups[1].Value + '.exe'
-$deployDir = Join-Path $projectRoot $(if ($Arch -eq 'arm64') { "dist\$Configuration-static-arm64" } elseif ($Static) { "dist\$Configuration-static" } else { "dist\$Configuration" })
+$deployDir = Join-Path $projectRoot $(if ($Arch -eq 'arm64') { "dist\$Configuration-static-arm64$suffix" } elseif ($Static) { "dist\$Configuration-static$suffix" } else { "dist\$Configuration" })
 function Copy-Notices {
     Copy-Item -LiteralPath (Join-Path (Split-Path $projectRoot -Parent) 'LICENSE') -Destination $deployDir
     Copy-Item -LiteralPath (Join-Path $projectRoot 'THIRD-PARTY-NOTICES.md') -Destination $deployDir
@@ -77,7 +94,13 @@ function Copy-Notices {
     foreach ($name in 'oneocr-LICENSE.txt', 'lucide-LICENSE.txt', 'tabler-icons-LICENSE.txt') {
         Copy-Item -LiteralPath (Join-Path $reference "licenses\$name") -Destination $licenseDir
     }
-    # ONNX Runtime is not linked; its notices travel with the PP-OCR pack that brings it.
+    # The lite exe does not carry ONNX Runtime, so its notices travel with the PP-OCR pack that
+    # brings the DLL; the full exe does.
+    if ($Full) {
+        foreach ($name in 'onnxruntime-LICENSE.txt', 'onnxruntime-ThirdPartyNotices.txt') {
+            Copy-Item -LiteralPath (Join-Path (Split-Path $ortPath -Parent) $name) -Destination $licenseDir
+        }
+    }
     $crates = @('gifrecorder', 'longstitch', 'pyclipboard', 'hdrcapture', 'inputhub', 'video_recorder', 'ppocr_rust')
     if ($Updates) { $crates += 'updater' }
     foreach ($crate in $crates) {
@@ -102,6 +125,14 @@ Copy-Item -LiteralPath (Join-Path $buildDir "$Configuration\$exeName") -Destinat
 if ($Static) {
     # Qt, its plugins and the runtime are linked in; only the exe and the notices ship.
     Copy-Notices
+    if ($Full) {
+        # The default models sit beside the exe; an update replaces only the exe and leaves models\ in place.
+        $modelDir = Join-Path $deployDir 'models'
+        New-Item -ItemType Directory -Path $modelDir | Out-Null
+        foreach ($name in 'PP-OCRv6_det_small.onnx', 'PP-OCRv6_rec_small.onnx') {
+            Copy-Item -LiteralPath (Join-Path (Split-Path $projectRoot -Parent) "models\$name") -Destination $modelDir
+        }
+    }
     Write-Host "Ready: $deployDir\$exeName"
     return
 }

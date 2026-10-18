@@ -25,13 +25,15 @@ public:
     bool fake_busy = false;
     QPair<QString, QStringList> started;
     bool cancelled = false;
+    bool start_ok = true;
     bool busy() const override { return fake_busy; }
     bool start(const QString &command, const QStringList &arguments, int) override {
         started = {command, arguments};
-        fake_busy = true;
-        return true;
+        fake_busy = start_ok;
+        return start_ok;
     }
     void cancel() override { cancelled = true; }
+    void shutdown() override { cancel(); finish(); }
     void event(const QString &name, const QJsonObject &data = {}) { emit event_received(name, transaction, data); }
     void finish() {
         fake_busy = false;
@@ -111,6 +113,7 @@ private:
     QString root_;
     QString pack_;
     bool runtime_ = false;
+    ModelDownloads *downloads_ = nullptr;
     // The default model's files; listing only checks that they exist.
     void install_default() {
         for (const char *name : {"PP-OCRv6_det_small.onnx", "PP-OCRv6_rec_small.onnx"}) write_file(QDir(root_).filePath(name), 1);
@@ -131,9 +134,10 @@ private slots:
         QDir(root_).removeRecursively();
         QVERIFY(QDir().mkpath(root_));
         ppocr_models::set_models_root_for_test(root_);
+        downloads_ = new ModelDownloads;
     }
 
-    void cleanup() { ppocr_models::set_models_root_for_test({}); }
+    void cleanup() { delete downloads_; downloads_ = nullptr; ppocr_models::set_models_root_for_test({}); }
 
     void catalogMarksOneDefault() {
         QStringList defaults;
@@ -279,7 +283,7 @@ private slots:
     void dialogRowsFollowCatalogAndInstalledState() {
         install_default();
         write_model(root_, "local", "local");
-        PpocrModelDialog dialog;
+        PpocrModelDialog dialog(nullptr, downloads_);
         const auto rows = dialog.rows();
         // The runtime row comes first: the temporary folder has no onnxruntime.dll, and the catalog
         // offers one for this architecture.
@@ -298,11 +302,11 @@ private slots:
         QCOMPARE(row("local").action, QString("Delete"));
     }
 
-    void dialogDownloadProgressAndCloseWaitsForCancel() {
+    void dialogDownloadProgressAndCloseKeepsDownloading() {
         install_default();
-        PpocrModelDialog dialog;
+        PpocrModelDialog dialog(nullptr, downloads_);
         auto *runner = new FakeRunner;
-        runner->setParent(&dialog);
+        runner->setParent(dialog.download());
         dialog.download()->set_runner(runner);
         auto rows = dialog.rows();
         auto korean = std::find_if(rows.begin(), rows.end(), [](const auto &r) { return r.title == "PP-OCRv5 Korean"; });
@@ -328,17 +332,24 @@ private slots:
         QCOMPARE(downloading_row().progress_text, QString("10.0 MB / 20.0 MB · 5.0 MB/s"));
         QSignalSpy closed(&dialog, &QDialog::finished);
         dialog.reject();
-        QVERIFY(runner->cancelled);
-        QCOMPARE(closed.size(), 0);
-        runner->finish();
+        QVERIFY(!runner->cancelled);
         QCOMPARE(closed.size(), 1);
+        QVERIFY(downloads_->busy());
+        PpocrModelDialog reopened(nullptr, downloads_);
+        const auto reopened_rows = reopened.rows();
+        const auto row = std::find_if(reopened_rows.begin(), reopened_rows.end(), [](const auto &r) { return r.title == "PP-OCRv5 Korean"; });
+        QCOMPARE(row->progress, 500);
+        QCOMPARE(row->progress_text, QString("10.0 MB / 20.0 MB · 5.0 MB/s"));
+        row->button->click();
+        QVERIFY(runner->cancelled);
+        runner->finish();
     }
 
     void dialogDownloadsMissingRuntimeAfterAModel() {
         install_default();
-        PpocrModelDialog dialog;
+        PpocrModelDialog dialog(nullptr, downloads_);
         auto *runner = new FakeRunner;
-        runner->setParent(&dialog);
+        runner->setParent(dialog.download());
         dialog.download()->set_runner(runner);
         const auto korean_row = [&dialog] {
             const auto all = dialog.rows();
@@ -354,11 +365,97 @@ private slots:
         QCOMPARE(dialog.rows().first().action, QString("Cancel"));
     }
 
+    void destroyedDialogLeavesTheDownloadAndRuntimeSequenceAlive() {
+        auto *runner = new FakeRunner;
+        runner->setParent(downloads_->download());
+        downloads_->download()->set_runner(runner);
+        auto *dialog = new PpocrModelDialog(nullptr, downloads_);
+        QVERIFY(downloads_->start("ppocr-v6-tiny"));
+        dialog->reject();
+        dialog->deleteLater();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(downloads_->busy() && !runner->cancelled);
+        runner->event("progress", {{"received", 50}, {"total", 100}});
+        {
+            PpocrModelDialog reopened(nullptr, downloads_);
+            const auto rows = reopened.rows();
+            const auto row = std::find_if(rows.begin(), rows.end(), [](const auto &r) { return r.title == "PP-OCRv6 tiny"; });
+            QCOMPARE(row->progress, 500);
+        }
+        stage_download(root_, "ppocr-v6-tiny");
+        runner->event("downloaded");
+        runner->finish();
+        QVERIFY(ppocr_models::resolve("ppocr-v6-tiny"));
+        QCOMPARE(requested_staging(*runner), QString("runtime"));
+        QVERIFY(downloads_->busy());
+        emit runner->failed("runtime unavailable");
+        runner->finish();
+        PpocrModelDialog reopened(nullptr, downloads_);
+        QCOMPARE(reopened.status_text(), QString("runtime unavailable"));
+        QCOMPARE(reopened.rows().first().action, QString("Download"));
+        QVERIFY(downloads_->start(ModelDownload::RUNTIME));
+        QVERIFY(reopened.status_text().isEmpty());
+        QVERIFY(!downloads_->start("ppocr-v6-tiny"));
+    }
+
+    void backgroundRuntimeCompletionSurvivesReopen() {
+        auto *runner = new FakeRunner;
+        runner->setParent(downloads_->download());
+        downloads_->download()->set_runner(runner);
+        QVERIFY(downloads_->start(ModelDownload::RUNTIME));
+        const auto file = ppocr_models::runtime_entry()->value("file").toObject();
+        write_file(QDir(root_).filePath(".download-runtime/onnxruntime.dll"), file.value("size").toVariant().toLongLong());
+        runner->event("downloaded");
+        runner->finish();
+        PpocrModelDialog reopened(nullptr, downloads_);
+        QCOMPARE(reopened.status_text(), QString("ONNX Runtime is ready."));
+        QVERIFY(QFileInfo::exists(ppocr_models::runtime_path()));
+        QVERIFY(!downloads_->busy());
+    }
+
+    void shutdownCancelsAndCleansOnlyTheCurrentStaging() {
+        auto *runner = new FakeRunner;
+        runner->setParent(downloads_->download());
+        downloads_->download()->set_runner(runner);
+        QVERIFY(downloads_->start("ppocr-v6-tiny"));
+        const QString request_path = runner->started.second.at(runner->started.second.indexOf("--model-file") + 1);
+        write_file(QDir(root_).filePath(".download-ppocr-v6-tiny/file.part"), 1);
+        write_file(QDir(root_).filePath(".download-other/file.part"), 1);
+        downloads_->shutdown();
+        QVERIFY(runner->cancelled && !downloads_->busy());
+        QVERIFY(!QFileInfo::exists(request_path));
+        QVERIFY(!QDir(root_).exists(".download-ppocr-v6-tiny"));
+        QVERIFY(QDir(root_).exists(".download-other"));
+        QVERIFY(!downloads_->start(ModelDownload::RUNTIME));
+    }
+
+    void retryResetsSpeedSamples() {
+        std::vector<double> times{0.0, 2.0, 3.0};
+        size_t tick = 0;
+        downloads_->set_clock_for_test([&] { return times.at(tick++); });
+        emit downloads_->download()->progress(0, 100);
+        emit downloads_->download()->progress(80, 100);
+        QCOMPARE(downloads_->last_progress()->speed.value(), 40.0);
+        emit downloads_->download()->progress(0, 100);
+        QVERIFY(!downloads_->last_progress()->speed);
+    }
+
+    void startFailureSurvivesReopen() {
+        auto *runner = new FakeRunner;
+        runner->start_ok = false;
+        runner->setParent(downloads_->download());
+        downloads_->download()->set_runner(runner);
+        QVERIFY(!downloads_->start("ppocr-v6-tiny"));
+        QVERIFY(!downloads_->busy());
+        PpocrModelDialog reopened(nullptr, downloads_);
+        QCOMPARE(reopened.status_text(), QString("Could not start the download."));
+    }
+
     void dialogSkipsRuntimeWhenTheModelDownloadDidNotFinish() {
         install_default();
-        PpocrModelDialog dialog;
+        PpocrModelDialog dialog(nullptr, downloads_);
         auto *runner = new FakeRunner;
-        runner->setParent(&dialog);
+        runner->setParent(dialog.download());
         dialog.download()->set_runner(runner);
         const auto rows = dialog.rows();
         std::find_if(rows.begin(), rows.end(), [](const auto &r) { return r.title == "PP-OCRv5 Korean"; })->button->click();
@@ -369,9 +466,9 @@ private slots:
 
     void dialogNamesTheRuntimeWhenOnlyItsDownloadFails() {
         install_default();
-        PpocrModelDialog dialog;
+        PpocrModelDialog dialog(nullptr, downloads_);
         auto *runner = new RecordingRunner;
-        runner->setParent(&dialog);
+        runner->setParent(dialog.download());
         dialog.download()->set_runner(runner);
         const auto row = [&dialog](const QString &title) {
             const auto all = dialog.rows();
@@ -394,9 +491,9 @@ private slots:
 
     void dialogKeepsAnErrorThatFollowsADownloadedModel() {
         install_default();
-        PpocrModelDialog dialog;
+        PpocrModelDialog dialog(nullptr, downloads_);
         auto *runner = new RecordingRunner;
-        runner->setParent(&dialog);
+        runner->setParent(dialog.download());
         dialog.download()->set_runner(runner);
         const auto rows = dialog.rows();
         std::find_if(rows.begin(), rows.end(), [](const auto &r) { return r.title == "PP-OCRv5 Korean"; })->button->click();
@@ -411,7 +508,7 @@ private slots:
 
     void dialogDeletesLocalModels() {
         write_model(root_, "local", "local");
-        PpocrModelDialog dialog;
+        PpocrModelDialog dialog(nullptr, downloads_);
         QSignalSpy changed(&dialog, &PpocrModelDialog::models_changed);
         QSignalSpy removed(&dialog, &PpocrModelDialog::model_removed);
         dialog.show_status("before");
@@ -430,7 +527,7 @@ private slots:
     // Downloads and deletions rebuild the list; the view stays where it was.
     void dialogKeepsTheScrollPositionWhenRefilled() {
         install_default();
-        PpocrModelDialog dialog;
+        PpocrModelDialog dialog(nullptr, downloads_);
         dialog.resize(560, 300);
         dialog.show();
         QCoreApplication::processEvents();
@@ -446,7 +543,7 @@ private slots:
     }
 
     void dialogReportsImportResults() {
-        PpocrModelDialog dialog;
+        PpocrModelDialog dialog(nullptr, downloads_);
         QSignalSpy changed(&dialog, &PpocrModelDialog::models_changed);
         emit dialog.import_done(QJsonObject{{"name", "x"}}, {});
         QTRY_VERIFY(dialog.status_text().contains("x"));

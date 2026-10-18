@@ -9,8 +9,10 @@ constexpr int THUMB_ROLE = Qt::UserRole + 3;
 constexpr int META_ROLE = Qt::UserRole + 4;
 // Full text searched but not shown: the whole text, or a file item's full path.
 constexpr int SEARCH_ROLE = Qt::UserRole + 5;
+// The group type (group_kind_style's KIND_*), which sets the colour of the icon tile and the tag.
+constexpr int KIND_ROLE = Qt::UserRole + 6;
 
-// Icon and name; quick-launch and hidden groups carry a small tag on the right.
+// A tinted icon tile and the name; quick-launch, hidden and filter groups carry a small tag of the same colour on the right.
 class GroupRowDelegate : public QStyledItemDelegate {
     Q_OBJECT
 public:

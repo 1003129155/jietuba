@@ -2,19 +2,23 @@
 #include "core/i18n.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
+#include "core/py_text.h"
 #include "core/resource_manager.h"
 #include "core/ui_scale.h"
 #include "settings/tool_settings.h"
 #include "translation/languages.h"
+#include "translation/speech_service.h"
 #include "translation/ui/widgets.h"
 #include <QApplication>
 #include <QClipboard>
+#include <QCloseEvent>
 #include <QCursor>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QLinearGradient>
 #include <QLocale>
 #include <QPainter>
+#include <QPolygonF>
 #include <QRegularExpression>
 #include <QScreen>
 #include <QStyle>
@@ -85,6 +89,13 @@ void VectorToolButton::set_tooltip(const QString &tooltip) {
     setAccessibleName(tooltip);
 }
 
+void VectorToolButton::set_icon(const QString &icon_name) {
+    if (icon_name != icon_name_) {
+        icon_name_ = icon_name;
+        update();
+    }
+}
+
 void VectorToolButton::apply_palette(const DashboardPalette &palette) {
     palette_ = &palette;
     update();
@@ -103,13 +114,14 @@ void VectorToolButton::leaveEvent(QEvent *event) {
 void VectorToolButton::paintEvent(QPaintEvent *) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
-    if (isDown()) painter.setBrush(palette_->fill_hover_color);
-    else if (underMouse()) painter.setBrush(palette_->fill_color);
+    const bool enabled = isEnabled();
+    if (enabled && isDown()) painter.setBrush(palette_->fill_hover_color);
+    else if (enabled && underMouse()) painter.setBrush(palette_->fill_color);
     else painter.setBrush(Qt::NoBrush);
     painter.setPen(Qt::NoPen);
     painter.drawRoundedRect(QRectF(rect()).adjusted(dialog_scaled(2), dialog_scaled(2), -dialog_scaled(2), -dialog_scaled(2)), dialog_scaled(9), dialog_scaled(9));
 
-    const QColor color(underMouse() ? palette_->text : palette_->text_2);
+    const QColor color(!enabled ? palette_->text_3 : underMouse() ? palette_->text : palette_->text_2);
     QPen pen(color, 1.8);
     pen.setCapStyle(Qt::RoundCap);
     pen.setJoinStyle(Qt::RoundJoin);
@@ -123,6 +135,14 @@ void VectorToolButton::paintEvent(QPaintEvent *) {
     if (icon_name_ == "copy") {
         painter.drawRoundedRect(QRectF(7.5, 6.5, 11, 12), 2, 2);
         painter.drawRoundedRect(QRectF(11.5, 10.5, 11, 12), 2, 2);
+    } else if (icon_name_ == "speak") {
+        painter.drawPolygon(QPolygonF({QPointF(6.5, 11.5), QPointF(10.0, 11.5), QPointF(14.5, 7.0), QPointF(14.5, 22.0), QPointF(10.0, 17.5),
+                                       QPointF(6.5, 17.5)}));
+        painter.drawArc(QRectF(11.0, 10.5, 8.0, 8.0), -50 * 16, 100 * 16);
+        painter.drawArc(QRectF(8.0, 7.0, 15.0, 15.0), -50 * 16, 100 * 16);
+    } else if (icon_name_ == "stop") {
+        painter.setBrush(color);
+        painter.drawRoundedRect(QRectF(9.5, 9.0, 11.0, 11.0), 2, 2);
     } else {
         painter.drawLine(QPointF(8.5, 9.0), QPointF(21.5, 9.0));
         painter.drawLine(QPointF(12.0, 6.0), QPointF(18.0, 6.0));
@@ -131,6 +151,50 @@ void VectorToolButton::paintEvent(QPaintEvent *) {
         painter.drawLine(QPointF(16.5, 14.0), QPointF(16.5, 20.0));
     }
     painter.restore();
+}
+
+SpeechButton::SpeechButton(VectorToolButton *button, std::function<QString()> text, std::function<QString()> lang_code)
+    : QObject(button), button_(button), text_(std::move(text)), lang_code_(std::move(lang_code)), token_(SpeechService::new_owner()) {
+    connect(button_, &QAbstractButton::clicked, this, &SpeechButton::toggle);
+}
+
+SpeechService *SpeechButton::service() {
+    if (!service_) {
+        service_ = SpeechService::instance();
+        connect(service_, &SpeechService::state_changed, this, &SpeechButton::refresh);
+    }
+    return service_;
+}
+
+bool SpeechButton::speaking() const { return service_ && service_->is_speaking(token_); }
+
+void SpeechButton::toggle() {
+    const auto text = text_();
+    if (!text.isEmpty() || speaking()) service()->toggle(token_, text, lang_code_());
+}
+
+void SpeechButton::stop() {
+    if (service_) service_->stop(token_);
+}
+
+void SpeechButton::refresh() {
+    if (speaking()) {
+        button_->setEnabled(true);
+        button_->set_icon("stop");
+        button_->set_tooltip(tr_text("Stop Reading"));
+        return;
+    }
+    button_->set_icon("speak");
+    if (text_().isEmpty()) {
+        button_->setEnabled(false);
+        button_->set_tooltip(tr_text("Read Aloud"));
+    } else if (service()->can_speak(lang_code_())) {
+        button_->setEnabled(true);
+        button_->set_tooltip(tr_text("Read Aloud"));
+    } else {
+        button_->setEnabled(false);
+        button_->set_tooltip(tr_text("No voice installed for this language. Add one in Windows Settings > Time & language > Speech."));
+    }
 }
 
 TranslateButton::TranslateButton(QWidget *parent) : QAbstractButton(parent), palette_(&dashboard_dark()), idle_text_(tr_text("Translate")) {
@@ -403,10 +467,19 @@ void TranslationDialog::build_ui() {
     connect(copy_source_button, &QAbstractButton::clicked, this, &TranslationDialog::copy_source);
     clear_source_button = tool_button("trash", tr_text("Clear Original"));
     connect(clear_source_button, &QAbstractButton::clicked, source_edit, &QTextEdit::clear);
+    speak_source_button = tool_button("speak", tr_text("Read Aloud"));
+    source_speech_ = new SpeechButton(speak_source_button, [this] { return py_strip(source_edit->toPlainText()); }, [this] { return source_text_lang(); });
+    // Editing the text being read stops it; the button's state follows the text.
+    connect(source_edit, &QTextEdit::textChanged, source_speech_, [this] {
+        source_speech_->stop();
+        source_speech_->refresh();
+    });
+    connect(source_language, &QComboBox::currentIndexChanged, source_speech_, &SpeechButton::refresh);
     character_count = new QLabel("");
     character_count->setObjectName("characterCount");
     source_tools->addWidget(copy_source_button);
     source_tools->addWidget(clear_source_button);
+    source_tools->addWidget(speak_source_button);
     source_tools->addStretch();
     source_tools->addWidget(character_count);
     source_layout->addLayout(source_tools);
@@ -430,7 +503,10 @@ void TranslationDialog::build_ui() {
     target_tools->setSpacing(dialog_scaled(3));
     copy_target_button = tool_button("copy", tr_text("Copy Translation"));
     connect(copy_target_button, &QAbstractButton::clicked, this, &TranslationDialog::copy_target);
+    speak_target_button = tool_button("speak", tr_text("Read Aloud"));
+    target_speech_ = new SpeechButton(speak_target_button, [this] { return speakable_text(); }, [this] { return target_text_lang_; });
     target_tools->addWidget(copy_target_button);
+    target_tools->addWidget(speak_target_button);
     target_tools->addStretch();
     target_layout->addLayout(target_tools);
 
@@ -452,6 +528,9 @@ void TranslationDialog::build_ui() {
     root->addLayout(footer);
 
     update_count();
+    target_text_lang_ = get_target_lang();
+    source_speech_->refresh();
+    target_speech_->refresh();
 }
 
 VectorToolButton *TranslationDialog::tool_button(const QString &icon_name, const QString &tooltip) {
@@ -492,9 +571,12 @@ void TranslationDialog::swap_languages() {
     const auto source_text = source_edit->toPlainText();
     const auto target_text = target_edit->toPlainText();
     if (!target_text.isEmpty()) {
+        target_speech_->stop();
         source_edit->setPlainText(target_text);
         target_edit->setPlainText(source_text);
         set_target_state(false, false);
+        target_text_lang_ = source_code;
+        target_speech_->refresh();
     }
 }
 
@@ -531,6 +613,8 @@ void TranslationDialog::retranslate_ui() {
     copy_source_button->set_tooltip(tr_text("Copy Original"));
     clear_source_button->set_tooltip(tr_text("Clear Original"));
     copy_target_button->set_tooltip(tr_text("Copy Translation"));
+    source_speech_->refresh();
+    target_speech_->refresh();
     source_language->setItemText(0, tr_text("Auto Detect"));
     translate_button->retranslate(!translate_button->isEnabled());
     update_count();
@@ -584,6 +668,27 @@ void TranslationDialog::copy_target() {
     }
 }
 
+QString TranslationDialog::speakable_text() const {
+    if (target_edit->property("loading").toBool() || target_edit->property("error").toBool()) return {};
+    return py_strip(target_edit->toPlainText());
+}
+
+QString TranslationDialog::source_text_lang() const {
+    const auto selected = get_source_lang();
+    if (selected != "auto") return selected;
+    const auto text = source_edit->toPlainText();
+    if (!detected_source_lang_.isEmpty() && text == detected_for_text_) return detected_source_lang_;
+    return guess_text_language(text);
+}
+
+void TranslationDialog::stop_speaking() { target_speech_->stop(); }
+
+void TranslationDialog::closeEvent(QCloseEvent *event) {
+    source_speech_->stop();
+    target_speech_->stop();
+    FramelessWindow::closeEvent(event);
+}
+
 void TranslationDialog::set_target_state(bool error, bool loading) {
     target_edit->setProperty("error", error);
     target_edit->setProperty("loading", loading);
@@ -592,30 +697,39 @@ void TranslationDialog::set_target_state(bool error, bool loading) {
 }
 
 void TranslationDialog::set_translation_result(const QString &text, const QString &detected_lang) {
+    stop_speaking();
     loading_dots_->stop();
     set_target_state(false, false);
     target_edit->setPlainText(text);
     translated_text = text;
+    target_text_lang_ = get_target_lang();
     if (!detected_lang.isEmpty()) {
         detected_source_lang_ = detected_lang;
+        detected_for_text_ = source_edit->toPlainText();
         set_combo_data(source_language, detected_lang, "auto");
     }
     set_busy(false);
+    source_speech_->refresh();
+    target_speech_->refresh();
 }
 
 void TranslationDialog::set_translation_error(const QString &error_msg) {
+    stop_speaking();
     loading_dots_->stop();
     last_error_message_ = error_msg;
     set_target_state(true, false);
     target_edit->setPlainText(tr_text("Translation failed:") + " " + error_msg);
     set_busy(false);
+    target_speech_->refresh();
 }
 
 void TranslationDialog::set_loading() {
+    stop_speaking();
     set_target_state(false, true);
     target_edit->setPlainText(tr_text("Translating..."));
     loading_dots_->start();
     set_busy(true);
+    target_speech_->refresh();
 }
 
 void TranslationDialog::set_busy(bool busy) {

@@ -11,6 +11,7 @@
 #include "clipboard/ui/forms/image_content_form.h"
 #include "clipboard/ui/forms/import_export_form.h"
 #include "clipboard/ui/forms/text_content_form.h"
+#include "clipboard/ui/group_kind_style.h"
 #include "clipboard/ui/image_item_actions.h"
 #include "clipboard/ui/layout_scale.h"
 #include "clipboard/ui/widgets/manage_rows.h"
@@ -61,9 +62,7 @@ QString short_time(const QDateTime &moment) {
     return moment.toString("yyyy-MM-dd");
 }
 
-QString display_icon(const Group &group) {
-    return get_group_display_icon(group.icon, group.group_type == GroupType::FILE, group.group_type == GroupType::HIDDEN);
-}
+QString display_icon(const Group &group) { return get_group_display_icon(group.icon, group.group_type); }
 
 QAction *add_menu_action(QMenu *menu, const QString &text, const std::function<void()> &handler) {
     QAction *action = menu->addAction(text);
@@ -102,8 +101,7 @@ ManageDialog::ManageDialog(ClipboardManager *manager, QWidget *parent) : Frosted
     setup_titlebar();
 
     setWindowTitle(tr_text("Clipboard Management"));
-    setMinimumSize(manage_dialog_min_width(), manage_dialog_min_height());
-    resize(manage_dialog_width(), manage_dialog_height());
+    fit_to_screen();
     setWindowFlags(windowFlags() | Qt::Window | Qt::WindowCloseButtonHint | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint);
     // setWindowFlags recreates the native window, dropping the frameless WS_THICKFRAME and shadow, so the edges no longer resize; add them back.
     helper_.install();
@@ -117,7 +115,6 @@ ManageDialog::ManageDialog(ClipboardManager *manager, QWidget *parent) : Frosted
     disable_auto_default(this);
     refresh_group_list();
     on_group_selected(selected_group_id);
-    center_on_screen();
     apply_ui_theme(get_ui_theme()->tokens());
     connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this](const UIThemeTokens &tokens) { apply_ui_theme(tokens); });
 }
@@ -135,19 +132,37 @@ void ManageDialog::setup_titlebar() {
     title_bar->center_title();
 }
 
-void ManageDialog::center_on_screen() {
+void ManageDialog::fit_to_screen() {
+    if (isVisible()) return;
     QScreen *screen = QGuiApplication::screenAt(QCursor::pos());
     if (!screen) screen = QGuiApplication::primaryScreen();
-    if (!screen) return;
-    const QRect geo = screen->availableGeometry();
-    const auto [width, height] = fit_manage_dialog_size(geo.width(), geo.height());
-    resize(width, height);
-    move(geo.x() + (geo.width() - this->width()) / 2, geo.y() + (geo.height() - this->height()) / 2);
+    if (screen) fit_to_available(screen->availableGeometry().size());
+}
+
+void ManageDialog::fit_to_available(const QSize &available) {
+    // Decided first: raising the minimum makes Qt enlarge the window at once, which would then read as dragged.
+    const bool user_sized = fitted_size_ && size() != *fitted_size_;
+    const auto [min_width, min_height] = fit_manage_dialog_min_size(available.width(), available.height());
+    const QSize min_size(min_width, min_height);
+    setMinimumSize(min_size);
+    QSize target;
+    if (user_sized) {
+        target = size().boundedTo(available).expandedTo(min_size);
+    } else {
+        const auto [width, height] = fit_manage_dialog_size(available.width(), available.height());
+        target = QSize(width, height);
+    }
+    if (target != size()) resize(target);
+    if (!user_sized) fitted_size_ = size();
 }
 
 void ManageDialog::show_and_activate() {
-    if (isMinimized()) showNormal();
-    else show();
+    if (isMinimized()) {
+        showNormal();
+    } else {
+        fit_to_screen();
+        show();
+    }
     raise();
     activateWindow();
 }
@@ -229,18 +244,22 @@ QWidget *ManageDialog::create_sidebar() {
     layout->setContentsMargins(dialog_scaled(4), dialog_scaled(4), dialog_scaled(4), dialog_scaled(4));
     layout->setSpacing(dialog_scaled(6));
 
-    auto *section = new QHBoxLayout;
-    section->setContentsMargins(dialog_scaled(12), dialog_scaled(6), dialog_scaled(6), 0);
     groups_caption = new QLabel(tr_text("Groups"));
-    apply_theme_text_style(groups_caption, 11, false, "font-weight: 600;", true);
-    section->addWidget(groups_caption, 1);
-    new_group_btn = new QPushButton("+ " + tr_text("New"));
-    new_group_btn->setObjectName("ManageTextButton");
-    new_group_btn->setToolTip(tr_text("New Group"));
+    groups_caption->setContentsMargins(dialog_scaled(12), dialog_scaled(6), dialog_scaled(6), 0);
+    apply_theme_text_style(groups_caption, 12, false, "font-weight: 600;", true);
+    layout->addWidget(groups_caption);
+
+    // The same full-width dashed button as the middle column's "Add Content", lined up with the group rows.
+    auto *add_row = new QHBoxLayout;
+    add_row->setContentsMargins(dialog_scaled(4), 0, dialog_scaled(4), 0);
+    new_group_btn = new QPushButton("+  " + tr_text("New Group"));
+    new_group_btn->setObjectName("ManageAddButton");
+    // Checked while a new group is being created, instead of a highlighted group row.
+    new_group_btn->setCheckable(true);
     new_group_btn->setCursor(Qt::PointingHandCursor);
     connect(new_group_btn, &QPushButton::clicked, this, [this] { show_new_group_form(); });
-    section->addWidget(new_group_btn);
-    layout->addLayout(section);
+    add_row->addWidget(new_group_btn);
+    layout->addLayout(add_row);
 
     group_list = new ReorderListWidget;
     group_list->setObjectName("ManageGroupList");
@@ -279,7 +298,7 @@ QWidget *ManageDialog::create_list_column() {
     list_title = new QLabel;
     apply_theme_text_style(list_title, 16, true);
     list_count = new QLabel;
-    apply_theme_text_style(list_count, 11, false, {}, true);
+    apply_theme_text_style(list_count, 12, false, {}, true);
     title_box->addWidget(list_title);
     title_box->addWidget(list_count);
     header->addLayout(title_box, 1);
@@ -333,7 +352,7 @@ QWidget *ManageDialog::create_list_column() {
 
     reorder_hint = new QLabel(tr_text("Drag or press Alt+Up/Down to reorder"));
     reorder_hint->setAlignment(Qt::AlignCenter);
-    apply_theme_text_style(reorder_hint, 10, false, {}, true);
+    apply_theme_text_style(reorder_hint, 12, false, {}, true);
     layout->addWidget(reorder_hint);
     return column;
 }
@@ -373,7 +392,7 @@ QWidget *ManageDialog::create_detail_column() {
     footer->setContentsMargins(0, dialog_scaled(12), 0, 0);
     footer->setSpacing(dialog_scaled(10));
     detail_meta = new QLabel;
-    apply_theme_text_style(detail_meta, 11, false, {}, true);
+    apply_theme_text_style(detail_meta, 12, false, {}, true);
     footer->addWidget(detail_meta, 1);
 
     delete_btn = new QPushButton(tr_text("Delete"));
@@ -517,6 +536,7 @@ void ManageDialog::apply_ui_theme(const UIThemeTokens &tokens) {
                       .arg(theme_surface_color(), tokens.separator, s(12), tokens.input_background, tokens.border, s(8), s(10), s(13), tokens.text)
                       .arg(tokens.accent, tokens.accent_text, s(4), tokens.accent_soft, tokens.text_muted, tokens.border_hover, s(34), tokens.danger, s(36))
                       .arg(s(16), tokens.danger_soft, tokens.accent_strong, s(104), s(22), tokens.accent_strong_hover, tokens.accent_strong_pressed) +
+                  QString("QPushButton#ManageAddButton:checked { background: %1; border: 1px solid %2; }").arg(tokens.accent_soft, tokens.accent) +
                   scrollbar_qss(this));
     set_own_style(column_separator, QString("background: %1; border: none;").arg(tokens.separator));
     search_action->setIcon(tinted_icon(FluentIcon::Search, tokens.text_muted));
@@ -539,6 +559,7 @@ void ManageDialog::apply_dynamic_form_theme() {
 QString ManageDialog::group_tag(const Group &group) const {
     if (group.group_type == GroupType::FILE) return tr_text("Launch");
     if (group.group_type == GroupType::HIDDEN) return tr_text("Hidden");
+    if (group.is_filter()) return tr_text("Filter");
     return {};
 }
 
@@ -559,11 +580,34 @@ void ManageDialog::refresh_group_list() {
         item->setData(ID_ROLE, group.id);
         item->setData(ICON_ROLE, display_icon(group));
         item->setData(TAG_ROLE, group_tag(group));
+        item->setData(KIND_ROLE, group_kind(group.group_type));
         group_list->addItem(item);
     }
     const int row = group_list->row_of_id(selected_group_id);
+    if (row >= 0 && !creating_group_) group_list->setCurrentRow(row);
+    group_list->blockSignals(false);
+}
+
+void ManageDialog::enter_creating_group() {
+    new_group_btn->setChecked(true);
+    if (creating_group_) return;
+    creating_group_ = true;
+    group_list->blockSignals(true);
+    group_list->clearSelection();
+    group_list->setCurrentRow(-1);
+    group_list->blockSignals(false);
+    refresh_content_list();
+}
+
+void ManageDialog::leave_creating_group(bool refresh) {
+    new_group_btn->setChecked(false);
+    if (!creating_group_) return;
+    creating_group_ = false;
+    const int row = group_list->row_of_id(selected_group_id);
+    group_list->blockSignals(true);
     if (row >= 0) group_list->setCurrentRow(row);
     group_list->blockSignals(false);
+    if (refresh) refresh_content_list();
 }
 
 void ManageDialog::on_group_row_changed(QListWidgetItem *current) {
@@ -574,6 +618,7 @@ void ManageDialog::on_group_row_changed(QListWidgetItem *current) {
 void ManageDialog::on_group_selected(std::optional<qint64> group_id) {
     // Switching group: the middle column refreshes and the right one shows the group's new item form.
     selected_group_id = group_id;
+    leave_creating_group(false);
     if (!search_input->text().isEmpty()) {
         search_input->blockSignals(true);
         search_input->clear();
@@ -632,10 +677,15 @@ QListWidgetItem *ManageDialog::item_row(const ClipboardItem &item) const {
 
 void ManageDialog::refresh_content_list() {
     needs_reload_ = false;
+    if (creating_group_) {
+        show_new_group_placeholder();
+        return;
+    }
     const auto group = get_selected_group();
+    const bool stores_content = group.has_value() && !group->is_filter();
     edit_group_btn->setVisible(group.has_value());
-    add_item_btn->setEnabled(group.has_value());
-    search_input->setEnabled(group.has_value());
+    add_item_btn->setEnabled(stores_content);
+    search_input->setEnabled(stores_content);
 
     item_list->blockSignals(true);
     item_list->clear();
@@ -647,6 +697,13 @@ void ManageDialog::refresh_content_list() {
         return;
     }
     list_title->setText(display_icon(*group) + "  " + group->name);
+    if (group->is_filter()) {
+        list_count->setText("");
+        item_types_.clear();
+        show_list_empty(tr_text("Filter groups store no content; they show one type of your clipboard history"));
+        item_list->blockSignals(false);
+        return;
+    }
     const auto items = manager->get_by_group(group->id, 0, ITEMS_PER_GROUP);
     list_count->setText(tr_text("{count} items").replace("{count}", QString::number(items.size())));
     item_types_.clear();
@@ -658,6 +715,20 @@ void ManageDialog::refresh_content_list() {
     if (row >= 0) item_list->setCurrentRow(row);
     item_list->blockSignals(false);
     apply_search_filter(search_input->text());
+}
+
+void ManageDialog::show_new_group_placeholder() {
+    // The new group is not saved yet: nothing to list and nothing can be added.
+    edit_group_btn->setVisible(false);
+    add_item_btn->setEnabled(false);
+    search_input->setEnabled(false);
+    item_list->blockSignals(true);
+    item_list->clear();
+    item_list->blockSignals(false);
+    item_types_.clear();
+    list_title->setText(tr_text("New Group"));
+    list_count->setText("");
+    show_list_empty(tr_text("Save the new group first, then add content to it"));
 }
 
 void ManageDialog::show_list_empty(const QString &text) {
@@ -734,9 +805,8 @@ void ManageDialog::on_content_drag(bool dragging) { group_list->set_awaiting_for
 
 bool ManageDialog::can_move_item_to_group(qint64 item_id, std::optional<qint64> group_id) const {
     if (!group_id || group_id == selected_group_id) return false;
-    // Quick launch groups take only files (ClipboardManager::move_to_group refuses the rest too).
-    if (group_types_.value(*group_id, -1) == static_cast<int>(GroupType::FILE)) return item_types_.value(item_id) == "file";
-    return true;
+    // What each group type takes is decided by the Rust core (move_to_group refuses the rest too); this only greys the target out.
+    return group_accepts(group_types_.value(*group_id, static_cast<int>(GroupType::NORMAL)), item_types_.value(item_id, "text"));
 }
 
 void ManageDialog::move_item_to_group(qint64 item_id, qint64 group_id) {
@@ -826,8 +896,8 @@ void ManageDialog::open_item_editor(qint64 item_id, std::optional<qint64> group_
 
 void ManageDialog::clear_detail_layout() {
     detail_form_token += 1;
-    const QList<QWidget *> stale{group_name_input, icon_input, icon_preview, radio_normal, radio_file, radio_hidden, emoji_scroll, image_preview,
-                                 content_kind_switch, image_drop_zone, paste_image_btn};
+    const QList<QWidget *> stale{group_name_input, icon_input, icon_preview, radio_normal, radio_file, radio_hidden, radio_filter, filter_kind_box,
+                                 filter_kind_switch, emoji_scroll, recommended_row, image_preview, content_kind_switch, image_drop_zone, paste_image_btn};
     for (QWidget *widget : stale)
         if (widget) widget->blockSignals(true);
     if (group_type_btn_group) group_type_btn_group->blockSignals(true);
@@ -837,8 +907,12 @@ void ManageDialog::clear_detail_layout() {
     radio_normal = nullptr;
     radio_file = nullptr;
     radio_hidden = nullptr;
+    radio_filter = nullptr;
+    filter_kind_box = nullptr;
+    filter_kind_switch = nullptr;
     group_type_btn_group = nullptr;
     emoji_scroll = nullptr;
+    recommended_row = nullptr;
     image_preview = nullptr;
     content_kind_switch = nullptr;
     editing_image_size.reset();
@@ -898,6 +972,7 @@ void ManageDialog::show_new_group_form() {
     clear_detail_layout();
     set_footer(tr_text("Create"), false);
     editing_group_id.reset();
+    enter_creating_group();
     build_new_group_form(this);
     update_group_form_header();
     finish_detail_form_setup();
@@ -909,6 +984,7 @@ void ManageDialog::show_edit_group_form(qint64 group_id) {
     for (const auto &candidate : manager->get_groups())
         if (candidate.id == group_id) group = candidate;
     if (!group) return;
+    leave_creating_group();
     current_mode = "group";
     clear_detail_layout();
     set_footer(tr_text("Save"), true);
@@ -923,17 +999,34 @@ void ManageDialog::on_group_type_toggled(bool checked, std::optional<int> form_t
     if (!is_current_detail_form_token(form_token)) return;
     if (!icon_input) return;
     if (!checked) return;
-    const bool is_file_group = radio_file && radio_file->isChecked();
-    const bool is_hidden = radio_hidden && radio_hidden->isChecked();
-    icon_input->setText(get_toggled_default_group_icon(icon_input->text(), is_file_group, is_hidden));
+    icon_input->setText(get_toggled_default_group_icon(icon_input->text(), selected_group_type()));
+    if (filter_kind_box && radio_filter) filter_kind_box->setVisible(radio_filter->isChecked());
+    refresh_group_icon_kind(this);
     update_group_form_header();
+}
+
+void ManageDialog::on_filter_kind_changed(const QString &, std::optional<int> form_token) {
+    // The default icon follows the filtered type; a custom icon stays.
+    on_group_type_toggled(true, form_token);
+}
+
+int ManageDialog::selected_group_type() const {
+    if (radio_hidden && radio_hidden->isChecked()) return static_cast<int>(GroupType::HIDDEN);
+    if (radio_file && radio_file->isChecked()) return static_cast<int>(GroupType::FILE);
+    if (radio_filter && radio_filter->isChecked() && filter_kind_switch) {
+        if (const auto type = filter_group_type(filter_kind_switch->currentItem())) return static_cast<int>(*type);
+    }
+    return static_cast<int>(GroupType::NORMAL);
 }
 
 void ManageDialog::update_group_form_header() {
     if (!radio_file) return;
     const bool is_new = !editing_group_id;
     QString title, subtitle;
-    if (radio_hidden && radio_hidden->isChecked()) {
+    if (radio_filter && radio_filter->isChecked()) {
+        title = is_new ? tr_text("New Filter Group") : tr_text("Edit Filter Group");
+        subtitle = tr_text("Filter groups store no content; they show one type of your clipboard history");
+    } else if (radio_hidden && radio_hidden->isChecked()) {
         title = is_new ? tr_text("New Hidden Group") : tr_text("Edit Hidden Group");
         subtitle = tr_text("Hidden groups are not displayed on the clipboard panel; changing to normal group restores visibility");
     } else if (radio_file->isChecked()) {
@@ -979,6 +1072,7 @@ bool ManageDialog::is_file_content_mode() {
 }
 
 void ManageDialog::show_new_content_form() {
+    leave_creating_group();
     current_mode = "content";
     clear_detail_layout();
     editing_item_id.reset();
@@ -990,6 +1084,13 @@ void ManageDialog::show_new_content_form() {
         auto *hint = new QLabel(tr_text("Please create a group first"));
         apply_theme_text_style(hint, 12, false, {}, true);
         detail_layout->addWidget(hint);
+        detail_layout->addStretch();
+        finish_detail_form_setup();
+        return;
+    }
+    if (group->is_filter()) {
+        set_detail_header(tr_text("Filter Group"), tr_text("Filter groups store no content; they show one type of your clipboard history"));
+        set_footer(std::nullopt, false);
         detail_layout->addStretch();
         finish_detail_form_setup();
         return;
@@ -1081,6 +1182,7 @@ void ManageDialog::on_browse_folder() {
 void ManageDialog::show_edit_content_form(qint64 item_id) {
     const auto item = manager->get_item(item_id);
     if (!item) return;
+    leave_creating_group();
     current_mode = "content";
     clear_detail_layout();
     set_detail_header(tr_text("Edit Content"));
@@ -1112,6 +1214,7 @@ void ManageDialog::show_edit_content_form(qint64 item_id) {
 }
 
 void ManageDialog::show_import_export_form() {
+    leave_creating_group();
     current_mode = "import_export";
     clear_detail_layout();
     set_detail_header(tr_text("Import/Export"), tr_text("Back up saved text content as CSV, or import it on another computer"));
@@ -1151,11 +1254,9 @@ void ManageDialog::save_group() {
         return;
     }
     const QString icon = get_selected_icon();
-    GroupType group_type = GroupType::NORMAL;
-    if (radio_hidden && radio_hidden->isChecked()) group_type = GroupType::HIDDEN;
-    else if (radio_file && radio_file->isChecked()) group_type = GroupType::FILE;
+    const int group_type = selected_group_type();
 
-    const auto result = clipboard::save_group(*manager, editing_group_id, name, icon, static_cast<int>(group_type));
+    const auto result = clipboard::save_group(*manager, editing_group_id, name, icon, group_type);
     if (!result.success) {
         show_warning_dialog(this, tr_text("Failed"), result.error == "create_group_failed" ? tr_text("Failed to create group") : tr_text("Failed to update group"));
         return;

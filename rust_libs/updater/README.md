@@ -12,8 +12,8 @@ cargo rustc --locked --release --target x86_64-pc-windows-msvc --manifest-path r
 
 以上命令在仓库根目录执行。ARM64 将目标改为 `aarch64-pc-windows-msvc`。
 `build.rs` 用 Windows SDK 的 `rc.exe` 把根目录的 `托盘.ico`（与主程序同一图标）、版本信息和 manifest 嵌入 exe。
-`build_with_ocr_onefile.py` 自动构建并内嵌更新器和许可资源，不参与 maturin 或 PyPI 发布。
-应用版本使用 Python `APP_VERSION`，更新器 crate 版本独立维护。
+C++ 版的单文件构建（`cpp/CMakeLists.txt`）自动构建并内嵌更新器，不参与 maturin 或 PyPI 发布。
+应用版本取自仓库根目录的 `VERSION` 文件，更新器 crate 版本独立维护。
 
 依赖变化后使用 `cargo about generate --manifest-path rust_libs/updater/Cargo.toml -o rust_libs/updater/THIRD-PARTY-NOTICES.txt rust_libs/updater/notices.hbs` 更新第三方许可。
 

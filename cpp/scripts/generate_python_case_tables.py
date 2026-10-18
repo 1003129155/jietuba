@@ -1,7 +1,7 @@
 """Generates src/core/py_case_tables.inc: str case mappings and properties of the reference interpreter.
 
 Run with the reference interpreter so the Unicode version matches the Python build:
-    ../venv311/Scripts/python.exe -I scripts/generate_python_case_tables.py
+    python -I scripts/generate_python_case_tables.py
 
 The mappings are the full ones str.lower() / upper() / title() / casefold() apply to a single
 code point (U+03A3 maps to plain sigma; the final sigma rule needs the context). The

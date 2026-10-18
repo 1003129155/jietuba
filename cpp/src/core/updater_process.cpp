@@ -41,7 +41,13 @@ QString helper_path() {
     return target;
 }
 
-QString app_variant() { return "lite"; }
+QString app_variant() {
+#ifdef JIETUBA_FULL_VARIANT
+    return "full";
+#else
+    return "lite";
+#endif
+}
 
 UpdaterProcess::UpdaterProcess(QObject *parent) : QObject(parent), process_(this), timer_(this) {
     connect(&process_, &QProcess::readyReadStandardOutput, this, &UpdaterProcess::read);
@@ -90,6 +96,14 @@ void UpdaterProcess::cancel() {
     if (busy_ && !handed_off_) {
         send("cancel");
         process_.closeWriteChannel();
+    }
+}
+
+void UpdaterProcess::shutdown() {
+    cancel();
+    if (process_.state() != QProcess::NotRunning && !process_.waitForFinished(3000)) {
+        process_.kill();
+        process_.waitForFinished(1000);
     }
 }
 

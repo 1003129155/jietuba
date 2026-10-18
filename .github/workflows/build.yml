@@ -11,104 +11,31 @@ permissions:
   contents: read
 
 jobs:
-  # 轻量版：cpp/ 的 C++ 静态单 exe，和完整版并行构建
-  lite:
-    uses: ./.github/workflows/lite.yml
-
-  # 完整版：Python + PyInstaller
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: x64
-            runner: windows-latest
-            python-architecture: x64
-            python-machine: amd64
-            rust-target: x86_64-pc-windows-msvc
-          - arch: arm64
-            runner: windows-11-arm
-            python-architecture: arm64
-            python-machine: arm64
-            rust-target: aarch64-pc-windows-msvc
-    runs-on: ${{ matrix.runner }}
-    env:
-      # Runner 控制台默认编码是 cp1252，打包脚本的中文 print() 会导致
-      # UnicodeEncodeError；强制 Python 用 UTF-8 处理标准输出。
-      PYTHONUTF8: "1"
-
+  # 标签必须等于 release-<VERSION 文件里的版本>；放在最前面，标签写错时不必等编完才发现
+  check-version:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - name: Check tag matches APP_VERSION
+      - name: Check tag matches VERSION
         if: startsWith(github.ref, 'refs/tags/')
+        env:
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          $match = Select-String -Path main\main_app.py -Pattern '^APP_VERSION = "([^"]+)"'
-          $expected = "release-" + $match.Matches[0].Groups[1].Value
-          if ("${{ github.ref_name }}" -ne $expected) {
-            throw "Tag ${{ github.ref_name }} does not match APP_VERSION (expected $expected)"
-          }
+          expected="release-$(tr -d '[:space:]' < VERSION)"
+          if [ "$REF_NAME" != "$expected" ]; then
+            echo "Tag $REF_NAME does not match VERSION (expected $expected)"
+            exit 1
+          fi
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
-        with:
-          python-version: "3.11"
-          architecture: ${{ matrix.python-architecture }}
-          cache: "pip"
-          cache-dependency-path: |
-            requirements.txt
-            requirements-dev.txt
-
-      - name: Verify native toolchain architecture
-        run: |
-          python -c "import platform; actual = platform.machine().lower(); expected = '${{ matrix.python-machine }}'; assert actual == expected, f'Python architecture {actual!r} != {expected!r}'"
-          $hostLine = rustc -vV | Select-String '^host:'
-          if ($hostLine -notmatch '${{ matrix.rust-target }}') {
-            throw "Rust host does not match ${{ matrix.rust-target }}: $hostLine"
-          }
-
-      - name: Cache cargo registry and target
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          workspaces: rust_libs
-          cache-on-failure: true
-          # 标签和其他分支从 master2 的缓存恢复；它们自己存的缓存只会把 10 GB 上限挤满
-          save-if: ${{ github.ref == 'refs/heads/master2' }}
-
-      - name: Build Rust extension wheels from this release
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install maturin==1.12.6
-          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust", "hdrcapture", "inputhub", "video_recorder") {
-            maturin build --locked --release --target ${{ matrix.rust-target }} -i python -m rust_libs/$crate/Cargo.toml --out wheelhouse
-            if ($LASTEXITCODE -ne 0) { throw "$crate wheel build failed" }
-          }
-
-      - name: Install and smoke-test native wheels
-        run: |
-          python -m pip install (Get-ChildItem wheelhouse\*.whl).FullName
-          python -c "import gifrecorder, longstitch, pyclipboard, ppocr_rust, hdrcapture, inputhub, video_recorder; assert not hasattr(video_recorder.Recorder, '_configure_test'), 'Production wheel has test support'; print('Native extension imports OK')"
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install -r requirements.txt
-          python -m pip install -r requirements-dev.txt
-
-      - name: Build onefile exe with PyInstaller
-        run: |
-          python build_with_ocr_onefile.py
-          if ($LASTEXITCODE -ne 0) { throw "full build failed" }
-
-      - name: Upload full build
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: full-${{ matrix.arch }}
-          path: dist/
-          if-no-files-found: error
+  # 轻量版和完整版：cpp/ 的 C++ 静态单 exe，完整版另内嵌 ONNX Runtime 并带默认 PP-OCR 模型
+  lite:
+    needs: check-version
+    uses: ./.github/workflows/lite.yml
 
   package:
-    needs: [build, lite]
+    needs: lite
     # 签名 token 存在 signing 环境中，该环境只允许 master2 分支和 release-* 标签使用
     environment: signing
     strategy:
@@ -122,10 +49,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
+      # 旧版更新器按包名 jietuba_pp-<tag>-<arch>.zip 精确匹配，只替换 zip 根目录的 jietuba_pp.exe，models/ 留在原处
       - name: Download full build
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: full-${{ matrix.arch }}
+          name: jietuba_pp-cpp-${{ matrix.arch }}
           path: dist
 
       # 旧版更新器按包名 jietuba_lite-<tag>-<arch>.zip 精确匹配，只替换 zip 根目录的 jietuba_lite.exe
@@ -138,7 +66,7 @@ jobs:
       # 签名策略由仓库变量 SIGNPATH_SIGNING_POLICY 决定：留空时跳过签名，
       # test-signing 用测试证书，release-signing 用正式证书（需在 SignPath 中人工批准）。
       # 签名范围由 SignPath 项目的 Artifact Configuration「windows-exes」定义：zip 根目录下的两个 exe，
-      # 并要求 exe 的产品版本等于 version 参数；两个版本的产品版本都取自 main_app.py 的 APP_VERSION。
+      # 并要求 exe 的产品版本等于 version 参数；两个版本的产品版本都取自根目录 VERSION 文件。
       - name: Stage unsigned executables
         id: stage
         if: vars.SIGNPATH_SIGNING_POLICY != ''
@@ -146,8 +74,7 @@ jobs:
           New-Item -ItemType Directory -Force unsigned | Out-Null
           Copy-Item dist\jietuba_pp.exe unsigned\
           Copy-Item dist_lite\jietuba_lite.exe unsigned\
-          $match = Select-String -Path main\main_app.py -Pattern '^APP_VERSION = "([^"]+)"'
-          "version=$($match.Matches[0].Groups[1].Value)" >> $env:GITHUB_OUTPUT
+          "version=$((Get-Content VERSION -Raw).Trim())" >> $env:GITHUB_OUTPUT
 
       - name: Upload unsigned executables
         id: upload-unsigned

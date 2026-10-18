@@ -194,6 +194,66 @@ private slots:
         QVERIFY(ids_of(manager().get_by_group(std::nullopt)).contains(item));
     }
 
+    void aFilterGroupShowsOneTypeOfTheHistory() {
+        const auto texts = add_texts({"apple", "banana"});
+        const auto file = manager().add_item(file_payload({"C:\\f.txt"}), "file");
+        QVERIFY(file && manager().add_item("[10x10]", "image"));
+        const auto only_text = manager().create_group("Text", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER_TEXT));
+        const auto plain = manager().create_group("Plain");
+        ClipboardController controller(manager());
+        QVERIFY(controller.shows_history());
+        // The type button says file; a filter group's own type wins.
+        controller.set_content_type_filter(3);
+        controller.switch_to_group(*only_text);
+        QCOMPARE(controller.current_filter_type(), std::optional<QString>("text"));
+        QVERIFY(controller.shows_history());
+        QCOMPARE(contents_of(controller.current_items), (QStringList{"banana", "apple"}));
+        // Search and the time range still narrow it.
+        controller.set_search_text("apple");
+        QCOMPARE(contents_of(controller.current_items), QStringList{"apple"});
+        controller.set_search_text("");
+        // Pasting there moves the row up like in the history.
+        QVERIFY(controller.paste_item(texts[0]));
+        QCOMPARE(contents_of(controller.current_items), (QStringList{"apple", "banana"}));
+        // Moving an item into a group keeps it listed.
+        QVERIFY(controller.move_to_group(texts[1], *plain));
+        QCOMPARE(controller.current_items.size(), 2);
+        // A real group is not the history.
+        controller.switch_to_group(*plain);
+        QVERIFY(!controller.shows_history());
+        QVERIFY(!controller.current_filter_type());
+        QCOMPARE(contents_of(controller.current_items), QStringList{"banana"});
+    }
+
+    void groupMenusLeaveOutGroupsThatTakeNothing() {
+        const auto text = add_texts({"text"}).first();
+        const auto file = manager().add_item(file_payload({"C:\\f.txt"}), "file");
+        const auto normal = manager().create_group("N");
+        const auto quick = manager().create_group("Q", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILE));
+        const auto filter = manager().create_group("F", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER_FILE));
+        QVERIFY(normal && quick && filter && file);
+        ClipboardController controller(manager());
+        controller.load_history();
+        const auto targets = [](const std::optional<ContextMenuData> &data) {
+            QStringList keys;
+            for (const auto &action : data->actions)
+                if (action.key == "move_group_menu")
+                    for (const auto &child : action.children) keys << child.key;
+            return keys;
+        };
+        QCOMPARE(targets(controller.build_context_menu_data(text)), QStringList{QString("move_to_group_%1").arg(*normal)});
+        QCOMPARE(targets(controller.build_context_menu_data(*file)), (QStringList{QString("move_to_group_%1").arg(*normal), QString("move_to_group_%1").arg(*quick)}));
+        QCOMPARE(targets(controller.build_marked_context_menu_data({text, *file})), QStringList{QString("move_to_group_%1").arg(*normal)});
+        // Items shown in a filter group get the history menu, not the group one.
+        controller.switch_to_group(*filter);
+        // Keep the optional alive: a range-for over a member of a temporary would iterate freed memory.
+        const auto data = controller.build_context_menu_data(*file);
+        QVERIFY(data);
+        QStringList keys;
+        for (const auto &action : data->actions) keys << action.key;
+        QVERIFY(!keys.contains("edit_item") && !keys.contains("move_item_up") && !keys.contains("move_item_down"));
+    }
+
     void pastingMovesTheRowToTheTopOfTheHistoryOnly() {
         const auto ids = add_texts({"first", "second", "third"});
         ClipboardController controller(manager());

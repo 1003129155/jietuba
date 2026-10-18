@@ -1,5 +1,6 @@
 #include "core/constants.h"
 #include "core/crash_handler.h"
+#include "core/elevation.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
 #include "core/ui_scale.h"
@@ -235,13 +236,16 @@ void FinishPage::retranslate() {
 void FinishPage::save() {
     config_->set_app_setting("welcome_wizard_done", "1");
     config_->set_show_main_window(show_main_switch_->isChecked());
-    const bool autostart_on = autostart_switch_->isChecked();
     const bool desktop_on = desktop_switch_->isChecked();
+    const bool run_as_admin = config_->get_app_setting("run_as_admin").toBool();
+    // Without elevation the wizard cannot remove the administrator task, which keeps starting the
+    // program at sign-in, so autostart stays on instead of being stored as off.
+    const bool autostart_on = autostart_switch_->isChecked() || (run_as_admin && elevation::elevation_state() != elevation::ELEVATED);
     config_->set_app_setting("autostart_enabled", autostart_on);
     // File and network path work runs in the background so UNC probing never blocks the UI thread.
-    std::thread([autostart_on, desktop_on] {
+    std::thread([autostart_on, desktop_on, run_as_admin] {
         run_thread_guarded("WelcomeFinish", [&] {
-            set_autostart(autostart_on);
+            elevation::apply_startup(autostart_on, run_as_admin, run_as_admin);
             if (desktop_on) create_desktop_shortcut();
         });
     }).detach();

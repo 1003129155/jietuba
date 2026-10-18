@@ -11,7 +11,6 @@
 #include "ui/fluent_lite/theme.h"
 #include <QDesktopServices>
 #include <QDir>
-#include <QElapsedTimer>
 #include <QFileInfo>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -25,16 +24,11 @@
 #include <QUrl>
 #include <QVBoxLayout>
 #include <algorithm>
-#include <memory>
 #include <stdexcept>
 
 namespace jietuba {
 namespace {
 QString tr_text(const char *text) { return i18n_tr(text, "PpocrModelDialog"); }
-
-// The speed covers the last few seconds: progress arrives about every 100 ms, and a speed per
-// event would keep jumping.
-constexpr double SPEED_WINDOW = 3.0;
 
 QString megabytes(qint64 size) { return tr_text("%1 MB").replace("%1", QString::number(size / 1048576.0, 'f', 1)); }
 
@@ -104,24 +98,12 @@ QString ppocr_language_names(const QStringList &codes) {
     return shown.join(tr_text(", "));
 }
 
-PpocrModelDialog::PpocrModelDialog(QWidget *parent) : QDialog(parent) {
-    auto timer = std::make_shared<QElapsedTimer>();
-    timer->start();
-    clock_ = [timer] { return timer->nsecsElapsed() / 1e9; };
+PpocrModelDialog::PpocrModelDialog(QWidget *parent, ModelDownloads *downloads) : QDialog(parent), downloads_(downloads ? downloads : model_downloads()) {
     scale_dialog_font(*this);
     setWindowTitle(tr_text("Manage PP-OCR Models"));
     setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowCloseButtonHint);
     setStyleSheet(QString("QDialog { background: %1; }").arg(ui_tokens(this).window));
 
-    download_ = new ModelDownload(this);
-    connect(download_, &ModelDownload::progress, this, &PpocrModelDialog::on_progress);
-    connect(download_, &ModelDownload::finished, this, &PpocrModelDialog::on_downloaded);
-    // An error after the model arrived must stay on screen, so it also cancels the runtime that was to follow.
-    connect(download_, &ModelDownload::failed, this, [this](const QString &reason) {
-        runtime_next_ = false;
-        status_->setText(reason);
-    });
-    connect(download_, &ModelDownload::stopped, this, &PpocrModelDialog::on_download_stopped);
     connect(this, &PpocrModelDialog::import_done, this, &PpocrModelDialog::on_imported, Qt::QueuedConnection);
 
     rows_ = new QWidget(this);
@@ -162,7 +144,7 @@ PpocrModelDialog::PpocrModelDialog(QWidget *parent) : QDialog(parent) {
     root->addLayout(buttons);
 
     configure_dialog_controls(*this);
-    fill();
+    subscribe();
     fit_height();
 }
 
@@ -193,15 +175,15 @@ void PpocrModelDialog::fill() {
         }
         delete item;
     }
-    const bool busy = download_->busy() || importing_;
+    const bool busy = downloads_->busy() || importing_;
     download_row_ = nullptr;
     auto add_row = [this, busy](const QString &title, const QString &detail, const QString &action, bool downloading = false) {
         auto *row = new ModelRow(title, detail, action, downloading, rows_);
         row->setObjectName("ppocr_model_row");
         if (downloading) {
-            connect(row->button, &QPushButton::clicked, download_, &ModelDownload::cancel);
+            connect(row->button, &QPushButton::clicked, downloads_, &ModelDownloads::cancel);
             download_row_ = row;
-            if (last_progress_) row->set_progress(last_progress_->received, last_progress_->total, last_progress_->speed);
+            if (const auto progress = downloads_->last_progress()) row->set_progress(progress->received, progress->total, progress->speed);
         } else if (row->button) {
             row->button->setEnabled(!busy);
         }
@@ -215,10 +197,10 @@ void PpocrModelDialog::fill() {
             // What gets downloaded: the wheel when the DLL comes out of one.
             const auto file = runtime->value("file").toObject();
             const qint64 size = (file.contains("archive") ? file.value("archive").toObject() : file).value("size").toVariant().toLongLong();
-            const bool downloading = downloading_id_ == ModelDownload::RUNTIME;
+            const bool downloading = downloads_->catalog_id() == ModelDownload::RUNTIME;
             auto *row = add_row("ONNX Runtime", QStringList{tr_text("Needed by PP-OCR"), megabytes(size), downloading ? tr_text("Downloading...") : tr_text("Not downloaded")}.join(" · "),
                                 downloading ? QString() : tr_text("Download"), downloading);
-            if (!downloading) connect(row->button, &QPushButton::clicked, this, [this] { start_download(ModelDownload::RUNTIME, "ONNX Runtime"); });
+            if (!downloading) connect(row->button, &QPushButton::clicked, this, [this] { start_download(ModelDownload::RUNTIME); });
         } else {
             add_row("ONNX Runtime", tr_text("Missing: put onnxruntime.dll (version 1.24 or later) in the models folder."), {});
         }
@@ -235,7 +217,7 @@ void PpocrModelDialog::fill() {
         QStringList languages;
         for (const auto &code : entry.value("languages").toArray()) languages << code.toString();
         QString state, action;
-        const bool downloading = id == downloading_id_;
+        const bool downloading = id == downloads_->catalog_id();
         if (downloading) {
             state = tr_text("Downloading...");
         } else if (!by_catalog.contains(id)) {
@@ -251,7 +233,7 @@ void PpocrModelDialog::fill() {
         const QString name = entry.value("name").toString();
         auto *row = add_row(name, QStringList{ppocr_language_names(languages), megabytes(files_size(entry.value("files").toArray())), state}.join(" · "), action, downloading);
         if (!row->button || downloading) continue;
-        if (!by_catalog.contains(id)) connect(row->button, &QPushButton::clicked, this, [this, id, name] { start_download(id, name); });
+        if (!by_catalog.contains(id)) connect(row->button, &QPushButton::clicked, this, [this, id] { start_download(id); });
         else connect(row->button, &QPushButton::clicked, this, [this, model = by_catalog.value(id)] { remove_model(model); });
     }
     for (const auto &value : installed) {
@@ -283,49 +265,47 @@ QString PpocrModelDialog::status_text() const { return status_->text(); }
 
 void PpocrModelDialog::show_status(const QString &text) { status_->setText(text); }
 
-void PpocrModelDialog::start_download(const QString &catalog_id, const QString &name) {
-    if (!download_->start(catalog_id)) {
-        status_->setText(tr_text("Could not start the download."));
-        return;
+ModelDownload *PpocrModelDialog::download() const { return downloads_->download(); }
+
+void PpocrModelDialog::set_clock_for_test(std::function<double()> clock) { downloads_->set_clock_for_test(std::move(clock)); }
+
+void PpocrModelDialog::subscribe() {
+    if (!subscribed_) {
+        connect(downloads_, &ModelDownloads::changed, this, &PpocrModelDialog::sync_download);
+        connect(downloads_, &ModelDownloads::progress, this, &PpocrModelDialog::on_progress);
+        connect(downloads_, &ModelDownloads::models_changed, this, &PpocrModelDialog::models_changed);
+        subscribed_ = true;
     }
-    download_name_ = name;
-    downloading_id_ = catalog_id;
-    last_progress_.reset();
-    samples_.clear();
-    status_->clear();
+    sync_download();
+}
+
+void PpocrModelDialog::showEvent(QShowEvent *event) {
+    if (!subscribed_) subscribe();
+    QDialog::showEvent(event);
+}
+
+void PpocrModelDialog::done(int result) {
+    if (importing_) return;
+    disconnect(downloads_, nullptr, this, nullptr);
+    subscribed_ = false;
+    QDialog::done(result);
+}
+
+void PpocrModelDialog::sync_download() {
+    if (!downloads_->error().isEmpty()) status_->setText(downloads_->error());
+    else if (downloads_->start_failed()) status_->setText(tr_text("Could not start the download."));
+    else if (downloads_->ready()) status_->setText(tr_text("%1 is ready.").replace("%1", downloads_->name()));
+    else status_->clear();
     fill();
 }
 
-void PpocrModelDialog::on_progress(qint64 received, qint64 total) {
-    if (total <= 0) return;
-    const double now = clock_();
-    samples_.emplace_back(now, received);
-    while (samples_.size() > 2 && now - samples_.front().first > SPEED_WINDOW) samples_.pop_front();
-    const auto [start, start_received] = samples_.front();
-    std::optional<double> speed;
-    if (now - start >= 0.5) speed = (received - start_received) / (now - start);
-    last_progress_ = Progress{received, total, speed};
-    if (download_row_) download_row_->set_progress(received, total, speed);
+void PpocrModelDialog::start_download(const QString &catalog_id) {
+    if (!downloads_->start(catalog_id)) status_->setText(tr_text("Could not start the download."));
 }
 
-void PpocrModelDialog::on_downloaded(const QJsonObject &) {
-    status_->setText(tr_text("%1 is ready.").replace("%1", download_name_));
-    emit models_changed();
-    // A model cannot run without the runtime, so a missing one follows; it starts once the helper exits.
-    runtime_next_ = downloading_id_ != ModelDownload::RUNTIME && ppocr_models::runtime_entry() && !ppocr_runtime_supported(ppocr_models::runtime_path());
-}
-
-void PpocrModelDialog::on_download_stopped() {
-    const bool runtime_next = std::exchange(runtime_next_, false);
-    downloading_id_.clear();
-    last_progress_.reset();
-    if (close_after_download_) {
-        fill();
-        QDialog::reject();
-        return;
-    }
-    if (runtime_next) start_download(ModelDownload::RUNTIME, "ONNX Runtime");
-    if (downloading_id_.isEmpty()) fill();
+void PpocrModelDialog::on_progress() {
+    const auto progress = downloads_->last_progress();
+    if (download_row_ && progress) download_row_->set_progress(progress->received, progress->total, progress->speed);
 }
 
 void PpocrModelDialog::add_local() {
@@ -379,13 +359,6 @@ void PpocrModelDialog::open_folder() {
 }
 
 void PpocrModelDialog::reject() {
-    // Closing during a download cancels it first and closes once the helper has exited and
-    // removed its temporary files. An import in progress finishes before the window closes.
-    if (download_->busy()) {
-        close_after_download_ = true;
-        download_->cancel();
-        return;
-    }
     if (importing_) return;
     QDialog::reject();
 }

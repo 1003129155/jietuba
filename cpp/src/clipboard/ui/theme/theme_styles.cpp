@@ -1,4 +1,5 @@
 #include "clipboard/ui/theme/theme_styles.h"
+#include "clipboard/ui/theme/chevron.h"
 #include "core/logger.h"
 #include "core/ui_scale.h"
 
@@ -206,42 +207,46 @@ QString ThemeStyleGenerator::generate_filter_toggle_btn_style() const {
 
 QString ThemeStyleGenerator::generate_time_filter_date_edit_style() const {
     const auto &c = theme_.colors;
+    const int arrow_w = scaled(9);
+    const int arrow_h = scaled(6);
+    const QString arrow = chevron_image(c.text_secondary, arrow_w, arrow_h);
+    const QString arrow_rule = arrow.isEmpty() ? QString("image: none;") : QString("image: url(%1);").arg(arrow);
     return QString(R"(
             QDateEdit {
                 background: %1;
                 color: %2;
                 border: 1px solid %3;
                 border-radius: %4;
-                padding: %4 %5;
+                padding: 0px 0px 0px %5;
                 font-size: %6;
             }
-            QDateEdit:focus {
+            QDateEdit:hover {
                 border-color: %7;
             }
-            QDateEdit[hasError="true"] {
+            QDateEdit:focus {
                 border-color: %8;
-                background: %9;
+            }
+            QDateEdit[hasError="true"] {
+                border-color: %9;
+                background: %10;
             }
             QDateEdit::drop-down {
                 subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: %10;
-                border-left: 1px solid %3;
-                border-top-right-radius: %4;
-                border-bottom-right-radius: %4;
-                background: %11;
+                subcontrol-position: center right;
+                width: %11;
+                border: none;
+                background: transparent;
             }
             QDateEdit::down-arrow {
-                image: none;
-                width: 0px;
-                height: 0px;
-                border-left: %4 solid transparent;
-                border-right: %4 solid transparent;
-                border-top: %12 solid %13;
+                %12
+                width: %13px;
+                height: %14px;
             }
         )")
-        .arg(c.bg_primary, c.text_primary, c.border_primary, px(4), px(8), px(12), c.border_accent, c.error, c.error_bg)
-        .arg(px(18), c.bg_tertiary, px(5), c.text_secondary);
+        .arg(c.bg_primary, c.text_primary, c.border_primary, px(13), px(10), px(12), c.text_tertiary, c.border_accent, c.error)
+        .arg(c.error_bg, px(18), arrow_rule)
+        .arg(arrow_w)
+        .arg(arrow_h);
 }
 
 QString ThemeStyleGenerator::generate_time_filter_calendar_style() const {
@@ -325,7 +330,26 @@ QString ThemeStyleGenerator::generate_time_filter_action_btn_style(bool primary)
                 color: %7;
             }
         )")
-        .arg(bg, fg, border, px(4), px(12), hover_bg, hover_fg);
+        .arg(bg, fg, border, px(13), px(12), hover_bg, hover_fg);
+}
+
+QString ThemeStyleGenerator::generate_time_filter_close_btn_style() const {
+    const auto &c = theme_.colors;
+    return QString(R"(
+            QToolButton {
+                background: transparent;
+                color: %1;
+                border: none;
+                border-radius: %2;
+                padding: 0px;
+                font-size: %3;
+            }
+            QToolButton:hover {
+                background: %4;
+                color: %5;
+            }
+        )")
+        .arg(c.text_tertiary, px(13), px(16), c.bg_hover, c.text_primary);
 }
 
 QString ThemeStyleGenerator::generate_time_filter_type_btn_style() const {
@@ -336,18 +360,25 @@ QString ThemeStyleGenerator::generate_time_filter_type_btn_style() const {
                 color: %2;
                 border: 1px solid %3;
                 border-radius: %4;
-                padding: %5 %6;
-                font-size: %7;
+                padding: 0px %5;
+                font-size: %6;
                 text-align: center;
             }
             QToolButton:hover {
+                border-color: %7;
                 background: %8;
             }
             QToolButton:pressed {
                 background: %9;
             }
+            QToolButton:disabled {
+                background: %9;
+                color: %10;
+                border-color: %11;
+            }
         )")
-        .arg(c.bg_primary, c.text_primary, c.border_primary, px(4), px(3), px(6), px(12), c.bg_hover, c.bg_selected);
+        .arg(c.bg_primary, c.text_primary, c.border_primary, px(13), px(8), px(12), c.text_tertiary, c.bg_hover, c.bg_selected)
+        .arg(c.text_accent, c.border_accent);
 }
 
 QString ThemeStyleGenerator::generate_menu_btn_style() const {

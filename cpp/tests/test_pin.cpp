@@ -2127,8 +2127,8 @@ private slots:
         pin->toggle_toolbar();
         auto *toolbar = pin->toolbar;
         toolbar->more_btn->click();
-        // The watermark panel is built on first use.
-        toolbar->watermark_btn->click();
+        // Panels other than the common ones are built on first use.
+        for (const char *tool : {"arrow", "text", "mosaic", "watermark"}) QVERIFY(toolbar->ensure_panel_for_tool(tool));
         QApplication::processEvents();
         QList<QPointer<QWidget>> windows;
         for (QWidget *window : std::initializer_list<QWidget *>{

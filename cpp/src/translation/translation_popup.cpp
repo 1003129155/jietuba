@@ -1,7 +1,9 @@
 #include "translation/translation_popup.h"
 #include "core/i18n.h"
+#include "core/py_text.h"
 #include "core/ui_scale.h"
 #include "translation/languages.h"
+#include "translation/speech_service.h"
 #include "translation/translation_dialog.h"
 #include "translation/ui/widgets.h"
 #include "ui/fluent_lite/inputs.h"
@@ -49,6 +51,7 @@ TranslationPopup::TranslationPopup(QWidget *parent)
 
     fade_ = new QPropertyAnimation(this, "windowOpacity", this);
     fade_->setDuration(140);
+    refresh_speech();
 }
 
 void TranslationPopup::build_ui() {
@@ -82,7 +85,18 @@ void TranslationPopup::build_ui() {
     source_edit->setMaximumHeight(dialog_scaled(SOURCE_MAX_HEIGHT));
     source_edit->setPlaceholderText(tr_text("Enter text to translate..."));
     connect(source_edit, &QTextEdit::textChanged, this, &TranslationPopup::on_source_changed);
-    root->addWidget(source_edit);
+    speak_source_button = new VectorToolButton("speak", tr_text("Read Aloud"), this);
+    source_speech_ = new SpeechButton(speak_source_button, [this] { return py_strip(source_edit->toPlainText()); }, [this] { return source_text_lang(); });
+    // Editing the text being read stops it, whether typed or filled in by a new selection.
+    connect(source_edit, &QTextEdit::textChanged, source_speech_, [this] {
+        source_speech_->stop();
+        source_speech_->refresh();
+    });
+    auto *source_row = new QHBoxLayout;
+    source_row->setSpacing(dialog_scaled(4));
+    source_row->addWidget(source_edit, 1);
+    source_row->addWidget(speak_source_button, 0, Qt::AlignTop);
+    root->addLayout(source_row);
 
     divider = new QFrame(this);
     divider->setObjectName("popupDivider");
@@ -91,7 +105,13 @@ void TranslationPopup::build_ui() {
 
     result_edit = make_text_view("popupResult");
     result_edit->setMaximumHeight(dialog_scaled(RESULT_MAX_HEIGHT));
-    root->addWidget(result_edit);
+    speak_result_button = new VectorToolButton("speak", tr_text("Read Aloud"), this);
+    result_speech_ = new SpeechButton(speak_result_button, [this] { return speakable_result(); }, [this] { return result_lang_; });
+    auto *result_row = new QHBoxLayout;
+    result_row->setSpacing(dialog_scaled(4));
+    result_row->addWidget(result_edit, 1);
+    result_row->addWidget(speak_result_button, 0, Qt::AlignTop);
+    root->addLayout(result_row);
 
     auto *footer = new QHBoxLayout;
     footer->setContentsMargins(0, dialog_scaled(1), 0, 0);
@@ -207,6 +227,8 @@ void TranslationPopup::enter_loading() {
     result_edit->setPlainText(tr_text("Translating..."));
     refresh_result_style();
     loading_dots_->start();
+    result_speech_->stop();
+    refresh_speech();
 }
 
 void TranslationPopup::hide_result() {
@@ -217,6 +239,8 @@ void TranslationPopup::hide_result() {
     divider->hide();
     result_edit->hide();
     copy_button->hide();
+    result_speech_->stop();
+    refresh_speech();
 }
 
 void TranslationPopup::focus_source_input() {
@@ -224,9 +248,15 @@ void TranslationPopup::focus_source_input() {
     source_edit->setFocus();
 }
 
-void TranslationPopup::show_result(const QString &translated_text, const QString &) {
+void TranslationPopup::show_result(const QString &translated_text, const QString &detected_lang) {
     loading_dots_->stop();
+    result_speech_->stop();
     translated_text_ = translated_text;
+    result_lang_ = target_lang_;
+    if (!detected_lang.isEmpty()) {
+        detected_lang_ = detected_lang;
+        detected_for_text_ = source_edit->toPlainText();
+    }
     error_text_ = translated_text.isEmpty() ? tr_text("No translation result") : QString();
     result_edit->setProperty("error", false);
     result_edit->setPlainText(translated_text.isEmpty() ? tr_text("No translation result") : translated_text);
@@ -235,11 +265,13 @@ void TranslationPopup::show_result(const QString &translated_text, const QString
     copy_button->show();
     copy_button->setEnabled(!translated_text.isEmpty());
     refresh_result_style();
+    refresh_speech();
     fit_content();
 }
 
 void TranslationPopup::show_error(const QString &message) {
     loading_dots_->stop();
+    result_speech_->stop();
     translated_text_.clear();
     error_text_ = message;
     result_edit->setProperty("error", true);
@@ -249,7 +281,29 @@ void TranslationPopup::show_error(const QString &message) {
     copy_button->show();
     copy_button->setEnabled(false);
     refresh_result_style();
+    refresh_speech();
     fit_content();
+}
+
+quint64 TranslationPopup::source_speech_token() const { return source_speech_->token(); }
+
+quint64 TranslationPopup::result_speech_token() const { return result_speech_->token(); }
+
+QString TranslationPopup::source_text_lang() const {
+    const auto text = source_edit->toPlainText();
+    if (!detected_lang_.isEmpty() && text == detected_for_text_) return detected_lang_;
+    return guess_text_language(text);
+}
+
+QString TranslationPopup::speakable_result() const {
+    if (result_edit->isHidden() || result_edit->property("error").toBool() || loading_dots_->is_running()) return {};
+    return py_strip(translated_text_);
+}
+
+void TranslationPopup::refresh_speech() {
+    speak_result_button->setVisible(!result_edit->isHidden());
+    source_speech_->refresh();
+    result_speech_->refresh();
 }
 
 void TranslationPopup::set_backend_status(const QString &name, bool ready) {
@@ -262,6 +316,7 @@ void TranslationPopup::set_backend_status(const QString &name, bool ready) {
 
 void TranslationPopup::set_theme(const QString &theme_name) {
     palette_ = theme_name == "light" ? &dashboard_light() : &dashboard_dark();
+    for (auto *button : {speak_source_button, speak_result_button}) button->apply_palette(*palette_);
     setStyleSheet(fill_dashboard_sheet(R"(
             QWidget#translationPopup { background: transparent; color: @text; }
             QLabel#popupBadge {
@@ -461,5 +516,11 @@ void TranslationPopup::mouseMoveEvent(QMouseEvent *event) {
 void TranslationPopup::mouseReleaseEvent(QMouseEvent *event) {
     drag_offset_.reset();
     QWidget::mouseReleaseEvent(event);
+}
+
+void TranslationPopup::hideEvent(QHideEvent *event) {
+    source_speech_->stop();
+    result_speech_->stop();
+    QWidget::hideEvent(event);
 }
 }

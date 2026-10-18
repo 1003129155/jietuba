@@ -26790,6 +26790,23 @@
    ]
   }
  },
+ "elevation_task_xml": [
+  {
+   "command": "C:\\Apps\\Jietuba\\jietuba.exe",
+   "user": "PC\\user",
+   "expected": "<?xml version=\"1.0\" encoding=\"UTF-16\"?>\n<Task version=\"1.3\" xmlns=\"http://schemas.microsoft.com/windows/2004/02/mit/task\">\n  <RegistrationInfo>\n    <Description>Jietuba</Description>\n  </RegistrationInfo>\n  <Triggers>\n    <LogonTrigger>\n      <Enabled>true</Enabled>\n      <UserId>PC\\user</UserId>\n      <Delay>PT3S</Delay>\n    </LogonTrigger>\n  </Triggers>\n  <Principals>\n    <Principal id=\"Author\">\n      <UserId>PC\\user</UserId>\n      <LogonType>InteractiveToken</LogonType>\n      <RunLevel>HighestAvailable</RunLevel>\n    </Principal>\n  </Principals>\n  <Settings>\n    <MultipleInstancesPolicy>Parallel</MultipleInstancesPolicy>\n    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>\n    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>\n    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>\n    <Priority>4</Priority>\n  </Settings>\n  <Actions Context=\"Author\">\n    <Exec>\n      <Command>C:\\Apps\\Jietuba\\jietuba.exe</Command>\n      <WorkingDirectory>C:\\Apps\\Jietuba</WorkingDirectory>\n    </Exec>\n  </Actions>\n</Task>\n"
+  },
+  {
+   "command": "D:\\A & B <x>\\jietuba_lite.exe",
+   "user": "DOMAIN\\Zoë",
+   "expected": "<?xml version=\"1.0\" encoding=\"UTF-16\"?>\n<Task version=\"1.3\" xmlns=\"http://schemas.microsoft.com/windows/2004/02/mit/task\">\n  <RegistrationInfo>\n    <Description>Jietuba</Description>\n  </RegistrationInfo>\n  <Triggers>\n    <LogonTrigger>\n      <Enabled>true</Enabled>\n      <UserId>DOMAIN\\Zoë</UserId>\n      <Delay>PT3S</Delay>\n    </LogonTrigger>\n  </Triggers>\n  <Principals>\n    <Principal id=\"Author\">\n      <UserId>DOMAIN\\Zoë</UserId>\n      <LogonType>InteractiveToken</LogonType>\n      <RunLevel>HighestAvailable</RunLevel>\n    </Principal>\n  </Principals>\n  <Settings>\n    <MultipleInstancesPolicy>Parallel</MultipleInstancesPolicy>\n    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>\n    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>\n    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>\n    <Priority>4</Priority>\n  </Settings>\n  <Actions Context=\"Author\">\n    <Exec>\n      <Command>D:\\A &amp; B &lt;x&gt;\\jietuba_lite.exe</Command>\n      <WorkingDirectory>D:\\A &amp; B &lt;x&gt;</WorkingDirectory>\n    </Exec>\n  </Actions>\n</Task>\n"
+  },
+  {
+   "command": "C:\\jietuba.exe",
+   "user": "PC\\user",
+   "expected": "<?xml version=\"1.0\" encoding=\"UTF-16\"?>\n<Task version=\"1.3\" xmlns=\"http://schemas.microsoft.com/windows/2004/02/mit/task\">\n  <RegistrationInfo>\n    <Description>Jietuba</Description>\n  </RegistrationInfo>\n  <Triggers>\n    <LogonTrigger>\n      <Enabled>true</Enabled>\n      <UserId>PC\\user</UserId>\n      <Delay>PT3S</Delay>\n    </LogonTrigger>\n  </Triggers>\n  <Principals>\n    <Principal id=\"Author\">\n      <UserId>PC\\user</UserId>\n      <LogonType>InteractiveToken</LogonType>\n      <RunLevel>HighestAvailable</RunLevel>\n    </Principal>\n  </Principals>\n  <Settings>\n    <MultipleInstancesPolicy>Parallel</MultipleInstancesPolicy>\n    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>\n    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>\n    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>\n    <Priority>4</Priority>\n  </Settings>\n  <Actions Context=\"Author\">\n    <Exec>\n      <Command>C:\\jietuba.exe</Command>\n      <WorkingDirectory>C:\\</WorkingDirectory>\n    </Exec>\n  </Actions>\n</Task>\n"
+  }
+ ],
  "level_names": {
   "10": "DEBUG",
   "20": "INFO",
@@ -26884,271 +26901,298 @@
   },
   {
    "language": "zh",
-   "template": "保存PDF失败 {target_path}: {exc}",
-   "args": {
-    "target_path": "v0",
-    "exc": 78
-   },
-   "expected": "保存PDF失败 v0: 78"
+   "template": "保存 GIF 帧率",
+   "args": {},
+   "expected": "保存 GIF 帧率"
   },
   {
    "language": "zh",
-   "template": "保存荧光笔模式失败: {exc}",
+   "template": "保存线条样式",
+   "args": {},
+   "expected": "保存线条样式"
+  },
+  {
+   "language": "zh",
+   "template": "克隆失败: {item_type} - 返回None",
+   "args": {
+    "item_type": "v0"
+   },
+   "expected": "克隆失败: v0 - 返回None"
+  },
+  {
+   "language": "zh",
+   "template": "关闭钉图窗口失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "关闭钉图窗口失败: v0"
+  },
+  {
+   "language": "zh",
+   "template": "创建桌面快捷方式",
+   "args": {},
+   "expected": "创建桌面快捷方式"
+  },
+  {
+   "language": "zh",
+   "template": "剪切板: 图像为空",
+   "args": {},
+   "expected": "剪切板: 图像为空"
+  },
+  {
+   "language": "zh",
+   "template": "加载 Logo 图标",
+   "args": {},
+   "expected": "加载 Logo 图标"
+  },
+  {
+   "language": "zh",
+   "template": "加载缩略图失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "加载缩略图失败: v0"
+  },
+  {
+   "language": "zh",
+   "template": "同步序号计数器失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "同步序号计数器失败: v0"
+  },
+  {
+   "language": "zh",
+   "template": "回放速度: {speed}",
+   "args": {
+    "speed": "v0"
+   },
+   "expected": "回放速度: v0"
+  },
+  {
+   "language": "zh",
+   "template": "处理窗口时出错: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "处理窗口时出错: v0"
+  },
+  {
+   "language": "zh",
+   "template": "导出底图: {selection_rect}, 目标大小: {w}x{h}",
+   "args": {
+    "selection_rect": "v0",
+    "w": 155,
+    "h": "v2"
+   },
+   "expected": "导出底图: v0, 目标大小: 155xv2"
+  },
+  {
+   "language": "zh",
+   "template": "已停用",
+   "args": {},
+   "expected": "已停用"
+  },
+  {
+   "language": "zh",
+   "template": "已复制钉图文字: {count} 字符",
+   "args": {
+    "count": "v0"
+   },
+   "expected": "已复制钉图文字: v0 字符"
+  },
+  {
+   "language": "zh",
+   "template": "开始划词翻译: {text_preview}...",
+   "args": {
+    "text_preview": "v0"
+   },
+   "expected": "开始划词翻译: v0..."
+  },
+  {
+   "language": "zh",
+   "template": "录入按键截获设置失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "录入按键截获设置失败: v0"
+  },
+  {
+   "language": "zh",
+   "template": "恢复layer pos",
+   "args": {},
+   "expected": "恢复layer pos"
+  },
+  {
+   "language": "zh",
+   "template": "截图工具 OCR 检测失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "截图工具 OCR 检测失败: v0"
+  },
+  {
+   "language": "zh",
+   "template": "扫码完成: 识别到 {count} 个码, 耗时 {elapsed_ms:.0f} ms",
+   "args": {
+    "count": "v0",
+    "elapsed_ms": 204
+   },
+   "expected": "扫码完成: 识别到 v0 个码, 耗时 204 ms"
+  },
+  {
+   "language": "zh",
+   "template": "捕获layer rotation",
+   "args": {},
+   "expected": "捕获layer rotation"
+  },
+  {
+   "language": "zh",
+   "template": "新内容: {icon} {preview}  [{size_info}]",
+   "args": {
+    "icon": "v0",
+    "preview": 218,
+    "size_info": "v2"
+   },
+   "expected": "新内容: v0 218  [v2]"
+  },
+  {
+   "language": "zh",
+   "template": "无法获取DPI信息: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "无法获取DPI信息: v0"
+  },
+  {
+   "language": "zh",
+   "template": "更新内容失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "更新内容失败: v0"
+  },
+  {
+   "language": "zh",
+   "template": "标记场景删除时出错: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "标记场景删除时出错: v0"
+  },
+  {
+   "language": "zh",
+   "template": "注销 handler: {handler_name}",
+   "args": {
+    "handler_name": "v0"
+   },
+   "expected": "注销 handler: v0"
+  },
+  {
+   "language": "zh",
+   "template": "清空失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "清空失败: v0"
+  },
+  {
+   "language": "zh",
+   "template": "移动项: ID={item_id}, title={item_title}",
+   "args": {
+    "item_id": "v0",
+    "item_title": 260
+   },
+   "expected": "移动项: ID=v0, title=260"
+  },
+  {
+   "language": "zh",
+   "template": "箭头控制点 mapToScene",
+   "args": {},
+   "expected": "箭头控制点 mapToScene"
+  },
+  {
+   "language": "zh",
+   "template": "终止旧实例",
+   "args": {},
+   "expected": "终止旧实例"
+  },
+  {
+   "language": "zh",
+   "template": "置顶失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "置顶失败: v0"
+  },
+  {
+   "language": "zh",
+   "template": "获取sceneBoundingRect",
+   "args": {},
+   "expected": "获取sceneBoundingRect"
+  },
+  {
+   "language": "zh",
+   "template": "获取窗口类名 hwnd={hwnd}",
+   "args": {
+    "hwnd": "v0"
+   },
+   "expected": "获取窗口类名 hwnd=v0"
+  },
+  {
+   "language": "zh",
+   "template": "设置光标失败：{exc}",
    "args": {
     "exc": "v0"
    },
-   "expected": "保存荧光笔模式失败: v0"
+   "expected": "设置光标失败：v0"
   },
   {
    "language": "zh",
-   "template": "克隆项设置Z值",
+   "template": "语言设置: {lang_name}",
+   "args": {
+    "lang_name": "v0"
+   },
+   "expected": "语言设置: v0"
+  },
+  {
+   "language": "zh",
+   "template": "运行 schtasks",
    "args": {},
-   "expected": "克隆项设置Z值"
+   "expected": "运行 schtasks"
   },
   {
    "language": "zh",
-   "template": "写入实例记录",
-   "args": {},
-   "expected": "写入实例记录"
-  },
-  {
-   "language": "zh",
-   "template": "创建马赛克笔画",
-   "args": {},
-   "expected": "创建马赛克笔画"
-  },
-  {
-   "language": "zh",
-   "template": "剪贴板监听启动失败",
-   "args": {},
-   "expected": "剪贴板监听启动失败"
-  },
-  {
-   "language": "zh",
-   "template": "加载剪贴板窗口几何设置",
-   "args": {},
-   "expected": "加载剪贴板窗口几何设置"
-  },
-  {
-   "language": "zh",
-   "template": "发送 Ctrl+V 失败: {e}",
+   "template": "释放 OCR 资源时出错: {e}",
    "args": {
     "e": "v0"
    },
-   "expected": "发送 Ctrl+V 失败: v0"
+   "expected": "释放 OCR 资源时出错: v0"
   },
   {
    "language": "zh",
-   "template": "向导完成，热键已恢复",
-   "args": {},
-   "expected": "向导完成，热键已恢复"
-  },
-  {
-   "language": "zh",
-   "template": "图像投递: 未请求复制或保存，跳过",
-   "args": {},
-   "expected": "图像投递: 未请求复制或保存，跳过"
-  },
-  {
-   "language": "zh",
-   "template": "外部选区直接翻译: {char_count} 字符",
+   "template": "钉图不支持工具: {tool_name}",
    "args": {
-    "char_count": "v0"
+    "tool_name": "v0"
    },
-   "expected": "外部选区直接翻译: v0 字符"
+   "expected": "钉图不支持工具: v0"
   },
   {
    "language": "zh",
-   "template": "小窗目标语言已更新: {new_lang}",
-   "args": {
-    "new_lang": "v0"
-   },
-   "expected": "小窗目标语言已更新: v0"
-  },
-  {
-   "language": "zh",
-   "template": "已加载语言 (XML): {lang_name} ({lang_code})",
-   "args": {
-    "lang_name": "v0",
-    "lang_code": 162
-   },
-   "expected": "已加载语言 (XML): v0 (162)"
-  },
-  {
-   "language": "zh",
-   "template": "已释放 OCR 引擎: {engine}",
-   "args": {
-    "engine": "v0"
-   },
-   "expected": "已释放 OCR 引擎: v0"
-  },
-  {
-   "language": "zh",
-   "template": "开始绘制: {pos}",
-   "args": {
-    "pos": "v0"
-   },
-   "expected": "开始绘制: v0"
-  },
-  {
-   "language": "zh",
-   "template": "恢复 pin 窗口",
-   "args": {},
-   "expected": "恢复 pin 窗口"
-  },
-  {
-   "language": "zh",
-   "template": "恢复序号计数器",
-   "args": {},
-   "expected": "恢复序号计数器"
-  },
-  {
-   "language": "zh",
-   "template": "所有钉图已关闭",
-   "args": {},
-   "expected": "所有钉图已关闭"
-  },
-  {
-   "language": "zh",
-   "template": "捕获corner_radius",
-   "args": {},
-   "expected": "捕获corner_radius"
-  },
-  {
-   "language": "zh",
-   "template": "撤销后索引: {index}/{count}",
-   "args": {
-    "index": "v0",
-    "count": 211
-   },
-   "expected": "撤销后索引: v0/211"
-  },
-  {
-   "language": "zh",
-   "template": "无法创建钉图：图片数据加载失败 (image_id={image_id})",
-   "args": {
-    "image_id": "v0"
-   },
-   "expected": "无法创建钉图：图片数据加载失败 (image_id=v0)"
-  },
-  {
-   "language": "zh",
-   "template": "显示了 {count} 个钉图窗口",
+   "template": "隐藏了 {count} 个钉图窗口",
    "args": {
     "count": "v0"
    },
-   "expected": "显示了 v0 个钉图窗口"
+   "expected": "隐藏了 v0 个钉图窗口"
   },
   {
    "language": "zh",
-   "template": "未选择分组",
-   "args": {},
-   "expected": "未选择分组"
-  },
-  {
-   "language": "zh",
-   "template": "欢迎向导品牌图标",
-   "args": {},
-   "expected": "欢迎向导品牌图标"
-  },
-  {
-   "language": "zh",
-   "template": "清理管理器...",
-   "args": {},
-   "expected": "清理管理器..."
-  },
-  {
-   "language": "zh",
-   "template": "移动分组: ID={group_id}, name={group_name}",
+   "template": "📖 检测到长截图引擎旧值 {raw_engine}，已自动转换为 {engine}",
    "args": {
-    "group_id": "v0",
-    "group_name": 253
+    "raw_engine": "v0",
+    "engine": 344
    },
-   "expected": "移动分组: ID=v0, name=253"
-  },
-  {
-   "language": "zh",
-   "template": "管理器不可用",
-   "args": {},
-   "expected": "管理器不可用"
-  },
-  {
-   "language": "zh",
-   "template": "系统组合键接管设置失败: {e}",
-   "args": {
-    "e": "v0"
-   },
-   "expected": "系统组合键接管设置失败: v0"
-  },
-  {
-   "language": "zh",
-   "template": "继承了 {count} 个绘制项目（向量数据）",
-   "args": {
-    "count": "v0"
-   },
-   "expected": "继承了 v0 个绘制项目（向量数据）"
-  },
-  {
-   "language": "zh",
-   "template": "背景层创建: scene_rect={scene_rect}, offset={offset}",
-   "args": {
-    "scene_rect": "v0",
-    "offset": 281
-   },
-   "expected": "背景层创建: scene_rect=v0, offset=281"
-  },
-  {
-   "language": "zh",
-   "template": "获取序号计数器",
-   "args": {},
-   "expected": "获取序号计数器"
-  },
-  {
-   "language": "zh",
-   "template": "计算图片目录大小",
-   "args": {},
-   "expected": "计算图片目录大小"
-  },
-  {
-   "language": "zh",
-   "template": "设置窗口预加载完成",
-   "args": {},
-   "expected": "设置窗口预加载完成"
-  },
-  {
-   "language": "zh",
-   "template": "资源清理完成",
-   "args": {},
-   "expected": "资源清理完成"
-  },
-  {
-   "language": "zh",
-   "template": "选区框创建",
-   "args": {},
-   "expected": "选区框创建"
-  },
-  {
-   "language": "zh",
-   "template": "钉图 OCR 选区已直接送入翻译: {count} 字符",
-   "args": {
-    "count": "v0"
-   },
-   "expected": "钉图 OCR 选区已直接送入翻译: v0 字符"
-  },
-  {
-   "language": "zh",
-   "template": "阴影导出完成: size={size} corner_r={corner_radius}",
-   "args": {
-    "size": "v0",
-    "corner_radius": 330
-   },
-   "expected": "阴影导出完成: size=v0 corner_r=330"
-  },
-  {
-   "language": "zh",
-   "template": "🎬 截取初始截图（第1张）...",
-   "args": {},
-   "expected": "🎬 截取初始截图（第1张）..."
+   "expected": "📖 检测到长截图引擎旧值 v0，已自动转换为 344"
   },
   {
    "language": "zh",
@@ -27275,271 +27319,298 @@
   },
   {
    "language": "en",
-   "template": "保存PDF失败 {target_path}: {exc}",
-   "args": {
-    "target_path": "v0",
-    "exc": 78
-   },
-   "expected": "PDF save failed v0: 78"
+   "template": "保存 GIF 帧率",
+   "args": {},
+   "expected": "Saving GIF frame rate"
   },
   {
    "language": "en",
-   "template": "保存荧光笔模式失败: {exc}",
+   "template": "保存线条样式",
+   "args": {},
+   "expected": "Saving line style"
+  },
+  {
+   "language": "en",
+   "template": "克隆失败: {item_type} - 返回None",
+   "args": {
+    "item_type": "v0"
+   },
+   "expected": "Clone failed: v0 - returned None"
+  },
+  {
+   "language": "en",
+   "template": "关闭钉图窗口失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "Failed to close pin window: v0"
+  },
+  {
+   "language": "en",
+   "template": "创建桌面快捷方式",
+   "args": {},
+   "expected": "Creating desktop shortcut"
+  },
+  {
+   "language": "en",
+   "template": "剪切板: 图像为空",
+   "args": {},
+   "expected": "Clipboard: image is empty"
+  },
+  {
+   "language": "en",
+   "template": "加载 Logo 图标",
+   "args": {},
+   "expected": "Loading logo icon"
+  },
+  {
+   "language": "en",
+   "template": "加载缩略图失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "Failed to load thumbnail: v0"
+  },
+  {
+   "language": "en",
+   "template": "同步序号计数器失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "Failed to sync number counter: v0"
+  },
+  {
+   "language": "en",
+   "template": "回放速度: {speed}",
+   "args": {
+    "speed": "v0"
+   },
+   "expected": "Playback speed: v0"
+  },
+  {
+   "language": "en",
+   "template": "处理窗口时出错: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "Error processing window: v0"
+  },
+  {
+   "language": "en",
+   "template": "导出底图: {selection_rect}, 目标大小: {w}x{h}",
+   "args": {
+    "selection_rect": "v0",
+    "w": 155,
+    "h": "v2"
+   },
+   "expected": "Exporting base image: v0, target size: 155xv2"
+  },
+  {
+   "language": "en",
+   "template": "已停用",
+   "args": {},
+   "expected": "Deactivated"
+  },
+  {
+   "language": "en",
+   "template": "已复制钉图文字: {count} 字符",
+   "args": {
+    "count": "v0"
+   },
+   "expected": "Copied pin text: v0 character(s)"
+  },
+  {
+   "language": "en",
+   "template": "开始划词翻译: {text_preview}...",
+   "args": {
+    "text_preview": "v0"
+   },
+   "expected": "Starting selection translation: v0..."
+  },
+  {
+   "language": "en",
+   "template": "录入按键截获设置失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "Failed to set up key capture for hotkey recording: v0"
+  },
+  {
+   "language": "en",
+   "template": "恢复layer pos",
+   "args": {},
+   "expected": "Restore layer pos"
+  },
+  {
+   "language": "en",
+   "template": "截图工具 OCR 检测失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "Snipping Tool OCR detection failed: v0"
+  },
+  {
+   "language": "en",
+   "template": "扫码完成: 识别到 {count} 个码, 耗时 {elapsed_ms:.0f} ms",
+   "args": {
+    "count": "v0",
+    "elapsed_ms": 204
+   },
+   "expected": "Code scan finished: v0 code(s) found in 204 ms"
+  },
+  {
+   "language": "en",
+   "template": "捕获layer rotation",
+   "args": {},
+   "expected": "Capture layer rotation"
+  },
+  {
+   "language": "en",
+   "template": "新内容: {icon} {preview}  [{size_info}]",
+   "args": {
+    "icon": "v0",
+    "preview": 218,
+    "size_info": "v2"
+   },
+   "expected": "New content: v0 218  [v2]"
+  },
+  {
+   "language": "en",
+   "template": "无法获取DPI信息: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "Failed to get DPI info: v0"
+  },
+  {
+   "language": "en",
+   "template": "更新内容失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "Failed to update content: v0"
+  },
+  {
+   "language": "en",
+   "template": "标记场景删除时出错: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "Error while marking scene for deletion: v0"
+  },
+  {
+   "language": "en",
+   "template": "注销 handler: {handler_name}",
+   "args": {
+    "handler_name": "v0"
+   },
+   "expected": "Unregistered handler: v0"
+  },
+  {
+   "language": "en",
+   "template": "清空失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "Clear failed: v0"
+  },
+  {
+   "language": "en",
+   "template": "移动项: ID={item_id}, title={item_title}",
+   "args": {
+    "item_id": "v0",
+    "item_title": 260
+   },
+   "expected": "Moving item: ID=v0, title=260"
+  },
+  {
+   "language": "en",
+   "template": "箭头控制点 mapToScene",
+   "args": {},
+   "expected": "Arrow control point mapToScene"
+  },
+  {
+   "language": "en",
+   "template": "终止旧实例",
+   "args": {},
+   "expected": "Terminating previous instance"
+  },
+  {
+   "language": "en",
+   "template": "置顶失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "Failed to pin: v0"
+  },
+  {
+   "language": "en",
+   "template": "获取sceneBoundingRect",
+   "args": {},
+   "expected": "Get sceneBoundingRect"
+  },
+  {
+   "language": "en",
+   "template": "获取窗口类名 hwnd={hwnd}",
+   "args": {
+    "hwnd": "v0"
+   },
+   "expected": "Failed to get window class name for hwnd=v0"
+  },
+  {
+   "language": "en",
+   "template": "设置光标失败：{exc}",
    "args": {
     "exc": "v0"
    },
-   "expected": "Failed to save highlighter mode: v0"
+   "expected": "Failed to set cursor: v0"
   },
   {
    "language": "en",
-   "template": "克隆项设置Z值",
+   "template": "语言设置: {lang_name}",
+   "args": {
+    "lang_name": "v0"
+   },
+   "expected": "Language set to: v0"
+  },
+  {
+   "language": "en",
+   "template": "运行 schtasks",
    "args": {},
-   "expected": "Setting Z value on cloned item"
+   "expected": "Running schtasks"
   },
   {
    "language": "en",
-   "template": "写入实例记录",
-   "args": {},
-   "expected": "Writing instance record"
-  },
-  {
-   "language": "en",
-   "template": "创建马赛克笔画",
-   "args": {},
-   "expected": "Creating a mosaic stroke"
-  },
-  {
-   "language": "en",
-   "template": "剪贴板监听启动失败",
-   "args": {},
-   "expected": "Clipboard monitoring failed to start"
-  },
-  {
-   "language": "en",
-   "template": "加载剪贴板窗口几何设置",
-   "args": {},
-   "expected": "Loading clipboard window geometry settings"
-  },
-  {
-   "language": "en",
-   "template": "发送 Ctrl+V 失败: {e}",
+   "template": "释放 OCR 资源时出错: {e}",
    "args": {
     "e": "v0"
    },
-   "expected": "Failed to send Ctrl+V: v0"
+   "expected": "Error while releasing OCR resources: v0"
   },
   {
    "language": "en",
-   "template": "向导完成，热键已恢复",
-   "args": {},
-   "expected": "Wizard completed, hotkeys restored"
-  },
-  {
-   "language": "en",
-   "template": "图像投递: 未请求复制或保存，跳过",
-   "args": {},
-   "expected": "Image delivery: neither copy nor save was requested, skipping"
-  },
-  {
-   "language": "en",
-   "template": "外部选区直接翻译: {char_count} 字符",
+   "template": "钉图不支持工具: {tool_name}",
    "args": {
-    "char_count": "v0"
+    "tool_name": "v0"
    },
-   "expected": "Translating external selection directly: v0 characters"
+   "expected": "Pin window does not support tool: v0"
   },
   {
    "language": "en",
-   "template": "小窗目标语言已更新: {new_lang}",
-   "args": {
-    "new_lang": "v0"
-   },
-   "expected": "Compact popup target language updated: v0"
-  },
-  {
-   "language": "en",
-   "template": "已加载语言 (XML): {lang_name} ({lang_code})",
-   "args": {
-    "lang_name": "v0",
-    "lang_code": 162
-   },
-   "expected": "Loaded language (XML): v0 (162)"
-  },
-  {
-   "language": "en",
-   "template": "已释放 OCR 引擎: {engine}",
-   "args": {
-    "engine": "v0"
-   },
-   "expected": "Released OCR engine: v0"
-  },
-  {
-   "language": "en",
-   "template": "开始绘制: {pos}",
-   "args": {
-    "pos": "v0"
-   },
-   "expected": "Started drawing: v0"
-  },
-  {
-   "language": "en",
-   "template": "恢复 pin 窗口",
-   "args": {},
-   "expected": "Restoring pinned windows"
-  },
-  {
-   "language": "en",
-   "template": "恢复序号计数器",
-   "args": {},
-   "expected": "Restore number counter"
-  },
-  {
-   "language": "en",
-   "template": "所有钉图已关闭",
-   "args": {},
-   "expected": "All pins closed"
-  },
-  {
-   "language": "en",
-   "template": "捕获corner_radius",
-   "args": {},
-   "expected": "Capture corner_radius"
-  },
-  {
-   "language": "en",
-   "template": "撤销后索引: {index}/{count}",
-   "args": {
-    "index": "v0",
-    "count": 211
-   },
-   "expected": "Index after undo: v0/211"
-  },
-  {
-   "language": "en",
-   "template": "无法创建钉图：图片数据加载失败 (image_id={image_id})",
-   "args": {
-    "image_id": "v0"
-   },
-   "expected": "Cannot create pin: failed to load image data (image_id=v0)"
-  },
-  {
-   "language": "en",
-   "template": "显示了 {count} 个钉图窗口",
+   "template": "隐藏了 {count} 个钉图窗口",
    "args": {
     "count": "v0"
    },
-   "expected": "Shown v0 pin window(s)"
+   "expected": "Hidden v0 pin window(s)"
   },
   {
    "language": "en",
-   "template": "未选择分组",
-   "args": {},
-   "expected": "No group selected"
-  },
-  {
-   "language": "en",
-   "template": "欢迎向导品牌图标",
-   "args": {},
-   "expected": "Welcome wizard brand icon"
-  },
-  {
-   "language": "en",
-   "template": "清理管理器...",
-   "args": {},
-   "expected": "Cleaning up manager..."
-  },
-  {
-   "language": "en",
-   "template": "移动分组: ID={group_id}, name={group_name}",
+   "template": "📖 检测到长截图引擎旧值 {raw_engine}，已自动转换为 {engine}",
    "args": {
-    "group_id": "v0",
-    "group_name": 253
+    "raw_engine": "v0",
+    "engine": 344
    },
-   "expected": "Moving group: ID=v0, name=253"
-  },
-  {
-   "language": "en",
-   "template": "管理器不可用",
-   "args": {},
-   "expected": "Manager unavailable"
-  },
-  {
-   "language": "en",
-   "template": "系统组合键接管设置失败: {e}",
-   "args": {
-    "e": "v0"
-   },
-   "expected": "Failed to set up system key-combination takeover: v0"
-  },
-  {
-   "language": "en",
-   "template": "继承了 {count} 个绘制项目（向量数据）",
-   "args": {
-    "count": "v0"
-   },
-   "expected": "Inherited v0 drawing item(s) (vector data)"
-  },
-  {
-   "language": "en",
-   "template": "背景层创建: scene_rect={scene_rect}, offset={offset}",
-   "args": {
-    "scene_rect": "v0",
-    "offset": 281
-   },
-   "expected": "Background layer created: scene_rect=v0, offset=281"
-  },
-  {
-   "language": "en",
-   "template": "获取序号计数器",
-   "args": {},
-   "expected": "Get number counter"
-  },
-  {
-   "language": "en",
-   "template": "计算图片目录大小",
-   "args": {},
-   "expected": "Calculating image directory size"
-  },
-  {
-   "language": "en",
-   "template": "设置窗口预加载完成",
-   "args": {},
-   "expected": "Settings window preload complete"
-  },
-  {
-   "language": "en",
-   "template": "资源清理完成",
-   "args": {},
-   "expected": "Resource cleanup complete"
-  },
-  {
-   "language": "en",
-   "template": "选区框创建",
-   "args": {},
-   "expected": "Selection box created"
-  },
-  {
-   "language": "en",
-   "template": "钉图 OCR 选区已直接送入翻译: {count} 字符",
-   "args": {
-    "count": "v0"
-   },
-   "expected": "Pin OCR selection sent directly to translation: v0 character(s)"
-  },
-  {
-   "language": "en",
-   "template": "阴影导出完成: size={size} corner_r={corner_radius}",
-   "args": {
-    "size": "v0",
-    "corner_radius": 330
-   },
-   "expected": "Shadow export complete: size=v0 corner_r=330"
-  },
-  {
-   "language": "en",
-   "template": "🎬 截取初始截图（第1张）...",
-   "args": {},
-   "expected": "🎬 Capturing initial screenshot (#1)..."
+   "expected": "📖 Detected legacy long-screenshot engine value v0; automatically converted to 344"
   },
   {
    "language": "en",
@@ -27666,271 +27737,298 @@
   },
   {
    "language": "ja",
-   "template": "保存PDF失败 {target_path}: {exc}",
-   "args": {
-    "target_path": "v0",
-    "exc": 78
-   },
-   "expected": "PDF save failed v0: 78"
+   "template": "保存 GIF 帧率",
+   "args": {},
+   "expected": "Saving GIF frame rate"
   },
   {
    "language": "ja",
-   "template": "保存荧光笔模式失败: {exc}",
+   "template": "保存线条样式",
+   "args": {},
+   "expected": "Saving line style"
+  },
+  {
+   "language": "ja",
+   "template": "克隆失败: {item_type} - 返回None",
+   "args": {
+    "item_type": "v0"
+   },
+   "expected": "Clone failed: v0 - returned None"
+  },
+  {
+   "language": "ja",
+   "template": "关闭钉图窗口失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "Failed to close pin window: v0"
+  },
+  {
+   "language": "ja",
+   "template": "创建桌面快捷方式",
+   "args": {},
+   "expected": "Creating desktop shortcut"
+  },
+  {
+   "language": "ja",
+   "template": "剪切板: 图像为空",
+   "args": {},
+   "expected": "Clipboard: image is empty"
+  },
+  {
+   "language": "ja",
+   "template": "加载 Logo 图标",
+   "args": {},
+   "expected": "Loading logo icon"
+  },
+  {
+   "language": "ja",
+   "template": "加载缩略图失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "Failed to load thumbnail: v0"
+  },
+  {
+   "language": "ja",
+   "template": "同步序号计数器失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "Failed to sync number counter: v0"
+  },
+  {
+   "language": "ja",
+   "template": "回放速度: {speed}",
+   "args": {
+    "speed": "v0"
+   },
+   "expected": "Playback speed: v0"
+  },
+  {
+   "language": "ja",
+   "template": "处理窗口时出错: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "Error processing window: v0"
+  },
+  {
+   "language": "ja",
+   "template": "导出底图: {selection_rect}, 目标大小: {w}x{h}",
+   "args": {
+    "selection_rect": "v0",
+    "w": 155,
+    "h": "v2"
+   },
+   "expected": "Exporting base image: v0, target size: 155xv2"
+  },
+  {
+   "language": "ja",
+   "template": "已停用",
+   "args": {},
+   "expected": "Deactivated"
+  },
+  {
+   "language": "ja",
+   "template": "已复制钉图文字: {count} 字符",
+   "args": {
+    "count": "v0"
+   },
+   "expected": "Copied pin text: v0 character(s)"
+  },
+  {
+   "language": "ja",
+   "template": "开始划词翻译: {text_preview}...",
+   "args": {
+    "text_preview": "v0"
+   },
+   "expected": "Starting selection translation: v0..."
+  },
+  {
+   "language": "ja",
+   "template": "录入按键截获设置失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "Failed to set up key capture for hotkey recording: v0"
+  },
+  {
+   "language": "ja",
+   "template": "恢复layer pos",
+   "args": {},
+   "expected": "Restore layer pos"
+  },
+  {
+   "language": "ja",
+   "template": "截图工具 OCR 检测失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "Snipping Tool OCR detection failed: v0"
+  },
+  {
+   "language": "ja",
+   "template": "扫码完成: 识别到 {count} 个码, 耗时 {elapsed_ms:.0f} ms",
+   "args": {
+    "count": "v0",
+    "elapsed_ms": 204
+   },
+   "expected": "Code scan finished: v0 code(s) found in 204 ms"
+  },
+  {
+   "language": "ja",
+   "template": "捕获layer rotation",
+   "args": {},
+   "expected": "Capture layer rotation"
+  },
+  {
+   "language": "ja",
+   "template": "新内容: {icon} {preview}  [{size_info}]",
+   "args": {
+    "icon": "v0",
+    "preview": 218,
+    "size_info": "v2"
+   },
+   "expected": "New content: v0 218  [v2]"
+  },
+  {
+   "language": "ja",
+   "template": "无法获取DPI信息: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "Failed to get DPI info: v0"
+  },
+  {
+   "language": "ja",
+   "template": "更新内容失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "Failed to update content: v0"
+  },
+  {
+   "language": "ja",
+   "template": "标记场景删除时出错: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "Error while marking scene for deletion: v0"
+  },
+  {
+   "language": "ja",
+   "template": "注销 handler: {handler_name}",
+   "args": {
+    "handler_name": "v0"
+   },
+   "expected": "Unregistered handler: v0"
+  },
+  {
+   "language": "ja",
+   "template": "清空失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "Clear failed: v0"
+  },
+  {
+   "language": "ja",
+   "template": "移动项: ID={item_id}, title={item_title}",
+   "args": {
+    "item_id": "v0",
+    "item_title": 260
+   },
+   "expected": "Moving item: ID=v0, title=260"
+  },
+  {
+   "language": "ja",
+   "template": "箭头控制点 mapToScene",
+   "args": {},
+   "expected": "Arrow control point mapToScene"
+  },
+  {
+   "language": "ja",
+   "template": "终止旧实例",
+   "args": {},
+   "expected": "Terminating previous instance"
+  },
+  {
+   "language": "ja",
+   "template": "置顶失败: {e}",
+   "args": {
+    "e": "v0"
+   },
+   "expected": "Failed to pin: v0"
+  },
+  {
+   "language": "ja",
+   "template": "获取sceneBoundingRect",
+   "args": {},
+   "expected": "Get sceneBoundingRect"
+  },
+  {
+   "language": "ja",
+   "template": "获取窗口类名 hwnd={hwnd}",
+   "args": {
+    "hwnd": "v0"
+   },
+   "expected": "Failed to get window class name for hwnd=v0"
+  },
+  {
+   "language": "ja",
+   "template": "设置光标失败：{exc}",
    "args": {
     "exc": "v0"
    },
-   "expected": "Failed to save highlighter mode: v0"
+   "expected": "Failed to set cursor: v0"
   },
   {
    "language": "ja",
-   "template": "克隆项设置Z值",
+   "template": "语言设置: {lang_name}",
+   "args": {
+    "lang_name": "v0"
+   },
+   "expected": "Language set to: v0"
+  },
+  {
+   "language": "ja",
+   "template": "运行 schtasks",
    "args": {},
-   "expected": "Setting Z value on cloned item"
+   "expected": "Running schtasks"
   },
   {
    "language": "ja",
-   "template": "写入实例记录",
-   "args": {},
-   "expected": "Writing instance record"
-  },
-  {
-   "language": "ja",
-   "template": "创建马赛克笔画",
-   "args": {},
-   "expected": "Creating a mosaic stroke"
-  },
-  {
-   "language": "ja",
-   "template": "剪贴板监听启动失败",
-   "args": {},
-   "expected": "Clipboard monitoring failed to start"
-  },
-  {
-   "language": "ja",
-   "template": "加载剪贴板窗口几何设置",
-   "args": {},
-   "expected": "Loading clipboard window geometry settings"
-  },
-  {
-   "language": "ja",
-   "template": "发送 Ctrl+V 失败: {e}",
+   "template": "释放 OCR 资源时出错: {e}",
    "args": {
     "e": "v0"
    },
-   "expected": "Failed to send Ctrl+V: v0"
+   "expected": "Error while releasing OCR resources: v0"
   },
   {
    "language": "ja",
-   "template": "向导完成，热键已恢复",
-   "args": {},
-   "expected": "Wizard completed, hotkeys restored"
-  },
-  {
-   "language": "ja",
-   "template": "图像投递: 未请求复制或保存，跳过",
-   "args": {},
-   "expected": "Image delivery: neither copy nor save was requested, skipping"
-  },
-  {
-   "language": "ja",
-   "template": "外部选区直接翻译: {char_count} 字符",
+   "template": "钉图不支持工具: {tool_name}",
    "args": {
-    "char_count": "v0"
+    "tool_name": "v0"
    },
-   "expected": "Translating external selection directly: v0 characters"
+   "expected": "Pin window does not support tool: v0"
   },
   {
    "language": "ja",
-   "template": "小窗目标语言已更新: {new_lang}",
-   "args": {
-    "new_lang": "v0"
-   },
-   "expected": "Compact popup target language updated: v0"
-  },
-  {
-   "language": "ja",
-   "template": "已加载语言 (XML): {lang_name} ({lang_code})",
-   "args": {
-    "lang_name": "v0",
-    "lang_code": 162
-   },
-   "expected": "Loaded language (XML): v0 (162)"
-  },
-  {
-   "language": "ja",
-   "template": "已释放 OCR 引擎: {engine}",
-   "args": {
-    "engine": "v0"
-   },
-   "expected": "Released OCR engine: v0"
-  },
-  {
-   "language": "ja",
-   "template": "开始绘制: {pos}",
-   "args": {
-    "pos": "v0"
-   },
-   "expected": "Started drawing: v0"
-  },
-  {
-   "language": "ja",
-   "template": "恢复 pin 窗口",
-   "args": {},
-   "expected": "Restoring pinned windows"
-  },
-  {
-   "language": "ja",
-   "template": "恢复序号计数器",
-   "args": {},
-   "expected": "Restore number counter"
-  },
-  {
-   "language": "ja",
-   "template": "所有钉图已关闭",
-   "args": {},
-   "expected": "All pins closed"
-  },
-  {
-   "language": "ja",
-   "template": "捕获corner_radius",
-   "args": {},
-   "expected": "Capture corner_radius"
-  },
-  {
-   "language": "ja",
-   "template": "撤销后索引: {index}/{count}",
-   "args": {
-    "index": "v0",
-    "count": 211
-   },
-   "expected": "Index after undo: v0/211"
-  },
-  {
-   "language": "ja",
-   "template": "无法创建钉图：图片数据加载失败 (image_id={image_id})",
-   "args": {
-    "image_id": "v0"
-   },
-   "expected": "Cannot create pin: failed to load image data (image_id=v0)"
-  },
-  {
-   "language": "ja",
-   "template": "显示了 {count} 个钉图窗口",
+   "template": "隐藏了 {count} 个钉图窗口",
    "args": {
     "count": "v0"
    },
-   "expected": "Shown v0 pin window(s)"
+   "expected": "Hidden v0 pin window(s)"
   },
   {
    "language": "ja",
-   "template": "未选择分组",
-   "args": {},
-   "expected": "No group selected"
-  },
-  {
-   "language": "ja",
-   "template": "欢迎向导品牌图标",
-   "args": {},
-   "expected": "Welcome wizard brand icon"
-  },
-  {
-   "language": "ja",
-   "template": "清理管理器...",
-   "args": {},
-   "expected": "Cleaning up manager..."
-  },
-  {
-   "language": "ja",
-   "template": "移动分组: ID={group_id}, name={group_name}",
+   "template": "📖 检测到长截图引擎旧值 {raw_engine}，已自动转换为 {engine}",
    "args": {
-    "group_id": "v0",
-    "group_name": 253
+    "raw_engine": "v0",
+    "engine": 344
    },
-   "expected": "Moving group: ID=v0, name=253"
-  },
-  {
-   "language": "ja",
-   "template": "管理器不可用",
-   "args": {},
-   "expected": "Manager unavailable"
-  },
-  {
-   "language": "ja",
-   "template": "系统组合键接管设置失败: {e}",
-   "args": {
-    "e": "v0"
-   },
-   "expected": "Failed to set up system key-combination takeover: v0"
-  },
-  {
-   "language": "ja",
-   "template": "继承了 {count} 个绘制项目（向量数据）",
-   "args": {
-    "count": "v0"
-   },
-   "expected": "Inherited v0 drawing item(s) (vector data)"
-  },
-  {
-   "language": "ja",
-   "template": "背景层创建: scene_rect={scene_rect}, offset={offset}",
-   "args": {
-    "scene_rect": "v0",
-    "offset": 281
-   },
-   "expected": "Background layer created: scene_rect=v0, offset=281"
-  },
-  {
-   "language": "ja",
-   "template": "获取序号计数器",
-   "args": {},
-   "expected": "Get number counter"
-  },
-  {
-   "language": "ja",
-   "template": "计算图片目录大小",
-   "args": {},
-   "expected": "Calculating image directory size"
-  },
-  {
-   "language": "ja",
-   "template": "设置窗口预加载完成",
-   "args": {},
-   "expected": "Settings window preload complete"
-  },
-  {
-   "language": "ja",
-   "template": "资源清理完成",
-   "args": {},
-   "expected": "Resource cleanup complete"
-  },
-  {
-   "language": "ja",
-   "template": "选区框创建",
-   "args": {},
-   "expected": "Selection box created"
-  },
-  {
-   "language": "ja",
-   "template": "钉图 OCR 选区已直接送入翻译: {count} 字符",
-   "args": {
-    "count": "v0"
-   },
-   "expected": "Pin OCR selection sent directly to translation: v0 character(s)"
-  },
-  {
-   "language": "ja",
-   "template": "阴影导出完成: size={size} corner_r={corner_radius}",
-   "args": {
-    "size": "v0",
-    "corner_radius": 330
-   },
-   "expected": "Shadow export complete: size=v0 corner_r=330"
-  },
-  {
-   "language": "ja",
-   "template": "🎬 截取初始截图（第1张）...",
-   "args": {},
-   "expected": "🎬 Capturing initial screenshot (#1)..."
+   "expected": "📖 Detected legacy long-screenshot engine value v0; automatically converted to 344"
   },
   {
    "language": "ja",

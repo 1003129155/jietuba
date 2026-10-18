@@ -837,6 +837,7 @@ private slots:
     void toolbarPanelStylesAreSaved() {
         auto *window = open_with_selection();
         auto *toolbar = window->toolbar;
+        for (const auto &tool_id : Toolbar::PANEL_TOOLS) toolbar->ensure_panel_for_tool(tool_id);
         const auto setting = [this](const char *tool, const char *key) { return config_->get_tool_settings(tool)->get(key); };
         toolbar->rect_btn->click();
         emit toolbar->shape_panel->line_style_changed("dashed");

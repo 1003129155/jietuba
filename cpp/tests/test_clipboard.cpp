@@ -5,6 +5,7 @@
 #include "clipboard/services/group_service.h"
 #include "clipboard/services/import_export_service.h"
 #include "clipboard/services/manage_dialog_service.h"
+#include "clipboard/ui/group_kind_style.h"
 #include "clipboard/ui/image_item_actions.h"
 #include "clipboard/ui/layout_scale.h"
 #include "clipboard/ui/panels/setting_panel.h"
@@ -137,11 +138,27 @@ private slots:
         QCOMPARE(GENERAL_GROUP_ICON(), g["icons"].toObject()["general"].toString());
         QCOMPARE(QUICK_LAUNCH_GROUP_ICON(), g["icons"].toObject()["quick_launch"].toString());
         QCOMPARE(HIDDEN_GROUP_ICON(), g["icons"].toObject()["hidden"].toString());
-        for (const auto &value : g["default"].toArray()) QCOMPARE(get_default_group_icon(value.toObject()["file"].toBool(), value.toObject()["hidden"].toBool()), value.toObject()["expected"].toString());
+        for (const auto &value : g["default"].toArray()) QCOMPARE(get_default_group_icon(value.toObject()["type"].toInt()), value.toObject()["expected"].toString());
+        for (const auto &value : g["recommended"].toArray()) {
+            QStringList expected;
+            for (const auto &icon : value.toObject()["expected"].toArray()) expected << icon.toString();
+            QCOMPARE(get_recommended_group_icons(value.toObject()["type"].toInt()), expected);
+        }
+        for (const auto &value : g["kinds"].toArray()) QCOMPARE(group_kind(value.toObject()["type"].toInt()), value.toObject()["expected"].toString());
         for (const auto &value : g["display"].toArray())
-            QCOMPARE(get_group_display_icon(optional_string(value.toObject()["icon"]), value.toObject()["file"].toBool(), value.toObject()["hidden"].toBool()), value.toObject()["expected"].toString());
+            QCOMPARE(get_group_display_icon(optional_string(value.toObject()["icon"]), value.toObject()["type"].toInt()), value.toObject()["expected"].toString());
         for (const auto &value : g["toggled"].toArray())
-            QCOMPARE(get_toggled_default_group_icon(value.toObject()["icon"].toString(), value.toObject()["file"].toBool(), value.toObject()["hidden"].toBool()), value.toObject()["expected"].toString());
+            QCOMPARE(get_toggled_default_group_icon(value.toObject()["icon"].toString(), value.toObject()["type"].toInt()), value.toObject()["expected"].toString());
+        for (const auto &value : g["filter_content_type"].toArray())
+            QCOMPARE(filter_content_type(value.toObject()["type"].toInt()), optional_string(value.toObject()["expected"]));
+        for (const auto &value : g["filter_group_type"].toArray()) {
+            const auto type = filter_group_type(value.toObject()["content_type"].toString());
+            QVERIFY(type.has_value());
+            QCOMPARE(static_cast<int>(*type), value.toObject()["expected"].toInt());
+        }
+        QVERIFY(!filter_group_type("audio").has_value());
+        for (const auto &value : g["accepts"].toArray())
+            QCOMPARE(group_accepts(value.toObject()["type"].toInt(), value.toObject()["content_type"].toString()), value.toObject()["expected"].toBool());
         QList<Group> existing;
         for (const auto &value : g["existing"].toArray()) {
             Group group;
@@ -216,6 +233,9 @@ private slots:
             QCOMPARE(manage_dialog_min_width(), value.toObject()["min_width"].toInt());
             QCOMPARE(manage_dialog_min_height(), value.toObject()["min_height"].toInt());
             for (const auto &fit : value.toObject()["fit"].toArray()) QVERIFY(fit_manage_dialog_size(fit[0].toInt(), fit[1].toInt()) == std::make_pair(fit[2].toInt(), fit[3].toInt()));
+            for (const auto &fit : value.toObject()["min_fit"].toArray()) QVERIFY(fit_manage_dialog_min_size(fit[0].toInt(), fit[1].toInt()) == std::make_pair(fit[2].toInt(), fit[3].toInt()));
+            const double factor = value.toObject()["percent"].toInt() / 100.0;
+            for (const auto &size : value.toObject()["size"].toArray()) QVERIFY(manage_dialog_size(size[0].toInt(), size[1].toInt(), factor) == std::make_pair(size[2].toInt(), size[3].toInt()));
         }
         get_dialog_scale().set_percent(100);
     }

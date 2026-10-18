@@ -5,6 +5,9 @@
 #include <QObject>
 #include <QString>
 #include <optional>
+#include <deque>
+#include <functional>
+#include <utility>
 
 namespace jietuba {
 // PP-OCR models in models/ next to the executable, the built-in download catalog, importing
@@ -55,6 +58,7 @@ public:
     QString catalog_id() const { return catalog_id_; }
     bool start(const QString &catalog_id);
     void cancel();
+    void shutdown();
     // Tests replace the helper process.
     void set_runner(UpdaterProcess *runner);
 signals:
@@ -72,4 +76,48 @@ private:
     QString catalog_id_;
     QString error_;
 };
+
+class ModelDownloads : public QObject {
+    Q_OBJECT
+public:
+    explicit ModelDownloads(QObject *parent = nullptr);
+    ModelDownload *download() const { return download_; }
+    bool busy() const { return download_->busy(); }
+    QString catalog_id() const { return busy() ? download_->catalog_id() : QString(); }
+    QString name() const { return name_; }
+    QString error() const { return error_; }
+    bool ready() const { return ready_; }
+    bool start_failed() const { return start_failed_; }
+    struct Progress {
+        qint64 received, total;
+        std::optional<double> speed;
+    };
+    std::optional<Progress> last_progress() const { return last_progress_; }
+    bool start(const QString &catalog_id);
+    void cancel();
+    void shutdown();
+    void set_clock_for_test(std::function<double()> clock) { clock_ = std::move(clock); }
+signals:
+    void changed();
+    void progress();
+    void models_changed();
+private:
+    void on_progress(qint64 received, qint64 total);
+    void on_downloaded(const QJsonObject &model);
+    void on_failed(const QString &reason);
+    void on_stopped();
+    ModelDownload *download_;
+    QString name_, error_;
+    bool ready_ = false;
+    bool start_failed_ = false;
+    bool runtime_next_ = false;
+    bool shutting_down_ = false;
+    bool cancelled_ = false;
+    std::optional<Progress> last_progress_;
+    std::deque<std::pair<double, qint64>> samples_;
+    std::function<double()> clock_;
+};
+
+// Owned by the application, independent of settings and model manager windows.
+ModelDownloads *model_downloads();
 }

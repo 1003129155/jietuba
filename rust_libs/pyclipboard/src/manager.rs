@@ -1063,7 +1063,7 @@ impl ClipboardManager {
     ///     name: 分组名称
     ///     color: 分组颜色（可选，如 "#FF0000"）
     ///     icon: 分组图标（可选）
-    ///     group_type: 分组类型 (0=普通, 1=文件分组)。默认 0
+    ///     group_type: 分组类型 (0=普通, 1=快速启动, 2=隐藏, 3/4/5=筛选文本/图片/文件)。默认 0
     /// 
     /// Returns:
     ///     int: 新分组的 ID
@@ -1107,7 +1107,7 @@ impl ClipboardManager {
     ///     name: 名称
     ///     color: 颜色（可选）
     ///     icon: 图标（可选）
-    ///     group_type: 分组类型 (0=普通, 1=文件分组)。默认 0
+    ///     group_type: 分组类型 (0=普通, 1=快速启动, 2=隐藏, 3/4/5=筛选文本/图片/文件)。默认 0
     pub fn update_group(&self, id: i64, name: String, color: Option<String>, icon: Option<String>, group_type: i64) -> Result<(), String> {
         let db = self.db.lock();
         db.update_group(id, &name, color.as_deref(), icon.as_deref(), group_type)

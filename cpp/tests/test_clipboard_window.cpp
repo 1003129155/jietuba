@@ -425,7 +425,7 @@ private slots:
             QVERIFY(picker.picked);
         }
         QCOMPARE(window->list_widget->count(), 1);
-        QVERIFY(window->type_filter_btn->text().startsWith("File"));
+        QCOMPARE(window->type_filter_btn->text(), QString("File"));
         window->start_date_edit->setDate(QDate(2000, 1, 1));
         window->end_date_edit->setDate(QDate(2000, 1, 2));
         window->apply_time_filter_btn->click();
@@ -665,6 +665,50 @@ private slots:
         QTRY_COMPARE(env_.pastes.size(), 1);
         right_click_pick(*first, "File Name");
         QTRY_COMPARE(env_.pastes.size(), 2);
+    }
+
+    void aFileGroupPastesWhatItCannotOpen() {
+        const auto apps = manager().create_group("Apps");
+        QVERIFY(apps);
+        const auto text = add_texts({"plain text"}).first();
+        const auto file = manager().add_item(file_payload({QDir::toNativeSeparators(env_.dir.filePath("missing.txt"))}), "file");
+        QVERIFY(file && manager().move_to_group(text, *apps) && manager().move_to_group(*file, *apps));
+        // The type changes after the text went in: quick launch groups still hold it.
+        QVERIFY(manager().update_group(*apps, "Apps", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILE)));
+        auto *window = open_window();
+        QTRY_VERIFY(!window->group_bar->group_buttons.isEmpty());
+        window->group_bar->group_buttons.first()->click();
+        QCOMPARE(window->list_widget->count(), 2);
+        click(text);
+        QTRY_COMPARE(env_.pastes.size(), 1);
+        QVERIFY(urls_.urls.isEmpty());
+        // A selection with a text in it is pasted as one, nothing is opened.
+        window->show();
+        window->toggle_item_mark(text);
+        window->toggle_item_mark(*file);
+        window->paste_selected();
+        QTRY_COMPARE(env_.pastes.size(), 2);
+        QVERIFY(urls_.urls.isEmpty());
+    }
+
+    void aFilterGroupFixesTheTypeButton() {
+        add_texts({"apple", "banana"});
+        QVERIFY(manager().add_item(file_payload({"C:\\f.txt"}), "file"));
+        QVERIFY(manager().create_group("Text", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER_TEXT)));
+        auto *window = open_window();
+        QTRY_VERIFY(!window->group_bar->group_buttons.isEmpty());
+        window->time_filter_toggle_btn->click();
+        QVERIFY(window->type_filter_btn->isEnabled());
+        window->group_bar->group_buttons.first()->click();
+        QCOMPARE(window->list_widget->count(), 2);
+        QVERIFY(!window->type_filter_btn->isEnabled());
+        QCOMPARE(window->type_filter_btn->text(), QString("Text"));
+        // Back in the history the button is the user's again.
+        window->group_bar->clipboard_btn->click();
+        QCOMPARE(window->list_widget->count(), 3);
+        QVERIFY(window->type_filter_btn->isEnabled());
+        QCOMPARE(window->type_filter_btn->text(), QString("All"));
+        QVERIFY(!window->grab().isNull());
     }
 
     void themeScaleAndLanguageChangesRestyle() {

@@ -215,6 +215,10 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     ocr_engine_combo->setProperty("has_oneocr", available_engines.contains(OCRManager::ENGINE_ONEOCR));
     dialog->set_attr("ocr_engine_combo", ocr_engine_combo);
     fill_ocr_engines(dialog, config->get_ocr_engine(), config->get_ppocr_model());
+    QObject::connect(model_downloads(), &ModelDownloads::models_changed, dialog, [dialog, ocr_engine_combo] {
+        const auto [engine, model_id] = ocr_choice(ocr_engine_combo->property("selected").toString());
+        fill_ocr_engines(dialog, engine, model_id.value_or(dialog->config_manager->get_ppocr_model()));
+    });
     QObject::connect(ocr_engine_combo, &QComboBox::activated, dialog, [dialog] { on_ocr_engine_activated(dialog); });
     ocr_engine_card->addControl(ocr_engine_combo);
     grp_ocr->addSettingCard(ocr_engine_card);

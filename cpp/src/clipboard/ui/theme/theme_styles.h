@@ -21,6 +21,7 @@ public:
     QString generate_time_filter_date_edit_style() const;
     QString generate_time_filter_calendar_style() const;
     QString generate_time_filter_action_btn_style(bool primary = false) const;
+    QString generate_time_filter_close_btn_style() const;
     QString generate_time_filter_type_btn_style() const;
     QString generate_menu_btn_style() const;
     // "#RRGGBB" or "#RGB" -> "r, g, b".

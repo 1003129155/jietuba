@@ -4,10 +4,13 @@
 #include "ui/dialogs.h"
 #include "ui/welcome/wizard.h"
 #include "capture/capture_service.h"
+#include "capture/msaa_element_finder.h"
 #include "core/crash_handler.h"
+#include "core/elevation.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
 #include "main_app.h"
+#include "ocr/bundled_runtime.h"
 #include "ocr/ocr_manager.h"
 #include "ocr/ppocr_models.h"
 #include "settings/tool_settings.h"
@@ -16,10 +19,12 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QSettings>
 #include <QTimer>
 #include <QWidget>
 #include <iterator>
 #include <optional>
+#include <thread>
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -121,14 +126,58 @@ void ensure_single_instance() {
     });
 }
 
+bool hand_off_to_admin_task(int poll_ms, int timeout_ms, const QString &pid_file) {
+    // The task's own instance is elevated, and after the account drops to a standard user
+    // the state is STANDARD, so neither hands off again.
+    if (elevation::elevation_state() != elevation::CAN_ELEVATE) return false;
+    const auto command = elevation::query_task_command();
+    // A task whose program is gone starts nothing: this program starts itself elevated instead,
+    // and that instance points the task at its own place (PreloadManager).
+    const bool stale = elevation::task_is_stale(command);
+    if (!stale && !elevation::points_to_self(command)) return false;
+    const QString path = pid_file.isEmpty() ? pid_file_path() : pid_file;
+    const auto before = QFile::exists(path) ? read_instance_record(path) : std::nullopt;
+    if (stale) {
+        log_info(T("管理员计划任务指向的程序已不存在，以管理员身份重新启动并修复"), "Elevation");
+        if (!elevation::run_self_elevated()) {
+            log_warning(T("无法以管理员身份重新启动，以普通权限启动"), "Elevation");
+            return false;
+        }
+    } else if (!elevation::run_task()) {
+        log_warning(T("运行管理员计划任务失败，以普通权限启动"), "Elevation");
+        return false;
+    }
+    const ULONGLONG deadline = GetTickCount64() + static_cast<ULONGLONG>(timeout_ms);
+    while (GetTickCount64() < deadline) {
+        Sleep(static_cast<DWORD>(poll_ms));
+        const auto record = QFile::exists(path) ? read_instance_record(path) : std::nullopt;
+        if (record && record != before && record->first != static_cast<qint64>(GetCurrentProcessId())) {
+            log_info(T("已交给管理员实例 (PID {pid})", {{"pid", record->first}}), "Elevation");
+            return true;
+        }
+    }
+    log_warning(T("等待管理员实例超时，以普通权限启动"), "Elevation");
+    return false;
+}
+
 PreloadManager::PreloadManager(MainApp *app) : app_(app), config_(app->config_manager) {}
 
 void PreloadManager::build_and_start() {
     auto *cfg = config_;
+    if (cfg->get_app_setting("preload_screenshot", true).toBool() && cfg->get_smart_selection_mode() == "element")
+        prepare_point_detection();
     // Entry points come first and preloading follows: a capture during preloading costs
     // nothing extra here. The reference registers hotkeys last, because there preloading
     // and a capture compete for the interpreter. Its module-import warm-ups (the GDI grab
     // and the PNG encoder) have nothing to warm in a native build and are left out.
+    // An elevated instance points a task left on a program that is gone at itself; schtasks runs
+    // on a worker so start-up is not held.
+    if (cfg->get_app_setting("run_as_admin").toBool()) steps_.push_back([] {
+        std::thread([] { run_thread_guarded("AdminTask", [] { elevation::repair_task(); }); }).detach();
+        return false;
+    });
+    // Before the engine setting, which resolves the engine by what is installed.
+    if (!bundled_runtime::data().isEmpty()) steps_.push_back([this] { return seed_bundled_runtime(); });
     // The engine preference is read here and handed to OCR, so recognition threads never read settings.
     steps_.push_back([this] { return apply_ocr_engine_setting(); });
     if (cfg->get_app_setting("preload_clipboard", true).toBool()) steps_.push_back([this] {
@@ -191,6 +240,24 @@ bool PreloadManager::preload_hdr_session() {
     // when a display has HDR on.
     warm_up_hdr_session(config_->get_capture_engine());
     return false;
+}
+
+bool PreloadManager::seed_bundled_runtime() {
+    // A write of some 16 MB, only when models/ has no usable DLL (first start, or after an update
+    // from a package that linked ONNX Runtime in); off the main thread.
+    auto *thread = QThread::create([] {
+        QString error;
+        switch (bundled_runtime::seed_embedded(&error)) {
+        case bundled_runtime::SeedResult::Written: log_info(T("已把内置的 ONNX Runtime 放到 models/"), "OCR"); break;
+        case bundled_runtime::SeedResult::Failed: log_warning(T("无法放置内置的 ONNX Runtime: {error}", {{"error", error}}), "OCR"); break;
+        case bundled_runtime::SeedResult::Unneeded: break;
+        }
+    });
+    thread->setParent(app_);
+    ocr_preload_thread_ = thread;
+    QObject::connect(thread, &QThread::finished, app_, [this] { run_next(); });
+    thread->start();
+    return true;
 }
 
 bool PreloadManager::apply_ocr_engine_setting() {
@@ -290,9 +357,12 @@ int run(int argc, char **argv) {
     // 2./3. Module paths and pinning onefile resources do not apply to a native build.
     // 4. The taskbar identity, before QApplication exists.
     set_app_user_model_id("jietuba.app");
-    // 5. Single instance.
+    // 5. In admin mode the elevated instance started by the scheduled task runs instead.
+    if (QSettings(TOOL_SETTINGS_ORGANIZATION, TOOL_SETTINGS_APPLICATION).value("app/run_as_admin", false).toBool() && hand_off_to_admin_task())
+        return 0;
+    // 6. Single instance.
     ensure_single_instance();
-    // 6. The application.
+    // 7. The application.
     MainApp main(argc, argv);
     return main.run();
 }

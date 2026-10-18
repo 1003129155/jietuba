@@ -2,9 +2,9 @@
 
 # jietuba — Screenshot, OCR, Pin, Translation & Clipboard Tool for Windows
 
-[![build](https://img.shields.io/github/actions/workflow/status/1003129155/jietuba/ci.yml?branch=master2&label=build&style=flat-square)](https://github.com/1003129155/jietuba/actions/workflows/ci.yml) [![license](https://img.shields.io/github/license/1003129155/jietuba?style=flat-square)](LICENSE) [![release](https://img.shields.io/github/v/release/1003129155/jietuba?style=flat-square)](https://github.com/1003129155/jietuba/releases/latest) ![platform](https://img.shields.io/badge/Windows-x64%20%7C%20ARM64-0078D4?style=flat-square)
+[![build](https://img.shields.io/github/actions/workflow/status/1003129155/jietuba/cpp.yml?branch=master2&label=build&style=flat-square)](https://github.com/1003129155/jietuba/actions/workflows/cpp.yml) [![license](https://img.shields.io/github/license/1003129155/jietuba?style=flat-square)](LICENSE) [![release](https://img.shields.io/github/v/release/1003129155/jietuba?style=flat-square)](https://github.com/1003129155/jietuba/releases/latest) ![platform](https://img.shields.io/badge/Windows-x64%20%7C%20ARM64-0078D4?style=flat-square)
 
-[Download for Windows](https://github.com/1003129155/jietuba/releases/latest) · [Run from Source](#source-setup) · [Development and Tests](#development)
+[Download for Windows](https://github.com/1003129155/jietuba/releases/latest) · [Build from Source](#source-setup) · [Development and Tests](#development)
 
 
 <img width="1391" height="844" alt="21" src="https://github.com/user-attachments/assets/01770043-6dbe-4c9f-b1d9-5d9eb467c559" />
@@ -15,9 +15,9 @@ jietuba is a free, open-source screenshot tool for Windows: region and window ca
 
 MP4 region recording supports custom frame rates and bitrates, pause/resume, the mouse pointer, and system audio. Audio from common 5.1/7.1 playback devices is converted to stereo; microphone recording is not included.
 
-There are two implementations, Python (PySide6) and C++ (Qt6), with the same features, interface and settings; image processing, clipboard access, the PP-OCR engine and other core parts are implemented in Rust and shared by both. Runs on Windows x86_64 and ARM64.
+jietuba is written in C++ (Qt6); image processing, clipboard access, the PP-OCR engine and other core parts are implemented in Rust. Runs on Windows x86_64 and ARM64. The earlier Python (PySide6) implementation is archived on the [`archive/python`](https://github.com/1003129155/jietuba/tree/archive/python) branch and no longer updated.
 
-Download a ready-to-run Windows release or run the application from source.
+Download a ready-to-run Windows release or build it from source.
 
 ---
 
@@ -41,22 +41,30 @@ A smooth, three-way "screenshot ⇄ clipboard ⇄ pin" workflow.
 
 ## Download and Run
 
-The Windows x86_64 and ARM64 releases are ready to run. You do not need to install Python, Rust, or a development environment.
+The Windows x86_64 and ARM64 releases are ready to run. You do not need to install any runtime or development environment.
 
 1. Open the [Releases page](https://github.com/1003129155/jietuba/releases/latest) and download the archive ending in `-x64.zip` or `-arm64.zip` for your device.
 2. There are two packages. Extract the entire archive and double-click the exe inside:
    - **Full** `jietuba_pp-…zip`: includes the PP-OCR engine and models, so OCR works on any Windows. Keep `jietuba_pp.exe` and the `models/` folder together.
-   - **Lite** `jietuba_lite-…zip`: a single native C++ exe, smaller and faster to start (measured on the same PC: startup 2.16 → 1.14 s, memory 199 → 158 MB). By default it uses only the OCR built into the Windows 11 Snipping Tool; OCR is unavailable on PCs without it, or where it is older than 11.2308 (no "Text actions"). Update the Snipping Tool or use the Full package. Placing the PP-OCR pack beside the exe also enables PP-OCR; see [cpp/README.md](cpp/README.md#pp-ocr-组件包) (in Chinese).
+   - **Lite** `jietuba_lite-…zip`: a single exe without PP-OCR, smaller to download. By default it uses only the OCR built into the Windows 11 Snipping Tool; OCR is unavailable on PCs without it, or where it is older than 11.2308 (no "Text actions"). Update the Snipping Tool or use the Full package. Placing the PP-OCR pack beside the exe also enables PP-OCR; see [PP-OCR Pack](#ppocr-pack).
 3. Both packages prefer the Snipping Tool OCR by default (faster, more languages). Switch engines under **OCR Settings** in Settings.
 4. The application is not digitally signed, so Windows may display a warning after you download it through a browser. If prompted, click **More info**, then **Run anyway** to start the application.
 
 Both packages share settings and clipboard history, so you can switch between them, but do not run both at once (the default hotkeys conflict).
 
-After installing the first release containing the updater, use **About → Check for Updates → Update and Restart**. It downloads the matching GitHub Release ZIP, replaces only the application EXE, and restarts. Settings, clipboard history, models and other files remain intact. Finish recording, exporting and saving before installation. The last application backup is kept under `.jietuba-update/`; see [updater recovery](rust_libs/updater/README.md). Older Python lite builds switch to the C++ build through the one-click update, keeping settings and clipboard history.
+After installing the first release containing the updater, use **About → Check for Updates → Update and Restart**. It downloads the matching GitHub Release ZIP, replaces only the application EXE, and restarts. Settings, clipboard history, models and other files remain intact. Finish recording, exporting and saving before installation. The last application backup is kept under `.jietuba-update/`; see [updater recovery](rust_libs/updater/README.md). Python builds older than 2.1.8 switch to the C++ build through the one-click update, keeping settings, clipboard history and models.
+
+<a id="ppocr-pack"></a>
+
+### PP-OCR Pack (Lite)
+
+The Lite package includes PP-OCR's pre- and post-processing but not ONNX Runtime or models. The easiest way is to download them under **Manage PP-OCR Models** in Settings: ONNX Runtime comes from Microsoft's `onnxruntime` wheel on PyPI and is hash-checked after download; the models include PP-OCRv6, PP-OCRv5 and several language-specific recognizers, and you can also add a local ONNX file. Downloading, adding and switching need no restart.
+
+You can also place the files by hand in the `models/` folder beside the exe: `PP-OCRv6_det_small.onnx` and `PP-OCRv6_rec_small.onnx` (both are in the repository's [models/](models/)), plus a CPU-only `onnxruntime.dll` of ONNX Runtime 1.24 or later.
 
 ## Code Signing Policy
 
-The `jietuba_pp.exe` (packaged from the Python source) and `jietuba_lite.exe` (built from the C++ source in [cpp/](cpp/)) files in the Windows releases are built from this repository by GitHub Actions and signed through SignPath.
+The `jietuba_pp.exe` and `jietuba_lite.exe` files in the Windows releases are both built by GitHub Actions from the C++ source in this repository's [cpp/](cpp/) and signed through SignPath.
 
 Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
 
@@ -75,57 +83,29 @@ This program will not transfer any information to other networked systems unless
 
 <a id="source-setup"></a>
 
-## Run from Source
+## Build from Source
 
-All runtime dependencies, including the prebuilt Rust packages, install through [requirements.txt](requirements.txt). Source users do not need a Rust toolchain.
+You need Visual Studio's "Desktop development with C++" workload (including CMake), the Rust MSVC toolchain and the Qt 6.11 MSVC SDK. In PowerShell, from `cpp/`:
 
-### One-Click Setup
-
-1. Install Python 3.11 for your Windows architecture (x64 or ARM64), including the Python Launcher.
-2. Download and extract or clone this repository, then double-click [setup.bat](setup.bat) in the project root.
-
-### Manual Setup
-
-Install Python 3.11 for your Windows architecture (x64 or ARM64), including the Python Launcher, then open Windows Command Prompt (CMD) in the project root and run these steps:
-
-**1. Create and activate a virtual environment**
-
-```bat
-py -3.11 -m venv venv311
-call venv311\Scripts\activate.bat
+```powershell
+python -m venv .tools
+.\.tools\Scripts\python.exe -m pip install py7zr==1.1.4
+.\.tools\Scripts\python.exe scripts\install_qt.py   # downloads the Qt SDK into .sdk/
+.\build.cmd                                         # builds, tests and deploys to dist/Release
 ```
 
-**2. Install all runtime dependencies**
+If you already have a Qt 6 MSVC x64 SDK, use `.\scripts\build.ps1 -QtRoot C:\Qt\6.11.0\msvc2022_64`; `-SkipTests` skips the tests and `-Configuration Debug` builds Debug. Run `run.cmd` when the build finishes.
 
-```bat
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
+The released single-file builds link Qt and the MSVC runtime statically and depend only on system DLLs. Build a static Qt SDK from Qt's official sources with `.\scripts\build_static_qt.ps1`, then:
+
+```powershell
+.\build.cmd -Static          # Lite: dist/Release-static/jietuba_lite.exe
+.\build.cmd -Static -Full    # Full: dist/Release-static-full/jietuba_pp.exe, embeds ONNX Runtime and ships the default PP-OCR models
 ```
 
-**3. Run the application**
+The ARM64 build is cross-compiled on x64: build the x64 static Qt first, then run `.\scripts\build_static_qt.ps1 -Arch arm64` and `.\build.cmd -Static -Arch arm64`. It needs Visual Studio's MSVC ARM64 build tools and `rustup target add aarch64-pc-windows-msvc`. The version number comes from the repository's `VERSION` file.
 
-```bat
-cd main
-python main_app.py
-```
-
-The repository includes the PP-OCR models `PP-OCRv6_det_small.onnx` and `PP-OCRv6_rec_small.onnx` in [models/](models/). Keep that directory in place for PP-OCR. The Snipping Tool OCR is called through the [`oneocr`](https://pypi.org/project/oneocr/) package on PyPI; its files come from the local Windows 11 Snipping Tool and are copied to `%LOCALAPPDATA%\Jietuba\oneocr` on first use, so nothing extra needs downloading.
-
-### Rust Extension Packages
-
-The seven Python extension packages are included in `requirements.txt`. They can also be used independently; their source code is in [rust_libs/](rust_libs/). Their PyPI distribution and Python import names are:
-
-| pip name | import name | Version | Description |
-|------|------|------|------|
-| [`j-gif`](https://pypi.org/project/j-gif/) | `gifrecorder` | 0.4.1 | GIF/video composition encoder |
-| [`j-stitch`](https://pypi.org/project/j-stitch/) | `longstitch` | 0.5.1 | Long screenshot stitching algorithm |
-| [`j-clipboard`](https://pypi.org/project/j-clipboard/) | `pyclipboard` | 0.4.5 | Low-level clipboard operations |
-| [`j-ppocr`](https://pypi.org/project/j-ppocr/) | `ppocr_rust` | 0.3.0 | PP-OCR (PaddleOCR) ONNX text recognition (pure Rust + ONNX Runtime, needs det/rec models) |
-| [`j-hdrcapture`](https://pypi.org/project/j-hdrcapture/) | `hdrcapture` | 0.1.0 | HDR-correct desktop capture (DXGI Desktop Duplication + GPU tone mapping) |
-| [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.2 | Global mouse and keyboard hooks off the GUI thread (gestures, side buttons, hotkeys, wheel, foreground window) |
-| [`j-video`](https://pypi.org/project/j-video/) | `video_recorder` | 0.1.0 | Media Foundation H.264/MP4 recording with WASAPI system audio |
-
-The seven extensions target Windows x86_64 and ARM64, declare Python `>=3.11`, and enable `abi3-py311`. The recorder uses PyO3 like the other extensions. The application loads it in a dedicated Python worker so that recording resources are released when that worker exits. See each package's `pyproject.toml` and `Cargo.toml` for its configuration.
+The PP-OCR models are in the repository's [models/](models/) directory: `PP-OCRv6_det_small.onnx` and `PP-OCRv6_rec_small.onnx`. Snipping Tool OCR uses files from the local Windows 11 Snipping Tool, copied to `%LOCALAPPDATA%\Jietuba\oneocr` on first use; nothing else needs to be downloaded.
 
 ---
 
@@ -133,108 +113,68 @@ The seven extensions target Windows x86_64 and ARM64, declare Python `>=3.11`, a
 
 ## Development and Tests
 
-From the project root, with the virtual environment activated, install development dependencies and run the tests:
+`.\build.cmd` builds and runs all the tests. Tests whose names end in `_desktop` inject real keyboard and mouse input, register global hotkeys and capture the screen, so leave the mouse and keyboard alone while they run. To run only the tests that need no desktop:
 
-```bat
-python -m pip install -r requirements-dev.txt
-python -m pytest main/tests -c main/tests/pytest.ini
+```powershell
+$env:PATH = "$PWD\.sdk\6.11.0\msvc2022_64\bin;$env:PATH"
+ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_windows_parity$"
 ```
 
-The [test directory](main/tests/) contains unit and integration tests for capture, clipboard operations, mosaic editing, pin zoom, GIF playback, OCR text layers, and other modules. The [CI workflow](.github/workflows/ci.yml) runs tests and coverage checks on Windows x86_64 and ARM64 with Python 3.11, plus static analysis on x86_64. Results are available in [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml).
+The test programs run in a temporary sandbox and never read or write your own settings, clipboard history or logs. There are also analysis builds (`scripts\check.ps1`: AddressSanitizer, code analysis, leak detection) and coverage (`scripts\coverage.ps1`).
 
-Tests that drive the real mouse and keyboard, such as `test_quick_capture_real_hooks.py`, are skipped by default. Set `RUN_REAL_INPUT_TESTS=1` to run them, and leave the mouse and keyboard alone while they run. Tests that rewrite the real system clipboard (`test_clipboard_monitor_real.py`) are skipped too; set `RUN_REAL_CLIPBOARD_TESTS=1` to run them, and don't copy anything while they run.
+[C++ CI](.github/workflows/cpp.yml) builds every pull request and runs the tests that need no desktop; when `rust_libs/` changes, [Rust CI](.github/workflows/rust-wheels.yml) runs the Rust unit tests and rechecks third-party notices.
 
-To build a Windows release, install the recorder wheel matching the active Python architecture, then run `python build_with_ocr_onefile.py`. It collects the installed recording extension and its license notices, while building the standalone updater with Cargo. The full build produces `dist/jietuba_pp.exe` and `dist/models/`. `--lite` still builds the Python lite package `dist_lite/jietuba_lite.exe`, which releases no longer use. Recorder wheel build instructions are in the [publishing notes](rust_libs/PUBLISHING.md) (in Chinese). The automated [release workflow](.github/workflows/build.yml) builds the full and lite ([lite.yml](.github/workflows/lite.yml)) packages in parallel, signs them, and creates archives for x64 and ARM64.
-
-### C++ Implementation
-
-The C++ implementation lives in [cpp/](cpp/), whose `src/` mirrors `main/` module by module; the released lite package is currently built from it. Building, testing and conventions are described in [cpp/README.md](cpp/README.md) (in Chinese). Both implementations must behave the same: a pull request that changes the behavior of one changes the other too, and the C++ parity tests take their expected results from the Python version. Changes to `cpp/` or `rust_libs/` run the [C++ CI](.github/workflows/cpp.yml), which builds the C++ version and runs the tests that need no desktop.
-
-### Rust Library Layering
-
-The logic in `rust_libs/` is written once and shared by the Python and C++ versions:
-
-- Each library has two layers: a pure Rust core, and PyO3 bindings kept in `python.rs` (`bindings.rs` for the recorder) behind the default `python` feature. The C++ version depends on the crate with `default-features = false` and calls the same core from its own C interface layer (`cpp/native/`).
-- Bindings only convert types, take or release the GIL, map errors and manage object lifetimes. Decisions, defaults, retries and threads belong in the core; otherwise each version grows its own copy and the two drift apart.
-- Recoverable errors in the core return `Result` instead of panicking.
-- Non-UI logic that both versions need with identical behavior goes into the Rust core first; UI code that uses Qt types stays in each language.
-
-### Code Comments
-
-Comments explain only the constraints and design reasons that the code cannot express. Keep them short and precise:
-
-- No debugging stories, change history, incident write-ups, or development-time reasoning.
-- Do not mention other software or projects, or cite them as justification.
-- No essay-length explanations; do not repeat what the code, function names, or test names already say.
+Releases are made by [build.yml](.github/workflows/build.yml): the tag must be `release-<version in the VERSION file>`; [lite.yml](.github/workflows/lite.yml) builds the Lite and Full packages for x64 and ARM64, which are signed and published as `jietuba_lite-<tag>-<arch>.zip` and `jietuba_pp-<tag>-<arch>.zip`.
 
 ---
 
 ## Directory Structure
 
-<details>
-<summary>Expand directory structure</summary>
-
 ```text
 # Project root
-├── README.md / README_zh-CN.md / README_JA.md          # English, Chinese, and Japanese documentation
-├── pyproject.toml                                      # Python project metadata and dependency declarations
-├── requirements.txt                                   # Runtime dependencies
-├── requirements-dev.txt                               # Test and build dependencies
-├── build_with_ocr_onefile.py                           # PyInstaller one-file build script (--lite builds the Python lite package, no longer released)
-├── licenses/                                          # Third-party licenses shipped with releases (the C++ build adds cpp/licenses/)
+├── README.md / README_zh-CN.md / README_JA.md   # English, Chinese and Japanese documentation
+├── VERSION                  # Version number, read by CMake and the release workflow
+├── 托盘.ico                 # Application and updater icon
+├── licenses/                # Third-party licenses shipped with the release packages
 │
 ├── cpp/                     # C++ (Qt6) implementation
-│   ├── src/                 # Mirrors main/ module by module
-│   ├── native/              # C interface over rust_libs, linked statically
-│   └── tests/               # QtTest suites and parity data
+│   ├── src/                 # Source, organized as <package>/<module>
+│   │   ├── barcode/         # QR code and barcode recognition (zxing-cpp)
+│   │   ├── canvas/          # Canvas — editing core, undo, layers
+│   │   ├── capture/         # Capture — screenshots, window and element detection
+│   │   ├── clipboard/       # Clipboard manager — history, groups/quick launch, import/export, search
+│   │   ├── core/            # Core — bootstrap, logging, resources, theme, i18n, hotkeys
+│   │   ├── gif/             # GIF/MP4 recording, GIF editing, playback, export
+│   │   ├── ocr/             # Snipping Tool OCR and PP-OCR
+│   │   ├── pin/             # Pinned images — always on top, editing, OCR, translation
+│   │   ├── settings/        # Unified settings
+│   │   ├── stitch/          # Long screenshot stitching
+│   │   ├── text_recognition/ # OCR result layout
+│   │   ├── tools/           # Drawing tools — pen, rectangle, arrow, text, mosaic and more
+│   │   ├── translation/     # Multi-provider translation and read-aloud
+│   │   ├── ui/              # UI components, capture window, toolbar, settings window
+│   │   └── video/           # MP4 recording worker
+│   ├── native/              # C interface to rust_libs, linked statically
+│   ├── resources/           # Default settings, UI translations (XML and .qm), log messages
+│   ├── scripts/             # Build, Qt SDK setup, translation compiling
+│   └── tests/               # QtTest tests and reference data
 │
-├── main/                    # Python main program
-│   ├── main_app.py          # App entry point: system tray, global hotkeys, lifecycle management
-│   ├── compile_translations.py  # Translation compiler (.xml → .qm)
-│   ├── scripts/             # Helper scripts — translation provider comparison
-│   │
-│   ├── barcode/             # Barcode module — QR code/barcode scanning (zxing-cpp)
-│   ├── canvas/              # Canvas module — graphics editing core
-│   ├── capture/             # Capture module — screen capture & window detection
-│   ├── clipboard/           # Clipboard module — history, groups/quick launch, import/export, search
-│   ├── core/                # Core module — bootstrap, logging, resources, theme, i18n, hotkeys
-│   ├── gif/                 # GIF/MP4 recording, GIF editing, playback and export
-│   ├── ocr/                 # OCR module — Snipping Tool OCR and PP-OCR text recognition
-│   ├── pin/                 # Pin module — pinned screenshots, editing, OCR, translation
-│   ├── settings/            # Settings module — unified configuration management
-│   ├── stitch/              # Stitch module — scroll capture, auto-stitching
-│   ├── tools/               # Tools module — pen, rect, arrow, text, mosaic, etc.
-│   ├── translation/         # Translation module — multi-provider translation service
-│   ├── translations/        # Language resources — Chinese/English/Japanese/Korean
-│   ├── ui/                  # UI module — common UI component library
-│   ├── video/               # Recording worker — PyO3 recording, bounded JSONL protocol, early dispatch in frozen builds
-│   └── tests/               # Tests module — unit tests & integration tests
+├── rust_libs/               # Rust libraries, linked statically into the C++ build through cpp/native
+│   ├── gifrecorder/         # GIF/video composition encoder
+│   ├── longstitch/          # Long screenshot stitching algorithm
+│   ├── pyclipboard/         # Low-level clipboard operations
+│   ├── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX recognition engine
+│   ├── hdrcapture/          # HDR desktop capture
+│   ├── inputhub/            # Global mouse and keyboard hooks
+│   ├── updater/             # Standalone updater that replaces only the application EXE
+│   └── video_recorder/      # Media Foundation recording and WASAPI system audio capture
 │
-├── rust_libs/               # Rust libraries shared by the Python extensions and the C++ implementation
-│   ├── gifrecorder/         # GIF/video composition encoder source
-│   ├── longstitch/          # Long screenshot stitching algorithm source
-│   ├── pyclipboard/         # Low-level clipboard operations source
-│   ├── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX recognition engine source
-│   ├── hdrcapture/          # HDR-correct desktop capture extension source
-│   ├── inputhub/            # Global mouse and keyboard hook extension source
-│   ├── updater/             # Standalone EXE-only Rust updater
-│   └── video_recorder/      # PyO3 Media Foundation recording extension
-│       ├── src/             # Recording core, PyO3 bindings and WASAPI capture
-│       ├── README.md        # PyPI page
-│       ├── DEVELOPMENT.md   # Worker process protocol and native validation notes (Chinese)
-│       ├── pyproject.toml   # j-video abi3 wheel metadata
-│       └── LICENSE          # MIT license included in the wheel
+├── models/                  # PP-OCR ONNX models (shipped with the Full package)
+│   ├── PP-OCRv6_det_small.onnx   # Text detection model (DBNet)
+│   └── PP-OCRv6_rec_small.onnx   # Text recognition model (CRNN/CTC)
 │
-├── models/                  # PP-OCR ONNX models (required for PP-OCR)
-│   ├── PP-OCRv6_det_small.onnx   # text detection model (DBNet)
-│   └── PP-OCRv6_rec_small.onnx   # text recognition model (CRNN/CTC)
-│
-└── svg/                     # SVG icon assets shared by both implementations
+└── svg/                     # SVG icons
 ```
-
-</details>
-
----
 
 ## Module Details
 
@@ -247,9 +187,9 @@ Scans QR codes and barcodes in the screenshot selection. The result window outli
 
 ```text
 barcode/
-├── __init__.py
-├── reader.py                # read_codes / DecodedCode — zxing-cpp decoding; text, format and outline in reading order
-└── result_window.py         # BarcodeResultWindow — result window; screenshot and result list share the same numbers
+├── reader.h/.cpp         # read_codes / DecodedCode — zxing-cpp decoding; text, format and outline in reading order
+├── result_window.h/.cpp  # BarcodeResultWindow — result window; screenshot and result list share the same numbers
+└── barcode.h             # show_barcode_result — scan entry: decode the codes in the selection and open the result window (toolbar scan button)
 ```
 
 </details>
@@ -270,29 +210,37 @@ Graphics editing canvas system with scene management, view rendering, item selec
 
 ```text
 canvas/
-├── __init__.py
-├── scene.py                 # CanvasScene — canvas scene, extends QGraphicsScene
-├── view.py                  # CanvasView — canvas view, extends QGraphicsView
-├── selection_model.py       # SelectionModel — manages selected graphics items
-├── undo.py                  # CommandUndoStack — undo/redo stack (add, delete, batch, edit commands)
-├── smart_edit_controller.py # SmartEditController — handles selection/edit mode switching
-├── smart_selection_anim.py  # SmartSelectionAnimator — tweens the selection when it hops between windows
-├── handle_editor.py         # LayerEditor / EditHandle — control point drag editing
-├── gestures.py              # Mouse gesture state machines — text edge drag, rubber-band select, pending click-to-edit
-├── handle_overlay.py        # HandleOverlay — separate compositing layer for edit handles, avoids full-scene repaint
+├── scene.h/.cpp                  # CanvasScene — canvas scene, extends QGraphicsScene
+├── view.h/.cpp                   # CanvasView — canvas view, extends QGraphicsView
+├── selection_model.h/.cpp        # SelectionModel — manages selected graphics items
+├── undo.h/.cpp                   # CommandUndoStack — undo/redo stack (add, delete, batch, edit commands)
+├── smart_edit_controller.h/.cpp  # SmartEditController — handles selection/edit mode switching
+├── smart_selection_anim.h/.cpp   # SmartSelectionAnimator — tweens the selection when it hops between windows
+├── handle_editor.h/.cpp          # LayerEditor / EditHandle — control point drag editing
+├── gestures.h/.cpp               # Mouse gesture state machines — text edge drag, rubber-band select, pending click-to-edit
+├── handle_overlay.h/.cpp         # HandleOverlayWidget — separate compositing layer for edit handles, avoids full-scene repaint
+├── canvas_host.h/.cpp            # CanvasHost — what a window hosting the canvas view offers it (toolbar, magnifier …), shared by the screenshot and pin windows
 └── items/
-    ├── drawing_items.py     # RectItem / EllipseItem / NumberItem, and the DrawingItemMixin all drawn items share
-    ├── stroke_item.py       # StrokeItem — pen/highlighter stroke; repaints only the chunks that changed or are exposed
-    ├── background_item.py   # BackgroundItem — selection area background
-    ├── mosaic_item.py       # MosaicItem — pixel mosaic item
-    ├── spotlight_item.py    # SpotlightItem / SpotlightCurtain — spotlight holes and their shared curtain
-    ├── selection_item.py    # SelectionItem — selection boundary display
-    ├── arrow_item.py        # ArrowItem — arrow item, geometry for nine shaft and head styles
-    ├── text_item.py         # TextItem — text item, outline/shadow/background and tri-state interaction frame
-    └── watermark_item.py    # WatermarkItem / WatermarkStyle — watermark layer over the selection: tiled, a diamond grid, or at one of seven positions, multi-line, time stamps
+    ├── drawing_items.h/.cpp      # RectItem / EllipseItem / NumberItem, and the DrawingItemMixin all drawn items share
+    ├── stroke_item.h/.cpp        # StrokeItem — pen/highlighter stroke; repaints only the chunks that changed or are exposed
+    ├── background_item.h/.cpp    # BackgroundItem — selection area background
+    ├── mosaic_item.h/.cpp        # MosaicItem — pixel mosaic item
+    ├── spotlight_item.h/.cpp     # SpotlightItem / SpotlightCurtain — spotlight holes and their shared curtain
+    ├── selection_item.h/.cpp     # SelectionItem — selection boundary display
+    ├── arrow_item.h/.cpp         # ArrowItem — arrow item, geometry for nine shaft and head styles
+    ├── text_item.h/.cpp          # TextItem — text item, outline/shadow/background and tri-state interaction frame
+    ├── watermark_item.h/.cpp     # WatermarkItem / WatermarkStyle — watermark layer over the selection: tiled, a diamond grid, or at one of seven positions, multi-line, time stamps
+    └── item_reference.h          # ItemReference / ItemLease — item ownership and lifetime: the scene owns attached items, undo commands own detached ones
 ```
 
 </details>
+
+**Core Features:**
+- Canvas system built on the Qt Graphics View Framework
+- Freehand strokes, rectangles, ellipses, arrows, text, numbered markers and more
+- Full undo/redo (based on QUndoStack)
+- The smart edit controller switches seamlessly between selecting and drawing
+- The handle editor supports transforming items
 
 ---
 
@@ -305,21 +253,27 @@ Screen capture and smart window detection.
 
 ```text
 capture/
-├── capture_service.py       # CaptureService — core screenshot logic
-├── display_watcher.py       # DisplayChangeWatcher — rebuilds the HDR capture session in the background after display changes
-├── system_cursor.py         # SystemCursor — snapshots the mouse pointer and draws it into screenshots
-├── quick_capture_controller.py # QuickCaptureController — modifier-drag capture and action dispatch
-├── uia_element_finder.py    # Background UI Automation element snapshots for smart selection
-└── window_finder.py         # WindowFinder — smart window selection, cursor-based detection
+├── capture_service.h/.cpp           # CaptureService — core screenshot logic
+├── display_watcher.h/.cpp           # DisplayChangeWatcher — rebuilds the HDR capture session in the background after display changes
+├── system_cursor.h/.cpp             # SystemCursor — snapshots the mouse pointer and draws it into screenshots
+├── quick_capture_controller.h/.cpp  # QuickCaptureController — modifier-drag capture and action dispatch
+├── window_finder.h/.cpp             # WindowFinder — smart window selection, cursor-based detection
+└── msaa_element_finder.h/.cpp       # MSAAElementFinder — point query: background threads ask MSAA for the control under the pointer and its parent chain, for smart selection
 ```
 
 </details>
+
+**Core Features:**
+- Full-screen and region capture
+- Smart window detection and selection (window shadows are excluded automatically)
+- Window detection at the cursor position
+- Point-based detection of the control under the pointer (MSAA): smart selection snaps level by level and shows a selection from the first frame
 
 ---
 
 ### clipboard/ — Clipboard Management Module
 
-Ditto-like clipboard history manager, now organized into controllers, core, services, and ui layers.
+Clipboard history manager organized into controllers, core, services, and ui layers.
 Supports text, images, HTML, files, a dedicated three-pane management window, and pin creation from history items.
 ![jietuba_gif_20260404_001128](https://github.com/user-attachments/assets/b0a116e8-d944-43c9-b895-e6fc10d8c08a)
 
@@ -328,63 +282,57 @@ Supports text, images, HTML, files, a dedicated three-pane management window, an
 
 ```text
 clipboard/
-├── __init__.py
-├── controllers/             # Control layer — history loading, paste flow, menus, selection state
-│   ├── clipboard_controller.py   # ClipboardController — loading, pasting, context menu logic
-│   ├── selection_manager.py      # SelectionManager — list selection state
-│   ├── mouse_shortcut_controller.py  # Clipboard row mouse gestures and single/double-click dispatch
-│   ├── context_menu_controller.py  # ContextMenuController — assembles context menu data and actions
-│   ├── foreground_tracker.py    # ForegroundWindowTracker — remembers the window to paste into
-│   ├── paste_keystroke.py       # Restores focus to the target window, then sends Ctrl+V
-│   └── __init__.py
-├── core/                    # Data layer — pyclipboard wrapper, models, group types
-│   ├── manager.py           # ClipboardManager — storage, monitoring, and paste API
-│   ├── models.py            # ClipboardItem / Group models
-│   ├── enums.py             # GroupType definitions
-│   ├── text_transform.py    # Plain-text transforms — pure functions behind "paste special"
-│   └── __init__.py
-├── services/                # Service layer — file payloads, group rules, import/export, save logic
-│   ├── file_payload_service.py   # file payload JSON + legacy format compatibility
-│   ├── group_service.py          # group icon/name/delete helpers
-│   ├── import_export_service.py  # CSV import/export for text items
-│   └── manage_dialog_service.py  # persistence logic for the management window
-├── ui/
-│   ├── layout_scale.py           # Shared size metrics for the management dialog
-│   ├── image_item_actions.py     # load and save-as for image items, shared by both windows
-│   ├── dialogs/
-│   │   └── manage_dialog.py      # three-pane management window for groups and content
-│   ├── forms/
-│   │   ├── group_form.py
-│   │   ├── text_content_form.py
-│   │   ├── file_content_form.py
-│   │   ├── import_export_form.py
-│   │   ├── group_icon_picker.py
-│   │   ├── form_widgets.py
-│   │   └── image_content_form.py
-│   ├── menus/
-│   │   ├── action_menu.py
-│   │   ├── group_context_menu.py
-│   │   └── item_context_menu.py
-│   ├── mixins/
-│   │   └── frameless_mixin.py
-│   ├── panels/
-│   │   └── setting_panel.py
-│   ├── resources/
-│   │   └── emoji_data.py
-│   ├── theme/
-│   │   ├── themes.py
-│   │   └── theme_styles.py
-│   ├── widgets/
-│   │   ├── group_bar.py
-│   │   ├── item_delegate.py
-│   │   ├── item_widget.py
-│   │   ├── preview_popup.py
-│   │   ├── quick_edit_popup.py
-│   │   ├── manage_rows.py
-│   │   └── reorder_list.py
-│   └── windows/
-│       ├── clipboard_window.py   # history window, search, preview, quick paste
-│       └── pin_window.py         # create pins from history items
+├── controllers/                        # Control layer — history loading, paste flow, menus, selection state
+│   ├── clipboard_controller.h/.cpp     # ClipboardController — loading, pasting, context menu logic
+│   ├── selection_manager.h/.cpp        # SelectionManager — list selection state
+│   ├── context_menu_controller.h/.cpp  # ClipboardContextMenuController — assembles context menu data and actions
+│   ├── foreground_tracker.h/.cpp       # ForegroundWindowTracker — remembers the window to paste into
+│   └── paste_keystroke.h/.cpp          # Restores focus to the target window, then sends Ctrl+V
+├── core/                               # Data layer — pyclipboard wrapper, models, group types
+│   ├── manager.h/.cpp                  # ClipboardManager — storage, monitoring, and paste API
+│   ├── models.h/.cpp                   # ClipboardItem / Group models
+│   └── text_transform.h/.cpp           # Plain-text transforms — pure functions behind "paste special"
+├── services/                           # Service layer — file payloads, group rules, import/export, save logic
+│   ├── file_payload_service.h/.cpp     # file payload JSON + legacy format compatibility
+│   ├── group_service.h/.cpp            # group icon/name/delete helpers
+│   ├── import_export_service.h/.cpp    # CSV import/export for text items
+│   └── manage_dialog_service.h/.cpp    # persistence logic for the management window
+└── ui/
+    ├── layout_scale.h/.cpp             # Shared size metrics for the management dialog
+    ├── image_item_actions.h/.cpp       # load and save-as for image items, shared by both windows
+    ├── group_kind_style.h/.cpp         # Identifying colours and line icons of the group types, shared by the sidebar rows and the type cards
+    ├── dialogs/
+    │   └── manage_dialog.h/.cpp        # three-pane management window for groups and content
+    ├── forms/
+    │   ├── group_form.h/.cpp
+    │   ├── text_content_form.h/.cpp
+    │   ├── file_content_form.h/.cpp
+    │   ├── import_export_form.h/.cpp
+    │   ├── group_icon_picker.h/.cpp
+    │   ├── form_widgets.h/.cpp
+    │   └── image_content_form.h/.cpp
+    ├── menus/
+    │   └── action_menu.h/.cpp
+    ├── mixins/
+    │   └── frameless_mixin.h/.cpp
+    ├── panels/
+    │   └── setting_panel.h/.cpp
+    ├── resources/
+    │   └── emoji_data.h/.cpp
+    ├── theme/
+    │   ├── themes.h/.cpp
+    │   ├── theme_styles.h/.cpp
+    │   └── chevron.h/.cpp              # Drop-down chevron images drawn per colour and size and cached for the style sheets
+    ├── widgets/
+    │   ├── group_bar.h/.cpp
+    │   ├── item_delegate.h/.cpp
+    │   ├── preview_popup.h/.cpp
+    │   ├── quick_edit_popup.h/.cpp
+    │   ├── manage_rows.h/.cpp
+    │   └── reorder_list.h/.cpp
+    └── windows/
+        ├── clipboard_window.h/.cpp     # history window, search, preview, quick paste
+        └── pin_window.h/.cpp           # create pins from history items
 ```
 
 </details>
@@ -392,10 +340,12 @@ clipboard/
 **Core Features:**
 - Monitor clipboard changes and store history automatically
 - Support text, images, HTML, and files
-- Support general groups, quick-launch groups, favorites, and search
+- Support general groups, quick-launch groups, filter groups (always show one type of history), favorites, and search
 - Dedicated three-pane management window for editing groups, text items, and file items
 - CSV import/export for text items
-- Themeable UI, quick paste shortcuts, and large image/long text preview popups
+- Multiple themes (light, dark and more)
+- Quick paste of history items with shortcuts
+- Preview popups for large images and long text
 - Opens with Win+V in place of the Windows clipboard history by default (the third clipboard hotkey slot); clear that slot to give Win+V back to Windows
 
 ---
@@ -409,35 +359,55 @@ Logging, resource loading, theme management, i18n, hotkeys, and other infrastruc
 
 ```text
 core/
-├── bootstrap.py             # PreloadManager — startup bootstrap, env init, DPI, single instance
-├── logger.py                # Logger — file + console logging (debug/info/warning/error/exception)
-├── crash_handler.py         # install_crash_hooks() — global exception catching
-├── resource_manager.py      # ResourceManager — SVG/image resource loading
-├── theme.py                 # ThemeManager — application theme colors
-├── ui_scale.py              # UIScaleManager — one scale factor for toolbars, panels and popups
-├── i18n.py                  # I18nManager / XmlTranslator / tr() — internationalization
-├── shortcut_manager.py      # HotkeySystem / ShortcutManager — global & in-app hotkeys
-├── global_hotkey.py         # Global hotkey key names and routing: system registration, hook takeover, or rejected
-├── input_hub.py             # Shared global input: native hooks (j-input) off the GUI thread, events as Qt signals
-├── quick_capture_input.py    # Global mouse shortcut drag input on the shared input hub
-├── last_capture_region.py   # In-memory "last capture region" for the restore-region hotkey
-├── save.py                  # SaveService — file save service (auto naming, high-quality PDF output)
-├── export.py                # ExportService — image export
-├── clipboard_utils.py       # copy_image_to_clipboard() — copy images to system clipboard
-├── platform_utils.py        # DPI awareness, AppUserModelID, Windows API utilities
-├── qt_utils.py              # safe_disconnect() — Qt signal safe disconnect
-├── log_translations/        # per-module log text translation helpers
-├── constants.py             # Global constants (fonts, paths, etc.)
-├── background_tasks.py      # Background save tracking
-├── main_thread_gc.py        # MainThreadGC — cyclic garbage is collected only on the GUI thread
-├── update_cache.py          # Updater cache cleanup
-├── updater_process.py       # Rust updater JSONL process adapter
-├── update_controller.py     # Update download and safe restart coordination
-├── update_checker.py        # Asynchronous GitHub release lookup and version comparison
-└── ui_theme.py              # UIThemeManager — light/dark appearance for app windows and native Qt widgets
+├── bootstrap.h/.cpp            # PreloadManager — startup bootstrap, env init, DPI, single instance
+├── elevation.h/.cpp            # Run as administrator — elevation state, scheduled task for sign-in
+├── logger.h/.cpp               # Logger — file + console logging (debug/info/warning/error/exception)
+├── crash_handler.h/.cpp        # install_crash_hooks() — global exception catching
+├── resource_manager.h/.cpp     # ResourceManager — SVG/image resource loading
+├── theme.h/.cpp                # ThemeManager — application theme colors
+├── ui_scale.h/.cpp             # UIScaleManager — one scale factor for toolbars, panels and popups
+├── i18n.h/.cpp                 # I18nManager / XmlTranslator / tr() — internationalization
+├── shortcut_manager.h/.cpp     # HotkeySystem / ShortcutManager — global & in-app hotkeys
+├── global_hotkey.h/.cpp        # Global hotkey key names and routing: system registration, hook takeover, or rejected
+├── input_hub.h/.cpp            # Shared global input: native hooks (j-input) off the GUI thread, events as Qt signals
+├── quick_capture_input.h/.cpp  # Global mouse shortcut drag input on the shared input hub
+├── last_capture_region.h/.cpp  # In-memory "last capture region" for the restore-region hotkey
+├── save.h/.cpp                 # SaveService — file save service (auto naming, high-quality PDF output)
+├── export.h/.cpp               # ExportService — image export
+├── clipboard_utils.h/.cpp      # copy_image_to_clipboard() — copy images to system clipboard
+├── platform_utils.h/.cpp       # DPI awareness, AppUserModelID, Windows API utilities
+├── qt_utils.h/.cpp             # safe_disconnect() — Qt signal safe disconnect
+├── constants.h/.cpp            # Global constants (fonts, paths, etc.)
+├── background_tasks.h/.cpp     # Background save tracking
+├── update_cache.h/.cpp         # Updater cache cleanup
+├── updater_process.h/.cpp      # Rust updater JSONL process adapter
+├── update_controller.h/.cpp    # Update download and safe restart coordination
+├── update_checker.h/.cpp       # Asynchronous GitHub release lookup and version comparison
+├── ui_theme.h/.cpp             # UIThemeManager — light/dark appearance for app windows and native Qt widgets
+├── east_asian_width.h/.cpp     # is_east_asian_wide — whether a code point is wide or fullwidth (East Asian Width W/F)
+├── east_asian_width.inc        # East Asian Width table (generated by a script)
+├── hooks.h                     # HookList — callbacks on an object's extension point, called in registration order and removable by id
+├── html_entities.inc           # HTML named character reference table (generated by a script)
+├── html_unescape.h/.cpp        # html_unescape — decode named and numeric HTML character references
+├── http_client.h/.cpp          # http_request — one blocking exchange through the system's WinHTTP with the system proxy; tells HTTP errors, timeouts and network failures apart; cancellable
+├── native.h                    # Declarations of the C interface to the Rust libraries (cpp/native)
+├── py_case_tables.inc          # Case-mapping tables (generated by a script)
+├── py_text.h/.cpp              # Text helpers that count code points rather than UTF-16 units: length, slicing, whitespace tests, strip
+└── serial_executor.h           # SerialExecutor — runs tasks one at a time in submission order on a dedicated thread
 ```
 
 </details>
+
+**Core Features:**
+- Unified logging to files and the console
+- Global crash handling that captures unhandled exceptions
+- Unified loading of SVG and image resources
+- Application-wide light/dark theme management
+- XML-based i18n system (Chinese / English / Japanese / Korean)
+- Global hotkey system (Windows API) and in-app shortcut management
+- File save/export services (including high-quality PDF output)
+- Run as administrator: a scheduled task starts it at sign-in without a UAC prompt, and a normal launch hands over to the elevated instance
+- System HTTP requests (WinHTTP, using the system proxy) and the declarations of the Rust libraries' C interface
 
 ---
 
@@ -445,32 +415,40 @@ core/
 
 Screen recording, editing, playback, and export to GIF/video.
 
-Choose **MP4** on the recording toolbar for direct H.264 recording, with custom 1–60 fps, 0.5–50 Mbps target bitrate, optional system audio and mouse pointer. Hardware encoding is preferred when available, with Windows software encoding as fallback. Frames are streamed in an independent process instead of stored in Python; stopping waits for MP4 finalization before reporting success. MP4 recordings are saved directly and do not enter the GIF editing/playback workflow. Video is output as SDR (on HDR displays frames are captured through DXGI and mapped to SDR, so there is no HDR video), and system audio comes from the default playback device (up to 8 channels, down-mixed to stereo) and excludes the microphone.
+Choose **MP4** on the recording toolbar for direct H.264 recording, with custom 1–60 fps, 0.5–50 Mbps target bitrate, optional system audio and mouse pointer. Hardware encoding is preferred when available, with Windows software encoding as fallback. Recording runs in a separate worker process (the same exe started with `--video-recorder-worker`) that streams frames to the video without keeping them in the GUI process; stopping waits for MP4 finalization before reporting success. MP4 recordings are saved directly and do not enter the GIF editing/playback workflow. Video is output as SDR (on HDR displays frames are captured through DXGI and mapped to SDR, so there is no HDR video), and system audio comes from the default playback device (up to 8 channels, down-mixed to stereo) and excludes the microphone.
 
-The PyO3 recorder is installed from the prebuilt `j-video==0.1.0` wheel with the runtime dependencies; source users need no Rust toolchain. A dedicated Python worker calls the extension, while the GUI exchanges only commands and status events. The onefile script includes the installed extension and its license notices without rebuilding it. The [recording development notes](rust_libs/video_recorder/DEVELOPMENT.md) (in Chinese) cover the worker process protocol and native validation commands. Windows Media Foundation/H.264/AAC components must be available; Windows N editions may need the Media Feature Pack. No FFmpeg or additional codec bundle is included.
+Windows Media Foundation/H.264/AAC components must be available; Windows N editions may need the Media Feature Pack. No FFmpeg or additional codec bundle is included.
 <img width="766" height="630" alt="image" src="https://github.com/user-attachments/assets/8653fffb-b419-4584-ab4b-9fe95bb9f246" />
+
 <details>
 <summary>Expand directory structure</summary>
 
 ```text
 gif/
-├── record_window.py         # GifRecordWindow / AppState — state machine coordinator (3-layer window)
-├── overlay.py               # CaptureOverlay / OverlayMode — capture overlay, region adjustment
-├── drawing_view.py          # GifDrawingView / GifDrawingScene — drawing during recording
-├── drawing_toolbar.py       # GifDrawingToolbar — drawing tools toolbar
-├── record_toolbar.py        # RecordToolbar — start/pause/stop controls
-├── frame_recorder.py        # FrameRecorder / FrameData / CursorSnapshot — frame sampling
-├── video_recorder.py        # VideoRecorder — bounded JSONL control of the MP4 Python worker
-├── video_settings.py        # RecordingOptions — independent video FPS/bitrate/audio settings
-├── playback_engine.py       # PlaybackEngine / PlayState — frame playback and preview
-├── playback_controller.py   # PlaybackController — playback UI and export management
-├── playback_toolbar.py      # PlaybackToolbar / RangeSlider — progress bar, speed control
-├── composer.py              # _ComposeWorker / ComposerProgressDialog — GIF/video composition
-├── cursor_overlay.py        # CursorOverlay — cursor rendering and click animation
-└── _widgets.py              # ClickMenuButton / svg_icon() — custom widgets
+├── record_window.h/.cpp        # GifRecordWindow / AppState — state machine coordinator (3-layer window)
+├── overlay.h/.cpp              # CaptureOverlay / OverlayMode — capture overlay, region adjustment
+├── drawing_view.h/.cpp         # GifDrawingView / GifDrawingScene — drawing during recording
+├── record_toolbar.h/.cpp       # RecordToolbar — start/pause/stop controls
+├── frame_recorder.h/.cpp       # FrameRecorder / FrameData / CursorSnapshot — frame sampling
+├── video_recorder.h/.cpp       # VideoRecorder — bounded JSONL control of the MP4 recording worker
+├── video_settings.h/.cpp       # RecordingOptions — independent video FPS/bitrate/audio settings
+├── playback_engine.h/.cpp      # PlaybackEngine / PlayState — frame playback and preview
+├── playback_controller.h/.cpp  # PlaybackController — playback UI and export management
+├── playback_toolbar.h/.cpp     # PlaybackToolbar / RangeSlider — progress bar, speed control
+├── composer.h/.cpp             # ComposeWorker / ComposerProgressDialog — GIF/video composition
+├── cursor_overlay.h/.cpp       # CursorOverlay — cursor rendering and click animation
+├── _widgets.h/.cpp             # ClickMenuButton / svg_icon() — custom widgets
+└── gifrecorder.h/.cpp          # C++ handles over the native gifrecorder — frame store, frame decoder, recording session, cursor sprites
 ```
 
 </details>
+
+**Core Features:**
+- State-machine driven recording flow (selection → recording → playback → export)
+- Three-layer window architecture: overlay (selection), drawing layer (annotation), toolbar layer
+- Frame-sampled recording with cursor capture and click animation
+- Playback preview with range trimming and speed control
+- Export to GIF or video (through the Rust library gifrecorder)
 
 ---
 
@@ -485,17 +463,19 @@ Text recognition management with two engines: the OCR built into the Windows Sni
 
 ```text
 ocr/
-├── ocr_manager.py           # OCRManager — engine choice, loading, release, unified recognition interface
-├── ppocr_models.py          # PP-OCR models: models/ folder, built-in catalog, import, removal, download via the updater
-└── snipping_tool_ocr.py     # SnippingToolOcr — locate the Snipping Tool, copy its OCR files, pad and recognize
+├── ocr_manager.h/.cpp        # OCRManager — engine choice, loading, release, unified recognition interface
+├── ppocr_models.h/.cpp       # PP-OCR models: models/ folder, built-in catalog, import, removal, download via the updater
+├── snipping_tool_ocr.h/.cpp  # SnippingToolOcr — locate the Snipping Tool, copy its OCR files, pad and recognize
+└── bundled_runtime.h/.cpp    # bundled_runtime — the onnxruntime.dll embedded in the Full exe, written into models/ at startup when missing or unusable
 ```
 
 </details>
 
+- Detects engine and model availability automatically
 - Settings offer Auto / Windows Snipping Tool / PP-OCR; Auto uses the Snipping Tool when it is installed, otherwise PP-OCR
-- Snipping Tool OCR: called through the oneocr package on PyPI; faster and reads more languages (including Korean, Russian, and Thai); needs the Windows 11 Snipping Tool
-- PP-OCR: the ppocr_rust engine (pure Rust + ONNX Runtime, PP-OCR det + rec); works on any Windows; full build only
-- PP-OCR models: PP-OCRv6 small is included; Manage PP-OCR Models in the settings downloads others from a built-in catalog (PP-OCRv6 tiny/medium, PP-OCRv5, and Korean, Latin, Cyrillic, Thai, and Greek recognition) with fixed SHA-256 hashes, or adds local ONNX models after a test recognition. Models live in `models/` next to the program; a selected model that is missing is reported, not replaced by another
+- Snipping Tool OCR: calls the recognizer that ships with the Windows 11 Snipping Tool directly; faster and reads more languages (including Korean, Russian, and Thai); needs the Windows 11 Snipping Tool
+- PP-OCR: the ppocr_rust engine (pure Rust + ONNX Runtime, PP-OCR det + rec); works on any Windows; the Full package carries the runtime and models, the Lite package downloads them in Settings
+- PP-OCR models: the Full package includes PP-OCRv6 small; Manage PP-OCR Models in the settings downloads others from a built-in catalog (PP-OCRv6 tiny/medium, PP-OCRv5, and Korean, Latin, Cyrillic, Thai, and Greek recognition) with fixed SHA-256 hashes, or adds local ONNX models after a test recognition. Models live in `models/` next to the program; a selected model that is missing is reported, not replaced by another
 - Recognition and release are mutually exclusive; switching engines releases the old one, and the new one loads on the next recognition
 - Singleton pattern, unified recognition interface
 
@@ -512,42 +492,57 @@ Pin screenshots on screen with editing, zoom, OCR, and translation.
 
 ```text
 pin/
-├── pin_window.py            # PinWindow — draggable, zoomable, always-on-top image window
-├── pin_canvas_view.py       # PinCanvasView — pin canvas view (sole content renderer)
-├── pin_canvas.py            # Pin canvas object
-├── pin_manager.py           # PinManager — manages all pin windows (singleton)
-├── pin_toolbar.py           # PinToolbar — pin toolbar
-├── pin_controls.py          # PinControlButtons — close, edit, copy buttons
-├── pin_hover.py             # PinHoverControls — decides when hover buttons and toolbar show
-├── pin_context_menu.py      # PinContextMenu — right-click menu
-├── pin_border_overlay.py    # PinBorderOverlay — border effect overlay
-├── pin_click_through_bar.py # PinClickThroughBar — move / opacity / exit bar while clicks pass through
-├── pin_ocr_manager.py       # PinOCRManager / _OCRThread — async OCR recognition
-├── pin_shortcut.py          # PinShortcutController — normal/edit mode shortcuts
-├── pin_thumbnail.py         # PinThumbnailMode — thumbnail mode
-├── pin_translation.py       # PinTranslationHelper — translation helper
-├── pin_image_transform.py   # PinImageTransform — rotate, flip, etc.
-└── ocr_text_layer.py        # OCRTextLayer / OCRTextItem — OCR text layer display
+├── pin_window.h/.cpp             # PinWindow — draggable, zoomable, always-on-top image window
+├── pin_canvas_view.h/.cpp        # PinCanvasView — pin canvas view (sole content renderer)
+├── pin_canvas.h/.cpp             # Pin canvas object
+├── pin_manager.h/.cpp            # PinManager — manages all pin windows (singleton)
+├── pin_toolbar.h/.cpp            # PinToolbar — pin toolbar
+├── pin_controls.h/.cpp           # PinControlButtons — close, edit, copy buttons
+├── pin_hover.h/.cpp              # PinHoverControls — decides when hover buttons and toolbar show
+├── pin_context_menu.h/.cpp       # PinContextMenu — right-click menu
+├── pin_border_overlay.h/.cpp     # PinBorderOverlay — border effect overlay
+├── pin_click_through_bar.h/.cpp  # PinClickThroughBar — move / opacity / exit bar while clicks pass through
+├── pin_ocr_manager.h/.cpp        # PinOCRManager / PinOcrThread — async OCR recognition
+├── pin_shortcut.h/.cpp           # PinShortcutController — normal/edit mode shortcuts
+├── pin_thumbnail.h/.cpp          # PinThumbnailMode — thumbnail mode
+├── pin_translation.h/.cpp        # PinTranslationHelper — translation helper
+├── pin_image_transform.h/.cpp    # PinImageTransform — rotate, flip, etc.
+└── ocr_text_layer.h/.cpp         # OCRTextLayer / OCRTextItem — OCR text layer display
 ```
 
 </details>
 
+**Core Features:**
+- Screenshots stay on top of the screen, draggable and zoomable with the mouse wheel
+- Draw and edit directly on a pin
+- Built-in OCR with a selectable text layer
+- Built-in translation of the text in a pin
+- Shortcuts for both normal and edit modes
+
 ---
 
 ### settings/ — Settings Module
+
+Unified configuration management.
 
 <details>
 <summary>Expand directory structure</summary>
 
 ```text
 settings/
-├── color_formats.py         # magnifier color format templates: render, load, save
-├── settings_transfer.py     # export/import settings-page options (and the toolbar layout) as a JSON file
-├── special_paste.py         # special paste menu: built-in options, order and on/off state
-└── tool_settings.py         # ToolSettingsManager / ToolSettings — tool color, size, hotkey config
+├── color_formats.h/.cpp      # magnifier color format templates: render, load, save
+├── settings_transfer.h/.cpp  # export/import settings-page options (and the toolbar layout) as a JSON file
+├── special_paste.h/.cpp      # special paste menu: built-in options, order and on/off state
+├── tool_settings.h/.cpp      # ToolSettingsManager / ToolSettings — tool color, size, hotkey config
+└── settings_accessors.inc    # One-line QSettings accessors (hand-kept; a new one is also listed in the three lookup functions at the end)
 ```
 
 </details>
+
+**Core Features:**
+- Singleton configuration manager
+- Manages the colour, line width, font size and other parameters of each drawing tool
+- Persists everything in QSettings
 
 ---
 
@@ -559,96 +554,142 @@ settings/
 
 ```text
 stitch/
-├── auto_scroll.py                   # AutoScroller — auto scroll: step size from stitch results, stops at the end or on mouse move
-├── change_watch.py                  # ChangeWatch — watches the capture area in the background and captures whenever the view changes
-├── incremental.py                   # IncrementalStitcher — background stitching, preview thumbnails
-├── jietuba_long_stitch_unified.py   # Stitching interface (calls the Rust longstitch)
-├── scroll_window.py                 # ScrollCaptureWindow — scroll capture window
-└── scroll_toolbar.py                # Scroll capture toolbar
+├── auto_scroll.h/.cpp                  # AutoScroller — auto scroll: step size from stitch results, stops at the end or on mouse move
+├── change_watch.h/.cpp                 # ChangeWatch — watches the capture area in the background and captures whenever the view changes
+├── incremental.h/.cpp                  # IncrementalStitcher — background stitching, preview thumbnails
+├── jietuba_long_stitch_unified.h/.cpp  # Stitching interface (calls the Rust longstitch)
+├── scroll_window.h/.cpp                # ScrollCaptureWindow — scroll capture window
+└── scroll_toolbar.h/.cpp               # Scroll capture toolbar
 ```
 
 </details>
 
+**Core Features:**
+- Scrolls the page and captures it, horizontally or vertically
+- Scrolling back only repositions without shortening the result; going past the start continues at the other end, so a capture started mid-page can grow both ways
+- Auto-scroll: park the cursor in the middle of the capture area and it scrolls by itself, stopping at the end or as soon as the mouse moves
+- Trim: scroll back to where you want to cut and remove everything above or below the current view with one click
+- Rows that differ by only a few characters, such as file lists and tables, still line up; if one jump overshoots and cannot be joined, it asks you to scroll back instead of forcing a bad match
+- Smart stitching based on image matching (finds the overlap)
+- A unified long-screenshot interface (accelerated by the Rust library longstitch)
+
+---
+
+### text_recognition/ — Text Recognition Module
+
+Recognizes the text in a screenshot selection and only shows it, without translating: recognition runs on a background thread, the result window first shows “Recognizing…”, then the text appears in an editable box with a copy button.
+
+<details>
+<summary>Expand directory structure</summary>
+
+```text
+text_recognition/
+├── layout.h/.cpp         # layout — lays recognized lines out as text: joins wrapped lines, removes spaces between CJK characters, converts punctuation width
+├── placement.h/.cpp      # placement — where the result window goes (positions only, no window access)
+├── recognizer.h/.cpp     # RecognizeThread — recognizes one image on a worker thread and reports the result
+├── result_window.h/.cpp  # TextRecognitionWindow — the result window: an editable text box, a copy button and the layout menu
+└── text_recognition.h    # recognize_async / show_text_recognition — entry points: background recognition, opening the result window, copying the result
+```
+
+</details>
+
+- Background recognition that never blocks the UI; recognition is one uninterruptible native call, so cancelling only stops the result from being reported
+- Text layout: wrapped lines joined, spaces between CJK characters removed, punctuation width converted; switchable in the window
+- The result window sits next to the recognized region and keeps clear of the cursor
+- Editable text with one-click copy
+
 ---
 
 ### tools/ — Drawing Tools Module
+
+Implementations of the drawing tools.
 
 <details>
 <summary>Expand directory structure</summary>
 
 ```text
 tools/
-├── base.py                  # Tool / ToolContext — abstract base class
-├── controller.py            # ToolController — tool switching and state management
-├── action.py                # ActionTools — copy, save, cancel actions
-├── pen.py                   # PenTool — freehand drawing
-├── rect.py                  # RectTool — rectangle (filled/outlined)
-├── ellipse.py               # EllipseTool — ellipse
-├── arrow.py                 # ArrowTool — arrow
-├── text.py                  # TextTool — text
-├── number.py                # NumberTool — auto-incrementing numbers
-├── highlighter.py           # HighlighterTool — highlighter
-├── mosaic.py                # MosaicTool — pixel mosaic
-├── spotlight.py             # SpotlightTool — spotlight (dims outside the box)
-├── watermark.py             # WatermarkTool — adds the watermark, changes its text and style, remembers whether the last screenshot had one
-├── cursor.py                # CursorTool — cursor/selection
-├── eraser.py                # EraserTool — eraser
-└── cursor_manager.py        # CursorManager — cursor style manager
+├── base.h/.cpp            # Tool / ToolContext — abstract base class
+├── controller.h/.cpp      # ToolController — tool switching and state management
+├── action.h/.cpp          # ActionTools — copy, save, cancel actions
+├── pen.h/.cpp             # PenTool — freehand drawing
+├── rect.h/.cpp            # RectTool — rectangle (filled/outlined)
+├── ellipse.h/.cpp         # EllipseTool — ellipse
+├── arrow.h/.cpp           # ArrowTool — arrow
+├── text.h/.cpp            # TextTool — text
+├── number.h/.cpp          # NumberTool — auto-incrementing numbers
+├── highlighter.h/.cpp     # HighlighterTool — highlighter
+├── mosaic.h/.cpp          # MosaicTool — pixel mosaic
+├── spotlight.h/.cpp       # SpotlightTool — spotlight (dims outside the box)
+├── watermark.h/.cpp       # WatermarkTool — adds the watermark, changes its text and style, remembers whether the last screenshot had one
+├── cursor.h               # CursorTool — cursor/selection
+├── eraser.h/.cpp          # EraserTool — eraser
+└── cursor_manager.h/.cpp  # CursorManager — cursor style manager
 ```
 
 </details>
+
+**Core Features:**
+- Unified tool base-class architecture (Tool → concrete tools)
+- Drawing tools: pen, rectangle, ellipse, arrow, text, number, highlighter, mosaic, watermark, cursor, eraser and more
+- The tool controller switches tools and dispatches mouse events
+- The tool context (ToolContext) injects the scene, view, settings and other dependencies
 
 ---
 
 ### translation/ — Translation Module
 
-Multi-provider translation service supporting DeepL / Google / Azure / Amazon.
+Multi-provider translation service supporting DeepL, Google, Azure, Amazon, Baidu, Volcengine, Tencent Cloud, Youdao, DeepSeek, and any OpenAI-compatible endpoint you configure.
 
 <details>
 <summary>Expand directory structure</summary>
 
 ```text
 translation/
-├── provider.py              # TranslationProvider / ProviderMetadata — provider contract
-├── registry.py              # ProviderRegistry — provider registration and factory
-├── service.py               # TranslationService — provider selection and orchestration
-├── models.py                # TranslationRequest / TranslationResult — provider-neutral models
-├── worker.py                # TranslationWorker — shared Qt worker for all providers
-├── providers/               # provider implementations
-│   ├── deepl.py             # DeepL
-│   ├── google.py            # Google
-│   ├── azure.py             # Azure
-│   ├── amazon.py            # Amazon
-│   ├── baidu.py             # Baidu
-│   ├── tencent.py           # Tencent Cloud
-│   ├── volcengine.py        # Volcengine
-│   ├── youdao.py            # Youdao
-│   ├── custom_llm.py        # Custom OpenAI-compatible service (Ollama, LM Studio…)
-│   ├── deepseek.py          # DeepSeek (LLM)
-│   └── openai_compatible.py # OpenAI 兼容接口基类
-├── smart_translation_controller.py # SmartTranslationController — one-hotkey text probe and popup routing
-├── translation_popup.py     # TranslationPopup — compact popup (selected text / typed input)
-├── deepl_service.py         # DeepLService / TranslationThread — legacy async DeepL API calls
-├── languages.py             # SupportedLanguages — supported language list & codes
-├── translation_manager.py   # TranslationManager — translation window manager (singleton)
-├── translation_dialog.py    # TranslationDialog — translation result window
+├── provider.h/.cpp                      # TranslationProvider / ProviderMetadata — provider contract
+├── registry.h/.cpp                      # ProviderRegistry — provider registration and factory
+├── service.h/.cpp                       # TranslationService — provider selection and orchestration
+├── models.h/.cpp                        # TranslationRequest / TranslationResult — provider-neutral models
+├── worker.h/.cpp                        # TranslationWorker — shared Qt worker for all providers
+├── providers/                           # provider implementations
+│   ├── deepl.h/.cpp                     # DeepL
+│   ├── google.h/.cpp                    # Google
+│   ├── azure.h/.cpp                     # Azure
+│   ├── amazon.h/.cpp                    # Amazon
+│   ├── baidu.h/.cpp                     # Baidu
+│   ├── tencent.h/.cpp                   # Tencent Cloud
+│   ├── volcengine.h/.cpp                # Volcengine
+│   ├── youdao.h/.cpp                    # Youdao
+│   ├── custom_llm.h/.cpp                # Custom OpenAI-compatible service (Ollama, LM Studio…)
+│   ├── deepseek.h/.cpp                  # DeepSeek (LLM)
+│   ├── openai_compatible.h/.cpp         # Base class for OpenAI-compatible endpoints
+│   └── common.h                         # Response parsing and error-body helpers shared by the providers
+├── smart_translation_controller.h/.cpp  # SmartTranslationController — one-hotkey text probe and popup routing
+├── translation_popup.h/.cpp             # TranslationPopup — compact popup (selected text / typed input)
+├── deepl_service.h/.cpp                 # DeepLService / DeepLResult — legacy async DeepL API calls
+├── languages.h                          # translation_languages / source_languages — supported language list & codes
+├── translation_manager.h/.cpp           # TranslationManager — translation window manager (singleton)
+├── translation_dialog.h/.cpp            # TranslationDialog — translation result window
+├── speech_service.h/.cpp                # SpeechService / SapiBackend — reads translations aloud through the system SAPI, matching voices by language, one reading at a time
 └── ui/
-    ├── dialog.py            # Translation dialog UI
-    └── widgets.py           # Translation widgets
+    └── widgets.h/.cpp                   # Translation widgets
 ```
 
 </details>
 
 **Core Features:**
-- Pluggable multi-provider architecture (DeepL / Google / Azure / Amazon) with a unified registry
+- Pluggable multi-provider architecture with a unified registry
 - One hotkey: probes selected text and routes it to the popup
 - Compact popup with selected-text and typed-input modes
 - Async translation that never blocks the UI
 - Copyable results
+- Read translations aloud with the system voices, matched by language, one reading at a time
 
 ---
 
 ### translations/ — Language Resources
+
+The interface texts in several languages, in `cpp/resources/translations/`.
 
 <details>
 <summary>Expand directory structure</summary>
@@ -662,7 +703,7 @@ translations/
 
 </details>
 
-`.xml` = editable source files, `.qm` = compiled Qt runtime files. When adding or changing UI text, add an entry with the same context to all four `.xml` files (use real line breaks in multi-line text), then run `compile_translations.py`; `tests/test_translation_coverage.py` checks for gaps.
+`.xml` = editable source files, `.qm` = compiled Qt runtime files. When adding or changing UI text, add an entry with the same context to all four `.xml` files (use real line breaks in multi-line text), then run `scripts/compile_translations.py`. Log texts are edited directly in `resources/core/log_translations.json`.
 
 ---
 
@@ -675,120 +716,184 @@ Common UI component library.
 
 ```text
 ui/
-├── toolbar.py               # Toolbar / _DragHandle — draggable toolbar base class
-├── toolbar_layout.py        # screenshot / pin toolbar button layouts (order / visibility): normalize, load, save
-├── toolbar_layout_dialog.py # ToolbarLayoutDialog — screenshot / pin toolbar layout editor
-├── reorderable_rows.py      # DragGrip / DraggableRow / ReorderableRowList — drag-to-reorder rows
-├── tray_menu.py             # TrayMenu — system tray menu
-├── screenshot_window.py     # ScreenshotWindow — full-screen capture window (region drawing)
-├── quick_capture_overlay.py # Transparent quick capture layer reusing the normal selection, coordinates and magnifier
-├── update_dialog.py         # Update notes and download progress
-├── dialogs.py               # StandardDialog — confirm, warning, info, error dialogs
-├── toast.py                 # Toast — one-line hint by the cursor that never takes focus
-├── submenu_position.py      # Cascading submenus: which way they open and how they hug the parent item
-├── magnifier.py             # MagnifierOverlay — pixel-level magnifier
-├── color_picker_dialog.py   # ColorPickerDialog — custom HSV color picker
-├── color_picker_button.py   # ColorPickerButton — color selection button
-├── hotkey_edit.py           # HotkeyEdit — global hotkey editor
-├── inapp_key_edit.py        # InAppKeyEdit — in-app shortcut editor
-├── key_chip.py              # KeyChipLineEdit / StatusIcon — shared shortcut chip look
-├── mask_overlay.py          # mask overlay layer
-├── selection_overlay.py     # SelectionOverlayWidget — selection chrome layer above the mask
-├── base_settings_panel.py   # BaseSettingsPanel / StepperWidget — settings panel base class
-├── paint_settings_panel.py  # PaintSettingsPanel — brush settings panel
-├── shape_settings_panel.py  # ShapeSettingsPanel — shape settings panel
-├── text_settings_panel.py   # TextSettingsPanel — text settings panel
-├── arrow_settings_panel.py  # ArrowSettingsPanel — arrow settings panel
-├── number_settings_panel.py # number tool settings panel
-├── mosaic_settings_panel.py # mosaic tool settings panel
-├── watermark_settings_panel.py # watermark panel: text, position, style popup (opacity/size/spacing/angle/grid lines/color), font
-├── watermark_input_dialog.py   # WatermarkInputDialog — multi-line watermark text with time insertion and preview
+├── toolbar.h/.cpp                   # Toolbar / ToolbarDragHandle — draggable toolbar base class
+├── toolbar_layout.h/.cpp            # screenshot / pin toolbar button layouts (order / visibility): normalize, load, save
+├── toolbar_layout_dialog.h/.cpp     # ToolbarLayoutDialog — screenshot / pin toolbar layout editor
+├── reorderable_rows.h/.cpp          # DragGrip / DraggableRow / ReorderableRowList — drag-to-reorder rows
+├── tray_menu.h/.cpp                 # CustomTrayMenu — system tray menu
+├── screenshot_window.h/.cpp         # ScreenshotWindow — full-screen capture window (region drawing)
+├── quick_capture_overlay.h/.cpp     # Transparent quick capture layer reusing the normal selection, coordinates and magnifier
+├── update_dialog.h/.cpp             # Update notes and download progress
+├── dialogs.h/.cpp                   # StandardDialog — confirm, warning, info, error dialogs
+├── toast.h/.cpp                     # Toast — one-line hint by the cursor that never takes focus
+├── submenu_position.h/.cpp          # Cascading submenus: which way they open and how they hug the parent item
+├── magnifier.h/.cpp                 # MagnifierOverlay — pixel-level magnifier
+├── color_picker_button.h/.cpp       # ColorPickerButton — color selection button
+├── hotkey_edit.h/.cpp               # HotkeyEdit — global hotkey editor
+├── inapp_key_edit.h/.cpp            # InAppKeyEdit — in-app shortcut editor
+├── key_chip.h/.cpp                  # KeyChipLineEdit / StatusIcon — shared shortcut chip look
+├── mask_overlay.h/.cpp              # mask overlay layer
+├── selection_overlay.h/.cpp         # SelectionOverlayWidget — selection chrome layer above the mask
+├── base_settings_panel.h/.cpp       # BaseSettingsPanel / StepperWidget — settings panel base class
+├── paint_settings_panel.h/.cpp      # PaintSettingsPanel — brush settings panel
+├── shape_settings_panel.h/.cpp      # ShapeSettingsPanel — shape settings panel
+├── text_settings_panel.h/.cpp       # TextSettingsPanel — text settings panel
+├── arrow_settings_panel.h/.cpp      # ArrowSettingsPanel — arrow settings panel
+├── number_settings_panel.h/.cpp     # number tool settings panel
+├── mosaic_settings_panel.h/.cpp     # mosaic tool settings panel
+├── watermark_settings_panel.h/.cpp  # watermark panel: text, position, style popup (opacity/size/spacing/angle/grid lines/color), font
+├── watermark_input_dialog.h/.cpp    # WatermarkInputDialog — multi-line watermark text with time insertion and preview
+├── initial_selection.h/.cpp         # InitialSelectionGate — holds the capture window back until the first point query returns (at most 50 ms), so the first frame already shows a selection
 │
-├── fluent_lite/             # Fluent-style lightweight component library
-│   ├── buttons.py / cards.py / icons.py / inputs.py  # buttons, cards, icons, inputs
-│   ├── labels.py / navigation.py / segmented.py      # labels, navigation, segmented controls
-│   ├── switch.py / theme.py / titlebar.py            # switch, theme, title bar
-│   ├── frameless.py         # frameless windows
-│   └── text_context_menu.py # text context menu
+├── fluent_lite/                     # Fluent-style lightweight component library
+│   ├── buttons.h/.cpp               # buttons
+│   ├── cards.h/.cpp                 # cards
+│   ├── icons.h/.cpp                 # icons
+│   ├── inputs.h/.cpp                # inputs
+│   ├── labels.h/.cpp                # labels
+│   ├── navigation.h/.cpp            # navigation
+│   ├── segmented.h/.cpp             # segmented controls
+│   ├── switch.h/.cpp                # switch
+│   ├── theme.h/.cpp                 # theme
+│   ├── titlebar.h/.cpp              # title bar
+│   ├── frameless.h/.cpp             # frameless windows
+│   ├── text_context_menu.h/.cpp     # text context menu
+│   └── fluent_lite.h/.cpp           # Umbrella header and the check button
 │
-├── settings_ui/             # Application settings dialog
-│   ├── dialog.py            # SettingsDialog — tabbed settings dialog
-│   ├── components.py        # SettingCardGroup / ToggleSwitch — setting components
-│   ├── page_appearance.py   # Appearance settings (theme, language)
-│   ├── page_capture.py      # Capture settings
-│   ├── page_quick_actions.py # Quick actions settings (skip confirm or result windows)
-│   ├── color_format_dialog.py # ColorFormatDialog — magnifier color format editor
-│   ├── ppocr_model_dialog.py # PpocrModelDialog — download, add, and delete PP-OCR models
-│   ├── page_clipboard.py    # Clipboard settings
-│   ├── special_paste_dialog.py # SpecialPasteDialog — reorder and toggle special paste menu items
-│   ├── page_hotkey.py       # Hotkey settings
-│   ├── page_mouse.py        # Mouse shortcut settings
-│   ├── page_pin.py          # Pin settings (behavior, appearance, click-through)
-│   ├── page_translation.py  # Translation settings
-│   ├── provider_fields.py   # Translation provider fields: read/write config and widget values from declarations
-│   ├── page_log.py          # Log settings
-│   ├── page_developer.py    # Developer settings
-│   ├── page_misc.py         # Miscellaneous settings
-│   ├── page_about.py        # About page
-│   └── mock_config.py       # MockConfig — mock config for testing
+├── settings_ui/                     # Application settings dialog
+│   ├── dialog.h/.cpp                # SettingsDialog — tabbed settings dialog
+│   ├── components.h/.cpp            # SettingCardGroup / ToggleSwitch — setting components
+│   ├── page_appearance.cpp          # Appearance settings (theme, language)
+│   ├── page_capture.cpp             # Capture settings
+│   ├── page_quick_actions.cpp       # Quick actions settings (skip confirm or result windows)
+│   ├── color_format_dialog.h/.cpp   # ColorFormatDialog — magnifier color format editor
+│   ├── ppocr_model_dialog.h/.cpp    # PpocrModelDialog — download, add, and delete PP-OCR models
+│   ├── page_clipboard.cpp           # Clipboard settings
+│   ├── special_paste_dialog.h/.cpp  # SpecialPasteDialog — reorder and toggle special paste menu items
+│   ├── page_hotkey.cpp              # Hotkey settings
+│   ├── page_mouse.cpp               # Mouse shortcut settings
+│   ├── page_pin.cpp                 # Pin settings (behavior, appearance, click-through)
+│   ├── page_translation.cpp         # Translation settings
+│   ├── provider_fields.cpp          # Translation provider fields: read/write config and widget values from declarations
+│   ├── page_log.cpp                 # Log settings
+│   ├── page_developer.cpp           # Developer settings
+│   ├── page_misc.cpp                # Miscellaneous settings
+│   ├── page_about.cpp               # About page
+│   ├── mouse_binding_editor.h       # MouseBindingEditor — picker for a mouse shortcut's modifiers and gesture
+│   └── pages.h                      # Declarations of the settings page builders
 │
-├── welcome/                 # First-run welcome wizard (6-page guided setup)
-│   ├── wizard.py            # WelcomeWizard — wizard main window
-│   ├── base_page.py         # BasePage — wizard page base class
-│   ├── page1_welcome.py     # Welcome page
-│   ├── page2_screenshot.py  # Screenshot hotkey setup page
-│   ├── page3_clipboard.py   # Clipboard hotkey setup page
-│   ├── page5_translation.py # Translation feature intro page
-│   ├── page6_finish.py      # Finish page
-│   └── page_hotkeys.py      # Global hotkey page — six hotkeys share one conflict domain, set and validated together
+├── welcome/                         # First-run welcome wizard (6-page guided setup)
+│   ├── wizard.h/.cpp                # WelcomeWizard — wizard main window
+│   ├── base_page.h/.cpp             # BasePage — wizard page base class
+│   ├── page1_welcome.cpp            # Welcome page
+│   ├── page2_screenshot.cpp         # Screenshot hotkey setup page
+│   ├── page3_clipboard.cpp          # Clipboard hotkey setup page
+│   ├── page5_translation.cpp        # Translation feature intro page
+│   ├── page6_finish.cpp             # Finish page
+│   ├── page_hotkeys.cpp             # Global hotkey page — six hotkeys share one conflict domain, set and validated together
+│   └── pages.h                      # Declarations of the wizard pages
 │
-└── selection_info/          # Selection info UI
-    ├── controller.py        # Selection info controller
-    ├── panel.py             # Selection info panel (dimensions, coordinates)
-    ├── hook_manager.py      # Hook manager
-    ├── border_shadow.py     # Selection border shadow effect
-    ├── lock_ratio.py        # Aspect ratio lock
-    └── rounded_corners.py   # Rounded corner capture
+└── selection_info/                  # Selection info UI
+    ├── controller.h/.cpp            # Selection info controller
+    ├── panel.h/.cpp                 # Selection info panel (dimensions, coordinates)
+    ├── border_shadow.h/.cpp         # Selection border shadow effect
+    ├── lock_ratio.h/.cpp            # Aspect ratio lock
+    └── rounded_corners.h/.cpp       # Rounded corner capture
 ```
 
 </details>
 
+**Core Features:**
+- Draggable toolbar base class that every toolbar inherits from
+- Full-screen screenshot window that handles selection drawing and interaction
+- Fine-grained UI components such as the magnifier and the colour picker
+- Lightweight Fluent-style component library (buttons, cards, navigation, segmented controls, switches and more)
+- Complete application settings dialog (appearance / capture / hotkeys / translation and other pages)
+- First-run welcome wizard (a six-page guided flow)
+- Selection info panel (size readout, aspect-ratio lock, rounded corners and more)
+
+---
+
+### video/ — MP4 Recording Worker
+
+The MP4 recording worker process: the same exe started with `--video-recorder-worker`. The native recorder runs only in this process, so frames never enter the GUI process. Commands arrive as JSON lines on standard input and events leave as JSON lines on standard output.
+
+<details>
+<summary>Expand directory structure</summary>
+
+```text
+video/
+└── worker.h/.cpp  # worker_main — entry of the MP4 recording process: JSON-line commands on stdin, JSON-line events on stdout; frames stay inside the native recorder
+```
+
+</details>
+
+- Records H.264 video at 1–60 fps with a 0.5–50 Mbps target bitrate
+- Optional system audio (the default playback device) and mouse pointer; video is SDR
+- Success is reported only after the MP4 has been finalized
+
 ---
 
 ### tests/ — Test Module
+
+QtTest tests. Tests whose names end in `_desktop` run on the real desktop, the rest can run offscreen; every test program links `test_sandbox.cpp`, so settings, data and logs land in a temporary folder.
 
 <details>
 <summary>Expand directory structure</summary>
 
 ```text
 tests/
-├── conftest.py              # pytest configuration and common fixtures
-├── pytest.ini               # pytest run configuration
-├── run_tests.py             # test runner script
-├── test_drawing_tools.py    # drawing tool tests (pen/rect/arrow/text/number/highlighter)
-├── test_mosaic_tool.py      # mosaic tool tests
-├── test_spotlight.py        # spotlight tests
-├── test_watermark.py        # watermark tests
-├── test_functional_handles.py # edit handle tests
-├── test_capture_service.py  # capture service tests
-├── test_clipboard_api.py    # clipboard public API tests
-├── test_clipboard_manage_dialog.py # clipboard management window tests
-├── test_frame_recorder.py   # GIF frame recorder tests
-├── test_video_helper.py     # worker command and installed license lookup
-├── test_video_worker.py     # PyO3 adapter, protocol and early worker dispatch
-├── test_video_settings.py   # video option validation and persistence
-├── test_video_recorder.py   # MP4 process control and recording window tests
-├── test_video_native_process.py # source-built native recording protocol tests
-├── test_video_native_binding.py # PyO3 thread control, callbacks and resource cleanup
-├── test_video_quit.py       # application exit coordination during recording
-├── test_playback_engine.py  # GIF playback engine tests
-├── test_ocr_text_layer.py   # OCR text layer tests
-├── test_pin_window_zoom.py  # pin window zoom tests
-├── test_smart_translation.py # smart translation tests
-├── test_translation_architecture.py # translation provider architecture tests
-├── test_settings_dialog_state.py # settings dialog state tests
-├── test_welcome_translation.py # welcome wizard translation page tests
-└── … (70+ additional unit & integration test files)
+├── test_barcode.cpp               # QR code and barcode reading
+├── test_bundled_runtime.cpp       # Writing the Full package's embedded runtime
+├── test_canvas_items.cpp          # Canvas items: handles, borders and appearance settings
+├── test_canvas_parity.cpp         # Canvas drawing geometry, pixels, undo and ownership
+├── test_canvas_view.cpp           # Canvas view
+├── test_capture_finders.cpp       # Window lookup and the system pointer on the real desktop (desktop test)
+├── test_clipboard.cpp             # Clipboard logic and context menus
+├── test_clipboard_backend.cpp     # Clipboard backend: the database and the system clipboard watcher
+├── test_clipboard_controller.cpp  # Clipboard window controller: paging, filters, groups, pasting
+├── test_clipboard_manage.cpp      # Clipboard management window
+├── test_clipboard_selection.cpp   # Keyboard and mouse selection in the clipboard list
+├── test_clipboard_ui.cpp          # The clipboard backend, windows and settings together
+├── test_clipboard_widgets.cpp     # Clipboard widgets: row painting, preview popups, gear menu, themes
+├── test_clipboard_window.cpp      # Clicks, keys and menus of the clipboard window
+├── test_core.cpp                  # Core: global hotkeys, log texts, the administrator task, single-instance hand-off
+├── test_freehand.cpp              # Pen stroke smoothing, snapping and chunked repainting
+├── test_gif.cpp                   # GIF/MP4 recording, playback and export
+├── test_hdr_capture.cpp           # HDR capture (desktop test)
+├── test_http_providers.cpp        # The HTTP client and providers with a configurable address
+├── test_logger.cpp                # Logging
+├── test_main_app.cpp              # Main app: tray, hotkeys, capture flow and global input (desktop test)
+├── test_msaa_element_finder.cpp   # Point query and first-frame selection
+├── test_ocr_manager.cpp           # OCR engine and model management
+├── test_parity.cpp                # Selection state, last region, toolbar layout, scale rounding, setting defaults and persistence
+├── test_pin.cpp                   # Pin: rotation, OCR coordinate mapping and window behaviour
+├── test_platform.cpp              # Platform helpers: processes, DPI, autostart, crash log
+├── test_ppocr_models.cpp          # PP-OCR model download, adding and catalog
+├── test_result_windows.cpp        # OCR and barcode result windows
+├── test_sandbox.cpp               # Linked into every test program: points settings, data and logs at a temporary folder
+├── test_screenshot_window.cpp     # Screenshot window
+├── test_scroll_capture.cpp        # Scroll capture
+├── test_settings_window.cpp       # Settings window
+├── test_shortcut_manager.cpp      # Shortcut manager and global hooks
+├── test_smart_selection.cpp       # Smart selection over real windows (desktop test)
+├── test_stitch.cpp                # Long screenshot stitching
+├── test_text_recognition.cpp      # Text recognition: layout and window placement
+├── test_translation.cpp           # Translation providers, registry and service
+├── test_translation_speech.cpp    # Reading translations aloud (a fake backend, no system voice)
+├── test_translation_ui.cpp        # Translation window and popup
+├── test_ui_widgets.cpp            # Shared widgets: toolbar, settings panels, hotkey editors and more
+├── test_update.cpp                # Update check and one-click update (against a fake updater)
+├── clipboard_test_support.h       # Shared setup of the clipboard tests
+├── fake_updater.cpp               # Stand-in for the updater helper in tests
+├── leak_check.h/.cpp              # Leak mode: runs the tests three times and finds leaks on the debug heap
+└── fixtures/                      # Expected-result data (committed, not regenerated)
 ```
 
 </details>
+
+---
+
+## License
+
+Copyright and the MIT license are in [LICENSE](LICENSE); Qt and other third-party components are described in [THIRD-PARTY-NOTICES.md](cpp/THIRD-PARTY-NOTICES.md).

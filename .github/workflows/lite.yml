@@ -1,7 +1,8 @@
-name: Lite single exe
+name: Single exe packages
 
-# The lite package is the C++ version (cpp/) as one static exe. build.yml calls this for releases;
-# run it by hand for test builds of a branch.
+# The lite and full packages are the C++ version (cpp/) as one static exe; the full one also carries
+# ONNX Runtime and the default PP-OCR models. build.yml calls this for releases; run it by hand for
+# test builds of a branch.
 on:
   workflow_call:
   workflow_dispatch:
@@ -35,6 +36,7 @@ jobs:
       fail-fast: false
       matrix:
         arch: [x64, arm64]
+        variant: [lite, full]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -55,15 +57,15 @@ jobs:
         run: rustup target add aarch64-pc-windows-msvc
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          workspaces: cpp/native -> ../build/static${{ matrix.arch == 'arm64' && '-arm64' || '' }}/native
-          key: ${{ matrix.arch }}
+          workspaces: cpp/native -> ../build/static${{ matrix.arch == 'arm64' && '-arm64' || '' }}${{ matrix.variant == 'full' && '-full' || '' }}/native
+          key: ${{ matrix.arch }}-${{ matrix.variant }}
           # Tags and other branches restore from master2; saving theirs would only crowd the cache.
           save-if: ${{ github.ref == 'refs/heads/master2' }}
-      - run: .\build.cmd -Static -Arch ${{ matrix.arch }}
+      - run: .\build.cmd -Static -Arch ${{ matrix.arch }}${{ matrix.variant == 'full' && ' -Full' || '' }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: jietuba_lite-cpp-${{ matrix.arch }}
-          path: cpp/dist/Release-static${{ matrix.arch == 'arm64' && '-arm64' || '' }}/
+          name: ${{ matrix.variant == 'full' && 'jietuba_pp' || 'jietuba_lite' }}-cpp-${{ matrix.arch }}
+          path: cpp/dist/Release-static${{ matrix.arch == 'arm64' && '-arm64' || '' }}${{ matrix.variant == 'full' && '-full' || '' }}/
           if-no-files-found: error
 
   smoke:
@@ -72,16 +74,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        arch: [x64, arm64]
+        variant: [lite, full]
         include:
           - arch: x64
             runner: windows-latest
           - arch: arm64
             runner: windows-11-arm
     runs-on: ${{ matrix.runner }}
+    env:
+      PACKAGE: ${{ matrix.variant == 'full' && 'jietuba_pp' || 'jietuba_lite' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: jietuba_lite-cpp-${{ matrix.arch }}
-          path: lite
-      - run: .\scripts\smoke_static.ps1 -Exe ..\lite\jietuba_lite.exe
+          name: ${{ env.PACKAGE }}-cpp-${{ matrix.arch }}
+          path: package
+      - run: .\scripts\smoke_static.ps1 -Exe ..\package\${{ env.PACKAGE }}.exe

@@ -1,6 +1,7 @@
 #include "clipboard/core/models.h"
 #include "core/i18n.h"
 #include "core/logger.h"
+#include "core/native.h"
 #include "core/py_text.h"
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -78,6 +79,20 @@ QString ClipboardItem::icon() const {
     if (content_type == "image") return QString::fromUtf8("📷");
     return {};
 }
+
+std::optional<QString> filter_content_type(int group_type) {
+    char buffer[16] = {};
+    if (!jb_clipboard_filter_content_type(group_type, buffer, sizeof buffer)) return std::nullopt;
+    return QString::fromUtf8(buffer);
+}
+
+std::optional<GroupType> filter_group_type(const QString &content_type) {
+    for (const auto group_type : {GroupType::FILTER_TEXT, GroupType::FILTER_IMAGE, GroupType::FILTER_FILE})
+        if (filter_content_type(static_cast<int>(group_type)) == content_type) return group_type;
+    return std::nullopt;
+}
+
+bool group_accepts(int group_type, const QString &content_type) { return jb_clipboard_group_accepts(group_type, content_type.toUtf8().constData()); }
 
 Group Group::from_json(const QJsonObject &object) {
     Group group;

@@ -370,6 +370,30 @@ private slots:
         QCOMPARE(large_errors.first().first().toString(), QString("Updater message too large"));
     }
 
+    void shutdownWaitsForCancellationAndRemovesTheHelper_data() {
+        QTest::addColumn<QByteArray>("scenario");
+        QTest::newRow("cooperative") << QByteArray("protocol");
+        QTest::newRow("unresponsive") << QByteArray("sleep");
+    }
+
+    void shutdownWaitsForCancellationAndRemovesTheHelper() {
+        QFETCH(QByteArray, scenario);
+        qputenv("JIETUBA_FAKE_UPDATER", scenario);
+        UpdaterProcess runner;
+        QSignalSpy stopped(&runner, &UpdaterProcess::finished);
+        QSignalSpy failed(&runner, &UpdaterProcess::failed);
+        QVERIFY(runner.start("download-model", {}));
+        QVERIFY(runner.process()->waitForStarted(3000));
+        const QString helper = runner.process()->program();
+        runner.shutdown();
+        QCOMPARE(runner.process()->state(), QProcess::NotRunning);
+        QVERIFY(!runner.busy());
+        QCOMPARE(stopped.size(), 1);
+        QCOMPARE(failed.size(), 1);
+        if (scenario == "protocol") QVERIFY(failed.first().first().toString().contains("cancelled"));
+        QVERIFY(!QFileInfo::exists(helper));
+    }
+
     void processReportsMissingHelperAndIncompleteExit() {
         UpdaterProcess runner;
         QSignalSpy errors(&runner, &UpdaterProcess::failed);

@@ -10,7 +10,9 @@
 
 namespace jietuba {
 class EllipsisAnimator;
+class SpeechButton;
 class TextEdit;
+class VectorToolButton;
 struct DashboardPalette;
 
 // One compact, always-editable window for both selected and typed text. Entry
@@ -53,6 +55,13 @@ public:
     QPushButton *lang_button = nullptr;
     QPushButton *copy_button = nullptr;
     QPushButton *full_button = nullptr;
+    VectorToolButton *speak_source_button = nullptr;
+    VectorToolButton *speak_result_button = nullptr;
+
+    quint64 source_speech_token() const;
+    quint64 result_speech_token() const;
+    // The language the last translation detected for this exact text, else a guess from its script.
+    QString source_text_lang() const;
 
 signals:
     void open_full_requested(const QString &source_text, const QString &translated_text, const QString &error_text);
@@ -65,6 +74,7 @@ protected:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
+    void hideEvent(QHideEvent *event) override;
 
 private:
     void build_ui();
@@ -87,6 +97,8 @@ private:
     void copy_translation();
     void open_full();
     void hide_popup();
+    QString speakable_result() const;
+    void refresh_speech();
 
     const DashboardPalette *palette_;
     QString source_text_;
@@ -100,5 +112,11 @@ private:
     EllipsisAnimator *loading_dots_ = nullptr;
     QTimer *manual_debounce_ = nullptr;
     QPropertyAnimation *fade_ = nullptr;
+    SpeechButton *source_speech_ = nullptr;
+    SpeechButton *result_speech_ = nullptr;
+    QString detected_lang_;
+    QString detected_for_text_;
+    // The target language the shown translation was made for.
+    QString result_lang_;
 };
 }

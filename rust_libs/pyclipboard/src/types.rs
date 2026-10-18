@@ -106,7 +106,7 @@ impl PyPaginatedResult {
 ///     icon: 分组图标（可选）
 ///     item_order: 排序顺序
 ///     created_at: 创建时间戳
-///     group_type: 分组类型 (0=普通, 1=文件分组)
+///     group_type: 分组类型 (0=普通, 1=快速启动, 2=隐藏, 3/4/5=筛选文本/图片/文件)
 #[cfg_attr(feature = "python", pyclass(name = "Group", get_all, set_all))]
 #[derive(Clone, Debug)]
 pub struct PyGroup {

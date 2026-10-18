@@ -72,7 +72,7 @@ public:
     bool rename_group(qint64 group_id, const QString &name);
     bool update_group(qint64 group_id, const QString &name, const std::optional<QString> &color = std::nullopt, const std::optional<QString> &icon = std::nullopt,
                       int group_type = 0);
-    // A file group only takes file items.
+    // The Rust core refuses items the group does not take (see group_accepts).
     bool move_to_group(qint64 item_id, std::optional<qint64> group_id = std::nullopt);
     bool move_group_between(qint64 group_id, std::optional<qint64> before_id = std::nullopt, std::optional<qint64> after_id = std::nullopt);
     bool move_item_between(qint64 item_id, std::optional<qint64> before_id = std::nullopt, std::optional<qint64> after_id = std::nullopt);

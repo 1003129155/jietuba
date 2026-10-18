@@ -104,6 +104,8 @@ public:
     ToolbarMorePopup *more_popup() const { return more_popup_; }
     // Recomputes sizes, layout and position. Only sizes change: tool, checked state and panel values stay.
     void apply_scale();
+    // Creates only the requested panel; routine hide/scale operations keep others absent.
+    QWidget *ensure_panel_for_tool(const QString &tool_id);
     void edit_watermark_text();
     // Shows the watermark on the image in the panel, expanded at the watermark's own time.
     void show_watermark(const QString &template_text, const QDateTime &when);
@@ -175,6 +177,7 @@ signals:
     void mosaic_style_changed(const QString &style);
     void mosaic_block_size_changed(int block_size);
     void line_style_changed(const QString &style);
+    void highlighter_mode_changed(const QString &mode);
     // Applying the watermark (reusing an existing layer); style changes are
     // (WatermarkStyle field, value); text is a template with time placeholders.
     void watermark_requested();
@@ -222,12 +225,10 @@ private:
     QList<QWidget *> panels() const;
     // The "..." and the popup have a gap between them, so closing waits a moment.
     void on_more_hover(bool hovering);
-    void init_settings_panels();
     // Created on first use: watermarks are rarely used, so building the toolbar skips it. It skips the
     // generic colour signals, which would change the pen colour and cursor.
     WatermarkSettingsPanel *ensure_watermark_panel();
     void set_watermark_text(const QString &template_text);
-    void load_saved_settings();
     // Fills a tool's panel from its saved settings: what drawing now would produce.
     void sync_panel_from_settings(const QString &tool_id);
     void retranslate();

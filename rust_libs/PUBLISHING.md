@@ -5,27 +5,23 @@
 
 `j-video==0.1.0` 与其他扩展一致，使用 PyO3 和 Maturin 构建 Windows
 x64 / ARM64 的 `abi3-py311` wheel，Python 导入名为 `video_recorder`。
-所有扩展共用 workspace、构建循环和发布流程。应用在专用 Python 子进程中调用
-录制扩展，录制结束后退出以释放资源。正式 wheel 不启用 `test-support`。
+所有扩展共用 workspace、构建循环和发布流程。正式 wheel 不启用 `test-support`。
+截图吧自 2.1.8 起只发 C++ 版，C++ 以 `default-features = false` 直接链接各 crate 的核心，不用这些 wheel；
+用到它们的 Python 版归档在 `archive/python` 分支。
 
 ## 首次发布前的本地安装
 
-`0.1.0` 尚未发布时，先在已激活的项目虚拟环境中从当前源码构建并安装 wheel，
-再安装运行依赖。下例为 x64；ARM64 Python 将目标改为 `aarch64-pc-windows-msvc`。
+`0.1.0` 尚未发布时，先在已激活的虚拟环境中从当前源码构建并安装 wheel。下例为 x64；ARM64 Python 将目标改为 `aarch64-pc-windows-msvc`。
 需要 Rust MSVC 工具链、匹配目标的标准库、MSVC 链接器与 Windows SDK：
 
 ```powershell
 python -m pip install maturin==1.12.6
 maturin build --locked --release --target x86_64-pc-windows-msvc -i python -m rust_libs/video_recorder/Cargo.toml --out wheelhouse
 python -m pip install --force-reinstall --no-deps (Get-ChildItem wheelhouse/j_video-0.1.0-*.whl).FullName
-python -m pip install -r requirements.txt
 ```
 
-CI、wheel 验证及 Windows 发布构建也先安装本次源码的所有 wheel，再安装 Python
-运行依赖。onefile 打包收集已安装的正式扩展与许可文件，不再次编译录制扩展，并拒绝
-启用 `test-support` 的录制扩展。
+wheel 验证（`rust-wheels.yml`）同样先构建并安装本次源码的所有 wheel 再做导入冒烟。
 独立更新器仍由 Cargo 单独构建，不加入 Maturin 或 PyPI 发布流程。
-`setup.bat` 使用 requirements.txt 从 PyPI 安装；首次发布前应使用上述手动步骤。
 
 ## 一次性配置
 

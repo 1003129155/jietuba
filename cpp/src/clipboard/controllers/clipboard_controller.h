@@ -55,6 +55,10 @@ public:
     // [start of first day, start of the day after the last).
     static std::optional<std::pair<QDateTime, QDateTime>> parse_time_range_text(const QString &range_text);
 
+    // The content type of the selected group when it is a filter group.
+    std::optional<QString> current_filter_type() const;
+    // History and filter groups follow the history rules; real groups do not.
+    bool shows_history() const;
     void switch_to_group(std::optional<qint64> group_id);
     // Asks first when parent_widget is given; tr translates in the caller's context.
     bool delete_group(qint64 group_id, QWidget *parent_widget = nullptr, const std::function<QString(const char *)> &tr = {});

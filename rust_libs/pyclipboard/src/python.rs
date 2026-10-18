@@ -4,6 +4,7 @@ use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 
+use crate::group_kind;
 use crate::manager::{self, ClipboardManager, ItemCallback, MultiPasteOptions};
 use crate::multi_paste;
 use crate::types::{PyClipboardItem, PyGroup, PyPaginatedResult};
@@ -31,6 +32,8 @@ fn pyclipboard(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(set_clipboard_files, m)?)?;
     m.add_function(wrap_pyfunction!(get_available_formats, m)?)?;
     m.add_function(wrap_pyfunction!(get_clipboard_owner, m)?)?;
+    m.add_function(wrap_pyfunction!(filter_content_type, m)?)?;
+    m.add_function(wrap_pyfunction!(group_accepts, m)?)?;
     
     Ok(())
 }
@@ -98,6 +101,18 @@ fn get_available_formats() -> PyResult<Vec<String>> {
 #[pyfunction]
 fn get_clipboard_owner() -> PyResult<Option<String>> {
     Ok(manager::get_clipboard_owner())
+}
+
+/// 筛选分组筛的内容类型（"text" / "image" / "file"）；不是筛选分组返回 None
+#[pyfunction]
+fn filter_content_type(group_type: i64) -> Option<&'static str> {
+    group_kind::filter_content_type(group_type)
+}
+
+/// 分组类型能不能存这类内容：快速启动只收文件，筛选分组不收内容
+#[pyfunction]
+fn group_accepts(group_type: i64, content_type: &str) -> bool {
+    group_kind::accepts(group_type, content_type)
 }
 
 /// 剪贴板历史管理器
@@ -385,7 +400,7 @@ impl PyClipboardManager {
     ///     name: 分组名称
     ///     color: 分组颜色（可选，如 "#FF0000"）
     ///     icon: 分组图标（可选）
-    ///     group_type: 分组类型 (0=普通, 1=文件分组)。默认 0
+    ///     group_type: 分组类型 (0=普通, 1=快速启动, 2=隐藏, 3/4/5=筛选文本/图片/文件)。默认 0
     /// 
     /// Returns:
     ///     int: 新分组的 ID
@@ -426,7 +441,7 @@ impl PyClipboardManager {
     ///     name: 名称
     ///     color: 颜色（可选）
     ///     icon: 图标（可选）
-    ///     group_type: 分组类型 (0=普通, 1=文件分组)。默认 0
+    ///     group_type: 分组类型 (0=普通, 1=快速启动, 2=隐藏, 3/4/5=筛选文本/图片/文件)。默认 0
     #[pyo3(signature = (id, name, color=None, icon=None, group_type=0))]
     fn update_group(&self, id: i64, name: String, color: Option<String>, icon: Option<String>, group_type: i64) -> PyResult<()> {
         self.inner.update_group(id, name, color, icon, group_type).map_err(PyRuntimeError::new_err)

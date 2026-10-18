@@ -63,6 +63,9 @@ public:
     bool set_clipboard_monitoring_enabled(bool enabled);
     // Pins the clipboard image at the cursor; during a capture pins the selection instead.
     void pin_clipboard_image();
+    // Admin mode was just turned on here, unelevated: runs the task so the elevated instance takes
+    // over (its single-instance check ends this one). Stays when that instance does not come up.
+    void hand_off_to_admin();
     bool quit_app() override;
     QString update_busy_reason() override;
     std::pair<bool, QString> prepare_for_update() override;

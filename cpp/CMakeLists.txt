@@ -6,32 +6,30 @@ set(CMAKE_AUTOMOC ON)
 find_package(Qt6 6.8 REQUIRED COMPONENTS Widgets Svg)
 qt_standard_project_setup()
 set(CMAKE_AUTOUIC OFF)
-# The repository root holds the Python version; the version number, Rust libraries, icons and
-# translations come from there.
-get_filename_component(JIETUBA_PYTHON_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/.. ABSOLUTE)
+# The repository root holds the version number, the Rust libraries, the icons and svg/.
+get_filename_component(JIETUBA_REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/.. ABSOLUTE)
 
-# src/ mirrors the Python package layout (main/<package>/<module>.py ->
-# src/<package>/<module>.cpp).
+# src/<package>/<module>.cpp, one folder per feature area.
 file(GLOB_RECURSE JIETUBA_SOURCES CONFIGURE_DEPENDS
     src/*.cpp src/*.h src/*.inc)
 list(REMOVE_ITEM JIETUBA_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 
 add_library(jietuba_lib STATIC ${JIETUBA_SOURCES} resources/settings.qrc)
 set_target_properties(jietuba_lib PROPERTIES AUTORCC ON)
-# Generated from the Python version by scripts/generate_resources.py.
+# The .qm files are compiled from resources/translations/*.xml by scripts/compile_translations.py.
 file(GLOB JIETUBA_QM_FILES CONFIGURE_DEPENDS resources/translations/*.qm)
 qt_add_resources(jietuba_lib "jietuba_runtime_resources" PREFIX "/" BASE resources
     FILES resources/core/log_translations.json ${JIETUBA_QM_FILES})
-# The repository's svg/ is shared with the Python version and embedded as :/svg.
-file(GLOB_RECURSE JIETUBA_SVG_FILES CONFIGURE_DEPENDS ${JIETUBA_PYTHON_ROOT}/svg/*.svg ${JIETUBA_PYTHON_ROOT}/svg/*.json)
-qt_add_resources(jietuba_lib "jietuba_svg_resources" PREFIX "/" BASE ${JIETUBA_PYTHON_ROOT}
+# The repository's svg/ is embedded as :/svg.
+file(GLOB_RECURSE JIETUBA_SVG_FILES CONFIGURE_DEPENDS ${JIETUBA_REPO_ROOT}/svg/*.svg ${JIETUBA_REPO_ROOT}/svg/*.json)
+qt_add_resources(jietuba_lib "jietuba_svg_resources" PREFIX "/" BASE ${JIETUBA_REPO_ROOT}
     FILES ${JIETUBA_SVG_FILES})
 target_include_directories(jietuba_lib PUBLIC src)
 # windows.h must not define min/max macros.
 target_compile_definitions(jietuba_lib PUBLIC NOMINMAX)
 target_link_libraries(jietuba_lib PUBLIC Qt6::Widgets Qt6::Svg)
 if(WIN32)
-    target_link_libraries(jietuba_lib PUBLIC user32 gdi32 shell32 shcore dwmapi ole32 oleaut32 winhttp version)
+    target_link_libraries(jietuba_lib PUBLIC user32 gdi32 shell32 shcore dwmapi ole32 oleaut32 oleacc winhttp version secur32)
 endif()
 # Barcode decoding: the same zxing-cpp release the reference's Python wheel is built from.
 include(FetchContent)
@@ -69,14 +67,14 @@ endif()
 # A Python bytes literal of printable characters reads the same as a C++ string literal.
 string(REGEX REPLACE "^MODEL_KEY = b(\".*\")\r?$" "\\1" JIETUBA_ONEOCR_MODEL_KEY "${JIETUBA_ONEOCR_KEY_LINE}")
 configure_file(src/ocr/oneocr_model_key.h.in ${CMAKE_BINARY_DIR}/generated/ocr/oneocr_model_key.h @ONLY)
-# The version is APP_VERSION in the Python version's main_app.py, which the release build and tag
-# check also read.
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${JIETUBA_PYTHON_ROOT}/main/main_app.py)
-file(STRINGS ${JIETUBA_PYTHON_ROOT}/main/main_app.py JIETUBA_APP_VERSION_LINE REGEX "^APP_VERSION = \"[^\"]+\"")
-if(NOT JIETUBA_APP_VERSION_LINE)
-    message(FATAL_ERROR "APP_VERSION not found in ${JIETUBA_PYTHON_ROOT}/main/main_app.py")
+# The version is the one line of the repository's VERSION file, which the release workflow's tag
+# check and signing request also read.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${JIETUBA_REPO_ROOT}/VERSION)
+file(STRINGS ${JIETUBA_REPO_ROOT}/VERSION JIETUBA_APP_VERSION LIMIT_COUNT 1)
+string(STRIP "${JIETUBA_APP_VERSION}" JIETUBA_APP_VERSION)
+if(NOT JIETUBA_APP_VERSION MATCHES "^[0-9]+(\\.[0-9]+)*$")
+    message(FATAL_ERROR "${JIETUBA_REPO_ROOT}/VERSION must hold a dotted version such as 2.1.8, found \"${JIETUBA_APP_VERSION}\"")
 endif()
-string(REGEX REPLACE "^APP_VERSION = \"([^\"]+)\".*" "\\1" JIETUBA_APP_VERSION "${JIETUBA_APP_VERSION_LINE}")
 # The version resource takes four numbers: the leading numeric part, padded with zeros.
 string(REGEX MATCH "^[0-9]+(\\.[0-9]+)*" JIETUBA_APP_VERSION_NUMBERS "${JIETUBA_APP_VERSION}")
 string(REPLACE "." ";" JIETUBA_APP_VERSION_NUMBERS "${JIETUBA_APP_VERSION_NUMBERS}")
@@ -87,7 +85,7 @@ configure_file(src/app_version.h.in ${CMAKE_BINARY_DIR}/generated/app_version.h 
 target_include_directories(jietuba_lib PUBLIC ${CMAKE_BINARY_DIR}/generated)
 # native/ is a C ABI over the repository's Rust libraries (../rust_libs), built by cargo as a
 # static library.
-set(JIETUBA_RUST_LIBS ${JIETUBA_PYTHON_ROOT}/rust_libs)
+set(JIETUBA_RUST_LIBS ${JIETUBA_REPO_ROOT}/rust_libs)
 find_program(CARGO_EXECUTABLE cargo REQUIRED)
 set(JIETUBA_NATIVE_TARGET_DIR ${CMAKE_BINARY_DIR}/native)
 set(JIETUBA_NATIVE_LIB ${JIETUBA_NATIVE_TARGET_DIR}/release/jietuba_native.lib)
@@ -154,20 +152,39 @@ endif()
 # The single-file build (build.ps1 -Static) is released as the lite package, whose updater
 # replaces the package's jietuba_lite.exe; build.ps1 reads the name from the cache.
 option(JIETUBA_LITE_EXE "Name the exe jietuba_lite.exe, as the released lite package" OFF)
-if(JIETUBA_LITE_EXE)
+# The released full package: jietuba_pp.exe, the name its updater replaces, with the ONNX Runtime at
+# JIETUBA_ORT_DLL embedded as a resource (ocr/bundled_runtime puts it into models/).
+option(JIETUBA_FULL_EXE "Name the exe jietuba_pp.exe, as the released full package, and embed onnxruntime.dll" OFF)
+set(JIETUBA_ORT_DLL "" CACHE FILEPATH "onnxruntime.dll to embed for JIETUBA_FULL_EXE (scripts/fetch_ort_runtime.ps1)")
+set(JIETUBA_ORT_RC "")
+if(JIETUBA_FULL_EXE AND JIETUBA_LITE_EXE)
+    message(FATAL_ERROR "JIETUBA_LITE_EXE and JIETUBA_FULL_EXE are exclusive")
+endif()
+if(JIETUBA_FULL_EXE)
+    if(NOT EXISTS "${JIETUBA_ORT_DLL}")
+        message(FATAL_ERROR "JIETUBA_FULL_EXE needs JIETUBA_ORT_DLL: ${JIETUBA_ORT_DLL}")
+    endif()
+    set(JIETUBA_EXE_NAME jietuba_pp CACHE INTERNAL "")
+    target_compile_definitions(jietuba_lib PUBLIC JIETUBA_FULL_VARIANT)
+    file(TO_CMAKE_PATH "${JIETUBA_ORT_DLL}" JIETUBA_ORT_DLL_PATH)
+    set(JIETUBA_ORT_RC "ORT_RUNTIME RCDATA \"${JIETUBA_ORT_DLL_PATH}\"")
+elseif(JIETUBA_LITE_EXE)
     set(JIETUBA_EXE_NAME jietuba_lite CACHE INTERNAL "")
 else()
     set(JIETUBA_EXE_NAME jietuba_cpp CACHE INTERNAL "")
 endif()
 # The exe icon and the version resource; SignPath checks the product name and version.
 # The icon is the repository's 托盘.ico, copied to an ASCII path for rc.exe and the :/app.ico resource.
-configure_file(${JIETUBA_PYTHON_ROOT}/托盘.ico ${CMAKE_BINARY_DIR}/generated/app.ico COPYONLY)
+configure_file(${JIETUBA_REPO_ROOT}/托盘.ico ${CMAKE_BINARY_DIR}/generated/app.ico COPYONLY)
 set(JIETUBA_ICON_PATH ${CMAKE_BINARY_DIR}/generated/app.ico)
 set(JIETUBA_ICON_QRC ${CMAKE_BINARY_DIR}/generated/app_icon.qrc)
 file(CONFIGURE OUTPUT ${JIETUBA_ICON_QRC} CONTENT "<RCC><qresource prefix=\"/\"><file alias=\"app.ico\">app.ico</file></qresource></RCC>\n")
 configure_file(resources/app.rc.in ${CMAKE_BINARY_DIR}/generated/app.rc @ONLY)
 qt_add_executable(jietuba_cpp WIN32 src/main.cpp ${JIETUBA_ICON_QRC} ${CMAKE_BINARY_DIR}/generated/app.rc)
 set_target_properties(jietuba_cpp PROPERTIES AUTORCC ON OUTPUT_NAME ${JIETUBA_EXE_NAME})
+if(JIETUBA_FULL_EXE)
+    set_source_files_properties(${CMAKE_BINARY_DIR}/generated/app.rc PROPERTIES OBJECT_DEPENDS "${JIETUBA_ORT_DLL}")
+endif()
 target_link_libraries(jietuba_cpp PRIVATE jietuba_lib)
 # One-click updates need the updater helper from rust_libs inside the exe, copied out to run (see
 # core/updater_process). build.ps1 turns it on for the single-file lite build only.
@@ -180,7 +197,7 @@ if(JIETUBA_UPDATES)
     endif()
     file(GLOB_RECURSE JIETUBA_UPDATER_INPUTS CONFIGURE_DEPENDS
         ${JIETUBA_RUST_LIBS}/updater/src/* ${JIETUBA_RUST_LIBS}/updater/Cargo.toml ${JIETUBA_RUST_LIBS}/updater/build.rs)
-    # The same command as the Python release build: a static CRT, so the copy runs on its own.
+    # A static CRT, so the copy runs on its own.
     add_custom_command(OUTPUT ${JIETUBA_UPDATER_EXE}
         COMMAND ${CARGO_EXECUTABLE} rustc --release --locked -p jietuba-updater --bin jietuba_updater ${JIETUBA_NATIVE_CARGO_TARGET}
             --manifest-path ${JIETUBA_RUST_LIBS}/Cargo.toml
@@ -313,6 +330,11 @@ if(BUILD_TESTING)
     add_test(NAME canvas_items COMMAND jietuba_canvas_items_tests)
     set_tests_properties(canvas_items PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     qt_add_executable(jietuba_screenshot_window_tests tests/test_screenshot_window.cpp)
+    qt_add_executable(jietuba_msaa_tests tests/test_msaa_element_finder.cpp)
+    target_link_libraries(jietuba_msaa_tests PRIVATE jietuba_lib Qt6::Test)
+    target_compile_definitions(jietuba_msaa_tests PRIVATE JIETUBA_MSAA_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/msaa.json")
+    add_test(NAME msaa_elements COMMAND jietuba_msaa_tests)
+    set_tests_properties(msaa_elements PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     target_link_libraries(jietuba_screenshot_window_tests PRIVATE jietuba_lib Qt6::Test)
     add_test(NAME screenshot_window COMMAND jietuba_screenshot_window_tests)
     set_tests_properties(screenshot_window PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
@@ -320,6 +342,11 @@ if(BUILD_TESTING)
     target_link_libraries(jietuba_translation_ui_tests PRIVATE jietuba_lib Qt6::Test)
     add_test(NAME translation_ui COMMAND jietuba_translation_ui_tests)
     set_tests_properties(translation_ui PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    qt_add_executable(jietuba_translation_speech_tests tests/test_translation_speech.cpp)
+    target_link_libraries(jietuba_translation_speech_tests PRIVATE jietuba_lib Qt6::Test)
+    target_compile_definitions(jietuba_translation_speech_tests PRIVATE JIETUBA_TRANSLATION_FIXTURE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/translation.json")
+    add_test(NAME translation_speech COMMAND jietuba_translation_speech_tests)
+    set_tests_properties(translation_speech PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     qt_add_executable(jietuba_result_windows_tests tests/test_result_windows.cpp)
     target_link_libraries(jietuba_result_windows_tests PRIVATE jietuba_lib Qt6::Test)
     target_compile_definitions(jietuba_result_windows_tests PRIVATE JIETUBA_BARCODE_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
@@ -339,6 +366,10 @@ if(BUILD_TESTING)
     target_link_libraries(jietuba_ppocr_models_tests PRIVATE jietuba_lib Qt6::Test)
     add_test(NAME ppocr_models COMMAND jietuba_ppocr_models_tests)
     set_tests_properties(ppocr_models PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;JIETUBA_PPOCR_MODELS=${JIETUBA_PPOCR_MODELS}")
+    qt_add_executable(jietuba_bundled_runtime_tests tests/test_bundled_runtime.cpp)
+    target_link_libraries(jietuba_bundled_runtime_tests PRIVATE jietuba_lib Qt6::Test)
+    add_test(NAME bundled_runtime COMMAND jietuba_bundled_runtime_tests)
+    set_tests_properties(bundled_runtime PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     # The HTTP client and the providers with a configurable address, against a local server.
     qt_add_executable(jietuba_http_provider_tests tests/test_http_providers.cpp)
     target_link_libraries(jietuba_http_provider_tests PRIVATE jietuba_lib Qt6::Test Qt6::Network)
@@ -389,7 +420,7 @@ if(BUILD_TESTING)
     target_compile_definitions(jietuba_freehand_tests PRIVATE JIETUBA_FREEHAND_FIXTURE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/freehand.json")
     add_test(NAME python_freehand_parity COMMAND jietuba_freehand_tests)
     set_tests_properties(python_freehand_parity PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-    # Settings and data are shared with the Python version: every test executable starts in
+    # Settings and data are the user's real ones: every test executable starts in
     # the throwaway sandbox of tests/test_sandbox.cpp, however it is launched.
     add_library(jietuba_test_sandbox OBJECT tests/test_sandbox.cpp)
     target_link_libraries(jietuba_test_sandbox PRIVATE jietuba_lib)

@@ -230,7 +230,10 @@ void Toolbar::init_ui() {
         {"watermark", watermark_btn}, {"arrow", arrow_btn}, {"number", number_btn}, {"rect", rect_btn},
         {"ellipse", ellipse_btn}, {"text", text_btn}, {"eraser", eraser_btn},
     };
-    init_settings_panels();
+    // Keep common panels ready: highlighter/pen, rectangle/ellipse and numbering.
+    ensure_panel_for_tool("highlighter");
+    ensure_panel_for_tool("rect");
+    ensure_panel_for_tool("number");
     reload_layout();
     // Connections end with this toolbar.
     connect(I18nManager::instance().language_signals(), &I18nSignals::language_changed, this, [this](const QString &) { retranslate(); });
@@ -403,69 +406,95 @@ void Toolbar::open_layout_dialog() {
     reposition_self();
 }
 
-void Toolbar::init_settings_panels() {
+QWidget *Toolbar::ensure_panel_for_tool(const QString &tool_id) {
+    QString kind;
+    if (tool_id == "pen" || tool_id == "highlighter" || tool_id == "spotlight") kind = "paint";
+    else if (tool_id == "rect" || tool_id == "ellipse") kind = "shape";
+    else if (tool_id == "watermark") return ensure_watermark_panel();
+    else kind = tool_id;
     auto *parent = parentWidget();
-    paint_panel = new PaintSettingsPanel(parent);
-    make_floating(paint_panel);
-    connect(paint_panel, &BaseSettingsPanel::color_changed, this, &Toolbar::on_panel_color_changed);
-    connect(paint_panel, &BaseSettingsPanel::size_changed, this, &Toolbar::stroke_width_changed);
-    connect(paint_panel, &BaseSettingsPanel::opacity_changed, this, &Toolbar::opacity_changed);
-    connect(paint_panel, &PaintSettingsPanel::line_style_changed, this, &Toolbar::on_line_style_changed);
-    connect(paint_panel, &PaintSettingsPanel::highlighter_mode_changed, this, &Toolbar::on_highlighter_mode_changed);
-    // Start with the last pen line style.
-    if (auto *pen_settings = get_tool_settings_manager()->get_tool_settings("pen")) paint_panel->set_line_style(pen_settings->get("line_style", "solid").toString());
-    paint_panel->hide();
-
-    shape_panel = new ShapeSettingsPanel(parent);
-    make_floating(shape_panel);
-    connect(shape_panel, &BaseSettingsPanel::color_changed, this, &Toolbar::on_panel_color_changed);
-    connect(shape_panel, &BaseSettingsPanel::size_changed, this, &Toolbar::stroke_width_changed);
-    connect(shape_panel, &BaseSettingsPanel::opacity_changed, this, &Toolbar::opacity_changed);
-    connect(shape_panel, &ShapeSettingsPanel::line_style_changed, this, &Toolbar::on_line_style_changed);
-    shape_panel->hide();
-
-    arrow_panel = new ArrowSettingsPanel(parent);
-    make_floating(arrow_panel);
-    connect(arrow_panel, &ArrowSettingsPanel::color_changed, this, &Toolbar::on_panel_color_changed);
-    connect(arrow_panel, &ArrowSettingsPanel::size_changed, this, &Toolbar::stroke_width_changed);
-    connect(arrow_panel, &ArrowSettingsPanel::opacity_changed, this, &Toolbar::opacity_changed);
-    connect(arrow_panel, &ArrowSettingsPanel::arrow_style_changed, this, &Toolbar::on_arrow_style_changed);
-    arrow_panel->hide();
-
-    number_panel = new NumberSettingsPanel(parent);
-    // The panel's Qt parent is the toolbar's parent; its style popup uses the owner
-    // toolbar to open away from the toolbar and panel.
-    number_panel->setProperty("owner_toolbar", QVariant::fromValue<QWidget *>(this));
-    make_floating(number_panel);
-    connect(number_panel, &BaseSettingsPanel::color_changed, this, &Toolbar::on_panel_color_changed);
-    connect(number_panel, &BaseSettingsPanel::size_changed, this, &Toolbar::stroke_width_changed);
-    connect(number_panel, &BaseSettingsPanel::opacity_changed, this, &Toolbar::opacity_changed);
-    connect(number_panel, &NumberSettingsPanel::next_number_changed, this, &Toolbar::on_number_next_changed);
-    connect(number_panel, &NumberSettingsPanel::style_changed, this, &Toolbar::number_style_changed);
-    number_panel->hide();
-
-    text_panel = new TextSettingsPanel(parent);
-    // Background/outline/shadow popups open away from the toolbar too.
-    text_panel->setProperty("owner_toolbar", QVariant::fromValue<QWidget *>(this));
-    make_floating(text_panel);
-    connect(text_panel, &TextSettingsPanel::font_changed, this, &Toolbar::on_text_font_changed);
-    connect(text_panel, &TextSettingsPanel::color_changed, this, &Toolbar::on_text_color_changed);
-    connect(text_panel, &TextSettingsPanel::background_changed, this, &Toolbar::on_text_background_changed);
-    connect(text_panel, &TextSettingsPanel::outline_changed, this, &Toolbar::on_text_outline_changed);
-    connect(text_panel, &TextSettingsPanel::shadow_changed, this, &Toolbar::on_text_shadow_changed);
-    text_panel->hide();
-
-    mosaic_panel = new MosaicSettingsPanel(parent);
-    make_floating(mosaic_panel);
-    connect(mosaic_panel, &MosaicSettingsPanel::size_changed, this, &Toolbar::stroke_width_changed);
-    connect(mosaic_panel, &MosaicSettingsPanel::draw_mode_changed, this, &Toolbar::on_mosaic_mode_changed);
-    connect(mosaic_panel, &MosaicSettingsPanel::style_changed, this, &Toolbar::on_mosaic_style_changed);
-    connect(mosaic_panel, &MosaicSettingsPanel::block_size_changed, this, &Toolbar::on_mosaic_block_size_changed);
-    mosaic_panel->hide();
-
-    // The watermark panel is created on first use; see ensure_watermark_panel.
-    watermark_panel = nullptr;
-    load_saved_settings();
+    bool created = false;
+    if (kind == "paint" && !paint_panel) {
+        paint_panel = new PaintSettingsPanel(parent);
+        make_floating(paint_panel);
+        connect(paint_panel, &BaseSettingsPanel::color_changed, this, &Toolbar::on_panel_color_changed);
+        connect(paint_panel, &BaseSettingsPanel::size_changed, this, &Toolbar::stroke_width_changed);
+        connect(paint_panel, &BaseSettingsPanel::opacity_changed, this, &Toolbar::opacity_changed);
+        connect(paint_panel, &PaintSettingsPanel::line_style_changed, this, &Toolbar::on_line_style_changed);
+        connect(paint_panel, &PaintSettingsPanel::highlighter_mode_changed, this, &Toolbar::on_highlighter_mode_changed);
+        // Start with the last pen line style.
+        if (auto *pen_settings = get_tool_settings_manager()->get_tool_settings("pen")) paint_panel->set_line_style(pen_settings->get("line_style", "solid").toString());
+        paint_panel->hide();
+        created = true;
+    }
+    if (kind == "shape" && !shape_panel) {
+        shape_panel = new ShapeSettingsPanel(parent);
+        make_floating(shape_panel);
+        connect(shape_panel, &BaseSettingsPanel::color_changed, this, &Toolbar::on_panel_color_changed);
+        connect(shape_panel, &BaseSettingsPanel::size_changed, this, &Toolbar::stroke_width_changed);
+        connect(shape_panel, &BaseSettingsPanel::opacity_changed, this, &Toolbar::opacity_changed);
+        connect(shape_panel, &ShapeSettingsPanel::line_style_changed, this, &Toolbar::on_line_style_changed);
+        shape_panel->hide();
+        created = true;
+    }
+    if (kind == "arrow" && !arrow_panel) {
+        arrow_panel = new ArrowSettingsPanel(parent);
+        make_floating(arrow_panel);
+        connect(arrow_panel, &ArrowSettingsPanel::color_changed, this, &Toolbar::on_panel_color_changed);
+        connect(arrow_panel, &ArrowSettingsPanel::size_changed, this, &Toolbar::stroke_width_changed);
+        connect(arrow_panel, &ArrowSettingsPanel::opacity_changed, this, &Toolbar::opacity_changed);
+        connect(arrow_panel, &ArrowSettingsPanel::arrow_style_changed, this, &Toolbar::on_arrow_style_changed);
+        arrow_panel->hide();
+        created = true;
+    }
+    if (kind == "number" && !number_panel) {
+        number_panel = new NumberSettingsPanel(parent);
+        // The panel's Qt parent is the toolbar's parent; its style popup uses the owner
+        // toolbar to open away from the toolbar and panel.
+        number_panel->setProperty("owner_toolbar", QVariant::fromValue<QWidget *>(this));
+        make_floating(number_panel);
+        connect(number_panel, &BaseSettingsPanel::color_changed, this, &Toolbar::on_panel_color_changed);
+        connect(number_panel, &BaseSettingsPanel::size_changed, this, &Toolbar::stroke_width_changed);
+        connect(number_panel, &BaseSettingsPanel::opacity_changed, this, &Toolbar::opacity_changed);
+        connect(number_panel, &NumberSettingsPanel::next_number_changed, this, &Toolbar::on_number_next_changed);
+        connect(number_panel, &NumberSettingsPanel::style_changed, this, &Toolbar::number_style_changed);
+        number_panel->hide();
+        created = true;
+    }
+    if (kind == "text" && !text_panel) {
+        text_panel = new TextSettingsPanel(parent);
+        // Background/outline/shadow popups open away from the toolbar too.
+        text_panel->setProperty("owner_toolbar", QVariant::fromValue<QWidget *>(this));
+        make_floating(text_panel);
+        connect(text_panel, &TextSettingsPanel::font_changed, this, &Toolbar::on_text_font_changed);
+        connect(text_panel, &TextSettingsPanel::color_changed, this, &Toolbar::on_text_color_changed);
+        connect(text_panel, &TextSettingsPanel::background_changed, this, &Toolbar::on_text_background_changed);
+        connect(text_panel, &TextSettingsPanel::outline_changed, this, &Toolbar::on_text_outline_changed);
+        connect(text_panel, &TextSettingsPanel::shadow_changed, this, &Toolbar::on_text_shadow_changed);
+        text_panel->hide();
+        created = true;
+    }
+    if (kind == "mosaic" && !mosaic_panel) {
+        mosaic_panel = new MosaicSettingsPanel(parent);
+        make_floating(mosaic_panel);
+        connect(mosaic_panel, &MosaicSettingsPanel::size_changed, this, &Toolbar::stroke_width_changed);
+        connect(mosaic_panel, &MosaicSettingsPanel::draw_mode_changed, this, &Toolbar::on_mosaic_mode_changed);
+        connect(mosaic_panel, &MosaicSettingsPanel::style_changed, this, &Toolbar::on_mosaic_style_changed);
+        connect(mosaic_panel, &MosaicSettingsPanel::block_size_changed, this, &Toolbar::on_mosaic_block_size_changed);
+        mosaic_panel->hide();
+        created = true;
+    }
+    if (created) {
+        set_temporary_edit_active(temporary_edit_active);
+        reposition_self();
+    }
+    if (kind == "paint") return paint_panel;
+    if (kind == "shape") return shape_panel;
+    if (kind == "arrow") return arrow_panel;
+    if (kind == "number") return number_panel;
+    if (kind == "text") return text_panel;
+    if (kind == "mosaic") return mosaic_panel;
+    return nullptr;
 }
 
 WatermarkSettingsPanel *Toolbar::ensure_watermark_panel() {
@@ -499,11 +528,8 @@ void Toolbar::show_watermark(const QString &template_text, const QDateTime &when
 
 void Toolbar::paintEvent(QPaintEvent *) { paint_rounded_panel(this); }
 
-void Toolbar::load_saved_settings() {
-    for (const auto &tool_id : PANEL_TOOLS) sync_panel_from_settings(tool_id);
-}
-
 void Toolbar::sync_panel_from_settings(const QString &tool_id) {
+    ensure_panel_for_tool(tool_id);
     // One place for startup, tool switches, state restores and lone panels: callers
     // decide when, not what. No defaults here: ToolSettings::get falls back to
     // DEFAULT_SETTINGS and the panel setters normalize again.
@@ -559,6 +585,7 @@ void Toolbar::restore_active_tool_state(const QString &tool_id, const ToolContex
         hide_all_panels();
         return;
     }
+    ensure_panel_for_tool(tool_id);
     if (ctx) {
         if (ctx->color.isValid()) set_current_color(ctx->color);
         set_stroke_width(static_cast<int>(python_round(ctx->stroke_width)));
@@ -606,6 +633,7 @@ void Toolbar::select_tool(const QString &tool_id, bool toggle) {
     }
     set_temporary_edit_active(false);
     for (auto it = tool_buttons.begin(); it != tool_buttons.end(); ++it) it.value()->setChecked(it.key() == tool_id);
+    ensure_panel_for_tool(tool_id);
     current_tool = tool_id;
     emit tool_changed(tool_id);
     show_panel_for_tool(tool_id);
@@ -619,7 +647,7 @@ void Toolbar::show_panel_for_tool(const QString &tool_id) {
     // Panels are shared, so state left by the previous tool or selected item is
     // overwritten here with what drawing now would produce.
     hide_all_panels();
-    if (tool_id == "watermark") ensure_watermark_panel();
+    ensure_panel_for_tool(tool_id);
     // Which controls show follows the tool, independent of saved settings.
     if ((tool_id == "pen" || tool_id == "highlighter" || tool_id == "spotlight") && paint_panel) {
         paint_panel->set_line_style_visible(tool_id == "pen");
@@ -660,6 +688,7 @@ CursorManager *Toolbar::host_cursor_manager() const {
 }
 
 void Toolbar::on_highlighter_mode_changed(const QString &mode) {
+    emit highlighter_mode_changed(mode);
     if (temporary_edit_active) return;
     get_tool_settings_manager()->update_settings("highlighter", {{"draw_mode", mode}});
     // Rect mode uses the crosshair cursor.

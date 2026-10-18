@@ -11,7 +11,7 @@
 #include "canvas/selection_model.h"
 #include "canvas/smart_edit_controller.h"
 #include "canvas/smart_selection_anim.h"
-#include "capture/uia_element_finder.h"
+#include "capture/msaa_element_finder.h"
 #include "capture/window_finder.h"
 #include "core/clipboard_utils.h"
 #include "core/export.h"
@@ -320,6 +320,7 @@ void CanvasView::enable_smart_selection(const QString &requested) {
     // Every capture starts at the finest level.
     smart_selection_level_ = 0;
     smart_selection_level_anchor_.reset();
+    initial_selection_point_.reset();
     if (element_finder) {
         element_finder->close();
         element_finder.reset();
@@ -333,29 +334,30 @@ void CanvasView::enable_smart_selection(const QString &requested) {
         }
         // The scene uses physical screen coordinates, so no offset.
         if (!window_finder) window_finder = std::make_unique<WindowFinder>(0, 0);
-        // Window handles are cached before the overlay shows; UIA roots at them so
-        // ElementFromPoint never hits the overlay itself.
+        // Keep the target window roots below the capture overlay.
         window_finder->find_windows();
         log_debug(T("已启用，找到 {window_count} 个窗口", {{"window_count", static_cast<int>(window_finder->windows.size())}}), "SmartSelect");
         if (smart_selection_drills_to_elements) {
-            if (is_uia_available()) {
-                element_finder = std::make_unique<UIAElementFinder>(this);
-                connect(element_finder.get(), &UIAElementFinder::cache_updated, this, &CanvasView::on_uia_cache_updated);
-                const auto cursor_pos = QCursor::pos();
-                if (const auto hit = window_finder->find_window_at_point_info(cursor_pos.x(), cursor_pos.y()))
-                    element_finder->request_refresh_if_needed(hit->hwnd);
-                // The rest by exposed area: scanned while the user moves the pointer.
-                element_finder->prewarm(window_finder->windows_by_exposed_area());
-            } else {
-                smart_selection_drills_to_elements = false;
-                log_warning(T("comtypes 未安装，已回退为窗口检测"), "SmartSelect");
-            }
+            element_finder = std::make_unique<MSAAElementFinder>(this);
+            connect(element_finder.get(), &MSAAElementFinder::cache_updated, this, &CanvasView::on_element_cache_updated);
+            const auto cursor_pos = QCursor::pos();
+            initial_selection_point_ = cursor_pos;
+            if (const auto hit = window_finder->find_window_at_point_info(cursor_pos.x(), cursor_pos.y()))
+                element_finder->request_refresh_if_needed(hit->hwnd, cursor_pos.x(), cursor_pos.y());
         }
     } else {
         log_debug(T("已禁用"), "SmartSelect");
         smart_selection_anim_->stop();
         if (window_finder) window_finder->clear();
     }
+}
+
+bool CanvasView::prepare_initial_selection() {
+    if (canvas_scene->selection_model->is_confirmed() || !smart_selection_drills_to_elements || !element_finder) return true;
+    const auto point = QCursor::pos();
+    initial_selection_point_ = point;
+    const auto hit = window_finder->find_window_at_point_info(point.x(), point.y());
+    return !hit || element_finder->prepare_at(hit->hwnd, point.x(), point.y());
 }
 
 QRectF CanvasView::get_smart_selection_rect(const QPointF &scene_pos) {
@@ -384,12 +386,10 @@ std::vector<SmartRect> CanvasView::smart_selection_chain(int x, int y, const Sma
 }
 
 std::vector<SmartRect> CanvasView::element_rects(quintptr hwnd, const SmartRect &window_rect, int x, int y, const SmartRect &capture_rect) {
-    // Until a window's scan returns this level is empty and the window stands in;
-    // cache_updated tightens it to the control afterwards.
+    // The window or a known parent stands in while the point query runs.
     if (!smart_selection_drills_to_elements || !element_finder) return {};
     const auto min_size = canvas_scene->selection_model->min_size;
     const auto elements = element_finder->elements_at(hwnd, x, y, QSize(static_cast<int>(min_size.width()), static_cast<int>(min_size.height())));
-    element_finder->request_refresh_if_needed(hwnd);
     std::vector<SmartRect> rects;
     for (const auto &element : elements) {
         const SmartRect clipped = {std::max({element.rect[0], window_rect[0], capture_rect[0]}),
@@ -421,15 +421,22 @@ bool CanvasView::adjust_smart_selection_level(int delta, const QPointF &scene_po
     // regardless of how many levels exist under the pointer.
     if (is_closed_ || !smart_selection_drills_to_elements || !canvas_scene || canvas_scene->selection_model->is_confirmed() || selection_drag->active)
         return false;
+    initial_selection_point_.reset();
     smart_selection_level_ = std::max(0, smart_selection_level_ + (delta > 0 ? 1 : -1));
+    const int x = static_cast<int>(scene_pos.x()), y = static_cast<int>(scene_pos.y());
+    if (delta > 0 && element_finder) {
+        const auto hit = window_finder->find_window_at_point_info(x, y);
+        if (hit && !element_finder->has_parent_chain(hit->hwnd, x, y)) {
+            element_finder->request_parent_chain(hit->hwnd, x, y);
+            return true;
+        }
+    }
     handle_hover_preview(scene_pos);
     return true;
 }
 
-void CanvasView::on_uia_cache_updated(quintptr hwnd) {
-    // Not tightened once the user has wheeled out: the late result would replace
-    // the finest level and reset the anchor.
-    if (is_closed_ || !smart_selection_enabled || !smart_selection_drills_to_elements || smart_selection_level_ > 0 || !window_finder
+void CanvasView::on_element_cache_updated(quintptr hwnd) {
+    if (is_closed_ || !smart_selection_enabled || !smart_selection_drills_to_elements || !window_finder
         || !canvas_scene || canvas_scene->selection_model->is_confirmed() || selection_drag->active)
         return;
     const auto cursor_pos = QCursor::pos();
@@ -532,6 +539,8 @@ void CanvasView::sync_selection_style_to_toolbar(QGraphicsItem *item) {
     auto *controller = smart_edit_controller.get();
     const bool is_cross_tool = controller && controller->is_cross_tool_selection();
     toolbar->set_temporary_edit_active(is_cross_tool);
+    const auto owner_tool_id = controller ? controller->get_item_tool_id(item) : std::nullopt;
+    if (owner_tool_id) toolbar->ensure_panel_for_tool(*owner_tool_id);
     const bool is_text_item = dynamic_cast<QGraphicsTextItem *>(item) != nullptr;
     const auto width_value = is_text_item ? std::nullopt : extract_selection_width(item);
     const auto opacity_value = extract_selection_opacity(item);
@@ -546,7 +555,6 @@ void CanvasView::sync_selection_style_to_toolbar(QGraphicsItem *item) {
     if (opacity_value) toolbar->set_opacity(static_cast<int>(std::nearbyint(*opacity_value * 255)));
     // Line style follows the owning tool, not the class: highlighter rects and
     // spotlight holes are RectItems too.
-    const auto owner_tool_id = controller ? controller->get_item_tool_id(item) : std::nullopt;
     LineStylePanel *line_style_panel = nullptr;
     if (owner_tool_id == "pen" || owner_tool_id == "highlighter") line_style_panel = toolbar->paint_panel;
     else if (owner_tool_id == "rect" || owner_tool_id == "ellipse") line_style_panel = toolbar->shape_panel;
@@ -980,13 +988,15 @@ void CanvasView::handle_edit_hover_detection(QMouseEvent *event, const QPointF &
 
 void CanvasView::handle_hover_preview(const QPointF &scene_pos) {
     update_magnifier_overlay(scene_pos);
+    if (initial_selection_point_ != std::optional<QPoint>(QPoint(static_cast<int>(scene_pos.x()), static_cast<int>(scene_pos.y()))))
+        initial_selection_point_.reset();
     auto *model = canvas_scene->selection_model;
     if (smart_selection_enabled) {
         const auto smart_rect = get_smart_selection_rect(scene_pos);
         if (!smart_rect.isEmpty()) {
             model->activate();
             if (!model->is_dragging()) model->start_dragging();
-            apply_smart_selection_rect(smart_rect, true);
+            apply_smart_selection_rect(smart_rect, !initial_selection_point_);
             return;
         }
     }

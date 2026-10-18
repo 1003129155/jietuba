@@ -44,7 +44,8 @@ public:
     QString tr_text(const char *text) const { return settings_tr(text); }
 
     // Sizes the dialog for the screen it is about to open on; a size the user dragged is kept and only
-    // shrunk to fit. Position is Qt's: a never-moved dialog is centred within that screen on each show.
+    // shrunk to fit. Position is Qt's: a never-moved dialog is centred within that screen on each show;
+    // one with no part on any screen is centred on that screen here.
     void fit_to_screen();
     // fit_to_screen for a given available area.
     void fit_to_available(const QSize &available);
@@ -68,6 +69,7 @@ public:
     bool language_changed_on_apply() const { return language_changed_on_apply_; }
     bool close_after_apply() const { return close_after_apply_; }
     bool skip_unsaved_close_prompt() const { return skip_unsaved_close_prompt_; }
+    void set_skip_unsaved_close_prompt(bool skip) { skip_unsaved_close_prompt_ = skip; }
 
     // Controls by their reference attribute names.
     void set_attr(const QString &name, QWidget *widget) { attrs_[name] = widget; }
@@ -119,6 +121,8 @@ public:
     Q_INVOKABLE void update_action_buttons();
 signals:
     void wizard_requested();
+    // Admin mode was just turned on in an unelevated instance; the main app hands off to the elevated one.
+    void admin_mode_enabled();
     void settings_applied();
 protected:
     void resizeEvent(QResizeEvent *event) override;
@@ -141,6 +145,8 @@ private:
     void apply_footer_styles();
     // Keeps Apply in sync with edits made anywhere in the settings pages.
     void connect_action_button_tracking(QWidget *page);
+    // Autostart through the Run entry or, in admin mode, the scheduled task.
+    void apply_startup();
     void save_magnifier_color_formats();
     void save_special_paste_entries();
     void apply_clipboard_appearance();

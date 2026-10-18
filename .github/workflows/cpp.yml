@@ -1,7 +1,8 @@
 name: C++
 
 # The C++ version (cpp/) built against this commit's rust_libs, with the tests that need no
-# desktop. Not a required check, so path filters are enough.
+# desktop. Its `test` job is the required check of master2, so pull requests run it whatever they
+# touch: with a path filter, a pull request outside these folders would wait for it forever.
 on:
   workflow_dispatch:
   push:
@@ -9,7 +10,6 @@ on:
     paths: ["cpp/**", "rust_libs/**", ".github/workflows/cpp.yml"]
   pull_request:
     branches: [master2]
-    paths: ["cpp/**", "rust_libs/**", ".github/workflows/cpp.yml"]
 
 permissions:
   contents: read

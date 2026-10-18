@@ -8,12 +8,14 @@
 #include <QFrame>
 #include <QLabel>
 #include <QPushButton>
+#include <functional>
 #include <optional>
 #include <utility>
 #include <vector>
 
 namespace jietuba {
 class EllipsisAnimator;
+class SpeechService;
 
 // Rectangular surfaces keep small radii; large radii on panes and popups look
 // swollen above 100% scale. Pills and circles use their own half-height radii.
@@ -39,12 +41,14 @@ const DashboardPalette &dashboard_light();
 // @stroke one scaled pixel, @control_radius / @surface_radius the scaled radii.
 QString fill_dashboard_sheet(QString sheet, const DashboardPalette &p);
 
-// Crisp copy/trash button drawn by Qt instead of a font glyph.
+// Crisp copy/trash/speak button drawn by Qt instead of a font glyph.
 class VectorToolButton : public QAbstractButton {
     Q_OBJECT
 public:
     VectorToolButton(const QString &icon_name, const QString &tooltip, QWidget *parent = nullptr);
     void set_tooltip(const QString &tooltip);
+    void set_icon(const QString &icon_name);
+    QString icon_name() const { return icon_name_; }
     void apply_palette(const DashboardPalette &palette);
 protected:
     void enterEvent(QEnterEvent *event) override;
@@ -53,6 +57,27 @@ protected:
 private:
     QString icon_name_;
     const DashboardPalette *palette_;
+};
+
+// Drives one speak/stop button for one text. Every button has its own owner on the
+// process-wide speech service, so starting one silences the others.
+class SpeechButton : public QObject {
+    Q_OBJECT
+public:
+    SpeechButton(VectorToolButton *button, std::function<QString()> text, std::function<QString()> lang_code);
+    quint64 token() const { return token_; }
+    bool speaking() const;
+    void refresh();
+    void stop();
+private:
+    SpeechService *service();
+    void toggle();
+
+    VectorToolButton *button_;
+    std::function<QString()> text_;
+    std::function<QString()> lang_code_;
+    const quint64 token_;
+    SpeechService *service_ = nullptr;
 };
 
 // Dashboard translation action.
@@ -142,6 +167,12 @@ public:
     void update_content(const QString &text, const QString &target_lang = {}, const QString &source_lang = {});
     void set_backend_badge(const QString &text, bool configured = true);
     void set_theme(const QString &theme_name);
+    quint64 speech_token() const { return target_speech_->token(); }
+    quint64 source_speech_token() const { return source_speech_->token(); }
+    QString target_text_lang() const { return target_text_lang_; }
+    // The source combo's language, else the language the last translation detected for
+    // this exact text, else a guess from its script.
+    QString source_text_lang() const;
 
     QString original_text;
     QString translated_text;
@@ -155,10 +186,12 @@ public:
     SourceEdit *source_edit = nullptr;
     VectorToolButton *copy_source_button = nullptr;
     VectorToolButton *clear_source_button = nullptr;
+    VectorToolButton *speak_source_button = nullptr;
     QLabel *character_count = nullptr;
     QFrame *target_pane = nullptr;
     TextEdit *target_edit = nullptr;
     VectorToolButton *copy_target_button = nullptr;
+    VectorToolButton *speak_target_button = nullptr;
     QLabel *backend_badge = nullptr;
     TranslateButton *translate_button = nullptr;
 
@@ -168,6 +201,7 @@ signals:
 protected:
     void showEvent(QShowEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
+    void closeEvent(QCloseEvent *event) override;
 
 private:
     void place_initial_window(std::optional<QPoint> position);
@@ -185,6 +219,8 @@ private:
     void update_pin_tooltip();
     void copy_source();
     void copy_target();
+    QString speakable_text() const;
+    void stop_speaking();
     void set_target_state(bool error, bool loading);
     static QString style_sheet(const DashboardPalette &p);
 
@@ -196,6 +232,11 @@ private:
     bool backend_configured_ = false;
     std::optional<QString> last_error_message_;
     EllipsisAnimator *loading_dots_ = nullptr;
+    SpeechButton *source_speech_ = nullptr;
+    SpeechButton *target_speech_ = nullptr;
+    QString target_text_lang_;
+    // The source text the detected language belongs to.
+    QString detected_for_text_;
 };
 
 // Compatibility class used by TranslationManager.
