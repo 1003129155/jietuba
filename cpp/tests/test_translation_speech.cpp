@@ -743,7 +743,9 @@ private slots:
         if (!backend) QSKIP(qPrintable("SAPI unavailable: " + error));
         std::vector<VoiceInfo> voices;
         backend->voices(voices, error);
-        QVERIFY(backend->close(error));
+        // close() purges through the audio output, which CI runners without an audio device cannot open.
+        QVERIFY2(backend->use_memory_output(error), qPrintable(error));
+        QVERIFY2(backend->close(error), qPrintable(error));
         SpeechStatus status;
         QVERIFY(!backend->poll(status, error));
         QVERIFY(!backend->purge(error));
