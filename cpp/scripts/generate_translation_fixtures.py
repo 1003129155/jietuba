@@ -35,7 +35,9 @@ from translation.providers.youdao import YoudaoTranslateProvider  # noqa: E402
 import translation.providers.youdao as youdao_module  # noqa: E402
 from translation.provider import ModelField, ToggleField  # noqa: E402
 from settings.tool_settings import ToolSettingsManager  # noqa: E402
-from PySide6.QtCore import QSettings  # noqa: E402
+from PySide6.QtCore import QCoreApplication, QLocale, QSettings  # noqa: E402
+from translation import speech_service  # noqa: E402
+from translation.languages import TRANSLATION_LANGUAGES  # noqa: E402
 
 random.seed(20261013)
 
@@ -477,6 +479,49 @@ youdao_language_codes = [{'code': code, 'to': YoudaoTranslateProvider._to_code(c
                          for code in ['zh-Hans', 'zh-Hant', 'en-US', 'en-GB', 'pt-BR', 'pt-PT', 'ja', 'ko', 'fr', '', 'auto',
                                       'AUTO', 'zh-CHS', 'ZH-CHS', 'zh-cht', 'EN', 'en', 'ja']]
 
+# Read aloud: the Language attribute of a voice, then the voice chosen for a language code.
+speech_lcid = []
+for attribute in ['804', '409;9', '411', '412', '40c', '407', 'c04', '404', '816', '416', '419', '422', '41e', '42a', '401',
+                  'c0a', '2c0a', '3c09', '4009', '1', '7f', '0', '400', '800', 'c00', '1400', '', ' ', 'zz', 'x;409', '804;',
+                  ';804', ' 804 ', '\t411\n', '0x804', '0X409', '0x_804', '0x', '8_04', '8__04', '_804', '804_', '+804', '-804',
+                  '- 804', '1000', 'ffff', 'fffff', 'ffffffff', '100000000', '80000000', '-80000000', '-80000001',
+                  '123456789abcdef0123', '\u0668\u0660\u0664', '\uff18\uff10\uff14', '804\u3000']:
+    try:
+        locale = speech_service._locale_from_lcid(attribute)
+        expected = locale.name() if locale else None
+    except Exception:
+        # The Windows call rejects the value; the voice is skipped like a missing one.
+        expected = None
+    speech_lcid.append({'input': attribute, 'expected': expected})
+
+
+class _VoiceList:
+    def __init__(self, locales):
+        self.voice_list = [speech_service.VoiceInfo(name, QLocale(name), name) for name in locales]
+
+    def voices(self):
+        return list(self.voice_list)
+
+
+_app = QCoreApplication.instance() or QCoreApplication([])
+speech_codes = list(TRANSLATION_LANGUAGES) + [
+    '', 'auto', 'xx', 'zh-Hans', 'zh-Hant', 'zh-CN', 'zh-TW', 'zh-HK', 'en-US', 'en-GB', 'en', 'pt-BR', 'pt-PT', 'ja', 'es-419',
+    'nb', 'no', 'ZH_HANT', 'ZH-CN']
+speech_voice_for = []
+for locales in [['en_US', 'fi_FI'], ['en_GB', 'en_US'], ['en_GB', 'en_AU'], ['zh_CN', 'zh_TW', 'zh_HK'], ['zh_TW', 'zh_CN'],
+                ['zh_HK', 'zh_TW'], ['ja_JP', 'ko_KR'], ['pt_BR', 'pt_PT'], ['pt_PT', 'pt_BR'], ['es_MX', 'es_ES'],
+                ['ar_EG', 'ar_SA'], ['uk_UA', 'ru_RU'], ['nb_NO', 'de_DE', 'fr_CA', 'fr_FR'], ['vi_VN', 'th_TH', 'id_ID',
+                'it_IT', 'pl_PL', 'nl_NL', 'tr_TR'], []]:
+    backend = _VoiceList(locales)
+    with mock.patch.object(speech_service, '_create_backend', lambda backend=backend: backend):
+        service = speech_service.SpeechService()
+        chosen = {}
+        for code in speech_codes:
+            voice = service.voice_for(code)
+            chosen[code] = voice.name if voice else None
+        service.deleteLater()
+    speech_voice_for.append({'voices': locales, 'chosen': chosen})
+
 fixture = {'html_unescape': unescape, 'extract': extract, 'normalize_base_url': normalize, 'parse_response': parse,
            'custom_llm': custom, 'amazon_signature': amazon, 'baidu_sign': baidu, 'urlencode': urlencode,
            'mt_metadata': mt_metadata, 'volcengine_signature': volcengine_signature, 'tencent_signature': tencent_signature,
@@ -484,7 +529,8 @@ fixture = {'html_unescape': unescape, 'extract': extract, 'normalize_base_url': 
            'mt_error_codes': mt_error_codes, 'mt_language_codes': mt_language_codes, 'quota_settings': quota_settings,
            'youdao_metadata': youdao_metadata, 'youdao_sign': youdao_sign, 'youdao_requests': youdao_requests,
            'youdao_responses': youdao_responses, 'youdao_retries': youdao_retries, 'youdao_prechecks': youdao_prechecks,
-           'youdao_error_codes': youdao_error_codes, 'youdao_language_codes': youdao_language_codes}
+           'youdao_error_codes': youdao_error_codes, 'youdao_language_codes': youdao_language_codes,
+           'speech_lcid': speech_lcid, 'speech_voice_for': speech_voice_for}
 target = ROOT / 'tests' / 'fixtures' / 'translation.json'
 target.write_text(json.dumps(fixture, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
 print(f"{len(unescape)} unescape, {len(parse)} parse, {len(custom)} custom, {len(mt_responses)} mt responses, "

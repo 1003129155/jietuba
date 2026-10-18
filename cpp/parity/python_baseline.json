@@ -1107,9 +1107,14 @@
       "bytes": 6726
     },
     {
+      "path": "main/translation/speech_service.py",
+      "sha256": "4ff25fd0e73d95d889bb21cc975e06b13d9f88a50aafde4ee2b999e97e0c173c",
+      "bytes": 10396
+    },
+    {
       "path": "main/translation/translation_dialog.py",
-      "sha256": "80b50f4ca4e1bcced3cc556fb2a1d9862512a2f3ceb5129de0fc12a168369ba2",
-      "bytes": 36144
+      "sha256": "e928d2fb32dcadb487f32ca6e60972e281c4f3b5cbd68f933191c803f1a9ce03",
+      "bytes": 39822
     },
     {
       "path": "main/translation/translation_manager.py",
@@ -1138,23 +1143,23 @@
     },
     {
       "path": "main/translations/app_en.xml",
-      "sha256": "77049c60d5f8934cdac0ad0e20ac28ca66f5db933549b8da61d031a7a44b4ba1",
-      "bytes": 223433
+      "sha256": "528cfb8a4380849be42ab9c8810aac195a2ea4a1301b71e916b9db0cc6810b1f",
+      "bytes": 223956
     },
     {
       "path": "main/translations/app_ja.xml",
-      "sha256": "42b54e6b1c8bc314061bc1e10727d8e6f990a5813648655354cdda64fbd0de64",
-      "bytes": 246731
+      "sha256": "fc023cde2615b4bb81797dbf91ed8272611c4dcec3866288ea8737bf3d688443",
+      "bytes": 247309
     },
     {
       "path": "main/translations/app_ko.xml",
-      "sha256": "53cdb707922a5410c9b134070b307ba5e28688478e33b0b96b4329436bb4954a",
-      "bytes": 238570
+      "sha256": "7670addf6fc046e4fc558a451d765c9acb21536f3c69ad92ecf878087793af45",
+      "bytes": 239142
     },
     {
       "path": "main/translations/app_zh.xml",
-      "sha256": "9569aeb6d28413d2803d7ced05e68b218a5a617e349be782338ba8d1fe5752de",
-      "bytes": 226796
+      "sha256": "97707e76d26daf60e78ab0b41bd82d0ce9976b635c01e3f0a17251470530585d",
+      "bytes": 227315
     },
     {
       "path": "main/ui/__init__.py",

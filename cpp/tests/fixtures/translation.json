@@ -6146,5 +6146,932 @@
    "to": "ja",
    "from": "ja"
   }
+ ],
+ "speech_lcid": [
+  {
+   "input": "804",
+   "expected": "zh_CN"
+  },
+  {
+   "input": "409;9",
+   "expected": "en_US"
+  },
+  {
+   "input": "411",
+   "expected": "ja_JP"
+  },
+  {
+   "input": "412",
+   "expected": "ko_KR"
+  },
+  {
+   "input": "40c",
+   "expected": "fr_FR"
+  },
+  {
+   "input": "407",
+   "expected": "de_DE"
+  },
+  {
+   "input": "c04",
+   "expected": "zh_HK"
+  },
+  {
+   "input": "404",
+   "expected": "zh_TW"
+  },
+  {
+   "input": "816",
+   "expected": "pt_PT"
+  },
+  {
+   "input": "416",
+   "expected": "pt_BR"
+  },
+  {
+   "input": "419",
+   "expected": "ru_RU"
+  },
+  {
+   "input": "422",
+   "expected": "uk_UA"
+  },
+  {
+   "input": "41e",
+   "expected": "th_TH"
+  },
+  {
+   "input": "42a",
+   "expected": "vi_VN"
+  },
+  {
+   "input": "401",
+   "expected": "ar_SA"
+  },
+  {
+   "input": "c0a",
+   "expected": "es_ES"
+  },
+  {
+   "input": "2c0a",
+   "expected": "es_AR"
+  },
+  {
+   "input": "3c09",
+   "expected": "en_HK"
+  },
+  {
+   "input": "4009",
+   "expected": "en_IN"
+  },
+  {
+   "input": "1",
+   "expected": "ar_SA"
+  },
+  {
+   "input": "7f",
+   "expected": null
+  },
+  {
+   "input": "0",
+   "expected": null
+  },
+  {
+   "input": "400",
+   "expected": null
+  },
+  {
+   "input": "800",
+   "expected": null
+  },
+  {
+   "input": "c00",
+   "expected": null
+  },
+  {
+   "input": "1400",
+   "expected": null
+  },
+  {
+   "input": "",
+   "expected": null
+  },
+  {
+   "input": " ",
+   "expected": null
+  },
+  {
+   "input": "zz",
+   "expected": null
+  },
+  {
+   "input": "x;409",
+   "expected": null
+  },
+  {
+   "input": "804;",
+   "expected": "zh_CN"
+  },
+  {
+   "input": ";804",
+   "expected": null
+  },
+  {
+   "input": " 804 ",
+   "expected": "zh_CN"
+  },
+  {
+   "input": "\t411\n",
+   "expected": "ja_JP"
+  },
+  {
+   "input": "0x804",
+   "expected": "zh_CN"
+  },
+  {
+   "input": "0X409",
+   "expected": "en_US"
+  },
+  {
+   "input": "0x_804",
+   "expected": "zh_CN"
+  },
+  {
+   "input": "0x",
+   "expected": null
+  },
+  {
+   "input": "8_04",
+   "expected": "zh_CN"
+  },
+  {
+   "input": "8__04",
+   "expected": null
+  },
+  {
+   "input": "_804",
+   "expected": null
+  },
+  {
+   "input": "804_",
+   "expected": null
+  },
+  {
+   "input": "+804",
+   "expected": "zh_CN"
+  },
+  {
+   "input": "-804",
+   "expected": null
+  },
+  {
+   "input": "- 804",
+   "expected": null
+  },
+  {
+   "input": "1000",
+   "expected": null
+  },
+  {
+   "input": "ffff",
+   "expected": null
+  },
+  {
+   "input": "fffff",
+   "expected": null
+  },
+  {
+   "input": "ffffffff",
+   "expected": null
+  },
+  {
+   "input": "100000000",
+   "expected": null
+  },
+  {
+   "input": "80000000",
+   "expected": null
+  },
+  {
+   "input": "-80000000",
+   "expected": null
+  },
+  {
+   "input": "-80000001",
+   "expected": null
+  },
+  {
+   "input": "123456789abcdef0123",
+   "expected": null
+  },
+  {
+   "input": "٨٠٤",
+   "expected": "zh_CN"
+  },
+  {
+   "input": "８０４",
+   "expected": "zh_CN"
+  },
+  {
+   "input": "804　",
+   "expected": "zh_CN"
+  }
+ ],
+ "speech_voice_for": [
+  {
+   "voices": [
+    "en_US",
+    "fi_FI"
+   ],
+   "chosen": {
+    "ZH": null,
+    "ZH-HANT": null,
+    "EN": "en_US",
+    "JA": null,
+    "KO": null,
+    "VI": null,
+    "DE": null,
+    "FR": null,
+    "ES": null,
+    "IT": null,
+    "PT": null,
+    "RU": null,
+    "PL": null,
+    "NL": null,
+    "TR": null,
+    "TH": null,
+    "AR": null,
+    "ID": null,
+    "UK": null,
+    "": null,
+    "auto": null,
+    "xx": null,
+    "zh-Hans": null,
+    "zh-Hant": null,
+    "zh-CN": null,
+    "zh-TW": null,
+    "zh-HK": null,
+    "en-US": "en_US",
+    "en-GB": "en_US",
+    "en": "en_US",
+    "pt-BR": null,
+    "pt-PT": null,
+    "ja": null,
+    "es-419": null,
+    "nb": null,
+    "no": null,
+    "ZH_HANT": null,
+    "ZH-CN": null
+   }
+  },
+  {
+   "voices": [
+    "en_GB",
+    "en_US"
+   ],
+   "chosen": {
+    "ZH": null,
+    "ZH-HANT": null,
+    "EN": "en_US",
+    "JA": null,
+    "KO": null,
+    "VI": null,
+    "DE": null,
+    "FR": null,
+    "ES": null,
+    "IT": null,
+    "PT": null,
+    "RU": null,
+    "PL": null,
+    "NL": null,
+    "TR": null,
+    "TH": null,
+    "AR": null,
+    "ID": null,
+    "UK": null,
+    "": null,
+    "auto": null,
+    "xx": null,
+    "zh-Hans": null,
+    "zh-Hant": null,
+    "zh-CN": null,
+    "zh-TW": null,
+    "zh-HK": null,
+    "en-US": "en_US",
+    "en-GB": "en_GB",
+    "en": "en_US",
+    "pt-BR": null,
+    "pt-PT": null,
+    "ja": null,
+    "es-419": null,
+    "nb": null,
+    "no": null,
+    "ZH_HANT": null,
+    "ZH-CN": null
+   }
+  },
+  {
+   "voices": [
+    "en_GB",
+    "en_AU"
+   ],
+   "chosen": {
+    "ZH": null,
+    "ZH-HANT": null,
+    "EN": "en_GB",
+    "JA": null,
+    "KO": null,
+    "VI": null,
+    "DE": null,
+    "FR": null,
+    "ES": null,
+    "IT": null,
+    "PT": null,
+    "RU": null,
+    "PL": null,
+    "NL": null,
+    "TR": null,
+    "TH": null,
+    "AR": null,
+    "ID": null,
+    "UK": null,
+    "": null,
+    "auto": null,
+    "xx": null,
+    "zh-Hans": null,
+    "zh-Hant": null,
+    "zh-CN": null,
+    "zh-TW": null,
+    "zh-HK": null,
+    "en-US": "en_GB",
+    "en-GB": "en_GB",
+    "en": "en_GB",
+    "pt-BR": null,
+    "pt-PT": null,
+    "ja": null,
+    "es-419": null,
+    "nb": null,
+    "no": null,
+    "ZH_HANT": null,
+    "ZH-CN": null
+   }
+  },
+  {
+   "voices": [
+    "zh_CN",
+    "zh_TW",
+    "zh_HK"
+   ],
+   "chosen": {
+    "ZH": "zh_CN",
+    "ZH-HANT": "zh_CN",
+    "EN": null,
+    "JA": null,
+    "KO": null,
+    "VI": null,
+    "DE": null,
+    "FR": null,
+    "ES": null,
+    "IT": null,
+    "PT": null,
+    "RU": null,
+    "PL": null,
+    "NL": null,
+    "TR": null,
+    "TH": null,
+    "AR": null,
+    "ID": null,
+    "UK": null,
+    "": null,
+    "auto": null,
+    "xx": null,
+    "zh-Hans": "zh_CN",
+    "zh-Hant": "zh_TW",
+    "zh-CN": "zh_CN",
+    "zh-TW": "zh_TW",
+    "zh-HK": "zh_HK",
+    "en-US": null,
+    "en-GB": null,
+    "en": null,
+    "pt-BR": null,
+    "pt-PT": null,
+    "ja": null,
+    "es-419": null,
+    "nb": null,
+    "no": null,
+    "ZH_HANT": "zh_CN",
+    "ZH-CN": "zh_CN"
+   }
+  },
+  {
+   "voices": [
+    "zh_TW",
+    "zh_CN"
+   ],
+   "chosen": {
+    "ZH": "zh_CN",
+    "ZH-HANT": "zh_CN",
+    "EN": null,
+    "JA": null,
+    "KO": null,
+    "VI": null,
+    "DE": null,
+    "FR": null,
+    "ES": null,
+    "IT": null,
+    "PT": null,
+    "RU": null,
+    "PL": null,
+    "NL": null,
+    "TR": null,
+    "TH": null,
+    "AR": null,
+    "ID": null,
+    "UK": null,
+    "": null,
+    "auto": null,
+    "xx": null,
+    "zh-Hans": "zh_CN",
+    "zh-Hant": "zh_TW",
+    "zh-CN": "zh_CN",
+    "zh-TW": "zh_TW",
+    "zh-HK": "zh_TW",
+    "en-US": null,
+    "en-GB": null,
+    "en": null,
+    "pt-BR": null,
+    "pt-PT": null,
+    "ja": null,
+    "es-419": null,
+    "nb": null,
+    "no": null,
+    "ZH_HANT": "zh_CN",
+    "ZH-CN": "zh_CN"
+   }
+  },
+  {
+   "voices": [
+    "zh_HK",
+    "zh_TW"
+   ],
+   "chosen": {
+    "ZH": "zh_HK",
+    "ZH-HANT": "zh_HK",
+    "EN": null,
+    "JA": null,
+    "KO": null,
+    "VI": null,
+    "DE": null,
+    "FR": null,
+    "ES": null,
+    "IT": null,
+    "PT": null,
+    "RU": null,
+    "PL": null,
+    "NL": null,
+    "TR": null,
+    "TH": null,
+    "AR": null,
+    "ID": null,
+    "UK": null,
+    "": null,
+    "auto": null,
+    "xx": null,
+    "zh-Hans": "zh_HK",
+    "zh-Hant": "zh_TW",
+    "zh-CN": "zh_HK",
+    "zh-TW": "zh_TW",
+    "zh-HK": "zh_HK",
+    "en-US": null,
+    "en-GB": null,
+    "en": null,
+    "pt-BR": null,
+    "pt-PT": null,
+    "ja": null,
+    "es-419": null,
+    "nb": null,
+    "no": null,
+    "ZH_HANT": "zh_HK",
+    "ZH-CN": "zh_HK"
+   }
+  },
+  {
+   "voices": [
+    "ja_JP",
+    "ko_KR"
+   ],
+   "chosen": {
+    "ZH": null,
+    "ZH-HANT": null,
+    "EN": null,
+    "JA": "ja_JP",
+    "KO": "ko_KR",
+    "VI": null,
+    "DE": null,
+    "FR": null,
+    "ES": null,
+    "IT": null,
+    "PT": null,
+    "RU": null,
+    "PL": null,
+    "NL": null,
+    "TR": null,
+    "TH": null,
+    "AR": null,
+    "ID": null,
+    "UK": null,
+    "": null,
+    "auto": null,
+    "xx": null,
+    "zh-Hans": null,
+    "zh-Hant": null,
+    "zh-CN": null,
+    "zh-TW": null,
+    "zh-HK": null,
+    "en-US": null,
+    "en-GB": null,
+    "en": null,
+    "pt-BR": null,
+    "pt-PT": null,
+    "ja": "ja_JP",
+    "es-419": null,
+    "nb": null,
+    "no": null,
+    "ZH_HANT": null,
+    "ZH-CN": null
+   }
+  },
+  {
+   "voices": [
+    "pt_BR",
+    "pt_PT"
+   ],
+   "chosen": {
+    "ZH": null,
+    "ZH-HANT": null,
+    "EN": null,
+    "JA": null,
+    "KO": null,
+    "VI": null,
+    "DE": null,
+    "FR": null,
+    "ES": null,
+    "IT": null,
+    "PT": "pt_BR",
+    "RU": null,
+    "PL": null,
+    "NL": null,
+    "TR": null,
+    "TH": null,
+    "AR": null,
+    "ID": null,
+    "UK": null,
+    "": null,
+    "auto": null,
+    "xx": null,
+    "zh-Hans": null,
+    "zh-Hant": null,
+    "zh-CN": null,
+    "zh-TW": null,
+    "zh-HK": null,
+    "en-US": null,
+    "en-GB": null,
+    "en": null,
+    "pt-BR": "pt_BR",
+    "pt-PT": "pt_PT",
+    "ja": null,
+    "es-419": null,
+    "nb": null,
+    "no": null,
+    "ZH_HANT": null,
+    "ZH-CN": null
+   }
+  },
+  {
+   "voices": [
+    "pt_PT",
+    "pt_BR"
+   ],
+   "chosen": {
+    "ZH": null,
+    "ZH-HANT": null,
+    "EN": null,
+    "JA": null,
+    "KO": null,
+    "VI": null,
+    "DE": null,
+    "FR": null,
+    "ES": null,
+    "IT": null,
+    "PT": "pt_BR",
+    "RU": null,
+    "PL": null,
+    "NL": null,
+    "TR": null,
+    "TH": null,
+    "AR": null,
+    "ID": null,
+    "UK": null,
+    "": null,
+    "auto": null,
+    "xx": null,
+    "zh-Hans": null,
+    "zh-Hant": null,
+    "zh-CN": null,
+    "zh-TW": null,
+    "zh-HK": null,
+    "en-US": null,
+    "en-GB": null,
+    "en": null,
+    "pt-BR": "pt_BR",
+    "pt-PT": "pt_PT",
+    "ja": null,
+    "es-419": null,
+    "nb": null,
+    "no": null,
+    "ZH_HANT": null,
+    "ZH-CN": null
+   }
+  },
+  {
+   "voices": [
+    "es_MX",
+    "es_ES"
+   ],
+   "chosen": {
+    "ZH": null,
+    "ZH-HANT": null,
+    "EN": null,
+    "JA": null,
+    "KO": null,
+    "VI": null,
+    "DE": null,
+    "FR": null,
+    "ES": "es_ES",
+    "IT": null,
+    "PT": null,
+    "RU": null,
+    "PL": null,
+    "NL": null,
+    "TR": null,
+    "TH": null,
+    "AR": null,
+    "ID": null,
+    "UK": null,
+    "": null,
+    "auto": null,
+    "xx": null,
+    "zh-Hans": null,
+    "zh-Hant": null,
+    "zh-CN": null,
+    "zh-TW": null,
+    "zh-HK": null,
+    "en-US": null,
+    "en-GB": null,
+    "en": null,
+    "pt-BR": null,
+    "pt-PT": null,
+    "ja": null,
+    "es-419": "es_MX",
+    "nb": null,
+    "no": null,
+    "ZH_HANT": null,
+    "ZH-CN": null
+   }
+  },
+  {
+   "voices": [
+    "ar_EG",
+    "ar_SA"
+   ],
+   "chosen": {
+    "ZH": null,
+    "ZH-HANT": null,
+    "EN": null,
+    "JA": null,
+    "KO": null,
+    "VI": null,
+    "DE": null,
+    "FR": null,
+    "ES": null,
+    "IT": null,
+    "PT": null,
+    "RU": null,
+    "PL": null,
+    "NL": null,
+    "TR": null,
+    "TH": null,
+    "AR": "ar_EG",
+    "ID": null,
+    "UK": null,
+    "": null,
+    "auto": null,
+    "xx": null,
+    "zh-Hans": null,
+    "zh-Hant": null,
+    "zh-CN": null,
+    "zh-TW": null,
+    "zh-HK": null,
+    "en-US": null,
+    "en-GB": null,
+    "en": null,
+    "pt-BR": null,
+    "pt-PT": null,
+    "ja": null,
+    "es-419": null,
+    "nb": null,
+    "no": null,
+    "ZH_HANT": null,
+    "ZH-CN": null
+   }
+  },
+  {
+   "voices": [
+    "uk_UA",
+    "ru_RU"
+   ],
+   "chosen": {
+    "ZH": null,
+    "ZH-HANT": null,
+    "EN": null,
+    "JA": null,
+    "KO": null,
+    "VI": null,
+    "DE": null,
+    "FR": null,
+    "ES": null,
+    "IT": null,
+    "PT": null,
+    "RU": "ru_RU",
+    "PL": null,
+    "NL": null,
+    "TR": null,
+    "TH": null,
+    "AR": null,
+    "ID": null,
+    "UK": "uk_UA",
+    "": null,
+    "auto": null,
+    "xx": null,
+    "zh-Hans": null,
+    "zh-Hant": null,
+    "zh-CN": null,
+    "zh-TW": null,
+    "zh-HK": null,
+    "en-US": null,
+    "en-GB": null,
+    "en": null,
+    "pt-BR": null,
+    "pt-PT": null,
+    "ja": null,
+    "es-419": null,
+    "nb": null,
+    "no": null,
+    "ZH_HANT": null,
+    "ZH-CN": null
+   }
+  },
+  {
+   "voices": [
+    "nb_NO",
+    "de_DE",
+    "fr_CA",
+    "fr_FR"
+   ],
+   "chosen": {
+    "ZH": null,
+    "ZH-HANT": null,
+    "EN": null,
+    "JA": null,
+    "KO": null,
+    "VI": null,
+    "DE": "de_DE",
+    "FR": "fr_FR",
+    "ES": null,
+    "IT": null,
+    "PT": null,
+    "RU": null,
+    "PL": null,
+    "NL": null,
+    "TR": null,
+    "TH": null,
+    "AR": null,
+    "ID": null,
+    "UK": null,
+    "": null,
+    "auto": null,
+    "xx": null,
+    "zh-Hans": null,
+    "zh-Hant": null,
+    "zh-CN": null,
+    "zh-TW": null,
+    "zh-HK": null,
+    "en-US": null,
+    "en-GB": null,
+    "en": null,
+    "pt-BR": null,
+    "pt-PT": null,
+    "ja": null,
+    "es-419": null,
+    "nb": "nb_NO",
+    "no": "nb_NO",
+    "ZH_HANT": null,
+    "ZH-CN": null
+   }
+  },
+  {
+   "voices": [
+    "vi_VN",
+    "th_TH",
+    "id_ID",
+    "it_IT",
+    "pl_PL",
+    "nl_NL",
+    "tr_TR"
+   ],
+   "chosen": {
+    "ZH": null,
+    "ZH-HANT": null,
+    "EN": null,
+    "JA": null,
+    "KO": null,
+    "VI": "vi_VN",
+    "DE": null,
+    "FR": null,
+    "ES": null,
+    "IT": "it_IT",
+    "PT": null,
+    "RU": null,
+    "PL": "pl_PL",
+    "NL": "nl_NL",
+    "TR": "tr_TR",
+    "TH": "th_TH",
+    "AR": null,
+    "ID": "id_ID",
+    "UK": null,
+    "": null,
+    "auto": null,
+    "xx": null,
+    "zh-Hans": null,
+    "zh-Hant": null,
+    "zh-CN": null,
+    "zh-TW": null,
+    "zh-HK": null,
+    "en-US": null,
+    "en-GB": null,
+    "en": null,
+    "pt-BR": null,
+    "pt-PT": null,
+    "ja": null,
+    "es-419": null,
+    "nb": null,
+    "no": null,
+    "ZH_HANT": null,
+    "ZH-CN": null
+   }
+  },
+  {
+   "voices": [],
+   "chosen": {
+    "ZH": null,
+    "ZH-HANT": null,
+    "EN": null,
+    "JA": null,
+    "KO": null,
+    "VI": null,
+    "DE": null,
+    "FR": null,
+    "ES": null,
+    "IT": null,
+    "PT": null,
+    "RU": null,
+    "PL": null,
+    "NL": null,
+    "TR": null,
+    "TH": null,
+    "AR": null,
+    "ID": null,
+    "UK": null,
+    "": null,
+    "auto": null,
+    "xx": null,
+    "zh-Hans": null,
+    "zh-Hant": null,
+    "zh-CN": null,
+    "zh-TW": null,
+    "zh-HK": null,
+    "en-US": null,
+    "en-GB": null,
+    "en": null,
+    "pt-BR": null,
+    "pt-PT": null,
+    "ja": null,
+    "es-419": null,
+    "nb": null,
+    "no": null,
+    "ZH_HANT": null,
+    "ZH-CN": null
+   }
+  }
  ]
 }
