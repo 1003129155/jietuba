@@ -4,7 +4,7 @@
 #include <QSizeF>
 
 namespace jietuba {
-// Direct port: main/canvas/selection_model.py; intentionally preserve signal order.
+// Signal order is part of the behavior; keep it.
 class SelectionModel : public QObject {
     Q_OBJECT
 public:

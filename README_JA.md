@@ -15,9 +15,9 @@ jietuba は Windows 向けの無料・オープンソースのスクリーンシ
 
 MP4 領域録画はフレームレートとビットレートの指定、一時停止/再開、マウスポインター、システム音声に対応しています。一般的な 5.1/7.1 再生デバイスの音声はステレオに変換します。マイク録音は含まれません。
 
-Python（PySide6）と C++（Qt6）の 2 つの実装があり、機能・UI・設定は共通です。画像処理・クリップボード操作・PP-OCR エンジンなどのコアは Rust で実装し、両方で共有しています。Windows x86_64 および ARM64 に対応。
+jietuba は C++（Qt6）で実装され、画像処理・クリップボード操作・PP-OCR エンジンなどのコアは Rust で実装しています。Windows x86_64 および ARM64 に対応。以前の Python（PySide6）実装は [`archive/python`](https://github.com/1003129155/jietuba/tree/archive/python) ブランチにアーカイブ済みで、今後は更新しません。
 
-すぐに使える Windows 版の配布パッケージと、ソースからの実行方法を用意しています。
+すぐに使える Windows 版の配布パッケージと、ソースからのビルド方法を用意しています。
 
 ---
 
@@ -41,22 +41,22 @@ Python（PySide6）と C++（Qt6）の 2 つの実装があり、機能・UI・�
 
 ## ダウンロードと起動
 
-Windows x86_64 版および ARM64 版の配布パッケージは、そのまま実行できます。Python、Rust、開発環境のインストールは不要です。
+Windows x86_64 版および ARM64 版の配布パッケージは、そのまま実行できます。ランタイムや開発環境のインストールは不要です。
 
 1. [Releases ページ](https://github.com/1003129155/jietuba/releases/latest)を開き、端末に合わせて `-x64.zip` または `-arm64.zip` で終わるファイルをダウンロードします。
 2. パッケージは 2 種類あります。ZIP 全体を展開し、中の exe をダブルクリックして起動します。
    - **完全版** `jietuba_pp-…zip`：PP-OCR エンジンとモデルを同梱し、どの Windows でも OCR が使えます。`jietuba_pp.exe` と `models/` フォルダを同じ階層に置いてください。
-   - **軽量版** `jietuba_lite-…zip`：C++ ネイティブ実装の単一 exe で、サイズが小さく起動も速くなります（同じ PC での実測で起動 2.16→1.14 秒、メモリ 199→158 MB）。既定では Windows 11 の Snipping Tool に内蔵された OCR だけを使います。Snipping Tool がない PC や、11.2308 より古く「テキスト アクション」がない PC では OCR を使えません。Snipping Tool を更新するか、フル版をお使いください。exe の横に PP-OCR コンポーネントを置くと PP-OCR も使えます。[cpp/README.md](cpp/README.md#pp-ocr-组件包)（中国語）を参照してください。
+   - **軽量版** `jietuba_lite-…zip`：PP-OCR を含まない単一 exe で、サイズが小さくなります。既定では Windows 11 の Snipping Tool に内蔵された OCR だけを使います。Snipping Tool がない PC や、11.2308 より古く「テキスト アクション」がない PC では OCR を使えません。Snipping Tool を更新するか、フル版をお使いください。exe の横に PP-OCR コンポーネントを置くと PP-OCR も使えます。[cpp/README.md](cpp/README.md#pp-ocr-组件包)（中国語）を参照してください。
 3. どちらも既定では Snipping Tool の OCR（高速で対応言語が多い）を優先します。エンジンは設定の「OCR設定」で切り替えられます。
 4. アプリにはデジタル署名がないため、ブラウザーからダウンロードすると Windows の警告が表示される場合があります。表示された場合は「詳細情報」をクリックし、「実行」を選択すると起動できます。
 
 2 つの版は設定とクリップボード履歴を共有するので切り替えて使えますが、同時に起動しないでください（既定のホットキーが競合します）。
 
-更新機能を含む最初のリリースをインストールした後、**バージョン情報 → 更新を確認 → 更新して再起動**で更新できます。対応する GitHub Release ZIP をダウンロードし、メイン EXE のみを置換して再起動します。設定、クリップボード履歴、モデルなどのファイルは保持されます。録画、書き出し、保存を終了してからインストールしてください。直前の EXE は `.jietuba-update/` に保存されます。[復元手順](rust_libs/updater/README.md)を参照してください。旧 Python 軽量版はワンクリック更新で C++ 版に置き換わり、設定とクリップボード履歴はそのまま保持されます。
+更新機能を含む最初のリリースをインストールした後、**バージョン情報 → 更新を確認 → 更新して再起動**で更新できます。対応する GitHub Release ZIP をダウンロードし、メイン EXE のみを置換して再起動します。設定、クリップボード履歴、モデルなどのファイルは保持されます。録画、書き出し、保存を終了してからインストールしてください。直前の EXE は `.jietuba-update/` に保存されます。[復元手順](rust_libs/updater/README.md)を参照してください。2.1.8 より前の Python 版はワンクリック更新で C++ 版に置き換わり、設定・クリップボード履歴・モデルはそのまま保持されます。
 
 ## コード署名ポリシー
 
-Windows 版リリースに含まれる `jietuba_pp.exe`（Python ソースからパッケージ化）と `jietuba_lite.exe`（[cpp/](cpp/) の C++ ソースからビルド）は、GitHub Actions がこのリポジトリのソースから自動ビルドし、SignPath で署名します。
+Windows 版リリースに含まれる `jietuba_pp.exe` と `jietuba_lite.exe` は、どちらも GitHub Actions がこのリポジトリの [cpp/](cpp/) の C++ ソースから自動ビルドし、SignPath で署名します。
 
 Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
 
@@ -75,45 +75,24 @@ Free code signing provided by [SignPath.io](https://about.signpath.io/), certifi
 
 <a id="source-setup"></a>
 
-## ソースから実行
+## ソースからビルド
 
-ビルド済み Rust パッケージを含む実行時依存パッケージは、[requirements.txt](requirements.txt) で一括インストールできます。ソースから実行するだけなら Rust ツールチェーンは不要です。
+Visual Studio の「C++ によるデスクトップ開発」（CMake を含む）、Rust MSVC ツールチェーン、Qt 6.11 の MSVC SDK が必要です。`cpp/` で PowerShell から実行します。
 
-### ワンクリックセットアップ
-
-1. Windows のシステム構成に合った Python 3.11（x64 または ARM64、Python Launcher を含む）をインストールします。
-2. 本リポジトリをダウンロード・展開するかクローンし、プロジェクトルートの [setup.bat](setup.bat) をダブルクリックします。
-
-### 手動セットアップ
-
-Windows のシステム構成に合った Python 3.11（x64 または ARM64、Python Launcher を含む）をインストールしてから、プロジェクトルートで Windows コマンドプロンプト（CMD）を開き、順に実行してください。
-
-**1. 仮想環境の作成と有効化**
-
-```bat
-py -3.11 -m venv venv311
-call venv311\Scripts\activate.bat
+```powershell
+python -m venv .tools
+.\.tools\Scripts\python.exe -m pip install py7zr==1.1.4
+.\.tools\Scripts\python.exe scripts\install_qt.py   # Qt SDK を .sdk/ にダウンロード
+.\build.cmd                                         # ビルド・テストし dist/Release に配置
 ```
 
-**2. 実行時依存パッケージのインストール**
+`.\build.cmd -Static` でリリース用の軽量版単一 exe、`-Static -Full` でフル版をビルドします。静的 Qt の準備や PP-OCR コンポーネントなどの詳細は [cpp/README.md](cpp/README.md)（中国語）を参照してください。
 
-```bat
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-```
-
-**3. アプリの実行**
-
-```bat
-cd main
-python main_app.py
-```
-
-PP-OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は、リポジトリの [models/](models/) に同梱されています。PP-OCR を使う際は、このディレクトリをそのまま保持してください。Snipping Tool の OCR は PyPI の [`oneocr`](https://pypi.org/project/oneocr/) パッケージ経由で呼び出します。必要なファイルはローカルの Windows 11 Snipping Tool から取得し、初回使用時に `%LOCALAPPDATA%\Jietuba\oneocr` へ自動でコピーするため、追加のダウンロードは不要です。
+PP-OCR モデルはリポジトリの [models/](models/) にあります（`PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx`）。Snipping Tool OCR はローカルの Windows 11 Snipping Tool のファイルを使い、初回使用時に `%LOCALAPPDATA%\Jietuba\oneocr` へ自動コピーするため、追加のダウンロードは不要です。
 
 ### Rust 拡張パッケージ
 
-7 つの Python 拡張パッケージを `requirements.txt` に含めています。個別にも利用でき、ソースコードは [rust_libs/](rust_libs/) にあります。PyPI 配布名と Python の import 名は次のとおりです。
+[rust_libs/](rust_libs/) の 7 つのライブラリは、単独で使える Python 拡張パッケージとしても PyPI で公開しています。jietuba 本体は C++ から Rust コアを直接リンクしており、これらのパッケージには依存しません。PyPI 配布名と Python の import 名は次のとおりです。
 
 | pip パッケージ名 | import 名 | バージョン | 機能 |
 |------|------|------|------|
@@ -125,7 +104,7 @@ PP-OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は�
 | [`j-input`](https://pypi.org/project/j-input/) | `inputhub` | 0.1.2 | GUI スレッドを止めないグローバルなマウス・キーボードフック（ドラッグジェスチャ、サイドボタン、ホットキー、ホイール、前面ウィンドウ） |
 | [`j-video`](https://pypi.org/project/j-video/) | `video_recorder` | 0.1.0 | Media Foundation H.264/MP4 録画と WASAPI システム音声 |
 
-7 つの拡張は Windows x86_64 と ARM64 を対象に、Python `>=3.11` と `abi3-py311` を指定しています。録画も他の拡張と同じ PyO3 インターフェースを使用します。アプリは専用 Python 子プロセスで拡張を読み込み、終了時に録画リソースを解放します。設定は各パッケージの `pyproject.toml` と `Cargo.toml` を参照してください。
+7 つの拡張は Windows x86_64 と ARM64 を対象に、Python `>=3.11` と `abi3-py311` を指定しています。設定は各パッケージの `pyproject.toml` と `Cargo.toml` を参照してください。
 
 ---
 
@@ -133,31 +112,24 @@ PP-OCR モデルの `PP-OCRv6_det_small.onnx` と `PP-OCRv6_rec_small.onnx` は�
 
 ## 開発とテスト
 
-仮想環境を有効にした状態で、プロジェクトルートから開発用依存パッケージをインストールし、テストを実行します。
+ビルド、テスト、開発ルールは [cpp/README.md](cpp/README.md) にあります。[C++ CI](.github/workflows/cpp.yml) はすべてのプルリクエストでビルドし、デスクトップを必要としないテストを実行します。`rust_libs/` を変更したときは [Rust CI](.github/workflows/rust-wheels.yml) が Rust の単体テスト、サードパーティライセンスの再確認、wheel のビルドを行います。実際の入力を注入する、ホットキーを登録する、画面をキャプチャするデスクトップテストは開発機でのみ実行します。
 
-```bat
-python -m pip install -r requirements-dev.txt
-python -m pytest main/tests -c main/tests/pytest.ini
-```
-
-[テストディレクトリ](main/tests/)には、キャプチャ、クリップボード、モザイク編集、ピン留め画像のズーム、GIF 再生、OCR テキストレイヤーなどのユニットテスト・統合テストがあります。[CI 設定](.github/workflows/ci.yml)では Windows x86_64 と ARM64 の Python 3.11 環境でテストとカバレッジ検査を実行し、x86_64 では静的解析も行います。実行結果は [GitHub Actions](https://github.com/1003129155/jietuba/actions/workflows/ci.yml) で確認できます。
-
-実際にマウスとキーボードを操作するテスト（`test_quick_capture_real_hooks.py` など）は既定でスキップされます。環境変数 `RUN_REAL_INPUT_TESTS=1` を設定すると実行され、実行中はマウスとキーボードに触れないでください。実際のシステムクリップボードを書き換えるテスト（`test_clipboard_monitor_real.py`）も既定でスキップされます。環境変数 `RUN_REAL_CLIPBOARD_TESTS=1` を設定すると実行され、実行中は何もコピーしないでください。
-
-Python 版の配布パッケージ（2.1.8 以降のリリースでは使いません）をビルドするには、現在の Python アーキテクチャに合う録画 wheel をインストールしてから `python build_with_ocr_onefile.py` を実行します。インストール済みの録画拡張とライセンス通知を収集し、独立した更新プログラムは Cargo でビルドします。完全版の生成物は `dist/jietuba_pp.exe` と `dist/models/` です。`--lite` を付けると Python 版の軽量版 `dist_lite/jietuba_lite.exe` も生成できます。録画 wheel のビルド手順は[公開手順メモ](rust_libs/PUBLISHING.md)（中国語）を参照してください。[自動リリースワークフロー](.github/workflows/build.yml)では、[lite.yml](.github/workflows/lite.yml) が C++ 版の軽量版と完全版を x64 と ARM64 向けにビルドし、署名後に `jietuba_lite-<tag>-<arch>.zip` と `jietuba_pp-<tag>-<arch>.zip` を生成します。
+リリースの流れは [build.yml](.github/workflows/build.yml) にあります。タグは `release-<VERSION ファイルのバージョン>` でなければなりません。[lite.yml](.github/workflows/lite.yml) が x64 と ARM64 の軽量版・フル版をビルドし、署名後にそれぞれ `jietuba_lite-<tag>-<arch>.zip` と `jietuba_pp-<tag>-<arch>.zip` を作成します。
 
 ### C++ 実装
 
-C++ 実装は [cpp/](cpp/) にあり、`src/` は `main/` とモジュール単位で対応しています。2.1.8 以降、リリースする軽量版と完全版はどちらもこちらからビルドし、Python 版はアーカイブして更新しません。ビルド、テスト、開発上の約束は [cpp/README.md](cpp/README.md)（中国語）を参照してください。どちらのパッケージも静的リンクの単一 exe です。軽量版は `jietuba_lite.exe`（`build.ps1 -Static`）、完全版は `jietuba_pp.exe`（`-Static -Full`）で、ONNX Runtime を埋め込み、既定の PP-OCR モデルを `models/` に同梱します。旧バージョンの更新プログラムはパッケージ名を完全一致で照合し、zip ルートの同名 exe だけを置き換えて `models/` はそのまま残すため、どちらの名前も変更できません。完全版の `onnxruntime.dll` は、exe が起動時に `models/` へ書き出します。Python 版は C++ の対照テストの期待値を生成する元としてだけリポジトリに残します。コミット済みの対照データはその実行を必要とせず、再生成が必要なときに使います。新機能は C++ で実装して C++ のテストを書き、Python 版には反映しません。`cpp/` または `rust_libs/` を変更すると、[C++ CI](.github/workflows/cpp.yml) がビルドし、デスクトップを必要としないテストを実行します。
+2.1.8 以降の実装は C++（[cpp/](cpp/)）だけで、配布する 2 つのパッケージはどちらも単一の静的 exe としてここからビルドします。軽量版 `jietuba_lite.exe`（`build.ps1 -Static`）、フル版 `jietuba_pp.exe`（`-Static -Full`）は ONNX Runtime を内蔵し、パッケージに既定の PP-OCR モデル `models/` を含みます。旧版の更新機能はパッケージ名で厳密に照合し、zip 直下の同名 exe だけを置き換えて `models/` を残すため、パッケージ名と exe 名は変更できません。フル版の `onnxruntime.dll` は起動時に exe が `models/` へ補います。バージョン番号はリポジトリ直下の `VERSION` ファイルにだけ書きます。
+
+Python（PySide6）版は [`archive/python`](https://github.com/1003129155/jietuba/tree/archive/python) ブランチにアーカイブ済みで、今後は更新しません。C++ テストにある純ロジックのフィクスチャは当時それから生成したもので、コミット済みのため再生成しません。新機能は C++ で実装し、期待値は C++ のテストに書きます。
 
 ### Rust ライブラリの階層
 
-`rust_libs/` のロジックは一度だけ書き、Python 版と C++ 版で共有します。
+`rust_libs/` のロジックは 1 つだけ書き、C++ 版と PyPI で公開する Python 拡張で共有します。
 
-- 各ライブラリは 2 層です。コアは純粋な Rust で、PyO3 バインディングは `python.rs`（録画ライブラリは `bindings.rs`）だけに置き、既定で有効な `python` フィーチャーで切り替えます。C++ 版は `default-features = false` で依存し、自身の C インターフェース層（`cpp/native/`）から同じコアを呼び出します。Python 版のアーカイブ後は、新しい機能を `cpp/native/` につなぐだけでよく、PyO3 バインディングを書く必要はありません。
-- バインディング層は型変換、GIL の取得と解放、エラーの対応付け、オブジェクトの寿命管理だけを行います。判定、既定値、再試行、スレッドといったロジックはコアに書きます。そうしないと両版がそれぞれ同じ処理を持ち、少しずつずれていきます。
-- コアで回復可能なエラーは `panic` ではなく `Result` で返します。
-- 両版で必要かつ動作をそろえるべき UI 以外のロジックは、まず Rust コアに書きます。Qt の型を使う UI コードはそれぞれの言語に残します。
+- 各ライブラリは 2 層構成です。コアは純粋な Rust で、pyo3 バインディングは既定で有効な `python` フィーチャーの下の `python.rs`（録画ライブラリは `bindings.rs`）だけに置きます。C++ 版は `default-features = false` で依存し、独自の C インターフェース（`cpp/native/`）から同じコアを呼び出します。新しい機能は `cpp/native/` につなぐだけでよく、pyo3 バインディングを書く必要はありません。
+- バインディング層は型変換、GIL の取得と解放、エラーの変換、オブジェクトの寿命管理だけを行います。判断、既定値、リトライ、スレッドといったロジックはコアに書きます。
+- コアの回復可能なエラーは `panic` せず `Result` で返します。
+- Qt に依存しない非 UI ロジックは、まず Rust コアに書きます。Qt の型を使う UI コードは C++ に残します。
 
 ### コードコメント
 
@@ -171,624 +143,48 @@ C++ 実装は [cpp/](cpp/) にあり、`src/` は `main/` とモジュール単�
 
 ## ディレクトリ構造
 
-<details>
-<summary>ディレクトリ構造を表示</summary>
-
 ```text
 # プロジェクトルート
-├── README.md / README_zh-CN.md / README_JA.md          # 英語・中国語・日本語ドキュメント
-├── pyproject.toml                                      # Pythonプロジェクトのメタデータと依存関係
-├── requirements.txt                                   # 実行時依存パッケージ
-├── requirements-dev.txt                               # テスト・ビルド用依存パッケージ
-├── build_with_ocr_onefile.py                           # PyInstaller単一ファイルビルドスクリプト（--lite で Python 版の軽量版。リリースには未使用）
-├── licenses/                                          # 配布パッケージに同梱するサードパーティライセンス（C++ 版は cpp/licenses/ も同梱）
+├── README.md / README_zh-CN.md / README_JA.md   # 英語・中国語・日本語のドキュメント
+├── VERSION                  # バージョン番号（CMake とリリースワークフローが参照）
+├── 托盘.ico                 # アプリと更新機能のアイコン
+├── licenses/                # 配布パッケージに同梱するサードパーティライセンス
 │
 ├── cpp/                     # C++（Qt6）実装
-│   ├── src/                 # main/ とモジュール単位で対応
+│   ├── src/                 # ソース（<パッケージ>/<モジュール> 構成）
+│   │   ├── barcode/         # QR コード・バーコード認識（zxing-cpp）
+│   │   ├── canvas/          # キャンバス — 編集の中核、元に戻す、レイヤー
+│   │   ├── capture/         # キャプチャ — スクリーンショット、ウィンドウ・要素の検出
+│   │   ├── clipboard/       # クリップボード管理 — 履歴、グループ/クイック起動、インポート/エクスポート、検索
+│   │   ├── core/            # コア — 起動、ログ、リソース、テーマ、国際化、ホットキー
+│   │   ├── gif/             # GIF/MP4 録画、GIF 編集、再生、書き出し
+│   │   ├── ocr/             # Snipping Tool OCR と PP-OCR
+│   │   ├── pin/             # ピン留め — 最前面表示、編集、OCR、翻訳
+│   │   ├── settings/        # 設定の一元管理
+│   │   ├── stitch/          # 長いスクリーンショットの結合
+│   │   ├── text_recognition/ # OCR 結果のレイアウト
+│   │   ├── tools/           # 描画ツール — ペン、矩形、矢印、テキスト、モザイクなど
+│   │   ├── translation/     # 複数プロバイダーの翻訳と読み上げ
+│   │   ├── ui/              # UI コンポーネント、キャプチャ画面、ツールバー、設定画面
+│   │   └── video/           # MP4 録画子プロセス
 │   ├── native/              # rust_libs の C インターフェース（静的リンク）
-│   └── tests/               # QtTest と対照データ
+│   ├── resources/           # 既定設定、UI 翻訳（XML と .qm）、ログ文言
+│   ├── scripts/             # ビルド、Qt SDK の準備、翻訳のコンパイル
+│   └── tests/               # QtTest のテストと照合データ
 │
-├── main/                    # Python メインプログラム
-│   ├── main_app.py          # アプリエントリポイント：システムトレイ、グローバルホットキー、ライフサイクル管理
-│   ├── compile_translations.py  # 翻訳コンパイラ（.xml → .qm）
-│   ├── scripts/             # 補助スクリプト — 翻訳プロバイダー比較
-│   │
-│   ├── barcode/             # バーコードモジュール — QRコード/バーコード読み取り（zxing-cpp）
-│   ├── canvas/              # キャンバスモジュール — グラフィックス編集コア
-│   ├── capture/             # キャプチャモジュール — スクリーンキャプチャ＆ウィンドウ検出
-│   ├── clipboard/           # クリップボードモジュール — 履歴、グループ/クイック起動、入出力、検索
-│   ├── core/                # コアモジュール — ブートストラップ、ログ、リソース、テーマ、i18n、ホットキー
-│   ├── gif/                 # GIF/MP4 録画、GIF 編集、再生、エクスポート
-│   ├── ocr/                 # OCRモジュール — Snipping Tool OCR と PP-OCR による文字認識
-│   ├── pin/                 # ピンモジュール — スクリーンショットピン留め、編集、OCR、翻訳
-│   ├── settings/            # 設定モジュール — 統一設定管理
-│   ├── stitch/              # 結合モジュール — スクロールキャプチャ、自動結合
-│   ├── tools/               # ツールモジュール — ペン、矩形、矢印、テキスト、モザイク等
-│   ├── translation/         # 翻訳モジュール — マルチプロバイダー翻訳サービス
-│   ├── translations/        # 言語リソース — 中国語/英語/日本語/韓国語
-│   ├── ui/                  # UIモジュール — 共通UIコンポーネントライブラリ
-│   ├── video/               # 録画ワーカー — PyO3 録画、有界 JSONL プロトコル、パッケージ版の早期分岐
-│   └── tests/               # テストモジュール — ユニットテスト＆統合テスト
+├── rust_libs/               # Rust ライブラリ（C++ 実装と PyPI 拡張で共有）
+│   ├── gifrecorder/         # GIF/動画合成エンコーダー
+│   ├── longstitch/          # 長いスクリーンショット結合アルゴリズム
+│   ├── pyclipboard/         # クリップボード操作
+│   ├── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX 認識エンジン
+│   ├── hdrcapture/          # HDR デスクトップキャプチャ
+│   ├── inputhub/            # グローバルなマウス・キーボードフック
+│   ├── updater/             # メイン EXE だけを置き換える独立した更新機能
+│   └── video_recorder/      # Media Foundation 録画と WASAPI システム音声の取得
 │
-├── rust_libs/               # Rust ライブラリ（Python 拡張と C++ 実装で共有）
-│   ├── gifrecorder/         # GIF/動画合成エンコーダーソース
-│   ├── longstitch/          # 長いスクリーンショット結合アルゴリズムソース
-│   ├── pyclipboard/         # クリップボード低レベル操作ソース
-│   ├── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX 認識エンジンソース
-│   ├── hdrcapture/          # HDR 対応デスクトップキャプチャ拡張ソース
-│   ├── inputhub/            # グローバルマウス・キーボードフック拡張ソース
-│   ├── updater/             # メイン EXE のみを置換する独立 Rust 更新プログラム
-│   └── video_recorder/      # PyO3 Media Foundation 録画拡張
-│       ├── src/             # 録画コア、PyO3 バインディングと WASAPI キャプチャ
-│       ├── README.md        # PyPI ページ（英語）
-│       ├── DEVELOPMENT.md   # 録画ワーカーのプロセスプロトコルとネイティブ検証メモ（中国語）
-│       ├── pyproject.toml   # j-video abi3 wheel 設定
-│       └── LICENSE          # wheel に同梱する MIT ライセンス
+├── models/                  # PP-OCR ONNX モデル（フル版に同梱）
+│   ├── PP-OCRv6_det_small.onnx   # 文字検出モデル (DBNet)
+│   └── PP-OCRv6_rec_small.onnx   # 文字認識モデル (CRNN/CTC)
 │
-├── models/                  # PP-OCR ONNX モデル（PP-OCR に必須）
-│   ├── PP-OCRv6_det_small.onnx   # テキスト検出モデル (DBNet)
-│   └── PP-OCRv6_rec_small.onnx   # テキスト認識モデル (CRNN/CTC)
-│
-└── svg/                     # SVGアイコンリソース（両方の実装で共有）
+└── svg/                     # SVG アイコン
 ```
-
-</details>
-
----
-
-## モジュール詳細
-
-### barcode/ — バーコードモジュール
-
-スクリーンショットの選択範囲にある QR コードやバーコードを読み取ります。結果ウィンドウでは、左側のスクリーンショット上に各コードの位置を示し、右側に番号順で内容を一覧表示します。
-
-<details>
-<summary>ディレクトリ構造を表示</summary>
-
-```text
-barcode/
-├── __init__.py
-├── reader.py                # read_codes / DecodedCode — zxing-cpp でデコードし、内容・形式・輪郭を読み順で返す
-└── result_window.py         # BarcodeResultWindow — 結果ウィンドウ。スクリーンショットと結果一覧を同じ番号で対応付け
-```
-
-</details>
-
-- QR コード、Data Matrix、Aztec、PDF417 と、Code 128・EAN/UPC などの一般的な一次元バーコードに対応
-- 選択範囲内の複数のコードを一度に読み取り。どちら側でコードにホバーしても両方がハイライト
-- ワンクリックでコピー。http(s) リンクはブラウザで直接開ける
-
----
-
-### canvas/ — キャンバスモジュール
-
-シーン管理、ビューレンダリング、アイテム選択、アンドゥ/リドゥ機能を備えたグラフィックス編集キャンバスシステム。
-![jietuba_gif_20260404_000903](https://github.com/user-attachments/assets/5318b991-b0de-46a2-9c0e-d75eeae2a827)
-
-<details>
-<summary>ディレクトリ構造を表示</summary>
-
-```text
-canvas/
-├── scene.py                 # CanvasScene — QGraphicsScene継承のキャンバスシーン
-├── view.py                  # CanvasView — QGraphicsView継承のキャンバスビュー
-├── selection_model.py       # SelectionModel — 選択グラフィックスアイテムの管理
-├── undo.py                  # CommandUndoStack — アンドゥ/リドゥスタック
-├── smart_edit_controller.py # SmartEditController — 選択/編集モード切替
-├── smart_selection_anim.py  # SmartSelectionAnimator — ウィンドウ切り替え時の選択範囲の補間
-├── handle_editor.py         # LayerEditor / EditHandle — コントロールポイントドラッグ編集
-├── gestures.py              # マウスジェスチャの状態機械 — 文字の端ドラッグ、ラバーバンド選択、保留中のクリック編集
-├── handle_overlay.py        # HandleOverlay — 編集ハンドル専用の合成レイヤー、シーン全体の再描画を回避
-└── items/
-    ├── drawing_items.py     # RectItem / EllipseItem / NumberItem と、描画アイテム共通の DrawingItemMixin
-    ├── stroke_item.py       # StrokeItem — ペン/蛍光ペンのストローク、変わった部分・露出した部分のブロックだけ再描画
-    ├── background_item.py   # BackgroundItem — 選択領域の背景
-    ├── mosaic_item.py       # MosaicItem — モザイクアイテム
-    ├── spotlight_item.py    # SpotlightItem / SpotlightCurtain — スポットライトの穴と共有の幕
-    ├── selection_item.py    # SelectionItem — 選択境界表示
-    ├── arrow_item.py        # ArrowItem — 矢印アイテム、9 種類の軸・先端・輪郭のジオメトリ
-    ├── text_item.py         # TextItem — テキストアイテム、縁取り/影/背景と三状態の操作枠
-    └── watermark_item.py    # WatermarkItem / WatermarkStyle — 選択範囲に重ねる透かし：タイル、ひし形グリッド、または 7 か所の位置、複数行と時刻に対応
-```
-
-</details>
-
----
-
-### capture/ — キャプチャモジュール
-
-スクリーンキャプチャとスマートウィンドウ検出。
-
-<details>
-<summary>ディレクトリ構造を表示</summary>
-
-```text
-capture/
-├── capture_service.py       # CaptureService — スクリーンショットコアロジック
-├── display_watcher.py       # DisplayChangeWatcher — ディスプレイの接続・解像度・HDR が変わったらキャプチャセッションを裏で再構築
-├── system_cursor.py         # SystemCursor — キャプチャ時のマウスポインターを記録し画像に描き込む
-├── quick_capture_controller.py # QuickCaptureController — 修飾キー＋ドラッグ撮影とアクション実行
-├── uia_element_finder.py    # UI Automation によるバックグラウンド要素検出・キャッシュ
-└── window_finder.py         # WindowFinder — スマートウィンドウ選択、カーソル位置検出
-```
-
-</details>
-
----
-
-### clipboard/ — クリップボード管理モジュール
-
-Ditto風のクリップボード履歴マネージャーで、controllers・core・services・ui の4層構成に再編されています。
-テキスト、画像、HTML、ファイルに対応し、グループと内容を管理する独立した3ペイン管理ウィンドウも備えています。
-![jietuba_gif_20260404_001128](https://github.com/user-attachments/assets/b0a116e8-d944-43c9-b895-e6fc10d8c08a)
-
-<details>
-<summary>ディレクトリ構造を表示</summary>
-
-```text
-clipboard/
-├── __init__.py
-├── controllers/             # 制御層 — 履歴読み込み、貼り付け処理、メニュー、選択状態
-│   ├── clipboard_controller.py   # ClipboardController — 読み込み、貼り付け、コンテキストメニュー
-│   ├── selection_manager.py      # SelectionManager — リスト選択状態管理
-│   ├── mouse_shortcut_controller.py  # クリップボード項目のマウス操作とクリック判定
-│   ├── context_menu_controller.py  # ContextMenuController — コンテキストメニューのデータと動作の組み立て
-│   ├── foreground_tracker.py    # ForegroundWindowTracker — 貼り付け先ウィンドウを記憶
-│   ├── paste_keystroke.py       # 対象ウィンドウにフォーカスを戻してから Ctrl+V を送信
-│   └── __init__.py
-├── core/                    # データ層 — pyclipboard ラッパー、モデル、グループ種別
-│   ├── manager.py           # ClipboardManager — 保存、監視、貼り付け API
-│   ├── models.py            # ClipboardItem / Group データモデル
-│   ├── enums.py             # GroupType 定義
-│   ├── text_transform.py    # プレーンテキスト変換 — 「特殊貼り付け」用の副作用のない純関数群
-│   └── __init__.py
-├── services/                # サービス層 — file payload、グループ規則、入出力、保存ロジック
-│   ├── file_payload_service.py   # file 型 JSON payload と旧形式互換
-│   ├── group_service.py          # グループのアイコン・命名・削除確認補助
-│   ├── import_export_service.py  # テキスト項目の CSV インポート/エクスポート
-│   └── manage_dialog_service.py  # 管理ウィンドウの保存ロジック
-├── ui/
-│   ├── layout_scale.py           # 管理ウィンドウ共通のサイズ定数
-│   ├── image_item_actions.py     # 画像項目の読み込みと保存、両ウィンドウで共用
-│   ├── dialogs/
-│   │   └── manage_dialog.py      # グループ・内容・入出力を扱う3ペイン管理ウィンドウ
-│   ├── forms/
-│   │   ├── group_form.py
-│   │   ├── text_content_form.py
-│   │   ├── file_content_form.py
-│   │   ├── import_export_form.py
-│   │   ├── group_icon_picker.py
-│   │   ├── form_widgets.py
-│   │   └── image_content_form.py
-│   ├── menus/
-│   │   ├── action_menu.py
-│   │   ├── group_context_menu.py
-│   │   └── item_context_menu.py
-│   ├── mixins/
-│   │   └── frameless_mixin.py
-│   ├── panels/
-│   │   └── setting_panel.py
-│   ├── resources/
-│   │   └── emoji_data.py
-│   ├── theme/
-│   │   ├── themes.py
-│   │   └── theme_styles.py
-│   ├── widgets/
-│   │   ├── group_bar.py
-│   │   ├── item_delegate.py
-│   │   ├── item_widget.py
-│   │   ├── preview_popup.py
-│   │   ├── quick_edit_popup.py
-│   │   ├── manage_rows.py
-│   │   └── reorder_list.py
-│   └── windows/
-│       ├── clipboard_window.py   # 履歴ウィンドウ、検索、プレビュー、高速貼り付け
-│       └── pin_window.py         # 履歴項目からピンを作成
-```
-
-</details>
-
-**主な機能:**
-- システムクリップボードの変更を監視し、自動で履歴を保存
-- テキスト、画像、HTML、ファイル等に対応
-- 通常グループ、クイック起動グループ、フィルターグループ（特定の種類の履歴を常に表示）、お気に入り、検索に対応
-- 独立した3ペイン管理ウィンドウでグループ・テキスト内容・ファイル内容を編集可能
-- テキスト項目の CSV インポート/エクスポートに対応
-- テーマ切替、ショートカットによる高速貼り付け、大画像/長文プレビューに対応
-- 既定で Win+V が Windows のクリップボード履歴の代わりにこのクリップボードを開く（クリップボードのホットキー 3 枠目。空にすると Windows に戻る）
-
----
-
-### core/ — コアモジュール
-
-ログ、リソースローディング、テーマ管理、国際化、ホットキー等のインフラ。
-
-<details>
-<summary>ディレクトリ構造を表示</summary>
-
-```text
-core/
-├── bootstrap.py             # PreloadManager — 起動ブートストラップ、環境初期化、DPI、シングルインスタンス
-├── elevation.py             # 管理者として実行 — 権限昇格の状態判定、スタートアップ用タスク
-├── logger.py                # Logger — ファイル＋コンソールログ（debug/info/warning/error/exception）
-├── crash_handler.py         # install_crash_hooks() — グローバル例外キャッチ
-├── resource_manager.py      # ResourceManager — SVG/画像リソースローディング
-├── theme.py                 # ThemeManager — アプリテーマカラー管理
-├── ui_scale.py              # UIScaleManager — ツールバー/パネル/ポップアップ共通の拡大率
-├── i18n.py                  # I18nManager / XmlTranslator / tr() — 国際化
-├── shortcut_manager.py      # HotkeySystem / ShortcutManager — グローバル＆アプリ内ホットキー
-├── global_hotkey.py         # グローバルホットキーのキー名表と登録方法の判定：システム登録・フック引き継ぎ・不可
-├── input_hub.py             # プロセス共通のグローバル入力：ネイティブフック（j-input）は GUI スレッド外で動き、イベントを Qt シグナルで通知
-├── quick_capture_input.py    # グローバルマウスショートカットのドラッグ入力（共通入力ハブを利用）
-├── last_capture_region.py   # 「前回の選択範囲を復元」用のプロセス内メモリ
-├── save.py                  # SaveService — ファイル保存サービス（高品質 PDF 出力対応）
-├── export.py                # ExportService — 画像エクスポート
-├── clipboard_utils.py       # copy_image_to_clipboard() — 画像をクリップボードにコピー
-├── platform_utils.py        # DPI設定、AppUserModelID、Windows APIユーティリティ
-├── qt_utils.py              # safe_disconnect() — Qtシグナル安全切断
-├── log_translations/        # 各モジュールのログ翻訳ヘルパー
-├── constants.py             # グローバル定数（フォント、パス等）
-├── background_tasks.py      # バックグラウンド保存の追跡
-├── main_thread_gc.py        # MainThreadGC — 循環参照のGCをメインスレッドだけで行う
-├── update_cache.py          # 更新プログラムの一時ファイルとキャッシュのクリーンアップ
-├── updater_process.py       # Rust 更新プログラムとの非同期 JSONL 通信
-├── update_controller.py     # 更新ダウンロードと安全な再起動の調整
-├── update_checker.py        # GitHub 最新リリースの非同期取得とバージョン比較
-└── ui_theme.py              # UIThemeManager — アプリ窓と Qt ネイティブ部品のライト/ダーク外観
-```
-
-</details>
-
----
-
-### gif/ — GIF録画モジュール
-
-画面録画、編集、再生、GIF/動画エクスポート。
-
-録画ツールバーで **MP4** を選択すると、H.264 動画を直接保存できます。1–60 fps、0.5–50 Mbps の目標ビットレート、システム音声とマウスポインターを設定できます。利用可能ならハードウェアを優先し、Windows のソフトウェアエンコーダーにフォールバックします。独立プロセスから逐次保存し、Python に動画フレームを蓄積しません。停止後は MP4 の処理完了を待ちます。MP4 は GIF の編集・再生に進まず直接保存されます。映像は SDR で出力され（HDR ディスプレイでは DXGI で取得して SDR に変換するため、HDR 動画にはなりません）、システム音声は既定の再生デバイス（最大 8 チャンネル、ステレオにダウンミックス）から取得し、マイクは含みません。
-
-PyO3 録画拡張は、実行時依存パッケージと一緒にビルド済み `j-video==0.1.0` wheel からインストールします。ソースから実行するだけなら Rust ツールチェーンは不要です。専用 Python 子プロセスが拡張を呼び出し、GUI は制御コマンドと状態イベントだけを交換します。onefile スクリプトはインストール済み拡張とライセンス通知を収集し、再ビルドしません。[録画の開発メモ](rust_libs/video_recorder/DEVELOPMENT.md)（中国語）には、録画ワーカーのプロセスプロトコルとネイティブ検証コマンドがあります。Media Foundation と H.264/AAC が必要で、Windows N では Media Feature Pack が必要な場合があります。FFmpeg や追加コーデックは同梱しません。
-<img width="766" height="630" alt="image" src="https://github.com/user-attachments/assets/8653fffb-b419-4584-ab4b-9fe95bb9f246" />
-<details>
-<summary>ディレクトリ構造を表示</summary>
-
-```text
-gif/
-├── record_window.py         # GifRecordWindow / AppState — ステートマシンコーディネーター（3層ウィンドウ）
-├── overlay.py               # CaptureOverlay / OverlayMode — キャプチャオーバーレイ、領域調整
-├── drawing_view.py          # GifDrawingView / GifDrawingScene — 録画中描画
-├── drawing_toolbar.py       # GifDrawingToolbar — 描画ツールバー
-├── record_toolbar.py        # RecordToolbar — 開始/一時停止/停止コントロール
-├── frame_recorder.py        # FrameRecorder / FrameData / CursorSnapshot — フレームサンプリング
-├── video_recorder.py        # VideoRecorder — MP4 Python ワーカーの有界 JSONL 制御
-├── video_settings.py        # RecordingOptions — 動画のフレームレート・ビットレート・音声設定
-├── playback_engine.py       # PlaybackEngine / PlayState — フレーム再生＆プレビュー
-├── playback_controller.py   # PlaybackController — 再生UI＆エクスポート管理
-├── playback_toolbar.py      # PlaybackToolbar / RangeSlider — プログレスバー、速度調整
-├── composer.py              # _ComposeWorker / ComposerProgressDialog — GIF/動画合成
-├── cursor_overlay.py        # CursorOverlay — カーソルレンダリング＆クリックアニメーション
-└── _widgets.py              # ClickMenuButton / svg_icon() — カスタムウィジェット
-```
-
-</details>
-
----
-
-### ocr/ — OCRモジュール
-
-文字認識管理。Windows の Snipping Tool に内蔵された OCR と PP-OCR の 2 つのエンジンに対応。
-
-<img width="580" height="505" alt="image" src="https://github.com/user-attachments/assets/60a16100-5edc-4543-9a35-daf05b1e244e" />
-
-<details>
-<summary>ディレクトリ構造を表示</summary>
-
-```text
-ocr/
-├── ocr_manager.py           # OCRManager — エンジン選択・読み込み・解放、統一認識インターフェース
-├── ppocr_models.py          # PP-OCR モデル：models/ フォルダー、内蔵カタログ、追加、削除、アップデーター経由のダウンロード
-└── snipping_tool_ocr.py     # SnippingToolOcr — Snipping Tool の検出、OCR ファイルのコピー、余白追加と認識
-```
-
-</details>
-
-- 設定で「自動 / Windows Snipping Tool / PP-OCR」を選択。自動では Snipping Tool があればそれを、なければ PP-OCR を使う
-- Snipping Tool OCR：PyPI の oneocr パッケージ経由。高速で対応言語が多い（韓国語、ロシア語、タイ語など）。Windows 11 の Snipping Tool が必要
-- PP-OCR：ppocr_rust エンジン（純 Rust + ONNX Runtime、PP-OCR det + rec）。どの Windows でも動作。完全版のみ
-- PP-OCR モデル：PP-OCRv6 small を同梱。設定の「PP-OCR モデルの管理」から内蔵カタログの他のモデル（PP-OCRv6 tiny/medium、PP-OCRv5、韓国語・ラテン文字・キリル文字・タイ語・ギリシャ語の認識）をダウンロードでき、ファイルのハッシュは固定。ローカルの ONNX モデルも試験認識に通れば追加できる。モデルはプログラム横の `models/` に置く。選んだモデルがないときは別のモデルに切り替えず、モデル不足として報告する
-- 認識と解放は排他。エンジン切り替え時に旧エンジンを解放し、新エンジンは次回の認識時に読み込む
-- シングルトンパターン、統一認識インターフェース
-
----
-
-### pin/ — ピンモジュール
-
-スクリーンショットを画面にピン留め。編集、ズーム、OCR、翻訳対応。
-
-<img width="737" height="657" alt="image" src="https://github.com/user-attachments/assets/827b912c-11ac-4692-b3f6-826561957615" />
-
-<details>
-<summary>ディレクトリ構造を表示</summary>
-
-```text
-pin/
-├── pin_window.py            # PinWindow — ドラッグ可能、ズーム可能、常に最前面の画像ウィンドウ
-├── pin_canvas_view.py       # PinCanvasView — ピンキャンバスビュー
-├── pin_canvas.py            # ピンキャンバスオブジェクト
-├── pin_manager.py           # PinManager — 全ピンウィンドウ管理（シングルトン）
-├── pin_toolbar.py           # PinToolbar — ピンツールバー
-├── pin_controls.py          # PinControlButtons — 閉じる、編集、コピーボタン
-├── pin_hover.py             # PinHoverControls — ホバーボタンとツールバーの表示判定
-├── pin_context_menu.py      # PinContextMenu — 右クリックメニュー
-├── pin_border_overlay.py    # PinBorderOverlay — ボーダーエフェクトオーバーレイ
-├── pin_click_through_bar.py # PinClickThroughBar — マウス透過中の移動・不透明度・終了バー
-├── pin_ocr_manager.py       # PinOCRManager / _OCRThread — 非同期OCR認識
-├── pin_shortcut.py          # PinShortcutController — 通常/編集モードショートカット
-├── pin_thumbnail.py         # PinThumbnailMode — サムネイルモード
-├── pin_translation.py       # PinTranslationHelper — 翻訳ヘルパー
-├── pin_image_transform.py   # PinImageTransform — 回転、反転等
-└── ocr_text_layer.py        # OCRTextLayer / OCRTextItem — OCRテキストレイヤー表示
-```
-
-</details>
-
----
-
-### settings/ — 設定モジュール
-
-<details>
-<summary>ディレクトリ構造を表示</summary>
-
-```text
-settings/
-├── color_formats.py         # 拡大鏡のカラー形式テンプレート：描画・読み込み・保存
-├── settings_transfer.py     # 設定画面の項目（ツールバーの並びを含む）を JSON ファイルへエクスポート／インポート
-├── special_paste.py         # 特殊貼り付けメニューの既定項目・順序・有効状態
-└── tool_settings.py         # ToolSettingsManager / ToolSettings — ツールの色、サイズ、ホットキー設定
-```
-
-</details>
-
----
-
-### stitch/ — 長いスクリーンショット結合モジュール
-![jietuba_gif_20260404_001930](https://github.com/user-attachments/assets/a9720f08-5128-447d-b425-6d0640272e6a)
-
-<details>
-<summary>ディレクトリ構造を表示</summary>
-
-```text
-stitch/
-├── auto_scroll.py                   # AutoScroller — 自動スクロール：結合結果から歩幅を決め、末尾かマウス移動で停止
-├── change_watch.py                  # ChangeWatch — キャプチャ範囲をバックグラウンドで監視し、画面が変わるたびにキャプチャ
-├── incremental.py                   # IncrementalStitcher — バックグラウンド結合とプレビュー縮小画像
-├── jietuba_long_stitch_unified.py   # 結合インターフェース（Rust の longstitch を呼び出す）
-├── scroll_window.py                 # ScrollCaptureWindow — スクロールキャプチャウィンドウ
-└── scroll_toolbar.py                # スクロールキャプチャツールバー
-```
-
-</details>
-
----
-
-### tools/ — 描画ツールモジュール
-
-<details>
-<summary>ディレクトリ構造を表示</summary>
-
-```text
-tools/
-├── base.py                  # Tool / ToolContext — 抽象基底クラス
-├── controller.py            # ToolController — ツール切替＆状態管理
-├── action.py                # ActionTools — コピー、保存、キャンセルアクション
-├── pen.py                   # PenTool — フリーハンド描画
-├── rect.py                  # RectTool — 矩形（塗りつぶし/アウトライン）
-├── ellipse.py               # EllipseTool — 楕円
-├── arrow.py                 # ArrowTool — 矢印
-├── text.py                  # TextTool — テキスト
-├── number.py                # NumberTool — 自動インクリメント番号
-├── highlighter.py           # HighlighterTool — 蛍光ペン
-├── mosaic.py                # MosaicTool — モザイク
-├── spotlight.py             # SpotlightTool — スポットライト（枠の外を暗くする）
-├── watermark.py             # WatermarkTool — 透かし（追加・文字とスタイルの変更・前回の有無の記録）
-├── cursor.py                # CursorTool — カーソル/選択
-├── eraser.py                # EraserTool — 消しゴム
-└── cursor_manager.py        # CursorManager — カーソルスタイル管理
-```
-
-</details>
-
----
-
-### translation/ — 翻訳モジュール
-
-DeepL / Google / Azure / Amazon などに対応したマルチプロバイダー翻訳サービス。
-
-<details>
-<summary>ディレクトリ構造を表示</summary>
-
-```text
-translation/
-├── provider.py              # TranslationProvider / ProviderMetadata — プロバイダー抽象契約
-├── registry.py              # ProviderRegistry — プロバイダー登録とファクトリ
-├── service.py               # TranslationService — プロバイダー選択と翻訳オーケストレーション
-├── models.py                # TranslationRequest / TranslationResult — プロバイダー非依存モデル
-├── worker.py                # TranslationWorker — 全プロバイダー共通の Qt ワーカー
-├── providers/               # 各翻訳プロバイダー実装
-│   ├── deepl.py             # DeepL
-│   ├── google.py            # Google
-│   ├── azure.py             # Azure
-│   ├── amazon.py            # Amazon
-│   ├── baidu.py             # Baidu
-│   ├── tencent.py           # Tencent Cloud
-│   ├── volcengine.py        # Volcengine（火山引擎）
-│   ├── youdao.py            # Youdao（有道）
-│   ├── custom_llm.py        # カスタム OpenAI 互換サービス（Ollama、LM Studio など）
-│   ├── deepseek.py          # DeepSeek (LLM)
-│   └── openai_compatible.py # OpenAI 兼容接口基类
-├── smart_translation_controller.py # SmartTranslationController — ワンキー選択テキスト検出＆ポップアップルーティング
-├── translation_popup.py     # TranslationPopup — コンパクト翻訳ポップアップ（選択テキスト/手入力）
-├── deepl_service.py         # DeepLService / TranslationThread — 旧版 DeepL API 非同期翻訳
-├── languages.py             # SupportedLanguages — 対応言語リスト・言語コード
-├── translation_manager.py   # TranslationManager — 翻訳ウィンドウマネージャー（シングルトン）
-├── translation_dialog.py    # TranslationDialog — 翻訳結果ウィンドウ
-└── ui/
-    ├── dialog.py            # 翻訳ダイアログUI
-    └── widgets.py           # 翻訳ウィジェット
-```
-
-</details>
-
-**主な機能:**
-- プラグイン可能なマルチプロバイダー構成（DeepL / Google / Azure / Amazon）をレジストリで一元管理
-- ワンキー：選択テキストを自動検出して翻訳ポップアップへ
-- 選択テキスト／手入力の2モード対応コンパクトポップアップ
-- 非同期翻訳でUIをブロックしない
-- 翻訳結果のコピーに対応
-
----
-
-### translations/ — 言語リソース
-
-<details>
-<summary>ディレクトリ構造を表示</summary>
-
-```text
-translations/
-├── app_zh.xml / app_en.xml  # 中国語 / 英語ソースファイル
-├── app_ja.xml / app_ko.xml  # 日本語 / 韓国語ソースファイル
-└── app_*.qm                 # コンパイル済み Qt バイナリ（app_zh.qm 等）
-```
-
-</details>
-
-`.xml` = 編集可能なソースファイル、`.qm` = Qtランタイムで読み込むコンパイル済みファイル。UI テキストを追加・変更したら、4 つの `.xml` すべてに同じコンテキストのエントリを追加し（複数行の文言は実際の改行で書く）、`compile_translations.py` を実行して再コンパイルしてください。`tests/test_translation_coverage.py` が漏れをチェックします。
-
----
-
-### ui/ — UIモジュール
-
-共通UIコンポーネントライブラリ。
-
-<details>
-<summary>ディレクトリ構造を表示</summary>
-
-```text
-ui/
-├── toolbar.py               # Toolbar / _DragHandle — ドラッグ可能なツールバー基底クラス
-├── toolbar_layout.py        # スクリーンショット / ピンツールバーのボタン配置（順序・表示方法）の正規化と読み書き
-├── toolbar_layout_dialog.py # ToolbarLayoutDialog — スクリーンショット / ピンツールバーの配置編集ダイアログ
-├── reorderable_rows.py      # DragGrip / DraggableRow / ReorderableRowList — ドラッグで並べ替えられる行リスト
-├── tray_menu.py             # TrayMenu — システムトレイメニュー
-├── screenshot_window.py     # ScreenshotWindow — フルスクリーンキャプチャウィンドウ
-├── quick_capture_overlay.py # 通常キャプチャの選択枠・座標・拡大鏡を再利用する透明レイヤー
-├── update_dialog.py         # 更新内容とダウンロード進捗
-├── dialogs.py               # StandardDialog — 確認、警告、情報、エラーダイアログ
-├── toast.py                 # Toast — カーソル横に出る、フォーカスを奪わない一行通知
-├── submenu_position.py      # カスケードサブメニューの展開方向と親項目への吸着
-├── magnifier.py             # MagnifierOverlay — ピクセルレベル拡大鏡
-├── color_picker_dialog.py   # ColorPickerDialog — カスタムHSVカラーピッカー
-├── color_picker_button.py   # ColorPickerButton — カラー選択ボタン
-├── hotkey_edit.py           # HotkeyEdit — グローバルホットキーエディター
-├── inapp_key_edit.py        # InAppKeyEdit — アプリ内ショートカットエディター
-├── key_chip.py              # KeyChipLineEdit / StatusIcon — ショートカットのキー表示と状態アイコン
-├── mask_overlay.py          # マスクオーバーレイヤー
-├── selection_overlay.py     # SelectionOverlayWidget — マスク上に重なる選択装飾レイヤー
-├── base_settings_panel.py   # BaseSettingsPanel / StepperWidget — 設定パネル基底クラス
-├── paint_settings_panel.py  # PaintSettingsPanel — ブラシ設定パネル
-├── shape_settings_panel.py  # ShapeSettingsPanel — 形状設定パネル
-├── text_settings_panel.py   # TextSettingsPanel — テキスト設定パネル
-├── arrow_settings_panel.py  # ArrowSettingsPanel — 矢印設定パネル
-├── number_settings_panel.py # 番号ツール設定パネル
-├── mosaic_settings_panel.py # モザイクツール設定パネル
-├── watermark_settings_panel.py # 透かしパネル：文字・位置・スタイル（不透明度/サイズ/間隔/角度/グリッド線/色）・フォント
-├── watermark_input_dialog.py   # WatermarkInputDialog — 複数行の透かし入力、時刻の挿入とプレビュー
-│
-├── fluent_lite/             # Fluent スタイル軽量コンポーネントライブラリ
-│   ├── buttons.py / cards.py / icons.py / inputs.py  # ボタン、カード、アイコン、入力欄
-│   ├── labels.py / navigation.py / segmented.py      # ラベル、ナビゲーション、セグメントコントロール
-│   ├── switch.py / theme.py / titlebar.py            # スイッチ、テーマ、タイトルバー
-│   ├── frameless.py         # フレームレスウィンドウ
-│   └── text_context_menu.py # テキスト右クリックメニュー
-│
-├── settings_ui/             # アプリ設定ダイアログ
-│   ├── dialog.py            # SettingsDialog — タブ式設定ダイアログ
-│   ├── components.py        # SettingCardGroup / ToggleSwitch — 設定コンポーネント
-│   ├── page_appearance.py   # 外観設定（テーマ、言語）
-│   ├── page_capture.py      # キャプチャ設定
-│   ├── page_quick_actions.py # クイック動作設定（確認・結果ウィンドウの省略）
-│   ├── color_format_dialog.py # ColorFormatDialog — 拡大鏡のカラー形式を管理するダイアログ
-│   ├── ppocr_model_dialog.py # PpocrModelDialog — PP-OCR モデルのダウンロード・追加・削除
-│   ├── page_clipboard.py    # クリップボード設定
-│   ├── special_paste_dialog.py # SpecialPasteDialog — 特殊貼り付けメニューの並び替えとオン／オフ
-│   ├── page_hotkey.py       # ホットキー設定
-│   ├── page_mouse.py        # マウスショートカット設定
-│   ├── page_pin.py          # ピン画像設定（動作、外観、マウス透過）
-│   ├── page_translation.py  # 翻訳設定
-│   ├── provider_fields.py   # 翻訳サービスの設定項目の読み書き（宣言ベース）
-│   ├── page_log.py          # ログ設定
-│   ├── page_developer.py    # 開発者設定
-│   ├── page_misc.py         # その他設定
-│   ├── page_about.py        # アバウトページ
-│   └── mock_config.py       # MockConfig — テスト用モック設定
-│
-├── welcome/                 # 初回起動ウェルカムウィザード（6ページガイド）
-│   ├── wizard.py            # WelcomeWizard — ウィザードメインウィンドウ
-│   ├── base_page.py         # BasePage — ウィザードページ基底クラス
-│   ├── page1_welcome.py     # ウェルカムページ
-│   ├── page2_screenshot.py  # スクリーンショットホットキー設定ページ
-│   ├── page3_clipboard.py   # クリップボードホットキー設定ページ
-│   ├── page5_translation.py # 翻訳機能説明ページ
-│   ├── page6_finish.py      # 完了ページ
-│   └── page_hotkeys.py      # グローバルホットキーページ — 6 つのキーは同一の衝突領域、まとめて設定・重複判定
-│
-└── selection_info/          # 選択情報UI
-    ├── controller.py        # 選択情報コントローラー
-    ├── panel.py             # 選択情報パネル（サイズ、座標）
-    ├── hook_manager.py      # フックマネージャー
-    ├── border_shadow.py     # 選択ボーダーシャドウエフェクト
-    ├── lock_ratio.py        # アスペクト比ロック
-    └── rounded_corners.py   # 角丸スクリーンショット
-```
-
-</details>
-
----
-
-### tests/ — テストモジュール
-
-<details>
-<summary>ディレクトリ構造を表示</summary>
-
-```text
-tests/
-├── conftest.py              # pytest設定＆共通フィクスチャ
-├── pytest.ini               # pytest実行設定
-├── run_tests.py             # テスト実行スクリプト
-├── test_drawing_tools.py    # 描画ツールテスト（ペン/矩形/矢印/テキスト/番号/蛍光ペン）
-├── test_mosaic_tool.py      # モザイクツールテスト
-├── test_spotlight.py        # スポットライトテスト
-├── test_watermark.py        # 透かしテスト
-├── test_functional_handles.py # コントロールポイント編集テスト
-├── test_capture_service.py  # キャプチャサービステスト
-├── test_clipboard_api.py    # クリップボード公開 API テスト
-├── test_clipboard_manage_dialog.py # クリップボード管理ウィンドウテスト
-├── test_frame_recorder.py   # GIFフレーム録画テスト
-├── test_video_helper.py     # ワーカー起動コマンドとライセンス取得
-├── test_video_worker.py     # PyO3 アダプター・プロトコル・起動時分岐テスト
-├── test_video_settings.py   # 動画設定の検証・保存テスト
-├── test_video_recorder.py   # MP4 プロセス制御・録画ウィンドウテスト
-├── test_video_native_process.py # 現在のソースから生成した録画プロトコルテスト
-├── test_video_native_binding.py # PyO3 スレッド制御・コールバック・リソース解放テスト
-├── test_video_quit.py       # 録画中のアプリ終了調整テスト
-├── test_playback_engine.py  # GIF再生エンジンテスト
-├── test_ocr_text_layer.py   # OCRテキストレイヤーテスト
-├── test_pin_window_zoom.py  # ピンウィンドウズームテスト
-├── test_smart_translation.py # スマート翻訳テスト
-├── test_translation_architecture.py # 翻訳プロバイダーアーキテクチャテスト
-├── test_settings_dialog_state.py # 設定ダイアログ状態テスト
-├── test_welcome_translation.py # ウェルカムウィザード翻訳ページテスト
-└── …（その他 70 以上のユニット/統合テストファイル）
-```
-
-</details>

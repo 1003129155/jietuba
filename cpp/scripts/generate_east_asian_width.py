@@ -1,7 +1,7 @@
 """Generates src/core/east_asian_width.inc from the reference interpreter's unicodedata.
 
 Run with the reference interpreter so the Unicode version matches the Python build:
-    ../venv311/Scripts/python.exe scripts/generate_east_asian_width.py
+    python scripts/generate_east_asian_width.py
 """
 import pathlib
 import sys

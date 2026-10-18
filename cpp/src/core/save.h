@@ -6,7 +6,6 @@
 
 namespace jietuba {
 class ToolSettingsManager;
-// QImage branch of main/core/save.py. Pillow adapters remain pending.
 class SaveService {
 public:
     static constexpr int DEFAULT_PDF_DPI = 300;

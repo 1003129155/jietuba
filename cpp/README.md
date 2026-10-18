@@ -1,17 +1,16 @@
 # 截图吧 C++ 实现
 
-截图吧有 Python（仓库根目录 `main/`）和 C++（这里）两套实现，功能、界面、设置、快捷键与边界行为一致，目前发布的轻量版由这里构建。C++ 版使用 C++17 和 Qt 6 Widgets，运行时不加载 Python、PySide6 或 Python 扩展；截图、拼接、剪贴板、OCR、录制等核心直接用仓库的 `rust_libs/`。
+截图吧自 2.1.8 起只有 C++ 实现（这里），轻量版和完整版都由这里构建；原先的 Python（PySide6）实现归档在 `archive/python` 分支，不再更新。C++ 版使用 C++17 和 Qt 6 Widgets，运行时不加载 Python、PySide6 或 Python 扩展；截图、拼接、剪贴板、OCR、录制等核心直接用仓库的 `rust_libs/`。
 
 ## 目录
 
 | 目录 | 内容 |
 |---|---|
-| `src/` | 源码，与 `main/` 按模块对应：`main/<包>/<模块>.py` ↔ `src/<包>/<模块>.h/.cpp`，类名、方法名、设置键沿用 Python 版 |
+| `src/` | 源码，按 `src/<包>/<模块>.h/.cpp` 组织；模块划分、类名、方法名和设置键沿用归档的 Python 版 |
 | `native/` | `rust_libs` 的 C 接口层，由 cargo 编成静态库链进 exe |
-| `tests/` | QtTest 测试；`tests/fixtures/` 是由 Python 版生成的预期结果 |
-| `resources/` | 默认设置，以及由 Python 版生成的界面翻译和日志文案；图标直接用仓库根目录的 `svg/` 和 `托盘.ico` |
-| `parity/` | 与 Python 版对照用的数据：上次核对的 Python 提交、设置访问方法对应表 |
-| `scripts/` | 构建、Qt SDK 准备、对照数据生成等脚本 |
+| `tests/` | QtTest 测试；`tests/fixtures/` 是 Python 版冻结前生成的预期结果，已提交，不再重新生成 |
+| `resources/` | 默认设置、界面翻译（`translations/` 下的 XML 源和编好的 `.qm`）和日志文案；图标直接用仓库根目录的 `svg/` 和 `托盘.ico` |
+| `scripts/` | 构建、Qt SDK 准备、翻译编译等脚本 |
 | `licenses/` | 随发布包附带的第三方许可 |
 
 ## 编译
@@ -75,26 +74,23 @@ ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_window
 - 分析构建：`.\scripts\check.ps1 -Mode Asan`（AddressSanitizer）、`-Mode Analyze`（MSVC 代码分析加 clang-tidy，规则在 `.clang-tidy`）、`-Mode Leak`（Debug 构建，用调试堆找测试里泄漏的块），各用独立的构建目录。
 - 覆盖率：`.\scripts\coverage.ps1`，结果按源文件汇总在 `build\coverage\summary.txt`。
 
-## 与 Python 版保持一致
+## 测试与资源
 
-- 改了其中一套的行为，同一个 PR 里另一套也要改。
-- 纯逻辑模块的预期结果由 Python 版生成，C++ 逐项比较：`scripts/generate_*_fixtures.py` 写出 `tests/fixtures/`，Python 版的行为改了要重新生成（`.\scripts\check-parity.ps1 -Regenerate` 重新生成后构建并测试）。界面另有离屏行为测试和桌面测试。
-- 界面翻译（`.qm`）和日志文案由 `scripts/generate_resources.py` 从 `main/` 生成；仓库的 CI 会核对它们是否与 Python 版一致。
-- `scripts/python_baseline.py verify` 列出上次核对之后改过的 Python 文件，C++ 跟上以后用 `sync` 记下这次核对的提交；PR 的 CI 摘要里也会列出这份清单。
-- 两套实现共用设置和数据：设置在 `HKCU\Software\Jietuba\ToolSettings`，数据与日志在 `%LOCALAPPDATA%\Jietuba`，剪贴板历史库也是同一个。只有日志文件名带 `_cpp`，便于区分。两个版本不要同时运行：默认热键会冲突，剪贴板历史会被两个进程同时写。
-
-以上命令里的 Python 都用仓库根目录的虚拟环境（`..\venv311\Scripts\python.exe`），生成预期结果要用到 PySide6 和 Python 版自己的依赖。
+- `tests/fixtures/` 里的纯逻辑预期结果是 Python 版冻结前生成的，C++ 逐项比较；生成脚本随 Python 版留在 `archive/python` 分支。新增的纯逻辑预期值写在测试里手算或手写，不能由被测代码生成；界面改动至少要有离屏行为测试或桌面测试。
+- 界面文案改 `resources/translations/app_*.xml`（四种语言放在同一上下文），再用 Qt 6 的 lrelease 运行 `scripts/compile_translations.py`，把生成的 `.qm` 一起提交；日志文案直接改 `resources/core/log_translations.json`。
+- 设置和数据与旧的 Python 版相同：设置在 `HKCU\Software\Jietuba\ToolSettings`，数据与日志在 `%LOCALAPPDATA%\Jietuba`，剪贴板历史库也是同一个，老用户换到 C++ 版后原样沿用。日志文件名带 `_cpp`。
 
 ## Rust 库与第三方库
 
-- `native/` 以 `default-features = false` 依赖 `rust_libs` 的各个 crate（不带 pyo3 绑定），只做参数转换、错误码和句柄生命周期；逻辑都在 `rust_libs` 的核心里，两套实现共用。每个导出函数都接住 panic，返回该函数的失败值。
+- `native/` 以 `default-features = false` 依赖 `rust_libs` 的各个 crate（不带 pyo3 绑定），只做参数转换、错误码和句柄生命周期；逻辑都在 `rust_libs` 的核心里。每个导出函数都接住 panic，返回该函数的失败值。
 - `native/Cargo.lock` 也记着 `rust_libs` 各 crate 的版本号，crate 升版本时要一起更新，见 [rust_libs/PUBLISHING.md](../rust_libs/PUBLISHING.md)。
 - zxing-cpp 3.1.1 由 CMake FetchContent 在配置时下载；截图工具 OCR 的模型密钥同样在配置时从 oneocr 1.0.12 的源码读取，不写进仓库。
-- MP4 录制和 Python 版一样放在子进程里：同一个 exe 带 `--video-recorder-worker` 运行录制进程。
+- MP4 录制放在子进程里：同一个 exe 带 `--video-recorder-worker` 运行录制进程。
 
 ## CI
 
-- [C++](../.github/workflows/cpp.yml)：改到 `cpp/` 或 `rust_libs/` 的 PR 和 master2 推送时，编默认构建并跑不需要桌面的测试。
+- [C++](../.github/workflows/cpp.yml)：每个 PR 以及改到 `cpp/`、`rust_libs/` 的 master2 推送都编默认构建并跑不需要桌面的测试；它的 `test` 任务是 master2 的必需检查。
+- [Build Rust Wheels](../.github/workflows/rust-wheels.yml)：改到 `rust_libs/` 时跑 Rust 单元测试、复查第三方许可声明并构建 wheel。
 - [Lite single exe](../.github/workflows/lite.yml)：编 x64 和 ARM64 的单文件版，并分别在两种架构的机器上冒烟。发版的 Build Release 调用它，也可以手动运行出测试包。
 
 ## 许可

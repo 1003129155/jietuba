@@ -4,6 +4,9 @@
 功能边界见 [README.md](README.md)；构建 wheel、生成许可声明与发布见
 [../PUBLISHING.md](../PUBLISHING.md)。
 
+下文的进程模型、`main/video/worker.py` 与 pytest 用例属于已归档的 Python 版，在 `archive/python` 分支；
+C++ 版经 `cpp/native` 直接调用核心，不经过 Python 子进程。
+
 ## 进程模型
 
 应用每次录制创建专用 Python 子进程，在其中调用扩展；正常停止完成 MP4 封装后

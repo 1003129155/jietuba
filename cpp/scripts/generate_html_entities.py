@@ -1,7 +1,7 @@
 """Generates src/core/html_entities.inc from the reference interpreter's html module.
 
 Run with the reference interpreter so the tables match the Python build:
-    ../venv311/Scripts/python.exe scripts/generate_html_entities.py
+    python scripts/generate_html_entities.py
 """
 import html
 import html.entities

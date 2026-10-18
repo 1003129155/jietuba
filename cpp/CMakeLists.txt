@@ -6,25 +6,23 @@ set(CMAKE_AUTOMOC ON)
 find_package(Qt6 6.8 REQUIRED COMPONENTS Widgets Svg)
 qt_standard_project_setup()
 set(CMAKE_AUTOUIC OFF)
-# The repository root holds the Python version; the version number, Rust libraries, icons and
-# translations come from there.
-get_filename_component(JIETUBA_PYTHON_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/.. ABSOLUTE)
+# The repository root holds the version number, the Rust libraries, the icons and svg/.
+get_filename_component(JIETUBA_REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/.. ABSOLUTE)
 
-# src/ mirrors the Python package layout (main/<package>/<module>.py ->
-# src/<package>/<module>.cpp).
+# src/<package>/<module>.cpp, one folder per feature area.
 file(GLOB_RECURSE JIETUBA_SOURCES CONFIGURE_DEPENDS
     src/*.cpp src/*.h src/*.inc)
 list(REMOVE_ITEM JIETUBA_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 
 add_library(jietuba_lib STATIC ${JIETUBA_SOURCES} resources/settings.qrc)
 set_target_properties(jietuba_lib PROPERTIES AUTORCC ON)
-# Generated from the Python version by scripts/generate_resources.py.
+# The .qm files are compiled from resources/translations/*.xml by scripts/compile_translations.py.
 file(GLOB JIETUBA_QM_FILES CONFIGURE_DEPENDS resources/translations/*.qm)
 qt_add_resources(jietuba_lib "jietuba_runtime_resources" PREFIX "/" BASE resources
     FILES resources/core/log_translations.json ${JIETUBA_QM_FILES})
-# The repository's svg/ is shared with the Python version and embedded as :/svg.
-file(GLOB_RECURSE JIETUBA_SVG_FILES CONFIGURE_DEPENDS ${JIETUBA_PYTHON_ROOT}/svg/*.svg ${JIETUBA_PYTHON_ROOT}/svg/*.json)
-qt_add_resources(jietuba_lib "jietuba_svg_resources" PREFIX "/" BASE ${JIETUBA_PYTHON_ROOT}
+# The repository's svg/ is embedded as :/svg.
+file(GLOB_RECURSE JIETUBA_SVG_FILES CONFIGURE_DEPENDS ${JIETUBA_REPO_ROOT}/svg/*.svg ${JIETUBA_REPO_ROOT}/svg/*.json)
+qt_add_resources(jietuba_lib "jietuba_svg_resources" PREFIX "/" BASE ${JIETUBA_REPO_ROOT}
     FILES ${JIETUBA_SVG_FILES})
 target_include_directories(jietuba_lib PUBLIC src)
 # windows.h must not define min/max macros.
@@ -71,11 +69,11 @@ string(REGEX REPLACE "^MODEL_KEY = b(\".*\")\r?$" "\\1" JIETUBA_ONEOCR_MODEL_KEY
 configure_file(src/ocr/oneocr_model_key.h.in ${CMAKE_BINARY_DIR}/generated/ocr/oneocr_model_key.h @ONLY)
 # The version is the one line of the repository's VERSION file, which the release workflow's tag
 # check and signing request also read.
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${JIETUBA_PYTHON_ROOT}/VERSION)
-file(STRINGS ${JIETUBA_PYTHON_ROOT}/VERSION JIETUBA_APP_VERSION LIMIT_COUNT 1)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${JIETUBA_REPO_ROOT}/VERSION)
+file(STRINGS ${JIETUBA_REPO_ROOT}/VERSION JIETUBA_APP_VERSION LIMIT_COUNT 1)
 string(STRIP "${JIETUBA_APP_VERSION}" JIETUBA_APP_VERSION)
 if(NOT JIETUBA_APP_VERSION MATCHES "^[0-9]+(\\.[0-9]+)*$")
-    message(FATAL_ERROR "${JIETUBA_PYTHON_ROOT}/VERSION must hold a dotted version such as 2.1.8, found \"${JIETUBA_APP_VERSION}\"")
+    message(FATAL_ERROR "${JIETUBA_REPO_ROOT}/VERSION must hold a dotted version such as 2.1.8, found \"${JIETUBA_APP_VERSION}\"")
 endif()
 # The version resource takes four numbers: the leading numeric part, padded with zeros.
 string(REGEX MATCH "^[0-9]+(\\.[0-9]+)*" JIETUBA_APP_VERSION_NUMBERS "${JIETUBA_APP_VERSION}")
@@ -87,7 +85,7 @@ configure_file(src/app_version.h.in ${CMAKE_BINARY_DIR}/generated/app_version.h 
 target_include_directories(jietuba_lib PUBLIC ${CMAKE_BINARY_DIR}/generated)
 # native/ is a C ABI over the repository's Rust libraries (../rust_libs), built by cargo as a
 # static library.
-set(JIETUBA_RUST_LIBS ${JIETUBA_PYTHON_ROOT}/rust_libs)
+set(JIETUBA_RUST_LIBS ${JIETUBA_REPO_ROOT}/rust_libs)
 find_program(CARGO_EXECUTABLE cargo REQUIRED)
 set(JIETUBA_NATIVE_TARGET_DIR ${CMAKE_BINARY_DIR}/native)
 set(JIETUBA_NATIVE_LIB ${JIETUBA_NATIVE_TARGET_DIR}/release/jietuba_native.lib)
@@ -177,7 +175,7 @@ else()
 endif()
 # The exe icon and the version resource; SignPath checks the product name and version.
 # The icon is the repository's 托盘.ico, copied to an ASCII path for rc.exe and the :/app.ico resource.
-configure_file(${JIETUBA_PYTHON_ROOT}/托盘.ico ${CMAKE_BINARY_DIR}/generated/app.ico COPYONLY)
+configure_file(${JIETUBA_REPO_ROOT}/托盘.ico ${CMAKE_BINARY_DIR}/generated/app.ico COPYONLY)
 set(JIETUBA_ICON_PATH ${CMAKE_BINARY_DIR}/generated/app.ico)
 set(JIETUBA_ICON_QRC ${CMAKE_BINARY_DIR}/generated/app_icon.qrc)
 file(CONFIGURE OUTPUT ${JIETUBA_ICON_QRC} CONTENT "<RCC><qresource prefix=\"/\"><file alias=\"app.ico\">app.ico</file></qresource></RCC>\n")
@@ -199,7 +197,7 @@ if(JIETUBA_UPDATES)
     endif()
     file(GLOB_RECURSE JIETUBA_UPDATER_INPUTS CONFIGURE_DEPENDS
         ${JIETUBA_RUST_LIBS}/updater/src/* ${JIETUBA_RUST_LIBS}/updater/Cargo.toml ${JIETUBA_RUST_LIBS}/updater/build.rs)
-    # The same command as the Python release build: a static CRT, so the copy runs on its own.
+    # A static CRT, so the copy runs on its own.
     add_custom_command(OUTPUT ${JIETUBA_UPDATER_EXE}
         COMMAND ${CARGO_EXECUTABLE} rustc --release --locked -p jietuba-updater --bin jietuba_updater ${JIETUBA_NATIVE_CARGO_TARGET}
             --manifest-path ${JIETUBA_RUST_LIBS}/Cargo.toml
@@ -422,7 +420,7 @@ if(BUILD_TESTING)
     target_compile_definitions(jietuba_freehand_tests PRIVATE JIETUBA_FREEHAND_FIXTURE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/freehand.json")
     add_test(NAME python_freehand_parity COMMAND jietuba_freehand_tests)
     set_tests_properties(python_freehand_parity PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-    # Settings and data are shared with the Python version: every test executable starts in
+    # Settings and data are the user's real ones: every test executable starts in
     # the throwaway sandbox of tests/test_sandbox.cpp, however it is launched.
     add_library(jietuba_test_sandbox OBJECT tests/test_sandbox.cpp)
     target_link_libraries(jietuba_test_sandbox PRIVATE jietuba_lib)
