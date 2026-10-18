@@ -43,7 +43,7 @@ python -m venv .tools
 .\build.cmd -Static
 ```
 
-产物在 `dist/Release-static`：`jietuba_lite.exe` 和许可文件。exe 带图标和版本资源，版本号取自 `../main/main_app.py` 的 `APP_VERSION`，与 Python 版同一个版本号。单文件版默认内置 `rust_libs/updater` 并启用一键更新，`-NoUpdates` 去掉；默认构建加 `-Updates` 才内置。
+产物在 `dist/Release-static`：`jietuba_lite.exe` 和许可文件。exe 带图标和版本资源，版本号取自仓库根目录的 `VERSION` 文件，发版只改这一处，标签 `release-<版本>` 要与它一致（发版流程的第一个任务检查）。单文件版默认内置 `rust_libs/updater` 并启用一键更新，`-NoUpdates` 去掉；默认构建加 `-Updates` 才内置。
 
 完整版加 `-Full`（`.\build.cmd -Static -Full`）：产物在 `dist/Release-static-full`，exe 叫 `jietuba_pp.exe`（更新器按这个名字替换），内嵌 ONNX Runtime，包里带默认的 PP-OCR 模型（`models/`）。ONNX Runtime 按 `rust_libs/ppocr_rust/catalog.json` 里的地址和哈希由 `scripts/fetch_ort_runtime.ps1` 取，随许可文件一起放进 `licenses/`；`-OrtDll <路径>` 改用已有的 `onnxruntime.dll`，同目录要有 `onnxruntime-LICENSE.txt` 和 `onnxruntime-ThirdPartyNotices.txt`。启动时 exe 若发现 `models/onnxruntime.dll` 缺失或不可用，就把内嵌的写进去；更新只换 exe，旧完整包留下的 `models/` 因此也能用。
 

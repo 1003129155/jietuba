@@ -11,8 +11,27 @@ permissions:
   contents: read
 
 jobs:
+  # 标签必须等于 release-<VERSION 文件里的版本>；放在最前面，标签写错时不必等编完才发现
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Check tag matches VERSION
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          expected="release-$(tr -d '[:space:]' < VERSION)"
+          if [ "$REF_NAME" != "$expected" ]; then
+            echo "Tag $REF_NAME does not match VERSION (expected $expected)"
+            exit 1
+          fi
+
   # 轻量版和完整版：cpp/ 的 C++ 静态单 exe，完整版另内嵌 ONNX Runtime 并带默认 PP-OCR 模型
   lite:
+    needs: check-version
     uses: ./.github/workflows/lite.yml
 
   package:
@@ -29,15 +48,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-
-      - name: Check tag matches APP_VERSION
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          $match = Select-String -Path main\main_app.py -Pattern '^APP_VERSION = "([^"]+)"'
-          $expected = "release-" + $match.Matches[0].Groups[1].Value
-          if ("${{ github.ref_name }}" -ne $expected) {
-            throw "Tag ${{ github.ref_name }} does not match APP_VERSION (expected $expected)"
-          }
 
       # 旧版更新器按包名 jietuba_pp-<tag>-<arch>.zip 精确匹配，只替换 zip 根目录的 jietuba_pp.exe，models/ 留在原处
       - name: Download full build
@@ -56,7 +66,7 @@ jobs:
       # 签名策略由仓库变量 SIGNPATH_SIGNING_POLICY 决定：留空时跳过签名，
       # test-signing 用测试证书，release-signing 用正式证书（需在 SignPath 中人工批准）。
       # 签名范围由 SignPath 项目的 Artifact Configuration「windows-exes」定义：zip 根目录下的两个 exe，
-      # 并要求 exe 的产品版本等于 version 参数；两个版本的产品版本都取自 main_app.py 的 APP_VERSION。
+      # 并要求 exe 的产品版本等于 version 参数；两个版本的产品版本都取自根目录 VERSION 文件。
       - name: Stage unsigned executables
         id: stage
         if: vars.SIGNPATH_SIGNING_POLICY != ''
@@ -64,8 +74,7 @@ jobs:
           New-Item -ItemType Directory -Force unsigned | Out-Null
           Copy-Item dist\jietuba_pp.exe unsigned\
           Copy-Item dist_lite\jietuba_lite.exe unsigned\
-          $match = Select-String -Path main\main_app.py -Pattern '^APP_VERSION = "([^"]+)"'
-          "version=$($match.Matches[0].Groups[1].Value)" >> $env:GITHUB_OUTPUT
+          "version=$((Get-Content VERSION -Raw).Trim())" >> $env:GITHUB_OUTPUT
 
       - name: Upload unsigned executables
         id: upload-unsigned

@@ -69,14 +69,14 @@ endif()
 # A Python bytes literal of printable characters reads the same as a C++ string literal.
 string(REGEX REPLACE "^MODEL_KEY = b(\".*\")\r?$" "\\1" JIETUBA_ONEOCR_MODEL_KEY "${JIETUBA_ONEOCR_KEY_LINE}")
 configure_file(src/ocr/oneocr_model_key.h.in ${CMAKE_BINARY_DIR}/generated/ocr/oneocr_model_key.h @ONLY)
-# The version is APP_VERSION in the Python version's main_app.py, which the release build and tag
-# check also read.
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${JIETUBA_PYTHON_ROOT}/main/main_app.py)
-file(STRINGS ${JIETUBA_PYTHON_ROOT}/main/main_app.py JIETUBA_APP_VERSION_LINE REGEX "^APP_VERSION = \"[^\"]+\"")
-if(NOT JIETUBA_APP_VERSION_LINE)
-    message(FATAL_ERROR "APP_VERSION not found in ${JIETUBA_PYTHON_ROOT}/main/main_app.py")
+# The version is the one line of the repository's VERSION file, which the release workflow's tag
+# check and signing request also read.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${JIETUBA_PYTHON_ROOT}/VERSION)
+file(STRINGS ${JIETUBA_PYTHON_ROOT}/VERSION JIETUBA_APP_VERSION LIMIT_COUNT 1)
+string(STRIP "${JIETUBA_APP_VERSION}" JIETUBA_APP_VERSION)
+if(NOT JIETUBA_APP_VERSION MATCHES "^[0-9]+(\\.[0-9]+)*$")
+    message(FATAL_ERROR "${JIETUBA_PYTHON_ROOT}/VERSION must hold a dotted version such as 2.1.8, found \"${JIETUBA_APP_VERSION}\"")
 endif()
-string(REGEX REPLACE "^APP_VERSION = \"([^\"]+)\".*" "\\1" JIETUBA_APP_VERSION "${JIETUBA_APP_VERSION_LINE}")
 # The version resource takes four numbers: the leading numeric part, padded with zeros.
 string(REGEX MATCH "^[0-9]+(\\.[0-9]+)*" JIETUBA_APP_VERSION_NUMBERS "${JIETUBA_APP_VERSION}")
 string(REPLACE "." ";" JIETUBA_APP_VERSION_NUMBERS "${JIETUBA_APP_VERSION_NUMBERS}")
