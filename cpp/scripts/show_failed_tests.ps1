@@ -1,5 +1,5 @@
-# 把上一次 ctest 里失败的 QtTest 再跑一遍，并把它自己的报告打印出来。
-# ctest 只显示进程退出码，QtTest 的失败位置和断言内容要靠 -o 写到文件。
+﻿# 打印上一次 ctest 里失败的 QtTest 当时写下的报告，再把它重跑一遍并打印重跑的报告。
+# ctest 只显示进程退出码，QtTest 的失败位置和断言内容要靠 -o 写到文件；偶发失败只有第一份报告里有。
 # 用法（在 cpp 目录下，Qt 的 bin 要能找到）：.\scripts\show_failed_tests.ps1
 param(
     [string]$BuildDir = 'build\coverage-build',
@@ -23,9 +23,13 @@ foreach ($line in Get-Content $failedLog -ErrorAction SilentlyContinue) {
             Set-Item "env:$key" $value
         }
     }
+    # 失败那次写下的报告；下面重跑会覆盖同一个文件，所以先打印。
+    $firstReport = Join-Path $BuildDir "test_reports\$name.txt"
+    Write-Host "===== $name (failed run)"
+    Get-Content $firstReport -ErrorAction SilentlyContinue
     $report = Join-Path $reportDir "$name.txt"
     $testArgs = @($test.command | Select-Object -Skip 1) + @('-o', "$report,txt")
     & $test.command[0] @testArgs | Out-Null
-    Write-Host "===== $name (exit $LASTEXITCODE)"
+    Write-Host "===== $name (rerun, exit $LASTEXITCODE)"
     Get-Content $report -ErrorAction SilentlyContinue
 }
