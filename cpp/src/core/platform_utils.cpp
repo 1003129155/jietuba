@@ -195,6 +195,19 @@ bool set_window_exclude_from_capture(quintptr hwnd, bool exclude) {
 #endif
 }
 
+void set_thread_cursor(Qt::CursorShape shape) {
+#ifdef Q_OS_WIN
+    switch (shape) {
+    case Qt::ArrowCursor: SetCursor(LoadCursorW(nullptr, IDC_ARROW)); break;
+    case Qt::CrossCursor: SetCursor(LoadCursorW(nullptr, IDC_CROSS)); break;
+    case Qt::BlankCursor: SetCursor(nullptr); break;
+    default: break;
+    }
+#else
+    Q_UNUSED(shape);
+#endif
+}
+
 bool set_window_topmost(quintptr hwnd, bool topmost) {
 #ifdef Q_OS_WIN
     return SetWindowPos(to_hwnd(hwnd), topmost ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,

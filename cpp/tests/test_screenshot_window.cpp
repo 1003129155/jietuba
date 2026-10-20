@@ -179,6 +179,14 @@ private:
         return window_;
     }
 
+    // As open(), but no event has run since the window showed.
+    ScreenshotWindow *open_unprocessed() {
+        if (window_) window_->cleanup_and_close();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        window_ = new ScreenshotWindow(config_, capture_image(), QRectF(0, 0, W, H));
+        return window_;
+    }
+
     // A confirmed 200x150 selection at (50, 40).
     ScreenshotWindow *open_with_selection() {
         auto *window = open();
@@ -361,6 +369,25 @@ private slots:
         click(window, Qt::MiddleButton, QPoint(120, 100));
         QCOMPARE(ended.count(), 1);
         QCOMPARE(saved_files().size(), 1);
+    }
+
+    // Windows paints the thread's current cursor when the window appears; left alone it is the last
+    // cursor of the capture before (a tool's, on Esc), flashed for a frame.
+    void theWindowShowsWithTheCaptureCursorNotTheLastOne() {
+        SetCursor(LoadCursorW(nullptr, IDC_HAND));
+        auto *window = open_unprocessed();
+        QCOMPARE(GetCursor(), LoadCursorW(nullptr, IDC_CROSS));
+        // Before the first mouse event the window's own cursor is what Qt answers a cursor request with; it
+        // is the arrow unless set, which would show for a frame between two crosses.
+        QCOMPARE(window->windowHandle()->cursor().shape(), Qt::CrossCursor);
+    }
+
+    void theFullscreenCrosshairShowsWithNoSystemCursor() {
+        config_->set_app_setting("capture_fullscreen_crosshair", true);
+        SetCursor(LoadCursorW(nullptr, IDC_HAND));
+        auto *window = open_unprocessed();
+        QVERIFY(!GetCursor());
+        QCOMPARE(window->windowHandle()->cursor().shape(), Qt::BlankCursor);
     }
 
     void fullscreenCrosshairIsRebuiltPerSession() {

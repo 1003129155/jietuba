@@ -2,6 +2,7 @@
 #include <QString>
 #include <QStringList>
 #include <QtGlobal>
+#include <Qt>
 #include <functional>
 #include <optional>
 #include <utility>
@@ -44,6 +45,11 @@ bool is_game_in_foreground();
 constexpr unsigned WDA_NONE = 0x00000000;
 constexpr unsigned WDA_EXCLUDEFROMCAPTURE = 0x00000011;
 bool set_window_exclude_from_capture(quintptr hwnd, bool exclude);
+
+// The thread's current cursor, which Windows paints the moment one of its windows next appears under
+// the mouse. It stays at the last cursor the thread set, so a new window flashes that one for a frame
+// (a tool's cursor from the capture before). Only arrow, cross and blank map to a system cursor.
+void set_thread_cursor(Qt::CursorShape shape);
 
 // Changes only the z-order band; toggling WindowStaysOnTopHint would make Qt
 // recreate the native window and lose its state.

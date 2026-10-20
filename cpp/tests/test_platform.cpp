@@ -105,6 +105,20 @@ private slots:
         QVERIFY(!set_window_exclude_from_capture(0, true));
     }
 
+    void theThreadCursorTakesTheSystemShape() {
+        set_thread_cursor(Qt::CrossCursor);
+        QCOMPARE(GetCursor(), LoadCursorW(nullptr, IDC_CROSS));
+        set_thread_cursor(Qt::ArrowCursor);
+        QCOMPARE(GetCursor(), LoadCursorW(nullptr, IDC_ARROW));
+        set_thread_cursor(Qt::BlankCursor);
+        QVERIFY(!GetCursor());
+        // A shape without a system cursor leaves it as it was.
+        set_thread_cursor(Qt::CrossCursor);
+        set_thread_cursor(Qt::OpenHandCursor);
+        QCOMPARE(GetCursor(), LoadCursorW(nullptr, IDC_CROSS));
+        set_thread_cursor(Qt::ArrowCursor);
+    }
+
     void dpiAndIdentityHelpersAnswer() {
         const double dpi = get_system_dpi();
         QVERIFY(dpi >= 96);
