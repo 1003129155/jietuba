@@ -75,6 +75,7 @@ const std::vector<GlobalRow> &GLOBAL_HOTKEY_ROWS() {
         {"clipboard", "clipboard_hotkey_edit", "Clipboard Hotkey", "clipboard", FluentIcon::Paste},
         {"pin_clipboard", "pin_clipboard_hotkey_edit", "Pin Clipboard Image", "pin", FluentIcon::Pin},
         {"translation", "translation_hotkey_edit", "Translation Hotkey", "translate", FluentIcon::Language},
+        {"screen_annotation", "screen_annotation_hotkey_edit", "Screen Annotation Hotkey", "capture", FluentIcon::Brush},
     };
     return rows;
 }

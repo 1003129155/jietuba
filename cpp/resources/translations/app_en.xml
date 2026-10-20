@@ -1379,6 +1379,130 @@ Replace it?</translation>
         <source>Manage</source>
         <translation>Manage</translation>
     </message>
+    <message>
+        <source>Screen Annotation Hotkey</source>
+        <translation>Screen Annotation</translation>
+    </message>
+    <message>
+        <source>Keep Screen Annotations</source>
+        <translation>Keep Screen Annotations</translation>
+    </message>
+    <message>
+        <source>Ending the screen annotation keeps its drawings; they come back the next time it starts.</source>
+        <translation>Ending the screen annotation keeps its drawings; they come back the next time it starts.</translation>
+    </message>
+    <message>
+        <source>Screen Annotation</source>
+        <translation>Screen Annotation</translation>
+    </message>
+    <message>
+        <source>Screen Annotation Settings</source>
+        <translation>Screen Annotation Settings</translation>
+    </message>
+    <message>
+        <source>Start and End</source>
+        <translation>Start and End</translation>
+    </message>
+    <message>
+        <source>Toolbar</source>
+        <translation>Toolbar</translation>
+    </message>
+    <message>
+        <source>Cursor Highlight</source>
+        <translation>Cursor Highlight</translation>
+    </message>
+    <message>
+        <source>Start With</source>
+        <translation>Start With</translation>
+    </message>
+    <message>
+        <source>What screen annotation starts with. In pass-through the mouse keeps working the windows below until a tool is picked.</source>
+        <translation>What screen annotation starts with. In pass-through the mouse keeps working the windows below until a tool is picked.</translation>
+    </message>
+    <message>
+        <source>Pass-Through</source>
+        <translation>Pass-Through</translation>
+    </message>
+    <message>
+        <source>Last Used Tool</source>
+        <translation>Last Used Tool</translation>
+    </message>
+    <message>
+        <source>Global Hotkey</source>
+        <translation>Global Hotkey</translation>
+    </message>
+    <message>
+        <source>Not set. Screen annotation also starts from the tray menu.</source>
+        <translation>Not set. Screen annotation also starts from the tray menu.</translation>
+    </message>
+    <message>
+        <source>Currently %1</source>
+        <translation>Currently %1</translation>
+    </message>
+    <message>
+        <source>Toolbar Position</source>
+        <translation>Toolbar Position</translation>
+    </message>
+    <message>
+        <source>Where the toolbar appears when screen annotation starts.</source>
+        <translation>Where the toolbar appears when screen annotation starts.</translation>
+    </message>
+    <message>
+        <source>Bottom Center of the Screen</source>
+        <translation>Bottom Center of the Screen</translation>
+    </message>
+    <message>
+        <source>Top Center of the Screen</source>
+        <translation>Top Center of the Screen</translation>
+    </message>
+    <message>
+        <source>Toolbar Invisible to Screen Capture</source>
+        <translation>Toolbar Invisible to Screen Capture</translation>
+    </message>
+    <message>
+        <source>Keeps the toolbar and its panels out of recordings, screenshots, screen sharing, remote desktop and other screen capture; you still see them. Turn off to let them be captured, for example when recording a tutorial.</source>
+        <translation>Keeps the toolbar and its panels out of recordings, screenshots, screen sharing, remote desktop and other screen capture; you still see them. Turn off to let them be captured, for example when recording a tutorial.</translation>
+    </message>
+    <message>
+        <source>Where It Was Last</source>
+        <translation>Where It Was Last</translation>
+    </message>
+    <message>
+        <source>Toolbar Buttons</source>
+        <translation>Toolbar Buttons</translation>
+    </message>
+    <message>
+        <source>Choose and order the buttons of the screen annotation toolbar. Saved at once.</source>
+        <translation>Choose and order the buttons of the screen annotation toolbar. Saved at once.</translation>
+    </message>
+    <message>
+        <source>Adjust</source>
+        <translation>Adjust</translation>
+    </message>
+    <message>
+        <source>Cursor Highlight at Start</source>
+        <translation>Cursor Highlight at Start</translation>
+    </message>
+    <message>
+        <source>Starts with a light around the pointer. The toolbar button turns it on and off during a session, and that choice is kept.</source>
+        <translation>Starts with a light around the pointer. The toolbar button turns it on and off during a session, and that choice is kept.</translation>
+    </message>
+    <message>
+        <source>Highlight Size</source>
+        <translation>Highlight Size</translation>
+    </message>
+    <message>
+        <source>The size of the light around the pointer and of the click rings.</source>
+        <translation>The size of the light around the pointer and of the click rings.</translation>
+    </message>
+    <message>
+        <source>Click Rings</source>
+        <translation>Click Rings</translation>
+    </message>
+    <message>
+        <source>A ring spreads from every click: yellow for the left button, blue for the right.</source>
+        <translation>A ring spreads from every click: yellow for the left button, blue for the right.</translation>
+    </message>
 </context>
 
 <context>
@@ -1591,6 +1715,30 @@ Replace it?</translation>
     <message>
         <source>GIF / Video recording</source>
         <translation>GIF / Video recording</translation>
+    </message>
+    <message>
+        <source>Pass through: the mouse works the windows below (Esc)</source>
+        <translation>Pass through: the mouse works the windows below (Esc)</translation>
+    </message>
+    <message>
+        <source>Clear all drawings</source>
+        <translation>Clear all drawings</translation>
+    </message>
+    <message>
+        <source>Hide / show drawings</source>
+        <translation>Hide / show drawings</translation>
+    </message>
+    <message>
+        <source>Exit screen annotation</source>
+        <translation>Exit screen annotation</translation>
+    </message>
+    <message>
+        <source>Whiteboard: click to cover the screen with white, click again to remove</source>
+        <translation>Whiteboard: click to cover the screen with white, click again to remove</translation>
+    </message>
+    <message>
+        <source>Cursor highlight: a light around the pointer and a ring for every click</source>
+        <translation>Cursor highlight: a light around the pointer and a ring for every click</translation>
     </message>
 </context>
 
@@ -1886,6 +2034,10 @@ Replace it?</translation>
     <message><source>Choose folder to save pinned images</source><translation>Choose folder to save pinned images</translation></message>
     <message><source>Save Failed</source><translation>Save Failed</translation></message>
     <message><source>Saved {saved} pinned images, failed {failed}.</source><translation>Saved {saved} pinned images, failed {failed}.</translation></message>
+    <message>
+        <source>Screen Annotation</source>
+        <translation>Screen Annotation</translation>
+    </message>
 </context>
 
 <!-- ========== Main App (Tray Menu) ========== -->
@@ -1946,6 +2098,10 @@ Replace it?</translation>
 <message>
         <source>Settings could not be saved. Update cancelled.</source>
         <translation>Settings could not be saved. Update cancelled.</translation>
+    </message>
+    <message>
+        <source>Screen Annotation</source>
+        <translation>Screen Annotation</translation>
     </message>
 </context>
 
@@ -4813,6 +4969,30 @@ Items in the group will be moved back to clipboard history.</translation>
     <message>
         <source>Confirm</source>
         <translation>Confirm</translation>
+    </message>
+    <message>
+        <source>Pass through</source>
+        <translation>Pass through</translation>
+    </message>
+    <message>
+        <source>Clear all</source>
+        <translation>Clear all</translation>
+    </message>
+    <message>
+        <source>Hide drawings</source>
+        <translation>Hide drawings</translation>
+    </message>
+    <message>
+        <source>Exit annotation</source>
+        <translation>Exit annotation</translation>
+    </message>
+    <message>
+        <source>Board</source>
+        <translation>Board</translation>
+    </message>
+    <message>
+        <source>Cursor highlight</source>
+        <translation>Cursor highlight</translation>
     </message>
 </context>
 <context>

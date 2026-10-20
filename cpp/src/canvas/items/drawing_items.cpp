@@ -1,4 +1,5 @@
 #include "canvas/items/drawing_items.h"
+#include "canvas/scene.h"
 #include <QGraphicsScene>
 #include <QGraphicsSceneHoverEvent>
 #include <QPainter>
@@ -70,6 +71,16 @@ std::optional<QPen> DrawingItemMixin::selection_frame_pen() const {
 }
 std::optional<qreal> DrawingItemMixin::get_visual_opacity() const { return opacity_value(drawing_item_->opacity()); }
 
+bool begin_highlighter_paint(QPainter *painter, const QGraphicsItem *item) {
+    auto *scene = dynamic_cast<CanvasScene *>(item->scene());
+    if (!scene || scene->highlighters_multiply) {
+        painter->setCompositionMode(QPainter::CompositionMode_Multiply);
+        return false;
+    }
+    painter->setOpacity(painter->opacity() * TRANSLUCENT_HIGHLIGHTER_ALPHA);
+    return true;
+}
+
 RectItem::RectItem(const QRectF &rect, const QPen &pen, qreal radius)
     : QGraphicsRectItem(rect), DrawingItemMixin(this), corner_radius_(std::max(0., radius)) {
     setPen(pen); setBrush(Qt::NoBrush); setZValue(20);
@@ -90,13 +101,21 @@ QRectF RectItem::boundingRect() const {
 }
 void RectItem::paint(QPainter *p, const QStyleOptionGraphicsItem *, QWidget *) {
     p->setRenderHint(QPainter::Antialiasing);
-    if (is_highlighter) p->setCompositionMode(QPainter::CompositionMode_Multiply);
-    auto pen = this->pen();
-    if (pen.style() == Qt::DashLine || pen.style() == Qt::CustomDashLine) { pen.setCapStyle(Qt::RoundCap); pen.setJoinStyle(Qt::RoundJoin); }
-    p->setPen(pen); p->setBrush(brush());
-    auto draw = [&] { if (corner_radius_ > 0) p->drawRoundedRect(rect(), corner_radius_, corner_radius_); else p->drawRect(rect()); };
-    draw();
-    if (auto selection = selection_frame_pen()) { p->setBrush(Qt::NoBrush); p->setPen(*selection); draw(); }
+    auto draw = [&](const QRectF &r, qreal radius) { if (radius > 0) p->drawRoundedRect(r, radius, radius); else p->drawRect(r); };
+    const qreal item_opacity = p->opacity();
+    if (is_highlighter && begin_highlighter_paint(p, this) && is_highlighter_rect) {
+        // Fill and border as one shape: a translucent border over the fill would show as a darker frame.
+        const qreal half = pen().widthF() / 2;
+        p->setPen(Qt::NoPen); p->setBrush(brush());
+        draw(rect().adjusted(-half, -half, half, half), corner_radius_ + half);
+        p->setOpacity(item_opacity);
+    } else {
+        auto pen = this->pen();
+        if (pen.style() == Qt::DashLine || pen.style() == Qt::CustomDashLine) { pen.setCapStyle(Qt::RoundCap); pen.setJoinStyle(Qt::RoundJoin); }
+        p->setPen(pen); p->setBrush(brush());
+        draw(rect(), corner_radius_);
+    }
+    if (auto selection = selection_frame_pen()) { p->setBrush(Qt::NoBrush); p->setPen(*selection); draw(rect(), corner_radius_); }
 }
 void RectItem::set_stroke_width(qreal width) { set_width(this, width); }
 bool RectItem::scale_stroke_width(qreal scale) { set_width(this, pen().widthF() * scale); return true; }

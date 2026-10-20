@@ -137,6 +137,13 @@ QMenu *create_tray_menu(MainApp *app) {
     QObject::connect(action_translate, &QAction::triggered, app, &MainApp::open_translator);
     menu->addAction(action_translate);
 
+    // Checked while a session runs; choosing it again ends the session.
+    auto *action_annotation = new QAction(tr_text("Screen Annotation"), app);
+    action_annotation->setCheckable(true);
+    action_annotation->setChecked(app->screen_annotation_running_);
+    QObject::connect(action_annotation, &QAction::triggered, app, &MainApp::toggle_screen_annotation);
+    menu->addAction(action_annotation);
+
     menu->addSeparator();
 
     auto *action_global_hotkeys = new QAction(tr_text("Disable Global Hotkeys"), app);

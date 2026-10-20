@@ -92,18 +92,20 @@ struct Event {
         Wheel,
         Key,
         Foreground,  // the foreground window changed; every change while anyone watches
+        MouseButton,  // a button pressed or released that no gesture or side-button hotkey took
+        PointerMoved,  // the pointer moved; sent once per watcher until take_pointer collects the position
         Failure,
     };
     Kind kind = Kind::Failure;
     uint64_t id = 0;  // gestures
-    int32_t x = 0, y = 0;  // gestures and wheel
-    Button button = Button::Left;  // SideButton
+    int32_t x = 0, y = 0;  // gestures, wheel and mouse buttons
+    Button button = Button::Left;  // SideButton and MouseButton
     std::string text;  // hotkey name, watcher name or failure message
     Modifiers modifiers;  // Captured
     uint32_t vk = 0;  // Captured and Key
     int32_t delta = 0;  // Wheel
     bool horizontal = false;  // Wheel
-    bool pressed = false;  // Key
+    bool pressed = false;  // Key and MouseButton
     intptr_t hwnd = 0;  // Foreground
 
     static Event gesture(Kind kind, uint64_t id, int32_t x, int32_t y);
@@ -114,6 +116,8 @@ struct Event {
     static Event wheel(std::string watcher, int32_t x, int32_t y, int32_t delta, bool horizontal);
     static Event key(std::string watcher, uint32_t vk, bool pressed);
     static Event foreground(intptr_t hwnd);
+    static Event mouse_button(std::string watcher, Button button, bool pressed, int32_t x, int32_t y);
+    static Event pointer_moved(std::string watcher);
     static Event failure(std::string message);
     bool operator==(const Event &other) const;
     bool operator!=(const Event &other) const { return !(*this == other); }
@@ -172,6 +176,11 @@ public:
     void unwatch_wheel(const std::string &watcher);
     void watch_keys(const std::string &watcher, std::vector<uint32_t> keys);
     void unwatch_keys(const std::string &watcher);
+    // Every button press and release the earlier stages leave alone, with where it happened, and one
+    // notice for moves until take_pointer collects the latest position. Nothing is swallowed.
+    void watch_mouse(const std::string &watcher);
+    void unwatch_mouse(const std::string &watcher);
+    std::optional<std::pair<int32_t, int32_t>> take_pointer(const std::string &watcher);
     void watch_foreground(const std::string &watcher);
     void unwatch_foreground(const std::string &watcher);
     // One event per change, however many watch.
@@ -208,7 +217,7 @@ private:
     bool capture_key(const KeyInput &input, Platform &platform, Events &out);
     bool gesture_key(const KeyInput &input, Platform &platform, Events &out);
     bool side_mouse(const MouseInput &input, Events &out);
-    void observe_mouse(const MouseInput &input, Events &out) const;
+    void observe_mouse(const MouseInput &input, Events &out);
     void clear_claims();
 
     // Global gestures
@@ -244,6 +253,8 @@ private:
     // Watchers
     std::vector<std::pair<std::string, std::optional<Rect>>> wheel_watchers_;
     std::vector<std::pair<std::string, std::vector<uint32_t>>> key_watchers_;
+    // Mouse watchers with whether a move notice waits to be collected.
+    std::vector<std::pair<std::string, bool>> mouse_watchers_;
     std::vector<std::string> foreground_watchers_;
     bool sync_requested_ = false;
 };

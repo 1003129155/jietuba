@@ -208,6 +208,10 @@ protected:
     virtual void show_more_popup();
     virtual void hide_more_popup();
     virtual void open_layout_dialog();
+    // Subclasses add the buttons of their own layout keys after this constructor, then call reload_layout.
+    QPushButton *add_button(const QString &key, const QString &icon, const char *tooltip, int width, std::function<void()> on_click, bool checkable = false);
+    // A tool button of a subclass: the key is the tool id; the subclass also registers it in tool_buttons.
+    QPushButton *add_tool_button(const QString &tool_id, const QString &icon, const char *tooltip, int width);
     QHash<QString, int> button_widths_;
     QStringList folded_keys_;
     bool manual_positioned_ = false;
@@ -217,8 +221,6 @@ protected:
     int btn_height_ = 0;
 
 private:
-    QPushButton *add_button(const QString &key, const QString &icon, const char *tooltip, int width, std::function<void()> on_click, bool checkable = false);
-    QPushButton *add_tool_button(const QString &tool_id, const QString &icon, const char *tooltip, int width);
     void apply_button_sizes();
     // Window attributes shared by the toolbar, its panels and the popup.
     void make_floating(QWidget *widget) const;

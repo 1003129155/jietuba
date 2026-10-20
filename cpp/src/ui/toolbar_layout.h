@@ -28,6 +28,9 @@ extern const LayoutProfile SCREENSHOT;
 // Pins have none of the capture-only buttons (long screenshot, recording, cancel, pin, confirm) and add copy.
 // The buttons shown by default and their order match the capture default, so a button is found in the same place.
 extern const LayoutProfile PIN;
+// Screen annotation: the drawing tools that need no captured image, plus pass-through, board, cursor
+// highlight, clearing, hiding and leaving. Leaving is always shown, so the overlay can always be closed from the toolbar.
+extern const LayoutProfile ANNOTATION;
 const QStringList &setting_keys();
 const QStringList &default_order();
 QJsonArray default_layout(const LayoutProfile &profile = SCREENSHOT);

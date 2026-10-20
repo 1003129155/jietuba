@@ -1,5 +1,6 @@
 #include "core/input_hooks.h"
 #include <QTest>
+#include <QWidget>
 #include <algorithm>
 #include <memory>
 #include <windows.h>
@@ -46,6 +47,27 @@ void send_x_button(DWORD button, bool down) {
     input.type = INPUT_MOUSE;
     input.mi.mouseData = button;
     input.mi.dwFlags = down ? MOUSEEVENTF_XDOWN : MOUSEEVENTF_XUP;
+    input.mi.dwExtraInfo = TEST_MARKER;
+    SendInput(1, &input, sizeof input);
+}
+
+void send_mouse_button(DWORD flags) {
+    INPUT input{};
+    input.type = INPUT_MOUSE;
+    input.mi.dwFlags = flags;
+    input.mi.dwExtraInfo = TEST_MARKER;
+    SendInput(1, &input, sizeof input);
+}
+
+// The pointer moved by input, which the hooks see; SetCursorPos alone raises no hook event.
+void send_move_to(int x, int y) {
+    const int left = GetSystemMetrics(SM_XVIRTUALSCREEN), top = GetSystemMetrics(SM_YVIRTUALSCREEN);
+    const int width = GetSystemMetrics(SM_CXVIRTUALSCREEN), height = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+    INPUT input{};
+    input.type = INPUT_MOUSE;
+    input.mi.dx = static_cast<LONG>((x - left) * 65535.0 / (width - 1) + 0.5);
+    input.mi.dy = static_cast<LONG>((y - top) * 65535.0 / (height - 1) + 0.5);
+    input.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK;
     input.mi.dwExtraInfo = TEST_MARKER;
     SendInput(1, &input, sizeof input);
 }
@@ -161,6 +183,43 @@ private slots:
         QTRY_VERIFY(collect(events) && count_kind(events, Event::Kind::Key) == 2);
         QVERIFY(events[0].pressed && !events[1].pressed);
         QTRY_VERIFY(std::count_if(seen_keys.begin(), seen_keys.end(), [](const Seen &s) { return s.vk == KEY_F24; }) == 2);
+    }
+
+    // Over a window of its own, so the clicks reach nothing else on the desktop.
+    void mouse_watchers_hear_clicks_and_one_move_without_swallowing_them() {
+        QWidget target;
+        target.setGeometry(300, 300, 240, 160);
+        target.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&target));
+        SetCursorPos(400, 360);
+        QTest::qWait(50);
+        hooks_->with_engine([](Engine &engine, Events &) { engine.watch_mouse("light"); });
+        QTRY_VERIFY(hooks_->hooks_installed());
+        send_mouse_button(MOUSEEVENTF_RIGHTDOWN);
+        send_mouse_button(MOUSEEVENTF_RIGHTUP);
+        Events events;
+        QTRY_VERIFY(collect(events) && count_kind(events, Event::Kind::MouseButton) == 2);
+        QVERIFY(events[0].pressed && !events[1].pressed);
+        QCOMPARE(events[0].button, Button::Right);
+        QCOMPARE(std::make_pair(events[0].x, events[0].y), std::make_pair(400, 360));
+        QVERIFY2(std::any_of(seen_mouse.begin(), seen_mouse.end(), [](WPARAM m) { return m == WM_RBUTTONDOWN; }), "the press passes on");
+        QVERIFY(std::any_of(seen_mouse.begin(), seen_mouse.end(), [](WPARAM m) { return m == WM_RBUTTONUP; }));
+        // A run of moves is one notice until the position is collected.
+        events.clear();
+        for (int x = 410; x <= 450; x += 10) send_move_to(x, 380);
+        QTRY_VERIFY(collect(events) && count_kind(events, Event::Kind::PointerMoved) == 1);
+        QTest::qWait(100);
+        collect(events);
+        QCOMPARE(count_kind(events, Event::Kind::PointerMoved), size_t(1));
+        std::optional<std::pair<int32_t, int32_t>> position;
+        hooks_->with_engine([&](Engine &engine, Events &) { position = engine.take_pointer("light"); });
+        QVERIFY(position);
+        QCOMPARE(*position, std::make_pair(450, 380));
+        events.clear();
+        send_move_to(460, 380);
+        QTRY_VERIFY(collect(events) && count_kind(events, Event::Kind::PointerMoved) == 1);
+        hooks_->with_engine([](Engine &engine, Events &) { engine.unwatch_mouse("light"); });
+        QTRY_VERIFY(!hooks_->hooks_installed());
     }
 
     void stopping_drains_the_queued_events_then_ends_the_stream() {

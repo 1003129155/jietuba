@@ -3,6 +3,7 @@
 #include "clipboard/ui/dialogs/manage_dialog.h"
 #include "clipboard/ui/windows/clipboard_window.h"
 #include "clipboard/ui/windows/pin_window.h"
+#include "annotation/screen_annotation.h"
 #include "gif/composer.h"
 #include "gif/record_window.h"
 #include "pin/pin_manager.h"
@@ -262,6 +263,7 @@ void MainApp::update_hotkey(bool show_error) {
     if (config_manager->get_clipboard_enabled()) functions.emplace_back("clipboard", tr_text("Clipboard"), [this] { open_clipboard_window(); });
     // Pinning prefers the system clipboard's image, so it is useful with history turned off.
     functions.emplace_back("pin_clipboard", tr_text("Pin Clipboard Image"), [this] { pin_clipboard_image(); });
+    functions.emplace_back("screen_annotation", tr_text("Screen Annotation"), [this] { toggle_screen_annotation(); });
 
     std::vector<std::pair<QString, QString>> failed_hotkeys;
     for (const auto &[function, label, callback] : functions) {
@@ -376,6 +378,8 @@ void MainApp::start_screenshot() {
     if (screenshot_window) {
         if (auto *leftover = blocking_modal(screenshot_window)) leftover->close();
     }
+    // The annotation's drawings are captured; its hit layer and its focus are not.
+    if (screen_annotation) screen_annotation->prepare_for_capture();
     // A clipboard window kept open after pasting would be captured too. close() rather than
     // hide(), which leaves its topmost context menu on screen.
     try {
@@ -584,6 +588,26 @@ void MainApp::pin_clipboard_image() {
     }
 }
 
+void MainApp::toggle_screen_annotation() {
+    if (update_preparing) return;
+    // The capture window is above any layer; a session started under it would sit on top of it.
+    if (capture_busy()) {
+        log_debug(T("截图进行中，忽略屏幕标注"), "MainApp");
+        return;
+    }
+    if (!screen_annotation) {
+        screen_annotation = new ScreenAnnotation(this);
+        // The tray entry shows whether a session runs.
+        connect(screen_annotation, &ScreenAnnotation::mode_changed, this, [this](ScreenAnnotation::Mode mode) {
+            const bool running = mode != ScreenAnnotation::Mode::Off;
+            if (running == screen_annotation_running_) return;
+            screen_annotation_running_ = running;
+            update_tray_menu();
+        });
+    }
+    screen_annotation->toggle();
+}
+
 QString MainApp::update_busy_reason() {
     if (background_tasks::busy() || capture_busy() || (clipboard_manager && clipboard_manager->pending_writes()))
         return tr_text("Finish capturing or saving before updating. The download has been kept.");
@@ -661,6 +685,7 @@ bool MainApp::quit_app() {
     }
     recording_quit_pending_ = nullptr;
     quick_capture->close();
+    if (screen_annotation) screen_annotation->stop();
     // Ends an open capture; its window deletes itself.
     if (screenshot_window) {
         try {

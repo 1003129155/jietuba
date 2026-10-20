@@ -1503,6 +1503,130 @@ Replace it?</source>
         <source>Manage</source>
         <translation>管理</translation>
     </message>
+    <message>
+        <source>Screen Annotation Hotkey</source>
+        <translation>屏幕标注</translation>
+    </message>
+    <message>
+        <source>Keep Screen Annotations</source>
+        <translation>保留屏幕标注</translation>
+    </message>
+    <message>
+        <source>Ending the screen annotation keeps its drawings; they come back the next time it starts.</source>
+        <translation>退出屏幕标注时保留画出的内容，下次开始时恢复。</translation>
+    </message>
+    <message>
+        <source>Screen Annotation</source>
+        <translation>屏幕标注</translation>
+    </message>
+    <message>
+        <source>Screen Annotation Settings</source>
+        <translation>屏幕标注设置</translation>
+    </message>
+    <message>
+        <source>Start and End</source>
+        <translation>开始与结束</translation>
+    </message>
+    <message>
+        <source>Toolbar</source>
+        <translation>工具栏</translation>
+    </message>
+    <message>
+        <source>Cursor Highlight</source>
+        <translation>光标高亮</translation>
+    </message>
+    <message>
+        <source>Start With</source>
+        <translation>开始时</translation>
+    </message>
+    <message>
+        <source>What screen annotation starts with. In pass-through the mouse keeps working the windows below until a tool is picked.</source>
+        <translation>开始屏幕标注时处于什么状态。穿透时鼠标照常操作下方的窗口，选了工具才开始画。</translation>
+    </message>
+    <message>
+        <source>Pass-Through</source>
+        <translation>穿透</translation>
+    </message>
+    <message>
+        <source>Last Used Tool</source>
+        <translation>上次用的工具</translation>
+    </message>
+    <message>
+        <source>Global Hotkey</source>
+        <translation>全局热键</translation>
+    </message>
+    <message>
+        <source>Not set. Screen annotation also starts from the tray menu.</source>
+        <translation>未设置。也可以从托盘菜单开始屏幕标注。</translation>
+    </message>
+    <message>
+        <source>Currently %1</source>
+        <translation>当前：%1</translation>
+    </message>
+    <message>
+        <source>Toolbar Position</source>
+        <translation>工具栏位置</translation>
+    </message>
+    <message>
+        <source>Where the toolbar appears when screen annotation starts.</source>
+        <translation>开始屏幕标注时工具栏出现在哪里。</translation>
+    </message>
+    <message>
+        <source>Bottom Center of the Screen</source>
+        <translation>屏幕底部居中</translation>
+    </message>
+    <message>
+        <source>Top Center of the Screen</source>
+        <translation>屏幕顶部居中</translation>
+    </message>
+    <message>
+        <source>Toolbar Invisible to Screen Capture</source>
+        <translation>工具栏不被屏幕捕获</translation>
+    </message>
+    <message>
+        <source>Keeps the toolbar and its panels out of recordings, screenshots, screen sharing, remote desktop and other screen capture; you still see them. Turn off to let them be captured, for example when recording a tutorial.</source>
+        <translation>让工具栏及其面板不会被录屏、截图、屏幕共享、远程画面等捕获，你自己照常看得见。录教程等需要录进工具栏时可关掉。</translation>
+    </message>
+    <message>
+        <source>Where It Was Last</source>
+        <translation>上次的位置</translation>
+    </message>
+    <message>
+        <source>Toolbar Buttons</source>
+        <translation>工具栏按钮</translation>
+    </message>
+    <message>
+        <source>Choose and order the buttons of the screen annotation toolbar. Saved at once.</source>
+        <translation>选择屏幕标注工具栏显示哪些按钮及顺序，调整后立即保存。</translation>
+    </message>
+    <message>
+        <source>Adjust</source>
+        <translation>调整</translation>
+    </message>
+    <message>
+        <source>Cursor Highlight at Start</source>
+        <translation>开始时打开光标高亮</translation>
+    </message>
+    <message>
+        <source>Starts with a light around the pointer. The toolbar button turns it on and off during a session, and that choice is kept.</source>
+        <translation>开始时指针周围就有光晕。标注过程中可用工具栏按钮开关，开关的结果会被记住。</translation>
+    </message>
+    <message>
+        <source>Highlight Size</source>
+        <translation>光晕大小</translation>
+    </message>
+    <message>
+        <source>The size of the light around the pointer and of the click rings.</source>
+        <translation>指针周围光晕和点击涟漪的大小。</translation>
+    </message>
+    <message>
+        <source>Click Rings</source>
+        <translation>点击涟漪</translation>
+    </message>
+    <message>
+        <source>A ring spreads from every click: yellow for the left button, blue for the right.</source>
+        <translation>每次点击扩散出一圈涟漪：左键黄色，右键蓝色。</translation>
+    </message>
 </context>
 
 <context>
@@ -1720,6 +1844,30 @@ Replace it?</source>
     <message>
         <source>GIF / Video recording</source>
         <translation>GIF / 视频录制</translation>
+    </message>
+    <message>
+        <source>Pass through: the mouse works the windows below (Esc)</source>
+        <translation>穿透：鼠标操作下方的窗口 (ESC)</translation>
+    </message>
+    <message>
+        <source>Clear all drawings</source>
+        <translation>清空所有标注</translation>
+    </message>
+    <message>
+        <source>Hide / show drawings</source>
+        <translation>隐藏/显示标注</translation>
+    </message>
+    <message>
+        <source>Exit screen annotation</source>
+        <translation>退出屏幕标注</translation>
+    </message>
+    <message>
+        <source>Whiteboard: click to cover the screen with white, click again to remove</source>
+        <translation>白板：点一下铺上白色背景，再点一下取消</translation>
+    </message>
+    <message>
+        <source>Cursor highlight: a light around the pointer and a ring for every click</source>
+        <translation>光标高亮：指针周围发光，每次点击出现涟漪</translation>
     </message>
 </context>
 
@@ -2015,6 +2163,10 @@ Replace it?</source>
     <message><source>Choose folder to save pinned images</source><translation>选择保存钉图的文件夹</translation></message>
     <message><source>Save Failed</source><translation>保存失败</translation></message>
     <message><source>Saved {saved} pinned images, failed {failed}.</source><translation>已保存 {saved} 个钉图，失败 {failed} 个。</translation></message>
+    <message>
+        <source>Screen Annotation</source>
+        <translation>屏幕标注</translation>
+    </message>
 </context>
 
 <!-- ========== Main App (Tray Menu) ========== -->
@@ -2095,6 +2247,10 @@ Replace it?</source>
 <message>
         <source>Settings could not be saved. Update cancelled.</source>
         <translation>设置保存失败，已取消更新。</translation>
+    </message>
+    <message>
+        <source>Screen Annotation</source>
+        <translation>屏幕标注</translation>
     </message>
 </context>
 
@@ -5090,6 +5246,30 @@ Items in the group will be moved back to clipboard history.</source>
     <message>
         <source>Confirm</source>
         <translation>确定</translation>
+    </message>
+    <message>
+        <source>Pass through</source>
+        <translation>穿透</translation>
+    </message>
+    <message>
+        <source>Clear all</source>
+        <translation>清空</translation>
+    </message>
+    <message>
+        <source>Hide drawings</source>
+        <translation>隐藏标注</translation>
+    </message>
+    <message>
+        <source>Exit annotation</source>
+        <translation>退出标注</translation>
+    </message>
+    <message>
+        <source>Board</source>
+        <translation>白板</translation>
+    </message>
+    <message>
+        <source>Cursor highlight</source>
+        <translation>光标高亮</translation>
     </message>
 </context>
 <context>

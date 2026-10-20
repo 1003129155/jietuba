@@ -23,6 +23,7 @@ namespace jietuba {
 class StrokeItem : public QAbstractGraphicsShapeItem, public DrawingItemMixin {
 public:
     static constexpr int CHUNK_SEGMENTS = 8;
+    static constexpr qreal START_MARGIN = 32;
     static constexpr qreal GROW_MARGIN = 256;
     static constexpr qreal HIT_MARGIN = 10;  // the hit area is this much wider than the stroke on each side
 
@@ -34,8 +35,8 @@ public:
     void setPath(const QPainterPath &path);
     // While drawing, catches up with source: elements before dirty_from are as last time, later ones
     // only moved or were appended. Copies just that tail; the pen keeps editing source in place.
-    // The bounds grow by GROW_MARGIN at a time and are repainted whole only when they grow;
-    // finish_path tightens them.
+    // The bounds start START_MARGIN around the first segment, and each side the stroke runs past moves
+    // GROW_MARGIN beyond it. They are repainted whole only when they grow; finish_path tightens them.
     void extend_path(const QPainterPath &source, int dirty_from);
     // Done drawing: drops the slack the bounds kept while growing. Selection handles sit on their corners.
     void finish_path();

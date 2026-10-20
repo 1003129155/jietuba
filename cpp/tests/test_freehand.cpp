@@ -435,9 +435,9 @@ private slots:
         QCOMPARE(missed, 0);
     }
 
-    // Growing the bounds repaints them whole, so while drawing they grow by a wide margin and a stroke
-    // that keeps to one area grows them only a few times; finishing tightens them so the selection
-    // handles sit close to the stroke.
+    // Growing the bounds repaints them whole, so while drawing each side moves out by a wide margin and
+    // a stroke that keeps to one area grows them only a few times: at the start and once per side it
+    // reaches. Finishing tightens them so the selection handles sit close to the stroke.
     void boundsGrowInBigStepsAndTightenWhenFinished() {
         auto scene = make_scene();
         int grows = 0;
@@ -446,12 +446,34 @@ private slots:
             if (item->boundingRect() != bounds) ++grows;
             bounds = item->boundingRect();
         });
-        QVERIFY(grows <= 3);
+        QVERIFY2(grows <= 5, QByteArray::number(grows));
         for (const auto &chunk : drawn.item->chunks()) QVERIFY(drawn.item->boundingRect().contains(chunk.rect));
         drawn.item->finish_path();
         const StrokeItem fresh(drawn.stroke.path, test_pen("solid"));
         QCOMPARE(drawn.item->boundingRect(), fresh.boundingRect());
         QVERIFY(drawn.item->boundingRect().contains(drawn.item->shape().boundingRect()));
+    }
+
+    // Each growth repaints the bounds with everything under them, so a long straight stroke pushes them
+    // out only ahead of itself and keeps them close above, below and behind.
+    void aStraightStrokeGrowsItsBoundsOnlyAhead() {
+        auto scene = make_scene();
+        FreehandStroke stroke(QPointF(10, 120), 45, true);
+        auto *item = new StrokeItem(stroke.path, test_pen("solid"));
+        scene->addItem(item);
+        int grows = 0;
+        QRectF bounds;
+        for (int x = 13; x <= 2000; x += 3) {
+            if (stroke.extend(QPointF(x, 120), false)) item->extend_path(stroke.path, stroke.take_dirty_from());
+            if (item->boundingRect() != bounds) ++grows;
+            bounds = item->boundingRect();
+            // The 4 px pen paints 4 px past the line, antialiasing included.
+            QVERIFY(bounds.top() >= 120 - StrokeItem::START_MARGIN - 5);
+            QVERIFY(bounds.bottom() <= 120 + StrokeItem::START_MARGIN + 5);
+            QVERIFY(bounds.left() >= 10 - StrokeItem::START_MARGIN - 5);
+            QVERIFY(bounds.right() <= x + StrokeItem::GROW_MARGIN + 5);
+        }
+        QVERIFY(grows <= int(1990 / StrokeItem::GROW_MARGIN) + 2);
     }
 
     // The bounds hug the curve. Painted pixels outside them would never be erased, hit area outside

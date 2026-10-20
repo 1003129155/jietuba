@@ -26,6 +26,7 @@ class GifRecordWindow;
 class HotkeySystem;
 class PreloadManager;
 class QuickCaptureController;
+class ScreenAnnotation;
 class ScreenshotWindow;
 class SettingsDialog;
 class SmartTranslationController;
@@ -66,6 +67,8 @@ public:
     bool set_clipboard_monitoring_enabled(bool enabled);
     // Pins the clipboard image at the cursor; during a capture pins the selection instead.
     void pin_clipboard_image();
+    // Starts the screen annotation, or ends the running one; not while a capture is being prepared.
+    void toggle_screen_annotation();
     // Admin mode was just turned on here, unelevated: runs the task so the elevated instance takes
     // over (its single-instance check ends this one). Stays when that instance does not come up.
     void hand_off_to_admin();
@@ -102,6 +105,10 @@ public:
     QPointer<GifRecordWindow> recording_quit_pending_;
     QuickCaptureController *quick_capture = nullptr;
     SmartTranslationController *smart_translation_controller = nullptr;
+    // Created on first use.
+    ScreenAnnotation *screen_annotation = nullptr;
+    // Whether a session runs, as the tray menu last showed it.
+    bool screen_annotation_running_ = false;
     bool update_preparing = false;
     UpdateController *update_controller = nullptr;
 

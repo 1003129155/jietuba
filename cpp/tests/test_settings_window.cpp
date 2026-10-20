@@ -831,7 +831,8 @@ private slots:
         reset->click();
         QCOMPARE(format->currentText().toUpper(), defaults.value("screenshot_format").toString().toUpper());
         // Every other page resets too.
-        const std::pair<int, const char *> pages[] = {{3, "appearance"}, {4, "translation"}, {6, "other"}, {9, "quick_actions"}, {10, "mouse"}, {11, "pin"}};
+        const std::pair<int, const char *> pages[] = {{3, "appearance"}, {4, "translation"}, {6, "other"}, {9, "quick_actions"}, {10, "mouse"}, {11, "pin"},
+                                                      {12, "screen_annotation"}};
         for (const auto &[index, route] : pages) {
             dialog.on_nav_changed(index, route);
             QCOMPARE(dialog.content_stack->currentIndex(), index);
@@ -839,7 +840,49 @@ private slots:
         }
         // Unknown pages are ignored.
         dialog.on_nav_changed(42);
-        QCOMPARE(dialog.content_stack->currentIndex(), 11);
+        QCOMPARE(dialog.content_stack->currentIndex(), 12);
+    }
+
+    // The screen annotation page: start, toolbar and cursor highlight settings saved and reset like the
+    // others; keeping the drawings moved here from Quick Actions; the hotkey is shown and edited on the
+    // shortcut page.
+    void screenAnnotationPage() {
+        config_->set_global_hotkeys("screen_annotation", {"ctrl+alt+f9", "", "", ""});
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(9, "quick_actions");
+        QVERIFY(!dialog.behavior_control("screen_annotation_keep_drawings"));
+        dialog.on_nav_changed(12, "screen_annotation");
+        QCOMPARE(dialog.content_stack->currentIndex(), 12);
+        const QStringList keys = {"screen_annotation_start_tool", "screen_annotation_keep_drawings", "screen_annotation_toolbar_position",
+                                  "screen_annotation_cursor_highlight", "screen_annotation_highlight_size", "screen_annotation_click_ripples"};
+        for (const auto &key : keys) QVERIFY2(dialog.behavior_control(key), qPrintable(key));
+        auto *start = qobject_cast<QComboBox *>(dialog.behavior_control("screen_annotation_start_tool"));
+        auto *size = qobject_cast<QComboBox *>(dialog.behavior_control("screen_annotation_highlight_size"));
+        QVERIFY(start && size);
+        QCOMPARE(start->count(), 3);
+        start->setCurrentIndex(start->findData("last"));
+        size->setCurrentIndex(size->findData("large"));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_app_setting("screen_annotation_start_tool").toString(), QString("last"));
+        QCOMPARE(config_->get_app_setting("screen_annotation_highlight_size").toString(), QString("large"));
+        for (auto *button : dialog.findChildren<QPushButton *>())
+            if (button->text() == settings_tr("Reset This Page")) button->click();
+        QCOMPARE(start->currentData().toString(), QString("cursor"));
+        QCOMPARE(size->currentData().toString(), QString("medium"));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_app_setting("screen_annotation_start_tool").toString(), QString("cursor"));
+        // The hotkey as set, then its row on the shortcut page.
+        auto *hotkey_card = dialog.attr<SettingCard>("screen_annotation_hotkey_card");
+        QVERIFY(hotkey_card);
+        QVERIFY2(hotkey_card->findChildren<QLabel *>().size() > 0, "card labels");
+        bool shown = false;
+        for (auto *label : hotkey_card->findChildren<QLabel *>()) shown = shown || label->text().contains("Ctrl + Alt + F9");
+        QVERIFY(shown);
+        dialog.show_hotkey_row("screen_annotation_hotkey_edit");
+        QCOMPARE(dialog.content_stack->currentIndex(), 0);
+        QVERIFY(dialog.attr<HotkeyEdit>("screen_annotation_hotkey_edit"));
+        config_->set_global_hotkeys("screen_annotation", {"", "", "", ""});
     }
 
     // The logo's context menu opens the developer page; the pin page links to its shortcut tabs.
@@ -1101,7 +1144,7 @@ private slots:
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.setAttribute(Qt::WA_DontShowOnScreen);
         dialog.show();
-        const std::pair<int, const char *> pages[] = {{0, "shortcuts"}, {10, "mouse"}, {9, "quick_actions"}, {1, "capture"}, {11, "pin"},
+        const std::pair<int, const char *> pages[] = {{0, "shortcuts"}, {10, "mouse"}, {9, "quick_actions"}, {1, "capture"}, {11, "pin"}, {12, "screen_annotation"},
                                                       {4, "translation"}, {3, "appearance"}, {5, "log"}, {6, "other"}, {8, "about"}};
         for (const auto &[index, route] : pages) {
             dialog.on_nav_changed(index, route);

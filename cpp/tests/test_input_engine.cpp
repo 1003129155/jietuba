@@ -645,6 +645,86 @@ private slots:
         CHECK_RESULT(rig.key(0x41, true), false);
     }
 
+    // The pointer's light: every button, and one notice for moves until the position is collected.
+    void mouse_watchers_hear_buttons_and_one_move_until_collected() {
+        Rig rig;
+        rig.engine.watch_mouse("light");
+        CHECK_RESULT(rig.mouse(MouseInput::move(5, 6)), false, Event::pointer_moved("light"));
+        // Quiet until the UI collects the latest position, however many moves come.
+        CHECK_RESULT(rig.mouse(MouseInput::move(7, 8)), false);
+        CHECK_RESULT(rig.mouse(MouseInput::move(9, 10)), false);
+        const auto position = rig.engine.take_pointer("light");
+        QVERIFY(position && *position == std::make_pair(9, 10));
+        QVERIFY2(!rig.engine.take_pointer("light"), "nothing to collect twice");
+        CHECK_RESULT(rig.mouse(MouseInput::move(11, 12)), false, Event::pointer_moved("light"));
+        CHECK_RESULT(rig.mouse(MouseInput::down(Button::Left, 11, 12)), false, Event::mouse_button("light", Button::Left, true, 11, 12));
+        CHECK_RESULT(rig.mouse(MouseInput::up(Button::Left, 11, 12)), false, Event::mouse_button("light", Button::Left, false, 11, 12));
+        CHECK_RESULT(rig.mouse(MouseInput::down(Button::Right, 3, 4)), false, Event::mouse_button("light", Button::Right, true, 3, 4));
+        CHECK_RESULT(rig.mouse(MouseInput::down(Button::Middle, 3, 4)), false, Event::mouse_button("light", Button::Middle, true, 3, 4));
+    }
+
+    void each_mouse_watcher_has_its_own_pending_move() {
+        Rig rig;
+        rig.engine.watch_mouse("a");
+        rig.engine.watch_mouse("b");
+        CHECK_RESULT(rig.mouse(MouseInput::move(1, 2)), false, Event::pointer_moved("a"), Event::pointer_moved("b"));
+        QVERIFY(rig.engine.take_pointer("a"));
+        CHECK_RESULT(rig.mouse(MouseInput::move(3, 4)), false, Event::pointer_moved("a"));
+        QVERIFY(!rig.engine.take_pointer("nobody"));
+    }
+
+    void mouse_watchers_hear_injected_input_and_ignore_the_wheel() {
+        Rig rig;
+        rig.engine.watch_mouse("light");
+        CHECK_RESULT(rig.mouse(injected(MouseInput::down(Button::Left, 1, 1))), false, Event::mouse_button("light", Button::Left, true, 1, 1));
+        CHECK_RESULT(rig.mouse(MouseInput::wheel(120, false, 1, 1)), false);
+    }
+
+    void a_press_a_gesture_swallows_is_not_reported_to_mouse_watchers() {
+        Rig rig({{ctrl(), Button::Left}});
+        rig.engine.watch_mouse("light");
+        rig.hold(LCTRL);
+        const auto [swallowed, events] = rig.mouse(MouseInput::down(Button::Left, 10, 20));
+        QVERIFY(swallowed && kinds(events, {Event::Kind::GestureStart}));
+        // The drag's moves still reach the watcher.
+        const auto [swallow_move, moves] = rig.mouse(MouseInput::move(30, 40));
+        QVERIFY(!swallow_move && kinds(moves, {Event::Kind::GestureMoved, Event::Kind::PointerMoved}));
+        const auto [swallowed_up, up] = rig.mouse(MouseInput::up(Button::Left, 30, 40));
+        QVERIFY(swallowed_up && kinds(up, {Event::Kind::GestureFinish}));
+        // A button no gesture takes is heard.
+        CHECK_RESULT(rig.mouse(MouseInput::down(Button::Right, 30, 40)), false, Event::mouse_button("light", Button::Right, true, 30, 40));
+    }
+
+    void side_buttons_are_reported_to_mouse_watchers_unless_swallowed() {
+        Rig rig = side_rig({Button::X2}, false);
+        rig.engine.watch_mouse("light");
+        CHECK_RESULT(rig.mouse(MouseInput::down(Button::X1, 5, 5)), false, Event::side_button(Button::X1), Event::mouse_button("light", Button::X1, true, 5, 5));
+        CHECK_RESULT(rig.mouse(MouseInput::down(Button::X2, 5, 5)), true, Event::side_button(Button::X2));
+        CHECK_RESULT(rig.mouse(MouseInput::up(Button::X2, 5, 5)), true);
+    }
+
+    void a_mouse_watcher_alone_needs_the_hooks_and_ends_with_unwatch_or_close() {
+        Engine engine;
+        QVERIFY(!engine.hooks_needed());
+        engine.watch_mouse("light");
+        QVERIFY(engine.hooks_needed());
+        QVERIFY(engine.take_sync_request());
+        engine.unwatch_mouse("light");
+        QVERIFY(!engine.hooks_needed());
+        QVERIFY(engine.take_sync_request());
+        engine.watch_mouse("light");
+        engine.watch_mouse("light");
+        engine.unwatch_mouse("light");
+        QVERIFY2(!engine.hooks_needed(), "watching twice is still one watcher");
+        engine.watch_mouse("light");
+        Events events;
+        engine.close(events);
+        QVERIFY(!engine.hooks_needed());
+        FakePlatform platform;
+        QVERIFY(!engine.on_mouse(MouseInput::move(1, 1), platform, events));
+        QVERIFY(events.empty());
+    }
+
     void foreground_changes_are_reported_once_while_anyone_watches() {
         Engine engine;
         Events events;

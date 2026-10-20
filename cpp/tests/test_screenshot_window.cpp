@@ -16,6 +16,9 @@
 #include "ui/mask_overlay.h"
 #include "ui/magnifier.h"
 #include "core/shortcut_manager.h"
+#include "annotation/screen_annotation.h"
+#include "annotation/annotation_view.h"
+#include "gif/drawing_view.h"
 #include "ui/screenshot_window.h"
 #include "ui/selection_info/panel.h"
 #include "ui/selection_info/border_shadow.h"
@@ -41,11 +44,14 @@
 #include <QContextMenuEvent>
 #include <QDir>
 #include <QElapsedTimer>
+#include <QEventLoop>
+#include <QFile>
 #include <QFileDialog>
 #include <QImageReader>
 #include <QLineEdit>
 #include <QMouseEvent>
 #include <QPushButton>
+#include <QScreen>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -1036,6 +1042,84 @@ private slots:
         press(window, "inapp_translate");
         QCOMPARE(translate.size(), 1);
         TranslationManager::cleanup();
+    }
+
+    // A host for the external pen latency measurement: with JIETUBA_CANVAS_BENCH=<base path> it opens a
+    // capture over the primary screen on a dark image, or with JIETUBA_CANVAS_BENCH_TARGET a pin ("pin"),
+    // the GIF drawing layer ("gif") or the screen annotation ("annotation") over a dark backdrop, with a
+    // red 6 px pen ready, writes <base>.ready and stays until <base>.quit exists. It runs a real event
+    // loop as the application does; JIETUBA_CANVAS_BENCH_LOOP=qwait waits in QTest::qWaitFor instead,
+    // which sleeps 10 ms between passes and so adds up to 30 ms to every drag.
+    void latencyBenchHold() {
+        const QString base = qEnvironmentVariable("JIETUBA_CANVAS_BENCH");
+        if (base.isEmpty()) QSKIP("benchmark host only");
+        config_->update_settings("pen", {{"color", "#ff0000"}, {"stroke_width", 6}, {"opacity", 1.0}});
+        const QRect screen = QGuiApplication::primaryScreen()->geometry();
+        const auto dark = [](const QSize &size) {
+            QImage image(size, QImage::Format_ARGB32);
+            image.fill(QColor(0x30, 0x30, 0x30));
+            return image;
+        };
+        const QString target = qEnvironmentVariable("JIETUBA_CANVAS_BENCH_TARGET", "capture");
+        std::unique_ptr<QWidget> backdrop;
+        QPointer<PinWindow> pin;
+        std::unique_ptr<GifDrawingView> layer;
+        std::unique_ptr<ScreenAnnotation> annotation;
+        ToolController *tools = nullptr;
+        if (target != "capture") {
+            // The latency tool takes the rightmost red on its rows across the whole screen.
+            backdrop = std::make_unique<QWidget>(nullptr, Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
+            QPalette palette;
+            palette.setColor(QPalette::Window, QColor(0x30, 0x30, 0x30));
+            backdrop->setPalette(palette);
+            backdrop->setAutoFillBackground(true);
+            backdrop->setGeometry(screen);
+            backdrop->show();
+        }
+        if (target == "pin") {
+            pin = new PinWindow(dark(QSize(2100, 400)), screen.topLeft() + QPoint(200, 280), config_);
+            QVERIFY(pin->canvas->activate_tool("pen"));
+            tools = pin->canvas->tool_controller;
+        } else if (target == "gif") {
+            layer = std::make_unique<GifDrawingView>(screen, false);
+            layer->show();
+            layer->activate_tool("pen");
+            QVERIFY(!layer->passthrough());
+            tools = layer->scene_obj()->tool_controller.get();
+        } else if (target == "annotation") {
+            annotation = std::make_unique<ScreenAnnotation>();
+            annotation->start();
+            annotation->select_tool("pen");
+            QVERIFY(!annotation->views().empty());
+            tools = annotation->views().front()->scene_obj()->tool_controller.get();
+        } else {
+            window_ = new ScreenshotWindow(config_, dark(screen.size()), QRectF(screen));
+            QApplication::processEvents();
+            drag(window_, QPoint(100, 100), QPoint(screen.width() - 100, 1000));
+            QVERIFY(window_->scene->selection_model->is_confirmed());
+            window_->toolbar->select_tool("pen");
+            tools = window_->scene->tool_controller.get();
+        }
+        QCOMPARE(tools->current_tool_id(), QString("pen"));
+        QCOMPARE(tools->ctx.color, QColor("#ff0000"));
+        QFile ready(base + ".ready");
+        QVERIFY(ready.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        ready.write(QByteArray::number(static_cast<qulonglong>(GetCurrentProcessId())));
+        ready.close();
+        const auto quit = [&base] { return QFile::exists(base + ".quit"); };
+        if (qEnvironmentVariable("JIETUBA_CANVAS_BENCH_LOOP") == "qwait") {
+            QVERIFY(QTest::qWaitFor(quit, 4 * 60 * 60 * 1000));
+        } else {
+            QEventLoop loop;
+            QTimer poll;
+            connect(&poll, &QTimer::timeout, &loop, [&] {
+                if (quit()) loop.quit();
+            });
+            poll.start(200);
+            loop.exec();
+        }
+        if (pin) pin->close();
+        if (annotation) annotation->stop();
     }
 };
 

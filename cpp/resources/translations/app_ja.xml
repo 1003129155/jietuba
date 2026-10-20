@@ -1501,6 +1501,130 @@ Replace it?</source>
         <source>Manage</source>
         <translation>管理</translation>
     </message>
+    <message>
+        <source>Screen Annotation Hotkey</source>
+        <translation>画面注釈</translation>
+    </message>
+    <message>
+        <source>Keep Screen Annotations</source>
+        <translation>画面注釈を保持</translation>
+    </message>
+    <message>
+        <source>Ending the screen annotation keeps its drawings; they come back the next time it starts.</source>
+        <translation>画面注釈を終了しても描画を残し、次に開始したときに元に戻します。</translation>
+    </message>
+    <message>
+        <source>Screen Annotation</source>
+        <translation>画面注釈</translation>
+    </message>
+    <message>
+        <source>Screen Annotation Settings</source>
+        <translation>画面注釈の設定</translation>
+    </message>
+    <message>
+        <source>Start and End</source>
+        <translation>開始と終了</translation>
+    </message>
+    <message>
+        <source>Toolbar</source>
+        <translation>ツールバー</translation>
+    </message>
+    <message>
+        <source>Cursor Highlight</source>
+        <translation>カーソルハイライト</translation>
+    </message>
+    <message>
+        <source>Start With</source>
+        <translation>開始時の状態</translation>
+    </message>
+    <message>
+        <source>What screen annotation starts with. In pass-through the mouse keeps working the windows below until a tool is picked.</source>
+        <translation>画面注釈を開始したときの状態。透過中はツールを選ぶまでマウスで下のウィンドウをそのまま操作できます。</translation>
+    </message>
+    <message>
+        <source>Pass-Through</source>
+        <translation>透過</translation>
+    </message>
+    <message>
+        <source>Last Used Tool</source>
+        <translation>前回使ったツール</translation>
+    </message>
+    <message>
+        <source>Global Hotkey</source>
+        <translation>グローバルホットキー</translation>
+    </message>
+    <message>
+        <source>Not set. Screen annotation also starts from the tray menu.</source>
+        <translation>未設定。トレイメニューからも画面注釈を開始できます。</translation>
+    </message>
+    <message>
+        <source>Currently %1</source>
+        <translation>現在：%1</translation>
+    </message>
+    <message>
+        <source>Toolbar Position</source>
+        <translation>ツールバーの位置</translation>
+    </message>
+    <message>
+        <source>Where the toolbar appears when screen annotation starts.</source>
+        <translation>画面注釈を開始したときにツールバーを表示する場所。</translation>
+    </message>
+    <message>
+        <source>Bottom Center of the Screen</source>
+        <translation>画面の下中央</translation>
+    </message>
+    <message>
+        <source>Top Center of the Screen</source>
+        <translation>画面の上中央</translation>
+    </message>
+    <message>
+        <source>Toolbar Invisible to Screen Capture</source>
+        <translation>ツールバーを画面キャプチャから除外</translation>
+    </message>
+    <message>
+        <source>Keeps the toolbar and its panels out of recordings, screenshots, screen sharing, remote desktop and other screen capture; you still see them. Turn off to let them be captured, for example when recording a tutorial.</source>
+        <translation>ツールバーとパネルを録画、スクリーンショット、画面共有、リモート画面などのキャプチャに写さないようにします。自分には見えています。チュートリアルの録画などで写したいときはオフにします。</translation>
+    </message>
+    <message>
+        <source>Where It Was Last</source>
+        <translation>前回の位置</translation>
+    </message>
+    <message>
+        <source>Toolbar Buttons</source>
+        <translation>ツールバーのボタン</translation>
+    </message>
+    <message>
+        <source>Choose and order the buttons of the screen annotation toolbar. Saved at once.</source>
+        <translation>画面注釈ツールバーに表示するボタンと順序を選びます。すぐに保存されます。</translation>
+    </message>
+    <message>
+        <source>Adjust</source>
+        <translation>調整</translation>
+    </message>
+    <message>
+        <source>Cursor Highlight at Start</source>
+        <translation>開始時にカーソルハイライトをオン</translation>
+    </message>
+    <message>
+        <source>Starts with a light around the pointer. The toolbar button turns it on and off during a session, and that choice is kept.</source>
+        <translation>開始時からポインターの周りを光らせます。注釈中はツールバーのボタンでオン・オフでき、その状態は記憶されます。</translation>
+    </message>
+    <message>
+        <source>Highlight Size</source>
+        <translation>ハイライトの大きさ</translation>
+    </message>
+    <message>
+        <source>The size of the light around the pointer and of the click rings.</source>
+        <translation>ポインター周りの光とクリック時の波紋の大きさ。</translation>
+    </message>
+    <message>
+        <source>Click Rings</source>
+        <translation>クリックの波紋</translation>
+    </message>
+    <message>
+        <source>A ring spreads from every click: yellow for the left button, blue for the right.</source>
+        <translation>クリックするたびに波紋が広がります。左ボタンは黄色、右ボタンは青。</translation>
+    </message>
 </context>
 
 <context>
@@ -1719,6 +1843,30 @@ Replace it?</source>
     <message>
         <source>GIF / Video recording</source>
         <translation>GIF / 動画録画</translation>
+    </message>
+    <message>
+        <source>Pass through: the mouse works the windows below (Esc)</source>
+        <translation>透過：マウスで下のウィンドウを操作 (ESC)</translation>
+    </message>
+    <message>
+        <source>Clear all drawings</source>
+        <translation>すべての描画を消去</translation>
+    </message>
+    <message>
+        <source>Hide / show drawings</source>
+        <translation>描画の表示/非表示</translation>
+    </message>
+    <message>
+        <source>Exit screen annotation</source>
+        <translation>画面注釈を終了</translation>
+    </message>
+    <message>
+        <source>Whiteboard: click to cover the screen with white, click again to remove</source>
+        <translation>ホワイトボード：クリックで画面を白で覆い、もう一度クリックで解除</translation>
+    </message>
+    <message>
+        <source>Cursor highlight: a light around the pointer and a ring for every click</source>
+        <translation>カーソルハイライト：ポインターの周りを光らせ、クリックごとに波紋を表示</translation>
     </message>
 </context>
 
@@ -2014,6 +2162,10 @@ Replace it?</source>
     <message><source>Choose folder to save pinned images</source><translation>ピン留め画像の保存先フォルダーを選択</translation></message>
     <message><source>Save Failed</source><translation>保存に失敗しました</translation></message>
     <message><source>Saved {saved} pinned images, failed {failed}.</source><translation>{saved} 個のピン留め画像を保存し、{failed} 個失敗しました。</translation></message>
+    <message>
+        <source>Screen Annotation</source>
+        <translation>画面注釈</translation>
+    </message>
 </context>
 
 <!-- ========== Main App (Tray Menu) ========== -->
@@ -2094,6 +2246,10 @@ Replace it?</source>
 <message>
         <source>Settings could not be saved. Update cancelled.</source>
         <translation>設定を保存できなかったため、更新をキャンセルしました。</translation>
+    </message>
+    <message>
+        <source>Screen Annotation</source>
+        <translation>画面注釈</translation>
     </message>
 </context>
 
@@ -5045,6 +5201,30 @@ Items in the group will be moved back to clipboard history.</source>
     <message>
         <source>Confirm</source>
         <translation>確定</translation>
+    </message>
+    <message>
+        <source>Pass through</source>
+        <translation>透過</translation>
+    </message>
+    <message>
+        <source>Clear all</source>
+        <translation>すべて消去</translation>
+    </message>
+    <message>
+        <source>Hide drawings</source>
+        <translation>描画を隠す</translation>
+    </message>
+    <message>
+        <source>Exit annotation</source>
+        <translation>注釈を終了</translation>
+    </message>
+    <message>
+        <source>Board</source>
+        <translation>ボード</translation>
+    </message>
+    <message>
+        <source>Cursor highlight</source>
+        <translation>カーソルハイライト</translation>
     </message>
 </context>
 <context>

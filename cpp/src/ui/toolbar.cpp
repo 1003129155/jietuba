@@ -295,7 +295,9 @@ void Toolbar::arrange(const QStringList &keys) {
         if (!keys.contains(key)) buttons_[key]->hide();
     int x = drag_handle->width();
     for (const auto &key : keys) {
-        auto *button = buttons_[key];
+        // A subclass's own keys have no button yet while the base constructor arranges.
+        auto *button = buttons_.value(key);
+        if (!button) continue;
         // Just moved back from the "..." popup.
         if (button->parent() != this) button->setParent(this);
         const int width = button_widths_[key];

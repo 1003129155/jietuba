@@ -12,9 +12,10 @@
 namespace jietuba {
 // One event from the hook thread. text: the gesture phase (start/finish/cancel), the side button
 // (x1/x2), the hotkey or watcher name, the "+"-joined modifiers of a captured key, or the failure
-// message; value: the wheel delta or the virtual key; flag: horizontal or pressed.
+// message; value: the wheel delta, the virtual key, or a mouse button (input::Button); flag: horizontal or
+// pressed.
 struct InputHubEvent {
-    enum Kind { Gesture, Moved, Side, Hotkey, Wheel, Key, Foreground, Failure, Captured } kind = Failure;
+    enum Kind { Gesture, Moved, Side, Hotkey, Wheel, Key, Foreground, Failure, Captured, MouseButton, Pointer } kind = Failure;
     QString text;
     quint64 id = 0;
     int x = 0, y = 0, value = 0;
@@ -54,6 +55,11 @@ public:
     virtual void unwatch_wheel(const QString &watcher) = 0;
     virtual void watch_keys(const QString &watcher, const std::vector<quint32> &keys) = 0;
     virtual void unwatch_keys(const QString &watcher) = 0;
+    // Every mouse button press and release that no gesture or side-button hotkey took, with where it
+    // happened; moves are announced once until take_pointer collects the latest position.
+    virtual void watch_mouse(const QString &watcher) = 0;
+    virtual void unwatch_mouse(const QString &watcher) = 0;
+    virtual std::optional<QPoint> take_pointer(const QString &watcher) = 0;
     virtual void watch_foreground(const QString &watcher) = 0;
     virtual void unwatch_foreground(const QString &watcher) = 0;
     // The low-level hooks install on the native thread after a feature asks for them.
@@ -83,6 +89,8 @@ signals:
     void captured(const QStringList &modifiers, int vk);  // a key taken while recording
     void wheel(const QString &watcher, int x, int y, int delta, bool horizontal);  // delta in WHEEL_DELTA multiples
     void key(const QString &watcher, int vk, bool pressed);
+    void mouse_button(const QString &watcher, const QString &button, bool pressed, int x, int y);  // left / middle / right / x1 / x2, physical pixels
+    void pointer_moved(const QString &watcher);  // once until take_pointer collects it
     void foreground(quintptr hwnd);
     void failure(const QString &message);
 private:

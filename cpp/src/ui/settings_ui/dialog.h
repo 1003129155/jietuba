@@ -114,6 +114,10 @@ public:
     void open_welcome_wizard() { emit wizard_requested(); }
     // The pin page's shortcut entries: switch to the keyboard or mouse page and select the pin tab.
     void show_pin_shortcuts(bool mouse = false);
+    // The shortcut page, scrolled to the global hotkey editor attr.
+    void show_hotkey_row(const QString &attr);
+    // The screen annotation page's hotkey summary: the shortcut page's editors when built, else the settings.
+    void refresh_screen_annotation_hotkey();
     void on_nav_changed(int stack_index, const QString &route_key = {});
     void refresh_latest_log_label();
     // Shows the clipboard storage size, now or after delay_ms; skipped until the clipboard page is built.
@@ -152,6 +156,7 @@ private:
     void apply_clipboard_appearance();
     void reset_current_page();
     void reset_pin_page();
+    void reset_screen_annotation_page();
     void reset_mouse_page();
     void reset_hotkey_page();
     void reset_long_screenshot_page();

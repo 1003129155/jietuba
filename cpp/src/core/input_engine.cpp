@@ -161,6 +161,22 @@ Event Event::key(std::string watcher, uint32_t vk, bool pressed) {
     return e;
 }
 
+Event Event::mouse_button(std::string watcher, Button button, bool pressed, int32_t x, int32_t y) {
+    Event e;
+    e.kind = Kind::MouseButton;
+    e.text = std::move(watcher);
+    e.button = button;
+    e.pressed = pressed;
+    e.x = x;
+    e.y = y;
+    return e;
+}
+Event Event::pointer_moved(std::string watcher) {
+    Event e;
+    e.kind = Kind::PointerMoved;
+    e.text = std::move(watcher);
+    return e;
+}
 Event Event::foreground(intptr_t hwnd) {
     Event e;
     e.kind = Kind::Foreground;
@@ -403,11 +419,27 @@ bool Engine::side_mouse(const MouseInput &input, Events &out) {
     return false;
 }
 
-void Engine::observe_mouse(const MouseInput &input, Events &out) const {
-    if (input.action != MouseInput::Action::Wheel) return;
-    for (const auto &[watcher, rect] : wheel_watchers_) {
-        if (!rect || rect->contains(input.x, input.y))
-            out.push_back(Event::wheel(watcher, input.x, input.y, input.delta, input.horizontal));
+void Engine::observe_mouse(const MouseInput &input, Events &out) {
+    switch (input.action) {
+    case MouseInput::Action::Wheel:
+        for (const auto &[watcher, rect] : wheel_watchers_) {
+            if (!rect || rect->contains(input.x, input.y))
+                out.push_back(Event::wheel(watcher, input.x, input.y, input.delta, input.horizontal));
+        }
+        break;
+    case MouseInput::Action::Down:
+    case MouseInput::Action::Up:
+        for (const auto &watcher : mouse_watchers_)
+            out.push_back(Event::mouse_button(watcher.first, input.button, input.action == MouseInput::Action::Down, input.x, input.y));
+        break;
+    case MouseInput::Action::Move:
+        // Moves come by the hundreds a second: a watcher hears of one and then nothing until it collects.
+        for (auto &watcher : mouse_watchers_) {
+            if (watcher.second) continue;
+            watcher.second = true;
+            out.push_back(Event::pointer_moved(watcher.first));
+        }
+        break;
     }
 }
 
@@ -511,6 +543,25 @@ void Engine::unwatch_keys(const std::string &watcher) {
     sync_requested_ = true;
 }
 
+void Engine::watch_mouse(const std::string &watcher) {
+    unwatch_mouse(watcher);
+    mouse_watchers_.emplace_back(watcher, false);
+    sync_requested_ = true;
+}
+void Engine::unwatch_mouse(const std::string &watcher) {
+    mouse_watchers_.erase(std::remove_if(mouse_watchers_.begin(), mouse_watchers_.end(),
+                              [&](const auto &w) { return w.first == watcher; }),
+        mouse_watchers_.end());
+    sync_requested_ = true;
+}
+std::optional<std::pair<int32_t, int32_t>> Engine::take_pointer(const std::string &watcher) {
+    for (auto &w : mouse_watchers_) {
+        if (w.first != watcher || !w.second) continue;
+        w.second = false;
+        return std::make_pair(x_, y_);
+    }
+    return std::nullopt;
+}
 void Engine::watch_foreground(const std::string &watcher) {
     if (std::find(foreground_watchers_.begin(), foreground_watchers_.end(), watcher) == foreground_watchers_.end()) {
         foreground_watchers_.push_back(watcher);
@@ -534,7 +585,7 @@ bool Engine::hooks_needed() const {
     return !closed_
         && (enabled_ || claimed_ != 0 || claimed_escape_ || !pending_menu_keys_.empty() || side_enabled_
             || side_claimed_ != 0 || !hotkeys_.empty() || !hotkey_claimed_.empty() || key_capture_
-            || !capture_claimed_.empty() || !wheel_watchers_.empty() || !key_watchers_.empty());
+            || !capture_claimed_.empty() || !wheel_watchers_.empty() || !key_watchers_.empty() || !mouse_watchers_.empty());
 }
 
 bool Engine::foreground_needed() const { return !closed_ && !foreground_watchers_.empty(); }
@@ -562,6 +613,7 @@ void Engine::close(Events &out) {
     clear_claims();
     wheel_watchers_.clear();
     key_watchers_.clear();
+    mouse_watchers_.clear();
     foreground_watchers_.clear();
     sync_requested_ = true;
 }

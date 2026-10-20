@@ -118,9 +118,6 @@ CanvasView::CanvasView(CanvasScene *scene, QWidget *parent, bool confirm, bool c
     auto *layer_editor = smart_edit_controller->layer_editor.get();
     layer_editor->repaint_requested = [this] { request_handles_repaint(); };
     layer_editor->screen_transform = [this] { return viewportTransform(); };
-    // Handle positions derive from item geometry, so they follow every scene change
-    // rather than relying on each edit path to notify.
-    scene_connections_.push_back(connect(canvas_scene, &QGraphicsScene::changed, this, [this](const QList<QRectF> &) { on_scene_changed_for_handles(); }));
 }
 
 CanvasView::~CanvasView() { cleanup(); }
@@ -137,6 +134,16 @@ ToolController *CanvasView::tool_controller() const { return canvas_scene ? canv
 
 void CanvasView::request_handles_repaint() {
     if (handle_overlay_) handle_overlay_->refresh();
+}
+
+void CanvasView::follow_scene_for_handles(bool follow) {
+    // Handle positions derive from item geometry, so while an item is edited they follow every scene
+    // change rather than relying on each edit path to notify. Only then: with QGraphicsScene::changed
+    // connected Qt repaints the whole bounding rect of every updated item instead of the area it
+    // asked for, so a long stroke would repaint its whole box on each mouse move.
+    if (follow == static_cast<bool>(handles_follow_scene_)) return;
+    if (follow) handles_follow_scene_ = connect(canvas_scene, &QGraphicsScene::changed, this, [this](const QList<QRectF> &) { on_scene_changed_for_handles(); });
+    else disconnect(std::exchange(handles_follow_scene_, {}));
 }
 
 void CanvasView::on_scene_changed_for_handles() {
@@ -234,6 +241,7 @@ void CanvasView::cleanup() {
     is_closed_ = true;
     for (auto &connection : scene_connections_) QObject::disconnect(connection);
     scene_connections_.clear();
+    follow_scene_for_handles(false);
     if (canvas_scene && canvas_scene->tool_controller) canvas_scene->tool_controller->remove_tool_changed_callback(tool_changed_callback_);
     if (smart_edit_controller) {
         if (auto *layer_editor = smart_edit_controller->layer_editor.get()) {
@@ -499,6 +507,7 @@ void CanvasView::on_cross_tool_switch_requested(const QString &tool_id) {
 }
 
 void CanvasView::on_edit_selection_changed(QGraphicsItem *item) {
+    follow_scene_for_handles(item != nullptr);
     if (item) {
         log_debug(T("选中: {item_type}", {{"item_type", item_type_name(item)}}), "SmartEdit");
     } else {

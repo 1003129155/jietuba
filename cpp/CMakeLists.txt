@@ -417,6 +417,21 @@ if(BUILD_TESTING)
             translatingAPinRecognizesThenTranslates)
         set_tests_properties(pin_window_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
     endif()
+    # The offscreen run has two screens and changes them at run time through the offscreen platform's
+    # native interface, a private header.
+    find_package(Qt6 QUIET COMPONENTS GuiPrivate)
+    qt_add_executable(jietuba_screen_annotation_tests tests/test_screen_annotation.cpp)
+    target_link_libraries(jietuba_screen_annotation_tests PRIVATE jietuba_lib Qt6::Test Qt6::GuiPrivate mfplat mfreadwrite mfuuid)
+    # The recording test runs the real MP4 worker, which is the application itself.
+    target_compile_definitions(jietuba_screen_annotation_tests PRIVATE JIETUBA_APP_PATH="$<TARGET_FILE:jietuba_cpp>")
+    add_dependencies(jietuba_screen_annotation_tests jietuba_cpp)
+    add_test(NAME screen_annotation COMMAND jietuba_screen_annotation_tests)
+    set_tests_properties(screen_annotation PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    if(WIN32)
+        # Window styles, focus, hit testing and screen capture of the real layers.
+        add_test(NAME screen_annotation_desktop COMMAND jietuba_screen_annotation_tests -platform windows)
+        set_tests_properties(screen_annotation_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
+    endif()
     qt_add_executable(jietuba_parity_tests tests/test_parity.cpp)
     target_link_libraries(jietuba_parity_tests PRIVATE jietuba_lib Qt6::Test)
     target_compile_definitions(jietuba_parity_tests PRIVATE JIETUBA_FIXTURE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/parity.json")

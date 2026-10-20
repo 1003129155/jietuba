@@ -1,3 +1,5 @@
+#include "annotation/annotation_view.h"
+#include "annotation/screen_annotation.h"
 #include "canvas/scene.h"
 #include "clipboard/core/manager.h"
 #include "clipboard/ui/windows/clipboard_window.h"
@@ -21,6 +23,7 @@
 #include <QDir>
 #include <QFile>
 #include <QDialog>
+#include <QElapsedTimer>
 #include <QLabel>
 #include <QMenu>
 #include <QSettings>
@@ -462,6 +465,51 @@ private slots:
         QVERIFY(text.contains("thrown by a background task"));
     }
 
+    // The screen annotation: its hotkey registers, the tray entry starts and ends it and shows whether it
+    // runs, and a capture sends it back to pass-through under the capture window.
+    void screenAnnotationTogglesAndStepsAsideForACapture() {
+        auto *config = main_app_->config_manager;
+        config->set_global_hotkeys("screen_annotation", {"ctrl+alt+shift+f7", "", "", ""});
+        main_app_->update_hotkey();
+        constexpr int PROBE_ID = 0x6F01;
+        QVERIFY(!RegisterHotKey(nullptr, PROBE_ID, MOD_CONTROL | MOD_ALT | MOD_SHIFT, VK_F7));
+        main_app_->setup_tray();
+        const auto tray_action = [this]() -> QAction * {
+            for (auto *action : main_app_->tray_icon->contextMenu()->actions())
+                if (action->text() == "Screen Annotation") return action;
+            return nullptr;
+        };
+        QVERIFY(tray_action());
+        QVERIFY(!tray_action()->isChecked());
+        QElapsedTimer clock;
+        clock.start();
+        tray_action()->trigger();
+        for (auto *view : main_app_->screen_annotation->views()) view->viewport()->repaint();
+        qInfo("first session on screen after %lld ms", static_cast<long long>(clock.elapsed()));
+        auto *annotation = main_app_->screen_annotation;
+        QVERIFY(annotation && annotation->active());
+        QVERIFY(tray_action()->isChecked());
+        annotation->select_tool("pen");
+        QCOMPARE(annotation->mode(), ScreenAnnotation::Mode::Drawing);
+        main_app_->start_screenshot();
+        QCOMPARE(annotation->mode(), ScreenAnnotation::Mode::PassThrough);
+        QTRY_VERIFY(main_app_->screenshot_window && main_app_->screenshot_window->session_active());
+        const auto centre = QGuiApplication::primaryScreen()->geometry().center();
+        const auto capture_hwnd = reinterpret_cast<HWND>(main_app_->screenshot_window->winId());
+        QTRY_COMPARE(GetAncestor(WindowFromPoint(POINT{centre.x(), centre.y()}), GA_ROOT), capture_hwnd);
+        // No session toggles under an open capture.
+        main_app_->toggle_screen_annotation();
+        QVERIFY(annotation->active());
+        main_app_->screenshot_window->cleanup_and_close();
+        main_app_->toggle_screen_annotation();
+        QVERIFY(!annotation->active());
+        QVERIFY(!tray_action()->isChecked());
+        main_app_->toggle_screen_annotation();
+        QVERIFY(annotation->active());
+        config->set_global_hotkeys("screen_annotation", {"", "", "", ""});
+        main_app_->update_hotkey();
+    }
+
     void quittingClosesEverythingOnce() {
         main_app_->start_screenshot();
         QTRY_VERIFY(main_app_->screenshot_window && main_app_->screenshot_window->session_active());
@@ -475,6 +523,7 @@ private slots:
         QVERIFY(!main_app_->screenshot_window);
         QVERIFY(!main_app_->settings_window);
         QVERIFY(!ShortcutManager::instance()->has_registered_hotkeys());
+        QVERIFY(!main_app_->screen_annotation || !main_app_->screen_annotation->active());
     }
 };
 

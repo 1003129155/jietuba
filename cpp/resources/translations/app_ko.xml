@@ -1494,6 +1494,130 @@ Replace it?</source>
         <source>Manage</source>
         <translation>관리</translation>
     </message>
+    <message>
+        <source>Screen Annotation Hotkey</source>
+        <translation>화면 주석</translation>
+    </message>
+    <message>
+        <source>Keep Screen Annotations</source>
+        <translation>화면 주석 유지</translation>
+    </message>
+    <message>
+        <source>Ending the screen annotation keeps its drawings; they come back the next time it starts.</source>
+        <translation>화면 주석을 끝내도 그린 내용을 남기고 다음에 시작할 때 다시 보여 줍니다.</translation>
+    </message>
+    <message>
+        <source>Screen Annotation</source>
+        <translation>화면 주석</translation>
+    </message>
+    <message>
+        <source>Screen Annotation Settings</source>
+        <translation>화면 주석 설정</translation>
+    </message>
+    <message>
+        <source>Start and End</source>
+        <translation>시작과 종료</translation>
+    </message>
+    <message>
+        <source>Toolbar</source>
+        <translation>도구 모음</translation>
+    </message>
+    <message>
+        <source>Cursor Highlight</source>
+        <translation>커서 강조</translation>
+    </message>
+    <message>
+        <source>Start With</source>
+        <translation>시작 상태</translation>
+    </message>
+    <message>
+        <source>What screen annotation starts with. In pass-through the mouse keeps working the windows below until a tool is picked.</source>
+        <translation>화면 주석을 시작할 때의 상태입니다. 통과 상태에서는 도구를 고를 때까지 마우스로 아래 창을 그대로 조작합니다.</translation>
+    </message>
+    <message>
+        <source>Pass-Through</source>
+        <translation>통과</translation>
+    </message>
+    <message>
+        <source>Last Used Tool</source>
+        <translation>마지막으로 쓴 도구</translation>
+    </message>
+    <message>
+        <source>Global Hotkey</source>
+        <translation>전역 단축키</translation>
+    </message>
+    <message>
+        <source>Not set. Screen annotation also starts from the tray menu.</source>
+        <translation>설정되지 않았습니다. 트레이 메뉴에서도 화면 주석을 시작할 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>Currently %1</source>
+        <translation>현재: %1</translation>
+    </message>
+    <message>
+        <source>Toolbar Position</source>
+        <translation>도구 모음 위치</translation>
+    </message>
+    <message>
+        <source>Where the toolbar appears when screen annotation starts.</source>
+        <translation>화면 주석을 시작할 때 도구 모음이 나타나는 위치입니다.</translation>
+    </message>
+    <message>
+        <source>Bottom Center of the Screen</source>
+        <translation>화면 아래 가운데</translation>
+    </message>
+    <message>
+        <source>Top Center of the Screen</source>
+        <translation>화면 위 가운데</translation>
+    </message>
+    <message>
+        <source>Toolbar Invisible to Screen Capture</source>
+        <translation>도구 모음을 화면 캡처에서 제외</translation>
+    </message>
+    <message>
+        <source>Keeps the toolbar and its panels out of recordings, screenshots, screen sharing, remote desktop and other screen capture; you still see them. Turn off to let them be captured, for example when recording a tutorial.</source>
+        <translation>도구 모음과 패널이 녹화, 스크린샷, 화면 공유, 원격 화면 등에 캡처되지 않게 합니다. 본인에게는 보입니다. 튜토리얼 녹화처럼 찍혀야 하면 끄세요.</translation>
+    </message>
+    <message>
+        <source>Where It Was Last</source>
+        <translation>마지막 위치</translation>
+    </message>
+    <message>
+        <source>Toolbar Buttons</source>
+        <translation>도구 모음 버튼</translation>
+    </message>
+    <message>
+        <source>Choose and order the buttons of the screen annotation toolbar. Saved at once.</source>
+        <translation>화면 주석 도구 모음에 표시할 버튼과 순서를 고릅니다. 바로 저장됩니다.</translation>
+    </message>
+    <message>
+        <source>Adjust</source>
+        <translation>조정</translation>
+    </message>
+    <message>
+        <source>Cursor Highlight at Start</source>
+        <translation>시작할 때 커서 강조 켜기</translation>
+    </message>
+    <message>
+        <source>Starts with a light around the pointer. The toolbar button turns it on and off during a session, and that choice is kept.</source>
+        <translation>시작할 때부터 포인터 주위에 빛을 표시합니다. 주석 중에는 도구 모음 버튼으로 켜고 끌 수 있으며 그 상태가 기억됩니다.</translation>
+    </message>
+    <message>
+        <source>Highlight Size</source>
+        <translation>강조 크기</translation>
+    </message>
+    <message>
+        <source>The size of the light around the pointer and of the click rings.</source>
+        <translation>포인터 주위 빛과 클릭 물결의 크기입니다.</translation>
+    </message>
+    <message>
+        <source>Click Rings</source>
+        <translation>클릭 물결</translation>
+    </message>
+    <message>
+        <source>A ring spreads from every click: yellow for the left button, blue for the right.</source>
+        <translation>클릭할 때마다 물결이 퍼집니다. 왼쪽 버튼은 노란색, 오른쪽 버튼은 파란색입니다.</translation>
+    </message>
 </context>
 
 <context>
@@ -1706,6 +1830,30 @@ Replace it?</source>
     <message>
         <source>GIF / Video recording</source>
         <translation>GIF / 동영상 녹화</translation>
+    </message>
+    <message>
+        <source>Pass through: the mouse works the windows below (Esc)</source>
+        <translation>통과: 마우스로 아래 창 조작 (ESC)</translation>
+    </message>
+    <message>
+        <source>Clear all drawings</source>
+        <translation>모든 그리기 지우기</translation>
+    </message>
+    <message>
+        <source>Hide / show drawings</source>
+        <translation>그리기 숨기기/표시</translation>
+    </message>
+    <message>
+        <source>Exit screen annotation</source>
+        <translation>화면 주석 종료</translation>
+    </message>
+    <message>
+        <source>Whiteboard: click to cover the screen with white, click again to remove</source>
+        <translation>화이트보드: 클릭하면 화면을 흰색으로 덮고, 다시 클릭하면 해제</translation>
+    </message>
+    <message>
+        <source>Cursor highlight: a light around the pointer and a ring for every click</source>
+        <translation>커서 강조: 포인터 주위에 빛을 비추고 클릭마다 물결을 표시</translation>
     </message>
 </context>
 
@@ -2001,6 +2149,10 @@ Replace it?</source>
     <message><source>Choose folder to save pinned images</source><translation>고정 이미지를 저장할 폴더 선택</translation></message>
     <message><source>Save Failed</source><translation>저장 실패</translation></message>
     <message><source>Saved {saved} pinned images, failed {failed}.</source><translation>고정 이미지 {saved}개 저장, {failed}개 실패.</translation></message>
+    <message>
+        <source>Screen Annotation</source>
+        <translation>화면 주석</translation>
+    </message>
 </context>
 
 <!-- ========== Main App (Tray Menu) ========== -->
@@ -2081,6 +2233,10 @@ Replace it?</source>
 <message>
         <source>Settings could not be saved. Update cancelled.</source>
         <translation>설정을 저장할 수 없어 업데이트를 취소했습니다.</translation>
+    </message>
+    <message>
+        <source>Screen Annotation</source>
+        <translation>화면 주석</translation>
     </message>
 </context>
 
@@ -5004,6 +5160,30 @@ Items in the group will be moved back to clipboard history.</source>
     <message>
         <source>Confirm</source>
         <translation>확인</translation>
+    </message>
+    <message>
+        <source>Pass through</source>
+        <translation>통과</translation>
+    </message>
+    <message>
+        <source>Clear all</source>
+        <translation>모두 지우기</translation>
+    </message>
+    <message>
+        <source>Hide drawings</source>
+        <translation>그리기 숨기기</translation>
+    </message>
+    <message>
+        <source>Exit annotation</source>
+        <translation>주석 종료</translation>
+    </message>
+    <message>
+        <source>Board</source>
+        <translation>보드</translation>
+    </message>
+    <message>
+        <source>Cursor highlight</source>
+        <translation>커서 강조</translation>
     </message>
 </context>
 <context>

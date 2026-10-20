@@ -67,6 +67,7 @@ QWidget *(*const PAGE_BUILDERS[])(SettingsDialog *) = {
     create_quick_actions_page,  // 9
     create_mouse_page,          // 10
     create_pin_page,            // 11
+    create_screen_annotation_page,  // 12
 };
 constexpr int PAGE_COUNT = static_cast<int>(std::size(PAGE_BUILDERS));
 
@@ -316,6 +317,7 @@ NavigationInterface *SettingsDialog::create_navigation(QWidget *parent) {
         {"quick_actions", FluentIcon::StopWatch, "Quick Actions", 9, NavigationItemPosition::TOP},
         {"capture", FluentIcon::Camera, "Capture Settings", 1, NavigationItemPosition::TOP},
         {"pin", FluentIcon::Pin, "Pin", 11, NavigationItemPosition::TOP},
+        {"screen_annotation", ResourceManager::get_icon_path(QString::fromUtf8("画笔.svg")), "Screen Annotation", 12, NavigationItemPosition::TOP},
         {"clipboard", FluentIcon::Paste, "Clipboard", 2, NavigationItemPosition::TOP},
         {"translation", FluentIcon::Language, "Translation", 4, NavigationItemPosition::TOP},
         {"appearance", FluentIcon::Brush, "Appearance", 3, NavigationItemPosition::TOP},
@@ -325,7 +327,7 @@ NavigationInterface *SettingsDialog::create_navigation(QWidget *parent) {
     };
     // Input methods / features / the application itself, with a thin line between groups.
     const QSet<QString> group_starts{"capture", "appearance"};
-    const QMap<QString, QString> feature_tones{{"capture", "capture"}, {"pin", "pin"}, {"clipboard", "clipboard"}, {"translation", "translate"}};
+    const QMap<QString, QString> feature_tones{{"capture", "capture"}, {"pin", "pin"}, {"screen_annotation", "capture"}, {"clipboard", "clipboard"}, {"translation", "translate"}};
     for (const auto &item : items) {
         if (group_starts.contains(item.route_key)) nav->addSeparator();
         const int stack_index = item.stack_index;
@@ -372,10 +374,12 @@ void SettingsDialog::on_nav_changed(int stack_index, const QString &route_key) {
     static const QMap<int, const char *> title_map{
         {0, "Shortcut Settings"}, {1, "Capture Settings"}, {2, "Clipboard Settings"}, {3, "Appearance Settings"},
         {4, "Translation Settings"}, {5, "Log Settings"}, {6, "Other Settings"}, {8, "Software Information"},
-        {9, "Quick Actions"}, {10, "Mouse Shortcuts"}, {11, "Pin Settings"},
+        {9, "Quick Actions"}, {10, "Mouse Shortcuts"}, {11, "Pin Settings"}, {12, "Screen Annotation Settings"},
     };
     if (!title_map.contains(stack_index)) return;
     ensure_page(stack_index);
+    // The hotkey may have been edited on the shortcut page since.
+    if (stack_index == 12) refresh_screen_annotation_hotkey();
     content_title_->setText(tr_text(title_map.value(stack_index)));
     content_stack->setCurrentIndex(stack_index);
     if (!route_key.isEmpty()) set_current_nav(route_key);
@@ -600,6 +604,7 @@ void SettingsDialog::reset_current_page() {
     case 9: reset_quick_actions_page(); break;
     case 10: reset_mouse_page(); break;
     case 11: reset_pin_page(); break;
+    case 12: reset_screen_annotation_page(); break;
     default: break;
     }
 }
@@ -625,6 +630,43 @@ void SettingsDialog::show_pin_shortcuts(bool mouse) {
                 guarded_scroll->verticalScrollBar()->setValue(guarded_tabs->mapTo(guarded_scroll->widget(), QPoint(0, 0)).y() - dialog_scaled(60));
         });
     }
+}
+
+void SettingsDialog::reset_screen_annotation_page() { refresh_behavior_controls(true, {}, SCREEN_ANNOTATION_BEHAVIOR_KEYS); }
+
+void SettingsDialog::show_hotkey_row(const QString &attr) {
+    on_nav_changed(0, "shortcuts");
+    auto *scroll = qobject_cast<QScrollArea *>(content_stack->currentWidget());
+    QPointer<QWidget> edit(attr_widget(attr));
+    if (!scroll || !edit) return;
+    // The page may be new; scroll after layout.
+    QPointer<QScrollArea> guarded_scroll(scroll);
+    QTimer::singleShot(0, this, [guarded_scroll, edit] {
+        if (guarded_scroll && edit) guarded_scroll->ensureWidgetVisible(edit, 0, dialog_scaled(80));
+    });
+}
+
+void SettingsDialog::refresh_screen_annotation_hotkey() {
+    auto *card = attr<SettingCard>("screen_annotation_hotkey_card");
+    if (!card) return;
+    QStringList values;
+    bool editors = false;
+    for (const auto &name : global_hotkey_edit_attrs("screen_annotation_hotkey_edit")) {
+        auto *edit = attr<HotkeyEdit>(name);
+        if (!edit) continue;
+        editors = true;
+        values.append(edit->text().trimmed());
+    }
+    if (!editors) values = config_manager->get_global_hotkeys("screen_annotation");
+    QStringList shown;
+    for (const auto &value : values) {
+        if (value.isEmpty()) continue;
+        QStringList keys = value.split('+');
+        for (auto &key : keys) key = key.left(1).toUpper() + key.mid(1);
+        shown.append(keys.join(" + "));
+    }
+    card->setContent(shown.isEmpty() ? tr_text("Not set. Screen annotation also starts from the tray menu.")
+                                     : tr_text("Currently %1").arg(shown.join(QString::fromUtf8("  /  "))));
 }
 
 void SettingsDialog::reset_mouse_page() {
@@ -1154,6 +1196,7 @@ void SettingsDialog::refresh_settings() {
     import_unsaved_ = false;
     imported_toolbar_layouts_.clear();
     refresh_behavior_controls();
+    refresh_screen_annotation_hotkey();
     for (const auto &[function, edits] : global_hotkey_edit_rows(this)) {
         if (std::all_of(edits.begin(), edits.end(), [](HotkeyEdit *edit) { return !edit; })) continue;
         const auto values = config_manager->get_global_hotkeys(function);

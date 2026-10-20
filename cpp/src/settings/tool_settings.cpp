@@ -190,6 +190,7 @@ const std::vector<GlobalHotkeyFunction> &GLOBAL_HOTKEY_FUNCTIONS() {
         {"clipboard", "clipboard_hotkey", "clipboard/hotkey"},
         {"pin_clipboard", "pin_clipboard_hotkey", "clipboard/pin_hotkey"},
         {"translation", "translation_hotkey", "app/translation_hotkey"},
+        {"screen_annotation", "screen_annotation_hotkey", "app/screen_annotation_hotkey"},
     };
     return functions;
 }
