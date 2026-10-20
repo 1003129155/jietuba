@@ -170,7 +170,8 @@ private:
     void open_developer_page();
     // Clears the translucent backing store before painting a new page.
     void refresh_after_page_change();
-    QLayout *create_button_area();
+    // The page title with the page's reset button on its right.
+    QLayout *create_title_row();
     // Schedules a save on edits made anywhere in the page.
     void connect_save_tracking(QWidget *page);
     // Writes the controls named in changed and applies their effects.
@@ -227,6 +228,6 @@ private:
     NavigationInterface *nav_list_ = nullptr;
     QWidget *right_area_ = nullptr;
     QLabel *content_title_ = nullptr;
-    QPushButton *footer_reset_btn_ = nullptr;
+    QPushButton *page_reset_btn_ = nullptr;
 };
 }

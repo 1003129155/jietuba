@@ -333,7 +333,6 @@ void ColorSlider::set_and_emit(double value) {
 ColorPickerDialog::ColorPickerDialog(const QColor &initial, Options options, QWidget *parent)
     : FrostedFramelessDialog(parent), show_alpha_(options.testFlag(ShowAlphaChannel)) {
     scale_dialog_font(*this);
-    frosted_corner_radius_ = dialog_scaled(8);
     // exec() would make it application-modal and block the eyedropper window.
     setWindowModality(Qt::WindowModal);
     caption_bar_ = new FluentTitleBar(this);

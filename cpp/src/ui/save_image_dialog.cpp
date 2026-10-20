@@ -607,7 +607,6 @@ void SavePreviewView::mouseDoubleClickEvent(QMouseEvent *) { fit(); }
 SaveImageDialog::SaveImageDialog(const QImage &image, const QString &base_name, ToolSettingsManager *config, QWidget *parent)
     : FrostedFramelessDialog(parent), image_(image), config_(config ? config : get_tool_settings_manager()), size_(image.size()) {
     scale_dialog_font(*this);
-    frosted_corner_radius_ = dialog_scaled(12);
     auto *title_bar = new FluentTitleBar(this);
     configure_dialog_control(*title_bar);
     setTitleBar(title_bar);

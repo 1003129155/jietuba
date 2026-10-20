@@ -2126,6 +2126,10 @@ Replace it?</source>
         <translation>玩游戏时暂停热键</translation>
     </message>
     <message>
+        <source>Monitor Clipboard</source>
+        <translation>监听剪贴板</translation>
+    </message>
+    <message>
         <source>Settings</source>
         <translation>设置</translation>
     </message>
@@ -3606,10 +3610,6 @@ Items in the group will be moved back to clipboard history.</source>
     <message>
         <source>Search title or content</source>
         <translation>搜索标题或内容</translation>
-    </message>
-    <message>
-        <source>Recommended</source>
-        <translation>推荐</translation>
     </message>
     <message>
         <source>Save the new group first, then add content to it</source>

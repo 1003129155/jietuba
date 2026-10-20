@@ -2125,6 +2125,10 @@ Replace it?</source>
         <translation>ゲーム中はホットキーを停止</translation>
     </message>
     <message>
+        <source>Monitor Clipboard</source>
+        <translation>クリップボードを監視</translation>
+    </message>
+    <message>
         <source>Settings</source>
         <translation>設定</translation>
     </message>
@@ -3567,10 +3571,6 @@ Items in the group will be moved back to clipboard history.</source>
     <message>
         <source>Search title or content</source>
         <translation>タイトルや内容を検索</translation>
-    </message>
-    <message>
-        <source>Recommended</source>
-        <translation>おすすめ</translation>
     </message>
     <message>
         <source>Save the new group first, then add content to it</source>

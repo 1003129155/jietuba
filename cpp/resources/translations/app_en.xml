@@ -1997,6 +1997,10 @@ Replace it?</translation>
         <translation>Pause Hotkeys While Gaming</translation>
     </message>
     <message>
+        <source>Monitor Clipboard</source>
+        <translation>Monitor Clipboard</translation>
+    </message>
+    <message>
         <source>Settings</source>
         <translation>Settings</translation>
     </message>
@@ -3375,10 +3379,6 @@ Items in the group will be moved back to clipboard history.</translation>
     <message>
         <source>Search title or content</source>
         <translation>Search title or content</translation>
-    </message>
-    <message>
-        <source>Recommended</source>
-        <translation>Recommended</translation>
     </message>
     <message>
         <source>Save the new group first, then add content to it</source>

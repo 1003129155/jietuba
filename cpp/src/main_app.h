@@ -62,6 +62,9 @@ public:
     void open_settings();
     void open_translator();
     void open_clipboard_window();
+    // The tray switch: saves the setting and starts or stops the watcher. The hotkey and the recorded
+    // history stay available.
+    void set_clipboard_enabled(bool enabled);
     // Starts or stops the clipboard watcher to match the setting; whether that state was reached.
     // The manager stays once created, so enabling again only restarts its watcher.
     bool set_clipboard_monitoring_enabled(bool enabled);

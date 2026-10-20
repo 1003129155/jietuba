@@ -80,13 +80,17 @@ OptionCard::OptionCard(const QString &title, const QString &description, const Q
     connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { update(); });
 }
 
-int OptionCard::card_height() const { return dialog_scaled(kind_.isEmpty() ? 58 : 86); }
+int OptionCard::card_height() const { return dialog_scaled(58); }
 
 QSize OptionCard::sizeHint() const { return QSize(dialog_scaled(150), card_height()); }
 
 QSize OptionCard::minimumSizeHint() const { return QSize(dialog_scaled(96), card_height()); }
 
 namespace {
+// The type icon sits left of the text, so a card with one is no taller than one without.
+constexpr int KIND_TILE_SIZE = 30;
+constexpr int KIND_TILE_GAP = 10;
+
 QFont title_font_of(const QFont &base) {
     QFont font(base);
     font.setPixelSize(dialog_scaled(13));
@@ -104,7 +108,8 @@ QFont description_font_of(const QFont &base) {
 int OptionCard::required_width() const {
     const int text = std::max(QFontMetrics(title_font_of(font())).horizontalAdvance(title_),
                               QFontMetrics(description_font_of(font())).horizontalAdvance(description_));
-    return text + 2 * dialog_scaled(12) + 2;
+    const int tile = kind_.isEmpty() ? 0 : dialog_scaled(KIND_TILE_SIZE + KIND_TILE_GAP);
+    return text + tile + 2 * dialog_scaled(12) + 2;
 }
 
 void OptionCard::paintEvent(QPaintEvent *) {
@@ -137,27 +142,26 @@ void OptionCard::paintEvent(QPaintEvent *) {
     const QFont description_font = description_font_of(font());
     const int pad_x = dialog_scaled(12);
     const QRectF inner = rect.adjusted(pad_x, dialog_scaled(10), -pad_x, -dialog_scaled(10));
-    const int text_w = static_cast<int>(inner.width());
-    QRectF title_rect, description_rect;
+    QRectF text_area = inner;
     QColor title_color;
     if (has_kind) {
-        const int tile_size = dialog_scaled(26);
-        const QRectF tile(inner.left(), inner.top(), tile_size, tile_size);
+        const int tile_size = dialog_scaled(KIND_TILE_SIZE);
+        const QRectF tile(inner.left(), inner.center().y() - tile_size / 2.0, tile_size, tile_size);
         painter.setPen(Qt::NoPen);
         painter.setBrush(enabled ? kind_tint(kind_, checked ? 0.24 : 0.14, tokens) : css_color(tokens.border));
         painter.drawRoundedRect(tile, dialog_scaled(8), dialog_scaled(8));
         const int icon_size = dialog_scaled(15);
         const QRectF icon_rect(tile.center().x() - icon_size / 2.0, tile.center().y() - icon_size / 2.0, icon_size, icon_size);
         paint_kind_icon(&painter, icon_rect, kind_, enabled ? kind_color(kind_) : QColor(tokens.text_disabled));
-        title_rect = QRectF(inner.left(), tile.bottom() + dialog_scaled(8), text_w, dialog_scaled(18));
-        description_rect = QRectF(inner.left(), title_rect.bottom(), text_w, dialog_scaled(16));
+        text_area.setLeft(tile.right() + dialog_scaled(KIND_TILE_GAP));
         title_color = checked ? kind_text_color(kind_, tokens) : css_color(tokens.text);
     } else {
-        const double half = inner.height() / 2;
-        title_rect = QRectF(inner.left(), inner.top(), text_w, half);
-        description_rect = QRectF(inner.left(), inner.top() + half, text_w, half);
         title_color = css_color(checked ? tokens.accent_text : tokens.text);
     }
+    const int text_w = static_cast<int>(text_area.width());
+    const double half = text_area.height() / 2;
+    const QRectF title_rect(text_area.left(), text_area.top(), text_w, half);
+    const QRectF description_rect(text_area.left(), text_area.top() + half, text_w, half);
     painter.setFont(title_font);
     painter.setPen(enabled ? title_color : css_color(tokens.text_disabled));
     painter.drawText(title_rect, Qt::AlignLeft | Qt::AlignVCenter, QFontMetrics(title_font).elidedText(title_, Qt::ElideRight, text_w));

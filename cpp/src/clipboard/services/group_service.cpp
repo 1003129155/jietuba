@@ -54,26 +54,6 @@ QString get_default_group_icon(int group_type, const std::optional<FilterRule> &
     return GENERAL_GROUP_ICON();
 }
 
-QStringList get_recommended_group_icons(int group_type, const std::optional<FilterRule> &filter_rule) {
-    // Keyed by GroupType value, then for filter groups by the kind they show: 3 text, 4 image, 5 file.
-    static const QHash<int, QStringList> icons = {
-        {0, {QString::fromUtf8("📁"), QString::fromUtf8("📌"), QString::fromUtf8("⭐"), QString::fromUtf8("📝"), QString::fromUtf8("💼"), QString::fromUtf8("🏠"), QString::fromUtf8("🎯"), QString::fromUtf8("🔖")}},
-        {1, {QString::fromUtf8("⚡"), QString::fromUtf8("🚀"), QString::fromUtf8("🎮"), QString::fromUtf8("💻"), QString::fromUtf8("🎧"), QString::fromUtf8("🧰"), QString::fromUtf8("🌐"), QString::fromUtf8("📂")}},
-        {2, {QString::fromUtf8("🙈"), QString::fromUtf8("🔒"), QString::fromUtf8("🕶️"), QString::fromUtf8("🤫"), QString::fromUtf8("🗝️"), QString::fromUtf8("🛡️"), QString::fromUtf8("👻"), QString::fromUtf8("🌙")}},
-        {3, {QString::fromUtf8("📝"), QString::fromUtf8("📄"), QString::fromUtf8("🔗"), QString::fromUtf8("🧾"), QString::fromUtf8("🔖"), QString::fromUtf8("💬"), QString::fromUtf8("✏️"), QString::fromUtf8("📋")}},
-        {4, {QString::fromUtf8("🖼️"), QString::fromUtf8("📷"), QString::fromUtf8("🎨"), QString::fromUtf8("📸"), QString::fromUtf8("🌄"), QString::fromUtf8("🖌️"), QString::fromUtf8("🧩"), QString::fromUtf8("🎞️")}},
-        {5, {QString::fromUtf8("📄"), QString::fromUtf8("📎"), QString::fromUtf8("🗂️"), QString::fromUtf8("📦"), QString::fromUtf8("📑"), QString::fromUtf8("🗃️"), QString::fromUtf8("💾"), QString::fromUtf8("📂")}},
-    };
-    if (group_type != GroupType::FILTER) return icons.value(group_type, icons.value(0));
-    const auto kind = filter_rule ? filter_rule->kind.value_or(QString()) : QString();
-    QStringList list = icons.value(kind == "image" ? 4 : kind == "file" ? 5 : 3);
-    // The default comes first, as for the other types.
-    const QString first = filter_group_icon(filter_rule);
-    list.removeAll(first);
-    list.prepend(first);
-    return list.mid(0, icons.value(3).size());
-}
-
 QString get_group_display_icon(const std::optional<QString> &custom_icon, int group_type, const std::optional<FilterRule> &filter_rule) {
     if (custom_icon && !custom_icon->isEmpty()) return *custom_icon;
     return get_default_group_icon(group_type, filter_rule);

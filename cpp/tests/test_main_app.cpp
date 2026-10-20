@@ -382,6 +382,73 @@ private slots:
         main_app_->update_hotkey();
     }
 
+    // The tray lists a function's first hotkey beside its name and follows what the settings save.
+    void theTrayShowsEachFunctionsHotkeyBesideItsName() {
+        auto *config = main_app_->config_manager;
+        const auto screenshot = config->get_global_hotkeys("screenshot");
+        const auto translation = config->get_global_hotkeys("translation");
+        const auto entry = [this](const QString &name) {
+            for (const auto &text : action_texts(main_app_->tray_icon->contextMenu()))
+                if (text.section('\t', 0, 0) == name) return text;
+            return QString();
+        };
+        config->set_global_hotkeys("screenshot", {"", "ctrl+alt+shift+f12", "ctrl+alt+shift+f11", ""});
+        config->set_global_hotkeys("translation", {"", "", "", ""});
+        main_app_->update_hotkey();
+        QCOMPARE(entry("Screenshot"), QString("Screenshot\tCtrl+Alt+Shift+F12"));
+        QCOMPARE(entry("Translation"), QString("Translation"));
+        config->set_global_hotkeys("translation", {"ctrl+alt+shift+f10", "", "", ""});
+        main_app_->update_hotkey();
+        QCOMPARE(entry("Translation"), QString("Translation\tCtrl+Alt+Shift+F10"));
+        config->set_global_hotkeys("screenshot", screenshot);
+        config->set_global_hotkeys("translation", translation);
+        main_app_->update_hotkey();
+    }
+
+    // Rebuilding the menu takes its entries along: none stay behind.
+    void rebuildingTheTrayMenuLeavesNoActionsBehind() {
+        main_app_->setup_tray();
+        QPointer<QMenu> menu = main_app_->tray_icon->contextMenu();
+        QPointer<QAction> first = menu->actions().first();
+        main_app_->update_hotkey();
+        QVERIFY(main_app_->tray_icon->contextMenu() != menu);
+        QTRY_VERIFY(!menu);
+        QVERIFY(!first);
+    }
+
+    // The tray's clipboard switch stops the recording only: the hotkey and the history stay usable.
+    void turningClipboardMonitoringOffFromTheTrayKeepsTheHotkey() {
+        auto *config = main_app_->config_manager;
+        const auto saved = config->get_global_hotkeys("clipboard");
+        config->set_global_hotkeys("clipboard", {"ctrl+alt+shift+f14", "", "", ""});
+        main_app_->update_hotkey();
+        main_app_->setup_tray();
+        const auto monitor_action = [this]() -> QAction * {
+            for (auto *action : main_app_->tray_icon->contextMenu()->actions())
+                if (action->text() == "Monitor Clipboard") return action;
+            return nullptr;
+        };
+        QVERIFY(monitor_action());
+        QVERIFY(monitor_action()->isChecked());
+        QVERIFY(!system_can_register(MOD_CONTROL | MOD_ALT | MOD_SHIFT, VK_F14));
+        monitor_action()->trigger();
+        QVERIFY(!config->get_clipboard_enabled());
+        QVERIFY(!main_app_->clipboard_manager->is_monitoring());
+        // Registered again with monitoring off, as at the next start.
+        main_app_->update_hotkey();
+        QVERIFY(!system_can_register(MOD_CONTROL | MOD_ALT | MOD_SHIFT, VK_F14));
+        QVERIFY(!monitor_action()->isChecked());
+        main_app_->open_clipboard_window();
+        QTRY_VERIFY(main_app_->clipboard_window && main_app_->clipboard_window->isVisible());
+        main_app_->open_clipboard_window();
+        QVERIFY(!main_app_->clipboard_window->isVisible());
+        monitor_action()->trigger();
+        QVERIFY(config->get_clipboard_enabled());
+        QVERIFY(main_app_->clipboard_manager->is_monitoring());
+        config->set_global_hotkeys("clipboard", saved);
+        main_app_->update_hotkey();
+    }
+
     // A tray click captures; repeats while it is queued or while a dialog is open start nothing more.
     void theTrayStartsOneCaptureAtATime() {
         main_app_->setup_tray();
@@ -476,7 +543,7 @@ private slots:
         main_app_->setup_tray();
         const auto tray_action = [this]() -> QAction * {
             for (auto *action : main_app_->tray_icon->contextMenu()->actions())
-                if (action->text() == "Screen Annotation") return action;
+                if (action->text().section('\t', 0, 0) == "Screen Annotation") return action;
             return nullptr;
         };
         QVERIFY(tray_action());

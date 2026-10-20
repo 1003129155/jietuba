@@ -913,52 +913,27 @@ private slots:
         }
     }
 
-    void recommendedIconsAndPreviewFollowTheGroupType() {
+    void iconPreviewFollowsTheGroupType() {
         auto *dialog = open_dialog();
         dialog->new_group_btn->click();
-        const auto recommended = [dialog] {
-            QStringList icons;
-            for (auto *button : dialog->recommended_row->findChildren<QPushButton *>()) icons << button->text();
-            return icons;
-        };
         auto *preview = qobject_cast<IconPreview *>(dialog->icon_preview.data());
         QVERIFY(preview);
-        QCOMPARE(recommended(), get_recommended_group_icons(static_cast<int>(GroupType::NORMAL)));
         QCOMPARE(preview->kind(), KIND_NORMAL());
-
         dialog->radio_file->setChecked(true);
-        QCOMPARE(recommended(), get_recommended_group_icons(static_cast<int>(GroupType::FILE)));
         QCOMPARE(preview->kind(), KIND_FILE());
-
         dialog->radio_filter->setChecked(true);
-        choose(dialog->filter_kind_combo, "file");
-        QCOMPARE(recommended(), get_recommended_group_icons(static_cast<int>(GroupType::FILTER), FilterRule::of_kind("file")));
         QCOMPARE(preview->kind(), KIND_FILTER());
-
-        dialog->recommended_row->findChildren<QPushButton *>()[1]->click();
-        QCOMPARE(dialog->icon_input->text(), get_recommended_group_icons(static_cast<int>(GroupType::FILTER), FilterRule::of_kind("file"))[1]);
-        QCOMPARE(dialog->icon_preview->text(), dialog->icon_input->text());
     }
 
-    void recommendedIconsHideInsteadOfOverflowing() {
+    void emojiInputSharesTheCategoryRow() {
         auto *dialog = open_dialog();
         dialog->new_group_btn->click();
-        auto *row = dialog->recommended_row.data();
-        const auto buttons = row->findChildren<QPushButton *>();
-        QVERIFY(!buttons.isEmpty());
-
-        row->setFixedWidth(10000);
         QApplication::processEvents();
-        for (auto *button : buttons) QVERIFY(button->isVisibleTo(row));
-        row->setFixedWidth(buttons.first()->width() * 3);
-        QApplication::processEvents();
-        int visible = 0;
-        for (auto *button : buttons) {
-            if (!button->isVisibleTo(row)) continue;
-            ++visible;
-            QVERIFY(button->geometry().right() <= row->width());
-        }
-        QVERIFY(visible > 0 && visible < buttons.size());
+        const auto *tab = dialog->emoji_tab_buttons.first();
+        const int tab_center = tab->mapTo(dialog, tab->rect().center()).y();
+        const int input_center = dialog->icon_input->mapTo(dialog, dialog->icon_input->rect().center()).y();
+        QVERIFY(std::abs(tab_center - input_center) <= tab->height() / 2);
+        QVERIFY(dialog->icon_input->mapTo(dialog, QPoint()).x() > dialog->emoji_tab_buttons.last()->mapTo(dialog, QPoint()).x());
     }
 
     void groupRowsCarryTheGroupKindAndTheNewGroupButtonIsAnAddRow() {

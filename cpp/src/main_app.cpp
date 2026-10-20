@@ -261,7 +261,8 @@ void MainApp::update_hotkey(bool show_error) {
         // A selection opens the compact popup, otherwise the input window.
         {"translation", tr_text("Translation"), smart_translation_controller->hotkey()},
     };
-    if (config_manager->get_clipboard_enabled()) functions.emplace_back("clipboard", tr_text("Clipboard"), [this] { open_clipboard_window(); });
+    // Also with monitoring off: the window still shows the history already recorded.
+    functions.emplace_back("clipboard", tr_text("Clipboard"), [this] { open_clipboard_window(); });
     // Pinning prefers the system clipboard's image, so it is useful with history turned off.
     functions.emplace_back("pin_clipboard", tr_text("Pin Clipboard Image"), [this] { pin_clipboard_image(); });
     functions.emplace_back("screen_annotation", tr_text("Screen Annotation"), [this] { toggle_screen_annotation(); });
@@ -284,6 +285,8 @@ void MainApp::update_hotkey(bool show_error) {
     }
 
     quick_capture->refresh();
+    // The tray shows each function's hotkey.
+    update_tray_menu();
     if (show_error && !failed_hotkeys.empty()) show_hotkey_error(failed_hotkeys);
 }
 
@@ -303,6 +306,11 @@ void MainApp::set_pause_hotkeys_in_games(bool enabled) {
     log_info(enabled ? T("已开启玩游戏时暂停热键") : T("已关闭玩游戏时暂停热键"), "Hotkey");
     if (enabled) game_mode_monitor->start();
     else game_mode_monitor->stop();
+}
+
+void MainApp::set_clipboard_enabled(bool enabled) {
+    config_manager->set_clipboard_enabled(enabled);
+    set_clipboard_monitoring_enabled(enabled);
 }
 
 void MainApp::on_game_mode_changed(bool active) {

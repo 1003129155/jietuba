@@ -108,7 +108,6 @@ public:
     QPointer<ComboBox> filter_app_combo;
     QPointer<QButtonGroup> group_type_btn_group;
     QPointer<QScrollArea> emoji_scroll;
-    QPointer<QWidget> recommended_row;
     QPointer<ImagePreview> image_preview;
     QPointer<SegmentedWidget> content_kind_switch;
     QPointer<ImageDropZone> image_drop_zone;

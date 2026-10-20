@@ -1047,6 +1047,9 @@ private slots:
         for (auto *button : dialog.findChildren<QPushButton *>())
             if (button->text() == settings_tr("Reset This Page")) reset = button;
         QVERIFY(reset);
+        // The information page has nothing to reset, so the button leaves the title row there.
+        dialog.on_nav_changed(8, "about");
+        QVERIFY(reset->isHidden());
         const auto &defaults = config_->app_defaults();
         dialog.on_nav_changed(0, "shortcuts");
         auto *hotkey = dialog.attr<HotkeyEdit>("hotkey_input");

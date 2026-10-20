@@ -15,7 +15,6 @@
 #include <QHBoxLayout>
 #include <QLayout>
 #include <QPushButton>
-#include <QResizeEvent>
 #include <QScrollArea>
 #include <QTextBoundaryFinder>
 #include <QTimer>
@@ -128,24 +127,14 @@ private:
 }
 
 void create_group_icon_picker(ManageDialog *dialog, const QString &current_icon) {
-    // Recommended icons, manual input, category tabs and the scrolling grid share one card; the preview tile is in
-    // the name row (group_form builds it).
+    // Category tabs, manual input and the scrolling grid share one card; the preview tile is in the name row
+    // (group_form builds it).
     const int form_token = dialog->detail_form_token;
     auto *panel = new QFrame;
     panel->setObjectName("ManageSectionCard");
     auto *panel_layout = new QVBoxLayout(panel);
     panel_layout->setContentsMargins(scale_ui(12), scale_ui(8), scale_ui(12), scale_ui(6));
     panel_layout->setSpacing(scale_ui(6));
-
-    auto *top_row = new QHBoxLayout;
-    top_row->setSpacing(scale_ui(2));
-    auto *caption = new QLabel(ManageDialog::tr_text("Recommended"));
-    apply_theme_text_style(caption, 12, false, {}, true);
-    top_row->addWidget(caption);
-    top_row->addSpacing(scale_ui(6));
-    auto *recommended = new RecommendedRow;
-    dialog->recommended_row = recommended;
-    top_row->addWidget(recommended, 1);
 
     auto *icon_input = new LineEdit;
     dialog->icon_input = icon_input;
@@ -154,13 +143,11 @@ void create_group_icon_picker(ManageDialog *dialog, const QString &current_icon)
     icon_input->setText(current_icon);
     icon_input->setFixedWidth(scale_ui(150));
     QObject::connect(icon_input, &QLineEdit::textChanged, dialog, [dialog, form_token](const QString &text) { dialog->on_icon_input_changed_checked(text, form_token); });
-    top_row->addWidget(icon_input);
-    panel_layout->addLayout(top_row);
 
     const auto [group_order, emoji_groups] = get_emoji_groups();
 
     auto *tab_bar = new QHBoxLayout;
-    tab_bar->setSpacing(0);
+    tab_bar->setSpacing(scale_ui(2));
     tab_bar->setContentsMargins(0, 0, 0, 0);
     dialog->emoji_tab_buttons.clear();
     dialog->emoji_group_order = group_order;
@@ -177,6 +164,7 @@ void create_group_icon_picker(ManageDialog *dialog, const QString &current_icon)
         dialog->emoji_tab_buttons.append(btn);
     }
     tab_bar->addStretch();
+    tab_bar->addWidget(icon_input);
     panel_layout->addLayout(tab_bar);
 
     auto *scroll = new QScrollArea;
@@ -193,35 +181,6 @@ void create_group_icon_picker(ManageDialog *dialog, const QString &current_icon)
     dialog->emoji_current_idx = 0;
     dialog->switch_emoji_group_checked(0, form_token);
     refresh_group_icon_kind(dialog);
-}
-
-RecommendedRow::RecommendedRow() {
-    setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
-    setFixedHeight(scale_ui(34));
-    set_own_style(this, "background: transparent;");
-}
-
-void RecommendedRow::set_buttons(const QList<QPushButton *> &buttons) {
-    for (auto *old : buttons_) {
-        old->hide();
-        old->setParent(nullptr);
-        old->deleteLater();
-    }
-    buttons_ = buttons;
-    arrange();
-}
-
-void RecommendedRow::resizeEvent(QResizeEvent *event) {
-    QWidget::resizeEvent(event);
-    arrange();
-}
-
-void RecommendedRow::arrange() {
-    const int step = scale_ui(36);
-    for (int index = 0; index < buttons_.size(); ++index) {
-        buttons_[index]->move(index * step, 0);
-        buttons_[index]->setVisible(index * step + buttons_[index]->width() <= width());
-    }
 }
 
 IconPreview::IconPreview(const QString &icon, const QString &kind) : QLabel(icon), kind_(kind.isEmpty() ? KIND_NORMAL() : kind) {
@@ -244,55 +203,25 @@ void IconPreview::_apply_theme() {
 }
 
 void refresh_group_icon_kind(ManageDialog *dialog) {
-    auto *preview = qobject_cast<IconPreview *>(dialog->icon_preview.data());
-    auto *row = qobject_cast<RecommendedRow *>(dialog->recommended_row.data());
-    if (!preview || !row) return;
-    const int group_type = dialog->selected_group_type();
-    preview->set_kind(group_kind(group_type));
-    const int form_token = dialog->detail_form_token;
-    const QString style = emoji_btn_style(dialog);
-    QList<QPushButton *> buttons;
-    for (const QString &icon : get_recommended_group_icons(group_type, dialog->selected_filter_rule())) {
-        auto *btn = new QPushButton(icon, row);
-        btn->setFixedSize(scale_ui(34), scale_ui(34));
-        btn->setAutoDefault(false);
-        btn->setCursor(Qt::PointingHandCursor);
-        btn->setStyleSheet(style);
-        QObject::connect(btn, &QPushButton::clicked, dialog, [dialog, icon, form_token] { dialog->on_preset_icon_clicked_checked(icon, form_token); });
-        buttons.append(btn);
-    }
-    row->set_buttons(buttons);
+    if (auto *preview = qobject_cast<IconPreview *>(dialog->icon_preview.data())) preview->set_kind(group_kind(dialog->selected_group_type()));
 }
 
 QString emoji_tab_style(bool active, const QWidget *dialog) {
     const auto &tokens = ui_tokens(dialog);
-    if (active)
-        return QString(R"(
-            QPushButton {
-                color: %1;
-                background: %2; border: none;
-                border-bottom: 2px solid %3;
-                border-radius: 0px; font-size: %4px;
-                padding: %5px 0px;
-            }
-        )")
-            .arg(tokens.text, tokens.accent_soft, tokens.accent)
-            .arg(scale_ui(18))
-            .arg(scale_y(2));
     return QString(R"(
         QPushButton {
             color: %1;
-            background: transparent; border: none;
-            border-bottom: 2px solid transparent;
-            border-radius: 0px; font-size: %2px;
-            padding: %3px 0px;
+            background: %2; border: none;
+            border-radius: %3px; font-size: %4px;
+            padding: %5px 0px;
         }
-        QPushButton:hover { background: %4; }
+        QPushButton:hover { background: %6; }
     )")
-        .arg(tokens.text)
+        .arg(tokens.text, active ? tokens.accent_soft : QString("transparent"))
+        .arg(scale_ui(6))
         .arg(scale_ui(18))
         .arg(scale_y(2))
-        .arg(tokens.surface_hover);
+        .arg(active ? tokens.accent_soft : tokens.surface_hover);
 }
 
 QString emoji_btn_style(const QWidget *dialog) {

@@ -297,10 +297,9 @@ void SettingsDialog::setup_ui() {
     for (int i = 0; i < PAGE_COUNT; ++i) content_stack->addWidget(new QWidget);
     ensure_page(0);
 
-    right_layout->addWidget(content_title_);
+    right_layout->addLayout(create_title_row());
     right_layout->addWidget(content_stack);
     right_layout->setStretchFactor(content_stack, 1);
-    right_layout->addLayout(create_button_area());
     main_layout->addWidget(right_area_, 1);
 
     apply_dialog_stylesheet();
@@ -429,6 +428,8 @@ void SettingsDialog::open_developer_page() {
 }
 
 void SettingsDialog::refresh_after_page_change() {
+    // The information page has nothing to reset.
+    if (page_reset_btn_) page_reset_btn_->setVisible(content_stack->currentIndex() != 8);
     update();
     right_area_->update();
     content_stack->update();
@@ -459,15 +460,18 @@ void SettingsDialog::open_log_dir() {
     QDesktopServices::openUrl(QUrl::fromLocalFile(path));
 }
 
-// ── Footer ──
+// ── Title row ──
 
-QLayout *SettingsDialog::create_button_area() {
+QLayout *SettingsDialog::create_title_row() {
     auto *layout = new QHBoxLayout;
     layout->setSpacing(dialog_scaled(10));
-    // The footer is outside content_stack, so its controls opt in to dialog scaling themselves.
-    auto *reset_btn = new TransparentPushButton(tr_text("Reset This Page"));
+    // The right margin lines the button up with the cards below.
+    layout->setContentsMargins(0, 0, dialog_scaled(18), 0);
+    layout->addWidget(content_title_, 1);
+    // The row is outside content_stack, so its controls opt in to dialog scaling themselves.
+    auto *reset_btn = new PushButton(tr_text("Reset This Page"));
     configure_dialog_control(*reset_btn);
-    footer_reset_btn_ = reset_btn;
+    page_reset_btn_ = reset_btn;
     reset_btn->setCursor(Qt::PointingHandCursor);
     reset_btn->setIcon(FluentIcon::Sync);
     // Saved at once, so it asks first.
@@ -476,8 +480,7 @@ QLayout *SettingsDialog::create_button_area() {
         reset_current_page();
         apply_settings();
     });
-    layout->addWidget(reset_btn);
-    layout->addStretch();
+    layout->addWidget(reset_btn, 0, Qt::AlignVCenter);
     return layout;
 }
 
@@ -731,7 +734,7 @@ void SettingsDialog::reset_clipboard_page() {
 
 bool SettingsDialog::hotkeys_saved() const {
     for (const auto &key : saved_keys_)
-        if (GLOBAL_HOTKEY_EDIT_ATTRS.contains(key) || key.startsWith("quick_capture_") || key == "clipboard_enabled_toggle") return true;
+        if (GLOBAL_HOTKEY_EDIT_ATTRS.contains(key) || key.startsWith("quick_capture_")) return true;
     return false;
 }
 

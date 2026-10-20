@@ -904,7 +904,7 @@ void ManageDialog::open_item_editor(qint64 item_id, std::optional<qint64> group_
 void ManageDialog::clear_detail_layout() {
     detail_form_token += 1;
     const QList<QWidget *> stale{group_name_input, icon_input, icon_preview, radio_normal, radio_file, radio_hidden, radio_filter, filter_kind_box,
-                                 filter_kind_combo, filter_app_combo, emoji_scroll, recommended_row, image_preview, content_kind_switch, image_drop_zone, paste_image_btn};
+                                 filter_kind_combo, filter_app_combo, emoji_scroll, image_preview, content_kind_switch, image_drop_zone, paste_image_btn};
     for (QWidget *widget : stale)
         if (widget) widget->blockSignals(true);
     if (group_type_btn_group) group_type_btn_group->blockSignals(true);
@@ -920,7 +920,6 @@ void ManageDialog::clear_detail_layout() {
     filter_app_combo = nullptr;
     group_type_btn_group = nullptr;
     emoji_scroll = nullptr;
-    recommended_row = nullptr;
     image_preview = nullptr;
     content_kind_switch = nullptr;
     editing_image_size.reset();
