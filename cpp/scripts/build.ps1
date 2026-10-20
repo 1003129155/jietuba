@@ -101,7 +101,7 @@ function Copy-Notices {
             Copy-Item -LiteralPath (Join-Path (Split-Path $ortPath -Parent) $name) -Destination $licenseDir
         }
     }
-    $crates = @('gifrecorder', 'longstitch', 'pyclipboard', 'hdrcapture', 'inputhub', 'video_recorder', 'ppocr_rust')
+    $crates = @('gifrecorder', 'longstitch', 'pyclipboard', 'hdrcapture', 'video_recorder', 'ppocr_rust')
     if ($Updates) { $crates += 'updater' }
     foreach ($crate in $crates) {
         Copy-Item -LiteralPath (Join-Path $reference "rust_libs\$crate\THIRD-PARTY-NOTICES.txt") -Destination (Join-Path $licenseDir "$crate-THIRD-PARTY-NOTICES.txt")

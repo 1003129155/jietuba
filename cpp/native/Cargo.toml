@@ -10,7 +10,6 @@ crate-type = ["staticlib"]
 
 # The rust_libs crates without their Python bindings (default-features = false).
 [dependencies]
-inputhub = { path = "../../rust_libs/inputhub", default-features = false }
 longstitch = { path = "../../rust_libs/longstitch", default-features = false }
 gifrecorder = { path = "../../rust_libs/gifrecorder", default-features = false }
 video_recorder = { path = "../../rust_libs/video_recorder", default-features = false }

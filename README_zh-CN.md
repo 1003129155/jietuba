@@ -166,7 +166,6 @@ ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_window
 │   ├── pyclipboard/         # 剪贴板底层操作
 │   ├── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX 识别引擎
 │   ├── hdrcapture/          # HDR 桌面截图
-│   ├── inputhub/            # 全局鼠标与键盘钩子
 │   ├── updater/             # 只替换主 EXE 的独立更新器
 │   └── video_recorder/      # Media Foundation 录制与 WASAPI 系统声音采集
 │
@@ -371,7 +370,9 @@ core/
 ├── i18n.h/.cpp                 # I18nManager / XmlTranslator / tr() — 国际化管理，多语言支持
 ├── shortcut_manager.h/.cpp     # HotkeySystem / ShortcutManager — 全局热键和应用内快捷键管理
 ├── global_hotkey.h/.cpp        # 全局热键的键名表与注册方式判定：系统注册、钩子接管或不允许
-├── input_hub.h/.cpp            # 进程共用的全局输入：原生钩子（j-input）不占界面线程，事件转成 Qt 信号
+├── input_hub.h/.cpp            # 进程共用的全局输入：钩子不占界面线程，事件转成 Qt 信号
+├── input_engine.h/.cpp         # 输入状态机 — 手势、热键、快捷键录入、旁听订阅
+├── input_hooks.h/.cpp          # 独立线程上的低层鼠标键盘钩子与前台窗口钩子
 ├── quick_capture_input.h/.cpp  # 全局鼠标快捷键的拖动输入，接在共用输入中心上
 ├── last_capture_region.h/.cpp  # 进程内存的"上次截图区域"，供恢复选区快捷键使用
 ├── save.h/.cpp                 # SaveService — 文件保存服务（自动命名、路径管理、高质量 PDF 输出）

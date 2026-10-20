@@ -165,7 +165,6 @@ ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_window
 │   ├── pyclipboard/         # クリップボード操作
 │   ├── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX 認識エンジン
 │   ├── hdrcapture/          # HDR デスクトップキャプチャ
-│   ├── inputhub/            # グローバルなマウス・キーボードフック
 │   ├── updater/             # メイン EXE だけを置き換える独立した更新機能
 │   └── video_recorder/      # Media Foundation 録画と WASAPI システム音声の取得
 │
@@ -369,7 +368,9 @@ core/
 ├── i18n.h/.cpp                 # I18nManager / XmlTranslator / tr() — 国際化
 ├── shortcut_manager.h/.cpp     # HotkeySystem / ShortcutManager — グローバル＆アプリ内ホットキー
 ├── global_hotkey.h/.cpp        # グローバルホットキーのキー名表と登録方法の判定：システム登録・フック引き継ぎ・不可
-├── input_hub.h/.cpp            # プロセス共通のグローバル入力：ネイティブフック（j-input）は GUI スレッド外で動き、イベントを Qt シグナルで通知
+├── input_hub.h/.cpp            # プロセス共通のグローバル入力：フックは GUI スレッド外で動き、イベントを Qt シグナルで通知
+├── input_engine.h/.cpp         # 入力ステートマシン — ジェスチャー、ホットキー、ショートカット記録、監視
+├── input_hooks.h/.cpp          # 専用スレッド上の低レベルマウス・キーボードフックと前面ウィンドウフック
 ├── quick_capture_input.h/.cpp  # グローバルマウスショートカットのドラッグ入力（共通入力ハブを利用）
 ├── last_capture_region.h/.cpp  # 「前回の選択範囲を復元」用のプロセス内メモリ
 ├── save.h/.cpp                 # SaveService — ファイル保存サービス（高品質 PDF 出力対応）

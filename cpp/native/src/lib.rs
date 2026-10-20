@@ -8,7 +8,6 @@
 mod clipboard;
 mod gif;
 mod hdr;
-mod input_hub;
 mod longstitch;
 mod panic;
 mod text;

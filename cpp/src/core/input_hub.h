@@ -10,7 +10,9 @@
 #include <vector>
 
 namespace jietuba {
-// One event from the native hub; text, value and flag depend on kind (see core/native.h).
+// One event from the hook thread. text: the gesture phase (start/finish/cancel), the side button
+// (x1/x2), the hotkey or watcher name, the "+"-joined modifiers of a captured key, or the failure
+// message; value: the wheel delta or the virtual key; flag: horizontal or pressed.
 struct InputHubEvent {
     enum Kind { Gesture, Moved, Side, Hotkey, Wheel, Key, Foreground, Failure, Captured } kind = Failure;
     QString text;
@@ -20,12 +22,12 @@ struct InputHubEvent {
     quintptr hwnd = 0;
 };
 
-// (left, top, right, bottom) in physical pixels, as the native hub takes it.
+// (left, top, right, bottom) in physical pixels.
 struct InputHubRect {
     int left, top, right, bottom;
 };
 
-// The native hub's operations; the Rust implementation in production, a stand-in in tests.
+// The hook thread's operations with Qt types (core/input_hooks in production).
 class InputHubNative {
 public:
     virtual ~InputHubNative() = default;
@@ -59,8 +61,8 @@ public:
     virtual void set_test_marker(quintptr marker) = 0;
 };
 
-// The low-level mouse and keyboard hooks and their state machines run on the
-// native library's own thread and decide on the spot whether to swallow an event,
+// The low-level mouse and keyboard hooks and their state machine run on their own
+// native thread (core/input_hooks) and decide on the spot whether to swallow an event,
 // so a busy GUI thread never holds up system input. Events the UI needs are turned
 // into signals by an event thread; receivers use queued connections.
 class InputHub : public QObject {

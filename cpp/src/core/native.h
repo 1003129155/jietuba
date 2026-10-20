@@ -7,55 +7,6 @@ extern "C" {
 // A panic returns the export's failure value; its report goes here (null: stderr).
 void jb_set_panic_handler(void (*handler)(const char *report));
 
-struct JbInputHub;
-
-enum JbInputEventKind : int32_t {
-    JB_EVENT_GESTURE = 0,
-    JB_EVENT_MOVED = 1,
-    JB_EVENT_SIDE = 2,
-    JB_EVENT_HOTKEY = 3,
-    JB_EVENT_WHEEL = 4,
-    JB_EVENT_KEY = 5,
-    JB_EVENT_FOREGROUND = 6,
-    JB_EVENT_FAILURE = 7,
-    JB_EVENT_CAPTURED = 8,
-};
-
-struct JbInputEvent {
-    int32_t kind;
-    uint64_t id;
-    int32_t x;
-    int32_t y;
-    int32_t value;
-    bool flag;
-    intptr_t hwnd;
-    char text[512];
-};
-
-JbInputHub *jb_input_hub_new(char *error, size_t error_len);
-void jb_input_hub_free(JbInputHub *hub);
-void jb_input_hub_close(const JbInputHub *hub);
-bool jb_input_hub_next_event(const JbInputHub *hub, int64_t timeout_ms, JbInputEvent *out);
-bool jb_input_hub_configure_gestures(const JbInputHub *hub, const char *const *modifiers, const char *const *buttons, size_t count, bool enabled);
-void jb_input_hub_set_blocked(const JbInputHub *hub, bool blocked);
-void jb_input_hub_cancel_gesture(const JbInputHub *hub);
-bool jb_input_hub_take_position(const JbInputHub *hub, uint64_t gesture_id, int32_t *x, int32_t *y);
-bool jb_input_hub_dragging(const JbInputHub *hub);
-bool jb_input_hub_accepts(const JbInputHub *hub, uint64_t gesture_id);
-bool jb_input_hub_gesture_binding(const JbInputHub *hub, uint64_t gesture_id, char *modifiers, size_t modifiers_len, char *button, size_t button_len);
-bool jb_input_hub_configure_side_buttons(const JbInputHub *hub, bool enabled, const char *const *suppressed, size_t count, bool capture_all);
-int32_t jb_input_hub_bind_hotkey(const JbInputHub *hub, const char *name, const char *modifiers, uint32_t vk);
-void jb_input_hub_unbind_hotkey(const JbInputHub *hub, const char *name);
-void jb_input_hub_configure_key_capture(const JbInputHub *hub, bool enabled);
-void jb_input_hub_watch_wheel(const JbInputHub *hub, const char *watcher, bool has_rect, int32_t left, int32_t top, int32_t right, int32_t bottom);
-void jb_input_hub_unwatch_wheel(const JbInputHub *hub, const char *watcher);
-void jb_input_hub_watch_keys(const JbInputHub *hub, const char *watcher, const uint32_t *keys, size_t count);
-void jb_input_hub_unwatch_keys(const JbInputHub *hub, const char *watcher);
-void jb_input_hub_watch_foreground(const JbInputHub *hub, const char *watcher);
-void jb_input_hub_unwatch_foreground(const JbInputHub *hub, const char *watcher);
-bool jb_input_hub_hooks_installed(const JbInputHub *hub);
-void jb_input_hub_set_test_marker(const JbInputHub *hub, size_t marker);
-
 // PP-OCR. ONNX Runtime is loaded at run time from the PP-OCR pack (jb_ppocr_init_runtime).
 struct JbPpocr;
 // Where one character sits along the line's reading direction, the line's length being 1.

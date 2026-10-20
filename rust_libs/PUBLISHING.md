@@ -82,7 +82,7 @@ secret 覆盖那套机制，因为仓库级 secret 不参与那层覆盖。
 ```bash
 cargo install cargo-about --locked --features cli
 cd rust_libs
-for c in gifrecorder longstitch ppocr_rust pyclipboard hdrcapture inputhub; do
+for c in gifrecorder longstitch ppocr_rust pyclipboard hdrcapture; do
   cargo about generate --manifest-path $c/Cargo.toml -o $c/THIRD-PARTY-NOTICES.txt notices.hbs
 done
 # 更新器是独立 EXE，不发 PyPI，用自己的模板

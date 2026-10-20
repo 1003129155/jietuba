@@ -165,7 +165,6 @@ Releases are made by [build.yml](.github/workflows/build.yml): the tag must be `
 │   ├── pyclipboard/         # Low-level clipboard operations
 │   ├── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX recognition engine
 │   ├── hdrcapture/          # HDR desktop capture
-│   ├── inputhub/            # Global mouse and keyboard hooks
 │   ├── updater/             # Standalone updater that replaces only the application EXE
 │   └── video_recorder/      # Media Foundation recording and WASAPI system audio capture
 │
@@ -369,7 +368,9 @@ core/
 ├── i18n.h/.cpp                 # I18nManager / XmlTranslator / tr() — internationalization
 ├── shortcut_manager.h/.cpp     # HotkeySystem / ShortcutManager — global & in-app hotkeys
 ├── global_hotkey.h/.cpp        # Global hotkey key names and routing: system registration, hook takeover, or rejected
-├── input_hub.h/.cpp            # Shared global input: native hooks (j-input) off the GUI thread, events as Qt signals
+├── input_hub.h/.cpp            # Shared global input: hooks off the GUI thread, events as Qt signals
+├── input_engine.h/.cpp         # Input state machine — gestures, hotkeys, shortcut recording, watchers
+├── input_hooks.h/.cpp          # Low-level mouse/keyboard and foreground hooks on their own thread
 ├── quick_capture_input.h/.cpp  # Global mouse shortcut drag input on the shared input hub
 ├── last_capture_region.h/.cpp  # In-memory "last capture region" for the restore-region hotkey
 ├── save.h/.cpp                 # SaveService — file save service (auto naming, high-quality PDF output)

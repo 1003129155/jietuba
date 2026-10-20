@@ -1188,14 +1188,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "inputhub"
-version = "0.1.2"
-dependencies = [
- "pyo3",
- "windows-sys 0.61.2",
-]
-
-[[package]]
 name = "interpolate_name"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
