@@ -7,7 +7,7 @@
 #include "clipboard/ui/group_kind_style.h"
 #include "core/ui_scale.h"
 #include "ui/fluent_lite/inputs.h"
-#include "ui/fluent_lite/segmented.h"
+#include <QGridLayout>
 #include <QHBoxLayout>
 
 namespace jietuba::clipboard {
@@ -28,40 +28,64 @@ void build_name_section(ManageDialog *dialog, const QString &name, const QString
     dialog->detail_layout->addLayout(row);
 }
 
-// The content types a filter group can show, in the order of the type filter menu.
-const QStringList FILTER_KINDS = {"text", "image", "file"};
+// A source app's name in the list: the exe name without ".exe", this program's builds as one entry.
+QString source_app_label(const QString &app) {
+    if (app.compare(OWN_SOURCE_APP, Qt::CaseInsensitive) == 0) return ManageDialog::tr_text("Jietuba (this app)");
+    return app.endsWith(".exe", Qt::CaseInsensitive) ? app.chopped(4) : app;
+}
 
-// Which content type a filter group shows; only visible while "Filter" is chosen.
-void build_filter_kind_section(ManageDialog *dialog, const QString &kind, int form_token) {
+// What a filter group shows: a content type and a source app, either left at "any";
+// only visible while "Filter" is chosen. Each combo item's data is the rule value, empty for any.
+void build_filter_rule_section(ManageDialog *dialog, const FilterRule &rule, int form_token) {
     auto *box = new QWidget;
-    auto *layout = new QHBoxLayout(box);
+    auto *layout = new QGridLayout(box);
     layout->setContentsMargins(0, dialog_scaled(4), 0, 0);
-    layout->setSpacing(dialog_scaled(12));
-    layout->addWidget(field_label(ManageDialog::tr_text("Content Type"), false));
+    layout->setHorizontalSpacing(dialog_scaled(12));
+    layout->setVerticalSpacing(dialog_scaled(8));
 
-    auto *switch_widget = new SegmentedWidget;
-    const QHash<QString, QString> labels = {{"text", ManageDialog::tr_text("Text")}, {"image", ManageDialog::tr_text("Image")}, {"file", ManageDialog::tr_text("File")}};
-    for (const QString &key : FILTER_KINDS) switch_widget->addItem(key, labels.value(key));
-    switch_widget->setCurrentItem(kind);
-    QObject::connect(switch_widget, &SegmentedWidget::currentItemChanged, dialog, [dialog, form_token](const QString &key) { dialog->on_filter_kind_changed(key, form_token); });
-    layout->addWidget(switch_widget);
-    layout->addStretch();
+    auto *kind_combo = new ComboBox;
+    const std::pair<QString, const char *> kinds[] = {{QString(), "All Types"},     {"text", "Text"},  {SUB_KIND_URL, "Link"}, {SUB_KIND_COLOR, "Color"},
+                                                      {SUB_KIND_PATH, "Path"}, {"image", "Image"}, {"file", "File"}};
+    for (const auto &[kind, label] : kinds) kind_combo->addItem(ManageDialog::tr_text(label), kind);
+    kind_combo->setCurrentIndex(std::max(0, kind_combo->findData(rule.kind.value_or(QString()))));
+
+    auto *app_combo = new ComboBox;
+    app_combo->addItem(ManageDialog::tr_text("Any App"), QString());
+    bool listed = !rule.app;
+    for (const auto &[app, count] : dialog->manager->source_apps()) {
+        app_combo->addItem(QString("%1 (%2)").arg(source_app_label(app)).arg(count), app);
+        listed = listed || app.compare(*rule.app, Qt::CaseInsensitive) == 0;
+    }
+    // A rule's app with nothing left in the history still shows, rather than turning into "any".
+    if (!listed) app_combo->addItem(source_app_label(*rule.app), *rule.app);
+    if (rule.app)
+        for (int index = 1; index < app_combo->count(); ++index)
+            if (app_combo->itemData(index).toString().compare(*rule.app, Qt::CaseInsensitive) == 0) app_combo->setCurrentIndex(index);
+
+    layout->addWidget(field_label(ManageDialog::tr_text("Content Type"), false), 0, 0);
+    layout->addWidget(kind_combo, 0, 1);
+    layout->addWidget(field_label(ManageDialog::tr_text("Source App"), false), 1, 0);
+    layout->addWidget(app_combo, 1, 1);
+    layout->setColumnStretch(2, 1);
+    for (auto *combo : {kind_combo, app_combo})
+        QObject::connect(combo, &QComboBox::currentIndexChanged, dialog, [dialog, form_token] { dialog->on_filter_kind_changed({}, form_token); });
     dialog->filter_kind_box = box;
-    dialog->filter_kind_switch = switch_widget;
+    dialog->filter_kind_combo = kind_combo;
+    dialog->filter_app_combo = app_combo;
     dialog->detail_layout->addWidget(box);
     // Show only after it has a parent: a parentless widget made visible flashes as a window of its own.
     box->setVisible(dialog->radio_filter->isChecked());
 }
 
-void build_group_type_section(ManageDialog *dialog, int group_type, bool can_be_filter) {
+void build_group_type_section(ManageDialog *dialog, int group_type, bool can_be_filter, const std::optional<FilterRule> &filter_rule) {
     dialog->detail_layout->addWidget(field_label(ManageDialog::tr_text("Group Type")));
 
     auto *button_group = new QButtonGroup(dialog);
     dialog->group_type_btn_group = button_group;
     auto *radio_normal = new OptionCard(ManageDialog::tr_text("General"), ManageDialog::tr_text("Paste text or files"), KIND_NORMAL());
-    auto *radio_file = new OptionCard(ManageDialog::tr_text("Quick Launch"), ManageDialog::tr_text("Open files or folders"), KIND_FILE());
+    auto *radio_file = new OptionCard(ManageDialog::tr_text("Quick Launch"), ManageDialog::tr_text("Open files, folders or links"), KIND_FILE());
     auto *radio_hidden = new OptionCard(ManageDialog::tr_text("Hidden"), ManageDialog::tr_text("Not shown on the panel"), KIND_HIDDEN());
-    auto *radio_filter = new OptionCard(ManageDialog::tr_text("Filter"), ManageDialog::tr_text("Show one type"), KIND_FILTER());
+    auto *radio_filter = new OptionCard(ManageDialog::tr_text("Filter"), ManageDialog::tr_text("By type or source"), KIND_FILTER());
     dialog->radio_normal = radio_normal;
     dialog->radio_file = radio_file;
     dialog->radio_hidden = radio_hidden;
@@ -77,8 +101,7 @@ void build_group_type_section(ManageDialog *dialog, int group_type, bool can_be_
     radio_filter->setEnabled(can_be_filter);
     if (!can_be_filter) radio_filter->hide();
 
-    const auto kind = filter_content_type(group_type);
-    if (kind) radio_filter->setChecked(true);
+    if (group_type == GroupType::FILTER) radio_filter->setChecked(true);
     else if (group_type == GroupType::HIDDEN) radio_hidden->setChecked(true);
     else if (group_type == GroupType::FILE) radio_file->setChecked(true);
     else radio_normal->setChecked(true);
@@ -86,24 +109,25 @@ void build_group_type_section(ManageDialog *dialog, int group_type, bool can_be_
     // One row when the width allows, two per row otherwise, so the descriptions stay whole.
     dialog->detail_layout->addWidget(new CardGrid(cards));
 
-    build_filter_kind_section(dialog, kind.value_or(FILTER_KINDS.first()), form_token);
+    // A new filter group starts on all text.
+    build_filter_rule_section(dialog, filter_rule.value_or(FilterRule::of_kind("text")), form_token);
 }
 }
 
 void build_new_group_form(ManageDialog *dialog) {
     const QString icon = get_group_display_icon(std::nullopt, static_cast<int>(GroupType::NORMAL));
     build_name_section(dialog, "", icon, static_cast<int>(GroupType::NORMAL));
-    build_group_type_section(dialog, static_cast<int>(GroupType::NORMAL), true);
+    build_group_type_section(dialog, static_cast<int>(GroupType::NORMAL), true, std::nullopt);
     dialog->detail_layout->addWidget(field_label(ManageDialog::tr_text("Icon")));
     dialog->create_emoji_picker(icon);
 }
 
 void build_edit_group_form(ManageDialog *dialog, const Group &group) {
-    const QString current_icon = get_group_display_icon(group.icon, group.group_type);
+    const QString current_icon = get_group_display_icon(group.icon, group.group_type, group.filter_rule);
     build_name_section(dialog, group.name, current_icon, group.group_type);
     // A filter group stores no content, so a group that still has content cannot become one (the Rust core refuses too).
     const bool has_items = !dialog->manager->get_by_group(group.id, 0, 1).isEmpty();
-    build_group_type_section(dialog, group.group_type, group.is_filter() || !has_items);
+    build_group_type_section(dialog, group.group_type, group.is_filter() || !has_items, group.filter_rule);
     dialog->detail_layout->addWidget(field_label(ManageDialog::tr_text("Icon")));
     dialog->create_emoji_picker(current_icon);
 }

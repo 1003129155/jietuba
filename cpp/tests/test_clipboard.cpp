@@ -46,6 +46,14 @@ QList<special_paste::Entry> entries_from(const QJsonArray &array) {
 
 std::optional<QString> optional_string(const QJsonValue &value) { return value.isNull() ? std::nullopt : std::optional<QString>(value.toString()); }
 
+// The fixtures name filter groups by their former types 3, 4 and 5 (text, image, file); now one type with a rule.
+std::pair<int, std::optional<FilterRule>> group_args(const QJsonValue &fixture_type) {
+    static const QHash<int, QString> kinds = {{3, "text"}, {4, "image"}, {5, "file"}};
+    const int type = fixture_type.toInt();
+    if (kinds.contains(type)) return {static_cast<int>(GroupType::FILTER), FilterRule::of_kind(kinds.value(type))};
+    return {type, std::nullopt};
+}
+
 QString describe(const QJsonValue &value) {
     if (value.isArray()) return QString::fromUtf8(QJsonDocument(value.toArray()).toJson(QJsonDocument::Compact));
     if (value.isObject()) return QString::fromUtf8(QJsonDocument(value.toObject()).toJson(QJsonDocument::Compact));
@@ -125,6 +133,41 @@ private slots:
         }
     }
 
+    void filterGroupIconsFollowTheirRule() {
+        const int filter = static_cast<int>(GroupType::FILTER);
+        const FilterRule app_only{std::nullopt, QString("chrome.exe")};
+        QCOMPARE(get_default_group_icon(filter, FilterRule::of_kind(SUB_KIND_URL)), QString::fromUtf8("🔗"));
+        QCOMPARE(get_default_group_icon(filter, FilterRule::of_kind(SUB_KIND_COLOR)), QString::fromUtf8("🎨"));
+        QCOMPARE(get_default_group_icon(filter, FilterRule::of_kind(SUB_KIND_PATH)), QString::fromUtf8("📂"));
+        QCOMPARE(get_default_group_icon(filter, app_only), QString::fromUtf8("🧩"));
+        // A kind wins over the source app; an unreadable rule looks like a text filter.
+        QCOMPARE(get_default_group_icon(filter, FilterRule{QString("image"), QString("chrome.exe")}), QString::fromUtf8("🖼️"));
+        QCOMPARE(get_default_group_icon(filter), QString::fromUtf8("📝"));
+        // The default leads the suggestions and the row keeps its length.
+        const auto color_icons = get_recommended_group_icons(filter, FilterRule::of_kind(SUB_KIND_COLOR));
+        QCOMPARE(color_icons.first(), QString::fromUtf8("🎨"));
+        QCOMPARE(color_icons.size(), get_recommended_group_icons(filter, FilterRule::of_kind("text")).size());
+        const auto link_icons = get_recommended_group_icons(filter, FilterRule::of_kind(SUB_KIND_URL));
+        QCOMPARE(link_icons.first(), QString::fromUtf8("🔗"));
+        QCOMPARE(link_icons.count(QString::fromUtf8("🔗")), 1);
+        // These defaults follow a type change like the others; a custom icon stays.
+        QCOMPARE(get_toggled_default_group_icon(QString::fromUtf8("🔗"), static_cast<int>(GroupType::NORMAL)), GENERAL_GROUP_ICON());
+        QCOMPARE(get_toggled_default_group_icon(QString::fromUtf8("🧩"), filter, FilterRule::of_kind(SUB_KIND_PATH)), QString::fromUtf8("📂"));
+        QCOMPARE(get_toggled_default_group_icon(QString::fromUtf8("⭐"), filter, app_only), QString::fromUtf8("⭐"));
+        // Quick launch takes path text as well as files.
+        QVERIFY(group_accepts(static_cast<int>(GroupType::FILE), "text", SUB_KIND_PATH));
+        QVERIFY(group_accepts(static_cast<int>(GroupType::FILE), "text", SUB_KIND_URL));
+        QVERIFY(!group_accepts(filter, "text", SUB_KIND_PATH));
+    }
+
+    void filterRulesRoundTripAsJson() {
+        const FilterRule both{QString("image"), QString("Weixin.exe")};
+        QCOMPARE(FilterRule::from_json(QJsonDocument::fromJson(both.to_json()).object()), std::optional(both));
+        QCOMPARE(FilterRule::of_kind("url").to_json(), QByteArray(R"({"kind":"url"})"));
+        QCOMPARE(FilterRule::from_json(QJsonValue()), std::optional<FilterRule>());
+        QCOMPARE(FilterRule::from_json(QJsonObject{{"app", "x.exe"}}), std::optional(FilterRule{std::nullopt, QString("x.exe")}));
+    }
+
     void filePayloadsMatchTheReference() {
         const auto f = fixture_["file_payload"].toObject();
         for (const auto &value : f["normalize"].toArray()) QCOMPARE(normalize_file_path(value.toObject()["input"].toString()), value.toObject()["expected"].toString());
@@ -138,27 +181,27 @@ private slots:
         QCOMPARE(GENERAL_GROUP_ICON(), g["icons"].toObject()["general"].toString());
         QCOMPARE(QUICK_LAUNCH_GROUP_ICON(), g["icons"].toObject()["quick_launch"].toString());
         QCOMPARE(HIDDEN_GROUP_ICON(), g["icons"].toObject()["hidden"].toString());
-        for (const auto &value : g["default"].toArray()) QCOMPARE(get_default_group_icon(value.toObject()["type"].toInt()), value.toObject()["expected"].toString());
+        for (const auto &value : g["default"].toArray()) {
+            const auto [type, rule] = group_args(value.toObject()["type"]);
+            QCOMPARE(get_default_group_icon(type, rule), value.toObject()["expected"].toString());
+        }
         for (const auto &value : g["recommended"].toArray()) {
             QStringList expected;
             for (const auto &icon : value.toObject()["expected"].toArray()) expected << icon.toString();
-            QCOMPARE(get_recommended_group_icons(value.toObject()["type"].toInt()), expected);
+            const auto [type, rule] = group_args(value.toObject()["type"]);
+            QCOMPARE(get_recommended_group_icons(type, rule), expected);
         }
-        for (const auto &value : g["kinds"].toArray()) QCOMPARE(group_kind(value.toObject()["type"].toInt()), value.toObject()["expected"].toString());
-        for (const auto &value : g["display"].toArray())
-            QCOMPARE(get_group_display_icon(optional_string(value.toObject()["icon"]), value.toObject()["type"].toInt()), value.toObject()["expected"].toString());
-        for (const auto &value : g["toggled"].toArray())
-            QCOMPARE(get_toggled_default_group_icon(value.toObject()["icon"].toString(), value.toObject()["type"].toInt()), value.toObject()["expected"].toString());
-        for (const auto &value : g["filter_content_type"].toArray())
-            QCOMPARE(filter_content_type(value.toObject()["type"].toInt()), optional_string(value.toObject()["expected"]));
-        for (const auto &value : g["filter_group_type"].toArray()) {
-            const auto type = filter_group_type(value.toObject()["content_type"].toString());
-            QVERIFY(type.has_value());
-            QCOMPARE(static_cast<int>(*type), value.toObject()["expected"].toInt());
+        for (const auto &value : g["kinds"].toArray()) QCOMPARE(group_kind(group_args(value.toObject()["type"]).first), value.toObject()["expected"].toString());
+        for (const auto &value : g["display"].toArray()) {
+            const auto [type, rule] = group_args(value.toObject()["type"]);
+            QCOMPARE(get_group_display_icon(optional_string(value.toObject()["icon"]), type, rule), value.toObject()["expected"].toString());
         }
-        QVERIFY(!filter_group_type("audio").has_value());
+        for (const auto &value : g["toggled"].toArray()) {
+            const auto [type, rule] = group_args(value.toObject()["type"]);
+            QCOMPARE(get_toggled_default_group_icon(value.toObject()["icon"].toString(), type, rule), value.toObject()["expected"].toString());
+        }
         for (const auto &value : g["accepts"].toArray())
-            QCOMPARE(group_accepts(value.toObject()["type"].toInt(), value.toObject()["content_type"].toString()), value.toObject()["expected"].toBool());
+            QCOMPARE(group_accepts(group_args(value.toObject()["type"]).first, value.toObject()["content_type"].toString()), value.toObject()["expected"].toBool());
         QList<Group> existing;
         for (const auto &value : g["existing"].toArray()) {
             Group group;
@@ -320,7 +363,8 @@ private slots:
         }
         QList<qint64> group_ids, item_ids;
         for (const auto &value : menus["groups"].toArray()) {
-            const auto id = manager.create_group(value.toObject()["name"].toString(), std::nullopt, optional_string(value.toObject()["icon"]), value.toObject()["type"].toInt());
+            const auto [type, rule] = group_args(value.toObject()["type"]);
+            const auto id = manager.create_group(value.toObject()["name"].toString(), std::nullopt, optional_string(value.toObject()["icon"]), type, rule);
             QVERIFY(id);
             group_ids << *id;
         }

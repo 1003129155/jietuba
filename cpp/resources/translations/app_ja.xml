@@ -2648,6 +2648,26 @@ Replace it?</source>
         <translation>ファイル</translation>
     </message>
     <message>
+        <source>Link</source>
+        <translation>リンク</translation>
+    </message>
+    <message>
+        <source>Color</source>
+        <translation>色</translation>
+    </message>
+    <message>
+        <source>Path</source>
+        <translation>パス</translation>
+    </message>
+    <message>
+        <source>Open in Browser</source>
+        <translation>ブラウザーで開く</translation>
+    </message>
+    <message>
+        <source>Paste as File</source>
+        <translation>ファイルとして貼り付け</translation>
+    </message>
+    <message>
         <source>Close</source>
         <translation>閉じる</translation>
     </message>
@@ -3064,6 +3084,7 @@ This action cannot be undone.</source>
 <!-- ========== Clipboard Management Dialog ========== -->
 <context>
     <name>ManageDialog</name>
+    <message><source>Please enter a valid link</source><translation>有効なリンクを入力してください</translation></message>
     <message>
         <source>Clipboard Management</source>
         <translation>クリップボード管理</translation>
@@ -3185,12 +3206,12 @@ This action cannot be undone.</source>
         <translation>任意の内容を追加できます。選択すると内容やファイルを貼り付けます</translation>
     </message>
     <message>
-        <source>Quick launch groups only allow file or folder paths; selecting an item opens them</source>
-        <translation>ファイルまたはフォルダーのパスのみ追加できます。選択すると直接開きます</translation>
+        <source>Quick launch groups accept files, folder paths and links; selecting an item opens them</source>
+        <translation>ファイル、フォルダーのパス、リンクを追加でき、選択すると直接開きます</translation>
     </message>
     <message>
-        <source>Quick launch groups only accept file items; left-click opens the file directly</source>
-        <translation>クイック起動グループはファイル項目のみ受け付けます。左クリックでファイルを直接開きます</translation>
+        <source>Quick launch groups accept files, paths and links; left-click opens them directly</source>
+        <translation>ファイル、パス、リンクを追加でき、左クリックで直接開きます</translation>
     </message>
     <message>
         <source>Enter or paste emoji...</source>
@@ -3540,8 +3561,8 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>パネルに表示しない</translation>
     </message>
     <message>
-        <source>Open files or folders</source>
-        <translation>ファイルやフォルダを開く</translation>
+        <source>Open files, folders or links</source>
+        <translation>ファイル、フォルダー、リンクを開く</translation>
     </message>
     <message>
         <source>Paste text or files</source>
@@ -3692,8 +3713,8 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>フィルター</translation>
     </message>
     <message>
-        <source>Show one type</source>
-        <translation>1種類だけ表示</translation>
+        <source>By type or source</source>
+        <translation>種類やコピー元で表示</translation>
     </message>
     <message>
         <source>Content Type</source>
@@ -3712,8 +3733,40 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>フィルターグループを編集</translation>
     </message>
     <message>
-        <source>Filter groups store no content; they show one type of your clipboard history</source>
-        <translation>フィルターグループは内容を保存せず、クリップボード履歴の特定の種類だけを表示します</translation>
+        <source>Filter groups store no content; they show the clipboard history that matches the chosen type and source app</source>
+        <translation>フィルターグループは内容を保存せず、クリップボード履歴のうち選んだ種類とコピー元に合うものだけを表示します</translation>
+    </message>
+    <message>
+        <source>Link</source>
+        <translation>リンク</translation>
+    </message>
+    <message>
+        <source>Color</source>
+        <translation>色</translation>
+    </message>
+    <message>
+        <source>Path</source>
+        <translation>パス</translation>
+    </message>
+    <message>
+        <source>All Types</source>
+        <translation>すべての種類</translation>
+    </message>
+    <message>
+        <source>Source App</source>
+        <translation>コピー元アプリ</translation>
+    </message>
+    <message>
+        <source>Any App</source>
+        <translation>すべてのアプリ</translation>
+    </message>
+    <message>
+        <source>Jietuba (this app)</source>
+        <translation>Jietuba（このアプリ）</translation>
+    </message>
+    <message>
+        <source>Choose a content type or a source app</source>
+        <translation>内容の種類かコピー元アプリを選んでください</translation>
     </message>
 </context>
 

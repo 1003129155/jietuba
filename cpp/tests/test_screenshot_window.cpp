@@ -8,6 +8,7 @@
 #include "canvas/view.h"
 #include "core/clipboard_utils.h"
 #include "core/last_capture_region.h"
+#include "core/native.h"
 #include "pin/pin_canvas.h"
 #include "pin/pin_window.h"
 #include "pin/pin_manager.h"
@@ -38,6 +39,8 @@
 #include "text_recognition/recognizer.h"
 #include "text_recognition/result_window.h"
 #include "translation/translation_manager.h"
+#include <QClipboard>
+#include <QMimeData>
 #include <QApplication>
 #include <QCheckBox>
 #include <QColorDialog>
@@ -1009,10 +1012,13 @@ private slots:
         QCursor::setPos(300, 300);
         QTest::keyClick(window, Qt::Key_Left);
         QVERIFY(QCursor::pos() != QPoint(300, 300));
-        // C copies the colour under the pointer and ends the capture.
+        // C copies the colour under the pointer and ends the capture; the marker tells the clipboard history it is a colour.
         QTest::keyClick(window, Qt::Key_C);
         QVERIFY(!window->session_active());
         QVERIFY(wait_for_clipboard_writes(10.0));
+        const QMimeData *copied = QApplication::clipboard()->mimeData();
+        QVERIFY(copied && !copied->text().isEmpty());
+        QVERIFY(copied->hasFormat(QString("application/x-qt-windows-mime;value=\"%1\"").arg(QLatin1String(jb_clipboard_color_marker_format()))));
     }
 
     // Confirm, translate and recognize keys act only on a confirmed selection.

@@ -12,6 +12,7 @@
 #include <QDesktopServices>
 #include <QFile>
 #include <QKeyEvent>
+#include <QMouseEvent>
 #include <QScrollBar>
 #include <QSignalSpy>
 #include <QTest>
@@ -89,7 +90,8 @@ class ClipboardWindowTests : public QObject {
 private slots:
     void initTestCase() {
         QVERIFY(env_.init(this));
-        QDesktopServices::setUrlHandler("file", &urls_, "open");
+        // Links too: an unhandled scheme would open the real browser.
+        for (const char *scheme : {"file", "http", "https"}) QDesktopServices::setUrlHandler(scheme, &urls_, "open");
     }
 
     void init() {
@@ -98,6 +100,7 @@ private slots:
         env_.config->set_clipboard_auto_paste(true);
         env_.config->set_clipboard_move_to_top_on_paste(true);
         env_.config->set_clipboard_show_metadata(true);
+        env_.config->set_clipboard_display_lines(1);
         env_.config->set_clipboard_preserve_search(false);
         env_.config->set_app_setting("clipboard_paste_with_html", true);
         env_.config->set_clipboard_multi_paste_keep_merged(false);
@@ -117,7 +120,9 @@ private slots:
         QApplication::processEvents();
     }
 
-    void cleanupTestCase() { QDesktopServices::unsetUrlHandler("file"); }
+    void cleanupTestCase() {
+        for (const char *scheme : {"file", "http", "https"}) QDesktopServices::unsetUrlHandler(scheme);
+    }
 
     void theListShowsTheHistoryAndPaints() {
         const auto ids = add_texts({"first", "second\nwith a second line"});
@@ -426,6 +431,17 @@ private slots:
         }
         QCOMPARE(window->list_widget->count(), 1);
         QCOMPARE(window->type_filter_btn->text(), QString("File"));
+        {
+            MenuPicker picker("Link");
+            window->type_filter_btn->click();
+            QVERIFY(picker.picked);
+        }
+        QCOMPARE(window->type_filter_btn->text(), QString("Link"));
+        {
+            MenuPicker picker("File");
+            window->type_filter_btn->click();
+            QVERIFY(picker.picked);
+        }
         window->start_date_edit->setDate(QDate(2000, 1, 1));
         window->end_date_edit->setDate(QDate(2000, 1, 2));
         window->apply_time_filter_btn->click();
@@ -667,6 +683,29 @@ private slots:
         QTRY_COMPARE(env_.pastes.size(), 2);
     }
 
+    void pathAndLinkTextOpenWhatTheyName() {
+        const QString path = QDir::toNativeSeparators(env_.dir.filePath("notes.txt"));
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.close();
+        const auto apps = manager().create_group("Apps", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILE));
+        const auto ids = add_texts({"\"" + path + "\"", "www.example.com"});
+        QVERIFY(apps && manager().move_to_group(ids[0], *apps));
+        auto *window = open_window();
+        QTRY_VERIFY(!window->group_bar->group_buttons.isEmpty());
+        right_click_pick(ids[1], "Open in Browser");
+        QTRY_COMPARE(urls_.urls.size(), 1);
+        QCOMPARE(urls_.urls.first(), QUrl("https://www.example.com"));
+        // In a quick launch group a click opens the path instead of pasting it.
+        window->show();
+        window->group_bar->group_buttons.first()->click();
+        QCOMPARE(window->list_widget->count(), 1);
+        click(ids[0]);
+        QTRY_COMPARE(urls_.urls.size(), 2);
+        QCOMPARE(QDir::toNativeSeparators(urls_.urls.last().toLocalFile()), path);
+        QVERIFY(env_.pastes.isEmpty());
+    }
+
     void aFileGroupPastesWhatItCannotOpen() {
         const auto apps = manager().create_group("Apps");
         QVERIFY(apps);
@@ -691,10 +730,38 @@ private slots:
         QVERIFY(urls_.urls.isEmpty());
     }
 
+    void quickLaunchOpensLinksByClickEnterAndMultipleSelection() {
+        const auto apps = manager().create_group("Launch", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILE));
+        QVERIFY(apps);
+        const auto ids = add_texts({"https://example.com/page", "www.example.com"});
+        for (qint64 id : ids) QVERIFY(manager().move_to_group(id, *apps));
+        auto *window = open_window();
+        QTRY_VERIFY(!window->group_bar->group_buttons.isEmpty());
+        window->group_bar->group_buttons.first()->click();
+        click(ids[0]);
+        QTRY_COMPARE(urls_.urls.size(), 1);
+        QCOMPARE(urls_.urls.last(), QUrl("https://example.com/page"));
+        window->show();
+        window->selection_manager->select_item_id(ids[1]);
+        QVERIFY(key(Qt::Key_Return));
+        QTRY_COMPARE(urls_.urls.size(), 2);
+        QCOMPARE(urls_.urls.last(), QUrl("https://www.example.com"));
+        window->show();
+        for (qint64 id : ids) window->toggle_item_mark(id);
+        window->paste_selected();
+        QTRY_COMPARE(urls_.urls.size(), 4);
+        QVERIFY(env_.pastes.isEmpty());
+        window->show();
+        window->selection_manager->select_item_id(ids[0]);
+        QVERIFY(key(Qt::Key_Return, Qt::ShiftModifier));
+        QTRY_COMPARE(env_.pastes.size(), 1);
+        QCOMPARE(urls_.urls.size(), 4);
+    }
+
     void aFilterGroupFixesTheTypeButton() {
         add_texts({"apple", "banana"});
         QVERIFY(manager().add_item(file_payload({"C:\\f.txt"}), "file"));
-        QVERIFY(manager().create_group("Text", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER_TEXT)));
+        QVERIFY(manager().create_group("Text", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER), FilterRule::of_kind("text")));
         auto *window = open_window();
         QTRY_VERIFY(!window->group_bar->group_buttons.isEmpty());
         window->time_filter_toggle_btn->click();
@@ -745,6 +812,43 @@ private slots:
         QCOMPARE(again->width(), 500);
     }
 
+    void displayLineMenuUpdatesRowsAndSurvivesReopening() {
+        const auto ids = add_texts({"one\ntwo\nthree\nfour"});
+        auto *window = open_window();
+        const auto height = [&] { return window_->list_widget->visualItemRect(window_->list_widget->item(row_of(ids[0]))).height(); };
+        const int single_height = height();
+        const auto font = env_.config->get_clipboard_font_size();
+        const auto image = env_.config->get_clipboard_image_size();
+        QVERIFY(gear_pick(QCoreApplication::translate("ClipboardWindow", "%n line(s)", nullptr, 3)));
+        QCOMPARE(env_.config->get_clipboard_display_lines(), 3);
+        QTRY_VERIFY(height() > single_height);
+        const int multiline_height = height();
+        QCOMPARE(env_.config->get_clipboard_font_size(), font);
+        QCOMPARE(env_.config->get_clipboard_image_size(), image);
+        window->close();
+        window_.reset();
+        open_window();
+        QCOMPARE(height(), multiline_height);
+        QVERIFY(gear_pick(QCoreApplication::translate("ClipboardWindow", "%n line(s)", nullptr, 1)));
+        QTRY_COMPARE(height(), single_height);
+    }
+
+    void multilineRowsFollowTheAvailableWidthAndSelectionMarks() {
+        const auto ids = add_texts({QString("word ").repeated(20)});
+        env_.config->set_clipboard_display_lines(5);
+        auto *window = open_window();
+        window->resize(1100, 600);
+        QApplication::processEvents();
+        const auto height = [&] { return window->list_widget->visualItemRect(window->list_widget->item(row_of(ids[0]))).height(); };
+        const int wide = height();
+        window->resize(400, 600);
+        QTRY_VERIFY(height() > wide);
+        window->toggle_item_mark(ids[0]);
+        QVERIFY(window->selection_manager->has_marks());
+        QVERIFY(height() > wide);
+        QVERIFY(!window->grab().isNull());
+    }
+
     void hoveringShowsThePreview() {
         const auto ids = add_texts({QString("long text ").repeated(40)});
         auto *window = open_window();
@@ -753,6 +857,52 @@ private slots:
         QEvent leave(QEvent::Leave);
         QApplication::sendEvent(window->list_widget->viewport(), &leave);
         QTRY_VERIFY(!PreviewPopup::instance()->isVisible());
+    }
+
+    void movingIntoBlankSpaceClearsTheHoverPreview_data() {
+        QTest::addColumn<bool>("selected");
+        QTest::addColumn<bool>("pending");
+        QTest::newRow("visible") << false << false;
+        QTest::newRow("visible-with-selection") << true << false;
+        QTest::newRow("pending") << false << true;
+        QTest::newRow("pending-with-selection") << true << true;
+    }
+
+    void movingIntoBlankSpaceClearsTheHoverPreview() {
+        QFETCH(bool, selected);
+        QFETCH(bool, pending);
+        const auto ids = add_texts({"first", "second"});
+        auto *window = open_window();
+        auto *list = window->list_widget;
+        auto *preview = PreviewPopup::instance();
+        if (selected) list->setCurrentRow(0);
+        const auto selection = list->selectedItems();
+        preview->hide_preview();
+        const QPoint row_pos = row_center(ids[1]);
+        const QPoint blank_pos(row_pos.x(), list->viewport()->height() - 10);
+        QVERIFY(!list->itemAt(blank_pos));
+        const auto move_mouse = [list](const QPoint &pos) {
+            QMouseEvent event(QEvent::MouseMove, QPointF(pos), QPointF(list->viewport()->mapToGlobal(pos)),
+                              Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+            QApplication::sendEvent(list->viewport(), &event);
+        };
+        move_mouse(row_pos);
+        if (pending) QVERIFY(!preview->isVisible());
+        else QTRY_VERIFY(preview->isVisible());
+        QCOMPARE(window->item_delegate->highlighted_id(), std::optional<qint64>(ids[1]));
+
+        move_mouse(blank_pos);
+        QVERIFY(!preview->isVisible());
+        QCOMPARE(list->selectedItems(), selection);
+        const auto expected_highlight = selection.isEmpty() ? std::nullopt
+            : std::optional<qint64>(selection.front()->data(Qt::UserRole).toLongLong());
+        QCOMPARE(window->item_delegate->highlighted_id(), expected_highlight);
+        QTest::qWait(30);
+        QVERIFY(!preview->isVisible());
+
+        move_mouse(row_pos);
+        QTRY_VERIFY(preview->isVisible());
+        QCOMPARE(window->item_delegate->highlighted_id(), std::optional<qint64>(ids[1]));
     }
 };
 

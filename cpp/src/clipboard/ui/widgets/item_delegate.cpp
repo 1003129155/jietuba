@@ -6,6 +6,7 @@
 #include <QListWidget>
 #include <QPainter>
 #include <QPen>
+#include <QTextLayout>
 
 namespace jietuba::clipboard {
 namespace {
@@ -45,9 +46,9 @@ double image_row_span(const QString &image_size) {
     return 1;
 }
 
-ClipboardItemDelegate::ClipboardItemDelegate(QListWidget *parent, const Theme &theme, int display_lines, int window_opacity, bool show_metadata,
-                                             int line_height_padding, bool show_shortcuts, const QString &image_size)
-    : QStyledItemDelegate(parent), theme_(theme), display_lines_(display_lines), window_opacity_(window_opacity), show_metadata_(show_metadata),
+ClipboardItemDelegate::ClipboardItemDelegate(QListWidget *parent, const Theme &theme, int font_size, int window_opacity, bool show_metadata,
+                                             int line_height_padding, bool show_shortcuts, const QString &image_size, int display_lines)
+    : QStyledItemDelegate(parent), theme_(theme), display_lines_(std::clamp(display_lines, 1, 5)), font_size_(font_size), window_opacity_(window_opacity), show_metadata_(show_metadata),
       line_height_padding_(line_height_padding), show_shortcuts_(show_shortcuts), shortcut_labels_(labels_for("123456789abcdefghijklmnopqrstuvwxyz")),
       image_row_span_(image_row_span(image_size)) {
     rebuild_color_cache();
@@ -59,14 +60,54 @@ void ClipboardItemDelegate::set_theme(const Theme &theme) {
     rebuild_color_cache();
 }
 
-void ClipboardItemDelegate::set_display_lines(int lines) {
-    display_lines_ = lines;
+void ClipboardItemDelegate::set_font_size(int size) {
+    font_size_ = size;
     rebuild_font_cache();
 }
 
 int ClipboardItemDelegate::font_size() const {
     // The font size setting is in pixels at 100%, times the panel scale.
-    return scaled(display_lines_ >= 10 ? display_lines_ : 15);
+    return scaled(font_size_ >= 10 ? font_size_ : 15);
+}
+
+int ClipboardItemDelegate::text_width(const ClipboardItem &item, int row, int width) const {
+    const int left = show_shortcuts_ && row < shortcut_labels_.size() ? scaled(SHORTCUT_BADGE_WIDTH + 4) : scaled(12);
+    const int icon = item.color ? scaled(54) : !item.icon().isEmpty() && !(hide_file_icon_ && item.content_type == "file") ? scaled(24) : 0;
+    return std::max(1, width - 1 - scaled(5) - left - icon - (item.is_pinned ? scaled(24) : 0) - (marked_ids_.contains(item.id) ? scaled(20) : 0));
+}
+
+QStringList ClipboardItemDelegate::text_lines(const ClipboardItem &item, int width) const {
+    width = std::max(1, width);
+    if (display_lines_ == 1 || item.content_type == "image") return {content_fm_.elidedText(item.display_text(), Qt::ElideRight, width)};
+    const QString source = item.title && !item.title->isEmpty() ? *item.title : item.content_type == "text" ? item.content : item.display_text();
+    // Bound layout work even for very large clipboard records.
+    QString text = source.left(4096);
+    text.replace("\r\n", "\n");
+    text.replace(u'\r', u'\n');
+    const auto paragraphs = text.split(u'\n');
+    QStringList lines;
+    for (int paragraph = 0; paragraph < paragraphs.size(); ++paragraph) {
+        QTextLayout layout(paragraphs[paragraph], content_font_);
+        QTextOption option;
+        option.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+        layout.setTextOption(option);
+        layout.beginLayout();
+        do {
+            auto line = layout.createLine();
+            if (line.isValid()) line.setLineWidth(width);
+            lines.append(line.isValid() ? paragraphs[paragraph].mid(line.textStart(), line.textLength()) : QString());
+            if (lines.size() == display_lines_) {
+                const bool more = (line.isValid() && line.textStart() + line.textLength() < paragraphs[paragraph].size()) ||
+                                  paragraph + 1 < paragraphs.size() || source.size() > 4096;
+                if (more) lines.last() = content_fm_.elidedText(lines.last() + QChar(0x2026), Qt::ElideRight, width);
+                layout.endLayout();
+                return lines;
+            }
+            if (!line.isValid() || line.textStart() + line.textLength() >= paragraphs[paragraph].size()) break;
+        } while (true);
+        layout.endLayout();
+    }
+    return lines;
 }
 
 void ClipboardItemDelegate::set_window_opacity(int opacity) {
@@ -167,7 +208,7 @@ void ClipboardItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
     const int content_top = rect.top() + 1;
     const int content_width = content_right - content_left;
     const int size = font_size();
-    const int line_height = static_cast<int>(size * 1.4);
+    const int line_height = std::max(static_cast<int>(size * 1.4), item_data.color ? scaled(32) : 0);
     int x_offset = content_left;
 
     // ---- Icon / thumbnail ----
@@ -184,7 +225,17 @@ void ClipboardItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
             x_offset += fitted.width() + scaled(6);
         }
     }
-    if (!drew_thumbnail && !item_data.icon().isEmpty() && !(hide_file_icon_ && item_data.content_type == "file")) {
+    if (item_data.color) {
+        const int swatch_width = scaled(44), swatch_height = scaled(28);
+        const QRectF swatch(x_offset + scaled(2), content_top + (line_height - swatch_height) / 2.0, swatch_width, swatch_height);
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        QColor border = cc.text_primary;
+        border.setAlpha(110);
+        painter->setPen(QPen(border, 1));
+        painter->setBrush(*item_data.color);
+        painter->drawRoundedRect(swatch.adjusted(0.5, 0.5, -0.5, -0.5), scaled(3), scaled(3));
+        x_offset += swatch_width + scaled(10);
+    } else if (!drew_thumbnail && !item_data.icon().isEmpty() && !(hide_file_icon_ && item_data.content_type == "file")) {
         painter->setFont(icon_font_);
         painter->setPen(cc.text_primary);
         painter->drawText(QRect(x_offset, content_top, scaled(24), line_height), Qt::AlignVCenter, item_data.icon());
@@ -198,8 +249,9 @@ void ClipboardItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
     // Room on the right for the pin mark and the selection check.
     const int pin_width = item_data.is_pinned ? scaled(24) : 0;
     const int mark_width = is_marked ? scaled(20) : 0;
-    const QString elided_text = content_fm_.elidedText(item_data.display_text(), Qt::ElideRight, text_rect.width() - pin_width - mark_width);
-    painter->drawText(text_rect, Qt::AlignVCenter, elided_text);
+    const auto lines = text_lines(item_data, text_rect.width() - pin_width - mark_width);
+    for (int line = 0; line < lines.size(); ++line)
+        painter->drawText(text_rect.translated(0, line * line_height), Qt::AlignVCenter, lines[line]);
 
     // ---- Pin mark ----
     if (item_data.is_pinned)
@@ -219,7 +271,7 @@ void ClipboardItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
         QStringList meta_parts;
         if (item_data.source_app && !item_data.source_app->isEmpty()) meta_parts.append(*item_data.source_app);
         if (item_data.created_at.isValid()) meta_parts.append(item_data.created_at.toString("MM-dd HH:mm"));
-        const QRect meta_rect(content_left, content_top + line_height, content_width, scaled(16));
+        const QRect meta_rect(content_left, content_top + line_height * lines.size(), content_width, scaled(16));
         painter->drawText(meta_rect, Qt::AlignRight | Qt::AlignVCenter, meta_parts.join(QString::fromUtf8(" · ")));
     }
 
@@ -233,6 +285,12 @@ QSize ClipboardItemDelegate::sizeHint(const QStyleOptionViewItem &option, const 
     const QVariant data = index.data(ROLE_ITEM_DATA);
     if (data.canConvert<ClipboardItem>()) {
         const auto item_data = data.value<ClipboardItem>();
+        if (item_data.content_type != "image") {
+            const auto *list = qobject_cast<QListWidget *>(parent());
+            const int width = list && list->viewport()->width() > 0 ? list->viewport()->width() : option.rect.width();
+            const int lines = text_lines(item_data, text_width(item_data, index.row(), width > 0 ? width : 300)).size();
+            content_height = std::max(static_cast<int>(font_size() * 1.4), item_data.color ? scaled(32) : 0) * lines + 2 + (show_metadata_ ? scaled(16) : 0);
+        }
         if (item_data.content_type == "image" && item_data.thumbnail && !item_data.thumbnail->isEmpty())
             content_height = std::max(static_cast<int>(content_height * image_row_span_), scaled(MIN_IMAGE_ROW_HEIGHT));
     }

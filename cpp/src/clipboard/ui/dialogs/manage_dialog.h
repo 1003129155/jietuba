@@ -104,7 +104,8 @@ public:
     QPointer<OptionCard> radio_hidden;
     QPointer<OptionCard> radio_filter;
     QPointer<QWidget> filter_kind_box;
-    QPointer<SegmentedWidget> filter_kind_switch;
+    QPointer<ComboBox> filter_kind_combo;
+    QPointer<ComboBox> filter_app_combo;
     QPointer<QButtonGroup> group_type_btn_group;
     QPointer<QScrollArea> emoji_scroll;
     QPointer<QWidget> recommended_row;
@@ -126,8 +127,10 @@ public:
     int detail_form_token = 0;
 
     // ── Callbacks of the form builders ──
-    // The group type chosen in the form; a filter group's type also depends on the content type switch.
+    // The group type chosen in the form.
     int selected_group_type() const;
+    // The rule a filter group gets from the form; none for the other group types.
+    std::optional<FilterRule> selected_filter_rule() const;
     void on_group_type_toggled(bool checked, std::optional<int> form_token = std::nullopt);
     void on_filter_kind_changed(const QString &kind, std::optional<int> form_token = std::nullopt);
     void create_emoji_picker(const QString &current_icon = QString::fromUtf8("📁"));
@@ -240,7 +243,8 @@ private:
     std::optional<ImageRequest> image_request_;
     // Whether a dragged item may drop on a group, without querying the database during the drag.
     QHash<qint64, int> group_types_;
-    QHash<qint64, QString> item_types_;
+    // Content type and text sub-kind of each listed item.
+    QHash<qint64, QPair<QString, QString>> item_types_;
     // The list and form were released on close and reload on the next show.
     bool needs_reload_ = false;
     QTimer image_wait_timer_;

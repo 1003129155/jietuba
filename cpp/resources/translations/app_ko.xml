@@ -2602,6 +2602,26 @@ Replace it?</source>
         <translation>파일</translation>
     </message>
     <message>
+        <source>Link</source>
+        <translation>링크</translation>
+    </message>
+    <message>
+        <source>Color</source>
+        <translation>색상</translation>
+    </message>
+    <message>
+        <source>Path</source>
+        <translation>경로</translation>
+    </message>
+    <message>
+        <source>Open in Browser</source>
+        <translation>브라우저에서 열기</translation>
+    </message>
+    <message>
+        <source>Paste as File</source>
+        <translation>파일로 붙여넣기</translation>
+    </message>
+    <message>
         <source>Close</source>
         <translation>닫기</translation>
     </message>
@@ -3019,6 +3039,7 @@ This action cannot be undone.</source>
 <!-- ========== Clipboard Management Dialog ========== -->
 <context>
     <name>ManageDialog</name>
+    <message><source>Please enter a valid link</source><translation>유효한 링크를 입력하세요</translation></message>
     <message>
         <source>Clipboard Management</source>
         <translation>클립보드 관리</translation>
@@ -3140,12 +3161,12 @@ This action cannot be undone.</source>
         <translation>일반 그룹은 모든 콘텐츠를 허용하며, 선택 시 내용이나 파일을 붙여넣습니다</translation>
     </message>
     <message>
-        <source>Quick launch groups only allow file or folder paths; selecting an item opens them</source>
-        <translation>빠른 실행 그룹은 파일 또는 폴더 경로만 허용하며, 항목을 선택하면 바로 엽니다</translation>
+        <source>Quick launch groups accept files, folder paths and links; selecting an item opens them</source>
+        <translation>빠른 실행 그룹은 파일, 폴더 경로 및 링크를 지원하며, 항목을 선택하면 바로 엽니다</translation>
     </message>
     <message>
-        <source>Quick launch groups only accept file items; left-click opens the file directly</source>
-        <translation>빠른 실행 그룹은 파일 항목만 허용하며, 왼쪽 클릭으로 파일을 바로 엽니다</translation>
+        <source>Quick launch groups accept files, paths and links; left-click opens them directly</source>
+        <translation>빠른 실행 그룹은 파일, 경로 및 링크를 지원하며, 왼쪽 클릭으로 바로 엽니다</translation>
     </message>
     <message>
         <source>Enter or paste emoji...</source>
@@ -3495,8 +3516,8 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>패널에 표시 안 함</translation>
     </message>
     <message>
-        <source>Open files or folders</source>
-        <translation>파일 또는 폴더 열기</translation>
+        <source>Open files, folders or links</source>
+        <translation>파일, 폴더 또는 링크 열기</translation>
     </message>
     <message>
         <source>Paste text or files</source>
@@ -3647,8 +3668,8 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>필터</translation>
     </message>
     <message>
-        <source>Show one type</source>
-        <translation>한 가지 유형만 표시</translation>
+        <source>By type or source</source>
+        <translation>유형이나 출처로 표시</translation>
     </message>
     <message>
         <source>Content Type</source>
@@ -3667,8 +3688,40 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>필터 그룹 편집</translation>
     </message>
     <message>
-        <source>Filter groups store no content; they show one type of your clipboard history</source>
-        <translation>필터 그룹은 내용을 저장하지 않고 클립보드 기록의 한 가지 유형만 표시합니다</translation>
+        <source>Filter groups store no content; they show the clipboard history that matches the chosen type and source app</source>
+        <translation>필터 그룹은 내용을 저장하지 않고 클립보드 기록 중 선택한 유형과 출처에 맞는 항목만 표시합니다</translation>
+    </message>
+    <message>
+        <source>Link</source>
+        <translation>링크</translation>
+    </message>
+    <message>
+        <source>Color</source>
+        <translation>색상</translation>
+    </message>
+    <message>
+        <source>Path</source>
+        <translation>경로</translation>
+    </message>
+    <message>
+        <source>All Types</source>
+        <translation>모든 유형</translation>
+    </message>
+    <message>
+        <source>Source App</source>
+        <translation>출처 앱</translation>
+    </message>
+    <message>
+        <source>Any App</source>
+        <translation>모든 앱</translation>
+    </message>
+    <message>
+        <source>Jietuba (this app)</source>
+        <translation>Jietuba(이 앱)</translation>
+    </message>
+    <message>
+        <source>Choose a content type or a source app</source>
+        <translation>내용 유형이나 출처 앱을 선택하세요</translation>
     </message>
 </context>
 

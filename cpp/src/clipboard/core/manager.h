@@ -42,9 +42,10 @@ public:
     void resume_after_update();
     size_t pending_writes() const;
 
-    QList<ClipboardItem> get_history(qint64 offset = 0, qint64 limit = 50, const std::optional<QString> &search = std::nullopt,
-                                     const std::optional<QString> &content_type = std::nullopt, std::optional<qint64> start_time = std::nullopt,
-                                     std::optional<qint64> end_time = std::nullopt);
+    QList<ClipboardItem> get_history(qint64 offset = 0, qint64 limit = 50, const std::optional<QString> &search = std::nullopt, const FilterRule &filter = {},
+                                     std::optional<qint64> start_time = std::nullopt, std::optional<qint64> end_time = std::nullopt);
+    // Source apps in the history with their item counts, most first; this application's builds come as OWN_SOURCE_APP.
+    QList<QPair<QString, qint64>> source_apps();
     qint64 get_total_count();
     QList<ClipboardItem> search(const QString &keyword, qint64 limit = 50);
     std::optional<ClipboardItem> get_item(qint64 item_id);
@@ -60,18 +61,21 @@ public:
     bool toggle_pin(qint64 item_id);
     // Writes the item to the system clipboard and counts the paste.
     bool paste_item(qint64 item_id, bool with_html = true, bool move_to_top = false);
+    // Writes the files a path item names to the clipboard; false when none of them exists.
+    bool paste_as_files(qint64 item_id);
     // Merges several items into one clipboard write; the ids actually used, empty when nothing was written.
     QList<qint64> paste_items(const QList<qint64> &item_ids, bool with_html = true, bool move_to_top = false, const QString &separator = "\n",
                               bool plain_text = false, const QString &layout = "vertical", bool keep_in_history = false);
     std::optional<QByteArray> get_image_data(const QString &image_id);
 
+    // filter_rule is required for a filter group and ignored for the others.
     std::optional<qint64> create_group(const QString &name, const std::optional<QString> &color = std::nullopt, const std::optional<QString> &icon = std::nullopt,
-                                       int group_type = 0);
+                                       int group_type = 0, const std::optional<FilterRule> &filter_rule = std::nullopt);
     QList<Group> get_groups();
     bool delete_group(qint64 group_id);
     bool rename_group(qint64 group_id, const QString &name);
     bool update_group(qint64 group_id, const QString &name, const std::optional<QString> &color = std::nullopt, const std::optional<QString> &icon = std::nullopt,
-                      int group_type = 0);
+                      int group_type = 0, const std::optional<FilterRule> &filter_rule = std::nullopt);
     // The Rust core refuses items the group does not take (see group_accepts).
     bool move_to_group(qint64 item_id, std::optional<qint64> group_id = std::nullopt);
     bool move_group_between(qint64 group_id, std::optional<qint64> before_id = std::nullopt, std::optional<qint64> after_id = std::nullopt);

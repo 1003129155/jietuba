@@ -2683,6 +2683,26 @@ Replace it?</source>
         <translation>文件</translation>
     </message>
     <message>
+        <source>Link</source>
+        <translation>链接</translation>
+    </message>
+    <message>
+        <source>Color</source>
+        <translation>颜色</translation>
+    </message>
+    <message>
+        <source>Path</source>
+        <translation>路径</translation>
+    </message>
+    <message>
+        <source>Open in Browser</source>
+        <translation>在浏览器中打开</translation>
+    </message>
+    <message>
+        <source>Paste as File</source>
+        <translation>作为文件粘贴</translation>
+    </message>
+    <message>
         <source>Close</source>
         <translation>关闭</translation>
     </message>
@@ -3099,6 +3119,7 @@ This action cannot be undone.</source>
 <!-- ========== Clipboard Management Dialog ========== -->
 <context>
     <name>ManageDialog</name>
+    <message><source>Please enter a valid link</source><translation>请输入有效的链接</translation></message>
     <message>
         <source>Clipboard Management</source>
         <translation>剪贴板管理</translation>
@@ -3220,12 +3241,12 @@ This action cannot be undone.</source>
         <translation>通用分组允许任意内容；选中条目后会向目标粘贴内容或文件</translation>
     </message>
     <message>
-        <source>Quick launch groups only allow file or folder paths; selecting an item opens them</source>
-        <translation>快速启动分组只允许文件或文件夹路径；选中条目后会直接打开</translation>
+        <source>Quick launch groups accept files, folder paths and links; selecting an item opens them</source>
+        <translation>快速启动分组支持文件、文件夹路径和链接；选中条目后会直接打开</translation>
     </message>
     <message>
-        <source>Quick launch groups only accept file items; left-click opens the file directly</source>
-        <translation>快速启动分组只接受文件类型条目，左键点击直接打开文件</translation>
+        <source>Quick launch groups accept files, paths and links; left-click opens them directly</source>
+        <translation>快速启动分组支持文件、路径和链接，左键点击直接打开</translation>
     </message>
     <message>
         <source>Enter or paste emoji...</source>
@@ -3579,8 +3600,8 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>不在面板上显示</translation>
     </message>
     <message>
-        <source>Open files or folders</source>
-        <translation>打开文件或文件夹</translation>
+        <source>Open files, folders or links</source>
+        <translation>打开文件、文件夹或链接</translation>
     </message>
     <message>
         <source>Paste text or files</source>
@@ -3727,8 +3748,8 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>筛选</translation>
     </message>
     <message>
-        <source>Show one type</source>
-        <translation>只显示一类</translation>
+        <source>By type or source</source>
+        <translation>按类型或来源</translation>
     </message>
     <message>
         <source>Content Type</source>
@@ -3747,8 +3768,40 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>编辑筛选分组</translation>
     </message>
     <message>
-        <source>Filter groups store no content; they show one type of your clipboard history</source>
-        <translation>筛选分组不保存内容，只显示剪贴板历史中的某一类</translation>
+        <source>Filter groups store no content; they show the clipboard history that matches the chosen type and source app</source>
+        <translation>筛选分组不保存内容，只显示剪贴板历史中符合所选类型和来源的内容</translation>
+    </message>
+    <message>
+        <source>Link</source>
+        <translation>链接</translation>
+    </message>
+    <message>
+        <source>Color</source>
+        <translation>颜色</translation>
+    </message>
+    <message>
+        <source>Path</source>
+        <translation>路径</translation>
+    </message>
+    <message>
+        <source>All Types</source>
+        <translation>全部类型</translation>
+    </message>
+    <message>
+        <source>Source App</source>
+        <translation>来源应用</translation>
+    </message>
+    <message>
+        <source>Any App</source>
+        <translation>任意应用</translation>
+    </message>
+    <message>
+        <source>Jietuba (this app)</source>
+        <translation>截图吧（本程序）</translation>
+    </message>
+    <message>
+        <source>Choose a content type or a source app</source>
+        <translation>请选择内容类型或来源应用</translation>
     </message>
 </context>
 

@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 ///     content: 主要内容
 ///     html_content: HTML 富文本内容
 ///     content_type: 类型 ("text", "file", "image")
+///     sub_kind: 文本子类型（见 text_kind），普通文本和非文本为空
 ///     image_id: 图片文件 ID
 ///     thumbnail: 缩略图 Base64 (data:image/png;base64,...)
 ///     is_pinned: 是否置顶
@@ -22,6 +23,8 @@ pub struct PyClipboardItem {
     pub content: String,
     pub html_content: Option<String>,
     pub content_type: String,
+    #[serde(default)]
+    pub sub_kind: String,
     pub image_id: Option<String>,
     pub thumbnail: Option<String>,
     pub is_pinned: bool,
@@ -41,6 +44,7 @@ impl PyClipboardItem {
             content,
             html_content: None,
             content_type,
+            sub_kind: String::new(),
             image_id: None,
             thumbnail: None,
             is_pinned: false,
@@ -102,7 +106,8 @@ impl PyPaginatedResult {
 ///     icon: 分组图标（可选）
 ///     item_order: 排序顺序
 ///     created_at: 创建时间戳
-///     group_type: 分组类型 (0=普通, 1=快速启动, 2=隐藏, 3/4/5=筛选文本/图片/文件)
+///     group_type: 分组类型 (0=普通, 1=快速启动, 2=隐藏, 3=筛选)
+///     filter_rule: 筛选分组的条件，其他分组为 None
 #[derive(Clone, Debug)]
 pub struct PyGroup {
     pub id: i64,
@@ -112,4 +117,5 @@ pub struct PyGroup {
     pub item_order: i64,
     pub created_at: i64,
     pub group_type: i64,
+    pub filter_rule: Option<crate::group_kind::FilterRule>,
 }

@@ -252,7 +252,7 @@ void refresh_group_icon_kind(ManageDialog *dialog) {
     const int form_token = dialog->detail_form_token;
     const QString style = emoji_btn_style(dialog);
     QList<QPushButton *> buttons;
-    for (const QString &icon : get_recommended_group_icons(group_type)) {
+    for (const QString &icon : get_recommended_group_icons(group_type, dialog->selected_filter_rule())) {
         auto *btn = new QPushButton(icon, row);
         btn->setFixedSize(scale_ui(34), scale_ui(34));
         btn->setAutoDefault(false);

@@ -38,6 +38,15 @@ public:
     }
 };
 
+namespace {
+// Picks the entry whose data is `value` (empty for "any").
+void choose(ComboBox *combo, const QString &value) {
+    const int index = combo->findData(value);
+    QVERIFY2(index >= 0, qPrintable(value));
+    combo->setCurrentIndex(index);
+}
+}
+
 // The clipboard manage window on a real database, offscreen: groups and items created,
 // edited, reordered, moved and deleted through its controls, and CSV import/export.
 class ClipboardManageTests : public QObject {
@@ -304,21 +313,27 @@ private slots:
         dialog->radio_filter->click();
         QVERIFY(!dialog->filter_kind_box->isHidden());
         QVERIFY(dialog->detail_title->text().contains("Filter"));
-        QCOMPARE(dialog->icon_input->text(), get_default_group_icon(static_cast<int>(GroupType::FILTER_TEXT)));
+        const int filter_type = static_cast<int>(GroupType::FILTER);
+        QCOMPARE(dialog->icon_input->text(), get_default_group_icon(filter_type, FilterRule::of_kind("text")));
         // The filtered type picks the default icon; a custom icon stays.
-        dialog->filter_kind_switch->setCurrentItem("image");
-        QCOMPARE(dialog->icon_input->text(), get_default_group_icon(static_cast<int>(GroupType::FILTER_IMAGE)));
+        choose(dialog->filter_kind_combo, "image");
+        QCOMPARE(dialog->icon_input->text(), get_default_group_icon(filter_type, FilterRule::of_kind("image")));
         dialog->icon_input->setText(QString::fromUtf8("⭐"));
-        dialog->filter_kind_switch->setCurrentItem("file");
+        choose(dialog->filter_kind_combo, "file");
         QCOMPARE(dialog->icon_input->text(), QString::fromUtf8("⭐"));
-        dialog->filter_kind_switch->setCurrentItem("image");
+        choose(dialog->filter_kind_combo, "image");
         dialog->save_btn->click();
         QCOMPARE(manager().get_groups().size(), 1);
-        QCOMPARE(manager().get_groups().first().group_type, static_cast<int>(GroupType::FILTER_IMAGE));
-        // Nothing can be added to it.
+        QCOMPARE(manager().get_groups().first().group_type, filter_type);
+        QCOMPARE(manager().get_groups().first().filter_rule, std::optional(FilterRule::of_kind("image")));
+        // Its settings stay open after creation, with no content controls.
         QVERIFY(!dialog->add_item_btn->isEnabled());
         QVERIFY(!dialog->search_input->isEnabled());
-        QVERIFY(dialog->save_btn->isHidden());
+        QVERIFY(dialog->add_item_btn->isHidden());
+        QVERIFY(dialog->search_input->isHidden());
+        QVERIFY(dialog->save_btn->isVisible());
+        QCOMPARE(dialog->editing_group_id, dialog->selected_group_id);
+        QVERIFY(dialog->filter_kind_box->isVisible());
         QCOMPARE(dialog->item_list->count(), 0);
 
         // A group with content cannot become a filter group; a filter group can be edited into any other.
@@ -339,15 +354,99 @@ private slots:
         dialog->group_list->setCurrentRow(0);
         dialog->edit_group_btn->click();
         QVERIFY(dialog->radio_filter->isChecked());
-        QCOMPARE(dialog->filter_kind_switch->currentItem(), QString("image"));
+        QCOMPARE(dialog->filter_kind_combo->currentData().toString(), QString("image"));
+        QCOMPARE(dialog->filter_app_combo->currentData().toString(), QString());
         dialog->radio_normal->click();
         dialog->save_btn->click();
         QCOMPARE(manager().get_groups().first().group_type, static_cast<int>(GroupType::NORMAL));
         QVERIFY(!dialog->grab().isNull());
     }
 
+    void filterRulesPickAContentTypeAndASourceApp() {
+        // The app has no items left in the history; the rule keeps it rather than becoming "any app".
+        const FilterRule links_from_chrome{SUB_KIND_URL, QString("chrome.exe")};
+        const auto group = manager().create_group("Links", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER), links_from_chrome);
+        QVERIFY(group);
+        auto *dialog = open_dialog();
+        dialog->group_list->setCurrentRow(0);
+        QCOMPARE(dialog->current_mode, QString("group"));
+        QCOMPARE(dialog->editing_group_id, group);
+        QVERIFY(dialog->radio_filter->isChecked());
+        QCOMPARE(dialog->filter_kind_combo->currentData().toString(), SUB_KIND_URL);
+        QCOMPARE(dialog->filter_app_combo->currentData().toString(), QString("chrome.exe"));
+        QCOMPARE(dialog->filter_app_combo->currentText(), QString("chrome"));
+        QCOMPARE(dialog->icon_input->text(), QString::fromUtf8("🔗"));
+        dialog->group_name_input->setText("Chrome links");
+        dialog->save_btn->click();
+        QCOMPARE(manager().get_groups().first().name, QString("Chrome links"));
+        QCOMPARE(manager().get_groups().first().filter_rule, std::optional(links_from_chrome));
+
+        // Each part changes on its own.
+        dialog->edit_group_btn->click();
+        choose(dialog->filter_kind_combo, "image");
+        dialog->save_btn->click();
+        QCOMPARE(manager().get_groups().first().filter_rule, std::optional(FilterRule{QString("image"), QString("chrome.exe")}));
+        dialog->edit_group_btn->click();
+        choose(dialog->filter_kind_combo, QString());
+        QVERIFY(dialog->save_btn->isEnabled());
+        // Neither part set would be the whole history: saving is off until one is chosen.
+        choose(dialog->filter_app_combo, QString());
+        QVERIFY(!dialog->save_btn->isEnabled());
+        QVERIFY(!dialog->save_btn->toolTip().isEmpty());
+        // Another group type does not need a rule.
+        dialog->radio_normal->click();
+        QVERIFY(dialog->save_btn->isEnabled());
+        dialog->radio_filter->click();
+        QVERIFY(!dialog->save_btn->isEnabled());
+        choose(dialog->filter_app_combo, "chrome.exe");
+        QVERIFY(dialog->save_btn->isEnabled());
+        QCOMPARE(dialog->icon_input->text(), QString::fromUtf8("🧩"));
+        dialog->save_btn->click();
+        QCOMPARE(manager().get_groups().first().filter_rule, std::optional(FilterRule{std::nullopt, QString("chrome.exe")}));
+        QVERIFY(!dialog->grab().isNull());
+    }
+
+    void selectingFilterGroupsOpensSettingsAndRestoresContentControlsElsewhere() {
+        const auto notes = manager().create_group("Notes");
+        const auto filter = manager().create_group("Colors", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER), FilterRule::of_kind(SUB_KIND_COLOR));
+        QVERIFY(notes && filter);
+        auto *dialog = open_dialog();
+        QCOMPARE(dialog->current_mode, QString("content"));
+        QVERIFY(dialog->add_item_btn->isVisible());
+        dialog->group_list->setCurrentRow(1);
+        QCOMPARE(dialog->current_mode, QString("group"));
+        QCOMPARE(dialog->editing_group_id, filter);
+        QCOMPARE(dialog->group_name_input->text(), QString("Colors"));
+        QCOMPARE(dialog->filter_kind_combo->currentData().toString(), SUB_KIND_COLOR);
+        QVERIFY(dialog->filter_kind_box->isVisible());
+        QVERIFY(dialog->add_item_btn->isHidden());
+        QVERIFY(dialog->search_input->isHidden());
+        choose(dialog->filter_kind_combo, SUB_KIND_URL);
+        dialog->save_btn->click();
+        QCOMPARE(manager().get_groups().last().filter_rule, std::optional(FilterRule::of_kind(SUB_KIND_URL)));
+        QCOMPARE(dialog->editing_group_id, filter);
+        dialog->switch_mode("content");
+        QCOMPARE(dialog->current_mode, QString("group"));
+        QCOMPARE(dialog->editing_group_id, filter);
+
+        dialog->group_list->setCurrentRow(0);
+        QCOMPARE(dialog->current_mode, QString("content"));
+        QVERIFY(dialog->content_edit);
+        QVERIFY(dialog->add_item_btn->isVisible() && dialog->add_item_btn->isEnabled());
+        QVERIFY(dialog->search_input->isVisible() && dialog->search_input->isEnabled());
+        dialog->group_list->setCurrentRow(1);
+        dialog->new_group_btn->click();
+        QVERIFY(!dialog->editing_group_id);
+        QVERIFY(dialog->add_item_btn->isVisible() && !dialog->add_item_btn->isEnabled());
+        QVERIFY(dialog->search_input->isVisible() && !dialog->search_input->isEnabled());
+        dialog->group_list->setCurrentRow(1);
+        QCOMPARE(dialog->editing_group_id, filter);
+        QVERIFY(dialog->filter_kind_box->isVisible());
+        QVERIFY(!dialog->grab().isNull());
+    }
+
     void buildingTheGroupFormNeverFlashesAStrayWindow() {
-        QVERIFY(manager().create_group("Images", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER_IMAGE)));
+        QVERIFY(manager().create_group("Images", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER), FilterRule::of_kind("image")));
         auto *dialog = open_dialog();
         WindowShowSpy spy;
         qApp->installEventFilter(&spy);
@@ -520,10 +619,10 @@ private slots:
         dialog->pin_image_item();
         dialog->save_image_item_as();
 
-        // A quick launch group takes only files, and items cannot be moved into it otherwise.
+        // Quick launch provides file and link forms; images cannot be moved into it.
         dialog->group_list->setCurrentRow(dialog->group_list->row_of_id(*apps));
         QVERIFY(dialog->file_path_input);
-        QVERIFY(!dialog->content_kind_switch);
+        QVERIFY(dialog->content_kind_switch);
         dialog->group_list->setCurrentRow(dialog->group_list->row_of_id(*notes));
         QStringList seen;
         const int text_row = dialog->item_list->row_of_id(*picture);
@@ -531,6 +630,40 @@ private slots:
         emit dialog->item_list->customContextMenuRequested(row_center(dialog->item_list, text_row));
         QVERIFY(!picker.picked);
         QVERIFY(manager().get_by_group(*apps).isEmpty());
+    }
+
+    void quickLaunchCanCreateAndEditLinks() {
+        const auto apps = manager().create_group("Launch", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILE));
+        QVERIFY(apps);
+        auto *dialog = open_dialog();
+        QVERIFY(dialog->file_path_input);
+        QVERIFY(dialog->content_kind_switch);
+        dialog->title_input->setText("Website");
+        dialog->content_kind_switch->setCurrentItem("link");
+        QVERIFY(dialog->content_edit);
+        QCOMPARE(dialog->title_input->text(), QString("Website"));
+        dialog->content_edit->setPlainText("ordinary text");
+        {
+            ModalAnswerer ok(true);
+            dialog->save_btn->click();
+            QCOMPARE(ok.answered(), 1);
+        }
+        QVERIFY(manager().get_by_group(*apps).isEmpty());
+        QVERIFY(manager().get_history().isEmpty());
+        dialog->content_edit->setPlainText("https://example.com");
+        dialog->save_btn->click();
+        const auto items = manager().get_by_group(*apps);
+        QCOMPARE(items.size(), 1);
+        QCOMPARE(items.first().sub_kind, SUB_KIND_URL);
+        QCOMPARE(items.first().title, std::optional<QString>("Website"));
+        dialog->open_item_editor(items.first().id, *apps);
+        QVERIFY(dialog->content_edit);
+        dialog->content_edit->setPlainText("www.example.com/updated");
+        dialog->save_btn->click();
+        QCOMPARE(manager().get_item(items.first().id)->content, QString("www.example.com/updated"));
+        dialog->add_item_btn->click();
+        dialog->content_kind_switch->setCurrentItem("file");
+        QVERIFY(dialog->file_path_input);
     }
 
     void csvRoundTripsThroughTheWindow() {
@@ -798,12 +931,12 @@ private slots:
         QCOMPARE(preview->kind(), KIND_FILE());
 
         dialog->radio_filter->setChecked(true);
-        dialog->filter_kind_switch->setCurrentItem("file");
-        QCOMPARE(recommended(), get_recommended_group_icons(static_cast<int>(GroupType::FILTER_FILE)));
+        choose(dialog->filter_kind_combo, "file");
+        QCOMPARE(recommended(), get_recommended_group_icons(static_cast<int>(GroupType::FILTER), FilterRule::of_kind("file")));
         QCOMPARE(preview->kind(), KIND_FILTER());
 
         dialog->recommended_row->findChildren<QPushButton *>()[1]->click();
-        QCOMPARE(dialog->icon_input->text(), get_recommended_group_icons(static_cast<int>(GroupType::FILTER_FILE))[1]);
+        QCOMPARE(dialog->icon_input->text(), get_recommended_group_icons(static_cast<int>(GroupType::FILTER), FilterRule::of_kind("file"))[1]);
         QCOMPARE(dialog->icon_preview->text(), dialog->icon_input->text());
     }
 
@@ -832,7 +965,7 @@ private slots:
         QVERIFY(manager().create_group("Plain"));
         QVERIFY(manager().create_group("Launch", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILE)));
         QVERIFY(manager().create_group("Secret", std::nullopt, std::nullopt, static_cast<int>(GroupType::HIDDEN)));
-        QVERIFY(manager().create_group("Pictures", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER_IMAGE)));
+        QVERIFY(manager().create_group("Pictures", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER), FilterRule::of_kind("image")));
         auto *dialog = open_dialog();
         QStringList kinds;
         for (int row = 0; row < dialog->group_list->count(); ++row) kinds << dialog->group_list->item(row)->data(KIND_ROLE).toString();

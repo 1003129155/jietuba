@@ -8,6 +8,7 @@
 #include <QClipboard>
 #include <QMetaObject>
 #include <QThread>
+#include <atomic>
 #include <chrono>
 #include <cstring>
 #include <deque>
@@ -54,10 +55,24 @@ void copy_qt_fallback(const QImage &image) {
 }
 
 #ifdef Q_OS_WIN
+std::atomic<HWND> clipboard_owner_window{nullptr};
+
+// The window our writes open the clipboard with, so the clipboard history can tell they came from
+// this program: opened without one, the clipboard has no owner. It lives on the main thread for the
+// whole run; a window of the short-lived write thread would be gone before the history asks.
+HWND clipboard_owner() {
+    HWND window = clipboard_owner_window.load();
+    if (!window && qApp && QThread::currentThread() == qApp->thread()) {
+        window = CreateWindowExW(0, L"STATIC", L"", 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, GetModuleHandleW(nullptr), nullptr);
+        clipboard_owner_window.store(window);
+    }
+    return window;
+}
+
 // One transaction for all formats, so only one change notification fires.
 void write_clipboard(const std::vector<std::pair<UINT, QByteArray>> &formats) {
     std::lock_guard guard(clipboard_write_lock);
-    if (!OpenClipboard(nullptr)) throw ClipboardError("OpenClipboard", GetLastError());
+    if (!OpenClipboard(clipboard_owner())) throw ClipboardError("OpenClipboard", GetLastError());
     struct Closer { ~Closer() { CloseClipboard(); } } closer;
     if (!EmptyClipboard()) throw ClipboardError("EmptyClipboard", GetLastError());
     for (const auto &[format_id, data] : formats) {
@@ -229,6 +244,9 @@ bool Delivery::is_alive() {
 void ensure_main_thread_clipboard() {
     // Created on the main thread at the first delivery; background threads only post to it.
     if (!main_thread_relay) main_thread_relay = new QObject;
+#ifdef Q_OS_WIN
+    clipboard_owner();
+#endif
 }
 
 std::shared_ptr<Delivery> deliver_image_async(const QImage &image, bool copy_to_clipboard, std::shared_ptr<SaveService> save_service,

@@ -7,11 +7,13 @@
 #include <QSet>
 #include <QStringList>
 #include <QStyledItemDelegate>
+#include <algorithm>
 #include <optional>
 
 class QListWidget;
 
 namespace jietuba::clipboard {
+struct ClipboardItem;
 // QListWidgetItem roles: the item id and the ClipboardItem itself.
 constexpr int ROLE_ITEM_ID = Qt::UserRole;
 constexpr int ROLE_ITEM_DATA = Qt::UserRole + 1;
@@ -24,11 +26,12 @@ double image_row_span(const QString &image_size);
 class ClipboardItemDelegate : public QStyledItemDelegate {
     Q_OBJECT
 public:
-    ClipboardItemDelegate(QListWidget *parent, const Theme &theme, int display_lines = 1, int window_opacity = 0, bool show_metadata = true,
-                          int line_height_padding = 8, bool show_shortcuts = true, const QString &image_size = "small");
+    ClipboardItemDelegate(QListWidget *parent, const Theme &theme, int font_size = 15, int window_opacity = 0, bool show_metadata = true,
+                          int line_height_padding = 8, bool show_shortcuts = true, const QString &image_size = "small", int display_lines = 1);
 
     void set_theme(const Theme &theme);
-    void set_display_lines(int lines);
+    void set_font_size(int size);
+    void set_display_lines(int lines) { display_lines_ = std::clamp(lines, 1, 5); }
     // Follows the toolbar and panel scale: fonts rebuilt, sizes computed while painting.
     void apply_scale() { rebuild_font_cache(); }
     void set_window_opacity(int opacity);
@@ -51,6 +54,8 @@ private:
         QColor bg_even, bg_odd, bg_selected, border_bottom, border_selected, text_primary, text_tertiary, shortcut_text;
     };
     static QStringList labels_for(const QString &keys);
+    QStringList text_lines(const ClipboardItem &item, int width) const;
+    int text_width(const ClipboardItem &item, int row, int width) const;
     int font_size() const;
     void rebuild_color_cache();
     void rebuild_font_cache();
@@ -58,6 +63,7 @@ private:
 
     Theme theme_;
     int display_lines_;
+    int font_size_;
     int window_opacity_;
     bool show_metadata_;
     int line_height_padding_;

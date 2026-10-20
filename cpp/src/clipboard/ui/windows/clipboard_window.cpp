@@ -30,6 +30,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QKeyEvent>
+#include <QMouseEvent>
 #include <QProcess>
 #include <QScreen>
 #include <QScrollBar>
@@ -43,12 +44,6 @@ constexpr Qt::KeyboardModifiers DIRECT_PICK_BLOCKERS = Qt::ControlModifier | Qt:
 
 QString translate_window(const QString &text) { return ClipboardWindow::tr_text(text.toUtf8().constData()); }
 
-// The file paths stored in a file item.
-QStringList item_files(const ClipboardItem &item) {
-    QStringList files;
-    for (const auto &value : QJsonDocument::fromJson(item.content.toUtf8()).object().value("files").toArray()) files.append(value.toString());
-    return files;
-}
 }
 
 QString pick_char(int key) {
@@ -124,6 +119,17 @@ bool ClipboardShortcutHandler::handle_key(QInputEvent *event) {
 // ==================== Window ====================
 
 namespace {
+// Entries of the type filter menu: the kind it selects (see FilterRule::kind), empty for every type.
+const QStringList &type_filter_kinds() {
+    static const QStringList kinds = {QString(), "text", SUB_KIND_URL, SUB_KIND_COLOR, SUB_KIND_PATH, "image", "file"};
+    return kinds;
+}
+
+QStringList type_filter_label_texts() {
+    return {ClipboardWindow::tr_text("All"),  ClipboardWindow::tr_text("Text"),  ClipboardWindow::tr_text("Link"), ClipboardWindow::tr_text("Color"),
+            ClipboardWindow::tr_text("Path"), ClipboardWindow::tr_text("Image"), ClipboardWindow::tr_text("File")};
+}
+
 QString &geometry_file_for_test() {
     static QString path;
     return path;
@@ -310,7 +316,7 @@ void ClipboardWindow::apply_theme() {
 void ClipboardWindow::load_settings() {
     config = get_tool_settings_manager();
     window_opacity = static_cast<int>(config->get_clipboard_window_opacity());
-    display_lines = static_cast<int>(config->get_clipboard_font_size());
+    font_size = static_cast<int>(config->get_clipboard_font_size());
     group_bar_position = config->get_clipboard_group_bar_position();
 }
 
@@ -343,7 +349,7 @@ void ClipboardWindow::retranslate_ui() {
     clear_search_btn->setToolTip(tr_text("Clear search"));
     update_mark_count();
 
-    type_filter_labels = {tr_text("All"), tr_text("Text"), tr_text("Image"), tr_text("File")};
+    type_filter_labels = type_filter_label_texts();
     for (int index = 0; index < type_filter_actions.size(); ++index) type_filter_actions[index]->setText(type_filter_labels[index]);
     update_type_filter_button(type_filter_index);
     if (group_bar) group_bar->refresh_buttons();
@@ -438,13 +444,14 @@ void ClipboardWindow::setup_ui() {
             }
         )");
     list_widget->setSpacing(0);
+    list_widget->setResizeMode(QListView::Adjust);
     list_widget->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     list_widget->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     list_widget->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(list_widget, &QWidget::customContextMenuRequested, this, [this](const QPoint &pos) { show_context_menu(pos); });
 
-    item_delegate = new ClipboardItemDelegate(list_widget, current_theme, display_lines, window_opacity, config->get_clipboard_show_metadata(),
-                                              static_cast<int>(config->get_clipboard_line_height_padding()), true, config->get_clipboard_image_size());
+    item_delegate = new ClipboardItemDelegate(list_widget, current_theme, font_size, window_opacity, config->get_clipboard_show_metadata(),
+                                              static_cast<int>(config->get_clipboard_line_height_padding()), true, config->get_clipboard_image_size(), config->get_clipboard_display_lines());
     list_widget->setItemDelegate(item_delegate);
     list_widget->setMouseTracking(true);
     list_widget->viewport()->setMouseTracking(true);
@@ -499,7 +506,7 @@ void ClipboardWindow::setup_ui() {
     time_filter_layout_->addWidget(apply_time_filter_btn);
     time_filter_layout_->addStretch(1);
 
-    type_filter_labels = {tr_text("All"), tr_text("Text"), tr_text("Image"), tr_text("File")};
+    type_filter_labels = type_filter_label_texts();
     type_filter_index = 0;
     type_filter_btn = new QToolButton;
     type_filter_btn->setCursor(Qt::PointingHandCursor);
@@ -614,6 +621,7 @@ void ClipboardWindow::show_main_menu() {
     options.window_opacity = window_opacity;
     options.current_font_size = static_cast<int>(config->get_clipboard_font_size());
     options.current_image_size = config->get_clipboard_image_size();
+    options.current_display_lines = config->get_clipboard_display_lines();
     options.current_theme_name = get_theme_manager()->get_current_theme().name;
     options.current_group_bar_position = group_bar_position;
     options.opacity_options = config->get_clipboard_window_opacity_options().toList();
@@ -631,6 +639,7 @@ void ClipboardWindow::show_main_menu() {
     options.on_set_opacity = [this](int percent) { set_window_opacity_percent(percent); };
     options.on_set_font_size = [this](int size) { set_font_size(size); };
     options.on_set_image_size = [this](const QString &size) { set_image_size(size); };
+    options.on_set_display_lines = [this](int lines) { set_display_lines(lines); };
     options.on_set_theme = [](const QString &name) { get_theme_manager()->set_theme(name); };
     options.on_add_item = [this] { on_add_item_clicked(); };
     options.on_clear_history = [this] { on_clear_clicked(); };
@@ -692,9 +701,9 @@ void ClipboardWindow::set_window_opacity_percent(int percent) {
 }
 
 void ClipboardWindow::set_font_size(int size) {
-    display_lines = size;
+    font_size = size;
     config->set_clipboard_font_size(size);
-    item_delegate->set_display_lines(size);
+    item_delegate->set_font_size(size);
     refresh_list();
 }
 
@@ -704,9 +713,15 @@ void ClipboardWindow::set_image_size(const QString &size) {
     refresh_list();
 }
 
+void ClipboardWindow::set_display_lines(int lines) {
+    config->set_clipboard_display_lines(lines);
+    item_delegate->set_display_lines(config->get_clipboard_display_lines());
+    refresh_list();
+}
+
 void ClipboardWindow::on_font_size_changed(int size) {
-    display_lines = size;
-    item_delegate->set_display_lines(size);
+    font_size = size;
+    item_delegate->set_font_size(size);
     refresh_list();
 }
 
@@ -724,7 +739,8 @@ void ClipboardWindow::refresh_list() {
     list_widget->setUpdatesEnabled(false);
     list_widget->clear();
     item_delegate->set_show_metadata(config->get_clipboard_show_metadata());
-    item_delegate->set_display_lines(display_lines);
+    item_delegate->set_font_size(font_size);
+    item_delegate->set_display_lines(config->get_clipboard_display_lines());
     item_delegate->set_window_opacity(window_opacity);
     item_delegate->set_theme(current_theme);
     item_delegate->set_highlighted_id(std::nullopt);
@@ -827,6 +843,7 @@ void ClipboardWindow::update_mark_count() {
 
 void ClipboardWindow::on_marks_changed() {
     item_delegate->set_marked_ids(selection_manager->marked_ids());
+    if (config->get_clipboard_display_lines() > 1) list_widget->doItemsLayout();
     list_widget->viewport()->update();
     update_mark_count();
 }
@@ -873,13 +890,11 @@ void ClipboardWindow::update_type_filter_button(int index) {
 }
 
 void ClipboardWindow::refresh_type_filter_button() {
-    // A filter group's type is fixed: the button shows it greyed out; other views show the user's choice.
+    // A filter group's kind is fixed: the button shows it greyed out; other views show the user's choice.
     if (!type_filter_btn) return;
-    const auto fixed = controller->current_filter_type();
-    int index = type_filter_index;
-    if (fixed == "text") index = 1;
-    else if (fixed == "image") index = 2;
-    else if (fixed == "file") index = 3;
+    const auto rule = controller->current_filter_rule();
+    const auto fixed = rule ? rule->kind : std::nullopt;
+    const int index = fixed ? std::max<int>(0, type_filter_kinds().indexOf(*fixed)) : type_filter_index;
     type_filter_btn->setText(type_filter_labels[index]);
     type_filter_btn->setIcon(fixed ? QIcon() : type_filter_arrow_);
     type_filter_btn->setEnabled(!fixed);
@@ -890,7 +905,8 @@ void ClipboardWindow::show_type_filter_menu() { type_filter_menu->exec(type_filt
 
 void ClipboardWindow::set_type_filter(int index) {
     update_type_filter_button(index);
-    controller->set_content_type_filter(index);
+    const QString kind = type_filter_kinds().value(index);
+    controller->set_content_type_filter(kind.isEmpty() ? std::nullopt : std::optional(kind));
 }
 
 void ClipboardWindow::on_group_switched(std::optional<qint64> group_id) {
@@ -901,6 +917,7 @@ void ClipboardWindow::on_group_switched(std::optional<qint64> group_id) {
             if (group.id == *group_id) is_quick_launch = group.group_type == GroupType::FILE;
     }
     item_delegate->set_hide_file_icon(is_quick_launch);
+    if (config->get_clipboard_display_lines() > 1) list_widget->doItemsLayout();
     refresh_type_filter_button();
     list_widget->viewport()->update();
 }
@@ -964,9 +981,15 @@ ClipboardController::CloseCallback ClipboardWindow::paste_close_callback() {
 
 std::optional<ClipboardItem> ClipboardWindow::get_item_data(qint64 item_id) const { return controller->loaded_item(item_id); }
 
-bool ClipboardWindow::is_file_item(qint64 item_id) const {
+bool ClipboardWindow::is_launch_item(qint64 item_id) const {
     const auto item = get_item_data(item_id);
-    return item && item->content_type == "file";
+    return item && group_accepts(static_cast<int>(GroupType::FILE), item->content_type, item->sub_kind);
+}
+
+void ClipboardWindow::open_launch_item(qint64 item_id) {
+    const auto item = get_item_data(item_id);
+    if (item && item->content_type == "text" && item->sub_kind == SUB_KIND_URL) open_link(item_id);
+    else open_file_item(item_id);
 }
 
 bool ClipboardWindow::in_file_group() {
@@ -985,9 +1008,9 @@ void ClipboardWindow::on_paste_item(qint64 item_id) {
         return;
     }
     selection_manager->clear_marks();
-    // A quick launch group only changes how files are clicked; other items (moved in by changing the type) paste as usual.
-    if (in_file_group() && is_file_item(item_id)) {
-        open_file_item(item_id);
+    // Other items retained after a group type change still paste as usual.
+    if (in_file_group() && is_launch_item(item_id)) {
+        open_launch_item(item_id);
         return;
     }
     if (controller->paste_item(item_id, paste_close_callback())) emit item_pasted(item_id);
@@ -1017,11 +1040,11 @@ void ClipboardWindow::paste_plain_text(qint64 item_id) {
 }
 
 void ClipboardWindow::paste_marked(const QList<qint64> &item_ids, bool plain_text, const QString &layout, bool explicit_paste) {
-    // In a file group a click opens the file; a multiple selection of only files opens each.
+    // A multiple selection of launchable items opens each; explicit paste keeps its usual behavior.
     if (mouse_controller) mouse_controller->cancel();
-    if (!explicit_paste && in_file_group() && std::all_of(item_ids.begin(), item_ids.end(), [this](qint64 item_id) { return is_file_item(item_id); })) {
+    if (!explicit_paste && in_file_group() && std::all_of(item_ids.begin(), item_ids.end(), [this](qint64 item_id) { return is_launch_item(item_id); })) {
         selection_manager->clear_marks();
-        for (qint64 item_id : item_ids) open_file_item(item_id);
+        for (qint64 item_id : item_ids) open_launch_item(item_id);
         return;
     }
     bool stitching = !plain_text;
@@ -1103,6 +1126,10 @@ QMap<QString, std::function<void()>> ClipboardWindow::item_context_menu_handlers
         {"save_image_as", [this, item_id] { save_image_item_as(this, manager, controller->get_item(item_id)); }},
         {"toggle_pin", [this, item_id] { controller->toggle_pin(item_id); }},
         {"open_file_location", [this, item_id] { open_file_location(item_id); }},
+        {"open_link", [this, item_id] { open_link(item_id); }},
+        {"path_paste_as_files", [this, item_id] {
+             if (controller->paste_as_files(item_id, paste_close_callback(), true)) emit item_pasted(item_id);
+         }},
         {"quick_edit_item", [this, item_id] { quick_edit_item(item_id); }},
         {"edit_item", [this, item_id] { edit_item(item_id); }},
         {"move_item_up", [this, item_id] { controller->move_item_order(item_id, controller->current_group_id, -1); }},
@@ -1124,6 +1151,15 @@ std::function<void()> ClipboardWindow::resolve_item_context_menu_handler(qint64 
     if (action_key.startsWith("special_paste_") || action_key.startsWith("transform_")) return [this, item_id, action_key] { special_paste(item_id, action_key); };
     // Special Paste entries of file items.
     if (action_key.startsWith("file_paste_")) return [this, item_id, action_key] { file_special_paste(item_id, action_key); };
+    // A color item's other formats.
+    if (const QString color_prefix = "color_paste_"; action_key.startsWith(color_prefix)) {
+        bool ok = false;
+        const int index = action_key.mid(color_prefix.size()).toInt(&ok);
+        if (!ok) return {};
+        return [this, item_id, index] {
+            if (controller->paste_color_conversion(item_id, index, paste_close_callback(), true)) emit item_pasted(item_id);
+        };
+    }
     return {};
 }
 
@@ -1207,14 +1243,16 @@ void ClipboardWindow::delete_item(qint64 item_id) {
 
 void ClipboardWindow::open_file_item(qint64 item_id) {
     const auto clipboard_item = controller->get_item(item_id);
-    if (!clipboard_item || clipboard_item->content_type != "file") return;
-    QJsonParseError error;
-    const auto document = QJsonDocument::fromJson(clipboard_item->content.toUtf8(), &error);
-    if (error.error != QJsonParseError::NoError) {
-        log_warning(T("打开文件失败: {e}", {{"e", error.errorString()}}), "Clipboard");
-        return;
+    if (!clipboard_item) return;
+    if (clipboard_item->content_type == "file") {
+        QJsonParseError error;
+        QJsonDocument::fromJson(clipboard_item->content.toUtf8(), &error);
+        if (error.error != QJsonParseError::NoError) {
+            log_warning(T("打开文件失败: {e}", {{"e", error.errorString()}}), "Clipboard");
+            return;
+        }
     }
-    const QStringList files = item_files(*clipboard_item);
+    const QStringList files = item_paths(*clipboard_item);
     if (files.isEmpty()) return;
     const QString file_path = py_normpath(files.front());
     if (QFileInfo::exists(file_path)) {
@@ -1230,14 +1268,16 @@ void ClipboardWindow::paste_item_to_clipboard(qint64 item_id) {
 
 void ClipboardWindow::open_file_location(qint64 item_id) {
     const auto clipboard_item = controller->get_item(item_id);
-    if (!clipboard_item || clipboard_item->content_type != "file") return;
-    QJsonParseError error;
-    QJsonDocument::fromJson(clipboard_item->content.toUtf8(), &error);
-    if (error.error != QJsonParseError::NoError) {
-        log_warning(T("打开文件位置失败: {e}", {{"e", error.errorString()}}), "Clipboard");
-        return;
+    if (!clipboard_item) return;
+    if (clipboard_item->content_type == "file") {
+        QJsonParseError error;
+        QJsonDocument::fromJson(clipboard_item->content.toUtf8(), &error);
+        if (error.error != QJsonParseError::NoError) {
+            log_warning(T("打开文件位置失败: {e}", {{"e", error.errorString()}}), "Clipboard");
+            return;
+        }
     }
-    const QStringList files = item_files(*clipboard_item);
+    const QStringList files = item_paths(*clipboard_item);
     if (files.isEmpty()) return;
     const QString file_path = py_normpath(files.front());
     const QFileInfo info(file_path);
@@ -1248,6 +1288,17 @@ void ClipboardWindow::open_file_location(qint64 item_id) {
     } else if (const QString parent = py_dirname(file_path); QFileInfo::exists(parent)) {
         QTimer::singleShot(0, this, [parent] { QProcess::startDetached("explorer", {parent}); });
     }
+}
+
+void ClipboardWindow::open_link(qint64 item_id) {
+    const auto clipboard_item = controller->get_item(item_id);
+    if (!clipboard_item || clipboard_item->sub_kind != SUB_KIND_URL) return;
+    QString text = py_strip(clipboard_item->content);
+    if (text.startsWith("www.", Qt::CaseInsensitive)) text.prepend("https://");
+    const QUrl url(text);
+    if (!url.isValid()) return;
+    QTimer::singleShot(0, this, [url] { QDesktopServices::openUrl(url); });
+    QTimer::singleShot(50, this, [this] { hide(); });
 }
 
 void ClipboardWindow::notify_new_content(const std::optional<ClipboardItem> &item) { emit new_item_received(item); }
@@ -1376,7 +1427,9 @@ bool ClipboardWindow::is_date_filter_widget(QObject *obj) const {
 bool ClipboardWindow::eventFilter(QObject *obj, QEvent *event) {
     const QEvent::Type event_type = event->type();
 
-    if (event_type == QEvent::Leave && obj == list_widget->viewport()) {
+    // itemEntered does not report the empty area inside the viewport.
+    if ((event_type == QEvent::Leave || event_type == QEvent::MouseMove) && obj == list_widget->viewport() &&
+        (event_type == QEvent::Leave || !list_widget->itemAt(static_cast<QMouseEvent *>(event)->position().toPoint()))) {
         selection_manager->clear_hovered_index();
         PreviewPopup::instance()->hide_preview();
         const auto selected_items = list_widget->selectedItems();

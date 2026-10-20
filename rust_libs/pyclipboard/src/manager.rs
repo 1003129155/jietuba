@@ -3,7 +3,9 @@
 
 use crate::cf_html;
 use crate::database::{compress_format, image_file, Database};
+use crate::group_kind::FilterRule;
 use crate::multi_paste;
+use crate::text_kind;
 use crate::types::{PyClipboardItem, PyPaginatedResult, PyGroup};
 #[cfg(target_os = "windows")]
 use crate::win_clipboard;
@@ -126,6 +128,8 @@ fn capture_clipboard(window: &win_clipboard::ClipboardWindow) -> Option<Captured
         register_format("HTML Format"),
         // 电子表格的公式只在这个格式里，HTML/RTF 里只有计算结果
         register_format("XML Spreadsheet"),
+        // 取色标记跟着存下来，粘贴回去仍带着它，重判子类型时也认得出
+        register_format(text_kind::COLOR_MARKER_FORMAT),
     ];
     if !spreadsheet {
         wanted.extend([CF_DIB, CF_DIBV5, register_format("PNG"), register_format("Rich Text Format")]);
@@ -649,7 +653,9 @@ impl ClipboardManager {
                     // 附带的文件引用，或看图软件复制文件时附带的预览位图），
                     // 内容本质上还是图片，应按图片展示缩略图。
                     if let Some(text) = text_val {
+                        let color_marked = all_names.iter().any(|(_, name)| name == text_kind::COLOR_MARKER_FORMAT);
                         main_item = PyClipboardItem::new(0, text, "text".to_string());
+                        main_item.sub_kind = text_kind::detect(&main_item.content, color_marked).to_string();
                         main_item.html_content = html_content;
                         main_item.source_app = source_app;
                     } else if let Some(rgba) = image_val {
@@ -918,7 +924,7 @@ impl ClipboardManager {
     ///     offset: 偏移量，默认 0
     ///     limit: 每页数量，
     ///     search: 搜索关键词
-    ///     content_type: 内容类型过滤 ("text", "file", "image", "all")
+    ///     filter: 内容类型和来源应用，空规则表示全部
     /// 
     /// Returns:
     ///     PyPaginatedResult: 分页结果
@@ -927,12 +933,18 @@ impl ClipboardManager {
         offset: i64,
         limit: i64,
         search: Option<String>,
-        content_type: Option<String>,
+        filter: &FilterRule,
         start_time: Option<i64>,
         end_time: Option<i64>,
     ) -> Result<PyPaginatedResult, String> {
         let db = self.db.lock();
-        db.query_items(offset, limit, search, content_type, start_time, end_time)
+        db.query_items(offset, limit, search, filter, start_time, end_time)
+    }
+
+    /// 出现过的来源应用及条数，按条数从多到少；本程序的几种 exe 合并成 group_kind::OWN_APP
+    pub fn source_apps(&self) -> Result<Vec<(String, i64)>, String> {
+        let db = self.db.lock();
+        db.source_apps()
     }
 
     /// 获取总记录数
@@ -1005,7 +1017,7 @@ impl ClipboardManager {
     /// Returns:
     ///     List[PyClipboardItem]: 匹配的记录列表
     pub fn search(&self, keyword: String, limit: i64) -> Result<Vec<PyClipboardItem>, String> {
-        let result = self.get_history(0, limit, Some(keyword), None, None, None)?;
+        let result = self.get_history(0, limit, Some(keyword), &FilterRule::default(), None, None)?;
         Ok(result.items)
     }
 
@@ -1055,13 +1067,21 @@ impl ClipboardManager {
     ///     name: 分组名称
     ///     color: 分组颜色（可选，如 "#FF0000"）
     ///     icon: 分组图标（可选）
-    ///     group_type: 分组类型 (0=普通, 1=快速启动, 2=隐藏, 3/4/5=筛选文本/图片/文件)。默认 0
+    ///     group_type: 分组类型 (0=普通, 1=快速启动, 2=隐藏, 3=筛选)
+    ///     filter_rule: 筛选分组的条件，其他分组传 None
     /// 
     /// Returns:
     ///     int: 新分组的 ID
-    pub fn create_group(&self, name: String, color: Option<String>, icon: Option<String>, group_type: i64) -> Result<i64, String> {
+    pub fn create_group(
+        &self,
+        name: String,
+        color: Option<String>,
+        icon: Option<String>,
+        group_type: i64,
+        filter_rule: Option<FilterRule>,
+    ) -> Result<i64, String> {
         let db = self.db.lock();
-        db.create_group(&name, color.as_deref(), icon.as_deref(), group_type)
+        db.create_group(&name, color.as_deref(), icon.as_deref(), group_type, filter_rule.as_ref())
     }
 
     /// 获取所有分组
@@ -1099,10 +1119,19 @@ impl ClipboardManager {
     ///     name: 名称
     ///     color: 颜色（可选）
     ///     icon: 图标（可选）
-    ///     group_type: 分组类型 (0=普通, 1=快速启动, 2=隐藏, 3/4/5=筛选文本/图片/文件)。默认 0
-    pub fn update_group(&self, id: i64, name: String, color: Option<String>, icon: Option<String>, group_type: i64) -> Result<(), String> {
+    ///     group_type: 分组类型 (0=普通, 1=快速启动, 2=隐藏, 3=筛选)
+    ///     filter_rule: 筛选分组的条件，其他分组传 None
+    pub fn update_group(
+        &self,
+        id: i64,
+        name: String,
+        color: Option<String>,
+        icon: Option<String>,
+        group_type: i64,
+        filter_rule: Option<FilterRule>,
+    ) -> Result<(), String> {
         let db = self.db.lock();
-        db.update_group(id, &name, color.as_deref(), icon.as_deref(), group_type)
+        db.update_group(id, &name, color.as_deref(), icon.as_deref(), group_type, filter_rule.as_ref())
     }
 
     /// 将项目移动到分组
@@ -1198,6 +1227,41 @@ impl ClipboardManager {
             if move_to_top {
                 let _ = db.move_item_to_top(id);
             }
+            Ok(true)
+        }
+    }
+
+    /// 把路径文本里还在的文件当作文件写进剪贴板（CF_HDROP），粘到资源管理器、聊天窗口里就是文件本身。
+    /// 不是路径文本或路径都已不存在时返回 false
+    pub fn paste_as_files(&self, id: i64) -> Result<bool, String> {
+        let item = {
+            let db = self.db.lock();
+            db.get_item_by_id(id)?
+        };
+        let Some(item) = item.filter(|item| item.content_type == "text" && item.sub_kind == text_kind::PATH) else {
+            return Ok(false);
+        };
+        let files: Vec<String> = text_kind::paths(&item.content)
+            .into_iter()
+            .filter(|path| std::path::Path::new(path).exists())
+            .collect();
+        if files.is_empty() {
+            return Ok(false);
+        }
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            let _ = files;
+            return Err("paste_as_files 只支持 Windows".to_string());
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            if !win_clipboard::write(&[(win_clipboard::CF_HDROP, win_clipboard::build_hdrop(&files))]) {
+                return Ok(false);
+            }
+            mark_own_clipboard_write();
+            let _ = self.db.lock().increment_paste_count(id);
             Ok(true)
         }
     }

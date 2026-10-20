@@ -119,12 +119,12 @@ private slots:
         controller.set_search_text("   ");
         QCOMPARE(controller.current_items.size(), 5);
 
-        for (const auto &[index, type] : {std::pair{1, "text"}, std::pair{2, "image"}, std::pair{3, "file"}}) {
-            controller.set_content_type_filter(index);
+        for (const QString type : {"text", "image", "file"}) {
+            controller.set_content_type_filter(type);
             QVERIFY(!controller.current_items.isEmpty());
-            for (const auto &item : controller.current_items) QCOMPARE(item.content_type, QString(type));
+            for (const auto &item : controller.current_items) QCOMPARE(item.content_type, type);
         }
-        controller.set_content_type_filter(0);
+        controller.set_content_type_filter(std::nullopt);
         QCOMPARE(controller.current_items.size(), 5);
 
         const QDate today = QDate::currentDate();
@@ -137,7 +137,7 @@ private slots:
         QVERIFY(controller.current_items.isEmpty());
         QVERIFY(controller.set_time_range_text(""));
         QCOMPARE(controller.current_items.size(), 5);
-        controller.set_content_type_filter(1);
+        controller.set_content_type_filter(QString("text"));
         QVERIFY(controller.set_time_range_text("2000/01/01-2000/01/02"));
         controller.clear_time_and_type_filters();
         QCOMPARE(controller.current_items.size(), 5);
@@ -198,14 +198,14 @@ private slots:
         const auto texts = add_texts({"apple", "banana"});
         const auto file = manager().add_item(file_payload({"C:\\f.txt"}), "file");
         QVERIFY(file && manager().add_item("[10x10]", "image"));
-        const auto only_text = manager().create_group("Text", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER_TEXT));
+        const auto only_text = manager().create_group("Text", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER), FilterRule::of_kind("text"));
         const auto plain = manager().create_group("Plain");
         ClipboardController controller(manager());
         QVERIFY(controller.shows_history());
         // The type button says file; a filter group's own type wins.
-        controller.set_content_type_filter(3);
+        controller.set_content_type_filter(QString("file"));
         controller.switch_to_group(*only_text);
-        QCOMPARE(controller.current_filter_type(), std::optional<QString>("text"));
+        QCOMPARE(controller.current_filter_rule(), std::optional(FilterRule::of_kind("text")));
         QVERIFY(controller.shows_history());
         QCOMPARE(contents_of(controller.current_items), (QStringList{"banana", "apple"}));
         // Search and the time range still narrow it.
@@ -221,7 +221,7 @@ private slots:
         // A real group is not the history.
         controller.switch_to_group(*plain);
         QVERIFY(!controller.shows_history());
-        QVERIFY(!controller.current_filter_type());
+        QVERIFY(!controller.current_filter_rule());
         QCOMPARE(contents_of(controller.current_items), QStringList{"banana"});
     }
 
@@ -230,7 +230,7 @@ private slots:
         const auto file = manager().add_item(file_payload({"C:\\f.txt"}), "file");
         const auto normal = manager().create_group("N");
         const auto quick = manager().create_group("Q", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILE));
-        const auto filter = manager().create_group("F", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER_FILE));
+        const auto filter = manager().create_group("F", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER), FilterRule::of_kind("file"));
         QVERIFY(normal && quick && filter && file);
         ClipboardController controller(manager());
         controller.load_history();
@@ -252,6 +252,53 @@ private slots:
         QStringList keys;
         for (const auto &action : data->actions) keys << action.key;
         QVERIFY(!keys.contains("edit_item") && !keys.contains("move_item_up") && !keys.contains("move_item_down"));
+    }
+
+    void textSubKindsAddTheirMenuEntries() {
+        const QString existing = QDir::toNativeSeparators(env_.dir.filePath("doc.txt"));
+        QFile file(existing);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.close();
+        const auto ids = add_texts({"\"" + existing + "\"", QDir::toNativeSeparators(env_.dir.filePath("gone.txt")), "www.example.com", "#1a2b3c",
+                                    "rgb(26, 43, 60)", "plain"});
+        ClipboardController controller(manager());
+        controller.load_history();
+        struct Menu {
+            QStringList keys;
+            QStringList special;
+            QStringList special_labels;
+            bool as_files_enabled = false;
+        };
+        const auto menu_of = [&controller](qint64 id) {
+            Menu menu;
+            const auto data = controller.build_context_menu_data(id);
+            for (const auto &action : data->actions) {
+                menu.keys << action.key;
+                if (action.key != "special_paste_menu") continue;
+                for (const auto &child : action.children) {
+                    menu.special << child.key;
+                    if (child.key.startsWith("color_paste_")) menu.special_labels << child.label;
+                    if (child.key == "path_paste_as_files") menu.as_files_enabled = child.enabled;
+                }
+            }
+            return menu;
+        };
+        const Menu path = menu_of(ids[0]), missing = menu_of(ids[1]), link = menu_of(ids[2]), hex = menu_of(ids[3]), css = menu_of(ids[4]), plain = menu_of(ids[5]);
+        QVERIFY(path.keys.contains("open_file_location") && !path.keys.contains("open_link"));
+        QCOMPARE(path.special.first(), QString("path_paste_as_files"));
+        QVERIFY(path.as_files_enabled);
+        QVERIFY(missing.special.contains("path_paste_as_files") && !missing.as_files_enabled);
+        QVERIFY(link.keys.contains("open_link") && !link.keys.contains("open_file_location"));
+        // The color picker's default formats are RGB and HEX; the one the text is written in is left out.
+        QCOMPARE(hex.special_labels, QStringList{"26, 43, 60"});
+        QCOMPARE(css.special_labels, (QStringList{"26, 43, 60", "#1A2B3C"}));
+        QVERIFY(!plain.keys.contains("open_file_location") && !plain.keys.contains("open_link"));
+        QVERIFY(plain.special_labels.isEmpty() && !plain.special.contains("path_paste_as_files"));
+        // Picking a conversion pastes that text.
+        QVERIFY(controller.paste_color_conversion(ids[4], 1));
+        QTRY_COMPARE(env_.pastes.size(), 1);
+        QVERIFY(!controller.paste_color_conversion(ids[4], 2));
+        QVERIFY(!controller.paste_color_conversion(ids[5], 0));
     }
 
     void pastingMovesTheRowToTheTopOfTheHistoryOnly() {

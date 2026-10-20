@@ -2455,6 +2455,26 @@ Replace it?</translation>
         <translation>File</translation>
     </message>
     <message>
+        <source>Link</source>
+        <translation>Link</translation>
+    </message>
+    <message>
+        <source>Color</source>
+        <translation>Color</translation>
+    </message>
+    <message>
+        <source>Path</source>
+        <translation>Path</translation>
+    </message>
+    <message>
+        <source>Open in Browser</source>
+        <translation>Open in Browser</translation>
+    </message>
+    <message>
+        <source>Paste as File</source>
+        <translation>Paste as File</translation>
+    </message>
+    <message>
         <source>Close</source>
         <translation>Close</translation>
     </message>
@@ -2872,6 +2892,7 @@ This action cannot be undone.</translation>
 <!-- ========== Clipboard Management Dialog ========== -->
 <context>
     <name>ManageDialog</name>
+    <message><source>Please enter a valid link</source><translation>Please enter a valid link</translation></message>
     <message>
         <source>Clipboard Management</source>
         <translation>Clipboard Management</translation>
@@ -2993,12 +3014,12 @@ This action cannot be undone.</translation>
         <translation>Allow any content; selecting an item pastes content or files to the target</translation>
     </message>
     <message>
-        <source>Quick launch groups only allow file or folder paths; selecting an item opens them</source>
-        <translation>Quick launch groups only allow file or folder paths; selecting an item opens them</translation>
+        <source>Quick launch groups accept files, folder paths and links; selecting an item opens them</source>
+        <translation>Quick launch groups accept files, folder paths and links; selecting an item opens them</translation>
     </message>
     <message>
-        <source>Quick launch groups only accept file items; left-click opens the file directly</source>
-        <translation>Quick launch groups only accept file items; left-click opens the file directly</translation>
+        <source>Quick launch groups accept files, paths and links; left-click opens them directly</source>
+        <translation>Quick launch groups accept files, paths and links; left-click opens them directly</translation>
     </message>
     <message>
         <source>Enter or paste emoji...</source>
@@ -3348,8 +3369,8 @@ Items in the group will be moved back to clipboard history.</translation>
         <translation>Not shown on the panel</translation>
     </message>
     <message>
-        <source>Open files or folders</source>
-        <translation>Open files or folders</translation>
+        <source>Open files, folders or links</source>
+        <translation>Open files, folders or links</translation>
     </message>
     <message>
         <source>Paste text or files</source>
@@ -3500,8 +3521,8 @@ Items in the group will be moved back to clipboard history.</translation>
         <translation>Filter</translation>
     </message>
     <message>
-        <source>Show one type</source>
-        <translation>Show one type</translation>
+        <source>By type or source</source>
+        <translation>By type or source</translation>
     </message>
     <message>
         <source>Content Type</source>
@@ -3520,8 +3541,40 @@ Items in the group will be moved back to clipboard history.</translation>
         <translation>Edit Filter Group</translation>
     </message>
     <message>
-        <source>Filter groups store no content; they show one type of your clipboard history</source>
-        <translation>Filter groups store no content; they show one type of your clipboard history</translation>
+        <source>Filter groups store no content; they show the clipboard history that matches the chosen type and source app</source>
+        <translation>Filter groups store no content; they show the clipboard history that matches the chosen type and source app</translation>
+    </message>
+    <message>
+        <source>Link</source>
+        <translation>Link</translation>
+    </message>
+    <message>
+        <source>Color</source>
+        <translation>Color</translation>
+    </message>
+    <message>
+        <source>Path</source>
+        <translation>Path</translation>
+    </message>
+    <message>
+        <source>All Types</source>
+        <translation>All Types</translation>
+    </message>
+    <message>
+        <source>Source App</source>
+        <translation>Source App</translation>
+    </message>
+    <message>
+        <source>Any App</source>
+        <translation>Any App</translation>
+    </message>
+    <message>
+        <source>Jietuba (this app)</source>
+        <translation>Jietuba (this app)</translation>
+    </message>
+    <message>
+        <source>Choose a content type or a source app</source>
+        <translation>Choose a content type or a source app</translation>
     </message>
 </context>
 

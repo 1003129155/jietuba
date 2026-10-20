@@ -12,6 +12,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QPixmap>
+#include <QPainter>
 #include <QScreen>
 #include <QTextDocument>
 
@@ -80,6 +81,10 @@ void PreviewPopup::setup_ui() {
     title_label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
     title_label->hide();
     layout_->addWidget(title_label);
+
+    color_label = new QLabel;
+    color_label->hide();
+    layout_->addWidget(color_label);
 
     content_widget = new TextEdit;
     content_widget->setReadOnly(true);
@@ -158,6 +163,7 @@ void PreviewPopup::do_show() {
     if (!pending_item_) return;
     const ClipboardItem item = *pending_item_;
     current_item_id_ = item.id;
+    color_label->hide();
 
     if (item.content_type == "image") {
         // Images the backend could not decode (several pictures copied from Word, EMF) keep no pixels;
@@ -184,6 +190,23 @@ void PreviewPopup::show_text_preview(const ClipboardItem &item) {
     adjust_content_size();
     content_widget->show();
     image_label->hide();
+    if (item.color) {
+        const QSize swatch_size(scaled(240), scaled(128));
+        QPixmap swatch(swatch_size);
+        QPainter painter(&swatch);
+        const int tile = scaled(12);
+        for (int y = 0; y < swatch.height(); y += tile)
+            for (int x = 0; x < swatch.width(); x += tile)
+                painter.fillRect(x, y, tile, tile, (x / tile + y / tile) % 2 ? QColor("#D8D8D8") : QColor(Qt::white));
+        painter.fillRect(swatch.rect(), *item.color);
+        painter.setPen(QColor("#999999"));
+        painter.drawRect(swatch.rect().adjusted(0, 0, -1, -1));
+        painter.end();
+        color_label->setFixedSize(swatch_size);
+        color_label->setPixmap(swatch);
+        color_label->show();
+        content_widget->setFixedWidth(swatch_size.width());
+    }
 }
 
 void PreviewPopup::show_file_preview(const ClipboardItem &item) {

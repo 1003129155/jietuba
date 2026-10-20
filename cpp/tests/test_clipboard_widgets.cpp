@@ -85,7 +85,9 @@ private slots:
         list.resize(360, 400);
         QList<ClipboardItem> items{make_item(1, "text", "a short line"), make_item(2, "text", QString("long ").repeated(80)),
                                    make_item(3, "image", "[300x100]"), make_item(4, "file", file_payload({"C:\\a.txt", "C:\\b.txt"})),
-                                   make_item(5, "image", "[10x10]")};
+                                   make_item(5, "image", "[10x10]"), make_item(6, "text", "#00a050")};
+        items[5].sub_kind = SUB_KIND_COLOR;
+        items[5].color = QColor(0, 160, 80);
         items[2].thumbnail = png_data_url(QSize(300, 100));
         items[1].is_pinned = true;
         items[0].source_app = "Notepad";
@@ -118,6 +120,16 @@ private slots:
             return image;
         };
         for (int row = 0; row < list.count(); ++row) QVERIFY(!paint_row(row).isNull());
+        // A color item shows its color at the start of the row; a plain text row has none of it.
+        const auto swatch_pixels = [&](int row) {
+            const QImage image = paint_row(row);
+            int count = 0;
+            for (int y = 0; y < 40; ++y)
+                for (int x = 0; x < 100; ++x) count += image.pixelColor(x, y) == QColor(0, 160, 80);
+            return count;
+        };
+        QVERIFY(swatch_pixels(5) > 900);
+        QCOMPARE(swatch_pixels(0), 0);
         // A selected or hovered row gets the left bar; with a multiple selection only selected rows do.
         const QColor bar(theme.colors.border_selected);
         delegate.set_highlighted_id(1);
@@ -130,7 +142,7 @@ private slots:
         delegate.set_window_opacity(40);
         delegate.set_hide_file_icon(true);
         delegate.set_show_shortcuts(false);
-        delegate.set_display_lines(13);
+        delegate.set_font_size(13);
         for (const auto &[name, theme_entry] : PRESET_THEMES()) {
             delegate.set_theme(theme_entry);
             QVERIFY(!paint_row(3).isNull());
@@ -138,6 +150,77 @@ private slots:
         delegate.apply_scale();
         ClipboardItemDelegate::clear_thumb_cache();
         QVERIFY(!paint_row(2).isNull());
+    }
+
+    void nonImageRowsShareTheLineLimit() {
+        QListWidget list;
+        list.resize(360, 600);
+        ClipboardItemDelegate delegate(&list, get_theme_manager()->get_current_theme(), 15, 0, false);
+        auto text = make_item(1, "text", "first\r\n\nthird\nfourth");
+        auto link = make_item(2, "text", "https://example.com/" + QString("path/").repeated(100));
+        link.sub_kind = SUB_KIND_URL;
+        auto file = make_item(3, "file", file_payload({QString("C:/") + QString("filename_").repeated(80) + ".txt"}));
+        auto color = make_item(4, "text", "#FAFBFC");
+        color.color = QColor("#FAFBFC");
+        color.title = "first\nsecond\nthird\nfourth";
+        auto image = make_item(5, "image", "[300x100]");
+        image.thumbnail = png_data_url(QSize(300, 100));
+        auto short_text = make_item(6, "text", "short");
+        for (const auto &item : {text, link, file, color, image, short_text}) {
+            auto *row = new QListWidgetItem(&list);
+            row->setData(ROLE_ITEM_ID, item.id);
+            row->setData(ROLE_ITEM_DATA, QVariant::fromValue(item));
+        }
+        QStyleOptionViewItem option;
+        option.rect = QRect(0, 0, 360, 100);
+        const auto height = [&](int row) { return delegate.sizeHint(option, list.model()->index(row, 0)).height(); };
+        const int single = height(0), image_height = height(4), color_height = height(3);
+        delegate.set_display_lines(3);
+        QCOMPARE(height(0), (single - 2) * 3 + 2);
+        for (int row : {1, 2}) QVERIFY(height(row) > single);
+        QCOMPARE(height(3), (color_height - 2) * 3 + 2);
+        QCOMPARE(height(4), image_height);
+        QCOMPARE(height(5), single);
+        const int multiline_height = height(0);
+        delegate.set_show_metadata(true);
+        QCOMPARE(height(0), multiline_height + scaled(16));
+        delegate.set_show_metadata(false);
+        const auto paint = [&] {
+            QImage pixels(360, multiline_height + 20, QImage::Format_ARGB32);
+            pixels.fill(Qt::white);
+            QPainter painter(&pixels);
+            option.rect.setHeight(multiline_height);
+            delegate.paint(&painter, option, list.model()->index(0, 0));
+            return pixels;
+        };
+        const auto multiline = paint();
+        delegate.set_display_lines(1);
+        const auto one_line = paint();
+        int changed = 0;
+        for (int y = single; y < multiline_height - 2; ++y)
+            for (int x = 40; x < 300; ++x) changed += multiline.pixel(x, y) != one_line.pixel(x, y);
+        QVERIFY(changed > 10);
+        delegate.set_display_lines(5);
+        QCOMPARE(height(0), (single - 2) * 4 + 2);
+    }
+
+    void displayLineSettingsPersistAndClampWithoutChangingFontOrImages() {
+        QSettings stored(env_.dir.filePath("display-lines.ini"), QSettings::IniFormat);
+        stored.clear();
+        ToolSettingsManager settings(stored);
+        QCOMPARE(settings.get_clipboard_display_lines(), 1);
+        const auto font = settings.get_clipboard_font_size();
+        const auto image = settings.get_clipboard_image_size();
+        settings.set_clipboard_display_lines(3);
+        QCOMPARE(stored.value("clipboard/display_lines").toInt(), 3);
+        ToolSettingsManager reopened(stored);
+        QCOMPARE(reopened.get_clipboard_display_lines(), 3);
+        QCOMPARE(reopened.get_clipboard_font_size(), font);
+        QCOMPARE(reopened.get_clipboard_image_size(), image);
+        settings.set_clipboard_display_lines(0);
+        QCOMPARE(settings.get_clipboard_display_lines(), 1);
+        stored.setValue("clipboard/display_lines", 99);
+        QCOMPARE(settings.get_clipboard_display_lines(), 5);
     }
 
     void thePreviewShowsTextFilesAndImages() {
@@ -190,6 +273,30 @@ private slots:
         preview->show_preview(std::nullopt, QPoint());
         QVERIFY(!preview->isVisible());
         preview->apply_scale();
+        preview->set_display_enabled(false);
+    }
+
+    void colorPreviewShowsALargeSwatchAndClearsItForOtherItems() {
+        auto *preview = PreviewPopup::instance();
+        preview->hide_preview();
+        preview->set_display_enabled(true);
+        auto color = make_item(101, "text", "#FAFBFC");
+        color.sub_kind = SUB_KIND_COLOR;
+        color.color = QColor("#FAFBFC");
+        preview->show_preview(color, QPoint(100, 100), 0);
+        QVERIFY(preview->color_label->isVisible());
+        QCOMPARE(preview->color_label->size(), QSize(scaled(240), scaled(128)));
+        const auto pixels = preview->color_label->pixmap().toImage();
+        QCOMPARE(pixels.pixelColor(pixels.rect().center()), QColor("#FAFBFC"));
+        QCOMPARE(preview->content_widget->toPlainText(), QString("#FAFBFC"));
+        color.id = 102;
+        color.color = QColor(20, 40, 60, 0);
+        preview->show_preview(color, QPoint(100, 100), 0);
+        const auto transparent = preview->color_label->pixmap().toImage();
+        QVERIFY(transparent.pixelColor(scaled(5), scaled(5)) != transparent.pixelColor(scaled(17), scaled(5)));
+        preview->show_preview(make_item(103, "text", "ordinary text"), QPoint(100, 100), 0);
+        QVERIFY(!preview->color_label->isVisible());
+        QCOMPARE(preview->content_widget->toPlainText(), QString("ordinary text"));
         preview->set_display_enabled(false);
     }
 
@@ -272,6 +379,7 @@ private slots:
         options.auto_paste = false;
         options.window_opacity = 20;
         options.current_font_size = 15;
+        options.current_display_lines = 2;
         options.current_image_size = "medium";
         options.current_theme_name = "light";
         options.current_group_bar_position = "left";
@@ -285,6 +393,7 @@ private slots:
         options.on_toggle_preserve_search = [&calls](bool) { calls << "search"; };
         options.on_set_opacity = [&calls](int value) { calls << QString("opacity %1").arg(value); };
         options.on_set_font_size = [&calls](int value) { calls << QString("font %1").arg(value); };
+        options.on_set_display_lines = [&calls](int value) { calls << QString("lines %1").arg(value); };
         options.on_set_image_size = [&calls](const QString &value) { calls << "image " + value; };
         options.on_set_theme = [&calls](const QString &value) { calls << "theme " + value; };
         options.on_add_item = [&calls] { calls << "add"; };
@@ -306,6 +415,16 @@ private slots:
         QVERIFY(actions["20%"]->isChecked());
         QVERIFY(actions["15px"]->isChecked());
         QVERIFY(actions["Medium"]->isChecked());
+        QAction *three_lines = nullptr;
+        for (auto *submenu : menu->findChildren<QMenu *>()) {
+            if (submenu->title() != "Max Display Lines") continue;
+            QCOMPARE(submenu->actions().size(), 5);
+            QVERIFY(submenu->actions()[1]->isChecked());
+            three_lines = submenu->actions()[2];
+        }
+        QVERIFY(three_lines);
+        three_lines->trigger();
+        QVERIFY(calls.contains("lines 3"));
         QVERIFY(actions[QString::fromUtf8("◀ Left")]->isChecked());
         QVERIFY(actions["Last Selected First"]->isChecked());
         QVERIFY(actions["Record Content"]->isChecked());

@@ -704,6 +704,10 @@ QString ToolSettingsManager::get_clipboard_image_size() const {
     return CLIPBOARD_IMAGE_SIZES.contains(value) ? value : fallback;
 }
 
+int ToolSettingsManager::get_clipboard_display_lines() const {
+    return std::clamp(qsettings.value("clipboard/display_lines", app_defaults_.value("clipboard_display_lines")).toInt(), 1, 5);
+}
+
 void ToolSettingsManager::set_clipboard_image_size(const QString &value) {
     if (CLIPBOARD_IMAGE_SIZES.contains(value)) qsettings.setValue("clipboard/image_size", value);
 }

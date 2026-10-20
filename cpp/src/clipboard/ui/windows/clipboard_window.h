@@ -73,7 +73,7 @@ public:
     ToolSettingsManager *config = nullptr;
     Theme current_theme;
     int window_opacity = 0;
-    int display_lines = 0;
+    int font_size = 0;
     QString group_bar_position;
 
     QFrame *container = nullptr;
@@ -172,6 +172,7 @@ private:
     void set_window_opacity_percent(int percent);
     void set_font_size(int size);
     void set_image_size(const QString &size);
+    void set_display_lines(int lines);
     void on_font_size_changed(int size);
     void on_opacity_changed(int percent);
     void refresh_list();
@@ -208,7 +209,9 @@ private:
     bool is_paste_picker_surface(Hwnd hwnd) const;
     ClipboardController::CloseCallback paste_close_callback();
     bool in_file_group();
-    bool is_file_item(qint64 item_id) const;
+    bool is_launch_item(qint64 item_id) const;
+    void open_launch_item(qint64 item_id);
+    void open_link(qint64 item_id);
     void paste_plain_text(qint64 item_id);
     void paste_marked(const QList<qint64> &item_ids, bool plain_text = false, const QString &layout = "vertical", bool explicit_paste = false);
     void show_context_menu(const QPoint &pos);
