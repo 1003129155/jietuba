@@ -120,6 +120,7 @@ public:
     // Leaves editing for func and restores the tool afterwards.
     void with_edit_paused(const std::function<void()> &func);
     void save_image();
+    void save_image_with_system_dialog();
     void copy_to_clipboard();
     // All recognized text; recognizes first when there is no result yet.
     void copy_all_text();

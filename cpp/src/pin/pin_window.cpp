@@ -20,6 +20,7 @@
 #include "tools/controller.h"
 #include "tools/cursor_manager.h"
 #include "ui/dialogs.h"
+#include "ui/save_image_dialog.h"
 #include "ui/arrow_settings_panel.h"
 #include "ui/mosaic_settings_panel.h"
 #include "ui/number_settings_panel.h"
@@ -939,6 +940,18 @@ void PinWindow::with_edit_paused(const std::function<void()> &func) {
 }
 
 void PinWindow::save_image() {
+    if (use_modern_save_dialog(config_manager)) {
+        QImage image;
+        with_edit_paused([this, &image] { image = get_current_image(); });
+        const auto base_name = QString("pinned_%1").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"));
+        const auto [outcome, path] = SaveImageDialog::run(this, image, base_name, config_manager);
+        if (outcome == SaveImageDialog::Outcome::SAVED) log_info(T("保存成功: {file_path}", {{"file_path", path}}), "PinWindow");
+        if (outcome != SaveImageDialog::Outcome::CLASSIC) return;
+    }
+    save_image_with_system_dialog();
+}
+
+void PinWindow::save_image_with_system_dialog() {
     const auto fmt = (config_manager ? config_manager->get_screenshot_format() : QString("PNG")).toLower();
     const auto default_name = QString("pinned_%1.%2").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"), fmt);
     const SaveService save_service(config_manager ? *config_manager : *get_tool_settings_manager());

@@ -3,6 +3,7 @@
 #include "core/py_text.h"
 #include "core/save.h"
 #include "ui/dialogs.h"
+#include "ui/save_image_dialog.h"
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QRegularExpression>
@@ -39,8 +40,13 @@ void save_image_item_as(QWidget *parent, ClipboardManager &manager, const std::o
         show_warning_dialog(parent, tr_window("Save Failed"), tr_window("Image data is unavailable."));
         return;
     }
-    const QString default_name = item->created_at.isValid() ? QString("clipboard_image_%1.png").arg(item->created_at.toString("yyyyMMdd_HHmmss"))
-                                                            : QString("clipboard_image_%1.png").arg(item->id);
+    const QString base_name = item->created_at.isValid() ? QString("clipboard_image_%1").arg(item->created_at.toString("yyyyMMdd_HHmmss"))
+                                                         : QString("clipboard_image_%1").arg(item->id);
+    if (use_modern_save_dialog(nullptr)) {
+        const auto outcome = SaveImageDialog::run(parent, image, base_name, nullptr).first;
+        if (outcome != SaveImageDialog::Outcome::CLASSIC) return;
+    }
+    const QString default_name = base_name + ".png";
     auto [file_path, selected_filter] = get_save_file_name(parent, tr_window("Save as"), default_name,
                                                            tr_window("PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;Bitmap Image (*.bmp);;WebP Image (*.webp);;PDF (*.pdf)"));
     if (file_path.isEmpty()) return;

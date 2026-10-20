@@ -742,6 +742,7 @@ void SettingsDialog::reset_screenshot_settings_page() {
     if (auto *label = attr_widget("save_path_lbl")) set_text(label, defaults.value("screenshot_save_path").toString());
     if (auto *combo = attr<QComboBox>("screenshot_format_combo"))
         combo->setCurrentIndex(std::max<int>(0, QStringList{"PNG", "JPG", "BMP", "WEBP", "PDF"}.indexOf(defaults.value("screenshot_format").toString().toUpper())));
+    select_data(attr<QComboBox>("save_dialog_style_combo"), defaults.value("save_dialog_style"));
     if (magnifier_color_formats) magnifier_color_formats = color_formats::default_formats();
     fill_ocr_engines(this, defaults.value("ocr_engine").toString(), defaults.value("ppocr_model").toString());
     select_data(attr<QComboBox>("ocr_result_position_combo"), defaults.value("ocr_result_position"));
@@ -870,6 +871,7 @@ bool SettingsDialog::apply_settings(bool close_after) {
     if (auto *toggle = attr_widget("watermark_auto_toggle")) config_manager->set_screenshot_watermark_auto(checked_of(toggle));
     if (auto *label = attr_widget("save_path_lbl")) config_manager->set_screenshot_save_path(text_of(label));
     if (auto *combo = attr<QComboBox>("screenshot_format_combo")) config_manager->set_screenshot_format(combo->currentData().toString());
+    if (auto *combo = attr<QComboBox>("save_dialog_style_combo")) config_manager->set_app_setting("save_dialog_style", combo->currentData());
 
     // 3.5 Magnifier.
     for (const auto &[attr_name, key] : {std::make_pair("magnifier_enabled_toggle", "magnifier_enabled"), std::make_pair("magnifier_grid_toggle", "magnifier_grid"),
@@ -1081,7 +1083,7 @@ QVariantMap SettingsDialog::snapshot_settings() const {
                              "preload_screenshot_toggle", "preload_toolbar_toggle", "preload_ocr_toggle", "preload_settings_toggle", "preload_clipboard_toggle"})
         if (auto *widget = attr_widget(name)) snap[name] = checked_of(widget);
     // Combos.
-    for (const char *name : {"screenshot_format_combo", "shift_line_angle_combo", "ocr_result_position_combo", "translation_provider_combo", "translation_target_combo",
+    for (const char *name : {"screenshot_format_combo", "save_dialog_style_combo", "shift_line_angle_combo", "ocr_result_position_combo", "translation_provider_combo", "translation_target_combo",
                              "log_level_combo", "language_combo", "engine_combo", "cursor_move_combo", "clipboard_pick_combo", "log_retention_combo", "_ui_theme_combo",
                              "_ui_scale_combo", "_dialog_scale_combo", "_selection_border_combo", "_selection_handle_combo", "_selection_handle_size_combo",
                              "_color_picker_style_combo", "smart_mode_combo", "capture_engine_combo"})
@@ -1234,6 +1236,7 @@ void SettingsDialog::refresh_settings() {
     if (auto *label = attr_widget("save_path_lbl")) set_text(label, config_manager->get_screenshot_save_path());
     if (auto *combo = attr<QComboBox>("screenshot_format_combo"))
         combo->setCurrentIndex(std::max<int>(0, QStringList{"PNG", "JPG", "BMP", "WEBP", "PDF"}.indexOf(config_manager->get_screenshot_format().toUpper())));
+    select_data(attr<QComboBox>("save_dialog_style_combo"), config_manager->get_app_setting("save_dialog_style"));
     for (const auto &[attr_name, key] : {std::make_pair("magnifier_enabled_toggle", "magnifier_enabled"), std::make_pair("magnifier_grid_toggle", "magnifier_grid"),
                                          std::make_pair("magnifier_hint_toggle", "magnifier_hint")})
         if (auto *toggle = attr_widget(attr_name)) set_checked(toggle, config_manager->get_app_setting(key).toBool());

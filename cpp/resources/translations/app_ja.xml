@@ -6546,4 +6546,236 @@ gifrecorder が正しくインストールされているか確認してくだ�
         <translation>削除したモデルは OCR で使用中だったため、「自動」に切り替えました。</translation>
     </message>
 </context>
+
+<!-- ========== Save Image Dialog ========== -->
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Save Dialog</source>
+        <translation>保存ダイアログ</translation>
+    </message>
+    <message>
+        <source>Used when saving a screenshot, a pin or a clipboard image.</source>
+        <translation>スクリーンショット、ピン、クリップボードの画像を保存するときに使います。</translation>
+    </message>
+    <message>
+        <source>Modern (with preview)</source>
+        <translation>モダン（プレビュー付き）</translation>
+    </message>
+    <message>
+        <source>Classic (system dialog)</source>
+        <translation>クラシック（システムのダイアログ）</translation>
+    </message>
+</context>
+<context>
+    <name>SaveImageDialog</name>
+    <message>
+        <source>Save Image</source>
+        <translation>画像を保存</translation>
+    </message>
+    <message>
+        <source>Original</source>
+        <translation>元画像</translation>
+    </message>
+    <message>
+        <source>Encoded</source>
+        <translation>エンコード後</translation>
+    </message>
+    <message>
+        <source>Compare</source>
+        <translation>比較</translation>
+    </message>
+    <message>
+        <source>Estimating...</source>
+        <translation>見積もり中...</translation>
+    </message>
+    <message>
+        <source>Save Path</source>
+        <translation>保存先</translation>
+    </message>
+    <message>
+        <source>Change</source>
+        <translation>変更</translation>
+    </message>
+    <message>
+        <source>Select Folder</source>
+        <translation>フォルダーを選択</translation>
+    </message>
+    <message>
+        <source>File Name</source>
+        <translation>ファイル名</translation>
+    </message>
+    <message>
+        <source>Resize</source>
+        <translation>サイズ変更</translation>
+    </message>
+    <message>
+        <source>Value</source>
+        <translation>数値</translation>
+    </message>
+    <message>
+        <source>Percentage</source>
+        <translation>パーセント</translation>
+    </message>
+    <message>
+        <source>Lock aspect ratio</source>
+        <translation>縦横比を固定</translation>
+    </message>
+    <message>
+        <source>Original size</source>
+        <translation>元のサイズ</translation>
+    </message>
+    <message>
+        <source>Quality</source>
+        <translation>画質</translation>
+    </message>
+    <message>
+        <source>Low</source>
+        <translation>低</translation>
+    </message>
+    <message>
+        <source>High</source>
+        <translation>高</translation>
+    </message>
+    <message>
+        <source>Estimated Size</source>
+        <translation>推定サイズ</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>保存</translation>
+    </message>
+    <message>
+        <source>Zoom: %1%</source>
+        <translation>表示倍率：%1%</translation>
+    </message>
+    <message>
+        <source>Original: %1 x %2</source>
+        <translation>元のサイズ：%1 x %2</translation>
+    </message>
+    <message>
+        <source>%1 format is lossless and does not support quality adjustment.</source>
+        <translation>%1 は可逆圧縮のため、画質は調整できません。</translation>
+    </message>
+    <message>
+        <source>PDF has no quality setting.</source>
+        <translation>PDF には画質の設定がありません。</translation>
+    </message>
+    <message>
+        <source>This format cannot hold an image of this size.</source>
+        <translation>この形式ではこのサイズの画像を保存できません。</translation>
+    </message>
+    <message>
+        <source>Enter a file name.</source>
+        <translation>ファイル名を入力してください。</translation>
+    </message>
+    <message>
+        <source>A file name cannot contain any of these characters: \ / : * ? &quot; &lt; &gt; |</source>
+        <translation>ファイル名に次の文字は使えません：\ / : * ? &quot; &lt; &gt; |</translation>
+    </message>
+    <message>
+        <source>A file name cannot end with a dot or a space.</source>
+        <translation>ファイル名の末尾にピリオドや空白は使えません。</translation>
+    </message>
+    <message>
+        <source>This name is reserved by Windows.</source>
+        <translation>Windows で予約されている名前です。</translation>
+    </message>
+    <message>
+        <source>Choose a full folder path.</source>
+        <translation>フォルダーの完全なパスを指定してください。</translation>
+    </message>
+    <message>
+        <source>Use Classic Dialog</source>
+        <translation>クラシックのダイアログを使う</translation>
+    </message>
+    <message>
+        <source>Use the system Save As dialog for this and every later image save? You can change this back in Settings &gt; Capture Settings &gt; Save Dialog.</source>
+        <translation>今回と今後のすべての画像の保存で、システムの「名前を付けて保存」ダイアログを使いますか？「設定 &gt; キャプチャー設定 &gt; 保存ダイアログ」で元に戻せます。</translation>
+    </message>
+    <message>
+        <source>Use classic dialog</source>
+        <translation>クラシックのダイアログを使う</translation>
+    </message>
+    <message>
+        <source>Save Failed</source>
+        <translation>保存に失敗しました</translation>
+    </message>
+    <message>
+        <source>Cannot create the folder:
+%1</source>
+        <translation>フォルダーを作成できません：
+%1</translation>
+    </message>
+    <message>
+        <source>Replace File</source>
+        <translation>ファイルの置き換え</translation>
+    </message>
+    <message>
+        <source>%1 already exists.
+Replace it?</source>
+        <translation>%1 は既に存在します。
+置き換えますか？</translation>
+    </message>
+    <message>
+        <source>There is no image to save.</source>
+        <translation>保存する画像がありません。</translation>
+    </message>
+    <message>
+        <source>Desktop</source>
+        <translation>デスクトップ</translation>
+    </message>
+    <message>
+        <source>Add path tag</source>
+        <translation>パスタグを追加</translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation>編集</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>削除</translation>
+    </message>
+    <message>
+        <source>Tag Name</source>
+        <translation>タグ名</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>Notice</source>
+        <translation>お知らせ</translation>
+    </message>
+    <message>
+        <source>This path already has this name</source>
+        <translation>このパスには既にこの名前が付いています</translation>
+    </message>
+    <message>
+        <source>Name Already Exists</source>
+        <translation>名前は既に存在します</translation>
+    </message>
+    <message>
+        <source>This name is already used by another path &quot;%1&quot;. Please choose a different name for the current path.</source>
+        <translation>この名前は別のパス「%1」で使われています。現在のパスには別の名前を付けてください。</translation>
+    </message>
+    <message>
+        <source>Path Already Exists</source>
+        <translation>パスは既に存在します</translation>
+    </message>
+    <message>
+        <source>This path already exists with the name &quot;%1&quot;. Do you want to change its name to &quot;%2&quot;?</source>
+        <translation>このパスは「%1」という名前で既に登録されています。名前を「%2」に変更しますか？</translation>
+    </message>
+    <message>
+        <source>The name &quot;%1&quot; is already used by path &quot;%2&quot;. Do you want to set a new name for the current path?</source>
+        <translation>名前「%1」はパス「%2」で使われています。現在のパスに新しい名前を付けますか？</translation>
+    </message>
+</context>
 </TS>

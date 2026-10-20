@@ -1,3 +1,4 @@
+#include "save_dialog_answerer.h"
 #include "ocr/ocr_manager.h"
 #include "canvas/items/arrow_item.h"
 #include "canvas/items/drawing_items.h"
@@ -2653,14 +2654,22 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(pin->is_closed(), QApplication::doubleClickInterval() + 1000);
     }
 
-    // Saving asks for a file, starting in the save folder; without an extension the chosen filter decides the
-    // format. Copying goes to the clipboard.
+    // With the classic dialog, saving asks for a file, starting in the save folder; without an extension the
+    // chosen filter decides the format. The save window writes the pin image too. Copying goes to the clipboard.
     void savingAndCopyingThePinImage() {
         QTemporaryDir out;
         QString opened_in;
         const auto save_folder = dir_.filePath("pin-saves");
         config_->set_screenshot_save_path(save_folder);
         auto *pin = make_pin(QSize(120, 80));
+        {
+            SaveDialogAnswerer answer(out.filePath("window.jpg"));
+            pin->save_image();
+            QVERIFY(answer.answered);
+        }
+        QCOMPARE(QImageReader(out.filePath("window.jpg")).size(), QSize(120, 80));
+        QVERIFY(QFile::remove(out.filePath("window.jpg")));
+        config_->set_app_setting("save_dialog_style", "classic");
         const auto answer = [&out, &opened_in](const QString &name, const QString &filter) {
             auto *timer = new QTimer;
             auto started = std::make_shared<QElapsedTimer>();

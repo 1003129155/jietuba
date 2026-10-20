@@ -169,6 +169,16 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     dialog->set_attr("screenshot_format_combo", format_combo);
     fmt_card->addControl(format_combo);
     grp_save->addSettingCard(fmt_card);
+    // The window behind Save in the capture toolbar, the pin menu and the clipboard.
+    auto *style_card = new SettingCard(FluentIcon::Save, dialog->tr_text("Save Dialog"),
+                                       dialog->tr_text("Used when saving a screenshot, a pin or a clipboard image."), grp_save);
+    auto *style_combo = new ComboBox(style_card);
+    style_combo->addItem(dialog->tr_text("Modern (with preview)"), QString("modern"));
+    style_combo->addItem(dialog->tr_text("Classic (system dialog)"), QString("classic"));
+    style_combo->setCurrentIndex(std::max(0, style_combo->findData(config->get_app_setting("save_dialog_style").toString())));
+    dialog->set_attr("save_dialog_style_combo", style_combo);
+    style_card->addControl(style_combo);
+    grp_save->addSettingCard(style_card);
     layout->addWidget(grp_save);
 
     // ── Watermark ── (text and style are edited in the capture toolbar's watermark panel)

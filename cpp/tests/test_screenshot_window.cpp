@@ -1,3 +1,4 @@
+#include "save_dialog_answerer.h"
 #include "canvas/items/drawing_items.h"
 #include "canvas/items/stroke_item.h"
 #include "canvas/items/arrow_item.h"
@@ -755,30 +756,63 @@ private slots:
 
     // ---- Toolbar actions that leave the capture ----
 
-    // Save asks for a file, starting in the save folder; the chosen filter decides the format of a name without one.
+    // With the classic dialog, Save ends the capture and then asks for a file, starting in the save folder; the
+    // chosen filter decides the format of a name without one.
     void saveAsksForAFileAndWritesTheSelection() {
+        config_->set_app_setting("save_dialog_style", "classic");
         auto *window = open_with_selection();
         QSignalSpy ended(window, &ScreenshotWindow::session_ended);
         QTemporaryDir out;
         QString opened_in;
-        // Cancelling keeps the capture open.
         answer_file_dialog({}, {}, &opened_in);
         window->toolbar->save_btn->click();
-        QCOMPARE(ended.count(), 0);
-        QVERIFY(window->session_active());
+        QCOMPARE(ended.count(), 1);
+        QTRY_VERIFY(!opened_in.isEmpty());
         QCOMPARE(QDir(opened_in), QDir(dir_.filePath("captures")));
         QVERIFY(QFileInfo(dir_.filePath("captures")).isDir());
+        window = open_with_selection();
         answer_file_dialog(out.filePath("shot"), "JPG (*.jpg)");
         window->toolbar->save_btn->click();
-        QCOMPARE(ended.count(), 1);
-        const QImage saved(out.filePath("shot.jpg"));
-        QCOMPARE(saved.size(), QSize(200, 150));
+        QTRY_VERIFY(QFileInfo::exists(out.filePath("shot.jpg")));
+        QCOMPARE(QImage(out.filePath("shot.jpg")).size(), QSize(200, 150));
         QCOMPARE(QImageReader(out.filePath("shot.jpg")).format(), QByteArray("jpeg"));
         // A typed extension wins over the filter.
         window = open_with_selection();
         answer_file_dialog(out.filePath("typed.bmp"), "JPG (*.jpg)");
         window->toolbar->save_btn->click();
+        QTRY_VERIFY(QFileInfo::exists(out.filePath("typed.bmp")));
         QCOMPARE(QImageReader(out.filePath("typed.bmp")).format(), QByteArray("bmp"));
+    }
+
+    // Save ends the capture first and then opens the save window, which writes the selection; switching to the
+    // classic dialog opens it for the same save.
+    void saveWindowWritesTheSelection() {
+        auto *window = open_with_selection();
+        QSignalSpy ended(window, &ScreenshotWindow::session_ended);
+        QTemporaryDir out;
+        {
+            SaveDialogAnswerer answer(out.filePath("shot.webp"));
+            window->toolbar->save_btn->click();
+            QCOMPARE(ended.count(), 1);
+            QVERIFY(!answer.answered);
+            QTRY_VERIFY(answer.answered);
+        }
+        QTRY_VERIFY(QFileInfo::exists(out.filePath("shot.webp")));
+        QCOMPARE(QImageReader(out.filePath("shot.webp")).size(), QSize(200, 150));
+        window = open_with_selection();
+        {
+            SaveDialogAnswerer answer(QString{});
+            window->toolbar->save_btn->click();
+            QTRY_VERIFY(answer.answered);
+        }
+        window = open_with_selection();
+        SaveDialogAnswerer classic(SaveDialogAnswerer::CLASSIC);
+        answer_file_dialog(out.filePath("classic"), "PNG (*.png)");
+        window->toolbar->save_btn->click();
+        QTRY_VERIFY(classic.answered);
+        QTRY_VERIFY(QFileInfo::exists(out.filePath("classic.png")));
+        QCOMPARE(QImageReader(out.filePath("classic.png")).size(), QSize(200, 150));
+        QCOMPARE(config_->get_app_setting("save_dialog_style").toString(), QString("classic"));
     }
 
     // The quick-save action writes to the save folder, with the unannotated original beside it.

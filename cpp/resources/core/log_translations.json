@@ -393,6 +393,7 @@
 "已交给管理员实例 (PID {pid})": "Handed over to the administrator instance (PID {pid})",
 "已保存PDF: {target_path}": "PDF saved: {target_path}",
 "已保存到: {file_path}": "Saved to: {file_path}",
+"保存预览编码失败: {e}": "Save preview encoding failed: {e}",
 "已保存文件: {target_path}": "File saved: {target_path}",
 "已停用": "Deactivated",
 "已关闭玩游戏时暂停热键": "Pausing hotkeys while gaming turned off",

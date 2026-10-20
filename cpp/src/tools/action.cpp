@@ -17,11 +17,14 @@
 #include "tools/number.h"
 #include "translation/translation_manager.h"
 #include "ui/dialogs.h"
+#include "ui/save_image_dialog.h"
+#include <QApplication>
 #include <QDateTime>
 #include <QFileInfo>
 #include <QGraphicsItem>
 #include <QPixmap>
 #include <QRegularExpression>
+#include <QTimer>
 
 namespace jietuba {
 namespace {
@@ -52,23 +55,38 @@ void ActionTools::handle_copy() { copy_save_and_close(); }
 
 void ActionTools::handle_save(bool close_after) {
     temporarily_exit_editing();
-    const auto fmt = (config_manager ? config_manager->get_screenshot_format() : QString("PNG")).toLower();
-    const auto default_name = QString("screenshot_%1.%2").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"), fmt);
-    auto [file_path, selected_filter] = get_save_file_name(parent_window, action_tr("Save Screenshot"), save_service->suggest_path(default_name),
-                                                           "PNG (*.png);;JPG (*.jpg);;BMP (*.bmp);;WebP (*.webp);;PDF (*.pdf)");
-    if (file_path.isEmpty()) return;
-    const auto image_format = format_from_save_path(file_path, selected_filter);
-    if (QFileInfo(file_path).suffix().isEmpty()) file_path = file_path + "." + image_format.toLower();
     auto selection_rect = scene->selection_model->rect();
     remember_last_region(selection_rect);
     if (selection_rect.isEmpty()) selection_rect = scene->sceneRect();
     const auto image = export_service.export_image(selection_rect);
-    if (SaveService::save_qimage_to_path(image, file_path, image_format)) {
-        log_info(T("已保存到: {file_path}", {{"file_path", file_path}}), "Action");
-        if (parent_window && close_after) cleanup_and_close();
-    } else {
-        show_warning_dialog(parent_window, action_tr("Save Failed"), file_path);
+    const auto base_name = QString("screenshot_%1").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"));
+    if (!parent_window || !close_after) {
+        save_image_interactively(parent_window, image, base_name, config_manager, save_service);
+        return;
     }
+    // The capture ends before the save window opens. That window runs once the click
+    // asking for it has returned, owning nothing of the capture, which is being deleted.
+    cleanup_and_close();
+    QTimer::singleShot(0, qApp, [image, base_name, config = config_manager, service = save_service] {
+        save_image_interactively(nullptr, image, base_name, config, service);
+    });
+}
+
+void ActionTools::save_image_interactively(QWidget *parent, const QImage &image, const QString &base_name, ToolSettingsManager *config,
+                                           const std::shared_ptr<SaveService> &service) {
+    if (use_modern_save_dialog(config)) {
+        const auto [outcome, path] = SaveImageDialog::run(parent, image, base_name, config);
+        if (outcome == SaveImageDialog::Outcome::SAVED) log_info(T("已保存到: {file_path}", {{"file_path", path}}), "Action");
+        if (outcome != SaveImageDialog::Outcome::CLASSIC) return;
+    }
+    const auto fmt = (config ? config->get_screenshot_format() : QString("PNG")).toLower();
+    auto [file_path, selected_filter] = get_save_file_name(parent, action_tr("Save Screenshot"), service->suggest_path(base_name + "." + fmt),
+                                                           "PNG (*.png);;JPG (*.jpg);;BMP (*.bmp);;WebP (*.webp);;PDF (*.pdf)");
+    if (file_path.isEmpty()) return;
+    const auto image_format = format_from_save_path(file_path, selected_filter);
+    if (QFileInfo(file_path).suffix().isEmpty()) file_path = file_path + "." + image_format.toLower();
+    if (SaveService::save_qimage_to_path(image, file_path, image_format)) log_info(T("已保存到: {file_path}", {{"file_path", file_path}}), "Action");
+    else show_warning_dialog(parent, action_tr("Save Failed"), file_path);
 }
 
 void ActionTools::handle_pin(bool close_after) {

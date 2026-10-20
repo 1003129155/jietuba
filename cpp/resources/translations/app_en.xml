@@ -6334,4 +6334,236 @@ Make sure gifrecorder is installed correctly.</translation>
         <translation>The deleted model was selected for OCR, so OCR now uses Auto.</translation>
     </message>
 </context>
+
+<!-- ========== Save Image Dialog ========== -->
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Save Dialog</source>
+        <translation>Save Dialog</translation>
+    </message>
+    <message>
+        <source>Used when saving a screenshot, a pin or a clipboard image.</source>
+        <translation>Used when saving a screenshot, a pin or a clipboard image.</translation>
+    </message>
+    <message>
+        <source>Modern (with preview)</source>
+        <translation>Modern (with preview)</translation>
+    </message>
+    <message>
+        <source>Classic (system dialog)</source>
+        <translation>Classic (system dialog)</translation>
+    </message>
+</context>
+<context>
+    <name>SaveImageDialog</name>
+    <message>
+        <source>Save Image</source>
+        <translation>Save Image</translation>
+    </message>
+    <message>
+        <source>Original</source>
+        <translation>Original</translation>
+    </message>
+    <message>
+        <source>Encoded</source>
+        <translation>Encoded</translation>
+    </message>
+    <message>
+        <source>Compare</source>
+        <translation>Compare</translation>
+    </message>
+    <message>
+        <source>Estimating...</source>
+        <translation>Estimating...</translation>
+    </message>
+    <message>
+        <source>Save Path</source>
+        <translation>Save Path</translation>
+    </message>
+    <message>
+        <source>Change</source>
+        <translation>Change</translation>
+    </message>
+    <message>
+        <source>Select Folder</source>
+        <translation>Select Folder</translation>
+    </message>
+    <message>
+        <source>File Name</source>
+        <translation>File Name</translation>
+    </message>
+    <message>
+        <source>Resize</source>
+        <translation>Resize</translation>
+    </message>
+    <message>
+        <source>Value</source>
+        <translation>Value</translation>
+    </message>
+    <message>
+        <source>Percentage</source>
+        <translation>Percentage</translation>
+    </message>
+    <message>
+        <source>Lock aspect ratio</source>
+        <translation>Lock aspect ratio</translation>
+    </message>
+    <message>
+        <source>Original size</source>
+        <translation>Original size</translation>
+    </message>
+    <message>
+        <source>Quality</source>
+        <translation>Quality</translation>
+    </message>
+    <message>
+        <source>Low</source>
+        <translation>Low</translation>
+    </message>
+    <message>
+        <source>High</source>
+        <translation>High</translation>
+    </message>
+    <message>
+        <source>Estimated Size</source>
+        <translation>Estimated Size</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>Save</translation>
+    </message>
+    <message>
+        <source>Zoom: %1%</source>
+        <translation>Zoom: %1%</translation>
+    </message>
+    <message>
+        <source>Original: %1 x %2</source>
+        <translation>Original: %1 x %2</translation>
+    </message>
+    <message>
+        <source>%1 format is lossless and does not support quality adjustment.</source>
+        <translation>%1 format is lossless and does not support quality adjustment.</translation>
+    </message>
+    <message>
+        <source>PDF has no quality setting.</source>
+        <translation>PDF has no quality setting.</translation>
+    </message>
+    <message>
+        <source>This format cannot hold an image of this size.</source>
+        <translation>This format cannot hold an image of this size.</translation>
+    </message>
+    <message>
+        <source>Enter a file name.</source>
+        <translation>Enter a file name.</translation>
+    </message>
+    <message>
+        <source>A file name cannot contain any of these characters: \ / : * ? &quot; &lt; &gt; |</source>
+        <translation>A file name cannot contain any of these characters: \ / : * ? &quot; &lt; &gt; |</translation>
+    </message>
+    <message>
+        <source>A file name cannot end with a dot or a space.</source>
+        <translation>A file name cannot end with a dot or a space.</translation>
+    </message>
+    <message>
+        <source>This name is reserved by Windows.</source>
+        <translation>This name is reserved by Windows.</translation>
+    </message>
+    <message>
+        <source>Choose a full folder path.</source>
+        <translation>Choose a full folder path.</translation>
+    </message>
+    <message>
+        <source>Use Classic Dialog</source>
+        <translation>Use Classic Dialog</translation>
+    </message>
+    <message>
+        <source>Use the system Save As dialog for this and every later image save? You can change this back in Settings &gt; Capture Settings &gt; Save Dialog.</source>
+        <translation>Use the system Save As dialog for this and every later image save? You can change this back in Settings &gt; Capture Settings &gt; Save Dialog.</translation>
+    </message>
+    <message>
+        <source>Use classic dialog</source>
+        <translation>Use classic dialog</translation>
+    </message>
+    <message>
+        <source>Save Failed</source>
+        <translation>Save Failed</translation>
+    </message>
+    <message>
+        <source>Cannot create the folder:
+%1</source>
+        <translation>Cannot create the folder:
+%1</translation>
+    </message>
+    <message>
+        <source>Replace File</source>
+        <translation>Replace File</translation>
+    </message>
+    <message>
+        <source>%1 already exists.
+Replace it?</source>
+        <translation>%1 already exists.
+Replace it?</translation>
+    </message>
+    <message>
+        <source>There is no image to save.</source>
+        <translation>There is no image to save.</translation>
+    </message>
+    <message>
+        <source>Desktop</source>
+        <translation>Desktop</translation>
+    </message>
+    <message>
+        <source>Add path tag</source>
+        <translation>Add path tag</translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation>Edit</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>Delete</translation>
+    </message>
+    <message>
+        <source>Tag Name</source>
+        <translation>Tag Name</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>Notice</source>
+        <translation>Notice</translation>
+    </message>
+    <message>
+        <source>This path already has this name</source>
+        <translation>This path already has this name</translation>
+    </message>
+    <message>
+        <source>Name Already Exists</source>
+        <translation>Name Already Exists</translation>
+    </message>
+    <message>
+        <source>This name is already used by another path &quot;%1&quot;. Please choose a different name for the current path.</source>
+        <translation>This name is already used by another path &quot;%1&quot;. Please choose a different name for the current path.</translation>
+    </message>
+    <message>
+        <source>Path Already Exists</source>
+        <translation>Path Already Exists</translation>
+    </message>
+    <message>
+        <source>This path already exists with the name &quot;%1&quot;. Do you want to change its name to &quot;%2&quot;?</source>
+        <translation>This path already exists with the name &quot;%1&quot;. Do you want to change its name to &quot;%2&quot;?</translation>
+    </message>
+    <message>
+        <source>The name &quot;%1&quot; is already used by path &quot;%2&quot;. Do you want to set a new name for the current path?</source>
+        <translation>The name &quot;%1&quot; is already used by path &quot;%2&quot;. Do you want to set a new name for the current path?</translation>
+    </message>
+</context>
 </TS>
