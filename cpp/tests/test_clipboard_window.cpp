@@ -5,6 +5,7 @@
 #include "clipboard/ui/widgets/group_bar.h"
 #include "clipboard/ui/widgets/item_delegate.h"
 #include "clipboard/ui/widgets/item_drag.h"
+#include "clipboard/ui/widgets/selection_bar.h"
 #include "clipboard/ui/widgets/quick_edit_popup.h"
 #include "core/i18n.h"
 #include "core/ui_scale.h"
@@ -348,31 +349,76 @@ private slots:
         env_.config->set_app_setting("mouse_clipboard_quick_edit", "middle");
     }
 
-    void ctrlAndShiftClicksSelectAndAClickOnTheSelectionPastesItAll() {
+    void aMarkStartsTheMultipleSelectionWhereClicksSelect() {
+        // Newest first: the rows are d, c, b, a.
         const auto ids = add_texts({"a", "b", "c", "d"});
         auto *window = open_window();
+        auto *bar = window->selection_bar;
+        auto *selection = window->selection_manager;
+        QVERIFY(!bar->isVisible());
+        // Ctrl+click starts it; the bar under the list shows the count.
         click(ids[3], Qt::LeftButton, Qt::ControlModifier);
-        click(ids[1], Qt::LeftButton, Qt::ControlModifier);
-        QCOMPARE(window->selection_manager->marked_ids(true), (QList<qint64>{ids[3], ids[1]}));
-        QVERIFY(window->mark_count_label->isVisible());
-        QVERIFY(window->mark_count_label->text().contains("2"));
+        QVERIFY(bar->isVisible());
+        QVERIFY(bar->count_label->text().contains("1"));
+        // Now a plain left click adds a row, and again leaves it marked; nothing is pasted.
+        click(ids[1]);
+        click(ids[1]);
+        QCOMPARE(selection->marked_ids(true), (QList<qint64>{ids[3], ids[1]}));
+        QVERIFY(bar->count_label->text().contains("2"));
+        // The right button removes a row instead of opening a menu.
+        MenuPicker picker;
+        click(ids[3], Qt::RightButton);
+        QVERIFY(!picker.shown);
+        QCOMPARE(selection->marked_ids(), QList<qint64>{ids[1]});
+        // Shift+click spans from the last row clicked; Ctrl+click still toggles.
+        click(ids[0], Qt::LeftButton, Qt::ShiftModifier);
+        QCOMPARE(selection->marked_ids(), (QList<qint64>{ids[1], ids[0]}));
+        click(ids[0], Qt::LeftButton, Qt::ControlModifier);
+        QCOMPARE(selection->marked_ids(), QList<qint64>{ids[1]});
+        // Direct pick keys do nothing while the rows show circles.
+        QVERIFY(key(Qt::Key_1));
         QVERIFY(env_.pastes.isEmpty());
-        // Shift extends from the row selected before the click.
-        window->selection_manager->clear_marks();
-        window->selection_manager->select_item_id(ids[3]);
-        click(ids[1], Qt::LeftButton, Qt::ShiftModifier);
-        QCOMPARE(window->selection_manager->marked_ids(), (QList<qint64>{ids[3], ids[2], ids[1]}));
-        // A click on a selected row pastes the whole selection and clears it.
+        // Removing the last mark ends it.
+        click(ids[1], Qt::RightButton);
+        QVERIFY(!selection->has_marks());
+        QVERIFY(!bar->isVisible());
+        // Outside of it a click pastes again.
         click(ids[2]);
         QTRY_COMPARE(env_.pastes.size(), 1);
-        QVERIFY(!window->selection_manager->has_marks());
-        QVERIFY(!window->mark_count_label->isVisible());
-        // A click elsewhere pastes only that row and drops the selection.
+    }
+
+    void theSelectionBarPastesOrLeaves() {
+        const auto ids = add_texts({"a", "b", "c"});
+        auto *window = open_window();
+        auto *bar = window->selection_bar;
+        // Styled from the start, not only after a theme or scale change.
+        QVERIFY(bar->styleSheet().contains(window->current_theme.colors.accent_primary));
         window->toggle_item_mark(ids[0]);
-        window->toggle_item_mark(ids[1]);
-        click(ids[3]);
+        window->toggle_item_mark(ids[2]);
+        bar->exit_button->click();
         QVERIFY(!window->selection_manager->has_marks());
-        // A Ctrl+click bound to an action runs that action instead of selecting.
+        QVERIFY(!bar->isVisible());
+        window->toggle_item_mark(ids[0]);
+        window->toggle_item_mark(ids[2]);
+        bar->paste_button->click();
+        QTRY_COMPARE(env_.pastes.size(), 1);
+        QVERIFY(!window->selection_manager->has_marks());
+        QVERIFY(!bar->isVisible());
+    }
+
+    void theItemMenuStartsTheMultipleSelection() {
+        const auto ids = add_texts({"a", "b"});
+        auto *window = open_window();
+        MenuPicker picker("Multi-select");
+        click(ids[1], Qt::RightButton);
+        QVERIFY(picker.shown && picker.picked);
+        QCOMPARE(window->selection_manager->marked_ids(), QList<qint64>{ids[1]});
+        QVERIFY(window->selection_bar->isVisible());
+    }
+
+    void aBoundCtrlClickRunsItsActionInsteadOfMarking() {
+        const auto ids = add_texts({"a", "b"});
+        auto *window = open_window();
         env_.config->set_app_setting("mouse_clipboard_menu", "ctrl+left");
         MenuPicker picker;
         click(ids[0], Qt::LeftButton, Qt::ControlModifier);
@@ -390,10 +436,10 @@ private slots:
         QVERIFY(!key(Qt::Key_2, Qt::ControlModifier));
         QVERIFY(!key(Qt::Key_9));
         // Enter pastes the current row, Shift+Enter as plain text.
-        window->selection_manager->select_item_id(ids[0]);
+        window->selection_manager->move_cursor_to(ids[0]);
         QVERIFY(key(Qt::Key_Return));
         QTRY_COMPARE(env_.pastes.size(), 2);
-        window->selection_manager->select_item_id(ids[0]);
+        window->selection_manager->move_cursor_to(ids[0]);
         QVERIFY(key(Qt::Key_Return, Qt::ShiftModifier));
         QTRY_COMPARE(env_.pastes.size(), 3);
         // Enter with a selection of several pastes them together.
@@ -405,13 +451,11 @@ private slots:
         QVERIFY(key(Qt::Key_Delete));
         QCOMPARE(window->list_widget->count(), 3);
         QVERIFY(key(Qt::Key_F, Qt::ControlModifier));
-        // Esc: first the selection, then the current row, then the window.
+        // Esc: first the marks, then the window; the cursor only points and needs no Esc of its own.
         window->toggle_item_mark(ids[2]);
         QVERIFY(key(Qt::Key_Escape));
         QVERIFY(!window->selection_manager->has_marks());
-        window->selection_manager->select_item_id(ids[2]);
-        QVERIFY(key(Qt::Key_Escape));
-        QVERIFY(!window->selection_manager->has_selection());
+        QVERIFY(window->isVisible());
         QVERIFY(key(Qt::Key_Escape));
         QVERIFY(!window->isVisible());
     }
@@ -420,7 +464,7 @@ private slots:
         const auto ids = add_texts({"original"});
         auto *window = open_window();
         // The quick edit key opens the editor on the current text row.
-        window->selection_manager->select_item_id(ids[0]);
+        window->selection_manager->move_cursor_to(ids[0]);
         QVERIFY(key(Qt::Key_Tab));
         QVERIFY(window->quick_edit_popup && window->quick_edit_popup->is_open());
         // Keys belong to the editor while it is open.
@@ -445,7 +489,7 @@ private slots:
         // Files are not quick-editable; in the history nothing else opens either.
         const auto file = manager().add_item(file_payload({"C:\\x.txt"}), "file");
         window->notify_new_content(manager().get_item(*file));
-        window->selection_manager->select_item_id(*file);
+        window->selection_manager->move_cursor_to(*file);
         QVERIFY(!window->edit_selected());
     }
 
@@ -570,12 +614,12 @@ private slots:
     void newContentArrivesWithoutAReload() {
         const auto ids = add_texts({"a"});
         auto *window = open_window();
-        window->selection_manager->select_item_id(ids[0]);
+        window->selection_manager->move_cursor_to(ids[0]);
         const auto b = manager().add_item("b");
         window->notify_new_content(manager().get_item(*b));
         QCOMPARE(row_ids(), (QList<qint64>{*b, ids[0]}));
         // The selection stays on its item.
-        QCOMPARE(window->selection_manager->get_current_item_id(), std::optional<qint64>(ids[0]));
+        QCOMPARE(window->selection_manager->cursor_id(), std::optional<qint64>(ids[0]));
         // A hidden window refreshes on its next show instead.
         window->hide();
         const auto c = manager().add_item("c");
@@ -729,7 +773,7 @@ private slots:
         QVERIFY(!window->grab().isNull());
 
         // Right in the list enters the side bar, arrows walk it, Left leaves it.
-        window->selection_manager->select_item_id(ids[1]);
+        window->selection_manager->move_cursor_to(ids[1]);
         QTest::keyClick(window->list_widget, Qt::Key_Right);
         QVERIFY(window->group_bar->sidebar_mode());
         QTest::keyClick(window->list_widget, Qt::Key_Down);
@@ -825,7 +869,7 @@ private slots:
         window->search_input->setFocus();
         QKeyEvent down(QEvent::KeyPress, Qt::Key_Down, Qt::NoModifier);
         QApplication::sendEvent(window, &down);
-        QVERIFY(window->selection_manager->has_selection());
+        QVERIFY(window->selection_manager->cursor_id());
     }
 
     void aFileGroupOpensFilesInsteadOfPasting() {
@@ -855,7 +899,7 @@ private slots:
         QTRY_COMPARE(urls_.urls.size(), 2);
         // Shift+Enter pastes the path as text.
         window->show();
-        window->selection_manager->select_item_id(*first);
+        window->selection_manager->move_cursor_to(*first);
         QVERIFY(key(Qt::Key_Return, Qt::ShiftModifier));
         QTRY_COMPARE(env_.pastes.size(), 1);
         right_click_pick(*first, "File Name");
@@ -921,7 +965,7 @@ private slots:
         QTRY_COMPARE(urls_.urls.size(), 1);
         QCOMPARE(urls_.urls.last(), QUrl("https://example.com/page"));
         window->show();
-        window->selection_manager->select_item_id(ids[1]);
+        window->selection_manager->move_cursor_to(ids[1]);
         QVERIFY(key(Qt::Key_Return));
         QTRY_COMPARE(urls_.urls.size(), 2);
         QCOMPARE(urls_.urls.last(), QUrl("https://www.example.com"));
@@ -931,7 +975,7 @@ private slots:
         QTRY_COMPARE(urls_.urls.size(), 4);
         QVERIFY(env_.pastes.isEmpty());
         window->show();
-        window->selection_manager->select_item_id(ids[0]);
+        window->selection_manager->move_cursor_to(ids[0]);
         QVERIFY(key(Qt::Key_Return, Qt::ShiftModifier));
         QTRY_COMPARE(env_.pastes.size(), 1);
         QCOMPARE(urls_.urls.size(), 4);
@@ -1038,14 +1082,13 @@ private slots:
         QTRY_VERIFY(!PreviewPopup::instance()->isVisible());
     }
 
-    void draggingARowOutKeepsTheScrollAndTheCurrentRow() {
+    void draggingARowOutLeavesTheCursorOnItAndTheListInPlace() {
         QStringList texts;
         for (int i = 0; i < 30; ++i) texts << QString("entry %1").arg(i);
-        add_texts(texts);
+        const auto ids = add_texts(texts);
         auto *window = open_window();
         auto *list = window->list_widget;
         QSignalSpy pasted(window, &ClipboardWindow::item_pasted);
-        list->setCurrentRow(0);
         QScrollBar *bar = list->verticalScrollBar();
         QTRY_VERIFY(bar->maximum() > 0);
         bar->setValue(bar->maximum() / 2);
@@ -1060,8 +1103,69 @@ private slots:
         QApplication::sendEvent(list->viewport(), &move);
         QTest::mouseRelease(list->viewport(), Qt::LeftButton, Qt::NoModifier, moved);
         QCOMPARE(bar->value(), scroll);
-        QCOMPARE(list->currentRow(), 0);
+        QCOMPARE(window->selection_manager->cursor_row(), list->row(row));
+        QCOMPARE(window->item_delegate->cursor_id(), std::optional<qint64>(row->data(Qt::UserRole).toLongLong()));
         QCOMPARE(pasted.count(), 0);
+        Q_UNUSED(ids);
+    }
+
+    void theMouseAndTheKeysMoveOneCursor() {
+        // Newest first: the rows are d, c, b, a.
+        const auto ids = add_texts({"a", "b", "c", "d"});
+        auto *window = open_window();
+        auto *list = window->list_widget;
+        auto *viewport = list->viewport();
+        const auto move_mouse = [&](const QPoint &pos) {
+            QMouseEvent event(QEvent::MouseMove, QPointF(pos), QPointF(viewport->mapToGlobal(pos)), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+            QApplication::sendEvent(viewport, &event);
+        };
+        const auto cursor = [&] { return window->item_delegate->cursor_id(); };
+        // A fresh window has no cursor until the mouse moves or a key is pressed.
+        QVERIFY(!cursor());
+        move_mouse(row_center(ids[2]));
+        QCOMPARE(cursor(), std::optional<qint64>(ids[2]));
+        // The keys carry on from where the mouse is.
+        QTest::keyClick(list, Qt::Key_Down);
+        QCOMPARE(cursor(), std::optional<qint64>(ids[1]));
+        // The same mouse position again (the list scrolled under a still mouse) does not take the cursor back.
+        move_mouse(row_center(ids[2]));
+        QCOMPARE(cursor(), std::optional<qint64>(ids[1]));
+        // Leaving the list or moving into blank space keeps the cursor.
+        QEvent leave(QEvent::Leave);
+        QApplication::sendEvent(viewport, &leave);
+        QCOMPARE(cursor(), std::optional<qint64>(ids[1]));
+        const QPoint blank(row_center(ids[0]).x(), viewport->height() - 5);
+        QVERIFY(!list->itemAt(blank));
+        move_mouse(blank);
+        QCOMPARE(cursor(), std::optional<qint64>(ids[1]));
+        // Real movement onto a row takes it.
+        move_mouse(row_center(ids[3]));
+        QCOMPARE(cursor(), std::optional<qint64>(ids[3]));
+        // Enter uses the row under the cursor.
+        QVERIFY(key(Qt::Key_Return));
+        QTRY_COMPARE(env_.pastes.size(), 1);
+    }
+
+    void unmarkingARowLeavesOnlyTheCursorOnIt() {
+        const auto ids = add_texts({"a", "b", "c"});
+        auto *window = open_window();
+        auto *viewport = window->list_widget->viewport();
+        click(ids[2], Qt::LeftButton, Qt::ControlModifier);
+        click(ids[0], Qt::LeftButton, Qt::ControlModifier);
+        QCOMPARE(window->selection_manager->marked_ids(true), (QList<qint64>{ids[2], ids[0]}));
+        click(ids[0], Qt::LeftButton, Qt::ControlModifier);
+        QCOMPARE(window->selection_manager->marked_ids(), QList<qint64>{ids[2]});
+        // The unmarked row keeps the cursor, which is drawn unlike a mark.
+        QCOMPARE(window->item_delegate->cursor_id(), std::optional<qint64>(ids[0]));
+        const QImage image = viewport->grab().toImage();
+        const qreal ratio = image.devicePixelRatio();
+        const auto in_circle = [&](qint64 item_id) {
+            const QRectF circle = window->item_delegate->mark_circle_rect(window->list_widget->visualItemRect(window->list_widget->item(row_of(item_id))));
+            return image.pixelColor(QPointF(circle.center().x(), circle.top() + circle.height() * 0.2).toPoint() * ratio);
+        };
+        const QColor accent(window->current_theme.colors.border_selected);
+        QCOMPARE(in_circle(ids[2]), accent);
+        QVERIFY(in_circle(ids[0]) != accent);
     }
 
     void movingIntoBlankSpaceClearsTheHoverPreview_data() {
@@ -1080,8 +1184,7 @@ private slots:
         auto *window = open_window();
         auto *list = window->list_widget;
         auto *preview = PreviewPopup::instance();
-        if (selected) list->setCurrentRow(0);
-        const auto selection = list->selectedItems();
+        if (selected) window->selection_manager->move_cursor_to(ids[0]);
         preview->hide_preview();
         const QPoint row_pos = row_center(ids[1]);
         const QPoint blank_pos(row_pos.x(), list->viewport()->height() - 10);
@@ -1094,20 +1197,18 @@ private slots:
         move_mouse(row_pos);
         if (pending) QVERIFY(!preview->isVisible());
         else QTRY_VERIFY(preview->isVisible());
-        QCOMPARE(window->item_delegate->highlighted_id(), std::optional<qint64>(ids[1]));
+        QCOMPARE(window->item_delegate->cursor_id(), std::optional<qint64>(ids[1]));
 
         move_mouse(blank_pos);
         QVERIFY(!preview->isVisible());
-        QCOMPARE(list->selectedItems(), selection);
-        const auto expected_highlight = selection.isEmpty() ? std::nullopt
-            : std::optional<qint64>(selection.front()->data(Qt::UserRole).toLongLong());
-        QCOMPARE(window->item_delegate->highlighted_id(), expected_highlight);
+        QCOMPARE(window->item_delegate->cursor_id(), std::optional<qint64>(ids[1]));
         QTest::qWait(30);
         QVERIFY(!preview->isVisible());
 
+        // Back onto the cursor row: the preview returns without the cursor moving.
         move_mouse(row_pos);
         QTRY_VERIFY(preview->isVisible());
-        QCOMPARE(window->item_delegate->highlighted_id(), std::optional<qint64>(ids[1]));
+        QCOMPARE(window->item_delegate->cursor_id(), std::optional<qint64>(ids[1]));
     }
 };
 

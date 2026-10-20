@@ -2967,6 +2967,18 @@ This action cannot be undone.</source>
         <translation>Enter로 합쳐서 붙여넣기, Esc로 선택 해제</translation>
     </message>
     <message>
+        <source>More actions</source>
+        <translation>기타 작업</translation>
+    </message>
+    <message>
+        <source>Exit multi-select</source>
+        <translation>다중 선택 종료</translation>
+    </message>
+    <message>
+        <source>Multi-select</source>
+        <translation>다중 선택</translation>
+    </message>
+    <message>
         <source>Images Too Large</source>
         <translation>이미지가 너무 큽니다</translation>
     </message>

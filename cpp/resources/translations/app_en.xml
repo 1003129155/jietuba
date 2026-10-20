@@ -2820,6 +2820,18 @@ This action cannot be undone.</translation>
         <translation>Enter pastes them together, Esc clears the selection</translation>
     </message>
     <message>
+        <source>More actions</source>
+        <translation>More actions</translation>
+    </message>
+    <message>
+        <source>Exit multi-select</source>
+        <translation>Exit multi-select</translation>
+    </message>
+    <message>
+        <source>Multi-select</source>
+        <translation>Multi-select</translation>
+    </message>
+    <message>
         <source>Images Too Large</source>
         <translation>Images Too Large</translation>
     </message>

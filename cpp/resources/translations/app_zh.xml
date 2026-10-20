@@ -3047,6 +3047,18 @@ This action cannot be undone.</source>
         <translation>按 Enter 合并粘贴，按 Esc 清除选择</translation>
     </message>
     <message>
+        <source>More actions</source>
+        <translation>更多操作</translation>
+    </message>
+    <message>
+        <source>Exit multi-select</source>
+        <translation>退出多选</translation>
+    </message>
+    <message>
+        <source>Multi-select</source>
+        <translation>多选</translation>
+    </message>
+    <message>
         <source>Images Too Large</source>
         <translation>图片过大</translation>
     </message>

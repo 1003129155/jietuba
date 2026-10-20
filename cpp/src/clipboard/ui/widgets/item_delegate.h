@@ -41,9 +41,12 @@ public:
     // The direct pick keys, labelled on the first rows in order.
     void set_pick_keys(const QString &keys) { shortcut_labels_ = labels_for(keys); }
     void set_hide_file_icon(bool hide) { hide_file_icon_ = hide; }
-    void set_highlighted_id(std::optional<qint64> item_id) { highlighted_id_ = item_id; }
-    std::optional<qint64> highlighted_id() const { return highlighted_id_; }
+    // The selection manager's cursor and marks, drawn as described in paint().
+    void set_cursor_id(std::optional<qint64> item_id) { cursor_id_ = item_id; }
+    std::optional<qint64> cursor_id() const { return cursor_id_; }
     void set_marked_ids(const QList<qint64> &item_ids);
+    // The circle in the left column of a row while anything is marked: filled with a check when marked, hollow otherwise.
+    QRectF mark_circle_rect(const QRect &row_rect) const;
     static void clear_thumb_cache();
 
     void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override;
@@ -51,11 +54,14 @@ public:
 
 private:
     struct Colors {
-        QColor bg_even, bg_odd, bg_selected, border_bottom, border_selected, text_primary, text_tertiary, shortcut_text;
+        QColor bg_even, bg_odd, bg_selected, cursor_tint, cursor_outline, border_bottom, border_selected, text_primary, text_tertiary, shortcut_text;
     };
     static QStringList labels_for(const QString &keys);
     QStringList text_lines(const ClipboardItem &item, int width) const;
     int text_width(const ClipboardItem &item, int row, int width) const;
+    // Whether the row has the left column: the shortcut label, or the mark circle while anything is marked.
+    bool has_left_column(int row) const;
+    void paint_mark_circle(QPainter *painter, const QRect &row_rect, bool marked) const;
     int font_size() const;
     void rebuild_color_cache();
     void rebuild_font_cache();
@@ -70,7 +76,7 @@ private:
     bool show_shortcuts_;
     QStringList shortcut_labels_;
     bool hide_file_icon_ = false;
-    std::optional<qint64> highlighted_id_;
+    std::optional<qint64> cursor_id_;
     QSet<qint64> marked_ids_;
     double image_row_span_;
     Colors colors_;

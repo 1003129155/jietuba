@@ -32,6 +32,7 @@ class ToolSettingsManager;
 namespace jietuba::clipboard {
 class ClipboardItemDelegate;
 class ClipboardMouseController;
+class SelectionBar;
 class ClipboardWindow;
 class GroupBar;
 class ManageDialog;
@@ -100,7 +101,7 @@ public:
     QToolButton *time_filter_toggle_btn = nullptr;
     LineEdit *search_input = nullptr;
     QPushButton *clear_search_btn = nullptr;
-    QLabel *mark_count_label = nullptr;
+    SelectionBar *selection_bar = nullptr;
     QPushButton *menu_btn = nullptr;
     GroupBar *group_bar = nullptr;
     QuickEditPopup *quick_edit_popup = nullptr;
@@ -183,15 +184,12 @@ private:
     void append_items(const QList<ClipboardItem> &items);
     void on_scroll(int value);
     void on_search_changed();
-    void on_selection_changed();
-    void on_delegate_item_entered(QListWidgetItem *list_item);
-    void set_highlighted_item(std::optional<qint64> item_id);
+    // The mouse over the list: real movement moves the cursor and previews the row; nothing else does.
+    void on_pointer_moved(const QPoint &viewport_pos, const QPoint &global_pos);
     void update_search_background(const QString &text);
     void apply_search_input_style(bool has_text = false);
     void apply_clear_search_btn_style();
     void apply_menu_btn_style();
-    void apply_mark_count_style();
-    void update_mark_count();
     void on_marks_changed();
     void apply_time_filter_styles();
     void clear_search();
@@ -250,6 +248,10 @@ private:
     int auto_fill_remaining_ = 3;
     bool offscreen_warmup_in_progress_ = false;
     bool dragging_ = false;
+    // Where the mouse last was, to tell real movement from the list scrolling under a still mouse.
+    std::optional<QPoint> pointer_pos_;
+    // The row the mouse is over; -1 over blank space or outside the list.
+    int pointer_row_ = -1;
     inline static bool offscreen_warmup_done_ = false;
     FramelessMixin frameless_;
     std::unique_ptr<QSettings> qsettings_;
@@ -279,8 +281,6 @@ private:
         Qt::MouseButton button;
         Qt::KeyboardModifiers modifiers;
         QPoint global_pos;
-        // The current row before the press moved it; a drag puts it back.
-        std::optional<qint64> previous_current;
     };
     struct Pending {
         QString action;
@@ -295,7 +295,8 @@ private:
     std::function<void(qint64)> marking(QMouseEvent *event, const QString &gesture, qint64 item_id) const;
     void run(const QString &action, qint64 item_id, const QPoint &position);
     void finish_click();
-    void restore_current(std::optional<qint64> item_id);
+    // A click while anything is marked: the left button adds the row (Shift a range, Ctrl toggles), the right removes it.
+    void select_by_click(Qt::MouseButton button, Qt::KeyboardModifiers modifiers, qint64 item_id);
 
     ClipboardWindow *window_;
     QListWidget *list_widget_;

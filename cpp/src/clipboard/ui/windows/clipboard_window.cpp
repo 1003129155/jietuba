@@ -9,6 +9,7 @@
 #include "clipboard/ui/widgets/item_delegate.h"
 #include "clipboard/ui/widgets/item_drag.h"
 #include "clipboard/ui/widgets/preview_popup.h"
+#include "clipboard/ui/widgets/selection_bar.h"
 #include "clipboard/ui/windows/pin_window.h"
 #include "core/constants.h"
 #include "core/logger.h"
@@ -87,12 +88,8 @@ bool ClipboardShortcutHandler::handle_key(QInputEvent *event) {
     if (match_inapp_binding(event, QUICK_EDIT_SHORTCUT, bindings_) && w->edit_selected()) return true;
 
     if (key == Qt::Key_Escape) {
-        if (w->selection_manager->clear_marks()) return true;
-        if (w->selection_manager->selected_index() >= 0) {
-            w->selection_manager->reset();
-            return true;
-        }
-        w->close();
+        // The cursor only points, so there is nothing else to undo before closing.
+        if (!w->selection_manager->clear_marks()) w->close();
         return true;
     }
     if (key == Qt::Key_Return || key == Qt::Key_Enter) {
@@ -110,6 +107,8 @@ bool ClipboardShortcutHandler::handle_key(QInputEvent *event) {
     const QString character = pick_char(key);
     const qsizetype index = character.isEmpty() ? -1 : pick_keys.indexOf(character);
     if (index >= 0 && QApplication::focusWidget() != w->search_input) {
+        // During a multiple selection the rows show circles instead of their keys.
+        if (w->selection_manager->has_marks()) return true;
         const auto &items = w->controller->current_items;
         if (index < items.size()) {
             w->on_paste_item(items[index].id);
@@ -209,7 +208,7 @@ void ClipboardWindow::on_item_inserted(const ClipboardItem &item, int row) {
     auto *list_item = new QListWidgetItem;
     apply_list_item_data(list_item, item);
     list_widget->insertItem(row, list_item);
-    selection_manager->shift_selection_after_insert(row);
+    selection_manager->row_inserted(row);
 }
 
 void ClipboardWindow::on_item_moved_to_top(qint64 item_id, int row) {
@@ -218,20 +217,19 @@ void ClipboardWindow::on_item_moved_to_top(qint64 item_id, int row) {
         if (list_widget->item(index)->data(ROLE_ITEM_ID).toLongLong() != item_id) continue;
         if (index == row) return;
         list_widget->insertItem(row, list_widget->takeItem(index));
-        selection_manager->shift_selection_after_move(index, row);
+        selection_manager->row_moved(index, row);
         return;
     }
 }
 
-// takeItem quietly moves Qt's current item to a neighbour, which the selection manager would take as a user choice;
-// the list signals are blocked and shift_selection_* adjusts the selected indices.
+// The selection manager does not follow Qt's current item; row_removed keeps its cursor row in step.
 void ClipboardWindow::on_item_removed(int row) {
     QListWidgetItem *list_item = list_widget->item(row);
     const std::optional<qint64> removed_id = list_item ? std::optional<qint64>(list_item->data(ROLE_ITEM_ID).toLongLong()) : std::nullopt;
     list_widget->blockSignals(true);
     delete list_widget->takeItem(row);
     list_widget->blockSignals(false);
-    selection_manager->shift_selection_after_remove(row);
+    selection_manager->row_removed(row);
     if (removed_id) selection_manager->unmark(*removed_id);
     // One row fewer may leave the window unfilled; load the next page if so.
     QTimer::singleShot(0, this, [this] { check_and_load_more_if_needed(); });
@@ -241,7 +239,7 @@ void ClipboardWindow::on_item_row_moved(int from_row, int to_row) {
     list_widget->blockSignals(true);
     list_widget->insertItem(to_row, list_widget->takeItem(from_row));
     list_widget->blockSignals(false);
-    selection_manager->shift_selection_after_move(from_row, to_row);
+    selection_manager->row_moved(from_row, to_row);
 }
 
 void ClipboardWindow::on_item_updated(int row, const ClipboardItem &item) {
@@ -310,7 +308,7 @@ void ClipboardWindow::apply_theme() {
         apply_clear_search_btn_style();
         apply_menu_btn_style();
         apply_time_filter_styles();
-        apply_mark_count_style();
+        selection_bar->apply_style(current_theme);
     }
     refresh_list();
     log_debug(T("主题已切换到: {theme_name}", {{"theme_name", current_theme.display_name}}), "Clipboard");
@@ -350,7 +348,7 @@ void ClipboardWindow::retranslate_ui() {
     clear_time_filter_btn->setToolTip(tr_text("Close filters"));
     search_input->setPlaceholderText(QString::fromUtf8("🔍 ") + tr_text("Search"));
     clear_search_btn->setToolTip(tr_text("Clear search"));
-    update_mark_count();
+    selection_bar->retranslate();
 
     type_filter_labels = type_filter_label_texts();
     for (int index = 0; index < type_filter_actions.size(); ++index) type_filter_actions[index]->setText(type_filter_labels[index]);
@@ -458,7 +456,6 @@ void ClipboardWindow::setup_ui() {
     list_widget->setItemDelegate(item_delegate);
     list_widget->setMouseTracking(true);
     list_widget->viewport()->setMouseTracking(true);
-    connect(list_widget, &QListWidget::itemEntered, this, [this](QListWidgetItem *item) { on_delegate_item_entered(item); });
     list_widget->viewport()->installEventFilter(this);
 
     selection_manager = new SelectionManager(list_widget, [this](qint64 item_id) { return get_item_data(item_id); });
@@ -466,11 +463,14 @@ void ClipboardWindow::setup_ui() {
     selection_manager->group_bar_position = group_bar_position;
     connect(selection_manager, &SelectionManager::item_activated, this, [this](qint64 item_id) { on_paste_item(item_id); });
     connect(selection_manager, &SelectionManager::marks_changed, this, [this] { on_marks_changed(); });
+    connect(selection_manager, &SelectionManager::cursor_changed, this, [this](std::optional<qint64> item_id) {
+        item_delegate->set_cursor_id(item_id);
+        list_widget->viewport()->update();
+    });
     connect(selection_manager, &SelectionManager::request_sidebar_focus, this, [this] { enter_sidebar_mode(); });
     connect(selection_manager, &SelectionManager::request_group_switch, this, [this](int delta) { on_top_group_switch(delta); });
     mouse_controller = new ClipboardMouseController(this);
 
-    connect(list_widget, &QListWidget::itemSelectionChanged, this, [this] { on_selection_changed(); });
     QScrollBar *scrollbar = list_widget->verticalScrollBar();
     connect(scrollbar, &QScrollBar::valueChanged, this, [this](int value) { on_scroll(value); });
     connect(scrollbar, &QScrollBar::rangeChanged, this, [this] { list_widget->viewport()->update(); });
@@ -538,6 +538,16 @@ void ClipboardWindow::setup_ui() {
     time_filter_layout_->addWidget(clear_time_filter_btn);
     left_layout->addWidget(time_filter_bar);
 
+    selection_bar = new SelectionBar;
+    selection_bar->apply_style(current_theme);
+    connect(selection_bar, &SelectionBar::paste_requested, this, [this] { paste_selected(false); });
+    connect(selection_bar, &SelectionBar::more_requested, this, [this] {
+        const QPoint at = list_widget->mapFromGlobal(selection_bar->more_button->mapToGlobal(QPoint(0, 0)));
+        show_marked_context_menu(selection_manager->marked_ids(true), at);
+    });
+    connect(selection_bar, &SelectionBar::exit_requested, this, [this] { selection_manager->clear_marks(); });
+    left_layout->addWidget(selection_bar);
+
     bottom_bar = new QWidget;
     bottom_bar->setStyleSheet(R"(
             QWidget {
@@ -571,11 +581,6 @@ void ClipboardWindow::setup_ui() {
     connect(clear_search_btn, &QPushButton::clicked, this, [this] { clear_search(); });
     clear_search_btn->hide();
     bottom_layout_->addWidget(clear_search_btn);
-
-    mark_count_label = new QLabel;
-    mark_count_label->hide();
-    apply_mark_count_style();
-    bottom_layout_->addWidget(mark_count_label);
 
     menu_btn = new QPushButton(QString::fromUtf8("⚙"));
     menu_btn->setCursor(Qt::PointingHandCursor);
@@ -746,7 +751,6 @@ void ClipboardWindow::refresh_list() {
     item_delegate->set_display_lines(config->get_clipboard_display_lines());
     item_delegate->set_window_opacity(window_opacity);
     item_delegate->set_theme(current_theme);
-    item_delegate->set_highlighted_id(std::nullopt);
     for (const auto &item : controller->current_items) {
         auto *list_item = new QListWidgetItem;
         apply_list_item_data(list_item, item);
@@ -797,27 +801,23 @@ void ClipboardWindow::on_search_changed() {
     search_timer_->start(300);
 }
 
-void ClipboardWindow::on_selection_changed() {
-    const auto selected_items = list_widget->selectedItems();
-    if (!selected_items.isEmpty()) set_highlighted_item(selected_items.front()->data(Qt::UserRole).toLongLong());
-    else set_highlighted_item(std::nullopt);
-}
-
-void ClipboardWindow::on_delegate_item_entered(QListWidgetItem *list_item) {
-    const QVariant id = list_item->data(ROLE_ITEM_ID);
-    if (!id.isValid()) return;
-    set_highlighted_item(id.toLongLong());
-    const int row = list_widget->row(list_item);
-    if (row >= 0) selection_manager->set_hovered_index(row);
-    const QVariant item_data = list_item->data(ROLE_ITEM_DATA);
-    if (item_data.canConvert<ClipboardItem>()) PreviewPopup::instance()->show_preview(item_data.value<ClipboardItem>(), QCursor::pos(), 5);
-}
-
-void ClipboardWindow::set_highlighted_item(std::optional<qint64> item_id) {
-    if (item_delegate->highlighted_id() != item_id) {
-        item_delegate->set_highlighted_id(item_id);
-        list_widget->viewport()->update();
+void ClipboardWindow::on_pointer_moved(const QPoint &viewport_pos, const QPoint &global_pos) {
+    // Qt reports the row under a still mouse again when the list scrolls; only a moved mouse points at something.
+    if (pointer_pos_ == global_pos) return;
+    pointer_pos_ = global_pos;
+    QListWidgetItem *list_item = list_widget->itemAt(viewport_pos);
+    if (!list_item) {
+        pointer_row_ = -1;
+        PreviewPopup::instance()->hide_preview();
+        return;
     }
+    // The preview follows the row the mouse comes onto, and comes back when the mouse takes the cursor back from the keys.
+    const int row = list_widget->row(list_item);
+    const bool preview = row != pointer_row_ || row != selection_manager->cursor_row();
+    pointer_row_ = row;
+    selection_manager->point_at(row);
+    const QVariant item_data = list_item->data(ROLE_ITEM_DATA);
+    if (preview && item_data.canConvert<ClipboardItem>()) PreviewPopup::instance()->show_preview(item_data.value<ClipboardItem>(), global_pos, 5);
 }
 
 void ClipboardWindow::update_search_background(const QString &text) {
@@ -832,23 +832,11 @@ void ClipboardWindow::apply_clear_search_btn_style() { clear_search_btn->setStyl
 
 void ClipboardWindow::apply_menu_btn_style() { menu_btn->setStyleSheet(ThemeStyleGenerator(current_theme).generate_menu_btn_style()); }
 
-void ClipboardWindow::apply_mark_count_style() {
-    set_own_style(mark_count_label,
-                  QString("background: transparent; border: none; color: %1; font-size: %2px;").arg(current_theme.colors.text_accent).arg(scaled(12)));
-}
-
-void ClipboardWindow::update_mark_count() {
-    const int count = static_cast<int>(selection_manager->marked_ids().size());
-    mark_count_label->setText(tr_text("{count} selected").replace("{count}", QString::number(count)));
-    mark_count_label->setToolTip(tr_text("Enter pastes them together, Esc clears the selection"));
-    mark_count_label->setVisible(count > 0);
-}
-
 void ClipboardWindow::on_marks_changed() {
     item_delegate->set_marked_ids(selection_manager->marked_ids());
     if (config->get_clipboard_display_lines() > 1) list_widget->doItemsLayout();
     list_widget->viewport()->update();
-    update_mark_count();
+    selection_bar->set_count(static_cast<int>(selection_manager->marked_ids().size()));
 }
 
 void ClipboardWindow::toggle_item_mark(qint64 item_id) { selection_manager->toggle_mark(item_id); }
@@ -926,18 +914,16 @@ void ClipboardWindow::on_group_switched(std::optional<qint64> group_id) {
 }
 
 void ClipboardWindow::on_sidebar_entered() {
-    selection_manager->clear_selection();
-    set_highlighted_item(std::nullopt);
+    selection_manager->clear_cursor();
     list_widget->setFocus();
 }
 
 void ClipboardWindow::on_sidebar_exited(std::optional<qint64> prev_item_id) {
     list_widget->setFocus();
-    if (prev_item_id) selection_manager->select_item_id(prev_item_id);
-    else selection_manager->move_selection(1);
+    if (!selection_manager->move_cursor_to(prev_item_id)) selection_manager->move_cursor(1);
 }
 
-void ClipboardWindow::enter_sidebar_mode() { group_bar->enter_sidebar_mode(selection_manager->get_current_item_id()); }
+void ClipboardWindow::enter_sidebar_mode() { group_bar->enter_sidebar_mode(selection_manager->cursor_id()); }
 
 void ClipboardWindow::on_top_group_switch(int delta) { group_bar->handle_top_group_switch(delta); }
 
@@ -1025,7 +1011,7 @@ void ClipboardWindow::paste_selected(bool plain_text) {
         paste_marked(marked, plain_text);
         return;
     }
-    const std::optional<qint64> item_id = !marked.isEmpty() ? std::optional<qint64>(marked.front()) : selection_manager->get_current_item_id();
+    const std::optional<qint64> item_id = !marked.isEmpty() ? std::optional<qint64>(marked.front()) : selection_manager->cursor_id();
     if (!item_id || !*item_id) return;
     if (plain_text) paste_plain_text(*item_id);
     else on_paste_item(*item_id);
@@ -1125,6 +1111,7 @@ void ClipboardWindow::delete_marked(const QList<qint64> &item_ids) {
 QMap<QString, std::function<void()>> ClipboardWindow::item_context_menu_handlers(qint64 item_id) {
     return {
         {"paste", [this, item_id] { paste_item_to_clipboard(item_id); }},
+        {"start_marking", [this, item_id] { selection_manager->mark(item_id); }},
         {"pin_image", [this, item_id] { create_pin_window(item_id); }},
         {"save_image_as", [this, item_id] { save_image_item_as(this, manager, controller->get_item(item_id)); }},
         {"toggle_pin", [this, item_id] { controller->toggle_pin(item_id); }},
@@ -1181,7 +1168,7 @@ void ClipboardWindow::edit_item(qint64 item_id) {
 }
 
 bool ClipboardWindow::edit_selected() {
-    const auto item_id = selection_manager->get_current_item_id();
+    const auto item_id = selection_manager->cursor_id();
     const auto item = item_id && *item_id ? get_item_data(*item_id) : std::nullopt;
     if (!item) return false;
     if (is_quick_editable(*item)) {
@@ -1494,14 +1481,15 @@ bool ClipboardWindow::is_date_filter_widget(QObject *obj) const {
 bool ClipboardWindow::eventFilter(QObject *obj, QEvent *event) {
     const QEvent::Type event_type = event->type();
 
-    // itemEntered does not report the empty area inside the viewport.
-    if ((event_type == QEvent::Leave || event_type == QEvent::MouseMove) && obj == list_widget->viewport() &&
-        (event_type == QEvent::Leave || !list_widget->itemAt(static_cast<QMouseEvent *>(event)->position().toPoint()))) {
-        selection_manager->clear_hovered_index();
+    const bool on_viewport = (event_type == QEvent::MouseMove || event_type == QEvent::Leave) && list_widget && obj == list_widget->viewport();
+    if (on_viewport && event_type == QEvent::MouseMove) {
+        const auto *mouse = static_cast<QMouseEvent *>(event);
+        on_pointer_moved(mouse->position().toPoint(), mouse->globalPosition().toPoint());
+    }
+    // Leaving keeps the cursor where it was, like a menu.
+    if (on_viewport && event_type == QEvent::Leave) {
+        pointer_row_ = -1;
         PreviewPopup::instance()->hide_preview();
-        const auto selected_items = list_widget->selectedItems();
-        if (!selected_items.isEmpty()) set_highlighted_item(selected_items.front()->data(Qt::UserRole).toLongLong());
-        else set_highlighted_item(std::nullopt);
     }
     if (event_type == QEvent::FocusIn && obj == list_widget && !group_bar->sidebar_mode()) group_bar->clear_sidebar_focus();
 
@@ -1550,7 +1538,7 @@ void ClipboardWindow::keyPressEvent(QKeyEvent *event) {
         QWidget *focus_widget = QApplication::focusWidget();
         if (!focus_widget || focus_widget == search_input || !(focus_widget == list_widget || list_widget->isAncestorOf(focus_widget))) {
             list_widget->setFocus();
-            selection_manager->move_selection(key == Qt::Key_Up ? -1 : 1);
+            selection_manager->move_cursor(key == Qt::Key_Up ? -1 : 1);
             return;
         }
     }
@@ -1614,25 +1602,19 @@ void ClipboardMouseController::run(const QString &action, qint64 item_id, const 
     else if (action == "menu") window_->show_item_context_menu(item_id, position);
 }
 
+void ClipboardMouseController::select_by_click(Qt::MouseButton button, Qt::KeyboardModifiers modifiers, qint64 item_id) {
+    SelectionManager *selection = window_->selection_manager;
+    if (button == Qt::RightButton) selection->unmark(item_id);
+    else if (button != Qt::LeftButton) return;
+    else if (modifiers == Qt::ShiftModifier) selection->mark_range_to(item_id);
+    else if (modifiers == Qt::ControlModifier) selection->toggle_mark(item_id);
+    else selection->mark(item_id);
+}
+
 void ClipboardMouseController::finish_click() {
     const auto pending = pending_;
     cancel();
     if (pending) run(pending->action, pending->item_id, pending->position);
-}
-
-void ClipboardMouseController::restore_current(std::optional<qint64> item_id) {
-    // Setting the current row scrolls to it; the list stays where the drag started.
-    QScrollBar *bar = list_widget_->verticalScrollBar();
-    const int scroll = bar->value();
-    bool found = false;
-    for (int i = 0; item_id && i < list_widget_->count() && !found; ++i) {
-        if (list_widget_->item(i)->data(Qt::UserRole).toLongLong() == *item_id) {
-            list_widget_->setCurrentRow(i);
-            found = true;
-        }
-    }
-    if (!found) window_->selection_manager->clear_selection();
-    bar->setValue(scroll);
 }
 
 bool ClipboardMouseController::eventFilter(QObject *obj, QEvent *event) {
@@ -1652,9 +1634,7 @@ bool ClipboardMouseController::eventFilter(QObject *obj, QEvent *event) {
             // 越过系统拖动阈值才准备数据，同时取消单击/双击待执行动作。
             if (pressed.button == Qt::LeftButton && pressed.modifiers == Qt::NoModifier && mouse->buttons() == Qt::LeftButton &&
                 mouse->modifiers() == Qt::NoModifier) {
-                QPointer<ClipboardMouseController> guard(this);
                 window_->start_item_drag(pressed.item_id);
-                if (guard) restore_current(pressed.previous_current);
                 return true;
             }
         }
@@ -1677,10 +1657,9 @@ bool ClipboardMouseController::eventFilter(QObject *obj, QEvent *event) {
         const auto pending = pending_;
         cancel();
         if (!item_id) return true;
-        const QListWidgetItem *current = list_widget_->currentItem();
-        const std::optional<qint64> previous_current = current ? std::optional<qint64>(current->data(Qt::UserRole).toLongLong()) : std::nullopt;
-        // A range starts from the current row before the press, so a multiple selection gesture leaves it on press.
-        if (!marking(mouse, gesture, *item_id)) list_widget_->setCurrentItem(row);
+        // The press points at the row; a plain left press also starts the next Shift range there.
+        window_->selection_manager->point_at(list_widget_->row(row));
+        if (button == Qt::LeftButton && !marking(mouse, gesture, *item_id)) window_->selection_manager->set_anchor(*item_id);
         list_widget_->setFocus();
         if (kind == QEvent::MouseButtonDblClick && pending && pending->item_id == *item_id && pending->button == button && pending->modifiers == modifiers) {
             const QString action = match(mouse, "double" + gesture, *item_id);
@@ -1689,12 +1668,16 @@ bool ClipboardMouseController::eventFilter(QObject *obj, QEvent *event) {
                 return true;
             }
         }
-        pressed_ = Pressed{*item_id, button, modifiers, mouse->globalPosition().toPoint(), previous_current};
+        pressed_ = Pressed{*item_id, button, modifiers, mouse->globalPosition().toPoint()};
     } else if (pressed_) {
         const Pressed pressed = *pressed_;
         pressed_.reset();
         if (item_id && pressed.item_id == *item_id && pressed.button == button && pressed.modifiers == modifiers &&
             (mouse->globalPosition().toPoint() - pressed.global_pos).manhattanLength() < QApplication::startDragDistance()) {
+            if (window_->selection_manager->has_marks()) {
+                select_by_click(button, modifiers, *item_id);
+                return true;
+            }
             if (const auto mark = marking(mouse, gesture, *item_id)) {
                 mark(*item_id);
                 return true;

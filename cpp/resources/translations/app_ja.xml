@@ -3012,6 +3012,18 @@ This action cannot be undone.</source>
         <translation>Enter でまとめて貼り付け、Esc で選択を解除</translation>
     </message>
     <message>
+        <source>More actions</source>
+        <translation>その他の操作</translation>
+    </message>
+    <message>
+        <source>Exit multi-select</source>
+        <translation>複数選択を終了</translation>
+    </message>
+    <message>
+        <source>Multi-select</source>
+        <translation>複数選択</translation>
+    </message>
+    <message>
         <source>Images Too Large</source>
         <translation>画像が大きすぎます</translation>
     </message>

@@ -130,14 +130,26 @@ private slots:
         };
         QVERIFY(swatch_pixels(5) > 900);
         QCOMPARE(swatch_pixels(0), 0);
-        // A selected or hovered row gets the left bar; with a multiple selection only selected rows do.
-        const QColor bar(theme.colors.border_selected);
-        delegate.set_highlighted_id(1);
-        QCOMPARE(paint_row(0).pixelColor(1, 60), bar);
+        // While anything is marked every row has a circle in the left column, filled with the accent only when marked;
+        // the cursor only tints and outlines, so an unmarked row under it never looks marked.
+        const QColor accent(theme.colors.border_selected);
+        const QRectF circle = delegate.mark_circle_rect(QRect(0, 0, 360, 120));
+        const QPoint in_circle(qRound(circle.center().x()), qRound(circle.top() + circle.height() * 0.2));
+        const QColor plain = paint_row(0).pixelColor(1, 60);
+        delegate.set_cursor_id(1);
+        const QColor cursor = paint_row(0).pixelColor(1, 60);
+        QVERIFY(cursor != plain);
+        QVERIFY(paint_row(0).pixelColor(0, 60) != cursor);
+        QVERIFY(paint_row(0).pixelColor(in_circle) != accent);
         delegate.set_marked_ids({1});
-        delegate.set_highlighted_id(2);
-        QCOMPARE(paint_row(0).pixelColor(1, 60), bar);
-        QVERIFY(paint_row(1).pixelColor(1, 60) != bar);
+        QCOMPARE(paint_row(0).pixelColor(in_circle), accent);
+        QVERIFY(paint_row(1).pixelColor(in_circle) != accent);
+        // A row past the direct pick keys gets the circle too.
+        QVERIFY(paint_row(5).pixelColor(in_circle) != accent);
+        delegate.set_marked_ids({6});
+        QCOMPARE(paint_row(5).pixelColor(in_circle), accent);
+        delegate.set_cursor_id(std::nullopt);
+        delegate.set_marked_ids({});
         // Opacity, other themes, hidden icons and shortcuts all still paint.
         delegate.set_window_opacity(40);
         delegate.set_hide_file_icon(true);
