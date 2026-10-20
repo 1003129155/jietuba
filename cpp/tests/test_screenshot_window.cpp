@@ -26,6 +26,7 @@
 #include "ui/selection_info/rounded_corners.h"
 #include "tools/action.h"
 #include "ui/color_picker_button.h"
+#include "ui/color_picker_dialog.h"
 #include "ui/toolbar.h"
 #include "core/i18n.h"
 #include "ui/arrow_settings_panel.h"
@@ -43,7 +44,6 @@
 #include <QMimeData>
 #include <QApplication>
 #include <QCheckBox>
-#include <QColorDialog>
 #include <QContextMenuEvent>
 #include <QDir>
 #include <QElapsedTimer>
@@ -666,7 +666,7 @@ private slots:
         }
         QVERIFY(border_group && shadow_group);
         QTimer::singleShot(0, qApp, [] {
-            if (auto *dialog = qobject_cast<QColorDialog *>(QApplication::activeModalWidget())) {
+            if (auto *dialog = qobject_cast<ColorPickerDialog *>(QApplication::activeModalWidget())) {
                 dialog->setCurrentColor(QColor("#00AA00"));
                 dialog->accept();
             }

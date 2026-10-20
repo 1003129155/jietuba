@@ -5678,10 +5678,41 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
 </context>
 <context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Color Picker</source>
+        <translation>取色器</translation>
+    </message>
+    <message>
+        <source>Used when choosing a custom color.</source>
+        <translation>选择自定义颜色时使用。</translation>
+    </message>
+    <message>
+        <source>Modern</source>
+        <translation>现代</translation>
+    </message>
+</context>
+<context>
     <name>ColorPickerDialog</name>
     <message>
         <source>Pick color from screen</source>
         <translation>从屏幕取色</translation>
+    </message>
+    <message>
+        <source>Click to pick; right-click or Esc to cancel</source>
+        <translation>单击取色，右键或 Esc 取消</translation>
+    </message>
+    <message>
+        <source>Select Color</source>
+        <translation>选择颜色</translation>
+    </message>
+    <message>
+        <source>Hue</source>
+        <translation>色相</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>不透明度</translation>
     </message>
     <message>
         <source>OK</source>

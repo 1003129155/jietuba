@@ -5394,10 +5394,41 @@ Make sure gifrecorder is installed correctly.</translation>
     </message>
 </context>
 <context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Color Picker</source>
+        <translation>Color Picker</translation>
+    </message>
+    <message>
+        <source>Used when choosing a custom color.</source>
+        <translation>Used when choosing a custom color.</translation>
+    </message>
+    <message>
+        <source>Modern</source>
+        <translation>Modern</translation>
+    </message>
+</context>
+<context>
     <name>ColorPickerDialog</name>
     <message>
         <source>Pick color from screen</source>
         <translation>Pick color from screen</translation>
+    </message>
+    <message>
+        <source>Click to pick; right-click or Esc to cancel</source>
+        <translation>Click to pick; right-click or Esc to cancel</translation>
+    </message>
+    <message>
+        <source>Select Color</source>
+        <translation>Select Color</translation>
+    </message>
+    <message>
+        <source>Hue</source>
+        <translation>Hue</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>Opacity</translation>
     </message>
     <message>
         <source>OK</source>

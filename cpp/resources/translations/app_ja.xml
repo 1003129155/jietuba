@@ -5633,10 +5633,41 @@ gifrecorder が正しくインストールされているか確認してくだ�
     </message>
 </context>
 <context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Color Picker</source>
+        <translation>カラーピッカー</translation>
+    </message>
+    <message>
+        <source>Used when choosing a custom color.</source>
+        <translation>カスタムカラーを選ぶときに使用します。</translation>
+    </message>
+    <message>
+        <source>Modern</source>
+        <translation>モダン</translation>
+    </message>
+</context>
+<context>
     <name>ColorPickerDialog</name>
     <message>
         <source>Pick color from screen</source>
         <translation>画面から色を取得</translation>
+    </message>
+    <message>
+        <source>Click to pick; right-click or Esc to cancel</source>
+        <translation>クリックで取得、右クリックまたは Esc でキャンセル</translation>
+    </message>
+    <message>
+        <source>Select Color</source>
+        <translation>色を選択</translation>
+    </message>
+    <message>
+        <source>Hue</source>
+        <translation>色相</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>不透明度</translation>
     </message>
     <message>
         <source>OK</source>

@@ -14,7 +14,8 @@ class CanvasView;
 class ToolSettingsManager;
 
 // Pointer magnifier with RGB/HSV info: a fixed-size overlay moved with the cursor,
-// repainting only itself instead of the whole capture window.
+// repainting only itself instead of the whole capture window. Without a scene and view
+// it works on set_sample_image alone, with scene positions as global coordinates.
 class MagnifierOverlay : public QWidget {
     Q_OBJECT
 public:

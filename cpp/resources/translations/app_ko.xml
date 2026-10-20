@@ -5592,10 +5592,41 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
     </message>
 </context>
 <context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Color Picker</source>
+        <translation>색 선택기</translation>
+    </message>
+    <message>
+        <source>Used when choosing a custom color.</source>
+        <translation>사용자 지정 색을 고를 때 사용합니다.</translation>
+    </message>
+    <message>
+        <source>Modern</source>
+        <translation>모던</translation>
+    </message>
+</context>
+<context>
     <name>ColorPickerDialog</name>
     <message>
         <source>Pick color from screen</source>
         <translation>화면에서 색 가져오기</translation>
+    </message>
+    <message>
+        <source>Click to pick; right-click or Esc to cancel</source>
+        <translation>클릭하여 가져오기, 오른쪽 클릭 또는 Esc로 취소</translation>
+    </message>
+    <message>
+        <source>Select Color</source>
+        <translation>색 선택</translation>
+    </message>
+    <message>
+        <source>Hue</source>
+        <translation>색조</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>불투명도</translation>
     </message>
     <message>
         <source>OK</source>

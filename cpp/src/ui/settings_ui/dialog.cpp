@@ -715,6 +715,7 @@ void SettingsDialog::reset_appearance_page() {
     select_data(attr<QComboBox>("_selection_border_combo"), defaults.value("selection_border_width"));
     select_data(attr<QComboBox>("_selection_handle_combo"), defaults.value("selection_handle_style"));
     select_data(attr<QComboBox>("_selection_handle_size_combo"), defaults.value("selection_handle_size"));
+    select_data(attr<QComboBox>("_color_picker_style_combo"), defaults.value("color_picker_style"));
 }
 
 void SettingsDialog::reset_quick_actions_page() {
@@ -962,6 +963,7 @@ bool SettingsDialog::apply_settings(bool close_after) {
     if (auto *combo = attr<QComboBox>("_selection_border_combo")) theme.set_selection_border_width(combo->currentData());
     if (auto *combo = attr<QComboBox>("_selection_handle_combo")) theme.set_selection_handle_style(combo->currentData().toString());
     if (auto *combo = attr<QComboBox>("_selection_handle_size_combo")) theme.set_selection_handle_size(combo->currentData().toString());
+    if (auto *combo = attr<QComboBox>("_color_picker_style_combo")) config_manager->set_app_setting("color_picker_style", combo->currentData());
 
     for (const auto &[key, layout] : imported_toolbar_layouts_) config_manager->set_app_setting(key, layout);
 
@@ -1082,7 +1084,7 @@ QVariantMap SettingsDialog::snapshot_settings() const {
     for (const char *name : {"screenshot_format_combo", "shift_line_angle_combo", "ocr_result_position_combo", "translation_provider_combo", "translation_target_combo",
                              "log_level_combo", "language_combo", "engine_combo", "cursor_move_combo", "clipboard_pick_combo", "log_retention_combo", "_ui_theme_combo",
                              "_ui_scale_combo", "_dialog_scale_combo", "_selection_border_combo", "_selection_handle_combo", "_selection_handle_size_combo",
-                             "smart_mode_combo", "capture_engine_combo"})
+                             "_color_picker_style_combo", "smart_mode_combo", "capture_engine_combo"})
         if (auto *combo = attr<QComboBox>(name)) snap[name] = combo->currentIndex();
     // The OCR list reorders as models are downloaded or deleted, so it compares by the item's value.
     if (auto *combo = attr<QComboBox>("ocr_engine_combo")) snap["ocr_engine_combo"] = combo->currentData();
@@ -1281,6 +1283,7 @@ void SettingsDialog::refresh_settings() {
         combo->setCurrentIndex(combo->findData(config_manager->get_clipboard_font_size()));
     if (auto *combo = attr<QComboBox>("_clip_opacity_combo"); combo && combo->findData(config_manager->get_clipboard_window_opacity()) >= 0)
         combo->setCurrentIndex(combo->findData(config_manager->get_clipboard_window_opacity()));
+    select_data(attr<QComboBox>("_color_picker_style_combo"), config_manager->get_app_setting("color_picker_style"));
 
     refresh_appearance_controls(&SettingsDialog::runtime_appearance);
 }

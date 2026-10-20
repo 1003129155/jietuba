@@ -5,7 +5,9 @@
 #include "settings/settings_transfer.h"
 #include "settings/tool_settings.h"
 #include "core/ui_scale.h"
+#include "ui/color_picker_dialog.h"
 #include "ui/fluent_lite/cards.h"
+#include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/labels.h"
 #include "ui/fluent_lite/navigation.h"
 #include "ui/hotkey_edit.h"
@@ -16,6 +18,7 @@
 #include "ui/welcome/pages.h"
 #include "ui/welcome/wizard.h"
 #include <QApplication>
+#include <QColorDialog>
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QDesktopServices>
@@ -358,6 +361,59 @@ private slots:
         for (auto *button : dialog.findChildren<QPushButton *>())
             if (button->text() == settings_tr("Reset This Page")) button->click();
         QCOMPARE(combo->currentData().toString(), config_->app_defaults().value("capture_engine").toString());
+        dialog.hide();
+    }
+
+    // The picker style is an appearance choice; the theme and mask colours open the picker it names.
+    void colorPickerStyleLoadsSavesAndPicksAppearanceColours() {
+        const auto restore = qScopeGuard([this] { config_->set_app_setting("color_picker_style", "modern"); });
+        config_->set_app_setting("color_picker_style", "system");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        QVERIFY(dialog.settings_keys().count("app/color_picker_style"));
+        dialog.show();
+        dialog.on_nav_changed(3, "appearance");
+        auto *combo = dialog.attr<QComboBox>("_color_picker_style_combo");
+        QVERIFY(combo);
+        QCOMPARE(combo->currentData().toString(), QString("system"));
+        combo->setCurrentIndex(combo->findData(QString("modern")));
+        QVERIFY(dialog.has_unsaved_changes());
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_app_setting("color_picker_style").toString(), QString("modern"));
+        const auto answer = [](std::function<void(QWidget *)> action) {
+            auto *timer = new QTimer;
+            QObject::connect(timer, &QTimer::timeout, [timer, action] {
+                auto *modal = QApplication::activeModalWidget();
+                if (!modal) return;
+                timer->stop();
+                timer->deleteLater();
+                action(modal);
+            });
+            timer->start(10);
+        };
+        // Opaque either way: the modern picker without its opacity controls, the system one without alpha.
+        answer([](QWidget *modal) {
+            auto *picker = qobject_cast<ColorPickerDialog *>(modal);
+            QVERIFY(picker);
+            QVERIFY(picker->alpha_edit->isHidden());
+            picker->setCurrentColor(QColor("#445566"));
+            picker->accept();
+        });
+        qobject_cast<QPushButton *>(dialog.attr_widget("_mask_color_btn"))->click();
+        QCOMPARE(*dialog.appearance_mask_color, QColor("#445566"));
+        config_->set_app_setting("color_picker_style", "system");
+        answer([](QWidget *modal) {
+            auto *picker = qobject_cast<QColorDialog *>(modal);
+            QVERIFY(picker);
+            QVERIFY(!picker->testOption(QColorDialog::ShowAlphaChannel));
+            picker->setCurrentColor(QColor(17, 34, 51, 90));
+            picker->accept();
+        });
+        qobject_cast<QPushButton *>(dialog.attr_widget("_theme_color_btn"))->click();
+        QCOMPARE(*dialog.appearance_theme_color, QColor(17, 34, 51));
+        combo->setCurrentIndex(combo->findData(QString("system")));
+        for (auto *button : dialog.findChildren<QPushButton *>())
+            if (button->text() == settings_tr("Reset This Page")) button->click();
+        QCOMPARE(combo->currentData().toString(), QString("modern"));
         dialog.hide();
     }
 
