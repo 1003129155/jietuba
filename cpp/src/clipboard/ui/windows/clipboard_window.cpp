@@ -25,17 +25,23 @@
 #include <QIcon>
 #include <QDesktopServices>
 #include <QDir>
+#include <QDrag>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QKeyEvent>
+#include <QMimeData>
 #include <QMouseEvent>
 #include <QProcess>
 #include <QScreen>
 #include <QScrollBar>
 #include <QStyle>
 #include <QUrl>
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <shlobj.h>
+#endif
 
 namespace jietuba::clipboard {
 namespace {
@@ -50,6 +56,48 @@ QString pick_char(int key) {
     if (key >= Qt::Key_1 && key <= Qt::Key_9) return QString::number(key - Qt::Key_1 + 1);
     if (key >= Qt::Key_A && key <= Qt::Key_Z) return QString(QChar(u'a' + (key - Qt::Key_A)));
     return {};
+}
+
+std::unique_ptr<QMimeData> clipboard_drag_mime(ClipboardManager &manager, const ClipboardItem &item) {
+#ifdef Q_OS_WIN
+    QByteArray contents;
+    QString extension;
+    if (item.content_type == "text") {
+        contents = item.content.toUtf8();
+        extension = "txt";
+    } else if (item.content_type == "image" && item.image_id && !item.image_id->isEmpty()) {
+        const auto data = manager.get_image_data(*item.image_id);
+        if (!data || data->isEmpty()) return {};
+        // 复用原始 PNG，不把整张图片解码成像素再编码。
+        contents = *data;
+        extension = "png";
+    } else {
+        return {};
+    }
+
+    const QString stamp = item.created_at.isValid() ? item.created_at.toString("yyyyMMdd_HHmmss_") : QString();
+    const QString name = QString("clipboard_%1_%2%3.%4").arg(item.content_type, stamp).arg(item.id).arg(extension);
+    FILEGROUPDESCRIPTORW descriptor{};
+    descriptor.cItems = 1;
+    auto &file = descriptor.fgd[0];
+    file.dwFlags = FD_ATTRIBUTES | FD_FILESIZE | static_cast<DWORD>(FD_UNICODE);
+    file.dwFileAttributes = FILE_ATTRIBUTE_NORMAL;
+    const quint64 size = static_cast<quint64>(contents.size());
+    file.nFileSizeHigh = static_cast<DWORD>(size >> 32);
+    file.nFileSizeLow = static_cast<DWORD>(size);
+    name.left(MAX_PATH - 1).toWCharArray(file.cFileName);
+
+    // Shell 虚拟文件由目标目录落盘；取消拖动无需清理临时文件。
+    auto mime = std::make_unique<QMimeData>();
+    mime->setData("application/x-qt-windows-mime;value=\"FileGroupDescriptorW\"",
+                  QByteArray(reinterpret_cast<const char *>(&descriptor), sizeof(descriptor)));
+    mime->setData("application/x-qt-windows-mime;value=\"FileContents\";index=0", contents);
+    return mime;
+#else
+    Q_UNUSED(manager);
+    Q_UNUSED(item);
+    return {};
+#endif
 }
 
 // ==================== Shortcuts ====================
@@ -1237,6 +1285,22 @@ bool ClipboardWindow::save_quick_edit(qint64 item_id, const QString &text) {
 
 void ClipboardWindow::create_pin_window(qint64 item_id) { create_pin_from_clipboard_item(item_id, controller, this); }
 
+void ClipboardWindow::start_item_drag(qint64 item_id) {
+    const auto item = get_item_data(item_id);
+    if (!item || dragging_) return;
+    auto mime = clipboard_drag_mime(manager, *item);
+    if (!mime) return;
+    PreviewPopup::instance()->hide_preview();
+    auto *drag = new QDrag(list_widget);
+    drag->setMimeData(mime.release());
+    dragging_ = true;
+    // 只允许复制，按 Shift 也不能移动或删除历史记录中的原图。
+    drag->exec(Qt::CopyAction, Qt::CopyAction);
+    dragging_ = false;
+    drag->deleteLater();
+    check_and_hide();
+}
+
 void ClipboardWindow::delete_item(qint64 item_id) {
     if (show_confirm_dialog(this, tr_text("Confirm Delete"), tr_text("Are you sure you want to delete this item?"))) controller->delete_item(item_id);
 }
@@ -1403,6 +1467,7 @@ bool ClipboardWindow::owns_window(const QWidget *window) const {
 }
 
 void ClipboardWindow::check_and_hide() {
+    if (dragging_) return;
     if (isActiveWindow()) return;
     // In resident mode the user closes it; pasting itself hands focus to the target window.
     if (!config->get_clipboard_close_after_paste()) return;
@@ -1564,7 +1629,16 @@ bool ClipboardMouseController::eventFilter(QObject *obj, QEvent *event) {
     if (obj != viewport_) return false;
     if (kind == QEvent::MouseMove) {
         const auto *mouse = static_cast<QMouseEvent *>(event);
-        if (pressed_ && (mouse->globalPosition().toPoint() - pressed_->global_pos).manhattanLength() >= QApplication::startDragDistance()) cancel();
+        if (pressed_ && (mouse->globalPosition().toPoint() - pressed_->global_pos).manhattanLength() >= QApplication::startDragDistance()) {
+            const Pressed pressed = *pressed_;
+            cancel();
+            // 越过系统拖动阈值才准备数据，同时取消单击/双击待执行动作。
+            if (pressed.button == Qt::LeftButton && pressed.modifiers == Qt::NoModifier && mouse->buttons() == Qt::LeftButton &&
+                mouse->modifiers() == Qt::NoModifier) {
+                window_->start_item_drag(pressed.item_id);
+                return true;
+            }
+        }
         return false;
     }
     if (kind != QEvent::MouseButtonPress && kind != QEvent::MouseButtonRelease && kind != QEvent::MouseButtonDblClick) return false;
