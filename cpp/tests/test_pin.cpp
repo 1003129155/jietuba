@@ -64,6 +64,7 @@
 #include <QTimer>
 #include <QWheelEvent>
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -185,6 +186,18 @@ PinTextSelection *give_text(PinWindow *pin, const QList<OcrLine> &lines) {
     pin->ocr_manager()->set_text_selection_enabled(true);
     return pin->text_selection();
 }
+
+// An OCR engine of the test's own, so recognition on demand runs where no real engine is installed.
+// It answers on the recognition thread.
+struct StandInEngine {
+    explicit StandInEngine(std::function<OcrResult(const QImage &)> recognize) { set_recognizer_for_test(std::move(recognize)); }
+    ~StandInEngine() { set_recognizer_for_test({}); }
+};
+
+struct RecordingTranslator : SelectionTranslator {
+    QStringList texts;
+    void translate_selection(const QString &text) override { texts << text; }
+};
 
 // Starts, centres and ends of character spans, flattened, for comparing with expected values.
 QVector<double> span_points(const QVector<OcrCharSpan> &spans) {
@@ -2104,6 +2117,166 @@ private slots:
         if (thread) QTRY_VERIFY_WITH_TIMEOUT(!thread || thread->isFinished(), 30000);
         QTest::qWait(50);
         QVERIFY(!called);
+    }
+
+    // Callers waiting on a recognition share one run and all hear its text; the automatic run after
+    // that does not recognize again.
+    void waitingCallbacksShareOneStandInRecognition() {
+        std::atomic_int runs = 0;
+        StandInEngine engine([&runs](const QImage &) {
+            ++runs;
+            return ocr_result({{box(10, 10, 100, 20), "hello pin", 0.9}});
+        });
+        auto *pin = make_pin();
+        int answered = 0;
+        bool all_succeeded = true;
+        QStringList texts;
+        const auto callback = [&](bool success, const QString &text) {
+            ++answered;
+            all_succeeded = all_succeeded && success;
+            texts << text;
+        };
+        QVERIFY(pin->ocr_manager()->recognize_then(callback));
+        QVERIFY(pin->ocr_manager()->recognize_then(callback));
+        QTRY_COMPARE_WITH_TIMEOUT(answered, 2, 10000);
+        QVERIFY(all_succeeded);
+        QCOMPARE(texts, QStringList({"hello pin", "hello pin"}));
+        QTRY_VERIFY(!pin->ocr_manager()->is_running());
+        QCOMPARE(runs.load(), 1);
+        QVERIFY(pin->ocr_has_result());
+        QCOMPARE(pin->text_selection()->layout().all_text(), QString("hello pin"));
+        QVERIFY(pin->ocr_manager()->init_now());
+        QVERIFY(!pin->ocr_manager()->is_running());
+        QCOMPARE(runs.load(), 1);
+    }
+
+    // A recognition that finds no text, or fails, tells the waiting callbacks so and leaves the pin without a result.
+    void aStandInRecognitionWithoutTextOrWithAFailureAnswersNo() {
+        for (const bool fail : {false, true}) {
+            StandInEngine engine([fail](const QImage &) -> OcrResult {
+                if (fail) throw std::runtime_error("engine lost");
+                return ocr_result({});
+            });
+            auto *pin = make_pin();
+            bool answered = false, succeeded = true;
+            QString text;
+            QVERIFY(pin->ocr_manager()->recognize_then([&](bool success, const QString &result) {
+                answered = true;
+                succeeded = success;
+                text = result;
+            }));
+            QTRY_VERIFY_WITH_TIMEOUT(answered, 10000);
+            QVERIFY2(!succeeded, fail ? "failed run" : "empty run");
+            QCOMPARE(text, QString("No text was recognized"));
+            QTRY_VERIFY(!pin->ocr_manager()->is_running());
+            QVERIFY(!pin->ocr_has_result());
+        }
+    }
+
+    // Copying all text recognizes first and then copies; with a result it copies at once. Translating
+    // with a result sends that text to the translation window without recognizing again.
+    void copyingAndTranslatingUseTheStandInResult() {
+        config_->set_translation_provider("deepl");
+        std::atomic_int runs = 0;
+        StandInEngine engine([&runs](const QImage &) {
+            ++runs;
+            return ocr_result({{box(10, 10, 100, 20), "hello pin", 0.9}});
+        });
+        auto *pin = make_pin();
+        pin->show();
+        QApplication::clipboard()->clear();
+        pin->copy_all_text();
+        QTRY_COMPARE_WITH_TIMEOUT(clipboard_text(), QString("hello pin"), 10000);
+        QCOMPARE(hint_text(pin), QString("Text copied"));
+        QTRY_VERIFY(!pin->ocr_manager()->is_running());
+        QApplication::clipboard()->clear();
+        pin->copy_all_text();
+        QCOMPARE(clipboard_text(), QString("hello pin"));
+        QCOMPARE(runs.load(), 1);
+        const auto dialog = [] {
+            TranslationDialog *found = nullptr;
+            for (auto *widget : QApplication::topLevelWidgets())
+                if (auto *typed = qobject_cast<TranslationDialog *>(widget); typed && typed->isVisible()) found = typed;
+            return found;
+        };
+        pin_menu(pin, "Translate");
+        QVERIFY(dialog());
+        QTRY_VERIFY_WITH_TIMEOUT(dialog()->source_edit->toPlainText().contains("hello pin"), 10000);
+        QCOMPARE(runs.load(), 1);
+        TranslationManager::cleanup();
+        // Translating a pin before it has any result recognizes it first.
+        auto *second = make_pin();
+        second->show();
+        pin_menu(second, "Translate");
+        QVERIFY(dialog());
+        QTRY_VERIFY_WITH_TIMEOUT(dialog()->source_edit->toPlainText().contains("hello pin"), 10000);
+        QVERIFY(second->ocr_has_result());
+        QCOMPARE(runs.load(), 2);
+        TranslationManager::cleanup();
+    }
+
+    // A drag whose release went elsewhere ends when the next move shows the button is no longer held.
+    void aSelectionDragEndsWhenTheButtonIsGone() {
+        auto *pin = make_pin();
+        auto *selection = give_text(pin, {{box(10, 10, 150, 20), "selectable", 1}});
+        QVERIFY(selection);
+        send_mouse(pin, QEvent::MouseButtonPress, pin->view->mapFromScene(QPointF(30, 20)), Qt::LeftButton, Qt::LeftButton);
+        // The release never came: the pointer moves with no button held, then with the left one pressed again.
+        send_mouse(pin, QEvent::MouseMove, pin->view->mapFromScene(QPointF(60, 20)), Qt::NoButton, Qt::NoButton);
+        send_mouse(pin, QEvent::MouseMove, pin->view->mapFromScene(QPointF(120, 20)), Qt::NoButton, Qt::LeftButton);
+        QVERIFY(!selection->has_selection());
+    }
+
+    // A slanted line's selection is filled as a polygon; an upright one as a rectangle.
+    void aSlantedSelectionIsPainted() {
+        auto *pin = make_pin(QSize(260, 200), QPoint(100, 100), {});
+        pin->show();
+        const QPointF along(std::cos(0.3), std::sin(0.3)), across(-std::sin(0.3), std::cos(0.3));
+        const QPointF origin(30, 40);
+        const QVector<QPointF> slanted{origin, origin + 150 * along, origin + 150 * along + 24 * across, origin + 24 * across};
+        auto *selection = give_text(pin, {{slanted, "slanted text", 1}});
+        QVERIFY(selection);
+        const auto painted = [&] {
+            QImage image(pin->view->viewport()->size(), QImage::Format_ARGB32);
+            image.fill(Qt::white);
+            pin->view->viewport()->render(&image);
+            return image;
+        };
+        const auto before = painted();
+        QKeyEvent select_all(QEvent::KeyPress, Qt::Key_A, Qt::ControlModifier);
+        QVERIFY(selection->key_press(&select_all));
+        QVERIFY(selection->has_selection());
+        QVERIFY(painted() != before);
+    }
+
+    // The hotkey of smart translation hands a pin's selected text over directly; without a selection it
+    // is left to the normal copy probe.
+    void theTranslationHotkeyTakesAPinsSelectedText() {
+        auto *pin = make_pin();
+        pin->show();
+        pin->move(100, 100);
+        auto *selection = give_text(pin, {{box(10, 10, 150, 20), "selectable", 1}});
+        QVERIFY(selection);
+        PinNormalShortcutHandler handler(PinShortcutController::instance());
+        RecordingTranslator translator;
+        const std::function<void()> hotkey = SelectionTranslationHotkey{&translator, [] {}};
+        QCursor::setPos(pin->mapToGlobal(QPoint(50, 40)));
+        QVERIFY(!handler.handle_hotkey(0, hotkey));
+        QVERIFY(translator.texts.isEmpty());
+        QKeyEvent select_all(QEvent::KeyPress, Qt::Key_A, Qt::ControlModifier);
+        QVERIFY(selection->key_press(&select_all));
+        QVERIFY(handler.handle_hotkey(0, hotkey));
+        QCOMPARE(translator.texts, QStringList({"selectable"}));
+        // Another callback is none of its business.
+        QVERIFY(!handler.handle_hotkey(0, [] {}));
+    }
+
+    // A double click the text selection leaves alone reaches the canvas.
+    void aDoubleClickOutsideTheTextReachesTheCanvas() {
+        auto *pin = make_pin();
+        give_text(pin, {{box(10, 10, 40, 20), "text", 1}});
+        send_mouse(pin, QEvent::MouseButtonDblClick, pin->view->mapFromScene(QPointF(150, 100)), Qt::LeftButton, Qt::LeftButton);
+        send_mouse(pin, QEvent::MouseButtonRelease, pin->view->mapFromScene(QPointF(150, 100)), Qt::LeftButton, Qt::NoButton);
     }
 
     // Translating or copying text right after pinning recognizes at once; when that is done before

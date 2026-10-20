@@ -28,73 +28,6 @@ QStringList to_qt(const std::vector<std::string> &names) {
     return list;
 }
 
-InputHubEvent to_hub_event(const Event &event) {
-    InputHubEvent out;
-    switch (event.kind) {
-    case Event::Kind::GestureStart:
-    case Event::Kind::GestureFinish:
-    case Event::Kind::GestureCancel:
-        out.kind = InputHubEvent::Gesture;
-        out.text = event.kind == Event::Kind::GestureStart ? "start" : event.kind == Event::Kind::GestureFinish ? "finish" : "cancel";
-        out.id = event.id;
-        out.x = event.x;
-        out.y = event.y;
-        break;
-    case Event::Kind::GestureMoved:
-        out.kind = InputHubEvent::Moved;
-        out.id = event.id;
-        break;
-    case Event::Kind::SideButton:
-        out.kind = InputHubEvent::Side;
-        out.text = input::button_name(event.button);
-        break;
-    case Event::Kind::Hotkey:
-        out.kind = InputHubEvent::Hotkey;
-        out.text = QString::fromStdString(event.text);
-        break;
-    case Event::Kind::Captured:
-        out.kind = InputHubEvent::Captured;
-        out.text = to_qt(event.modifiers.names()).join('+');
-        out.value = static_cast<int>(event.vk);
-        break;
-    case Event::Kind::Wheel:
-        out.kind = InputHubEvent::Wheel;
-        out.text = QString::fromStdString(event.text);
-        out.x = event.x;
-        out.y = event.y;
-        out.value = event.delta;
-        out.flag = event.horizontal;
-        break;
-    case Event::Kind::Key:
-        out.kind = InputHubEvent::Key;
-        out.text = QString::fromStdString(event.text);
-        out.value = static_cast<int>(event.vk);
-        out.flag = event.pressed;
-        break;
-    case Event::Kind::MouseButton:
-        out.kind = InputHubEvent::MouseButton;
-        out.text = QString::fromStdString(event.text);
-        out.value = static_cast<int>(event.button);
-        out.flag = event.pressed;
-        out.x = event.x;
-        out.y = event.y;
-        break;
-    case Event::Kind::PointerMoved:
-        out.kind = InputHubEvent::Pointer;
-        out.text = QString::fromStdString(event.text);
-        break;
-    case Event::Kind::Foreground:
-        out.kind = InputHubEvent::Foreground;
-        out.hwnd = static_cast<quintptr>(event.hwnd);
-        break;
-    case Event::Kind::Failure:
-        out.kind = InputHubEvent::Failure;
-        out.text = QString::fromStdString(event.text);
-        break;
-    }
-    return out;
-}
-
 class NativeInputHub : public InputHubNative {
 public:
     std::optional<InputHubEvent> next_event() override {
@@ -216,6 +149,73 @@ private:
 };
 
 InputHub *hub_instance = nullptr;
+}
+
+InputHubEvent to_hub_event(const input::Event &event) {
+    InputHubEvent out;
+    switch (event.kind) {
+    case Event::Kind::GestureStart:
+    case Event::Kind::GestureFinish:
+    case Event::Kind::GestureCancel:
+        out.kind = InputHubEvent::Gesture;
+        out.text = event.kind == Event::Kind::GestureStart ? "start" : event.kind == Event::Kind::GestureFinish ? "finish" : "cancel";
+        out.id = event.id;
+        out.x = event.x;
+        out.y = event.y;
+        break;
+    case Event::Kind::GestureMoved:
+        out.kind = InputHubEvent::Moved;
+        out.id = event.id;
+        break;
+    case Event::Kind::SideButton:
+        out.kind = InputHubEvent::Side;
+        out.text = input::button_name(event.button);
+        break;
+    case Event::Kind::Hotkey:
+        out.kind = InputHubEvent::Hotkey;
+        out.text = QString::fromStdString(event.text);
+        break;
+    case Event::Kind::Captured:
+        out.kind = InputHubEvent::Captured;
+        out.text = to_qt(event.modifiers.names()).join('+');
+        out.value = static_cast<int>(event.vk);
+        break;
+    case Event::Kind::Wheel:
+        out.kind = InputHubEvent::Wheel;
+        out.text = QString::fromStdString(event.text);
+        out.x = event.x;
+        out.y = event.y;
+        out.value = event.delta;
+        out.flag = event.horizontal;
+        break;
+    case Event::Kind::Key:
+        out.kind = InputHubEvent::Key;
+        out.text = QString::fromStdString(event.text);
+        out.value = static_cast<int>(event.vk);
+        out.flag = event.pressed;
+        break;
+    case Event::Kind::MouseButton:
+        out.kind = InputHubEvent::MouseButton;
+        out.text = QString::fromStdString(event.text);
+        out.value = static_cast<int>(event.button);
+        out.flag = event.pressed;
+        out.x = event.x;
+        out.y = event.y;
+        break;
+    case Event::Kind::PointerMoved:
+        out.kind = InputHubEvent::Pointer;
+        out.text = QString::fromStdString(event.text);
+        break;
+    case Event::Kind::Foreground:
+        out.kind = InputHubEvent::Foreground;
+        out.hwnd = static_cast<quintptr>(event.hwnd);
+        break;
+    case Event::Kind::Failure:
+        out.kind = InputHubEvent::Failure;
+        out.text = QString::fromStdString(event.text);
+        break;
+    }
+    return out;
 }
 
 InputHub::InputHub(std::unique_ptr<InputHubNative> native, QObject *parent) : QObject(parent), native(std::move(native)) {}

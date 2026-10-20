@@ -10,6 +10,10 @@
 #include <vector>
 
 namespace jietuba {
+namespace input {
+struct Event;
+}
+
 // One event from the hook thread. text: the gesture phase (start/finish/cancel), the side button
 // (x1/x2), the hotkey or watcher name, the "+"-joined modifiers of a captured key, or the failure
 // message; value: the wheel delta, the virtual key, or a mouse button (input::Button); flag: horizontal or
@@ -22,6 +26,9 @@ struct InputHubEvent {
     bool flag = false;
     quintptr hwnd = 0;
 };
+
+// What the engine's event is to the UI side.
+InputHubEvent to_hub_event(const input::Event &event);
 
 // (left, top, right, bottom) in physical pixels.
 struct InputHubRect {

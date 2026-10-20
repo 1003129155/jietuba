@@ -139,11 +139,12 @@ bool terminate_process_by_pid(qint64 pid) {
 #endif
 }
 
-QStringList recognized_game_executables() {
+QStringList recognized_game_executables(const QString &children_key) {
     QStringList paths;
 #ifdef Q_OS_WIN
     HKEY children = nullptr;
-    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"System\\GameConfigStore\\Children", 0, KEY_READ, &children) != ERROR_SUCCESS) return paths;
+    const std::wstring key = children_key.isEmpty() ? std::wstring(L"System\\GameConfigStore\\Children") : children_key.toStdWString();
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, key.c_str(), 0, KEY_READ, &children) != ERROR_SUCCESS) return paths;
     std::wstring path(32768, L'\0');
     for (DWORD index = 0;; ++index) {
         wchar_t name[256];

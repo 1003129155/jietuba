@@ -16,7 +16,7 @@ bool EllipseTool::on_press(const QPointF &pos, Qt::MouseButton button, ToolConte
     apply_line_style(pen, line_style);
     current_item = new EllipseItem(QRectF(pos, pos), pen);
     ctx.scene->addItem(current_item);
-    log_debug(T("开始绘制: {pos}", {{"pos", py_repr(pos)}}), "EllipseTool");
+    log_debug(T("开始绘制: {pos}", {{"pos", geometry_text(pos)}}), "EllipseTool");
     return true;
 }
 

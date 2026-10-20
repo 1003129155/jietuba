@@ -1341,7 +1341,7 @@ void CanvasView::finalize_text_edit_state(QGraphicsTextItem *text_item) {
 void CanvasView::export_and_close() {
     ExportService exporter(canvas_scene);
     const auto selection_rect = canvas_scene->selection_model->rect();
-    log_debug(T("准备导出选区: {selection_rect}", {{"selection_rect", py_repr(selection_rect)}}), "CanvasView");
+    log_debug(T("准备导出选区: {selection_rect}", {{"selection_rect", geometry_text(selection_rect)}}), "CanvasView");
     const auto result = exporter.export_image(selection_rect);
     if (!result.isNull()) {
         log_info(T("导出成功，图像大小: {width}x{height}", {{"width", result.width()}, {"height", result.height()}}), "CanvasView");

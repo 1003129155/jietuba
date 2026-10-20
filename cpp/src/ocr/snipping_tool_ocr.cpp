@@ -170,7 +170,8 @@ SnippingToolOcr::SnippingToolOcr(const std::pair<QString, QString> &package) {
         api_->set_use_model_delay_load = reinterpret_cast<Api::OcrInitOptionsSetUseModelDelayLoad>(bind("OcrInitOptionsSetUseModelDelayLoad"));
         api_->create_pipeline = reinterpret_cast<Api::CreateOcrPipeline>(bind("CreateOcrPipeline"));
         api_->create_process_options = reinterpret_cast<Api::CreateOcrProcessOptions>(bind("CreateOcrProcessOptions"));
-        api_->set_max_line_count = reinterpret_cast<Api::OcrProcessOptionsSetMaxRecognitionLineCount>(bind("OcrProcessOptionsSetMaxRecognitionLineCount"));
+        // Optional: some Snipping Tool versions do not export it, and the engine then keeps its default line limit.
+        api_->set_max_line_count = reinterpret_cast<Api::OcrProcessOptionsSetMaxRecognitionLineCount>(GetProcAddress(module, "OcrProcessOptionsSetMaxRecognitionLineCount"));
         api_->run_pipeline = reinterpret_cast<Api::RunOcrPipeline>(bind("RunOcrPipeline"));
         api_->get_line_count = reinterpret_cast<Api::GetOcrLineCount>(bind("GetOcrLineCount"));
         api_->get_line = reinterpret_cast<Api::GetOcrLine>(bind("GetOcrLine"));
@@ -190,7 +191,7 @@ SnippingToolOcr::SnippingToolOcr(const std::pair<QString, QString> &package) {
         const auto model_path = QDir(files_dir).filePath("oneocr.onemodel").toUtf8();
         check(api_->create_pipeline(model_path.constData(), ONEOCR_MODEL_KEY, init_options_, &pipeline_), "Pipeline creation failed");
         check(api_->create_process_options(&process_options_), "Process options creation failed");
-        check(api_->set_max_line_count(process_options_, 1000), "Line count config failed");
+        if (api_->set_max_line_count) check(api_->set_max_line_count(process_options_, 1000), "Line count config failed");
     } catch (...) {
         SetDllDirectoryW(nullptr);
         close();

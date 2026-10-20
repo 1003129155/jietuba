@@ -495,13 +495,38 @@ QString OCRManager::get_memory_status() const {
     return QString::fromUtf8("已初始化 (截图工具 OCR)");
 }
 
-bool is_ocr_available() { return OCRManager::instance().is_available(); }
+namespace {
+std::mutex &recognizer_lock() {
+    static std::mutex lock;
+    return lock;
+}
+
+std::function<OcrResult(const QImage &)> &recognizer_override() {
+    static std::function<OcrResult(const QImage &)> recognizer;
+    return recognizer;
+}
+
+std::function<OcrResult(const QImage &)> current_recognizer() {
+    std::lock_guard lock(recognizer_lock());
+    return recognizer_override();
+}
+}
+
+void set_recognizer_for_test(std::function<OcrResult(const QImage &)> recognizer) {
+    std::lock_guard lock(recognizer_lock());
+    recognizer_override() = std::move(recognizer);
+}
+
+bool is_ocr_available() { return current_recognizer() || OCRManager::instance().is_available(); }
 QStringList get_available_engines() { return OCRManager::instance().get_available_engines(); }
 bool set_ocr_engine(const QString &engine_type) { return OCRManager::instance().set_engine(engine_type); }
 void set_ppocr_model(const QString &model_id) { OCRManager::instance().set_ppocr_model(model_id); }
 std::optional<QString> get_current_engine() { return OCRManager::instance().get_current_engine(); }
-bool initialize_ocr(const QString &engine_type) { return OCRManager::instance().initialize(engine_type); }
-OcrResult recognize_text(const QImage &image) { return OCRManager::instance().recognize(image); }
+bool initialize_ocr(const QString &engine_type) { return current_recognizer() || OCRManager::instance().initialize(engine_type); }
+OcrResult recognize_text(const QImage &image) {
+    if (auto recognizer = current_recognizer()) return recognizer(image);
+    return OCRManager::instance().recognize(image);
+}
 void release_ocr_engine() { OCRManager::instance().release_engine(); }
 QString get_ocr_memory_status() { return OCRManager::instance().get_memory_status(); }
 

@@ -36,7 +36,7 @@ CanvasScene::CanvasScene(const QImage &background_image, const QRectF &rect, boo
     // The background uses setOffset, so its boundingRect does not give the scene rect.
     setSceneRect(scene_rect);
     log_debug(T("场景创建完成: scene_rect={scene_rect}, sceneRect()={scene_rect_actual}",
-                {{"scene_rect", py_repr(scene_rect)}, {"scene_rect_actual", py_repr(sceneRect())}}), "CanvasScene");
+                {{"scene_rect", geometry_text(scene_rect)}, {"scene_rect_actual", geometry_text(sceneRect())}}), "CanvasScene");
     undo_stack = new CommandUndoStack(this);
     // Refreshes the number cursor after undo and redo.
     connect(undo_stack, &QUndoStack::indexChanged, this, [this](int) { on_undo_stack_changed(); });

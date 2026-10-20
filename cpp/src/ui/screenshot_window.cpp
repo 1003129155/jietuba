@@ -575,7 +575,7 @@ void ScreenshotWindow::init_smart_selection_at_cursor() {
     scene->selection_model->activate();
     // The first appearance has nothing to tween from.
     view->apply_smart_selection_rect(smart_rect, false);
-    log_debug(T("智能选区初始化: 鼠标位置({x}, {y}) -> 选区{rect}", {{"x", cursor_pos.x()}, {"y", cursor_pos.y()}, {"rect", py_repr(smart_rect)}}), "ScreenshotWindow");
+    log_debug(T("智能选区初始化: 鼠标位置({x}, {y}) -> 选区{rect}", {{"x", cursor_pos.x()}, {"y", cursor_pos.y()}, {"rect", geometry_text(smart_rect)}}), "ScreenshotWindow");
 }
 
 void ScreenshotWindow::init_magnifier_at_cursor() {

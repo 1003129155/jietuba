@@ -42,13 +42,13 @@ bool python_format(const QString &format, const LogMsg::Args &args, QString *out
 QString python_str(const QVariant &value);
 // Python f"{value:.{precision}f}": rounds the exact binary value, ties to even.
 QString python_fixed(double value, int precision);
-// PySide repr() of Qt value types, as they appear in log arguments.
-QString py_repr(const QPointF &value);
-QString py_repr(const QPoint &value);
-QString py_repr(const QRectF &value);
-QString py_repr(const QRect &value);
-QString py_repr(const QSizeF &value);
-QString py_repr(const QSize &value);
+// Qt's debug text of the value types, as they appear in log arguments: QRectF(868,123 1654x1039).
+QString geometry_text(const QPointF &value);
+QString geometry_text(const QPoint &value);
+QString geometry_text(const QRectF &value);
+QString geometry_text(const QRect &value);
+QString geometry_text(const QSizeF &value);
+QString geometry_text(const QSize &value);
 
 struct LogLevel {
     // CamelCase because windows.h defines ERROR.

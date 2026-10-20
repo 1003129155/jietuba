@@ -1,6 +1,8 @@
 #include "core/input_engine.h"
+#include "core/input_hub.h"
 #include <QTest>
 #include <algorithm>
+#include <map>
 #include <set>
 
 using namespace jietuba::input;
@@ -782,6 +784,77 @@ private slots:
         CHECK_RESULT(rig.mouse(MouseInput::down(Button::Left, 0, 0)), false);
         rig.with([](Engine &e, Events &out) { e.configure_gestures({{ctrl(), Button::Left}}, true, out); });
         QVERIFY2(!rig.engine.hooks_needed(), "a closed engine cannot be re-enabled");
+    }
+
+    void button_names_round_trip_and_unknown_names_are_refused() {
+        for (Button button : {Button::Left, Button::Middle, Button::Right, Button::X1, Button::X2}) {
+            const auto parsed = parse_button(button_name(button));
+            QVERIFY(parsed && *parsed == button);
+        }
+        QVERIFY(!parse_button("x3"));
+        QVERIFY(!parse_button(""));
+        QCOMPARE(std::string(button_name(static_cast<Button>(99))), std::string());
+    }
+
+    void the_generic_modifier_keys_stand_for_their_modifier() {
+        QVERIFY(Modifiers::of_key(0x10) == Modifiers::SHIFT);
+        QVERIFY(Modifiers::of_key(0x11) == Modifiers::CTRL);
+        QVERIFY(Modifiers::of_key(0x12) == Modifiers::ALT);
+        QVERIFY(Modifiers::of_key(RWIN) == Modifiers::WIN);
+        QVERIFY(!Modifiers::of_key(KEY_V));
+    }
+
+    void modifiers_are_ordered_so_they_can_key_a_map() {
+        QVERIFY(Modifiers::CTRL < Modifiers::SHIFT);
+        QVERIFY(!(Modifiers::SHIFT < Modifiers::CTRL));
+        std::map<Modifiers, int> by_modifiers{{Modifiers::ALT, 3}, {Modifiers::CTRL, 1}, {Modifiers::SHIFT, 2}};
+        QCOMPARE(by_modifiers.begin()->second, 1);
+        QCOMPARE(by_modifiers.at(Modifiers::ALT), 3);
+    }
+
+    void the_hub_event_carries_what_the_engine_event_says() {
+        using jietuba::InputHubEvent;
+        const auto side = jietuba::to_hub_event(Event::side_button(Button::X2));
+        QCOMPARE(side.kind, InputHubEvent::Side);
+        QCOMPARE(side.text, QString("x2"));
+        const auto wheel = jietuba::to_hub_event(Event::wheel("stitch", 10, 20, -3, true));
+        QCOMPARE(wheel.kind, InputHubEvent::Wheel);
+        QCOMPARE(wheel.text, QString("stitch"));
+        QCOMPARE(std::make_pair(wheel.x, wheel.y), std::make_pair(10, 20));
+        QCOMPARE(wheel.value, -3);
+        QVERIFY(wheel.flag);
+        const auto key = jietuba::to_hub_event(Event::key("keys", KEY_V, true));
+        QCOMPARE(key.kind, InputHubEvent::Key);
+        QCOMPARE(key.text, QString("keys"));
+        QCOMPARE(key.value, static_cast<int>(KEY_V));
+        QVERIFY(key.flag);
+        const auto failure = jietuba::to_hub_event(Event::failure("hook lost"));
+        QCOMPARE(failure.kind, InputHubEvent::Failure);
+        QCOMPARE(failure.text, QString("hook lost"));
+        const auto hotkey = jietuba::to_hub_event(Event::hotkey("t"));
+        QCOMPARE(hotkey.kind, InputHubEvent::Hotkey);
+        QCOMPARE(hotkey.text, QString("t"));
+        const auto click = jietuba::to_hub_event(Event::mouse_button("light", Button::Middle, true, 5, 6));
+        QCOMPARE(click.kind, InputHubEvent::MouseButton);
+        QCOMPARE(click.value, static_cast<int>(Button::Middle));
+        QVERIFY(click.flag);
+        QCOMPARE(std::make_pair(click.x, click.y), std::make_pair(5, 6));
+        const auto captured = jietuba::to_hub_event(Event::captured(Modifiers::CTRL, KEY_J));
+        QCOMPARE(captured.kind, InputHubEvent::Captured);
+        QCOMPARE(captured.text, QString("ctrl"));
+        QCOMPARE(captured.value, static_cast<int>(KEY_J));
+    }
+
+    // The real hook thread, with no feature using it: bad names are refused before they reach the engine.
+    void the_native_hub_refuses_names_it_does_not_know() {
+        auto *hub = jietuba::input_hub();
+        QVERIFY(!hub->native->configure_gestures({{QStringList{"ctrl"}, QString("bogus")}}, true));
+        QVERIFY(!hub->native->configure_gestures({{QStringList{"hyper"}, QString("left")}}, true));
+        QVERIFY_THROWS_EXCEPTION(std::invalid_argument, hub->native->configure_side_buttons(true, {"left"}, false));
+        hub->native->configure_side_buttons(false, {"x1", "x2"}, false);
+        QVERIFY(!hub->native->dragging());
+        QVERIFY(!hub->native->hooks_installed());
+        jietuba::close_input_hub();
     }
 };
 

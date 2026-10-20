@@ -21,7 +21,7 @@ bool RectTool::on_press(const QPointF &pos, Qt::MouseButton button, ToolContext 
     apply_line_style(pen, line_style);
     current_item = new RectItem(QRectF(pos, pos), pen, corner_radius);
     ctx.scene->addItem(current_item);
-    log_debug(T("开始绘制: {pos}", {{"pos", py_repr(pos)}}), "RectTool");
+    log_debug(T("开始绘制: {pos}", {{"pos", geometry_text(pos)}}), "RectTool");
     return true;
 }
 

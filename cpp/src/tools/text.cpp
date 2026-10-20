@@ -40,7 +40,7 @@ bool TextTool::on_press(const QPointF &pos, Qt::MouseButton button, ToolContext 
     cursor.movePosition(QTextCursor::End);
     item->setTextCursor(cursor);
     emit ctx.scene->item_auto_select_requested(item);
-    log_debug(T("创建文字: {pos}", {{"pos", py_repr(pos)}}), "TextTool");
+    log_debug(T("创建文字: {pos}", {{"pos", geometry_text(pos)}}), "TextTool");
     return true;
 }
 

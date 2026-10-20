@@ -10,6 +10,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QProcess>
+#include <QScopeGuard>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QWidget>
@@ -129,6 +130,29 @@ private slots:
         clock.restart();
         const bool game = is_game_in_foreground();
         qInfo("game check: %s in %lld us", game ? "game" : "no game", static_cast<long long>(clock.nsecsElapsed() / 1000));
+    }
+
+    // The entries come from the key given: those with a path, by key name; a key without one is skipped.
+    void recognizedGamesComeFromTheirRegistryKey() {
+        const QString root = QString("Software\\JietubaTests\\Games%1").arg(QCoreApplication::applicationPid());
+        const QString children = root + "\\Children";
+        auto cleanup = qScopeGuard([&] {
+            RegDeleteTreeW(HKEY_CURRENT_USER, root.toStdWString().c_str());
+            RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\JietubaTests");
+        });
+        const auto add = [&](const QString &name, const std::wstring &path) {
+            HKEY key = nullptr;
+            const auto full = (children + "\\" + name).toStdWString();
+            QVERIFY(RegCreateKeyExW(HKEY_CURRENT_USER, full.c_str(), 0, nullptr, 0, KEY_WRITE, nullptr, &key, nullptr) == ERROR_SUCCESS);
+            if (!path.empty())
+                RegSetValueExW(key, L"MatchedExeFullPath", 0, REG_SZ, reinterpret_cast<const BYTE *>(path.c_str()), static_cast<DWORD>((path.size() + 1) * sizeof(wchar_t)));
+            RegCloseKey(key);
+        };
+        QVERIFY(recognized_game_executables(children).isEmpty());
+        add("a", L"C:\\Games\\a.exe");
+        add("b", L"");
+        add("c", L"D:/Games/c.exe");
+        QCOMPARE(recognized_game_executables(children), QStringList({"C:\\Games\\a.exe", "D:/Games/c.exe"}));
     }
 
     // A due trim waits while the program is busy, then runs.

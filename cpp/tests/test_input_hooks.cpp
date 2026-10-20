@@ -1,4 +1,6 @@
+#include "core/game_mode_monitor.h"
 #include "core/input_hooks.h"
+#include "core/input_hub.h"
 #include <QTest>
 #include <QWidget>
 #include <algorithm>
@@ -54,6 +56,15 @@ void send_x_button(DWORD button, bool down) {
 void send_mouse_button(DWORD flags) {
     INPUT input{};
     input.type = INPUT_MOUSE;
+    input.mi.dwFlags = flags;
+    input.mi.dwExtraInfo = TEST_MARKER;
+    SendInput(1, &input, sizeof input);
+}
+
+void send_wheel(DWORD flags, int delta) {
+    INPUT input{};
+    input.type = INPUT_MOUSE;
+    input.mi.mouseData = static_cast<DWORD>(delta);
     input.mi.dwFlags = flags;
     input.mi.dwExtraInfo = TEST_MARKER;
     SendInput(1, &input, sizeof input);
@@ -220,6 +231,67 @@ private slots:
         QTRY_VERIFY(collect(events) && count_kind(events, Event::Kind::PointerMoved) == 1);
         hooks_->with_engine([](Engine &engine, Events &) { engine.unwatch_mouse("light"); });
         QTRY_VERIFY(!hooks_->hooks_installed());
+    }
+
+    // Over a window of its own, as above: the middle and second side buttons and both wheels.
+    void mouse_watchers_hear_every_button_and_the_wheels() {
+        QWidget target;
+        target.setGeometry(300, 300, 240, 160);
+        target.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&target));
+        SetCursorPos(400, 360);
+        QTest::qWait(50);
+        hooks_->with_engine([](Engine &engine, Events &) {
+            engine.watch_mouse("light");
+            engine.watch_wheel("scroll", std::nullopt);
+        });
+        QTRY_VERIFY(hooks_->hooks_installed());
+        send_mouse_button(MOUSEEVENTF_MIDDLEDOWN);
+        send_mouse_button(MOUSEEVENTF_MIDDLEUP);
+        send_x_button(XBUTTON2, true);
+        send_x_button(XBUTTON2, false);
+        // A button the engine has no name for is passed on untouched.
+        send_x_button(0x4, true);
+        send_x_button(0x4, false);
+        send_wheel(MOUSEEVENTF_WHEEL, WHEEL_DELTA);
+        send_wheel(MOUSEEVENTF_HWHEEL, -WHEEL_DELTA);
+        Events events;
+        QTRY_VERIFY(collect(events) && count_kind(events, Event::Kind::MouseButton) == 4 && count_kind(events, Event::Kind::Wheel) == 2);
+        std::vector<Event> buttons, wheels;
+        for (const auto &event : events) {
+            if (event.kind == Event::Kind::MouseButton) buttons.push_back(event);
+            if (event.kind == Event::Kind::Wheel) wheels.push_back(event);
+        }
+        QCOMPARE(buttons[0].button, Button::Middle);
+        QVERIFY(buttons[0].pressed && !buttons[1].pressed);
+        QCOMPARE(buttons[2].button, Button::X2);
+        QVERIFY(buttons[2].pressed && !buttons[3].pressed);
+        QCOMPARE(wheels[0].delta, int32_t(WHEEL_DELTA));
+        QVERIFY(!wheels[0].horizontal);
+        QCOMPARE(wheels[1].delta, int32_t(-WHEEL_DELTA));
+        QVERIFY(wheels[1].horizontal);
+        hooks_->with_engine([](Engine &engine, Events &) {
+            engine.unwatch_mouse("light");
+            engine.unwatch_wheel("scroll");
+        });
+        QTRY_VERIFY(!hooks_->hooks_installed());
+    }
+
+    // The hook thread above is the process's only one, so the hub cannot be made; the monitor
+    // still checks, only without foreground notices.
+    void the_game_monitor_checks_without_the_hub() {
+        QVERIFY(!jietuba::existing_input_hub());
+        jietuba::GameModeMonitor monitor;
+        bool game = true;
+        monitor.set_probe([&game] { return game; });
+        monitor.start();
+        QVERIFY(monitor.running());
+        QVERIFY(monitor.active());
+        game = false;
+        monitor.check();
+        QVERIFY(!monitor.active());
+        monitor.stop();
+        QVERIFY(!jietuba::existing_input_hub());
     }
 
     void stopping_drains_the_queued_events_then_ends_the_stream() {

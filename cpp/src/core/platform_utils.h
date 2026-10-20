@@ -33,8 +33,9 @@ std::optional<std::pair<quint64, QString>> get_process_identity(qint64 pid);
 bool terminate_process_by_pid(qint64 pid);
 
 // Executables Windows' game bar has recognized as games, from HKCU\System\GameConfigStore. The key is
-// undocumented: missing or changed, the list is empty.
-QStringList recognized_game_executables();
+// undocumented: missing or changed, the list is empty. children_key is the HKCU path of the entries,
+// for tests; empty is Windows' own.
+QStringList recognized_game_executables(const QString &children_key = {});
 // A game holds the foreground: a recognized game, windowed or not, or any program in exclusive full
 // screen. Full-screen video and browsers report the same "busy" state as borderless games, hence the list.
 bool is_game_in_foreground();

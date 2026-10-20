@@ -84,8 +84,8 @@ private slots:
         log_debug(T("hidden {n}", {{"n", 1}}), "Test");
         log_info(T("shown {n:d} {h:X} {l:x} {f:.2f}", {{"n", 42}, {"h", 255}, {"l", -26}, {"f", 1.005}}), "Test");
         log_warning("plain warning");
-        // Geometry goes in as its repr text, as the callers write it; None and booleans as Python prints them.
-        log_error(T("rect {r} point {p} size {s} none {x} flag {b}", {{"r", py_repr(QRect(1, 2, 3, 4))}, {"p", py_repr(QPoint(5, 6))}, {"s", py_repr(QSize(7, 8))}, {"x", QVariant()}, {"b", true}}));
+        // Geometry goes in as its debug text, as the callers write it; None and booleans as Python prints them.
+        log_error(T("rect {r} point {p} size {s} none {x} flag {b}", {{"r", geometry_text(QRect(1, 2, 3, 4))}, {"p", geometry_text(QPoint(5, 6))}, {"s", geometry_text(QSize(7, 8))}, {"x", QVariant()}, {"b", true}}));
         // A malformed template is written as it is rather than lost.
         log_error(T("broken {n:d}", {{"n", 1.5}}));
         log_error(T("missing {absent}"));
@@ -97,14 +97,15 @@ private slots:
         QVERIFY(!text.contains("hidden 1"));
         QVERIFY2(text.contains("[INFO] [Test] shown 42 FF -1a 1.00"), qPrintable(text.right(800)));
         QVERIFY(text.contains("[WARNING] plain warning"));
-        QVERIFY(text.contains("PySide6.QtCore.QRect(1, 2, 3, 4)"));
-        QVERIFY(text.contains("PySide6.QtCore.QPoint(5, 6)"));
-        QVERIFY(text.contains("PySide6.QtCore.QSize(7, 8) none None flag True"));
+        QVERIFY(text.contains("rect QRect(1,2 3x4)"));
+        QVERIFY(text.contains("point QPoint(5,6)"));
+        QVERIFY(text.contains("size QSize(7, 8) none None flag True"));
         QVERIFY(text.contains("broken {n:d}"));
         QVERIFY(text.contains("missing {absent}"));
         QVERIFY(text.contains("now visible"));
-        QCOMPARE(py_repr(QRectF(0.5, 1, 2, 3)), QString("PySide6.QtCore.QRectF(0.500000, 1.000000, 2.000000, 3.000000)"));
-        QCOMPARE(py_repr(QSizeF(1.5, 2)), QString("PySide6.QtCore.QSizeF(1.500000, 2.000000)"));
+        QCOMPARE(geometry_text(QRectF(0.5, 1, 2, 3)), QString("QRectF(0.5,1 2x3)"));
+        QCOMPARE(geometry_text(QSizeF(1.5, 2)), QString("QSizeF(1.5, 2)"));
+        QCOMPARE(geometry_text(QPointF(868, 123.25)), QString("QPointF(868,123.25)"));
     }
 
     void exceptionsAndQtMessagesReachTheFile() {

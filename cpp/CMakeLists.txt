@@ -378,6 +378,27 @@ if(BUILD_TESTING)
     target_link_libraries(jietuba_ocr_manager_tests PRIVATE jietuba_lib Qt6::Test)
     add_test(NAME ocr_manager COMMAND jietuba_ocr_manager_tests)
     set_tests_properties(ocr_manager PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;JIETUBA_PPOCR_MODELS=${JIETUBA_PPOCR_MODELS}")
+    # Stand-in oneocr.dll files: the variants lack one export each (see tests/fake_oneocr.cpp).
+    foreach(variant IN ITEMS full legacy broken)
+        add_library(fake_oneocr_${variant} SHARED tests/fake_oneocr.cpp)
+        # The DLLs share one file name, so their import libraries and symbols get their own folders too.
+        set(fake_dir "${CMAKE_CURRENT_BINARY_DIR}/fake_oneocr/${variant}")
+        set_target_properties(fake_oneocr_${variant} PROPERTIES OUTPUT_NAME oneocr
+            RUNTIME_OUTPUT_DIRECTORY "${fake_dir}" ARCHIVE_OUTPUT_DIRECTORY "${fake_dir}" PDB_OUTPUT_DIRECTORY "${fake_dir}")
+        string(TOUPPER ${variant} variant_upper)
+        target_compile_definitions(fake_oneocr_${variant} PRIVATE FAKE_ONEOCR_${variant_upper})
+    endforeach()
+    qt_add_executable(jietuba_snipping_tool_ocr_tests tests/test_snipping_tool_ocr.cpp)
+    target_link_libraries(jietuba_snipping_tool_ocr_tests PRIVATE jietuba_lib Qt6::Test)
+    add_dependencies(jietuba_snipping_tool_ocr_tests fake_oneocr_full fake_oneocr_legacy fake_oneocr_broken)
+    target_compile_definitions(jietuba_snipping_tool_ocr_tests PRIVATE
+        JIETUBA_FAKE_ONEOCR_FULL_DIR="$<TARGET_FILE_DIR:fake_oneocr_full>"
+        JIETUBA_FAKE_ONEOCR_LEGACY_DIR="$<TARGET_FILE_DIR:fake_oneocr_legacy>"
+        JIETUBA_FAKE_ONEOCR_BROKEN_DIR="$<TARGET_FILE_DIR:fake_oneocr_broken>")
+    add_test(NAME snipping_tool_ocr COMMAND jietuba_snipping_tool_ocr_tests)
+    # Loading an engine clears the shared test cache of other versions' copies, so the two do not run together.
+    set_tests_properties(snipping_tool_ocr PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" RESOURCE_LOCK oneocr_test_cache)
+    set_tests_properties(ocr_manager PROPERTIES RESOURCE_LOCK oneocr_test_cache)
     qt_add_executable(jietuba_ppocr_models_tests tests/test_ppocr_models.cpp)
     target_link_libraries(jietuba_ppocr_models_tests PRIVATE jietuba_lib Qt6::Test)
     add_test(NAME ppocr_models COMMAND jietuba_ppocr_models_tests)
