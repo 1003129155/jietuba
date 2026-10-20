@@ -21,6 +21,7 @@ class ClipboardManager;
 class ClipboardWindow;
 }
 class DisplayChangeWatcher;
+class GameModeMonitor;
 class GifRecordWindow;
 class HotkeySystem;
 class PreloadManager;
@@ -53,6 +54,8 @@ public:
     // show_error: report failures (on saving settings, not on start-up).
     void update_hotkey(bool show_error = false);
     void set_global_hotkeys_disabled(bool disabled);
+    // The tray switch: global input pauses on its own while a game holds the foreground.
+    void set_pause_hotkeys_in_games(bool enabled);
     void setup_tray();
     void start_screenshot();
     void open_settings();
@@ -87,6 +90,8 @@ public:
     ToolSettingsManager *config_manager;
     UIThemeManager *ui_theme_manager = nullptr;
     std::unique_ptr<HotkeySystem> hotkey_system;
+    // Runs while the game switch is on.
+    GameModeMonitor *game_mode_monitor = nullptr;
     QSystemTrayIcon *tray_icon = nullptr;
     QPointer<SettingsDialog> settings_window;
     QPointer<ScreenshotWindow> screenshot_window;
@@ -110,6 +115,7 @@ private:
     void on_language_changed(const QString &lang_code);
     void on_ui_theme_changed(const UIThemeTokens &tokens);
     void update_tray_menu();
+    void on_game_mode_changed(bool active);
     void show_hotkey_error(const std::vector<std::pair<QString, QString>> &failed_hotkeys);
     void on_tray_activated(QSystemTrayIcon::ActivationReason reason);
     // While an application-modal window exists no capture layer is created that could

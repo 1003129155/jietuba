@@ -1993,6 +1993,10 @@ Replace it?</source>
         <translation>ホットキーを無効化</translation>
     </message>
     <message>
+        <source>Pause Hotkeys While Gaming</source>
+        <translation>ゲーム中はホットキーを停止</translation>
+    </message>
+    <message>
         <source>Settings</source>
         <translation>設定</translation>
     </message>
@@ -5220,6 +5224,10 @@ Items in the group will be moved back to clipboard history.</source>
     <message>
         <source>Windows uses this shortcut too. This app takes it over while running; clear it to give it back.</source>
         <translation>Windows もこのショートカットを使っています。このアプリの実行中はこちらが引き継ぎ、消去すると Windows に戻ります。</translation>
+    </message>
+    <message>
+        <source>Another app uses this shortcut too. This app takes it over while running; clear it to give it back.</source>
+        <translation>他のアプリもこのショートカットを使っています。このアプリの実行中はこちらが引き継ぎ、消去すると元のアプリに戻ります。</translation>
     </message>
     <message>
         <source>Reserved by Windows. No app can use it.</source>

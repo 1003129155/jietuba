@@ -1,5 +1,6 @@
 #pragma once
 #include <QString>
+#include <QStringList>
 #include <QtGlobal>
 #include <functional>
 #include <optional>
@@ -30,6 +31,13 @@ constexpr unsigned PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 std::optional<std::pair<quint64, QString>> get_process_identity(qint64 pid);
 // Does not check identity; callers must confirm it with get_process_identity first.
 bool terminate_process_by_pid(qint64 pid);
+
+// Executables Windows' game bar has recognized as games, from HKCU\System\GameConfigStore. The key is
+// undocumented: missing or changed, the list is empty.
+QStringList recognized_game_executables();
+// A game holds the foreground: a recognized game, windowed or not, or any program in exclusive full
+// screen. Full-screen video and browsers report the same "busy" state as borderless games, hence the list.
+bool is_game_in_foreground();
 
 // Capture exclusion (Windows 10 2004+): the window stays visible but is absent from screenshots.
 constexpr unsigned WDA_NONE = 0x00000000;

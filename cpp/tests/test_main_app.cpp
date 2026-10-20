@@ -3,6 +3,7 @@
 #include "clipboard/ui/windows/clipboard_window.h"
 #include "core/background_tasks.h"
 #include "core/constants.h"
+#include "core/game_mode_monitor.h"
 #include "capture/quick_capture_controller.h"
 #include "core/input_hub.h"
 #include "core/logger.h"
@@ -74,6 +75,14 @@ QImage solid(const QSize &size) {
     QImage image(size, QImage::Format_RGB32);
     image.fill(Qt::darkCyan);
     return image;
+}
+
+// Whether another program could register the combination now.
+bool system_can_register(UINT mods, UINT vk) {
+    constexpr int PROBE_ID = 0x6F20;
+    if (!RegisterHotKey(nullptr, PROBE_ID, mods, vk)) return false;
+    UnregisterHotKey(nullptr, PROBE_ID);
+    return true;
 }
 }
 
@@ -207,18 +216,25 @@ private slots:
         QCOMPARE(received.first().first().value<clipboard::ClipboardItem>().content_type, QString("text"));
     }
 
+    // The tray switch releases the registrations, so other programs get the keys, and brings them back.
     void hotkeysRegisterAndCanBeSuppressed() {
         auto *config = main_app_->config_manager;
         config->set_app_setting("global_hotkeys_disabled", false);
+        config->set_global_hotkeys("pin_clipboard", {"ctrl+alt+shift+f15", "", "", ""});
         main_app_->update_hotkey();
         QVERIFY(ShortcutManager::instance()->has_registered_hotkeys());
+        QVERIFY(!system_can_register(MOD_CONTROL | MOD_ALT | MOD_SHIFT, VK_F15));
         main_app_->set_global_hotkeys_disabled(true);
         QVERIFY(config->get_app_setting("global_hotkeys_disabled").toBool());
-        // Suppressed hotkeys stay registered; their callbacks are swallowed.
-        QVERIFY(ShortcutManager::instance()->has_registered_hotkeys());
         QVERIFY(ShortcutManager::instance()->global_hotkeys_suppressed());
+        QVERIFY(system_can_register(MOD_CONTROL | MOD_ALT | MOD_SHIFT, VK_F15));
+        // Kept to be applied again, so turning the switch off needs no re-registration.
+        QVERIFY(ShortcutManager::instance()->has_registered_hotkeys());
         main_app_->set_global_hotkeys_disabled(false);
         QVERIFY(!ShortcutManager::instance()->global_hotkeys_suppressed());
+        QVERIFY(!system_can_register(MOD_CONTROL | MOD_ALT | MOD_SHIFT, VK_F15));
+        config->set_global_hotkeys("pin_clipboard", {"", "", "", ""});
+        main_app_->update_hotkey();
     }
 
     void settingsArePreloadedOnceAndApplyingKeepsTheWindow() {
@@ -290,12 +306,14 @@ private slots:
     }
 
 
-    // A hotkey another program holds is listed in a warning with its slot; the others still register.
+    // A combination another program holds is taken over by the hook without a warning; a key bound
+    // alone cannot be, and is listed in a warning with its slot while the others still register.
     void occupiedHotkeysAreReported() {
         auto *config = main_app_->config_manager;
-        constexpr int OTHER_PROGRAM_ID = 0x6F00;
+        constexpr int OTHER_PROGRAM_ID = 0x6F00, OTHER_PROGRAM_BARE_ID = 0x6F02;
         QVERIFY(RegisterHotKey(nullptr, OTHER_PROGRAM_ID, MOD_CONTROL | MOD_ALT | MOD_SHIFT, VK_F11));
-        config->set_global_hotkeys("pin_clipboard", {"", "", "ctrl+alt+shift+f11", ""});
+        QVERIFY(RegisterHotKey(nullptr, OTHER_PROGRAM_BARE_ID, 0, VK_F14));
+        config->set_global_hotkeys("pin_clipboard", {"", "ctrl+alt+shift+f11", "f14", ""});
         QString message;
         QTimer::singleShot(0, main_app_, [&message] {
             if (auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget())) {
@@ -305,9 +323,59 @@ private slots:
         });
         main_app_->update_hotkey(true);
         UnregisterHotKey(nullptr, OTHER_PROGRAM_ID);
+        UnregisterHotKey(nullptr, OTHER_PROGRAM_BARE_ID);
         config->set_global_hotkeys("pin_clipboard", {"", "", "", ""});
-        QVERIFY2(message.contains("ctrl+alt+shift+f11") && message.contains("(3)"), qPrintable(message));
+        QVERIFY2(message.contains("f14") && message.contains("(3)"), qPrintable(message));
+        QVERIFY2(!message.contains("f11"), qPrintable(message));
         QVERIFY(ShortcutManager::instance()->has_registered_hotkeys());
+        main_app_->update_hotkey();
+    }
+
+    // The tray's game switch: a game in the foreground pauses every global input, the mouse shortcut's hook
+    // included, and its end brings them back; with the switch off nothing is checked.
+    void aGameInTheForegroundPausesHotkeysWhileTheSwitchIsOn() {
+        auto *config = main_app_->config_manager;
+        config->set_app_setting("quick_capture_pin", "ctrl+alt+dragleft");
+        config->set_global_hotkeys("pin_clipboard", {"ctrl+alt+shift+f13", "", "", ""});
+        main_app_->update_hotkey();
+        main_app_->setup_tray();
+        const auto tray_action = [this]() -> QAction * {
+            for (auto *action : main_app_->tray_icon->contextMenu()->actions())
+                if (action->text() == "Pause Hotkeys While Gaming") return action;
+            return nullptr;
+        };
+        QVERIFY(tray_action());
+        QVERIFY(!tray_action()->isChecked());
+        bool game = false;
+        auto *monitor = main_app_->game_mode_monitor;
+        monitor->set_probe([&game] { return game; });
+        tray_action()->trigger();
+        QVERIFY(config->get_app_setting("pause_hotkeys_in_games").toBool());
+        QVERIFY(monitor->running());
+        QVERIFY(!ShortcutManager::instance()->global_hotkeys_suppressed());
+        QTRY_VERIFY(input_hub()->native->hooks_installed());
+        game = true;
+        monitor->check();
+        QVERIFY(ShortcutManager::instance()->global_hotkeys_suppressed());
+        QVERIFY(system_can_register(MOD_CONTROL | MOD_ALT | MOD_SHIFT, VK_F13));
+        QTRY_VERIFY(!input_hub()->native->hooks_installed());
+        // The tray switch for all hotkeys shows only the user's own choice.
+        QVERIFY(!config->get_app_setting("global_hotkeys_disabled").toBool());
+        game = false;
+        monitor->check();
+        QVERIFY(!ShortcutManager::instance()->global_hotkeys_suppressed());
+        QVERIFY(!system_can_register(MOD_CONTROL | MOD_ALT | MOD_SHIFT, VK_F13));
+        QTRY_VERIFY(input_hub()->native->hooks_installed());
+        // Turned off during a game: everything comes back at once.
+        game = true;
+        monitor->check();
+        QVERIFY(tray_action()->isChecked());
+        tray_action()->trigger();
+        QVERIFY(!config->get_app_setting("pause_hotkeys_in_games").toBool());
+        QVERIFY(!monitor->running());
+        QVERIFY(!ShortcutManager::instance()->global_hotkeys_suppressed());
+        monitor->set_probe({});
+        config->set_global_hotkeys("pin_clipboard", {"", "", "", ""});
         main_app_->update_hotkey();
     }
 

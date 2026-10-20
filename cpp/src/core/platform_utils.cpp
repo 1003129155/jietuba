@@ -11,6 +11,7 @@
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <dwmapi.h>
+#include <shellapi.h>
 #include <shellscalingapi.h>
 #include <shobjidl.h>
 #endif
@@ -134,6 +135,52 @@ bool terminate_process_by_pid(qint64 pid) {
     return ok;
 #else
     Q_UNUSED(pid);
+    return false;
+#endif
+}
+
+QStringList recognized_game_executables() {
+    QStringList paths;
+#ifdef Q_OS_WIN
+    HKEY children = nullptr;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"System\\GameConfigStore\\Children", 0, KEY_READ, &children) != ERROR_SUCCESS) return paths;
+    std::wstring path(32768, L'\0');
+    for (DWORD index = 0;; ++index) {
+        wchar_t name[256];
+        DWORD name_size = static_cast<DWORD>(std::size(name));
+        const LONG status = RegEnumKeyExW(children, index, name, &name_size, nullptr, nullptr, nullptr, nullptr);
+        if (status == ERROR_NO_MORE_ITEMS) break;
+        if (status != ERROR_SUCCESS) continue;
+        DWORD bytes = static_cast<DWORD>(path.size() * sizeof(wchar_t));
+        if (RegGetValueW(children, name, L"MatchedExeFullPath", RRF_RT_REG_SZ, nullptr, path.data(), &bytes) == ERROR_SUCCESS && bytes > sizeof(wchar_t))
+            paths << QString::fromWCharArray(path.data(), static_cast<int>(bytes / sizeof(wchar_t)) - 1);
+    }
+    RegCloseKey(children);
+#endif
+    return paths;
+}
+
+bool is_game_in_foreground() {
+#ifdef Q_OS_WIN
+    QUERY_USER_NOTIFICATION_STATE state{};
+    if (SUCCEEDED(SHQueryUserNotificationState(&state)) && state == QUNS_RUNNING_D3D_FULL_SCREEN) return true;
+    // A recognized game counts in a window too: keys pressed in it are meant for the game.
+    DWORD pid = 0;
+    GetWindowThreadProcessId(GetForegroundWindow(), &pid);
+    if (!pid || pid == GetCurrentProcessId()) return false;
+    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!process) return false;
+    std::wstring buffer(32768, L'\0');
+    DWORD size = static_cast<DWORD>(buffer.size());
+    const bool named = QueryFullProcessImageNameW(process, 0, buffer.data(), &size);
+    CloseHandle(process);
+    if (!named) return false;
+    const QString exe = QDir::fromNativeSeparators(QString::fromWCharArray(buffer.data(), static_cast<int>(size)));
+    // Not cached: Windows lists a game only after it first runs, and checks follow foreground switches.
+    for (const auto &game : recognized_game_executables())
+        if (QDir::fromNativeSeparators(game).compare(exe, Qt::CaseInsensitive) == 0) return true;
+    return false;
+#else
     return false;
 #endif
 }

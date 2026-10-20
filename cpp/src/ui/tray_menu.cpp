@@ -145,6 +145,12 @@ QMenu *create_tray_menu(MainApp *app) {
     QObject::connect(action_global_hotkeys, &QAction::triggered, app, &MainApp::set_global_hotkeys_disabled);
     menu->addAction(action_global_hotkeys);
 
+    auto *action_game_pause = new QAction(tr_text("Pause Hotkeys While Gaming"), app);
+    action_game_pause->setCheckable(true);
+    action_game_pause->setChecked(app->config_manager->get_app_setting("pause_hotkeys_in_games", false).toBool());
+    QObject::connect(action_game_pause, &QAction::triggered, app, &MainApp::set_pause_hotkeys_in_games);
+    menu->addAction(action_game_pause);
+
     menu->addSeparator();
     add_pin_actions(menu, app);
     menu->addSeparator();

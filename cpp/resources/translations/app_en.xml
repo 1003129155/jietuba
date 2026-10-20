@@ -1865,6 +1865,10 @@ Replace it?</translation>
         <translation>Disable Hotkeys</translation>
     </message>
     <message>
+        <source>Pause Hotkeys While Gaming</source>
+        <translation>Pause Hotkeys While Gaming</translation>
+    </message>
+    <message>
         <source>Settings</source>
         <translation>Settings</translation>
     </message>
@@ -4981,6 +4985,10 @@ Items in the group will be moved back to clipboard history.</translation>
     <message>
         <source>Windows uses this shortcut too. This app takes it over while running; clear it to give it back.</source>
         <translation>Windows uses this shortcut too. This app takes it over while running; clear it to give it back.</translation>
+    </message>
+    <message>
+        <source>Another app uses this shortcut too. This app takes it over while running; clear it to give it back.</source>
+        <translation>Another app uses this shortcut too. This app takes it over while running; clear it to give it back.</translation>
     </message>
     <message>
         <source>Reserved by Windows. No app can use it.</source>

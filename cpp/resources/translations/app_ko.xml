@@ -1980,6 +1980,10 @@ Replace it?</source>
         <translation>전역 비활성화</translation>
     </message>
     <message>
+        <source>Pause Hotkeys While Gaming</source>
+        <translation>게임 중 단축키 일시 중지</translation>
+    </message>
+    <message>
         <source>Settings</source>
         <translation>설정</translation>
     </message>
@@ -5179,6 +5183,10 @@ Items in the group will be moved back to clipboard history.</source>
     <message>
         <source>Windows uses this shortcut too. This app takes it over while running; clear it to give it back.</source>
         <translation>Windows도 이 단축키를 사용합니다. 이 앱이 실행되는 동안 가져와 사용하며, 지우면 Windows에 돌려줍니다.</translation>
+    </message>
+    <message>
+        <source>Another app uses this shortcut too. This app takes it over while running; clear it to give it back.</source>
+        <translation>다른 앱도 이 단축키를 사용합니다. 이 앱이 실행되는 동안 가져와 사용하며, 지우면 그 앱에 돌려줍니다.</translation>
     </message>
     <message>
         <source>Reserved by Windows. No app can use it.</source>

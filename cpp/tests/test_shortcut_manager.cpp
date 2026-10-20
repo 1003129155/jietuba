@@ -1,3 +1,5 @@
+#include "core/game_mode_monitor.h"
+#include "core/i18n.h"
 #include "core/input_hub.h"
 #include "core/shortcut_manager.h"
 #include "settings/tool_settings.h"
@@ -10,9 +12,12 @@
 #include <QLineEdit>
 #include <QMouseEvent>
 #include <QSettings>
+#include <QSignalSpy>
 #include <QSpinBox>
 #include <QTemporaryDir>
 #include <QTest>
+#include <atomic>
+#include <thread>
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -88,6 +93,45 @@ void key_press(QWidget *target, int key, Qt::KeyboardModifiers modifiers = Qt::N
     QKeyEvent event(QEvent::KeyPress, key, modifiers);
     QApplication::sendEvent(target, &event);
 }
+
+// Ctrl+Alt+Shift with keys no keyboard has, so neither a running copy of the app nor the person at
+// the computer collides with them; each test uses its own.
+constexpr UINT HYPER = MOD_CONTROL | MOD_ALT | MOD_SHIFT;
+
+// Whether another program could register the combination now.
+bool system_can_register(UINT mods, UINT vk) {
+    constexpr int PROBE_ID = 0x6F10;
+    if (!RegisterHotKey(nullptr, PROBE_ID, mods, vk)) return false;
+    UnregisterHotKey(nullptr, PROBE_ID);
+    return true;
+}
+
+// Another program holding a system hotkey: its own thread and message loop, counting WM_HOTKEY.
+class OtherProgram {
+public:
+    OtherProgram(UINT mods, UINT vk) {
+        thread_ = std::thread([this, mods, vk] {
+            MSG msg;
+            PeekMessageW(&msg, nullptr, 0, 0, PM_NOREMOVE);
+            registered_ = RegisterHotKey(nullptr, 1, mods, vk);
+            thread_id_ = GetCurrentThreadId();
+            while (GetMessageW(&msg, nullptr, 0, 0) > 0)
+                if (msg.message == WM_HOTKEY) ++hits;
+            if (registered_) UnregisterHotKey(nullptr, 1);
+        });
+        while (!thread_id_) std::this_thread::yield();
+    }
+    ~OtherProgram() {
+        PostThreadMessageW(thread_id_, WM_QUIT, 0, 0);
+        thread_.join();
+    }
+    bool registered() const { return registered_; }
+    std::atomic<int> hits{0};
+private:
+    std::atomic<bool> registered_{false};
+    std::atomic<DWORD> thread_id_{0};
+    std::thread thread_;
+};
 }
 
 // The shortcut manager on a real desktop: system hotkeys, side buttons, hook combinations and
@@ -111,6 +155,7 @@ private slots:
     void cleanup() {
         manager_->unregister_all_hotkeys();
         manager_->set_global_hotkeys_suppressed(false);
+        manager_->set_game_mode_suppressed(false);
         // Nothing may stay held after an injected combination.
         for (WORD key : {VK_CONTROL, VK_MENU, VK_SHIFT}) send_key(key, false);
     }
@@ -415,6 +460,194 @@ private slots:
         QCOMPARE(ShortcutManager::parse_hotkey("ctrl+comma").second, VK_OEM_COMMA);
         QVERIFY(mouse_gesture_binding_matches("ctrl+dragleft", &undo, "dragleft"));
         QVERIFY(!mouse_gesture_binding_matches("", &undo, "dragleft"));
+    }
+
+    // Paused by the user or a game, every registration and hook binding is released, so the keys
+    // reach other programs and no low-level hook stays in the input path; resuming restores them.
+    void pausingReleasesRegistrationsAndHooks() {
+        int fired = 0;
+        QVERIFY(manager_->register_hotkey("ctrl+alt+shift+f21", [&fired] { ++fired; }));
+        QVERIFY(manager_->register_hotkey("win+f13", [] {}));
+        QVERIFY(manager_->register_hotkey(MOUSE_BUTTON_BACK, [] {}));
+        QTRY_VERIFY(input_hub()->native->hooks_installed());
+        QVERIFY(!system_can_register(HYPER, VK_F21));
+        QVERIFY(!system_can_register(MOD_WIN, VK_F13));
+        QSignalSpy paused(manager_, &ShortcutManager::global_hotkeys_paused_changed);
+        manager_->set_game_mode_suppressed(true);
+        QCOMPARE(paused.size(), 1);
+        QCOMPARE(paused.last().first().toBool(), true);
+        QVERIFY(manager_->global_hotkeys_suppressed());
+        // The backstop registration of the hook-route key goes too.
+        QVERIFY(system_can_register(HYPER, VK_F21));
+        QVERIFY(system_can_register(MOD_WIN, VK_F13));
+        QTRY_VERIFY(!input_hub()->native->hooks_installed());
+        QVERIFY(manager_->has_registered_hotkeys());
+        press_combo({VK_CONTROL, VK_MENU, VK_SHIFT, VK_F21});
+        QTest::qWait(100);
+        QCOMPARE(fired, 0);
+        // Either reason keeps it paused.
+        manager_->set_global_hotkeys_suppressed(true);
+        manager_->set_game_mode_suppressed(false);
+        QCOMPARE(paused.size(), 1);
+        QVERIFY(system_can_register(HYPER, VK_F21));
+        // Registered while paused: only recorded.
+        QVERIFY(manager_->register_hotkey("ctrl+alt+shift+f20", [] {}));
+        QVERIFY(system_can_register(HYPER, VK_F20));
+        manager_->set_global_hotkeys_suppressed(false);
+        QCOMPARE(paused.size(), 2);
+        QCOMPARE(paused.last().first().toBool(), false);
+        QVERIFY(!system_can_register(HYPER, VK_F21));
+        QVERIFY(!system_can_register(HYPER, VK_F20));
+        QVERIFY(!system_can_register(MOD_WIN, VK_F13));
+        QTRY_VERIFY(input_hub()->native->hooks_installed());
+        press_combo({VK_CONTROL, VK_MENU, VK_SHIFT, VK_F21});
+        QTRY_COMPARE(fired, 1);
+    }
+
+    // Paused, a recording hotkey editor still gets side buttons, without their callbacks.
+    void aRecordingEditorGetsSideButtonsWhilePaused() {
+        int back = 0;
+        QVERIFY(manager_->register_hotkey(MOUSE_BUTTON_BACK, [&back] { ++back; }));
+        RecordingHandler recorder(200, "recorder");
+        recorder.consume_hotkeys = true;
+        manager_->register_handler(&recorder);
+        manager_->set_global_hotkeys_suppressed(true);
+        emit input_hub()->side_button("x1");
+        QTest::qWait(50);
+        QVERIFY(recorder.mouse_tokens.isEmpty());
+        manager_->begin_mouse_capture();
+        QTRY_VERIFY(input_hub()->native->hooks_installed());
+        emit input_hub()->side_button("x1");
+        QTRY_COMPARE(recorder.mouse_tokens, QStringList{MOUSE_BUTTON_BACK});
+        QCOMPARE(recorder.mouse_callbacks_bound, QList<bool>{false});
+        manager_->end_mouse_capture();
+        QTRY_VERIFY(!input_hub()->native->hooks_installed());
+        QCOMPARE(back, 0);
+        manager_->unregister_handler(&recorder);
+    }
+
+    // A key another program holds goes to the hook, which sees it first: this program fires and the
+    // other does not. Once the key is free, the next resume moves it back to the system.
+    void anOccupiedHotkeyFallsBackToTheHook() {
+        int fired = 0;
+        {
+            OtherProgram other(HYPER, VK_F19);
+            QVERIFY(other.registered());
+            // The other program does receive the key while nothing takes it first.
+            press_combo({VK_CONTROL, VK_MENU, VK_SHIFT, VK_F19});
+            QTRY_COMPARE(other.hits.load(), 1);
+            QVERIFY(manager_->register_hotkey("ctrl+alt+shift+f19", [&fired] { ++fired; }));
+            QTRY_VERIFY(input_hub()->native->hooks_installed());
+            press_combo({VK_CONTROL, VK_MENU, VK_SHIFT, VK_F19});
+            QTRY_COMPARE(fired, 1);
+            QTest::qWait(100);
+            QCOMPARE(other.hits.load(), 1);
+            // Repeats are refused here, since the system no longer refuses them.
+            QVERIFY(!manager_->register_hotkey("ctrl+alt+shift+f19", [] {}));
+        }
+        QVERIFY(system_can_register(HYPER, VK_F19));
+        manager_->set_game_mode_suppressed(true);
+        manager_->set_game_mode_suppressed(false);
+        QVERIFY(!system_can_register(HYPER, VK_F19));
+        QTRY_VERIFY(!input_hub()->native->hooks_installed());
+        press_combo({VK_CONTROL, VK_MENU, VK_SHIFT, VK_F19});
+        QTRY_COMPARE(fired, 2);
+        // The hook binds only combinations with a modifier, so a held key bound alone is refused.
+        OtherProgram bare(0, VK_F18);
+        QVERIFY(bare.registered());
+        QVERIFY(!manager_->register_hotkey("f18", [] {}));
+    }
+
+    // The game monitor checks at once on start, reports only changes, and on stop reports a game it saw as gone.
+    void theGameMonitorReportsOnlyChanges() {
+        GameModeMonitor monitor;
+        bool game = true;
+        monitor.set_probe([&game] { return game; });
+        QSignalSpy changed(&monitor, &GameModeMonitor::changed);
+        monitor.start();
+        QVERIFY(monitor.running());
+        QCOMPARE(changed.size(), 1);
+        QCOMPARE(changed.last().first().toBool(), true);
+        monitor.check();
+        QCOMPARE(changed.size(), 1);
+        game = false;
+        monitor.check();
+        QCOMPARE(changed.size(), 2);
+        QCOMPARE(changed.last().first().toBool(), false);
+        monitor.stop();
+        QVERIFY(!monitor.running());
+        QCOMPARE(changed.size(), 2);
+        game = true;
+        monitor.start();
+        monitor.stop();
+        QCOMPARE(changed.size(), 4);
+        QCOMPARE(changed.last().first().toBool(), false);
+        QVERIFY(!monitor.active());
+    }
+
+    // A foreground switch is checked at once and again a little later, since a game goes full screen
+    // after its window appears; after stop, switches are ignored.
+    void theGameMonitorFollowsForegroundSwitches() {
+        GameModeMonitor monitor;
+        bool game = false;
+        int checks = 0;
+        monitor.set_probe([&] {
+            ++checks;
+            return game;
+        });
+        monitor.start();
+        QCOMPARE(checks, 1);
+        game = true;
+        emit input_hub()->foreground(0);
+        QTRY_VERIFY(monitor.active());
+        // Full screen only after the switch: the follow-up sees it.
+        game = false;
+        emit input_hub()->foreground(0);
+        QTRY_VERIFY(!monitor.active());
+        game = true;
+        QTRY_VERIFY_WITH_TIMEOUT(monitor.active(), GameModeMonitor::FOLLOW_UP_MS * 2);
+        monitor.stop();
+        QVERIFY(!monitor.active());
+        const int stopped_at = checks;
+        emit input_hub()->foreground(0);
+        QTest::qWait(GameModeMonitor::FOLLOW_UP_MS + 500);
+        QCOMPARE(checks, stopped_at);
+    }
+
+    // A key held by another app shows as taken over when the hook can bind it, and as in use when it is bound alone.
+    void theEditorTellsWhichHeldKeysAreTakenOver() {
+        const auto tip = [](const char *text) { return i18n_tr(text, "HotkeyEdit"); };
+        OtherProgram combination(HYPER, VK_F17), alone(0, VK_F16);
+        QVERIFY(combination.registered() && alone.registered());
+        HotkeyEdit edit;
+        edit.setText("ctrl+alt+shift+f17");
+        QCOMPARE(edit.status_state(), QString("ok"));
+        QVERIFY(edit.taken_over());
+        QCOMPARE(edit.edit->toolTip(), tip("Another app uses this shortcut too. This app takes it over while running; clear it to give it back."));
+        QVERIFY(edit.validate_now());
+        edit.setText("f16");
+        QCOMPARE(edit.status_state(), QString("error"));
+        QVERIFY(!edit.taken_over());
+        QCOMPARE(edit.status_icon->toolTip(), tip("Already in use by another app."));
+        QVERIFY(!edit.validate_now());
+    }
+
+    // A side button has nothing for the system to hold: it is available at once and again after the
+    // 200 ms check that follows typing, which must not try to read it as a keyboard key.
+    void aSideButtonHotkeyIsAvailableAndTheDelayedCheckIsQuiet() {
+        for (const QString &token : {MOUSE_BUTTON_FORWARD, MOUSE_BUTTON_BACK}) {
+            HotkeyEdit edit;
+            edit.setText(token);
+            QCOMPARE(edit.status_state(), QString("ok"));
+            QVERIFY(!edit.taken_over());
+            QVERIFY(edit.validate_now());
+            // As the recording editor sets it: through the line edit, so the delayed check runs.
+            edit.edit->setText("");
+            edit.edit->setText(token);
+            QTest::qWait(450);
+            QCOMPARE(edit.status_state(), QString("ok"));
+            QVERIFY(!edit.taken_over());
+        }
     }
 };
 

@@ -6,7 +6,9 @@
 #include <QApplication>
 #include <QScreen>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
+#include <QFileInfo>
 #include <QProcess>
 #include <QTemporaryDir>
 #include <QTest>
@@ -109,6 +111,24 @@ private slots:
         // Awareness is already set by Qt; a second request only logs.
         set_dpi_awareness();
         set_app_user_model_id("jietuba.platform.test");
+    }
+
+    // Windows' recognized games are full exe paths; the game check answers on any desktop, quickly
+    // enough for the UI thread.
+    void recognizedGamesAreExecutables() {
+        QElapsedTimer clock;
+        clock.start();
+        recognized_game_executables();
+        const qint64 cold = clock.nsecsElapsed() / 1000;
+        clock.restart();
+        const auto games = recognized_game_executables();
+        qInfo("%lld recognized games read in %lld us (first read %lld us)", static_cast<long long>(games.size()),
+              static_cast<long long>(clock.nsecsElapsed() / 1000), static_cast<long long>(cold));
+        for (const auto &path : games)
+            QVERIFY2(QFileInfo(path).isAbsolute() && path.endsWith(".exe", Qt::CaseInsensitive), qPrintable(path));
+        clock.restart();
+        const bool game = is_game_in_foreground();
+        qInfo("game check: %s in %lld us", game ? "game" : "no game", static_cast<long long>(clock.nsecsElapsed() / 1000));
     }
 
     // A due trim waits while the program is busy, then runs.

@@ -20,10 +20,13 @@ class InputHub;
 // Unified shortcut handling, merging four mechanisms:
 //   1. System-wide hotkeys (RegisterHotKey / WM_HOTKEY)
 //   2. Mouse side-button hotkeys (the input hub's native hooks)
-//   3. Win combinations and PrtSc (taken over by the input hub, system registration as a backstop)
+//   3. Win combinations and PrtSc (taken over by the input hub, system registration as a backstop),
+//      and system hotkeys another program holds
 //   4. In-app Qt key press dispatch
 // global_hotkey::route decides the path of a global hotkey. All four share one
 // priority-ordered handler chain, resolving conflicts between modules.
+// Global input pauses at the user's request or while a game holds the foreground. Paused, every
+// registration and hook binding is released, so the keys reach the foreground program untouched.
 // Priorities (higher first): 200 hotkey editor, 100 capture, 80 GIF drawing,
 // 60 clipboard window, 50 pin editing, 40 pin hover.
 
@@ -116,12 +119,18 @@ public:
     static ShortcutManager *instance();
     void register_handler(ShortcutHandler *handler);
     void unregister_handler(ShortcutHandler *handler);
-    // Callbacks swallowed temporarily while the Windows registrations stay.
-    bool global_hotkeys_suppressed() const { return global_hotkeys_suppressed_; }
-    // Taken-over system combinations go back to the system while suppressed.
+    // Paused by the user or by a game in the foreground.
+    bool global_hotkeys_suppressed() const { return user_paused_ || game_paused_; }
+    // The user's switch.
     void set_global_hotkeys_suppressed(bool suppressed);
+    // Set while a game holds the foreground, independent of the user's switch.
+    void set_game_mode_suppressed(bool suppressed);
+    bool game_mode_suppressed() const { return game_paused_; }
+    // Registrations are kept while paused, so this stays true.
     bool has_registered_hotkeys() const;
     // A global hotkey; global_hotkey::route decides system registration, the hook or side buttons.
+    // A key another program holds goes to the hook. False for an invalid or repeated value, or
+    // when neither the system nor the hook takes it; paused, it is only recorded and returns true.
     bool register_hotkey(const QString &hotkey_str, std::function<void()> callback);
     // Hotkey editor focused: takes all side buttons so unbound ones can be recorded.
     void begin_mouse_capture();
@@ -139,11 +148,14 @@ public:
     static std::pair<int, int> parse_hotkey(const QString &hotkey);
     // (Windows modifier bits, virtual key) of a registered hotkey id.
     std::optional<std::pair<int, int>> hotkey_metadata(int hotkey_id) const {
-        const auto it = id_to_metadata_.find(hotkey_id);
-        return it == id_to_metadata_.end() ? std::nullopt : std::optional<std::pair<int, int>>(*it);
+        const auto it = registrations_.find(hotkey_id);
+        if (it == registrations_.end()) return std::nullopt;
+        return std::make_pair(it->mods, it->vk);
     }
     // The WM_HOTKEY entry point; returns whether the message was handled.
     bool on_wm_hotkey(int hotkey_id);
+signals:
+    void global_hotkeys_paused_changed(bool paused);
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 private:
@@ -159,35 +171,43 @@ private:
     void on_mouse_button_triggered(const QString &token);
     // Same-process dedupe, matching RegisterHotKey refusing duplicates.
     bool register_mouse_hotkey(const QString &token, std::function<void()> callback);
-    bool register_system_hotkey(int hid, int mods, int vk, const std::function<void()> &callback);
+    void set_paused(bool user, bool game);
+    // Registers or releases each recorded hotkey with the system to match the pause, then the
+    // hook bindings; idempotent.
+    void apply_registrations();
     // The only place side-button reporting and swallowing change; idempotent. The hook
     // both swallows bound buttons from other programs and, while an editor has focus,
     // takes all of them; with neither it must stop, or unbound buttons stay taken.
     void sync_side_buttons();
-    // Binds and unbinds per registrations and suppression; idempotent. Swallowing a
-    // system combination without responding disables it, so suppression unbinds.
+    // Binds hook-route keys and keys the system refused, unbinds the rest; idempotent. Swallowing
+    // a combination without responding disables it, so pausing unbinds everything.
     void sync_hook_hotkeys();
     void on_hook_hotkey(const QString &name);
     void sync_key_capture();
     void on_captured_key(const QStringList &modifiers, int vk);
 
     std::vector<ShortcutHandler *> handlers_;
-    QHash<int, std::function<void()>> id_to_callback_;
-    QHash<int, std::pair<int, int>> id_to_metadata_;
+    // A keyboard hotkey as requested, kept whether or not the system or the hook holds it now,
+    // so a pause or a key another program held can be applied again later.
+    struct Registration {
+        int mods;
+        int vk;
+        global_hotkey::Route route;
+        std::function<void()> callback;
+        // Held through RegisterHotKey right now.
+        bool registered = false;
+        // A register-route key the hook took over, so the takeover is logged once.
+        bool hooked = false;
+    };
+    // By hotkey id, which also names the hook binding and the backstop registration.
+    QMap<int, Registration> registrations_;
     int next_hotkey_id_ = 1;
-    bool global_hotkeys_suppressed_ = false;
+    bool user_paused_ = false;
+    bool game_paused_ = false;
     QHash<QString, std::function<void()>> mouse_callbacks_;
     QStringList mouse_callback_order_;
     int mouse_capture_refs_ = 0;
     InputHub *side_button_hub_ = nullptr;
-    // Bound by name; the hotkey id is shared with the backstop registration.
-    struct HookHotkey {
-        int hid;
-        int mods;
-        int vk;
-        std::function<void()> callback;
-    };
-    QMap<QString, HookHotkey> hook_hotkeys_;
     QSet<QString> bound_hook_hotkeys_;
     InputHub *hook_hotkey_hub_ = nullptr;
     int key_capture_refs_ = 0;  // focused hotkey editors
@@ -207,6 +227,7 @@ public:
     bool check_hotkey_availability(const QString &hotkey_str) { return mgr_->check_hotkey_availability(hotkey_str); }
     void unregister_all() { mgr_->unregister_all_hotkeys(); }
     void set_suppressed(bool suppressed) { mgr_->set_global_hotkeys_suppressed(suppressed); }
+    void set_game_mode_suppressed(bool suppressed) { mgr_->set_game_mode_suppressed(suppressed); }
     bool has_registered_hotkeys() const { return mgr_->has_registered_hotkeys(); }
 private:
     ShortcutManager *mgr_;

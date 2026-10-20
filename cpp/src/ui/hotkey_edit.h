@@ -76,7 +76,7 @@ public:
     QString validation_error() const { return validation_error_; }
     // Synchronous final check before the settings window saves.
     bool validate_now();
-    // Whether the value is taken over from Windows (the system uses this key too).
+    // Whether the value is taken over from Windows or another app that uses this key too.
     bool taken_over() const { return system_available_.value_or(false) && taken_over_; }
     HotkeyLineEdit *edit;
     StatusIcon *status_icon;

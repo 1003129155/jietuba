@@ -7,6 +7,7 @@
 #include "gif/record_window.h"
 #include "pin/pin_manager.h"
 #include "core/elevation.h"
+#include "core/game_mode_monitor.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/welcome/wizard.h"
 #include "capture/capture_service.h"
@@ -139,6 +140,11 @@ MainApp::MainApp(int &argc, char **argv) : app(std::make_unique<QApplication>(ar
     hotkey_system->set_suppressed(config_manager->get_app_setting("global_hotkeys_disabled", false).toBool());
 
     quick_capture = new QuickCaptureController(this);
+    connect(ShortcutManager::instance(), &ShortcutManager::global_hotkeys_paused_changed, quick_capture, &QuickCaptureController::refresh);
+    // Started before the hotkeys register, so a game already running keeps them from registering at all.
+    game_mode_monitor = new GameModeMonitor(this);
+    connect(game_mode_monitor, &GameModeMonitor::changed, this, &MainApp::on_game_mode_changed);
+    if (config_manager->get_app_setting("pause_hotkeys_in_games", false).toBool()) game_mode_monitor->start();
     update_controller = new UpdateController(this, this);
     app->setProperty("_update_controller", QVariant::fromValue<QObject *>(update_controller));
     connect(app.get(), &QCoreApplication::aboutToQuit, update_controller, &UpdateController::cancel);
@@ -281,13 +287,24 @@ void MainApp::update_hotkey(bool show_error) {
 void MainApp::set_global_hotkeys_disabled(bool disabled) {
     config_manager->set_app_setting("global_hotkeys_disabled", disabled);
     hotkey_system->set_suppressed(disabled);
-    quick_capture->refresh();
     if (disabled) {
-        log_info(T("全局热键已临时禁用（保留注册，仅忽略回调）"), "Hotkey");
+        log_info(T("全局热键已临时禁用（已释放注册）"), "Hotkey");
     } else {
         log_info(T("全局热键已启用"), "Hotkey");
         if (!hotkey_system->has_registered_hotkeys()) update_hotkey(true);
     }
+}
+
+void MainApp::set_pause_hotkeys_in_games(bool enabled) {
+    config_manager->set_app_setting("pause_hotkeys_in_games", enabled);
+    log_info(enabled ? T("已开启玩游戏时暂停热键") : T("已关闭玩游戏时暂停热键"), "Hotkey");
+    if (enabled) game_mode_monitor->start();
+    else game_mode_monitor->stop();
+}
+
+void MainApp::on_game_mode_changed(bool active) {
+    log_info(active ? T("游戏在前台，暂停全局热键") : T("游戏已不在前台，恢复全局热键"), "Hotkey");
+    hotkey_system->set_game_mode_suppressed(active);
 }
 
 void MainApp::show_hotkey_error(const std::vector<std::pair<QString, QString>> &failed_hotkeys) {

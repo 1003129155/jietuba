@@ -26,7 +26,7 @@ enum class Route {
     Invalid,   // unparseable, or a typing key without modifiers
     Reserved,  // handled by the system before any hook
     Mouse,     // side button, through the hook
-    Register,  // system registration only; taken by another app means a conflict
+    Register,  // system registration; the hook takes it over while another app holds it
     Hook,      // the hook takes it over, with the system registration as a backstop
 };
 // The reference's names: "unset", "invalid", "reserved", "mouse", "register", "hook".
@@ -44,5 +44,8 @@ QStringList modifier_names(int mods);
 Route route(const QString &text);
 // route() after parsing.
 Route route_of(int mods, int vk);
+// Whether the input hub can take the key over: it binds only combinations with a modifier, and
+// PrtSc, so a key bound alone that another app holds stays unavailable.
+bool hook_can_bind(int mods, int vk);
 }
 }

@@ -1994,6 +1994,10 @@ Replace it?</source>
         <translation>禁用全局热键</translation>
     </message>
     <message>
+        <source>Pause Hotkeys While Gaming</source>
+        <translation>玩游戏时暂停热键</translation>
+    </message>
+    <message>
         <source>Settings</source>
         <translation>设置</translation>
     </message>
@@ -5265,6 +5269,10 @@ Items in the group will be moved back to clipboard history.</source>
     <message>
         <source>Windows uses this shortcut too. This app takes it over while running; clear it to give it back.</source>
         <translation>Windows 也在用这个快捷键。本软件运行期间由它接管，清空即交还给 Windows。</translation>
+    </message>
+    <message>
+        <source>Another app uses this shortcut too. This app takes it over while running; clear it to give it back.</source>
+        <translation>其他程序也在用这个快捷键。本软件运行期间由它接管，清空即交还给对方。</translation>
     </message>
     <message>
         <source>Reserved by Windows. No app can use it.</source>
