@@ -45,8 +45,8 @@
         <translation>Shortcuts</translation>
     </message>
     <message>
-        <source>Capture Settings</source>
-        <translation>Capture Settings</translation>
+        <source>Screenshot</source>
+        <translation>Screenshot</translation>
     </message>
     <message>
         <source>Clipboard</source>
@@ -481,8 +481,8 @@ Replace it?</translation>
     
     <!-- Smart Selection Page -->
     <message>
-        <source>Detection Mode</source>
-        <translation>Detection Mode</translation>
+        <source>Detection Precision</source>
+        <translation>Detection Precision</translation>
     </message>
     <message>
         <source>Snap the selection to the window or control under the cursor. Control detection reads the accessibility tree and takes longer on large windows.</source>
@@ -865,40 +865,6 @@ Replace it?</translation>
         <translation>Settings imported.</translation>
     </message>
     
-    <!-- Info Page -->
-    <message>
-        <source>Jietuba - Screenshot Tool</source>
-        <translation>Jietuba - Screenshot Tool</translation>
-    </message>
-    <message>
-        <source>Version: 1.0.0</source>
-        <translation>Version: 1.0.0</translation>
-    </message>
-    <message>
-        <source>High-performance screenshot tool developed based on PyQt6 framework.</source>
-        <translation>High-performance screenshot tool developed based on PyQt6 framework.</translation>
-    </message>
-    <message>
-        <source>Rich editing features, OCR text recognition, long screenshot, pin window,</source>
-        <translation>Rich editing features, OCR text recognition, long screenshot, pin window,</translation>
-    </message>
-    <message>
-        <source>and many other features.</source>
-        <translation>and many other features.</translation>
-    </message>
-    <message>
-        <source>📖 View Details</source>
-        <translation>📖 View Details</translation>
-    </message>
-    <message>
-        <source>👨‍💻 Developer: rijyaaru</source>
-        <translation>👨‍💻 Developer: rijyaaru</translation>
-    </message>
-    <message>
-    <source>🛠️ Tech: Python、Rust、PyQt6、Oneocr、DeepLAPI</source>
-    <translation>🛠️ Tech: Python、Rust、PyQt6、Oneocr、DeepLAPI</translation>
-    </message>
-
     <!-- Translation Settings Page -->
     <message>
         <source>Translation Engine</source>
@@ -1981,6 +1947,10 @@ Replace it?</translation>
         <translation>Screenshot</translation>
     </message>
     <message>
+        <source>Delayed Screenshot</source>
+        <translation>Delayed Screenshot</translation>
+    </message>
+    <message>
         <source>Clipboard</source>
         <translation>Clipboard</translation>
     </message>
@@ -1997,8 +1967,8 @@ Replace it?</translation>
         <translation>Pause Hotkeys While Gaming</translation>
     </message>
     <message>
-        <source>Monitor Clipboard</source>
-        <translation>Monitor Clipboard</translation>
+        <source>Record Clipboard</source>
+        <translation>Record Clipboard</translation>
     </message>
     <message>
         <source>Settings</source>
@@ -2264,20 +2234,8 @@ Replace it?</translation>
 <!-- ========== Translation Settings ========== -->
 <context>
     <name>SettingsDialog</name>
-    <message>
-        <source>Translation</source>
-        <translation>Translation</translation>
-    </message>
     <message><source>Translation Hotkey</source><translation>Translation Hotkey</translation></message>
     <message><source>Pin Clipboard Image</source><translation>Create Pin Image</translation></message>
-    <message>
-        <source>Translation Settings</source>
-        <translation>Translation Settings</translation>
-    </message>
-    <message>
-        <source>DeepL API Key</source>
-        <translation>DeepL API Key</translation>
-    </message>
     <message>
         <source>Get your API key from DeepL website (free tier available)</source>
         <translation>Get your API key from DeepL website (free tier available)</translation>
@@ -2291,24 +2249,8 @@ Replace it?</translation>
         <translation>Hide Key</translation>
     </message>
     <message>
-        <source>Use DeepL Pro API</source>
-        <translation>Use DeepL Pro API</translation>
-    </message>
-    <message>
-        <source>Enable if you have a paid DeepL subscription</source>
-        <translation>Enable if you have a paid DeepL subscription</translation>
-    </message>
-    <message>
-        <source>Target Language</source>
-        <translation>Target Language</translation>
-    </message>
-    <message>
         <source>Leave empty to follow system language</source>
         <translation>Leave empty to follow system language</translation>
-    </message>
-    <message>
-        <source>Auto (System)</source>
-        <translation>Auto (System)</translation>
     </message>
     <message>
         <source>Advanced Options</source>
@@ -2321,10 +2263,6 @@ Replace it?</translation>
     <message>
         <source>Automatically split text into sentences for better translation</source>
         <translation>Automatically split text into sentences for better translation</translation>
-    </message>
-    <message>
-        <source>Preserve Formatting</source>
-        <translation>Preserve Formatting</translation>
     </message>
     <message>
         <source>Keep original text formatting in translation</source>
@@ -2930,10 +2868,6 @@ This action cannot be undone.</translation>
         <translation>Add Content</translation>
     </message>
     <message>
-        <source>New Group</source>
-        <translation>New Group</translation>
-    </message>
-    <message>
         <source>Delete</source>
         <translation>Delete</translation>
     </message>
@@ -3036,10 +2970,6 @@ This action cannot be undone.</translation>
     <message>
         <source>(No content in group)</source>
         <translation>(No content in group)</translation>
-    </message>
-    <message>
-        <source>Add Content</source>
-        <translation>Add Content</translation>
     </message>
     <message>
         <source>Add</source>
@@ -4303,8 +4233,8 @@ You can tweak more options in Settings anytime.</translation>
     </message>
     <!-- illus strings -->
     <message>
-        <source>截图 · 标注 · 剪贴板 · 翻译，一站搞定</source>
-        <translation>Screenshot · Annotate · Clipboard · Translate</translation>
+        <source>截图、文字识别、钉图、录屏、屏幕标注、剪贴板和翻译，一站搞定</source>
+        <translation>Screenshot · OCR · Pin · Record · Screen Annotation · Clipboard · Translate</translation>
     </message>
     <message>
         <source>会议纪要.docx</source>
@@ -4323,8 +4253,8 @@ You can tweak more options in Settings anytime.</translation>
         <translation>Shortcuts</translation>
     </message>
     <message>
-        <source>三个全局功能各可设置一个主快捷键和一个备用快捷键。</source>
-        <translation>Each of the three global features can have a primary and a backup shortcut.</translation>
+        <source>截图、剪贴板和翻译各可设置一个主快捷键和一个备用快捷键。</source>
+        <translation>Screenshot, clipboard and translation can each have a primary and a backup shortcut.</translation>
     </message>
     <message>
         <source>主快捷键</source>
@@ -4401,6 +4331,98 @@ You can tweak more options in Settings anytime.</translation>
     <message>
         <source>当前按下</source>
         <translation>Currently pressed</translation>
+    </message>
+    <message>
+        <source>工具_马赛克</source>
+        <translation>Mosaic</translation>
+    </message>
+    <message>
+        <source>工具_聚光灯</source>
+        <translation>Spotlight</translation>
+    </message>
+    <message>
+        <source>工具_水印</source>
+        <translation>Watermark</translation>
+    </message>
+    <message>
+        <source>工具_文字识别</source>
+        <translation>Text Recognition</translation>
+    </message>
+    <message>
+        <source>工具_扫码</source>
+        <translation>Scan Code</translation>
+    </message>
+    <message>
+        <source>工具描述_马赛克</source>
+        <translation>Brush over private details; scroll to resize</translation>
+    </message>
+    <message>
+        <source>工具描述_聚光灯</source>
+        <translation>Dim outside the box to bring out the key part</translation>
+    </message>
+    <message>
+        <source>工具描述_水印</source>
+        <translation>Add a text or timestamp watermark</translation>
+    </message>
+    <message>
+        <source>工具描述_文字识别</source>
+        <translation>Recognize text in the selection, copy in one click</translation>
+    </message>
+    <message>
+        <source>工具描述_扫码</source>
+        <translation>Read QR codes and barcodes; open links directly</translation>
+    </message>
+    <message>
+        <source>工具栏上找不到的工具，到「…」里找找。</source>
+        <translation>Can’t find a tool on the toolbar? Look in its “…” menu.</translation>
+    </message>
+    <message>
+        <source>玩游戏时暂停热键</source>
+        <translation>Pause Hotkeys While Gaming</translation>
+    </message>
+    <message>
+        <source>游戏在前台时暂停全局快捷键和鼠标快捷键，离开游戏后恢复。托盘菜单里也能切换。</source>
+        <translation>Global and mouse shortcuts pause while a game is in front and resume when you leave it. Also in the tray menu.</translation>
+    </message>
+    <message>
+        <source>鼠标快捷键</source>
+        <translation>Mouse Shortcuts</translation>
+    </message>
+    <message>
+        <source>按住修饰键拖动鼠标框选，松开就直接完成动作，不用先按截图快捷键。</source>
+        <translation>Hold modifier keys and drag a box; let go and the action is done, no screenshot hotkey needed.</translation>
+    </message>
+    <message>
+        <source>按住修饰键拖出一个框，松开即可钉图、复制、识别文字或翻译。</source>
+        <translation>Hold modifier keys and drag a box; let go to pin, copy, recognize text or translate.</translation>
+    </message>
+    <message>
+        <source>截图、钉图和剪贴板窗口里的鼠标操作，可以在设置的「鼠标快捷键」页调整。</source>
+        <translation>Mouse actions inside the screenshot, pin and clipboard windows are on the Mouse Shortcuts page in Settings.</translation>
+    </message>
+    <message>
+        <source>%1 用了同一个手势，重复的不会保存。</source>
+        <translation>%1 use the same gesture; the duplicates won’t be saved.</translation>
+    </message>
+    <message>
+        <source>讲解、演示或共享屏幕时，直接在画面上圈重点。</source>
+        <translation>Circle the key points right on screen while explaining, presenting or sharing your screen.</translation>
+    </message>
+    <message>
+        <source>不用截图，直接在任何窗口上画画、写字，结束后画面恢复原样。</source>
+        <translation>Draw and write over any window without a screenshot; the screen returns to normal afterwards.</translation>
+    </message>
+    <message>
+        <source>也可以从托盘菜单打开；再按一次快捷键结束标注。</source>
+        <translation>Can also be started from the tray menu. Press the hotkey again to finish.</translation>
+    </message>
+    <message>
+        <source>筛选分组</source>
+        <translation>Filter Groups</translation>
+    </message>
+    <message>
+        <source>活动海报.png</source>
+        <translation>Event Poster.png</translation>
     </message>
 </context>
 
@@ -4552,10 +4574,6 @@ You can tweak more options in Settings anytime.</translation>
 <!-- ========== Appearance Settings ========== -->
 <context>
     <name>SettingsDialog</name>
-    <message><source>Appearance</source><translation>Appearance</translation></message>
-    <message><source>Appearance Settings</source><translation>Appearance Settings</translation></message>
-    <message><source>Screenshot</source><translation>Screenshot</translation></message>
-    <message><source>Clipboard</source><translation>Clipboard</translation></message>
     <message><source>Theme Color</source><translation>Theme Color</translation></message>
     <message><source>Affects selection border, toolbar border, magnifier crosshair, etc. Restart recommended after change.</source><translation>Affects selection border, toolbar border, magnifier crosshair, etc. Restart recommended after change.</translation></message>
     <message><source>Select Theme Color</source><translation>Select Theme Color</translation></message>
@@ -4645,18 +4663,11 @@ SOFTWARE.</translation></message>
     <!-- Log page -->
     <message><source>Storage</source><translation>Storage</translation></message>
     <!-- Translation page -->
-    <message><source>DeepL API</source><translation>DeepL API</translation></message>
-    <message><source>Translation Options</source><translation>Translation Options</translation></message>
-    <message><source>Ignore Line Breaks</source><translation>Ignore Line Breaks</translation></message>
-    <message><source>Merge multi-line text for better translation</source><translation>Merge multi-line text for better translation</translation></message>
     <!-- Missing from EN only -->
     <message><source>Clipboard Hotkey</source><translation>Clipboard</translation></message>
-    <message><source>Show</source><translation>Show</translation></message>
-    <message><source>Hide</source><translation>Hide</translation></message>
     <!-- Changed strings (new code versions) -->
     <message><source>Save Format</source><translation>Save Format</translation></message>
     <message><source>OCR</source><translation>OCR</translation></message>
-    <message><source>Keep original text formatting</source><translation>Keep original text formatting</translation></message>
 </context>
 
 <context>
@@ -5407,8 +5418,8 @@ Make sure gifrecorder is installed correctly.</translation>
         <translation>Pick color from screen</translation>
     </message>
     <message>
-        <source>Click to pick; right-click or Esc to cancel</source>
-        <translation>Click to pick; right-click or Esc to cancel</translation>
+        <source>Click to pick; Esc to cancel</source>
+        <translation>Click to pick; Esc to cancel</translation>
     </message>
     <message>
         <source>Select Color</source>
@@ -6354,12 +6365,12 @@ Make sure gifrecorder is installed correctly.</translation>
         <translation>Save Image</translation>
     </message>
     <message>
-        <source>Original</source>
+        <source>Original Image</source>
         <translation>Original</translation>
     </message>
     <message>
-        <source>Encoded</source>
-        <translation>Encoded</translation>
+        <source>Adjusted</source>
+        <translation>Adjusted</translation>
     </message>
     <message>
         <source>Compare</source>
@@ -6470,8 +6481,8 @@ Make sure gifrecorder is installed correctly.</translation>
         <translation>Use Classic Dialog</translation>
     </message>
     <message>
-        <source>Use the system Save As dialog for this and every later image save? You can change this back in Settings &gt; Capture Settings &gt; Save Dialog.</source>
-        <translation>Use the system Save As dialog for this and every later image save? You can change this back in Settings &gt; Capture Settings &gt; Save Dialog.</translation>
+        <source>Use the system Save As dialog for this and every later image save? You can change this back in Settings &gt; Screenshot &gt; Save Dialog.</source>
+        <translation>Use the system Save As dialog for this and every later image save? You can change this back in Settings &gt; Screenshot &gt; Save Dialog.</translation>
     </message>
     <message>
         <source>Use classic dialog</source>

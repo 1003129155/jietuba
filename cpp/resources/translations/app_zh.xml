@@ -45,8 +45,8 @@
         <translation>快捷键</translation>
     </message>
     <message>
-        <source>Capture Settings</source>
-        <translation>截图设定</translation>
+        <source>Screenshot</source>
+        <translation>截图</translation>
     </message>
     <message>
         <source>Clipboard</source>
@@ -485,8 +485,8 @@ Replace it?</source>
     
     <!-- Smart Selection Page -->
     <message>
-        <source>Detection Mode</source>
-        <translation>检测方式</translation>
+        <source>Detection Precision</source>
+        <translation>检测精度</translation>
     </message>
     <message>
         <source>Snap the selection to the window or control under the cursor. Control detection reads the accessibility tree and takes longer on large windows.</source>
@@ -869,40 +869,6 @@ Replace it?</source>
         <translation>设置已导入。</translation>
     </message>
     
-    <!-- Info Page -->
-    <message>
-        <source>Jietuba - Screenshot Tool</source>
-        <translation>截图吧 - 截图工具</translation>
-    </message>
-    <message>
-        <source>Version: 1.0.0</source>
-        <translation>Version: 1.0.0</translation>
-    </message>
-    <message>
-        <source>High-performance screenshot tool developed based on PyQt6 framework.</source>
-        <translation>基于PyQt6框架开发的高性能截图工具。</translation>
-    </message>
-    <message>
-        <source>Rich editing features, OCR text recognition, long screenshot, pin window,</source>
-        <translation>丰富的编辑功能、OCR文字识别、长截图、钉图窗口，</translation>
-    </message>
-    <message>
-        <source>and many other features.</source>
-        <translation>以及更多功能。</translation>
-    </message>
-    <message>
-        <source>📖 View Details</source>
-        <translation>📖 查看详情</translation>
-    </message>
-    <message>
-        <source>👨‍💻 Developer: rijyaaru</source>
-        <translation>👨‍💻 开发者: jyaaru</translation>
-    </message>
-    <message>
-    <source>🛠️ Tech: Python、Rust、PyQt6、Oneocr、DeepLAPI</source>
-    <translation>🛠️ 技术: Python、Rust、PyQt6、Oneocr、DeepLAPI</translation>
-    </message>
-
     <!-- Translation Settings Page -->
     <message>
         <source>Translation Engine</source>
@@ -2110,6 +2076,10 @@ Replace it?</source>
         <translation>截图</translation>
     </message>
     <message>
+        <source>Delayed Screenshot</source>
+        <translation>延时截图</translation>
+    </message>
+    <message>
         <source>Clipboard</source>
         <translation>剪贴板</translation>
     </message>
@@ -2126,8 +2096,8 @@ Replace it?</source>
         <translation>玩游戏时暂停热键</translation>
     </message>
     <message>
-        <source>Monitor Clipboard</source>
-        <translation>监听剪贴板</translation>
+        <source>Record Clipboard</source>
+        <translation>记录剪贴板</translation>
     </message>
     <message>
         <source>Settings</source>
@@ -2383,14 +2353,6 @@ Replace it?</source>
         <translation>从右向左翻译</translation>
     </message>
     <message>
-        <source>Swap languages</source>
-        <translation>交换语言</translation>
-    </message>
-    <message>
-        <source>Translate text</source>
-        <translation>翻译文本</translation>
-    </message>
-    <message>
         <source>Pin</source>
         <translation>置顶</translation>
     </message>
@@ -2483,20 +2445,8 @@ Replace it?</source>
 <!-- ========== Translation Settings ========== -->
 <context>
     <name>SettingsDialog</name>
-    <message>
-        <source>Translation</source>
-        <translation>翻译</translation>
-    </message>
     <message><source>Translation Hotkey</source><translation>翻译快捷键</translation></message>
     <message><source>Pin Clipboard Image</source><translation>生成钉图</translation></message>
-    <message>
-        <source>Translation Settings</source>
-        <translation>翻译设置</translation>
-    </message>
-    <message>
-        <source>DeepL API Key</source>
-        <translation>DeepL API 密钥</translation>
-    </message>
     <message>
         <source>Get your API key from DeepL website (free tier available)</source>
         <translation>从Deepl网站获取API密钥（有免费版）</translation>
@@ -2510,32 +2460,8 @@ Replace it?</source>
         <translation>隐藏密钥</translation>
     </message>
     <message>
-        <source>Show</source>
-        <translation>显示</translation>
-    </message>
-    <message>
-        <source>Hide</source>
-        <translation>隐藏</translation>
-    </message>
-    <message>
-        <source>Use DeepL Pro API</source>
-        <translation>使用 DeepL Pro API</translation>
-    </message>
-    <message>
-        <source>Enable if you have a paid DeepL subscription</source>
-        <translation>如果您有DeepL付费订阅请启用</translation>
-    </message>
-    <message>
-        <source>Target Language</source>
-        <translation>目标语言</translation>
-    </message>
-    <message>
         <source>Leave empty to follow system language</source>
         <translation>留空则跟随系统语言</translation>
-    </message>
-    <message>
-        <source>Auto (System)</source>
-        <translation>自动（跟随系统）</translation>
     </message>
     <message>
         <source>Advanced Options</source>
@@ -2548,10 +2474,6 @@ Replace it?</source>
     <message>
         <source>Automatically split text into sentences for better translation</source>
         <translation>自动将文本分割成句子以获得更好的翻译</translation>
-    </message>
-    <message>
-        <source>Preserve Formatting</source>
-        <translation>保留格式</translation>
     </message>
     <message>
         <source>Keep original text formatting in translation</source>
@@ -3157,10 +3079,6 @@ This action cannot be undone.</source>
         <translation>添加内容</translation>
     </message>
     <message>
-        <source>New Group</source>
-        <translation>新建分组</translation>
-    </message>
-    <message>
         <source>Delete</source>
         <translation>删除</translation>
     </message>
@@ -3263,10 +3181,6 @@ This action cannot be undone.</source>
     <message>
         <source>(No content in group)</source>
         <translation>（分组内暂无内容）</translation>
-    </message>
-    <message>
-        <source>Add Content</source>
-        <translation>添加内容</translation>
     </message>
     <message>
         <source>Add</source>
@@ -4538,8 +4452,8 @@ This action cannot be undone.</source>
     </message>
     <!-- illus strings -->
     <message>
-        <source>截图 · 标注 · 剪贴板 · 翻译，一站搞定</source>
-        <translation>截图 · 标注 · 剪贴板 · 翻译，一站搞定</translation>
+        <source>截图、文字识别、钉图、录屏、屏幕标注、剪贴板和翻译，一站搞定</source>
+        <translation>截图、文字识别、钉图、录屏、屏幕标注、剪贴板和翻译，一站搞定</translation>
     </message>
     <message>
         <source>会议纪要.docx</source>
@@ -4558,8 +4472,8 @@ This action cannot be undone.</source>
         <translation>快捷键</translation>
     </message>
     <message>
-        <source>三个全局功能各可设置一个主快捷键和一个备用快捷键。</source>
-        <translation>三个全局功能各可设置一个主快捷键和一个备用快捷键。</translation>
+        <source>截图、剪贴板和翻译各可设置一个主快捷键和一个备用快捷键。</source>
+        <translation>截图、剪贴板和翻译各可设置一个主快捷键和一个备用快捷键。</translation>
     </message>
     <message>
         <source>主快捷键</source>
@@ -4668,6 +4582,98 @@ This action cannot be undone.</source>
     <message>
         <source>选择保存文件夹</source>
         <translation>选择保存文件夹</translation>
+    </message>
+    <message>
+        <source>工具_马赛克</source>
+        <translation>工具_马赛克</translation>
+    </message>
+    <message>
+        <source>工具_聚光灯</source>
+        <translation>工具_聚光灯</translation>
+    </message>
+    <message>
+        <source>工具_水印</source>
+        <translation>工具_水印</translation>
+    </message>
+    <message>
+        <source>工具_文字识别</source>
+        <translation>工具_文字识别</translation>
+    </message>
+    <message>
+        <source>工具_扫码</source>
+        <translation>工具_扫码</translation>
+    </message>
+    <message>
+        <source>工具描述_马赛克</source>
+        <translation>工具描述_马赛克</translation>
+    </message>
+    <message>
+        <source>工具描述_聚光灯</source>
+        <translation>工具描述_聚光灯</translation>
+    </message>
+    <message>
+        <source>工具描述_水印</source>
+        <translation>工具描述_水印</translation>
+    </message>
+    <message>
+        <source>工具描述_文字识别</source>
+        <translation>工具描述_文字识别</translation>
+    </message>
+    <message>
+        <source>工具描述_扫码</source>
+        <translation>工具描述_扫码</translation>
+    </message>
+    <message>
+        <source>工具栏上找不到的工具，到「…」里找找。</source>
+        <translation>工具栏上找不到的工具，到「…」里找找。</translation>
+    </message>
+    <message>
+        <source>玩游戏时暂停热键</source>
+        <translation>玩游戏时暂停热键</translation>
+    </message>
+    <message>
+        <source>游戏在前台时暂停全局快捷键和鼠标快捷键，离开游戏后恢复。托盘菜单里也能切换。</source>
+        <translation>游戏在前台时暂停全局快捷键和鼠标快捷键，离开游戏后恢复。托盘菜单里也能切换。</translation>
+    </message>
+    <message>
+        <source>鼠标快捷键</source>
+        <translation>鼠标快捷键</translation>
+    </message>
+    <message>
+        <source>按住修饰键拖动鼠标框选，松开就直接完成动作，不用先按截图快捷键。</source>
+        <translation>按住修饰键拖动鼠标框选，松开就直接完成动作，不用先按截图快捷键。</translation>
+    </message>
+    <message>
+        <source>按住修饰键拖出一个框，松开即可钉图、复制、识别文字或翻译。</source>
+        <translation>按住修饰键拖出一个框，松开即可钉图、复制、识别文字或翻译。</translation>
+    </message>
+    <message>
+        <source>截图、钉图和剪贴板窗口里的鼠标操作，可以在设置的「鼠标快捷键」页调整。</source>
+        <translation>截图、钉图和剪贴板窗口里的鼠标操作，可以在设置的「鼠标快捷键」页调整。</translation>
+    </message>
+    <message>
+        <source>%1 用了同一个手势，重复的不会保存。</source>
+        <translation>%1 用了同一个手势，重复的不会保存。</translation>
+    </message>
+    <message>
+        <source>讲解、演示或共享屏幕时，直接在画面上圈重点。</source>
+        <translation>讲解、演示或共享屏幕时，直接在画面上圈重点。</translation>
+    </message>
+    <message>
+        <source>不用截图，直接在任何窗口上画画、写字，结束后画面恢复原样。</source>
+        <translation>不用截图，直接在任何窗口上画画、写字，结束后画面恢复原样。</translation>
+    </message>
+    <message>
+        <source>也可以从托盘菜单打开；再按一次快捷键结束标注。</source>
+        <translation>也可以从托盘菜单打开；再按一次快捷键结束标注。</translation>
+    </message>
+    <message>
+        <source>筛选分组</source>
+        <translation>筛选分组</translation>
+    </message>
+    <message>
+        <source>活动海报.png</source>
+        <translation>活动海报.png</translation>
     </message>
 </context>
 
@@ -4819,10 +4825,6 @@ This action cannot be undone.</source>
 <!-- ========== Appearance Settings ========== -->
 <context>
     <name>SettingsDialog</name>
-    <message><source>Appearance</source><translation>外观</translation></message>
-    <message><source>Appearance Settings</source><translation>外观设置</translation></message>
-    <message><source>Screenshot</source><translation>截图</translation></message>
-    <message><source>Clipboard</source><translation>剪贴板</translation></message>
     <message><source>Theme Color</source><translation>主题颜色</translation></message>
     <message><source>Affects selection border, toolbar border, magnifier crosshair, etc. Restart recommended after change.</source><translation>影响选区边框、工具栏描边、放大镜十字线等。修改后建议重启应用。</translation></message>
     <message><source>Select Theme Color</source><translation>选择主题颜色</translation></message>
@@ -4913,27 +4915,14 @@ SOFTWARE.</translation></message>
     <!-- 日志页 -->
     <message><source>Storage</source><translation>存储位置</translation></message>
     <!-- 翻译页 -->
-    <message><source>DeepL API</source><translation>DeepL API</translation></message>
-    <message><source>Translation Options</source><translation>翻译选项</translation></message>
-    <message><source>Ignore Line Breaks</source><translation>忽略换行</translation></message>
-    <message><source>Merge multi-line text for better translation</source><translation>合并多行文本以获得更好的翻译</translation></message>
     <!-- 变更的字符串（新版）-->
     <message><source>Save Format</source><translation>保存格式</translation></message>
     <message><source>OCR</source><translation>OCR</translation></message>
-    <message><source>Keep original text formatting</source><translation>保留原文格式</translation></message>
 </context>
 
 <!-- ========== Translation Dialog ========== -->
 <context>
     <name>TranslationDialog</name>
-    <message>
-        <source>Switch target language</source>
-        <translation>切换目标语言</translation>
-    </message>
-    <message>
-        <source>Target</source>
-        <translation>目标语言</translation>
-    </message>
 </context>
 
 <context>
@@ -5691,8 +5680,8 @@ Make sure gifrecorder is installed correctly.</source>
         <translation>从屏幕取色</translation>
     </message>
     <message>
-        <source>Click to pick; right-click or Esc to cancel</source>
-        <translation>单击取色，右键或 Esc 取消</translation>
+        <source>Click to pick; Esc to cancel</source>
+        <translation>单击取色，Esc 取消</translation>
     </message>
     <message>
         <source>Select Color</source>
@@ -6611,12 +6600,12 @@ Make sure gifrecorder is installed correctly.</source>
         <translation>保存图片</translation>
     </message>
     <message>
-        <source>Original</source>
+        <source>Original Image</source>
         <translation>原图</translation>
     </message>
     <message>
-        <source>Encoded</source>
-        <translation>编码后</translation>
+        <source>Adjusted</source>
+        <translation>调整后</translation>
     </message>
     <message>
         <source>Compare</source>
@@ -6727,8 +6716,8 @@ Make sure gifrecorder is installed correctly.</source>
         <translation>使用经典对话框</translation>
     </message>
     <message>
-        <source>Use the system Save As dialog for this and every later image save? You can change this back in Settings &gt; Capture Settings &gt; Save Dialog.</source>
-        <translation>对当前图片以及之后所有图片保存都使用系统原生保存对话框吗？您稍后可以在「设置 → 截图设定 → 保存对话框」中更改。</translation>
+        <source>Use the system Save As dialog for this and every later image save? You can change this back in Settings &gt; Screenshot &gt; Save Dialog.</source>
+        <translation>对当前图片以及之后所有图片保存都使用系统原生保存对话框吗？您稍后可以在「设置 → 截图 → 保存对话框」中更改。</translation>
     </message>
     <message>
         <source>Use classic dialog</source>
