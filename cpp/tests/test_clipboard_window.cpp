@@ -4,6 +4,7 @@
 #include "clipboard/ui/theme/themes.h"
 #include "clipboard/ui/widgets/group_bar.h"
 #include "clipboard/ui/widgets/item_delegate.h"
+#include "clipboard/ui/widgets/item_drag.h"
 #include "clipboard/ui/widgets/quick_edit_popup.h"
 #include "core/i18n.h"
 #include "core/ui_scale.h"
@@ -16,14 +17,12 @@
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QScrollBar>
+#include <QTemporaryDir>
 #include <QSignalSpy>
 #include <QTest>
 #include <QToolButton>
 #include <algorithm>
 #include <memory>
-#include <cstring>
-#include <windows.h>
-#include <shlobj.h>
 
 using namespace clipboard_test;
 
@@ -187,37 +186,39 @@ private slots:
         QVERIFY(id);
         const auto item = manager().get_item(*id);
         QVERIFY(item);
-        auto mime = clipboard_drag_mime(manager(), *item);
-        QVERIFY(mime);
-        const auto bytes = mime->data("application/x-qt-windows-mime;value=\"FileGroupDescriptorW\"");
-        QCOMPARE(bytes.size(), qsizetype(sizeof(FILEGROUPDESCRIPTORW)));
-        FILEGROUPDESCRIPTORW descriptor{};
-        std::memcpy(&descriptor, bytes.constData(), sizeof(descriptor));
-        QCOMPARE(descriptor.cItems, 1u);
-        QVERIFY(descriptor.fgd[0].dwFlags & FD_FILESIZE);
-        QCOMPARE(descriptor.fgd[0].nFileSizeLow, static_cast<DWORD>(text.toUtf8().size()));
-        QCOMPARE(descriptor.fgd[0].nFileSizeHigh, 0u);
-        QVERIFY(QString::fromWCharArray(descriptor.fgd[0].cFileName).endsWith(".txt"));
-        QVERIFY(!mime->hasUrls()); // 不创建临时文件，也不暴露数据库目录。
-        QCOMPARE(mime->data("application/x-qt-windows-mime;value=\"FileContents\";index=0"), text.toUtf8());
+        QTemporaryDir temp;
+        auto mime = std::make_unique<ItemDragMimeData>(QList<ClipboardItem>{*item}, QString(), temp.path());
+        // An editor or chat box takes the text itself, and nothing is written until a target asks for the file.
+        QCOMPARE(mime->text(), text);
+        QVERIFY(mime->hasFormat(ItemDragMimeData::FILES_MIME));
+        QVERIFY(QDir(temp.path()).entryList(QDir::AllEntries | QDir::NoDotAndDotDot).isEmpty());
+        const auto paths = mime->file_paths();
+        QCOMPARE(paths.size(), 1);
+        const QString path = paths.front();
+        QCOMPARE(QFileInfo(path).fileName(), ItemDragMimeData::file_name(*item));
+        QVERIFY(path.endsWith(".txt"));
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QCOMPARE(file.readAll(), text.toUtf8());
+        file.close();
         QCOMPARE(manager().get_item(*id)->paste_count, item->paste_count);
         QCOMPARE(manager().get_item(*id)->content, text);
-        // 每次拖拽保留自己的快照，后续编辑不能覆盖仍在传输的内容。
+        // Each drag keeps its own snapshot; a later edit does not change what is being dragged.
         QVERIFY(manager().update_item(*id, "changed"));
-        auto later = clipboard_drag_mime(manager(), *manager().get_item(*id));
-        QCOMPARE(later->data("application/x-qt-windows-mime;value=\"FileContents\";index=0"), QByteArray("changed"));
-        QCOMPARE(mime->data("application/x-qt-windows-mime;value=\"FileContents\";index=0"), text.toUtf8());
+        ItemDragMimeData later({*manager().get_item(*id)}, QString(), temp.path());
+        QCOMPARE(later.text(), QString("changed"));
+        QCOMPARE(mime->text(), text);
     }
 
     void imageDragKeepsOriginalPngBytesAndRejectsMissingData() {
+        const auto folder = manager().get_images_dir();
+        QVERIFY(folder);
         ClipboardItem item;
         item.id = 42;
         item.content_type = "image";
-        QVERIFY(!clipboard_drag_mime(manager(), item));
+        QVERIFY(!ItemDragMimeData::can_drag(item, *folder));
         item.image_id = "drag-image";
-        QVERIFY(!clipboard_drag_mime(manager(), item));
-        const auto folder = manager().get_images_dir();
-        QVERIFY(folder);
+        QVERIFY(!ItemDragMimeData::can_drag(item, *folder));
         const QString path = QDir(*folder).filePath(*item.image_id + ".png");
         QImage image(32, 24, QImage::Format_ARGB32);
         image.fill(QColor(12, 34, 56, 78));
@@ -226,24 +227,48 @@ private slots:
         QVERIFY(file.open(QIODevice::ReadOnly));
         const auto original = file.readAll();
         file.close();
-        auto mime = clipboard_drag_mime(manager(), item);
-        QVERIFY(mime);
-        QCOMPARE(mime->data("application/x-qt-windows-mime;value=\"FileContents\";index=0"), original);
-        const auto bytes = mime->data("application/x-qt-windows-mime;value=\"FileGroupDescriptorW\"");
-        FILEGROUPDESCRIPTORW descriptor{};
-        QCOMPARE(bytes.size(), qsizetype(sizeof(descriptor)));
-        std::memcpy(&descriptor, bytes.constData(), sizeof(descriptor));
-        QCOMPARE(QString::fromWCharArray(descriptor.fgd[0].cFileName), QString("clipboard_image_42.png"));
-        QCOMPARE(descriptor.fgd[0].nFileSizeLow, static_cast<DWORD>(original.size()));
-        // Shell 取走的是快照；删除历史或结束拖动都不会改变原图。
+        QVERIFY(ItemDragMimeData::can_drag(item, *folder));
+        QTemporaryDir temp;
+        auto mime = std::make_unique<ItemDragMimeData>(QList<ClipboardItem>{item}, *folder, temp.path());
+        QCOMPARE(qvariant_cast<QImage>(mime->imageData()).size(), QSize(32, 24));
+        const auto paths = mime->file_paths();
+        QCOMPARE(paths.size(), 1);
+        // The original PNG is copied as it is, never re-encoded or handed out.
+        QCOMPARE(QFileInfo(paths.front()).fileName(), QString("clipboard_image_42.png"));
+        QVERIFY(paths.front() != path);
+        QFile copy(paths.front());
+        QVERIFY(copy.open(QIODevice::ReadOnly));
+        QCOMPARE(copy.readAll(), original);
+        copy.close();
         mime.reset();
         QVERIFY(file.open(QIODevice::ReadOnly));
         QCOMPARE(file.readAll(), original);
         file.close();
         QVERIFY(QFile::remove(path));
-        QVERIFY(!clipboard_drag_mime(manager(), item));
+        QVERIFY(!ItemDragMimeData::can_drag(item, *folder));
         item.content_type = "file";
-        QVERIFY(!clipboard_drag_mime(manager(), item));
+        QVERIFY(!ItemDragMimeData::can_drag(item, *folder));
+    }
+
+    void draggingAMarkedRowCarriesEveryMarkedRow() {
+        if (QGuiApplication::platformName() != "offscreen") QSKIP("Requires the offscreen drag platform");
+        const auto ids = add_texts({"first", "second", "third"});
+        auto *window = open_window();
+        window->toggle_item_mark(ids[2]);
+        window->toggle_item_mark(ids[0]);
+        window->start_item_drag(ids[0]);
+        auto drags = window->findChildren<QDrag *>();
+        QCOMPARE(drags.size(), 1);
+        QCOMPARE(drags.front()->mimeData()->text(), QString("third\nfirst"));
+        QVERIFY(!drags.front()->pixmap().isNull());
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        // An unmarked row goes alone.
+        window->start_item_drag(ids[1]);
+        drags = window->findChildren<QDrag *>();
+        QCOMPARE(drags.size(), 1);
+        QCOMPARE(drags.front()->mimeData()->text(), QString("second"));
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(window->selection_manager->has_marks());
     }
 
     void rejectedDragReleasesDataWithoutPasting() {
@@ -262,7 +287,7 @@ private slots:
             for (auto *drag : drags) {
                 auto *mime = const_cast<QMimeData *>(drag->mimeData());
                 QVERIFY(mime);
-                QCOMPARE(mime->data("application/x-qt-windows-mime;value=\"FileContents\";index=0"), text.toUtf8());
+                QCOMPARE(mime->text(), text);
                 payloads.append(mime);
             }
             QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
@@ -1011,6 +1036,32 @@ private slots:
         QEvent leave(QEvent::Leave);
         QApplication::sendEvent(window->list_widget->viewport(), &leave);
         QTRY_VERIFY(!PreviewPopup::instance()->isVisible());
+    }
+
+    void draggingARowOutKeepsTheScrollAndTheCurrentRow() {
+        QStringList texts;
+        for (int i = 0; i < 30; ++i) texts << QString("entry %1").arg(i);
+        add_texts(texts);
+        auto *window = open_window();
+        auto *list = window->list_widget;
+        QSignalSpy pasted(window, &ClipboardWindow::item_pasted);
+        list->setCurrentRow(0);
+        QScrollBar *bar = list->verticalScrollBar();
+        QTRY_VERIFY(bar->maximum() > 0);
+        bar->setValue(bar->maximum() / 2);
+        const int scroll = bar->value();
+        QVERIFY(scroll > 0);
+        QListWidgetItem *row = list->itemAt(list->viewport()->rect().center());
+        QVERIFY(row && list->row(row) > 0);
+        const QPoint press = list->visualItemRect(row).center();
+        const QPoint moved = press + QPoint(QApplication::startDragDistance() * 2, 0);
+        QTest::mousePress(list->viewport(), Qt::LeftButton, Qt::NoModifier, press);
+        QMouseEvent move(QEvent::MouseMove, QPointF(moved), QPointF(list->viewport()->mapToGlobal(moved)), Qt::NoButton, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(list->viewport(), &move);
+        QTest::mouseRelease(list->viewport(), Qt::LeftButton, Qt::NoModifier, moved);
+        QCOMPARE(bar->value(), scroll);
+        QCOMPARE(list->currentRow(), 0);
+        QCOMPARE(pasted.count(), 0);
     }
 
     void movingIntoBlankSpaceClearsTheHoverPreview_data() {

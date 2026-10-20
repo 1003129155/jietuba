@@ -24,8 +24,6 @@
 #include <memory>
 #include <optional>
 
-class QMimeData;
-
 namespace jietuba {
 class LineEdit;
 class ToolSettingsManager;
@@ -59,9 +57,6 @@ private:
 
 // The direct pick character of a key: "1"-"9" or "a"-"z"; empty for other keys.
 QString pick_char(int key);
-
-// 将一条历史记录作为文件交给 Windows 拖放，不写入系统剪贴板。
-std::unique_ptr<QMimeData> clipboard_drag_mime(ClipboardManager &manager, const ClipboardItem &item);
 
 // The clipboard history window: the list, search and filters, the group bar and the gear menu.
 class ClipboardWindow : public QWidget {
@@ -129,6 +124,7 @@ public:
     void create_pin_window(qint64 item_id);
     void quick_edit_item(qint64 item_id);
     void show_item_context_menu(qint64 item_id, const QPoint &pos);
+    // Drags the row, or every marked row when it is marked, out of the window; copy only.
     virtual void start_item_drag(qint64 item_id);
     void toggle_item_mark(qint64 item_id);
     void mark_items_to(qint64 item_id);
@@ -241,6 +237,8 @@ private:
     void position_at_cursor();
     bool owns_window(const QWidget *window) const;
     void check_and_hide();
+    // The row as it looks, at most 240 wide, with the number of dragged rows when there are several.
+    QPixmap drag_pixmap(qint64 item_id, int count, QPoint *hot_spot) const;
     bool is_draggable_area(QObject *widget) const;
     bool is_date_filter_widget(QObject *obj) const;
     void apply_list_item_data(QListWidgetItem *list_item, const ClipboardItem &item) const;
@@ -281,6 +279,8 @@ private:
         Qt::MouseButton button;
         Qt::KeyboardModifiers modifiers;
         QPoint global_pos;
+        // The current row before the press moved it; a drag puts it back.
+        std::optional<qint64> previous_current;
     };
     struct Pending {
         QString action;
@@ -295,6 +295,7 @@ private:
     std::function<void(qint64)> marking(QMouseEvent *event, const QString &gesture, qint64 item_id) const;
     void run(const QString &action, qint64 item_id, const QPoint &position);
     void finish_click();
+    void restore_current(std::optional<qint64> item_id);
 
     ClipboardWindow *window_;
     QListWidget *list_widget_;

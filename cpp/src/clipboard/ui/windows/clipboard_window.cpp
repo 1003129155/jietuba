@@ -7,6 +7,7 @@
 #include "clipboard/ui/theme/theme_styles.h"
 #include "clipboard/ui/widgets/group_bar.h"
 #include "clipboard/ui/widgets/item_delegate.h"
+#include "clipboard/ui/widgets/item_drag.h"
 #include "clipboard/ui/widgets/preview_popup.h"
 #include "clipboard/ui/windows/pin_window.h"
 #include "core/constants.h"
@@ -31,17 +32,13 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QKeyEvent>
-#include <QMimeData>
+#include <QPainter>
 #include <QMouseEvent>
 #include <QProcess>
 #include <QScreen>
 #include <QScrollBar>
 #include <QStyle>
 #include <QUrl>
-#ifdef Q_OS_WIN
-#include <windows.h>
-#include <shlobj.h>
-#endif
 
 namespace jietuba::clipboard {
 namespace {
@@ -56,48 +53,6 @@ QString pick_char(int key) {
     if (key >= Qt::Key_1 && key <= Qt::Key_9) return QString::number(key - Qt::Key_1 + 1);
     if (key >= Qt::Key_A && key <= Qt::Key_Z) return QString(QChar(u'a' + (key - Qt::Key_A)));
     return {};
-}
-
-std::unique_ptr<QMimeData> clipboard_drag_mime(ClipboardManager &manager, const ClipboardItem &item) {
-#ifdef Q_OS_WIN
-    QByteArray contents;
-    QString extension;
-    if (item.content_type == "text") {
-        contents = item.content.toUtf8();
-        extension = "txt";
-    } else if (item.content_type == "image" && item.image_id && !item.image_id->isEmpty()) {
-        const auto data = manager.get_image_data(*item.image_id);
-        if (!data || data->isEmpty()) return {};
-        // 复用原始 PNG，不把整张图片解码成像素再编码。
-        contents = *data;
-        extension = "png";
-    } else {
-        return {};
-    }
-
-    const QString stamp = item.created_at.isValid() ? item.created_at.toString("yyyyMMdd_HHmmss_") : QString();
-    const QString name = QString("clipboard_%1_%2%3.%4").arg(item.content_type, stamp).arg(item.id).arg(extension);
-    FILEGROUPDESCRIPTORW descriptor{};
-    descriptor.cItems = 1;
-    auto &file = descriptor.fgd[0];
-    file.dwFlags = FD_ATTRIBUTES | FD_FILESIZE | static_cast<DWORD>(FD_UNICODE);
-    file.dwFileAttributes = FILE_ATTRIBUTE_NORMAL;
-    const quint64 size = static_cast<quint64>(contents.size());
-    file.nFileSizeHigh = static_cast<DWORD>(size >> 32);
-    file.nFileSizeLow = static_cast<DWORD>(size);
-    name.left(MAX_PATH - 1).toWCharArray(file.cFileName);
-
-    // Shell 虚拟文件由目标目录落盘；取消拖动无需清理临时文件。
-    auto mime = std::make_unique<QMimeData>();
-    mime->setData("application/x-qt-windows-mime;value=\"FileGroupDescriptorW\"",
-                  QByteArray(reinterpret_cast<const char *>(&descriptor), sizeof(descriptor)));
-    mime->setData("application/x-qt-windows-mime;value=\"FileContents\";index=0", contents);
-    return mime;
-#else
-    Q_UNUSED(manager);
-    Q_UNUSED(item);
-    return {};
-#endif
 }
 
 // ==================== Shortcuts ====================
@@ -1286,19 +1241,66 @@ bool ClipboardWindow::save_quick_edit(qint64 item_id, const QString &text) {
 void ClipboardWindow::create_pin_window(qint64 item_id) { create_pin_from_clipboard_item(item_id, controller, this); }
 
 void ClipboardWindow::start_item_drag(qint64 item_id) {
-    const auto item = get_item_data(item_id);
-    if (!item || dragging_) return;
-    auto mime = clipboard_drag_mime(manager, *item);
-    if (!mime) return;
+    if (dragging_) return;
+    // A marked row carries every marked row, in the order a paste of them uses.
+    QList<qint64> ids = selection_manager->marked_ids(true);
+    if (!ids.contains(item_id)) ids = {item_id};
+    const QString images_dir = manager.get_images_dir().value_or(QString());
+    QList<ClipboardItem> items;
+    for (const qint64 id : ids)
+        if (const auto item = get_item_data(id); item && ItemDragMimeData::can_drag(*item, images_dir)) items.append(*item);
+    if (items.isEmpty()) return;
     PreviewPopup::instance()->hide_preview();
     auto *drag = new QDrag(list_widget);
-    drag->setMimeData(mime.release());
+    drag->setMimeData(new ItemDragMimeData(items, images_dir, ItemDragMimeData::default_temp_root()));
+    QPoint hot_spot;
+    const QPixmap pixmap = drag_pixmap(item_id, static_cast<int>(items.size()), &hot_spot);
+    if (!pixmap.isNull()) {
+        drag->setPixmap(pixmap);
+        drag->setHotSpot(hot_spot);
+    }
     dragging_ = true;
     // 只允许复制，按 Shift 也不能移动或删除历史记录中的原图。
     drag->exec(Qt::CopyAction, Qt::CopyAction);
     dragging_ = false;
     drag->deleteLater();
     check_and_hide();
+}
+
+QPixmap ClipboardWindow::drag_pixmap(qint64 item_id, int count, QPoint *hot_spot) const {
+    QListWidgetItem *row = nullptr;
+    for (int i = 0; i < list_widget->count() && !row; ++i)
+        if (list_widget->item(i)->data(Qt::UserRole).toLongLong() == item_id) row = list_widget->item(i);
+    QWidget *viewport = list_widget->viewport();
+    const QRect rect = row ? list_widget->visualItemRect(row).intersected(viewport->rect()) : QRect();
+    if (rect.isEmpty()) return {};
+    QPixmap pixmap = viewport->grab(rect);
+    const qreal ratio = pixmap.devicePixelRatio();
+    const int max_width = scaled(240);
+    const qreal factor = rect.width() > max_width ? static_cast<qreal>(max_width) / rect.width() : 1.0;
+    if (factor < 1.0) {
+        pixmap = pixmap.scaledToWidth(qRound(max_width * ratio), Qt::SmoothTransformation);
+        pixmap.setDevicePixelRatio(ratio);
+    }
+    const QSize size = pixmap.deviceIndependentSize().toSize();
+    const QPoint offset = viewport->mapFromGlobal(QCursor::pos()) - rect.topLeft();
+    *hot_spot = QPoint(std::clamp(qRound(offset.x() * factor), 0, size.width() - 1), std::clamp(qRound(offset.y() * factor), 0, size.height() - 1));
+    if (count > 1) {
+        QPainter painter(&pixmap);
+        painter.setRenderHint(QPainter::Antialiasing);
+        const int diameter = scaled(20);
+        const QRect badge(size.width() - diameter - scaled(4), scaled(4), diameter, diameter);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(QColor(current_theme.colors.accent_primary));
+        painter.drawEllipse(badge);
+        QFont font = painter.font();
+        font.setPixelSize(scaled(11));
+        font.setBold(true);
+        painter.setFont(font);
+        painter.setPen(Qt::white);
+        painter.drawText(badge, Qt::AlignCenter, QString::number(count));
+    }
+    return pixmap;
 }
 
 void ClipboardWindow::delete_item(qint64 item_id) {
@@ -1618,6 +1620,21 @@ void ClipboardMouseController::finish_click() {
     if (pending) run(pending->action, pending->item_id, pending->position);
 }
 
+void ClipboardMouseController::restore_current(std::optional<qint64> item_id) {
+    // Setting the current row scrolls to it; the list stays where the drag started.
+    QScrollBar *bar = list_widget_->verticalScrollBar();
+    const int scroll = bar->value();
+    bool found = false;
+    for (int i = 0; item_id && i < list_widget_->count() && !found; ++i) {
+        if (list_widget_->item(i)->data(Qt::UserRole).toLongLong() == *item_id) {
+            list_widget_->setCurrentRow(i);
+            found = true;
+        }
+    }
+    if (!found) window_->selection_manager->clear_selection();
+    bar->setValue(scroll);
+}
+
 bool ClipboardMouseController::eventFilter(QObject *obj, QEvent *event) {
     const QEvent::Type kind = event->type();
     if (kind == QEvent::Hide || kind == QEvent::WindowDeactivate || kind == QEvent::FocusOut || kind == QEvent::KeyPress || kind == QEvent::Wheel) cancel();
@@ -1635,7 +1652,9 @@ bool ClipboardMouseController::eventFilter(QObject *obj, QEvent *event) {
             // 越过系统拖动阈值才准备数据，同时取消单击/双击待执行动作。
             if (pressed.button == Qt::LeftButton && pressed.modifiers == Qt::NoModifier && mouse->buttons() == Qt::LeftButton &&
                 mouse->modifiers() == Qt::NoModifier) {
+                QPointer<ClipboardMouseController> guard(this);
                 window_->start_item_drag(pressed.item_id);
+                if (guard) restore_current(pressed.previous_current);
                 return true;
             }
         }
@@ -1658,6 +1677,8 @@ bool ClipboardMouseController::eventFilter(QObject *obj, QEvent *event) {
         const auto pending = pending_;
         cancel();
         if (!item_id) return true;
+        const QListWidgetItem *current = list_widget_->currentItem();
+        const std::optional<qint64> previous_current = current ? std::optional<qint64>(current->data(Qt::UserRole).toLongLong()) : std::nullopt;
         // A range starts from the current row before the press, so a multiple selection gesture leaves it on press.
         if (!marking(mouse, gesture, *item_id)) list_widget_->setCurrentItem(row);
         list_widget_->setFocus();
@@ -1668,7 +1689,7 @@ bool ClipboardMouseController::eventFilter(QObject *obj, QEvent *event) {
                 return true;
             }
         }
-        pressed_ = Pressed{*item_id, button, modifiers, mouse->globalPosition().toPoint()};
+        pressed_ = Pressed{*item_id, button, modifiers, mouse->globalPosition().toPoint(), previous_current};
     } else if (pressed_) {
         const Pressed pressed = *pressed_;
         pressed_.reset();

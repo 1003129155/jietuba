@@ -1,4 +1,5 @@
 #include "core/bootstrap.h"
+#include "clipboard/ui/widgets/item_drag.h"
 #include "clipboard/ui/windows/clipboard_window.h"
 #include "core/shortcut_manager.h"
 #include "ui/dialogs.h"
@@ -180,6 +181,11 @@ void PreloadManager::build_and_start() {
     if (!bundled_runtime::data().isEmpty()) steps_.push_back([this] { return seed_bundled_runtime(); });
     // The engine preference is read here and handed to OCR, so recognition threads never read settings.
     steps_.push_back([this] { return apply_ocr_engine_setting(); });
+    // Files of drags from the last run that exited before removing them; nothing can be dragged yet.
+    steps_.push_back([] {
+        clipboard::ItemDragMimeData::remove_stale_folders(clipboard::ItemDragMimeData::default_temp_root(), 0);
+        return false;
+    });
     if (cfg->get_app_setting("preload_clipboard", true).toBool()) steps_.push_back([this] {
         init_clipboard_manager();
         return false;
